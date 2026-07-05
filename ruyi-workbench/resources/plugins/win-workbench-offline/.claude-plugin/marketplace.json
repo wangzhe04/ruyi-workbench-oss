@@ -1,0 +1,20 @@
+{
+  "name": "win-workbench-offline",
+  "owner": {
+    "name": "Local Windows Workbench"
+  },
+  "metadata": {
+    "version": "0.2.0",
+    "description": "Offline-local Claude Code plugin bundle for Windows projects, reviews, frontend audits, desktop handoff, Office workflows, browser debugging and packaging."
+  },
+  "plugins": [
+    {
+      "name": "offline-toolkit",
+      "version": "0.2.0",
+      "description": "Skills, commands and agents for using Ruyi Workbench (如意 Ruyi) MCP tools in offline Windows environments.",
+      "source": "./offline-toolkit",
+      "category": "windows",
+      "tags": ["windows", "offline", "mcp", "office", "browser", "scripts", "review", "frontend", "security", "docs"]
+    }
+  ]
+}

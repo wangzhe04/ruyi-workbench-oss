@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="如意 Ruyi small mark">
+  <!-- 小尺寸版(<48px):同几何(θ=42/A=6.5/L=50),柄加粗至 11,金星简化为圆点。16px 验证可辨。 -->
+  <style>
+    .qh { fill: #2350a8; } .qhs { stroke: #2350a8; } .au { fill: #d9a441; }
+    @media (prefers-color-scheme: dark) {
+      .qh { fill: #6b8ff2; } .qhs { stroke: #6b8ff2; } .au { fill: #f2c14e; }
+    }
+  </style>
+  <g transform="rotate(42 60 60)">
+    <path class="qh" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/>
+    <path class="qhs" fill="none" stroke-width="11" stroke-linecap="round" d="M60 57 C53.5 73.7 66.5 90.3 57.7 107"/>
+  </g>
+  <circle class="au" cx="27" cy="21" r="7.5"/>
+</svg>

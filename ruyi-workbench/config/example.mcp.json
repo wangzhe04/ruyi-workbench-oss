@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "win-claude-workbench": {
+      "type": "stdio",
+      "command": "C:\\Path\\To\\Ruyi.exe",
+      "args": ["mcp"],
+      "env": {
+        "WIN_CLAUDE_WORKBENCH_HOME": "%USERPROFILE%\\.win-claude-workbench"
+      }
+    }
+  }
+}

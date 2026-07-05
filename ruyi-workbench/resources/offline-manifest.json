@@ -1,0 +1,23 @@
+{
+  "name": "Ruyi Offline Bundle",
+  "version": "0.2.0",
+  "createdFor": "Windows intranet or air-gapped Claude CLI environments",
+  "contains": [
+    "Ruyi.exe when built",
+    "Node.js source fallback",
+    "static Web UI",
+    "MCP stdio server",
+    "PowerShell installer scripts",
+    "offline Claude Code plugin marketplace",
+    "clean-room offline skill replicas for code review, frontend design, commits, local docs, API debugging, CLAUDE.md management, plugin authoring, security guidance, CI reproduction and LSP setup",
+    "offline slash-command prompts and agent role prompts",
+    "Chinese deployment and architecture docs",
+    "config templates"
+  ],
+  "doesNotContain": [
+    "Anthropic proprietary Claude CLI binaries",
+    "Anthropic leaked source code",
+    "public-network package downloads required at runtime",
+    "third-party plugin source copied from public repositories"
+  ]
+}

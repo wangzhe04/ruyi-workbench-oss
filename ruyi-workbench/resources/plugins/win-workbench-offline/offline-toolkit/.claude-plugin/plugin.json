@@ -1,0 +1,13 @@
+{
+  "name": "offline-toolkit",
+  "version": "0.2.0",
+  "description": "Offline Windows workflow skills, commands and agents for Claude Code with Ruyi Workbench (如意 Ruyi) MCP.",
+  "author": {
+    "name": "Local Windows Workbench"
+  },
+  "license": "MIT",
+  "keywords": ["windows", "offline", "mcp", "office", "browser", "automation", "review", "frontend", "plugins"],
+  "skills": "skills",
+  "commands": "commands",
+  "agents": "agents"
+}

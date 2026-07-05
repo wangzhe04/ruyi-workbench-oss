@@ -1,0 +1,14 @@
+{
+  "id": "ocr-scan",
+  "title": "扫描件 OCR 转文字",
+  "icon": "🔍",
+  "desc": "把扫描件图片或扫描版 PDF 通过 OCR 识别成可编辑文字",
+  "inputs": [
+    { "key": "folder", "label": "扫描件所在文件夹", "type": "folder" },
+    { "key": "output", "label": "识别结果保存文件名(.md)", "type": "text" }
+  ],
+  "promptTemplate": "请对文件夹 {folder} 里的扫描件(图片或扫描版 PDF)做 OCR 文字识别,结果写入 {output}。\n\n步骤:\n1. 用 file_list / glob 列出该文件夹下的图片(png/jpg/jpeg/tiff/bmp)和 PDF 文件,报告数量。\n2. 对每个文件调用桌面控制的 OCR 能力识别其中的文字。多页 PDF 逐页识别并按页标注(第 1 页 / 第 2 页……)。\n3. 尽量保留原文的段落与换行结构;识别不确定的地方用「[?]」标出而不要瞎猜。\n4. 每个文件的识别结果作为独立小节写入 {output},小节标题用原文件名。\n\n验收标准:每个扫描件都有对应的识别文本小节;识别失败的文件被单独列出并说明原因(如图像太模糊);输出是结构清晰的 Markdown。最后一句话汇报:成功识别 N 个、失败 K 个、结果文件路径。注意:OCR 识别依赖桌面控制能力,若该能力不可用请明确告诉我需要先启用桌面控制,不要静默失败。",
+  "requires": ["desktopMcp"],
+  "engineHint": "",
+  "uiMode": "both"
+}

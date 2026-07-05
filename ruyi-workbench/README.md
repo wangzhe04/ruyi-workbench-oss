@@ -1,0 +1,61 @@
+# 如意 Ruyi —— 本地 AI 全能工作台
+
+一个 clean-room 的 Windows 本地工作台，把内网 Claude CLI（或任意 OpenAI 兼容端点）包成类似 Claude App/Claude Code 的体验：对话、附件、项目目录、文件操作、PowerShell、脚本、浏览器/Office 交接、截图，以及可被 Claude CLI 调用的 MCP 工具。有网没网都能正常运行，非程序员也可安全使用。
+
+> **关于品牌**：本项目原名 **Win Claude Workbench**，自 v0.8 起更名为 **如意 Ruyi**。改名是开源发布的法务考量——项目名含 "Claude" 存在**商标风险**，且旧系统提示词里「running inside Win Claude Workbench」一句曾导致 provider 模型**身份错认**（provider 模型自称「我是 Claude」）。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
+> **兼容性**：目录名已改 `ruyi-workbench/`、可执行文件名已改 `Ruyi.exe`（启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`）。为不破坏存量接入，以下**存量兼容标识有意保持不变**（建议下一个大版本收口）：MCP server id `win-claude-workbench`（已写进用户 `.mcp.json`）、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`（`RUYI_HOME` 优先，旧变量继续识别）。子进程 MCP 配置注入的仍是旧变量名（值=已解析的数据目录），故存量 `.mcp.json` 照常工作。
+
+**多引擎(v0.5+)**：除内网 Claude CLI 外，还支持 **OpenAI 兼容 provider**（DeepSeek / 通义千问 DashScope / 智谱 GLM / 内网 vLLM·Ollama 等），直连 HTTP + SSE 流式，带原生工具循环。在设置里配置 base URL + 密钥即可切换模型，Claude CLI 引擎与 provider 引擎并存。
+
+**桌面 MCP 桥接(v0.7d)**：可自动探测本机的 `ai-computer-control` 桌面控制 MCP（及其它自定义 stdio MCP），把它们的工具同时供给 Claude CLI（写进生成的 `.mcp.json`）和 provider 引擎的原生工具循环。
+
+压缩包内还包含一个本地 Claude Code marketplace：`resources\plugins\win-workbench-offline`。其中的 `offline-toolkit` 复刻了常用插件/skill 的离线能力，包括代码审查、前端审计、本地文档上下文、提交说明、CLAUDE.md 管理、API 调试、CI 复现、安全检查、插件开发和发布打包提示词。
+
+## 快速启动
+
+```powershell
+node .\app\server.js serve --open
+```
+
+打包后：
+
+```powershell
+.\Ruyi.exe serve --open
+```
+
+## 常用命令
+
+```powershell
+.\Ruyi.exe doctor
+.\Ruyi.exe mcp-config
+.\Ruyi.exe install
+.\Ruyi.exe mcp
+```
+
+## 离线包
+
+```powershell
+npm.cmd install
+powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1
+```
+
+输出：
+
+```text
+dist\Ruyi-offline.zip
+```
+
+## 文档
+
+- 用户手册（简易模式视角，任务导向）：[`docs/manuals/USER-GUIDE_CN.md`](docs/manuals/USER-GUIDE_CN.md)
+- 管理员手册（部署 / 离线包 / 安全边界）：[`docs/manuals/ADMIN-GUIDE_CN.md`](docs/manuals/ADMIN-GUIDE_CN.md)
+
+## Clean-room 声明
+
+本项目为 **clean-room 独立实现**：**不含** Anthropic 泄露源码、**不分发**官方 Claude CLI、**不复制**第三方插件源码，也不假设公网可用。你需要在内网机器上提供自己的 Claude CLI（或配置任意 OpenAI 兼容端点），然后通过 UI 设置路径或运行安装脚本注册 MCP。随包前端静态库（marked / highlight.js 及主题）的许可义务见仓库根 [`../THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md)；本体在 [Apache-2.0](../LICENSE) 下发布。
+
+详细文档见：
+
+- `docs\SOURCE_REVIEW_CN.md`
+- `docs\ARCHITECTURE_CN.md`
+- `docs\OFFLINE_DEPLOYMENT_CN.md`

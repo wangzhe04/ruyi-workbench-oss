@@ -1,0 +1,26 @@
+# Dependencies & build output
+node_modules/
+dist/
+runtime/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+
+# Offline wheels (shipped via GitHub Release assets, not git)
+wheels/
+offline_wheels/
+
+# Tooling / local state
+.claude/
+
+# Archives & logs
+*.zip
+*.log
+
+# OS cruft
+.DS_Store
+Thumbs.db

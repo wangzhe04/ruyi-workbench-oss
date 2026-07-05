@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="wcw-token" content="__WCW_TOKEN__" />
+    <title>如意 Ruyi</title>
+    <!-- v0.8-S8 favicon:内联如意 tile 主标(藏蓝墨底 + 固定深色版青花/鎏金 #6b8ff2/#f2c14e)。data-URI,无外链。 -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%20120'%3E%3Crect%20x='2'%20y='2'%20width='116'%20height='116'%20rx='26'%20fill='%230e1526'/%3E%3Cg%20transform='translate(10,10)%20scale(0.84)'%3E%3Cg%20transform='rotate(42%2060%2060)'%3E%3Cpath%20fill='%236b8ff2'%20d='M60%2062%20C46%2055%2030%2044%2030%2032%20A13%2013%200%200%201%2053%2024%20A7.5%207.5%200%201%201%2067%2024%20A13%2013%200%200%201%2090%2032%20C90%2044%2074%2055%2060%2062%20Z'/%3E%3Cpath%20fill='none'%20stroke='%236b8ff2'%20stroke-width='9.5'%20stroke-linecap='round'%20d='M60%2057%20C53.5%2073.7%2066.5%2090.3%2057.7%20107'/%3E%3C/g%3E%3Cpath%20fill='%23f2c14e'%20d='M28%2016%20C29.8%2022%2031.6%2023.8%2037%2025.5%20C31.6%2027.2%2029.8%2029%2028%2035%20C26.2%2029%2024.4%2027.2%2019%2025.5%20C24.4%2023.8%2026.2%2022%2028%2016%20Z'/%3E%3C/g%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link id="hljs-dark" rel="stylesheet" href="/vendor/github-dark.min.css" />
+    <link id="hljs-light" rel="stylesheet" href="/vendor/github.min.css" disabled />
+    <script>
+      // Pre-paint theme to avoid a flash of the wrong theme.
+      (function () {
+        try {
+          var t = localStorage.getItem('wcw.theme') || 'dark';
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
+      })();
+      // v0.9-S1 (C1): pre-paint uiMode too (simple|pro) so the CSS-driven hides don't flash. Refined from
+      // config on boot.
+      // v1.0.2 (F5): 新装机 localStorage 为空时,默认必须与 server defaultConfig().uiMode 一致('simple'),
+      // 否则先按 pro 绘 → config(simple) 到达再切 = 首屏弹闪。localStorage 有值(老用户)则一律尊重其值。
+      (function () {
+        try {
+          var m = localStorage.getItem('wcw.uiMode') || 'simple';
+          document.documentElement.setAttribute('data-ui-mode', m === 'simple' ? 'simple' : 'pro');
+        } catch (e) { document.documentElement.setAttribute('data-ui-mode', 'simple'); }
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ SIDEBAR ============ -->
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <!-- v0.8-S8 品牌主标(如意 Ruyi 简化标,~22px)。颜色走 CSS 变量 --brand-qh/--brand-au 随主题切换。 -->
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 120 120" width="22" height="22" role="img" aria-label="如意 Ruyi">
+              <g transform="rotate(42 60 60)">
+                <path fill="var(--brand-qh)" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/>
+                <path fill="none" stroke="var(--brand-qh)" stroke-width="11" stroke-linecap="round" d="M60 57 C53.5 73.7 66.5 90.3 57.7 107"/>
+              </g>
+              <circle fill="var(--brand-au)" cx="27" cy="21" r="7.5"/>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1>如意 Ruyi</h1>
+            <p id="statusLine">正在连接本地服务…</p>
+          </div>
+          <button id="collapseSidebarBtn" class="icon-btn" title="折叠侧栏" aria-label="折叠侧栏">«</button>
+        </div>
+
+        <button id="newSessionBtn" class="primary full">＋ 新会话</button>
+
+        <div class="search-wrap">
+          <input id="sessionSearch" type="search" placeholder="搜索会话…" autocomplete="off" />
+        </div>
+
+        <div id="sessionList" class="session-list"></div>
+
+        <div class="sidebar-foot">
+          <button id="openSettingsBtn" class="ghost">⚙ 设置</button>
+          <button id="openDoctorBtn" class="ghost">🩺 体检</button>
+          <button id="helpBtn" class="ghost" title="快捷键 (?)">?</button>
+        </div>
+      </aside>
+
+      <!-- ============ CHAT PANE ============ -->
+      <main class="chat-pane">
+        <header class="topbar">
+          <button id="showSidebarBtn" class="icon-btn hidden" title="展开侧栏" aria-label="展开侧栏">☰</button>
+          <div class="topbar-title">
+            <strong id="sessionTitle">如意工作台</strong>
+            <span id="sessionMeta"></span>
+          </div>
+          <div class="topbar-actions">
+            <!-- v0.9-S3 (C3): 常驻工作文件夹选择器。显示当前会话 cwd 短名 + 完整路径 title;点击弹原生选择器。 -->
+            <button id="workspacePicker" class="workspace-picker" title="工作文件夹" aria-label="选择工作文件夹">
+              <span class="wp-icon" aria-hidden="true">📁</span>
+              <span class="wp-name">工作台</span>
+            </button>
+            <div id="contextMeter" class="ctx-meter hidden" title="上下文用量（点击查看/设置）" aria-haspopup="dialog">
+              <svg class="ctx-batt" viewBox="0 0 26 13" width="26" height="13" aria-hidden="true">
+                <rect class="batt-body" x="0.6" y="1.6" width="21.8" height="9.8" rx="2.2" fill="none" stroke-width="1"/>
+                <rect class="batt-cap" x="23" y="4.4" width="2.4" height="4.2" rx="1"/>
+                <rect class="batt-fill" x="2" y="3.1" width="17.8" height="6.8" rx="1"/>
+              </svg>
+              <span class="ctx-text"></span>
+            </div>
+            <!-- v1.0-S2 (IA): 安全 chip（原顶栏「权限 select」收敛为 shield 心智）。显示当前档人话短名；
+                 点击开安全弹层（四档单选卡）。#permSelect 保留在 DOM 内(移入 #permSelectHost，平时 hidden；
+                 弹层复用它的 change handler，专家模式在弹层内可见作为原始下拉)。 -->
+            <button id="permChip" class="perm-chip" aria-haspopup="dialog" title="安全 / 权限（点击设置）">
+              <span class="pc-icon" aria-hidden="true">🛡</span>
+              <span class="pc-name">每步都问</span>
+            </button>
+            <div id="permSelectHost" class="perm-select-host hidden">
+              <select id="permSelect"></select>
+            </div>
+            <button id="modelChip" class="model-chip" aria-haspopup="listbox" title="引擎与模型（点击切换）">
+              <span class="mc-dot idle"></span>
+              <span class="mc-engine">Claude CLI</span>
+              <span class="mc-model">默认</span>
+              <span class="mc-caret">▾</span>
+            </button>
+            <!-- v0.8-S6: capability badge. ●在线/○离线/◐未知 + count of "configured but unavailable" gaps.
+                 v1.0-S2 (IA): 移出顶栏 → 入「⋯」菜单「能力矩阵」项(display:none，只作 renderCapBadge 的状态载体
+                 + openCapPopover 的锚点/click 复用)。 -->
+            <button id="capBadge" class="cap-badge hidden" aria-haspopup="dialog" title="能力矩阵（点击查看）">
+              <span class="cap-net" aria-hidden="true">◐</span>
+              <span class="cap-gaps hidden"></span>
+            </button>
+            <!-- v0.9-S1 (C1): uiMode toggle. simple(🧸)=人人可用精简界面 / pro(🔧)=完整开发者界面. Dual title.
+                 v1.0-S2 (IA): 移出顶栏 → 「⋯」菜单「界面」项(display:none，toggleUiMode 逻辑复用)。 -->
+            <button id="uiModeToggle" class="icon-btn" title="切换到精简界面" aria-label="切换界面模式">🔧</button>
+            <!-- v1.0-S2 (IA): 移出顶栏 → 「⋯」菜单「主题」项(display:none，toggleTheme 逻辑复用)。 -->
+            <button id="themeToggle" class="icon-btn" title="切换深/浅色" aria-label="切换深/浅色">🌙</button>
+            <!-- v1.0-S2 (IA): 顶栏「⋯」更多菜单。轻量 popover：主题 / 界面 / 能力矩阵 / 快捷键。 -->
+            <button id="moreMenuBtn" class="icon-btn" title="更多" aria-label="更多" aria-haspopup="menu">⋯</button>
+            <button id="toggleToolsBtn" class="icon-btn" title="工具面板" aria-label="工具面板">🧰</button>
+          </div>
+        </header>
+
+        <!-- v0.8-S3: task-list step-bar. Hidden until session.todos is non-empty or a `todo` event lands. -->
+        <div id="stepBar" class="step-bar hidden" role="status" aria-live="polite">
+          <button id="stepBarToggle" class="step-bar-head" aria-expanded="false">
+            <span class="step-bar-icon" aria-hidden="true">◐</span>
+            <span id="stepBarSummary" class="step-bar-summary"></span>
+            <span class="step-bar-caret" aria-hidden="true">▾</span>
+          </button>
+          <ul id="stepBarList" class="step-bar-list hidden"></ul>
+        </div>
+
+        <section id="messages" class="messages">
+          <div class="empty-state" id="emptyState">
+            <!-- v1.0-S1: 如意 Ruyi 主标(48px),复用 .brand-mark 的路径/填色/viewBox,随主题走 --brand-* 变量。 -->
+            <div class="empty-logo" aria-hidden="true">
+              <svg viewBox="0 0 120 120" width="48" height="48" role="img" aria-label="如意 Ruyi">
+                <g transform="rotate(42 60 60)">
+                  <path fill="var(--brand-qh)" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/>
+                  <path fill="none" stroke="var(--brand-qh)" stroke-width="11" stroke-linecap="round" d="M60 57 C53.5 73.7 66.5 90.3 57.7 107"/>
+                </g>
+                <circle fill="var(--brand-au)" cx="27" cy="21" r="7.5"/>
+              </svg>
+            </div>
+            <h2>直接开始工作</h2>
+            <p>发送需求、拖入文件、选择项目目录。对话与本机工具会交给当前引擎处理。</p>
+            <div class="starters" id="starters"></div>
+          </div>
+        </section>
+
+        <button id="jumpLatest" class="jump-latest hidden" title="回到最新" aria-label="回到最新">↓</button>
+
+        <section class="composer">
+          <div id="dropHint" class="drop-hint hidden">松开：文件→附件，文件夹→设为工作目录</div>
+          <div id="resumeBanner" class="resume-banner hidden"></div>
+          <div id="attachmentTray" class="attachment-tray"></div>
+          <div class="composer-box">
+            <textarea id="promptInput" rows="1" placeholder="描述你要做的事…（Enter 发送，Shift+Enter 换行）"></textarea>
+            <div class="composer-actions">
+              <button id="composerMoreBtn" class="file-label" title="更多" aria-label="更多操作" aria-haspopup="menu">＋</button>
+              <button id="skillBtn" class="file-label" title="技能 / 命令 (/)">⌘ 技能</button>
+              <label class="file-label composer-file" title="添加文件">
+                <input id="fileInput" type="file" multiple />
+                📎
+              </label>
+              <span class="composer-spacer"></span>
+              <span id="composerHint" class="composer-hint"></span>
+              <button id="sendBtn" class="primary">发送 ▷</button>
+            </div>
+          </div>
+          <!-- v1.0-S2 (IA): #compactBtn 移出 .composer-actions（composer 减负）→ 入上下文用量弹层的「立即压缩」。
+               保留 id + handler，openContextPopover 打开时把该按钮挪进弹层、关闭时挪回此 host（平时 hidden）。 -->
+          <div id="compactBtnHost" class="hidden">
+            <button id="compactBtn" class="file-label" title="压缩上下文：让 Claude 概括并压缩对话历史（/compact），释放上下文空间">🗜 压缩</button>
+          </div>
+        </section>
+      </main>
+
+      <!-- ============ TOOL / SIDE PANE ============ -->
+      <aside class="tool-pane" id="toolPane">
+        <!-- v1.0-S2 (IA): 页签分组 — 常驻组[文件|产物|审计]在前，开发者组[终端|桌面|MCP|调试|体检]在后，
+             组间以 .tool-tabs-sep 小组标分隔。data-tab 值一律不变（PowerShell 仅显示文案改「终端」）。
+             默认激活页签由 powershell 迁到 files（按钮 + section 双处 active）。 -->
+        <div class="tool-tabs">
+          <span class="tool-tabs-group" data-tt-group="resident">
+            <button data-tab="files" class="active">文件</button>
+            <button data-tab="artifacts">产物</button>
+            <button data-tab="changes">变更</button>
+            <button data-tab="audit">审计</button>
+          </span>
+          <span class="tool-tabs-sep" aria-hidden="true">开发者</span>
+          <span class="tool-tabs-group" data-tt-group="dev">
+            <button data-tab="powershell">终端</button>
+            <button data-tab="desktop">桌面</button>
+            <button data-tab="mcp">MCP</button>
+            <button data-tab="debug">调试</button>
+            <button data-tab="doctor">体检</button>
+          </span>
+        </div>
+
+        <section class="tool-section" id="tab-powershell">
+          <label for="psCommand">一次性运行</label>
+          <textarea id="psCommand" rows="5">Get-Location; Get-ChildItem</textarea>
+          <button id="runPsBtn" class="full">运行</button>
+
+          <!-- v0.8-S2: persistent shell sessions (provider engine only) -->
+          <div class="shell-sessions">
+            <div class="debug-head">
+              <label>shell 会话</label>
+              <button id="shellNewBtn" class="mini">新建会话</button>
+            </div>
+            <div id="shellSessionList" class="shell-list"></div>
+          </div>
+        </section>
+
+        <section class="tool-section active" id="tab-files">
+          <!-- v0.9-S3 (C3): file tree of the current session's working folder. Lazy-expand; click a text
+               file to preview (≤200KB); 「@」inserts the file's relative path into the composer. -->
+          <div class="debug-head">
+            <label>工作文件夹</label>
+            <button id="fileTreeRefreshBtn" class="mini">刷新</button>
+          </div>
+          <div id="fileTreeRoot" class="file-tree-root" title=""></div>
+          <div id="fileTree" class="file-tree"></div>
+          <div id="filePreview" class="file-preview hidden"></div>
+          <hr class="settings-sep" />
+          <label for="searchPattern">搜索文本</label>
+          <input id="searchPattern" type="text" placeholder="TODO|FIXME" />
+          <button id="searchBtn" class="full">搜索项目</button>
+          <label for="readPath">读取文件</label>
+          <input id="readPath" type="text" placeholder="C:\path\file.txt" />
+          <button id="readFileBtn" class="full">读取</button>
+        </section>
+
+        <section class="tool-section" id="tab-artifacts">
+          <!-- v0.9-S4 (C4): 产物画廊 — files this session produced, grouped by turn (new→old). Each item:
+               kind icon + filename + 预览 / 打开. Preview area renders via /api/file/preview (image dataURI /
+               md-rendered / csv-table / txt-pre / html in a fully-locked sandbox iframe). -->
+          <div class="debug-head">
+            <label>本会话产物</label>
+            <button id="artifactsRefreshBtn" class="mini">刷新</button>
+          </div>
+          <div id="artifactsList" class="artifacts-list"></div>
+          <div id="artifactPreview" class="file-preview hidden"></div>
+        </section>
+
+        <section class="tool-section" id="tab-changes">
+          <!-- v1.0.2 (G1): 变更中心 — 本会话可回撤的文件变更(检查点日志),按文件分组、时间倒序。每条目一个
+               「回撤到此前状态」按钮 → 确认弹层 → POST /api/checkpoints/rollback。skipped 条目置灰不可撤。
+               面向所有用户(simple 模式可见)。撤销整轮请用对话里的「本轮变更」卡。 -->
+          <div class="debug-head">
+            <label>可回撤的文件变更</label>
+            <button id="changesRefreshBtn" class="mini">刷新</button>
+          </div>
+          <p class="changes-hint muted">AI 用文件工具或桌面控制写文件后会出现在这里。撤销整轮请用对话里的「本轮变更」卡。</p>
+          <div id="changesList" class="changes-list"></div>
+        </section>
+
+        <section class="tool-section" id="tab-audit">
+          <!-- v0.9-S8 (§4 B4): 审计中心 — merged read-only timeline of workbench logs + desktop MCP audit_tail
+               (new→old). Each row: local time + source badge (工作台 blue / 桌面 orange) + type + summary;
+               click a row to expand its full record (JSON, textContent — never innerHTML, XSS-safe). Filters:
+               source dropdown + type text box (both filter the already-fetched list client-side). Loads once
+               when the tab opens (no polling — the audit view must be quiet). -->
+          <div class="debug-head">
+            <label>审计时间线</label>
+            <button id="auditRefreshBtn" class="mini">刷新</button>
+          </div>
+          <div class="audit-filters">
+            <select id="auditSourceFilter" class="mini-select">
+              <option value="">全部来源</option>
+              <option value="workbench">工作台</option>
+              <option value="desktop">桌面</option>
+            </select>
+            <input id="auditTypeFilter" type="text" class="mini-input" placeholder="按类型过滤（如 turn_start）" />
+          </div>
+          <div id="auditList" class="audit-list"></div>
+        </section>
+
+        <section class="tool-section" id="tab-desktop">
+          <label for="browserUrl">URL 或本地 HTML</label>
+          <input id="browserUrl" type="text" placeholder="http://localhost:3000" />
+          <button id="browserOpenBtn" class="full">在浏览器打开</button>
+          <button id="screenshotBtn" class="full">桌面截图</button>
+        </section>
+
+        <section class="tool-section" id="tab-mcp">
+          <div class="debug-head">
+            <label>本机 MCP 工具（点开填参数运行）</label>
+            <button id="refreshMcpBtn" class="mini">刷新</button>
+          </div>
+          <div id="mcpToolList" class="doctor-panel"></div>
+        </section>
+
+        <section class="tool-section" id="tab-debug">
+          <div class="debug-head">
+            <label>原始事件流 (stream-json)</label>
+            <div class="debug-actions">
+              <button id="debugClearBtn" class="mini">清空</button>
+              <button id="debugDownloadBtn" class="mini">下载 .ndjson</button>
+              <label class="mini-check"><input type="checkbox" id="debugAutoscroll" checked /> 跟随</label>
+            </div>
+          </div>
+          <pre id="rawEvents" class="raw-events"></pre>
+        </section>
+
+        <section class="tool-section" id="tab-doctor">
+          <button id="refreshDoctorBtn" class="full">刷新体检</button>
+          <div id="doctorPanel" class="doctor-panel"></div>
+        </section>
+
+        <pre id="toolOutput" class="tool-output"></pre>
+      </aside>
+    </div>
+    <!-- Sibling of .app-shell so the CSS `.app-shell.tools-open ~ .drawer-backdrop` rule can reveal it
+         on narrow screens; JS wires the click to close the drawer. Inert on desktop (display:none). -->
+    <div id="drawerBackdrop" class="drawer-backdrop"></div>
+
+    <!-- ============ SETTINGS MODAL ============ -->
+    <div class="modal-backdrop hidden" id="settingsModal">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="设置">
+        <div class="modal-head"><h3>设置</h3><button class="icon-btn" data-close-modal aria-label="关闭">✕</button></div>
+        <div class="modal-body" id="settingsBody">
+          <div class="tool-tabs settings-tabs" id="settingsTabs">
+            <button type="button" data-stab="basic" class="active">基础</button>
+            <button type="button" data-stab="claude">Claude CLI</button>
+            <button type="button" data-stab="providers">Providers</button>
+            <button type="button" data-stab="integrations">集成 / MCP</button>
+            <button type="button" data-stab="network">联网搜索</button>
+            <button type="button" data-stab="advanced">高级</button>
+          </div>
+
+          <!-- ===== 基础 ===== -->
+          <div class="settings-tab active" id="stab-basic">
+            <div class="field-block">
+              <label for="workspaceInput">默认工作文件夹</label>
+              <input id="workspaceInput" type="text" placeholder="C:\path\to\project" />
+            </div>
+            <!-- v0.9-S1 (C1): 界面模式 + 输出风格 -->
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgUiMode">界面模式</label>
+                <select id="cfgUiMode">
+                  <option value="pro">专家（完整三栏 / 调试面板）</option>
+                  <option value="simple">精简（人人可用 / 隐藏高级项）</option>
+                </select>
+              </div>
+              <div class="field-block">
+                <label for="cfgOutputStyle">输出风格</label>
+                <select id="cfgOutputStyle">
+                  <option value="detailed">详细（默认）</option>
+                  <option value="concise">简洁（直接给结果）</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <label class="check"><input type="checkbox" id="cfgKillDisc" /> 关闭页面时同时结束正在运行的任务</label>
+              <label class="check"><input type="checkbox" id="cfgKillPort" /> 启动时接管被旧实例占用的端口</label>
+            </div>
+          </div>
+
+          <!-- ===== Claude CLI ===== -->
+          <div class="settings-tab" id="stab-claude">
+            <div class="field-block">
+              <label for="claudePathInput">Claude CLI 路径</label>
+              <input id="claudePathInput" type="text" placeholder="claude.cmd 或内网 CLI 完整路径" />
+            </div>
+            <div class="field-row">
+              <label class="check"><input type="checkbox" id="cfgPartial" /> 实时流式 (--include-partial-messages)</label>
+              <label class="check"><input type="checkbox" id="cfgBeta" /> 交错思维 beta（仅老 CLI 需要；新模型请勿勾）</label>
+            </div>
+            <div class="field-row">
+              <label class="check"><input type="checkbox" id="cfgResume" /> 自动续接 Claude 会话</label>
+            </div>
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgThinkBudget">思考预算 MAX_THINKING_TOKENS</label>
+                <input id="cfgThinkBudget" type="text" placeholder="留空=自适应(adaptive，推荐新模型)；填数字=固定预算(enabled)" />
+              </div>
+              <div class="field-block">
+                <label for="cfgMaxTurns">最大轮次 --max-turns</label>
+                <input id="cfgMaxTurns" type="text" placeholder="留空=不限" />
+              </div>
+            </div>
+            <div class="field-block">
+              <label for="cfgExtraArgs">额外 CLI 参数 (每行一个)</label>
+              <textarea id="cfgExtraArgs" rows="3" placeholder="--foo&#10;bar"></textarea>
+            </div>
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgEngineMode">对话引擎</label>
+                <select id="cfgEngineMode">
+                  <option value="legacy">legacy（稳定，单向）</option>
+                  <option value="interactive">interactive（可触发提问弹窗/权限）</option>
+                </select>
+              </div>
+              <div class="field-block">
+                <label for="cfgMcpMode">MCP 命令模式</label>
+                <select id="cfgMcpMode">
+                  <option value="auto">auto（优先 node+server.js）</option>
+                  <option value="node">node</option>
+                  <option value="exe">exe</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <label class="check"><input type="checkbox" id="cfgPermBridge" /> 权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）</label>
+            </div>
+            <hr class="settings-sep" />
+            <h4 class="settings-subhead">模型清单发现（Anthropic 代理）</h4>
+            <div class="field-row">
+              <label class="check"><input type="checkbox" id="cfgDiscoverModels" /> 自动向内网代理拉取可用模型（GET /v1/models；失败自动回退到内置清单）</label>
+            </div>
+            <div class="field-block">
+              <label for="cfgExtraModels">自定义模型（每行一个，可写 <code>id</code> 或 <code>id|显示名</code>）</label>
+              <textarea id="cfgExtraModels" rows="2" placeholder="claude-opus-4-8|我的Opus&#10;my-internal-model"></textarea>
+            </div>
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgModelsApiBase">模型接口 Base URL（留空=用 ANTHROPIC_BASE_URL 环境变量）</label>
+                <input id="cfgModelsApiBase" type="text" placeholder="http://内网代理:端口" />
+              </div>
+              <div class="field-block">
+                <label for="cfgModelsApiKey">模型接口密钥（留空=用 ANTHROPIC_AUTH_TOKEN/API_KEY 环境变量）</label>
+                <input id="cfgModelsApiKey" type="password" placeholder="留空=自动检测" autocomplete="off" />
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== Providers ===== -->
+          <div class="settings-tab" id="stab-providers">
+            <p class="muted prov-hint">把顶栏「引擎」切到某个 Provider 后，对话会<strong>直连它的 /chat/completions</strong>（原生流式）；密钥只保存在本机 config.json。</p>
+            <div id="providersList" class="providers-list"></div>
+            <div class="prov-add">
+              <select id="providerPresetSelect"></select>
+              <button type="button" id="addProviderBtn" class="file-label">+ 添加 Provider</button>
+            </div>
+          </div>
+
+          <!-- ===== 集成 / MCP ===== -->
+          <div class="settings-tab" id="stab-integrations">
+            <p class="muted prov-hint">把你自己的<strong>桌面控制 MCP（ai-computer-control）</strong>接进工作台：截图 / 控窗 / OCR 等。Claude 引擎会由 CLI 自行拉起；原生 Provider 引擎（DeepSeek/通义/GLM）则由工作台内建 MCP 客户端桥接。</p>
+            <div class="field-row">
+              <label class="check"><input type="checkbox" id="cfgDesktopMcpEnabled" /> 启用桌面 MCP（ai-computer-control）</label>
+            </div>
+            <div class="field-block">
+              <label>探测状态</label>
+              <div class="adv-row"><code id="cfgDesktopMcpStatus" class="adv-val">—</code></div>
+            </div>
+            <div class="field-block">
+              <label for="cfgDesktopMcpCommand">命令覆盖（留空 = 自动探测）</label>
+              <input id="cfgDesktopMcpCommand" type="text" placeholder="留空自动探测；或 python / ai-computer-control.exe 完整路径" />
+            </div>
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgDesktopMcpArgs">参数（每行一个）</label>
+                <textarea id="cfgDesktopMcpArgs" rows="3" placeholder="-X&#10;utf8&#10;-m&#10;ai_computer_control.server"></textarea>
+              </div>
+              <div class="field-block">
+                <label for="cfgDesktopMcpCwd">工作目录 cwd（留空 = 自动）</label>
+                <input id="cfgDesktopMcpCwd" type="text" placeholder="C:\\Users\\...\\ai-computer-control" />
+              </div>
+            </div>
+            <hr class="settings-sep" />
+            <div class="field-row">
+              <label class="check"><input type="checkbox" id="cfgBridgeExternal" /> 把外部 MCP 工具也桥接给原生 Provider 引擎（关闭则 Provider 只用工作台自有工具）</label>
+            </div>
+            <hr class="settings-sep" />
+            <!-- v1.0.2 (G5c): 从文件夹导入外部 MCP。选文件夹 → 读其 ruyi-mcp.json 清单 → 导入 externalMcpServers。 -->
+            <div class="field-block">
+              <label>外部 MCP 服务</label>
+              <p class="field-help muted">从含 <code>ruyi-mcp.json</code> 清单的文件夹一键导入一个外部 MCP 服务。</p>
+              <button type="button" id="importMcpFolderBtn" class="file-label">📁 从文件夹添加 MCP…</button>
+            </div>
+          </div>
+
+          <!-- ===== 联网搜索 (v1.0-S3 B1) ===== -->
+          <div class="settings-tab" id="stab-network">
+            <p class="muted prov-hint">配置后 AI 可以联网搜索；断网时自动读本地缓存。</p>
+            <div class="field-block">
+              <label for="cfgSearchType">搜索服务</label>
+              <select id="cfgSearchType">
+                <option value="none">不启用</option>
+                <option value="builtin">内置免费搜索（开箱即用）</option>
+                <option value="searxng">SearXNG（自建实例）</option>
+                <option value="bing">Bing 搜索 API</option>
+                <option value="brave">Brave 搜索 API</option>
+                <option value="tavily">Tavily（AI 搜索 API）</option>
+                <option value="bocha">博查 Bocha（中文搜索 API）</option>
+                <option value="custom">自定义（兼容 SearXNG JSON）</option>
+              </select>
+            </div>
+            <div class="field-block" id="cfgSearchBaseUrlRow">
+              <label for="cfgSearchBaseUrl">Base URL</label>
+              <input id="cfgSearchBaseUrl" type="text" placeholder="例如 http://127.0.0.1:8888" />
+            </div>
+            <div class="field-block" id="cfgSearchApiKeyRow">
+              <label for="cfgSearchApiKey">API 密钥</label>
+              <input id="cfgSearchApiKey" type="password" autocomplete="off" placeholder="留空=不改动已保存的密钥" />
+            </div>
+          </div>
+
+          <!-- ===== 高级 ===== -->
+          <div class="settings-tab" id="stab-advanced">
+            <!-- v1.0.2 (G5a): 原生 Provider 引擎单回合工具调用上限 (openaiMaxToolIterations, 1..100, 默认 40)。 -->
+            <div class="field-block">
+              <label for="cfgOpenaiMaxToolIterations">单回合工具调用上限</label>
+              <input id="cfgOpenaiMaxToolIterations" type="number" min="1" max="100" step="1" placeholder="40" />
+              <p class="field-help muted">AI 一个回合内最多连续调用多少次工具，默认 40。</p>
+            </div>
+            <div class="field-block">
+              <label>数据目录</label>
+              <div class="adv-row"><code id="advDataRoot" class="adv-val"></code><button type="button" id="openDataDirBtn" class="file-label">打开数据目录</button></div>
+            </div>
+            <div class="field-grid">
+              <div class="field-block"><label>版本</label><code id="advVersion" class="adv-val"></code></div>
+              <div class="field-block"><label>Overlay ID</label><code id="advOverlayId" class="adv-val"></code></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <span id="settingsStatus" class="muted"></span>
+          <span class="composer-spacer"></span>
+          <button data-close-modal>取消</button>
+          <button id="saveConfigBtn" class="primary">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ COMMAND PALETTE ============ -->
+    <div class="modal-backdrop palette-backdrop hidden" id="paletteModal">
+      <div class="palette" role="dialog" aria-modal="true" aria-label="命令面板">
+        <input id="paletteInput" type="text" placeholder="输入命令…（会话名、模型、工具）" autocomplete="off" />
+        <div id="paletteList" class="palette-list"></div>
+      </div>
+    </div>
+
+    <!-- ============ SKILL / COMMAND PANEL ============ -->
+    <div class="modal-backdrop hidden" id="skillModal">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="技能 / 命令">
+        <div class="modal-head"><h3>技能 / 命令</h3><button class="icon-btn" data-close-modal aria-label="关闭">✕</button></div>
+        <div class="skill-search-wrap"><input id="skillSearch" type="search" placeholder="搜索技能 / 命令…" autocomplete="off" /></div>
+        <div class="modal-body"><div id="skillList" class="skill-list"></div></div>
+      </div>
+    </div>
+
+    <!-- ============ HELP OVERLAY ============ -->
+    <div class="modal-backdrop hidden" id="helpModal">
+      <div class="modal small" role="dialog" aria-modal="true" aria-label="快捷键">
+        <div class="modal-head"><h3>快捷键</h3><button class="icon-btn" data-close-modal aria-label="关闭">✕</button></div>
+        <div class="modal-body">
+          <table class="kbd-table">
+            <tr><td><kbd>Enter</kbd></td><td>发送消息</td></tr>
+            <tr><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>换行</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>命令面板</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td>新会话</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>停止当前回合 / 关闭弹窗</td></tr>
+            <tr><td><kbd>?</kbd></td><td>本帮助</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="toastTray" class="toast-tray"></div>
+
+    <script src="/vendor/marked.min.js"></script>
+    <script src="/vendor/highlight.min.js"></script>
+    <!-- v1.3-FE1:app.js 转原生 ES Module(type="module",零构建步)以 import ./js/ 下拆出的 util/net/state。
+         module 脚本天然 defer:在两个经典 vendor 脚本(marked/highlight,创建全局)执行后、DOM 解析完成后运行,
+         故 marked/hljs 全局与全部 DOM 均已就绪;head 内主题/uiMode 预绘内联脚本不受影响,一字未动。 -->
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="如意 Ruyi app tile">
+  <!-- 应用图标:藏蓝墨圆角底 + 亮青花 + 鎏金。深浅主题同版(底色自带)。几何:θ=42/A=6.5/L=50。 -->
+  <rect x="2" y="2" width="116" height="116" rx="26" fill="#0e1526"/>
+  <g transform="translate(10,10) scale(0.84)">
+    <g transform="rotate(42 60 60)">
+      <path fill="#6b8ff2" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/>
+      <path fill="none" stroke="#6b8ff2" stroke-width="9.5" stroke-linecap="round" d="M60 57 C53.5 73.7 66.5 90.3 57.7 107"/>
+    </g>
+    <path fill="#f2c14e" d="M28 16 C29.8 22 31.6 23.8 37 25.5 C31.6 27.2 29.8 29 28 35 C26.2 29 24.4 27.2 19 25.5 C24.4 23.8 26.2 22 28 16 Z"/>
+  </g>
+</svg>

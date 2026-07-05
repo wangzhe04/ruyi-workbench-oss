@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ai-computer-control": {
+      "command": "{{PYTHON_EXE}}",
+      "args": ["-m", "ai_computer_control"],
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": "{{PLAYWRIGHT_PATH}}"
+      }
+    }
+  }
+}

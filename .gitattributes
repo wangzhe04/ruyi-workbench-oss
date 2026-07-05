@@ -1,0 +1,12 @@
+# Normalize line endings: LF in-repo; Windows-only launchers must stay CRLF on disk
+# (cmd.exe misparses LF-only batch files — release-blocker class, do not relax).
+* text=auto
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.svg text
+*.png binary
+*.ico binary
+*.xlsx binary
+*.docx binary
+*.pptx binary

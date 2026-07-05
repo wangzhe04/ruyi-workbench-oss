@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="如意 Ruyi mark">
+  <!-- 如意 v3 定稿(2026-07-04,用户调校):斜持整器 θ=42°,柄 S 曲度 A=6.5,柄长 L=50。
+       三曲瓣云头 + 舒展 S 柄(振幅 6.5,真实玉如意柄骨相),鎏金四芒星居左上作点睛(器外,避免脸谱感)。
+       完整版,建议 >=48px;更小尺寸用 ruyi-mark-small.svg。配色:青花(P1)。 -->
+  <style>
+    .qh { fill: #2350a8; } .qhs { stroke: #2350a8; } .au { fill: #d9a441; }
+    @media (prefers-color-scheme: dark) {
+      .qh { fill: #6b8ff2; } .qhs { stroke: #6b8ff2; } .au { fill: #f2c14e; }
+    }
+  </style>
+  <g transform="rotate(42 60 60)">
+    <path class="qh" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/>
+    <path class="qhs" fill="none" stroke-width="9.5" stroke-linecap="round" d="M60 57 C53.5 73.7 66.5 90.3 57.7 107"/>
+  </g>
+  <path class="au" d="M28 16 C29.8 22 31.6 23.8 37 25.5 C31.6 27.2 29.8 29 28 35 C26.2 29 24.4 27.2 19 25.5 C24.4 23.8 26.2 22 28 16 Z"/>
+</svg>

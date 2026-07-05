@@ -1,0 +1,31 @@
+# Core dependencies for ai-computer-control
+mcp[cli]>=1.0.0
+pyautogui>=0.9.54
+Pillow>=10.0.0
+pywin32>=306
+psutil>=5.9.0
+playwright>=1.40.0
+python-docx>=1.0.0
+openpyxl>=3.1.0
+pdfplumber>=0.10.0
+pyperclip>=1.8.0
+# PDF 导出 (write_pdf)。可选：缺失时 write_pdf 优雅降级，其余工具不受影响。
+reportlab>=4.0.0
+# UI Automation accessibility-tree tools (pure-Python; comtypes is its runtime dep).
+# Optional: if absent, the ui_* tools degrade gracefully with an install hint.
+uiautomation>=2.0.18
+comtypes>=1.2.0
+# Offline OCR (built-in Windows.Media.Ocr). Optional; ocr_* tools degrade gracefully.
+winsdk>=1.0.0b10
+# Multi-scale template matching (~50MB of wheels). Optional; vision tools degrade gracefully.
+opencv-python-headless>=4.8.0
+numpy>=1.26.0
+# Macro recording of live mouse/keyboard (record_start / record_stop). OPTIONAL: if absent, the
+# record_* tools degrade gracefully; macro replay via macro_run/macro_list needs no extra deps.
+pynput>=1.7.6
+# v1.6 Office 模板驱动. python-pptx: write_pptx generation. matplotlib: chart_image (.png charts).
+# Both OPTIONAL: if absent, those tools degrade with an install hint; the rest keep working.
+# matplotlib pulls contourpy/cycler/fonttools/kiwisolver/packaging/pyparsing/python-dateutil
+# (+ numpy/Pillow already present above). python-pptx pulls lxml/XlsxWriter.
+python-pptx>=0.6.23
+matplotlib>=3.8.0

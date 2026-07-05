@@ -1,0 +1,12 @@
+{
+  "claudePath": "",
+  "defaultWorkspace": "%USERPROFILE%",
+  "permissionMode": "bypass",
+  "includeWorkbenchMcp": true,
+  "autoResumeClaudeSessions": true,
+  "model": "",
+  "maxTurns": "",
+  "extraClaudeArgs": [],
+  "allowCommandTools": true,
+  "allowDesktopTools": true
+}
