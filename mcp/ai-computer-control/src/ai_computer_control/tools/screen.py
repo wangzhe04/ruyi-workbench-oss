@@ -48,6 +48,8 @@ def screenshot(
                 return {"ok": False, "error": "Region must be 'x,y,width,height' with integers"}
             if len(parts) != 4:
                 return {"ok": False, "error": "Region must be 'x,y,width,height'"}
+            if parts[2] <= 0 or parts[3] <= 0:
+                return {"ok": False, "error": "Region width and height must be positive"}
             img = pyautogui.screenshot(region=tuple(parts))
         else:
             img = pyautogui.screenshot()
@@ -94,20 +96,30 @@ def get_screen_info() -> dict:
     """
     try:
         user32 = ctypes.windll.user32
-        # NOTE: DPI awareness is already set (per-monitor-v2) at import of desktop_extra; the first
-        # awareness call wins, so this SetProcessDPIAware() is a harmless no-op kept for standalone use.
+        # DPI awareness is process-wide and first-setter-wins; pyautogui (imported earlier) usually
+        # sets it first, so this call is a best-effort no-op for standalone use. Query get_dpi_info()
+        # for the TRUE current awareness.
         user32.SetProcessDPIAware()
 
         primary_width = user32.GetSystemMetrics(0)
         primary_height = user32.GetSystemMetrics(1)
 
-        # Get DPI
+        # Scale factor: GetScaleFactorForDevice returns a percentage (e.g. 150 == 150%). Report both a
+        # true LOGPIXELS 'dpi' and a 'scale' float so callers don't confuse the two.
+        scale = None
         try:
-            dpi = ctypes.windll.shcore.GetScaleFactorForDevice(0)
+            pct = ctypes.windll.shcore.GetScaleFactorForDevice(0)
+            scale = round(pct / 100.0, 3)
         except Exception:
+            pass
+        try:
             dc = ctypes.windll.user32.GetDC(0)
             dpi = ctypes.windll.gdi32.GetDeviceCaps(dc, 88)  # LOGPIXELSX
             ctypes.windll.user32.ReleaseDC(0, dc)
+        except Exception:
+            dpi = int(round((scale or 1.0) * 96))
+        if scale is None:
+            scale = round(dpi / 96.0, 3)
 
         # Multi-monitor info
         monitors = []
@@ -134,13 +146,21 @@ def get_screen_info() -> dict:
                 "is_primary": True,
             })
 
+        # Virtual desktop bounds (all monitors combined) — the coordinate space clicks live in.
+        virtual = {
+            "x": user32.GetSystemMetrics(76), "y": user32.GetSystemMetrics(77),
+            "width": user32.GetSystemMetrics(78), "height": user32.GetSystemMetrics(79),
+        }
+
         return {
             "ok": True,
             "primary": {
                 "width": primary_width,
                 "height": primary_height,
                 "dpi": dpi,
+                "scale": scale,
             },
+            "virtual": virtual,
             "monitors": monitors,
         }
     except Exception as e:  # noqa: BLE001

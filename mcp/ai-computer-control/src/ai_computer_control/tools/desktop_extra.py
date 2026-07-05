@@ -56,16 +56,38 @@ def _set_dpi_awareness() -> str:
 _DPI_MODE = _set_dpi_awareness()
 
 
+def _true_awareness() -> str | None:
+    """Query the process's ACTUAL current DPI awareness (not merely what we requested at import).
+
+    DPI awareness is process-wide and first-setter-wins; another import (e.g. pyautogui) may have set
+    it before us, so the requested mode can differ from reality. Available since Windows 10 1607.
+    """
+    try:
+        _user32.GetThreadDpiAwarenessContext.restype = ctypes.c_void_p
+        ctx = _user32.GetThreadDpiAwarenessContext()
+        _user32.GetAwarenessFromDpiAwarenessContext.restype = ctypes.c_int
+        _user32.GetAwarenessFromDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+        a = _user32.GetAwarenessFromDpiAwarenessContext(ctx)
+        return {0: "unaware", 1: "system", 2: "per-monitor"}.get(a, f"unknown({a})")
+    except Exception:
+        return None
+
+
 @mcp.tool()
 def get_dpi_info() -> dict:
-    """Return the process DPI-awareness mode and the primary monitor's scale factor."""
+    """Return the process DPI-awareness mode and the primary monitor's scale factor.
+
+    'awareness' is the TRUE current mode (queried live); 'awareness_requested' is what this module
+    asked for at import — they can differ because DPI awareness is process-wide and first-setter-wins.
+    """
     scale = None
     try:
         dpi = _user32.GetDpiForSystem()
         scale = round(dpi / 96.0, 3)
     except Exception:
         pass
-    return {"awareness": _DPI_MODE, "primary_scale": scale}
+    return {"awareness": _true_awareness() or _DPI_MODE, "awareness_requested": _DPI_MODE,
+            "primary_scale": scale}
 
 
 @mcp.tool()
@@ -228,9 +250,12 @@ def wait_for_window_idle(pid: int, timeout_ms: int = 5000) -> dict:
     Useful right after launching an app before driving its UI. Returns dict with 'state'
     (idle | timeout | error).
     """
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000  # works across integrity levels (Vista+)
     PROCESS_QUERY_INFORMATION = 0x0400
     SYNCHRONIZE = 0x00100000
-    h = _kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | SYNCHRONIZE, False, int(pid))
+    h = _kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, int(pid))
+    if not h:
+        h = _kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | SYNCHRONIZE, False, int(pid))
     if not h:
         return {"state": "error", "error": f"OpenProcess failed for pid {pid}"}
     try:
@@ -239,6 +264,10 @@ def wait_for_window_idle(pid: int, timeout_ms: int = 5000) -> dict:
         _kernel32.CloseHandle(h)
     if res == 0:
         return {"state": "idle"}
-    if res == 0x102:
+    if res == 0x102:  # WAIT_TIMEOUT
         return {"state": "timeout"}
+    if res == 0xFFFFFFFF:  # WAIT_FAILED — commonly "process has no GUI message queue"
+        return {"state": "not_gui_process",
+                "hint": "this pid has no GUI input queue (console or UWP-hosted UI). "
+                        "Use wait_for_window(title) to confirm readiness instead."}
     return {"state": "error", "code": res}

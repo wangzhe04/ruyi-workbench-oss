@@ -60,20 +60,34 @@ def _root(window_title: str | None):
             return auto.GetForegroundControl()
         except Exception:
             return auto.GetRootControl()
-    # match a top-level window by (sub)string
+    # match a top-level window by (sub)string. SubName covers exact matches too,
+    # so the separate Name probe is redundant — drop it to halve worst-case latency.
+    # Use a real (non-zero) interval so a miss SLEEPS instead of spinning the CPU.
     try:
         win = auto.WindowControl(searchDepth=1, SubName=window_title)
-        if win.Exists(1, 0):
-            return win
-    except Exception:
-        pass
-    try:
-        win = auto.WindowControl(searchDepth=1, Name=window_title)
-        if win.Exists(1, 0):
+        if win.Exists(1, 0.2):
             return win
     except Exception:
         pass
     return None
+
+
+def _window_identity(root) -> dict:
+    """Identity block for a resolved root; each property read is guarded (stale controls raise)."""
+    ident = {}
+    try:
+        ident["name"] = getattr(root, "Name", "") or ""
+    except Exception:
+        pass
+    try:
+        ident["class"] = getattr(root, "ClassName", "") or ""
+    except Exception:
+        pass
+    try:
+        ident["handle"] = getattr(root, "NativeWindowHandle", 0) or 0
+    except Exception:
+        pass
+    return ident
 
 
 @mcp.tool()
@@ -92,7 +106,8 @@ def ui_inspect(window_title: str | None = None, max_depth: int = 4, max_nodes: i
         return _unavailable()
     root = _root(window_title)
     if root is None:
-        return {"error": f"window not found: {window_title!r}"}
+        return {"error": "window not found", "searched": window_title,
+                "hint": "use wait_for_window(title) if the app was just launched"}
     count = [0]
 
     def walk(ctrl, depth):
@@ -119,7 +134,8 @@ def ui_inspect(window_title: str | None = None, max_depth: int = 4, max_nodes: i
         tree = walk(root, 0)
     except Exception as e:  # noqa: BLE001
         return {"error": f"{type(e).__name__}: {e}"}
-    return {"success": True, "nodes": count[0], "truncated": count[0] >= max_nodes, "tree": tree}
+    return {"success": True, "nodes": count[0], "truncated": count[0] >= max_nodes, "tree": tree,
+            "window": _window_identity(root)}
 
 
 @mcp.tool()
@@ -133,7 +149,8 @@ def ui_find(name: str | None = None, control_type: str | None = None, automation
         return _unavailable()
     root = _root(window_title)
     if root is None:
-        return {"error": f"window not found: {window_title!r}"}
+        return {"error": "window not found", "searched": window_title,
+                "hint": "use wait_for_window(title) if the app was just launched"}
     name_l = name.lower() if name else None
     type_l = control_type.lower() if control_type else None
     matches, count = [], [0]
@@ -169,7 +186,8 @@ def ui_find(name: str | None = None, control_type: str | None = None, automation
         walk(root, 0)
     except Exception as e:  # noqa: BLE001
         return {"error": f"{type(e).__name__}: {e}"}
-    return {"success": True, "count": len(matches), "matches": matches}
+    return {"success": True, "count": len(matches), "matches": matches,
+            "window": _window_identity(root)}
 
 
 @mcp.tool(audit=True)
@@ -228,19 +246,70 @@ def ui_invoke(action: str = "invoke", name: str | None = None, control_type: str
         if act in ("invoke", "click"):
             try:
                 ctrl.GetInvokePattern().Invoke()
+                # 'verified' means the event was SENT, not that the effect is confirmed.
+                return {"success": True, "action": act, "control": info,
+                        "method": "invoke_pattern", "verified": False}
             except Exception:
+                # Mouse-Click fallback pixel-clicks the control center; a zero/offscreen
+                # rect makes the click a silent no-op, so re-check before clicking.
+                r = None
+                try:
+                    r = ctrl.BoundingRectangle
+                except Exception:
+                    r = None
+                empty = (r is None or (r.left == r.right and r.top == r.bottom)
+                         or r.right <= r.left or r.bottom <= r.top
+                         or r.right < 0 or r.bottom < 0)
+                if empty:
+                    return {"error": "control has empty/offscreen BoundingRectangle; not clicked",
+                            "control": info}
                 ctrl.Click()
+                return {"success": True, "action": act, "control": info,
+                        "method": "mouse_click_fallback", "verified": False}
         elif act == "set_value":
+            confirmed = None
             try:
                 ctrl.GetValuePattern().SetValue(text)
             except Exception:
-                ctrl.SendKeys("{Ctrl}a" + text)
+                # No ValuePattern: prefer a non-keystroke setter (no SendKeys syntax parsing,
+                # so braces/parens in JSON/code/paths are not corrupted).
+                did_legacy = False
+                try:
+                    ctrl.GetLegacyIAccessiblePattern().SetValue(text)
+                    did_legacy = True
+                except Exception:
+                    did_legacy = False
+                if not did_legacy:
+                    # SendKeys fallback: escape braces in the VALUE only, NOT the select-all
+                    # literal. Paren-escaping is unnecessary for uiautomation SendKeys.
+                    safe = text.replace("{", "{{}").replace("}", "{}}")
+                    ctrl.SendKeys("{Ctrl}a" + safe)
+            # Read back to make sure the value actually took (don't report a lie).
+            try:
+                confirmed = ctrl.GetValuePattern().Value
+            except Exception:
+                try:
+                    confirmed = getattr(ctrl, "Name", None)
+                except Exception:
+                    confirmed = None
+            if confirmed is not None and confirmed != text:
+                return {"success": False, "error": "set_value not confirmed",
+                        "expected": text, "actual": confirmed, "control": info}
+            return {"success": True, "action": act, "control": info}
         elif act == "focus":
             ctrl.SetFocus()
         elif act == "toggle":
-            ctrl.GetTogglePattern().Toggle()
+            p = ctrl.GetTogglePattern()
+            if p is None:
+                return {"error": "control does not support toggle", "control": info,
+                        "hint": "fall back to clicking 'center' with mouse_click"}
+            p.Toggle()
         elif act == "expand":
-            ctrl.GetExpandCollapsePattern().Expand()
+            p = ctrl.GetExpandCollapsePattern()
+            if p is None:
+                return {"error": "control does not support expand", "control": info,
+                        "hint": "fall back to clicking 'center' with mouse_click"}
+            p.Expand()
         else:
             return {"error": f"unknown action: {action}", "target": info}
         return {"success": True, "action": act, "control": info}

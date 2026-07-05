@@ -89,27 +89,63 @@ _RESULT_MAP = {
 }
 
 
+IDTIMEOUT = 32000
+
+
 @mcp.tool()
 def message_box(
     title: str,
     message: str,
     buttons: str = "ok",
     icon: str = "info",
+    timeout_ms: int = 30000,
 ) -> dict:
     """Show a Windows message box and return the user's response.
+
+    IMPORTANT: this needs a human to click. It runs the (blocking) dialog on a background thread and
+    auto-dismisses after `timeout_ms`, so an unattended call can never hang the server forever — a
+    plain modal MessageBoxW on the server's event-loop thread would otherwise deadlock it permanently.
 
     Args:
         title: Message box title.
         message: Message text.
         buttons: Button style - "ok", "okcancel", "yesno", "yesnocancel".
         icon: Icon type - "info", "warning", "error", "question".
+        timeout_ms: Auto-dismiss after this many ms if no one responds (default 30s).
 
     Returns:
-        dict with 'ok' and 'result' indicating which button was pressed.
+        dict with 'ok' and 'result' ("ok"/"cancel"/"yes"/"no", or "timeout" if auto-dismissed).
     """
-    try:
-        style = _BUTTON_MAP.get(buttons, MB_OK) | _ICON_MAP.get(icon, MB_ICONINFO)
-        result = ctypes.windll.user32.MessageBoxW(0, message, title, style)
-        return {"ok": True, "result": _RESULT_MAP.get(result, str(result))}
-    except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": str(e)}
+    import threading
+
+    style = _BUTTON_MAP.get(buttons, MB_OK) | _ICON_MAP.get(icon, MB_ICONINFO)
+    holder: dict = {}
+
+    def _show():
+        try:
+            fn = getattr(ctypes.windll.user32, "MessageBoxTimeoutW", None)
+            if fn is not None:
+                # (hWnd, lpText, lpCaption, uType, wLanguageId, dwMilliseconds) — auto-dismisses.
+                fn.restype = ctypes.c_int
+                holder["r"] = fn(0, ctypes.c_wchar_p(message), ctypes.c_wchar_p(title),
+                                 style, 0, int(timeout_ms))
+            else:
+                holder["r"] = ctypes.windll.user32.MessageBoxW(0, message, title, style)
+        except Exception as e:  # noqa: BLE001
+            holder["e"] = e
+
+    t = threading.Thread(target=_show, daemon=True)
+    t.start()
+    # Bounded wait: the blocking C call releases the GIL, so the event loop is free during the join;
+    # worst case we wait timeout_ms (+slack) instead of forever.
+    t.join(timeout=(int(timeout_ms) / 1000.0) + 2.0)
+
+    if "e" in holder:
+        return {"ok": False, "error": str(holder["e"])}
+    if "r" not in holder:
+        return {"ok": True, "result": "pending",
+                "note": "dialog still open (no MessageBoxTimeoutW support and no response yet); server not blocked."}
+    r = holder["r"]
+    if r == IDTIMEOUT:
+        return {"ok": True, "result": "timeout", "note": "no user responded within timeout_ms; auto-dismissed."}
+    return {"ok": True, "result": _RESULT_MAP.get(r, str(r))}

@@ -81,8 +81,24 @@ class _Recorder:
 
         self._mouse_listener = _pynput_mouse.Listener(on_click=on_click, on_scroll=on_scroll)
         self._kbd_listener = _pynput_keyboard.Listener(on_press=on_press)
-        self._mouse_listener.start()
-        self._kbd_listener.start()
+        # Start BOTH low-level input hooks; if the SECOND fails after the FIRST is installed, tear
+        # down whichever already started (so no WH_MOUSE_LL/WH_KEYBOARD_LL hook is left dangling),
+        # reset all state, and re-raise so record_start reports a DISTINCT start-failure (not the
+        # misleading "already active" that a lingering self.active would otherwise trigger).
+        try:
+            self._mouse_listener.start()
+            self._kbd_listener.start()
+        except Exception:
+            for lst in (self._mouse_listener, self._kbd_listener):
+                try:
+                    if lst is not None:
+                        lst.stop()
+                except Exception:
+                    pass
+            self._mouse_listener = self._kbd_listener = None
+            with self._lock:
+                self.active = False
+            raise
         return True
 
     def stop(self):
@@ -161,7 +177,11 @@ def record_start() -> dict:
     """
     if not _AVAILABLE:
         return _unavailable()
-    if not _RECORDER.start():
+    try:
+        started = _RECORDER.start()
+    except Exception as e:  # noqa: BLE001 — hook install failed; _RECORDER.start already tore down
+        return {"ok": False, "error": "failed to start input hooks", "detail": str(e)}
+    if not started:
         return {"ok": False, "error": "a recording is already active; call record_stop first"}
     return {"ok": True, "recording": True, "note": "recording mouse/keyboard; call record_stop to finish"}
 

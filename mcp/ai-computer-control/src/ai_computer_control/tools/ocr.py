@@ -47,7 +47,9 @@ async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
     if engine is None:
         engine = _ocr.OcrEngine.try_create_from_user_profile_languages()
     if engine is None:
-        return {"error": "no OCR language pack available on this machine"}
+        return {"error": "no OCR language pack available", "needs_language_pack": True,
+                "hint": "Add a language including its optional OCR feature via Settings > Language "
+                        "(e.g. en-US or zh-Hans), then retry."}
 
     result = await engine.recognize_async(bitmap)
     words = []
@@ -64,7 +66,12 @@ def _run_ocr(png_bytes: bytes, lang: str | None) -> dict:
     try:
         return asyncio.run(_recognize(png_bytes, lang))
     except Exception as e:  # noqa: BLE001
-        return {"error": f"{type(e).__name__}: {e}"}
+        out = {"error": f"{type(e).__name__}: {e}"}
+        if "language" in str(e).lower():
+            out["needs_language_pack"] = True
+            out["hint"] = ("Add a language including its optional OCR feature via Settings > Language "
+                           "(e.g. en-US or zh-Hans), then retry.")
+        return out
 
 
 def _png_bytes_from_path(path: str) -> bytes:
@@ -145,11 +152,11 @@ def ocr_click(text: str, region: str | None = None, lang: str | None = None,
     if not res.get("success"):
         return res
     target = text.lower()
+    # Keep the OCR engine's native reading order (result.lines -> line.words), which is already
+    # top-to-bottom / left-to-right and DPI-correct — a fixed-pixel row band mis-sorts at high DPI.
     matches = [w for w in res.get("words", []) if target in w["text"].lower()]
-    # Reading order: top-to-bottom (row band), then left-to-right.
-    matches.sort(key=lambda w: (w["top"] // 12, w["left"]))
     if not matches:
-        return {"not_found": True, "text": text}
+        return {"not_found": True, "text": text, "clicked": None}
 
     if return_candidates:
         return {"ok": True, "found": True, "count": len(matches), "candidates": matches,

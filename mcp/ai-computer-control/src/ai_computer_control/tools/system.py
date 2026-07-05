@@ -49,14 +49,26 @@ def wait(seconds: float) -> dict:
     """Wait for a specified number of seconds.
 
     Args:
-        seconds: Number of seconds to wait (max 300).
+        seconds: Number of seconds to wait (0–300; larger values are capped at 300).
 
     Returns:
-        dict with 'success' and actual wait time.
+        dict with 'success' and the ACTUAL 'waited_seconds'. If the request was capped, 'capped' and
+        'requested_seconds' say so, so the model doesn't believe more time elapsed than really did.
     """
-    seconds = min(seconds, 300)
-    time.sleep(seconds)
-    return {"success": True, "waited_seconds": seconds}
+    try:
+        requested = float(seconds)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "seconds must be a number"}
+    if requested < 0:
+        return {"ok": False, "error": "seconds must be >= 0"}
+    waited = min(requested, 300.0)
+    time.sleep(waited)
+    out = {"success": True, "waited_seconds": waited}
+    if requested > 300.0:
+        out["capped"] = True
+        out["requested_seconds"] = requested
+        out["note"] = "capped at the 300s maximum; less time elapsed than requested."
+    return out
 
 
 @mcp.tool()

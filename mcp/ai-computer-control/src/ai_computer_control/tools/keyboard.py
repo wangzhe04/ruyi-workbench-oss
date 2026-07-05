@@ -1,42 +1,89 @@
 """Keyboard control tools."""
 
+import ctypes
 import pyautogui
 import pyperclip
 from ai_computer_control.server import mcp
 
 
-@mcp.tool(audit=True)
-def type_text(text: str, interval: float = 0.02, use_clipboard: bool = False) -> dict:
-    """Type a string of text using the keyboard.
+def _clipboard_has_nontext() -> bool:
+    """True if the clipboard currently holds an image or file list (not text) — so we must not
+    clobber it with a naive text 'restore'. Uses IsClipboardFormatAvailable (no clipboard open needed)."""
+    try:
+        u = ctypes.windll.user32
+        CF_BITMAP, CF_DIB, CF_HDROP = 2, 8, 15
+        return any(u.IsClipboardFormatAvailable(f) for f in (CF_BITMAP, CF_DIB, CF_HDROP))
+    except Exception:
+        return False
 
-    For CJK characters (Chinese, Japanese, Korean) or special characters,
-    set use_clipboard=True to paste via clipboard instead of typing key by key.
+
+def _type_via_clipboard(text: str) -> bool:
+    """Paste `text` via the clipboard, preserving the user's prior TEXT clipboard.
+
+    If the clipboard holds an image/files, we still paste but do NOT overwrite it back with text
+    afterwards would already have destroyed it — so instead we detect that case and report it rather
+    than silently wiping the user's copied image. Returns True if a non-text payload was displaced.
+    """
+    displaced = _clipboard_has_nontext()
+    old = None
+    if not displaced:
+        try:
+            old = pyperclip.paste()
+        except Exception:
+            old = None
+    pyperclip.copy(text)
+    pyautogui.hotkey("ctrl", "v")
+    pyautogui.sleep(0.15)
+    if old is not None and not displaced:
+        try:
+            pyperclip.copy(old)
+        except Exception:
+            pass
+    return displaced
+
+
+@mcp.tool(audit=True)
+def type_text(text: str, interval: float = 0.02, use_clipboard: bool | None = None) -> dict:
+    """Type a string of text using the keyboard.
 
     Args:
         text: The text to type.
-        interval: Seconds between each keystroke (ignored if use_clipboard=True).
-        use_clipboard: If True, uses clipboard paste method (better for non-ASCII text).
+        interval: Seconds between each keystroke (ignored when the clipboard method is used).
+        use_clipboard: None (default) = auto (clipboard for non-ASCII/CJK, key-by-key for ASCII);
+                       True = force clipboard paste; False = force key-by-key (cannot produce CJK).
 
     Returns:
-        dict with 'ok' and the length typed.
+        dict with 'ok', 'length', and the 'method' actually used. On a forced key-by-key call with
+        non-ASCII text, a 'warning' flags the characters that could not be typed.
     """
     try:
-        if use_clipboard or not text.isascii():
-            _type_via_clipboard(text)
-        else:
-            pyautogui.typewrite(text, interval=interval)
-        return {"ok": True, "length": len(text)}
+        route_clipboard = (not text.isascii()) if use_clipboard is None else bool(use_clipboard)
+        if route_clipboard:
+            displaced = _type_via_clipboard(text)
+            out = {"ok": True, "length": len(text), "method": "clipboard"}
+            if displaced:
+                out["clipboard_displaced_nontext"] = True
+                out["note"] = ("the clipboard held an image/files; it was replaced to paste this text and "
+                               "could not be restored — re-copy that content if you still need it.")
+            return out
+        pyautogui.typewrite(text, interval=interval)
+        out = {"ok": True, "length": len(text), "method": "typewrite"}
+        n = sum(1 for c in text if ord(c) > 127)
+        if n:
+            out["warning"] = (f"{n} non-ASCII character(s) cannot be typed key-by-key and were dropped; "
+                              f"call again with use_clipboard=true to enter them.")
+        return out
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
 
 
-def _type_via_clipboard(text: str):
-    """Type text via clipboard paste, restoring the previous clipboard afterward."""
-    old_clipboard = pyperclip.paste()
-    pyperclip.copy(text)
-    pyautogui.hotkey("ctrl", "v")
-    pyautogui.sleep(0.1)
-    pyperclip.copy(old_clipboard)
+def _validate_keys(parts: list[str]) -> list[str]:
+    """Return the subset of key names pyautogui does not recognize (it silently ignores unknowns)."""
+    try:
+        valid = set(pyautogui.KEYBOARD_KEYS)
+    except Exception:
+        return []
+    return [k for k in parts if k not in valid]
 
 
 @mcp.tool(audit=True)
@@ -48,14 +95,18 @@ def press_key(key: str) -> dict:
              or combination with + (e.g. "ctrl+c", "alt+f4", "ctrl+shift+s").
 
     Returns:
-        dict with 'ok' and the key pressed.
+        dict with 'ok' and the key pressed. Unknown key names return an error instead of a silent no-op.
     """
     try:
-        if "+" in key:
-            keys = [k.strip().lower() for k in key.split("+")]
-            pyautogui.hotkey(*keys)
+        parts = [k.strip().lower() for k in key.split("+")] if "+" in key else [key.strip().lower()]
+        bad = _validate_keys(parts)
+        if bad:
+            return {"ok": False, "error": f"unknown key name(s): {bad}. Use names like enter, tab, esc, "
+                                          f"space, f5, ctrl, alt, shift, win, delete, up/down/left/right."}
+        if len(parts) > 1:
+            pyautogui.hotkey(*parts)
         else:
-            pyautogui.press(key.strip().lower())
+            pyautogui.press(parts[0])
         return {"ok": True, "key": key}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
@@ -69,12 +120,17 @@ def hotkey(*keys: str) -> dict:
         keys: Keys to press simultaneously (e.g. "ctrl", "shift", "s").
 
     Returns:
-        dict with 'ok' and the keys pressed.
+        dict with 'ok' and the keys pressed. Unknown key names return an error instead of a silent no-op.
     """
     try:
         if not keys:
             return {"ok": False, "error": "provide at least one key"}
-        pyautogui.hotkey(*[k.strip().lower() for k in keys])
+        parts = [k.strip().lower() for k in keys]
+        bad = _validate_keys(parts)
+        if bad:
+            return {"ok": False, "error": f"unknown key name(s): {bad}. Use names like ctrl, alt, shift, "
+                                          f"win, enter, tab, esc, f1-f12, a-z, 0-9."}
+        pyautogui.hotkey(*parts)
         return {"ok": True, "keys": list(keys)}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
@@ -91,7 +147,10 @@ def key_down(key: str) -> dict:
         dict with 'ok'.
     """
     try:
-        pyautogui.keyDown(key.strip().lower())
+        k = key.strip().lower()
+        if _validate_keys([k]):
+            return {"ok": False, "error": f"unknown key name: {key}"}
+        pyautogui.keyDown(k)
         return {"ok": True, "key": key, "state": "down"}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
@@ -108,7 +167,10 @@ def key_up(key: str) -> dict:
         dict with 'ok'.
     """
     try:
-        pyautogui.keyUp(key.strip().lower())
+        k = key.strip().lower()
+        if _validate_keys([k]):
+            return {"ok": False, "error": f"unknown key name: {key}"}
+        pyautogui.keyUp(k)
         return {"ok": True, "key": key, "state": "up"}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}

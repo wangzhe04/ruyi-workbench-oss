@@ -23,7 +23,8 @@ def _focused_window() -> dict:
     try:
         hwnd = u.GetForegroundWindow()
         if not hwnd:
-            return {}
+            # Genuinely no foreground window (desktop focused) — distinct from a probe failure.
+            return {"present": False, "hwnd": 0, "title": ""}
         n = u.GetWindowTextLengthW(hwnd)
         buf = ctypes.create_unicode_buffer((n or 0) + 1)
         u.GetWindowTextW(hwnd, buf, (n or 0) + 1)
@@ -31,15 +32,19 @@ def _focused_window() -> dict:
         u.GetWindowRect(hwnd, ctypes.byref(r))
         pid = wintypes.DWORD()
         u.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-        return {"hwnd": int(hwnd), "title": buf.value, "pid": int(pid.value),
+        return {"present": True, "hwnd": int(hwnd), "title": buf.value, "pid": int(pid.value),
                 "rect": {"left": r.left, "top": r.top, "right": r.right, "bottom": r.bottom,
                          "width": r.right - r.left, "height": r.bottom - r.top}}
-    except Exception:
-        return {}
+    except Exception as e:  # noqa: BLE001
+        return {"present": False, "error": str(e)}
 
 
-def _uia_elements(window_title: str | None, cap: int) -> dict | None:
-    """Flatten the focused (or named) window's UIA tree to <=cap {name,type,rect,center}. None if unavailable."""
+def _uia_elements(window_title: str | None, cap: int):
+    """Flatten the focused (or named) window's UIA tree to <=cap {name,type,rect,center}.
+
+    Returns a list on success, None when the UIA backend is absent, or the string sentinel
+    'no_window' when a window_title was given but matched no open window (so the caller can tell the
+    model to fix its title instead of assuming the backend is missing)."""
     try:
         from ai_computer_control.tools import uia
     except Exception:
@@ -48,7 +53,7 @@ def _uia_elements(window_title: str | None, cap: int) -> dict | None:
         return None
     root = uia._root(window_title)
     if root is None:
-        return None
+        return "no_window" if window_title else None
     items, count = [], [0]
 
     def walk(ctrl, depth):
@@ -146,7 +151,10 @@ def observe(max_width: int = 1280, window_title: str | None = None,
 
     if include_uia:
         uia_items = _uia_elements(window_title, cap=80)
-        if uia_items is None:
+        if uia_items == "no_window":
+            out["uia_note"] = (f"window_title {window_title!r} did not match any open window; "
+                               f"adjust the substring or omit it to use the foreground window.")
+        elif uia_items is None:
             degraded.append("uia")
         else:
             out["uia_elements"] = uia_items
