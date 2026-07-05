@@ -1200,12 +1200,39 @@ function ctxWindowGuess(model) {
 // v1.0.2 返修三:上下文窗口的优先级 —— ①用户在电量表上手动设的上限(localStorage,最高优先);②服务端三级解析
 // contextWindowResolved(manual>接口探测>名称表,权威;但 source==='fallback' 说明服务端也没辙——多为 Claude 引擎
 // 或未知模型——此时【不】用它的 65536 兜底,落到客户端名称猜测,让 claude/opus 等仍走各自 heuristic);③客户端猜测。
+// v1.4.1: 手动锁定的上下文上限改为【按模型】存(键名带 model id),避免一个模型的锁串到另一个模型
+// (真机 foot-gun:在 qwen 上点过 128K,切到 deepseek-v4 也显示 128K)。旧的全局键 `wcw.ctxWindow` 首次读到时
+// 一次性迁移进当前模型的键并删除,兼容存量。
+function ctxWindowKey(model) { const m = String(model || currentModelId() || '').trim(); return m ? 'wcw.ctxWindow::' + m : 'wcw.ctxWindow'; }
+function ctxWindowManual(model) {
+  try {
+    const k = parseInt(localStorage.getItem(ctxWindowKey(model)) || '0', 10);
+    if (Number.isFinite(k) && k > 0) return k;
+    const g = parseInt(localStorage.getItem('wcw.ctxWindow') || '0', 10); // 存量全局锁 → 迁移
+    if (Number.isFinite(g) && g > 0) {
+      try { localStorage.setItem(ctxWindowKey(model), String(g)); localStorage.removeItem('wcw.ctxWindow'); } catch { /* ignore */ }
+      return g;
+    }
+  } catch { /* ignore */ }
+  return 0;
+}
+function setCtxWindowManual(n, model) {
+  try { if (n > 0) localStorage.setItem(ctxWindowKey(model), String(n)); else localStorage.removeItem(ctxWindowKey(model)); localStorage.removeItem('wcw.ctxWindow'); } catch { /* ignore */ }
+}
 function ctxWindow() {
-  let o = 0; try { o = parseInt(localStorage.getItem('wcw.ctxWindow') || '0', 10); } catch { /* ignore */ }
+  const o = ctxWindowManual();
   if (o > 0) return o;
   const r = state.status && state.status.contextWindowResolved;
   if (r && r.source && r.source !== 'fallback' && Number.isFinite(r.value) && r.value > 0) return r.value;
   return ctxWindowGuess(currentModelId());
+}
+// 当前上限读数的来源人话标签(供电量表 tooltip + 弹层)。「按名称推测」= 端点未报告真实上限、只能按模型名猜,可能不准。
+function ctxWindowSourceLabel() {
+  if (ctxWindowManual() > 0) return '手动锁定';
+  const r = state.status && state.status.contextWindowResolved;
+  if (r && r.source === 'probe' && r.value > 0) return '接口探测';
+  if (r && r.source === 'manual' && r.value > 0) return '设置固定';
+  return '按名称推测';
 }
 // Context "in play" after a turn. Prefer the server's accurate per-call figure (contextTokens);
 // fall back to summing raw usage fields only for older payloads that lack it.
@@ -1237,15 +1264,16 @@ function renderContextMeter(u) {
   // v1.0.2 返修三跟进:上限若被【手动锁定】(localStorage 覆盖),在读数后标一个 🔒 —— 否则用户看不出上限是
   // 手动固定的,一次误点 128K 预设就永久盖过自动探测(deepseek-v4-pro 真机撞出:显示 131k 而非 1M,查明是
   // 早先手动设过 128K)。有锁时提示可点「自动」解锁。
-  let manual = 0; try { manual = parseInt(localStorage.getItem('wcw.ctxWindow') || '0', 10); } catch { /* ignore */ }
+  const manual = ctxWindowManual();
   const locked = manual > 0;
   box.querySelector('.ctx-text').textContent = `${fmtTokens(n)} / ${fmtTokens(win)}${locked ? ' 🔒' : ''} · ${Math.round(pct * 100)}%`;
   box.classList.remove('warn', 'crit');
   if (pct >= 0.9) box.classList.add('crit'); else if (pct >= 0.7) box.classList.add('warn');
   const g = u.usage || {};
+  const srcLabel = ctxWindowSourceLabel();
   const srcLine = locked
-    ? `上限来源:手动锁定 ${win.toLocaleString()}（点击→选「自动」可改回按模型自动推断）`
-    : `上限来源:按模型自动推断`;
+    ? `上限来源:手动锁定 ${win.toLocaleString()}（点击电量表→「自动」可改回自动推断）`
+    : `上限来源:${srcLabel}${srcLabel === '按名称推测' ? '（该端点未报告真实上限，按模型名推测，可能不准；点电量表可手动锁定实际值）' : ''}`;
   box.title = `上下文 ≈ ${n.toLocaleString()} / 上限 ${win.toLocaleString()} tokens\n` +
     `输入 ${g.input_tokens || 0} · 缓存读 ${g.cache_read_input_tokens || 0} · 缓存写 ${g.cache_creation_input_tokens || 0} · 输出 ${g.output_tokens || 0}\n${srcLine}`;
   box.classList.remove('hidden');
@@ -2781,6 +2809,38 @@ function formatAuditTime(ts) {
 // skipped entries render greyed + non-actionable (their before-content was too large to snapshot).
 // Rolled-back entries are removed server-side, so a re-fetch after success naturally drops them.
 const CHANGE_OP_LABEL = { create: '新建', modify: '修改', delete: '删除' };
+// v1.4.1: 「用什么改的」人话标签 —— checkpoint 条目自带 tool 字段(如 file_edit / excel_beautify / acc__write_file)。
+// 只标注「修改」用户不知道具体改了什么;补上工具名(+ 原大小)让每条变更能一眼看出是哪种改动。
+const CHANGE_TOOL_LABEL = {
+  // 内建文件工具
+  file_write: '写入', file_edit: '编辑', file_delete: '删除', file_move: '移动', file_copy: '复制',
+  archive_zip: '压缩', archive_unzip: '解压', http_download: '下载',
+  // ACC(ai-computer-control)工具名
+  write_file: '写入', delete_file: '删除', move_file: '移动', copy_file: '复制',
+  write_document: '生成 Word', write_excel: '生成 Excel', write_pdf: '导出 PDF',
+  excel_beautify: '美化 Excel', excel_chart: 'Excel 图表', write_pptx: '生成 PPT', chart_image: '制图',
+  image_resize: '缩放图片',
+};
+function changeToolLabel(e) {
+  const tool = String(e && e.tool || '').replace(/^.+?__/, '');   // 去桥接前缀 <serverId>__
+  return tool ? (CHANGE_TOOL_LABEL[tool] || tool) : '';
+}
+// v1.4.1「改了什么」的量化:大小变化(原 → 现)。currentBytes 由 /api/checkpoints 附带(改动后磁盘大小)。
+function changeSizeTransition(e) {
+  const b = Number(e && e.bytes), c = Number(e && e.currentBytes);
+  const bb = Number.isFinite(b) && b > 0 ? fmtBytes(b) : null;
+  const cc = Number.isFinite(c) && c >= 0 ? fmtBytes(c) : null;
+  if (e && e.op === 'create') return cc ? `新建 ${cc}` : '新建';
+  if (e && e.op === 'delete') return bb ? `删除前 ${bb}` : '已删除';
+  if (bb && cc) return `${bb} → ${cc}`;   // 修改:一眼看出变大/变小
+  return bb ? `原 ${bb}` : '';
+}
+// 文本类扩展(可逐行看改动);其余(xlsx/docx/pptx/图片/pdf 等)只能开文件看。与后端 diff 端点判定对齐。
+const CHANGE_TEXTISH_EXT = new Set(['txt','log','md','markdown','csv','tsv','json','js','ts','jsx','tsx','py','css','html','htm','xml','yml','yaml','ini','cfg','conf','sh','ps1','bat','cmd','sql','java','c','h','cpp','go','rs','rb','php','toml']);
+function isTextishPath(p) {
+  const m = String(p || '').toLowerCase().match(/\.([a-z0-9]+)$/);
+  return m ? CHANGE_TEXTISH_EXT.has(m[1]) : true; // 无扩展名默认按文本试(后端会再判二进制)
+}
 // v0.9-S4 icon map keys on artifact kind; here classify by file extension for a familiar kind icon.
 function changeKindIcon(p) {
   const ext = String(p || '').toLowerCase().match(/\.([a-z0-9]+)$/);
@@ -2819,50 +2879,112 @@ async function loadChanges() {
   if (state.currentSession?.id !== sid) return; // switched away mid-fetch
   renderChanges(entries);
 }
+// v1.4.1: 改为【按轮次】分组、新轮在上 —— 与右侧「产物」画廊(collectSessionArtifacts 同样按轮次新→旧)统一,
+// 用户反馈两个面板顺序此前「反着的」。每轮一张卡:「第 N 轮」头 +(可整轮撤销)+ 该轮各文件行(操作/文件名/
+// 用什么改的+原大小/单条回撤)。轮内按 entrySeq 新→旧。
 function renderChanges(entries) {
   const list = $('changesList'); if (!list) return;
   list.textContent = '';
-  if (!entries.length) {
+  $('changesPreview')?.classList.add('hidden');
+  const valid = (entries || []).filter(e => e && e.path);
+  if (!valid.length) {
     list.appendChild(el('div', 'changes-empty', '本会话还没有可回撤的文件变更。AI 用文件工具或 ACC 写文件后会出现在这里。'));
     return;
   }
-  // Group by file path (insertion order of first appearance); within a group sort newest-first by
-  // turnSeq then entrySeq (both monotonic per turn).
-  const byPath = new Map();
-  for (const e of entries) {
-    if (!e || !e.path) continue;
-    const key = String(e.path);
-    if (!byPath.has(key)) byPath.set(key, []);
-    byPath.get(key).push(e);
-  }
-  for (const [p, items] of byPath) {
-    items.sort((a, b) => (Number(b.turnSeq) - Number(a.turnSeq)) || (Number(b.entrySeq) - Number(a.entrySeq)));
+  const byTurn = new Map();
+  for (const e of valid) { const t = Number(e.turnSeq) || 0; if (!byTurn.has(t)) byTurn.set(t, []); byTurn.get(t).push(e); }
+  const rounds = [...byTurn.entries()].sort((a, b) => b[0] - a[0]); // 新轮在上
+  for (const [turnSeq, items] of rounds) {
+    items.sort((a, b) => (Number(b.entrySeq) - Number(a.entrySeq))); // 轮内新→旧
     const card = el('div', 'change-card');
     const head = el('div', 'change-card-head');
-    head.append(el('span', 'change-icon', changeKindIcon(p)));
-    const nameEl = el('span', 'change-name', fileBasename(p)); nameEl.title = p; // XSS: textContent via el()
-    head.append(nameEl);
+    head.append(el('span', 'change-round-title', '第 ' + turnSeq + ' 轮'));
+    head.append(el('span', 'change-round-count muted', items.length + ' 个'));
+    if (items.some(e => !e.skipped)) {
+      const undoAll = el('button', 'mini change-undo-all', '撤销整轮');
+      undoAll.onclick = () => rollbackTurn(turnSeq, undefined, undoAll, '整轮');
+      head.append(undoAll);
+    }
     card.append(head);
     const body = el('div', 'change-card-body');
     for (const e of items) {
-      const row = el('div', 'change-row');
+      const p = String(e.path);
       const op = (e.op === 'create' || e.op === 'modify' || e.op === 'delete') ? e.op : 'unknown';
-      const opLabel = CHANGE_OP_LABEL[op] || '变更';
-      row.append(el('span', 'change-turn', '第 ' + (Number(e.turnSeq) || 0) + ' 轮'));
-      row.append(el('span', 'change-op ' + op, opLabel));
-      if (e.skipped) {
-        row.classList.add('skipped');
-        row.append(el('span', 'change-skip', '快照过大未保存，不可回撤'));
-      } else {
-        const btn = el('button', 'mini change-undo', '回撤到此前状态');
-        btn.onclick = () => confirmRollbackEntry(e, p, btn);
-        row.append(btn);
+      const row = el('div', 'change-row' + (e.skipped ? ' skipped' : ''));
+      // 第一行:操作徽章 + 图标 + 文件名(整行宽,少截断)+ 回撤
+      const r1 = el('div', 'change-row-head');
+      r1.append(el('span', 'change-op ' + op, CHANGE_OP_LABEL[op] || '变更'));
+      r1.append(el('span', 'change-icon', changeKindIcon(p)));
+      const nameEl = el('span', 'change-name', fileBasename(p)); nameEl.title = p; // XSS: textContent via el()
+      r1.append(nameEl);
+      if (e.skipped) { r1.append(el('span', 'change-skip', '过大未存,不可撤')); }
+      else { const undo = el('button', 'mini change-undo', '回撤'); undo.title = '回撤到此前状态'; undo.onclick = () => confirmRollbackEntry(e, p, undo); r1.append(undo); }
+      row.append(r1);
+      // 第二行(浅色小字):用什么改的 · 大小变化(原→现) · 查看改动/打开
+      const r2 = el('div', 'change-row-meta muted');
+      const tool = changeToolLabel(e); if (tool) r2.append(el('span', 'change-tool', tool));
+      const sz = changeSizeTransition(e); if (sz) r2.append(el('span', 'change-size', sz));
+      if (!e.skipped && e.op !== 'delete') {
+        if (isTextishPath(p)) { const v = el('button', 'link-mini change-view', '查看改动'); v.onclick = () => openChangeDiff(e); r2.append(v); }
+        else { const o = el('button', 'link-mini change-view', '打开'); o.onclick = () => runTool('office_open', { path: p }); r2.append(o); }
       }
+      row.append(r2);
       body.append(row);
     }
     card.append(body);
     list.append(card);
   }
+}
+// v1.4.1「曾经」:拉取单条变更的「改动前↔现在」,渲染进 #changesPreview。文本文件逐行 diff;二进制只报大小 + 打开。
+async function openChangeDiff(entry) {
+  const box = $('changesPreview'); if (!box) return;
+  const sid = state.currentSession?.id; if (!sid) return;
+  box.classList.remove('hidden'); box.textContent = '';
+  box.append(el('div', 'cdiff-note muted', '加载改动…'));
+  let d = null;
+  try { d = await api(`/api/checkpoints/diff?sessionId=${encodeURIComponent(sid)}&turnSeq=${Number(entry.turnSeq)}&entrySeq=${Number(entry.entrySeq)}`); }
+  catch (err) { box.textContent = ''; box.append(el('div', 'cdiff-note muted', '加载改动失败:' + (err && err.message || err))); return; }
+  box.textContent = '';
+  renderChangeDiffInto(box, d, entry);
+}
+function renderChangeDiffInto(box, d, entry) {
+  const head = el('div', 'cdiff-head');
+  head.append(el('span', 'cdiff-name', fileBasename(entry.path)));
+  const close = el('button', 'link-mini', '收起'); close.onclick = () => box.classList.add('hidden'); head.append(close);
+  box.append(head);
+  if (!d || d.ok === false) { box.append(el('div', 'cdiff-note muted', '无法读取改动:' + ((d && d.error) || '未知'))); return; }
+  if (d.skipped) { box.append(el('div', 'cdiff-note muted', '此条改动前的内容过大未保存快照,无法比对。')); return; }
+  if (!d.isText) {
+    const bb = Number.isFinite(d.beforeBytes) ? fmtBytes(d.beforeBytes) : '—';
+    const aa = Number.isFinite(d.afterBytes) ? fmtBytes(d.afterBytes) : '—';
+    box.append(el('div', 'cdiff-note muted', `二进制文件(Excel/Word/PPT/图片等),无法逐行比对。大小:${bb} → ${aa}。`));
+    if (d.op !== 'delete') { const o = el('button', 'mini', '打开文件查看'); o.onclick = () => runTool('office_open', { path: entry.path }); box.append(o); }
+    return;
+  }
+  const diff = crudeLineDiff(d.before || '', d.after || '');
+  box.append(el('div', 'cdiff-note muted', `+${diff.added.length} 行 / −${diff.removed.length} 行`));
+  const pre = el('div', 'cdiff-body');
+  const addLine = (cls, gutter, text) => { const ln = el('div', 'cdiff-line ' + cls); ln.append(el('span', 'cdiff-gutter', gutter)); ln.append(el('span', 'cdiff-text', text)); pre.append(ln); };
+  for (const l of diff.ctxBefore) addLine('ctx', ' ', l);
+  for (const l of diff.removed) addLine('del', '−', l);
+  for (const l of diff.added) addLine('add', '+', l);
+  for (const l of diff.ctxAfter) addLine('ctx', ' ', l);
+  if (!diff.removed.length && !diff.added.length) pre.append(el('div', 'cdiff-line ctx', el('span', 'cdiff-text', '(内容未变化)')));
+  box.append(pre);
+}
+// 轻量行级 diff:裁掉公共前缀/后缀,中间即改动区(单块连续编辑=精确;分散编辑=改动区略大但仍正确)。
+function crudeLineDiff(before, after) {
+  const a = String(before).split('\n'), b = String(after).split('\n');
+  let s = 0; while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let ea = a.length, eb = b.length;
+  while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
+  const CTX = 2, CAP = 400; // 上下文 2 行;改动区各侧最多 400 行(防超大 diff 卡浏览器)
+  return {
+    ctxBefore: a.slice(Math.max(0, s - CTX), s),
+    removed: a.slice(s, Math.min(ea, s + CAP)),
+    added: b.slice(s, Math.min(eb, s + CAP)),
+    ctxAfter: a.slice(ea, Math.min(a.length, ea + CTX)),
+  };
 }
 // Confirm-then-rollback a single checkpoint entry. Reuses buildModal (the shared confirm-modal shell).
 // On success: toast + re-fetch the list (the reverted entry is gone server-side). On failure: toast err.
@@ -3915,7 +4037,8 @@ function openContextPopover() {
     const u = state.shownUsage || latestUsage(state.currentSession);
     const used = ctxTokensOf(u);
     const win = ctxWindow();
-    let manual = 0; try { manual = parseInt(localStorage.getItem('wcw.ctxWindow') || '0', 10); } catch { /* ignore */ }
+    const manual = ctxWindowManual();
+    const srcLabel = ctxWindowSourceLabel();
     const pct = win > 0 && used != null ? Math.round((used / win) * 100) : 0;
     wrap.appendChild(el('div', 'ctx-pop-row', used != null ? `已用 ${fmtTokens(used)} / 上限 ${fmtTokens(win)} · ${pct}%` : `上限 ${fmtTokens(win)}（暂无用量数据）`));
     // Percent bar in the meter color.
@@ -3923,14 +4046,15 @@ function openContextPopover() {
     barIn.style.width = Math.max(0, Math.min(100, pct)) + '%';
     if (pct >= 90) barIn.style.background = 'var(--danger)'; else if (pct >= 70) barIn.style.background = 'var(--warn)'; else barIn.style.background = 'var(--ok)';
     bar.appendChild(barIn); wrap.appendChild(bar);
-    wrap.appendChild(el('div', 'ctx-pop-src muted', `上限来源：${manual > 0 ? '手动' : '模型推断'}`));
+    wrap.appendChild(el('div', 'ctx-pop-src muted', `当前模型：${currentModelId() || '默认'} · 上限来源：${srcLabel}`));
+    // v1.4.1: 端点未报告真实上限时(名称推测),明确提示可能不准 + 手动锁定仅对当前模型生效。
+    if (manual <= 0 && srcLabel === '按名称推测') {
+      wrap.appendChild(el('div', 'ctx-pop-hint muted', '该端点未报告真实上限，下面数字为按模型名推测、可能不准。点选实际上限即锁定（仅对当前模型生效）。'));
+    }
     // Preset chips + custom input.
     const chips = el('div', 'ctx-chips');
     const presets = [['64K', 65536], ['128K', 131072], ['200K', 200000], ['1M', 1000000], ['自动', 0]];
-    const applyWin = n => {
-      try { if (n > 0) localStorage.setItem('wcw.ctxWindow', String(n)); else localStorage.removeItem('wcw.ctxWindow'); } catch { /* ignore */ }
-      updateContextMeter(); close();
-    };
+    const applyWin = n => { setCtxWindowManual(n); updateContextMeter(); close(); };
     for (const [label, n] of presets) {
       const c = el('button', 'ctx-chip'); c.type = 'button'; c.textContent = label;
       if ((n === 0 && manual <= 0) || (n > 0 && manual === n)) c.classList.add('active');

@@ -655,8 +655,16 @@ def write_document(
 
         def _flush_table():
             nonlocal pending_table
-            if pending_table and pending_table["headers"]:
-                _add_content_table(doc, pending_table["headers"], pending_table["rows"], tokens)
+            if pending_table:
+                headers = pending_table["headers"]
+                rows = pending_table["rows"]
+                # 空表头(如 'TABLE:' 无字段)时不能静默丢弃已缓冲的行——
+                # 把第一缓冲行提升为表头，其余作为数据行，确保没有用户内容凭空消失。
+                if not headers and rows:
+                    headers = rows[0]
+                    rows = rows[1:]
+                if headers:
+                    _add_content_table(doc, headers, rows, tokens)
             pending_table = None
 
         for line in content.split("\n"):

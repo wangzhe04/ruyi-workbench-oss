@@ -30,7 +30,8 @@ def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000) ->
 
 
 @mcp.tool(audit=True)
-def write_file(path: str, content: str, encoding: str = "utf-8", append: bool = False) -> dict:
+def write_file(path: str, content: str, encoding: str = "utf-8", append: bool = False,
+               allow_protected: bool = False) -> dict:
     """Write or append text content to a file. Creates parent directories if needed.
 
     Args:
@@ -38,10 +39,14 @@ def write_file(path: str, content: str, encoding: str = "utf-8", append: bool = 
         content: Text content to write.
         encoding: Text encoding (default utf-8).
         append: If True, append to existing file instead of overwriting.
+        allow_protected: Override the protected-system-root guard on the destination (default off).
 
     Returns:
         dict with 'success' and 'bytes_written'.
     """
+    reason = protected_path_reason(path)
+    if reason and not allow_protected:
+        return {"error": f"refused to write: destination {reason}. Pass allow_protected=true to override."}
     try:
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         mode = "a" if append else "w"

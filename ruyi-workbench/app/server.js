@@ -400,6 +400,14 @@ function normalizeConfig(raw) {
   return { config, changed };
 }
 
+// v1.4.1 (audit #4): config.json 原子写 —— 此前用裸 fsp.writeFile,崩溃/断电中途会留下截断文件,下次读
+// safeJsonParse→null → normalizeConfig 把【整份用户配置静默重置为默认】(密钥/服务商/工作区全丢)。改 tmp+rename
+// (同卷内原子),与 saveSession/journalWriteIndex 同一纪律。
+async function writeConfigAtomic(data) {
+  const tmp = paths.config + '.tmp';
+  await fsp.writeFile(tmp, data, 'utf8');
+  await fsp.rename(tmp, paths.config);
+}
 async function readConfig() {
   await ensureDirs();
   let raw = null;
@@ -410,14 +418,14 @@ async function readConfig() {
   }
   const { config, changed } = normalizeConfig(raw);
   // Only rewrite when a migration actually mutated the file (avoid racy write-on-every-read).
-  if (changed) await fsp.writeFile(paths.config, JSON.stringify(config, null, 2), 'utf8').catch(() => {});
+  if (changed) await writeConfigAtomic(JSON.stringify(config, null, 2)).catch(() => {});
   return config;
 }
 
 async function writeConfig(next) {
   await ensureDirs();
   const { config } = normalizeConfig(next);
-  await fsp.writeFile(paths.config, JSON.stringify(config, null, 2), 'utf8');
+  await writeConfigAtomic(JSON.stringify(config, null, 2));
   return config;
 }
 
@@ -1224,7 +1232,10 @@ async function journalRecord(sessionId, turnSeq, tool, filePath, op, beforeConte
     }
     index.push({ turnSeq: Number(turnSeq), entrySeq, tool: String(tool || ''), path: String(filePath || ''), op, bytes, ...(skipped ? { skipped: true } : {}), ts: nowIso() });
     await journalWriteIndex(sessionId, index);
-    journalGc(sessionId).catch(() => {}); // lazy GC after each record; failures are silent
+    // v1.4.1 (audit #8):必须 await —— 此前 detached 触发,GC 的 index.json 读改写会与下一条 journalRecord 竞争,
+    // 修剪写回时可覆盖刚追加的条目(lost-write → 该文件变更不可撤销)。await 让 GC 在下一条 record 前完成,
+    // 消除并发。GC 内部全 try/catch 静默,不抛。
+    await journalGc(sessionId).catch(() => {});
   } catch {
     // Safety-net discipline: a failed journal write must NOT abort the tool. Swallow and continue — the
     // index entry simply isn't written, and the file operation runs as if the journal weren't there.
@@ -1511,6 +1522,20 @@ function collectBridgedWriteTargets(bridgedName, args) {
   }
   return out;
 }
+// v1.4.1 (audit #9):某桥接【写族】工具带【相对路径】写目标时返回该字段名(否则 null)。工作台无法可靠知道 ACC
+// 对相对路径的解析基准(ACC 子进程 cwd ≠ 会话工作区)——既不能正确快照也不能正确回滚 → 会变成【静默不可撤销】
+// 的写。分发点据此拒绝并引导改用绝对路径(绝对路径照常快照 + 可撤销)。
+function bridgedWriteRelativePathArg(bridgedName, args) {
+  const bare = unprefixedBridgedName(bridgedName);
+  const spec = BRIDGED_WRITE_PATH_ARGS[bare];
+  if (!spec) return null;
+  const fields = Array.isArray(spec.multi) ? spec.multi : [spec];
+  for (const f of fields) {
+    const raw = args && typeof args === 'object' ? args[f.field] : null;
+    if (typeof raw === 'string' && raw.trim() && !path.isAbsolute(raw)) return f.field;
+  }
+  return null;
+}
 // 单目标兼容层(保留原契约:返回首个目标 {path, mode} 或 null)。既有 e2e 直测此签名;多目标工具(move_file)
 // 由此返回其第一条(source delete)。新代码应改用 collectBridgedWriteTargets(复数,全目标)。
 function collectBridgedWriteTarget(bridgedName, args) {
@@ -1618,12 +1643,16 @@ async function journalBridgedWrite(bridgedName, args, session, config, ctx) {
 // 场景确实这么干过)。同一启发式在 bridged 分发点(callTool 之前)再设一道同款软闸;force:true 泄压。
 // 纯函数,导出供 e2e 单测;返回拒绝对象或 null(放行)。
 const BRIDGED_SCRIPT_TOOLS = new Set(['run_command', 'execute_command', 'shell', 'powershell']);
+// v1.4.1 (audit #6/#7):Office 手写检测的库/写法特征。旧版只认 pip 库 import,漏了【离线运行时里也捆绑的】
+// win32com/comtypes COM 自动化(Dispatch/CreateObject Excel|Word|PowerPoint + .SaveAs)、importlib 动态导入
+// 绕过、matplotlib savefig —— 模型可借此绕过软闸手写不可撤销 Office。此处集中强化,两道软闸共用。
+const OFFICE_WRITER_LIB_RE = /(openpyxl|xlsxwriter|python-docx|from\s+docx|import\s+docx|python-pptx|from\s+pptx|import\s+pptx|reportlab|win32com|comtypes|Dispatch\s*\(\s*['"](?:Excel|Word|PowerPoint)|CreateObject\s*\(\s*['"](?:Excel|Word|PowerPoint)|GetActiveObject\s*\(\s*['"](?:Excel|Word|PowerPoint)|\.SaveAs\b|importlib\.import_module\s*\(\s*['"](?:openpyxl|docx|pptx|xlsxwriter|reportlab)|\.savefig\s*\(|matplotlib)/i;
 function bridgedOfficeScriptGate(bridgedName, args) {
   const bare = unprefixedBridgedName(bridgedName);
   if (!BRIDGED_SCRIPT_TOOLS.has(bare)) return null;
   if (args && args.force === true) return null;
   const cmd = String((args && (args.command || args.cmd || args.code)) || '');
-  const officeLib = /(openpyxl|xlsxwriter|python-docx|from\s+docx|import\s+docx|python-pptx|from\s+pptx|import\s+pptx|reportlab)/i.test(cmd);
+  const officeLib = OFFICE_WRITER_LIB_RE.test(cmd);
   const officeFile = /\.(xlsx|xlsm|docx|pptx|pdf)\b/i.test(cmd);
   if (officeLib && officeFile) {
     return {
@@ -1850,16 +1879,28 @@ async function guardWorkspacePath(rawPath, session, config) {
 // 工作区造 .bat/.exe/.js(Windows 上 .js 默认关联是脚本宿主, 会直接执行!), 再诱导用户点「打开」= 一键执行
 // 任意程序。降级后仅在资源管理器中定位, 是否运行由用户在资源管理器里自己决定。返回 {command,args,mode,degraded}。
 // Pure (no I/O, no spawn) — exposed for e2e 单测护栏逻辑。默认 mode='open'。
-const REVEAL_EXEC_EXTS = new Set([
-  'exe', 'bat', 'cmd', 'com', 'scr', 'pif', 'msi', 'msix', 'msp',
-  'ps1', 'psm1', 'vbs', 'vbe', 'js', 'jse', 'wsf', 'wsh',
-  'hta', 'jar', 'lnk', 'url', 'reg', 'cpl', 'scf', 'dll',
+// v1.4.1 (audit #3):由「黑名单可执行扩展名」改为【白名单默认拒绝】—— 旧黑名单漏了 .settingcontent-ms /
+// .msc / .chm / .hta / .wsc / .sct / .appref-ms / .library-ms / .diagcab 等一大票 LOLBin「一键代码执行」文件类型,
+// 被提示注入的模型在工作区造这类文件再诱导用户点「打开」= 任意执行。反转:只有【已知安全的查看类】扩展名才允许
+// 'open'(文档/Office/图片/媒体/纯文本/网页),其余一律降级为资源管理器「定位」,由用户自行决定是否运行。
+const REVEAL_OPEN_SAFE_EXTS = new Set([
+  // 纯文本 / 数据(默认由文本编辑器打开)
+  'txt', 'md', 'markdown', 'rtf', 'csv', 'tsv', 'log', 'json', 'xml', 'yaml', 'yml', 'ini', 'toml', 'conf',
+  // 文档 / Office(查看器打开;Office 默认受保护视图 + 宏禁用)
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'xlsm', 'xlsb', 'ppt', 'pptx', 'odt', 'ods', 'odp',
+  // 图片
+  'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tif', 'tiff', 'heic',
+  // 音视频
+  'mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'mp4', 'm4v', 'mov', 'mkv', 'webm', 'avi', 'wmv',
+  // 网页(浏览器沙箱打开)
+  'html', 'htm',
 ]);
 function buildRevealSpawn(mode, absPath) {
   const p = String(absPath || '');
   const ext = path.extname(p).slice(1).toLowerCase();
   const wantOpen = mode !== 'select';
-  const effMode = (wantOpen && !REVEAL_EXEC_EXTS.has(ext)) ? 'open' : 'select';
+  // 白名单默认拒绝:仅安全查看类扩展名可 'open',其余(可执行/脚本/LOLBin/未知/无扩展名)→ 降级 'select'。
+  const effMode = (wantOpen && REVEAL_OPEN_SAFE_EXTS.has(ext)) ? 'open' : 'select';
   const args = (effMode === 'select') ? ['/select,' + p] : [p];
   return { command: 'explorer.exe', args, mode: effMode, degraded: wantOpen && effMode === 'select' };
 }
@@ -2503,6 +2544,27 @@ async function collectBridgedTools(config) {
     }
   }
   return { tools, route };
+}
+
+// v1.4.1: 桥接工具带 `<serverId>__` 前缀(如 ai_computer_control__excel_read)。部分 provider 模型(实测 qwen)
+// 会【丢掉前缀】直接调裸名 `excel_read` → 命不中 bridgedRoute → 落到内建兜底报「Unknown tool: excel_read」。
+// 宽容解析:①精确前缀名优先;②内建工具名绝不被桥接遮蔽(返回 null 走内建路径);③裸名在所有桥接工具里
+// 【唯一】命中某 toolName 时路由过去(≥2 个同名歧义则不猜、返回 null)。纯加法:精确前缀路径行为不变。
+let _nativeToolNameSet = null;
+function isNativeToolName(name) {
+  if (!_nativeToolNameSet) { try { _nativeToolNameSet = new Set(MCP_TOOLS.map(t => t && t.name)); } catch { _nativeToolNameSet = new Set(); } }
+  return _nativeToolNameSet.has(name);
+}
+function resolveBridge(bridgedRoute, name) {
+  if (!name || !bridgedRoute) return null;
+  if (bridgedRoute[name]) return bridgedRoute[name];       // ① 精确前缀名
+  if (isNativeToolName(name)) return null;                 // ② 内建优先,不被桥接遮蔽
+  let hit = null, count = 0;                               // ③ 裸名唯一命中桥接工具 → 容错路由
+  for (const k in bridgedRoute) {
+    const r = bridgedRoute[k];
+    if (r && r.toolName === name) { hit = r; if (++count > 1) return null; }
+  }
+  return count === 1 ? hit : null;
 }
 
 function stopSession(sessionId, reason = 'stopped') {
@@ -4312,7 +4374,7 @@ async function runSubAgent({ parentSession, provider, config, task, toolTier, ma
           if (tc.name === 'spawn_agent') {
             resultObj = { ok: false, error: '子代理不可再派生子代理' };
           } else {
-            const bridge = bridgedRoute[tc.name] || null;
+            const bridge = resolveBridge(bridgedRoute, tc.name);
             const ntier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
             // v0.9-S6 tierFilter enforcement (defense-in-depth): the tool set was already filtered to `tier`,
             // but a misbehaving model could still emit a tool_call above its tier (e.g. a read-tier sub calling
@@ -4343,7 +4405,9 @@ async function runSubAgent({ parentSession, provider, config, task, toolTier, ma
               else {
                 // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
                 const subGateRefusal = bridgedOfficeScriptGate(tc.name, args);
+                const subRelArg = subGateRefusal ? null : bridgedWriteRelativePathArg(tc.name, args); // v1.4.1 audit #9
                 if (subGateRefusal) { resultObj = subGateRefusal; }
+                else if (subRelArg) { resultObj = { ok: false, error: `桌面控制写文件必须用【绝对路径】。参数「${subRelArg}」是相对路径,无法建立检查点/回撤。请用完整绝对路径(如 盘符:\\文件夹\\文件.xlsx)重试。` }; }
                 else {
                   // v1.5-W1.5 (T3): sub-agent 也经 workbench 分发 bridged 工具 → 同样在 callTool 前存快照。
                   // 锚定 parent turnSeq(与下方 sub-agent 内建文件工具 checkpoint 同一 turn),失败静默不阻断。
@@ -4741,6 +4805,19 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            // v1.4.1 (audit #1 配对铁律):若这是【并行批】,break 会漏答本批其后的 tool_call —— 严格 provider
+            // (DeepSeek/DashScope-qwen)对未配对的 tool_call_id 报 400 并【永久卡死会话】(每回合重发孤儿历史)。
+            // 因此 break 前,给本批每个尚未回复的 tool_call 补一条配对 role:'tool'(镜像计划相位拒绝的逐条配对)。
+            const answeredIds = new Set(toolCalls.map(t => t && t.id));
+            for (const rem of call.toolCalls) {
+              if (!rem || answeredIds.has(rem.id)) continue;
+              let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
+              const skip = { ok: false, error: '本轮已因重复调用停止,该调用未执行' };
+              onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
+              onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
+              toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
+              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
+            }
             loopAborted = true;
             break;
           }
@@ -4795,7 +4872,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // v0.7d: bridged (external/desktop MCP) tools carry a serverId__tool prefix; route them to the
           // MCP stdio client. v0.8-S0: their tier now comes from BRIDGED_TOOL_TIERS (keyed by the
           // unprefixed bridge.toolName) so ACC's read-only family auto-allows in 'default' mode.
-          const bridge = bridgedRoute[tc.name] || null;
+          const bridge = resolveBridge(bridgedRoute, tc.name);
           const tier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
           let gate = nativeToolGate(config.permissionMode, tier);
           // v0.9-S5 (真流程 plan mode): once the user APPROVED this turn's plan, plan mode's blanket block on
@@ -4832,7 +4909,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 else {
                   // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
                   const gateRefusal = bridgedOfficeScriptGate(tc.name, args);
+                  const relArg = gateRefusal ? null : bridgedWriteRelativePathArg(tc.name, args); // v1.4.1 audit #9
                   if (gateRefusal) { resultObj = gateRefusal; }
+                  else if (relArg) { resultObj = { ok: false, error: `桌面控制写文件必须用【绝对路径】。参数「${relArg}」是相对路径,无法建立检查点/回撤(会变成不可撤销的写)。请用完整绝对路径(如 盘符:\\文件夹\\文件.xlsx)重试。` }; }
                   else {
                     // v1.5-W1.5 (T3): ACC 写族工具动文件之前先存 before 快照进 checkpoint journal —— 分发执行
                     // 之前(callTool 之前)插入。失败静默(不阻断工具)。gate 已通过 → 快照 gate 通过后、真正调用前。
@@ -6498,6 +6577,7 @@ function isPrivateIpv4(host) {
   if (a === 172 && b >= 16 && b <= 31) return true;   // 172.16.0.0/12
   if (a === 192 && b === 168) return true;            // 192.168.0.0/16
   if (a === 169 && b === 254) return true;            // 169.254.0.0/16 link-local + cloud metadata (…169.254)
+  if (a === 100 && b >= 64 && b <= 127) return true;  // v1.4.1 (audit #12): 100.64.0.0/10 CGNAT/共享地址段
   if (a === 0) return true;                           // 0.0.0.0/8 (this host)
   return false;
 }
@@ -6666,7 +6746,9 @@ async function dnsResolvesToPrivate(hostname) {
     const v4 = embeddedIpv4FromV6(addr);
     if (v4 && isPrivateIpv4(v4)) return { blocked: addr, host: bare };
   }
-  return null;
+  // v1.4.1 (audit #2):全部解析地址均为公网 → 回传这批地址,供 httpGetGuarded【锁定】连接到它们(避免 DNS
+  // 重绑定 TOCTOU:http/https 各自独立二次 getaddrinfo,第二次可换成内网/元数据 IP)。
+  return (addrs && addrs.length) ? { pin: addrs } : null;
 }
 // v1.1-W1a (T1): realistic browser request headers. The bare-bot UA (WCW-web_fetch/0.9) got connections
 // killed by anti-scrape edges on many CN sites (bigmodel 等). A mainstream Chrome UA + zh Accept-Language +
@@ -6705,11 +6787,18 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, maxBytes 
       if (!chk.allowed) { resolve({ ok: false, error: chk.reason, failClass: 'blocked', blocked: chk.host }); return; }
       let u;
       try { u = new URL(current); } catch { resolve({ ok: false, error: 'URL 无法解析', failClass: 'other' }); return; }
-      // v0.9 F2: DNS resolve-then-check — refuse a name that resolves to an internal address (rebinding guard).
-      const dnsBad = await dnsResolvesToPrivate(u.hostname);
-      if (dnsBad) { resolve({ ok: false, error: '解析到内网地址', failClass: 'blocked', blocked: dnsBad.blocked }); return; }
+      // v0.9 F2 / v1.4.1 audit #2: DNS resolve-then-check —— 拒绝解析到内网的名字(rebinding 守护),并把已验证的
+      // 公网地址【锁定】给本次连接(pinned lookup),使 http/https 不再独立二次解析(消除 TOCTOU 重绑定窗口)。
+      const dnsRes = await dnsResolvesToPrivate(u.hostname);
+      if (dnsRes && dnsRes.blocked) { resolve({ ok: false, error: '解析到内网地址', failClass: 'blocked', blocked: dnsRes.blocked }); return; }
       const lib = u.protocol === 'https:' ? require('https') : require('http');
-      const req = lib.request(u, { method: 'GET', timeout: timeoutMs, headers: browserHeaders({ 'user-agent': userAgent }) }, res => {
+      const reqOpts = { method: 'GET', timeout: timeoutMs, headers: browserHeaders({ 'user-agent': userAgent }) };
+      const pin = dnsRes && dnsRes.pin;
+      if (pin && pin.length) {
+        // 锁定到已验证公网地址(literal IP / 解析失败 → dnsRes 为 null → 不 pin,literal 已被 ssrfCheck 判过)。
+        reqOpts.lookup = (h, opts, cb) => { if (opts && opts.all) cb(null, pin); else cb(null, pin[0].address, pin[0].family); };
+      }
+      const req = lib.request(u, reqOpts, res => {
         const status = res.statusCode || 0;
         // Redirect handling — re-check every hop.
         if (status >= 300 && status < 400 && res.headers.location) {
@@ -7017,24 +7106,27 @@ async function httpRequest(args = {}) {
   const method = String(args.method || 'GET').toUpperCase();
   const body = args.body === undefined ? null : String(args.body);
   const timeoutMs = Number(args.timeoutMs || 20000);
+  const maxChars = Number(args.maxBodyChars || 200000);
+  // v1.4.1 (audit #11):此前把整个响应体缓冲进内存再截断 —— 恶意/失控端点可无上限撑爆内存。加【字节硬顶】,
+  // 超顶即返回已收的截断体并 destroy 连接停止下载。done 守护防双 resolve / 防 destroy 后的 error 事件误触。
+  const hardCap = Math.max(1, maxChars) * 4 + 65536; // utf8 每字符 ≤4 字节 + 余量
   return new Promise(resolve => {
+    let done = false;
+    const finish = v => { if (done) return; done = true; resolve(v); };
     const req = lib.request(target, { method, headers: args.headers || {}, timeout: timeoutMs }, res => {
-      const chunks = [];
-      res.on('data', d => chunks.push(d));
-      res.on('end', () => {
-        const raw = Buffer.concat(chunks);
-        resolve({
-          ok: res.statusCode >= 200 && res.statusCode < 400,
-          statusCode: res.statusCode,
-          headers: res.headers,
-          body: raw.toString('utf8').slice(0, Number(args.maxBodyChars || 200000)),
-        });
+      const chunks = []; let total = 0;
+      res.on('data', d => {
+        if (done) return;
+        chunks.push(d); total += d.length;
+        if (total >= hardCap) {
+          finish({ ok: res.statusCode >= 200 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: true });
+          try { req.destroy(); } catch { /* ignore */ }
+        }
       });
+      res.on('end', () => finish({ ok: res.statusCode >= 200 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: false }));
     });
-    req.on('timeout', () => {
-      req.destroy(new Error(`timeout after ${timeoutMs}ms`));
-    });
-    req.on('error', error => resolve({ ok: false, error: error.message }));
+    req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
+    req.on('error', error => finish({ ok: false, error: error.message }));
     if (body) req.write(body);
     req.end();
   });
@@ -7314,7 +7406,7 @@ async function toolCall(name, args = {}, ctx = null) {
       // (并应向用户说明该产出不可自动撤销)。提示词是软约束,这里是硬闸(带 force 泄压阀,不锁死能力)。
       {
         const codeStr = String(args.code || '');
-        const officeLib = /(openpyxl|xlsxwriter|python-docx|from\s+docx|import\s+docx|python-pptx|from\s+pptx|import\s+pptx|reportlab)/i.test(codeStr);
+        const officeLib = OFFICE_WRITER_LIB_RE.test(codeStr);   // v1.4.1 (audit #7):与 bridged 软闸共用强化正则
         const officeFile = /\.(xlsx|xlsm|docx|pptx|pdf)\b/i.test(codeStr);
         if (args.force !== true && officeLib && officeFile) {
           return {
@@ -8198,8 +8290,50 @@ async function handleApi(req, res, pathname) {
     const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId')); // F4
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const entries = await journalReadIndex(sessionId);
+    // v1.4.1: 附上每条目当前磁盘大小(改动后状态),前端可显示「原 X → 现 Y」的大小变化 + 判定是否值得看 diff。
+    const enriched = await Promise.all(entries.map(async e => {
+      let currentBytes = null;
+      if (e && e.path) { try { const st = await fsp.stat(e.path); currentBytes = st.isFile() ? st.size : null; } catch { currentBytes = null; } }
+      return { ...e, currentBytes };
+    }));
     const totalBytes = entries.reduce((s, e) => s + (Number(e.bytes) || 0), 0);
-    return send(res, json({ ok: true, entries, totalBytes }));
+    return send(res, json({ ok: true, entries: enriched, totalBytes }));
+  }
+  // v1.4.1: 单条变更的「改动前↔现在」对比。GET /api/checkpoints/diff?sessionId=&turnSeq=&entrySeq=
+  // before = 本地 .gz 快照(create 无);after = 当前磁盘文件(delete 无)。文本文件返回内容(前端渲染 diff),
+  // 二进制/过大只返回字节数。token-gated(GET 不走上面的变更类鉴权块,此处显式校验)。path 取自我方 journal
+  // 索引(非用户输入,零穿越面);内容为工作台自身写过的文件,不新增暴露面(是 /api/file/preview 的严格子集)。
+  if (req.method === 'GET' && pathname === '/api/checkpoints/diff') {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const q = new URL(req.url, 'http://x').searchParams;
+    const sessionId = safeSessionId(q.get('sessionId'));
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const turnSeq = Number(q.get('turnSeq')), entrySeq = Number(q.get('entrySeq'));
+    const idx = await journalReadIndex(sessionId);
+    const entry = idx.find(e => e && Number(e.turnSeq) === turnSeq && Number(e.entrySeq) === entrySeq);
+    if (!entry) return send(res, json({ ok: false, error: 'entry not found' }, 404));
+    const p = String(entry.path || '');
+    const ext = String(path.extname(p).replace(/^\./, '')).toLowerCase();
+    const DIFF_TEXT_MAX = 256 * 1024; // 单侧文本上限;超限只给大小
+    const textish = PREVIEW_TEXT_EXTS.has(ext) || ext === '' || ext === 'log';
+    let beforeBuf = null, afterBuf = null;
+    if (entry.op !== 'create' && !entry.skipped) {
+      try { beforeBuf = zlib.gunzipSync(await fsp.readFile(path.join(journalDir(sessionId), `${turnSeq}-${entrySeq}.gz`))); } catch { beforeBuf = null; }
+    }
+    if (entry.op !== 'delete') { try { afterBuf = await fsp.readFile(p); } catch { afterBuf = null; } }
+    const looksBinary = b => !!b && b.slice(0, 8192).includes(0);
+    const tooBig = b => !!b && b.length > DIFF_TEXT_MAX;
+    const out = { ok: true, op: entry.op, path: p, skipped: !!entry.skipped,
+      beforeBytes: beforeBuf ? beforeBuf.length : (entry.op === 'create' ? 0 : (Number(entry.bytes) || null)),
+      afterBytes: afterBuf ? afterBuf.length : (entry.op === 'delete' ? 0 : (Number(entry.currentBytes) || null)) };
+    if (textish && !looksBinary(beforeBuf) && !looksBinary(afterBuf) && !tooBig(beforeBuf) && !tooBig(afterBuf)) {
+      out.isText = true;
+      out.before = beforeBuf ? beforeBuf.toString('utf8') : '';
+      out.after = afterBuf ? afterBuf.toString('utf8') : '';
+    } else {
+      out.isText = false; out.binary = true;
+    }
+    return send(res, json(out));
   }
   // v0.9-S4 (C4): local file PREVIEW. GET /api/file/preview?path=&sessionId= — returns file content for the
   // 「产物」gallery + file tree. Token-gated (needsToken whitelist above) AND re-checked here (GETs never run
@@ -9243,6 +9377,7 @@ module.exports = {
   scanMcpDropIns,
   invalidateMcpDropInCache,
   collectBridgedTools,
+  resolveBridge, // v1.4.1: bridged-name prefix-tolerant routing (models that drop the serverId__ prefix)
   normalizeConfig,
   normalizeSession,
   detectDanglingTurn,

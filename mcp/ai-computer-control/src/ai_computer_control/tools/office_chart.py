@@ -141,6 +141,17 @@ def chart_image(
         if not isinstance(vals, list) or len(vals) != len(labels):
             return {"error": f"系列 {s.get('name', i + 1)} 的 values 长度({len(vals) if isinstance(vals, list) else '?'}) "
                              f"必须等于 labels 长度({len(labels)})"}
+        # 强制数值：非数值(如字符串)会被 matplotlib 当分类轴静默画错，这里直接拒绝。
+        # 合法 int/float/数字字符串照常 float 化后回写，供下方各图路径使用。
+        coerced = []
+        for j, v in enumerate(vals):
+            if isinstance(v, bool) or v is None:
+                return {"error": f"series '{s.get('name', i + 1)}' 的第 {j + 1} 个值 {v!r} 不是数值，无法绘图"}
+            try:
+                coerced.append(float(v))
+            except (TypeError, ValueError):
+                return {"error": f"series '{s.get('name', i + 1)}' 的第 {j + 1} 个值 {v!r} 不是数值，无法绘图"}
+        s["values"] = coerced
     if ctype == "pie" and len(series) != 1:
         return {"error": "饼图只能有一个系列（single series），当前有 " + str(len(series)) + " 个"}
 
