@@ -574,11 +574,18 @@ function isDesktopMcpRepo(dir) {
 function desktopMcpFromRepo(repoRoot) {
   const python = pickPython(repoRoot);
   const src = path.join(repoRoot, 'src');
+  const desktopEnv = { PYTHONPATH: src, PYTHONUTF8: '1' };
+  // Offline releases keep Playwright's browser payload beside the embedded Python runtime. Without
+  // this variable Playwright falls back to the user's cache and reports Chromium missing even though
+  // the package contains it.
+  const bundledBrowsers = path.join(repoRoot, 'playwright_browsers');
+  try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
+  catch { /* optional payload; browser tools will degrade gracefully */ }
   return {
     command: python,
     args: ['-X', 'utf8', '-m', 'ai_computer_control.server'],
     cwd: repoRoot,
-    env: { PYTHONPATH: src, PYTHONUTF8: '1' },
+    env: desktopEnv,
     via: 'python-module',
   };
 }
