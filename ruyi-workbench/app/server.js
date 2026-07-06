@@ -593,6 +593,9 @@ function detectDesktopMcp() {
     // at <repo>/mcp/ai-computer-control with the app at <repo>/ruyi-workbench/app, or flattened
     // with app/ at the package root) so a shipped copy beats a stale user checkout.
     const repoCandidates = [
+      // In a pkg executable __dirname points into the read-only compile snapshot, while the bundled
+      // MCP lives beside Ruyi.exe. externalRoot() resolves that real release directory.
+      path.join(externalRoot(), 'mcp', 'ai-computer-control'),
       path.join(__dirname, '..', '..', 'mcp', 'ai-computer-control'),
       path.join(__dirname, '..', 'mcp', 'ai-computer-control'),
       home && path.join(home, 'Documents', 'Claude Code', 'ai-computer-control'),
