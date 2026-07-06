@@ -1172,6 +1172,19 @@ async function createSession({ title, cwd }) {
 const JOURNAL_MAX_BEFORE_BYTES = 5 * 1024 * 1024;   // >5MB before-content → skipped:true, content not stored
 const JOURNAL_KEEP_TURNS = 20;                       // per-session GC: keep the most recent 20 turnSeqs
 const JOURNAL_GLOBAL_MAX_BYTES = 200 * 1024 * 1024;  // global cap: purge oldest sessions (dir mtime) over this
+// Parallel sub-agents may checkpoint different files in the same parent turn. Serialize each session's
+// read-modify-write index transaction so entrySeq stays unique and a later write cannot overwrite an
+// earlier agent's index entry. Different sessions retain full concurrency.
+const journalWriteChains = new Map(); // sessionId -> Promise
+
+async function withJournalWriteLock(sessionId, work) {
+  const key = String(sessionId || '');
+  const previous = journalWriteChains.get(key) || Promise.resolve();
+  const current = previous.catch(() => {}).then(work);
+  journalWriteChains.set(key, current);
+  try { return await current; }
+  finally { if (journalWriteChains.get(key) === current) journalWriteChains.delete(key); }
+}
 
 function journalDir(sessionId) { return path.join(paths.checkpoints, String(sessionId)); }
 function journalIndexPath(sessionId) { return path.join(journalDir(sessionId), 'index.json'); }
@@ -1215,6 +1228,10 @@ async function journalResolveTurnSeq(sessionId, explicitTurnSeq) {
 // modify/delete, or null for create (nothing to save). op ∈ 'create'|'modify'|'delete'. entrySeq is the
 // per-turn running count (derived from how many entries already exist for this turnSeq).
 async function journalRecord(sessionId, turnSeq, tool, filePath, op, beforeContent) {
+  return withJournalWriteLock(sessionId, () => journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, beforeContent));
+}
+
+async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, beforeContent) {
   try {
     if (!sessionId || !Number.isFinite(turnSeq)) return; // no session context → nothing to anchor to
     const dir = journalDir(sessionId);
@@ -4634,10 +4651,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // one-shot pause (we look for a PLAN: on the FIRST assistant message only). `planRejected` records a reject.
   let planApproved = false, planRejected = false, planPhase = planMode, planRejectNote = '';
   const isProviderPlanMode = planMode; // stable snapshot for the gate (config isn't mutated, but read once)
-  // v0.9-S6 (子代理) turn-local state. The provider tool loop awaits each tool_call SERIALLY, so at any instant
-  // only one sub-turn runs — "concurrency" here means how many spawn_agent calls one ASSISTANT MESSAGE fans
-  // out. `subagentBatchCount` resets at the top of each assistant tool batch; the 3rd+ spawn_agent in a single
-  // batch is refused (SUBAGENT_FANOUT_MAX=2 is the non-configurable safety ceiling). `subagentTotal` counts
+  // v0.9-S6 (子代理) turn-local state. spawn_agent calls emitted in ONE assistant tool batch are started
+  // together and awaited in their original tool_call order, so provider-history pairing stays deterministic
+  // while the delegated work actually overlaps. `subagentBatchCount` resets at the top of each assistant
+  // tool batch; the 3rd+ spawn_agent in a single batch is refused (SUBAGENT_FANOUT_MAX=2 is the hard ceiling).
+  // `subagentTotal` counts
   // total sub-turns this whole turn and is capped by config.subagentMaxPerTurn (0 = feature disabled → the
   // tool isn't even offered, so this path is unreachable at 0). `subDepth` is the depth we hand to runSubAgent.
   let subagentBatchCount = 0, subagentTotal = 0;
@@ -4794,6 +4812,44 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // no user message wedged between an assistant.tool_calls and its role:'tool' replies). So we collect the
         // image messages here and FLUSH them after the for-loop, once every role:'tool' reply has been pushed.
         const pendingToolImages = []; // [{ toolCallId, note, parts:[{text},{image_url}…] }]
+        // Start the accepted spawn_agent calls before awaiting any one of them. Only spawn_agent participates:
+        // ordinary tools keep their historical serial ordering. Results are consumed below in original call
+        // order, preserving one contiguous assistant.tool_calls → role:'tool' block for strict providers.
+        const subagentPromises = new Map();
+        let projectedLoopSig = loopSig, projectedLoopCount = loopCount, projectedLoopAborted = false;
+        for (const stc of call.toolCalls) {
+          if (!stc) continue;
+          const projectedSig = stc.name + ' ' + stc.rawArgs;
+          if (projectedSig === projectedLoopSig) projectedLoopCount += 1;
+          else { projectedLoopSig = projectedSig; projectedLoopCount = 1; }
+          if (projectedLoopCount >= LOOP_ABORT_AT) projectedLoopAborted = true;
+          // Do not speculatively launch work that the serial loop guard will refuse, or work positioned
+          // after the call that aborts the batch. This preserves the guard's no-side-effects guarantee.
+          if (projectedLoopAborted) continue;
+          if (stc.name !== 'spawn_agent') continue;
+          let sargs = {}; try { sargs = JSON.parse(stc.rawArgs || '{}'); } catch { sargs = {}; }
+          subagentBatchCount += 1;
+          if (subagentBatchCount > SUBAGENT_FANOUT_MAX) {
+            subagentPromises.set(stc.id, Promise.resolve({ ok: false, error: '子代理并发已达上限(2),请等待或串行' }));
+            continue;
+          }
+          if (subagentTotal >= subagentTurnCap) {
+            subagentPromises.set(stc.id, Promise.resolve({ ok: false, error: `本回合子代理数已达上限(${subagentTurnCap})` }));
+            continue;
+          }
+          subagentTotal += 1;
+          const subId = makeId('sub');
+          const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
+          const promise = runSubAgent({
+            parentSession: session, provider, config,
+            task: String(sargs.task || ''), toolTier: sargs.toolTier, maxIters: sargs.maxIters, model: sargs.model,
+            onEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
+          }).then(sub => sub.ok
+            ? { ok: true, result: sub.result, iters: sub.iters, toolCalls: sub.toolCalls }
+            : { ok: false, error: sub.error || '子代理失败', result: sub.result || undefined, iters: sub.iters, toolCalls: sub.toolCalls }
+          ).catch(e => ({ ok: false, error: (e && e.message) ? e.message : String(e) }));
+          subagentPromises.set(stc.id, promise);
+        }
         for (const tc of call.toolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we
@@ -4829,40 +4885,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // live provider/session/journal/onEvent closure to run a sub-turn. It never reaches the generic
           // gate/dispatch below. Two guards, both enforced before running:
           //  (1) single-batch fan-out ceiling — at most SUBAGENT_FANOUT_MAX(2) spawn_agent calls per assistant
-          //      message. Because the loop awaits calls serially, ">2 in one batch" is the real "concurrency";
+          //      message; accepted calls were pre-launched above and therefore overlap;
           //  (2) per-turn total cap — config.subagentMaxPerTurn (already ≥1 here, else the tool wasn't offered).
           // A refused spawn still emits a tool_result (keeps assistant.tool_calls pairing valid) and continues.
           let resultObj; // v0.9-S6: declared here so the spawn_agent branch and the normal dispatch share it
           if (tc.name === 'spawn_agent') {
-            subagentBatchCount += 1;
-            if (subagentBatchCount > SUBAGENT_FANOUT_MAX) {
-              resultObj = { ok: false, error: '子代理并发已达上限(2),请等待或串行' };
-            } else if (subagentTotal >= subagentTurnCap) {
-              resultObj = { ok: false, error: `本回合子代理数已达上限(${subagentTurnCap})` };
-            } else {
-              subagentTotal += 1;
-              const subId = makeId('sub');
-              // v0.9 F4: propagate THIS turn's plan-approval state into the sub-agent's gate. When the parent
-              // turn is in provider plan mode and the user has approved the plan (planApproved), the sub-agent
-              // inherits a permissive mode so it can carry out the approved work; otherwise it runs under the
-              // parent's real permissionMode (which, for an un-approved plan-mode turn, is 'plan' → its
-              // edit/exec tools stay hard-blocked). This is turn-local only; global config is unchanged.
-              // DESIGN NOTE (deviation from the F4 spec's literal 'default'): a sub-turn has NO interactive
-              // channel, so nativeToolGate('default','edit'|'exec') === 'ask' would resolve to a REFUSAL and the
-              // approved work could never run — defeating F4's whole purpose. The parent's own post-approval
-              // gate already lifts to 'allow' (planApproved short-circuits the plan block), i.e. a plan-level
-              // approval is a BLANKET allow for this turn's mutations. We mirror that exactly by passing
-              // 'bypass' (allow-all) for the approved-sub case; un-approved stays 'plan' (hard block). See F4 pin.
-              const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
-              const sub = await runSubAgent({
-                parentSession: session, provider, config,
-                task: String(args.task || ''), toolTier: args.toolTier, maxIters: args.maxIters, model: args.model,
-                onEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
-              });
-              resultObj = sub.ok
-                ? { ok: true, result: sub.result, iters: sub.iters, toolCalls: sub.toolCalls }
-                : { ok: false, error: sub.error || '子代理失败', result: sub.result || undefined, iters: sub.iters, toolCalls: sub.toolCalls };
-            }
+            resultObj = await (subagentPromises.get(tc.id) || Promise.resolve({ ok: false, error: '子代理调度失败' }));
             // Share the normal tool-result tail (event + records + history push) via the block below.
             const isErr = !!(resultObj && resultObj.ok === false);
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });

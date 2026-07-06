@@ -255,7 +255,9 @@ function renderSessions() {
 function sessionItem(s) {
   const item = el('button', `session-item ${state.currentSession?.id === s.id ? 'active' : ''}`);
   const title = el('span', 's-title', (s.pinned ? '📌 ' : '') + (s.title || s.id));
-  const sub = el('span', 's-sub', `${s.messageCount || 0} 条 · ${s.summary || s.cwd || ''}`);
+  const running = activeTurns.has(s.id);
+  if (running) item.classList.add('running');
+  const sub = el('span', 's-sub', `${running ? '◐ 运行中 · ' : ''}${s.messageCount || 0} 条 · ${s.summary || s.cwd || ''}`);
   const actions = el('span', 's-actions');
   const pinBtn = el('button', '', s.pinned ? '📌' : '📍'); pinBtn.title = s.pinned ? '取消置顶' : '置顶';
   pinBtn.onclick = e => { e.stopPropagation(); patchSession(s.id, { pinned: !s.pinned }); };
@@ -283,6 +285,7 @@ async function openSession(id) {
   renderSessions();
   renderCurrentSession();
   renderResumeBanner();
+  syncStreamingUi();
 }
 // v0.8-S0 A6: show a lightweight banner above the composer when the opened session has a dangling
 // (interrupted) turn. "继续" resends a prompt asking the model to finish; the banner then hides.
@@ -534,6 +537,7 @@ async function newSession() {
   await refreshSessions();
   renderCurrentSession();
   renderResumeBanner();
+  syncStreamingUi();
   $('promptInput').focus();
 }
 async function patchSession(id, patch) {
@@ -1609,7 +1613,10 @@ async function handleDrop(e) {
 }
 
 /* ---------------- streaming turn ---------------- */
-let liveAbort = null;
+// One live stream per session. Switching sessions only changes which entry drives the composer; it never
+// aborts another session's request. Streams for background sessions keep draining so the server connection
+// stays alive, and their final persisted message appears when that session is opened again.
+const activeTurns = new Map(); // sessionId -> { abort, startedAt }
 // The proc-dot moved into the model chip (.mc-dot) in v0.7b. setProc now drives that dot's three
 // states (running/stopped/idle) + an engine-aware title, reusing the pulse animation via CSS.
 function setProc(state_) {
@@ -1635,6 +1642,12 @@ function setStreaming(on) {
     btn.onclick = on ? stopTurn : () => sendPrompt();
   }
   updateJumpLatest();
+}
+function syncStreamingUi() {
+  const sid = state.currentSession?.id || '';
+  const on = !!sid && activeTurns.has(sid);
+  setStreaming(on);
+  setProc(on ? 'running' : 'idle');
 }
 
 // v1.0.2 (F3): 压缩进行中的持续指示。compactState.active 防重入(进行中再点=忽略);indicator 是 composer
@@ -1698,13 +1711,13 @@ async function sendPrompt(overrideText) {
   // becomes an interjection routed to /api/steer (enqueued + injected at the next tool-loop boundary).
   // The Claude engine keeps the old behavior (composer ignored mid-stream: its tools run in a transient
   // MCP child, out of this slice).
-  if (state.streaming) { if (isProviderMode()) return steerPrompt(overrideText); return; }
+  const selectedId = state.currentSession?.id || '';
+  if (selectedId && activeTurns.has(selectedId)) { if (isProviderMode()) return steerPrompt(overrideText); return; }
   const message = (overrideText != null ? overrideText : $('promptInput').value).trim();
   if (!message) return;
   if (!state.currentSession) await newSession();
 
-  setStreaming(true);
-  setProc('running');
+  const turnSessionId = state.currentSession.id;
   if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); }
   try { localStorage.removeItem('wcw.draft'); } catch { /* ignore */ }
 
@@ -1725,11 +1738,14 @@ async function sendPrompt(overrideText) {
   box.appendChild(row);
   box.scrollTop = box.scrollHeight;
 
-  liveAbort = new AbortController();
+  const turnAbort = new AbortController();
+  activeTurns.set(turnSessionId, { abort: turnAbort, startedAt: Date.now() });
+  syncStreamingUi();
+  renderSessions();
   try {
     const res = await fetch('/api/chat/stream', {
-      method: 'POST', headers: authHeaders(), signal: liveAbort.signal,
-      body: JSON.stringify({ sessionId: state.currentSession.id, message, cwd: currentWorkspace(), attachments: sentAttachments }),
+      method: 'POST', headers: authHeaders(), signal: turnAbort.signal,
+      body: JSON.stringify({ sessionId: turnSessionId, message, cwd: currentWorkspace(), attachments: sentAttachments }),
     });
     if (!res.ok || !res.body) throw new Error(await res.text());
     const reader = res.body.getReader();
@@ -1741,12 +1757,18 @@ async function sendPrompt(overrideText) {
       buf += decoder.decode(value, { stream: true });
       const lines = buf.split(/\r?\n/);
       buf = lines.pop() || '';
-      for (const line of lines) handleStreamLine(line, live, main);
+      // A background session must not mutate the visible session's DOM/state. Its stream is still drained;
+      // the server persists the complete turn and the final reload below refreshes it when visible.
+      if (state.currentSession?.id === turnSessionId) for (const line of lines) handleStreamLine(line, live, main, turnSessionId);
     }
-    if (buf.trim()) handleStreamLine(buf, live, main);
+    if (buf.trim() && state.currentSession?.id === turnSessionId) handleStreamLine(buf, live, main, turnSessionId);
     finalizeLive(live);
     await refreshSessions();
-    if (state.currentSession?.id) { const r = await api(`/api/sessions/${state.currentSession.id}`); state.currentSession = r.session; state.resumable = r.resumable || null; renderResumeBanner(); }
+    if (state.currentSession?.id === turnSessionId) {
+      const r = await api(`/api/sessions/${turnSessionId}`);
+      state.currentSession = r.session; state.resumable = r.resumable || null;
+      renderCurrentSession(); renderResumeBanner();
+    }
   } catch (err) {
     // C6: aborts read as a neutral note (.msg-note), real failures as a red .msg-error block — not
     // stuffed into the markdown buffer. finalizeLive still renders whatever text streamed before this.
@@ -1754,9 +1776,9 @@ async function sendPrompt(overrideText) {
     else { appendMsgError(main, live, String(err.message || err)); toast(`出错：${err.message || err}`, 'err'); }
     finalizeLive(live);
   } finally {
-    setStreaming(false);
-    setProc('idle');
-    liveAbort = null;
+    activeTurns.delete(turnSessionId);
+    syncStreamingUi();
+    renderSessions();
   }
 }
 
@@ -1794,8 +1816,10 @@ function renderSteeredMessage(text) {
 }
 
 function stopTurn() {
-  if (liveAbort) liveAbort.abort();
-  if (state.currentSession?.id) api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: state.currentSession.id }) }).catch(() => {});
+  const sid = state.currentSession?.id || '';
+  const turn = sid ? activeTurns.get(sid) : null;
+  if (turn && turn.abort) turn.abort.abort();
+  if (sid) api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: sid }) }).catch(() => {});
   setProc('stopped');
 }
 
@@ -1864,13 +1888,13 @@ function scrollMessagesToBottom() {
   updateJumpLatest();
 }
 
-function handleStreamLine(line, live, main) {
+function handleStreamLine(line, live, main, streamSessionId) {
   if (!line.trim()) return;
   let evt;
   try { evt = JSON.parse(line); } catch { return; }
   switch (evt.type) {
     case 'session':
-      if (evt.session) { state.currentSession = evt.session; renderSessions(); }
+      if (evt.session && state.currentSession?.id === streamSessionId) { state.currentSession = evt.session; renderSessions(); }
       break;
     case 'raw_line':
       pushRawEvent(evt.seq, evt.line);

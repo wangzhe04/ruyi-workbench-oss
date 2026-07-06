@@ -188,6 +188,10 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(!!capRefused, '(c) the 3rd spawn_agent in one batch refused with «上限»');
     const startsC = ev3.filter(e => e.type === 'subagent' && e.state === 'start');
     ok(startsC.length === 2, '(c) exactly 2 sub-turns actually started (3rd never ran) — got ' + startsC.length);
+    const firstEndC = ev3.findIndex(e => e.type === 'subagent' && e.state === 'end');
+    const secondStartC = ev3.findIndex((e, i) => i > ev3.findIndex(x => x.type === 'subagent' && x.state === 'start') && e.type === 'subagent' && e.state === 'start');
+    ok(secondStartC >= 0 && firstEndC > secondStartC,
+       '(c) both accepted sub-agents start before either ends (real overlap, not serial fan-out)');
 
     // ── (d) toolTier=read → sub cannot see file_write → r.txt not written ─────────────────────────────────
     killp(fake); await sleep(300);

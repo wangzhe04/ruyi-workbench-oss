@@ -130,6 +130,8 @@ const CRITICAL_FUNCS = [
   'renderDiffView',
   // perf.e2e 断言(窗口化)
   'renderCurrentSession', 'windowStartFor', 'buildLoadEarlierButton',
+  // Per-session turn state: switching sessions must not inherit another session's busy UI.
+  'syncStreamingUi',
   // 工作文件夹选择(onboard.e2e:pickWorkspace/pickWorkspaceNative 两名之一)
   // 单列在下方以「或」逻辑断言。
   // 计划事件(战略清单点名)
@@ -160,6 +162,13 @@ ok(/function\s+pickWorkspace(?:Native)?\s*\(|(?:const|let)\s+pickWorkspace(?:Nat
 ok(/window\.state\s*=\s*state\b/.test(src), '⑤ 聚合源码含 window.state = state(全局兼容层)');
 
 // ───────────── ⑥ 参与聚合的前端源文件清单(报告用)─────────────
+// Concurrent sessions keep independent abort/state handles. A single global liveAbort
+// regresses session switching back to one foreground-only turn.
+ok(/const\s+activeTurns\s*=\s*new\s+Map\s*\(/.test(src),
+  'per-session activeTurns registry is defined');
+ok(!/\blet\s+liveAbort\b/.test(src),
+  'legacy global liveAbort state is absent');
+
 const files = frontendSrcFiles().map(f => path.relative(PUB, f).replace(/\\/g, '/'));
 console.log(`INFO 参与聚合的前端源文件(${files.length}): ${files.join(', ')}`);
 
