@@ -73,6 +73,7 @@ const CRITICAL_IDS = [
   'stab-basic', 'stab-providers', 'stab-claude', 'stab-integrations', 'stab-network', 'stab-advanced',
   'cfgSearchType', 'cfgSearchBaseUrl', 'cfgSearchApiKey', 'cfgSearchApiKeyRow', 'cfgSearchBaseUrlRow',
   'cfgEngineMode', 'cfgUiMode', 'addProviderBtn', 'providersList', 'providerPresetSelect',
+  'cfgSubagentMaxConcurrent', 'cfgSubagentMaxPerTurn',
   // 右侧工具页签(switchTab;ia.e2e 依赖 tab 结构 + 简易模式隐开发者组)。
   'toolPane', 'tab-files', 'tab-changes', 'tab-powershell', 'tab-mcp', 'tab-artifacts',
   'tab-audit', 'tab-debug', 'tab-doctor', 'tab-desktop', 'toggleToolsBtn',

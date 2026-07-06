@@ -2287,16 +2287,18 @@ function handleSubagentEvent(evt, live) {
     const task = String(evt.task || '').replace(/\s+/g, ' ').trim();
     const taskShort = task.length > 40 ? task.slice(0, 40) + '…' : task;
     const tierTag = evt.toolTier ? ` · ${evt.toolTier}` : '';
+    const keyTag = evt.agentKey ? `[${evt.agentKey}] ` : '';
+    const dependencyTag = Array.isArray(evt.dependsOn) && evt.dependsOn.length ? ` · 依赖 ${evt.dependsOn.join(', ')}` : '';
     sum.append(
       el('span', 'sa-icon', '🤖'),
-      el('span', 'sa-title', `子任务：${taskShort || '(无描述)'}`),
-      el('span', 'sa-status', `执行中…${tierTag}`),
+      el('span', 'sa-title', `${keyTag}子任务：${taskShort || '(无描述)'}`),
+      el('span', 'sa-status', `执行中…${tierTag}${dependencyTag}`),
     );
     d.appendChild(sum);
     const body = el('div', 'subagent-body');
     d.appendChild(body);
     live.toolsWrap.appendChild(d);
-    live.subCards.set(id, { d, body, status: sum.querySelector('.sa-status'), tierTag });
+    live.subCards.set(id, { d, body, status: sum.querySelector('.sa-status'), tierTag, dependencyTag });
     return;
   }
   if (evt.state === 'end') {
@@ -2306,7 +2308,7 @@ function handleSubagentEvent(evt, live) {
     host.d.classList.add(ok ? 'sa-ok' : 'sa-err');
     if (host.status) {
       const chars = Number(evt.resultChars) || 0;
-      host.status.textContent = `${ok ? '✓ 完成' : '✗ 失败'} · ${chars} 字结论${host.tierTag}`;
+      host.status.textContent = `${ok ? '✓ 完成' : '✗ 失败'} · ${chars} 字结论${host.tierTag}${host.dependencyTag || ''}`;
       host.status.classList.add(ok ? 'ok' : 'err');
     }
     if (!ok) host.d.open = true; // surface a failed sub-turn automatically
@@ -3403,6 +3405,8 @@ function fillSettings() {
   const kp = $('cfgKillPort'); if (kp) kp.checked = c.killPortOnStart !== false;
   // v1.0.2 (G5a): 单回合工具调用上限 (openaiMaxToolIterations, 1..100, 默认 40)。
   { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 40; }
+  { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 2)); }
+  { const el0 = $('cfgSubagentMaxPerTurn'); if (el0) el0.value = Math.max(0, Math.min(32, Number.isFinite(Number(c.subagentMaxPerTurn)) ? Number(c.subagentMaxPerTurn) : 4)); }
   // v0.7d: integrations / MCP tab.
   const dm = c.desktopMcp || {};
   const dmEn = $('cfgDesktopMcpEnabled'); if (dmEn) dmEn.checked = dm.enabled !== false;
@@ -3489,6 +3493,16 @@ async function saveSettings() {
       const n = Math.round(Number(el0.value));
       if (!Number.isFinite(n)) return 40;
       return Math.max(1, Math.min(100, n));
+    })(),
+    subagentMaxConcurrent: (() => {
+      const el0 = $('cfgSubagentMaxConcurrent');
+      const n = Math.round(Number(el0 ? el0.value : state.config.subagentMaxConcurrent));
+      return Number.isFinite(n) ? Math.max(1, Math.min(8, n)) : 2;
+    })(),
+    subagentMaxPerTurn: (() => {
+      const el0 = $('cfgSubagentMaxPerTurn');
+      const n = Math.round(Number(el0 ? el0.value : state.config.subagentMaxPerTurn));
+      return Number.isFinite(n) ? Math.max(0, Math.min(32, n)) : 4;
     })(),
     providers: state.providersDraft || [],
     // v0.7d: desktop MCP + bridge switch. autodetect stays on so a blank command keeps auto-discovering.

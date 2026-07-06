@@ -513,6 +513,18 @@
               <input id="cfgOpenaiMaxToolIterations" type="number" min="1" max="100" step="1" placeholder="40" />
               <p class="field-help muted">AI 一个回合内最多连续调用多少次工具，默认 40。</p>
             </div>
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgSubagentMaxConcurrent">子代理每阶段并发数</label>
+                <input id="cfgSubagentMaxConcurrent" type="number" min="1" max="8" step="1" placeholder="2" />
+                <p class="field-help muted">同一阶段可同时运行的子代理数，范围 1–8。</p>
+              </div>
+              <div class="field-block">
+                <label for="cfgSubagentMaxPerTurn">子代理每回合总数</label>
+                <input id="cfgSubagentMaxPerTurn" type="number" min="0" max="32" step="1" placeholder="4" />
+                <p class="field-help muted">所有并行和串行阶段累计上限；设为 0 可关闭子代理。</p>
+              </div>
+            </div>
             <div class="field-block">
               <label>数据目录</label>
               <div class="adv-row"><code id="advDataRoot" class="adv-val"></code><button type="button" id="openDataDirBtn" class="file-label">打开数据目录</button></div>

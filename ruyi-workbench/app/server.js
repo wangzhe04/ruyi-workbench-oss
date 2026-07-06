@@ -189,11 +189,9 @@ function defaultConfig() {
     // resolve candidate roots so a folder the user has worked in before is found even if it lives off the
     // drive-root/home fingerprint set. normalizeConfig cleanses to a de-duped string array truncated to 10.
     recentWorkspaces: [],
-    // v0.9-S6 (D4): single-assistant-batch fan-out cap for spawn_agent (子代理). The provider tool loop
-    // awaits each tool_call serially, so at any instant a sub-turn runs alone — this cap limits how many
-    // spawn_agent calls ONE assistant message may fan out (a batch of parallel tool_calls). Clamped 0..8;
-    // 0 = DISABLE the feature entirely (spawn_agent is not registered in buildOpenAiTools). Default 4.
-    // (The hard concurrency ceiling of 2 is a separate, non-configurable safety bound — see runOpenAiTurn.)
+    // Sub-agent orchestration limits. maxConcurrent controls one parallel stage; maxPerTurn controls all
+    // stages combined. 0 total disables spawn_agent entirely.
+    subagentMaxConcurrent: 2,
     subagentMaxPerTurn: 4,
     // v0.9-S9 (D6): web-search backend for the web_search tool. baseUrl = the searxng/custom endpoint (an
     // admin-configured, TRUSTED endpoint — its outbound request is exempt from the SSRF check; only
@@ -364,11 +362,15 @@ function normalizeConfig(raw) {
     if (JSON.stringify(clean) !== JSON.stringify(config.recentWorkspaces)) { config.recentWorkspaces = clean; changed = true; }
     else config.recentWorkspaces = clean;
   }
-  // v0.9-S6 (D4): subagentMaxPerTurn — single-batch fan-out cap for spawn_agent. Clamp 0..8; a non-numeric
-  // value must never leave it undefined (defaults to 4). 0 = feature off (tool unregistered downstream).
+  // Sub-agent limits: concurrency is configurable but bounded; total 0 disables the feature.
+  {
+    const sc = Number(config.subagentMaxConcurrent);
+    const clamped = Number.isFinite(sc) ? Math.min(8, Math.max(1, Math.round(sc))) : 2;
+    if (clamped !== config.subagentMaxConcurrent) { config.subagentMaxConcurrent = clamped; changed = true; }
+  }
   {
     const sm = Number(config.subagentMaxPerTurn);
-    const clamped = Number.isFinite(sm) ? Math.min(8, Math.max(0, Math.round(sm))) : 4;
+    const clamped = Number.isFinite(sm) ? Math.min(32, Math.max(0, Math.round(sm))) : 4;
     if (clamped !== config.subagentMaxPerTurn) { config.subagentMaxPerTurn = clamped; changed = true; }
   }
   // v0.9-S9 (D6): searchBackend — {type,baseUrl,apiKey}. Cleanse type to the enum (unknown → 'none'), and
@@ -3888,6 +3890,11 @@ function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, pr
     // 「当前不可用」 — tools filtered out by TOOL_REQUIRES, with the reason, so the model doesn't try them.
     const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
     const offeredNames = new Set((tools || []).map(t => t && t.function && t.function.name).filter(Boolean));
+    if (offeredNames.has('spawn_agent')) {
+      const concurrent = Math.max(1, Number(config && config.subagentMaxConcurrent) || 2);
+      const total = Math.max(0, Number(config && config.subagentMaxPerTurn) || 0);
+      lines.push(`子代理编排：同一阶段可并行调用最多 ${concurrent} 个 spawn_agent，本回合累计最多 ${total} 个。存在依赖时分阶段调用：先并行派发独立角色，等待本阶段全部 tool_result 返回，再在下一次调用中用 agentKey + dependsOn 派发评审/总结角色；不要把有依赖的任务塞进同一批。dependsOn 的前序结论会自动注入后续子代理上下文。`);
+    }
     const unavailable = [];
     for (const [name, spec] of Object.entries(TOOL_REQUIRES)) {
       if (spec.testOnly && !toolRequiresEnabled) continue; // test hook off → not a real restriction
@@ -4314,7 +4321,7 @@ async function drainSteerQueue(reg, session, onEvent) {
 // mode. It is a TURN-LOCAL override only; global config.permissionMode is never mutated. When absent (or the
 // plan is not yet approved, in which case the parent still passes 'plan'), the gate falls back to
 // config.permissionMode, so an UN-approved plan-mode turn still hard-blocks its sub-agents' edit/exec tools.
-async function runSubAgent({ parentSession, provider, config, task, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride }) {
+async function runSubAgent({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride }) {
   const started = Date.now();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself run spawn_agent.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes spawn_agent */ }
@@ -4356,7 +4363,7 @@ async function runSubAgent({ parentSession, provider, config, task, toolTier, ma
     return b;
   };
 
-  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(task || ''), toolTier: tier });
+  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [] });
   // The sub-loop shares the parent's AbortController (ctrl) so a Stop on the parent turn also arrests the
   // sub-turn. rawSeq is local (its raw_line frames carry subagentId so the debug pane can attribute them).
   const rawSeqRef = { n: 0 };
@@ -4466,7 +4473,7 @@ async function runSubAgent({ parentSession, provider, config, task, toolTier, ma
   }
   const finalText = resultText.trim();
   const ok = subOk && !!finalText;
-  onEvent({ type: 'subagent', id: subagentId, state: 'end', ok, resultChars: finalText.length, task: String(task || ''), tookMs: Date.now() - started });
+  onEvent({ type: 'subagent', id: subagentId, state: 'end', ok, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [] });
   if (!ok) {
     const fail = { ok: false, error: subErr || '子代理未产出结论', result: finalText, iters, toolCalls: toolCallCount };
     if (subOverWindow) fail.hint = '请缩小子任务范围或减少读取'; // v0.9 F6
@@ -4661,13 +4668,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // v0.9-S6 (子代理) turn-local state. spawn_agent calls emitted in ONE assistant tool batch are started
   // together and awaited in their original tool_call order, so provider-history pairing stays deterministic
   // while the delegated work actually overlaps. `subagentBatchCount` resets at the top of each assistant
-  // tool batch; the 3rd+ spawn_agent in a single batch is refused (SUBAGENT_FANOUT_MAX=2 is the hard ceiling).
+  // tool batch; excess calls are refused according to config.subagentMaxConcurrent.
   // `subagentTotal` counts
   // total sub-turns this whole turn and is capped by config.subagentMaxPerTurn (0 = feature disabled → the
   // tool isn't even offered, so this path is unreachable at 0). `subDepth` is the depth we hand to runSubAgent.
   let subagentBatchCount = 0, subagentTotal = 0;
-  const SUBAGENT_FANOUT_MAX = 2; // hard safety ceiling: ≤2 spawn_agent calls per assistant message (禁放宽)
+  const subagentFanoutMax = Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2));
   const subagentTurnCap = Math.max(0, Number(config.subagentMaxPerTurn) || 0);
+  const subagentResults = new Map(); // agentKey -> completed result, available to later dependency stages
+  const reservedSubagentKeys = new Set();
 
   // v1.0-S6 (B): failover-aware wrapper around openAiStreamOnce. For ONE logical API call it walks the
   // candidate endpoint sequence, advancing to the next candidate ONLY on a pre-first-byte failure
@@ -4836,25 +4845,54 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (stc.name !== 'spawn_agent') continue;
           let sargs = {}; try { sargs = JSON.parse(stc.rawArgs || '{}'); } catch { sargs = {}; }
           subagentBatchCount += 1;
-          if (subagentBatchCount > SUBAGENT_FANOUT_MAX) {
-            subagentPromises.set(stc.id, Promise.resolve({ ok: false, error: '子代理并发已达上限(2),请等待或串行' }));
+          if (subagentBatchCount > subagentFanoutMax) {
+            subagentPromises.set(stc.id, Promise.resolve({ ok: false, error: `子代理并发已达上限(${subagentFanoutMax}),请拆分为后续阶段` }));
             continue;
           }
           if (subagentTotal >= subagentTurnCap) {
             subagentPromises.set(stc.id, Promise.resolve({ ok: false, error: `本回合子代理数已达上限(${subagentTurnCap})` }));
             continue;
           }
+          const requestedKey = String(sargs.agentKey || '').trim().slice(0, 64);
+          const agentKey = requestedKey || `agent-${subagentTotal + 1}`;
+          const dependsOn = [...new Set((Array.isArray(sargs.dependsOn) ? sargs.dependsOn : [])
+            .map(v => String(v || '').trim().slice(0, 64)).filter(Boolean))].slice(0, 8);
+          if (reservedSubagentKeys.has(agentKey)) {
+            subagentPromises.set(stc.id, Promise.resolve({ ok: false, agentKey, error: `子代理标识重复: ${agentKey}` }));
+            continue;
+          }
+          const missingDeps = dependsOn.filter(key => !subagentResults.has(key));
+          if (missingDeps.length) {
+            subagentPromises.set(stc.id, Promise.resolve({ ok: false, agentKey, dependsOn, error: `依赖尚未完成: ${missingDeps.join(', ')}。请等待前序阶段返回后再派发` }));
+            continue;
+          }
+          reservedSubagentKeys.add(agentKey);
           subagentTotal += 1;
           const subId = makeId('sub');
           const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
+          const originalTask = String(sargs.task || '');
+          const dependencyText = dependsOn.map(key => {
+            const prior = subagentResults.get(key) || {};
+            const body = String(prior.result != null ? prior.result : prior.error || '').slice(0, 12000);
+            return `### ${key} (${prior.ok === false ? '失败' : '完成'})\n${body}`;
+          }).join('\n\n').slice(0, 32000);
+          const effectiveTask = dependencyText
+            ? `${originalTask}\n\n以下是已完成的前序子代理结果，请基于它们继续，不要重新执行前序任务：\n\n${dependencyText}`
+            : originalTask;
           const promise = runSubAgent({
             parentSession: session, provider, config,
-            task: String(sargs.task || ''), toolTier: sargs.toolTier, maxIters: sargs.maxIters, model: sargs.model,
+            task: effectiveTask, displayTask: originalTask, agentKey, dependsOn,
+            toolTier: sargs.toolTier, maxIters: sargs.maxIters, model: sargs.model,
             onEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
           }).then(sub => sub.ok
             ? { ok: true, result: sub.result, iters: sub.iters, toolCalls: sub.toolCalls }
             : { ok: false, error: sub.error || '子代理失败', result: sub.result || undefined, iters: sub.iters, toolCalls: sub.toolCalls }
-          ).catch(e => ({ ok: false, error: (e && e.message) ? e.message : String(e) }));
+          ).catch(e => ({ ok: false, error: (e && e.message) ? e.message : String(e) }))
+            .then(result => {
+              const completed = { ...result, agentKey, dependsOn };
+              subagentResults.set(agentKey, completed);
+              return completed;
+            });
           subagentPromises.set(stc.id, promise);
         }
         for (const tc of call.toolCalls) {
@@ -4891,7 +4929,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // v0.9-S6 (子代理): spawn_agent is special-cased HERE (like todo_write/bridge) because it needs the
           // live provider/session/journal/onEvent closure to run a sub-turn. It never reaches the generic
           // gate/dispatch below. Two guards, both enforced before running:
-          //  (1) single-batch fan-out ceiling — at most SUBAGENT_FANOUT_MAX(2) spawn_agent calls per assistant
+          //  (1) configurable single-batch fan-out ceiling — config.subagentMaxConcurrent;
           //      message; accepted calls were pre-launched above and therefore overlap;
           //  (2) per-turn total cap — config.subagentMaxPerTurn (already ≥1 here, else the tool wasn't offered).
           // A refused spawn still emits a tool_result (keeps assistant.tool_calls pairing valid) and continues.
@@ -9223,11 +9261,13 @@ const MCP_TOOLS = [
   // schema is shared; buildOpenAiTools decides whether to offer it.
   {
     name: 'spawn_agent',
-    description: 'Delegate a self-contained subtask to a sub-agent that runs with its own isolated context and a restricted tool set, then returns its final conclusion. Use for well-scoped work you can hand off (research a file set, draft a doc, make a targeted edit). task: the goal in one paragraph. toolTier: read (default; only read-only tools) | edit (adds file write/edit/delete) | exec (all tools). maxIters: sub-loop budget (default 6). model: optional model override. Sub-agents cannot spawn further sub-agents; at most 2 per assistant message.',
+    description: 'Delegate a self-contained subtask to an isolated sub-agent. Independent calls in the same assistant message run concurrently up to the configured stage limit. For dependent orchestration, first assign stable agentKey values (for example pro/con), wait for all tool results, then call a later reviewer/summary agent with dependsOn:["pro","con"]; their completed conclusions are injected automatically. Dependencies in the same batch are refused because that stage has not completed. toolTier: read (default) | edit | exec. Sub-agents cannot spawn further sub-agents.',
     inputSchema: {
       type: 'object',
       properties: {
         task: { type: 'string', description: 'the concrete task to delegate (a self-contained instruction)' },
+        agentKey: { type: 'string', description: 'optional stable identifier for this sub-agent within the parent turn (for later dependsOn references)' },
+        dependsOn: { type: 'array', items: { type: 'string' }, description: 'agentKey values from completed earlier stages whose conclusions should be injected into this task' },
         toolTier: { type: 'string', enum: ['read', 'edit', 'exec'], description: "tool access level for the sub-agent (default 'read')" },
         maxIters: { type: 'number', description: 'sub-loop iteration budget (default 6, clamped 1..12)' },
         model: { type: 'string', description: 'optional model id override for the sub-turn' },

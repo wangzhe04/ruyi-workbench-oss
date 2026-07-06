@@ -62,11 +62,12 @@ function streamChatLive(port, payload, onEvent) {
     req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('stream timeout')); }); req.write(data); req.end();
   });
 }
-function writeConfig(fakePort, subagentMaxPerTurn, permissionMode) {
+function writeConfig(fakePort, subagentMaxPerTurn, permissionMode, subagentMaxConcurrent) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 7, version: '1.0.0', permissionMode: permissionMode || 'bypass',
     defaultWorkspace: HOME, recentWorkspaces: [],
     subagentMaxPerTurn: subagentMaxPerTurn == null ? 4 : subagentMaxPerTurn,
+    subagentMaxConcurrent: subagentMaxConcurrent == null ? 2 : subagentMaxConcurrent,
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + fakePort, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
     activeProvider: 'fake',
   }, null, 2));
@@ -140,6 +141,41 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const res1 = ev1.find(e => e.type === 'result');
     ok(res1 && res1.ok === true, '(a) turn result ok');
 
+    // ── (a2) staged orchestration: first agent completes, then dependent summary starts with prior context ──
+    killp(fake); await sleep(300);
+    const capO = path.join(HOME, 'cap-orchestration');
+    const scriptO = JSON.stringify({
+      parent: [
+        { name: 'spawn_agent', args: { task: '先给出正方观点', agentKey: 'pro', toolTier: 'read' } },
+        { name: 'spawn_agent', args: { task: '总结前序观点', agentKey: 'summary', dependsOn: ['pro'], toolTier: 'read' } },
+      ],
+      sub: [], subText: '前序观点结论。', parentText: '分阶段编排完成。',
+    });
+    fake = spawnFake({ FAKE_SUBAGENT_SCRIPT: scriptO, FAKE_CAPTURE_DIR: capO });
+    procs.push(fake);
+    let up = false; for (let i = 0; i < 30 && !up; i++) { await sleep(150); up = await fakeUp(FAKE_PORT); }
+    ok(up, '(a2) orchestration fake respawned');
+    const co = await postJson(WB_PORT, '/api/sessions', { title: 'subagent orchestration', cwd: HOME }, hdr);
+    const sido = co.body && co.body.session && co.body.session.id;
+    const evo = await streamChat(WB_PORT, { sessionId: sido, message: '先分析再总结', cwd: HOME });
+    const proEndAt = evo.findIndex(e => e.type === 'subagent' && e.state === 'end' && e.agentKey === 'pro');
+    const summaryStartAt = evo.findIndex(e => e.type === 'subagent' && e.state === 'start' && e.agentKey === 'summary');
+    ok(proEndAt >= 0 && summaryStartAt > proEndAt, '(a2) dependent summary starts only after the prior agent ends');
+    const summaryStart = evo[summaryStartAt];
+    ok(summaryStart && Array.isArray(summaryStart.dependsOn) && summaryStart.dependsOn[0] === 'pro', '(a2) summary event exposes dependsOn=[pro]');
+    let priorContextInjected = false, orchestrationPromptPresent = false;
+    try {
+      for (const file of fs.readdirSync(capO).filter(f => /req-\d+\.json$/.test(f))) {
+        const body = JSON.parse(fs.readFileSync(path.join(capO, file), 'utf8'));
+        const system = (body.messages || []).find(m => m && m.role === 'system');
+        if (system && String(system.content || '').includes('子代理编排') && String(system.content || '').includes('dependsOn')) orchestrationPromptPresent = true;
+        const users = (body.messages || []).filter(m => m && m.role === 'user').map(m => String(m.content || '')).join('\n');
+        if (users.includes('以下是已完成的前序子代理结果') && users.includes('前序观点结论')) priorContextInjected = true;
+      }
+    } catch { /* assertion below reports failure */ }
+    ok(priorContextInjected, '(a2) completed dependency conclusion is injected into the summary agent context');
+    ok(orchestrationPromptPresent, '(a2) parent prompt explains parallel stages and dependsOn orchestration');
+
     // ── (b) nesting forbidden: sub tries spawn_agent → refused, but its file_write still runs ─────────────
     killp(fake); await sleep(300);
     const x2 = path.join(HOME, 'x2.txt');
@@ -151,7 +187,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     });
     fake = spawnFake({ FAKE_SUBAGENT_SCRIPT: scriptB });
     procs.push(fake);
-    let up = false; for (let i = 0; i < 30 && !up; i++) { await sleep(150); up = await fakeUp(FAKE_PORT); }
+    up = false; for (let i = 0; i < 30 && !up; i++) { await sleep(150); up = await fakeUp(FAKE_PORT); }
     ok(up, '(b) fake respawned');
     const c2 = await postJson(WB_PORT, '/api/sessions', { title: 'subagent nesting', cwd: HOME }, hdr);
     const sid2 = c2.body && c2.body.session && c2.body.session.id;
@@ -192,6 +228,15 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const secondStartC = ev3.findIndex((e, i) => i > ev3.findIndex(x => x.type === 'subagent' && x.state === 'start') && e.type === 'subagent' && e.state === 'start');
     ok(secondStartC >= 0 && firstEndC > secondStartC,
        '(c) both accepted sub-agents start before either ends (real overlap, not serial fan-out)');
+
+    const savedLimits = await postJson(WB_PORT, '/api/config', { subagentMaxConcurrent: 3, subagentMaxPerTurn: 6 }, hdr);
+    ok(savedLimits.body && savedLimits.body.config && savedLimits.body.config.subagentMaxConcurrent === 3 && savedLimits.body.config.subagentMaxPerTurn === 6,
+       '(c2) configurable sub-agent concurrency/turn limits persist through /api/config');
+    const c3b = await postJson(WB_PORT, '/api/sessions', { title: 'subagent fanout configured', cwd: HOME }, hdr);
+    const sid3b = c3b.body && c3b.body.session && c3b.body.session.id;
+    const ev3b = await streamChat(WB_PORT, { sessionId: sid3b, message: '按设置一次并行三个子任务', cwd: HOME });
+    const startsC3 = ev3b.filter(e => e.type === 'subagent' && e.state === 'start');
+    ok(startsC3.length === 3, '(c2) configured concurrency=3 launches all three agents (got ' + startsC3.length + ')');
 
     // ── (d) toolTier=read → sub cannot see file_write → r.txt not written ─────────────────────────────────
     killp(fake); await sleep(300);
