@@ -2304,6 +2304,76 @@ function handleAgentWorkflowEvent(evt, live) {
     if (ok) host.d.open = false;
   }
 }
+
+let agentRunsPoll = null;
+const AGENT_RUN_ACTIVE = new Set(['running', 'paused']);
+function agentRunStatusLabel(status) {
+  return ({ queued: '等待中', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', partial: '部分完成', failed: '失败', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+}
+async function agentRunAction(runId, action, extra) {
+  const sid = state.currentSession?.id; if (!sid) return;
+  try {
+    const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action, ...(extra || {}) }) });
+    if (!r.ok) throw new Error(r.error || '操作失败');
+    toast('Agent 工作流操作已提交', 'ok'); await loadAgentRuns();
+  } catch (e) { toast(`Agent 工作流：${e.message || e}`, 'err'); }
+}
+async function deleteAgentRun(runId) {
+  const sid = state.currentSession?.id; if (!sid || !confirm('删除这条 Agent 工作流记录？')) return;
+  try { await api(`/api/agent-runs/${encodeURIComponent(runId)}?sessionId=${encodeURIComponent(sid)}`, { method: 'DELETE' }); await loadAgentRuns(); }
+  catch (e) { toast(`删除失败：${e.message || e}`, 'err'); }
+}
+function renderAgentRuns(runs) {
+  const host = $('agentRunsList'); if (!host) return; host.textContent = '';
+  if (!runs.length) { host.appendChild(el('div', 'muted', '本会话还没有 Agent 工作流。')); return; }
+  for (const run of runs) {
+    const card = el('details', `agent-run-card ar-${run.status || 'unknown'}`); card.open = AGENT_RUN_ACTIVE.has(run.status) || run.status === 'interrupted';
+    const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+    const done = nodes.filter(n => n.status === 'succeeded').length;
+    const sum = el('summary', 'agent-run-head');
+    sum.append(el('span', 'ar-title', `🕸️ ${run.id}`), el('span', 'ar-status', `${agentRunStatusLabel(run.status)} · ${done}/${nodes.length}`));
+    card.appendChild(sum);
+    const controls = el('div', 'agent-run-controls');
+    if (run.live && !run.paused) {
+      const pause = el('button', 'mini', '暂停'); pause.onclick = () => agentRunAction(run.id, 'pause'); controls.appendChild(pause);
+      const stop = el('button', 'mini danger', '停止'); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
+    } else if (run.live && run.paused) {
+      const resume = el('button', 'mini primary', '继续'); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
+      const stop = el('button', 'mini danger', '停止'); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
+    } else if (run.status !== 'succeeded') {
+      const resume = el('button', 'mini primary', '恢复未完成节点'); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
+    }
+    if (!run.live) { const del = el('button', 'mini', '删除记录'); del.onclick = () => deleteAgentRun(run.id); controls.appendChild(del); }
+    card.appendChild(controls);
+    const graph = el('div', 'agent-run-graph');
+    for (const node of nodes) {
+      const row = el('details', `agent-node an-${node.status || 'unknown'}`);
+      const deps = Array.isArray(node.dependsOn) && node.dependsOn.length ? ` ← ${node.dependsOn.join(', ')}` : '';
+      row.appendChild(el('summary', 'agent-node-head', `${node.status === 'succeeded' ? '✓' : node.status === 'running' ? '◐' : node.status === 'failed' ? '✗' : '○'} ${node.id}${deps} · ${agentRunStatusLabel(node.status)} · 尝试 ${node.attempts || 0}`));
+      const body = el('div', 'agent-node-body'); body.appendChild(el('div', 'agent-node-task', node.task || ''));
+      if (node.result) body.appendChild(el('pre', 'agent-node-result', node.result));
+      if (node.error) body.appendChild(el('pre', 'agent-node-error', node.error));
+      if (!run.live) {
+        const actions = el('div', 'agent-node-actions');
+        const retry = el('button', 'mini', '仅重试此节点'); retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
+        const cascade = el('button', 'mini', '重试此节点及下游'); cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
+        actions.append(retry, cascade); body.appendChild(actions);
+      }
+      row.appendChild(body); graph.appendChild(row);
+    }
+    card.appendChild(graph); host.appendChild(card);
+  }
+}
+async function loadAgentRuns() {
+  const sid = state.currentSession?.id; const host = $('agentRunsList'); if (!host) return;
+  if (!sid) { renderAgentRuns([]); return; }
+  try { const r = await api(`/api/agent-runs?sessionId=${encodeURIComponent(sid)}`); renderAgentRuns(Array.isArray(r.runs) ? r.runs : []); }
+  catch (e) { host.textContent = `加载失败：${e.message || e}`; }
+}
+function updateAgentRunsPolling(tab) {
+  if (agentRunsPoll) { clearInterval(agentRunsPoll); agentRunsPoll = null; }
+  if (tab === 'agent-runs') { loadAgentRuns(); agentRunsPoll = setInterval(loadAgentRuns, 2000); }
+}
 function handleSubagentEvent(evt, live) {
   const id = evt.id || '';
   if (evt.state === 'start') {
@@ -4375,6 +4445,7 @@ function switchTab(tab) {
   if (tab === 'changes') loadChanges();
   // v0.9-S8 (§4 B4): load the audit timeline once when its tab opens (no polling — the audit view is quiet).
   if (tab === 'audit') { if (!auditState.loaded) loadAudit(); else renderAuditList(); }
+  updateAgentRunsPolling(tab);
 }
 
 // A5: on narrow screens (≤1180px) the tool pane is an overlay drawer toggled by `tools-open`; on the
@@ -4492,6 +4563,7 @@ function bindEvents() {
   { const sn = $('shellNewBtn'); if (sn) sn.onclick = newShellSession; }
   { const ft = $('fileTreeRefreshBtn'); if (ft) ft.onclick = loadFileTree; } // v0.9-S3 (C3)
   { const ar = $('artifactsRefreshBtn'); if (ar) ar.onclick = renderArtifactsGallery; } // v0.9-S4 (C4)
+  { const ar = $('agentRunsRefreshBtn'); if (ar) ar.onclick = loadAgentRuns; }
   { const cr = $('changesRefreshBtn'); if (cr) cr.onclick = loadChanges; } // v1.0.2 (G1)
   // v0.9-S8 (§4 B4): audit tab — refresh re-pulls (resets loaded so loadAudit re-fetches); filters are
   // client-side over the already-fetched list (instant, no re-fetch).

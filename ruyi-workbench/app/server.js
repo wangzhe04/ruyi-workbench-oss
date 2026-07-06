@@ -4328,6 +4328,7 @@ async function drainSteerQueue(reg, session, onEvent) {
 function agentRunDir(sessionId) { return path.join(paths.agentRuns, safeSessionId(sessionId)); }
 function agentRunFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.json`); }
 const agentRunWriteChains = new Map();
+const activeAgentRuns = new Map(); // runId -> { run, ctrl, paused, stopRequested, resumeWaiters }
 async function saveAgentRun(run) {
   const previous = agentRunWriteChains.get(run.id) || Promise.resolve();
   const current = previous.catch(() => {}).then(async () => {
@@ -4535,43 +4536,72 @@ async function runSubAgent({ parentSession, provider, config, task, displayTask,
 
 // Execute a complete dependency graph without asking the parent model to schedule every stage. The graph
 // and node transitions are persisted after each state change so progress remains inspectable after a crash.
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl, permModeOverride, maxNodes }) {
-  const runId = makeId('run');
-  const limit = Math.max(0, Number(maxNodes) || 0);
-  if (!Array.isArray(rawNodes) || !rawNodes.length) return { ok: false, error: 'nodes 必须是非空数组', startedCount: 0 };
-  if (!limit || rawNodes.length > limit) return { ok: false, error: `本回合剩余子代理额度不足(${limit}),需要 ${rawNodes.length}`, startedCount: 0 };
-
-  const ids = new Set();
-  const nodes = [];
-  for (const raw of rawNodes.slice(0, 32)) {
-    const id = String(raw && raw.id || '').trim().slice(0, 64);
-    const task = String(raw && raw.task || '').trim();
-    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, error: `无效节点 id: ${id || '(空)'}`, startedCount: 0 };
-    if (ids.has(id)) return { ok: false, error: `节点 id 重复: ${id}`, startedCount: 0 };
-    if (!task) return { ok: false, error: `节点 ${id} 缺少 task`, startedCount: 0 };
-    ids.add(id);
-    nodes.push({
-      id, task, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16),
-      toolTier: raw.toolTier === 'edit' || raw.toolTier === 'exec' ? raw.toolTier : 'read',
-      model: String(raw.model || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters) || 6)),
-      status: 'queued', attempts: 0, result: '', error: '', startedAt: null, completedAt: null,
-    });
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade }) {
+  let run, nodes, runId;
+  if (existingRun) {
+    run = existingRun; nodes = Array.isArray(run.nodes) ? run.nodes : []; runId = run.id;
+    if (!nodes.length) return { ok: false, error: '运行记录没有节点', startedCount: 0 };
+    const reset = new Set();
+    if (retryNodeId) {
+      const target = nodes.find(n => n.id === retryNodeId);
+      if (!target) return { ok: false, error: `节点不存在: ${retryNodeId}`, startedCount: 0 };
+      reset.add(target.id);
+      if (retryCascade) {
+        let changed = true;
+        while (changed) { changed = false; for (const n of nodes) if (!reset.has(n.id) && (n.dependsOn || []).some(d => reset.has(d))) { reset.add(n.id); changed = true; } }
+      }
+    } else {
+      for (const n of nodes) if (n.status !== 'succeeded') reset.add(n.id);
+    }
+    for (const n of nodes) if (reset.has(n.id)) {
+      n.status = 'queued'; n.result = ''; n.error = ''; n.startedAt = null; n.completedAt = null;
+    }
+    run.status = 'running'; run.completedAt = null; run.resumedAt = nowIso();
+    run.concurrency = Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || run.concurrency || 2));
+  } else {
+    runId = makeId('run');
+    const limit = Math.max(0, Number(maxNodes) || 0);
+    if (!Array.isArray(rawNodes) || !rawNodes.length) return { ok: false, error: 'nodes 必须是非空数组', startedCount: 0 };
+    if (!limit || rawNodes.length > limit) return { ok: false, error: `本回合剩余子代理额度不足(${limit}),需要 ${rawNodes.length}`, startedCount: 0 };
+    const ids = new Set(); nodes = [];
+    for (const raw of rawNodes.slice(0, 32)) {
+      const id = String(raw && raw.id || '').trim().slice(0, 64);
+      const task = String(raw && raw.task || '').trim();
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, error: `无效节点 id: ${id || '(空)'}`, startedCount: 0 };
+      if (ids.has(id)) return { ok: false, error: `节点 id 重复: ${id}`, startedCount: 0 };
+      if (!task) return { ok: false, error: `节点 ${id} 缺少 task`, startedCount: 0 };
+      ids.add(id);
+      nodes.push({ id, task, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), toolTier: raw.toolTier === 'edit' || raw.toolTier === 'exec' ? raw.toolTier : 'read', model: String(raw.model || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters) || 6)), status: 'queued', attempts: 0, result: '', error: '', startedAt: null, completedAt: null });
+    }
+    for (const node of nodes) {
+      const missing = node.dependsOn.filter(id => !ids.has(id));
+      if (missing.length) return { ok: false, error: `节点 ${node.id} 引用了不存在的依赖: ${missing.join(', ')}`, startedCount: 0 };
+      if (node.dependsOn.includes(node.id)) return { ok: false, error: `节点 ${node.id} 不能依赖自身`, startedCount: 0 };
+    }
+    run = { schemaVersion: 1, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: provider && provider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), nodes };
   }
-  for (const node of nodes) {
-    const missing = node.dependsOn.filter(id => !ids.has(id));
-    if (missing.length) return { ok: false, error: `节点 ${node.id} 引用了不存在的依赖: ${missing.join(', ')}`, startedCount: 0 };
-    if (node.dependsOn.includes(node.id)) return { ok: false, error: `节点 ${node.id} 不能依赖自身`, startedCount: 0 };
+  if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行', startedCount: 0, runId };
+  const localCtrl = typeof AbortController === 'function' ? new AbortController() : parentCtrl;
+  if (localCtrl && parentCtrl && parentCtrl.signal) {
+    if (parentCtrl.signal.aborted) localCtrl.abort();
+    else parentCtrl.signal.addEventListener('abort', () => localCtrl.abort(), { once: true });
   }
-
-  const run = { schemaVersion: 1, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), nodes };
+  const runtime = { run, ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [] };
+  activeAgentRuns.set(runId, runtime);
   await saveAgentRun(run);
   onEvent({ type: 'agent_workflow', state: 'start', id: runId, nodeCount: nodes.length, concurrency: run.concurrency });
   let startedCount = 0;
   const terminal = node => node.status === 'succeeded' || node.status === 'failed' || node.status === 'cancelled';
 
+  try {
   while (nodes.some(node => !terminal(node))) {
-    if (ctrl && ctrl.signal && ctrl.signal.aborted) {
-      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = '父回合已停止'; node.completedAt = nowIso(); }
+    while (runtime.paused && !runtime.stopRequested) {
+      run.status = 'paused'; await saveAgentRun(run);
+      await new Promise(resolve => runtime.resumeWaiters.push(resolve));
+    }
+    if (run.status === 'paused') { run.status = 'running'; await saveAgentRun(run); }
+    if (runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) {
+      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : '父回合已停止'; node.completedAt = nowIso(); }
       break;
     }
     const ready = nodes.filter(node => node.status === 'queued' && node.dependsOn.every(dep => terminal(nodes.find(n => n.id === dep))));
@@ -4593,7 +4623,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         const sub = await runSubAgent({
           parentSession, provider, config, task: effectiveTask, displayTask: node.task, agentKey: node.id,
           dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
-          onEvent, subagentId: makeId('sub'), depth: 1, ctrl, permModeOverride,
+          onEvent, subagentId: makeId('sub'), depth: 1, ctrl: localCtrl, permModeOverride,
         });
         node.status = sub.ok ? 'succeeded' : 'failed';
         node.result = String(sub.result || '').slice(0, 24000);
@@ -4608,14 +4638,36 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }));
   }
   const failed = nodes.filter(n => n.status !== 'succeeded');
-  run.status = failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded';
+  run.status = runtime.stopRequested ? 'stopped' : (failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded');
   run.completedAt = nowIso();
   await saveAgentRun(run);
   onEvent({ type: 'agent_workflow', state: 'end', id: runId, status: run.status, succeeded: nodes.length - failed.length, failed: failed.length });
+  } finally { activeAgentRuns.delete(runId); }
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
     results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, error: n.error, dependsOn: n.dependsOn })),
   };
+}
+
+async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade }) {
+  if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
+  let run;
+  try { run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null); } catch { run = null; }
+  if (!run) return { ok: false, error: 'agent run not found' };
+  const config = await readConfig();
+  const provider = resolveProvider(config, run.providerId) || activeOpenAiProvider(config);
+  if (!provider) return { ok: false, error: '当前没有可用的 Provider，无法恢复工作流' };
+  const parentSession = await loadSession(sessionId).catch(() => null);
+  if (!parentSession) return { ok: false, error: 'session not found' };
+  const onEvent = () => {}; // management UI polls persisted state; no chat stream is required
+  void runAgentWorkflow({
+    parentSession, provider, config, onEvent, existingRun: run, retryNodeId, retryCascade,
+    permModeOverride: config.permissionMode, maxNodes: 32,
+  }).catch(async e => {
+    run.status = 'failed'; run.error = String(e && e.message || e); run.completedAt = nowIso();
+    await saveAgentRun(run).catch(() => {}); activeAgentRuns.delete(runId);
+  });
+  return { ok: true, accepted: true, runId };
 }
 
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
@@ -8506,12 +8558,56 @@ async function handleApi(req, res, pathname) {
   }
   // v0.8-S4a: checkpoint query (read-only → same-origin gate is enough; not in needsToken).
   if (req.method === 'GET' && pathname === '/api/agent-runs') {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId'));
     if (!sessionId) return send(res, json({ ok: false, error: 'sessionId required' }, 400));
     const runs = await listAgentRuns(sessionId);
+    for (const run of runs) { const live = activeAgentRuns.get(run.id); if (live) { run.live = true; run.paused = !!live.paused; } }
     return send(res, json({ ok: true, runs }));
   }
+  if (req.method === 'POST' && pathname.startsWith('/api/agent-runs/')) {
+    const parts = pathname.split('/').filter(Boolean);
+    const runId = safeSessionId(parts[2]);
+    const body = await readJsonBody(req);
+    const sessionId = safeSessionId(body.sessionId);
+    const action = String(body.action || '');
+    if (!sessionId || !runId) return send(res, json({ ok: false, error: 'sessionId/runId required' }, 400));
+    const live = activeAgentRuns.get(runId);
+    if (action === 'pause') {
+      if (!live) return send(res, json({ ok: false, error: '工作流当前未运行' }, 409));
+      live.paused = true; live.run.pauseRequestedAt = nowIso(); await saveAgentRun(live.run);
+      return send(res, json({ ok: true, state: 'pausing' }));
+    }
+    if (action === 'resume') {
+      if (live) {
+        live.paused = false; const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake();
+        return send(res, json({ ok: true, state: 'running' }));
+      }
+      return send(res, json(await launchPersistedAgentRun({ sessionId, runId })));
+    }
+    if (action === 'stop') {
+      if (!live) return send(res, json({ ok: false, error: '工作流当前未运行' }, 409));
+      live.stopRequested = true; live.paused = false; try { if (live.ctrl) live.ctrl.abort(); } catch {}
+      const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake();
+      return send(res, json({ ok: true, state: 'stopping' }));
+    }
+    if (action === 'retry_node') {
+      if (live) return send(res, json({ ok: false, error: '请先等待或停止当前运行' }, 409));
+      const nodeId = String(body.nodeId || '').trim();
+      return send(res, json(await launchPersistedAgentRun({ sessionId, runId, retryNodeId: nodeId, retryCascade: body.cascade === true })));
+    }
+    return send(res, json({ ok: false, error: 'unknown action' }, 400));
+  }
+  if (req.method === 'DELETE' && pathname.startsWith('/api/agent-runs/')) {
+    const runId = safeSessionId(pathname.slice('/api/agent-runs/'.length));
+    const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId'));
+    if (!sessionId || !runId) return send(res, json({ ok: false, error: 'sessionId/runId required' }, 400));
+    if (activeAgentRuns.has(runId)) return send(res, json({ ok: false, error: '运行中的工作流不能删除' }, 409));
+    try { await fsp.unlink(agentRunFile(sessionId, runId)); } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
+    return send(res, json({ ok: true }));
+  }
   if (req.method === 'GET' && pathname.startsWith('/api/agent-runs/')) {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId'));
     const runId = safeSessionId(pathname.slice('/api/agent-runs/'.length));
     if (!sessionId || !runId) return send(res, json({ ok: false, error: 'sessionId/runId required' }, 400));

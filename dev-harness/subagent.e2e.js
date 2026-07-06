@@ -207,6 +207,37 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const persistedRuns = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdr);
     const persisted = persistedRuns && persistedRuns.runs && persistedRuns.runs.find(r => r.id === (wfStart && wfStart.id));
     ok(persisted && persisted.status === 'succeeded' && persisted.nodes.length === 3, '(a3) completed DAG is persisted and inspectable through API');
+    const noTokenRuns = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw).catch(() => null);
+    ok(noTokenRuns && noTokenRuns.ok === false, '(a3) agent-run records are token protected');
+
+    const retrySummary = await postJson(WB_PORT, '/api/agent-runs/' + wfStart.id, { sessionId: sidw, action: 'retry_node', nodeId: 'summary', cascade: false }, hdr);
+    ok(retrySummary.body && retrySummary.body.accepted === true, '(a4) single-node retry accepted');
+    let retried = null;
+    for (let i = 0; i < 60; i++) { await sleep(100); const x = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdr); retried = x.runs && x.runs.find(r => r.id === wfStart.id); if (retried && !retried.live && retried.status === 'succeeded') break; }
+    const summaryAfterRetry = retried && retried.nodes.find(n => n.id === 'summary');
+    ok(summaryAfterRetry && summaryAfterRetry.attempts === 2, '(a4) only summary node reran (attempts=2)');
+
+    // Pause waits for the current node boundary, then resume continues the queued downstream node.
+    killp(fake); await sleep(300);
+    fake = spawnFake({ FAKE_SUBAGENT_SCRIPT: scriptW, FAKE_STREAM_DELAY_MS: '350' }); procs.push(fake);
+    up = false; for (let i = 0; i < 30 && !up; i++) { await sleep(150); up = await fakeUp(FAKE_PORT); }
+    const retryCascade = await postJson(WB_PORT, '/api/agent-runs/' + wfStart.id, { sessionId: sidw, action: 'retry_node', nodeId: 'pro', cascade: true }, hdr);
+    const pauseRun = await postJson(WB_PORT, '/api/agent-runs/' + wfStart.id, { sessionId: sidw, action: 'pause' }, hdr);
+    ok(retryCascade.body && retryCascade.body.accepted && pauseRun.body && pauseRun.body.ok, '(a4) cascade retry + pause accepted');
+    let pausedRun = null;
+    for (let i = 0; i < 80; i++) { await sleep(100); const x = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdr); pausedRun = x.runs && x.runs.find(r => r.id === wfStart.id); if (pausedRun && pausedRun.status === 'paused') break; }
+    ok(pausedRun && pausedRun.status === 'paused', '(a4) workflow pauses safely at a node boundary');
+    const resumeRun = await postJson(WB_PORT, '/api/agent-runs/' + wfStart.id, { sessionId: sidw, action: 'resume' }, hdr);
+    ok(resumeRun.body && resumeRun.body.ok, '(a4) paused workflow resumes');
+    let resumedRun = null;
+    for (let i = 0; i < 100; i++) { await sleep(100); const x = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdr); resumedRun = x.runs && x.runs.find(r => r.id === wfStart.id); if (resumedRun && !resumedRun.live && resumedRun.status === 'succeeded') break; }
+    ok(resumedRun && resumedRun.status === 'succeeded', '(a4) resumed workflow finishes queued downstream nodes');
+    const stopRetry = await postJson(WB_PORT, '/api/agent-runs/' + wfStart.id, { sessionId: sidw, action: 'retry_node', nodeId: 'pro', cascade: true }, hdr);
+    const stopRun = await postJson(WB_PORT, '/api/agent-runs/' + wfStart.id, { sessionId: sidw, action: 'stop' }, hdr);
+    ok(stopRetry.body && stopRetry.body.accepted && stopRun.body && stopRun.body.ok, '(a4) stop request accepted for an active workflow');
+    let stoppedRun = null;
+    for (let i = 0; i < 80; i++) { await sleep(100); const x = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdr); stoppedRun = x.runs && x.runs.find(r => r.id === wfStart.id); if (stoppedRun && !stoppedRun.live && stoppedRun.status === 'stopped') break; }
+    ok(stoppedRun && stoppedRun.status === 'stopped', '(a4) stop aborts the workflow and persists stopped state');
 
     // ── (b) nesting forbidden: sub tries spawn_agent → refused, but its file_write still runs ─────────────
     killp(fake); await sleep(300);
@@ -392,6 +423,23 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(direct.body && direct.body.result && direct.body.result.ok === false && /仅在 provider 引擎/.test(direct.body.result.error || ''), '(e) direct /api/tools/spawn_agent → context-free refusal');
     const directDag = await postJson(WB_PORT, '/api/tools/orchestrate_agents', { nodes: [] }, hdrE);
     ok(directDag.body && directDag.body.result && directDag.body.result.ok === false && /仅在 provider 引擎/.test(directDag.body.result.error || ''), '(e) direct /api/tools/orchestrate_agents → context-free refusal');
+
+    // ── (h) process restart marks an in-flight persisted DAG interrupted/blocked instead of ghost-running ──
+    killp(wbE); await sleep(400);
+    const recoveryFile = path.join(HOME, 'agent-runs', sidw, wfStart.id + '.json');
+    const recoveryRun = JSON.parse(fs.readFileSync(recoveryFile, 'utf8'));
+    recoveryRun.status = 'running';
+    recoveryRun.nodes[0].status = 'running'; recoveryRun.nodes[0].completedAt = null;
+    recoveryRun.nodes[2].status = 'queued'; recoveryRun.nodes[2].completedAt = null;
+    fs.writeFileSync(recoveryFile, JSON.stringify(recoveryRun, null, 2));
+    const wbR = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+    procs.push(wbR);
+    let hR = null; for (let i = 0; i < 40 && !hR; i++) { await sleep(150); hR = await health(WB_PORT); }
+    const tokenR = await getToken(WB_PORT); const hdrR = { 'x-wcw-token': tokenR };
+    const recovered = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdrR);
+    const recoveredRun = recovered.runs && recovered.runs.find(r => r.id === wfStart.id);
+    ok(recoveredRun && recoveredRun.status === 'interrupted', '(h) restart marks running workflow interrupted');
+    ok(recoveredRun && recoveredRun.nodes.some(n => n.status === 'interrupted') && recoveredRun.nodes.some(n => n.status === 'blocked'), '(h) running node→interrupted and queued node→blocked');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of procs) killp(c);

@@ -76,7 +76,7 @@ const CRITICAL_IDS = [
   'cfgSubagentMaxConcurrent', 'cfgSubagentMaxPerTurn',
   // 右侧工具页签(switchTab;ia.e2e 依赖 tab 结构 + 简易模式隐开发者组)。
   'toolPane', 'tab-files', 'tab-changes', 'tab-powershell', 'tab-mcp', 'tab-artifacts',
-  'tab-audit', 'tab-debug', 'tab-doctor', 'tab-desktop', 'toggleToolsBtn',
+  'tab-audit', 'tab-agent-runs', 'agentRunsList', 'agentRunsRefreshBtn', 'tab-debug', 'tab-doctor', 'tab-desktop', 'toggleToolsBtn',
   // 命令面板 / 帮助 / 更多菜单(openPalette / openMoreMenu / helpModal)。
   'paletteModal', 'paletteInput', 'paletteList', 'helpModal', 'helpBtn', 'moreMenuBtn',
   // 状态/通知(setStatus / toast)。
@@ -138,6 +138,7 @@ const CRITICAL_FUNCS = [
   // 计划事件(战略清单点名)
   'handlePlanEvent',
   'handleAgentWorkflowEvent',
+  'loadAgentRuns', 'renderAgentRuns', 'agentRunAction',
   // Phase 1 抽离的纯工具 / 网络函数(util.js / net.js)—— 拆后聚合源码里仍须有定义。
   'escapeHtml', 'fmtBytes', 'fmtTime', 'fmtTokens', 'autoGrow', 'toast', 'setStatus',
   'wcwToken', 'authHeaders', 'api', 'apiErrText',

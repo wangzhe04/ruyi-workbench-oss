@@ -1103,6 +1103,23 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 /* v1.0.2 (G1): 变更中心 (change / rollback center) */
 .changes-hint { font-size: 11.5px; line-height: 1.5; margin: 4px 0 8px; }
 .changes-list { display: flex; flex-direction: column; gap: 8px; }
+.agent-runs-list { display: flex; flex-direction: column; gap: 8px; max-height: 65vh; overflow: auto; }
+.agent-run-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); }
+.agent-run-card.ar-running, .agent-run-card.ar-paused { border-left: 3px solid var(--accent); }
+.agent-run-card.ar-failed, .agent-run-card.ar-interrupted, .agent-run-card.ar-partial { border-left: 3px solid var(--danger, #d9534f); }
+.agent-run-head, .agent-node-head { cursor: pointer; padding: 8px; display: flex; justify-content: space-between; gap: 8px; }
+.ar-title { font-weight: 650; overflow-wrap: anywhere; }
+.ar-status { color: var(--muted); white-space: nowrap; font-size: 11px; }
+.agent-run-controls, .agent-node-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 8px 8px; }
+.agent-run-graph { display: flex; flex-direction: column; gap: 5px; padding: 0 8px 8px; }
+.agent-node { border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
+.agent-node.an-succeeded { border-left: 3px solid var(--success, #36a269); }
+.agent-node.an-failed, .agent-node.an-interrupted { border-left: 3px solid var(--danger, #d9534f); }
+.agent-node-head { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.agent-node-body { padding: 0 8px 8px; }
+.agent-node-task { color: var(--muted); margin-bottom: 6px; white-space: pre-wrap; }
+.agent-node-result, .agent-node-error { max-height: 180px; overflow: auto; white-space: pre-wrap; font-size: 11px; }
+.agent-node-error { color: var(--danger, #d9534f); }
 .changes-empty { padding: 18px 12px; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.6;
   border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); }
 .change-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); overflow: hidden; }
