@@ -16,7 +16,7 @@
    update.bat --code
    ```
    它把新 `.py` 热覆盖到 `%LOCALAPPDATA%\ai-computer-control\venv\Lib\site-packages\ai_computer_control\`,并写入 `VERSION.txt`。
-4. 让 Claude 重新调用任一工具即可生效（或重启 Claude）。**安全护栏 + batch + 窗口/屏幕/音频等 13 个新工具即刻可用,无需任何新依赖。**
+4. 让 Claude 重新调用任一工具即可生效（或重启 Claude）。**安全护栏 + batch + 窗口/屏幕/音频等 14 个新工具即刻可用,无需任何新依赖。**
 
 ## 启用 UI Automation（可选,需要 uiautomation 库）
 `ui_*` 工具需要 `uiautomation`(+`comtypes`)。二选一:

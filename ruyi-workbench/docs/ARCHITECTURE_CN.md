@@ -1,6 +1,6 @@
 # 如意 Ruyi 架构(原 Win Claude Workbench)
 
-> 版本基线:`app/server.js` `VERSION 1.4.0` / `configSchema 7` / 会话 `schemaVersion 1`。本文反映 v0.7d + v0.8-S0 地基(会话原子写/turnSeq/usage 累计/桥接 tier/cwd 护栏/中断恢复检测)+ S1 工具套件 v2 + S2 持久 shell 会话族 + S3 todo/turn_summary + …… + v0.8-S8 品牌落地/开源合规 + **v0.9 全套(uiMode/Playbooks/文件树+文件夹拖拽设工作区/产物画廊/计划模式/子代理/视觉回路/审计中心/web_search+SSRF)** + **v1.0 全套(S1–S9:S1 青花主题重铸[界面配色去 Claude 化,青花/鎏金/藏蓝墨双主题+WCAG 红线]、S2 信息架构减负[顶栏 5+⋯菜单、右侧常驻页签+开发者组、权限「安全」chip 四档、新装默认 uiMode simple]、S3 新手起步[首跑引导+新装三键翻转 permissionMode default/engineMode interactive/permissionBridge true+联网搜索页签]、S4 git 工具族[git_status/diff/log/commit]、S5 write_pdf[ACC v1.5.0,89 工具]、S6 搜索后端拓展[tavily/博查 + provider extraBaseUrls 故障转移 + `failover` 事件]、S7 性能专项、S8 双手册[用户/管理员,见 docs/manuals]、S9 发布工程[硬标识改名/统一升版/打包])** 之后的实际实现(多引擎 + 桌面/外部 MCP 桥接)。
+> 版本基线:`app/server.js` `VERSION 1.4.0` / `configSchema 7` / 会话 `schemaVersion 1`。本文反映 v0.7d + v0.8-S0 地基(会话原子写/turnSeq/usage 累计/桥接 tier/cwd 护栏/中断恢复检测)+ S1 工具套件 v2 + S2 持久 shell 会话族 + S3 todo/turn_summary + …… + v0.8-S8 品牌落地/开源合规 + **v0.9 全套(uiMode/Playbooks/文件树+文件夹拖拽设工作区/产物画廊/计划模式/子代理/视觉回路/审计中心/web_search+SSRF)** + **v1.0 全套(S1–S9:S1 青花主题重铸[界面配色去 Claude 化,青花/鎏金/藏蓝墨双主题+WCAG 红线]、S2 信息架构减负[顶栏 5+⋯菜单、右侧常驻页签+开发者组、权限「安全」chip 四档、新装默认 uiMode simple]、S3 新手起步[首跑引导+新装三键翻转 permissionMode default/engineMode interactive/permissionBridge true+联网搜索页签]、S4 git 工具族[git_status/diff/log/commit]、S5 write_pdf[ACC v1.5.0,89 工具]、S6 搜索后端拓展[tavily/博查 + provider extraBaseUrls 故障转移 + `failover` 事件]、S7 性能专项、S8 双手册[用户/管理员,见 docs/manuals]、S9 发布工程[硬标识改名/统一升版/打包])** + **v1.1–v1.4 增量(archive_zip/archive_unzip/http_download/file_move/file_copy + ACC 经 v1.6→v1.8.1 升级至 99 工具 + BRIDGED_WRITE_PATH_ARGS 写覆盖审计机制)** 之后的实际实现(多引擎 + 桌面/外部 MCP 桥接)。
 >
 > **品牌与兼容(v1.0-S9 发布工程)**:产品名为**如意 Ruyi**(`APP_NAME`,/api/status.app 与启动横幅随之)。目录名已改 `ruyi-workbench/`、可执行文件名已改 `Ruyi.exe`(启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`)。**数据目录解析**:`RUYI_HOME` 优先,旧变量 `WIN_CLAUDE_WORKBENCH_HOME` 继续识别(至少保留一个大版本);默认目录仍 `~/.win-claude-workbench`。**以下存量兼容标识有意保持不变(建议 v2.0 收口)**:MCP server id `win-claude-workbench`、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`(存量 `.mcp.json` 兼容)。子进程 MCP 配置注入的是旧变量名(值=已解析 dataRoot),故老 `.mcp.json` 照常工作。
 
@@ -18,7 +18,7 @@ flowchart LR
   BRIDGE --> MCPself
   BRIDGE --> MCPext
   MCPself --> Tools["PowerShell / 文件 / 脚本 / 浏览器 / Office / 截图 / 审计工具"]
-  MCPext --> ACC["ai-computer-control(89 桌面工具)等外部 MCP"]
+  MCPext --> ACC["ai-computer-control(99 桌面工具)等外部 MCP"]
 ```
 
 > **界面(v1.0 已重构)**:上图 UI 节点标「原生 JS 三栏」为后端视角的历史称谓;**v1.0-S1~S3 已对界面做大改版**——青花主题重铸(配色去 Claude 化,青花/鎏金/藏蓝墨/月白令牌双主题 + WCAG 对比度红线;引擎身份色保留赤陶)、信息架构减负(顶栏 5 项 +⋯菜单、右侧常驻页签 [文件|产物|审计] + 开发者组 5 个[专家模式 only]、权限「安全」chip 四档人话弹层)、简易(默认)/专家双模(**新装默认 `uiMode simple`**)、新手起步引导(首跑空状态大拖放区 + 引擎就绪判断 + 任务卡)。界面细节与操作以 `docs/manuals/{USER-GUIDE_CN,ADMIN-GUIDE_CN}.md` 双手册为准。
@@ -84,12 +84,14 @@ flowchart LR
 
 ## Workbench 自身 MCP 工具
 
-`... mcp` 子命令暴露的 stdio server(`serverInfo.name = win-claude-workbench`)向 **Claude CLI** 列 **32 个工具**(不计内部的 `permission_prompt`;CLI 面 `tools/list` **过滤掉 provider-only 的 `spawn_agent`**——它需 serve 进程回合闭包,CLI 侧调只会拒;含 `permission_prompt` = 33)。`MCP_TOOLS` 数组本身 v1.0-S4 起含 **34** 条(含 `permission_prompt` + `spawn_agent`;不计 `permission_prompt` = 33);**provider 引擎**经 `buildOpenAiTools` offer 的工具数在 `subagentMaxPerTurn>0` 时含 `spawn_agent`(比 CLI 面多一),且 `web_search`/`web_fetch` 受**能力矩阵**门控(离线/无搜索后端时不 offer;见「能力矩阵」)。**S9 增量**:`web_search`+`web_fetch`(+2,上 CLI 面);**v1.0-S4 增量**:git 工具族新增 `git_diff`/`git_log`/`git_commit`(+3,`git_status` 早已在列)→ `MCP_TOOLS` 数组由 31 增至 34,CLI 面不计 permission_prompt 由 29 增至 32:
+`... mcp` 子命令暴露的 stdio server(`serverInfo.name = win-claude-workbench`)向 **Claude CLI** 列 **37 个工具**(不计内部的 `permission_prompt`;CLI 面 `tools/list` **过滤掉 provider-only 的 `spawn_agent`**——它需 serve 进程回合闭包,CLI 侧调只会拒;含 `permission_prompt` = 38)。`MCP_TOOLS` 数组本身含 **39** 条(含 `permission_prompt` + `spawn_agent`;不计 `permission_prompt` = 38);**provider 引擎**经 `buildOpenAiTools` offer 的工具数在 `subagentMaxPerTurn>0` 时含 `spawn_agent`(比 CLI 面多一),且 `web_search`/`web_fetch` 受**能力矩阵**门控(离线/无搜索后端时不 offer;见「能力矩阵」)。**S9 增量**:`web_search`+`web_fetch`(+2);**v1.0-S4 增量**:git 工具族新增 `git_diff`/`git_log`/`git_commit`(+3,`git_status` 早已在列);**v1.1+ 增量**:`file_move`+`file_copy`+`archive_zip`+`archive_unzip`+`http_download`(+5)→ `MCP_TOOLS` 数组由 34 增至 39,CLI 面不计 permission_prompt 由 32 增至 37:
 
 - 权限桥接:`permission_prompt`(interactive + 权限桥接时把权限询问路由回 UI)。
 - 执行:`powershell_run`(一次性)、`script_run`。
 - **持久 shell 会话族(v0.8-S2 新增,provider 引擎独占)**:`shell_start`、`shell_send`、`shell_poll`、`shell_kill`、`shell_list`(见「引擎」节说明)。
-- 文件:`file_read`、`file_write`、`file_edit`、`file_delete`(v0.8-S4a 新增,tier edit;删前 journal `before`,可回滚;目录拒删)、`file_list`、`file_search`、`glob`(v0.8-S1 新增,tier read;`**`/`*`/`?` 匹配,mtime 降序)。
+- 文件:`file_read`、`file_write`、`file_edit`、`file_delete`(v0.8-S4a 新增,tier edit;删前 journal `before`,可回滚;目录拒删)、`file_move`、`file_copy`、`file_list`、`file_search`、`glob`(v0.8-S1 新增,tier read;`**`/`*`/`?` 匹配,mtime 降序)。
+- **打包/解压(v1.1+,tier edit)**:`archive_zip`(文件打包 .zip,deflate,可回滚)、`archive_unzip`(.zip 解压,Zip Slip 防护,可回滚)。
+- **下载(v1.1+,tier edit)**:`http_download`(http(s)下载到工作区,SSRF 防护,可回滚)。
 - 交接:`browser_open`、`office_open`、`desktop_screenshot`、`keyboard_send_keys`。
 - 工程:`project_snapshot`、`git_status`、`git_diff`、`git_log`、`git_commit`(**v1.0-S4 git 工具族**:`git_status`/`git_diff`/`git_log` 为 read 档恒放行零弹窗、`git_commit` 为 exec 档[commit 触发 `.git/hooks` 任意代码];均 `execFile` 无 shell + `--` 防旗标走私)、`dependency_inventory`、`code_review_scan`、`frontend_audit`、`claude_md_audit`、`docs_search`。
 - 网络:`http_request`。
