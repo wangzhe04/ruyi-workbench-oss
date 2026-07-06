@@ -16,7 +16,7 @@
 | 文件系统 | 7 | 读写文件、目录浏览、复制/移动/删除、文件信息 |
 | Shell | 1 | 执行命令行命令 |
 | 系统信息 | 3 | 系统信息、等待、环境变量 |
-| 浏览器 (可选) | 9 | 打开URL、点击/输入、截图、提取文本、JS执行、导航（无 playwright 时优雅降级） |
+| 浏览器 (可选) | 11 | 打开URL、点击/输入、截图、提取文本、JS执行、导航、标签页列表/切换（无 playwright 时优雅降级） |
 | 文档读写 | 4 | 读取Word/Excel/PDF、创建Word、创建Excel、导出PDF（中文字体自动内嵌） |
 | Office 模板体系 | 4 | excel_beautify / excel_chart / write_pptx / chart_image——模板驱动出「好看」，三套设计系统（青花商务/墨白极简/活力现代），中文字体纪律（w:eastAsia） |
 | Office 读取 | 2 | excel_read（结构化读表，含公式）/ pdf_read_pages（分页读大 PDF） |
@@ -33,7 +33,7 @@
 | 同步原语 | 1 | wait_for_pixel（轮询像素直到匹配/超时） |
 | 诊断与安全 | 4 | diagnostics / version_info / safety_info / audit_tail |
 
-**共计 97 个工具**（v1.8.0；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
+**共计 99 个工具**（v1.8.1；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
 
 ### v1.6–v1.8 新增工具（Office 模板体系 + 读取与图像）
 

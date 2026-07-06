@@ -35,7 +35,7 @@
 │   ├── docs/                     架构/手册(manuals/USER-GUIDE、ADMIN-GUIDE)
 │   └── README.md                 工作台使用与打包说明
 ├── mcp/
-│   ├── ai-computer-control/      内置桌面控制 MCP(97 工具:截图/OCR/UIA/键鼠/窗口/Office/PDF)
+│   ├── ai-computer-control/      内置桌面控制 MCP(99 工具:截图/OCR/UIA/键鼠/窗口/Office/PDF)
 │   └── README.md                 drop-in 连接器(文件夹即插即用)说明
 ├── dev-harness/                  验证脚手架(60+ 离线 e2e,Node 直跑)
 ├── docs/branding/                品牌图标(青花如意云纹 SVG)
@@ -62,7 +62,7 @@ node .\app\server.js serve --open
 
 ## 桌面控制(可选)
 
-`mcp/ai-computer-control/` 是随发行包捆绑的**内置桌面控制 MCP**(97 工具,ACC v1.8.0,需 **Python 3.13**)。装好后工作台会**自动探测**并把它的工具供给两个引擎。
+`mcp/ai-computer-control/` 是随发行包捆绑的**内置桌面控制 MCP**(99 工具,ACC v1.8.1,需 **Python 3.13**)。装好后工作台会**自动探测**并把它的工具供给两个引擎。
 
 安装二选一:
 
@@ -143,7 +143,7 @@ First launch walks you through configuring a provider (DeepSeek recommended — 
 
 ### Desktop control (optional)
 
-`mcp/ai-computer-control/` is a bundled **desktop-control MCP** (97 tools, ACC v1.8.0, requires **Python 3.13**). Install via the offline installer (`installer/install.py`) or `pip install -r requirements_offline.txt`; the workbench auto-detects it once installed. Offline wheels are large and are **not** in git — download them from the GitHub Release assets, or `pip install` online. Most optional dependencies degrade gracefully when absent.
+`mcp/ai-computer-control/` is a bundled **desktop-control MCP** (99 tools, ACC v1.8.1, requires **Python 3.13**). Install via the offline installer (`installer/install.py`) or `pip install -r requirements_offline.txt`; the workbench auto-detects it once installed. Offline wheels are large and are **not** in git — download them from the GitHub Release assets, or `pip install` online. Most optional dependencies degrade gracefully when absent.
 
 ### Tests
 

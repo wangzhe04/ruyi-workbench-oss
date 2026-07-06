@@ -67,13 +67,14 @@ function getToken(port) { return new Promise(res => { const r = http.get({ host:
 function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
 
 // ───────────────────────────────────────────────────────────────────────────────────────────────
-// 固化清单:ACC in-process 全量工具名冻结 (v1.6=93 → v1.8 +excel_read/pdf_read_pages/image_info/image_resize=97)。用途=(A) 的离线兜底 +
+// 固化清单:ACC in-process 全量工具名冻结 (v1.8=97 → v1.8.1 +browser_list_tabs/browser_switch_tab=99)。用途=(A) 的离线兜底 +
 // (B) 真 ACC 拉不起来时的回落。**维护纪律**:ACC 新增/改名工具时,此清单要同步(否则 (B) 在有 python 的
 // 机器上会红,提示你既补 server.js 快照表、也更新这份冻结清单)。清单顺序无关(auditBridgedWriteCoverage 去重排序)。
 const ACC_TOOL_NAMES_FROZEN = [
   'act_and_verify', 'audit_tail', 'batch_actions', 'beep', 'browser_click', 'browser_close',
-  'browser_execute_js', 'browser_get_elements', 'browser_get_text', 'browser_navigate', 'browser_open',
-  'browser_screenshot', 'browser_type', 'chart_image', 'close_window', 'copy_file', 'delete_file',
+  'browser_execute_js', 'browser_get_elements', 'browser_get_text', 'browser_list_tabs', 'browser_navigate',
+  'browser_open', 'browser_screenshot', 'browser_switch_tab', 'browser_type', 'chart_image', 'close_window',
+  'copy_file', 'delete_file',
   'diagnostics', 'excel_beautify', 'excel_chart', 'excel_read', 'file_info', 'find_all_templates',
   'find_on_screen', 'find_template', 'focus_window', 'get_active_window', 'get_clipboard',
   'get_clipboard_image', 'get_dpi_info', 'get_environment_variable', 'get_mouse_position',
@@ -92,7 +93,7 @@ const ACC_TOOL_NAMES_FROZEN = [
 
 (async () => {
   // ── (A) 静态固化清单审计(机器无关,always-on 防回潮) ──────────────────────────────────────────
-  ok(ACC_TOOL_NAMES_FROZEN.length >= 93, '(A) 固化清单 >= 93 工具(got ' + ACC_TOOL_NAMES_FROZEN.length + ')');
+  ok(ACC_TOOL_NAMES_FROZEN.length === 99, '(A) 固化清单 = 99 工具(got ' + ACC_TOOL_NAMES_FROZEN.length + ')');
   const auditFrozen = auditBridgedWriteCoverage(ACC_TOOL_NAMES_FROZEN);
   ok(auditFrozen.uncovered.length === 0,
      '(A) 固化 ACC 清单:auditBridgedWriteCoverage uncovered 为空' +
@@ -256,7 +257,7 @@ const ACC_TOOL_NAMES_FROZEN = [
     } else {
       needsTargetVerify = true;
       console.log('  NOTE: 真 ACC 经 stdio 只回 ' + liveNames.length +
-                  ' 工具(in-process 有 97)—— mcp SDK stdio 构建坑,NEEDS TARGET-MACHINE VERIFICATION;已回落静态清单 (A)。');
+                  ' 工具(in-process 有 99)—— mcp SDK stdio 构建坑,NEEDS TARGET-MACHINE VERIFICATION;已回落静态清单 (A)。');
     }
     try { client.kill(); } catch {}
   }

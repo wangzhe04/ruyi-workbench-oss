@@ -42,10 +42,22 @@ const { McpStdioClient, detectDesktopMcp, resolveExternalMcpServers } = require(
     if (toolCount >= 80) {
       ok(true, 'real desktop MCP exposes >=80 tools (got ' + toolCount + ')');
       ok(client.listTools().some(t => t && t.name === 'diagnostics'), 'real desktop MCP includes the `diagnostics` tool');
+      // Safe production-path calls: the invalid key is rejected before any keyboard action, while
+      // OCR only observes the screen (click=false). These catch schema binding and nested-loop bugs
+      // that tools/list alone cannot detect.
+      const badHotkey = await client.callTool('hotkey', { keys: 'ctrl+definitely_not_a_key' });
+      ok(!/unexpected keyword argument/.test(String(badHotkey.error || '')) &&
+         /unknown key/.test(String(badHotkey.error || '')),
+         'hotkey accepts the MCP `keys` keyword and validates its value');
+      const ocrProbe = await client.callTool('ocr_find_text', {
+        text: '__ruyi_mcp_async_probe_that_cannot_exist__', click: false,
+      });
+      ok(!/asyncio\.run\(\) cannot be called from a running event loop/.test(String(ocrProbe.error || '')),
+         'ocr_find_text executes without a nested asyncio event-loop failure');
     } else {
       // Environment gap, not a code defect — flag for target-machine verification, do NOT fail.
       needsTargetVerify = true;
-      console.log('  NOTE: real MCP served ' + toolCount + ' tools over stdio (in-process it has 97) — mcp SDK stdio build issue on this machine; NEEDS TARGET-MACHINE VERIFICATION.');
+      console.log('  NOTE: real MCP served ' + toolCount + ' tools over stdio (in-process it has 99) — mcp SDK stdio build issue on this machine; NEEDS TARGET-MACHINE VERIFICATION.');
     }
     client.kill();
   }

@@ -8,6 +8,7 @@ Uses a throwaway data dir (WCW_DATA_DIR) so it never touches real logs/config.
 Exits non-zero on any failed assertion.
 """
 
+import asyncio
 import os
 import sys
 import tempfile
@@ -51,6 +52,8 @@ def main() -> int:
         ("get_system_info", {}),
     ]:
         res = _FNS[name](**kwargs)
+        if asyncio.iscoroutine(res):
+            res = asyncio.run(res)
         check(is_dict_ok(res) and res.get("ok") is True, f"{name} -> ok=True")
 
     # get_pixel_color separately: on non-interactive sessions GetDC(0) can return a 64-bit handle that
@@ -89,6 +92,8 @@ def main() -> int:
     for name, kwargs in [("observe", {"include_uia": False, "include_ocr": False}),
                          ("macro_list", {})]:
         res = _FNS[name](**kwargs)
+        if asyncio.iscoroutine(res):
+            res = asyncio.run(res)
         check(is_dict_ok(res), f"{name} returns an ok-dict")
     # record_start/record_stop degrade gracefully when pynput is missing.
     try:
@@ -135,7 +140,7 @@ def main() -> int:
         ocr_present = True
     except Exception:
         ocr_present = False
-    ocr = _FNS["ocr_find_text"](text="anything")
+    ocr = asyncio.run(_FNS["ocr_find_text"](text="anything"))
     check(is_dict_ok(ocr), "ocr_find_text returns an ok-dict")
     if not ocr_present:
         check(ocr.get("ok") is False and "winsdk" in str(ocr.get("error", "")),
@@ -164,7 +169,7 @@ def main() -> int:
     print("\n== query semantics: 'ran but found nothing' is ok:True, not a failure ==")
     # (a) Module-unavailable is a genuine execution failure -> ok:False (this is NOT a query-miss).
     if not ocr_present:
-        ocr_miss = _FNS["ocr_find_text"]("一个不可能存在的字符串zzz__nope")
+        ocr_miss = asyncio.run(_FNS["ocr_find_text"]("一个不可能存在的字符串zzz__nope"))
         check(ocr_miss.get("ok") is False and "winsdk" in str(ocr_miss.get("error", "")),
               "ocr_find_text with winsdk MISSING -> ok:False (module unavailable, not a query-miss)")
 

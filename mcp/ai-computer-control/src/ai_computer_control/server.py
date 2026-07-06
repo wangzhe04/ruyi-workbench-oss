@@ -85,19 +85,34 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
                     pass
             return kwargs or ({"_args": list(args)} if args else {})
 
-        @functools.wraps(fn)
-        def wrapper(*args, **kwargs):
-            try:
-                result = fn(*args, **kwargs)
-            except Exception as e:  # noqa: BLE001 — convert to a clean envelope, never a protocol error
-                out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        if inspect.iscoroutinefunction(fn):
+            @functools.wraps(fn)
+            async def wrapper(*args, **kwargs):
+                try:
+                    result = await fn(*args, **kwargs)
+                except Exception as e:  # noqa: BLE001 — clean envelope, never a protocol error
+                    out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                    if audit:
+                        _audit_safe(tool_name, _bind(args, kwargs), False)
+                    return out
+                out = _normalize(result)
                 if audit:
-                    _audit_safe(tool_name, _bind(args, kwargs), False)
+                    _audit_safe(tool_name, _bind(args, kwargs), out.get("ok", True))
                 return out
-            out = _normalize(result)
-            if audit:
-                _audit_safe(tool_name, _bind(args, kwargs), out.get("ok", True))
-            return out
+        else:
+            @functools.wraps(fn)
+            def wrapper(*args, **kwargs):
+                try:
+                    result = fn(*args, **kwargs)
+                except Exception as e:  # noqa: BLE001 — clean envelope, never a protocol error
+                    out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                    if audit:
+                        _audit_safe(tool_name, _bind(args, kwargs), False)
+                    return out
+                out = _normalize(result)
+                if audit:
+                    _audit_safe(tool_name, _bind(args, kwargs), out.get("ok", True))
+                return out
 
         return _raw_tool(*d_args, **d_kwargs)(wrapper)
 

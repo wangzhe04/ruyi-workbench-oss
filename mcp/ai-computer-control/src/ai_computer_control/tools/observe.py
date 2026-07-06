@@ -89,7 +89,7 @@ def _uia_elements(window_title: str | None, cap: int):
     return items[:cap]
 
 
-def _ocr_words(cap: int) -> list | None:
+async def _ocr_words(cap: int) -> list | None:
     """Full-screen OCR words as [{text,rect,center}] in screen coords. None if OCR backend absent."""
     try:
         from ai_computer_control.tools import ocr
@@ -97,7 +97,7 @@ def _ocr_words(cap: int) -> list | None:
         return None
     if not getattr(ocr, "_AVAILABLE", False):
         return None
-    res = ocr.ocr_screen()
+    res = await ocr.ocr_screen()
     if not res.get("success"):
         return None
     words = []
@@ -110,9 +110,9 @@ def _ocr_words(cap: int) -> list | None:
 
 
 @mcp.tool()
-def observe(max_width: int = 1280, window_title: str | None = None,
-            include_uia: bool = True, include_ocr: bool = True,
-            format: str = "png", quality: int = 80) -> dict:
+async def observe(max_width: int = 1280, window_title: str | None = None,
+                  include_uia: bool = True, include_ocr: bool = True,
+                  format: str = "png", quality: int = 80) -> dict:
     """One-shot situational snapshot: screenshot + focused window + UIA elements + OCR words.
 
     Everything you need to pick a next action in a single round-trip. UIA/OCR are included only when
@@ -159,7 +159,7 @@ def observe(max_width: int = 1280, window_title: str | None = None,
         else:
             out["uia_elements"] = uia_items
     if include_ocr:
-        ocr_items = _ocr_words(cap=200)
+        ocr_items = await _ocr_words(cap=200)
         if ocr_items is None:
             degraded.append("ocr")
         else:

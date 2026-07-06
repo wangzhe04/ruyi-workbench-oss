@@ -113,25 +113,30 @@ def press_key(key: str) -> dict:
 
 
 @mcp.tool(audit=True)
-def hotkey(*keys: str) -> dict:
+def hotkey(keys: str | list[str]) -> dict:
     """Press a keyboard shortcut (multiple keys held simultaneously).
 
     Args:
-        keys: Keys to press simultaneously (e.g. "ctrl", "shift", "s").
+        keys: Shortcut such as "ctrl+l" or a list such as ["ctrl", "shift", "s"].
 
     Returns:
         dict with 'ok' and the keys pressed. Unknown key names return an error instead of a silent no-op.
     """
     try:
-        if not keys:
+        if isinstance(keys, str):
+            parts = [k.strip().lower() for k in keys.split("+") if k.strip()]
+        elif isinstance(keys, list):
+            parts = [str(k).strip().lower() for k in keys if str(k).strip()]
+        else:
+            return {"ok": False, "error": "keys must be a '+'-separated string or a list of key names"}
+        if not parts:
             return {"ok": False, "error": "provide at least one key"}
-        parts = [k.strip().lower() for k in keys]
         bad = _validate_keys(parts)
         if bad:
             return {"ok": False, "error": f"unknown key name(s): {bad}. Use names like ctrl, alt, shift, "
                                           f"win, enter, tab, esc, f1-f12, a-z, 0-9."}
         pyautogui.hotkey(*parts)
-        return {"ok": True, "keys": list(keys)}
+        return {"ok": True, "keys": parts}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
 

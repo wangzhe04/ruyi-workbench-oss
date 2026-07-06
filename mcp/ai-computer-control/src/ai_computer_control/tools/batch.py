@@ -6,8 +6,6 @@ the real tool set; steps are isolated with per-step try/except.
 """
 
 import asyncio
-import time
-
 from ai_computer_control.server import mcp
 
 # Tools that must never be invoked from inside a batch (prevents recursion / round-trip storms).
@@ -18,21 +16,14 @@ def _tool_map() -> dict:
     return {t.name: t for t in mcp._tool_manager.list_tools() if t.name not in _NON_BATCHABLE}
 
 
-def _invoke(tool, args: dict):
+async def _invoke(tool, args: dict):
     fn = tool.fn
     if getattr(tool, "is_async", False):
-        # We may already be running inside the server's event loop (sync tools run in a worker
-        # thread); asyncio.run() would raise there. All current tools are sync — refuse async ones
-        # rather than risk a "loop already running" crash.
-        try:
-            asyncio.get_running_loop()
-            return {"error": f"async tool '{tool.name}' is not supported inside batch_actions"}
-        except RuntimeError:
-            return asyncio.run(fn(**args))
+        return await fn(**args)
     return fn(**args)
 
 
-def _run_batch(actions: list[dict], on_error: str, delay_ms: int) -> dict:
+async def _run_batch(actions: list[dict], on_error: str, delay_ms: int) -> dict:
     tools = _tool_map()
     results, completed, failed = [], 0, 0
     for i, step in enumerate(actions or []):
@@ -52,7 +43,7 @@ def _run_batch(actions: list[dict], on_error: str, delay_ms: int) -> dict:
                 break
             continue
         try:
-            res = _invoke(tools[name], args)
+            res = await _invoke(tools[name], args)
             # Prefer the tool's own normalized 'ok'; fall back to absence of an 'error' key.
             if isinstance(res, dict) and "ok" in res:
                 ok = bool(res["ok"])
@@ -71,12 +62,12 @@ def _run_batch(actions: list[dict], on_error: str, delay_ms: int) -> dict:
             if on_error == "stop":
                 break
         if delay_ms:
-            time.sleep(delay_ms / 1000.0)
+            await asyncio.sleep(delay_ms / 1000.0)
     return {"success": failed == 0, "completed": completed, "failed": failed, "results": results}
 
 
 @mcp.tool(audit=True)
-def batch_actions(actions: list[dict], on_error: str = "stop", delay_ms: int = 0) -> dict:
+async def batch_actions(actions: list[dict], on_error: str = "stop", delay_ms: int = 0) -> dict:
     """Run several tool calls in ONE round-trip.
 
     Args:
@@ -87,14 +78,14 @@ def batch_actions(actions: list[dict], on_error: str = "stop", delay_ms: int = 0
     Returns:
         dict with 'success', 'completed', 'failed', and 'results' (per-step {tool, ok, result|error}).
     """
-    return _run_batch(actions, on_error, delay_ms)
+    return await _run_batch(actions, on_error, delay_ms)
 
 
 @mcp.tool(audit=True)
-def macro_run(steps: list[dict], on_error: str = "stop", delay_ms: int = 120) -> dict:
+async def macro_run(steps: list[dict], on_error: str = "stop", delay_ms: int = 120) -> dict:
     """Replay a Claude-authored macro (a JSON list of tool steps) in one round-trip.
 
     Same shape as batch_actions but with a small default inter-step delay suited to UI automation
     (focus -> type -> click sequences). See batch_actions for the step schema.
     """
-    return _run_batch(steps, on_error, delay_ms)
+    return await _run_batch(steps, on_error, delay_ms)

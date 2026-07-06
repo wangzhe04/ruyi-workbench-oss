@@ -4,8 +4,6 @@ Requires the `winsdk` package. If unavailable, the tools return an install hint 
 server startup. Verify on the target box: winsdk OCR is async COM and version-sensitive.
 """
 
-import asyncio
-import base64
 import io
 import os
 
@@ -62,9 +60,9 @@ async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
     return {"success": True, "text": result.text, "lines": [ln.text for ln in result.lines], "words": words}
 
 
-def _run_ocr(png_bytes: bytes, lang: str | None) -> dict:
+async def _run_ocr(png_bytes: bytes, lang: str | None) -> dict:
     try:
-        return asyncio.run(_recognize(png_bytes, lang))
+        return await _recognize(png_bytes, lang)
     except Exception as e:  # noqa: BLE001
         out = {"error": f"{type(e).__name__}: {e}"}
         if "language" in str(e).lower():
@@ -88,17 +86,17 @@ def _screenshot_png(region=None) -> bytes:
 
 
 @mcp.tool()
-def ocr_image(path: str, lang: str | None = None) -> dict:
+async def ocr_image(path: str, lang: str | None = None) -> dict:
     """Run OCR on an image file. Returns recognized text + per-word bounding boxes (image coords)."""
     if not _AVAILABLE:
         return _unavailable()
     if not os.path.exists(path):
         return {"error": f"file not found: {path}"}
-    return _run_ocr(_png_bytes_from_path(path), lang)
+    return await _run_ocr(_png_bytes_from_path(path), lang)
 
 
 @mcp.tool()
-def ocr_screen(region: str | None = None, lang: str | None = None) -> dict:
+async def ocr_screen(region: str | None = None, lang: str | None = None) -> dict:
     """Run OCR on the whole screen, or a region "x,y,width,height".
 
     Word 'center' coordinates are SCREEN coordinates (region offset added), ready for mouse_click.
@@ -114,7 +112,7 @@ def ocr_screen(region: str | None = None, lang: str | None = None) -> dict:
             ox, oy = x, y
         except Exception:
             return {"error": "region must be 'x,y,width,height'"}
-    res = _run_ocr(_screenshot_png(bbox), lang)
+    res = await _run_ocr(_screenshot_png(bbox), lang)
     if res.get("success") and (ox or oy):
         for w in res.get("words", []):
             w["left"] += ox
@@ -124,9 +122,9 @@ def ocr_screen(region: str | None = None, lang: str | None = None) -> dict:
 
 
 @mcp.tool(audit=True)
-def ocr_click(text: str, region: str | None = None, lang: str | None = None,
-              nth: int | None = None, nearest_to: dict | None = None,
-              return_candidates: bool = False) -> dict:
+async def ocr_click(text: str, region: str | None = None, lang: str | None = None,
+                    nth: int | None = None, nearest_to: dict | None = None,
+                    return_candidates: bool = False) -> dict:
     """OCR the screen (or region), find `text` (case-insensitive substring), and click its center.
 
     Disambiguation when several words match:
@@ -148,7 +146,7 @@ def ocr_click(text: str, region: str | None = None, lang: str | None = None,
     """
     if not _AVAILABLE:
         return _unavailable()
-    res = ocr_screen(region=region, lang=lang)
+    res = await ocr_screen(region=region, lang=lang)
     if not res.get("success"):
         return res
     target = text.lower()
@@ -226,8 +224,8 @@ def _span(group: list[dict], matched: str) -> dict:
 
 
 @mcp.tool(audit=True)
-def ocr_find_text(text: str, region: str | None = None, click: bool = False,
-                  lang: str | None = None) -> dict:
+async def ocr_find_text(text: str, region: str | None = None, click: bool = False,
+                        lang: str | None = None) -> dict:
     """OCR the screen (or a region) and locate `text`, spanning across adjacent words if needed.
 
     Coordinates are SCREEN coordinates (region offset already applied by ocr_screen), so 'center'
@@ -244,7 +242,7 @@ def ocr_find_text(text: str, region: str | None = None, click: bool = False,
     """
     if not _AVAILABLE:
         return _unavailable()
-    res = ocr_screen(region=region, lang=lang)
+    res = await ocr_screen(region=region, lang=lang)
     if not res.get("success"):
         return res
     match = _find_phrase(res.get("words", []), text)
