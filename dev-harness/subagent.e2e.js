@@ -176,6 +176,38 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(priorContextInjected, '(a2) completed dependency conclusion is injected into the summary agent context');
     ok(orchestrationPromptPresent, '(a2) parent prompt explains parallel stages and dependsOn orchestration');
 
+    // ── (a3) one-call persistent DAG: pro/con parallel, summary auto-unlocks without another parent decision ──
+    killp(fake); await sleep(300);
+    const scriptW = JSON.stringify({
+      parent: [{ name: 'orchestrate_agents', args: { nodes: [
+        { id: 'pro', task: '正方分析', toolTier: 'read' },
+        { id: 'con', task: '反方分析', toolTier: 'read' },
+        { id: 'summary', task: '综合裁决', dependsOn: ['pro', 'con'], toolTier: 'read' },
+      ] } }],
+      sub: [], subText: '节点结论。', parentText: 'DAG 完成。',
+    });
+    fake = spawnFake({ FAKE_SUBAGENT_SCRIPT: scriptW }); procs.push(fake);
+    up = false; for (let i = 0; i < 30 && !up; i++) { await sleep(150); up = await fakeUp(FAKE_PORT); }
+    ok(up, '(a3) DAG fake respawned');
+    const cw = await postJson(WB_PORT, '/api/sessions', { title: 'persistent agent DAG', cwd: HOME }, hdr);
+    const sidw = cw.body && cw.body.session && cw.body.session.id;
+    const evw = await streamChat(WB_PORT, { sessionId: sidw, message: '运行完整编排图', cwd: HOME });
+    const wfStart = evw.find(e => e.type === 'agent_workflow' && e.state === 'start');
+    const wfEnd = evw.find(e => e.type === 'agent_workflow' && e.state === 'end');
+    ok(wfStart && wfStart.nodeCount === 3, '(a3) workflow start event exposes three nodes');
+    ok(wfEnd && wfEnd.status === 'succeeded' && wfEnd.succeeded === 3, '(a3) workflow completes all DAG nodes');
+    const proStartW = evw.findIndex(e => e.type === 'subagent' && e.state === 'start' && e.agentKey === 'pro');
+    const conStartW = evw.findIndex(e => e.type === 'subagent' && e.state === 'start' && e.agentKey === 'con');
+    const firstEndW = evw.findIndex(e => e.type === 'subagent' && e.state === 'end');
+    const summaryStartW = evw.findIndex(e => e.type === 'subagent' && e.state === 'start' && e.agentKey === 'summary');
+    const proEndW = evw.findIndex(e => e.type === 'subagent' && e.state === 'end' && e.agentKey === 'pro');
+    const conEndW = evw.findIndex(e => e.type === 'subagent' && e.state === 'end' && e.agentKey === 'con');
+    ok(proStartW >= 0 && conStartW >= 0 && firstEndW > Math.max(proStartW, conStartW), '(a3) independent pro/con nodes really overlap');
+    ok(summaryStartW > Math.max(proEndW, conEndW), '(a3) summary auto-starts only after both dependencies finish');
+    const persistedRuns = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdr);
+    const persisted = persistedRuns && persistedRuns.runs && persistedRuns.runs.find(r => r.id === (wfStart && wfStart.id));
+    ok(persisted && persisted.status === 'succeeded' && persisted.nodes.length === 3, '(a3) completed DAG is persisted and inspectable through API');
+
     // ── (b) nesting forbidden: sub tries spawn_agent → refused, but its file_write still runs ─────────────
     killp(fake); await sleep(300);
     const x2 = path.join(HOME, 'x2.txt');
@@ -351,13 +383,15 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
       if (files.length) {
         const body = JSON.parse(fs.readFileSync(path.join(capDir, files[0]), 'utf8'));
         const names = Array.isArray(body.tools) ? body.tools.map(t => t.function && t.function.name) : [];
-        sawSpawnInTools = names.includes('spawn_agent');
+        sawSpawnInTools = names.includes('spawn_agent') || names.includes('orchestrate_agents');
       } else { sawSpawnInTools = false; }
     } catch { sawSpawnInTools = false; }
-    ok(sawSpawnInTools === false, '(e) spawn_agent NOT in buildOpenAiTools when subagentMaxPerTurn:0');
+    ok(sawSpawnInTools === false, '(e) agent delegation tools NOT in buildOpenAiTools when subagentMaxPerTurn:0');
     // Direct /api/tools/spawn_agent → context-free refusal.
     const direct = await postJson(WB_PORT, '/api/tools/spawn_agent', { task: 'x' }, hdrE);
     ok(direct.body && direct.body.result && direct.body.result.ok === false && /仅在 provider 引擎/.test(direct.body.result.error || ''), '(e) direct /api/tools/spawn_agent → context-free refusal');
+    const directDag = await postJson(WB_PORT, '/api/tools/orchestrate_agents', { nodes: [] }, hdrE);
+    ok(directDag.body && directDag.body.result && directDag.body.result.ok === false && /仅在 provider 引擎/.test(directDag.body.result.error || ''), '(e) direct /api/tools/orchestrate_agents → context-free refusal');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of procs) killp(c);

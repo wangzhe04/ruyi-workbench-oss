@@ -1731,7 +1731,7 @@ async function sendPrompt(overrideText) {
   // Live assistant container — tag it with the current engine so its badge/avatar match the engine
   // producing this reply (the server sends the authoritative meta on the persisted message).
   const { row, main } = messageShell('assistant', new Date().toISOString(), currentEngineMeta());
-  const live = { thinkingText: '', bufferText: '', thinkingEl: null, bubble: null, toolCards: new Map(), subCards: new Map(), rendered: false, rafPending: false, rafId: 0 };
+  const live = { thinkingText: '', bufferText: '', thinkingEl: null, bubble: null, toolCards: new Map(), subCards: new Map(), workflowCards: new Map(), rendered: false, rafPending: false, rafId: 0 };
   live.bubble = el('div', 'bubble md stream-cursor');
   main.appendChild(live.bubble);
   live.toolsWrap = el('div'); main.appendChild(live.toolsWrap);
@@ -1945,6 +1945,9 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // hold the sub-turn's own tool_use/tool_result (routed here by subagentId). `end` stamps the head with
       // ✓/✗ + a short conclusion summary. See handleSubagentEvent.
       handleSubagentEvent(evt, live);
+      break;
+    case 'agent_workflow':
+      handleAgentWorkflowEvent(evt, live);
       break;
     case 'tool_use': {
       const card = toolCard({ name: evt.name, input: evt.input });
@@ -2278,6 +2281,29 @@ function decidePlan(planId, decision, note) {
 // subagentId in the tool_use/tool_result handlers). `end` stamps the head with ✓/✗ + a short conclusion note.
 // The card lives in live.toolsWrap so it sits with the turn's other tool activity, and is tracked in
 // live.subCards keyed by the subagentId so tool events find their host.
+function handleAgentWorkflowEvent(evt, live) {
+  const id = evt.id || '';
+  if (evt.state === 'start') {
+    const d = el('details', 'subagent-card'); d.open = true;
+    const sum = el('summary', 'subagent-head');
+    sum.append(el('span', 'sa-icon', '🕸️'), el('span', 'sa-title', `Agent 工作流 · ${evt.nodeCount || 0} 个节点`), el('span', 'sa-status', `运行中 · 并发 ${evt.concurrency || 1}`));
+    d.appendChild(sum); const body = el('div', 'subagent-body', '依赖图已持久化，节点将按依赖自动解锁。'); d.appendChild(body);
+    live.toolsWrap.appendChild(d);
+    live.workflowCards.set(id, { d, status: sum.querySelector('.sa-status'), done: 0, total: Number(evt.nodeCount) || 0 });
+    return;
+  }
+  const host = live.workflowCards.get(id); if (!host) return;
+  if (evt.state === 'node_end') {
+    host.done += 1;
+    host.status.textContent = `${host.done}/${host.total} 完成 · ${evt.nodeId || ''} ${evt.status || ''}`;
+  } else if (evt.state === 'end') {
+    const ok = evt.status === 'succeeded';
+    host.d.classList.add(ok ? 'sa-ok' : 'sa-err');
+    host.status.textContent = `${ok ? '✓ 完成' : '⚠ ' + (evt.status || '结束')} · 成功 ${evt.succeeded || 0} / 失败 ${evt.failed || 0}`;
+    host.status.classList.add(ok ? 'ok' : 'err');
+    if (ok) host.d.open = false;
+  }
+}
 function handleSubagentEvent(evt, live) {
   const id = evt.id || '';
   if (evt.state === 'start') {

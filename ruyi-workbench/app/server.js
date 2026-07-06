@@ -59,6 +59,7 @@ const paths = {
   checkpoints: path.join(dataRoot(), 'checkpoints'), // v0.8-S4a: file-checkpoint journal (per-session)
   playbooks: path.join(dataRoot(), 'playbooks'), // v0.9-S2: user-authored playbooks (built-ins ship in resources/)
   webcache: path.join(dataRoot(), 'webcache'), // v0.9-S9: web_fetch main-text cache (<sha256(url)>.json), offline-reusable
+  agentRuns: path.join(dataRoot(), 'agent-runs'), // persistent DAG workflow state, grouped by session
 };
 
 function json(data, status = 200, headers = {}) {
@@ -103,6 +104,7 @@ async function ensureDirs() {
     fsp.mkdir(paths.checkpoints, { recursive: true }),
     fsp.mkdir(paths.playbooks, { recursive: true }), // v0.9-S2
     fsp.mkdir(paths.webcache, { recursive: true }), // v0.9-S9
+    fsp.mkdir(paths.agentRuns, { recursive: true }),
   ]);
 }
 
@@ -3894,6 +3896,7 @@ function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, pr
       const concurrent = Math.max(1, Number(config && config.subagentMaxConcurrent) || 2);
       const total = Math.max(0, Number(config && config.subagentMaxPerTurn) || 0);
       lines.push(`子代理编排：同一阶段可并行调用最多 ${concurrent} 个 spawn_agent，本回合累计最多 ${total} 个。存在依赖时分阶段调用：先并行派发独立角色，等待本阶段全部 tool_result 返回，再在下一次调用中用 agentKey + dependsOn 派发评审/总结角色；不要把有依赖的任务塞进同一批。dependsOn 的前序结论会自动注入后续子代理上下文。`);
+      lines.push('若完整依赖图在开始时已知，优先一次调用 orchestrate_agents 提交全部节点；运行时会自动并行就绪节点、等待依赖并持久化进度，比逐轮 spawn_agent 更可靠。');
     }
     const unavailable = [];
     for (const [name, spec] of Object.entries(TOOL_REQUIRES)) {
@@ -4022,7 +4025,7 @@ function buildOpenAiTools(config, caps, opts) {
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   for (const t of MCP_TOOLS) {
     if (t.name === 'permission_prompt') continue;
-    if (t.name === 'spawn_agent' && !spawnAgentEnabled) continue; // v0.9-S6: feature off or sub-turn (禁嵌套)
+    if ((t.name === 'spawn_agent' || t.name === 'orchestrate_agents') && !spawnAgentEnabled) continue;
     if (!allowCmd && (t.name === 'powershell_run' || t.name === 'script_run' || SHELL_TOOLS.has(t.name))) continue;
     if (!allowDesk && (t.name === 'desktop_screenshot' || t.name === 'keyboard_send_keys')) continue;
     // v0.9-S6: toolTier filter for sub-turns — drop any tool above the requested tier. spawn_agent (exec)
@@ -4047,6 +4050,7 @@ const NATIVE_TOOL_TIER = {
   powershell_run: 'exec', script_run: 'exec', keyboard_send_keys: 'exec', browser_open: 'exec', office_open: 'exec',
   desktop_screenshot: 'exec', http_request: 'exec',
   spawn_agent: 'exec', // v0.9-S6: delegating a sub-turn is the highest-privilege native act → exec tier
+  orchestrate_agents: 'exec',
   // v0.8-S2 shell session族: listing is read-only; start/send/poll/kill mutate state → exec.
   shell_list: 'read', shell_start: 'exec', shell_send: 'exec', shell_poll: 'exec', shell_kill: 'exec',
 };
@@ -4321,6 +4325,53 @@ async function drainSteerQueue(reg, session, onEvent) {
 // mode. It is a TURN-LOCAL override only; global config.permissionMode is never mutated. When absent (or the
 // plan is not yet approved, in which case the parent still passes 'plan'), the gate falls back to
 // config.permissionMode, so an UN-approved plan-mode turn still hard-blocks its sub-agents' edit/exec tools.
+function agentRunDir(sessionId) { return path.join(paths.agentRuns, safeSessionId(sessionId)); }
+function agentRunFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.json`); }
+const agentRunWriteChains = new Map();
+async function saveAgentRun(run) {
+  const previous = agentRunWriteChains.get(run.id) || Promise.resolve();
+  const current = previous.catch(() => {}).then(async () => {
+    const dir = agentRunDir(run.sessionId);
+    await fsp.mkdir(dir, { recursive: true });
+    run.updatedAt = nowIso();
+    const dest = agentRunFile(run.sessionId, run.id);
+    const tmp = dest + '.' + process.pid + '.tmp';
+    await fsp.writeFile(tmp, JSON.stringify(run, null, 2), 'utf8');
+    await fsp.rename(tmp, dest);
+  });
+  agentRunWriteChains.set(run.id, current);
+  try { await current; }
+  finally { if (agentRunWriteChains.get(run.id) === current) agentRunWriteChains.delete(run.id); }
+}
+async function listAgentRuns(sessionId) {
+  const dir = agentRunDir(sessionId);
+  let files = []; try { files = await fsp.readdir(dir); } catch { return []; }
+  const out = [];
+  for (const file of files.filter(f => /^run_[a-f0-9]+\.json$/i.test(f))) {
+    try {
+      const run = safeJsonParse(await fsp.readFile(path.join(dir, file), 'utf8'), null);
+      if (run) out.push(run);
+    } catch { /* skip corrupt/incomplete records */ }
+  }
+  return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+}
+async function markInterruptedAgentRuns() {
+  let sessionDirs = []; try { sessionDirs = await fsp.readdir(paths.agentRuns, { withFileTypes: true }); } catch { return; }
+  for (const dirent of sessionDirs) {
+    if (!dirent.isDirectory() || !safeSessionId(dirent.name)) continue;
+    const runs = await listAgentRuns(dirent.name);
+    for (const run of runs) {
+      if (run.status !== 'running') continue;
+      run.status = 'interrupted'; run.interruptedAt = nowIso();
+      for (const node of (run.nodes || [])) {
+        if (node.status === 'running') { node.status = 'interrupted'; node.error = '应用在节点运行期间退出'; node.completedAt = nowIso(); }
+        else if (node.status === 'queued') { node.status = 'blocked'; node.error = '工作流已中断，尚未执行'; }
+      }
+      await saveAgentRun(run);
+    }
+  }
+}
+
 async function runSubAgent({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride }) {
   const started = Date.now();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself run spawn_agent.
@@ -4405,7 +4456,7 @@ async function runSubAgent({ parentSession, provider, config, task, displayTask,
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
           let resultObj;
           // 禁嵌套 double-guard: even though spawn_agent is not offered here, refuse it defensively.
-          if (tc.name === 'spawn_agent') {
+          if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents') {
             resultObj = { ok: false, error: '子代理不可再派生子代理' };
           } else {
             const bridge = resolveBridge(bridgedRoute, tc.name);
@@ -4480,6 +4531,91 @@ async function runSubAgent({ parentSession, provider, config, task, displayTask,
     return fail;
   }
   return { ok: true, result: finalText, iters, toolCalls: toolCallCount };
+}
+
+// Execute a complete dependency graph without asking the parent model to schedule every stage. The graph
+// and node transitions are persisted after each state change so progress remains inspectable after a crash.
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl, permModeOverride, maxNodes }) {
+  const runId = makeId('run');
+  const limit = Math.max(0, Number(maxNodes) || 0);
+  if (!Array.isArray(rawNodes) || !rawNodes.length) return { ok: false, error: 'nodes 必须是非空数组', startedCount: 0 };
+  if (!limit || rawNodes.length > limit) return { ok: false, error: `本回合剩余子代理额度不足(${limit}),需要 ${rawNodes.length}`, startedCount: 0 };
+
+  const ids = new Set();
+  const nodes = [];
+  for (const raw of rawNodes.slice(0, 32)) {
+    const id = String(raw && raw.id || '').trim().slice(0, 64);
+    const task = String(raw && raw.task || '').trim();
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, error: `无效节点 id: ${id || '(空)'}`, startedCount: 0 };
+    if (ids.has(id)) return { ok: false, error: `节点 id 重复: ${id}`, startedCount: 0 };
+    if (!task) return { ok: false, error: `节点 ${id} 缺少 task`, startedCount: 0 };
+    ids.add(id);
+    nodes.push({
+      id, task, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16),
+      toolTier: raw.toolTier === 'edit' || raw.toolTier === 'exec' ? raw.toolTier : 'read',
+      model: String(raw.model || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters) || 6)),
+      status: 'queued', attempts: 0, result: '', error: '', startedAt: null, completedAt: null,
+    });
+  }
+  for (const node of nodes) {
+    const missing = node.dependsOn.filter(id => !ids.has(id));
+    if (missing.length) return { ok: false, error: `节点 ${node.id} 引用了不存在的依赖: ${missing.join(', ')}`, startedCount: 0 };
+    if (node.dependsOn.includes(node.id)) return { ok: false, error: `节点 ${node.id} 不能依赖自身`, startedCount: 0 };
+  }
+
+  const run = { schemaVersion: 1, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), nodes };
+  await saveAgentRun(run);
+  onEvent({ type: 'agent_workflow', state: 'start', id: runId, nodeCount: nodes.length, concurrency: run.concurrency });
+  let startedCount = 0;
+  const terminal = node => node.status === 'succeeded' || node.status === 'failed' || node.status === 'cancelled';
+
+  while (nodes.some(node => !terminal(node))) {
+    if (ctrl && ctrl.signal && ctrl.signal.aborted) {
+      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = '父回合已停止'; node.completedAt = nowIso(); }
+      break;
+    }
+    const ready = nodes.filter(node => node.status === 'queued' && node.dependsOn.every(dep => terminal(nodes.find(n => n.id === dep))));
+    if (!ready.length) {
+      for (const node of nodes) if (!terminal(node)) { node.status = 'failed'; node.error = '依赖图存在环或无法解锁'; node.completedAt = nowIso(); }
+      break;
+    }
+    const batch = ready.slice(0, run.concurrency);
+    for (const node of batch) { node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); startedCount += 1; }
+    await saveAgentRun(run);
+    await Promise.all(batch.map(async node => {
+      const priorText = node.dependsOn.map(dep => {
+        const prior = nodes.find(n => n.id === dep);
+        const body = String(prior.result || prior.error || '').slice(0, 12000);
+        return `### ${dep} (${prior.status})\n${body}`;
+      }).join('\n\n').slice(0, 32000);
+      const effectiveTask = priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task;
+      try {
+        const sub = await runSubAgent({
+          parentSession, provider, config, task: effectiveTask, displayTask: node.task, agentKey: node.id,
+          dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
+          onEvent, subagentId: makeId('sub'), depth: 1, ctrl, permModeOverride,
+        });
+        node.status = sub.ok ? 'succeeded' : 'failed';
+        node.result = String(sub.result || '').slice(0, 24000);
+        node.error = sub.ok ? '' : String(sub.error || '子代理失败').slice(0, 4000);
+        node.iters = sub.iters; node.toolCalls = sub.toolCalls;
+      } catch (e) {
+        node.status = 'failed'; node.error = String(e && e.message || e).slice(0, 4000);
+      }
+      node.completedAt = nowIso();
+      onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status });
+      await saveAgentRun(run);
+    }));
+  }
+  const failed = nodes.filter(n => n.status !== 'succeeded');
+  run.status = failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded';
+  run.completedAt = nowIso();
+  await saveAgentRun(run);
+  onEvent({ type: 'agent_workflow', state: 'end', id: runId, status: run.status, succeeded: nodes.length - failed.length, failed: failed.length });
+  return {
+    ok: run.status === 'succeeded', runId, status: run.status, startedCount,
+    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, error: n.error, dependsOn: n.dependsOn })),
+  };
 }
 
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
@@ -4934,8 +5070,17 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           //  (2) per-turn total cap — config.subagentMaxPerTurn (already ≥1 here, else the tool wasn't offered).
           // A refused spawn still emits a tool_result (keeps assistant.tool_calls pairing valid) and continues.
           let resultObj; // v0.9-S6: declared here so the spawn_agent branch and the normal dispatch share it
-          if (tc.name === 'spawn_agent') {
-            resultObj = await (subagentPromises.get(tc.id) || Promise.resolve({ ok: false, error: '子代理调度失败' }));
+          if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents') {
+            if (tc.name === 'spawn_agent') {
+              resultObj = await (subagentPromises.get(tc.id) || Promise.resolve({ ok: false, error: '子代理调度失败' }));
+            } else {
+              const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
+              resultObj = await runAgentWorkflow({
+                parentSession: session, provider, config, nodes: args.nodes, onEvent, ctrl,
+                permModeOverride: subPermMode, maxNodes: subagentTurnCap - subagentTotal,
+              });
+              subagentTotal += Math.max(0, Number(resultObj && resultObj.startedCount) || 0);
+            }
             // Share the normal tool-result tail (event + records + history push) via the block below.
             const isErr = !!(resultObj && resultObj.ok === false);
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });
@@ -4943,7 +5088,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             touch();
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
-            continue; // spawn_agent done — skip the generic gate/dispatch for this tool_call
+            continue; // agent orchestration done — skip generic tool dispatch
           }
           // v0.7d: bridged (external/desktop MCP) tools carry a serverId__tool prefix; route them to the
           // MCP stdio client. v0.8-S0: their tier now comes from BRIDGED_TOOL_TIERS (keyed by the
@@ -7923,6 +8068,8 @@ Write-Output '${outPath.replace(/'/g, "''")}'
     // there is no turn context to run a sub-turn against, so refuse cleanly (never throw / fake a run).
     case 'spawn_agent':
       return { ok: false, error: 'spawn_agent 仅在 provider 引擎的对话回合内可用' };
+    case 'orchestrate_agents':
+      return { ok: false, error: 'orchestrate_agents 仅在 provider 引擎的对话回合内可用' };
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -8070,7 +8217,7 @@ async function handleApi(req, res, pathname) {
     // It exposes paths & commands (same sensitivity class as /api/checkpoints), so it is EXPLICITLY listed
     // here for intent. It is a GET — the handler is the REAL gate (self-checks tokenOk before doing anything),
     // since GETs never enter this mutating block. Listing it here is documentation, not the enforcement point.
-    const needsToken = pathname.startsWith('/api/tools/') || pathname.startsWith('/api/checkpoints/') || pathname === '/api/session/rewind' || pathname === '/api/steer' || pathname === '/api/config' || pathname === '/api/provider/test' || pathname === '/api/playbooks' || pathname.startsWith('/api/playbooks/') || pathname === '/api/workspace/resolve' || pathname === '/api/pick-folder' || pathname === '/api/file/preview' || pathname === '/api/file/reveal' || pathname === '/api/mcp/import-folder' || pathname === '/api/plan/decision' || pathname === '/api/audit';
+    const needsToken = pathname.startsWith('/api/tools/') || pathname.startsWith('/api/checkpoints/') || pathname.startsWith('/api/agent-runs') || pathname === '/api/session/rewind' || pathname === '/api/steer' || pathname === '/api/config' || pathname === '/api/provider/test' || pathname === '/api/playbooks' || pathname.startsWith('/api/playbooks/') || pathname === '/api/workspace/resolve' || pathname === '/api/pick-folder' || pathname === '/api/file/preview' || pathname === '/api/file/reveal' || pathname === '/api/mcp/import-folder' || pathname === '/api/plan/decision' || pathname === '/api/audit';
     if (needsToken && !tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
   }
 
@@ -8358,6 +8505,22 @@ async function handleApi(req, res, pathname) {
     return send(res, json({ ok: true, count: items.length }));
   }
   // v0.8-S4a: checkpoint query (read-only → same-origin gate is enough; not in needsToken).
+  if (req.method === 'GET' && pathname === '/api/agent-runs') {
+    const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId'));
+    if (!sessionId) return send(res, json({ ok: false, error: 'sessionId required' }, 400));
+    const runs = await listAgentRuns(sessionId);
+    return send(res, json({ ok: true, runs }));
+  }
+  if (req.method === 'GET' && pathname.startsWith('/api/agent-runs/')) {
+    const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId'));
+    const runId = safeSessionId(pathname.slice('/api/agent-runs/'.length));
+    if (!sessionId || !runId) return send(res, json({ ok: false, error: 'sessionId/runId required' }, 400));
+    try {
+      const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null);
+      if (!run) throw new Error('invalid run');
+      return send(res, json({ ok: true, run }));
+    } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
+  }
   if (req.method === 'GET' && pathname === '/api/checkpoints') {
     // F2 (安全·泄露面): this GET exposes the file-change history. It is a GET, so it never runs through the
     // mutating auth block above — the token gate MUST be applied here in the handler. The UI's api() always
@@ -8719,6 +8882,7 @@ async function listenWithFallback(server, port, host, config) {
 
 async function startServer(opts) {
   await ensureDirs();
+  await markInterruptedAgentRuns();
   LAUNCH_MODE = isPkg() ? 'exe' : 'node';
   const config = await readConfig();
   const port = Number(opts.port || process.env.PORT || DEFAULT_PORT);
@@ -9275,6 +9439,31 @@ const MCP_TOOLS = [
       required: ['task'],
     },
   },
+  {
+    name: 'orchestrate_agents',
+    description: 'Run a complete persistent sub-agent dependency graph in one call. Submit all nodes up front. Nodes whose dependencies are satisfied run automatically, independent nodes run concurrently, and downstream nodes receive dependency results. Prefer this over repeated spawn_agent calls when the stages are known. Progress is persisted for inspection after interruption.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nodes: {
+          type: 'array', minItems: 1, maxItems: 32,
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'unique stable node id, letters/numbers/_/- only' },
+              task: { type: 'string', description: 'self-contained task for this node' },
+              dependsOn: { type: 'array', items: { type: 'string' }, description: 'node ids that must finish before this node starts' },
+              toolTier: { type: 'string', enum: ['read', 'edit', 'exec'] },
+              maxIters: { type: 'number' },
+              model: { type: 'string' },
+            },
+            required: ['id', 'task'],
+          },
+        },
+      },
+      required: ['nodes'],
+    },
+  },
 ];
 
 function sendMcp(id, result, error) {
@@ -9308,7 +9497,7 @@ async function startMcp() {
           // v0.9-S6: spawn_agent is PROVIDER-ENGINE ONLY (it needs the serve-process turn closure to run a
           // sub-turn; the context-free toolCall() rejects it). Never advertise it on the Claude-CLI MCP
           // surface so the CLI model doesn't try a tool that can only refuse.
-          return sendMcp(msg.id, { tools: MCP_TOOLS.filter(t => t.name !== 'spawn_agent') });
+          return sendMcp(msg.id, { tools: MCP_TOOLS.filter(t => t.name !== 'spawn_agent' && t.name !== 'orchestrate_agents') });
         }
         if (msg.method === 'tools/call') {
           const name = msg.params?.name;

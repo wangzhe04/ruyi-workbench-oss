@@ -137,6 +137,7 @@ const CRITICAL_FUNCS = [
   // 单列在下方以「或」逻辑断言。
   // 计划事件(战略清单点名)
   'handlePlanEvent',
+  'handleAgentWorkflowEvent',
   // Phase 1 抽离的纯工具 / 网络函数(util.js / net.js)—— 拆后聚合源码里仍须有定义。
   'escapeHtml', 'fmtBytes', 'fmtTime', 'fmtTokens', 'autoGrow', 'toast', 'setStatus',
   'wcwToken', 'authHeaders', 'api', 'apiErrText',
