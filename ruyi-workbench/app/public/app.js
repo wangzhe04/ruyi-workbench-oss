@@ -2308,7 +2308,7 @@ function handleAgentWorkflowEvent(evt, live) {
 let agentRunsPoll = null;
 const AGENT_RUN_ACTIVE = new Set(['running', 'paused']);
 function agentRunStatusLabel(status) {
-  return ({ queued: '等待中', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', partial: '部分完成', failed: '失败', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+  return ({ queued: '等待中', waiting_resource: '等待资源', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', partial: '部分完成', failed: '失败', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
 }
 async function agentRunAction(runId, action, extra) {
   const sid = state.currentSession?.id; if (!sid) return;
@@ -2351,6 +2351,25 @@ function renderAgentRuns(runs) {
       const deps = Array.isArray(node.dependsOn) && node.dependsOn.length ? ` ← ${node.dependsOn.join(', ')}` : '';
       row.appendChild(el('summary', 'agent-node-head', `${node.status === 'succeeded' ? '✓' : node.status === 'running' ? '◐' : node.status === 'failed' ? '✗' : '○'} ${node.id}${deps} · ${agentRunStatusLabel(node.status)} · 尝试 ${node.attempts || 0}`));
       const body = el('div', 'agent-node-body'); body.appendChild(el('div', 'agent-node-task', node.task || ''));
+      if (Array.isArray(node.resources) && node.resources.length) {
+        const resourceRow = el('div', 'agent-node-resources');
+        resourceRow.appendChild(el('span', 'agent-resource-label', node.status === 'waiting_resource' ? '等待：' : '资源：'));
+        for (const resource of node.resources) resourceRow.appendChild(el('span', 'agent-resource-chip', resource));
+        body.appendChild(resourceRow);
+      }
+      if (Array.isArray(node.resourceBlockers) && node.resourceBlockers.length) body.appendChild(el('div', 'agent-resource-wait', `被 ${node.resourceBlockers.map(b => b.group).join(', ')} 占用`));
+      if (node.isolation && node.isolation.mode === 'worktree') {
+        const iso = el('div', `agent-isolation ai-${node.isolation.status || 'unknown'}`);
+        const shortCommit = node.isolation.commit ? String(node.isolation.commit).slice(0, 10) : '';
+        iso.appendChild(el('span', 'agent-isolation-status', `隔离工作树：${node.isolation.status || 'unknown'}${shortCommit ? ` · ${shortCommit}` : ''}`));
+        if (!run.live && node.isolation.status === 'ready' && node.isolation.commit) {
+          const apply = el('button', 'mini primary', '应用到当前工作区');
+          apply.onclick = () => agentRunAction(run.id, 'apply_isolation', { nodeId: node.id });
+          iso.appendChild(apply);
+        }
+        if (Array.isArray(node.isolation.changeSummary) && node.isolation.changeSummary.length) iso.appendChild(el('pre', 'agent-isolation-changes', node.isolation.changeSummary.join('\n')));
+        body.appendChild(iso);
+      }
       if (node.result) body.appendChild(el('pre', 'agent-node-result', node.result));
       if (node.error) body.appendChild(el('pre', 'agent-node-error', node.error));
       if (!run.live) {

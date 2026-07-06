@@ -239,6 +239,30 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     for (let i = 0; i < 80; i++) { await sleep(100); const x = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdr); stoppedRun = x.runs && x.runs.find(r => r.id === wfStart.id); if (stoppedRun && !stoppedRun.live && stoppedRun.status === 'stopped') break; }
     ok(stoppedRun && stoppedRun.status === 'stopped', '(a4) stop aborts the workflow and persists stopped state');
 
+    // ── (a5) resource-aware DAG: independent nodes sharing desktop must serialize ─────────────────────
+    killp(fake); await sleep(300);
+    const scriptR = JSON.stringify({
+      parent: [{ name: 'orchestrate_agents', args: { nodes: [
+        { id: 'desktop-a', task: '桌面任务 A', toolTier: 'read', resources: ['desktop'] },
+        { id: 'desktop-b', task: '桌面任务 B', toolTier: 'read', resources: ['desktop'] },
+      ] } }],
+      sub: [], subText: '桌面节点完成。', parentText: '资源调度完成。',
+    });
+    fake = spawnFake({ FAKE_SUBAGENT_SCRIPT: scriptR, FAKE_STREAM_DELAY_MS: '180' }); procs.push(fake);
+    up = false; for (let i = 0; i < 30 && !up; i++) { await sleep(150); up = await fakeUp(FAKE_PORT); }
+    ok(up, '(a5) resource-aware DAG fake respawned');
+    const cr = await postJson(WB_PORT, '/api/sessions', { title: 'resource-aware DAG', cwd: HOME }, hdr);
+    const sidr = cr.body && cr.body.session && cr.body.session.id;
+    const evr = await streamChat(WB_PORT, { sessionId: sidr, message: '运行两个桌面任务', cwd: HOME });
+    const aStartR = evr.findIndex(e => e.type === 'subagent' && e.state === 'start' && e.agentKey === 'desktop-a');
+    const aEndR = evr.findIndex(e => e.type === 'subagent' && e.state === 'end' && e.agentKey === 'desktop-a');
+    const bStartR = evr.findIndex(e => e.type === 'subagent' && e.state === 'start' && e.agentKey === 'desktop-b');
+    ok(aStartR >= 0 && aEndR >= 0 && bStartR > aEndR, '(a5) same desktop resource serializes otherwise-independent nodes');
+    ok(evr.some(e => e.type === 'agent_resource' && e.state === 'waiting' && e.agentKey === 'desktop-b'), '(a5) waiting resource event is observable');
+    const rr = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidr, hdr);
+    const persistedR = rr.runs && rr.runs.find(run => run.nodes && run.nodes.some(n => n.id === 'desktop-a'));
+    ok(persistedR && persistedR.schemaVersion === 2 && persistedR.nodes.every(n => Array.isArray(n.resources) && n.resources[0] === 'desktop'), '(a5) normalized resources persist in schema v2 run record');
+
     // ── (b) nesting forbidden: sub tries spawn_agent → refused, but its file_write still runs ─────────────
     killp(fake); await sleep(300);
     const x2 = path.join(HOME, 'x2.txt');

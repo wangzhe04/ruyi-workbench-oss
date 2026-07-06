@@ -60,6 +60,7 @@ const paths = {
   playbooks: path.join(dataRoot(), 'playbooks'), // v0.9-S2: user-authored playbooks (built-ins ship in resources/)
   webcache: path.join(dataRoot(), 'webcache'), // v0.9-S9: web_fetch main-text cache (<sha256(url)>.json), offline-reusable
   agentRuns: path.join(dataRoot(), 'agent-runs'), // persistent DAG workflow state, grouped by session
+  agentWorktrees: path.join(dataRoot(), 'agent-worktrees'), // optional isolated write-agent worktrees (outside the repo)
 };
 
 function json(data, status = 200, headers = {}) {
@@ -105,6 +106,7 @@ async function ensureDirs() {
     fsp.mkdir(paths.playbooks, { recursive: true }), // v0.9-S2
     fsp.mkdir(paths.webcache, { recursive: true }), // v0.9-S9
     fsp.mkdir(paths.agentRuns, { recursive: true }),
+    fsp.mkdir(paths.agentWorktrees, { recursive: true }),
   ]);
 }
 
@@ -3897,6 +3899,7 @@ function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, pr
       const total = Math.max(0, Number(config && config.subagentMaxPerTurn) || 0);
       lines.push(`子代理编排：同一阶段可并行调用最多 ${concurrent} 个 spawn_agent，本回合累计最多 ${total} 个。存在依赖时分阶段调用：先并行派发独立角色，等待本阶段全部 tool_result 返回，再在下一次调用中用 agentKey + dependsOn 派发评审/总结角色；不要把有依赖的任务塞进同一批。dependsOn 的前序结论会自动注入后续子代理上下文。`);
       lines.push('若完整依赖图在开始时已知，优先一次调用 orchestrate_agents 提交全部节点；运行时会自动并行就绪节点、等待依赖并持久化进度，比逐轮 spawn_agent 更可靠。');
+      lines.push('资源感知：会操作同一文件/工作区、同一浏览器 Profile、桌面或 Office 文档的节点必须声明 resources（如 desktop、browser:default、file:C:\\项目\\a.js、workspace:C:\\项目；只读共享加 read: 前缀）。冲突节点会自动排队；实际工具参数还会在调用时自动加锁兜底。');
     }
     const unavailable = [];
     for (const [name, spec] of Object.entries(TOOL_REQUIRES)) {
@@ -4329,6 +4332,205 @@ function agentRunDir(sessionId) { return path.join(paths.agentRuns, safeSessionI
 function agentRunFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.json`); }
 const agentRunWriteChains = new Map();
 const activeAgentRuns = new Map(); // runId -> { run, ctrl, paused, stopRequested, resumeWaiters }
+
+// Resource-aware agent scheduling. A lease is scoped to an agent group: the node-level declaration and
+// its individual tool calls may overlap each other, while other agents still see the resource as busy.
+// Resource strings are intentionally portable/persistable: desktop, browser:<profile>, file:<path>,
+// office:<path>, workspace:<path>. Prefix a declaration with "read:" for a shared/read lease.
+const resourceLeases = new Map(); // token -> { group, resources, acquiredAt }
+const resourceWaiters = [];
+function canonicalResourcePath(value, cwd) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return path.normalize(path.isAbsolute(raw) ? raw : path.resolve(cwd || process.cwd(), raw));
+}
+function normalizeAgentResource(value, cwd) {
+  let raw = String(value || '').trim();
+  if (!raw || raw.length > 2048) return null;
+  let mode = 'write';
+  if (raw.startsWith('read:')) { mode = 'read'; raw = raw.slice(5); }
+  let type = '', target = '';
+  const colon = raw.indexOf(':');
+  if (colon < 0) { type = raw.toLowerCase(); }
+  else { type = raw.slice(0, colon).toLowerCase(); target = raw.slice(colon + 1); }
+  if (type === 'desktop') return { type, target: 'global', mode, key: 'desktop', label: 'desktop' };
+  if (type === 'browser') {
+    target = String(target || 'default').trim().toLowerCase() || 'default';
+    return { type, target, mode, key: `browser:${target}`, label: `browser:${target}` };
+  }
+  if (!['file', 'office', 'workspace'].includes(type)) return null;
+  target = canonicalResourcePath(target || cwd, cwd);
+  if (!target) return null;
+  const folded = process.platform === 'win32' ? target.toLowerCase() : target;
+  return { type, target, folded, mode, key: `${type}:${folded}`, label: `${type}:${target}` };
+}
+function normalizeAgentResources(values, cwd) {
+  const out = [], seen = new Set();
+  for (const value of (Array.isArray(values) ? values : [])) {
+    const spec = normalizeAgentResource(value, cwd);
+    if (!spec) continue;
+    const id = `${spec.mode}:${spec.key}`;
+    if (!seen.has(id)) { seen.add(id); out.push(spec); }
+  }
+  return out.slice(0, 32);
+}
+function remapAgentResources(values, sourceRoot, targetRoot) {
+  const specs = normalizeAgentResources(values, sourceRoot);
+  return specs.map(spec => {
+    let label = spec.label;
+    if (spec.target && ['file', 'office', 'workspace'].includes(spec.type) && pathWithinRoot(spec.target, sourceRoot)) {
+      label = `${spec.type}:${path.resolve(targetRoot, path.relative(sourceRoot, spec.target))}`;
+    }
+    return (spec.mode === 'read' ? 'read:' : '') + label;
+  });
+}
+function resourcePathContains(parent, child) {
+  if (!parent || !child) return false;
+  const rel = path.relative(parent, child);
+  return rel === '' || (!rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel));
+}
+function agentResourcesConflict(a, b) {
+  if (!a || !b || (a.mode === 'read' && b.mode === 'read')) return false;
+  if (a.type === 'desktop' || b.type === 'desktop') return a.type === 'desktop' && b.type === 'desktop';
+  if (a.type === 'browser' || b.type === 'browser') return a.type === 'browser' && b.type === 'browser' && a.target === b.target;
+  const pathTypes = new Set(['file', 'office', 'workspace']);
+  if (!pathTypes.has(a.type) || !pathTypes.has(b.type)) return a.key === b.key;
+  if (a.type === 'workspace' || b.type === 'workspace') {
+    const workspace = a.type === 'workspace' ? a : b;
+    const other = workspace === a ? b : a;
+    return resourcePathContains(workspace.target, other.target) || resourcePathContains(other.target, workspace.target);
+  }
+  return a.folded === b.folded; // file and office aliases for the same document conflict
+}
+function resourceBlockers(group, resources) {
+  const blockers = [];
+  for (const [token, lease] of resourceLeases) {
+    if (lease.group === group) continue;
+    if (resources.some(a => lease.resources.some(b => agentResourcesConflict(a, b)))) blockers.push({ token, group: lease.group, resources: lease.resources.map(r => r.label) });
+  }
+  return blockers;
+}
+function drainResourceWaiters() {
+  for (let i = 0; i < resourceWaiters.length;) {
+    const waiter = resourceWaiters[i];
+    if (waiter.signal && waiter.signal.aborted) { resourceWaiters.splice(i, 1); waiter.reject(Object.assign(new Error('resource wait aborted'), { name: 'AbortError' })); continue; }
+    const earlierConflict = resourceWaiters.slice(0, i).some(earlier => waiter.resources.some(a => earlier.resources.some(b => agentResourcesConflict(a, b))));
+    if (earlierConflict || resourceBlockers(waiter.group, waiter.resources).length) { i += 1; continue; }
+    resourceWaiters.splice(i, 1);
+    const token = makeId('lease');
+    resourceLeases.set(token, { group: waiter.group, resources: waiter.resources, acquiredAt: nowIso() });
+    waiter.resolve(token);
+  }
+}
+async function acquireResourceLease(group, resources, signal, onWait) {
+  const specs = Array.isArray(resources) ? resources : [];
+  if (!specs.length) return '';
+  const blockers = resourceBlockers(group, specs);
+  const queuedAhead = resourceWaiters.filter(waiter => specs.some(a => waiter.resources.some(b => agentResourcesConflict(a, b))));
+  if (!blockers.length && !queuedAhead.length) {
+    const token = makeId('lease'); resourceLeases.set(token, { group, resources: specs, acquiredAt: nowIso() }); return token;
+  }
+  if (typeof onWait === 'function') onWait(blockers.concat(queuedAhead.map(waiter => ({ group: waiter.group, resources: waiter.resources.map(r => r.label), queued: true }))));
+  return new Promise((resolve, reject) => {
+    const waiter = { group, resources: specs, signal, resolve, reject };
+    resourceWaiters.push(waiter);
+    if (signal) signal.addEventListener('abort', () => { const i = resourceWaiters.indexOf(waiter); if (i >= 0) resourceWaiters.splice(i, 1); reject(Object.assign(new Error('resource wait aborted'), { name: 'AbortError' })); }, { once: true });
+  });
+}
+function releaseResourceLease(token) { if (token && resourceLeases.delete(token)) drainResourceWaiters(); }
+function inferToolResources(name, args, bridge, cwd, tier) {
+  const bare = String(bridge ? bridge.toolName : name || '').toLowerCase();
+  const input = args && typeof args === 'object' ? args : {};
+  const specs = [];
+  const add = (raw, mode) => { const s = normalizeAgentResource((mode === 'read' ? 'read:' : '') + raw, cwd); if (s) specs.push(s); };
+  const exactReadNames = new Set(['file_read', 'docs_search']);
+  const treeReadNames = new Set(['file_list', 'file_search', 'glob', 'project_snapshot', 'git_status', 'git_diff', 'git_log', 'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit']);
+  const writeNames = new Set(['file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download']);
+  if (exactReadNames.has(name)) add(`file:${input.path || input.root || input.cwd || cwd}`, 'read');
+  if (treeReadNames.has(name)) add(`workspace:${input.path || input.root || input.cwd || cwd}`, 'read');
+  if (writeNames.has(name)) {
+    for (const key of ['path', 'source', 'destination', 'dest', 'output', 'output_path']) if (input[key]) add(`file:${input[key]}`, 'write');
+  }
+  if (name === 'shell_start' || name === 'git_commit') add(`workspace:${input.cwd || cwd}`, 'write');
+  if (name === 'browser_open' || /browser|chrom(e|ium)|playwright/.test(bare)) add(`browser:${input.profile || input.profileName || 'default'}`, 'write');
+  if (name === 'office_open' || /excel|word|powerpoint|office|docx|xlsx|pptx|pdf/.test(bare)) {
+    const p = input.path || input.file || input.input_path || input.output_path;
+    if (p) add(`office:${p}`, tier === 'read' ? 'read' : 'write');
+  }
+  if (name === 'desktop_screenshot' || bridge && /click|mouse|keyboard|hotkey|ocr|screen|window|desktop|type|press|scroll|drag/.test(bare)) add('desktop', 'write');
+  if (bridge) {
+    for (const target of collectBridgedWriteTargets(bridge.toolName, input)) add(`file:${target.path}`, 'write');
+  }
+  const seen = new Set(); return specs.filter(s => !seen.has(`${s.mode}:${s.key}`) && seen.add(`${s.mode}:${s.key}`));
+}
+function gitExec(cwd, args, timeout = 30000) {
+  return new Promise((resolve, reject) => {
+    cp.execFile('git', ['-C', cwd, ...args], { windowsHide: true, timeout, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err) { err.gitStderr = String(stderr || '').trim(); reject(err); }
+      else resolve(String(stdout || '').trim());
+    });
+  });
+}
+async function createAgentWorktree(cwd, runId, nodeId, attempt) {
+  const repoRoot = await gitExec(cwd, ['rev-parse', '--show-toplevel']);
+  const dirty = await gitExec(repoRoot, ['status', '--porcelain=v1', '--untracked-files=all']);
+  if (dirty) throw new Error('原工作区有未提交改动，无法从一致快照创建隔离节点；请先提交或移走这些改动');
+  const baseCommit = await gitExec(repoRoot, ['rev-parse', 'HEAD']);
+  const folder = `${safeSessionId(runId)}-${safeSessionId(nodeId)}-a${Math.max(1, Number(attempt) || 1)}`;
+  const worktreePath = path.resolve(paths.agentWorktrees, folder);
+  if (!pathWithinRoot(worktreePath, path.resolve(paths.agentWorktrees))) throw new Error('invalid agent worktree path');
+  await fsp.mkdir(path.dirname(worktreePath), { recursive: true });
+  await gitExec(repoRoot, ['worktree', 'add', '--detach', worktreePath, baseCommit], 60000);
+  return { mode: 'worktree', status: 'running', path: worktreePath, repoRoot: path.resolve(repoRoot), baseCommit, createdAt: nowIso() };
+}
+async function finalizeAgentWorktree(isolation, runId, nodeId) {
+  if (!isolation || isolation.mode !== 'worktree') return isolation;
+  const changes = await gitExec(isolation.path, ['status', '--porcelain=v1', '--untracked-files=all']);
+  if (!changes) {
+    isolation.status = 'clean'; isolation.completedAt = nowIso();
+    try { await gitExec(isolation.repoRoot, ['worktree', 'remove', '--force', isolation.path], 60000); } catch {}
+    isolation.path = ''; return isolation;
+  }
+  await gitExec(isolation.path, ['add', '-A']);
+  await gitExec(isolation.path, ['-c', 'user.name=Ruyi Agent', '-c', 'user.email=agent@ruyi.local', 'commit', '-m', `agent(${nodeId}): isolated result for ${runId}`], 60000);
+  isolation.commit = await gitExec(isolation.path, ['rev-parse', 'HEAD']);
+  isolation.status = 'ready'; isolation.completedAt = nowIso(); isolation.changeSummary = changes.split(/\r?\n/).slice(0, 100);
+  return isolation;
+}
+async function applyAgentWorktree(run, nodeId) {
+  const node = (run.nodes || []).find(n => n.id === nodeId);
+  if (!node || !node.isolation || node.isolation.mode !== 'worktree' || !node.isolation.commit) return { ok: false, error: '该节点没有可应用的隔离提交' };
+  if (node.isolation.status === 'applied') return { ok: true, alreadyApplied: true, commit: node.isolation.commit };
+  const iso = node.isolation;
+  const repoRoot = path.resolve(iso.repoRoot || '');
+  const currentRoot = await gitExec(normalizeCwd(repoRoot), ['rev-parse', '--show-toplevel']).catch(() => '');
+  if (!currentRoot || path.resolve(currentRoot) !== repoRoot) return { ok: false, error: '原工作区已不可用' };
+  const dirty = await gitExec(repoRoot, ['status', '--porcelain=v1', '--untracked-files=all']);
+  if (dirty) return { ok: false, error: '当前工作区有未提交改动；为避免覆盖，请先提交或移走这些改动' };
+  try {
+    await gitExec(repoRoot, ['cherry-pick', iso.commit], 120000);
+  } catch (e) {
+    try { await gitExec(repoRoot, ['cherry-pick', '--abort'], 30000); } catch {}
+    return { ok: false, error: `隔离提交无法安全应用：${e.gitStderr || e.message || e}` };
+  }
+  iso.status = 'applied'; iso.appliedAt = nowIso();
+  if (iso.path && pathWithinRoot(path.resolve(iso.path), path.resolve(paths.agentWorktrees))) {
+    try { await gitExec(repoRoot, ['worktree', 'remove', '--force', iso.path], 60000); iso.path = ''; } catch {}
+  }
+  await saveAgentRun(run);
+  return { ok: true, commit: iso.commit };
+}
+async function cleanupAgentWorktree(isolation) {
+  if (!isolation || !isolation.path) return;
+  const worktreePath = path.resolve(isolation.path);
+  if (!pathWithinRoot(worktreePath, path.resolve(paths.agentWorktrees))) return;
+  try { await gitExec(path.resolve(isolation.repoRoot), ['worktree', 'remove', '--force', worktreePath], 60000); }
+  catch {
+    try { await fsp.rm(worktreePath, { recursive: true, force: true }); } catch {}
+    try { await gitExec(path.resolve(isolation.repoRoot), ['worktree', 'prune'], 30000); } catch {}
+  }
+  isolation.path = '';
+}
 async function saveAgentRun(run) {
   const previous = agentRunWriteChains.get(run.id) || Promise.resolve();
   const current = previous.catch(() => {}).then(async () => {
@@ -4366,14 +4568,14 @@ async function markInterruptedAgentRuns() {
       run.status = 'interrupted'; run.interruptedAt = nowIso();
       for (const node of (run.nodes || [])) {
         if (node.status === 'running') { node.status = 'interrupted'; node.error = '应用在节点运行期间退出'; node.completedAt = nowIso(); }
-        else if (node.status === 'queued') { node.status = 'blocked'; node.error = '工作流已中断，尚未执行'; }
+        else if (node.status === 'queued' || node.status === 'waiting_resource') { node.status = 'blocked'; node.error = '工作流已中断，尚未执行'; node.waitingForResources = []; }
       }
       await saveAgentRun(run);
     }
   }
 }
 
-async function runSubAgent({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride }) {
+async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup }) {
   const started = Date.now();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself run spawn_agent.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes spawn_agent */ }
@@ -4497,15 +4699,27 @@ async function runSubAgent({ parentSession, provider, config, task, displayTask,
                 else {
                   // v1.5-W1.5 (T3): sub-agent 也经 workbench 分发 bridged 工具 → 同样在 callTool 前存快照。
                   // 锚定 parent turnSeq(与下方 sub-agent 内建文件工具 checkpoint 同一 turn),失败静默不阻断。
-                  await journalBridgedWrite(tc.name, args, parentSession, config, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq });
-                  try { resultObj = await client.callTool(bridge.toolName, args); } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+                  let toolLease = '';
+                  try {
+                    const toolResources = inferToolResources(tc.name, args, bridge, workingDir, ntier);
+                    toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
+                    await journalBridgedWrite(tc.name, args, parentSession, config, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq });
+                    resultObj = await client.callTool(bridge.toolName, args);
+                  } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+                  finally { releaseResourceLease(toolLease); }
                 }
               }
             } else {
               // Same journal ctx as the parent → sub-agent file mutations checkpoint under the parent turnSeq.
               // v1.1-W2 (T1): thread parentSession+config so a sub-agent's http_download guards its dest too.
-              try { resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config }); }
+              let toolLease = '';
+              try {
+                const toolResources = inferToolResources(tc.name, args, null, workingDir, ntier);
+                toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
+                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config });
+              }
               catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+              finally { releaseResourceLease(toolLease); }
             }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
@@ -4534,6 +4748,25 @@ async function runSubAgent({ parentSession, provider, config, task, displayTask,
   return { ok: true, result: finalText, iters, toolCalls: toolCallCount };
 }
 
+async function runSubAgent(opts) {
+  const workingDir = normalizeCwd(opts.parentSession.cwd, opts.config.defaultWorkspace);
+  const resources = normalizeAgentResources(opts.resources, workingDir);
+  const group = String(opts.resourceGroup || opts.subagentId || makeId('agent'));
+  let lease = '';
+  try {
+    lease = await acquireResourceLease(group, resources, opts.ctrl && opts.ctrl.signal, blockers => {
+      if (typeof opts.onResourceWait === 'function') opts.onResourceWait(resources, blockers);
+      if (typeof opts.onEvent === 'function') opts.onEvent({ type: 'agent_resource', state: 'waiting', subagentId: opts.subagentId, agentKey: opts.agentKey, resources: resources.map(r => r.label), blockers });
+    });
+    if (typeof opts.onResourceAcquired === 'function') opts.onResourceAcquired(resources);
+    if (resources.length && typeof opts.onEvent === 'function') opts.onEvent({ type: 'agent_resource', state: 'acquired', subagentId: opts.subagentId, agentKey: opts.agentKey, resources: resources.map(r => r.label) });
+    return await runSubAgentCore({ ...opts, resourceGroup: group });
+  } finally {
+    releaseResourceLease(lease);
+    if (resources.length && typeof opts.onEvent === 'function') opts.onEvent({ type: 'agent_resource', state: 'released', subagentId: opts.subagentId, agentKey: opts.agentKey, resources: resources.map(r => r.label) });
+  }
+}
+
 // Execute a complete dependency graph without asking the parent model to schedule every stage. The graph
 // and node transitions are persisted after each state change so progress remains inspectable after a crash.
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade }) {
@@ -4553,8 +4786,13 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     } else {
       for (const n of nodes) if (n.status !== 'succeeded') reset.add(n.id);
     }
+    const pendingIsolation = nodes.find(n => reset.has(n.id) && n.isolation && n.isolation.status === 'ready');
+    if (pendingIsolation) return { ok: false, error: `节点 ${pendingIsolation.id} 有尚未应用的隔离提交，请先应用或删除该工作流记录`, startedCount: 0 };
+    for (const n of nodes) { if (!Array.isArray(n.resources)) n.resources = []; }
     for (const n of nodes) if (reset.has(n.id)) {
+      if (n.isolation && n.isolation.path) await cleanupAgentWorktree(n.isolation);
       n.status = 'queued'; n.result = ''; n.error = ''; n.startedAt = null; n.completedAt = null;
+      n.waitingForResources = [];
     }
     run.status = 'running'; run.completedAt = null; run.resumedAt = nowIso();
     run.concurrency = Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || run.concurrency || 2));
@@ -4571,14 +4809,15 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (ids.has(id)) return { ok: false, error: `节点 id 重复: ${id}`, startedCount: 0 };
       if (!task) return { ok: false, error: `节点 ${id} 缺少 task`, startedCount: 0 };
       ids.add(id);
-      nodes.push({ id, task, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), toolTier: raw.toolTier === 'edit' || raw.toolTier === 'exec' ? raw.toolTier : 'read', model: String(raw.model || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters) || 6)), status: 'queued', attempts: 0, result: '', error: '', startedAt: null, completedAt: null });
+      const resourceSpecs = normalizeAgentResources(raw.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace));
+      nodes.push({ id, task, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: raw.isolation === 'worktree' ? 'worktree' : 'none', toolTier: raw.toolTier === 'edit' || raw.toolTier === 'exec' ? raw.toolTier : 'read', model: String(raw.model || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters) || 6)), status: 'queued', attempts: 0, result: '', error: '', startedAt: null, completedAt: null, waitingForResources: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
       if (missing.length) return { ok: false, error: `节点 ${node.id} 引用了不存在的依赖: ${missing.join(', ')}`, startedCount: 0 };
       if (node.dependsOn.includes(node.id)) return { ok: false, error: `节点 ${node.id} 不能依赖自身`, startedCount: 0 };
     }
-    run = { schemaVersion: 1, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: provider && provider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), nodes };
+    run = { schemaVersion: 2, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: provider && provider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), nodes };
   }
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行', startedCount: 0, runId };
   const localCtrl = typeof AbortController === 'function' ? new AbortController() : parentCtrl;
@@ -4619,11 +4858,26 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         return `### ${dep} (${prior.status})\n${body}`;
       }).join('\n\n').slice(0, 32000);
       const effectiveTask = priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task;
+      let agentSession = parentSession;
+      let isolated = false;
+      let effectiveResources = node.resources;
       try {
+        if (node.isolationMode === 'worktree') {
+          node.isolation = await createAgentWorktree(normalizeCwd(parentSession.cwd, config.defaultWorkspace), runId, node.id, node.attempts);
+          isolated = true;
+          agentSession = { ...parentSession, cwd: node.isolation.path };
+          effectiveResources = remapAgentResources(node.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace), node.isolation.path);
+          await saveAgentRun(run);
+        }
         const sub = await runSubAgent({
-          parentSession, provider, config, task: effectiveTask, displayTask: node.task, agentKey: node.id,
+          parentSession: agentSession, provider, config,
+          task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
+          displayTask: node.task, agentKey: node.id,
           dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
           onEvent, subagentId: makeId('sub'), depth: 1, ctrl: localCtrl, permModeOverride,
+          resources: effectiveResources, resourceGroup: `${runId}:${node.id}`,
+          onResourceWait: (resources, blockers) => { node.status = 'waiting_resource'; node.waitingForResources = resources.map(r => r.label); node.resourceBlockers = blockers; saveAgentRun(run).catch(() => {}); },
+          onResourceAcquired: resources => { node.status = 'running'; node.waitingForResources = []; node.resourceBlockers = []; node.acquiredResources = resources.map(r => r.label); saveAgentRun(run).catch(() => {}); },
         });
         node.status = sub.ok ? 'succeeded' : 'failed';
         node.result = String(sub.result || '').slice(0, 24000);
@@ -4631,6 +4885,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         node.iters = sub.iters; node.toolCalls = sub.toolCalls;
       } catch (e) {
         node.status = 'failed'; node.error = String(e && e.message || e).slice(0, 4000);
+      } finally {
+        if (isolated && node.isolation) {
+          try { await finalizeAgentWorktree(node.isolation, runId, node.id); }
+          catch (e) {
+            node.isolation.status = 'error'; node.isolation.error = String(e && (e.gitStderr || e.message) || e).slice(0, 4000);
+            if (node.status === 'succeeded') { node.status = 'failed'; node.error = '隔离工作树收尾失败：' + node.isolation.error; }
+          }
+        }
       }
       node.completedAt = nowIso();
       onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status });
@@ -5072,6 +5334,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             task: effectiveTask, displayTask: originalTask, agentKey, dependsOn,
             toolTier: sargs.toolTier, maxIters: sargs.maxIters, model: sargs.model,
             onEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
+            resources: sargs.resources, resourceGroup: `turn:${session.id}:${session.turnSeq}:${agentKey}`,
           }).then(sub => sub.ok
             ? { ok: true, result: sub.result, iters: sub.iters, toolCalls: sub.toolCalls }
             : { ok: false, error: sub.error || '子代理失败', result: sub.result || undefined, iters: sub.iters, toolCalls: sub.toolCalls }
@@ -5188,8 +5451,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   else {
                     // v1.5-W1.5 (T3): ACC 写族工具动文件之前先存 before 快照进 checkpoint journal —— 分发执行
                     // 之前(callTool 之前)插入。失败静默(不阻断工具)。gate 已通过 → 快照 gate 通过后、真正调用前。
-                    await journalBridgedWrite(tc.name, args, session, config, { sessionId: session.id, turnSeq: session.turnSeq });
-                    try { resultObj = await client.callTool(bridge.toolName, args); } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+                    let toolLease = '';
+                    try {
+                      const toolResources = inferToolResources(tc.name, args, bridge, workingDir, tier);
+                      toolLease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
+                      await journalBridgedWrite(tc.name, args, session, config, { sessionId: session.id, turnSeq: session.turnSeq });
+                      resultObj = await client.callTool(bridge.toolName, args);
+                    } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+                    finally { releaseResourceLease(toolLease); }
                   }
                 }
               } else if (tc.name === 'todo_write') {
@@ -5206,8 +5475,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // record a `before` snapshot under this session's current turnSeq (serve process path).
                 // v1.1-W2 (T1): also thread session+config so http_download can guard its落盘 dest against the
                 // session's allowed workspace roots (guardDownloadDest → guardWorkspacePath).
-                try { resultObj = await toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config }); }
+                let toolLease = '';
+                try {
+                  const toolResources = inferToolResources(tc.name, args, null, workingDir, tier);
+                  toolLease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
+                  resultObj = await toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config });
+                }
                 catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+                finally { releaseResourceLease(toolLease); }
               }
             }
           }
@@ -8596,6 +8871,14 @@ async function handleApi(req, res, pathname) {
       const nodeId = String(body.nodeId || '').trim();
       return send(res, json(await launchPersistedAgentRun({ sessionId, runId, retryNodeId: nodeId, retryCascade: body.cascade === true })));
     }
+    if (action === 'apply_isolation') {
+      if (live) return send(res, json({ ok: false, error: '请先等待当前运行结束' }, 409));
+      const nodeId = String(body.nodeId || '').trim();
+      const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8').catch(() => ''), null);
+      if (!run || run.sessionId !== sessionId) return send(res, json({ ok: false, error: 'agent run not found' }, 404));
+      const applied = await applyAgentWorktree(run, nodeId).catch(e => ({ ok: false, error: String(e && (e.gitStderr || e.message) || e) }));
+      return send(res, json(applied, applied.ok ? 200 : 409));
+    }
     return send(res, json({ ok: false, error: 'unknown action' }, 400));
   }
   if (req.method === 'DELETE' && pathname.startsWith('/api/agent-runs/')) {
@@ -8603,7 +8886,12 @@ async function handleApi(req, res, pathname) {
     const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId'));
     if (!sessionId || !runId) return send(res, json({ ok: false, error: 'sessionId/runId required' }, 400));
     if (activeAgentRuns.has(runId)) return send(res, json({ ok: false, error: '运行中的工作流不能删除' }, 409));
-    try { await fsp.unlink(agentRunFile(sessionId, runId)); } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
+    try {
+      const file = agentRunFile(sessionId, runId);
+      const run = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
+      for (const node of (run && run.nodes || [])) if (node.isolation) await cleanupAgentWorktree(node.isolation);
+      await fsp.unlink(file);
+    } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
     return send(res, json({ ok: true }));
   }
   if (req.method === 'GET' && pathname.startsWith('/api/agent-runs/')) {
@@ -9531,6 +9819,7 @@ const MCP_TOOLS = [
         toolTier: { type: 'string', enum: ['read', 'edit', 'exec'], description: "tool access level for the sub-agent (default 'read')" },
         maxIters: { type: 'number', description: 'sub-loop iteration budget (default 6, clamped 1..12)' },
         model: { type: 'string', description: 'optional model id override for the sub-turn' },
+        resources: { type: 'array', items: { type: 'string' }, description: 'resources held for the whole subtask. Examples: desktop, browser:default, file:C:\\project\\a.js, workspace:C:\\project. Prefix with read: for shared access.' },
       },
       required: ['task'],
     },
@@ -9552,6 +9841,8 @@ const MCP_TOOLS = [
               toolTier: { type: 'string', enum: ['read', 'edit', 'exec'] },
               maxIters: { type: 'number' },
               model: { type: 'string' },
+              resources: { type: 'array', items: { type: 'string' }, description: 'exclusive resources required by this node; use read: prefix for shared access' },
+              isolation: { type: 'string', enum: ['none', 'worktree'], description: 'worktree runs this node in a detached Git worktree and keeps its commit for explicit user application; never auto-merges' },
             },
             required: ['id', 'task'],
           },
@@ -9818,6 +10109,18 @@ module.exports = {
   builtinSearch,
   parseBingHtml,
   parseBaiduHtml,
+  // Resource-aware DAG scheduler primitives (pure normalization/conflict checks plus lease integration tests).
+  normalizeAgentResource,
+  normalizeAgentResources,
+  remapAgentResources,
+  agentResourcesConflict,
+  inferToolResources,
+  acquireResourceLease,
+  releaseResourceLease,
+  resourceBlockers,
+  createAgentWorktree,
+  finalizeAgentWorktree,
+  applyAgentWorktree,
   maskSecrets,
   unmaskSecrets,
   invalidateClaudePathCache, // v1.0-S7 (perf): force a fresh claude-CLI probe after an install/settings save
