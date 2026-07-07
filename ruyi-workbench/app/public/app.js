@@ -2349,7 +2349,8 @@ function renderAgentRuns(runs) {
     for (const node of nodes) {
       const row = el('details', `agent-node an-${node.status || 'unknown'}`);
       const deps = Array.isArray(node.dependsOn) && node.dependsOn.length ? ` ← ${node.dependsOn.join(', ')}` : '';
-      row.appendChild(el('summary', 'agent-node-head', `${node.status === 'succeeded' ? '✓' : node.status === 'running' ? '◐' : node.status === 'failed' ? '✗' : '○'} ${node.id}${deps} · ${agentRunStatusLabel(node.status)} · 尝试 ${node.attempts || 0}`));
+      const roleTag = (node.roleLabel || node.roleId) ? ` · 角色 ${node.roleLabel || node.roleId}` : '';
+      row.appendChild(el('summary', 'agent-node-head', `${node.status === 'succeeded' ? '✓' : node.status === 'running' ? '◐' : node.status === 'failed' ? '✗' : '○'} ${node.id}${deps}${roleTag} · ${agentRunStatusLabel(node.status)} · 尝试 ${node.attempts || 0}`));
       const body = el('div', 'agent-node-body'); body.appendChild(el('div', 'agent-node-task', node.task || ''));
       if (Array.isArray(node.resources) && node.resources.length) {
         const resourceRow = el('div', 'agent-node-resources');
@@ -2402,18 +2403,21 @@ function handleSubagentEvent(evt, live) {
     const task = String(evt.task || '').replace(/\s+/g, ' ').trim();
     const taskShort = task.length > 40 ? task.slice(0, 40) + '…' : task;
     const tierTag = evt.toolTier ? ` · ${evt.toolTier}` : '';
+    const roleTag = (evt.roleLabel || evt.roleId) ? ` · ${evt.roleLabel || evt.roleId}` : '';
+    const modelTag = evt.model ? ` · ${evt.model}` : '';
+    const driverTag = evt.native && evt.engine === 'claude' ? ' · Claude 原生' : '';
     const keyTag = evt.agentKey ? `[${evt.agentKey}] ` : '';
     const dependencyTag = Array.isArray(evt.dependsOn) && evt.dependsOn.length ? ` · 依赖 ${evt.dependsOn.join(', ')}` : '';
     sum.append(
       el('span', 'sa-icon', '🤖'),
       el('span', 'sa-title', `${keyTag}子任务：${taskShort || '(无描述)'}`),
-      el('span', 'sa-status', `执行中…${tierTag}${dependencyTag}`),
+      el('span', 'sa-status', `执行中…${roleTag}${tierTag}${modelTag}${driverTag}${dependencyTag}`),
     );
     d.appendChild(sum);
     const body = el('div', 'subagent-body');
     d.appendChild(body);
     live.toolsWrap.appendChild(d);
-    live.subCards.set(id, { d, body, status: sum.querySelector('.sa-status'), tierTag, dependencyTag });
+    live.subCards.set(id, { d, body, status: sum.querySelector('.sa-status'), tierTag, roleTag, modelTag, driverTag, dependencyTag });
     return;
   }
   if (evt.state === 'end') {
@@ -2423,7 +2427,7 @@ function handleSubagentEvent(evt, live) {
     host.d.classList.add(ok ? 'sa-ok' : 'sa-err');
     if (host.status) {
       const chars = Number(evt.resultChars) || 0;
-      host.status.textContent = `${ok ? '✓ 完成' : '✗ 失败'} · ${chars} 字结论${host.tierTag}${host.dependencyTag || ''}`;
+      host.status.textContent = `${ok ? '✓ 完成' : '✗ 失败'} · ${chars} 字结论${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
       host.status.classList.add(ok ? 'ok' : 'err');
     }
     if (!ok) host.d.open = true; // surface a failed sub-turn automatically
@@ -3497,6 +3501,95 @@ function openPermPopover() {
 async function saveConfigPartial(patch) {
   try { const res = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) }); state.config = res.config; } catch (e) { toast(`保存失败：${e.message}`, 'err'); }
 }
+
+let agentRoleLibraryData = null;
+let agentRoleDraft = [];
+function mergeRoleDraft(base, override) {
+  return { ...base, ...override, models: { ...(base.models || {}), ...(override.models || {}) }, budgets: { ...(base.budgets || {}), ...(override.budgets || {}) } };
+}
+function splitRoleList(value) { return String(value || '').split(/[\n,]/).map(s => s.trim()).filter(Boolean); }
+function captureAgentRoleDraft() {
+  const cards = [...document.querySelectorAll('#agentRoleEditorList .agent-role-edit-card')];
+  if (!cards.length) return agentRoleDraft;
+  agentRoleDraft = cards.map(card => ({
+    id: card.querySelector('[data-role-field="id"]').value.trim(),
+    label: card.querySelector('[data-role-field="label"]').value.trim(),
+    description: card.querySelector('[data-role-field="description"]').value.trim(),
+    prompt: card.querySelector('[data-role-field="prompt"]').value.trim(),
+    toolTier: card.querySelector('[data-role-field="toolTier"]').value,
+    models: { openai: card.querySelector('[data-role-field="openaiModel"]').value.trim(), claude: card.querySelector('[data-role-field="claudeModel"]').value.trim() || 'inherit' },
+    openaiTools: splitRoleList(card.querySelector('[data-role-field="openaiTools"]').value),
+    claudeTools: splitRoleList(card.querySelector('[data-role-field="claudeTools"]').value),
+    mcpServers: splitRoleList(card.querySelector('[data-role-field="mcpServers"]').value),
+    permissionMode: card.querySelector('[data-role-field="permissionMode"]').value,
+    budgets: { openai: Number(card.querySelector('[data-role-field="openaiBudget"]').value) || 6, claude: Number(card.querySelector('[data-role-field="claudeBudget"]').value) || 12 },
+    isolation: card.querySelector('[data-role-field="isolation"]').value,
+    builtin: card.dataset.builtin === '1',
+  })).filter(r => r.id);
+  return agentRoleDraft;
+}
+function roleInput(field, value, type = 'text') { const input = document.createElement('input'); input.type = type; input.value = value == null ? '' : value; input.dataset.roleField = field; return input; }
+function roleField(label, control) { const wrap = el('label', 'agent-role-field'); wrap.append(el('span', '', label), control); return wrap; }
+function roleSelect(field, value, choices) { const s = document.createElement('select'); s.dataset.roleField = field; for (const [v, label] of choices) { const o = el('option', '', label); o.value = v; if (v === value) o.selected = true; s.appendChild(o); } return s; }
+function renderAgentRoleEditors() {
+  const host = $('agentRoleEditorList'); if (!host) return; host.textContent = '';
+  const scope = $('agentRoleScope')?.value || 'global';
+  $('agentRoleScopeHint').textContent = scope === 'project' ? `保存到 ${currentWorkspace()}\\.ruyi\\agents.json；适合随项目共享。` : '保存在本机配置中，对所有项目生效；内置角色可在这里覆盖。';
+  for (const role of agentRoleDraft) {
+    const card = el('details', 'agent-role-edit-card'); card.open = agentRoleDraft.length <= 5; card.dataset.builtin = role.builtin ? '1' : '0';
+    card.appendChild(el('summary', 'agent-role-edit-head', `${role.label || role.id} · ${role.toolTier || 'read'} · ${role.permissionMode || 'inherit'}`));
+    const body = el('div', 'agent-role-edit-body');
+    const idInput = roleInput('id', role.id); if (role.builtin) idInput.readOnly = true;
+    body.append(roleField('角色 ID', idInput), roleField('显示名', roleInput('label', role.label)), roleField('用途描述', roleInput('description', role.description)));
+    const prompt = document.createElement('textarea'); prompt.rows = 3; prompt.value = role.prompt || ''; prompt.dataset.roleField = 'prompt'; body.appendChild(roleField('角色指令', prompt));
+    body.append(
+      roleField('工具级别', roleSelect('toolTier', role.toolTier || 'read', [['read','只读'],['edit','可编辑'],['exec','可执行']])),
+      roleField('角色权限', roleSelect('permissionMode', role.permissionMode || 'inherit', [['inherit','继承父级'],['default','逐项确认'],['acceptEdits','自动接受编辑'],['dontAsk','不询问，未授权即拒绝'],['plan','只读计划'],['bypass','跳过权限']])),
+      roleField('隔离', roleSelect('isolation', role.isolation || 'none', [['none','不隔离'],['worktree','Git worktree']])),
+      roleField('OpenAI 模型', roleInput('openaiModel', role.models?.openai || '')),
+      roleField('Claude 模型', roleInput('claudeModel', role.models?.claude || 'inherit')),
+      roleField('OpenAI 迭代', roleInput('openaiBudget', role.budgets?.openai || 6, 'number')),
+      roleField('Claude 轮次', roleInput('claudeBudget', role.budgets?.claude || 12, 'number')),
+      roleField('OpenAI 工具白名单', roleInput('openaiTools', (role.openaiTools || []).join(', '))),
+      roleField('Claude 工具白名单', roleInput('claudeTools', (role.claudeTools || []).join(', '))),
+      roleField('MCP 服务 ID', roleInput('mcpServers', (role.mcpServers || []).join(', ')))
+    );
+    const remove = el('button', 'mini danger', role.builtin ? '恢复内置默认' : '删除角色');
+    remove.type = 'button'; remove.onclick = () => { captureAgentRoleDraft(); if (role.builtin && agentRoleLibraryData) { const base = (agentRoleLibraryData.builtinRoles || []).find(r => r.id === role.id); agentRoleDraft = agentRoleDraft.map(r => r.id === role.id ? JSON.parse(JSON.stringify(base)) : r); } else agentRoleDraft = agentRoleDraft.filter(r => r.id !== role.id); renderAgentRoleEditors(); };
+    body.appendChild(remove); card.appendChild(body); host.appendChild(card);
+  }
+  const nativeHost = $('nativeClaudeRoleList'); nativeHost.textContent = '';
+  const native = agentRoleLibraryData?.nativeClaudeRoles || [];
+  if (native.length) { nativeHost.appendChild(el('h4', 'settings-subhead', 'Claude 项目原生角色（只读）')); for (const r of native) nativeHost.appendChild(el('div', 'native-claude-role', `${r.label} · ${r.file || ''}`)); }
+}
+function resetAgentRoleDraft() {
+  if (!agentRoleLibraryData) return;
+  const scope = $('agentRoleScope')?.value || 'global';
+  if (scope === 'project') agentRoleDraft = JSON.parse(JSON.stringify(agentRoleLibraryData.projectRoles || []));
+  else {
+    const map = new Map((agentRoleLibraryData.builtinRoles || []).map(r => [r.id, JSON.parse(JSON.stringify(r))]));
+    for (const r of (agentRoleLibraryData.globalRoles || [])) map.set(r.id, map.has(r.id) ? mergeRoleDraft(map.get(r.id), r) : JSON.parse(JSON.stringify(r)));
+    agentRoleDraft = [...map.values()];
+  }
+  renderAgentRoleEditors();
+}
+async function loadAgentRoles() {
+  try {
+    const data = await api(`/api/agent-roles?cwd=${encodeURIComponent(currentWorkspace())}`); agentRoleLibraryData = data;
+    const d = data.drivers || {}, omitted = d.claude?.omitted || [];
+    $('agentRoleDriverStatus').textContent = `OpenAI：工作台原生执行 · Claude：原生 --agents 已同步 ${(d.claude?.synced || []).length} 个${omitted.length ? `，${omitted.length} 个因命令长度未同步` : ''}`;
+    resetAgentRoleDraft();
+  } catch (e) { toast(`角色库加载失败：${e.message || e}`, 'err'); }
+}
+async function saveAgentRoles() {
+  captureAgentRoleDraft(); const scope = $('agentRoleScope')?.value || 'global';
+  try { await api('/api/agent-roles', { method: 'POST', body: JSON.stringify({ scope, cwd: currentWorkspace(), roles: agentRoleDraft }) }); toast('Agent 角色已保存', 'ok'); await loadAgentRoles(); }
+  catch (e) { toast(`角色保存失败：${e.message || e}`, 'err'); }
+}
+function addAgentRole() {
+  captureAgentRoleDraft(); const used = new Set(agentRoleDraft.map(r => r.id)); let n = 1, id = 'custom-agent'; while (used.has(id)) id = `custom-agent-${++n}`;
+  agentRoleDraft.push({ id, label: '自定义角色', description: '', prompt: '', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 6, claude: 12 }, isolation: 'none' }); renderAgentRoleEditors();
+}
 function fillSettings() {
   const c = state.config;
   $('workspaceInput').value = c.defaultWorkspace || '';
@@ -4435,6 +4528,7 @@ function switchSettingsTab(name) {
   state._settingsTab = name;
   document.querySelectorAll('#settingsTabs button').forEach(b => b.classList.toggle('active', b.dataset.stab === name));
   document.querySelectorAll('.settings-tab').forEach(s => s.classList.toggle('active', s.id === `stab-${name}`));
+  if (name === 'agents') loadAgentRoles();
 }
 
 /* ---------------- composer helpers ---------------- */
@@ -4601,6 +4695,10 @@ function bindEvents() {
   $('saveConfigBtn').onclick = saveSettings;
   { const ap = $('addProviderBtn'); if (ap) ap.onclick = addProviderFromPreset; }
   { const im = $('importMcpFolderBtn'); if (im) im.onclick = () => importMcpFromFolder(im); } // v1.0.2 (G5c)
+  { const b = $('agentRoleRefreshBtn'); if (b) b.onclick = loadAgentRoles; }
+  { const b = $('agentRoleAddBtn'); if (b) b.onclick = addAgentRole; }
+  { const b = $('agentRoleSaveBtn'); if (b) b.onclick = saveAgentRoles; }
+  { const s = $('agentRoleScope'); if (s) s.onchange = resetAgentRoleDraft; }
   document.querySelectorAll('#settingsTabs button').forEach(b => { b.onclick = () => switchSettingsTab(b.dataset.stab); });
   { const st = $('cfgSearchType'); if (st) st.onchange = updateSearchBackendVisibility; } // v1.0-S3 (B1)
   { const od = $('openDataDirBtn'); if (od) od.onclick = () => { const dr = (state.status && state.status.dataRoot) || ''; if (dr) runTool('browser_open', { url: dr }); }; }

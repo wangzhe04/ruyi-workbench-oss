@@ -13,6 +13,7 @@
  */
 const fs = require('fs');
 const readline = require('readline');
+if (process.env.WCW_FAKE_ARGV_CAPTURE) { try { fs.writeFileSync(process.env.WCW_FAKE_ARGV_CAPTURE, JSON.stringify(process.argv.slice(2), null, 2)); } catch {} }
 
 const SID = 'fake-' + Math.random().toString(16).slice(2, 10);
 const initEvt = { type: 'system', subtype: 'init', session_id: SID, tools: [], model: 'fake-model' };
@@ -69,6 +70,15 @@ function build(scenario) {
   } else if (scenario === 'error') {
     events.push({ type: 'assistant', session_id: SID, message: { role: 'assistant', content: [{ type: 'text', text: '尝试执行时出错。' }] } });
     events.push({ type: 'result', subtype: 'error_during_execution', is_error: true, session_id: SID, result: '模拟错误：命令返回非零退出码。' });
+  } else if (scenario === 'agents') {
+    const toolId = 'toolu_agent1';
+    events.push({ type: 'assistant', session_id: SID, message: { role: 'assistant', content: [
+      { type: 'tool_use', id: toolId, name: 'Agent', input: { subagent_type: 'reviewer', description: '审查改动', prompt: '检查这次改动的风险' } },
+    ] } });
+    events.push({ type: 'user', session_id: SID, message: { role: 'user', content: [
+      { type: 'tool_result', tool_use_id: toolId, is_error: false, content: '审查完成：没有阻断问题。' },
+    ] } });
+    events.push(resultEvt('审查完成。'));
   } else {
     events.push(...textDeltas(REPLY));
     events.push(assistantText(REPLY)); // whole message — should be deduped against the deltas
@@ -79,7 +89,7 @@ function build(scenario) {
 
 function scenarioFromEnvAndPrompt(prompt) {
   let scenario = process.env.WCW_FAKE_SCENARIO || 'happy';
-  for (const k of ['thinking', 'tools', 'error', 'ask']) if (prompt.includes(k)) scenario = k;
+  for (const k of ['thinking', 'tools', 'error', 'ask', 'agents']) if (prompt.includes(k)) scenario = k;
   return scenario;
 }
 

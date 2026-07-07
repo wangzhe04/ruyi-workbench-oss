@@ -197,6 +197,9 @@ function defaultConfig() {
     // stages combined. 0 total disables spawn_agent entirely.
     subagentMaxConcurrent: 2,
     subagentMaxPerTurn: 4,
+    // Global role overrides/custom roles. Built-ins are merged at read time; project roles live in
+    // <workspace>/.ruyi/agents.json so the same definition works with Claude CLI and OpenAI providers.
+    agentRoleOverrides: [],
     // v0.9-S9 (D6): web-search backend for the web_search tool. baseUrl = the searxng/custom endpoint (an
     // admin-configured, TRUSTED endpoint — its outbound request is exempt from the SSRF check; only
     // web_fetch's model-supplied url is untrusted). apiKey goes through the SAME mask/unmask体系 as
@@ -211,6 +214,52 @@ function defaultConfig() {
 }
 
 const PERMISSION_MODES = ['default', 'acceptEdits', 'plan', 'bypass'];
+const AGENT_ROLE_PERMISSION_MODES = ['inherit', 'default', 'acceptEdits', 'dontAsk', 'bypass', 'plan'];
+const BUILTIN_AGENT_ROLES = Object.freeze([
+  { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 6, claude: 8 }, color: 'blue' },
+  { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 8, claude: 12 }, color: 'green' },
+  { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 6, claude: 10 }, color: 'orange' },
+  { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 8, claude: 12 }, color: 'purple' },
+]);
+
+function normalizeAgentRole(raw, opts = {}) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const id = String(raw.id || raw.name || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
+  if (!id) return null;
+  const strArr = (value, max = 64) => [...new Set((Array.isArray(value) ? value : []).filter(v => typeof v === 'string').map(v => v.trim()).filter(Boolean))].slice(0, max);
+  const models0 = raw.models && typeof raw.models === 'object' ? raw.models : {};
+  const budgets0 = raw.budgets && typeof raw.budgets === 'object' ? raw.budgets : {};
+  const permissionMode = AGENT_ROLE_PERMISSION_MODES.includes(raw.permissionMode) ? raw.permissionMode : 'inherit';
+  const role = {
+    id,
+    label: String(raw.label || raw.name || id).trim().slice(0, 80) || id,
+    description: String(raw.description || '').trim().slice(0, 500),
+    prompt: String(raw.prompt || raw.systemPrompt || '').trim().slice(0, 8000),
+    toolTier: ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : 'read',
+    models: {
+      openai: String(models0.openai != null ? models0.openai : (raw.openaiModel || '')).trim().slice(0, 160),
+      claude: String(models0.claude != null ? models0.claude : (raw.claudeModel || 'inherit')).trim().slice(0, 160) || 'inherit',
+    },
+    openaiTools: strArr(raw.openaiTools || (raw.tools && raw.driver !== 'claude' ? raw.tools : []), 128),
+    claudeTools: strArr(raw.claudeTools || (raw.driver === 'claude' ? raw.tools : []), 128),
+    mcpServers: strArr(raw.mcpServers, 32),
+    permissionMode,
+    budgets: {
+      openai: Math.min(12, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 6))) || 6)),
+      claude: Math.min(100, Math.max(1, Math.round(Number(budgets0.claude != null ? budgets0.claude : (raw.maxTurns || 12))) || 12)),
+    },
+    isolation: raw.isolation === 'worktree' ? 'worktree' : 'none',
+    color: String(raw.color || '').trim().slice(0, 32),
+  };
+  if (opts.source) role.source = opts.source;
+  if (opts.builtin) role.builtin = true;
+  return role;
+}
+function mergeAgentRole(base, override, source) {
+  const merged = normalizeAgentRole({ ...base, ...override, models: { ...(base.models || {}), ...(override.models || {}) }, budgets: { ...(base.budgets || {}), ...(override.budgets || {}) } }, { source: source || override.source || base.source, builtin: !!base.builtin });
+  if (merged && base.builtin) merged.builtin = true;
+  return merged;
+}
 
 // Fold older config files onto the current schema. Returns { config, changed }.
 function normalizeConfig(raw) {
@@ -376,6 +425,18 @@ function normalizeConfig(raw) {
     const sm = Number(config.subagentMaxPerTurn);
     const clamped = Number.isFinite(sm) ? Math.min(32, Math.max(0, Math.round(sm))) : 4;
     if (clamped !== config.subagentMaxPerTurn) { config.subagentMaxPerTurn = clamped; changed = true; }
+  }
+  {
+    const rawRoles = Array.isArray(config.agentRoleOverrides) ? config.agentRoleOverrides : [];
+    const seen = new Set(), clean = [];
+    for (const rawRole of rawRoles) {
+      const role = normalizeAgentRole(rawRole, { source: 'global' });
+      if (!role || seen.has(role.id)) continue;
+      seen.add(role.id); clean.push(role);
+      if (clean.length >= 32) break;
+    }
+    if (JSON.stringify(clean) !== JSON.stringify(config.agentRoleOverrides)) { config.agentRoleOverrides = clean; changed = true; }
+    else config.agentRoleOverrides = clean;
   }
   // v0.9-S9 (D6): searchBackend — {type,baseUrl,apiKey}. Cleanse type to the enum (unknown → 'none'), and
   // baseUrl/apiKey to length-capped strings. An unknown/absent value falls back to a disabled backend so a
@@ -2762,6 +2823,8 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   if (config.includeWorkbenchMcp) {
     args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode));
   }
+  const claudeAgentLibrary = await buildClaudeAgentDefinitions(workingDir, config);
+  if (Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
   if (usePermissionBridge) {
     // 【存量兼容标识】permission-prompt-tool 名派生自 MCP server id,须与之一致——随 id 保持 win-claude-workbench。
     args.push('--permission-prompt-tool', 'mcp__win-claude-workbench__permission_prompt');
@@ -2786,13 +2849,14 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   env.WCW_PERMISSION_TIMEOUT_MS = String(config.permissionTimeoutMs || 120000);
 
   // Route the real CLI through cmd.exe when it's a .cmd/.bat (fixes "spawn EINVAL" on modern Node).
-  const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude], opts: {} } : batchSafeSpawn(claude, args);
+  const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} } : batchSafeSpawn(claude, args);
   const spawnCmd = spawn.command;
   const spawnArgs = spawn.args;
   const spawnOpts = spawn.opts;
 
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
-  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: args.map(redact), cwd: workingDir, model: config.model || '(default)', permissionMode: config.permissionMode, cwdWarning: cwdWarn || undefined });
+  const metaArgs = args.map((arg, i) => args[i - 1] === '--agents' ? `[${Object.keys(claudeAgentLibrary.definitions).length} agent roles]` : redact(arg));
+  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', permissionMode: config.permissionMode, agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined });
   logEvent({ kind: 'turn_start', sessionId: session.id, model: config.model || 'default', promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
@@ -2826,6 +2890,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   let pendingDeltaText = false;
   let pendingDeltaThinking = false;
   let usage = null;
+  const nativeClaudeAgents = new Map();
   // Context-window sizing: track the LARGEST single-call input side (input+cache_read+cache_creation)
   // and the latest per-message output — NOT the cumulative result.usage (which sums every API call
   // in the turn and wildly overcounts once tools are used).
@@ -2861,7 +2926,13 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
       else if (!pendingDeltaThinking) { thinkingText += ev.text; onEvent({ type: 'thinking_delta', text: ev.text }); }
     } else if (ev.kind === 'tool_use') {
       toolCalls.push({ id: ev.id, name: ev.name, input: ev.input });
-      onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input });
+      const isNativeAgent = ev.name === 'Agent' || ev.name === 'Task';
+      if (isNativeAgent) {
+        const roleId = String(ev.input && (ev.input.subagent_type || ev.input.agent || ev.input.role) || 'general-purpose');
+        const role = claudeAgentLibrary.roles.find(r => r.id === roleId);
+        nativeClaudeAgents.set(ev.id, { roleId, task: String(ev.input && (ev.input.prompt || ev.input.description || ev.input.task) || '') });
+        onEvent({ type: 'subagent', id: ev.id, state: 'start', task: String(ev.input && (ev.input.prompt || ev.input.description || ev.input.task) || ''), roleId, roleLabel: role && role.label || roleId, toolTier: role && role.toolTier || '', engine: 'claude', native: true });
+      } else onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input });
       // Interactive: an AskUserQuestion tool_use is ours to answer — surface a modal instead of a plain card.
       if (interactive && isAskUserTool(ev.name)) {
         onEvent({ type: 'ask_user', id: ev.id, questions: (ev.input && ev.input.questions) || ev.input || {} });
@@ -2869,7 +2940,12 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
     } else if (ev.kind === 'tool_result') {
       const tc = toolCalls.find(t => t.id === ev.id);
       if (tc) tc.result = ev.content;
-      onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError });
+      const nativeAgent = nativeClaudeAgents.get(ev.id);
+      if (nativeAgent) {
+        const chars = typeof ev.content === 'string' ? ev.content.length : JSON.stringify(ev.content || '').length;
+        onEvent({ type: 'subagent', id: ev.id, state: 'end', ok: !ev.isError, resultChars: chars, task: nativeAgent.task, roleId: nativeAgent.roleId, roleLabel: (claudeAgentLibrary.roles.find(r => r.id === nativeAgent.roleId) || {}).label || nativeAgent.roleId, engine: 'claude', native: true });
+        nativeClaudeAgents.delete(ev.id);
+      } else onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError });
     } else if (ev.kind === 'msg_usage') {
       const u = ev.usage || {};
       const inSide = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
@@ -4088,7 +4164,7 @@ function bridgedToolTier(unprefixedName, config) {
 function nativeToolGate(mode, tier) {
   if (mode === 'bypass') return 'allow';
   if (tier === 'read') return 'allow';
-  if (mode === 'plan') return 'block';                       // plan mode: no mutations at all
+  if (mode === 'plan' || mode === 'dontAsk') return 'block'; // fixed/headless roles never open prompts
   if (mode === 'acceptEdits' && tier === 'edit') return 'allow';
   return 'ask';                                              // default (or acceptEdits+exec) → prompt UI
 }
@@ -4531,6 +4607,90 @@ async function cleanupAgentWorktree(isolation) {
   }
   isolation.path = '';
 }
+
+function projectAgentRoleFile(cwd) { return path.join(path.resolve(cwd), '.ruyi', 'agents.json'); }
+async function readProjectAgentRoles(cwd) {
+  const file = projectAgentRoleFile(cwd);
+  try {
+    const st = await fsp.stat(file); if (!st.isFile() || st.size > 512 * 1024) return [];
+    const parsed = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
+    const rawRoles = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.roles) ? parsed.roles : []);
+    return rawRoles.map(r => normalizeAgentRole(r, { source: 'project' })).filter(Boolean).slice(0, 32);
+  } catch { return []; }
+}
+function parseSimpleYamlValue(value) {
+  const s = String(value || '').trim();
+  if (s.startsWith('[') && s.endsWith(']')) return s.slice(1, -1).split(',').map(v => v.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+  if (/^(true|false)$/i.test(s)) return s.toLowerCase() === 'true';
+  if (/^\d+$/.test(s)) return Number(s);
+  return s.replace(/^['"]|['"]$/g, '');
+}
+async function readClaudeProjectAgentRoles(cwd) {
+  const dir = path.join(path.resolve(cwd), '.claude', 'agents');
+  let files = []; try { files = await fsp.readdir(dir); } catch { return []; }
+  const out = [];
+  for (const file of files.filter(f => /\.md$/i.test(f)).slice(0, 32)) {
+    try {
+      const raw = await fsp.readFile(path.join(dir, file), 'utf8'); if (raw.length > 128 * 1024) continue;
+      const m = /^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n([\s\S]*)$/m.exec(raw); if (!m) continue;
+      const fm = {};
+      for (const line of m[1].split(/\r?\n/)) { const hit = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/.exec(line); if (hit) fm[hit[1]] = parseSimpleYamlValue(hit[2]); }
+      const role = normalizeAgentRole({
+        id: fm.name || path.basename(file, '.md'), label: fm.name || path.basename(file, '.md'), description: fm.description || '', prompt: m[2].trim(),
+        claudeModel: fm.model || 'inherit', claudeTools: Array.isArray(fm.tools) ? fm.tools : (typeof fm.tools === 'string' ? fm.tools.split(',').map(s => s.trim()) : []),
+        permissionMode: fm.permissionMode === 'bypassPermissions' ? 'bypass' : fm.permissionMode, maxTurns: fm.maxTurns, mcpServers: Array.isArray(fm.mcpServers) ? fm.mcpServers : [], isolation: fm.isolation,
+      }, { source: 'claude-project' });
+      if (role) { role.nativeClaude = true; role.file = path.join(dir, file); out.push(role); }
+    } catch { /* malformed native agent stays Claude's concern */ }
+  }
+  return out;
+}
+async function getAgentRoleLibrary(cwd, config) {
+  const merged = new Map();
+  for (const raw of BUILTIN_AGENT_ROLES) { const role = normalizeAgentRole(raw, { source: 'builtin', builtin: true }); merged.set(role.id, role); }
+  for (const role of (Array.isArray(config.agentRoleOverrides) ? config.agentRoleOverrides : [])) {
+    const current = merged.get(role.id); merged.set(role.id, current ? mergeAgentRole(current, role, 'global') : normalizeAgentRole(role, { source: 'global' }));
+  }
+  for (const role of await readProjectAgentRoles(cwd)) {
+    const current = merged.get(role.id); merged.set(role.id, current ? mergeAgentRole(current, role, 'project') : role);
+  }
+  const claudeNative = await readClaudeProjectAgentRoles(cwd);
+  for (const role of claudeNative) if (!merged.has(role.id)) merged.set(role.id, role);
+  return [...merged.values()].filter(Boolean);
+}
+async function saveProjectAgentRoles(cwd, roles) {
+  const file = projectAgentRoleFile(cwd), dir = path.dirname(file);
+  await fsp.mkdir(dir, { recursive: true });
+  const payload = { schemaVersion: 1, roles: roles.map(r => normalizeAgentRole(r, { source: 'project' })).filter(Boolean).slice(0, 32) };
+  const tmp = file + '.' + process.pid + '.tmp'; await fsp.writeFile(tmp, JSON.stringify(payload, null, 2), 'utf8'); await fsp.rename(tmp, file);
+  return payload.roles;
+}
+function claudePermissionMode(mode) {
+  return ({ bypass: 'bypassPermissions', inherit: undefined })[mode] || mode;
+}
+async function buildClaudeAgentDefinitions(cwd, config) {
+  const roles = (await getAgentRoleLibrary(cwd, config)).filter(r => !r.nativeClaude);
+  const definitions = {};
+  for (const role of roles) {
+    const d = { description: role.description || role.label, prompt: role.prompt || role.description || role.label };
+    if (role.claudeTools && role.claudeTools.length) d.tools = role.claudeTools;
+    if (role.models && role.models.claude && role.models.claude !== 'inherit') d.model = role.models.claude;
+    const pm = claudePermissionMode(role.permissionMode); if (pm) d.permissionMode = pm;
+    if (role.mcpServers && role.mcpServers.length) d.mcpServers = role.mcpServers;
+    if (role.budgets && role.budgets.claude) d.maxTurns = role.budgets.claude;
+    if (role.isolation === 'worktree') d.isolation = 'worktree';
+    if (role.color) d.color = role.color;
+    definitions[role.id] = d;
+  }
+  // Windows .cmd launchers go through cmd.exe, whose command-line limit is small. Keep definitions
+  // deterministic and bounded; project-native .claude/agents remain available independently.
+  const selected = {}, omitted = [];
+  for (const [id, def] of Object.entries(definitions)) {
+    const candidate = { ...selected, [id]: def };
+    if (JSON.stringify(candidate).length <= 6000) selected[id] = def; else omitted.push(id);
+  }
+  return { definitions: selected, omitted, roles };
+}
 async function saveAgentRun(run) {
   const previous = agentRunWriteChains.get(run.id) || Promise.resolve();
   const current = previous.catch(() => {}).then(async () => {
@@ -4575,26 +4735,40 @@ async function markInterruptedAgentRuns() {
   }
 }
 
-async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup }) {
+async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition }) {
   const started = Date.now();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself run spawn_agent.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes spawn_agent */ }
   const base = providerBaseWithV1(provider.baseUrl);
   const chatUrl = base ? base + '/chat/completions' : '';
-  const subModel = String(model || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
+  const role = roleDefinition || null;
+  const subModel = String(model || (role && role.models && role.models.openai) || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
     return { ok: false, error: '子代理无法启动:provider 端点或模型未配置', iters: 0, toolCalls: 0 };
   }
-  const tier = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';
-  const budget = Math.min(12, Math.max(1, Number(maxIters) || 6));
+  const requestedTier = toolTier || (role && role.toolTier);
+  const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
+  const budget = Math.min(12, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 6));
 
   // Tool set: same capability gating as the parent, filtered to the requested tier, WITHOUT spawn_agent.
   const caps = await getCapabilities(config).catch(() => null);
-  const ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noSpawnAgent: true });
+  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noSpawnAgent: true });
   // Bridged (external/desktop MCP) tools only when the tier is 'exec' (they are exec-class by default and the
   // read/edit tiers intentionally exclude the桥接 surface — a sub-agent asked for read/edit stays local).
   let bridged = { tools: [], route: {} };
   if (tier === 'exec') { try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; } }
+  const allows = (name, bridge) => {
+    const list = role && Array.isArray(role.openaiTools) ? role.openaiTools : [];
+    if (!list.length || list.includes('*')) return true;
+    const bare = bridge ? bridge.toolName : name;
+    return list.includes(name) || list.includes(bare) || (bridge && list.includes(`${bridge.serverId}:*`));
+  };
+  if (role && role.openaiTools && role.openaiTools.length) ownTools = ownTools.filter(t => allows(t.function && t.function.name, null));
+  if (role && role.mcpServers && role.mcpServers.length) {
+    const allowedServers = new Set(role.mcpServers);
+    bridged.tools = bridged.tools.filter(t => { const r = bridged.route[t.function && t.function.name]; return r && allowedServers.has(r.serverId); });
+  }
+  bridged.tools = bridged.tools.filter(t => allows(t.function && t.function.name, bridged.route[t.function && t.function.name]));
   const bridgedRoute = bridged.route;
   const tools = ownTools.concat(bridged.tools);
 
@@ -4602,7 +4776,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const projectMemory = await readProjectMemory(workingDir).catch(() => null);
   // Reuse the four-layer prompt for the capability/project/provider layers, then prepend the sub-agent identity.
   const baseSys = buildProviderSystemPrompt(provider, subModel, workingDir, tools, caps, config, projectMemory);
-  const sys = '你是子任务执行体。目标:完成被交办的具体任务后,用简洁文本输出最终结论(不要反问,不要请求进一步指示)。\n\n' + baseSys;
+  const rolePrompt = role && role.prompt ? `角色：${role.label || role.id}\n${role.prompt}\n\n` : '';
+  const sys = '你是子任务执行体。目标:完成被交办的具体任务后,用简洁文本输出最终结论(不要反问,不要请求进一步指示)。\n\n' + rolePrompt + baseSys;
 
   const subHistory = [{ role: 'user', content: String(task || '') }];
   const headers = { 'content-type': 'application/json' };
@@ -4617,7 +4792,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     return b;
   };
 
-  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [] });
+  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel, permissionMode: role && role.permissionMode || 'inherit', mcpServers: role && role.mcpServers || [], engine: 'openai' });
   // The sub-loop shares the parent's AbortController (ctrl) so a Stop on the parent turn also arrests the
   // sub-turn. rawSeq is local (its raw_line frames carry subagentId so the debug pane can attribute them).
   const rawSeqRef = { n: 0 };
@@ -4664,6 +4839,12 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           } else {
             const bridge = resolveBridge(bridgedRoute, tc.name);
             const ntier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
+            if (!allows(tc.name, bridge)) {
+              resultObj = { ok: false, error: `Agent 角色 '${role && role.id || ''}' 未授权工具 ${tc.name}` };
+              onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
+              subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+              continue;
+            }
             // v0.9-S6 tierFilter enforcement (defense-in-depth): the tool set was already filtered to `tier`,
             // but a misbehaving model could still emit a tool_call above its tier (e.g. a read-tier sub calling
             // file_write). Refuse it at execution time — independent of permission mode — so a read sub can
@@ -4683,7 +4864,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // resolves to a refusal result so the sub-turn keeps moving rather than hanging.
             // v0.9 F4: gate on the effective per-turn mode (permModeOverride) — the parent passes 'default'
             // ONLY when the plan was approved this turn, else the parent's own config.permissionMode.
-            const effMode = permModeOverride || config.permissionMode;
+            const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
+            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || config.permissionMode);
             const gate = nativeToolGate(effMode, ntier);
             if (gate !== 'allow') {
               resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
@@ -4739,7 +4921,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   }
   const finalText = resultText.trim();
   const ok = subOk && !!finalText;
-  onEvent({ type: 'subagent', id: subagentId, state: 'end', ok, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [] });
+  onEvent({ type: 'subagent', id: subagentId, state: 'end', ok, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel, engine: 'openai' });
   if (!ok) {
     const fail = { ok: false, error: subErr || '子代理未产出结论', result: finalText, iters, toolCalls: toolCallCount };
     if (subOverWindow) fail.hint = '请缩小子任务范围或减少读取'; // v0.9 F6
@@ -4771,6 +4953,7 @@ async function runSubAgent(opts) {
 // and node transitions are persisted after each state change so progress remains inspectable after a crash.
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade }) {
   let run, nodes, runId;
+  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
   if (existingRun) {
     run = existingRun; nodes = Array.isArray(run.nodes) ? run.nodes : []; runId = run.id;
     if (!nodes.length) return { ok: false, error: '运行记录没有节点', startedCount: 0 };
@@ -4808,16 +4991,20 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, error: `无效节点 id: ${id || '(空)'}`, startedCount: 0 };
       if (ids.has(id)) return { ok: false, error: `节点 id 重复: ${id}`, startedCount: 0 };
       if (!task) return { ok: false, error: `节点 ${id} 缺少 task`, startedCount: 0 };
+      const roleId = String(raw && raw.role || '').trim().toLowerCase();
+      const role = roleId ? roleLibrary.get(roleId) : null;
+      if (roleId && !role) return { ok: false, error: `节点 ${id} 引用了不存在的角色: ${roleId}`, startedCount: 0 };
       ids.add(id);
       const resourceSpecs = normalizeAgentResources(raw.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace));
-      nodes.push({ id, task, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: raw.isolation === 'worktree' ? 'worktree' : 'none', toolTier: raw.toolTier === 'edit' || raw.toolTier === 'exec' ? raw.toolTier : 'read', model: String(raw.model || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters) || 6)), status: 'queued', attempts: 0, result: '', error: '', startedAt: null, completedAt: null, waitingForResources: [] });
+      const explicitTier = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', model: String(raw.model || (role && role.models && role.models.openai) || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets.openai)) || 6)), status: 'queued', attempts: 0, result: '', error: '', startedAt: null, completedAt: null, waitingForResources: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
       if (missing.length) return { ok: false, error: `节点 ${node.id} 引用了不存在的依赖: ${missing.join(', ')}`, startedCount: 0 };
       if (node.dependsOn.includes(node.id)) return { ok: false, error: `节点 ${node.id} 不能依赖自身`, startedCount: 0 };
     }
-    run = { schemaVersion: 2, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: provider && provider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), nodes };
+    run = { schemaVersion: 3, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: provider && provider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), nodes };
   }
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行', startedCount: 0, runId };
   const localCtrl = typeof AbortController === 'function' ? new AbortController() : parentCtrl;
@@ -4876,6 +5063,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
           onEvent, subagentId: makeId('sub'), depth: 1, ctrl: localCtrl, permModeOverride,
           resources: effectiveResources, resourceGroup: `${runId}:${node.id}`,
+          roleDefinition: node.roleSnapshot || (node.roleId ? roleLibrary.get(node.roleId) : null),
           onResourceWait: (resources, blockers) => { node.status = 'waiting_resource'; node.waitingForResources = resources.map(r => r.label); node.resourceBlockers = blockers; saveAgentRun(run).catch(() => {}); },
           onResourceAcquired: resources => { node.status = 'running'; node.waitingForResources = []; node.resourceBlockers = []; node.acquiredResources = resources.map(r => r.label); saveAgentRun(run).catch(() => {}); },
         });
@@ -4907,7 +5095,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   } finally { activeAgentRuns.delete(runId); }
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
-    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, error: n.error, dependsOn: n.dependsOn })),
+    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, error: n.error, dependsOn: n.dependsOn, role: n.roleId || '' })),
   };
 }
 
@@ -5031,12 +5219,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
   const bridgedRoute = bridged.route;
   const tools = ownTools.concat(bridged.tools);   // own tools first; bridged names are prefixed so never collide
+  const agentRoleMap = new Map((await getAgentRoleLibrary(workingDir, config)).map(role => [role.id, role]));
   // v0.8-S6 layered system prompt (§7.6, PROVIDER-ONLY). Identity is pinned to provider.label + model (the
   // product name never enters the prompt). The project-memory layer reads cwd's CLAUDE.md/AGENTS.md (≤16KB,
   // fenced as untrusted reference). provider.systemPrompt is APPENDED as the provider层 (was: it replaced the
   // whole default — now it is one layer among four, so the identity pin + capability block always ship).
   const projectMemory = await readProjectMemory(workingDir).catch(() => null);
   let sys = buildProviderSystemPrompt(provider, model, workingDir, tools, caps, config, projectMemory);
+  if (agentRoleMap.size && ownTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
+    sys += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
+  }
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
   // instruction (not baked into buildProviderSystemPrompt — kept here so it never leaks into summary/identity
   // calls or the Claude engine). The model must first emit a PLAN: message and stop; approval unlocks tools
@@ -5316,6 +5508,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             subagentPromises.set(stc.id, Promise.resolve({ ok: false, agentKey, dependsOn, error: `依赖尚未完成: ${missingDeps.join(', ')}。请等待前序阶段返回后再派发` }));
             continue;
           }
+          const roleId = String(sargs.role || '').trim().toLowerCase();
+          const roleDefinition = roleId ? agentRoleMap.get(roleId) : null;
+          if (roleId && !roleDefinition) {
+            subagentPromises.set(stc.id, Promise.resolve({ ok: false, agentKey, role: roleId, error: `Agent 角色不存在: ${roleId}` }));
+            continue;
+          }
           reservedSubagentKeys.add(agentKey);
           subagentTotal += 1;
           const subId = makeId('sub');
@@ -5332,15 +5530,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const promise = runSubAgent({
             parentSession: session, provider, config,
             task: effectiveTask, displayTask: originalTask, agentKey, dependsOn,
-            toolTier: sargs.toolTier, maxIters: sargs.maxIters, model: sargs.model,
+            toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier), maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai), model: sargs.model || (roleDefinition && roleDefinition.models && roleDefinition.models.openai),
             onEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
             resources: sargs.resources, resourceGroup: `turn:${session.id}:${session.turnSeq}:${agentKey}`,
+            roleDefinition,
           }).then(sub => sub.ok
             ? { ok: true, result: sub.result, iters: sub.iters, toolCalls: sub.toolCalls }
             : { ok: false, error: sub.error || '子代理失败', result: sub.result || undefined, iters: sub.iters, toolCalls: sub.toolCalls }
           ).catch(e => ({ ok: false, error: (e && e.message) ? e.message : String(e) }))
             .then(result => {
-              const completed = { ...result, agentKey, dependsOn };
+              const completed = { ...result, agentKey, dependsOn, role: roleId || '' };
               subagentResults.set(agentKey, completed);
               return completed;
             });
@@ -8544,7 +8743,7 @@ async function handleApi(req, res, pathname) {
     // It exposes paths & commands (same sensitivity class as /api/checkpoints), so it is EXPLICITLY listed
     // here for intent. It is a GET — the handler is the REAL gate (self-checks tokenOk before doing anything),
     // since GETs never enter this mutating block. Listing it here is documentation, not the enforcement point.
-    const needsToken = pathname.startsWith('/api/tools/') || pathname.startsWith('/api/checkpoints/') || pathname.startsWith('/api/agent-runs') || pathname === '/api/session/rewind' || pathname === '/api/steer' || pathname === '/api/config' || pathname === '/api/provider/test' || pathname === '/api/playbooks' || pathname.startsWith('/api/playbooks/') || pathname === '/api/workspace/resolve' || pathname === '/api/pick-folder' || pathname === '/api/file/preview' || pathname === '/api/file/reveal' || pathname === '/api/mcp/import-folder' || pathname === '/api/plan/decision' || pathname === '/api/audit';
+    const needsToken = pathname.startsWith('/api/tools/') || pathname.startsWith('/api/checkpoints/') || pathname.startsWith('/api/agent-runs') || pathname === '/api/agent-roles' || pathname === '/api/session/rewind' || pathname === '/api/steer' || pathname === '/api/config' || pathname === '/api/provider/test' || pathname === '/api/playbooks' || pathname.startsWith('/api/playbooks/') || pathname === '/api/workspace/resolve' || pathname === '/api/pick-folder' || pathname === '/api/file/preview' || pathname === '/api/file/reveal' || pathname === '/api/mcp/import-folder' || pathname === '/api/plan/decision' || pathname === '/api/audit';
     if (needsToken && !tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
   }
 
@@ -8699,6 +8898,33 @@ async function handleApi(req, res, pathname) {
     }
     const next = await writeConfig(merged);
     return send(res, json({ ok: true, config: maskProviders(next) })); // F2: masked response
+  }
+  if (req.method === 'GET' && pathname === '/api/agent-roles') {
+    const config = await readConfig();
+    const u = new URL(req.url, 'http://x');
+    const cwd = normalizeCwd(u.searchParams.get('cwd') || config.defaultWorkspace, config.defaultWorkspace);
+    const roles = await getAgentRoleLibrary(cwd, config);
+    const builtinRoles = BUILTIN_AGENT_ROLES.map(r => normalizeAgentRole(r, { source: 'builtin', builtin: true }));
+    const globalRoles = (config.agentRoleOverrides || []).map(r => normalizeAgentRole(r, { source: 'global' })).filter(Boolean);
+    const projectRoles = await readProjectAgentRoles(cwd);
+    const nativeClaudeRoles = await readClaudeProjectAgentRoles(cwd);
+    const claudeDefs = await buildClaudeAgentDefinitions(cwd, config);
+    const mcpServers = [{ id: 'win-claude-workbench', label: 'Ruyi Workbench' }, ...resolveExternalMcpServers(config).map(s => ({ id: s.id, label: s.label || s.id }))];
+    return send(res, json({ ok: true, cwd, roles, builtinRoles, globalRoles, projectRoles, nativeClaudeRoles, mcpServers, drivers: { openai: { mode: 'workbench-native' }, claude: { mode: 'claude-native', flag: '--agents', synced: Object.keys(claudeDefs.definitions), omitted: claudeDefs.omitted } } }));
+  }
+  if (req.method === 'POST' && pathname === '/api/agent-roles') {
+    const body = await readJsonBody(req);
+    const scope = body && body.scope === 'project' ? 'project' : 'global';
+    const roles = (Array.isArray(body && body.roles) ? body.roles : []).map(r => normalizeAgentRole(r, { source: scope })).filter(Boolean).slice(0, 32);
+    if (scope === 'project') {
+      const cwdRaw = String(body && body.cwd || '');
+      if (!cwdRaw || !path.isAbsolute(cwdRaw)) return send(res, json({ ok: false, error: 'project scope requires an absolute cwd' }, 400));
+      const saved = await saveProjectAgentRoles(path.resolve(cwdRaw), roles);
+      return send(res, json({ ok: true, scope, roles: saved, file: projectAgentRoleFile(cwdRaw) }));
+    }
+    const config = await readConfig(); config.agentRoleOverrides = roles;
+    const next = await writeConfig(config);
+    return send(res, json({ ok: true, scope, roles: next.agentRoleOverrides }));
   }
   if (req.method === 'POST' && pathname === '/api/provider/test') {
     // Test a provider's base URL + key by listing its models. Body: { provider } (saved or draft) or a bare provider.
@@ -9814,6 +10040,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         task: { type: 'string', description: 'the concrete task to delegate (a self-contained instruction)' },
+        role: { type: 'string', description: 'Agent role id from the role library, for example explorer, worker, reviewer, verifier' },
         agentKey: { type: 'string', description: 'optional stable identifier for this sub-agent within the parent turn (for later dependsOn references)' },
         dependsOn: { type: 'array', items: { type: 'string' }, description: 'agentKey values from completed earlier stages whose conclusions should be injected into this task' },
         toolTier: { type: 'string', enum: ['read', 'edit', 'exec'], description: "tool access level for the sub-agent (default 'read')" },
@@ -9837,6 +10064,7 @@ const MCP_TOOLS = [
             properties: {
               id: { type: 'string', description: 'unique stable node id, letters/numbers/_/- only' },
               task: { type: 'string', description: 'self-contained task for this node' },
+              role: { type: 'string', description: 'Agent role id; the role supplies model, tools, MCP, permission and iteration defaults' },
               dependsOn: { type: 'array', items: { type: 'string' }, description: 'node ids that must finish before this node starts' },
               toolTier: { type: 'string', enum: ['read', 'edit', 'exec'] },
               maxIters: { type: 'number' },
@@ -10033,6 +10261,13 @@ module.exports = {
   collectBridgedTools,
   resolveBridge, // v1.4.1: bridged-name prefix-tolerant routing (models that drop the serverId__ prefix)
   normalizeConfig,
+  normalizeAgentRole,
+  getAgentRoleLibrary,
+  readProjectAgentRoles,
+  readClaudeProjectAgentRoles,
+  saveProjectAgentRoles,
+  buildClaudeAgentDefinitions,
+  BUILTIN_AGENT_ROLES,
   normalizeSession,
   detectDanglingTurn,
   bridgedToolTier,

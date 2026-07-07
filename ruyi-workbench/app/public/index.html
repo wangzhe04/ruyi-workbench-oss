@@ -340,6 +340,7 @@
             <button type="button" data-stab="basic" class="active">基础</button>
             <button type="button" data-stab="claude">Claude CLI</button>
             <button type="button" data-stab="providers">Providers</button>
+            <button type="button" data-stab="agents">Agent 角色</button>
             <button type="button" data-stab="integrations">集成 / MCP</button>
             <button type="button" data-stab="network">联网搜索</button>
             <button type="button" data-stab="advanced">高级</button>
@@ -450,6 +451,22 @@
               <select id="providerPresetSelect"></select>
               <button type="button" id="addProviderBtn" class="file-label">+ 添加 Provider</button>
             </div>
+          </div>
+
+          <!-- ===== Agent roles ===== -->
+          <div class="settings-tab" id="stab-agents">
+            <p class="muted prov-hint">同一套角色可用于 OpenAI 兼容 API 和 Claude CLI。Claude 使用原生 <code>--agents</code>；项目中的 <code>.claude/agents</code> 也会自动识别并显示。</p>
+            <div id="agentRoleDriverStatus" class="agent-role-driver-status"></div>
+            <div class="agent-role-toolbar">
+              <label for="agentRoleScope">编辑范围</label>
+              <select id="agentRoleScope"><option value="global">全局角色</option><option value="project">当前项目</option></select>
+              <button type="button" id="agentRoleRefreshBtn">刷新</button>
+              <button type="button" id="agentRoleAddBtn">+ 自定义角色</button>
+              <button type="button" id="agentRoleSaveBtn" class="primary">保存角色</button>
+            </div>
+            <p id="agentRoleScopeHint" class="field-help muted"></p>
+            <div id="agentRoleEditorList" class="agent-role-editor-list"></div>
+            <div id="nativeClaudeRoleList" class="native-claude-role-list"></div>
           </div>
 
           <!-- ===== 集成 / MCP ===== -->

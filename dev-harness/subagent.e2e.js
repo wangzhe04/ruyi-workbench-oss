@@ -261,7 +261,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(evr.some(e => e.type === 'agent_resource' && e.state === 'waiting' && e.agentKey === 'desktop-b'), '(a5) waiting resource event is observable');
     const rr = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidr, hdr);
     const persistedR = rr.runs && rr.runs.find(run => run.nodes && run.nodes.some(n => n.id === 'desktop-a'));
-    ok(persistedR && persistedR.schemaVersion === 2 && persistedR.nodes.every(n => Array.isArray(n.resources) && n.resources[0] === 'desktop'), '(a5) normalized resources persist in schema v2 run record');
+    ok(persistedR && persistedR.schemaVersion === 3 && persistedR.nodes.every(n => Array.isArray(n.resources) && n.resources[0] === 'desktop'), '(a5) normalized resources persist in schema v3 run record');
 
     // ── (b) nesting forbidden: sub tries spawn_agent → refused, but its file_write still runs ─────────────
     killp(fake); await sleep(300);
