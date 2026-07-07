@@ -171,6 +171,8 @@ ok(/const\s+activeTurns\s*=\s*new\s+Map\s*\(/.test(src),
   'per-session activeTurns registry is defined');
 ok(!/\blet\s+liveAbort\b/.test(src),
   'legacy global liveAbort state is absent');
+ok(!/data-ui-mode[^\n]+simple[^\n]+pct\s*<\s*0\.6/.test(src),
+  'simple mode keeps context occupancy and compact entry visible after usage exists');
 
 const files = frontendSrcFiles().map(f => path.relative(PUB, f).replace(/\\/g, '/'));
 console.log(`INFO 参与聚合的前端源文件(${files.length}): ${files.join(', ')}`);

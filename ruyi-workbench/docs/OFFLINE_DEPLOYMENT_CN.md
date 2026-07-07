@@ -41,6 +41,18 @@ Start-Workbench.cmd
 claude mcp add-json win-claude-workbench "{...}" -s user
 ```
 
+> **PowerShell 上的已知问题**：在 PowerShell 中调用 `claude mcp add-json` 时，JSON 字符串中的双引号会被 `.cmd` 文件的 `cmd.exe` 参数解析层吞掉，导致 `Invalid configuration: : Invalid input` 错误。**改用 `claude mcp add`（非 JSON 版）可绕过**：
+>
+> ```powershell
+> claude mcp add win-claude-workbench --scope user `
+>   -e "WIN_CLAUDE_WORKBENCH_HOME=$env:USERPROFILE\.win-claude-workbench" `
+>   -- "C:\Program Files\nodejs\node.exe" `
+>   "<工作台路径>\ruyi-workbench\app\server.js" `
+>   mcp
+> ```
+>
+> 详细配置步骤（含第三方 Anthropic 兼容端点接入）见管理员手册 [§2.1.1](manuals/ADMIN-GUIDE_CN.md#211-接入第三方-anthropic-兼容端点以火山方舟-ark-coding-plan-为例)。
+
 如果自动注册失败，手动导入：
 
 ```powershell

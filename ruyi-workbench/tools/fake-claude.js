@@ -126,6 +126,9 @@ async function main() {
   const interactive = process.env.WCW_FAKE_INTERACTIVE === '1';
   const stdin = makeStdin();
   const firstLine = await stdin.next(1500); // the user envelope (interactive) or raw prompt (legacy)
+  if (process.env.WCW_FAKE_STDIN_CAPTURE) {
+    try { fs.writeFileSync(process.env.WCW_FAKE_STDIN_CAPTURE, String(firstLine || ''), 'utf8'); } catch {}
+  }
   const prompt = String(firstLine || '').toLowerCase();
   const scenario = scenarioFromEnvAndPrompt(prompt);
 

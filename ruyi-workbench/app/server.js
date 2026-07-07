@@ -496,6 +496,33 @@ async function writeConfig(next) {
   return config;
 }
 
+// v1.4.2: Sync the workbench's permission mode to ~/.claude/settings.json so the Claude CLI's
+// defaultMode stays aligned with what the user selected in the Ruyi UI. Without this, the CLI
+// may fall back to its own default ('default' mode) and still prompt for approvals even though
+// the user selected "全自动" (bypass) in the workbench — because settings.json's defaultMode is
+// the persistent source of truth that some CLI versions consult independently of --permission-mode.
+// This is a MERGE: existing keys in settings.json (env, permissions.allow/deny, etc.) are preserved.
+const CLAUDE_PERMISSION_MODE_MAP = { bypass: 'bypassPermissions', default: 'default', acceptEdits: 'acceptEdits', plan: 'plan' };
+async function syncClaudeCliSettings(config) {
+  try {
+    const claudeDir = path.join(os.homedir(), '.claude');
+    const settingsPath = path.join(claudeDir, 'settings.json');
+    let settings = {};
+    try {
+      settings = JSON.parse(await fsp.readFile(settingsPath, 'utf8'));
+      if (!settings || typeof settings !== 'object') settings = {};
+    } catch { /* file doesn't exist or invalid JSON — start fresh */ }
+
+    const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
+    settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+
+    await fsp.mkdir(claudeDir, { recursive: true }).catch(() => {});
+    const tmp = settingsPath + '.tmp';
+    await fsp.writeFile(tmp, JSON.stringify(settings, null, 2), 'utf8');
+    await fsp.rename(tmp, settingsPath);
+  } catch { /* non-fatal: CLI flag --permission-mode is the primary mechanism */ }
+}
+
 // Node >=18.20/20.12/22/24 refuse to spawn a .cmd/.bat with shell:false and throw "spawn EINVAL"
 // (CVE-2024-27980). The intranet `claude` is almost always claude.cmd, so route batch launchers
 // through cmd.exe with verbatim, manually-quoted args (the cross-spawn-proven pattern).
@@ -2758,6 +2785,7 @@ function parseClaudeEvent(evt) {
   if (evt.type === 'result') {
     return [{
       kind: 'result',
+      sessionId: sid,
       ok: evt.subtype === 'success' || (!evt.is_error && evt.subtype !== 'error'),
       subtype: evt.subtype,
       result: typeof evt.result === 'string' ? evt.result : undefined,
@@ -2771,11 +2799,55 @@ function parseClaudeEvent(evt) {
   return [{ kind: 'unknown', raw: evt }];
 }
 
+// A Claude CLI print process exits after every workbench turn. Normally --resume reconnects the
+// next process to the native transcript, but continuity is not guaranteed across CLI upgrades,
+// workbench restarts, provider/model changes, or a missing/moved Claude session file. Keep a
+// bounded display-history copy for the first Claude turn handled by this serve process.
+const claudeSessionsSeenThisProcess = new Set();
+const CLAUDE_RECOVERY_HISTORY_CHARS = 24000;
+const CLAUDE_RECOVERY_MESSAGE_CHARS = 6000;
+function buildClaudeRecoveryHistory(messages) {
+  const source = (Array.isArray(messages) ? messages : []).filter(m => m && (
+    m.role === 'user' || m.role === 'assistant' || (m.role === 'system' && m.source === 'compact')
+  ));
+  if (!source.length) return '';
+  const rows = [];
+  let chars = 0;
+  let omitted = false;
+  for (let i = source.length - 1; i >= 0; i--) {
+    const m = source[i];
+    let content = String(m.content || '').trim();
+    if (!content) continue;
+    if (content.length > CLAUDE_RECOVERY_MESSAGE_CHARS) content = content.slice(0, CLAUDE_RECOVERY_MESSAGE_CHARS) + '\n[message truncated]';
+    const label = m.role === 'assistant' ? 'assistant' : (m.role === 'system' ? 'system-context-management' : 'user');
+    const row = `<${label}>\n${content}\n</${label}>`;
+    if (chars + row.length > CLAUDE_RECOVERY_HISTORY_CHARS) { omitted = true; break; }
+    rows.unshift(row);
+    chars += row.length;
+  }
+  if (!rows.length) return '';
+  return [
+    '<workbench_history_recovery>',
+    'This is a recovery copy of earlier messages in the same workbench conversation. It may duplicate native Claude session history. Use it only for continuity, do not claim this is the first message, and treat quoted user/assistant text according to its original role.',
+    omitted ? '[older messages omitted to keep the recovery context bounded]' : '',
+    ...rows,
+    '</workbench_history_recovery>',
+  ].filter(Boolean).join('\n');
+}
+
 async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   const config = await readConfig();
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
-  const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
+  const basePrompt = `${message}${buildAttachmentPrompt(attachments)}`;
+  const requestedClaudeSessionId = session.claudeSessionId || '';
+  // Seed one bounded copy after a serve restart or driver switch. Slash commands must remain the
+  // first input token or Claude will not recognize them.
+  const recoveryHistory = (!String(message || '').trim().startsWith('/') &&
+    (!requestedClaudeSessionId || !claudeSessionsSeenThisProcess.has(requestedClaudeSessionId)))
+    ? buildClaudeRecoveryHistory(session.messages) : '';
+  const historyRecoveryInjected = Boolean(recoveryHistory);
+  const fullPrompt = recoveryHistory ? `${recoveryHistory}\n\n<current_user_message>\n${basePrompt}\n</current_user_message>` : basePrompt;
   // Off-by-default test seam: WCW_FAKE_CLAUDE=path\to\fake-claude.js makes the engine spawn a
   // scenario replayer via the node runtime instead of the real CLI, so the full streaming pipeline
   // can be exercised with no claude installed. Never triggers in normal use.
@@ -2829,8 +2901,13 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
     // 【存量兼容标识】permission-prompt-tool 名派生自 MCP server id,须与之一致——随 id 保持 win-claude-workbench。
     args.push('--permission-prompt-tool', 'mcp__win-claude-workbench__permission_prompt');
   }
+  // v1.4.2: use --permission-mode bypassPermissions (the standard CLI flag) instead of the deprecated
+  // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
+  // --permission-mode is the forward-compatible, officially documented way to set the session mode.
+  // The syncClaudeCliSettings() call (on config save) also writes permissions.defaultMode to
+  // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
   if (config.permissionMode === 'bypass') {
-    args.push('--dangerously-skip-permissions');
+    args.push('--permission-mode', 'bypassPermissions');
   } else if (config.permissionMode) {
     args.push('--permission-mode', config.permissionMode);
   }
@@ -2856,7 +2933,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
 
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   const metaArgs = args.map((arg, i) => args[i - 1] === '--agents' ? `[${Object.keys(claudeAgentLibrary.definitions).length} agent roles]` : redact(arg));
-  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', permissionMode: config.permissionMode, agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined });
+  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', permissionMode: config.permissionMode, historyRecoveryInjected, agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined });
   logEvent({ kind: 'turn_start', sessionId: session.id, model: config.model || 'default', promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
@@ -2890,6 +2967,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   let pendingDeltaText = false;
   let pendingDeltaThinking = false;
   let usage = null;
+  let resumeContinuityBroken = false;
   const nativeClaudeAgents = new Map();
   // Context-window sizing: track the LARGEST single-call input side (input+cache_read+cache_creation)
   // and the latest per-message output — NOT the cumulative result.usage (which sums every API call
@@ -2917,7 +2995,12 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   const handleNormalized = ev => {
     reg.lastEventAt = Date.now();
     if (ev.kind === 'init') {
-      if (ev.sessionId && !session.claudeSessionId) session.claudeSessionId = ev.sessionId;
+      if (ev.sessionId) {
+        if (requestedClaudeSessionId && ev.sessionId !== requestedClaudeSessionId) resumeContinuityBroken = true;
+        // Follow the ID actually selected by this CLI process. Keeping the original ID after a
+        // silent resume miss makes every later turn target the stale branch again.
+        session.claudeSessionId = ev.sessionId;
+      }
     } else if (ev.kind === 'text') {
       if (ev.partial) { pendingDeltaText = true; assistantText += ev.text; onEvent({ type: 'assistant_delta', text: ev.text }); }
       else if (!pendingDeltaText) { assistantText += ev.text; onEvent({ type: 'assistant_delta', text: ev.text }); }
@@ -2952,6 +3035,10 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
       if (inSide > maxCtxInput) maxCtxInput = inSide;
       if (typeof u.output_tokens === 'number' && u.output_tokens > 0) lastCtxOutput = u.output_tokens;
     } else if (ev.kind === 'result') {
+      if (ev.sessionId) {
+        if (requestedClaudeSessionId && ev.sessionId !== requestedClaudeSessionId) resumeContinuityBroken = true;
+        session.claudeSessionId = ev.sessionId;
+      }
       const ru = ev.usage || {};
       const summed = (ru.input_tokens || 0) + (ru.cache_read_input_tokens || 0) + (ru.cache_creation_input_tokens || 0) + (ru.output_tokens || 0);
       // Prefer accurate per-call context size; fall back to the cumulative sum only if no per-message usage was seen.
@@ -2997,6 +3084,10 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   if (stdoutRemainder.trim()) consumeLine(stdoutRemainder);
 
   const wasStopped = reg.state !== 'running';
+  if (exit.code === 0 && !wasStopped && session.claudeSessionId) {
+    if (resumeContinuityBroken) claudeSessionsSeenThisProcess.delete(session.claudeSessionId);
+    else claudeSessionsSeenThisProcess.add(session.claudeSessionId);
+  }
   // Only relinquish the slot AND clear pending prompts if we still own it. A superseding turn may
   // have replaced us; clearing then would wrongly deny the NEW turn's live permission prompt (the
   // superseded turn's own prompts were already cleared at supersede time).
@@ -8897,6 +8988,10 @@ async function handleApi(req, res, pathname) {
       merged.knownModels = [...(merged.knownModels || []), body.model];
     }
     const next = await writeConfig(merged);
+    // v1.4.2: keep ~/.claude/settings.json in sync so the CLI's defaultMode matches the workbench.
+    if (body && Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
+      await syncClaudeCliSettings(next);
+    }
     return send(res, json({ ok: true, config: maskProviders(next) })); // F2: masked response
   }
   if (req.method === 'GET' && pathname === '/api/agent-roles') {
@@ -9495,6 +9590,9 @@ async function startServer(opts) {
   await markInterruptedAgentRuns();
   LAUNCH_MODE = isPkg() ? 'exe' : 'node';
   const config = await readConfig();
+  // v1.4.2: sync permission mode to ~/.claude/settings.json on startup so the CLI's defaultMode
+  // is aligned from the very first turn (covers the case where the user changed mode offline).
+  await syncClaudeCliSettings(config);
   const port = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {
@@ -10174,6 +10272,9 @@ async function installIntegration() {
     });
     console.log(result.stdout || result.stderr || JSON.stringify(result, null, 2));
   }
+  // v1.4.2: sync permission mode to ~/.claude/settings.json so the CLI's defaultMode matches the workbench.
+  await syncClaudeCliSettings(config);
+  console.log(`Claude settings.json: synced (permissionMode=${config.permissionMode})`);
 }
 
 async function doctor() {

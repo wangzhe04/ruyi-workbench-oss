@@ -1257,11 +1257,11 @@ function renderContextMeter(u) {
   const box = $('contextMeter');
   if (!box) return;
   const n = ctxTokensOf(u);
-  if (n == null) { box.classList.add('hidden'); return; }
+  if (n == null) { state.shownUsage = null; box.classList.add('hidden'); return; }
   state.shownUsage = u;
   const win = ctxWindow(), pct = win > 0 ? n / win : 0;
-  // v1.0-S2 (IA): 简易模式收敛 — 用量 <60% 时隐藏上下文电量表（低负载不打扰人人可用用户；专家模式不变）。
-  if (document.documentElement.getAttribute('data-ui-mode') === 'simple' && pct < 0.6) { box.classList.add('hidden'); return; }
+  // Keep this visible in both UI modes once usage exists. The manual compact action lives in this
+  // meter's popover, so hiding low usage also made context occupancy and compaction disappear.
   // Battery drains as context fills: fill width = remaining capacity (1 - pct) of the 17.8px interior.
   const fill = box.querySelector('.batt-fill');
   if (fill) fill.setAttribute('width', (Math.max(0, Math.min(1, 1 - pct)) * 17.8).toFixed(2));
