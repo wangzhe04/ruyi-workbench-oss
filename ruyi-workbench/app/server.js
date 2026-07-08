@@ -5569,11 +5569,11 @@ function dedupeAgentFindings(dependencies) {
 
 const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
   {
-    id: 'debate-and-judge', title: '正反辩论 → 裁决', description: '正反双方并行分析，由 Reviewer 交叉审查并给出带置信度的裁决。',
+    id: 'debate-and-judge', title: '正反辩论 → 裁决', description: '正反双方并行分析，由 Reviewer 交叉审查并给出可核验的裁决。',
     nodes: [
       { id: 'pro', task: '从支持方立场分析议题，给出证据、收益、适用条件和主要风险。', role: 'explorer', failurePolicy: 'continue', position: { x: 80, y: 80 } },
       { id: 'con', task: '从反对方立场分析议题，主动寻找反例、成本、失败条件和替代方案。', role: 'explorer', failurePolicy: 'continue', position: { x: 80, y: 260 } },
-      { id: 'judge', task: '交叉审查正反双方：核验依据、去除重复和无证据主张，给出最终裁决。', role: 'reviewer', dependsOn: ['pro', 'con'], gate: { mode: 'cross_review', minConfidence: 0.6 }, position: { x: 420, y: 170 } },
+      { id: 'judge', task: '交叉审查正反双方：核验依据、去除重复和无证据主张，给出最终裁决。', role: 'reviewer', dependsOn: ['pro', 'con'], gate: { mode: 'cross_review' }, position: { x: 420, y: 170 } },
     ],
   },
   {
@@ -5706,10 +5706,51 @@ function workflowProgressFingerprint(node) {
   const value = node && node.structuredResult != null ? node.structuredResult : String(node && node.result || '').replace(/\s+/g, ' ').trim();
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
+function agentWorkflowStatusText(status) {
+  return ({ queued: '排队中', waiting_resource: '等待资源', blocked: '阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', skipped: '已跳过', partial: '部分完成', failed: '失败', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+}
+function summarizeAgentWorkflowRun(run, opts = {}) {
+  const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
+  const title = opts.title || 'Agent 工作流';
+  const lines = [`${title}${run && run.id ? `（${run.id}）` : ''}已结束：${agentWorkflowStatusText(run && run.status)}。`];
+  const succeeded = nodes.filter(n => n.status === 'succeeded' || n.status === 'skipped').length;
+  lines.push(`节点：成功/跳过 ${succeeded}，失败/阻塞 ${nodes.length - succeeded}，共 ${nodes.length}。`);
+  for (const node of nodes) {
+    const role = node.roleLabel || node.roleId || node.role || '';
+    let summary = '';
+    if (node.structuredResult && typeof node.structuredResult === 'object') summary = node.structuredResult.summary || node.structuredResult.verdict || JSON.stringify(node.structuredResult).slice(0, 260);
+    if (!summary) summary = String(node.result || node.error || '').replace(/\s+/g, ' ').trim().slice(0, 360);
+    lines.push(`- ${node.id}${role ? `（${role}）` : ''}: ${agentWorkflowStatusText(node.status)}${summary ? ` — ${summary}` : ''}`);
+  }
+  return lines.join('\n');
+}
+async function appendAgentWorkflowSummaryToSession(sessionId, run, opts = {}) {
+  if (!sessionId || !run) return;
+  const session = await loadSession(sessionId).catch(() => null);
+  if (!session) return;
+  const content = summarizeAgentWorkflowRun(run, opts);
+  session.messages.push({ role: 'assistant', content, createdAt: nowIso(), source: 'agent_workflow', runId: run.id });
+  await saveSession(session);
+}
+function recordAgentNodeProgress(run, node, evt) {
+  if (!node || !evt || evt.type === 'raw_line') return;
+  let text = '';
+  if (evt.type === 'subagent') {
+    if (evt.state === 'start') text = `子 Agent 启动${evt.model ? ` · ${evt.model}` : ''}${evt.toolTier ? ` · ${evt.toolTier}` : ''}`;
+    else if (evt.state === 'retry') text = `子 Agent 重试 ${evt.attempt || 0}/${evt.maxAttempts || 0}${evt.reason ? ` · ${evt.reason}` : ''}`;
+    else if (evt.state === 'end') text = `子 Agent ${evt.ok ? '完成' : '失败'}${evt.resultChars != null ? ` · ${evt.resultChars} 字` : ''}`;
+  } else if (evt.type === 'tool_use') text = `调用工具 ${evt.name || ''}`.trim();
+  else if (evt.type === 'tool_result') text = `工具返回 ${evt.isError ? '错误' : '成功'}${evt.id ? ` · ${evt.id}` : ''}`;
+  else if (evt.type === 'agent_resource') text = evt.state === 'waiting' ? `等待资源：${(evt.resources || []).join(', ')}` : evt.state === 'acquired' ? `获得资源：${(evt.resources || []).join(', ')}` : evt.state === 'released' ? `释放资源：${(evt.resources || []).join(', ')}` : '';
+  if (!text) return;
+  const old = Array.isArray(node.progressLog) ? node.progressLog : [];
+  node.progressLog = [...old, { at: nowIso(), text }].slice(-80);
+  saveAgentRun(run).catch(() => {});
+}
 
 // Execute a complete dependency graph without asking the parent model to schedule every stage. The graph
 // and node transitions are persisted after each state change so progress remains inspectable after a crash.
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete }) {
   let run, nodes, runId;
   const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
   if (existingRun) {
@@ -5742,13 +5783,13 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     for (const n of nodes) if (reset.has(n.id)) {
       if (n.isolation && n.isolation.path) await cleanupAgentWorktree(n.isolation);
-      n.status = 'queued'; n.result = ''; n.structuredResult = null; n.schemaErrors = []; n.error = ''; n.startedAt = null; n.completedAt = null; n.loopIteration = 0; n.noProgressCount = 0; n.progressFingerprint = '';
+      n.status = 'queued'; n.result = ''; n.structuredResult = null; n.schemaErrors = []; n.error = ''; n.startedAt = null; n.completedAt = null; n.loopIteration = 0; n.noProgressCount = 0; n.progressFingerprint = ''; n.progressLog = [];
       n.waitingForResources = [];
     }
     run.status = 'running'; run.completedAt = null; run.resumedAt = nowIso();
     run.concurrency = Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || run.concurrency || 2));
   } else {
-    runId = makeId('run');
+    runId = safeSessionId(runIdOverride) || makeId('run');
     const limit = Math.max(0, Number(maxNodes) || 0);
     if (!Array.isArray(rawNodes) || !rawNodes.length) return { ok: false, error: 'nodes 必须是非空数组', startedCount: 0 };
     // v1.4.4: wording is caller-agnostic — this same check gates BOTH an ad hoc in-turn orchestrate_agents
@@ -5778,7 +5819,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
       const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(32, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 20)), outputSchema, gate, failurePolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [] });
+      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(32, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 20)), outputSchema, gate, failurePolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -5885,12 +5926,13 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             effectiveResources = remapAgentResources(node.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace), node.isolation.path);
             await saveAgentRun(run);
           }
+          const nodeEvent = evt => { try { onEvent(evt); } finally { recordAgentNodeProgress(run, node, evt); } };
           const sub = await runSubAgent({
             parentSession: agentSession, provider, config, engine: node.engine || 'openai',
             task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
             displayTask: node.task, agentKey: node.id,
             dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
-            onEvent, subagentId: makeId('sub'), depth: 1, ctrl: localCtrl, permModeOverride,
+            onEvent: nodeEvent, subagentId: makeId('sub'), depth: 1, ctrl: localCtrl, permModeOverride,
             resources: effectiveResources, resourceGroup: `${runId}:${node.id}`,
             roleDefinition: node.roleSnapshot || (node.roleId ? roleLibrary.get(node.roleId) : null),
             onResourceWait: (resources, blockers) => { node.status = 'waiting_resource'; node.waitingForResources = resources.map(r => r.label); node.resourceBlockers = blockers; saveAgentRun(run).catch(() => {}); },
@@ -5955,8 +5997,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   const failed = nodes.filter(n => n.status !== 'succeeded' && n.status !== 'skipped');
   run.status = runtime.stopRequested ? 'stopped' : (failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded');
   run.completedAt = nowIso();
+  run.summary = summarizeAgentWorkflowRun(run);
   await saveAgentRun(run);
   onEvent({ type: 'agent_workflow', state: 'end', id: runId, status: run.status, succeeded: nodes.length - failed.length, failed: failed.length });
+  if (typeof onComplete === 'function') await onComplete(run).catch(() => {});
   } finally { activeAgentRuns.delete(runId); }
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
@@ -10011,7 +10055,18 @@ async function handleApi(req, res, pathname) {
     // an ad hoc, single-CHAT-TURN spawn_agent/orchestrate_agents fan-out budget — a 4-node default there
     // used to reject any real pipeline with 5+ nodes outright here, even though resuming the same run used
     // a hardcoded 32).
-    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText: String(body.context || '').trim() });
+    const contextText = String(body.context || '').trim();
+    const completion = run => appendAgentWorkflowSummaryToSession(session.id, run, { title: body.workflowId ? `Agent 工作流 ${body.workflowId}` : 'Agent 工作流' });
+    if (body.async === true) {
+      const runId = makeId('run');
+      void runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion }).catch(async e => {
+        const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
+        await saveAgentRun(run).catch(() => {});
+        await completion(run).catch(() => {});
+      });
+      return send(res, json({ ok: true, accepted: true, runId }));
+    }
+    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, onComplete: activeChildren.has(session.id) ? null : completion });
     return send(res, json(result));
   }
   // v0.8-S4a: checkpoint query (read-only → same-origin gate is enough; not in needsToken).
@@ -11017,7 +11072,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'orchestrate_agents',
-    description: "Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, deterministic voting/deduplication, cross-review, confidence thresholds, and per-node failure policies (block, degraded continue, retry). Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (list them via the workflow library) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) when an existing template already matches the shape of what's being asked.",
+    description: "Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, deterministic voting/deduplication, cross-review, and per-node failure policies (block, degraded continue, retry). Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (list them via the workflow library) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) when an existing template already matches the shape of what's being asked.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -11043,7 +11098,6 @@ const MCP_TOOLS = [
                   mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe'] },
                   threshold: { type: 'number', description: 'vote pass ratio, 0..1' },
                   minApprovals: { type: 'number' },
-                  minConfidence: { type: 'number', description: 'minimum accepted confidence, 0..1' },
                 },
               },
               failurePolicy: { type: 'string', enum: ['block', 'continue', 'retry'], description: 'block downstream (default), continue in degraded mode, or retry automatically' },

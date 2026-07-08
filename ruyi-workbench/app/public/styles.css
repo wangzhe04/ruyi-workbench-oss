@@ -1108,23 +1108,44 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .workflow-quick-run select { min-width: 0; flex: 1; }
 .workflow-editor { width: min(1080px, calc(100vw - 80px)); }
 .modal.workflow-modal { width: min(1160px, calc(100vw - 40px)); }
+.modal.workflow-modal .modal-head { padding-right: 10px; }
+.workflow-window-btn { width: 32px; height: 28px; display: inline-grid; place-items: center; margin-left: auto; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 15px; line-height: 1; }
+.workflow-window-btn:hover { background: var(--panel-2); color: var(--text); }
+.modal.workflow-modal.workflow-fullscreen { width: calc(100vw - 24px); height: calc(100vh - 24px); max-height: calc(100vh - 24px); }
+.modal.workflow-modal.workflow-fullscreen .modal-body { display: flex; flex-direction: column; min-height: 0; }
+.modal.workflow-modal.workflow-fullscreen .workflow-editor { width: 100%; min-height: 0; flex: 1; display: flex; flex-direction: column; }
+.modal.workflow-modal.workflow-fullscreen .workflow-editor-layout { min-height: 0; flex: 1; }
+.modal.workflow-modal.workflow-fullscreen .workflow-graph,
+.modal.workflow-modal.workflow-fullscreen .workflow-inspector { height: auto; min-height: 0; }
 .workflow-meta { display: grid; grid-template-columns: 1fr 1.4fr 2fr 1fr; gap: 8px; margin-bottom: 10px; }
 .workflow-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: var(--muted); font-size: 11px; }
 .workflow-field input, .workflow-field select, .workflow-field textarea { width: 100%; color: var(--text); }
-.workflow-editor-toolbar { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 8px; }
+.workflow-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 8px; padding: 7px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--panel-2) 78%, transparent); }
+.workflow-editor-toolbar select { min-width: 170px; }
+.workflow-btn { border-radius: 999px; padding-inline: 10px; border-color: var(--line-2); background: var(--panel); }
+.workflow-btn:hover { background: var(--panel-3); border-color: var(--accent); }
+.workflow-btn.save-as { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line-2)); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+.workflow-btn.save-as:hover { background: color-mix(in srgb, var(--accent) 15%, var(--panel)); }
+.workflow-editor-foot { width: 100%; justify-content: space-between; }
+.workflow-editor-foot-left, .workflow-editor-foot-right { display: flex; align-items: center; gap: 8px; }
 .workflow-editor-layout { display: grid; grid-template-columns: minmax(560px, 1fr) 290px; gap: 10px; }
 /* Fixed (not min-) height, bounded by viewport: the graph's own horizontal/vertical scrollbars must sit
    inside this box at a height that's always on-screen without first scrolling the outer .modal-body —
    min-height let the box grow past the visible modal area, hiding the scrollbar below the fold. */
 .workflow-graph { position: relative; height: min(510px, 52vh); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background-color: var(--panel-2); background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 24px 24px; }
+.workflow-graph.panning { cursor: grabbing; user-select: none; }
 .workflow-edges { position: absolute; inset: 0; width: 1400px; height: 1000px; overflow: visible; pointer-events: none; }
-.workflow-edges line { stroke: var(--muted); stroke-width: 1.5; }
+.workflow-edge-line { stroke: var(--muted); stroke-width: 1.5; pointer-events: none; }
+.workflow-edge-hit { stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+.workflow-edge.selected .workflow-edge-line { stroke: var(--accent); stroke-width: 2.4; }
 .workflow-edges path { fill: var(--muted); }
 .workflow-node-card { position: absolute; width: 210px; min-height: 88px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 10px; text-align: left; cursor: grab; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,.12); touch-action: none; }
 .workflow-node-card:active { cursor: grabbing; }
 .workflow-node-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.workflow-node-card.connect-source { border-color: var(--warn, #d99a2b); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn, #d99a2b) 30%, transparent); }
 .workflow-node-card span, .workflow-node-card small { color: var(--muted); }
 .workflow-inspector { display: flex; flex-direction: column; gap: 8px; padding: 10px; height: min(510px, 52vh); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+.workflow-help { margin: -3px 0 4px; color: var(--muted); font-size: 11px; line-height: 1.35; }
 .agent-node.an-skipped { border-left: 3px solid var(--muted); opacity: .82; }
 .agent-run-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); }
 .agent-run-card.ar-running, .agent-run-card.ar-paused { border-left: 3px solid var(--accent); }
@@ -1134,6 +1155,12 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .ar-status { color: var(--muted); white-space: nowrap; font-size: 11px; }
 .agent-run-controls, .agent-node-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 8px 8px; }
 .agent-run-graph { display: flex; flex-direction: column; gap: 5px; padding: 0 8px 8px; }
+.agent-run-summary, .agent-node-result, .agent-node-error, .agent-isolation-changes { white-space: pre-wrap; overflow: auto; max-height: 260px; }
+.agent-run-summary { margin: 0 8px 8px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
+.agent-node-live { color: var(--muted); font-size: 12px; margin: 4px 0 8px; }
+.agent-node-progress { margin: 8px 0; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: color-mix(in srgb, var(--panel-2) 80%, transparent); }
+.agent-progress-title { color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+.agent-progress-line { font-size: 12px; line-height: 1.45; color: var(--text); }
 .agent-node { border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
 .agent-node.an-succeeded { border-left: 3px solid var(--success, #36a269); }
 .agent-node.an-failed, .agent-node.an-interrupted { border-left: 3px solid var(--danger, #d9534f); }
