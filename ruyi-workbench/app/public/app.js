@@ -3414,11 +3414,11 @@ async function refreshModels(announce) {
 }
 function populatePermSelect() {
   const sel = $('permSelect'); sel.innerHTML = '';
-  const labels = { default: '默认(询问)', acceptEdits: '接受编辑', plan: '计划模式', bypass: '⚠ 跳过权限' };
+  const labels = { default: '默认(询问)', acceptEdits: '接受编辑', plan: '计划模式', auto: '智能自动', bypass: '⚠ 跳过权限' };
   for (const m of (state.status?.permissionModes || ['default','acceptEdits','plan','bypass'])) {
     const o = el('option'); o.value = m; o.textContent = labels[m] || m; if (m === state.config.permissionMode) o.selected = true; sel.appendChild(o);
   }
-  sel.style.color = state.config.permissionMode === 'bypass' ? 'var(--danger)' : '';
+  sel.style.color = state.config.permissionMode === 'bypass' ? 'var(--danger)' : (state.config.permissionMode === 'auto' ? 'var(--accent)' : '');
   renderPermChip(); // v1.0-S2 (IA): keep the topbar 安全 chip in sync with the mode.
 }
 
@@ -3428,6 +3428,7 @@ const PERM_MODE_META = {
   default:     { short: '每步都问',   desc: '每个操作先征得你同意，最稳妥' },
   acceptEdits: { short: '小改动自动做', desc: '文件编辑自动执行，命令等敏感操作仍会问你' },
   plan:        { short: '先计划再动手', desc: 'AI 先给完整计划，你批准后才执行' },
+  auto:        { short: '智能自动',   desc: 'AI 自动判断风险，低风险自动执行，高风险仍会问你' },
   bypass:      { short: '全自动',     desc: '不再询问（警示样式）', danger: true },
 };
 function permModeShort(mode) { const m = PERM_MODE_META[mode]; return (m && m.short) || mode || '未知'; }
@@ -3438,6 +3439,7 @@ function renderPermChip() {
   const nameEl = chip.querySelector('.pc-name');
   if (nameEl) nameEl.textContent = permModeShort(mode); // textContent → 人话短名，XSS 安全
   chip.classList.toggle('warn', mode === 'bypass');
+  chip.classList.toggle('info', mode === 'auto');
   chip.title = `安全 / 权限：${permModeShort(mode)}（点击设置）`;
 }
 // 安全弹层：四档单选卡（枚举来自 state.status.permissionModes，与 permSelect 一致）。点击卡片 =
@@ -3544,7 +3546,7 @@ function renderAgentRoleEditors() {
     const prompt = document.createElement('textarea'); prompt.rows = 3; prompt.value = role.prompt || ''; prompt.dataset.roleField = 'prompt'; body.appendChild(roleField('角色指令', prompt));
     body.append(
       roleField('工具级别', roleSelect('toolTier', role.toolTier || 'read', [['read','只读'],['edit','可编辑'],['exec','可执行']])),
-      roleField('角色权限', roleSelect('permissionMode', role.permissionMode || 'inherit', [['inherit','继承父级'],['default','逐项确认'],['acceptEdits','自动接受编辑'],['dontAsk','不询问，未授权即拒绝'],['plan','只读计划'],['bypass','跳过权限']])),
+      roleField('角色权限', roleSelect('permissionMode', role.permissionMode || 'inherit', [['inherit','继承父级'],['default','逐项确认'],['acceptEdits','自动接受编辑'],['dontAsk','不询问，未授权即拒绝'],['plan','只读计划'],['auto','智能自动'],['bypass','跳过权限']])),
       roleField('隔离', roleSelect('isolation', role.isolation || 'none', [['none','不隔离'],['worktree','Git worktree']])),
       roleField('OpenAI 模型', roleInput('openaiModel', role.models?.openai || '')),
       roleField('Claude 模型', roleInput('claudeModel', role.models?.claude || 'inherit')),
@@ -4610,12 +4612,13 @@ function bindEvents() {
   $('permSelect').onchange = e => {
     // v0.9-S1 (C1): in simple mode the bypass option stays visible but selecting it prompts a confirm once —
     // 精简界面用户更需要一道明确的确认闸门（bypass = 跳过所有权限弹窗）。Cancelling reverts the select.
-    if (e.target.value === 'bypass' && document.documentElement.getAttribute('data-ui-mode') === 'simple') {
-      if (!confirm('「跳过权限」会让模型无需确认即可修改文件、运行命令。确定切换到此模式？')) {
+    if ((e.target.value === 'bypass' || e.target.value === 'auto') && document.documentElement.getAttribute('data-ui-mode') === 'simple') {
+      var modeLabel = e.target.value === 'bypass' ? '跳过权限' : '智能自动';
+      if (!confirm('切换到「' + modeLabel + '」模式？' + (e.target.value === 'bypass' ? '模型无需确认即可修改文件、运行命令。' : 'AI将自动判断风险并执行低风险操作。') + '确定切换？')) {
         e.target.value = state.config.permissionMode || 'bypass'; populatePermSelect(); return;
       }
     }
-    saveConfigPartial({ permissionMode: e.target.value }); state.config.permissionMode = e.target.value; populatePermSelect(); if (e.target.value === 'bypass') toast('⚠ 已切到跳过权限模式', 'err');
+    saveConfigPartial({ permissionMode: e.target.value }); state.config.permissionMode = e.target.value; populatePermSelect(); if (e.target.value === 'bypass') toast('⚠ 已切到跳过权限模式', 'err'); else if (e.target.value === 'auto') toast('已切到智能自动模式', 'ok');
   };
   $('themeToggle').onclick = toggleTheme;
   { const um = $('uiModeToggle'); if (um) um.onclick = toggleUiMode; } // v0.9-S1 (C1)

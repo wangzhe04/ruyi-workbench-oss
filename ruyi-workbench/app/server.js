@@ -210,11 +210,21 @@ function defaultConfig() {
     // 'none' is folded to 'builtin' on load (it was only ever the *historical* default, never an active
     // choice) — so search is ON out of the box for both fresh and upgraded installs.
     searchBackend: { type: 'builtin', baseUrl: '', apiKey: '' },
+    // --- v1.4.3 additions (CLI capability alignment) ---
+    appendSystemPrompt: '',       // non-empty -> --append-system-prompt flag to Claude CLI
+    additionalDirectories: [],    // extra dirs passed via multiple --add-dir flags
   };
 }
 
-const PERMISSION_MODES = ['default', 'acceptEdits', 'plan', 'bypass'];
-const AGENT_ROLE_PERMISSION_MODES = ['inherit', 'default', 'acceptEdits', 'dontAsk', 'bypass', 'plan'];
+const PERMISSION_MODES = ['default', 'acceptEdits', 'plan', 'auto', 'bypass'];
+const AGENT_ROLE_PERMISSION_MODES = ['inherit', 'default', 'acceptEdits', 'dontAsk', 'bypass', 'plan', 'auto'];
+// v1.4.3: Canonical mapping from workbench-internal mode names to Claude CLI mode names.
+// 'bypass' -> 'bypassPermissions'; 'auto' is a CLI-native name (no alias needed).
+// Used by BOTH the --permission-mode flag construction AND syncClaudeCliSettings (single source of truth).
+const CLAUDE_PERMISSION_MODE_MAP = { bypass: 'bypassPermissions', default: 'default', acceptEdits: 'acceptEdits', plan: 'plan', auto: 'auto', dontAsk: 'dontAsk' };
+// Accept these CLI-native names as aliases when loading config (so users / external tools that write
+// 'bypassPermissions' directly into config.json are not silently reset to 'bypass').
+const PERMISSION_MODE_ALIASES = { bypassPermissions: 'bypass' };
 const BUILTIN_AGENT_ROLES = Object.freeze([
   { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 6, claude: 8 }, color: 'blue' },
   { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 8, claude: 12 }, color: 'green' },
@@ -265,6 +275,11 @@ function mergeAgentRole(base, override, source) {
 function normalizeConfig(raw) {
   const config = { ...defaultConfig(), ...(raw && typeof raw === 'object' ? raw : {}) };
   let changed = !raw || raw.configSchema !== CONFIG_SCHEMA;
+  // v1.4.3: accept CLI-native mode name 'bypassPermissions' as alias for 'bypass'
+  if (PERMISSION_MODE_ALIASES[config.permissionMode]) {
+    config.permissionMode = PERMISSION_MODE_ALIASES[config.permissionMode];
+    changed = true;
+  }
   if (!PERMISSION_MODES.includes(config.permissionMode)) {
     config.permissionMode = 'bypass';
     changed = true;
@@ -464,6 +479,13 @@ function normalizeConfig(raw) {
   }
   config.configSchema = CONFIG_SCHEMA;
   config.version = VERSION;
+  // v1.4.3: sanitize new config fields
+  if (typeof config.appendSystemPrompt !== 'string') { config.appendSystemPrompt = ''; changed = true; }
+  else if (config.appendSystemPrompt.length > 8000) { config.appendSystemPrompt = config.appendSystemPrompt.slice(0, 8000); changed = true; }
+  if (!Array.isArray(config.additionalDirectories) || config.additionalDirectories.some(a => typeof a !== 'string')) {
+    config.additionalDirectories = Array.isArray(config.additionalDirectories) ? config.additionalDirectories.filter(a => typeof a === 'string').slice(0, 20) : [];
+    changed = true;
+  }
   return { config, changed };
 }
 
@@ -496,13 +518,9 @@ async function writeConfig(next) {
   return config;
 }
 
-// v1.4.2: Sync the workbench's permission mode to ~/.claude/settings.json so the Claude CLI's
-// defaultMode stays aligned with what the user selected in the Ruyi UI. Without this, the CLI
-// may fall back to its own default ('default' mode) and still prompt for approvals even though
-// the user selected "全自动" (bypass) in the workbench — because settings.json's defaultMode is
-// the persistent source of truth that some CLI versions consult independently of --permission-mode.
-// This is a MERGE: existing keys in settings.json (env, permissions.allow/deny, etc.) are preserved.
-const CLAUDE_PERMISSION_MODE_MAP = { bypass: 'bypassPermissions', default: 'default', acceptEdits: 'acceptEdits', plan: 'plan' };
+// v1.4.3: Sync workbench settings to ~/.claude/settings.json so the Claude CLI's own config stays
+// aligned with what the user selected in the Ruyi UI. This is a MERGE: existing keys are preserved.
+// Covers: permissionMode, model, thinkingBudget, appendSystemPrompt.
 async function syncClaudeCliSettings(config) {
   try {
     const claudeDir = path.join(os.homedir(), '.claude');
@@ -511,16 +529,69 @@ async function syncClaudeCliSettings(config) {
     try {
       settings = JSON.parse(await fsp.readFile(settingsPath, 'utf8'));
       if (!settings || typeof settings !== 'object') settings = {};
-    } catch { /* file doesn't exist or invalid JSON — start fresh */ }
+    } catch { /* file doesn't exist or invalid JSON */ }
 
+    // 1. Permission mode
     const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
     settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+    // 2. Model
+    if (config.model && typeof config.model === 'string') settings.model = config.model;
+    else delete settings.model;
+    // 3. Thinking budget -> env.MAX_THINKING_TOKENS
+    if (config.thinkingBudget) {
+      settings.env = { ...(settings.env || {}), MAX_THINKING_TOKENS: String(config.thinkingBudget) };
+    } else { if (settings.env) delete settings.env.MAX_THINKING_TOKENS; }
+    // 4. Append-system-prompt
+    if (config.appendSystemPrompt && typeof config.appendSystemPrompt === 'string') settings.appendSystemPrompt = config.appendSystemPrompt;
+    else delete settings.appendSystemPrompt;
 
     await fsp.mkdir(claudeDir, { recursive: true }).catch(() => {});
     const tmp = settingsPath + '.tmp';
     await fsp.writeFile(tmp, JSON.stringify(settings, null, 2), 'utf8');
     await fsp.rename(tmp, settingsPath);
   } catch { /* non-fatal: CLI flag --permission-mode is the primary mechanism */ }
+}
+
+// v1.4.3: Write workbench-managed agent roles to ~/.claude/agents/*.md so they are available
+// when running `claude` directly (not just via the workbench's --agents flag).
+async function syncAgentRolesToClaude(cwd, config) {
+  try {
+    const claudeDir = path.join(os.homedir(), '.claude');
+    const agentsDir = path.join(claudeDir, 'agents');
+    await fsp.mkdir(agentsDir, { recursive: true }).catch(() => {});
+    const roles = await getAgentRoleLibrary(cwd, config);
+    for (const role of roles) {
+      if (role.nativeClaude) continue;
+      const cliMode = claudePermissionMode(role.permissionMode);
+      var fm = ['---'];
+      fm.push('description: ' + JSON.stringify(role.description || role.label));
+      if (cliMode) fm.push('permissionMode: ' + cliMode);
+      if (role.models && role.models.claude && role.models.claude !== 'inherit') fm.push('model: ' + role.models.claude);
+      if (role.claudeTools && role.claudeTools.length) fm.push('tools: ' + JSON.stringify(role.claudeTools));
+      fm.push('---');
+      var body = role.prompt || role.description || role.label;
+      var md = fm.join('\n') + '\n\n' + body + '\n';
+      var file = path.join(agentsDir, role.id + '.md');
+      var tmp = file + '.tmp';
+      await fsp.writeFile(tmp, md, 'utf8');
+      await fsp.rename(tmp, file);
+    }
+  } catch { /* non-fatal */ }
+}
+
+// v1.4.3: Sync external MCP servers to Claude CLI's user-level config so they are available
+// when running `claude` directly. Uses `claude mcp add-json` (idempotent).
+async function syncMcpServersToClaude(config) {
+  try {
+    if (!config.claudePath || !existsExecutable(config.claudePath)) return;
+    var servers = resolveExternalMcpServers(config);
+    for (var s of servers) {
+      if (!s.id || !s.command) continue;
+      var sc = { type: 'stdio', command: s.command, args: s.args || [], env: s.env || {} };
+      if (s.cwd) sc.cwd = s.cwd;
+      try { await runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: 10000 }); } catch {}
+    }
+  } catch { /* non-fatal */ }
 }
 
 // Node >=18.20/20.12/22/24 refuse to spawn a .cmd/.bat with shell:false and throw "spawn EINVAL"
@@ -2886,7 +2957,8 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
 
   const interactive = config.engineMode === 'interactive';
-  const usePermissionBridge = config.permissionBridge && config.permissionMode !== 'bypass';
+  // v1.4.3: 'auto' mode uses the CLI's built-in risk classifier, no workbench bridge needed.
+  const usePermissionBridge = config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto';
 
   const args = ['-p', '--output-format', 'stream-json', '--verbose'];
   if (interactive) args.push('--input-format', 'stream-json');
@@ -2906,17 +2978,24 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   // --permission-mode is the forward-compatible, officially documented way to set the session mode.
   // The syncClaudeCliSettings() call (on config save) also writes permissions.defaultMode to
   // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
-  if (config.permissionMode === 'bypass') {
-    args.push('--permission-mode', 'bypassPermissions');
-  } else if (config.permissionMode) {
-    args.push('--permission-mode', config.permissionMode);
-  }
+  // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
+  const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
+  if (cliPermMode) args.push('--permission-mode', cliPermMode);
   if (config.model) args.push('--model', config.model);
   if (config.maxTurns) args.push('--max-turns', String(config.maxTurns));
+  // v1.4.3: --append-system-prompt
+  if (config.appendSystemPrompt) args.push('--append-system-prompt', config.appendSystemPrompt);
   if (config.autoResumeClaudeSessions && session.claudeSessionId) {
     args.push('--resume', session.claudeSessionId);
+  } else if (config.autoResumeClaudeSessions) {
+    // v1.4.3: fallback to --continue when session ID is lost
+    args.push('--continue');
   }
   if (workingDir) args.push('--add-dir', workingDir);
+  // v1.4.3: additional directories from config
+  if (Array.isArray(config.additionalDirectories)) {
+    for (const dir of config.additionalDirectories) { if (dir && dir !== workingDir) args.push('--add-dir', dir); }
+  }
   if (Array.isArray(config.extraClaudeArgs)) args.push(...config.extraClaudeArgs);
 
   const env = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: paths.data }; // 【存量兼容标识】注入旧 env 变量名给 Claude 子进程
@@ -4253,11 +4332,15 @@ function bridgedToolTier(unprefixedName, config) {
 
 // Decide gate for a tool call given the permission mode. Returns 'allow' | 'ask' | 'block'.
 function nativeToolGate(mode, tier) {
-  if (mode === 'bypass') return 'allow';
+  // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
+  if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
   if (tier === 'read') return 'allow';
-  if (mode === 'plan' || mode === 'dontAsk') return 'block'; // fixed/headless roles never open prompts
+  if (mode === 'plan' || mode === 'dontAsk') return 'block';
+  // v1.4.3: 'auto' mode — AI risk-classifier decides. In the native engine we approximate:
+  // allow edit-tier (low-risk, reversible) and prompt for exec-tier.
+  if (mode === 'auto' && tier === 'edit') return 'allow';
   if (mode === 'acceptEdits' && tier === 'edit') return 'allow';
-  return 'ask';                                              // default (or acceptEdits+exec) → prompt UI
+  return 'ask';
 }
 // v0.8-S4b B3: which tools produce a change that the checkpoint journal can undo? Exactly the journaled
 // file mutations (file_write/file_edit/file_delete → create/modify/delete `before` snapshots). Everything
@@ -4757,7 +4840,9 @@ async function saveProjectAgentRoles(cwd, roles) {
   return payload.roles;
 }
 function claudePermissionMode(mode) {
-  return ({ bypass: 'bypassPermissions', inherit: undefined })[mode] || mode;
+  // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP; 'inherit' maps to undefined (omit from agent JSON)
+  if (mode === 'inherit') return undefined;
+  return CLAUDE_PERMISSION_MODE_MAP[mode] || mode;
 }
 async function buildClaudeAgentDefinitions(cwd, config) {
   const roles = (await getAgentRoleLibrary(cwd, config)).filter(r => !r.nativeClaude);
@@ -8988,9 +9073,15 @@ async function handleApi(req, res, pathname) {
       merged.knownModels = [...(merged.knownModels || []), body.model];
     }
     const next = await writeConfig(merged);
-    // v1.4.2: keep ~/.claude/settings.json in sync so the CLI's defaultMode matches the workbench.
-    if (body && Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
+    // v1.4.3: keep ~/.claude/ in sync — settings.json + agent roles + MCP servers
+    if (body && (Object.prototype.hasOwnProperty.call(body, 'permissionMode') || Object.prototype.hasOwnProperty.call(body, 'model') || Object.prototype.hasOwnProperty.call(body, 'thinkingBudget') || Object.prototype.hasOwnProperty.call(body, 'appendSystemPrompt'))) {
       await syncClaudeCliSettings(next);
+    }
+    if (body && (Object.prototype.hasOwnProperty.call(body, 'agentRoleOverrides') || Object.prototype.hasOwnProperty.call(body, 'permissionMode'))) {
+      await syncAgentRolesToClaude(next.defaultWorkspace || os.homedir(), next);
+    }
+    if (body && Object.prototype.hasOwnProperty.call(body, 'externalMcpServers')) {
+      await syncMcpServersToClaude(next);
     }
     return send(res, json({ ok: true, config: maskProviders(next) })); // F2: masked response
   }
@@ -9590,9 +9681,10 @@ async function startServer(opts) {
   await markInterruptedAgentRuns();
   LAUNCH_MODE = isPkg() ? 'exe' : 'node';
   const config = await readConfig();
-  // v1.4.2: sync permission mode to ~/.claude/settings.json on startup so the CLI's defaultMode
-  // is aligned from the very first turn (covers the case where the user changed mode offline).
+  // v1.4.3: sync settings, agent roles, and MCP servers to Claude CLI's own config on startup
   await syncClaudeCliSettings(config);
+  await syncAgentRolesToClaude(config.defaultWorkspace || os.homedir(), config);
+  await syncMcpServersToClaude(config);
   const port = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {
@@ -10272,9 +10364,11 @@ async function installIntegration() {
     });
     console.log(result.stdout || result.stderr || JSON.stringify(result, null, 2));
   }
-  // v1.4.2: sync permission mode to ~/.claude/settings.json so the CLI's defaultMode matches the workbench.
+  // v1.4.3: full sync — settings.json + agent roles + MCP servers
   await syncClaudeCliSettings(config);
-  console.log(`Claude settings.json: synced (permissionMode=${config.permissionMode})`);
+  await syncAgentRolesToClaude(config.defaultWorkspace || os.homedir(), config);
+  await syncMcpServersToClaude(config);
+  console.log('Claude CLI synced: settings+agents+mcp (permissionMode=' + config.permissionMode + ')');
 }
 
 async function doctor() {
