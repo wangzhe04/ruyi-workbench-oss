@@ -14,8 +14,13 @@ const ok = (value, label) => { if (value) console.log('PASS ' + label); else { f
   try {
     const initial = await server.getAgentWorkflows(PROJECT);
     ok(initial.some(x => x.id === 'debate-and-judge') && initial.some(x => x.id === 'implement-review-fix-test'), 'built-in debate and implementation templates are available');
+    const builtInJudge = initial.find(x => x.id === 'debate-and-judge').nodes.find(x => x.id === 'judge');
+    ok(builtInJudge.maxIters === undefined, 'built-in workflow nodes inherit role budgets instead of pinning the old maxIters=6 default');
     const personal = await server.saveAgentWorkflow('personal', PROJECT, { id: 'shared-flow', title: 'Personal flow', nodes: [{ id: 'one', task: 'personal', position: { x: 12, y: 34 } }] });
     ok(personal && personal.source === 'personal' && personal.nodes[0].position.x === 12, 'personal workflow and graph position are persisted');
+    const migrated = await server.saveAgentWorkflow('personal', PROJECT, { id: 'legacy-budget-flow', title: 'Legacy budget flow', nodes: [{ id: 'review', task: 'legacy default', role: 'reviewer', maxIters: 6 }] });
+    ok(migrated.nodes[0].maxIters === undefined, 'legacy saved maxIters=6 is treated as an inherited default');
+    await server.deleteAgentWorkflow('personal', PROJECT, 'legacy-budget-flow');
     const project = await server.saveAgentWorkflow('project', PROJECT, { id: 'shared-flow', title: 'Project flow', nodes: [{ id: 'one', task: 'project' }, { id: 'two', task: 'conditional', dependsOn: ['one'], condition: { node: 'one', path: 'verdict', operator: 'equals', value: 'pass' }, loop: { maxIterations: 4, noProgressLimit: 2 } }] });
     const merged = await server.getAgentWorkflows(PROJECT); const shared = merged.find(x => x.id === 'shared-flow');
     ok(project && shared.source === 'project' && shared.title === 'Project flow', 'project workflow overrides a personal workflow with the same id');

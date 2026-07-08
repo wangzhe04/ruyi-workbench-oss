@@ -240,10 +240,10 @@ const CLAUDE_PERMISSION_MODE_MAP = { bypass: 'bypassPermissions', default: 'defa
 // 'bypassPermissions' directly into config.json are not silently reset to 'bypass').
 const PERMISSION_MODE_ALIASES = { bypassPermissions: 'bypass' };
 const BUILTIN_AGENT_ROLES = Object.freeze([
-  { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 6, claude: 8 }, color: 'blue' },
-  { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 8, claude: 12 }, color: 'green' },
-  { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 6, claude: 10 }, color: 'orange' },
-  { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 8, claude: 12 }, color: 'purple' },
+  { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 20, claude: 24 }, color: 'blue' },
+  { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 20, claude: 24 }, color: 'green' },
+  { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 24, claude: 24 }, color: 'orange' },
+  { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 24, claude: 24 }, color: 'purple' },
 ]);
 
 function normalizeAgentRole(raw, opts = {}) {
@@ -269,7 +269,7 @@ function normalizeAgentRole(raw, opts = {}) {
     mcpServers: strArr(raw.mcpServers, 32),
     permissionMode,
     budgets: {
-      openai: Math.min(12, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 6))) || 6)),
+      openai: Math.min(32, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 20))) || 20)),
       claude: Math.min(100, Math.max(1, Math.round(Number(budgets0.claude != null ? budgets0.claude : (raw.maxTurns || 12))) || 12)),
     },
     isolation: raw.isolation === 'worktree' ? 'worktree' : 'none',
@@ -4670,7 +4670,7 @@ async function drainSteerQueue(reg, session, onEvent) {
 //   • tool set filtered by toolTier (read/edit/exec) AND with spawn_agent suppressed (noSpawnAgent) — a
 //     sub-agent can therefore never spawn another sub-agent (double guard: the tool isn't offered here AND
 //     the loop below refuses a spawn_agent call if the model somehow emits one);
-//   • independent iteration budget maxIters (clamped 1..12); model = model || provider.subagentModel || main model;
+//   • independent iteration budget maxIters (clamped 1..32); model = model || provider.subagentModel || main model;
 //   • file tools run through the SAME journal ctx {sessionId, turnSeq} as the parent (the sub-turn is part of
 //     the parent turn), so a sub-agent's file_write is journaled under the parent's turnSeq — naturally;
 //   • events: a `subagent` start/end pair is forwarded; the sub-loop's tool_use/tool_result are forwarded too
@@ -5141,6 +5141,10 @@ async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, depe
       if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
     });
   }
+  if (!killed && lastFinalText.trim().length >= 80 && lastToolCalls > 0) {
+    onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, degraded: true, resultChars: lastFinalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
+    return { ok: true, degraded: true, warning: lastErr || 'Claude CLI exited after producing usable output', result: lastFinalText, iters: 1, toolCalls: lastToolCalls };
+  }
   onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: false, resultChars: lastFinalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
   return { ok: false, error: lastErr || '子代理未产出结论', result: lastFinalText, iters: 1, toolCalls: lastToolCalls };
 }
@@ -5202,7 +5206,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   }
   const requestedTier = toolTier || (role && role.toolTier);
   const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
-  const budget = Math.min(12, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 6));
+  const budget = Math.min(32, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 20));
 
   // Tool set: same capability gating as the parent, filtered to the requested tier, WITHOUT spawn_agent.
   const caps = await getCapabilities(config).catch(() => null);
@@ -5259,9 +5263,36 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let iters = 0, toolCallCount = 0;
   let subOk = true, subErr = '';
   let subOverWindow = false; // v0.9 F6: set when the sub-turn's 400 looks like a context-window overflow
+  const runFinalizerWithoutTools = async () => {
+    const hadTools = useTools;
+    useTools = false;
+    subHistory.push({
+      role: 'user',
+      content: '工具/迭代预算已经用尽。现在不要再调用任何工具，只根据上面已经获得的信息给出最终结论。若原任务要求 JSON Schema 或质量门输出，必须只输出符合要求的 JSON。',
+    });
+    try {
+      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage: noopUsage, rawSeqRef, touch: () => {} });
+      if (call.transportError && !call.httpError) call.httpError = call.transportError;
+      if (!call.httpError && call.text && String(call.text).trim()) {
+        resultText += call.text;
+        subErr = '';
+        subOk = true;
+        return true;
+      }
+      subErr = call.httpError || call.transportError || subErr;
+      return false;
+    } finally {
+      useTools = hadTools;
+    }
+  };
   try {
     for (let iter = 0; ; iter++) {
-      if (iter >= budget) { subErr = `子代理已达迭代上限 ${budget} 轮`; if (!resultText.trim()) subOk = false; break; }
+      if (iter >= budget) {
+        subErr = `子代理已达迭代上限 ${budget} 轮`;
+        if (!resultText.trim() && toolCallCount > 0) await runFinalizerWithoutTools();
+        if (!resultText.trim()) subOk = false;
+        break;
+      }
       iters = iter + 1;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
       // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
@@ -5582,7 +5613,14 @@ function normalizeAgentWorkflow(raw, opts = {}) {
       engine: item.engine === 'claude' || item.engine === 'openai' ? item.engine : '',
       dependsOn: [...new Set((Array.isArray(item.dependsOn) ? item.dependsOn : []).map(x => String(x || '').trim()).filter(Boolean))].slice(0, 16),
       toolTier: ['read', 'edit', 'exec'].includes(item.toolTier) ? item.toolTier : undefined,
-      maxIters: Math.max(1, Math.min(12, Math.round(Number(item.maxIters) || 6))), model: String(item.model || '').trim().slice(0, 160),
+      // Preserve an explicit per-node budget only when it is meaningfully customized. Older saved templates
+      // were normalized with maxIters:6 even though the UI never exposed that as a user choice; keeping that
+      // value would silently override the role library's larger Reviewer/Verifier budgets and recreate the
+      // "子代理已达迭代上限 6 轮" failure on every template launch.
+      maxIters: (item.maxIters != null && item.maxIters !== '' && Math.round(Number(item.maxIters)) !== 6)
+        ? Math.max(1, Math.min(32, Math.round(Number(item.maxIters) || 20)))
+        : undefined,
+      model: String(item.model || '').trim().slice(0, 160),
       resources: (Array.isArray(item.resources) ? item.resources : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 32),
       isolation: item.isolation === 'worktree' ? 'worktree' : 'none', outputSchema: sanitizeAgentOutputSchema(item.outputSchema),
       gate: normalizeAgentGate(item.gate, String(item.role || '').trim().toLowerCase()), failurePolicy: ['block', 'continue', 'retry'].includes(item.failurePolicy) ? item.failurePolicy : 'block',
@@ -5740,7 +5778,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
       const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 6)), outputSchema, gate, failurePolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [] });
+      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(32, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 20)), outputSchema, gate, failurePolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -10970,7 +11008,7 @@ const MCP_TOOLS = [
         agentKey: { type: 'string', description: 'optional stable identifier for this sub-agent within the parent turn (for later dependsOn references)' },
         dependsOn: { type: 'array', items: { type: 'string' }, description: 'agentKey values from completed earlier stages whose conclusions should be injected into this task' },
         toolTier: { type: 'string', enum: ['read', 'edit', 'exec'], description: "tool access level for the sub-agent (default 'read')" },
-        maxIters: { type: 'number', description: 'sub-loop iteration budget (default 6, clamped 1..12)' },
+        maxIters: { type: 'number', description: 'sub-loop iteration budget (default 20, clamped 1..32)' },
         model: { type: 'string', description: 'optional model id override for the sub-turn' },
         resources: { type: 'array', items: { type: 'string' }, description: 'resources held for the whole subtask. Examples: desktop, browser:default, file:C:\\project\\a.js, workspace:C:\\project. Prefix with read: for shared access.' },
       },

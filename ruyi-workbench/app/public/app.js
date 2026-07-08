@@ -3717,7 +3717,7 @@ function captureAgentRoleDraft() {
     claudeTools: splitRoleList(card.querySelector('[data-role-field="claudeTools"]').value),
     mcpServers: splitRoleList(card.querySelector('[data-role-field="mcpServers"]').value),
     permissionMode: card.querySelector('[data-role-field="permissionMode"]').value,
-    budgets: { openai: Number(card.querySelector('[data-role-field="openaiBudget"]').value) || 6, claude: Number(card.querySelector('[data-role-field="claudeBudget"]').value) || 12 },
+    budgets: { openai: Number(card.querySelector('[data-role-field="openaiBudget"]').value) || 20, claude: Number(card.querySelector('[data-role-field="claudeBudget"]').value) || 24 },
     isolation: card.querySelector('[data-role-field="isolation"]').value,
     builtin: card.dataset.builtin === '1',
   })).filter(r => r.id);
@@ -3743,8 +3743,8 @@ function renderAgentRoleEditors() {
       roleField('隔离', roleSelect('isolation', role.isolation || 'none', [['none','不隔离'],['worktree','Git worktree']])),
       roleField('OpenAI 模型', roleInput('openaiModel', role.models?.openai || '')),
       roleField('Claude 模型', roleInput('claudeModel', role.models?.claude || 'inherit')),
-      roleField('OpenAI 迭代', roleInput('openaiBudget', role.budgets?.openai || 6, 'number')),
-      roleField('Claude 轮次', roleInput('claudeBudget', role.budgets?.claude || 12, 'number')),
+      roleField('OpenAI 迭代', roleInput('openaiBudget', role.budgets?.openai || 20, 'number')),
+      roleField('Claude 轮次', roleInput('claudeBudget', role.budgets?.claude || 24, 'number')),
       roleField('OpenAI 工具白名单', roleInput('openaiTools', (role.openaiTools || []).join(', '))),
       roleField('Claude 工具白名单', roleInput('claudeTools', (role.claudeTools || []).join(', '))),
       roleField('MCP 服务 ID', roleInput('mcpServers', (role.mcpServers || []).join(', ')))
@@ -3783,7 +3783,7 @@ async function saveAgentRoles() {
 }
 function addAgentRole() {
   captureAgentRoleDraft(); const used = new Set(agentRoleDraft.map(r => r.id)); let n = 1, id = 'custom-agent'; while (used.has(id)) id = `custom-agent-${++n}`;
-  agentRoleDraft.push({ id, label: '自定义角色', description: '', prompt: '', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 6, claude: 12 }, isolation: 'none' }); renderAgentRoleEditors();
+  agentRoleDraft.push({ id, label: '自定义角色', description: '', prompt: '', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 20, claude: 24 }, isolation: 'none' }); renderAgentRoleEditors();
 }
 function fillSettings() {
   const c = state.config;
