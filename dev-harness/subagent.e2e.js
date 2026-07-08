@@ -261,7 +261,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(evr.some(e => e.type === 'agent_resource' && e.state === 'waiting' && e.agentKey === 'desktop-b'), '(a5) waiting resource event is observable');
     const rr = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidr, hdr);
     const persistedR = rr.runs && rr.runs.find(run => run.nodes && run.nodes.some(n => n.id === 'desktop-a'));
-    ok(persistedR && persistedR.schemaVersion === 3 && persistedR.nodes.every(n => Array.isArray(n.resources) && n.resources[0] === 'desktop'), '(a5) normalized resources persist in schema v3 run record');
+    ok(persistedR && persistedR.schemaVersion === 4 && persistedR.nodes.every(n => Array.isArray(n.resources) && n.resources[0] === 'desktop'), '(a5) normalized resources persist in schema v4 run record');
 
     // ── (b) nesting forbidden: sub tries spawn_agent → refused, but its file_write still runs ─────────────
     killp(fake); await sleep(300);
@@ -446,7 +446,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const direct = await postJson(WB_PORT, '/api/tools/spawn_agent', { task: 'x' }, hdrE);
     ok(direct.body && direct.body.result && direct.body.result.ok === false && /仅在 provider 引擎/.test(direct.body.result.error || ''), '(e) direct /api/tools/spawn_agent → context-free refusal');
     const directDag = await postJson(WB_PORT, '/api/tools/orchestrate_agents', { nodes: [] }, hdrE);
-    ok(directDag.body && directDag.body.result && directDag.body.result.ok === false && /仅在 provider 引擎/.test(directDag.body.result.error || ''), '(e) direct /api/tools/orchestrate_agents → context-free refusal');
+    ok(directDag.body && directDag.body.result && directDag.body.result.ok === false && /OpenAI 对话回合|Claude CLI 工作台会话/.test(directDag.body.result.error || ''), '(e) direct /api/tools/orchestrate_agents → context-free refusal');
 
     // ── (h) process restart marks an in-flight persisted DAG interrupted/blocked instead of ghost-running ──
     killp(wbE); await sleep(400);

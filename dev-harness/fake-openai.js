@@ -294,9 +294,13 @@ const server = http.createServer((req, res) => {
           return;
         }
         const script = Array.isArray(sub ? SUBAGENT_SCRIPT.sub : SUBAGENT_SCRIPT.parent) ? (sub ? SUBAGENT_SCRIPT.sub : SUBAGENT_SCRIPT.parent) : [];
-        const fallbackText = sub
+        let fallbackText = sub
           ? (SUBAGENT_SCRIPT.subText || '子任务已完成:结论文本。')
           : (SUBAGENT_SCRIPT.parentText || '父回合完成。');
+        if (sub && SUBAGENT_SCRIPT.subTextByTask && typeof SUBAGENT_SCRIPT.subTextByTask === 'object') {
+          const userText = (msgs || []).filter(m => m && m.role === 'user').map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')).join('\n');
+          for (const [needle, value] of Object.entries(SUBAGENT_SCRIPT.subTextByTask)) if (userText.includes(needle)) { fallbackText = String(value); break; }
+        }
         const step = done < script.length ? script[done] : null;
         (async () => {
           if (step && step.name) {
@@ -441,7 +445,7 @@ const server = http.createServer((req, res) => {
         else if (i < reason.length + content.length) sse(res, { id, choices: [{ index: 0, delta: { content: content[i - reason.length] }, finish_reason: null }] });
         else { sse(res, { id, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }); usageFrame(res, id); res.write('data: [DONE]\n\n'); clearInterval(timer); res.end(); return; }
         i += 1;
-      }, 12);
+      }, STREAM_DELAY_MS || 12);
       return;
     }
     res.writeHead(404);

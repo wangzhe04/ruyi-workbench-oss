@@ -171,6 +171,10 @@ ok(/const\s+activeTurns\s*=\s*new\s+Map\s*\(/.test(src),
   'per-session activeTurns registry is defined');
 ok(!/\blet\s+liveAbort\b/.test(src),
   'legacy global liveAbort state is absent');
+ok(/function\s+mountActiveTurn\s*\(/.test(src) && /eventLines/.test(src),
+  'background session progress is buffered and replayed when reopened');
+ok(!/state\.currentSession\?\.id\s*===\s*turnSessionId\)\s*for\s*\(const line/.test(src),
+  'background stream lines are not discarded while another session is visible');
 ok(!/data-ui-mode[^\n]+simple[^\n]+pct\s*<\s*0\.6/.test(src),
   'simple mode keeps context occupancy and compact entry visible after usage exists');
 

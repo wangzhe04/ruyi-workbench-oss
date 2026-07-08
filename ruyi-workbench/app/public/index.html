@@ -265,9 +265,10 @@
         <section class="tool-section" id="tab-agent-runs">
           <div class="debug-head">
             <label>Agent 工作流</label>
-            <button id="agentRunsRefreshBtn" class="mini">刷新</button>
+            <div class="row-actions"><button id="workflowEditorBtn" class="mini primary">新建 / 编辑</button><button id="agentRunsRefreshBtn" class="mini">刷新</button></div>
           </div>
-          <p class="changes-hint muted">查看依赖图、运行状态和节点结果；可暂停、恢复、停止或重试节点。</p>
+          <div class="workflow-quick-run"><select id="workflowQuickSelect" aria-label="工作流模板"></select><button id="workflowQuickRunBtn" class="mini">运行模板</button></div>
+          <p class="changes-hint muted">从模板运行，或图形化创建 DAG；支持条件、循环、质量门和失败策略。</p>
           <div id="agentRunsList" class="agent-runs-list"></div>
         </section>
 

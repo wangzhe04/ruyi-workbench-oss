@@ -19,6 +19,12 @@ function kill(child) {
   if (!child || !child.pid) return;
   try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
 }
+async function stop(child) {
+  if (!child) return;
+  kill(child);
+  if (child.exitCode == null) await Promise.race([new Promise(resolve => child.once('exit', resolve)), sleep(2000)]);
+  await sleep(150);
+}
 function health() {
   return new Promise(resolve => {
     const req = http.get({ host: '127.0.0.1', port: PORT, path: '/health', timeout: 800 }, res => {
@@ -71,23 +77,23 @@ function start(capture) {
     const firstClaudeId = firstSession && firstSession.claudeSessionId;
     ok(!!firstClaudeId, 'first CLI session id persisted');
 
-    kill(wb); await sleep(300);
+    await stop(wb);
     const cap2 = path.join(HOME, 'stdin-2.txt');
     wb = start(cap2);
     ok(!!(await waitHealth()), 'restarted Claude workbench process starts');
-    const second = await stream({ sessionId: sid, message: 'what marker did I ask you to remember?' });
+    const second = await stream({ sessionId: sid, message: 'which marker should you remember?' });
     const meta = second.find(e => e.type === 'meta');
     ok(meta && meta.historyRecoveryInjected === true, 'restart turn reports bounded history recovery');
     const envelope = JSON.parse(fs.readFileSync(cap2, 'utf8'));
     const sentText = envelope.message.content[0].text;
     ok(sentText.includes('continuity-marker-731') && sentText.includes('<workbench_history_recovery>'), 'prior chat is included in the restart recovery prompt');
-    ok(sentText.includes('<current_user_message>') && sentText.includes('what marker'), 'current user message remains separately delimited');
+    ok(sentText.includes('<current_user_message>') && sentText.includes('which marker'), 'current user message remains separately delimited');
     const secondSession = await getSession(sid);
     ok(secondSession.claudeSessionId && secondSession.claudeSessionId !== firstClaudeId, 'silent CLI session-id change replaces the stale binding');
     const lastUsage = [...secondSession.messages].reverse().find(m => m && m.usage);
     ok(lastUsage && lastUsage.usage.contextTokens > 0, 'Claude context occupancy remains persisted for the frontend meter');
   } finally {
-    kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true });
+    await stop(wb); fs.rmSync(HOME, { recursive: true, force: true });
   }
   console.log('\nCLAUDE CONTEXT CONTINUITY E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
   process.exitCode = failures ? 1 : 0;

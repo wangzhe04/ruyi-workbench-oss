@@ -60,6 +60,7 @@ const paths = {
   playbooks: path.join(dataRoot(), 'playbooks'), // v0.9-S2: user-authored playbooks (built-ins ship in resources/)
   webcache: path.join(dataRoot(), 'webcache'), // v0.9-S9: web_fetch main-text cache (<sha256(url)>.json), offline-reusable
   agentRuns: path.join(dataRoot(), 'agent-runs'), // persistent DAG workflow state, grouped by session
+  agentWorkflows: path.join(dataRoot(), 'agent-workflows'), // personal reusable DAG templates
   agentWorktrees: path.join(dataRoot(), 'agent-worktrees'), // optional isolated write-agent worktrees (outside the repo)
 };
 
@@ -106,6 +107,7 @@ async function ensureDirs() {
     fsp.mkdir(paths.playbooks, { recursive: true }), // v0.9-S2
     fsp.mkdir(paths.webcache, { recursive: true }), // v0.9-S9
     fsp.mkdir(paths.agentRuns, { recursive: true }),
+    fsp.mkdir(paths.agentWorkflows, { recursive: true }),
     fsp.mkdir(paths.agentWorktrees, { recursive: true }),
   ]);
 }
@@ -5125,6 +5127,223 @@ async function runSubAgent(opts) {
   }
 }
 
+// Structured DAG output and quality gates. This intentionally implements the portable, commonly
+// used JSON Schema subset in-process (type/properties/required/items/enum/const/numeric/string/array
+// bounds and additionalProperties). Keeping it dependency-free preserves the offline package.
+const QUALITY_GATE_OUTPUT_SCHEMA = Object.freeze({
+  type: 'object',
+  required: ['verdict', 'confidence', 'summary'],
+  properties: {
+    verdict: { type: 'string', enum: ['pass', 'fail', 'uncertain'] },
+    confidence: { type: 'number', minimum: 0, maximum: 1 },
+    summary: { type: 'string' },
+    findings: { type: 'array', items: { type: 'object' } },
+  },
+});
+function sanitizeAgentOutputSchema(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  try { const s = JSON.stringify(raw); return s.length <= 20000 ? JSON.parse(s) : null; } catch { return null; }
+}
+function parseStructuredAgentOutput(text) {
+  let s = String(text || '').trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i); if (fence) s = fence[1].trim();
+  try { return { ok: true, value: JSON.parse(s) }; } catch { /* tolerant outer JSON extraction below */ }
+  const starts = [s.indexOf('{'), s.indexOf('[')].filter(i => i >= 0); const start = starts.length ? Math.min(...starts) : -1;
+  const end = Math.max(s.lastIndexOf('}'), s.lastIndexOf(']'));
+  if (start >= 0 && end > start) { try { return { ok: true, value: JSON.parse(s.slice(start, end + 1)) }; } catch { /* invalid */ } }
+  return { ok: false, error: '输出不是有效 JSON' };
+}
+function validateAgentJsonSchema(value, schema, path0 = '$') {
+  const errors = [];
+  const walk = (v, s, p, depth) => {
+    if (!s || typeof s !== 'object' || depth > 24) return;
+    if (Array.isArray(s.enum) && !s.enum.some(x => JSON.stringify(x) === JSON.stringify(v))) errors.push(`${p} 不在 enum 中`);
+    if (Object.prototype.hasOwnProperty.call(s, 'const') && JSON.stringify(v) !== JSON.stringify(s.const)) errors.push(`${p} 不等于 const`);
+    const type = Array.isArray(s.type) ? s.type : (s.type ? [s.type] : []);
+    const matches = t => t === 'null' ? v === null : t === 'array' ? Array.isArray(v) : t === 'object' ? !!v && typeof v === 'object' && !Array.isArray(v) : t === 'integer' ? Number.isInteger(v) : t === 'number' ? typeof v === 'number' && Number.isFinite(v) : typeof v === t;
+    if (type.length && !type.some(matches)) { errors.push(`${p} 类型应为 ${type.join('|')}`); return; }
+    if (typeof v === 'string') {
+      if (Number.isFinite(s.minLength) && v.length < s.minLength) errors.push(`${p} 长度小于 ${s.minLength}`);
+      if (Number.isFinite(s.maxLength) && v.length > s.maxLength) errors.push(`${p} 长度大于 ${s.maxLength}`);
+      if (s.pattern) { try { if (!(new RegExp(s.pattern)).test(v)) errors.push(`${p} 不匹配 pattern`); } catch { errors.push(`${p} schema.pattern 无效`); } }
+    }
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      if (Number.isFinite(s.minimum) && v < s.minimum) errors.push(`${p} 小于 minimum`);
+      if (Number.isFinite(s.maximum) && v > s.maximum) errors.push(`${p} 大于 maximum`);
+    }
+    if (Array.isArray(v)) {
+      if (Number.isFinite(s.minItems) && v.length < s.minItems) errors.push(`${p} 项数小于 ${s.minItems}`);
+      if (Number.isFinite(s.maxItems) && v.length > s.maxItems) errors.push(`${p} 项数大于 ${s.maxItems}`);
+      if (s.items) v.forEach((item, i) => walk(item, s.items, `${p}[${i}]`, depth + 1));
+    } else if (v && typeof v === 'object') {
+      const props = s.properties && typeof s.properties === 'object' ? s.properties : {};
+      for (const k of (Array.isArray(s.required) ? s.required : [])) if (!Object.prototype.hasOwnProperty.call(v, k)) errors.push(`${p}.${k} 缺失`);
+      for (const [k, item] of Object.entries(v)) {
+        if (props[k]) walk(item, props[k], `${p}.${k}`, depth + 1);
+        else if (s.additionalProperties === false) errors.push(`${p}.${k} 不允许`);
+        else if (s.additionalProperties && typeof s.additionalProperties === 'object') walk(item, s.additionalProperties, `${p}.${k}`, depth + 1);
+      }
+    }
+  };
+  walk(value, schema, path0, 0); return { ok: errors.length === 0, errors: errors.slice(0, 50) };
+}
+function normalizeAgentGate(raw, roleId) {
+  if (raw === false) return null;
+  const autoMode = roleId === 'reviewer' ? 'review' : (roleId === 'verifier' ? 'verify' : '');
+  if (!raw && !autoMode) return null;
+  const obj = raw === true || !raw ? {} : (typeof raw === 'object' ? raw : { mode: raw });
+  const allowed = ['review', 'verify', 'vote', 'cross_review', 'dedupe'];
+  const mode = allowed.includes(obj.mode) ? obj.mode : (autoMode || 'review');
+  return { mode, threshold: Math.min(1, Math.max(0, Number(obj.threshold != null ? obj.threshold : 0.5))), minApprovals: Math.max(1, Math.min(32, Math.round(Number(obj.minApprovals) || 1))), minConfidence: Math.min(1, Math.max(0, Number(obj.minConfidence != null ? obj.minConfidence : 0.5))) };
+}
+function verdictPasses(value, gate) {
+  const verdict = String(value && value.verdict || '').toLowerCase();
+  const confidence = Math.min(1, Math.max(0, Number(value && value.confidence) || 0));
+  return { pass: ['pass', 'passed', 'approve', 'approved', 'accept', 'accepted', 'verified', 'yes'].includes(verdict) && confidence >= gate.minConfidence, verdict, confidence };
+}
+function structuredOfNode(node) {
+  if (node && node.structuredResult !== undefined && node.structuredResult !== null) return node.structuredResult;
+  const parsed = parseStructuredAgentOutput(node && node.result); return parsed.ok ? parsed.value : null;
+}
+function aggregateAgentVote(dependencies, gate) {
+  const votes = dependencies.map(n => { const v = structuredOfNode(n) || {}; const q = verdictPasses(v, { ...gate, minConfidence: 0 }); return { id: n.id, verdict: q.verdict || 'uncertain', confidence: q.confidence, approve: q.pass }; });
+  const approvals = votes.filter(v => v.approve).length; const rejections = votes.filter(v => ['fail', 'failed', 'reject', 'rejected', 'no'].includes(v.verdict)).length;
+  const decided = approvals + rejections; const score = decided ? approvals / decided : 0; const confidence = votes.length ? votes.reduce((a, v) => a + v.confidence, 0) / votes.length : 0;
+  const pass = approvals >= gate.minApprovals && score >= gate.threshold && confidence >= gate.minConfidence;
+  return { verdict: pass ? 'pass' : 'fail', confidence, summary: `${approvals}/${votes.length} 票赞成，得分 ${score.toFixed(2)}`, score, approvals, rejections, votes };
+}
+function dedupeAgentFindings(dependencies) {
+  const map = new Map();
+  for (const dep of dependencies) {
+    const data = structuredOfNode(dep); const items = Array.isArray(data) ? data : (Array.isArray(data && data.findings) ? data.findings : (Array.isArray(data && data.items) ? data.items : []));
+    for (const raw of items) {
+      const item = raw && typeof raw === 'object' ? raw : { text: String(raw || '') };
+      const key = String(item.dedupeKey || [item.file || '', item.line || '', item.title || item.message || item.text || JSON.stringify(item)].join('|')).toLowerCase().replace(/\s+/g, ' ').trim();
+      if (!key) continue; const old = map.get(key); if (!old || Number(item.confidence || 0) > Number(old.confidence || 0)) map.set(key, { ...item, sources: [...new Set([...(old && old.sources || []), dep.id])] }); else old.sources = [...new Set([...(old.sources || []), dep.id])];
+    }
+  }
+  const findings = [...map.values()]; const confidence = findings.length ? findings.reduce((a, x) => a + Math.min(1, Math.max(0, Number(x.confidence) || 0)), 0) / findings.length : 1;
+  return { verdict: 'pass', confidence, summary: `去重后 ${findings.length} 项`, findings };
+}
+
+const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
+  {
+    id: 'debate-and-judge', title: '正反辩论 → 裁决', description: '正反双方并行分析，由 Reviewer 交叉审查并给出带置信度的裁决。',
+    nodes: [
+      { id: 'pro', task: '从支持方立场分析议题，给出证据、收益、适用条件和主要风险。', role: 'explorer', failurePolicy: 'continue', position: { x: 80, y: 80 } },
+      { id: 'con', task: '从反对方立场分析议题，主动寻找反例、成本、失败条件和替代方案。', role: 'explorer', failurePolicy: 'continue', position: { x: 80, y: 260 } },
+      { id: 'judge', task: '交叉审查正反双方：核验依据、去除重复和无证据主张，给出最终裁决。', role: 'reviewer', dependsOn: ['pro', 'con'], gate: { mode: 'cross_review', minConfidence: 0.6 }, position: { x: 420, y: 170 } },
+    ],
+  },
+  {
+    id: 'implement-review-fix-test', title: '实现 → 审查 → 修复 → 测试', description: 'Worker 实现，Reviewer 审查；仅在审查失败时进入修复，最后由 Verifier 验收。',
+    nodes: [
+      { id: 'implement', task: '按需求完成实现并运行基础检查，报告改动、验证和风险。', role: 'worker', failurePolicy: 'block', position: { x: 40, y: 160 } },
+      { id: 'review', task: '独立审查实现的正确性、安全性、回归风险和测试缺口。', role: 'reviewer', dependsOn: ['implement'], failurePolicy: 'continue', position: { x: 310, y: 160 } },
+      { id: 'fix', task: '根据审查发现修复已确认问题，并说明逐项处理结果。', role: 'worker', dependsOn: ['review'], condition: { node: 'review', path: 'verdict', operator: 'equals', value: 'fail' }, failurePolicy: 'continue', position: { x: 580, y: 80 } },
+      { id: 'test', task: '运行验收测试并核验实现是否满足需求；区分事实与推断。', role: 'verifier', dependsOn: ['implement', 'fix'], failurePolicy: 'retry', maxRetries: 1, position: { x: 850, y: 160 } },
+    ],
+  },
+]);
+function normalizeWorkflowCondition(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const operators = ['equals', 'not_equals', 'truthy', 'falsy', 'contains', 'greater', 'greater_equal', 'less', 'less_equal', 'status_is'];
+  const operator = operators.includes(raw.operator) ? raw.operator : 'truthy';
+  return { node: String(raw.node || '').trim().slice(0, 64), path: String(raw.path || '').trim().slice(0, 200), operator, value: raw.value };
+}
+function normalizeWorkflowLoop(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const maxIterations = Math.max(1, Math.min(20, Math.round(Number(raw.maxIterations) || 1)));
+  if (maxIterations <= 1 && !raw.until && !raw.noProgressLimit) return null;
+  return { maxIterations, until: normalizeWorkflowCondition(raw.until), noProgressLimit: Math.max(1, Math.min(10, Math.round(Number(raw.noProgressLimit) || 2))), onNoProgress: raw.onNoProgress === 'fail' ? 'fail' : 'continue' };
+}
+function normalizeAgentWorkflow(raw, opts = {}) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = String(raw.id || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
+  const title = String(raw.title || '').trim().slice(0, 120);
+  if (!id || !title || !Array.isArray(raw.nodes) || !raw.nodes.length) return null;
+  const ids = new Set(); const nodes = [];
+  for (const item of raw.nodes.slice(0, 32)) {
+    const nodeId = String(item && item.id || '').trim().slice(0, 64); const task = String(item && item.task || '').trim().slice(0, 20000);
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(nodeId) || ids.has(nodeId) || !task) return null; ids.add(nodeId);
+    const pos = item.position && typeof item.position === 'object' ? { x: Math.max(0, Math.min(4000, Number(item.position.x) || 0)), y: Math.max(0, Math.min(4000, Number(item.position.y) || 0)) } : null;
+    nodes.push({
+      id: nodeId, task, role: String(item.role || '').trim().toLowerCase().slice(0, 64),
+      dependsOn: [...new Set((Array.isArray(item.dependsOn) ? item.dependsOn : []).map(x => String(x || '').trim()).filter(Boolean))].slice(0, 16),
+      toolTier: ['read', 'edit', 'exec'].includes(item.toolTier) ? item.toolTier : undefined,
+      maxIters: Math.max(1, Math.min(12, Math.round(Number(item.maxIters) || 6))), model: String(item.model || '').trim().slice(0, 160),
+      resources: (Array.isArray(item.resources) ? item.resources : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 32),
+      isolation: item.isolation === 'worktree' ? 'worktree' : 'none', outputSchema: sanitizeAgentOutputSchema(item.outputSchema),
+      gate: normalizeAgentGate(item.gate, String(item.role || '').trim().toLowerCase()), failurePolicy: ['block', 'continue', 'retry'].includes(item.failurePolicy) ? item.failurePolicy : 'block',
+      maxRetries: Math.max(0, Math.min(5, Math.round(Number(item.maxRetries) || 0))), retryFallback: item.retryFallback === 'continue' ? 'continue' : 'block',
+      condition: normalizeWorkflowCondition(item.condition), loop: normalizeWorkflowLoop(item.loop), position: pos,
+    });
+  }
+  for (const node of nodes) {
+    if (node.dependsOn.some(dep => !ids.has(dep) || dep === node.id)) return null;
+    for (const condition of [node.condition, node.loop && node.loop.until]) {
+      if (!condition || !condition.node || condition.node === node.id) continue;
+      if (!ids.has(condition.node)) return null;
+      if (!node.dependsOn.includes(condition.node)) node.dependsOn.push(condition.node);
+    }
+  }
+  return { schemaVersion: 1, id, title, description: String(raw.description || '').trim().slice(0, 800), nodes, source: opts.source || raw.source || 'personal', builtin: !!opts.builtin };
+}
+function projectAgentWorkflowsFile(cwd) { return path.join(path.resolve(cwd), '.ruyi', 'workflows.json'); }
+async function readPersonalAgentWorkflows() {
+  let files = []; try { files = await fsp.readdir(paths.agentWorkflows); } catch { return []; }
+  const out = []; for (const file of files.filter(x => x.endsWith('.json'))) { try { const wf = normalizeAgentWorkflow(safeJsonParse(await fsp.readFile(path.join(paths.agentWorkflows, file), 'utf8')), { source: 'personal' }); if (wf) out.push(wf); } catch {} } return out;
+}
+async function readProjectAgentWorkflows(cwd) {
+  try { const raw = safeJsonParse(await fsp.readFile(projectAgentWorkflowsFile(cwd), 'utf8'), {}); return (Array.isArray(raw.workflows) ? raw.workflows : []).map(x => normalizeAgentWorkflow(x, { source: 'project' })).filter(Boolean); } catch { return []; }
+}
+async function getAgentWorkflows(cwd) {
+  const merged = new Map(); for (const raw of BUILTIN_AGENT_WORKFLOWS) { const wf = normalizeAgentWorkflow(raw, { source: 'builtin', builtin: true }); if (wf) merged.set(wf.id, wf); }
+  for (const wf of await readPersonalAgentWorkflows()) merged.set(wf.id, wf);
+  for (const wf of await readProjectAgentWorkflows(cwd)) merged.set(wf.id, wf);
+  return [...merged.values()];
+}
+async function saveAgentWorkflow(scope, cwd, raw) {
+  const wf = normalizeAgentWorkflow(raw, { source: scope }); if (!wf) return null;
+  if (scope === 'project') {
+    const dest = projectAgentWorkflowsFile(cwd); await fsp.mkdir(path.dirname(dest), { recursive: true }); const list = await readProjectAgentWorkflows(cwd); const next = list.filter(x => x.id !== wf.id); next.push(wf); await fsp.writeFile(dest + '.tmp', JSON.stringify({ schemaVersion: 1, workflows: next }, null, 2), 'utf8'); await fsp.rename(dest + '.tmp', dest);
+  } else { await fsp.mkdir(paths.agentWorkflows, { recursive: true }); const dest = path.join(paths.agentWorkflows, wf.id + '.json'); await fsp.writeFile(dest + '.tmp', JSON.stringify(wf, null, 2), 'utf8'); await fsp.rename(dest + '.tmp', dest); }
+  return wf;
+}
+async function deleteAgentWorkflow(scope, cwd, id) {
+  if (!/^[a-z0-9_-]{1,64}$/.test(id)) return false;
+  if (scope === 'project') { const dest = projectAgentWorkflowsFile(cwd); const list = (await readProjectAgentWorkflows(cwd)).filter(x => x.id !== id); await fsp.mkdir(path.dirname(dest), { recursive: true }); await fsp.writeFile(dest + '.tmp', JSON.stringify({ schemaVersion: 1, workflows: list }, null, 2), 'utf8'); await fsp.rename(dest + '.tmp', dest); return true; }
+  try { await fsp.unlink(path.join(paths.agentWorkflows, id + '.json')); return true; } catch { return false; }
+}
+function workflowValueAt(value, pathText) {
+  if (!pathText) return value;
+  let cur = value; for (const part of String(pathText).split('.').filter(Boolean)) { if (cur == null) return undefined; cur = cur[part]; } return cur;
+}
+function evaluateWorkflowCondition(condition, nodes, currentNode) {
+  if (!condition) return true;
+  const source = condition.node ? nodes.find(n => n.id === condition.node) : currentNode;
+  let value;
+  if (condition.operator === 'status_is') value = source && source.status;
+  else value = workflowValueAt(structuredOfNode(source), condition.path);
+  const expected = condition.value;
+  switch (condition.operator) {
+    case 'equals': return JSON.stringify(value) === JSON.stringify(expected);
+    case 'not_equals': return JSON.stringify(value) !== JSON.stringify(expected);
+    case 'falsy': return !value;
+    case 'contains': return Array.isArray(value) ? value.some(x => JSON.stringify(x) === JSON.stringify(expected)) : String(value == null ? '' : value).includes(String(expected == null ? '' : expected));
+    case 'greater': return Number(value) > Number(expected);
+    case 'greater_equal': return Number(value) >= Number(expected);
+    case 'less': return Number(value) < Number(expected);
+    case 'less_equal': return Number(value) <= Number(expected);
+    case 'status_is': return String(value || '') === String(expected || '');
+    default: return !!value;
+  }
+}
+function workflowProgressFingerprint(node) {
+  const value = node && node.structuredResult != null ? node.structuredResult : String(node && node.result || '').replace(/\s+/g, ' ').trim();
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
 // Execute a complete dependency graph without asking the parent model to schedule every stage. The graph
 // and node transitions are persisted after each state change so progress remains inspectable after a crash.
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade }) {
@@ -5147,10 +5366,18 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     const pendingIsolation = nodes.find(n => reset.has(n.id) && n.isolation && n.isolation.status === 'ready');
     if (pendingIsolation) return { ok: false, error: `节点 ${pendingIsolation.id} 有尚未应用的隔离提交，请先应用或删除该工作流记录`, startedCount: 0 };
-    for (const n of nodes) { if (!Array.isArray(n.resources)) n.resources = []; }
+    for (const n of nodes) {
+      if (!Array.isArray(n.resources)) n.resources = [];
+      n.outputSchema = sanitizeAgentOutputSchema(n.outputSchema);
+      n.gate = normalizeAgentGate(n.gate, n.roleId);
+      n.failurePolicy = ['block', 'continue', 'retry'].includes(n.failurePolicy) ? n.failurePolicy : 'block';
+      n.maxRetries = Math.max(0, Math.min(5, Math.round(Number(n.maxRetries) || 0)));
+      n.retryFallback = n.retryFallback === 'continue' ? 'continue' : 'block';
+      n.condition = normalizeWorkflowCondition(n.condition); n.loop = normalizeWorkflowLoop(n.loop);
+    }
     for (const n of nodes) if (reset.has(n.id)) {
       if (n.isolation && n.isolation.path) await cleanupAgentWorktree(n.isolation);
-      n.status = 'queued'; n.result = ''; n.error = ''; n.startedAt = null; n.completedAt = null;
+      n.status = 'queued'; n.result = ''; n.structuredResult = null; n.schemaErrors = []; n.error = ''; n.startedAt = null; n.completedAt = null; n.loopIteration = 0; n.noProgressCount = 0; n.progressFingerprint = '';
       n.waitingForResources = [];
     }
     run.status = 'running'; run.completedAt = null; run.resumedAt = nowIso();
@@ -5173,14 +5400,23 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       ids.add(id);
       const resourceSpecs = normalizeAgentResources(raw.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace));
       const explicitTier = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
-      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', model: String(raw.model || (role && role.models && role.models.openai) || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets.openai)) || 6)), status: 'queued', attempts: 0, result: '', error: '', startedAt: null, completedAt: null, waitingForResources: [] });
+      const outputSchema = sanitizeAgentOutputSchema(raw.outputSchema);
+      const gate = normalizeAgentGate(raw.gate, roleId);
+      const failurePolicy = ['block', 'continue', 'retry'].includes(raw.failurePolicy) ? raw.failurePolicy : 'block';
+      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', model: String(raw.model || (role && role.models && role.models.openai) || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets.openai)) || 6)), outputSchema, gate, failurePolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
       if (missing.length) return { ok: false, error: `节点 ${node.id} 引用了不存在的依赖: ${missing.join(', ')}`, startedCount: 0 };
       if (node.dependsOn.includes(node.id)) return { ok: false, error: `节点 ${node.id} 不能依赖自身`, startedCount: 0 };
+      if (node.loop && node.isolationMode === 'worktree') return { ok: false, error: `节点 ${node.id} 的循环模式不支持 worktree 隔离`, startedCount: 0 };
+      for (const condition of [node.condition, node.loop && node.loop.until]) {
+        if (!condition || !condition.node || condition.node === node.id) continue;
+        if (!ids.has(condition.node)) return { ok: false, error: `节点 ${node.id} 的条件引用了不存在的节点: ${condition.node}`, startedCount: 0 };
+        if (!node.dependsOn.includes(condition.node)) node.dependsOn.push(condition.node);
+      }
     }
-    run = { schemaVersion: 3, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: provider && provider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), nodes };
+    run = { schemaVersion: 4, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: provider && provider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), nodes };
   }
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行', startedCount: 0, runId };
   const localCtrl = typeof AbortController === 'function' ? new AbortController() : parentCtrl;
@@ -5193,7 +5429,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   await saveAgentRun(run);
   onEvent({ type: 'agent_workflow', state: 'start', id: runId, nodeCount: nodes.length, concurrency: run.concurrency });
   let startedCount = 0;
-  const terminal = node => node.status === 'succeeded' || node.status === 'failed' || node.status === 'cancelled';
+  const terminal = node => node.status === 'succeeded' || node.status === 'failed' || node.status === 'cancelled' || node.status === 'blocked' || node.status === 'skipped';
+  const failureContinues = node => node && (node.failurePolicy === 'continue' || (node.failurePolicy === 'retry' && node.retryFallback === 'continue' && node.attempts > node.maxRetries));
 
   try {
   while (nodes.some(node => !terminal(node))) {
@@ -5206,6 +5443,23 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : '父回合已停止'; node.completedAt = nowIso(); }
       break;
     }
+    // A failed quality/work node blocks its downstream by default. `continue` is an explicit degraded
+    // path; retry nodes block only after retries are exhausted unless retryFallback says continue.
+    for (const node of nodes.filter(n => n.status === 'queued')) {
+      const deps = node.dependsOn.map(id => nodes.find(n => n.id === id)).filter(Boolean);
+      const blockers = deps.filter(dep => terminal(dep) && dep.status !== 'succeeded' && dep.status !== 'skipped' && !failureContinues(dep));
+      if (deps.length === node.dependsOn.length && deps.every(terminal) && blockers.length) {
+        node.status = 'blocked'; node.error = `被失败的前序节点阻塞: ${blockers.map(n => n.id).join(', ')}`; node.completedAt = nowIso();
+        onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status, blockers: blockers.map(n => n.id) });
+      }
+    }
+    for (const node of nodes.filter(n => n.status === 'queued' && n.condition)) {
+      const deps = node.dependsOn.map(id => nodes.find(n => n.id === id)).filter(Boolean);
+      if (deps.length === node.dependsOn.length && deps.every(terminal) && !evaluateWorkflowCondition(node.condition, nodes, node)) {
+        node.status = 'skipped'; node.skipReason = '条件不满足'; node.completedAt = nowIso();
+        onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: 'skipped', condition: node.condition });
+      }
+    }
     const ready = nodes.filter(node => node.status === 'queued' && node.dependsOn.every(dep => terminal(nodes.find(n => n.id === dep))));
     if (!ready.length) {
       for (const node of nodes) if (!terminal(node)) { node.status = 'failed'; node.error = '依赖图存在环或无法解锁'; node.completedAt = nowIso(); }
@@ -5215,38 +5469,73 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     for (const node of batch) { node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); startedCount += 1; }
     await saveAgentRun(run);
     await Promise.all(batch.map(async node => {
-      const priorText = node.dependsOn.map(dep => {
-        const prior = nodes.find(n => n.id === dep);
+      const depNodes = node.dependsOn.map(dep => nodes.find(n => n.id === dep)).filter(Boolean);
+      const priorText = depNodes.map(prior => {
         const body = String(prior.result || prior.error || '').slice(0, 12000);
-        return `### ${dep} (${prior.status})\n${body}`;
+        return `### ${prior.id} (${prior.status})\n${body}`;
       }).join('\n\n').slice(0, 32000);
-      const effectiveTask = priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task;
+      const effectiveSchema = node.outputSchema || (node.gate && !['vote', 'dedupe'].includes(node.gate.mode) ? QUALITY_GATE_OUTPUT_SCHEMA : null);
+      const qualityInstruction = node.gate && !['vote', 'dedupe'].includes(node.gate.mode)
+        ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。`
+        : '';
+      const schemaInstruction = effectiveSchema ? `\n\n输出必须是严格 JSON（不要 Markdown 代码围栏），并满足此 JSON Schema：\n${JSON.stringify(effectiveSchema)}` : '';
+      const iterationText = node.loopIteration > 0 && node.result ? `\n\n这是第 ${node.loopIteration + 1} 次循环。上一轮结果如下，请在此基础上取得可验证进展：\n${String(node.result).slice(0, 12000)}` : '';
+      const effectiveTask = (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + qualityInstruction + schemaInstruction;
       let agentSession = parentSession;
       let isolated = false;
       let effectiveResources = node.resources;
       try {
-        if (node.isolationMode === 'worktree') {
-          node.isolation = await createAgentWorktree(normalizeCwd(parentSession.cwd, config.defaultWorkspace), runId, node.id, node.attempts);
-          isolated = true;
-          agentSession = { ...parentSession, cwd: node.isolation.path };
-          effectiveResources = remapAgentResources(node.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace), node.isolation.path);
-          await saveAgentRun(run);
+        // vote/dedupe are deterministic quality nodes: no extra model call, making their decision
+        // reproducible and preventing a summarizer from changing the actual vote arithmetic.
+        if (node.gate && node.gate.mode === 'vote') {
+          node.structuredResult = aggregateAgentVote(depNodes, node.gate);
+          node.result = JSON.stringify(node.structuredResult);
+          node.confidence = node.structuredResult.confidence;
+          node.status = node.structuredResult.verdict === 'pass' ? 'succeeded' : 'failed';
+          node.error = node.status === 'failed' ? `投票质量门未通过: ${node.structuredResult.summary}` : '';
+        } else if (node.gate && node.gate.mode === 'dedupe') {
+          node.structuredResult = dedupeAgentFindings(depNodes);
+          node.result = JSON.stringify(node.structuredResult);
+          node.confidence = node.structuredResult.confidence;
+          node.status = 'succeeded'; node.error = '';
+        } else {
+          if (node.isolationMode === 'worktree') {
+            node.isolation = await createAgentWorktree(normalizeCwd(parentSession.cwd, config.defaultWorkspace), runId, node.id, node.attempts);
+            isolated = true;
+            agentSession = { ...parentSession, cwd: node.isolation.path };
+            effectiveResources = remapAgentResources(node.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace), node.isolation.path);
+            await saveAgentRun(run);
+          }
+          const sub = await runSubAgent({
+            parentSession: agentSession, provider, config,
+            task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
+            displayTask: node.task, agentKey: node.id,
+            dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
+            onEvent, subagentId: makeId('sub'), depth: 1, ctrl: localCtrl, permModeOverride,
+            resources: effectiveResources, resourceGroup: `${runId}:${node.id}`,
+            roleDefinition: node.roleSnapshot || (node.roleId ? roleLibrary.get(node.roleId) : null),
+            onResourceWait: (resources, blockers) => { node.status = 'waiting_resource'; node.waitingForResources = resources.map(r => r.label); node.resourceBlockers = blockers; saveAgentRun(run).catch(() => {}); },
+            onResourceAcquired: resources => { node.status = 'running'; node.waitingForResources = []; node.resourceBlockers = []; node.acquiredResources = resources.map(r => r.label); saveAgentRun(run).catch(() => {}); },
+          });
+          node.status = sub.ok ? 'succeeded' : 'failed';
+          node.result = String(sub.result || '').slice(0, 24000);
+          node.error = sub.ok ? '' : String(sub.error || '子代理失败').slice(0, 4000);
+          node.iters = sub.iters; node.toolCalls = sub.toolCalls;
+          if (sub.ok && effectiveSchema) {
+            const parsed = parseStructuredAgentOutput(node.result);
+            if (!parsed.ok) { node.status = 'failed'; node.error = parsed.error; node.schemaErrors = [parsed.error]; }
+            else {
+              const checked = validateAgentJsonSchema(parsed.value, effectiveSchema);
+              node.structuredResult = parsed.value; node.schemaErrors = checked.errors;
+              if (!checked.ok) { node.status = 'failed'; node.error = 'JSON Schema 校验失败: ' + checked.errors.join('; ').slice(0, 3500); }
+            }
+          }
+          if (node.status === 'succeeded' && node.gate) {
+            const verdict = verdictPasses(node.structuredResult, node.gate);
+            node.confidence = verdict.confidence; node.gateVerdict = verdict.verdict;
+            if (!verdict.pass) { node.status = 'failed'; node.error = `质量门未通过: verdict=${verdict.verdict || 'missing'}, confidence=${verdict.confidence.toFixed(2)}`; }
+          } else if (node.structuredResult && Number.isFinite(Number(node.structuredResult.confidence))) node.confidence = Math.min(1, Math.max(0, Number(node.structuredResult.confidence)));
         }
-        const sub = await runSubAgent({
-          parentSession: agentSession, provider, config,
-          task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
-          displayTask: node.task, agentKey: node.id,
-          dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
-          onEvent, subagentId: makeId('sub'), depth: 1, ctrl: localCtrl, permModeOverride,
-          resources: effectiveResources, resourceGroup: `${runId}:${node.id}`,
-          roleDefinition: node.roleSnapshot || (node.roleId ? roleLibrary.get(node.roleId) : null),
-          onResourceWait: (resources, blockers) => { node.status = 'waiting_resource'; node.waitingForResources = resources.map(r => r.label); node.resourceBlockers = blockers; saveAgentRun(run).catch(() => {}); },
-          onResourceAcquired: resources => { node.status = 'running'; node.waitingForResources = []; node.resourceBlockers = []; node.acquiredResources = resources.map(r => r.label); saveAgentRun(run).catch(() => {}); },
-        });
-        node.status = sub.ok ? 'succeeded' : 'failed';
-        node.result = String(sub.result || '').slice(0, 24000);
-        node.error = sub.ok ? '' : String(sub.error || '子代理失败').slice(0, 4000);
-        node.iters = sub.iters; node.toolCalls = sub.toolCalls;
       } catch (e) {
         node.status = 'failed'; node.error = String(e && e.message || e).slice(0, 4000);
       } finally {
@@ -5258,12 +5547,33 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           }
         }
       }
-      node.completedAt = nowIso();
-      onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status });
+      if (node.status === 'succeeded' && node.loop) {
+        node.loopIteration = (Number(node.loopIteration) || 0) + 1;
+        const fingerprint = workflowProgressFingerprint(node);
+        node.noProgressCount = fingerprint === node.progressFingerprint ? (Number(node.noProgressCount) || 0) + 1 : 0;
+        node.progressFingerprint = fingerprint;
+        const untilMet = node.loop.until && evaluateWorkflowCondition(node.loop.until, nodes, node);
+        if (untilMet) node.loopStopReason = 'condition_met';
+        else if (node.noProgressCount >= node.loop.noProgressLimit) {
+          node.loopStopReason = 'no_progress'; if (node.loop.onNoProgress === 'fail') { node.status = 'failed'; node.error = `连续 ${node.noProgressCount} 轮无进展，已停止`; }
+        } else if (node.loopIteration < node.loop.maxIterations) {
+          node.status = 'queued'; node.completedAt = null;
+          onEvent({ type: 'agent_workflow', state: 'node_loop', id: runId, nodeId: node.id, iteration: node.loopIteration + 1, maxIterations: node.loop.maxIterations });
+        } else node.loopStopReason = 'max_iterations';
+      }
+      if (node.status === 'failed' && node.failurePolicy === 'retry' && node.attempts <= node.maxRetries) {
+        node.retryErrors = [...(Array.isArray(node.retryErrors) ? node.retryErrors : []), node.error].slice(-5);
+        if (node.isolation && node.isolation.path) await cleanupAgentWorktree(node.isolation).catch(() => {});
+        node.isolation = null; node.status = 'queued'; node.completedAt = null;
+        onEvent({ type: 'agent_workflow', state: 'node_retry', id: runId, nodeId: node.id, attempt: node.attempts, maxRetries: node.maxRetries });
+      } else if (node.status !== 'queued') {
+        node.completedAt = nowIso();
+        onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status, confidence: node.confidence });
+      }
       await saveAgentRun(run);
     }));
   }
-  const failed = nodes.filter(n => n.status !== 'succeeded');
+  const failed = nodes.filter(n => n.status !== 'succeeded' && n.status !== 'skipped');
   run.status = runtime.stopRequested ? 'stopped' : (failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded');
   run.completedAt = nowIso();
   await saveAgentRun(run);
@@ -5271,7 +5581,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   } finally { activeAgentRuns.delete(runId); }
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
-    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, error: n.error, dependsOn: n.dependsOn, role: n.roleId || '' })),
+    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, error: n.error, dependsOn: n.dependsOn, role: n.roleId || '', attempts: n.attempts, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '' })),
   };
 }
 
@@ -6381,12 +6691,17 @@ async function streamChat(req, res) {
   try { res.flushHeaders(); } catch { /* ignore */ }
 
   let finished = false;
-  // If the UI aborts (Stop button / navigation), kill the claude child tree so it can't keep running.
-  // Re-read the flag at close time so a mid-turn settings change takes effect.
-  req.on('close', () => {
-    if (finished) return;
+  // Kill only when the streaming RESPONSE is actually disconnected. IncomingMessage's `close`
+  // also fires after a normally-consumed request body on modern Node, so using req.close here can
+  // terminate a healthy background turn when the UI opens another session.
+  let disconnectHandled = false;
+  const handleDisconnect = () => {
+    if (finished || disconnectHandled) return;
+    disconnectHandled = true;
     readConfig().then(cfg => { if (cfg.killOnDisconnect) stopSession(session.id, 'disconnected'); }).catch(() => {});
-  });
+  };
+  req.on('aborted', handleDisconnect);
+  res.on('close', () => { if (!finished && !res.writableEnded) handleDisconnect(); });
 
   const emit = evt => { try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ } };
   try {
@@ -8771,7 +9086,16 @@ Write-Output '${outPath.replace(/'/g, "''")}'
     case 'spawn_agent':
       return { ok: false, error: 'spawn_agent 仅在 provider 引擎的对话回合内可用' };
     case 'orchestrate_agents':
-      return { ok: false, error: 'orchestrate_agents 仅在 provider 引擎的对话回合内可用' };
+      if (RUNTIME.isMcpChild) {
+        const port = process.env.WCW_PORT, host = process.env.WCW_HOST || '127.0.0.1';
+        const token = process.env.WCW_TOKEN, sessionId = process.env.WCW_SESSION_ID || '';
+        if (!port || !token || !sessionId) return { ok: false, error: 'Agent DAG 需要工作台会话上下文' };
+        try {
+          const resp = await httpRequest({ url: `http://${host}:${port}/api/agent-workflow/launch`, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, sessionId, nodes: args.nodes, providerId: args.providerId }), timeoutMs: 900000, maxBodyChars: 200000 });
+          return safeJsonParse(resp.body, { ok: false, error: 'invalid agent workflow response' });
+        } catch (e) { return { ok: false, error: `Agent DAG loopback error: ${(e && e.message) || String(e)}` }; }
+      }
+      return { ok: false, error: 'orchestrate_agents 需要在 OpenAI 对话回合或 Claude CLI 工作台会话中调用' };
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -8897,7 +9221,7 @@ async function handleApi(req, res, pathname) {
   const mutating = req.method !== 'GET' && req.method !== 'HEAD';
   // /api/todo (like /api/permission/request) is called by the MCP child over loopback — it authenticates
   // with a body token (checked in the handler) and is cross-origin by nature, so it is exempt here too.
-  if (mutating && pathname !== '/api/permission/request' && pathname !== '/api/todo') {
+  if (mutating && pathname !== '/api/permission/request' && pathname !== '/api/todo' && pathname !== '/api/agent-workflow/launch') {
     if (!originOk(req)) return send(res, json({ ok: false, error: 'cross-origin request rejected' }, 403));
     // v0.8-S4a: the checkpoints rollback route is a header-token (UI) route — it is called by the UI, NOT
     // by a loopback child, so it belongs on the needsToken whitelist. It must be listed EXPLICITLY here:
@@ -8919,7 +9243,7 @@ async function handleApi(req, res, pathname) {
     // It exposes paths & commands (same sensitivity class as /api/checkpoints), so it is EXPLICITLY listed
     // here for intent. It is a GET — the handler is the REAL gate (self-checks tokenOk before doing anything),
     // since GETs never enter this mutating block. Listing it here is documentation, not the enforcement point.
-    const needsToken = pathname.startsWith('/api/tools/') || pathname.startsWith('/api/checkpoints/') || pathname.startsWith('/api/agent-runs') || pathname === '/api/agent-roles' || pathname === '/api/session/rewind' || pathname === '/api/steer' || pathname === '/api/config' || pathname === '/api/provider/test' || pathname === '/api/playbooks' || pathname.startsWith('/api/playbooks/') || pathname === '/api/workspace/resolve' || pathname === '/api/pick-folder' || pathname === '/api/file/preview' || pathname === '/api/file/reveal' || pathname === '/api/mcp/import-folder' || pathname === '/api/plan/decision' || pathname === '/api/audit';
+    const needsToken = pathname.startsWith('/api/tools/') || pathname.startsWith('/api/checkpoints/') || pathname.startsWith('/api/agent-runs') || pathname.startsWith('/api/agent-workflows') || pathname === '/api/agent-roles' || pathname === '/api/session/rewind' || pathname === '/api/steer' || pathname === '/api/config' || pathname === '/api/provider/test' || pathname === '/api/playbooks' || pathname.startsWith('/api/playbooks/') || pathname === '/api/workspace/resolve' || pathname === '/api/pick-folder' || pathname === '/api/file/preview' || pathname === '/api/file/reveal' || pathname === '/api/mcp/import-folder' || pathname === '/api/plan/decision' || pathname === '/api/audit';
     if (needsToken && !tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
   }
 
@@ -9112,6 +9436,23 @@ async function handleApi(req, res, pathname) {
     const next = await writeConfig(config);
     return send(res, json({ ok: true, scope, roles: next.agentRoleOverrides }));
   }
+  if (req.method === 'GET' && pathname === '/api/agent-workflows') {
+    const config = await readConfig(); const u = new URL(req.url, 'http://x');
+    const cwd = normalizeCwd(u.searchParams.get('cwd') || config.defaultWorkspace, config.defaultWorkspace);
+    return send(res, json({ ok: true, cwd, workflows: await getAgentWorkflows(cwd) }));
+  }
+  if (req.method === 'POST' && pathname === '/api/agent-workflows') {
+    const body = await readJsonBody(req); const scope = body && body.scope === 'project' ? 'project' : 'personal';
+    const config = await readConfig(); const cwd = normalizeCwd(body && body.cwd || config.defaultWorkspace, config.defaultWorkspace);
+    const workflow = await saveAgentWorkflow(scope, cwd, body && body.workflow);
+    if (!workflow) return send(res, json({ ok: false, error: '无效工作流：需要唯一 id、标题和合法 DAG 节点' }, 400));
+    return send(res, json({ ok: true, scope, workflow }));
+  }
+  if (pathname.startsWith('/api/agent-workflows/') && (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))) {
+    const id = String(pathname.slice('/api/agent-workflows/'.length)).toLowerCase(); const body = req.method === 'POST' ? await readJsonBody(req) : {};
+    const config = await readConfig(); const scope = body && body.scope === 'project' ? 'project' : 'personal'; const cwd = normalizeCwd(body && body.cwd || config.defaultWorkspace, config.defaultWorkspace);
+    return send(res, json({ ok: await deleteAgentWorkflow(scope, cwd, id), id, scope }));
+  }
   if (req.method === 'POST' && pathname === '/api/provider/test') {
     // Test a provider's base URL + key by listing its models. Body: { provider } (saved or draft) or a bare provider.
     const body = await readJsonBody(req);
@@ -9242,6 +9583,28 @@ async function handleApi(req, res, pathname) {
     const reg = activeChildren.get(sessionId);
     if (reg && reg.onEvent) { try { reg.onEvent({ type: 'todo', items }); } catch { /* stream gone */ } }
     return send(res, json({ ok: true, count: items.length }));
+  }
+  if (req.method === 'POST' && pathname === '/api/agent-workflow/launch') {
+    // Claude CLI's one-shot MCP child proxies the persistent DAG into the serve process. The DAG
+    // uses a configured OpenAI-compatible provider for worker nodes while the Claude parent remains
+    // native; events are mirrored into the live Claude stream and the run stays inspectable.
+    const body = await readJsonBody(req);
+    if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, json({ ok: false, error: 'bad token' }, 403));
+    const sessionId = safeSessionId(body.sessionId);
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const session = await loadSession(sessionId);
+    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    const config = await readConfig();
+    const provider = resolveProvider(config, body.providerId) || (config.providers || []).find(p => p && p.baseUrl && (p.model || (p.models && p.models.length)));
+    if (!provider) return send(res, json({ ok: false, error: 'Claude CLI 的 Agent DAG 需要至少配置一个 OpenAI 兼容 Provider' }, 400));
+    const reg = activeChildren.get(sessionId); const onEvent = reg && reg.onEvent ? reg.onEvent : () => {};
+    let launchNodes = body.nodes;
+    if ((!Array.isArray(launchNodes) || !launchNodes.length) && body.workflowId) {
+      const workflow = (await getAgentWorkflows(normalizeCwd(session.cwd, config.defaultWorkspace))).find(x => x.id === String(body.workflowId));
+      launchNodes = workflow && workflow.nodes;
+    }
+    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: launchNodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.subagentMaxPerTurn) || 0) });
+    return send(res, json(result));
   }
   // v0.8-S4a: checkpoint query (read-only → same-origin gate is enough; not in needsToken).
   if (req.method === 'GET' && pathname === '/api/agent-runs') {
@@ -10243,7 +10606,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'orchestrate_agents',
-    description: 'Run a complete persistent sub-agent dependency graph in one call. Submit all nodes up front. Nodes whose dependencies are satisfied run automatically, independent nodes run concurrently, and downstream nodes receive dependency results. Prefer this over repeated spawn_agent calls when the stages are known. Progress is persisted for inspection after interruption.',
+    description: 'Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, deterministic voting/deduplication, cross-review, confidence thresholds, and per-node failure policies (block, degraded continue, retry).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -10261,12 +10624,28 @@ const MCP_TOOLS = [
               model: { type: 'string' },
               resources: { type: 'array', items: { type: 'string' }, description: 'exclusive resources required by this node; use read: prefix for shared access' },
               isolation: { type: 'string', enum: ['none', 'worktree'], description: 'worktree runs this node in a detached Git worktree and keeps its commit for explicit user application; never auto-merges' },
+              outputSchema: { type: 'object', description: 'optional JSON Schema for this node final output; invalid JSON/schema fails the node' },
+              gate: {
+                type: 'object', description: 'quality gate; reviewer/verifier roles get one automatically',
+                properties: {
+                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe'] },
+                  threshold: { type: 'number', description: 'vote pass ratio, 0..1' },
+                  minApprovals: { type: 'number' },
+                  minConfidence: { type: 'number', description: 'minimum accepted confidence, 0..1' },
+                },
+              },
+              failurePolicy: { type: 'string', enum: ['block', 'continue', 'retry'], description: 'block downstream (default), continue in degraded mode, or retry automatically' },
+              maxRetries: { type: 'number', description: 'additional automatic attempts for retry policy, 0..5' },
+              retryFallback: { type: 'string', enum: ['block', 'continue'], description: 'behavior after retries are exhausted' },
+              condition: { type: 'object', description: 'optional branch condition: {node,path,operator,value}; operators include equals/not_equals/truthy/falsy/contains/comparisons/status_is' },
+              loop: { type: 'object', description: 'bounded loop: {maxIterations,until,noProgressLimit,onNoProgress}; stops automatically after repeated identical results' },
             },
             required: ['id', 'task'],
           },
         },
+        providerId: { type: 'string', description: 'optional configured OpenAI-compatible provider id; useful when the Claude CLI parent launches this DAG' },
+        workflowId: { type: 'string', description: 'saved workflow id to launch instead of sending nodes' },
       },
-      required: ['nodes'],
     },
   },
 ];
@@ -10299,10 +10678,10 @@ async function startMcp() {
           });
         }
         if (msg.method === 'tools/list') {
-          // v0.9-S6: spawn_agent is PROVIDER-ENGINE ONLY (it needs the serve-process turn closure to run a
-          // sub-turn; the context-free toolCall() rejects it). Never advertise it on the Claude-CLI MCP
-          // surface so the CLI model doesn't try a tool that can only refuse.
-          return sendMcp(msg.id, { tools: MCP_TOOLS.filter(t => t.name !== 'spawn_agent' && t.name !== 'orchestrate_agents') });
+          // A single spawn_agent still needs the provider turn closure. The persistent DAG is safe to
+          // advertise: in a Claude CLI session it loops back to the serve process and uses a configured
+          // OpenAI-compatible provider for worker nodes.
+          return sendMcp(msg.id, { tools: MCP_TOOLS.filter(t => t.name !== 'spawn_agent') });
         }
         if (msg.method === 'tools/call') {
           const name = msg.params?.name;
@@ -10548,6 +10927,21 @@ module.exports = {
   acquireResourceLease,
   releaseResourceLease,
   resourceBlockers,
+  sanitizeAgentOutputSchema,
+  parseStructuredAgentOutput,
+  validateAgentJsonSchema,
+  normalizeAgentGate,
+  aggregateAgentVote,
+  dedupeAgentFindings,
+  QUALITY_GATE_OUTPUT_SCHEMA,
+  BUILTIN_AGENT_WORKFLOWS,
+  normalizeWorkflowCondition,
+  normalizeWorkflowLoop,
+  normalizeAgentWorkflow,
+  getAgentWorkflows,
+  saveAgentWorkflow,
+  deleteAgentWorkflow,
+  evaluateWorkflowCondition,
   createAgentWorktree,
   finalizeAgentWorktree,
   applyAgentWorktree,

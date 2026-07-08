@@ -286,6 +286,7 @@ async function openSession(id) {
   renderCurrentSession();
   renderResumeBanner();
   syncStreamingUi();
+  mountActiveTurn(id);
 }
 // v0.8-S0 A6: show a lightweight banner above the composer when the opened session has a dangling
 // (interrupted) turn. "继续" resends a prompt asking the model to finish; the banner then hides.
@@ -1616,7 +1617,36 @@ async function handleDrop(e) {
 // One live stream per session. Switching sessions only changes which entry drives the composer; it never
 // aborts another session's request. Streams for background sessions keep draining so the server connection
 // stays alive, and their final persisted message appears when that session is opened again.
-const activeTurns = new Map(); // sessionId -> { abort, startedAt }
+const activeTurns = new Map(); // sessionId -> { abort, startedAt, eventLines, eventChars, live, main }
+const ACTIVE_TURN_EVENT_CAP = 2_000_000;
+function createLiveAssistantShell() {
+  const box = $('messages');
+  const { row, main } = messageShell('assistant', new Date().toISOString(), currentEngineMeta());
+  const live = { thinkingText: '', bufferText: '', thinkingEl: null, bubble: null, toolCards: new Map(), subCards: new Map(), workflowCards: new Map(), rendered: false, rafPending: false, rafId: 0 };
+  live.bubble = el('div', 'bubble md stream-cursor');
+  main.appendChild(live.bubble);
+  live.toolsWrap = el('div'); main.appendChild(live.toolsWrap);
+  box.appendChild(row); box.scrollTop = box.scrollHeight;
+  return { live, main };
+}
+function rememberTurnLine(turn, line) {
+  if (!turn || !line || !line.trim()) return;
+  // raw_line is already available in the debug stream and can be extremely large; the visible
+  // progress replay only needs normalized events.
+  try { if (JSON.parse(line).type === 'raw_line') return; } catch { return; }
+  turn.eventLines.push(line); turn.eventChars += line.length;
+  while (turn.eventChars > ACTIVE_TURN_EVENT_CAP && turn.eventLines.length > 1) turn.eventChars -= turn.eventLines.shift().length;
+}
+function mountActiveTurn(sessionId) {
+  const turn = activeTurns.get(sessionId);
+  if (!turn || state.currentSession?.id !== sessionId) return;
+  const shell = createLiveAssistantShell(); turn.live = shell.live; turn.main = shell.main;
+  for (const line of turn.eventLines) {
+    try { if (JSON.parse(line).type === 'session') continue; } catch { continue; }
+    handleStreamLine(line, turn.live, turn.main, sessionId);
+  }
+  finalizeLive(turn.live);
+}
 // The proc-dot moved into the model chip (.mc-dot) in v0.7b. setProc now drives that dot's three
 // states (running/stopped/idle) + an engine-aware title, reusing the pulse animation via CSS.
 function setProc(state_) {
@@ -1730,16 +1760,12 @@ async function sendPrompt(overrideText) {
 
   // Live assistant container — tag it with the current engine so its badge/avatar match the engine
   // producing this reply (the server sends the authoritative meta on the persisted message).
-  const { row, main } = messageShell('assistant', new Date().toISOString(), currentEngineMeta());
-  const live = { thinkingText: '', bufferText: '', thinkingEl: null, bubble: null, toolCards: new Map(), subCards: new Map(), workflowCards: new Map(), rendered: false, rafPending: false, rafId: 0 };
-  live.bubble = el('div', 'bubble md stream-cursor');
-  main.appendChild(live.bubble);
-  live.toolsWrap = el('div'); main.appendChild(live.toolsWrap);
-  box.appendChild(row);
-  box.scrollTop = box.scrollHeight;
+  const shell = createLiveAssistantShell();
+  let live = shell.live, main = shell.main;
 
   const turnAbort = new AbortController();
-  activeTurns.set(turnSessionId, { abort: turnAbort, startedAt: Date.now() });
+  const turnState = { abort: turnAbort, startedAt: Date.now(), eventLines: [], eventChars: 0, live, main };
+  activeTurns.set(turnSessionId, turnState);
   syncStreamingUi();
   renderSessions();
   try {
@@ -1757,12 +1783,21 @@ async function sendPrompt(overrideText) {
       buf += decoder.decode(value, { stream: true });
       const lines = buf.split(/\r?\n/);
       buf = lines.pop() || '';
-      // A background session must not mutate the visible session's DOM/state. Its stream is still drained;
-      // the server persists the complete turn and the final reload below refreshes it when visible.
-      if (state.currentSession?.id === turnSessionId) for (const line of lines) handleStreamLine(line, live, main, turnSessionId);
+      // Keep a bounded normalized event log for background replay. Returning to this session while
+      // it is still running reconstructs all progress instead of showing only the initial user message.
+      for (const line of lines) {
+        rememberTurnLine(turnState, line);
+        if (state.currentSession?.id === turnSessionId) {
+          live = turnState.live; main = turnState.main;
+          handleStreamLine(line, live, main, turnSessionId);
+        }
+      }
     }
-    if (buf.trim() && state.currentSession?.id === turnSessionId) handleStreamLine(buf, live, main, turnSessionId);
-    finalizeLive(live);
+    if (buf.trim()) {
+      rememberTurnLine(turnState, buf);
+      if (state.currentSession?.id === turnSessionId) handleStreamLine(buf, turnState.live, turnState.main, turnSessionId);
+    }
+    finalizeLive(turnState.live);
     await refreshSessions();
     if (state.currentSession?.id === turnSessionId) {
       const r = await api(`/api/sessions/${turnSessionId}`);
@@ -2293,7 +2328,11 @@ function handleAgentWorkflowEvent(evt, live) {
     return;
   }
   const host = live.workflowCards.get(id); if (!host) return;
-  if (evt.state === 'node_end') {
+  if (evt.state === 'node_retry') {
+    host.status.textContent = `${evt.nodeId || ''} 自动重试 ${evt.attempt || 0}/${evt.maxRetries || 0}`;
+  } else if (evt.state === 'node_loop') {
+    host.status.textContent = `${evt.nodeId || ''} 循环 ${evt.iteration || 0}/${evt.maxIterations || 0} · 无进展 ${evt.noProgressCount || 0}`;
+  } else if (evt.state === 'node_end') {
     host.done += 1;
     host.status.textContent = `${host.done}/${host.total} 完成 · ${evt.nodeId || ''} ${evt.status || ''}`;
   } else if (evt.state === 'end') {
@@ -2305,10 +2344,77 @@ function handleAgentWorkflowEvent(evt, live) {
   }
 }
 
+let agentWorkflowLibrary = [];
+function cloneWorkflow(value) { return JSON.parse(JSON.stringify(value || {})); }
+async function loadAgentWorkflows() {
+  try { const r = await api(`/api/agent-workflows?cwd=${encodeURIComponent(currentWorkspace())}`); agentWorkflowLibrary = r.workflows || []; }
+  catch { agentWorkflowLibrary = []; }
+  const select = $('workflowQuickSelect'); if (!select) return;
+  const previous = select.value; select.textContent = '';
+  for (const wf of agentWorkflowLibrary) { const o = document.createElement('option'); o.value = wf.id; o.textContent = `${wf.source === 'builtin' ? '内置' : wf.source === 'project' ? '项目' : '个人'} · ${wf.title}`; select.appendChild(o); }
+  if (agentWorkflowLibrary.some(x => x.id === previous)) select.value = previous;
+}
+async function launchAgentWorkflow(workflow) {
+  if (!state.currentSession?.id) await newSession();
+  const wf = workflow || agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value); if (!wf) return toast('请选择工作流', 'err');
+  try {
+    const r = await api('/api/agent-workflow/launch', { method: 'POST', body: JSON.stringify({ token: wcwToken(), sessionId: state.currentSession.id, nodes: wf.nodes }) });
+    if (!r || (!r.ok && !r.runId)) throw new Error(r && r.error || '启动失败');
+    toast(`工作流已启动：${wf.title}`, 'ok'); switchTab('agent-runs'); await loadAgentRuns();
+  } catch (e) { toast(`工作流启动失败：${e.message || e}`, 'err'); }
+}
+function workflowBlank() { return { id: `workflow-${Date.now().toString(36)}`, title: '新工作流', description: '', source: 'personal', nodes: [{ id: 'step_1', task: '描述这个节点要完成的任务', role: 'worker', dependsOn: [], failurePolicy: 'block', position: { x: 40, y: 120 } }] }; }
+function workflowField(label, input) { const wrap = el('label', 'workflow-field'); wrap.append(el('span', '', label), input); return wrap; }
+function workflowConditionText(value) { return value ? `${value.node ? value.node + '.' : ''}${value.path || ''} ${value.operator || 'truthy'}${value.value === undefined ? '' : ' ' + JSON.stringify(value.value)}` : ''; }
+function parseWorkflowConditionText(text) {
+  const match = String(text || '').trim().match(/^([A-Za-z0-9_-]+)\.([^ ]+)\s+(equals|not_equals|truthy|falsy|contains|greater|greater_equal|less|less_equal|status_is|==|!=|>=|<=|>|<)(?:\s+(.+))?$/);
+  if (!match) return null;
+  const aliases = { '==': 'equals', '!=': 'not_equals', '>': 'greater', '>=': 'greater_equal', '<': 'less', '<=': 'less_equal' };
+  let value; if (match[4]) { try { value = JSON.parse(match[4]); } catch { value = match[4]; } }
+  return { node: match[1], path: match[2], operator: aliases[match[3]] || match[3], value };
+}
+async function openWorkflowEditor(initialId) {
+  await loadAgentWorkflows();
+  let draft = cloneWorkflow(agentWorkflowLibrary.find(x => x.id === initialId) || agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value) || workflowBlank());
+  draft.source = draft.source === 'project' ? 'project' : 'personal'; let selectedId = draft.nodes[0] && draft.nodes[0].id;
+  let roles = []; try { roles = (await api(`/api/agent-roles?cwd=${encodeURIComponent(currentWorkspace())}`)).roles || []; } catch {}
+  const body = el('div', 'workflow-editor');
+  const meta = el('div', 'workflow-meta'); const idInput = document.createElement('input'); idInput.value = draft.id; const titleInput = document.createElement('input'); titleInput.value = draft.title; const descInput = document.createElement('input'); descInput.value = draft.description || '';
+  const scopeSelect = document.createElement('select'); for (const [v,t] of [['personal','个人'],['project','项目']]) { const o=document.createElement('option');o.value=v;o.textContent=t;scopeSelect.appendChild(o); } scopeSelect.value=draft.source;
+  meta.append(workflowField('ID', idInput), workflowField('名称', titleInput), workflowField('说明', descInput), workflowField('保存范围', scopeSelect)); body.appendChild(meta);
+  const toolbar = el('div', 'workflow-editor-toolbar'); const templateSelect = document.createElement('select'); for (const wf of agentWorkflowLibrary) { const o=document.createElement('option');o.value=wf.id;o.textContent=`载入：${wf.title}`;templateSelect.appendChild(o); } templateSelect.value=draft.id;
+  const loadBtn=el('button','mini','载入模板'), addBtn=el('button','mini','＋ 节点'), deleteBtn=el('button','mini danger','删除节点'); toolbar.append(templateSelect,loadBtn,addBtn,deleteBtn); body.appendChild(toolbar);
+  const layout=el('div','workflow-editor-layout'), graph=el('div','workflow-graph'), inspector=el('div','workflow-inspector'); layout.append(graph,inspector); body.appendChild(layout);
+  const foot=el('div','modal-actions'), cancel=el('button','','取消'), remove=el('button','danger','删除保存'), save=el('button','primary','保存'), run=el('button','primary','保存并运行'); foot.append(remove,cancel,save,run); const modal=buildModal('工作流图形编辑器',body,foot); modal.backdrop.querySelector('.modal')?.classList.add('workflow-modal');
+  function syncMeta(){draft.id=idInput.value.trim();draft.title=titleInput.value.trim();draft.description=descInput.value.trim();draft.source=scopeSelect.value;}
+  function drawEdges(svg){
+    const NS='http://www.w3.org/2000/svg'; const defs=document.createElementNS(NS,'defs'), marker=document.createElementNS(NS,'marker'); marker.setAttribute('id','wf-arrow');marker.setAttribute('markerWidth','8');marker.setAttribute('markerHeight','8');marker.setAttribute('refX','7');marker.setAttribute('refY','3');marker.setAttribute('orient','auto');const path=document.createElementNS(NS,'path');path.setAttribute('d','M0,0 L0,6 L8,3 z');marker.appendChild(path);defs.appendChild(marker);svg.appendChild(defs);
+    for(const node of draft.nodes){for(const dep of node.dependsOn||[]){const from=draft.nodes.find(x=>x.id===dep);if(!from)continue;const line=document.createElementNS(NS,'line');line.setAttribute('x1',String((from.position?.x||0)+210));line.setAttribute('y1',String((from.position?.y||0)+45));line.setAttribute('x2',String(node.position?.x||0));line.setAttribute('y2',String((node.position?.y||0)+45));line.setAttribute('marker-end','url(#wf-arrow)');svg.appendChild(line);}}
+  }
+  function renderGraph(){ graph.textContent=''; const NS='http://www.w3.org/2000/svg',svg=document.createElementNS(NS,'svg');svg.classList.add('workflow-edges');graph.appendChild(svg);drawEdges(svg);
+    for(const node of draft.nodes){const card=el('button',`workflow-node-card${node.id===selectedId?' selected':''}`);card.type='button';card.style.left=`${node.position?.x||0}px`;card.style.top=`${node.position?.y||0}px`;card.append(el('strong','',node.id),el('span','',node.role||'无角色'),el('small','',(node.dependsOn||[]).length?`依赖 ${(node.dependsOn||[]).join(', ')}`:'起点'));card.onclick=()=>{selectedId=node.id;renderGraph();renderInspector();};
+      card.addEventListener('pointerdown',e=>{if(e.button!==0)return;const sx=e.clientX,sy=e.clientY,ox=node.position?.x||0,oy=node.position?.y||0;card.setPointerCapture(e.pointerId);const move=ev=>{node.position={x:Math.max(0,ox+ev.clientX-sx),y:Math.max(0,oy+ev.clientY-sy)};card.style.left=`${node.position.x}px`;card.style.top=`${node.position.y}px`;};const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);renderGraph();};card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);});graph.appendChild(card); }
+  }
+  function renderInspector(){inspector.textContent='';const node=draft.nodes.find(x=>x.id===selectedId);if(!node){inspector.append(el('p','muted','选择一个节点'));return;} const oldId=node.id;
+    const nid=document.createElement('input');nid.value=node.id;const task=document.createElement('textarea');task.rows=5;task.value=node.task||'';const role=document.createElement('select');{const empty=document.createElement('option');empty.value='';empty.textContent='无角色';role.appendChild(empty);for(const r of roles){const o=document.createElement('option');o.value=r.id;o.textContent=r.label||r.id;role.appendChild(o);}role.value=node.role||'';}
+    const deps=document.createElement('input');deps.value=(node.dependsOn||[]).join(', ');const failure=document.createElement('select');for(const [v,t] of [['block','阻塞下游'],['continue','降级继续'],['retry','自动重试']]){const o=document.createElement('option');o.value=v;o.textContent=t;failure.appendChild(o);}failure.value=node.failurePolicy||'block';
+    const condition=document.createElement('input');condition.placeholder='如 review.verdict == "fail"';condition.value=workflowConditionText(node.condition);
+    const loopMax=document.createElement('input');loopMax.type='number';loopMax.min='1';loopMax.max='20';loopMax.value=node.loop?.maxIterations||1;const loopUntil=document.createElement('input');loopUntil.placeholder='可选，如 loop.done == true';loopUntil.value=workflowConditionText(node.loop?.until);const noProgress=document.createElement('input');noProgress.type='number';noProgress.min='1';noProgress.max='10';noProgress.value=node.loop?.noProgressLimit||2;
+    inspector.append(workflowField('节点 ID',nid),workflowField('任务',task),workflowField('角色',role),workflowField('依赖（逗号分隔）',deps),workflowField('失败策略',failure),workflowField('运行条件',condition),workflowField('最大循环次数',loopMax),workflowField('循环停止条件',loopUntil),workflowField('连续无进展停止',noProgress));
+    const apply=el('button','mini primary','应用节点设置');apply.onclick=()=>{const nextId=nid.value.trim();if(!/^[A-Za-z0-9_-]+$/.test(nextId))return toast('节点 ID 只能用字母、数字、_、-','err');if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId))return toast('节点 ID 重复','err');node.id=nextId;node.task=task.value.trim();node.role=role.value;node.dependsOn=deps.value.split(',').map(x=>x.trim()).filter(x=>x&&x!==nextId);node.failurePolicy=failure.value;node.maxRetries=failure.value==='retry'?1:0;node.condition=parseWorkflowConditionText(condition.value);if(condition.value.trim()&&!node.condition)return toast('运行条件格式无效','err');if(node.condition?.node&&node.condition.node!==nextId&&!node.dependsOn.includes(node.condition.node))node.dependsOn.push(node.condition.node);const lm=Math.max(1,Number(loopMax.value)||1),until=parseWorkflowConditionText(loopUntil.value);if(loopUntil.value.trim()&&!until)return toast('循环停止条件格式无效','err');node.loop=lm>1?{maxIterations:lm,until,noProgressLimit:Math.max(1,Number(noProgress.value)||2),onNoProgress:'continue'}:null;if(nextId!==oldId)for(const n of draft.nodes)n.dependsOn=(n.dependsOn||[]).map(x=>x===oldId?nextId:x);selectedId=nextId;renderGraph();renderInspector();};inspector.appendChild(apply);
+  }
+  loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;renderGraph();renderInspector();};
+  addBtn.onclick=()=>{let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;renderGraph();renderInspector();};
+  deleteBtn.onclick=()=>{if(draft.nodes.length<=1)return toast('至少保留一个节点','err');draft.nodes=draft.nodes.filter(x=>x.id!==selectedId);for(const n of draft.nodes)n.dependsOn=(n.dependsOn||[]).filter(x=>x!==selectedId);selectedId=draft.nodes[0]?.id;renderGraph();renderInspector();};
+  async function saveDraft(){syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||'保存失败');draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
+  cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast('工作流已保存','ok');modal.close();}catch(e){toast(e.message,'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){toast(e.message,'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast('内置模板不可删除','err');try{await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();toast('已删除工作流','ok');modal.close();}catch(e){toast(e.message,'err');}};
+  renderGraph();renderInspector();
+}
+
 let agentRunsPoll = null;
 const AGENT_RUN_ACTIVE = new Set(['running', 'paused']);
 function agentRunStatusLabel(status) {
-  return ({ queued: '等待中', waiting_resource: '等待资源', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', partial: '部分完成', failed: '失败', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+  return ({ queued: '等待中', waiting_resource: '等待资源', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', skipped: '条件跳过', partial: '部分完成', failed: '失败', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
 }
 async function agentRunAction(runId, action, extra) {
   const sid = state.currentSession?.id; if (!sid) return;
@@ -2329,7 +2435,7 @@ function renderAgentRuns(runs) {
   for (const run of runs) {
     const card = el('details', `agent-run-card ar-${run.status || 'unknown'}`); card.open = AGENT_RUN_ACTIVE.has(run.status) || run.status === 'interrupted';
     const nodes = Array.isArray(run.nodes) ? run.nodes : [];
-    const done = nodes.filter(n => n.status === 'succeeded').length;
+    const done = nodes.filter(n => n.status === 'succeeded' || n.status === 'skipped').length;
     const sum = el('summary', 'agent-run-head');
     sum.append(el('span', 'ar-title', `🕸️ ${run.id}`), el('span', 'ar-status', `${agentRunStatusLabel(run.status)} · ${done}/${nodes.length}`));
     card.appendChild(sum);
@@ -2350,7 +2456,11 @@ function renderAgentRuns(runs) {
       const row = el('details', `agent-node an-${node.status || 'unknown'}`);
       const deps = Array.isArray(node.dependsOn) && node.dependsOn.length ? ` ← ${node.dependsOn.join(', ')}` : '';
       const roleTag = (node.roleLabel || node.roleId) ? ` · 角色 ${node.roleLabel || node.roleId}` : '';
-      row.appendChild(el('summary', 'agent-node-head', `${node.status === 'succeeded' ? '✓' : node.status === 'running' ? '◐' : node.status === 'failed' ? '✗' : '○'} ${node.id}${deps}${roleTag} · ${agentRunStatusLabel(node.status)} · 尝试 ${node.attempts || 0}`));
+      const gateTag = node.gate && node.gate.mode ? ` · 门 ${node.gate.mode}` : '';
+      const confidenceTag = Number.isFinite(Number(node.confidence)) ? ` · 置信度 ${Math.round(Number(node.confidence) * 100)}%` : '';
+      const policyTag = node.failurePolicy ? ` · 失败:${node.failurePolicy}` : '';
+      const loopTag = node.loop ? ` · 循环 ${node.loopIteration || 0}/${node.loop.maxIterations}${node.loopStopReason ? ` (${node.loopStopReason})` : ''}` : '';
+      row.appendChild(el('summary', 'agent-node-head', `${node.status === 'succeeded' ? '✓' : node.status === 'skipped' ? '↷' : node.status === 'running' ? '◐' : node.status === 'failed' ? '✗' : node.status === 'blocked' ? '⊘' : '○'} ${node.id}${deps}${roleTag}${gateTag}${confidenceTag}${policyTag}${loopTag} · ${agentRunStatusLabel(node.status)} · 尝试 ${node.attempts || 0}`));
       const body = el('div', 'agent-node-body'); body.appendChild(el('div', 'agent-node-task', node.task || ''));
       if (Array.isArray(node.resources) && node.resources.length) {
         const resourceRow = el('div', 'agent-node-resources');
@@ -2372,6 +2482,7 @@ function renderAgentRuns(runs) {
         body.appendChild(iso);
       }
       if (node.result) body.appendChild(el('pre', 'agent-node-result', node.result));
+      if (Array.isArray(node.schemaErrors) && node.schemaErrors.length) body.appendChild(el('pre', 'agent-node-error', `Schema: ${node.schemaErrors.join('; ')}`));
       if (node.error) body.appendChild(el('pre', 'agent-node-error', node.error));
       if (!run.live) {
         const actions = el('div', 'agent-node-actions');
@@ -4560,6 +4671,7 @@ function switchTab(tab) {
   if (tab === 'changes') loadChanges();
   // v0.9-S8 (§4 B4): load the audit timeline once when its tab opens (no polling — the audit view is quiet).
   if (tab === 'audit') { if (!auditState.loaded) loadAudit(); else renderAuditList(); }
+  if (tab === 'agent-runs') loadAgentWorkflows();
   updateAgentRunsPolling(tab);
 }
 
@@ -4680,6 +4792,8 @@ function bindEvents() {
   { const ft = $('fileTreeRefreshBtn'); if (ft) ft.onclick = loadFileTree; } // v0.9-S3 (C3)
   { const ar = $('artifactsRefreshBtn'); if (ar) ar.onclick = renderArtifactsGallery; } // v0.9-S4 (C4)
   { const ar = $('agentRunsRefreshBtn'); if (ar) ar.onclick = loadAgentRuns; }
+  { const we = $('workflowEditorBtn'); if (we) we.onclick = () => openWorkflowEditor(); }
+  { const wr = $('workflowQuickRunBtn'); if (wr) wr.onclick = () => launchAgentWorkflow(); }
   { const cr = $('changesRefreshBtn'); if (cr) cr.onclick = loadChanges; } // v1.0.2 (G1)
   // v0.9-S8 (§4 B4): audit tab — refresh re-pulls (resets loaded so loadAudit re-fetches); filters are
   // client-side over the already-fetched list (instant, no re-fetch).
@@ -4751,6 +4865,7 @@ async function boot() {
   try { const d = localStorage.getItem('wcw.draft'); if (d) { $('promptInput').value = d; autoGrow($('promptInput')); } } catch { /* ignore */ }
   await refreshStatus();
   await refreshSessions();
+  loadAgentWorkflows();
   refreshPlaybooks(); // v0.9-S2: load playbook cards for the empty state (best-effort, non-blocking)
   let last = null; try { last = localStorage.getItem('wcw.lastSession'); } catch { /* ignore */ }
   const target = state.sessions.find(s => s.id === last) || state.sessions[0];
