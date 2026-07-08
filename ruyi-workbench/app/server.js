@@ -143,8 +143,11 @@ function defaultConfig() {
     knownModels: [],              // models actually selected/used — remembered so they stay in the list
     extraModels: [],              // manual entries, each "id" or "id|Label"
     discoverModelsFromProxy: true,// best-effort GET {base}/v1/models to list live models (falls back offline)
-    modelsApiBase: '',            // base URL override (else ANTHROPIC_BASE_URL / ANTHROPIC_BASE env)
-    modelsApiKey: '',             // auth override (else ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY env)
+    modelsApiBase: '',            // base URL override (else ANTHROPIC_BASE_URL / ANTHROPIC_BASE env) — also
+                                   // drives the ACTUAL Claude CLI child's ANTHROPIC_BASE_URL (buildClaudeCliEnv)
+    modelsApiKey: '',             // auth override (else ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY env) — ditto
+    claudeAuthMode: 'auto',       // 'auto' | 'bearer' (ANTHROPIC_AUTH_TOKEN, e.g. Ark Coding Plan) | 'x-api-key'
+                                   // (ANTHROPIC_API_KEY, Anthropic official) — see buildClaudeCliEnv
     // --- v0.5: multi-provider engine (native OpenAI-compatible: DeepSeek / DashScope / local vLLM/Ollama) ---
     activeProvider: '',           // '' | 'claude-cli' -> Anthropic via the claude CLI (default). Else a providers[].id -> native engine.
     providers: [],                // [{ id,label,type:'openai-compat',baseUrl,apiKey,model,models,reasoning,systemPrompt,temperature,extraHeaders }]
@@ -306,7 +309,10 @@ function normalizeConfig(raw) {
   }
   if (config.knownModels.length > 50) { config.knownModels = config.knownModels.slice(-50); changed = true; }
   if (typeof config.modelsApiBase !== 'string') { config.modelsApiBase = ''; changed = true; }
+  else if (config.modelsApiBase.length > 500) { config.modelsApiBase = config.modelsApiBase.slice(0, 500); changed = true; }
   if (typeof config.modelsApiKey !== 'string') { config.modelsApiKey = ''; changed = true; }
+  else if (config.modelsApiKey.length > 500) { config.modelsApiKey = config.modelsApiKey.slice(0, 500); changed = true; }
+  if (!['auto', 'bearer', 'x-api-key'].includes(config.claudeAuthMode)) { config.claudeAuthMode = 'auto'; changed = true; }
   config.discoverModelsFromProxy = config.discoverModelsFromProxy !== false;
   config.killPortOnStart = config.killPortOnStart !== false;
   // v0.5: providers (native OpenAI-compatible engines). Sanitize each, drop malformed, dedupe by id, cap count.
@@ -682,6 +688,45 @@ function detectClaudePath() {
 // installed the CLI). Exported for the doctor/status path — a no-op if never called.
 function invalidateClaudePathCache() { _claudePathProbe = null; }
 
+// Third-party Anthropic-compatible endpoint (e.g. 火山方舟 Ark Coding Plan) config → env overrides.
+// Only returns keys the user actually configured in modelsApiBase/modelsApiKey/model — an unconfigured
+// field leaves whatever the OS/shell env already has untouched, so an install with no third-party setup
+// behaves exactly as before. Config wins over a stale inherited env var so a hot model/endpoint switch in
+// the UI can't be silently shadowed by an old `setx`-set value (previously these fields only fed the
+// model-LIST discovery probe, never the actually-spawned CLI child — this is the fix for that gap).
+// authMode picks which auth header the CLI sees: 'bearer' -> ANTHROPIC_AUTH_TOKEN only (required by Ark
+// Coding Plan), 'x-api-key' -> ANTHROPIC_API_KEY only (Anthropic official protocol), 'auto' sets both (a
+// safe hedge for an unspecified vendor, matching this function's pre-existing dual-header behavior). When
+// a key is configured, the OTHER header is force-cleared — per this project's own admin guide, having both
+// present at once makes the CLI pick the wrong auth scheme.
+function buildClaudeCliEnv(config) {
+  const env = {};
+  const base = String((config && config.modelsApiBase) || '').trim();
+  if (base) {
+    env.ANTHROPIC_BASE_URL = base;
+    // A custom endpoint is moot if the CLI is routed to Bedrock/Vertex instead — both ignore
+    // ANTHROPIC_BASE_URL entirely. Clear them so a configured third-party endpoint always wins.
+    env.CLAUDE_CODE_USE_BEDROCK = '';
+    env.CLAUDE_CODE_USE_VERTEX = '';
+  }
+  const key = String((config && config.modelsApiKey) || '').trim();
+  if (key) {
+    const mode = ['bearer', 'x-api-key'].includes(config && config.claudeAuthMode) ? config.claudeAuthMode : 'auto';
+    if (mode === 'bearer') { env.ANTHROPIC_AUTH_TOKEN = key; env.ANTHROPIC_API_KEY = ''; }
+    else if (mode === 'x-api-key') { env.ANTHROPIC_API_KEY = key; env.ANTHROPIC_AUTH_TOKEN = ''; }
+    else { env.ANTHROPIC_AUTH_TOKEN = key; env.ANTHROPIC_API_KEY = key; }
+  }
+  const model = String((config && config.model) || '').trim();
+  if (model) env.ANTHROPIC_MODEL = model;
+  return env;
+}
+// The full env a Claude CLI child (or the model-discovery probe) should see: the process's own env,
+// overlaid with the config-driven overrides above. Single source of truth so runClaudeTurn (the real
+// spawn) and fetchProxyModels (the model-list probe) can never drift apart on which endpoint is "live".
+function effectiveAnthropicEnv(config) {
+  return { ...process.env, ...buildClaudeCliEnv(config) };
+}
+
 function externalServerJs() {
   const p = path.join(externalRoot(), 'app', 'server.js');
   return fs.existsSync(p) ? p : '';
@@ -877,6 +922,24 @@ async function generateSessionMcpConfig(sessionId, mode) {
   // Desktop/external MCP servers need no per-session token — add them the same as the global config.
   addExternalMcpServersToMap(mcp.mcpServers, cfg);
   await fsp.writeFile(configPath, JSON.stringify(mcp, null, 2), 'utf8');
+  return configPath;
+}
+
+// One-shot analog of generateSessionMcpConfig for a DAG node's Claude-engine spawn (runClaudeSubAgentOnce)
+// — same content, keyed by subagentId instead of a session id. When allowedServerIds is a non-empty array
+// (role.mcpServers) the config is narrowed to just those server ids, mirroring the OpenAI subagent path's
+// own rule (runSubAgentCore): an explicit mcpServers list restricts which bridged servers a node can reach;
+// leaving it unset/empty means "everything the workbench has configured" for exec-tier nodes.
+async function generateAgentNodeMcpConfig(subagentId, mode, allowedServerIds) {
+  const configPath = await generateSessionMcpConfig(subagentId, mode);
+  if (Array.isArray(allowedServerIds) && allowedServerIds.length) {
+    try {
+      const raw = JSON.parse(await fsp.readFile(configPath, 'utf8'));
+      const allowed = new Set(allowedServerIds);
+      raw.mcpServers = Object.fromEntries(Object.entries(raw.mcpServers || {}).filter(([id]) => allowed.has(id)));
+      await fsp.writeFile(configPath, JSON.stringify(raw, null, 2), 'utf8');
+    } catch { /* best-effort — fall through with the unfiltered config rather than fail the node */ }
+  }
   return configPath;
 }
 
@@ -3000,7 +3063,10 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   }
   if (Array.isArray(config.extraClaudeArgs)) args.push(...config.extraClaudeArgs);
 
-  const env = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: paths.data }; // 【存量兼容标识】注入旧 env 变量名给 Claude 子进程
+  // v1.4.4: effectiveAnthropicEnv overlays the config-driven third-party endpoint/model (modelsApiBase/
+  // modelsApiKey/claudeAuthMode/model) onto process.env, so a frontend change to any of those actually
+  // reaches this child instead of silently deferring to whatever the OS shell happened to export.
+  const env = { ...effectiveAnthropicEnv(config), WIN_CLAUDE_WORKBENCH_HOME: paths.data }; // 【存量兼容标识】注入旧 env 变量名给 Claude 子进程
   if (config.thinkingBudget) env.MAX_THINKING_TOKENS = String(config.thinkingBudget);
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
@@ -3265,6 +3331,29 @@ const PROVIDER_PRESETS = [
   {
     id: 'openai-compatible', label: '自定义 (OpenAI 兼容 / 内网自建)', type: 'openai-compat',
     baseUrl: '', reasoning: false, defaultModel: '', models: [],
+  },
+];
+
+// Third-party Anthropic-兼容端点 presets for the CLAUDE CLI engine itself (not a Provider — these fill
+// modelsApiBase/modelsApiKey/claudeAuthMode/model, which buildClaudeCliEnv turns into the ACTUAL
+// ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN(or API_KEY)/ANTHROPIC_MODEL env for the spawned `claude` child).
+// One-click "应用预设" in Settings → Claude CLI fills these instead of requiring manual setx per
+// docs/manuals/ADMIN-GUIDE_CN.md §2.1.1. `authKeyHint`/`defaultModelHint` are UI-only placeholders (never
+// a real secret) — apiKey always stays whatever the user types.
+const CLAUDE_ENDPOINT_PRESETS = [
+  {
+    id: 'ark-coding-plan', label: '火山方舟 Ark Coding Plan', baseUrl: 'https://ark.cn-beijing.volces.com/api/coding',
+    authMode: 'bearer', authKeyHint: 'ark-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    defaultModel: 'ark-code-latest', defaultModelHint: '留空/ark-code-latest = 由 Ark 控制台管理当前模型',
+    models: [
+      { id: '', label: '默认（Ark 控制台管理，即 ark-code-latest）' },
+      { id: 'ark-code-latest', label: 'ark-code-latest（同上，显式写出）' },
+      { id: 'doubao-seed-2.0-code', label: 'Doubao-Seed 2.0 Code（豆包，直接指定，不受控制台切换影响）' },
+    ],
+  },
+  {
+    id: 'anthropic-compatible', label: '自定义（其它 Anthropic 兼容 / 内网自建端点）',
+    baseUrl: '', authMode: 'auto', authKeyHint: '', defaultModel: '', defaultModelHint: '', models: [],
   },
 ];
 
@@ -4869,6 +4958,121 @@ async function buildClaudeAgentDefinitions(cwd, config) {
   }
   return { definitions: selected, omitted, roles };
 }
+
+// Tool-tier → Claude native tool allowlist for a DAG node with no explicit role (or a role that leaves
+// claudeTools empty), mirroring the OpenAI subagent's tierFilter hard cap (buildOpenAiTools): 'read' can
+// never mutate, 'edit' adds file writes, 'exec' is intentionally unrestricted — the same shape as the
+// built-in 'worker'/'verifier' roles, which leave claudeTools empty for their exec tier.
+const CLAUDE_SUBAGENT_TIER_TOOLS = { read: ['Read', 'Grep', 'Glob'], edit: ['Read', 'Grep', 'Glob', 'Write', 'Edit'], exec: [] };
+// Permission modes that resolve without a human/bridge to answer a prompt: 'bypass' skips all asking,
+// 'auto' is the CLI's own built-in risk classifier (v1.4.3, documented above at runClaudeTurn's
+// usePermissionBridge computation), 'dontAsk' skips by name, and 'plan' never executes a mutating tool in
+// the first place. Anything else ('default', 'acceptEdits') can still block on Bash/exec-tier calls with
+// no one to answer — a one-shot unattended DAG node would hang forever, so those get coerced below.
+const CLAUDE_SUBAGENT_SAFE_MODES = new Set(['bypass', 'auto', 'dontAsk', 'plan']);
+
+// One-shot, session-free Claude CLI turn for a single DAG node: spawns `claude -p` with the node/role's
+// own model + tool restriction, feeds stdout through the same parseClaudeEvent normalizer runClaudeTurn
+// uses, and resolves once the CLI's own internal tool loop finishes. Unlike runClaudeTurn this owns no
+// session state (no activeChildren/claudeSessionId/resume) — a DAG node is a bounded, addressable call, so
+// runAgentWorkflow can gate/retry/loop on its return value exactly like it already does for the OpenAI
+// HTTP path (runSubAgentCore), giving the DAG a real second (Claude-native) execution engine instead of
+// always requiring an OpenAI-compatible Provider.
+async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd }) {
+  const started = Date.now();
+  const claude = config.claudePath || detectClaudePath();
+  const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
+  if (!fakeClaude && (!claude || !existsExecutable(claude))) {
+    return { ok: false, error: 'Claude CLI 未找到，无法以 Claude 引擎运行该节点', iters: 0, toolCalls: 0 };
+  }
+  const role = roleDefinition || null;
+  const tier = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';
+  const subModel = String(model || (role && role.models && role.models.claude !== 'inherit' && role.models.claude) || '').trim();
+
+  const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
+  const requestedMode = roleMode || permModeOverride || config.permissionMode || 'bypass';
+  const effMode = CLAUDE_SUBAGENT_SAFE_MODES.has(requestedMode) ? requestedMode : (tier === 'read' ? 'plan' : 'bypass');
+
+  const args = ['-p', '--output-format', 'stream-json', '--verbose'];
+  const pm = claudePermissionMode(effMode); if (pm) args.push('--permission-mode', pm);
+  if (subModel && subModel !== 'inherit') args.push('--model', subModel);
+  const allowedTools = (role && role.claudeTools && role.claudeTools.length) ? role.claudeTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
+  if (allowedTools && allowedTools.length) args.push('--allowed-tools', allowedTools.join(','));
+  const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
+  if (turnBudget > 0) args.push('--max-turns', String(Math.min(100, Math.round(turnBudget))));
+  if (cwd) args.push('--add-dir', cwd);
+  // Bridged (external/desktop MCP) tools are exec-class only, matching the OpenAI subagent path's own
+  // rule (runSubAgentCore): read/edit tiers stay local-native-tools-only. An explicit role.mcpServers
+  // narrows an exec-tier node to just those servers; empty/absent means everything the workbench has
+  // configured (generateAgentNodeMcpConfig mirrors generateSessionMcpConfig, keyed by subagentId).
+  const roleMcpServers = (role && role.mcpServers) || [];
+  const mcpConfigPath = tier === 'exec' ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
+  if (mcpConfigPath) args.push('--mcp-config', mcpConfigPath);
+
+  const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} } : batchSafeSpawn(claude, args);
+  const env = effectiveAnthropicEnv(config);
+
+  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: role && role.permissionMode || 'inherit', mcpServers: roleMcpServers, engine: 'claude' });
+
+  const workingDir = cwd || process.cwd();
+  await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
+  const child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
+  let killed = false;
+  const onAbort = () => { killed = true; try { child.stdin.end(); } catch { /* ignore */ } killChildTree(child.pid); };
+  if (ctrl && ctrl.signal) { if (ctrl.signal.aborted) onAbort(); else ctrl.signal.addEventListener('abort', onAbort, { once: true }); }
+
+  // Idle watchdog — a wedged CLI must not hang the whole DAG run forever.
+  let lastEventAt = Date.now();
+  const idleLimitMs = Math.min(Number(config.turnIdleTimeoutMs) || 600000, 600000);
+  const watchdog = setInterval(() => { if (!killed && Date.now() - lastEventAt > idleLimitMs) onAbort(); }, 5000);
+
+  child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
+  try { child.stdin.write(String(task || ''), 'utf8'); child.stdin.end(); } catch { /* ignore */ }
+  let stderrText = '';
+  child.stderr.on('data', chunk => { stderrText += chunk.toString('utf8'); lastEventAt = Date.now(); });
+
+  let assistantText = '';
+  let toolCallCount = 0;
+  let resultOk = true, resultText = '';
+  let stdoutRemainder = '';
+  // No --include-partial-messages here (a DAG node's aggregated result is all runAgentWorkflow consumes),
+  // so parseClaudeEvent only ever emits whole (non-partial) text — no delta/whole dedup needed.
+  const consumeLine = line => {
+    if (!line.trim()) return;
+    lastEventAt = Date.now();
+    const evt = safeJsonParse(line);
+    if (!evt) return;
+    for (const ev of parseClaudeEvent(evt)) {
+      if (ev.kind === 'text') assistantText += ev.text;
+      else if (ev.kind === 'tool_use') { toolCallCount += 1; onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input, subagentId }); }
+      else if (ev.kind === 'tool_result') onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError, subagentId });
+      else if (ev.kind === 'result') { resultOk = ev.ok !== false; if (ev.result) resultText = ev.result; }
+    }
+  };
+  child.stdout.on('data', chunk => {
+    stdoutRemainder += chunk.toString('utf8');
+    const lines = stdoutRemainder.split(/\r?\n/);
+    stdoutRemainder = lines.pop() || '';
+    for (const line of lines) consumeLine(line);
+  });
+
+  const exit = await new Promise(resolve => {
+    child.on('error', error => resolve({ code: -1, error }));
+    child.on('close', code => resolve({ code }));
+  });
+  clearInterval(watchdog);
+  if (stdoutRemainder.trim()) consumeLine(stdoutRemainder);
+
+  const finalText = (resultText || assistantText).trim();
+  const ok = !killed && exit.code === 0 && resultOk && !!finalText;
+  onEvent({ type: 'subagent', id: subagentId, state: 'end', ok, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
+  if (!ok) {
+    const err = killed ? '节点已中止或空闲超时' : (stderrText.trim().slice(0, 2000) || finalText || `claude 退出码 ${exit.code}`);
+    return { ok: false, error: err, result: finalText, iters: 1, toolCalls: toolCallCount };
+  }
+  return { ok: true, result: finalText, iters: 1, toolCalls: toolCallCount };
+}
+
 async function saveAgentRun(run) {
   const previous = agentRunWriteChains.get(run.id) || Promise.resolve();
   const current = previous.catch(() => {}).then(async () => {
@@ -5120,6 +5324,10 @@ async function runSubAgent(opts) {
     });
     if (typeof opts.onResourceAcquired === 'function') opts.onResourceAcquired(resources);
     if (resources.length && typeof opts.onEvent === 'function') opts.onEvent({ type: 'agent_resource', state: 'acquired', subagentId: opts.subagentId, agentKey: opts.agentKey, resources: resources.map(r => r.label) });
+    // engine: 'claude' runs the node through the real Claude CLI (runClaudeSubAgentOnce) instead of the
+    // HTTP-only OpenAI-provider path — the DAG's other engine, giving it a genuine dual-engine story
+    // matching the rest of the app instead of always requiring a configured OpenAI-compatible Provider.
+    if (opts.engine === 'claude') return await runClaudeSubAgentOnce({ ...opts, cwd: workingDir });
     return await runSubAgentCore({ ...opts, resourceGroup: group });
   } finally {
     releaseResourceLease(lease);
@@ -5374,6 +5582,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       n.maxRetries = Math.max(0, Math.min(5, Math.round(Number(n.maxRetries) || 0)));
       n.retryFallback = n.retryFallback === 'continue' ? 'continue' : 'block';
       n.condition = normalizeWorkflowCondition(n.condition); n.loop = normalizeWorkflowLoop(n.loop);
+      // v1.4.4: backfill engine on runs persisted before the Claude-native DAG path existed.
+      if (n.engine !== 'claude' && n.engine !== 'openai') n.engine = 'openai';
     }
     for (const n of nodes) if (reset.has(n.id)) {
       if (n.isolation && n.isolation.path) await cleanupAgentWorktree(n.isolation);
@@ -5403,7 +5613,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const outputSchema = sanitizeAgentOutputSchema(raw.outputSchema);
       const gate = normalizeAgentGate(raw.gate, roleId);
       const failurePolicy = ['block', 'continue', 'retry'].includes(raw.failurePolicy) ? raw.failurePolicy : 'block';
-      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', model: String(raw.model || (role && role.models && role.models.openai) || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets.openai)) || 6)), outputSchema, gate, failurePolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [] });
+      // v1.4.4: dual-engine DAG nodes. Explicit raw.engine wins; otherwise default to whichever engine
+      // this run actually has available — 'openai' when a Provider was resolved (unchanged behavior for
+      // every existing workflow/test), else 'claude' so a Claude-CLI-only setup no longer needs a Provider
+      // just to run the DAG. role.models.claude/openai are each read for their OWN engine — previously
+      // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
+      const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
+      const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
+      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(12, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 6)), outputSchema, gate, failurePolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -5507,7 +5724,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             await saveAgentRun(run);
           }
           const sub = await runSubAgent({
-            parentSession: agentSession, provider, config,
+            parentSession: agentSession, provider, config, engine: node.engine || 'openai',
             task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
             displayTask: node.task, agentKey: node.id,
             dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
@@ -5581,7 +5798,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   } finally { activeAgentRuns.delete(runId); }
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
-    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, error: n.error, dependsOn: n.dependsOn, role: n.roleId || '', attempts: n.attempts, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '' })),
+    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, error: n.error, dependsOn: n.dependsOn, role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '' })),
   };
 }
 
@@ -5592,7 +5809,10 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   if (!run) return { ok: false, error: 'agent run not found' };
   const config = await readConfig();
   const provider = resolveProvider(config, run.providerId) || activeOpenAiProvider(config);
-  if (!provider) return { ok: false, error: '当前没有可用的 Provider，无法恢复工作流' };
+  // Only the nodes that actually need an OpenAI Provider require one to be configured to resume —
+  // an all-Claude-engine run resumes fine with none (see the dual-engine note on the launch handler).
+  const needsProvider = (Array.isArray(run.nodes) ? run.nodes : []).some(n => (n.engine || 'openai') === 'openai');
+  if (needsProvider && !provider) return { ok: false, error: '当前没有可用的 Provider，无法恢复工作流（该运行含 OpenAI 引擎节点）' };
   const parentSession = await loadSession(sessionId).catch(() => null);
   if (!parentSession) return { ok: false, error: 'session not found' };
   const onEvent = () => {}; // management UI polls persisted state; no chat stream is required
@@ -9275,6 +9495,7 @@ async function handleApi(req, res, pathname) {
       })(),
       models: offlineModelList(config), // instant offline list; UI enriches via GET /api/models (proxy)
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (DeepSeek/DashScope/custom)
+      claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (Ark Coding Plan/custom)
       detectedClaudePath: detectClaudePath(),
       mcpConfigPath: await generateMcpConfig(config.mcpCommandMode),
       // v0.7d: desktop MCP discovery status for the settings UI. `detected` is the autodetect result
@@ -9585,9 +9806,10 @@ async function handleApi(req, res, pathname) {
     return send(res, json({ ok: true, count: items.length }));
   }
   if (req.method === 'POST' && pathname === '/api/agent-workflow/launch') {
-    // Claude CLI's one-shot MCP child proxies the persistent DAG into the serve process. The DAG
-    // uses a configured OpenAI-compatible provider for worker nodes while the Claude parent remains
-    // native; events are mirrored into the live Claude stream and the run stays inspectable.
+    // Claude CLI's one-shot MCP child proxies the persistent DAG into the serve process. v1.4.4: the DAG
+    // is genuinely dual-engine now — each node picks 'openai' (HTTP against a configured Provider) or
+    // 'claude' (a native one-shot `claude` CLI spawn, runClaudeSubAgentOnce) via runAgentWorkflow's
+    // per-node engine resolution, so a Claude-CLI-only setup no longer needs a Provider configured at all.
     const body = await readJsonBody(req);
     if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const sessionId = safeSessionId(body.sessionId);
@@ -9596,7 +9818,13 @@ async function handleApi(req, res, pathname) {
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     const config = await readConfig();
     const provider = resolveProvider(config, body.providerId) || (config.providers || []).find(p => p && p.baseUrl && (p.model || (p.models && p.models.length)));
-    if (!provider) return send(res, json({ ok: false, error: 'Claude CLI 的 Agent DAG 需要至少配置一个 OpenAI 兼容 Provider' }, 400));
+    const claudeCli = config.claudePath || detectClaudePath();
+    const claudeCliUsable = Boolean(process.env.WCW_FAKE_CLAUDE) || Boolean(claudeCli && existsExecutable(claudeCli)); // test seam, see runClaudeTurn
+    // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
+    // requesting an unavailable engine still fails gracefully per-node inside runAgentWorkflow.
+    if (!provider && !claudeCliUsable) {
+      return send(res, json({ ok: false, error: 'Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI' }, 400));
+    }
     const reg = activeChildren.get(sessionId); const onEvent = reg && reg.onEvent ? reg.onEvent : () => {};
     let launchNodes = body.nodes;
     if ((!Array.isArray(launchNodes) || !launchNodes.length) && body.workflowId) {
@@ -10117,11 +10345,14 @@ function offlineModelList(config) {
 // Best-effort live model list from the intranet proxy's /v1/models. NEVER throws (returns [] on any
 // problem: no base URL, offline, timeout, non-2xx, bad JSON). Auth/URL come from config or env.
 async function fetchProxyModels(config, timeoutMs = 2500) {
-  const base = String((config && config.modelsApiBase) || process.env.ANTHROPIC_BASE_URL || process.env.ANTHROPIC_BASE || '').trim().replace(/\/+$/, '');
+  // v1.4.4: reuse the exact same env resolution the real Claude CLI child gets (effectiveAnthropicEnv),
+  // so the discovered list can never point at a different endpoint than what actually answers the chat.
+  const effEnv = effectiveAnthropicEnv(config);
+  const base = String(effEnv.ANTHROPIC_BASE_URL || effEnv.ANTHROPIC_BASE || '').trim().replace(/\/+$/, '');
   if (!base || typeof fetch !== 'function' || typeof AbortController !== 'function') return [];
-  const key = String((config && config.modelsApiKey) || process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY || '').trim();
   const headers = { 'anthropic-version': '2023-06-01' };
-  if (key) { headers['x-api-key'] = key; headers['authorization'] = 'Bearer ' + key; }
+  if (effEnv.ANTHROPIC_AUTH_TOKEN) headers['authorization'] = 'Bearer ' + effEnv.ANTHROPIC_AUTH_TOKEN;
+  if (effEnv.ANTHROPIC_API_KEY) headers['x-api-key'] = effEnv.ANTHROPIC_API_KEY;
   const ctrl = new AbortController();
   const timer = setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs);
   try {

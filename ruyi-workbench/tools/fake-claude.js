@@ -14,6 +14,15 @@
 const fs = require('fs');
 const readline = require('readline');
 if (process.env.WCW_FAKE_ARGV_CAPTURE) { try { fs.writeFileSync(process.env.WCW_FAKE_ARGV_CAPTURE, JSON.stringify(process.argv.slice(2), null, 2)); } catch {} }
+// Lets a test assert exactly which Anthropic-endpoint env vars this child actually received (e.g. that
+// buildClaudeCliEnv's config-driven overrides reached the spawned process instead of a stale OS value).
+if (process.env.WCW_FAKE_ENV_CAPTURE) {
+  try {
+    const keys = ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX'];
+    const snapshot = {}; for (const k of keys) snapshot[k] = process.env[k] ?? null;
+    fs.writeFileSync(process.env.WCW_FAKE_ENV_CAPTURE, JSON.stringify(snapshot, null, 2));
+  } catch { /* ignore */ }
+}
 
 const SID = 'fake-' + Math.random().toString(16).slice(2, 10);
 const initEvt = { type: 'system', subtype: 'init', session_id: SID, tools: [], model: 'fake-model' };

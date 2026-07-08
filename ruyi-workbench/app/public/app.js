@@ -2392,16 +2392,17 @@ async function openWorkflowEditor(initialId) {
     for(const node of draft.nodes){for(const dep of node.dependsOn||[]){const from=draft.nodes.find(x=>x.id===dep);if(!from)continue;const line=document.createElementNS(NS,'line');line.setAttribute('x1',String((from.position?.x||0)+210));line.setAttribute('y1',String((from.position?.y||0)+45));line.setAttribute('x2',String(node.position?.x||0));line.setAttribute('y2',String((node.position?.y||0)+45));line.setAttribute('marker-end','url(#wf-arrow)');svg.appendChild(line);}}
   }
   function renderGraph(){ graph.textContent=''; const NS='http://www.w3.org/2000/svg',svg=document.createElementNS(NS,'svg');svg.classList.add('workflow-edges');graph.appendChild(svg);drawEdges(svg);
-    for(const node of draft.nodes){const card=el('button',`workflow-node-card${node.id===selectedId?' selected':''}`);card.type='button';card.style.left=`${node.position?.x||0}px`;card.style.top=`${node.position?.y||0}px`;card.append(el('strong','',node.id),el('span','',node.role||'无角色'),el('small','',(node.dependsOn||[]).length?`依赖 ${(node.dependsOn||[]).join(', ')}`:'起点'));card.onclick=()=>{selectedId=node.id;renderGraph();renderInspector();};
+    for(const node of draft.nodes){const card=el('button',`workflow-node-card${node.id===selectedId?' selected':''}`);card.type='button';card.style.left=`${node.position?.x||0}px`;card.style.top=`${node.position?.y||0}px`;const engineTag=node.engine==='claude'?' · Claude CLI':node.engine==='openai'?' · OpenAI':'';card.append(el('strong','',node.id),el('span','',(node.role||'无角色')+engineTag),el('small','',(node.dependsOn||[]).length?`依赖 ${(node.dependsOn||[]).join(', ')}`:'起点'));card.onclick=()=>{selectedId=node.id;renderGraph();renderInspector();};
       card.addEventListener('pointerdown',e=>{if(e.button!==0)return;const sx=e.clientX,sy=e.clientY,ox=node.position?.x||0,oy=node.position?.y||0;card.setPointerCapture(e.pointerId);const move=ev=>{node.position={x:Math.max(0,ox+ev.clientX-sx),y:Math.max(0,oy+ev.clientY-sy)};card.style.left=`${node.position.x}px`;card.style.top=`${node.position.y}px`;};const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);renderGraph();};card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);});graph.appendChild(card); }
   }
   function renderInspector(){inspector.textContent='';const node=draft.nodes.find(x=>x.id===selectedId);if(!node){inspector.append(el('p','muted','选择一个节点'));return;} const oldId=node.id;
     const nid=document.createElement('input');nid.value=node.id;const task=document.createElement('textarea');task.rows=5;task.value=node.task||'';const role=document.createElement('select');{const empty=document.createElement('option');empty.value='';empty.textContent='无角色';role.appendChild(empty);for(const r of roles){const o=document.createElement('option');o.value=r.id;o.textContent=r.label||r.id;role.appendChild(o);}role.value=node.role||'';}
+    const engine=document.createElement('select');for(const [v,t] of [['','自动（跟随可用引擎）'],['openai','OpenAI Provider'],['claude','Claude CLI']]){const o=document.createElement('option');o.value=v;o.textContent=t;engine.appendChild(o);}engine.value=node.engine||'';
     const deps=document.createElement('input');deps.value=(node.dependsOn||[]).join(', ');const failure=document.createElement('select');for(const [v,t] of [['block','阻塞下游'],['continue','降级继续'],['retry','自动重试']]){const o=document.createElement('option');o.value=v;o.textContent=t;failure.appendChild(o);}failure.value=node.failurePolicy||'block';
     const condition=document.createElement('input');condition.placeholder='如 review.verdict == "fail"';condition.value=workflowConditionText(node.condition);
     const loopMax=document.createElement('input');loopMax.type='number';loopMax.min='1';loopMax.max='20';loopMax.value=node.loop?.maxIterations||1;const loopUntil=document.createElement('input');loopUntil.placeholder='可选，如 loop.done == true';loopUntil.value=workflowConditionText(node.loop?.until);const noProgress=document.createElement('input');noProgress.type='number';noProgress.min='1';noProgress.max='10';noProgress.value=node.loop?.noProgressLimit||2;
-    inspector.append(workflowField('节点 ID',nid),workflowField('任务',task),workflowField('角色',role),workflowField('依赖（逗号分隔）',deps),workflowField('失败策略',failure),workflowField('运行条件',condition),workflowField('最大循环次数',loopMax),workflowField('循环停止条件',loopUntil),workflowField('连续无进展停止',noProgress));
-    const apply=el('button','mini primary','应用节点设置');apply.onclick=()=>{const nextId=nid.value.trim();if(!/^[A-Za-z0-9_-]+$/.test(nextId))return toast('节点 ID 只能用字母、数字、_、-','err');if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId))return toast('节点 ID 重复','err');node.id=nextId;node.task=task.value.trim();node.role=role.value;node.dependsOn=deps.value.split(',').map(x=>x.trim()).filter(x=>x&&x!==nextId);node.failurePolicy=failure.value;node.maxRetries=failure.value==='retry'?1:0;node.condition=parseWorkflowConditionText(condition.value);if(condition.value.trim()&&!node.condition)return toast('运行条件格式无效','err');if(node.condition?.node&&node.condition.node!==nextId&&!node.dependsOn.includes(node.condition.node))node.dependsOn.push(node.condition.node);const lm=Math.max(1,Number(loopMax.value)||1),until=parseWorkflowConditionText(loopUntil.value);if(loopUntil.value.trim()&&!until)return toast('循环停止条件格式无效','err');node.loop=lm>1?{maxIterations:lm,until,noProgressLimit:Math.max(1,Number(noProgress.value)||2),onNoProgress:'continue'}:null;if(nextId!==oldId)for(const n of draft.nodes)n.dependsOn=(n.dependsOn||[]).map(x=>x===oldId?nextId:x);selectedId=nextId;renderGraph();renderInspector();};inspector.appendChild(apply);
+    inspector.append(workflowField('节点 ID',nid),workflowField('任务',task),workflowField('角色',role),workflowField('执行引擎',engine),workflowField('依赖（逗号分隔）',deps),workflowField('失败策略',failure),workflowField('运行条件',condition),workflowField('最大循环次数',loopMax),workflowField('循环停止条件',loopUntil),workflowField('连续无进展停止',noProgress));
+    const apply=el('button','mini primary','应用节点设置');apply.onclick=()=>{const nextId=nid.value.trim();if(!/^[A-Za-z0-9_-]+$/.test(nextId))return toast('节点 ID 只能用字母、数字、_、-','err');if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId))return toast('节点 ID 重复','err');node.id=nextId;node.task=task.value.trim();node.role=role.value;node.engine=engine.value;node.dependsOn=deps.value.split(',').map(x=>x.trim()).filter(x=>x&&x!==nextId);node.failurePolicy=failure.value;node.maxRetries=failure.value==='retry'?1:0;node.condition=parseWorkflowConditionText(condition.value);if(condition.value.trim()&&!node.condition)return toast('运行条件格式无效','err');if(node.condition?.node&&node.condition.node!==nextId&&!node.dependsOn.includes(node.condition.node))node.dependsOn.push(node.condition.node);const lm=Math.max(1,Number(loopMax.value)||1),until=parseWorkflowConditionText(loopUntil.value);if(loopUntil.value.trim()&&!until)return toast('循环停止条件格式无效','err');node.loop=lm>1?{maxIterations:lm,until,noProgressLimit:Math.max(1,Number(noProgress.value)||2),onNoProgress:'continue'}:null;if(nextId!==oldId)for(const n of draft.nodes)n.dependsOn=(n.dependsOn||[]).map(x=>x===oldId?nextId:x);selectedId=nextId;renderGraph();renderInspector();};inspector.appendChild(apply);
   }
   loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;renderGraph();renderInspector();};
   addBtn.onclick=()=>{let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;renderGraph();renderInspector();};
@@ -2456,11 +2457,12 @@ function renderAgentRuns(runs) {
       const row = el('details', `agent-node an-${node.status || 'unknown'}`);
       const deps = Array.isArray(node.dependsOn) && node.dependsOn.length ? ` ← ${node.dependsOn.join(', ')}` : '';
       const roleTag = (node.roleLabel || node.roleId) ? ` · 角色 ${node.roleLabel || node.roleId}` : '';
+      const engineTag = node.engine === 'claude' ? ' · Claude CLI' : node.engine === 'openai' ? ' · OpenAI' : '';
       const gateTag = node.gate && node.gate.mode ? ` · 门 ${node.gate.mode}` : '';
       const confidenceTag = Number.isFinite(Number(node.confidence)) ? ` · 置信度 ${Math.round(Number(node.confidence) * 100)}%` : '';
       const policyTag = node.failurePolicy ? ` · 失败:${node.failurePolicy}` : '';
       const loopTag = node.loop ? ` · 循环 ${node.loopIteration || 0}/${node.loop.maxIterations}${node.loopStopReason ? ` (${node.loopStopReason})` : ''}` : '';
-      row.appendChild(el('summary', 'agent-node-head', `${node.status === 'succeeded' ? '✓' : node.status === 'skipped' ? '↷' : node.status === 'running' ? '◐' : node.status === 'failed' ? '✗' : node.status === 'blocked' ? '⊘' : '○'} ${node.id}${deps}${roleTag}${gateTag}${confidenceTag}${policyTag}${loopTag} · ${agentRunStatusLabel(node.status)} · 尝试 ${node.attempts || 0}`));
+      row.appendChild(el('summary', 'agent-node-head', `${node.status === 'succeeded' ? '✓' : node.status === 'skipped' ? '↷' : node.status === 'running' ? '◐' : node.status === 'failed' ? '✗' : node.status === 'blocked' ? '⊘' : '○'} ${node.id}${deps}${roleTag}${engineTag}${gateTag}${confidenceTag}${policyTag}${loopTag} · ${agentRunStatusLabel(node.status)} · 尝试 ${node.attempts || 0}`));
       const body = el('div', 'agent-node-body'); body.appendChild(el('div', 'agent-node-task', node.task || ''));
       if (Array.isArray(node.resources) && node.resources.length) {
         const resourceRow = el('div', 'agent-node-resources');
@@ -3723,6 +3725,8 @@ function fillSettings() {
   $('cfgExtraModels').value = (c.extraModels || []).join('\n');
   $('cfgModelsApiBase').value = c.modelsApiBase || '';
   $('cfgModelsApiKey').value = c.modelsApiKey || '';
+  { const el0 = $('cfgClaudeAuthMode'); if (el0) el0.value = ['auto', 'bearer', 'x-api-key'].includes(c.claudeAuthMode) ? c.claudeAuthMode : 'auto'; }
+  populateClaudeEndpointPresets();
   const kp = $('cfgKillPort'); if (kp) kp.checked = c.killPortOnStart !== false;
   // v1.0.2 (G5a): 单回合工具调用上限 (openaiMaxToolIterations, 1..100, 默认 40)。
   { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 40; }
@@ -3806,6 +3810,7 @@ async function saveSettings() {
     extraModels: $('cfgExtraModels').value.split('\n').map(s => s.trim()).filter(Boolean),
     modelsApiBase: $('cfgModelsApiBase').value.trim(),
     modelsApiKey: $('cfgModelsApiKey').value,
+    claudeAuthMode: $('cfgClaudeAuthMode') ? $('cfgClaudeAuthMode').value : (state.config.claudeAuthMode || 'auto'),
     killPortOnStart: $('cfgKillPort') ? $('cfgKillPort').checked : (state.config.killPortOnStart !== false),
     // v1.0.2 (G5a): 单回合工具调用上限。Number() 转换 + 夹到 1..100(后端 normalizeConfig 亦再夹一次)。
     openaiMaxToolIterations: (() => {
@@ -3849,6 +3854,33 @@ async function saveSettings() {
   await refreshStatus();
 }
 
+/* ---------------- Claude CLI third-party endpoint presets (Coding Plan) ---------------- */
+// Fills the flat modelsApiBase/modelsApiKey/claudeAuthMode/extraModels fields for the Claude CLI engine
+// (not a Provider — those stay in providersDraft). One click replaces the manual setx steps in
+// docs/manuals/ADMIN-GUIDE_CN.md §2.1.1.
+function populateClaudeEndpointPresets() {
+  const sel = $('cfgClaudeEndpointPreset'); if (!sel) return;
+  const previous = sel.value;
+  sel.innerHTML = '';
+  const presets = (state.status && state.status.claudeEndpointPresets) || [];
+  for (const p of presets) { const o = el('option'); o.value = p.id; o.textContent = p.label || p.id; sel.appendChild(o); }
+  if (presets.some(p => p.id === previous)) sel.value = previous;
+}
+function applyClaudeEndpointPreset() {
+  const sel = $('cfgClaudeEndpointPreset'); if (!sel) return;
+  const presets = (state.status && state.status.claudeEndpointPresets) || [];
+  const preset = presets.find(p => p.id === sel.value) || presets[0];
+  if (!preset) return;
+  $('cfgModelsApiBase').value = preset.baseUrl || '';
+  const authSel = $('cfgClaudeAuthMode'); if (authSel) authSel.value = ['auto', 'bearer', 'x-api-key'].includes(preset.authMode) ? preset.authMode : 'auto';
+  // Never clobber a key the user already typed; a preset only ever supplies endpoint/model shape, not secrets.
+  const keyInput = $('cfgModelsApiKey');
+  if (keyInput && !keyInput.value.trim() && preset.authKeyHint) keyInput.placeholder = preset.authKeyHint;
+  if (preset.models && preset.models.length) {
+    $('cfgExtraModels').value = preset.models.filter(m => m.id).map(m => `${m.id}|${m.label || m.id}`).join('\n');
+  }
+  toast(`已应用预设：${preset.label}${preset.defaultModelHint ? '（' + preset.defaultModelHint + '）' : ''}，请填入密钥后保存`, 'ok');
+}
 /* ---------------- providers (native OpenAI-compatible engines) ---------------- */
 function populateProviderPresets() {
   const sel = $('providerPresetSelect'); if (!sel) return;
@@ -4811,6 +4843,7 @@ function bindEvents() {
   // settings modal
   $('saveConfigBtn').onclick = saveSettings;
   { const ap = $('addProviderBtn'); if (ap) ap.onclick = addProviderFromPreset; }
+  { const cp0 = $('applyClaudeEndpointPresetBtn'); if (cp0) cp0.onclick = applyClaudeEndpointPreset; }
   { const im = $('importMcpFolderBtn'); if (im) im.onclick = () => importMcpFromFolder(im); } // v1.0.2 (G5c)
   { const b = $('agentRoleRefreshBtn'); if (b) b.onclick = loadAgentRoles; }
   { const b = $('agentRoleAddBtn'); if (b) b.onclick = addAgentRole; }

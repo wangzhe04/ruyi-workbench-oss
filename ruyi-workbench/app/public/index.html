@@ -424,23 +424,39 @@
               <label class="check"><input type="checkbox" id="cfgPermBridge" /> 权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）</label>
             </div>
             <hr class="settings-sep" />
-            <h4 class="settings-subhead">模型清单发现（Anthropic 代理）</h4>
+            <h4 class="settings-subhead">第三方 Anthropic 兼容端点（Coding Plan）</h4>
+            <p class="muted prov-hint">在此配置的端点/密钥/模型会直接注入 Claude CLI 子进程的环境变量，驱动真实对话（不再只是模型清单探测），无需手动 setx。模型可在顶栏「模型」里热切。</p>
             <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgDiscoverModels" /> 自动向内网代理拉取可用模型（GET /v1/models；失败自动回退到内置清单）</label>
+              <label for="cfgClaudeEndpointPreset">预设</label>
+              <select id="cfgClaudeEndpointPreset"></select>
+              <button type="button" id="applyClaudeEndpointPresetBtn" class="mini">应用预设</button>
+            </div>
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgModelsApiBase">端点 Base URL（留空=沿用系统环境变量 ANTHROPIC_BASE_URL）</label>
+                <input id="cfgModelsApiBase" type="text" placeholder="https://ark.cn-beijing.volces.com/api/coding" />
+              </div>
+              <div class="field-block">
+                <label for="cfgModelsApiKey">端点密钥（留空=沿用系统环境变量）</label>
+                <input id="cfgModelsApiKey" type="password" placeholder="留空=沿用系统环境变量" autocomplete="off" />
+              </div>
+              <div class="field-block">
+                <label for="cfgClaudeAuthMode">鉴权方式</label>
+                <select id="cfgClaudeAuthMode">
+                  <option value="auto">自动（两种请求头都发，兼容大多数端点）</option>
+                  <option value="bearer">Bearer Token（ANTHROPIC_AUTH_TOKEN，如 Ark Coding Plan）</option>
+                  <option value="x-api-key">x-api-key（ANTHROPIC_API_KEY，Anthropic 官方协议）</option>
+                </select>
+              </div>
+            </div>
+            <hr class="settings-sep" />
+            <h4 class="settings-subhead">模型清单发现</h4>
+            <div class="field-row">
+              <label class="check"><input type="checkbox" id="cfgDiscoverModels" /> 自动向上方端点拉取可用模型（GET /v1/models；失败自动回退到内置清单）</label>
             </div>
             <div class="field-block">
               <label for="cfgExtraModels">自定义模型（每行一个，可写 <code>id</code> 或 <code>id|显示名</code>）</label>
               <textarea id="cfgExtraModels" rows="2" placeholder="claude-opus-4-8|我的Opus&#10;my-internal-model"></textarea>
-            </div>
-            <div class="field-grid">
-              <div class="field-block">
-                <label for="cfgModelsApiBase">模型接口 Base URL（留空=用 ANTHROPIC_BASE_URL 环境变量）</label>
-                <input id="cfgModelsApiBase" type="text" placeholder="http://内网代理:端口" />
-              </div>
-              <div class="field-block">
-                <label for="cfgModelsApiKey">模型接口密钥（留空=用 ANTHROPIC_AUTH_TOKEN/API_KEY 环境变量）</label>
-                <input id="cfgModelsApiKey" type="password" placeholder="留空=自动检测" autocomplete="off" />
-              </div>
             </div>
           </div>
 
