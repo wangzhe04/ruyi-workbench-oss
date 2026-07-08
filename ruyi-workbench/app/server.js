@@ -4994,6 +4994,40 @@ const CLAUDE_SUBAGENT_SAFE_MODES = new Set(['bypass', 'auto', 'dontAsk', 'plan']
 // runAgentWorkflow can gate/retry/loop on its return value exactly like it already does for the OpenAI
 // HTTP path (runSubAgentCore), giving the DAG a real second (Claude-native) execution engine instead of
 // always requiring an OpenAI-compatible Provider.
+// v1.4.5: classify a Claude-engine sub-agent failure so runClaudeSubAgentOnce's bounded retry loop can
+// decide whether to try again. The Claude CLI is a black box that does its OWN internal retry for
+// 429/overload/network, but it still SURFACES a failure to us when its retry budget is exhausted or the
+// process itself blips (startup/connect crash, OOM kill). Previously that single non-zero exit killed the
+// node - and with the default failurePolicy 'block', the whole workflow (the "分发出去的子agent经常性失败"
+// symptom). This classifier mirrors the OpenAI sub-agent path's transient set (transportError / 429 /
+// 502/503/504 via failoverStatus, expressed here as CLI stderr text) plus the CLI-specific "died before
+// producing anything" startup-crash case. Definitive errors (auth / model-not-found / context overflow /
+// a clean error result the CLI emitted on exit 0) are NOT retried - retrying them only burns time.
+function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistantText, toolCallCount, gotResult, resultOk }) {
+  if (killed) return { retry: false, reason: 'aborted' };
+  // 防重放: the CLI already emitted assistant text or executed tools before failing. Re-running would
+  // replay those side effects (file writes etc.), so never retry - matches runSubAgentCore's "mid-stream
+  // errors are NOT retried" rule.
+  if ((assistantText && String(assistantText).trim()) || toolCallCount > 0) return { retry: false, reason: 'progress_made' };
+  // The CLI ran to a clean `result` event but reported is_error / subtype:error (e.g. an in-CLI tool
+  // execution error). That is deterministic, not transient - retrying won't change it.
+  if (gotResult && resultOk === false) return { retry: false, reason: 'clean_error_result' };
+  const s = String(stderrText || '');
+  // Definitive non-transient signatures (auth / model / bad request / context overflow).
+  if (/invalid_api_key|authentication_error|auth.*fail|unauthor|\b401\b|permission_denied|\b403\b|model_not_found|not_found_error|\b404\b|invalid_request_error|context.*(length|window|too\s*long|too\s*large|exceed)|maximum.*context|too_many_tokens|prompt_too_long/i.test(s)) {
+    return { retry: false, reason: 'definitive' };
+  }
+  // Transient signatures: rate limit / overload / 5xx / network / connect / TLS - the same set the OpenAI
+  // path retries (transportError + 429 + 502/503/504), expressed as CLI stderr text.
+  if (/rate_limit|rate.?limit|\b429\b|too many requests|overloaded|overloaded_error|\b5\d{2}\b|api_error|internal server|bad gateway|service unavailable|gateway timeout|fetch failed|failed to fetch|etimedout|econnreset|econnrefused|enotfound|eaddr|socket hang up|network error|connection (?:error|reset|refused|timeout)|und_err_|certificate|self-signed|tls error|getaddrinfo|timed out/i.test(s)) {
+    return { retry: true, reason: 'transient' };
+  }
+  // Non-zero exit with no result event and no assistant text: the CLI died before doing any work (a
+  // startup/connect blip its own retry budget couldn't ride out, or a process crash). Cautiously retry -
+  // cheap, and a fresh process often succeeds; bounded by MAX_ATTEMPTS so a hard outage still fails fast.
+  if (exitCode !== 0 && !gotResult) return { retry: true, reason: 'no_output_crash' };
+  return { retry: false, reason: 'unknown' };
+}
 async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd }) {
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
@@ -5032,61 +5066,83 @@ async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, depe
 
   const workingDir = cwd || process.cwd();
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
-  const child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
-  let killed = false;
-  const onAbort = () => { killed = true; try { child.stdin.end(); } catch { /* ignore */ } killChildTree(child.pid); };
-  if (ctrl && ctrl.signal) { if (ctrl.signal.aborted) onAbort(); else ctrl.signal.addEventListener('abort', onAbort, { once: true }); }
-
-  // Idle watchdog — a wedged CLI must not hang the whole DAG run forever.
-  let lastEventAt = Date.now();
   const idleLimitMs = Math.min(Number(config.turnIdleTimeoutMs) || 600000, 600000);
-  const watchdog = setInterval(() => { if (!killed && Date.now() - lastEventAt > idleLimitMs) onAbort(); }, 5000);
 
-  child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
-  try { child.stdin.write(String(task || ''), 'utf8'); child.stdin.end(); } catch { /* ignore */ }
-  let stderrText = '';
-  child.stderr.on('data', chunk => { stderrText += chunk.toString('utf8'); lastEventAt = Date.now(); });
+  // v1.4.5: transient-error resilience parity with runSubAgentCore (OpenAI path) + streamWithFailover
+  // (parent turn). The CLI is retried inline a bounded number of times when a failure is classified
+  // transient by classifyClaudeSubagentFailure AND made no progress (防重放). One shared abort handler
+  // kills whichever child is current; the watchdog is per-attempt.
+  let killed = false;
+  let currentChild = null;
+  const onAbort = () => { killed = true; if (currentChild) { try { currentChild.stdin.end(); } catch { /* ignore */ } killChildTree(currentChild.pid); } };
+  if (ctrl && ctrl.signal) { if (ctrl.signal.aborted) killed = true; else ctrl.signal.addEventListener('abort', onAbort, { once: true }); }
 
-  let assistantText = '';
-  let toolCallCount = 0;
-  let resultOk = true, resultText = '';
-  let stdoutRemainder = '';
-  // No --include-partial-messages here (a DAG node's aggregated result is all runAgentWorkflow consumes),
-  // so parseClaudeEvent only ever emits whole (non-partial) text — no delta/whole dedup needed.
-  const consumeLine = line => {
-    if (!line.trim()) return;
-    lastEventAt = Date.now();
-    const evt = safeJsonParse(line);
-    if (!evt) return;
-    for (const ev of parseClaudeEvent(evt)) {
-      if (ev.kind === 'text') assistantText += ev.text;
-      else if (ev.kind === 'tool_use') { toolCallCount += 1; onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input, subagentId }); }
-      else if (ev.kind === 'tool_result') onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError, subagentId });
-      else if (ev.kind === 'result') { resultOk = ev.ok !== false; if (ev.result) resultText = ev.result; }
+  // One CLI spawn attempt -> collected exit/output state. Does NOT decide retry; the loop below does.
+  const runOnce = () => new Promise(resolve => {
+    const child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
+    currentChild = child;
+    let lastEventAt = Date.now();
+    // Idle watchdog - a wedged CLI must not hang the whole DAG run forever (per-attempt).
+    const watchdog = setInterval(() => { if (!killed && Date.now() - lastEventAt > idleLimitMs) onAbort(); }, 5000);
+    child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
+    try { child.stdin.write(String(task || ''), 'utf8'); child.stdin.end(); } catch { /* ignore */ }
+    let stderrText = '';
+    child.stderr.on('data', chunk => { stderrText += chunk.toString('utf8'); lastEventAt = Date.now(); });
+
+    let assistantText = '';
+    let toolCallCount = 0;
+    let resultOk = true, resultText = '', gotResult = false;
+    let stdoutRemainder = '';
+    // No --include-partial-messages here (a DAG node's aggregated result is all runAgentWorkflow consumes),
+    // so parseClaudeEvent only ever emits whole (non-partial) text - no delta/whole dedup needed.
+    const consumeLine = line => {
+      if (!line.trim()) return;
+      lastEventAt = Date.now();
+      const evt = safeJsonParse(line);
+      if (!evt) return;
+      for (const ev of parseClaudeEvent(evt)) {
+        if (ev.kind === 'text') assistantText += ev.text;
+        else if (ev.kind === 'tool_use') { toolCallCount += 1; onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input, subagentId }); }
+        else if (ev.kind === 'tool_result') onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError, subagentId });
+        else if (ev.kind === 'result') { gotResult = true; resultOk = ev.ok !== false; if (ev.result) resultText = ev.result; }
+      }
+    };
+    child.stdout.on('data', chunk => {
+      stdoutRemainder += chunk.toString('utf8');
+      const lines = stdoutRemainder.split(/\r?\n/);
+      stdoutRemainder = lines.pop() || '';
+      for (const line of lines) consumeLine(line);
+    });
+    let settled = false;
+    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); if (stdoutRemainder.trim()) consumeLine(stdoutRemainder); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult }); };
+    child.on('error', () => finish(-1));
+    child.on('close', code => finish(code == null ? -1 : code));
+  });
+
+  const MAX_ATTEMPTS = 3;
+  let lastFinalText = '', lastErr = '', lastToolCalls = 0;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (killed) break;
+    const res = await runOnce();
+    const finalText = (res.resultText || res.assistantText).trim();
+    const ok = !killed && res.exitCode === 0 && res.resultOk && !!finalText;
+    if (ok) {
+      onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
+      return { ok: true, result: finalText, iters: 1, toolCalls: res.toolCallCount };
     }
-  };
-  child.stdout.on('data', chunk => {
-    stdoutRemainder += chunk.toString('utf8');
-    const lines = stdoutRemainder.split(/\r?\n/);
-    stdoutRemainder = lines.pop() || '';
-    for (const line of lines) consumeLine(line);
-  });
-
-  const exit = await new Promise(resolve => {
-    child.on('error', error => resolve({ code: -1, error }));
-    child.on('close', code => resolve({ code }));
-  });
-  clearInterval(watchdog);
-  if (stdoutRemainder.trim()) consumeLine(stdoutRemainder);
-
-  const finalText = (resultText || assistantText).trim();
-  const ok = !killed && exit.code === 0 && resultOk && !!finalText;
-  onEvent({ type: 'subagent', id: subagentId, state: 'end', ok, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
-  if (!ok) {
-    const err = killed ? '节点已中止或空闲超时' : (stderrText.trim().slice(0, 2000) || finalText || `claude 退出码 ${exit.code}`);
-    return { ok: false, error: err, result: finalText, iters: 1, toolCalls: toolCallCount };
+    lastFinalText = finalText; lastToolCalls = res.toolCallCount;
+    lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
+    const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk });
+    if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) break;
+    onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: cls.reason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
+    // Bounded backoff an abort can cut short (mirrors runSubAgentCore's transient-retry sleep).
+    await new Promise(r => {
+      const t = setTimeout(r, Math.min(2000, 300 * attempt));
+      if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
+    });
   }
-  return { ok: true, result: finalText, iters: 1, toolCalls: toolCallCount };
+  onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: false, resultChars: lastFinalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
+  return { ok: false, error: lastErr || '子代理未产出结论', result: lastFinalText, iters: 1, toolCalls: lastToolCalls };
 }
 
 async function saveAgentRun(run) {
@@ -5183,10 +5239,14 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   if (key) headers['authorization'] = 'Bearer ' + key;
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
+  // v1.4.5: useTools/toolsRetried mirror runOpenAiTurn - a tools-rejected 400 retries once WITHOUT tools
+  // instead of failing the sub-turn outright (the sub-turn previously ignored openAiStreamOnce's
+  // toolsRejected flag and died on the 400). Mutated by the transient-retry loop below.
+  let useTools = tools.length > 0, toolsRetried = false;
   const buildBody = () => {
     const b = { model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
-    if (tools.length) { b.tools = tools; b.tool_choice = 'auto'; }
+    if (useTools) { b.tools = tools; b.tool_choice = 'auto'; }
     return b;
   };
 
@@ -5204,10 +5264,36 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       if (iter >= budget) { subErr = `子代理已达迭代上限 ${budget} 轮`; if (!resultText.trim()) subOk = false; break; }
       iters = iter + 1;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
-      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage: noopUsage, rawSeqRef, touch: () => {} });
-      // v1.0-S6 (B): the sub-turn runs on a SINGLE endpoint (no failover here). openAiStreamOnce now returns a
-      // pre-first-byte transport failure structurally instead of throwing — fold it into httpError so this
-      // branch handles it exactly as the old throw→catch did (subOk=false, subErr=the message).
+      // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
+      // (502/503/504) + a toolsRejected retry; the sub-turn previously had NEITHER, so a single transient
+      // gateway blip, rate-limit (429) or connect/TLS failure on a sub-agent call failed the whole node - and
+      // with the default failurePolicy 'block', the whole workflow (the "时不时运行失败" symptom). Retry
+      // pre-first-byte transient failures a bounded number of times with backoff, and honor toolsRejected by
+      // retrying once without tools. Mid-stream errors are NOT retried (防重放, matching the parent turn -
+      // openAiStreamOnce lets those propagate to the catch below).
+      let call = null, giveUp = false, transientAttempts = 0;
+      while (true) {
+        if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; giveUp = true; break; }
+        call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage: noopUsage, rawSeqRef, touch: () => {} });
+        if (call.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; continue; }
+        const he0 = String(call.httpError || '');
+        const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
+        const transient = call.transportError || call.failoverStatus || status0 === 429;
+        if (transient && transientAttempts < 3) {
+          transientAttempts += 1;
+          await new Promise(r => {
+            const t = setTimeout(r, Math.min(2000, 250 * transientAttempts));
+            if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
+          });
+          continue;
+        }
+        break;
+      }
+      if (giveUp) break;
+      // v1.0-S6 (B): the sub-turn runs on a SINGLE endpoint (transient retry above, but no multi-endpoint
+      // failover). openAiStreamOnce returns a pre-first-byte transport failure structurally instead of
+      // throwing; the loop above already folded transportError into httpError for its own retry decision, and
+      // the final call is folded again here so the classification below sees a uniform httpError.
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
       if (call.httpError) {
         subOk = false;

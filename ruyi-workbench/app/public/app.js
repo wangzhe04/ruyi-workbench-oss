@@ -2606,6 +2606,13 @@ function handleSubagentEvent(evt, live) {
     live.subCards.set(id, { d, body, status: sum.querySelector('.sa-status'), tierTag, roleTag, modelTag, driverTag, dependencyTag });
     return;
   }
+  if (evt.state === 'retry') {
+    // v1.4.5: a Claude/CLI sub-agent's transient failure is being retried inline (bounded). Surface it
+    // on the card head so the user sees "retrying" rather than a silent stall before the final ✓/✗.
+    const host = live.subCards.get(id);
+    if (host && host.status) host.status.textContent = `重试中 ${evt.attempt || ''}/${evt.maxAttempts || ''} · ${(String(evt.error || evt.reason || '')).slice(0, 80)}`;
+    return;
+  }
   if (evt.state === 'end') {
     const host = live.subCards.get(id);
     if (!host) return;
