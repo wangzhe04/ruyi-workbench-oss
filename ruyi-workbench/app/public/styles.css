@@ -1113,7 +1113,10 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .workflow-field input, .workflow-field select, .workflow-field textarea { width: 100%; color: var(--text); }
 .workflow-editor-toolbar { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 8px; }
 .workflow-editor-layout { display: grid; grid-template-columns: minmax(560px, 1fr) 290px; gap: 10px; }
-.workflow-graph { position: relative; min-height: 510px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background-color: var(--panel-2); background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 24px 24px; }
+/* Fixed (not min-) height, bounded by viewport: the graph's own horizontal/vertical scrollbars must sit
+   inside this box at a height that's always on-screen without first scrolling the outer .modal-body —
+   min-height let the box grow past the visible modal area, hiding the scrollbar below the fold. */
+.workflow-graph { position: relative; height: min(510px, 52vh); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background-color: var(--panel-2); background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 24px 24px; }
 .workflow-edges { position: absolute; inset: 0; width: 1400px; height: 1000px; overflow: visible; pointer-events: none; }
 .workflow-edges line { stroke: var(--muted); stroke-width: 1.5; }
 .workflow-edges path { fill: var(--muted); }
@@ -1121,7 +1124,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .workflow-node-card:active { cursor: grabbing; }
 .workflow-node-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
 .workflow-node-card span, .workflow-node-card small { color: var(--muted); }
-.workflow-inspector { display: flex; flex-direction: column; gap: 8px; padding: 10px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+.workflow-inspector { display: flex; flex-direction: column; gap: 8px; padding: 10px; height: min(510px, 52vh); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
 .agent-node.an-skipped { border-left: 3px solid var(--muted); opacity: .82; }
 .agent-run-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); }
 .agent-run-card.ar-running, .agent-run-card.ar-paused { border-left: 3px solid var(--accent); }
@@ -1161,7 +1164,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .agent-role-field input, .agent-role-field select, .agent-role-field textarea { width: 100%; color: var(--text); }
 .native-claude-role-list { margin-top: 12px; }
 .native-claude-role { padding: 6px 8px; margin-top: 5px; border-left: 2px solid var(--accent); background: var(--panel-2); font-size: 11px; overflow-wrap: anywhere; }
-@media (max-width: 760px) { .agent-role-edit-body { grid-template-columns: 1fr; } .agent-role-field:has(textarea) { grid-column: auto; } .workflow-editor { width: calc(100vw - 50px); } .workflow-meta, .workflow-editor-layout { grid-template-columns: 1fr; } .workflow-graph { min-height: 420px; } }
+@media (max-width: 760px) { .agent-role-edit-body { grid-template-columns: 1fr; } .agent-role-field:has(textarea) { grid-column: auto; } .workflow-editor { width: calc(100vw - 50px); } .workflow-meta, .workflow-editor-layout { grid-template-columns: 1fr; } .workflow-graph, .workflow-inspector { height: min(420px, 42vh); } }
 .changes-empty { padding: 18px 12px; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.6;
   border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); }
 .change-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); overflow: hidden; }

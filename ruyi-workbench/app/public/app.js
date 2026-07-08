@@ -2354,14 +2354,34 @@ async function loadAgentWorkflows() {
   for (const wf of agentWorkflowLibrary) { const o = document.createElement('option'); o.value = wf.id; o.textContent = `${wf.source === 'builtin' ? '内置' : wf.source === 'project' ? '项目' : '个人'} · ${wf.title}`; select.appendChild(o); }
   if (agentWorkflowLibrary.some(x => x.id === previous)) select.value = previous;
 }
-async function launchAgentWorkflow(workflow) {
+async function launchAgentWorkflow(workflow, context) {
   if (!state.currentSession?.id) await newSession();
   const wf = workflow || agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value); if (!wf) return toast('请选择工作流', 'err');
   try {
-    const r = await api('/api/agent-workflow/launch', { method: 'POST', body: JSON.stringify({ token: wcwToken(), sessionId: state.currentSession.id, nodes: wf.nodes }) });
+    const body = { token: wcwToken(), sessionId: state.currentSession.id, nodes: wf.nodes };
+    if (context && context.trim()) body.context = context.trim();
+    const r = await api('/api/agent-workflow/launch', { method: 'POST', body: JSON.stringify(body) });
     if (!r || (!r.ok && !r.runId)) throw new Error(r && r.error || '启动失败');
     toast(`工作流已启动：${wf.title}`, 'ok'); switchTab('agent-runs'); await loadAgentRuns();
   } catch (e) { toast(`工作流启动失败：${e.message || e}`, 'err'); }
+}
+// Quick "运行模板" launch, from the dropdown in the Agent 工作流 tab. Unlike the graphical editor's own
+// "保存并运行" (where the user has already written real per-node task text), a quick-select template's
+// node tasks are generic placeholders with no actual subject — clicking straight through ran it blind
+// with no relevant task context. Ask for one line of context first; it's prepended to every node's task.
+function launchAgentWorkflowFromQuickSelect() {
+  const wf = agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value);
+  if (!wf) return toast('请选择工作流', 'err');
+  const body = el('div');
+  body.append(el('p', 'muted', `即将运行「${wf.title}」。补充这次运行的具体任务/主题，工作流的每个节点都会基于它展开（留空则按模板原文运行，多数情况下没有实际意义）。`));
+  const ctx = document.createElement('textarea'); ctx.rows = 4; ctx.placeholder = '例如：评估是否要把订单服务从单体拆成微服务';
+  body.appendChild(workflowField('任务背景', ctx));
+  const foot = el('div', 'modal-actions');
+  const cancel = el('button', '', '取消'); const run = el('button', 'primary', '运行');
+  foot.append(cancel, run);
+  const modal = buildModal(`运行模板：${wf.title}`, body, foot);
+  cancel.onclick = () => modal.close();
+  run.onclick = async () => { const context = ctx.value; modal.close(); await launchAgentWorkflow(wf, context); };
 }
 function workflowBlank() { return { id: `workflow-${Date.now().toString(36)}`, title: '新工作流', description: '', source: 'personal', nodes: [{ id: 'step_1', task: '描述这个节点要完成的任务', role: 'worker', dependsOn: [], failurePolicy: 'block', position: { x: 40, y: 120 } }] }; }
 function workflowField(label, input) { const wrap = el('label', 'workflow-field'); wrap.append(el('span', '', label), input); return wrap; }
@@ -2395,18 +2415,71 @@ async function openWorkflowEditor(initialId) {
     for(const node of draft.nodes){const card=el('button',`workflow-node-card${node.id===selectedId?' selected':''}`);card.type='button';card.style.left=`${node.position?.x||0}px`;card.style.top=`${node.position?.y||0}px`;const engineTag=node.engine==='claude'?' · Claude CLI':node.engine==='openai'?' · OpenAI':'';card.append(el('strong','',node.id),el('span','',(node.role||'无角色')+engineTag),el('small','',(node.dependsOn||[]).length?`依赖 ${(node.dependsOn||[]).join(', ')}`:'起点'));card.onclick=()=>{selectedId=node.id;renderGraph();renderInspector();};
       card.addEventListener('pointerdown',e=>{if(e.button!==0)return;const sx=e.clientX,sy=e.clientY,ox=node.position?.x||0,oy=node.position?.y||0;card.setPointerCapture(e.pointerId);const move=ev=>{node.position={x:Math.max(0,ox+ev.clientX-sx),y:Math.max(0,oy+ev.clientY-sy)};card.style.left=`${node.position.x}px`;card.style.top=`${node.position.y}px`;};const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);renderGraph();};card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);});graph.appendChild(card); }
   }
+  // Remap any OTHER node's reference to a node id across all three reference kinds (dependsOn, its own
+  // condition, and its loop's until condition) — rename must keep all three in sync, not just dependsOn,
+  // or a save is rejected server-side with no indication of which reference broke it.
+  function remapWorkflowNodeRef(fromId,toId){
+    for(const n of draft.nodes){
+      n.dependsOn=(n.dependsOn||[]).map(x=>x===fromId?toId:x);
+      if(n.condition&&n.condition.node===fromId)n.condition={...n.condition,node:toId};
+      if(n.loop&&n.loop.until&&n.loop.until.node===fromId)n.loop={...n.loop,until:{...n.loop.until,node:toId}};
+    }
+  }
+  // Clear (not remap) any OTHER node's reference to a deleted node id, across the same three kinds.
+  // Returns how many condition/loop references were cleared (dependsOn silently drops — that's just a
+  // graph edge — but clearing a condition changes the node's behavior, so the caller should tell the user).
+  function clearWorkflowNodeRef(deadId){
+    let cleared=0;
+    for(const n of draft.nodes){
+      n.dependsOn=(n.dependsOn||[]).filter(x=>x!==deadId);
+      if(n.condition&&n.condition.node===deadId){n.condition=null;cleared++;}
+      if(n.loop&&n.loop.until&&n.loop.until.node===deadId){n.loop={...n.loop,until:null};cleared++;}
+    }
+    return cleared;
+  }
   function renderInspector(){inspector.textContent='';const node=draft.nodes.find(x=>x.id===selectedId);if(!node){inspector.append(el('p','muted','选择一个节点'));return;} const oldId=node.id;
     const nid=document.createElement('input');nid.value=node.id;const task=document.createElement('textarea');task.rows=5;task.value=node.task||'';const role=document.createElement('select');{const empty=document.createElement('option');empty.value='';empty.textContent='无角色';role.appendChild(empty);for(const r of roles){const o=document.createElement('option');o.value=r.id;o.textContent=r.label||r.id;role.appendChild(o);}role.value=node.role||'';}
     const engine=document.createElement('select');for(const [v,t] of [['','自动（跟随可用引擎）'],['openai','OpenAI Provider'],['claude','Claude CLI']]){const o=document.createElement('option');o.value=v;o.textContent=t;engine.appendChild(o);}engine.value=node.engine||'';
     const deps=document.createElement('input');deps.value=(node.dependsOn||[]).join(', ');const failure=document.createElement('select');for(const [v,t] of [['block','阻塞下游'],['continue','降级继续'],['retry','自动重试']]){const o=document.createElement('option');o.value=v;o.textContent=t;failure.appendChild(o);}failure.value=node.failurePolicy||'block';
+    const maxRetries=document.createElement('input');maxRetries.type='number';maxRetries.min='1';maxRetries.max='5';maxRetries.value=node.maxRetries||1;
     const condition=document.createElement('input');condition.placeholder='如 review.verdict == "fail"';condition.value=workflowConditionText(node.condition);
     const loopMax=document.createElement('input');loopMax.type='number';loopMax.min='1';loopMax.max='20';loopMax.value=node.loop?.maxIterations||1;const loopUntil=document.createElement('input');loopUntil.placeholder='可选，如 loop.done == true';loopUntil.value=workflowConditionText(node.loop?.until);const noProgress=document.createElement('input');noProgress.type='number';noProgress.min='1';noProgress.max='10';noProgress.value=node.loop?.noProgressLimit||2;
-    inspector.append(workflowField('节点 ID',nid),workflowField('任务',task),workflowField('角色',role),workflowField('执行引擎',engine),workflowField('依赖（逗号分隔）',deps),workflowField('失败策略',failure),workflowField('运行条件',condition),workflowField('最大循环次数',loopMax),workflowField('循环停止条件',loopUntil),workflowField('连续无进展停止',noProgress));
-    const apply=el('button','mini primary','应用节点设置');apply.onclick=()=>{const nextId=nid.value.trim();if(!/^[A-Za-z0-9_-]+$/.test(nextId))return toast('节点 ID 只能用字母、数字、_、-','err');if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId))return toast('节点 ID 重复','err');node.id=nextId;node.task=task.value.trim();node.role=role.value;node.engine=engine.value;node.dependsOn=deps.value.split(',').map(x=>x.trim()).filter(x=>x&&x!==nextId);node.failurePolicy=failure.value;node.maxRetries=failure.value==='retry'?1:0;node.condition=parseWorkflowConditionText(condition.value);if(condition.value.trim()&&!node.condition)return toast('运行条件格式无效','err');if(node.condition?.node&&node.condition.node!==nextId&&!node.dependsOn.includes(node.condition.node))node.dependsOn.push(node.condition.node);const lm=Math.max(1,Number(loopMax.value)||1),until=parseWorkflowConditionText(loopUntil.value);if(loopUntil.value.trim()&&!until)return toast('循环停止条件格式无效','err');node.loop=lm>1?{maxIterations:lm,until,noProgressLimit:Math.max(1,Number(noProgress.value)||2),onNoProgress:'continue'}:null;if(nextId!==oldId)for(const n of draft.nodes)n.dependsOn=(n.dependsOn||[]).map(x=>x===oldId?nextId:x);selectedId=nextId;renderGraph();renderInspector();};inspector.appendChild(apply);
+    inspector.append(workflowField('节点 ID',nid),workflowField('任务',task),workflowField('角色',role),workflowField('执行引擎',engine),workflowField('依赖（逗号分隔）',deps),workflowField('失败策略',failure),workflowField('自动重试次数（失败策略=自动重试 时生效）',maxRetries),workflowField('运行条件',condition),workflowField('最大循环次数',loopMax),workflowField('循环停止条件',loopUntil),workflowField('连续无进展停止',noProgress));
+    const apply=el('button','mini primary','应用节点设置');
+    apply.onclick=()=>{
+      // Validate EVERYTHING first — nothing on `node`/`draft` is written until every field parses, so a
+      // rejected apply (bad condition syntax, duplicate id, ...) leaves the draft exactly as it was.
+      const nextId=nid.value.trim();
+      if(!/^[A-Za-z0-9_-]+$/.test(nextId))return toast('节点 ID 只能用字母、数字、_、-','err');
+      if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId))return toast('节点 ID 重复','err');
+      const nextDependsOn=deps.value.split(',').map(x=>x.trim()).filter(x=>x&&x!==nextId);
+      const nextCondition=parseWorkflowConditionText(condition.value);
+      if(condition.value.trim()&&!nextCondition)return toast('运行条件格式无效','err');
+      const lm=Math.max(1,Number(loopMax.value)||1);
+      const nextUntil=parseWorkflowConditionText(loopUntil.value);
+      if(loopUntil.value.trim()&&!nextUntil)return toast('循环停止条件格式无效','err');
+      // All parsed OK — now commit.
+      if(nextCondition?.node&&nextCondition.node!==nextId&&!nextDependsOn.includes(nextCondition.node))nextDependsOn.push(nextCondition.node);
+      const nextLoop=lm>1?{maxIterations:lm,until:nextUntil,noProgressLimit:Math.max(1,Number(noProgress.value)||2),onNoProgress:'continue'}:null;
+      node.id=nextId;node.task=task.value.trim();node.role=role.value;node.engine=engine.value;
+      node.dependsOn=nextDependsOn;node.failurePolicy=failure.value;
+      node.maxRetries=failure.value==='retry'?Math.max(1,Math.min(5,Math.round(Number(maxRetries.value)||1))):0;
+      node.condition=nextCondition;node.loop=nextLoop;
+      if(nextId!==oldId)remapWorkflowNodeRef(oldId,nextId);
+      selectedId=nextId;renderGraph();renderInspector();
+    };
+    inspector.appendChild(apply);
   }
   loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;renderGraph();renderInspector();};
   addBtn.onclick=()=>{let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;renderGraph();renderInspector();};
-  deleteBtn.onclick=()=>{if(draft.nodes.length<=1)return toast('至少保留一个节点','err');draft.nodes=draft.nodes.filter(x=>x.id!==selectedId);for(const n of draft.nodes)n.dependsOn=(n.dependsOn||[]).filter(x=>x!==selectedId);selectedId=draft.nodes[0]?.id;renderGraph();renderInspector();};
+  deleteBtn.onclick=()=>{
+    if(draft.nodes.length<=1)return toast('至少保留一个节点','err');
+    const deadId=selectedId;
+    draft.nodes=draft.nodes.filter(x=>x.id!==deadId);
+    const cleared=clearWorkflowNodeRef(deadId);
+    selectedId=draft.nodes[0]?.id;renderGraph();renderInspector();
+    if(cleared)toast(`已删除节点，并清除 ${cleared} 处指向它的运行条件/循环停止条件（这些节点将变为无条件执行）`,'');
+  };
   async function saveDraft(){syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||'保存失败');draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
   cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast('工作流已保存','ok');modal.close();}catch(e){toast(e.message,'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){toast(e.message,'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast('内置模板不可删除','err');try{await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();toast('已删除工作流','ok');modal.close();}catch(e){toast(e.message,'err');}};
   renderGraph();renderInspector();
@@ -3728,10 +3801,11 @@ function fillSettings() {
   { const el0 = $('cfgClaudeAuthMode'); if (el0) el0.value = ['auto', 'bearer', 'x-api-key'].includes(c.claudeAuthMode) ? c.claudeAuthMode : 'auto'; }
   populateClaudeEndpointPresets();
   const kp = $('cfgKillPort'); if (kp) kp.checked = c.killPortOnStart !== false;
-  // v1.0.2 (G5a): 单回合工具调用上限 (openaiMaxToolIterations, 1..100, 默认 40)。
-  { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 40; }
-  { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 2)); }
-  { const el0 = $('cfgSubagentMaxPerTurn'); if (el0) el0.value = Math.max(0, Math.min(32, Number.isFinite(Number(c.subagentMaxPerTurn)) ? Number(c.subagentMaxPerTurn) : 4)); }
+  // v1.0.2 (G5a): 单回合工具调用上限 (openaiMaxToolIterations, 1..100, 默认 100)。
+  { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 100; }
+  { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 8)); }
+  { const el0 = $('cfgSubagentMaxPerTurn'); if (el0) el0.value = Math.max(0, Math.min(32, Number.isFinite(Number(c.subagentMaxPerTurn)) ? Number(c.subagentMaxPerTurn) : 32)); }
+  { const el0 = $('cfgAgentWorkflowMaxNodes'); if (el0) el0.value = Math.max(1, Math.min(32, Number(c.agentWorkflowMaxNodes) || 32)); }
   // v0.7d: integrations / MCP tab.
   const dm = c.desktopMcp || {};
   const dmEn = $('cfgDesktopMcpEnabled'); if (dmEn) dmEn.checked = dm.enabled !== false;
@@ -3815,20 +3889,25 @@ async function saveSettings() {
     // v1.0.2 (G5a): 单回合工具调用上限。Number() 转换 + 夹到 1..100(后端 normalizeConfig 亦再夹一次)。
     openaiMaxToolIterations: (() => {
       const el0 = $('cfgOpenaiMaxToolIterations');
-      if (!el0) return state.config.openaiMaxToolIterations || 40;
+      if (!el0) return state.config.openaiMaxToolIterations || 100;
       const n = Math.round(Number(el0.value));
-      if (!Number.isFinite(n)) return 40;
+      if (!Number.isFinite(n)) return 100;
       return Math.max(1, Math.min(100, n));
     })(),
     subagentMaxConcurrent: (() => {
       const el0 = $('cfgSubagentMaxConcurrent');
       const n = Math.round(Number(el0 ? el0.value : state.config.subagentMaxConcurrent));
-      return Number.isFinite(n) ? Math.max(1, Math.min(8, n)) : 2;
+      return Number.isFinite(n) ? Math.max(1, Math.min(8, n)) : 8;
     })(),
     subagentMaxPerTurn: (() => {
       const el0 = $('cfgSubagentMaxPerTurn');
       const n = Math.round(Number(el0 ? el0.value : state.config.subagentMaxPerTurn));
-      return Number.isFinite(n) ? Math.max(0, Math.min(32, n)) : 4;
+      return Number.isFinite(n) ? Math.max(0, Math.min(32, n)) : 32;
+    })(),
+    agentWorkflowMaxNodes: (() => {
+      const el0 = $('cfgAgentWorkflowMaxNodes');
+      const n = Math.round(Number(el0 ? el0.value : state.config.agentWorkflowMaxNodes));
+      return Number.isFinite(n) ? Math.max(1, Math.min(32, n)) : 32;
     })(),
     providers: state.providersDraft || [],
     // v0.7d: desktop MCP + bridge switch. autodetect stays on so a blank command keeps auto-discovering.
@@ -4825,7 +4904,7 @@ function bindEvents() {
   { const ar = $('artifactsRefreshBtn'); if (ar) ar.onclick = renderArtifactsGallery; } // v0.9-S4 (C4)
   { const ar = $('agentRunsRefreshBtn'); if (ar) ar.onclick = loadAgentRuns; }
   { const we = $('workflowEditorBtn'); if (we) we.onclick = () => openWorkflowEditor(); }
-  { const wr = $('workflowQuickRunBtn'); if (wr) wr.onclick = () => launchAgentWorkflow(); }
+  { const wr = $('workflowQuickRunBtn'); if (wr) wr.onclick = launchAgentWorkflowFromQuickSelect; }
   { const cr = $('changesRefreshBtn'); if (cr) cr.onclick = loadChanges; } // v1.0.2 (G1)
   // v0.9-S8 (§4 B4): audit tab — refresh re-pulls (resets loaded so loadAudit re-fetches); filters are
   // client-side over the already-fetched list (instant, no re-fetch).

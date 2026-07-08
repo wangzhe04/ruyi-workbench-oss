@@ -151,7 +151,7 @@ function defaultConfig() {
     // --- v0.5: multi-provider engine (native OpenAI-compatible: DeepSeek / DashScope / local vLLM/Ollama) ---
     activeProvider: '',           // '' | 'claude-cli' -> Anthropic via the claude CLI (default). Else a providers[].id -> native engine.
     providers: [],                // [{ id,label,type:'openai-compat',baseUrl,apiKey,model,models,reasoning,systemPrompt,temperature,extraHeaders }]
-    openaiMaxToolIterations: 40,  // v1.0.2-S1: safety cap on the native agent tool loop (default 12→40; clamp 1..100)
+    openaiMaxToolIterations: 100, // v1.0.2-S1: safety cap on the native agent tool loop (clamp 1..100; v1.4.4 default raised 40->100, the top of the clamp — most users were hitting this mid-task)
     // --- v0.7d: external / desktop MCP integration ---
     // Convenience entry for the user's own ai-computer-control desktop MCP (Windows control). When
     // enabled + command empty + autodetect, detectDesktopMcp() locates it; blank command => absent => graceful.
@@ -199,9 +199,18 @@ function defaultConfig() {
     // drive-root/home fingerprint set. normalizeConfig cleanses to a de-duped string array truncated to 10.
     recentWorkspaces: [],
     // Sub-agent orchestration limits. maxConcurrent controls one parallel stage; maxPerTurn controls all
-    // stages combined. 0 total disables spawn_agent entirely.
-    subagentMaxConcurrent: 2,
-    subagentMaxPerTurn: 4,
+    // stages combined (an ad hoc spawn_agent/orchestrate_agents fan-out WITHIN one chat turn — NOT the
+    // same budget as a persisted Agent 工作流 DAG's node count, see agentWorkflowMaxNodes below).
+    // 0 total disables spawn_agent entirely. v1.4.4: defaults raised to the top of each clamp range
+    // (subagentMaxConcurrent 1..8, subagentMaxPerTurn 0..32) — most real workflows were hitting these.
+    subagentMaxConcurrent: 8,
+    subagentMaxPerTurn: 32,
+    // v1.4.4: max nodes a persisted Agent 工作流 DAG may have (both a fresh /api/agent-workflow/launch and
+    // a resumed run). Previously the fresh-launch path wrongly reused subagentMaxPerTurn (a per-CHAT-TURN
+    // ad hoc fan-out budget) as the DAG's node-count ceiling — a 4-node default rejected any real pipeline
+    // with 5+ nodes outright, while resuming the SAME run used a hardcoded 32. Clamp 1..32 (32 is also the
+    // hard systemic cap in normalizeAgentWorkflow/runAgentWorkflow's own `.slice(0, 32)`).
+    agentWorkflowMaxNodes: 32,
     // Global role overrides/custom roles. Built-ins are merged at read time; project roles live in
     // <workspace>/.ruyi/agents.json so the same definition works with Claude CLI and OpenAI providers.
     agentRoleOverrides: [],
@@ -333,7 +342,7 @@ function normalizeConfig(raw) {
   }
   {
     const mi = Number(config.openaiMaxToolIterations);
-    const clamped = Number.isFinite(mi) ? Math.min(100, Math.max(1, Math.round(mi))) : 40; // v1.0.2-S1: 上限 50→100, 兜底 12→40
+    const clamped = Number.isFinite(mi) ? Math.min(100, Math.max(1, Math.round(mi))) : 100; // v1.4.4: 兜底 40→100
     if (clamped !== config.openaiMaxToolIterations) { config.openaiMaxToolIterations = clamped; changed = true; }
   }
   // v0.7d: desktopMcp — coerce field types; a malformed/absent value falls back to the enabled+autodetect default.
@@ -439,15 +448,22 @@ function normalizeConfig(raw) {
     else config.recentWorkspaces = clean;
   }
   // Sub-agent limits: concurrency is configurable but bounded; total 0 disables the feature.
+  // v1.4.4: fallback defaults raised to the top of each range (8 / 32) — see defaultConfig() note.
   {
     const sc = Number(config.subagentMaxConcurrent);
-    const clamped = Number.isFinite(sc) ? Math.min(8, Math.max(1, Math.round(sc))) : 2;
+    const clamped = Number.isFinite(sc) ? Math.min(8, Math.max(1, Math.round(sc))) : 8;
     if (clamped !== config.subagentMaxConcurrent) { config.subagentMaxConcurrent = clamped; changed = true; }
   }
   {
     const sm = Number(config.subagentMaxPerTurn);
-    const clamped = Number.isFinite(sm) ? Math.min(32, Math.max(0, Math.round(sm))) : 4;
+    const clamped = Number.isFinite(sm) ? Math.min(32, Math.max(0, Math.round(sm))) : 32;
     if (clamped !== config.subagentMaxPerTurn) { config.subagentMaxPerTurn = clamped; changed = true; }
+  }
+  // v1.4.4: agentWorkflowMaxNodes — persisted Agent 工作流 DAG node-count ceiling (see defaultConfig()).
+  {
+    const am = Number(config.agentWorkflowMaxNodes);
+    const clamped = Number.isFinite(am) ? Math.min(32, Math.max(1, Math.round(am))) : 32;
+    if (clamped !== config.agentWorkflowMaxNodes) { config.agentWorkflowMaxNodes = clamped; changed = true; }
   }
   {
     const rawRoles = Array.isArray(config.agentRoleOverrides) ? config.agentRoleOverrides : [];
@@ -5477,6 +5493,7 @@ function normalizeAgentWorkflow(raw, opts = {}) {
     const pos = item.position && typeof item.position === 'object' ? { x: Math.max(0, Math.min(4000, Number(item.position.x) || 0)), y: Math.max(0, Math.min(4000, Number(item.position.y) || 0)) } : null;
     nodes.push({
       id: nodeId, task, role: String(item.role || '').trim().toLowerCase().slice(0, 64),
+      engine: item.engine === 'claude' || item.engine === 'openai' ? item.engine : '',
       dependsOn: [...new Set((Array.isArray(item.dependsOn) ? item.dependsOn : []).map(x => String(x || '').trim()).filter(Boolean))].slice(0, 16),
       toolTier: ['read', 'edit', 'exec'].includes(item.toolTier) ? item.toolTier : undefined,
       maxIters: Math.max(1, Math.min(12, Math.round(Number(item.maxIters) || 6))), model: String(item.model || '').trim().slice(0, 160),
@@ -5510,6 +5527,20 @@ async function getAgentWorkflows(cwd) {
   for (const wf of await readPersonalAgentWorkflows()) merged.set(wf.id, wf);
   for (const wf of await readProjectAgentWorkflows(cwd)) merged.set(wf.id, wf);
   return [...merged.values()];
+}
+// v1.4.4: shared by every orchestrate_agents dispatch site (in-turn OpenAI call, MCP-child loopback via
+// /api/agent-workflow/launch, and that same HTTP handler for a direct UI launch) so a saved/builtin
+// workflow can be referenced BY ID instead of the caller always re-authoring a full inline `nodes` DAG —
+// this is what actually lets the model itself choose "run workflow X" mid-conversation; previously the
+// tool schema documented `workflowId` but neither in-turn dispatch path resolved it (args.nodes was
+// always undefined for a workflowId-only call, so it just failed with "nodes 必须是非空数组").
+async function resolveOrchestrateNodes(args, cwd) {
+  if (Array.isArray(args && args.nodes) && args.nodes.length) return { nodes: args.nodes, error: null };
+  const workflowId = String((args && args.workflowId) || '').trim();
+  if (!workflowId) return { nodes: null, error: 'nodes 或 workflowId 必须提供其一' };
+  const workflow = (await getAgentWorkflows(cwd)).find(x => x.id === workflowId);
+  if (!workflow) return { nodes: null, error: `未找到工作流: ${workflowId}` };
+  return { nodes: workflow.nodes, error: null };
 }
 async function saveAgentWorkflow(scope, cwd, raw) {
   const wf = normalizeAgentWorkflow(raw, { source: scope }); if (!wf) return null;
@@ -5554,7 +5585,7 @@ function workflowProgressFingerprint(node) {
 
 // Execute a complete dependency graph without asking the parent model to schedule every stage. The graph
 // and node transitions are persisted after each state change so progress remains inspectable after a crash.
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText }) {
   let run, nodes, runId;
   const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
   if (existingRun) {
@@ -5596,7 +5627,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     runId = makeId('run');
     const limit = Math.max(0, Number(maxNodes) || 0);
     if (!Array.isArray(rawNodes) || !rawNodes.length) return { ok: false, error: 'nodes 必须是非空数组', startedCount: 0 };
-    if (!limit || rawNodes.length > limit) return { ok: false, error: `本回合剩余子代理额度不足(${limit}),需要 ${rawNodes.length}`, startedCount: 0 };
+    // v1.4.4: wording is caller-agnostic — this same check gates BOTH an ad hoc in-turn orchestrate_agents
+    // call (limit = remaining per-turn spawn_agent budget) and a persisted DAG launch (limit =
+    // agentWorkflowMaxNodes), which are different concepts with different callers.
+    if (!limit || rawNodes.length > limit) return { ok: false, error: `节点数超出上限(${limit}),需要 ${rawNodes.length}`, startedCount: 0 };
     const ids = new Set(); nodes = [];
     for (const raw of rawNodes.slice(0, 32)) {
       const id = String(raw && raw.id || '').trim().slice(0, 64);
@@ -5697,7 +5731,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         : '';
       const schemaInstruction = effectiveSchema ? `\n\n输出必须是严格 JSON（不要 Markdown 代码围栏），并满足此 JSON Schema：\n${JSON.stringify(effectiveSchema)}` : '';
       const iterationText = node.loopIteration > 0 && node.result ? `\n\n这是第 ${node.loopIteration + 1} 次循环。上一轮结果如下，请在此基础上取得可验证进展：\n${String(node.result).slice(0, 12000)}` : '';
-      const effectiveTask = (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + qualityInstruction + schemaInstruction;
+      // A template's node tasks are often generic placeholders ("分析议题…") with no actual subject — a
+      // launch-time context string (from the quick-run prompt, or from the model's own orchestrate_agents
+      // call) gives every node the same concrete subject to work from, without having to rewrite the DAG.
+      const contextPrefix = contextText ? `任务背景（本次运行时提供）：\n${String(contextText).slice(0, 4000)}\n\n` : '';
+      const effectiveTask = contextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + qualityInstruction + schemaInstruction;
       let agentSession = parentSession;
       let isolated = false;
       let effectiveResources = node.resources;
@@ -5775,7 +5813,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           node.loopStopReason = 'no_progress'; if (node.loop.onNoProgress === 'fail') { node.status = 'failed'; node.error = `连续 ${node.noProgressCount} 轮无进展，已停止`; }
         } else if (node.loopIteration < node.loop.maxIterations) {
           node.status = 'queued'; node.completedAt = null;
-          onEvent({ type: 'agent_workflow', state: 'node_loop', id: runId, nodeId: node.id, iteration: node.loopIteration + 1, maxIterations: node.loop.maxIterations });
+          onEvent({ type: 'agent_workflow', state: 'node_loop', id: runId, nodeId: node.id, iteration: node.loopIteration + 1, maxIterations: node.loop.maxIterations, noProgressCount: node.noProgressCount });
         } else node.loopStopReason = 'max_iterations';
       }
       if (node.status === 'failed' && node.failurePolicy === 'retry' && node.attempts <= node.maxRetries) {
@@ -5818,7 +5856,9 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   const onEvent = () => {}; // management UI polls persisted state; no chat stream is required
   void runAgentWorkflow({
     parentSession, provider, config, onEvent, existingRun: run, retryNodeId, retryCascade,
-    permModeOverride: config.permissionMode, maxNodes: 32,
+    // maxNodes is unused on the existingRun path (only the fresh-run branch checks it against rawNodes.length)
+    // but pass the same config-driven ceiling for consistency rather than a stray hardcoded 32.
+    permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
   }).catch(async e => {
     run.status = 'failed'; run.error = String(e && e.message || e); run.completedAt = nowIso();
     await saveAgentRun(run).catch(() => {}); activeAgentRuns.delete(runId);
@@ -5934,6 +5974,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let sys = buildProviderSystemPrompt(provider, model, workingDir, tools, caps, config, projectMemory);
   if (agentRoleMap.size && ownTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
     sys += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
+  }
+  // v1.4.4: list saved/built-in workflow templates so orchestrate_agents' workflowId can actually be used
+  // — the model has no other way to discover which ids exist. Only relevant when the tool is offered.
+  if (ownTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
+    const workflows = await getAgentWorkflows(workingDir).catch(() => []);
+    if (workflows.length) {
+      sys += '\n\n可用工作流模板（orchestrate_agents 的 workflowId）：' + workflows.map(w => `${w.id}(${w.title}：${w.description || '无说明'})`).join('；') + '。已有模板形状匹配时优先用 workflowId + context 复用，而不是重新手写 nodes；context 填这次运行的具体任务/主题（模板节点的任务文字通常是不带主题的占位描述）。';
+    }
   }
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
   // instruction (not baked into buildProviderSystemPrompt — kept here so it never leaks into summary/identity
@@ -6295,10 +6343,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               resultObj = await (subagentPromises.get(tc.id) || Promise.resolve({ ok: false, error: '子代理调度失败' }));
             } else {
               const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
-              resultObj = await runAgentWorkflow({
-                parentSession: session, provider, config, nodes: args.nodes, onEvent, ctrl,
-                permModeOverride: subPermMode, maxNodes: subagentTurnCap - subagentTotal,
-              });
+              const resolved = await resolveOrchestrateNodes(args, normalizeCwd(session.cwd, config.defaultWorkspace));
+              if (resolved.error) resultObj = { ok: false, error: resolved.error, startedCount: 0 };
+              else {
+                resultObj = await runAgentWorkflow({
+                  parentSession: session, provider, config, nodes: resolved.nodes, onEvent, ctrl,
+                  permModeOverride: subPermMode, maxNodes: subagentTurnCap - subagentTotal, contextText: String(args.context || '').trim(),
+                });
+              }
               subagentTotal += Math.max(0, Number(resultObj && resultObj.startedCount) || 0);
             }
             // Share the normal tool-result tail (event + records + history push) via the block below.
@@ -9311,7 +9363,10 @@ Write-Output '${outPath.replace(/'/g, "''")}'
         const token = process.env.WCW_TOKEN, sessionId = process.env.WCW_SESSION_ID || '';
         if (!port || !token || !sessionId) return { ok: false, error: 'Agent DAG 需要工作台会话上下文' };
         try {
-          const resp = await httpRequest({ url: `http://${host}:${port}/api/agent-workflow/launch`, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, sessionId, nodes: args.nodes, providerId: args.providerId }), timeoutMs: 900000, maxBodyChars: 200000 });
+          // v1.4.4: forward workflowId/context too — the model choosing a saved template BY REFERENCE
+          // (instead of always having to author a full inline `nodes` DAG itself) only works if this
+          // loopback actually passes those fields through to the one place that resolves them.
+          const resp = await httpRequest({ url: `http://${host}:${port}/api/agent-workflow/launch`, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, sessionId, nodes: args.nodes, workflowId: args.workflowId, context: args.context, providerId: args.providerId }), timeoutMs: 900000, maxBodyChars: 200000 });
           return safeJsonParse(resp.body, { ok: false, error: 'invalid agent workflow response' });
         } catch (e) { return { ok: false, error: `Agent DAG loopback error: ${(e && e.message) || String(e)}` }; }
       }
@@ -9826,12 +9881,13 @@ async function handleApi(req, res, pathname) {
       return send(res, json({ ok: false, error: 'Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI' }, 400));
     }
     const reg = activeChildren.get(sessionId); const onEvent = reg && reg.onEvent ? reg.onEvent : () => {};
-    let launchNodes = body.nodes;
-    if ((!Array.isArray(launchNodes) || !launchNodes.length) && body.workflowId) {
-      const workflow = (await getAgentWorkflows(normalizeCwd(session.cwd, config.defaultWorkspace))).find(x => x.id === String(body.workflowId));
-      launchNodes = workflow && workflow.nodes;
-    }
-    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: launchNodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.subagentMaxPerTurn) || 0) });
+    const resolved = await resolveOrchestrateNodes(body, normalizeCwd(session.cwd, config.defaultWorkspace));
+    if (resolved.error) return send(res, json({ ok: false, error: resolved.error, startedCount: 0 }));
+    // v1.4.4: a persisted DAG's node-count ceiling is agentWorkflowMaxNodes, NOT subagentMaxPerTurn (that's
+    // an ad hoc, single-CHAT-TURN spawn_agent/orchestrate_agents fan-out budget — a 4-node default there
+    // used to reject any real pipeline with 5+ nodes outright here, even though resuming the same run used
+    // a hardcoded 32).
+    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText: String(body.context || '').trim() });
     return send(res, json(result));
   }
   // v0.8-S4a: checkpoint query (read-only → same-origin gate is enough; not in needsToken).
@@ -10837,7 +10893,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'orchestrate_agents',
-    description: 'Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, deterministic voting/deduplication, cross-review, confidence thresholds, and per-node failure policies (block, degraded continue, retry).',
+    description: "Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, deterministic voting/deduplication, cross-review, confidence thresholds, and per-node failure policies (block, degraded continue, retry). Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (list them via the workflow library) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) when an existing template already matches the shape of what's being asked.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -10849,6 +10905,7 @@ const MCP_TOOLS = [
               id: { type: 'string', description: 'unique stable node id, letters/numbers/_/- only' },
               task: { type: 'string', description: 'self-contained task for this node' },
               role: { type: 'string', description: 'Agent role id; the role supplies model, tools, MCP, permission and iteration defaults' },
+              engine: { type: 'string', enum: ['openai', 'claude'], description: "which engine runs this node: 'openai' (HTTP against a configured Provider) or 'claude' (a native Claude CLI spawn). Omit to auto-pick whichever is available." },
               dependsOn: { type: 'array', items: { type: 'string' }, description: 'node ids that must finish before this node starts' },
               toolTier: { type: 'string', enum: ['read', 'edit', 'exec'] },
               maxIters: { type: 'number' },
@@ -10875,7 +10932,8 @@ const MCP_TOOLS = [
           },
         },
         providerId: { type: 'string', description: 'optional configured OpenAI-compatible provider id; useful when the Claude CLI parent launches this DAG' },
-        workflowId: { type: 'string', description: 'saved workflow id to launch instead of sending nodes' },
+        workflowId: { type: 'string', description: 'saved/built-in workflow id to launch instead of sending nodes' },
+        context: { type: 'string', description: "this run's actual subject/task, prepended to every node's task — required in practice when workflowId is used, since template node tasks are generic placeholders" },
       },
     },
   },
