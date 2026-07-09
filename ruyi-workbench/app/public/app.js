@@ -2540,9 +2540,22 @@ async function openWorkflowEditor(initialId) {
 
 let agentRunsPoll = null;
 const agentRunSummarySeen = new Set();
-const AGENT_RUN_ACTIVE = new Set(['running', 'paused']);
+// 团队模式 v2: waiting_pool(收尾宽限窗,等待任务池审批)是活跃 live 态,并入 ACTIVE 集(卡片自动展开、不当作已完成)。
+const AGENT_RUN_ACTIVE = new Set(['running', 'paused', 'waiting_pool']);
 function agentRunStatusLabel(status) {
-  return ({ queued: '等待中', waiting_resource: '等待资源', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', skipped: '条件跳过', partial: '部分完成', failed: '失败', rejected: '质量门判否', degraded: '降级完成', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+  return ({ queued: '等待中', waiting_resource: '等待资源', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', waiting_pool: '等待任务池审批', succeeded: '已完成', skipped: '条件跳过', partial: '部分完成', failed: '失败', rejected: '质量门判否', degraded: '降级完成', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+}
+// 团队模式 v2 (A4): 任务池提案状态人话标签。
+function poolStatusLabel(s) { return ({ proposed: '待审批', approved: '已批准', materialized: '已加入', rejected: '已拒绝', expired: '已过期' })[s] || s || ''; }
+// 团队模式 v2 (A4): 审批/拒绝一条任务池提案 → POST pool_approve/pool_reject（服务器要求 run 仍 live 且未收尾）。
+async function poolDecide(runId, poolId, approve) {
+  const sid = state.currentSession?.id; if (!sid) return;
+  try {
+    const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action: approve ? 'pool_approve' : 'pool_reject', poolId }) });
+    if (!r || !r.ok) throw new Error((r && r.error) || '操作失败');
+    toast(approve ? '已同意，新任务已加入工作流' : '已拒绝该提案', 'ok');
+    await loadAgentRuns();
+  } catch (e) { toast(`任务池：${apiErrText(e)}`, 'err'); }
 }
 // v1.5 运行监控：展示态状态语义。把「质量门判否」从「执行失败」里分出来——后端可能已直接发 'rejected'，也可能
 // 仍发 'failed' 但带 gateVerdict/structuredResult.verdict==='fail'。两种都归一到 rejected（琥珀，语义=「发现问题
@@ -2677,6 +2690,48 @@ function renderAgentRuns(runs) {
     if (!run.live) { const del = el('button', 'mini', '删除记录'); del.setAttribute('aria-label', '删除此运行记录'); del.onclick = () => deleteAgentRun(run.id); controls.appendChild(del); }
     card.appendChild(controls);
     if (run.summary) card.appendChild(el('pre', 'agent-run-summary', run.summary));
+    // ── 团队模式 v2 (A4) 共享任务池分区：simple 模式仅当有 proposed 时浮出「待批准的新任务 N」徽标+审批卡；pro 模式
+    //    常驻全状态列表。审批卡三行人话（谁提议/做什么≤60字/预计消耗）+「同意添加 / 不用了」→ POST pool_approve/reject。
+    //    waiting_pool（宽限窗）显示剩余秒数。所有文本走 el()/textContent（XSS 安全，绝不 innerHTML）。 ──
+    const pool = Array.isArray(run.taskPool) ? run.taskPool : [];
+    const proposedItems = pool.filter(p => p && p.status === 'proposed');
+    const simpleMode = document.documentElement.getAttribute('data-ui-mode') === 'simple';
+    if (pool.length && (proposedItems.length || !simpleMode)) {
+      const section = el('div', 'pool-section');
+      const ptitle = el('div', 'pool-title');
+      ptitle.appendChild(el('span', 'pool-title-text', '共享任务池'));
+      if (proposedItems.length) ptitle.appendChild(el('span', 'pool-badge', `待批准的新任务 ${proposedItems.length}`));
+      section.appendChild(ptitle);
+      if (run.status === 'waiting_pool' && run.live) {
+        const remain = run.poolGraceUntil ? Math.max(0, Math.round((Number(run.poolGraceUntil) - Date.now()) / 1000)) : 0;
+        section.appendChild(el('div', 'pool-waiting', `等待任务池审批（剩余 ${remain}s）`));
+      }
+      const listItems = simpleMode ? proposedItems : pool;
+      for (const item of listItems) {
+        const pcard = el('div', `pool-card ps-${item.status || 'proposed'}`);
+        const whoNode = (run.nodes || []).find(n => n.id === item.proposedBy);
+        const whoLabel = whoNode ? (whoNode.roleLabel || whoNode.id) : (item.proposedBy || '某节点');
+        pcard.appendChild(el('div', 'pool-line pool-who', `谁提议：${whoLabel}`));
+        // 团队模式 v2 (P3-6): pro 模式渲染 task 全文(完整可读);simple 模式截 60 字并把全文挂 title 属性(hover tooltip 看全文)。
+        const taskFull = String(item.task || '').trim();
+        const taskShort = taskFull.replace(/\s+/g, ' ').slice(0, 60);
+        const whatLine = el('div', 'pool-line pool-what', `做什么：${simpleMode ? taskShort : taskFull}`);
+        if (simpleMode && taskFull.replace(/\s+/g, ' ').length > taskShort.length) whatLine.title = taskFull;
+        pcard.appendChild(whatLine);
+        pcard.appendChild(el('div', 'pool-line pool-cost', `预计消耗：新增 1 个节点，至多约 ${item.maxIters || 100} 轮调用`));
+        if (!simpleMode && item.reason) pcard.appendChild(el('div', 'pool-line pool-reason', `理由：${item.reason}`));
+        if (!simpleMode && item.status !== 'proposed') pcard.appendChild(el('div', 'pool-line pool-status', `状态：${poolStatusLabel(item.status)}${item.resultNodeId ? ` · 节点 ${item.resultNodeId}` : ''}`));
+        if (item.status === 'proposed' && run.live) {
+          const pactions = el('div', 'pool-actions');
+          const yes = el('button', 'mini primary', '同意添加'); yes.setAttribute('aria-label', '同意添加此任务'); yes.onclick = () => poolDecide(run.id, item.id, true);
+          const no = el('button', 'mini', '不用了'); no.setAttribute('aria-label', '拒绝此任务'); no.onclick = () => poolDecide(run.id, item.id, false);
+          pactions.append(yes, no);
+          pcard.appendChild(pactions);
+        }
+        section.appendChild(pcard);
+      }
+      card.appendChild(section);
+    }
     const graph = el('div', 'agent-run-graph');
     for (const node of nodes) {
       const disp = nodeDisplayStatus(node);
