@@ -1090,30 +1090,149 @@ function sessionPath(id) {
   return path.join(paths.sessions, `${id}.json`);
 }
 
+// ===== PF2: session metadata index (sessions/index.json) =====================================================
+// listSessions used to JSON.parse EVERY session file in full just to show 7 sidebar fields, and saveSession
+// rewrote each session whole; both costs grow with session count/size. We keep a lightweight index of just
+// those 7 fields, incrementally maintained by saveSession/deleteSession. CRITICAL SAFETY INVARIANT: the index
+// is ONLY a cache; each per-session JSON file remains the single source of truth. listSessions trusts the
+// index only when its id-set EXACTLY matches the session files on disk; on any mismatch/missing/corrupt index
+// it falls back to scanning the real files (and rebuilds the index). On any index write failure we DELETE the
+// index so the next read rebuilds from truth. Sessions are single-writer (the serve process only; the MCP
+// child never writes session files), so a process-global write lock is enough to serialize index mutations.
+const SESSION_INDEX_FILE = 'index.json';
+function sessionIndexPath() { return path.join(paths.sessions, SESSION_INDEX_FILE); }
+
+// The 7 sidebar fields. Accepts a full session (has .messages) OR an index entry (has .messageCount), so the
+// same shaper builds index entries and normalizes them on read.
+function sessionMeta(o) {
+  return {
+    id: o.id,
+    title: o.title,
+    summary: o.summary || '',
+    cwd: o.cwd,
+    pinned: Boolean(o.pinned),
+    createdAt: o.createdAt,
+    updatedAt: o.updatedAt,
+    messageCount: Number.isFinite(o.messageCount) ? o.messageCount : (o.messages?.length || 0),
+  };
+}
+function sortSessionMetas(arr) {
+  return arr.slice().sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
+}
+// Read the index array, or null when missing/corrupt/not-an-array (caller falls back to a full scan).
+async function readSessionIndex() {
+  try {
+    const raw = await fsp.readFile(sessionIndexPath(), 'utf8');
+    const arr = safeJsonParse(raw, null);
+    return Array.isArray(arr) ? arr : null;
+  } catch { return null; }
+}
+// Atomic index write (tmp + rename, same discipline as saveSession). Caller wraps failures.
+async function writeSessionIndex(entries) {
+  await fsp.mkdir(paths.sessions, { recursive: true });
+  const finalPath = sessionIndexPath();
+  const tmpPath = finalPath + '.tmp';
+  await fsp.writeFile(tmpPath, JSON.stringify(entries, null, 2), 'utf8');
+  await fsp.rename(tmpPath, finalPath);
+}
+async function invalidateSessionIndex() { await fsp.unlink(sessionIndexPath()).catch(() => {}); }
+// Serialize all index mutations (single global chain) so concurrent saveSession calls can't lose updates or
+// tear the file. Session FILES are still written concurrently; only the shared index write is serialized.
+let sessionIndexChain = Promise.resolve();
+async function withSessionIndexLock(work) {
+  const previous = sessionIndexChain || Promise.resolve();
+  const current = previous.catch(() => {}).then(work);
+  sessionIndexChain = current;
+  try { return await current; }
+  finally { if (sessionIndexChain === current) sessionIndexChain = Promise.resolve(); }
+}
+// COALESCED index maintenance. saveSession/deleteSession call scheduleSessionIndexUpdate synchronously (a cheap
+// in-memory Map.set); the actual read-modify-write of index.json is DEBOUNCED and batched. This matters two ways:
+//  (1) it keeps the saveSession critical path free of index I/O (turns/workflows call it constantly), and
+//  (2) a burst of N saves (e.g. a DAG workflow) collapses into ONE index write instead of N, so the background
+//      I/O never floods the event loop and delays incoming request handling.
+// Durability: the pending batch is in-memory only. Losing it on crash is harmless — the session FILES are the
+// source of truth and listSessions rebuilds the index whenever its id-set drifts from disk.
+const SESSION_TOMBSTONE = Symbol('session-deleted');
+const SESSION_INDEX_FLUSH_MS = 200;
+let pendingSessionIndex = new Map(); // id -> meta entry | SESSION_TOMBSTONE (last write per id wins)
+let sessionIndexFlushTimer = null;
+function scheduleSessionIndexUpdate(id, valueOrTombstone) {
+  pendingSessionIndex.set(String(id), valueOrTombstone);
+  if (sessionIndexFlushTimer) return; // a flush is already pending; this entry rides along with it
+  sessionIndexFlushTimer = setTimeout(() => { sessionIndexFlushTimer = null; void flushSessionIndex(); }, SESSION_INDEX_FLUSH_MS);
+  if (sessionIndexFlushTimer.unref) sessionIndexFlushTimer.unref(); // a cache flush must never keep the process alive
+}
+// Apply the whole pending batch in a single locked read-modify-write. Best-effort: if there is no valid index
+// we drop the batch (listSessions rebuilds from truth); on any error we invalidate so the next read falls back.
+async function flushSessionIndex() {
+  if (!pendingSessionIndex.size) return;
+  const batch = pendingSessionIndex; pendingSessionIndex = new Map(); // take-and-clear so saves during the I/O queue up
+  return withSessionIndexLock(async () => {
+    try {
+      const index = await readSessionIndex();
+      if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
+      const map = new Map(index.map(e => [String(e && e.id), e]));
+      for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
+      await writeSessionIndex([...map.values()]);
+    } catch { await invalidateSessionIndex(); }
+  }).catch(() => {});
+}
+// PF2 fix: SYNCHRONOUS flush for the exit path. process.exit() (the SIGINT/SIGTERM handlers, uncaughtException)
+// runs 'exit' listeners synchronously, so the async debounced flushSessionIndex above can never complete there —
+// a graceful shutdown would silently drop the last ~200ms of metadata updates. Persist the pending batch with
+// fs.*Sync using the SAME tmp+rename atomic discipline. Best-effort: on a missing/corrupt index or any error we
+// bail (the boot-time invalidateSessionIndex + fallback file scan rebuild from truth regardless).
+function flushSessionIndexSync() {
+  try {
+    if (!pendingSessionIndex.size) return;
+    const batch = pendingSessionIndex; pendingSessionIndex = new Map();
+    let index = null;
+    try { const arr = safeJsonParse(fs.readFileSync(sessionIndexPath(), 'utf8'), null); index = Array.isArray(arr) ? arr : null; } catch { index = null; }
+    if (!index) return; // no valid index → don't fabricate a partial one; boot rebuild + fallback scan self-heal
+    const map = new Map(index.map(e => [e && String(e.id), e]).filter(([id]) => id));
+    for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
+    const finalPath = sessionIndexPath();
+    const tmpPath = finalPath + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify([...map.values()], null, 2), 'utf8');
+    fs.renameSync(tmpPath, finalPath);
+  } catch { /* best-effort; boot invalidation rebuilds from truth regardless */ }
+}
+
+// List sessions for the sidebar (7 meta fields each). FAST PATH: a valid index whose id-set matches the
+// session files on disk exactly. FALLBACK: scan every real session file (source of truth) and rebuild the index.
 async function listSessions() {
   await ensureDirs();
-  const files = await fsp.readdir(paths.sessions).catch(() => []);
+  const all = await fsp.readdir(paths.sessions).catch(() => []);
+  const files = all.filter(f => f.endsWith('.json') && f !== SESSION_INDEX_FILE);
+  const diskIds = new Set(files.map(f => f.slice(0, -5))); // strip '.json'
+  const index = await readSessionIndex();
+  if (index) {
+    // PF2 fix: overlay the not-yet-flushed in-memory batch onto the disk index BEFORE trusting it. The index
+    // write is debounced ~200ms, so a read landing inside that window would otherwise serve a stale title /
+    // messageCount / pin (or miss a brand-new session, or still show a just-deleted one). The pending batch is
+    // exactly the data the flush will persist (last-write-per-id already applied), so merging it makes a live
+    // read never staler than the most recent saveSession/deleteSession — closing the debounce dirty-read window.
+    const map = new Map(index.map(e => [e && String(e.id), e]).filter(([id]) => id));
+    for (const [id, val] of pendingSessionIndex) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
+    const indexIds = new Set(map.keys());
+    if (indexIds.size === diskIds.size && [...diskIds].every(id => indexIds.has(id))) {
+      return sortSessionMetas([...map.values()].map(sessionMeta)); // trust cache+pending: id-set matches disk exactly
+    }
+  }
+  // Index missing / corrupt / drifted from disk → authoritative scan of the real files, then rebuild the index.
   const sessions = [];
-  for (const file of files.filter(f => f.endsWith('.json'))) {
+  for (const file of files) {
     try {
       const raw = await fsp.readFile(path.join(paths.sessions, file), 'utf8');
       const item = JSON.parse(raw);
-      sessions.push({
-        id: item.id,
-        title: item.title,
-        summary: item.summary || '',
-        cwd: item.cwd,
-        pinned: Boolean(item.pinned),
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-        messageCount: item.messages?.length || 0,
-      });
+      sessions.push(sessionMeta(item));
     } catch {
       // Ignore corrupt session files.
     }
   }
-  sessions.sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
-  return sessions;
+  await withSessionIndexLock(() => writeSessionIndex(sessions)).catch(() => {}); // best-effort rebuild
+  return sortSessionMetas(sessions);
 }
 
 async function updateSessionMeta(id, patch) {
@@ -1133,6 +1252,7 @@ async function updateSessionMeta(id, patch) {
 async function deleteSession(id) {
   stopSession(id, 'deleted');
   await fsp.unlink(sessionPath(id)).catch(() => {}); // idempotent
+  scheduleSessionIndexUpdate(id, SESSION_TOMBSTONE); // PF2: queue removal from the metadata index (debounced; see saveSession)
   return { ok: true, id };
 }
 
@@ -1380,6 +1500,7 @@ async function loadSession(id) {
     await fsp.rename(sessionPath(id), sessionPath(id) + '.corrupt').catch(() => {});
     return null;
   }
+  if (Array.isArray(parsed)) return null; // sessions/index.json is an array, not a session; never load it as one
   const { session, changed } = normalizeSession(parsed);
   if (session.id == null) session.id = id;
   if (changed) await saveSession(session).catch(() => {});
@@ -1393,8 +1514,15 @@ async function saveSession(session) {
   session.updatedAt = nowIso();
   const finalPath = sessionPath(session.id);
   const tmpPath = finalPath + '.tmp';
-  await fsp.writeFile(tmpPath, JSON.stringify(session, null, 2), 'utf8');
+  // Serialize the payload and snapshot the 7 index fields in the SAME synchronous tick, so the background index
+  // write reflects EXACTLY what we persist here (no drift if `session` is mutated during the awaits below).
+  const payload = JSON.stringify(session, null, 2);
+  const metaSnapshot = sessionMeta(session);
+  await fsp.writeFile(tmpPath, payload, 'utf8');
   await fsp.rename(tmpPath, finalPath);
+  // PF2: queue the sidebar metadata index update (cheap sync Map.set; the write is debounced + coalesced). The
+  // index is only a cache and listSessions falls back to a full file scan whenever its id-set drifts from disk.
+  scheduleSessionIndexUpdate(session.id, metaSnapshot);
   return session;
 }
 
@@ -1439,7 +1567,39 @@ async function createSession({ title, cwd }) {
 // ============================================================================
 const JOURNAL_MAX_BEFORE_BYTES = 5 * 1024 * 1024;   // >5MB before-content → skipped:true, content not stored
 const JOURNAL_KEEP_TURNS = 20;                       // per-session GC: keep the most recent 20 turnSeqs
-const JOURNAL_GLOBAL_MAX_BYTES = 200 * 1024 * 1024;  // global cap: purge oldest sessions (dir mtime) over this
+const JOURNAL_GLOBAL_MAX_BYTES = (() => {
+  const n = Number(process.env.RUYI_JOURNAL_GLOBAL_MAX_BYTES); // env override for e2e; default 200MB
+  return Number.isFinite(n) && n > 0 ? n : 200 * 1024 * 1024;
+})();  // global cap: purge oldest sessions (dir mtime) over this
+// PF1: the global size cap used to run a full dirSize() sweep of EVERY session's checkpoint tree on every
+// checkpoint-triggering file write (O(all checkpoint files), awaited before the tool returns) - so a single
+// tool call's latency grew with the app's TOTAL checkpoint history (a 50-edit workflow = 50 full sweeps).
+// We now keep a process-local APPROXIMATE running total of checkpoint bytes and use it only to decide whether
+// the authoritative full sweep is worth running. SAFETY: the cache NEVER authorizes a purge - purges always
+// run off a fresh full sweep that also recalibrates the cache. The cache can only SKIP the sweep when
+// confidently under budget, so a stale or under-counting cache costs at most one extra sweep, never a missed
+// cleanup. Recalibrated on cold start, every JOURNAL_GC_RECALIBRATE_EVERY calls, and when the estimate nears
+// the cap. Process-local by design: the serve process and the one-shot MCP child each calibrate via their own
+// authoritative sweeps (which see ALL sessions on disk regardless of writer), so correctness needs no sharing.
+let journalGlobalBytes = null;            // cached approx total bytes of paths.checkpoints (null = uncalibrated)
+let journalGcSinceScan = 0;               // journalGc calls since the last authoritative full sweep
+const JOURNAL_GC_RECALIBRATE_EVERY = 64;  // force a real sweep at least this often (bounds cache drift)
+const JOURNAL_GC_SCAN_HYSTERESIS = 0.9;   // sweep once the estimate reaches this fraction of the hard cap
+// Probe (exported) so the PF1 e2e can assert the sweep does NOT run on every call yet still purges over-cap.
+const journalGcProbe = { fullScans: 0, calls: 0 };
+// PF1 fix: ALL running-total mutations funnel through journalBytesAdjust so byte accounting lives in one place
+// and a full sweep can't silently clobber concurrent writers. A sweep measures disk truth across several awaits
+// (readdir/stat/dirSize per session); other sessions' writers may `+=` during that window. Recording those
+// deltas here lets the sweep replay them onto its recalibrated total instead of overwriting them (an overwrite
+// would re-introduce a small under-count -> a possibly-missed sweep). SAFETY: this cache NEVER authorizes a
+// purge (purges run off fresh dirSize), so any drift costs at most an extra sweep, never a missed cleanup.
+let journalSweeping = 0;                   // in-flight authoritative sweeps (measurement windows currently open)
+let journalDeltaDuringSweep = 0;           // net bytes changed by writers while any sweep is measuring
+function journalBytesAdjust(delta) {
+  if (!delta) return;
+  if (journalGlobalBytes != null) journalGlobalBytes = Math.max(0, journalGlobalBytes + delta);
+  if (journalSweeping > 0) journalDeltaDuringSweep += delta; // replayed after the sweep recalibrates from truth
+}
 // Parallel sub-agents may checkpoint different files in the same parent turn. Serialize each session's
 // read-modify-write index transaction so entrySeq stays unique and a later write cannot overwrite an
 // earlier agent's index entry. Different sessions retain full concurrency.
@@ -1516,6 +1676,7 @@ async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, bef
       } else {
         const gz = zlib.gzipSync(buf); // built-in zlib — zero npm
         await fsp.writeFile(path.join(dir, `${turnSeq}-${entrySeq}.gz`), gz);
+        journalBytesAdjust(gz.length); // PF1: keep the size-cap cache current
       }
     }
     index.push({ turnSeq: Number(turnSeq), entrySeq, tool: String(tool || ''), path: String(filePath || ''), op, bytes, ...(skipped ? { skipped: true } : {}), ts: nowIso() });
@@ -1534,6 +1695,7 @@ async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, bef
 // .gz files. (2) Global: if the whole checkpoints/ tree exceeds JOURNAL_GLOBAL_MAX_BYTES, remove entire
 // oldest sessions (by dir mtime) until under budget. All failures are silent.
 async function journalGc(sessionId) {
+  let freedBytes = 0; // PF1: bytes reclaimed by the per-session prune below, to decrement the size-cap cache
   try {
     const dir = journalDir(sessionId);
     const index = await journalReadIndex(sessionId);
@@ -1545,7 +1707,10 @@ async function journalGc(sessionId) {
         for (const e of index) {
           if (keep.has(Number(e.turnSeq))) { kept.push(e); continue; }
           if (!e.skipped && e.op !== 'create') {
-            await fsp.unlink(path.join(dir, `${e.turnSeq}-${e.entrySeq}.gz`)).catch(() => {});
+            const gzp = path.join(dir, `${e.turnSeq}-${e.entrySeq}.gz`);
+            const st = await fsp.stat(gzp).catch(() => null); // real on-disk size (best-effort) for the cache decrement
+            await fsp.unlink(gzp).catch(() => {});
+            if (st) freedBytes += st.size;
           }
         }
         await journalWriteIndex(sessionId, kept);
@@ -1553,26 +1718,54 @@ async function journalGc(sessionId) {
     }
   } catch { /* silent */ }
   try {
-    // Global size cap: sum every session dir, and if over budget purge whole sessions oldest-first.
-    const root = paths.checkpoints;
-    const names = await fsp.readdir(root).catch(() => []);
-    const dirs = [];
-    let total = 0;
-    for (const name of names) {
-      const p = path.join(root, name);
-      const st = await fsp.stat(p).catch(() => null);
-      if (!st || !st.isDirectory()) continue;
-      const size = await dirSize(p);
-      total += size;
-      dirs.push({ p, size, mtime: st.mtimeMs });
-    }
-    if (total > JOURNAL_GLOBAL_MAX_BYTES) {
-      dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
-      for (const d of dirs) {
-        if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
-        await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
-        total -= d.size;
+    journalGcProbe.calls++;
+    // PF1: keep the running estimate current with what the per-session prune just reclaimed (never below 0).
+    if (freedBytes) journalBytesAdjust(-freedBytes);
+    journalGcSinceScan++;
+    // Decide whether the authoritative full sweep is worth running. Sweep when: uncalibrated (cold start),
+    // periodic recalibration is due (drift correction), or the estimate is near/over the cap. Otherwise the
+    // common case (well under budget) SKIPS the O(all-checkpoint-files) sweep entirely - the whole point of PF1.
+    const needSweep = journalGlobalBytes == null
+      || journalGcSinceScan >= JOURNAL_GC_RECALIBRATE_EVERY
+      || journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
+    if (!needSweep) return; // fast path: confidently under budget, no sweep
+    journalGcProbe.fullScans++;
+    journalGcSinceScan = 0;
+    journalSweeping++;
+    const deltaMark = journalDeltaDuringSweep; // writer deltas already counted BEFORE this window opened
+    try {
+      // Authoritative sweep: sum every session dir, purge whole sessions oldest-first when over budget, and
+      // RECALIBRATE the cache from measured truth. This is the ONLY writer that resets journalGlobalBytes, so a
+      // purge decision is always made against real bytes, never the estimate.
+      const root = paths.checkpoints;
+      const names = await fsp.readdir(root).catch(() => []);
+      const dirs = [];
+      let total = 0;
+      for (const name of names) {
+        const p = path.join(root, name);
+        const st = await fsp.stat(p).catch(() => null);
+        if (!st || !st.isDirectory()) continue;
+        const size = await dirSize(p);
+        total += size;
+        dirs.push({ p, size, mtime: st.mtimeMs });
       }
+      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+        dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
+        for (const d of dirs) {
+          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+          await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
+          total -= d.size;
+        }
+      }
+      // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
+      // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
+      // a missed sweep). Double-counting a byte already on disk when measured only inflates the estimate,
+      // which is the SAFE direction (an extra sweep that recalibrates, never a skipped cleanup).
+      const windowDelta = journalDeltaDuringSweep - deltaMark;
+      journalGlobalBytes = Math.max(0, total + windowDelta);
+    } finally {
+      journalSweeping--;
+      if (journalSweeping === 0) journalDeltaDuringSweep = 0; // reset once no sweep is measuring
     }
   } catch { /* silent */ }
 }
@@ -1992,16 +2185,37 @@ function cwdWarning(resolvedDir) {
 // ===================================================================================================
 const WORKSPACE_MATCH_THRESHOLD = 0.8;   // Jaccard overlap of child-name sets required to count as a hit
 const WORKSPACE_CANDIDATE_CAP = 2000;    // hard cap on candidate directories scanned
-const WORKSPACE_RESOLVE_BUDGET_MS = 3000; // overall wall-clock budget for the scan
+const WORKSPACE_RESOLVE_BUDGET_MS = 3000; // overall wall-clock budget for the scan (now covers candidate BUILD too)
 const WORKSPACE_CHILDREN_CAP = 50;       // clamp on the incoming child-name list
-
-// List a directory's first-level ENTRY names (both files and dirs), lowercased, as a Set. try/catch →
-// empty Set on any error (permission denied / not a dir / gone). Capped so a pathological dir can't blow up.
-function dirChildNameSet(dir) {
-  try {
-    const names = fs.readdirSync(dir).slice(0, 500);
-    return new Set(names.map(n => String(n).toLowerCase()));
-  } catch { return new Set(); }
+// PF3: a single dead/offline mapped network drive used to block the WHOLE process, because the resolver
+// enumerated drives with fs.readdirSync/existsSync. Every directory listing now goes through fsp.readdir
+// (async, yields the event loop) wrapped in a HARD per-directory timeout so one slow root can never stall
+// the scan (or the chat stream sharing the loop). On timeout/error the root is simply skipped.
+// PF3 fix: 600ms was too tight — a slow-but-ALIVE network drive (700-900ms to list) was routinely misjudged as
+// dead and its real workspaces dropped. Widened to 1000ms; the overall RESOLVE_BUDGET_MS still bounds the worst
+// case so a genuinely dead drive can never block indefinitely.
+const WORKSPACE_DIR_TIMEOUT_MS = 1000;   // hard per-directory readdir/stat timeout (dead network drive can't block)
+// PF3 fix: distinguish a TIMEOUT from a real empty/absent/denied directory. The old readdirTimed collapsed both
+// to null, so a slow-but-alive dir looked identical to a non-existent one — a real workspace on a laggy drive
+// scored 0 (empty child set) and was silently dropped, with no way to flag the result as incomplete. These
+// sentinels let callers tell "slow, unknown" (mark truncated / fall back to a bounded stat) apart from "known
+// empty/absent" (skip). A readdir that resolves AFTER we've timed out is simply discarded. Never throws.
+const READDIR_TIMEOUT = Symbol('readdir-timeout');
+const STAT_TIMEOUT = Symbol('stat-timeout');
+function readdirTimed(dir, opts, timeoutMs) {
+  return Promise.race([
+    fsp.readdir(dir, opts).catch(() => null),                                      // null = error (ENOENT / denied / not a dir)
+    new Promise(resolve => setTimeout(() => resolve(READDIR_TIMEOUT), timeoutMs)), // sentinel = timed out (alive but slow)
+  ]);
+}
+// PF3 fix: bounded existence probe for an EXPLICITLY-KNOWN candidate path (a recentWorkspace). Confirms the dir
+// is still there WITHOUT listing it, so a known workspace on a slow drive isn't dropped just because its own
+// readdir timed out. Resolves to a Stats, null (error/absent), or STAT_TIMEOUT. Never throws.
+function statTimed(p, timeoutMs) {
+  return Promise.race([
+    fsp.stat(p).catch(() => null),
+    new Promise(resolve => setTimeout(() => resolve(STAT_TIMEOUT), timeoutMs)),
+  ]);
 }
 // Jaccard similarity of two name Sets: |A ∩ B| / |A ∪ B|. Empty-vs-empty → 1 (both truly empty folders
 // fingerprint-match); one-empty → 0.
@@ -2013,11 +2227,17 @@ function nameSetJaccard(a, b) {
   const union = a.size + b.size - inter;
   return union === 0 ? 0 : inter / union;
 }
-// List first-level SUBDIRECTORIES of `root` (absolute paths). Bounded; try/catch → []. dirsOnly by default.
-function listChildDirs(root) {
-  let ents;
-  try { ents = fs.readdirSync(root, { withFileTypes: true }); }
-  catch { return []; }
+// List first-level SUBDIRECTORIES of `root` (absolute paths). Bounded; never throws. Returns { dirs, timedOut }:
+// timedOut:true means the listing was ABANDONED at the per-dir timeout (alive but slow) so the caller can mark
+// the overall result truncated (a partial candidate set must not be mistaken for the authoritative one). An
+// error/absent root yields { dirs:[], timedOut:false } — nothing to discover, and it's not "slow".
+async function listChildDirs(root) {
+  // PF3: async + hard timeout. A non-existent drive letter rejects fast (ENOENT → null → []); a live-but-slow
+  // network root times out instead of blocking the event loop. Replaces the old existsSync gate: attempting the
+  // timed readdir directly both tests existence AND lists in one non-blocking call.
+  const ents = await readdirTimed(root, { withFileTypes: true }, WORKSPACE_DIR_TIMEOUT_MS);
+  if (ents === READDIR_TIMEOUT) return { dirs: [], timedOut: true };
+  if (!ents) return { dirs: [], timedOut: false };
   const out = [];
   for (const e of ents) {
     // isDirectory() can throw on a broken symlink entry on some FS — guard it.
@@ -2026,12 +2246,12 @@ function listChildDirs(root) {
     if (isDir) out.push(path.join(root, e.name));
     if (out.length >= 4096) break; // sanity guard for a pathological root
   }
-  return out;
+  return { dirs: out, timedOut: false };
 }
 
 // Core resolver (pure-ish: reads the FS, takes config for candidate roots). Exposed for e2e unit testing.
 // Returns { ok:true, matches:[{path, score}], truncated }.
-function resolveWorkspace({ name, children }, config) {
+async function resolveWorkspace({ name, children }, config) {
   const wantName = String(name || '').trim().toLowerCase();
   if (!wantName) return { ok: false, error: 'name is required', matches: [] };
   const wantChildren = new Set(
@@ -2055,31 +2275,38 @@ function resolveWorkspace({ name, children }, config) {
     candidates.push(p);
   };
 
+  // PF3: the wall-clock budget now guards candidate BUILD (drive/home/parent enumeration), not just scoring,
+  // so a slow root can't blow past it. Every listChildDirs() is async + per-directory timed (see WORKSPACE_DIR_TIMEOUT_MS).
+  const overBudget = () => Date.now() - started > WORKSPACE_RESOLVE_BUDGET_MS;
   // (a) each existing drive root, one directory level. Enumerate A:..Z: that exist.
+  // PF3 fix: a timed-out root enumeration marks the result truncated (its children weren't discovered — the
+  // candidate set is incomplete, not authoritative).
+  const addChildren = r => { if (r.timedOut) truncated = true; for (const d of r.dirs) pushCand(d); };
   if (process.platform === 'win32') {
     for (let c = 65; c <= 90; c++) {
+      if (overBudget()) { truncated = true; break; }
       const root = String.fromCharCode(c) + ':\\';
-      let exists = false;
-      try { exists = fs.existsSync(root); } catch { exists = false; }
-      if (!exists) continue;
-      for (const d of listChildDirs(root)) pushCand(d);
+      // No existsSync pre-check: the timed readdir returns [] for a non-existent OR unreachable drive without blocking.
+      addChildren(await listChildDirs(root));
       if (candidates.length >= WORKSPACE_CANDIDATE_CAP) { truncated = true; break; }
     }
   } else {
     // non-Windows: use filesystem root's one level as the drive-equivalent (keeps the code path exercisable).
-    for (const d of listChildDirs('/')) pushCand(d);
+    addChildren(await listChildDirs('/'));
   }
   // (b) home dir and its first level.
   const home = os.homedir();
   pushCand(home);
-  for (const d of listChildDirs(home)) pushCand(d);
+  if (!overBudget()) addChildren(await listChildDirs(home));
   // (c) the current defaultWorkspace's parent, one level (sibling projects).
   const dw = (config && typeof config.defaultWorkspace === 'string' && config.defaultWorkspace) ? config.defaultWorkspace : home;
   const dwParent = path.dirname(path.resolve(dw));
-  for (const d of listChildDirs(dwParent)) pushCand(d);
-  // (d) recentWorkspaces — the exact dirs (their basenames can match directly).
+  if (!overBudget()) addChildren(await listChildDirs(dwParent));
+  // (d) recentWorkspaces — the exact dirs (their basenames can match directly). PF3 fix: track these as KNOWN
+  // paths so a timeout on their own listing falls back to a bounded stat instead of dropping a real workspace.
+  const knownPaths = new Set(); // lowercased resolved paths the user has explicitly used
   for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) {
-    if (typeof w === 'string' && w) pushCand(path.resolve(w));
+    if (typeof w === 'string' && w) { const rp = path.resolve(w); pushCand(rp); knownPaths.add(rp.toLowerCase()); }
   }
 
   // ── score candidates whose basename matches the wanted name ─────────────────────────────────────
@@ -2087,7 +2314,26 @@ function resolveWorkspace({ name, children }, config) {
   for (const dir of candidates) {
     if (Date.now() - started > WORKSPACE_RESOLVE_BUDGET_MS) { truncated = true; break; }
     if (path.basename(dir).toLowerCase() !== wantName) continue;
-    const have = dirChildNameSet(dir);
+    const names = await readdirTimed(dir, undefined, WORKSPACE_DIR_TIMEOUT_MS);
+    if (names === READDIR_TIMEOUT) {
+      // PF3 fix: this candidate's fingerprint is unknowable (slow drive) → the result is INCOMPLETE, flag it.
+      truncated = true;
+      // Preserve the old "unreadable dir → empty fingerprint" scoring so an empty dropped folder still name-matches.
+      const emptyScore = nameSetJaccard(wantChildren, new Set()); // 1 iff wantChildren is also empty, else 0
+      if (emptyScore >= WORKSPACE_MATCH_THRESHOLD) {
+        matches.push({ path: path.resolve(dir), score: Math.round(emptyScore * 1000) / 1000 });
+      } else if (knownPaths.has(String(dir).toLowerCase())) {
+        // A KNOWN path (recentWorkspaces) with a non-empty fingerprint we couldn't read must NOT be dropped just
+        // because its listing timed out. Confirm it still exists via a bounded stat and select it on the name
+        // match alone (a workspace the user has actually used, basename == wanted name, is a real hit). Score at
+        // the threshold so it surfaces yet never outranks a genuine fingerprint match (which scores on real overlap).
+        const st = await statTimed(dir, WORKSPACE_DIR_TIMEOUT_MS);
+        let isDir = false; try { isDir = !!(st && st !== STAT_TIMEOUT && st.isDirectory && st.isDirectory()); } catch { isDir = false; }
+        if (isDir) matches.push({ path: path.resolve(dir), score: WORKSPACE_MATCH_THRESHOLD });
+      }
+      continue;
+    }
+    const have = names ? new Set(names.slice(0, 500).map(n => String(n).toLowerCase())) : new Set(); // null (error) → empty, as before
     const score = nameSetJaccard(wantChildren, have);
     if (score >= WORKSPACE_MATCH_THRESHOLD) matches.push({ path: path.resolve(dir), score: Math.round(score * 1000) / 1000 });
   }
@@ -7324,6 +7570,17 @@ async function writeHistorySnapshot(sessionId, turnSeq, history) {
     await fsp.mkdir(dir, { recursive: true });
     const gz = zlib.gzipSync(Buffer.from(JSON.stringify(history), 'utf8'));
     await fsp.writeFile(path.join(dir, `history-${Number(turnSeq) || 0}.json.gz`), gz);
+    // PF1 fix: these history snapshots land in the SAME checkpoints/<id>/ tree the global size cap governs, but
+    // only journalRecord used to keep the byte cache current. A compaction-heavy / edit-light session (each
+    // auto-compact can write several MB here, and per-session GC never prunes these files) grew the real tree
+    // WITHOUT moving the cache, so needSweep stayed false and the hard cap silently became a soft one.
+    // (a) account the snapshot bytes (over-count on a same-turnSeq overwrite is the SAFE direction);
+    // (b) give the sweep a chance to run: journalGc is otherwise only called on file writes, which are rare in a
+    //     compaction-heavy load. Run it UNDER the per-session write lock so its index read-modify-write can't
+    //     race a concurrent journalRecord (the v1.4.1 audit #8 lost-write hazard). Fire-and-forget: a recovery
+    //     aid must never block or fail the compaction.
+    journalBytesAdjust(gz.length);
+    withJournalWriteLock(sessionId, () => journalGc(sessionId)).catch(() => {});
   } catch { /* safety net, never fatal */ }
 }
 
@@ -10230,7 +10487,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const config = await readConfig();
     try {
-      const r = resolveWorkspace({ name: body && body.name, children: body && body.children }, config);
+      const r = await resolveWorkspace({ name: body && body.name, children: body && body.children }, config);
       return send(res, json(r));
     } catch (e) {
       return send(res, json({ ok: false, error: String(e && e.message || e), matches: [] }));
@@ -10946,6 +11203,12 @@ async function listenWithFallback(server, port, host, config) {
 async function startServer(opts) {
   await ensureDirs();
   await markInterruptedAgentRuns();
+  // PF2 fix: a hard crash (SIGKILL / power loss, where no exit handler ran to flush) can leave sessions/index.json
+  // stale while its id-set still MATCHES the session files on disk — listSessions' fast path would then trust that
+  // stale index FOREVER (renames / pins / messageCounts / summaries never re-surface until some OTHER session is
+  // added or removed). Invalidate once at boot so the first listSessions rebuilds from the authoritative session
+  // files. One full scan, boot-only (the pre-PF2 behavior); every read after that uses the incremental index.
+  await invalidateSessionIndex();
   LAUNCH_MODE = isPkg() ? 'exe' : 'node';
   const config = await readConfig();
   // v1.4.3: sync settings, agent roles, and MCP servers to Claude CLI's own config on startup
@@ -10984,7 +11247,10 @@ async function startServer(opts) {
   // v0.7d: reap any bridged desktop/external MCP children on shutdown so they aren't orphaned.
   let cleanedUp = false;
   const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } };
-  process.on('exit', cleanupMcp);
+  // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
+  // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
+  // single registration here covers every graceful termination path.
+  process.on('exit', () => { try { flushSessionIndexSync(); } catch { /* ignore */ } cleanupMcp(); });
   process.once('SIGINT', () => { cleanupMcp(); process.exit(0); });
   process.once('SIGTERM', () => { cleanupMcp(); process.exit(0); });
   // v1.4.6-S5: top-level crash safety net (serve mode only — registered here, not at module load, so a
@@ -11790,6 +12056,12 @@ module.exports = {
   loadAllPlaybooks,
   // v0.9-S3 (C3): workspace-by-fingerprint — exposed for e2e direct unit testing of the resolver.
   resolveWorkspace,
+  // PF1: checkpoint GC size-cap cache — exposed for e2e (assert no per-write full sweep + still purges over-cap).
+  journalRecord,
+  journalGc,
+  journalGcProbe,
+  writeHistorySnapshot, // PF1 fix: history snapshots also grow the cap-governed tree — exposed so the e2e can
+                        // assert repeated snapshots move the cache AND auto-trigger a purge (bug: neither happened).
   // v0.9-S4 (C4): artifacts kind classifier + preview path-safety + summary builder — exposed for e2e units.
   kindForPath,
   buildTurnSummary,

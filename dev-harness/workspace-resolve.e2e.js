@@ -81,16 +81,80 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
   // The pure resolver is the load-bearing algorithm; assert it directly first (no server needed).
   {
     const cfg = { defaultWorkspace: TREE, recentWorkspaces: [myproj, repA, repB] };
-    const u1 = srv.resolveWorkspace({ name: 'myproj', children: ['a.txt', 'b.txt', 'src'] }, cfg);
+    const u1 = await srv.resolveWorkspace({ name: 'myproj', children: ['a.txt', 'b.txt', 'src'] }, cfg);
     ok(u1.ok && u1.matches.length === 1 && u1.matches[0].path.toLowerCase() === myproj.toLowerCase() && u1.matches[0].score === 1,
       '① (unit) exact fingerprint → unique hit, correct path, score 1');
-    const u2 = srv.resolveWorkspace({ name: 'reports', children: ['q1', 'q2', 'q3', 'q4'] }, cfg);
+    const u2 = await srv.resolveWorkspace({ name: 'reports', children: ['q1', 'q2', 'q3', 'q4'] }, cfg);
     ok(u2.matches.length === 2, '② (unit) two same-named dirs → 2 candidates');
     ok(u2.matches[0].score >= u2.matches[1].score && u2.matches[0].score === 1, '② (unit) candidates sorted by score DESC (top = exact 1)');
-    const u3 = srv.resolveWorkspace({ name: 'myproj', children: ['x.txt', 'y.txt', 'z.txt'] }, cfg);
+    const u3 = await srv.resolveWorkspace({ name: 'myproj', children: ['x.txt', 'y.txt', 'z.txt'] }, cfg);
     ok(u3.ok && u3.matches.length === 0, '③ (unit) children mismatch (<0.8) → zero matches');
-    const u4 = srv.resolveWorkspace({ name: '', children: [] }, cfg);
+    const u4 = await srv.resolveWorkspace({ name: '', children: [] }, cfg);
     ok(u4.ok === false, '③ (unit) empty name → ok:false');
+  }
+
+  // ── ⑦ PF3: a hung/slow candidate directory must NOT synchronously block the event loop, and must be
+  //     abandoned at the per-directory timeout (candidate-build/scoring is async + timed). Stub fs/promises
+  //     readdir for one sentinel dir (basename === wanted name so scoring reads it) to hang 5s; assert the
+  //     resolver returns well before that, the stub was hit, and a concurrent interval kept ticking (proof
+  //     the loop wasn't blocked — the OLD sync readdirSync path would have frozen the ticker).
+  {
+    const fsp = require('fs/promises');
+    const realReaddir = fsp.readdir;
+    const SLOW = path.join(TREE, 'slowdir'); // basename 'slowdir' matches the wanted name → scored → readdir'd
+    fs.mkdirSync(SLOW, { recursive: true });
+    let slowCalls = 0;
+    fsp.readdir = function (p, opts) {
+      if (String(p).toLowerCase() === SLOW.toLowerCase()) { slowCalls++; return new Promise(r => setTimeout(() => r([]), 5000)); }
+      return realReaddir.call(this, p, opts);
+    };
+    try {
+      const cfgSlow = { defaultWorkspace: TREE, recentWorkspaces: [SLOW] };
+      let ticks = 0;
+      const ticker = setInterval(() => { ticks++; }, 20);
+      const t0 = Date.now();
+      const rSlow = await srv.resolveWorkspace({ name: 'slowdir', children: ['a', 'b'] }, cfgSlow);
+      const elapsed = Date.now() - t0;
+      clearInterval(ticker);
+      ok(rSlow && rSlow.ok === true, '⑦ (PF3) resolver returns despite a hung candidate dir');
+      ok(slowCalls >= 1, '⑦ (PF3) the hung dir was actually read (stub hit ' + slowCalls + 'x)');
+      ok(elapsed < 4000, '⑦ (PF3) hung dir abandoned at the per-dir timeout — elapsed ' + elapsed + 'ms << 5000ms stub delay');
+      ok(ticks >= 2, '⑦ (PF3) event loop kept ticking during the resolve (not synchronously blocked; ticks=' + ticks + ')');
+      // PF3 FIX: pre-fix, a readdir timeout collapsed to an empty child set → Jaccard 0 → the known workspace was
+      // silently DROPPED. Now the resolver stat-confirms the known recentWorkspace and selects it on the name match.
+      ok(rSlow.matches.some(m => m.path.toLowerCase() === SLOW.toLowerCase()),
+         '⑦ (PF3 FIX) known recentWorkspace on a slow drive is STILL selected via bounded stat — not missed');
+      ok(rSlow.truncated === true,
+         '⑦ (PF3 FIX) a timed-out candidate marks the result truncated:true (incomplete, not authoritative)');
+    } finally {
+      fsp.readdir = realReaddir;
+    }
+  }
+
+  // ── ⑧ PF3 FIX (scoping): the stat fallback is ONLY for KNOWN paths (recentWorkspaces). An arbitrary same-named
+  //     dir DISCOVERED via parent enumeration whose own readdir times out is NOT force-selected — we can't verify
+  //     its fingerprint and the user never chose it, so it's dropped (result flagged truncated). This guards
+  //     against the fix over-selecting on slow drives.
+  {
+    const fsp = require('fs/promises');
+    const realReaddir = fsp.readdir;
+    const LONELY = path.join(TREE, 'lonelyslow'); // basename matches wanted name; discovered via dwParent=TREE
+    fs.mkdirSync(LONELY, { recursive: true });
+    fsp.readdir = function (p, opts) {
+      if (String(p).toLowerCase() === LONELY.toLowerCase()) return new Promise(r => setTimeout(() => r([]), 5000));
+      return realReaddir.call(this, p, opts);
+    };
+    try {
+      // defaultWorkspace under TREE → dwParent === TREE → LONELY is enumerated as a candidate, but it is NOT in
+      // recentWorkspaces (empty), so it is NOT a known path.
+      const cfg = { defaultWorkspace: path.join(TREE, 'proj'), recentWorkspaces: [] };
+      const r = await srv.resolveWorkspace({ name: 'lonelyslow', children: ['a', 'b'] }, cfg);
+      ok(r.ok === true && !r.matches.some(m => m.path.toLowerCase() === LONELY.toLowerCase()),
+         '⑧ (PF3 FIX) a non-known slow dir is NOT force-selected (stat fallback scoped to recentWorkspaces only)');
+      ok(r.truncated === true, '⑧ (PF3 FIX) the timed-out non-known candidate still flags truncated');
+    } finally {
+      fsp.readdir = realReaddir;
+    }
   }
 
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], { windowsHide: true, env: { ...process.env } });
