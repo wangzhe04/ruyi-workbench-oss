@@ -982,6 +982,20 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .skill-name { font-family: var(--mono); font-weight: 600; color: var(--accent); background: none; padding: 0; }
 .skill-type { margin-left: auto; font-size: 10px; color: var(--muted); border: 1px solid var(--line-2); border-radius: 10px; padding: 1px 7px; }
 .skill-desc { color: var(--muted); font-size: 12px; margin-top: 3px; line-height: 1.45; }
+/* v1 技能体系: 技能库分组标题 + 来源标签 + 启用开关 + 不可用置灰 */
+.skill-group-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: none; margin: 10px 2px 2px; letter-spacing: .02em; }
+.skill-group-title:first-child { margin-top: 2px; }
+.skill-src { font-size: 10px; color: var(--muted); border: 1px solid var(--line-2); border-radius: 10px; padding: 1px 7px; }
+.skill-toggle { margin-left: auto; font-size: 11px; padding: 2px 10px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); color: var(--fg); cursor: pointer; }
+.skill-toggle:hover:not(:disabled) { border-color: var(--accent); }
+.skill-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.skill-toggle:disabled { opacity: .5; cursor: default; }
+.skill-item.unavailable { opacity: .6; cursor: default; }
+.skill-item.unavailable:hover { border-color: var(--line); background: var(--panel-2); }
+.skill-reason { color: var(--muted); font-size: 11px; margin-top: 3px; font-style: italic; }
+/* P3-6: 已失效技能行（注册表缺失的启用项）—— 虚线边 + 弱化,与可选技能行区分,提供移除按钮。 */
+.skill-ghost { padding: 9px 11px; border: 1px dashed var(--line-2); border-radius: var(--radius-sm); background: var(--panel-2); opacity: .75; }
+.skill-ghost .skill-name { color: var(--muted); }
 
 /* command palette */
 .palette-backdrop { align-items: flex-start; padding-top: 12vh; }

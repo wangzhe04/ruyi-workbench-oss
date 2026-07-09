@@ -169,7 +169,7 @@
             <textarea id="promptInput" rows="1" placeholder="描述你要做的事…（Enter 发送，Shift+Enter 换行）"></textarea>
             <div class="composer-actions">
               <button id="composerMoreBtn" class="file-label" title="更多" aria-label="更多操作" aria-haspopup="menu">＋</button>
-              <button id="skillBtn" class="file-label" title="技能 / 命令 (/)">⌘ 技能</button>
+              <button id="skillBtn" class="file-label" title="技能库：启用技能 / 命令 / 一键任务 (/)">⌘ 技能</button>
               <label class="file-label composer-file" title="添加文件">
                 <input id="fileInput" type="file" multiple />
                 📎
@@ -669,11 +669,11 @@
       </div>
     </div>
 
-    <!-- ============ SKILL / COMMAND PANEL ============ -->
+    <!-- ============ SKILL LIBRARY PANEL (v1 技能体系) ============ -->
     <div class="modal-backdrop hidden" id="skillModal">
-      <div class="modal" role="dialog" aria-modal="true" aria-label="技能 / 命令">
-        <div class="modal-head"><h3>技能 / 命令</h3><button class="icon-btn" data-close-modal aria-label="关闭">✕</button></div>
-        <div class="skill-search-wrap"><input id="skillSearch" type="search" placeholder="搜索技能 / 命令…" autocomplete="off" /></div>
+      <div class="modal" role="dialog" aria-modal="true" aria-label="技能库">
+        <div class="modal-head"><h3>技能库</h3><button class="icon-btn" data-close-modal aria-label="关闭">✕</button></div>
+        <div class="skill-search-wrap"><input id="skillSearch" type="search" placeholder="搜索技能 / 命令 / 一键任务…" autocomplete="off" /></div>
         <div class="modal-body"><div id="skillList" class="skill-list"></div></div>
       </div>
     </div>

@@ -572,6 +572,7 @@ function renderCurrentSession() {
   $('sessionTitle').textContent = session?.title || '如意工作台'; // v0.8-S8 品牌落地(原「本地 Claude 工作台」)
   $('sessionMeta').textContent = session ? (session.cwd || '') : '';
   renderWorkspacePicker(); // v0.9-S3 (C3): keep the top-bar picker in sync with this session's cwd
+  updateSkillBadge(); // v1 技能体系: 会话切换时刷新 composer 技能徽标(已启用技能数)
   renderStepBar(session && session.todos); // v0.8-S3: show the task-list bar if this session has todos
   const box = $('messages');
   box.innerHTML = '';
@@ -4046,7 +4047,9 @@ function updateEngineDependentUI() {
   // endpoint). skillBtn stays Claude-only (A2: /skill is a CLI concept). Titles follow the engine.
   const compactBtn = $('compactBtn');
   if (compactBtn) { compactBtn.classList.remove('hidden'); compactBtn.title = prov ? '压缩上下文：服务端摘要压缩对话历史，释放上下文空间' : '压缩上下文：让 Claude 概括并压缩对话历史（/compact），释放上下文空间'; }
-  const skillBtn = $('skillBtn'); if (skillBtn) skillBtn.classList.toggle('hidden', prov);
+  // v1 技能体系: 「技能库」在两个引擎都可用(技能面板承载技能开关 + 命令 + Playbook),不再 Claude-only 隐藏。
+  const skillBtn = $('skillBtn'); if (skillBtn) skillBtn.classList.remove('hidden');
+  updateSkillBadge();
   // A3: composer placeholder follows the active engine label.
   const ta = $('promptInput');
   if (ta) ta.placeholder = `发给 ${engineLabel()} · ${currentModelId() || '默认'}…（Enter 发送，Shift+Enter 换行）`;
@@ -4739,36 +4742,173 @@ async function openMcpInspector() {
   }
 }
 
-/* ---------------- skill / command panel ---------------- */
-let skillCache = null;
+/* ---------------- skill library panel (v1 技能体系) ---------------- */
+// 「技能库」升级(原「技能 / 命令面板」):三分组——技能(可启用/停用,两个引擎通用)、命令(仅 Claude 模式,
+// 沿用插入 /name)、一键任务(Playbook,走 openPlaybookModal 流程)。技能启用状态存在 session.skills,
+// 通过 POST /api/session/skills 落盘。skillFiltered 是「按显示顺序拍平」的当前可选项(供键盘上下 + Enter)。
+let skillRegistry = [];
 let skillFiltered = [];
 let skillIndex = 0;
+// P3-5: 技能开关串行化 —— 模块级单飞 promise 链(并发点击按序落盘,避免读改写竞态覆盖)+ 在途 id 集合(禁用对应行开关)。
+let skillToggleChain = Promise.resolve();
+const skillTogglePending = new Set();
+// P2-2: session.skills 元素为 {id, source}(或旧裸字符串);统一取出 id 列表。
+function enabledSkillIds() {
+  const arr = (state.currentSession && Array.isArray(state.currentSession.skills)) ? state.currentSession.skills : [];
+  return arr.map(x => (typeof x === 'string' ? x : (x && x.id))).filter(Boolean);
+}
 async function openSkillPanel() {
-  // A2: skills/commands are Claude-CLI concepts. In provider mode inserting "/xxx" would be sent as
-  // plain text, so the panel is unavailable (button hidden + "/" shortcut disabled).
-  if (isProviderMode()) return;
   openModal('skillModal');
   const s = $('skillSearch'); s.value = ''; skillIndex = 0; s.focus();
   $('skillList').innerHTML = '<div class="muted">加载中…</div>';
-  if (!skillCache) { try { skillCache = (await api('/api/skills')).skills || []; } catch { skillCache = []; } }
+  // 每次打开都刷新:项目级技能随 cwd 变、可用性随能力矩阵变、启用状态随会话变。cwd 传当前会话工作目录。
+  try { skillRegistry = (await api('/api/skills?cwd=' + encodeURIComponent(currentWorkspace() || ''))).skills || []; }
+  catch { skillRegistry = []; }
   renderSkillList();
 }
 function renderSkillList() {
   const q = $('skillSearch').value.trim().toLowerCase();
-  skillFiltered = (skillCache || []).filter(s => !q || s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q));
+  const all = skillRegistry || [];
+  const match = s => !q || (s.name || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q) || (s.id || '').toLowerCase().includes(q);
+  const claudeMode = !isProviderMode();
+  const skills = all.filter(s => s.kind === 'skill' && match(s));
+  const commands = claudeMode ? all.filter(s => s.kind === 'command' && match(s)) : []; // 命令仅 Claude 模式(CLI 原生认 /name)
+  const playbooks = all.filter(s => s.kind === 'playbook' && match(s));
+  skillFiltered = [...skills, ...commands, ...playbooks]; // 拍平的显示顺序(与 .skill-item DOM 顺序一致)
   if (skillIndex >= skillFiltered.length) skillIndex = Math.max(0, skillFiltered.length - 1);
   const list = $('skillList'); list.innerHTML = '';
-  if (!skillFiltered.length) { list.appendChild(el('div', 'muted', (skillCache && skillCache.length) ? '无匹配' : '未发现技能/命令（安装离线插件后可用）')); return; }
-  skillFiltered.forEach((s, i) => {
-    const it = el('div', `skill-item ${i === skillIndex ? 'sel' : ''}`);
-    const head = el('div', 'skill-head');
-    head.append(el('code', 'skill-name', s.insert), el('span', 'skill-type', s.type === 'skill' ? '技能' : '命令'));
-    it.appendChild(head);
-    if (s.description) it.appendChild(el('div', 'skill-desc', s.description));
-    it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
-    it.onclick = () => pickSkill(i);
-    list.appendChild(it);
+  const enabledIds = enabledSkillIds();
+  const enabled = new Set(enabledIds);
+  // P3-6: 幽灵启用项 —— session.skills 里但注册表已无对应技能(被删/改名/随 cwd 丢失)。收集以便渲染「已失效」行。
+  const regSkillIds = new Set(all.filter(s => s.kind === 'skill').map(s => s.id));
+  const ghosts = enabledIds.filter(id => !regSkillIds.has(id) && (!q || id.toLowerCase().includes(q)));
+  if (!skillFiltered.length && !ghosts.length) {
+    list.appendChild(el('div', 'muted', all.length ? '无匹配' : '未发现技能/命令（可在数据目录 skills/ 或项目 .ruyi/skills/ 放置 SKILL.md）'));
+    return;
+  }
+  let flatIdx = 0;
+  const section = (title, items, builder) => {
+    if (!items.length) return;
+    list.appendChild(el('div', 'skill-group-title', title));
+    for (const s of items) list.appendChild(builder(s, flatIdx++, enabled));
+  };
+  section(`技能 · ${skills.length}`, skills, buildSkillRow);
+  section(`命令 · ${commands.length}`, commands, buildCommandRow);
+  section(`一键任务 · ${playbooks.length}`, playbooks, buildPlaybookRow);
+  if (ghosts.length) {
+    list.appendChild(el('div', 'skill-group-title', `已失效 · ${ghosts.length}`));
+    for (const gid of ghosts) list.appendChild(buildGhostRow(gid)); // 不计入 flatIdx / skill-item → 键盘导航忽略
+  }
+}
+// P3-6: 已失效技能行 —— 展示 id + 移除按钮(POST 过滤后由服务端自动清掉该无效 id)。不带 .skill-item 类,不参与键盘选中。
+function buildGhostRow(id) {
+  const it = el('div', 'skill-ghost');
+  const head = el('div', 'skill-head');
+  head.appendChild(el('span', 'skill-name', id));
+  head.appendChild(el('span', 'skill-src', '已失效'));
+  const rm = el('button', 'skill-toggle', '移除');
+  rm.onclick = e => { e.stopPropagation(); removeGhostSkill(id); };
+  head.appendChild(rm);
+  it.appendChild(head);
+  it.appendChild(el('div', 'skill-reason', '此技能已不在注册表中（可能已删除，或随工作目录变化而不可见）。'));
+  return it;
+}
+// P3-6: 移除一个失效技能 —— 从启用集里剔除该 id 并落盘(服务端只保留注册表里存在的技能,失效 id 自然被清)。
+async function removeGhostSkill(id) {
+  const session = state.currentSession;
+  if (!session) return;
+  const next = enabledSkillIds().filter(x => x !== id);
+  try {
+    const r = await api('/api/session/skills', { method: 'POST', body: JSON.stringify({ sessionId: session.id, skills: next }) });
+    session.skills = (r && Array.isArray(r.skills)) ? r.skills : next.map(x => ({ id: x, source: '' }));
+    toast(`已移除失效技能：${id}`);
+  } catch (e) { toast('移除失败：' + apiErrText(e), 'err'); return; }
+  renderSkillList();
+  updateSkillBadge();
+}
+// 技能行:启用/停用开关 + 来源标签(内置/用户/项目)。不可用(requires 未满足)→ 置灰 + 一行原因,开关禁用。
+function buildSkillRow(s, i, enabled) {
+  const unavailable = s.available === false;
+  const it = el('div', `skill-item${i === skillIndex ? ' sel' : ''}${unavailable ? ' unavailable' : ''}`);
+  const head = el('div', 'skill-head');
+  head.appendChild(el('span', 'skill-name', s.name || s.id));
+  head.appendChild(el('span', 'skill-src', s.source === 'project' ? '项目' : (s.source === 'user' ? '用户' : '内置')));
+  const on = enabled.has(s.id);
+  const pending = skillTogglePending.has(s.id); // P3-5: 该行有在途请求 → 开关禁用 + 显示「…」
+  const toggle = el('button', 'skill-toggle' + (on ? ' on' : ''), unavailable ? '不可用' : (pending ? '…' : (on ? '已启用' : '启用')));
+  if (unavailable || pending) toggle.disabled = true;
+  toggle.onclick = e => { e.stopPropagation(); toggleSkill(s); };
+  head.appendChild(toggle);
+  it.appendChild(head);
+  if (s.description) it.appendChild(el('div', 'skill-desc', s.description));
+  if (unavailable && s.unavailableReason) it.appendChild(el('div', 'skill-reason', s.unavailableReason));
+  it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
+  it.onclick = () => { if (!unavailable && !pending) toggleSkill(s); };
+  return it;
+}
+// 命令行(仅 Claude 模式):点击插入 /name 到输入框(保留旧行为)。
+function buildCommandRow(s, i) {
+  const it = el('div', `skill-item${i === skillIndex ? ' sel' : ''}`);
+  const head = el('div', 'skill-head');
+  head.append(el('code', 'skill-name', s.insert || ('/' + s.id)), el('span', 'skill-type', '命令'));
+  it.appendChild(head);
+  if (s.description) it.appendChild(el('div', 'skill-desc', s.description));
+  it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
+  it.onclick = () => { insertSkill(s.insert || ('/' + s.id)); closeModal('skillModal'); };
+  return it;
+}
+// 一键任务行(Playbook):点击走既有 openPlaybookModal(输入表单 → 组装 → sendPrompt)。不可用置灰 + 原因。
+function buildPlaybookRow(s, i) {
+  const unavailable = s.available === false;
+  const pb = s.playbook || null;
+  const it = el('div', `skill-item${i === skillIndex ? ' sel' : ''}${unavailable ? ' unavailable' : ''}`);
+  const head = el('div', 'skill-head');
+  head.append(el('span', 'skill-name', ((pb && pb.icon) ? pb.icon + ' ' : '') + (s.name || s.id)), el('span', 'skill-type', '一键任务'));
+  it.appendChild(head);
+  if (s.description) it.appendChild(el('div', 'skill-desc', s.description));
+  if (unavailable && s.unavailableReason) it.appendChild(el('div', 'skill-reason', s.unavailableReason));
+  it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
+  it.onclick = () => {
+    if (unavailable) { toast(s.unavailableReason || '当前不可用', 'err'); return; }
+    if (!pb) { toast('该任务模板数据缺失', 'err'); return; }
+    closeModal('skillModal'); openPlaybookModal(pb);
+  };
+  return it;
+}
+// 启用/停用一个技能:更新 session.skills 并 POST 落盘。上限 8;不可用技能拒启用。
+// P3-5: 串行化 —— 接到模块级单飞链尾,并把该 id 记为在途(禁用其开关),避免快速连点产生读改写竞态/覆盖。
+function toggleSkill(entry) {
+  const session = state.currentSession;
+  if (!session) { toast('请先新建或选择一个会话', 'err'); return; }
+  if (entry.available === false) { toast(entry.unavailableReason || '该技能当前不可用', 'err'); return; }
+  if (skillTogglePending.has(entry.id)) return; // 该行已有在途请求 → 忽略重复点击
+  skillTogglePending.add(entry.id);
+  renderSkillList(); // 立刻反映 disabled 态
+  skillToggleChain = skillToggleChain.then(() => doToggleSkill(entry)).catch(() => {}).then(() => {
+    skillTogglePending.delete(entry.id);
+    renderSkillList();
+    updateSkillBadge();
   });
+}
+async function doToggleSkill(entry) {
+  const session = state.currentSession;
+  if (!session) return;
+  const cur = enabledSkillIds(); // 链上串行执行,每次读取最新启用集(以 id 列表比较)
+  const on = cur.includes(entry.id);
+  let next;
+  if (on) next = cur.filter(x => x !== entry.id);
+  else { if (cur.length >= 8) { toast('最多同时启用 8 个技能', 'err'); return; } next = cur.concat(entry.id); }
+  try {
+    const r = await api('/api/session/skills', { method: 'POST', body: JSON.stringify({ sessionId: session.id, skills: next }) });
+    session.skills = (r && Array.isArray(r.skills)) ? r.skills : next.map(id => ({ id, source: '' }));
+    toast(on ? `已停用技能：${entry.name || entry.id}` : `已启用技能：${entry.name || entry.id}`);
+  } catch (e) { toast('设置技能失败：' + apiErrText(e), 'err'); }
+}
+// composer 技能按钮的数量徽标(已启用技能数)。会话切换/启用变更时刷新。
+function updateSkillBadge() {
+  const btn = $('skillBtn'); if (!btn) return;
+  const n = (state.currentSession && Array.isArray(state.currentSession.skills)) ? state.currentSession.skills.length : 0;
+  btn.textContent = n > 0 ? `⌘ 技能 · ${n}` : '⌘ 技能';
 }
 function updateSkillSel() {
   const items = [...$('skillList').querySelectorAll('.skill-item')];
@@ -4780,7 +4920,16 @@ function moveSkillSel(d) {
   skillIndex = Math.max(0, Math.min(skillFiltered.length - 1, skillIndex + d));
   updateSkillSel();
 }
-function pickSkill(i) { const s = skillFiltered[i]; if (!s) return; insertSkill(s.insert); closeModal('skillModal'); }
+// Enter/点选:技能→切换启用(不关面板,便于连续操作);命令→插入并关;一键任务→关面板并打开输入表单。
+function pickSkill(i) {
+  const s = skillFiltered[i]; if (!s) return;
+  if (s.kind === 'skill') { toggleSkill(s); return; }
+  if (s.kind === 'command') { insertSkill(s.insert || ('/' + s.id)); closeModal('skillModal'); return; }
+  if (s.kind === 'playbook') {
+    if (s.available === false || !s.playbook) { toast(s.unavailableReason || '该任务当前不可用', 'err'); return; }
+    closeModal('skillModal'); openPlaybookModal(s.playbook);
+  }
+}
 function insertSkill(cmd) {
   const ta = $('promptInput');
   const cur = ta.value;
@@ -4806,7 +4955,7 @@ function paletteActions() {
     { label: '导入会话 (JSON)', hint: 'import', run: importSession },
     { label: '把当前输入存为模板', hint: 'template', run: addTemplateFromPrompt },
     { label: 'MCP 工具检查器', hint: 'tools', run: openMcpInspector },
-    { label: '技能 / 命令面板', hint: '/', run: openSkillPanel },
+    { label: '技能库（技能 / 命令 / 一键任务）', hint: '/', run: openSkillPanel },
   ];
   for (const t of getTemplates()) acts.push({ label: `模板 → ${t.name}`, hint: 'template', run: () => insertTemplate(t.text) });
   // Engine/model actions across ALL engines (C4): Claude CLI group + every provider. Each row switches
@@ -5406,10 +5555,10 @@ function bindEvents() {
     else if (e.key === 'ArrowUp') { e.preventDefault(); moveSkillSel(-1); }
     else if (e.key === 'Enter') { e.preventDefault(); pickSkill(skillIndex); }
   });
-  // "/" at the very start of an empty composer opens the skill panel — but only in Claude mode. In
-  // provider mode (A2) skills are a Claude-CLI concept, so let "/" type as a normal character.
+  // "/" at the very start of an empty composer opens the skill panel (「技能库」). v1 技能体系: 面板现承载
+  // 技能开关(两个引擎通用),故不再限 Claude 模式——两个引擎都用 "/" 唤出。
   ta.addEventListener('keydown', e => {
-    if (e.key === '/' && ta.value === '' && !isProviderMode()) { e.preventDefault(); openSkillPanel(); }
+    if (e.key === '/' && ta.value === '') { e.preventDefault(); openSkillPanel(); }
   });
   $('fileInput').addEventListener('change', e => { uploadFiles([...e.target.files]); e.target.value = ''; });
   ta.addEventListener('paste', e => {
