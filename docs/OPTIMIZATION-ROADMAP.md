@@ -255,3 +255,21 @@
 - 设计:统一发现层不强行统一存储(Playbook 以 kind:playbook 并入面板,存储不迁移);会话级启用+渐进注入(索引进 system prompt,全文按需:provider 走 skill_read 工具,Claude 走索引附路径+自带 Read);命令保留 Claude-only 斜杠插入(CLI 原生概念)。
 - 对抗验证要点:技能元数据=不可信输入,已围栏+下移不可信带;{id,source} 启用锁定防调包;回合中切换防回滚。v2 待办:Playbook 的 SKILL.md 化、工作流节点技能注入、技能编写器 UI。
 - 用户点名的三项优先级(成本漏算/团队模式/Skills)至此全部落地:564c742 / 20385dc / 本波。
+
+## 13. 第 10/11 波:团队模式 v2 全量落地(2026-07-09 收官)
+
+设计稿 docs/TEAM-MODE-V2-DESIGN.md r2(da81091)三个 Phase 全部实现并经对抗验证:
+
+**Phase 1+2(f20576c)共享任务池 + Agent 邮箱**
+- 任务池:propose_task(闭包分发/META_TOOLS 豁免角色白名单/链深≤2/总数≤8/maxNodes 复检)、manual|auto-capped|off 三策略、收尾竞态三件套(closing 原子门+可重新武装的宽限窗 WCW_POOL_GRACE_MS+结束后 409)、物化走 normalizeAgentWorkflow 同款管线零新执行路径、failurePolicy=continue 缺省、回合内 orchestrate 强制 off。
+- 邮箱:send_to_agent、mailQueues 与 steerQueues 分池(用户控制权优先)、三级 cap(3/目标 8/发送者 24/run)、deliveredAt/dropped 全生命周期诚实回标(skip/block 清扫、retry 作废、crash 补标)、前缀伪造中和防节点间提权。
+- 对抗验证抓获:P1 pool_approve TOCTOU(await 缝隙物化孤儿节点/批准已拒任务,两变体,同步复检闭合)+ 2 P2(宽限窗门控窄于设计、消息未围栏)+ 8 P3。e2e team-pool-mailbox 58 断言。
+
+**Phase 3(243b983)跨会话工作台记忆**
+- dataRoot/memory 双 scope 存储(projectKey=sha256 小写化 cwd 截16+meta.json 反查)、起草-确认写入(aux 台账)、<workbench-memory> 围栏渐进注入、三段 8000 合成(用户>技能>记忆,记忆段整段丢弃)、{id,scope,projectKey} 来源锁定+失配通知、--add-dir 最小授权、与 CLAUDE.md 分工(C0)。
+- 对抗验证抓获:4 P2(内容型 GET 缺 tokenOk——v1.4.6-S1 rebinding 纪律回退、--add-dir 整树暴露、收尾 disk-merge 缺 memories 回滚窗、migrate 静默覆盖)+ 4 P3。e2e workbench-memory 58 断言。
+- 残留(可接受,未修):P3-1 body 上限按字符校验,多字节正文理论可过读字节上限成幽灵(修法:Buffer.byteLength);前端记忆面板未浏览器实跑(node --check+逻辑复核)。
+
+**方法论沉淀**:纸面对抗评审(设计稿 r2 拦下 3 个 design-blocker)+ 实现级对抗验证(拦下 1 P1+8 P2)是两道互补防线——前者防一阶设计错误,后者防"实现了防线但防线自身有 await 缝隙"的二阶错误,以及"新特性对既有威胁模型的纪律回退"(tokenOk/最小授权)。
+
+**本会话累计 11 波**全部推送至 origin/master。后续方向(未排期):任务池 v2.1 结束后续跑、记忆导出/同步、Playbook SKILL.md 化、工作流节点技能注入、overlay 更新 GUI。
