@@ -2597,6 +2597,23 @@ async function agentRunAction(runId, action, extra) {
     toast('Agent 工作流操作已提交', 'ok'); await loadAgentRuns();
   } catch (e) { toast(`Agent 工作流：${apiErrText(e)}`, 'err'); }
 }
+// v1 定向插话（steer 到指定运行中子代理节点）：对某个运行中/排队中的 OpenAI 引擎节点插一句话，服务器在该节点
+// 下一次 API 调用前把它注入为 user 消息。prompt() 取文本（与现有 confirm 风格一致，不引入新组件）；成功后刷新
+// 运行列表让「插话」里程碑尽快显现。失败用 apiErrText 提示。
+async function steerAgentNode(runId, nodeId, nodeStatus) {
+  const sid = state.currentSession?.id; if (!sid) return;
+  const text = (prompt(`对节点 ${nodeId} 插话（下一次调用前生效）：`) || '').trim();
+  if (!text) return;
+  try {
+    const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action: 'steer_node', nodeId, text }) });
+    if (!r || !r.ok) throw new Error((r && r.error) || '插话失败');
+    // running 节点在下一次迭代边界（下一次模型调用前）就会消费队列；queued/waiting_resource 节点要等它真正
+    // 开跑才会消费——如果节点在那之前被跳过/阻塞/工作流停止，排队的插话会被直接丢弃，成功提示要如实区分这两种情况。
+    const msg = nodeStatus === 'running' ? '已插话，下一次调用前生效' : '已排队，节点开跑时投递（若节点被跳过/阻塞则丢弃）';
+    toast(msg, 'ok');
+    await loadAgentRuns();
+  } catch (e) { toast(`插话失败：${apiErrText(e)}`, 'err'); }
+}
 async function deleteAgentRun(runId) {
   const sid = state.currentSession?.id; if (!sid || !confirm('删除这条 Agent 工作流记录？')) return;
   try { await api(`/api/agent-runs/${encodeURIComponent(runId)}?sessionId=${encodeURIComponent(sid)}`, { method: 'DELETE' }); await loadAgentRuns(); }
@@ -2767,6 +2784,17 @@ function renderAgentRuns(runs) {
           actions.appendChild(viewErr);
         }
         body.appendChild(actions);
+      }
+      // v1 定向插话（steer）：对 live run 中运行/排队/等待资源的非 Claude 引擎节点给一个「插话」按钮。Claude 引擎
+      // 节点是 -p 单发进程，任务写入后 stdin 即关，无迭代边界可注入，故不提供（与后端 steer_node 拒绝一致）。
+      // vote/dedupe 质量门节点是确定性短路，从不调用模型、没有迭代边界会消费插话队列，同样不提供（与后端一致）。
+      const isDeterministicGate = node.gate && ['vote', 'dedupe'].includes(node.gate.mode);
+      if (run.live && ['running', 'queued', 'waiting_resource'].includes(node.status) && (node.engine || 'openai') !== 'claude' && !isDeterministicGate) {
+        const steerActions = el('div', 'agent-node-actions');
+        const steer = el('button', 'mini', '插话'); steer.setAttribute('aria-label', `对节点 ${node.id} 插话`);
+        steer.onclick = () => steerAgentNode(run.id, node.id, node.status);
+        steerActions.appendChild(steer);
+        body.appendChild(steerActions);
       }
       row.appendChild(body); graph.appendChild(row);
     }

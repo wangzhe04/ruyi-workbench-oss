@@ -5434,7 +5434,10 @@ async function drainSteerQueue(reg, session, onEvent) {
 function agentRunDir(sessionId) { return path.join(paths.agentRuns, safeSessionId(sessionId)); }
 function agentRunFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.json`); }
 const agentRunWriteChains = new Map();
-const activeAgentRuns = new Map(); // runId -> { run, ctrl, paused, stopRequested, resumeWaiters }
+const activeAgentRuns = new Map(); // runId -> { run, ctrl, paused, stopRequested, resumeWaiters, steerQueues }
+// v1 定向插话（steer 到指定运行中子代理节点）: per-node steer queue cap. Reused BOTH by the workflow node
+// steer action and by /api/steer's per-turn cap so the two steering surfaces stay symmetric.
+const STEER_QUEUE_MAX = 3;
 
 // Resource-aware agent scheduling. A lease is scoped to an agent group: the node-level declaration and
 // its individual tool calls may overlap each other, while other agents still see the resource as busy.
@@ -6084,7 +6087,7 @@ async function markInterruptedAgentRuns() {
   }
 }
 
-async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition }) {
+async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder }) {
   const started = Date.now();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself run spawn_agent.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes spawn_agent */ }
@@ -6201,6 +6204,18 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       }
       iters = iter + 1;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
+      // v1 定向插话: consume any steers queued for THIS node at the iteration boundary (before buildBody), so
+      // each lands as a user message in the request we are about to send — same semantics as the父回合's
+      // drainSteerQueue draining at the tool-loop boundary. The finalizer (runFinalizerWithoutTools) does NOT
+      // drain, matching the parent turn's "no drain mid-batch" rule. A steer arriving right as an iteration cap
+      // hits may be lost (v1 has no delivery receipt) — acceptable.
+      {
+        const steers = (typeof getSteer === 'function') ? getSteer() : [];
+        for (const t of steers) {
+          subHistory.push({ role: 'user', content: '[编排者插话] ' + t + (steerReminder || '') });
+          onEvent({ type: 'subagent_steered', subagentId, text: t });
+        }
+      }
       // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
       // (502/503/504) + a toolsRejected retry; the sub-turn previously had NEITHER, so a single transient
       // gateway blip, rate-limit (429) or connect/TLS failure on a sub-agent call failed the whole node - and
@@ -6708,6 +6723,7 @@ function recordAgentNodeProgress(run, node, evt) {
     else if (evt.state === 'retry') text = `子 Agent 重试 ${evt.attempt || 0}/${evt.maxAttempts || 0}${evt.reason ? ` · ${evt.reason}` : ''}`;
     else if (evt.state === 'end') text = `子 Agent ${evt.ok ? '完成' : '失败'}${evt.resultChars != null ? ` · ${evt.resultChars} 字` : ''}`;
   } else if (evt.type === 'subagent_progress') { kind = 'gen'; text = evt.note || `生成中 · ${Number(evt.chars) || 0} 字`; }
+  else if (evt.type === 'subagent_steered') { text = `插话 · ${String(evt.text || '').slice(0, 80)}`; }
   else if (evt.type === 'tool_use') text = `调用工具 ${evt.name || ''}`.trim();
   else if (evt.type === 'tool_result') text = `工具返回 ${evt.isError ? '错误' : '成功'}${evt.id ? ` · ${evt.id}` : ''}`;
   else if (evt.type === 'agent_resource') text = evt.state === 'waiting' ? `等待资源：${(evt.resources || []).join(', ')}` : evt.state === 'acquired' ? `获得资源：${(evt.resources || []).join(', ')}` : evt.state === 'released' ? `释放资源：${(evt.resources || []).join(', ')}` : '';
@@ -6822,7 +6838,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     if (parentCtrl.signal.aborted) localCtrl.abort();
     else parentCtrl.signal.addEventListener('abort', () => localCtrl.abort(), { once: true });
   }
-  const runtime = { run, ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [] };
+  const runtime = { run, ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [], steerQueues: new Map() };
   activeAgentRuns.set(runId, runtime);
   await saveAgentRun(run);
   onEvent({ type: 'agent_workflow', state: 'start', id: runId, nodeCount: nodes.length, concurrency: run.concurrency });
@@ -6957,6 +6973,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             displayTask: node.task, agentKey: node.id,
             dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
             onEvent: nodeEvent, subagentId: makeId('sub'), depth: 1, ctrl: localCtrl, permModeOverride,
+            getSteer: () => { const q = runtime.steerQueues.get(node.id); return q && q.length ? q.splice(0, q.length) : []; },
+            // 有 outputSchema 或 gate 需要模型输出结构化裁决（非 vote/dedupe，那两种是确定性短路，见上）时，
+            // effectiveSchema 已经把两种情况合一；插话文本追加一句提醒，防止模型把插话当自由格式对话而忘了收尾仍要出严格 JSON。
+            steerReminder: effectiveSchema ? '\n（注意：最终输出仍必须只有符合原任务 JSON Schema 的严格 JSON）' : '',
             resources: effectiveResources, resourceGroup: `${runId}:${node.id}`,
             roleDefinition: node.roleSnapshot || (node.roleId ? roleLibrary.get(node.roleId) : null),
             onResourceWait: (resources, blockers) => { node.status = 'waiting_resource'; node.waitingForResources = resources.map(r => r.label); node.resourceBlockers = blockers; saveAgentRun(run).catch(() => {}); },
@@ -11224,6 +11244,12 @@ async function handleApi(req, res, pathname) {
     const action = String(body.action || '');
     if (!sessionId || !runId) return send(res, json({ ok: false, error: 'sessionId/runId required' }, 400));
     const live = activeAgentRuns.get(runId);
+    // runId 是全局命名空间（不像持久化文件那样按 sessionId 分目录），live runtime 挂在内存 Map 里也不天然按
+    // sessionId 隔离——不加这层校验，一个知道/猜到 runId 的会话就能 pause/resume/stop/steer 另一个会话正在跑的
+    // 工作流。对齐 apply_isolation 从文件读到 run 后做的 run.sessionId !== sessionId 校验语义，统一在这里拦截，
+    // 对 pause/resume/stop/steer_node 全部生效；resume 的冷启动分支（live 为空）走 launchPersistedAgentRun，
+    // 本来就按 sessionId 找持久化文件，不受影响。
+    if (live && live.run && live.run.sessionId && live.run.sessionId !== sessionId) return send(res, json({ ok: false, error: 'agent run not found' }, 404));
     if (action === 'pause') {
       if (!live) return send(res, json({ ok: false, error: '工作流当前未运行' }, 409));
       live.paused = true; live.run.pauseRequestedAt = nowIso(); await saveAgentRun(live.run);
@@ -11256,6 +11282,33 @@ async function handleApi(req, res, pathname) {
       if (!run || run.sessionId !== sessionId) return send(res, json({ ok: false, error: 'agent run not found' }, 404));
       const applied = await applyAgentWorktree(run, nodeId).catch(e => ({ ok: false, error: String(e && (e.gitStderr || e.message) || e) }));
       return send(res, json(applied, applied.ok ? 200 : 409));
+    }
+    // v1 定向插话（steer 到指定运行中子代理节点）: enqueue a user interjection onto ONE running/queued OpenAI
+    // node's steer queue; runSubAgentCore drains it at its next iteration boundary. Requires a live run (the
+    // queue lives on the in-memory runtime). Claude-engine nodes are -p single-shot processes with no
+    // iteration boundary to inject at, so they are rejected here (symmetric with /api/steer rejecting Claude).
+    if (action === 'steer_node') {
+      if (!live) return send(res, json({ ok: false, error: '工作流当前未运行，无法插话' }, 409));
+      // 停止收尾窗口：stop 已经请求（或 ctrl 已中止）之后，节点即将被标记 cancelled，不会再有下一次迭代边界来
+      // 消费插话队列；此时接受插话只会让用户误以为它会生效，直接拒绝更诚实。
+      if (live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted)) return send(res, json({ ok: false, error: '工作流正在停止，无法插话' }, 409));
+      const nodeId = String(body.nodeId || '').trim();
+      if (!nodeId) return send(res, json({ ok: false, error: 'nodeId required' }, 400));
+      const node = (Array.isArray(live.run.nodes) ? live.run.nodes : []).find(n => n.id === nodeId);
+      if (!node) return send(res, json({ ok: false, error: '节点不存在' }, 404));
+      if ((node.engine || 'openai') === 'claude') return send(res, json({ ok: false, error: 'Claude 引擎节点为单发进程，暂不支持中途插话' }, 409));
+      // vote/dedupe 质量门节点是确定性短路（aggregateAgentVote/dedupeAgentFindings，见 runAgentWorkflow），
+      // 从不调用 runSubAgent，也就没有迭代边界会消费 steerQueues——排队的插话会永远滞留，直到节点终态后被丢弃。
+      if (node.gate && ['vote', 'dedupe'].includes(node.gate.mode)) return send(res, json({ ok: false, error: '确定性质量门节点不经过模型，无法插话' }, 409));
+      if (!['running', 'queued', 'waiting_resource'].includes(node.status)) return send(res, json({ ok: false, error: '节点已结束，无法插话' }, 409));
+      const text = String(body.text || '').trim().slice(0, 2000);
+      if (!text) return send(res, json({ ok: false, error: '插话内容不能为空' }, 400));
+      if (!live.steerQueues) live.steerQueues = new Map();
+      let q = live.steerQueues.get(nodeId);
+      if (!q) { q = []; live.steerQueues.set(nodeId, q); }
+      if (q.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '该节点插话队列已满' }, 409));
+      q.push(text);
+      return send(res, json({ ok: true, queued: q.length }));
     }
     return send(res, json({ ok: false, error: 'unknown action' }, 400));
   }
@@ -11489,14 +11542,13 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/steer') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId); // F4
-    const text = String(body.text || '').trim();
+    const text = String(body.text || '').trim().slice(0, 2000); // 与 steer_node 的单条插话长度上限对齐
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     if (!text) return send(res, json({ ok: false, error: 'text is required' }, 400));
     const reg = activeChildren.get(sessionId);
     if (!reg) return send(res, json({ ok: false, error: '当前没有进行中的回合' }));
     if (reg.kind !== 'openai') return send(res, json({ ok: false, error: '仅 provider 引擎支持插话' }));
     if (!Array.isArray(reg.steerQueue)) reg.steerQueue = [];
-    const STEER_QUEUE_MAX = 3;
     if (reg.steerQueue.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '插话队列已满' }));
     reg.steerQueue.push(text);
     return send(res, json({ ok: true, queued: reg.steerQueue.length }));
