@@ -5320,7 +5320,19 @@ async function saveAgentRun(run) {
     const dest = agentRunFile(run.sessionId, run.id);
     const tmp = dest + '.' + process.pid + '.tmp';
     await fsp.writeFile(tmp, JSON.stringify(run, null, 2), 'utf8');
-    await fsp.rename(tmp, dest);
+    // Windows: fsp.rename replacing `dest` throws EPERM/EBUSY/EACCES when a concurrent reader holds it
+    // open (the UI polls /api/agent-runs -> listAgentRuns reads this same file every ~2s). These locks
+    // clear in milliseconds, so retry briefly. Without this, one racy save rejects runAgentWorkflow and
+    // the async-launch catch persists a spurious { status:'failed', nodes:[] } run.
+    for (let attempt = 0; ; attempt++) {
+      try { await fsp.rename(tmp, dest); break; }
+      catch (e) {
+        const transient = e && (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES' || e.code === 'EEXIST');
+        if (transient && attempt < 8) { await new Promise(r => setTimeout(r, 15 + attempt * 20)); continue; }
+        try { await fsp.unlink(tmp); } catch { /* best-effort tmp cleanup */ }
+        throw e;
+      }
+    }
   });
   agentRunWriteChains.set(run.id, current);
   try { await current; }
@@ -5911,14 +5923,15 @@ function workflowProgressFingerprint(node) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 function agentWorkflowStatusText(status) {
-  return ({ queued: '排队中', waiting_resource: '等待资源', blocked: '阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', skipped: '已跳过', partial: '部分完成', failed: '失败', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+  return ({ queued: '排队中', waiting_resource: '等待资源', blocked: '阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', skipped: '已跳过', partial: '部分完成', failed: '失败', rejected: '质量门未通过', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
 }
 function summarizeAgentWorkflowRun(run, opts = {}) {
   const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
   const title = opts.title || 'Agent 工作流';
   const lines = [`${title}${run && run.id ? `（${run.id}）` : ''}已结束：${agentWorkflowStatusText(run && run.status)}。`];
   const succeeded = nodes.filter(n => n.status === 'succeeded' || n.status === 'skipped').length;
-  lines.push(`节点：成功/跳过 ${succeeded}，失败/阻塞 ${nodes.length - succeeded}，共 ${nodes.length}。`);
+  const rejected = nodes.filter(n => n.status === 'rejected').length; // B8: quality-gate "no" verdicts, not run failures
+  lines.push(`节点：成功/跳过 ${succeeded}${rejected ? `，质量门未通过 ${rejected}` : ''}，失败/阻塞 ${nodes.length - succeeded - rejected}，共 ${nodes.length}。`);
   for (const node of nodes) {
     const role = node.roleLabel || node.roleId || node.role || '';
     let summary = '';
@@ -6064,7 +6077,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   await saveAgentRun(run);
   onEvent({ type: 'agent_workflow', state: 'start', id: runId, nodeCount: nodes.length, concurrency: run.concurrency });
   let startedCount = 0;
-  const terminal = node => node.status === 'succeeded' || node.status === 'failed' || node.status === 'cancelled' || node.status === 'blocked' || node.status === 'skipped';
+  const terminal = node => node.status === 'succeeded' || node.status === 'failed' || node.status === 'cancelled' || node.status === 'blocked' || node.status === 'skipped' || node.status === 'rejected';
   const failureContinues = node => node && (node.failurePolicy === 'continue' || (node.failurePolicy === 'retry' && node.retryFallback === 'continue' && node.attempts > node.maxRetries));
 
   // v1.4.6 (A): throttled mid-execution persistence. saveAgentRun otherwise only fires on node status
@@ -6086,17 +6099,17 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // v1.x (B1): idle watchdog covering BOTH the in-chat (sync) and the UI/resume (async) launch paths. The
   // async/resume paths have NO parent turn (onEvent is a no-op) and thus no parent watchdog, so a wedged or
   // deadlocked run would hang with no automatic recovery. Every nodeEvent (and each batch dispatch) refreshes
-  // lastNodeEventAt (reusing the wave1 progress events); if the whole run makes NO progress for the idle limit
+  // runtime.lastActivityAt (reusing the wave1 progress events); if the whole run makes NO progress for the idle limit
   // we abort it via localCtrl (the same path a user Stop / parent abort takes). Cleared in the finally below;
   // .unref() so it never keeps the event loop alive. WCW_AGENT_WORKFLOW_IDLE_MS is a test seam.
   const idleLimitMs = Math.max(1000, Number(process.env.WCW_AGENT_WORKFLOW_IDLE_MS) || config.turnIdleTimeoutMs || 600000);
-  let lastNodeEventAt = Date.now();
+  runtime.lastActivityAt = Date.now(); // on the SHARED runtime so the resume handler can reset it atomically with clearing paused (closes the race where the watchdog fires after paused=false but before the loop resets the clock)
   let idleAborted = false;
   const idleWatchdog = setInterval(() => {
     if (!activeAgentRuns.has(runId)) return;
     if (localCtrl && localCtrl.signal && localCtrl.signal.aborted) return;
     if (runtime.paused) return; // v1.x (B1-fix): a paused run accrues NO idle time - the watchdog must never kill a paused run (its pause-wait loop only wakes on resume/stop, not on a localCtrl abort)
-    if (Date.now() - lastNodeEventAt > idleLimitMs) {
+    if (Date.now() - runtime.lastActivityAt > idleLimitMs) {
       idleAborted = true; run.idleAborted = true;
       onEvent({ type: 'stderr', text: `[watchdog] agent workflow idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
       if (localCtrl) localCtrl.abort();
@@ -6110,16 +6123,19 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       run.status = 'paused'; await saveAgentRun(run);
       await new Promise(resolve => runtime.resumeWaiters.push(resolve));
     }
-    if (run.status === 'paused') { run.status = 'running'; lastNodeEventAt = Date.now(); await saveAgentRun(run); } // v1.x (B1-fix): resume resets the idle clock so a long pause does not make the very next watchdog tick false-fire
+    if (run.status === 'paused') { run.status = 'running'; runtime.lastActivityAt = Date.now(); await saveAgentRun(run); } // v1.x (B1-fix): resume resets the idle clock so a long pause does not make the very next watchdog tick false-fire
     if (runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) {
       for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒无进展），已中止` : '父回合已停止'); node.completedAt = nowIso(); }
       break;
     }
     // A failed quality/work node blocks its downstream by default. `continue` is an explicit degraded
     // path; retry nodes block only after retries are exhausted unless retryFallback says continue.
+    // B8: a 'rejected' predecessor (a quality gate whose business verdict was "no") is NOT an execution
+    // failure and must never block downstream — the downstream either evaluates its condition (e.g. run
+    // fix only when review verdict=fail) or, if it only dependsOn, treats the gate as a completed predecessor.
     for (const node of nodes.filter(n => n.status === 'queued')) {
       const deps = node.dependsOn.map(id => nodes.find(n => n.id === id)).filter(Boolean);
-      const blockers = deps.filter(dep => terminal(dep) && dep.status !== 'succeeded' && dep.status !== 'skipped' && !failureContinues(dep));
+      const blockers = deps.filter(dep => terminal(dep) && dep.status !== 'succeeded' && dep.status !== 'skipped' && dep.status !== 'rejected' && !failureContinues(dep));
       if (deps.length === node.dependsOn.length && deps.every(terminal) && blockers.length) {
         node.status = 'blocked'; node.error = `被失败的前序节点阻塞: ${blockers.map(n => n.id).join(', ')}`; node.completedAt = nowIso();
         onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status, blockers: blockers.map(n => n.id) });
@@ -6139,7 +6155,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     const batch = ready.slice(0, run.concurrency);
     for (const node of batch) { node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); startedCount += 1; }
-    lastNodeEventAt = Date.now(); // v1.x (B1): dispatching a batch counts as progress (floor for the watchdog)
+    runtime.lastActivityAt = Date.now(); // v1.x (B1): dispatching a batch counts as progress (floor for the watchdog)
     await saveAgentRun(run);
     await Promise.all(batch.map(async node => {
       const depNodes = node.dependsOn.map(dep => nodes.find(n => n.id === dep)).filter(Boolean);
@@ -6168,8 +6184,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           node.structuredResult = aggregateAgentVote(depNodes, node.gate);
           node.result = JSON.stringify(node.structuredResult);
           node.confidence = node.structuredResult.confidence;
-          node.status = node.structuredResult.verdict === 'pass' ? 'succeeded' : 'failed';
-          node.error = node.status === 'failed' ? `投票质量门未通过: ${node.structuredResult.summary}` : '';
+          node.status = node.structuredResult.verdict === 'pass' ? 'succeeded' : 'rejected';
+          node.gateVerdict = node.structuredResult.verdict;
+          node.error = node.status === 'rejected' ? `投票质量门未通过: ${node.structuredResult.summary}` : '';
         } else if (node.gate && node.gate.mode === 'dedupe') {
           node.structuredResult = dedupeAgentFindings(depNodes);
           node.result = JSON.stringify(node.structuredResult);
@@ -6183,7 +6200,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             effectiveResources = remapAgentResources(node.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace), node.isolation.path);
             await saveAgentRun(run);
           }
-          const nodeEvent = evt => { lastNodeEventAt = Date.now(); try { onEvent(evt); } finally { recordAgentNodeProgress(run, node, evt); throttledSaveRun(); } };
+          const nodeEvent = evt => { runtime.lastActivityAt = Date.now(); try { onEvent(evt); } finally { recordAgentNodeProgress(run, node, evt); throttledSaveRun(); } };
           const sub = await runSubAgent({
             parentSession: agentSession, provider, config, engine: node.engine || 'openai',
             task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
@@ -6211,7 +6228,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           if (node.status === 'succeeded' && node.gate) {
             const verdict = verdictPasses(node.structuredResult, node.gate);
             node.confidence = verdict.confidence; node.gateVerdict = verdict.verdict;
-            if (!verdict.pass) { node.status = 'failed'; node.error = `质量门未通过: verdict=${verdict.verdict || 'missing'}, confidence=${verdict.confidence.toFixed(2)}`; }
+            if (!verdict.pass) { node.status = 'rejected'; node.error = `质量门未通过: verdict=${verdict.verdict || 'missing'}, confidence=${verdict.confidence.toFixed(2)}`; }
           } else if (node.structuredResult && Number.isFinite(Number(node.structuredResult.confidence))) node.confidence = Math.min(1, Math.max(0, Number(node.structuredResult.confidence)));
         }
       } catch (e) {
@@ -6251,7 +6268,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       await saveAgentRun(run);
     }));
   }
-  const failed = nodes.filter(n => n.status !== 'succeeded' && n.status !== 'skipped');
+  // B8: 'rejected' is a completed quality-gate verdict ("no"), not an execution failure — it must not
+  // count toward the failed tally, so a run whose only non-success is a quality rejection is not reported
+  // as failed/partial. Truly failed/blocked/cancelled nodes still drive partial/failed exactly as before.
+  const failed = nodes.filter(n => n.status !== 'succeeded' && n.status !== 'skipped' && n.status !== 'rejected');
   run.status = runtime.stopRequested ? 'stopped' : (failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded');
   run.completedAt = nowIso();
   run.summary = summarizeAgentWorkflowRun(run);
@@ -6261,7 +6281,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   } finally { clearInterval(idleWatchdog); if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null; } activeAgentRuns.delete(runId); }
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
-    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, error: n.error, dependsOn: n.dependsOn, role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '' })),
+    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, gateVerdict: n.gateVerdict || '', error: n.error, dependsOn: n.dependsOn, role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '' })),
   };
 }
 
@@ -10385,7 +10405,9 @@ async function handleApi(req, res, pathname) {
     }
     if (action === 'resume') {
       if (live) {
-        live.paused = false; const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake();
+        // Reset the idle clock ATOMICALLY with clearing paused: the watchdog reads live.lastActivityAt, so by the
+        // time it observes paused=false the clock is already fresh -> no false idle-abort right after a long pause.
+        live.paused = false; live.lastActivityAt = Date.now(); const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake();
         return send(res, json({ ok: true, state: 'running' }));
       }
       return send(res, json(await launchPersistedAgentRun({ sessionId, runId })));

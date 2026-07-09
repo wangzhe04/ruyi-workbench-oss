@@ -2528,7 +2528,53 @@ let agentRunsPoll = null;
 const agentRunSummarySeen = new Set();
 const AGENT_RUN_ACTIVE = new Set(['running', 'paused']);
 function agentRunStatusLabel(status) {
-  return ({ queued: '等待中', waiting_resource: '等待资源', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', skipped: '条件跳过', partial: '部分完成', failed: '失败', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+  return ({ queued: '等待中', waiting_resource: '等待资源', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', skipped: '条件跳过', partial: '部分完成', failed: '失败', rejected: '质量门判否', degraded: '降级完成', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+}
+// v1.5 运行监控：展示态状态语义。把「质量门判否」从「执行失败」里分出来——后端可能已直接发 'rejected'，也可能
+// 仍发 'failed' 但带 gateVerdict/structuredResult.verdict==='fail'。两种都归一到 rejected（琥珀，语义=「发现问题
+// ≠崩了」），条件下游据此评估而非阻塞。defensive：后端没发 rejected 也不崩，退化为 failed。
+function nodeDisplayStatus(node) {
+  const s = (node && node.status) || 'unknown';
+  if (s === 'rejected') return 'rejected';
+  if (s === 'failed') {
+    const verdict = (node && node.gateVerdict) || (node && node.structuredResult && node.structuredResult.verdict);
+    if (verdict && String(verdict).toLowerCase() === 'fail') return 'rejected';
+  }
+  if (s === 'succeeded' && node && node.degraded) return 'degraded';
+  return s;
+}
+// 状态徽标图标（符号，不含色；颜色由 CSS 的 .st-<status> 语义 token 驱动，不硬编码）。
+const AGENT_STATUS_ICON = { queued: '○', running: '◐', succeeded: '✓', failed: '✗', rejected: '⚑', skipped: '↷', waiting_resource: '⏸', blocked: '⊘', cancelled: '⏹', stopped: '⏹', interrupted: '⚠', degraded: '⚠', paused: '⏸', partial: '◑' };
+function agentStatusIcon(s) { return AGENT_STATUS_ICON[s] || '○'; }
+// 毫秒 → mm:ss / h:mm:ss（运行时长/节点计时用；2s 轮询即刷新，无需秒级 ticker）。
+function fmtDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  const total = Math.floor(ms / 1000), h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
+  const pad = n => String(n).padStart(2, '0');
+  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+}
+// run 已运行/总时长（live 用 now，历史用 completedAt/updatedAt）。
+function runElapsedMs(run) {
+  const start = run && run.createdAt ? Date.parse(run.createdAt) : NaN;
+  if (!Number.isFinite(start)) return 0;
+  const end = run.live ? Date.now() : (run.completedAt ? Date.parse(run.completedAt) : (run.updatedAt ? Date.parse(run.updatedAt) : Date.now()));
+  return Number.isFinite(end) ? Math.max(0, end - start) : 0;
+}
+// 累计 token/成本聚合（defensive：字段可能不存在——后端并行落地中——此时返回 '' 不显示 chip）。
+function runCostLabel(run) {
+  const u = (run && (run.usage || run.usageTotals)) || null;
+  const tok = (u && (Number(u.input_tokens || 0) + Number(u.output_tokens || 0))) || Number((run && run.totalTokens) || 0) || 0;
+  const cost = Number(run && run.costUsd != null ? run.costUsd : run && run.totalCostUsd != null ? run.totalCostUsd : (u && u.costUsd) || 0) || 0;
+  const parts = [];
+  if (tok) parts.push(`${fmtTokens(tok)} tok`);
+  if (cost) parts.push(`$${cost.toFixed(cost < 1 ? 4 : 2)}`);
+  return parts.join(' · ');
+}
+// 引擎徽标：Claude=青花蓝(--accent)、Provider=釉里红/赭(--wf-provider)，双色区分（§3.2）。engine 为空则不渲染。
+function agentEngineBadge(engine) {
+  if (engine === 'claude') return el('span', 'wf-engine-badge eng-claude', 'Claude');
+  if (engine === 'openai') return el('span', 'wf-engine-badge eng-provider', 'Provider');
+  return null;
 }
 async function agentRunAction(runId, action, extra) {
   const sid = state.currentSession?.id; if (!sid) return;
@@ -2543,6 +2589,9 @@ async function deleteAgentRun(runId) {
   try { await api(`/api/agent-runs/${encodeURIComponent(runId)}?sessionId=${encodeURIComponent(sid)}`, { method: 'DELETE' }); await loadAgentRuns(); }
   catch (e) { toast(`删除失败：${apiErrText(e)}`, 'err'); }
 }
+// v1.5 运行监控重设计（§2 多 Agent 编排实时监控）：把纵向 <details> 列表升级为「聚合头 + 状态徽标节点卡」的
+// 实时监控。数据仍来自 /api/agent-runs 的 2s 轮询（协议不变）。所有不可信内容一律 el()/textContent 渲染，
+// 绝不 innerHTML 拼接。保留 .agent-run-card/.agent-node 基类与 data-* 以复用展开态保存逻辑。
 function renderAgentRuns(runs) {
   const host = $('agentRunsList'); if (!host) return;
   const knownRuns = new Set([...host.querySelectorAll('.agent-run-card')].map(x => x.dataset.runId).filter(Boolean));
@@ -2555,37 +2604,75 @@ function renderAgentRuns(runs) {
     const card = el('details', `agent-run-card ar-${run.status || 'unknown'}`); card.dataset.runId = run.id; card.open = knownRuns.has(run.id) ? openRuns.has(run.id) : (AGENT_RUN_ACTIVE.has(run.status) || run.status === 'interrupted');
     const nodes = Array.isArray(run.nodes) ? run.nodes : [];
     const done = nodes.filter(n => n.status === 'succeeded' || n.status === 'skipped').length;
+    // ── 聚合头（§2.7）：状态 chip + 已运行时长 + 节点 done/total +（若有）累计 token/成本 ──
     const sum = el('summary', 'agent-run-head');
-    sum.append(el('span', 'ar-title', `🕸️ ${run.id}`), el('span', 'ar-status', `${agentRunStatusLabel(run.status)} · ${done}/${nodes.length}`));
+    sum.appendChild(el('span', 'ar-title', `🕸️ ${run.id}`));
+    const agg = el('div', 'ar-agg');
+    agg.appendChild(el('span', `ar-agg-chip st-${run.status || 'unknown'}`, agentRunStatusLabel(run.status)));
+    agg.appendChild(el('span', 'ar-agg-nodes', `${done}/${nodes.length} 节点`));
+    const elapsed = runElapsedMs(run); if (elapsed) agg.appendChild(el('span', 'ar-agg-time', (run.live ? '已运行 ' : '用时 ') + fmtDuration(elapsed)));
+    const cost = runCostLabel(run); if (cost) agg.appendChild(el('span', 'ar-agg-cost', cost));
+    sum.appendChild(agg);
     card.appendChild(sum);
+    // ── 停滞/失败横幅（§2.5）：run.idleAborted 或有节点在资源上等待且有 blocker → 琥珀横幅 + [查看][停止] ──
+    const waitingBlocked = nodes.filter(n => nodeDisplayStatus(n) === 'waiting_resource' && Array.isArray(n.resourceBlockers) && n.resourceBlockers.length);
+    if (run.idleAborted || (run.live && waitingBlocked.length)) {
+      const banner = el('div', 'wf-stall-banner'); banner.setAttribute('role', 'alert');
+      const stallMsg = run.idleAborted ? '疑似停滞：工作流长时间无进展，已中止' : `疑似停滞：${waitingBlocked.length} 个节点在等待资源`;
+      banner.append(el('span', 'wf-stall-icon', '⚠'), el('span', 'wf-stall-text', stallMsg));
+      const stallActions = el('div', 'wf-stall-actions');
+      const view = el('button', 'mini', '查看'); view.setAttribute('aria-label', '定位到停滞节点');
+      view.onclick = () => {
+        const target = waitingBlocked[0] || nodes.find(n => n.status !== 'succeeded' && n.status !== 'skipped');
+        if (target) { const rowEl = card.querySelector(`.agent-node[data-node-id="${CSS.escape(target.id)}"]`); if (rowEl) { rowEl.open = true; rowEl.scrollIntoView({ block: 'nearest' }); } }
+      };
+      stallActions.appendChild(view);
+      if (run.live) { const stop = el('button', 'mini danger', '停止'); stop.setAttribute('aria-label', '停止此工作流'); stop.onclick = () => agentRunAction(run.id, 'stop'); stallActions.appendChild(stop); }
+      banner.appendChild(stallActions);
+      card.appendChild(banner);
+    }
+    // ── 运行控制（§5.3 失败一键处置）：运行中=暂停/继续/停止；已结束未完成=恢复；结束=删除记录。wire 到 POST
+    //    /api/agent-runs/:id（action: pause/resume/stop）。按钮均带 aria-label。 ──
     const controls = el('div', 'agent-run-controls');
     if (run.live && !run.paused) {
-      const pause = el('button', 'mini', '暂停'); pause.onclick = () => agentRunAction(run.id, 'pause'); controls.appendChild(pause);
-      const stop = el('button', 'mini danger', '停止'); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
+      const pause = el('button', 'mini', '暂停'); pause.setAttribute('aria-label', '暂停此工作流'); pause.onclick = () => agentRunAction(run.id, 'pause'); controls.appendChild(pause);
+      const stop = el('button', 'mini danger', '停止'); stop.setAttribute('aria-label', '停止此工作流'); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
     } else if (run.live && run.paused) {
-      const resume = el('button', 'mini primary', '继续'); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
-      const stop = el('button', 'mini danger', '停止'); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
+      const resume = el('button', 'mini primary', '继续'); resume.setAttribute('aria-label', '继续此工作流'); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
+      const stop = el('button', 'mini danger', '停止'); stop.setAttribute('aria-label', '停止此工作流'); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
     } else if (run.status !== 'succeeded') {
-      const resume = el('button', 'mini primary', '恢复未完成节点'); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
+      const resume = el('button', 'mini primary', '恢复未完成节点'); resume.setAttribute('aria-label', '恢复未完成的节点'); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
     }
-    if (!run.live) { const del = el('button', 'mini', '删除记录'); del.onclick = () => deleteAgentRun(run.id); controls.appendChild(del); }
+    if (!run.live) { const del = el('button', 'mini', '删除记录'); del.setAttribute('aria-label', '删除此运行记录'); del.onclick = () => deleteAgentRun(run.id); controls.appendChild(del); }
     card.appendChild(controls);
     if (run.summary) card.appendChild(el('pre', 'agent-run-summary', run.summary));
     const graph = el('div', 'agent-run-graph');
     for (const node of nodes) {
-      const row = el('details', `agent-node an-${node.status || 'unknown'}`); row.dataset.runId = run.id; row.dataset.nodeId = node.id;
-      const nodeKey = `${run.id}:${node.id}`; row.open = knownNodes.has(nodeKey) ? openNodes.has(nodeKey) : ['running', 'waiting_resource', 'failed', 'blocked'].includes(node.status);
-      const deps = Array.isArray(node.dependsOn) && node.dependsOn.length ? ` ← ${node.dependsOn.join(', ')}` : '';
-      const roleTag = (node.roleLabel || node.roleId) ? ` · 角色 ${node.roleLabel || node.roleId}` : '';
-      const engineTag = node.engine === 'claude' ? ' · Claude CLI' : node.engine === 'openai' ? ' · OpenAI' : '';
-      const gateTag = node.gate && node.gate.mode ? ` · 门 ${node.gate.mode}` : '';
-      const policyTag = node.failurePolicy ? ` · 失败:${node.failurePolicy}` : '';
-      const loopTag = node.loop ? ` · 循环 ${node.loopIteration || 0}/${node.loop.maxIterations}${node.loopStopReason ? ` (${node.loopStopReason})` : ''}` : '';
-      row.appendChild(el('summary', 'agent-node-head', `${node.status === 'succeeded' ? '✓' : node.status === 'skipped' ? '↷' : node.status === 'running' ? '◐' : node.status === 'failed' ? '✗' : node.status === 'blocked' ? '⊘' : '○'} ${node.id}${deps}${roleTag}${engineTag}${gateTag}${policyTag}${loopTag} · ${agentRunStatusLabel(node.status)} · 尝试 ${node.attempts || 0}`));
-      const body = el('div', 'agent-node-body'); body.appendChild(el('div', 'agent-node-task', node.task || ''));
-      // v1.4.6: current-activity line showing node.progressLog's latest entry (backend folds live subagent
-      // events into it and throttle-saves so polling sees mid-execution progress). Running/waiting nodes get
-      // a spinning dot; succeeded/skipped nodes show nothing here (their history lives in 最近进展 below).
+      const disp = nodeDisplayStatus(node);
+      const row = el('details', `agent-node wf-node an-${disp}`); row.dataset.runId = run.id; row.dataset.nodeId = node.id;
+      const nodeKey = `${run.id}:${node.id}`; row.open = knownNodes.has(nodeKey) ? openNodes.has(nodeKey) : ['running', 'waiting_resource', 'failed', 'rejected', 'blocked'].includes(disp);
+      // ── 节点卡头（§2.3）：状态徽标 + 标题(id·角色) + 引擎徽标 + 状态文案 ──
+      const head = el('summary', 'agent-node-head wf-node-head');
+      head.appendChild(el('span', `wf-status-badge st-${disp}`, agentStatusIcon(disp)));
+      const titleWrap = el('span', 'wf-node-title');
+      titleWrap.appendChild(el('span', 'wf-node-id', node.id));
+      if (node.roleLabel || node.roleId) titleWrap.appendChild(el('span', 'wf-node-role', node.roleLabel || node.roleId));
+      head.appendChild(titleWrap);
+      const engBadge = agentEngineBadge(node.engine); if (engBadge) head.appendChild(engBadge);
+      head.appendChild(el('span', 'wf-node-status-label', agentRunStatusLabel(disp)));
+      row.appendChild(head);
+      const body = el('div', 'agent-node-body');
+      // 元信息条：依赖 / 门 / 失败策略 / 尝试次数。
+      const metaBits = [];
+      if (Array.isArray(node.dependsOn) && node.dependsOn.length) metaBits.push(`← ${node.dependsOn.join(', ')}`);
+      if (node.gate && node.gate.mode) metaBits.push(`门 ${node.gate.mode}`);
+      if (node.failurePolicy) metaBits.push(`失败:${node.failurePolicy}`);
+      if (node.loopStopReason) metaBits.push(`停止:${node.loopStopReason}`);
+      metaBits.push(`尝试 ${node.attempts || 0}`);
+      const meta = el('div', 'wf-node-meta'); for (const bit of metaBits) meta.appendChild(el('span', 'wf-meta-chip', bit)); body.appendChild(meta);
+      body.appendChild(el('div', 'agent-node-task', node.task || ''));
+      // v1.4.6: 当前活动行——node.progressLog 末条（后端把 live 子代理事件折进它并节流落盘，轮询即见）。运行/等待
+      // 中的节点带旋转点；succeeded/skipped 不在这里显示（历史在下方「最近进展」）。
       const activityLog = Array.isArray(node.progressLog) ? node.progressLog : [];
       const lastActivity = activityLog.length ? activityLog[activityLog.length - 1] : null;
       if (lastActivity && lastActivity.text && node.status !== 'succeeded' && node.status !== 'skipped') {
@@ -2594,11 +2681,41 @@ function renderAgentRuns(runs) {
         act.append(el('span', 'agent-node-activity-dot', active ? '◐' : '·'), el('span', 'agent-node-activity-text', lastActivity.text));
         body.appendChild(act);
       }
-      if (node.status === 'running' || node.status === 'waiting_resource') body.appendChild(el('div', 'agent-node-live', `运行中 · 第 ${node.attempts || 0} 次尝试${node.startedAt ? ` · 开始于 ${new Date(node.startedAt).toLocaleTimeString()}` : ''}`));
+      // ── 迭代/预算 mini 进度（§2.3）：loop 优先显示 loopIteration；否则 iters/maxIters（迭代预算）。 ──
+      let budgetLabel = '', budgetCur = 0, budgetMax = 0;
+      if (node.loop) { budgetLabel = '循环'; budgetCur = node.loopIteration || 0; budgetMax = node.loop.maxIterations || 0; }
+      else if (Number.isFinite(Number(node.maxIters))) { budgetLabel = '迭代'; budgetCur = Number(node.iters) || 0; budgetMax = Number(node.maxIters) || 0; }
+      if (budgetMax > 0) {
+        const bwrap = el('div', 'wf-node-budget');
+        bwrap.appendChild(el('span', 'wf-budget-label', `${budgetLabel} ${budgetCur}/${budgetMax}`));
+        const bar = el('div', 'wf-budget-bar'); const fill = el('div', 'wf-budget-fill'); fill.style.width = `${Math.max(0, Math.min(100, Math.round((budgetCur / budgetMax) * 100)))}%`; bar.appendChild(fill); bwrap.appendChild(bar);
+        if (node.noProgressCount) bwrap.appendChild(el('span', 'wf-budget-warn', `无进展 ${node.noProgressCount}`));
+        body.appendChild(bwrap);
+      }
+      // ── 计时（§2.3）：已运行/用时 now-startedAt。 ──
+      if (node.startedAt) {
+        const st = Date.parse(node.startedAt);
+        if (Number.isFinite(st)) {
+          const active = node.status === 'running' || node.status === 'waiting_resource';
+          const end = node.completedAt ? Date.parse(node.completedAt) : Date.now();
+          const dur = fmtDuration(end - st);
+          if (dur) body.appendChild(el('div', 'wf-node-timer', `${active ? '已运行' : '用时'} ${dur}`));
+        }
+      }
+      // ── 质量门 verdict + 置信度（§2.3）：仅门/带 verdict 的节点。 ──
+      const verdict = node.gateVerdict || (node.structuredResult && node.structuredResult.verdict);
+      if (verdict || (node.confidence != null && Number.isFinite(Number(node.confidence)))) {
+        const g = el('div', 'wf-node-gate');
+        if (verdict) g.appendChild(el('span', `wf-gate-verdict gv-${String(verdict).toLowerCase()}`, `判定 ${verdict}`));
+        if (node.confidence != null && Number.isFinite(Number(node.confidence))) g.appendChild(el('span', 'wf-gate-conf', `置信度 ${(Number(node.confidence) * 100).toFixed(0)}%`));
+        body.appendChild(g);
+      }
+      // ── 资源锁 chip（§2.3）：等待中高亮 blocker。 ──
       if (Array.isArray(node.resources) && node.resources.length) {
+        const waitingSet = new Set(Array.isArray(node.waitingForResources) ? node.waitingForResources : []);
         const resourceRow = el('div', 'agent-node-resources');
-        resourceRow.appendChild(el('span', 'agent-resource-label', node.status === 'waiting_resource' ? '等待：' : '资源：'));
-        for (const resource of node.resources) resourceRow.appendChild(el('span', 'agent-resource-chip', resource));
+        resourceRow.appendChild(el('span', 'agent-resource-label', disp === 'waiting_resource' ? '等待：' : '资源：'));
+        for (const resource of node.resources) resourceRow.appendChild(el('span', `agent-resource-chip${waitingSet.has(resource) ? ' blocking' : ''}`, resource));
         body.appendChild(resourceRow);
       }
       if (Array.isArray(node.resourceBlockers) && node.resourceBlockers.length) body.appendChild(el('div', 'agent-resource-wait', `被 ${node.resourceBlockers.map(b => b.group).join(', ')} 占用`));
@@ -2607,7 +2724,7 @@ function renderAgentRuns(runs) {
         const shortCommit = node.isolation.commit ? String(node.isolation.commit).slice(0, 10) : '';
         iso.appendChild(el('span', 'agent-isolation-status', `隔离工作树：${node.isolation.status || 'unknown'}${shortCommit ? ` · ${shortCommit}` : ''}`));
         if (!run.live && node.isolation.status === 'ready' && node.isolation.commit) {
-          const apply = el('button', 'mini primary', '应用到当前工作区');
+          const apply = el('button', 'mini primary', '应用到当前工作区'); apply.setAttribute('aria-label', `应用节点 ${node.id} 的隔离工作树`);
           apply.onclick = () => agentRunAction(run.id, 'apply_isolation', { nodeId: node.id });
           iso.appendChild(apply);
         }
@@ -2620,14 +2737,23 @@ function renderAgentRuns(runs) {
         for (const item of node.progressLog.slice(-12)) prog.appendChild(el('div', 'agent-progress-line', `${item.at ? new Date(item.at).toLocaleTimeString() + ' · ' : ''}${item.text || ''}`));
         body.appendChild(prog);
       }
+      // 结果/错误摘要：pre + textContent（el 内部用 textContent，XSS 安全，绝不 innerHTML）。
       if (node.result) body.appendChild(el('pre', 'agent-node-result', node.result));
       if (Array.isArray(node.schemaErrors) && node.schemaErrors.length) body.appendChild(el('pre', 'agent-node-error', `Schema: ${node.schemaErrors.join('; ')}`));
       if (node.error) body.appendChild(el('pre', 'agent-node-error', node.error));
+      // ── 失败一键处置（§5.3）：非运行态给「仅重试此节点」「重试此节点及下游」；失败/判否节点另给「查看错误」。
+      //    retry_node wire 到 POST /api/agent-runs/:id（action: retry_node，服务器要求 run 非 live）。 ──
       if (!run.live) {
         const actions = el('div', 'agent-node-actions');
-        const retry = el('button', 'mini', '仅重试此节点'); retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
-        const cascade = el('button', 'mini', '重试此节点及下游'); cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
-        actions.append(retry, cascade); body.appendChild(actions);
+        const retry = el('button', 'mini', '仅重试此节点'); retry.setAttribute('aria-label', `仅重试节点 ${node.id}`); retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
+        const cascade = el('button', 'mini', '重试此节点及下游'); cascade.setAttribute('aria-label', `重试节点 ${node.id} 及其下游`); cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
+        actions.append(retry, cascade);
+        if ((disp === 'failed' || disp === 'rejected') && (node.error || (Array.isArray(node.schemaErrors) && node.schemaErrors.length))) {
+          const viewErr = el('button', 'mini', '查看错误'); viewErr.setAttribute('aria-label', `查看节点 ${node.id} 的错误`);
+          viewErr.onclick = () => { row.open = true; const errEl = body.querySelector('.agent-node-error'); if (errEl) errEl.scrollIntoView({ block: 'nearest' }); };
+          actions.appendChild(viewErr);
+        }
+        body.appendChild(actions);
       }
       row.appendChild(body); graph.appendChild(row);
     }

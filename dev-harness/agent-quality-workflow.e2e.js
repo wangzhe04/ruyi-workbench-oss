@@ -33,7 +33,8 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
     {id:'retry_child',task:'RETRY_CHILD',dependsOn:['bad_retry']},
   ];
   const good=JSON.stringify({verdict:'pass',confidence:.9,summary:'verified',findings:[{title:'duplicate issue',file:'x.js',line:4,confidence:.8}]});
-  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json'}};
+  const reviewFail=JSON.stringify({verdict:'fail',confidence:.9,summary:'found real bugs',findings:[{title:'bug',file:'a.js',line:1,confidence:.9}]});
+  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',B8_REVIEW_FAIL:reviewFail}};
   fs.writeFileSync(path.join(HOME,'config.json'),JSON.stringify({configSchema:7,permissionMode:'bypass',defaultWorkspace:HOME,subagentMaxPerTurn:12,subagentMaxConcurrent:6,providers:[{id:'fake',label:'Fake',type:'openai-compat',baseUrl:`http://127.0.0.1:${FP}`,apiKey:'k',model:'fake-model'}],activeProvider:'fake'}));
   const fake=cp.spawn(process.execPath,[path.join(__dirname,'fake-openai.js')],{env:{...process.env,FAKE_OPENAI_PORT:String(FP),FAKE_SUBAGENT_SCRIPT:JSON.stringify(script)},windowsHide:true});
   const wb=cp.spawn(process.execPath,['app/server.js','serve','--port',String(WP)],{cwd:WB,env:{...process.env,RUYI_HOME:HOME},windowsHide:true});
@@ -65,6 +66,20 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
     const controlBy=id=>control.results.find(n=>n.id===id);
     ok(control.ok===true && controlBy('taken').status==='succeeded' && controlBy('skipped').status==='skipped','conditions take the matching branch and persist the skipped branch');
     ok(controlBy('loop').attempts===3 && controlBy('loop').loopStopReason==='no_progress' && controlBy('loop').status==='succeeded','loop stops after the configured consecutive no-progress limit');
+    // ── B8: a quality-gate "no" verdict (rejected) is distinct from an execution failure (failed). A rejected
+    //    predecessor must NOT block downstream: a conditional child (run fix only when review verdict=fail)
+    //    must FIRE, a pure dependsOn child must treat the gate as completed, and the run must not be reported failed.
+    const b8=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'implement',task:'B8_IMPLEMENT'},
+      {id:'review',task:'B8_REVIEW_FAIL',role:'reviewer',dependsOn:['implement']},
+      {id:'fix',task:'B8_FIX',dependsOn:['review'],condition:{node:'review',path:'verdict',operator:'equals',value:'fail'}},
+      {id:'verify',task:'B8_VERIFY',dependsOn:['implement','fix']},
+    ]});
+    const b8By=id=>b8.results.find(n=>n.id===id);
+    ok(b8.ok===true && b8By('review').status==='rejected' && b8By('review').gateVerdict==='fail','B8: a fail verdict marks the gate node rejected (not failed), and the verdict is recorded');
+    ok(b8By('fix').status==='succeeded','B8: conditional downstream of a rejected gate RUNS (condition review.verdict==fail fires; not blocked)');
+    ok(b8By('verify').status==='succeeded','B8: a pure dependsOn downstream treats a rejected predecessor as completed and runs');
+    ok(b8.status==='succeeded' && b8.results.every(n=>n.status!=='failed'&&n.status!=='blocked'),'B8: a quality rejection is not reported as a run failure (run succeeded; no failed/blocked nodes)');
   }finally{kill(wb);kill(fake);await sleep(200);fs.rmSync(HOME,{recursive:true,force:true});}
   console.log('\nAGENT QUALITY WORKFLOW E2E: '+(failures?`FAIL (${failures})`:'ALL PASS'));process.exitCode=failures?1:0;
 })().catch(e=>{console.error(e.stack||e);process.exitCode=1;});

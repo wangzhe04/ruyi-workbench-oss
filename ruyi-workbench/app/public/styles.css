@@ -26,6 +26,10 @@
   /* engine accent colors (badges / chip dots / avatars — never large fills). Dark defaults; light below. */
   --eng-claude: #d97757; --eng-deepseek: #5b7cfa; --eng-qwen: #8b5cf6;
   --eng-glm: #2eb8a6; --eng-custom: #7d8590;
+  /* v1.5 workflow engine badges (§3.2): Claude=青花蓝 accent, Provider=釉里红/赭 warm. Defined via var()
+     indirection so both resolve per-theme at the use site (--accent/--eng-claude are themed below). */
+  --wf-claude: var(--accent);
+  --wf-provider: var(--eng-claude);
 }
 
 :root[data-theme="dark"] {
@@ -1183,6 +1187,60 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .agent-resource-label, .agent-resource-wait { color: var(--muted); font-size: 11px; }
 .agent-resource-chip { max-width: 100%; padding: 2px 6px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; overflow-wrap: anywhere; }
 .agent-resource-wait { color: var(--warn, #d99b2b); margin-bottom: 6px; }
+/* ===== v1.5 运行监控（§2 编排实时监控 / §3 青花视觉）：聚合头 + 状态徽标节点卡。色彩全部走语义 token。 ===== */
+/* run-card 左边框补 rejected（琥珀 = 质量门判否，语义上 ≠ 执行失败）。 */
+.agent-run-card.ar-rejected { border-left: 3px solid var(--warn); }
+/* 聚合头（§2.7）：状态 chip + 节点 done/total + 已运行时长 +（若有）累计 token/成本。 */
+.ar-agg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ar-agg-chip { padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.ar-agg-nodes, .ar-agg-time, .ar-agg-cost { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.ar-agg-time, .ar-agg-cost { font-variant-numeric: tabular-nums; }
+/* 状态语义色（聚合 chip .ar-agg-chip 与节点徽标 .wf-status-badge 共用 .st-<status>；不硬编码颜色）。 */
+.st-running, .st-paused { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.st-running { animation: pulse 1.6s ease-in-out infinite; }
+.st-succeeded { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.st-failed { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.st-rejected, .st-degraded, .st-waiting_resource, .st-partial, .st-interrupted { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.st-skipped, .st-queued, .st-blocked, .st-cancelled, .st-stopped, .st-unknown { color: var(--muted); }
+/* 停滞/失败横幅（§2.5）：run.idleAborted 或节点在资源上等待且有 blocker 时，顶部琥珀横幅 + [查看][停止]。 */
+.wf-stall-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 8px 4px; padding: 7px 9px; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--warn) 12%, var(--panel-2)); }
+.wf-stall-icon { flex: none; color: var(--warn); }
+.wf-stall-text { flex: 1; min-width: 0; font-size: 12px; color: var(--warn); overflow-wrap: anywhere; }
+.wf-stall-actions { display: flex; gap: 6px; flex: none; }
+/* 节点卡头（§2.3）：状态徽标 + 标题(id·角色) + 引擎徽标 + 状态文案。 */
+.wf-node-head { display: flex; align-items: center; gap: 7px; }
+.wf-status-badge { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding: 0 5px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; line-height: 1; }
+.wf-node-title { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; overflow: hidden; }
+.wf-node-id { font-weight: 650; overflow-wrap: anywhere; }
+.wf-node-role { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wf-node-status-label { flex: none; font-size: 11px; color: var(--muted); white-space: nowrap; }
+/* 引擎徽标（§3.2）：Claude=青花蓝(--wf-claude) / Provider=釉里红赭(--wf-provider) 双色区分。 */
+.wf-engine-badge { flex: none; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; border: 1px solid; }
+.wf-engine-badge.eng-claude { color: var(--wf-claude); border-color: color-mix(in srgb, var(--wf-claude) 50%, transparent); background: color-mix(in srgb, var(--wf-claude) 12%, transparent); }
+.wf-engine-badge.eng-provider { color: var(--wf-provider); border-color: color-mix(in srgb, var(--wf-provider) 50%, transparent); background: color-mix(in srgb, var(--wf-provider) 12%, transparent); }
+/* 元信息条：依赖 / 门 / 失败策略 / 尝试。 */
+.wf-node-meta { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 6px; }
+.wf-meta-chip { padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; color: var(--muted); overflow-wrap: anywhere; }
+/* 迭代/预算 mini 进度（§2.3）：loop 显示 loopIteration，否则 iters/maxIters。 */
+.wf-node-budget { display: flex; align-items: center; gap: 6px; margin: 5px 0; font-size: 11px; color: var(--muted); }
+.wf-budget-label { flex: none; font-variant-numeric: tabular-nums; }
+.wf-budget-bar { flex: 1; min-width: 40px; height: 5px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.wf-budget-fill { height: 100%; border-radius: 999px; background: var(--accent); transition: width var(--dur-2) var(--ease); }
+.wf-budget-warn { flex: none; color: var(--warn); }
+/* 节点计时（§2.3）：已运行/用时。 */
+.wf-node-timer { margin: 3px 0; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* 质量门 verdict + 置信度（§2.3）。 */
+.wf-node-gate { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 5px 0; }
+.wf-gate-verdict { padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; border: 1px solid var(--line); }
+.wf-gate-verdict.gv-pass { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.wf-gate-verdict.gv-fail { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.wf-gate-conf { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* 资源锁：等待中的资源高亮为 blocker（§2.3）。 */
+.agent-resource-chip.blocking { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); background: color-mix(in srgb, var(--warn) 14%, transparent); font-weight: 600; }
+/* 节点左边框补齐各状态语义色（an-succeeded/an-failed/an-waiting_resource/an-skipped 已在上方定义）。 */
+.agent-node.an-running, .agent-node.an-paused { border-left: 3px solid var(--accent); }
+.agent-node.an-rejected, .agent-node.an-degraded, .agent-node.an-partial, .agent-node.an-interrupted { border-left: 3px solid var(--warn); }
+.agent-node.an-blocked, .agent-node.an-cancelled, .agent-node.an-stopped { border-left: 3px solid var(--muted); }
 .agent-isolation { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px; margin: 6px 0; border: 1px dashed var(--line); border-radius: 6px; }
 .agent-isolation-status { font-size: 11px; color: var(--muted); }
 .agent-isolation.ai-ready { border-color: var(--accent); }
