@@ -91,7 +91,9 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
   const fakeA = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_A) }, windowsHide: true });
   const fakeB = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_B), FAKE_NO_USAGE: '1' }, windowsHide: true });
   for (const [tag, f] of [['A', fakeA], ['B', fakeB]]) f.stdout.on('data', d => String(d).trim() && console.log('[fake' + tag + '] ' + String(d).trim()));
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+  // Clear any Anthropic endpoint env the dev machine may carry (claudeLedgerSource consults process.env
+  // ANTHROPIC_BASE_URL/ANTHROPIC_BASE for Claude-ledger cost trust) so this test can't flake on a stray value.
+  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, ANTHROPIC_BASE_URL: '', ANTHROPIC_BASE: '', ANTHROPIC_AUTH_TOKEN: '', ANTHROPIC_API_KEY: '', WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
 

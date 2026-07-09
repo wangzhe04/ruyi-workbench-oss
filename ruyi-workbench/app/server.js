@@ -132,7 +132,12 @@ let usageLedgerChain = Promise.resolve();
 // only, cost null, costTrusted false, and tag the source by its known preset id (else host) so grouping stays
 // honest (Claude 官方 vs Ark 等). Runs at turn time, so CLAUDE_ENDPOINT_PRESETS (declared later) is available.
 function claudeLedgerSource(config) {
-  const base = (config && typeof config.modelsApiBase === 'string') ? config.modelsApiBase.trim() : '';
+  let base = (config && typeof config.modelsApiBase === 'string') ? config.modelsApiBase.trim() : '';
+  // v1.4-OSS 用量看板(补): 当 config.modelsApiBase 为空时,CLI 子进程仍会继承 OS 环境里的 ANTHROPIC_BASE_URL /
+  // ANTHROPIC_BASE(effectiveAnthropicEnv 只在 modelsApiBase 非空时覆盖它们,否则原样穿透)。纯用环境变量把
+  // Claude CLI 路由到第三方(Ark 等)时,CLI 报的 total_cost_usd 仍按 Anthropic 计价、对该厂商不可信 —— 据此把
+  // costTrusted 判为 false,与显式 modelsApiBase 的第三方路径一致。
+  if (!base) base = String(process.env.ANTHROPIC_BASE_URL || process.env.ANTHROPIC_BASE || '').trim();
   if (!base) return { provider: 'claude-cli', costTrusted: true };
   let tag = '';
   try {
@@ -140,6 +145,22 @@ function claudeLedgerSource(config) {
     if (!tag) tag = 'claude-endpoint:' + new URL(base).host;
   } catch { tag = 'claude-endpoint:unknown'; }
   return { provider: tag, costTrusted: false };
+}
+
+// v1.4-OSS 用量看板(补): shared Claude-turn billing-field resolver. Extracted from the main-turn ledger append
+// so BOTH the main chat turn AND a Claude sub-agent node bill identically. Cost precedence (诚实计费):
+//  (1) config.claudePricing set -> tokens×price, a meaningful estimate for direct + third-party endpoints,
+//      costTrusted:true; (2) else, Anthropic-direct only (claudeLedgerSource costTrusted), the CLI's reported
+//      total_cost_usd as a NOTIONAL USD figure; (3) else (third-party, unpriced) cost null + costTrusted false
+//      (its CLI cost is Anthropic-priced and wrong for that vendor, often a flat monthly plan not billed per token).
+// computeCostFromPricing is a hoisted function declaration, so the forward reference here is safe at call time.
+function claudeCostFields(config, inTok, outTok, costUsd) {
+  const { provider, costTrusted: directTrust } = claudeLedgerSource(config);
+  let cost = null, currency = null, costTrusted = directTrust;
+  const priced = computeCostFromPricing(config && config.claudePricing, inTok, outTok);
+  if (priced.currency) { cost = priced.cost; currency = priced.currency; costTrusted = true; }
+  else if (directTrust) { const c = Number(costUsd); if (Number.isFinite(c)) { cost = c; currency = 'USD'; } }
+  return { provider, cost, currency, costTrusted };
 }
 
 // Validate an optional pricing object {inputPerM, outputPerM, currency} -> canonical form or null. Shared by
@@ -169,10 +190,13 @@ function appendUsageLedger(entry) {
   try {
     const inTok = Math.max(0, Math.round(Number(entry.inTok) || 0));
     const outTok = Math.max(0, Math.round(Number(entry.outTok) || 0));
-    if (inTok <= 0 && outTok <= 0) return; // skip empty / zero-token turns
-    const ts = (typeof entry.ts === 'string' && entry.ts) ? entry.ts : nowIso();
     // NB: Number(null) === 0, so guard null/undefined explicitly — a tokens-only turn must stay cost:null.
     const costNum = (entry.cost == null) ? NaN : Number(entry.cost);
+    // v1.4-OSS 用量看板(补): skip a truly empty row — zero tokens AND no trusted positive cost. A row that reports
+    // a real cost but no per-token usage (e.g. a Claude-plan aux call billed a flat amount) is KEPT so its spend
+    // is not silently lost. costNum is computed above so this guard can see it.
+    if (inTok <= 0 && outTok <= 0 && !(Number.isFinite(costNum) && costNum > 0)) return;
+    const ts = (typeof entry.ts === 'string' && entry.ts) ? entry.ts : nowIso();
     const rec = {
       ts,
       sessionId: String(entry.sessionId || ''),
@@ -185,7 +209,16 @@ function appendUsageLedger(entry) {
       costTrusted: entry.costTrusted !== false, // false = plan-based / notional (kept out of real cost totals)
       estimated: entry.estimated === true,
       turnSeq: Number(entry.turnSeq) || 0,
+      // v1.4-OSS 用量看板(补): kind is three-valued — 'turn' (top-level chat turn), 'subagent' (an Agent 工作流/
+      // spawn_agent DAG node), or 'aux' (a non-turn helper call: 压缩摘要 / playbook 起草 等). Old rows without a
+      // kind read as 'turn' (向后兼容). agentKey/subagentId are stamped only for sub-agent rows so the dashboard
+      // can attribute a DAG node's spend; both truncated to a sane length.
+      kind: entry.kind === 'subagent' ? 'subagent' : (entry.kind === 'aux' ? 'aux' : 'turn'),
     };
+    if (entry.agentKey != null && String(entry.agentKey)) rec.agentKey = String(entry.agentKey).slice(0, 120);
+    if (entry.subagentId != null && String(entry.subagentId)) rec.subagentId = String(entry.subagentId).slice(0, 120);
+    // v1.4-OSS 用量看板(补): optional note tags an aux row's sub-kind (e.g. 'compact' / 'playbook-draft'), ≤40 chars.
+    if (entry.note != null && String(entry.note)) rec.note = String(entry.note).slice(0, 40);
     const line = JSON.stringify(rec) + '\n';
     const file = path.join(paths.usage, ts.slice(0, 7) + '.jsonl');
     // One global append chain so multi-session concurrent writes never interleave a half-line.
@@ -248,7 +281,7 @@ async function buildUsageSummary(range) {
   try { const idx = await readSessionIndex(); if (Array.isArray(idx)) for (const e of idx) if (e && e.id) titles.set(String(e.id), e.title || ''); } catch { /* index optional */ }
 
   const addCost = (bucket, cur, cost) => { bucket[cur] = (bucket[cur] || 0) + cost; };
-  const totals = { inTok: 0, outTok: 0, turns: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
+  const totals = { inTok: 0, outTok: 0, turns: 0, subagentTurns: 0, auxCalls: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
   const byEngine = new Map(), byProvider = new Map(), bySession = new Map(), byDay = new Map();
 
   for (const r of rows) {
@@ -257,6 +290,8 @@ async function buildUsageSummary(range) {
     const trusted = r.costTrusted !== false;
     const hasCost = trusted && cur && Number.isFinite(cost);
     totals.inTok += inTok; totals.outTok += outTok; totals.turns += 1;
+    if (r.kind === 'subagent') totals.subagentTurns += 1; // v1.4-OSS 用量看板(补): DAG/子代理回合独立计数
+    if (r.kind === 'aux') totals.auxCalls += 1; // v1.4-OSS 用量看板(补): 辅助调用(压缩/起草等)独立计数
     if (r.estimated === true) totals.estimatedTurns += 1;
     if (!trusted) totals.planBasedTurns += 1;
     if (hasCost) addCost(totals.costsByCurrency, cur, cost);
@@ -3724,6 +3759,11 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   // in the turn and wildly overcounts once tools are used).
   let maxCtxInput = 0;
   let lastCtxOutput = 0;
+  // v1.4-OSS 用量看板(补): PURE billing tokens (计费约定只算 input_tokens / output_tokens, 不含 cache tokens —
+  // 与 claudeCostFields/computeCostFromPricing 一致). maxCtxInput above INCLUDES cache_read/creation for
+  // context-window sizing and must NOT be reused for cost. These are the abort-fallback billing lower bound.
+  let billInMax = 0;
+  let billOutMax = 0;
 
   child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
   if (interactive) {
@@ -3784,6 +3824,10 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
       const inSide = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
       if (inSide > maxCtxInput) maxCtxInput = inSide;
       if (typeof u.output_tokens === 'number' && u.output_tokens > 0) lastCtxOutput = u.output_tokens;
+      // v1.4-OSS 用量看板(补): pure billing tokens (input_tokens only, no cache) — Math.max per-attempt去重 (real
+      // CLI repeats one message's usage across multi-block frames); 是中止兜底计费的保守下限.
+      const bi = Number(u.input_tokens) || 0; if (bi > billInMax) billInMax = bi;
+      const bo = Number(u.output_tokens) || 0; if (bo > billOutMax) billOutMax = bo;
     } else if (ev.kind === 'result') {
       if (ev.sessionId) {
         if (requestedClaudeSessionId && ev.sessionId !== requestedClaudeSessionId) resumeContinuityBroken = true;
@@ -3889,15 +3933,21 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   // (third-party, unpriced) tokens with cost null + costTrusted false (its CLI total_cost_usd is Anthropic-
   // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
   if (usage && usage.usage) {
-    const { provider: claudeProvider, costTrusted: directTrust } = claudeLedgerSource(config);
     const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
-    let cost = null, currency = null, costTrusted = directTrust;
-    const priced = computeCostFromPricing(config.claudePricing, inTok, outTok);
-    if (priced.currency) { cost = priced.cost; currency = priced.currency; costTrusted = true; }
-    else if (directTrust) { const costUsd = Number(usage.costUsd); if (Number.isFinite(costUsd)) { cost = costUsd; currency = 'USD'; } }
+    // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
+    const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
     appendUsageLedger({
       sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
       inTok, outTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
+    });
+  } else if (billInMax > 0 || billOutMax > 0) {
+    // v1.4-OSS 用量看板(补): NO result frame (Stop / idle-kill) — the turn still burned real tokens. Record a
+    // conservative ESTIMATED row from the per-message billing max (与子代理兜底对称). There is no CLI cost frame
+    // here, so pass NaN → claudeCostFields yields cost:null unless config.claudePricing can price the tokens.
+    const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, billInMax, billOutMax, NaN);
+    appendUsageLedger({
+      sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
+      inTok: billInMax, outTok: billOutMax, cost, currency, costTrusted, estimated: true, turnSeq: session.turnSeq,
     });
   }
   logEvent({ kind: 'turn_end', sessionId: session.id, ok: exit.code === 0 && !wasStopped, exitCode: exit.code, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped });
@@ -4716,6 +4766,20 @@ async function draftPlaybookFromSession(sessionId) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const userMsg = attempt === 0 ? promptText : (promptText + '\n\n上一次输出不是合法 JSON。请只输出一个合法的 JSON 对象,不要任何多余字符。');
     const sc = await providerRawCompletion(provider, [{ role: 'user', content: userMsg }]);
+    // v1.4-OSS 用量看板(补): 每次实际发出的起草补全各记一行 aux(note:'playbook-draft')。usage 缺失直接跳过
+    // 不估算(量级小,宁缺毋滥)。防御式 —— 记账绝不可影响起草流程。
+    try {
+      const u = sc && sc.usage;
+      const inTok = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
+      const outTok = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+      if (inTok > 0 || outTok > 0) {
+        const { cost, currency } = computeProviderCost(provider, inTok, outTok);
+        appendUsageLedger({
+          sessionId: session.id, engine: 'openai', provider: provider.id, model: sc.model || provider.model || '',
+          inTok, outTok, cost, currency, estimated: false, turnSeq: session.turnSeq, kind: 'aux', note: 'playbook-draft',
+        });
+      }
+    } catch { /* accounting must never break drafting */ }
     if (!sc.ok) { if (attempt === 1) return { ok: false, error: sc.error }; continue; }
     const draft = parsePlaybookDraft(sc.content);
     if (draft) return { ok: true, draft };
@@ -4752,7 +4816,8 @@ async function providerRawCompletion(provider, history) {
     const msg = j && j.choices && j.choices[0] && j.choices[0].message;
     const content = String((msg && msg.content) || '').trim();
     if (!content) return { ok: false, error: 'provider returned an empty completion' };
-    return { ok: true, content };
+    // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
+    return { ok: true, content, usage: (j && j.usage) || null, model };
   } catch (e) {
     return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') };
   } finally { if (timer) clearTimeout(timer); }
@@ -5783,7 +5848,7 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
 // looked frozen to the polling UI. Every N chars of streamed assistant text we fire a lightweight
 // subagent_progress milestone (recordAgentNodeProgress folds it into node.progressLog as "生成中 · N 字").
 const CLAUDE_PROGRESS_CHAR_STEP = 400;
-async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd }) {
+async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd }) {
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
@@ -5849,6 +5914,14 @@ async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, depe
     let toolCallCount = 0;
     let resultOk = true, resultText = '', gotResult = false;
     let stdoutRemainder = '';
+    // v1.4-OSS 用量看板(补): per-attempt token accounting. The result frame's usage is the turn's CUMULATIVE
+    // total — preferred when a field is populated. Absent it (an attempt that died before the result frame),
+    // fall back to this attempt's msg_usage. The real CLI splits one multi-content-block assistant message into
+    // several msg_usage events REPEATING the same usage, so summing虚计 2-3x; we take Math.max instead (帧内
+    // 重复被 max 天然去重). Across API calls this max is a deliberate CONSERVATIVE lower bound (取最大一次调用) —
+    // mirrors the main turn's maxCtxInput semantics.
+    let resultUsage = null, resultCostUsd = NaN;
+    let msgBillInMax = 0, msgBillOutMax = 0;
     // No --include-partial-messages here (a DAG node's aggregated result is all runAgentWorkflow consumes),
     // so parseClaudeEvent only ever emits whole (non-partial) text - no delta/whole dedup needed.
     const consumeLine = line => {
@@ -5868,7 +5941,8 @@ async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, depe
         }
         else if (ev.kind === 'tool_use') { toolCallCount += 1; onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input, subagentId }); }
         else if (ev.kind === 'tool_result') onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError, subagentId });
-        else if (ev.kind === 'result') { gotResult = true; resultOk = ev.ok !== false; if (ev.result) resultText = ev.result; }
+        else if (ev.kind === 'result') { gotResult = true; resultOk = ev.ok !== false; if (ev.result) resultText = ev.result; if (ev.usage && typeof ev.usage === 'object') resultUsage = ev.usage; const c = Number(ev.costUsd); if (Number.isFinite(c)) resultCostUsd = c; }
+        else if (ev.kind === 'msg_usage' && ev.usage && typeof ev.usage === 'object') { msgBillInMax = Math.max(msgBillInMax, Number(ev.usage.input_tokens) || 0); const mo = Number(ev.usage.output_tokens) || 0; msgBillOutMax = Math.max(msgBillOutMax, mo > 0 ? mo : 0); }
       }
     };
     child.stdout.on('data', chunk => {
@@ -5878,39 +5952,80 @@ async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, depe
       for (const line of lines) consumeLine(line);
     });
     let settled = false;
-    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); if (stdoutRemainder.trim()) consumeLine(stdoutRemainder); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult }); };
+    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); if (stdoutRemainder.trim()) consumeLine(stdoutRemainder); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult, resultUsage, resultCostUsd, msgBillInMax, msgBillOutMax }); };
     child.on('error', () => finish(-1));
     child.on('close', code => finish(code == null ? -1 : code));
   });
 
   const MAX_ATTEMPTS = 3;
   let lastFinalText = '', lastErr = '', lastToolCalls = 0;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    if (killed) break;
-    const res = await runOnce();
-    const finalText = (res.resultText || res.assistantText).trim();
-    const ok = !killed && res.exitCode === 0 && res.resultOk && !!finalText;
-    if (ok) {
-      onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
-      return { ok: true, result: finalText, iters: 1, toolCalls: res.toolCallCount };
+  // v1.4-OSS 用量看板(补): accumulate token/cost across ALL attempts (a failed attempt still burned real tokens).
+  // Written ONCE at every exit path via the finally below. Accounting is fully defensive — it can never change
+  // the sub-agent's return value or throw (appendUsageLedger is itself fire-and-forget and skips zero-token rows).
+  // ledgerCostUsd starts NaN, not 0: "no CLI cost frame ever seen" must reach claudeCostFields as non-finite
+  // so it yields cost:null (unknown), never a false trusted-$0 row (mirrors the main turn's Number(undefined)).
+  // ledgerEstimated flips true whenever an attempt fell back to the msg_usage max (保守下限, not the exact
+  // cumulative result usage) so the row is honestly badged 估算.
+  let ledgerIn = 0, ledgerOut = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
+  try {
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      if (killed) break;
+      const res = await runOnce();
+      try {
+        // FIELD-LEVEL source select (保守语义): trust the result frame's usage only when a field is actually
+        // populated (>0). A result frame carrying an empty usage:{} must NOT record a bogus 0 — fall back to
+        // this attempt's msg_usage max (帧内已去重) and flag the row estimated. Zero on both sides = nothing
+        // billable this attempt.
+        const ru = res.resultUsage;
+        const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
+        if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; }
+        else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
+          ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+        }
+        if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
+      } catch { /* never let accounting break the attempt */ }
+      const finalText = (res.resultText || res.assistantText).trim();
+      const ok = !killed && res.exitCode === 0 && res.resultOk && !!finalText;
+      if (ok) {
+        onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
+        return { ok: true, result: finalText, iters: 1, toolCalls: res.toolCallCount };
+      }
+      lastFinalText = finalText; lastToolCalls = res.toolCallCount;
+      lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
+      const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk });
+      if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) break;
+      onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: cls.reason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
+      // Bounded backoff an abort can cut short (mirrors runSubAgentCore's transient-retry sleep).
+      await new Promise(r => {
+        const t = setTimeout(r, Math.min(2000, 300 * attempt));
+        if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
+      });
     }
-    lastFinalText = finalText; lastToolCalls = res.toolCallCount;
-    lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
-    const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk });
-    if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) break;
-    onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: cls.reason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
-    // Bounded backoff an abort can cut short (mirrors runSubAgentCore's transient-retry sleep).
-    await new Promise(r => {
-      const t = setTimeout(r, Math.min(2000, 300 * attempt));
-      if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
-    });
+    if (!killed && lastFinalText.trim().length >= 80 && lastToolCalls > 0) {
+      onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, degraded: true, resultChars: lastFinalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
+      return { ok: true, degraded: true, warning: lastErr || 'Claude CLI exited after producing usable output', result: lastFinalText, iters: 1, toolCalls: lastToolCalls };
+    }
+    onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: false, resultChars: lastFinalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
+    return { ok: false, error: lastErr || '子代理未产出结论', result: lastFinalText, iters: 1, toolCalls: lastToolCalls };
+  } finally {
+    // v1.4-OSS 用量看板(补): ONE ledger row for the whole node (accumulated across attempts). Billing fields via
+    // claudeCostFields (与主回合同源). No parentSession → nothing to anchor a row to; skip. Zero-token rows are
+    // dropped inside appendUsageLedger, so the 'CLI 未找到' early-return above (never reaches here anyway) needs
+    // no special case, and a purely-aborted node with no usage records nothing.
+    try {
+      if (parentSession) {
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, ledgerIn, ledgerOut, ledgerCostUsd);
+        appendUsageLedger({
+          sessionId: parentSession.id, engine: 'claude', provider: claudeProvider,
+          // A workflow node can pass model:'inherit' straight through (subModel === 'inherit'); the model that
+          // actually ran is then config.model — record that, never the literal 'inherit'.
+          model: (subModel && subModel !== 'inherit') ? subModel : (config.model || ''), inTok: ledgerIn, outTok: ledgerOut,
+          cost, currency, costTrusted, estimated: ledgerEstimated, turnSeq: parentSession.turnSeq,
+          kind: 'subagent', agentKey, subagentId,
+        });
+      }
+    } catch { /* accounting must never break the sub-agent */ }
   }
-  if (!killed && lastFinalText.trim().length >= 80 && lastToolCalls > 0) {
-    onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, degraded: true, resultChars: lastFinalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
-    return { ok: true, degraded: true, warning: lastErr || 'Claude CLI exited after producing usable output', result: lastFinalText, iters: 1, toolCalls: lastToolCalls };
-  }
-  onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: false, resultChars: lastFinalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
-  return { ok: false, error: lastErr || '子代理未产出结论', result: lastFinalText, iters: 1, toolCalls: lastToolCalls };
 }
 
 async function saveAgentRun(run) {
@@ -6034,7 +6149,17 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // The sub-loop shares the parent's AbortController (ctrl) so a Stop on the parent turn also arrests the
   // sub-turn. rawSeq is local (its raw_line frames carry subagentId so the debug pane can attribute them).
   const rawSeqRef = { n: 0 };
-  const noopUsage = () => {}; // sub-turn usage is not accumulated into the parent's usage event (kept simple)
+  // v1.4-OSS 用量看板(补): accumulate the sub-turn's OWN token usage (kept OUT of the parent's usage event —
+  // the sub-agent bills as its own independent ledger row, never merged into the父回合, so no double counting).
+  // Mirrors the parent markUsage's E4 alias handling (prompt_tokens|input_tokens / completion_tokens|output_tokens)
+  // and accumulates across every API call in the sub-turn. `calls` records whether ANY real usage frame arrived.
+  const subUsage = { in: 0, out: 0, calls: 0 };
+  const markUsage = u => {
+    if (!u || typeof u !== 'object') return;
+    const inTok = Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0;
+    const outTok = Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0;
+    subUsage.in += inTok; subUsage.out += outTok; subUsage.calls += 1;
+  };
   let resultText = '';
   let iters = 0, toolCallCount = 0;
   let subOk = true, subErr = '';
@@ -6052,7 +6177,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       content: '工具/迭代预算已经用尽。现在不要再调用任何工具，只根据上面已经获得的信息给出最终结论。若原任务要求 JSON Schema 或质量门输出，必须只输出符合要求的 JSON。',
     });
     try {
-      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage: noopUsage, rawSeqRef, touch: () => {} });
+      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: () => {} });
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
       if (!call.httpError && call.text && String(call.text).trim()) {
         resultText += call.text;
@@ -6086,7 +6211,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       let call = null, giveUp = false, transientAttempts = 0;
       while (true) {
         if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; giveUp = true; break; }
-        call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage: noopUsage, rawSeqRef, touch: () => {} });
+        call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: () => {} });
         if (call.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; continue; }
         const he0 = String(call.httpError || '');
         const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
@@ -6249,6 +6374,29 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   }
   const finalText = resultText.trim();
   const ok = subOk && !!finalText;
+  // v1.4-OSS 用量看板(补): ONE ledger row for this sub-turn (both the success and !ok returns below flow through
+  // here; a caught exception also lands here via the catch above). Cost from the provider's optional pricing.
+  // NO-USAGE fallback (镜像主回合 E4, L7586): if no real usage frame ever arrived (subUsage.calls===0) but the
+  // sub-turn actually ran (iters>0) and produced text, estimate input from subHistory and output from the text
+  // and flag estimated:true. Fully defensive — accounting must never change the return value or throw.
+  // Recorded BEFORE the 'end' onEvent below so a throwing onEvent callback can never skip accounting (onEvent
+  // itself is intentionally NOT wrapped — its throw keeps propagating exactly as before).
+  try {
+    let subIn = subUsage.in, subOut = subUsage.out, estimated = false;
+    if (subUsage.calls === 0 && iters > 0 && finalText) {
+      const estTotal = estimateHistoryTokens(subHistory, sys);
+      if (estTotal > 0) {
+        const estOut = Math.round(estimateContentTokens(finalText));
+        subIn = Math.max(0, estTotal - estOut); subOut = estOut; estimated = true;
+      }
+    }
+    const { cost, currency } = computeProviderCost(provider, subIn, subOut);
+    appendUsageLedger({
+      sessionId: parentSession && parentSession.id, engine: 'openai', provider: provider.id, model: subModel,
+      inTok: subIn, outTok: subOut, cost, currency, estimated, turnSeq: parentSession && parentSession.turnSeq,
+      kind: 'subagent', agentKey, subagentId,
+    });
+  } catch { /* accounting must never break the sub-agent */ }
   onEvent({ type: 'subagent', id: subagentId, state: 'end', ok, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel, engine: 'openai' });
   if (!ok) {
     const fail = { ok: false, error: subErr || '子代理未产出结论', result: finalText, iters, toolCalls: toolCallCount };
@@ -7910,10 +8058,32 @@ async function providerSummaryCall(provider, history) {
     const msg = j && j.choices && j.choices[0] && j.choices[0].message;
     const summary = String((msg && msg.content) || '').trim();
     if (!summary) return { ok: false, error: 'provider returned an empty summary' };
-    return { ok: true, summary };
+    // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model + 对发送 payload 的输入估算,让压缩调用方记入 aux 台账。
+    return { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages) };
   } catch (e) {
     return { ok: false, error: (e && e.name === 'AbortError') ? 'summary request timed out (60s)' : ((e && e.message) || 'summary request failed') };
   } finally { if (timer) clearTimeout(timer); }
+}
+
+// v1.4-OSS 用量看板(补): record a compaction summary call as an 'aux' ledger row (kind:'aux', note:'compact').
+// Tokens from the response usage (prompt/completion, with input/output aliases); when the endpoint omits usage
+// they are ESTIMATED from the sent payload + the returned summary and flagged estimated:true. Both compact call
+// sites (manual runProviderCompact + auto maybeAutoCompact level-2) route through here. Fully defensive.
+function recordCompactUsage(session, provider, sc) {
+  try {
+    if (!session || !provider || !sc || !sc.ok) return;
+    let inTok = 0, outTok = 0, estimated = false;
+    const u = sc.usage;
+    const uIn = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
+    const uOut = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+    if (uIn > 0 || uOut > 0) { inTok = uIn; outTok = uOut; }
+    else { inTok = Number(sc.promptTokensEst) || 0; outTok = Math.round(estimateContentTokens(sc.summary || '')); estimated = true; }
+    const { cost, currency } = computeProviderCost(provider, inTok, outTok);
+    appendUsageLedger({
+      sessionId: session.id, engine: 'openai', provider: provider.id, model: sc.model || provider.model || '',
+      inTok, outTok, cost, currency, estimated, turnSeq: session.turnSeq, kind: 'aux', note: 'compact',
+    });
+  } catch { /* accounting must never break compaction */ }
 }
 
 // v0.8-S5 LEVEL 2 · SUMMARY RESEED boundary. Return the index in `history` of the 2nd-most-recent
@@ -7949,6 +8119,7 @@ async function runProviderCompact(sessionId) {
   const sc = await providerSummaryCall(provider, history);
   if (!sc.ok) return { ok: false, error: sc.error };
   const summary = sc.summary;
+  recordCompactUsage(session, provider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账
 
   const beforeTokens = estimateHistoryTokens(history);
   session.providerHistory = [
@@ -8010,6 +8181,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model) 
       if (compacted) await saveSession(session).catch(() => {});
       return compacted;
     }
+    recordCompactUsage(session, provider, sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
     const boundary = recentTurnsBoundary(history);
     const kept = history.slice(boundary); // last 2 full turns, verbatim (user-boundary → pairing-safe)
     session.providerHistory = [

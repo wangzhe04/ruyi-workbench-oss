@@ -2902,7 +2902,11 @@ function usageAggHead(totals, mixedEntries) {
   stats.appendChild(usageStat('输入 tokens', fmtInt(totals.inTok)));
   stats.appendChild(usageStat('输出 tokens', fmtInt(totals.outTok)));
   const est = Number(totals.estimatedTurns) || 0;
-  stats.appendChild(usageStat('对话轮次', fmtInt(totals.turns), est > 0 ? `含 ${fmtInt(est)} 轮估算` : ''));
+  // v1.4-OSS 用量看板(补): 工作流子代理回合与辅助调用(压缩/起草)也计入总回合数，附一条小注记说明其构成。
+  const subAgents = Number(totals.subagentTurns) || 0;
+  const auxCalls = Number(totals.auxCalls) || 0;
+  const turnSub = [est > 0 ? `含 ${fmtInt(est)} 轮估算` : '', subAgents > 0 ? `其中工作流子代理 ${fmtInt(subAgents)} 回合` : '', auxCalls > 0 ? `辅助调用 ${fmtInt(auxCalls)} 次` : ''].filter(Boolean).join(' · ');
+  stats.appendChild(usageStat('对话轮次', fmtInt(totals.turns), turnSub));
   wrap.appendChild(stats);
   const cost = el('div', 'usage-agg-cost');
   cost.appendChild(el('span', 'usage-agg-cost-label', '成本估算'));
