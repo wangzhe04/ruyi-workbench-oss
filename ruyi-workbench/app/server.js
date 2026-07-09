@@ -240,10 +240,10 @@ const CLAUDE_PERMISSION_MODE_MAP = { bypass: 'bypassPermissions', default: 'defa
 // 'bypassPermissions' directly into config.json are not silently reset to 'bypass').
 const PERMISSION_MODE_ALIASES = { bypassPermissions: 'bypass' };
 const BUILTIN_AGENT_ROLES = Object.freeze([
-  { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 20, claude: 24 }, color: 'blue' },
-  { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 20, claude: 24 }, color: 'green' },
-  { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 24, claude: 24 }, color: 'orange' },
-  { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 24, claude: 24 }, color: 'purple' },
+  { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'blue' },
+  { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'green' },
+  { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'orange' },
+  { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'purple' },
 ]);
 
 function normalizeAgentRole(raw, opts = {}) {
@@ -269,8 +269,8 @@ function normalizeAgentRole(raw, opts = {}) {
     mcpServers: strArr(raw.mcpServers, 32),
     permissionMode,
     budgets: {
-      openai: Math.min(32, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 20))) || 20)),
-      claude: Math.min(100, Math.max(1, Math.round(Number(budgets0.claude != null ? budgets0.claude : (raw.maxTurns || 12))) || 12)),
+      openai: Math.min(100, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 100))) || 100)),
+      claude: Math.min(100, Math.max(1, Math.round(Number(budgets0.claude != null ? budgets0.claude : (raw.maxTurns || 100))) || 100)),
     },
     isolation: raw.isolation === 'worktree' ? 'worktree' : 'none',
     color: String(raw.color || '').trim().slice(0, 32),
@@ -1053,7 +1053,19 @@ async function serveStatic(urlPath) {
 
 // CSRF/local-RCE defense. Same-origin browser requests carry a matching Origin; cross-site pages
 // carry a foreign Origin (reject). Non-browser callers (curl, the MCP child) carry no Origin.
+// v1.4.6-S1 (DNS-rebinding defense): the Host header MUST be exactly this local server's loopback
+// authority. A DNS-rebinding page reaches us with Host = attacker-domain:port (its own Origin would then
+// "self-match" that Host, which is why the old self-consistency check let it through). By pinning Host to
+// 127.0.0.1/localhost/[::1] : RUNTIME.port we reject any rebound name outright. Node/CLI callers connect
+// straight to 127.0.0.1:port, so their Host header already matches — no legitimate caller is affected.
+function hostAllowed(req) {
+  const host = String(req.headers.host || '').toLowerCase();
+  const p = RUNTIME.port;
+  return host === `127.0.0.1:${p}` || host === `localhost:${p}` || host === `[::1]:${p}`;
+}
 function originOk(req) {
+  // Host allowlist FIRST — this is the DNS-rebinding gate and applies even when no Origin is present.
+  if (!hostAllowed(req)) return false;
   const origin = req.headers.origin;
   if (!origin) return true; // no Origin => not a browser cross-site request
   const host = req.headers.host || `${RUNTIME.host}:${RUNTIME.port}`;
@@ -2144,6 +2156,64 @@ async function guardWorkspacePath(rawPath, session, config) {
   if (!pathWithinAnyRoot(real, realRoots)) return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内' };
   return { ok: true, absPath: real };
 }
+// v1.4.6-S3: is the active OpenAI-compatible provider pointed at a LOCAL endpoint (loopback / private LAN)?
+// Used to relax the out-of-workspace READ guard: a local model (Ollama / LM Studio on 127.0.0.1) cannot
+// exfiltrate file contents to a third party, so reading outside the workspace is comparatively low-risk. A
+// remote/cloud provider (or the Claude cloud engine, or no configured provider) → treated as NON-local, so
+// out-of-workspace reads are denied. Pure lexical host check on the configured baseUrl (no DNS lookup).
+function providerIsLocal(config) {
+  try {
+    const p = activeOpenAiProvider(config);
+    if (!p || !p.baseUrl) return false;
+    const host = new URL(p.baseUrl).hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (host === 'localhost' || host === '::1' || host === '0.0.0.0' || host.endsWith('.localhost')) return true;
+    if (/^127\./.test(host)) return true;
+    if (/^10\./.test(host)) return true;
+    if (/^192\.168\./.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return true;
+    if (/^169\.254\./.test(host)) return true;
+    return false;
+  } catch { return false; }
+}
+// v1.4.6-S3: workspace boundary for the NATIVE file tools (file_read/write/edit/delete/move/copy/list/
+// search/glob). Data-exfil defense: without this a REMOTE provider's model can drive file_read on ANY local
+// path (C:\Users\...\.ssh, etc.) and stream the bytes out. Policy (config.allowOutsideWorkspace, default
+// false, is the single explicit escape hatch for legitimate cross-workspace work):
+//   • within an allowed root (session.cwd ∪ defaultWorkspace ∪ recentWorkspaces ∪ dataRoot) → allow.
+//   • out of bounds + WRITE  → DENY always (destructive / exfil-staging), audit-logged.
+//   • out of bounds + READ   → allow only for a LOCAL provider (providerIsLocal); a remote/cloud model → DENY.
+//   • allowOutsideWorkspace === true → bypass (still audit-logged so an operator can see the crossings).
+// ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
+// so dataRoot still bounds it. Returns { ok:true, absPath } or { ok:false, code:'not-allowed', error }.
+async function guardFileToolPath(rawPath, ctx, opts) {
+  const write = !!(opts && opts.write);
+  const tool = (opts && opts.tool) || 'file';
+  const abs = path.resolve(String(rawPath || ''));
+  let config = ctx && ctx.config ? ctx.config : null;
+  if (!config) { try { config = await readConfig(); } catch { config = {}; } }
+  const session = ctx && ctx.session ? ctx.session : null;
+  if (config && config.allowOutsideWorkspace === true) {
+    const roots0 = fileAllowedRoots(session, config);
+    const real0 = await fsp.realpath(abs).catch(() => abs);
+    const realRoots0 = await Promise.all(roots0.map(r => fsp.realpath(r).catch(() => r)));
+    if (!pathWithinAnyRoot(real0, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'allow-config', pathLen: abs.length });
+    return { ok: true, absPath: real0 };
+  }
+  const roots = fileAllowedRoots(session, config);
+  const real = await fsp.realpath(abs).catch(() => abs);
+  const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
+  if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
+  if (write) {
+    logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny', pathLen: abs.length });
+    return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内(越界写已拒绝);如确需跨工作区,请在设置中开启 allowOutsideWorkspace' };
+  }
+  if (providerIsLocal(config)) {
+    logEvent({ kind: 'workspace_boundary', tool, op: 'read', decision: 'allow-local', pathLen: abs.length });
+    return { ok: true, absPath: real };
+  }
+  logEvent({ kind: 'workspace_boundary', tool, op: 'read', decision: 'deny-remote', pathLen: abs.length });
+  return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内(越界读在非本地模型下已拒绝);如确需跨工作区,请在设置中开启 allowOutsideWorkspace' };
+}
 // v1.0.2-S3: build the explorer.exe argv for /api/file/reveal WITHOUT touching a shell (路径含用户可控字符,
 // shell 拼接 = 命令注入)。绝不走 cmd.exe:调用方用 cp.spawn('explorer.exe', args, {detached,stdio:'ignore'}).unref()。
 //   mode='select' → ['/select,' + absPath]  (注意 /select, 与路径是同一个参数, 逗号后直接拼路径, 资源管理器定位)
@@ -2176,6 +2246,15 @@ function buildRevealSpawn(mode, absPath) {
   const effMode = (wantOpen && REVEAL_OPEN_SAFE_EXTS.has(ext)) ? 'open' : 'select';
   const args = (effMode === 'select') ? ['/select,' + p] : [p];
   return { command: 'explorer.exe', args, mode: effMode, degraded: wantOpen && effMode === 'select' };
+}
+// v1.4.6-S2: build the argv to open a URL / file with the OS default handler WITHOUT a shell. browser_open /
+// office_open used to do `cp.spawn('cmd.exe', ['/c','start','', target])` — cmd.exe splits a model-controlled
+// target on & | && metacharacters, so `http://x&calc` ran calc.exe (command injection,实测复现). Spawning
+// explorer.exe directly (Node CreateProcess passes argv verbatim — no shell) hands the URL/path to the
+// default browser/handler and never interprets shell metacharacters. Pure (no spawn); exposed for e2e argv
+// assertions. NB: the caller must still spawn with {detached, windowsHide, stdio:'ignore'}.unref().
+function buildOpenSpawn(target) {
+  return { command: 'explorer.exe', args: [String(target || '')] };
 }
 const PREVIEW_TEXT_EXTS = new Set(['md', 'markdown', 'csv', 'txt', 'html', 'htm', 'json', 'js', 'ts', 'jsx', 'tsx', 'py', 'css', 'xml', 'yaml', 'yml', 'ini', 'log', 'sh', 'ps1', 'bat', 'cmd', 'toml', 'c', 'h', 'cpp', 'java', 'go', 'rs', 'rb', 'php', 'sql', 'tex']);
 const PREVIEW_TEXT_MAX = 1 * 1024 * 1024;   // 1MB text cap (spec)
@@ -4670,7 +4749,7 @@ async function drainSteerQueue(reg, session, onEvent) {
 //   • tool set filtered by toolTier (read/edit/exec) AND with spawn_agent suppressed (noSpawnAgent) — a
 //     sub-agent can therefore never spawn another sub-agent (double guard: the tool isn't offered here AND
 //     the loop below refuses a spawn_agent call if the model somehow emits one);
-//   • independent iteration budget maxIters (clamped 1..32); model = model || provider.subagentModel || main model;
+//   • independent iteration budget maxIters (clamped 1..100); model = model || provider.subagentModel || main model;
 //   • file tools run through the SAME journal ctx {sessionId, turnSeq} as the parent (the sub-turn is part of
 //     the parent turn), so a sub-agent's file_write is journaled under the parent's turnSeq — naturally;
 //   • events: a `subagent` start/end pair is forwarded; the sub-loop's tool_use/tool_result are forwarded too
@@ -5028,6 +5107,10 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
   if (exitCode !== 0 && !gotResult) return { retry: true, reason: 'no_output_crash' };
   return { retry: false, reason: 'unknown' };
 }
+// v1.4.6 (C): a read/analysis Claude node emits almost no tool_use events, so its whole execution window
+// looked frozen to the polling UI. Every N chars of streamed assistant text we fire a lightweight
+// subagent_progress milestone (recordAgentNodeProgress folds it into node.progressLog as "生成中 · N 字").
+const CLAUDE_PROGRESS_CHAR_STEP = 400;
 async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd }) {
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
@@ -5090,6 +5173,7 @@ async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, depe
     child.stderr.on('data', chunk => { stderrText += chunk.toString('utf8'); lastEventAt = Date.now(); });
 
     let assistantText = '';
+    let progressChars = 0; // v1.4.6 (C): high-water mark of chars already reported via subagent_progress (resets per attempt)
     let toolCallCount = 0;
     let resultOk = true, resultText = '', gotResult = false;
     let stdoutRemainder = '';
@@ -5101,7 +5185,15 @@ async function runClaudeSubAgentOnce({ config, task, displayTask, agentKey, depe
       const evt = safeJsonParse(line);
       if (!evt) return;
       for (const ev of parseClaudeEvent(evt)) {
-        if (ev.kind === 'text') assistantText += ev.text;
+        if (ev.kind === 'text') {
+          assistantText += ev.text;
+          // v1.4.6 (C): emit a progress milestone each time streamed text crosses another
+          // CLAUDE_PROGRESS_CHAR_STEP boundary so a long, tool-less generation shows live activity.
+          if (assistantText.length - progressChars >= CLAUDE_PROGRESS_CHAR_STEP) {
+            progressChars = assistantText.length;
+            onEvent({ type: 'subagent_progress', subagentId, chars: assistantText.length, note: `生成中 · ${assistantText.length} 字` });
+          }
+        }
         else if (ev.kind === 'tool_use') { toolCallCount += 1; onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input, subagentId }); }
         else if (ev.kind === 'tool_result') onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError, subagentId });
         else if (ev.kind === 'result') { gotResult = true; resultOk = ev.ok !== false; if (ev.result) resultText = ev.result; }
@@ -5206,7 +5298,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   }
   const requestedTier = toolTier || (role && role.toolTier);
   const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
-  const budget = Math.min(32, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 20));
+  const budget = Math.min(100, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 100));
 
   // Tool set: same capability gating as the parent, filtered to the requested tier, WITHOUT spawn_agent.
   const caps = await getCapabilities(config).catch(() => null);
@@ -5618,7 +5710,7 @@ function normalizeAgentWorkflow(raw, opts = {}) {
       // value would silently override the role library's larger Reviewer/Verifier budgets and recreate the
       // "子代理已达迭代上限 6 轮" failure on every template launch.
       maxIters: (item.maxIters != null && item.maxIters !== '' && Math.round(Number(item.maxIters)) !== 6)
-        ? Math.max(1, Math.min(32, Math.round(Number(item.maxIters) || 20)))
+        ? Math.max(1, Math.min(100, Math.round(Number(item.maxIters) || 100)))
         : undefined,
       model: String(item.model || '').trim().slice(0, 160),
       resources: (Array.isArray(item.resources) ? item.resources : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 32),
@@ -5735,17 +5827,26 @@ async function appendAgentWorkflowSummaryToSession(sessionId, run, opts = {}) {
 function recordAgentNodeProgress(run, node, evt) {
   if (!node || !evt || evt.type === 'raw_line') return;
   let text = '';
+  let kind = '';
   if (evt.type === 'subagent') {
     if (evt.state === 'start') text = `子 Agent 启动${evt.model ? ` · ${evt.model}` : ''}${evt.toolTier ? ` · ${evt.toolTier}` : ''}`;
     else if (evt.state === 'retry') text = `子 Agent 重试 ${evt.attempt || 0}/${evt.maxAttempts || 0}${evt.reason ? ` · ${evt.reason}` : ''}`;
     else if (evt.state === 'end') text = `子 Agent ${evt.ok ? '完成' : '失败'}${evt.resultChars != null ? ` · ${evt.resultChars} 字` : ''}`;
-  } else if (evt.type === 'tool_use') text = `调用工具 ${evt.name || ''}`.trim();
+  } else if (evt.type === 'subagent_progress') { kind = 'gen'; text = evt.note || `生成中 · ${Number(evt.chars) || 0} 字`; }
+  else if (evt.type === 'tool_use') text = `调用工具 ${evt.name || ''}`.trim();
   else if (evt.type === 'tool_result') text = `工具返回 ${evt.isError ? '错误' : '成功'}${evt.id ? ` · ${evt.id}` : ''}`;
   else if (evt.type === 'agent_resource') text = evt.state === 'waiting' ? `等待资源：${(evt.resources || []).join(', ')}` : evt.state === 'acquired' ? `获得资源：${(evt.resources || []).join(', ')}` : evt.state === 'released' ? `释放资源：${(evt.resources || []).join(', ')}` : '';
   if (!text) return;
-  const old = Array.isArray(node.progressLog) ? node.progressLog : [];
-  node.progressLog = [...old, { at: nowIso(), text }].slice(-80);
-  saveAgentRun(run).catch(() => {});
+  if (!Array.isArray(node.progressLog)) node.progressLog = [];
+  const last = node.progressLog[node.progressLog.length - 1];
+  // v1.4.6 (C): coalesce consecutive streamed 'gen' milestones (Claude text growth fires one every +N
+  // chars) in place so the feed stays compact; any non-gen entry (e.g. the final 子 Agent 完成 conclusion)
+  // appends independently so the persisted log still proves progress landed mid-execution.
+  if (kind === 'gen' && last && last.kind === 'gen') { last.text = text; last.at = nowIso(); }
+  else node.progressLog.push(kind ? { at: nowIso(), text, kind } : { at: nowIso(), text });
+  if (node.progressLog.length > 80) node.progressLog = node.progressLog.slice(-80);
+  // v1.4.6 (A): persistence is now the throttledSaveRun called right after this in nodeEvent, so a long
+  // node no longer rewrites the whole run to disk on every single subagent event (a known write cost).
 }
 
 // Execute a complete dependency graph without asking the parent model to schedule every stage. The graph
@@ -5819,7 +5920,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
       const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(32, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 20)), outputSchema, gate, failurePolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(100, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -5847,6 +5948,22 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   let startedCount = 0;
   const terminal = node => node.status === 'succeeded' || node.status === 'failed' || node.status === 'cancelled' || node.status === 'blocked' || node.status === 'skipped';
   const failureContinues = node => node && (node.failurePolicy === 'continue' || (node.failurePolicy === 'retry' && node.retryFallback === 'continue' && node.attempts > node.maxRetries));
+
+  // v1.4.6 (A): throttled mid-execution persistence. saveAgentRun otherwise only fires on node status
+  // transitions, so during a long node the polling UI (its only signal when onEvent is a no-op) reads
+  // stale state. recordAgentNodeProgress folds live subagent events into node.progressLog; this flushes
+  // them to disk on a leading-edge + trailing timer capped at PROGRESS_SAVE_INTERVAL_MS, so per-event
+  // writes (a known session write cost) are never amplified. The timer is cleared in the finally below.
+  const PROGRESS_SAVE_INTERVAL_MS = 1500;
+  let lastProgressSaveAt = 0;
+  let progressSaveTimer = null;
+  const flushProgressSave = () => { progressSaveTimer = null; lastProgressSaveAt = Date.now(); saveAgentRun(run).catch(() => {}); };
+  const throttledSaveRun = () => {
+    if (progressSaveTimer) return; // a flush is already pending; it will capture the latest in-memory state
+    const elapsed = Date.now() - lastProgressSaveAt;
+    if (elapsed >= PROGRESS_SAVE_INTERVAL_MS) flushProgressSave();
+    else { progressSaveTimer = setTimeout(flushProgressSave, PROGRESS_SAVE_INTERVAL_MS - elapsed); if (progressSaveTimer && progressSaveTimer.unref) progressSaveTimer.unref(); }
+  };
 
   try {
   while (nodes.some(node => !terminal(node))) {
@@ -5926,7 +6043,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             effectiveResources = remapAgentResources(node.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace), node.isolation.path);
             await saveAgentRun(run);
           }
-          const nodeEvent = evt => { try { onEvent(evt); } finally { recordAgentNodeProgress(run, node, evt); } };
+          const nodeEvent = evt => { try { onEvent(evt); } finally { recordAgentNodeProgress(run, node, evt); throttledSaveRun(); } };
           const sub = await runSubAgent({
             parentSession: agentSession, provider, config, engine: node.engine || 'openai',
             task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
@@ -6001,7 +6118,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   await saveAgentRun(run);
   onEvent({ type: 'agent_workflow', state: 'end', id: runId, status: run.status, succeeded: nodes.length - failed.length, failed: failed.length });
   if (typeof onComplete === 'function') await onComplete(run).catch(() => {});
-  } finally { activeAgentRuns.delete(runId); }
+  } finally { if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null; } activeAgentRuns.delete(runId); }
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
     results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, error: n.error, dependsOn: n.dependsOn, role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '' })),
@@ -9117,6 +9234,7 @@ async function toolCall(name, args = {}, ctx = null) {
     }
     case 'file_read': {
       const p = path.resolve(String(args.path || ''));
+      { const g = await guardFileToolPath(p, ctx, { tool: 'file_read', write: false }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
       // v0.8-S1: image/binary suffixes are refused — the model should route these to the vision channel.
       if (isBinaryReadPath(p)) {
         return { ok: false, error: 'binary or image file', hint: '图片请作为附件走视觉通道(v0.9)或用 desktop_screenshot 相关工具' };
@@ -9154,6 +9272,7 @@ async function toolCall(name, args = {}, ctx = null) {
     }
     case 'file_write': {
       const p = path.resolve(String(args.path || ''));
+      { const g = await guardFileToolPath(p, ctx, { tool: 'file_write', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
       // v0.8-S4a: checkpoint BEFORE writing. op = create when the file doesn't yet exist (no before to
       // store), else modify (snapshot the existing bytes). Reading the old content can't block the write.
       let before = null, exists = false;
@@ -9166,6 +9285,7 @@ async function toolCall(name, args = {}, ctx = null) {
     }
     case 'file_edit': {
       const p = path.resolve(String(args.path || ''));
+      { const g = await guardFileToolPath(p, ctx, { tool: 'file_edit', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
       // v0.8-S7 error guidance: distinguish "file doesn't exist" (structured hint) from other read errors.
       let raw;
       try { raw = await fsp.readFile(p, 'utf8'); }
@@ -9224,6 +9344,7 @@ async function toolCall(name, args = {}, ctx = null) {
       // Checkpoint the file's bytes (op delete) BEFORE unlinking so a rollback can resurrect it. Refuse
       // directories (only files are journaled/deletable here).
       const p = path.resolve(String(args.path || ''));
+      { const g = await guardFileToolPath(p, ctx, { tool: 'file_delete', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
       const st = await fsp.stat(p).catch(() => null);
       // v0.8-S7 error guidance: same ENOENT hint as file_read/file_edit so the model confirms the path first.
       if (!st) return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
@@ -9247,6 +9368,9 @@ async function toolCall(name, args = {}, ctx = null) {
       const fromSt = await fsp.stat(from).catch(() => null);
       if (!fromSt) return { ok: false, error: '源文件不存在', path: from, hint: '先用 glob 或 file_list 确认路径' };
       if (fromSt.isDirectory()) return { ok: false, error: '暂不支持移动文件夹', hint: '仅支持移动单个文件' };
+      // v1.4.6-S3: a move both reads+deletes `from` and writes `to` — guard both as writes (out-of-bounds → deny).
+      { const gf = await guardFileToolPath(from, ctx, { tool: 'file_move', write: true }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
+      { const gt = await guardFileToolPath(to, ctx, { tool: 'file_move', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
       const toExists = await fsp.stat(to).then(() => true).catch(() => false);
       if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
       const fromBefore = await fsp.readFile(from);
@@ -9277,6 +9401,9 @@ async function toolCall(name, args = {}, ctx = null) {
       const fromSt = await fsp.stat(from).catch(() => null);
       if (!fromSt) return { ok: false, error: '源文件不存在', path: from, hint: '先用 glob 或 file_list 确认路径' };
       if (fromSt.isDirectory()) return { ok: false, error: '暂不支持复制文件夹', hint: '仅支持复制单个文件' };
+      // v1.4.6-S3: copy READS `from` (exfil vector if out of bounds) and WRITES `to` — guard each accordingly.
+      { const gf = await guardFileToolPath(from, ctx, { tool: 'file_copy', write: false }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
+      { const gt = await guardFileToolPath(to, ctx, { tool: 'file_copy', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
       const toExists = await fsp.stat(to).then(() => true).catch(() => false);
       if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
       const toBefore = toExists ? await fsp.readFile(to) : null;
@@ -9392,11 +9519,18 @@ async function toolCall(name, args = {}, ctx = null) {
       markNetworkOnline(); // 成功下载 = 在线证据，顺手刷新能力缓存
       return { ok: true, path: dest, bytes: got.body.length, contentType: (got.contentType || null), op: exists ? 'modify' : 'create' };
     }
-    case 'file_list':
-      return { ok: true, root: path.resolve(args.root || process.cwd()), files: await walkFiles(args.root || process.cwd(), args) };
+    case 'file_list': {
+      const root = path.resolve(args.root || process.cwd());
+      const g = await guardFileToolPath(root, ctx, { tool: 'file_list', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return { ok: true, root, files: await walkFiles(root, args) };
+    }
     case 'file_search': {
-      const matches = await searchFileContent(args.root || process.cwd(), String(args.pattern || ''), args);
-      const resp = { ok: true, root: path.resolve(args.root || process.cwd()), matches };
+      const root = path.resolve(args.root || process.cwd());
+      const g = await guardFileToolPath(root, ctx, { tool: 'file_search', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const matches = await searchFileContent(root, String(args.pattern || ''), args);
+      const resp = { ok: true, root, matches };
       // F2: literal-fallback marker (invalid regex was searched as escaped literal text) — additive field.
       if (matches && matches.patternNote) resp.patternNote = matches.patternNote;
       return resp;
@@ -9406,6 +9540,8 @@ async function toolCall(name, args = {}, ctx = null) {
       // (its default ignoreDirs: node_modules/.git/.venv). Returns files sorted by mtime DESC, capped
       // at maxResults (default 500) with a `truncated` flag.
       const root = path.resolve(args.root || process.cwd());
+      const g = await guardFileToolPath(root, ctx, { tool: 'glob', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const pattern = String(args.pattern || '');
       if (!pattern) throw new Error('pattern is required');
       const maxResults = Math.max(1, Number(args.maxResults || 500) || 500);
@@ -9426,12 +9562,16 @@ async function toolCall(name, args = {}, ctx = null) {
     case 'browser_open': {
       const target = String(args.url || '');
       if (!target) throw new Error('url is required');
-      cp.spawn('cmd.exe', ['/c', 'start', '', target], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+      // v1.4.6-S2: explorer.exe, NOT `cmd.exe /c start` — no shell → no & | metacharacter command injection.
+      const s = buildOpenSpawn(target);
+      cp.spawn(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
       return { ok: true, opened: target };
     }
     case 'office_open': {
       const target = path.resolve(String(args.path || ''));
-      cp.spawn('cmd.exe', ['/c', 'start', '', target], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+      // v1.4.6-S2: same cmd.exe injection fix as browser_open — direct explorer.exe spawn, no shell.
+      const s = buildOpenSpawn(target);
+      cp.spawn(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
       return { ok: true, opened: target };
     }
     case 'desktop_screenshot': {
@@ -9688,6 +9828,18 @@ async function handleApi(req, res, pathname) {
     // since GETs never enter this mutating block. Listing it here is documentation, not the enforcement point.
     const needsToken = pathname.startsWith('/api/tools/') || pathname.startsWith('/api/checkpoints/') || pathname.startsWith('/api/agent-runs') || pathname.startsWith('/api/agent-workflows') || pathname === '/api/agent-roles' || pathname === '/api/session/rewind' || pathname === '/api/steer' || pathname === '/api/config' || pathname === '/api/provider/test' || pathname === '/api/playbooks' || pathname.startsWith('/api/playbooks/') || pathname === '/api/workspace/resolve' || pathname === '/api/pick-folder' || pathname === '/api/file/preview' || pathname === '/api/file/reveal' || pathname === '/api/mcp/import-folder' || pathname === '/api/plan/decision' || pathname === '/api/audit';
     if (needsToken && !tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    // v1.4.6-S1: these mutating routes were previously guarded ONLY by originOk. Bring them under the UI
+    // token too. The UI already tags every /api call with x-wcw-token (net.js authHeaders, incl. the raw
+    // /api/chat/stream fetch), so a BROWSER caller must present it — this closes the residual same-origin
+    // CSRF surface and means a rebinding attempt that somehow reaches here still fails without the token.
+    // We key the requirement on "is this a browser request" (Origin / Sec-Fetch-* present): a non-browser
+    // loopback caller (CLI, the offline e2e harness) carries no such headers and stays governed by the
+    // same-origin gate above — this is deliberate, so tightening auth does not break local tooling. Note the
+    // token lives in runtime.json (readable by any same-user process), so its real value is CSRF, not local
+    // process isolation; the browser-scoped check captures exactly that value.
+    const browserCaller = Boolean(req.headers.origin) || Boolean(req.headers['sec-fetch-site']) || Boolean(req.headers['sec-fetch-mode']);
+    const uiMutatingRoute = pathname === '/api/chat/stream' || pathname === '/api/upload' || pathname === '/api/sessions' || pathname.startsWith('/api/sessions/') || pathname === '/api/stop' || pathname === '/api/provider/compact' || pathname === '/api/permission/decision';
+    if (uiMutatingRoute && browserCaller && !tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
   }
 
   if (req.method === 'GET' && pathname === '/api/status') {
@@ -10546,6 +10698,22 @@ async function startServer(opts) {
   process.on('exit', cleanupMcp);
   process.once('SIGINT', () => { cleanupMcp(); process.exit(0); });
   process.once('SIGTERM', () => { cleanupMcp(); process.exit(0); });
+  // v1.4.6-S5: top-level crash safety net (serve mode only — registered here, not at module load, so a
+  // require()'d unit test keeps Node's default handling). Before this, an uncaught exception left no journal
+  // trace and an unhandled rejection could die silently. Policy: a stray REJECTION is logged and the process
+  // CONTINUES (one orphaned promise must not kill a live turn); an uncaught EXCEPTION is logged, then we run
+  // the existing MCP/shell cleanup and exit(1) — a process in an unknown state is not safe to keep serving.
+  // No auto-restart loop (a supervisor / the user restarts) — avoids a crash-loop that hammers the machine.
+  process.on('unhandledRejection', (reason) => {
+    try { logEvent({ kind: 'unhandled_rejection', error: (reason && reason.stack) || (reason && reason.message) || String(reason) }); } catch { /* logging must never re-throw */ }
+    try { console.error('unhandledRejection:', (reason && reason.stack) || reason); } catch { /* ignore */ }
+  });
+  process.on('uncaughtException', (err) => {
+    try { logEvent({ kind: 'uncaught_exception', error: (err && err.stack) || (err && err.message) || String(err) }); } catch { /* logging must never re-throw */ }
+    try { console.error('uncaughtException (exiting):', (err && err.stack) || err); } catch { /* ignore */ }
+    try { cleanupMcp(); } catch { /* ignore */ }
+    process.exit(1);
+  });
   if (opts.open) {
     cp.spawn('cmd.exe', ['/c', 'start', '', url], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
   }
@@ -11063,7 +11231,7 @@ const MCP_TOOLS = [
         agentKey: { type: 'string', description: 'optional stable identifier for this sub-agent within the parent turn (for later dependsOn references)' },
         dependsOn: { type: 'array', items: { type: 'string' }, description: 'agentKey values from completed earlier stages whose conclusions should be injected into this task' },
         toolTier: { type: 'string', enum: ['read', 'edit', 'exec'], description: "tool access level for the sub-agent (default 'read')" },
-        maxIters: { type: 'number', description: 'sub-loop iteration budget (default 20, clamped 1..32)' },
+        maxIters: { type: 'number', description: 'sub-loop iteration budget (default 100, clamped 1..100)' },
         model: { type: 'string', description: 'optional model id override for the sub-turn' },
         resources: { type: 'array', items: { type: 'string' }, description: 'resources held for the whole subtask. Examples: desktop, browser:default, file:C:\\project\\a.js, workspace:C:\\project. Prefix with read: for shared access.' },
       },
@@ -11355,6 +11523,11 @@ module.exports = {
   // v1.0.2-S3: reveal-in-explorer path guard + spawn-argv builder — exposed for e2e 单测护栏逻辑。
   guardWorkspacePath,
   buildRevealSpawn,
+  // v1.4.6-S2/S3: shell-free open-spawn argv builder + native file-tool workspace boundary guard + local
+  // provider detection — exposed for the file-guard e2e (pure argv / containment assertions).
+  buildOpenSpawn,
+  guardFileToolPath,
+  providerIsLocal,
   // v0.9-S8: audit-center aggregation — exposed for e2e direct unit testing.
   collectAudit,
   auditSummaryFor,

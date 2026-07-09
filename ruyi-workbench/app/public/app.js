@@ -158,7 +158,7 @@ async function setWorkspace(dir, { alsoDefault = false } = {}) {
   if (!state.currentSession) await newSession();
   try {
     await patchSession(state.currentSession.id, { cwd: dir });
-  } catch (e) { toast(`切换工作目录失败：${e.message}`, 'err'); return; }
+  } catch (e) { toast(`切换工作目录失败：${apiErrText(e)}`, 'err'); return; }
   pushRecentWorkspace(dir);
   if (alsoDefault) { state.config.defaultWorkspace = dir; saveConfigPartial({ defaultWorkspace: dir }); }
   renderWorkspacePicker();
@@ -171,7 +171,7 @@ async function pickWorkspaceNative() {
   toast('正在打开文件夹选择器…', '');
   let r;
   try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
-  catch (e) { toast(`选择器出错：${e.message}`, 'err'); return; }
+  catch (e) { toast(`选择器出错：${apiErrText(e)}`, 'err'); return; }
   if (!r || !r.ok) { toast(`无法打开选择器：${(r && r.error) || '未知'}${r && r.hint ? '（' + r.hint + '）' : ''}`, 'err'); return; }
   if (r.cancelled) return; // silent — user backed out
   if (r.path) await setWorkspace(r.path);
@@ -346,7 +346,7 @@ function turnSummaryCard(summary) {
   // there is at least one revertible file AND we know the turnSeq (static or live event both carry it).
   if (hasRevertible && Number.isFinite(turnSeq)) {
     const undoAll = el('button', 'ts-undo-all', '撤销整轮');
-    undoAll.onclick = () => rollbackTurn(turnSeq, undefined, undoAll, '整轮');
+    undoAll.onclick = () => { if (!confirm('撤销整轮改动？将回滚本轮所有可撤销的文件到改动前的内容，且不可恢复。')) return; rollbackTurn(turnSeq, undefined, undoAll, '整轮'); };
     head.append(undoAll);
   }
   card.append(head);
@@ -364,7 +364,7 @@ function turnSummaryCard(summary) {
       // files that carry an entrySeq (journal-driven). Non-revertible files show nothing extra.
       if (f.revertible && Number.isFinite(turnSeq) && Number.isFinite(Number(f.entrySeq))) {
         const undo = el('button', 'ts-undo', '撤销');
-        undo.onclick = () => rollbackTurn(turnSeq, Number(f.entrySeq), undo, f.path || '');
+        undo.onclick = () => { if (!confirm(`撤销「${f.path || ''}」的改动？将恢复到改动前的内容，且不可恢复。`)) return; rollbackTurn(turnSeq, Number(f.entrySeq), undo, f.path || ''); };
         row.append(undo);
       }
       body.append(row);
@@ -507,7 +507,7 @@ async function rollbackTurn(turnSeq, entrySeq, btn, label) {
     toast(`已撤销${entrySeq === undefined ? '整轮' : ''}：${label}${n ? `(${n} 个文件)` : ''}`, 'ok');
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? '撤销整轮' : '撤销'; }
-    toast(`撤销失败：${e.message}`, 'err');
+    toast(`撤销失败：${apiErrText(e)}`, 'err');
   }
 }
 
@@ -819,7 +819,7 @@ function openPlaybookModal(pb) {
       pick.onclick = async () => {
         let r;
         try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
-        catch (e) { toast(`选择器出错：${e.message}`, 'err'); return; }
+        catch (e) { toast(`选择器出错：${apiErrText(e)}`, 'err'); return; }
         if (r && r.ok && r.path) { ta.value = r.path; }
         else if (r && !r.ok) toast(`无法打开选择器：${r.error || '未知'}`, 'err');
       };
@@ -1324,7 +1324,7 @@ async function saveAsPlaybook(btn) {
     const r = await api('/api/playbooks/draft', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
     if (!r || !r.ok || !r.draft) { toast(`起草失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
     openPlaybookEditModal(r.draft);
-  } catch (e) { toast(`起草失败：${e.message}`, 'err'); }
+  } catch (e) { toast(`起草失败：${apiErrText(e)}`, 'err'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
 }
 // Edit modal for a drafted playbook: title / desc / promptTemplate are editable; on confirm, POST the
@@ -1365,7 +1365,7 @@ function openPlaybookEditModal(draft) {
       if (!r || !r.ok) { toast(`保存失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
       toast('已存为 playbook', 'ok');
       refreshPlaybooks(); // reflect the new card in the empty state
-    } catch (e) { modal.close(); toast(`保存失败：${e.message}`, 'err'); }
+    } catch (e) { modal.close(); toast(`保存失败：${apiErrText(e)}`, 'err'); }
   };
 }
 
@@ -1446,7 +1446,7 @@ function openRewindModal(msg) {
       if (reverted) m += ` · 撤销 ${reverted} 个文件`;
       if (failed) m += ` · ${failed} 个未能撤销`;
       toast(m, failed ? '' : 'ok');
-    } catch (e) { modal.close(); toast(`回溯失败：${e.message}`, 'err'); }
+    } catch (e) { modal.close(); toast(`回溯失败：${apiErrText(e)}`, 'err'); }
   };
 }
 function renderStaticMessage(msg) {
@@ -1496,7 +1496,7 @@ async function uploadFiles(files) {
       const data = await fileToBase64(file);
       const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
       state.attachments.push(res.file);
-    } catch (e) { toast(`上传失败：${e.message}`, 'err'); }
+    } catch (e) { toast(`上传失败：${apiErrText(e)}`, 'err'); }
   }
   renderAttachments();
 }
@@ -1528,7 +1528,7 @@ function readDirEntryChildren(dirEntry) {
 async function resolveDroppedFolder(name, children) {
   let r;
   try { r = await api('/api/workspace/resolve', { method: 'POST', body: JSON.stringify({ name, children }) }); }
-  catch (e) { toast(`定位文件夹失败：${e.message}`, 'err'); return; }
+  catch (e) { toast(`定位文件夹失败：${apiErrText(e)}`, 'err'); return; }
   const matches = (r && Array.isArray(r.matches)) ? r.matches : [];
   if (!matches.length) {
     // v1.0.2 返修二:浏览器安全模型拿不到拖入文件夹的完整路径,指纹搜索对深层目录(如 Videos\…\子目录)
@@ -1732,7 +1732,7 @@ async function compactContext() {
     if (state.currentSession?.id === sid) { const s = await api(`/api/sessions/${sid}`); state.currentSession = s.session; renderCurrentSession(); }
     await refreshSessions();
     toast(`已压缩上下文：${fmtTokens(r.beforeTokens || 0)}→约 ${fmtTokens(r.afterTokens || 0)}（估算）`, 'ok');
-  } catch (e) { toast(`压缩失败：${e.message}`, 'err'); }
+  } catch (e) { toast(`压缩失败：${apiErrText(e)}`, 'err'); }
   finally { endCompactIndicator(); }
 }
 
@@ -1808,7 +1808,7 @@ async function sendPrompt(overrideText) {
     // C6: aborts read as a neutral note (.msg-note), real failures as a red .msg-error block — not
     // stuffed into the markdown buffer. finalizeLive still renders whatever text streamed before this.
     if (err.name === 'AbortError') { appendMsgNote(main, live, '已停止'); toast('已停止当前回合'); }
-    else { appendMsgError(main, live, String(err.message || err)); toast(`出错：${err.message || err}`, 'err'); }
+    else { appendMsgError(main, live, apiErrText(err)); toast(`出错：${apiErrText(err)}`, 'err'); }
     finalizeLive(live);
   } finally {
     activeTurns.delete(turnSessionId);
@@ -1834,7 +1834,7 @@ async function steerPrompt(overrideText) {
     steeredSeen.push({ text, ts: Date.now() });
     renderSteeredMessage(text);
     toast('已插话，下一步生效', 'ok');
-  } catch (e) { toast(`插话失败：${e.message || e}`, 'err'); }
+  } catch (e) { toast(`插话失败：${apiErrText(e)}`, 'err'); }
 }
 
 // Render a user interjection row with a muted 「插话」 badge. Used by steerPrompt (optimistic) and by the
@@ -1979,6 +1979,11 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // v0.9-S6 (子代理): a delegated sub-turn started/ended. `start` opens a nested collapsed card that will
       // hold the sub-turn's own tool_use/tool_result (routed here by subagentId). `end` stamps the head with
       // ✓/✗ + a short conclusion summary. See handleSubagentEvent.
+      handleSubagentEvent(evt, live);
+      break;
+    case 'subagent_progress':
+      // v1.4.6 (C): a tool-less Claude sub-turn reporting streamed-text growth. Refresh its card head so the
+      // live chat view shows "生成中 · N 字" instead of a silent stall until the ✓/✗ (routed by subagentId).
       handleSubagentEvent(evt, live);
       break;
     case 'agent_workflow':
@@ -2171,7 +2176,7 @@ function showAskUserModal(toolUseId, questions) {
   // so the turn doesn't hang waiting for a tool_result. F4④:已实证现有关闭路径确实空答放行,不会丢弃挂起。
   const postAnswer = content => {
     if (!sid) { toast('会话已结束，无法回答', 'err'); return; }
-    api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, toolUseId, content }) }).catch(e => toast(e.message, 'err'));
+    api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, toolUseId, content }) }).catch(e => toast(apiErrText(e), 'err'));
   };
   const modal = buildModal(`模型提问 · ${engineLabel()}`, body, submit, () => postAnswer('(用户取消，未选择)'));
   // F4②:标记为 ask modal,供下一条提问到达时精确关旧的。
@@ -2193,7 +2198,7 @@ function showAskUserModal(toolUseId, questions) {
       await api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, toolUseId, content }) });
       modal.close();
     } catch (e) {
-      toast(`回答发送失败：${e.message || e}`, 'err');
+      toast(`回答发送失败：${apiErrText(e)}`, 'err');
       submit.disabled = false; submit.textContent = prevLabel;
     }
   };
@@ -2235,7 +2240,7 @@ function sessionAllowHas(sid, tool) { const s = sessionAllow.get(sid); return !!
 function sessionAllowAdd(sid, tool) { let s = sessionAllow.get(sid); if (!s) { s = new Set(); sessionAllow.set(sid, s); } s.add(tool); }
 
 function decide(requestId, behavior, extra) {
-  return api('/api/permission/decision', { method: 'POST', body: JSON.stringify({ requestId, behavior, ...(extra || {}) }) }).catch(e => toast(e.message, 'err'));
+  return api('/api/permission/decision', { method: 'POST', body: JSON.stringify({ requestId, behavior, ...(extra || {}) }) }).catch(e => toast(apiErrText(e), 'err'));
 }
 function handlePermissionRequest(evt) {
   const sid = state.currentSession?.id || '';
@@ -2309,7 +2314,7 @@ function setComposerHint(text) {
 function decidePlan(planId, decision, note) {
   const sid = state.currentSession?.id || '';
   return api('/api/plan/decision', { method: 'POST', body: JSON.stringify({ sessionId: sid, planId, decision, note: note || '' }) })
-    .catch(e => { toast(`计划决策失败：${e.message || e}`, 'err'); return null; });
+    .catch(e => { toast(`计划决策失败：${apiErrText(e)}`, 'err'); return null; });
 }
 // v0.9-S6 (子代理): render/close the nested sub-agent card. `start` opens a collapsed <details> with an accent
 // left bar and a 「🤖 子任务：<task 前 40 字>」head; its `body` hosts the sub-turn's nested tool cards (routed by
@@ -2363,7 +2368,7 @@ async function launchAgentWorkflow(workflow, context) {
     const r = await api('/api/agent-workflow/launch', { method: 'POST', body: JSON.stringify(body) });
     if (!r || (!r.ok && !r.runId)) throw new Error(r && r.error || '启动失败');
     toast(`工作流已启动：${wf.title}`, 'ok'); switchTab('agent-runs'); await loadAgentRuns();
-  } catch (e) { toast(`工作流启动失败：${e.message || e}`, 'err'); }
+  } catch (e) { toast(`工作流启动失败：${apiErrText(e)}`, 'err'); }
 }
 // Quick "运行模板" launch, from the dropdown in the Agent 工作流 tab. Unlike the graphical editor's own
 // "保存并运行" (where the user has already written real per-node task text), a quick-select template's
@@ -2507,6 +2512,7 @@ async function openWorkflowEditor(initialId) {
   addBtn.onclick=()=>{let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();};
   deleteBtn.onclick=()=>{
     if(draft.nodes.length<=1)return toast('至少保留一个节点','err');
+    if(!confirm(`删除节点「${selectedId}」？其依赖它的运行条件/循环停止条件将被清除，且此操作不可撤销。`))return;
     const deadId=selectedId;
     draft.nodes=draft.nodes.filter(x=>x.id!==deadId);
     const cleared=clearWorkflowNodeRef(deadId);
@@ -2514,7 +2520,7 @@ async function openWorkflowEditor(initialId) {
     if(cleared)toast(`已删除节点，并清除 ${cleared} 处指向它的运行条件/循环停止条件（这些节点将变为无条件执行）`,'');
   };
   async function saveDraft(){syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||'保存失败');draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
-  cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast('工作流已保存','ok');modal.close();}catch(e){toast(e.message,'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){toast(e.message,'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast('内置模板不可删除','err');try{await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();toast('已删除工作流','ok');modal.close();}catch(e){toast(e.message,'err');}};
+  cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast('工作流已保存','ok');modal.close();}catch(e){toast(apiErrText(e),'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){toast(apiErrText(e),'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast('内置模板不可删除','err');if(!confirm(`删除工作流模板「${draft.title||draft.id}」？此操作不可恢复。`))return;try{await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();toast('已删除工作流','ok');modal.close();}catch(e){toast(apiErrText(e),'err');}};
   renderGraph();renderInspector();
 }
 
@@ -2530,12 +2536,12 @@ async function agentRunAction(runId, action, extra) {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action, ...(extra || {}) }) });
     if (!r.ok) throw new Error(r.error || '操作失败');
     toast('Agent 工作流操作已提交', 'ok'); await loadAgentRuns();
-  } catch (e) { toast(`Agent 工作流：${e.message || e}`, 'err'); }
+  } catch (e) { toast(`Agent 工作流：${apiErrText(e)}`, 'err'); }
 }
 async function deleteAgentRun(runId) {
   const sid = state.currentSession?.id; if (!sid || !confirm('删除这条 Agent 工作流记录？')) return;
   try { await api(`/api/agent-runs/${encodeURIComponent(runId)}?sessionId=${encodeURIComponent(sid)}`, { method: 'DELETE' }); await loadAgentRuns(); }
-  catch (e) { toast(`删除失败：${e.message || e}`, 'err'); }
+  catch (e) { toast(`删除失败：${apiErrText(e)}`, 'err'); }
 }
 function renderAgentRuns(runs) {
   const host = $('agentRunsList'); if (!host) return;
@@ -2577,6 +2583,17 @@ function renderAgentRuns(runs) {
       const loopTag = node.loop ? ` · 循环 ${node.loopIteration || 0}/${node.loop.maxIterations}${node.loopStopReason ? ` (${node.loopStopReason})` : ''}` : '';
       row.appendChild(el('summary', 'agent-node-head', `${node.status === 'succeeded' ? '✓' : node.status === 'skipped' ? '↷' : node.status === 'running' ? '◐' : node.status === 'failed' ? '✗' : node.status === 'blocked' ? '⊘' : '○'} ${node.id}${deps}${roleTag}${engineTag}${gateTag}${policyTag}${loopTag} · ${agentRunStatusLabel(node.status)} · 尝试 ${node.attempts || 0}`));
       const body = el('div', 'agent-node-body'); body.appendChild(el('div', 'agent-node-task', node.task || ''));
+      // v1.4.6: current-activity line showing node.progressLog's latest entry (backend folds live subagent
+      // events into it and throttle-saves so polling sees mid-execution progress). Running/waiting nodes get
+      // a spinning dot; succeeded/skipped nodes show nothing here (their history lives in 最近进展 below).
+      const activityLog = Array.isArray(node.progressLog) ? node.progressLog : [];
+      const lastActivity = activityLog.length ? activityLog[activityLog.length - 1] : null;
+      if (lastActivity && lastActivity.text && node.status !== 'succeeded' && node.status !== 'skipped') {
+        const active = node.status === 'running' || node.status === 'waiting_resource';
+        const act = el('div', `agent-node-activity${active ? ' active' : ''}`);
+        act.append(el('span', 'agent-node-activity-dot', active ? '◐' : '·'), el('span', 'agent-node-activity-text', lastActivity.text));
+        body.appendChild(act);
+      }
       if (node.status === 'running' || node.status === 'waiting_resource') body.appendChild(el('div', 'agent-node-live', `运行中 · 第 ${node.attempts || 0} 次尝试${node.startedAt ? ` · 开始于 ${new Date(node.startedAt).toLocaleTimeString()}` : ''}`));
       if (Array.isArray(node.resources) && node.resources.length) {
         const resourceRow = el('div', 'agent-node-resources');
@@ -2631,7 +2648,7 @@ async function loadAgentRuns() {
       if (fresh && fresh.session && state.currentSession?.id === sid) { state.currentSession = fresh.session; renderCurrentSession(); renderSessions(); }
     }
   }
-  catch (e) { host.textContent = `加载失败：${e.message || e}`; }
+  catch (e) { host.textContent = `加载失败：${apiErrText(e)}`; }
 }
 function updateAgentRunsPolling(tab) {
   if (agentRunsPoll) { clearInterval(agentRunsPoll); agentRunsPoll = null; }
@@ -2639,6 +2656,13 @@ function updateAgentRunsPolling(tab) {
 }
 function handleSubagentEvent(evt, live) {
   const id = evt.id || '';
+  if (evt.type === 'subagent_progress') {
+    // v1.4.6 (C): keyed by subagentId (not id); refresh the sub-card head with the streamed-text milestone
+    // so a long tool-less Claude sub-turn shows "生成中 · N 字" instead of a silent stall until the ✓/✗.
+    const host = live.subCards.get(evt.subagentId);
+    if (host && host.status) host.status.textContent = `${evt.note || `生成中 · ${Number(evt.chars) || 0} 字`}${host.roleTag || ''}${host.tierTag || ''}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
+    return;
+  }
   if (evt.state === 'start') {
     if (live.subCards.has(id)) return; // idempotent (a duplicate start should never re-open)
     const d = el('details', 'subagent-card'); d.open = false; // collapsed by default (spec)
@@ -2838,7 +2862,7 @@ function appendToolOutput(value, append = false) {
 async function runTool(name, body) {
   appendToolOutput('运行中…');
   try { const res = await api(`/api/tools/${name}`, { method: 'POST', body: JSON.stringify(body || {}) }); appendToolOutput(res.result); }
-  catch (err) { appendToolOutput(err.message || String(err)); toast(`工具出错：${err.message}`, 'err'); }
+  catch (err) { appendToolOutput(err.message || String(err)); toast(`工具出错：${apiErrText(err)}`, 'err'); }
 }
 
 /* ---------------- v0.9-S3 (C3): file tree ---------------- */
@@ -2926,7 +2950,7 @@ async function loadFileTree() {
     treeEl.textContent = '';
     if (!entries.length) { treeEl.appendChild(el('div', 'ftree-empty', '（空文件夹）')); return; }
     for (const e of entries) treeEl.appendChild(fileTreeRow(e, 0));
-  } catch (e) { treeEl.textContent = ''; treeEl.appendChild(el('div', 'ftree-empty', '读取失败：' + (e.message || ''))); }
+  } catch (e) { treeEl.textContent = ''; treeEl.appendChild(el('div', 'ftree-empty', '读取失败：' + apiErrText(e))); }
 }
 // Preview a file into #filePreview (file tree). v0.9-S4: delegates to the shared renderer, which now uses
 // /api/file/preview so images render for real (was a placeholder in S3).
@@ -2988,7 +3012,7 @@ async function renderFilePreviewInto(box, full) {
     } else {
       body.appendChild(el('div', 'fp-placeholder', '无法预览此文件。'));
     }
-  } catch (e) { body.textContent = ''; body.appendChild(el('div', 'fp-placeholder', '预览失败：' + (e.message || String(e)))); }
+  } catch (e) { body.textContent = ''; body.appendChild(el('div', 'fp-placeholder', '预览失败：' + apiErrText(e))); }
 }
 // Render a text payload by sub-kind: .md → sanitized markdown; .csv → a small table (≤200 rows, every cell
 // textContent); everything else → <pre> textContent.
@@ -3132,7 +3156,7 @@ async function loadAudit() {
   } catch (e) {
     auditState.entries = [];
     auditState.sources = null;
-    if (list) { list.textContent = ''; list.appendChild(el('div', 'audit-empty', '加载审计记录失败：' + (e && e.message || e))); }
+    if (list) { list.textContent = ''; list.appendChild(el('div', 'audit-empty', '加载审计记录失败：' + apiErrText(e))); }
     auditState.loading = false;
     return;
   }
@@ -3266,7 +3290,7 @@ async function loadChanges() {
     entries = (r && Array.isArray(r.entries)) ? r.entries : [];
   } catch (e) {
     // 会话可能已切走 —— 只有仍是同一会话才写 UI(避免串数据/覆盖新会话的空态)。
-    if (state.currentSession?.id === sid) { list.textContent = ''; list.appendChild(el('div', 'changes-empty', '加载变更记录失败：' + (e && e.message || e))); }
+    if (state.currentSession?.id === sid) { list.textContent = ''; list.appendChild(el('div', 'changes-empty', '加载变更记录失败：' + apiErrText(e))); }
     changesState.loading = false;
     return;
   }
@@ -3338,7 +3362,7 @@ async function openChangeDiff(entry) {
   box.append(el('div', 'cdiff-note muted', '加载改动…'));
   let d = null;
   try { d = await api(`/api/checkpoints/diff?sessionId=${encodeURIComponent(sid)}&turnSeq=${Number(entry.turnSeq)}&entrySeq=${Number(entry.entrySeq)}`); }
-  catch (err) { box.textContent = ''; box.append(el('div', 'cdiff-note muted', '加载改动失败:' + (err && err.message || err))); return; }
+  catch (err) { box.textContent = ''; box.append(el('div', 'cdiff-note muted', '加载改动失败:' + apiErrText(err))); return; }
   box.textContent = '';
   renderChangeDiffInto(box, d, entry);
 }
@@ -3526,7 +3550,7 @@ function stopShellTail() {
 
 async function killShell(shellId) {
   try { await shellCall('shell_kill', { shellId }); toast('已结束 shell 会话', 'ok'); }
-  catch (err) { toast(`结束失败：${err.message}`, 'err'); }
+  catch (err) { toast(`结束失败：${apiErrText(err)}`, 'err'); }
   if (shellUi.expanded === shellId) { stopShellTail(); shellUi.expanded = null; }
   refreshShellList();
 }
@@ -3536,7 +3560,7 @@ async function newShellSession() {
   try { const res = await shellCall('shell_start', { cwd }); const r = res.result || {};
     if (r.ok) toast(`已新建 shell 会话 ${r.name || r.shellId}`, 'ok');
     else toast(r.error || '新建失败', 'err');
-  } catch (err) { toast(`新建失败：${err.message}`, 'err'); }
+  } catch (err) { toast(`新建失败：${apiErrText(err)}`, 'err'); }
   refreshShellList();
 }
 
@@ -3660,7 +3684,7 @@ async function refreshModels(announce) {
       renderModelChip();
       if (announce) toast(r.proxyCount ? `模型已刷新（代理 ${r.proxyCount} 个）` : '模型已刷新（内置清单；代理未返回）', 'ok');
     } else if (announce) { toast('模型未变化', ''); }
-  } catch (e) { if (announce) toast(`刷新模型失败：${e.message}`, 'err'); }
+  } catch (e) { if (announce) toast(`刷新模型失败：${apiErrText(e)}`, 'err'); }
 }
 function populatePermSelect() {
   const sel = $('permSelect'); sel.innerHTML = '';
@@ -3751,7 +3775,7 @@ function openPermPopover() {
   }
 }
 async function saveConfigPartial(patch) {
-  try { const res = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) }); state.config = res.config; } catch (e) { toast(`保存失败：${e.message}`, 'err'); }
+  try { const res = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) }); state.config = res.config; } catch (e) { toast(`保存失败：${apiErrText(e)}`, 'err'); }
 }
 
 let agentRoleLibraryData = null;
@@ -3774,7 +3798,7 @@ function captureAgentRoleDraft() {
     claudeTools: splitRoleList(card.querySelector('[data-role-field="claudeTools"]').value),
     mcpServers: splitRoleList(card.querySelector('[data-role-field="mcpServers"]').value),
     permissionMode: card.querySelector('[data-role-field="permissionMode"]').value,
-    budgets: { openai: Number(card.querySelector('[data-role-field="openaiBudget"]').value) || 20, claude: Number(card.querySelector('[data-role-field="claudeBudget"]').value) || 24 },
+    budgets: { openai: Number(card.querySelector('[data-role-field="openaiBudget"]').value) || 100, claude: Number(card.querySelector('[data-role-field="claudeBudget"]').value) || 100 },
     isolation: card.querySelector('[data-role-field="isolation"]').value,
     builtin: card.dataset.builtin === '1',
   })).filter(r => r.id);
@@ -3800,8 +3824,8 @@ function renderAgentRoleEditors() {
       roleField('隔离', roleSelect('isolation', role.isolation || 'none', [['none','不隔离'],['worktree','Git worktree']])),
       roleField('OpenAI 模型', roleInput('openaiModel', role.models?.openai || '')),
       roleField('Claude 模型', roleInput('claudeModel', role.models?.claude || 'inherit')),
-      roleField('OpenAI 迭代', roleInput('openaiBudget', role.budgets?.openai || 20, 'number')),
-      roleField('Claude 轮次', roleInput('claudeBudget', role.budgets?.claude || 24, 'number')),
+      roleField('OpenAI 迭代', roleInput('openaiBudget', role.budgets?.openai || 100, 'number')),
+      roleField('Claude 轮次', roleInput('claudeBudget', role.budgets?.claude || 100, 'number')),
       roleField('OpenAI 工具白名单', roleInput('openaiTools', (role.openaiTools || []).join(', '))),
       roleField('Claude 工具白名单', roleInput('claudeTools', (role.claudeTools || []).join(', '))),
       roleField('MCP 服务 ID', roleInput('mcpServers', (role.mcpServers || []).join(', ')))
@@ -3831,16 +3855,16 @@ async function loadAgentRoles() {
     const d = data.drivers || {}, omitted = d.claude?.omitted || [];
     $('agentRoleDriverStatus').textContent = `OpenAI：工作台原生执行 · Claude：原生 --agents 已同步 ${(d.claude?.synced || []).length} 个${omitted.length ? `，${omitted.length} 个因命令长度未同步` : ''}`;
     resetAgentRoleDraft();
-  } catch (e) { toast(`角色库加载失败：${e.message || e}`, 'err'); }
+  } catch (e) { toast(`角色库加载失败：${apiErrText(e)}`, 'err'); }
 }
 async function saveAgentRoles() {
   captureAgentRoleDraft(); const scope = $('agentRoleScope')?.value || 'global';
   try { await api('/api/agent-roles', { method: 'POST', body: JSON.stringify({ scope, cwd: currentWorkspace(), roles: agentRoleDraft }) }); toast('Agent 角色已保存', 'ok'); await loadAgentRoles(); }
-  catch (e) { toast(`角色保存失败：${e.message || e}`, 'err'); }
+  catch (e) { toast(`角色保存失败：${apiErrText(e)}`, 'err'); }
 }
 function addAgentRole() {
   captureAgentRoleDraft(); const used = new Set(agentRoleDraft.map(r => r.id)); let n = 1, id = 'custom-agent'; while (used.has(id)) id = `custom-agent-${++n}`;
-  agentRoleDraft.push({ id, label: '自定义角色', description: '', prompt: '', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 20, claude: 24 }, isolation: 'none' }); renderAgentRoleEditors();
+  agentRoleDraft.push({ id, label: '自定义角色', description: '', prompt: '', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, isolation: 'none' }); renderAgentRoleEditors();
 }
 function fillSettings() {
   const c = state.config;
@@ -4140,7 +4164,7 @@ async function testProvider(idx, btn) {
       if (status) { status.textContent = `✓ 连接成功，返回 ${r.models ? r.models.length : 0} 个模型`; status.classList.remove('bad'); status.classList.add('good'); }
       renderProviders();
     } else if (status) { status.textContent = `✗ ${(r && r.error) || '连接失败'}`; status.classList.remove('good'); status.classList.add('bad'); }
-  } catch (e) { if (status) { status.textContent = `✗ ${e.message}`; status.classList.add('bad'); } }
+  } catch (e) { if (status) { status.textContent = `✗ ${apiErrText(e)}`; status.classList.add('bad'); } }
   finally { if (btn) { btn.disabled = false; btn.textContent = '测试连接'; } }
 }
 
@@ -4151,7 +4175,7 @@ async function importMcpFromFolder(btn) {
   if (btn) { btn.disabled = true; }
   let pf;
   try { pf = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
-  catch (e) { toast('选择器出错：' + e.message, 'err'); if (btn) btn.disabled = false; return; }
+  catch (e) { toast('选择器出错：' + apiErrText(e), 'err'); if (btn) btn.disabled = false; return; }
   if (!pf || !pf.ok) { toast('无法打开选择器：' + ((pf && pf.error) || '未知'), 'err'); if (btn) btn.disabled = false; return; }
   if (pf.cancelled || !pf.path) { if (btn) btn.disabled = false; return; } // user backed out
   try {
@@ -4239,7 +4263,7 @@ function importSession() {
       const messages = Array.isArray(data.messages) ? data.messages : [];
       const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: (data.title || file.name) + ' (导入)', cwd: data.cwd || '', messages }) });
       await refreshSessions(); await openSession(res.session.id); toast('已导入会话', 'ok');
-    } catch (e) { toast('导入失败：' + e.message, 'err'); }
+    } catch (e) { toast('导入失败：' + apiErrText(e), 'err'); }
   };
   inp.click();
 }
@@ -5053,4 +5077,4 @@ async function boot() {
   // v0.8-S2: PowerShell is the default-active tab, so start the shell-session poll now.
   updateShellPolling();
 }
-boot().catch(err => { setStatus(err.message || String(err)); toast(`初始化失败：${err.message || err}`, 'err'); });
+boot().catch(err => { setStatus(apiErrText(err)); toast(`初始化失败：${apiErrText(err)}`, 'err'); });

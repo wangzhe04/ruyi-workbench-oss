@@ -20,7 +20,10 @@ const ok = (value, label) => { if (value) console.log('PASS ' + label); else { f
     ok(personal && personal.source === 'personal' && personal.nodes[0].position.x === 12, 'personal workflow and graph position are persisted');
     const migrated = await server.saveAgentWorkflow('personal', PROJECT, { id: 'legacy-budget-flow', title: 'Legacy budget flow', nodes: [{ id: 'review', task: 'legacy default', role: 'reviewer', maxIters: 6 }] });
     ok(migrated.nodes[0].maxIters === undefined, 'legacy saved maxIters=6 is treated as an inherited default');
+    const capped = await server.saveAgentWorkflow('personal', PROJECT, { id: 'capped-budget-flow', title: 'Capped budget flow', nodes: [{ id: 'worker', task: 'explicit large budget', role: 'worker', maxIters: 250 }] });
+    ok(capped.nodes[0].maxIters === 100, 'explicit workflow maxIters is capped at 100');
     await server.deleteAgentWorkflow('personal', PROJECT, 'legacy-budget-flow');
+    await server.deleteAgentWorkflow('personal', PROJECT, 'capped-budget-flow');
     const project = await server.saveAgentWorkflow('project', PROJECT, { id: 'shared-flow', title: 'Project flow', nodes: [{ id: 'one', task: 'project' }, { id: 'two', task: 'conditional', dependsOn: ['one'], condition: { node: 'one', path: 'verdict', operator: 'equals', value: 'pass' }, loop: { maxIterations: 4, noProgressLimit: 2 } }] });
     const merged = await server.getAgentWorkflows(PROJECT); const shared = merged.find(x => x.id === 'shared-flow');
     ok(project && shared.source === 'project' && shared.title === 'Project flow', 'project workflow overrides a personal workflow with the same id');

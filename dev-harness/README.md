@@ -114,6 +114,9 @@ node dev-harness\openai-engine.e2e.js
 | **9031-9035 + 9039[dead]** | **failover(v1.0-S6)**(9031 = live 备用端点 fake-openai;9032 = WB;9033 = 401-端点 fake;9034 = 半截流[die-midstream] fake;9035 = fake tavily/博查 搜索端点[后端 baseUrl 可信不过 SSRF];9039 = 无人监听的死主端口[①预首字节失败切备用]。extraBaseUrls 故障转移:预首字节失败切下一端点发 `failover` 事件 + 401 不切 + 流中死亡不切 + 会话粘住;normalizeConfig 清洗 extraBaseUrls;webSearch tavily/bocha 分流) |
 | 8991 | **perf(v1.0-S7)· WB**(性能专项:`/api/sessions/<id>` 等端点响应时延门限;※ 与 repo-hygiene 的 8990-8992 段字面重叠——当前串行执行同刻只跑一件,并行/CI 前须迁移) |
 | **无端口** | **manuals(v1.0-S8)**(纯文件断言:双手册 `USER-GUIDE_CN.md`/`ADMIN-GUIDE_CN.md` 各 ≥4000 字节 + 关键词齐 + 无 sk- 密钥/无旧品牌名「Win Claude Workbench」空格形[存量兼容标识 `win-claude-workbench` 行豁免]/无 TODO 残留 + README 含两手册链接) |
+| **9041** | **dns-rebind(v1.4.6-S1)· WB**(DNS 重绑定/CSRF:伪造 Host 头[evil.example]命中 POST /api/sessions 被拒 403 + 浏览器 Origin 无 token 被拒 + 同源 Origin+token 放行 + 回环无 Origin 无 token 仍放行[离线 harness 豁免]) |
+| **9042** | **file-guard(v1.4.6-S2/S3)· WB**(纯函数:`buildOpenSpawn` 无 cmd.exe/单 argv[命令注入闭合] + `providerIsLocal` 本地/远端判定 + `guardFileToolPath` 策略矩阵[越界写恒拒·越界读仅本地 provider 放行·allowOutsideWorkspace 放行];集成:/api/tools/file_read·file_write 越界拦截[无 provider=远端]+ 翻到本地 provider 后越界读放行) |
+| **9093-9094** | **agent-workflow-ui-progress(v1.4.6)**(9093 = 内联 fake-openai[子请求按 history 里 role:'tool' 数吐 3 个逐轮延时 tool_call 再吐 schema 结论,把节点拉长];9094 = WB,同时挂 `WCW_FAKE_CLAUDE` + `WCW_FAKE_SCENARIO` 指向 HOME 内 `longtext.jsonl` 长文 fixture)。无聊天流的 UI 按钮/resume/CLI 启动 run 的实时进度:(A)不 await 地 launch OpenAI 慢多步节点 + 并发轮询 `/api/agent-runs`,在节点仍 `running` 时读到中间 `node.progressLog`[start/tool 里程碑],证节流器中途落盘(非仅节点收尾的终态 saveAgentRun);(C)Claude 引擎节点执行期落盘 ≥1 条 subagent_progress「生成中 · N 字」里程碑,且「子 Agent 完成」条目独立追加不覆盖生成中条目) |
 
 > ※ 标注的行与旧件/兄弟件共用端口:**在当前串行执行下有意共用**(同刻只有一件在跑);
 > **并行/CI 前须迁移**到独立端口或改用 `free-port.js` 的 `getFreePort()` 动态取端口
