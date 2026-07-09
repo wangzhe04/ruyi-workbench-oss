@@ -4775,6 +4775,26 @@ const activeAgentRuns = new Map(); // runId -> { run, ctrl, paused, stopRequeste
 // office:<path>, workspace:<path>. Prefix a declaration with "read:" for a shared/read lease.
 const resourceLeases = new Map(); // token -> { group, resources, acquiredAt }
 const resourceWaiters = [];
+// v1.x (B1) deadlock backstop: a lease that cannot be acquired within this window is abandoned with a clear
+// error instead of waiting forever. This bounds the nested-lease deadlock a DAG can hit — two concurrent
+// nodes each hold their node-level lease, then each blocks on a tool-level lease over the other's resource;
+// drainResourceWaiters can NEVER satisfy that cycle, so Promise.all (and the whole run) would hang. 0 = wait
+// forever (the pre-fix semantics). WCW_RESOURCE_LEASE_TIMEOUT_MS is a test seam (fast deadlock e2e).
+// v1.x (B1 hardening): the PRIMARY deadlock signal is now wait-for-graph cycle detection (wouldDeadlock),
+// which rejects a real cycle instantly. This timeout is demoted to a LONG safety backstop that only guards the
+// extreme "cycle detection missed it AND the holder never releases" case; the global idle watchdog is the final
+// stop. 0 = wait forever. The old 60s default false-failed legitimate long holds (builds / large downloads /
+// Office generation > 60s), so the default is now generous.
+const DEFAULT_RESOURCE_LEASE_TIMEOUT_MS = 1800000; // 30min long backstop (was 60s)
+// Blemish fix: `Number(env) || default` swallowed an explicit 0 (0 is falsy) into the default, contradicting
+// the "0 = wait forever" contract the deadlock e2e seeds. Only fall back to the default when env is unset/blank;
+// honor an explicit 0 (and any other finite >= 0 value, e.g. the test seam WCW_RESOURCE_LEASE_TIMEOUT_MS=1500).
+const RESOURCE_LEASE_TIMEOUT_MS = (() => {
+  const raw = process.env.WCW_RESOURCE_LEASE_TIMEOUT_MS;
+  if (raw == null || String(raw).trim() === '') return DEFAULT_RESOURCE_LEASE_TIMEOUT_MS;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_RESOURCE_LEASE_TIMEOUT_MS;
+})();
 function canonicalResourcePath(value, cwd) {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -4858,7 +4878,39 @@ function drainResourceWaiters() {
     waiter.resolve(token);
   }
 }
-async function acquireResourceLease(group, resources, signal, onWait) {
+// v1.x (B1 hardening): wait-for-graph cycle detection - the PRIMARY deadlock signal, replacing the crude
+// timeout. Groups are graph nodes; a (waiting) group G that wants a resource currently HELD by a different
+// group H implies an edge G->H. We add the tentative edge for THIS request (group wanting specs) plus the
+// edges already implied by every parked waiter, then ask: starting from `group`, can we get back to `group`?
+// Because the only NEW edges are outgoing from `group`, any newly-created cycle must pass through `group`, so
+// reachability-back-to-self is sufficient. Complexity is O(V+E) over resourceLeases x resourceWaiters (a
+// visited set prevents revisits / self-edge infinite recursion). A block that is NOT a cycle (a peer holding
+// the resource for a legitimately long time) returns false and is left to wait for the eventual release.
+function wouldDeadlock(group, specs) {
+  const edges = new Map(); // waiterGroup -> Set(holderGroup)
+  const addEdges = (from, resources) => {
+    for (const [, lease] of resourceLeases) {
+      if (lease.group === from) continue; // a group never waits on resources it already holds
+      if (resources.some(a => lease.resources.some(b => agentResourcesConflict(a, b)))) {
+        if (!edges.has(from)) edges.set(from, new Set());
+        edges.get(from).add(lease.group);
+      }
+    }
+  };
+  addEdges(group, specs); // the tentative new wait edge for this request
+  for (const w of resourceWaiters) addEdges(w.group, w.resources); // edges implied by already-parked waiters
+  const visited = new Set();
+  const stack = [...(edges.get(group) || [])];
+  while (stack.length) {
+    const g = stack.pop();
+    if (g === group) return true; // reached the start again -> the new edge closes a wait cycle -> real deadlock
+    if (visited.has(g)) continue;
+    visited.add(g);
+    for (const next of (edges.get(g) || [])) stack.push(next);
+  }
+  return false;
+}
+async function acquireResourceLease(group, resources, signal, onWait, timeoutMs) {
   const specs = Array.isArray(resources) ? resources : [];
   if (!specs.length) return '';
   const blockers = resourceBlockers(group, specs);
@@ -4866,11 +4918,29 @@ async function acquireResourceLease(group, resources, signal, onWait) {
   if (!blockers.length && !queuedAhead.length) {
     const token = makeId('lease'); resourceLeases.set(token, { group, resources: specs, acquiredAt: nowIso() }); return token;
   }
+  // v1.x (B1 hardening): before parking a BLOCKED waiter, detect a real wait-for cycle. A cycle can NEVER be
+  // drained (drainResourceWaiters would loop forever), so reject at once instead of waiting out the long
+  // backstop timeout. This is the primary mechanism; the timeout below is only the extreme-case backstop.
+  if (wouldDeadlock(group, specs)) {
+    throw Object.assign(new Error('资源死锁(检测到等待环)，已放弃该资源'), { name: 'ResourceDeadlockError', code: 'RESOURCE_DEADLOCK' });
+  }
   if (typeof onWait === 'function') onWait(blockers.concat(queuedAhead.map(waiter => ({ group: waiter.group, resources: waiter.resources.map(r => r.label), queued: true }))));
+  // v1.x (B1): arm a deadlock backstop timer unless the caller opts out (timeoutMs <= 0). resolve/reject are
+  // wrapped so EVERY settle path (drainResourceWaiters, abort, timeout) clears the timer — no dangling timers.
+  const limit = timeoutMs == null ? RESOURCE_LEASE_TIMEOUT_MS : Number(timeoutMs);
   return new Promise((resolve, reject) => {
-    const waiter = { group, resources: specs, signal, resolve, reject };
+    let timer = null;
+    const cleanup = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    const waiter = { group, resources: specs, signal, resolve: token => { cleanup(); resolve(token); }, reject: err => { cleanup(); reject(err); } };
     resourceWaiters.push(waiter);
-    if (signal) signal.addEventListener('abort', () => { const i = resourceWaiters.indexOf(waiter); if (i >= 0) resourceWaiters.splice(i, 1); reject(Object.assign(new Error('resource wait aborted'), { name: 'AbortError' })); }, { once: true });
+    if (Number.isFinite(limit) && limit > 0) {
+      timer = setTimeout(() => {
+        const i = resourceWaiters.indexOf(waiter); if (i >= 0) resourceWaiters.splice(i, 1);
+        waiter.reject(Object.assign(new Error('资源等待超时(疑似死锁)，已放弃该资源'), { name: 'ResourceTimeoutError', code: 'RESOURCE_TIMEOUT' }));
+      }, limit);
+      if (timer && timer.unref) timer.unref();
+    }
+    if (signal) signal.addEventListener('abort', () => { const i = resourceWaiters.indexOf(waiter); if (i >= 0) resourceWaiters.splice(i, 1); waiter.reject(Object.assign(new Error('resource wait aborted'), { name: 'AbortError' })); }, { once: true });
   });
 }
 function releaseResourceLease(token) { if (token && resourceLeases.delete(token)) drainResourceWaiters(); }
@@ -5355,6 +5425,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let iters = 0, toolCallCount = 0;
   let subOk = true, subErr = '';
   let subOverWindow = false; // v0.9 F6: set when the sub-turn's 400 looks like a context-window overflow
+  // v1.x (B3): sub-turn loop guard state. Mirrors the parent turn's consecutive-identical-signature guard
+  // (runOpenAiTurn loopSig/loopCount, same threshold). Without it a wedged sub-agent repeating one failing
+  // tool burns its whole iteration budget (now up to 100 provider calls). Signature = tool name + raw args.
+  let subLoopSig = null, subLoopCount = 0;
+  const SUB_LOOP_WARN_AT = 3, SUB_LOOP_ABORT_AT = 5;
   const runFinalizerWithoutTools = async () => {
     const hadTools = useTools;
     useTools = false;
@@ -5436,6 +5511,33 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         subHistory.push({ role: 'assistant', content: call.text || '', tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
         for (const tc of call.toolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
+          // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
+          // threshold, refuse to execute, emit a self-contained refusal, PAIR every remaining tool_call in this
+          // batch (配对铁律: strict providers 400 on an orphan tool_call_id), then fail the sub-turn.
+          const loopSig = tc.name + ' ' + tc.rawArgs;
+          if (loopSig === subLoopSig) subLoopCount += 1; else { subLoopSig = loopSig; subLoopCount = 1; }
+          if (subLoopCount >= SUB_LOOP_ABORT_AT) {
+            const resultObj = { ok: false, error: `连续 ${SUB_LOOP_ABORT_AT} 次相同工具调用，已停止子任务以避免死循环`, loopAborted: true };
+            onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
+            onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
+            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            // v1.x (B3-fix): seed the pairing dedup with EVERY tool_call already answered in this sub-turn
+            // (derived from the role:'tool' entries in subHistory, which now includes this abort tc pushed just
+            // above). Mirrors the parent turn's `answeredIds = new Set(toolCalls.map(...))`. Without this, an
+            // abort mid-batch would re-emit tool_use/tool_result + re-push role:'tool' for calls that ALREADY
+            // executed earlier in the SAME batch, falsely reporting them "not executed" and double-pairing them.
+            const answered = new Set(subHistory.filter(m => m && m.role === 'tool').map(m => m.tool_call_id));
+            for (const rem of call.toolCalls) {
+              if (!rem || answered.has(rem.id)) continue; answered.add(rem.id);
+              let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
+              const skip = { ok: false, error: '子任务已因重复调用停止，该调用未执行' };
+              onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs, subagentId });
+              onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true, subagentId });
+              subHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
+            }
+            subOk = false; subErr = `子任务因连续 ${SUB_LOOP_ABORT_AT} 次相同工具调用被中止`;
+            break;
+          }
           toolCallCount += 1;
           // Forward the sub-turn's tool_use TAGGED with subagentId so the UI nests it (additive field).
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
@@ -5511,6 +5613,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
               finally { releaseResourceLease(toolLease); }
             }
           }
+          // v1.x (B3): soft warning at the parent-parity threshold so the sub-agent can self-correct before the
+          // hard abort. Injected into the (successful-but-repeating) tool result the model reads next turn.
+          if (subLoopCount >= SUB_LOOP_WARN_AT && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
+            try { resultObj.loopWarning = `第 ${subLoopCount} 次连续相同调用；再重复将停止子任务`; } catch { /* frozen result — skip */ }
+          }
           const isErr = !!(resultObj && resultObj.ok === false);
           onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr, subagentId });
           subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
@@ -5543,10 +5650,15 @@ async function runSubAgent(opts) {
   const group = String(opts.resourceGroup || opts.subagentId || makeId('agent'));
   let lease = '';
   try {
+    // v1.x (B1): node-level lease acquires its whole resource set ATOMICALLY (all-or-nothing), so it can never
+    // self-deadlock; a block here always resolves once the current holder finishes. The deadlock is the NESTED
+    // tool-level acquisition below (holds this lease, then blocks on another node's resource), which keeps the
+    // default timeout. So this lease opts OUT of the per-lease timeout (0) to avoid false-positiving legitimate
+    // node serialization on a shared resource; the tool-level timeout + idle watchdog remain the backstops.
     lease = await acquireResourceLease(group, resources, opts.ctrl && opts.ctrl.signal, blockers => {
       if (typeof opts.onResourceWait === 'function') opts.onResourceWait(resources, blockers);
       if (typeof opts.onEvent === 'function') opts.onEvent({ type: 'agent_resource', state: 'waiting', subagentId: opts.subagentId, agentKey: opts.agentKey, resources: resources.map(r => r.label), blockers });
-    });
+    }, 0);
     if (typeof opts.onResourceAcquired === 'function') opts.onResourceAcquired(resources);
     if (resources.length && typeof opts.onEvent === 'function') opts.onEvent({ type: 'agent_resource', state: 'acquired', subagentId: opts.subagentId, agentKey: opts.agentKey, resources: resources.map(r => r.label) });
     // engine: 'claude' runs the node through the real Claude CLI (runClaudeSubAgentOnce) instead of the
@@ -5836,6 +5948,12 @@ function recordAgentNodeProgress(run, node, evt) {
   else if (evt.type === 'tool_use') text = `调用工具 ${evt.name || ''}`.trim();
   else if (evt.type === 'tool_result') text = `工具返回 ${evt.isError ? '错误' : '成功'}${evt.id ? ` · ${evt.id}` : ''}`;
   else if (evt.type === 'agent_resource') text = evt.state === 'waiting' ? `等待资源：${(evt.resources || []).join(', ')}` : evt.state === 'acquired' ? `获得资源：${(evt.resources || []).join(', ')}` : evt.state === 'released' ? `释放资源：${(evt.resources || []).join(', ')}` : '';
+  // v1.x (B10): keep node.status honest about TOOL-level resource waits. runSubAgentCore acquires a per-tool
+  // lease that can block on another node's resource; node-LEVEL waits already flip status via onResourceWait,
+  // but the tool level has no node handle, so without this the polling UI shows 运行中 while the node is parked.
+  // A 'waiting' agent_resource event parks the node; the next non-resource progress event means it resumed.
+  if (evt.type === 'agent_resource' && evt.state === 'waiting') { node.status = 'waiting_resource'; node.waitingForResources = Array.isArray(evt.resources) ? evt.resources.slice() : []; }
+  else if (node.status === 'waiting_resource' && evt.type !== 'agent_resource') { node.status = 'running'; node.waitingForResources = []; }
   if (!text) return;
   if (!Array.isArray(node.progressLog)) node.progressLog = [];
   const last = node.progressLog[node.progressLog.length - 1];
@@ -5965,15 +6083,36 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     else { progressSaveTimer = setTimeout(flushProgressSave, PROGRESS_SAVE_INTERVAL_MS - elapsed); if (progressSaveTimer && progressSaveTimer.unref) progressSaveTimer.unref(); }
   };
 
+  // v1.x (B1): idle watchdog covering BOTH the in-chat (sync) and the UI/resume (async) launch paths. The
+  // async/resume paths have NO parent turn (onEvent is a no-op) and thus no parent watchdog, so a wedged or
+  // deadlocked run would hang with no automatic recovery. Every nodeEvent (and each batch dispatch) refreshes
+  // lastNodeEventAt (reusing the wave1 progress events); if the whole run makes NO progress for the idle limit
+  // we abort it via localCtrl (the same path a user Stop / parent abort takes). Cleared in the finally below;
+  // .unref() so it never keeps the event loop alive. WCW_AGENT_WORKFLOW_IDLE_MS is a test seam.
+  const idleLimitMs = Math.max(1000, Number(process.env.WCW_AGENT_WORKFLOW_IDLE_MS) || config.turnIdleTimeoutMs || 600000);
+  let lastNodeEventAt = Date.now();
+  let idleAborted = false;
+  const idleWatchdog = setInterval(() => {
+    if (!activeAgentRuns.has(runId)) return;
+    if (localCtrl && localCtrl.signal && localCtrl.signal.aborted) return;
+    if (runtime.paused) return; // v1.x (B1-fix): a paused run accrues NO idle time - the watchdog must never kill a paused run (its pause-wait loop only wakes on resume/stop, not on a localCtrl abort)
+    if (Date.now() - lastNodeEventAt > idleLimitMs) {
+      idleAborted = true; run.idleAborted = true;
+      onEvent({ type: 'stderr', text: `[watchdog] agent workflow idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
+      if (localCtrl) localCtrl.abort();
+    }
+  }, 5000);
+  if (idleWatchdog && idleWatchdog.unref) idleWatchdog.unref();
+
   try {
   while (nodes.some(node => !terminal(node))) {
     while (runtime.paused && !runtime.stopRequested) {
       run.status = 'paused'; await saveAgentRun(run);
       await new Promise(resolve => runtime.resumeWaiters.push(resolve));
     }
-    if (run.status === 'paused') { run.status = 'running'; await saveAgentRun(run); }
+    if (run.status === 'paused') { run.status = 'running'; lastNodeEventAt = Date.now(); await saveAgentRun(run); } // v1.x (B1-fix): resume resets the idle clock so a long pause does not make the very next watchdog tick false-fire
     if (runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) {
-      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : '父回合已停止'; node.completedAt = nowIso(); }
+      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒无进展），已中止` : '父回合已停止'); node.completedAt = nowIso(); }
       break;
     }
     // A failed quality/work node blocks its downstream by default. `continue` is an explicit degraded
@@ -6000,6 +6139,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     const batch = ready.slice(0, run.concurrency);
     for (const node of batch) { node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); startedCount += 1; }
+    lastNodeEventAt = Date.now(); // v1.x (B1): dispatching a batch counts as progress (floor for the watchdog)
     await saveAgentRun(run);
     await Promise.all(batch.map(async node => {
       const depNodes = node.dependsOn.map(dep => nodes.find(n => n.id === dep)).filter(Boolean);
@@ -6043,7 +6183,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             effectiveResources = remapAgentResources(node.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace), node.isolation.path);
             await saveAgentRun(run);
           }
-          const nodeEvent = evt => { try { onEvent(evt); } finally { recordAgentNodeProgress(run, node, evt); throttledSaveRun(); } };
+          const nodeEvent = evt => { lastNodeEventAt = Date.now(); try { onEvent(evt); } finally { recordAgentNodeProgress(run, node, evt); throttledSaveRun(); } };
           const sub = await runSubAgent({
             parentSession: agentSession, provider, config, engine: node.engine || 'openai',
             task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
@@ -6118,7 +6258,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   await saveAgentRun(run);
   onEvent({ type: 'agent_workflow', state: 'end', id: runId, status: run.status, succeeded: nodes.length - failed.length, failed: failed.length });
   if (typeof onComplete === 'function') await onComplete(run).catch(() => {});
-  } finally { if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null; } activeAgentRuns.delete(runId); }
+  } finally { clearInterval(idleWatchdog); if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null; } activeAgentRuns.delete(runId); }
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
     results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, error: n.error, dependsOn: n.dependsOn, role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '' })),
