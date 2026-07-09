@@ -211,3 +211,34 @@
 - P0 安全 S1/S2/S3 为代码路径静态确证，S2 审计员称已实测复现——**改动前请各自先跑一遍复现**。
 - 编排 B1/B3/B4/B7、双引擎 E1/E3/E4/E5 为静态确证 + "fake 夹具未覆盖此路径"交叉验证。
 - 未发现编排层 P0（撕裂写/越权）——进程生命周期(taskkill /T、AbortController、supersede 串行化)与配对铁律(assistant.tool_calls↔role:tool)处理扎实。
+
+---
+
+## 10. 已交付 6 个检查点（2026-07-09 收官）+ 验收核实 + 下一步优先级
+
+**已提交检查点**（master，均已跑 e2e + 对抗式验证，详见各 commit message）：
+`76ac18f` 安全+CLI进度+UI快赢 → `1ed29b5` 编排止血 → `2940180` 运行监控+状态语义 → `51ebbc3` 双引擎协议+分级UI+视觉 → `096f2b3` 性能三热点 → `9c72277` 成本/用量看板（诚实计费，区分 Anthropic 官方/第三方 Coding Plan/OpenAI provider）。
+
+### 用户验收清单逐块核实结论（8 个只读 agent 对照代码给 file:line 证据，非凭记忆）
+
+| 块 | 判定 | 备注 |
+|---|---|---|
+| ① 资源感知调度 | ✅达标 | 文件/桌面/浏览器Profile/Office锁 + Git worktree隔离全部真实接线（4处调用点一致）；`wouldDeadlock`环检测实测0ms拒死锁。**唯一缺口**：`applyAgentWorktree`(server.js:5608-5629) 冲突时只 `cherry-pick --abort` 回传 git stderr，**无应用内 diff/合并 UI**，用户需去终端手工解决 |
+| ② Agent角色库 | ✅达标 | 内置4角色+独立配置+项目级/自定义+DAG引用。**缺口**：Claude引擎节点只在CLI旗标层给工具/权限，**未把角色prompt/职责文本注入子代理会话**，模型不知道"我是Explorer该只读"，靠`--allowed-tools`硬拦。OpenAI引擎完整 |
+| ③ 结构化+质量门 | ✅达标 | Schema校验/Reviewer-Verifier门/投票去重置信度/失败策略，均有e2e ALL PASS |
+| ④ 模板+可视化编辑 | ✅完全达标 | 内置模板/DAG拖拽连线/项目个人保存/条件循环停止，全部真接线，无缺口 |
+| ⑤ **可观测性+成本** | ❌**未达标** | **(a) Agent工作流子代理花费完全不计入成本看板**——工作流跑一堆子代理，看板显示0成本（刚做的看板的直接缺口，误导用户）；(b) 节点级token不存在，toolCalls/model前端未渲染；(c) 限流只有单次429固定退避，无Retry-After解析/无自适应并发；(d) **关键路径/慢节点/失败热点分析完全没有**——"失败"能解释，"慢"仅基础，"贵"完全无法解释（工作流部分） |
+| ⑥ 高级团队模式 | ⚠️基本缺失 | 顶层会话插话(steer)真实可用(server.js:11317 `/api/steer`+5331 `drainSteerQueue`)。**(1) Agent邮箱/共享任务池完全不存在**；**(2) 定向steer到子agent对`runSubAgentCore`(5972起)零接线**，只对顶层回合生效；**(3) "有界嵌套委派"实际是硬编码depth=1完全禁止嵌套**（不是"有界"是"禁止"）；**(4) 长期记忆/跨会话持久agent不存在**，只有只读CLAUDE.md注入，无写回、无持久身份 |
+
+### 两个产品扩展方案现状调研（用于App更新GUI / Skills体系设计）
+
+- **Overlay升级机制**：apply/rollback/verify/sha256/备份原语**齐备**（`Manage-Overlay.ps1` + server.js `verifyManifest()`/`computeHealth()`），但**全是脱离运行进程的手动PowerShell**——server从不调用它，Doctor面板纯只读无按钮，且**无"新版本从哪来"机制**。方案分两阶段：v1（应用内上传覆盖包zip + `/api/overlay/{check,preview,verify}` + GUI引导，不碰自升级，一周内可落地）→ v2（引入supervisor父进程解决"apply覆盖运行中的server.js自身"的自举问题，才能做到真一键apply+回滚）。
+- **Skills体系**：意外发现工作台**已有两套脱节机制**——Playbook（纯JSON提示词模板，provider+CLI通用，不能带脚本/资源）与`scanSkills()`（已扫描标准Claude Code plugin格式`offline-toolkit/{commands,skills,agents}`，但**只在Claude CLI引擎可用**、**工作台不执行只做文本插入**、实测16个skill**没一个带scripts/或resources/**）。方案三阶段：v1（载体统一为`<id>/SKILL.md`+可选scripts/resources，双引擎通用，渐进披露注入系统提示）→ v2（脚本声明式绑定，工作台代跑而非每次靠LLM现场编排——**对非程序员价值最大的一步**）→ v3（可视化编辑器+zip分享）。
+
+### 用户已确认的下一步优先级（2026-07-09）
+
+1. **修复⑤成本看板漏算**：Agent工作流子代理花费未计入usage ledger/看板，需在DAG节点执行完（`runAgentWorkflow`内子代理调用点，参考`runSubAgentCore`/`runClaudeSubAgentOnce`）也调`appendUsageLedger`（v1.5引入，见9c72277），聚合端点`/api/usage/summary`的byEngine/byProvider/bySession要能反映工作流花费，不止主聊天轮。
+2. **推进⑥团队模式缺口**——**范围待细化**：④项子能力（邮箱/共享任务池、定向steer到子agent、有界嵌套委派、长期记忆跨会话agent）体量差异很大。**建议**：优先做"**定向steer到子agent**"（已有顶层steer基础设施`drainSteerQueue`，接线到`runSubAgentCore`改动范围可控）；"有界嵌套委派"次之（把当前硬编码depth=1改成可配上限，需重新评估此前"禁止嵌套"决定背后的安全/成本考量，见server.js里noSpawnAgent相关注释）；"邮箱/共享任务池"与"长期记忆跨会话agent"是架构级新增，建议放最后单独立项设计。
+3. **Skills体系v1推进**：合并Playbook与技能面板、让provider模式也能用技能、渐进披露。
+
+**恢复本轮工作时**：先重新grep确认上述file:line在当前HEAD仍准确（尤其行号可能因新提交漂移），再决定派单个agent串行改server.js（吸取此前worktree基线过期的教训，见memory）还是分文件并行。
