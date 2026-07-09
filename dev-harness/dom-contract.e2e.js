@@ -77,6 +77,8 @@ const CRITICAL_IDS = [
   // 右侧工具页签(switchTab;ia.e2e 依赖 tab 结构 + 简易模式隐开发者组)。
   'toolPane', 'tab-files', 'tab-changes', 'tab-powershell', 'tab-mcp', 'tab-artifacts',
   'tab-audit', 'tab-agent-runs', 'agentRunsList', 'agentRunsRefreshBtn', 'tab-debug', 'tab-doctor', 'tab-desktop', 'toggleToolsBtn',
+  // 成本/用量看板(usage-dashboard.e2e 依赖):用量页签面板 + 刷新 + 预算/Claude单价配置字段。
+  'tab-usage', 'usagePanel', 'usageRefreshBtn', 'cfgUsageBudgetMonthly', 'cfgUsageBudgetCurrency', 'cfgClaudePriceIn', 'cfgClaudePriceOut',
   // 命令面板 / 帮助 / 更多菜单(openPalette / openMoreMenu / helpModal)。
   'paletteModal', 'paletteInput', 'paletteList', 'helpModal', 'helpBtn', 'moreMenuBtn',
   // 状态/通知(setStatus / toast)。
@@ -110,6 +112,9 @@ const CRITICAL_CLASSES = [
   'modal-backdrop',     // 弹层遮罩(closeModal / Esc 关闭链路)
   'tool-tabs',          // 右侧/设置页签容器
   'toast',              // toast() 通知
+  'usage-budget-banner',// 用量看板:预算软告警条(usageBudgetBanner 构建)
+  'usage-bar-fill',     // 用量看板:手绘 SVG 水平条填充(usageBarSvg setAttribute class)
+  'usage-trend-bar',    // 用量看板:日趋势 SVG 柱(usageTrendSvg 构建)
 ];
 const missingClasses = CRITICAL_CLASSES.filter(c => !src.includes(`'${c}'`) && !src.includes(`"${c}"`) && !new RegExp(`\\b${c}\\b`).test(src));
 ok(missingClasses.length === 0,
@@ -139,6 +144,8 @@ const CRITICAL_FUNCS = [
   'handlePlanEvent',
   'handleAgentWorkflowEvent',
   'loadAgentRuns', 'renderAgentRuns', 'agentRunAction',
+  // 成本/用量看板(usage-dashboard.e2e 依赖):懒加载 + 渲染 + 手绘 SVG 条/趋势。
+  'loadUsage', 'renderUsage', 'usageBar', 'usageBarSvg', 'usageTrendSvg', 'usageBudgetBanner', 'fmtMoney',
   // Phase 1 抽离的纯工具 / 网络函数(util.js / net.js)—— 拆后聚合源码里仍须有定义。
   'escapeHtml', 'fmtBytes', 'fmtTime', 'fmtTokens', 'autoGrow', 'toast', 'setStatus',
   'wcwToken', 'authHeaders', 'api', 'apiErrText',

@@ -62,6 +62,7 @@ const paths = {
   agentRuns: path.join(dataRoot(), 'agent-runs'), // persistent DAG workflow state, grouped by session
   agentWorkflows: path.join(dataRoot(), 'agent-workflows'), // personal reusable DAG templates
   agentWorktrees: path.join(dataRoot(), 'agent-worktrees'), // optional isolated write-agent worktrees (outside the repo)
+  usage: path.join(dataRoot(), 'usage'), // v1.4-OSS 用量看板: append-only monthly cost ledgers usage/YYYY-MM.jsonl
 };
 
 function json(data, status = 200, headers = {}) {
@@ -109,7 +110,198 @@ async function ensureDirs() {
     fsp.mkdir(paths.agentRuns, { recursive: true }),
     fsp.mkdir(paths.agentWorkflows, { recursive: true }),
     fsp.mkdir(paths.agentWorktrees, { recursive: true }),
+    fsp.mkdir(paths.usage, { recursive: true }), // v1.4-OSS 用量看板: append-only monthly ledgers
   ]);
+}
+
+// ===== v1.4-OSS 用量/成本账本 (append-only monthly ledger) ================================================
+// Each finished turn (both engines) appends ONE JSON line to usage/YYYY-MM.jsonl (month = the row's UTC ts).
+// Design: APPEND-ONLY, never read-modify-write, so concurrent 多会话 turns cannot corrupt a shared index the
+// way a read-modify-write index could. Empty / zero-token turns are skipped. A ledger write failure is
+// fire-and-forget (a non-critical persistence, like the rest) and must NEVER break the turn. Corrupt lines are
+// skipped at read time (safeJsonParse per line). COST SEMANTICS: every recorded `cost` is a NOTIONAL/estimate
+// figure, never an assertion of real billing (a Claude subscription or a third-party Coding Plan may not bill
+// per token at all). `costTrusted:false` marks rows whose currency amount is plan-based / not a meaningful
+// spend (see the Claude third-party endpoint path); aggregation keeps those OUT of the real costsByCurrency.
+let usageLedgerChain = Promise.resolve();
+
+// Resolve the ledger source + cost-trust for a Claude CLI turn. modelsApiBase EMPTY = Anthropic direct ->
+// source 'claude-cli', CLI total_cost_usd usable as a NOTIONAL USD estimate. NON-EMPTY = a third-party
+// Anthropic-compatible endpoint (e.g. 火山方舟 Ark Coding Plan) whose CLI-reported cost is computed with
+// ANTHROPIC pricing and is therefore WRONG for that vendor (and often a flat monthly plan) -> record tokens
+// only, cost null, costTrusted false, and tag the source by its known preset id (else host) so grouping stays
+// honest (Claude 官方 vs Ark 等). Runs at turn time, so CLAUDE_ENDPOINT_PRESETS (declared later) is available.
+function claudeLedgerSource(config) {
+  const base = (config && typeof config.modelsApiBase === 'string') ? config.modelsApiBase.trim() : '';
+  if (!base) return { provider: 'claude-cli', costTrusted: true };
+  let tag = '';
+  try {
+    for (const p of CLAUDE_ENDPOINT_PRESETS) { if (p && p.baseUrl && base.startsWith(p.baseUrl)) { tag = p.id; break; } }
+    if (!tag) tag = 'claude-endpoint:' + new URL(base).host;
+  } catch { tag = 'claude-endpoint:unknown'; }
+  return { provider: tag, costTrusted: false };
+}
+
+// Validate an optional pricing object {inputPerM, outputPerM, currency} -> canonical form or null. Shared by
+// providers[].pricing (sanitizeProvider) and config.claudePricing (normalizeConfig). Prices are per MILLION
+// tokens, non-negative; a currency code is required; kept only when at least one price parses.
+function normalizePricing(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const inP = Number(raw.inputPerM), outP = Number(raw.outputPerM);
+  const cur = (typeof raw.currency === 'string') ? raw.currency.trim().slice(0, 8) : '';
+  const hasIn = Number.isFinite(inP) && inP >= 0, hasOut = Number.isFinite(outP) && outP >= 0;
+  if ((hasIn || hasOut) && cur) return { inputPerM: hasIn ? inP : 0, outputPerM: hasOut ? outP : 0, currency: cur };
+  return null;
+}
+// Cost from a pricing object + token counts (per MILLION tokens). No/invalid pricing -> {cost:null, currency:null}.
+function computeCostFromPricing(pricing, inTok, outTok) {
+  const p = normalizePricing(pricing);
+  if (!p) return { cost: null, currency: null };
+  const cost = (Number(inTok) || 0) / 1e6 * p.inputPerM + (Number(outTok) || 0) / 1e6 * p.outputPerM;
+  return { cost: Number.isFinite(cost) ? cost : null, currency: p.currency };
+}
+// Cost for a native provider turn from the provider's optional pricing. No pricing -> {cost:null, currency:null}.
+function computeProviderCost(provider, inTok, outTok) {
+  return computeCostFromPricing(provider && provider.pricing, inTok, outTok);
+}
+
+function appendUsageLedger(entry) {
+  try {
+    const inTok = Math.max(0, Math.round(Number(entry.inTok) || 0));
+    const outTok = Math.max(0, Math.round(Number(entry.outTok) || 0));
+    if (inTok <= 0 && outTok <= 0) return; // skip empty / zero-token turns
+    const ts = (typeof entry.ts === 'string' && entry.ts) ? entry.ts : nowIso();
+    // NB: Number(null) === 0, so guard null/undefined explicitly — a tokens-only turn must stay cost:null.
+    const costNum = (entry.cost == null) ? NaN : Number(entry.cost);
+    const rec = {
+      ts,
+      sessionId: String(entry.sessionId || ''),
+      engine: entry.engine === 'claude' ? 'claude' : 'openai',
+      provider: String(entry.provider || ''),
+      model: String(entry.model || ''),
+      inTok, outTok,
+      cost: Number.isFinite(costNum) ? costNum : null,
+      currency: (typeof entry.currency === 'string' && entry.currency) ? entry.currency : null,
+      costTrusted: entry.costTrusted !== false, // false = plan-based / notional (kept out of real cost totals)
+      estimated: entry.estimated === true,
+      turnSeq: Number(entry.turnSeq) || 0,
+    };
+    const line = JSON.stringify(rec) + '\n';
+    const file = path.join(paths.usage, ts.slice(0, 7) + '.jsonl');
+    // One global append chain so multi-session concurrent writes never interleave a half-line.
+    usageLedgerChain = usageLedgerChain.then(async () => {
+      await fsp.mkdir(paths.usage, { recursive: true });
+      await fsp.appendFile(file, line, 'utf8');
+    }).catch(() => {}); // fire-and-forget: a ledger failure must never wedge the chain or the turn
+  } catch { /* never let accounting break a turn */ }
+}
+
+// Local-calendar day key (YYYY-MM-DD) for byDay bucketing (matches the today/month local range boundaries).
+function usageDayKey(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+// Lower-bound instant (ms) for a range. today/month use the LOCAL calendar; week = last 7x24h; all = 0.
+function usageRangeLowerMs(range, now) {
+  const d = new Date(now);
+  if (range === 'today') { d.setHours(0, 0, 0, 0); return d.getTime(); }
+  if (range === 'week') return now - 7 * 24 * 60 * 60 * 1000;
+  if (range === 'all') return 0;
+  d.setDate(1); d.setHours(0, 0, 0, 0); return d.getTime(); // 'month' (default)
+}
+// Read every ledger row with ts >= lowerMs. Reads only month files that can contain such rows (file month key
+// >= the lower bound's UTC month; monotonic, so no qualifying row is missed). Corrupt lines are skipped, and a
+// missing usage dir (old install) yields [] rather than throwing.
+async function readUsageRows(lowerMs) {
+  const rows = [];
+  let files = [];
+  try { files = await fsp.readdir(paths.usage); } catch { return rows; }
+  const lowerKey = lowerMs > 0 ? new Date(lowerMs).toISOString().slice(0, 7) : '';
+  for (const f of files) {
+    if (!/^\d{4}-\d{2}\.jsonl$/.test(f)) continue;
+    if (lowerKey && f.slice(0, 7) < lowerKey) continue; // whole month precedes the lower bound
+    let raw = '';
+    try { raw = await fsp.readFile(path.join(paths.usage, f), 'utf8'); } catch { continue; }
+    for (const line of raw.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      const rec = safeJsonParse(line, null);
+      if (!rec || typeof rec !== 'object') continue; // corrupt line skipped
+      const t = Date.parse(rec.ts);
+      if (!Number.isFinite(t) || (lowerMs > 0 && t < lowerMs)) continue;
+      rows.push(rec);
+    }
+  }
+  return rows;
+}
+// Aggregate the ledger for a range into the /api/usage/summary shape. costsByCurrency holds ONLY trusted,
+// non-plan-based costs; planBasedTurns counts turns whose cost is plan-based/notional (surfaced separately).
+async function buildUsageSummary(range) {
+  const config = await readConfig().catch(() => ({}));
+  const now = Date.now();
+  const rows = await readUsageRows(usageRangeLowerMs(range, now));
+  // provider/source id -> display label (native providers + Claude direct + known Claude endpoints).
+  const labels = new Map([['claude-cli', 'Claude CLI (Anthropic)']]);
+  for (const p of (Array.isArray(config.providers) ? config.providers : [])) if (p && p.id) labels.set(String(p.id), String(p.label || p.id));
+  for (const p of CLAUDE_ENDPOINT_PRESETS) if (p && p.id) labels.set(String(p.id), String(p.label || p.id));
+  // session id -> title from the lightweight metadata index (no full-session scan).
+  const titles = new Map();
+  try { const idx = await readSessionIndex(); if (Array.isArray(idx)) for (const e of idx) if (e && e.id) titles.set(String(e.id), e.title || ''); } catch { /* index optional */ }
+
+  const addCost = (bucket, cur, cost) => { bucket[cur] = (bucket[cur] || 0) + cost; };
+  const totals = { inTok: 0, outTok: 0, turns: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
+  const byEngine = new Map(), byProvider = new Map(), bySession = new Map(), byDay = new Map();
+
+  for (const r of rows) {
+    const inTok = Number(r.inTok) || 0, outTok = Number(r.outTok) || 0;
+    const cost = Number(r.cost), cur = (typeof r.currency === 'string' && r.currency) ? r.currency : null;
+    const trusted = r.costTrusted !== false;
+    const hasCost = trusted && cur && Number.isFinite(cost);
+    totals.inTok += inTok; totals.outTok += outTok; totals.turns += 1;
+    if (r.estimated === true) totals.estimatedTurns += 1;
+    if (!trusted) totals.planBasedTurns += 1;
+    if (hasCost) addCost(totals.costsByCurrency, cur, cost);
+    const eng = r.engine === 'claude' ? 'claude' : 'openai';
+    let em = byEngine.get(eng); if (!em) byEngine.set(eng, em = { engine: eng, inTok: 0, outTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
+    em.inTok += inTok; em.outTok += outTok; em.turns += 1; if (!trusted) em.planBasedTurns += 1; if (hasCost) addCost(em.costsByCurrency, cur, cost);
+    const pid = String(r.provider || '');
+    let pm = byProvider.get(pid); if (!pm) byProvider.set(pid, pm = { provider: pid, label: labels.get(pid) || pid, inTok: 0, outTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
+    pm.inTok += inTok; pm.outTok += outTok; pm.turns += 1; if (!trusted) pm.planBasedTurns += 1; if (hasCost) addCost(pm.costsByCurrency, cur, cost);
+    const sid = String(r.sessionId || '');
+    let sm = bySession.get(sid); if (!sm) bySession.set(sid, sm = { sessionId: sid, title: titles.get(sid) || '', inTok: 0, outTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
+    sm.inTok += inTok; sm.outTok += outTok; sm.turns += 1; if (!trusted) sm.planBasedTurns += 1; if (hasCost) addCost(sm.costsByCurrency, cur, cost);
+    const dk = usageDayKey(Date.parse(r.ts));
+    let dm = byDay.get(dk); if (!dm) byDay.set(dk, dm = { date: dk, inTok: 0, outTok: 0, costsByCurrency: {} });
+    dm.inTok += inTok; dm.outTok += outTok; if (hasCost) addCost(dm.costsByCurrency, cur, cost);
+  }
+  // Round every currency bucket to 6 dp to shed binary-float noise (0.30000000000000004 -> 0.3), and derive a
+  // per-entry planBased flag: true ONLY when the entry has plan-based turns AND no trusted cost to show (so a
+  // mixed entry that still has a real cost keeps showing it, and the front-end can honestly badge 计划内计费).
+  const round6 = n => Math.round((Number(n) || 0) * 1e6) / 1e6;
+  const roundB = b => { for (const k of Object.keys(b)) b[k] = round6(b[k]); return b; };
+  const finishGroup = m => { roundB(m.costsByCurrency); m.planBased = m.planBasedTurns > 0 && Object.keys(m.costsByCurrency).length === 0; };
+  roundB(totals.costsByCurrency);
+  for (const m of byEngine.values()) finishGroup(m);
+  for (const m of byProvider.values()) finishGroup(m);
+  for (const m of bySession.values()) finishGroup(m);
+  for (const m of byDay.values()) roundB(m.costsByCurrency);
+
+  // Budget: CURRENT local month's TRUSTED spend in the budget currency (independent of `range`).
+  let budget = null;
+  const ub = config.usageBudget;
+  if (ub && typeof ub === 'object' && Number(ub.monthly) > 0 && typeof ub.currency === 'string' && ub.currency) {
+    const monthRows = await readUsageRows(usageRangeLowerMs('month', now));
+    let spent = 0;
+    for (const r of monthRows) { const c = Number(r.cost); if (r.costTrusted !== false && r.currency === ub.currency && Number.isFinite(c)) spent += c; }
+    budget = { monthly: Number(ub.monthly), currency: ub.currency, spentThisMonth: round6(spent) };
+  }
+  return {
+    ok: true, range, totals,
+    byEngine: [...byEngine.values()],
+    byProvider: [...byProvider.values()],
+    bySession: [...bySession.values()].sort((a, b) => (b.inTok + b.outTok) - (a.inTok + a.outTok)).slice(0, 20),
+    byDay: [...byDay.values()].sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)),
+    budget,
+  };
 }
 
 function defaultConfig() {
@@ -227,6 +419,15 @@ function defaultConfig() {
     // --- v1.4.3 additions (CLI capability alignment) ---
     appendSystemPrompt: '',       // non-empty -> --append-system-prompt flag to Claude CLI
     additionalDirectories: [],    // extra dirs passed via multiple --add-dir flags
+    // v1.4-OSS 用量看板: optional soft monthly budget. null (default) = no budget. Shape {monthly:Number>0,
+    // currency:'USD'|'CNY'|...}. Data-only: /api/usage/summary returns spentThisMonth so the front-end can
+    // show a soft warning; the back-end never blocks a turn on it.
+    usageBudget: null,
+    // v1.4-OSS 用量看板: optional Claude-side pricing {inputPerM, outputPerM, currency}. When set it drives the
+    // Claude ledger cost (tokens×price) for BOTH Anthropic-direct AND third-party endpoints (Ark 等) — the CLI's
+    // total_cost_usd is Anthropic-priced and only a notional fallback. null (default) = fall back to that USD
+    // estimate for Anthropic-direct, and tokens-only (plan-based) for a third-party endpoint.
+    claudePricing: null,
   };
 }
 
@@ -509,6 +710,26 @@ function normalizeConfig(raw) {
   if (!Array.isArray(config.additionalDirectories) || config.additionalDirectories.some(a => typeof a !== 'string')) {
     config.additionalDirectories = Array.isArray(config.additionalDirectories) ? config.additionalDirectories.filter(a => typeof a === 'string').slice(0, 20) : [];
     changed = true;
+  }
+  // v1.4-OSS 用量看板: usageBudget — optional {monthly:Number>0, currency:short string} soft budget, else null.
+  // A malformed value coerces to null (never leaves a garbage budget in config). ADDITIVE/optional field.
+  {
+    const raw0 = (config.usageBudget && typeof config.usageBudget === 'object' && !Array.isArray(config.usageBudget)) ? config.usageBudget : null;
+    let ub = null;
+    if (raw0) {
+      const monthly = Number(raw0.monthly);
+      const currency = (typeof raw0.currency === 'string') ? raw0.currency.trim().slice(0, 8) : '';
+      if (Number.isFinite(monthly) && monthly > 0 && currency) ub = { monthly, currency };
+    }
+    if (JSON.stringify(ub) !== JSON.stringify(config.usageBudget)) { config.usageBudget = ub; changed = true; }
+    else config.usageBudget = ub;
+  }
+  // v1.4-OSS 用量看板: claudePricing — optional {inputPerM, outputPerM, currency} for Claude cost estimation
+  // (see defaultConfig). Validated via the shared normalizePricing; a malformed value coerces to null.
+  {
+    const cp = normalizePricing(config.claudePricing);
+    if (JSON.stringify(cp) !== JSON.stringify(config.claudePricing)) { config.claudePricing = cp; changed = true; }
+    else config.claudePricing = cp;
   }
   return { config, changed };
 }
@@ -3662,6 +3883,23 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   // race avoided; only serve-process saveSession is authoritative for everything else).
   try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos; } catch { /* keep in-memory */ }
   await saveSession(session);
+  // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
+  // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for
+  // BOTH direct + third-party endpoints); (2) else, for Anthropic-direct only, the CLI's notional USD; (3) else
+  // (third-party, unpriced) tokens with cost null + costTrusted false (its CLI total_cost_usd is Anthropic-
+  // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
+  if (usage && usage.usage) {
+    const { provider: claudeProvider, costTrusted: directTrust } = claudeLedgerSource(config);
+    const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
+    let cost = null, currency = null, costTrusted = directTrust;
+    const priced = computeCostFromPricing(config.claudePricing, inTok, outTok);
+    if (priced.currency) { cost = priced.cost; currency = priced.currency; costTrusted = true; }
+    else if (directTrust) { const costUsd = Number(usage.costUsd); if (Number.isFinite(costUsd)) { cost = costUsd; currency = 'USD'; } }
+    appendUsageLedger({
+      sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
+      inTok, outTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
+    });
+  }
   logEvent({ kind: 'turn_end', sessionId: session.id, ok: exit.code === 0 && !wasStopped, exitCode: exit.code, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped });
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
@@ -3680,6 +3918,9 @@ const PROVIDER_PRESETS = [
   {
     id: 'deepseek', label: 'DeepSeek', type: 'openai-compat',
     baseUrl: 'https://api.deepseek.com', reasoning: true, defaultModel: 'deepseek-v4-pro', contextWindow: 131072, // v0.8-S5
+    // v1.4-OSS 用量看板: a reasonable DEFAULT price prefill (元/百万 token, CNY) — user-editable in 设置.
+    // Deliberately just this one preset (prices drift; config is the source of truth, not hardcoded tables).
+    pricing: { inputPerM: 2, outputPerM: 8, currency: 'CNY' },
 
     models: [
       { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
@@ -3787,6 +4028,11 @@ function sanitizeProvider(raw) {
       if (extraBaseUrls.length >= 3) break;
     }
   }
+  // v1.4-OSS 用量看板: optional pricing for provider-engine cost calc. {inputPerM, outputPerM, currency} —
+  // per-MILLION-token prices (non-negative) + a short currency code. Kept only when at least one price parses
+  // AND a currency is present; otherwise dropped (the ledger then records tokens with cost null). ADDITIVE +
+  // optional: a provider without pricing round-trips byte-identical (no spurious config rewrite).
+  const pricing = normalizePricing(raw.pricing);
   return {
     id,
     label: str(raw.label, 80).trim() || id,
@@ -3806,6 +4052,7 @@ function sanitizeProvider(raw) {
     systemPrompt: str(raw.systemPrompt, 8000),
     temperature,
     contextWindow, // v0.8-S5
+    ...(pricing ? { pricing } : {}), // v1.4-OSS: optional cost pricing (omitted when unset -> no config churn)
     extraHeaders,
   };
 }
@@ -7378,6 +7625,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   session.summary = (finalText.replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
   await saveSession(session);
+  // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
+  // Cost comes from the provider's optional pricing (null when unpriced); estimated turns are flagged.
+  if (usageObj && usageObj.usage) {
+    const inTok = usageObj.usage.input_tokens, outTok = usageObj.usage.output_tokens;
+    const { cost, currency } = computeProviderCost(provider, inTok, outTok);
+    appendUsageLedger({
+      sessionId: session.id, engine: 'openai', provider: provider.id, model,
+      inTok, outTok, cost, currency, estimated: usageObj.estimated === true, turnSeq: session.turnSeq,
+    });
+  }
   logEvent({ kind: 'turn_end', sessionId: session.id, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, aborted: wasStopped });
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
@@ -10764,6 +11021,19 @@ async function handleApi(req, res, pathname) {
     }
     const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, onComplete: activeChildren.has(session.id) ? null : completion });
     return send(res, json(result));
+  }
+  // v1.4-OSS 用量/成本看板: read-only aggregation over the append-only usage ledgers. Same gate as the other
+  // read-only GETs (agent-runs/checkpoints): self-check tokenOk here; NOT in the needsToken mutating whitelist.
+  if (req.method === 'GET' && pathname === '/api/usage/summary') {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const rawRange = new URL(req.url, 'http://x').searchParams.get('range') || 'month';
+    const range = ['today', 'week', 'month', 'all'].includes(rawRange) ? rawRange : 'month';
+    try {
+      return send(res, json(await buildUsageSummary(range)));
+    } catch {
+      // Old install with no ledger / any read error -> empty aggregation, never a 500.
+      return send(res, json({ ok: true, range, totals: { inTok: 0, outTok: 0, turns: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} }, byEngine: [], byProvider: [], bySession: [], byDay: [], budget: null }));
+    }
   }
   // v0.8-S4a: checkpoint query (read-only → same-origin gate is enough; not in needsToken).
   if (req.method === 'GET' && pathname === '/api/agent-runs') {

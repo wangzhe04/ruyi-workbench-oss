@@ -2793,6 +2793,224 @@ function updateAgentRunsPolling(tab) {
   if (agentRunsPoll) { clearInterval(agentRunsPoll); agentRunsPoll = null; }
   if (tab === 'agent-runs') { loadAgentRuns(); agentRunsPoll = setInterval(loadAgentRuns, 2000); }
 }
+
+/* ============================================================
+   成本 / 用量看板（前端面板 + 手绘 SVG 图表）。数据来自只读端点
+   GET /api/usage/summary?range=today|week|month|all（默认 month），
+   经 api() 带 token 拉取。所有不可信内容一律 el()/textContent 渲染，
+   SVG 数值自算 round，绝不 innerHTML 拼接。成本按币种分组（不换算），
+   措辞用「约/估算」（非实际扣费）；第三方 Coding Plan（planBased/
+   costTrusted=false）只显 token 消耗 + 来源，不伪造金额。
+   ============================================================ */
+const usageState = { loaded: false, range: 'month', data: null };
+// 币种符号 + 排序权重（¥ 在前，与需求示例「¥1.80 · $0.42」一致）。未知币种回退为「CODE 」前缀。
+const CURRENCY_SYMBOL = { CNY: '¥', USD: '$', EUR: '€', GBP: '£', JPY: 'JP¥', HKD: 'HK$', TWD: 'NT$', KRW: '₩' };
+const CURRENCY_ORDER = { CNY: 0, USD: 1, EUR: 2, GBP: 3, JPY: 4 };
+const PRICING_CURRENCIES = [
+  { code: 'CNY', label: '人民币 ¥ (CNY)' }, { code: 'USD', label: '美元 $ (USD)' },
+  { code: 'EUR', label: '欧元 € (EUR)' }, { code: 'GBP', label: '英镑 £ (GBP)' }, { code: 'JPY', label: '日元 ¥ (JPY)' },
+];
+// 数值小工具：整数千分位、金额（round 到合理精度，避免 0.30000004）、SVG 坐标两位小数。
+function fmtInt(n) { return (Number(n) || 0).toLocaleString('en-US'); }
+function round2(x) { return Math.round((Number(x) || 0) * 100) / 100; }
+function fmtMoney(amount, currency) {
+  const n = Number(amount) || 0;
+  const sym = CURRENCY_SYMBOL[currency] || (currency ? currency + ' ' : '');
+  // <1 的小额保留至多 4 位有效小数（如 $0.0032），其余 2 位；toLocaleString 负责千分位与裁尾零。
+  const maxFrac = (n !== 0 && Math.abs(n) < 1) ? 4 : 2;
+  return sym + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: maxFrac });
+}
+// costsByCurrency({USD:0.42,CNY:1.8}) → 「约 ¥1.80 · 约 $0.42」。空/全 0 → ''。prefix 用于「约 」前缀。
+function fmtCostsByCurrency(costs, prefix) {
+  const entries = Object.entries(costs || {}).filter(([, v]) => Number(v) > 0);
+  if (!entries.length) return '';
+  entries.sort((a, b) => ((CURRENCY_ORDER[a[0]] ?? 9) - (CURRENCY_ORDER[b[0]] ?? 9)) || (a[0] < b[0] ? -1 : 1));
+  return entries.map(([cur, v]) => (prefix || '') + fmtMoney(v, cur)).join(' · ');
+}
+// 诚实渲染判定：后端可能给 planBased(true)=第三方计划内计费，或 costTrusted(false)=成本不可当真实金额。
+// 二者任一命中即视为「计划内 / 成本不可信」——只显 token，不显伪造金额。
+function entryPlanBased(e) { return !!(e && (e.planBased === true || e.costTrusted === false)); }
+function engineDisplayName(engine) { return engine === 'claude' ? 'Claude' : engine === 'openai' ? 'Provider（原生 API）' : (engine || '其他'); }
+
+async function loadUsage(force) {
+  const host = $('usagePanel'); if (!host) return;
+  const range = usageState.range || 'month';
+  host.setAttribute('aria-busy', 'true');
+  if (force || !usageState.data) { host.textContent = ''; host.appendChild(usageNoticeCard('正在汇总用量…')); }
+  try {
+    const r = await api(`/api/usage/summary?range=${encodeURIComponent(range)}`);
+    usageState.data = r; usageState.loaded = true;
+    renderUsage(r);
+  } catch (e) {
+    usageState.loaded = true; usageState.data = null;
+    host.textContent = ''; host.appendChild(usageNoticeCard(`加载用量失败：${apiErrText(e)}`));
+  } finally { host.removeAttribute('aria-busy'); }
+}
+function setUsageRange(range) {
+  if (!['today', 'week', 'month', 'all'].includes(range) || usageState.range === range) return;
+  usageState.range = range;
+  document.querySelectorAll('.usage-range-btn').forEach(b => { const on = b.dataset.range === range; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  loadUsage(true);
+}
+// 空态 / 加载态 / 错误态统一卡片（带如意云纹水印，textContent 安全）。
+function usageNoticeCard(msg) {
+  const card = el('div', 'usage-empty');
+  card.appendChild(el('div', 'usage-empty-cloud'));
+  card.appendChild(el('p', 'usage-empty-text', msg));
+  return card;
+}
+function renderUsage(data) {
+  const host = $('usagePanel'); if (!host) return;
+  host.textContent = '';
+  if (!data || data.ok === false) { host.appendChild(usageNoticeCard('暂时拿不到用量数据，请稍后刷新。')); return; }
+  const totals = data.totals || {};
+  const byEngine = Array.isArray(data.byEngine) ? data.byEngine : [];
+  const byProvider = Array.isArray(data.byProvider) ? data.byProvider : [];
+  const bySession = Array.isArray(data.bySession) ? data.bySession : [];
+  const byDay = Array.isArray(data.byDay) ? data.byDay : [];
+  // 预算软告警：budget 非 null 时常驻（超支=琥珀 alert；未超=进度条软提示）。放在最顶，不阻断。
+  if (data.budget && (Number(data.budget.monthly) > 0 || Number(data.budget.spentThisMonth) > 0)) host.appendChild(usageBudgetBanner(data.budget));
+  const hasAny = (Number(totals.inTok) || 0) + (Number(totals.outTok) || 0) + (Number(totals.turns) || 0) > 0
+    || byEngine.length || byProvider.length || bySession.length || byDay.length;
+  if (!hasAny) { host.appendChild(usageNoticeCard('还没有用量记录，发起对话后这里会汇总花费。')); return; }
+  host.appendChild(usageAggHead(totals, byEngine.concat(byProvider)));
+  if (byEngine.length) host.appendChild(usageGroup('按引擎', byEngine, 'engine'));
+  if (byProvider.length) host.appendChild(usageGroup('按服务商', byProvider, 'provider'));
+  if (bySession.length) host.appendChild(usageGroup('按会话', bySession, 'session'));
+  if (byDay.length) host.appendChild(usageTrend(byDay));
+}
+// 预算横幅。over=超支 → 琥珀 role=alert；未超 → 软进度条 role=status。措辞带「约/估算」。
+function usageBudgetBanner(b) {
+  const monthly = Number(b.monthly) || 0, spent = Number(b.spentThisMonth) || 0, cur = b.currency || 'CNY';
+  const over = monthly > 0 && spent > monthly;
+  const wrap = el('div', 'usage-budget-banner' + (over ? ' over' : ''));
+  wrap.setAttribute('role', over ? 'alert' : 'status');
+  if (over) {
+    wrap.appendChild(el('span', 'usage-budget-icon', '⚠'));
+    wrap.appendChild(el('span', 'usage-budget-text', `本月已用约 ${fmtMoney(spent, cur)} / 预算 ${fmtMoney(monthly, cur)}，超出约 ${fmtMoney(spent - monthly, cur)}（估算）`));
+  } else {
+    const pct = monthly > 0 ? Math.min(100, Math.round(spent / monthly * 100)) : 0;
+    wrap.appendChild(el('span', 'usage-budget-text', monthly > 0 ? `本月预算：约 ${fmtMoney(spent, cur)} / ${fmtMoney(monthly, cur)}（${pct}%，估算）` : `本月已用约 ${fmtMoney(spent, cur)}（未设预算上限）`));
+    if (monthly > 0) { const track = el('div', 'usage-budget-bar'); const fill = el('div', 'usage-budget-fill'); fill.style.width = pct + '%'; track.appendChild(fill); wrap.appendChild(track); }
+  }
+  return wrap;
+}
+// 聚合头：输入/输出 tokens + 轮次(含估算标注) + 各币种成本(约/估算) + 诚实脚注。
+function usageAggHead(totals, mixedEntries) {
+  const wrap = el('div', 'usage-agg');
+  const stats = el('div', 'usage-agg-stats');
+  stats.appendChild(usageStat('输入 tokens', fmtInt(totals.inTok)));
+  stats.appendChild(usageStat('输出 tokens', fmtInt(totals.outTok)));
+  const est = Number(totals.estimatedTurns) || 0;
+  stats.appendChild(usageStat('对话轮次', fmtInt(totals.turns), est > 0 ? `含 ${fmtInt(est)} 轮估算` : ''));
+  wrap.appendChild(stats);
+  const cost = el('div', 'usage-agg-cost');
+  cost.appendChild(el('span', 'usage-agg-cost-label', '成本估算'));
+  const costStr = fmtCostsByCurrency(totals.costsByCurrency, '约 ');
+  cost.appendChild(el('span', 'usage-agg-cost-val' + (costStr ? '' : ' muted'), costStr || '暂无成本估算（未配置单价或为计划内计费）'));
+  wrap.appendChild(cost);
+  // 诚实脚注：优先用后端 totals.planBasedTurns（第三方 Coding Plan/订阅计费的轮数）；forward-compat 再兜底逐条 flag。
+  const planTurns = Number(totals.planBasedTurns) || 0;
+  let note = '成本为按量计价的等价估算，非实际扣费。';
+  if (planTurns > 0) note += `其中约 ${fmtInt(planTurns)} 轮为计划内（订阅）计费，只计 token、未计入上方成本。`;
+  else if ((mixedEntries || []).some(entryPlanBased)) note += '部分用量为计划内（订阅）计费，只计 token，未计入上方成本。';
+  wrap.appendChild(el('p', 'usage-agg-note muted', note));
+  return wrap;
+}
+function usageStat(label, value, sub) {
+  const box = el('div', 'usage-stat');
+  box.appendChild(el('div', 'usage-stat-val', value));
+  box.appendChild(el('div', 'usage-stat-label', label));
+  if (sub) box.appendChild(el('div', 'usage-stat-sub', sub));
+  return box;
+}
+// 分组条：按 tokens(币种无关)归一。sr-only 概述 + 逐条手绘 SVG 水平条。
+function usageGroup(title, list, kind) {
+  const wrap = el('div', 'usage-group');
+  wrap.appendChild(el('div', 'usage-group-title', title));
+  const rows = list.map(e => ({ e, tok: (Number(e.inTok) || 0) + (Number(e.outTok) || 0) }));
+  const max = Math.max(1, ...rows.map(r => r.tok));
+  const names = rows.map(r => `${usageEntryName(r.e, kind)} ${fmtTokens(r.tok)} tok`).join('；');
+  wrap.appendChild(el('p', 'sr-only', `${title}：共 ${rows.length} 项。${names}。`));
+  const bars = el('div', 'usage-bars');
+  for (const r of rows) bars.appendChild(usageBar(r.e, r.tok, max, kind));
+  wrap.appendChild(bars);
+  return wrap;
+}
+function usageEntryName(e, kind) {
+  if (kind === 'engine') return engineDisplayName(e.engine);
+  if (kind === 'session') return e.title || e.sessionId || '未命名会话';
+  return e.label || e.provider || '未知服务商';
+}
+function usageBar(entry, tok, max, kind) {
+  const row = el('div', 'usage-bar-row');
+  const labelWrap = el('div', 'usage-bar-label');
+  labelWrap.appendChild(el('span', 'usage-bar-name', usageEntryName(entry, kind)));
+  const src = entry.sourceLabel || entry.source;
+  if (src && kind !== 'session') labelWrap.appendChild(el('span', 'usage-bar-src', src));
+  const plan = entryPlanBased(entry);
+  if (plan) labelWrap.appendChild(el('span', 'usage-bar-plan', '计划内计费'));
+  // 会话条可点击 → 打开该会话（openSession 走 /api/sessions/:id）。键盘可达。
+  if (kind === 'session' && entry.sessionId) {
+    row.classList.add('clickable'); row.setAttribute('role', 'button'); row.tabIndex = 0;
+    row.setAttribute('aria-label', `打开会话「${usageEntryName(entry, kind)}」`);
+    const go = () => { openSession(entry.sessionId).catch(e => toast('打开会话失败：' + apiErrText(e), 'err')); };
+    row.onclick = go; row.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } };
+  }
+  const pct = Math.max(0, Math.min(100, Math.round(tok / max * 100)));
+  const colorVar = kind === 'engine' ? (entry.engine === 'claude' ? 'var(--wf-claude)' : 'var(--wf-provider)') : 'var(--accent)';
+  row.appendChild(labelWrap);
+  row.appendChild(usageBarSvg(pct, colorVar));
+  const valWrap = el('div', 'usage-bar-val');
+  valWrap.appendChild(el('span', 'usage-bar-tok', `${fmtTokens(tok)} tok`));
+  if (plan) valWrap.appendChild(el('span', 'usage-bar-cost muted', '计划内'));
+  else { const c = fmtCostsByCurrency(entry.costsByCurrency, '约 '); if (c) valWrap.appendChild(el('span', 'usage-bar-cost', c)); }
+  row.appendChild(valWrap);
+  return row;
+}
+// 手绘 SVG 水平条：底轨 rect + 填充 rect(宽 = round(pct))。preserveAspectRatio=none 横向拉伸铺满。装饰性 → aria-hidden。
+function usageBarSvg(pct, colorVar) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'usage-bar-svg'); svg.setAttribute('viewBox', '0 0 100 10');
+  svg.setAttribute('preserveAspectRatio', 'none'); svg.setAttribute('aria-hidden', 'true');
+  const track = document.createElementNS(NS, 'rect');
+  track.setAttribute('class', 'usage-bar-track'); track.setAttribute('x', '0'); track.setAttribute('y', '0'); track.setAttribute('width', '100'); track.setAttribute('height', '10'); track.setAttribute('rx', '2');
+  const fill = document.createElementNS(NS, 'rect');
+  fill.setAttribute('class', 'usage-bar-fill'); fill.setAttribute('x', '0'); fill.setAttribute('y', '0'); fill.setAttribute('width', String(round2(pct))); fill.setAttribute('height', '10'); fill.setAttribute('rx', '2'); fill.setAttribute('fill', colorVar);
+  svg.appendChild(track); svg.appendChild(fill);
+  return svg;
+}
+// 日趋势：手绘 SVG 迷你柱状。按 tokens 归一，深浅主题用 --accent 着色。sr-only 概述 + 首末日期 caption。
+function usageTrend(byDay) {
+  const wrap = el('div', 'usage-group usage-trend');
+  wrap.appendChild(el('div', 'usage-group-title', '每日趋势'));
+  const days = byDay.map(d => ({ date: d.date || '', tok: (Number(d.inTok) || 0) + (Number(d.outTok) || 0) }));
+  const max = Math.max(1, ...days.map(d => d.tok));
+  const peak = days.reduce((a, b) => (b.tok > a.tok ? b : a), days[0] || { tok: 0, date: '' });
+  wrap.appendChild(el('p', 'sr-only', `每日 token 趋势，共 ${days.length} 天，最高约 ${fmtTokens(peak.tok)} tok（${peak.date}）。`));
+  wrap.appendChild(usageTrendSvg(days, max));
+  if (days.length) { const cap = el('div', 'usage-trend-cap'); cap.appendChild(el('span', '', days[0].date)); cap.appendChild(el('span', '', days[days.length - 1].date)); wrap.appendChild(cap); }
+  return wrap;
+}
+function usageTrendSvg(days, max) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const W = 100, H = 40, n = days.length, gap = n > 1 ? Math.min(2, 40 / n) : 0;
+  const bw = n > 0 ? (W - gap * (n - 1)) / n : W;
+  const peakTok = Math.max(0, ...days.map(d => d.tok));
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'usage-trend-svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('preserveAspectRatio', 'none'); svg.setAttribute('aria-hidden', 'true');
+  days.forEach((d, i) => {
+    const h = d.tok > 0 ? Math.max(1, Math.round(d.tok / max * (H - 2))) : 0;
+    const x = round2(i * (bw + gap)), y = round2(H - h);
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('class', 'usage-trend-bar' + (d.tok > 0 && d.tok === peakTok ? ' peak' : ''));
+    r.setAttribute('x', String(x)); r.setAttribute('y', String(y)); r.setAttribute('width', String(round2(bw))); r.setAttribute('height', String(h)); r.setAttribute('rx', '0.6');
+    const t = document.createElementNS(NS, 'title'); t.textContent = `${d.date}：${fmtTokens(d.tok)} tok`; r.appendChild(t);
+    svg.appendChild(r);
+  });
+  return svg;
+}
 function handleSubagentEvent(evt, live) {
   const id = evt.id || '';
   if (evt.type === 'subagent_progress') {
@@ -4063,6 +4281,9 @@ function fillSettings() {
   const dr = $('advDataRoot'); if (dr) dr.textContent = s.dataRoot || '';
   const av = $('advVersion'); if (av) av.textContent = 'v' + (s.version || '') + ' · ' + (s.launchMode || '');
   const ao = $('advOverlayId'); if (ao) ao.textContent = s.overlayId || '';
+  // 月度成本预算（基础 tab，简易模式可见）+ Claude 第三方端点可选单价（Claude CLI tab）。留空=不设/不估。
+  { const b = c.usageBudget || {}; const m = $('cfgUsageBudgetMonthly'); if (m) m.value = (b.monthly === 0 || b.monthly) ? String(b.monthly) : ''; const cur = $('cfgUsageBudgetCurrency'); if (cur) cur.value = b.currency || 'CNY'; }
+  { const cpr = c.claudePricing || {}; const pi = $('cfgClaudePriceIn'); if (pi) pi.value = (cpr.inputPerM === 0 || cpr.inputPerM) ? String(cpr.inputPerM) : ''; const po = $('cfgClaudePriceOut'); if (po) po.value = (cpr.outputPerM === 0 || cpr.outputPerM) ? String(cpr.outputPerM) : ''; const pc = $('cfgClaudePriceCurrency'); if (pc) pc.value = cpr.currency || 'CNY'; }
   populateProviderPresets();
   // A8: a background refreshStatus() calls fillSettings on a timer. If the settings modal is OPEN the
   // user may be mid-edit on a provider draft — re-seeding it here would silently discard their edits.
@@ -4153,6 +4374,24 @@ async function saveSettings() {
       baseUrl: $('cfgSearchBaseUrl') ? $('cfgSearchBaseUrl').value.trim() : '',
       apiKey: $('cfgSearchApiKey') ? $('cfgSearchApiKey').value : '',
     },
+    // 月度成本预算：留空 → null（不设预算，用量看板不显进度）。后端接纳 {monthly,currency}。
+    usageBudget: (() => {
+      const m = $('cfgUsageBudgetMonthly'); const cur = $('cfgUsageBudgetCurrency');
+      const v = m ? m.value.trim() : '';
+      if (v === '') return null;
+      const n = Number(v);
+      return { monthly: Number.isFinite(n) ? Math.max(0, n) : 0, currency: cur ? cur.value : 'CNY' };
+    })(),
+    // Claude 第三方端点可选单价（次要）：两项皆空 → null。后端若支持 config.claudePricing 则据以估算成本。
+    claudePricing: (() => {
+      const pi = $('cfgClaudePriceIn'), po = $('cfgClaudePriceOut'), pc = $('cfgClaudePriceCurrency');
+      const iv = pi ? pi.value.trim() : '', ov = po ? po.value.trim() : '';
+      if (iv === '' && ov === '') return null;
+      const out = { currency: pc ? pc.value : 'CNY' };
+      if (iv !== '') { const n = Number(iv); if (Number.isFinite(n)) out.inputPerM = Math.max(0, n); }
+      if (ov !== '') { const n = Number(ov); if (Number.isFinite(n)) out.outputPerM = Math.max(0, n); }
+      return out;
+    })(),
   };
   await saveConfigPartial(patch);
   $('settingsStatus').textContent = '已保存 ✓';
@@ -4259,6 +4498,30 @@ function providerCard(p, idx) {
   cwB.append(cwi);
   cwB.append(contextResolvedHint(p));
 
+  // 单价 · 成本估算（可选）：inputPerM/outputPerM(每百万 token)+ currency → p.pricing。留空=不估成本，
+  // 「用量」看板只显 token 数。填了后端接纳并据以估算该 provider 的成本（按币种分组，不换算）。
+  const priceB = el('div', 'field-block prov-pricing');
+  priceB.append(el('label', '', '单价 · 成本估算（可选，每百万 token）'));
+  const pr = p.pricing || {};
+  const pgrid = el('div', 'prov-pricing-grid');
+  const inCell = el('label', 'prov-pricing-cell'); inCell.append(el('span', 'prov-pricing-cap', '输入 / 百万'));
+  const inI = el('input'); inI.type = 'number'; inI.min = '0'; inI.step = '0.01'; inI.placeholder = '如 2'; inI.value = (pr.inputPerM === 0 || pr.inputPerM) ? String(pr.inputPerM) : ''; inCell.append(inI);
+  const outCell = el('label', 'prov-pricing-cell'); outCell.append(el('span', 'prov-pricing-cap', '输出 / 百万'));
+  const outI = el('input'); outI.type = 'number'; outI.min = '0'; outI.step = '0.01'; outI.placeholder = '如 8'; outI.value = (pr.outputPerM === 0 || pr.outputPerM) ? String(pr.outputPerM) : ''; outCell.append(outI);
+  const curCell = el('label', 'prov-pricing-cell'); curCell.append(el('span', 'prov-pricing-cap', '币种'));
+  const curSel = el('select'); for (const c of PRICING_CURRENCIES) { const o = el('option'); o.value = c.code; o.textContent = c.label; curSel.appendChild(o); } curSel.value = pr.currency || 'CNY'; curCell.append(curSel);
+  pgrid.append(inCell, outCell, curCell); priceB.append(pgrid);
+  priceB.append(el('p', 'field-help muted', '填了才能算该服务商的成本，不填只显示 token 数。单价 = 每百万 token 价格。'));
+  const syncPricing = () => {
+    const iv = inI.value.trim(), ov = outI.value.trim();
+    if (iv === '' && ov === '') { delete p.pricing; return; }
+    p.pricing = {};
+    if (iv !== '') { const n = Number(iv); if (Number.isFinite(n)) p.pricing.inputPerM = Math.max(0, n); }
+    if (ov !== '') { const n = Number(ov); if (Number.isFinite(n)) p.pricing.outputPerM = Math.max(0, n); }
+    p.pricing.currency = curSel.value || 'CNY';
+  };
+  inI.oninput = syncPricing; outI.oninput = syncPricing; curSel.onchange = syncPricing;
+
   const adv = el('details', 'prov-adv'); adv.append(el('summary', '', '高级（系统提示 / 采样温度 / 备用端点）'));
   const sb = el('div', 'field-block'); sb.append(el('label', '', '系统提示（留空=内置）'));
   const st = el('textarea'); st.rows = 2; st.value = p.systemPrompt || ''; st.oninput = () => { p.systemPrompt = st.value; }; sb.append(st);
@@ -4274,7 +4537,7 @@ function providerCard(p, idx) {
   adv.append(sb, tb, eb);
 
   const status = el('div', 'prov-status muted'); status.id = `provStatus_${idx}`;
-  card.append(head, b2, grid, cwB, adv, status);
+  card.append(head, b2, grid, cwB, priceB, adv, status);
   return card;
 }
 // v1.0.2 (G5b): 「当前生效」小字。仅当此 provider 是当前激活引擎时,从 /api/status.contextWindowResolved 取
@@ -5016,6 +5279,8 @@ function switchTab(tab) {
   if (tab === 'changes') loadChanges();
   // v0.9-S8 (§4 B4): load the audit timeline once when its tab opens (no polling — the audit view is quiet).
   if (tab === 'audit') { if (!auditState.loaded) loadAudit(); else renderAuditList(); }
+  // 用量看板：打开时才拉取（懒加载，同审计）。已加载则用缓存重绘，避免重复请求；刷新/切范围会强制重拉。
+  if (tab === 'usage') { if (!usageState.loaded) loadUsage(); else renderUsage(usageState.data); }
   if (tab === 'agent-runs') loadAgentWorkflows();
   updateAgentRunsPolling(tab);
 }
@@ -5137,6 +5402,9 @@ function bindEvents() {
   { const ft = $('fileTreeRefreshBtn'); if (ft) ft.onclick = loadFileTree; } // v0.9-S3 (C3)
   { const ar = $('artifactsRefreshBtn'); if (ar) ar.onclick = renderArtifactsGallery; } // v0.9-S4 (C4)
   { const ar = $('agentRunsRefreshBtn'); if (ar) ar.onclick = loadAgentRuns; }
+  // 用量看板：刷新按钮强制重拉；范围段控切换范围并重拉（默认本月）。
+  { const ur = $('usageRefreshBtn'); if (ur) ur.onclick = () => loadUsage(true); }
+  document.querySelectorAll('.usage-range-btn').forEach(b => { b.onclick = () => setUsageRange(b.dataset.range); });
   { const we = $('workflowEditorBtn'); if (we) we.onclick = () => openWorkflowEditor(); }
   { const wr = $('workflowQuickRunBtn'); if (wr) wr.onclick = launchAgentWorkflowFromQuickSelect; }
   { const cr = $('changesRefreshBtn'); if (cr) cr.onclick = loadChanges; } // v1.0.2 (G1)

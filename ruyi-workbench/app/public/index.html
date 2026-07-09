@@ -198,6 +198,7 @@
             <button data-tab="artifacts">产物</button>
             <button data-tab="changes">变更</button>
             <button data-tab="agent-runs">Agent 工作流</button>
+            <button data-tab="usage">用量</button>
             <button data-tab="audit">审计</button>
           </span>
           <span class="tool-tabs-sep" aria-hidden="true">开发者</span>
@@ -300,6 +301,26 @@
           <div id="auditList" class="audit-list"></div>
         </section>
 
+        <section class="tool-section" id="tab-usage">
+          <!-- 成本/用量看板：只读汇总本机各引擎/服务商的 token 用量与「估算」成本(非实际扣费)。数据来自
+               GET /api/usage/summary?range=…(默认 month)，打开页签时才拉取。成本按币种分组，不强制换算；
+               第三方 Coding Plan(计划内计费)只显 token，不伪造金额。常驻组页签(简易模式亦可见)。 -->
+          <div class="debug-head">
+            <label>用量与成本</label>
+            <div class="row-actions">
+              <div class="usage-range" role="tablist" aria-label="统计范围">
+                <button type="button" class="usage-range-btn" data-range="today" role="tab" aria-selected="false">今天</button>
+                <button type="button" class="usage-range-btn" data-range="week" role="tab" aria-selected="false">本周</button>
+                <button type="button" class="usage-range-btn active" data-range="month" role="tab" aria-selected="true">本月</button>
+                <button type="button" class="usage-range-btn" data-range="all" role="tab" aria-selected="false">全部</button>
+              </div>
+              <button id="usageRefreshBtn" class="mini">刷新</button>
+            </div>
+          </div>
+          <p class="changes-hint muted">按币种汇总各引擎 / 服务商 / 会话的用量。成本是按量计价的<strong>等价估算</strong>（非实际扣费）；给服务商填了单价才有成本，计划内（订阅）计费只显 token。</p>
+          <div id="usagePanel" class="usage-panel" aria-live="polite"></div>
+        </section>
+
         <section class="tool-section" id="tab-desktop">
           <label for="browserUrl">URL 或本地 HTML</label>
           <input id="browserUrl" type="text" placeholder="http://localhost:3000" />
@@ -381,6 +402,25 @@
               <label class="check"><input type="checkbox" id="cfgKillDisc" /> 关闭页面时同时结束正在运行的任务</label>
               <label class="check"><input type="checkbox" id="cfgKillPort" /> 启动时接管被旧实例占用的端口</label>
             </div>
+            <hr class="settings-sep" />
+            <h4 class="settings-subhead">月度成本预算（可选）</h4>
+            <p class="muted prov-hint">设置每月成本上限后，「用量」页签会显示进度；超出时给一条不阻断的软提示。留空 = 不设预算。金额只作估算参照，非实际扣费。</p>
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgUsageBudgetMonthly">每月预算金额</label>
+                <input id="cfgUsageBudgetMonthly" type="number" min="0" step="1" placeholder="如 200（留空 = 不设）" />
+              </div>
+              <div class="field-block">
+                <label for="cfgUsageBudgetCurrency">币种</label>
+                <select id="cfgUsageBudgetCurrency">
+                  <option value="CNY">人民币 ¥ (CNY)</option>
+                  <option value="USD">美元 $ (USD)</option>
+                  <option value="EUR">欧元 € (EUR)</option>
+                  <option value="GBP">英镑 £ (GBP)</option>
+                  <option value="JPY">日元 ¥ (JPY)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <!-- ===== Claude CLI ===== -->
@@ -456,6 +496,27 @@
                 </select>
               </div>
             </div>
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgClaudePriceIn">输入单价（每百万 token，可选）</label>
+                <input id="cfgClaudePriceIn" type="number" min="0" step="0.01" placeholder="留空 = 不估算成本" />
+              </div>
+              <div class="field-block">
+                <label for="cfgClaudePriceOut">输出单价（每百万 token，可选）</label>
+                <input id="cfgClaudePriceOut" type="number" min="0" step="0.01" placeholder="留空 = 不估算成本" />
+              </div>
+              <div class="field-block">
+                <label for="cfgClaudePriceCurrency">币种</label>
+                <select id="cfgClaudePriceCurrency">
+                  <option value="CNY">人民币 ¥ (CNY)</option>
+                  <option value="USD">美元 $ (USD)</option>
+                  <option value="EUR">欧元 € (EUR)</option>
+                  <option value="GBP">英镑 £ (GBP)</option>
+                  <option value="JPY">日元 ¥ (JPY)</option>
+                </select>
+              </div>
+            </div>
+            <p class="muted prov-hint">若上方端点是第三方 Coding Plan（如火山方舟 Ark），此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认<strong>只显 token 消耗</strong>——<strong>计划内（订阅）计费不等于按量扣费</strong>，切勿当作实际花费。</p>
             <hr class="settings-sep" />
             <h4 class="settings-subhead">模型清单发现</h4>
             <div class="field-row">
