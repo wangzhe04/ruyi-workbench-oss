@@ -565,9 +565,12 @@ async function syncClaudeCliSettings(config) {
     if (config.thinkingBudget) {
       settings.env = { ...(settings.env || {}), MAX_THINKING_TOKENS: String(config.thinkingBudget) };
     } else { if (settings.env) delete settings.env.MAX_THINKING_TOKENS; }
-    // 4. Append-system-prompt
-    if (config.appendSystemPrompt && typeof config.appendSystemPrompt === 'string') settings.appendSystemPrompt = config.appendSystemPrompt;
-    else delete settings.appendSystemPrompt;
+    // 4. Append-system-prompt: intentionally NOT written to settings.json (E2). The official Claude Code
+    // settings schema has no top-level `appendSystemPrompt` key, so writing it was a dead config at best and
+    // a double-injection risk at worst (it is already, reliably, passed as the --append-system-prompt spawn
+    // flag on every runClaudeTurn). Keep the flag as the single channel and actively strip any stale key a
+    // prior workbench version may have written.
+    delete settings.appendSystemPrompt;
 
     await fsp.mkdir(claudeDir, { recursive: true }).catch(() => {});
     const tmp = settingsPath + '.tmp';
@@ -3066,6 +3069,35 @@ function buildClaudeRecoveryHistory(messages) {
   ].filter(Boolean).join('\n');
 }
 
+// E3 (dual-engine continuity) helpers. See the injection site in runClaudeTurn.
+// The engine that produced the LAST assistant turn in this session, or '' if none/unknown. Messages are
+// stamped with `engine` ('openai' | 'claude') since v0.8; legacy claude messages only carry source:'claude-cli'.
+function lastAssistantEngine(messages) {
+  const arr = Array.isArray(messages) ? messages : [];
+  for (let i = arr.length - 1; i >= 0; i--) {
+    const m = arr[i];
+    if (!m || m.role !== 'assistant') continue;
+    if (m.engine) return m.engine;
+    if (m.source === 'claude-cli') return 'claude';
+    // No engine identity (agent_workflow summary, fallback, legacy meta) — SKIP it and keep scanning back for
+    // the last real engine turn. Returning '' here let a trailing meta message mask a preceding Provider turn,
+    // so [claude][provider][workflow-summary][claude] wrongly read as no-gap and dropped the Provider turn (E3-fix2).
+    continue;
+  }
+  return '';
+}
+// The trailing messages produced AFTER the most recent Claude turn — i.e. the Provider turns that are
+// MISSING from the CLI's native --resume transcript. If no Claude turn is found, return the whole list.
+function claudeProviderTailSince(messages) {
+  const arr = Array.isArray(messages) ? messages : [];
+  let lastClaudeIdx = -1;
+  for (let i = arr.length - 1; i >= 0; i--) {
+    const m = arr[i];
+    if (m && m.role === 'assistant' && (m.engine === 'claude' || (!m.engine && m.source === 'claude-cli'))) { lastClaudeIdx = i; break; }
+  }
+  return lastClaudeIdx >= 0 ? arr.slice(lastClaudeIdx + 1) : arr;
+}
+
 async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   const config = await readConfig();
   const claude = config.claudePath || detectClaudePath();
@@ -3074,9 +3106,18 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
   const requestedClaudeSessionId = session.claudeSessionId || '';
   // Seed one bounded copy after a serve restart or driver switch. Slash commands must remain the
   // first input token or Claude will not recognize them.
+  // E3 (dual-engine continuity): the CLI's native transcript (reached via --resume) only holds Claude turns.
+  // When the user ran one or more Provider turns AFTER the last Claude turn and now switches back to Claude,
+  // --resume silently drops that middle work. Detect "the previous assistant turn ran on the provider engine"
+  // and force-inject just those trailing Provider turns into the recovery history — even though this
+  // claudeSessionId is already in claudeSessionsSeenThisProcess (which normally suppresses the seed). We inject
+  // ONLY the slice since the last Claude turn so we never re-duplicate content the CLI transcript already holds.
+  const sidSeen = Boolean(requestedClaudeSessionId && claudeSessionsSeenThisProcess.has(requestedClaudeSessionId));
+  const crossEngineGap = sidSeen && lastAssistantEngine(session.messages) === 'openai';
+  const recoverySource = crossEngineGap ? claudeProviderTailSince(session.messages) : session.messages;
   const recoveryHistory = (!String(message || '').trim().startsWith('/') &&
-    (!requestedClaudeSessionId || !claudeSessionsSeenThisProcess.has(requestedClaudeSessionId)))
-    ? buildClaudeRecoveryHistory(session.messages) : '';
+    (!sidSeen || crossEngineGap))
+    ? buildClaudeRecoveryHistory(recoverySource) : '';
   const historyRecoveryInjected = Boolean(recoveryHistory);
   const fullPrompt = recoveryHistory ? `${recoveryHistory}\n\n<current_user_message>\n${basePrompt}\n</current_user_message>` : basePrompt;
   // Off-by-default test seam: WCW_FAKE_CLAUDE=path\to\fake-claude.js makes the engine spawn a
@@ -4666,50 +4707,118 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     const j = await res.json().catch(() => null);
     const ch = j && j.choices && j.choices[0];
     const msg = ch && ch.message;
+    // E6: this branch previously returned reasoning_content but never surfaced it as a thinking_delta, so a
+    // non-streaming endpoint's reasoning chain was invisible in the UI. Emit it here (before the content, to
+    // match the streaming order) whether the provider spells it reasoning_content or reasoning.
+    const reasoningText = (msg && typeof msg.reasoning_content === 'string' && msg.reasoning_content) || (msg && typeof msg.reasoning === 'string' && msg.reasoning) || '';
+    if (reasoningText) onEvent({ type: 'thinking_delta', text: reasoningText });
     if (msg && typeof msg.content === 'string' && msg.content) onEvent({ type: 'assistant_delta', text: msg.content });
     if (j && j.usage) markUsage(j.usage);
     const tcs = Array.isArray(msg && msg.tool_calls) ? msg.tool_calls.map(tc => ({ id: tc.id || makeId('call'), name: tc.function && tc.function.name, rawArgs: (tc.function && tc.function.arguments) || '{}' })).filter(t => t.name) : [];
-    return { text: (msg && msg.content) || '', reasoning: (msg && msg.reasoning_content) || '', toolCalls: tcs, finishReason: ch && ch.finish_reason };
+    return { text: (msg && msg.content) || '', reasoning: reasoningText, toolCalls: tcs, finishReason: ch && ch.finish_reason };
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder('utf-8');
   let buf = '', text = '', reasoning = '', finishReason = null, done = false;
-  const acc = {}; // tool_call index -> {id,name,args}
+  // E1: accumulate streamed tool_calls into SLOTS keyed primarily by tool_call id. A delta carrying a
+  // non-empty id opens (or re-selects) that call's slot; a delta with only an index selects/creates the slot
+  // for that index; a delta with neither keeps writing to the CURRENT slot. This "non-empty id => open/select
+  // a slot, otherwise keep writing the current slot" state machine keeps multiple PARALLEL tool_calls
+  // independent even when the provider omits `index` on the delta fragments (some vLLM/Ollama/self-hosted
+  // endpoints do). The old code forced every index-less delta into acc[0], splicing distinct calls' names
+  // ("file_readfile_write") and arguments into one corrupt, unparseable blob.
+  const slots = []; // { id, index, name, args } in first-seen order
+  let curSlot = null;
+  const selectSlot = tc => {
+    // Priority 1: an explicit, non-empty id is the authoritative call identity -> find-or-create by id
+    // (idempotent whether the provider sends the id once at the start or repeats it on every fragment).
+    if (typeof tc.id === 'string' && tc.id) {
+      let s = slots.find(x => x.id === tc.id);
+      if (!s) {
+        // Adopt a slot previously opened for this same index that has not yet been assigned an id.
+        if (tc.index != null) s = slots.find(x => !x.id && x.index === tc.index);
+        if (s) s.id = tc.id;
+        else { s = { id: tc.id, index: (tc.index != null ? tc.index : null), name: '', args: '' }; slots.push(s); }
+      }
+      curSlot = s; return s;
+    }
+    // Priority 2: no id but an explicit index -> find-or-create by index (the standard OpenAI shape where
+    // continuation fragments carry only the index).
+    if (tc.index != null) {
+      let s = slots.find(x => x.index === tc.index);
+      if (!s) { s = { id: '', index: tc.index, name: '', args: '' }; slots.push(s); }
+      curSlot = s; return s;
+    }
+    // Priority 3: neither id nor index -> keep writing to the current slot (open a first default slot if this
+    // is the very first fragment).
+    if (!curSlot) { curSlot = { id: '', index: null, name: '', args: '' }; slots.push(curSlot); }
+    return curSlot;
+  };
+  // Process ONE decoded SSE event object (already JSON-parsed). Mutates text/reasoning/finishReason/slots.
+  const processEvt = (evt, rawStr) => {
+    onEvent({ type: 'raw_line', line: rawStr, seq: rawSeqRef.n++ });
+    if (evt.usage) markUsage(evt.usage);
+    const ch = evt.choices && evt.choices[0];
+    if (!ch) return;
+    if (ch.finish_reason) finishReason = ch.finish_reason;
+    const delta = ch.delta;
+    if (!delta) return;
+    const reason = (typeof delta.reasoning_content === 'string' && delta.reasoning_content) || (typeof delta.reasoning === 'string' && delta.reasoning) || '';
+    if (reason) { reasoning += reason; onEvent({ type: 'thinking_delta', text: reason }); }
+    if (typeof delta.content === 'string' && delta.content) { text += delta.content; onEvent({ type: 'assistant_delta', text: delta.content }); }
+    if (Array.isArray(delta.tool_calls)) {
+      for (const tc of delta.tool_calls) {
+        const slot = selectSlot(tc);
+        if (tc.function) { if (tc.function.name) slot.name += tc.function.name; if (typeof tc.function.arguments === 'string') slot.args += tc.function.arguments; }
+      }
+    }
+  };
+  // E5: standard SSE framing. Events are separated by a BLANK line; within one event, multiple `data:` field
+  // lines concatenate (joined by '\n') into a single payload before parsing (per the WHATWG SSE spec). The
+  // old parser split on every '\n' and JSON.parsed each `data:` line alone, so an endpoint that spread one
+  // JSON object across several `data:` lines (some intranet proxies / self-hosted gateways do) lost the whole
+  // frame. To stay backward compatible with the overwhelmingly common one-JSON-per-line shape, when a
+  // multi-line event's combined payload does not parse we fall back to parsing each data line on its own.
+  const handleEventBlock = block => {
+    const dataLines = [];
+    for (let rawLine of block.split('\n')) {
+      rawLine = rawLine.replace(/\r$/, '');
+      if (!rawLine || rawLine.startsWith(':')) continue;   // blank line or comment
+      if (!rawLine.startsWith('data:')) continue;          // ignore event:/id:/retry: fields
+      dataLines.push(rawLine.slice(5).replace(/^ /, ''));  // strip 'data:' + one optional leading space (SSE)
+    }
+    if (!dataLines.length) return false;
+    const joined = dataLines.join('\n').trim();
+    if (joined === '') return false;
+    if (joined === '[DONE]') return true;
+    const combined = safeJsonParse(joined);
+    if (combined) { processEvt(combined, joined); return false; }
+    // Combined payload did not parse -> treat each data line as its own complete JSON (classic shape).
+    for (const dl of dataLines) {
+      const d = dl.trim();
+      if (!d) continue;
+      if (d === '[DONE]') return true;
+      const evt = safeJsonParse(d);
+      if (evt) processEvt(evt, d);
+    }
+    return false;
+  };
   while (!done) {
     const r = await reader.read();
     if (r.done) break;
     touch();
     buf += decoder.decode(r.value, { stream: true });
-    let nl;
-    while ((nl = buf.indexOf('\n')) >= 0) {
-      let line = buf.slice(0, nl); buf = buf.slice(nl + 1); line = line.replace(/\r$/, '').trim();
-      if (!line || line.startsWith(':') || !line.startsWith('data:')) continue;
-      const data = line.slice(5).trim();
-      if (data === '[DONE]') { done = true; break; }
-      const evt = safeJsonParse(data);
-      if (!evt) continue;
-      onEvent({ type: 'raw_line', line: data, seq: rawSeqRef.n++ });
-      if (evt.usage) markUsage(evt.usage);
-      const ch = evt.choices && evt.choices[0];
-      if (!ch) continue;
-      if (ch.finish_reason) finishReason = ch.finish_reason;
-      const delta = ch.delta;
-      if (!delta) continue;
-      const reason = (typeof delta.reasoning_content === 'string' && delta.reasoning_content) || (typeof delta.reasoning === 'string' && delta.reasoning) || '';
-      if (reason) { reasoning += reason; onEvent({ type: 'thinking_delta', text: reason }); }
-      if (typeof delta.content === 'string' && delta.content) { text += delta.content; onEvent({ type: 'assistant_delta', text: delta.content }); }
-      if (Array.isArray(delta.tool_calls)) {
-        for (const tc of delta.tool_calls) {
-          const i = tc.index != null ? tc.index : 0;
-          const slot = acc[i] || (acc[i] = { id: '', name: '', args: '' });
-          if (tc.id) slot.id = tc.id;
-          if (tc.function) { if (tc.function.name) slot.name += tc.function.name; if (typeof tc.function.arguments === 'string') slot.args += tc.function.arguments; }
-        }
-      }
+    let m;
+    // Consume every COMPLETE event (terminated by a blank line); leave any trailing partial in buf.
+    while ((m = /\r?\n\r?\n/.exec(buf)) !== null) {
+      const block = buf.slice(0, m.index);
+      buf = buf.slice(m.index + m[0].length);
+      if (handleEventBlock(block)) { done = true; break; }
     }
   }
-  const toolCalls = Object.keys(acc).sort((a, b) => Number(a) - Number(b)).map(i => acc[i]).filter(t => t.name)
-    .map(t => ({ id: t.id || makeId('call'), name: t.name, rawArgs: t.args || '{}' }));
+  // Flush a trailing event that arrived without a terminating blank line (some servers omit the final one).
+  if (!done && buf.trim()) handleEventBlock(buf);
+  const toolCalls = slots.filter(t => t.name).map(t => ({ id: t.id || makeId('call'), name: t.name, rawArgs: t.args || '{}' }));
   return { text, reasoning, finishReason, toolCalls };
 }
 
@@ -6482,8 +6591,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let usageCalls = 0;
   const markUsage = u => {
     if (!u || typeof u !== 'object') return;
-    const inTok = Number(u.prompt_tokens || 0) || 0;
-    const outTok = Number(u.completion_tokens || 0) || 0;
+    // E4(a): accept the Anthropic-style aliases input_tokens/output_tokens in addition to the OpenAI names
+    // prompt_tokens/completion_tokens. Some vLLM builds and Anthropic-compat gateways report the former.
+    const inTok = Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0;
+    const outTok = Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0;
     const total = Number(u.total_tokens || 0) || (inTok + outTok);
     turnUsage.input_tokens += inTok;
     turnUsage.output_tokens += outTok;
@@ -6966,7 +7077,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
 
   const wasStopped = reg.state !== 'running' || aborted;
-  if (usageObj) onEvent({ type: 'usage', ...usageObj });
+  if (usageObj) {
+    onEvent({ type: 'usage', ...usageObj });
+  } else {
+    // E4(b): the provider never sent a usage frame this whole turn (Ollama's default, some vLLM builds).
+    // Fall back to an ESTIMATE from the built request history + system prompt so the UI can still show
+    // approximate context occupancy. Flagged estimated:true so the client renders it as approximate; calls:0
+    // records that no real usage frame arrived. This branch only runs when NO real usage frame was seen, so
+    // it never clobbers a provider-reported figure.
+    const estTotal = estimateHistoryTokens(session.providerHistory, sys);
+    if (estTotal > 0) {
+      const lastMsg = session.providerHistory[session.providerHistory.length - 1];
+      const estOut = (lastMsg && lastMsg.role === 'assistant') ? Math.round(estimateContentTokens(lastMsg.content)) : 0;
+      const estIn = Math.max(0, estTotal - estOut);
+      usageObj = { usage: { input_tokens: estIn, output_tokens: estOut }, contextTokens: estTotal, calls: 0, estimated: true };
+      onEvent({ type: 'usage', ...usageObj });
+    }
+  }
   if (!ok && !aborted && errorMsg && !assistantText.trim()) {
     assistantText = `[${provider.label || provider.id} 请求失败] ${redact(errorMsg)}`;
     onEvent({ type: 'assistant_delta', text: assistantText });

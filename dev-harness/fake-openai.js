@@ -23,6 +23,23 @@ let TOOL_SEQUENCE = null, PARALLEL_TOOLS = null;
 try { const v = process.env.FAKE_TOOL_SEQUENCE; if (v) { const a = JSON.parse(v); if (Array.isArray(a) && a.length) TOOL_SEQUENCE = a; } } catch { TOOL_SEQUENCE = null; }
 try { const v = process.env.FAKE_PARALLEL_TOOLS; if (v) { const a = JSON.parse(v); if (Array.isArray(a) && a.length) PARALLEL_TOOLS = a; } } catch { PARALLEL_TOOLS = null; }
 
+// E1 (parallel tool_calls WITHOUT index): same {name,args} array shape as FAKE_PARALLEL_TOOLS, but the first
+// tools request streams every entry as tool_call fragments that carry NO `index` field. Even-position calls
+// repeat their id on every fragment; odd-position calls send the id ONCE then bare continuations (neither id
+// nor index) — exercising both branches of the workbench's id-aggregation state machine. This drives the
+// 串槽 regression: the old index-defaulting parser merged all index-less calls into ONE corrupt tool_call.
+let PARALLEL_TOOLS_NOINDEX = null;
+try { const v = process.env.FAKE_PARALLEL_TOOLS_NOINDEX; if (v) { const a = JSON.parse(v); if (Array.isArray(a) && a.length) PARALLEL_TOOLS_NOINDEX = a; } } catch { PARALLEL_TOOLS_NOINDEX = null; }
+// E4 (no usage frames): when '1', usageFrame() is a no-op for the whole process, modeling Ollama's default /
+// some vLLM builds that never report token usage. The workbench must then fall back to an estimated usage event.
+const NO_USAGE = process.env.FAKE_NO_USAGE === '1';
+// E5 (multi-line data events): when '1', every streamed frame is emitted as a SINGLE SSE event whose JSON
+// payload is spread across MULTIPLE `data:` lines (pretty-printed, so newlines fall only at structural
+// boundaries and the spec-mandated '\n'-join reconstructs valid JSON). Models intranet proxies / self-hosted
+// gateways that re-frame SSE this way. The old line-based parser JSON.parsed each `data:` line alone and lost
+// the whole frame; the fixed parser must reassemble it losslessly.
+const MULTILINE_DATA = process.env.FAKE_MULTILINE_DATA === '1';
+
 // v0.8-S6 FAKE_REJECT_TOOLS: the FIRST request carrying `tools` is rejected with 400 {error:{message:
 // 'tools not supported'}} (message matches the workbench's /tool|function/i tools-rejected sniff). Every
 // SUBSEQUENT request WITHOUT tools streams normally. This drives runOpenAiTurn's tools-rejected retry
@@ -145,8 +162,31 @@ function capture(bodyStr) {
   try { require('fs').writeFileSync(require('path').join(CAPTURE_DIR, `req-${String(captureSeq).padStart(3, '0')}.json`), bodyStr); } catch { /* ignore */ }
 }
 
-function sse(res, obj) { res.write('data: ' + JSON.stringify(obj) + '\n\n'); }
-function usageFrame(res, id) { sse(res, { id, choices: [], usage: { prompt_tokens: 42, completion_tokens: 15, total_tokens: 57 } }); }
+function sse(res, obj) {
+  if (MULTILINE_DATA) {
+    // E5: pretty-print so newlines fall ONLY at structural boundaries (never inside a string value), then emit
+    // each resulting line as its own `data:` field of ONE event (terminated by the blank line below).
+    const lines = JSON.stringify(obj, null, 1).split('\n');
+    res.write(lines.map(l => 'data: ' + l).join('\n') + '\n\n');
+    return;
+  }
+  res.write('data: ' + JSON.stringify(obj) + '\n\n');
+}
+function usageFrame(res, id) { if (NO_USAGE) return; sse(res, { id, choices: [], usage: { prompt_tokens: 42, completion_tokens: 15, total_tokens: 57 } }); }
+// E1: emit ONE tool_call as streamed fragments that OMIT `index`. When repeatId is true the id is echoed on
+// every fragment; when false the id appears ONCE (first fragment) and the two argument fragments carry NEITHER
+// id nor index (bare continuations). Arguments are split across two fragments to also exercise accumulation.
+async function emitToolCallNoIndex(res, id, callId, name, args, repeatId) {
+  const argsFull = JSON.stringify(args || {});
+  const half = Math.ceil(argsFull.length / 2);
+  sse(res, { id, choices: [{ index: 0, delta: { role: 'assistant', content: null, tool_calls: [{ id: callId, type: 'function', function: { name, arguments: '' } }] }, finish_reason: null }] });
+  if (STREAM_DELAY_MS) await sleep(STREAM_DELAY_MS);
+  const c1 = repeatId ? { id: callId, function: { arguments: argsFull.slice(0, half) } } : { function: { arguments: argsFull.slice(0, half) } };
+  sse(res, { id, choices: [{ index: 0, delta: { tool_calls: [c1] }, finish_reason: null }] });
+  if (STREAM_DELAY_MS) await sleep(STREAM_DELAY_MS);
+  const c2 = repeatId ? { id: callId, function: { arguments: argsFull.slice(half) } } : { function: { arguments: argsFull.slice(half) } };
+  sse(res, { id, choices: [{ index: 0, delta: { tool_calls: [c2] }, finish_reason: null }] });
+}
 function countToolMsgs(msgs) { return msgs.filter(m => m && m.role === 'tool').length; }
 // Emit a single streamed tool_call with arguments split across two SSE fragments. v0.8-S7: async so a
 // FAKE_STREAM_DELAY_MS can space the three frames apart (widening the mid-tool_use steering window). With
@@ -361,6 +401,23 @@ const server = http.createServer((req, res) => {
           return;
         }
         // exhausted → fall through to the echo branch below (echoes the last tool result).
+      }
+
+      // E1 FAKE_PARALLEL_TOOLS_NOINDEX: first tools request streams all N tool_calls as index-less fragments
+      // (alternating id-repeat / bare-continuation styles); the follow-up (history already carries N tool
+      // results) echoes to finish. Proves the workbench keeps parallel calls separate without `index`.
+      if (hasTools && PARALLEL_TOOLS_NOINDEX && countToolMsgs(msgs) === 0) {
+        (async () => {
+          for (let i = 0; i < PARALLEL_TOOLS_NOINDEX.length; i++) {
+            const step = PARALLEL_TOOLS_NOINDEX[i];
+            await emitToolCallNoIndex(res, id, 'call_' + (i + 1), String(step.name || ''), step.args || {}, i % 2 === 0);
+          }
+          if (STREAM_DELAY_MS) await sleep(STREAM_DELAY_MS);
+          sse(res, { id, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+          usageFrame(res, id);
+          res.write('data: [DONE]\n\n'); res.end();
+        })();
+        return;
       }
 
       // v0.8-S1 FAKE_PARALLEL_TOOLS: first tools request emits all N tool_calls in ONE assistant

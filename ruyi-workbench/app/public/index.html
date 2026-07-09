@@ -23,11 +23,18 @@
       // config on boot.
       // v1.0.2 (F5): 新装机 localStorage 为空时,默认必须与 server defaultConfig().uiMode 一致('simple'),
       // 否则先按 pro 绘 → config(simple) 到达再切 = 首屏弹闪。localStorage 有值(老用户)则一律尊重其值。
+      // v1.5 (§3.4): pre-paint data-density too, coupled to uiMode (simple→comfortable / pro→compact),
+      // so the density-driven spacing tokens don't flash on first paint. Refined from config on boot.
       (function () {
         try {
           var m = localStorage.getItem('wcw.uiMode') || 'simple';
-          document.documentElement.setAttribute('data-ui-mode', m === 'simple' ? 'simple' : 'pro');
-        } catch (e) { document.documentElement.setAttribute('data-ui-mode', 'simple'); }
+          var mode = m === 'simple' ? 'simple' : 'pro';
+          document.documentElement.setAttribute('data-ui-mode', mode);
+          document.documentElement.setAttribute('data-density', mode === 'simple' ? 'comfortable' : 'compact');
+        } catch (e) {
+          document.documentElement.setAttribute('data-ui-mode', 'simple');
+          document.documentElement.setAttribute('data-density', 'comfortable');
+        }
       })();
     </script>
   </head>

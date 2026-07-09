@@ -100,6 +100,10 @@ function applyUiMode(mode) {
   // 预绘值相同)。localStorage 仍回写以保证下次预绘一致。
   const cur = document.documentElement.getAttribute('data-ui-mode');
   if (cur !== m) document.documentElement.setAttribute('data-ui-mode', m);
+  // v1.5 (§3.4): 密度随分级联动 —— 简易=舒适(更大点击区/留白)、专家=紧凑(信息密度高)。data-density
+  // 驱动间距/点击区 token 缩放(styles.css [data-density] 块)。与 data-ui-mode 同步写,避免脱钩。
+  const dens = m === 'simple' ? 'comfortable' : 'compact';
+  if (document.documentElement.getAttribute('data-density') !== dens) document.documentElement.setAttribute('data-density', dens);
   const btn = $('uiModeToggle');
   if (btn) {
     btn.textContent = m === 'simple' ? '🧸' : '🔧';
@@ -112,6 +116,13 @@ function applyUiMode(mode) {
   if (m === 'simple') {
     const active = document.querySelector('.tool-pane .tool-tabs button.active');
     if (active && typeof DEV_TABS !== 'undefined' && DEV_TABS.has(active.dataset.tab)) switchTab('files');
+    // v1.5 (§1.2): 设置弹窗若开着且当前停在开发者页签(Claude CLI/Agent/集成 MCP/高级),切回「基础」——
+    // 简易模式这些页签被 CSS 隐藏,面板不该带着隐藏页签的内容悬空显示。
+    const sm = document.getElementById('settingsModal');
+    if (sm && !sm.classList.contains('hidden')) {
+      const at = document.querySelector('#settingsTabs button.active');
+      if (at && typeof SETTINGS_SIMPLE_TABS !== 'undefined' && !SETTINGS_SIMPLE_TABS.has(at.dataset.stab)) switchSettingsTab('basic');
+    }
   }
 }
 function toggleUiMode() {
@@ -481,7 +492,7 @@ function cliMissingCard() {
   btn.onclick = () => { openModal('settingsModal'); switchSettingsTab('providers'); };
   body.append(btn);
   const alt = el('button', 'error-card-alt', '或：配置 Claude CLI 路径');
-  alt.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude'); };
+  alt.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude', true); };
   body.append(alt);
   card.append(body);
   return card;
@@ -687,7 +698,7 @@ function buildOnboardEngine() {
   adv.appendChild(sum);
   const advBtn = el('button', 'ghost onboard-eng-adv-btn', '配置 Claude CLI 路径 →');
   advBtn.type = 'button';
-  advBtn.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude'); };
+  advBtn.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude', true); };
   adv.appendChild(advBtn);
   card.appendChild(adv);
   return card;
@@ -864,7 +875,7 @@ function buildEmptyCTA() {
     const configured = state.config && state.config.claudePath;
     if (!detected && !configured) {
       const b = el('button', 'primary empty-cta', '设置 Claude CLI 路径');
-      b.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude'); };
+      b.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude', true); };
       return b;
     }
   } else {
@@ -1172,7 +1183,9 @@ function usageLine(u, meta) {
   const line = el('div', 'usage-line');
   const parts = [];
   const inp = u.usage?.input_tokens, out = u.usage?.output_tokens;
-  if (inp != null || out != null) parts.push(`<b>↑${fmtTokens(inp ?? 0)} ↓${fmtTokens(out ?? 0)}</b>`);
+  // E4: providers that never send a usage frame get a server-side estimate flagged estimated:true — prefix
+  // it with 约 (approx.) so the number does not read as an exact provider-reported count.
+  if (inp != null || out != null) parts.push(`<b>${u.estimated ? '约' : ''}↑${fmtTokens(inp ?? 0)} ↓${fmtTokens(out ?? 0)}</b>`);
   if (u.durationMs != null) parts.push(`<b>${(u.durationMs / 1000).toFixed(1)}s</b>`);
   if (u.costUsd != null) parts.push(`<b>$${Number(u.costUsd).toFixed(4)}</b>`);
   if (u.numTurns != null) parts.push(`${u.numTurns} 轮`);
@@ -4961,8 +4974,15 @@ function closeModal(id) {
   if (t && typeof t.focus === 'function') { try { t.focus(); } catch { /* ignore */ } }
 }
 function anyModalOpen() { return [...document.querySelectorAll('.modal-backdrop')].some(m => !m.classList.contains('hidden')); }
+// v1.5 (§1.2): 简易模式可见的设置页签白名单 —— 只留「基础/服务商/联网搜索」。其余(Claude CLI/Agent 角色/
+// 集成 MCP/高级)含 MAX_THINKING_TOKENS / --max-turns / Overlay ID 等开发者字段,对非程序员主画像纯劝退,
+// 一律隐藏。CSS(styles.css)隐藏页签按钮,这里的 JS 兜底防「隐藏页签的面板悬空显示」。
+const SETTINGS_SIMPLE_TABS = new Set(['basic', 'providers', 'network']);
 // Settings tab switcher (§4.5): toggles the tab-bar button + the matching .settings-tab panel.
-function switchSettingsTab(name) {
+// v1.5 (§1.2): 简易模式下,非白名单页签一律落回「基础」;force=true 供明确的开发者入口(如引导页
+// 「配置 Claude CLI」逃生门)绕过收敛,直达目标页签。
+function switchSettingsTab(name, force) {
+  if (!force && document.documentElement.getAttribute('data-ui-mode') === 'simple' && !SETTINGS_SIMPLE_TABS.has(name)) name = 'basic';
   state._settingsTab = name;
   document.querySelectorAll('#settingsTabs button').forEach(b => b.classList.toggle('active', b.dataset.stab === name));
   document.querySelectorAll('.settings-tab').forEach(s => s.classList.toggle('active', s.id === `stab-${name}`));
@@ -5182,6 +5202,67 @@ function downloadRawEvents() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/* ---------------- v1.5 (§1.3): 首次连接失败故障卡 ---------------- */
+// 占满对话区的显式故障卡:大标题「无法连接本地服务」+ 三条可能原因(端口被占/服务未启动/被安全软件拦截)
+// +「重试连接」(重跑 bootData,不重复 bindEvents)+「查看日志/诊断」(展开原始错误详情,供排查/反馈)。
+// 全中文人话,主卡不暴露英文栈 —— 原始 message 收进折叠的诊断面板(专家才需要)。DOM 全 createElement/
+// textContent(F 安全红线,err 内容不可信)。故障卡可键盘操作:重试是真 <button> 且自动聚焦,诊断按钮
+// 带 aria-expanded/aria-controls。
+function buildBootFailureCard(err) {
+  const wrap = el('div', 'boot-failure');
+  wrap.setAttribute('role', 'alert');
+  wrap.appendChild(el('div', 'boot-failure-icon', '⚠'));
+  wrap.appendChild(el('h2', 'boot-failure-title', '无法连接本地服务'));
+  wrap.appendChild(el('p', 'boot-failure-lead', '如意工作台需要本机后台服务才能工作。刚才尝试连接时没有成功。'));
+  const ul = el('ul', 'boot-failure-reasons');
+  [
+    ['端口被占用', '可能有旧的实例还在后台运行，占着同一个端口。'],
+    ['服务未启动', '本机后台服务可能没起来，或者已经退出了。'],
+    ['被安全软件拦截', '防火墙或杀毒软件可能挡住了本机连接。'],
+  ].forEach(([t, d]) => {
+    const li = el('li', 'boot-failure-reason');
+    li.appendChild(el('span', 'boot-failure-reason-t', t));
+    li.appendChild(el('span', 'boot-failure-reason-d', d));
+    ul.appendChild(li);
+  });
+  wrap.appendChild(ul);
+  const actions = el('div', 'boot-failure-actions');
+  const retry = el('button', 'primary boot-retry', '重试连接');
+  retry.type = 'button';
+  retry.setAttribute('aria-label', '重试连接本地服务');
+  retry.onclick = async () => {
+    retry.disabled = true; retry.textContent = '正在重连…';
+    setStatus('正在重连本地服务…');
+    try { await bootData(); } // 成功后 bootData 会重绘 #messages(会话/空状态),故障卡自然被替换
+    catch (e) { renderBootFailure(e); }
+  };
+  actions.appendChild(retry);
+  // 诊断面板:默认折叠;原始错误文本(可能含英文栈)只在这里出现。用 el/textContent 构建,永不 innerHTML。
+  const panel = el('div', 'boot-failure-diag');
+  panel.id = 'bootDiagPanel'; panel.hidden = true;
+  panel.appendChild(el('pre', 'boot-failure-diag-pre', apiErrText(err) || '未知错误'));
+  panel.appendChild(el('p', 'boot-failure-hint', '若多次重试仍失败：请关闭本页并重新启动如意工作台；仍不行时，把上面的技术详情反馈给维护者。'));
+  const diag = el('button', 'ghost boot-diag', '查看日志 / 诊断');
+  diag.type = 'button';
+  diag.setAttribute('aria-controls', 'bootDiagPanel');
+  diag.setAttribute('aria-expanded', 'false');
+  diag.onclick = () => { panel.hidden = !panel.hidden; diag.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true'); };
+  actions.appendChild(diag);
+  wrap.appendChild(actions);
+  wrap.appendChild(panel);
+  return wrap;
+}
+function renderBootFailure(err) {
+  try { setStatus('无法连接本地服务'); } catch { /* ignore */ }
+  try { toast('无法连接本地服务，请点「重试连接」', 'err'); } catch { /* ignore */ }
+  const box = $('messages');
+  if (!box) return;
+  box.innerHTML = '';
+  box.appendChild(buildBootFailureCard(err));
+  const retry = box.querySelector('.boot-retry');
+  if (retry) setTimeout(() => { try { retry.focus(); } catch { /* ignore */ } }, 0);
+}
+
 /* ---------------- boot ---------------- */
 async function boot() {
   bindEvents();
@@ -5189,6 +5270,11 @@ async function boot() {
   applyUiMode((() => { try { return localStorage.getItem('wcw.uiMode') || 'simple'; } catch { return 'simple'; } })()); // v0.9-S1 (C1) / v1.0.2 (F5): 默认 simple 对齐 server
   restoreSidebarCollapsed(); // v1.0.2 (F2): 恢复上次的折叠侧栏状态
   try { const d = localStorage.getItem('wcw.draft'); if (d) { $('promptInput').value = d; autoGrow($('promptInput')); } } catch { /* ignore */ }
+  await bootData();
+}
+// v1.5 (§1.3): boot 的「连本地服务 + 拉数据」段拆出成独立函数,供故障卡「重试连接」在不重跑 bindEvents
+// (会重复绑 addEventListener)的前提下重试。任何一步抛错都冒泡给调用方(boot().catch / 重试处理)渲染故障卡。
+async function bootData() {
   await refreshStatus();
   await refreshSessions();
   loadAgentWorkflows();
@@ -5203,4 +5289,6 @@ async function boot() {
   // v0.8-S2: PowerShell is the default-active tab, so start the shell-session poll now.
   updateShellPolling();
 }
-boot().catch(err => { setStatus(apiErrText(err)); toast(`初始化失败：${apiErrText(err)}`, 'err'); });
+// v1.5 (§1.3): 首次连接本地服务失败 —— 不再只把英文错误塞进状态行 + toast,而是在对话区渲染显式故障卡
+// (大标题 +「无法连接本地服务」+ 三条可能原因 +「重试连接」+「查看日志/诊断」)。主画像第一次翻车最狠的点。
+boot().catch(err => renderBootFailure(err));
