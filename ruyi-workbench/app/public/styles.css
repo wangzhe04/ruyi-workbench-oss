@@ -997,6 +997,13 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .skill-ghost { padding: 9px 11px; border: 1px dashed var(--line-2); border-radius: var(--radius-sm); background: var(--panel-2); opacity: .75; }
 .skill-ghost .skill-name { color: var(--muted); }
 
+/* v2 跨会话记忆 面板 */
+.memory-intro { padding: 0 16px 8px; font-size: 12px; line-height: 1.5; }
+.memory-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 2px 8px; }
+.memory-hint { font-size: 11px; margin: 0 2px 6px; }
+.memory-rowbar { display: flex; gap: 6px; margin-top: 7px; }
+.memory-rowbar .mini { font-size: 11px; }
+
 /* command palette */
 .palette-backdrop { align-items: flex-start; padding-top: 12vh; }
 .palette { background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: var(--shadow); width: min(560px, 100%); overflow: hidden; animation: modal-in var(--dur-2) var(--ease); }

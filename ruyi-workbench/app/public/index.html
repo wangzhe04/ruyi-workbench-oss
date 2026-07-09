@@ -678,6 +678,15 @@
       </div>
     </div>
 
+    <!-- ============ WORKBENCH MEMORY PANEL (v2 跨会话记忆) ============ -->
+    <div class="modal-backdrop hidden" id="memoryModal">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="工作台记忆">
+        <div class="modal-head"><h3>工作台记忆</h3><button class="icon-btn" data-close-modal aria-label="关闭">✕</button></div>
+        <div class="memory-intro muted">「工作台记忆」保存你的个人经验、项目惯例与教训，随工作台走；与「项目记忆（CLAUDE.md）」不同——后者随代码仓库走。启用的记忆会作为参考资料注入当前会话。</div>
+        <div class="modal-body"><div id="memoryList" class="skill-list"></div></div>
+      </div>
+    </div>
+
     <!-- ============ HELP OVERLAY ============ -->
     <div class="modal-backdrop hidden" id="helpModal">
       <div class="modal small" role="dialog" aria-modal="true" aria-label="快捷键">

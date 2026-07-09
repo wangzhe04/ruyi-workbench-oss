@@ -1321,6 +1321,10 @@ function msgActions(msg) {
       const save = el('button', '', '存为 playbook');
       save.onclick = () => saveAsPlaybook(save);
       bar.append(save);
+      // v2 跨会话记忆: 「存为记忆」(draft→编辑弹窗→保存)。draft 用 provider,故与「存为 playbook」同处 provider 分支。
+      const mem = el('button', '', '存为记忆');
+      mem.onclick = () => saveAsMemory(mem);
+      bar.append(mem);
     }
   }
   return bar;
@@ -4993,6 +4997,279 @@ function insertSkill(cmd) {
   autoGrow(ta); ta.focus();
 }
 
+/* ---------------- workbench memory panel (v2 跨会话记忆) ---------------- */
+// 「工作台记忆」面板:global / 当前项目两组,启停 toggle(POST /api/session/memories,串行化仿 toggleSkill)、
+// 删除(confirm)、编辑、「迁移到当前项目」、手写新建、「从当前会话起草」(provider 才显示)。幽灵启用项可移除。
+let memoryRegistry = [];
+let memoryOtherProjects = [];
+let memoryCurrentProjectKey = '';
+let memoryToggleChain = Promise.resolve();
+const memoryTogglePending = new Set();
+// 会话有效启用集(effectiveMemorySelection 的前端镜像):显式设置过 → session.memories;否则默认——当前项目记忆全启用。
+function enabledMemoryKeySet() {
+  const session = state.currentSession;
+  if (session && session.memoriesExplicit === true) {
+    const arr = Array.isArray(session.memories) ? session.memories : [];
+    return new Set(arr.map(m => ((m && m.scope === 'global') ? 'global' : 'project') + ':' + (m && m.id)).filter(k => !k.endsWith(':')));
+  }
+  return new Set((memoryRegistry || []).filter(e => e.scope === 'project').slice(0, 8).map(e => 'project:' + e.id));
+}
+async function openMemoryPanel() {
+  openModal('memoryModal');
+  $('memoryList').innerHTML = '<div class="muted">加载中…</div>';
+  try {
+    const r = await api('/api/memory?cwd=' + encodeURIComponent(currentWorkspace() || ''));
+    memoryRegistry = (r && r.memories) || [];
+    memoryOtherProjects = (r && r.otherProjects) || [];
+    memoryCurrentProjectKey = (r && r.projectKey) || '';
+  } catch { memoryRegistry = []; memoryOtherProjects = []; memoryCurrentProjectKey = ''; }
+  renderMemoryList();
+}
+function renderMemoryList() {
+  const list = $('memoryList'); if (!list) return; list.innerHTML = '';
+  const session = state.currentSession;
+  // 顶部动作:手写新建 + (provider)从当前会话起草
+  const actions = el('div', 'memory-actions');
+  const newBtn = el('button', 'mini', '＋ 手写新建记忆');
+  newBtn.onclick = () => openMemoryEditModal(null);
+  actions.appendChild(newBtn);
+  if (isProviderMode() && session) {
+    const draftBtn = el('button', 'mini', '✎ 从当前会话起草');
+    draftBtn.onclick = () => saveAsMemory(draftBtn);
+    actions.appendChild(draftBtn);
+  }
+  list.appendChild(actions);
+  if (!session) list.appendChild(el('div', 'muted', '新建或选择一个会话后可启用记忆。'));
+  const explicit = session && session.memoriesExplicit === true;
+  if (session && !explicit) list.appendChild(el('div', 'memory-hint muted', '当前项目的记忆默认全部启用（可手动调整）；全局记忆需手动启用。'));
+  const enabled = enabledMemoryKeySet();
+  const globals = (memoryRegistry || []).filter(e => e.scope === 'global');
+  const projects = (memoryRegistry || []).filter(e => e.scope === 'project');
+  const group = (title, items) => {
+    list.appendChild(el('div', 'skill-group-title', title));
+    if (!items.length) { list.appendChild(el('div', 'muted', '（暂无）')); return; }
+    for (const m of items) list.appendChild(buildMemoryRow(m, enabled));
+  };
+  group(`全局记忆 · ${globals.length}`, globals);
+  group(`当前项目记忆 · ${projects.length}`, projects);
+  // 幽灵项:显式启用集里但注册表已无对应文件(被删/改名/随 cwd 丢失)。
+  if (explicit && session) {
+    const regKeys = new Set((memoryRegistry || []).map(e => e.scope + ':' + e.id));
+    const arr = Array.isArray(session.memories) ? session.memories : [];
+    const ghosts = arr.filter(m => m && m.id && !regKeys.has(((m.scope === 'global') ? 'global' : 'project') + ':' + m.id));
+    if (ghosts.length) {
+      list.appendChild(el('div', 'skill-group-title', `已失效 · ${ghosts.length}`));
+      for (const g of ghosts) list.appendChild(buildMemoryGhostRow(g));
+    }
+  }
+  // 其它项目组(迁移到当前项目)
+  if ((memoryOtherProjects || []).length) {
+    list.appendChild(el('div', 'skill-group-title', '其它项目组'));
+    for (const p of memoryOtherProjects) list.appendChild(buildOtherProjectRow(p));
+  }
+}
+function buildMemoryRow(m, enabled) {
+  const key = m.scope + ':' + m.id;
+  const on = enabled.has(key);
+  const pending = memoryTogglePending.has(key);
+  // P3-3: 已启用但会话锁定的 projectKey 与当前项目组不符 → 服务端实际会跳过注入,给用户一个失配提示。
+  let stale = false;
+  if (on && m.scope === 'project' && memoryCurrentProjectKey) {
+    const session = state.currentSession;
+    const ent = (session && Array.isArray(session.memories) ? session.memories : []).find(x => x && x.id === m.id && x.scope !== 'global');
+    if (ent && ent.projectKey && ent.projectKey !== memoryCurrentProjectKey) stale = true;
+  }
+  const it = el('div', 'skill-item');
+  const head = el('div', 'skill-head');
+  head.appendChild(el('span', 'skill-name', m.name || m.id));
+  const typeLabel = m.type === 'convention' ? '惯例' : (m.type === 'lesson' ? '教训' : '参考');
+  head.appendChild(el('span', 'skill-type', typeLabel));
+  const toggle = el('button', 'skill-toggle' + (on ? ' on' : ''), pending ? '…' : (on ? '已启用' : '启用'));
+  if (pending) toggle.disabled = true;
+  toggle.onclick = e => { e.stopPropagation(); toggleMemory(m); };
+  head.appendChild(toggle);
+  it.appendChild(head);
+  if (m.description) it.appendChild(el('div', 'skill-desc', m.description));
+  const meta = el('div', 'skill-reason');
+  meta.textContent = (m.createdAt ? String(m.createdAt).slice(0, 10) + ' · ' : '') + (m.scope === 'global' ? '全局' : '项目');
+  it.appendChild(meta);
+  if (stale) it.appendChild(el('div', 'skill-reason', '⚠ 来源项目已变化，已暂停注入（重新启用可锁定到当前项目）。'));
+  const bar = el('div', 'memory-rowbar');
+  const editB = el('button', 'mini', '编辑');
+  editB.onclick = e => { e.stopPropagation(); openMemoryEditModal(m); };
+  const delB = el('button', 'mini danger', '删除');
+  delB.onclick = e => { e.stopPropagation(); deleteMemoryRow(m); };
+  bar.append(editB, delB);
+  it.appendChild(bar);
+  return it;
+}
+// 幽灵行:显示 id + 移除(POST 过滤后由服务端清掉该无效 id)。
+function buildMemoryGhostRow(m) {
+  const it = el('div', 'skill-ghost');
+  const head = el('div', 'skill-head');
+  head.appendChild(el('span', 'skill-name', m.id));
+  head.appendChild(el('span', 'skill-src', '已失效'));
+  const rm = el('button', 'skill-toggle', '移除');
+  rm.onclick = e => { e.stopPropagation(); removeGhostMemory(m); };
+  head.appendChild(rm);
+  it.appendChild(head);
+  it.appendChild(el('div', 'skill-reason', '此记忆已不在库中（可能已删除，或随项目目录变化而不可见）。'));
+  return it;
+}
+// 其它项目组行:显示 label/path/条目数 + 「全部迁移到当前项目」。
+function buildOtherProjectRow(p) {
+  const it = el('div', 'skill-item');
+  const head = el('div', 'skill-head');
+  head.appendChild(el('span', 'skill-name', p.label || p.projectKey));
+  head.appendChild(el('span', 'skill-type', `${p.count} 条`));
+  const btn = el('button', 'skill-toggle', '迁移到当前项目');
+  btn.onclick = e => { e.stopPropagation(); migrateGroupToCurrent(p); };
+  head.appendChild(btn);
+  it.appendChild(head);
+  if (p.path) it.appendChild(el('div', 'skill-reason', p.path));
+  return it;
+}
+function toggleMemory(m) {
+  const session = state.currentSession;
+  if (!session) { toast('请先新建或选择一个会话', 'err'); return; }
+  const key = m.scope + ':' + m.id;
+  if (memoryTogglePending.has(key)) return;
+  memoryTogglePending.add(key);
+  renderMemoryList();
+  memoryToggleChain = memoryToggleChain.then(() => doToggleMemory(m)).catch(() => {}).then(() => {
+    memoryTogglePending.delete(key);
+    renderMemoryList();
+  });
+}
+async function doToggleMemory(m) {
+  const session = state.currentSession;
+  if (!session) return;
+  const enabled = enabledMemoryKeySet();
+  const key = m.scope + ':' + m.id;
+  // P3-3: 重建启用集时保留各 project 条目锁定的 projectKey(服务端会以 session.cwd 权威重盖,前端如实回传避免丢字段)。
+  const pkByKey = new Map((Array.isArray(session.memories) ? session.memories : []).filter(x => x && x.id).map(x => [((x.scope === 'global') ? 'global' : 'project') + ':' + x.id, x.projectKey]));
+  const cur = [...enabled].map(k => { const i = k.indexOf(':'); const scope = k.slice(0, i), id = k.slice(i + 1); const o = { scope, id }; if (scope === 'project' && pkByKey.get(k)) o.projectKey = pkByKey.get(k); return o; });
+  let next;
+  if (enabled.has(key)) next = cur.filter(x => (x.scope + ':' + x.id) !== key);
+  else { if (cur.length >= 8) { toast('最多同时启用 8 条记忆', 'err'); return; } next = cur.concat({ scope: m.scope, id: m.id }); }
+  try {
+    const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, memories: next }) });
+    session.memories = (r && Array.isArray(r.memories)) ? r.memories : next;
+    session.memoriesExplicit = true;
+    toast(enabled.has(key) ? `已停用记忆：${m.name || m.id}` : `已启用记忆：${m.name || m.id}`);
+  } catch (e) { toast('设置记忆失败：' + apiErrText(e), 'err'); }
+}
+async function removeGhostMemory(m) {
+  const session = state.currentSession;
+  if (!session) return;
+  const cur = (Array.isArray(session.memories) ? session.memories : []).filter(x => x && x.id);
+  const next = cur.filter(x => !(x.id === m.id && ((x.scope === 'global') ? 'global' : 'project') === ((m.scope === 'global') ? 'global' : 'project')));
+  try {
+    const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, memories: next }) });
+    session.memories = (r && Array.isArray(r.memories)) ? r.memories : next;
+    session.memoriesExplicit = true;
+    toast(`已移除失效记忆：${m.id}`);
+  } catch (e) { toast('移除失败：' + apiErrText(e), 'err'); return; }
+  renderMemoryList();
+}
+async function deleteMemoryRow(m) {
+  if (!confirm(`删除记忆「${m.name || m.id}」？此操作不可撤销。`)) return;
+  try {
+    const r = await api('/api/memory/' + encodeURIComponent(m.id), { method: 'POST', headers: { 'x-http-method': 'DELETE' }, body: JSON.stringify({ scope: m.scope, cwd: currentWorkspace() || '' }) });
+    if (!r || !r.ok) { toast(`删除失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
+    toast('已删除记忆', 'ok');
+  } catch (e) { toast('删除失败：' + apiErrText(e), 'err'); return; }
+  openMemoryPanel();
+}
+async function migrateGroupToCurrent(p) {
+  if (!(p.items || []).length) return;
+  if (!confirm(`把「${p.label || p.projectKey}」的 ${p.count} 条记忆迁移到当前项目？`)) return;
+  // P2-4: 逐条结果上浮,不静默——迁移 N 条、M 条冲突(目标已有同名 → 409）跳过、K 条其它失败。
+  let okCount = 0, conflictCount = 0, errCount = 0;
+  for (const item of p.items) {
+    try {
+      const r = await api('/api/memory/migrate', { method: 'POST', body: JSON.stringify({ id: item.id, fromKey: p.projectKey, cwd: currentWorkspace() || '' }) });
+      if (r && r.ok) okCount++; else errCount++;
+    } catch (e) {
+      // api() 对非 2xx 抛错,错误体(JSON)带 conflict 标记 → 归入「冲突跳过」,其它失败单列。
+      let conflict = false; try { const j = JSON.parse((e && e.message) || ''); conflict = j && j.conflict === true; } catch { /* not json */ }
+      if (conflict) conflictCount++; else errCount++;
+    }
+  }
+  const parts = [];
+  if (okCount) parts.push(`迁移 ${okCount} 条`);
+  if (conflictCount) parts.push(`${conflictCount} 条冲突跳过`);
+  if (errCount) parts.push(`${errCount} 条失败`);
+  toast(parts.length ? parts.join('，') : '没有可迁移的记忆', okCount ? 'ok' : 'err');
+  openMemoryPanel();
+}
+// 从当前会话起草(provider 引擎):draft → 编辑弹窗 → 保存。
+async function saveAsMemory(btn) {
+  const sid = state.currentSession && state.currentSession.id;
+  if (!sid) { toast('没有可保存的会话', 'err'); return; }
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '起草中…'; }
+  try {
+    const r = await api('/api/memory/draft', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
+    if (!r || !r.ok || !r.draft) { toast(`起草失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
+    openMemoryEditModal({ ...r.draft, scope: 'project', _isDraft: true });
+  } catch (e) { toast(`起草失败：${apiErrText(e)}`, 'err'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
+}
+// 编辑/新建弹窗。编辑现有项时先拉全文回填正文(注册表不带 body)。
+async function openMemoryEditModal(m) {
+  let full = m;
+  if (m && m.id && !m._isDraft && m.body == null) {
+    try {
+      const r = await api(`/api/memory/item?id=${encodeURIComponent(m.id)}&scope=${m.scope}&cwd=${encodeURIComponent(currentWorkspace() || '')}`);
+      if (r && r.ok && r.memory) full = { ...m, ...r.memory };
+    } catch { /* 回填失败则空正文 */ }
+  }
+  const editing = !!(m && m.id && !m._isDraft);
+  const body = el('div', 'pb-form');
+  const mkField = (label, value, rows) => {
+    const field = el('div', 'pb-field');
+    field.appendChild(el('label', 'pb-field-label', label));
+    const ta = el(rows > 1 ? 'textarea' : 'input', 'pb-field-input');
+    if (rows > 1) ta.rows = rows; else ta.type = 'text';
+    ta.value = value || '';
+    field.appendChild(ta); body.appendChild(field);
+    return ta;
+  };
+  const nameEl = mkField('名称', full ? full.name : '', 1);
+  const descEl = mkField('说明（何时有用）', full ? full.description : '', 2);
+  const typeField = el('div', 'pb-field'); typeField.appendChild(el('label', 'pb-field-label', '类型'));
+  const typeSel = el('select', 'pb-field-input');
+  for (const [v, t] of [['convention', '项目惯例'], ['lesson', '教训'], ['reference', '参考资料']]) { const o = el('option', '', t); o.value = v; if (full && full.type === v) o.selected = true; typeSel.appendChild(o); }
+  typeField.appendChild(typeSel); body.appendChild(typeField);
+  const scopeField = el('div', 'pb-field'); scopeField.appendChild(el('label', 'pb-field-label', '范围'));
+  const scopeSel = el('select', 'pb-field-input');
+  for (const [v, t] of [['project', '当前项目'], ['global', '全局']]) { const o = el('option', '', t); o.value = v; if (((full && full.scope) || 'project') === v) o.selected = true; scopeSel.appendChild(o); }
+  if (editing) scopeSel.disabled = true; // 编辑不改范围(改范围=另存,请新建)
+  scopeField.appendChild(scopeSel); body.appendChild(scopeField);
+  const bodyTa = mkField('正文（markdown）', full ? full.body : '', 8);
+  const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
+  const cancel = el('button', '', '取消');
+  const save = el('button', 'primary', '保存');
+  foot.append(cancel, save);
+  const modal = buildModal(editing ? '编辑记忆' : '新建工作台记忆', body, foot);
+  cancel.onclick = () => modal.close();
+  save.onclick = async () => {
+    const memory = { name: nameEl.value.trim(), description: descEl.value.trim(), type: typeSel.value, body: bodyTa.value, scope: scopeSel.value };
+    if (editing) memory.id = m.id;
+    if (full && full.sourceSessionId) memory.sourceSessionId = full.sourceSessionId;
+    if (!memory.name || !memory.body.trim()) { toast('名称和正文不能为空', 'err'); return; }
+    save.disabled = true; save.textContent = '保存中…';
+    try {
+      const r = await api('/api/memory', { method: 'POST', body: JSON.stringify({ memory, cwd: currentWorkspace() || '' }) });
+      modal.close();
+      if (!r || !r.ok) { toast(`保存失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
+      toast('已保存工作台记忆', 'ok');
+      if (!$('memoryModal').classList.contains('hidden')) openMemoryPanel();
+    } catch (e) { modal.close(); toast(`保存失败：${apiErrText(e)}`, 'err'); }
+  };
+}
+
 /* ---------------- command palette ---------------- */
 function paletteActions() {
   const acts = [
@@ -5011,6 +5288,7 @@ function paletteActions() {
     { label: '把当前输入存为模板', hint: 'template', run: addTemplateFromPrompt },
     { label: 'MCP 工具检查器', hint: 'tools', run: openMcpInspector },
     { label: '技能库（技能 / 命令 / 一键任务）', hint: '/', run: openSkillPanel },
+    { label: '工作台记忆（跨会话）', hint: 'memory', run: openMemoryPanel },
   ];
   for (const t of getTemplates()) acts.push({ label: `模板 → ${t.name}`, hint: 'template', run: () => insertTemplate(t.text) });
   // Engine/model actions across ALL engines (C4): Claude CLI group + every provider. Each row switches
