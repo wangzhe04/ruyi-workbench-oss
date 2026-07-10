@@ -13,7 +13,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '1.5.0'; // v1.5:团队模式 v2(任务池/邮箱/跨会话记忆/定向插话)+ Skills 体系 v1 + 成本用量看板(原 '1.4.0' OSS 首发)
+const VERSION = '1.6.0'; // v1.6:UI v3 全线(rem/图标集/三档宽/监控降噪/工作台全宽视图)+ 工作流编辑器模型指派 + Judge JSON 修复(v1.5=团队模式 v2/Skills/用量看板)
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
