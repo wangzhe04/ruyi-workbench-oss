@@ -49,7 +49,7 @@ ok(has(src, "{ toast('节点 ID 重复','err'); return false; }", "{ toast('运�
 ok(/selectedId=nextId; renderGraph\(\); renderInspector\(\);\s*\n\s*return true;/.test(src), 'BUG2-D doApplyNode 成功路径末尾 return true');
 ok(!/apply\.onclick=\(\)=>\{/.test(src), 'BUG2-D 旧匿名 apply.onclick=()=>{ 已被具名 doApplyNode 取代');
 // E. saveDraft 保存前先 flush,校验失败抛错阻断 POST,且 flush 早于 POST。
-ok(has(src, "if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false)throw new Error('检查器有字段无效，请修正后再保存');}"), 'BUG2-E saveDraft 保存前 flush commitSelectedNode(失败抛错)');
+ok(has(src, "if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false){const err=new Error('检查器有字段无效，请修正后再保存');err.__quiet=true;throw err;}}"), 'BUG2-E saveDraft 保存前 flush commitSelectedNode(失败抛错)');
 const saveIdx = src.indexOf('async function saveDraft(){');
 const flushIdx = src.indexOf('if(commitSelectedNode){const okc=commitSelectedNode();', saveIdx);
 const postIdx = src.indexOf("api('/api/agent-workflows',{method:'POST'", saveIdx);

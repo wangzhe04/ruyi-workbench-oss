@@ -2452,13 +2452,19 @@ function launchAgentWorkflowFromQuickSelect() {
 }
 function workflowBlank() { return { id: `workflow-${Date.now().toString(36)}`, title: '新工作流', description: '', source: 'personal', nodes: [{ id: 'step_1', task: '描述这个节点要完成的任务', role: 'worker', dependsOn: [], failurePolicy: 'block', position: { x: 40, y: 120 } }] }; }
 function workflowField(label, input) { const wrap = el('label', 'workflow-field'); wrap.append(el('span', '', label), input); return wrap; }
-function workflowConditionText(value) { return value ? `${value.node ? value.node + '.' : ''}${value.path || ''} ${value.operator || 'truthy'}${value.value === undefined ? '' : ' ' + JSON.stringify(value.value)}` : ''; }
+function workflowConditionText(value) { return value ? `${value.node ? value.node + '.' : ''}${value.path || ''} ${value.operator || 'truthy'}${value.value === undefined ? '' : ' ' + JSON.stringify(value.value)}`.trim() : ''; }
 function parseWorkflowConditionText(text) {
-  const match = String(text || '').trim().match(/^([A-Za-z0-9_-]+)\.([^ ]+)\s+(equals|not_equals|truthy|falsy|contains|greater|greater_equal|less|less_equal|status_is|==|!=|>=|<=|>|<)(?:\s+(.+))?$/);
-  if (!match) return null;
+  const t = String(text || '').trim();
+  const OPS = 'equals|not_equals|truthy|falsy|contains|greater|greater_equal|less|less_equal|status_is|==|!=|>=|<=|>|<';
   const aliases = { '==': 'equals', '!=': 'not_equals', '>': 'greater', '>=': 'greater_equal', '<': 'less', '<=': 'less_equal' };
-  let value; if (match[4]) { try { value = JSON.parse(match[4]); } catch { value = match[4]; } }
-  return { node: match[1], path: match[2], operator: aliases[match[3]] || match[3], value };
+  // 对抗轮 P2: 服务器端合法条件含「无 node 前缀」(对当前节点求值,如 "done truthy")与「空 path」(对整个结构化
+  // 结果求值,如 "a. status_is")两形态——原正则强制 node.path 双非空,这类条件(高级 JSON/项目文件导入)一经选中
+  // 就把整个保存硬阻断且报错误导。四形态全支持:node.path op / path op / node. op / 纯 op。
+  let m = t.match(new RegExp(`^(?:([A-Za-z0-9_-]+)\\.)?([^\\s]*)\\s+(${OPS})(?:\\s+(.+))?$`));
+  if (!m) { const bare = t.match(new RegExp(`^(${OPS})(?:\\s+(.+))?$`)); if (bare) m = [t, '', '', bare[1], bare[2]]; }
+  if (!m) return null;
+  let value; if (m[4]) { try { value = JSON.parse(m[4]); } catch { value = m[4]; } }
+  return { node: m[1] || '', path: m[2] || '', operator: aliases[m[3]] || m[3], value };
 }
 async function openWorkflowEditor(initialId) {
   await loadAgentWorkflows();
@@ -2467,6 +2473,12 @@ async function openWorkflowEditor(initialId) {
   let connectFromId = '';
   let selectedEdge = null;
   let commitSelectedNode = null;
+  // 对抗轮 P2: 切换选中节点前 flush 检查器未应用的编辑(saveDraft 同款,堵"编辑后切走即静默丢弃"的另一半)。
+  // 校验失败不阻断切换(免困死),但 doApplyNode 已弹具体错误,这里补一句"已放弃"让丢弃不再无声。
+  function flushInspector() {
+    if (!commitSelectedNode) return;
+    if (commitSelectedNode() === false) toast('未通过校验的节点编辑已放弃', 'err');
+  }
   let roles = []; try { roles = (await api(`/api/agent-roles?cwd=${encodeURIComponent(currentWorkspace())}`)).roles || []; } catch {}
   const body = el('div', 'workflow-editor');
   const meta = el('div', 'workflow-meta'); const idInput = document.createElement('input'); idInput.value = draft.id; const titleInput = document.createElement('input'); titleInput.value = draft.title; const descInput = document.createElement('input'); descInput.value = draft.description || '';
@@ -2544,8 +2556,8 @@ async function openWorkflowEditor(initialId) {
       const port=el('span','wf-port');port.title='从这里拖到目标节点，创建依赖箭头';
       port.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();const gsvg=graph.querySelector('svg.workflow-edges');const temp=document.createElementNS(NS,'line');temp.setAttribute('class','wf-temp-edge');const x1=(node.position?.x||0)+210,y1=(node.position?.y||0)+45;temp.setAttribute('x1',x1);temp.setAttribute('y1',y1);temp.setAttribute('x2',x1);temp.setAttribute('y2',y1);if(gsvg)gsvg.appendChild(temp);port.setPointerCapture?.(e.pointerId);const move=ev=>{const p=clientToCanvas(ev.clientX,ev.clientY);temp.setAttribute('x2',p.x);temp.setAttribute('y2',p.y);};const up=ev=>{port.removeEventListener('pointermove',move);port.removeEventListener('pointerup',up);temp.remove();const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&targetId!==node.id){snapshot();if(addWorkflowEdge(node.id,targetId)){selectedEdge=null;renderGraph();renderInspector();toast('已连线','ok');}else{undoStack.pop();toast('不能连接到自身或重复箭头','err');}}};port.addEventListener('pointermove',move);port.addEventListener('pointerup',up);});
       card.appendChild(port);
-      card.addEventListener('dblclick',ev=>{ev.preventDefault();selectedId=node.id;selectedEdge=null;renderInspector();const t=inspector.querySelector('[data-wf-field="task"]');if(t)t.focus();});
-      card.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(connectFromId&&connectFromId!==node.id){snapshot();if(!(node.dependsOn||[]).includes(connectFromId))node.dependsOn=[...(node.dependsOn||[]),connectFromId];else undoStack.pop();selectedId=node.id;selectedEdge=null;resetConnectMode();syncNodeSelect();renderGraph();renderInspector();toast('已新增依赖箭头','ok');return;}selectedId=node.id;selectedEdge=null;renderInspector();markSelectedCards();markSelectedEdges();const sx=e.clientX,sy=e.clientY,ox=node.position?.x||0,oy=node.position?.y||0;let moved=false;card.setPointerCapture(e.pointerId);const move=ev=>{const dx=ev.clientX-sx,dy=ev.clientY-sy;if(Math.abs(dx)+Math.abs(dy)>3){if(!moved){moved=true;snapshot();}node.position={x:Math.max(0,ox+dx),y:Math.max(0,oy+dy)};card.style.left=`${node.position.x}px`;card.style.top=`${node.position.y}px`;}};const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);if(moved)renderGraph();else{markSelectedCards();markSelectedEdges();}};card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);});
+      card.addEventListener('dblclick',ev=>{ev.preventDefault();if(selectedId!==node.id)flushInspector();selectedId=node.id;selectedEdge=null;renderInspector();const t=inspector.querySelector('[data-wf-field="task"]');if(t)t.focus();});
+      card.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(connectFromId&&connectFromId!==node.id){snapshot();if(!(node.dependsOn||[]).includes(connectFromId))node.dependsOn=[...(node.dependsOn||[]),connectFromId];else undoStack.pop();selectedId=node.id;selectedEdge=null;resetConnectMode();syncNodeSelect();renderGraph();renderInspector();toast('已新增依赖箭头','ok');return;}if(selectedId!==node.id)flushInspector();selectedId=node.id;selectedEdge=null;renderInspector();markSelectedCards();markSelectedEdges();const sx=e.clientX,sy=e.clientY,ox=node.position?.x||0,oy=node.position?.y||0;let moved=false;card.setPointerCapture(e.pointerId);const move=ev=>{const dx=ev.clientX-sx,dy=ev.clientY-sy;if(Math.abs(dx)+Math.abs(dy)>3){if(!moved){moved=true;snapshot();}node.position={x:Math.max(0,ox+dx),y:Math.max(0,oy+dy)};card.style.left=`${node.position.x}px`;card.style.top=`${node.position.y}px`;}};const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);if(moved)renderGraph();else{markSelectedCards();markSelectedEdges();}};card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);});
       graph.appendChild(card); }
     if(!draft.nodes.length){const guide=el('div','wf-canvas-empty');guide.appendChild(el('div','wf-canvas-empty-title','画布还是空的，从这里开始'));const row=el('div','wf-canvas-empty-actions');const fromTpl=el('button','mini','从模板开始');fromTpl.type='button';fromTpl.onclick=()=>{templateSelect.focus();};const addFirst=el('button','mini primary','＋ 添加第一个节点');addFirst.type='button';addFirst.onclick=()=>addBtn.click();row.append(fromTpl,addFirst);guide.appendChild(row);graph.appendChild(guide);}
     const controls=el('div','wf-canvas-controls');const fitBtn=el('button','mini wf-fit-btn','适应视图');fitBtn.type='button';fitBtn.title='把所有节点居中到视口';fitBtn.onclick=fitView;controls.appendChild(fitBtn);graph.appendChild(controls);
@@ -2589,10 +2601,10 @@ async function openWorkflowEditor(initialId) {
     const modelHint=el('div','wf-model-hint');
     function currentModelChoice(){ return model.value==='__custom' ? modelCustom.value.trim() : model.value; }
     function updateModelHint(){ const eng=engine.value; if(!eng){ modelHint.textContent='引擎为自动时不单独指定模型，跟随角色/引擎默认'; return; } const chosen=currentModelChoice(); if(chosen){ modelHint.textContent='当前生效：节点指定 · '+chosen; return; } const rm=roleModelFor(role.value,eng); if(rm){ modelHint.textContent='当前生效：角色默认 · '+rm; return; } const g=globalModelFor(eng); modelHint.textContent = g ? '当前生效：全局默认 · '+g : '当前生效：引擎内置默认'; }
-    function rebuildModelOptions(){ const eng=engine.value; const cur=node.model||''; model.textContent=''; const inh=document.createElement('option'); inh.value=''; inh.textContent='继承（角色/全局默认）'; model.appendChild(inh); for(const m of engineModelOptions(eng)){ const o=document.createElement('option'); o.value=m.value; o.textContent=m.label; model.appendChild(o); } const cus=document.createElement('option'); cus.value='__custom'; cus.textContent='自定义…'; model.appendChild(cus); if(eng===''){ model.value=''; model.disabled=true; modelCustom.style.display='none'; } else { model.disabled=false; if(!cur) model.value=''; else if([...model.options].some(o=>o.value===cur)) model.value=cur; else { model.value='__custom'; modelCustom.value=cur; } modelCustom.style.display = model.value==='__custom' ? '' : 'none'; } updateModelHint(); }
+    function rebuildModelOptions(resetForeign){ const eng=engine.value; const cur=node.model||''; model.textContent=''; const inh=document.createElement('option'); inh.value=''; inh.textContent='继承（角色/全局默认）'; model.appendChild(inh); for(const m of engineModelOptions(eng)){ const o=document.createElement('option'); o.value=m.value; o.textContent=m.label; model.appendChild(o); } const cus=document.createElement('option'); cus.value='__custom'; cus.textContent='自定义…'; model.appendChild(cus); if(eng===''){ model.value=''; model.disabled=true; modelCustom.style.display='none'; } else { model.disabled=false; if(!cur) model.value=''; else if([...model.options].some(o=>o.value===cur)) model.value=cur; else if(resetForeign){ model.value=''; modelCustom.value=''; } else { model.value='__custom'; modelCustom.value=cur; } modelCustom.style.display = model.value==='__custom' ? '' : 'none'; } updateModelHint(); }
     model.onchange=()=>{ modelCustom.style.display = model.value==='__custom' ? '' : 'none'; if(model.value==='__custom') modelCustom.focus(); updateModelHint(); };
     modelCustom.oninput=updateModelHint;
-    engine.onchange=()=>{ rebuildModelOptions(); };
+    engine.onchange=()=>{ rebuildModelOptions(true); };   // 对抗轮 P3: 换引擎时旧引擎模型重置为继承,不再结转为"自定义"(跨引擎必非法)
     role.onchange=updateModelHint;
     rebuildModelOptions();
     const maxIters=document.createElement('input'); maxIters.type='number'; maxIters.min='1'; maxIters.max='100'; maxIters.placeholder='默认'; maxIters.value=(node.maxIters!=null&&node.maxIters!=='')?node.maxIters:'';
@@ -2643,7 +2655,7 @@ async function openWorkflowEditor(initialId) {
       node.dependsOn=nextDependsOn; node.failurePolicy=failure.value;
       node.maxRetries=failure.value==='retry'?Math.max(1,Math.min(5,Math.round(Number(maxRetries.value)||1))):0;
       node.condition=nextCondition; node.loop=nextLoop;
-      node.gate = gate.value ? { ...(node.gate&&typeof node.gate==='object'?node.gate:{}), mode:gate.value } : null;
+      node.gate = gate.value ? { ...(node.gate&&typeof node.gate==='object'?node.gate:{}), mode:gate.value } : false;   // 对抗轮 P2: 显式 false=明确无门(null 会被服务端按 reviewer/verifier 角色回填)
       if(mi) node.maxIters=Math.max(1,Math.min(100,Math.round(Number(mi)||100))); else delete node.maxIters;
       if(toolTier.value) node.toolTier=toolTier.value; else delete node.toolTier;
       if(nextId!==oldId) remapWorkflowNodeRef(oldId,nextId);
@@ -2656,22 +2668,22 @@ async function openWorkflowEditor(initialId) {
   loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;undoStack.length=0;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast('已载入模板；保存会覆盖同 ID 的个人/项目模板，内置模板会保存为个人副本','');};
   blankBtn.onclick=()=>{undoStack.length=0;draft=workflowBlank();idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast('已新建空白模板，保存后生成新模板','ok');};
   forkBtn.onclick=()=>{undoStack.length=0;selectedEdge=null;forkWorkflowDraft();renderGraph();renderInspector();};
-  nodeSelect.onchange=()=>{selectedId=nodeSelect.value;selectedEdge=null;renderGraph();renderInspector();};
+  nodeSelect.onchange=()=>{if(selectedId!==nodeSelect.value)flushInspector();selectedId=nodeSelect.value;selectedEdge=null;renderGraph();renderInspector();};
   connectBtn.onclick=()=>{if(connectFromId){resetConnectMode();markSelectedCards();return;}selectedEdge=null;connectFromId=selectedId||draft.nodes[0]?.id||'';connectBtn.textContent='取消连接';markSelectedCards();markSelectedEdges();toast('连接模式：点击目标节点，创建“当前节点 → 目标节点”的依赖箭头','');};
   edgeDeleteBtn.onclick=()=>{if(!selectedEdge)return;snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast('已删除箭头','ok');}};
   maxBtn.onclick=()=>{const on=modalEl?.classList.toggle('workflow-fullscreen');maxBtn.textContent=on?'❐':'□';maxBtn.title=on?'还原':'最大化';maxBtn.setAttribute('aria-label',on?'还原工作流编辑器':'最大化工作流编辑器');setTimeout(()=>{renderGraph();renderInspector();},0);};
-  addBtn.onclick=()=>{snapshot();let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();};
+  addBtn.onclick=()=>{flushInspector();snapshot();let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();};
   deleteBtn.onclick=()=>{
     if(draft.nodes.length<=1)return toast('至少保留一个节点','err');
-    if(!confirm(`删除节点「${selectedId}」？其依赖它的运行条件/循环停止条件将被清除，且此操作不可撤销。`))return;
+    if(!confirm(`删除节点「${selectedId}」？其依赖它的运行条件/循环停止条件将被清除（可用 Ctrl+Z 撤销）。`))return;   // 对抗轮 P3: 原文案称"不可撤销"与 snapshot/undo 实现矛盾
     snapshot();const deadId=selectedId;
     draft.nodes=draft.nodes.filter(x=>x.id!==deadId);
     const cleared=clearWorkflowNodeRef(deadId);
     selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();
     if(cleared)toast(`已删除节点，并清除 ${cleared} 处指向它的运行条件/循环停止条件（这些节点将变为无条件执行）`,'');
   };
-  async function saveDraft(){if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false)throw new Error('检查器有字段无效，请修正后再保存');}syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||'保存失败');draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
-  cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast('工作流已保存','ok');modal.close();}catch(e){toast(apiErrText(e),'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){toast(apiErrText(e),'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast('内置模板不可删除','err');if(!confirm(`删除工作流模板「${draft.title||draft.id}」？此操作不可恢复。`))return;try{await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();toast('已删除工作流','ok');modal.close();}catch(e){toast(apiErrText(e),'err');}};
+  async function saveDraft(){if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false){const err=new Error('检查器有字段无效，请修正后再保存');err.__quiet=true;throw err;}}syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||'保存失败');draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
+  cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast('工作流已保存','ok');modal.close();}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast('内置模板不可删除','err');if(!confirm(`删除工作流模板「${draft.title||draft.id}」？此操作不可恢复。`))return;try{const r=await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();if(r&&r.ok===false){toast('该模板没有已保存的个人/项目副本，无需删除','err');}else{toast('已删除工作流','ok');modal.close();}}catch(e){toast(apiErrText(e),'err');}};
   renderGraph();renderInspector();
 }
 
@@ -2765,7 +2777,8 @@ async function steerAgentNode(runId, nodeId, nodeStatus, presetText) {
     const msg = nodeStatus === 'running' ? '已插话，下一次调用前生效' : '已排队，节点开跑时投递（若节点被跳过/阻塞则丢弃）';
     toast(msg, 'ok');
     await loadAgentRuns();
-  } catch (e) { toast(`插话失败：${apiErrText(e)}`, 'err'); }
+    return true;
+  } catch (e) { toast(`插话失败：${apiErrText(e)}`, 'err'); return false; }   // 对抗轮 P2: 调用方按返回值区分失败以回填文本
 }
 async function deleteAgentRun(runId) {
   const sid = state.currentSession?.id; if (!sid || !confirm('删除这条 Agent 工作流记录？')) return;
@@ -3016,11 +3029,14 @@ function renderAgentRuns(runs) {
     card.appendChild(graph); host.appendChild(card);
   }
 }
+let agentRunsSeq = 0;   // 对抗轮 P3: 轮询响应序号——慢包乱序落地时丢弃过期响应,防"审批已生效"被在途旧包闪回旧状态
 async function loadAgentRuns() {
   const sid = state.currentSession?.id; const host = $('agentRunsList'); if (!host) return;
   if (!sid) { renderAgentRuns([]); return; }
+  const mySeq = ++agentRunsSeq;
   try {
     const r = await api(`/api/agent-runs?sessionId=${encodeURIComponent(sid)}`);
+    if (mySeq !== agentRunsSeq) return;   // 已有更新的请求发出,本响应过期
     const runs = Array.isArray(r.runs) ? r.runs : [];
     renderAgentRuns(runs);
     wbOnRuns(runs); // v3 P3a:同一份轮询数据喂工作台画布(缓存 + 亮点标 + 画布态重绘),不新增请求
@@ -3031,7 +3047,12 @@ async function loadAgentRuns() {
       if (fresh && fresh.session && state.currentSession?.id === sid) { state.currentSession = fresh.session; renderCurrentSession(); renderSessions(); }
     }
   }
-  catch (e) { host.textContent = `加载失败：${apiErrText(e)}`; }
+  catch (e) {
+    if (mySeq !== agentRunsSeq) return;
+    host.textContent = `加载失败：${apiErrText(e)}`;
+    // 对抗轮 P3: 画布态同步给出断连指示——原先只写监控列表,画布保持最后一帧"运行中"脉动,误导数据仍新鲜。
+    if (typeof wbState !== 'undefined' && wbState.view === 'canvas') { const wu = $('wbUsage'); if (wu) wu.textContent = '⚠ 连接中断，画布数据可能不是最新'; wbState.renderSig = null; }
+  }
 }
 // v3 P3a:轮询期望态由「监控页签激活」∪「工作台画布视图激活」共同决定 —— 画布复用同一份 2s 轮询(loadAgentRuns
 // 内联刷新画布),不新增请求。tab 参数保留兼容既有 switchTab 调用点;实际期望态从 DOM(激活页签)+ wbState 派生。
@@ -3130,6 +3151,17 @@ function wbLayoutFor(run) {
   wbState.posCache[run.id] = { sig, pos };
   return pos;
 }
+// 对抗轮 P2: 通用焦点跨重建保留——重建前记 activeElement 的 data-fk 身份键,重建后按键回焦(容器内查找)。
+// 覆盖节点卡/审批钮/重试钮/缩放钮/发送钮;插话输入框的值+光标另有专门保留(见 renderWorkbenchSide)。
+function wbCaptureFocus(container) {
+  const ae = document.activeElement;
+  return (ae && container && container.contains(ae) && ae.dataset && ae.dataset.fk) ? ae.dataset.fk : null;
+}
+function wbRestoreFocus(container, fk) {
+  if (!fk || !container) return;
+  const t = container.querySelector(`[data-fk="${CSS.escape(fk)}"]`);
+  if (t && !t.disabled) { try { t.focus({ preventScroll: true }); } catch { /* ignore */ } }
+}
 // 主视图状态机:切 data-main-view + tab 激活态 + localStorage 记忆;进画布启轮询并即时重绘,离开按需停轮询。
 function switchMainView(v) {
   v = (v === 'canvas') ? 'canvas' : 'chat';
@@ -3142,7 +3174,7 @@ function switchMainView(v) {
   try { localStorage.setItem('wcw.mainView', v); } catch { /* ignore */ }
   if (v === 'canvas') {
     if (!wbState.selectedRunId) wbState.selectedRunId = wbPickDefaultRun(wbState.lastRuns);
-    renderWorkbench(wbState.lastRuns);
+    renderWorkbench(wbState.lastRuns, true);   // 显式切视图强制重绘(签名跳过仅作用于轮询路径)
   }
   syncAgentRunsPolling(); // 复用 agent-runs 轮询:画布态需要它,离开则按监控页签是否激活决定停/留
 }
@@ -3158,18 +3190,29 @@ function wbUpdateActivityDot(runs) {
 // 画布数据入口(loadAgentRuns 每轮调用):缓存 runs、刷新亮点标,画布态则重绘。
 function wbOnRuns(runs) {
   wbState.lastRuns = Array.isArray(runs) ? runs : [];
+  // 对抗轮 P3: posCache 只增不减——按当前 runs 清理已消失的 run,删除记录/切会话后不再缓慢累积。
+  for (const k of Object.keys(wbState.posCache)) if (!wbState.lastRuns.some(r => r.id === k)) delete wbState.posCache[k];
   wbUpdateActivityDot(wbState.lastRuns);
   if (wbState.view === 'canvas') renderWorkbench(wbState.lastRuns);
 }
 // 渲染分派:校正选中 run → runbar + 画布 + 右板 + 用量条;无 run → 空态。
-function renderWorkbench(runs) {
+function renderWorkbench(runs, force) {
   const arr = Array.isArray(runs) ? runs : [];
   let run = arr.find(r => r.id === wbState.selectedRunId);
-  if (!run) { wbState.selectedRunId = wbPickDefaultRun(arr); run = arr.find(r => r.id === wbState.selectedRunId); }
+  if (!run) {
+    wbState.selectedRunId = wbPickDefaultRun(arr); run = arr.find(r => r.id === wbState.selectedRunId);
+    // 对抗轮 P3: 自动重挑 run 后清空选中节点/展开态——不同 run 的同名节点(plan/exec/review 模板族)会被误携带。
+    wbState.selectedNodeId = null; wbState.detailExpand = { task: false, result: false };
+  }
+  // 选中节点若已不在当前 run(切 run/节点被移除)则清空,避免右板串到别的 run 的节点。
+  if (run && wbState.selectedNodeId && !(Array.isArray(run.nodes) ? run.nodes : []).some(n => n.id === wbState.selectedNodeId)) wbState.selectedNodeId = null;
+  // 对抗轮 P2(系统性根因): 数据+选中态签名未变 → 整轮跳过重建。2s 轮询的静止期(等审批/暂停/已结束)不再冲刷
+  // 焦点/滚动/文本选区/悬停高亮;live 期数据帧帧在变仍会重建,由各处保留逻辑兜底。
+  const sig = `${wbState.selectedRunId}|${wbState.selectedNodeId}|${JSON.stringify(arr)}`;
+  if (!force && sig === wbState.renderSig) return;
+  wbState.renderSig = sig;
   renderWorkbenchRunbar(arr, wbState.selectedRunId);
   if (!run) { renderWorkbenchEmpty(); return; }
-  // 选中节点若已不在当前 run(切 run/节点被移除)则清空,避免右板串到别的 run 的节点。
-  if (wbState.selectedNodeId && !(Array.isArray(run.nodes) ? run.nodes : []).some(n => n.id === wbState.selectedNodeId)) wbState.selectedNodeId = null;
   renderWorkbenchCanvas(run);
   renderWorkbenchSide(run);
   renderWorkbenchUsage(run);
@@ -3216,6 +3259,7 @@ function wbEdgeColor(kind) {
 //    轮询重绘保留滚动位置(避免 2s 一跳)+ 右下缩放胶囊(0.75/1/1.25 挡 + 适应视图)+ 泳道层淡标签(§5.4)。
 function renderWorkbenchCanvas(run) {
   const wrap = $('wbCanvasWrap'); if (!wrap) return;
+  const fk = wbCaptureFocus(wrap.parentElement || wrap);   // 对抗轮 P2: 节点卡/缩放钮键盘焦点跨重建保留
   const nodes = Array.isArray(run.nodes) ? run.nodes : [];
   const pos = wbLayoutFor(run);
   let maxRight = 0, maxBottom = 0;
@@ -3236,6 +3280,10 @@ function renderWorkbenchCanvas(run) {
   // 缩放胶囊挂到非滚动的 .wb-main(而非滚动的画布容器)→ 滚动画布时胶囊固定在右下不跟着跑。单实例:先移除旧的。
   const main = wrap.parentElement;
   if (main) { const old = main.querySelector(':scope > .wb-cvtools'); if (old) old.remove(); main.appendChild(wbBuildZoomCapsule()); }
+  wbRestoreFocus(wrap.parentElement || wrap, fk);
+  // 对抗轮 P3: 悬停依赖链高亮跨重建重放——鼠标未动不会重触 mouseenter,原先高亮 ≤2s 无声熄灭。
+  const hov = wrap.querySelector('.wb-node:hover');
+  if (hov && hov.dataset.nodeId) wbHighlightChain(hov.dataset.nodeId, true);
 }
 // 泳道层淡标签(§5.4):每层一个「第 N 层」淡 pill，落在该层行上缘的空隙带(gap/pad 区)，左对齐 —— 节点行居中
 // 排布、左侧留白，标签置于行**上方**空隙 → 垂直方向与节点不同带，避开重叠;随内容一起缩放(在 .wb-canvas-inner 内)。
@@ -3256,12 +3304,12 @@ function wbBuildZoomCapsule() {
   const z = wbState.zoom || 1;
   const cap = el('div', 'wb-cvtools'); cap.setAttribute('role', 'group'); cap.setAttribute('aria-label', '画布缩放');
   const idx = WB_ZOOM_GEARS.indexOf(z);
-  const minus = el('button', 'wb-cv-btn', '−'); minus.title = '缩小'; minus.setAttribute('aria-label', '缩小');
+  const minus = el('button', 'wb-cv-btn', '−'); minus.title = '缩小'; minus.setAttribute('aria-label', '缩小'); minus.dataset.fk = 'zoom:minus';
   minus.disabled = idx <= 0; minus.onclick = () => wbSetZoom(WB_ZOOM_GEARS[Math.max(0, (idx < 0 ? 1 : idx) - 1)]);
   const read = el('span', 'wb-cv-zoom num', `${Math.round(z * 100)}%`);
-  const plus = el('button', 'wb-cv-btn', '＋'); plus.title = '放大'; plus.setAttribute('aria-label', '放大');
+  const plus = el('button', 'wb-cv-btn', '＋'); plus.title = '放大'; plus.setAttribute('aria-label', '放大'); plus.dataset.fk = 'zoom:plus';
   plus.disabled = idx >= WB_ZOOM_GEARS.length - 1; plus.onclick = () => wbSetZoom(WB_ZOOM_GEARS[Math.min(WB_ZOOM_GEARS.length - 1, (idx < 0 ? 1 : idx) + 1)]);
-  const fit = el('button', 'wb-cv-btn wb-cv-fit', '⤢'); fit.title = '适应视图'; fit.setAttribute('aria-label', '适应视图');
+  const fit = el('button', 'wb-cv-btn wb-cv-fit', '⤢'); fit.title = '适应视图'; fit.setAttribute('aria-label', '适应视图'); fit.dataset.fk = 'zoom:fit';
   fit.onclick = () => wbFitView();
   cap.append(minus, read, plus, fit);
   return cap;
@@ -3322,7 +3370,7 @@ function wbBuildEdges(run, nodes, pos, W, H) {
 function wbBuildNode(run, node, p) {
   const disp = nodeDisplayStatus(node);
   const card = el('div', `wb-node wb-st-${disp}${node.id === wbState.selectedNodeId ? ' selected' : ''}`);
-  card.dataset.runId = run.id; card.dataset.nodeId = node.id;
+  card.dataset.runId = run.id; card.dataset.nodeId = node.id; card.dataset.fk = `n:${node.id}`;
   card.style.left = `${p.x}px`; card.style.top = `${p.y}px`;
   card.setAttribute('role', 'button'); card.tabIndex = 0;
   card.setAttribute('aria-label', `节点 ${node.id} · ${agentRunStatusLabel(disp)}(点击定位到监控卡)`);
@@ -3385,8 +3433,8 @@ function wbHighlightChain(nodeId, on) {
 // P3b 节点点击:画布内标选中 + 填充右板段1(选中节点详情),不再跳右栏 agent-runs(取代 P3a 的 switchTab)。
 // 窄屏(<1180)则同时把右板抽屉滑出;详情段滚入视野。
 function wbFocusRunNode(runId, nodeId) {
+  if (wbState.selectedNodeId !== nodeId) wbState.detailExpand = { task: false, result: false };   // 对抗轮 P3: 重复点同一节点不重置展开态
   wbState.selectedNodeId = nodeId;
-  wbState.detailExpand = { task: false, result: false };
   wbState.panelOpen.detail = true;
   document.querySelectorAll('#wbCanvasWrap .wb-node.selected').forEach(n => n.classList.remove('selected'));
   const card = document.querySelector(`#wbCanvasWrap .wb-node[data-node-id="${CSS.escape(nodeId)}"]`);
@@ -3438,6 +3486,8 @@ function renderWorkbenchEmpty() {
   const side = $('wbSide'); if (side) side.textContent = '';   // 右板清空 → .wb-main :has(:empty) 收单列，无空右条
   wbOpenSide(false);
   const wrap = $('wbCanvasWrap'); if (!wrap) return;
+  // 对抗轮 P3: 清残留缩放胶囊(挂在 .wb-main 上,空态下按钮无效还悬浮在引导卡上)。
+  const tools = wrap.parentElement && wrap.parentElement.querySelector(':scope > .wb-cvtools'); if (tools) tools.remove();
   wrap.textContent = '';
   const box = el('div', 'wb-empty');
   box.appendChild(el('div', 'wb-empty-cloud'));
@@ -3468,9 +3518,12 @@ function renderWorkbenchSide(run) {
   const keepSteer = ae && ae.id === 'wbSteerInput';
   const steerVal = keepSteer ? ae.value : null;
   const caret = keepSteer ? ae.selectionStart : null;
+  const fk = wbCaptureFocus(host);                                        // 对抗轮 P2: 审批/重试/关闭钮焦点跨重建保留
+  const prevScroll = host.scrollTop;                                      // 对抗轮 P2: 右板滚动跨重建保留(对照画布 prevSL/prevST)
+  const preScrolls = [...host.querySelectorAll('.wb-det-pre')].map(p => p.scrollTop);   // 任务全文/结果 <pre> 内部滚动
   host.textContent = '';
   // 窄屏抽屉的关闭按钮(≥1180 由 CSS 隐藏;抽屉态点它或点 backdrop 关闭)。
-  const close = el('button', 'wb-side-close', '收起 ✕'); close.setAttribute('aria-label', '收起上下文板抽屉'); close.onclick = () => wbOpenSide(false); host.appendChild(close);
+  const close = el('button', 'wb-side-close', '收起 ✕'); close.setAttribute('aria-label', '收起上下文板抽屉'); close.dataset.fk = 'side:close'; close.onclick = () => wbOpenSide(false); host.appendChild(close);
   const nodes = Array.isArray(run.nodes) ? run.nodes : [];
   const sel = wbState.selectedNodeId ? nodes.find(n => n.id === wbState.selectedNodeId) : null;
   const proposed = (Array.isArray(run.taskPool) ? run.taskPool : []).filter(p => p && p.status === 'proposed');
@@ -3478,7 +3531,15 @@ function renderWorkbenchSide(run) {
   host.appendChild(wbSection('detail', '选中节点详情', sel ? { text: sel.id } : null, wbNodeDetailBody(run, sel)));
   host.appendChild(wbSection('pool', '任务池审批', proposed.length ? { text: `待批准 ${proposed.length}`, warn: true } : ((run.taskPool || []).length ? { text: String((run.taskPool || []).length) } : null), wbPoolBody(run)));
   host.appendChild(wbSection('mail', '邮箱消息流', mails.length ? { text: String(mails.length) } : null, wbMailBody(run)));
-  if (keepSteer) { const inp = $('wbSteerInput'); if (inp) { inp.value = steerVal; inp.focus(); try { inp.setSelectionRange(caret, caret); } catch { /* ignore */ } } }
+  if (keepSteer) {
+    const inp = $('wbSteerInput');
+    if (inp && !inp.disabled) { inp.value = steerVal; inp.focus(); try { inp.setSelectionRange(caret, caret); } catch { /* ignore */ } }
+    // 对抗轮 P2: run finalize/节点终局的轮询边界会移除或禁用插话框——打了一半的文本不再静默蒸发,弹一次可见提示。
+    else if (steerVal && steerVal.trim()) toast(`插话已不可发送（节点/运行已结束），未发送内容：${steerVal.trim().slice(0, 80)}`, 'err');
+  }
+  else wbRestoreFocus(host, fk);
+  host.scrollTop = prevScroll;
+  [...host.querySelectorAll('.wb-det-pre')].forEach((p, i) => { if (preScrolls[i]) p.scrollTop = preScrolls[i]; });
 }
 // 折叠段外壳:头(caret + 标题 + 计数徽标)+ 体。头点击切 wbState.panelOpen[key] 并就地开合(不整板重绘,防抖动)。
 function wbSection(key, title, count, bodyNode) {
@@ -3556,8 +3617,8 @@ function wbNodeDetailBody(run, node) {
   // 操作区:非 live 显重试入口(retry_node);失败/判否有错误显查看错误。
   if (!run.live) {
     const acts = el('div', 'wb-det-actions');
-    const retry = el('button', 'wb-btn', '重试此节点'); retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
-    const cascade = el('button', 'wb-btn', '重试及下游'); cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
+    const retry = el('button', 'wb-btn', '重试此节点'); retry.dataset.fk = `retry:${node.id}`; retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
+    const cascade = el('button', 'wb-btn', '重试及下游'); cascade.dataset.fk = `cascade:${node.id}`; cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
     acts.append(retry, cascade);
     if ((disp === 'failed' || disp === 'rejected') && (node.error || (Array.isArray(node.schemaErrors) && node.schemaErrors.length))) {
       const view = el('button', 'wb-btn', '查看错误'); view.onclick = () => { const err = box.querySelector('.wb-det-error'); if (err) err.scrollIntoView({ block: 'nearest' }); };
@@ -3590,12 +3651,19 @@ function wbSteerBox(run, node) {
   const boxrow = el('div', 'wb-steer-box');
   const input = el('input', 'wb-steer-input'); input.id = 'wbSteerInput'; input.type = 'text';
   input.placeholder = elig.ok ? `给 ${node.id} 补一句指令…` : elig.msg;
-  const send = el('button', 'wb-btn primary', '发送');
+  const send = el('button', 'wb-btn primary', '发送'); send.dataset.fk = 'steer:send';
   if (!elig.ok) { input.disabled = true; send.disabled = true; input.title = elig.msg; }
   else {
-    const submit = () => { const t = (input.value || '').trim(); if (!t) return; input.value = ''; steerAgentNode(run.id, node.id, node.status, t); };
+    // 对抗轮 P2: 先清空防连击重复发送;失败(409/断网)回填并聚焦——聚焦令 keepSteer 在下一轮重建中保住文本。
+    const submit = async () => {
+      const t = (input.value || '').trim(); if (!t) return;
+      input.value = '';
+      const ok = await steerAgentNode(run.id, node.id, node.status, t);
+      if (ok === false) { const inp = $('wbSteerInput'); if (inp && !inp.disabled) { inp.value = t; inp.focus(); } else toast(`未发送的插话内容：${t.slice(0, 80)}`, 'err'); }
+    };
     send.onclick = submit;
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    // 对抗轮 P2: isComposing 守卫——中文输入法选字回车不再把半截拼音直接发出去(与主 composer 同款守卫)。
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); submit(); } });
   }
   boxrow.append(input, send); wrap.appendChild(boxrow);
   if (!elig.ok) wrap.appendChild(el('div', 'wb-steer-why', elig.msg));   // 禁用原因(与后端 409 文案一致)
@@ -3623,8 +3691,8 @@ function wbPoolBody(run) {
       card.appendChild(el('div', 'wb-pool-line muted num', `预计消耗：新增 1 个节点，至多约 ${item.maxIters || 100} 轮调用`));
       if (run.live) {
         const acts = el('div', 'wb-pool-actions');
-        const yes = el('button', 'wb-btn primary', '同意添加'); yes.setAttribute('aria-label', '同意添加此任务'); yes.onclick = () => poolDecide(run.id, item.id, true);
-        const no = el('button', 'wb-btn', '不用了'); no.setAttribute('aria-label', '拒绝此任务'); no.onclick = () => poolDecide(run.id, item.id, false);
+        const yes = el('button', 'wb-btn primary', '同意添加'); yes.setAttribute('aria-label', '同意添加此任务'); yes.dataset.fk = `pool:${item.id}:y`; yes.onclick = () => poolDecide(run.id, item.id, true);
+        const no = el('button', 'wb-btn', '不用了'); no.setAttribute('aria-label', '拒绝此任务'); no.dataset.fk = `pool:${item.id}:n`; no.onclick = () => poolDecide(run.id, item.id, false);
         acts.append(yes, no); card.appendChild(acts);
       }
       box.appendChild(card);

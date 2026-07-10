@@ -118,7 +118,7 @@ ok(/function renderWorkbenchEmpty\(/.test(src), 'G 空态渲染器 renderWorkben
 const empty = fnBody('renderWorkbenchEmpty');
 ok(has(empty, '本会话还没有 Agent 工作流', '去对话交办任务', '从模板运行'), 'G 空态引导卡(标题 + 两个引导按钮)');
 ok(has(empty, "'wb-empty-cloud'") && /\.wb-empty-cloud\s*\{[^}]*var\(--ruyi-cloud\)/.test(css), 'G 云纹水印(--ruyi-cloud mask)');
-ok(/function renderWorkbench\(runs\)/.test(src) && has(fnBody('renderWorkbench'), 'renderWorkbenchEmpty()'), 'G 无 run 分派到空态(renderWorkbench)');
+ok(/function renderWorkbench\(runs, force\)/.test(src) && has(fnBody('renderWorkbench'), 'renderWorkbenchEmpty()'), 'G 无 run 分派到空态(renderWorkbench;对抗轮P2:新增签名跳过的 force 参数)');
 
 // ═══════════ H. 轮询复用 + XSS 纪律 + 零硬编码色/零裸 px 字号 ═══════════
 // 复用现有 agent-runs 2s 轮询,不新增请求(loadAgentRuns 内联喂画布)。

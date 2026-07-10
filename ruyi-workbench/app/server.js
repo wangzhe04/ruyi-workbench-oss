@@ -4941,7 +4941,11 @@ async function repairNodeJsonViaProvider(provider, config, session, node, schema
   try {
     const sys = '你是 JSON 修复器，只输出修正后的单个 JSON 对象，无任何其它文字（不要 Markdown、不要标题、不要代码围栏、不要解释）。字符串值内部的双引号必须转义为 \\"，去掉尾逗号，补齐缺失的括号与引号。';
     const schemaHint = schema ? ('\n\n目标 JSON Schema（要点）：\n' + JSON.stringify(schema).slice(0, 1500)) : '';
-    const user = '下面的文本本应是一个 JSON 对象，但解析失败了。请只输出修正后的 JSON 对象。\n\n解析错误：' + String(parseError || '').slice(0, 300) + schemaHint + '\n\n原始输出：\n' + String(rawOutput || '').slice(0, 12000);
+    // 对抗轮 P2: 裁判类输出是"长分析在前、JSON 收尾"(候选提取从后往前的同一设计前提),截取必须保尾——
+    // 原 slice(0,12000) 在超长输出下发给修复模型的是不含真实 JSON 的分析文字,诱导其凭空编造 verdict。
+    const rawStr = String(rawOutput || '');
+    const rawSlice = rawStr.length <= 12000 ? rawStr : (rawStr.slice(0, 2000) + '\n…(中段省略)…\n' + rawStr.slice(-10000));
+    const user = '下面的文本本应是一个 JSON 对象，但解析失败了。请只输出修正后的 JSON 对象。\n\n解析错误：' + String(parseError || '').slice(0, 300) + schemaHint + '\n\n原始输出：\n' + rawSlice;
     const sc = await providerRawCompletion(provider, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
     // v1.4-OSS 用量看板(补): 每次实际发出的修复补全记一行 aux(note:'json-repair')。usage 缺失直接跳过不估算。
     // 防御式 —— 记账绝不可影响修复流程。
@@ -5240,7 +5244,7 @@ async function writeMemoryMeta(dir, cwd) {
     let createdAt = nowIso();
     try { const prev = safeJsonParse(await fsp.readFile(metaPath, 'utf8'), null); if (prev && prev.createdAt) createdAt = prev.createdAt; } catch { /* 无旧 meta */ }
     const meta = { path: abs, label: path.basename(abs) || abs, createdAt };
-    const tmp = metaPath + '.tmp';
+    const tmp = metaPath + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';   // 对抗轮 P3: 随机 tmp 名
     await fsp.writeFile(tmp, JSON.stringify(meta, null, 2));
     await fsp.rename(tmp, metaPath);
   } catch { /* meta 失败不阻断写入 */ }
@@ -5258,7 +5262,9 @@ async function readMemoryDir(dir, scope) {
     if (!SKILL_ID_RE.test(id)) continue;
     const file = path.join(dir, f);
     let raw = '';
-    try { const st = await fsp.stat(file); if (!st.isFile() || st.size > 256 * 1024) continue; raw = await fsp.readFile(file, 'utf8'); } catch { continue; }
+    // 对抗轮 P2: 读上限 260KB 与写侧字节复核一致(正文 256KB + frontmatter 余量)——两侧同量纲(UTF-8 字节),
+    // 杜绝"保存成功却超读上限从列表消失"的幽灵(原写侧按 UTF-16 字符数,中文正文每字 3 字节必踩)。
+    try { const st = await fsp.stat(file); if (!st.isFile() || st.size > 260 * 1024) continue; raw = await fsp.readFile(file, 'utf8'); } catch { continue; }
     const fm = parseFrontmatter(raw);
     const type = MEMORY_TYPES.has(fm.type) ? fm.type : 'reference';
     out.set(id, {
@@ -5339,7 +5345,10 @@ async function saveMemory(mem, cwd) {
   if (m.sourceRunId) fmLines.push('sourceRunId: ' + fmVal(String(m.sourceRunId)).slice(0, 120));
   fmLines.push('---', '', bodyText, '');
   const content = fmLines.join('\n');
-  const tmp = dest + '.tmp';
+  // 对抗轮 P2: 上限须与 readMemoryDir 的读上限(st.size,UTF-8 字节)同量纲——上面的 bodyText.length 是 UTF-16 字符数,
+  // 中文正文每字落盘 3 字节,9 万字中文会"保存成功却超读上限从列表消失"。按最终落盘内容字节数复核(含 frontmatter)。
+  if (Buffer.byteLength(content, 'utf8') > 260 * 1024) return { ok: false, error: '记忆正文超过 256KB 上限(按 UTF-8 字节计,中文约 8 万字)' };   // 260KB=正文上限+frontmatter 余量,与读侧一致
+  const tmp = dest + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';   // 对抗轮 P3: 随机 tmp 名,防同 id 并发保存互踩
   await fsp.writeFile(tmp, content, 'utf8');
   await fsp.rename(tmp, dest);
   return { ok: true, memory: { id, scope, name, description, type, file: dest, createdAt } };
@@ -5372,7 +5381,7 @@ async function migrateMemory(id, fromKey, targetCwd) {
   try { await fsp.access(dest); return { ok: false, conflict: true, error: '目标项目组已存在同名记忆(' + safe + '),请先重命名或删除' }; } catch { /* dest 不存在 → 可迁移 */ }
   try { await fsp.mkdir(destDir, { recursive: true }); } catch { /* 已存在 */ }
   await writeMemoryMeta(destDir, targetCwd);
-  const tmp = dest + '.tmp';
+  const tmp = dest + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';   // 对抗轮 P3: 随机 tmp 名(同 saveMemory)
   await fsp.writeFile(tmp, content, 'utf8');
   await fsp.rename(tmp, dest);
   await fsp.unlink(srcFile).catch(() => {});
@@ -6662,6 +6671,14 @@ async function markInterruptedAgentRuns() {
     const runs = await listAgentRuns(dirent.name);
     for (const run of runs) {
       // 团队模式 v2: waiting_pool(收尾宽限窗)也是活跃 live 态,进程重启后同样是"未清理的孤儿",一并标中断。
+      // 对抗轮 P3: paused run 不标中断(resume 仍可续跑),但内存邮箱同样已随进程消失——未投递消息补标 dropped,
+      // 否则 UI 邮箱时间线里这些消息永远显示"待投递"(与 P3-1 诚实标记原则对齐)。
+      if (run.status === 'paused') {
+        let dirty = false;
+        for (const m of (Array.isArray(run.messages) ? run.messages : [])) if (m && !m.deliveredAt && !m.dropped) { m.dropped = true; dirty = true; }
+        if (dirty) await saveAgentRun(run);
+        continue;
+      }
       if (run.status !== 'running' && run.status !== 'waiting_pool') continue;
       run.status = 'interrupted'; run.interruptedAt = nowIso(); run.poolGraceUntil = 0;
       for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = 'auto'; p.decidedAt = nowIso(); }
@@ -7087,27 +7104,37 @@ function sanitizeAgentOutputSchema(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   try { const s = JSON.stringify(raw); return s.length <= 20000 ? JSON.parse(s) : null; } catch { return null; }
 }
-// v1.5 (Judge JSON 修复 · 核心): 从模型输出里按优先级枚举"最可能是那段 JSON"的候选切片。裁判/审查节点习惯把
-// markdown 分析写在前、把 JSON 收在结尾的 ```json 围栏里，故候选顺序为：① 所有代码围栏块，从最后一个到第一个
-// (裁判把结论放最后)；② 首个 {/[ 到末个 }/] 的外层切片；③ 从最后 3 个行首 { 起的平衡括号扫描块。调用方逐候选
-// 先原文 JSON.parse、失败再 repairJson 后 parse，首个成功即返回(见 parseStructuredAgentOutput)。
+// v1.6.1 (对抗轮 P1 重设计): 从模型输出里枚举"最可能是那段 JSON"的候选切片,统一按"在原文中结束得越晚越优先"
+// 排序(裁判把最终结论放最后;围栏内的过期草稿不得压过其后的修订)。候选源:① 代码围栏块;② 首个 {/[ 到末个 }/]
+// 的外层切片;③ 平衡括号扫描(行首首个+末3个,外加全文末3个 {/[ 以支持行内 JSON)。③ 有两道 P1 护栏:包含过滤
+// (被更外层候选完全包含的是子对象,提为整体会翻转裁决,如把 findings[0] 的 pass 当整体 verdict)与截断护栏(最外
+// 层行首起点未配平 = 输出被截断,内层子块全部放弃,交上层判失败/provider 修复层处理——它能看到全文)。调用方逐候选
+// 先原文 JSON.parse、失败再 repairJson 后 parse,首个成功即返回(见 parseStructuredAgentOutput)。
 function structuredJsonCandidates(s) {
-  const out = [];
-  const push = v => { const t = String(v || '').trim(); if (t) out.push(t); };
-  const blocks = []; const re = /```(?:json)?\s*([\s\S]*?)```/gi; let m;
-  while ((m = re.exec(s)) !== null) { const b = (m[1] || '').trim(); if (b) blocks.push(b); }
-  for (let i = blocks.length - 1; i >= 0; i--) push(blocks[i]);           // ① 围栏块 末→首
+  const cands = []; const seen = new Set();                                // {text,end}: end=候选在原文中的结束偏移(排序用)
+  const push = (v, end) => { const t = String(v || '').trim(); if (t && !seen.has(t)) { seen.add(t); cands.push({ text: t, end }); } };
+  const re = /```(?:json)?\s*([\s\S]*?)```/gi; let m;                      // ① 围栏块(字符串值内含 ``` 时会被截碎,仅作候选之一)
+  while ((m = re.exec(s)) !== null) { const b = (m[1] || '').trim(); if (b) push(b, m.index + m[0].length); }
   const opens = [s.indexOf('{'), s.indexOf('[')].filter(i => i >= 0);      // ② 外层 {…} / […] 切片
   const start = opens.length ? Math.min(...opens) : -1;
   const end = Math.max(s.lastIndexOf('}'), s.lastIndexOf(']'));
-  if (start >= 0 && end > start) push(s.slice(start, end + 1));
-  const lineStarts = [];                                                   // ③ 行首 { 的平衡扫描(限最后 3 个)
+  if (start >= 0 && end > start) push(s.slice(start, end + 1), end + 1);
+  const lineStarts = [];                                                   // ③ 平衡扫描起点:行首(首个+末3) ∪ 全文末3个 {/[
   { let idx = 0; for (const line of s.split('\n')) { const trimmed = line.replace(/^\s+/, ''); if (trimmed[0] === '{' || trimmed[0] === '[') lineStarts.push(idx + (line.length - trimmed.length)); idx += line.length + 1; } }
-  for (const p of lineStarts.slice(-3)) push(balancedJsonSpan(s, p));
-  return out;
+  const tailOpens = []; for (let i = s.length - 1; i >= 0 && tailOpens.length < 3; i--) { if (s[i] === '{' || s[i] === '[') tailOpens.push(i); }
+  const scanStarts = [...new Set([lineStarts[0], ...lineStarts.slice(-3), ...tailOpens])].filter(p => p != null).sort((a, b) => a - b);
+  const spans = []; for (const p of scanStarts) { const t = balancedJsonSpan(s, p); if (t) spans.push({ p, t }); }
+  const truncatedOuter = lineStarts.length > 0 && !spans.some(a => a.p === lineStarts[0]);   // 最外层行首未配平 → 输出被截断
+  for (const a of spans) {
+    if (truncatedOuter && a.p > lineStarts[0]) continue;                   // 截断护栏(P1):内层子块绝不提为整体结果
+    const contained = spans.some(b => b !== a && b.p <= a.p && b.p + b.t.length >= a.p + a.t.length && b.t.length > a.t.length);
+    if (!contained) push(a.t, a.p + a.t.length);                           // 包含过滤(P1):子对象不作候选
+  }
+  cands.sort((x, y) => y.end - x.end);                                     // 末位优先(P2:最终修订 > 围栏内过期草稿)
+  return cands.map(c => c.text);
 }
-// String-aware 平衡括号扫描：从 start 处的 {/[ 向后配平，返回平衡切片；未配平(截断)时返回自 start 起的尾串
-// (交给 repairJson/上层兜底判定失败)。仅用于定位切片，故对未转义内引号不敏感无妨。
+// String-aware 平衡括号扫描：从 start 处的 {/[ 向后配平，返回平衡切片；未配平(截断)时返回 null——对抗轮 P1:
+// 原先返回尾串毫无用处(repairJson 不会补括号),且掩盖了"输出被截断"这一信号,上游需要它来触发截断护栏。
 function balancedJsonSpan(s, start) {
   let depth = 0, inStr = false, esc = false;
   for (let i = start; i < s.length; i++) {
@@ -7117,31 +7144,33 @@ function balancedJsonSpan(s, start) {
     else if (c === '{' || c === '[') depth++;
     else if (c === '}' || c === ']') { depth--; if (depth === 0) return s.slice(start, i + 1); }
   }
-  return s.slice(start);
+  return null;
 }
 // v1.5 (Judge JSON 修复 · 核心): 零依赖状态机，把 LLM 常见的"几乎合法"JSON 修回可解析。仅在 JSON.parse 原文失败后
 // 调用(见 parseStructuredAgentOutput：合法 JSON 永远先命中原文 parse 分支，绝不进本函数，故对合法输入零误伤)。
-// 四类修复：(a) 智能引号 “ ” → " 、‘ ’ → '(模型把中文弯引号当分隔符时)；(b) } ] 前的尾逗号剔除(仅结构位置的
+// 四类修复：(a) 智能引号仅在结构位置(分隔符)转为 " ——字符串内容里的弯引号原样保留(对抗轮 P2:原全局替换会静默
+// 改写 summary/引文内容,导致 dedupeKey 漂移);单弯引号 ‘ ’ 不再处理(' 本就不是 JSON 分隔符,替换只可能改内容)；(b) } ] 前的尾逗号剔除(仅结构位置的
 // 逗号，字符串内的逗号不动)；(c) 未转义的字符串内双引号 → \"（前瞻：字符串内的一个 " 之后跳过空白若不是 , : } ]
 // 或输入结束，则它是内容而非收尾，转义并保持在字符串内——精确修复 未到"fail"级别 这类故障）；(d) 字符串内的裸
 // 控制符(换行/回车/制表) → 转义。幂等(修复后的合法 JSON 再进本函数原样返回)；防御(任何异常返回原串)。
 function repairJson(input) {
   const original = String(input == null ? '' : input);
   try {
-    const s = original.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+    const s = original;   // 对抗轮 P2: 不做全局弯引号替换;智能引号在下方状态机内按结构位置处理
     const ws = c => c === ' ' || c === '\t' || c === '\n' || c === '\r';
     const out = [];
-    let inStr = false, esc = false;
+    let inStr = false, esc = false, smartOpen = false;
     for (let i = 0; i < s.length; i++) {
       const c = s[i];
       if (inStr) {
         if (esc) { out.push(c); esc = false; continue; }
         if (c === '\\') { out.push(c); esc = true; continue; }
-        if (c === '"') {
+        if (c === '"' || (smartOpen && (c === '“' || c === '”'))) {
           let j = i + 1; while (j < s.length && ws(s[j])) j++;
           const next = j < s.length ? s[j] : '';
-          if (next === '' || next === ',' || next === ':' || next === '}' || next === ']') { out.push('"'); inStr = false; }
-          else { out.push('\\', '"'); } // 内容引号：转义并保持 inStr
+          if (next === '' || next === ',' || next === ':' || next === '}' || next === ']') { out.push('"'); inStr = false; smartOpen = false; }
+          else if (c === '"') { out.push('\\', '"'); } // 内容引号：转义并保持 inStr
+          else { out.push(c); }                        // 内容位置的弯引号：原样保留(不改写字符串内容)
           continue;
         }
         if (c === '\n') { out.push('\\', 'n'); continue; }
@@ -7149,7 +7178,7 @@ function repairJson(input) {
         if (c === '\t') { out.push('\\', 't'); continue; }
         out.push(c); continue;
       }
-      if (c === '"') { out.push('"'); inStr = true; continue; }
+      if (c === '"' || c === '“' || c === '”') { out.push('"'); inStr = true; smartOpen = c !== '"'; continue; }
       if (c === ',') {
         let j = i + 1; while (j < s.length && ws(s[j])) j++;
         const next = j < s.length ? s[j] : '';
@@ -7208,7 +7237,10 @@ function validateAgentJsonSchema(value, schema, path0 = '$') {
   walk(value, schema, path0, 0); return { ok: errors.length === 0, errors: errors.slice(0, 50) };
 }
 function normalizeAgentGate(raw, roleId) {
-  if (raw === false) return null;
+  // 对抗轮 P2: 显式 false = 用户在编辑器选了"无质量门",必须持久化为 false(而非 null)——否则下次 normalize(加载/
+  // launch 再清洗)时 reviewer/verifier 的 autoMode 又会强制回填 review/verify 门,"无"选项形同虚设。服务端所有
+  // node.gate 消费点均为 truthy 判断,false 与无门等价;null/缺省仍走角色自动门(内置模板依赖此默认)。
+  if (raw === false) return false;
   const autoMode = roleId === 'reviewer' ? 'review' : (roleId === 'verifier' ? 'verify' : '');
   if (!raw && !autoMode) return null;
   const obj = raw === true || !raw ? {} : (typeof raw === 'object' ? raw : { mode: raw });
@@ -7347,6 +7379,9 @@ async function resolveOrchestrateNodes(args, cwd) {
 }
 async function saveAgentWorkflow(scope, cwd, raw) {
   const wf = normalizeAgentWorkflow(raw, { source: scope }); if (!wf) return null;
+  // 对抗轮裁定(维持分层设计): personal/project 是覆盖分层(project 覆 personal,删除覆盖版显露底层,契约见
+  // agent-workflow-templates e2e),同 id 跨 scope 并存是特性而非僵尸——跨 scope 互斥删除会毁掉服务于其他项目的
+  // 个人模板,属数据丢失,故明确不做。编辑器切换保存范围本质是"新增一层覆盖",不是移动。
   if (scope === 'project') {
     const dest = projectAgentWorkflowsFile(cwd); await fsp.mkdir(path.dirname(dest), { recursive: true }); const list = await readProjectAgentWorkflows(cwd); const next = list.filter(x => x.id !== wf.id); next.push(wf); await fsp.writeFile(dest + '.tmp', JSON.stringify({ schemaVersion: 1, workflows: next }, null, 2), 'utf8'); await fsp.rename(dest + '.tmp', dest);
   } else { await fsp.mkdir(paths.agentWorkflows, { recursive: true }); const dest = path.join(paths.agentWorkflows, wf.id + '.json'); await fsp.writeFile(dest + '.tmp', JSON.stringify(wf, null, 2), 'utf8'); await fsp.rename(dest + '.tmp', dest); }
@@ -7619,9 +7654,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     else parentCtrl.signal.addEventListener('abort', () => localCtrl.abort(), { once: true });
   }
   // 团队模式 v2: mailQueues 与 steerQueues 分池(用户插话优先);closing/poolGrace* 是收尾竞态防线三件套的状态位。
-  const runtime = { run, ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [], steerQueues: new Map(), mailQueues: new Map(), closing: false, poolGraceUntil: 0, poolGraceUsed: false, poolGraceArmed: true, inPoolGrace: false };
+  const runtime = { run, ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [], steerQueues: new Map(), mailQueues: new Map(), closing: false, poolGraceUntil: 0, poolGraceArmed: true, inPoolGrace: false };
   activeAgentRuns.set(runId, runtime);
-  await saveAgentRun(run);
+  // 对抗轮 P2: 这次首落盘在下方 try/finally 保护区之外,失败必须同步撤掉 Map 注册再抛——否则 runId 永久悬挂为
+  // "live 僵尸"(列表恒 live、删除恒 409、resume 恒"已在运行"),直到进程重启。
+  try { await saveAgentRun(run); } catch (e) { activeAgentRuns.delete(runId); throw e; }
   onEvent({ type: 'agent_workflow', state: 'start', id: runId, nodeCount: nodes.length, concurrency: run.concurrency });
   let startedCount = 0;
   const terminal = node => node.status === 'succeeded' || node.status === 'failed' || node.status === 'cancelled' || node.status === 'blocked' || node.status === 'skipped' || node.status === 'rejected';
@@ -7682,8 +7719,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const item = {
         id: makeId('pool').replace('_', '-'), proposedBy: proposerId, task,
         roleId: String(args && args.roleId || '').trim().toLowerCase().slice(0, 64),
-        dependsOn: [...new Set((Array.isArray(args && args.dependsOn) ? args.dependsOn : []).map(x => String(x || '').trim()).filter(Boolean))].slice(0, 16),
-        resources: (Array.isArray(args && args.resources) ? args.resources : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 32),
+        dependsOn: [...new Set((Array.isArray(args && args.dependsOn) ? args.dependsOn : []).map(x => String(x || '').trim().slice(0, 256)).filter(Boolean))].slice(0, 16),
+        resources: (Array.isArray(args && args.resources) ? args.resources : []).map(x => String(x || '').trim().slice(0, 256)).filter(Boolean).slice(0, 32),
         toolTier: ['read', 'edit', 'exec'].includes(args && args.toolTier) ? args.toolTier : '',
         reason: String(args && args.reason || '').trim().slice(0, 1000),
         status: 'proposed', decidedBy: '', decidedAt: '', resultNodeId: '', createdAt: nowIso(),
@@ -7696,7 +7733,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         if (autoUsed < cap) {
           const mat = materializePoolItem(run, item, { roleLibrary, cwd: wfCwd, config });
           if (mat.ok) { item.status = 'materialized'; item.decidedBy = 'auto'; item.decidedAt = nowIso(); item.resultNodeId = mat.node.id; try { runtime.poolGraceArmed = true; } catch {} }
-          else { item.materializeError = mat.error; }
+          else { item.materializeError = String(mat.error || '').slice(0, 2000); }
         }
       }
       try { throttledSaveRun(); } catch { /* 记账失败不阻断提案 */ }
@@ -7758,7 +7795,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         // true(见 proposeTaskImpl auto 分支与 pool_approve)。故仅当上次宽限后确有新节点物化,才允许再进一个窗;
         // 无物化的空窗到期即收尾,armed 保持 false 不再进窗——续窗次数 ≤ 物化次数 ≤ POOL_MAX_TOTAL,不会无限续。
         if (poolPolicy !== 'off' && hasProposed && runtime.poolGraceArmed) {
-          runtime.poolGraceUsed = true; runtime.poolGraceArmed = false; runtime.inPoolGrace = true;
+          runtime.poolGraceArmed = false; runtime.inPoolGrace = true;   // (对抗轮: poolGraceUsed 死状态位已移除)
           runtime.poolGraceUntil = Date.now() + POOL_GRACE_MS; run.poolGraceUntil = runtime.poolGraceUntil;
           run.status = 'waiting_pool'; await saveAgentRun(run).catch(() => {});
           onEvent({ type: 'agent_workflow', state: 'pool_waiting', id: runId, graceMs: POOL_GRACE_MS, pending: run.taskPool.filter(p => p && p.status === 'proposed').length });
@@ -12264,14 +12301,14 @@ async function handleApi(req, res, pathname) {
     return send(res, json(item, item.ok ? 200 : 404));
   }
   // POST /api/memory/draft {sessionId} —— provider 起草(镜像 playbook/draft)。必须在通配 /api/memory/<id> 之前。
-  if (req.method === 'POST' && pathname === '/api/memory/draft') {
+  if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/draft') {   // 对抗轮 P3: 放行删除约定穿透
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     return send(res, json(await draftMemoryFromSession(sessionId)));
   }
   // POST /api/memory/migrate {id, fromKey, cwd} —— 迁移一条项目记忆到当前 cwd 的项目组。
-  if (req.method === 'POST' && pathname === '/api/memory/migrate') {
+  if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/migrate') {   // 对抗轮 P3: 放行删除约定穿透
     const body = await readJsonBody(req);
     const config = await readConfig();
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
@@ -12297,6 +12334,7 @@ async function handleApi(req, res, pathname) {
     const config = await readConfig();
     const scope = body && body.scope === 'global' ? 'global' : 'project';
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
+    if (scope === 'project' && !pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));   // 对抗轮 P3: 与保存分支同款 root 校验
     const r = await deleteMemory(id, scope, cwd);
     return send(res, json(r, r.ok ? 200 : 404));
   }
@@ -12442,6 +12480,7 @@ async function handleApi(req, res, pathname) {
     if (body.async === true) {
       const runId = makeId('run');
       void runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy }).catch(async e => {
+        activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
         const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
         await saveAgentRun(run).catch(() => {});
         await completion(run).catch(() => {});
@@ -12561,6 +12600,10 @@ async function handleApi(req, res, pathname) {
         return send(res, json({ ok: true, status: 'rejected', poolId }));
       }
       // approve → 物化(normalizeAgentWorkflow 同款单节点清洗,见 materializePoolItem)。角色库按会话 cwd 构建以校验 roleId。
+      // 对抗轮 P3: 停止收尾窗(stopRequested/aborted 已置、closing 尚未置位)内拒绝审批——否则返回"已加入工作流",
+      // 节点却在批次落地后立刻被 cancel,语义不诚实。与 steer_node 的停止窗 409 对齐;入口与复检各一道。
+      const stoppingNow = () => live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted);
+      if (stoppingNow()) return send(res, json({ ok: false, error: '工作流正在停止,无法再加入新任务' }, 409));
       let cwd = '', roleLib = new Map(), cfgRef = null;
       try { cfgRef = await readConfig(); const sess = await loadSession(sessionId); cwd = normalizeCwd(sess && sess.cwd, cfgRef.defaultWorkspace); roleLib = new Map((await getAgentRoleLibrary(cwd, cfgRef)).map(r => [r.id, r])); } catch { /* 角色库不可用则以空库物化(无角色节点仍可执行) */ }
       // 团队模式 v2 (P1 TOCTOU): 上面连续 await(readConfig/loadSession/getAgentRoleLibrary)后、物化前同步复检——
@@ -12569,7 +12612,7 @@ async function handleApi(req, res, pathname) {
       //  (b) 并发的 pool_reject(其检查到落地无 await)已把本 item 置 rejected,恢复后照物化 = 执行已被拒的任务。
       // 复检 activeAgentRuns.get(runId)/closing/item.status;此复检 → materializePoolItem → 置 materialized 全程无
       // await,与调度循环收尾段(runtime.closing=true 起同步执行到首个 await)互斥,原子成立。
-      if (activeAgentRuns.get(runId) !== live || live.closing) return send(res, json({ ok: false, error: '运行已结束;可在新运行中执行该任务' }, 409));
+      if (activeAgentRuns.get(runId) !== live || live.closing || stoppingNow()) return send(res, json({ ok: false, error: '运行已结束或正在停止;可在新运行中执行该任务' }, 409));
       if (!item || item.status !== 'proposed') return send(res, json({ ok: false, error: `该提案已处理(${item && item.status || 'unknown'})` }, 409));
       const mat = materializePoolItem(live.run, item, { roleLibrary: roleLib, cwd, config: cfgRef });
       if (!mat.ok) return send(res, json({ ok: false, error: mat.error || '物化失败' }, 409));

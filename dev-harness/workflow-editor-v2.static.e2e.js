@@ -18,7 +18,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 ok(/function engineModelOptions\(eng\)/.test(src), 'A1 engineModelOptions 按引擎产出模型列表');
 ok(/eng==='openai'[\s\S]{0,120}activeProviderObj\(\)/.test(src), 'A1 openai 引擎取当前激活 provider 的 models');
 ok(/state\.config\.knownModels/.test(src) && /state\.config\.extraModels/.test(src), 'A1 claude 引擎取 config.knownModels + extraModels');
-ok(/function rebuildModelOptions\(\)/.test(src), 'A1 rebuildModelOptions 跟随引擎联动重建选项');
+ok(/function rebuildModelOptions\(resetForeign\)/.test(src), 'A1 rebuildModelOptions 跟随引擎联动重建选项(对抗轮P3:换引擎重置外来模型)');
 ok(/继承（角色\/全局默认）/.test(src), 'A1 模型下拉首项「继承（角色/全局默认）」(value=空)');
 ok(/cus\.value='__custom'[\s\S]{0,40}'自定义…'/.test(src), 'A1 模型下拉尾项「自定义…」切出文本输入');
 ok(/model\.disabled=true/.test(src) && /引擎为自动时不单独指定模型/.test(src), 'A1 engine=自动 时模型下拉禁用 + 跟随默认提示');
@@ -28,7 +28,7 @@ ok(/node\.model\s*=\s*engine\.value\s*\?\s*modelVal\s*:\s*''/.test(src), 'A1 保
 
 // ───────────── A2 补三字段：质量门 / 迭代预算 / 工具权限 ─────────────
 ok(/\['cross_review','cross_review 交叉审查'\]/.test(src) && /\['dedupe','dedupe 去重'\]/.test(src), 'A2 质量门下拉含五种模式');
-ok(/node\.gate\s*=\s*gate\.value\s*\?\s*\{[\s\S]{0,80}mode:gate\.value\s*\}\s*:\s*null/.test(src), 'A2 保存回写 node.gate={...,mode}/删除');
+ok(/node\.gate\s*=\s*gate\.value\s*\?\s*\{[\s\S]{0,80}mode:gate\.value\s*\}\s*:\s*false/.test(src), 'A2 保存回写 node.gate={...,mode}/false 显式无门(对抗轮P2:null 会被服务端按角色回填)');
 ok(/迭代预算 maxIters/.test(src) && /maxIters\.type='number'/.test(src) && /maxIters\.max='100'/.test(src), 'A2 迭代预算 maxIters（number 1-100，空=默认）');
 ok(/if\(mi\)\s*node\.maxIters=Math\.max\(1,Math\.min\(100/.test(src) && /else delete node\.maxIters/.test(src), 'A2 maxIters 空=删除 / 有值 clamp 回写');
 ok(/工具权限 toolTier/.test(src) && /\['read','只读 read'\]/.test(src) && /\['exec','可执行 exec'\]/.test(src), 'A2 工具权限 toolTier 下拉（继承/read/edit/exec）');
@@ -82,7 +82,7 @@ ok(/undoStack\.length\s*>\s*20/.test(src), 'C3 快照栈 cap 20');
 ok(/undoStack\.length=0/.test(src), 'C3 外部 draft 替换（载入/新建/另存）时清空撤销栈（一致性）');
 ok(/e\.key==='Delete'/.test(src), 'C3 Delete 删除选中节点/边');
 ok(/e\.ctrlKey\|\|e\.metaKey[\s\S]{0,90}undo\(\)/.test(src), 'C3 Ctrl+Z 撤销');
-ok(/addEventListener\('dblclick'[\s\S]{0,120}data-wf-field="task"/.test(src), 'C3 双击节点卡聚焦检查器任务框');
+ok(/addEventListener\('dblclick'[\s\S]{0,220}data-wf-field="task"/.test(src), 'C3 双击节点卡聚焦检查器任务框(对抗轮P2:中间新增 flushInspector)');
 
 // ───────────── C4 保存并运行（入口归一） ─────────────
 ok(/run=el\('button','primary','保存并运行'\)/.test(src), 'C4 底部「保存并运行」primary 按钮');

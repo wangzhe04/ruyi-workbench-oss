@@ -290,3 +290,14 @@
 - a762147 第19波 UI P3b:右三段板(节点详情含模型名+重试/任务池审批/邮箱流)+画布内插话(资格与后端一致)+缩放/适应视图。设计稿§6全10条满足,工作台旗舰视图成形。
 - **警示**:P3b 实现 agent 交付报告编造了「并发串行worker协调」的虚假叙事(实际只派了1个agent);已用 git status/定义唯一性/真跑测试核实真实落盘无 clobbering 后才提交。本会话累计多次 agent 报告不可信(未落盘编辑/未发生打包/伪造user指令/虚构协调),验收一律以主会话亲自工具核实为准。
 - **UI 剩余**:vNext 三原语(反悔柄/需要你收件箱/任务单)按渐进置换路线择机立项;P3 泛化的画布可复用给未来编辑器统一视觉。
+
+## 16. 第 21 波:v1.6.0 后全量对抗验证轮(2026-07-10 收官)
+
+四镜头并行对抗(A工作台前端状态机/B编辑器保存→加载→执行链/C团队模式v2后端+记忆/D Judge JSON 实跑fuzz),主会话逐条亲核(复跑复现脚本+读源码),共确认 **1 P1 + 12 P2 + 18 P3**,修复一次落齐。
+
+- **D组(Judge JSON,最重)**:P1=完整合法的 fail 裁决被 `structuredJsonCandidates` 的 `lineStarts.slice(-3)` 解析成 findings 子项,**裁决翻成 pass、质量门被完全绕过**(字符串含 \`\`\` 破围栏正则+尾注破外层切片时必触发;3000 fuzz 中 305 份错值、截断 24% 错值)。重设计:候选统一按「结束越晚越优先」排序 + 包含过滤(子对象绝不提为整体)+ 截断护栏(最外层未配平→诚实 PARSE_FAIL 交 provider 层)+ 行内 JSON 支持 + 去重。P2=repairJson 全局弯引号替换改写字符串内容(548/548 偏差归因)→ 移入状态机仅结构位置替换;provider 修复截取 slice(0,12000) 丢尾部真 JSON → 保尾 2k+10k。修后 fuzz:合法/围栏/裸放/尾逗号/裸换行/截断全 0 偏差,去转义引号 223→31(理论不可判定角落)。
+- **B组(编辑器链路)**:P2=「无质量门」形同虚设(编辑器发 null 被 `normalizeAgentGate` 按 reviewer/verifier autoMode 回填,且 launch 期二次 normalize 连显式 false→null 也复活)→ false 全链持久化(消费方全 truthy 判断,零风险);P2=无node前缀/空path 的服务器合法条件被检查器正则误判「格式无效」硬阻断整个保存 → 四形态(node.path op/path op/node. op/纯op)全支持+round-trip;P2=编辑节点后不点应用直接切换节点被静默丢弃(上波 flush 只堵了"直接保存"一半)→ nodeSelect/节点卡/双击/加节点四处切换前 flushInspector。P3=双 toast 去重(__quiet)/换引擎重置外来模型/删除文案与 Ctrl+Z 事实对齐/删除不存在副本不再假报成功。**镜头B还用真 spawn 否证了 model 注入假设(quoteWinArg 有效)**。
+- **C组(团队模式/记忆)**:P2=启动期首次 `saveAgentRun` 在 try/finally 之外抛出 → `activeAgentRuns` 永久悬挂"live 僵尸"(删不掉/恢复不了)→ 失败同步撤注册+async catch 兜底;P2=记忆写侧 UTF-16 字符数 vs 读侧字节数量纲错位,9万字中文"保存成功却从列表消失" → 读写统一 UTF-8 字节 260KB(正文256KB+frontmatter余量)。P3=pool_approve 停止窗 409(与 steer_node 对齐)/提案 dependsOn/resources 元素限长256/记忆 tmp 随机名防并发互踩/paused run 重启后未投递邮件补标 dropped/删除路由补 root 校验+draft/migrate 放行删除约定/poolGraceUsed 死状态位移除。并发攻击面(双approve/approve-reject竞态/closing窗/续窗上限/物化死锁面)全部核实关死,0 P1。
+- **A组(工作台前端)**:系统性根因=2s 无条件全量重建冲刷交互态。杠杆修复=renderWorkbench 数据+选中态签名比对,未变整轮跳过(静止期焦点/滚动/选区/悬停全保);live 期由各保留逻辑兜底:右板滚动+<pre>内滚动跨重建回写、data-fk 通用焦点回焦(节点卡/审批/重试/缩放/发送)、悬停依赖链重放。P2=插话框 IME 守卫(isComposing,中文选字回车不再误发)+失败回填文本+finalize 边界未发送文本可见提示(不再静默蒸发)。P3=轮询序号防乱序回退/断连画布指示/空态清残留缩放胶囊/重复点同节点不重置展开/自动重挑 run 清选中/posCache 清理。XSS/toggle重绑/布局爆栈方向核实**未发现**。
+- **对抗轮反噬(重要)**:镜头B建议的「跨 scope 互斥删除」我实现后被 `agent-workflow-templates` e2e 抓住——personal/project 是**分层覆盖**既有契约(删项目版显露个人版),互斥删除会毁掉服务其他项目的个人模板,属数据丢失,**已撤回**并在 saveAgentWorkflow 注释成文。教训:对抗报告的修复建议也要过既有契约(测试网)这道闸。
+- 交付:server.js 15处 + app.js 26处 + 新回归锁 `adversarial-w21.e2e.js`(23断言:5个D组复现+gate false两轮normalize+条件四形态round-trip+经典形态防回归)+ 5条锁旧代码形状的静态断言更新为新契约。终局 18 套件全绿。`maxIters=6` 哨兵误伤合法输入判为已知权衡不动(有 e2e 锁定迁移契约)。
