@@ -104,6 +104,11 @@
   --elev-2: 0 6px 20px rgba(0,0,0,.20);
   --elev-3: 0 16px 40px rgba(0,0,0,.28);
   --scroll: #35425c;
+  /* r2 视觉跃升(UI-DESIGN-R2-NOTES §2)新 token,墨夜值。四枚均两主题分别定值,保持键集对称。 */
+  --canvas-bg: #0c1119;
+  --panel-veil: color-mix(in srgb, var(--panel) 78%, transparent);
+  --glow-accent: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent), 0 10px 30px -8px color-mix(in srgb, var(--accent) 38%, transparent);
+  --gold-line: color-mix(in srgb, var(--gold) 55%, transparent);
 }
 
 :root[data-theme="light"] {
@@ -152,6 +157,11 @@
   --elev-2: 0 6px 20px rgba(20,28,48,.12);
   --elev-3: 0 16px 40px rgba(20,28,48,.16);
   --scroll: #c3cddd;
+  /* r2 视觉跃升(UI-DESIGN-R2-NOTES §2)新 token,月白值(更克制)。四枚两主题对称。 */
+  --canvas-bg: #edf1f8;
+  --panel-veil: color-mix(in srgb, var(--panel) 82%, transparent);
+  --glow-accent: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent), 0 10px 26px -10px color-mix(in srgb, var(--accent) 25%, transparent);
+  --gold-line: color-mix(in srgb, var(--gold) 60%, transparent);
   /* engine accent colors, light variants (§3): slightly darker for contrast on the light surface. */
   --eng-claude: #c96442; --eng-deepseek: #4059d8; --eng-qwen: #6d3fd8;
   --eng-glm: #178f80; --eng-custom: #5c6570;
@@ -253,13 +263,19 @@ input:focus, textarea:focus, select:focus {
 .app-shell {
   height: 100vh;
   display: grid;
-  grid-template-columns: 288px minmax(420px, 1fr) 340px;
+  /* v3 (§2.7 P2): 右栏三档宽 —— 340(默认)/480/全屏。第三轨宽走 --right-w,由 applyRightWidth() 改写并记忆到
+     localStorage('wcw.rightWidth');全屏档见下方 .tools-fullscreen(fixed 覆盖中栏,不占轨)。 */
+  --right-w: 340px;
+  position: relative; /* 承载右栏拖拽手柄(.right-resize-handle)绝对定位锚点 */
+  grid-template-columns: 288px minmax(420px, 1fr) var(--right-w);
   overflow: hidden;
   /* v1.0.2 (F2): 折叠/展开侧栏时栅格列宽的短过渡(≤0.15s),避免瞬跳。 */
   transition: grid-template-columns var(--dur-fast) var(--ease-out); /* v3 (§C5): 收敛散写 duration 到 token */
 }
+/* 拖拽/切档瞬间去过渡,手柄跟手不拖影 */
+.app-shell.right-resizing { transition: none; }
 .app-shell.tools-collapsed { grid-template-columns: 288px minmax(420px, 1fr) 0; }
-.app-shell.sidebar-collapsed { grid-template-columns: 0 minmax(420px, 1fr) 340px; }
+.app-shell.sidebar-collapsed { grid-template-columns: 0 minmax(420px, 1fr) var(--right-w); }
 .app-shell.sidebar-collapsed.tools-collapsed { grid-template-columns: 0 1fr 0; }
 /* v1.0.2 收官返修(把关直修):三列【显式】落轨 —— 防轨道错位。v1.0.1「输入框消失」与本次「折叠侧栏后
    工具面板占满全屏、退不掉」同根:位置网格 + 子元素 display:none 会让后续子元素滑进错误的轨
@@ -281,6 +297,30 @@ input:focus, textarea:focus, select:focus {
 .tool-pane { border-left: 1px solid var(--line); }
 .app-shell.tools-collapsed .tool-pane,
 .app-shell.sidebar-collapsed .sidebar { display: none; }
+
+/* v3 (§2.7 P2): 右栏拖拽手柄 —— 4px 命中带贴在 tool-pane 左缘(right:var(--right-w)),pointer 拖动改 --right-w、
+   松手吸附最近档;双击循环 340->480->全屏(见 app.js initRightResize/cycleRightWidth)。桌面栅格档专属。 */
+.right-resize-handle {
+  position: absolute; top: 0; bottom: 0; right: var(--right-w); width: 8px; transform: translateX(4px);
+  cursor: col-resize; z-index: 46; touch-action: none; background: transparent; border: 0; padding: 0;
+}
+.right-resize-handle::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; border-radius: 2px;
+  background: transparent; transition: background var(--dur-fast) var(--ease-out);
+}
+.right-resize-handle:hover::before,
+.app-shell.right-resizing .right-resize-handle::before { background: var(--accent); }
+.right-resize-handle:focus-visible { outline: none; box-shadow: var(--ring); }
+/* 工具栏折叠时无右栏可拖 → 隐藏手柄 */
+.app-shell.tools-collapsed .right-resize-handle { display: none; }
+/* 全屏档:tool-pane 变 fixed 覆盖中栏(sidebar 保留);手柄挪到面板左缘,双击/Esc 可退出全屏。 */
+.app-shell.tools-fullscreen .tool-pane {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 288px; width: auto;
+  z-index: 30; box-shadow: var(--elev-3); border-left: 1px solid var(--line);
+}
+.app-shell.tools-fullscreen.sidebar-collapsed .tool-pane { left: 0; }
+.app-shell.tools-fullscreen .right-resize-handle { right: auto; left: 288px; }
+.app-shell.tools-fullscreen.sidebar-collapsed .right-resize-handle { left: 0; }
 
 /* ============================ sidebar ============================ */
 .brand { display: flex; gap: 10px; align-items: center; }
@@ -1028,6 +1068,47 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .skill-ghost { padding: 9px 11px; border: 1px dashed var(--line-2); border-radius: var(--radius-sm); background: var(--panel-2); opacity: .75; }
 .skill-ghost .skill-name { color: var(--muted); }
 
+/* v3 (§2.12 P2 r2):技能库 / 记忆卡片化 —— 分段控件锚点导航 + 两列卡片网格 + 启用态青花描边/渗透洗 + 中文名主显、
+   mono id 降为小字。启用态与节点卡「渗透」同一口音(青花描边 + 顶部青花洗 + 实心图标块)。 */
+.sk-seg { display: flex; flex-wrap: wrap; gap: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px; margin: 0 0 14px; }
+.sk-seg a { padding: 5px 14px; border-radius: var(--r-pill); font-size: var(--fs-sm); color: var(--ink-2); text-decoration: none; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out); }
+.sk-seg a:hover { color: var(--ink); }
+.sk-seg a.active { background: var(--panel); color: var(--accent); font-weight: 600; box-shadow: var(--elev-1); }
+.sk-seg a:focus-visible { outline: none; box-shadow: var(--ring); }
+.sk-seg a .n { font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.sk-seg a.active .n { color: var(--accent); }
+.sk-group { margin-bottom: 18px; }
+.sk-group:last-child { margin-bottom: 0; }
+.sk-group-t { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.sk-group-t .t { font-size: var(--fs-sm); font-weight: 700; letter-spacing: .18em; color: var(--ink-2); white-space: nowrap; }
+.sk-group-t .sub { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+.sk-group-t .cnt { font-size: var(--fs-xs); color: var(--muted); background: var(--panel-3); padding: 0 7px; border-radius: var(--r-pill); line-height: 18px; font-variant-numeric: tabular-nums; }
+.sk-group-t .line { flex: 1; height: 1px; min-width: 12px; background: linear-gradient(90deg, var(--line-2), transparent); }
+.sk-group-t .cloud { width: 18px; height: 11px; flex: none; background: var(--muted); opacity: .45;
+  -webkit-mask: var(--ruyi-cloud) center/contain no-repeat; mask: var(--ruyi-cloud) center/contain no-repeat; }
+.sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sk-card { position: relative; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel-2); padding: 12px 13px 11px; display: flex; flex-direction: column; gap: 6px; cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.sk-card:hover { transform: translateY(-1px); box-shadow: var(--elev-1); border-color: var(--line-2); }
+.sk-card.sel { border-color: var(--accent); box-shadow: var(--ring); }
+/* 启用态:发丝青花描边 + 顶部青花渗透洗 + 实心图标块(与节点卡「渗透」同一语言)。 */
+.sk-card.on { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, var(--panel-2)), var(--panel-2) 58%); }
+.sk-card.unavailable { opacity: .6; cursor: default; }
+.sk-card.unavailable:hover { transform: none; box-shadow: none; border-color: var(--line); }
+.sk-card-h { display: flex; align-items: center; gap: 9px; }
+.sk-ico { width: 28px; height: 28px; border-radius: var(--r-sm); display: grid; place-items: center; flex: none; background: var(--accent-soft); color: var(--accent); font-size: var(--fs-md);
+  transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
+.sk-ico svg { display: block; }
+.sk-card.on .sk-ico { background: var(--accent); color: var(--accent-ink); box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--accent) 55%, transparent); }
+.sk-name { font-size: var(--fs-base); font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.sk-src { flex: none; font-size: var(--fs-xs); color: var(--muted); border: 1px solid var(--line-2); border-radius: var(--r-pill); padding: 1px 7px; }
+.sk-id { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sk-desc { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.5; flex: 1; }
+.sk-reason { font-size: var(--fs-xs); color: var(--muted); font-style: italic; }
+.sk-foot { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.sk-foot .skill-toggle { margin-left: 0; }
+@media (max-width: 560px) { .sk-grid { grid-template-columns: 1fr; } }
+
 /* v2 跨会话记忆 面板 */
 .memory-intro { padding: 0 16px 8px; font-size: var(--fs-sm); line-height: 1.5; }
 .memory-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 2px 8px; }
@@ -1062,6 +1143,8 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
   /* Two-column grid: the tool pane leaves the grid and becomes a right-side overlay drawer (A5) so the
      debug/doctor panels are reachable on narrow screens (previously display:none = 🧰 did nothing). */
   .app-shell { grid-template-columns: 260px minmax(340px,1fr); }
+  /* v3 (§2.7 P2): 窄屏走抽屉机制,右栏三档宽与拖拽手柄不适用 —— 隐藏手柄。 */
+  .right-resize-handle { display: none; }
   .app-shell.tools-collapsed { grid-template-columns: 260px 1fr; }
   /* v1.0.2 (F2): 折叠侧栏必须真收起 260px 轨道 —— 否则中间宽度档(761–1180px)残留空列,内容被挤到左侧、
      右侧一大片空白,观感=「根本没折叠」。侧栏为 display:none,轨道归 0,聊天列吃满剩余宽度。 */
@@ -1335,7 +1418,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .wf-canvas-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 22px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); box-shadow: var(--elev-1); z-index: 2; text-align: center; }
 .wf-canvas-empty-title { color: var(--muted); font-size: var(--fs-sm); }
 .wf-canvas-empty-actions { display: flex; gap: 8px; }
-.agent-node.an-skipped { border-left: 3px solid var(--muted); opacity: .82; }
+.agent-node.an-skipped { --node-edge: var(--muted); opacity: .82; }
 .agent-run-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); box-shadow: var(--elev-1); } /* v3 (§C1): 卡片 elev-1 */
 .agent-run-card.ar-running, .agent-run-card.ar-paused { border-left: 3px solid var(--accent); }
 .agent-run-card.ar-failed, .agent-run-card.ar-interrupted, .agent-run-card.ar-partial { border-left: 3px solid var(--danger); }
@@ -1343,7 +1426,11 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .ar-title { font-weight: 650; overflow-wrap: anywhere; }
 .ar-status { color: var(--muted); white-space: nowrap; font-size: var(--fs-xs); }
 .agent-run-controls, .agent-node-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 8px 8px; }
-.agent-run-graph { display: flex; flex-direction: column; gap: 5px; padding: 0 8px 8px; }
+/* v3 (§2.9 P2 r2 降噪):节点列表长出「树脊」—— 状态点串在渐隐纵脊线上,节点经圆角肘线分支(纯 CSS border),
+   DAG 结构在列表态可读,而非只靠缩进暗示。 */
+.agent-run-graph { position: relative; display: flex; flex-direction: column; gap: 3px; padding: 2px 8px 8px 22px; }
+.agent-run-graph::before { content: ""; position: absolute; left: 13px; top: 6px; bottom: 8px; width: 1px; pointer-events: none;
+  background: linear-gradient(180deg, var(--line-2), color-mix(in srgb, var(--line-2) 28%, transparent)); }
 .agent-run-summary, .agent-node-result, .agent-node-error, .agent-isolation-changes { white-space: pre-wrap; overflow: auto; max-height: 260px; }
 .agent-run-summary { margin: 0 8px 8px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
 .agent-node-live { color: var(--muted); font-size: var(--fs-sm); margin: 4px 0 8px; }
@@ -1356,15 +1443,20 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .agent-node-activity-dot { flex: none; }
 .agent-node-activity.active .agent-node-activity-dot { display: inline-block; animation: compact-spin 1.1s linear infinite; }
 .agent-node-activity-text { min-width: 0; }
-.agent-node { border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
-.agent-node.an-succeeded { border-left: 3px solid var(--ok); }
-.agent-node.an-failed, .agent-node.an-interrupted { border-left: 3px solid var(--danger); }
+/* v3 (§2.9 P2 r2 降噪):节点卡去外框(原 1px 全边框已删),状态改「渗透」—— 2px 圆头发丝缘(--node-edge)
+   + 运行/异常态 13% 渐变洗(从状态缘向卡身衰减),替代原 3px 实色左边框。肘线接回 .agent-run-graph 脊线。 */
+.agent-node { position: relative; border: 0; border-radius: var(--r-sm); background: var(--panel-2); }
+.agent-node::after { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px; border-radius: 2px; background: var(--node-edge, transparent); pointer-events: none; }
+.agent-node::before { content: ""; position: absolute; left: -9px; top: -3px; width: 9px; height: 16px; pointer-events: none;
+  border-left: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); border-bottom-left-radius: 9px; }
+.agent-node.an-succeeded { --node-edge: var(--ok); }
+.agent-node.an-failed { --node-edge: var(--danger); background: linear-gradient(100deg, color-mix(in srgb, var(--danger) 13%, var(--panel-2)) 0%, var(--panel-2) 52%); }
 .agent-node-head { display: block; font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .agent-node-body { padding: 0 8px 8px; }
 .agent-node-task { color: var(--muted); margin-bottom: 6px; white-space: pre-wrap; }
 .agent-node-result, .agent-node-error { max-height: 180px; overflow: auto; white-space: pre-wrap; font-size: var(--fs-xs); }
 .agent-node-error { color: var(--danger-fg); }
-.agent-node.an-waiting_resource { border-left: 3px solid var(--warn); }
+.agent-node.an-waiting_resource { --node-edge: var(--warn); background: linear-gradient(100deg, color-mix(in srgb, var(--warn) 13%, var(--panel-2)) 0%, var(--panel-2) 52%); }
 .agent-node-resources { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0; }
 .agent-resource-label, .agent-resource-wait { color: var(--muted); font-size: var(--fs-xs); }
 .agent-resource-chip { max-width: 100%; padding: 2px 6px; border: 1px solid var(--line); border-radius: 999px; font-size: var(--fs-xs); overflow-wrap: anywhere; }
@@ -1377,6 +1469,19 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .ar-agg-chip { padding: 1px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
 .ar-agg-nodes, .ar-agg-time, .ar-agg-cost { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
 .ar-agg-time, .ar-agg-cost { font-variant-numeric: tabular-nums; }
+/* v3 (§2.9 P2 r2):计量文本 tabular-nums 工具类(轮询刷新时数字不横跳)。 */
+.num { font-variant-numeric: tabular-nums lining-nums; font-feature-settings: "tnum" 1; }
+/* v3 (§2.9 P2):当前活动行提升到聚合头 —— 收起态也能看到「现在谁在干嘛」。头允许换行,活动行独占一行。 */
+.agent-run-head { flex-wrap: wrap; }
+.ar-agg-live { flex: 1 1 100%; display: flex; align-items: center; gap: 6px; margin-top: 2px; min-width: 0; font-size: var(--fs-xs); color: var(--ink-2); }
+.ar-agg-live-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); animation: pulse 1.6s ease-in-out infinite; }
+.ar-agg-live-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* v3 (§2.9 P2):宽限窗倒计时改「细进度条」替代纯秒数(发丝倒计时,与池卡同族琥珀)。 */
+.pool-grace { display: flex; align-items: center; gap: 8px; margin: 5px 0 2px; }
+.pool-grace-bar { flex: 1; height: 3px; border-radius: var(--r-pill); background: var(--panel-3); overflow: hidden; }
+.pool-grace-bar i { display: block; height: 100%; border-radius: var(--r-pill); background: linear-gradient(90deg, var(--warn), color-mix(in srgb, var(--warn) 45%, transparent)); }
+.pool-grace-label { flex: none; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
 /* 状态语义色（聚合 chip .ar-agg-chip 与节点徽标 .wf-status-badge 共用 .st-<status>；不硬编码颜色）。 */
 .st-running, .st-paused { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .st-running { animation: pulse 1.6s ease-in-out infinite; }
@@ -1385,7 +1490,10 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .st-rejected, .st-degraded, .st-waiting_resource, .st-partial, .st-interrupted, .st-waiting_pool { color: var(--warn-fg); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); background: var(--warn-bg); }
 .st-skipped, .st-queued, .st-blocked, .st-cancelled, .st-stopped, .st-unknown { color: var(--muted); }
 /* 团队模式 v2 (A4) 共享任务池分区（复用 wf-* 语义色，新类前缀 .pool-）：审批卡 + 待批徽标 + 宽限窗倒计时。 */
-.pool-section { margin: 6px 8px 4px; padding: 7px 9px; border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--warn) 8%, var(--panel-2)); /* -bg 豁免:base=panel-2 面 */ }
+/* v3 (§2.9 P2 r2):池卡与 P3 同源 —— 琥珀渗透洗(11% 渐变)+ 左 2px 圆头发丝缘,替代实底块。 */
+.pool-section { position: relative; margin: 6px 8px 4px; padding: 8px 10px 9px 13px; border: 1px solid color-mix(in srgb, var(--warn) 30%, var(--line)); border-radius: var(--r-sm); overflow: hidden;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--warn) 11%, var(--panel-2)) 0%, var(--panel-2) 55%); /* -bg 豁免:琥珀渗透洗,base=panel-2 面 */ }
+.pool-section::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--warn); }
 .pool-title { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
 .pool-title-text { font-size: var(--fs-sm); font-weight: 650; }
 .pool-badge { flex: none; font-size: var(--fs-xs); padding: 1px 7px; border-radius: 999px; color: var(--warn-fg); border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); background: var(--warn-bg); }
@@ -1403,7 +1511,9 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .wf-stall-actions { display: flex; gap: 6px; flex: none; }
 /* 节点卡头（§2.3）：状态徽标 + 标题(id·角色) + 引擎徽标 + 状态文案。 */
 .wf-node-head { display: flex; align-items: center; gap: 7px; }
-.wf-status-badge { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding: 0 5px; border: 1px solid var(--line); border-radius: 999px; font-size: var(--fs-xs); line-height: 1; }
+/* v3 (§2.9 P2 r2 降噪):状态徽标 pill 缩为「色点」—— 9px 实心点,颜色继承 .st-<status> 的 color(currentColor);
+   状态文案由相邻 .wf-node-status-label 承载(色点+文字)。运行态经 .st-running 的 pulse 呼吸。图标字符 font-size:0 隐藏。 */
+.wf-status-badge { flex: none; width: 9px; height: 9px; min-width: 0; padding: 0; border: 0; border-radius: 50%; background: currentColor; font-size: 0; line-height: 0; align-self: center; }
 .wf-node-title { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; overflow: hidden; }
 .wf-node-id { font-weight: 650; overflow-wrap: anywhere; }
 .wf-node-role { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1431,10 +1541,12 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .wf-gate-conf { font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
 /* 资源锁：等待中的资源高亮为 blocker（§2.3）。 */
 .agent-resource-chip.blocking { color: var(--warn-fg); border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); background: var(--warn-bg); font-weight: 600; }
-/* 节点左边框补齐各状态语义色（an-succeeded/an-failed/an-waiting_resource/an-skipped 已在上方定义）。 */
-.agent-node.an-running, .agent-node.an-paused { border-left: 3px solid var(--accent); }
-.agent-node.an-rejected, .agent-node.an-degraded, .agent-node.an-partial, .agent-node.an-interrupted { border-left: 3px solid var(--warn); }
-.agent-node.an-blocked, .agent-node.an-cancelled, .agent-node.an-stopped { border-left: 3px solid var(--muted); }
+/* 各状态渗透缘补齐（an-succeeded/an-failed/an-waiting_resource/an-skipped 已在上方定义）。运行态另加 --glow-accent 光渗。 */
+.agent-node.an-running, .agent-node.an-paused { --node-edge: var(--accent); background: linear-gradient(100deg, color-mix(in srgb, var(--accent) 13%, var(--panel-2)) 0%, var(--panel-2) 52%); box-shadow: var(--glow-accent); }
+.agent-node.an-rejected, .agent-node.an-degraded, .agent-node.an-partial, .agent-node.an-interrupted { --node-edge: var(--warn); background: linear-gradient(100deg, color-mix(in srgb, var(--warn) 13%, var(--panel-2)) 0%, var(--panel-2) 52%); }
+.agent-node.an-blocked, .agent-node.an-cancelled, .agent-node.an-stopped { --node-edge: var(--muted); }
+/* 排队态「尚未成形」：虚线圆头发丝缘(替代实心缘)。 */
+.agent-node.an-queued::after { background: repeating-linear-gradient(180deg, var(--muted) 0 3px, transparent 3px 7px); opacity: .55; }
 .agent-isolation { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px; margin: 6px 0; border: 1px dashed var(--line); border-radius: 6px; }
 .agent-isolation-status { font-size: var(--fs-xs); color: var(--muted); }
 .agent-isolation.ai-ready { border-color: var(--accent); }
@@ -1593,7 +1705,10 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 
 /* 聚合头：tokens 统计瓦片 + 成本估算 + 诚实脚注。 */
 .usage-agg { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); padding: 10px; box-shadow: var(--elev-1); } /* v3 (§C1): 卡片 elev-1 */
-.usage-agg-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* v3 (§2.8 P2): 统计瓦片自适应 —— 340px 右栏两列(默认),480/全屏档三列(.app-shell.rp-wide,由 applyRightWidth
+   切档时联动;比容器查询在本三档栅格里更稳、无 container-type 副作用)。窄屏抽屉不加 rp-wide → 两列。 */
+.usage-agg-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.app-shell.rp-wide .usage-agg-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .usage-stat { min-width: 0; }
 .usage-stat-val { font-size: var(--fs-lg); font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .usage-stat-label { font-size: var(--fs-xs); color: var(--muted); margin-top: 1px; }

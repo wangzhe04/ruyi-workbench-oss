@@ -2770,6 +2770,8 @@ async function deleteAgentRun(runId) {
 // v1.5 运行监控重设计（§2 多 Agent 编排实时监控）：把纵向 <details> 列表升级为「聚合头 + 状态徽标节点卡」的
 // 实时监控。数据仍来自 /api/agent-runs 的 2s 轮询（协议不变）。所有不可信内容一律 el()/textContent 渲染，
 // 绝不 innerHTML 拼接。保留 .agent-run-card/.agent-node 基类与 data-* 以复用展开态保存逻辑。
+// v3 (§2.9 P2):宽限窗进度条的客户端窗宽提示(与服务端 POOL_GRACE_MS 默认 60s 对齐;env 覆写时条比例近似)。
+const POOL_GRACE_HINT_MS = 60000;
 function renderAgentRuns(runs) {
   const host = $('agentRunsList'); if (!host) return;
   const knownRuns = new Set([...host.querySelectorAll('.agent-run-card')].map(x => x.dataset.runId).filter(Boolean));
@@ -2791,6 +2793,18 @@ function renderAgentRuns(runs) {
     const elapsed = runElapsedMs(run); if (elapsed) agg.appendChild(el('span', 'ar-agg-time', (run.live ? '已运行 ' : '用时 ') + fmtDuration(elapsed)));
     const cost = runCostLabel(run); if (cost) agg.appendChild(el('span', 'ar-agg-cost', cost));
     sum.appendChild(agg);
+    // v3 (§2.9 P2):当前活动行提升到聚合头 —— 收起态也能看到「现在谁在干嘛」。取运行中节点 progressLog 末条。
+    if (run.live) {
+      const runningNode = nodes.find(n => n.status === 'running');
+      const rlog = runningNode && Array.isArray(runningNode.progressLog) ? runningNode.progressLog : [];
+      const rlast = rlog.length ? rlog[rlog.length - 1] : null;
+      if (runningNode && rlast && rlast.text) {
+        const live = el('div', 'ar-agg-live');
+        live.appendChild(el('span', 'ar-agg-live-dot'));
+        live.appendChild(el('span', 'ar-agg-live-text num', `${runningNode.id}：${rlast.text}`));
+        sum.appendChild(live);
+      }
+    }
     card.appendChild(sum);
     // ── 停滞/失败横幅（§2.5）：run.idleAborted 或有节点在资源上等待且有 blocker → 琥珀横幅 + [查看][停止] ──
     const waitingBlocked = nodes.filter(n => nodeDisplayStatus(n) === 'waiting_resource' && Array.isArray(n.resourceBlockers) && n.resourceBlockers.length);
@@ -2837,8 +2851,14 @@ function renderAgentRuns(runs) {
       if (proposedItems.length) ptitle.appendChild(el('span', 'pool-badge', `待批准的新任务 ${proposedItems.length}`));
       section.appendChild(ptitle);
       if (run.status === 'waiting_pool' && run.live) {
-        const remain = run.poolGraceUntil ? Math.max(0, Math.round((Number(run.poolGraceUntil) - Date.now()) / 1000)) : 0;
-        section.appendChild(el('div', 'pool-waiting', `等待任务池审批（剩余 ${remain}s）`));
+        // v3 (§2.9 P2):宽限窗倒计时改细进度条(发丝倒计时)替代纯秒数文字。
+        const remainMs = run.poolGraceUntil ? Math.max(0, Number(run.poolGraceUntil) - Date.now()) : 0;
+        const grace = el('div', 'pool-grace');
+        const bar = el('div', 'pool-grace-bar'); const fill = el('i');
+        fill.style.width = `${Math.max(0, Math.min(100, Math.round((remainMs / POOL_GRACE_HINT_MS) * 100)))}%`;
+        bar.appendChild(fill); grace.appendChild(bar);
+        grace.appendChild(el('span', 'pool-grace-label num', `等待审批 · 剩余 ${Math.round(remainMs / 1000)}s`));
+        section.appendChild(grace);
       }
       const listItems = simpleMode ? proposedItems : pool;
       for (const item of listItems) {
@@ -3171,7 +3191,7 @@ function usageBar(entry, tok, max, kind) {
   const src = entry.sourceLabel || entry.source;
   if (src && kind !== 'session') labelWrap.appendChild(el('span', 'usage-bar-src', src));
   const plan = entryPlanBased(entry);
-  if (plan) labelWrap.appendChild(el('span', 'usage-bar-plan', '计划内计费'));
+  if (plan) { const pb = el('span', 'usage-bar-plan', '计划内计费'); pb.title = '订阅套餐,按月付费,token 不另计钱。'; labelWrap.appendChild(pb); } // v3 (§2.8): 术语人话 tooltip
   // 会话条可点击 → 打开该会话（openSession 走 /api/sessions/:id）。键盘可达。
   if (kind === 'session' && entry.sessionId) {
     row.classList.add('clickable'); row.setAttribute('role', 'button'); row.tabIndex = 0;
@@ -4975,19 +4995,66 @@ function renderSkillList() {
     list.appendChild(el('div', 'muted', all.length ? '无匹配' : '未发现技能/命令（可在数据目录 skills/ 或项目 .ruyi/skills/ 放置 SKILL.md）'));
     return;
   }
+  // v3 (§2.12 P2 r2):分段控件锚点导航 + 两列卡片网格。分组顺序与 skillFiltered 拍平顺序一致(键盘导航 flatIdx 对齐)。
+  const groups = [
+    { id: 'skill', label: '技能', sub: '复杂任务的专家流程', items: skills, builder: buildSkillRow },
+    { id: 'cmd', label: '命令', sub: '斜杠触发的动作', items: commands, builder: buildCommandRow },
+    { id: 'play', label: '一键任务', sub: '首页任务卡', items: playbooks, builder: buildPlaybookRow },
+  ].filter(g => g.items.length);
+  if (groups.length > 1) list.appendChild(buildSkAnchorNav(groups.map(g => ({ id: 'g-' + g.id, label: g.label, count: g.items.length }))));
   let flatIdx = 0;
-  const section = (title, items, builder) => {
-    if (!items.length) return;
-    list.appendChild(el('div', 'skill-group-title', title));
-    for (const s of items) list.appendChild(builder(s, flatIdx++, enabled));
-  };
-  section(`技能 · ${skills.length}`, skills, buildSkillRow);
-  section(`命令 · ${commands.length}`, commands, buildCommandRow);
-  section(`一键任务 · ${playbooks.length}`, playbooks, buildPlaybookRow);
-  if (ghosts.length) {
-    list.appendChild(el('div', 'skill-group-title', `已失效 · ${ghosts.length}`));
-    for (const gid of ghosts) list.appendChild(buildGhostRow(gid)); // 不计入 flatIdx / skill-item → 键盘导航忽略
+  for (const g of groups) {
+    const grp = el('div', 'sk-group'); grp.id = 'g-' + g.id;
+    grp.appendChild(buildSkGroupTitle(g.label, g.sub, g.items.length));
+    const grid = el('div', 'sk-grid');
+    for (const s of g.items) grid.appendChild(g.builder(s, flatIdx++, enabled));
+    grp.appendChild(grid);
+    list.appendChild(grp);
   }
+  if (ghosts.length) {
+    const grp = el('div', 'sk-group');
+    grp.appendChild(buildSkGroupTitle('已失效', '', ghosts.length));
+    const grid = el('div', 'sk-grid');
+    for (const gid of ghosts) grid.appendChild(buildGhostRow(gid)); // 不带 .skill-item → 键盘导航忽略
+    grp.appendChild(grid);
+    list.appendChild(grp);
+  }
+}
+// 分段控件式锚点子导航(§2.12):chips 置顶,点击/回车滚动到对应组并高亮。容器可复用(技能库/记忆同构)。
+function buildSkAnchorNav(entries) {
+  const seg = el('nav', 'sk-seg'); seg.setAttribute('aria-label', '分组导航');
+  entries.forEach((en, i) => {
+    const a = el('a', i === 0 ? 'active' : '');
+    a.append(el('span', '', en.label), el('span', 'n num', String(en.count)));
+    a.tabIndex = 0; a.setAttribute('role', 'button');
+    const go = () => {
+      seg.querySelectorAll('a').forEach(x => x.classList.remove('active')); a.classList.add('active');
+      const target = document.getElementById(en.id); if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    a.onclick = e => { e.preventDefault(); go(); };
+    a.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
+    seg.appendChild(a);
+  });
+  return seg;
+}
+// 分组题(§2.12):字距标题 + 副标 + 计数 + 渐隐发丝线 + 云纹端符。
+function buildSkGroupTitle(label, sub, count) {
+  const t = el('h3', 'sk-group-t');
+  t.appendChild(el('span', 't', label));
+  if (sub) t.appendChild(el('span', 'sub', sub));
+  t.appendChild(el('span', 'cnt num', String(count)));
+  t.appendChild(el('span', 'line'));
+  const cloud = el('span', 'cloud'); cloud.setAttribute('aria-hidden', 'true'); t.appendChild(cloud);
+  return t;
+}
+// 卡片图标块(§2.12):技能→青花 sparkles SVG;命令→斜杠;一键任务→ playbook emoji(用户数据,保留)/兜底 sparkles。
+function skillCardIco(kind, s) {
+  const ico = el('span', 'sk-ico');
+  const pb = s && s.playbook;
+  if (kind === 'playbook' && pb && pb.icon) { ico.textContent = pb.icon; return ico; }
+  if (kind === 'command') { ico.textContent = '/'; return ico; }
+  const svg = icon('sparkles', 16); if (svg) ico.appendChild(svg); else ico.textContent = '✦';
+  return ico;
 }
 // P3-6: 已失效技能行 —— 展示 id + 移除按钮(POST 过滤后由服务端自动清掉该无效 id)。不带 .skill-item 类,不参与键盘选中。
 function buildGhostRow(id) {
@@ -5015,47 +5082,56 @@ async function removeGhostSkill(id) {
   renderSkillList();
   updateSkillBadge();
 }
-// 技能行:启用/停用开关 + 来源标签(内置/用户/项目)。不可用(requires 未满足)→ 置灰 + 一行原因,开关禁用。
+// 技能卡(§2.12 r2):中文名主显 + mono id 小字 + 来源标签 + 描述 + 启用开关。启用态 .on 触发青花描边/渗透洗。
+// 保留 .skill-item 类以复用键盘导航(updateSkillSel 查 .skill-item);.sk-card 承载卡片视觉。不可用置灰。
 function buildSkillRow(s, i, enabled) {
   const unavailable = s.available === false;
-  const it = el('div', `skill-item${i === skillIndex ? ' sel' : ''}${unavailable ? ' unavailable' : ''}`);
-  const head = el('div', 'skill-head');
-  head.appendChild(el('span', 'skill-name', s.name || s.id));
-  head.appendChild(el('span', 'skill-src', s.source === 'project' ? '项目' : (s.source === 'user' ? '用户' : '内置')));
   const on = enabled.has(s.id);
   const pending = skillTogglePending.has(s.id); // P3-5: 该行有在途请求 → 开关禁用 + 显示「…」
+  const it = el('div', `skill-item sk-card${on ? ' on' : ''}${i === skillIndex ? ' sel' : ''}${unavailable ? ' unavailable' : ''}`);
+  const head = el('div', 'sk-card-h');
+  head.appendChild(skillCardIco('skill', s));
+  head.appendChild(el('span', 'sk-name', s.name || s.id)); // 中文名主显
+  head.appendChild(el('span', 'sk-src', s.source === 'project' ? '项目' : (s.source === 'user' ? '用户' : '内置')));
+  it.appendChild(head);
+  it.appendChild(el('div', 'sk-id', s.id)); // mono id 降为小字
+  if (s.description) it.appendChild(el('div', 'sk-desc', s.description));
+  if (unavailable && s.unavailableReason) it.appendChild(el('div', 'sk-reason', s.unavailableReason));
+  const foot = el('div', 'sk-foot');
   const toggle = el('button', 'skill-toggle' + (on ? ' on' : ''), unavailable ? '不可用' : (pending ? '…' : (on ? '已启用' : '启用')));
   if (unavailable || pending) toggle.disabled = true;
   toggle.onclick = e => { e.stopPropagation(); toggleSkill(s); };
-  head.appendChild(toggle);
-  it.appendChild(head);
-  if (s.description) it.appendChild(el('div', 'skill-desc', s.description));
-  if (unavailable && s.unavailableReason) it.appendChild(el('div', 'skill-reason', s.unavailableReason));
+  foot.appendChild(toggle);
+  it.appendChild(foot);
   it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
   it.onclick = () => { if (!unavailable && !pending) toggleSkill(s); };
   return it;
 }
-// 命令行(仅 Claude 模式):点击插入 /name 到输入框(保留旧行为)。
+// 命令卡(仅 Claude 模式):中文名主显 + mono /insert 小字。点击插入 /name 到输入框(保留旧行为)。
 function buildCommandRow(s, i) {
-  const it = el('div', `skill-item${i === skillIndex ? ' sel' : ''}`);
-  const head = el('div', 'skill-head');
-  head.append(el('code', 'skill-name', s.insert || ('/' + s.id)), el('span', 'skill-type', '命令'));
+  const it = el('div', `skill-item sk-card${i === skillIndex ? ' sel' : ''}`);
+  const head = el('div', 'sk-card-h');
+  head.appendChild(skillCardIco('command', s));
+  head.appendChild(el('span', 'sk-name', s.name || s.id));
   it.appendChild(head);
-  if (s.description) it.appendChild(el('div', 'skill-desc', s.description));
+  it.appendChild(el('code', 'sk-id', s.insert || ('/' + s.id)));
+  if (s.description) it.appendChild(el('div', 'sk-desc', s.description));
   it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
   it.onclick = () => { insertSkill(s.insert || ('/' + s.id)); closeModal('skillModal'); };
   return it;
 }
-// 一键任务行(Playbook):点击走既有 openPlaybookModal(输入表单 → 组装 → sendPrompt)。不可用置灰 + 原因。
+// 一键任务卡(Playbook):中文名主显 + playbook emoji 图标。点击走既有 openPlaybookModal。不可用置灰 + 原因。
 function buildPlaybookRow(s, i) {
   const unavailable = s.available === false;
   const pb = s.playbook || null;
-  const it = el('div', `skill-item${i === skillIndex ? ' sel' : ''}${unavailable ? ' unavailable' : ''}`);
-  const head = el('div', 'skill-head');
-  head.append(el('span', 'skill-name', ((pb && pb.icon) ? pb.icon + ' ' : '') + (s.name || s.id)), el('span', 'skill-type', '一键任务'));
+  const it = el('div', `skill-item sk-card${i === skillIndex ? ' sel' : ''}${unavailable ? ' unavailable' : ''}`);
+  const head = el('div', 'sk-card-h');
+  head.appendChild(skillCardIco('playbook', s));
+  head.appendChild(el('span', 'sk-name', s.name || s.id));
   it.appendChild(head);
-  if (s.description) it.appendChild(el('div', 'skill-desc', s.description));
-  if (unavailable && s.unavailableReason) it.appendChild(el('div', 'skill-reason', s.unavailableReason));
+  it.appendChild(el('div', 'sk-id', s.id));
+  if (s.description) it.appendChild(el('div', 'sk-desc', s.description));
+  if (unavailable && s.unavailableReason) it.appendChild(el('div', 'sk-reason', s.unavailableReason));
   it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
   it.onclick = () => {
     if (unavailable) { toast(s.unavailableReason || '当前不可用', 'err'); return; }
@@ -5175,13 +5251,19 @@ function renderMemoryList() {
   const enabled = enabledMemoryKeySet();
   const globals = (memoryRegistry || []).filter(e => e.scope === 'global');
   const projects = (memoryRegistry || []).filter(e => e.scope === 'project');
-  const group = (title, items) => {
-    list.appendChild(el('div', 'skill-group-title', title));
-    if (!items.length) { list.appendChild(el('div', 'muted', '（暂无）')); return; }
-    for (const m of items) list.appendChild(buildMemoryRow(m, enabled));
-  };
-  group(`全局记忆 · ${globals.length}`, globals);
-  group(`当前项目记忆 · ${projects.length}`, projects);
+  // v3 (§2.12 P2 r2):记忆面板与技能库同构 —— 分段控件锚点导航 + 两列卡片网格(复用 buildSkAnchorNav/buildSkGroupTitle)。
+  const memGroups = [
+    { id: 'global', label: '全局记忆', sub: '随工作台走', items: globals },
+    { id: 'project', label: '当前项目记忆', sub: '随本项目走', items: projects },
+  ];
+  if (memGroups.some(g => g.items.length)) list.appendChild(buildSkAnchorNav(memGroups.map(g => ({ id: 'm-' + g.id, label: g.label, count: g.items.length }))));
+  for (const g of memGroups) {
+    const grp = el('div', 'sk-group'); grp.id = 'm-' + g.id;
+    grp.appendChild(buildSkGroupTitle(g.label, g.sub, g.items.length));
+    if (!g.items.length) { grp.appendChild(el('div', 'muted', '（暂无）')); }
+    else { const grid = el('div', 'sk-grid'); for (const m of g.items) grid.appendChild(buildMemoryRow(m, enabled)); grp.appendChild(grid); }
+    list.appendChild(grp);
+  }
   // 幽灵项:显式启用集里但注册表已无对应文件(被删/改名/随 cwd 丢失)。
   if (explicit && session) {
     const regKeys = new Set((memoryRegistry || []).map(e => e.scope + ':' + e.id));
@@ -5209,28 +5291,29 @@ function buildMemoryRow(m, enabled) {
     const ent = (session && Array.isArray(session.memories) ? session.memories : []).find(x => x && x.id === m.id && x.scope !== 'global');
     if (ent && ent.projectKey && ent.projectKey !== memoryCurrentProjectKey) stale = true;
   }
-  const it = el('div', 'skill-item');
-  const head = el('div', 'skill-head');
-  head.appendChild(el('span', 'skill-name', m.name || m.id));
+  // v3 (§2.12 r2):记忆卡同构 —— 名称主显 + 类型标 + 描述 + 元信息,底部 启用/编辑/删除。启用态 .on 触发青花描边。
+  const it = el('div', `skill-item sk-card${on ? ' on' : ''}`);
+  const head = el('div', 'sk-card-h');
+  head.appendChild(skillCardIco('skill', null));
+  head.appendChild(el('span', 'sk-name', m.name || m.id));
   const typeLabel = m.type === 'convention' ? '惯例' : (m.type === 'lesson' ? '教训' : '参考');
-  head.appendChild(el('span', 'skill-type', typeLabel));
+  head.appendChild(el('span', 'sk-src', typeLabel));
+  it.appendChild(head);
+  if (m.description) it.appendChild(el('div', 'sk-desc', m.description));
+  const meta = el('div', 'sk-reason');
+  meta.textContent = (m.createdAt ? String(m.createdAt).slice(0, 10) + ' · ' : '') + (m.scope === 'global' ? '全局' : '项目');
+  it.appendChild(meta);
+  if (stale) it.appendChild(el('div', 'sk-reason', '⚠ 来源项目已变化，已暂停注入（重新启用可锁定到当前项目）。'));
+  const foot = el('div', 'sk-foot');
   const toggle = el('button', 'skill-toggle' + (on ? ' on' : ''), pending ? '…' : (on ? '已启用' : '启用'));
   if (pending) toggle.disabled = true;
   toggle.onclick = e => { e.stopPropagation(); toggleMemory(m); };
-  head.appendChild(toggle);
-  it.appendChild(head);
-  if (m.description) it.appendChild(el('div', 'skill-desc', m.description));
-  const meta = el('div', 'skill-reason');
-  meta.textContent = (m.createdAt ? String(m.createdAt).slice(0, 10) + ' · ' : '') + (m.scope === 'global' ? '全局' : '项目');
-  it.appendChild(meta);
-  if (stale) it.appendChild(el('div', 'skill-reason', '⚠ 来源项目已变化，已暂停注入（重新启用可锁定到当前项目）。'));
-  const bar = el('div', 'memory-rowbar');
   const editB = el('button', 'mini', '编辑');
   editB.onclick = e => { e.stopPropagation(); openMemoryEditModal(m); };
   const delB = el('button', 'mini danger', '删除');
   delB.onclick = e => { e.stopPropagation(); deleteMemoryRow(m); };
-  bar.append(editB, delB);
-  it.appendChild(bar);
+  foot.append(toggle, editB, delB);
+  it.appendChild(foot);
   return it;
 }
 // 幽灵行:显示 id + 移除(POST 过滤后由服务端清掉该无效 id)。
@@ -5927,6 +6010,7 @@ function switchTab(tab) {
   if (tab === 'usage') { if (!usageState.loaded) loadUsage(); else renderUsage(usageState.data); }
   if (tab === 'agent-runs') loadAgentWorkflows();
   updateAgentRunsPolling(tab);
+  maybeSuggestWideRight(tab); // v3 (§2.7/§2.8): 监控/用量页签在 340px 下一次性软提示切 480
 }
 
 // A5: on narrow screens (≤1180px) the tool pane is an overlay drawer toggled by `tools-open`; on the
@@ -5962,6 +6046,83 @@ function openToolPane() {
   else shell.classList.remove('tools-collapsed');
 }
 function closeToolDrawer() { document.querySelector('.app-shell').classList.remove('tools-open'); }
+
+/* ---------------- v3 (§2.7 P2): 右栏三档宽(340/480/全屏)—— 拖拽手柄 + 双击循环 + localStorage 记忆 ---------------- */
+// 档位存 'wcw.rightWidth'(值 '340'|'480'|'full')。桌面栅格档专属;窄屏(≤1180)走既有抽屉,仅记偏好不改布局。
+// 全屏档 = tool-pane 转 fixed 覆盖中栏(CSS .tools-fullscreen),Esc / 双击手柄退出。
+const RIGHT_TIERS = ['340', '480', 'full'];
+const RIGHT_FULL_THRESHOLD = 620; // 拖过此像素宽度 → 吸附到全屏档
+function applyRightWidth(tier, persist = true) {
+  if (!RIGHT_TIERS.includes(tier)) tier = '340';
+  const shell = document.querySelector('.app-shell'); if (!shell) return;
+  // Chrome 无法可靠过渡「var() 驱动的 grid 轨」的变化(会卡在起始宽度);切档时抑制过渡让新轨宽即时落定。
+  // 末尾强制同步重排后立即移除(不用 rAF —— 后台/空闲渲染时 rAF 可能不触发,会把过渡永久关死)。
+  // (侧栏折叠的过渡不受影响 —— 它变的是【具体值】首轨 288<->0,不走此路径。)
+  shell.classList.add('right-resizing');
+  if (tier === 'full' && !isNarrow()) {
+    state._preFullTier = (state._rightTier && state._rightTier !== 'full') ? state._rightTier : '480';
+    shell.classList.remove('tools-collapsed'); // 全屏必然展开工具面板
+    shell.classList.add('tools-fullscreen', 'rp-wide');
+    shell.style.setProperty('--right-w', '480px'); // 底层保留轨宽(被 fixed 面板覆盖,无空隙)
+  } else {
+    shell.classList.remove('tools-fullscreen');
+    shell.style.setProperty('--right-w', (tier === 'full' ? '480' : tier) + 'px');
+    shell.classList.toggle('rp-wide', tier === '480' || tier === 'full'); // §2.8 用量瓦片三列开关
+  }
+  void shell.offsetWidth; // 强制同步重排,让新轨宽在无过渡下即时落定
+  shell.classList.remove('right-resizing');
+  state._rightTier = tier;
+  if (persist) { try { localStorage.setItem('wcw.rightWidth', tier); } catch { /* ignore */ } }
+}
+function restoreRightWidth() {
+  let v = '340'; try { v = localStorage.getItem('wcw.rightWidth') || '340'; } catch { /* ignore */ }
+  applyRightWidth(v, false);
+}
+function cycleRightWidth() {
+  const cur = state._rightTier || '340';
+  applyRightWidth(RIGHT_TIERS[(RIGHT_TIERS.indexOf(cur) + 1) % RIGHT_TIERS.length]);
+}
+// Esc 退出右栏全屏(回到进入前的档位)。返回是否处理了(供全局 Esc 链短路)。
+function exitRightFullscreen() {
+  const shell = document.querySelector('.app-shell');
+  if (shell && shell.classList.contains('tools-fullscreen')) { applyRightWidth(state._preFullTier || '340'); return true; }
+  return false;
+}
+// §2.8 软提示:切到监控/用量页签且当前 340px 时,一次性建议 480(不强切;localStorage 记忆已提示过)。
+function maybeSuggestWideRight(tab) {
+  if ((tab !== 'agent-runs' && tab !== 'usage') || isNarrow()) return;
+  if ((state._rightTier || '340') !== '340') return;
+  try { if (localStorage.getItem('wcw.rightWidthHintShown') === '1') return; localStorage.setItem('wcw.rightWidthHintShown', '1'); } catch { /* ignore */ }
+  toast('监控和用量在更宽的面板里更好读 —— 拖右栏左缘或双击手柄可切到 480');
+}
+function initRightResize() {
+  const handle = $('rightResizeHandle'); if (!handle) return;
+  handle.addEventListener('dblclick', () => cycleRightWidth());
+  handle.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleRightWidth(); } });
+  handle.addEventListener('pointerdown', e => {
+    if (isNarrow() || e.button !== 0) return;
+    e.preventDefault();
+    const shell = document.querySelector('.app-shell');
+    try { handle.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    shell.classList.add('right-resizing');
+    shell.classList.remove('tools-fullscreen'); // 拖动即回到可变轨宽预览
+    let tier = state._rightTier === 'full' ? '480' : (state._rightTier || '340');
+    const onMove = ev => {
+      const desired = window.innerWidth - ev.clientX;
+      if (desired > RIGHT_FULL_THRESHOLD) { tier = 'full'; shell.style.setProperty('--right-w', Math.min(desired, window.innerWidth - 360) + 'px'); }
+      else { const clamped = Math.max(300, Math.min(desired, 560)); shell.style.setProperty('--right-w', clamped + 'px'); tier = Math.abs(clamped - 480) <= Math.abs(clamped - 340) ? '480' : '340'; }
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      try { handle.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+      shell.classList.remove('right-resizing');
+      applyRightWidth(tier); // 松手吸附到最近档并记忆
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+  });
+}
 
 /* ---------------- bindings ---------------- */
 function bindEvents() {
@@ -6107,6 +6268,8 @@ function bindEvents() {
       // Dynamic modals resolve their held request via __cancel; static ones go through closeModal so
       // focus returns to the trigger (§4.9).
       if (open.length) open.forEach(m => { if (m.__cancel) m.__cancel(); else if (m.id) closeModal(m.id); else m.classList.add('hidden'); });
+      // v3 (§2.7 P2): 无模态时 Esc 先退出右栏全屏档,再关抽屉,再停止回合。
+      else if (exitRightFullscreen()) { /* 已退出全屏 */ }
       // A5: with no modal open, Esc first closes the narrow-screen tool drawer, then stops a turn.
       else if (document.querySelector('.app-shell').classList.contains('tools-open')) closeToolDrawer();
       else if (state.streaming) stopTurn();
@@ -6189,6 +6352,7 @@ async function boot() {
   applyTheme((() => { try { return localStorage.getItem('wcw.theme') || 'dark'; } catch { return 'dark'; } })());
   applyUiMode((() => { try { return localStorage.getItem('wcw.uiMode') || 'simple'; } catch { return 'simple'; } })()); // v0.9-S1 (C1) / v1.0.2 (F5): 默认 simple 对齐 server
   restoreSidebarCollapsed(); // v1.0.2 (F2): 恢复上次的折叠侧栏状态
+  restoreRightWidth(); initRightResize(); // v3 (§2.7 P2): 恢复右栏三档宽 + 绑定拖拽手柄
   try { const d = localStorage.getItem('wcw.draft'); if (d) { $('promptInput').value = d; autoGrow($('promptInput')); } } catch { /* ignore */ }
   await bootData();
 }

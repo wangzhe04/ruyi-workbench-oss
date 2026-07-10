@@ -360,6 +360,10 @@
 
         <pre id="toolOutput" class="tool-output"></pre>
       </aside>
+      <!-- v3 (§2.7 P2): 右栏三档宽拖拽手柄。贴 tool-pane 左缘(CSS right:var(--right-w)),pointer 拖到阈值吸附
+           340/480/全屏,双击循环切档;桌面栅格档专属(窄屏由 CSS 隐藏)。JS 绑定见 initRightResize()。 -->
+      <div id="rightResizeHandle" class="right-resize-handle" role="separator" aria-orientation="vertical"
+           tabindex="0" aria-label="拖动调整右栏宽度,双击切换档位" title="拖动调整右栏宽度 · 双击切档"></div>
     </div>
     <!-- Sibling of .app-shell so the CSS `.app-shell.tools-open ~ .drawer-backdrop` rule can reveal it
          on narrow screens; JS wires the click to close the drawer. Inert on desktop (display:none). -->
