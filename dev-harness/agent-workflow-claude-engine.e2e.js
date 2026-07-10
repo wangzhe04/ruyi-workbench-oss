@@ -84,7 +84,7 @@ async function tokenFor(port) {
       ok(bare.ok === true && bare.results[0].engine === 'claude' && bare.results[0].status === 'succeeded', 'DAG node with no engine/provider defaults to and runs via the Claude CLI engine');
       const argv1 = JSON.parse(fs.readFileSync(argvCapture, 'utf8'));
       ok(argv1.includes('--permission-mode') && argv1[argv1.indexOf('--permission-mode') + 1] === 'bypassPermissions', 'role-less node inherits the run permission mode (bypass)');
-      ok(argv1.includes('--allowed-tools') && argv1[argv1.indexOf('--allowed-tools') + 1] === 'Read,Grep,Glob', 'role-less node gets the read-tier tool allowlist by default');
+      ok(argv1.includes('--allowed-tools') && argv1[argv1.indexOf('--allowed-tools') + 1] === 'Read,Grep,Glob,WebSearch,WebFetch', 'role-less node gets the read-tier tool allowlist by default (第22波: 含联网检索)');
 
       // Explicit role + explicit per-node model override on the Claude engine.
       const roled = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: sid, nodes: [{ id: 'role_node', task: 'explore', role: 'explorer', engine: 'claude', model: 'claude-haiku-4-5' }] });
@@ -92,7 +92,7 @@ async function tokenFor(port) {
       const argv2 = JSON.parse(fs.readFileSync(argvCapture, 'utf8'));
       ok(argv2.includes('--model') && argv2[argv2.indexOf('--model') + 1] === 'claude-haiku-4-5', 'per-node model override reaches --model, not the role default');
       ok(argv2.includes('--permission-mode') && argv2[argv2.indexOf('--permission-mode') + 1] === 'plan', "explorer role's own permission mode (plan) is honored, distinct from the run default");
-      ok(argv2.includes('--allowed-tools') && argv2[argv2.indexOf('--allowed-tools') + 1] === 'Read,Grep,Glob', "role.claudeTools drives --allowed-tools");
+      ok(argv2.includes('--allowed-tools') && argv2[argv2.indexOf('--allowed-tools') + 1] === 'Read,Grep,Glob,WebSearch,WebFetch', "role.claudeTools drives --allowed-tools (explorer 内置角色第22波起含联网)");
 
       const listed = await get(PORT, '/api/agent-runs?sessionId=' + encodeURIComponent(sid), hdr);
       ok(listed.runs.every(r => r.nodes.every(n => n.engine === 'claude')), 'persisted run records the engine each node actually used');

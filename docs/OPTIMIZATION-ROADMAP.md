@@ -301,3 +301,12 @@
 - **A组(工作台前端)**:系统性根因=2s 无条件全量重建冲刷交互态。杠杆修复=renderWorkbench 数据+选中态签名比对,未变整轮跳过(静止期焦点/滚动/选区/悬停全保);live 期由各保留逻辑兜底:右板滚动+<pre>内滚动跨重建回写、data-fk 通用焦点回焦(节点卡/审批/重试/缩放/发送)、悬停依赖链重放。P2=插话框 IME 守卫(isComposing,中文选字回车不再误发)+失败回填文本+finalize 边界未发送文本可见提示(不再静默蒸发)。P3=轮询序号防乱序回退/断连画布指示/空态清残留缩放胶囊/重复点同节点不重置展开/自动重挑 run 清选中/posCache 清理。XSS/toggle重绑/布局爆栈方向核实**未发现**。
 - **对抗轮反噬(重要)**:镜头B建议的「跨 scope 互斥删除」我实现后被 `agent-workflow-templates` e2e 抓住——personal/project 是**分层覆盖**既有契约(删项目版显露个人版),互斥删除会毁掉服务其他项目的个人模板,属数据丢失,**已撤回**并在 saveAgentWorkflow 注释成文。教训:对抗报告的修复建议也要过既有契约(测试网)这道闸。
 - 交付:server.js 15处 + app.js 26处 + 新回归锁 `adversarial-w21.e2e.js`(23断言:5个D组复现+gate false两轮normalize+条件四形态round-trip+经典形态防回归)+ 5条锁旧代码形状的静态断言更新为新契约。终局 18 套件全绿。`maxIters=6` 哨兵误伤合法输入判为已知权衡不动(有 e2e 锁定迁移契约)。
+
+## 17. 第 22 波:开放子代理工具面——联网 + 桥接 MCP 分级(2026-07-10 收官)
+
+用户实测反馈「子 agent 有些联网都不行」。诊断:web_search/web_fetch 在 NATIVE_TOOL_TIER 本就是 read 级(Provider 引擎子代理其实可用),缺口在 ①Claude 引擎子代理的 `CLAUDE_SUBAGENT_TIER_TOOLS` 固定白名单(read=['Read','Grep','Glob'])不含 WebSearch/WebFetch——最需要检索的 read 级研究/审查节点反而不能联网,两引擎能力面不对称;②内置 Explorer/Reviewer 角色带显式 claudeTools 白名单覆盖 tier 缺省,须单独补;③桥接 MCP(含 ACC)两条路径都 exec 一刀切,`BRIDGED_TOOL_TIERS` 分级基建闲置。
+
+- **改动**:①CLAUDE_SUBAGENT_TIER_TOOLS read/edit + WebSearch/WebFetch(对齐 OpenAI 侧「联网只读=read级」既有裁定);②四内置角色 claudeTools 补联网;③runSubAgentCore 桥接工具按 bridgedToolTier(含 config.bridgedToolTiers 用户覆盖)分级参与所有层——read 子代理可用 ACC 只读族(截图/OCR/查找/检查),exec 行为不变;④编辑器/角色面板 tier 文案标注联网能力。
+- **安全裁定(有意不对称)**:Claude 路径 `--mcp-config` 维持 exec-only——CLI 的 --allowed-tools 在 bypass 许可下非硬限制,read/edit 提前挂桥接面 = 桌面全控泄漏。该不变量已入回归锁。
+- **交付**:新 e2e `subagent-net-tools.e2e.js`(24断言:能力面+安全不变量双向锁),claude-engine e2e 契约更新;顺手修 3 个存量过期断言(subagent/mcp-bridge 版本号改动态读 package.json、agent-roles 预算钳制 ===32 旧上限期望改 99)。受影响 10 套件全绿;preview 实测编辑器下拉新文案 + 零控制台错误。
+- **后续候选**:Claude 路径 MCP 分级开放,待 CLI 提供逐工具硬白名单语义(或用 --disallowedTools 反向列举桥接 exec 面)再评估;http_request 是否给 edit 级开受限版(仅 GET/HEAD)待需求。

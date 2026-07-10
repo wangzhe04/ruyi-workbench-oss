@@ -99,7 +99,8 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
   try {
     let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(WB_PORT); }
     ok(!!h, 'workbench up on :' + WB_PORT);
-    ok(h && h.version === '1.5.0', 'version 1.5.0');
+    const PKG_VERSION = require(require('path').join(__dirname, '..', 'ruyi-workbench', 'package.json')).version;   // 动态读版本,防每次升版过期
+    ok(h && h.version === PKG_VERSION, `version ${PKG_VERSION} (got ${h && h.version})`);
     const token = await getToken(WB_PORT);
     ok(!!token, 'UI token scraped');
     const hdr = { 'x-wcw-token': token };

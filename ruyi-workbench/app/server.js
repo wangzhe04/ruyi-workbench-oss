@@ -487,10 +487,10 @@ const CLAUDE_PERMISSION_MODE_MAP = { bypass: 'bypassPermissions', default: 'defa
 // 'bypassPermissions' directly into config.json are not silently reset to 'bypass').
 const PERMISSION_MODE_ALIASES = { bypassPermissions: 'bypass' };
 const BUILTIN_AGENT_ROLES = Object.freeze([
-  { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'blue' },
+  { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'blue' },
   { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'green' },
-  { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'orange' },
-  { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'purple' },
+  { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'orange' },
+  { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'purple' },
 ]);
 
 function normalizeAgentRole(raw, opts = {}) {
@@ -6392,7 +6392,10 @@ async function buildClaudeAgentDefinitions(cwd, config) {
 // claudeTools empty), mirroring the OpenAI subagent's tierFilter hard cap (buildOpenAiTools): 'read' can
 // never mutate, 'edit' adds file writes, 'exec' is intentionally unrestricted — the same shape as the
 // built-in 'worker'/'verifier' roles, which leave claudeTools empty for their exec tier.
-const CLAUDE_SUBAGENT_TIER_TOOLS = { read: ['Read', 'Grep', 'Glob'], edit: ['Read', 'Grep', 'Glob', 'Write', 'Edit'], exec: [] };
+// 第22波(开放子代理工具面): read/edit 补 WebSearch/WebFetch——联网只读不落盘,与 OpenAI 侧 NATIVE_TOOL_TIER 把
+// web_search/web_fetch 定为 read 级的既有裁定对齐(此前 Claude 引擎的研究/审查类 read 节点连检索都不行,两引擎
+// 能力面不对称)。落盘/执行面(Write/Edit/Bash/MCP)分级不变。
+const CLAUDE_SUBAGENT_TIER_TOOLS = { read: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], edit: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Write', 'Edit'], exec: [] };
 // Permission modes that resolve without a human/bridge to answer a prompt: 'bypass' skips all asking,
 // 'auto' is the CLI's own built-in risk classifier (v1.4.3, documented above at runClaudeTurn's
 // usePermissionBridge computation), 'dontAsk' skips by name, and 'plan' never executes a mutating tool in
@@ -6468,10 +6471,12 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
   if (turnBudget > 0) args.push('--max-turns', String(Math.min(100, Math.round(turnBudget))));
   if (cwd) args.push('--add-dir', cwd);
-  // Bridged (external/desktop MCP) tools are exec-class only, matching the OpenAI subagent path's own
-  // rule (runSubAgentCore): read/edit tiers stay local-native-tools-only. An explicit role.mcpServers
-  // narrows an exec-tier node to just those servers; empty/absent means everything the workbench has
-  // configured (generateAgentNodeMcpConfig mirrors generateSessionMcpConfig, keyed by subagentId).
+  // Bridged (external/desktop MCP) servers attach ONLY at 'exec' tier on the Claude path — 有意与 OpenAI 路径
+  // 的分级开放**不对称**(第22波安全裁定): CLI 的 --allowed-tools 在 bypass 许可模式下不是硬限制(bypass 跳过一切
+  // 许可),挂上 mcp-config 即意味着子进程可调用该服务器的任意工具(含桌面全控),无法像 runSubAgentCore 那样按
+  // bridgedToolTier 逐工具硬过滤。在 CLI 提供逐工具硬白名单语义前,read/edit 维持不挂桥接面。An explicit
+  // role.mcpServers narrows an exec-tier node to just those servers; empty/absent means everything the
+  // workbench has configured (generateAgentNodeMcpConfig mirrors generateSessionMcpConfig, keyed by subagentId).
   const roleMcpServers = (role && role.mcpServers) || [];
   const mcpConfigPath = tier === 'exec' ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
   if (mcpConfigPath) args.push('--mcp-config', mcpConfigPath);
@@ -6716,10 +6721,15 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const proposeTaskEnabled = typeof proposeTask === 'function';
   const sendToAgentEnabled = typeof sendToAgent === 'function';
   let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noSpawnAgent: true, proposeTaskEnabled, sendToAgentEnabled });
-  // Bridged (external/desktop MCP) tools only when the tier is 'exec' (they are exec-class by default and the
-  // read/edit tiers intentionally exclude the桥接 surface — a sub-agent asked for read/edit stays local).
+  // 第22波(开放子代理工具面): 桥接(外部/桌面 MCP)工具按 BRIDGED_TOOL_TIERS 分级参与所有层级——原先 read/edit
+  // 一刀切不挂桥接面,read 级研究/审查类子代理连 ACC 的只读族(截图/OCR/查找/检查)都拿不到。现按 bridgedToolTier
+  // (含 config.bridgedToolTiers 用户覆盖)过滤:read 只带桥接 read 级,edit 加 edit 级,exec 全量(行为不变)。
   let bridged = { tools: [], route: {} };
-  if (tier === 'exec') { try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; } }
+  try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
+  if (tier !== 'exec') {
+    const rank = { read: 0, edit: 1, exec: 2 };
+    bridged.tools = bridged.tools.filter(t => { const n = t.function && t.function.name; const r = bridged.route[n]; return (rank[bridgedToolTier(r ? r.toolName : n, config)] ?? 2) <= rank[tier]; });
+  }
   const allows = (name, bridge) => {
     const list = role && Array.isArray(role.openaiTools) ? role.openaiTools : [];
     if (!list.length || list.includes('*')) return true;

@@ -324,6 +324,8 @@ foreach ($v in $vars) {
 | `plan`（先计划再动手） | 放行 | 拦截 | 拦截 |
 
 > `git_commit` 特意定为 **exec**（会触发 `.git/hooks` 里的任意代码，绝不下调）。计划模式的批准是**本 turn 闭包标志**，绝不改全局 `config.permissionMode`（防一次批准永久放权）。子代理 tier 还有执行期二次闸：即便被 bypass，read tier 子回合也写不成文件。
+>
+> **子代理工具面（v1.6.1 第22波开放）**：两引擎的 read/edit 级子代理均可**联网检索**——Provider 引擎自带 `web_search`/`web_fetch`（read 级，SSRF 护栏照常），Claude 引擎的 read/edit 白名单含 `WebSearch`/`WebFetch`（内置 Explorer/Reviewer/Verifier 角色的 `claudeTools` 同步含之）。桥接 MCP 工具（含 ACC）在 Provider 引擎按 `BRIDGED_TOOL_TIERS` 分级参与所有层：read 子代理可用桥接只读族（截图/OCR/查找/检查），edit 加 edit 级，exec 全量；`config.bridgedToolTiers` 覆盖仍生效。**不对称安全裁定**：Claude 引擎的 `--mcp-config` 仍仅 exec 级挂载——CLI 的 `--allowed-tools` 在 bypass 许可下不是硬限制，read/edit 提前挂桥接面等于桌面全控泄漏。
 
 ### 3.2 UI token 门
 

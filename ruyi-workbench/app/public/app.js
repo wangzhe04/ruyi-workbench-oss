@@ -2608,7 +2608,7 @@ async function openWorkflowEditor(initialId) {
     role.onchange=updateModelHint;
     rebuildModelOptions();
     const maxIters=document.createElement('input'); maxIters.type='number'; maxIters.min='1'; maxIters.max='100'; maxIters.placeholder='默认'; maxIters.value=(node.maxIters!=null&&node.maxIters!=='')?node.maxIters:'';
-    const toolTier=document.createElement('select'); for(const [v,t] of [['','继承角色'],['read','只读 read'],['edit','可编辑 edit'],['exec','可执行 exec']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; toolTier.appendChild(o); } toolTier.value=node.toolTier||'';
+    const toolTier=document.createElement('select'); for(const [v,t] of [['','继承角色'],['read','只读+联网检索 read'],['edit','可编辑+联网 edit'],['exec','可执行(全量) exec']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; toolTier.appendChild(o); } toolTier.value=node.toolTier||'';
     // ── 编排 ──
     const deps=document.createElement('select'); deps.multiple=true; deps.size=Math.min(8,Math.max(3,draft.nodes.length-1)); for(const other of draft.nodes.filter(x=>x.id!==node.id)){ const o=document.createElement('option'); o.value=other.id; o.textContent=other.id; o.selected=(node.dependsOn||[]).includes(other.id); deps.appendChild(o); }
     const condition=document.createElement('input'); condition.placeholder='如 review.verdict == "fail"'; condition.value=workflowConditionText(node.condition);
@@ -5110,7 +5110,7 @@ function renderAgentRoleEditors() {
     body.append(roleField('角色 ID', idInput), roleField('显示名', roleInput('label', role.label)), roleField('用途描述', roleInput('description', role.description)));
     const prompt = document.createElement('textarea'); prompt.rows = 3; prompt.value = role.prompt || ''; prompt.dataset.roleField = 'prompt'; body.appendChild(roleField('角色指令', prompt));
     body.append(
-      roleField('工具级别', roleSelect('toolTier', role.toolTier || 'read', [['read','只读'],['edit','可编辑'],['exec','可执行']])),
+      roleField('工具级别', roleSelect('toolTier', role.toolTier || 'read', [['read','只读+联网检索'],['edit','可编辑+联网'],['exec','可执行(全量)']])),
       roleField('角色权限', roleSelect('permissionMode', role.permissionMode || 'inherit', [['inherit','继承父级'],['default','逐项确认'],['acceptEdits','自动接受编辑'],['dontAsk','不询问，未授权即拒绝'],['plan','只读计划'],['auto','智能自动'],['bypass','跳过权限']])),
       roleField('隔离', roleSelect('isolation', role.isolation || 'none', [['none','不隔离'],['worktree','Git worktree']])),
       roleField('OpenAI 模型', roleInput('openaiModel', role.models?.openai || '')),

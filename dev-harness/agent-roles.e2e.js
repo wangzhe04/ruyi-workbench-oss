@@ -26,7 +26,7 @@ function stream(port, body) { return new Promise((resolve, reject) => { const ra
 (async () => {
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(PROJECT, { recursive: true });
   const normalized = normalizeConfig({ permissionMode: 'bypass', agentRoleOverrides: [{ id: 'My Role!', openaiModel: 'x-model', maxIters: 99, permissionMode: 'dontAsk' }] }).config;
-  ok(normalized.agentRoleOverrides[0].id === 'my-role' && normalized.agentRoleOverrides[0].budgets.openai === 32, 'global custom role is sanitized and budget-clamped');
+  ok(normalized.agentRoleOverrides[0].id === 'my-role' && normalized.agentRoleOverrides[0].budgets.openai === 99, 'global custom role is sanitized and budget-clamped (上限已提至 100,99 原样保留;===32 是旧上限时代的过期期望)');
 
   await saveProjectAgentRoles(PROJECT, [
     { id: 'explorer', label: 'Project Explorer', prompt: 'project explorer prompt', toolTier: 'read' },
