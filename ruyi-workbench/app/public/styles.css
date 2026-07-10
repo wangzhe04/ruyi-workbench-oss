@@ -1295,11 +1295,34 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .workflow-edges path { fill: var(--muted); }
 .workflow-node-card { position: absolute; width: 210px; min-height: 88px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 10px; text-align: left; cursor: grab; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 4px 14px rgba(0,0,0,.12); touch-action: none; }
 .workflow-node-card:active { cursor: grabbing; }
-.workflow-node-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.workflow-node-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent), var(--elev-2); }
 .workflow-node-card.connect-source { border-color: var(--warn); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 30%, transparent); }
 .workflow-node-card span, .workflow-node-card small { color: var(--muted); }
 .workflow-inspector { display: flex; flex-direction: column; gap: 8px; padding: 10px; height: min(510px, 52vh); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
 .workflow-help { margin: -3px 0 4px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+/* 工作流图形编辑器 v2（第14波）：检查器四分组 / 节点卡增强 / 连线手柄 / 实时校验 / 画布悬浮控件 */
+.wf-insp-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--sp-4); }
+.wf-insp-group-title { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 2px 0; }
+.wf-model-hint { font-size: var(--fs-xs); color: var(--muted); line-height: 1.35; margin-top: 2px; }
+.wf-model-custom { margin-top: 4px; }
+.wf-insp-advanced { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 6px 8px; background: color-mix(in srgb, var(--panel-3) 55%, transparent); }
+.wf-insp-advanced > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--muted); }
+.wf-adv-json { font-family: var(--mono); font-size: var(--fs-xs); width: 100%; color: var(--ink); }
+.wf-node-head { display: flex; align-items: center; gap: 6px; width: 100%; }
+.wf-node-head strong { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.wf-node-gate { flex: none; font-size: var(--fs-sm); color: var(--warn); }
+.wf-node-role { color: var(--muted); font-size: var(--fs-xs); }
+.workflow-node-card .wf-node-model { font-family: var(--mono); font-size: var(--fs-xs); color: var(--accent); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workflow-node-card.wf-node-invalid { border-color: var(--danger); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 28%, transparent); }
+.wf-port { position: absolute; right: -6px; top: 45px; width: 12px; height: 12px; margin-top: -6px; border-radius: 999px; background: var(--accent); border: 2px solid var(--panel); cursor: crosshair; transition: transform var(--dur-fast) var(--ease-out); touch-action: none; }
+.wf-port:hover { transform: scale(1.35); }
+.wf-temp-edge { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 4; pointer-events: none; }
+.wf-problem-chip { border-radius: var(--r-pill); border: 1px solid color-mix(in srgb, var(--warn) 50%, var(--line-2)); background: color-mix(in srgb, var(--warn) 14%, var(--panel)); color: var(--warn); font-size: var(--fs-xs); padding-inline: 10px; }
+.wf-canvas-controls { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; padding: 4px; border-radius: var(--r-md); background: color-mix(in srgb, var(--panel) 88%, transparent); box-shadow: var(--elev-1); z-index: 3; }
+.wf-canvas-controls .mini { border-radius: var(--r-sm); }
+.wf-canvas-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 22px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); box-shadow: var(--elev-1); z-index: 2; text-align: center; }
+.wf-canvas-empty-title { color: var(--muted); font-size: var(--fs-sm); }
+.wf-canvas-empty-actions { display: flex; gap: 8px; }
 .agent-node.an-skipped { border-left: 3px solid var(--muted); opacity: .82; }
 .agent-run-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); box-shadow: var(--elev-1); } /* v3 (§C1): 卡片 elev-1 */
 .agent-run-card.ar-running, .agent-run-card.ar-paused { border-left: 3px solid var(--accent); }

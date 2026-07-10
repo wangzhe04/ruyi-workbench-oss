@@ -38,7 +38,9 @@ ok(css.includes('.modal.workflow-modal.workflow-fullscreen') && css.includes('.w
 ok(css.includes('.workflow-editor-foot-left') && css.includes('.workflow-btn.save-as'), 'footer save-as and workflow buttons are styled');
 
 ok(!app.includes('confidenceTag'), 'agent workflow node UI no longer renders confidence tags');
-ok(!app.includes('置信度'), 'front-end no longer exposes confidence wording');
+// 收窄(v1.5 第14波):原全文件禁「置信度」误伤了运行监控视图合法的置信度结果展示(wf-gate-conf,
+// UI-ORCHESTRATION-REDESIGN §2.3 交付项)。原意=编辑器/模板不暴露置信度**配置项**,以配置词汇断言之。
+ok(!app.includes('minConfidence') && !app.includes('最低置信度'), 'editor exposes no confidence-threshold configuration wording');
 ok(!server.includes('带置信度') && !server.includes('confidence thresholds') && !server.includes('minimum accepted confidence'), 'server-facing template/tool copy no longer exposes confidence wording');
 ok(!server.includes("gate: { mode: 'cross_review', minConfidence"), 'built-in templates do not seed visible confidence thresholds');
 

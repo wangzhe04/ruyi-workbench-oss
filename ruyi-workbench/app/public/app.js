@@ -2489,13 +2489,56 @@ async function openWorkflowEditor(initialId) {
   }
   function drawEdges(svg){
     const NS='http://www.w3.org/2000/svg'; const defs=document.createElementNS(NS,'defs'), marker=document.createElementNS(NS,'marker'); marker.setAttribute('id','wf-arrow');marker.setAttribute('markerWidth','8');marker.setAttribute('markerHeight','8');marker.setAttribute('refX','7');marker.setAttribute('refY','3');marker.setAttribute('orient','auto');const path=document.createElementNS(NS,'path');path.setAttribute('d','M0,0 L0,6 L8,3 z');marker.appendChild(path);defs.appendChild(marker);svg.appendChild(defs);
-    for(const node of draft.nodes){for(const dep of node.dependsOn||[]){const from=draft.nodes.find(x=>x.id===dep);if(!from)continue;const edge={from:dep,to:node.id},x1=(from.position?.x||0)+210,y1=(from.position?.y||0)+45,x2=node.position?.x||0,y2=(node.position?.y||0)+45;const g=document.createElementNS(NS,'g');g.classList.add('workflow-edge');if(edgeKey(selectedEdge)===edgeKey(edge))g.classList.add('selected');g.dataset.from=dep;g.dataset.to=node.id;g.dataset.edgeKey=edgeKey(edge);const line=document.createElementNS(NS,'line');line.classList.add('workflow-edge-line');line.setAttribute('x1',String(x1));line.setAttribute('y1',String(y1));line.setAttribute('x2',String(x2));line.setAttribute('y2',String(y2));line.setAttribute('marker-end','url(#wf-arrow)');const hit=document.createElementNS(NS,'line');hit.classList.add('workflow-edge-hit');hit.setAttribute('x1',String(x1));hit.setAttribute('y1',String(y1));hit.setAttribute('x2',String(x2));hit.setAttribute('y2',String(y2));hit.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();selectedEdge=edge;selectedId='';resetConnectMode();markSelectedCards();markSelectedEdges();renderInspector();const endpoint=edgeEndpointByPointer(e,from,node);const sx=e.clientX,sy=e.clientY;let moved=false;hit.setPointerCapture?.(e.pointerId);const move=ev=>{if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>4)moved=true;};const up=ev=>{hit.removeEventListener('pointermove',move);hit.removeEventListener('pointerup',up);if(moved){const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&replaceWorkflowEdge(edge,endpoint,targetId)){selectedId='';renderGraph();renderInspector();toast(endpoint==='from'?'已调整箭头起点':'已调整箭头终点','ok');}else{renderGraph();renderInspector();if(targetId)toast('不能连接到自身或重复箭头','err');}}else markSelectedEdges();};hit.addEventListener('pointermove',move);hit.addEventListener('pointerup',up);});g.append(line,hit);svg.appendChild(g);}}
+    for(const node of draft.nodes){for(const dep of node.dependsOn||[]){const from=draft.nodes.find(x=>x.id===dep);if(!from)continue;const edge={from:dep,to:node.id},x1=(from.position?.x||0)+210,y1=(from.position?.y||0)+45,x2=node.position?.x||0,y2=(node.position?.y||0)+45;const g=document.createElementNS(NS,'g');g.classList.add('workflow-edge');if(edgeKey(selectedEdge)===edgeKey(edge))g.classList.add('selected');g.dataset.from=dep;g.dataset.to=node.id;g.dataset.edgeKey=edgeKey(edge);const line=document.createElementNS(NS,'line');line.classList.add('workflow-edge-line');line.setAttribute('x1',String(x1));line.setAttribute('y1',String(y1));line.setAttribute('x2',String(x2));line.setAttribute('y2',String(y2));line.setAttribute('marker-end','url(#wf-arrow)');const hit=document.createElementNS(NS,'line');hit.classList.add('workflow-edge-hit');hit.setAttribute('x1',String(x1));hit.setAttribute('y1',String(y1));hit.setAttribute('x2',String(x2));hit.setAttribute('y2',String(y2));hit.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();selectedEdge=edge;selectedId='';resetConnectMode();markSelectedCards();markSelectedEdges();renderInspector();const endpoint=edgeEndpointByPointer(e,from,node);const sx=e.clientX,sy=e.clientY;let moved=false;hit.setPointerCapture?.(e.pointerId);const move=ev=>{if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>4)moved=true;};const up=ev=>{hit.removeEventListener('pointermove',move);hit.removeEventListener('pointerup',up);if(moved){const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&(snapshot(),replaceWorkflowEdge(edge,endpoint,targetId))){selectedId='';renderGraph();renderInspector();toast(endpoint==='from'?'已调整箭头起点':'已调整箭头终点','ok');}else{renderGraph();renderInspector();if(targetId)toast('不能连接到自身或重复箭头','err');}}else markSelectedEdges();};hit.addEventListener('pointermove',move);hit.addEventListener('pointerup',up);});g.append(line,hit);svg.appendChild(g);}}
   }
+  // ── 编辑器 v2 基础设施：撤销栈 / 实时校验 / 模型数据源（第14波）──
+  let undoStack = [];
+  function snapshot(){ try { undoStack.push(structuredClone(draft.nodes)); } catch { undoStack.push(cloneWorkflow(draft.nodes)); } if (undoStack.length > 20) undoStack.shift(); }
+  function undo(){ if(!undoStack.length){ toast('没有可撤销的步骤',''); return; } const prev=undoStack.pop(); draft.nodes=prev; if(!draft.nodes.some(n=>n.id===selectedId)) selectedId=(draft.nodes[0]&&draft.nodes[0].id)||''; selectedEdge=null; resetConnectMode(); renderGraph(); renderInspector(); toast('已撤销','ok'); }
+  const problemChip = el('button','wf-problem-chip'); problemChip.type='button'; problemChip.hidden=true; toolbar.appendChild(problemChip);
+  let lastProblems=[];
+  problemChip.onclick=()=>{ if(lastProblems.length) toast('校验问题：\n'+lastProblems.join('\n'),'err'); };
+  function validateDraft(){
+    const nodes=draft.nodes, ids=new Set(nodes.map(n=>n.id)), problems=[], bad=new Set(), seen=new Set();
+    for(const n of nodes){ if(seen.has(n.id)){ problems.push('节点 ID 重复：'+n.id); bad.add(n.id); } seen.add(n.id); }
+    for(const n of nodes){ if(!String(n.task||'').trim()){ problems.push('节点「'+n.id+'」任务为空'); bad.add(n.id); } }
+    for(const n of nodes){ for(const d of n.dependsOn||[]){ if(!ids.has(d)){ problems.push('节点「'+n.id+'」依赖不存在的「'+d+'」'); bad.add(n.id); } } }
+    const color=new Map(); let cyc=false;
+    const dfs=id=>{ color.set(id,1); const n=nodes.find(x=>x.id===id); for(const d of (n&&n.dependsOn||[]).filter(x=>ids.has(x))){ const c=color.get(d)||0; if(c===1){ cyc=true; bad.add(id); bad.add(d); } else if(c===0) dfs(d); } color.set(id,2); };
+    for(const n of nodes){ if((color.get(n.id)||0)===0) dfs(n.id); }
+    if(cyc) problems.push('存在环依赖（节点相互依赖，无法排序）');
+    return { problems, bad };
+  }
+  let validateTimer=null;
+  function scheduleValidate(){ clearTimeout(validateTimer); validateTimer=setTimeout(()=>{ const r=validateDraft(); lastProblems=r.problems; graph.querySelectorAll('.workflow-node-card').forEach(c=>c.classList.toggle('wf-node-invalid',r.bad.has(c.dataset.nodeId))); if(r.problems.length){ problemChip.hidden=false; problemChip.textContent='⚠ '+r.problems.length+' 个问题'; } else problemChip.hidden=true; }, 300); }
+  function roleById(id){ return roles.find(r=>r.id===id)||null; }
+  function engineModelOptions(eng){
+    if(eng==='openai'){ const p=activeProviderObj(); return (p&&p.models||[]).map(m=>({value:m.id,label:m.label||m.id})); }
+    if(eng==='claude'){ const out=[],seen=new Set(); for(const raw of (state.config.extraModels||[])){ const parts=String(raw).split('|'); const v=(parts[0]||'').trim(); if(v&&!seen.has(v)){ seen.add(v); out.push({value:v,label:(parts[1]||'').trim()||v}); } } for(const id of (state.config.knownModels||[])){ const v=String(id||'').trim(); if(v&&!seen.has(v)){ seen.add(v); out.push({value:v,label:v}); } } for(const m of ((state.status&&state.status.models)||[])){ const v=String(m.id||'').trim(); if(v&&!seen.has(v)){ seen.add(v); out.push({value:v,label:m.label||v}); } } return out; }
+    return [];
+  }
+  function roleModelFor(roleId,eng){ const r=roleById(roleId); if(!r||!r.models) return ''; return eng==='claude' ? (r.models.claude&&r.models.claude!=='inherit'?r.models.claude:'') : (r.models.openai||''); }
+  function globalModelFor(eng){ return eng==='openai' ? ((activeProviderObj()||{}).model||'') : (state.config.model||''); }
+  if(modalEl) modalEl.addEventListener('keydown',e=>{ const tag=(e.target&&e.target.tagName)||''; if(/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) return; if(e.key==='Delete'){ if(selectedEdge){ e.preventDefault(); edgeDeleteBtn.click(); } else if(selectedId){ e.preventDefault(); deleteBtn.click(); } } else if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='Z')){ e.preventDefault(); undo(); } });
+  function fitView(){ if(!draft.nodes.length) return; let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity; for(const n of draft.nodes){ const x=n.position?.x||0,y=n.position?.y||0; a=Math.min(a,x); b=Math.min(b,y); c=Math.max(c,x+210); d=Math.max(d,y+96); } const cx=(a+c)/2,cy=(b+d)/2; graph.scrollTo({left:Math.max(0,cx-graph.clientWidth/2),top:Math.max(0,cy-graph.clientHeight/2),behavior:'smooth'}); }
+  function clientToCanvas(cx,cy){ const r=graph.getBoundingClientRect(); return { x:cx-r.left+graph.scrollLeft, y:cy-r.top+graph.scrollTop }; }
   function renderGraph(){ graph.textContent=''; const NS='http://www.w3.org/2000/svg',svg=document.createElementNS(NS,'svg');svg.classList.add('workflow-edges');graph.appendChild(svg);drawEdges(svg);
-    for(const node of draft.nodes){const card=el('button',`workflow-node-card${node.id===selectedId?' selected':''}${node.id===connectFromId?' connect-source':''}`);card.type='button';card.dataset.nodeId=node.id;card.style.left=`${node.position?.x||0}px`;card.style.top=`${node.position?.y||0}px`;const engineTag=node.engine==='claude'?' · Claude CLI':node.engine==='openai'?' · OpenAI':'';card.append(el('strong','',node.id),el('span','',(node.role||'无角色')+engineTag),el('small','',(node.dependsOn||[]).length?`依赖 ${(node.dependsOn||[]).join(', ')}`:'起点'));
-      card.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(connectFromId&&connectFromId!==node.id){if(!(node.dependsOn||[]).includes(connectFromId))node.dependsOn=[...(node.dependsOn||[]),connectFromId];selectedId=node.id;selectedEdge=null;resetConnectMode();syncNodeSelect();renderGraph();renderInspector();toast('已新增依赖箭头','ok');return;}selectedId=node.id;selectedEdge=null;renderInspector();markSelectedCards();markSelectedEdges();const sx=e.clientX,sy=e.clientY,ox=node.position?.x||0,oy=node.position?.y||0;let moved=false;card.setPointerCapture(e.pointerId);const move=ev=>{const dx=ev.clientX-sx,dy=ev.clientY-sy;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;node.position={x:Math.max(0,ox+dx),y:Math.max(0,oy+dy)};card.style.left=`${node.position.x}px`;card.style.top=`${node.position.y}px`;};const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);if(moved)renderGraph();else{markSelectedCards();markSelectedEdges();}};card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);});graph.appendChild(card); }
+    for(const node of draft.nodes){const card=el('button',`workflow-node-card${node.id===selectedId?' selected':''}${node.id===connectFromId?' connect-source':''}`);card.type='button';card.dataset.nodeId=node.id;card.style.left=`${node.position?.x||0}px`;card.style.top=`${node.position?.y||0}px`;
+      const head=el('div','wf-node-head');head.appendChild(el('strong','',node.id));const badge=agentEngineBadge(node.engine);if(badge)head.appendChild(badge);if(node.gate&&node.gate.mode){const gm=el('span','wf-node-gate','⚖');gm.title='质量门：'+node.gate.mode;head.appendChild(gm);}card.appendChild(head);
+      card.appendChild(el('span','wf-node-role',node.role||'无角色'));
+      if(node.model){const mv=el('span','wf-node-model',node.model.length>18?node.model.slice(0,18)+'…':node.model);mv.title='模型：'+node.model;card.appendChild(mv);}
+      card.appendChild(el('small','',(node.dependsOn||[]).length?`依赖 ${(node.dependsOn||[]).join(', ')}`:'起点'));
+      const port=el('span','wf-port');port.title='从这里拖到目标节点，创建依赖箭头';
+      port.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();const gsvg=graph.querySelector('svg.workflow-edges');const temp=document.createElementNS(NS,'line');temp.setAttribute('class','wf-temp-edge');const x1=(node.position?.x||0)+210,y1=(node.position?.y||0)+45;temp.setAttribute('x1',x1);temp.setAttribute('y1',y1);temp.setAttribute('x2',x1);temp.setAttribute('y2',y1);if(gsvg)gsvg.appendChild(temp);port.setPointerCapture?.(e.pointerId);const move=ev=>{const p=clientToCanvas(ev.clientX,ev.clientY);temp.setAttribute('x2',p.x);temp.setAttribute('y2',p.y);};const up=ev=>{port.removeEventListener('pointermove',move);port.removeEventListener('pointerup',up);temp.remove();const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&targetId!==node.id){snapshot();if(addWorkflowEdge(node.id,targetId)){selectedEdge=null;renderGraph();renderInspector();toast('已连线','ok');}else{undoStack.pop();toast('不能连接到自身或重复箭头','err');}}};port.addEventListener('pointermove',move);port.addEventListener('pointerup',up);});
+      card.appendChild(port);
+      card.addEventListener('dblclick',ev=>{ev.preventDefault();selectedId=node.id;selectedEdge=null;renderInspector();const t=inspector.querySelector('[data-wf-field="task"]');if(t)t.focus();});
+      card.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(connectFromId&&connectFromId!==node.id){snapshot();if(!(node.dependsOn||[]).includes(connectFromId))node.dependsOn=[...(node.dependsOn||[]),connectFromId];else undoStack.pop();selectedId=node.id;selectedEdge=null;resetConnectMode();syncNodeSelect();renderGraph();renderInspector();toast('已新增依赖箭头','ok');return;}selectedId=node.id;selectedEdge=null;renderInspector();markSelectedCards();markSelectedEdges();const sx=e.clientX,sy=e.clientY,ox=node.position?.x||0,oy=node.position?.y||0;let moved=false;card.setPointerCapture(e.pointerId);const move=ev=>{const dx=ev.clientX-sx,dy=ev.clientY-sy;if(Math.abs(dx)+Math.abs(dy)>3){if(!moved){moved=true;snapshot();}node.position={x:Math.max(0,ox+dx),y:Math.max(0,oy+dy)};card.style.left=`${node.position.x}px`;card.style.top=`${node.position.y}px`;}};const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);if(moved)renderGraph();else{markSelectedCards();markSelectedEdges();}};card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);});
+      graph.appendChild(card); }
+    if(!draft.nodes.length){const guide=el('div','wf-canvas-empty');guide.appendChild(el('div','wf-canvas-empty-title','画布还是空的，从这里开始'));const row=el('div','wf-canvas-empty-actions');const fromTpl=el('button','mini','从模板开始');fromTpl.type='button';fromTpl.onclick=()=>{templateSelect.focus();};const addFirst=el('button','mini primary','＋ 添加第一个节点');addFirst.type='button';addFirst.onclick=()=>addBtn.click();row.append(fromTpl,addFirst);guide.appendChild(row);graph.appendChild(guide);}
+    const controls=el('div','wf-canvas-controls');const fitBtn=el('button','mini wf-fit-btn','适应视图');fitBtn.type='button';fitBtn.title='把所有节点居中到视口';fitBtn.onclick=fitView;controls.appendChild(fitBtn);graph.appendChild(controls);
     syncNodeSelect();
     markSelectedEdges();
+    scheduleValidate();
   }
   // Remap any OTHER node's reference to a node id across all three reference kinds (dependsOn, its own
   // condition, and its loop's until condition) — rename must keep all three in sync, not just dependsOn,
@@ -2519,51 +2562,94 @@ async function openWorkflowEditor(initialId) {
     }
     return cleared;
   }
-  function renderInspector(){inspector.textContent='';if(selectedEdge&&!edgeExists(selectedEdge))selectedEdge=null;if(selectedEdge){const fromSel=document.createElement('select'),toSel=document.createElement('select');for(const n of draft.nodes){const a=document.createElement('option');a.value=n.id;a.textContent=n.id;fromSel.appendChild(a);const b=document.createElement('option');b.value=n.id;b.textContent=n.id;toSel.appendChild(b);}fromSel.value=selectedEdge.from;toSel.value=selectedEdge.to;const applyEdge=el('button','mini primary','应用箭头'),delEdge=el('button','mini danger','删除箭头');inspector.append(el('p','workflow-help','已选择箭头。可在这里改起点/终点，也可直接拖动箭头靠近某一端的位置到目标节点。'),workflowField('起点节点',fromSel),workflowField('结束节点',toSel));applyEdge.onclick=()=>{const next={from:fromSel.value,to:toSel.value};if(next.from===next.to)return toast('箭头不能连接到自身','err');if(edgeKey(next)!==edgeKey(selectedEdge)&&edgeExists(next))return toast('重复箭头','err');const old=selectedEdge;removeWorkflowEdge(old);if(!addWorkflowEdge(next.from,next.to)){addWorkflowEdge(old.from,old.to);return toast('无法应用箭头','err');}selectedEdge=next;renderGraph();renderInspector();};delEdge.onclick=()=>{if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast('已删除箭头','ok');}};inspector.append(applyEdge,delEdge);return;}const node=draft.nodes.find(x=>x.id===selectedId);if(!node){inspector.append(el('p','muted','选择一个节点'));return;} const oldId=node.id;
-    const nid=document.createElement('input');nid.value=node.id;const task=document.createElement('textarea');task.rows=5;task.value=node.task||'';const role=document.createElement('select');{const empty=document.createElement('option');empty.value='';empty.textContent='无角色';role.appendChild(empty);for(const r of roles){const o=document.createElement('option');o.value=r.id;o.textContent=r.label||r.id;role.appendChild(o);}role.value=node.role||'';}
-    const engine=document.createElement('select');for(const [v,t] of [['','自动（跟随可用引擎）'],['openai','OpenAI Provider'],['claude','Claude CLI']]){const o=document.createElement('option');o.value=v;o.textContent=t;engine.appendChild(o);}engine.value=node.engine||'';
-    const deps=document.createElement('select');deps.multiple=true;deps.size=Math.min(8,Math.max(3,draft.nodes.length-1));for(const other of draft.nodes.filter(x=>x.id!==node.id)){const o=document.createElement('option');o.value=other.id;o.textContent=other.id;o.selected=(node.dependsOn||[]).includes(other.id);deps.appendChild(o);}const failure=document.createElement('select');for(const [v,t] of [['block','阻塞下游'],['continue','降级继续'],['retry','自动重试']]){const o=document.createElement('option');o.value=v;o.textContent=t;failure.appendChild(o);}failure.value=node.failurePolicy||'block';
-    const maxRetries=document.createElement('input');maxRetries.type='number';maxRetries.min='1';maxRetries.max='5';maxRetries.value=node.maxRetries||1;
-    const condition=document.createElement('input');condition.placeholder='如 review.verdict == "fail"';condition.value=workflowConditionText(node.condition);
-    const loopMax=document.createElement('input');loopMax.type='number';loopMax.min='1';loopMax.max='20';loopMax.value=node.loop?.maxIterations||1;const loopUntil=document.createElement('input');loopUntil.placeholder='可选，如 loop.done == true';loopUntil.value=workflowConditionText(node.loop?.until);const noProgress=document.createElement('input');noProgress.type='number';noProgress.min='1';noProgress.max='10';noProgress.value=node.loop?.noProgressLimit||2;
-    inspector.append(workflowField('节点 ID',nid),workflowField('任务',task),workflowField('角色',role),workflowField('执行引擎',engine),workflowField('依赖节点（多选）',deps),el('div','workflow-help','依赖表示箭头方向：被选节点 → 当前节点。也可点“连接箭头”，再依次点击源节点和目标节点。'),workflowField('失败策略',failure),workflowField('自动重试次数（失败策略=自动重试 时生效）',maxRetries),workflowField('运行条件',condition),workflowField('最大循环次数',loopMax),workflowField('循环停止条件',loopUntil),workflowField('连续无进展停止',noProgress));
+  function renderInspector(){inspector.textContent='';if(selectedEdge&&!edgeExists(selectedEdge))selectedEdge=null;if(selectedEdge){const fromSel=document.createElement('select'),toSel=document.createElement('select');for(const n of draft.nodes){const a=document.createElement('option');a.value=n.id;a.textContent=n.id;fromSel.appendChild(a);const b=document.createElement('option');b.value=n.id;b.textContent=n.id;toSel.appendChild(b);}fromSel.value=selectedEdge.from;toSel.value=selectedEdge.to;const applyEdge=el('button','mini primary','应用箭头'),delEdge=el('button','mini danger','删除箭头');inspector.append(el('p','workflow-help','已选择箭头。可在这里改起点/终点，也可直接拖动箭头靠近某一端的位置到目标节点。'),workflowField('起点节点',fromSel),workflowField('结束节点',toSel));applyEdge.onclick=()=>{const next={from:fromSel.value,to:toSel.value};if(next.from===next.to)return toast('箭头不能连接到自身','err');if(edgeKey(next)!==edgeKey(selectedEdge)&&edgeExists(next))return toast('重复箭头','err');snapshot();const old=selectedEdge;removeWorkflowEdge(old);if(!addWorkflowEdge(next.from,next.to)){addWorkflowEdge(old.from,old.to);return toast('无法应用箭头','err');}selectedEdge=next;renderGraph();renderInspector();};delEdge.onclick=()=>{snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast('已删除箭头','ok');}};inspector.append(applyEdge,delEdge);return;}const node=draft.nodes.find(x=>x.id===selectedId);
+    if(!node){ inspector.append(el('p','muted','选择一个节点')); return; }
+    const oldId=node.id;
+    // ── 身份 ──
+    const nid=document.createElement('input'); nid.value=node.id;
+    const task=document.createElement('textarea'); task.rows=5; task.value=node.task||''; task.dataset.wfField='task';
+    const role=document.createElement('select'); { const empty=document.createElement('option'); empty.value=''; empty.textContent='无角色'; role.appendChild(empty); for(const r of roles){ const o=document.createElement('option'); o.value=r.id; o.textContent=r.label||r.id; role.appendChild(o); } role.value=node.role||''; }
+    // ── 执行 ──
+    const engine=document.createElement('select'); for(const [v,t] of [['','自动（跟随可用引擎）'],['openai','OpenAI Provider'],['claude','Claude CLI']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; engine.appendChild(o); } engine.value=node.engine||'';
+    const model=document.createElement('select');
+    const modelCustom=document.createElement('input'); modelCustom.className='wf-model-custom'; modelCustom.placeholder='输入自定义模型 id'; modelCustom.style.display='none';
+    const modelHint=el('div','wf-model-hint');
+    function currentModelChoice(){ return model.value==='__custom' ? modelCustom.value.trim() : model.value; }
+    function updateModelHint(){ const eng=engine.value; if(!eng){ modelHint.textContent='引擎为自动时不单独指定模型，跟随角色/引擎默认'; return; } const chosen=currentModelChoice(); if(chosen){ modelHint.textContent='当前生效：节点指定 · '+chosen; return; } const rm=roleModelFor(role.value,eng); if(rm){ modelHint.textContent='当前生效：角色默认 · '+rm; return; } const g=globalModelFor(eng); modelHint.textContent = g ? '当前生效：全局默认 · '+g : '当前生效：引擎内置默认'; }
+    function rebuildModelOptions(){ const eng=engine.value; const cur=node.model||''; model.textContent=''; const inh=document.createElement('option'); inh.value=''; inh.textContent='继承（角色/全局默认）'; model.appendChild(inh); for(const m of engineModelOptions(eng)){ const o=document.createElement('option'); o.value=m.value; o.textContent=m.label; model.appendChild(o); } const cus=document.createElement('option'); cus.value='__custom'; cus.textContent='自定义…'; model.appendChild(cus); if(eng===''){ model.value=''; model.disabled=true; modelCustom.style.display='none'; } else { model.disabled=false; if(!cur) model.value=''; else if([...model.options].some(o=>o.value===cur)) model.value=cur; else { model.value='__custom'; modelCustom.value=cur; } modelCustom.style.display = model.value==='__custom' ? '' : 'none'; } updateModelHint(); }
+    model.onchange=()=>{ modelCustom.style.display = model.value==='__custom' ? '' : 'none'; if(model.value==='__custom') modelCustom.focus(); updateModelHint(); };
+    modelCustom.oninput=updateModelHint;
+    engine.onchange=()=>{ rebuildModelOptions(); };
+    role.onchange=updateModelHint;
+    rebuildModelOptions();
+    const maxIters=document.createElement('input'); maxIters.type='number'; maxIters.min='1'; maxIters.max='100'; maxIters.placeholder='默认'; maxIters.value=(node.maxIters!=null&&node.maxIters!=='')?node.maxIters:'';
+    const toolTier=document.createElement('select'); for(const [v,t] of [['','继承角色'],['read','只读 read'],['edit','可编辑 edit'],['exec','可执行 exec']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; toolTier.appendChild(o); } toolTier.value=node.toolTier||'';
+    // ── 编排 ──
+    const deps=document.createElement('select'); deps.multiple=true; deps.size=Math.min(8,Math.max(3,draft.nodes.length-1)); for(const other of draft.nodes.filter(x=>x.id!==node.id)){ const o=document.createElement('option'); o.value=other.id; o.textContent=other.id; o.selected=(node.dependsOn||[]).includes(other.id); deps.appendChild(o); }
+    const condition=document.createElement('input'); condition.placeholder='如 review.verdict == "fail"'; condition.value=workflowConditionText(node.condition);
+    const loopMax=document.createElement('input'); loopMax.type='number'; loopMax.min='1'; loopMax.max='20'; loopMax.value=node.loop?.maxIterations||1;
+    const loopUntil=document.createElement('input'); loopUntil.placeholder='可选，如 loop.done == true'; loopUntil.value=workflowConditionText(node.loop?.until);
+    const noProgress=document.createElement('input'); noProgress.type='number'; noProgress.min='1'; noProgress.max='10'; noProgress.value=node.loop?.noProgressLimit||2;
+    // ── 质量 ──
+    const gate=document.createElement('select'); for(const [v,t] of [['','无（不设质量门）'],['review','review 复核'],['verify','verify 验收'],['vote','vote 投票'],['cross_review','cross_review 交叉审查'],['dedupe','dedupe 去重']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; gate.appendChild(o); } gate.value=(node.gate&&node.gate.mode)||'';
+    const failure=document.createElement('select'); for(const [v,t] of [['block','阻塞下游'],['continue','降级继续'],['retry','自动重试']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; failure.appendChild(o); } failure.value=node.failurePolicy||'block';
+    const maxRetries=document.createElement('input'); maxRetries.type='number'; maxRetries.min='1'; maxRetries.max='5'; maxRetries.value=node.maxRetries||1;
+    // ── 高级 JSON ──
+    const adv=el('details','wf-insp-advanced'); adv.appendChild(el('summary','','高级（直接编辑节点 JSON：resources / outputSchema / isolation 等长尾）')); const advTa=document.createElement('textarea'); advTa.className='wf-adv-json'; advTa.rows=8; advTa.spellcheck=false; advTa.value=JSON.stringify(node,null,2); const advApply=el('button','mini','应用 JSON'); advApply.type='button'; adv.append(workflowField('节点完整 JSON',advTa),advApply);
+    advApply.onclick=()=>{ let parsed; try{ parsed=JSON.parse(advTa.value); }catch(err){ return toast('JSON 解析失败：'+err.message,'err'); } if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)) return toast('必须是一个 JSON 对象','err'); const nextId=String(parsed.id||'').trim(); if(!/^[A-Za-z0-9_-]+$/.test(nextId)) return toast('JSON 中 id 非法（仅字母/数字/_/-）','err'); if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId)) return toast('JSON 中 id 与其他节点重复','err'); snapshot(); for(const k of Object.keys(node)) delete node[k]; Object.assign(node,parsed); node.id=nextId; if(nextId!==oldId) remapWorkflowNodeRef(oldId,nextId); selectedId=nextId; renderGraph(); renderInspector(); toast('已应用节点 JSON','ok'); };
+    // ── 分组装配（身份 / 执行 / 编排 / 质量）──
+    const group=(title,...items)=>{ const g=el('div','wf-insp-group'); g.appendChild(el('div','wf-insp-group-title',title)); for(const it of items) if(it) g.appendChild(it); return g; };
+    const modelField=workflowField('模型（可为该职位指派更强模型）',model); modelField.append(modelCustom,modelHint);
+    inspector.append(
+      group('身份', workflowField('节点 ID',nid), workflowField('任务',task), workflowField('角色',role)),
+      group('执行', workflowField('执行引擎',engine), modelField, workflowField('迭代预算 maxIters（空=默认）',maxIters), workflowField('工具权限 toolTier',toolTier)),
+      group('编排', workflowField('依赖节点（多选）',deps), el('div','workflow-help','依赖表示箭头方向：被选节点 → 当前节点。也可点“连接箭头”，或从节点右侧圆点手柄拖到目标节点。'), workflowField('运行条件',condition), workflowField('最大循环次数',loopMax), workflowField('循环停止条件',loopUntil), workflowField('连续无进展停止',noProgress)),
+      group('质量', workflowField('质量门 gate',gate), workflowField('失败策略',failure), workflowField('自动重试次数（失败策略=自动重试 时生效）',maxRetries)),
+      adv
+    );
     const apply=el('button','mini primary','应用节点设置');
     apply.onclick=()=>{
-      // Validate EVERYTHING first — nothing on `node`/`draft` is written until every field parses, so a
-      // rejected apply (bad condition syntax, duplicate id, ...) leaves the draft exactly as it was.
+      // Validate EVERYTHING first — nothing on `node`/`draft` is written until every field parses.
       const nextId=nid.value.trim();
-      if(!/^[A-Za-z0-9_-]+$/.test(nextId))return toast('节点 ID 只能用字母、数字、_、-','err');
-      if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId))return toast('节点 ID 重复','err');
+      if(!/^[A-Za-z0-9_-]+$/.test(nextId)) return toast('节点 ID 只能用字母、数字、_、-','err');
+      if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId)) return toast('节点 ID 重复','err');
       const nextDependsOn=[...deps.selectedOptions].map(x=>x.value).filter(x=>x&&x!==nextId);
       const nextCondition=parseWorkflowConditionText(condition.value);
-      if(condition.value.trim()&&!nextCondition)return toast('运行条件格式无效','err');
+      if(condition.value.trim()&&!nextCondition) return toast('运行条件格式无效','err');
       const lm=Math.max(1,Number(loopMax.value)||1);
       const nextUntil=parseWorkflowConditionText(loopUntil.value);
-      if(loopUntil.value.trim()&&!nextUntil)return toast('循环停止条件格式无效','err');
-      // All parsed OK — now commit.
-      if(nextCondition?.node&&nextCondition.node!==nextId&&!nextDependsOn.includes(nextCondition.node))nextDependsOn.push(nextCondition.node);
+      if(loopUntil.value.trim()&&!nextUntil) return toast('循环停止条件格式无效','err');
+      const mi=maxIters.value.trim();
+      const modelVal=currentModelChoice();
+      // All parsed OK — snapshot then commit.
+      snapshot();
+      if(nextCondition?.node&&nextCondition.node!==nextId&&!nextDependsOn.includes(nextCondition.node)) nextDependsOn.push(nextCondition.node);
       const nextLoop=lm>1?{maxIterations:lm,until:nextUntil,noProgressLimit:Math.max(1,Number(noProgress.value)||2),onNoProgress:'continue'}:null;
-      node.id=nextId;node.task=task.value.trim();node.role=role.value;node.engine=engine.value;
-      node.dependsOn=nextDependsOn;node.failurePolicy=failure.value;
+      node.id=nextId; node.task=task.value.trim(); node.role=role.value; node.engine=engine.value;
+      node.model = engine.value ? modelVal : '';
+      node.dependsOn=nextDependsOn; node.failurePolicy=failure.value;
       node.maxRetries=failure.value==='retry'?Math.max(1,Math.min(5,Math.round(Number(maxRetries.value)||1))):0;
-      node.condition=nextCondition;node.loop=nextLoop;
-      if(nextId!==oldId)remapWorkflowNodeRef(oldId,nextId);
-      selectedId=nextId;renderGraph();renderInspector();
+      node.condition=nextCondition; node.loop=nextLoop;
+      node.gate = gate.value ? { ...(node.gate&&typeof node.gate==='object'?node.gate:{}), mode:gate.value } : null;
+      if(mi) node.maxIters=Math.max(1,Math.min(100,Math.round(Number(mi)||100))); else delete node.maxIters;
+      if(toolTier.value) node.toolTier=toolTier.value; else delete node.toolTier;
+      if(nextId!==oldId) remapWorkflowNodeRef(oldId,nextId);
+      selectedId=nextId; renderGraph(); renderInspector();
     };
     inspector.appendChild(apply);
   }
-  loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast('已载入模板；保存会覆盖同 ID 的个人/项目模板，内置模板会保存为个人副本','');};
-  blankBtn.onclick=()=>{draft=workflowBlank();idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast('已新建空白模板，保存后生成新模板','ok');};
-  forkBtn.onclick=()=>{selectedEdge=null;forkWorkflowDraft();renderGraph();renderInspector();};
+  loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;undoStack.length=0;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast('已载入模板；保存会覆盖同 ID 的个人/项目模板，内置模板会保存为个人副本','');};
+  blankBtn.onclick=()=>{undoStack.length=0;draft=workflowBlank();idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast('已新建空白模板，保存后生成新模板','ok');};
+  forkBtn.onclick=()=>{undoStack.length=0;selectedEdge=null;forkWorkflowDraft();renderGraph();renderInspector();};
   nodeSelect.onchange=()=>{selectedId=nodeSelect.value;selectedEdge=null;renderGraph();renderInspector();};
   connectBtn.onclick=()=>{if(connectFromId){resetConnectMode();markSelectedCards();return;}selectedEdge=null;connectFromId=selectedId||draft.nodes[0]?.id||'';connectBtn.textContent='取消连接';markSelectedCards();markSelectedEdges();toast('连接模式：点击目标节点，创建“当前节点 → 目标节点”的依赖箭头','');};
-  edgeDeleteBtn.onclick=()=>{if(!selectedEdge)return;if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast('已删除箭头','ok');}};
+  edgeDeleteBtn.onclick=()=>{if(!selectedEdge)return;snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast('已删除箭头','ok');}};
   maxBtn.onclick=()=>{const on=modalEl?.classList.toggle('workflow-fullscreen');maxBtn.textContent=on?'❐':'□';maxBtn.title=on?'还原':'最大化';maxBtn.setAttribute('aria-label',on?'还原工作流编辑器':'最大化工作流编辑器');setTimeout(()=>{renderGraph();renderInspector();},0);};
-  addBtn.onclick=()=>{let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();};
+  addBtn.onclick=()=>{snapshot();let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();};
   deleteBtn.onclick=()=>{
     if(draft.nodes.length<=1)return toast('至少保留一个节点','err');
     if(!confirm(`删除节点「${selectedId}」？其依赖它的运行条件/循环停止条件将被清除，且此操作不可撤销。`))return;
-    const deadId=selectedId;
+    snapshot();const deadId=selectedId;
     draft.nodes=draft.nodes.filter(x=>x.id!==deadId);
     const cleared=clearWorkflowNodeRef(deadId);
     selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();
