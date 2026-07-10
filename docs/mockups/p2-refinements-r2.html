@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计图 r2 · P2 精修 · 如意 Ruyi</title>
+<style>
+/* ============================================================
+   如意 Ruyi 青花 token —— 值对齐 app/public/styles.css
+   r2 新增 token 同 p3-workbench-r2.html:--canvas-bg 本页不用,
+   引入 --panel-veil / --glow-accent / --gold-line(见 NOTES §2)
+   ============================================================ */
+:root{
+  font-size:14px;
+  --font:"Segoe UI","Microsoft YaHei",system-ui,Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;
+  --fs-xs:11px;--fs-sm:12px;--fs-md:13px;--fs-base:14px;--fs-lg:16px;--fs-xl:20px;--fs-2xl:24px;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-pill:999px;
+  --ease-out:cubic-bezier(.2,.7,.3,1);--dur-fast:120ms;--dur-base:200ms;
+  --ring:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent);
+  --ruyi-cloud:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2070'%3E%3Cpath%20fill='%23000'%20d='M60%2062%20C46%2055%2030%2044%2030%2032%20A13%2013%200%200%201%2053%2024%20A7.5%207.5%200%201%201%2067%2024%20A13%2013%200%200%201%2090%2032%20C90%2044%2074%2055%2060%2062%20Z'/%3E%3C/svg%3E");
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1520;--panel:#151d2b;--panel-2:#1a2436;--panel-3:#24304a;
+  --ink:#e9edf5;--ink-2:#c4cee0;--muted:#8fa0b8;--line:#263349;--line-2:#33425e;
+  --accent:#4a6cd9;--accent-hover:#5b7ee8;--accent-ink:#fff;--accent-soft:#1c2a4a;
+  --link:#8fadf7;--gold:#f2c14e;--gold-soft:#332a12;--brand-qh:#6b8ff2;--brand-au:#f2c14e;
+  --danger:#e56060;--ok:#53c08a;--warn:#e3b054;--info:#5b93e6;
+  --ok-bg:color-mix(in srgb,var(--ok) 16%,var(--panel));--ok-fg:var(--ok);
+  --warn-bg:color-mix(in srgb,var(--warn) 16%,var(--panel));--warn-fg:var(--warn);
+  --danger-bg:color-mix(in srgb,var(--danger) 16%,var(--panel));--danger-fg:var(--danger);
+  --info-bg:color-mix(in srgb,var(--info) 16%,var(--panel));--info-fg:var(--info);
+  --code-bg:#0b111b;--scroll:#35425c;--eng-claude:#d97757;
+  --elev-1:0 1px 2px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.10);
+  --elev-2:0 6px 20px rgba(0,0,0,.20);
+  --panel-veil:color-mix(in srgb,var(--panel) 78%,transparent);
+  --glow-accent:0 0 0 1px color-mix(in srgb,var(--accent) 32%,transparent),0 10px 30px -8px color-mix(in srgb,var(--accent) 38%,transparent);
+  --gold-line:color-mix(in srgb,var(--gold) 55%,transparent);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f3f5f9;--panel:#fff;--panel-2:#f7f9fc;--panel-3:#eef2f8;
+  --ink:#1b2436;--ink-2:#33405a;--muted:#5f6c85;--line:#dbe2ee;--line-2:#c6d1e3;
+  --accent:#2350a8;--accent-hover:#1c4390;--accent-ink:#fff;--accent-soft:#e7edfa;
+  --link:#2350a8;--gold:#a97b1e;--gold-soft:#f6edd8;--brand-qh:#2350a8;--brand-au:#d9a441;
+  --danger:#b42318;--ok:#22794e;--warn:#a1650f;--info:#2b6cb0;
+  --ok-bg:color-mix(in srgb,var(--ok) 16%,var(--panel));--ok-fg:var(--ok);
+  --warn-bg:color-mix(in srgb,var(--warn) 16%,var(--panel));--warn-fg:var(--warn);
+  --danger-bg:color-mix(in srgb,var(--danger) 16%,var(--panel));--danger-fg:var(--danger);
+  --info-bg:color-mix(in srgb,var(--info) 16%,var(--panel));--info-fg:var(--info);
+  --code-bg:#f2f4f8;--scroll:#c3cddd;--eng-claude:#c96442;
+  --elev-1:0 1px 2px rgba(20,28,48,.08),0 2px 8px rgba(20,28,48,.06);
+  --elev-2:0 6px 20px rgba(20,28,48,.12);
+  --panel-veil:color-mix(in srgb,var(--panel) 82%,transparent);
+  --glow-accent:0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent),0 10px 26px -10px color-mix(in srgb,var(--accent) 25%,transparent);
+  --gold-line:color-mix(in srgb,var(--gold) 60%,transparent);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;font-size:var(--fs-base);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:6px;}
+.num{font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1;letter-spacing:.01em;}
+
+.anno-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-2) var(--sp-5);background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;}
+.anno-left{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm);color:var(--muted);}
+.anno-tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:var(--r-pill);
+  background:var(--gold-soft);color:var(--gold);border:1px solid var(--gold-line);
+  font-weight:600;font-size:var(--fs-xs);}
+.theme-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r-pill);
+  background:var(--panel-2);color:var(--ink);border:1px solid var(--line-2);cursor:pointer;font-size:var(--fs-sm);}
+.theme-btn:hover{background:var(--panel-3);}
+
+/* 两屏并排(横向可滚动) */
+.screens{display:flex;gap:var(--sp-6);padding:var(--sp-6);align-items:flex-start;overflow-x:auto;min-height:calc(100vh - 44px);}
+.screen{position:relative;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--elev-2);padding:var(--sp-5);overflow:hidden;}
+.screen-1{width:900px;}
+.screen-2{width:640px;}
+.screen-title{font-size:var(--fs-lg);font-weight:700;margin:0 0 4px;position:relative;}
+.screen-sub{font-size:var(--fs-xs);color:var(--muted);margin:0 0 var(--sp-4);line-height:1.6;position:relative;}
+/* 云纹角饰:mask token 上色,结构锚点而非居中水印 */
+.corner-cloud{position:absolute;right:-28px;top:-20px;width:190px;height:110px;pointer-events:none;
+  background:var(--brand-qh);opacity:.05;
+  -webkit-mask:var(--ruyi-cloud) center/contain no-repeat;mask:var(--ruyi-cloud) center/contain no-repeat;}
+
+/* ── 屏 ① 监控卡对比 ── */
+.compare{display:flex;gap:var(--sp-5);align-items:flex-start;position:relative;}
+.col{display:flex;flex-direction:column;}
+.col-label{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);font-weight:700;margin-bottom:10px;}
+.col-w{font-family:var(--mono);font-size:var(--fs-xs);font-weight:400;color:var(--muted);
+  background:var(--code-bg);padding:1px 7px;border-radius:var(--r-sm);border:1px solid var(--line);}
+.tag-bad{padding:1px 8px;border-radius:var(--r-pill);font-size:10px;font-weight:700;background:var(--danger-bg);color:var(--danger-fg);}
+.tag-good{padding:1px 8px;border-radius:var(--r-pill);font-size:10px;font-weight:700;background:var(--ok-bg);color:var(--ok-fg);}
+.railbg{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;}
+.rail-340{width:340px;}
+.rail-480{width:480px;}
+
+/* --- 现状拥挤版(保留 r1 原样作为对照) --- */
+.cr-run{border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--panel);padding:10px;}
+.cr-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:9px;}
+.cr-title{font-size:var(--fs-sm);font-weight:700;}
+.cr-chip{padding:2px 8px;border-radius:var(--r-pill);font-size:10px;font-weight:600;background:var(--accent-soft);color:var(--accent);}
+.cr-meta{font-size:10px;color:var(--muted);}
+.cr-pool{border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);background:var(--warn-bg);
+  border-radius:var(--r-sm);padding:9px;margin-bottom:9px;}
+.cr-pool-t{font-size:var(--fs-xs);font-weight:700;color:var(--warn-fg);margin-bottom:5px;}
+.cr-pool-l{font-size:11px;color:var(--ink);margin:3px 0;line-height:1.45;}
+.cr-node{border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--panel-2);padding:8px;margin-bottom:8px;}
+.cr-node:last-child{margin-bottom:0;}
+.cr-node-h{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:6px;}
+.cr-pill{padding:2px 7px;border-radius:var(--r-pill);font-size:10px;font-weight:700;}
+.cr-pill.run{background:var(--accent-soft);color:var(--accent);}
+.cr-pill.ok{background:var(--ok-bg);color:var(--ok-fg);}
+.cr-nid{font-size:var(--fs-xs);font-weight:700;}
+.cr-role{font-size:10px;color:var(--muted);}
+.cr-eng{padding:1px 6px;border-radius:var(--r-pill);font-size:9px;font-weight:700;background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);}
+.cr-metabar{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
+.cr-mchip{padding:1px 6px;border-radius:var(--r-sm);font-size:9.5px;color:var(--muted);background:var(--panel-3);}
+.cr-act{font-size:10px;color:var(--ink-2);margin-bottom:5px;}
+.cr-bar{height:4px;border-radius:var(--r-pill);background:var(--panel-3);overflow:hidden;}
+.cr-bar i{display:block;height:100%;background:var(--accent);}
+
+/* --- r2 降噪版:树脊线 + 圆角肘线 + 状态点,DAG 结构在列表态可读 --- */
+.dn2{background:var(--panel);border-radius:var(--r-md);overflow:hidden;}
+.dn2-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);}
+.dn2-title{font-size:var(--fs-base);font-weight:700;}
+.dn2-chip{padding:2px 10px;border-radius:var(--r-pill);font-size:var(--fs-xs);font-weight:600;background:var(--accent-soft);color:var(--accent);}
+.dn2-meta{font-size:var(--fs-xs);color:var(--muted);}
+.dn2-live{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:var(--fs-xs);color:var(--ink-2);}
+.dn2-live .d{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent);animation:blink 1.6s infinite;}
+/* 池卡:琥珀渗透洗 + 左发丝缘 + 宽限窗发丝进度 */
+.dn2-pool{position:relative;margin:12px 14px;border-radius:var(--r-sm);overflow:hidden;
+  border:1px solid color-mix(in srgb,var(--warn) 30%,var(--line));
+  background:linear-gradient(100deg,color-mix(in srgb,var(--warn) 11%,var(--panel)) 0%,var(--panel-2) 55%);
+  padding:11px 12px 12px 15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.dn2-pool::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:2px;border-radius:2px;background:var(--warn);}
+.dn2-pool .pt{font-size:var(--fs-sm);color:var(--ink);flex:1;min-width:220px;line-height:1.5;}
+.dn2-pool .pt b{color:var(--warn-fg);}
+.dn2-pool .pbtn{padding:5px 12px;border-radius:var(--r-sm);border:none;background:var(--accent);color:var(--accent-ink);
+  font-size:var(--fs-xs);font-weight:600;cursor:pointer;}
+.dn2-pool .pbtn.ghost{background:var(--panel-3);color:var(--ink-2);}
+.dn2-grace{flex-basis:100%;display:flex;align-items:center;gap:8px;}
+.dn2-grace-bar{flex:1;height:3px;border-radius:var(--r-pill);background:var(--panel-3);overflow:hidden;}
+.dn2-grace-bar i{display:block;height:100%;border-radius:var(--r-pill);
+  background:linear-gradient(90deg,var(--warn),color-mix(in srgb,var(--warn) 45%,transparent));}
+.dn2-grace span{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;}
+/* 节点列表:渐隐树脊 + 肘线 */
+.dn2-list{position:relative;padding:6px 0 10px;}
+.dn2-list::before{content:"";position:absolute;left:21px;top:20px;bottom:26px;width:1px;
+  background:linear-gradient(180deg,var(--line-2),color-mix(in srgb,var(--line-2) 30%,transparent));}
+.dn2-node{position:relative;padding:11px 14px 11px 44px;}
+.dn2-node.dep{padding-left:66px;}
+.dn2-node.dep::before{content:"";position:absolute;left:21px;top:-8px;width:22px;height:28px;
+  border-left:1px solid var(--line-2);border-bottom:1px solid var(--line-2);border-bottom-left-radius:12px;}
+.dn2-dot{position:absolute;left:16px;top:15px;width:10px;height:10px;border-radius:50%;background:var(--dc,var(--muted));}
+.dn2-node.dep .dn2-dot{left:38px;}
+.dn2-dot.run{--dc:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent);animation:blink 1.6s infinite;}
+.dn2-dot.ok{--dc:var(--ok);}
+.dn2-dot.warn{--dc:var(--warn);}
+.dn2-dot.queued{--dc:var(--muted);opacity:.6;}
+.dn2-nrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.dn2-nid{font-family:var(--mono);font-size:var(--fs-md);font-weight:700;letter-spacing:-.01em;}
+.dn2-nrole{font-size:var(--fs-xs);color:var(--muted);}
+.dn2-neng{padding:1px 7px;border-radius:var(--r-pill);font-size:10px;font-weight:700;}
+.dn2-neng.claude{background:var(--accent-soft);color:var(--accent);}
+.dn2-neng.provider{background:color-mix(in srgb,var(--eng-claude) 15%,var(--panel));color:var(--eng-claude);}
+.dn2-nst{margin-left:auto;font-size:var(--fs-xs);font-weight:600;}
+.dn2-nst.run{color:var(--accent);}
+.dn2-nst.ok{color:var(--ok-fg);}
+.dn2-nst.warn{color:var(--warn-fg);}
+.dn2-nst.queued{color:var(--muted);}
+.dn2-nact{font-size:var(--fs-sm);color:var(--ink-2);margin-top:5px;line-height:1.4;}
+.dn2-nmeta{font-size:var(--fs-xs);color:var(--muted);margin-top:4px;}
+.dn2-nbar{height:4px;border-radius:var(--r-pill);background:var(--panel-3);overflow:hidden;margin-top:7px;max-width:230px;}
+.dn2-nbar i{display:block;height:100%;border-radius:var(--r-pill);background:linear-gradient(90deg,var(--accent),var(--accent-hover));}
+
+/* ── 屏 ② 技能库 r2 ── */
+/* 分段控件式锚点导航 */
+.sk-seg{display:inline-flex;background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r-pill);
+  padding:3px;gap:2px;margin-bottom:var(--sp-4);position:relative;}
+.sk-seg a{padding:5px 14px;border-radius:var(--r-pill);font-size:var(--fs-sm);color:var(--ink-2);text-decoration:none;
+  display:inline-flex;gap:6px;align-items:center;transition:color var(--dur-fast) var(--ease-out);}
+.sk-seg a:hover{color:var(--ink);}
+.sk-seg a.active{background:var(--panel);color:var(--accent);font-weight:600;box-shadow:var(--elev-1);}
+.sk-seg .n{font-size:var(--fs-xs);color:var(--muted);}
+/* 分组题:字距标题 + 渐隐发丝线 + 云纹端符 */
+.sk-group{margin-bottom:var(--sp-5);position:relative;}
+.sk-group-t{display:flex;align-items:center;gap:10px;margin:0 0 var(--sp-3);}
+.sk-group-t .t{font-size:var(--fs-sm);font-weight:700;letter-spacing:.22em;color:var(--ink-2);}
+.sk-group-t .sub{font-size:var(--fs-xs);color:var(--muted);}
+.sk-group-t .cnt{font-size:var(--fs-xs);color:var(--muted);background:var(--panel-3);padding:0 7px;border-radius:var(--r-pill);line-height:18px;}
+.sk-group-t .line{flex:1;height:1px;background:linear-gradient(90deg,var(--line-2),transparent);}
+.sk-group-t .cloud{width:18px;height:11px;flex:none;background:var(--muted);opacity:.45;
+  -webkit-mask:var(--ruyi-cloud) center/contain no-repeat;mask:var(--ruyi-cloud) center/contain no-repeat;}
+/* 卡片:启用态 = 发丝青花描边 + 顶部青花洗 + 实心图标块(渗透语言与 P3 同源) */
+.sk-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);}
+.sk-card{position:relative;border:1px solid var(--line);border-radius:var(--r-md);background:var(--panel-2);
+  padding:13px 14px 12px;display:flex;flex-direction:column;gap:7px;
+  transition:border-color var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out);}
+.sk-card:hover{transform:translateY(-1px);box-shadow:var(--elev-1);border-color:var(--line-2);}
+.sk-card.on{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 9%,var(--panel-2)),var(--panel-2) 58%);}
+.sk-card-h{display:flex;align-items:center;gap:9px;}
+.sk-ico{width:28px;height:28px;border-radius:var(--r-sm);display:grid;place-items:center;flex:none;
+  background:var(--accent-soft);color:var(--accent);font-size:14px;
+  transition:background var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out);}
+.sk-card.on .sk-ico{background:var(--accent);color:var(--accent-ink);
+  box-shadow:0 2px 8px -2px color-mix(in srgb,var(--accent) 55%,transparent);}
+.sk-name{font-size:var(--fs-base);font-weight:700;flex:1;}
+.sk-id{font-family:var(--mono);font-size:var(--fs-xs);color:var(--muted);}
+.sk-desc{font-size:var(--fs-sm);color:var(--ink-2);line-height:1.55;flex:1;}
+.sk-foot{display:flex;align-items:center;gap:8px;margin-top:2px;}
+.sk-toggle{width:36px;height:20px;border-radius:var(--r-pill);background:var(--panel-3);position:relative;flex:none;
+  border:1px solid var(--line-2);cursor:pointer;
+  transition:background var(--dur-base) var(--ease-out),border-color var(--dur-base) var(--ease-out);}
+.sk-toggle::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--muted);
+  transition:left var(--dur-base) var(--ease-out),background var(--dur-base) var(--ease-out);}
+.sk-toggle:focus-visible{outline:none;box-shadow:var(--ring);}
+.sk-card.on .sk-toggle{background:var(--accent);border-color:var(--accent);}
+.sk-card.on .sk-toggle::after{left:18px;background:var(--accent-ink);}
+.sk-state{font-size:var(--fs-xs);color:var(--muted);}
+.sk-card.on .sk-state{color:var(--accent);font-weight:600;}
+
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.35;}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+
+<div class="anno-bar">
+  <div class="anno-left">
+    <span class="anno-tag">设计图 r2 · 非可运行代码</span>
+    <span>P2 精修 r2 · ① 监控卡降噪(树脊线版)　② 技能库两列卡片(左右滚动看两屏)</span>
+  </div>
+  <button class="theme-btn" onclick="toggleTheme()"><span id="themeIco">☾</span><span id="themeTxt">深色</span></button>
+</div>
+
+<div class="screens">
+
+  <!-- 屏 ① 监控卡对比 -->
+  <section class="screen screen-1">
+    <div class="corner-cloud" aria-hidden="true"></div>
+    <h2 class="screen-title">① Agent 监控卡:降噪重排 r2</h2>
+    <p class="screen-sub">同一份 run 数据两种呈现。左:现 340px「卡中卡中卡」三层边框拥挤态(对照,未动)。
+      右:480px r2 降噪版——状态点串在渐隐「树脊线」上、依赖节点经圆角肘线分支(DAG 结构在列表态可读),
+      池卡改琥珀渗透洗 + 宽限窗发丝倒计时,计量文本全部 tabular-nums。</p>
+
+    <div class="compare">
+      <!-- 拥挤版 340(r1 原样对照) -->
+      <div class="col">
+        <div class="col-label">现状 · 拥挤版 <span class="col-w">340px</span> <span class="tag-bad">三层边框</span></div>
+        <div class="railbg rail-340">
+          <div class="cr-run">
+            <div class="cr-head">
+              <span class="cr-title">🕸️ run-a2f</span>
+              <span class="cr-chip">运行中</span>
+              <span class="cr-meta">3/5 节点 · 04:12</span>
+            </div>
+            <div class="cr-pool">
+              <div class="cr-pool-t">共享任务池 · 待批准 1</div>
+              <div class="cr-pool-l">谁提议:con · 反方驳论</div>
+              <div class="cr-pool-l">做什么:补做一轮"用户访谈证据"检索…</div>
+              <div class="cr-pool-l" style="color:var(--muted)">预计:新增 1 节点,至多约 60 轮</div>
+            </div>
+            <div class="cr-node">
+              <div class="cr-node-h">
+                <span class="cr-pill run">◐ 运行中</span>
+                <span class="cr-nid">judge</span><span class="cr-role">裁决评审</span>
+                <span class="cr-eng">Claude</span>
+              </div>
+              <div class="cr-metabar">
+                <span class="cr-mchip">← pro, con</span><span class="cr-mchip">门 review</span><span class="cr-mchip">尝试 1</span>
+              </div>
+              <div class="cr-act">◐ 思考中… 已产出 1.2k 字</div>
+              <div class="cr-bar"><i style="width:13%"></i></div>
+            </div>
+            <div class="cr-node">
+              <div class="cr-node-h">
+                <span class="cr-pill ok">✓ 已完成</span>
+                <span class="cr-nid">pro</span><span class="cr-role">正方立论</span>
+                <span class="cr-eng" style="background:color-mix(in srgb,var(--eng-claude) 15%,var(--panel));color:var(--eng-claude);border-color:color-mix(in srgb,var(--eng-claude) 40%,transparent)">Provider</span>
+              </div>
+              <div class="cr-metabar"><span class="cr-mchip">门 —</span><span class="cr-mchip">尝试 1</span></div>
+              <div class="cr-act">✓ 已产出 3 条论据 · 8.1k 字</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- r2 降噪版 480 -->
+      <div class="col">
+        <div class="col-label">重设计 r2 · 降噪版 <span class="col-w">480px</span> <span class="tag-good">树脊线 + 渗透池卡</span></div>
+        <div class="railbg rail-480" style="padding:6px">
+          <div class="dn2">
+            <div class="dn2-head">
+              <span class="dn2-title">辩论评审</span>
+              <span class="dn2-chip">运行中</span>
+              <span class="dn2-meta num">3/5 节点 · 04:12 · 18.2k tok</span>
+              <span class="dn2-live"><span class="d"></span><span class="num">judge 思考中… 1.2k 字</span></span>
+            </div>
+
+            <div class="dn2-pool">
+              <div class="pt"><b>待批准的新任务 1</b> · con 提议:补做"用户访谈证据"检索,为裁决补一手材料</div>
+              <button class="pbtn">同意</button>
+              <button class="pbtn ghost">不用</button>
+              <div class="dn2-grace"><div class="dn2-grace-bar"><i style="width:62%"></i></div><span class="num">宽限窗剩余 0:48</span></div>
+            </div>
+
+            <div class="dn2-list">
+              <div class="dn2-node">
+                <div class="dn2-dot run"></div>
+                <div class="dn2-nrow">
+                  <span class="dn2-nid">judge</span><span class="dn2-nrole">裁决评审</span>
+                  <span class="dn2-neng claude">Claude</span><span class="dn2-nst run">运行中</span>
+                </div>
+                <div class="dn2-nact num">思考中… 已产出 1.2k 字 · 迭代 3/24</div>
+                <div class="dn2-nmeta">依赖 pro, con · 门 review · claude-opus-4</div>
+                <div class="dn2-nbar"><i style="width:13%"></i></div>
+              </div>
+
+              <div class="dn2-node dep">
+                <div class="dn2-dot ok"></div>
+                <div class="dn2-nrow">
+                  <span class="dn2-nid">pro</span><span class="dn2-nrole">正方立论</span>
+                  <span class="dn2-neng provider">Provider</span><span class="dn2-nst ok">已完成</span>
+                </div>
+                <div class="dn2-nact num">已产出 3 条论据 · 8.1k 字</div>
+                <div class="dn2-nmeta num">用时 1:47 · gpt-4o-mini</div>
+              </div>
+
+              <div class="dn2-node dep">
+                <div class="dn2-dot warn"></div>
+                <div class="dn2-nrow">
+                  <span class="dn2-nid">con</span><span class="dn2-nrole">反方驳论</span>
+                  <span class="dn2-neng provider">Provider</span><span class="dn2-nst warn">质量门判否</span>
+                </div>
+                <div class="dn2-nact num">判定 fail · 论据不足 · 置信度 62%</div>
+                <div class="dn2-nmeta">条件下游据此评估,不阻塞 · deepseek-chat</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 屏 ② 技能库 r2 -->
+  <section class="screen screen-2">
+    <div class="corner-cloud" aria-hidden="true"></div>
+    <h2 class="screen-title">② 技能库:两列卡片 r2</h2>
+    <p class="screen-sub">中文技能名(内置 SKILL.md 补 name-zh / description-zh)。r2:锚点升级为分段控件、
+      分组题改字距标题 + 渐隐线 + 云纹端符、启用态 = 发丝青花描边 + 顶部青花洗 + 实心图标块(与 P3 节点卡「渗透」同一语言)。</p>
+
+    <nav class="sk-seg">
+      <a class="active" href="#g-skill">技能<span class="n num">6</span></a>
+      <a href="#g-cmd">命令<span class="n num">3</span></a>
+      <a href="#g-play">一键任务<span class="n num">3</span></a>
+    </nav>
+
+    <div class="sk-group" id="g-skill">
+      <h3 class="sk-group-t"><span class="t">技能</span><span class="sub">复杂任务的专家流程</span><span class="cnt num">6</span><span class="line"></span><span class="cloud"></span></h3>
+      <div class="sk-grid">
+        <div class="sk-card on">
+          <div class="sk-card-h"><span class="sk-ico">🔍</span><span class="sk-name">网页研究</span></div>
+          <div class="sk-id">deep-research</div>
+          <div class="sk-desc">多源检索、交叉验证、生成带引用的研究报告。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">已启用</span></div>
+        </div>
+        <div class="sk-card on">
+          <div class="sk-card-h"><span class="sk-ico">🛠</span><span class="sk-name">代码审查</span></div>
+          <div class="sk-id">code-review</div>
+          <div class="sk-desc">审查改动的安全、性能与正确性,发现注入与遗漏边界。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">已启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">🩺</span><span class="sk-name">接口调试助手</span></div>
+          <div class="sk-id">api-debugger</div>
+          <div class="sk-desc">排查本地或内网 HTTP 服务,定位请求与响应异常。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">未启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">📝</span><span class="sk-name">文档撰写</span></div>
+          <div class="sk-id">documentation</div>
+          <div class="sk-desc">撰写 README、运行手册、API 与架构文档。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">未启用</span></div>
+        </div>
+        <div class="sk-card on">
+          <div class="sk-card-h"><span class="sk-ico">🏛</span><span class="sk-name">架构决策</span></div>
+          <div class="sk-id">architecture</div>
+          <div class="sk-desc">记录技术选型权衡,产出 ADR 决策文档。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">已启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">🧪</span><span class="sk-name">测试策略</span></div>
+          <div class="sk-id">testing-strategy</div>
+          <div class="sk-desc">设计测试计划与覆盖,规划测试架构。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">未启用</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sk-group" id="g-cmd">
+      <h3 class="sk-group-t"><span class="t">命令</span><span class="sub">斜杠触发的动作</span><span class="cnt num">3</span><span class="line"></span><span class="cloud"></span></h3>
+      <div class="sk-grid">
+        <div class="sk-card on">
+          <div class="sk-card-h"><span class="sk-ico">🛡</span><span class="sk-name">安全审查</span></div>
+          <div class="sk-id">/security-review</div>
+          <div class="sk-desc">对当前改动做一次安全体检。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">已启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">⚙</span><span class="sk-name">初始化文档</span></div>
+          <div class="sk-id">/init</div>
+          <div class="sk-desc">为代码库生成 CLAUDE.md 说明。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">未启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">▶</span><span class="sk-name">运行应用</span></div>
+          <div class="sk-id">/run</div>
+          <div class="sk-desc">启动并驱动本项目应用查看效果。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">未启用</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sk-group" id="g-play">
+      <h3 class="sk-group-t"><span class="t">一键任务</span><span class="sub">首页任务卡</span><span class="cnt num">3</span><span class="line"></span><span class="cloud"></span></h3>
+      <div class="sk-grid">
+        <div class="sk-card on">
+          <div class="sk-card-h"><span class="sk-ico">📊</span><span class="sk-name">生成周报</span></div>
+          <div class="sk-id">standup</div>
+          <div class="sk-desc">从近期提交与工单汇总一份工作简报。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">已启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">📸</span><span class="sk-name">项目快照</span></div>
+          <div class="sk-id">project-snapshot</div>
+          <div class="sk-desc">采集项目结构与关键指标的现状快照。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">未启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">📦</span><span class="sk-name">依赖清单</span></div>
+          <div class="sk-id">dependency-inventory</div>
+          <div class="sk-desc">盘点第三方依赖与版本,标出风险项。</div>
+          <div class="sk-foot"><span class="sk-toggle" tabindex="0"></span><span class="sk-state">未启用</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+function toggleTheme(){
+  var r=document.documentElement, next=r.getAttribute('data-theme')==='dark'?'light':'dark';
+  r.setAttribute('data-theme',next);
+  document.getElementById('themeIco').textContent = next==='dark'?'☾':'☀';
+  document.getElementById('themeTxt').textContent = next==='dark'?'深色':'浅色';
+}
+document.querySelectorAll('.sk-card').forEach(function(c){
+  c.querySelector('.sk-toggle').addEventListener('click',function(){
+    c.classList.toggle('on');
+    c.querySelector('.sk-state').textContent = c.classList.contains('on')?'已启用':'未启用';
+  });
+});
+document.querySelectorAll('.sk-seg a').forEach(function(a){
+  a.addEventListener('click',function(){
+    document.querySelectorAll('.sk-seg a').forEach(function(x){x.classList.remove('active');});
+    a.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
