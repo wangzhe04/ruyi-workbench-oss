@@ -25,7 +25,7 @@ ok(!/var\(--(?:danger|ok|warn),\s*#[0-9a-fA-F]{3,6}\)/.test(css), 'A4 无 var(--
 ok(!/#2f6fb0/.test(css), 'A5 审计徽标无硬编码 #2f6fb0(→ var(--accent))');
 ok(!/#c9772f/.test(css), 'A5 审计徽标无硬编码 #c9772f(→ var(--warn))');
 ok(/\.audit-badge\.src-workbench\s*\{[^}]*var\(--accent\)/.test(css), 'A5 工作台审计徽标以 var(--accent) 着色');
-ok(/\.audit-badge\.src-desktop\s*\{[^}]*var\(--warn\)/.test(css), 'A5 桌面审计徽标以 var(--warn) 着色');
+ok(/\.audit-badge\.src-desktop\s*\{[^}]*var\(--warn(?:-fg|-bg)?\)/.test(css), 'A5 桌面审计徽标以 var(--warn*) 语义色着色（P1:-fg/-bg 接线）');
 
 // ───────────── A5 引擎色统一:Claude 消息徽标/头像用 --accent(青花蓝) ─────────────
 ok(/letter:\s*'C',\s*colorVar:\s*'var\(--accent\)'/.test(src), 'A5 app.js engineVisual:Claude 引擎色 = var(--accent)');
@@ -55,8 +55,10 @@ ok(/opacity:\s*\.75/.test(hoverBlock), 'A3 触屏常显透明度 .75');
 // ───────────── B1 简单模式技能入口:隐藏规则已删 + 文案 ✨ ─────────────
 ok(!/\[data-ui-mode="simple"\][^{]*#skillBtn[^{]*\{[^}]*display:\s*none/.test(css),
   'B1 简单模式 #skillBtn 隐藏规则已删(技能入口显性)');
-ok(/✨ 技能/.test(html), 'B1 index.html 技能按钮文案 ✨ 技能');
-ok(/✨ 技能/.test(src) && !/⌘ 技能/.test(src), 'B1 app.js 技能徽标文案 ✨(无 ⌘ 残留)');
+// P1 (§2.15): 技能按钮 ✨ emoji → sparkles 线性 SVG(icons.js 注入 / app.js 重建),文案纯「技能」。
+ok(/id="skillBtn"[^>]*\bbtn-ic\b/.test(html), 'B1 index.html 技能按钮为 btn-ic(图标由 icons.js 注入,无 ✨/⌘ 硬编码)');
+ok(!/✨ 技能/.test(html) && !/✨ 技能/.test(src), 'B1 ✨ 技能 文案已全部去除(html + app.js)');
+ok(/iconTextBtn\(btn, 'sparkles'/.test(src) && !/⌘ 技能/.test(src), 'B1 app.js 技能徽标用 sparkles SVG(无 ⌘ 残留)');
 
 // ───────────── B2 右栏页签减负(简单 6→4)+ AI 工作聚合入口 ─────────────
 ok(/\[data-ui-mode="simple"\][^{]*button\[data-tab="usage"\]/.test(css) &&
@@ -101,7 +103,7 @@ ok(!/el\('div',\s*'avatar',\s*role === 'user'/.test(src), 'C4 旧字母方块头
 ok(/\.message\.system \.avatar\s*\{[^}]*background:\s*transparent/.test(css), 'C4 系统头像无底色(⚙ 弱化)');
 
 // ───────────── C6 发送按钮运行态 ─────────────
-ok(/⏹ 停止/.test(src), 'C6 运行态发送按钮换「⏹ 停止」');
+ok(/iconTextBtn\(btn, 'stop', '停止'\)/.test(src) && !/⏹ 停止/.test(src), 'C6 运行态发送按钮换 stop 线性 SVG +「停止」(P1 §2.15)');
 
 // ───────────── B3 内置技能中文化(读每个 SKILL.md 校验中文 name frontmatter) ─────────────
 let skillDirs = [];

@@ -14,6 +14,17 @@
 import { state, MSG_WINDOW_THRESHOLD, MSG_WINDOW_TAIL, MSG_WINDOW_STEP } from './js/state.js';
 import { $, el, escapeHtml, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow } from './js/util.js';
 import { wcwToken, authHeaders, api, apiErrText } from './js/net.js';
+import { icon, hydrateIcons } from './js/icons.js';
+
+// UI v3 (§2.15): icon+文字按钮统一重建器 —— 清空后 append [SVG 图标] + [文字]。文案会变的按钮
+// (发送⇄停止 / 技能徽标)复用它:直接赋 textContent 会吞掉已插入的 SVG,故走 append。
+function iconTextBtn(btn, name, label, size = 16) {
+  if (!btn) return;
+  btn.textContent = '';
+  const ic = icon(name, size);
+  if (ic) btn.appendChild(ic);
+  if (label) btn.appendChild(document.createTextNode(label));
+}
 
 /* ---------------- markdown rendering (XSS-safe) ---------------- */
 const ALLOWED_TAGS = new Set(['A','P','BR','HR','STRONG','B','EM','I','DEL','S','CODE','PRE','BLOCKQUOTE','UL','OL','LI','H1','H2','H3','H4','H5','H6','TABLE','THEAD','TBODY','TR','TH','TD','IMG','SPAN','DIV']);
@@ -272,11 +283,11 @@ function sessionItem(s) {
   if (running) item.classList.add('running');
   const sub = el('span', 's-sub', `${running ? '◐ 运行中 · ' : ''}${s.messageCount || 0} 条 · ${s.summary || s.cwd || ''}`);
   const actions = el('span', 's-actions');
-  const pinBtn = el('button', '', s.pinned ? '📌' : '📍'); pinBtn.title = s.pinned ? '取消置顶' : '置顶';
+  const pinBtn = el('button', s.pinned ? 's-act pinned' : 's-act'); pinBtn.appendChild(icon('pin', 15)); pinBtn.title = s.pinned ? '取消置顶' : '置顶'; pinBtn.setAttribute('aria-label', pinBtn.title);
   pinBtn.onclick = e => { e.stopPropagation(); patchSession(s.id, { pinned: !s.pinned }); };
-  const renameBtn = el('button', '', '✎'); renameBtn.title = '重命名';
+  const renameBtn = el('button', 's-act'); renameBtn.appendChild(icon('edit', 15)); renameBtn.title = '重命名'; renameBtn.setAttribute('aria-label', '重命名');
   renameBtn.onclick = e => { e.stopPropagation(); openRenamePopover(renameBtn, s); };
-  const delBtn = el('button', '', '🗑'); delBtn.title = '删除';
+  const delBtn = el('button', 's-act'); delBtn.appendChild(icon('trash', 15)); delBtn.title = '删除'; delBtn.setAttribute('aria-label', '删除');
   delBtn.onclick = e => { e.stopPropagation(); if (confirm('删除该会话？')) removeSession(s.id); };
   actions.append(pinBtn, renameBtn, delBtn);
   item.append(title, sub, actions);
@@ -1068,11 +1079,12 @@ function toolCard(tc) {
   d.appendChild(statusbar);
   const sum = el('summary');
   // v0.7d: bridged desktop-control tools carry the ai_computer_control__ prefix — badge them with 🖥.
-  const tcIcon = (typeof tc.name === 'string' && tc.name.startsWith('ai_computer_control__')) ? '🖥' : '🔧';
+  const isDesktopTool = typeof tc.name === 'string' && tc.name.startsWith('ai_computer_control__'); // v3 (§2.15): tc-icon emoji → 线性 SVG(monitor/wrench)
   // v0.9-S1 (C1): both a raw name (pro) and a plain-language verb (simple) ship; CSS shows one per uiMode
   // via [data-ui-mode]. The verb reuses humanizeToolName (the shared 人话 map, also used by permission popups).
+  const tcIconEl = el('span', 'tc-icon'); tcIconEl.appendChild(icon(isDesktopTool ? 'monitor' : 'wrench', 15));
   sum.append(
-    el('span', 'tc-icon', tcIcon),
+    tcIconEl,
     el('span', 'tc-name', tc.name || 'tool'),
     el('span', 'tc-verb', humanizeToolName(tc.name)),
   );
@@ -1528,7 +1540,7 @@ function renderAttachments() {
   state.attachments.forEach((f, i) => {
     const pill = el('span', 'attachment-pill');
     pill.append(el('span', '', `${f.name} · ${fmtBytes(f.size)}`));
-    const x = el('button', '', '✕');
+    const x = el('button', 'attach-x'); x.appendChild(icon('close', 12)); x.setAttribute('aria-label', '移除附件'); x.title = '移除';
     x.onclick = () => { state.attachments.splice(i, 1); renderAttachments(); };
     pill.appendChild(x);
     tray.appendChild(pill);
@@ -1718,7 +1730,7 @@ function setStreaming(on) {
   if (btn) {
     btn.classList.toggle('danger', on);
     btn.classList.toggle('primary', !on);
-    btn.textContent = on ? '⏹ 停止' : '发送 ▷'; // v3 (§C6): 运行态换「⏹ 停止」(danger 弱化描边),完成还原
+    if (on) iconTextBtn(btn, 'stop', '停止'); else iconTextBtn(btn, 'send', '发送'); // v3 (§C6/§2.15): 运行态换停止图标(danger 弱化描边),完成还原发送
     btn.onclick = on ? stopTurn : () => sendPrompt();
   }
   updateJumpLatest();
@@ -2168,7 +2180,7 @@ function buildModal(title, bodyEl, footEl, onCancel) {
   modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-label', title);
   const head = el('div', 'modal-head');
   head.append(el('h3', '', title));
-  const x = el('button', 'icon-btn', '✕'); x.setAttribute('aria-label', '关闭'); x.onclick = () => finish(true);
+  const x = el('button', 'icon-btn'); x.appendChild(icon('close', 16)); x.setAttribute('aria-label', '关闭'); x.onclick = () => finish(true);
   head.append(x);
   const body = el('div', 'modal-body'); body.appendChild(bodyEl);
   const foot = el('div', 'modal-foot'); if (footEl) foot.appendChild(footEl);
@@ -2315,7 +2327,7 @@ function handlePermissionRequest(evt) {
   const revLine = el('div', `perm-revert ${revertible ? 'yes' : 'no'}`,
     revertible ? '✓ 此操作可一键撤销' : '⚠ 此操作无法自动撤销,请确认');
   body.append(revLine);
-  const pre = el('pre'); pre.style.cssText = 'background:var(--code-bg);border-radius:6px;padding:8px;max-height:200px;overflow:auto;font-family:var(--mono);font-size:12px';
+  const pre = el('pre'); pre.style.cssText = 'background:var(--code-bg);border-radius:6px;padding:8px;max-height:200px;overflow:auto;font-family:var(--mono);font-size:var(--fs-sm)';
   pre.textContent = (() => { try { return JSON.stringify(evt.input, null, 2); } catch { return String(evt.input); } })();
   body.appendChild(pre);
   // "本次会话自动允许" — session-scoped, always available. A secondary "永久" box appears only for
@@ -5085,7 +5097,7 @@ async function doToggleSkill(entry) {
 function updateSkillBadge() {
   const btn = $('skillBtn'); if (!btn) return;
   const n = (state.currentSession && Array.isArray(state.currentSession.skills)) ? state.currentSession.skills.length : 0;
-  btn.textContent = n > 0 ? `✨ 技能 · ${n}` : '✨ 技能'; // v3 (§B1): ⌘→✨(⌘ 是 Mac 心智,Windows 产品用它别扭)
+  iconTextBtn(btn, 'sparkles', n > 0 ? `技能 · ${n}` : '技能'); // v3 (§B1/§2.15): ✨→sparkles 线性 SVG(⌘ 曾是 Mac 心智,已弃)
 }
 function updateSkillSel() {
   const items = [...$('skillList').querySelectorAll('.skill-item')];
@@ -5784,25 +5796,25 @@ function openRenamePopover(anchorEl, s) {
   }, { placement: 'bottom-start' });
 }
 
-// ≤560px composer fold (§4.3 tail): the ＋ button opens a popover listing 📎 添加文件 / ✨ 技能 /
-// 🗜 压缩 — the same three actions that are tiled on wider screens. Skill is omitted in provider mode
+// ≤560px composer fold (§4.3 tail): the composerMoreBtn(＋)opens a popover listing 添加文件 / 技能 /
+// 压缩 — the same three actions that are tiled on wider screens(P1 §2.15:emoji → 线性 SVG)。Skill is omitted in provider mode
 // (A2: it is a Claude-CLI concept). Uses the shared popover primitive; sendBtn is never folded.
 function openComposerMorePopover() {
   const anchor = $('composerMoreBtn'); if (!anchor) return;
   popover(anchor, close => {
     const wrap = el('div', 'composer-more-pop');
     // 添加文件 — reuse the existing hidden #fileInput by clicking it.
-    const attach = el('button', 'cm-item'); attach.type = 'button'; attach.textContent = '📎 添加文件';
+    const attach = el('button', 'cm-item'); attach.type = 'button'; attach.append(icon('paperclip', 16), document.createTextNode('添加文件'));
     attach.onclick = () => { close(); $('fileInput')?.click(); };
     wrap.appendChild(attach);
-    // ✨ 技能 — Claude mode only.
+    // 技能 — Claude mode only.
     if (!isProviderMode()) {
-      const skill = el('button', 'cm-item'); skill.type = 'button'; skill.textContent = '✨ 技能 / 命令';
+      const skill = el('button', 'cm-item'); skill.type = 'button'; skill.append(icon('sparkles', 16), document.createTextNode('技能 / 命令'));
       skill.onclick = () => { close(); openSkillPanel(); };
       wrap.appendChild(skill);
     }
     // 🗜 压缩 — both engines (provider goes through the server summary endpoint).
-    const compact = el('button', 'cm-item'); compact.type = 'button'; compact.textContent = '🗜 压缩上下文';
+    const compact = el('button', 'cm-item'); compact.type = 'button'; compact.append(icon('compress', 16), document.createTextNode('压缩上下文'));
     compact.onclick = () => { close(); compactContext(); };
     wrap.appendChild(compact);
     return wrap;
@@ -6005,7 +6017,7 @@ function bindEvents() {
   { const u = $('usageMiniLink'); if (u) u.onclick = () => { switchTab('usage'); }; }
   { const a = $('auditMiniLink'); if (a) a.onclick = () => { switchTab('audit'); }; }
   { const cb = $('compactBtn'); if (cb) cb.onclick = compactContext; }
-  // ≤560px composer fold: ＋ opens the popover with 📎/⌘/🗜 (§4.3 tail).
+  // ≤560px composer fold: composerMoreBtn opens the popover with 添加文件/技能/压缩 (§4.3 tail).
   { const mb = $('composerMoreBtn'); if (mb) mb.onclick = openComposerMorePopover; }
   $('skillSearch').addEventListener('input', () => { skillIndex = 0; renderSkillList(); });
   $('skillSearch').addEventListener('keydown', e => {
@@ -6172,6 +6184,7 @@ function renderBootFailure(err) {
 
 /* ---------------- boot ---------------- */
 async function boot() {
+  hydrateIcons(); // UI v3 (§2.15): 把 index.html 静态 chrome 按钮/徽标的 [data-icon] 填充为内联 SVG
   bindEvents();
   applyTheme((() => { try { return localStorage.getItem('wcw.theme') || 'dark'; } catch { return 'dark'; } })());
   applyUiMode((() => { try { return localStorage.getItem('wcw.uiMode') || 'simple'; } catch { return 'simple'; } })()); // v0.9-S1 (C1) / v1.0.2 (F5): 默认 simple 对齐 server

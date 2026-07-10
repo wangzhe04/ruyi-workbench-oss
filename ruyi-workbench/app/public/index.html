@@ -57,10 +57,10 @@
             <h1>如意 Ruyi</h1>
             <p id="statusLine">正在连接本地服务…</p>
           </div>
-          <button id="collapseSidebarBtn" class="icon-btn" title="折叠侧栏" aria-label="折叠侧栏">«</button>
+          <button id="collapseSidebarBtn" class="icon-btn" title="折叠侧栏" aria-label="折叠侧栏" data-icon="collapse"></button>
         </div>
 
-        <button id="newSessionBtn" class="primary full">＋ 新会话</button>
+        <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus">新会话</button>
 
         <div class="search-wrap">
           <input id="sessionSearch" type="search" placeholder="搜索会话…" autocomplete="off" />
@@ -69,16 +69,16 @@
         <div id="sessionList" class="session-list"></div>
 
         <div class="sidebar-foot">
-          <button id="openSettingsBtn" class="ghost">⚙ 设置</button>
-          <button id="openDoctorBtn" class="ghost">🩺 体检</button>
-          <button id="helpBtn" class="ghost" title="快捷键 (?)">?</button>
+          <button id="openSettingsBtn" class="ghost btn-ic" data-icon="settings">设置</button>
+          <button id="openDoctorBtn" class="ghost btn-ic" data-icon="stethoscope">体检</button>
+          <button id="helpBtn" class="ghost btn-ic" data-icon="help" title="快捷键 (?)" aria-label="快捷键"></button>
         </div>
       </aside>
 
       <!-- ============ CHAT PANE ============ -->
       <main class="chat-pane">
         <header class="topbar">
-          <button id="showSidebarBtn" class="icon-btn hidden" title="展开侧栏" aria-label="展开侧栏">☰</button>
+          <button id="showSidebarBtn" class="icon-btn hidden" title="展开侧栏" aria-label="展开侧栏" data-icon="menu"></button>
           <div class="topbar-title">
             <strong id="sessionTitle">如意工作台</strong>
             <span id="sessionMeta"></span>
@@ -86,7 +86,7 @@
           <div class="topbar-actions">
             <!-- v0.9-S3 (C3): 常驻工作文件夹选择器。显示当前会话 cwd 短名 + 完整路径 title;点击弹原生选择器。 -->
             <button id="workspacePicker" class="workspace-picker" title="工作文件夹" aria-label="选择工作文件夹">
-              <span class="wp-icon" aria-hidden="true">📁</span>
+              <span class="wp-icon" aria-hidden="true" data-icon="folder" data-icon-size="15"></span>
               <span class="wp-name">工作台</span>
             </button>
             <div id="contextMeter" class="ctx-meter hidden" title="上下文用量（点击查看/设置）" aria-haspopup="dialog">
@@ -101,7 +101,7 @@
                  点击开安全弹层（四档单选卡）。#permSelect 保留在 DOM 内(移入 #permSelectHost，平时 hidden；
                  弹层复用它的 change handler，专家模式在弹层内可见作为原始下拉)。 -->
             <button id="permChip" class="perm-chip" aria-haspopup="dialog" title="安全 / 权限（点击设置）">
-              <span class="pc-icon" aria-hidden="true">🛡</span>
+              <span class="pc-icon" aria-hidden="true" data-icon="shield" data-icon-size="15"></span>
               <span class="pc-name">每步都问</span>
             </button>
             <div id="permSelectHost" class="perm-select-host hidden">
@@ -126,8 +126,8 @@
             <!-- v1.0-S2 (IA): 移出顶栏 → 「⋯」菜单「主题」项(display:none，toggleTheme 逻辑复用)。 -->
             <button id="themeToggle" class="icon-btn" title="切换深/浅色" aria-label="切换深/浅色">🌙</button>
             <!-- v1.0-S2 (IA): 顶栏「⋯」更多菜单。轻量 popover：主题 / 界面 / 能力矩阵 / 快捷键。 -->
-            <button id="moreMenuBtn" class="icon-btn" title="更多" aria-label="更多" aria-haspopup="menu">⋯</button>
-            <button id="toggleToolsBtn" class="icon-btn" title="工具面板" aria-label="工具面板">🧰</button>
+            <button id="moreMenuBtn" class="icon-btn" title="更多" aria-label="更多" aria-haspopup="menu" data-icon="more"></button>
+            <button id="toggleToolsBtn" class="icon-btn" title="工具面板" aria-label="工具面板" data-icon="toolbox"></button>
           </div>
         </header>
 
@@ -168,15 +168,14 @@
           <div class="composer-box">
             <textarea id="promptInput" rows="1" placeholder="描述你要做的事…（Enter 发送，Shift+Enter 换行）"></textarea>
             <div class="composer-actions">
-              <button id="composerMoreBtn" class="file-label" title="更多" aria-label="更多操作" aria-haspopup="menu">＋</button>
-              <button id="skillBtn" class="file-label" title="技能库：启用技能 / 命令 / 一键任务 (/)">✨ 技能</button>
-              <label class="file-label composer-file" title="添加文件">
+              <button id="composerMoreBtn" class="file-label btn-ic" title="更多" aria-label="更多操作" aria-haspopup="menu" data-icon="plus"></button>
+              <button id="skillBtn" class="file-label btn-ic" title="技能库：启用技能 / 命令 / 一键任务 (/)"></button>
+              <label class="file-label composer-file btn-ic" title="添加文件" data-icon="paperclip">
                 <input id="fileInput" type="file" multiple />
-                📎
               </label>
               <span class="composer-spacer"></span>
               <span id="composerHint" class="composer-hint"></span>
-              <button id="sendBtn" class="primary">发送 ▷</button>
+              <button id="sendBtn" class="primary btn-ic" data-icon="send">发送</button>
             </div>
           </div>
           <!-- v1.0-S2 (IA): #compactBtn 移出 .composer-actions（composer 减负）→ 入上下文用量弹层的「立即压缩」。
@@ -369,7 +368,7 @@
     <!-- ============ SETTINGS MODAL ============ -->
     <div class="modal-backdrop hidden" id="settingsModal">
       <div class="modal" role="dialog" aria-modal="true" aria-label="设置">
-        <div class="modal-head"><h3>设置</h3><button class="icon-btn" data-close-modal aria-label="关闭">✕</button></div>
+        <div class="modal-head"><h3>设置</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-icon="close"></button></div>
         <div class="modal-body" id="settingsBody">
           <div class="tool-tabs settings-tabs" id="settingsTabs">
             <button type="button" data-stab="basic" class="active">基础</button>
@@ -678,7 +677,7 @@
     <!-- ============ SKILL LIBRARY PANEL (v1 技能体系) ============ -->
     <div class="modal-backdrop hidden" id="skillModal">
       <div class="modal" role="dialog" aria-modal="true" aria-label="技能库">
-        <div class="modal-head"><h3>技能库</h3><button class="icon-btn" data-close-modal aria-label="关闭">✕</button></div>
+        <div class="modal-head"><h3>技能库</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-icon="close"></button></div>
         <div class="skill-search-wrap"><input id="skillSearch" type="search" placeholder="搜索技能 / 命令 / 一键任务…" autocomplete="off" /></div>
         <div class="modal-body"><div id="skillList" class="skill-list"></div></div>
       </div>
@@ -687,7 +686,7 @@
     <!-- ============ WORKBENCH MEMORY PANEL (v2 跨会话记忆) ============ -->
     <div class="modal-backdrop hidden" id="memoryModal">
       <div class="modal" role="dialog" aria-modal="true" aria-label="工作台记忆">
-        <div class="modal-head"><h3>工作台记忆</h3><button class="icon-btn" data-close-modal aria-label="关闭">✕</button></div>
+        <div class="modal-head"><h3>工作台记忆</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-icon="close"></button></div>
         <div class="memory-intro muted">「工作台记忆」保存你的个人经验、项目惯例与教训，随工作台走；与「项目记忆（CLAUDE.md）」不同——后者随代码仓库走。启用的记忆会作为参考资料注入当前会话。</div>
         <div class="modal-body"><div id="memoryList" class="skill-list"></div></div>
       </div>
@@ -696,7 +695,7 @@
     <!-- ============ HELP OVERLAY ============ -->
     <div class="modal-backdrop hidden" id="helpModal">
       <div class="modal small" role="dialog" aria-modal="true" aria-label="快捷键">
-        <div class="modal-head"><h3>快捷键</h3><button class="icon-btn" data-close-modal aria-label="关闭">✕</button></div>
+        <div class="modal-head"><h3>快捷键</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-icon="close"></button></div>
         <div class="modal-body">
           <table class="kbd-table">
             <tr><td><kbd>Enter</kbd></td><td>发送消息</td></tr>
