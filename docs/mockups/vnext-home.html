@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计图 · vNext 交办台(首页) · 如意 Ruyi</title>
+<style>
+/* ============================================================
+   如意 Ruyi 青花设计 token(值照抄 app/public/styles.css)
+   ============================================================ */
+:root{
+  font-size:15px; /* 简易模式基线 */
+  --font:"Segoe UI","Microsoft YaHei",system-ui,Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-7:48px;
+  --fs-xs:0.786rem;--fs-sm:0.857rem;--fs-md:0.929rem;--fs-base:1rem;--fs-lg:1.143rem;--fs-xl:1.429rem;--fs-2xl:1.714rem;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-pill:999px;
+  --ease-out:cubic-bezier(.2,.7,.3,1);--dur-fast:120ms;--dur-base:200ms;--dur-slow:320ms;
+  --ring:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent);
+  --tap-min:40px;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1520;--panel:#151d2b;--panel-2:#1a2436;--panel-3:#24304a;
+  --ink:#e9edf5;--ink-2:#c4cee0;--muted:#8fa0b8;--line:#263349;--line-2:#33425e;
+  --accent:#4a6cd9;--accent-hover:#5b7ee8;--accent-ink:#fff;--accent-soft:#1c2a4a;
+  --link:#8fadf7;--gold:#f2c14e;--gold-soft:#332a12;--brand-qh:#6b8ff2;--brand-au:#f2c14e;
+  --danger:#e56060;--ok:#53c08a;--warn:#e3b054;--info:#5b93e6;
+  --ok-bg:color-mix(in srgb,var(--ok) 16%,var(--panel));--ok-fg:var(--ok);
+  --warn-bg:color-mix(in srgb,var(--warn) 16%,var(--panel));--warn-fg:var(--warn);
+  --danger-bg:color-mix(in srgb,var(--danger) 16%,var(--panel));--danger-fg:var(--danger);
+  --info-bg:color-mix(in srgb,var(--info) 16%,var(--panel));--info-fg:var(--info);
+  --code-bg:#0b111b;--scroll:#35425c;--eng-claude:#d97757;
+  --elev-1:0 1px 2px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.10);
+  --elev-2:0 6px 20px rgba(0,0,0,.20);
+  --elev-3:0 16px 40px rgba(0,0,0,.28);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f3f5f9;--panel:#fff;--panel-2:#f7f9fc;--panel-3:#eef2f8;
+  --ink:#1b2436;--ink-2:#33405a;--muted:#5f6c85;--line:#dbe2ee;--line-2:#c6d1e3;
+  --accent:#2350a8;--accent-hover:#1c4390;--accent-ink:#fff;--accent-soft:#e7edfa;
+  --link:#2350a8;--gold:#a97b1e;--gold-soft:#f6edd8;--brand-qh:#2350a8;--brand-au:#d9a441;
+  --danger:#b42318;--ok:#22794e;--warn:#a1650f;--info:#2b6cb0;
+  --ok-bg:color-mix(in srgb,var(--ok) 16%,var(--panel));--ok-fg:var(--ok);
+  --warn-bg:color-mix(in srgb,var(--warn) 16%,var(--panel));--warn-fg:var(--warn);
+  --danger-bg:color-mix(in srgb,var(--danger) 16%,var(--panel));--danger-fg:var(--danger);
+  --info-bg:color-mix(in srgb,var(--info) 16%,var(--panel));--info-fg:var(--info);
+  --code-bg:#f2f4f8;--scroll:#c3cddd;--eng-claude:#c96442;
+  --elev-1:0 1px 2px rgba(20,28,48,.08),0 2px 8px rgba(20,28,48,.06);
+  --elev-2:0 6px 20px rgba(20,28,48,.12);
+  --elev-3:0 16px 40px rgba(20,28,48,.16);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;font-size:var(--fs-base);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+button{font:inherit;color:inherit;cursor:pointer;}
+:where(button,[tabindex]):focus-visible{outline:none;box-shadow:var(--ring);}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;}}
+.ic{flex:none;display:inline-block;vertical-align:-0.18em;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+
+/* ── 顶部设计图标注条 ── */
+.anno-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-2) var(--sp-5);background:var(--panel);border-bottom:1px solid var(--line);}
+.anno-left{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm);color:var(--muted);flex-wrap:wrap;}
+.anno-tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:var(--r-pill);
+  background:var(--gold-soft);color:var(--gold);border:1px solid color-mix(in srgb,var(--gold) 40%,transparent);
+  font-weight:600;font-size:var(--fs-xs);letter-spacing:.3px;}
+.theme-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r-pill);
+  background:var(--panel-2);color:var(--ink);border:1px solid var(--line-2);font-size:var(--fs-sm);}
+.theme-btn:hover{background:var(--panel-3);}
+
+/* ── 外框 ── */
+.vn-app{max-width:1320px;margin:var(--sp-5) auto;padding:0 var(--sp-5);}
+.vn-frame{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  overflow:hidden;box-shadow:var(--elev-2);}
+
+/* ── ① 案头条(事实层)── */
+.desk{display:flex;align-items:center;gap:var(--sp-3);padding:10px var(--sp-4);
+  border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--panel-2),var(--panel));}
+.brand{display:flex;align-items:center;gap:10px;margin-right:var(--sp-2);}
+.brand h1{margin:0;font-size:var(--fs-lg);font-weight:700;letter-spacing:.5px;}
+.brand .sub{font-size:var(--fs-xs);color:var(--muted);margin-top:1px;}
+.desk-spacer{flex:1;}
+.fact{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:var(--r-pill);
+  border:1px solid var(--line-2);background:var(--panel-2);color:var(--ink-2);font-size:var(--fs-sm);
+  min-height:32px;transition:background var(--dur-fast) var(--ease-out);}
+.fact:hover{background:var(--panel-3);}
+.fact .f-label{color:var(--muted);font-size:var(--fs-xs);}
+.fact .f-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent);}
+.fact.bell{background:var(--gold-soft);border-color:color-mix(in srgb,var(--gold) 45%,transparent);color:var(--gold);font-weight:600;}
+.fact.bell .badge{min-width:18px;height:18px;padding:0 5px;border-radius:var(--r-pill);background:var(--gold);
+  color:var(--panel);font-size:var(--fs-xs);font-weight:700;display:grid;place-items:center;}
+.icon-btn{width:34px;height:34px;display:grid;place-items:center;border-radius:var(--r-sm);
+  border:1px solid transparent;background:transparent;color:var(--muted);}
+.icon-btn:hover{background:var(--panel-2);color:var(--ink);}
+
+/* ── 主体:坞 + 主台 ── */
+.vn-body{display:grid;grid-template-columns:76px 1fr;min-height:720px;}
+
+/* ── ② 任务坞(对象层)── */
+.dock{display:flex;flex-direction:column;align-items:center;gap:var(--sp-3);padding:var(--sp-4) 0;
+  border-right:1px solid var(--line);background:var(--panel-2);}
+.dock-new{width:46px;height:46px;border-radius:50%;border:1px dashed color-mix(in srgb,var(--accent) 55%,transparent);
+  background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;
+  transition:all var(--dur-fast) var(--ease-out);}
+.dock-new:hover{border-style:solid;background:var(--accent);color:var(--accent-ink);box-shadow:var(--elev-1);}
+.dock-sep{width:30px;height:1px;background:var(--line-2);margin:2px 0;}
+.coin{position:relative;width:46px;height:46px;border-radius:50%;border:none;background:var(--panel);
+  box-shadow:inset 0 0 0 1px var(--line-2), var(--elev-1);display:grid;place-items:center;
+  transition:transform var(--dur-fast) var(--ease-out);}
+.coin:hover{transform:translateY(-1px);}
+.coin-ring{position:absolute;inset:-3px;transform:rotate(-90deg);}
+.coin-ring circle{fill:none;stroke-width:2.6;}
+.coin-ring .rbg{stroke:color-mix(in srgb,var(--line-2) 70%,transparent);}
+.coin-ring .rfg{stroke:var(--accent);stroke-linecap:round;}
+.coin-char{font-size:17px;font-weight:700;color:var(--ink);font-family:var(--font);}
+.coin.running .coin-char{color:var(--accent);}
+.coin.needs .coin-ring .rfg{stroke:var(--gold);}
+.coin.needs .coin-char{color:var(--gold);}
+.coin.needs::after{content:"";position:absolute;top:-1px;right:-1px;width:11px;height:11px;border-radius:50%;
+  background:var(--gold);border:2px solid var(--panel-2);animation:pulse 1.8s var(--ease-out) infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--gold) 45%,transparent);}
+  50%{box-shadow:0 0 0 5px transparent;}}
+.coin.done{opacity:.62;}
+.coin.done .coin-char{color:var(--muted);}
+.coin.done .coin-ok{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;
+  background:var(--ok-bg);color:var(--ok-fg);display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--ok) 40%,transparent);}
+.dock-spacer{flex:1;}
+.dock-btn{width:40px;height:40px;border-radius:var(--r-md);border:1px solid transparent;background:transparent;
+  color:var(--muted);display:grid;place-items:center;}
+.dock-btn:hover{background:var(--panel-3);color:var(--ink);}
+
+/* ── ③ 主台 · 交办台 ── */
+.stage{position:relative;padding:var(--sp-6) var(--sp-7) var(--sp-6);overflow:hidden;}
+.cloud-mark{position:absolute;top:-24px;right:-30px;width:300px;opacity:.06;pointer-events:none;color:var(--brand-qh);}
+.greet{margin:var(--sp-4) 0 var(--sp-2);}
+.greet h2{margin:0;font-size:calc(var(--fs-2xl) * 1.12);font-weight:700;letter-spacing:.4px;}
+.greet h2 .au{color:var(--brand-au);}
+.greet p{margin:8px 0 0;color:var(--muted);font-size:var(--fs-md);}
+
+/* 交办箱 */
+.dispatch{position:relative;margin-top:var(--sp-5);background:var(--panel-2);border:1px solid var(--line-2);
+  border-radius:var(--r-lg);box-shadow:var(--elev-1);transition:border-color var(--dur-base) var(--ease-out),box-shadow var(--dur-base) var(--ease-out);}
+.dispatch:focus-within{border-color:var(--accent);box-shadow:var(--elev-2), var(--ring);}
+.dispatch textarea{display:block;width:100%;border:none;background:transparent;color:var(--ink);resize:none;
+  font:inherit;font-size:var(--fs-lg);line-height:1.65;padding:var(--sp-5) var(--sp-5) var(--sp-2);outline:none;}
+.dispatch textarea::placeholder{color:var(--muted);opacity:.85;}
+.dispatch-row{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3) var(--sp-3);flex-wrap:wrap;}
+.d-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r-pill);
+  border:1px solid var(--line-2);background:var(--panel);color:var(--ink-2);font-size:var(--fs-sm);min-height:34px;}
+.d-chip:hover{background:var(--panel-3);}
+.d-hint{color:var(--muted);font-size:var(--fs-xs);margin-left:var(--sp-2);}
+.d-spacer{flex:1;}
+.d-safety{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r-pill);
+  border:1px solid color-mix(in srgb,var(--ok) 35%,transparent);background:var(--ok-bg);color:var(--ok-fg);
+  font-size:var(--fs-sm);min-height:34px;}
+.d-go{display:inline-flex;align-items:center;gap:8px;padding:9px 22px;border-radius:var(--r-pill);
+  border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font-weight:700;
+  font-size:var(--fs-base);min-height:40px;box-shadow:var(--elev-1);transition:all var(--dur-fast) var(--ease-out);}
+.d-go:hover{background:var(--accent-hover);border-color:var(--accent-hover);box-shadow:var(--elev-2);}
+
+/* ④ 续办条(进行中 + 需要你) */
+.live-strip{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);margin-top:var(--sp-4);}
+@media (max-width:900px){.live-strip{grid-template-columns:1fr;}}
+.live-card{position:relative;display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);
+  background:var(--panel-2);border:1px solid var(--line-2);border-radius:var(--r-md);}
+.live-card .mini-coin{position:relative;width:38px;height:38px;flex:none;border-radius:50%;background:var(--panel);
+  box-shadow:inset 0 0 0 1px var(--line-2);display:grid;place-items:center;font-weight:700;color:var(--accent);}
+.live-card .mini-ring{position:absolute;inset:-3px;transform:rotate(-90deg);}
+.live-card .mini-ring circle{fill:none;stroke-width:2.4;}
+.live-body{flex:1;min-width:0;}
+.live-body b{display:block;font-size:var(--fs-md);margin-bottom:2px;}
+.live-body span{display:block;color:var(--muted);font-size:var(--fs-xs);line-height:1.5;}
+.live-bar{height:3px;border-radius:2px;background:color-mix(in srgb,var(--line-2) 70%,transparent);margin-top:7px;overflow:hidden;}
+.live-bar i{display:block;height:100%;width:58%;border-radius:2px;background:var(--accent);}
+.live-go{flex:none;display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:var(--r-pill);
+  border:1px solid var(--line-2);background:var(--panel);color:var(--ink);font-size:var(--fs-sm);white-space:nowrap;}
+.live-go:hover{background:var(--panel-3);}
+.live-card.needs{background:var(--gold-soft);border-color:color-mix(in srgb,var(--gold) 40%,transparent);}
+.live-card.needs .mini-coin{color:var(--gold);}
+.live-card.needs b{color:var(--gold);}
+.live-card.needs .live-go.yes{border-color:var(--gold);color:var(--gold);font-weight:600;}
+.live-card.needs .live-go{background:transparent;}
+.live-card.needs .live-go:hover{background:color-mix(in srgb,var(--gold) 12%,transparent);}
+
+/* ⑤ 熟活架 */
+.shelf{margin-top:var(--sp-6);}
+.sec-head{display:flex;align-items:baseline;gap:var(--sp-3);margin-bottom:var(--sp-3);}
+.sec-head h3{margin:0;font-size:var(--fs-lg);font-weight:700;}
+.sec-head .all{margin-left:auto;color:var(--link);font-size:var(--fs-sm);background:none;border:none;padding:4px;}
+.sec-head .all:hover{text-decoration:underline;}
+.shelf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:var(--sp-3);}
+.sk-card{position:relative;text-align:left;padding:var(--sp-4);background:var(--panel-2);border:1px solid var(--line-2);
+  border-radius:var(--r-md);transition:all var(--dur-fast) var(--ease-out);}
+.sk-card:hover{transform:translateY(-2px);box-shadow:var(--elev-2);border-color:color-mix(in srgb,var(--accent) 45%,var(--line-2));}
+.sk-ico{width:38px;height:38px;border-radius:var(--r-md);background:var(--accent-soft);color:var(--brand-qh);
+  display:grid;place-items:center;margin-bottom:10px;}
+.sk-card b{display:block;font-size:var(--fs-md);margin-bottom:4px;}
+.sk-card p{margin:0;color:var(--muted);font-size:var(--fs-xs);line-height:1.55;}
+.sk-card .last{display:block;margin-top:10px;color:var(--muted);font-size:var(--fs-xs);opacity:.75;}
+
+/* ⑥ 最近收活 */
+.recent{margin-top:var(--sp-6);}
+.recent-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:var(--sp-3);}
+.rs-card{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);
+  background:var(--panel-2);border:1px solid var(--line-2);border-radius:var(--r-md);}
+.rs-ico{width:34px;height:34px;flex:none;border-radius:var(--r-sm);background:var(--ok-bg);color:var(--ok-fg);
+  display:grid;place-items:center;}
+.rs-body{flex:1;min-width:0;}
+.rs-body b{display:block;font-size:var(--fs-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rs-body span{display:block;color:var(--muted);font-size:var(--fs-xs);margin-top:2px;}
+.rs-act{display:flex;gap:6px;}
+.rs-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:var(--r-sm);
+  border:1px solid var(--line-2);background:var(--panel);color:var(--ink-2);font-size:var(--fs-xs);}
+.rs-btn:hover{background:var(--panel-3);}
+.rs-btn.undo:hover{border-color:var(--warn);color:var(--warn-fg);}
+
+/* 标注圆点 + 说明 */
+.co{position:absolute;z-index:6;width:20px;height:20px;border-radius:50%;background:var(--gold);color:#1b2436;
+  font-size:12px;font-weight:800;display:grid;place-items:center;box-shadow:var(--elev-1);pointer-events:none;}
+.anno-notes{margin:var(--sp-4) auto var(--sp-7);max-width:1320px;padding:0 var(--sp-5);color:var(--muted);font-size:var(--fs-sm);}
+.anno-notes ol{margin:6px 0 0;padding-left:0;list-style:none;display:grid;gap:6px;}
+.anno-notes li{display:flex;gap:9px;align-items:baseline;line-height:1.6;}
+.anno-notes .n{flex:none;width:19px;height:19px;border-radius:50%;background:var(--gold-soft);color:var(--gold);
+  border:1px solid color-mix(in srgb,var(--gold) 40%,transparent);font-size:11px;font-weight:800;
+  display:inline-grid;place-items:center;transform:translateY(3px);}
+.anno-notes b{color:var(--ink-2);}
+</style>
+</head>
+<body>
+
+<div class="anno-bar">
+  <div class="anno-left">
+    <span class="anno-tag">设计图 · vNext 概念</span>
+    <span>「交办台」范式 · 首页 / 任务交办面 —— 对话是通道,任务才是对象(简易模式态)</span>
+  </div>
+  <button class="theme-btn" id="themeBtn">切到浅色 · 月白</button>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6z"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 2 8 2 8H4s2-1 2-8"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><path d="M4 4h16v4H4z"/><path d="M6 8v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.4"/><circle cx="9" cy="17" r="2.4"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M21 12.5l-8.2 8.2a5.2 5.2 0 0 1-7.4-7.4L13.9 4.8a3.4 3.4 0 0 1 4.8 4.8l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15.2 8.3"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.4L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.6z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.3-8.5L3 7"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4L12 22 2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.4"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-pdf" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></symbol>
+</defs></svg>
+
+<div class="vn-app">
+<div class="vn-frame">
+
+  <!-- ① 案头条:四件全局事实,永不承载导航 -->
+  <header class="desk" style="position:relative;">
+    <span class="co" style="top:10px;left:8px;">1</span>
+    <div class="brand">
+      <svg viewBox="0 0 120 120" width="26" height="26" role="img" aria-label="如意 Ruyi">
+        <g transform="rotate(42 60 60)">
+          <path fill="var(--brand-qh)" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/>
+          <path fill="none" stroke="var(--brand-qh)" stroke-width="11" stroke-linecap="round" d="M60 57 C53.5 73.7 66.5 90.3 57.7 107"/>
+        </g>
+        <circle fill="var(--brand-au)" cx="27" cy="21" r="7.5"/>
+      </svg>
+      <div>
+        <h1>如意 Ruyi</h1>
+        <div class="sub">本地 AI 工作台 · 全离线</div>
+      </div>
+    </div>
+    <div class="desk-spacer"></div>
+    <button class="fact" title="D:\报表\10月 —— AI 只看这里,点击换文件夹">
+      <svg class="ic" width="15" height="15"><use href="#i-folder"/></svg>
+      <span class="f-label">工作圈</span><span>10月报表</span>
+    </button>
+    <button class="fact" title="当前安全档:每步都问(点击切四档)">
+      <svg class="ic" width="15" height="15"><use href="#i-shield"/></svg>
+      <span class="f-label">安全</span><span>每步都问</span>
+    </button>
+    <button class="fact" title="青花引擎 Claude · 在线(点击切引擎/模型)">
+      <span class="f-dot"></span>
+      <svg class="ic" width="15" height="15"><use href="#i-bolt"/></svg>
+      <span>Claude · 在线</span>
+    </button>
+    <button class="fact bell" title="需要你拿主意的事(全局唯一打扰入口)">
+      <svg class="ic" width="15" height="15"><use href="#i-bell"/></svg>
+      <span>需要你</span><span class="badge">2</span>
+    </button>
+    <button class="icon-btn" title="更多"><svg class="ic" width="17" height="17"><use href="#i-more"/></svg></button>
+  </header>
+
+  <div class="vn-body">
+
+    <!-- ② 任务坞:每单活一枚瓷章(进度环 = 拉坯轮) -->
+    <nav class="dock" style="position:relative;" aria-label="任务坞">
+      <span class="co" style="top:8px;left:6px;">2</span>
+      <button class="dock-new" title="交办新任务"><svg class="ic" width="19" height="19"><use href="#i-plus"/></svg></button>
+      <div class="dock-sep"></div>
+      <button class="coin running" title="合并 10 月报表 · 进行中 · 第 3/5 道工序">
+        <svg class="coin-ring" viewBox="0 0 52 52"><circle class="rbg" cx="26" cy="26" r="23"/><circle class="rfg" cx="26" cy="26" r="23" stroke-dasharray="144.5" stroke-dashoffset="52"/></svg>
+        <span class="coin-char">合</span>
+      </button>
+      <button class="coin needs" title="批量重命名 · 在等你拿主意">
+        <svg class="coin-ring" viewBox="0 0 52 52"><circle class="rbg" cx="26" cy="26" r="23"/><circle class="rfg" cx="26" cy="26" r="23" stroke-dasharray="144.5" stroke-dashoffset="87"/></svg>
+        <span class="coin-char">改</span>
+      </button>
+      <button class="coin done" title="周报草稿 · 已收工(仍可反悔)">
+        <span class="coin-char">周</span>
+        <span class="coin-ok"><svg class="ic" width="10" height="10"><use href="#i-check"/></svg></span>
+      </button>
+      <div class="dock-spacer"></div>
+      <button class="dock-btn" title="档案:已收工的任务"><svg class="ic" width="18" height="18"><use href="#i-archive"/></svg></button>
+      <button class="dock-btn" title="熟活架:技能 / 一键任务"><svg class="ic" width="18" height="18"><use href="#i-book"/></svg></button>
+      <button class="dock-btn" title="设置"><svg class="ic" width="18" height="18"><use href="#i-sliders"/></svg></button>
+    </nav>
+
+    <!-- ③④⑤⑥ 主台 · 交办台 -->
+    <main class="stage">
+      <svg class="cloud-mark" viewBox="0 0 120 70" aria-hidden="true"><path fill="currentColor" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/></svg>
+
+      <div class="greet">
+        <h2>下午好。要办点什么<span class="au">?</span></h2>
+        <p>把活儿说清楚交给我 —— 每一步都看得见,每一步都能反悔。</p>
+      </div>
+
+      <!-- ③ 交办箱:产出委托书,不是聊天消息 -->
+      <section class="dispatch" style="position:relative;">
+        <span class="co" style="top:-9px;left:-9px;">3</span>
+        <textarea rows="3" placeholder="像交代同事一样描述这单活…&#10;例:把这个文件夹里的所有 Excel 合并成一张总表,存成 汇总.xlsx"></textarea>
+        <div class="dispatch-row">
+          <button class="d-chip"><svg class="ic" width="15" height="15"><use href="#i-clip"/></svg> 添加文件</button>
+          <button class="d-chip"><svg class="ic" width="15" height="15"><use href="#i-spark"/></svg> 熟活</button>
+          <span class="d-hint">以「?」开头 = 速问一句,不立单</span>
+          <span class="d-spacer"></span>
+          <button class="d-safety" title="本单安全档,可与全局不同"><svg class="ic" width="14" height="14"><use href="#i-shield"/></svg> 本单:每步都问 ▾</button>
+          <button class="d-go">交办 <svg class="ic" width="16" height="16"><use href="#i-send"/></svg></button>
+        </div>
+      </section>
+
+      <!-- ④ 续办条:进行中 + 鎏金「需要你」 -->
+      <div class="live-strip" style="position:relative;">
+        <span class="co" style="top:-9px;left:-9px;">4</span>
+        <div class="live-card">
+          <span class="mini-coin">合
+            <svg class="mini-ring" viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" fill="none" stroke="color-mix(in srgb,var(--line-2) 70%,transparent)" stroke-width="2.4"/><circle cx="22" cy="22" r="19" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="43"/></svg>
+          </span>
+          <div class="live-body">
+            <b>合并 10 月报表</b>
+            <span>班组 3 人在干活 · 第 3/5 道工序 · 已产出 1 件</span>
+            <div class="live-bar"><i></i></div>
+          </div>
+          <button class="live-go">看现场 <svg class="ic" width="14" height="14"><use href="#i-right"/></svg></button>
+        </div>
+        <div class="live-card needs">
+          <span class="mini-coin"><svg class="ic" width="17" height="17"><use href="#i-bell"/></svg></span>
+          <div class="live-body">
+            <b>「批量重命名」在等你拿主意</b>
+            <span>改名员提议加一步:先去掉完全重复的文件(预计 +1 分钟)。同意吗?</span>
+          </div>
+          <button class="live-go yes">去处理</button>
+          <button class="live-go">不用了</button>
+        </div>
+      </div>
+
+      <!-- ⑤ 熟活架:技能入口即货架 -->
+      <section class="shelf" style="position:relative;">
+        <span class="co" style="top:-4px;left:-9px;">5</span>
+        <div class="sec-head">
+          <h3>熟活架</h3>
+          <button class="all">全部 12 件熟活 →</button>
+        </div>
+        <div class="shelf-grid">
+          <button class="sk-card">
+            <span class="sk-ico"><svg class="ic" width="19" height="19"><use href="#i-grid"/></svg></span>
+            <b>合并 Excel 表格</b>
+            <p>多张表按列对齐并成总表,自动加「来源文件」列。</p>
+            <span class="last">上次用:3 天前</span>
+          </button>
+          <button class="sk-card">
+            <span class="sk-ico"><svg class="ic" width="19" height="19"><use href="#i-tag"/></svg></span>
+            <b>批量重命名</b>
+            <p>按规则改名,先给对照表让你过目再动手。</p>
+            <span class="last">上次用:今天</span>
+          </button>
+          <button class="sk-card">
+            <span class="sk-ico"><svg class="ic" width="19" height="19"><use href="#i-pen"/></svg></span>
+            <b>写周报草稿</b>
+            <p>把零散记录理成周报,只归纳你说过的事。</p>
+            <span class="last">上次用:上周五</span>
+          </button>
+          <button class="sk-card">
+            <span class="sk-ico"><svg class="ic" width="19" height="19"><use href="#i-file"/></svg></span>
+            <b>PDF 文本汇总</b>
+            <p>逐份提取摘要再汇总,扫描件单独标出来。</p>
+            <span class="last">上次用:2 周前</span>
+          </button>
+          <button class="sk-card">
+            <span class="sk-ico"><svg class="ic" width="19" height="19"><use href="#i-eye"/></svg></span>
+            <b>扫描件转文字</b>
+            <p>OCR 识别图片与扫描版 PDF(需桌面控制)。</p>
+            <span class="last">上次用:—</span>
+          </button>
+          <button class="sk-card">
+            <span class="sk-ico"><svg class="ic" width="19" height="19"><use href="#i-pdf"/></svg></span>
+            <b>导出 PDF</b>
+            <p>把整理好的内容排版导出,中文不乱码。</p>
+            <span class="last">上次用:上周五</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ⑥ 最近收活:成果 + 常驻反悔柄 -->
+      <section class="recent" style="position:relative;">
+        <span class="co" style="top:-4px;left:-9px;">6</span>
+        <div class="sec-head">
+          <h3>最近收活</h3>
+          <button class="all">进档案看全部 →</button>
+        </div>
+        <div class="recent-list">
+          <div class="rs-card">
+            <span class="rs-ico"><svg class="ic" width="16" height="16"><use href="#i-grid"/></svg></span>
+            <div class="rs-body"><b>汇总.xlsx</b><span>今天 14:02 · 来自「合并 10 月报表」</span></div>
+            <div class="rs-act">
+              <button class="rs-btn"><svg class="ic" width="12" height="12"><use href="#i-open"/></svg> 打开</button>
+              <button class="rs-btn undo" title="回到这件产物写入之前"><svg class="ic" width="12" height="12"><use href="#i-undo"/></svg> 反悔</button>
+            </div>
+          </div>
+          <div class="rs-card">
+            <span class="rs-ico"><svg class="ic" width="16" height="16"><use href="#i-file"/></svg></span>
+            <div class="rs-body"><b>周报-第27周.md</b><span>上周五 17:40 · 来自「周报草稿」</span></div>
+            <div class="rs-act">
+              <button class="rs-btn"><svg class="ic" width="12" height="12"><use href="#i-open"/></svg> 打开</button>
+              <button class="rs-btn undo"><svg class="ic" width="12" height="12"><use href="#i-undo"/></svg> 反悔</button>
+            </div>
+          </div>
+          <div class="rs-card">
+            <span class="rs-ico"><svg class="ic" width="16" height="16"><use href="#i-pdf"/></svg></span>
+            <div class="rs-body"><b>合同摘要.pdf</b><span>6 月 28 日 · 来自「PDF 汇总」</span></div>
+            <div class="rs-act">
+              <button class="rs-btn"><svg class="ic" width="12" height="12"><use href="#i-open"/></svg> 打开</button>
+              <button class="rs-btn undo"><svg class="ic" width="12" height="12"><use href="#i-undo"/></svg> 反悔</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="anno-notes">
+  <ol>
+    <li><span class="n">1</span><span><b>案头条(事实层)</b>:只陈列四件事——在哪干活 / 多守规矩 / 谁在干 / 有没有事等我。鎏金铃是全局唯一打扰入口;点击各项只弹设置弹层,永不切页面。</span></li>
+    <li><span class="n">2</span><span><b>任务坞(对象层)</b>:替代 288px 会话列表。每单活一枚瓷章:内嵌任务首字,外圈进度环;青花环=进行中、鎏金脉冲=需要你、静默+勾=已收工。坞底:档案 / 熟活架 / 设置。</span></li>
+    <li><span class="n">3</span><span><b>交办箱</b>:提交后先出「交办确认卡」(干什么/在哪/多守规矩/大概多贵)再开工,用户可离场。逃生舱:「?」开头直接问答,不立单。本单安全档可与全局不同。</span></li>
+    <li><span class="n">4</span><span><b>续办条</b>:回到首页也不丢现场——进行中任务一行可达;「需要你」卡片就地可决(去处理 / 不用了),不必先进任务单。</span></li>
+    <li><span class="n">5</span><span><b>熟活架</b>:技能/一键任务的货架就摆在交办台上(v3「技能入口失踪案」结构性消失)。收工卡的「存为熟活」会把新卡片长到这里。</span></li>
+    <li><span class="n">6</span><span><b>最近收活</b>:成果永远带着反悔柄——检查点数据持久化,已收工的活也能整单或单件回退。</span></li>
+  </ol>
+</div>
+</div>
+
+<script>
+(function(){
+  var btn=document.getElementById('themeBtn');
+  btn.addEventListener('click',function(){
+    var r=document.documentElement;
+    var next=r.getAttribute('data-theme')==='dark'?'light':'dark';
+    r.setAttribute('data-theme',next);
+    btn.textContent=next==='dark'?'切到浅色 · 月白':'切到深色 · 墨夜';
+  });
+})();
+</script>
+</body>
+</html>
