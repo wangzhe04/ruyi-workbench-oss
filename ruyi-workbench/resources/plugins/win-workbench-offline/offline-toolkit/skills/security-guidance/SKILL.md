@@ -1,3 +1,8 @@
+---
+name: 安全加固
+description: 离线环境下的本地安全审查与加固建议
+---
+
 # Security Guidance
 
 Use this skill for local security review and hardening in an offline environment.

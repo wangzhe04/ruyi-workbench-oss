@@ -2,6 +2,9 @@
    如意 Ruyi — theme tokens (dark default + light;原 Win Claude Workbench)
    ============================================================ */
 :root {
+  /* v3 (§B5): 显式基线字号 —— pro 模式 = 14px(原靠 body 硬编码 14px；body 已解锁,改由此继承)。
+     simple 模式在下方 [data-ui-mode="simple"] 覆盖为 15px,故两模式字号正确分档。 */
+  font-size: 14px;
   --radius: 10px;
   --radius-sm: 7px;
   --font: "Segoe UI", "Microsoft YaHei", system-ui, Arial, sans-serif;
@@ -96,6 +99,10 @@
   --info-bg: color-mix(in srgb, var(--info) 16%, var(--panel)); --info-fg: var(--info);
   --code-bg: #0b111b;
   --shadow: 0 12px 32px rgba(0,0,0,.42);
+  /* v3 (§C1): 墨夜(深色)投影分层 —— 纯黑 alpha,深底合适。与 [data-theme="light"] 的冷调版对齐键集。 */
+  --elev-1: 0 1px 2px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.10);
+  --elev-2: 0 6px 20px rgba(0,0,0,.20);
+  --elev-3: 0 16px 40px rgba(0,0,0,.28);
   --scroll: #35425c;
 }
 
@@ -139,6 +146,11 @@
   --code-bg: #f2f4f8;
   /* off-table 阴影:暖棕 rgba 迁到藏蓝墨冷色调,并入青花族。明度/透明度关系不变。 */
   --shadow: 0 12px 30px rgba(20,28,48,.12);
+  /* v3 (§C1): 亮色投影分层 —— 冷调低透明度(同 --shadow 的暖→冷迁色逻辑),避免纯黑 elev 在月白底偏重。
+     暗色 elev 取 :root 默认(纯黑 alpha,深底合适),此处仅为亮色覆写。 */
+  --elev-1: 0 1px 2px rgba(20,28,48,.08), 0 2px 8px rgba(20,28,48,.06);
+  --elev-2: 0 6px 20px rgba(20,28,48,.12);
+  --elev-3: 0 16px 40px rgba(20,28,48,.16);
   --scroll: #c3cddd;
   /* engine accent colors, light variants (§3): slightly darker for contrast on the light surface. */
   --eng-claude: #c96442; --eng-deepseek: #4059d8; --eng-qwen: #6d3fd8;
@@ -162,7 +174,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
-  font-size: 14px;
+  /* v3 (§B5): body 不再硬编码 font-size —— 继承 :root 基线(pro 14 / simple 15),密度/无障碍缩放才生效。 */
   -webkit-font-smoothing: antialiased;
 }
 
@@ -178,6 +190,7 @@ button {
   color: var(--ink);
   border-radius: var(--radius-sm);
   padding: 7px 12px;
+  min-height: var(--tap-min); /* v3 (§B4/§1.3): 点击区达标,随密度联动(mini/icon-btn 例外,见下) */
   cursor: pointer;
   transition: background var(--transition), border-color var(--transition), transform var(--transition), opacity var(--transition);
 }
@@ -191,12 +204,16 @@ button.danger:hover { background: var(--danger); color: #fff; }
 button.ghost { background: transparent; border-color: transparent; color: var(--muted); }
 button.ghost:hover { background: var(--panel-2); color: var(--ink); }
 button.full { width: 100%; }
-button.mini { padding: 3px 8px; font-size: 12px; }
+button.mini { padding: 3px 8px; font-size: 12px; min-height: 0; } /* v3 (§B4): mini 免除 tap-min 下限 */
 .icon-btn {
   border: 1px solid transparent; background: transparent; color: var(--muted);
-  width: 32px; height: 32px; padding: 0; display: inline-grid; place-items: center; border-radius: var(--radius-sm);
+  /* v3 (§B4/§1.3): 图标钮随密度联动(comfortable 40 / compact ≥32),下限 32；min-height:0 让方形由 w/h 定。 */
+  width: max(var(--tap-min), 32px); height: max(var(--tap-min), 32px); min-height: 0;
+  padding: 0; display: inline-grid; place-items: center; border-radius: var(--radius-sm);
 }
 .icon-btn:hover { background: var(--panel-2); color: var(--ink); }
+/* v3 (§B4/§1.3): 补挂 --tap-min 到会话项 / 工具页签 / 技能开关 / 任务池审批按钮(base button 已挂,这里强调并覆盖非-button)。 */
+.session-item, .tool-tabs button, .skill-toggle, .pool-actions button { min-height: var(--tap-min); }
 
 input, textarea, select {
   width: 100%;
@@ -225,7 +242,7 @@ input:focus, textarea:focus, select:focus {
   grid-template-columns: 288px minmax(420px, 1fr) 340px;
   overflow: hidden;
   /* v1.0.2 (F2): 折叠/展开侧栏时栅格列宽的短过渡(≤0.15s),避免瞬跳。 */
-  transition: grid-template-columns 0.15s var(--ease, ease);
+  transition: grid-template-columns var(--dur-fast) var(--ease-out); /* v3 (§C5): 收敛散写 duration 到 token */
 }
 .app-shell.tools-collapsed { grid-template-columns: 288px minmax(420px, 1fr) 0; }
 .app-shell.sidebar-collapsed { grid-template-columns: 0 minmax(420px, 1fr) 340px; }
@@ -270,6 +287,7 @@ input:focus, textarea:focus, select:focus {
 .session-item {
   text-align: left; padding: 9px 10px; border: 1px solid transparent; background: transparent;
   border-radius: var(--radius-sm); display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; align-items: center;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); /* v3 (§C2) */
 }
 .session-item:hover { background: var(--panel-2); }
 .session-item.active { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
@@ -302,7 +320,7 @@ input:focus, textarea:focus, select:focus {
 .step-bar-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .step-bar-summary .sb-count { color: var(--muted); font-variant-numeric: tabular-nums; }
 .step-bar-summary .sb-cur { color: var(--ink); font-weight: 600; }
-.step-bar-caret { color: var(--muted); flex: none; transition: transform .15s ease; }
+.step-bar-caret { color: var(--muted); flex: none; transition: transform var(--dur-fast) var(--ease-out); }
 .step-bar-head[aria-expanded="true"] .step-bar-caret { transform: rotate(180deg); }
 .step-bar-list { list-style: none; margin: 0; padding: 2px 16px 9px 16px; display: flex; flex-direction: column; gap: 4px; }
 .step-bar-list.hidden { display: none; }
@@ -411,7 +429,7 @@ input:focus, textarea:focus, select:focus {
 
 /* popover primitive (§4.2): fixed-position, anchored panel shared by the chip + context meter */
 .popover { position: fixed; z-index: 55; background: var(--panel); border: 1px solid var(--line-2);
-  border-radius: var(--radius); box-shadow: var(--shadow); padding: 6px; min-width: 260px; max-height: 60vh;
+  border-radius: var(--radius); box-shadow: var(--elev-2); padding: 6px; min-width: 260px; max-height: 60vh; /* v3 (§C1): 浮层 elev-2 */
   overflow: auto; animation: pop-in var(--dur-1) var(--ease); }
 @keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
 /* model-chip popover contents */
@@ -467,9 +485,9 @@ input:focus, textarea:focus, select:focus {
 .ctx-meter:hover { border-color: var(--line-2); }
 /* battery gauge: fill drains right→left as context fills; green→amber→red via .warn/.crit */
 .ctx-meter .ctx-batt { display: block; flex: none; }
-.ctx-meter .ctx-batt .batt-body { stroke: var(--muted); transition: stroke .35s ease; }
-.ctx-meter .ctx-batt .batt-cap { fill: var(--muted); transition: fill .35s ease; }
-.ctx-meter .ctx-batt .batt-fill { fill: var(--ok); transition: width .35s ease, fill .35s ease; }
+.ctx-meter .ctx-batt .batt-body { stroke: var(--muted); transition: stroke var(--dur-slow) var(--ease-out); }
+.ctx-meter .ctx-batt .batt-cap { fill: var(--muted); transition: fill var(--dur-slow) var(--ease-out); }
+.ctx-meter .ctx-batt .batt-fill { fill: var(--ok); transition: width var(--dur-slow) var(--ease-out), fill var(--dur-slow) var(--ease-out); }
 .ctx-meter.warn .ctx-batt .batt-fill { fill: var(--warn); }
 .ctx-meter.crit .ctx-batt .batt-fill { fill: var(--danger); }
 .ctx-meter.crit .ctx-batt .batt-body { stroke: var(--danger); }
@@ -535,8 +553,9 @@ input:focus, textarea:focus, select:focus {
 .pb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
 .pb-card { text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 12px 13px; cursor: pointer; color: var(--ink); display: flex; flex-direction: column; gap: 6px;
-  font: inherit; transition: border-color var(--transition), transform var(--transition); }
-button.pb-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  font: inherit; box-shadow: var(--elev-1); /* v3 (§C1): 卡片 elev-1 */
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
+button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--elev-2); } /* v3 (§C2): hover 抬起 + 投影升一级 */
 .pb-card-head { display: flex; align-items: center; gap: 8px; }
 .pb-card-icon { font-size: 18px; line-height: 1; flex: none; }
 .pb-card-title { font-size: 14px; font-weight: 600; color: var(--ink); }
@@ -620,7 +639,7 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-1px);
 .empty-state::before, .boot-failure::before {
   content: ''; position: absolute; left: 50%; top: 0; transform: translateX(-50%);
   width: 200px; height: 118px; pointer-events: none; z-index: 0;
-  background: var(--brand-qh); opacity: .04;
+  background: var(--brand-qh); opacity: .07; /* v3 (§C3): 品牌云纹从 .04 提到 .07 —— 仍克制但可见 */
   -webkit-mask: var(--ruyi-cloud) no-repeat center top / contain;
   mask: var(--ruyi-cloud) no-repeat center top / contain;
 }
@@ -639,7 +658,7 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-1px);
 .message .avatar { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
 .message.user .avatar { background: var(--user-line); color: var(--ink); }
 .message.assistant .avatar { background: var(--accent); color: var(--accent-ink); }
-.message.system .avatar { background: var(--sys-line); color: var(--ink); }
+.message.system .avatar { background: transparent; color: var(--muted); font-size: 16px; } /* v3 (§C4): 系统头像无底色 ⚙ 弱化 */
 .msg-main { min-width: 0; }
 .msg-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .msg-head .who { font-weight: 600; font-size: 13px; }
@@ -786,11 +805,11 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-1px);
 .subagent-head .sa-title { font-weight: 600; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .subagent-head .sa-status { margin-left: auto; flex: none; font-size: 11.5px; color: var(--muted); }
 .subagent-head .sa-status.ok { color: var(--accent); }
-.subagent-head .sa-status.err { color: var(--danger, #d9534f); }
+.subagent-head .sa-status.err { color: var(--danger); }
 /* Indent the nested tool cards so they read as belonging to the sub-turn. */
 .subagent-body { padding: 2px 10px 8px 20px; border-left: 1px dashed color-mix(in srgb, var(--accent) 30%, transparent); margin-left: 12px; }
 .subagent-body:empty { display: none; }
-.subagent-card.sa-err { border-color: color-mix(in srgb, var(--danger, #d9534f) 40%, var(--line)); border-left-color: var(--danger, #d9534f); }
+.subagent-card.sa-err { border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); border-left-color: var(--danger); }
 
 /* v0.8-S7: muted badge on a user interjection (steering) message */
 .steered-badge { display: inline-block; align-self: flex-start; margin-bottom: 4px; padding: 1px 7px; border-radius: 999px; font-size: 11px; line-height: 1.6; color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); border: 1px solid color-mix(in srgb, var(--muted) 24%, transparent); }
@@ -948,7 +967,7 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-1px);
 
 /* ============================ modals ============================ */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 50; padding: 20px; animation: backdrop-in var(--dur-2) var(--ease); }
-.modal { background: var(--panel); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: var(--shadow); width: min(640px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; animation: modal-in var(--dur-2) var(--ease); }
+.modal { background: var(--panel); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: var(--elev-3); width: min(640px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; animation: modal-in var(--dur-2) var(--ease); }
 .modal.small { width: min(420px, 100%); }
 /* modal entrance (§4.9/C7): backdrop fades, panel scales .98→1. reduced-motion global block disables. */
 @keyframes backdrop-in { from { opacity: 0; } }
@@ -976,7 +995,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .skill-search-wrap { padding: 12px 18px 0; }
 .skill-search-wrap input { background: var(--panel-2); }
 .skill-list { display: flex; flex-direction: column; gap: 4px; }
-.skill-item { padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; background: var(--panel-2); }
+.skill-item { padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; background: var(--panel-2); transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); }
 .skill-item:hover, .skill-item.sel { border-color: var(--accent); background: var(--accent-soft); }
 .skill-head { display: flex; align-items: center; gap: 8px; }
 .skill-name { font-family: var(--mono); font-weight: 600; color: var(--accent); background: none; padding: 0; }
@@ -986,7 +1005,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .skill-group-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: none; margin: 10px 2px 2px; letter-spacing: .02em; }
 .skill-group-title:first-child { margin-top: 2px; }
 .skill-src { font-size: 10px; color: var(--muted); border: 1px solid var(--line-2); border-radius: 10px; padding: 1px 7px; }
-.skill-toggle { margin-left: auto; font-size: 11px; padding: 2px 10px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); color: var(--fg); cursor: pointer; }
+.skill-toggle { margin-left: auto; font-size: 11px; padding: 2px 10px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); color: var(--ink); cursor: pointer; }
 .skill-toggle:hover:not(:disabled) { border-color: var(--accent); }
 .skill-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .skill-toggle:disabled { opacity: .5; cursor: default; }
@@ -1020,7 +1039,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 
 /* toasts */
 .toast-tray { position: fixed; bottom: 18px; right: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
-.toast { background: var(--panel); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 10px 14px; font-size: 13px; max-width: 340px; animation: slidein .2s ease; }
+.toast { background: var(--panel); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 10px 14px; font-size: 13px; max-width: 340px; animation: slidein var(--dur-base) var(--ease-out); }
 .toast.err { border-left-color: var(--danger); }
 .toast.ok { border-left-color: var(--ok); }
 .toast.warn { border-left-color: var(--warn); } /* v1.0-S6 (B4): failover 提示 — 复用既有 --warn 令牌，无新色字面量 */
@@ -1062,6 +1081,12 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
   .chat-pane { grid-column: 1; }
   #showSidebarBtn { display: inline-grid; }
   .topbar-field > span { display: none; }
+  /* v3 (§A1): 顶栏不再定高裁切 —— flex-basis 解锁 + 自适应高度 + 允许换行两行;任何宽度内容都不被裁出视口。 */
+  .topbar { flex: 0 0 auto; height: auto; min-height: 54px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; row-gap: 6px; }
+  /* 三 chip 降级紧凑态:工作台只留图标 / 安全留盾+短名截 4 字 / 模型隐藏 mono 型号只留引擎名+状态点。 */
+  .workspace-picker .wp-name { display: none; }
+  .perm-chip .pc-name { max-width: 4em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .model-chip .mc-model { display: none; }
 }
 /* ≤560px: fold ⌘技能/📎附件 into a single ＋ popover (§4.3 tail). sendBtn stays visible always.
    The individual buttons hide; ＋ shows and JS wires its popover to those actions.
@@ -1070,6 +1095,13 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
   .composer-actions > #skillBtn,
   .composer-actions > .file-label.composer-file { display: none; }
   #composerMoreBtn { display: inline-flex; align-items: center; justify-content: center; }
+}
+
+/* v3 (§A3): 触屏(无 hover)下常显 hover-only 操作 —— 消息操作 / 会话项操作 / 文件树 @ 按钮,低透明度 .75 不喧宾夺主。 */
+@media (hover: none) {
+  .msg-actions,
+  .session-item .s-actions,
+  .ftree-at { opacity: .75; }
 }
 
 /* ============================================================================
@@ -1098,6 +1130,13 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 :root[data-ui-mode="simple"] .tool-tabs button[data-tab="debug"],
 :root[data-ui-mode="simple"] .tool-tabs button[data-tab="doctor"],
 :root[data-ui-mode="simple"] .tool-tabs .tool-tabs-sep { display: none; }
+/* v3 (§B2): 简易模式常驻页签 6→4 —— 另隐藏「用量」「审计」按钮(改从「AI 工作」面板顶部的 mini 链接进入)。
+   这两页签不在 DEV_TABS,switchTab 不拦截,mini 链接与 JS 兜底可正常切到;agent-runs 文案由 JS 改「AI 工作」。 */
+:root[data-ui-mode="simple"] .tool-tabs button[data-tab="usage"],
+:root[data-ui-mode="simple"] .tool-tabs button[data-tab="audit"] { display: none; }
+/* 「AI 工作」面板顶部的「用量 / 审计」mini 链接行:仅简易模式显示(专家模式它们各是常驻页签,无需重复入口)。 */
+.agent-runs-subnav { display: none; }
+:root[data-ui-mode="simple"] .agent-runs-subnav { display: flex; gap: 12px; margin: 2px 0 8px; }
 /* 侧栏「🩺 体检」快捷按钮同样只开专家模式的门（体检页签本身在简易模式已隐藏，
    否则点击会被 switchTab 静默改写去文件页，见 app.js switchTab）。 */
 :root[data-ui-mode="simple"] #openDoctorBtn { display: none; }
@@ -1112,7 +1151,8 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 :root[data-ui-mode="simple"] #settingsTabs button[data-stab="advanced"] { display: none; }
 /* Composer advanced buttons: 技能 折叠；#compactBtn 已移出 composer（入上下文弹层），此处不再需要藏它。
    📎 附件 和 发送 stay. */
-:root[data-ui-mode="simple"] .composer-actions > #skillBtn { display: none; }
+/* v3 (§B1): 简易模式技能入口【显示】—— 原先那条把简易模式技能按钮设为不可见的规则已删除。
+   主画像不识命令行 `/`,技能按钮是唯一可发现的入口。(≤560px 折叠进 ＋ 的响应式规则另属别处,不受影响。) */
 /* Tool card: show the verb, hide the raw name; reveal the collapsible 详情 summary. */
 :root[data-ui-mode="simple"] .tool-card .tc-name { display: none; }
 :root[data-ui-mode="simple"] .tool-card .tc-verb { display: inline; }
@@ -1224,7 +1264,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .modal.workflow-modal { width: min(1160px, calc(100vw - 40px)); }
 .modal.workflow-modal .modal-head { padding-right: 10px; }
 .workflow-window-btn { width: 32px; height: 28px; display: inline-grid; place-items: center; margin-left: auto; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 15px; line-height: 1; }
-.workflow-window-btn:hover { background: var(--panel-2); color: var(--text); }
+.workflow-window-btn:hover { background: var(--panel-2); color: var(--ink); }
 .modal.workflow-modal.workflow-fullscreen { width: calc(100vw - 24px); height: calc(100vh - 24px); max-height: calc(100vh - 24px); }
 .modal.workflow-modal.workflow-fullscreen .modal-body { display: flex; flex-direction: column; min-height: 0; }
 .modal.workflow-modal.workflow-fullscreen .workflow-editor { width: 100%; min-height: 0; flex: 1; display: flex; flex-direction: column; }
@@ -1233,7 +1273,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .modal.workflow-modal.workflow-fullscreen .workflow-inspector { height: auto; min-height: 0; }
 .workflow-meta { display: grid; grid-template-columns: 1fr 1.4fr 2fr 1fr; gap: 8px; margin-bottom: 10px; }
 .workflow-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: var(--muted); font-size: 11px; }
-.workflow-field input, .workflow-field select, .workflow-field textarea { width: 100%; color: var(--text); }
+.workflow-field input, .workflow-field select, .workflow-field textarea { width: 100%; color: var(--ink); }
 .workflow-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 8px; padding: 7px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--panel-2) 78%, transparent); }
 .workflow-editor-toolbar select { min-width: 170px; }
 .workflow-btn { border-radius: 999px; padding-inline: 10px; border-color: var(--line-2); background: var(--panel); }
@@ -1253,17 +1293,17 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .workflow-edge-hit { stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
 .workflow-edge.selected .workflow-edge-line { stroke: var(--accent); stroke-width: 2.4; }
 .workflow-edges path { fill: var(--muted); }
-.workflow-node-card { position: absolute; width: 210px; min-height: 88px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 10px; text-align: left; cursor: grab; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,.12); touch-action: none; }
+.workflow-node-card { position: absolute; width: 210px; min-height: 88px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 10px; text-align: left; cursor: grab; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 4px 14px rgba(0,0,0,.12); touch-action: none; }
 .workflow-node-card:active { cursor: grabbing; }
 .workflow-node-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
-.workflow-node-card.connect-source { border-color: var(--warn, #d99a2b); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn, #d99a2b) 30%, transparent); }
+.workflow-node-card.connect-source { border-color: var(--warn); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 30%, transparent); }
 .workflow-node-card span, .workflow-node-card small { color: var(--muted); }
 .workflow-inspector { display: flex; flex-direction: column; gap: 8px; padding: 10px; height: min(510px, 52vh); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
 .workflow-help { margin: -3px 0 4px; color: var(--muted); font-size: 11px; line-height: 1.35; }
 .agent-node.an-skipped { border-left: 3px solid var(--muted); opacity: .82; }
-.agent-run-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); }
+.agent-run-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); box-shadow: var(--elev-1); } /* v3 (§C1): 卡片 elev-1 */
 .agent-run-card.ar-running, .agent-run-card.ar-paused { border-left: 3px solid var(--accent); }
-.agent-run-card.ar-failed, .agent-run-card.ar-interrupted, .agent-run-card.ar-partial { border-left: 3px solid var(--danger, #d9534f); }
+.agent-run-card.ar-failed, .agent-run-card.ar-interrupted, .agent-run-card.ar-partial { border-left: 3px solid var(--danger); }
 .agent-run-head, .agent-node-head { cursor: pointer; padding: 8px; display: flex; justify-content: space-between; gap: 8px; }
 .ar-title { font-weight: 650; overflow-wrap: anywhere; }
 .ar-status { color: var(--muted); white-space: nowrap; font-size: 11px; }
@@ -1274,7 +1314,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .agent-node-live { color: var(--muted); font-size: 12px; margin: 4px 0 8px; }
 .agent-node-progress { margin: 8px 0; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: color-mix(in srgb, var(--panel-2) 80%, transparent); }
 .agent-progress-title { color: var(--muted); font-size: 12px; margin-bottom: 5px; }
-.agent-progress-line { font-size: 12px; line-height: 1.45; color: var(--text); }
+.agent-progress-line { font-size: 12px; line-height: 1.45; color: var(--ink); }
 /* v1.4.6: single-line current-activity indicator (distinct from the .agent-node-progress history box). */
 .agent-node-activity { display: flex; align-items: center; gap: 6px; margin: 4px 0 6px; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
 .agent-node-activity.active { color: var(--accent); }
@@ -1282,18 +1322,18 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .agent-node-activity.active .agent-node-activity-dot { display: inline-block; animation: compact-spin 1.1s linear infinite; }
 .agent-node-activity-text { min-width: 0; }
 .agent-node { border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
-.agent-node.an-succeeded { border-left: 3px solid var(--ok, #36a269); }
-.agent-node.an-failed, .agent-node.an-interrupted { border-left: 3px solid var(--danger, #d9534f); }
+.agent-node.an-succeeded { border-left: 3px solid var(--ok); }
+.agent-node.an-failed, .agent-node.an-interrupted { border-left: 3px solid var(--danger); }
 .agent-node-head { display: block; font-size: 12px; overflow-wrap: anywhere; }
 .agent-node-body { padding: 0 8px 8px; }
 .agent-node-task { color: var(--muted); margin-bottom: 6px; white-space: pre-wrap; }
 .agent-node-result, .agent-node-error { max-height: 180px; overflow: auto; white-space: pre-wrap; font-size: 11px; }
-.agent-node-error { color: var(--danger, #d9534f); }
-.agent-node.an-waiting_resource { border-left: 3px solid var(--warn, #d99b2b); }
+.agent-node-error { color: var(--danger); }
+.agent-node.an-waiting_resource { border-left: 3px solid var(--warn); }
 .agent-node-resources { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0; }
 .agent-resource-label, .agent-resource-wait { color: var(--muted); font-size: 11px; }
 .agent-resource-chip { max-width: 100%; padding: 2px 6px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; overflow-wrap: anywhere; }
-.agent-resource-wait { color: var(--warn, #d99b2b); margin-bottom: 6px; }
+.agent-resource-wait { color: var(--warn); margin-bottom: 6px; }
 /* ===== v1.5 运行监控（§2 编排实时监控 / §3 青花视觉）：聚合头 + 状态徽标节点卡。色彩全部走语义 token。 ===== */
 /* run-card 左边框补 rejected（琥珀 = 质量门判否，语义上 ≠ 执行失败）。 */
 .agent-run-card.ar-rejected { border-left: 3px solid var(--warn); }
@@ -1363,7 +1403,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .agent-isolation { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px; margin: 6px 0; border: 1px dashed var(--line); border-radius: 6px; }
 .agent-isolation-status { font-size: 11px; color: var(--muted); }
 .agent-isolation.ai-ready { border-color: var(--accent); }
-.agent-isolation.ai-applied { border-color: var(--ok, #36a269); }
+.agent-isolation.ai-applied { border-color: var(--ok); }
 .agent-isolation-changes { flex-basis: 100%; max-height: 100px; overflow: auto; margin: 0; font-size: 10px; white-space: pre-wrap; }
 .agent-role-driver-status { padding: 8px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-2); font-size: 12px; }
 .agent-role-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 6px; }
@@ -1374,7 +1414,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .agent-role-edit-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 9px 9px; }
 .agent-role-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 11px; color: var(--muted); }
 .agent-role-field:has(textarea) { grid-column: 1 / -1; }
-.agent-role-field input, .agent-role-field select, .agent-role-field textarea { width: 100%; color: var(--text); }
+.agent-role-field input, .agent-role-field select, .agent-role-field textarea { width: 100%; color: var(--ink); }
 .native-claude-role-list { margin-top: 12px; }
 .native-claude-role { padding: 6px 8px; margin-top: 5px; border-left: 2px solid var(--accent); background: var(--panel-2); font-size: 11px; overflow-wrap: anywhere; }
 @media (max-width: 760px) { .agent-role-edit-body { grid-template-columns: 1fr; } .agent-role-field:has(textarea) { grid-column: auto; } .workflow-editor { width: calc(100vw - 50px); } .workflow-meta, .workflow-editor-layout { grid-template-columns: 1fr; } .workflow-graph, .workflow-inspector { height: min(420px, 42vh); } }
@@ -1454,13 +1494,13 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .audit-badge { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 999px;
   font-size: 10.5px; font-weight: 600; border: 1px solid var(--line); }
 .audit-badge .audit-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-.audit-badge.src-workbench { color: #2f6fb0; background: color-mix(in srgb, #2f6fb0 12%, transparent); }
-.audit-badge.src-workbench .audit-dot { background: #2f6fb0; }
-.audit-badge.src-desktop { color: #c9772f; background: color-mix(in srgb, #c9772f 14%, transparent); }
-.audit-badge.src-desktop .audit-dot { background: #c9772f; }
+.audit-badge.src-workbench { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.audit-badge.src-workbench .audit-dot { background: var(--accent); }
+.audit-badge.src-desktop { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.audit-badge.src-desktop .audit-dot { background: var(--warn); }
 .audit-type { flex: none; font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
 .audit-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
-.audit-caret { flex: none; color: var(--muted); transition: transform .15s ease; }
+.audit-caret { flex: none; color: var(--muted); transition: transform var(--dur-fast) var(--ease-out); }
 .audit-row.open .audit-caret { transform: rotate(90deg); }
 .audit-detail { padding: 8px 10px; margin: 0; background: var(--panel-2); border-top: 1px solid var(--line);
   font-family: var(--mono); font-size: 11px; white-space: pre-wrap; word-break: break-all; max-height: 40vh; overflow: auto; }
@@ -1517,7 +1557,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .usage-budget-fill { height: 100%; border-radius: var(--r-pill); background: var(--accent); transition: width var(--dur-2) var(--ease); }
 
 /* 聚合头：tokens 统计瓦片 + 成本估算 + 诚实脚注。 */
-.usage-agg { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); padding: 10px; }
+.usage-agg { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); padding: 10px; box-shadow: var(--elev-1); } /* v3 (§C1): 卡片 elev-1 */
 .usage-agg-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .usage-stat { min-width: 0; }
 .usage-stat-val { font-size: 17px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -1530,7 +1570,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .usage-agg-note { font-size: 10.5px; color: var(--muted); line-height: 1.6; margin: 8px 0 0; overflow-wrap: anywhere; }
 
 /* 分组条：标题 + 逐条水平条。 */
-.usage-group { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); padding: 9px 10px; }
+.usage-group { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); padding: 9px 10px; box-shadow: var(--elev-1); } /* v3 (§C1): 卡片 elev-1 */
 .usage-group-title { font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 7px; }
 .usage-bars { display: flex; flex-direction: column; gap: 3px; }
 .usage-bar-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label val" "bar bar"; gap: 2px 8px; align-items: center; padding: 4px 4px; border-radius: var(--radius-sm); }

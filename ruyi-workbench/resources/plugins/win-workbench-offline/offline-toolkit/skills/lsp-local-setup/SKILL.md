@@ -1,3 +1,8 @@
+---
+name: 本地语言智能
+description: 无需下载扩展，配置或排查本地语言智能(LSP)
+---
+
 # LSP Local Setup
 
 Use this skill to configure or troubleshoot local language intelligence without downloading extensions.

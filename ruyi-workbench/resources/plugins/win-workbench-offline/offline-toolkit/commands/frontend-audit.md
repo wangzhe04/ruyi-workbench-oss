@@ -1,3 +1,8 @@
+---
+name: 前端审计
+description: 审计前端的离线就绪度与界面风险
+---
+
 # Frontend Audit
 
 Audit the frontend for offline readiness and UI risks.

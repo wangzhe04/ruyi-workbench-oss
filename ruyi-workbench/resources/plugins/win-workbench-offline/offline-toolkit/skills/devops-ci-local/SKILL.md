@@ -1,3 +1,8 @@
+---
+name: 本地 CI 校验
+description: 在离线 Windows 机器上复现 CI 式检查
+---
+
 # DevOps CI Local
 
 Use this skill to reproduce CI-like checks on an offline Windows machine.

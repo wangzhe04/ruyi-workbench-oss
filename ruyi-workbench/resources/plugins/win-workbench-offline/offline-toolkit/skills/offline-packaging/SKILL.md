@@ -1,3 +1,8 @@
+---
+name: 离线打包
+description: 为隔离网或内网 Windows 机器准备项目分发包
+---
+
 # Offline Packaging
 
 Use this skill when preparing a project for an air-gapped or intranet Windows machine.

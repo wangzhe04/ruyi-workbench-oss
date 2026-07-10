@@ -169,7 +169,7 @@
             <textarea id="promptInput" rows="1" placeholder="描述你要做的事…（Enter 发送，Shift+Enter 换行）"></textarea>
             <div class="composer-actions">
               <button id="composerMoreBtn" class="file-label" title="更多" aria-label="更多操作" aria-haspopup="menu">＋</button>
-              <button id="skillBtn" class="file-label" title="技能库：启用技能 / 命令 / 一键任务 (/)">⌘ 技能</button>
+              <button id="skillBtn" class="file-label" title="技能库：启用技能 / 命令 / 一键任务 (/)">✨ 技能</button>
               <label class="file-label composer-file" title="添加文件">
                 <input id="fileInput" type="file" multiple />
                 📎
@@ -274,6 +274,12 @@
           <div class="debug-head">
             <label>Agent 工作流</label>
             <div class="row-actions"><button id="workflowEditorBtn" class="mini primary">新建 / 编辑</button><button id="agentRunsRefreshBtn" class="mini">刷新</button></div>
+          </div>
+          <!-- v3 (§B2): 简易模式「AI 工作」聚合入口 —— 顶部两个 mini 链接切到隐藏的「用量 / 审计」页签
+               (专家模式它们是常驻页签;本行由 CSS 仅在简易模式显示)。switchTab 不拦这两个 tab,点击即切。 -->
+          <div class="agent-runs-subnav">
+            <button type="button" id="usageMiniLink" class="link-mini">用量</button>
+            <button type="button" id="auditMiniLink" class="link-mini">审计</button>
           </div>
           <div class="workflow-quick-run"><select id="workflowQuickSelect" aria-label="工作流模板"></select><button id="workflowQuickRunBtn" class="mini">运行模板</button></div>
           <p class="changes-hint muted">从模板运行，或图形化创建 DAG；支持条件、循环、质量门和失败策略。</p>

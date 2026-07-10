@@ -1,3 +1,8 @@
+---
+name: API 调试
+description: 不依赖云端工具，排查本地或内网 HTTP 服务
+---
+
 # API Debugger
 
 Use this skill to inspect local or intranet HTTP services without cloud tools.

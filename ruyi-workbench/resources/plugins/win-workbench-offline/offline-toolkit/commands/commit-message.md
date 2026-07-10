@@ -1,3 +1,8 @@
+---
+name: 生成提交信息
+description: 根据当前本地改动起草提交信息
+---
+
 # Commit Message
 
 Draft a commit message from the current local changes.

@@ -1,3 +1,8 @@
+---
+name: 提交工作流
+description: 无需联网，准备提交、起草提交信息与变更摘要
+---
+
 # Commit Workflow
 
 Use this skill for local commit preparation, commit message drafting, and changelog summaries without GitHub or network access.

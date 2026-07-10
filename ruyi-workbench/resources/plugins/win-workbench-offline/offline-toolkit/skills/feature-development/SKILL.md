@@ -1,3 +1,8 @@
+---
+name: 功能开发
+description: 在离线 Windows 环境中实现项目功能改动
+---
+
 # Feature Development
 
 Use this skill when implementing a project change in an offline Windows Claude Code environment.

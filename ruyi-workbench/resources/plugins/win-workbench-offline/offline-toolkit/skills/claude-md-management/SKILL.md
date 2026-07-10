@@ -1,3 +1,8 @@
+---
+name: 项目记忆管理
+description: 创建、审计并完善项目 CLAUDE.md 说明文件
+---
+
 # CLAUDE.md Management
 
 Use this skill to create, audit, or improve project `CLAUDE.md` files for offline Claude Code use.

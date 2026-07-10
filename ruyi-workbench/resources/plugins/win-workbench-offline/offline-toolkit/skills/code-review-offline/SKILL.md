@@ -1,3 +1,8 @@
+---
+name: 离线代码审查
+description: 无公网服务时，聚焦缺陷的本地代码审查
+---
+
 # Code Review Offline
 
 Use this skill for bug-focused code review when public services are unavailable.

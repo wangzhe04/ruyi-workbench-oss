@@ -1,3 +1,8 @@
+---
+name: 插件开发
+description: 为离线市场创建或修改本地 Claude Code 插件包
+---
+
 # Plugin Development
 
 Use this skill when creating or modifying a local Claude Code plugin bundle for an offline marketplace.

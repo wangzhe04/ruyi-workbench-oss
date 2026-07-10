@@ -1,3 +1,8 @@
+---
+name: 依赖清单
+description: 生成离线依赖与运行时清单
+---
+
 # Dependency Inventory
 
 Create an offline dependency and runtime inventory.

@@ -1,3 +1,8 @@
+---
+name: Windows 桌面操控
+description: 通过工作台 MCP 操控 Windows 工作站(截图/控窗)
+---
+
 # Windows Control
 
 Use this skill when the user wants Claude to operate a Windows workstation through the `win-claude-workbench` MCP server.

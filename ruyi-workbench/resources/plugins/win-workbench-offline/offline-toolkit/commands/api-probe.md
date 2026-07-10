@@ -1,3 +1,8 @@
+---
+name: 探测 API
+description: 探测本地或内网 HTTP 接口
+---
+
 # API Probe
 
 Probe a local or intranet HTTP API.

@@ -1,3 +1,8 @@
+---
+name: Office 自动化
+description: 离线处理 Word/Excel/PPT/CSV/PDF 与 COM 自动化
+---
+
 # Office Automation
 
 Use this skill for offline Windows Office work: Word, Excel, PowerPoint, CSV, PDF handoff, and COM automation.

@@ -1,3 +1,8 @@
+---
+name: 本地文档检索
+description: 作为文档查询插件的离线替代，查阅本地资料
+---
+
 # Local Docs Context
 
 Use this skill as an offline replacement for documentation lookup plugins.

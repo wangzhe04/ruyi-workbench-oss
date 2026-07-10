@@ -1,3 +1,8 @@
+---
+name: 前端设计精修
+description: 离线环境下构建或审查前端界面的设计指引
+---
+
 # Frontend Design Craft
 
 Use this skill when building or reviewing frontend UI in an offline Windows environment.

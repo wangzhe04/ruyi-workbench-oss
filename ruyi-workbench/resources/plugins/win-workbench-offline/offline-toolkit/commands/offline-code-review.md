@@ -1,3 +1,8 @@
+---
+name: 离线代码审查
+description: 仅用本地上下文审查当前仓库
+---
+
 # Offline Code Review
 
 Review the current repository using local-only context.

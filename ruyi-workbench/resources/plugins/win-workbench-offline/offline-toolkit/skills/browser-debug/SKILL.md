@@ -1,3 +1,8 @@
+---
+name: 网页调试
+description: 在 Windows 上验证本地网页、HTML 与前端产物
+---
+
 # Browser Debug
 
 Use this skill when validating local web apps, HTML files, intranet pages, or generated frontend artifacts on Windows.

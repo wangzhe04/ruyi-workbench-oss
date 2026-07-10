@@ -104,6 +104,8 @@ function applyUiMode(mode) {
   // 驱动间距/点击区 token 缩放(styles.css [data-density] 块)。与 data-ui-mode 同步写,避免脱钩。
   const dens = m === 'simple' ? 'comfortable' : 'compact';
   if (document.documentElement.getAttribute('data-density') !== dens) document.documentElement.setAttribute('data-density', dens);
+  // v3 (§B2): agent-runs 页签在简易模式显示「AI 工作」(聚合工作流+用量/审计 mini 入口),专家模式保留「Agent 工作流」。
+  { const t = document.querySelector('.tool-pane .tool-tabs button[data-tab="agent-runs"]'); if (t) t.textContent = (m === 'simple' ? 'AI 工作' : 'Agent 工作流'); }
   const btn = $('uiModeToggle');
   if (btn) {
     btn.textContent = m === 'simple' ? '🧸' : '🔧';
@@ -893,12 +895,14 @@ function buildEmptyCTA() {
 // so a multi-engine session shows WHICH engine/model produced each reply (A4/§4.4).
 function messageShell(role, whenIso, meta) {
   const row = el('div', `message ${role}`);
-  const avatar = el('div', 'avatar', role === 'user' ? '你' : role === 'assistant' ? 'C' : 'S');
+  // v3 (§C4): 头像从字母方块升级为品牌 SVG —— 用户=中性人形剪影 / 助手=如意云头(引擎色底白标) / 系统=无底色 ⚙。
+  const avatar = el('div', 'avatar');
+  buildMsgAvatar(avatar, role);
   const main = el('div', 'msg-main');
   const head = el('div', 'msg-head');
   if (role === 'assistant') {
     const vis = engineVisual(meta);
-    avatar.textContent = vis.letter;
+    // 云头底色沿用引擎色(Claude=青花蓝 via --accent,Provider 各品牌色),多引擎会话一眼识别归属。
     avatar.style.background = vis.colorVar;
     // Badge = colored dot + engine name; the dot/tint color comes from --eng-color set inline here.
     const badge = el('span', 'eng-badge', vis.label);
@@ -913,6 +917,32 @@ function messageShell(role, whenIso, meta) {
   main.appendChild(head);
   row.append(avatar, main);
   return { row, main, head };
+}
+// v3 (§C4): 消息头像 SVG 构建器。全 createElementNS(不用 innerHTML,守 XSS 纪律)。图形为常量,无用户数据注入。
+function buildMsgAvatar(box, role) {
+  const NS = 'http://www.w3.org/2000/svg';
+  if (role === 'assistant') {
+    // 如意云头(与 --ruyi-cloud 同一三瓣路径),fill=currentColor(=--accent-ink 白);底色由调用处按引擎色设。
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 120 70'); svg.setAttribute('width', '22'); svg.setAttribute('height', '13');
+    svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('fill', 'currentColor');
+    const cloud = document.createElementNS(NS, 'path');
+    cloud.setAttribute('d', 'M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z');
+    svg.appendChild(cloud); box.appendChild(svg);
+  } else if (role === 'user') {
+    // 中性人形剪影(头 + 肩),fill=currentColor(=--ink)。
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '18'); svg.setAttribute('height', '18');
+    svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('fill', 'currentColor');
+    const head = document.createElementNS(NS, 'circle');
+    head.setAttribute('cx', '12'); head.setAttribute('cy', '8.5'); head.setAttribute('r', '3.9');
+    const body = document.createElementNS(NS, 'path');
+    body.setAttribute('d', 'M12 13.4c-4.3 0-7.6 2.7-7.6 6.3V21h15.2v-1.3c0-3.6-3.3-6.3-7.6-6.3Z');
+    svg.append(head, body); box.appendChild(svg);
+  } else {
+    // 系统:无底色 ⚙ 弱化(CSS 把 .message.system .avatar 去底、着 --muted)。
+    box.textContent = '⚙';
+  }
 }
 // Derive an engine meta from a stored message. New messages carry engine/providerId/providerLabel/model
 // directly; older ones only have `source` ('provider:xxx' | 'claude-cli' | 'aborted'|…) — fall back to
@@ -1677,6 +1707,8 @@ function setProc(state_) {
 // stopTurn; otherwise it is "发送 ▷" (primary) wired to sendPrompt. The old topbar #stopBtn is gone.
 function setStreaming(on) {
   state.streaming = on;
+  // v3 (§B6): 有活动回合即让上下文电量表现身(不再等 60%,两模式一致);无用量数据时 renderContextMeter 自持隐藏。
+  if (on) { try { updateContextMeter(); } catch { /* ignore */ } }
   // v0.9-S5: clear any lingering 「AI 在等你批准计划」 hint when a turn ends (stop/error can bypass the card's
   // own finish()). Set fresh by handlePlanEvent while a plan is pending.
   if (!on) { const h = $('composerHint'); if (h) h.textContent = ''; }
@@ -1686,7 +1718,7 @@ function setStreaming(on) {
   if (btn) {
     btn.classList.toggle('danger', on);
     btn.classList.toggle('primary', !on);
-    btn.textContent = on ? '■ 停止' : '发送 ▷';
+    btn.textContent = on ? '⏹ 停止' : '发送 ▷'; // v3 (§C6): 运行态换「⏹ 停止」(danger 弱化描边),完成还原
     btn.onclick = on ? stopTurn : () => sendPrompt();
   }
   updateJumpLatest();
@@ -4087,7 +4119,7 @@ function currentEngineMeta() {
 function engineVisual(meta) {
   meta = meta || {};
   if (meta.engine === 'claude' || (!meta.engine && !meta.providerId)) {
-    return { letter: 'C', colorVar: 'var(--eng-claude)', label: 'Claude' };
+    return { letter: 'C', colorVar: 'var(--accent)', label: 'Claude' }; // v3 (§A5): Claude 统一青花蓝(与工作流 --wf-claude 同族),消除消息区赭 vs 工作流蓝的自相矛盾
   }
   const id = String(meta.providerId || '').toLowerCase();
   const label = meta.providerLabel || meta.providerId || 'provider';
@@ -4967,7 +4999,7 @@ async function doToggleSkill(entry) {
 function updateSkillBadge() {
   const btn = $('skillBtn'); if (!btn) return;
   const n = (state.currentSession && Array.isArray(state.currentSession.skills)) ? state.currentSession.skills.length : 0;
-  btn.textContent = n > 0 ? `⌘ 技能 · ${n}` : '⌘ 技能';
+  btn.textContent = n > 0 ? `✨ 技能 · ${n}` : '✨ 技能'; // v3 (§B1): ⌘→✨(⌘ 是 Mac 心智,Windows 产品用它别扭)
 }
 function updateSkillSel() {
   const items = [...$('skillList').querySelectorAll('.skill-item')];
@@ -5666,7 +5698,7 @@ function openRenamePopover(anchorEl, s) {
   }, { placement: 'bottom-start' });
 }
 
-// ≤560px composer fold (§4.3 tail): the ＋ button opens a popover listing 📎 添加文件 / ⌘ 技能 /
+// ≤560px composer fold (§4.3 tail): the ＋ button opens a popover listing 📎 添加文件 / ✨ 技能 /
 // 🗜 压缩 — the same three actions that are tiled on wider screens. Skill is omitted in provider mode
 // (A2: it is a Claude-CLI concept). Uses the shared popover primitive; sendBtn is never folded.
 function openComposerMorePopover() {
@@ -5677,9 +5709,9 @@ function openComposerMorePopover() {
     const attach = el('button', 'cm-item'); attach.type = 'button'; attach.textContent = '📎 添加文件';
     attach.onclick = () => { close(); $('fileInput')?.click(); };
     wrap.appendChild(attach);
-    // ⌘ 技能 — Claude mode only.
+    // ✨ 技能 — Claude mode only.
     if (!isProviderMode()) {
-      const skill = el('button', 'cm-item'); skill.type = 'button'; skill.textContent = '⌘ 技能 / 命令';
+      const skill = el('button', 'cm-item'); skill.type = 'button'; skill.textContent = '✨ 技能 / 命令';
       skill.onclick = () => { close(); openSkillPanel(); };
       wrap.appendChild(skill);
     }
@@ -5804,16 +5836,20 @@ function switchTab(tab) {
 function isNarrow() { return window.matchMedia('(max-width: 1180px)').matches; }
 // v1.0.2 (F2): 折叠侧栏统一入口。加/去 .sidebar-collapsed(CSS 把侧栏栅格轨道归 0),同步 ☰ 恢复钮显隐,
 // 并持久化到 localStorage 供下次启动恢复。恢复态在 boot() 里调用(applyUiMode 之后、拉数据之前均可)。
-function setSidebarCollapsed(collapsed) {
+function setSidebarCollapsed(collapsed, persist = true) {
   document.querySelector('.app-shell').classList.toggle('sidebar-collapsed', collapsed);
   const showBtn = $('showSidebarBtn');
   if (showBtn) showBtn.classList.toggle('hidden', !collapsed);
-  try { localStorage.setItem('wcw.sidebarCollapsed', collapsed ? '1' : '0'); } catch { /* ignore */ }
+  // v3 (§A2): 只有用户经 «/☰ 的显式选择才持久化;响应式默认(手机首启折叠)不写 localStorage,免污染桌面偏好。
+  if (persist) { try { localStorage.setItem('wcw.sidebarCollapsed', collapsed ? '1' : '0'); } catch { /* ignore */ } }
 }
 function restoreSidebarCollapsed() {
-  let v = '0';
-  try { v = localStorage.getItem('wcw.sidebarCollapsed') || '0'; } catch { /* ignore */ }
-  if (v === '1') setSidebarCollapsed(true);
+  let v = null;
+  try { v = localStorage.getItem('wcw.sidebarCollapsed'); } catch { /* ignore */ }
+  if (v === '1') { setSidebarCollapsed(true); return; }
+  if (v === '0') return; // 用户显式选择保持展开 —— 尊重之(即便窄屏)
+  // v3 (§A2): 无用户偏好时,≤760px 手机默认收起侧栏(否则 absolute 浮层开机盖住对话区);不持久化,仅作响应式默认。
+  if (window.matchMedia('(max-width: 760px)').matches) setSidebarCollapsed(true, false);
 }
 function toggleToolPane() {
   const shell = document.querySelector('.app-shell');
@@ -5879,6 +5915,9 @@ function bindEvents() {
   });
   $('sendBtn').onclick = () => sendPrompt();
   $('skillBtn').onclick = openSkillPanel;
+  // v3 (§B2): 「AI 工作」面板顶部的用量/审计 mini 链接 —— 简易模式经此切到隐藏页签(switchTab 不拦这两个 tab)。
+  { const u = $('usageMiniLink'); if (u) u.onclick = () => { switchTab('usage'); }; }
+  { const a = $('auditMiniLink'); if (a) a.onclick = () => { switchTab('audit'); }; }
   { const cb = $('compactBtn'); if (cb) cb.onclick = compactContext; }
   // ≤560px composer fold: ＋ opens the popover with 📎/⌘/🗜 (§4.3 tail).
   { const mb = $('composerMoreBtn'); if (mb) mb.onclick = openComposerMorePopover; }

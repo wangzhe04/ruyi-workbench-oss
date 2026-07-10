@@ -1,3 +1,8 @@
+---
+name: 代码精简
+description: 不改变行为，简化近期改动或晦涩的代码
+---
+
 # Code Simplifier
 
 Use this skill when asked to simplify recently changed or confusing code without changing behavior.
