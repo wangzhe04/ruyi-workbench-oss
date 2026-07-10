@@ -2466,6 +2466,7 @@ async function openWorkflowEditor(initialId) {
   draft.source = draft.source === 'project' ? 'project' : 'personal'; let selectedId = draft.nodes[0] && draft.nodes[0].id;
   let connectFromId = '';
   let selectedEdge = null;
+  let commitSelectedNode = null;
   let roles = []; try { roles = (await api(`/api/agent-roles?cwd=${encodeURIComponent(currentWorkspace())}`)).roles || []; } catch {}
   const body = el('div', 'workflow-editor');
   const meta = el('div', 'workflow-meta'); const idInput = document.createElement('input'); idInput.value = draft.id; const titleInput = document.createElement('input'); titleInput.value = draft.title; const descInput = document.createElement('input'); descInput.value = draft.description || '';
@@ -2574,7 +2575,7 @@ async function openWorkflowEditor(initialId) {
     }
     return cleared;
   }
-  function renderInspector(){inspector.textContent='';if(selectedEdge&&!edgeExists(selectedEdge))selectedEdge=null;if(selectedEdge){const fromSel=document.createElement('select'),toSel=document.createElement('select');for(const n of draft.nodes){const a=document.createElement('option');a.value=n.id;a.textContent=n.id;fromSel.appendChild(a);const b=document.createElement('option');b.value=n.id;b.textContent=n.id;toSel.appendChild(b);}fromSel.value=selectedEdge.from;toSel.value=selectedEdge.to;const applyEdge=el('button','mini primary','应用箭头'),delEdge=el('button','mini danger','删除箭头');inspector.append(el('p','workflow-help','已选择箭头。可在这里改起点/终点，也可直接拖动箭头靠近某一端的位置到目标节点。'),workflowField('起点节点',fromSel),workflowField('结束节点',toSel));applyEdge.onclick=()=>{const next={from:fromSel.value,to:toSel.value};if(next.from===next.to)return toast('箭头不能连接到自身','err');if(edgeKey(next)!==edgeKey(selectedEdge)&&edgeExists(next))return toast('重复箭头','err');snapshot();const old=selectedEdge;removeWorkflowEdge(old);if(!addWorkflowEdge(next.from,next.to)){addWorkflowEdge(old.from,old.to);return toast('无法应用箭头','err');}selectedEdge=next;renderGraph();renderInspector();};delEdge.onclick=()=>{snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast('已删除箭头','ok');}};inspector.append(applyEdge,delEdge);return;}const node=draft.nodes.find(x=>x.id===selectedId);
+  function renderInspector(){inspector.textContent='';commitSelectedNode=null;if(selectedEdge&&!edgeExists(selectedEdge))selectedEdge=null;if(selectedEdge){const fromSel=document.createElement('select'),toSel=document.createElement('select');for(const n of draft.nodes){const a=document.createElement('option');a.value=n.id;a.textContent=n.id;fromSel.appendChild(a);const b=document.createElement('option');b.value=n.id;b.textContent=n.id;toSel.appendChild(b);}fromSel.value=selectedEdge.from;toSel.value=selectedEdge.to;const applyEdge=el('button','mini primary','应用箭头'),delEdge=el('button','mini danger','删除箭头');inspector.append(el('p','workflow-help','已选择箭头。可在这里改起点/终点，也可直接拖动箭头靠近某一端的位置到目标节点。'),workflowField('起点节点',fromSel),workflowField('结束节点',toSel));applyEdge.onclick=()=>{const next={from:fromSel.value,to:toSel.value};if(next.from===next.to)return toast('箭头不能连接到自身','err');if(edgeKey(next)!==edgeKey(selectedEdge)&&edgeExists(next))return toast('重复箭头','err');snapshot();const old=selectedEdge;removeWorkflowEdge(old);if(!addWorkflowEdge(next.from,next.to)){addWorkflowEdge(old.from,old.to);return toast('无法应用箭头','err');}selectedEdge=next;renderGraph();renderInspector();};delEdge.onclick=()=>{snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast('已删除箭头','ok');}};inspector.append(applyEdge,delEdge);return;}const node=draft.nodes.find(x=>x.id===selectedId);
     if(!node){ inspector.append(el('p','muted','选择一个节点')); return; }
     const oldId=node.id;
     // ── 身份 ──
@@ -2620,17 +2621,17 @@ async function openWorkflowEditor(initialId) {
       adv
     );
     const apply=el('button','mini primary','应用节点设置');
-    apply.onclick=()=>{
+    const doApplyNode=()=>{
       // Validate EVERYTHING first — nothing on `node`/`draft` is written until every field parses.
       const nextId=nid.value.trim();
-      if(!/^[A-Za-z0-9_-]+$/.test(nextId)) return toast('节点 ID 只能用字母、数字、_、-','err');
-      if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId)) return toast('节点 ID 重复','err');
+      if(!/^[A-Za-z0-9_-]+$/.test(nextId)){ toast('节点 ID 只能用字母、数字、_、-','err'); return false; }
+      if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId)){ toast('节点 ID 重复','err'); return false; }
       const nextDependsOn=[...deps.selectedOptions].map(x=>x.value).filter(x=>x&&x!==nextId);
       const nextCondition=parseWorkflowConditionText(condition.value);
-      if(condition.value.trim()&&!nextCondition) return toast('运行条件格式无效','err');
+      if(condition.value.trim()&&!nextCondition){ toast('运行条件格式无效','err'); return false; }
       const lm=Math.max(1,Number(loopMax.value)||1);
       const nextUntil=parseWorkflowConditionText(loopUntil.value);
-      if(loopUntil.value.trim()&&!nextUntil) return toast('循环停止条件格式无效','err');
+      if(loopUntil.value.trim()&&!nextUntil){ toast('循环停止条件格式无效','err'); return false; }
       const mi=maxIters.value.trim();
       const modelVal=currentModelChoice();
       // All parsed OK — snapshot then commit.
@@ -2647,7 +2648,9 @@ async function openWorkflowEditor(initialId) {
       if(toolTier.value) node.toolTier=toolTier.value; else delete node.toolTier;
       if(nextId!==oldId) remapWorkflowNodeRef(oldId,nextId);
       selectedId=nextId; renderGraph(); renderInspector();
+      return true;
     };
+    apply.onclick=doApplyNode; commitSelectedNode=doApplyNode;
     inspector.appendChild(apply);
   }
   loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;undoStack.length=0;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast('已载入模板；保存会覆盖同 ID 的个人/项目模板，内置模板会保存为个人副本','');};
@@ -2667,7 +2670,7 @@ async function openWorkflowEditor(initialId) {
     selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();
     if(cleared)toast(`已删除节点，并清除 ${cleared} 处指向它的运行条件/循环停止条件（这些节点将变为无条件执行）`,'');
   };
-  async function saveDraft(){syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||'保存失败');draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
+  async function saveDraft(){if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false)throw new Error('检查器有字段无效，请修正后再保存');}syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||'保存失败');draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
   cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast('工作流已保存','ok');modal.close();}catch(e){toast(apiErrText(e),'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){toast(apiErrText(e),'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast('内置模板不可删除','err');if(!confirm(`删除工作流模板「${draft.title||draft.id}」？此操作不可恢复。`))return;try{await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();toast('已删除工作流','ok');modal.close();}catch(e){toast(apiErrText(e),'err');}};
   renderGraph();renderInspector();
 }
@@ -3098,7 +3101,7 @@ try { window.layoutWorkbenchDAG = layoutWorkbenchDAG; } catch { /* ignore */ }
 // P3a 视图状态(§5.3)。selectedRunId 决定画布画哪个 run;lastRuns 缓存最近一次轮询数据供切视图即时重绘;
 // posCache 按 run 记忆布局(拓扑签名不变则复用坐标 → 状态/进度变化时节点不抖动)。
 // v3 P3b 追加交互态:zoom(画布缩放挡位)/panelOpen(右板三段折叠记忆,轮询重绘不丢)/sideOpen(窄屏抽屉开合)。
-const wbState = { view: 'chat', selectedRunId: null, selectedNodeId: null, lastRuns: [], posCache: {}, zoom: 1, panelOpen: { detail: true, pool: true, mail: true }, sideOpen: false };
+const wbState = { view: 'chat', selectedRunId: null, selectedNodeId: null, lastRuns: [], posCache: {}, zoom: 1, panelOpen: { detail: true, pool: true, mail: true }, detailExpand: { task: false, result: false }, sideOpen: false };
 try { window.wbState = wbState; } catch { /* ignore */ } // preview/调试可及(同 window.state 兼容层)
 // v3 P3b 缩放挡位(§5.4:0.75/1/1.25;画布只读，整容器 CSS transform:scale，坐标系不变，无指针耦合)。
 const WB_ZOOM_GEARS = [0.75, 1, 1.25];
@@ -3383,6 +3386,7 @@ function wbHighlightChain(nodeId, on) {
 // 窄屏(<1180)则同时把右板抽屉滑出;详情段滚入视野。
 function wbFocusRunNode(runId, nodeId) {
   wbState.selectedNodeId = nodeId;
+  wbState.detailExpand = { task: false, result: false };
   wbState.panelOpen.detail = true;
   document.querySelectorAll('#wbCanvasWrap .wb-node.selected').forEach(n => n.classList.remove('selected'));
   const card = document.querySelector(`#wbCanvasWrap .wb-node[data-node-id="${CSS.escape(nodeId)}"]`);
@@ -3546,7 +3550,7 @@ function wbNodeDetailBody(run, node) {
     box.appendChild(tl);
   }
   // task 全文
-  if (node.task) { const tw = el('details', 'wb-det-task'); tw.appendChild(el('summary', 'wb-det-task-sum', '任务全文')); tw.appendChild(el('pre', 'wb-det-pre', node.task)); box.appendChild(tw); }
+  if (node.task) { const tw = el('details', 'wb-det-task'); tw.appendChild(el('summary', 'wb-det-task-sum', '任务全文')); tw.appendChild(el('pre', 'wb-det-pre', node.task)); tw.open = !!wbState.detailExpand.task; tw.addEventListener('toggle', () => { wbState.detailExpand.task = tw.open; }); box.appendChild(tw); }
   // 插话框(§6#6):live run + 资格判定;不符合显禁用 + 原因(与后端 409 文案一致)。
   box.appendChild(wbSteerBox(run, node));
   // 操作区:非 live 显重试入口(retry_node);失败/判否有错误显查看错误。
@@ -3562,7 +3566,7 @@ function wbNodeDetailBody(run, node) {
     box.appendChild(acts);
   }
   // 结果 / 错误全文
-  if (node.result) { const rw = el('details', 'wb-det-result'); rw.appendChild(el('summary', 'wb-det-task-sum', '查看结果')); rw.appendChild(el('pre', 'wb-det-pre', node.result)); box.appendChild(rw); }
+  if (node.result) { const rw = el('details', 'wb-det-result'); rw.appendChild(el('summary', 'wb-det-task-sum', '查看结果')); rw.appendChild(el('pre', 'wb-det-pre', node.result)); rw.open = !!wbState.detailExpand.result; rw.addEventListener('toggle', () => { wbState.detailExpand.result = rw.open; }); box.appendChild(rw); }
   if (Array.isArray(node.schemaErrors) && node.schemaErrors.length) box.appendChild(el('pre', 'wb-det-pre wb-det-error', `Schema: ${node.schemaErrors.join('; ')}`));
   if (node.error) box.appendChild(el('pre', 'wb-det-pre wb-det-error', node.error));
   return box;
