@@ -76,7 +76,7 @@
       </aside>
 
       <!-- ============ CHAT PANE ============ -->
-      <main class="chat-pane">
+      <main class="chat-pane" data-main-view="chat">
         <header class="topbar">
           <button id="showSidebarBtn" class="icon-btn hidden" title="展开侧栏" aria-label="展开侧栏" data-icon="menu"></button>
           <div class="topbar-title">
@@ -131,6 +131,14 @@
           </div>
         </header>
 
+        <!-- UI v3 P3a: 中栏主视图 Tab(对话 | 工作台)。data-main-view 状态机切中栏内容;工作台在有活动 run
+             时亮点标(.has-activity 显 .wb-mv-dot)。tab 点击 wire 到 switchMainView(见 app.js P3a 模块)。 -->
+        <div class="wb-mainview-tabs" role="tablist" aria-label="中栏主视图">
+          <button id="mainViewTabChat" class="wb-mv-tab active" role="tab" aria-selected="true" data-main-view="chat">对话</button>
+          <button id="mainViewTabCanvas" class="wb-mv-tab" role="tab" aria-selected="false" data-main-view="canvas">工作台<span class="wb-mv-dot" aria-hidden="true"></span></button>
+          <span class="wb-mv-spacer"></span>
+        </div>
+
         <!-- v0.8-S3: task-list step-bar. Hidden until session.todos is non-empty or a `todo` event lands. -->
         <div id="stepBar" class="step-bar hidden" role="status" aria-live="polite">
           <button id="stepBarToggle" class="step-bar-head" aria-expanded="false">
@@ -183,6 +191,15 @@
           <div id="compactBtnHost" class="hidden">
             <button id="compactBtn" class="file-label" title="压缩上下文：让 Claude 概括并压缩对话历史（/compact），释放上下文空间">🗜 压缩</button>
           </div>
+        </section>
+
+        <!-- UI v3 P3a: 工作台全宽只读画布视图。data-main-view=canvas 时显示(替换 messages+composer)。
+             三区自上而下:run 选择器 chips / 只读 DAG 画布(分层布局+SVG 贝塞尔连线)/ 底部用量迷你条。
+             内容全部由 app.js P3a 模块 el()/textContent 渲染(XSS 安全);数据复用 /api/agent-runs 2s 轮询。 -->
+        <section id="workbenchView" class="wb-view" aria-label="工作台画布">
+          <div id="wbRunbar" class="wb-runbar" role="tablist" aria-label="运行选择"></div>
+          <div id="wbCanvasWrap" class="wb-canvas-wrap"></div>
+          <div id="wbUsage" class="wb-usage"></div>
         </section>
       </main>
 

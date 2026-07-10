@@ -3018,6 +3018,7 @@ async function loadAgentRuns() {
     const r = await api(`/api/agent-runs?sessionId=${encodeURIComponent(sid)}`);
     const runs = Array.isArray(r.runs) ? r.runs : [];
     renderAgentRuns(runs);
+    wbOnRuns(runs); // v3 P3a:同一份轮询数据喂工作台画布(缓存 + 亮点标 + 画布态重绘),不新增请求
     const finishedWithSummary = runs.find(run => run && run.summary && !run.live && !AGENT_RUN_ACTIVE.has(run.status) && !agentRunSummarySeen.has(`${sid}:${run.id}`));
     if (finishedWithSummary) {
       agentRunSummarySeen.add(`${sid}:${finishedWithSummary.id}`);
@@ -3027,9 +3028,333 @@ async function loadAgentRuns() {
   }
   catch (e) { host.textContent = `加载失败：${apiErrText(e)}`; }
 }
-function updateAgentRunsPolling(tab) {
+// v3 P3a:轮询期望态由「监控页签激活」∪「工作台画布视图激活」共同决定 —— 画布复用同一份 2s 轮询(loadAgentRuns
+// 内联刷新画布),不新增请求。tab 参数保留兼容既有 switchTab 调用点;实际期望态从 DOM(激活页签)+ wbState 派生。
+function agentRunsPollWanted() {
+  const tabActive = !!document.querySelector('.tool-pane .tool-tabs button[data-tab="agent-runs"].active');
+  return tabActive || (typeof wbState !== 'undefined' && wbState.view === 'canvas');
+}
+function syncAgentRunsPolling() {
   if (agentRunsPoll) { clearInterval(agentRunsPoll); agentRunsPoll = null; }
-  if (tab === 'agent-runs') { loadAgentRuns(); agentRunsPoll = setInterval(loadAgentRuns, 2000); }
+  if (agentRunsPollWanted()) { loadAgentRuns(); agentRunsPoll = setInterval(loadAgentRuns, 2000); }
+}
+function updateAgentRunsPolling(tab) { syncAgentRunsPolling(); }
+
+/* ============================================================
+   UI v3 P3a「工作台」全宽只读画布视图(设计稿 docs/UI-DESIGN-P3-WORKBENCH.md §5;视觉基线
+   docs/mockups/p3-workbench-r2.html + R2-NOTES)。P3a 只读范围:
+     · 主视图状态机 switchMainView(data-main-view=chat|canvas,localStorage 记忆)
+     · 顶部 run chips(复用 /api/agent-runs 轮询数据;live 脉动点 + 待批准池徽标)
+     · 只读 DAG 画布:零依赖分层布局(layoutWorkbenchDAG 纯函数,记忆化 DFS + 环保护)
+       + SVG 三次贝塞尔连线(源状态着色 + r2 userSpaceOnUse 方向渐变 + 源实点/靶空环端口)
+       + 节点卡 220×88(状态徽标/引擎徽标/模型/活动行/迭代条·门 verdict,渗透语言与 P2 同族)
+     · 底部用量迷你条(累计 tokens/成本/时长,大数字仪表;点击跳右栏用量页)
+     · 空态引导卡 + 节点点击跳右栏监控卡高亮。交互(右板/插话/审批/缩放)留 P3b。
+   所有不可信文本走 el()/textContent,绝不 innerHTML(XSS 纪律)。
+   ============================================================ */
+// 画布布局常量(§5.2 伪码)。V_GAP 取伪码值 64(r2 建议 72 属「需评审」项,未落地伪码,故不采,见交付报告)。
+const WB_NODE_W = 220, WB_NODE_H = 88, WB_H_GAP = 48, WB_V_GAP = 64, WB_PAD = 32;
+
+// 纯函数:零依赖分层布局。输入 nodes 数组(含 id / dependsOn),输出 {id:{x,y,cx,layer}}。
+// 记忆化 DFS 拓扑分层(层号 = 1 + max(依赖层号),无依赖 = 0)+ 环保护(成环回退层 0,防御编辑器已禁的环);
+// 层内按 nodes 原序均布、居中对称(稳定不抖动);只认存在的依赖(忽略悬空/自指)。复杂度 O(V+E)。
+function layoutWorkbenchDAG(nodes) {
+  const list = Array.isArray(nodes) ? nodes.filter(n => n && n.id != null) : [];
+  const byId = new Map(list.map(n => [n.id, n]));
+  const layer = new Map();
+  function computeLayer(id, visiting) {
+    if (layer.has(id)) return layer.get(id);
+    if (visiting.has(id)) return 0;                     // 环保护:成环节点回退层 0
+    visiting.add(id);
+    const node = byId.get(id);
+    const deps = (node && Array.isArray(node.dependsOn) ? node.dependsOn : []).filter(d => byId.has(d) && d !== id);
+    const L = deps.length ? 1 + Math.max(...deps.map(d => computeLayer(d, visiting))) : 0;
+    visiting.delete(id);
+    layer.set(id, L);
+    return L;
+  }
+  for (const n of list) computeLayer(n.id, new Set());
+  // 层内分组(保持原序 → 稳定不抖动)。
+  const byLayer = new Map();
+  for (const n of list) { const L = layer.get(n.id); if (!byLayer.has(L)) byLayer.set(L, []); byLayer.get(L).push(n); }
+  let maxWidth = 0;
+  for (const arr of byLayer.values()) { const w = arr.length * WB_NODE_W + (arr.length - 1) * WB_H_GAP; if (w > maxWidth) maxWidth = w; }
+  const centerX = WB_PAD + maxWidth / 2;
+  const pos = {};
+  for (const L of [...byLayer.keys()].sort((a, b) => a - b)) {
+    const arr = byLayer.get(L); const n = arr.length;
+    const rowW = n * WB_NODE_W + (n - 1) * WB_H_GAP;
+    const x0 = centerX - rowW / 2;
+    const y = WB_PAD + L * (WB_NODE_H + WB_V_GAP);
+    for (let i = 0; i < n; i++) { const x = x0 + i * (WB_NODE_W + WB_H_GAP); pos[arr[i].id] = { x, y, cx: x + WB_NODE_W / 2, layer: L }; }
+  }
+  return pos;
+}
+// preview/调试可及(同 window.state 兼容层):供 eval 单测直接调分层函数断言层号/坐标。
+try { window.layoutWorkbenchDAG = layoutWorkbenchDAG; } catch { /* ignore */ }
+
+// P3a 视图状态(§5.3)。selectedRunId 决定画布画哪个 run;lastRuns 缓存最近一次轮询数据供切视图即时重绘;
+// posCache 按 run 记忆布局(拓扑签名不变则复用坐标 → 状态/进度变化时节点不抖动)。
+const wbState = { view: 'chat', selectedRunId: null, selectedNodeId: null, lastRuns: [], posCache: {} };
+try { window.wbState = wbState; } catch { /* ignore */ } // preview/调试可及(同 window.state 兼容层)
+const WB_SVGNS = 'http://www.w3.org/2000/svg';
+function wbSvg(tag, attrs) { const e = document.createElementNS(WB_SVGNS, tag); if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+// run 友好名:runs 目前不持久化 title(见 server.js run 对象),回退占位 + 由 id chip 承载唯一标识。
+function wbRunName(run) { return (run && (run.title || run.workflowTitle || run.label)) || '工作流'; }
+// 首个活动 run(无则首个)作为默认选中。
+function wbPickDefaultRun(runs) {
+  const arr = Array.isArray(runs) ? runs : [];
+  const active = arr.find(r => AGENT_RUN_ACTIVE.has(r.status));
+  return (active || arr[0] || {}).id || null;
+}
+// 拓扑签名(id + dependsOn)—— 不变则复用缓存坐标,防轮询重排时节点抖动。
+function wbTopoSig(nodes) {
+  return (Array.isArray(nodes) ? nodes : []).map(n => `${n.id}<${(Array.isArray(n.dependsOn) ? n.dependsOn : []).join('|')}`).join(';');
+}
+function wbLayoutFor(run) {
+  const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+  const sig = wbTopoSig(nodes);
+  const cached = wbState.posCache[run.id];
+  if (cached && cached.sig === sig) return cached.pos;   // 拓扑未变 → 复用位置(id 记忆,防抖动)
+  const pos = layoutWorkbenchDAG(nodes);
+  wbState.posCache[run.id] = { sig, pos };
+  return pos;
+}
+// 主视图状态机:切 data-main-view + tab 激活态 + localStorage 记忆;进画布启轮询并即时重绘,离开按需停轮询。
+function switchMainView(v) {
+  v = (v === 'canvas') ? 'canvas' : 'chat';
+  wbState.view = v;
+  const pane = document.querySelector('.chat-pane');
+  if (pane) pane.setAttribute('data-main-view', v);
+  document.querySelectorAll('.wb-mainview-tabs .wb-mv-tab').forEach(b => {
+    const on = b.dataset.mainView === v; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  try { localStorage.setItem('wcw.mainView', v); } catch { /* ignore */ }
+  if (v === 'canvas') {
+    if (!wbState.selectedRunId) wbState.selectedRunId = wbPickDefaultRun(wbState.lastRuns);
+    renderWorkbench(wbState.lastRuns);
+  }
+  syncAgentRunsPolling(); // 复用 agent-runs 轮询:画布态需要它,离开则按监控页签是否激活决定停/留
+}
+function restoreMainView() {
+  let v = 'chat'; try { v = localStorage.getItem('wcw.mainView') || 'chat'; } catch { /* ignore */ }
+  switchMainView(v === 'canvas' ? 'canvas' : 'chat');
+}
+// 主 Tab「工作台」在有活动 run 时亮点标(每次轮询刷新调用)。
+function wbUpdateActivityDot(runs) {
+  const tab = $('mainViewTabCanvas'); if (!tab) return;
+  tab.classList.toggle('has-activity', (Array.isArray(runs) ? runs : []).some(r => AGENT_RUN_ACTIVE.has(r.status)));
+}
+// 画布数据入口(loadAgentRuns 每轮调用):缓存 runs、刷新亮点标,画布态则重绘。
+function wbOnRuns(runs) {
+  wbState.lastRuns = Array.isArray(runs) ? runs : [];
+  wbUpdateActivityDot(wbState.lastRuns);
+  if (wbState.view === 'canvas') renderWorkbench(wbState.lastRuns);
+}
+// 渲染分派:校正选中 run → runbar + 画布 + 用量条;无 run → 空态。
+function renderWorkbench(runs) {
+  const arr = Array.isArray(runs) ? runs : [];
+  let run = arr.find(r => r.id === wbState.selectedRunId);
+  if (!run) { wbState.selectedRunId = wbPickDefaultRun(arr); run = arr.find(r => r.id === wbState.selectedRunId); }
+  renderWorkbenchRunbar(arr, wbState.selectedRunId);
+  if (!run) { renderWorkbenchEmpty(); return; }
+  renderWorkbenchCanvas(run);
+  renderWorkbenchUsage(run);
+}
+// ① Run 选择器 chips。状态点(live 脉动)+ id + 状态词 +(完成 ✦)+ 待批准池徽标;点击切画布。
+function renderWorkbenchRunbar(runs, selectedRunId) {
+  const bar = $('wbRunbar'); if (!bar) return;
+  bar.textContent = '';
+  if (!runs.length) return;
+  const label = el('span', 'wb-rb-label'); label.appendChild(el('span', 'wb-rb-cloud')); label.appendChild(document.createTextNode('运行'));
+  bar.appendChild(label);
+  for (const run of runs) {
+    const st = AGENT_RUN_ACTIVE.has(run.status) ? 'running' : (run.status === 'succeeded' ? 'succeeded' : ((run.status === 'failed' || run.status === 'rejected') ? 'failed' : 'other'));
+    const on = run.id === selectedRunId;
+    const chip = el('button', `wb-chip wb-st-${st}${on ? ' active' : ''}`);
+    chip.setAttribute('role', 'tab'); chip.setAttribute('aria-selected', on ? 'true' : 'false');
+    chip.appendChild(el('span', 'wb-rc-dot'));
+    chip.appendChild(document.createTextNode(wbRunName(run) + ' '));
+    chip.appendChild(el('span', 'wb-rc-id', run.id));
+    if (run.status === 'succeeded') chip.appendChild(el('span', 'wb-rc-gold', '✦'));
+    chip.appendChild(el('span', 'wb-rc-st', agentRunStatusLabel(run.status)));
+    const proposed = Array.isArray(run.taskPool) ? run.taskPool.filter(p => p && p.status === 'proposed') : [];
+    if (proposed.length) chip.appendChild(el('span', 'wb-rc-pool num', `待批准 ${proposed.length}`));
+    chip.onclick = () => { wbState.selectedRunId = run.id; wbState.selectedNodeId = null; renderWorkbench(wbState.lastRuns); };
+    bar.appendChild(chip);
+  }
+}
+// 边着色分类(按源节点显示状态)。
+function wbEdgeKind(srcDisp) {
+  if (srcDisp === 'running') return 'run';
+  if (srcDisp === 'rejected') return 'reject';
+  if (srcDisp === 'waiting_resource' || srcDisp === 'blocked' || srcDisp === 'paused') return 'wait';
+  if (srcDisp === 'failed') return 'fail';
+  if (srcDisp === 'succeeded' || srcDisp === 'degraded') return 'done';
+  return 'idle';
+}
+function wbEdgeColor(kind) {
+  return kind === 'run' ? 'var(--accent)' : (kind === 'reject' || kind === 'wait') ? 'var(--warn)' : kind === 'fail' ? 'var(--danger)' : kind === 'done' ? 'var(--ok)' : 'var(--line-2)';
+}
+// ② 只读画布:分层布局 → SVG 连线层(<svg> 在下)+ 绝对定位节点卡(DOM,便于事件/无障碍)。
+function renderWorkbenchCanvas(run) {
+  const wrap = $('wbCanvasWrap'); if (!wrap) return;
+  const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+  const pos = wbLayoutFor(run);
+  let maxRight = 0, maxBottom = 0;
+  for (const n of nodes) { const p = pos[n.id]; if (!p) continue; maxRight = Math.max(maxRight, p.x + WB_NODE_W); maxBottom = Math.max(maxBottom, p.y + WB_NODE_H); }
+  const W = Math.max(WB_NODE_W + WB_PAD * 2, maxRight + WB_PAD);
+  const H = Math.max(WB_NODE_H + WB_PAD * 2, maxBottom + WB_PAD);
+  wrap.textContent = '';
+  const canvas = el('div', 'wb-canvas'); canvas.style.width = `${W}px`; canvas.style.height = `${H}px`;
+  canvas.appendChild(wbBuildEdges(run, nodes, pos, W, H));
+  for (const node of nodes) { const p = pos[node.id]; if (p) canvas.appendChild(wbBuildNode(run, node, p)); }
+  wrap.appendChild(canvas);
+}
+// SVG 边层:每条边一个 userSpaceOnUse 方向渐变(源色 → --line-2 沿依赖方向衰减)+ 源实点/靶空环端口。
+function wbBuildEdges(run, nodes, pos, W, H) {
+  const svg = wbSvg('svg', { class: 'wb-edges', viewBox: `0 0 ${W} ${H}`, 'aria-hidden': 'true' });
+  const defs = wbSvg('defs'); svg.appendChild(defs);
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const ports = [];
+  let gi = 0;
+  for (const node of nodes) {
+    const to = pos[node.id]; if (!to) continue;
+    for (const depId of (Array.isArray(node.dependsOn) ? node.dependsOn : [])) {
+      const from = pos[depId]; const src = byId.get(depId); if (!from || !src) continue;
+      const fx = from.cx, fy = from.y + WB_NODE_H, tx = to.cx, ty = to.y;       // 源底缘中点 → 靶顶缘中点
+      const dy = (ty - fy) * 0.5;                                               // 控制点落中垂线(§5.2)
+      const d = `M${fx.toFixed(1)},${fy.toFixed(1)} C${fx.toFixed(1)},${(fy + dy).toFixed(1)} ${tx.toFixed(1)},${(ty - dy).toFixed(1)} ${tx.toFixed(1)},${ty.toFixed(1)}`;
+      const kind = wbEdgeKind(nodeDisplayStatus(src));
+      const gid = `wbg-${run.id}-${gi++}`;
+      const grad = wbSvg('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: fx.toFixed(1), y1: fy.toFixed(1), x2: tx.toFixed(1), y2: ty.toFixed(1) });
+      const near = wbSvg('stop', { offset: '0' }); near.setAttribute('style', `stop-color:${wbEdgeColor(kind)}`);
+      const far = wbSvg('stop', { offset: '1' }); far.setAttribute('style', 'stop-color:var(--line-2)');
+      grad.append(near, far); defs.appendChild(grad);
+      svg.appendChild(wbSvg('path', { class: `wb-edge wb-e-${kind}`, d, stroke: `url(#${gid})`, 'data-from': depId, 'data-to': node.id }));
+      ports.push(['src', fx, fy, kind], ['dst', tx, ty, kind]);
+    }
+  }
+  for (const [k, x, y, kind] of ports) {
+    if (k === 'src') { const c = wbSvg('circle', { class: 'wb-port src', cx: x.toFixed(1), cy: y.toFixed(1), r: '2.6' }); c.setAttribute('style', `fill:${wbEdgeColor(kind)}`); svg.appendChild(c); }
+    else svg.appendChild(wbSvg('circle', { class: 'wb-port dst', cx: x.toFixed(1), cy: y.toFixed(1), r: '3.2' }));
+  }
+  return svg;
+}
+// 节点卡 220×88(渗透语言,与 P2 监控卡同族;运行态脉动 + glow)。字段全复用 renderAgentRuns 同源纯函数。
+function wbBuildNode(run, node, p) {
+  const disp = nodeDisplayStatus(node);
+  const card = el('div', `wb-node wb-st-${disp}${node.id === wbState.selectedNodeId ? ' selected' : ''}`);
+  card.dataset.runId = run.id; card.dataset.nodeId = node.id;
+  card.style.left = `${p.x}px`; card.style.top = `${p.y}px`;
+  card.setAttribute('role', 'button'); card.tabIndex = 0;
+  card.setAttribute('aria-label', `节点 ${node.id} · ${agentRunStatusLabel(disp)}(点击定位到监控卡)`);
+  // 头:状态徽标 + 标题(id·角色) + 引擎徽标
+  const hd = el('div', 'wb-node-hd');
+  hd.appendChild(el('span', 'wb-badge', agentStatusIcon(disp)));
+  const title = el('span', 'wb-node-title');
+  const idb = el('b'); idb.textContent = node.id; title.appendChild(idb);
+  if (node.roleLabel || node.roleId) title.appendChild(el('span', 'role', ` · ${node.roleLabel || node.roleId}`));
+  hd.appendChild(title);
+  const eng = agentEngineBadge(node.engine); if (eng) { eng.classList.add('wb-eng-inline'); hd.appendChild(eng); }
+  card.appendChild(hd);
+  // 模型名(muted;无则省)
+  if (node.model) card.appendChild(el('div', 'wb-node-model', node.model));
+  // 活动行:progressLog 末条(运行/等待态显,succeeded/skipped 不显)
+  const plog = Array.isArray(node.progressLog) ? node.progressLog : [];
+  const last = plog.length ? plog[plog.length - 1] : null;
+  const activeState = node.status === 'running' || node.status === 'waiting_resource';
+  if (last && last.text && node.status !== 'succeeded' && node.status !== 'skipped') {
+    const act = el('div', `wb-node-act${(disp === 'rejected' || disp === 'waiting_resource' || disp === 'failed') ? ' warn' : ''}`);
+    if (activeState) act.appendChild(el('span', 'wb-act-dot', '◐'));
+    act.appendChild(el('span', 'wb-act-text', last.text));
+    card.appendChild(act);
+  }
+  // 底行(择一):门 verdict + 置信度 / 迭代·循环条 / 依赖·状态词
+  const foot = el('div', 'wb-node-foot');
+  const verdict = node.gateVerdict || (node.structuredResult && node.structuredResult.verdict);
+  let budgetLabel = '', budgetCur = 0, budgetMax = 0;
+  if (node.loop) { budgetLabel = '循环'; budgetCur = node.loopIteration || 0; budgetMax = node.loop.maxIterations || 0; }
+  else if (Number.isFinite(Number(node.maxIters))) { budgetLabel = '迭代'; budgetCur = Number(node.iters) || 0; budgetMax = Number(node.maxIters) || 0; }
+  if (verdict) {
+    const v = String(verdict).toLowerCase();
+    foot.appendChild(el('span', `wb-verdict ${v === 'pass' ? 'pass' : 'fail'}`, `判定 ${verdict}`));
+    if (node.confidence != null && Number.isFinite(Number(node.confidence))) foot.appendChild(el('span', 'wb-foot-label num', `置信度 ${(Number(node.confidence) * 100).toFixed(0)}%`));
+  } else if (budgetMax > 0) {
+    const bar = el('div', 'wb-bar'); const i = el('i'); i.style.width = `${Math.max(0, Math.min(100, Math.round((budgetCur / budgetMax) * 100)))}%`; bar.appendChild(i); foot.appendChild(bar);
+    foot.appendChild(el('span', 'wb-foot-label num', `${budgetLabel} ${budgetCur}/${budgetMax}`));
+  } else {
+    const deps = Array.isArray(node.dependsOn) && node.dependsOn.length ? `← 依赖 ${node.dependsOn.join(', ')}` : agentRunStatusLabel(disp);
+    foot.appendChild(el('span', 'wb-foot-label', deps));
+  }
+  card.appendChild(foot);
+  // 点击/回车 → 跳右栏 agent-runs 对应卡并高亮(P3a 最简版;右板详情/插话/审批留 P3b)。
+  const go = () => wbFocusRunNode(run.id, node.id);
+  card.addEventListener('click', go);
+  card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  return card;
+}
+// 节点点击:画布内标选中 + 打开右栏监控页签、展开对应 run/node、滚入并瞬时高亮(复用现有跳转能力)。
+function wbFocusRunNode(runId, nodeId) {
+  wbState.selectedNodeId = nodeId;
+  document.querySelectorAll('#wbCanvasWrap .wb-node.selected').forEach(n => n.classList.remove('selected'));
+  const card = document.querySelector(`#wbCanvasWrap .wb-node[data-node-id="${CSS.escape(nodeId)}"]`);
+  if (card) card.classList.add('selected');
+  openToolPane(); switchTab('agent-runs');
+  setTimeout(() => {
+    const runCard = document.querySelector(`#agentRunsList .agent-run-card[data-run-id="${CSS.escape(runId)}"]`);
+    if (runCard) runCard.open = true;
+    const nodeRow = document.querySelector(`#agentRunsList .agent-node[data-run-id="${CSS.escape(runId)}"][data-node-id="${CSS.escape(nodeId)}"]`);
+    if (nodeRow) { nodeRow.open = true; nodeRow.scrollIntoView({ block: 'center' }); nodeRow.classList.add('wb-flash'); setTimeout(() => nodeRow.classList.remove('wb-flash'), 1600); }
+  }, 120);
+}
+// ④ 底部用量迷你条:本 run 累计 tokens/成本/时长(大数字仪表)。字段缺失显「—」(防御,后端并行落地中)。
+function wbRunMetrics(run) {
+  const u = (run && (run.usage || run.usageTotals)) || null;
+  const tok = (u && (Number(u.input_tokens || 0) + Number(u.output_tokens || 0))) || Number((run && run.totalTokens) || 0) || 0;
+  const cost = Number(run && run.costUsd != null ? run.costUsd : run && run.totalCostUsd != null ? run.totalCostUsd : (u && u.costUsd) || 0) || 0;
+  return { tok, cost, elapsed: runElapsedMs(run) };
+}
+function renderWorkbenchUsage(run) {
+  const host = $('wbUsage'); if (!host) return;
+  host.textContent = '';
+  const m = wbRunMetrics(run);
+  const runLbl = el('span', 'wb-usage-run');
+  if (run.live) runLbl.appendChild(el('span', 'wb-usage-dot'));
+  runLbl.appendChild(document.createTextNode(wbRunName(run) + ' '));
+  runLbl.appendChild(el('span', 'wb-rc-id', run.id));
+  host.appendChild(runLbl);
+  const metrics = el('div', 'wb-usage-metrics');
+  const um = (big, unit, lbl) => { const box = el('div', 'wb-um'); const b = el('b', 'num', big); if (unit) b.appendChild(el('span', 'wb-um-u', unit)); box.appendChild(b); box.appendChild(el('span', 'wb-um-lbl', lbl)); return box; };
+  metrics.appendChild(um(m.tok ? fmtTokens(m.tok) : '—', m.tok ? 'tok' : '', '令牌'));
+  metrics.appendChild(el('div', 'wb-um-sep'));
+  metrics.appendChild(um(m.cost ? `$${m.cost.toFixed(m.cost < 1 ? 4 : 2)}` : '—', '', '成本'));
+  metrics.appendChild(el('div', 'wb-um-sep'));
+  metrics.appendChild(um(m.elapsed ? fmtDuration(m.elapsed) : '—', '', run.live ? '已运行' : '用时'));
+  host.appendChild(metrics);
+  const link = el('button', 'wb-usage-link', '查看用量看板 →');
+  link.setAttribute('aria-label', '跳转到右栏用量看板');
+  link.onclick = () => { openToolPane(); switchTab('usage'); };
+  host.appendChild(link);
+}
+// ⑤ 空态:无 run → 画布区居中引导卡(云纹水印 + 「去对话交办任务」/「从模板运行」);同时清空 chips/用量条。
+function renderWorkbenchEmpty() {
+  const runbar = $('wbRunbar'); if (runbar) runbar.textContent = '';
+  const usage = $('wbUsage'); if (usage) usage.textContent = '';
+  const wrap = $('wbCanvasWrap'); if (!wrap) return;
+  wrap.textContent = '';
+  const box = el('div', 'wb-empty');
+  box.appendChild(el('div', 'wb-empty-cloud'));
+  box.appendChild(el('div', 'wb-empty-title', '本会话还没有 Agent 工作流'));
+  box.appendChild(el('div', 'wb-empty-sub', '交办一个多 Agent 任务，这里会实时画出它们的协作图 —— 谁在跑、跑到哪、卡在哪。'));
+  const acts = el('div', 'wb-empty-acts');
+  const goChat = el('button', 'wb-empty-btn primary', '去对话交办任务');
+  goChat.onclick = () => { switchMainView('chat'); const pi = $('promptInput'); if (pi) pi.focus(); };
+  const goTpl = el('button', 'wb-empty-btn', '从模板运行');
+  goTpl.onclick = () => { openToolPane(); switchTab('agent-runs'); };
+  acts.append(goChat, goTpl);
+  box.appendChild(acts);
+  wrap.appendChild(box);
 }
 
 /* ============================================================
@@ -6208,6 +6533,8 @@ function bindEvents() {
 
   // tool pane
   document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => { b.onclick = () => { switchTab(b.dataset.tab); if (b.dataset.tab === 'mcp') openMcpInspector(); }; });
+  // v3 P3a:中栏主视图 Tab(对话 | 工作台)→ switchMainView 状态机。
+  document.querySelectorAll('.wb-mainview-tabs .wb-mv-tab').forEach(b => { b.onclick = () => switchMainView(b.dataset.mainView); });
   const rm = $('refreshMcpBtn'); if (rm) rm.onclick = openMcpInspector;
   $('runPsBtn').onclick = () => runTool('powershell_run', { command: $('psCommand').value, cwd: state.config.defaultWorkspace || '', timeoutMs: 60000 });
   { const sn = $('shellNewBtn'); if (sn) sn.onclick = newShellSession; }
@@ -6353,6 +6680,7 @@ async function boot() {
   applyUiMode((() => { try { return localStorage.getItem('wcw.uiMode') || 'simple'; } catch { return 'simple'; } })()); // v0.9-S1 (C1) / v1.0.2 (F5): 默认 simple 对齐 server
   restoreSidebarCollapsed(); // v1.0.2 (F2): 恢复上次的折叠侧栏状态
   restoreRightWidth(); initRightResize(); // v3 (§2.7 P2): 恢复右栏三档宽 + 绑定拖拽手柄
+  restoreMainView(); // v3 P3a: 恢复中栏主视图(对话/工作台)记忆
   try { const d = localStorage.getItem('wcw.draft'); if (d) { $('promptInput').value = d; autoGrow($('promptInput')); } } catch { /* ignore */ }
   await bootData();
 }
