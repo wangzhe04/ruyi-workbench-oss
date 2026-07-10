@@ -193,12 +193,18 @@
           </div>
         </section>
 
-        <!-- UI v3 P3a: 工作台全宽只读画布视图。data-main-view=canvas 时显示(替换 messages+composer)。
-             三区自上而下:run 选择器 chips / 只读 DAG 画布(分层布局+SVG 贝塞尔连线)/ 底部用量迷你条。
-             内容全部由 app.js P3a 模块 el()/textContent 渲染(XSS 安全);数据复用 /api/agent-runs 2s 轮询。 -->
+        <!-- UI v3 P3a/P3b: 工作台全宽视图。data-main-view=canvas 时显示(替换 messages+composer)。
+             自上而下:run 选择器 chips / 主区(画布 | 右侧上下文板)/ 底部用量迷你条。
+             P3b:.wb-main 网格承「只读 DAG 画布 + 右侧三段折叠上下文板(选中详情/任务池审批/邮箱)」;
+             <1180 右板收为抽屉(#wbSide.open + #wbSideBackdrop 从右滑出)。内容全部由 app.js el()/textContent
+             渲染(XSS 安全);数据复用 /api/agent-runs 2s 轮询。 -->
         <section id="workbenchView" class="wb-view" aria-label="工作台画布">
           <div id="wbRunbar" class="wb-runbar" role="tablist" aria-label="运行选择"></div>
-          <div id="wbCanvasWrap" class="wb-canvas-wrap"></div>
+          <div class="wb-main">
+            <div id="wbCanvasWrap" class="wb-canvas-wrap"></div>
+            <div id="wbSideBackdrop" class="wb-side-backdrop" hidden></div>
+            <aside id="wbSide" class="wb-side" aria-label="上下文板"></aside>
+          </div>
           <div id="wbUsage" class="wb-usage"></div>
         </section>
       </main>

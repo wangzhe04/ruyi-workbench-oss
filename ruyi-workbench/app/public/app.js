@@ -2748,9 +2748,11 @@ async function agentRunAction(runId, action, extra) {
 // v1 定向插话（steer 到指定运行中子代理节点）：对某个运行中/排队中的 OpenAI 引擎节点插一句话，服务器在该节点
 // 下一次 API 调用前把它注入为 user 消息。prompt() 取文本（与现有 confirm 风格一致，不引入新组件）；成功后刷新
 // 运行列表让「插话」里程碑尽快显现。失败用 apiErrText 提示。
-async function steerAgentNode(runId, nodeId, nodeStatus) {
+// v3 P3b:presetText 提供时走内联提交（工作台右板段1 的插话框直接传输入值，不弹 prompt）；不提供时保留原
+// prompt() 交互（右栏 agent-runs tab 的「插话」按钮仍是 3 参调用）。两条路径共用同一 steer_node action 与 toast。
+async function steerAgentNode(runId, nodeId, nodeStatus, presetText) {
   const sid = state.currentSession?.id; if (!sid) return;
-  const text = (prompt(`对节点 ${nodeId} 插话（下一次调用前生效）：`) || '').trim();
+  const text = (presetText != null ? presetText : (prompt(`对节点 ${nodeId} 插话（下一次调用前生效）：`) || '')).trim();
   if (!text) return;
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action: 'steer_node', nodeId, text }) });
@@ -3095,8 +3097,13 @@ try { window.layoutWorkbenchDAG = layoutWorkbenchDAG; } catch { /* ignore */ }
 
 // P3a 视图状态(§5.3)。selectedRunId 决定画布画哪个 run;lastRuns 缓存最近一次轮询数据供切视图即时重绘;
 // posCache 按 run 记忆布局(拓扑签名不变则复用坐标 → 状态/进度变化时节点不抖动)。
-const wbState = { view: 'chat', selectedRunId: null, selectedNodeId: null, lastRuns: [], posCache: {} };
+// v3 P3b 追加交互态:zoom(画布缩放挡位)/panelOpen(右板三段折叠记忆,轮询重绘不丢)/sideOpen(窄屏抽屉开合)。
+const wbState = { view: 'chat', selectedRunId: null, selectedNodeId: null, lastRuns: [], posCache: {}, zoom: 1, panelOpen: { detail: true, pool: true, mail: true }, sideOpen: false };
 try { window.wbState = wbState; } catch { /* ignore */ } // preview/调试可及(同 window.state 兼容层)
+// v3 P3b 缩放挡位(§5.4:0.75/1/1.25;画布只读，整容器 CSS transform:scale，坐标系不变，无指针耦合)。
+const WB_ZOOM_GEARS = [0.75, 1, 1.25];
+// 窄屏(<1180)右板走抽屉:点节点/手动开合从右滑出;≤760 全宽浮层。matchMedia 判定，SSR/无 window 时防御回退。
+function wbIsNarrow() { try { return window.matchMedia('(max-width: 1180px)').matches; } catch { return false; } }
 const WB_SVGNS = 'http://www.w3.org/2000/svg';
 function wbSvg(tag, attrs) { const e = document.createElementNS(WB_SVGNS, tag); if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
 // run 友好名:runs 目前不持久化 title(见 server.js run 对象),回退占位 + 由 id chip 承载唯一标识。
@@ -3151,16 +3158,21 @@ function wbOnRuns(runs) {
   wbUpdateActivityDot(wbState.lastRuns);
   if (wbState.view === 'canvas') renderWorkbench(wbState.lastRuns);
 }
-// 渲染分派:校正选中 run → runbar + 画布 + 用量条;无 run → 空态。
+// 渲染分派:校正选中 run → runbar + 画布 + 右板 + 用量条;无 run → 空态。
 function renderWorkbench(runs) {
   const arr = Array.isArray(runs) ? runs : [];
   let run = arr.find(r => r.id === wbState.selectedRunId);
   if (!run) { wbState.selectedRunId = wbPickDefaultRun(arr); run = arr.find(r => r.id === wbState.selectedRunId); }
   renderWorkbenchRunbar(arr, wbState.selectedRunId);
   if (!run) { renderWorkbenchEmpty(); return; }
+  // 选中节点若已不在当前 run(切 run/节点被移除)则清空,避免右板串到别的 run 的节点。
+  if (wbState.selectedNodeId && !(Array.isArray(run.nodes) ? run.nodes : []).some(n => n.id === wbState.selectedNodeId)) wbState.selectedNodeId = null;
   renderWorkbenchCanvas(run);
+  renderWorkbenchSide(run);
   renderWorkbenchUsage(run);
 }
+// 当前选中 run(供缩放/适应视图重绘时取数)。
+function wbCurrentRun() { return (Array.isArray(wbState.lastRuns) ? wbState.lastRuns : []).find(r => r.id === wbState.selectedRunId) || null; }
 // ① Run 选择器 chips。状态点(live 脉动)+ id + 状态词 +(完成 ✦)+ 待批准池徽标;点击切画布。
 function renderWorkbenchRunbar(runs, selectedRunId) {
   const bar = $('wbRunbar'); if (!bar) return;
@@ -3196,7 +3208,9 @@ function wbEdgeKind(srcDisp) {
 function wbEdgeColor(kind) {
   return kind === 'run' ? 'var(--accent)' : (kind === 'reject' || kind === 'wait') ? 'var(--warn)' : kind === 'fail' ? 'var(--danger)' : kind === 'done' ? 'var(--ok)' : 'var(--line-2)';
 }
-// ② 只读画布:分层布局 → SVG 连线层(<svg> 在下)+ 绝对定位节点卡(DOM,便于事件/无障碍)。
+// ② 只读画布:分层布局 → 缩放容器 .wb-canvas-inner(节点 + SVG 同容器整体 CSS transform:scale，坐标系不变，
+//    点击命中随视觉变换，无编辑器那种指针坐标耦合)。外层 .wb-canvas 尺寸 = 内容 × zoom，撑出正确滚动区。
+//    轮询重绘保留滚动位置(避免 2s 一跳)+ 右下缩放胶囊(0.75/1/1.25 挡 + 适应视图)+ 泳道层淡标签(§5.4)。
 function renderWorkbenchCanvas(run) {
   const wrap = $('wbCanvasWrap'); if (!wrap) return;
   const nodes = Array.isArray(run.nodes) ? run.nodes : [];
@@ -3205,11 +3219,71 @@ function renderWorkbenchCanvas(run) {
   for (const n of nodes) { const p = pos[n.id]; if (!p) continue; maxRight = Math.max(maxRight, p.x + WB_NODE_W); maxBottom = Math.max(maxBottom, p.y + WB_NODE_H); }
   const W = Math.max(WB_NODE_W + WB_PAD * 2, maxRight + WB_PAD);
   const H = Math.max(WB_NODE_H + WB_PAD * 2, maxBottom + WB_PAD);
+  const z = wbState.zoom || 1;
+  const prevSL = wrap.scrollLeft, prevST = wrap.scrollTop;   // 保留滚动位置，轮询重绘不跳
   wrap.textContent = '';
-  const canvas = el('div', 'wb-canvas'); canvas.style.width = `${W}px`; canvas.style.height = `${H}px`;
-  canvas.appendChild(wbBuildEdges(run, nodes, pos, W, H));
-  for (const node of nodes) { const p = pos[node.id]; if (p) canvas.appendChild(wbBuildNode(run, node, p)); }
+  const canvas = el('div', 'wb-canvas'); canvas.style.width = `${(W * z).toFixed(0)}px`; canvas.style.height = `${(H * z).toFixed(0)}px`;
+  const inner = el('div', 'wb-canvas-inner'); inner.style.width = `${W}px`; inner.style.height = `${H}px`; inner.style.transform = `scale(${z})`;
+  inner.appendChild(wbBuildEdges(run, nodes, pos, W, H));
+  wbBuildLayerTags(nodes, pos).forEach(t => inner.appendChild(t));
+  for (const node of nodes) { const p = pos[node.id]; if (p) inner.appendChild(wbBuildNode(run, node, p)); }
+  canvas.appendChild(inner);
   wrap.appendChild(canvas);
+  wrap.scrollLeft = prevSL; wrap.scrollTop = prevST;
+  // 缩放胶囊挂到非滚动的 .wb-main(而非滚动的画布容器)→ 滚动画布时胶囊固定在右下不跟着跑。单实例:先移除旧的。
+  const main = wrap.parentElement;
+  if (main) { const old = main.querySelector(':scope > .wb-cvtools'); if (old) old.remove(); main.appendChild(wbBuildZoomCapsule()); }
+}
+// 泳道层淡标签(§5.4):每层一个「第 N 层」淡 pill，落在该层行上缘的空隙带(gap/pad 区)，左对齐 —— 节点行居中
+// 排布、左侧留白，标签置于行**上方**空隙 → 垂直方向与节点不同带，避开重叠;随内容一起缩放(在 .wb-canvas-inner 内)。
+function wbBuildLayerTags(nodes, pos) {
+  const layers = new Map();   // layer -> 该层最小 y(行上缘)
+  for (const n of nodes) { const p = pos[n.id]; if (!p) continue; if (!layers.has(p.layer) || p.y < layers.get(p.layer)) layers.set(p.layer, p.y); }
+  const out = [];
+  for (const [L, y] of [...layers.entries()].sort((a, b) => a[0] - b[0])) {
+    const tag = el('div', 'wb-layer-tag num', `第 ${L} 层`);
+    tag.style.left = '8px'; tag.style.top = `${Math.max(2, y - 22)}px`;   // 行上缘上方空隙带
+    tag.setAttribute('aria-hidden', 'true');
+    out.push(tag);
+  }
+  return out;
+}
+// 右下缩放胶囊(§5.4):− / 读数 / ＋ / 适应视图。挡位循环 0.75/1/1.25;适应视图取能容下的最大挡并居中滚动。
+function wbBuildZoomCapsule() {
+  const z = wbState.zoom || 1;
+  const cap = el('div', 'wb-cvtools'); cap.setAttribute('role', 'group'); cap.setAttribute('aria-label', '画布缩放');
+  const idx = WB_ZOOM_GEARS.indexOf(z);
+  const minus = el('button', 'wb-cv-btn', '−'); minus.title = '缩小'; minus.setAttribute('aria-label', '缩小');
+  minus.disabled = idx <= 0; minus.onclick = () => wbSetZoom(WB_ZOOM_GEARS[Math.max(0, (idx < 0 ? 1 : idx) - 1)]);
+  const read = el('span', 'wb-cv-zoom num', `${Math.round(z * 100)}%`);
+  const plus = el('button', 'wb-cv-btn', '＋'); plus.title = '放大'; plus.setAttribute('aria-label', '放大');
+  plus.disabled = idx >= WB_ZOOM_GEARS.length - 1; plus.onclick = () => wbSetZoom(WB_ZOOM_GEARS[Math.min(WB_ZOOM_GEARS.length - 1, (idx < 0 ? 1 : idx) + 1)]);
+  const fit = el('button', 'wb-cv-btn wb-cv-fit', '⤢'); fit.title = '适应视图'; fit.setAttribute('aria-label', '适应视图');
+  fit.onclick = () => wbFitView();
+  cap.append(minus, read, plus, fit);
+  return cap;
+}
+// 设挡位并重绘(挡位吸附到 WB_ZOOM_GEARS 之一)。
+function wbSetZoom(z) {
+  const snap = WB_ZOOM_GEARS.reduce((a, g) => Math.abs(g - z) < Math.abs(a - z) ? g : a, WB_ZOOM_GEARS[1]);
+  wbState.zoom = snap;
+  const run = wbCurrentRun(); if (run) renderWorkbenchCanvas(run);
+}
+// 适应视图:按画布包围盒挑能容下宽度的最大挡位，重绘后水平居中滚动(纵向 DAG 顶对齐)。
+function wbFitView() {
+  const wrap = $('wbCanvasWrap'); const run = wbCurrentRun(); if (!wrap || !run) return;
+  const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+  const pos = wbLayoutFor(run);
+  let maxRight = 0; for (const n of nodes) { const p = pos[n.id]; if (p) maxRight = Math.max(maxRight, p.x + WB_NODE_W); }
+  const W = Math.max(WB_NODE_W + WB_PAD * 2, maxRight + WB_PAD);
+  const avail = Math.max(0, wrap.clientWidth - 24);
+  const ratio = avail / W;
+  let gear = WB_ZOOM_GEARS[0];
+  for (const g of WB_ZOOM_GEARS) if (g <= ratio) gear = g;     // 能容下的最大挡；都容不下则最小挡 0.75
+  wbState.zoom = gear;
+  renderWorkbenchCanvas(run);
+  wrap.scrollLeft = Math.max(0, (W * gear - wrap.clientWidth) / 2);   // 水平居中
+  wrap.scrollTop = 0;
 }
 // SVG 边层:每条边一个 userSpaceOnUse 方向渐变(源色 → --line-2 沿依赖方向衰减)+ 源实点/靶空环端口。
 function wbBuildEdges(run, nodes, pos, W, H) {
@@ -3288,25 +3362,41 @@ function wbBuildNode(run, node, p) {
     foot.appendChild(el('span', 'wb-foot-label', deps));
   }
   card.appendChild(foot);
-  // 点击/回车 → 跳右栏 agent-runs 对应卡并高亮(P3a 最简版;右板详情/插话/审批留 P3b)。
+  // 点击/回车 → 填右板段1「选中节点详情」(P3b:不再 switchTab 跳右栏)。悬停 → 高亮其入/出边(§2.3 依赖链)。
   const go = () => wbFocusRunNode(run.id, node.id);
   card.addEventListener('click', go);
   card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  card.addEventListener('mouseenter', () => wbHighlightChain(node.id, true));
+  card.addEventListener('mouseleave', () => wbHighlightChain(node.id, false));
   return card;
 }
-// 节点点击:画布内标选中 + 打开右栏监控页签、展开对应 run/node、滚入并瞬时高亮(复用现有跳转能力)。
+// 悬停依赖链高亮(§2.3):点亮与该节点相连的入/出边(data-from|data-to 命中),其余边降透明度;移出复原。
+function wbHighlightChain(nodeId, on) {
+  const edges = document.querySelectorAll('#wbCanvasWrap .wb-edge');
+  edges.forEach(e => {
+    if (!on) { e.classList.remove('lit', 'dim'); return; }
+    const hit = e.getAttribute('data-from') === nodeId || e.getAttribute('data-to') === nodeId;
+    e.classList.toggle('lit', hit); e.classList.toggle('dim', !hit);
+  });
+}
+// P3b 节点点击:画布内标选中 + 填充右板段1(选中节点详情),不再跳右栏 agent-runs(取代 P3a 的 switchTab)。
+// 窄屏(<1180)则同时把右板抽屉滑出;详情段滚入视野。
 function wbFocusRunNode(runId, nodeId) {
   wbState.selectedNodeId = nodeId;
+  wbState.panelOpen.detail = true;
   document.querySelectorAll('#wbCanvasWrap .wb-node.selected').forEach(n => n.classList.remove('selected'));
   const card = document.querySelector(`#wbCanvasWrap .wb-node[data-node-id="${CSS.escape(nodeId)}"]`);
   if (card) card.classList.add('selected');
-  openToolPane(); switchTab('agent-runs');
-  setTimeout(() => {
-    const runCard = document.querySelector(`#agentRunsList .agent-run-card[data-run-id="${CSS.escape(runId)}"]`);
-    if (runCard) runCard.open = true;
-    const nodeRow = document.querySelector(`#agentRunsList .agent-node[data-run-id="${CSS.escape(runId)}"][data-node-id="${CSS.escape(nodeId)}"]`);
-    if (nodeRow) { nodeRow.open = true; nodeRow.scrollIntoView({ block: 'center' }); nodeRow.classList.add('wb-flash'); setTimeout(() => nodeRow.classList.remove('wb-flash'), 1600); }
-  }, 120);
+  const run = wbCurrentRun();
+  if (run) renderWorkbenchSide(run);
+  if (wbIsNarrow()) wbOpenSide(true);
+  const sec = document.querySelector('#wbSide .wb-sec[data-sec="detail"]');
+  if (sec) sec.scrollIntoView({ block: 'nearest' });
+}
+// 窄屏右板抽屉开合:切 .wb-view 上的状态类 + backdrop 显隐(≥1180 常驻，此开关无副作用)。
+function wbOpenSide(open) {
+  wbState.sideOpen = !!open;
+  const view = $('workbenchView'); if (view) view.classList.toggle('wb-side-open', !!open);
 }
 // ④ 底部用量迷你条:本 run 累计 tokens/成本/时长(大数字仪表)。字段缺失显「—」(防御,后端并行落地中)。
 function wbRunMetrics(run) {
@@ -3337,10 +3427,12 @@ function renderWorkbenchUsage(run) {
   link.onclick = () => { openToolPane(); switchTab('usage'); };
   host.appendChild(link);
 }
-// ⑤ 空态:无 run → 画布区居中引导卡(云纹水印 + 「去对话交办任务」/「从模板运行」);同时清空 chips/用量条。
+// ⑤ 空态:无 run → 画布区居中引导卡(云纹水印 + 「去对话交办任务」/「从模板运行」);同时清空 chips/用量条/右板。
 function renderWorkbenchEmpty() {
   const runbar = $('wbRunbar'); if (runbar) runbar.textContent = '';
   const usage = $('wbUsage'); if (usage) usage.textContent = '';
+  const side = $('wbSide'); if (side) side.textContent = '';   // 右板清空 → .wb-main :has(:empty) 收单列，无空右条
+  wbOpenSide(false);
   const wrap = $('wbCanvasWrap'); if (!wrap) return;
   wrap.textContent = '';
   const box = el('div', 'wb-empty');
@@ -3355,6 +3447,207 @@ function renderWorkbenchEmpty() {
   acts.append(goChat, goTpl);
   box.appendChild(acts);
   wrap.appendChild(box);
+}
+
+/* ============================================================
+   UI v3 P3b「工作台」交互完整版:右侧三段折叠板(选中节点详情 / 任务池审批 / 邮箱消息流)+ 节点插话 +
+   缩放/适应视图/泳道层标 + 响应式抽屉。设计稿 §5.4 / §6#5-#8/#10 + 视觉基线 p3-workbench-r2.html 右三段板。
+   数据 100% 复用轮询下发的 run.nodes/taskPool/messages;动作复用 steer_node / retry_node / pool_approve|reject。
+   所有不可信文本走 el()/textContent(XSS 纪律,绝不 innerHTML)。轮询 2s 重绘:段折叠态记忆于 wbState.panelOpen、
+   插话输入焦点+文本跨重绘保留(防打字被冲掉)。
+   ============================================================ */
+// ③ 右侧三段折叠板渲染。轮询每 2s 调用 → 重建;段开合读 wbState.panelOpen(记忆),插话输入焦点/值跨重绘保留。
+function renderWorkbenchSide(run) {
+  const host = $('wbSide'); if (!host) return;
+  // 保留插话框焦点 + 文本 + 光标(2s 轮询重绘不打断打字)。
+  const ae = document.activeElement;
+  const keepSteer = ae && ae.id === 'wbSteerInput';
+  const steerVal = keepSteer ? ae.value : null;
+  const caret = keepSteer ? ae.selectionStart : null;
+  host.textContent = '';
+  // 窄屏抽屉的关闭按钮(≥1180 由 CSS 隐藏;抽屉态点它或点 backdrop 关闭)。
+  const close = el('button', 'wb-side-close', '收起 ✕'); close.setAttribute('aria-label', '收起上下文板抽屉'); close.onclick = () => wbOpenSide(false); host.appendChild(close);
+  const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+  const sel = wbState.selectedNodeId ? nodes.find(n => n.id === wbState.selectedNodeId) : null;
+  const proposed = (Array.isArray(run.taskPool) ? run.taskPool : []).filter(p => p && p.status === 'proposed');
+  const mails = Array.isArray(run.messages) ? run.messages : [];
+  host.appendChild(wbSection('detail', '选中节点详情', sel ? { text: sel.id } : null, wbNodeDetailBody(run, sel)));
+  host.appendChild(wbSection('pool', '任务池审批', proposed.length ? { text: `待批准 ${proposed.length}`, warn: true } : ((run.taskPool || []).length ? { text: String((run.taskPool || []).length) } : null), wbPoolBody(run)));
+  host.appendChild(wbSection('mail', '邮箱消息流', mails.length ? { text: String(mails.length) } : null, wbMailBody(run)));
+  if (keepSteer) { const inp = $('wbSteerInput'); if (inp) { inp.value = steerVal; inp.focus(); try { inp.setSelectionRange(caret, caret); } catch { /* ignore */ } } }
+}
+// 折叠段外壳:头(caret + 标题 + 计数徽标)+ 体。头点击切 wbState.panelOpen[key] 并就地开合(不整板重绘,防抖动)。
+function wbSection(key, title, count, bodyNode) {
+  const open = wbState.panelOpen[key] !== false;
+  const sec = el('section', `wb-sec${open ? ' open' : ''}`); sec.dataset.sec = key;
+  const hd = el('button', 'wb-sec-hd'); hd.setAttribute('aria-expanded', open ? 'true' : 'false');
+  hd.appendChild(el('span', 'wb-sec-caret', '▸'));
+  hd.appendChild(el('span', 'wb-sec-title', title));
+  if (count && count.text) hd.appendChild(el('span', `wb-sec-count num${count.warn ? ' warn' : ''}`, count.text));
+  hd.onclick = () => { const nowOpen = !sec.classList.contains('open'); wbState.panelOpen[key] = nowOpen; sec.classList.toggle('open', nowOpen); hd.setAttribute('aria-expanded', nowOpen ? 'true' : 'false'); };
+  sec.appendChild(hd);
+  const body = el('div', 'wb-sec-body'); if (bodyNode) body.appendChild(bodyNode);
+  sec.appendChild(body);
+  return sec;
+}
+// 段1 体:选中节点详情(id/角色/引擎/模型/状态/计时/迭代·门 verdict+置信度环/进度时间线/task 全文/结果·错误)
+//   + 插话框(资格判定,§6#6)+ 重试入口(非 live)。无选中 → 占位提示。
+function wbNodeDetailBody(run, node) {
+  if (!node) { const ph = el('div', 'wb-det-empty', '点击画布中的节点，这里显示它的模型、进度、门判定与操作。'); return ph; }
+  const disp = nodeDisplayStatus(node);
+  const box = el('div', 'wb-det');
+  // 头:标题(角色/id) + 引擎徽标 + 模型 chip
+  const top = el('div', 'wb-det-top');
+  top.appendChild(el('span', 'wb-det-title', node.roleLabel || node.roleId || node.id));
+  const eng = agentEngineBadge(node.engine); if (eng) { eng.classList.add('wb-eng-inline'); top.appendChild(eng); }
+  if (node.model) top.appendChild(el('span', 'wb-det-model num', node.model));
+  box.appendChild(top);
+  // 状态行 + 计时
+  const strow = el('div', 'wb-det-row');
+  strow.appendChild(el('span', 'wb-det-k', '状态'));
+  strow.appendChild(el('span', `wb-det-chip wb-st-${disp}`, agentRunStatusLabel(disp)));
+  if (node.startedAt) { const st = Date.parse(node.startedAt); if (Number.isFinite(st)) { const active = node.status === 'running' || node.status === 'waiting_resource'; const end = node.completedAt ? Date.parse(node.completedAt) : Date.now(); const dur = fmtDuration(end - st); if (dur) strow.appendChild(el('span', 'wb-det-time num', `${active ? '已运行' : '用时'} ${dur}`)); } }
+  box.appendChild(strow);
+  // 迭代/循环预算条
+  let budgetLabel = '', budgetCur = 0, budgetMax = 0;
+  if (node.loop) { budgetLabel = '循环'; budgetCur = node.loopIteration || 0; budgetMax = node.loop.maxIterations || 0; }
+  else if (Number.isFinite(Number(node.maxIters))) { budgetLabel = '迭代'; budgetCur = Number(node.iters) || 0; budgetMax = Number(node.maxIters) || 0; }
+  if (budgetMax > 0) {
+    const row = el('div', 'wb-det-row'); row.appendChild(el('span', 'wb-det-k', budgetLabel));
+    const bar = el('div', 'wb-det-bar'); const i = el('i'); i.style.width = `${Math.max(0, Math.min(100, Math.round((budgetCur / budgetMax) * 100)))}%`; bar.appendChild(i); row.appendChild(bar);
+    row.appendChild(el('span', 'wb-det-num num', `${budgetCur}/${budgetMax}`)); box.appendChild(row);
+  }
+  // 门 verdict + 置信度环
+  const verdict = node.gateVerdict || (node.structuredResult && node.structuredResult.verdict);
+  const hasConf = node.confidence != null && Number.isFinite(Number(node.confidence));
+  if (verdict || hasConf) {
+    const row = el('div', 'wb-det-row'); row.appendChild(el('span', 'wb-det-k', '质量门'));
+    if (hasConf) {
+      const pct = Math.max(0, Math.min(100, Math.round(Number(node.confidence) * 100)));
+      const pass = !verdict || String(verdict).toLowerCase() === 'pass';
+      const ring = el('div', 'wb-det-ring'); ring.style.setProperty('--deg', `${(pct / 100 * 360).toFixed(1)}deg`); ring.style.setProperty('--ring-col', pass ? 'var(--ok)' : 'var(--warn)');
+      ring.appendChild(el('span', 'num', `${pct}%`)); row.appendChild(ring);
+    }
+    if (verdict) row.appendChild(el('span', `wb-det-verdict ${String(verdict).toLowerCase() === 'pass' ? 'pass' : 'fail'}`, `判定 ${verdict}`));
+    box.appendChild(row);
+  }
+  // 进度时间线(全量 progressLog;末条 live 高亮)
+  const plog = Array.isArray(node.progressLog) ? node.progressLog : [];
+  if (plog.length) {
+    const tl = el('div', 'wb-det-timeline');
+    const active = node.status === 'running' || node.status === 'waiting_resource';
+    plog.slice(-16).forEach((it, idx, a) => {
+      const isLast = idx === a.length - 1;
+      const cls = `wb-tl-item${node.status === 'succeeded' || node.status === 'skipped' ? ' done' : (isLast && active ? ' live' : (isLast ? '' : ' done'))}`;
+      const item = el('div', cls);
+      if (it.at) { const t = new Date(it.at); if (!isNaN(t)) item.appendChild(el('span', 'wb-tl-t num', t.toLocaleTimeString())); }
+      item.appendChild(document.createTextNode(it.text || '')); tl.appendChild(item);
+    });
+    box.appendChild(tl);
+  }
+  // task 全文
+  if (node.task) { const tw = el('details', 'wb-det-task'); tw.appendChild(el('summary', 'wb-det-task-sum', '任务全文')); tw.appendChild(el('pre', 'wb-det-pre', node.task)); box.appendChild(tw); }
+  // 插话框(§6#6):live run + 资格判定;不符合显禁用 + 原因(与后端 409 文案一致)。
+  box.appendChild(wbSteerBox(run, node));
+  // 操作区:非 live 显重试入口(retry_node);失败/判否有错误显查看错误。
+  if (!run.live) {
+    const acts = el('div', 'wb-det-actions');
+    const retry = el('button', 'wb-btn', '重试此节点'); retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
+    const cascade = el('button', 'wb-btn', '重试及下游'); cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
+    acts.append(retry, cascade);
+    if ((disp === 'failed' || disp === 'rejected') && (node.error || (Array.isArray(node.schemaErrors) && node.schemaErrors.length))) {
+      const view = el('button', 'wb-btn', '查看错误'); view.onclick = () => { const err = box.querySelector('.wb-det-error'); if (err) err.scrollIntoView({ block: 'nearest' }); };
+      acts.appendChild(view);
+    }
+    box.appendChild(acts);
+  }
+  // 结果 / 错误全文
+  if (node.result) { const rw = el('details', 'wb-det-result'); rw.appendChild(el('summary', 'wb-det-task-sum', '查看结果')); rw.appendChild(el('pre', 'wb-det-pre', node.result)); box.appendChild(rw); }
+  if (Array.isArray(node.schemaErrors) && node.schemaErrors.length) box.appendChild(el('pre', 'wb-det-pre wb-det-error', `Schema: ${node.schemaErrors.join('; ')}`));
+  if (node.error) box.appendChild(el('pre', 'wb-det-pre wb-det-error', node.error));
+  return box;
+}
+// 插话资格判定(§6#6):镜像后端 nodeDeliveryEligibility + run.live 要求。返回 {ok, reason, msg}。禁用文案与
+// 服务端 steer_node 409 返回逐字一致(claude_engine / deterministic_gate / terminal),非 live 则整段不出插话框。
+function wbSteerEligibility(run, node) {
+  if (!run.live) return { ok: false, reason: 'not_live', msg: '' };
+  if ((node.engine || 'openai') === 'claude') return { ok: false, reason: 'claude_engine', msg: 'Claude 引擎节点为单发进程，暂不支持中途插话' };
+  if (node.gate && ['vote', 'dedupe'].includes(node.gate.mode)) return { ok: false, reason: 'deterministic_gate', msg: '确定性质量门节点不经过模型，无法插话' };
+  if (!['running', 'queued', 'waiting_resource'].includes(node.status)) return { ok: false, reason: 'terminal', msg: '节点已结束，无法插话' };
+  return { ok: true, reason: 'ok', msg: '' };
+}
+// 插话框:资格命中显输入 + 发送(复用 steer_node action，内联提交不弹 prompt);不命中显禁用输入 + 原因(与 409 一致);
+// 非 live run 不出插话框(返回空文档片段)。
+function wbSteerBox(run, node) {
+  const elig = wbSteerEligibility(run, node);
+  if (elig.reason === 'not_live') return el('span', 'wb-steer-none');
+  const wrap = el('div', 'wb-steer');
+  wrap.appendChild(el('div', 'wb-steer-label', elig.ok ? '插话（下一次调用前生效）' : '插话不可用'));
+  const boxrow = el('div', 'wb-steer-box');
+  const input = el('input', 'wb-steer-input'); input.id = 'wbSteerInput'; input.type = 'text';
+  input.placeholder = elig.ok ? `给 ${node.id} 补一句指令…` : elig.msg;
+  const send = el('button', 'wb-btn primary', '发送');
+  if (!elig.ok) { input.disabled = true; send.disabled = true; input.title = elig.msg; }
+  else {
+    const submit = () => { const t = (input.value || '').trim(); if (!t) return; input.value = ''; steerAgentNode(run.id, node.id, node.status, t); };
+    send.onclick = submit;
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+  }
+  boxrow.append(input, send); wrap.appendChild(boxrow);
+  if (!elig.ok) wrap.appendChild(el('div', 'wb-steer-why', elig.msg));   // 禁用原因(与后端 409 文案一致)
+  return wrap;
+}
+// 段2 体:任务池审批(§6#7)。proposed 项 → 三行人话卡(谁提议/做什么/预计消耗)+ 同意添加/不用了(pool_approve|reject)。
+//   waiting_pool 宽限窗倒计时细进度条。已决项 → 紧凑状态行。空池 → 占位。
+function wbPoolBody(run) {
+  const pool = Array.isArray(run.taskPool) ? run.taskPool : [];
+  if (!pool.length) return el('div', 'wb-det-empty', '暂无任务池提案。运行中的子代理可提议新增任务，经你审批后加入。');
+  const box = el('div', 'wb-pool');
+  if (run.status === 'waiting_pool' && run.live) {
+    const remainMs = run.poolGraceUntil ? Math.max(0, Number(run.poolGraceUntil) - Date.now()) : 0;
+    const grace = el('div', 'wb-pool-grace'); const bar = el('div', 'wb-pool-grace-bar'); const fill = el('i');
+    fill.style.width = `${Math.max(0, Math.min(100, Math.round((remainMs / POOL_GRACE_HINT_MS) * 100)))}%`; bar.appendChild(fill); grace.appendChild(bar);
+    grace.appendChild(el('span', 'wb-pool-grace-label num', `宽限窗剩余 ${Math.round(remainMs / 1000)}s`)); box.appendChild(grace);
+  }
+  for (const item of pool) {
+    if (item.status === 'proposed') {
+      const whoNode = (run.nodes || []).find(n => n.id === item.proposedBy);
+      const whoLabel = whoNode ? (whoNode.roleLabel || whoNode.id) : (item.proposedBy || '某节点');
+      const card = el('div', 'wb-pool-card');
+      const who = el('div', 'wb-pool-line'); who.appendChild(el('span', 'k', '谁提议：')); who.appendChild(document.createTextNode(whoLabel)); card.appendChild(who);
+      const what = el('div', 'wb-pool-line'); what.appendChild(el('span', 'k', '做什么：')); what.appendChild(document.createTextNode(String(item.task || '').trim())); card.appendChild(what);
+      card.appendChild(el('div', 'wb-pool-line muted num', `预计消耗：新增 1 个节点，至多约 ${item.maxIters || 100} 轮调用`));
+      if (run.live) {
+        const acts = el('div', 'wb-pool-actions');
+        const yes = el('button', 'wb-btn primary', '同意添加'); yes.setAttribute('aria-label', '同意添加此任务'); yes.onclick = () => poolDecide(run.id, item.id, true);
+        const no = el('button', 'wb-btn', '不用了'); no.setAttribute('aria-label', '拒绝此任务'); no.onclick = () => poolDecide(run.id, item.id, false);
+        acts.append(yes, no); card.appendChild(acts);
+      }
+      box.appendChild(card);
+    } else {
+      box.appendChild(el('div', 'wb-pool-decided', `${poolStatusLabel(item.status)}${item.resultNodeId ? ` · 节点 ${item.resultNodeId}` : ''}：${String(item.task || '').replace(/\s+/g, ' ').slice(0, 40)}`));
+    }
+  }
+  return box;
+}
+// 段3 体:邮箱消息流(§6#8)。run.messages 时间线,每条 sender → target · 摘要 + 送达/未送达状态。只读。空 → 占位。
+function wbMailBody(run) {
+  const mails = Array.isArray(run.messages) ? run.messages : [];
+  if (!mails.length) return el('div', 'wb-det-empty', '暂无 Agent 间消息。子代理可用 send_to_agent 互相传话，这里按时间列出。');
+  const box = el('div', 'wb-mail');
+  for (const m of mails) {
+    const item = el('div', `wb-mail-item${m.dropped ? ' dropped' : ''}`);
+    item.appendChild(el('div', 'wb-mail-ico', '✉'));
+    const body = el('div', 'wb-mail-body');
+    const route = el('div', 'wb-mail-route num'); route.appendChild(document.createTextNode(m.sender || '?')); route.appendChild(el('span', 'wb-mail-arw', '→')); route.appendChild(document.createTextNode(m.target || '?')); body.appendChild(route);
+    body.appendChild(el('div', 'wb-mail-text', String(m.text || '')));
+    const meta = el('div', 'wb-mail-meta num');
+    if (m.dropped) { meta.appendChild(document.createTextNode(m.createdAt ? new Date(m.createdAt).toLocaleTimeString() : '')); meta.appendChild(el('span', 'wb-mail-badge', '未送达')); }
+    else if (m.deliveredAt) meta.appendChild(document.createTextNode(`已送达 · ${new Date(m.deliveredAt).toLocaleTimeString()}`));
+    else meta.appendChild(document.createTextNode('投递中…'));
+    body.appendChild(meta); item.appendChild(body); box.appendChild(item);
+  }
+  return box;
 }
 
 /* ============================================================
@@ -6535,6 +6828,8 @@ function bindEvents() {
   document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => { b.onclick = () => { switchTab(b.dataset.tab); if (b.dataset.tab === 'mcp') openMcpInspector(); }; });
   // v3 P3a:中栏主视图 Tab(对话 | 工作台)→ switchMainView 状态机。
   document.querySelectorAll('.wb-mainview-tabs .wb-mv-tab').forEach(b => { b.onclick = () => switchMainView(b.dataset.mainView); });
+  // v3 P3b:窄屏右板抽屉 backdrop 点击关闭(§6#10;宽屏右板常驻，backdrop 由 CSS 隐藏，此监听无副作用)。
+  const wbBd = $('wbSideBackdrop'); if (wbBd) wbBd.onclick = () => wbOpenSide(false);
   const rm = $('refreshMcpBtn'); if (rm) rm.onclick = openMcpInspector;
   $('runPsBtn').onclick = () => runTool('powershell_run', { command: $('psCommand').value, cwd: state.config.defaultWorkspace || '', timeoutMs: 60000 });
   { const sn = $('shellNewBtn'); if (sn) sn.onclick = newShellSession; }

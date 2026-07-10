@@ -91,8 +91,9 @@ ok(!/\bel\('div', `wb-node st-/.test(src) && has(node, 'wb-node wb-st-'), 'D 状
 // 节点点击 → 跳右栏监控卡高亮(P3a 最简版)。
 ok(/function wbFocusRunNode\(/.test(src), 'D 节点点击处置器 wbFocusRunNode 存在');
 const focus = fnBody('wbFocusRunNode');
-ok(has(focus, "switchTab('agent-runs')", 'scrollIntoView', "'wb-flash'"), 'D 点节点 → 切监控页签 + 滚入对应卡 + 瞬时高亮(.wb-flash)');
-ok(/\.agent-node\.wb-flash\s*\{[^}]*animation:\s*wb-flash/.test(css) && /@keyframes wb-flash/.test(css), 'D CSS .wb-flash 高亮动画');
+// P3b 起:点节点填右板段1(renderWorkbenchSide),取代 P3a 的 switchTab 跳右栏(见 ui-v3-p3b.static.e2e.js 断言）。
+ok(has(focus, 'wbState.selectedNodeId = nodeId', 'renderWorkbenchSide(', "'selected'"), 'D 点节点 → 标选中 + 填右板段1(P3b 取代 switchTab)');
+ok(/\.agent-node\.wb-flash\s*\{[^}]*animation:\s*wb-flash/.test(css) && /@keyframes wb-flash/.test(css), 'D CSS .wb-flash 高亮动画(保留)');
 
 // ═══════════ E. Run 选择器 chips(§1 ①)═══════════
 ok(/function renderWorkbenchRunbar\(/.test(src), 'E run chips 渲染器 renderWorkbenchRunbar 存在');
