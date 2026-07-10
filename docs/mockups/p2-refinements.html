@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计图 · P2 精修 · 如意 Ruyi</title>
+<style>
+/* 如意 Ruyi 青花 token —— 值照抄 app/public/styles.css */
+:root{
+  font-size:14px;
+  --font:"Segoe UI","Microsoft YaHei",system-ui,Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;
+  --fs-xs:11px;--fs-sm:12px;--fs-md:13px;--fs-base:14px;--fs-lg:16px;--fs-xl:24px;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-pill:999px;
+  --ease-out:cubic-bezier(.2,.7,.3,1);--dur-fast:120ms;--dur-base:200ms;
+  --ring:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent);
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1520;--panel:#151d2b;--panel-2:#1a2436;--panel-3:#24304a;
+  --ink:#e9edf5;--ink-2:#c4cee0;--muted:#8fa0b8;--line:#263349;--line-2:#33425e;
+  --accent:#4a6cd9;--accent-hover:#5b7ee8;--accent-ink:#fff;--accent-soft:#1c2a4a;
+  --link:#8fadf7;--gold:#f2c14e;--gold-soft:#332a12;--brand-qh:#6b8ff2;--brand-au:#f2c14e;
+  --danger:#e56060;--ok:#53c08a;--warn:#e3b054;--info:#5b93e6;
+  --ok-bg:color-mix(in srgb,var(--ok) 16%,var(--panel));--ok-fg:var(--ok);
+  --warn-bg:color-mix(in srgb,var(--warn) 16%,var(--panel));--warn-fg:var(--warn);
+  --danger-bg:color-mix(in srgb,var(--danger) 16%,var(--panel));--danger-fg:var(--danger);
+  --info-bg:color-mix(in srgb,var(--info) 16%,var(--panel));--info-fg:var(--info);
+  --code-bg:#0b111b;--scroll:#35425c;--eng-claude:#d97757;
+  --elev-1:0 1px 2px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.10);
+  --elev-2:0 6px 20px rgba(0,0,0,.20);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f3f5f9;--panel:#fff;--panel-2:#f7f9fc;--panel-3:#eef2f8;
+  --ink:#1b2436;--ink-2:#33405a;--muted:#5f6c85;--line:#dbe2ee;--line-2:#c6d1e3;
+  --accent:#2350a8;--accent-hover:#1c4390;--accent-ink:#fff;--accent-soft:#e7edfa;
+  --link:#2350a8;--gold:#a97b1e;--gold-soft:#f6edd8;--brand-qh:#2350a8;--brand-au:#d9a441;
+  --danger:#b42318;--ok:#22794e;--warn:#a1650f;--info:#2b6cb0;
+  --ok-bg:color-mix(in srgb,var(--ok) 16%,var(--panel));--ok-fg:var(--ok);
+  --warn-bg:color-mix(in srgb,var(--warn) 16%,var(--panel));--warn-fg:var(--warn);
+  --danger-bg:color-mix(in srgb,var(--danger) 16%,var(--panel));--danger-fg:var(--danger);
+  --info-bg:color-mix(in srgb,var(--info) 16%,var(--panel));--info-fg:var(--info);
+  --code-bg:#f2f4f8;--scroll:#c3cddd;--eng-claude:#c96442;
+  --elev-1:0 1px 2px rgba(20,28,48,.08),0 2px 8px rgba(20,28,48,.06);
+  --elev-2:0 6px 20px rgba(20,28,48,.12);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;font-size:var(--fs-base);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:6px;}
+
+.anno-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-2) var(--sp-5);background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;}
+.anno-left{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm);color:var(--muted);}
+.anno-tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:var(--r-pill);
+  background:var(--gold-soft);color:var(--gold);border:1px solid color-mix(in srgb,var(--gold) 40%,transparent);
+  font-weight:600;font-size:var(--fs-xs);}
+.theme-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r-pill);
+  background:var(--panel-2);color:var(--ink);border:1px solid var(--line-2);cursor:pointer;font-size:var(--fs-sm);}
+.theme-btn:hover{background:var(--panel-3);}
+
+/* 两屏并排(横向可滚动)*/
+.screens{display:flex;gap:var(--sp-6);padding:var(--sp-6);align-items:flex-start;overflow-x:auto;min-height:calc(100vh - 44px);}
+.screen{flex:none;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--elev-2);padding:var(--sp-5);}
+.screen-1{width:900px;}
+.screen-2{width:640px;}
+.screen-title{font-size:var(--fs-lg);font-weight:700;margin:0 0 4px;}
+.screen-sub{font-size:var(--fs-xs);color:var(--muted);margin:0 0 var(--sp-4);line-height:1.6;}
+.watermark-wrap{position:relative;}
+.wm{position:absolute;right:-6px;top:-40px;width:120px;opacity:.07;pointer-events:none;}
+.wm path{fill:var(--brand-qh);}
+
+/* ── 屏 ① 监控卡对比 ── */
+.compare{display:flex;gap:var(--sp-5);align-items:flex-start;}
+.col{display:flex;flex-direction:column;}
+.col-label{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);font-weight:700;margin-bottom:10px;}
+.col-w{font-family:var(--mono);font-size:var(--fs-xs);font-weight:400;color:var(--muted);
+  background:var(--code-bg);padding:1px 7px;border-radius:var(--r-sm);border:1px solid var(--line);}
+.tag-bad{padding:1px 8px;border-radius:var(--r-pill);font-size:10px;font-weight:700;background:var(--danger-bg);color:var(--danger-fg);}
+.tag-good{padding:1px 8px;border-radius:var(--r-pill);font-size:10px;font-weight:700;background:var(--ok-bg);color:var(--ok-fg);}
+
+/* 右栏面板底 */
+.railbg{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;}
+.rail-340{width:340px;}
+.rail-480{width:480px;}
+
+/* --- 拥挤版:三层边框嵌套 --- */
+.cr-run{border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--panel);padding:10px;}
+.cr-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:9px;}
+.cr-title{font-size:var(--fs-sm);font-weight:700;}
+.cr-chip{padding:2px 8px;border-radius:var(--r-pill);font-size:10px;font-weight:600;background:var(--accent-soft);color:var(--accent);}
+.cr-meta{font-size:10px;color:var(--muted);}
+.cr-pool{border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);background:var(--warn-bg);
+  border-radius:var(--r-sm);padding:9px;margin-bottom:9px;}
+.cr-pool-t{font-size:var(--fs-xs);font-weight:700;color:var(--warn-fg);margin-bottom:5px;}
+.cr-pool-l{font-size:11px;color:var(--ink);margin:3px 0;line-height:1.45;}
+.cr-node{border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--panel-2);padding:8px;margin-bottom:8px;}
+.cr-node-h{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:6px;}
+.cr-pill{padding:2px 7px;border-radius:var(--r-pill);font-size:10px;font-weight:700;}
+.cr-pill.run{background:var(--accent-soft);color:var(--accent);}
+.cr-pill.ok{background:var(--ok-bg);color:var(--ok-fg);}
+.cr-nid{font-size:var(--fs-xs);font-weight:700;}
+.cr-role{font-size:10px;color:var(--muted);}
+.cr-eng{padding:1px 6px;border-radius:var(--r-pill);font-size:9px;font-weight:700;background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);}
+.cr-metabar{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
+.cr-mchip{padding:1px 6px;border-radius:var(--r-sm);font-size:9.5px;color:var(--muted);background:var(--panel-3);}
+.cr-act{font-size:10px;color:var(--ink-2);margin-bottom:5px;}
+.cr-bar{height:4px;border-radius:var(--r-pill);background:var(--panel-3);overflow:hidden;}
+.cr-bar i{display:block;height:100%;background:var(--accent);}
+
+/* --- 降噪版:无外框、分隔线、色点、缩进 --- */
+.dn-run{background:var(--panel);border-radius:var(--r-md);padding:4px 2px;}
+.dn-head{display:flex;align-items:center;gap:10px;padding:8px 10px 12px;border-bottom:1px solid var(--line);}
+.dn-title{font-size:var(--fs-base);font-weight:700;}
+.dn-hchip{padding:2px 10px;border-radius:var(--r-pill);font-size:var(--fs-xs);font-weight:600;background:var(--accent-soft);color:var(--accent);}
+.dn-hmeta{font-size:var(--fs-xs);color:var(--muted);}
+.dn-hactivity{margin-left:auto;font-size:var(--fs-xs);color:var(--ink-2);display:flex;align-items:center;gap:6px;}
+.dn-hactivity .d{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:blink 1.6s infinite;}
+.dn-pool{display:flex;align-items:center;gap:10px;padding:11px 12px;margin:10px 8px;
+  border-left:3px solid var(--warn);background:var(--warn-bg);border-radius:var(--r-sm);}
+.dn-pool .pt{font-size:var(--fs-sm);color:var(--ink);flex:1;line-height:1.5;}
+.dn-pool .pt b{color:var(--warn-fg);}
+.dn-pool .pbtn{padding:5px 11px;border-radius:var(--r-sm);border:none;background:var(--accent);color:var(--accent-ink);font-size:var(--fs-xs);font-weight:600;cursor:pointer;}
+.dn-node{display:flex;gap:11px;padding:12px 12px;border-bottom:1px solid var(--line);}
+.dn-node:last-child{border-bottom:none;}
+.dn-dot{flex:none;width:11px;height:11px;border-radius:50%;margin-top:4px;background:var(--dc,var(--muted));}
+.dn-node.dep{padding-left:34px;}
+.dn-node.dep::before{content:"";position:absolute;}
+.dn-dot.run{--dc:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 20%,transparent);}
+.dn-dot.ok{--dc:var(--ok);}
+.dn-dot.warn{--dc:var(--warn);}
+.dn-dot.queued{--dc:var(--muted);opacity:.6;}
+.dn-body{flex:1;min-width:0;}
+.dn-nrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.dn-nid{font-size:var(--fs-md);font-weight:700;}
+.dn-nrole{font-size:var(--fs-xs);color:var(--muted);}
+.dn-neng{padding:1px 7px;border-radius:var(--r-pill);font-size:10px;font-weight:700;}
+.dn-neng.claude{background:var(--accent-soft);color:var(--accent);}
+.dn-neng.provider{background:color-mix(in srgb,var(--eng-claude) 15%,var(--panel));color:var(--eng-claude);}
+.dn-nst{margin-left:auto;font-size:var(--fs-xs);font-weight:600;}
+.dn-nst.run{color:var(--accent);}
+.dn-nst.ok{color:var(--ok-fg);}
+.dn-nst.warn{color:var(--warn-fg);}
+.dn-nst.queued{color:var(--muted);}
+.dn-nact{font-size:var(--fs-sm);color:var(--ink-2);margin-top:5px;line-height:1.4;}
+.dn-nmeta{font-size:var(--fs-xs);color:var(--muted);margin-top:4px;}
+.dn-nbar{height:5px;border-radius:var(--r-pill);background:var(--panel-3);overflow:hidden;margin-top:7px;max-width:230px;}
+.dn-nbar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-hover));}
+
+/* ── 屏 ② 技能库两列卡片 ── */
+.sk-nav{display:flex;gap:8px;margin-bottom:var(--sp-4);flex-wrap:wrap;}
+.sk-anchor{padding:6px 13px;border-radius:var(--r-pill);border:1px solid var(--line-2);background:var(--panel-2);
+  color:var(--ink-2);font-size:var(--fs-sm);cursor:pointer;text-decoration:none;}
+.sk-anchor:hover{background:var(--panel-3);}
+.sk-anchor.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600;}
+.sk-group{margin-bottom:var(--sp-5);}
+.sk-group-t{display:flex;align-items:center;gap:9px;font-size:var(--fs-md);font-weight:700;margin:0 0 var(--sp-3);
+  padding-bottom:7px;border-bottom:1px solid var(--line);}
+.sk-group-t .cnt{font-size:var(--fs-xs);color:var(--muted);font-weight:400;}
+.sk-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);}
+.sk-card{border:1px solid var(--line);border-radius:var(--r-md);background:var(--panel-2);padding:13px 14px;
+  display:flex;flex-direction:column;gap:6px;transition:border-color var(--dur-fast),box-shadow var(--dur-fast);}
+.sk-card:hover{box-shadow:var(--elev-1);}
+.sk-card.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:linear-gradient(180deg,var(--accent-soft),var(--panel-2) 55%);}
+.sk-card-h{display:flex;align-items:center;gap:8px;}
+.sk-ico{width:26px;height:26px;border-radius:var(--r-sm);display:grid;place-items:center;flex:none;
+  background:var(--accent-soft);color:var(--accent);font-size:14px;}
+.sk-card.on .sk-ico{background:var(--accent);color:var(--accent-ink);}
+.sk-name{font-size:var(--fs-base);font-weight:700;flex:1;}
+.sk-id{font-family:var(--mono);font-size:10px;color:var(--muted);}
+.sk-desc{font-size:var(--fs-sm);color:var(--ink-2);line-height:1.5;flex:1;}
+.sk-foot{display:flex;align-items:center;gap:8px;margin-top:2px;}
+.sk-toggle{width:38px;height:22px;border-radius:var(--r-pill);background:var(--panel-3);position:relative;flex:none;
+  border:1px solid var(--line-2);cursor:pointer;transition:background var(--dur-fast);}
+.sk-toggle::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:all var(--dur-fast);}
+.sk-card.on .sk-toggle{background:var(--accent);border-color:var(--accent);}
+.sk-card.on .sk-toggle::after{left:18px;background:#fff;}
+.sk-state{font-size:var(--fs-xs);color:var(--muted);}
+.sk-card.on .sk-state{color:var(--accent);font-weight:600;}
+
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.35;}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;}}
+</style>
+</head>
+<body>
+
+<div class="anno-bar">
+  <div class="anno-left">
+    <span class="anno-tag">设计图 · 非可运行代码</span>
+    <span>P2 精修 · ① 监控卡降噪对比　② 技能库两列卡片(左右滚动看两屏)</span>
+  </div>
+  <button class="theme-btn" onclick="toggleTheme()"><span id="themeIco">☾</span><span id="themeTxt">深色</span></button>
+</div>
+
+<div class="screens">
+
+  <!-- 屏 ① 监控卡对比 -->
+  <section class="screen screen-1 watermark-wrap">
+    <svg class="wm" viewBox="0 0 120 70" aria-hidden="true"><path d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/></svg>
+    <h2 class="screen-title">① Agent 监控卡:降噪重排</h2>
+    <p class="screen-sub">同一份 run 数据两种呈现。左:现 340px「卡中卡中卡」三层边框拥挤态。右:480px 降噪版——node 去外框改分隔线、状态徽标缩为色点、层级靠缩进与字重表达。</p>
+
+    <div class="compare">
+      <!-- 拥挤版 340 -->
+      <div class="col">
+        <div class="col-label">现状 · 拥挤版 <span class="col-w">340px</span> <span class="tag-bad">三层边框</span></div>
+        <div class="railbg rail-340">
+          <div class="cr-run">
+            <div class="cr-head">
+              <span class="cr-title">🕸️ run-a2f</span>
+              <span class="cr-chip">运行中</span>
+              <span class="cr-meta">3/5 节点 · 04:12</span>
+            </div>
+            <div class="cr-pool">
+              <div class="cr-pool-t">共享任务池 · 待批准 1</div>
+              <div class="cr-pool-l">谁提议:con · 反方驳论</div>
+              <div class="cr-pool-l">做什么:补做一轮"用户访谈证据"检索…</div>
+              <div class="cr-pool-l" style="color:var(--muted)">预计:新增 1 节点,至多约 60 轮</div>
+            </div>
+            <div class="cr-node">
+              <div class="cr-node-h">
+                <span class="cr-pill run">◐ 运行中</span>
+                <span class="cr-nid">judge</span><span class="cr-role">裁决评审</span>
+                <span class="cr-eng">Claude</span>
+              </div>
+              <div class="cr-metabar">
+                <span class="cr-mchip">← pro, con</span><span class="cr-mchip">门 review</span><span class="cr-mchip">尝试 1</span>
+              </div>
+              <div class="cr-act">◐ 思考中… 已产出 1.2k 字</div>
+              <div class="cr-bar"><i style="width:13%"></i></div>
+            </div>
+            <div class="cr-node">
+              <div class="cr-node-h">
+                <span class="cr-pill ok">✓ 已完成</span>
+                <span class="cr-nid">pro</span><span class="cr-role">正方立论</span>
+                <span class="cr-eng" style="background:color-mix(in srgb,var(--eng-claude) 15%,var(--panel));color:var(--eng-claude);border-color:color-mix(in srgb,var(--eng-claude) 40%,transparent)">Provider</span>
+              </div>
+              <div class="cr-metabar"><span class="cr-mchip">门 —</span><span class="cr-mchip">尝试 1</span></div>
+              <div class="cr-act">✓ 已产出 3 条论据 · 8.1k 字</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 降噪版 480 -->
+      <div class="col">
+        <div class="col-label">重设计 · 降噪版 <span class="col-w">480px</span> <span class="tag-good">分隔线 + 色点 + 缩进</span></div>
+        <div class="railbg rail-480" style="padding:6px">
+          <div class="dn-run">
+            <div class="dn-head">
+              <span class="dn-title">辩论评审</span>
+              <span class="dn-hchip">运行中</span>
+              <span class="dn-hmeta">3/5 节点 · 04:12 · 18.2k tok</span>
+              <span class="dn-hactivity"><span class="d"></span>judge 思考中… 1.2k 字</span>
+            </div>
+
+            <div class="dn-pool">
+              <div class="pt"><b>待批准的新任务 1</b> · con 提议:补做"用户访谈证据"检索,为裁决补一手材料</div>
+              <button class="pbtn">同意</button>
+              <button class="pbtn" style="background:var(--panel-3);color:var(--ink-2)">不用</button>
+            </div>
+
+            <div class="dn-node" style="position:relative">
+              <div class="dn-dot run"></div>
+              <div class="dn-body">
+                <div class="dn-nrow">
+                  <span class="dn-nid">judge</span><span class="dn-nrole">裁决评审</span>
+                  <span class="dn-neng claude">Claude</span><span class="dn-nst run">运行中</span>
+                </div>
+                <div class="dn-nact">思考中… 已产出 1.2k 字 · 迭代 3/24</div>
+                <div class="dn-nmeta">依赖 pro, con · 门 review · claude-opus-4</div>
+                <div class="dn-nbar"><i style="width:13%"></i></div>
+              </div>
+            </div>
+
+            <div class="dn-node dep" style="position:relative">
+              <div class="dn-dot ok"></div>
+              <div class="dn-body">
+                <div class="dn-nrow">
+                  <span class="dn-nid">pro</span><span class="dn-nrole">正方立论</span>
+                  <span class="dn-neng provider">Provider</span><span class="dn-nst ok">已完成</span>
+                </div>
+                <div class="dn-nact">已产出 3 条论据 · 8.1k 字</div>
+                <div class="dn-nmeta">用时 1:47 · gpt-4o-mini</div>
+              </div>
+            </div>
+
+            <div class="dn-node dep" style="position:relative">
+              <div class="dn-dot warn"></div>
+              <div class="dn-body">
+                <div class="dn-nrow">
+                  <span class="dn-nid">con</span><span class="dn-nrole">反方驳论</span>
+                  <span class="dn-neng provider">Provider</span><span class="dn-nst warn">质量门判否</span>
+                </div>
+                <div class="dn-nact">判定 fail · 论据不足 · 置信度 62%</div>
+                <div class="dn-nmeta">条件下游据此评估,不阻塞 · deepseek-chat</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 屏 ② 技能库两列卡片 -->
+  <section class="screen screen-2 watermark-wrap">
+    <svg class="wm" viewBox="0 0 120 70" aria-hidden="true"><path d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/></svg>
+    <h2 class="screen-title">② 技能库:两列卡片网格</h2>
+    <p class="screen-sub">中文技能名(内置 SKILL.md 补 name-zh / description-zh)、启用态青花描边、三组锚点导航。单列平铺 → 两列卡片,启用一眼可辨。</p>
+
+    <nav class="sk-nav">
+      <a class="sk-anchor active" href="#g-skill">技能 6</a>
+      <a class="sk-anchor" href="#g-cmd">命令 3</a>
+      <a class="sk-anchor" href="#g-play">一键任务 3</a>
+    </nav>
+
+    <div class="sk-group" id="g-skill">
+      <h3 class="sk-group-t">技能 <span class="cnt">· 复杂任务的专家流程</span></h3>
+      <div class="sk-grid">
+        <div class="sk-card on">
+          <div class="sk-card-h"><span class="sk-ico">🔍</span><span class="sk-name">网页研究</span></div>
+          <div class="sk-id">deep-research</div>
+          <div class="sk-desc">多源检索、交叉验证、生成带引用的研究报告。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">已启用</span></div>
+        </div>
+        <div class="sk-card on">
+          <div class="sk-card-h"><span class="sk-ico">🛠</span><span class="sk-name">代码审查</span></div>
+          <div class="sk-id">code-review</div>
+          <div class="sk-desc">审查改动的安全、性能与正确性,发现注入与遗漏边界。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">已启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">🩺</span><span class="sk-name">接口调试助手</span></div>
+          <div class="sk-id">api-debugger</div>
+          <div class="sk-desc">排查本地或内网 HTTP 服务,定位请求与响应异常。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">未启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">📝</span><span class="sk-name">文档撰写</span></div>
+          <div class="sk-id">documentation</div>
+          <div class="sk-desc">撰写 README、运行手册、API 与架构文档。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">未启用</span></div>
+        </div>
+        <div class="sk-card on">
+          <div class="sk-card-h"><span class="sk-ico">🏛</span><span class="sk-name">架构决策</span></div>
+          <div class="sk-id">architecture</div>
+          <div class="sk-desc">记录技术选型权衡,产出 ADR 决策文档。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">已启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">🧪</span><span class="sk-name">测试策略</span></div>
+          <div class="sk-id">testing-strategy</div>
+          <div class="sk-desc">设计测试计划与覆盖,规划测试架构。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">未启用</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sk-group" id="g-cmd">
+      <h3 class="sk-group-t">命令 <span class="cnt">· 斜杠触发的动作</span></h3>
+      <div class="sk-grid">
+        <div class="sk-card on">
+          <div class="sk-card-h"><span class="sk-ico">🛡</span><span class="sk-name">安全审查</span></div>
+          <div class="sk-id">/security-review</div>
+          <div class="sk-desc">对当前改动做一次安全体检。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">已启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">⚙</span><span class="sk-name">初始化文档</span></div>
+          <div class="sk-id">/init</div>
+          <div class="sk-desc">为代码库生成 CLAUDE.md 说明。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">未启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">▶</span><span class="sk-name">运行应用</span></div>
+          <div class="sk-id">/run</div>
+          <div class="sk-desc">启动并驱动本项目应用查看效果。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">未启用</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sk-group" id="g-play">
+      <h3 class="sk-group-t">一键任务 <span class="cnt">· 首页任务卡</span></h3>
+      <div class="sk-grid">
+        <div class="sk-card on">
+          <div class="sk-card-h"><span class="sk-ico">📊</span><span class="sk-name">生成周报</span></div>
+          <div class="sk-id">standup</div>
+          <div class="sk-desc">从近期提交与工单汇总一份工作简报。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">已启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">📸</span><span class="sk-name">项目快照</span></div>
+          <div class="sk-id">project-snapshot</div>
+          <div class="sk-desc">采集项目结构与关键指标的现状快照。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">未启用</span></div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-card-h"><span class="sk-ico">📦</span><span class="sk-name">依赖清单</span></div>
+          <div class="sk-id">dependency-inventory</div>
+          <div class="sk-desc">盘点第三方依赖与版本,标出风险项。</div>
+          <div class="sk-foot"><span class="sk-toggle"></span><span class="sk-state">未启用</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+function toggleTheme(){
+  var r=document.documentElement, next=r.getAttribute('data-theme')==='dark'?'light':'dark';
+  r.setAttribute('data-theme',next);
+  document.getElementById('themeIco').textContent = next==='dark'?'☾':'☀';
+  document.getElementById('themeTxt').textContent = next==='dark'?'深色':'浅色';
+}
+// 卡片启用态演示切换 + 锚点高亮
+document.querySelectorAll('.sk-card').forEach(function(c){
+  c.querySelector('.sk-toggle').addEventListener('click',function(){
+    c.classList.toggle('on');
+    c.querySelector('.sk-state').textContent = c.classList.contains('on')?'已启用':'未启用';
+  });
+});
+document.querySelectorAll('.sk-anchor').forEach(function(a){
+  a.addEventListener('click',function(){
+    document.querySelectorAll('.sk-anchor').forEach(function(x){x.classList.remove('active');});
+    a.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

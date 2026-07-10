@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计图 · P3 工作台视图 · 如意 Ruyi</title>
+<style>
+/* ============================================================
+   如意 Ruyi 青花设计 token —— 值照抄自 app/public/styles.css
+   ============================================================ */
+:root{
+  font-size:14px;
+  --font:"Segoe UI","Microsoft YaHei",system-ui,Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;
+  --fs-xs:11px;--fs-sm:12px;--fs-md:13px;--fs-base:14px;--fs-lg:16px;--fs-xl:24px;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-pill:999px;
+  --ease-out:cubic-bezier(.2,.7,.3,1);--dur-fast:120ms;--dur-base:200ms;--dur-slow:320ms;
+  --ring:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent);
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1520;--panel:#151d2b;--panel-2:#1a2436;--panel-3:#24304a;
+  --ink:#e9edf5;--ink-2:#c4cee0;--muted:#8fa0b8;--line:#263349;--line-2:#33425e;
+  --accent:#4a6cd9;--accent-hover:#5b7ee8;--accent-ink:#fff;--accent-soft:#1c2a4a;
+  --link:#8fadf7;--gold:#f2c14e;--gold-soft:#332a12;--brand-qh:#6b8ff2;--brand-au:#f2c14e;
+  --danger:#e56060;--ok:#53c08a;--warn:#e3b054;--info:#5b93e6;
+  --ok-bg:color-mix(in srgb,var(--ok) 16%,var(--panel));--ok-fg:var(--ok);
+  --warn-bg:color-mix(in srgb,var(--warn) 16%,var(--panel));--warn-fg:var(--warn);
+  --danger-bg:color-mix(in srgb,var(--danger) 16%,var(--panel));--danger-fg:var(--danger);
+  --info-bg:color-mix(in srgb,var(--info) 16%,var(--panel));--info-fg:var(--info);
+  --code-bg:#0b111b;--scroll:#35425c;
+  --eng-claude:#d97757;
+  --elev-1:0 1px 2px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.10);
+  --elev-2:0 6px 20px rgba(0,0,0,.20);
+  --elev-3:0 16px 40px rgba(0,0,0,.28);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f3f5f9;--panel:#fff;--panel-2:#f7f9fc;--panel-3:#eef2f8;
+  --ink:#1b2436;--ink-2:#33405a;--muted:#5f6c85;--line:#dbe2ee;--line-2:#c6d1e3;
+  --accent:#2350a8;--accent-hover:#1c4390;--accent-ink:#fff;--accent-soft:#e7edfa;
+  --link:#2350a8;--gold:#a97b1e;--gold-soft:#f6edd8;--brand-qh:#2350a8;--brand-au:#d9a441;
+  --danger:#b42318;--ok:#22794e;--warn:#a1650f;--info:#2b6cb0;
+  --ok-bg:color-mix(in srgb,var(--ok) 16%,var(--panel));--ok-fg:var(--ok);
+  --warn-bg:color-mix(in srgb,var(--warn) 16%,var(--panel));--warn-fg:var(--warn);
+  --danger-bg:color-mix(in srgb,var(--danger) 16%,var(--panel));--danger-fg:var(--danger);
+  --info-bg:color-mix(in srgb,var(--info) 16%,var(--panel));--info-fg:var(--info);
+  --code-bg:#f2f4f8;--scroll:#c3cddd;--eng-claude:#c96442;
+  --elev-1:0 1px 2px rgba(20,28,48,.08),0 2px 8px rgba(20,28,48,.06);
+  --elev-2:0 6px 20px rgba(20,28,48,.12);
+  --elev-3:0 16px 40px rgba(20,28,48,.16);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;font-size:var(--fs-base);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ── 顶部设计图标注条 ── */
+.anno-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-2) var(--sp-5);background:var(--panel);border-bottom:1px solid var(--line);}
+.anno-left{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm);color:var(--muted);}
+.anno-tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:var(--r-pill);
+  background:var(--gold-soft);color:var(--gold);border:1px solid color-mix(in srgb,var(--gold) 40%,transparent);
+  font-weight:600;font-size:var(--fs-xs);letter-spacing:.3px;}
+.theme-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r-pill);
+  background:var(--panel-2);color:var(--ink);border:1px solid var(--line-2);cursor:pointer;font-size:var(--fs-sm);}
+.theme-btn:hover{background:var(--panel-3);}
+
+/* ── 工作台外框 ── */
+.wb-app{max-width:1280px;margin:var(--sp-5) auto;padding:0 var(--sp-5);}
+.wb-frame{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  overflow:hidden;box-shadow:var(--elev-2);}
+
+/* ── 主 Tab(对话 / 工作台)── */
+.wb-tabs{display:flex;align-items:center;gap:2px;padding:var(--sp-3) var(--sp-4) 0;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));}
+.wb-tab{position:relative;padding:9px 18px;border:none;background:none;color:var(--muted);cursor:pointer;
+  font-size:var(--fs-base);font-weight:600;border-radius:var(--r-sm) var(--r-sm) 0 0;}
+.wb-tab:hover{color:var(--ink);}
+.wb-tab.active{color:var(--accent);}
+.wb-tab.active::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2.5px;
+  background:var(--accent);border-radius:2px;}
+.wb-tab .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);
+  margin-left:7px;vertical-align:middle;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent);
+  animation:wb-blink 1.8s var(--ease-out) infinite;}
+.wb-tabs-spacer{flex:1;}
+.wb-mode{font-size:var(--fs-xs);color:var(--muted);padding-bottom:9px;}
+
+/* ── Run 选择器 chips ── */
+.wb-runbar{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);
+  border-bottom:1px solid var(--line);background:var(--panel);overflow-x:auto;}
+.wb-runbar-label{font-size:var(--fs-xs);color:var(--muted);margin-right:2px;white-space:nowrap;}
+.run-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:var(--r-pill);
+  border:1px solid var(--line-2);background:var(--panel-2);color:var(--ink-2);cursor:pointer;
+  white-space:nowrap;font-size:var(--fs-sm);transition:all var(--dur-fast) var(--ease-out);}
+.run-chip:hover{background:var(--panel-3);}
+.run-chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);font-weight:600;}
+.run-chip .rc-ico{font-size:13px;line-height:1;}
+.run-chip.st-running .rc-ico{color:var(--accent);animation:wb-spin 1.4s linear infinite;}
+.run-chip.st-succeeded .rc-ico{color:var(--ok);}
+.run-chip.st-failed .rc-ico{color:var(--danger);}
+.run-chip .rc-st{font-size:var(--fs-xs);color:var(--muted);}
+.run-chip.active .rc-st{color:var(--accent);}
+.run-chip .rc-pool{margin-left:2px;padding:1px 7px;border-radius:var(--r-pill);background:var(--warn-bg);
+  color:var(--warn-fg);font-size:10px;font-weight:700;border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);}
+
+/* ── 主区网格:画布 | 右板 ── */
+.wb-main{display:grid;grid-template-columns:1fr 372px;min-height:640px;}
+.wb-canvas-wrap{position:relative;border-right:1px solid var(--line);
+  background:
+    radial-gradient(circle at 22px 22px,color-mix(in srgb,var(--line) 60%,transparent) 1px,transparent 1px);
+  background-size:26px 26px;overflow:auto;}
+/* 画布工具条 */
+.wb-cvtools{position:absolute;top:12px;right:14px;z-index:5;display:flex;gap:6px;}
+.cv-btn{width:30px;height:30px;display:grid;place-items:center;border-radius:var(--r-sm);
+  border:1px solid var(--line-2);background:color-mix(in srgb,var(--panel) 82%,transparent);
+  color:var(--ink-2);cursor:pointer;font-size:15px;backdrop-filter:blur(3px);}
+.cv-btn:hover{background:var(--panel-3);color:var(--ink);}
+/* 如意云纹水印 */
+.wb-watermark{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);width:420px;height:auto;
+  opacity:.07;pointer-events:none;z-index:0;}
+.wb-watermark path{fill:var(--brand-qh);}
+
+.wb-canvas{position:relative;width:700px;height:620px;margin:0 auto;}
+.wb-edges{position:absolute;inset:0;width:700px;height:620px;overflow:visible;z-index:1;}
+.edge{fill:none;stroke-width:2.25;stroke-linecap:round;}
+.edge.done{stroke:var(--line-2);}
+.edge.reject{stroke:var(--warn);stroke-dasharray:2 6;}
+.edge.wait{stroke:var(--warn);stroke-dasharray:6 7;opacity:.85;}
+.edge.run{stroke:var(--accent);stroke-dasharray:8 8;animation:wb-flow .9s linear infinite;filter:drop-shadow(0 0 3px color-mix(in srgb,var(--accent) 55%,transparent));}
+.edge-dot{fill:var(--line-2);}
+
+/* ── 节点卡(画布态 220×88)── */
+.wb-node{position:absolute;width:220px;height:88px;z-index:2;
+  background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--sc,var(--line-2));
+  border-radius:var(--r-md);padding:8px 11px 9px;box-shadow:var(--elev-1);cursor:pointer;
+  display:flex;flex-direction:column;gap:3px;transition:box-shadow var(--dur-base) var(--ease-out),transform var(--dur-base) var(--ease-out);}
+.wb-node:hover{transform:translateY(-1px);box-shadow:var(--elev-2);}
+.wb-node.st-running{--sc:var(--accent);box-shadow:var(--elev-2);animation:wb-breathe 2.4s var(--ease-out) infinite;}
+.wb-node.st-succeeded{--sc:var(--ok);}
+.wb-node.st-rejected{--sc:var(--warn);background:linear-gradient(180deg,var(--warn-bg),var(--panel) 60%);}
+.wb-node.st-waiting_resource{--sc:var(--warn);background:linear-gradient(180deg,var(--warn-bg),var(--panel) 60%);}
+.wb-node.st-queued{--sc:var(--muted);opacity:.86;}
+.wb-node.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),var(--elev-2);}
+.wb-node-hd{display:flex;align-items:center;gap:6px;}
+.wb-badge{font-size:13px;line-height:1;color:var(--sc,var(--muted));flex:none;}
+.wb-node.st-running .wb-badge{animation:wb-spin 1.4s linear infinite;}
+.wb-node-title{font-size:var(--fs-sm);color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wb-node-title b{font-weight:700;}
+.wb-node-title .role{color:var(--muted);font-weight:400;}
+.wb-eng{flex:none;padding:1px 7px;border-radius:var(--r-pill);font-size:10px;font-weight:700;letter-spacing:.2px;}
+.wb-eng.eng-claude{background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 42%,transparent);}
+.wb-eng.eng-provider{background:color-mix(in srgb,var(--eng-claude) 15%,var(--panel));color:var(--eng-claude);border:1px solid color-mix(in srgb,var(--eng-claude) 42%,transparent);}
+.wb-node-model{font-size:10.5px;color:var(--muted);font-family:var(--mono);line-height:1.2;}
+.wb-node-act{display:flex;align-items:center;gap:5px;font-size:var(--fs-xs);color:var(--ink-2);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wb-node-act.ok{color:var(--ok-fg);}
+.wb-node-act.warn{color:var(--warn-fg);}
+.wb-act-dot{color:var(--accent);animation:wb-shimmer 1.5s var(--ease-out) infinite;}
+.wb-node-foot{display:flex;align-items:center;gap:7px;margin-top:auto;}
+.wb-bar{flex:1;height:5px;border-radius:var(--r-pill);background:var(--panel-3);overflow:hidden;}
+.wb-bar i{display:block;height:100%;border-radius:var(--r-pill);background:linear-gradient(90deg,var(--accent),var(--accent-hover));}
+.wb-foot-label{font-size:10px;color:var(--muted);white-space:nowrap;}
+.wb-verdict{font-size:10px;font-weight:700;padding:1px 6px;border-radius:var(--r-pill);}
+.wb-verdict.pass{background:var(--ok-bg);color:var(--ok-fg);}
+.wb-verdict.fail{background:var(--warn-bg);color:var(--warn-fg);}
+
+/* 层泳道标注 */
+.layer-tag{position:absolute;left:12px;z-index:1;font-size:10px;color:var(--muted);
+  padding:2px 8px;border-radius:var(--r-pill);background:color-mix(in srgb,var(--panel) 70%,transparent);border:1px solid var(--line);}
+
+/* ── 右侧上下文板 ── */
+.wb-panel{background:var(--panel-2);display:flex;flex-direction:column;overflow-y:auto;}
+.wb-sec{border-bottom:1px solid var(--line);}
+.wb-sec-hd{display:flex;align-items:center;gap:8px;width:100%;padding:12px 16px;background:none;border:none;
+  color:var(--ink);cursor:pointer;font-size:var(--fs-md);font-weight:700;text-align:left;}
+.wb-sec-hd .caret{color:var(--muted);transition:transform var(--dur-fast);font-size:11px;}
+.wb-sec.open .caret{transform:rotate(90deg);}
+.wb-sec-hd .count{margin-left:auto;padding:1px 8px;border-radius:var(--r-pill);font-size:10px;font-weight:700;
+  background:var(--accent-soft);color:var(--accent);}
+.wb-sec-hd .count.warn{background:var(--warn-bg);color:var(--warn-fg);}
+.wb-sec-body{padding:0 16px 16px;display:none;}
+.wb-sec.open .wb-sec-body{display:block;}
+
+/* 节点详情 */
+.det-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.det-title{font-size:var(--fs-lg);font-weight:700;color:var(--ink);}
+.det-model{font-family:var(--mono);font-size:var(--fs-xs);color:var(--muted);
+  background:var(--code-bg);padding:2px 7px;border-radius:var(--r-sm);border:1px solid var(--line);}
+.det-row{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--ink-2);margin:7px 0;}
+.det-k{color:var(--muted);min-width:52px;font-size:var(--fs-xs);}
+.det-chip{padding:2px 9px;border-radius:var(--r-pill);font-size:var(--fs-xs);font-weight:600;
+  background:var(--accent-soft);color:var(--accent);}
+.det-chip.warn{background:var(--warn-bg);color:var(--warn-fg);}
+.det-bar{flex:1;height:6px;border-radius:var(--r-pill);background:var(--panel-3);overflow:hidden;}
+.det-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-hover));border-radius:var(--r-pill);}
+.det-ring{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;
+  background:conic-gradient(var(--ok) 92%,var(--panel-3) 0);flex:none;}
+.det-ring span{width:28px;height:28px;border-radius:50%;background:var(--panel-2);display:grid;place-items:center;
+  font-size:10px;font-weight:700;color:var(--ok-fg);}
+.det-timeline{margin:10px 0;border-left:2px solid var(--line-2);padding-left:12px;}
+.det-tl-item{position:relative;font-size:var(--fs-xs);color:var(--ink-2);margin:6px 0;line-height:1.4;}
+.det-tl-item::before{content:"";position:absolute;left:-17px;top:5px;width:7px;height:7px;border-radius:50%;
+  background:var(--accent);border:2px solid var(--panel-2);}
+.det-tl-item .t{color:var(--muted);font-family:var(--mono);font-size:10px;margin-right:5px;}
+.det-tl-item.live::before{background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent);}
+.det-tl-item.done::before{background:var(--ok);}
+/* 插话框 */
+.steer{margin:12px 0 6px;}
+.steer-label{font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px;}
+.steer-box{display:flex;gap:7px;}
+.steer-box input{flex:1;padding:8px 11px;border-radius:var(--r-sm);border:1px solid var(--line-2);
+  background:var(--panel);color:var(--ink);font-size:var(--fs-sm);}
+.steer-box input:focus{outline:none;box-shadow:var(--ring);border-color:var(--accent);}
+.steer-box input::placeholder{color:var(--muted);}
+.det-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;}
+.btn{padding:7px 13px;border-radius:var(--r-sm);border:1px solid var(--line-2);background:var(--panel);
+  color:var(--ink);cursor:pointer;font-size:var(--fs-sm);min-height:32px;}
+.btn:hover{background:var(--panel-3);}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600;}
+.btn.primary:hover{background:var(--accent-hover);}
+.btn.ghost{background:none;}
+
+/* 任务池审批卡 */
+.pool-card{background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);
+  border-radius:var(--r-md);padding:12px 13px;}
+.pool-line{font-size:var(--fs-sm);color:var(--ink);margin:5px 0;line-height:1.5;}
+.pool-line .k{color:var(--warn-fg);font-weight:700;}
+.pool-line.muted{color:var(--muted);font-size:var(--fs-xs);}
+.pool-actions{display:flex;gap:8px;margin-top:11px;}
+
+/* 邮箱 */
+.mail{display:flex;flex-direction:column;gap:9px;}
+.mail-item{display:flex;gap:10px;padding:10px 11px;border-radius:var(--r-md);background:var(--panel);
+  border:1px solid var(--line);}
+.mail-item.dropped{opacity:.62;}
+.mail-ico{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  background:var(--accent-soft);color:var(--accent);font-size:13px;}
+.mail-item.dropped .mail-ico{background:var(--panel-3);color:var(--muted);}
+.mail-body{flex:1;min-width:0;}
+.mail-route{font-size:var(--fs-xs);color:var(--ink-2);font-weight:600;margin-bottom:3px;}
+.mail-route .arw{color:var(--accent);margin:0 5px;}
+.mail-text{font-size:var(--fs-sm);color:var(--ink);line-height:1.45;}
+.mail-meta{font-size:10px;color:var(--muted);margin-top:4px;font-family:var(--mono);}
+.mail-badge{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--r-pill);font-family:var(--font);
+  background:var(--danger-bg);color:var(--danger-fg);font-weight:700;}
+
+/* ── 底部用量迷你条 ── */
+.wb-usage{display:flex;align-items:center;gap:var(--sp-4);padding:11px 18px;
+  border-top:1px solid var(--line);background:linear-gradient(180deg,var(--panel),var(--panel-2));}
+.usage-brand{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--ink-2);font-weight:600;}
+.usage-brand .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent);}
+.usage-stat{display:flex;align-items:baseline;gap:5px;font-size:var(--fs-sm);color:var(--ink);}
+.usage-stat b{font-size:var(--fs-lg);font-weight:700;}
+.usage-stat .u{color:var(--muted);font-size:var(--fs-xs);}
+.usage-sep{color:var(--line-2);}
+.usage-spark{display:flex;align-items:flex-end;gap:2px;height:20px;margin-left:2px;}
+.usage-spark i{width:4px;border-radius:1px;background:color-mix(in srgb,var(--accent) 55%,var(--panel-3));}
+.usage-link{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-pill);
+  background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);
+  cursor:pointer;font-size:var(--fs-sm);font-weight:600;}
+.usage-link:hover{background:color-mix(in srgb,var(--accent) 18%,var(--panel));}
+
+.foot-note{max-width:1280px;margin:var(--sp-4) auto var(--sp-6);padding:0 var(--sp-5);
+  font-size:var(--fs-xs);color:var(--muted);line-height:1.6;}
+.foot-note code{font-family:var(--mono);background:var(--code-bg);padding:1px 5px;border-radius:4px;color:var(--ink-2);}
+
+/* ── 动画 ── */
+@keyframes wb-spin{to{transform:rotate(360deg);}}
+@keyframes wb-blink{0%,100%{opacity:1;}50%{opacity:.35;}}
+@keyframes wb-flow{to{stroke-dashoffset:-16;}}
+@keyframes wb-breathe{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 32%,transparent),var(--elev-2);}
+  50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 0%,transparent),var(--elev-2);}}
+@keyframes wb-shimmer{0%,100%{opacity:1;}50%{opacity:.3;}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;}}
+</style>
+</head>
+<body>
+
+<div class="anno-bar">
+  <div class="anno-left">
+    <span class="anno-tag">设计图 · 非可运行代码</span>
+    <span>P3 工作台视图 · 满血态(3 run · 5 节点 DAG · 三段上下文板)</span>
+  </div>
+  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()"><span id="themeIco">☾</span><span id="themeTxt">深色</span></button>
+</div>
+
+<div class="wb-app">
+  <div class="wb-frame">
+
+    <!-- 主 Tab -->
+    <div class="wb-tabs">
+      <button class="wb-tab">对话</button>
+      <button class="wb-tab active">工作台<span class="dot" title="有活动 run"></span></button>
+      <span class="wb-tabs-spacer"></span>
+      <span class="wb-mode">专家模式 · 两 Tab 平权</span>
+    </div>
+
+    <!-- Run 选择器 -->
+    <div class="wb-runbar">
+      <span class="wb-runbar-label">运行:</span>
+      <button class="run-chip active st-running">
+        <span class="rc-ico">◐</span>辩论评审 <span style="opacity:.6">run-a2f</span>
+        <span class="rc-st">运行中</span>
+        <span class="rc-pool">待批准 1</span>
+      </button>
+      <button class="run-chip st-succeeded"><span class="rc-ico">✓</span>模块重构 <span style="opacity:.6">run-91c</span><span class="rc-st">已完成</span></button>
+      <button class="run-chip st-failed"><span class="rc-ico">✗</span>批量导出 <span style="opacity:.6">run-3d0</span><span class="rc-st">失败</span></button>
+    </div>
+
+    <!-- 主区:画布 | 右板 -->
+    <div class="wb-main">
+
+      <!-- 画布 -->
+      <div class="wb-canvas-wrap">
+        <div class="wb-cvtools">
+          <button class="cv-btn" title="放大">＋</button>
+          <button class="cv-btn" title="缩小">−</button>
+          <button class="cv-btn" title="适应窗口">⤢</button>
+        </div>
+        <!-- 如意云纹水印 opacity .07 -->
+        <svg class="wb-watermark" viewBox="0 0 120 70" aria-hidden="true"><path d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/></svg>
+
+        <div class="wb-canvas">
+          <!-- 泳道层标注 -->
+          <div class="layer-tag" style="top:60px">第 0 层 · 并行立论</div>
+          <div class="layer-tag" style="top:212px">第 1 层 · 裁决</div>
+          <div class="layer-tag" style="top:364px">第 2 层 · 修订</div>
+          <div class="layer-tag" style="top:516px">第 3 层 · 验收</div>
+
+          <!-- SVG 贝塞尔连线(状态着色)-->
+          <svg class="wb-edges" viewBox="0 0 700 620" aria-hidden="true">
+            <!-- pro(成功)→ judge:静态实线 -->
+            <path class="edge done" d="M216,120 C216,152 350,152 350,184"/>
+            <circle class="edge-dot" cx="350" cy="184" r="3"/>
+            <!-- con(判否)→ judge:琥珀虚线 -->
+            <path class="edge reject" d="M484,120 C484,152 350,152 350,184"/>
+            <!-- judge(运行中)→ fix:青花流动虚线 -->
+            <path class="edge run" d="M350,272 C350,304 350,304 350,336"/>
+            <!-- fix(等待资源)→ verify:琥珀等待虚线 -->
+            <path class="edge wait" d="M350,424 C350,456 350,456 350,488"/>
+          </svg>
+
+          <!-- 节点卡 -->
+          <!-- pro:succeeded -->
+          <div class="wb-node st-succeeded" style="left:106px;top:32px">
+            <div class="wb-node-hd">
+              <span class="wb-badge">✓</span>
+              <span class="wb-node-title"><b>pro</b> <span class="role">· 正方立论</span></span>
+              <span class="wb-eng eng-provider">Provider</span>
+            </div>
+            <div class="wb-node-model">gpt-4o-mini</div>
+            <div class="wb-node-act ok">✓ 已产出 3 条论据 · 8.1k 字</div>
+            <div class="wb-node-foot"><span class="wb-foot-label">用时 1:47 · 尝试 1</span></div>
+          </div>
+
+          <!-- con:rejected(琥珀)-->
+          <div class="wb-node st-rejected" style="left:374px;top:32px">
+            <div class="wb-node-hd">
+              <span class="wb-badge">⚑</span>
+              <span class="wb-node-title"><b>con</b> <span class="role">· 反方驳论</span></span>
+              <span class="wb-eng eng-provider">Provider</span>
+            </div>
+            <div class="wb-node-model">deepseek-chat</div>
+            <div class="wb-node-act warn">⚑ 质量门判否 · 论据不足</div>
+            <div class="wb-node-foot"><span class="wb-verdict fail">判定 fail</span><span class="wb-foot-label">置信度 62%</span></div>
+          </div>
+
+          <!-- judge:running(脉动)· 选中 · Claude opus -->
+          <div class="wb-node st-running selected" style="left:240px;top:184px">
+            <div class="wb-node-hd">
+              <span class="wb-badge">◐</span>
+              <span class="wb-node-title"><b>judge</b> <span class="role">· 裁决评审</span></span>
+              <span class="wb-eng eng-claude">Claude</span>
+            </div>
+            <div class="wb-node-model">claude-opus-4</div>
+            <div class="wb-node-act"><span class="wb-act-dot">◐</span>思考中… 已产出 1.2k 字</div>
+            <div class="wb-node-foot"><div class="wb-bar"><i style="width:13%"></i></div><span class="wb-foot-label">迭代 3/24</span></div>
+          </div>
+
+          <!-- fix:waiting_resource(琥珀)-->
+          <div class="wb-node st-waiting_resource" style="left:240px;top:336px">
+            <div class="wb-node-hd">
+              <span class="wb-badge">⏸</span>
+              <span class="wb-node-title"><b>fix</b> <span class="role">· 修订实现</span></span>
+              <span class="wb-eng eng-provider">Provider</span>
+            </div>
+            <div class="wb-node-model">gpt-4o</div>
+            <div class="wb-node-act warn">⏸ 等待资源 · worktree:main</div>
+            <div class="wb-node-foot"><span class="wb-foot-label">← 依赖 judge · 尝试 0</span></div>
+          </div>
+
+          <!-- verify:queued -->
+          <div class="wb-node st-queued" style="left:240px;top:488px">
+            <div class="wb-node-hd">
+              <span class="wb-badge">○</span>
+              <span class="wb-node-title"><b>verify</b> <span class="role">· 验收</span></span>
+              <span class="wb-eng eng-provider">Provider</span>
+            </div>
+            <div class="wb-node-model">排队中</div>
+            <div class="wb-node-act">○ 等待上游完成</div>
+            <div class="wb-node-foot"><span class="wb-foot-label">← 依赖 fix</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧上下文板(三段折叠)-->
+      <aside class="wb-panel">
+
+        <!-- 段 1:选中节点详情 -->
+        <section class="wb-sec open">
+          <button class="wb-sec-hd" onclick="toggleSec(this)"><span class="caret">▸</span>选中节点详情<span class="count">judge</span></button>
+          <div class="wb-sec-body">
+            <div class="det-top">
+              <span class="det-title">裁决评审</span>
+              <span class="wb-eng eng-claude">Claude</span>
+              <span class="det-model">claude-opus-4</span>
+            </div>
+            <div class="det-row"><span class="det-k">状态</span><span class="det-chip">运行中</span><span style="color:var(--muted);font-size:var(--fs-xs)">已运行 02:18</span></div>
+            <div class="det-row"><span class="det-k">迭代</span><div class="det-bar"><i style="width:13%"></i></div><span style="font-size:var(--fs-xs);color:var(--muted)">3/24</span></div>
+            <div class="det-row"><span class="det-k">质量门</span>
+              <span class="det-ring"><span>92%</span></span>
+              <span style="font-size:var(--fs-xs);color:var(--ink-2)">评审中 · 置信度趋势向好</span>
+            </div>
+
+            <div class="det-timeline">
+              <div class="det-tl-item done"><span class="t">02:01</span>接收 pro / con 结论,加载评审 rubric</div>
+              <div class="det-tl-item done"><span class="t">02:07</span>调用工具 file_read · 复核 con 论据链</div>
+              <div class="det-tl-item live"><span class="t">02:18</span>思考中… 已产出 1.2k 字(迭代 3/24)</div>
+            </div>
+
+            <!-- 插话框 -->
+            <div class="steer">
+              <div class="steer-label">插话(下一次调用前生效)</div>
+              <div class="steer-box">
+                <input type="text" placeholder="给 judge 补一句指令…">
+                <button class="btn primary">发送</button>
+              </div>
+            </div>
+            <div class="det-actions">
+              <button class="btn ghost">重试此节点</button>
+              <button class="btn ghost">重试及下游</button>
+              <button class="btn ghost">查看完整结果</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 段 2:任务池审批 -->
+        <section class="wb-sec open">
+          <button class="wb-sec-hd" onclick="toggleSec(this)"><span class="caret">▸</span>任务池审批<span class="count warn">待批准 1</span></button>
+          <div class="wb-sec-body">
+            <div class="pool-card">
+              <div class="pool-line"><span class="k">谁提议:</span>con · 反方驳论</div>
+              <div class="pool-line"><span class="k">做什么:</span>补做一轮"用户访谈证据"检索,为裁决补充一手材料</div>
+              <div class="pool-line muted">预计消耗:新增 1 个节点,至多约 60 轮调用</div>
+              <div class="pool-actions">
+                <button class="btn primary">同意添加</button>
+                <button class="btn">不用了</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 段 3:邮箱消息流 -->
+        <section class="wb-sec open">
+          <button class="wb-sec-hd" onclick="toggleSec(this)"><span class="caret">▸</span>邮箱消息流<span class="count">2</span></button>
+          <div class="wb-sec-body">
+            <div class="mail">
+              <div class="mail-item">
+                <div class="mail-ico">✉</div>
+                <div class="mail-body">
+                  <div class="mail-route">pro<span class="arw">→</span>judge</div>
+                  <div class="mail-text">已产出 3 条核心论据,重点看第 2 条数据来源,详见结果。</div>
+                  <div class="mail-meta">已送达 · 02:01</div>
+                </div>
+              </div>
+              <div class="mail-item dropped">
+                <div class="mail-ico">✉</div>
+                <div class="mail-body">
+                  <div class="mail-route">con<span class="arw">→</span>fix</div>
+                  <div class="mail-text">驳论要点已同步,修订时优先处理第 2 条论据的反例。</div>
+                  <div class="mail-meta">02:05<span class="mail-badge">未送达</span>目标重试,消息随 attempt 作废</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </aside>
+    </div>
+
+    <!-- 底部用量迷你条 -->
+    <div class="wb-usage">
+      <span class="usage-brand"><span class="dot"></span>本 run</span>
+      <span class="usage-stat"><b>18.2k</b><span class="u">tok</span></span>
+      <span class="usage-sep">·</span>
+      <span class="usage-stat"><b>$0.42</b></span>
+      <span class="usage-sep">·</span>
+      <span class="usage-stat">已运行 <b style="font-size:var(--fs-base)">04:12</b></span>
+      <span class="usage-spark" title="按节点 token 分布">
+        <i style="height:8px"></i><i style="height:14px"></i><i style="height:6px"></i><i style="height:19px"></i><i style="height:11px"></i><i style="height:16px"></i>
+      </span>
+      <button class="usage-link">查看用量看板 →</button>
+    </div>
+
+  </div>
+
+  <p class="foot-note">
+    数据契约:节点/连线/池/邮箱全部映射自 <code>renderAgentRuns</code> 现有字段(<code>run.nodes[]</code> / <code>run.taskPool[]</code> / <code>run.messages[]</code>),
+    显示状态经 <code>nodeDisplayStatus</code> 归一,着色一律引语义 token(<code>--accent</code>/<code>--ok</code>/<code>--warn</code>/<code>--danger</code>),零硬编码色。
+    分层布局为零依赖手写拓扑分层(见 <code>docs/UI-DESIGN-P3-WORKBENCH.md §5.2</code>)。本页为静态设计效果图,交互按钮不接线。
+  </p>
+</div>
+
+<script>
+function toggleTheme(){
+  var r=document.documentElement, next=r.getAttribute('data-theme')==='dark'?'light':'dark';
+  r.setAttribute('data-theme',next);
+  document.getElementById('themeIco').textContent = next==='dark'?'☾':'☀';
+  document.getElementById('themeTxt').textContent = next==='dark'?'深色':'浅色';
+}
+function toggleSec(btn){ btn.parentElement.classList.toggle('open'); }
+</script>
+</body>
+</html>
