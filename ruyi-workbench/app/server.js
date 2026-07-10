@@ -4933,6 +4933,36 @@ async function providerRawCompletion(provider, history) {
   } finally { if (timer) clearTimeout(timer); }
 }
 
+// v1.5 (Judge JSON 修复 · 兜底/§2): provider 引擎节点的解析加固仍失败时的一次性(bounded=1)无工具修复调用。复用
+// providerRawCompletion 的非流式模式：system 层钉「JSON 修复器」，user 层携原始输出 + 解析错误 + schema 要点，
+// 只求模型吐回单个合法 JSON 对象；结果交回同一解析管线。这一次补全按 aux 台账记账(kind:'aux'/note:'json-repair'，
+// 仿 playbook-draft)。全程防御式——修复/记账的任何异常都不得影响节点执行主流程(返回 null 即维持原失败路径)。
+async function repairNodeJsonViaProvider(provider, config, session, node, schema, rawOutput, parseError) {
+  try {
+    const sys = '你是 JSON 修复器，只输出修正后的单个 JSON 对象，无任何其它文字（不要 Markdown、不要标题、不要代码围栏、不要解释）。字符串值内部的双引号必须转义为 \\"，去掉尾逗号，补齐缺失的括号与引号。';
+    const schemaHint = schema ? ('\n\n目标 JSON Schema（要点）：\n' + JSON.stringify(schema).slice(0, 1500)) : '';
+    const user = '下面的文本本应是一个 JSON 对象，但解析失败了。请只输出修正后的 JSON 对象。\n\n解析错误：' + String(parseError || '').slice(0, 300) + schemaHint + '\n\n原始输出：\n' + String(rawOutput || '').slice(0, 12000);
+    const sc = await providerRawCompletion(provider, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
+    // v1.4-OSS 用量看板(补): 每次实际发出的修复补全记一行 aux(note:'json-repair')。usage 缺失直接跳过不估算。
+    // 防御式 —— 记账绝不可影响修复流程。
+    try {
+      const u = sc && sc.usage;
+      const inTok = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
+      const outTok = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+      if ((inTok > 0 || outTok > 0) && session && session.id) {
+        const { cost, currency } = computeProviderCost(provider, inTok, outTok);
+        appendUsageLedger({
+          sessionId: session.id, engine: 'openai', provider: provider.id, model: sc.model || provider.model || '',
+          inTok, outTok, cost, currency, estimated: false, turnSeq: session.turnSeq, kind: 'aux', note: 'json-repair',
+          agentKey: node && node.id,
+        });
+      }
+    } catch { /* accounting must never break repair */ }
+    if (sc && sc.ok && sc.content) return sc.content;
+  } catch { /* repair must never break node execution */ }
+  return null;
+}
+
 // Parse a model's playbook JSON output tolerantly: strip ```json fences, grab the outermost {…}, JSON.parse,
 // then normalizePlaybook. Returns the normalized draft (with a fresh id if the model omitted one) or null.
 function parsePlaybookDraft(text) {
@@ -6744,7 +6774,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     useTools = false;
     subHistory.push({
       role: 'user',
-      content: '工具/迭代预算已经用尽。现在不要再调用任何工具，只根据上面已经获得的信息给出最终结论。若原任务要求 JSON Schema 或质量门输出，必须只输出符合要求的 JSON。',
+      content: '工具/迭代预算已经用尽。现在不要再调用任何工具，只根据上面已经获得的信息给出最终结论。若原任务要求 JSON Schema 或质量门输出，必须只输出符合要求的 JSON；字符串值内部的双引号必须转义为 \\"。',
     });
     try {
       const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: () => {} });
@@ -7057,13 +7087,90 @@ function sanitizeAgentOutputSchema(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   try { const s = JSON.stringify(raw); return s.length <= 20000 ? JSON.parse(s) : null; } catch { return null; }
 }
-function parseStructuredAgentOutput(text) {
-  let s = String(text || '').trim();
-  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i); if (fence) s = fence[1].trim();
-  try { return { ok: true, value: JSON.parse(s) }; } catch { /* tolerant outer JSON extraction below */ }
-  const starts = [s.indexOf('{'), s.indexOf('[')].filter(i => i >= 0); const start = starts.length ? Math.min(...starts) : -1;
+// v1.5 (Judge JSON 修复 · 核心): 从模型输出里按优先级枚举"最可能是那段 JSON"的候选切片。裁判/审查节点习惯把
+// markdown 分析写在前、把 JSON 收在结尾的 ```json 围栏里，故候选顺序为：① 所有代码围栏块，从最后一个到第一个
+// (裁判把结论放最后)；② 首个 {/[ 到末个 }/] 的外层切片；③ 从最后 3 个行首 { 起的平衡括号扫描块。调用方逐候选
+// 先原文 JSON.parse、失败再 repairJson 后 parse，首个成功即返回(见 parseStructuredAgentOutput)。
+function structuredJsonCandidates(s) {
+  const out = [];
+  const push = v => { const t = String(v || '').trim(); if (t) out.push(t); };
+  const blocks = []; const re = /```(?:json)?\s*([\s\S]*?)```/gi; let m;
+  while ((m = re.exec(s)) !== null) { const b = (m[1] || '').trim(); if (b) blocks.push(b); }
+  for (let i = blocks.length - 1; i >= 0; i--) push(blocks[i]);           // ① 围栏块 末→首
+  const opens = [s.indexOf('{'), s.indexOf('[')].filter(i => i >= 0);      // ② 外层 {…} / […] 切片
+  const start = opens.length ? Math.min(...opens) : -1;
   const end = Math.max(s.lastIndexOf('}'), s.lastIndexOf(']'));
-  if (start >= 0 && end > start) { try { return { ok: true, value: JSON.parse(s.slice(start, end + 1)) }; } catch { /* invalid */ } }
+  if (start >= 0 && end > start) push(s.slice(start, end + 1));
+  const lineStarts = [];                                                   // ③ 行首 { 的平衡扫描(限最后 3 个)
+  { let idx = 0; for (const line of s.split('\n')) { const trimmed = line.replace(/^\s+/, ''); if (trimmed[0] === '{' || trimmed[0] === '[') lineStarts.push(idx + (line.length - trimmed.length)); idx += line.length + 1; } }
+  for (const p of lineStarts.slice(-3)) push(balancedJsonSpan(s, p));
+  return out;
+}
+// String-aware 平衡括号扫描：从 start 处的 {/[ 向后配平，返回平衡切片；未配平(截断)时返回自 start 起的尾串
+// (交给 repairJson/上层兜底判定失败)。仅用于定位切片，故对未转义内引号不敏感无妨。
+function balancedJsonSpan(s, start) {
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === '{' || c === '[') depth++;
+    else if (c === '}' || c === ']') { depth--; if (depth === 0) return s.slice(start, i + 1); }
+  }
+  return s.slice(start);
+}
+// v1.5 (Judge JSON 修复 · 核心): 零依赖状态机，把 LLM 常见的"几乎合法"JSON 修回可解析。仅在 JSON.parse 原文失败后
+// 调用(见 parseStructuredAgentOutput：合法 JSON 永远先命中原文 parse 分支，绝不进本函数，故对合法输入零误伤)。
+// 四类修复：(a) 智能引号 “ ” → " 、‘ ’ → '(模型把中文弯引号当分隔符时)；(b) } ] 前的尾逗号剔除(仅结构位置的
+// 逗号，字符串内的逗号不动)；(c) 未转义的字符串内双引号 → \"（前瞻：字符串内的一个 " 之后跳过空白若不是 , : } ]
+// 或输入结束，则它是内容而非收尾，转义并保持在字符串内——精确修复 未到"fail"级别 这类故障）；(d) 字符串内的裸
+// 控制符(换行/回车/制表) → 转义。幂等(修复后的合法 JSON 再进本函数原样返回)；防御(任何异常返回原串)。
+function repairJson(input) {
+  const original = String(input == null ? '' : input);
+  try {
+    const s = original.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+    const ws = c => c === ' ' || c === '\t' || c === '\n' || c === '\r';
+    const out = [];
+    let inStr = false, esc = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (inStr) {
+        if (esc) { out.push(c); esc = false; continue; }
+        if (c === '\\') { out.push(c); esc = true; continue; }
+        if (c === '"') {
+          let j = i + 1; while (j < s.length && ws(s[j])) j++;
+          const next = j < s.length ? s[j] : '';
+          if (next === '' || next === ',' || next === ':' || next === '}' || next === ']') { out.push('"'); inStr = false; }
+          else { out.push('\\', '"'); } // 内容引号：转义并保持 inStr
+          continue;
+        }
+        if (c === '\n') { out.push('\\', 'n'); continue; }
+        if (c === '\r') { out.push('\\', 'r'); continue; }
+        if (c === '\t') { out.push('\\', 't'); continue; }
+        out.push(c); continue;
+      }
+      if (c === '"') { out.push('"'); inStr = true; continue; }
+      if (c === ',') {
+        let j = i + 1; while (j < s.length && ws(s[j])) j++;
+        const next = j < s.length ? s[j] : '';
+        if (next === '}' || next === ']') continue; // 剔除尾逗号
+        out.push(c); continue;
+      }
+      out.push(c);
+    }
+    return out.join('');
+  } catch { return original; }
+}
+// v1.5 (Judge JSON 修复 · 核心): 多候选 + 两级(原文/修复)解析。合法 JSON 永远命中"原文 parse"分支，绝不进
+// repairJson，故对合法输入零误伤。签名/返回形状保持不变({ ok, value } | { ok:false, error })。
+function parseStructuredAgentOutput(text) {
+  const s = String(text || '').trim();
+  if (!s) return { ok: false, error: '输出不是有效 JSON' };
+  const accept = v => v !== null && typeof v === 'object';
+  for (const cand of structuredJsonCandidates(s)) {
+    try { const v = JSON.parse(cand); if (accept(v)) return { ok: true, value: v }; } catch { /* try repair below */ }
+    try { const r = repairJson(cand); if (r && r !== cand) { const v = JSON.parse(r); if (accept(v)) return { ok: true, value: v }; } } catch { /* next candidate */ }
+  }
   return { ok: false, error: '输出不是有效 JSON' };
 }
 function validateAgentJsonSchema(value, schema, path0 = '$') {
@@ -7723,7 +7830,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const qualityInstruction = node.gate && !['vote', 'dedupe'].includes(node.gate.mode)
         ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。`
         : '';
-      const schemaInstruction = effectiveSchema ? `\n\n输出必须是严格 JSON（不要 Markdown 代码围栏），并满足此 JSON Schema：\n${JSON.stringify(effectiveSchema)}` : '';
+      const schemaInstruction = effectiveSchema ? `\n\n输出必须是严格 JSON（不要 Markdown 代码围栏），并满足此 JSON Schema：\n${JSON.stringify(effectiveSchema)}\n\n最终回答必须是单个 JSON 对象本身：不要 markdown 标题、不要表格、不要代码围栏、不要任何 JSON 之外的文字；审查分析请写进 JSON 的 summary/findings 字段；字符串值内部的双引号必须写成 \\"。` : '';
       const iterationText = node.loopIteration > 0 && node.result ? `\n\n这是第 ${node.loopIteration + 1} 次循环。上一轮结果如下，请在此基础上取得可验证进展：\n${String(node.result).slice(0, 12000)}` : '';
       // A template's node tasks are often generic placeholders ("分析议题…") with no actual subject — a
       // launch-time context string (from the quick-run prompt, or from the model's own orchestrate_agents
@@ -7781,7 +7888,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           node.error = sub.ok ? '' : String(sub.error || '子代理失败').slice(0, 4000);
           node.iters = sub.iters; node.toolCalls = sub.toolCalls;
           if (sub.ok && effectiveSchema) {
-            const parsed = parseStructuredAgentOutput(node.result);
+            let parsed = parseStructuredAgentOutput(node.result);
+            // v1.5 (Judge JSON 修复 · §2): 解析加固仍失败时，仅对 provider 引擎(openai)节点发一次(bounded=1)无
+            // 工具修复补全再走同一管线。Claude 引擎节点不做(单发 -p 进程成本高，且解析加固通常已足够)。修复成功
+            // → 节点照常过门；仍失败 → 维持现有失败路径。修复调用/记账全程防御式，异常不影响主流程。
+            if (!parsed.ok && (node.engine || 'openai') === 'openai' && provider) {
+              const fixed = await repairNodeJsonViaProvider(provider, config, parentSession, node, effectiveSchema, node.result, parsed.error);
+              if (fixed) { const p2 = parseStructuredAgentOutput(fixed); if (p2.ok) { parsed = p2; node.jsonRepaired = true; } }
+            }
             if (!parsed.ok) { node.status = 'failed'; node.error = parsed.error; node.schemaErrors = [parsed.error]; }
             else {
               const checked = validateAgentJsonSchema(parsed.value, effectiveSchema);
@@ -7859,7 +7973,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   } finally { clearInterval(idleWatchdog); if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null; } activeAgentRuns.delete(runId); }
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
-    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, gateVerdict: n.gateVerdict || '', error: n.error, dependsOn: n.dependsOn, role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '' })),
+    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, gateVerdict: n.gateVerdict || '', error: n.error, dependsOn: n.dependsOn, role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '', jsonRepaired: n.jsonRepaired || false })),
   };
 }
 
@@ -13782,6 +13896,7 @@ module.exports = {
   resourceBlockers,
   sanitizeAgentOutputSchema,
   parseStructuredAgentOutput,
+  repairJson, // v1.5 (Judge JSON 修复): 零依赖修复器 — exposed for judge-json-repair e2e 直接单测。
   validateAgentJsonSchema,
   normalizeAgentGate,
   aggregateAgentVote,
