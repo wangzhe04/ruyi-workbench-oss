@@ -11,6 +11,12 @@
 
 压缩包内还包含一个本地 Claude Code marketplace：`resources\plugins\win-workbench-offline`。其中的 `offline-toolkit` 复刻了常用插件/skill 的离线能力，包括代码审查、前端审计、本地文档上下文、提交说明、CLAUDE.md 管理、API 调试、CI 复现、安全检查、插件开发和发布打包提示词。
 
+**多 Agent 编排 + 团队模式(v1.4→v1.5)**：DAG 工作流、质量门、资源租约防死锁、Git worktree 隔离、实时监控。v1.5 团队模式在此之上增加：**共享任务池**(子代理 `propose_task` 提案→审批→物化为普通 DAG 节点，运行时嵌套委派的可观测替代)、**Agent 邮箱**(`send_to_agent` 节点间单向异步消息，与用户插话分池)、**定向插话**(运行中对指定 OpenAI 引擎节点 `steer_node`)、**跨会话工作台记忆**(`dataRoot/memory` 按项目分组、起草-确认入库、围栏渐进注入)。
+
+**Skills 体系 v1(v1.5)**：四源技能注册表(内置 toolkit / 用户 `dataRoot/skills` / 项目 `.ruyi/skills/<id>/SKILL.md` / Playbook 并入)，会话级启用(上限 8)，跨引擎渐进注入——system prompt 只放紧凑索引，provider 引擎经 `skill_read` 工具按需拉全文，Claude 引擎经 `--append-system-prompt` + 自带 Read 展开。
+
+**成本 / 用量看板(v1.5)**：诚实计费——区分 Anthropic 官方 / 第三方 Coding Plan(如火山方舟 Ark)/ OpenAI provider，分币种记账不强制换算，第三方端点标注「计划内计费」不计入真实花费；工作流子代理、自动/手动压缩、Playbook 起草等全部烧 token 路径均入账，月度预算告警。
+
 ## 快速启动
 
 ```powershell
@@ -48,7 +54,9 @@ dist\Ruyi-offline.zip
 ## 文档
 
 - 用户手册（简易模式视角，任务导向）：[`docs/manuals/USER-GUIDE_CN.md`](docs/manuals/USER-GUIDE_CN.md)
-- 管理员手册（部署 / 离线包 / 安全边界）：[`docs/manuals/ADMIN-GUIDE_CN.md`](docs/manuals/ADMIN-GUIDE_CN.md)
+- 管理员手册（部署 / 离线包 / 安全边界 / 计费配置）：[`docs/manuals/ADMIN-GUIDE_CN.md`](docs/manuals/ADMIN-GUIDE_CN.md)
+- 架构说明：[`docs/ARCHITECTURE_CN.md`](docs/ARCHITECTURE_CN.md)
+- 迭代记录与验收：[`../docs/OPTIMIZATION-ROADMAP.md`](../docs/OPTIMIZATION-ROADMAP.md)
 
 ## Clean-room 声明
 

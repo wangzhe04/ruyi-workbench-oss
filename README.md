@@ -25,6 +25,24 @@
 4. **中文第一 + 非程序员主画像** —— 会写代码的进阶用户与不写代码的知识工作者共用一套壳。
 5. **双引擎不锁定** —— 内网 Claude CLI 或任意 OpenAI 兼容端点(含国产模型全家:DeepSeek / 通义千问 / 智谱 / 内网 vLLM·Ollama)。
 
+## 核心能力一览(v1.5)
+
+| 能力 | 说明 |
+|------|------|
+| 双引擎对话 | Claude CLI 与 OpenAI 兼容端点随时切换,跨引擎上下文续接。 |
+| 桌面 / Office 操控 | 截图 / OCR / UIA / 键鼠 / 窗口 / Office / PDF(桌面控制 MCP,ACC v1.8.1)。 |
+| 多 Agent 编排 | DAG 工作流、质量门、资源租约防死锁、Git worktree 隔离、实时监控。 |
+| 共享任务池 | 运行中的子代理可**提案追加节点**,经审批物化进 DAG——运行时嵌套委派的可观测替代。 |
+| Agent 邮箱 | 工作流节点间单向异步消息,与用户插话分池,诚实投递语义。 |
+| 定向插话 | 运行中对**指定节点**中途插话,下一次调用前生效。 |
+| 跨会话工作台记忆 | 起草-确认入库、按项目分组、围栏渐进注入(与仓库 `CLAUDE.md` 项目记忆分工)。 |
+| Skills 体系 | 四源技能注册表(内置 / 用户 / 项目 / Playbook),会话级启用 + 跨引擎渐进注入。 |
+| 成本 / 用量看板 | 诚实计费:区分 Anthropic 官方 / 第三方 Coding Plan / OpenAI provider,分币种记账,子代理与压缩调用全入账,月度预算告警。 |
+| 检查点 / 回溯 | 文件级检查点 + 对话回溯成对交付,可撤销性体现在权限弹窗。 |
+| 分级 UI | 简单 / 专业双模式,青花瓷视觉系统。 |
+
+> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付,附 70+ 离线 e2e。迭代记录见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)。
+
 ## 目录结构
 
 ```
@@ -129,6 +147,10 @@ node dev-harness\repo-hygiene.e2e.js    # 合规回归
 3. **Air-gap first, auditable, zero runtime deps** — a single `server.js` with **zero npm runtime dependencies** (Node built-ins only) minimizes the cost of passing enterprise/government security review.
 4. **Chinese-first, non-programmer primary persona** — advanced coders and non-coding knowledge workers share one shell.
 5. **Dual engine, no lock-in** — on-prem Claude CLI or any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama).
+
+### Capabilities (v1.5)
+
+Dual-engine chat · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / Office / PDF, ACC v1.8.1) · multi-agent orchestration (DAG, quality gates, resource-lease deadlock prevention, worktree isolation) · **shared task pool** (sub-agents propose nodes, approved into the DAG — an observable replacement for runtime nesting) · **agent mailbox** (one-way async messages between nodes) · **directed steer** (interject into a specific running node) · **cross-session workbench memory** (draft-then-confirm, per-project, fenced progressive injection) · **Skills registry** (four sources, session-level enablement, cross-engine progressive injection) · **cost/usage dashboard** (honest per-currency accounting across Anthropic-direct / third-party Coding Plans / OpenAI providers) · checkpoints & rewind · tiered UI. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 70+ offline e2e.
 
 ### Quick start
 
