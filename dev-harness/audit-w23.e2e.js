@@ -135,6 +135,40 @@ const BROWSER = { origin: 'http://evil.example', 'sec-fetch-site': 'cross-site',
   // ---- P2 #9: degraded 透传 ----
   ok(/node\.degraded = !!\(sub && sub\.degraded\);/.test(src), 'P2#9 DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染)');
 
+  // ---- 节点数上限 bug(回合内 orchestrate 误用 subagentMaxPerTurn)+ 迁移 + 上限放宽 ----
+  {
+    // 修:in-turn orchestrate 的 maxNodes 用 agentWorkflowMaxNodes,不再用 subagentTurnCap(=subagentMaxPerTurn)
+    ok(!/maxNodes: subagentTurnCap - subagentTotal/.test(src), 'BUG 修: 回合内 orchestrate 不再用 subagentTurnCap(=subagentMaxPerTurn)做节点数上限');
+    ok((src.match(/maxNodes: Math\.max\(0, Number\(config\.agentWorkflowMaxNodes\)/g) || []).length >= 2, 'BUG 修: in-turn 与 launch 两条 orchestrate 路径都用 agentWorkflowMaxNodes 作节点上限(口径统一,内置模板不再被卡)');
+    // 迁移:旧默认 4 → 32(带 flag);deliberate 低值不动;clamp 上限 64;默认 agentWorkflowMaxNodes=48
+    const legacy = mod.normalizeConfig({ subagentMaxPerTurn: 4, agentWorkflowMaxNodes: 32 }).config;
+    ok(legacy.subagentMaxPerTurn === 32 && legacy.subagentBudgetMigrated === true, '迁移: 存量 subagentMaxPerTurn=4(旧默认)→ 32 + 置 migrated 标记');
+    ok(mod.normalizeConfig({ subagentMaxPerTurn: 2 }).config.subagentMaxPerTurn === 2, '迁移: 用户显式低值(2)不被误迁(仅迁恰为旧默认 4 的)');
+    ok(mod.normalizeConfig({ subagentMaxPerTurn: 4, subagentBudgetMigrated: true }).config.subagentMaxPerTurn === 4, '迁移: 置位后显式 4 被尊重(不重复迁)');
+    ok(mod.normalizeConfig({ agentWorkflowMaxNodes: 100, subagentMaxPerTurn: 100 }).config.agentWorkflowMaxNodes === 64, '上限放宽: 节点数 clamp 上限 32→64');
+    ok(mod.defaultConfig().agentWorkflowMaxNodes === 48, '默认 agentWorkflowMaxNodes 调高至 48');
+  }
+
+  // ---- 新增节点角色 + 模板拓宽(角色引用必须都在角色库内) ----
+  {
+    const roles = mod.BUILTIN_AGENT_ROLES.map(r => r.id);
+    const roleSet = new Set(roles);
+    ok(roles.length === 9, '角色库共 9 个内置角色(原 4 + 新 5:planner/researcher/critic/synthesizer/analyst),实 ' + roles.length);
+    for (const nr of ['planner', 'researcher', 'critic', 'synthesizer', 'analyst']) ok(roleSet.has(nr), '新角色存在: ' + nr);
+    const wfs = mod.BUILTIN_AGENT_WORKFLOWS;
+    ok(wfs.length === 8, '内置模板 8 个(含新 data-insights),实 ' + wfs.length);
+    let missing = 0;
+    for (const raw of wfs) {
+      const wf = mod.normalizeAgentWorkflow(raw, { source: 'builtin', builtin: true });
+      if (!wf) { missing++; continue; }
+      for (const n of wf.nodes) if (n.role && !roleSet.has(n.role)) { missing++; console.log('  ROLE-MISS', wf.id, n.id, n.role); }
+    }
+    ok(missing === 0, '每个模板节点引用的 role 都在角色库内(否则运行时「引用了不存在的角色」)');
+    // data-insights 用到了新角色
+    const di = wfs.find(w => w.id === 'data-insights');
+    ok(di && di.nodes.some(n => n.role === 'analyst') && di.nodes.some(n => n.role === 'critic'), 'data-insights 模板用到 analyst + critic 等新角色');
+  }
+
   // ============ PART C — 实弹(起真服务打 HTTP) ============
   const HOME = path.join(os.tmpdir(), 'wcw-audit-w23-e2e');
   const WS = path.join(HOME, 'workspace');

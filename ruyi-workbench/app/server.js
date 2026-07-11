@@ -444,7 +444,7 @@ function defaultConfig() {
     // ad hoc fan-out budget) as the DAG's node-count ceiling — a 4-node default rejected any real pipeline
     // with 5+ nodes outright, while resuming the SAME run used a hardcoded 32. Clamp 1..32 (32 is also the
     // hard systemic cap in normalizeAgentWorkflow/runAgentWorkflow's own `.slice(0, 32)`).
-    agentWorkflowMaxNodes: 32,
+    agentWorkflowMaxNodes: 48,
     // 团队模式 v2 (A2): 共享任务池审批策略。manual=UI 运行卡逐条批准(默认);auto-capped=自动批准直到 poolAutoCap
     // 用尽后转 manual;off=不注册 propose_task 工具。物化仍受 agentWorkflowMaxNodes(32)硬顶复检(见 materializePoolItem)。
     agentTaskPoolPolicy: 'manual',
@@ -491,6 +491,12 @@ const BUILTIN_AGENT_ROLES = Object.freeze([
   { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'green' },
   { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'orange' },
   { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'purple' },
+  // 第23波: 新增 5 个角色,覆盖「规划 → 研究 → 批判 → 综合 → 数据分析」的常见协作分工,并据此拓宽内置模板。
+  { id: 'planner', label: 'Planner', description: '把复杂任务拆解为清晰的计划/设计，不实现。', prompt: '你是 Planner。把交办的复杂目标拆解成可执行的计划或设计：明确目标与非目标、硬约束、分步方案及其依赖顺序、每步的交付物与验收点、主要风险与应对。只规划不实现，也不执行有副作用的操作。输出结构化、可直接据以行动的计划。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'teal' },
+  { id: 'researcher', label: 'Researcher', description: '联网检索并阅读来源，产出有来源支撑的发现。', prompt: '你是 Researcher。围绕问题联网检索、阅读来源，就每个子问题给出有来源支撑的发现：结论 + 来源(标题/URL) + 置信度，区分事实与观点，主动寻找反面证据。只记录有来源支撑的内容，查不到就如实说明，绝不编造来源或数据。只读不改。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'cyan' },
+  { id: 'critic', label: 'Critic', description: '对抗式审查：主动找漏洞、反例和无据主张。', prompt: '你是 Critic（红队）。对交办的内容做对抗式审查：主动寻找漏洞、反例、未覆盖的场景、逻辑跳跃和无证据支撑的主张；默认怀疑，写不出具体触发/反例的疑点予以降级或剔除。区分「确证的问题」与「存疑」，给出可执行的反驳或修正建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'red' },
+  { id: 'synthesizer', label: 'Synthesizer', description: '把多个上游结果综合成连贯、结构化的成稿。', prompt: '你是 Synthesizer。把多个上游节点的结果综合成一份连贯、结构化的输出（报告/结论/文档）：合并重复、消解冲突、按主题组织、保留关键依据与出处。只依据上游【已确认】的内容，不引入未经核验的新主张；证据不足处如实标注。默认只产出文本，不改文件（需要落盘时按节点指派的工具面执行）。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'amber' },
+  { id: 'analyst', label: 'Analyst', description: '分析数据/日志/指标，跑必要脚本，产出发现。', prompt: '你是 Analyst。对交办的数据、日志或指标做分析：必要时运行只读查询或脚本来统计、聚合、交叉验证；区分已验证的观察与推断，给出关键发现、异常点及其证据。不修改源数据；产出结论时说明口径与不确定性。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'indigo' },
 ]);
 
 function normalizeAgentRole(raw, opts = {}) {
@@ -702,14 +708,19 @@ function normalizeConfig(raw) {
     if (clamped !== config.subagentMaxConcurrent) { config.subagentMaxConcurrent = clamped; changed = true; }
   }
   {
-    const sm = Number(config.subagentMaxPerTurn);
-    const clamped = Number.isFinite(sm) ? Math.min(32, Math.max(0, Math.round(sm))) : 32;
+    let sm = Number(config.subagentMaxPerTurn);
+    // 第23波: 一次性迁移旧默认 4 → 新默认 32(v1.4.4 已把默认调到 32,但存量配置里的 4 从不被上调,导致回合内多代理
+    // 扇出/编排被卡在 4)。仅迁移【恰为旧默认 4】的值;显式设成别的低值(1/2/3)视为用户有意,不动。flag 防重复迁移
+    // (置位后用户再设 4 会被尊重)。上限从 32 放宽到 64。
+    if (config.subagentBudgetMigrated !== true && sm === 4) sm = 32;
+    const clamped = Number.isFinite(sm) ? Math.min(64, Math.max(0, Math.round(sm))) : 32;
     if (clamped !== config.subagentMaxPerTurn) { config.subagentMaxPerTurn = clamped; changed = true; }
   }
-  // v1.4.4: agentWorkflowMaxNodes — persisted Agent 工作流 DAG node-count ceiling (see defaultConfig()).
+  if (config.subagentBudgetMigrated !== true) { config.subagentBudgetMigrated = true; changed = true; }
+  // v1.4.4: agentWorkflowMaxNodes — persisted Agent 工作流 DAG node-count ceiling (see defaultConfig())。第23波上限 32→64。
   {
     const am = Number(config.agentWorkflowMaxNodes);
-    const clamped = Number.isFinite(am) ? Math.min(32, Math.max(1, Math.round(am))) : 32;
+    const clamped = Number.isFinite(am) ? Math.min(64, Math.max(1, Math.round(am))) : 48;
     if (clamped !== config.agentWorkflowMaxNodes) { config.agentWorkflowMaxNodes = clamped; changed = true; }
   }
   {
@@ -7376,22 +7387,22 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
     description: '拆解问题 → 双镜头并行联网检索(事实/观点) → 对抗式事实核验(剔除无据主张、去重) → 只依据已核验发现写带引用的结构化综述。适合需要可靠、可追溯结论的调研。模型建议:并行检索(research_*)可用快模型广撒网;核验(verify)与综述(synthesize)建议在编辑器为其指派更强模型,因为它们决定结论的可信度。',
     nodes: [
       { id: 'plan', task: '把研究问题拆成 3–4 个关键子问题。每个子问题注明:①要回答什么(具体到可判定);②优先检索方向与关键词;③适合的权威来源类型。若问题本身含歧义,先列出你对范围/定义的假设。输出:编号子问题清单 + 检索要点。', role: 'explorer', position: { x: 40, y: 200 } },
-      { id: 'research_facts', task: '认领 plan 的全部子问题,联网检索并阅读来源,重点抓【事实与现状】:定义、关键数据/数字、时间线、权威来源的明确表述。对每条发现给出:结论一句话 + 支撑来源(标题与 URL)+ 置信度(高/中/低)。只记录有来源支撑的内容;查不到就写"未找到可靠来源",不要编。', role: 'explorer', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 340, y: 90 } },
-      { id: 'research_context', task: '认领 plan 的全部子问题,联网检索并阅读来源,重点抓【分析与观点】:不同立场与权衡、争议点、行业/专家观点、反面证据。格式同 research_facts(结论 + 来源 + 置信度)。刻意寻找与主流叙述相悖的证据,避免只找支持性材料。', role: 'explorer', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 340, y: 310 } },
-      { id: 'verify', task: '对 research_facts 与 research_context 的所有发现做对抗式核验:逐条检查是否真有来源支撑、来源是否可靠、彼此有无矛盾;剔除无据或夸大的主张、合并重复项、标注仍存疑的点。输出两份清单:①已核验发现(每条附来源与置信度);②被剔除/存疑清单及原因。默认怀疑,证据不足即降级或剔除。', role: 'reviewer', dependsOn: ['research_facts', 'research_context'], failurePolicy: 'continue', position: { x: 660, y: 200 } },
-      { id: 'synthesize', task: '仅依据 verify 节点【已核验】的发现,写一篇结构化综述:①一段摘要给出总体结论;②按主题分节的结论(每条关键判断标注来源);③已知的不确定性与分歧;④针对原始问题的建议或下一步。绝不引入未经核验的新主张;证据不足处如实说明。', role: 'explorer', dependsOn: ['verify'], position: { x: 980, y: 200 } },
+      { id: 'research_facts', task: '认领 plan 的全部子问题,联网检索并阅读来源,重点抓【事实与现状】:定义、关键数据/数字、时间线、权威来源的明确表述。对每条发现给出:结论一句话 + 支撑来源(标题与 URL)+ 置信度(高/中/低)。只记录有来源支撑的内容;查不到就写"未找到可靠来源",不要编。', role: 'researcher', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 340, y: 90 } },
+      { id: 'research_context', task: '认领 plan 的全部子问题,联网检索并阅读来源,重点抓【分析与观点】:不同立场与权衡、争议点、行业/专家观点、反面证据。格式同 research_facts(结论 + 来源 + 置信度)。刻意寻找与主流叙述相悖的证据,避免只找支持性材料。', role: 'researcher', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 340, y: 310 } },
+      { id: 'verify', task: '对 research_facts 与 research_context 的所有发现做对抗式核验:逐条检查是否真有来源支撑、来源是否可靠、彼此有无矛盾;剔除无据或夸大的主张、合并重复项、标注仍存疑的点。输出两份清单:①已核验发现(每条附来源与置信度);②被剔除/存疑清单及原因。默认怀疑,证据不足即降级或剔除。', role: 'critic', dependsOn: ['research_facts', 'research_context'], failurePolicy: 'continue', position: { x: 660, y: 200 } },
+      { id: 'synthesize', task: '仅依据 verify 节点【已核验】的发现,写一篇结构化综述:①一段摘要给出总体结论;②按主题分节的结论(每条关键判断标注来源);③已知的不确定性与分歧;④针对原始问题的建议或下一步。绝不引入未经核验的新主张;证据不足处如实说明。', role: 'synthesizer', dependsOn: ['verify'], position: { x: 980, y: 200 } },
     ],
   },
   {
     id: 'design-and-decide', title: '需求 → 多方案 → 选型 → 落地清单',
     description: '拆清需求与评价维度 → 并行产出三种不同取向的候选方案 → 按权重打分横向选型 → 输出可执行落地清单。适合技术选型、架构决策、方案权衡。模型建议:方案生成(option_*)可用快模型广撒网;选型(decide)与落地清单(rollout)建议指派更强模型,它们承担权衡与决策质量。',
     nodes: [
-      { id: 'clarify', task: '把需求拆清并结构化:①目标与非目标;②硬约束(性能/成本/合规/时间/团队能力等,尽量量化);③评价维度及其相对权重;④明确的成功判据。凡有歧义处,列出你所做的假设。输出结构化需求说明,供后续方案与选型共用。', role: 'explorer', position: { x: 40, y: 220 } },
+      { id: 'clarify', task: '把需求拆清并结构化:①目标与非目标;②硬约束(性能/成本/合规/时间/团队能力等,尽量量化);③评价维度及其相对权重;④明确的成功判据。凡有歧义处,列出你所做的假设。输出结构化需求说明,供后续方案与选型共用。', role: 'planner', position: { x: 40, y: 220 } },
       { id: 'option_a', task: '在 clarify 的约束下产出一个【稳妥成熟】取向的候选方案:方案概述、核心取舍、如何逐条满足硬约束、优点、主要风险与缓解、粗略成本/工期。只出一个方案,把它论证扎实。', role: 'explorer', dependsOn: ['clarify'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
       { id: 'option_b', task: '同 option_a 的格式,但取【性能/能力优先或创新】取向,给出与 option_a 明显不同的方案(不同技术栈/架构/思路),并诚实标注其代价。', role: 'explorer', dependsOn: ['clarify'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
       { id: 'option_c', task: '同 option_a 的格式,取【最简/最低成本或最快落地】取向,给出投入最小、能先跑起来的方案,并说明其局限与后续演进路径。', role: 'explorer', dependsOn: ['clarify'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
       { id: 'decide', task: '按 clarify 的评价维度与权重,对 option_a/b/c 逐维打分并给出理由(不只给分),做一张横向对比表。选出推荐方案,说明它为何优于其余、以及采用它最需警惕的风险。若某方案的局部优点值得吸收,可提出一个融合改良版。', role: 'reviewer', dependsOn: ['option_a', 'option_b', 'option_c'], gate: { mode: 'cross_review' }, failurePolicy: 'continue', position: { x: 680, y: 220 } },
-      { id: 'rollout', task: '把 decide 选定(或改良)的方案落成可执行清单:分阶段任务及其依赖顺序、每步交付物与验收点、所需资源与前置条件、主要风险的应对与回滚点、以及最早可验证价值的里程碑。', role: 'explorer', dependsOn: ['decide'], position: { x: 1000, y: 220 } },
+      { id: 'rollout', task: '把 decide 选定(或改良)的方案落成可执行清单:分阶段任务及其依赖顺序、每步交付物与验收点、所需资源与前置条件、主要风险的应对与回滚点、以及最早可验证价值的里程碑。', role: 'planner', dependsOn: ['decide'], position: { x: 1000, y: 220 } },
     ],
   },
   {
@@ -7402,7 +7413,7 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
       { id: 'audit_correctness', task: '在 map 指出的重点区域找【正确性缺陷】:边界条件、错误处理缺失、并发/竞态、空值/未初始化、类型或接口契约不一致、资源泄漏。每条给:文件:行、具体触发条件、影响、建议修法。只报你能写出触发路径的,拿不准不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
       { id: 'audit_security', task: '找【安全缺陷】:注入(命令/SQL/路径)、路径穿越、鉴权/越权、敏感信息泄露、SSRF、不安全默认值、反序列化。每条给:文件:行、具体利用路径、影响、修法。只报可利用的,理论风险不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
       { id: 'audit_quality', task: '找【性能与可维护性】问题:热路径/循环内的低效、随数据量或时长恶化的结构、重复三次以上的逻辑、超长函数、死代码、易错的命名/边界。每条给文件:行与可度量的改进点。只报改了确有收益的。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
-      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。输出:①成立发现清单(每条含严重度 P1/P2/P3 与一句根因);②被否证清单及理由。默认怀疑,写不出具体触发即否证。', role: 'reviewer', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。输出:①成立发现清单(每条含严重度 P1/P2/P3 与一句根因);②被否证清单及理由。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], failurePolicy: 'continue', position: { x: 680, y: 220 } },
       { id: 'backlog', task: '把 verify 的成立发现排成修复清单:按(严重度 × 影响 ÷ 改动成本)分三档——立即修 / 下一轮 / 可选打磨;每条给一句修复要点与建议顺序;识别可在同一次改动里顺手带走的同类项。', role: 'explorer', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
@@ -7421,11 +7432,23 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
     id: 'doc-from-scratch', title: '文档生成:提纲 → 分节撰写 → 核验 → 统稿',
     description: '从零产出高质量文档/报告:定提纲与受众 → 并行撰写各章节 → 事实与一致性核验 → 统稿润色并落盘。适合技术文档、方案书、调研报告。模型建议:分节撰写(draft_*)可用快模型提产量;提纲(outline)、核验(factcheck)、统稿(finalize)建议指派更强模型,它们决定结构与成稿质量。',
     nodes: [
-      { id: 'outline', task: '明确文档的目标、目标受众与使用场景;产出详细提纲:章节结构、每节的要点与预期篇幅、需要引用的事实/数据来源、关键术语的统一口径。并给出写作约定(风格、人称、格式规范),供各撰写节点共同遵循。', role: 'explorer', position: { x: 40, y: 200 } },
+      { id: 'outline', task: '明确文档的目标、目标受众与使用场景;产出详细提纲:章节结构、每节的要点与预期篇幅、需要引用的事实/数据来源、关键术语的统一口径。并给出写作约定(风格、人称、格式规范),供各撰写节点共同遵循。', role: 'planner', position: { x: 40, y: 200 } },
       { id: 'draft_front', task: '按 outline 撰写【前半部分章节】:严格遵循提纲要点与写作约定,内容具体、有必要的例子,不编造事实——不确定的数据/事实标注"[待核]"而非杜撰。只输出你负责章节的正文。', role: 'explorer', dependsOn: ['outline'], failurePolicy: 'continue', position: { x: 340, y: 90 } },
       { id: 'draft_back', task: '按 outline 撰写【后半部分章节】,方法与格式同 draft_front(遵循写作约定、具体有例、不编造、"[待核]"标注)。只输出你负责章节的正文。', role: 'explorer', dependsOn: ['outline'], failurePolicy: 'continue', position: { x: 340, y: 310 } },
-      { id: 'factcheck', task: '核验 draft_front 与 draft_back:事实/数据是否准确且前后一致、有无自相矛盾、是否偏离提纲与受众、"[待核]"项是否仍未解决。输出问题清单(每条定位到章节/句子 + 修改建议)。此节点不改写正文,只出清单。', role: 'reviewer', dependsOn: ['draft_front', 'draft_back'], failurePolicy: 'continue', position: { x: 680, y: 200 } },
+      { id: 'factcheck', task: '核验 draft_front 与 draft_back:事实/数据是否准确且前后一致、有无自相矛盾、是否偏离提纲与受众、"[待核]"项是否仍未解决。输出问题清单(每条定位到章节/句子 + 修改建议)。此节点不改写正文,只出清单。', role: 'critic', dependsOn: ['draft_front', 'draft_back'], failurePolicy: 'continue', position: { x: 680, y: 200 } },
       { id: 'finalize', task: '整合 draft_front 与 draft_back,按 factcheck 的问题清单逐条修正;统一术语、风格与章节过渡,润色成一篇连贯完整的文档,补齐目录与小结。将成稿写入工作区文件(用户未指定文件名时取一个合理默认,如 <主题>.md)。输出成稿路径与一段变更摘要。', role: 'worker', toolTier: 'edit', dependsOn: ['factcheck', 'draft_front', 'draft_back'], position: { x: 1000, y: 200 } },
+    ],
+  },
+  {
+    id: 'data-insights', title: '数据洞察:探查 → 方案 → 多角度分析 → 核验 → 洞察',
+    description: '对数据/日志/指标做系统化分析:数据画像 → 定分析方案与口径 → 双线并行分析(主线 + 交叉/异常) → 对抗核验剔除不稳健结论 → 综合成洞察报告。模型建议:探查/分析(analyst)可用中等模型;方案(planner)、核验(critic)、洞察综述(synthesizer)建议指派更强模型。分析节点要读数据/跑只读脚本,请给足工具权限(analyst 为 exec 级)。',
+    nodes: [
+      { id: 'profile', task: '对目标数据/日志做初步探查:字段与结构、规模、数据质量问题(缺失/异常/重复/格式)、时间与口径范围,以及据此可回答哪些问题方向。只读不改。输出数据画像 + 待澄清项。', role: 'analyst', position: { x: 40, y: 200 } },
+      { id: 'plan', task: '基于 profile 定分析方案:要回答的关键问题(可判定)、清洗与口径规则(如何处理缺失/异常/去重、指标如何定义)、每个问题用什么切法与指标、结果如何交叉验证。输出结构化分析方案。', role: 'planner', dependsOn: ['profile'], position: { x: 340, y: 200 } },
+      { id: 'analyze_main', task: '按 plan 执行【主线分析】:运行必要的只读查询/脚本,产出关键指标、趋势、分组对比等,每条结论标注口径(样本/时间范围/指标定义)与证据。不修改源数据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 90 } },
+      { id: 'analyze_cross', task: '按 plan 执行【交叉与异常分析】:换维度切分、寻找异常点与反直觉现象、验证主线结论在不同切法下是否稳健。同样标注口径与证据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 310 } },
+      { id: 'verify', task: '对 analyze_main 与 analyze_cross 的结论做对抗核验:口径是否一致、样本/时间范围是否可比、有无以偏概全或把相关当因果、异常是否被解释。剔除不稳健或口径不清的结论,标注存疑项。输出:①稳健结论清单;②被剔除/存疑清单及理由。', role: 'critic', dependsOn: ['analyze_main', 'analyze_cross'], failurePolicy: 'continue', position: { x: 960, y: 200 } },
+      { id: 'insights', task: '仅依据 verify 通过的稳健结论,综合成一份洞察报告:①核心发现(按重要性排序,每条附口径与证据);②值得注意的异常或反直觉点;③局限与不确定性;④建议的下一步或可行动项。不引入未经核验的新结论。', role: 'synthesizer', dependsOn: ['verify'], position: { x: 1280, y: 200 } },
     ],
   },
 ]);
@@ -7447,7 +7470,7 @@ function normalizeAgentWorkflow(raw, opts = {}) {
   const title = String(raw.title || '').trim().slice(0, 120);
   if (!id || !title || !Array.isArray(raw.nodes) || !raw.nodes.length) return null;
   const ids = new Set(); const nodes = [];
-  for (const item of raw.nodes.slice(0, 32)) {
+  for (const item of raw.nodes.slice(0, 64)) {
     const nodeId = String(item && item.id || '').trim().slice(0, 64); const task = String(item && item.task || '').trim().slice(0, 20000);
     if (!/^[A-Za-z0-9_-]{1,64}$/.test(nodeId) || ids.has(nodeId) || !task) return null; ids.add(nodeId);
     const pos = item.position && typeof item.position === 'object' ? { x: Math.max(0, Math.min(4000, Number(item.position.x) || 0)), y: Math.max(0, Math.min(4000, Number(item.position.y) || 0)) } : null;
@@ -7657,7 +7680,7 @@ function materializePoolItem(run, item, opts = {}) {
     if (!rawTask) return { ok: false, error: '提案任务为空' };
     // 团队模式 v2 (P3-7): 节点数上限复检用配置值(Math.min(32, config)),与 launch 检查同名来源 agentWorkflowMaxNodes;
     // 硬顶仍 32。opts.config 缺失(如角色库不可用时以空库物化的降级路径)回退 32。
-    const maxNodes = Math.min(32, Number(opts.config && opts.config.agentWorkflowMaxNodes) || 32);
+    const maxNodes = Math.min(64, Number(opts.config && opts.config.agentWorkflowMaxNodes) || 48);
     if (nodes.length >= maxNodes) return { ok: false, error: `工作流节点已达上限(${maxNodes}),无法追加该任务` };
     if (nodes.some(n => n.id === item.id)) return { ok: false, error: '节点 id 已存在' };
     // 团队模式 v2 (P2-2): 物化节点 task 前置溯源标注 + 围栏声明,并中和提案正文行首伪造前缀(提案文本由别的子代理撰写,不可信)。
@@ -7748,12 +7771,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     runId = safeSessionId(runIdOverride) || makeId('run');
     const limit = Math.max(0, Number(maxNodes) || 0);
     if (!Array.isArray(rawNodes) || !rawNodes.length) return { ok: false, error: 'nodes 必须是非空数组', startedCount: 0 };
-    // v1.4.4: wording is caller-agnostic — this same check gates BOTH an ad hoc in-turn orchestrate_agents
-    // call (limit = remaining per-turn spawn_agent budget) and a persisted DAG launch (limit =
-    // agentWorkflowMaxNodes), which are different concepts with different callers.
+    // 第23波: 现在 in-turn orchestrate 与 persisted DAG launch 两条路径的 limit 都 = agentWorkflowMaxNodes(节点数上限),
+    // 口径统一(此前 in-turn 误用 subagentMaxPerTurn 那个 ad-hoc 扇出预算,导致内置模板被卡)。limit=0 仍视为禁编排。
     if (!limit || rawNodes.length > limit) return { ok: false, error: `节点数超出上限(${limit}),需要 ${rawNodes.length}`, startedCount: 0 };
     const ids = new Set(); nodes = [];
-    for (const raw of rawNodes.slice(0, 32)) {
+    for (const raw of rawNodes.slice(0, 64)) {
       const id = String(raw && raw.id || '').trim().slice(0, 64);
       const task = String(raw && raw.task || '').trim();
       if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, error: `无效节点 id: ${id || '(空)'}`, startedCount: 0 };
@@ -8691,7 +8713,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               else {
                 resultObj = await runAgentWorkflow({
                   parentSession: session, provider, config, nodes: resolved.nodes, onEvent, ctrl,
-                  permModeOverride: subPermMode, maxNodes: subagentTurnCap - subagentTotal, contextText: String(args.context || '').trim(),
+                  // 第23波(修 bug): 回合内 orchestrate 的【节点数上限】用 agentWorkflowMaxNodes(DAG 节点上限),不再用
+                  // subagentTurnCap(=subagentMaxPerTurn,那是 ad-hoc spawn_agent 的【每回合扇出预算】,概念不同)。此前二者
+                  // 被混用 → 一个 5 节点的内置模板在 subagentMaxPerTurn=4 的配置下被「节点数超出上限(4)」直接拒掉,而 UI/
+                  // Claude 的 launch 路径(用 agentWorkflowMaxNodes)却能跑。现两条路径口径一致。并发仍受 subagentMaxConcurrent 约束。
+                  permModeOverride: subPermMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText: String(args.context || '').trim(),
                   // 团队模式 v2: 回合内 orchestrate 是同步阻塞在聊天回合里的临时 DAG——若开任务池,收尾宽限窗会把聊天回合
                   // 卡住等审批(无自然审批时机)。故回合内 DAG 一律关任务池(propose_task 不注册);持久化 launch 才走审批流。
                   poolPolicy: 'off',
