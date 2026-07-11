@@ -57,6 +57,10 @@
    保守缩放:只放大点击区与选定间距,不重定义全站 --sp-*,避免撑破三栏布局。data-density 由 applyUiMode 联动。 */
 :root[data-density="comfortable"] { --density-scale: 1.06; --tap-min: 40px; }
 :root[data-density="compact"] { --density-scale: 1; --tap-min: 30px; }
+/* 第23波: 节点角色配色调色板(9 色,两主题通用的中调,仅作强调:胶囊/描边/左色条)。定义在非主题作用域 :root,
+   dark/light 均继承。--wf-role-color 由 JS 按节点角色注入;initial=保证无效,使 var(--wf-role-color, 回退) 走回退,
+   未指定角色色的节点回退 --muted/transparent。 */
+:root { --role-blue: #4a7fd0; --role-green: #3aa06a; --role-orange: #d1802f; --role-purple: #8a68d0; --role-teal: #2f9e94; --role-cyan: #2f93c4; --role-red: #d15555; --role-amber: #c9962f; --role-indigo: #5d6fd8; --wf-role-color: initial; }
 
 :root[data-theme="dark"] {
   /* 如意 Ruyi「墨夜」深色主题:青花蓝 + 鎏金点缀 + 藏蓝墨底(v1.0-S1 青花主题重铸)。 */
@@ -1370,6 +1374,9 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .workflow-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: var(--muted); font-size: var(--fs-xs); }
 .workflow-field input, .workflow-field select, .workflow-field textarea { width: 100%; color: var(--ink); }
 .workflow-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 8px; padding: 7px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--panel-2) 78%, transparent); }
+/* 第23波: 工具栏按逻辑分组(模板 / 节点 / 连线),组间以细分隔线区隔。 */
+.wf-tb-group { display: inline-flex; align-items: center; gap: 6px; }
+.wf-tb-sep { align-self: stretch; width: 1px; min-height: 20px; background: var(--line); margin: 1px 3px; }
 .workflow-editor-toolbar select { min-width: 170px; }
 .workflow-btn { border-radius: 999px; padding-inline: 10px; border-color: var(--line-2); background: var(--panel); }
 .workflow-btn:hover { background: var(--panel-3); border-color: var(--accent); }
@@ -1407,6 +1414,10 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .wf-node-head strong { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .wf-node-gate { flex: none; font-size: var(--fs-sm); color: var(--warn-fg); }
 .wf-node-role { color: var(--muted); font-size: var(--fs-xs); }
+/* 节点卡按角色着色:左侧 3px 色条 + 角色胶囊。--wf-role-color 由 JS 按节点角色注入(app.js renderGraph);
+   调色板 --role-* 与该运行时变量定义在文件顶部的非主题作用域 :root(两主题通用)。 */
+.workflow-node-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 8px 0 0 8px; background: var(--wf-role-color, transparent); opacity: .92; pointer-events: none; }
+.workflow-node-card .wf-role-chip { display: inline-flex; align-items: center; font-size: var(--fs-xs); line-height: 1.55; padding: 0 8px; border-radius: 999px; font-weight: 500; color: var(--wf-role-color, var(--muted)); border: 1px solid color-mix(in srgb, var(--wf-role-color, var(--muted)) 48%, var(--line)); background: color-mix(in srgb, var(--wf-role-color, var(--muted)) 12%, transparent); }
 .workflow-node-card .wf-node-model { font-family: var(--mono); font-size: var(--fs-xs); color: var(--accent); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workflow-node-card.wf-node-invalid { border-color: var(--danger); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 28%, transparent); }
 .wf-port { position: absolute; right: -6px; top: 45px; width: 12px; height: 12px; margin-top: -6px; border-radius: 999px; background: var(--accent); border: 2px solid var(--panel); cursor: crosshair; transition: transform var(--dur-fast) var(--ease-out); touch-action: none; }
