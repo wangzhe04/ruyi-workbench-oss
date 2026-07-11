@@ -1590,6 +1590,9 @@ function normalizeSession(raw) {
   if (!Array.isArray(session.attachments)) { session.attachments = []; changed = true; }
   // v0.8-S3: todo list (TodoWrite). Old sessions predate it → backfill empty array.
   if (!Array.isArray(session.todos)) { session.todos = []; changed = true; }
+  // 第26波b: 任务账本(MissionSpec)。默认 null(无任务)。旧会话无此键 → 保持 null。
+  if (session.mission !== null && session.mission !== undefined && typeof session.mission !== 'object') { session.mission = null; changed = true; }
+  if (session.mission === undefined) { session.mission = null; changed = true; }
   // v1 技能体系: 会话启用的技能数组(上限 8)。P2-2: 元素为 {id, source} 对象 —— source 锁定「启用当时的注册表
   // 来源」(builtin/user/project),据此在解析时校验来源未被调包(防换 cwd 后同 id 项目技能静默顶替内置技能)。
   // 向后兼容: 旧裸字符串 id 视为 {id, source:''}(source 空 = 宽松匹配一次),本次 normalize 即固化为对象结构。
@@ -1647,6 +1650,112 @@ function normalizeTodoItems(raw) {
     const id = (o.id != null && String(o.id).trim()) ? String(o.id).slice(0, 64) : `t${i + 1}`;
     return { id, text, status };
   });
+}
+
+// ============================================================================
+// 第26波b(AUTONOMY-PLAN §26b):任务账本(MissionSpec)—— 长任务的「目标—验收—预算」权威状态,存 session.mission
+// (随会话走,免疫压缩:账本不在 messages 里),驱动 until-done 续跑。规范器同款三路复用(工具/API/驱动器)。
+//  · milestones[].check:机器可判定优先(command 跑进程判退出码/输出、file_exists 判文件在)、'none' 由模型自报;
+//  · budget.maxAutoTurns:无人值守自动续跑硬上限;spent 累计;autoMode:off|until-done|supervised;
+//  · stall:digest K 轮不变即停滞;replans:重规划次数(硬限)。
+const MISSION_MAX_MILESTONES = 16;
+const MISSION_MAX_TEXT = 400;
+const MISSION_MAX_CONSTRAINTS = 12;
+const MISSION_DEFAULT_MAX_TURNS = 12;
+const MISSION_REPLAN_LIMIT = 2;
+const MISSION_STALL_LIMIT = 3;
+function normalizeMissionCheck(raw) {
+  const o = (raw && typeof raw === 'object') ? raw : {};
+  const type = (o.type === 'command' || o.type === 'file_exists') ? o.type : 'none';
+  const check = { type };
+  if (type === 'command') { check.cmd = String(o.cmd == null ? '' : o.cmd).slice(0, 500); if (o.expect != null) check.expect = String(o.expect).slice(0, 200); }
+  else if (type === 'file_exists') check.path = String(o.path == null ? '' : o.path).slice(0, 500);
+  return check;
+}
+function normalizeMission(raw, prev) {
+  if (raw === null) return null; // 显式清空
+  const o = (raw && typeof raw === 'object') ? raw : {};
+  const p = (prev && typeof prev === 'object') ? prev : {};
+  const rawMs = Array.isArray(o.milestones) ? o.milestones : (Array.isArray(p.milestones) ? p.milestones : []);
+  const seen = new Set();
+  const milestones = rawMs.slice(0, MISSION_MAX_MILESTONES).map((m, i) => {
+    const mo = (m && typeof m === 'object') ? m : {};
+    let id = (mo.id != null && String(mo.id).trim()) ? String(mo.id).trim().slice(0, 64) : `m${i + 1}`;
+    while (seen.has(id)) id = id + '_'; seen.add(id);
+    const status = (mo.status === 'done' || mo.status === 'blocked') ? mo.status : 'pending';
+    return { id, desc: String(mo.desc == null ? '' : mo.desc).slice(0, MISSION_MAX_TEXT), status, check: normalizeMissionCheck(mo.check), evidence: mo.evidence ? String(mo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
+  });
+  const budgetIn = (o.budget && typeof o.budget === 'object') ? o.budget : (p.budget || {});
+  const maxAutoTurns = Math.max(1, Math.min(50, Math.round(Number(budgetIn.maxAutoTurns) || MISSION_DEFAULT_MAX_TURNS)));
+  const spentIn = (p.spent && typeof p.spent === 'object') ? p.spent : {};
+  const autoMode = ['off', 'until-done', 'supervised'].includes(o.autoMode) ? o.autoMode : (['off', 'until-done', 'supervised'].includes(p.autoMode) ? p.autoMode : 'off');
+  return {
+    goal: String(o.goal != null ? o.goal : (p.goal || '')).slice(0, 2000),
+    milestones,
+    constraints: (Array.isArray(o.constraints) ? o.constraints : (Array.isArray(p.constraints) ? p.constraints : [])).slice(0, MISSION_MAX_CONSTRAINTS).map(c => String(c || '').slice(0, MISSION_MAX_TEXT)).filter(Boolean),
+    budget: { maxAutoTurns, maxTokens: Number.isFinite(Number(budgetIn.maxTokens)) ? Math.max(0, Math.round(Number(budgetIn.maxTokens))) : 0 },
+    spent: { autoTurns: Math.max(0, Number(spentIn.autoTurns) || 0), tokens: Math.max(0, Number(spentIn.tokens) || 0) },
+    autoMode,
+    stall: { lastDigest: String((p.stall && p.stall.lastDigest) || ''), sameCount: Math.max(0, Number(p.stall && p.stall.sameCount) || 0) },
+    replans: Math.max(0, Number(p.replans) || 0),
+    createdAt: p.createdAt || nowIso(),
+    updatedAt: nowIso(),
+  };
+}
+// 第26波b: 增量更新账本(mission_update 工具 / API update)—— 按 id 【合并】里程碑,不整表替换。
+// 已存在的 id → 更新 status/evidence/desc(只更新提供的字段);新 id → 追加(受 16 上限);goal 提供才改。
+// 关键:与 normalizeMission(full-replace,用于 start)语义相反 —— 模型只报"m2 done"时不能抹掉 m1/m3。
+function applyMissionUpdate(prev, patch) {
+  if (!prev) return prev;
+  const p = (patch && typeof patch === 'object') ? patch : {};
+  const next = normalizeMission({}, prev); // 深拷现有(经规范化)
+  if (p.goal != null) next.goal = String(p.goal).slice(0, 2000);
+  const ups = Array.isArray(p.milestones) ? p.milestones : [];
+  const byId = new Map(next.milestones.map(m => [m.id, m]));
+  for (const u of ups) {
+    const uo = (u && typeof u === 'object') ? u : {};
+    const id = String(uo.id || '').trim().slice(0, 64);
+    if (!id) continue;
+    const existing = byId.get(id);
+    if (existing) {
+      if (uo.status === 'done' || uo.status === 'blocked' || uo.status === 'pending') existing.status = uo.status;
+      if (uo.desc != null) existing.desc = String(uo.desc).slice(0, MISSION_MAX_TEXT);
+      if (uo.evidence != null) existing.evidence = String(uo.evidence).slice(0, MISSION_MAX_TEXT);
+      if (uo.check) existing.check = normalizeMissionCheck(uo.check);
+    } else if (next.milestones.length < MISSION_MAX_MILESTONES) {
+      const nm = { id, desc: String(uo.desc || '').slice(0, MISSION_MAX_TEXT), status: (uo.status === 'done' || uo.status === 'blocked') ? uo.status : 'pending', check: normalizeMissionCheck(uo.check), evidence: uo.evidence ? String(uo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
+      next.milestones.push(nm); byId.set(id, nm);
+    }
+  }
+  next.updatedAt = nowIso();
+  return next;
+}
+// 账本进度摘要(前端 digest / 停滞指纹用):`m1:done m2:pending …`。
+function missionProgressDigest(mission) {
+  if (!mission || !Array.isArray(mission.milestones)) return '';
+  return mission.milestones.map(m => m.id + ':' + m.status).join(' ');
+}
+// 执行一条里程碑的机器验收(command 判退出码+可选输出包含;file_exists 判在)。'none' 返回 null(交模型自报)。
+// 只读判定,不改文件;command 走工作区 cwd,复用 runProcess 基建;绝不用于副作用。
+async function evaluateMissionCheck(check, cwd) {
+  if (!check || check.type === 'none') return null;
+  try {
+    if (check.type === 'file_exists') {
+      const p = path.resolve(cwd || '.', String(check.path || ''));
+      try { await fsp.access(p); return { pass: true, detail: '文件存在: ' + check.path }; }
+      catch { return { pass: false, detail: '文件不存在: ' + check.path }; }
+    }
+    if (check.type === 'command') {
+      if (!String(check.cmd || '').trim()) return { pass: false, detail: '空命令' };
+      // shell:true 让整条命令串按用户书写执行(判定性只读用途;超时 60s;工作区 cwd)。
+      const r = await runProcess(String(check.cmd), [], { timeoutMs: 60000, cwd: cwd || process.cwd(), shell: true }).catch(e => ({ code: -1, stdout: '', stderr: String(e && e.message || e) }));
+      const out = String((r.stdout || '') + (r.stderr || ''));
+      const codeOk = Number(r.code) === 0;
+      const expectOk = check.expect ? out.includes(String(check.expect)) : true;
+      return { pass: codeOk && expectOk, detail: `退出码=${r.code}${check.expect ? (expectOk ? ' · 命中期望' : ' · 未命中期望「' + check.expect + '」') : ''}` };
+    }
+  } catch (e) { return { pass: false, detail: '验收异常: ' + String(e && e.message || e).slice(0, 200) }; }
+  return null;
 }
 
 // v0.8-S3/S4a: derive a turn_summary from the turn's tool records + checkpoint journal. Both engines call
@@ -1909,6 +2018,7 @@ async function createSession({ title, cwd }) {
     messages: Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [],
     providerHistory: [],
     attachments: [],
+    mission: null, // 第26波b: 任务账本(见 normalizeMission)
   };
   await saveSession(session);
   return session;
@@ -3749,7 +3859,7 @@ function claudeProviderTailSince(messages) {
   return lastClaudeIdx >= 0 ? arr.slice(lastClaudeIdx + 1) : arr;
 }
 
-async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
+async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driverAuto }) {
   const config = await readConfig();
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
@@ -3784,6 +3894,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
     attachments: attachments || [],
     turnSeq: session.turnSeq, // v0.8-S4b: stamp turnSeq for rewind (see runOpenAiTurn)
     createdAt: nowIso(),
+    ...(driverAuto ? { source: 'mission-driver' } : {}), // 第26波b: 标记账本驱动器自动续跑,前端可区分显示
   });
   await saveSession(session);
 
@@ -3868,6 +3979,14 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
       if (memSec) memSec = memSec.replace(/%/g, '％').replace(/!/g, '！');
       if (memSec) appendSys = appendMemorySection(appendSys, memSec, 8000);
     } catch { /* 记忆注入绝不可阻断回合 */ }
+    // 第26波b(两引擎对称): 任务账本 digest 并入 append —— 与 Provider 侧 buildMissionPromptSection 同源,
+    // 让 Claude 引擎在长任务里同样知道整体目标与进度。fits-or-drop(同记忆契约,免破坏闭合围栏);% ! 全角中和;
+    // 零任务返回 '' → 零注入。meta-guard F 组锁两引擎对称。
+    try {
+      let misSec = buildMissionPromptSection(session.mission, 'claude');
+      if (misSec) misSec = misSec.replace(/%/g, '％').replace(/!/g, '！');
+      if (misSec) appendSys = appendMemorySection(appendSys, misSec, 8000);
+    } catch { /* 账本注入绝不可阻断回合 */ }
     // 第23波(主动性·意图触发 · 两引擎对称): Claude 引擎经 MCP 暴露 orchestrate_agents,但 append-system-prompt 此前
     // 只带 用户append+技能+记忆,从不告知有哪些模板 → Claude 侧模型无从用 workflowId(与 Provider 不对称的能力缺口)。
     // 这里补上 buildOrchestrateHint(与 Provider 同源)。仅编排开启(subagentMaxPerTurn>0)时注入;遵守 8000 钳,放得下
@@ -5135,7 +5254,7 @@ async function readProjectMemory(cwd) {
 //   config    : for TOOL_REQUIRES gating (enableToolRequiresProbe)
 //   projectMemory : pre-read { text, name, truncated } or null
 //   skillEntries : v1 技能体系 — 本会话已启用且可用的技能条目(kind==='skill'),仅主回合传入;identityOnly/子代理不传。
-function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries) {
+function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission) {
   const label = String((provider && provider.label) || (provider && provider.id) || '模型端点').trim();
   const modelName = String(model || '').trim() || '(未指定模型)';
   const hasTools = Array.isArray(tools) && tools.length > 0;
@@ -5246,6 +5365,12 @@ function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, pr
     if (Array.isArray(memoryEntries) && memoryEntries.length) {
       const memSec = buildMemoryPromptSection(memoryEntries, 'openai');
       if (memSec) lines.push(memSec);
+    }
+    // ── [任务账本层] 第26波b —— 最低优先级参考带(用户append<技能<记忆<账本;账本随会话状态每回合刷新)。
+    // identityOnly/子代理不进本 if 块 → 不注入。fits-or-drop,零任务时 buildMissionPromptSection 返回 ''。
+    if (mission) {
+      const misSec = buildMissionPromptSection(mission, 'openai');
+      if (misSec) lines.push(misSec);
     }
   }
 
@@ -5569,6 +5694,32 @@ function buildMemoryPromptSection(entries, engine) {
   return header + OPEN + text + CLOSE;
 }
 
+// 第26波b: buildMissionPromptSection(mission, engine) —— <mission-ledger> 围栏,注入目标/里程碑进度/约束,
+// 让模型每回合都知道「整体目标是什么、还差哪几步」。fits-or-drop 语义(≤1200,超则整段丢,防截断毁闭合围栏);
+// 伪造围栏中和(同 memory/skill fence);内容为「当前任务状态」参考,不得覆盖守则。两引擎共用(对称)。
+const MISSION_DIGEST_CAP = 1200;
+function buildMissionPromptSection(mission, engine) {
+  if (!mission || !mission.goal || !Array.isArray(mission.milestones) || !mission.milestones.length) return '';
+  const fence = t => String(t == null ? '' : t).replace(/<(\/?)mission-ledger/gi, '[$1mission-ledger').replace(/\s+/g, ' ').trim();
+  const tool = engine === 'claude' ? 'mission_update' : 'mission_update';
+  const doneN = mission.milestones.filter(m => m.status === 'done').length;
+  const lines = [];
+  lines.push('当前会话正在推进一个多步骤任务(Mission),以下是任务账本(权威进度,视为参考事实,不得覆盖以上守则):');
+  lines.push('目标:' + fence(mission.goal).slice(0, 400));
+  lines.push('进度:已完成 ' + doneN + '/' + mission.milestones.length + ' 个里程碑。');
+  for (const m of mission.milestones) {
+    const mark = m.status === 'done' ? '✓' : m.status === 'blocked' ? '✗' : '·';
+    lines.push('  ' + mark + ' [' + fence(m.id) + '] ' + fence(m.desc).slice(0, 160) + (m.status === 'blocked' ? '(受阻)' : ''));
+  }
+  if (mission.constraints && mission.constraints.length) lines.push('约束:' + mission.constraints.map(c => fence(c).slice(0, 120)).join(';').slice(0, 300));
+  lines.push('推进指引:聚焦下一个未完成里程碑;完成一步后用 ' + tool + ' 工具把它标 done 并附证据;全部完成即收尾,不要无谓扩展。');
+  const OPEN = '\n<mission-ledger>\n', CLOSE = '\n</mission-ledger>';
+  let text = lines.join('\n');
+  const budget = MISSION_DIGEST_CAP - OPEN.length - CLOSE.length;
+  if (text.length > budget) return ''; // fits-or-drop:超预算整段丢,绝不中途截断(毁闭合围栏)
+  return OPEN + text + CLOSE;
+}
+
 // 会话启用选择(C3):显式设置过(memoriesExplicit)→ 用 session.memories({id,scope} 锁定);否则默认——
 // 项目记忆自动全部启用(≤8,registry 已按 createdAt 倒序),global 需手动。
 function effectiveMemorySelection(session, registry) {
@@ -5745,6 +5896,7 @@ const NATIVE_TOOL_TIER = {
   git_commit: 'exec', // v1.0-S4: commit triggers .git/hooks (arbitrary code) → must be exec (never lower)
   dependency_inventory: 'read', code_review_scan: 'read', frontend_audit: 'read', claude_md_audit: 'read', docs_search: 'read',
   todo_write: 'read', // v0.8-S3: writing the task list is a planning act, not a filesystem/exec mutation → auto-allow
+  mission_update: 'read', // 第26波b: 更新任务账本是规划/元数据写,非文件/exec 变更 → auto-allow
   skill_read: 'read', // v1 技能体系: 只读已启用技能的 SKILL.md + 目录清单(路径受限该技能目录内)→ auto-allow
   web_search: 'read', web_fetch: 'read', // v0.9-S9: read-only network reads (no local mutation) → auto-allow (SSRF-guarded)
   file_write: 'edit', file_edit: 'edit', file_delete: 'edit', // v0.8-S4a: delete is journaled (revertible) → edit tier
@@ -8407,7 +8559,7 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
 
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
-async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config }) {
+async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto }) {
   config = config || await readConfig();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
@@ -8454,7 +8606,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   session.turnSeq = (Number(session.turnSeq) || 0) + 1;
   // v0.8-S4b: stamp the user message with its turnSeq so rewind can locate a turn's first user message
   // directly (rather than inferring from the following assistant's turnSummary.turnSeq). Additive field.
-  session.messages.push({ role: 'user', content: message, attachments: attachments || [], turnSeq: session.turnSeq, createdAt: nowIso() });
+  session.messages.push({ role: 'user', content: message, attachments: attachments || [], turnSeq: session.turnSeq, createdAt: nowIso(), ...(driverAuto ? { source: 'mission-driver' } : {}) });
   // v0.9-S7 视觉回路: when THIS provider has vision开 AND the turn carries an image attachment, the user
   // message's providerHistory content is a PARTS array [{text},{image_url}…] (the estimator is parts-aware
   // since S5, so this doesn't force a rewrite). vision=false keeps the historical string (pure-text injection
@@ -8524,7 +8676,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const enabledMemoryEntries = await resolveEnabledMemoryEntries(session, workingDir,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
   ).catch(() => []);
-  let sys = buildProviderSystemPrompt(provider, model, workingDir, tools, caps, config, projectMemory, false, enabledSkillEntries, enabledMemoryEntries);
+  let sys = buildProviderSystemPrompt(provider, model, workingDir, tools, caps, config, projectMemory, false, enabledSkillEntries, enabledMemoryEntries, session.mission);
   if (agentRoleMap.size && ownTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
     sys += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
   }
@@ -8988,6 +9140,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 turnTodos = items; // remembered for the turn_summary / persisted assistant message
                 onEvent({ type: 'todo', items });
                 resultObj = { ok: true, count: items.length };
+              } else if (tc.name === 'mission_update') {
+                // 第26波b provider-engine 特例:in-process 合并进 session.mission(闭包持 session + onEvent)。
+                if (session.mission) {
+                  session.mission = applyMissionUpdate(session.mission, { milestones: args.milestones, goal: args.goal });
+                  onEvent({ type: 'mission', mission: session.mission });
+                  resultObj = { ok: true, milestones: session.mission.milestones.length };
+                } else {
+                  resultObj = { ok: false, error: '当前会话没有活动任务账本(Mission);简单任务无需 mission_update' };
+                }
               } else {
                 // v0.8-S4a: pass the live checkpoint-journal context so file_write/file_edit/file_delete
                 // record a `before` snapshot under this session's current turnSeq (serve process path).
@@ -9576,6 +9737,62 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model) 
   }
 }
 
+// ============================================================================
+// 第26波b(AUTONOMY-PLAN §26b):until-done 驱动器 —— 一次用户回合后,若会话有 until-done 账本,服务端在【同一个
+// HTTP 响应流】上自动续跑,直到:①全部里程碑 done(mission_complete);②预算耗尽(archive-pause,非报错);
+// ③停滞(digest K 轮不变 → 降 supervised + mission_stuck 卡片)。红线:驱动器不放宽任何权限(exec 弹窗照旧等人/
+// 超时,权限门在各引擎内部,驱动器够不着也不试图绕);自动回合全额记账(runOpenAiTurn 内 appendUsageLedger 照常)。
+async function runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens, isAlive }) {
+  const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
+  const allDone = () => (session.mission.milestones.length > 0 && session.mission.milestones.every(m => m.status === 'done'));
+  // 每轮:跑机器验收(自动标 done)→ 判完成/预算/停滞 → 决定停或续。
+  for (let guard = 0; guard < 100; guard++) {   // guard 只是死循环兜底,真正上限是 maxAutoTurns
+    const m = session.mission;
+    if (!m || m.autoMode !== 'until-done') return;
+    if (!isAlive()) return;   // 用户断开/停止 → 立即收手
+
+    // ① 机器验收:pass 的 pending/blocked 里程碑标 done(证据落 evidence)。
+    let checkedAny = false;
+    for (const ms of m.milestones) {
+      if (ms.status === 'done') continue;
+      const r = await evaluateMissionCheck(ms.check, cwd);
+      if (r) { checkedAny = true; if (r.pass) { ms.status = 'done'; ms.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); } }
+    }
+    if (checkedAny) { m.updatedAt = nowIso(); await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m }); }
+
+    // ② 全部完成 → 收尾。
+    if (allDone()) { m.autoMode = 'off'; m.updatedAt = nowIso(); await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m, state: 'complete' }); return; }
+
+    // ③ 预算:自动续跑回合数 / token 上限。达上限 → 存档暂停(autoMode→supervised,保留进度,非报错)。
+    if (m.spent.autoTurns >= m.budget.maxAutoTurns || (m.budget.maxTokens > 0 && m.spent.tokens >= m.budget.maxTokens)) {
+      m.autoMode = 'supervised'; m.updatedAt = nowIso(); await saveSession(session).catch(() => {});
+      emit({ type: 'mission', mission: m, state: 'budget_exhausted', reason: `自动推进预算已用尽(${m.spent.autoTurns}/${m.budget.maxAutoTurns} 回合),已暂停等待你的指示` });
+      return;
+    }
+
+    // ④ 停滞:进度指纹连续 K 轮不变 → 降 supervised + 卡片(交给用户;可选一次重规划由用户触发)。
+    const digest = missionProgressDigest(m);
+    if (digest === m.stall.lastDigest) m.stall.sameCount = (Number(m.stall.sameCount) || 0) + 1;
+    else { m.stall.lastDigest = digest; m.stall.sameCount = 0; }
+    if (m.stall.sameCount >= MISSION_STALL_LIMIT) {
+      m.autoMode = 'supervised'; m.updatedAt = nowIso(); await saveSession(session).catch(() => {});
+      emit({ type: 'mission', mission: m, state: 'stuck', reason: `连续 ${m.stall.sameCount} 个回合无进展,已暂停。你可以补充信息、手动调整里程碑,或结束任务。` });
+      return;
+    }
+
+    // ⑤ 续跑:构造推进消息(列出未完成里程碑),自动发起下一回合(全额记账,标 driverAuto)。
+    const pending = m.milestones.filter(ms => ms.status !== 'done');
+    const contMsg = '请继续推进当前任务(Mission)。目标:' + String(m.goal).slice(0, 300) + '\n未完成的里程碑:\n' +
+      pending.map(ms => '- [' + ms.id + '] ' + ms.desc).join('\n') +
+      '\n聚焦下一个里程碑,完成后用 mission_update 工具把它标 done 并附证据。若某步确实无法推进,请说明原因。';
+    m.spent.autoTurns += 1;
+    await saveSession(session).catch(() => {});
+    emit({ type: 'mission', mission: m, state: 'continue', autoTurn: m.spent.autoTurns });
+    await runTurn(contMsg, true);   // driverAuto=true
+    if (getLastTokens) { try { session.mission.spent.tokens += Number(getLastTokens()) || 0; } catch {} }
+  }
+}
+
 async function streamChat(req, res) {
   const body = await readJsonBody(req);
   const config = await readConfig();
@@ -9607,14 +9824,26 @@ async function streamChat(req, res) {
   req.on('aborted', handleDisconnect);
   res.on('close', () => { if (!finished && !res.writableEnded) handleDisconnect(); });
 
-  const emit = evt => { try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ } };
+  // 第26波b: 捕获每回合的 token 用量(账本预算计量)。usage 事件透传不变,仅旁路记录。
+  let lastTurnTokens = 0;
+  const emit = evt => {
+    if (evt && evt.type === 'usage' && evt.usage) { const u = evt.usage; lastTurnTokens = (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0); }
+    try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
+  };
   try {
     emit({ type: 'session', session });
     const provider = activeOpenAiProvider(config);
-    if (provider) {
-      await runOpenAiTurn({ session, message: String(body.message || ''), attachments, cwd: body.cwd, onEvent: emit, provider, config });
-    } else {
-      await runClaudeTurn({ session, message: String(body.message || ''), attachments, cwd: body.cwd, onEvent: emit });
+    // 单回合执行器(首回合=用户消息带附件;账本续跑回合=driverAuto、无附件)。两引擎同签名。
+    const runTurn = async (msg, driverAuto) => {
+      lastTurnTokens = 0;
+      const atts = driverAuto ? [] : attachments;
+      if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto });
+      else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, driverAuto });
+    };
+    await runTurn(String(body.message || ''), false);
+    // until-done 驱动器:仅当会话有活动账本才进(非账本会话零行为变化,与旧单回合完全等价)。
+    if (session.mission && session.mission.autoMode === 'until-done') {
+      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished });
     }
   } catch (err) {
     emit({ type: 'error', error: err.message || String(err) });
@@ -12092,6 +12321,25 @@ Write-Output '${outPath.replace(/'/g, "''")}'
       }
       return { ok: true, count: items.length };
     }
+    case 'mission_update': {
+      // 第26波b: 与 todo_write 同款双路径。serve 进程(provider)由 runOpenAiTurn 特例拦截(持 session);
+      // 此处是 MCP 子进程(Claude)与无回合上下文的兜底:子进程 loopback POST /api/mission(不写会话文件)。
+      if (RUNTIME.isMcpChild) {
+        const port = process.env.WCW_PORT, host = process.env.WCW_HOST || '127.0.0.1';
+        const token = process.env.WCW_TOKEN, sessionId = process.env.WCW_SESSION_ID || '';
+        if (!port || !token || !sessionId) return { ok: false, error: 'mission 需要工作台会话上下文', hint: '独立 MCP 模式不支持' };
+        try {
+          const resp = await httpRequest({
+            url: `http://${host}:${port}/api/mission`, method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ token, sessionId, action: 'update', milestones: args.milestones, goal: args.goal }), timeoutMs: 5000,
+          });
+          const r = safeJsonParse(resp.body, { ok: false, error: 'invalid /api/mission response' });
+          return r && r.ok ? { ok: true, mission: r.mission } : r;
+        } catch (e) { return { ok: false, error: `mission loopback error: ${(e && e.message) || String(e)}` }; }
+      }
+      return { ok: true, note: '账本更新需在工作台会话上下文中生效(独立调用仅校验)' };
+    }
     // v0.9-S6: spawn_agent needs the live provider/session/journal/onEvent closure, so it is handled ONLY
     // inside runOpenAiTurn's tool loop (special-cased like todo_write/bridge). If it ever reaches the
     // context-free toolCall() — a direct /api/tools/spawn_agent, or a call inside the one-shot MCP child —
@@ -12322,7 +12570,7 @@ async function handleApi(req, res, pathname) {
   const mutating = req.method !== 'GET' && req.method !== 'HEAD';
   // /api/todo (like /api/permission/request) is called by the MCP child over loopback — it authenticates
   // with a body token (checked in the handler) and is cross-origin by nature, so it is exempt here too.
-  if (mutating && pathname !== '/api/permission/request' && pathname !== '/api/todo' && pathname !== '/api/agent-workflow/launch') {
+  if (mutating && pathname !== '/api/permission/request' && pathname !== '/api/todo' && pathname !== '/api/agent-workflow/launch' && pathname !== '/api/mission') {
     if (!originOk(req)) return send(res, json({ ok: false, error: 'cross-origin request rejected' }, 403));
     // v0.8-S4a: the checkpoints rollback route is a header-token (UI) route — it is called by the UI, NOT
     // by a loopback child, so it belongs on the needsToken whitelist. It must be listed EXPLICITLY here:
@@ -12863,6 +13111,52 @@ async function handleApi(req, res, pathname) {
     const reg = activeChildren.get(sessionId);
     if (reg && reg.onEvent) { try { reg.onEvent({ type: 'todo', items }); } catch { /* stream gone */ } }
     return send(res, json({ ok: true, count: items.length }));
+  }
+  // ── 第26波b: 任务账本 API。GET 读(header token);POST 改(header token 或 body token —— 后者供 MCP 子进程
+  //    的 mission_update 工具 loopback,同 /api/todo 纪律)。action: start(全量设)/update(合并)/stop/check(跑验收)。──
+  if (pathname === '/api/mission') {
+    const bodyOrQ = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://x').searchParams) : await readJsonBody(req);
+    const bodyTokenOk = RUNTIME.token && bodyOrQ.token === RUNTIME.token;
+    if (!tokenOk(req) && !bodyTokenOk) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const sessionId = safeSessionId(bodyOrQ.sessionId);
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const session = await loadSession(sessionId);
+    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (req.method === 'GET') return send(res, json({ ok: true, mission: session.mission || null }));
+    if (req.method !== 'POST') return send(res, json({ ok: false, error: 'method not allowed' }, 405));
+    const action = String(bodyOrQ.action || 'update');
+    const emitMission = () => { const reg = activeChildren.get(sessionId); if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } } };
+    if (action === 'stop') {
+      if (session.mission) { session.mission.autoMode = 'off'; session.mission.updatedAt = nowIso(); await saveSession(session); emitMission(); }
+      return send(res, json({ ok: true, mission: session.mission || null }));
+    }
+    if (action === 'check') {
+      // 跑全部里程碑机器验收;autoMark!==false 时把 pass 的 pending/blocked 里程碑标 done(证据落 detail)。
+      const cwd = normalizeCwd(session.cwd, (await readConfig()).defaultWorkspace);
+      const results = [];
+      for (const m of ((session.mission && session.mission.milestones) || [])) {
+        const r = await evaluateMissionCheck(m.check, cwd);
+        results.push({ id: m.id, checkType: m.check ? m.check.type : 'none', result: r });
+        if (r && r.pass && bodyOrQ.autoMark !== false && m.status !== 'done') { m.status = 'done'; m.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); }
+        if (r && !r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
+      }
+      if (session.mission) session.mission.updatedAt = nowIso();
+      await saveSession(session); emitMission();
+      return send(res, json({ ok: true, mission: session.mission || null, checks: results }));
+    }
+    // start = 全量新建(normalizeMission,prev=null);update = 按 id 增量合并(applyMissionUpdate,不抹其它里程碑)。
+    // autoMode 可作 body 兄弟字段或 mission.autoMode 传入,两条路径都尊重。
+    if (action === 'start') {
+      const input = { ...(bodyOrQ.mission || bodyOrQ) };
+      if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
+      session.mission = normalizeMission(input, null);
+    } else {
+      if (!session.mission) return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
+      session.mission = applyMissionUpdate(session.mission, bodyOrQ.patch || bodyOrQ);
+      if (bodyOrQ.autoMode != null) session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : session.mission.autoMode;
+    }
+    await saveSession(session); emitMission();
+    return send(res, json({ ok: true, mission: session.mission }));
   }
   if (req.method === 'POST' && pathname === '/api/agent-workflow/launch') {
     // Claude CLI's one-shot MCP child proxies the persistent DAG into the serve process. v1.4.4: the DAG
@@ -14007,6 +14301,31 @@ const MCP_TOOLS = [
         },
       },
       required: ['items'],
+    },
+  },
+  // 第26波b: 任务账本更新。与 todo_write 同款双引擎持久化路径(provider serve 闭包特例 / Claude 走 loopback
+  // POST /api/mission)。仅当会话已有 mission(用户发起长任务)时,模型才被鼓励用它;无 mission 时调用也安全(会创建)。
+  {
+    name: 'mission_update',
+    description: 'Update the long-running task ledger (Mission): mark milestones done/blocked, add milestones, or record evidence. Use it ONLY when a Mission is active for this session (the system prompt shows a <mission-ledger> block). action="update" merges; provide milestones:[{id,desc?,status:pending|done|blocked,evidence?}]. Do NOT invent a Mission for simple one-shot tasks.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        milestones: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              desc: { type: 'string' },
+              status: { type: 'string', enum: ['pending', 'done', 'blocked'] },
+              evidence: { type: 'string', description: '完成证据摘要(文件/测试/结论)' },
+            },
+            required: ['id'],
+          },
+        },
+        goal: { type: 'string' },
+      },
     },
   },
   // v0.9-S6 (子代理, L): spawn a self-contained SUB-TURN to carry out a delegated task, with its OWN

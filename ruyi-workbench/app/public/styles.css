@@ -397,6 +397,35 @@ input:focus, textarea:focus, select:focus {
 .step-bar-list li.in_progress .sb-text { font-weight: 600; color: var(--ink); }
 .step-bar-list li.pending .sb-mark { color: var(--muted); }
 .step-bar-list li .sb-text { min-width: 0; overflow-wrap: anywhere; }
+
+/* 第26波b: 任务账本进度条(mission-bar)—— 与 step-bar 同处会话顶部,视觉略强调(目标+里程碑+自动推进状态)。 */
+.mission-bar { flex: 0 0 auto; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent) 6%, var(--panel-2)); font-size: var(--fs-md); }
+.mission-bar.hidden { display: none; }
+.mission-bar-head { display: flex; align-items: center; gap: 8px; padding: 7px 16px; }
+.mission-bar-icon { flex: none; }
+.mission-bar-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mission-bar-summary .mb-goal { font-weight: 600; color: var(--ink); }
+.mission-bar-summary .mb-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.mission-bar-mode { flex: none; font-size: var(--fs-sm); color: var(--muted); }
+.mission-bar-mode.mb-active { color: var(--accent); font-weight: 600; }
+.mission-bar-mode.mb-warn { color: var(--warn-fg); font-weight: 600; }
+.mission-bar-stop { flex: none; }
+.mission-bar-stop.hidden { display: none; }
+.mission-bar-list { list-style: none; margin: 0; padding: 0 16px 9px 16px; display: flex; flex-direction: column; gap: 4px; }
+.mission-bar-list li { display: flex; align-items: baseline; gap: 8px; color: var(--ink-2); line-height: 1.4; }
+.mission-bar-list li .mb-mark { flex: none; width: 14px; text-align: center; }
+.mission-bar-list li.done { color: var(--muted); }
+.mission-bar-list li.done .mb-mark { color: var(--ok-fg); }
+.mission-bar-list li.done .mb-text { text-decoration: line-through; }
+.mission-bar-list li.blocked .mb-mark { color: var(--danger-fg); }
+.mission-bar-list li .mb-text { min-width: 0; overflow-wrap: anywhere; }
+/* 账本状态卡(完成/停滞/预算)—— 对话流内的轻卡片。 */
+.mission-card { margin: 8px 0; padding: 10px 14px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel-2); }
+.mission-card-ok { border-color: color-mix(in srgb, var(--ok-fg) 40%, var(--line-2)); background: color-mix(in srgb, var(--ok-fg) 7%, var(--panel-2)); }
+.mission-card-warn { border-color: color-mix(in srgb, var(--warn-fg) 40%, var(--line-2)); background: color-mix(in srgb, var(--warn-fg) 8%, var(--panel-2)); }
+.mission-card-head { font-weight: 600; color: var(--ink); }
+.mission-card-body { margin-top: 4px; color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.5; }
+
 /* ↓ 回到最新 (§4.4): round floating button above the composer, right-aligned within the chat pane. */
 .jump-latest { position: absolute; right: 22px; bottom: 96px; z-index: 8; width: 34px; height: 34px; padding: 0;
   display: grid; place-items: center; border-radius: 50%; background: var(--panel); border: 1px solid var(--line-2);

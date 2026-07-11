@@ -63,7 +63,10 @@ function postStream(port, payload) {
     try { argv = JSON.parse(fs.readFileSync(ARGV_CAP, 'utf8')); } catch { /* left empty */ }
     const flagIdx = argv.indexOf('--append-system-prompt');
     ok(flagIdx >= 0, '--append-system-prompt flag passed to the Claude spawn (argv len ' + argv.length + ')');
-    ok(flagIdx >= 0 && argv[flagIdx + 1] === MARKER, 'the flag carries the configured value (' + MARKER + ') — got ' + JSON.stringify(argv[flagIdx + 1]));
+    // 第26波b 修存量过期断言: --append-system-prompt 现在会在用户 append 之后【追加】编排提示(第22/23波)与
+    // 账本 digest(第26波b),故断言从「精确等于」改为「以配置值开头」(用户 append 段是最高优先级、恒在最前)。
+    const flagVal = flagIdx >= 0 ? String(argv[flagIdx + 1] || '') : '';
+    ok(flagVal.startsWith(MARKER), 'the flag carries the configured value (' + MARKER + ') as its leading segment — got ' + JSON.stringify(flagVal.slice(0, 40)));
 
     // The re-read settings.json (after the turn) still has no appendSystemPrompt key.
     const settings2 = JSON.parse(fs.readFileSync(SETTINGS, 'utf8'));

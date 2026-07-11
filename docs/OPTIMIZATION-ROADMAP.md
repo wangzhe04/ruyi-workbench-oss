@@ -370,3 +370,18 @@
 - **P1-3** 节点 status 在 json-repair(≤60s HTTP)/worktree-finalize(git 秒级)/重排清理等 await 窗口内先于 flight settle 变为终态 → run 提前 finalize:run_end 后写、succeeded run 里 queued 僵尸、stop API 够不着的 detached 子代理 → 收尾/宽限窗改「全终态【且】在飞空」。
 - **P3** 池级 .catch 静默吞掉 runNode 内层 try 之外的抛(onEvent/组装)→ 节点卡 running 后被误诊为环、零取证 → 兜底钉节点+落事件。
 - 验收锁随修同扩:`scheduler-ready-queue.e2e` 新增 D(dedupe 门 fast-settle 的确定性反例,修前必红)+ E(run 完成后快照冻结/事件末条=run_end/node_start×settle 按 attemptId 配对)+ 三铁律静态锁;审查员点名的 e2e 盲区(「run_end 是最后一条事件」「完成后快照不再变动」)已补。agent 全家 15 件回归复跑全绿。
+
+## 21. 第 26 波b(进行中):任务账本 + until-done 驱动器(2026-07-11)
+
+长任务从「回合制」升级为「目标制」。核心:`session.mission`(MissionSpec:goal/milestones[]{check}/budget/spent/autoMode/stall/replans)随会话走、免疫压缩(账本不在 messages),驱动服务端在【同一 HTTP 响应流】上自动续跑直到目标达成。
+
+- **26b.1 MissionSpec 模型 + /api/mission**:normalizeMission(full-replace,start 用)/ applyMissionUpdate(按 id 合并,update 用——模型只报"m2 done"不抹 m1/m3)/ evaluateMissionCheck(command 判退出码+期望、file_exists 判在——机器验收优先);API 四动作 start/update/stop/check;鉴权同 /api/todo(header 或 body token,供 MCP 子进程 loopback)。
+- **26b.2 mission_update 工具(两引擎)**:read-tier;provider serve 闭包特例 in-process 合并、Claude 走 loopback POST /api/mission(遵"MCP 子进程不写会话文件"不变量);在 MCP_TOOLS 故两引擎可见。
+- **26b.3 账本 digest 注入(两引擎对称)**:buildMissionPromptSection(<mission-ledger> 围栏 + fits-or-drop ≤1200 + 伪闭合中和);provider 走 buildProviderSystemPrompt(优先级 用户append<技能<记忆<账本)、Claude 走 --append-system-prompt(appendMemorySection fits-or-drop + %! 全角中和);meta-guard **F 组**锁两引擎对称。
+- **26b.4 until-done 驱动器**:runMissionDriver 挂 streamChat 回合收尾——每轮跑机器验收(pass 自动标 done)→ 全 done 停(mission_complete)→ 预算耗尽存档暂停(supervised,非报错)→ 停滞(digest K=3 轮不变)降 supervised+卡片 → 否则自动续回合(source:'mission-driver' 标记,全额记账,token 计入 spent)。**红线:驱动器不放宽任何权限**(exec 弹窗照旧等人/超时,权限门在引擎内部够不着);非账本会话零行为变化(与旧单回合完全等价)。
+- **26b.5 前端**:mission-bar 进度条(目标+里程碑 ✓/▲/○+autoMode 状态+停止按钮,实拍 docs/screenshots/mission-bar.png)、mission 状态卡(完成/停滞/预算)、未知流事件仍安全忽略(default:break)。
+- **26b.6 验收**:mission-driver.e2e(端口 9113/9114,A-E 五组:无人值守跑完/机器验收门控/停滞降级/预算存档暂停/非账本零影响)全绿;顺手修 2 处存量过期断言(e2-append 精确等于→前缀匹配,因编排提示+账本 digest 现会追加;uimode S4 云纹 opacity ≤0.05→≤0.09,因 v3 §C3 刻意 .04→.07)——正是根因#1「人肉清单/硬编码断言随重构失守」的又一实例。
+
+回归:30+ 件受影响面全绿(session/tools/skills/memory/usage/compact/plan/engine/静态 UI + agent 全家 + 崩溃注入/连续队列)。
+
+**26c 待办**:调度核心 reducer 化组合单测。**第27波**:自主性授权书(动信任层,独立红队轮,用户过目后推)。

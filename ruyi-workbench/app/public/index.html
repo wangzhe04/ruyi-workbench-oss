@@ -139,6 +139,17 @@
           <span class="wb-mv-spacer"></span>
         </div>
 
+        <!-- 第26波b: 任务账本进度条。仅当会话有活动 Mission 时显示;里程碑进度 + autoMode 状态。 -->
+        <div id="missionBar" class="mission-bar hidden" role="status" aria-live="polite">
+          <div class="mission-bar-head">
+            <span class="mission-bar-icon" aria-hidden="true">🎯</span>
+            <span id="missionBarSummary" class="mission-bar-summary"></span>
+            <span id="missionBarMode" class="mission-bar-mode"></span>
+            <button id="missionStopBtn" class="mini mission-bar-stop hidden" title="停止自动推进">停止</button>
+          </div>
+          <ul id="missionBarList" class="mission-bar-list"></ul>
+        </div>
+
         <!-- v0.8-S3: task-list step-bar. Hidden until session.todos is non-empty or a `todo` event lands. -->
         <div id="stepBar" class="step-bar hidden" role="status" aria-live="polite">
           <button id="stepBarToggle" class="step-bar-head" aria-expanded="false">

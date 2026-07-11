@@ -100,6 +100,27 @@ const src = fs.readFileSync(SERVER, 'utf8');
   ok(/buildOrchestrateHint\(/.test(openaiRegion), 'E Provider 引擎(runOpenAiTurn)也注入模板提示(对称)');
 }
 
+// ── F) 两引擎能力对称(第26波b):任务账本 digest 必须【两个引擎都注入】。buildMissionPromptSection 共用,
+//        Provider 走 buildProviderSystemPrompt、Claude 走 --append-system-prompt;缺任一侧则长任务在该引擎失忆。──
+{
+  const fnM = src.match(/function buildMissionPromptSection\(mission, engine\) \{[\s\S]*?\n\}/);
+  ok(!!fnM, 'F buildMissionPromptSection 定义存在(两引擎共用的账本 digest 构造)');
+  if (fnM) {
+    ok(/mission-ledger/.test(fnM[0]), 'F digest 含 <mission-ledger> 围栏');
+    ok(/不得覆盖/.test(fnM[0]), 'F digest 声明「不得覆盖守则」(不可信参考带纪律)');
+    ok(/fits-or-drop|整段丢/.test(fnM[0]) && /return ''/.test(fnM[0]), 'F digest fits-or-drop(超预算整段丢,不中截毁围栏)');
+  }
+  const calls = (src.match(/buildMissionPromptSection\(/g) || []).length;
+  ok(calls >= 3, 'F buildMissionPromptSection 被定义 + 两引擎各一次调用(≥3 处,实 ' + calls + ')');
+  const claudeStart = src.indexOf('async function runClaudeTurn(');
+  const claudeEnd = src.indexOf('async function runOpenAiTurn(');
+  const claudeRegion = claudeStart >= 0 && claudeEnd > claudeStart ? src.slice(claudeStart, claudeEnd) : '';
+  ok(/buildMissionPromptSection\(session\.mission/.test(claudeRegion), 'F Claude 引擎(runClaudeTurn)注入账本 digest');
+  ok(/append-system-prompt/.test(claudeRegion) && /appendMemorySection\(appendSys, misSec/.test(claudeRegion), 'F Claude 侧走 --append-system-prompt 且 fits-or-drop 合并(同记忆契约)');
+  const openaiRegion = claudeEnd >= 0 ? src.slice(claudeEnd, claudeEnd + 60000) : '';
+  ok(/buildProviderSystemPrompt\([^)]*session\.mission/.test(openaiRegion), 'F Provider 引擎(runOpenAiTurn)也传 session.mission 注入(对称)');
+}
+
 console.log('');
 if (failures) { console.log(`META-GUARD E2E: ${failures} FAILURE(S)`); process.exit(1); }
 console.log('META-GUARD E2E: ALL PASS');

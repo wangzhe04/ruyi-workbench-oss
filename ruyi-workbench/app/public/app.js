@@ -353,6 +353,57 @@ function toggleStepBar(force) {
   head.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
+// 第26波b: 任务账本进度条。mission=null 或无里程碑 → 隐藏(非账本会话零显示)。
+const MISSION_MARK = { done: '●', blocked: '▲', pending: '○' };
+const MISSION_MODE_LABEL = { 'until-done': '自动推进中', supervised: '待你确认', off: '' };
+function renderMissionBar(mission) {
+  const bar = $('missionBar');
+  if (!bar) return;
+  const ms = mission && Array.isArray(mission.milestones) ? mission.milestones : [];
+  if (!mission || !mission.goal || !ms.length) { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  const done = ms.filter(m => m && m.status === 'done').length;
+  const sum = $('missionBarSummary');
+  if (sum) { sum.innerHTML = ''; sum.append(el('span', 'mb-goal', mission.goal), el('span', 'mb-count', ` · ${done}/${ms.length}`)); }
+  const modeEl = $('missionBarMode');
+  if (modeEl) {
+    const label = MISSION_MODE_LABEL[mission.autoMode] || '';
+    modeEl.textContent = label ? '· ' + label + (mission.autoMode === 'until-done' && mission.budget ? ` (${(mission.spent && mission.spent.autoTurns) || 0}/${mission.budget.maxAutoTurns})` : '') : '';
+    modeEl.className = 'mission-bar-mode' + (mission.autoMode === 'until-done' ? ' mb-active' : mission.autoMode === 'supervised' ? ' mb-warn' : '');
+  }
+  const stopBtn = $('missionStopBtn');
+  if (stopBtn) stopBtn.classList.toggle('hidden', mission.autoMode !== 'until-done');
+  const list = $('missionBarList');
+  if (list) {
+    list.innerHTML = '';
+    for (const m of ms) {
+      if (!m) continue;
+      const status = (m.status === 'done' || m.status === 'blocked') ? m.status : 'pending';
+      const li = el('li', status);
+      li.append(el('span', 'mb-mark', MISSION_MARK[status] || '○'), el('span', 'mb-text', m.desc || m.id));
+      if (m.evidence) li.title = m.evidence;
+      list.appendChild(li);
+    }
+  }
+}
+// 账本状态卡(完成/停滞/预算耗尽)—— 插入对话流,借用 plan/error 卡的视觉语言。
+function missionStateCard(evt) {
+  const meta = {
+    complete: { cls: 'ok', icon: '✓', title: '任务完成', body: '所有里程碑已达成,已停止自动推进。' },
+    stuck: { cls: 'warn', icon: '⚠', title: '任务卡住了', body: evt.reason || '连续多个回合无进展,已暂停等待你的指示。' },
+    budget_exhausted: { cls: 'warn', icon: '⏸', title: '自动推进已暂停', body: evt.reason || '自动推进预算已用尽,进度已保留,等待你的指示。' },
+  }[evt.state] || { cls: '', icon: '·', title: '任务状态', body: '' };
+  const card = el('div', 'mission-card mission-card-' + meta.cls);
+  card.append(el('div', 'mission-card-head', `${meta.icon} ${meta.title}`));
+  if (meta.body) card.append(el('div', 'mission-card-body', meta.body));
+  return card;
+}
+async function stopMission() {
+  const s = state.currentSession; if (!s || !s.mission) return;
+  try { const r = await api('/api/mission', { method: 'POST', body: JSON.stringify({ sessionId: s.id, action: 'stop' }) }); if (r && r.ok) { s.mission = r.mission; renderMissionBar(r.mission); toast('已停止自动推进', 'ok'); } }
+  catch (e) { toast('停止失败:' + apiErrText(e), 'err'); }
+}
+
 /* ---------------- v0.8-S3: 「本轮变更」turn-summary card ---------------- */
 // Renders message.turnSummary (static) or a live turn_summary event: a low-key card listing files changed
 // (path + op) and a command count. When nothing changed AND no commands ran, shows the reassurance line
@@ -587,6 +638,7 @@ function renderCurrentSession() {
   renderWorkspacePicker(); // v0.9-S3 (C3): keep the top-bar picker in sync with this session's cwd
   updateSkillBadge(); // v1 技能体系: 会话切换时刷新 composer 技能徽标(已启用技能数)
   renderStepBar(session && session.todos); // v0.8-S3: show the task-list bar if this session has todos
+  renderMissionBar(session && session.mission); // 第26波b: 会话切换时刷新账本进度条(无账本→隐藏)
   const box = $('messages');
   box.innerHTML = '';
   if (!session || !session.messages?.length) { box.appendChild(buildEmptyState()); renderContextMeter(null); return; }
@@ -2090,6 +2142,15 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // static re-render (session reload) keeps showing it.
       if (state.currentSession) state.currentSession.todos = evt.items || [];
       renderStepBar(evt.items || []);
+      break;
+    case 'mission':
+      // 第26波b: 任务账本进度/状态。缓存到会话 + 刷新进度条;完成/停滞/预算耗尽额外插一张卡片。
+      if (state.currentSession) state.currentSession.mission = evt.mission || null;
+      renderMissionBar(evt.mission || null);
+      if (evt.state === 'complete' || evt.state === 'stuck' || evt.state === 'budget_exhausted') {
+        main.appendChild(missionStateCard(evt));
+        scrollMessagesToBottom();
+      }
       break;
     case 'steered': {
       // v0.8-S7: the server injected a steering interjection at a boundary. If this UI already rendered it
@@ -6852,6 +6913,7 @@ function bindEvents() {
   $('toggleToolsBtn').onclick = toggleToolPane;
   // v0.8-S3 step-bar: click the head to expand/collapse the full task list.
   { const sbt = $('stepBarToggle'); if (sbt) sbt.onclick = () => toggleStepBar(); }
+  { const msb = $('missionStopBtn'); if (msb) msb.onclick = stopMission; } // 第26波b
   // ↓ 回到最新: click snaps to bottom; the messages scroll listener toggles its visibility.
   { const jl = $('jumpLatest'); if (jl) jl.onclick = scrollMessagesToBottom; }
   { const mb = $('messages'); if (mb) mb.addEventListener('scroll', updateJumpLatest, { passive: true }); }
