@@ -1664,26 +1664,35 @@ const MISSION_MAX_CONSTRAINTS = 12;
 const MISSION_DEFAULT_MAX_TURNS = 12;
 const MISSION_REPLAN_LIMIT = 2;
 const MISSION_STALL_LIMIT = 3;
-function normalizeMissionCheck(raw) {
+// 对抗轮 P1(第26波b): check.cmd 是【驱动器每轮无提示 shell 执行】的输入 —— 绝不能被【模型】设置,否则
+// 提示注入 = 绕过整个权限系统的任意命令执行。`trusted` 门:仅用户(经 UI header token 的 /api/mission)可定义
+// command 检查;不可信来源(模型 mission_update 工具 / body-token loopback)的 command 检查一律降级为 'none'。
+// file_exists(纯 fsp.access 只读)风险低,但路径可越工作区探测,故也仅 trusted 可设 —— 不可信一律 'none'。
+function normalizeMissionCheck(raw, trusted) {
   const o = (raw && typeof raw === 'object') ? raw : {};
-  const type = (o.type === 'command' || o.type === 'file_exists') ? o.type : 'none';
+  let type = (o.type === 'command' || o.type === 'file_exists') ? o.type : 'none';
+  if (!trusted && type !== 'none') type = 'none'; // 不可信来源禁设任何机器检查(只能自报 status/evidence)
   const check = { type };
   if (type === 'command') { check.cmd = String(o.cmd == null ? '' : o.cmd).slice(0, 500); if (o.expect != null) check.expect = String(o.expect).slice(0, 200); }
   else if (type === 'file_exists') check.path = String(o.path == null ? '' : o.path).slice(0, 500);
   return check;
 }
-function normalizeMission(raw, prev) {
+// trusted 默认 true:内部深拷(applyMissionUpdate 的 normalizeMission({}, prev))必须原样保留 prev 里【已在可信
+// 来源校验过】的检查;仅当里程碑来自【新输入 o.milestones】时才按调用方 trusted 门控(见 fromRaw 判定)。
+function normalizeMission(raw, prev, trusted = true) {
   if (raw === null) return null; // 显式清空
   const o = (raw && typeof raw === 'object') ? raw : {};
   const p = (prev && typeof prev === 'object') ? prev : {};
-  const rawMs = Array.isArray(o.milestones) ? o.milestones : (Array.isArray(p.milestones) ? p.milestones : []);
+  const fromRaw = Array.isArray(o.milestones);
+  const rawMs = fromRaw ? o.milestones : (Array.isArray(p.milestones) ? p.milestones : []);
   const seen = new Set();
   const milestones = rawMs.slice(0, MISSION_MAX_MILESTONES).map((m, i) => {
     const mo = (m && typeof m === 'object') ? m : {};
     let id = (mo.id != null && String(mo.id).trim()) ? String(mo.id).trim().slice(0, 64) : `m${i + 1}`;
     while (seen.has(id)) id = id + '_'; seen.add(id);
     const status = (mo.status === 'done' || mo.status === 'blocked') ? mo.status : 'pending';
-    return { id, desc: String(mo.desc == null ? '' : mo.desc).slice(0, MISSION_MAX_TEXT), status, check: normalizeMissionCheck(mo.check), evidence: mo.evidence ? String(mo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
+    // 新输入的 check 按 trusted 门控;prev 深拷的 check 视为已可信(原样保留)。
+    return { id, desc: String(mo.desc == null ? '' : mo.desc).slice(0, MISSION_MAX_TEXT), status, check: normalizeMissionCheck(mo.check, fromRaw ? trusted : true), evidence: mo.evidence ? String(mo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
   });
   const budgetIn = (o.budget && typeof o.budget === 'object') ? o.budget : (p.budget || {});
   const maxAutoTurns = Math.max(1, Math.min(50, Math.round(Number(budgetIn.maxAutoTurns) || MISSION_DEFAULT_MAX_TURNS)));
@@ -1705,10 +1714,13 @@ function normalizeMission(raw, prev) {
 // 第26波b: 增量更新账本(mission_update 工具 / API update)—— 按 id 【合并】里程碑,不整表替换。
 // 已存在的 id → 更新 status/evidence/desc(只更新提供的字段);新 id → 追加(受 16 上限);goal 提供才改。
 // 关键:与 normalizeMission(full-replace,用于 start)语义相反 —— 模型只报"m2 done"时不能抹掉 m1/m3。
-function applyMissionUpdate(prev, patch) {
+// trusted:是否可信来源(用户经 UI header token)。不可信(模型 mission_update / body-token loopback)时:
+//  ① 不得设置/修改任何机器 check(P1 关键——防模型注入 check.cmd 让驱动器无提示 shell 执行);
+//  ② 不得把已 done 的里程碑回退为 pending(P3——防模型靠 done→pending 抖动无限拖住 until-done 循环)。
+function applyMissionUpdate(prev, patch, trusted = false) {
   if (!prev) return prev;
   const p = (patch && typeof patch === 'object') ? patch : {};
-  const next = normalizeMission({}, prev); // 深拷现有(经规范化)
+  const next = normalizeMission({}, prev); // 深拷现有(经规范化;prev 的 check 视为已可信,原样保留)
   if (p.goal != null) next.goal = String(p.goal).slice(0, 2000);
   const ups = Array.isArray(p.milestones) ? p.milestones : [];
   const byId = new Map(next.milestones.map(m => [m.id, m]));
@@ -1718,22 +1730,29 @@ function applyMissionUpdate(prev, patch) {
     if (!id) continue;
     const existing = byId.get(id);
     if (existing) {
-      if (uo.status === 'done' || uo.status === 'blocked' || uo.status === 'pending') existing.status = uo.status;
+      if (uo.status === 'done' || uo.status === 'blocked' || uo.status === 'pending') {
+        // 对抗轮 P3: 不可信来源不得把 done 回退为 pending/blocked(防抖动拖住循环);pending↔blocked、→done 允许。
+        if (!(existing.status === 'done' && uo.status !== 'done' && !trusted)) existing.status = uo.status;
+      }
       if (uo.desc != null) existing.desc = String(uo.desc).slice(0, MISSION_MAX_TEXT);
       if (uo.evidence != null) existing.evidence = String(uo.evidence).slice(0, MISSION_MAX_TEXT);
-      if (uo.check) existing.check = normalizeMissionCheck(uo.check);
+      // 对抗轮 P1: check 仅 trusted(用户 UI)可改;不可信(模型/loopback)的 uo.check 一律忽略 —— 保留原检查。
+      if (uo.check && trusted) existing.check = normalizeMissionCheck(uo.check, true);
     } else if (next.milestones.length < MISSION_MAX_MILESTONES) {
-      const nm = { id, desc: String(uo.desc || '').slice(0, MISSION_MAX_TEXT), status: (uo.status === 'done' || uo.status === 'blocked') ? uo.status : 'pending', check: normalizeMissionCheck(uo.check), evidence: uo.evidence ? String(uo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
+      // 新里程碑的 check 同样按 trusted 门控:模型新增里程碑不能自带机器检查(降级 'none')。
+      const nm = { id, desc: String(uo.desc || '').slice(0, MISSION_MAX_TEXT), status: (uo.status === 'done' || uo.status === 'blocked') ? uo.status : 'pending', check: normalizeMissionCheck(uo.check, trusted), evidence: uo.evidence ? String(uo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
       next.milestones.push(nm); byId.set(id, nm);
     }
   }
   next.updatedAt = nowIso();
   return next;
 }
-// 账本进度摘要(前端 digest / 停滞指纹用):`m1:done m2:pending …`。
+// 账本进度指纹(停滞检测用)。对抗轮 P3: 除 status 外并入 evidence 长度桶 —— 一个粗粒度大里程碑上模型持续
+// 工作、经 mission_update 更新 evidence 但尚未翻 status,也算「有进展」不误判停滞;真正原地打转(账本零变化)
+// 才连续 K 轮同指纹触发降级。桶而非全文,避免 evidence 微小抖动被当进展(仍需实质增长才换桶)。
 function missionProgressDigest(mission) {
   if (!mission || !Array.isArray(mission.milestones)) return '';
-  return mission.milestones.map(m => m.id + ':' + m.status).join(' ');
+  return mission.milestones.map(m => m.id + ':' + m.status + ':' + Math.floor(String(m.evidence || '').length / 20)).join(' ');
 }
 // 执行一条里程碑的机器验收(command 判退出码+可选输出包含;file_exists 判在)。'none' 返回 null(交模型自报)。
 // 只读判定,不改文件;command 走工作区 cwd,复用 runProcess 基建;绝不用于副作用。
@@ -1742,6 +1761,10 @@ async function evaluateMissionCheck(check, cwd) {
   try {
     if (check.type === 'file_exists') {
       const p = path.resolve(cwd || '.', String(check.path || ''));
+      // 对抗轮 P3: 限定在工作区内 —— file_exists 路径可为绝对/../ 穿越,即便只读(fsp.access)也是任意路径存在性
+      // 探测(信息泄露)。仅当解析后落在 cwd 内才判定,越界一律「不适用」(不泄露)。
+      const base = path.resolve(cwd || '.');
+      if (p !== base && !p.startsWith(base + path.sep)) return { pass: false, detail: '路径超出工作区,已跳过验收' };
       try { await fsp.access(p); return { pass: true, detail: '文件存在: ' + check.path }; }
       catch { return { pass: false, detail: '文件不存在: ' + check.path }; }
     }
@@ -9143,7 +9166,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               } else if (tc.name === 'mission_update') {
                 // 第26波b provider-engine 特例:in-process 合并进 session.mission(闭包持 session + onEvent)。
                 if (session.mission) {
-                  session.mission = applyMissionUpdate(session.mission, { milestones: args.milestones, goal: args.goal });
+                  // 对抗轮 P1: 模型路径 trusted=false —— 不能设 check.cmd、不能把 done 回退 pending。
+                  session.mission = applyMissionUpdate(session.mission, { milestones: args.milestones, goal: args.goal }, false);
                   onEvent({ type: 'mission', mission: session.mission });
                   resultObj = { ok: true, milestones: session.mission.milestones.length };
                 } else {
@@ -9781,9 +9805,12 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
     }
 
     // ⑤ 续跑:构造推进消息(列出未完成里程碑),自动发起下一回合(全额记账,标 driverAuto)。
+    // 对抗轮 P3: goal/desc 可被模型经 mission_update 写入 —— 扁平化空白后再拼进这条自动 user 消息,
+    // 避免 desc 里的换行+指令伪装成额外的用户指令(与 digest 的 fence 纪律一致)。
+    const flat = s => String(s || '').replace(/\s+/g, ' ').trim();
     const pending = m.milestones.filter(ms => ms.status !== 'done');
-    const contMsg = '请继续推进当前任务(Mission)。目标:' + String(m.goal).slice(0, 300) + '\n未完成的里程碑:\n' +
-      pending.map(ms => '- [' + ms.id + '] ' + ms.desc).join('\n') +
+    const contMsg = '请继续推进当前任务(Mission)。目标:' + flat(m.goal).slice(0, 300) + '\n未完成的里程碑:\n' +
+      pending.map(ms => '- [' + flat(ms.id).slice(0, 64) + '] ' + flat(ms.desc).slice(0, 200)).join('\n') +
       '\n聚焦下一个里程碑,完成后用 mission_update 工具把它标 done 并附证据。若某步确实无法推进,请说明原因。';
     m.spent.autoTurns += 1;
     await saveSession(session).catch(() => {});
@@ -9824,10 +9851,16 @@ async function streamChat(req, res) {
   req.on('aborted', handleDisconnect);
   res.on('close', () => { if (!finished && !res.writableEnded) handleDisconnect(); });
 
-  // 第26波b: 捕获每回合的 token 用量(账本预算计量)。usage 事件透传不变,仅旁路记录。
+  // 第26波b: 捕获每回合的 token 用量(账本预算计量)+ 停止信号。usage 事件透传不变,仅旁路记录。
   let lastTurnTokens = 0;
+  let turnStopped = false;   // 对抗轮 P2: 回合被停止(/api/stop → stopSession → abort → 'process' state:'stopped')
   const emit = evt => {
-    if (evt && evt.type === 'usage' && evt.usage) { const u = evt.usage; lastTurnTokens = (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0); }
+    if (evt && evt.type === 'usage' && evt.usage) {
+      const u = evt.usage;
+      // 对抗轮 P3: 计入缓存 token —— Claude 引擎 cache_read/cache_creation 常占大头,漏计则 maxTokens 预算欠执行。
+      lastTurnTokens = (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0) + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
+    }
+    if (evt && evt.type === 'process' && evt.state === 'stopped') turnStopped = true;
     try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
   };
   try {
@@ -9842,8 +9875,10 @@ async function streamChat(req, res) {
     };
     await runTurn(String(body.message || ''), false);
     // until-done 驱动器:仅当会话有活动账本才进(非账本会话零行为变化,与旧单回合完全等价)。
+    // 对抗轮 P2: isAlive 同时看 turnStopped —— /api/stop(服务端 stopSession,不关 socket)也要能刹住驱动器,
+    // 不能只靠客户端断连(否则脚本/代理调 /api/stop 后驱动器仍relaunch 到预算耗尽)。
     if (session.mission && session.mission.autoMode === 'until-done') {
-      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished });
+      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped });
     }
   } catch (err) {
     emit({ type: 'error', error: err.message || String(err) });
@@ -13146,13 +13181,16 @@ async function handleApi(req, res, pathname) {
     }
     // start = 全量新建(normalizeMission,prev=null);update = 按 id 增量合并(applyMissionUpdate,不抹其它里程碑)。
     // autoMode 可作 body 兄弟字段或 mission.autoMode 传入,两条路径都尊重。
+    // 对抗轮 P1: trusted = 【header token】(UI/用户)——只有它能定义机器 check;body-token loopback(模型经 MCP 子进程)
+    // 视为不可信,不能设 check.cmd。header token 存在即 UI 直连(浏览器 CORS 拿不到该 token)。
+    const trusted = tokenOk(req);
     if (action === 'start') {
       const input = { ...(bodyOrQ.mission || bodyOrQ) };
       if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
-      session.mission = normalizeMission(input, null);
+      session.mission = normalizeMission(input, null, trusted);
     } else {
       if (!session.mission) return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
-      session.mission = applyMissionUpdate(session.mission, bodyOrQ.patch || bodyOrQ);
+      session.mission = applyMissionUpdate(session.mission, bodyOrQ.patch || bodyOrQ, trusted);
       if (bodyOrQ.autoMode != null) session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : session.mission.autoMode;
     }
     await saveSession(session); emitMission();

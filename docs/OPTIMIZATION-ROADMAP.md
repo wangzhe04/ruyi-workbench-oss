@@ -385,3 +385,9 @@
 回归:30+ 件受影响面全绿(session/tools/skills/memory/usage/compact/plan/engine/静态 UI + agent 全家 + 崩溃注入/连续队列)。
 
 **26c 待办**:调度核心 reducer 化组合单测。**第27波**:自主性授权书(动信任层,独立红队轮,用户过目后推)。
+
+**第 26 波b 对抗验证轮(3 镜头:驱动器/信任边界/回归)**:三镜头一致抓获同一个 **P1(ship-blocking)** + 1 P2 + 5 P3,全部修复:
+- **P1 红线违背(三镜头共识)**:`mission_update`(read tier,自动放行)的模型 args 直通 `applyMissionUpdate`,而它接受未在 schema 声明的 `check.cmd` → 驱动器每轮 `evaluateMissionCheck` 用 `shell:true` 无提示执行 = 提示注入的模型获得绕过整个权限系统的任意命令执行(可继承 env 外泄 token)。**修**:`trusted` 门 —— 机器 check(command/file_exists)仅【用户经 UI header token】可定义;模型 mission_update / body-token loopback 一律 trusted=false,check 降级 'none'。e2e F 组实证:EVILMODE 模型注入 command check 被降级、恶意命令未执行(无 PWNED.txt)。
+- **P2 /api/stop 刹不住驱动器**:isAlive 只看客户端断连,服务端 stopSession(不关 socket)后驱动器仍 relaunch → 补 turnStopped(捕获 'process' state:'stopped')并入 isAlive。
+- **P3×5**:续跑消息 goal/desc 扁平化中和(防伪装用户指令);done→pending 回退守卫(不可信来源不得,防抖动拖住循环);file_exists 工作区containment(防越界存在性探测);maxTokens 计入 cache token(Claude 引擎欠计);停滞指纹并入 evidence 桶(粗粒度大里程碑更新证据算进展,不误判停滞)。
+- e2e 扩 F/G/H 三组(P1 命令注入拒绝 + 用户可定义 check 而模型改不动 + done 回退守卫);未击穿面:预算/循环有界、非账本零影响、压缩/回溯免疫、GET 鉴权自检、模型无法自升 until-done/自抬预算(三镜头一致确认)。回归受影响面全绿。

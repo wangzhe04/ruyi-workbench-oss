@@ -76,6 +76,12 @@ const fake = http.createServer((rq, rs) => {
     if (/STALLMODE/.test(lastUser) || msgs.some(m => m.role === 'system' && /STALLMODE/.test(String(m.content || '')))) {
       return streamText(rs, '我在思考如何推进,但暂时没有可执行的下一步。');
     }
+    // EVILMODE:模型企图经 mission_update 注入 check.cmd(command)让驱动器无提示 shell 执行——安全测试。
+    // 第 0 工具:注入恶意 command check 到 pending 里程碑;之后纯文本(不推进,让驱动器有机会去跑 check)。
+    if (/EVILMODE/.test(lastUser) || msgs.some(m => m.role === 'system' && /EVILMODE/.test(String(m.content || '')))) {
+      if (turnTools === 0) return streamToolCall(rs, 'mission_update', { milestones: [{ id: 'e1', status: 'pending', check: { type: 'command', cmd: 'node -e "require(\'fs\').writeFileSync(process.env.PWNFILE||\'' + (WS + '\\PWNED.txt').replace(/\\/g, '\\\\') + '\',\'pwned\')"' } }] });
+      return streamText(rs, '(已尝试设置检查)');
+    }
     // 取「最后一条 user 消息里的第一个 [mK]」作为本回合目标里程碑。
     const mk = (lastUser.match(/\[([a-z]\d+)\]/) || [])[1] || 'm1';
     if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: WS + '\\' + mk + '.txt', content: mk + ' 完成' });
@@ -149,6 +155,35 @@ const fake = http.createServer((rq, rs) => {
     const ev4 = await chatStream({ sessionId: s4.id, message: '普通问题,不涉及任务 [m1]' }, H);
     ok(ev4.filter(e => e.type === 'mission').length === 0, 'E 无账本会话不产生 mission 事件(单回合,零行为变化)');
     ok(readJson(sessionPath(s4.id)).mission === null, 'E 无账本会话 session.mission 仍为 null');
+
+    // ── F) 对抗轮 P1 安全锁:模型经 mission_update 注入 command check 必须被拒(驱动器绝不无提示 shell 执行) ──
+    const s5 = (await req('POST', '/api/sessions', { title: 'evil', cwd: WS }, H)).json.session;
+    // 用户经 UI(header token)建一个只有 none-check 里程碑的账本 → 模型企图追加/改成 command check。
+    await req('POST', '/api/mission', { token, sessionId: s5.id, action: 'start', mission: { goal: 'EVILMODE 安全测试', milestones: [{ id: 'e1', desc: '会被模型攻击的里程碑', check: { type: 'none' } }], budget: { maxAutoTurns: 3 } }, autoMode: 'until-done' }, H);
+    try { fs.unlinkSync(path.join(WS, 'PWNED.txt')); } catch {}
+    const ev5 = await chatStream({ sessionId: s5.id, message: 'EVILMODE 开始' }, H);
+    void ev5;
+    const m5 = readJson(sessionPath(s5.id)).mission;
+    const e1 = (m5.milestones || []).find(x => x.id === 'e1');
+    ok(e1 && e1.check && e1.check.type === 'none', 'F 模型注入的 command check 被降级为 none(实 ' + (e1 && e1.check && e1.check.type) + ')');
+    ok(!fs.existsSync(path.join(WS, 'PWNED.txt')), 'F 恶意命令未被执行(无 PWNED.txt)—— 驱动器未无提示 shell 执行模型注入的命令');
+
+    // ── G) 对抗轮 P1:用户(header token)可正常定义 command check;模型改不动它 ──
+    const s6 = (await req('POST', '/api/sessions', { title: 'usercheck', cwd: WS }, H)).json.session;
+    const r6 = await req('POST', '/api/mission', { token, sessionId: s6.id, action: 'start', mission: { goal: '用户定义命令验收', milestones: [{ id: 'u1', desc: '跑测试', check: { type: 'command', cmd: 'echo ok' } }] }, autoMode: 'off' }, H);
+    const u1 = r6.json.mission.milestones.find(x => x.id === 'u1');
+    ok(u1 && u1.check.type === 'command' && u1.check.cmd === 'echo ok', 'G 用户(header token)可定义 command check');
+    // 模型经 body-token(loopback 模拟)企图改 cmd → 被拒(trusted=false)。
+    const r6b = await req('POST', '/api/mission', { token, sessionId: s6.id, action: 'update', milestones: [{ id: 'u1', check: { type: 'command', cmd: 'rm -rf /' } }] }, {});
+    const u1b = (r6b.json.mission.milestones || []).find(x => x.id === 'u1');
+    ok(u1b && u1b.check.cmd === 'echo ok', 'G body-token(模型侧)改不动已定义的 command check(仍为 echo ok)');
+
+    // ── H) 对抗轮 P3:模型不可把 done 里程碑回退 pending(防抖动拖住循环) ──
+    const s7 = (await req('POST', '/api/sessions', { title: 'regress', cwd: WS }, H)).json.session;
+    await req('POST', '/api/mission', { token, sessionId: s7.id, action: 'start', mission: { goal: '回退测试', milestones: [{ id: 'd1', desc: '一', status: 'done' }] }, autoMode: 'off' }, H);
+    const r7 = await req('POST', '/api/mission', { token: token, sessionId: s7.id, action: 'update', milestones: [{ id: 'd1', status: 'pending' }] }, {}); // body-token = 不可信
+    const d1 = (r7.json.mission.milestones || []).find(x => x.id === 'd1');
+    ok(d1 && d1.status === 'done', 'H 不可信来源不能把 done 回退 pending(仍 done)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
     kill(wb); try { fake.close(); } catch {}
