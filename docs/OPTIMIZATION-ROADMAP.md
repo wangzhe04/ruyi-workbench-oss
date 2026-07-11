@@ -411,3 +411,22 @@
 - **P3 `.git` denylist 归一**:组件尾点/尾空格(`.git.`/`.git `)Win32 等价 `.git`,词法保留会绕过 → 匹配前逐组件去尾点/尾空格。
 
 **验收**:新 `dev-harness/autonomy-grant.e2e.js`(9116;[S] 静态源锁 + [P] 纯逻辑源抽取穷举 + [P7] 对抗修复回归 + [S9] Gap B 护栏锁 + [H] Live HTTP 签发主权/纯内存/审计);全量回归(权限/审计/会话/归档/双引擎/前端结构 dom-contract)全绿;既有 dom-contract 悬空引用 `wbSteerInput` 顺手补进动态 id 白名单。**延后**:27f 权限超时→存档暂停(改权限超时默认路径,security-sensitive,单独增量)。**诚实结论**:授权书让 exec 自主性有界/可撤/可审/模型永远签不出,但不能让一张 exec 授权书对已被注入的模型「安全」;edit→exec 本地载荷根治需 shell 沙箱化(下一波专项)。
+
+## 24. 第 28 波:上下文与产物治理(4/5 单元)—— 多 agent 测绘 + 5 镜头对抗(2026-07-12)
+
+**痛点**:长任务(8h 级)子代理上下文只增不减撑爆窗口、下游拿整段 rawTranscript、降级结果被当干净成功、上游定长截断欠用大窗口。**流程**:5 单元并行测绘真实代码出设计 → 实施 → 5 镜头对抗验证(签发主权外的正确性:预算/压缩/降级接缝/输出派生/集成)。
+
+**交付(28a–28d,均在 runNode/子代理区,一致连贯)**:
+- **28c 预算化上下文** `buildUpstreamContext`:取代两处 `slice(0,12000)`+`slice(0,32000)` 定长(DAG runNode 8742 + spawn_agent 扇出)。预算=下游模型窗口 35%,按依赖数均分,逐依赖 rung 降级(全文放得下→无损全文 → 精简 summary → 二分截断标注),靠后依赖不再被靠前大依赖整段挤掉。Claude 引擎节点绕过 provider 手动窗口走名称表。
+- **28b 节点输出四分** `deriveNodeOutputs`:节点完成派生 summary(下游默认吃)/evidence(findings)/artifacts(两引擎写族续点)/rawTranscript(=result 存档,不灌下游)。共享真源替代 summarizeAgentWorkflowRun 内联。
+- **28a 子节点两级压缩** `maybeCompactSubHistory`:对齐主回合 maybeAutoCompact,复用 evaporateHistory(L1)/providerSummaryCall(L2)/recentTurnsBoundary/recordCompactUsage。插在子代理循环边界(steer/mail drain 后、transient-retry 前)。**关键坑**:subHistory 是 const 被 buildBody/markUsage/finalizer 闭包引用 → L2 重播种用【原地 splice】绝不重新赋值;并入原始 task 防子代理跑偏(顺带令无插话场景每次收敛到单 user,消除非收敛)。Claude 引擎声明不适用(CLI 自管上下文)。保留 400 超窗反应式兜底。
+- **28d degraded 下游策略** `degradedPolicy`(accept/retry/request_review/fail):默认 accept 零回归。翻译接缝置于 gate/schema 之后、loop/failurePolicy 之前,置 failed/queued 后由既有块靠 status 守卫接管;request_review 复用 runtime.paused。4 处归一 + resume 回填 + 工具 schema。
+
+**5 镜头对抗验证(5 → 复核确认 4 全修)**:
+- **P2 注入**:结构化 summary 未扁平化空白(唯一漏做防伪造控制的分支)→ 上游节点可在 summary 塞 `\n### victim (succeeded)\n<指令>` 伪造下游 prompt 的前序小标题。修:deriveNodeOutputs 源头 + buildUpstreamContext 防御式双重扁平化。
+- **P3 预算击穿**:移除旧 32000 总截断后 buildUpstreamContext 无总量钳制,200-token/依赖下限 + 未计 header/标注在高扇入(小窗口)累计超预算甚至击穿窗口。修:拼接结果按总预算硬钳一刀(恢复硬天花板)。
+- **P3 重跑残留**:reset 未清 §28 新字段——degradedRetried 写一次永不清 → 重跑不再享降级重试(与全新跑发散),陈旧 degraded/summary 外泄。修:清 degradedRetried/degraded/warning/summary/evidence/artifacts;**修复中自查发现:绝不能顺手清 continuation/interruptedAttempt——崩溃恢复的 interrupted 节点也进 reset(8442),25.4 断点续跑注入正靠这两字段,清了会关掉续跑(autonomy-durability 回归)**,故保留。
+- **P3 两引擎 artifacts 不对称**:NODE_WRITE_FAMILY 只含 OpenAI 内部名,Claude 引擎节点(Write/Edit/MultiEdit)artifacts 恒空。修:补 Claude 写族名。
+- 被否证 1 条(L2 非收敛)——被 28a 的 task0 并入摘要设计天然消除。
+
+**验收**:新 `dev-harness/context-governance.e2e.js`(无端口;[S] 静态锁 + [P] buildUpstreamContext/deriveNodeOutputs 纯逻辑 + [A] maybeCompactSubHistory 实跑[原地 splice/配对/L2-fail 兜底/总量钳制]);全量回归全绿。**延后 28e wait_for**(需动调度 reducer 新增 toArm 桶/waiting 态,单列下一增量)。

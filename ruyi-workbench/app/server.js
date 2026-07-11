@@ -7043,6 +7043,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
   if (turnBudget > 0) args.push('--max-turns', String(Math.min(100, Math.round(turnBudget))));
   if (cwd) args.push('--add-dir', cwd);
+  // 第28波(§28a):Claude 引擎【不适用】服务端子代理压缩(maybeCompactSubHistory)—— claude CLI 自管上下文窗口与压缩,
+  // 服务端一次性 spawn 后只累积 assistantText/resultText 求聚合结果,不持有可压缩的 history 数组。与上文桥接分级不对称同源
+  // (两引擎有意不对称)。故此函数【不】引入 subHistory/maybeCompactSubHistory —— 有意为之,非遗漏(e2e 源锁断言之)。
   // Bridged (external/desktop MCP) servers attach ONLY at 'exec' tier on the Claude path — 有意与 OpenAI 路径
   // 的分级开放**不对称**(第22波安全裁定): CLI 的 --allowed-tools 在 bypass 许可模式下不是硬限制(bypass 跳过一切
   // 许可),挂上 mcp-config 即意味着子进程可调用该服务器的任意工具(含桌面全控),无法像 runSubAgentCore 那样按
@@ -7490,6 +7493,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'subagent_mail_in', subagentId, sender: m.sender, text: m.text });
         }
       }
+      // 第28波(§28a):迭代边界两级自动压缩(与主回合 9208 一一对应)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
+      // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
+      await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession });
       // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
       // (502/503/504) + a toolsRejected retry; the sub-turn previously had NEITHER, so a single transient
       // gateway blip, rate-limit (429) or connect/TLS failure on a sub-agent call failed the whole node - and
@@ -8051,6 +8057,7 @@ function normalizeAgentWorkflow(raw, opts = {}) {
       resources: (Array.isArray(item.resources) ? item.resources : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 32),
       isolation: item.isolation === 'worktree' ? 'worktree' : 'none', outputSchema: sanitizeAgentOutputSchema(item.outputSchema),
       gate: normalizeAgentGate(item.gate, String(item.role || '').trim().toLowerCase()), failurePolicy: ['block', 'continue', 'retry'].includes(item.failurePolicy) ? item.failurePolicy : 'block',
+      degradedPolicy: ['accept', 'retry', 'request_review', 'fail'].includes(item.degradedPolicy) ? item.degradedPolicy : 'accept', // 第28波 §28d
       maxRetries: Math.max(0, Math.min(5, Math.round(Number(item.maxRetries) || 0))), retryFallback: item.retryFallback === 'continue' ? 'continue' : 'block',
       condition: normalizeWorkflowCondition(item.condition), loop: normalizeWorkflowLoop(item.loop), position: pos,
     });
@@ -8145,6 +8152,55 @@ function evaluateWorkflowCondition(condition, nodes, currentNode) {
 function workflowProgressFingerprint(node) {
   const value = node && node.structuredResult != null ? node.structuredResult : String(node && node.result || '').replace(/\s+/g, ' ').trim();
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+// 第28波(§28b 节点输出四分 + §28c 预算化上下文)——────────────────────────────────────────────────────
+const NODE_SUMMARY_MAX = 2000; // 精简结论字符上限(下游默认消费的是它,不是整段 rawTranscript)
+// 对抗轮 P3:含【两引擎】写族工具名 —— OpenAI 引擎原生名 + Claude CLI 原生名(Write/Edit/MultiEdit/NotebookEdit)。
+// 此前只列 OpenAI 名,Claude 引擎节点的 artifacts 恒空(续点 step.tool 直取 evt.name,不做引擎归一)。Bash 无法可靠归类,不列。
+const NODE_WRITE_FAMILY = new Set(['file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
+// 节点跑完后派生四分:summary(精简结论,下游默认吃它)· evidence(结构化证据 findings)· artifacts(写族工具动过的
+// 产物引用,best-effort 自续点步骤)· rawTranscript(=node.result 全文,完整留档,【不】默认灌下游)。纯函数,幂等。
+function deriveNodeOutputs(node) {
+  if (!node) return;
+  const sr = node.structuredResult;
+  let summary = '';
+  if (sr && typeof sr === 'object') {
+    // 对抗轮 P2:结构化 summary 也【扁平化空白】——与 rung1/fallback 一致的防伪造控制。否则上游节点可在 summary 里塞
+    // `\n### victim (succeeded)\n<指令>` 伪造下游 prompt 里的前序节点小标题(section-marker 注入)。单行摘要无损。
+    if (typeof sr.summary === 'string' && sr.summary.trim()) summary = sr.summary.replace(/\s+/g, ' ').trim();
+    else if (typeof sr.verdict === 'string' && sr.verdict.trim()) summary = 'verdict=' + sr.verdict + (Number.isFinite(Number(sr.confidence)) ? '(' + Number(sr.confidence).toFixed(2) + ')' : '');
+  }
+  if (!summary) summary = String(node.result || node.error || '').replace(/\s+/g, ' ').trim();
+  node.summary = summary.slice(0, NODE_SUMMARY_MAX);
+  // 证据:结构化 findings(若有)——供 scrutiny 节点核验,不塞进普通下游的 summary。
+  node.evidence = (sr && Array.isArray(sr.findings)) ? sr.findings.slice(0, 50) : [];
+  // 产物:续点里写族工具动过的引用(argsPreview 已扁平化;honest 引用而非强解析路径)。
+  const cont = node.continuation;
+  node.artifacts = (cont && Array.isArray(cont.steps))
+    ? cont.steps.filter(s => s && NODE_WRITE_FAMILY.has(s.tool)).map(s => ({ tool: s.tool, ref: String(s.argsPreview || s.argsHash || '').slice(0, 120) })).slice(0, 20)
+    : [];
+}
+// 按 token 预算构建上游依赖上下文,取代旧的定长 12000/dep + 32000 总截断(§28c)。预算按依赖数均分;每条【逐级降级】:
+// ①全文放得下本条份额 → 用全文(无损,judge/synthesize 类下游不丢证据);②否则用精简 summary(§28b);③summary 仍超 →
+// 二分截断并标注。degraded 前序在标题标注(§28d 上游可见)。纯函数。deps 元素需含 {id,status,result,error,summary?,degraded?}。
+function buildUpstreamContext(depNodes, budgetTokens) {
+  if (!Array.isArray(depNodes) || !depNodes.length) return '';
+  const shareTokens = Math.max(200, Math.floor(Number(budgetTokens) / depNodes.length) || 200);
+  const truncTo = (body, cap) => { let lo = 0, hi = body.length; while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (estimateContentTokens(body.slice(0, mid)) <= cap) lo = mid; else hi = mid - 1; } return body.slice(0, lo); };
+  const out = depNodes.map(d => {
+    const header = `### ${d.id} (${d.status}${d.degraded ? ' · 降级' : ''})`;
+    const full = String(d.result || d.error || '').replace(/\s+/g, ' ').trim();
+    if (estimateContentTokens(full) <= shareTokens) return header + '\n' + full; // rung1 全文(无损)
+    // 对抗轮 P2:防御式扁平化 summary(deriveNodeOutputs 已在源头扁平,此处对 spawn_agent 等直传对象再兜一道)。
+    const summ = (typeof d.summary === 'string' && d.summary.trim()) ? d.summary.replace(/\s+/g, ' ').trim() : '';
+    if (summ && estimateContentTokens(summ) <= shareTokens) return header + `\n${summ}\n[…精简结论,完整产出见节点 ${d.id} 存档…]`; // rung2 摘要
+    const body = (summ && estimateContentTokens(summ) < estimateContentTokens(full)) ? summ : full; // rung3 截断更短者
+    return header + '\n' + truncTo(body, shareTokens) + `\n[…按预算截断,完整产出见节点 ${d.id} 存档…]`;
+  });
+  // 对抗轮 P3:总量【硬钳制】—— 旧 32000 总截断被本波移除,而 200-token/依赖下限 + 未计入的 header/标注在高扇入时可累计
+  // 超预算(小窗口下甚至击穿窗口)。此处对拼接结果按总预算再截一刀,恢复"预算是硬天花板"不变式。
+  const joined = out.join('\n\n');
+  return estimateContentTokens(joined) <= Number(budgetTokens) ? joined : truncTo(joined, Number(budgetTokens)) + '\n[…上游上下文按总预算截断…]';
 }
 function agentWorkflowStatusText(status) {
   return ({ queued: '排队中', waiting_resource: '等待资源', blocked: '阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', skipped: '已跳过', partial: '部分完成', failed: '失败', rejected: '质量门未通过', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
@@ -8269,7 +8325,7 @@ function materializePoolItem(run, item, opts = {}) {
       id: item.id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null,
       dependsOn, resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label),
       isolationMode: 'none', toolTier, engine, model: String((proposer && proposer.model) || '').trim(),
-      maxIters, outputSchema: null, gate: null, failurePolicy: 'continue', maxRetries: 0, retryFallback: 'block',
+      maxIters, outputSchema: null, gate: null, failurePolicy: 'continue', degradedPolicy: 'accept', maxRetries: 0, retryFallback: 'block',
       condition: null, loop: null, position: null, status: 'queued', attempts: 0, loopIteration: 0,
       noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [],
       confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [],
@@ -8391,6 +8447,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       n.outputSchema = sanitizeAgentOutputSchema(n.outputSchema);
       n.gate = normalizeAgentGate(n.gate, n.roleId);
       n.failurePolicy = ['block', 'continue', 'retry'].includes(n.failurePolicy) ? n.failurePolicy : 'block';
+      n.degradedPolicy = ['accept', 'retry', 'request_review', 'fail'].includes(n.degradedPolicy) ? n.degradedPolicy : 'accept'; // 第28波 §28d:老 run JSON 回填 accept(零回归)
       n.maxRetries = Math.max(0, Math.min(5, Math.round(Number(n.maxRetries) || 0)));
       n.retryFallback = n.retryFallback === 'continue' ? 'continue' : 'block';
       n.condition = normalizeWorkflowCondition(n.condition); n.loop = normalizeWorkflowLoop(n.loop);
@@ -8401,6 +8458,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (n.isolation && n.isolation.path) await cleanupAgentWorktree(n.isolation);
       n.status = 'queued'; n.result = ''; n.structuredResult = null; n.schemaErrors = []; n.error = ''; n.startedAt = null; n.completedAt = null; n.loopIteration = 0; n.noProgressCount = 0; n.progressFingerprint = ''; n.progressLog = [];
       n.waitingForResources = [];
+      // 对抗轮 P3(第28波):重跑清场须一并清 §28 新字段 —— 否则 degradedRetried 残留使重跑不再享有降级重试(与全新跑发散);
+      // 陈旧 degraded/warning/summary 会让重跑后被 skip 的依赖在下游标题误标「· 降级」并外泄旧摘要。
+      // 注意:【绝不】在此清 continuation/interruptedAttempt —— 崩溃恢复的 interrupted 节点也进 reset(8442),
+      // 而 25.4 断点续跑注入正靠这两字段(runNode 8704 读),清了会关掉「断点续跑」(autonomy-durability 回归)。
+      n.degradedRetried = false; delete n.degraded; delete n.warning; n.summary = ''; n.evidence = []; n.artifacts = [];
     }
     run.status = 'running'; run.completedAt = null; run.resumedAt = nowIso();
     run.concurrency = Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || run.concurrency || 2));
@@ -8434,6 +8496,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const outputSchema = sanitizeAgentOutputSchema(raw.outputSchema);
       const gate = normalizeAgentGate(raw.gate, roleId);
       const failurePolicy = ['block', 'continue', 'retry'].includes(raw.failurePolicy) ? raw.failurePolicy : 'block';
+      const degradedPolicy = ['accept', 'retry', 'request_review', 'fail'].includes(raw.degradedPolicy) ? raw.degradedPolicy : 'accept'; // 第28波 §28d
+
       // v1.4.4: dual-engine DAG nodes. Explicit raw.engine wins; otherwise default to whichever engine
       // this run actually has available — 'openai' when a Provider was resolved (unchanged behavior for
       // every existing workflow/test), else 'claude' so a Claude-CLI-only setup no longer needs a Provider
@@ -8441,7 +8505,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
       const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(100, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(100, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -8684,10 +8748,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     // 第26波: per-node 执行体(原批次 Promise.all 的 map 回调,逐字未动)—— 由下方连续派发器调用。
     const runNode = async node => {
       const depNodes = node.dependsOn.map(dep => nodes.find(n => n.id === dep)).filter(Boolean);
-      const priorText = depNodes.map(prior => {
-        const body = String(prior.result || prior.error || '').slice(0, 12000);
-        return `### ${prior.id} (${prior.status})\n${body}`;
-      }).join('\n\n').slice(0, 32000);
+      // 第28波(§28c):预算化上游上下文,取代旧 12000/dep + 32000 定长截断。预算=下游模型窗口的 35%(上游份额);
+      // 逐依赖降级(全文→摘要→截断),放得下就给全文(judge/verify 类下游不丢证据)。Claude 引擎节点绕过 provider 手动窗口。
+      const dsWindow = (node.engine === 'claude') ? (contextWindowFromTable(node.model) || 200000) : providerContextWindow(provider, node.model);
+      const upstreamBudgetTokens = Math.max(2000, Math.floor(dsWindow * 0.35));
+      const priorText = buildUpstreamContext(depNodes, upstreamBudgetTokens);
       const effectiveSchema = node.outputSchema || (node.gate && !['vote', 'dedupe'].includes(node.gate.mode) ? QUALITY_GATE_OUTPUT_SCHEMA : null);
       const qualityInstruction = node.gate && !['vote', 'dedupe'].includes(node.gate.mode)
         ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。`
@@ -8800,6 +8865,26 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             if (node.status === 'succeeded') { node.status = 'failed'; node.error = '隔离工作树收尾失败：' + node.isolation.error; }
           }
         }
+      }
+      // 第28波(§28b):节点完成即派生 summary/evidence/artifacts(下游默认吃 summary,rawTranscript 留 node.result 存档)。
+      deriveNodeOutputs(node);
+      // 第28波(§28d):降级下游策略。degraded=true(目前仅 Claude CLI 出可用输出但异常退出)的成功节点,按 node.degradedPolicy
+      // 处置——置于 gate/schema 判定之后、loop/failurePolicy/settle 之前;置 failed/queued 后由既有块靠 status 守卫自动接管,
+      // 不重复逻辑。accept(默认)= 保持今天行为(零回归)。
+      if (node.degraded === true && node.status === 'succeeded') {
+        const pol = node.degradedPolicy || 'accept';
+        if (pol === 'fail') {
+          node.status = 'failed'; node.error = node.warning || '降级输出按策略(fail)判失败'; node.degraded = false;
+        } else if (pol === 'retry' && !node.degradedRetried) {
+          node.degradedRetried = true; node.degraded = false; node.warning = ''; node.status = 'queued'; node.completedAt = null;
+          if (node.isolation && node.isolation.path) await cleanupAgentWorktree(node.isolation).catch(() => {});
+          if (node.isolation) node.isolation = null;
+          onEvent({ type: 'agent_workflow', state: 'node_degraded_retry', id: runId, nodeId: node.id });
+        } else if (pol === 'request_review') {
+          runtime.paused = true; run.pendingReview = { nodeId: node.id, warning: String(node.warning || '').slice(0, 500), at: nowIso() };
+          onEvent({ type: 'agent_workflow', state: 'run_paused', id: runId, nodeId: node.id, reason: 'degraded_review' });
+        }
+        // accept: no-op(保持 succeeded + degraded/warning 元数据;下游注入已标注「· 降级」诚实可见)。
       }
       if (node.status === 'succeeded' && node.loop) {
         node.loopIteration = (Number(node.loopIteration) || 0) + 1;
@@ -9340,11 +9425,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const subId = makeId('sub');
           const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
           const originalTask = String(sargs.task || '');
-          const dependencyText = dependsOn.map(key => {
+          // 第28波(§28c):预算化上游上下文(与 DAG runNode 同一构建器),取代旧 12000/dep + 32000 定长截断。回合内 spawn 扇出
+          // 的前序结果无派生 summary,rung 从全文降级截断。预算=下游子代理模型窗口的 35%。
+          const spawnBudgetTokens = Math.max(2000, Math.floor(providerContextWindow(provider, sargs.model) * 0.35));
+          const dependencyText = buildUpstreamContext(dependsOn.map(key => {
             const prior = subagentResults.get(key) || {};
-            const body = String(prior.result != null ? prior.result : prior.error || '').slice(0, 12000);
-            return `### ${key} (${prior.ok === false ? '失败' : '完成'})\n${body}`;
-          }).join('\n\n').slice(0, 32000);
+            return { id: key, status: prior.ok === false ? '失败' : '完成', result: prior.result, error: prior.error };
+          }), spawnBudgetTokens);
           const effectiveTask = dependencyText
             ? `${originalTask}\n\n以下是已完成的前序子代理结果，请基于它们继续，不要重新执行前序任务：\n\n${dependencyText}`
             : originalTask;
@@ -10002,6 +10089,45 @@ function recentTurnsBoundary(history) {
     if (history[i] && history[i].role === 'user') { usersSeen++; if (usersSeen === 2) return i; }
   }
   return history.length; // <2 user messages → keep nothing (summary + ack only)
+}
+
+// 第28波(§28a):子代理回合的两级自动压缩 —— 对齐主回合 maybeAutoCompact,复用同款原语(evaporateHistory / L2 摘要内核
+// providerSummaryCall / recentTurnsBoundary / recordCompactUsage)。此前 subHistory 单调增长无压缩(server.js 自认遗留),
+// 长跑子代理大工具结果撑爆窗口 → 400 → 节点失败。返回是否压缩过;never throw(压缩绝不阻断子回合)。
+// 【关键实现坑】subHistory 是 runSubAgentCore 里的 const,被 buildBody/markUsage/finalizer 闭包引用 —— L2 重播种必须【原地
+// splice】替换内容,绝不能重新赋值(否则闭包仍指旧数组,压缩对已发请求体静默失效)。evaporate 本就原地改 content,天然安全。
+// 【子代理专属】主回合无固定目标,子代理有单一 task(subHistory[0])—— L2 重播种【钉住 task[0]】,防摘要吞掉原始目标后跑偏。
+async function maybeCompactSubHistory(opts) {
+  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession } = opts || {};
+  try {
+    if (!Array.isArray(subHistory) || subHistory.length < 3 || !provider) return false;
+    const budget = (Number(config && config.autoCompactThreshold) || 0.8) * providerContextWindow(provider, subModel);
+    const withSys = h => [{ role: 'system', content: String(sys || '') }, ...h];
+    const before = estimateHistoryTokens(withSys(subHistory));
+    if (before <= budget) return false;                          // append-only 到下次跨阈,与主回合同
+    // L1 蒸发(逐字复用):把最近 2 个 assistant 回合之前的 role:'tool' 内容改写为占位。原地、幂等、配对安全。
+    const evaporated = evaporateHistory(subHistory);
+    const after1 = estimateHistoryTokens(withSys(subHistory));
+    const emit = (mode, after) => { try { if (onEvent) onEvent({ type: 'compact', mode, subagentId, beforeTokens: before, afterTokens: after }); } catch { /* stream gone */ } };
+    if (evaporated > 0 && after1 <= budget) { emit('evaporate', after1); return true; }
+    // L2 摘要重播种(仍超预算):复用共用摘要内核。失败 → 保留 L1、不中断子回合(镜像主回合)。
+    const sc = await providerSummaryCall(provider, subHistory);
+    if (!sc || !sc.ok) { if (evaporated > 0) { emit('evaporate', after1); return true; } return false; }
+    const boundary = recentTurnsBoundary(subHistory);
+    const task0 = subHistory[0];
+    const kept = subHistory.slice(boundary).filter(m => m !== task0); // 保留最近 2 个 user 回合逐字(user 边界起切,配对安全)
+    // 钉住原始 task【并入】摘要 user 消息(而非单列)——避免 [task0-user, summary-user] 两条连续 user 破坏部分 provider 的
+    // 交替契约;kept 以 user 边界起切,故 reseed 天然 user→assistant→user… 交替。
+    const reseeded = [
+      { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【前文已压缩为摘要】\n' + String(sc.summary || '') },
+      { role: 'assistant', content: '已了解原任务与以上摘要,继续推进。' },
+      ...kept,
+    ];
+    subHistory.splice(0, subHistory.length, ...reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
+    emit('summary', estimateHistoryTokens(withSys(subHistory)));
+    try { if (parentSession) recordCompactUsage(parentSession, provider, sc); } catch { /* 记账失败不阻断 */ }
+    return true;
+  } catch { return false; }
 }
 
 // §5.2 (v0.7b) / v0.8-S5: server-side manual context compaction for a native (OpenAI-compatible) provider
@@ -14850,6 +14976,7 @@ const MCP_TOOLS = [
                 },
               },
               failurePolicy: { type: 'string', enum: ['block', 'continue', 'retry'], description: 'block downstream (default), continue in degraded mode, or retry automatically' },
+              degradedPolicy: { type: 'string', enum: ['accept', 'retry', 'request_review', 'fail'], description: '当节点【降级成功】(产出可用但执行异常)时的处置:accept 照用(默认)/ retry 重跑一次 / request_review 暂停待人工 / fail 判失败(交 failurePolicy 决定下游)' },
               maxRetries: { type: 'number', description: 'additional automatic attempts for retry policy, 0..5' },
               retryFallback: { type: 'string', enum: ['block', 'continue'], description: 'behavior after retries are exhausted' },
               condition: { type: 'object', description: 'optional branch condition: {node,path,operator,value}; operators include equals/not_equals/truthy/falsy/contains/comparisons/status_is' },

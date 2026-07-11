@@ -119,9 +119,15 @@ Node Runtime(第25/28波)
 
 **诚实结论(写进文档知情条款)**:授权书能让 exec 自主性**有界、可撤、可审、模型自己永远签不出**,但**不能让一张 exec 授权书对已被注入的模型变"安全"**——只能让它变小、变短、可观测。对**范围完全可预测**的短任务是净收益;对**开放范围 exec 长任务**,首次越笼仍全局停摆——这是"授出自主权"的定义代价,由持 header token 的用户知情承担。真正根治 edit→exec 本地载荷需 **shell 沙箱化**(授权书层无解,单独立项)。
 
-### 第28波 · 上下文与产物治理
+### 第28波 · 上下文与产物治理 —— **4/5 单元已交付(28a–28d),对抗验证通过;28e 延后**
 
-子节点 token 触发自动压缩(对齐主回合两级压缩)· 节点输出四分 · 预算化上下文构建取代 `slice(0,32000)` · degraded 下游策略(accept/retry/request_review/fail)· `wait_for{timer|file|process|url}` 等待原语(waiting 态零 token)。
+> **实施状态(2026-07-12)**:多 agent 测绘设计(5 单元并行读真实代码)→ 实施 → 5 镜头对抗验证轮(5 条 → 复核确认 4 条全修)。
+> - **已交付**:**28c 预算化上下文** `buildUpstreamContext`(取代两处 `slice(0,12000)`+`slice(0,32000)` 定长:DAG runNode + spawn_agent 扇出;按下游模型窗口 35% 均分预算,逐依赖降级 全文→摘要→二分截断,放得下给全文不丢证据,靠后依赖不被挤掉,**总量硬钳制**防击穿)· **28b 节点输出四分** `deriveNodeOutputs`(summary 下游默认消费 / evidence=findings / artifacts 两引擎写族 / rawTranscript=result 存档不灌下游)· **28a 子节点两级压缩** `maybeCompactSubHistory`(对齐主回合,复用 evaporateHistory/providerSummaryCall/recentTurnsBoundary;**const 原地 splice** + 并入原始 task 防跑偏;Claude 引擎声明不适用;保留 400 超窗兜底)· **28d degraded 下游策略** `degradedPolicy`(accept/retry/request_review/fail,4 处归一 + resume 回填零回归 + 翻译接缝复用 failurePolicy/pause 机器)。
+> - **对抗轮修复(全并入 e2e)**:①**P2 注入**——结构化 summary 未扁平化空白 → 上游可伪造下游 `### 节点(succeeded)` 小标题;修:summary 派生 + buildUpstreamContext 双重扁平化;②**P3 预算击穿**——移除旧 32000 总截断后无总量钳制 + 200/依赖下限 + 未计 header,高扇入/小窗口超预算;修:拼接结果按总预算硬钳一刀;③**P3 重跑残留**——reset 未清 §28 新字段(degradedRetried 残留使重跑不再享降级重试);修:清 degradedRetried/degraded/warning/summary/evidence/artifacts(**但绝不清 continuation/interruptedAttempt——那是 25.4 崩溃续跑靠的字段**);④**P3 两引擎 artifacts 不对称**——`NODE_WRITE_FAMILY` 只含 OpenAI 名,Claude 节点 artifacts 恒空;修:补 Write/Edit/MultiEdit/NotebookEdit。
+> - **延后 28e wait_for**(timer/file/process/url 等待原语)——它需动调度 reducer(新增 `toArm` 桶 + `waiting` 态 + 重定义 `cycleDead`),是最独立可分、也最需像 26a 那样单独对抗的一块,单列下一增量。
+> - 验收 e2e `dev-harness/context-governance.e2e.js`(无端口;静态锁 + 纯逻辑源抽取 + `maybeCompactSubHistory` 实跑[含原地 splice/配对/L2-fail 兜底/总量钳制])。全量回归(DAG/子代理/压缩/崩溃续跑/调度)全绿。
+
+**原规格**:子节点 token 触发自动压缩(对齐主回合两级压缩)· 节点输出四分 · 预算化上下文构建取代 `slice(0,32000)` · degraded 下游策略(accept/retry/request_review/fail)· `wait_for{timer|file|process|url}` 等待原语(waiting 态零 token)。
 **验收锁**:8 小时级模拟任务上下文超限率断言;degraded 不再被当干净成功消费;wait_for 条件触发续跑。
 
 ### 第29波 · 监控与运营
