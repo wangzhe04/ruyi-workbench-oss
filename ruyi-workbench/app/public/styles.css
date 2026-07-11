@@ -352,10 +352,12 @@ input:focus, textarea:focus, select:focus {
 .session-item.active { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .session-item .s-title { font-size: var(--fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; grid-column: 1; }
 .session-item .s-sub { grid-column: 1; color: var(--muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.session-item .s-actions { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 2px; opacity: 0; }
+/* 第23波: 会话项 hover 操作 —— 之前三个图标裸挤在右侧、蹭到副标题。改成一个悬浮圆角药丸组(半透明底 + 圆形图标钮),
+   垂直居中、hover 才现,读作一组干净的浮动操作而非贴脸的碎图标。 */
+.session-item .s-actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: flex; align-items: center; gap: 1px; opacity: 0; padding: 2px; border-radius: 999px; background: color-mix(in srgb, var(--panel-3) 82%, transparent); border: 1px solid var(--line); box-shadow: var(--elev-1); }
 .session-item:hover .s-actions, .session-item.active .s-actions { opacity: 1; }
-.session-item .s-actions button { padding: 2px 5px; font-size: var(--fs-sm); background: transparent; border-color: transparent; }
-.session-item .s-actions button:hover { background: var(--panel-3); }
+.session-item .s-actions button { width: 24px; height: 24px; min-height: 0; padding: 0; display: inline-grid; place-items: center; border-radius: 999px; font-size: var(--fs-sm); background: transparent; border-color: transparent; color: var(--muted); }
+.session-item .s-actions button:hover { background: var(--panel); color: var(--ink); }
 .session-item .pin-badge { color: var(--accent); }
 
 .sidebar-foot { display: flex; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
@@ -611,14 +613,14 @@ input:focus, textarea:focus, select:focus {
 .pb-section-title { font-size: var(--fs-md); font-weight: 600; color: var(--muted); margin: 0 0 10px; }
 .pb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
 .pb-card { text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 12px 13px; cursor: pointer; color: var(--ink); display: flex; flex-direction: column; gap: 6px;
-  font: inherit; box-shadow: var(--elev-1); /* v3 (§C1): 卡片 elev-1 */
+  padding: 12px 13px; cursor: pointer; color: var(--ink); display: flex; flex-direction: column; gap: 5px; min-height: 84px;
+  font: inherit; box-shadow: var(--elev-1); /* v3 (§C1): 卡片 elev-1;第23波 min-height 让一键任务卡在网格里等高 */
   transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
 button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--elev-2); } /* v3 (§C2): hover 抬起 + 投影升一级 */
 .pb-card-head { display: flex; align-items: center; gap: 8px; }
 .pb-card-icon { font-size: var(--fs-lg); line-height: 1; flex: none; }
 .pb-card-title { font-size: var(--fs-base); font-weight: 600; color: var(--ink); }
-.pb-card-desc { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.5; }
+.pb-card-desc { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } /* 第23波: 描述钳 2 行,不再溢出撑歪卡片 */
 .pb-card.unavailable { cursor: default; opacity: .55; }
 .pb-card.unavailable:hover { border-color: var(--line); transform: none; }
 .pb-card-reason { font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
@@ -1388,6 +1390,12 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .workflow-btn.save-as:hover { background: color-mix(in srgb, var(--accent) 15%, var(--panel)); }
 .workflow-editor-foot { width: 100%; justify-content: space-between; }
 .workflow-editor-foot-left, .workflow-editor-foot-right { display: flex; align-items: center; gap: 8px; }
+/* 第23波: 检查器「应用节点设置」—— 之前是 mini 高度被 flex 拉成一条又薄又宽的实心条,观感突兀。改正常高度 + 顶部
+   分隔线 + ✓ 图标,读作检查器底部的一个明确提交条,和上方字段有呼吸。 */
+.workflow-inspector .wf-apply { margin-top: 12px; padding: 8px 12px; font-weight: 600; border-radius: var(--radius-sm); box-shadow: none; position: sticky; bottom: 0; }
+/* 第23波: 轻量危险按钮(纯红字,无实心边框),给「删除保存」这类破坏性但非主操作用,不与主 primary 抢视觉重量。 */
+button.ghost-danger { background: transparent; border-color: transparent; color: var(--danger-fg); font-weight: 500; }
+button.ghost-danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: transparent; color: var(--danger-fg); }
 .workflow-editor-layout { display: grid; grid-template-columns: minmax(560px, 1fr) 290px; gap: 10px; }
 /* Fixed (not min-) height, bounded by viewport: the graph's own horizontal/vertical scrollbars must sit
    inside this box at a height that's always on-screen without first scrolling the outer .modal-body —
