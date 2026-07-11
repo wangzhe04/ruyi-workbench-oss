@@ -84,10 +84,34 @@ Node Runtime(第25/28波)
 
 **26c**:调度核心 reducer 化 `state+event→nextState+commands` + `retry×loop×gate×pause×crash` 组合单测(26a 三铁律的组合空间目前靠 e2e 实弹覆盖,reducer 化后可穷举)。
 
-### 第27波 · 自主性契约(独立红队轮)
+### 第27波 · 自主性授权书(Autonomy Grant)—— 设计已定稿,**动信任层,须用户过目后再实施**
 
-运行级授权书(工具×cwd×次数×TTL,所见即所授、可撤、逐笔审计)· 权限超时→存档暂停 · Windows 通知 · 「需要你处理」收件箱(权限/不可逆确认/预算扩容/无法自动恢复/多方案裁决)· 拒绝→结构化换路引导。
-**验收锁**:越界必弹窗;glob 逃逸/junction 绕路红队件;撤销即时生效;exec 全局持久放行不可能(断言);审计逐笔可查。
+> 本节为**设计规格**(多方案设计→3 评委→综合→2 镜头红队 得出,2026-07-11)。第27波动权限系统,按纪律需独立红队轮 + 用户明示批准后才实施。下述红队修正已并入,是实现的**硬约束**。
+
+**定位(一句话)**:授权书 = 现有权限系统的**严格子集缓存**,不是新权限来源。它只把用户**预先经 UI 明示**的「工具×路径×命令×次数×时长」笼子内的 `gate:'ask'` 就地降为 `'allow'` 并计数;范围外一切照旧弹窗。解决第25/26波痛点:until-done 长任务一遇 exec 弹窗(120s 超时自动拒)就死。
+
+**三条子集不变式(写死在码)**:
+1. **子集律**:只 `ask→allow`,**永不** `block→allow`。plan 的 block、越界写 DENY(`guardFileToolPath`)、`isSensitiveDataPath` 二次拒绝全在其上。permissionMode 恒为天花板。
+2. **签发主权律**:签发/扩大/续期唯一入口 = UI header token(`tokenOk`);body-token(MCP child loopback,模型可间接触达)`trusted=false` **永无签发能力**(沿用第26波b `check.cmd` 门教训)。
+3. **exec 永不全局持久**:授权书**纯进程内存态**(独立模块级 `autonomyGrants` Map,仿 `pendingPermissions`,不挂 session→避 `saveSession` 全量落盘,不进 `config.toolAllowRules`,无侧车文件)。进程重启即全清——这本身是安全属性。
+
+**数据模型**:`Grant{ grantId, sessionId, scope:'run'|'session', runId, tool(精确名,禁通配), tier(签发快照,消耗点重算不信), grantRoot(冻结绝对根), pathGlob[], cmdAllow[](exec 必填,否则整张作废), netAllowed:false, maxUses, usedCount, issuedAt, expiresAt, issuedBy:'ui-token', revoked }`。
+
+**统一收口**:抽 `resolveToolPermissionContext(name, args, entrypoint)`→`{tier, pathArgs[], cmdArg}` + 单一 `consumeGrant()`(全程同步无 await → Node 单线程原子;usedCount++ 不退还)。插三处 `ask` 决策点见下红队修正。
+
+**红队修正(实现前必补,4 结构性 + 5 可用性,全部并入验收)**:
+- **【R-P1-1 第三门】子代理 gate(`runSubAgent` 内 `nativeToolGate`)是第三个 ask 点,且子代理共用 `parentSession.id` → 父授权会被子代理**自动共享消耗**(注入最富集面)。**第4条红线**:子代理 gate **永不调用 consumeGrant**;子代理若要无人值守须单独设计**独立更窄、显式下发**的授权句柄(不靠共享 sessionId 继承)。
+- **【R-P1-2 取参器异形状 fail-open】**`resolveToolPermissionContext` 若复用原生参数键(path/source/dest)喂 CLI 形状(`file_path`/`command`)会抽不到路径 → pathGlob **真空满足** → 越 grantRoot 放行。**必须**:按 entrypoint 感知参数形状(CLI/bridged/native 各自键)+ tier 用对应 `nativeToolTier`/`bridgedToolTier` 同源;**文件族授权无法解析出任一受控路径 → fail-closed 回落弹窗,绝不真空放行**。
+- **【R-P2-1 edit→.git/hooks 延迟 RCE】**纯 `file_edit@工作区` 授权即可写 `.git/hooks/pre-commit`、`.vscode/tasks.json`、`package.json` postinstall 等**工作区内但会被自动执行**的文件 = 潜伏 RCE,不需 exec 授权。**edit 档增设工作区内二级 denylist**(`.git/`/`.githooks/`/`.husky/`/`.vscode/tasks.json` 等),命中回落弹窗;签发 dry-run 红字高亮"本次 glob 命中自动执行文件"。
+- **【R-P2-2 签发主权双点约定】**签发 handler **必须只** `if (!tokenOk(req)) 403`(**绝不**带 `bodyTokenOk` 兜底),且**不得**进 mutating 豁免名单。e2e 除"body-token 被 403"外须断言"即便 `body.token===RUNTIME.token` 也 403"。
+- **【R2/R3/R4 无人值守失效】**存档暂停在真无人值守下会变**整夜僵尸挂起**(watchdog 结构上不回收 paused run)+ 撤销对 in-flight exec 无 kill 能力 + exec 上限(≤5次/≤30min)与长任务时长对冲。**修正**:§6 默认从"无限暂停"改为 **checkpoint + 短 TTL(30–60min)终止 + 晨间可续**(严格优于 6h 僵尸);exec 授权与子进程句柄绑定,撤销/run-abort 时 SIGTERM;exec TTL 改绑 run-scope 活跃度(总次数 + 空闲超时,非绝对墙钟);签发 UI 给"同类历史 run 约用 N 次"校准提示。
+- **【R1/R5 疲劳面转移】**exec **禁止在 pending 弹窗上下文内联签发**(just-in-time consent 是疲劳制造机),须未阻塞时从独立抽屉起草、最好 run 启动前预承诺 + 每会话活跃 exec 授权张数硬上限;暂停-恢复审批须带与签发同等摩擦(展示 args + dry-run,移动端禁一键批准)。
+- **【R-P3-2 审计回读】**grant 明细审计 sink 必须落在 `dataRoot/logs`(已在 denylist)——否则模型 `file_read` 自己的审计行即可重建"我被授了什么",绕过"不进上下文"。
+
+**施工单元 27a–27g**(各配 e2e,见综合稿):27a 模型+API+签发门 / 27b consumeGrant+provider 插桩 / 27c CLI 桥收口(entrypoint 感知取参 + 零路径 fail-closed)/ 27d exec 约束(cmdAllow 锚定+元字符拒+禁网)/ 27e 撤销+in-flight kill / 27f 超时→checkpoint 终止+晨间续 / 27g 审计+不进 digest。新建 `dev-harness/autonomy-grant.e2e.js`。
+**验收锁**:body-token(含 `body.token===RUNTIME.token`)签发必 403;子代理 gate 不消耗父授权(断言 consumeGrant 不在 runSubAgent 调用);CLI 形状零路径 fail-closed 回落弹窗;`.git/hooks` 命中 edit 授权回落弹窗;越界/junction 逃逸红队件;exec 无 cmdAllow 拒收 + 元字符失配 + 默认禁网;撤销后下次必失配 + in-flight 有 kill 通道;block 永不被提升(断言);exec 不落 config/session/侧车(进程重启即清);grant 字段不出现在 prompt digest。
+
+**诚实结论(写进文档知情条款)**:授权书能让 exec 自主性**有界、可撤、可审、模型自己永远签不出**,但**不能让一张 exec 授权书对已被注入的模型变"安全"**——只能让它变小、变短、可观测。对**范围完全可预测**的短任务是净收益;对**开放范围 exec 长任务**,首次越笼仍全局停摆——这是"授出自主权"的定义代价,由持 header token 的用户知情承担。真正根治 edit→exec 本地载荷需 **shell 沙箱化**(授权书层无解,单独立项)。
 
 ### 第28波 · 上下文与产物治理
 
