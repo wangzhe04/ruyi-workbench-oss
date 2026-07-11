@@ -3828,6 +3828,17 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent }) {
       if (memSec) memSec = memSec.replace(/%/g, '％').replace(/!/g, '！');
       if (memSec) appendSys = appendMemorySection(appendSys, memSec, 8000);
     } catch { /* 记忆注入绝不可阻断回合 */ }
+    // 第23波(主动性·意图触发 · 两引擎对称): Claude 引擎经 MCP 暴露 orchestrate_agents,但 append-system-prompt 此前
+    // 只带 用户append+技能+记忆,从不告知有哪些模板 → Claude 侧模型无从用 workflowId(与 Provider 不对称的能力缺口)。
+    // 这里补上 buildOrchestrateHint(与 Provider 同源)。仅编排开启(subagentMaxPerTurn>0)时注入;遵守 8000 钳,放得下
+    // 整段才追加(与记忆同契约,免破坏不可信带/其它段边界)。注入绝不阻断回合。
+    try {
+      if (Number(config.subagentMaxPerTurn) > 0) {
+        const wfs = await getAgentWorkflows(workingDir).catch(() => []);
+        const hint = buildOrchestrateHint(wfs);
+        if (hint && (appendSys.length + hint.length) <= 8000) appendSys += hint;
+      }
+    } catch { /* 编排提示注入绝不阻断回合 */ }
     if (appendSys) args.push('--append-system-prompt', appendSys);
   }
   if (config.autoResumeClaudeSessions && session.claudeSessionId) {
@@ -7484,6 +7495,16 @@ async function getAgentWorkflows(cwd) {
   for (const wf of await readProjectAgentWorkflows(cwd)) merged.set(wf.id, wf);
   return [...merged.values()];
 }
+// 第23波(主动性·意图触发): orchestrate_agents 的系统提示。既给【模板清单】(模型据 id 用 workflowId),又给
+// 【意图→模板映射】——让模型在用户提出复杂多步任务时【主动】考虑编排复用,而非仅"形状已匹配时"被动复用;并带
+// "简单任务别套模板"的护栏,避免过度编排增加开销/延迟。两引擎共用:Provider 系统层(runOpenAiTurn)与 Claude 引擎的
+// --append-system-prompt(runClaudeTurn)——后者此前从不告知有哪些模板,是两引擎能力不对称的缺口。纯函数,workflows 由调用方传入。
+function buildOrchestrateHint(workflows) {
+  if (!Array.isArray(workflows) || !workflows.length) return '';
+  const list = workflows.map(w => `${w.id}(${w.title}：${w.description || '无说明'})`).join('；');
+  return '\n\n可用工作流模板（orchestrate_agents 的 workflowId）：' + list +
+    '。\n主动编排指引：当用户的请求属于【复杂、多步、值得拆解并行或多视角核验】的任务时，优先用 orchestrate_agents（传 workflowId + context，context 填这次的具体主题/任务），复用上面的模板，而不是一个人从头硬做或临时手写 nodes——典型触发：调研/研究某主题→deep-research；审计或体检代码库→codebase-audit；定位难缠的 bug→debug-root-cause；技术选型/架构/多方案权衡→design-and-decide；从零写文档/报告/方案书→doc-from-scratch；实现改动且要质量把关→implement-review-fix-test；有争议议题要裁决→debate-and-judge。反之，简单、一步能答或纯闲聊的请求【不要】套模板（并行子代理有额外开销与延迟）。已有模板形状不完全吻合时，可用 workflowId 起手再增删节点，或直接手写 nodes。';
+}
 // v1.4.4: shared by every orchestrate_agents dispatch site (in-turn OpenAI call, MCP-child loopback via
 // /api/agent-workflow/launch, and that same HTTP handler for a direct UI launch) so a saved/builtin
 // workflow can be referenced BY ID instead of the caller always re-authoring a full inline `nodes` DAG —
@@ -8298,11 +8319,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // v1.4.4: list saved/built-in workflow templates so orchestrate_agents' workflowId can actually be used
   // — the model has no other way to discover which ids exist. Only relevant when the tool is offered.
+  // 第23波: 提示升级为意图触发(buildOrchestrateHint,与 Claude 引擎共用),不再仅"形状匹配时"被动复用。
   if (ownTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
     const workflows = await getAgentWorkflows(workingDir).catch(() => []);
-    if (workflows.length) {
-      sys += '\n\n可用工作流模板（orchestrate_agents 的 workflowId）：' + workflows.map(w => `${w.id}(${w.title}：${w.description || '无说明'})`).join('；') + '。已有模板形状匹配时优先用 workflowId + context 复用，而不是重新手写 nodes；context 填这次运行的具体任务/主题（模板节点的任务文字通常是不带主题的占位描述）。';
-    }
+    sys += buildOrchestrateHint(workflows);
   }
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
   // instruction (not baked into buildProviderSystemPrompt — kept here so it never leaks into summary/identity
@@ -13787,7 +13807,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'orchestrate_agents',
-    description: "Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, deterministic voting/deduplication, cross-review, and per-node failure policies (block, degraded continue, retry). Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (list them via the workflow library) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) when an existing template already matches the shape of what's being asked.",
+    description: "Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, deterministic voting/deduplication, cross-review, and per-node failure policies (block, degraded continue, retry). Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (available ids + when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) for complex, multi-step tasks that match a listed template (research, codebase audit, debugging, design/选型, doc writing, …); skip it for simple one-shot requests.",
     inputSchema: {
       type: 'object',
       properties: {
