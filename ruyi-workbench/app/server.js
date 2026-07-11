@@ -7360,6 +7360,63 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
       { id: 'test', task: '运行验收测试并核验实现是否满足需求；区分事实与推断。', role: 'verifier', dependsOn: ['implement', 'fix'], failurePolicy: 'retry', maxRetries: 1, position: { x: 850, y: 160 } },
     ],
   },
+  {
+    id: 'deep-research', title: '深度研究 → 核验 → 综述',
+    description: '拆解问题 → 双镜头并行联网检索(事实/观点) → 对抗式事实核验(剔除无据主张、去重) → 只依据已核验发现写带引用的结构化综述。适合需要可靠、可追溯结论的调研。模型建议:并行检索(research_*)可用快模型广撒网;核验(verify)与综述(synthesize)建议在编辑器为其指派更强模型,因为它们决定结论的可信度。',
+    nodes: [
+      { id: 'plan', task: '把研究问题拆成 3–4 个关键子问题。每个子问题注明:①要回答什么(具体到可判定);②优先检索方向与关键词;③适合的权威来源类型。若问题本身含歧义,先列出你对范围/定义的假设。输出:编号子问题清单 + 检索要点。', role: 'explorer', position: { x: 40, y: 200 } },
+      { id: 'research_facts', task: '认领 plan 的全部子问题,联网检索并阅读来源,重点抓【事实与现状】:定义、关键数据/数字、时间线、权威来源的明确表述。对每条发现给出:结论一句话 + 支撑来源(标题与 URL)+ 置信度(高/中/低)。只记录有来源支撑的内容;查不到就写"未找到可靠来源",不要编。', role: 'explorer', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 340, y: 90 } },
+      { id: 'research_context', task: '认领 plan 的全部子问题,联网检索并阅读来源,重点抓【分析与观点】:不同立场与权衡、争议点、行业/专家观点、反面证据。格式同 research_facts(结论 + 来源 + 置信度)。刻意寻找与主流叙述相悖的证据,避免只找支持性材料。', role: 'explorer', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 340, y: 310 } },
+      { id: 'verify', task: '对 research_facts 与 research_context 的所有发现做对抗式核验:逐条检查是否真有来源支撑、来源是否可靠、彼此有无矛盾;剔除无据或夸大的主张、合并重复项、标注仍存疑的点。输出两份清单:①已核验发现(每条附来源与置信度);②被剔除/存疑清单及原因。默认怀疑,证据不足即降级或剔除。', role: 'reviewer', dependsOn: ['research_facts', 'research_context'], failurePolicy: 'continue', position: { x: 660, y: 200 } },
+      { id: 'synthesize', task: '仅依据 verify 节点【已核验】的发现,写一篇结构化综述:①一段摘要给出总体结论;②按主题分节的结论(每条关键判断标注来源);③已知的不确定性与分歧;④针对原始问题的建议或下一步。绝不引入未经核验的新主张;证据不足处如实说明。', role: 'explorer', dependsOn: ['verify'], position: { x: 980, y: 200 } },
+    ],
+  },
+  {
+    id: 'design-and-decide', title: '需求 → 多方案 → 选型 → 落地清单',
+    description: '拆清需求与评价维度 → 并行产出三种不同取向的候选方案 → 按权重打分横向选型 → 输出可执行落地清单。适合技术选型、架构决策、方案权衡。模型建议:方案生成(option_*)可用快模型广撒网;选型(decide)与落地清单(rollout)建议指派更强模型,它们承担权衡与决策质量。',
+    nodes: [
+      { id: 'clarify', task: '把需求拆清并结构化:①目标与非目标;②硬约束(性能/成本/合规/时间/团队能力等,尽量量化);③评价维度及其相对权重;④明确的成功判据。凡有歧义处,列出你所做的假设。输出结构化需求说明,供后续方案与选型共用。', role: 'explorer', position: { x: 40, y: 220 } },
+      { id: 'option_a', task: '在 clarify 的约束下产出一个【稳妥成熟】取向的候选方案:方案概述、核心取舍、如何逐条满足硬约束、优点、主要风险与缓解、粗略成本/工期。只出一个方案,把它论证扎实。', role: 'explorer', dependsOn: ['clarify'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
+      { id: 'option_b', task: '同 option_a 的格式,但取【性能/能力优先或创新】取向,给出与 option_a 明显不同的方案(不同技术栈/架构/思路),并诚实标注其代价。', role: 'explorer', dependsOn: ['clarify'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
+      { id: 'option_c', task: '同 option_a 的格式,取【最简/最低成本或最快落地】取向,给出投入最小、能先跑起来的方案,并说明其局限与后续演进路径。', role: 'explorer', dependsOn: ['clarify'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
+      { id: 'decide', task: '按 clarify 的评价维度与权重,对 option_a/b/c 逐维打分并给出理由(不只给分),做一张横向对比表。选出推荐方案,说明它为何优于其余、以及采用它最需警惕的风险。若某方案的局部优点值得吸收,可提出一个融合改良版。', role: 'reviewer', dependsOn: ['option_a', 'option_b', 'option_c'], gate: { mode: 'cross_review' }, failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'rollout', task: '把 decide 选定(或改良)的方案落成可执行清单:分阶段任务及其依赖顺序、每步交付物与验收点、所需资源与前置条件、主要风险的应对与回滚点、以及最早可验证价值的里程碑。', role: 'explorer', dependsOn: ['decide'], position: { x: 1000, y: 220 } },
+    ],
+  },
+  {
+    id: 'codebase-audit', title: '代码审计:多维并行 → 核验 → 修复排期',
+    description: '建库地图 → 三维度并行审计(正确性/安全/性能与可维护性) → 亲读核验剔除误报 → 按严重度×价值排优先级出修复清单。审计只读、不改代码。模型建议:并行审计(audit_*)可用中等模型;核验(verify)与排期(backlog)建议指派更强模型,以压住误报、抓准优先级。',
+    nodes: [
+      { id: 'map', task: '快速建立目标代码库地图:核心模块与职责、关键数据流与入口点、外部依赖与信任边界、以及凭经验判断的高风险区域。输出简明地图 + 一份"建议重点审计的文件/区域"清单,供后续各维度聚焦。只读不改。', role: 'explorer', position: { x: 40, y: 220 } },
+      { id: 'audit_correctness', task: '在 map 指出的重点区域找【正确性缺陷】:边界条件、错误处理缺失、并发/竞态、空值/未初始化、类型或接口契约不一致、资源泄漏。每条给:文件:行、具体触发条件、影响、建议修法。只报你能写出触发路径的,拿不准不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
+      { id: 'audit_security', task: '找【安全缺陷】:注入(命令/SQL/路径)、路径穿越、鉴权/越权、敏感信息泄露、SSRF、不安全默认值、反序列化。每条给:文件:行、具体利用路径、影响、修法。只报可利用的,理论风险不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
+      { id: 'audit_quality', task: '找【性能与可维护性】问题:热路径/循环内的低效、随数据量或时长恶化的结构、重复三次以上的逻辑、超长函数、死代码、易错的命名/边界。每条给文件:行与可度量的改进点。只报改了确有收益的。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
+      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。输出:①成立发现清单(每条含严重度 P1/P2/P3 与一句根因);②被否证清单及理由。默认怀疑,写不出具体触发即否证。', role: 'reviewer', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'backlog', task: '把 verify 的成立发现排成修复清单:按(严重度 × 影响 ÷ 改动成本)分三档——立即修 / 下一轮 / 可选打磨;每条给一句修复要点与建议顺序;识别可在同一次改动里顺手带走的同类项。', role: 'explorer', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
+    ],
+  },
+  {
+    id: 'debug-root-cause', title: 'Bug 定位:复现 → 假设 → 验证 → 根因修复',
+    description: '系统化定位难缠 Bug:确认最小复现 → 双方向并行提根因假设 → 逐一实验证伪 → 锁定根因并给最小修复。模型建议:复现(reproduce)与假设(hypo_*)可用快模型;验证(verify)与修复(fix)建议指派更强模型,因为根因判定与"修根因而非症状"最吃推理。',
+    nodes: [
+      { id: 'reproduce', task: '确认并最小化复现:写出精确复现步骤、观察到的实际现象(日志/报错/异常状态)、预期现象、以及能稳定触发的最小条件集。若当前信息不足以复现,明确列出还需要哪些信息或环境。输出复现报告。', role: 'verifier', position: { x: 40, y: 220 } },
+      { id: 'hypo_a', task: '基于 reproduce 提出 2–3 个【最可能】的根因假设。每个假设说明:机制解释(为什么会导致该现象)、若成立应能观察到什么证据、以及最快的验证手段。按可能性排序。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 110 } },
+      { id: 'hypo_b', task: '从 hypo_a 未覆盖的方向提出 2–3 个根因假设:环境/依赖版本、并发时序、数据/边界输入、配置/部署差异、上游变更等。同样给机制、预期证据、验证手段。目标是补齐盲区,而非重复 hypo_a。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 300 } },
+      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪,给出判定(成立/否证/存疑)及证据。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'fix', task: '针对 verify 锁定的根因给出最小、聚焦的修复:改动点、为什么它修的是根因而非症状、潜在副作用与回归风险、以及验证修复生效的方法。若可直接改动,则实施并做最小自测,报告结果。', role: 'worker', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
+    ],
+  },
+  {
+    id: 'doc-from-scratch', title: '文档生成:提纲 → 分节撰写 → 核验 → 统稿',
+    description: '从零产出高质量文档/报告:定提纲与受众 → 并行撰写各章节 → 事实与一致性核验 → 统稿润色并落盘。适合技术文档、方案书、调研报告。模型建议:分节撰写(draft_*)可用快模型提产量;提纲(outline)、核验(factcheck)、统稿(finalize)建议指派更强模型,它们决定结构与成稿质量。',
+    nodes: [
+      { id: 'outline', task: '明确文档的目标、目标受众与使用场景;产出详细提纲:章节结构、每节的要点与预期篇幅、需要引用的事实/数据来源、关键术语的统一口径。并给出写作约定(风格、人称、格式规范),供各撰写节点共同遵循。', role: 'explorer', position: { x: 40, y: 200 } },
+      { id: 'draft_front', task: '按 outline 撰写【前半部分章节】:严格遵循提纲要点与写作约定,内容具体、有必要的例子,不编造事实——不确定的数据/事实标注"[待核]"而非杜撰。只输出你负责章节的正文。', role: 'explorer', dependsOn: ['outline'], failurePolicy: 'continue', position: { x: 340, y: 90 } },
+      { id: 'draft_back', task: '按 outline 撰写【后半部分章节】,方法与格式同 draft_front(遵循写作约定、具体有例、不编造、"[待核]"标注)。只输出你负责章节的正文。', role: 'explorer', dependsOn: ['outline'], failurePolicy: 'continue', position: { x: 340, y: 310 } },
+      { id: 'factcheck', task: '核验 draft_front 与 draft_back:事实/数据是否准确且前后一致、有无自相矛盾、是否偏离提纲与受众、"[待核]"项是否仍未解决。输出问题清单(每条定位到章节/句子 + 修改建议)。此节点不改写正文,只出清单。', role: 'reviewer', dependsOn: ['draft_front', 'draft_back'], failurePolicy: 'continue', position: { x: 680, y: 200 } },
+      { id: 'finalize', task: '整合 draft_front 与 draft_back,按 factcheck 的问题清单逐条修正;统一术语、风格与章节过渡,润色成一篇连贯完整的文档,补齐目录与小结。将成稿写入工作区文件(用户未指定文件名时取一个合理默认,如 <主题>.md)。输出成稿路径与一段变更摘要。', role: 'worker', toolTier: 'edit', dependsOn: ['factcheck', 'draft_front', 'draft_back'], position: { x: 1000, y: 200 } },
+    ],
+  },
 ]);
 function normalizeWorkflowCondition(raw) {
   if (!raw || typeof raw !== 'object') return null;
