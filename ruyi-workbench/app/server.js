@@ -7982,6 +7982,48 @@ function materializePoolItem(run, item, opts = {}) {
   } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
 }
 // ============================================================================
+// 第26波c(AUTONOMY-PLAN §26c):调度核心【纯 reducer】—— 把 runAgentWorkflow 主循环里的【决策逻辑】
+// (谁被阻塞/跳过、谁就绪、本步派发谁、是否判环)抽成无副作用纯函数,便于穷举 retry×loop×gate×pause×crash×
+// inflight 组合(scheduler-reducer.e2e 源抽取直调,不起服务)。命令式外壳负责应用状态迁移与 async 派发/await。
+// 26a 三铁律语义原样保留:①判环仅当【本步零派发 且 在飞空】(cycleDead);②收尾判定 allTerminal 交外壳配 !inFlight
+// (外壳持在飞真值);③重排防双派发靠 inFlightIds 去重。纯函数不 mutate nodes —— 只返回决策清单。
+// 入参:nodes(读)、opts.inFlightIds(当前在飞 id 数组)、opts.concurrency、opts.isTerminal(n)→bool、
+//   opts.failureContinues(n)→bool、opts.evalCondition(cond,nodes,node)→bool。
+// 返回:{ toBlock:[{id,blockers[]}], toSkip:[{id}], toDispatch:[id...], allTerminal:bool, cycleDead:bool }。
+function computeSchedulerStep(nodes, opts) {
+  const { inFlightIds = [], concurrency = 1, isTerminal, failureContinues, evalCondition } = opts || {};
+  const byId = id => nodes.find(n => n.id === id);
+  const term = n => !!(n && isTerminal(n));
+  const inFlight = new Set(inFlightIds);
+  const toBlock = [], toSkip = [];
+  const blockedIds = new Set(), skippedIds = new Set();
+  // ── 阻塞/跳过扫描:仅对【所有依赖已终态】的 queued 节点判定(虚拟标记,不 mutate)。──
+  for (const node of nodes) {
+    if (node.status !== 'queued') continue;
+    const deps = (node.dependsOn || []).map(byId).filter(Boolean);
+    if (deps.length !== (node.dependsOn || []).length || !deps.every(term)) continue; // 依赖未全终态 → 本步不动
+    // B8: rejected/skipped 前序不算失败;continue 型失败(failureContinues)也不阻塞。
+    const blockers = deps.filter(d => term(d) && d.status !== 'succeeded' && d.status !== 'skipped' && d.status !== 'rejected' && !failureContinues(d));
+    if (blockers.length) { toBlock.push({ id: node.id, blockers: blockers.map(b => b.id) }); blockedIds.add(node.id); continue; }
+    if (node.condition && evalCondition && !evalCondition(node.condition, nodes, node)) { toSkip.push({ id: node.id }); skippedIds.add(node.id); }
+  }
+  // ── 就绪:queued 且未被本步 block/skip 且所有依赖终态。数组序保留(与 26a 公平性一致)。──
+  const ready = nodes.filter(n => n.status === 'queued' && !blockedIds.has(n.id) && !skippedIds.has(n.id) && (n.dependsOn || []).every(d => term(byId(d))));
+  // ── 派发选择:补位到并发上限,跳过已在飞(铁律③)。──
+  const toDispatch = [];
+  let slots = concurrency - inFlight.size;
+  for (const node of ready) {
+    if (slots <= 0) break;
+    if (inFlight.has(node.id)) continue;
+    toDispatch.push(node.id); slots--;
+  }
+  const allTerminal = nodes.every(term);
+  // 铁律①:本步零派发【且】在飞空【且】未全终态 → 依赖环/无法解锁(全终态时应由外壳的收尾分支处理,不判环)。
+  const cycleDead = toDispatch.length === 0 && inFlight.size === 0 && !allTerminal;
+  return { toBlock, toSkip, toDispatch, allTerminal, cycleDead };
+}
+
+// ============================================================================
 // 第25波 25.4(AUTONOMY-PLAN §4 Node Runtime):节点续点 —— 把本次 attempt 已完成的工具步骤折叠为轻量
 // continuation(name+参数摘要 → 结果摘要),挂在 node 上随既有 1.5s 节流 flush 落盘。进程崩溃后,恢复重跑
 // 用它在提示词里声明「这些副作用已生效勿重复」,而不是让 40 分钟的长节点从零重来。刻意【不】重放 subHistory
@@ -8322,27 +8364,24 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     // A failed quality/work node blocks its downstream by default. `continue` is an explicit degraded
     // path; retry nodes block only after retries are exhausted unless retryFallback says continue.
-    // B8: a 'rejected' predecessor (a quality gate whose business verdict was "no") is NOT an execution
-    // failure and must never block downstream — the downstream either evaluates its condition (e.g. run
-    // fix only when review verdict=fail) or, if it only dependsOn, treats the gate as a completed predecessor.
-    for (const node of nodes.filter(n => n.status === 'queued')) {
-      const deps = node.dependsOn.map(id => nodes.find(n => n.id === id)).filter(Boolean);
-      const blockers = deps.filter(dep => terminal(dep) && dep.status !== 'succeeded' && dep.status !== 'skipped' && dep.status !== 'rejected' && !failureContinues(dep));
-      if (deps.length === node.dependsOn.length && deps.every(terminal) && blockers.length) {
-        node.status = 'blocked'; node.error = `被失败的前序节点阻塞: ${blockers.map(n => n.id).join(', ')}`; node.completedAt = nowIso();
-        dropNodeMail(node.id); // P3-1: blocked 节点批外转移,清扫其滞留邮件
-        onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status, blockers: blockers.map(n => n.id) });
-      }
+    // 第26波c: 决策交纯 reducer computeSchedulerStep(见其定义)—— 本步阻塞/跳过/派发/判环全由它算,外壳只应用。
+    // B8: rejected 前序不算失败(reducer 内已处理);condition 不满足→skipped;dependsOn 全终态才判 block/skip。
+    const step = computeSchedulerStep(nodes, {
+      inFlightIds: [...inFlight.keys()], concurrency: run.concurrency,
+      isTerminal: terminal, failureContinues, evalCondition: evaluateWorkflowCondition,
+    });
+    for (const { id, blockers } of step.toBlock) {
+      const node = nodes.find(n => n.id === id); if (!node) continue;
+      node.status = 'blocked'; node.error = `被失败的前序节点阻塞: ${blockers.join(', ')}`; node.completedAt = nowIso();
+      dropNodeMail(node.id); // P3-1: blocked 节点批外转移,清扫其滞留邮件
+      onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status, blockers });
     }
-    for (const node of nodes.filter(n => n.status === 'queued' && n.condition)) {
-      const deps = node.dependsOn.map(id => nodes.find(n => n.id === id)).filter(Boolean);
-      if (deps.length === node.dependsOn.length && deps.every(terminal) && !evaluateWorkflowCondition(node.condition, nodes, node)) {
-        node.status = 'skipped'; node.skipReason = '条件不满足'; node.completedAt = nowIso();
-        dropNodeMail(node.id); // P3-1: skipped 节点批外转移,清扫其滞留邮件
-        onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: 'skipped', condition: node.condition });
-      }
+    for (const { id } of step.toSkip) {
+      const node = nodes.find(n => n.id === id); if (!node) continue;
+      node.status = 'skipped'; node.skipReason = '条件不满足'; node.completedAt = nowIso();
+      dropNodeMail(node.id); // P3-1: skipped 节点批外转移,清扫其滞留邮件
+      onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: 'skipped', condition: node.condition });
     }
-    const ready = nodes.filter(node => node.status === 'queued' && node.dependsOn.every(dep => terminal(nodes.find(n => n.id === dep))));
     // 第26波: per-node 执行体(原批次 Promise.all 的 map 回调,逐字未动)—— 由下方连续派发器调用。
     const runNode = async node => {
       const depNodes = node.dependsOn.map(dep => nodes.find(n => n.id === dep)).filter(Boolean);
@@ -8497,11 +8536,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (terminal(node)) dropNodeMail(node.id);
       await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命 —— 节点已执行完,持久化失败不该把结果作废
     };
-    // —— 第26波: 连续派发 —— 就绪节点补位到并发上限;任一在飞 settle 即回到环顶重算(下游立即解锁)。
+    // —— 第26波: 连续派发 —— reducer 已选定本步派发清单(含并发上限 + 去在飞,铁律③);外壳只做 async 派发。
     let dispatched = 0;
-    for (const node of ready) {
-      if (inFlight.size >= run.concurrency) break;
-      if (inFlight.has(node.id)) continue;   // 26a 铁律③: 重排节点旧 flight 尾部未 settle 时禁止双派发
+    for (const id of step.toDispatch) {
+      const node = nodes.find(n => n.id === id); if (!node) continue;
       node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); startedCount += 1; dispatched += 1;
       appendAgentRunEvent(run, { type: 'node_start', nodeId: node.id, attemptId: node.attempts }); // 25.3
       let flight;
@@ -8518,9 +8556,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       runtime.lastActivityAt = Date.now(); // v1.x (B1): dispatching counts as progress (floor for the watchdog)
       await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命(降级机制在 saveAgentRun 内接管)
     }
-    if (!dispatched && !inFlight.size) {
-      // 26a 铁律①: 本轮零派发【且】在飞空才判环 —— 同步型节点会在上面的 save await 期间 settle 清空 inFlight,
-      // 只看 inFlight.size 会把刚解锁的下游误诊成「依赖图存在环」(对抗轮 P1-1,确定性复现)。
+    if (step.cycleDead && !inFlight.size) {
+      // 26a 铁律①(reducer 已判):本步零派发【且】在飞空【且】未全终态 → 依赖环/无法解锁。外壳再确认 inFlight
+      // 仍空(reducer 决策与此处应用间无 await 改变 inFlight,双保险)。同步型节点在派发器 save await 期间 settle
+      // 清空 inFlight,只看 inFlight.size 会把刚解锁的下游误诊成环(对抗轮 P1-1,确定性复现)。
       for (const node of nodes) if (!terminal(node)) { node.status = 'failed'; node.error = '依赖图存在环或无法解锁'; node.completedAt = nowIso(); }
       break;
     }

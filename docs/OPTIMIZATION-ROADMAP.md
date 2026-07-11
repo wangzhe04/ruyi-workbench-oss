@@ -391,3 +391,8 @@
 - **P2 /api/stop 刹不住驱动器**:isAlive 只看客户端断连,服务端 stopSession(不关 socket)后驱动器仍 relaunch → 补 turnStopped(捕获 'process' state:'stopped')并入 isAlive。
 - **P3×5**:续跑消息 goal/desc 扁平化中和(防伪装用户指令);done→pending 回退守卫(不可信来源不得,防抖动拖住循环);file_exists 工作区containment(防越界存在性探测);maxTokens 计入 cache token(Claude 引擎欠计);停滞指纹并入 evidence 桶(粗粒度大里程碑更新证据算进展,不误判停滞)。
 - e2e 扩 F/G/H 三组(P1 命令注入拒绝 + 用户可定义 check 而模型改不动 + done 回退守卫);未击穿面:预算/循环有界、非账本零影响、压缩/回溯免疫、GET 鉴权自检、模型无法自升 until-done/自抬预算(三镜头一致确认)。回归受影响面全绿。
+
+## 22. 第 26 波c:调度核心 reducer 化 + 组合单测(2026-07-11)
+
+26a 的连续就绪队列三铁律此前只靠 live e2e 覆盖,组合空间(retry×loop×gate×pause×crash×inflight)测不全。本波把主循环的【决策逻辑】抽成**纯函数** `computeSchedulerStep(nodes, {inFlightIds, concurrency, isTerminal, failureContinues, evalCondition})` → `{toBlock,toSkip,toDispatch,allTerminal,cycleDead}`,命令式外壳只负责应用状态迁移与 async 派发/await。三铁律语义原样保留(判环 cycleDead=零派发且在飞空且未全终态、收尾 allTerminal 配外壳 !inFlight、重排防双派发靠 inFlightIds 去重)。
+**验收**:新 `scheduler-reducer.e2e.js`(源抽取 + new Function 实跑,26 断言穷举依赖门/并发/block/skip/condition/B8/failureContinues/retry-loop-crash 重排/纯函数不 mutate);scheduler-ready-queue 静态锁更新为 reducer 形态;agent 全家 + 崩溃注入 + mission-driver 回归全绿(运行时行为零变化)。
