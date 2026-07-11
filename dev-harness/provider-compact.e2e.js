@@ -79,7 +79,8 @@ function postStream(port, payload) {
   try {
     let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(WB_PORT); }
     ok(!!h, 'workbench listening on :' + WB_PORT);
-    ok(h && h.version === '1.4.0', 'version 1.4.0 (got ' + (h && h.version) + ')');
+    const PKG_VERSION = require(require('path').join(WB, 'package.json')).version; // 第23波: 版本号动态读(存量过期断言)
+    ok(h && h.version === PKG_VERSION, 'version === package.json "' + PKG_VERSION + '" (got ' + (h && h.version) + ')');
 
     // Turn 1: chat so providerHistory grows past the two-entry compacted shape.
     const events = await postStream(WB_PORT, { message: 'hi there, remember this fact: sky is blue' });

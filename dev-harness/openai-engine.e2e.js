@@ -67,7 +67,7 @@ function postStream(port, payload) {
   try {
     let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(WB_PORT); }
     ok(!!h, 'workbench listening on :' + WB_PORT);
-    ok(h && h.version === '1.4.0', 'version 1.4.0 (got ' + (h && h.version) + ')');
+    ok(h && h.version === require(require('path').resolve(__dirname,'..','ruyi-workbench','package.json')).version, 'version === package.json (got ' + (h && h.version) + ')'); // 第23波: 动态读
 
     const models = await getJson(WB_PORT, '/api/models').catch(e => ({ error: e.message }));
     ok(models && models.engine === 'openai', 'GET /api/models engine=openai (got ' + (models && models.engine) + ')');

@@ -744,11 +744,14 @@ function normalizeConfig(raw) {
     let type = ['none', 'builtin', 'searxng', 'bing', 'brave', 'tavily', 'bocha', 'custom'].includes(raw0.type) ? raw0.type : 'builtin';
     // v1.1-W1a (T3): MIGRATE存量 'none' → 'builtin'. Rationale: 'none' was the *historical default* (nobody
     // ever actively chose "disable search" — the old default just left web_search off). Folding it to the new
-    // zero-config backend turns search ON for every upgraded install, matching the 开箱即用 decision. Trade-off
-    // (documented, per task): this makes 'none' non-persisting — a config that lands on 'none' is folded back
-    // to 'builtin' on the next load. That is intentional here (open-out-of-the-box wins over a rarely-wanted
-    // "disable search" toggle). Only the exact string 'none' is folded; every other backend is left untouched.
-    if (raw0.type === 'none') { type = 'builtin'; }
+    // zero-config backend turns search ON for every upgraded install, matching the 开箱即用 decision.
+    // 审计 P2 (修 v1.1-W1a 的过度折叠): 旧版【无条件】折叠 'none'→'builtin' → UI 新增的「不启用」选项永不生效(每次
+    // load 又被折回 builtin),对气隙产品是「联网关不掉」的合规缺陷。改为【一次性】迁移:仅当从未迁移过
+    // (searchBackendMigrated 缺失,即老配置/新装首读)才折叠;置位后用户显式选择的 'none' 正常持久化。只折 'none',
+    // 其它 backend 从不改动。迁移标记随 readConfig 首次即写回磁盘,并经 POST /api/config 的 {...current,...body}
+    // 合并稳定存活(current 恒含 true),故保存往返不会重新折叠。
+    if (raw0.type === 'none' && config.searchBackendMigrated !== true) { type = 'builtin'; }
+    if (config.searchBackendMigrated !== true) { config.searchBackendMigrated = true; changed = true; }
     const sb = {
       type,
       baseUrl: typeof raw0.baseUrl === 'string' ? raw0.baseUrl.trim().slice(0, 1000) : '',
@@ -793,9 +796,13 @@ function normalizeConfig(raw) {
 // safeJsonParse→null → normalizeConfig 把【整份用户配置静默重置为默认】(密钥/服务商/工作区全丢)。改 tmp+rename
 // (同卷内原子),与 saveSession/journalWriteIndex 同一纪律。
 async function writeConfigAtomic(data) {
-  const tmp = paths.config + '.tmp';
+  // 审计 P2: 唯一 tmp 名(pid+随机)—— 固定 '.tmp' 下两个并发写者会写同一临时文件、交错字节 → rename 出损坏
+  // 配置,下次读 safeJsonParse→null → normalizeConfig 把整份用户配置静默重置。与 saveMemory/saveAgentRun 同一纪律。
+  const tmp = paths.config + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
   await fsp.writeFile(tmp, data, 'utf8');
-  await fsp.rename(tmp, paths.config);
+  // 对抗轮修: rename 失败(Windows 上并发读者/杀软/备份持句柄致 EPERM/EBUSY)必须 unlink 掉唯一名 tmp —— 否则
+  // 每次失败留一个各不相同、永不回收的孤儿(固定名 '.tmp' 靠下次覆写自愈,唯一名没这条自愈路径,会无界累积)。
+  try { await fsp.rename(tmp, paths.config); } catch (e) { fsp.unlink(tmp).catch(() => {}); throw e; }
 }
 async function readConfig() {
   await ensureDirs();
@@ -1828,13 +1835,17 @@ async function saveSession(session) {
   await ensureDirs();
   session.updatedAt = nowIso();
   const finalPath = sessionPath(session.id);
-  const tmpPath = finalPath + '.tmp';
+  // 审计 P2: 唯一 tmp 名(pid+随机)—— 固定 '.tmp' 下同一会话的多个并发 saveSession(回合保存 + 后台节流 flush +
+  // updateSessionMeta)会写同一临时文件互踩,最坏 rename 出损坏 JSON → loadSession 把整份会话历史隔离为 .corrupt。
+  const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
   // Serialize the payload and snapshot the 7 index fields in the SAME synchronous tick, so the background index
   // write reflects EXACTLY what we persist here (no drift if `session` is mutated during the awaits below).
   const payload = JSON.stringify(session, null, 2);
   const metaSnapshot = sessionMeta(session);
   await fsp.writeFile(tmpPath, payload, 'utf8');
-  await fsp.rename(tmpPath, finalPath);
+  // 对抗轮修: rename 失败(Windows 上并发读者/杀软/备份持 <id>.json 句柄致 EPERM/EBUSY)必须 unlink 掉唯一名 tmp ——
+  // 否则每次失败留一个各不相同、永不回收的孤儿(固定名靠下次覆写自愈,唯一名没这条自愈路径,会在 sessions/ 无界累积)。
+  try { await fsp.rename(tmpPath, finalPath); } catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
   // PF2: queue the sidebar metadata index update (cheap sync Map.set; the write is debounced + coalesced). The
   // index is only a cache and listSessions falls back to a full file scan whenever its id-set drifts from disk.
   scheduleSessionIndexUpdate(session.id, metaSnapshot);
@@ -2703,6 +2714,34 @@ function pathWithinRoot(target, root) {
 function pathWithinAnyRoot(target, roots) {
   return roots.some(r => pathWithinRoot(target, r));
 }
+// 审计 P1: dataRoot 是文件工具的允许根之一(fileAllowedRoots),本意只为读写【应用产物】(uploads/checkpoints
+// 内容/generated 产物)。但它同时罩住了应用自身的【控制面文件】:config.json(明文 provider 密钥)、sessions/
+// (完整对话记录,含 file_read 读回的文件内容与讨论到的密钥)、memory/(跨会话记忆)、usage/(计费台账)、logs/
+// (审计,含路径/命令)、agent-runs/(工作流状态)、generated/(内含带 WCW_TOKEN 的会话 MCP 配置)。提示注入的
+// 模型只需 file_read 这些文件再经 web_fetch 外传,即绕过 HTTP 层的 maskProviders 脱敏(GET /api/status 从不回明文
+// 密钥,文件工具层却能读原始字节)。这里对【解析后的真实路径】做二次拒绝:命中这些敏感子树的文件工具访问一律
+// 拒绝(读写都拒),不影响读 uploads/ 产物或 checkpoints/ 内容。用 realpath 比对,故工作区内指向敏感文件的符号链接也拒。
+// 对抗轮扩展(3 处补漏): ①加入 runtime.json —— 它在 dataRoot 顶层明文存 WCW_TOKEN(RUNTIME.token),原表漏掉 →
+// file_read 拿 token → 打 /api/file/preview 读 config.json 的链成立;②遍历类工具(file_list/file_search/glob)会
+// 【递归进】dataRoot 子树返回文件内容,原来只校验 root 参数不校验被遍历文件 → 敏感文件内容仍外泄(见 walkFiles 内跳过);
+// ③realpath 对称性: dataRoot 祖先若为 junction/符号链接/8.3 短名,realpath(target) 与【未解析】的 paths.* 永不相等,
+// 门被绕过 → 同时对【词法 dataRoot】与【realpath 后 dataRoot】两种根前缀比对,调用方传词法或 realpath 路径都能命中。
+// _dataRootReal 由 ensureDataRootReal 缓存(dataRoot 必存在,ensureDirs);同步 isSensitiveDataPath 供遍历热路径逐项调用。
+let _dataRootReal = null;
+async function ensureDataRootReal() {
+  if (!_dataRootReal) { const r = dataRoot(); _dataRootReal = await fsp.realpath(r).catch(() => r); }
+  return _dataRootReal;
+}
+function isSensitiveDataPath(p) {
+  if (!p) return false;
+  const root = dataRoot();
+  // 敏感子路径(相对 dataRoot):明文密钥 config.json、token runtime.json、会话/记忆/计费/审计/工作流状态/带 token 的
+  // 生成配置。不含 uploads/checkpoints/webcache/skills/playbooks/agent-worktrees —— 那些是用户产物/内容,合法可读。
+  const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs'];
+  const bases = (_dataRootReal && _dataRootReal !== root) ? [root, _dataRootReal] : [root];
+  for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
+  return false;
+}
 // v1.0.2-S3: shared allowed-root guard for the file endpoints (/api/file/preview borrows the inline version;
 // /api/file/reveal uses this). Resolves BOTH the target and every root via fs.realpath (symlink-agnostic) —
 // a symlink inside an allowed root but pointing outside must NOT pass. Returns {ok, code?, error?, absPath?}:
@@ -2716,6 +2755,10 @@ async function guardWorkspacePath(rawPath, session, config) {
   const target = path.resolve(rawPath);
   const roots = fileAllowedRoots(session, config);
   const real = await fsp.realpath(target).catch(() => target);
+  // 审计 P1(对抗轮补漏): reveal(在资源管理器打开/定位)与 http_download 落盘目标都经此护栏 —— 敏感控制面文件既
+  // 不许暴露也不许被下载覆写(否则可覆写 config.json/runtime.json 致配置损毁/token 替换)。与文件工具同源拒绝。
+  await ensureDataRootReal();
+  if (isSensitiveDataPath(target) || isSensitiveDataPath(real)) return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据,已禁止访问' };
   const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
   if (!pathWithinAnyRoot(real, realRoots)) return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内' };
   return { ok: true, absPath: real };
@@ -2756,15 +2799,22 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
+  const real = await fsp.realpath(abs).catch(() => abs);
+  // 审计 P1: 敏感控制面文件二次拒绝(见 isSensitiveDataPath)。放在 allowOutsideWorkspace 逃生舱【之前】——即便用户
+  // 开了越界豁免,应用自身的 config/runtime/sessions/memory 等也绝不可经文件工具读写(密钥/会话/token 外传面)。
+  // 词法 abs 与 realpath 后 real 都查,双保险(junction/短名部署下两者不同)。
+  await ensureDataRootReal();
+  if (isSensitiveDataPath(abs) || isSensitiveDataPath(real)) {
+    logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-sensitive', pathLen: abs.length });
+    return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据(配置/会话/记忆/日志等),已禁止文件工具访问' };
+  }
   if (config && config.allowOutsideWorkspace === true) {
     const roots0 = fileAllowedRoots(session, config);
-    const real0 = await fsp.realpath(abs).catch(() => abs);
     const realRoots0 = await Promise.all(roots0.map(r => fsp.realpath(r).catch(() => r)));
-    if (!pathWithinAnyRoot(real0, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'allow-config', pathLen: abs.length });
-    return { ok: true, absPath: real0 };
+    if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'allow-config', pathLen: abs.length });
+    return { ok: true, absPath: real };
   }
   const roots = fileAllowedRoots(session, config);
-  const real = await fsp.realpath(abs).catch(() => abs);
   const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
@@ -5671,7 +5721,11 @@ function nativeToolTier(name) { return NATIVE_TOOL_TIER[name] || 'exec'; } // un
 // Exact-name set below; a few prefix rules follow it. Anything unmatched defaults to 'exec'.
 const BRIDGED_READ_TOOLS = new Set([
   'screenshot', 'screenshot_region', 'screenshot_full', 'window_screenshot',
-  'ocr_image', 'ocr_screen', 'ocr_find_text',
+  'ocr_image', 'ocr_screen',
+  // 审计 P1: 'ocr_find_text' 有意【不在】read 级 —— 它带 click 参数(click=True 即 pyautogui.click 物理点击,见
+  // ocr.py:227/253),被判 read 后 read 子代理可无人值守点击桌面,且 nativeToolGate 对 read 无条件 allow(任何模式
+  // 不弹窗)。它落回默认 'exec':read/edit 子代理拿不到,非 bypass 模式点击前弹窗。纯只读文本定位仍可用 ocr_screen/
+  // ocr_image(返回全部词+坐标)或 find_on_screen/find_template(模板匹配,无 click、均无 audit → 仍是 read)。
   'find_template', 'find_all_templates', 'find_on_screen',
   'ui_inspect', 'ui_find', 'diagnostics', 'version_info', 'safety_info', 'audit_tail',
   'read_file', 'file_info', 'clipboard_get', 'clipboard_read', 'get_clipboard',
@@ -7582,6 +7636,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     } else {
       for (const n of nodes) if (n.status !== 'succeeded') reset.add(n.id);
     }
+    // 审计 P2(崩溃恢复): 'interrupted' 是 markInterruptedAgentRuns 给崩溃时在跑节点打的死状态,既不在 terminal()
+    // 集合、也非 'queued',调度器永远不会重跑它。若某个 targeted-retry 未把它级联进 reset,它会永久卡非终态 → 当
+    // ready 为空(无 queued 节点依赖全 terminal)时被误诊为「依赖图存在环或无法解锁」而整批 failed(见下 ready 判定)。
+    // 任何续跑都必须把 interrupted 并入 reset 重新入队(full-retry 分支 status!=='succeeded' 已含它,此处补齐 targeted 分支)。
+    for (const n of nodes) if (n.status === 'interrupted') reset.add(n.id);
     const pendingIsolation = nodes.find(n => reset.has(n.id) && n.isolation && n.isolation.status === 'ready');
     if (pendingIsolation) return { ok: false, error: `节点 ${pendingIsolation.id} 有尚未应用的隔离提交，请先应用或删除该工作流记录`, startedCount: 0 };
     for (const n of nodes) {
@@ -7933,6 +7992,13 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           node.status = sub.ok ? 'succeeded' : 'failed';
           node.result = String(sub.result || '').slice(0, 24000);
           node.error = sub.ok ? '' : String(sub.error || '子代理失败').slice(0, 4000);
+          // 审计 P2: 透传 degraded —— Claude CLI 产出可用输出后异常退出的「降级成功」(runClaudeSubAgentOnce 返回
+          // {ok:true,degraded:true,warning})。此前被丢弃 → 前端整套「降级完成」渲染(app.js nodeDisplayStatus:
+          // succeeded+node.degraded→'degraded')成死代码,残缺结果被当干净成功。status 维持 succeeded(确是成功),
+          // degraded 作显示细化。node.warning 是持久化到 run 记录的降级原因元数据(经 GET /api/agent-runs 下发,
+          // 供节点详情/审计取用;前端徽标目前只读 degraded 态,warning 明细渲染留待详情面板增补,不在本波)。
+          node.degraded = !!(sub && sub.degraded);
+          if (sub && sub.warning) node.warning = String(sub.warning).slice(0, 500); else delete node.warning;
           node.iters = sub.iters; node.toolCalls = sub.toolCalls;
           if (sub.ok && effectiveSchema) {
             let parsed = parseStructuredAgentOutput(node.result);
@@ -8805,7 +8871,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   else if (loopAborted) errorClass = 'tool_loop'; // v0.8-S7: repeated-call guard (distinct from idle/network/tool_error)
   else if (idleAborted) errorClass = 'idle_timeout';
   else if (!ok && errorMsg) {
-    errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
+    // 审计 P2: 认证/授权失败(密钥错/无权限,首跑最高频故障)先归 provider_misconfigured —— 否则落到 tool_error
+    // 「工具执行出错」误导用户去查工具而非改密钥。errorMsg 是回合级终态错误(provider HTTP 错传上来,如 'HTTP 401',
+    // 且可能含响应体首段)。对抗轮收紧:锚定 401/403 状态码 + unauthorized/api-key 短语,不再匹配裸 'authentication'
+    // (否则代理 'HTTP 407: Proxy Authentication Required' 或 502 正文含该词会被误导向「改密钥」)。再区分 network/tool。
+    if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
+    else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
   }
   // v1.0 收官安全加固:result 错误经 redact + 剥 URL userinfo 再回显(与显示路径一致);transportError 原文
   // 可能含带 basic-auth 的端点 URL,不加处理会漏进前端与审计。
@@ -9296,20 +9367,30 @@ function runProcess(command, args, options = {}) {
       shell: options.shell || false,
       ...s.opts,
     });
+    // 审计 P2: 单次结算门 —— close/error/超时兜底三条路径共用,防重复 resolve。
+    let settled = false;
+    let killGraceTimer = null;
+    const finish = payload => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (killGraceTimer) clearTimeout(killGraceTimer);
+      resolve(payload);
+    };
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGTERM');
+      // 审计 P2: 超时用 killChildTree(taskkill /T /F)整树杀 —— child.kill('SIGTERM') 在 Windows 上只杀直接子
+      // 进程,claude.cmd→node、shell→子命令等孙进程会遗孤泄漏,且其继承的 stdio 句柄不关 → 'close' 迟迟不触发,
+      // promise 悬挂到远超 timeoutMs。killChildTree 内含 SIGKILL 兜底。
+      killChildTree(child.pid);
+      // 二次兜底:即便整树已杀,若仍有句柄让 'close' 不触发,3s 后硬 resolve,绝不让工具调用无限悬挂。
+      killGraceTimer = setTimeout(() => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + '\n[timed out; process tree killed]', elapsedMs: Date.now() - start, timedOut: true }), 3000);
+      if (killGraceTimer.unref) killGraceTimer.unref();
     }, timeoutMs);
     child.stdout?.on('data', d => collect(outChunks, d, true));
     child.stderr?.on('data', d => collect(errChunks, d, false));
-    child.on('error', error => {
-      clearTimeout(timer);
-      resolve({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + error.message, elapsedMs: Date.now() - start, timedOut });
-    });
-    child.on('close', code => {
-      clearTimeout(timer);
-      resolve({ ok: code === 0 && !timedOut, code, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)), elapsedMs: Date.now() - start, timedOut });
-    });
+    child.on('error', error => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + error.message, elapsedMs: Date.now() - start, timedOut }));
+    child.on('close', code => finish({ ok: code === 0 && !timedOut, code, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)), elapsedMs: Date.now() - start, timedOut }));
   });
 }
 
@@ -9716,6 +9797,11 @@ async function walkFiles(root, opts = {}) {
   const pattern = opts.pattern ? new RegExp(opts.pattern, opts.ignoreCase === false ? '' : 'i') : null;
   const ignoredDirs = new Set(opts.ignoreDirs || ['node_modules', '.git', '.venv']);
   const out = [];
+  // 审计 P1(对抗轮补漏): 遍历类工具(file_list/glob,以及经 searchFileContentJs 的 file_search)会递归进 dataRoot,
+  // 而 guardFileToolPath 只校验 root 参数、不校验被遍历文件 —— 当某允许根是 dataRoot 的祖先(默认: home 工作区 ⊇
+  // home/.win-claude-workbench)时,config.json/sessions/token 配置的内容仍被搜出返回。这里在遍历处逐项跳过敏感子树
+  // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
+  await ensureDataRootReal();
   async function walk(dir, depth) {
     if (out.length >= maxFiles) return;
     const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
@@ -9723,6 +9809,7 @@ async function walkFiles(root, opts = {}) {
       if (out.length >= maxFiles) break;
       if (entry.isDirectory() && ignoredDirs.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
+      if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
       const rel = path.relative(base, full) || '.';
       if (!pattern || pattern.test(rel)) {
         const stat = await fsp.stat(full).catch(() => null);
@@ -11576,7 +11663,10 @@ async function toolCall(name, args = {}, ctx = null) {
       const root = path.resolve(args.root || process.cwd());
       const g = await guardFileToolPath(root, ctx, { tool: 'file_search', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
-      const matches = await searchFileContent(root, String(args.pattern || ''), args);
+      let matches = await searchFileContent(root, String(args.pattern || ''), args);
+      // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
+      // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
+      if (Array.isArray(matches)) { const pn = matches.patternNote; matches = matches.filter(m => !isSensitiveDataPath(m && m.path)); if (pn) matches.patternNote = pn; }
       const resp = { ok: true, root, matches };
       // F2: literal-fallback marker (invalid regex was searched as escaped literal text) — additive field.
       if (matches && matches.patternNote) resp.patternNote = matches.patternNote;
@@ -11977,6 +12067,17 @@ async function handleApi(req, res, pathname) {
     if (uiMutatingRoute && browserCaller && !tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
   }
 
+  // 审计 P1: 敏感【内容型 GET】的鉴权 —— 上面的 mutating 块只管非 GET,GET 直接跳过。但 GET /api/sessions(会话列表)、
+  // /api/sessions/<id>(完整 transcript,含 file_read 读回的文件内容与讨论到的密钥)、/api/skills(技能注册表,含项目路径)
+  // 本只有 same-origin 防护,而 DNS-rebinding 页面按构造就是 same-origin → same-origin 不足以挡。这里对【浏览器调用方】补
+  // UI token(rebinding 攻击页拿不到 token);非浏览器回环调用方(e2e/CLI,无 Origin/Sec-Fetch 头)不受影响,与 uiMutatingRoute
+  // 的 v1.4.6-S1 纪律一致,本地工具照常。/api/file/preview、/api/audit 早已在各自 handler 自查 tokenOk(见上鉴权块注释)。
+  if (!mutating) {
+    const browserCaller = Boolean(req.headers.origin) || Boolean(req.headers['sec-fetch-site']) || Boolean(req.headers['sec-fetch-mode']);
+    const uiReadRoute = pathname === '/api/sessions' || pathname.startsWith('/api/sessions/') || pathname === '/api/skills';
+    if (uiReadRoute && browserCaller && !tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+  }
+
   if (req.method === 'GET' && pathname === '/api/status') {
     const config = await readConfig();
     const { health, manifest } = await computeHealth(config);
@@ -12197,7 +12298,16 @@ async function handleApi(req, res, pathname) {
     }
     const sp = sanitizeProvider(rawProvider);
     if (!sp) return send(res, json({ ok: false, error: 'invalid provider (need at least an id + baseUrl)' }));
-    return send(res, json(await fetchOpenAiModels(sp, 6000)));
+    // 审计 P2: 测试连接把 fetchOpenAiModels 的裸 'HTTP 401' 直接回吐给用户 —— 首跑最高频故障(密钥错/无权限)却无
+    // 中文人话、无下一步。这里把常见状态映射为可行动文案 + errorClass(前端据此渲染 ERROR_CLASSES 的 zh/next)。
+    const probe = await fetchOpenAiModels(sp, 6000);
+    if (!probe.ok && probe.error) {
+      const e = String(probe.error);
+      if (/\bHTTP 401\b|\bHTTP 403\b|unauthorized/i.test(e)) { probe.error = '密钥无效或无权限(' + e + '):请检查 API Key 是否正确、是否有额度/权限'; probe.errorClass = 'provider_misconfigured'; }
+      else if (/\bHTTP 404\b/i.test(e)) { probe.error = '端点地址可能不对(' + e + '):检查 Base URL 是否为 OpenAI 兼容的 /v1 地址'; probe.errorClass = 'provider_misconfigured'; }
+      else if (/timeout|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e)) { probe.error = '连不上端点(' + e + '):检查网络与 Base URL,内网端点确认可达'; probe.errorClass = 'network_down'; }
+    }
+    return send(res, json(probe));
   }
   if (req.method === 'GET' && pathname === '/api/sessions') {
     return send(res, json({ ok: true, sessions: await listSessions() }));
@@ -12734,6 +12844,12 @@ async function handleApi(req, res, pathname) {
     // arbitrary file. ENOENT/EPERM (missing/unresolvable) → fall back to `target` so readFilePreview surfaces a
     // normal "not found". Resolve the roots too so a root that is itself a symlink still matches.
     const real = await fsp.realpath(target).catch(() => target);
+    // 审计 P1(对抗轮补漏): preview 端点原来只做 fileAllowedRoots+realpath 包含校验,不查敏感表 —— 「file_read
+    // runtime.json 拿 token → 用 token 打 preview 读 config.json」的链由此成立。这里与文件工具同源拒绝敏感控制面文件。
+    await ensureDataRootReal();
+    if (isSensitiveDataPath(target) || isSensitiveDataPath(real)) {
+      return send(res, json({ ok: false, error: '该路径属于应用内部数据(配置/会话/记忆等),已禁止预览' }, 403));
+    }
     const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
     if (!pathWithinAnyRoot(real, realRoots)) {
       // 防任意文件读取:第二道闸(GET-token 之外)。不在任何允许根下 → 403。

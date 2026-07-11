@@ -165,7 +165,7 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
   try {
     let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(WB_PORT); }
     ok(!!h, 'workbench listening');
-    ok(h && h.version === '1.4.0', 'version 1.4.0');
+    ok(h && h.version === require(require('path').resolve(__dirname,'..','ruyi-workbench','package.json')).version, 'version === package.json'); // 第23波: 动态读
     const token = await getToken(WB_PORT);
     ok(!!token, 'UI token scraped');
     const hdr = { 'x-wcw-token': token };

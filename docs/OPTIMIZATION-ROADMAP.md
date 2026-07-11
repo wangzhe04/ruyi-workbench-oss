@@ -310,3 +310,26 @@
 - **安全裁定(有意不对称)**:Claude 路径 `--mcp-config` 维持 exec-only——CLI 的 --allowed-tools 在 bypass 许可下非硬限制,read/edit 提前挂桥接面 = 桌面全控泄漏。该不变量已入回归锁。
 - **交付**:新 e2e `subagent-net-tools.e2e.js`(24断言:能力面+安全不变量双向锁),claude-engine e2e 契约更新;顺手修 3 个存量过期断言(subagent/mcp-bridge 版本号改动态读 package.json、agent-roles 预算钳制 ===32 旧上限期望改 99)。受影响 10 套件全绿;preview 实测编辑器下拉新文案 + 零控制台错误。
 - **后续候选**:Claude 路径 MCP 分级开放,待 CLI 提供逐工具硬白名单语义(或用 --disallowedTools 反向列举桥接 exec 面)再评估;http_request 是否给 edit 级开受限版(仅 GET/HEAD)待需求。
+
+## 18. 第 23 波:八镜头审计 + 安全/健壮性修复轮(2026-07-11 收官)
+
+八镜头并行审计(性能/安全/并发/前端/技术债/测试缺口/产品/ACC-Python)+ 逐条对抗核实(每条派怀疑者尽力否证),39 条中 **35 条成立/4 否证**。本波落地用户点名的「3 P1 + 6 S级P2」,均经【实现 → 对抗验证 → 补漏 → 独立回归】闭环。
+
+**3 P1(全部主会话亲核 + 实弹锁)**
+- **#1 GET 鉴权(rebinding)**:`GET /api/sessions`、`/api/sessions/<id>`、`/api/skills` 缺 tokenOk —— handleApi 的 mutating 块只管非 GET,GET 直接跳过 → 完整 transcript 可经 DNS-rebinding 被任意网页读走。修:新增 `!mutating` 敏感内容型 GET 门,对【浏览器调用方】(Origin/Sec-Fetch)补 UI token,放行无头回环(e2e/CLI),与 uiMutatingRoute 的 v1.4.6-S1 纪律一致。
+- **#2 文件工具读密钥/token**:dataRoot 是 fileAllowedRoots 之一(本意为读产物),却罩住 config.json(明文密钥)/runtime.json(token)/sessions/memory/... → 提示注入 + web_fetch 外传。**对抗轮把最初的「file_read 单点修」升级为完整加固**:新增 `isSensitiveDataPath`(词法+realpath 双根前缀,含 runtime.json),接入全部内容访问路径——`guardFileToolPath`、`walkFiles`(一处覆盖 file_list/glob/file_search-JS 的遍历下钻)、file_search rg 结果过滤、`/api/file/preview`、`guardWorkspacePath`(reveal/download 落盘)。**对抗轮抓获三个真漏**:①runtime.json 漏网(token→preview→config 链);②遍历类工具递归进 dataRoot 返回内容(只校验 root 参数不校验被遍历文件)= blocker;③realpath 不对称(junction/短名部署下 realpath(target) 与未解析 paths.* 永不相等,门被绕过)。
+- **#3 ocr_find_text 越权**:它带 click(真点鼠标)却被判 read → read 子代理可无人值守点桌面且不弹窗(第22波开放桥接分级时漏审 read 族副作用)。修:移出 `BRIDGED_READ_TOOLS` → 落 exec。纯只读定位仍有 ocr_screen/ocr_image/find_*。
+
+**6 S级 P2**
+- **#4** searchBackend 'none' 改【一次性】迁移(searchBackendMigrated 标记,随 readConfig 写回 + POST /api/config 合并稳定存活):老配置 none→builtin 一次,之后用户显式「不启用」正常持久化(气隙产品能真关掉联网)。
+- **#5** runProcess 超时改 `killChildTree`(taskkill /T /F 整树杀)+ 单次结算门 finish() + 3s 硬兜底:消除孙进程泄漏 + 工具调用悬挂。
+- **#6** 401/403 归 provider_misconfigured(非 tool_error);provider/test 把裸 'HTTP 401' 映射中文人话。对抗轮收紧正则:锚定 401/403 状态码,去掉裸 'authentication'(避免代理 HTTP 407 误导「改密钥」)。
+- **#7** 崩溃恢复:'interrupted' 死状态并入 retry 的 reset 集合(否则 targeted-retry 遗留它 → ready 空时被误诊「依赖图存在环」整批 failed)。
+- **#8** saveSession/writeConfigAtomic 唯一 tmp 名(pid+随机)防并发写者互踩成 .corrupt;对抗轮补 rename 失败 unlink(避免唯一名孤儿累积)。
+- **#9** DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染,残缺结果不再当干净成功);warning 存 run 记录供详情面板取用。
+
+**对抗验证轮(4 镜头:安全/并发/逻辑/回归)**:抓获 1 blocker(#2 遍历漏)+ 3 major(#2 runtime.json、#2 realpath×2 视角)+ minor(#6 正则过宽、#8 孤儿 tmp)+ nit(#9 warning 未渲染),已全部修复或裁定;#7「targeted 连带重跑 interrupted」裁为**必要行为**(interrupted 必须重跑,否则正是被修的环误诊)不改。
+
+**交付**:server.js ~14 处;新回归锁 `dev-harness/audit-w23.e2e.js`(50 断言:单元 bridgedToolTier/normalizeConfig + 抽取 isSensitiveDataPath 含 junction 对称 + 实弹 GET鉴权/file_read/file_search/file_list/preview/provider-test)。顺手修 **10 处存量过期版本断言**(硬编码 1.4.0/ACC 1.8.0 → 动态读 package.json/server.py,正是审计根因#1「人肉清单失守」实例):session-atomic、provider-compact、bridged-prefix-tolerance、artifacts、openai-engine、openai-tools、plan-mode、usage-accum、vision-loop、workspace-resolve。~39 套件回归全绿(含 file-guard/tools-v2/v3 确认敏感门不误伤合法读)。
+
+**未做(审计成立但未排期,下一波候选)**:三杠杆(声明式 auth 路由表 deny-by-default + atomicWriteJson 统一写链 + e2e 端口元护栏)治根因#1/#2;轮询链路瘦身(agent-runs 全量读盘 + 前端 2s 全量重建);检查点×异步运行并发闭环;session.messages 入库瘦身;模态框 focus-trap;excel_read 二次全量打开;README/手册 v1.5→1.6 数字漂移(P3)。详见 §10 后各波与本波审计报告。

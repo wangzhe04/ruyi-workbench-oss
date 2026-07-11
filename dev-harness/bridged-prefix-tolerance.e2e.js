@@ -95,7 +95,9 @@ function postStream(port, payload) {
         ok(!!toolUse, '(B) model emitted BARE `diagnostics` (no prefix)');
         ok(toolResult && toolResult.isError !== true, '(B) bare call NOT an error (was: Unknown tool)');
         ok(!/Unknown tool/i.test(resStr), '(B) result is not「Unknown tool」');
-        ok(/1\.8\.0/.test(resStr), '(B) bare `diagnostics` routed to real ACC → version 1.8.0');
+        // 第23波: ACC 版本动态读自其 server.py,不再硬编码(存量过期断言——ACC 已升 1.8.1)。
+        const accVer = (() => { try { const m = fs.readFileSync(path.join(REPO, 'src', 'ai_computer_control', 'server.py'), 'utf8').match(/VERSION\s*=\s*["']([\d.]+)["']/); return m ? m[1] : ''; } catch { return ''; } })();
+        ok(!!accVer && resStr.includes(accVer), '(B) bare `diagnostics` routed to real ACC → version ' + (accVer || '(ACC server.py 未读到版本)'));
       }
     }
   } catch (e) { console.log('ERROR ' + e.message); fail++; }

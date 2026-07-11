@@ -41,7 +41,7 @@ function postStream(port, payload) {
   try {
     let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(WB_PORT); }
     ok(!!h, 'workbench listening on :' + WB_PORT);
-    ok(h && h.version === '1.4.0', 'version 1.4.0 (got ' + (h && h.version) + ')');
+    ok(h && h.version === require(require('path').resolve(__dirname,'..','ruyi-workbench','package.json')).version, 'version === package.json (got ' + (h && h.version) + ')'); // 第23波: 动态读
     const events = await postStream(WB_PORT, { message: '请读取工作目录里的文件并告诉我内容' });
     const toolUse = events.find(e => e.type === 'tool_use' && e.name === 'file_read');
     const toolResult = events.find(e => e.type === 'tool_result');

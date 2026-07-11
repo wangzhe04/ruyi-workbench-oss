@@ -25,7 +25,7 @@
 4. **中文第一 + 非程序员主画像** —— 会写代码的进阶用户与不写代码的知识工作者共用一套壳。
 5. **双引擎不锁定** —— 内网 Claude CLI 或任意 OpenAI 兼容端点(含国产模型全家:DeepSeek / 通义千问 / 智谱 / 内网 vLLM·Ollama)。
 
-## 核心能力一览(v1.5)
+## 核心能力一览(v1.6)
 
 | 能力 | 说明 |
 |------|------|
@@ -41,7 +41,7 @@
 | 检查点 / 回溯 | 文件级检查点 + 对话回溯成对交付,可撤销性体现在权限弹窗。 |
 | 分级 UI | 简单 / 专业双模式,青花瓷视觉系统。 |
 
-> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付,附 70+ 离线 e2e。迭代记录见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)。
+> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付,附 100+ 离线 e2e。迭代记录见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)。
 
 ## 目录结构
 
@@ -55,7 +55,7 @@
 ├── mcp/
 │   ├── ai-computer-control/      内置桌面控制 MCP(99 工具:截图/OCR/UIA/键鼠/窗口/Office/PDF)
 │   └── README.md                 drop-in 连接器(文件夹即插即用)说明
-├── dev-harness/                  验证脚手架(60+ 离线 e2e,Node 直跑)
+├── dev-harness/                  验证脚手架(100+ 离线 e2e,Node 直跑)
 ├── docs/branding/                品牌图标(青花如意云纹 SVG)
 ├── LICENSE                       Apache-2.0(含 ai-computer-control)
 ├── THIRD-PARTY-NOTICES.md        第三方组件与许可清单
@@ -148,9 +148,9 @@ node dev-harness\repo-hygiene.e2e.js    # 合规回归
 4. **Chinese-first, non-programmer primary persona** — advanced coders and non-coding knowledge workers share one shell.
 5. **Dual engine, no lock-in** — on-prem Claude CLI or any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama).
 
-### Capabilities (v1.5)
+### Capabilities (v1.6)
 
-Dual-engine chat · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / Office / PDF, ACC v1.8.1) · multi-agent orchestration (DAG, quality gates, resource-lease deadlock prevention, worktree isolation) · **shared task pool** (sub-agents propose nodes, approved into the DAG — an observable replacement for runtime nesting) · **agent mailbox** (one-way async messages between nodes) · **directed steer** (interject into a specific running node) · **cross-session workbench memory** (draft-then-confirm, per-project, fenced progressive injection) · **Skills registry** (four sources, session-level enablement, cross-engine progressive injection) · **cost/usage dashboard** (honest per-currency accounting across Anthropic-direct / third-party Coding Plans / OpenAI providers) · checkpoints & rewind · tiered UI. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 70+ offline e2e.
+Dual-engine chat · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / Office / PDF, ACC v1.8.1) · multi-agent orchestration (DAG, quality gates, resource-lease deadlock prevention, worktree isolation) · **shared task pool** (sub-agents propose nodes, approved into the DAG — an observable replacement for runtime nesting) · **agent mailbox** (one-way async messages between nodes) · **directed steer** (interject into a specific running node) · **cross-session workbench memory** (draft-then-confirm, per-project, fenced progressive injection) · **Skills registry** (four sources, session-level enablement, cross-engine progressive injection) · **cost/usage dashboard** (honest per-currency accounting across Anthropic-direct / third-party Coding Plans / OpenAI providers) · checkpoints & rewind · tiered UI. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
 
 ### Quick start
 
