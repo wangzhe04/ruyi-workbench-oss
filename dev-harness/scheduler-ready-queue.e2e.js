@@ -5,7 +5,12 @@
 //     旧批次屏障下 fastC 必须等 [slowA,fastB] 整批结束;连续队列下必能观测到
 //     「fastC=succeeded 而 slowA 仍 running」的中间态,且总时长 ≈ slowA 而非串行和。
 //  B) 环检测语义保持:a⇄b 互依赖 → run failed,error 含「依赖图存在环」。
-//  C) 静态锁:调度器无批次残留(Promise.all(batch) 代码消失),inFlight/raceInFlight 在。
+//  C) 静态锁:调度器无批次残留 + 26a 对抗轮三铁律(判环=零派发且在飞空 / 收尾=全终态且在飞空 /
+//     防双派发 + 身份守卫删除 + 池级兜底不静默)。
+//  D) P1-1 确定性反例:同步型 vote 门节点单独在飞时,其 flight 在派发器 save await 期间即 settle ——
+//     修前下游 d 被误诊「依赖图存在环」;修后 a,b→v(vote)→d 全链 succeeded。
+//  E) 收尾封口:run 完成后快照不再变动(mtime/eventSeq 冻结)、事件日志末条=run_end、
+//     node_start 与 node_settled/node_requeued 按 attemptId 一一配对。
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
@@ -61,7 +66,11 @@ const fake = http.createServer((req, res) => {
   // ── C) 静态锁 ──
   ok(!/await Promise\.all\(batch\.map\(/.test(src), 'C 批次屏障代码已移除(Promise.all(batch.map) 不存在)');
   ok(/const inFlight = new Map\(\)/.test(src) && /raceInFlight/.test(src), 'C 连续队列结构在(inFlight/raceInFlight)');
-  ok(/if \(!inFlight\.size\)/.test(src) && /依赖图存在环或无法解锁/.test(src), 'C 环检测门槛为「ready 空且在飞空」');
+  ok(/if \(!dispatched && !inFlight\.size\)/.test(src), 'C 铁律①: 判环=「本轮零派发 且 在飞空」(防同步节点 fast-settle 误诊)');
+  ok(/nodes\.every\(terminal\) && !inFlight\.size/.test(src), 'C 铁律②: 收尾/宽限窗=「全终态 且 在飞空」(防 run_end 后写/queued 僵尸)');
+  ok(/if \(inFlight\.has\(node\.id\)\) continue/.test(src), 'C 铁律③a: 重排节点防双派发');
+  ok(/inFlight\.get\(node\.id\) === flight\) inFlight\.delete/.test(src), 'C 铁律③b: finally 删除带身份守卫');
+  ok(/调度器兜底异常/.test(src), 'C 池级兜底不静默(钉节点+落事件)');
 
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 7, permissionMode: 'bypass', defaultWorkspace: HOME, subagentMaxConcurrent: 2,
@@ -119,6 +128,37 @@ const fake = http.createServer((req, res) => {
     for (let i = 0; i < 60; i++) { await sleep(150); r2 = readJson(path.join(HOME, 'agent-runs', sid, runId2 + '.json')); if (r2 && ['failed', 'partial', 'succeeded'].includes(r2.status)) break; }
     ok(r2 && r2.status === 'failed', 'B 环 run=failed(实 ' + (r2 && r2.status) + ')');
     ok(r2 && (r2.nodes || []).every(n => /依赖图存在环/.test(String(n.error || ''))), 'B 节点 error 含「依赖图存在环」');
+
+    // ── D) P1-1 确定性反例:a,b → v(vote 门,同步 settle)→ d ──
+    const launch3 = (await httpReq(WB_PORT, 'POST', '/api/agent-workflow/launch', {
+      token, sessionId: sid, async: true,
+      nodes: [
+        { id: 'a', task: '快任务 甲:给出正面观点', toolTier: 'read', maxIters: 2 },
+        { id: 'b', task: '快任务 乙:给出反面观点', toolTier: 'read', maxIters: 2 },
+        // dedupe 门 = 确定性同步节点(无模型调用,首个 await 即尾部落盘)—— P1-1 的精确形态:
+        // 它单独在飞时,flight 在派发器自己的 save await 期间 settle 清空 inFlight。
+        { id: 'v', task: '发现去重聚合', toolTier: 'read', dependsOn: ['a', 'b'], gate: { mode: 'dedupe' } },
+        { id: 'd', task: '快任务 丁:基于聚合的下游', toolTier: 'read', maxIters: 2, dependsOn: ['v'] },
+      ],
+    }, H)).json;
+    ok(!!(launch3 && launch3.ok && launch3.runId), 'D vote-DAG launch 接受');
+    let r3 = null;
+    for (let i = 0; i < 100; i++) { await sleep(150); r3 = readJson(path.join(HOME, 'agent-runs', sid, launch3.runId + '.json')); if (r3 && ['failed', 'partial', 'succeeded', 'stopped'].includes(r3.status)) break; }
+    const st3 = Object.fromEntries(((r3 && r3.nodes) || []).map(n => [n.id, n.status]));
+    ok(r3 && ['succeeded', 'partial'].includes(r3.status) && st3.d && st3.d !== 'failed' && !/依赖图存在环/.test(String(((r3.nodes || []).find(n => n.id === 'd') || {}).error || '')),
+      'D 同步 vote 节点 fast-settle 后下游未被误诊为环(d=' + st3.d + ', run=' + (r3 && r3.status) + ')');
+
+    // ── E) 收尾封口:run1 完成后快照冻结 + 事件配对 ──
+    const evFile = path.join(HOME, 'agent-runs', sid, runId + '.events.ndjson');
+    const snapBefore = fs.statSync(runFile).mtimeMs + ':' + (readJson(runFile) || {}).eventSeq;
+    await sleep(1800);   // > 1.5s 节流窗,若有 detached 尾巴写入必被观测
+    const snapAfter = fs.statSync(runFile).mtimeMs + ':' + (readJson(runFile) || {}).eventSeq;
+    ok(snapBefore === snapAfter, 'E run 完成后快照冻结(无 run_end 后写)');
+    const evts = fs.readFileSync(evFile, 'utf8').split(/\r?\n/).filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+    ok(evts.length && evts[evts.length - 1].type === 'run_end', 'E 事件日志末条 = run_end(实 ' + (evts.length && evts[evts.length - 1].type) + ')');
+    const starts = evts.filter(e => e.type === 'node_start').map(e => e.nodeId + '#' + e.attemptId);
+    const settles = evts.filter(e => e.type === 'node_settled' || e.type === 'node_requeued').map(e => e.nodeId + '#' + e.attemptId);
+    ok(starts.length && starts.every(k => settles.includes(k)), 'E node_start 与 settle/requeue 按 attemptId 配对(' + starts.length + ' 对)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
     kill(wb); try { fake.close(); } catch { /* ignore */ }

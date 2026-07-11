@@ -8077,8 +8077,15 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // Promise.all(batch),同批一个节点 2 分钟完成、另一个 40 分钟,前者的下游要等整批结束才解锁,长任务
   // 关键路径被慢兄弟拖死。改为 worker-pool:任一节点 settle 即重算 ready、立即补位派发;retry/loop 重排的
   // 节点也不再等批 —— settle 即再入队。语义保持:资源租约/watchdog(lastActivityAt)/pause(拦新派发,
-  // 在飞跑完)/stop(先 drain 在飞再统一取消,防 detached 写竞态)/pool 宽限窗(every(terminal) 时在飞
-  // 必为空,'running' 非终态)/环检测(ready 空【且】在飞空才判环)。
+  // 在飞跑完)/stop(先 drain 在飞再统一取消,防 detached 写竞态)。
+  // 26a 对抗轮三条铁律(每条都有确定性反例,详见路线图 §20):
+  //  ① 判环仅当「本轮零派发 且 在飞空」—— 同步型节点(vote/dedupe)的 flight 会在派发器自己的 save await
+  //    期间就 settle 清空 inFlight,若只看 inFlight.size 会把活得好好的下游全部误诊成环;
+  //  ② 收尾/宽限窗仅当「全终态 且 在飞空」—— 节点 status 在 json-repair/worktree-finalize/重排清理等
+  //    await 窗口内【先于 flight settle】变为终态,不等在飞 drain 就 finalize 会留下 run_end 后写、
+  //    succeeded run 里的 queued 僵尸、以及 stop API 够不着的 detached 子代理;
+  //  ③ 重排节点防双派发(旧 flight 尾部落盘未完时其 status 已是 queued)+ finally 删除带身份守卫,
+  //    否则旧 flight 的 finally 会删掉新 flight 的登记,并发槽泄漏 + 二次误诊。
   const inFlight = new Map();   // nodeId -> 在飞 promise(已各自 .catch,race 永不抛)
   const raceInFlight = () => Promise.race([...inFlight.values()]);
   try {
@@ -8099,7 +8106,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     // 团队模式 v2 (A2): 收尾竞态防线——全节点终态时,若 manual 策略下任务池还有 proposed 项且宽限窗未用过,延迟收尾
     // 进入宽限窗(此时不置 closing,审批仍可物化);窗内批准→物化新节点(scheduler 拾取)→continue;窗过/超时/stop→
     // 跳出去正常收尾(下方 finalize 原子置 closing 并把未决提案置 expired)。宽限每 run 仅一次。异常降级为直接收尾。
-    if (nodes.every(terminal)) {
+    if (nodes.every(terminal) && !inFlight.size) {   // 26a 铁律②: 必须等在飞 drain(终态可先于 settle 出现)
       try {
         const hasProposed = Array.isArray(run.taskPool) && run.taskPool.some(p => p && p.status === 'proposed');
         // 团队模式 v2 (P2-1): 门控放宽为 poolPolicy !== 'off'(auto-capped 用尽 cap 后留下的 proposed 也应获审批窗);
@@ -8319,21 +8326,30 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     let dispatched = 0;
     for (const node of ready) {
       if (inFlight.size >= run.concurrency) break;
+      if (inFlight.has(node.id)) continue;   // 26a 铁律③: 重排节点旧 flight 尾部未 settle 时禁止双派发
       node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); startedCount += 1; dispatched += 1;
       appendAgentRunEvent(run, { type: 'node_start', nodeId: node.id, attemptId: node.attempts }); // 25.3
-      const flight = runNode(node).catch(() => {}).finally(() => { inFlight.delete(node.id); });
+      let flight;
+      flight = runNode(node).catch(e => {
+        // 26a 对抗轮: 池级兜底不静默 —— runNode 内层 try 之外的抛(onEvent/提示词组装)会把节点卡死在
+        // 'running' 并在下一轮被误诊成环;钉在节点上 + 落事件,留取证。
+        if (!terminal(node)) { node.status = 'failed'; node.error = '调度器兜底异常: ' + String((e && e.message) || e).slice(0, 500); node.completedAt = nowIso(); }
+        appendAgentRunEvent(run, { type: 'node_settled', nodeId: node.id, attemptId: node.attempts, data: { status: node.status, poolCatch: true } });
+        saveAgentRun(run).catch(() => {});
+      }).finally(() => { if (inFlight.get(node.id) === flight) inFlight.delete(node.id); });   // 26a 铁律③: 身份守卫删除
       inFlight.set(node.id, flight);
     }
     if (dispatched) {
       runtime.lastActivityAt = Date.now(); // v1.x (B1): dispatching counts as progress (floor for the watchdog)
       await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命(降级机制在 saveAgentRun 内接管)
     }
-    if (!inFlight.size) {
-      // ready 空【且】无在飞(在飞可能产出新的 terminal 依赖,不能提前判死)→ 真·依赖环/无法解锁。
+    if (!dispatched && !inFlight.size) {
+      // 26a 铁律①: 本轮零派发【且】在飞空才判环 —— 同步型节点会在上面的 save await 期间 settle 清空 inFlight,
+      // 只看 inFlight.size 会把刚解锁的下游误诊成「依赖图存在环」(对抗轮 P1-1,确定性复现)。
       for (const node of nodes) if (!terminal(node)) { node.status = 'failed'; node.error = '依赖图存在环或无法解锁'; node.completedAt = nowIso(); }
       break;
     }
-    await raceInFlight();
+    if (inFlight.size) await raceInFlight();
   }
   // B8: 'rejected' is a completed quality-gate verdict ("no"), not an execution failure — it must not
   // count toward the failed tally, so a run whose only non-success is a quality rejection is not reported

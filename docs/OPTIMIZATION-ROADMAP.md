@@ -363,3 +363,10 @@
 **26a 去批次屏障**:`runAgentWorkflow` 主循环由「ready.slice(0,concurrency) + Promise.all(batch)」改为连续 worker-pool(`inFlight` Map + `raceInFlight`):任一节点 settle 即重算 ready、立即补位派发,快节点下游不再等慢兄弟;retry/loop 重排节点 settle 即再入队。语义逐项保持:pause 只拦新派发(在飞跑完才真正 paused)、stop 先 drain 在飞再统一取消(防 detached 写竞态)、pool 宽限窗与 every(terminal) 判定天然兼容('running' 非终态)、环检测门槛收紧为「ready 空【且】在飞空」(在飞可能产出新 terminal 依赖,不能提前判死)、watchdog/资源租约/邮箱/插话不变。per-node 执行体逐字未动(原 map 回调原地改名 runNode)。
 **验收**:新锁 `scheduler-ready-queue.e2e.js`(判别性中间态「fastC 完成而 slowA 仍在跑」+ 时长≈慢节点 + 环检测 + 静态锁,端口 9111/9112);agent 全家族 16 件回归全绿(deadlock-watchdog/team-pool-mailbox/steer/worktree/claude-engine/durability 崩溃注入等)。
 **26b 待办**:MissionSpec×账本、主会话 until-done 驱动、无进展检测、重规划硬限制、两引擎对称锁;26c reducer 化组合单测。见 docs/AUTONOMY-PLAN.md。
+
+**26a 对抗验证轮(2 镜头:调度语义/集成交互)**:抓获 3 P1 + 1 P2/P3,全部确定性核实并修复:
+- **P1-1** 同步型节点(vote/dedupe 门)的 flight 在派发器自己的 save await 期间即 settle 清空 inFlight → 刚解锁的下游被误诊「依赖图存在环」整链击毙(审查员附 Node 级 promise 时序复现脚本,确定性非竞态)→ 判环改「本轮零派发【且】在飞空」。
+- **P1-2** retry/loop 重排节点在旧 flight 尾部落盘未完时已是 queued → 双派发(attempts 双跳、同节点两个子代理并发互踩)+ 旧 finally 删掉新 flight 登记(并发槽泄漏→二次误诊)→ 派发前 inFlight.has 拦截 + finally 身份守卫删除。
+- **P1-3** 节点 status 在 json-repair(≤60s HTTP)/worktree-finalize(git 秒级)/重排清理等 await 窗口内先于 flight settle 变为终态 → run 提前 finalize:run_end 后写、succeeded run 里 queued 僵尸、stop API 够不着的 detached 子代理 → 收尾/宽限窗改「全终态【且】在飞空」。
+- **P3** 池级 .catch 静默吞掉 runNode 内层 try 之外的抛(onEvent/组装)→ 节点卡 running 后被误诊为环、零取证 → 兜底钉节点+落事件。
+- 验收锁随修同扩:`scheduler-ready-queue.e2e` 新增 D(dedupe 门 fast-settle 的确定性反例,修前必红)+ E(run 完成后快照冻结/事件末条=run_end/node_start×settle 按 attemptId 配对)+ 三铁律静态锁;审查员点名的 e2e 盲区(「run_end 是最后一条事件」「完成后快照不再变动」)已补。agent 全家 15 件回归复跑全绿。
