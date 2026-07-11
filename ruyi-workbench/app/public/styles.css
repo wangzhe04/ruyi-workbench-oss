@@ -344,6 +344,9 @@ input:focus, textarea:focus, select:focus {
 .session-list { display: flex; flex-direction: column; gap: 3px; flex: 1; overflow: auto; }
 .session-group-label { font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 10px 4px 3px; }
 .session-item {
+  /* 第23波: flex:none —— 会话项是 .session-list(flex column)的子项,原来会被压缩到 min-height:30px,把两行内容(≈34px)
+     挤出边框box,hover 图标也随之越到框外。不压缩 → 每项取自然高度,内容与图标都稳稳在圆角框内。 */
+  flex: none;
   text-align: left; padding: 9px 10px; border: 1px solid transparent; background: transparent;
   border-radius: var(--radius-sm); display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; align-items: center;
   transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); /* v3 (§C2) */
@@ -352,12 +355,12 @@ input:focus, textarea:focus, select:focus {
 .session-item.active { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .session-item .s-title { font-size: var(--fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; grid-column: 1; }
 .session-item .s-sub { grid-column: 1; color: var(--muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 第23波: 会话项 hover 操作 —— 之前三个图标裸挤在右侧、蹭到副标题。改成一个悬浮圆角药丸组(半透明底 + 圆形图标钮),
-   垂直居中、hover 才现,读作一组干净的浮动操作而非贴脸的碎图标。 */
-.session-item .s-actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: flex; align-items: center; gap: 1px; opacity: 0; padding: 2px; border-radius: 999px; background: color-mix(in srgb, var(--panel-3) 82%, transparent); border: 1px solid var(--line); box-shadow: var(--elev-1); }
+/* 第23波: 会话项 hover 操作 —— 三个图标做成【紧贴框内】的紧凑组:22×22 图标钮、无独立底/边框(不做浮层药丸,免得
+   看着像框外的悬浮片),整组高度小于会话项、align-self:center 垂直居中,绝不越出会话卡的圆角框。 */
+.session-item .s-actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; justify-self: end; display: flex; align-items: center; gap: 1px; opacity: 0; }
 .session-item:hover .s-actions, .session-item.active .s-actions { opacity: 1; }
-.session-item .s-actions button { width: 24px; height: 24px; min-height: 0; padding: 0; display: inline-grid; place-items: center; border-radius: 999px; font-size: var(--fs-sm); background: transparent; border-color: transparent; color: var(--muted); }
-.session-item .s-actions button:hover { background: var(--panel); color: var(--ink); }
+.session-item .s-actions button { width: 22px; height: 22px; min-height: 0; padding: 0; display: inline-grid; place-items: center; border-radius: var(--radius-sm); font-size: var(--fs-sm); background: transparent; border-color: transparent; color: var(--muted); }
+.session-item .s-actions button:hover { background: color-mix(in srgb, var(--ink) 13%, transparent); color: var(--ink); }
 .session-item .pin-badge { color: var(--accent); }
 
 .sidebar-foot { display: flex; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
