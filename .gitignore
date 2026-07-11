@@ -17,6 +17,9 @@ offline_wheels/
 # Tooling / local state
 .claude/
 
+# Local campaign drafts and generated marketing assets
+/docs/marketing/
+
 # Archives & logs
 *.zip
 *.log
