@@ -451,3 +451,19 @@
 - 被否证 2 条:file 符号链接逃逸(guardWorkspacePath realpath 已含)· process 任意 pid 存活探测(低危信息泄露,仅信号 0,可接受)。
 
 **验收**:新 `dev-harness/wait-primitive.e2e.js`(9118;静态锁 + normalizeWaitSpec/evalWaitCondition 纯逻辑 + **Live arm→waiting→succeeded / 中途建文件→succeeded / 超时→failed**);scheduler-reducer §16 六条 wait 组合锁;DAG/子代理/崩溃续跑/暂停全量回归全绿。**至此第28波五单元(a–e)全交付。**
+
+## 26. 第 27f 波:权限超时→存档暂停(opt-in,security-sensitive)+ 4 镜头对抗(2026-07-12)
+
+**痛点**:无人值守长任务一遇范围外权限弹窗(120s 超时自动拒)就死。**改的是【权限超时默认路径】,故 security-sensitive**——按纪律:默认关(opt-in)、失败仍 fail-closed、有界 TTL、单独对抗轮。
+
+**交付**:`config.autonomyPauseOnTimeout`(默认 false=零行为变化)。开启且**无人值守(driverAuto)**回合内,权限弹窗基础超时不立即拒杀,而是:检查点(logEvent+saveSession)+ 发 `permission_paused` 事件 + 把决定窗口延长到有界 TTL(`autonomyPauseTtlMs` clamp [5min,6h] 默认 45min);窗口内经 `/api/permission/decision` 决定,TTL 到点无人应答则回落 deny(fail-closed)。两引擎对称:provider 用闭包 `driverAuto`,CLI 桥用新增 `driverAutoSessions`(streamChat runTurn 进出维护);`requestNativePermission` 加 `pause` 形参两段定时器(entry.timer 基础→TTL 重赋,clearPendingPermissions/decision 照常清对,单次 resolve)。前端 `permission_paused` 提示。
+
+**4 镜头对抗验证(5 条确认,同一根因,全修)**:
+- **P2 idle 看门狗不识暂停**(provider + CLI 两路径,exploit/timer-race 多镜头共识):暂停期间 `reg.lastEventAt` 冻结,看门狗按 `turnIdleTimeoutMs`(默认 10min)在 45min TTL 内先触发——provider 每 5s stderr 洪泛 + `reg.abort()` **中毒共享 ctrl**,致窗口内的及时人工批准也因下一次 fetch AbortError 而**静默作废**;CLI 直接 killChildTree 杀子,窗口截断到 ~10min(甚至 idle<base 时暂停根本不触发)。**默认 opt-in 配置下 feature 名存实亡**。修:两引擎看门狗加 `reg.pausePending` 豁免(仿 agent-workflow 的 `if(runtime.paused)return`),onPause 置真、await 返回后置假 + 重置 `lastEventAt`(暂停不算空闲,ctrl 永不被中毒)。
+- 0 条否证——5 条全是同一 watchdog×pause 交互缺陷的不同镜头视角。
+
+**教训**:引入任何"长时间阻塞等待"(pause/wait)时,必须审计所有**独立计时的看门狗/超时**(idle watchdog、AbortController、子进程 kill)是否识得这个等待——否则等待被别的兜底机制拦腰截断,feature 名存实亡。这正是 live e2e 测不出、只有对抗轮能抓的确定性缺陷。
+
+**验收**:新 `dev-harness/autonomy-pause.e2e.js`(注入可控 fake 定时器实跑两段:无 pause→deny / pause→paused 事件+检查点→TTL deny / 窗口内决定→按决定 / 超时前决定→不进 pause;+ 静态锁含两引擎 watchdog 暂停豁免);perm-v2/plan-mode/mission-driver/watchdog/双引擎全量回归全绿。
+
+**诚实边界**:跨进程重启的暂停不续(pending 权限纯内存);TTL deny 后驱动器把它当普通拒绝继续(靠停滞检测收敛),非立即终止——完整"整夜挂起可恢复"待 29 波自动恢复分级。

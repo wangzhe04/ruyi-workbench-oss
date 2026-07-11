@@ -372,6 +372,11 @@ function defaultConfig() {
     engineMode: 'interactive',    // legacy (stdin closed, safe) | interactive (stdin kept open: AskUserQuestion + permission bridge)
     permissionBridge: true,       // route tool-permission prompts to the UI via --permission-prompt-tool (needs a non-bypass permission mode)
     permissionTimeoutMs: 120000,  // how long a permission/question prompt waits before auto-deny
+    // 第27f波:权限超时→存档暂停(opt-in,默认 false=保持"超时即拒杀"的安全默认,零行为变化)。开启后:无人值守(driverAuto)
+    // 回合里权限弹窗超时【不再立即拒杀】,而是打检查点 + 通知 + 延长到 autonomyPauseTtlMs 的有界窗口等人决定;窗口内无决定
+    // 则回落 deny(fail-closed,防通知未达时无声僵尸挂起)。改的是【超时默认路径】,故 security-sensitive、默认关。
+    autonomyPauseOnTimeout: false,
+    autonomyPauseTtlMs: 2700000,  // 暂停等待上界(默认 45min;clamp [5min, 6h])——超时后 fail-closed deny
     turnIdleTimeoutMs: 600000,    // watchdog: kill a turn idle (no events) longer than this
     // --- v0.4.4: model list discovery ---
     knownModels: [],              // models actually selected/used — remembered so they stay in the list
@@ -562,6 +567,10 @@ function normalizeConfig(raw) {
   config.permissionTimeoutMs = Number.isFinite(pt) ? Math.min(600000, Math.max(5000, pt)) : 120000;
   const it = Number(config.turnIdleTimeoutMs);
   config.turnIdleTimeoutMs = Number.isFinite(it) ? Math.min(3600000, Math.max(60000, it)) : 600000;
+  // 第27f波:autonomyPauseOnTimeout 布尔(默认 false=安全默认);autonomyPauseTtlMs clamp [5min, 6h] 默认 45min。
+  config.autonomyPauseOnTimeout = config.autonomyPauseOnTimeout === true;
+  const apt = Number(config.autonomyPauseTtlMs);
+  config.autonomyPauseTtlMs = Number.isFinite(apt) ? Math.min(6 * 3600000, Math.max(300000, apt)) : 2700000;
   // Model lists must be arrays of strings; knownModels is capped so it can't grow unbounded.
   for (const k of ['knownModels', 'extraModels']) {
     if (!Array.isArray(config[k]) || config[k].some(a => typeof a !== 'string')) {
@@ -3321,6 +3330,9 @@ const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, time
 // after the model's first PLAN: message and PAUSES the turn awaiting /api/plan/decision. resolve() settles
 // with { decision:'approve'|'reject', note? }; the timeout auto-rejects (same permissionTimeoutMs budget).
 const pendingPlans = new Map(); // planId -> { resolve, sessionId, timer }
+// 第27f波:当前处于【无人值守(driverAuto)回合】的会话集 —— provider 路径直接用闭包 driverAuto,但 CLI 桥(Claude 子进程
+// loopback 的 /api/permission/request)拿不到 driverAuto,故用此集判定。runClaudeTurn 的 driverAuto 回合进出维护。纯内存。
+const driverAutoSessions = new Set();
 
 function killChildTree(pid) {
   if (!pid) return;
@@ -4073,7 +4085,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent, session };
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent, session };
   activeChildren.set(session.id, reg);
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });
 
@@ -4081,7 +4093,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   // unanswered prompt), end the turn so the HTTP stream and process can't hang forever.
   const idleLimitMs = config.turnIdleTimeoutMs; // guaranteed-finite via normalizeConfig
   const watchdog = setInterval(() => {
-    if (reg.exited) return;
+    if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀子进程,决定窗口被截断
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — terminating` });
       try { reg.child.stdin.end(); } catch { /* ignore */ }
@@ -6006,12 +6018,25 @@ function toolIsRevertible(toolName) {
 // Ask the UI to approve a native tool call — reuses the pendingPermissions + /api/permission/decision bridge.
 // v0.8-S4b: the permission_request event now also carries `tier` (read|edit|exec) and `revertible` (bool)
 // so the popup can render a risk badge + a plain-language revertibility line without re-deriving them.
-function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs, tier) {
+// 第27f波:pause = { enabled, ttlMs, onPause(requestId) } —— 无人值守回合的权限超时【存档暂停】。基础超时到点后不立即拒杀,
+// 而是打检查点(onPause)+ 发 permission_paused 事件 + 把决定窗口延长到 ttlMs;窗口内仍可经 /api/permission/decision 决定,
+// 到 ttlMs 无人应答则回落 deny(fail-closed)。entry.timer 在 Map 里被重赋为 TTL 定时器,故 clearPendingPermissions/decision 照常清对。
+function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs, tier, pause) {
   return new Promise(resolve => {
     const requestId = makeId('perm');
     onEvent({ type: 'permission_request', requestId, toolName, input, tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
-    const timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); }, Math.max(5000, Number(timeoutMs) || 120000));
-    pendingPermissions.set(requestId, { resolve, sessionId, timer });
+    const entry = { resolve, sessionId, timer: null };
+    const baseMs = Math.max(5000, Number(timeoutMs) || 120000);
+    if (pause && pause.enabled) {
+      entry.timer = setTimeout(() => {
+        try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
+        try { onEvent({ type: 'permission_paused', requestId, toolName, tier: tier || 'exec', ttlMs: pause.ttlMs }); } catch { /* stream gone */ }
+        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); }, Math.max(60000, Number(pause.ttlMs) || 2700000));
+      }, baseMs);
+    } else {
+      entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); }, baseMs);
+    }
+    pendingPermissions.set(requestId, entry);
   });
 }
 
@@ -9217,7 +9242,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
 
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const reg = {
-    child: null, pid: null, exited: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(),
+    child: null, pid: null, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(),
     // P2-3: hold the in-memory session so a mid-turn POST /api/session/skills can update session.skills on the
     // LIVE turn object (belt-and-suspenders with the pre-save disk-merge at the turn's end).
     session,
@@ -9296,7 +9321,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const idleLimitMs = config.turnIdleTimeoutMs;
   let idleAborted = false; // v0.8-S6: distinguish a watchdog (idle-timeout) abort from a user Stop for errorClass
   const watchdog = setInterval(() => {
-    if (reg.exited) return;
+    if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀回合(且 abort 中毒 ctrl 令窗口内批准失效)
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
       idleAborted = true;
@@ -9694,7 +9719,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             resultObj = { ok: false, error: `blocked by permission mode '${config.permissionMode}' (${tier} tool)` };
           } else {
             if (gate === 'ask') {
-              const decision = await requestNativePermission(session.id, tc.name, args, onEvent, config.permissionTimeoutMs, tier);
+              // 第27f波:仅【无人值守(driverAuto)+ 用户 opt-in】时启用超时→存档暂停;否则维持"超时即拒杀"安全默认。
+              const pauseOpts = (config.autonomyPauseOnTimeout && driverAuto) ? {
+                enabled: true, ttlMs: config.autonomyPauseTtlMs,
+                // 存档暂停开始:置 reg.pausePending 令 idle 看门狗豁免(否则 TTL 内先杀回合)。onPause 闭包持 reg(runOpenAiTurn 作用域)。
+                onPause: rid => { reg.pausePending = true; try { logEvent({ kind: 'permission_paused', sessionId: session.id, tool: tc.name, tier, requestId: rid }); } catch { /* ignore */ } saveSession(session).catch(() => {}); },
+              } : null;
+              const decision = await requestNativePermission(session.id, tc.name, args, onEvent, config.permissionTimeoutMs, tier, pauseOpts);
+              reg.pausePending = false; // 决定/TTL-deny/clearPending 任一使 await 返回 → 解除暂停豁免;并把看门狗时钟重置(暂停不算空闲)
+              reg.lastEventAt = Date.now();
               if (!decision || decision.behavior !== 'allow') resultObj = { ok: false, error: (decision && decision.message) || 'denied by user' };
               else if (decision.updatedInput && typeof decision.updatedInput === 'object') args = decision.updatedInput;
             }
@@ -10479,8 +10512,12 @@ async function streamChat(req, res) {
     const runTurn = async (msg, driverAuto) => {
       lastTurnTokens = 0;
       const atts = driverAuto ? [] : attachments;
-      if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto });
-      else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, driverAuto });
+      // 第27f波:标记本会话处于无人值守回合(供 CLI 桥的权限超时→存档暂停判定;provider 路径用闭包 driverAuto)。serial 回合,进出平衡。
+      if (driverAuto) driverAutoSessions.add(session.id);
+      try {
+        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto });
+        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, driverAuto });
+      } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     await runTurn(String(body.message || ''), false);
     // until-done 驱动器:仅当会话有活动账本才进(非账本会话零行为变化,与旧单回合完全等价)。
@@ -13733,10 +13770,27 @@ async function handleApi(req, res, pathname) {
       if (grantHit) return send(res, json({ behavior: 'allow' }));
     }
     reg.onEvent({ type: 'permission_request', requestId, toolName: body.toolName, input: body.input, tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
+    // 第27f波:CLI 桥超时→存档暂停(与 provider 路径对称)。仅【opt-in + 本会话处于无人值守 driverAuto 回合】才启用;
+    // 否则维持"超时即拒杀"安全默认。两段定时:基础超时→检查点(logEvent+saveSession)+ permission_paused 事件 + 延长到 TTL;
+    // TTL 内无决定则回落 deny(fail-closed)。entry.timer 重赋为 TTL 定时器,/api/permission/decision 与 clearPendingPermissions 照常清对。
+    const cliPause = config.autonomyPauseOnTimeout && driverAutoSessions.has(sessionId);
     const decision = await new Promise(resolve => {
-      const timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); }, Number(config.permissionTimeoutMs || 120000));
-      pendingPermissions.set(requestId, { resolve, sessionId, timer });
+      const entry = { resolve, sessionId, timer: null };
+      const baseMs = Number(config.permissionTimeoutMs || 120000);
+      if (cliPause) {
+        entry.timer = setTimeout(() => {
+          if (reg) reg.pausePending = true; // 第27f波:存档暂停期间豁免子进程 idle 看门狗(否则 TTL 内先杀子,窗口被截断)
+          try { logEvent({ kind: 'permission_paused', sessionId, tool: String(body.toolName || ''), tier: bridgeTier, requestId, engine: 'claude' }); } catch { /* ignore */ }
+          loadSession(sessionId).then(s => s && saveSession(s)).catch(() => {}); // 检查点:会话已在磁盘,重写一遍固化
+          try { reg.onEvent({ type: 'permission_paused', requestId, toolName: body.toolName, tier: bridgeTier, ttlMs: config.autonomyPauseTtlMs }); } catch { /* stream gone */ }
+          entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); }, Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000));
+        }, baseMs);
+      } else {
+        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); }, baseMs);
+      }
+      pendingPermissions.set(requestId, entry);
     });
+    if (reg) { reg.pausePending = false; reg.lastEventAt = Date.now(); } // 解除暂停豁免 + 重置看门狗时钟(暂停不算子进程空闲)
     if (res.writableEnded || res.destroyed) return; // request already gone (e.g. child died)
     return send(res, json(decision));
   }

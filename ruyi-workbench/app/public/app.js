@@ -2319,6 +2319,11 @@ function handleStreamLine(line, live, main, streamSessionId) {
     case 'permission_request':
       handlePermissionRequest(evt);
       break;
+    case 'permission_paused':
+      // 第27f波:无人值守回合的权限弹窗超时后【存档暂停】(不立即拒),延长等待窗口。弹窗仍在,你的决定仍被接受;
+      // 超过设定时限(autonomyPauseTtlMs)才回落拒绝。低调提示,不打断。
+      toast(`权限请求已存档暂停,仍在等待你的决定(约 ${Math.round((evt.ttlMs || 2700000) / 60000)} 分钟内有效,超时才回落拒绝)`, 'warn');
+      break;
     case 'plan':
       // v0.9-S5 (真流程 plan mode): the model proposed an execution plan and the turn is paused. Render an
       // in-flow plan card (assistant-bubble variant) with the plan markdown + 批准执行 / 修改意见 / 放弃; the
