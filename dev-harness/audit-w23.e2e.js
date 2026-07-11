@@ -124,12 +124,17 @@ const BROWSER = { origin: 'http://evil.example', 'sec-fetch-site': 'cross-site',
   ok(/for \(const n of nodes\) if \(n\.status === 'interrupted'\) reset\.add\(n\.id\);/.test(src),
     "P2#7 续跑把 'interrupted' 死状态并入 reset 重新入队(修「依赖图存在环」误诊)");
 
-  // ---- P2 #8: 唯一 tmp 名(saveSession + writeConfigAtomic) ----
+  // ---- P2 #8: 唯一 tmp 名 —— 第25波 25.1 后不变量【中心化】到 atomicWriteJson,saveSession/writeConfigAtomic
+  //      改为委托调用。锁形态随之迁移:①两处委托在;②中心实现里 pid+随机 tmp + rename 失败 unlink 都在。
+  //      (深度断言:并发/无孤儿由 autonomy-durability.e2e 的 A 段实跑覆盖。)----
   {
-    const ss = src.slice(src.indexOf('async function saveSession('), src.indexOf('async function saveSession(') + 900);
-    const wc = src.slice(src.indexOf('async function writeConfigAtomic('), src.indexOf('async function writeConfigAtomic(') + 500);
-    ok(/finalPath \+ '\.' \+ process\.pid \+ '\.' \+ crypto\.randomBytes/.test(ss), 'P2#8 saveSession 用 pid+随机 tmp 名(防同会话并发写者互踩)');
-    ok(/paths\.config \+ '\.' \+ process\.pid \+ '\.' \+ crypto\.randomBytes/.test(wc), 'P2#8 writeConfigAtomic 用 pid+随机 tmp 名(防配置写坏后静默重置)');
+    const ss = src.slice(src.indexOf('async function saveSession('), src.indexOf('async function saveSession(') + 1400);
+    const wc = src.slice(src.indexOf('let configWriteChain'), src.indexOf('let configWriteChain') + 600);
+    ok(/atomicWriteJson\(finalPath, payload\)/.test(ss) && /sessionWriteChains/.test(ss), 'P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)');
+    ok(/atomicWriteJson\(paths\.config, data\)/.test(wc) && /configWriteChain/.test(wc), 'P2#8 writeConfigAtomic 委托 atomicWriteJson + 全局写链');
+    const awj = src.slice(src.indexOf('async function atomicWriteJson('), src.indexOf('async function atomicWriteJson(') + 1200);
+    ok(/finalPath \+ '\.' \+ process\.pid \+ '\.' \+ crypto\.randomBytes/.test(awj), 'P2#8 atomicWriteJson 用 pid+随机 tmp 名(不变量中心化)');
+    ok(/fsp\.unlink\(tmpPath\)/.test(awj), 'P2#8 atomicWriteJson 失败清 tmp(唯一名无覆写自愈路径)');
   }
 
   // ---- P2 #9: degraded 透传 ----

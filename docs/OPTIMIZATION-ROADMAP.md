@@ -333,3 +333,27 @@
 **交付**:server.js ~14 处;新回归锁 `dev-harness/audit-w23.e2e.js`(50 断言:单元 bridgedToolTier/normalizeConfig + 抽取 isSensitiveDataPath 含 junction 对称 + 实弹 GET鉴权/file_read/file_search/file_list/preview/provider-test)。顺手修 **10 处存量过期版本断言**(硬编码 1.4.0/ACC 1.8.0 → 动态读 package.json/server.py,正是审计根因#1「人肉清单失守」实例):session-atomic、provider-compact、bridged-prefix-tolerance、artifacts、openai-engine、openai-tools、plan-mode、usage-accum、vision-loop、workspace-resolve。~39 套件回归全绿(含 file-guard/tools-v2/v3 确认敏感门不误伤合法读)。
 
 **未做(审计成立但未排期,下一波候选)**:三杠杆(声明式 auth 路由表 deny-by-default + atomicWriteJson 统一写链 + e2e 端口元护栏)治根因#1/#2;轮询链路瘦身(agent-runs 全量读盘 + 前端 2s 全量重建);检查点×异步运行并发闭环;session.messages 入库瘦身;模态框 focus-trap;excel_read 二次全量打开;README/手册 v1.5→1.6 数字漂移(P3)。详见 §10 后各波与本波审计报告。
+
+## 19. 第 24-25 波:README 门面重写 + 长任务自主推进「耐久基座」(2026-07-11)
+
+**第 24 波(docs)**:README 全面重写——15 张演示实例实拍截图(docs/screenshots/,深浅双主题 hero 经 `<picture>` 自适应)、同类软件类别对比表、九节功能详解、快速开始/进阶指引;所有门面数字与源码逐一核对(39+3 原生工具/99 ACC 工具/8 模板/9 角色/5 质量门/102 e2e)。截图流水线:干净 RUYI_HOME 演示实例 + 场景化 mock 端点(真跑出工具卡/检查点/DAG/用量)+ CDP 无头 Edge,复用方法记忆见 ops-screenshot-pipeline。
+
+**第 25 波(AUTONOMY-PLAN 落稿 + 耐久基座施工)**:方案稿 `docs/AUTONOMY-PLAN.md`(两份独立方案合并:执行耐久性工程 × 信任授权;十项缺口全对到源码;第 25-29 波各配验收锁)。本波交付 25.1-25.6:
+
+- **25.1 atomicWriteJson 统一写链**:唯一 tmp 名(pid+随机)+ Windows 瞬时锁重试(8 次退避)+ 失败清 tmp,一处修对处处对。收编 **14 处**手写原子写(config/session/journal/playbook/memory×2/agent-run/claude-settings/roles-md/session-index/memory-meta/project-roles/agent-workflows×2/webcache);全文件手写 tmp 写点收敛到 3 处白名单豁免(atomicWriteJson 自身/exit 同步 flush/回滚二进制恢复),由 e2e 硬不变量锁死——治根因②「修了旗舰没扫同型」(本波测绘也确实又漏了 7 处同型,静态锁当场抓获)。
+- **25.2 persistence_degraded 可见化**:saveAgentRun 连续失败计数,≥3 标 run.persistenceDegraded(经 GET /api/agent-runs 的 live 叠加下发——磁盘坏了 UI 也不骗人),≥8 对活跃 run 安全暂停止损;前端并入停滞横幅明示「当前进度可能无法恢复」。持久化失败不再静默。
+- **25.3 事件日志**:`<runId>.events.ndjson` append-only + 单调 seq(持久于 run.eventSeq),发射 run_created/resumed/interrupted/paused/stop_requested/end + node_start/settled/requeued + persistence_degraded/recovered;快照仍是唯一读取来源,事件服务崩溃取证与第 29 波增量监控。
+- **25.4 节点续点**:nodeEvent 折叠 tool_use/tool_result 为 node.continuation(步骤=工具+参数摘要+结果摘要,≤40 条),随 1.5s 节流落盘;markInterruptedAgentRuns 记 interruptedAttempt;恢复重跑仅当续点属于被中断 attempt 时注入【断点续跑】清单(已完成副作用勿重复;不可判定的不可逆操作标「需人工确认」而非重做——红线);成功后清理。40 分钟长节点崩溃不再从零重来。
+- **25.5 file_write 幂等跳过**:目标存在且落盘字节相同 → op:'skip',不记检查点不重写;跳过不进「本轮变更」。续跑重放同内容写零扰动。
+- **25.6 崩溃注入 e2e** `autonomy-durability.e2e.js`(43 断言,端口 9109/9110 已登记):A 源抽取 20 路并发写无撕裂无孤儿;B 静态硬不变量;C 杀点1(≥1 工具后强杀→interrupted+续点存活→resume 提示词含断点清单+幂等跳过 create=1/modify=0+succeeded+事件 seq 单调);D 杀点2(0 工具强杀→不注入断点,照常完成)。
+
+**回归**:29 件受影响面全绿(meta-guard/repo-hygiene/audit-w23[P2#8 锁迁移至中心化不变量]/session-atomic/session-index/checkpoint×3/changes-diff/playbooks/workbench-memory/websearch/onboard/openai-tools/tools-v2/v3/agent-workflow 全家 12 件;agent-deadlock-watchdog 批量跑时一次时序抖动,单跑复核全绿)。
+
+**下一波(见 AUTONOMY-PLAN)**:第 26 波调度与监督(去批次屏障 ready-queue + MissionSpec×账本 + 主会话 until-done 驱动 + 重规划硬限制);第 27 波自主性授权书(独立红队轮);第 28 波上下文与产物治理;第 29 波增量监控。
+
+**第 25 波对抗验证轮(3 镜头:并发崩溃/安全/回归)**:抓获 1 P1 + 4 P2 + 7 P3(去重),全部亲核成立并修复,除 1 项裁定延后:
+- **P1** 续点 pending 单槽在 Claude 引擎【并行 tool_use】下错配参数与结果 → 断点清单断言假事实,违反"不可逆副作用不盲目重放"红线 → pending 改按 evt.id 键控 Map + 16 项防泄压。
+- **P2×4**:①续点摘要未中和(原始工具字节带换行进受信指令块,跨崩溃注入放大)→ 采集扁平化 + 注入「」引文包裹+明示"非指令";②持久化坏死时环内 await save 抛出 → run 硬失败,「降级→暂停止损」永远不生效 → 环内保存全部非致命化(降级机制在 saveAgentRun 内接管);③atomicWriteJson 的 writeFile 自身失败(ENOSPC)不清 tmp → 每 1.5s 一个新孤儿 → write 也包 try/unlink;④persistenceDegraded 在终稿写恢复时被钉死为 true(永久假横幅)→ 旗标先清后写、失败按计数恢复。
+- **P3×6 修复**:journalWriteIndex 跨进程多写者退回 fail-fast(retries:0,防旧覆新丢检查点);saveSession/config 各配写链(重试窗口下旧不得迟到覆新);eventSeq 装载点快进(崩溃窗口防重号)+ 热 stop/resume 追写快照;事件文件随 DELETE 连带删除;畸形 run.id 事件丢弃(防 "null" 合流);计数 Map 随 run 生命周期清理。
+- **裁定延后(P3)**:幂等跳过后「本轮变更/产物」不显示"未变更"行 —— 磁盘语义正确,UX 空窗需前端 op 词汇表配套,记入下波候选。
+- 安全镜头确认未击穿:事件文件在敏感目录 denylist 内、file_write 守卫先于比较(skip 无法当工作区外 oracle)、路由鉴权无新面、runId 无穿越。修复后 12 件受影响回归复跑全绿。

@@ -2825,10 +2825,12 @@ function renderAgentRuns(runs) {
     }
     card.appendChild(sum);
     // ── 停滞/失败横幅（§2.5）：run.idleAborted 或有节点在资源上等待且有 blocker → 琥珀横幅 + [查看][停止] ──
+    // 第25波 25.2: persistenceDegraded(快照连续写失败,经 live 叠加下发)并入同一横幅——持久化失败不得静默。
     const waitingBlocked = nodes.filter(n => nodeDisplayStatus(n) === 'waiting_resource' && Array.isArray(n.resourceBlockers) && n.resourceBlockers.length);
-    if (run.idleAborted || (run.live && waitingBlocked.length)) {
+    if (run.persistenceDegraded || run.idleAborted || (run.live && waitingBlocked.length)) {
       const banner = el('div', 'wf-stall-banner'); banner.setAttribute('role', 'alert');
-      const stallMsg = run.idleAborted ? '疑似停滞：工作流长时间无进展，已中止' : `疑似停滞：${waitingBlocked.length} 个节点在等待资源`;
+      const stallMsg = run.persistenceDegraded ? '进度持久化异常：运行记录连续写盘失败，当前进度可能无法恢复（请检查磁盘空间 / 杀毒软件占用）'
+        : run.idleAborted ? '疑似停滞：工作流长时间无进展，已中止' : `疑似停滞：${waitingBlocked.length} 个节点在等待资源`;
       banner.append(el('span', 'wf-stall-icon', '⚠'), el('span', 'wf-stall-text', stallMsg));
       const stallActions = el('div', 'wf-stall-actions');
       const view = el('button', 'mini', '查看'); view.setAttribute('aria-label', '定位到停滞节点');
