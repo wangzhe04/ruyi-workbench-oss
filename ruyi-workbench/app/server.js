@@ -8072,16 +8072,27 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // v2 不重投,只诚实标记。四处复用(批内终态、blocked、skipped、收尾兜底走各自内联),集中一处避免逻辑漂移。
   const dropNodeMail = nid => { try { const q = runtime.mailQueues.get(nid); if (!q || !q.length) return; for (const mm of q) { if (mm && mm.entry && !mm.entry.deliveredAt) mm.entry.dropped = true; } q.length = 0; } catch {} };
 
+  // ============================================================================
+  // 第26波(AUTONOMY-PLAN §1 缺口2):连续就绪队列 —— 旧调度是「批次屏障」:ready.slice(0,concurrency) +
+  // Promise.all(batch),同批一个节点 2 分钟完成、另一个 40 分钟,前者的下游要等整批结束才解锁,长任务
+  // 关键路径被慢兄弟拖死。改为 worker-pool:任一节点 settle 即重算 ready、立即补位派发;retry/loop 重排的
+  // 节点也不再等批 —— settle 即再入队。语义保持:资源租约/watchdog(lastActivityAt)/pause(拦新派发,
+  // 在飞跑完)/stop(先 drain 在飞再统一取消,防 detached 写竞态)/pool 宽限窗(every(terminal) 时在飞
+  // 必为空,'running' 非终态)/环检测(ready 空【且】在飞空才判环)。
+  const inFlight = new Map();   // nodeId -> 在飞 promise(已各自 .catch,race 永不抛)
+  const raceInFlight = () => Promise.race([...inFlight.values()]);
   try {
   while (true) {
     // 对抗轮修(第25波): 环内保存改为非致命 —— 持久化坏掉时(磁盘满/杀软长锁)这里若抛,run 直接硬失败,
     // 25.2 的「降级→暂停止损」永远等不到生效;快照写失败已由 saveAgentRun 内部计数/亮旗/暂停接管,执行不中断。
     while (runtime.paused && !runtime.stopRequested) {
+      if (inFlight.size) { await raceInFlight(); continue; }   // 第26波: 暂停只拦新派发,在飞节点先跑完
       run.status = 'paused'; await saveAgentRun(run).catch(() => {});
       await new Promise(resolve => runtime.resumeWaiters.push(resolve));
     }
     if (run.status === 'paused') { run.status = 'running'; runtime.lastActivityAt = Date.now(); await saveAgentRun(run).catch(() => {}); } // v1.x (B1-fix): resume resets the idle clock so a long pause does not make the very next watchdog tick false-fire
     if (runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) {
+      while (inFlight.size) await raceInFlight();   // 第26波: ctrl 已 abort,在飞节点快速收敛;drain 后再统一取消
       for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒无进展），已中止` : '父回合已停止'); node.completedAt = nowIso(); }
       break;
     }
@@ -8150,18 +8161,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       }
     }
     const ready = nodes.filter(node => node.status === 'queued' && node.dependsOn.every(dep => terminal(nodes.find(n => n.id === dep))));
-    if (!ready.length) {
-      for (const node of nodes) if (!terminal(node)) { node.status = 'failed'; node.error = '依赖图存在环或无法解锁'; node.completedAt = nowIso(); }
-      break;
-    }
-    const batch = ready.slice(0, run.concurrency);
-    for (const node of batch) {
-      node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); startedCount += 1;
-      appendAgentRunEvent(run, { type: 'node_start', nodeId: node.id, attemptId: node.attempts }); // 25.3
-    }
-    runtime.lastActivityAt = Date.now(); // v1.x (B1): dispatching a batch counts as progress (floor for the watchdog)
-    await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命(降级机制在 saveAgentRun 内接管)
-    await Promise.all(batch.map(async node => {
+    // 第26波: per-node 执行体(原批次 Promise.all 的 map 回调,逐字未动)—— 由下方连续派发器调用。
+    const runNode = async node => {
       const depNodes = node.dependsOn.map(dep => nodes.find(n => n.id === dep)).filter(Boolean);
       const priorText = depNodes.map(prior => {
         const body = String(prior.result || prior.error || '').slice(0, 12000);
@@ -8313,7 +8314,26 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // 团队模式 v2 (B1/P3-1): 本节点若已到终态(非 loop/retry 回 queued),清扫其邮箱未投递邮件(与 blocked/skipped 同款)。
       if (terminal(node)) dropNodeMail(node.id);
       await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命 —— 节点已执行完,持久化失败不该把结果作废
-    }));
+    };
+    // —— 第26波: 连续派发 —— 就绪节点补位到并发上限;任一在飞 settle 即回到环顶重算(下游立即解锁)。
+    let dispatched = 0;
+    for (const node of ready) {
+      if (inFlight.size >= run.concurrency) break;
+      node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); startedCount += 1; dispatched += 1;
+      appendAgentRunEvent(run, { type: 'node_start', nodeId: node.id, attemptId: node.attempts }); // 25.3
+      const flight = runNode(node).catch(() => {}).finally(() => { inFlight.delete(node.id); });
+      inFlight.set(node.id, flight);
+    }
+    if (dispatched) {
+      runtime.lastActivityAt = Date.now(); // v1.x (B1): dispatching counts as progress (floor for the watchdog)
+      await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命(降级机制在 saveAgentRun 内接管)
+    }
+    if (!inFlight.size) {
+      // ready 空【且】无在飞(在飞可能产出新的 terminal 依赖,不能提前判死)→ 真·依赖环/无法解锁。
+      for (const node of nodes) if (!terminal(node)) { node.status = 'failed'; node.error = '依赖图存在环或无法解锁'; node.completedAt = nowIso(); }
+      break;
+    }
+    await raceInFlight();
   }
   // B8: 'rejected' is a completed quality-gate verdict ("no"), not an execution failure — it must not
   // count toward the failed tally, so a run whose only non-success is a quality rejection is not reported

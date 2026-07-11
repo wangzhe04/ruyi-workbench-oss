@@ -357,3 +357,9 @@
 - **P3×6 修复**:journalWriteIndex 跨进程多写者退回 fail-fast(retries:0,防旧覆新丢检查点);saveSession/config 各配写链(重试窗口下旧不得迟到覆新);eventSeq 装载点快进(崩溃窗口防重号)+ 热 stop/resume 追写快照;事件文件随 DELETE 连带删除;畸形 run.id 事件丢弃(防 "null" 合流);计数 Map 随 run 生命周期清理。
 - **裁定延后(P3)**:幂等跳过后「本轮变更/产物」不显示"未变更"行 —— 磁盘语义正确,UX 空窗需前端 op 词汇表配套,记入下波候选。
 - 安全镜头确认未击穿:事件文件在敏感目录 denylist 内、file_write 守卫先于比较(skip 无法当工作区外 oracle)、路由鉴权无新面、runId 无穿越。修复后 12 件受影响回归复跑全绿。
+
+## 20. 第 26 波(进行中):调度与监督 —— 26a 连续就绪队列已交付(2026-07-11)
+
+**26a 去批次屏障**:`runAgentWorkflow` 主循环由「ready.slice(0,concurrency) + Promise.all(batch)」改为连续 worker-pool(`inFlight` Map + `raceInFlight`):任一节点 settle 即重算 ready、立即补位派发,快节点下游不再等慢兄弟;retry/loop 重排节点 settle 即再入队。语义逐项保持:pause 只拦新派发(在飞跑完才真正 paused)、stop 先 drain 在飞再统一取消(防 detached 写竞态)、pool 宽限窗与 every(terminal) 判定天然兼容('running' 非终态)、环检测门槛收紧为「ready 空【且】在飞空」(在飞可能产出新 terminal 依赖,不能提前判死)、watchdog/资源租约/邮箱/插话不变。per-node 执行体逐字未动(原 map 回调原地改名 runNode)。
+**验收**:新锁 `scheduler-ready-queue.e2e.js`(判别性中间态「fastC 完成而 slowA 仍在跑」+ 时长≈慢节点 + 环检测 + 静态锁,端口 9111/9112);agent 全家族 16 件回归全绿(deadlock-watchdog/team-pool-mailbox/steer/worktree/claude-engine/durability 崩溃注入等)。
+**26b 待办**:MissionSpec×账本、主会话 until-done 驱动、无进展检测、重规划硬限制、两引擎对称锁;26c reducer 化组合单测。见 docs/AUTONOMY-PLAN.md。
