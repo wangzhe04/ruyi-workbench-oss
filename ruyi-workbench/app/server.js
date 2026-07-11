@@ -8031,6 +8031,63 @@ function normalizeWorkflowLoop(raw) {
   if (maxIterations <= 1 && !raw.until && !raw.noProgressLimit) return null;
   return { maxIterations, until: normalizeWorkflowCondition(raw.until), noProgressLimit: Math.max(1, Math.min(10, Math.round(Number(raw.noProgressLimit) || 2))), onNoProgress: raw.onNoProgress === 'fail' ? 'fail' : 'continue' };
 }
+// 第28e波(§28e):wait_for 等待原语规格。node.wait 为 truthy 即 wait_for 节点(与 node.gate 平行)。仿 normalizeAgentGate/
+// normalizeWorkflowLoop 全字段 clamp。各 mode 参数在 poll 时才真正解析/过护栏(file→guardWorkspacePath、url→ssrfCheck),
+// 此处只做形状规整。返回 null = 非法/非 wait 节点。timeoutMs∈[1s,24h] 默认 300s;pollMs∈[500ms,60s] 默认 2s。
+function normalizeWaitSpec(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const mode = ['timer', 'file', 'process', 'url'].includes(raw.mode) ? raw.mode : null;
+  if (!mode) return null;
+  const spec = {
+    mode,
+    timeoutMs: Math.max(1000, Math.min(24 * 3600 * 1000, Math.round(Number(raw.timeoutMs) || 300000))),
+    pollMs: Math.max(500, Math.min(60000, Math.round(Number(raw.pollMs) || 2000))),
+  };
+  if (mode === 'timer') {
+    spec.durationMs = Math.max(0, Math.min(24 * 3600 * 1000, Math.round(Number(raw.durationMs) || 0)));
+    // 对抗轮 P2:timer 一定会在 durationMs 到点,超时兜底不得抢先。把 timeoutMs 抬到 ≥ durationMs+pollMs,否则 >5min(默认 timeout)
+    // 的 timer 会在到点前先被超时判失败(核心用法静默炸掉)。
+    spec.timeoutMs = Math.max(spec.timeoutMs, spec.durationMs + spec.pollMs);
+  }
+  else if (mode === 'file') { spec.path = String(raw.path || '').slice(0, 1000); spec.exists = raw.exists !== false; if (!spec.path) return null; }
+  else if (mode === 'process') { spec.pid = Math.round(Number(raw.pid) || 0); spec.state = raw.state === 'exit' ? 'exit' : 'alive'; if (!(spec.pid > 1)) return null; } // 禁 pid≤1(0/负/init)
+  else if (mode === 'url') { spec.url = String(raw.url || '').slice(0, 2000); if (!spec.url) return null; }
+  return spec;
+}
+// 第28e波:检查一个 waiting 节点的条件是否满足。返回 {done, failed, detail}。【零 token】——纯 fs/net/process 探测,无模型调用。
+// 安全:file 过 guardWorkspacePath(越界/敏感数据面→failed,绝不 stat 任意路径);process 仅发【信号 0】存在性探测(结构上够不到
+// 真实信号);url 过 ssrfCheck + httpGetGuarded(逐跳+DNS 重绑定+pin;blocked→failed 不重试,连不上→维持等待)。异常一律维持等待(不误杀)。
+async function evalWaitCondition(node, ctx) {
+  const w = node && node.wait; if (!w) return { done: false, failed: false };
+  const now = Date.now();
+  try {
+    if (w.mode === 'timer') {
+      const started = Date.parse(node.waitStartedAt || '') || now;
+      return { done: now >= started + (Number(w.durationMs) || 0), failed: false, detail: '定时等待' };
+    }
+    if (w.mode === 'file') {
+      // 对抗轮 P3:相对路径按【工作区 cwd】解析(而非服务器进程 cwd)。ctx.cwd 已是 normalizeCwd 后的绝对路径;绝对 w.path 仍覆盖 base。
+      const g = await guardWorkspacePath(path.resolve(String(ctx.cwd || ''), String(w.path || '')), ctx.session, ctx.config);
+      if (!g.ok) return { done: false, failed: true, detail: '文件等待路径越界或属敏感数据面: ' + (g.error || '') };
+      const exists = await fsp.access(g.absPath).then(() => true).catch(() => false);
+      return { done: exists === !!w.exists, failed: false, detail: exists ? '文件已存在' : '文件不存在' };
+    }
+    if (w.mode === 'process') {
+      let alive = false;
+      try { process.kill(w.pid, 0); alive = true; } catch (e) { alive = !!(e && e.code === 'EPERM'); } // 信号0:ESRCH=不存在,EPERM=存在但无权
+      return { done: alive === (w.state !== 'exit'), failed: false, detail: alive ? '进程存活' : '进程不存在' };
+    }
+    if (w.mode === 'url') {
+      const chk = ssrfCheck(String(w.url || ''));
+      if (!chk || chk.allowed === false) return { done: false, failed: true, detail: 'URL 被 SSRF 护栏拒绝: ' + ((chk && chk.reason) || '') };
+      const r = await httpGetGuarded(String(w.url || ''), { timeoutMs: 4000, maxBytes: 1024, maxRedirects: 1 }); // 对抗轮 P3:收紧探测(单跳内最坏≈8s<abort 竞速 9s,改善 Stop 时延)
+      if (r && r.failClass === 'blocked') return { done: false, failed: true, detail: 'URL 探测被护栏拦截(SSRF/重绑定)' };
+      if (r && r.ok === true) return { done: true, failed: false, detail: 'URL 可达(HTTP ' + (r.status || 'ok') + ')' };
+      return { done: false, failed: false, detail: '暂不可达,继续等待' }; // connect/reset/timeout/非2xx → 维持 waiting
+    }
+  } catch (e) { return { done: false, failed: false, detail: '检查异常(维持等待): ' + String((e && e.message) || e) }; }
+  return { done: false, failed: false };
+}
 function normalizeAgentWorkflow(raw, opts = {}) {
   if (!raw || typeof raw !== 'object') return null;
   const id = String(raw.id || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
@@ -8038,11 +8095,13 @@ function normalizeAgentWorkflow(raw, opts = {}) {
   if (!id || !title || !Array.isArray(raw.nodes) || !raw.nodes.length) return null;
   const ids = new Set(); const nodes = [];
   for (const item of raw.nodes.slice(0, 64)) {
-    const nodeId = String(item && item.id || '').trim().slice(0, 64); const task = String(item && item.task || '').trim().slice(0, 20000);
-    if (!/^[A-Za-z0-9_-]{1,64}$/.test(nodeId) || ids.has(nodeId) || !task) return null; ids.add(nodeId);
+    const nodeId = String(item && item.id || '').trim().slice(0, 64);
+    const wait = normalizeWaitSpec(item && item.wait); // 第28e波:wait_for 节点
+    const task = String(item && item.task || '').trim().slice(0, 20000) || (wait ? `等待条件(${wait.mode})` : '');
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(nodeId) || ids.has(nodeId) || !task) return null; ids.add(nodeId); // wait 节点已有默认 task
     const pos = item.position && typeof item.position === 'object' ? { x: Math.max(0, Math.min(4000, Number(item.position.x) || 0)), y: Math.max(0, Math.min(4000, Number(item.position.y) || 0)) } : null;
     nodes.push({
-      id: nodeId, task, role: String(item.role || '').trim().toLowerCase().slice(0, 64),
+      id: nodeId, task, wait, role: String(item.role || '').trim().toLowerCase().slice(0, 64),
       engine: item.engine === 'claude' || item.engine === 'openai' ? item.engine : '',
       dependsOn: [...new Set((Array.isArray(item.dependsOn) ? item.dependsOn : []).map(x => String(x || '').trim()).filter(Boolean))].slice(0, 16),
       toolTier: ['read', 'edit', 'exec'].includes(item.toolTier) ? item.toolTier : undefined,
@@ -8055,7 +8114,7 @@ function normalizeAgentWorkflow(raw, opts = {}) {
         : undefined,
       model: String(item.model || '').trim().slice(0, 160),
       resources: (Array.isArray(item.resources) ? item.resources : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 32),
-      isolation: item.isolation === 'worktree' ? 'worktree' : 'none', outputSchema: sanitizeAgentOutputSchema(item.outputSchema),
+      isolation: (item.isolation === 'worktree' && !wait) ? 'worktree' : 'none', outputSchema: sanitizeAgentOutputSchema(item.outputSchema), // 第28e波:wait 节点与 worktree 互斥,静默降级 none(避免模板可存却启动被拒)
       gate: normalizeAgentGate(item.gate, String(item.role || '').trim().toLowerCase()), failurePolicy: ['block', 'continue', 'retry'].includes(item.failurePolicy) ? item.failurePolicy : 'block',
       degradedPolicy: ['accept', 'retry', 'request_review', 'fail'].includes(item.degradedPolicy) ? item.degradedPolicy : 'accept', // 第28波 §28d
       maxRetries: Math.max(0, Math.min(5, Math.round(Number(item.maxRetries) || 0))), retryFallback: item.retryFallback === 'continue' ? 'continue' : 'block',
@@ -8203,7 +8262,7 @@ function buildUpstreamContext(depNodes, budgetTokens) {
   return estimateContentTokens(joined) <= Number(budgetTokens) ? joined : truncTo(joined, Number(budgetTokens)) + '\n[…上游上下文按总预算截断…]';
 }
 function agentWorkflowStatusText(status) {
-  return ({ queued: '排队中', waiting_resource: '等待资源', blocked: '阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', skipped: '已跳过', partial: '部分完成', failed: '失败', rejected: '质量门未通过', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+  return ({ queued: '排队中', waiting_resource: '等待资源', waiting: '等待条件', blocked: '阻塞', running: '运行中', paused: '已暂停', succeeded: '已完成', skipped: '已跳过', partial: '部分完成', failed: '失败', rejected: '质量门未通过', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
 }
 function summarizeAgentWorkflowRun(run, opts = {}) {
   const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
@@ -8346,9 +8405,10 @@ function materializePoolItem(run, item, opts = {}) {
 //   opts.failureContinues(n)→bool、opts.evalCondition(cond,nodes,node)→bool。
 // 返回:{ toBlock:[{id,blockers[]}], toSkip:[{id}], toDispatch:[id...], allTerminal:bool, cycleDead:bool }。
 function computeSchedulerStep(nodes, opts) {
-  const { inFlightIds = [], concurrency = 1, isTerminal, failureContinues, evalCondition } = opts || {};
+  const { inFlightIds = [], concurrency = 1, isTerminal, failureContinues, evalCondition, isWaitNode } = opts || {};
   const byId = id => nodes.find(n => n.id === id);
   const term = n => !!(n && isTerminal(n));
+  const isWait = n => (typeof isWaitNode === 'function') ? !!isWaitNode(n) : false; // 第28e波:wait_for 节点谓词
   const inFlight = new Set(inFlightIds);
   const toBlock = [], toSkip = [];
   const blockedIds = new Set(), skippedIds = new Set();
@@ -8364,18 +8424,21 @@ function computeSchedulerStep(nodes, opts) {
   }
   // ── 就绪:queued 且未被本步 block/skip 且所有依赖终态。数组序保留(与 26a 公平性一致)。──
   const ready = nodes.filter(n => n.status === 'queued' && !blockedIds.has(n.id) && !skippedIds.has(n.id) && (n.dependsOn || []).every(d => term(byId(d))));
-  // ── 派发选择:补位到并发上限,跳过已在飞(铁律③)。──
-  const toDispatch = [];
+  // ── 派发选择:补位到并发上限,跳过已在飞(铁律③)。第28e波:就绪的 wait_for 节点单列 toArm ——【不占并发槽】(timer 模式
+  //    可能挂数小时,占槽会毒化并发池),由外壳 arm 为 waiting 态后交 poll 块轮询,绝不进 runNode/子代理(零 token)。──
+  const toDispatch = [], toArm = [];
   let slots = concurrency - inFlight.size;
   for (const node of ready) {
-    if (slots <= 0) break;
-    if (inFlight.has(node.id)) continue;
+    if (isWait(node)) { toArm.push(node.id); continue; }   // wait 节点:单列武装,不消耗 slot
+    if (slots <= 0 || inFlight.has(node.id)) continue;      // 派发满位/已在飞 → 跳过(不 break,后续 wait 节点仍要武装)
     toDispatch.push(node.id); slots--;
   }
   const allTerminal = nodes.every(term);
-  // 铁律①:本步零派发【且】在飞空【且】未全终态 → 依赖环/无法解锁(全终态时应由外壳的收尾分支处理,不判环)。
-  const cycleDead = toDispatch.length === 0 && inFlight.size === 0 && !allTerminal;
-  return { toBlock, toSkip, toDispatch, allTerminal, cycleDead };
+  const anyWaiting = nodes.some(n => n && n.status === 'waiting'); // 第28e波:有等待条件的节点在飞外持续轮转
+  // 铁律①(第28e波修正):本步零派发【且】零武装【且】在飞空【且】无等待节点【且】未全终态 → 才是真依赖环/无法解锁。
+  // 有 waiting 或 toArm 时循环仍会推进(poll/arm),绝不能误判为环把整批 failed。
+  const cycleDead = toDispatch.length === 0 && toArm.length === 0 && inFlight.size === 0 && !anyWaiting && !allTerminal;
+  return { toBlock, toSkip, toDispatch, toArm, allTerminal, cycleDead };
 }
 
 // ============================================================================
@@ -8440,6 +8503,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     // ready 为空(无 queued 节点依赖全 terminal)时被误诊为「依赖图存在环或无法解锁」而整批 failed(见下 ready 判定)。
     // 任何续跑都必须把 interrupted 并入 reset 重新入队(full-retry 分支 status!=='succeeded' 已含它,此处补齐 targeted 分支)。
     for (const n of nodes) if (n.status === 'interrupted') reset.add(n.id);
+    // 对抗轮 P3(第28e波):崩溃/续跑遗留的 waiting 节点(targeted retry 未把它转 queued 的幸存者),等待窗从 resume 起算——
+    // 否则沿用崩溃前 waitStartedAt 会把宕机时长算进去,resume 即被误判超时。full-retry 已把 waiting 转 queued,不受影响。
+    for (const n of nodes) if (n.status === 'waiting') n.waitStartedAt = nowIso();
     const pendingIsolation = nodes.find(n => reset.has(n.id) && n.isolation && n.isolation.status === 'ready');
     if (pendingIsolation) return { ok: false, error: `节点 ${pendingIsolation.id} 有尚未应用的隔离提交，请先应用或删除该工作流记录`, startedCount: 0 };
     for (const n of nodes) {
@@ -8448,6 +8514,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       n.gate = normalizeAgentGate(n.gate, n.roleId);
       n.failurePolicy = ['block', 'continue', 'retry'].includes(n.failurePolicy) ? n.failurePolicy : 'block';
       n.degradedPolicy = ['accept', 'retry', 'request_review', 'fail'].includes(n.degradedPolicy) ? n.degradedPolicy : 'accept'; // 第28波 §28d:老 run JSON 回填 accept(零回归)
+      n.wait = normalizeWaitSpec(n.wait); // 第28e波:重跑再校验 wait 规格(reset 集里的 waiting 节点会经上面 status!=='succeeded' 回 queued 重新 arm)
       n.maxRetries = Math.max(0, Math.min(5, Math.round(Number(n.maxRetries) || 0)));
       n.retryFallback = n.retryFallback === 'continue' ? 'continue' : 'block';
       n.condition = normalizeWorkflowCondition(n.condition); n.loop = normalizeWorkflowLoop(n.loop);
@@ -8483,10 +8550,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     const ids = new Set(); nodes = [];
     for (const raw of rawNodes.slice(0, 64)) {
       const id = String(raw && raw.id || '').trim().slice(0, 64);
-      const task = String(raw && raw.task || '').trim();
+      const wait = normalizeWaitSpec(raw && raw.wait); // 第28e波:wait_for 节点(与 gate 平行)
+      const task = String(raw && raw.task || '').trim() || (wait ? `等待条件(${wait.mode})` : '');
       if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, error: `无效节点 id: ${id || '(空)'}`, startedCount: 0 };
       if (ids.has(id)) return { ok: false, error: `节点 id 重复: ${id}`, startedCount: 0 };
-      if (!task) return { ok: false, error: `节点 ${id} 缺少 task`, startedCount: 0 };
+      if (!task) return { ok: false, error: `节点 ${id} 缺少 task`, startedCount: 0 }; // wait 节点已有默认 task,不会命中
       const roleId = String(raw && raw.role || '').trim().toLowerCase();
       const role = roleId ? roleLibrary.get(roleId) : null;
       if (roleId && !role) return { ok: false, error: `节点 ${id} 引用了不存在的角色: ${roleId}`, startedCount: 0 };
@@ -8505,7 +8573,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
       const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-      nodes.push({ id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree')) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(100, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(100, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -8668,6 +8736,16 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   //    否则旧 flight 的 finally 会删掉新 flight 的登记,并发槽泄漏 + 二次误诊。
   const inFlight = new Map();   // nodeId -> 在飞 promise(已各自 .catch,race 永不抛)
   const raceInFlight = () => Promise.race([...inFlight.values()]);
+  // 第28e波:可中断 sleep(复刻 pool-grace 8769-8775)—— 只剩 waiting 节点无在飞时,给循环一个定时 tick(避免 busy-spin),
+  // 且可被 Stop/父 abort 立即打断(保证停止响应)。waitPollMs:取当前 waiting 节点 pollMs 的最小值(clamp 500..60000)。
+  const abortableSleep = ms => new Promise(resolve => {
+    let t = null;
+    const onAbort = () => { if (t) clearTimeout(t); resolve(); };
+    t = setTimeout(() => { try { if (localCtrl && localCtrl.signal) localCtrl.signal.removeEventListener('abort', onAbort); } catch {} resolve(); }, Math.max(200, ms));
+    if (t && t.unref) t.unref();
+    if (localCtrl && localCtrl.signal) localCtrl.signal.addEventListener('abort', onAbort, { once: true });
+  });
+  const waitPollMs = () => { let m = 2000; for (const n of nodes) if (n && n.status === 'waiting' && n.wait) m = Math.min(m, Number(n.wait.pollMs) || 2000); return Math.max(500, Math.min(60000, m)); };
   try {
   while (true) {
     // 对抗轮修(第25波): 环内保存改为非致命 —— 持久化坏掉时(磁盘满/杀软长锁)这里若抛,run 直接硬失败,
@@ -8675,13 +8753,56 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     while (runtime.paused && !runtime.stopRequested) {
       if (inFlight.size) { await raceInFlight(); continue; }   // 第26波: 暂停只拦新派发,在飞节点先跑完
       run.status = 'paused'; await saveAgentRun(run).catch(() => {});
+      const pausedAt = Date.now();
       await new Promise(resolve => runtime.resumeWaiters.push(resolve));
+      // 对抗轮 P2(第28e波):暂停不计入 wait 时长/超时预算(仿 pool-grace 8763 的暂停补偿)。唤醒后把每个 waiting 节点的
+      // waitStartedAt 前移一个暂停时长,使 timeout 判定与 timer 条件都排除暂停时间——否则长暂停会误判超时失败。
+      const pd = Date.now() - pausedAt;
+      if (pd > 0) for (const n of nodes) if (n.status === 'waiting' && n.waitStartedAt) { const t = Date.parse(n.waitStartedAt); if (t) n.waitStartedAt = new Date(t + pd).toISOString(); }
     }
     if (run.status === 'paused') { run.status = 'running'; runtime.lastActivityAt = Date.now(); await saveAgentRun(run).catch(() => {}); } // v1.x (B1-fix): resume resets the idle clock so a long pause does not make the very next watchdog tick false-fire
     if (runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) {
       while (inFlight.size) await raceInFlight();   // 第26波: ctrl 已 abort,在飞节点快速收敛;drain 后再统一取消
       for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒无进展），已中止` : '父回合已停止'); node.completedAt = nowIso(); }
       break;
+    }
+    // 第28e波(§28e):轮询 waiting 节点(【零 token】——纯 fs/net/process 探测,不起子代理)。满足→succeeded 放行下游;
+    // 超时→failed(下游由 failurePolicy 决定);护栏拒(file 越界/url SSRF)→立即 failed;否则维持 waiting。放在 stop/abort 之后、
+    // pool-grace(nodes.every(terminal))之前——satisfied 节点当步转终态,下游可同轮派发;terminal() 不含 waiting 故不会提前收尾。
+    // 各 waiting 节点【并发】poll(互不干扰、各自 mutate 自己的 node),避免 url 探测串行阻塞调度环。轮询即进展刷 lastActivityAt(防看门狗误杀长等待)。
+    {
+      const waiters = nodes.filter(n => n.status === 'waiting');
+      if (waiters.length) {
+        const waitCwd = normalizeCwd(parentSession.cwd, config.defaultWorkspace);
+        const pollOne = async node => {
+          const w = node.wait || {};
+          const started = Date.parse(node.waitStartedAt || '') || Date.now();
+          const settle = (status, err, detail) => {
+            node.status = status; node.completedAt = nowIso();
+            if (status === 'failed') node.error = err; else { node.result = detail || ('等待条件已满足: ' + (w.mode || '')); deriveNodeOutputs(node); }
+            onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status, waitMode: w.mode });
+            appendAgentRunEvent(run, { type: 'node_settled', nodeId: node.id, attemptId: node.attempts, data: { status, waitMode: w.mode } });
+            if (terminal(node)) dropNodeMail(node.id);
+          };
+          // 超时判定每轮都跑(墙钟,不受节流影响)。
+          if (Date.now() - started > (Number(w.timeoutMs) || 300000)) { settle('failed', `等待条件超时(>${Math.round((Number(w.timeoutMs) || 300000) / 1000)}秒未满足)`); return; }
+          // 对抗轮 P3:per-node pollMs 节流 —— 条件探测频率与循环唤醒解耦(否则与活跃/循环节点共调度时 url 会被超频外呼)。
+          // 首次(lastWaitPollAt 未设)立即探;之后每 pollMs 一次,不论循环被别的节点唤醒多频繁。
+          if (Date.now() - (Number(node.lastWaitPollAt) || 0) < (Number(w.pollMs) || 2000)) return;
+          node.lastWaitPollAt = Date.now();
+          let r; try { r = await evalWaitCondition(node, { session: parentSession, config, cwd: waitCwd }); } catch { r = { done: false, failed: false }; }
+          if (node.status !== 'waiting') return; // 期间被 stop/pause 改动 → 让位
+          if (r.failed) settle('failed', '等待条件失败: ' + (r.detail || ''));
+          else if (r.done) settle('succeeded', null, '等待条件已满足: ' + (r.detail || w.mode));
+        };
+        // 对抗轮 P3:poll 整体与 abort 竞速 —— 慢 url 探测(httpGetGuarded 无 AbortSignal)不阻塞 Stop 响应;超时后本轮让位,
+        // 落定的探测在后台无害完成(其 node 下一轮会被 stop 分支 cancel)。abortableSleep 上限即最坏 Stop 时延。
+        const pollAll = Promise.all(waiters.map(pollOne));
+        if (localCtrl && localCtrl.signal && !localCtrl.signal.aborted) await Promise.race([pollAll, abortableSleep(9000)]);
+        else await pollAll;
+        runtime.lastActivityAt = Date.now(); // 轮询即进展
+        await saveAgentRun(run).catch(() => {});
+      }
     }
     // 团队模式 v2 (A2): 收尾竞态防线——全节点终态时,若 manual 策略下任务池还有 proposed 项且宽限窗未用过,延迟收尾
     // 进入宽限窗(此时不置 closing,审批仍可物化);窗内批准→物化新节点(scheduler 拾取)→continue;窗过/超时/stop→
@@ -8732,6 +8853,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     const step = computeSchedulerStep(nodes, {
       inFlightIds: [...inFlight.keys()], concurrency: run.concurrency,
       isTerminal: terminal, failureContinues, evalCondition: evaluateWorkflowCondition,
+      isWaitNode: n => !!(n && n.wait), // 第28e波:wait_for 节点单列 toArm(不占并发槽)
     });
     for (const { id, blockers } of step.toBlock) {
       const node = nodes.find(n => n.id === id); if (!node) continue;
@@ -8745,6 +8867,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       dropNodeMail(node.id); // P3-1: skipped 节点批外转移,清扫其滞留邮件
       onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: 'skipped', condition: node.condition });
     }
+    // 第28e波:武装就绪的 wait_for 节点 —— queued→waiting,记 waitStartedAt。【零副作用】:不 attempts+1、不进 runNode、不占 inFlight。
+    for (const id of (step.toArm || [])) {
+      const node = nodes.find(n => n.id === id); if (!node) continue;
+      node.status = 'waiting'; node.waitStartedAt = nowIso();
+      onEvent({ type: 'agent_workflow', state: 'node_wait', id: runId, nodeId: node.id, waitMode: node.wait && node.wait.mode });
+      appendAgentRunEvent(run, { type: 'node_wait', nodeId: node.id, data: { mode: node.wait && node.wait.mode } });
+    }
+    if ((step.toArm || []).length) await saveAgentRun(run).catch(() => {});
     // 第26波: per-node 执行体(原批次 Promise.all 的 map 回调,逐字未动)—— 由下方连续派发器调用。
     const runNode = async node => {
       const depNodes = node.dependsOn.map(dep => nodes.find(n => n.id === dep)).filter(Boolean);
@@ -8947,7 +9077,12 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       for (const node of nodes) if (!terminal(node)) { node.status = 'failed'; node.error = '依赖图存在环或无法解锁'; node.completedAt = nowIso(); }
       break;
     }
-    if (inFlight.size) await raceInFlight();
+    // 第28e波:循环 tick —— 有在飞则等其一 settle;只剩 waiting 节点时用可中断 sleep(pollMs)定时唤醒重 poll(避免 busy-spin,
+    // 且 Stop/abort 立即打断)。二者并存则 race(谁先来先醒)。都没有(全终态)则由上方收尾分支处理,不到这里。
+    const anyWaiting = nodes.some(n => n && n.status === 'waiting');
+    if (inFlight.size && anyWaiting) await Promise.race([raceInFlight(), abortableSleep(waitPollMs())]);
+    else if (inFlight.size) await raceInFlight();
+    else if (anyWaiting) await abortableSleep(waitPollMs());
   }
   // B8: 'rejected' is a completed quality-gate verdict ("no"), not an execution failure — it must not
   // count toward the failed tally, so a run whose only non-success is a quality rejection is not reported

@@ -67,10 +67,11 @@ const fake = http.createServer((req, res) => {
   ok(!/await Promise\.all\(batch\.map\(/.test(src), 'C 批次屏障代码已移除(Promise.all(batch.map) 不存在)');
   ok(/const inFlight = new Map\(\)/.test(src) && /raceInFlight/.test(src), 'C 连续队列结构在(inFlight/raceInFlight)');
   ok(/function computeSchedulerStep\(nodes, opts\)/.test(src), 'C 调度决策已抽为纯 reducer computeSchedulerStep');
-  ok(/const cycleDead = toDispatch\.length === 0 && inFlight\.size === 0 && !allTerminal/.test(src), 'C 铁律①: reducer 判环=「本步零派发 且 在飞空 且 未全终态」(防同步节点 fast-settle 误诊)');
+  // 第28e波:cycleDead 增补 toArm.length===0 && !anyWaiting(有待武装/等待节点时循环仍推进,不误判环)。
+  ok(/const cycleDead = toDispatch\.length === 0 && toArm\.length === 0 && inFlight\.size === 0 && !anyWaiting && !allTerminal/.test(src), 'C 铁律①: reducer 判环=「零派发 且 零武装 且 在飞空 且 无等待 且 未全终态」(防同步 fast-settle + wait 误诊)');
   ok(/if \(step\.cycleDead && !inFlight\.size\)/.test(src), 'C 铁律①(外壳): cycleDead 且外壳在飞仍空才判死(双保险)');
   ok(/nodes\.every\(terminal\) && !inFlight\.size/.test(src), 'C 铁律②: 收尾/宽限窗=「全终态 且 在飞空」(防 run_end 后写/queued 僵尸)');
-  ok(/if \(inFlight\.has\(node\.id\)\) continue/.test(src), 'C 铁律③a: reducer 派发选择跳过已在飞(防双派发)');
+  ok(/if \(slots <= 0 \|\| inFlight\.has\(node\.id\)\) continue/.test(src), 'C 铁律③a: reducer 派发选择跳过已在飞(防双派发;第28e波与满位判定合并)');
   ok(/inFlight\.get\(node\.id\) === flight\) inFlight\.delete/.test(src), 'C 铁律③b: finally 删除带身份守卫');
   ok(/调度器兜底异常/.test(src), 'C 池级兜底不静默(钉节点+落事件)');
 

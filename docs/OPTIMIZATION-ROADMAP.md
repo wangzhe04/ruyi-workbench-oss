@@ -430,3 +430,24 @@
 - 被否证 1 条(L2 非收敛)——被 28a 的 task0 并入摘要设计天然消除。
 
 **验收**:新 `dev-harness/context-governance.e2e.js`(无端口;[S] 静态锁 + [P] buildUpstreamContext/deriveNodeOutputs 纯逻辑 + [A] maybeCompactSubHistory 实跑[原地 splice/配对/L2-fail 兜底/总量钳制]);全量回归全绿。**延后 28e wait_for**(需动调度 reducer 新增 toArm 桶/waiting 态,单列下一增量)。
+
+## 25. 第 28e 波:wait_for 等待原语(调度 reducer 手术)+ 5 镜头对抗(2026-07-12)
+
+**痛点**:长任务里"等外部条件"(构建跑完/文件到/服务起来)无原语 → 只能空转烧钱或死。**核心属性:waiting 态零 token**——arm 只置状态、不进 runNode、不占并发槽、不调模型;poll 只做 fs/net/process 探测。
+
+**动了调度核心(最危险,像 26a 那样单独对抗)**:
+- **纯 reducer `computeSchedulerStep`**:就绪 wait 节点单列 `toArm`(不占并发槽,timer 可挂数小时不毒化并发池);新增 `anyWaiting`,重定义 `cycleDead = 零派发 && 零武装 && 在飞空 && !anyWaiting && !未全终态`——**有等待/待武装节点绝不误判环把整批 failed**。scheduler-reducer §16 六条组合锁。
+- **外壳三处**:arm(queued→waiting+waitStartedAt,零副作用不占 inFlight)· poll 块(stop/abort 后、pool-grace 前;并发探测各 waiting 节点,满足→succeeded+deriveNodeOutputs 放行下游 / 超时→failed / 护栏拒→failed;刷 lastActivityAt 防看门狗误杀)· tick(仅 waiting 时可中断 `abortableSleep(pollMs)`,防 busy-spin + 保 Stop 响应)。
+- **四模式 + 护栏**:timer(到点)· file(过 `guardWorkspacePath` 工作区+敏感面)· process(**仅 `process.kill(pid,0)` 信号 0** 存在性探测,结构上够不到真信号)· url(过 `ssrfCheck`+`httpGetGuarded` 逐跳+DNS 重绑定;blocked→failed 不重试)。`normalizeWaitSpec` 全字段 clamp。
+- **归一/生命周期**:模板 + launch 双归一(放宽 task 必填、wait×worktree 降级 none)· resume 重校验 + waiting 重置等待窗 · 崩溃 waiting 节点续跑重排。
+
+**5 镜头对抗验证(13 → 复核确认 11,去重 7 独立全修)**:
+- **P2 timer `durationMs > timeoutMs` 必超时失败**(默认 timeout 5min,故 >5min 的 timer 核心用法静默炸掉;超时判定先于 timer 到点)。修:normalizeWaitSpec 把 timeoutMs 抬到 ≥ durationMs+pollMs。
+- **P2 暂停/崩溃墙钟吃掉等待预算**:waitStartedAt 按墙钟走,长暂停或宕机后 resume 即误判超时。修:pause 补偿(仿 pool-grace 前移 waitStartedAt)+ resume 对幸存 waiting 节点重置等待窗。
+- **P3 per-node pollMs 节流**:poll 块每次循环唤醒都探测,与活跃/循环节点共调度时 url 被超频外呼。修:`node.lastWaitPollAt` 节流(超时判定仍每轮)。
+- **P3 Stop 时延**:慢 url 探测(httpGetGuarded 无 AbortSignal)阻塞循环顶部 await。修:poll 整体与 abort 竞速 + url 探测收紧(4s/单跳/1KB)。
+- **P3 file 相对路径按进程 cwd 解析**(应按工作区)。修:`path.resolve(ctx.cwd, w.path)`。
+- **P3 wait×worktree**:模板可存但 launch 拒(不可启动模板)。修:两归一器都把 wait 节点 isolation 降级 none。
+- 被否证 2 条:file 符号链接逃逸(guardWorkspacePath realpath 已含)· process 任意 pid 存活探测(低危信息泄露,仅信号 0,可接受)。
+
+**验收**:新 `dev-harness/wait-primitive.e2e.js`(9118;静态锁 + normalizeWaitSpec/evalWaitCondition 纯逻辑 + **Live arm→waiting→succeeded / 中途建文件→succeeded / 超时→failed**);scheduler-reducer §16 六条 wait 组合锁;DAG/子代理/崩溃续跑/暂停全量回归全绿。**至此第28波五单元(a–e)全交付。**

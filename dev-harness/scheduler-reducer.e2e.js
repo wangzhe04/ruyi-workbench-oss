@@ -23,6 +23,7 @@ function step(nodes, opts = {}) {
     isTerminal: n => TERMINAL.has(n.status),
     failureContinues: opts.failureContinues || (() => false),
     evalCondition: opts.evalCondition || ((cond, ns, node) => node._cond !== false),
+    isWaitNode: opts.isWaitNode || (n => !!(n && n.wait)), // 第28e波:wait_for 谓词
   });
 }
 const N = (id, status, deps, extra = {}) => ({ id, status, dependsOn: deps || [], ...extra });
@@ -176,6 +177,43 @@ const N = (id, status, deps, extra = {}) => ({ id, status, dependsOn: deps || []
   const snapshot = JSON.stringify(nodes);
   step(nodes);
   ok(JSON.stringify(nodes) === snapshot, '15 reducer 不 mutate nodes(纯函数)');
+}
+
+// ── 16) 第28e波 wait_for:就绪 wait 节点单列 toArm,不占并发槽;有等待节点不判环 ──
+const W = (id, status, deps, extra = {}) => N(id, status, deps, { wait: { mode: 'timer', durationMs: 1000 }, ...extra });
+{
+  // 就绪 wait 节点 → toArm,不进 toDispatch,不消耗并发槽:并发 1 下 wait + 普通节点同步各就位。
+  const nodes = [W('w', 'queued', []), N('a', 'queued', [])];
+  const s = step(nodes, { concurrency: 1 });
+  ok(s.toArm && s.toArm.length === 1 && s.toArm[0] === 'w', '16 就绪 wait 节点 → toArm');
+  ok(s.toDispatch.length === 1 && s.toDispatch[0] === 'a', '16 wait 不占并发槽:并发 1 仍派发普通节点 a');
+  ok(!s.toDispatch.includes('w'), '16 wait 节点不进 toDispatch');
+}
+{
+  // 有 waiting 态节点:零派发 + 零武装 + 在飞空 + 未全终态 —— 但【不判环】(poll 会推进它)。
+  const nodes = [W('w', 'waiting', [])];
+  const s = step(nodes, { inFlightIds: [] });
+  ok(s.cycleDead === false, '16 有 waiting 节点 → 不判环(anyWaiting 兜底,防误诊整批 failed)');
+  ok(s.toArm.length === 0 && s.toDispatch.length === 0, '16 已 waiting 的节点本步不再武装/派发');
+}
+{
+  // wait 节点的失败依赖 → toBlock(与普通节点同);条件 false → toSkip。
+  const b = step([N('a', 'failed', []), W('w', 'queued', ['a'])]);
+  ok(b.toBlock.some(x => x.id === 'w'), '16 wait 节点失败依赖 → toBlock');
+  const sk = step([N('a', 'succeeded', []), W('w', 'queued', ['a'], { condition: { x: 1 }, _cond: false })], { evalCondition: (c, ns, node) => node._cond !== false });
+  ok(sk.toSkip.some(x => x.id === 'w'), '16 wait 节点条件 false → toSkip');
+}
+{
+  // waiting 节点 + 依赖它的下游:下游不就绪(waiting 非终态),零派发零武装零在飞,但 anyWaiting → 不判环。
+  const nodes = [W('w', 'waiting', []), N('d', 'queued', ['w'])];
+  const s = step(nodes, { inFlightIds: [] });
+  ok(s.toDispatch.length === 0 && s.toArm.length === 0, '16 下游依赖 waiting 前序 → 本步不就绪');
+  ok(s.cycleDead === false, '16 waiting 前序未终态 → 不误判下游为死环');
+}
+{
+  // 全终态含 wait 节点已 succeeded → allTerminal,不判环(交外壳收尾)。
+  const s = step([W('w', 'succeeded', []), N('d', 'succeeded', ['w'])], { inFlightIds: [] });
+  ok(s.allTerminal === true && s.cycleDead === false, '16 wait 节点终态后 → allTerminal 无环');
 }
 
 console.log('');
