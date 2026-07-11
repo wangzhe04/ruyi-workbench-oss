@@ -404,6 +404,119 @@ async function stopMission() {
   catch (e) { toast('停止失败:' + apiErrText(e), 'err'); }
 }
 
+/* ---------------- 第27波:自主性授权书 ---------------- */
+// 档位色(复用权限徽章语义):read=安全 / edit=可撤 / exec=高危。exec 视觉上必须更重。
+const GRANT_TIER_LABEL = { read: '读', edit: '写', exec: '执行' };
+function grantTierOf(tool) {
+  if (tool === 'powershell_run' || tool === 'script_run' || tool === 'Bash') return 'exec';
+  if (tool === 'file_read' || tool === 'file_list') return 'read';
+  return 'edit';
+}
+function fmtRemain(ms) {
+  const m = Math.max(0, Math.round(ms / 60000));
+  return m >= 60 ? Math.floor(m / 60) + ' 小时' + (m % 60 ? ' ' + (m % 60) + ' 分' : '') : m + ' 分钟';
+}
+// 渲染活动授权列表(read-only 展示 + 撤销)。grants 为 listGrantsView 形状。
+function renderAutonomyBar(grants) {
+  const bar = $('autonomyBar'); if (!bar) return;
+  const list = Array.isArray(grants) ? grants : [];
+  const ul = $('autonomyBarList');
+  const count = $('autonomyBarCount');
+  const revokeAll = $('autonomyRevokeAll');
+  const formOpen = $('autonomyIssueForm') && !$('autonomyIssueForm').classList.contains('hidden');
+  // 有活动授权、或签发表单展开时,抽屉显示。
+  if (!list.length && !formOpen) { bar.classList.add('hidden'); }
+  else bar.classList.remove('hidden');
+  if (count) count.textContent = list.length ? '· ' + list.length + ' 张' : '';
+  if (revokeAll) revokeAll.classList.toggle('hidden', list.length < 2);
+  if (!ul) return;
+  ul.innerHTML = '';
+  for (const g of list) {
+    const tier = g.tier || grantTierOf(g.tool);
+    const li = el('li', 'autonomy-grant tier-' + tier);
+    const badge = el('span', 'ag-badge ag-' + tier, GRANT_TIER_LABEL[tier] || tier);
+    const name = el('span', 'ag-tool', g.tool);
+    const scope = el('span', 'ag-scope', g.scope === 'run' ? '本次运行' : '会话');
+    const detail = el('span', 'ag-detail', tier === 'exec' ? (g.cmdAllow || []).join(' / ') : (g.pathGlob || []).join(' , '));
+    if (tier === 'exec' && g.netAllowed) detail.append(el('span', 'ag-net', ' ⚠联网'));
+    const uses = el('span', 'ag-uses', (g.usedCount || 0) + '/' + g.maxUses + ' 次');
+    const ttl = el('span', 'ag-ttl', '剩 ' + fmtRemain(g.remainingMs));
+    const x = el('button', 'ag-revoke', '✕'); x.title = '撤销'; x.onclick = () => revokeOneGrant(g.grantId);
+    li.append(badge, name, scope, detail, uses, ttl, x);
+    ul.appendChild(li);
+  }
+}
+async function loadAutonomyGrants() {
+  const s = state.currentSession; if (!s) { renderAutonomyBar([]); return; }
+  try { const r = await api('/api/autonomy/grants?sessionId=' + encodeURIComponent(s.id)); renderAutonomyBar(r && r.ok ? r.grants : []); }
+  catch { renderAutonomyBar([]); }
+}
+async function revokeOneGrant(grantId) {
+  const s = state.currentSession; if (!s) return;
+  try { const r = await api('/api/autonomy/revoke', { method: 'POST', body: JSON.stringify({ sessionId: s.id, grantId }) }); if (r && r.ok) { renderAutonomyBar(r.grants); toast('已撤销授权', 'ok'); } }
+  catch (e) { toast('撤销失败:' + apiErrText(e), 'err'); }
+}
+async function revokeAllAutonomyGrants() {
+  const s = state.currentSession; if (!s) return;
+  if (!confirm('撤销本会话【全部】授权书?进行中的单次调用不受影响,下一次起全部回落弹窗。')) return;
+  try { const r = await api('/api/autonomy/revoke', { method: 'POST', body: JSON.stringify({ sessionId: s.id, all: true }) }); if (r && r.ok) { renderAutonomyBar(r.grants); toast('已撤销 ' + r.revoked + ' 张授权', 'ok'); } }
+  catch (e) { toast('撤销失败:' + apiErrText(e), 'err'); }
+}
+// 签发表单:工具切换 → 联动显示 glob(文件族)或 cmdAllow(exec)。
+function autonomyFormSync() {
+  const tool = $('agTool') && $('agTool').value;
+  const tier = grantTierOf(tool);
+  document.querySelectorAll('.ag-file-only').forEach(e => e.classList.toggle('hidden', tier === 'exec'));
+  document.querySelectorAll('.ag-exec-only').forEach(e => e.classList.toggle('hidden', tier !== 'exec'));
+  const form = $('autonomyIssueForm');
+  if (form) form.classList.toggle('is-exec', tier === 'exec');
+}
+function autonomyIssuePayload() {
+  const s = state.currentSession; if (!s) return null;
+  const tool = $('agTool').value;
+  const tier = grantTierOf(tool);
+  const splitList = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean);
+  return {
+    sessionId: s.id, tool, scope: $('agScope').value,
+    pathGlob: tier === 'exec' ? [] : splitList($('agGlob').value),
+    cmdAllow: tier === 'exec' ? splitList($('agCmd').value) : [],
+    netAllowed: tier === 'exec' && $('agNet') && $('agNet').checked,
+    maxUses: Math.max(1, Number($('agMaxUses').value) || 10),
+    ttlMs: Number($('agTtl').value) || 3600000,
+  };
+}
+async function previewGrant() {
+  const p = autonomyIssuePayload(); if (!p) return;
+  const box = $('agDryRun'); if (box) box.textContent = '预览中…';
+  try {
+    const r = await api('/api/autonomy/grant', { method: 'POST', body: JSON.stringify({ ...p, preview: true }) });
+    if (r && r.ok) {
+      const bits = [];
+      if (grantTierOf(p.tool) !== 'exec') bits.push('将命中约 ' + (r.dryRun ? r.dryRun.count : 0) + ' 个文件' + (r.dryRun && r.dryRun.truncated ? '(计数已截断)' : ''));
+      else bits.push('允许命令前缀:' + (r.grant.cmdAllow || []).join(' / '));
+      if (r.dropped && r.dropped.length) bits.push(r.dropped.length + ' 条被裁剪(' + r.dropped.map(d => d.reason).join(';') + ')');
+      if (box) box.textContent = bits.join(';');
+    } else if (box) box.textContent = '预览失败:' + (r && r.error || '');
+  } catch (e) { if (box) box.textContent = '预览失败:' + apiErrText(e); }
+}
+async function submitGrant(ev) {
+  if (ev) ev.preventDefault();
+  const p = autonomyIssuePayload(); if (!p) return;
+  const tier = grantTierOf(p.tool);
+  if (tier === 'exec') {
+    if (!p.cmdAllow.length) { toast('exec 授权必须填至少一条命令前缀', 'err'); return; }
+    if (!confirm('高危:你正在授予【无人值守执行命令】的能力。\n工具:' + p.tool + '\n允许命令前缀:' + p.cmdAllow.join(' / ') + '\n联网:' + (p.netAllowed ? '是' : '否') + '\n次数:' + p.maxUses + '\n\n范围外命令仍会弹窗。确认签发?')) return;
+  }
+  try {
+    const r = await api('/api/autonomy/grant', { method: 'POST', body: JSON.stringify(p) });
+    if (r && r.ok) {
+      toast('授权已签发' + (r.dropped && r.dropped.length ? '(' + r.dropped.length + ' 条 glob 被裁剪)' : ''), 'ok');
+      $('autonomyIssueForm').classList.add('hidden');
+      await loadAutonomyGrants();
+    } else { toast('签发失败:' + (r && r.error || '未知'), 'err'); }
+  } catch (e) { toast('签发失败:' + apiErrText(e), 'err'); }
+}
+
 /* ---------------- v0.8-S3: 「本轮变更」turn-summary card ---------------- */
 // Renders message.turnSummary (static) or a live turn_summary event: a low-key card listing files changed
 // (path + op) and a command count. When nothing changed AND no commands ran, shows the reassurance line
@@ -639,6 +752,7 @@ function renderCurrentSession() {
   updateSkillBadge(); // v1 技能体系: 会话切换时刷新 composer 技能徽标(已启用技能数)
   renderStepBar(session && session.todos); // v0.8-S3: show the task-list bar if this session has todos
   renderMissionBar(session && session.mission); // 第26波b: 会话切换时刷新账本进度条(无账本→隐藏)
+  loadAutonomyGrants(); // 第27波: 会话切换时拉取活动授权书(无授权→隐藏抽屉)
   const box = $('messages');
   box.innerHTML = '';
   if (!session || !session.messages?.length) { box.appendChild(buildEmptyState()); renderContextMeter(null); return; }
@@ -2151,6 +2265,15 @@ function handleStreamLine(line, live, main, streamSessionId) {
         main.appendChild(missionStateCard(evt));
         scrollMessagesToBottom();
       }
+      break;
+    case 'autonomy_grant':
+      // 第27波:授权书列表变更(签发/撤销/过期)→ 刷新抽屉。
+      renderAutonomyBar(evt.grants || []);
+      break;
+    case 'autonomy_grant_consumed':
+      // 第27波:一次范围内的免弹窗放行 —— 低调提示 + 刷新计数(可观测,不打断)。
+      toast('授权自动放行:' + (evt.tool || '') + '(剩 ' + (evt.remaining != null ? evt.remaining : '?') + ' 次)', 'ok');
+      loadAutonomyGrants();
       break;
     case 'steered': {
       // v0.8-S7: the server injected a steering interjection at a boundary. If this UI already rendered it
@@ -6914,6 +7037,13 @@ function bindEvents() {
   // v0.8-S3 step-bar: click the head to expand/collapse the full task list.
   { const sbt = $('stepBarToggle'); if (sbt) sbt.onclick = () => toggleStepBar(); }
   { const msb = $('missionStopBtn'); if (msb) msb.onclick = stopMission; } // 第26波b
+  // 第27波:授权书抽屉事件绑定。
+  { const t = $('autonomyIssueToggle'); if (t) t.onclick = () => { const f = $('autonomyIssueForm'); if (f) { f.classList.toggle('hidden'); if (!f.classList.contains('hidden')) { autonomyFormSync(); $('autonomyBar').classList.remove('hidden'); } else loadAutonomyGrants(); } }; }
+  { const ra = $('autonomyRevokeAll'); if (ra) ra.onclick = revokeAllAutonomyGrants; }
+  { const tl = $('agTool'); if (tl) tl.onchange = autonomyFormSync; }
+  { const pv = $('agPreview'); if (pv) pv.onclick = previewGrant; }
+  { const cx = $('agCancel'); if (cx) cx.onclick = () => { $('autonomyIssueForm').classList.add('hidden'); loadAutonomyGrants(); }; }
+  { const fm = $('autonomyIssueForm'); if (fm) fm.onsubmit = submitGrant; }
   // ↓ 回到最新: click snaps to bottom; the messages scroll listener toggles its visibility.
   { const jl = $('jumpLatest'); if (jl) jl.onclick = scrollMessagesToBottom; }
   { const mb = $('messages'); if (mb) mb.addEventListener('scroll', updateJumpLatest, { passive: true }); }

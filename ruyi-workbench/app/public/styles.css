@@ -426,6 +426,38 @@ input:focus, textarea:focus, select:focus {
 .mission-card-head { font-weight: 600; color: var(--ink); }
 .mission-card-body { margin-top: 4px; color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.5; }
 
+/* 第27波:自主性授权书抽屉。视觉语言承接 mission-bar;exec 授权刻意更重(danger 色)。 */
+.autonomy-bar { flex: 0 0 auto; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent) 4%, var(--panel-2)); font-size: var(--fs-md); }
+.autonomy-bar.hidden { display: none; }
+.autonomy-bar-head { display: flex; align-items: center; gap: 8px; padding: 6px 16px; }
+.autonomy-bar-title { font-weight: 600; color: var(--ink); }
+.autonomy-bar-count { color: var(--muted); font-variant-numeric: tabular-nums; flex: 1; }
+.autonomy-revoke-all.hidden, .autonomy-issue.hidden, .ag-exec-only.hidden, .ag-file-only.hidden { display: none; }
+.autonomy-bar-list { list-style: none; margin: 0; padding: 0 16px 8px 16px; display: flex; flex-direction: column; gap: 5px; }
+.autonomy-grant { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 5px 8px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel); line-height: 1.4; }
+.autonomy-grant.tier-exec { border-color: color-mix(in srgb, var(--danger-fg) 45%, var(--line-2)); background: color-mix(in srgb, var(--danger-fg) 6%, var(--panel)); }
+.ag-badge { flex: none; font-size: var(--fs-xs, 11px); font-weight: 700; padding: 1px 6px; border-radius: 5px; color: var(--accent-ink); }
+.ag-badge.ag-read { background: var(--ok-fg); }
+.ag-badge.ag-edit { background: var(--accent); }
+.ag-badge.ag-exec { background: var(--danger-fg); }
+.ag-tool { font-weight: 600; color: var(--ink); font-family: var(--mono, monospace); font-size: var(--fs-sm); }
+.ag-scope { flex: none; font-size: var(--fs-xs, 11px); color: var(--muted); border: 1px solid var(--line-2); border-radius: 4px; padding: 0 5px; }
+.ag-detail { flex: 1; min-width: 120px; color: var(--ink-2); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.ag-detail .ag-net { color: var(--danger-fg); font-weight: 600; }
+.ag-uses, .ag-ttl { flex: none; font-size: var(--fs-xs, 11px); color: var(--muted); font-variant-numeric: tabular-nums; }
+.ag-revoke { flex: none; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+.ag-revoke:hover { color: var(--danger-fg); background: var(--danger-bg); }
+/* 签发表单。 */
+.autonomy-issue { padding: 8px 16px 12px; display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--line-2); }
+.autonomy-issue.is-exec { background: color-mix(in srgb, var(--danger-fg) 5%, transparent); }
+.autonomy-issue-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.autonomy-issue label { display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-sm); color: var(--ink-2); }
+.autonomy-issue-field { display: flex; flex-direction: column; }
+.autonomy-issue input[type=text], .autonomy-issue input[type=number], .autonomy-issue select { padding: 4px 7px; border: 1px solid var(--line-2); border-radius: 6px; background: var(--panel); color: var(--ink); font-size: var(--fs-sm); }
+.autonomy-net { flex-direction: row !important; align-items: center; gap: 5px !important; }
+.autonomy-dryrun { font-size: var(--fs-sm); color: var(--muted); min-height: 1.2em; }
+.autonomy-issue-actions { display: flex; gap: 8px; }
+
 /* ↓ 回到最新 (§4.4): round floating button above the composer, right-aligned within the chat pane. */
 .jump-latest { position: absolute; right: 22px; bottom: 96px; z-index: 8; width: 34px; height: 34px; padding: 0;
   display: grid; place-items: center; border-radius: 50%; background: var(--panel); border: 1px solid var(--line-2);

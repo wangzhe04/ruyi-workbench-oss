@@ -150,6 +150,69 @@
           <ul id="missionBarList" class="mission-bar-list"></ul>
         </div>
 
+        <!-- 第27波:自主性授权书抽屉。默认隐藏,有活动授权或用户展开时显示。授权书 = 现有权限的严格子集缓存,
+             只把范围内的 ask 弹窗就地降为 allow;签发唯 header token,exec 纯内存进程重启即清。 -->
+        <div id="autonomyBar" class="autonomy-bar hidden" role="region" aria-label="自主性授权书">
+          <div class="autonomy-bar-head">
+            <span class="autonomy-bar-icon" aria-hidden="true">🎟️</span>
+            <span class="autonomy-bar-title">自主性授权书</span>
+            <span id="autonomyBarCount" class="autonomy-bar-count"></span>
+            <button id="autonomyIssueToggle" class="mini" title="签发新授权(仅本机 UI 可签)">+ 新建</button>
+            <button id="autonomyRevokeAll" class="mini autonomy-revoke-all hidden" title="撤销本会话全部授权">全部撤销</button>
+          </div>
+          <ul id="autonomyBarList" class="autonomy-bar-list"></ul>
+          <!-- 签发表单(默认折叠)。反疲劳:无"全工具/全工作区/无限次"预设;exec 高危样式 + 二次确认。 -->
+          <form id="autonomyIssueForm" class="autonomy-issue hidden" autocomplete="off">
+            <div class="autonomy-issue-row">
+              <label>工具
+                <select id="agTool">
+                  <option value="file_write">写文件 file_write(edit)</option>
+                  <option value="file_edit">改文件 file_edit(edit)</option>
+                  <option value="file_read">读文件 file_read(read)</option>
+                  <option value="powershell_run">运行 PowerShell 命令 powershell_run(exec)</option>
+                  <option value="Edit">Claude·Edit(edit)</option>
+                  <option value="Write">Claude·Write(edit)</option>
+                  <option value="Bash">Claude·Bash(exec)</option>
+                </select>
+              </label>
+              <label>范围
+                <select id="agScope">
+                  <option value="run">本次运行内(run)</option>
+                  <option value="session">整个会话(session)</option>
+                </select>
+              </label>
+            </div>
+            <label class="autonomy-issue-field ag-file-only">路径 glob(逗号分隔,相对工作区根;留空=整个工作区)
+              <input id="agGlob" type="text" placeholder="src/**, docs/*.md" />
+            </label>
+            <label class="autonomy-issue-field ag-exec-only hidden">允许的命令前缀 cmdAllow(逗号分隔,锚定前缀;exec 必填)
+              <input id="agCmd" type="text" placeholder="npm run build, npm test" />
+            </label>
+            <div class="autonomy-issue-row">
+              <label>次数上限
+                <input id="agMaxUses" type="number" min="1" max="200" value="10" />
+              </label>
+              <label>时长
+                <select id="agTtl">
+                  <option value="900000">15 分钟</option>
+                  <option value="1800000">30 分钟</option>
+                  <option value="3600000" selected>1 小时</option>
+                  <option value="10800000">3 小时</option>
+                </select>
+              </label>
+              <label class="ag-exec-only hidden autonomy-net">
+                <input id="agNet" type="checkbox" /> 允许联网(默认禁,慎用)
+              </label>
+            </div>
+            <div id="agDryRun" class="autonomy-dryrun"></div>
+            <div class="autonomy-issue-actions">
+              <button type="button" id="agPreview" class="mini">预览命中</button>
+              <button type="submit" id="agSubmit" class="mini primary">签发</button>
+              <button type="button" id="agCancel" class="mini">取消</button>
+            </div>
+          </form>
+        </div>
+
         <!-- v0.8-S3: task-list step-bar. Hidden until session.todos is non-empty or a `todo` event lands. -->
         <div id="stepBar" class="step-bar hidden" role="status" aria-live="polite">
           <button id="stepBarToggle" class="step-bar-head" aria-expanded="false">

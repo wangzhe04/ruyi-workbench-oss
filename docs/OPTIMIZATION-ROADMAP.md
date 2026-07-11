@@ -396,3 +396,18 @@
 
 26a 的连续就绪队列三铁律此前只靠 live e2e 覆盖,组合空间(retry×loop×gate×pause×crash×inflight)测不全。本波把主循环的【决策逻辑】抽成**纯函数** `computeSchedulerStep(nodes, {inFlightIds, concurrency, isTerminal, failureContinues, evalCondition})` → `{toBlock,toSkip,toDispatch,allTerminal,cycleDead}`,命令式外壳只负责应用状态迁移与 async 派发/await。三铁律语义原样保留(判环 cycleDead=零派发且在飞空且未全终态、收尾 allTerminal 配外壳 !inFlight、重排防双派发靠 inFlightIds 去重)。
 **验收**:新 `scheduler-reducer.e2e.js`(源抽取 + new Function 实跑,26 断言穷举依赖门/并发/block/skip/condition/B8/failureContinues/retry-loop-crash 重排/纯函数不 mutate);scheduler-ready-queue 静态锁更新为 reducer 形态;agent 全家 + 崩溃注入 + mission-driver 回归全绿(运行时行为零变化)。
+
+## 23. 第 27 波:自主性授权书(Autonomy Grant)—— 核心交付 + 7 镜头对抗验证(2026-07-12)
+
+**痛点**:第25/26波的 until-done 长任务一遇 exec 弹窗(120s 超时自动拒)就死。**方案**:授权书 = 现有权限系统的**严格子集缓存**——用户经 UI header token 预先明示「工具×路径×命令×次数×时长」笼子内,把 `gate:'ask'` 就地降 `'allow'` 并计数;范围外一切照旧弹窗。三条硬不变式写死在码:①子集律(只 ask→allow,永不 block→allow);②签发主权律(唯 header token,body-token/模型永无签发能力);③exec 永不全局持久(纯模块级 Map,不挂 session/不进 config/无侧车,进程重启即清)。
+
+**交付**:27a 数据模型 + `/api/autonomy/{grant,revoke,grants}`(header-token 白名单,handler 自查 tokenOk 无 body-token 兜底)· 27b `resolveToolPermissionContext`(entrypoint 感知取参)+`consumeGrant`(同步原子、tier 消耗点重算)+ provider 主 gate 插桩(仅 `ask && !bridge`)· 27c CLI 桥收口(+ 天花板对称复检)· 27d exec 约束(field-exact 取命令 + cmdAllow 锚定前缀 + 元字符拒 + 默认禁网 + exec 白名单仅 powershell_run/Bash)· 27e 撤销(单/全/scope:run 蒸发/stop/delete)· 27g 审计不进 digest。前端授权书抽屉。R-P1-1 子代理 gate 天然不触达 consumeGrant(独立 gate);R-P2-2 签发主权双点(路由白名单 + handler 自查,无 body-token);R-P2-1 edit 档 `.git/hooks` 等自动执行文件回落弹窗。
+
+**7 镜头对抗验证轮**(签发主权/路径逃逸/exec 命令/子集天花板/子代理继承/持久 scope 撤销/tier 原子;各配独立复核)—— 5 条发现,复核确认并全修:
+- **P1 field-shadow(exec)**:`script_run` 执行 `args.code` 但校验字段若按 OR-merge 取 `command` = 攻击者置 `command:合规 + code:恶意` 绕过 cmdAllow 的任意 RCE。**修**:按【真正执行字段】取命令(`GRANT_EXEC_CMD_FIELD`),exec 授权白名单仅 powershell_run/Bash(均执行 `args.command`),script_run/shell_*/git_commit 不可签 exec。
+- **P2 + 既有 Gap B(archive)**:`archive_zip`/`archive_unzip` 处理体**此前从不对源/目标调 guardFileToolPath**——这是**独立于授权书就存在的凭据外泄漏洞**(acceptEdits/auto 或单次批准即可 `archive_zip({paths:['~/.ssh/id_rsa', config.json 明文密钥, runtime.json token], dest:工作区/a.zip})` 打包 → 解压 → file_read 出明文)。**修**:工具层补源(读)+ 目标(写)护栏(敏感 denylist 恒拒 + 远端模型越界读拒);授权书层补数组源 `paths[]` 取值,使 grant 对 archive_zip 的源真正受约束。
+- **P3 CLI 天花板对称**:CLI 桥消耗前补 `nativeToolGate(permissionMode,tier)==='ask'` 复检(plan 模式授权不得提升,与 native 对称)。
+- **P3 取键补全**:`file_move/copy`(`from/to`)、`archive_unzip`(`src/destDir`)此前不在取键表 → 永不可消耗(fail-closed 安全但无用 + UI 误导);补全后可消耗且两侧路径受约束。
+- **P3 `.git` denylist 归一**:组件尾点/尾空格(`.git.`/`.git `)Win32 等价 `.git`,词法保留会绕过 → 匹配前逐组件去尾点/尾空格。
+
+**验收**:新 `dev-harness/autonomy-grant.e2e.js`(9116;[S] 静态源锁 + [P] 纯逻辑源抽取穷举 + [P7] 对抗修复回归 + [S9] Gap B 护栏锁 + [H] Live HTTP 签发主权/纯内存/审计);全量回归(权限/审计/会话/归档/双引擎/前端结构 dom-contract)全绿;既有 dom-contract 悬空引用 `wbSteerInput` 顺手补进动态 id 白名单。**延后**:27f 权限超时→存档暂停(改权限超时默认路径,security-sensitive,单独增量)。**诚实结论**:授权书让 exec 自主性有界/可撤/可审/模型永远签不出,但不能让一张 exec 授权书对已被注入的模型「安全」;edit→exec 本地载荷根治需 shell 沙箱化(下一波专项)。

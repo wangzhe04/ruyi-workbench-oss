@@ -39,6 +39,7 @@ const DYNAMIC_ID_ALLOW = new Set([
   'compactIndicator',  // app.js:updateCompactIndicator 里 el('div','compact-indicator') 后 bar.id='compactIndicator'
   'mm-theme-label',    // app.js:openMoreMenu 里 item(...,'mm-theme-label',...) 动态建;syncMoreMenuLabels 用 getElementById 且 if(t) 守护
   'mm-uimode-label',   // app.js:openMoreMenu 里 item(...,'mm-uimode-label',...) 动态建;同上 if(u) 守护
+  'wbSteerInput',      // app.js:renderSteerBar 里 el('input',...) 后 input.id='wbSteerInput' 动态建;keepSteer/focus 守护(既有遗漏,第27波回归补登)
 ]);
 const referencedIds = new Set();
 // $('id') / $("id")

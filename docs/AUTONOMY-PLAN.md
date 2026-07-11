@@ -84,9 +84,15 @@ Node Runtime(第25/28波)
 
 **26c**:调度核心 reducer 化 `state+event→nextState+commands` + `retry×loop×gate×pause×crash` 组合单测(26a 三铁律的组合空间目前靠 e2e 实弹覆盖,reducer 化后可穷举)。
 
-### 第27波 · 自主性授权书(Autonomy Grant)—— 设计已定稿,**动信任层,须用户过目后再实施**
+### 第27波 · 自主性授权书(Autonomy Grant)—— **核心已交付(27a–27e + 27g),对抗验证通过;27f 延后**
 
-> 本节为**设计规格**(多方案设计→3 评委→综合→2 镜头红队 得出,2026-07-11)。第27波动权限系统,按纪律需独立红队轮 + 用户明示批准后才实施。下述红队修正已并入,是实现的**硬约束**。
+> **实施状态(2026-07-12,用户明示「继续推进27波」后)**:授权书核心引擎已落地并经 7 镜头对抗验证轮(2 P1/P2 当轮修复 + 1 既有安全漏洞附带修复)。
+> - **已交付**:27a 数据模型 + `/api/autonomy/{grant,revoke,grants}`(header-token 白名单,无 body-token 兜底)· 27b `resolveToolPermissionContext`+`consumeGrant`(同步原子)+ provider 主 gate 插桩(仅 `gate==='ask' && !bridge`)· 27c CLI 桥收口(entrypoint 感知 + **天花板对称复检**)· 27d exec 约束(**field-exact 取命令** + cmdAllow 锚定 + 元字符拒 + 默认禁网 + exec 工具白名单仅 powershell_run/Bash)· 27e 撤销(单撤/全撤/scope:run 随 run 蒸发/stop 全撤/delete 全撤)· 27g 审计(issued/consume/revoked NDJSON + 中文映射 + 不进 digest)。前端授权书抽屉(签发/预览 dry-run/撤销,exec 高危样式 + 二次确认)。e2e `dev-harness/autonomy-grant.e2e.js`(9116;静态锁 + 纯逻辑源抽取 + Live HTTP)。
+> - **对抗轮修复(全部并入 e2e 锁)**:①**P1 field-shadow**——`script_run` 执行 `args.code` 但若按 OR-merge 校验 `command` = 绕 cmdAllow 的 RCE → 改 field-exact 取命令 + exec 白名单排除 script_run;②**P3 CLI 天花板对称**——CLI 桥消耗前补 `nativeToolGate(permissionMode,tier)==='ask'` 复检;③**P2 + 既有 Gap B**——`archive_zip`/`archive_unzip` 处理体**此前从不对源/目标调 guardFileToolPath**(独立于授权书就存在的凭据外泄:可打包 `.ssh`/`config.json` 明文密钥/`runtime.json` token)→ 工具层补源(读)+ 目标(写)护栏,授权书层补数组源 `paths[]` 取值;④**P3**——`file_move/copy`(`from/to`)、`archive_unzip`(`src/destDir`)取键补全(此前永不可消耗);⑤**P3**——`.git` denylist 组件尾点/尾空格归一。
+> - **延后(下一增量)**:**27f 权限超时→存档暂停 + 通知 + 短 TTL 终止**(改权限超时默认路径,security-sensitive,单独聚焦)。授权书核心不含此项仍独立可用:范围内 exec 免弹窗,范围外照旧超时拒(现行为)。
+> - **诚实结论仍成立**:授权书让 exec 自主性有界/可撤/可审/模型永远签不出,但不能让一张 exec 授权书对已被注入的模型「安全」——只能变小、变短、可观测。edit→exec 本地载荷根治仍需 shell 沙箱化(下一波专项)。
+
+> 本节为**原设计规格**(多方案设计→3 评委→综合→2 镜头红队 得出,2026-07-11)。下述红队修正已并入实现,是**硬约束**。
 
 **定位(一句话)**:授权书 = 现有权限系统的**严格子集缓存**,不是新权限来源。它只把用户**预先经 UI 明示**的「工具×路径×命令×次数×时长」笼子内的 `gate:'ask'` 就地降为 `'allow'` 并计数;范围外一切照旧弹窗。解决第25/26波痛点:until-done 长任务一遇 exec 弹窗(120s 超时自动拒)就死。
 
