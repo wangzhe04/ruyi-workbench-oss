@@ -205,6 +205,7 @@ button {
   border-radius: var(--radius-sm);
   padding: 7px 12px;
   min-height: var(--tap-min); /* v3 (§B4/§1.3): 点击区达标,随密度联动(mini/icon-btn 例外,见下) */
+  white-space: nowrap; /* 第23波: 按钮文案不换行(修工具栏「编辑所选模板」等在窄容器里被挤成两行) */
   cursor: pointer;
   transition: background var(--transition), border-color var(--transition), transform var(--transition), opacity var(--transition);
 }
@@ -710,12 +711,12 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .load-earlier-wrap { max-width: 880px; margin: 4px auto 18px; display: flex; justify-content: center; gap: 8px; }
 .load-earlier { background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); font-size: var(--fs-md); padding: 6px 16px; border-radius: 999px; }
 .load-earlier:hover { background: var(--panel-3); color: var(--ink); }
-.message { max-width: 880px; margin: 0 auto 18px; display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 12px; }
+.message { max-width: 880px; margin: 0 auto 14px; display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 12px; }
 .message .avatar { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: var(--fs-md); font-weight: 700; }
 .message.user .avatar { background: var(--user-line); color: var(--ink); }
 .message.assistant .avatar { background: var(--accent); color: var(--accent-ink); }
 .message.system .avatar { background: transparent; color: var(--muted); font-size: var(--fs-lg); } /* v3 (§C4): 系统头像无底色 ⚙ 弱化 */
-.msg-main { min-width: 0; }
+.msg-main { min-width: 0; position: relative; }
 .msg-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .msg-head .who { font-weight: 600; font-size: var(--fs-md); }
 .msg-head .when { color: var(--muted); font-size: var(--fs-xs); }
@@ -871,10 +872,12 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .steered-badge { display: inline-block; align-self: flex-start; margin-bottom: 4px; padding: 1px 7px; border-radius: 999px; font-size: var(--fs-xs); line-height: 1.6; color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); border: 1px solid color-mix(in srgb, var(--muted) 24%, transparent); }
 
 /* per-message actions + usage */
-.msg-actions { display: flex; gap: 4px; margin-top: 6px; opacity: 0; transition: opacity var(--transition); }
-.message:hover .msg-actions { opacity: 1; }
-.msg-actions button { padding: 3px 8px; font-size: var(--fs-xs); background: transparent; border-color: var(--line); color: var(--muted); }
-.msg-actions button:hover { color: var(--ink); background: var(--panel-2); }
+/* 第23波: 消息操作条改为【浮层】—— 之前 opacity:0 但常驻占 36px,每条消息下方留一段死白,读起来发散。现在绝对定位
+   悬浮在消息内容区右上角(表头右侧留白处),hover 才淡入,【不占流、不推挤上下消息】。整体消息间距顺势收紧。 */
+.msg-actions { position: absolute; top: -2px; right: 0; z-index: 3; display: flex; gap: 2px; padding: 2px; border-radius: 999px; background: color-mix(in srgb, var(--panel-2) 94%, transparent); border: 1px solid var(--line); box-shadow: var(--elev-2); opacity: 0; pointer-events: none; transition: opacity var(--transition); }
+.message:hover .msg-actions, .message:focus-within .msg-actions { opacity: 1; pointer-events: auto; }
+.msg-actions button { padding: 3px 8px; font-size: var(--fs-xs); background: transparent; border-color: transparent; color: var(--muted); min-height: 0; }
+.msg-actions button:hover { color: var(--ink); background: var(--panel-3); }
 .usage-line { margin-top: 6px; font-size: var(--fs-xs); color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
 .usage-line b { color: var(--ink-2); font-weight: 600; }
 .usage-line .usage-eng { color: var(--muted); }
@@ -971,11 +974,12 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .composer-more-pop .cm-item input { display: none; }
 
 /* ============================ tool pane ============================ */
-.tool-tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-.tool-tabs button { padding: 5px 9px; font-size: var(--fs-sm); background: transparent; border-color: transparent; color: var(--muted); }
-.tool-tabs button.active { background: var(--panel-2); border-color: var(--line); color: var(--ink); }
+.tool-tabs { display: flex; gap: 3px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.tool-tabs button { padding: 4px 7px; font-size: var(--fs-sm); background: transparent; border-color: transparent; color: var(--muted); }
+.tool-tabs button:hover { color: var(--ink); background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
+.tool-tabs button.active { background: color-mix(in srgb, var(--accent) 14%, var(--panel-2)); border-color: color-mix(in srgb, var(--accent) 38%, var(--line)); color: var(--accent); font-weight: 600; }
 /* v1.0-S2 (IA): 页签分组 — 常驻组 / 开发者组内联成组，组间以「开发者」小组标 .tool-tabs-sep 分隔。 */
-.tool-tabs .tool-tabs-group { display: inline-flex; gap: 4px; align-items: center; }
+.tool-tabs .tool-tabs-group { display: inline-flex; flex-wrap: wrap; gap: 3px; align-items: center; }
 .tool-tabs .tool-tabs-sep { display: inline-flex; align-items: center; padding: 0 4px 0 8px; margin-left: 2px;
   border-left: 1px solid var(--line); color: var(--muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .5px; }
 .tool-section { display: none; }
