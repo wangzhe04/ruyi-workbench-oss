@@ -72,8 +72,17 @@ Node Runtime(第25/28波)
 
 ### 第26波 · 调度与监督
 
-去批次屏障(连续就绪队列,调度核心 reducer 化 `state+event→nextState+commands`,保租约/watchdog)· MissionSpec×任务账本合并模型 · 主会话 until-done/监督式驱动 + 无进展检测(账本 K 轮无变化/同错 N 次 → 重规划或「卡住了」卡片)· 重规划硬限制 · 两引擎对称锁(meta-guard E 式)。
-**验收锁**:fake-openai 脚本化 12 回合长任务基准无人值守跑通;快节点下游不等慢批(调度等待 P95 断言);`retry×loop×gate×pause×crash` reducer 组合单测。
+**26a(已交付,§20)**:连续就绪队列去批次屏障 + 对抗轮三铁律(判环=零派发且在飞空 / 收尾=全终态且在飞空 / 防双派发+身份守卫)。验收 `scheduler-ready-queue.e2e.js`。
+
+**26b 实施规格(下一施工单元)**:
+- **数据模型**:`session.mission = { goal, milestones[]{id, desc, status:'pending'|'done'|'blocked', check?:{type:'command'|'file_exists'|'none', cmd?, path?, expect?}}, constraints[], budget:{maxAutoTurns(默认12), maxTokens?}, spent:{autoTurns, tokens}, autoMode:'off'|'until-done'|'supervised', stall:{lastDigest, sameCount}, replans, createdAt }`。存 session(随会话走,saveSession 已有写链);账本摘要 builder 输出 ≤1200 字围栏块(`<mission-ledger>`,中和纪律同 workbench-memory 的伪闭合围栏处理)。
+- **驱动器**:挂在 `/api/chat/stream` 回合收尾处(provider 引擎先行):回合 result 后,若 `mission.autoMode==='until-done'` → ①跑各里程碑 `check`(command 用现有 runProcess 基建、file_exists 用 fsp.access;机器可判定优先,'none' 型由模型在账本工具里自报并要求证据);②全 done → 停,发 `mission_complete` 事件;③未 done 且 `spent.autoTurns < maxAutoTurns` 且无停滞 → 以「继续推进任务账本,当前状态:<digest>」自动发起下一回合(内部调用与用户消息同路,消息标 `source:'mission-driver'`);④停滞判定:digest K=3 轮不变或同错 N=3 次 → `autoMode='supervised'` + 会话内「卡住了」卡片(复用 plan/permission 卡片事件通道)+ 可选一次重规划(spawn planner 子代理改 milestones,`replans<=2` 硬限)。
+- **账本工具**:`todo_write` 扩展或新 `mission_update` 工具(read tier):模型更新里程碑状态/新增(≤16 条硬限)/登记证据;两引擎对称——claude 侧走 `--append-system-prompt` 注入 digest + 现有 MCP 工具面,meta-guard 加 E 式对称锁。
+- **注入点**:provider `buildProviderSystemPrompt` 合成串(优先级:用户 append < 技能 < 记忆 < 账本,8000 预算沿用三段式);压缩(两级 autoCompact)后 digest 必存活——账本在 session 对象非 messages,天然免疫。
+- **验收锁**(`mission-driver.e2e.js`,端口取 9113+):①fake 脚本 12 回合长任务(每回合推进一个里程碑)无人值守跑完,`mission_complete`;②机器 check:file_exists 未满足则驱动继续、满足即停;③停滞:fake 连续 3 轮同错 → 自动降级 supervised + 卡片事件;④预算:maxAutoTurns 耗尽 → 存档暂停非报错;⑤压缩后 digest 仍注入(复用 autocompact e2e 的 fake 序列);⑥meta-guard E 式两引擎对称锁。
+- **红线**:驱动器不放宽任何权限(遇 exec 弹窗照旧等人/超时存档暂停——第27波授权书才解这个);`source:'mission-driver'` 的自动回合全额记入用量台账。
+
+**26c**:调度核心 reducer 化 `state+event→nextState+commands` + `retry×loop×gate×pause×crash` 组合单测(26a 三铁律的组合空间目前靠 e2e 实弹覆盖,reducer 化后可穷举)。
 
 ### 第27波 · 自主性契约(独立红队轮)
 
