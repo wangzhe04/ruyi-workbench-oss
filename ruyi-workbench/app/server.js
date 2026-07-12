@@ -383,6 +383,10 @@ function defaultConfig() {
     // classifyRunResumeTier)。
     monitorIncremental: true,
     autonomyAutoResume: false,
+    // 第30波(编排按难度选模型):后端按 toolTier 自动为【未指定 model 的节点】兜底挑档位(read→快/edit→均衡/
+    // exec→强)。默认关=零行为变化(未指定即继承)。AI 编排者【显式】设的 model 始终优先且不受此开关影响 ——
+    // 本开关只管"AI 没设时后端要不要替它按 tier 挑一个"。
+    agentAutoModelTiering: false,
     turnIdleTimeoutMs: 600000,    // watchdog: kill a turn idle (no events) longer than this
     // --- v0.4.4: model list discovery ---
     knownModels: [],              // models actually selected/used — remembered so they stay in the list
@@ -581,6 +585,7 @@ function normalizeConfig(raw) {
   // 归一,安全默认——boot 自动续跑消耗 token 且无人在场,必须显式开启)。
   config.monitorIncremental = config.monitorIncremental !== false;
   config.autonomyAutoResume = config.autonomyAutoResume === true;
+  config.agentAutoModelTiering = config.agentAutoModelTiering === true; // 第30波:后端按 tier 兜底挑模型(opt-in,默认关)
   // Model lists must be arrays of strings; knownModels is capped so it can't grow unbounded.
   for (const k of ['knownModels', 'extraModels']) {
     if (!Array.isArray(config[k]) || config[k].some(a => typeof a !== 'string')) {
@@ -4044,8 +4049,12 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     try {
       if (Number(config.subagentMaxPerTurn) > 0) {
         const wfs = await getAgentWorkflows(workingDir).catch(() => []);
-        const hint = buildOrchestrateHint(wfs);
-        if (hint && (appendSys.length + hint.length) <= 8000) appendSys += hint;
+        // 对抗轮 P3:两段【各自】fits-or-drop —— 旧写法把编排提示与模型提示拼一段做单次全或无判定,模型清单变长
+        // 会把总和顶过 8000 致【整段】(含 workflowId 模板发现能力,回归第23波前缺口)被一并丢弃。拆开独立判。
+        const oh = buildOrchestrateHint(wfs);
+        if (oh && (appendSys.length + oh.length) <= 8000) appendSys += oh;
+        const mh = buildModelHint(config, activeOpenAiProvider(config)); // openai 组模型取当前激活 provider
+        if (mh && (appendSys.length + mh.length) <= 8000) appendSys += mh;
       }
     } catch { /* 编排提示注入绝不阻断回合 */ }
     if (appendSys) args.push('--append-system-prompt', appendSys);
@@ -5954,6 +5963,7 @@ function buildOpenAiTools(config, caps, opts) {
         dependsOn: { type: 'array', items: { type: 'string' }, description: '可选。新节点依赖的现有节点 id 列表;缺省依赖你自己(提案者)。' },
         resources: { type: 'array', items: { type: 'string' }, description: '可选。新节点声明的资源(用于并发排他/只读,格式同工作流节点)。' },
         toolTier: { type: 'string', enum: ['read', 'edit', 'exec'], description: '可选。新节点的工具级别,不得高于你自己的级别。' },
+        model: { type: 'string', description: '可选。为新节点按任务难易指定模型 id(从系统提示里列出的、与新节点引擎匹配的可选模型中选;简单/大批量→快、复杂推理→强、其余→均衡;填错会让节点失败)。省略则继承你(提案者)的模型。' },
         reason: { type: 'string', description: '可选。给编排者看的一句话理由。' },
       }, required: ['task'] },
     } });
@@ -8669,10 +8679,14 @@ function materializePoolItem(run, item, opts = {}) {
     if ((tierRank[toolTier] || 0) > (tierRank[propTier] || 0)) toolTier = propTier; // 不得超过提案者
     const resourceSpecs = normalizeAgentResources(item.resources, opts.cwd || '');
     const maxIters = Math.min(100, Math.max(1, Number(item.maxIters || (proposer && proposer.maxIters)) || 100));
+    // 第30波:池提案节点 model 解析 —— 提案 item.model(校验后)> 角色按引擎默认 > 提案者节点 model(继承);
+    // 无 provider 句柄(物化在调度器内,opts 不带 provider)则校验退回 offlineModelList(含 config.model/knownModels)。
+    const poolRoleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
+    const poolModel = resolveNodeModel(item.model, poolRoleModel || (proposer && proposer.model), toolTier, engine, opts.config, opts.provider);
     const node = {
       id: item.id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null,
       dependsOn, resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label),
-      isolationMode: 'none', toolTier, engine, model: String((proposer && proposer.model) || '').trim(),
+      isolationMode: 'none', toolTier, engine, model: poolModel,
       maxIters, outputSchema: null, gate: null, failurePolicy: 'continue', degradedPolicy: 'accept', maxRetries: 0, retryFallback: 'block',
       condition: null, loop: null, position: null, status: 'queued', attempts: 0, loopIteration: 0,
       noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [],
@@ -8870,7 +8884,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
       const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: String(raw.model || roleModel || '').trim(), maxIters: Math.min(100, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, config, provider), maxIters: Math.min(100, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -8969,6 +8983,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         dependsOn: [...new Set((Array.isArray(args && args.dependsOn) ? args.dependsOn : []).map(x => String(x || '').trim().slice(0, 256)).filter(Boolean))].slice(0, 16),
         resources: (Array.isArray(args && args.resources) ? args.resources : []).map(x => String(x || '').trim().slice(0, 256)).filter(Boolean).slice(0, 32),
         toolTier: ['read', 'edit', 'exec'].includes(args && args.toolTier) ? args.toolTier : '',
+        model: String(args && args.model || '').trim().slice(0, 160), // 第30波:提案节点模型(物化时经 resolveNodeModel 校验)
         reason: String(args && args.reason || '').trim().slice(0, 1000),
         status: 'proposed', decidedBy: '', decidedAt: '', resultNodeId: '', createdAt: nowIso(),
       };
@@ -8979,7 +8994,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         const cap = Number.isFinite(Number(run.poolAutoCap)) ? Number(run.poolAutoCap) : 3;
         const autoUsed = run.taskPool.filter(p => p !== item && p.decidedBy === 'auto' && p.status === 'materialized').length;
         if (autoUsed < cap) {
-          const mat = materializePoolItem(run, item, { roleLibrary, cwd: wfCwd, config });
+          const mat = materializePoolItem(run, item, { roleLibrary, cwd: wfCwd, config, provider }); // 第30波:传 provider 供 model 白名单/tier 校验
           if (mat.ok) { item.status = 'materialized'; item.decidedBy = 'auto'; item.decidedAt = nowIso(); item.resultNodeId = mat.node.id; try { runtime.poolGraceArmed = true; } catch {} appendAgentRunEvent(run, { type: 'run_pool', data: { action: 'materialized', poolId: item.id, by: 'auto' } }); }
           else { item.materializeError = String(mat.error || '').slice(0, 2000); }
         }
@@ -9585,6 +9600,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const workflows = await getAgentWorkflows(workingDir).catch(() => []);
     sys += buildOrchestrateHint(workflows);
   }
+  // 第30波:编排/spawn 可用时注入"可选模型 + 能力档位 + 按难度选型指引",让 AI 自主为不同节点选模型(spawn_agent
+  // 也有 model 字段,故门控同 9578 的两工具集,不只 orchestrate)。数据取 offlineModelList,零网络。
+  if (ownTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
+    sys += buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
+  }
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
   // instruction (not baked into buildProviderSystemPrompt — kept here so it never leaks into summary/identity
   // calls or the Claude engine). The model must first emit a PLAN: message and stop; approval unlocks tools
@@ -9890,7 +9910,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const promise = runSubAgent({
             parentSession: session, provider, config,
             task: effectiveTask, displayTask: originalTask, agentKey, dependsOn,
-            toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier), maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai), model: sargs.model || (roleDefinition && roleDefinition.models && roleDefinition.models.openai),
+            toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier), maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai), model: resolveNodeModel(sargs.model, roleDefinition && roleDefinition.models && roleDefinition.models.openai, sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read', 'openai', config, provider),
             onEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
             resources: sargs.resources, resourceGroup: `turn:${session.id}:${session.turnSeq}:${agentKey}`,
             roleDefinition,
@@ -14987,6 +15007,81 @@ function offlineModelList(config) {
   return [...seen.values()];
 }
 
+// ============================================================================
+// 第30波(编排按难度选模型):让 AI 编排者(orchestrate_agents/spawn_agent/propose_task)按任务难易【自主】为
+// 不同节点选模型。机制其实已在(node.model 优先级链贯通两引擎),补齐:①能力档位提示 buildModelHint(让 AI 知道
+// 每个模型强弱,按引擎分组防选错)②'inherit' 归一为空(修 OpenAI 把字面量当模型发失败)③toolTier 兜底(opt-in)。
+// 对抗轮教训(改这块务必记牢):
+//  - 【不】在通用写入点对 node.model 做白名单丢弃 —— 人工在编辑器/模板里填的 live 发现但未进 knownModels 的真实
+//    模型会被误杀(回归);显式 model 一律尊重原样,幻觉靠【引擎分组的 hint 强引导】规避,填错则节点可见失败(errorClass)。
+//  - buildModelHint / tier 兜底必须【引擎感知】:offlineModelList 混着 Claude 预设别名(opus/sonnet/haiku)与 provider
+//    模型,给 openai 节点选 Claude 别名必失败。故 hint 按引擎分组、tier 池排除预设别名。
+//  - 'inherit' 两引擎都用【空】表达"用默认":Claude runner 7109 剥 inherit,OpenAI runner 7639 不剥会把字面量当模型。
+// 从模型 id/label 启发式推断能力档位。用户 extraModels 的 "id|Label" 标签(可含 强/均衡/快)一并参与。纯串匹配,无网络。
+function modelCapabilityTier(id, label) {
+  const s = (String(id || '') + ' ' + String(label || '')).toLowerCase();
+  // 对抗轮 P3:'plus' 移出 strong(qwen-plus/glm-4-plus 是中档,误判会把难节点分给弱模型);pro/max/opus 等保留。
+  if (/(opus|ultra|large|huge)|[-_ ]max\b|[-_ ]max$|\bmax[-_ ]|[-_ ]pro\b|405b|235b|72b|70b|32b|旗舰|高级|reasoner|thinking/.test(s)) return 'strong';
+  if (/flash|mini|lite|small|turbo|nano|air|tiny|fast|haiku|8b|7b|4b|3b|1\.5b|轻量|极速/.test(s)) return 'fast';
+  if (/[·\s【\[]强[·\s】\]]|^强|强$/.test(s)) return 'strong'; // 标签里的裸"强"(避免误吞 model id 里的偶发字)
+  if (/[·\s【\[]快[·\s】\]]|^快|快$/.test(s)) return 'fast';
+  return 'balanced';
+}
+const MODEL_TIER_LABEL = { strong: '强', balanced: '均衡', fast: '快' };
+const MODEL_TIER_USE = { strong: '复杂推理/综合/裁判/难题', balanced: '一般实现与分析', fast: '简单/大批量/检索类节点' };
+const MODEL_PRESET_IDS = new Set(MODEL_PRESETS.map(m => m.id).filter(Boolean)); // Claude 预设别名集(引擎归属判定用)
+// 供编排者(AI)选型的可选模型清单 + 能力档位 + 按难度选型指引。【引擎分组】:OpenAI 节点用 provider 模型 + 用户
+// 自定义(非预设);Claude 节点用预设别名。防 AI 给 openai 节点选 Claude 别名(必失败)。label 扁平化防注入。
+function buildModelHint(config, provider) {
+  const all = offlineModelList(config).filter(m => m.id);
+  if (!all.length) return '';
+  const provIds = new Set();
+  if (provider) {
+    if (Array.isArray(provider.models)) for (const x of provider.models) { const id = String((x && x.id) || x); if (id) provIds.add(id); }
+    if (provider.model) provIds.add(String(provider.model));
+  }
+  const openaiModels = all.filter(m => provIds.has(m.id) || !MODEL_PRESET_IDS.has(m.id)); // provider 模型 + 非预设自定义
+  const claudeModels = all.filter(m => MODEL_PRESET_IDS.has(m.id));                        // 预设别名(Claude)
+  const fmt = m => { const t = modelCapabilityTier(m.id, m.label); const lb = m.label && m.label !== m.id ? '（' + String(m.label).replace(/\s+/g, ' ').trim() + '）' : ''; return `- ${m.id}【${MODEL_TIER_LABEL[t]}·${MODEL_TIER_USE[t]}】${lb}`; };
+  const parts = [];
+  if (openaiModels.length) parts.push('OpenAI 引擎节点(engine:openai)可选:\n' + openaiModels.map(fmt).join('\n'));
+  if (claudeModels.length) parts.push('Claude 引擎节点(engine:claude)可选:\n' + claudeModels.map(fmt).join('\n'));
+  if (!parts.length) return '';
+  return '\n\n可选模型（node.model 按任务难易自主选;须与节点 engine 匹配;省略 model=用默认模型）:\n'
+    + parts.join('\n')
+    + '\n按难度选型:简单/大批量节点用【快】省成本提速;核心推理/综合/质量门/难题用【强】保质量;其余用【均衡】。填与引擎不符或不存在的模型会让该节点失败,不确定就省略 model。';
+}
+// 按 toolTier 挑一个档位合适的模型(后端兜底,opt-in agentAutoModelTiering):read→快、exec→强、edit→均衡;
+// 目标档缺则顺位降级,全无则空(继承)。【引擎感知】:claude→空(继承 CLI 默认,不替它挑贵模型);openai 从 provider
+// 模型 ∪ 用户自定义模型(knownModels/config.model/extraModels)里挑,【排除 Claude 预设别名】(对 openai 无意义)。
+// 对抗轮 P3:池扩到 knownModels/config.model,修 provider.models=[] (常见自建配置)时 tier 兜底静默失效。
+function tierModelForNode(toolTier, engine, config, provider) {
+  if (engine === 'claude') return '';
+  const ids = [];
+  if (provider && Array.isArray(provider.models)) for (const x of provider.models) { const id = String((x && x.id) || x); if (id) ids.push(id); }
+  for (const raw of (config.extraModels || [])) { const id = String(raw).split('|')[0].trim(); if (id) ids.push(id); }
+  for (const id of (config.knownModels || [])) if (id) ids.push(String(id));
+  if (config.model) ids.push(String(config.model));
+  const pool = [...new Set(ids)].filter(id => !MODEL_PRESET_IDS.has(id)); // 排除 Claude 预设别名
+  if (!pool.length) return '';
+  const want = toolTier === 'exec' ? 'strong' : (toolTier === 'edit' ? 'balanced' : 'fast');
+  const order = want === 'strong' ? ['strong', 'balanced', 'fast'] : want === 'fast' ? ['fast', 'balanced', 'strong'] : ['balanced', 'fast', 'strong'];
+  for (const t of order) { const hit = pool.find(id => modelCapabilityTier(id, '') === t); if (hit) return hit; }
+  return '';
+}
+// 节点最终 model 解析:显式(原样尊重,'inherit'→空)> 角色按引擎默认 > 按 tier 兜底(opt-in,引擎感知)> 继承(空)。
+// 对抗轮:【不】做白名单丢弃 —— 显式 model 无论人工/AI 一律尊重(避免误杀 live 发现/未记住的真实模型,消除回归);
+// 'inherit' 归一为空(两引擎都用空表达"用默认";OpenAI runner 不剥 inherit 字面量会当真模型发失败)。
+function resolveNodeModel(rawModel, roleModel, toolTier, engine, config, provider) {
+  let m = String(rawModel || '').trim().slice(0, 160);
+  if (m === 'inherit') m = '';                      // 归一:两引擎"用默认"都用空
+  if (m) return m;                                  // 显式非空 → 原样尊重(不白名单丢弃)
+  const rm = String(roleModel || '').trim();
+  if (rm && rm !== 'inherit') return rm;            // 角色默认(用户配置)
+  if (config && config.agentAutoModelTiering) { const t = tierModelForNode(toolTier, engine, config, provider); if (t) return t; }
+  return '';                                        // 继承 / provider 兜底链
+}
+
 // Best-effort live model list from the intranet proxy's /v1/models. NEVER throws (returns [] on any
 // problem: no base URL, offline, timeout, non-2xx, bad JSON). Auth/URL come from config or env.
 async function fetchProxyModels(config, timeoutMs = 2500) {
@@ -15499,7 +15594,7 @@ const MCP_TOOLS = [
         dependsOn: { type: 'array', items: { type: 'string' }, description: 'agentKey values from completed earlier stages whose conclusions should be injected into this task' },
         toolTier: { type: 'string', enum: ['read', 'edit', 'exec'], description: "tool access level for the sub-agent (default 'read')" },
         maxIters: { type: 'number', description: 'sub-loop iteration budget (default 100, clamped 1..100)' },
-        model: { type: 'string', description: 'optional model id override for the sub-turn' },
+        model: { type: 'string', description: 'optional model id for the sub-turn (engine is openai), chosen by task difficulty (fast model for simple/bulk work, strong model for hard reasoning). Pick from the OpenAI models listed in the system prompt; a wrong/unknown id makes the sub-agent fail. Omit to use the default.' },
         resources: { type: 'array', items: { type: 'string' }, description: 'resources held for the whole subtask. Examples: desktop, browser:default, file:C:\\project\\a.js, workspace:C:\\project. Prefix with read: for shared access.' },
       },
       required: ['task'],
@@ -15523,7 +15618,7 @@ const MCP_TOOLS = [
               dependsOn: { type: 'array', items: { type: 'string' }, description: 'node ids that must finish before this node starts' },
               toolTier: { type: 'string', enum: ['read', 'edit', 'exec'] },
               maxIters: { type: 'number' },
-              model: { type: 'string' },
+              model: { type: 'string', description: 'optional model id for THIS node, chosen by task difficulty (fast model for simple/bulk nodes, strong model for hard reasoning/synthesis/quality-gates). Pick from the models listed in the system prompt AND matching this node engine; a wrong/unknown id makes the node fail. Omit to use the role/default model.' },
               resources: { type: 'array', items: { type: 'string' }, description: 'exclusive resources required by this node; use read: prefix for shared access' },
               isolation: { type: 'string', enum: ['none', 'worktree'], description: 'worktree runs this node in a detached Git worktree and keeps its commit for explicit user application; never auto-merges' },
               outputSchema: { type: 'object', description: 'optional JSON Schema for this node final output; invalid JSON/schema fails the node' },

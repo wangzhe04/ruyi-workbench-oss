@@ -487,3 +487,30 @@
 **对抗轮硬教训(改任何"按声明分级/放行"的判定务必记牢)**:危险度/放行判定必须按【真正决定执行能力的字段】,不是声明字段——Claude 引擎的 `role.claudeTools` 完全覆盖 `toolTier`,与第27波 `script_run` 执行 `args.code` 非 `command`(field-shadow)是同一类根因。上任何"按 X 判危险度/放行"前,必须核对 X 是不是执行体真正读的字段;否则能力可藏进被判安全的字段组合里。
 
 **验收**:新 `dev-harness/monitor-incremental.e2e.js`(9120;传输 ≥80% 验收锁 + digest/events/afterSeq 补播/坏行免疫/鉴权跨会话/run.metrics 干预 + 全部对抗修复静态锁)· `dev-harness/autonomy-resume.e2e.js`(9121;三次 boot 端到端 + P1 Claude-Bash-伪装-edit 停暂停态 + 分级纯函数穷举含 #17/#18/#19)。自主推进家族(耐久/调度/mission/门/池/用量)+ 前端契约全量回归全绿。**至此自主推进主线(25/26/27/27f/28/29)全交付。**
+
+
+## 28. 第 30 波:AI 自主编排按难度选模型 + 4 镜头对抗(2026-07-12)
+
+**需求(用户)**:AI 自主编排(orchestrate_agents / spawn_agent / propose_task)时,能按任务难易【自主】为不同节点/角色规划所用模型 —— 简单节点用快模型省成本、难节点用强模型保质量。
+
+**测绘发现**:`model` 字段其实已在(orchestrate/spawn schema 都有),`node.model` 优先级链(显式 > 角色 > provider 默认)也贯通两引擎。真正缺口:①编排者在 system prompt 里【看不到】可选模型清单(`buildOrchestrateHint` 只注入工作流模板)②`propose_task` 无 model 通道 ③无难度→模型逻辑。
+
+**交付**:
+- **能力档位提示 `buildModelHint(config, provider)`**:注入编排者 system prompt,列出可选模型 + 启发式能力档位(`modelCapabilityTier`:flash/mini/haiku→快、opus/max/pro/reasoner→强、余均衡;用户 extraModels 的 "id|Label" 标签参与)+ 按难度选型指引。**按引擎分组**(OpenAI 节点用 provider 模型 + 用户自定义;Claude 节点用预设别名),防 AI 给 openai 节点选 Claude 别名(opus/sonnet/haiku)必失败。两引擎注入(provider 侧 + Claude 侧,各自 8000 字符 fits-or-drop)。
+- **`resolveNodeModel(rawModel, roleModel, toolTier, engine, config, provider)`** 统一三写入点(主 DAG runAgentWorkflow / 池物化 materializePoolItem / spawn 解析):显式 model 原样尊重 > 角色按引擎默认 > tier 兜底(opt-in)> 继承(空)。`'inherit'` 归一为空(两引擎"用默认"都用空)。
+- **`propose_task` 加 model 字段**(schema + item 存储 + 物化经 resolveNodeModel)。
+- **toolTier 兜底 `tierModelForNode`(opt-in `config.agentAutoModelTiering`,默认关=零行为变化)**:AI 没指定 model 的节点,后端按 toolTier 挑档位(read→快 / edit→均衡 / exec→强)。引擎感知(claude→继承 CLI 默认不猜;openai 从 provider 模型 ∪ 用户 knownModels/config.model 里挑,排除 Claude 预设别名)。
+- schema `model` 字段描述加"按难度选、与节点引擎匹配、填错会失败"引导。
+
+**4 镜头对抗验证(15 发现 → 13 复核:7 CONFIRMED + 6 DOWNGRADED + 2 REFUTED → 逐条修)**:
+- **P2 `inherit` 破坏 OpenAI 节点(确认 ×2)**:hint/schema 教 AI "填 inherit=用默认",但 OpenAI runner(7639)把字面量 `'inherit'` 当模型名发给 provider → 400 → 节点失败(Claude runner 7109 会剥,OpenAI 不剥)。修:`resolveNodeModel` 把 `'inherit'` 归一为空(两引擎"用默认"都用空表达)。
+- **P2 白名单误杀人工填的真实模型(回归)**:初版在通用写入点对【所有】node.model 套白名单(`isKnownModelId`)丢弃,把用户在编辑器/模板里填的 live 发现但未进 knownModels 的真实模型静默丢回默认。修:**去掉白名单丢弃** —— 显式 model 无论人工/AI 一律原样尊重(幻觉靠引擎分组的 hint 强引导规避,填错则节点可见失败带 errorClass)。此一改同时根治:引擎盲校验的假安全、池审批双通道(UI 无 provider 句柄)分歧、两写入点(normalizeAgentWorkflow 不校验 vs launch 校验)不一致 —— 全部源于那个白名单丢弃。
+- **P2/P3 引擎盲 hint/校验**:DeepSeek(openai)配置下 hint 列 Claude 别名误导选型。修:buildModelHint 按引擎分组。
+- **P3 Claude 8000 钳全有或全无**:模型清单变长把编排提示一起挤掉(回归第23波前 workflowId 发现缺口)。修:编排提示与模型提示各自 fits-or-drop。
+- **P3 tierModelForNode 对 provider.models=[] 静默失效**(常见自建配置)。修:池扩到 knownModels/config.model,排除预设别名。
+- **P3 modelCapabilityTier 把 plus 误判强**(qwen-plus/glm-4-plus 是中档)。修:plus 移出 strong 正则。
+- 2 REFUTED:extraModels label 注入(config 用户自有,非不可信源)· roleModel 短路 tier(设计如此)。
+
+**对抗轮教训**:给"按 X 分类/放行/选择"的判定加校验时,先分清 X 的【来源信任级】—— 对可信来源(用户配置的 node.model)套针对不可信来源(AI 幻觉)的白名单丢弃,会误杀真实数据造成回归。校验该在【不可信入参边界】做,而非套在人工/AI 共用的通用写入点上。
+
+**验收**:新 `dev-harness/orchestrate-model-select.e2e.js`(9122;静态锁 + 纯逻辑穷举[含对抗修订:显式尊重/inherit归空/引擎分组/tier池拓宽/plus不判强] + Live node.model 落盘)。team-pool/subagent/role/templates/meta-guard/usage 回归全绿。真 DeepSeek live 实测:分模型 DAG(easy→deepseek-v4-flash 快 + hard→deepseek-v4-pro 强)两节点各自落对、各自成功;错模型(跨 provider)可见失败 + errorClass 分类。
