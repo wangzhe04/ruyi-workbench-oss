@@ -34,7 +34,12 @@ const app = fs.readFileSync(APPJS, 'utf8');
 console.log('\n── [S] 静态锁 ──');
 ok(/monitorIncremental: true,/.test(src) && /config\.monitorIncremental = config\.monitorIncremental !== false;/.test(src), 'S config monitorIncremental 默认 true(!==false 归一)');
 ok(/const AGENT_RUN_EVENTS_PAGE_MAX = 500;/.test(src) && /async function readAgentRunEvents\(sessionId, runId, afterSeq, limit\)/.test(src), 'S readAgentRunEvents + 分页上限 500');
-ok(/const evt = safeJsonParse\(t, null\);\s*\n\s*if \(!evt \|\| !Number\.isFinite\(Number\(evt\.seq\)\)/.test(src), 'S 事件读取逐行 safeJsonParse 跳坏行(尾行半写免疫)');
+ok(/const evt = safeJsonParse\(t, null\);\s*\n\s*if \(!evt \|\| !Number\.isFinite\(Number\(evt\.seq\)\)\) continue;/.test(src), 'S 事件解析逐行 safeJsonParse 跳坏行(尾行半写免疫)');
+// 长任务优化(对抗轮 #1):大文件只读尾窗,回溯不足才回落全读。
+ok(/const AGENT_RUN_EVENTS_TAIL_BYTES = 512 \* 1024;/.test(src), 'S 尾窗/整读阈值 512KB');
+ok(/if \(size <= AGENT_RUN_EVENTS_TAIL_BYTES\) return fullRead\(\);/.test(src), 'S 小文件整读(便宜恒完整)');
+ok(/if \(minSeq <= floor \+ 1\) return finish\(matched\);/.test(src) && /return fullRead\(\);/.test(src), 'S 尾窗回溯到 afterSeq+1 即完整,否则回落全读(冷客户端保正确性)');
+ok(/parseEventWindow\(buf\.toString\('utf8', 0, bytesRead\), floor, true\)/.test(src), 'S 尾窗按字节切 + 丢半行(droppedHead)');
 // 路由顺序:events 端点必须排在通配 GET /api/agent-runs/ 之前(线性 if 链顺序即优先级)。
 const evRouteIdx = src.indexOf("pathname.endsWith('/events')");
 const genericGetIdx = src.indexOf("const runId = safeSessionId(pathname.slice('/api/agent-runs/'.length));");
@@ -147,6 +152,25 @@ wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});
     fs.appendFileSync(evFile, 'GARBAGE-NOT-JSON\n{"seq":');
     const evDirty = (await req('GET', `/api/agent-runs/${l1.runId}/events?sessionId=${encodeURIComponent(sid)}&afterSeq=0`, null, H)).json;
     ok(evDirty.ok && evDirty.events.length === evs.length, 'H4 坏行/半写尾行被跳过(数量不变,不 500)');
+
+    // (4b) 【长任务优化 对抗轮 #1】大事件文件(>512KB 尾窗阈值)正确性:合成一个 ~3000 条事件、含多字节中文、
+    //      seq 严格单调的巨型 events 文件,验证 ①尾窗路径(afterSeq 接近尾部)完整无漏 + ②afterSeq=0 回落全读
+    //      返回首页 500 + hasMore + ③中间 afterSeq 幂等,均与小文件语义一致。
+    const bigRid = 'run_' + 'beef'.padEnd(16, '0');
+    fs.writeFileSync(path.join(runsDir, bigRid + '.json'), JSON.stringify({ schemaVersion: 4, id: bigRid, sessionId: sid, status: 'succeeded', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), completedAt: new Date().toISOString(), concurrency: 2, taskPool: [], messages: [], poolPolicy: 'manual', poolAutoCap: 3, eventSeq: 3000, nodes: [] }));
+    const bigEvFile = path.join(runsDir, bigRid + '.events.ndjson');
+    { const N = 3000; let blob = ''; for (let i = 1; i <= N; i++) blob += JSON.stringify({ seq: i, ts: new Date().toISOString(), runId: bigRid, type: 'node_progress', nodeId: 'n' + (i % 7), data: { text: '进度里程碑中文占位——工具调用第 ' + i + ' 步,填充字节以撑大文件 padding-padding-padding' } }) + '\n'; fs.writeFileSync(bigEvFile, blob); }
+    const bigSize = fs.statSync(bigEvFile).size;
+    ok(bigSize > 512 * 1024, 'H4b 合成事件文件 > 512KB 尾窗阈值(实 ' + Math.round(bigSize / 1024) + 'KB,走尾窗路径)');
+    // ① 尾窗路径:afterSeq 接近尾部 → 完整拿到尾段,seq 连续无漏。
+    const tail = (await req('GET', `/api/agent-runs/${bigRid}/events?sessionId=${encodeURIComponent(sid)}&afterSeq=2995`, null, H)).json;
+    ok(tail.ok && tail.events.length === 5 && tail.events[0].seq === 2996 && tail.events[4].seq === 3000, 'H4b 尾窗:afterSeq=2995 → 恰 5 条 [2996..3000] 无漏');
+    // ② afterSeq=0 遇大文件 → 回落全读,返回首页 500 + hasMore(不因尾窗丢失早期事件)。
+    const head = (await req('GET', `/api/agent-runs/${bigRid}/events?sessionId=${encodeURIComponent(sid)}&afterSeq=0`, null, H)).json;
+    ok(head.ok && head.events.length === 500 && head.events[0].seq === 1 && head.hasMore === true, 'H4b afterSeq=0 回落全读 → 首页 [1..500] + hasMore(尾窗回溯不足时不丢早期事件)');
+    // ③ 中间 afterSeq(仍在尾窗回溯范围内):幂等 + 连续。
+    const midBig = (await req('GET', `/api/agent-runs/${bigRid}/events?sessionId=${encodeURIComponent(sid)}&afterSeq=2900`, null, H)).json;
+    ok(midBig.events.length === 100 && midBig.events[0].seq === 2901 && midBig.events.every((e, i) => i === 0 || e.seq === midBig.events[i - 1].seq + 1), 'H4b afterSeq=2900 → 100 条连续无重无漏(尾窗完整)');
 
     // (5) 鉴权与跨会话:无 token 403;别人的 sessionId 拿不到事件与快照。
     ok((await req('GET', `/api/agent-runs/${l1.runId}/events?sessionId=${encodeURIComponent(sid)}&afterSeq=0`)).status === 403, 'H5 events 无 token → 403');

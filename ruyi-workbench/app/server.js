@@ -7310,24 +7310,57 @@ function appendAgentRunEvent(run, evt) {
 }
 // 第29波(§29a 增量监控):事件日志读取 —— GET /api/agent-runs/:id/events?afterSeq= 的数据面。事件文件
 // append-only 且允许尾行半写(appendFile 非 atomic),读取方逐行 safeJsonParse 跳坏行(readWorkbenchAudit
-// 同款纪律);先全量收集 seq>afterSeq 的行再排序分页 —— 与 syncRunEventSeq 的"取 max 非尾行"同一乱序容错
+// 同款纪律);先收集 seq>afterSeq 的行再排序分页 —— 与 syncRunEventSeq 的"取 max 非尾行"同一乱序容错
 // 立场,cap 截断永远砍最大的 seq 而不是文件尾(半写恢复后行序理论上可乱)。文件缺失 = 无事件(老 run /
 // 事件写失败),返回空数组而非报错 —— 事件是增量信号,快照才是权威状态源,读不到就等下一轮全量兜底。
+//
+// 【长任务实测/对抗轮 #1 优化】事件文件 append-only 无上限;一个跑数小时、数千次工具调用的自主任务其
+// events.ndjson 可达数十 MB,而增量客户端对 live run 每 ~2s 轮询一次本函数。若每次都整文件 readFile+全量
+// parse,服务端每 poll 成本 = O(全部历史事件),随任务时长无界增长,长单任务下反而劣于被替换的全量端点
+// (wire 已省 ≥80%,但盘/CPU 不可见)。因 seq 单调、需要的永远是尾部(seq>afterSeq),故:小文件整读(便宜、
+// 恒完整);大文件只读【尾窗】(afterSeq 单调,稳定轮询的客户端只差几条,尾窗几乎总含所需);仅当尾窗回溯
+// 不到 afterSeq+1(冷客户端 / afterSeq=0 遇大文件)才回落全读。尾窗按字节切,首行(半行)丢弃 —— 换行是
+// 单字节 0x0A 永不落在 UTF-8 多字节序列中,故第一个 \n 后即合法 UTF-8,无编码撕裂。
 const AGENT_RUN_EVENTS_PAGE_MAX = 500;
+const AGENT_RUN_EVENTS_TAIL_BYTES = 512 * 1024; // 尾窗/整读阈值:≤此值整读(便宜);> 则只读尾窗(~1300-2600 条,远超稳定轮询所需)
+function parseEventWindow(raw, floor, droppedHead) {
+  // droppedHead:尾窗从文件中部起,首行是半行,丢弃。返回 {matched(seq>floor), minSeq(窗内最小完整 seq)}。
+  const lines = raw.split('\n');
+  const start = droppedHead ? 1 : 0;
+  const matched = []; let minSeq = Infinity;
+  for (let i = start; i < lines.length; i++) {
+    const t = lines[i].trim(); if (!t) continue;
+    const evt = safeJsonParse(t, null);
+    if (!evt || !Number.isFinite(Number(evt.seq))) continue;
+    const s = Number(evt.seq);
+    if (s < minSeq) minSeq = s;
+    if (s > floor) matched.push(evt);
+  }
+  return { matched, minSeq };
+}
 async function readAgentRunEvents(sessionId, runId, afterSeq, limit) {
   const cap = Math.max(1, Math.min(AGENT_RUN_EVENTS_PAGE_MAX, Number(limit) || AGENT_RUN_EVENTS_PAGE_MAX));
   const floor = Math.max(0, Number(afterSeq) || 0);
-  let raw = '';
-  try { raw = await fsp.readFile(agentRunEventsFile(sessionId, runId), 'utf8'); } catch { return { events: [], hasMore: false }; }
-  const matched = [];
-  for (const line of raw.split('\n')) {
-    const t = line.trim(); if (!t) continue;
-    const evt = safeJsonParse(t, null);
-    if (!evt || !Number.isFinite(Number(evt.seq)) || Number(evt.seq) <= floor) continue;
-    matched.push(evt);
-  }
-  matched.sort((a, b) => Number(a.seq) - Number(b.seq));
-  return { events: matched.slice(0, cap), hasMore: matched.length > cap };
+  const file = agentRunEventsFile(sessionId, runId);
+  const finish = matched => { matched.sort((a, b) => Number(a.seq) - Number(b.seq)); return { events: matched.slice(0, cap), hasMore: matched.length > cap }; };
+  const fullRead = async () => { let raw = ''; try { raw = await fsp.readFile(file, 'utf8'); } catch { return { events: [], hasMore: false }; } return finish(parseEventWindow(raw, floor, false).matched); };
+  let size = -1;
+  try { size = (await fsp.stat(file)).size; } catch { return { events: [], hasMore: false }; } // 无文件 = 无事件
+  if (size <= AGENT_RUN_EVENTS_TAIL_BYTES) return fullRead(); // 小文件整读(恒完整,便宜)
+  // 大文件:先只读尾窗;窗回溯到 afterSeq+1 即完整,否则回落全读。
+  let fh = null;
+  try {
+    fh = await fsp.open(file, 'r');
+    const startAt = size - AGENT_RUN_EVENTS_TAIL_BYTES;
+    const buf = Buffer.alloc(AGENT_RUN_EVENTS_TAIL_BYTES);
+    const { bytesRead } = await fh.read(buf, 0, AGENT_RUN_EVENTS_TAIL_BYTES, startAt);
+    const { matched, minSeq } = parseEventWindow(buf.toString('utf8', 0, bytesRead), floor, true);
+    // 窗内最小完整 seq ≤ afterSeq+1 ⇒ 所有 seq>afterSeq 的事件都在窗内(afterSeq+1 是待返回的最小 seq)。
+    if (minSeq <= floor + 1) return finish(matched);
+    // afterSeq 远落后于尾窗(冷客户端 / afterSeq=0 遇大文件)→ 回落全读(罕见,保正确性)。
+  } catch { /* 读尾窗失败 → 回落全读 */ }
+  finally { if (fh) await fh.close().catch(() => {}); }
+  return fullRead();
 }
 // 第29波(§29c 运营指标):run 级干预计数 —— 用户对 run 的每次手动操作(pause/resume/stop/steer/池审批/
 // 重试)自增一格,存 run.metrics.interventions(随快照持久,GET 零改动下发)。无人值守质量的核心度量是

@@ -27,3 +27,6 @@ offline_wheels/
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# 第29波监控冒烟测试隔离工作区(不入库)
+/.wave29-livetest/
