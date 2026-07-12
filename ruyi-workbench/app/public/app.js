@@ -2618,7 +2618,7 @@ async function launchAgentWorkflow(workflow, context) {
     if (context && context.trim()) body.context = context.trim();
     const r = await api('/api/agent-workflow/launch', { method: 'POST', body: JSON.stringify(body) });
     if (!r || (!r.ok && !r.runId)) throw new Error(r && r.error || '启动失败');
-    toast(`工作流已启动：${wf.title}`, 'ok'); switchTab('agent-runs'); await loadAgentRuns();
+    toast(`工作流已启动：${wf.title}`, 'ok'); switchTab('agent-runs'); await loadAgentRuns(true);
   } catch (e) { toast(`工作流启动失败：${apiErrText(e)}`, 'err'); }
 }
 // Quick "运行模板" launch, from the dropdown in the Agent 工作流 tab. Unlike the graphical editor's own
@@ -2892,7 +2892,7 @@ async function poolDecide(runId, poolId, approve) {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action: approve ? 'pool_approve' : 'pool_reject', poolId }) });
     if (!r || !r.ok) throw new Error((r && r.error) || '操作失败');
     toast(approve ? '已同意，新任务已加入工作流' : '已拒绝该提案', 'ok');
-    await loadAgentRuns();
+    await loadAgentRuns(true); // 29a: 动作后强制全量(审批物化的新节点等不靠事件推断,直接拉权威快照)
   } catch (e) { toast(`任务池：${apiErrText(e)}`, 'err'); }
 }
 // v1.5 运行监控：展示态状态语义。把「质量门判否」从「执行失败」里分出来——后端可能已直接发 'rejected'，也可能
@@ -2946,7 +2946,7 @@ async function agentRunAction(runId, action, extra) {
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action, ...(extra || {}) }) });
     if (!r.ok) throw new Error(r.error || '操作失败');
-    toast('Agent 工作流操作已提交', 'ok'); await loadAgentRuns();
+    toast('Agent 工作流操作已提交', 'ok'); await loadAgentRuns(true); // 29a: 动作后强制全量(apply_isolation 等冷路径不发事件)
   } catch (e) { toast(`Agent 工作流：${apiErrText(e)}`, 'err'); }
 }
 // v1 定向插话（steer 到指定运行中子代理节点）：对某个运行中/排队中的 OpenAI 引擎节点插一句话，服务器在该节点
@@ -2965,13 +2965,13 @@ async function steerAgentNode(runId, nodeId, nodeStatus, presetText) {
     // 开跑才会消费——如果节点在那之前被跳过/阻塞/工作流停止，排队的插话会被直接丢弃，成功提示要如实区分这两种情况。
     const msg = nodeStatus === 'running' ? '已插话，下一次调用前生效' : '已排队，节点开跑时投递（若节点被跳过/阻塞则丢弃）';
     toast(msg, 'ok');
-    await loadAgentRuns();
+    await loadAgentRuns(true);
     return true;
   } catch (e) { toast(`插话失败：${apiErrText(e)}`, 'err'); return false; }   // 对抗轮 P2: 调用方按返回值区分失败以回填文本
 }
 async function deleteAgentRun(runId) {
   const sid = state.currentSession?.id; if (!sid || !confirm('删除这条 Agent 工作流记录？')) return;
-  try { await api(`/api/agent-runs/${encodeURIComponent(runId)}?sessionId=${encodeURIComponent(sid)}`, { method: 'DELETE' }); await loadAgentRuns(); }
+  try { await api(`/api/agent-runs/${encodeURIComponent(runId)}?sessionId=${encodeURIComponent(sid)}`, { method: 'DELETE' }); await loadAgentRuns(true); }
   catch (e) { toast(`删除失败：${apiErrText(e)}`, 'err'); }
 }
 // v1.5 运行监控重设计（§2 多 Agent 编排实时监控）：把纵向 <details> 列表升级为「聚合头 + 状态徽标节点卡」的
@@ -2996,6 +2996,9 @@ function renderAgentRuns(runs) {
     sum.appendChild(el('span', 'ar-title', `🕸️ ${run.id}`));
     const agg = el('div', 'ar-agg');
     agg.appendChild(el('span', `ar-agg-chip st-${run.status || 'unknown'}`, agentRunStatusLabel(run.status)));
+    // 29b: 恢复分级徽章 —— 只在等人/等续跑的档位(interrupted/paused)显示,终态与运行中不挂。
+    if ((run.status === 'interrupted' || run.status === 'paused') && run.resumeTier === 'manual_resume_required') agg.appendChild(el('span', 'ar-agg-chip st-interrupted', '需人工恢复'));
+    else if (run.status === 'interrupted' && run.resumeTier === 'auto_resumable') agg.appendChild(el('span', 'ar-agg-chip st-queued', '可自动续跑'));
     agg.appendChild(el('span', 'ar-agg-nodes', `${done}/${nodes.length} 节点`));
     const elapsed = runElapsedMs(run); if (elapsed) agg.appendChild(el('span', 'ar-agg-time', (run.live ? '已运行 ' : '用时 ') + fmtDuration(elapsed)));
     const cost = runCostLabel(run); if (cost) agg.appendChild(el('span', 'ar-agg-cost', cost));
@@ -3221,22 +3224,119 @@ function renderAgentRuns(runs) {
   }
 }
 let agentRunsSeq = 0;   // 对抗轮 P3: 轮询响应序号——慢包乱序落地时丢弃过期响应,防"审批已生效"被在途旧包闪回旧状态
-async function loadAgentRuns() {
+// ── 第29波(§29a 增量监控)────────────────────────────────────────────────────────────────────────
+// per-run 客户端缓存:每 tick 只拉 digest(run 级标量,~百字节/run),eventSeq 前进才去拉增量事件;完整快照仅在
+// 【未知 run / settle 类事件 / live run 低频兜底 / 事件僵局自愈 / 手动 force】时按 run 单拉 —— 历史终态 run 不再
+// 每 2s 全量重传。断线补播天然免费:缓存里的 lastSeq 就是断点,重开面板 afterSeq=lastSeq 续拉。渲染层零改动
+// (仍喂 runs 数组;缓存对象原地演进,画布 renderSig 按内容签名跳过不受影响)。config.monitorIncremental=false
+// 或 digest 不可用时回落旧全量轮询。
+const agentRunsCache = { sid: '', runs: new Map() }; // runId -> { run, lastSeq, lastFullAt, stuckTicks }
+const AGENT_RUN_SLOW_REFRESH_MS = 10000; // live run 的化妆性兜底刷新(gen 字数/邮箱等不走事件的时效字段)
+// 事件轻应用:progressLog 里程碑与 node_start 可直接演进缓存(与后端同文案同 cap);其余(settle/run 级)一律
+// 返回 false → 单 run 快照刷新(result/结构化输出不在事件里,快照才是权威状态源)。
+function applyAgentRunEvent(run, evt) {
+  if (!run || !evt) return false;
+  const t = String(evt.type || '');
+  if (t === 'node_progress') {
+    const node = (Array.isArray(run.nodes) ? run.nodes : []).find(n => n && n.id === evt.nodeId);
+    if (!node) return false;
+    if (!Array.isArray(node.progressLog)) node.progressLog = [];
+    node.progressLog.push({ at: evt.ts || nowIsoLocal(), text: String((evt.data && evt.data.text) || '') });
+    if (node.progressLog.length > 80) node.progressLog = node.progressLog.slice(-80);
+    return true;
+  }
+  if (t === 'node_start') {
+    const node = (Array.isArray(run.nodes) ? run.nodes : []).find(n => n && n.id === evt.nodeId);
+    if (!node) return false;
+    node.status = 'running'; if (Number(evt.attemptId)) node.attempts = Number(evt.attemptId); if (!node.startedAt) node.startedAt = evt.ts || '';
+    return true;
+  }
+  return false;
+}
+function nowIsoLocal() { try { return new Date().toISOString(); } catch { return ''; } }
+// 渲染投递(全量/增量两条路共用):监控列表 + 画布 + "刚结束带 summary"的会话流补拉,原 loadAgentRuns 尾段原样。
+async function deliverAgentRuns(sid, runs) {
+  renderAgentRuns(runs);
+  wbOnRuns(runs); // v3 P3a:同一份轮询数据喂工作台画布(缓存 + 亮点标 + 画布态重绘),不新增请求
+  const finishedWithSummary = runs.find(run => run && run.summary && !run.live && !AGENT_RUN_ACTIVE.has(run.status) && !agentRunSummarySeen.has(`${sid}:${run.id}`));
+  if (finishedWithSummary) {
+    agentRunSummarySeen.add(`${sid}:${finishedWithSummary.id}`);
+    const fresh = await api(`/api/sessions/${encodeURIComponent(sid)}`).catch(() => null);
+    if (fresh && fresh.session && state.currentSession?.id === sid) { state.currentSession = fresh.session; renderCurrentSession(); renderSessions(); }
+  }
+}
+async function loadAgentRuns(force) {
   const sid = state.currentSession?.id; const host = $('agentRunsList'); if (!host) return;
   if (!sid) { renderAgentRuns([]); return; }
   const mySeq = ++agentRunsSeq;
+  const incremental = force !== true && !!(state.config && state.config.monitorIncremental !== false);
   try {
-    const r = await api(`/api/agent-runs?sessionId=${encodeURIComponent(sid)}`);
-    if (mySeq !== agentRunsSeq) return;   // 已有更新的请求发出,本响应过期
-    const runs = Array.isArray(r.runs) ? r.runs : [];
-    renderAgentRuns(runs);
-    wbOnRuns(runs); // v3 P3a:同一份轮询数据喂工作台画布(缓存 + 亮点标 + 画布态重绘),不新增请求
-    const finishedWithSummary = runs.find(run => run && run.summary && !run.live && !AGENT_RUN_ACTIVE.has(run.status) && !agentRunSummarySeen.has(`${sid}:${run.id}`));
-    if (finishedWithSummary) {
-      agentRunSummarySeen.add(`${sid}:${finishedWithSummary.id}`);
-      const fresh = await api(`/api/sessions/${encodeURIComponent(sid)}`).catch(() => null);
-      if (fresh && fresh.session && state.currentSession?.id === sid) { state.currentSession = fresh.session; renderCurrentSession(); renderSessions(); }
+    if (agentRunsCache.sid !== sid) { agentRunsCache.sid = sid; agentRunsCache.runs.clear(); } // 切会话清缓存
+    if (!incremental) {
+      // 旧全量路径(总开关关闭 / 动作后 force 刷新):顺带重建缓存与 lastSeq(=快照里的 eventSeq —— seq 之前的
+      // 事件已烙进快照,跳过它们是正确语义,不是丢失)。
+      const r = await api(`/api/agent-runs?sessionId=${encodeURIComponent(sid)}`);
+      if (mySeq !== agentRunsSeq) return;   // 已有更新的请求发出,本响应过期
+      const runs = Array.isArray(r.runs) ? r.runs : [];
+      agentRunsCache.runs.clear();
+      for (const run of runs) if (run && run.id) agentRunsCache.runs.set(run.id, { run, lastSeq: Number(run.eventSeq) || 0, lastFullAt: Date.now(), stuckTicks: 0 });
+      await deliverAgentRuns(sid, runs);
+      return;
     }
+    const d = await api(`/api/agent-runs?sessionId=${encodeURIComponent(sid)}&view=digest`);
+    if (mySeq !== agentRunsSeq) return;
+    const digests = Array.isArray(d.runs) ? d.runs : [];
+    const seen = new Set();
+    for (const dg of digests) {
+      if (!dg || !dg.id) continue;
+      seen.add(dg.id);
+      const c = agentRunsCache.runs.get(dg.id);
+      let needFull = !c;
+      if (c) {
+        if ((Number(dg.eventSeq) || 0) > c.lastSeq) {
+          const er = await api(`/api/agent-runs/${encodeURIComponent(dg.id)}/events?sessionId=${encodeURIComponent(sid)}&afterSeq=${c.lastSeq}`).catch(() => null);
+          if (mySeq !== agentRunsSeq) return;
+          const evts = er && Array.isArray(er.events) ? er.events : [];
+          if (!evts.length) {
+            // digest 说 seq 前进了、事件文件却拉不到(事件写失败/落盘滞后):连续 3 tick 僵住 → 全量自愈,
+            // 防止"每 tick 空拉事件"的静默死循环(事件是 best-effort 通道,快照才可靠)。
+            c.stuckTicks = (c.stuckTicks || 0) + 1;
+            if (c.stuckTicks >= 3) needFull = true;
+          } else {
+            c.stuckTicks = 0;
+            for (const evt of evts) {
+              if (!(Number(evt.seq) > c.lastSeq)) continue;
+              c.lastSeq = Number(evt.seq);
+              if (!applyAgentRunEvent(c.run, evt)) needFull = true;
+            }
+            if (er.hasMore) needFull = true;
+          }
+        }
+        if (!needFull && dg.live && Date.now() - c.lastFullAt > AGENT_RUN_SLOW_REFRESH_MS) needFull = true;
+        // 对抗轮 P2(#15): status 漂移检测【不能带 !dg.live 门】—— 调度器把 live run 转 waiting_pool/paused 等【不发事件、
+        // 不增 eventSeq】(server 只 saveAgentRun);旧的 `!dg.live` 门让 live run 的 dg.status 被无条件忽略,审批倒计时
+        // 最长盲 10s(60s 宽限窗被吃掉 1/6)。改为任何 run 的 status 与缓存不一致即刷新(live/非 live 一致对待)。
+        if (dg.status && c.run.status !== dg.status) needFull = true;
+        // 对抗轮 P3(#13): digest 的 updatedAt 前进也触发刷新 —— 冷路径 apply_isolation 只改 node.isolation.status + saveAgentRun,
+        // 不发事件、不改 run.status、eventSeq 冻结,旧逻辑三个 needFull 条件全不命中 → 缓存永久停在 ready、无自愈。updatedAt
+        // 是快照写就变的字段,拿它当"内容动过"的兜底信号。
+        if (dg.updatedAt && c.run.updatedAt && dg.updatedAt !== c.run.updatedAt) needFull = true;
+        // digest 旗标即时叠加(live/paused 在内存,快照里没有;25.2 的 persistenceDegraded 同理必须绕过磁盘)。
+        // 对抗轮 P3(#16): 旗标叠加必须【对称】—— resume 分支 delete resumeTier / 快照写恢复撤 persistenceDegraded 后,
+        // digest 里这些字段已空,旧的"只置不清"会让缓存残留旧值(与 live 徽章同屏矛盾)直到下次 needFull。用 dg 值覆写(含空)。
+        c.run.live = dg.live === true; c.run.paused = dg.paused === true;
+        c.run.persistenceDegraded = dg.persistenceDegraded === true;
+        c.run.resumeTier = dg.resumeTier || '';
+      }
+      if (needFull) {
+        const fr = await api(`/api/agent-runs/${encodeURIComponent(dg.id)}?sessionId=${encodeURIComponent(sid)}`).catch(() => null);
+        if (mySeq !== agentRunsSeq) return;
+        if (fr && fr.ok && fr.run) agentRunsCache.runs.set(dg.id, { run: fr.run, lastSeq: Number(fr.run.eventSeq) || 0, lastFullAt: Date.now(), stuckTicks: 0 });
+      }
+    }
+    for (const id of [...agentRunsCache.runs.keys()]) if (!seen.has(id)) agentRunsCache.runs.delete(id); // 已删除的 run 随 digest 消失
+    const runs = digests.map(dg => { const c = agentRunsCache.runs.get(dg.id); return c && c.run; }).filter(Boolean);
+    await deliverAgentRuns(sid, runs);
   }
   catch (e) {
     if (mySeq !== agentRunsSeq) return;
@@ -3958,6 +4058,8 @@ async function loadUsage(force) {
   if (force || !usageState.data) { host.textContent = ''; host.appendChild(usageNoticeCard('正在汇总用量…')); }
   try {
     const r = await api(`/api/usage/summary?range=${encodeURIComponent(range)}`);
+    // 29c: 运营指标(干预/预算超支率)随用量面板一并拉,失败静默(纯附加信息,不阻断用量展示)。
+    r.opsMetrics = await api('/api/ops/metrics?days=7').catch(() => null);
     usageState.data = r; usageState.loaded = true;
     renderUsage(r);
   } catch (e) {
@@ -3993,6 +4095,15 @@ function renderUsage(data) {
     || byEngine.length || byProvider.length || bySession.length || byDay.length;
   if (!hasAny) { host.appendChild(usageNoticeCard('还没有用量记录，发起对话后这里会汇总花费。')); return; }
   host.appendChild(usageAggHead(totals, byEngine.concat(byProvider)));
+  // 29c: 运营指标行(近 7 天干预次数 / 任务预算超支率)——无人值守质量一眼可见;无数据(全 0)不占版面。
+  const ops = data.opsMetrics;
+  if (ops && ops.ok && ((ops.interventions && ops.interventions.total > 0) || (ops.missions && ops.missions.started > 0))) {
+    const line = el('div', 'muted usage-ops-line');
+    const bits = [`近 ${ops.days} 天人工干预 ${ops.interventions.total} 次`];
+    if (ops.missions.started > 0) bits.push(`任务 ${ops.missions.started} 个 · 预算超支率 ${(ops.missions.budgetOverrunRate * 100).toFixed(0)}%`);
+    line.textContent = '🛠 ' + bits.join(' ｜ ');
+    host.appendChild(line);
+  }
   if (byEngine.length) host.appendChild(usageGroup('按引擎', byEngine, 'engine'));
   if (byProvider.length) host.appendChild(usageGroup('按服务商', byProvider, 'provider'));
   if (bySession.length) host.appendChild(usageGroup('按会话', bySession, 'session'));
@@ -7106,7 +7217,10 @@ function bindEvents() {
   { const sn = $('shellNewBtn'); if (sn) sn.onclick = newShellSession; }
   { const ft = $('fileTreeRefreshBtn'); if (ft) ft.onclick = loadFileTree; } // v0.9-S3 (C3)
   { const ar = $('artifactsRefreshBtn'); if (ar) ar.onclick = renderArtifactsGallery; } // v0.9-S4 (C4)
-  { const ar = $('agentRunsRefreshBtn'); if (ar) ar.onclick = loadAgentRuns; }
+  // 29a 对抗轮 P2(#14): 手动刷新必须【强制全量】。旧写法 `ar.onclick = loadAgentRuns` 把 MouseEvent 当首参传入,
+  // loadAgentRuns(force) 的 `force !== true` 判定 MouseEvent≠true → 走增量路径,退化成又一次普通 tick;用户面对缓存
+  // 陈旧(如冷路径 apply_isolation 后)点"刷新"得到同一份 digest 对比结论,无法恢复。显式传 true = 设计承诺的手动 force。
+  { const ar = $('agentRunsRefreshBtn'); if (ar) ar.onclick = () => loadAgentRuns(true); }
   // 用量看板：刷新按钮强制重拉；范围段控切换范围并重拉（默认本月）。
   { const ur = $('usageRefreshBtn'); if (ur) ur.onclick = () => loadUsage(true); }
   document.querySelectorAll('.usage-range-btn').forEach(b => { b.onclick = () => setUsageRange(b.dataset.range); });

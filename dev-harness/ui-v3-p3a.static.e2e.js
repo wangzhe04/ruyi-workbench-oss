@@ -123,7 +123,10 @@ ok(/function renderWorkbench\(runs, force\)/.test(src) && has(fnBody('renderWork
 // ═══════════ H. 轮询复用 + XSS 纪律 + 零硬编码色/零裸 px 字号 ═══════════
 // 复用现有 agent-runs 2s 轮询,不新增请求(loadAgentRuns 内联喂画布)。
 ok(/setInterval\(loadAgentRuns, 2000\)/.test(src), 'H 复用现有 2s 轮询(setInterval loadAgentRuns 2000,协议未改)');
-ok(/wbOnRuns\(runs\)/.test(fnBody('loadAgentRuns', 900)), 'H loadAgentRuns 内联喂画布 wbOnRuns(不新增请求)');
+// 第29波(§29a):喂画布点从 loadAgentRuns 内联挪进 deliverAgentRuns(全量/增量两条路共用的投递尾段)——
+// 契约语义不变:画布仍复用同一份轮询数据、零新增请求;loadAgentRuns 两条路径都必须经 deliverAgentRuns 投递。
+ok(/wbOnRuns\(runs\)/.test(fnBody('deliverAgentRuns', 1200)), 'H 投递尾段 deliverAgentRuns 喂画布 wbOnRuns(不新增请求)');
+ok((fnBody('loadAgentRuns', 8000).match(/await deliverAgentRuns\(sid, runs\)/g) || []).length >= 2, 'H loadAgentRuns 全量/增量两路都经 deliverAgentRuns 投递');
 ok(/function agentRunsPollWanted\(/.test(src) && has(fnBody('agentRunsPollWanted'), "wbState.view === 'canvas'"), 'H 轮询期望态并入画布视图(监控页签 ∪ 画布)');
 ok(has(fnBody('wbOnRuns'), 'wbState.lastRuns', "wbState.view === 'canvas'", 'renderWorkbench('), 'H wbOnRuns 缓存 runs + 画布态重绘 + 刷新亮点标');
 // XSS:各构建器不用 innerHTML(el()/textContent + createElementNS)。

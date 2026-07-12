@@ -130,9 +130,18 @@ Node Runtime(第25/28波)
 **原规格**:子节点 token 触发自动压缩(对齐主回合两级压缩)· 节点输出四分 · 预算化上下文构建取代 `slice(0,32000)` · degraded 下游策略(accept/retry/request_review/fail)· `wait_for{timer|file|process|url}` 等待原语(waiting 态零 token)。
 **验收锁**:8 小时级模拟任务上下文超限率断言;degraded 不再被当干净成功消费;wait_for 条件触发续跑。
 
-### 第29波 · 监控与运营
+### 第29波 · 监控与运营 ✅ 已交付(2026-07-12)
 
-`/api/agent-runs/:id/events?afterSeq=`(或 SSE)增量消费+断线 seq 补播,取代 2s 全量轮询 · 自动恢复分级(`auto_resumable` / `manual_resume_required`,涉外部副作用或权限变化只恢复到暂停态)· 运营指标(干预次数/失败分类/预算超支率)。
+> **状态:三单元全交付 + 5 镜头对抗轮(21 发现→20 独立复核:12 CONFIRMED/6 DOWNGRADED/2 REFUTED)→ 逐条修复。**
+> - **29a 增量事件消费**:`GET /api/agent-runs/:id/events?afterSeq=`(记住 lastSeq 重发即断线补播,seq 单调保无重无漏)+ `?view=digest` 轻量视图(run 级标量,~百字节/run)+ 单 run GET 对 live 以内存对象下发(快照节流恒旧)。前端 `loadAgentRuns(force)` 改增量缓存(digest 探测→eventSeq 前进拉 events 轻应用 progressLog/node_start→settle 类拉单 run 快照);保住乱序守卫/live 旗标叠加/断连清空三防线 + 事件僵局自愈 + `config.monitorIncremental=false` 回落全量。补 `node_progress`(gen 跳过)/`run_pool` 事件。**验收锁达成**:忠实模拟客户端算法 20 tick(中途触发 settle 制真实事件流)增量传输 ≤ 全量 20%(实测 ~11%)。
+> - **29b 自动恢复分级**:纯函数 `classifyNodeResumeRisk`/`classifyRunResumeTier`(wait/gate/纯读=safe;exec 一律 + edit 有写证据 + **Claude 引擎可写/可 exec** = manual)。`config.autonomyAutoResume`(opt-in,默认 false=零行为变化);开启后 boot 在诚实标死【之后】fire-and-forget 续跑安全 run、危险 run 停 paused + `run_resume_deferred`,崩溃环 `autoResumeCount≥2` 降 manual。**验收锁达成**:重启自动续跑安全 run、危险 run 停暂停态。
+> - **29c 运营指标**:`node.errorClass`(~14 设置点显式标注)+ run 收尾聚合 `run.metrics.failuresByClass`;`run.metrics.interventions` 干预计数(pause/resume/stop/steer/池/retry,按状态迁移幂等 + 兼落 `logEvent`)+ 会话级(permission/plan/steer)审计账;`mission_start`/`mission_budget_exhausted` 落账(超支率分子只在转入时记一次);`GET /api/ops/metrics`(干预次数/失败分类/预算超支率,读日志聚合)。两引擎子代理 `subagent_usage` 事件 → `accumulateRunUsage` 累进 `run.usageTotals/totalTokens/costUsd`(点亮前端预订字段)。
+> - **对抗轮修复(全并入 e2e)**:**P1(#17,与第27波 field-shadow 同类根因)**——`classifyNodeResumeRisk` 只看 `node.toolTier`,但 Claude 引擎真实工具面是 `role.claudeTools`(非空则无视 toolTier),`toolTier:'edit'` 携 `Bash` 的节点会以 bypass 跑 shell 却被判 safe → 自动续跑重放不可逆 shell 副作用(击穿红线)。修:按真实执行能力判,Claude 可写/可 exec 一律 manual(CLI 写无 journal/幂等兜底,edit-重放-安全假设只对 OpenAI 进程内 toolCall 成立)。**P2**:①#2 boot 自动恢复 vs 用户手动 resume 竞态(陈旧对象 append=seq 重号破坏严格单调 + saveAgentRun 覆盖 live 快照)→ append/save 前后双复检 `activeAgentRuns.has`;②#18 崩溃在途写停在 `continuation.pending` 未晋升 steps → edit 证据也扫 pending;③#19 缺 `permissionModeAtLaunch` 的旧 run 权限拓宽护栏失效 → 有副作用面则 fail-safe manual;④#14 刷新按钮把 MouseEvent 当 force → 显式 `loadAgentRuns(true)`;⑤#6 预算超支率 >100%(update 再武装每次驱动器再入重复落 exhausted)→ 只在转入时落一次 + `budgetExhaustedAt` 经 update 保留;⑥#7 `failuresByClass` 与 run 总态口径矛盾(fromPool+continue 被排除却计入失败漏斗)→ 对齐排除。**P3**:#8 干预计数非幂等→按状态迁移守卫;#10 vote 门 rejected 无 errorClass→补;#12 ops 头条漏 run 级干预→`bumpRunIntervention` 兼落 logEvent;#13/#15/#16 前端一致性(冷路径 apply_isolation 缓存陈旧无自愈 / live run status 迁移盲 10s / 旗标只置不清)→ status 漂移去 `!dg.live` 门 + updatedAt 兜底刷新 + 旗标对称覆写。
+> - **对抗轮硬教训(改任何"按声明分级/放行"的判定务必记牢)**:分级/危险度必须按【真正决定执行能力的字段】判,不是声明字段(`toolTier`)—— Claude 引擎的 `role.claudeTools` 完全覆盖 toolTier,与第27波 `script_run` 执行 `args.code` 非 `command` 是同一类 field-shadow;上任何"按 X 判危险度/放行"前,必须核对 X 是不是执行体真正读的字段。
+> - e2e:`dev-harness/monitor-incremental.e2e.js`(9120,含传输 ≥80% 验收锁 + 对抗修复静态锁)· `dev-harness/autonomy-resume.e2e.js`(9121,三次 boot + P1 Claude-Bash-伪装-edit 端到端 + 分级纯函数穷举)。全量回归全绿。
+> - **未修入 backlog(DOWNGRADED/既有/跨切面,记入 [[wave23-audit-backlog]])**:#0 DNS-rebind 对只读 GET(既有架构:token 随 HTML 明文下发 + hostAllowed 只覆盖写,非本波引入,需全 GET 面 host 校验单独立项);#1/#3/#5 事件文件无上限 + readAgentRunEvents/digest(listAgentRuns)每 tick 全量读盘 parse(wire 已省 ≥80% 达标,盘/CPU 与旧端点同量,长事件史下需字节偏移续读/mtime 缓存优化);#20 autoResume 顺序恢复 + 每 run 全量扫事件文件(fail-safe 方向,不误跑,仅批量恢复尾延迟);双冷 resume 窄窗(既有,`runAgentWorkflow` existingRun 分支 `run_resumed` append 早于 `activeAgentRuns.has` 守卫,需两次近同时手动点恢复,非本波引入)。
+
+**原规格**:`/api/agent-runs/:id/events?afterSeq=`(或 SSE)增量消费+断线 seq 补播,取代 2s 全量轮询 · 自动恢复分级(`auto_resumable` / `manual_resume_required`,涉外部副作用或权限变化只恢复到暂停态)· 运营指标(干预次数/失败分类/预算超支率)。
 **验收锁**:传输量对比全量模式下降 ≥80% 断言;重启自动续跑安全节点、危险节点停在暂停态。
 
 ### 场外单列(不进本程序)

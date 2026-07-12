@@ -377,6 +377,12 @@ function defaultConfig() {
     // 则回落 deny(fail-closed,防通知未达时无声僵尸挂起)。改的是【超时默认路径】,故 security-sensitive、默认关。
     autonomyPauseOnTimeout: false,
     autonomyPauseTtlMs: 2700000,  // 暂停等待上界(默认 45min;clamp [5min, 6h])——超时后 fail-closed deny
+    // 第29波(§29 监控与运营):增量监控总开关(默认开——纯传输优化,快照仍是唯一权威状态源;关闭则前端
+    // 回到 2s 全量轮询)。autonomyAutoResume 是 boot 自动恢复(opt-in,默认 false=重启只诚实标死、零行为
+    // 变化;开启后仅 auto_resumable 的 run 自动续跑,含 exec/已确认写副作用的 run 停在暂停态等人,见
+    // classifyRunResumeTier)。
+    monitorIncremental: true,
+    autonomyAutoResume: false,
     turnIdleTimeoutMs: 600000,    // watchdog: kill a turn idle (no events) longer than this
     // --- v0.4.4: model list discovery ---
     knownModels: [],              // models actually selected/used — remembered so they stay in the list
@@ -571,6 +577,10 @@ function normalizeConfig(raw) {
   config.autonomyPauseOnTimeout = config.autonomyPauseOnTimeout === true;
   const apt = Number(config.autonomyPauseTtlMs);
   config.autonomyPauseTtlMs = Number.isFinite(apt) ? Math.min(6 * 3600000, Math.max(300000, apt)) : 2700000;
+  // 第29波:monitorIncremental 默认 true(!==false 归一,纯传输优化);autonomyAutoResume 默认 false(===true
+  // 归一,安全默认——boot 自动续跑消耗 token 且无人在场,必须显式开启)。
+  config.monitorIncremental = config.monitorIncremental !== false;
+  config.autonomyAutoResume = config.autonomyAutoResume === true;
   // Model lists must be arrays of strings; knownModels is capped so it can't grow unbounded.
   for (const k of ['knownModels', 'extraModels']) {
     if (!Array.isArray(config[k]) || config[k].some(a => typeof a !== 'string')) {
@@ -1717,6 +1727,10 @@ function normalizeMission(raw, prev, trusted = true) {
     autoMode,
     stall: { lastDigest: String((p.stall && p.stall.lastDigest) || ''), sameCount: Math.max(0, Number(p.stall && p.stall.sameCount) || 0) },
     replans: Math.max(0, Number(p.replans) || 0),
+    // 对抗轮 P2(#6): 保留 budgetExhaustedAt —— 它是"本任务预算已耗尽并记过账"的持久标记,update 再武装(prev 深拷)
+    // 必须保住它,否则再耗尽会二次落 mission_budget_exhausted 使超支率 >100%;全新 start(prev=null → p={})自然清空,
+    // 新任务的耗尽正常重记。budget 无法经 update 抬高(applyMissionUpdate 不碰 budget),故不需"抬预算才清"的额外逻辑。
+    budgetExhaustedAt: String(p.budgetExhaustedAt || ''),
     createdAt: p.createdAt || nowIso(),
     updatedAt: nowIso(),
   };
@@ -4902,6 +4916,30 @@ async function readWorkbenchAudit(limit) {
   return out;
 }
 
+// 第29波(§29c 运营指标):跨日聚合 —— 读最近 N 天 workbench-*.ndjson,只数 29c 落账的三类 kind
+// (intervention / mission_start / mission_budget_exhausted),逐行 safeJsonParse 坏行免疫(readWorkbenchAudit
+// 同款纪律)。日切文件体积可控,无需流式;天数 clamp [1,30] 防大目录慢扫。失败回空聚合,绝不 500。
+async function buildOpsMetrics(days) {
+  const nDays = Math.max(1, Math.min(30, Number(days) || 7));
+  const out = { ok: true, days: nDays, interventions: { total: 0, bySource: {} }, missions: { started: 0, budgetExhausted: 0, budgetOverrunRate: 0 } };
+  let files; try { files = await fsp.readdir(paths.logs); } catch { return out; }
+  const cutoff = new Date(Date.now() - nDays * 86400000).toISOString().slice(0, 10);
+  const logs = files.filter(f => /^workbench-\d{4}-\d{2}-\d{2}\.ndjson$/.test(f) && f.slice(10, 20) >= cutoff).sort();
+  for (const f of logs) {
+    let raw; try { raw = await fsp.readFile(path.join(paths.logs, f), 'utf8'); } catch { continue; }
+    for (const line of raw.split('\n')) {
+      const t = line.trim(); if (!t) continue;
+      const rec = safeJsonParse(t, null);
+      if (!rec || typeof rec !== 'object') continue;
+      if (rec.kind === 'intervention') { out.interventions.total += 1; const s = String(rec.source || 'other'); out.interventions.bySource[s] = (out.interventions.bySource[s] || 0) + 1; }
+      else if (rec.kind === 'mission_start') out.missions.started += 1;
+      else if (rec.kind === 'mission_budget_exhausted') out.missions.budgetExhausted += 1;
+    }
+  }
+  out.missions.budgetOverrunRate = out.missions.started > 0 ? Math.round((out.missions.budgetExhausted / out.missions.started) * 1000) / 1000 : 0;
+  return out;
+}
+
 // Pull the desktop MCP's audit tail via the live ai-computer-control bridge, if present. Returns
 // { entries, available }: available=false means the bridge isn't live or the call failed (degraded — the
 // caller marks sources.desktop='unavailable' and simply omits desktop rows; never an error).
@@ -7225,6 +7263,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
           cost, currency, costTrusted, estimated: ledgerEstimated, turnSeq: parentSession.turnSeq,
           kind: 'subagent', agentKey, subagentId,
         });
+        // 29c: 用量随事件上抛 —— DAG 节点的 nodeEvent 借此把 token/成本累进 run.usageTotals(前端画布迷你条
+        // 与运行卡 chip 早已防御性读这些字段,"后端并行落地中"说的就是这里)。与 ledger 同源同值。
+        onEvent({ type: 'subagent_usage', id: subagentId, agentKey, inTok: ledgerIn, outTok: ledgerOut, cost, currency, estimated: ledgerEstimated });
       }
     } catch { /* accounting must never break the sub-agent */ }
   }
@@ -7266,6 +7307,69 @@ function appendAgentRunEvent(run, evt) {
     agentRunEventChains.set(run.id, cur);
     cur.catch(() => {}).finally(() => { if (agentRunEventChains.get(run.id) === cur) agentRunEventChains.delete(run.id); });
   } catch { /* 取证辅助,不阻断执行 */ }
+}
+// 第29波(§29a 增量监控):事件日志读取 —— GET /api/agent-runs/:id/events?afterSeq= 的数据面。事件文件
+// append-only 且允许尾行半写(appendFile 非 atomic),读取方逐行 safeJsonParse 跳坏行(readWorkbenchAudit
+// 同款纪律);先全量收集 seq>afterSeq 的行再排序分页 —— 与 syncRunEventSeq 的"取 max 非尾行"同一乱序容错
+// 立场,cap 截断永远砍最大的 seq 而不是文件尾(半写恢复后行序理论上可乱)。文件缺失 = 无事件(老 run /
+// 事件写失败),返回空数组而非报错 —— 事件是增量信号,快照才是权威状态源,读不到就等下一轮全量兜底。
+const AGENT_RUN_EVENTS_PAGE_MAX = 500;
+async function readAgentRunEvents(sessionId, runId, afterSeq, limit) {
+  const cap = Math.max(1, Math.min(AGENT_RUN_EVENTS_PAGE_MAX, Number(limit) || AGENT_RUN_EVENTS_PAGE_MAX));
+  const floor = Math.max(0, Number(afterSeq) || 0);
+  let raw = '';
+  try { raw = await fsp.readFile(agentRunEventsFile(sessionId, runId), 'utf8'); } catch { return { events: [], hasMore: false }; }
+  const matched = [];
+  for (const line of raw.split('\n')) {
+    const t = line.trim(); if (!t) continue;
+    const evt = safeJsonParse(t, null);
+    if (!evt || !Number.isFinite(Number(evt.seq)) || Number(evt.seq) <= floor) continue;
+    matched.push(evt);
+  }
+  matched.sort((a, b) => Number(a.seq) - Number(b.seq));
+  return { events: matched.slice(0, cap), hasMore: matched.length > cap };
+}
+// 第29波(§29c 运营指标):run 级干预计数 —— 用户对 run 的每次手动操作(pause/resume/stop/steer/池审批/
+// 重试)自增一格,存 run.metrics.interventions(随快照持久,GET 零改动下发)。无人值守质量的核心度量是
+// "干预次数/任务",数据源就在这。防御式初始化:老 run 无 metrics 字段;统计辅助,永不阻断执行。
+function bumpRunIntervention(run, kind) {
+  try {
+    if (!run) return;
+    if (!run.metrics || typeof run.metrics !== 'object') run.metrics = {};
+    if (!run.metrics.interventions || typeof run.metrics.interventions !== 'object') run.metrics.interventions = {};
+    const k = String(kind || 'other');
+    run.metrics.interventions[k] = (Number(run.metrics.interventions[k]) || 0) + 1;
+    // 对抗轮 P3(#12): 也落审计账 —— buildOpsMetrics 只数 logEvent kind:'intervention',run 级干预此前只进 run.metrics
+    // 不进日志,使运营面头条「近 N 天人工干预」对以 DAG 为主的用法恒偏低甚至为 0(与各 run 卡真实累计矛盾)。
+    // 两处口径统一到审计账:会话级(permission/plan/steer)与 run 级(pause/resume/stop/steer_node/pool/retry)同源可聚合。
+    logEvent({ kind: 'intervention', source: k, sessionId: (run && run.sessionId) || '', runId: (run && run.id) || '' });
+  } catch { /* 统计辅助,不阻断执行 */ }
+}
+// 第29波(§29c):子代理失败文本 → 失败类别。仅用于 runNode 的子代理失败漏斗(错误文本在 runSubAgentCore/
+// runClaudeSubAgentOnce 内部拼装,节点层拿不到结构化原因);匹配的全是【本文件自产的固定文案】(权限拒
+// 'denied by user'/'blocked by permission mode'、超时等),不是在猜自由文本。其余 error 设置点一律显式标注
+// node.errorClass,不走这里。
+function classifyNodeErrorText(err) {
+  const t = String(err || '');
+  if (/denied by user|permission prompt timed out|blocked by permission mode|权限/.test(t)) return 'permission_denied';
+  if (/超时|timed? ?out|timeout/i.test(t)) return 'timeout';
+  if (/ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|网络|fetch failed/i.test(t)) return 'network';
+  return 'subagent_failed';
+}
+// 第29波(§29c):run 级 token/成本累计 —— 两引擎子代理收尾时经 subagent_usage 事件上抛(与用量台账同源
+// 同值),nodeEvent 累进到 run 上随快照持久。前端 wbRunMetrics/runCostLabel 早已防御性读这些字段(注释
+// "后端并行落地中"),写入即点亮,零前端改动。重试的 attempt 各自累计(重试真实花了 token,不去重)。
+// 成本只聚合 USD(混币种相加无意义;非 USD 行只计 token 不计成本)。
+function accumulateRunUsage(run, u) {
+  try {
+    if (!run || !u) return;
+    if (!run.usageTotals || typeof run.usageTotals !== 'object') run.usageTotals = { inTok: 0, outTok: 0 };
+    run.usageTotals.inTok = (Number(run.usageTotals.inTok) || 0) + Math.max(0, Number(u.inTok) || 0);
+    run.usageTotals.outTok = (Number(run.usageTotals.outTok) || 0) + Math.max(0, Number(u.outTok) || 0);
+    run.totalTokens = run.usageTotals.inTok + run.usageTotals.outTok;
+    const c = Number(u.cost);
+    if (Number.isFinite(c) && c > 0 && String(u.currency || 'USD').toUpperCase() === 'USD') run.costUsd = Math.round(((Number(run.costUsd) || 0) + c) * 1e6) / 1e6;
+  } catch { /* 统计辅助,不阻断执行 */ }
 }
 
 // 第25波 25.2(AUTONOMY-PLAN §1 缺口5):快照持久化失败【不得静默】。saveAgentRun 的调用方有多处
@@ -7327,7 +7431,124 @@ async function listAgentRuns(sessionId) {
   }
   return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
+// ============================================================================
+// 第29波(§29b 自动恢复分级):节点续跑危险度。纯函数,只看持久化字段,不碰运行时。红线(AUTONOMY-PLAN §6):
+// 崩溃恢复绝不盲目重放不可逆副作用 —— 判定原则:
+//   safe   = 重跑不会重放不可逆副作用:wait 等待节点(零副作用,不进 runNode)/ 确定性质量门(vote|dedupe,
+//            无模型无工具)/ read 层(工具面无写)/ OpenAI edit 层【且】无已执行写证据(将来的写有 journal 回滚 +
+//            file_write 幂等跳过兜底);
+//   manual = exec 层一律(命令副作用不可审计不可回滚,worktree 圈不住 shell,continuation 也证不了没执行过)
+//            / OpenAI edit 层已有确认写证据(artifacts 非空或 continuation 写族 ok 步)/ Claude 引擎任何可写或可 exec
+//            节点(见对抗轮 P1/P2)。
+// 对抗轮 P1(#17,与第27波 field-shadow 同类根因): 危险度必须按【真正决定执行能力的字段】判,不是 node.toolTier。
+// Claude 引擎节点的实际工具面是 role.claudeTools(runClaudeSubAgentOnce:非空则完全无视 toolTier;为空才落 tier 默认,
+// 而 exec tier 默认=[] 即【不限制】=含 Bash)。于是 toolTier:'edit' 但 claudeTools 携 Bash 的节点会以 bypass 跑 shell,
+// 旧实现却因 tier==='edit' 判 safe —— exec 能力藏进被判 safe 的节点,自动续跑重放不可逆 shell 副作用,击穿红线。
+// 对抗轮 P2(#18): 且 Claude 的 Write/Edit 由 CLI 直接落盘,工作台【无 journal 回滚、无 file_write 幂等跳过】——
+// "edit 重放安全"的依据只对 OpenAI 进程内 toolCall 成立。故 Claude 引擎【任何可写或可 exec 节点一律 manual】,
+// 只有纯读 Claude 节点(及 wait/gate)才 safe。OpenAI 侧 toolTier 由 nativeToolGate 运行时硬enforce(越级拒),
+// 故其 edit-证据逻辑仍有效。工具名内联为字面量(保纯函数自洽 + field-shadow 教训:显式,不 OR-merge)。
+const CLAUDE_EXEC_TOOLS = new Set(['Bash', 'BashOutput', 'KillBash']);
+const CLAUDE_WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
+function classifyNodeResumeRisk(node) {
+  if (!node || typeof node !== 'object') return { safe: true, reason: '' };
+  if (node.wait) return { safe: true, reason: 'wait' };
+  const gateMode = node.gate && node.gate.mode;
+  if (gateMode === 'vote' || gateMode === 'dedupe') return { safe: true, reason: 'gate' };
+  const tier = node.toolTier === 'exec' ? 'exec' : (node.toolTier === 'edit' ? 'edit' : 'read');
+  if (tier === 'exec') return { safe: false, reason: 'exec_tier' };
+  // Claude 引擎:按真实 allowedTools 判(role.claudeTools 优先,空则 tier 默认;exec tier 默认=[] 即不限制)。
+  if ((node.engine || 'openai') === 'claude') {
+    const role = node.roleSnapshot || null;
+    const declared = role && Array.isArray(role.claudeTools) && role.claudeTools.length ? role.claudeTools : null;
+    // 声明为空 + exec/edit tier 会落到含 Bash(exec 无限制)或 Write/Edit(edit 默认)的 tier 默认集 —— 一律按可写/可exec 处理。
+    if (!declared) { if (tier !== 'read') return { safe: false, reason: 'claude_tier_writes' }; return { safe: true, reason: 'read' }; }
+    if (declared.some(t => CLAUDE_EXEC_TOOLS.has(t))) return { safe: false, reason: 'claude_exec_tool' };
+    if (declared.some(t => CLAUDE_WRITE_TOOLS.has(t))) return { safe: false, reason: 'claude_write_no_journal' };
+    return { safe: true, reason: 'claude_read' };
+  }
+  // OpenAI 引擎:tier 运行时硬enforce,edit 有 journal+幂等兜底 —— 保留证据逻辑。
+  if (tier === 'edit') {
+    const steps = (node.continuation && Array.isArray(node.continuation.steps)) ? node.continuation.steps : [];
+    const pend = (node.continuation && node.continuation.pending && typeof node.continuation.pending === 'object') ? Object.values(node.continuation.pending) : [];
+    // 对抗轮 P2(#18): 也扫 continuation.pending —— 崩溃瞬间在途的写(tool_use 已发、tool_result 未回,未晋升 steps)
+    // 停在 pending,只扫 steps 会把"正在写"的 edit 节点误判 safe。pending 步无 ok 字段(尚未落定),命中写族即算已写。
+    const wrote = (Array.isArray(node.artifacts) && node.artifacts.length > 0)
+      || steps.some(s => s && s.ok !== false && NODE_WRITE_FAMILY.has(s.tool))
+      || pend.some(s => s && NODE_WRITE_FAMILY.has(s.tool));
+    if (wrote) return { safe: false, reason: 'edit_confirmed_writes' };
+  }
+  return { safe: true, reason: tier };
+}
+// run 级聚合:按 full-resume 的 reset 语义(非 succeeded 全重排,镜像 runAgentWorkflow existingRun 分支)逐节点
+// 分级;任一危险节点 → 整 run manual(调度器不支持按节点 hold,部分续跑会径直跑进危险节点)。权限面变化
+// (permissionModeAtLaunch ≠ 恢复时 config.permissionMode)→ manual:恢复用的是【恢复时】的模式
+// (launchPersistedAgentRun 传 permModeOverride),不同 = 权限面静默变更,无人值守下不自动放行(方案原文:
+// "涉外部副作用或权限变化只恢复到暂停态")。老 run 无该字段则跳过此信号(分级要可用,不因缺字段一刀切)。
+function classifyRunResumeTier(run, currentPermissionMode) {
+  const reasons = [];
+  for (const n of (Array.isArray(run && run.nodes) ? run.nodes : [])) {
+    if (n.status === 'succeeded') continue;
+    const risk = classifyNodeResumeRisk(n);
+    if (!risk.safe) reasons.push({ nodeId: n.id, reason: risk.reason });
+  }
+  const modeAtLaunch = String(run && run.permissionModeAtLaunch || '');
+  if (modeAtLaunch) {
+    if (currentPermissionMode && String(currentPermissionMode) !== modeAtLaunch) reasons.push({ nodeId: '', reason: 'permission_mode_changed' });
+  } else {
+    // 对抗轮 P2(#19): 缺 permissionModeAtLaunch(wave29 前落盘的旧 interrupted run)无法证明"恢复权限面 ≤ 首跑权限面"
+    // —— 权限拓宽护栏对它整段失效。fail-safe:含非纯读节点时按 manual(证不了没升权就别自动跑)。纯读/wait/gate-only
+    // run 无副作用面,缺字段也可自动。不一刀切全 manual(否则老 run 全卡),只在有真实副作用面时保守。
+    const hasSideEffectFace = (Array.isArray(run && run.nodes) ? run.nodes : []).some(n => n && n.status !== 'succeeded' && (n.toolTier === 'edit' || n.toolTier === 'exec'));
+    if (hasSideEffectFace) reasons.push({ nodeId: '', reason: 'permission_mode_unknown' });
+  }
+  return { tier: reasons.length ? 'manual_resume_required' : 'auto_resumable', reasons: reasons.slice(0, 16) };
+}
+// boot 自动恢复(opt-in,config.autonomyAutoResume,默认 false)。跑在 markInterruptedAgentRuns【之后】:
+// 安全(auto_resumable)的 interrupted run 自动续跑;危险 run 置 paused + run_resume_deferred 事件(UI 可见
+// "等人",且下次 boot 被 markInterruptedAgentRuns 的 paused 跳过分支放过,不反复处理)。崩溃环保护:每次自动
+// 续跑 +1 autoResumeCount 并【先落盘再启动】,护栏写不进盘就不启动(fail-closed —— run 本身可能就是崩溃根因,
+// 无限重启环比不恢复更糟);≥AUTO_RESUME_MAX 次后降 manual。人工 resume 不受此限。
+const AUTO_RESUME_MAX = 2;
+async function autoResumeInterruptedRuns() {
+  let config; try { config = await readConfig(); } catch { return; }
+  if (config.autonomyAutoResume !== true) return;
+  let sessionDirs = []; try { sessionDirs = await fsp.readdir(paths.agentRuns, { withFileTypes: true }); } catch { return; }
+  for (const dirent of sessionDirs) {
+    if (!dirent.isDirectory() || !safeSessionId(dirent.name)) continue;
+    const runs = await listAgentRuns(dirent.name).catch(() => []);
+    for (const run of runs) {
+      if (!run || run.status !== 'interrupted') continue;
+      // 对抗轮 P2(#2): boot 自动恢复与 HTTP 服务并发 —— 用户在 UI 重连后手动 resume 同一 run,已注册 live 并开始
+      // append 事件;此处若继续用手里这份【陈旧对象】append(seq 与 live 对象重号,破坏严格单调硬承诺 + 客户端按
+      // seq 去重静默吞一条)、saveAgentRun(把 interrupted 时代节点状态覆盖 live 最新快照,崩溃后二次重放)就出错。
+      // listAgentRuns 到本次处理之间有 syncRunEventSeq 等 await 窗口,故【每个 run append/save 前】即时复检 live 注册:
+      // 已 live = 用户/上一轮已接管,跳过(launchPersistedAgentRun 的 9345 has 守卫只拦启动,拦不住这些前置写)。
+      if (activeAgentRuns.has(run.id)) continue;
+      const cls = classifyRunResumeTier(run, config.permissionMode);
+      const attempts = Number(run.autoResumeCount) || 0;
+      await syncRunEventSeq(run); // 装载点纪律:append 前快进(见 syncRunEventSeq 注释)
+      if (activeAgentRuns.has(run.id)) continue; // syncRunEventSeq 的 await 后再复检一次(窗口内可能刚被手动 resume 接管)
+      if (cls.tier === 'auto_resumable' && attempts < AUTO_RESUME_MAX) {
+        run.autoResumeCount = attempts + 1;
+        run.resumeTier = 'auto_resumable'; run.resumeTierReasons = [];
+        appendAgentRunEvent(run, { type: 'run_auto_resume', data: { attempt: run.autoResumeCount } });
+        let guardPersisted = true;
+        try { await saveAgentRun(run); } catch { guardPersisted = false; }
+        if (!guardPersisted) continue; // fail-closed: 崩溃环护栏没落盘,不自动续跑
+        await launchPersistedAgentRun({ sessionId: dirent.name, runId: run.id }).catch(() => {});
+      } else {
+        run.resumeTier = 'manual_resume_required';
+        run.resumeTierReasons = (cls.tier === 'auto_resumable') ? [{ nodeId: '', reason: 'auto_resume_loop' }] : cls.reasons;
+        run.status = 'paused'; run.pauseRequestedAt = nowIso();
+        appendAgentRunEvent(run, { type: 'run_resume_deferred', data: { tier: run.resumeTier, reasons: run.resumeTierReasons } });
+        await saveAgentRun(run).catch(() => {});
+      }
+    }
+  }
+}
 async function markInterruptedAgentRuns() {
+  let bootConfig = null; try { bootConfig = await readConfig(); } catch { /* 分级戳降级为跳过,标死不受影响 */ }
   let sessionDirs = []; try { sessionDirs = await fsp.readdir(paths.agentRuns, { withFileTypes: true }); } catch { return; }
   for (const dirent of sessionDirs) {
     if (!dirent.isDirectory() || !safeSessionId(dirent.name)) continue;
@@ -7339,7 +7560,9 @@ async function markInterruptedAgentRuns() {
       if (run.status === 'paused') {
         let dirty = false;
         for (const m of (Array.isArray(run.messages) ? run.messages : [])) if (m && !m.deliveredAt && !m.dropped) { m.dropped = true; dirty = true; }
-        if (dirty) await saveAgentRun(run);
+        // 29b 顺手修(测绘发现): boot 期间快照写失败(磁盘满/杀软锁)此前会把整个 startServer 炸掉 ——
+        // 诚实标记是 best-effort,boot 必须活着;持久化降级横幅由 saveAgentRun 内部计数兜底。下同。
+        if (dirty) await saveAgentRun(run).catch(() => {});
         continue;
       }
       if (run.status !== 'running' && run.status !== 'waiting_pool') continue;
@@ -7350,16 +7573,19 @@ async function markInterruptedAgentRuns() {
       for (const m of (Array.isArray(run.messages) ? run.messages : [])) if (m && !m.deliveredAt && !m.dropped) m.dropped = true;
       for (const node of (run.nodes || [])) {
         if (node.status === 'running') {
-          node.status = 'interrupted'; node.error = '应用在节点运行期间退出'; node.completedAt = nowIso();
+          node.status = 'interrupted'; node.error = '应用在节点运行期间退出'; node.errorClass = 'interrupted'; node.completedAt = nowIso();
           // 25.4: 记下被中断的 attempt —— 恢复重跑时,仅当 continuation 属于这个 attempt 才注入【断点续跑】
           // (区别于 retry/loop 的常规重排,那些不该带"上次已完成勿重复"语义)。
           if (Number(node.attempts) > 0) node.interruptedAttempt = Number(node.attempts);
         }
-        else if (node.status === 'queued' || node.status === 'waiting_resource') { node.status = 'blocked'; node.error = '工作流已中断，尚未执行'; node.waitingForResources = []; }
+        else if (node.status === 'queued' || node.status === 'waiting_resource') { node.status = 'blocked'; node.error = '工作流已中断，尚未执行'; node.errorClass = 'blocked'; node.waitingForResources = []; }
       }
+      // 29b: 中断时就盖恢复分级戳(UI 有 tier 徽章可看;autoResumeInterruptedRuns 决策时【重算】,戳只做展示,
+      // 不做信任来源 —— 分级函数才是单一事实源)。config 读不到则跳过,标死不受影响。
+      if (bootConfig) { const cls = classifyRunResumeTier(run, bootConfig.permissionMode); run.resumeTier = cls.tier; run.resumeTierReasons = cls.reasons; }
       await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
-      await saveAgentRun(run);
+      await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
     }
   }
 }
@@ -7727,6 +7953,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       inTok: subIn, outTok: subOut, cost, currency, estimated, turnSeq: parentSession && parentSession.turnSeq,
       kind: 'subagent', agentKey, subagentId,
     });
+    onEvent({ type: 'subagent_usage', id: subagentId, agentKey, inTok: subIn, outTok: subOut, cost, currency, estimated }); // 29c: 同 Claude 路径(两引擎对称)
   } catch { /* accounting must never break the sub-agent */ }
   onEvent({ type: 'subagent', id: subagentId, state: 'end', ok, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel, engine: 'openai' });
   if (!ok) {
@@ -8344,6 +8571,10 @@ function recordAgentNodeProgress(run, node, evt) {
   if (kind === 'gen' && last && last.kind === 'gen') { last.text = text; last.at = nowIso(); }
   else node.progressLog.push(kind ? { at: nowIso(), text, kind } : { at: nowIso(), text });
   if (node.progressLog.length > 80) node.progressLog = node.progressLog.slice(-80);
+  // 第29波(§29a): 离散里程碑同步落事件日志 —— 增量客户端靠它感知工具级进展,不再为进度轮询全量快照。
+  // gen(流式字数增长,每 +N 字一发且在 progressLog 原地合并)刻意不落 —— 高频噪声会撑爆取证文件;
+  // 其时效由客户端对活跃 run 的低频快照刷新兜底。事件与 progressLog 同文案,客户端可直接 append 镜像。
+  if (kind !== 'gen') appendAgentRunEvent(run, { type: 'node_progress', nodeId: node.id, data: { text: text.slice(0, 200) } });
   // v1.4.6 (A): persistence is now the throttledSaveRun called right after this in nodeEvent, so a long
   // node no longer rewrites the whole run to disk on every single subagent event (a known write cost).
 }
@@ -8555,6 +8786,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // 注意:【绝不】在此清 continuation/interruptedAttempt —— 崩溃恢复的 interrupted 节点也进 reset(8442),
       // 而 25.4 断点续跑注入正靠这两字段(runNode 8704 读),清了会关掉「断点续跑」(autonomy-durability 回归)。
       n.degradedRetried = false; delete n.degraded; delete n.warning; n.summary = ''; n.evidence = []; n.artifacts = [];
+      delete n.errorClass; // 29c: 失败类别随重跑清场(与 error 同生命周期),重跑成功不残留旧分类
     }
     run.status = 'running'; run.completedAt = null; run.resumedAt = nowIso();
     run.concurrency = Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || run.concurrency || 2));
@@ -8563,6 +8795,13 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     if (!Array.isArray(run.messages)) run.messages = [];
     if (!['manual', 'auto-capped', 'off'].includes(run.poolPolicy)) run.poolPolicy = (['manual', 'auto-capped', 'off'].includes(config.agentTaskPoolPolicy) ? config.agentTaskPoolPolicy : 'manual');
     if (!Number.isFinite(Number(run.poolAutoCap))) run.poolAutoCap = Number.isFinite(Number(config.agentTaskPoolAutoCap)) ? Number(config.agentTaskPoolAutoCap) : 3;
+    // 29c: 老 run JSON 无 metrics 字段,缺失才补(同上 taskPool/messages 惯例);干预计数跨 resume 累计不清零。
+    if (!run.metrics || typeof run.metrics !== 'object') run.metrics = {};
+    if (!run.metrics.interventions || typeof run.metrics.interventions !== 'object') run.metrics.interventions = {};
+    // 29b: 本次恢复即消费掉暂停前的分级痕迹(重新跑起来后旧分级不再成立);28d 的 pendingReview 同理 ——
+    // 它此前只设不清(全文件唯一赋值点在 degradedPolicy 处置块),恢复后残留会让 UI 永远挂着"待复核"。
+    delete run.resumeTier; delete run.resumeTierReasons;
+    delete run.pendingReview;
     // 25.3: 恢复入事件日志(带被重排的节点集,崩溃取证的关键锚点)。
     appendAgentRunEvent(run, { type: 'run_resumed', data: { reset: [...reset], retryNodeId: retryNodeId || '' } });
   } else {
@@ -8615,7 +8854,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     const rp0 = String(poolPolicyParam || config.agentTaskPoolPolicy || '').trim();
     const resolvedPoolPolicy = ['manual', 'auto-capped', 'off'].includes(rp0) ? rp0 : 'manual';
     const resolvedAutoCap = Number.isFinite(Number(config.agentTaskPoolAutoCap)) ? Math.min(16, Math.max(0, Math.round(Number(config.agentTaskPoolAutoCap)))) : 3;
-    run = { schemaVersion: 4, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: provider && provider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), taskPool: [], messages: [], poolPolicy: resolvedPoolPolicy, poolAutoCap: resolvedAutoCap, nodes };
+    run = { schemaVersion: 4, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: provider && provider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), taskPool: [], messages: [], poolPolicy: resolvedPoolPolicy, poolAutoCap: resolvedAutoCap,
+      // 29b/29c: 首跑权限面存档(boot 自动恢复分级用 —— 恢复时 config.permissionMode 若比首跑更宽,自动续跑
+      // 等于权限静默升级,必须降人工)+ 运营指标(interventions 干预计数 / failuresByClass 收尾聚合)。
+      permissionModeAtLaunch: String(permModeOverride || config.permissionMode || ''), metrics: { interventions: {} }, nodes };
   }
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行', startedCount: 0, runId };
   const localCtrl = typeof AbortController === 'function' ? new AbortController() : parentCtrl;
@@ -8698,13 +8940,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         status: 'proposed', decidedBy: '', decidedAt: '', resultNodeId: '', createdAt: nowIso(),
       };
       run.taskPool.push(item);
+      appendAgentRunEvent(run, { type: 'run_pool', data: { action: 'proposed', poolId: item.id } }); // 29a: 池变更事件(增量客户端据此刷新单 run 快照)
       // auto-capped: cap 内直接置 approved 并物化(cap 用尽则留 proposed 转 manual)。
       if (poolPolicy === 'auto-capped') {
         const cap = Number.isFinite(Number(run.poolAutoCap)) ? Number(run.poolAutoCap) : 3;
         const autoUsed = run.taskPool.filter(p => p !== item && p.decidedBy === 'auto' && p.status === 'materialized').length;
         if (autoUsed < cap) {
           const mat = materializePoolItem(run, item, { roleLibrary, cwd: wfCwd, config });
-          if (mat.ok) { item.status = 'materialized'; item.decidedBy = 'auto'; item.decidedAt = nowIso(); item.resultNodeId = mat.node.id; try { runtime.poolGraceArmed = true; } catch {} }
+          if (mat.ok) { item.status = 'materialized'; item.decidedBy = 'auto'; item.decidedAt = nowIso(); item.resultNodeId = mat.node.id; try { runtime.poolGraceArmed = true; } catch {} appendAgentRunEvent(run, { type: 'run_pool', data: { action: 'materialized', poolId: item.id, by: 'auto' } }); }
           else { item.materializeError = String(mat.error || '').slice(0, 2000); }
         }
       }
@@ -8788,7 +9031,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     if (run.status === 'paused') { run.status = 'running'; runtime.lastActivityAt = Date.now(); await saveAgentRun(run).catch(() => {}); } // v1.x (B1-fix): resume resets the idle clock so a long pause does not make the very next watchdog tick false-fire
     if (runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) {
       while (inFlight.size) await raceInFlight();   // 第26波: ctrl 已 abort,在飞节点快速收敛;drain 后再统一取消
-      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒无进展），已中止` : '父回合已停止'); node.completedAt = nowIso(); }
+      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒无进展），已中止` : '父回合已停止'); node.errorClass = idleAborted && !runtime.stopRequested ? 'idle_timeout' : 'cancelled'; node.completedAt = nowIso(); }
       break;
     }
     // 第28e波(§28e):轮询 waiting 节点(【零 token】——纯 fs/net/process 探测,不起子代理)。满足→succeeded 放行下游;
@@ -8802,15 +9045,15 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         const pollOne = async node => {
           const w = node.wait || {};
           const started = Date.parse(node.waitStartedAt || '') || Date.now();
-          const settle = (status, err, detail) => {
+          const settle = (status, err, detail, errClass) => {
             node.status = status; node.completedAt = nowIso();
-            if (status === 'failed') node.error = err; else { node.result = detail || ('等待条件已满足: ' + (w.mode || '')); deriveNodeOutputs(node); }
+            if (status === 'failed') { node.error = err; node.errorClass = errClass || 'wait_failed'; } else { node.result = detail || ('等待条件已满足: ' + (w.mode || '')); delete node.errorClass; deriveNodeOutputs(node); }
             onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status, waitMode: w.mode });
-            appendAgentRunEvent(run, { type: 'node_settled', nodeId: node.id, attemptId: node.attempts, data: { status, waitMode: w.mode } });
+            appendAgentRunEvent(run, { type: 'node_settled', nodeId: node.id, attemptId: node.attempts, data: { status, errorClass: node.errorClass || '', waitMode: w.mode } });
             if (terminal(node)) dropNodeMail(node.id);
           };
           // 超时判定每轮都跑(墙钟,不受节流影响)。
-          if (Date.now() - started > (Number(w.timeoutMs) || 300000)) { settle('failed', `等待条件超时(>${Math.round((Number(w.timeoutMs) || 300000) / 1000)}秒未满足)`); return; }
+          if (Date.now() - started > (Number(w.timeoutMs) || 300000)) { settle('failed', `等待条件超时(>${Math.round((Number(w.timeoutMs) || 300000) / 1000)}秒未满足)`, null, 'wait_timeout'); return; }
           // 对抗轮 P3:per-node pollMs 节流 —— 条件探测频率与循环唤醒解耦(否则与活跃/循环节点共调度时 url 会被超频外呼)。
           // 首次(lastWaitPollAt 未设)立即探;之后每 pollMs 一次,不论循环被别的节点唤醒多频繁。
           if (Date.now() - (Number(node.lastWaitPollAt) || 0) < (Number(w.pollMs) || 2000)) return;
@@ -8882,7 +9125,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     });
     for (const { id, blockers } of step.toBlock) {
       const node = nodes.find(n => n.id === id); if (!node) continue;
-      node.status = 'blocked'; node.error = `被失败的前序节点阻塞: ${blockers.join(', ')}`; node.completedAt = nowIso();
+      node.status = 'blocked'; node.error = `被失败的前序节点阻塞: ${blockers.join(', ')}`; node.errorClass = 'blocked'; node.completedAt = nowIso();
       dropNodeMail(node.id); // P3-1: blocked 节点批外转移,清扫其滞留邮件
       onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status, blockers });
     }
@@ -8944,6 +9187,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           node.status = node.structuredResult.verdict === 'pass' ? 'succeeded' : 'rejected';
           node.gateVerdict = node.structuredResult.verdict;
           node.error = node.status === 'rejected' ? `投票质量门未通过: ${node.structuredResult.summary}` : '';
+          if (node.status === 'rejected') node.errorClass = 'gate_rejected'; else delete node.errorClass; // 29c 对抗轮 P3(#10): 与模型门 rejected(9206)对称,vote 拒也标类别
         } else if (node.gate && node.gate.mode === 'dedupe') {
           node.structuredResult = dedupeAgentFindings(depNodes);
           node.result = JSON.stringify(node.structuredResult);
@@ -8957,7 +9201,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             effectiveResources = remapAgentResources(node.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace), node.isolation.path);
             await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命
           }
-          const nodeEvent = evt => { runtime.lastActivityAt = Date.now(); try { onEvent(evt); } finally { recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); } };
+          const nodeEvent = evt => { runtime.lastActivityAt = Date.now(); try { onEvent(evt); } finally { if (evt && evt.type === 'subagent_usage') accumulateRunUsage(run, evt); recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); } };
           const sub = await runSubAgent({
             parentSession: agentSession, provider, config, engine: node.engine || 'openai',
             task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
@@ -8980,6 +9224,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           node.status = sub.ok ? 'succeeded' : 'failed';
           node.result = String(sub.result || '').slice(0, 24000);
           node.error = sub.ok ? '' : String(sub.error || '子代理失败').slice(0, 4000);
+          if (sub.ok) delete node.errorClass; else node.errorClass = classifyNodeErrorText(node.error); // 29c(重试成功即清旧类)
           // 审计 P2: 透传 degraded —— Claude CLI 产出可用输出后异常退出的「降级成功」(runClaudeSubAgentOnce 返回
           // {ok:true,degraded:true,warning})。此前被丢弃 → 前端整套「降级完成」渲染(app.js nodeDisplayStatus:
           // succeeded+node.degraded→'degraded')成死代码,残缺结果被当干净成功。status 维持 succeeded(确是成功),
@@ -8997,27 +9242,27 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
               const fixed = await repairNodeJsonViaProvider(provider, config, parentSession, node, effectiveSchema, node.result, parsed.error);
               if (fixed) { const p2 = parseStructuredAgentOutput(fixed); if (p2.ok) { parsed = p2; node.jsonRepaired = true; } }
             }
-            if (!parsed.ok) { node.status = 'failed'; node.error = parsed.error; node.schemaErrors = [parsed.error]; }
+            if (!parsed.ok) { node.status = 'failed'; node.error = parsed.error; node.errorClass = 'schema_failed'; node.schemaErrors = [parsed.error]; }
             else {
               const checked = validateAgentJsonSchema(parsed.value, effectiveSchema);
               node.structuredResult = parsed.value; node.schemaErrors = checked.errors;
-              if (!checked.ok) { node.status = 'failed'; node.error = 'JSON Schema 校验失败: ' + checked.errors.join('; ').slice(0, 3500); }
+              if (!checked.ok) { node.status = 'failed'; node.error = 'JSON Schema 校验失败: ' + checked.errors.join('; ').slice(0, 3500); node.errorClass = 'schema_failed'; }
             }
           }
           if (node.status === 'succeeded' && node.gate) {
             const verdict = verdictPasses(node.structuredResult, node.gate);
             node.confidence = verdict.confidence; node.gateVerdict = verdict.verdict;
-            if (!verdict.pass) { node.status = 'rejected'; node.error = `质量门未通过: verdict=${verdict.verdict || 'missing'}, confidence=${verdict.confidence.toFixed(2)}`; }
+            if (!verdict.pass) { node.status = 'rejected'; node.error = `质量门未通过: verdict=${verdict.verdict || 'missing'}, confidence=${verdict.confidence.toFixed(2)}`; node.errorClass = 'gate_rejected'; }
           } else if (node.structuredResult && Number.isFinite(Number(node.structuredResult.confidence))) node.confidence = Math.min(1, Math.max(0, Number(node.structuredResult.confidence)));
         }
       } catch (e) {
-        node.status = 'failed'; node.error = String(e && e.message || e).slice(0, 4000);
+        node.status = 'failed'; node.error = String(e && e.message || e).slice(0, 4000); node.errorClass = 'node_exception';
       } finally {
         if (isolated && node.isolation) {
           try { await finalizeAgentWorktree(node.isolation, runId, node.id); }
           catch (e) {
             node.isolation.status = 'error'; node.isolation.error = String(e && (e.gitStderr || e.message) || e).slice(0, 4000);
-            if (node.status === 'succeeded') { node.status = 'failed'; node.error = '隔离工作树收尾失败：' + node.isolation.error; }
+            if (node.status === 'succeeded') { node.status = 'failed'; node.error = '隔离工作树收尾失败：' + node.isolation.error; node.errorClass = 'worktree_error'; }
           }
         }
       }
@@ -9029,7 +9274,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (node.degraded === true && node.status === 'succeeded') {
         const pol = node.degradedPolicy || 'accept';
         if (pol === 'fail') {
-          node.status = 'failed'; node.error = node.warning || '降级输出按策略(fail)判失败'; node.degraded = false;
+          node.status = 'failed'; node.error = node.warning || '降级输出按策略(fail)判失败'; node.errorClass = 'degraded_fail'; node.degraded = false;
         } else if (pol === 'retry' && !node.degradedRetried) {
           node.degradedRetried = true; node.degraded = false; node.warning = ''; node.status = 'queued'; node.completedAt = null;
           if (node.isolation && node.isolation.path) await cleanupAgentWorktree(node.isolation).catch(() => {});
@@ -9049,7 +9294,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         const untilMet = node.loop.until && evaluateWorkflowCondition(node.loop.until, nodes, node);
         if (untilMet) node.loopStopReason = 'condition_met';
         else if (node.noProgressCount >= node.loop.noProgressLimit) {
-          node.loopStopReason = 'no_progress'; if (node.loop.onNoProgress === 'fail') { node.status = 'failed'; node.error = `连续 ${node.noProgressCount} 轮无进展，已停止`; }
+          node.loopStopReason = 'no_progress'; if (node.loop.onNoProgress === 'fail') { node.status = 'failed'; node.error = `连续 ${node.noProgressCount} 轮无进展，已停止`; node.errorClass = 'no_progress'; }
         } else if (node.loopIteration < node.loop.maxIterations) {
           node.status = 'queued'; node.completedAt = null;
           onEvent({ type: 'agent_workflow', state: 'node_loop', id: runId, nodeId: node.id, iteration: node.loopIteration + 1, maxIterations: node.loop.maxIterations, noProgressCount: node.noProgressCount });
@@ -9070,7 +9315,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status, confidence: node.confidence });
       }
       // 25.3: 每个 attempt 的落定入事件日志(queued = retry/loop 重排)。
-      appendAgentRunEvent(run, { type: node.status === 'queued' ? 'node_requeued' : 'node_settled', nodeId: node.id, attemptId: node.attempts, data: { status: node.status, degraded: !!node.degraded } });
+      appendAgentRunEvent(run, { type: node.status === 'queued' ? 'node_requeued' : 'node_settled', nodeId: node.id, attemptId: node.attempts, data: { status: node.status, degraded: !!node.degraded, errorClass: node.errorClass || '' } });
       // 团队模式 v2 (B1/P3-1): 本节点若已到终态(非 loop/retry 回 queued),清扫其邮箱未投递邮件(与 blocked/skipped 同款)。
       if (terminal(node)) dropNodeMail(node.id);
       await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命 —— 节点已执行完,持久化失败不该把结果作废
@@ -9085,8 +9330,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       flight = runNode(node).catch(e => {
         // 26a 对抗轮: 池级兜底不静默 —— runNode 内层 try 之外的抛(onEvent/提示词组装)会把节点卡死在
         // 'running' 并在下一轮被误诊成环;钉在节点上 + 落事件,留取证。
-        if (!terminal(node)) { node.status = 'failed'; node.error = '调度器兜底异常: ' + String((e && e.message) || e).slice(0, 500); node.completedAt = nowIso(); }
-        appendAgentRunEvent(run, { type: 'node_settled', nodeId: node.id, attemptId: node.attempts, data: { status: node.status, poolCatch: true } });
+        if (!terminal(node)) { node.status = 'failed'; node.error = '调度器兜底异常: ' + String((e && e.message) || e).slice(0, 500); node.errorClass = 'scheduler_error'; node.completedAt = nowIso(); }
+        appendAgentRunEvent(run, { type: 'node_settled', nodeId: node.id, attemptId: node.attempts, data: { status: node.status, errorClass: node.errorClass || '', poolCatch: true } });
         saveAgentRun(run).catch(() => {});
       }).finally(() => { if (inFlight.get(node.id) === flight) inFlight.delete(node.id); });   // 26a 铁律③: 身份守卫删除
       inFlight.set(node.id, flight);
@@ -9099,7 +9344,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // 26a 铁律①(reducer 已判):本步零派发【且】在飞空【且】未全终态 → 依赖环/无法解锁。外壳再确认 inFlight
       // 仍空(reducer 决策与此处应用间无 await 改变 inFlight,双保险)。同步型节点在派发器 save await 期间 settle
       // 清空 inFlight,只看 inFlight.size 会把刚解锁的下游误诊成环(对抗轮 P1-1,确定性复现)。
-      for (const node of nodes) if (!terminal(node)) { node.status = 'failed'; node.error = '依赖图存在环或无法解锁'; node.completedAt = nowIso(); }
+      for (const node of nodes) if (!terminal(node)) { node.status = 'failed'; node.error = '依赖图存在环或无法解锁'; node.errorClass = 'dependency_cycle'; node.completedAt = nowIso(); }
       break;
     }
     // 第28e波:循环 tick —— 有在飞则等其一 settle;只剩 waiting 节点时用可中断 sleep(pollMs)定时唤醒重 poll(避免 busy-spin,
@@ -9125,6 +9370,19 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   run.status = runtime.stopRequested ? 'stopped' : (failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded');
   run.completedAt = nowIso();
   run.summary = summarizeAgentWorkflowRun(run);
+  // 29c: 收尾聚合失败分类 —— 幂等重算(非增量),resume 重跑后自动反映最新状态。errorClass 由各 error
+  // 设置点显式标注(字符串匹配分类是脆的);rejected 是质量门"否"裁决,归 gate_rejected 不混入执行失败。
+  if (!run.metrics || typeof run.metrics !== 'object') run.metrics = { interventions: {} };
+  run.metrics.failuresByClass = {};
+  for (const n of nodes) {
+    if (n.status === 'succeeded' || n.status === 'skipped') continue;
+    // 对抗轮 P2(#7): 口径必须与上面 failed 清单(9320)一致 —— fromPool+continue 的池帮手失败是"接受的降级"
+    // (A3),已排除出 run 总态/run_end.failed;若这里仍计入,同一份终稿会 status='succeeded'/failed=0 却 failuresByClass 报 1,
+    // 自相矛盾。rejected(质量门"否")归 gate_rejected,不与执行失败混。
+    if (n.fromPool && n.failurePolicy === 'continue' && n.status !== 'rejected') continue;
+    const cls = n.status === 'rejected' ? 'gate_rejected' : (n.errorClass || 'unclassified');
+    run.metrics.failuresByClass[cls] = (run.metrics.failuresByClass[cls] || 0) + 1;
+  }
   appendAgentRunEvent(run, { type: 'run_end', data: { status: run.status, failed: failed.length } }); // 25.3(先增 seq 再终稿落盘)
   await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命 —— 终稿写失败时结果仍应回给调用方(onComplete/回合),磁盘状态由降级横幅兜底
   onEvent({ type: 'agent_workflow', state: 'end', id: runId, status: run.status, succeeded: nodes.length - failed.length, failed: failed.length });
@@ -9136,12 +9394,13 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   };
 }
 
-async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade }) {
+async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind }) {
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
   try { run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null); } catch { run = null; }
   if (!run) return { ok: false, error: 'agent run not found' };
   await syncRunEventSeq(run);   // 对抗轮修: 磁盘装载点快进 eventSeq(见 syncRunEventSeq 注释)
+  if (interventionKind) bumpRunIntervention(run, interventionKind); // 29c: 冷 resume/retry_node 是人工干预(boot 自动续跑不传,不计)
   const config = await readConfig();
   const provider = resolveProvider(config, run.providerId) || activeOpenAiProvider(config);
   // Only the nodes that actually need an OpenAI Provider require one to be configured to resume —
@@ -10428,7 +10687,13 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
 
     // ③ 预算:自动续跑回合数 / token 上限。达上限 → 存档暂停(autoMode→supervised,保留进度,非报错)。
     if (m.spent.autoTurns >= m.budget.maxAutoTurns || (m.budget.maxTokens > 0 && m.spent.tokens >= m.budget.maxTokens)) {
-      m.autoMode = 'supervised'; m.updatedAt = nowIso(); await saveSession(session).catch(() => {});
+      // 对抗轮 P2(#6): 只在【转入】耗尽时落一次审计账 —— 用户经 action:'update' 把 autoMode 重设回 until-done 后,
+      // 预算仍是耗尽态(applyMissionUpdate 不改 budget/spent),驱动器每次再入都会立刻再命中本判定;若每次都 logEvent,
+      // budgetExhausted 分子随再武装无限 +1 而分母(started)恒为 1,超支率可 >100%。budgetExhaustedAt 已置 = 本轮耗尽
+      // 已记过,不重复落账(下次 start 全新任务时 normalizeMission prev=null 会清掉它,新任务的耗尽正常重记)。
+      const firstExhaust = !m.budgetExhaustedAt;
+      m.autoMode = 'supervised'; m.budgetExhaustedAt = m.budgetExhaustedAt || nowIso(); m.updatedAt = nowIso(); await saveSession(session).catch(() => {});
+      if (firstExhaust) logEvent({ kind: 'mission_budget_exhausted', sessionId: session.id, autoTurns: m.spent.autoTurns, maxAutoTurns: m.budget.maxAutoTurns, tokens: m.spent.tokens, maxTokens: m.budget.maxTokens });
       emit({ type: 'mission', mission: m, state: 'budget_exhausted', reason: `自动推进预算已用尽(${m.spent.autoTurns}/${m.budget.maxAutoTurns} 回合),已暂停等待你的指示` });
       return;
     }
@@ -13802,6 +14067,9 @@ async function handleApi(req, res, pathname) {
     clearTimeout(entry.timer);
     pendingPermissions.delete(String(body.requestId));
     const behavior = body.behavior === 'allow' ? 'allow' : 'deny';
+    // 29c: 干预落账 —— 只对真实待决请求计数(过期/重复决定已被上面 404 滤掉);entry 自带 sessionId。
+    // 存档暂停(27f)窗口内的决定与基础窗内的决定走同一 handler,天然同权重。
+    logEvent({ kind: 'intervention', source: 'permission_decision', sessionId: entry.sessionId || '', behavior });
     entry.resolve(behavior === 'allow' ? { behavior: 'allow', updatedInput: body.updatedInput } : { behavior: 'deny', message: body.message || 'denied by user' });
     return send(res, json({ ok: true }));
   }
@@ -13819,6 +14087,7 @@ async function handleApi(req, res, pathname) {
     clearTimeout(entry.timer);
     pendingPlans.delete(planId);
     const decision = body.decision === 'approve' ? 'approve' : 'reject';
+    logEvent({ kind: 'intervention', source: 'plan_decision', sessionId, decision }); // 29c
     entry.resolve({ decision, note: body.note != null ? String(body.note) : '' });
     return send(res, json({ ok: true }));
   }
@@ -13881,6 +14150,7 @@ async function handleApi(req, res, pathname) {
       const input = { ...(bodyOrQ.mission || bodyOrQ) };
       if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
       session.mission = normalizeMission(input, null, trusted);
+      logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
     } else {
       if (!session.mission) return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
       session.mission = applyMissionUpdate(session.mission, bodyOrQ.patch || bodyOrQ, trusted);
@@ -13994,15 +14264,57 @@ async function handleApi(req, res, pathname) {
       return send(res, json({ ok: true, range, totals: { inTok: 0, outTok: 0, turns: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} }, byEngine: [], byProvider: [], bySession: [], byDay: [], budget: null }));
     }
   }
+  // 第29波(§29c): 运营指标聚合(read-only GET,同 usage/summary 纪律:handler 自查 tokenOk,失败回空聚合)。
+  if (req.method === 'GET' && pathname === '/api/ops/metrics') {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const daysQ = new URL(req.url, 'http://x').searchParams.get('days');
+    try { return send(res, json(await buildOpsMetrics(daysQ))); }
+    catch { return send(res, json({ ok: true, days: 7, interventions: { total: 0, bySource: {} }, missions: { started: 0, budgetExhausted: 0, budgetOverrunRate: 0 } })); }
+  }
   // v0.8-S4a: checkpoint query (read-only → same-origin gate is enough; not in needsToken).
   if (req.method === 'GET' && pathname === '/api/agent-runs') {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-    const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId'));
+    const listUrl = new URL(req.url, 'http://x');
+    const sessionId = safeSessionId(listUrl.searchParams.get('sessionId'));
     if (!sessionId) return send(res, json({ ok: false, error: 'sessionId required' }, 400));
     const runs = await listAgentRuns(sessionId);
     // 25.2: persistenceDegraded 从内存活跃对象叠加下发 —— 快照写失败时磁盘是陈旧的,这条旗标必须绕过磁盘到达 UI。
     for (const run of runs) { const live = activeAgentRuns.get(run.id); if (live) { run.live = true; run.paused = !!live.paused; if (live.run && live.run.persistenceDegraded) run.persistenceDegraded = true; } }
+    // 第29波(§29a): digest 轻量视图 —— 增量客户端每 tick 只拉这份 run 级标量做变更探测(eventSeq/status/
+    // updatedAt),不再每 2s 重传全部节点(单节点 result≤24KB + roleSnapshot 8KB prompt,历史终态 run 每 tick
+    // 白传)。live run 的 eventSeq/status/updatedAt 以【内存】为准(快照节流 1.5s,磁盘恒旧);快照仍是唯一
+    // 权威状态源,digest 只是"该不该去拉"的信号。
+    if (listUrl.searchParams.get('view') === 'digest') {
+      const digest = runs.map(r => {
+        const live = activeAgentRuns.get(r.id);
+        const mem = live && live.run ? live.run : null;
+        return {
+          id: r.id, status: mem ? mem.status : r.status, eventSeq: Number((mem || r).eventSeq) || 0,
+          updatedAt: (mem || r).updatedAt || '', createdAt: r.createdAt || '', completedAt: (mem || r).completedAt || '',
+          nodeCount: Array.isArray((mem || r).nodes) ? (mem || r).nodes.length : 0,
+          poolPending: ((mem || r).taskPool || []).filter(p => p && p.status === 'proposed').length,
+          live: !!live, paused: !!(live && live.paused), persistenceDegraded: !!(mem && mem.persistenceDegraded) || r.persistenceDegraded === true,
+          resumeTier: (mem || r).resumeTier || '', pendingReview: !!(mem || r).pendingReview,
+          anyRunning: Array.isArray((mem || r).nodes) && (mem || r).nodes.some(n => n && (n.status === 'running' || n.status === 'waiting_resource')),
+        };
+      });
+      return send(res, json({ ok: true, view: 'digest', runs: digest }));
+    }
     return send(res, json({ ok: true, runs }));
+  }
+  // 第29波(§29a): 增量事件消费 —— 客户端记住 lastSeq,断线/重开后 afterSeq=lastSeq 重发即天然补播;
+  // seq 严格单调(25.3)保证补播无重无漏。必须排在文件底部 GET /api/agent-runs/:id 通配前缀分支之前,
+  // 否则被吞。跨会话防护与快照端点同源:事件文件按 sessionId 分目录,错 session 只会 404→空数组。
+  if (req.method === 'GET' && pathname.startsWith('/api/agent-runs/') && pathname.endsWith('/events')) {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const evUrl = new URL(req.url, 'http://x');
+    const sessionId = safeSessionId(evUrl.searchParams.get('sessionId'));
+    const evParts = pathname.split('/').filter(Boolean); // ['api','agent-runs',runId,'events']
+    const runId = evParts.length === 4 ? safeSessionId(evParts[2]) : null;
+    if (!sessionId || !runId) return send(res, json({ ok: false, error: 'sessionId/runId required' }, 400));
+    const afterSeq = Number(evUrl.searchParams.get('afterSeq')) || 0;
+    const { events, hasMore } = await readAgentRunEvents(sessionId, runId, afterSeq, Number(evUrl.searchParams.get('limit')) || 0);
+    return send(res, json({ ok: true, runId, afterSeq, events, hasMore }));
   }
   if (req.method === 'POST' && pathname.startsWith('/api/agent-runs/')) {
     const parts = pathname.split('/').filter(Boolean);
@@ -14020,7 +14332,12 @@ async function handleApi(req, res, pathname) {
     if (live && live.run && live.run.sessionId && live.run.sessionId !== sessionId) return send(res, json({ ok: false, error: 'agent run not found' }, 404));
     if (action === 'pause') {
       if (!live) return send(res, json({ ok: false, error: '工作流当前未运行' }, 409));
+      // 对抗轮 P3(#8): 计数按【状态迁移】幂等 —— 对已暂停 run 重复 POST(UI 按钮态滞后期双击/双面板)端点行为
+      // 无害但计数器会被 UI 时延系统性抬高。只在真正 running→paused 时计一次干预(与本文件 pool_approve 先查
+      // status!=='proposed' 的"无效重复不计干预"模式一致)。
+      const wasPaused = live.paused === true;
       live.paused = true; live.run.pauseRequestedAt = nowIso();
+      if (!wasPaused) bumpRunIntervention(live.run, 'pause'); // 29c(状态迁移才计)
       appendAgentRunEvent(live.run, { type: 'run_paused', data: { reason: 'user' } }); // 25.3
       await saveAgentRun(live.run);
       return send(res, json({ ok: true, state: 'pausing' }));
@@ -14029,17 +14346,21 @@ async function handleApi(req, res, pathname) {
       if (live) {
         // Reset the idle clock ATOMICALLY with clearing paused: the watchdog reads live.lastActivityAt, so by the
         // time it observes paused=false the clock is already fresh -> no false idle-abort right after a long pause.
+        const wasPaused = live.paused === true; // 对抗轮 P3(#8): 仅 paused→running 计一次(对运行中 run resume 是 no-op,不计)
         live.paused = false; live.lastActivityAt = Date.now(); const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake();
+        if (wasPaused) bumpRunIntervention(live.run, 'resume'); // 29c
         appendAgentRunEvent(live.run, { type: 'run_resume_requested', data: { mode: 'warm' } }); // 25.3
         saveAgentRun(live.run).catch(() => {}); // 对抗轮修: 追写快照,让 eventSeq 尽快落盘(缩小崩溃重号窗口)
         return send(res, json({ ok: true, state: 'running' }));
       }
-      return send(res, json(await launchPersistedAgentRun({ sessionId, runId })));
+      return send(res, json(await launchPersistedAgentRun({ sessionId, runId, interventionKind: 'resume' })));
     }
     if (action === 'stop') {
       if (!live) return send(res, json({ ok: false, error: '工作流当前未运行' }, 409));
+      const wasStopping = live.stopRequested === true; // 对抗轮 P3(#8): 重复 stop 不重复计
       live.stopRequested = true; live.paused = false; try { if (live.ctrl) live.ctrl.abort(); } catch {}
       const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake();
+      if (!wasStopping) bumpRunIntervention(live.run, 'stop'); // 29c
       appendAgentRunEvent(live.run, { type: 'run_stop_requested' }); // 25.3
       saveAgentRun(live.run).catch(() => {}); // 对抗轮修: 同 resume —— 追写快照缩小 eventSeq 崩溃重号窗口
       return send(res, json({ ok: true, state: 'stopping' }));
@@ -14047,7 +14368,7 @@ async function handleApi(req, res, pathname) {
     if (action === 'retry_node') {
       if (live) return send(res, json({ ok: false, error: '请先等待或停止当前运行' }, 409));
       const nodeId = String(body.nodeId || '').trim();
-      return send(res, json(await launchPersistedAgentRun({ sessionId, runId, retryNodeId: nodeId, retryCascade: body.cascade === true })));
+      return send(res, json(await launchPersistedAgentRun({ sessionId, runId, retryNodeId: nodeId, retryCascade: body.cascade === true, interventionKind: 'retry_node' })));
     }
     if (action === 'apply_isolation') {
       if (live) return send(res, json({ ok: false, error: '请先等待当前运行结束' }, 409));
@@ -14081,6 +14402,7 @@ async function handleApi(req, res, pathname) {
       if (!q) { q = []; live.steerQueues.set(nodeId, q); }
       if (q.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '该节点插话队列已满' }, 409));
       q.push(text);
+      bumpRunIntervention(live.run, 'steer_node'); // 29c(队列在内存,计数随下一次快照落盘即可,不额外写盘)
       return send(res, json({ ok: true, queued: q.length }));
     }
     // 团队模式 v2 (A2/A4): 任务池审批。归属守卫(live.run.sessionId !== sessionId → 404)已在上方对全 action 生效。
@@ -14094,6 +14416,8 @@ async function handleApi(req, res, pathname) {
       if (item.status !== 'proposed') return send(res, json({ ok: false, error: `该提案已处理(${item.status})` }, 409));
       if (action === 'pool_reject') {
         item.status = 'rejected'; item.decidedBy = 'user'; item.decidedAt = nowIso();
+        bumpRunIntervention(live.run, 'pool_reject'); // 29c
+        appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'rejected', poolId, by: 'user' } }); // 29a
         await saveAgentRun(live.run);
         return send(res, json({ ok: true, status: 'rejected', poolId }));
       }
@@ -14115,6 +14439,8 @@ async function handleApi(req, res, pathname) {
       const mat = materializePoolItem(live.run, item, { roleLibrary: roleLib, cwd, config: cfgRef });
       if (!mat.ok) return send(res, json({ ok: false, error: mat.error || '物化失败' }, 409));
       item.status = 'materialized'; item.decidedBy = 'user'; item.decidedAt = nowIso(); item.resultNodeId = mat.node.id;
+      bumpRunIntervention(live.run, 'pool_approve'); // 29c
+      appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'materialized', poolId, by: 'user', nodeId: mat.node.id } }); // 29a
       // 团队模式 v2 (P2-1 重新武装): 物化成功 → 允许宽限窗再武装一次。窗只在有新节点物化后才能重开,而物化必消耗一条
       // proposed(POOL_MAX_TOTAL=8 天然封顶总提案),故续窗次数 ≤ 物化次数 ≤ 8,不会无限续窗。
       try { live.poolGraceArmed = true; } catch {}
@@ -14146,6 +14472,14 @@ async function handleApi(req, res, pathname) {
     const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId'));
     const runId = safeSessionId(pathname.slice('/api/agent-runs/'.length));
     if (!sessionId || !runId) return send(res, json({ ok: false, error: 'sessionId/runId required' }, 400));
+    // 第29波(§29a): live run 以【内存】对象下发 —— 增量客户端在 settle 类事件后靠本端点刷新单 run 状态,
+    // 磁盘快照节流 1.5s 恒旧,读盘会让客户端 lastSeq 与状态错位(拿旧状态配新 seq)。JSON.stringify 同步
+    // 执行,事件循环内原子,无撕裂读。归属校验与 POST action 的 live 分支同源(sessionId 不符 = 404)。
+    const liveOne = activeAgentRuns.get(runId);
+    if (liveOne && liveOne.run) {
+      if (liveOne.run.sessionId !== sessionId) return send(res, json({ ok: false, error: 'agent run not found' }, 404));
+      return send(res, json({ ok: true, run: { ...liveOne.run, live: true, paused: !!liveOne.paused } }));
+    }
     try {
       const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null);
       if (!run) throw new Error('invalid run');
@@ -14373,6 +14707,7 @@ async function handleApi(req, res, pathname) {
     if (!Array.isArray(reg.steerQueue)) reg.steerQueue = [];
     if (reg.steerQueue.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '插话队列已满' }));
     reg.steerQueue.push(text);
+    logEvent({ kind: 'intervention', source: 'steer', sessionId }); // 29c
     return send(res, json({ ok: true, queued: reg.steerQueue.length }));
   }
   if (req.method === 'POST' && pathname === '/api/upload') {
@@ -14519,6 +14854,9 @@ async function listenWithFallback(server, port, host, config) {
 async function startServer(opts) {
   await ensureDirs();
   await markInterruptedAgentRuns();
+  // 第29波(§29b): boot 自动恢复分级(opt-in,默认 false=零行为变化)。放在诚实标死【之后】、fire-and-forget:
+  // 恢复失败/慢盘绝不阻塞 boot;真正的续跑在 runAgentWorkflow 内自走调度环。
+  void autoResumeInterruptedRuns().catch(() => {});
   // PF2 fix: a hard crash (SIGKILL / power loss, where no exit handler ran to flush) can leave sessions/index.json
   // stale while its id-set still MATCHES the session files on disk — listSessions' fast path would then trust that
   // stale index FOREVER (renames / pins / messageCounts / summaries never re-surface until some OTHER session is

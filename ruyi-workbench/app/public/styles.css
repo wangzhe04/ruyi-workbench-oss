@@ -445,7 +445,7 @@ input:focus, textarea:focus, select:focus {
 .ag-detail { flex: 1; min-width: 120px; color: var(--ink-2); font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .ag-detail .ag-net { color: var(--danger-fg); font-weight: 600; }
 .ag-uses, .ag-ttl { flex: none; font-size: var(--fs-xs, 11px); color: var(--muted); font-variant-numeric: tabular-nums; }
-.ag-revoke { flex: none; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+.ag-revoke { flex: none; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: var(--fs-base); line-height: 1; padding: 2px 4px; border-radius: 4px; } /* 29 回归修: 第27波遗留裸 px 字号 → token(全局仅存 2 处基线锚点的纪律锁) */
 .ag-revoke:hover { color: var(--danger-fg); background: var(--danger-bg); }
 /* 签发表单。 */
 .autonomy-issue { padding: 8px 16px 12px; display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--line-2); }
