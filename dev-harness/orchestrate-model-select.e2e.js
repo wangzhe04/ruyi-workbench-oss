@@ -102,6 +102,15 @@ ok(M.tierModelForNode('exec', 'openai', cfgT, prov) === 'qwen3.7-max-preview', '
 ok(M.tierModelForNode('exec', 'claude', cfgT, prov) === '', 'P tierModelForNode claude→空(继承)');
 ok(M.tierModelForNode('exec', 'openai', cfgT, { models: [] }) === 'qwen3.7-max-preview', 'P 对抗轮 P3:provider.models=[] 时从 knownModels 挑(不再静默失效)');
 ok(M.tierModelForNode('exec', 'openai', { knownModels: [], extraModels: [], model: '' }, { models: [] }) === '', 'P 真无可选自定义模型→空(不从 Claude 预设别名乱挑)');
+// 对抗轮 live 修:provider 声明了 models → 优先用它(不混入跨 provider 的 knownModels)。
+{
+  const provDeep = { id: 'deepseek', model: 'ds-flash', models: [{ id: 'ds-flash' }, { id: 'ds-pro-max' }] };
+  const cfgCross = { knownModels: ['qwen-plus', 'ds-flash'], extraModels: [], model: 'glm-x', agentAutoModelTiering: true };
+  ok(M.tierModelForNode('exec', 'openai', cfgCross, provDeep) === 'ds-pro-max', 'P live修:provider 声明 models 时 exec 从【当前 provider】挑强(ds-pro-max),不选跨 provider 的 qwen/glm');
+  const hCross = M.buildModelHint(cfgCross, provDeep);
+  const oa = hCross.slice(hCross.indexOf('OpenAI 引擎节点'), hCross.indexOf('Claude 引擎节点') >= 0 ? hCross.indexOf('Claude 引擎节点') : hCross.length);
+  ok(/ds-flash/.test(oa) && /ds-pro-max/.test(oa) && !/qwen-plus/.test(oa) && !/glm-x/.test(oa), 'P live修:OpenAI 组只列当前 provider 声明的模型(不混 knownModels/config.model 的跨 provider 模型)');
+}
 // buildModelHint 引擎分组。
 const h = M.buildModelHint(cfg, prov);
 ok(/OpenAI 引擎节点/.test(h) && /Claude 引擎节点/.test(h), 'P buildModelHint 按引擎分组');

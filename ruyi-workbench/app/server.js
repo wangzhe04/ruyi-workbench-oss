@@ -15035,12 +15035,14 @@ const MODEL_PRESET_IDS = new Set(MODEL_PRESETS.map(m => m.id).filter(Boolean)); 
 function buildModelHint(config, provider) {
   const all = offlineModelList(config).filter(m => m.id);
   if (!all.length) return '';
-  const provIds = new Set();
-  if (provider) {
-    if (Array.isArray(provider.models)) for (const x of provider.models) { const id = String((x && x.id) || x); if (id) provIds.add(id); }
-    if (provider.model) provIds.add(String(provider.model));
-  }
-  const openaiModels = all.filter(m => provIds.has(m.id) || !MODEL_PRESET_IDS.has(m.id)); // provider 模型 + 非预设自定义
+  // OpenAI 组【优先用当前激活 provider 声明的模型】—— 只有它们对该 provider 真实可用;knownModels/config.model 可能
+  // 是【别的 provider】的模型(如 deepseek 激活时 knownModels 里的 qwen 属 dashscope),混进来会诱导 AI 选了必失败。
+  // 直接从 provider.models 构建(它们未必在 offlineModelList 里),label 命中 offlineModelList 则取其 label。
+  const provList = []; const seenP = new Set();
+  const addP = id => { id = String(id || '').trim(); if (id && !seenP.has(id) && !MODEL_PRESET_IDS.has(id)) { seenP.add(id); const f = all.find(m => m.id === id); provList.push(f || { id, label: id }); } };
+  if (provider) { if (Array.isArray(provider.models)) for (const x of provider.models) addP((x && x.id) || x); if (provider.model) addP(provider.model); }
+  // provider 声明了模型 → 只列这些;什么都没声明(自建单模型)→ 退回非预设自定义(尽力)。
+  const openaiModels = provList.length ? provList : all.filter(m => !MODEL_PRESET_IDS.has(m.id));
   const claudeModels = all.filter(m => MODEL_PRESET_IDS.has(m.id));                        // 预设别名(Claude)
   const fmt = m => { const t = modelCapabilityTier(m.id, m.label); const lb = m.label && m.label !== m.id ? '（' + String(m.label).replace(/\s+/g, ' ').trim() + '）' : ''; return `- ${m.id}【${MODEL_TIER_LABEL[t]}·${MODEL_TIER_USE[t]}】${lb}`; };
   const parts = [];
@@ -15057,11 +15059,14 @@ function buildModelHint(config, provider) {
 // 对抗轮 P3:池扩到 knownModels/config.model,修 provider.models=[] (常见自建配置)时 tier 兜底静默失效。
 function tierModelForNode(toolTier, engine, config, provider) {
   if (engine === 'claude') return '';
-  const ids = [];
-  if (provider && Array.isArray(provider.models)) for (const x of provider.models) { const id = String((x && x.id) || x); if (id) ids.push(id); }
-  for (const raw of (config.extraModels || [])) { const id = String(raw).split('|')[0].trim(); if (id) ids.push(id); }
-  for (const id of (config.knownModels || [])) if (id) ids.push(String(id));
-  if (config.model) ids.push(String(config.model));
+  // 优先【当前激活 provider 声明的模型】(对该 provider 真实可用);只有 provider 什么都没声明时才退回用户全局
+  // 自定义模型(knownModels/config.model,尽力兜底,可能跨 provider —— 但总比 provider.models=[] 时静默失效强)。
+  const provIds = [];
+  if (provider && Array.isArray(provider.models)) for (const x of provider.models) { const id = String((x && x.id) || x); if (id) provIds.push(id); }
+  if (provider && provider.model) provIds.push(String(provider.model));
+  let ids;
+  if (provIds.length) ids = provIds;
+  else { ids = []; for (const raw of (config.extraModels || [])) { const id = String(raw).split('|')[0].trim(); if (id) ids.push(id); } for (const id of (config.knownModels || [])) if (id) ids.push(String(id)); if (config.model) ids.push(String(config.model)); }
   const pool = [...new Set(ids)].filter(id => !MODEL_PRESET_IDS.has(id)); // 排除 Claude 预设别名
   if (!pool.length) return '';
   const want = toolTier === 'exec' ? 'strong' : (toolTier === 'edit' ? 'balanced' : 'fast');
