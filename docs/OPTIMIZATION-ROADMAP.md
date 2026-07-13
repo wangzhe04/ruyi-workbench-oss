@@ -549,10 +549,10 @@
 **背景**:第31波A完成 §5 验收+B 设计稿,用户确认推进 B 实施。
 
 **交付**(3 处 server.js edit + 1 新 e2e):
-- **L1 AUTOEXEC_DENYLIST 下沉**(server.js :3013 前新增常量+归一函数 + :3028 后新增 autoexec 检查分支 + module.exports 导出):工具层 sink `guardFileToolPath` 对 write 模式检查 autoexec denylist,全模式(bypass/plan/default)覆盖。denylist 含 .git/hooks/、.githooks/、.husky/、.vscode/tasks.json、.vscode/launch.json、.github/workflows/、.gitlab-ci.yml、Jenkinsfile——精确匹配自动执行入口,不误伤 .gitignore/.gitattributes/.git/config/.vscode/settings.json。
+- **L1 AUTOEXEC_DENYLIST 下沉**(server.js :3013 前新增常量+归一函数 + :3028 后新增 autoexec 检查分支 + module.exports 导出):工具层 sink `guardFileToolPath` 对 write 模式检查 autoexec denylist,全模式(bypass/plan/default)覆盖。denylist 含 .git/hooks/、.git/config(.worktree)、.githooks/、.husky/、.vscode/tasks.json、.vscode/launch.json、.github/workflows/、.gitlab-ci.yml、Jenkinsfile；封堵 `core.hooksPath` 重定向，仍不误伤 .gitignore/.gitattributes/.vscode/settings.json。
 - **路径归一 `normalizeAutoexecPath`**:组件去尾点/尾空格 + 小写(Windows 大小写不敏感),双路径(abs+real)检查防 junction/短名绕过。
 - **授权书层保留**(`consumeGrant` 仍查 `GRANT_EDIT_AUTOEXEC_DENY`,纵深,向后兼容)。
-- **e2e**(新 `dev-harness/autonomy-shell-sandbox.e2e.js`,9125):A 段 require server.js 直接单测 17 断言(拒绝+路径变形+CI 扩展+不误伤+对称+只拦写);B 段起 WB `/api/tools/file_write` 全工具分发 6 断言。**23/23 ALL PASS**。
+- **e2e**(新 `dev-harness/autonomy-shell-sandbox.e2e.js`,9125):A 段 require server.js 直接单测 18 断言(拒绝+路径变形+CI 扩展+`core.hooksPath` 绕过封堵+不误伤+对称+只拦写);B 段起 WB `/api/tools/file_write` 全工具分发 6 断言。**24/24 ALL PASS**。
 
 **范围外**(诚实):package.json scripts(L2,透明化不阻止)/普通代码被 require 执行(R6/(b) 类,模型对齐非文件系统权限)/真沙箱(L4,与零依赖定位冲突)。
 

@@ -101,7 +101,7 @@ edit 写 autoexec 路径 -> 不立即落盘,进"待确认暂存":弹窗展示 di
 | 6.4 | 前端写入日志高亮 autoexec 标记 | app.js(写入日志渲染) |
 | 6.5 | e2e `dev-harness/autonomy-shell-sandbox.e2e.js`(端口 9125):L1 bypass 模式 .git/hooks 被拒/路径变形绕过红队/CI 路径扩展;L2 package.json scripts 写入审计;L3 autoexec-write 事件;file_edit/delete 对称 | dev-harness/ |
 
-**风险**:6.1 下沉到 guardFileToolPath 影响**所有 edit 调用**(含合法 .gitignore 等非 hooks 的 .git/ 内文件?)--需精确匹配 `.git/hooks/` 而非整个 `.git/`(否则误伤 .gitignore/.gitattributes 编辑)。denylist 正则已锚定 `.git[\\/]` + hooks 子路径?**实施时确认**:L1 应拦 `.git/hooks/`、`.git/config`(可设 core.hooksPath),不拦 `.gitignore`/`.gitattributes`(工作区根级文件,非 .git/ 内)。
+**风险**:6.1 下沉到 guardFileToolPath 影响**所有 edit 调用**。L1 只拦 `.git/hooks/` 和 `.git/config`/`.git/config.worktree`（可设 `core.hooksPath` 重定向 hook），不拦工作区根级 `.gitignore`/`.gitattributes`。
 
 ## 7. 诚实结论(知情条款)
 

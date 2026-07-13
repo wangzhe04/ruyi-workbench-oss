@@ -103,6 +103,11 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
     ok(result.ok === true && result.results[0].status === 'succeeded',
       'transient 503 on a sub-agent node is retried and the node succeeds (parent-turn parity)');
     ok(subHits >= 2, 'the sub-agent actually retried the transient request (not just died on first 503)');
+    const runsAfter = await get(WP, `/api/agent-runs?sessionId=${encodeURIComponent(sid)}`, hdr);
+    const persisted = runsAfter && Array.isArray(runsAfter.runs) && runsAfter.runs.find(r => r.id === result.runId);
+    const pnode = persisted && Array.isArray(persisted.nodes) && persisted.nodes.find(n => n.id === 'worker');
+    ok(pnode && pnode.iters === 1,
+      'a no-tool conclusion still records the successful provider iteration (iters=1)');
   } finally {
     kill(wb); fake.close(); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true });
   }

@@ -2997,8 +2997,8 @@ function providerIsLocal(config) {
 // 与 GRANT_EDIT_AUTOEXEC_DENY(:6139) 同源但独立维护:授权书层保留引用(纵深,向后兼容),此处为工具层统一 sink。
 // 精确匹配 .git/hooks/ 等自动执行入口(不误伤 .gitignore/.gitattributes 等工作区根级文件)。
 const AUTOEXEC_DENYLIST = [
-  // git hooks（.git/hooks/ 内的任何文件，.githooks/，.husky/）
-  /(^|[\\/])\.git[\\/]hooks[\\/]/i, /(^|[\\/])\.githooks[\\/]/i, /(^|[\\/])\.husky[\\/]/i,
+  // git hooks（.git/hooks/ 内的任何文件，.githooks/，.husky/）；.git/config 可通过 core.hooksPath 把 hook 重定向到任意目录。
+  /(^|[\\/])\.git[\\/]hooks[\\/]/i, /(^|[\\/])\.git[\\/]config(?:\.worktree)?$/i, /(^|[\\/])\.githooks[\\/]/i, /(^|[\\/])\.husky[\\/]/i,
   // IDE 任务
   /(^|[\\/])\.vscode[\\/]tasks\.json$/i, /(^|[\\/])\.vscode[\\/]launch\.json$/i,
   // CI/CD 配置（非高频开发编辑）
@@ -7752,7 +7752,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let subOk = true, subErr = '';
   let subOverWindow = false; // v0.9 F6: set when the sub-turn's 400 looks like a context-window overflow
   // 第32波: sub-agent savepoint——每次工具调用批次成功后存快照,传输/超时失败时自动从检查点恢复续跑(不重做已完成的工具调用)。
-  let savepoint = null;         // { subHistory, resultText, iters, toolCallCount } | null
+  let savepoint = null;         // { subHistory, resultText, iter, iters, toolCallCount } | null
   let checkpointRestored = false; // 仅恢复一次(防无限重试循环)
   // v1.x (B3): sub-turn loop guard state. Mirrors the parent turn's consecutive-identical-signature guard
   // (runOpenAiTurn loopSig/loopCount, same threshold). Without it a wedged sub-agent repeating one failing
@@ -7782,7 +7782,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     }
   };
   try {
-    for (; iters < budget; iters++) {
+    let iter = 0;
+    for (; iter < budget; iter++) {
+      // `iters` is user-visible node telemetry, so count the provider call we are
+      // about to make even when this iteration exits via `break` without tools.
+      iters = iter + 1;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
       // v1 定向插话: consume any steers queued for THIS node at the iteration boundary (before buildBody), so
       // each lands as a user message in the request we are about to send — same semantics as the父回合's
@@ -7850,6 +7854,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           subHistory.length = 0;
           for (const m of savepoint.subHistory) subHistory.push(JSON.parse(JSON.stringify(m)));
           resultText = savepoint.resultText;
+          iter = savepoint.iter;
           iters = savepoint.iters;
           toolCallCount = savepoint.toolCallCount;
           subHistory.push({
@@ -8010,7 +8015,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             if (m.tool_calls) c.tool_calls = m.tool_calls.map(tc => ({ id: tc.id, type: tc.type, function: { name: tc.function.name, arguments: tc.function.arguments } }));
             return c;
           }),
-          resultText, iters, toolCallCount,
+          resultText, iter, iters, toolCallCount,
         };
         continue; // let the sub-agent react to its tool results
       }
@@ -8019,7 +8024,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       break;
     }
     // 预算耗尽(循环正常退出,非 break 跳出)
-    if (iters >= budget && subOk) {
+    if (iter >= budget && subOk) {
       subErr = `子代理已达迭代上限 ${budget} 轮`;
       if (!resultText.trim() && toolCallCount > 0) await runFinalizerWithoutTools();
       if (!resultText.trim()) subOk = false;

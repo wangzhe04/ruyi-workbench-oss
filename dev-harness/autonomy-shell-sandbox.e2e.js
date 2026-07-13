@@ -9,7 +9,7 @@
 //   ✓ L1 扩展路径(.github/workflows/.gitlab-ci.yml/Jenkinsfile)拒
 //   ✓ L1 .gitignore/.gitattributes 不误伤
 //   ✓ L1 file_edit/file_delete 对称
-//   ✓ L1 .git/config 不误伤(非 hooks 子路径,不在 denylist)
+//   ✓ L1 .git/config/config.worktree 被拒（可用 core.hooksPath 重定向 hook）
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
@@ -83,9 +83,12 @@ console.log('── A 段: guardFileToolPath 直接单元 ──');
   r = await guard(path.join(WS, '.gitattributes'), fakeCtx, { tool: 'file_write', write: true });
   ok(r.ok, 'L1 .gitattributes write → ok(不误伤)');
 
-  // L1: .git/config 不误伤(非 hooks 子路径,不在 denylist)
+  // L1: .git/config 可通过 core.hooksPath 把 hook 重定向到任意目录，必须拒绝
   r = await guard(path.join(WS, '.git', 'config'), fakeCtx, { tool: 'file_write', write: true });
-  ok(r.ok, 'L1 .git/config write → ok(不误伤,非 hooks 子路径)');
+  ok(!r.ok && r.code === 'autoexec-denied', 'L1 .git/config write → autoexec-denied(core.hooksPath 绕过)');
+
+  r = await guard(path.join(WS, '.git', 'config.worktree'), fakeCtx, { tool: 'file_write', write: true });
+  ok(!r.ok && r.code === 'autoexec-denied', 'L1 .git/config.worktree write → autoexec-denied');
 
   // L1: .vscode/tasks.json
   r = await guard(path.join(WS, '.vscode', 'tasks.json'), fakeCtx, { tool: 'file_write', write: true });
