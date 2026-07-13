@@ -1417,6 +1417,93 @@ function originOk(req) {
 function tokenOk(req) {
   return Boolean(RUNTIME.token) && req.headers['x-wcw-token'] === RUNTIME.token;
 }
+// 第33波:声明式 auth 路由表 + deny-by-default(治 S0 教训 opt-in 名单根因 + 第29波 backlog #0 GET 面)。
+// authorizeRoute 对 handleApi 每个路由按 ROUTE_AUTH first-match 判定鉴权级别;未匹配 -> 拒(403)。
+// 级别:open(低敏读)/origin(同源或 loopback 非浏览器)/token(始终 tokenOk)/
+//      token-browser(浏览器须 token,loopback 须同源,与 v1.4.6-S1 纪律一致)/body-token(handler 自查 body token)。
+// 14 处 handler 内 tokenOk 自查保留作纵深(表为主、自查兜底误分类);Host 门在 HTTP handler 顶层 hostAllowed(全请求)。
+const ROUTE_AUTH = [
+  // open: 低敏读(host 门已过,无 token 需求)
+  { m: 'GET', p: '/api/status', auth: 'open' },
+  { m: 'GET', p: '/api/capabilities', auth: 'open' },
+  { m: 'GET', p: '/api/models', auth: 'open' },
+  // body-token: MCP 子进程 / 跨源 loopback(handler 自查 body token,豁免 originOk)
+  { m: 'POST', p: '/api/permission/request', auth: 'body-token' },
+  { m: 'POST', p: '/api/todo', auth: 'body-token' },
+  { m: '*', p: '/api/mission', auth: 'body-token' },
+  { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },
+  // token-browser: 敏感内容型 GET + UI 变更型(浏览器须 token;loopback 非浏览器须同源,无需 token)
+  { m: 'GET', p: '/api/sessions', auth: 'token-browser' },
+  { m: 'GET', p: '/api/sessions/', auth: 'token-browser', prefix: true },
+  { m: 'GET', p: '/api/skills', auth: 'token-browser' },
+  { m: 'GET', p: '/api/agent-roles', auth: 'token-browser' },
+  { m: 'GET', p: '/api/agent-workflows', auth: 'token-browser' },
+  { m: 'GET', p: '/api/playbooks', auth: 'token-browser' },
+  { m: 'POST', p: '/api/chat/stream', auth: 'token-browser' },
+  { m: 'POST', p: '/api/upload', auth: 'token-browser' },
+  { m: 'POST', p: '/api/sessions', auth: 'token-browser' },
+  { m: 'POST', p: '/api/sessions/', auth: 'token-browser', prefix: true },
+  { m: 'POST', p: '/api/session/skills', auth: 'token-browser' },
+  { m: 'POST', p: '/api/session/memories', auth: 'token-browser' },
+  { m: 'POST', p: '/api/memory', auth: 'token-browser' },
+  { m: 'POST', p: '/api/memory/', auth: 'token-browser', prefix: true },
+  { m: 'POST', p: '/api/stop', auth: 'token-browser' },
+  { m: 'POST', p: '/api/provider/compact', auth: 'token-browser' },
+  { m: 'POST', p: '/api/permission/decision', auth: 'token-browser' },
+  // origin: UI 变更但仅同源基线(现状保持,不收紧)
+  { m: 'POST', p: '/api/chat/answer', auth: 'origin' },
+  // token: 始终 tokenOk(敏感变更 + 内容型 GET,handler 多有自查作纵深)
+  { m: 'POST', p: '/api/tools/', auth: 'token', prefix: true },
+  { m: 'POST', p: '/api/config', auth: 'token' },
+  { m: 'POST', p: '/api/provider/test', auth: 'token' },
+  { m: 'POST', p: '/api/workspace/resolve', auth: 'token' },
+  { m: 'POST', p: '/api/pick-folder', auth: 'token' },
+  { m: 'POST', p: '/api/plan/decision', auth: 'token' },
+  { m: 'POST', p: '/api/steer', auth: 'token' },
+  { m: 'POST', p: '/api/session/rewind', auth: 'token' },
+  { m: 'POST', p: '/api/checkpoints/', auth: 'token', prefix: true },
+  { m: 'POST', p: '/api/file/reveal', auth: 'token' },
+  { m: 'POST', p: '/api/mcp/import-folder', auth: 'token' },
+  { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
+  { m: 'POST', p: '/api/playbooks', auth: 'token' },
+  { m: 'POST', p: '/api/playbooks/', auth: 'token', prefix: true },
+  { m: 'POST', p: '/api/agent-roles', auth: 'token' },
+  { m: 'POST', p: '/api/agent-workflows', auth: 'token' },
+  { m: 'POST', p: '/api/agent-workflows/', auth: 'token', prefix: true },
+  { m: 'POST', p: '/api/autonomy/', auth: 'token', prefix: true },
+  { m: '*', p: '/api/autonomy/grants', auth: 'token' },
+  { m: 'POST', p: '/api/agent-runs/', auth: 'token', prefix: true },
+  { m: 'DELETE', p: '/api/agent-runs/', auth: 'token', prefix: true },
+  { m: 'GET', p: '/api/agent-runs', auth: 'token', prefix: true },
+  { m: 'GET', p: '/api/memory', auth: 'token' },
+  { m: 'GET', p: '/api/memory/item', auth: 'token' },
+  { m: 'GET', p: '/api/usage/summary', auth: 'token' },
+  { m: 'GET', p: '/api/ops/metrics', auth: 'token' },
+  { m: 'GET', p: '/api/checkpoints', auth: 'token' },
+  { m: 'GET', p: '/api/checkpoints/', auth: 'token', prefix: true },
+  { m: 'GET', p: '/api/file/preview', auth: 'token' },
+  { m: 'GET', p: '/api/audit', auth: 'token' },
+];
+function authorizeRoute(req, method, pathname) {
+  const m = method === 'HEAD' ? 'GET' : method;
+  const browser = Boolean(req.headers.origin) || Boolean(req.headers['sec-fetch-site']) || Boolean(req.headers['sec-fetch-mode']);
+  for (const r of ROUTE_AUTH) {
+    if (r.m !== '*' && r.m !== m) continue;
+    const match = r.prefix ? pathname.startsWith(r.p) : pathname === r.p;
+    if (!match) continue;
+    switch (r.auth) {
+      case 'open': return null;
+      case 'origin': return originOk(req) ? null : 'cross-origin request rejected';
+      case 'token': return tokenOk(req) ? null : 'missing or invalid workbench token';
+      case 'token-browser':
+        if (browser) return tokenOk(req) ? null : 'missing or invalid workbench token';
+        return originOk(req) ? null : 'cross-origin request rejected';
+      case 'body-token': return null;
+      default: return 'unknown auth level';
+    }
+  }
+  return 'route not authorized';
+}
 // F4 (安全·消毒): accept only a well-formed session id. Returns the id unchanged when it matches the
 // canonical shape (letters/digits/_/-, 1..64), else null. Real ids look like `session_<hex>` → pass
 // naturally. Callers treat null as a 400. Blocks path-ish / oversized / control-char ids from ever
@@ -13643,60 +13730,11 @@ async function handleApi(req, res, pathname) {
   // The MCP child authenticates /api/permission/request with its own body token (checked there).
   // Every other state-changing route must be same-origin (blocks browser CSRF). The tool-exec and
   // config routes additionally require the injected UI token (blocks other local processes).
-  const mutating = req.method !== 'GET' && req.method !== 'HEAD';
-  // /api/todo (like /api/permission/request) is called by the MCP child over loopback — it authenticates
-  // with a body token (checked in the handler) and is cross-origin by nature, so it is exempt here too.
-  if (mutating && pathname !== '/api/permission/request' && pathname !== '/api/todo' && pathname !== '/api/agent-workflow/launch' && pathname !== '/api/mission') {
-    if (!originOk(req)) return send(res, json({ ok: false, error: 'cross-origin request rejected' }, 403));
-    // v0.8-S4a: the checkpoints rollback route is a header-token (UI) route — it is called by the UI, NOT
-    // by a loopback child, so it belongs on the needsToken whitelist. It must be listed EXPLICITLY here:
-    // this expression does not auto-cover new paths (the S0 lesson), so add the `/api/checkpoints/` prefix.
-    // v0.8-S4b: /api/session/rewind is likewise a UI-only mutating route → add it EXPLICITLY (the S0 lesson
-    // again — the prefix/equality list never auto-covers a new path).
-    // v0.8-S7: /api/steer (mid-turn steering) is UI-only + mutating → EXPLICITLY whitelisted (same lesson).
-    // v0.9-S2: mutating playbook routes (POST /api/playbooks save, POST /api/playbooks/draft, and DELETE via
-    // POST /api/playbooks/<id> + x-http-method:DELETE) are UI-only → token-gated by the `/api/playbooks`
-    // prefix. The read-only GET /api/playbooks is a GET → never enters this mutating block, so it stays
-    // same-origin only (no token needed).
-    // v0.9-S3: /api/workspace/resolve (folder-drag fingerprint) and /api/pick-folder (native picker) are
-    // UI-only mutating POSTs — EXPLICITLY whitelisted (the S0 lesson: this list never auto-covers a new path).
-    // Both read the filesystem (paths are sensitive, same class as checkpoints) so they must be token-gated.
-    // v0.9-S4 (C4): /api/file/preview returns FILE CONTENT (same sensitivity as /api/checkpoints), so it is
-    // explicitly token-gated here. It is a GET; the handler ALSO re-checks the token (GETs never run through
-    // the mutating auth block) AND enforces the allowed-root containment check as a second闸.
-    // v0.9-S8: /api/audit merges the workbench NDJSON logs + the desktop MCP audit_tail into one timeline.
-    // It exposes paths & commands (same sensitivity class as /api/checkpoints), so it is EXPLICITLY listed
-    // here for intent. It is a GET — the handler is the REAL gate (self-checks tokenOk before doing anything),
-    // since GETs never enter this mutating block. Listing it here is documentation, not the enforcement point.
-    const needsToken = pathname.startsWith('/api/tools/') || pathname.startsWith('/api/checkpoints/') || pathname.startsWith('/api/agent-runs') || pathname.startsWith('/api/agent-workflows') || pathname === '/api/agent-roles' || pathname === '/api/session/rewind' || pathname === '/api/steer' || pathname === '/api/config' || pathname === '/api/provider/test' || pathname === '/api/playbooks' || pathname.startsWith('/api/playbooks/') || pathname === '/api/workspace/resolve' || pathname === '/api/pick-folder' || pathname === '/api/file/preview' || pathname === '/api/file/reveal' || pathname === '/api/mcp/import-folder' || pathname === '/api/plan/decision' || pathname === '/api/audit' || pathname.startsWith('/api/autonomy/');
-    if (needsToken && !tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-    // v1.4.6-S1: these mutating routes were previously guarded ONLY by originOk. Bring them under the UI
-    // token too. The UI already tags every /api call with x-wcw-token (net.js authHeaders, incl. the raw
-    // /api/chat/stream fetch), so a BROWSER caller must present it — this closes the residual same-origin
-    // CSRF surface and means a rebinding attempt that somehow reaches here still fails without the token.
-    // We key the requirement on "is this a browser request" (Origin / Sec-Fetch-* present): a non-browser
-    // loopback caller (CLI, the offline e2e harness) carries no such headers and stays governed by the
-    // same-origin gate above — this is deliberate, so tightening auth does not break local tooling. Note the
-    // token lives in runtime.json (readable by any same-user process), so its real value is CSRF, not local
-    // process isolation; the browser-scoped check captures exactly that value.
-    const browserCaller = Boolean(req.headers.origin) || Boolean(req.headers['sec-fetch-site']) || Boolean(req.headers['sec-fetch-mode']);
-    // P3-7: /api/session/skills is a UI-driven mutating POST (same class as /api/sessions) — bring it under the
-    // browser token gate. A non-browser loopback caller (the offline e2e harness) carries no Origin/Sec-Fetch
-    // headers, so it stays governed by the same-origin gate only and keeps working, exactly like /api/sessions.
-    const uiMutatingRoute = pathname === '/api/chat/stream' || pathname === '/api/upload' || pathname === '/api/sessions' || pathname.startsWith('/api/sessions/') || pathname === '/api/session/skills' || pathname === '/api/stop' || pathname === '/api/provider/compact' || pathname === '/api/session/memories' || pathname === '/api/memory' || pathname.startsWith('/api/memory/') || pathname === '/api/permission/decision';
-    if (uiMutatingRoute && browserCaller && !tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-  }
-
-  // 审计 P1: 敏感【内容型 GET】的鉴权 —— 上面的 mutating 块只管非 GET,GET 直接跳过。但 GET /api/sessions(会话列表)、
-  // /api/sessions/<id>(完整 transcript,含 file_read 读回的文件内容与讨论到的密钥)、/api/skills(技能注册表,含项目路径)
-  // 本只有 same-origin 防护,而 DNS-rebinding 页面按构造就是 same-origin → same-origin 不足以挡。这里对【浏览器调用方】补
-  // UI token(rebinding 攻击页拿不到 token);非浏览器回环调用方(e2e/CLI,无 Origin/Sec-Fetch 头)不受影响,与 uiMutatingRoute
-  // 的 v1.4.6-S1 纪律一致,本地工具照常。/api/file/preview、/api/audit 早已在各自 handler 自查 tokenOk(见上鉴权块注释)。
-  if (!mutating) {
-    const browserCaller = Boolean(req.headers.origin) || Boolean(req.headers['sec-fetch-site']) || Boolean(req.headers['sec-fetch-mode']);
-    const uiReadRoute = pathname === '/api/sessions' || pathname.startsWith('/api/sessions/') || pathname === '/api/skills';
-    if (uiReadRoute && browserCaller && !tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-  }
+  // 第33波:声明式 auth 路由表 deny-by-default(替换原 needsToken/uiMutatingRoute/uiReadRoute 三条 OR 链)。
+  // authorizeRoute 按 ROUTE_AUTH 表 first-match 判定 open/origin/token/token-browser/body-token;未匹配 -> 拒(403)。
+  // 14 处 handler 内 tokenOk 自查保留作纵深;Host 门在 HTTP handler 顶层 hostAllowed(全请求含 GET 与 serveStatic)。
+  const authErr = authorizeRoute(req, req.method, pathname);
+  if (authErr) return send(res, json({ ok: false, error: authErr }, 403));
 
   if (req.method === 'GET' && pathname === '/api/status') {
     const config = await readConfig();
@@ -14986,6 +15024,10 @@ async function startServer(opts) {
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {
     try {
+      // 第33波:顶层 host 门(DNS-rebinding 防御覆盖全 GET 面 + 静态 /,治第29波 backlog #0)。hostAllowed 之前
+      // 只在 originOk(mutating 块)内调用,GET 与 serveStatic 跳过 -> index.html 的 token 可被 rebinding 页读走。
+      // 此处一律拦非 loopback Host;所有合法调用方(e2e/MCP 子/CLI/浏览器)连 127.0.0.1:PORT,Host 已是 loopback。
+      if (!hostAllowed(req)) return send(res, json({ ok: false, error: 'host not allowed' }, 403));
       const u = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       // Liveness + restart proof: version alone can't prove a restart, so echo the per-process overlay id.
       if (u.pathname === '/health') {

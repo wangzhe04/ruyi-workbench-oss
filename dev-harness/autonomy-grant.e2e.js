@@ -36,13 +36,12 @@ const src = fs.readFileSync(SERVER, 'utf8');
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 console.log('\n── [S] 静态源锁 ──');
 
-// S1 签发主权律:/api/autonomy/ 在 header-token 白名单(needsToken)里。
-const needsTokenLine = (src.match(/const needsToken = pathname\.startsWith[^\n]*/) || [''])[0];
-ok(/pathname\.startsWith\('\/api\/autonomy\/'\)/.test(needsTokenLine), 'S1 /api/autonomy/ 在 needsToken 白名单(header-token 门)');
+// S1 签发主权律(第33波起 ROUTE_AUTH 表替代 needsToken OR 链):/api/autonomy/ 在 ROUTE_AUTH 表里标 'token'(header-token 门)。
+ok(/\{ m: 'POST', p: '\/api\/autonomy\/', auth: 'token', prefix: true \}/.test(src), 'S1 /api/autonomy/ 在 ROUTE_AUTH 表标 token(header-token 门)');
 
-// S2 R-P2-2:/api/autonomy 【不】在 mutating 豁免名单(那行只豁免 permission/request·todo·launch·mission)。
-const exemptLine = (src.match(/if \(mutating && pathname !== '\/api\/permission\/request'[^\n]*/) || [''])[0];
-ok(exemptLine && !/autonomy/.test(exemptLine), 'S2 /api/autonomy 不在 mutating 豁免名单(不可 body-token 绕过)');
+// S2 R-P2-2:/api/autonomy 【不】是 body-token 路由(body-token 仅 permission/request·todo·mission·launch,不可 body-token 绕过)。
+const bodyTokenEntries = (src.match(/\{[^}]*auth: 'body-token'[^}]*\}/g) || []).join('\n');
+ok(!/autonomy/.test(bodyTokenEntries), 'S2 /api/autonomy 不在 body-token 路由(不可 body-token 绕过)');
 
 // S3 R-P2-2:三个 autonomy handler 各自 tokenOk(req) 自查,且授权书路由区【无】body-token 兜底。
 const autonomyRegion = (src.match(/\/\/ ── 第27波:自主性授权书 API[\s\S]*?if \(req\.method === 'POST' && pathname === '\/api\/agent-workflow\/launch'\)/) || [''])[0];

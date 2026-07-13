@@ -56,26 +56,32 @@ const src = fs.readFileSync(SERVER, 'utf8');
   }
 }
 
-// ── D) 鉴权路由分类覆盖:每条【敏感路由】必须被 handleApi 的鉴权闸分类(needsToken / uiReadRoute / uiMutatingRoute),
-//        或在其 handler 内自查 tokenOk。防「新增返回密钥/内容/路径的路由却忘了鉴权」——本波 P1 #1 正是此类失守。 ──
+// ── D) 鉴权路由分类覆盖(第33波起 ROUTE_AUTH 声明式表 deny-by-default):每条【敏感路由】必须被 ROUTE_AUTH 表分类,
+//        或在其 handler 内自查 tokenOk。防「新增返回密钥/内容/路径的路由却忘了鉴权」--本波 P1 #1 + 第33波 3 个 GET 泄露正是此类失守。 ──
 {
-  // 截取鉴权闸区块(从 handleApi 的 auth gate 到第一个真实路由 handler 之前),敏感路由须在此被点名。
-  const gateStart = src.indexOf('// --- auth gate ---');
-  const gateEnd = src.indexOf("if (req.method === 'GET' && pathname === '/api/status')");
-  const gate = gateStart >= 0 && gateEnd > gateStart ? src.slice(gateStart, gateEnd) : '';
-  ok(!!gate, 'D 鉴权闸区块可定位');
-  // 敏感路由:返回密钥/完整会话/文件内容/项目路径/审计,或修改敏感状态。每条须出现在鉴权闸文本内(被某清单点名)。
+  // 截取 ROUTE_AUTH 表区块(从 const ROUTE_AUTH = [ 到 ];),敏感路由须在此被点名分类。
+  const tStart = src.indexOf('const ROUTE_AUTH = [');
+  const tEnd = src.indexOf('];', tStart);
+  const table = tStart >= 0 && tEnd > tStart ? src.slice(tStart, tEnd) : '';
+  ok(!!table, 'D ROUTE_AUTH 表区块可定位');
+  // 敏感路由:返回密钥/完整会话/文件内容/项目路径/审计/角色/工作流/剧本,或修改敏感状态。每条须出现在表文本内。
   const SENSITIVE = [
     '/api/sessions', '/api/skills', '/api/config', '/api/provider/test',
     '/api/file/preview', '/api/file/reveal', '/api/audit', '/api/checkpoints/',
     '/api/agent-runs', '/api/tools/', '/api/memory',
+    '/api/agent-roles', '/api/agent-workflows', '/api/playbooks',  // 第33波:原 GET 泄露,现纳入
   ];
   for (const route of SENSITIVE) {
-    ok(gate.includes("'" + route + "'"), "D 敏感路由 " + route + " 已在鉴权闸被分类(needsToken/uiReadRoute/uiMutatingRoute 之一)");
+    ok(table.includes("'" + route + "'"), "D 敏感路由 " + route + " 已在 ROUTE_AUTH 表被分类");
   }
-  // 具体锁本波 P1 #1:三条内容型 GET 必须在【浏览器 token】读路由清单里。
-  ok(/uiReadRoute\s*=[^;]*'\/api\/sessions'/.test(gate) && /uiReadRoute\s*=[^;]*'\/api\/skills'/.test(gate) && /uiReadRoute\s*=[^;]*startsWith\('\/api\/sessions\/'\)/.test(gate),
-    'D P1#1 锁: /api/sessions、/api/sessions/<id>、/api/skills 在 uiReadRoute(浏览器 token 门)');
+  // 第33波锁:内容型 GET(含本波收紧的 3 个)必须标 token-browser(浏览器 token 门),非 open。
+  ok(/m: 'GET', p: '\/api\/sessions', auth: 'token-browser'/.test(table), 'D sessions GET 标 token-browser');
+  ok(/m: 'GET', p: '\/api\/skills', auth: 'token-browser'/.test(table), 'D skills GET 标 token-browser');
+  ok(/m: 'GET', p: '\/api\/agent-roles', auth: 'token-browser'/.test(table), 'D agent-roles GET 标 token-browser(第33波收紧)');
+  ok(/m: 'GET', p: '\/api\/agent-workflows', auth: 'token-browser'/.test(table), 'D agent-workflows GET 标 token-browser(第33波收紧)');
+  ok(/m: 'GET', p: '\/api\/playbooks', auth: 'token-browser'/.test(table), 'D playbooks GET 标 token-browser(第33波收紧)');
+  // deny-by-default:authorizeRoute 未匹配路由返回拒绝。
+  ok(/function authorizeRoute\(req, method, pathname\)/.test(src) && /return 'route not authorized'/.test(src), 'D authorizeRoute deny-by-default 未匹配路由拒绝');
 }
 
 // ── E) 两引擎能力对称:orchestrate_agents 的模板/意图提示必须【两个引擎都注入】。历史上 Claude 引擎从不告知有哪些

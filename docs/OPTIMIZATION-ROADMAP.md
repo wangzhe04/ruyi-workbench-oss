@@ -573,3 +573,29 @@
 **验收**:`autonomy-durability`(42)、`autonomy-shell-sandbox`(23)、`mission-driver`(22)三件回归全绿(87 断言零回归)。
 
 **诚实交代**:savepoint 不持久化(进程重启后首次子代理调用无法从上次 checkpoint 恢复,需依赖 DAG 级 resume);catch 抛出的 mid-stream 异常不在此机制覆盖范围内(由现有 DAG retry/resume 兜底);checkpoint 恢复把已完成工具结果灌回 subHistory(不重执行),但其 `role:'tool'` 消息内容来自 `truncateToolResult` 截断版——后续轮次若 provider 需要完整工具结果原文,它会从截断版推断(与正常履带行为一致)。
+
+
+## 32. 第 33 波:安全收口--全 GET 面 host 校验 + 声明式 auth 路由表 deny-by-default(2026-07-13)
+
+**背景**:第29波 backlog #0("DNS-rebind 对只读 GET…需全 GET 面 host 校验单独立项")+ 早期审计声明的"声明式 auth 路由表 deny-by-default"杠杆(治 S0 教训 opt-in 名单根因)。与"政企可审计、气隙优先"定位直接冲突的定位级缺口。
+
+**核实出的缺口**(主会话逐 handler 亲核,非转述):
+- **缺口 A(定位级)**:`hostAllowed`(Host 头校验)只在 `originOk` 内调用,而 `originOk` 仅在 `handleApi` 的 `if (mutating)` 块强制 -> **GET 请求完全跳过 host 校验**。HTTP handler 顶部无任何 host 门,`serveStatic('/')` 把 **token 明文注入 index.html** 服务给**任意 Host 头**。攻击链:rebinding 页导航到 `http://evil.com:PORT/` -> 拿到 index.html -> 从 DOM 读出 token -> 以同源 + token 打任意路由(token 随 HTML 明文下发的精确根因)。
+- **缺口 B(活跃泄露)**:`GET /api/agent-roles`、`GET /api/agent-workflows`、`GET /api/playbooks` 均在 mutating-only 的 `needsToken` 里(GET 不生效),handler 无 tokenOk 自查,不在 `uiReadRoute` -> **无 host 门 + 无 token 门**,rebinding 页无需 token 可直接读(角色定义/DAG/剧本,含项目结构)。对照:sessions/skills 早经 P1#1 修;memory/agent-runs/checkpoints/audit 等 14 处 handler 自查 tokenOk(token 门在,host 门缺)。
+- **缺口 C(结构性)**:`needsToken`/`uiMutatingRoute`/`uiReadRoute` 三条 OR 链 + 14 处散落自查 = opt-in 名单,新路由默认无防护(S0 教训)。缺口 B 正是因此漏掉 3 个 GET。
+
+**交付**(`docs/WAVE33-AUTH-DESIGN.md` 设计稿+7 条红队;server.js 3 处 edit + 1 新 e2e):
+
+- **Part A 顶层 hostAllowed 门**(server.js http.createServer handler 顶部):`if (!hostAllowed(req)) return 403` 覆盖 `/health` + `/api/*` + `serveStatic` 全部。rebinding(Host=evil)-> 403 含 index.html(断 token 泄露主链);loopback(所有合法调用方)-> 通过。**3 行,近零风险**。
+- **Part B 声明式 `ROUTE_AUTH` 表 + `authorizeRoute` + deny-by-default**(server.js tokenOk 后):表 `{m,p,auth,prefix?}`,auth ∈ `open`/`origin`/`token`/`token-browser`/`body-token`。`authorizeRoute` first-match 判定,HEAD 归一为 GET,未匹配 -> `'route not authorized'`(403)。**替换** handleApi 鉴权块(原 `mutating`/`needsToken`/`uiMutatingRoute`/`uiReadRoute` 三条 OR 链)为单次 `authorizeRoute` 调用。
+- **3 个 GET 收紧**:agent-roles/agent-workflows/playbooks 标 `token-browser`(浏览器须 token,loopback 须同源,与 sessions/skills 同纪律)。
+- **14 处 handler tokenOk 自查保留**作纵深(表为主、自查兜底误分类;唯一残留风险 false-deny 由 e2e 兜)。
+- **鉴权级别语义逐字对齐现状**:`token-browser` 非浏览器分支走 originOk(loopback 过、无需 token)= dns-rebind test 5 loopback 豁免纪律,保持不变。
+
+**e2e**(新 `dev-harness/auth-deny-default.e2e.js`,9126,28 断言 ALL PASS):A 段顶层 host 门(rebinding 拦 GET / 与 /api/status、token 不泄露、loopback 不受影响)+ B 段 deny-by-default(未声明路由 403 非 404)+ C 段 3 个 GET 收紧(浏览器无 token 403、有 token 200、loopback 豁免、rebinding+token 仍 403)+ D 段鉴权级别回归(open/token-browser/token/body-token 全语义保持)。
+
+**回归**(14 件 e2e):dns-rebind/test5 loopback 豁免保持 200、autonomy-durability、autonomy-shell-sandbox、transient-repro、playbooks、workbench-memory、mission-driver、autonomy-grant(更新 S1/S2 静态锁指向 ROUTE_AUTH)、meta-guard(更新 D 段静态锁指向 ROUTE_AUTH + 锁 3 个 GET 标 token-browser + deny-by-default)、audit-w23、usage-ledger、rewind、monitor-incremental **全绿**。capabilities 1 失败为**预存 identity bleed**(system prompt 含 "Claude",stash 回退到 70c2c22 干净 HEAD 同样失败,与鉴权改动无关)。
+
+**诚实交代**:token 仍随 HTML 明文注入(Part A 后 rebinding 拿不到 index.html 故拿不到 token,但同源合法 UI 仍从 DOM 读 token=设计如此;改 sessionStorage/cookie 注入动前端契约,择期);14 处 handler 自查未移除(表已覆盖,保留纵深更安全,单独清理波);`toolCall()` 40+ 分支表驱动仍为结构演进单独立项;OPTIONS 无 CORS 支持(产品本地回环无需求),deny 合理。
+
+**至此安全收口主线(23 波 mutating 面 + 33 波全 GET 面 + 声明式表)闭环**。
