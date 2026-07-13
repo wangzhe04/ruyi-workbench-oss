@@ -131,6 +131,7 @@ function capturesContaining(dir, needle) {
     if (node && node.continuation && Array.isArray(node.continuation.steps) && node.continuation.steps.length >= 1) sawStep = true;
   }
   ok(sawStep, 'C 续点已含 ≥1 已完成工具步骤(1.5s 节流落盘)');
+  const tKill = Date.now(); // §5 MTTR(第31波验收):从强杀到续跑完成的端到端恢复时延
   kill(wb); await sleep(400);
   ok(fs.existsSync(FILE_A) && fs.readFileSync(FILE_A, 'utf8') === 'ALPHA-内容-42', 'C 杀前副作用已生效(a.txt)');
 
@@ -155,6 +156,7 @@ function capturesContaining(dir, needle) {
   for (let i = 0; i < 200 && !done; i++) { await sleep(150); run = readJson(runFileOf(sid, runId)); if (run && ['succeeded', 'partial', 'failed', 'stopped'].includes(run.status)) done = true; }
   node = run && (run.nodes || []).find(n => n.id === 'longwork');
   ok(run && run.status === 'succeeded', 'C 续跑后 run=succeeded(实 ' + (run && run.status) + ')');
+  ok(Date.now() - tKill < 30000, 'C §5 MTTR<30s(第31波:崩溃->重启->续跑完成 实 ' + (Date.now() - tKill) + 'ms)');
   ok(node && node.status === 'succeeded' && !node.continuation && !node.interruptedAttempt, 'C 成功后续点/中断标记已清理');
   ok(capturesContaining(CAP1, '断点续跑') >= 1, 'C 续跑提示词含【断点续跑】(captured=' + capturesContaining(CAP1, '断点续跑') + ', capBefore=' + capBefore + ')');
   ok(fs.existsSync(FILE_B) && fs.existsSync(FILE_C), 'C b.txt/c.txt 都已写出');

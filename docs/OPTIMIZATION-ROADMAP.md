@@ -514,3 +514,62 @@
 **对抗轮教训**:给"按 X 分类/放行/选择"的判定加校验时,先分清 X 的【来源信任级】—— 对可信来源(用户配置的 node.model)套针对不可信来源(AI 幻觉)的白名单丢弃,会误杀真实数据造成回归。校验该在【不可信入参边界】做,而非套在人工/AI 共用的通用写入点上。
 
 **验收**:新 `dev-harness/orchestrate-model-select.e2e.js`(9122;静态锁 + 纯逻辑穷举[含对抗修订:显式尊重/inherit归空/引擎分组/tier池拓宽/plus不判强] + Live node.model 落盘)。team-pool/subagent/role/templates/meta-guard/usage 回归全绿。真 DeepSeek live 实测:分模型 DAG(easy→deepseek-v4-flash 快 + hard→deepseek-v4-pro 强)两节点各自落对、各自成功;错模型(跨 provider)可见失败 + errorClass 分类。
+
+## 29. 第 31 波:§5 主线验收闭环 + shell 沙箱化设计稿(2026-07-13)
+
+**两块**:A 长任务自主推进主线 §5 整体验收(收口 25-30 波);B 第27波自留 edit->exec 诚实债的 shell 沙箱化设计稿+红队(实施待确认,本波不动 server.js)。
+
+### A. §5 验收闭环
+
+**背景**:25-30 波交付耐久基座/调度监督/授权书/上下文治理/监控运营/编排选模型,但 §5 验收指标从未整体跑过(各波只有分项 e2e 锁)。
+
+**交付**:
+- **产品侧三任务基准**(新 `dev-harness/autonomy-benchmark.e2e.js`,9123/9124):三加速模拟离线长任务(REFACTOR 多文件重构 / DIGEST 资料汇编 / BUILDFAIL 构建-失败-修复),fake provider 压到秒级但保留完整 until-done 语义。实测:完成率 2/3、人工干预 0、无进展暂停触发 1/1=100%、autoTurns≤12 -- §5 产品侧 4/4 达标。
+- **工程侧 MTTR 补完**:`autonomy-durability.e2e.js` C 段新增时钟断言(崩溃->重启->续跑完成 实测 8647ms <30s) -- §5 工程侧唯一缺口补齐。工程侧 7/7:崩溃恢复/幂等=0/MTTR 8.6s/上下文超限(预算化)/调度P95(连续就绪队列)/持久化可见100%/事件传输降 88%。
+- **§5 验收报告**(新 `docs/WAVE31-ACCEPTANCE.md`):主会话亲自实跑核实(benchmark 全绿 + durability MTTR + monitor 传输降 12.0%)。
+
+**诚实交代**:8h 用加速模拟(语义指标与墙钟无关);MTTR 单次样本(链路稳定);完成率 2/3 是下限设计(任务3 验暂停非失败);fake 验机制非模型能力。
+
+### B. shell 沙箱化设计稿+红队(诚实债,实施待确认)
+
+**问题**:edit 能写工作区内会被自动执行的文件(.git/hooks、package.json postinstall 等)= 潜伏 RCE,不需 exec 授权。第27波 `GRANT_EDIT_AUTOEXEC_DENY` 黑名单挂在**授权书层**(`consumeGrant` 路径),bypass 模式下 edit 写 .git/hooks 不过该检查 = **裸缺口**(本波核心发现:`guardFileToolPath` 工具层 sink 只管工作区边界,不查 autoexec)。
+
+**设计稿**(新 `docs/WAVE31-SHELL-SANDBOX-DESIGN.md`):5 方案(denylist 扩展/写后告警/内容扫描/真沙箱/二次确认)-> 7 条红队(bypass 裸/路径变形/字段级/工具不对称/delete/间接提权/工作区外)-> 综合**分层防御 L1+L2+L3**(不做 L4 真沙箱,与零依赖/气隙定位冲突):
+- **L1**:autoexec 检查从授权书层**下沉到 `guardFileToolPath`**(工具层,全模式覆盖)+ denylist 扩展 CI 路径(.github/workflows/、.gitlab-ci.yml、Jenkinsfile)。修 bypass 裸缺口。
+- **L2**:package.json scripts 变更 -> 检查点标 autoexec:true + 审计(不阻止,知情承担)。
+- **L3**:autoexec 分类表命中写入落审计事件 + UI 高亮。
+- 范围外:普通代码被 require 执行(R6/(b) 类,模型对齐问题非文件系统权限)、真沙箱(L4,定位冲突)。
+
+**施工规格已定**(6.1-6.5),e2e `autonomy-shell-sandbox.e2e.js`(9125)。**实施待用户确认后下一轮做**(改 server.js edit guard,主树串行,不派并行 worktree)。
+
+**验收**:A 全绿实跑(benchmark 14+4 断言 / durability MTTR / monitor 传输降);B 设计稿+红队完成,不动 server.js。
+
+## 30. 第 31 波B:shell 沙箱化 L1 实施(2026-07-13)
+
+**背景**:第31波A完成 §5 验收+B 设计稿,用户确认推进 B 实施。
+
+**交付**(3 处 server.js edit + 1 新 e2e):
+- **L1 AUTOEXEC_DENYLIST 下沉**(server.js :3013 前新增常量+归一函数 + :3028 后新增 autoexec 检查分支 + module.exports 导出):工具层 sink `guardFileToolPath` 对 write 模式检查 autoexec denylist,全模式(bypass/plan/default)覆盖。denylist 含 .git/hooks/、.githooks/、.husky/、.vscode/tasks.json、.vscode/launch.json、.github/workflows/、.gitlab-ci.yml、Jenkinsfile——精确匹配自动执行入口,不误伤 .gitignore/.gitattributes/.git/config/.vscode/settings.json。
+- **路径归一 `normalizeAutoexecPath`**:组件去尾点/尾空格 + 小写(Windows 大小写不敏感),双路径(abs+real)检查防 junction/短名绕过。
+- **授权书层保留**(`consumeGrant` 仍查 `GRANT_EDIT_AUTOEXEC_DENY`,纵深,向后兼容)。
+- **e2e**(新 `dev-harness/autonomy-shell-sandbox.e2e.js`,9125):A 段 require server.js 直接单测 17 断言(拒绝+路径变形+CI 扩展+不误伤+对称+只拦写);B 段起 WB `/api/tools/file_write` 全工具分发 6 断言。**23/23 ALL PASS**。
+
+**范围外**(诚实):package.json scripts(L2,透明化不阻止)/普通代码被 require 执行(R6/(b) 类,模型对齐非文件系统权限)/真沙箱(L4,与零依赖定位冲突)。
+
+## 31. 第 32 波:sub-agent 检查点 + 传输失败自动恢复(2026-07-13)
+
+**背景**:排查 DeepSeek 编排 abort(第 31 波B 运行时分析)发现两次子代理超时均需人工 `retry_node` 干预——sub-agent 中途已完成大量工具调用(web_search/file_write 等),超时后全部白做。用户要求增加 checkpoint 粒度,首次失败自动从 checkpoint 恢复重试。
+
+**交付**(4 处 server.js edit,零新文件,不改 API):
+
+- **循环改为 `iters` 计数**(原 `for (let iter=0;;iter++)` → `for (; iters<budget; iters++)`):`iters` 已是外域变量,checkpoint 恢复时设 `iters=savepoint.iters` 即可从中间继续,无需改变循环结构。预算耗尽处理从循环内 `break` 移到循环后(语义等价)。
+- **savepoint 快照**(每个工具调用批次成功后):浅拷贝 `subHistory`(只保留 role/content/tool_call_id/tool_calls)、`resultText`、`iters`、`toolCallCount`。不持久化(纯内存,与授权书同安全属性——进程重启即清)。
+- **httpError 自动恢复**(`call.httpError` 分支,在 `subOk=false` 之前):若 `savepoint && !checkpointRestored && 未中止`,恢复检查点状态 + 注入续跑消息 `[自动恢复] 上次因网络中断在 N 个工具调用后停止。以上已完成的工作无需重复,在此继续即可。` + 发射 `subagent.state:'retry'` 事件 + `continue` 继续循环。仅恢复一次(设 `checkpointRestored=true` 后清空 `savepoint`)。
+- **防御条件**:上下文超限(HTTP 400 context/token)不触发恢复(否则重复发同样的胖上下文必再 400);用户主动中止不触发;已恢复过不重复。
+- **catch 路径**(抛出的异常,如 mid-stream abort):由于已出 for 循环,无法 `continue`——此类故障落在 catch 后正常失败路径,由现有的 DAG 级 retry_node/resume 兜底。savepoint 数据仍有效(下次 resume 时可复用——与 §29b `autonomy-resume` 续点机制配合)。
+
+**不变式保持**:①`subHistory` 配对铁律(sub-agent 在 `continue` 前刚完成整批 tool_call↔tool_result 配对,savepoint 保存的是完全配对的序列→续跑消息是 `role:'user'`,不破坏配对);②循环守卫(B3 死循环检测/用户中止/迭代预算)照常;③工具执行结果已落盘(检查点 journal/副作用文件),续跑时幂等跳过。
+
+**验收**:`autonomy-durability`(42)、`autonomy-shell-sandbox`(23)、`mission-driver`(22)三件回归全绿(87 断言零回归)。
+
+**诚实交代**:savepoint 不持久化(进程重启后首次子代理调用无法从上次 checkpoint 恢复,需依赖 DAG 级 resume);catch 抛出的 mid-stream 异常不在此机制覆盖范围内(由现有 DAG retry/resume 兜底);checkpoint 恢复把已完成工具结果灌回 subHistory(不重执行),但其 `role:'tool'` 消息内容来自 `truncateToolResult` 截断版——后续轮次若 provider 需要完整工具结果原文,它会从截断版推断(与正常履带行为一致)。

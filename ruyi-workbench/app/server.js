@@ -2992,6 +2992,22 @@ function providerIsLocal(config) {
 //   • out of bounds + WRITE  → DENY always (destructive / exfil-staging), audit-logged.
 //   • out of bounds + READ   → allow only for a LOCAL provider (providerIsLocal); a remote/cloud model → DENY.
 //   • allowOutsideWorkspace === true → bypass (still audit-logged so an operator can see the crossings).
+// 第31波B(autonomy-shell-sandbox L1): 工具层 autoexec 路径黑名单 —— 从授权书层(consumeGrant)下沉到
+// guardFileToolPath,让 bypass/plan/default 全模式都受 autoexec 保护,不再依赖"是否有授权书"。
+// 与 GRANT_EDIT_AUTOEXEC_DENY(:6139) 同源但独立维护:授权书层保留引用(纵深,向后兼容),此处为工具层统一 sink。
+// 精确匹配 .git/hooks/ 等自动执行入口(不误伤 .gitignore/.gitattributes 等工作区根级文件)。
+const AUTOEXEC_DENYLIST = [
+  // git hooks（.git/hooks/ 内的任何文件，.githooks/，.husky/）
+  /(^|[\\/])\.git[\\/]hooks[\\/]/i, /(^|[\\/])\.githooks[\\/]/i, /(^|[\\/])\.husky[\\/]/i,
+  // IDE 任务
+  /(^|[\\/])\.vscode[\\/]tasks\.json$/i, /(^|[\\/])\.vscode[\\/]launch\.json$/i,
+  // CI/CD 配置（非高频开发编辑）
+  /(^|[\\/])\.github[\\/]workflows[\\/]/i, /(^|[\\/])\.gitlab-ci\.yml$/i, /(^|[\\/])Jenkinsfile$/i,
+];
+// 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
+function normalizeAutoexecPath(absPath) {
+  return absPath.split(/[\\/]/).map(s => s.replace(/[. ]+$/, '')).join('/').toLowerCase();
+}
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
 // so dataRoot still bounds it. Returns { ok:true, absPath } or { ok:false, code:'not-allowed', error }.
 async function guardFileToolPath(rawPath, ctx, opts) {
@@ -3009,6 +3025,16 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   if (isSensitiveDataPath(abs) || isSensitiveDataPath(real)) {
     logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-sensitive', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据(配置/会话/记忆/日志等),已禁止文件工具访问' };
+  }
+  // 第31波B(L1): autoexec 检查下沉到 guardFileToolPath —— 全模式覆盖(含 bypass/plan/default),不再依赖授权书层。
+  // 仅 write 时检查(读 .git/hooks 不会触发自动执行);对 abs 与 real 双路径归一后匹配 denylist,命中即拒。
+  if (write) {
+    const normAbs = normalizeAutoexecPath(abs);
+    const normReal = normalizeAutoexecPath(real);
+    if (AUTOEXEC_DENYLIST.some(re => re.test(normAbs) || re.test(normReal))) {
+      logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-autoexec', pathLen: abs.length });
+      return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
+    }
   }
   if (config && config.allowOutsideWorkspace === true) {
     const roots0 = fileAllowedRoots(session, config);
@@ -7725,6 +7751,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let iters = 0, toolCallCount = 0;
   let subOk = true, subErr = '';
   let subOverWindow = false; // v0.9 F6: set when the sub-turn's 400 looks like a context-window overflow
+  // 第32波: sub-agent savepoint——每次工具调用批次成功后存快照,传输/超时失败时自动从检查点恢复续跑(不重做已完成的工具调用)。
+  let savepoint = null;         // { subHistory, resultText, iters, toolCallCount } | null
+  let checkpointRestored = false; // 仅恢复一次(防无限重试循环)
   // v1.x (B3): sub-turn loop guard state. Mirrors the parent turn's consecutive-identical-signature guard
   // (runOpenAiTurn loopSig/loopCount, same threshold). Without it a wedged sub-agent repeating one failing
   // tool burns its whole iteration budget (now up to 100 provider calls). Signature = tool name + raw args.
@@ -7753,14 +7782,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     }
   };
   try {
-    for (let iter = 0; ; iter++) {
-      if (iter >= budget) {
-        subErr = `子代理已达迭代上限 ${budget} 轮`;
-        if (!resultText.trim() && toolCallCount > 0) await runFinalizerWithoutTools();
-        if (!resultText.trim()) subOk = false;
-        break;
-      }
-      iters = iter + 1;
+    for (; iters < budget; iters++) {
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
       // v1 定向插话: consume any steers queued for THIS node at the iteration boundary (before buildBody), so
       // each lands as a user message in the request we are about to send — same semantics as the父回合's
@@ -7822,6 +7844,23 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       // the final call is folded again here so the classification below sees a uniform httpError.
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
       if (call.httpError) {
+        // 第32波: 首次传输/超时失败后,若已有检查点,自动恢复续跑(不重做已完成工具调用)
+        if (savepoint && !checkpointRestored && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+          checkpointRestored = true;
+          subHistory.length = 0;
+          for (const m of savepoint.subHistory) subHistory.push(JSON.parse(JSON.stringify(m)));
+          resultText = savepoint.resultText;
+          iters = savepoint.iters;
+          toolCallCount = savepoint.toolCallCount;
+          subHistory.push({
+            role: 'user',
+            content: `[自动恢复] 上次因网络中断在 ${savepoint.toolCallCount} 个工具调用后停止。以上已完成的工作无需重复,在此继续即可。`,
+          });
+          onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: 1, maxAttempts: 2, reason: 'checkpoint-resume' });
+          subOk = true; subErr = '';
+          savepoint = null; // 仅恢复一次
+          continue;
+        }
         subOk = false;
         // v0.9 F6: subHistory grows monotonically with no compaction, so a big tool result can blow the context
         // window → the provider answers 400. A raw "HTTP 400: <blob>" string is opaque to the parent (it lands
@@ -7963,11 +8002,27 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
         }
         if (!subOk) break;
+        // 第32波: 每次成功工具调用后存检查点(供传输/超时失败时自动断点续跑)
+        savepoint = {
+          subHistory: subHistory.map(m => {
+            const c = { role: m.role, content: m.content };
+            if (m.tool_call_id) c.tool_call_id = m.tool_call_id;
+            if (m.tool_calls) c.tool_calls = m.tool_calls.map(tc => ({ id: tc.id, type: tc.type, function: { name: tc.function.name, arguments: tc.function.arguments } }));
+            return c;
+          }),
+          resultText, iters, toolCallCount,
+        };
         continue; // let the sub-agent react to its tool results
       }
       // No tool calls → final conclusion for the sub-turn.
       if (call.text) subHistory.push({ role: 'assistant', content: call.text });
       break;
+    }
+    // 预算耗尽(循环正常退出,非 break 跳出)
+    if (iters >= budget && subOk) {
+      subErr = `子代理已达迭代上限 ${budget} 轮`;
+      if (!resultText.trim() && toolCallCount > 0) await runFinalizerWithoutTools();
+      if (!resultText.trim()) subOk = false;
     }
   } catch (e) {
     subOk = false; subErr = (e && e.message) ? e.message : String(e);
@@ -15902,6 +15957,9 @@ module.exports = {
   buildOpenSpawn,
   guardFileToolPath,
   providerIsLocal,
+  // 第31波B(L1): autoexec denylist + 路径归一 — exposed for shell-sandbox e2e 直接单测。
+  AUTOEXEC_DENYLIST,
+  normalizeAutoexecPath,
   // v0.9-S8: audit-center aggregation — exposed for e2e direct unit testing.
   collectAudit,
   auditSummaryFor,
