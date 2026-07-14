@@ -15,9 +15,9 @@ function ok(cond, label) {
 }
 
 ok(app.includes("initialId === '__blank' ? workflowBlank()"), 'workflow editor can start from a clearly blank template');
-ok(app.includes("'编辑所选模板'") && app.includes("'新建空白'") && app.includes("'另存为新模板'"), 'template actions distinguish edit, blank-new, and save-as-new');
+ok(app.includes("t('workflow.editor.editSelected')") && app.includes("t('workflow.editor.newBlank')") && app.includes("t('workflow.editor.saveAsNew')"), 'template actions distinguish edit, blank-new, and save-as-new');
 ok(app.includes("footLeft.append(forkBtn,remove)") && app.includes("workflow-editor-foot-left"), 'save-as-new lives in the lower-left footer group');
-ok(app.includes('载入：${wf.source ===') && app.includes("'内置'") && app.includes("'项目'") && app.includes("'个人'"), 'template selector labels show template source');
+ok(app.includes("const sourceKey=wf.source === 'builtin'") && app.includes("o.textContent=t(sourceKey)"), 'template selector labels show template source');
 
 ok(app.includes('const nodeSelect = document.createElement') && app.includes('syncNodeSelect()') && app.includes('nodeSelect.onchange'), 'editor has a quick node selector');
 ok(app.includes('card.dataset.nodeId=node.id') && app.includes('selectedId=node.id;selectedEdge=null;renderInspector();markSelectedCards()'), 'clicking a graph node immediately switches the inspector');
@@ -29,7 +29,7 @@ ok(app.includes('resetConnectMode()') && app.includes('connectBtn.onclick') && a
 ok(app.includes('if(connectFromId&&connectFromId!==node.id)') && app.includes('node.dependsOn=[...(node.dependsOn||[]),connectFromId]'), 'clicking a target node adds an edge dependency');
 ok(css.includes('.workflow-node-card.connect-source') && css.includes('.workflow-help'), 'connect mode and dependency help have visible styling');
 
-ok(app.includes("edgeDeleteBtn=el('button','mini danger workflow-btn','删除箭头')") && app.includes("maxBtn=el('button','workflow-window-btn','□')"), 'toolbar exposes delete-edge and the title bar exposes a Windows-style maximize action');
+ok(app.includes("edgeDeleteBtn=el('button','mini danger workflow-btn',t('workflow.editor.deleteEdge'))") && app.includes("maxBtn=el('button','workflow-window-btn','□')"), 'toolbar exposes delete-edge and the title bar exposes a Windows-style maximize action');
 ok(app.includes("graph.addEventListener('contextmenu'") && app.includes("if(e.button!==2)return") && app.includes("graph.scrollLeft=sl-(ev.clientX-sx)"), 'right mouse drag pans the workflow graph');
 ok(app.includes("classList.add('workflow-edge')") && app.includes('workflow-edge-hit') && app.includes('edgeEndpointByPointer(e,from,node)'), 'edges are interactive and choose the dragged endpoint from pointer position');
 ok(app.includes('replaceWorkflowEdge(edge,endpoint,targetId)') && app.includes('nodeIdAtClientPoint(ev.clientX,ev.clientY)'), 'dragging an edge endpoint can retarget it to a node');

@@ -248,7 +248,7 @@ const BROWSER = { origin: 'http://evil.example', 'sec-fetch-site': 'cross-site',
     const test401 = await httpReq(WB_PORT, 'POST', '/api/provider/test', { headers: { 'x-wcw-token': TOK }, body: { provider: { id: 'p', baseUrl: 'http://127.0.0.1:' + FAKE401_PORT, apiKey: 'x' } } });
     const t = test401.json || {};
     ok(t.ok === false && t.errorClass === 'provider_misconfigured', 'P2#6b provider/test 遇 401 → errorClass=provider_misconfigured');
-    ok(/密钥无效或无权限/.test(String(t.error || '')), 'P2#6b provider/test 401 回中文人话(不再裸吐 HTTP 401)');
+    ok(t.error?.code === 'api.request_failed' && /密钥无效或无权限/.test(String(t.error?.message || '')), 'P2#6b provider/test 401 返回结构化的人话错误');
   } catch (e) {
     failures++; console.log('ERROR(C) ' + (e && e.stack || e));
     if (wbLog.length) console.log('--- wb log tail ---\n' + wbLog.slice(-15).join('\n'));

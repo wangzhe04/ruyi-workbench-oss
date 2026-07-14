@@ -18,8 +18,25 @@ export async function api(path, options = {}) {
 
 // v1.0.2 (G2/G5c): api() throws with the response body text on an HTTP error (400/403/404). Handlers that
 // return {ok:false,error} at those statuses want the human `error` — pull it out of the (usually JSON) text.
-export function apiErrText(e) {
+// The server P2 error contract is additive during migration:
+// { ok:false, error:{ code, params, message? } }. Older routes still send error as a string.
+// Normalize both shapes so callers can localize stable codes while retaining an actionable fallback.
+export function apiErrorInfo(e) {
   const raw = (e && e.message) || String(e || '');
-  try { const j = JSON.parse(raw); if (j && j.error) return String(j.error); } catch { /* not json */ }
-  return raw;
+  try {
+    const j = JSON.parse(raw);
+    const detail = j && typeof j.error === 'object' && j.error !== null ? j.error
+      : (j && typeof j.errorInfo === 'object' && j.errorInfo !== null ? j.errorInfo : null);
+    if (detail) {
+      const params = detail.params && typeof detail.params === 'object' && !Array.isArray(detail.params) ? detail.params : {};
+      const message = detail.message || j.errorText || j.message || raw;
+      return { code: String(detail.code || ''), params, message: String(message) };
+    }
+    if (j && j.error) return { code: String(j.errorCode || ''), params: j.errorParams || {}, message: String(j.error) };
+  } catch { /* not json */ }
+  return { code: '', params: {}, message: raw };
+}
+
+export function apiErrText(e) {
+  return apiErrorInfo(e).message;
 }

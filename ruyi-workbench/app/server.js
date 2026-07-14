@@ -70,12 +70,52 @@ const paths = {
 // v1 技能体系: 技能/目录名的安全字符集(供落盘 skills/<id>/、防路径穿越)。复用同 playbook id 的形状。
 const SKILL_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
+const LEGACY_API_ERROR_CODES = new Map([
+  ['missing or invalid workbench token', 'auth.token_invalid'],
+  ['bad token', 'auth.token_invalid'],
+  ['invalid sessionId', 'session.id_invalid'],
+  ['sessionId required', 'session.id_required'],
+  ['session not found', 'session.not_found'],
+  ['method not allowed', 'api.method_not_allowed'],
+  ['host not allowed', 'api.host_rejected'],
+  ['unknown action', 'request.action_unknown'],
+]);
+
+// Keep the legacy message as an optional diagnostic while ensuring every HTTP error has a stable,
+// language-neutral machine code. Individual routes can still use apiFailure() for a richer code/params.
+function normalizeApiErrorPayload(data) {
+  if (!data || data.ok !== false || typeof data.error !== 'string') return data;
+  const message = data.error;
+  const { error, ...rest } = data;
+  return {
+    ...rest,
+    error: {
+      code: LEGACY_API_ERROR_CODES.get(message) || 'api.request_failed',
+      params: {},
+      message,
+    },
+  };
+}
+
 function json(data, status = 200, headers = {}) {
   return {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8', ...headers },
-    body: JSON.stringify(data, null, 2),
+    body: JSON.stringify(normalizeApiErrorPayload(data), null, 2),
   };
+}
+
+// P2 API error contract. Error codes and params are stable/localization-friendly; message remains a
+// diagnostic fallback for older callers while the front end migrates away from sentence matching.
+function apiFailure(code, params = {}, message = '', status = 400) {
+  return json({
+    ok: false,
+    error: {
+      code: String(code || 'api.unknown'),
+      params: params && typeof params === 'object' && !Array.isArray(params) ? params : {},
+      ...(message ? { message: String(message) } : {}),
+    },
+  }, status);
 }
 
 function text(data, status = 200, headers = {}) {
@@ -362,6 +402,9 @@ function defaultConfig() {
     allowDesktopTools: true,
     // --- v0.3 additions ---
     theme: 'dark',
+    // UI language preference. `auto` is resolved to the browser language on first successful UI boot,
+    // then persisted as a concrete supported locale so later launches do not unexpectedly change language.
+    locale: 'auto',
     includePartialMessages: true, // real-time token streaming via --include-partial-messages
     thinkingBudget: '',           // sets MAX_THINKING_TOKENS when non-empty
     betaInterleavedThinking: false, // adds --betas interleaved-thinking (probe first; may be rejected by older CLI)
@@ -564,6 +607,10 @@ function normalizeConfig(raw) {
   }
   if (!PERMISSION_MODES.includes(config.permissionMode)) {
     config.permissionMode = 'bypass';
+    changed = true;
+  }
+  if (!['auto', 'zh-CN', 'en-US'].includes(config.locale)) {
+    config.locale = 'auto';
     changed = true;
   }
   // Only string args reach cp.spawn — filter out anything else (prevents a spawn TypeError/DoS and
@@ -1350,7 +1397,7 @@ function send(res, response) {
 
 function sendError(res, err) {
   const status = err.statusCode || 500;
-  send(res, json({ ok: false, error: err.message || String(err) }, status));
+  send(res, apiFailure('api.internal_error', {}, err.message || String(err), status));
 }
 
 function contentTypeFor(file) {
@@ -13739,7 +13786,11 @@ async function handleApi(req, res, pathname) {
   // authorizeRoute 按 ROUTE_AUTH 表 first-match 判定 open/origin/token/token-browser/body-token;未匹配 -> 拒(403)。
   // 14 处 handler 内 tokenOk 自查保留作纵深;Host 门在 HTTP handler 顶层 hostAllowed(全请求含 GET 与 serveStatic)。
   const authErr = authorizeRoute(req, req.method, pathname);
-  if (authErr) return send(res, json({ ok: false, error: authErr }, 403));
+  if (authErr) {
+    const code = authErr === 'missing or invalid workbench token' ? 'auth.token_invalid'
+      : authErr === 'cross-origin request rejected' ? 'auth.origin_rejected' : 'auth.denied';
+    return send(res, apiFailure(code, {}, authErr, 403));
+  }
 
   if (req.method === 'GET' && pathname === '/api/status') {
     const config = await readConfig();
@@ -14624,10 +14675,10 @@ async function handleApi(req, res, pathname) {
     return send(res, json({ ok: true }));
   }
   if (req.method === 'GET' && pathname.startsWith('/api/agent-runs/')) {
-    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
     const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId'));
     const runId = safeSessionId(pathname.slice('/api/agent-runs/'.length));
-    if (!sessionId || !runId) return send(res, json({ ok: false, error: 'sessionId/runId required' }, 400));
+    if (!sessionId || !runId) return send(res, apiFailure('agent_run.id_required', {}, 'sessionId/runId required', 400));
     // 第29波(§29a): live run 以【内存】对象下发 —— 增量客户端在 settle 类事件后靠本端点刷新单 run 状态,
     // 磁盘快照节流 1.5s 恒旧,读盘会让客户端 lastSeq 与状态错位(拿旧状态配新 seq)。JSON.stringify 同步
     // 执行,事件循环内原子,无撕裂读。归属校验与 POST action 的 live 分支同源(sessionId 不符 = 404)。
@@ -14664,14 +14715,17 @@ async function handleApi(req, res, pathname) {
   // 二进制/过大只返回字节数。token-gated(GET 不走上面的变更类鉴权块,此处显式校验)。path 取自我方 journal
   // 索引(非用户输入,零穿越面);内容为工作台自身写过的文件,不新增暴露面(是 /api/file/preview 的严格子集)。
   if (req.method === 'GET' && pathname === '/api/checkpoints/diff') {
-    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
     const q = new URL(req.url, 'http://x').searchParams;
     const sessionId = safeSessionId(q.get('sessionId'));
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
     const turnSeq = Number(q.get('turnSeq')), entrySeq = Number(q.get('entrySeq'));
+    if (!Number.isInteger(turnSeq) || !Number.isInteger(entrySeq) || turnSeq < 0 || entrySeq < 0) {
+      return send(res, apiFailure('checkpoint.reference_invalid', {}, 'invalid turnSeq or entrySeq', 400));
+    }
     const idx = await journalReadIndex(sessionId);
     const entry = idx.find(e => e && Number(e.turnSeq) === turnSeq && Number(e.entrySeq) === entrySeq);
-    if (!entry) return send(res, json({ ok: false, error: 'entry not found' }, 404));
+    if (!entry) return send(res, apiFailure('checkpoint.not_found', {}, 'entry not found', 404));
     const p = String(entry.path || '');
     const ext = String(path.extname(p).replace(/^\./, '')).toLowerCase();
     const DIFF_TEXT_MAX = 256 * 1024; // 单侧文本上限;超限只给大小
@@ -14701,10 +14755,11 @@ async function handleApi(req, res, pathname) {
   // allowed roots (cwd ∪ defaultWorkspace ∪ recentWorkspaces ∪ dataRoot) — else 403. This prevents a
   // token-holding page from reading arbitrary files (C:\Windows\win.ini etc.). See fileAllowedRoots.
   if (req.method === 'GET' && pathname === '/api/file/preview') {
-    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
     const q = new URL(req.url, 'http://x').searchParams;
     const rawPath = q.get('path') || '';
-    if (!rawPath || !path.isAbsolute(rawPath)) return send(res, json({ ok: false, error: 'path must be absolute' }, 400));
+    if (!rawPath) return send(res, apiFailure('file.path_required', {}, 'path is required', 400));
+    if (!path.isAbsolute(rawPath)) return send(res, apiFailure('file.path_not_absolute', {}, 'path must be absolute', 400));
     const target = path.resolve(rawPath);
     const sessionId = safeSessionId(q.get('sessionId')); // may be null (session-less preview still allowed if in a global root)
     const session = sessionId ? await loadSession(sessionId) : null;
@@ -14843,8 +14898,8 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/session/rewind') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId); // F4
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
-    if (body.targetTurnSeq === undefined || body.targetTurnSeq === null) return send(res, json({ ok: false, error: 'targetTurnSeq is required' }, 400));
+    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (body.targetTurnSeq === undefined || body.targetTurnSeq === null) return send(res, apiFailure('request.field_required', { field: 'targetTurnSeq' }, 'targetTurnSeq is required', 400));
     return send(res, json(await rewindSession(sessionId, body.targetTurnSeq, !!body.rollbackFiles)));
   }
   // v0.8-S7: mid-turn STEERING (§4 A3). UI-only, header-token (needsToken whitelist above). Enqueues plain
@@ -14855,8 +14910,8 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId); // F4
     const text = String(body.text || '').trim().slice(0, 2000); // 与 steer_node 的单条插话长度上限对齐
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
-    if (!text) return send(res, json({ ok: false, error: 'text is required' }, 400));
+    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!text) return send(res, apiFailure('request.field_required', { field: 'text' }, 'text is required', 400));
     const reg = activeChildren.get(sessionId);
     if (!reg) return send(res, json({ ok: false, error: '当前没有进行中的回合' }));
     if (reg.kind !== 'openai') return send(res, json({ ok: false, error: '仅 provider 引擎支持插话' }));
@@ -14894,7 +14949,7 @@ async function handleApi(req, res, pathname) {
     }
     return send(res, json({ ok: true, result: await toolCall(name, body, ctx) }));
   }
-  return send(res, json({ ok: false, error: 'Not found' }, 404));
+  return send(res, apiFailure('api.route_not_found', {}, 'Not found', 404));
 }
 
 // --- startup port fallback: if the port is held by a STALE workbench, free it and retry ---

@@ -117,6 +117,10 @@ function post(port, p, body, headers = {}) {
     r.on('error', reject); r.write(raw); r.end();
   });
 }
+function apiErrorMessage(body) {
+  const error = body && body.error;
+  return error && typeof error === 'object' ? String(error.message || '') : String(error || '');
+}
 async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/health')) return true; await sleep(120); } return false; }
 async function waitFor(fn, tries = 120, gap = 100) { for (let i = 0; i < tries; i++) { const v = await fn(); if (v) return v; await sleep(gap); } return null; }
 function runOf(r, runId) { return r && Array.isArray(r.runs) && r.runs.find(x => x.id === runId); }
@@ -182,15 +186,15 @@ const steer = (runId, sid, nodeId, text, hdr) => post(WP, `/api/agent-runs/${enc
     // (c) Claude-engine node steer → 409 (single-shot -p process). Engine check precedes the status check, so
     // even a `queued` Claude node (an otherwise-steerable status) is rejected purely on engine.
     const cRes = await steer(runId, sid, 'claudenext', 'NOPE', hdr);
-    ok(cRes.status === 409 && cRes.body && cRes.body.ok === false && /Claude 引擎节点/.test(cRes.body.error || ''),
-      '(c) steer on Claude-engine node → 409 with wording (got ' + cRes.status + ' / ' + (cRes.body && cRes.body.error) + ')');
+    ok(cRes.status === 409 && cRes.body && cRes.body.ok === false && /Claude 引擎节点/.test(apiErrorMessage(cRes.body)),
+      '(c) steer on Claude-engine node → 409 with wording (got ' + cRes.status + ' / ' + apiErrorMessage(cRes.body) + ')');
 
     // (f) vote-gate node steer → 409 (aggregateAgentVote is a deterministic short-circuit in runAgentWorkflow —
     // it never calls runSubAgent, so there is no iteration boundary to ever drain a queued steer). `gate` is
     // still `queued` here (depends only on `work`), same deterministic target as the (e) cap test below.
     const fRes = await steer(runId, sid, 'gate', 'NOPE', hdr);
-    ok(fRes.status === 409 && fRes.body && fRes.body.ok === false && /确定性质量门/.test(fRes.body.error || ''),
-      '(f) steer on vote-gate node → 409 with wording (got ' + fRes.status + ' / ' + (fRes.body && fRes.body.error) + ')');
+    ok(fRes.status === 409 && fRes.body && fRes.body.ok === false && /确定性质量门/.test(apiErrorMessage(fRes.body)),
+      '(f) steer on vote-gate node → 409 with wording (got ' + fRes.status + ' / ' + apiErrorMessage(fRes.body) + ')');
 
     // (g) forged sessionId + the REAL runId → 404 (run-ownership guard shared by pause/resume/stop/steer_node;
     // a session must not be able to touch another session's live run just by guessing/reusing its runId).
@@ -200,13 +204,13 @@ const steer = (runId, sid, nodeId, text, hdr) => post(WP, `/api/agent-runs/${enc
 
     // (h) empty text → 400 with the specific wording (distinct from the generic 'text is required' of /api/steer).
     const hRes = await steer(runId, sid, 'work', '', hdr);
-    ok(hRes.status === 400 && hRes.body && hRes.body.ok === false && /插话内容不能为空/.test(hRes.body.error || ''),
-      '(h) steer with empty text → 400「插话内容不能为空」(got ' + hRes.status + ' / ' + (hRes.body && hRes.body.error) + ')');
+    ok(hRes.status === 400 && hRes.body && hRes.body.ok === false && /插话内容不能为空/.test(apiErrorMessage(hRes.body)),
+      '(h) steer with empty text → 400「插话内容不能为空」(got ' + hRes.status + ' / ' + apiErrorMessage(hRes.body) + ')');
 
     // (i) nonexistent nodeId → 404.
     const iRes = await steer(runId, sid, 'no-such-node-zzz', 'NOPE', hdr);
-    ok(iRes.status === 404 && iRes.body && iRes.body.ok === false && /节点不存在/.test(iRes.body.error || ''),
-      '(i) steer on nonexistent nodeId → 404「节点不存在」(got ' + iRes.status + ' / ' + (iRes.body && iRes.body.error) + ')');
+    ok(iRes.status === 404 && iRes.body && iRes.body.ok === false && /节点不存在/.test(apiErrorMessage(iRes.body)),
+      '(i) steer on nonexistent nodeId → 404「节点不存在」(got ' + iRes.status + ' / ' + apiErrorMessage(iRes.body) + ')');
 
     // (e) per-node queue cap on the QUEUED `later` node: no consumption while queued, so this is deterministic.
     const cap1 = await steer(runId, sid, 'later', 'CAP1', hdr);
@@ -216,8 +220,8 @@ const steer = (runId, sid, nodeId, text, hdr) => post(WP, `/api/agent-runs/${enc
     ok(cap1.status === 200 && cap1.body && cap1.body.ok === true && cap1.body.queued === 1, '(e) 1st steer on queued node accepted (queued=1)');
     ok(cap2.body && cap2.body.queued === 2, '(e) 2nd steer accepted (queued=2)');
     ok(cap3.body && cap3.body.queued === 3, '(e) 3rd steer accepted (queued=3)');
-    ok(cap4.status === 409 && cap4.body && cap4.body.ok === false && /插话队列已满/.test(cap4.body.error || ''),
-      '(e) 4th steer over cap → 409「插话队列已满」(got ' + cap4.status + ' / ' + (cap4.body && cap4.body.error) + ')');
+    ok(cap4.status === 409 && cap4.body && cap4.body.ok === false && /插话队列已满/.test(apiErrorMessage(cap4.body)),
+      '(e) 4th steer over cap → 409「插话队列已满」(got ' + cap4.status + ' / ' + apiErrorMessage(cap4.body) + ')');
 
     // (a) steer the RUNNING `work` node — must land in a LATER fake request body.
     const aRes = await steer(runId, sid, 'work', 'STEER_MARK', hdr);
@@ -253,8 +257,8 @@ const steer = (runId, sid, nodeId, text, hdr) => post(WP, `/api/agent-runs/${enc
     // (d) steer the already-succeeded node while the run is still live → 409「节点已结束」 (per-node status gate,
     // distinct from the no-live-run 409).
     const dRes = await steer(runId, sid, 'work', 'TOO_LATE', hdr);
-    ok(dRes.status === 409 && dRes.body && dRes.body.ok === false && /节点已结束/.test(dRes.body.error || ''),
-      '(d) steer on finished node (run still live) → 409「节点已结束」(got ' + dRes.status + ' / ' + (dRes.body && dRes.body.error) + ')');
+    ok(dRes.status === 409 && dRes.body && dRes.body.ok === false && /节点已结束/.test(apiErrorMessage(dRes.body)),
+      '(d) steer on finished node (run still live) → 409「节点已结束」(got ' + dRes.status + ' / ' + apiErrorMessage(dRes.body) + ')');
 
     // Let the run reach a terminal state so teardown is clean (later runs out ROUNDS then finishes).
     const terminalRun = await waitFor(async () => {
@@ -267,8 +271,8 @@ const steer = (runId, sid, nodeId, text, hdr) => post(WP, `/api/agent-runs/${enc
     // (j) steer after the run has gone terminal → 409「工作流当前未运行」 (the no-live-runtime rejection, distinct
     // from the per-node 「节点已结束」 of (d) which fires while the RUN is still live but that ONE node finished).
     const jRes = await steer(runId, sid, 'work', 'TOO_LATE_TERMINAL', hdr);
-    ok(jRes.status === 409 && jRes.body && jRes.body.ok === false && /工作流当前未运行/.test(jRes.body.error || ''),
-      '(j) steer after the run is terminal → 409「工作流当前未运行」(got ' + jRes.status + ' / ' + (jRes.body && jRes.body.error) + ')');
+    ok(jRes.status === 409 && jRes.body && jRes.body.ok === false && /工作流当前未运行/.test(apiErrorMessage(jRes.body)),
+      '(j) steer after the run is terminal → 409「工作流当前未运行」(got ' + jRes.status + ' / ' + apiErrorMessage(jRes.body) + ')');
   } catch (e) { console.error('ERROR ' + (e && e.stack || e)); failures++; }
   finally {
     kill(wb);

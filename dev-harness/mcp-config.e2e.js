@@ -114,7 +114,7 @@ async function runImportFolder(port) {
 
     // ③ 缺清单 → 报错含 template。
     const r3 = await postJson(port, '/api/mcp/import-folder', { path: EMPTY }, hdr);
-    ok(r3.status === 200 && r3.json && r3.json.ok === false && /缺少有效/.test(r3.json.error || ''), '③ 缺清单 → ok:false 人话报错');
+    ok(r3.status === 200 && r3.json && r3.json.ok === false && r3.json.error?.code === 'api.request_failed' && /缺少有效/.test(r3.json.error?.message || ''), '③ 缺清单 → 结构化错误');
     ok(r3.json && r3.json.template && r3.json.template.id && r3.json.template.command, '③ 报错附 template 示例对象');
 
     // ⑤ 超 10 条被拒:填满到 10(含 demo-mcp), 再导入第 11 个不同 id → 拒。
@@ -131,7 +131,7 @@ async function runImportFolder(port) {
     fs.mkdirSync(f11, { recursive: true });
     fs.writeFileSync(path.join(f11, 'ruyi-mcp.json'), JSON.stringify({ id: 'overflow-one', command: 'node' }, null, 2));
     const r11 = await postJson(port, '/api/mcp/import-folder', { path: f11 }, hdr);
-    ok(r11.status === 200 && r11.json && r11.json.ok === false && /上限/.test(r11.json.error || ''), '⑤ 超 10 条 → ok:false 上限报错');
+    ok(r11.status === 200 && r11.json && r11.json.ok === false && r11.json.error?.code === 'api.request_failed' && /上限/.test(r11.json.error?.message || ''), '⑤ 超 10 条 → 结构化上限错误');
   } catch (e) { console.log('ERROR [import] ' + (e && e.message || e)); out.fail++; }
   finally {
     if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }

@@ -85,7 +85,7 @@ ok(/e\.ctrlKey\|\|e\.metaKey[\s\S]{0,90}undo\(\)/.test(src), 'C3 Ctrl+Z 撤销')
 ok(/addEventListener\('dblclick'[\s\S]{0,220}data-wf-field="task"/.test(src), 'C3 双击节点卡聚焦检查器任务框(对抗轮P2:中间新增 flushInspector)');
 
 // ───────────── C4 保存并运行（入口归一） ─────────────
-ok(/run=el\('button','primary','保存并运行'\)/.test(src), 'C4 底部「保存并运行」primary 按钮');
+ok(/run=el\('button','primary',t\('workflow\.editor\.saveAndRun'\)\)/.test(src), 'C4 底部「保存并运行」primary 按钮已接入 i18n');
 ok(/run\.onclick=async\(\)=>\{[\s\S]{0,120}launchAgentWorkflow\(wf\)/.test(src), 'C4 保存并运行串联 saveDraft→launchAgentWorkflow');
 
 // ───────────── D 令牌纪律：新增 CSS 无硬编码色 / 无未定义 token ─────────────

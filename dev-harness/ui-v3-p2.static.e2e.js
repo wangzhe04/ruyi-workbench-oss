@@ -124,7 +124,7 @@ ok(bsrBody && !bsrBody.includes('.innerHTML'), 'C buildSkillRow 无 innerHTML(el
 ok(/\.usage-agg-stats\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/.test(css), 'D 统计瓦片默认两列(340px)');
 ok(/\.app-shell\.rp-wide \.usage-agg-stats\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/.test(css), 'D 480/全屏档三列(.app-shell.rp-wide)');
 ok(/classList\.toggle\('rp-wide'/.test(src) && /classList\.add\('tools-fullscreen', 'rp-wide'\)/.test(src), 'D JS applyRightWidth 联动 rp-wide(瓦片列数随档切换)');
-ok(/pb\.title\s*=\s*'订阅套餐/.test(src), 'D 「计划内计费」徽标加人话 title tooltip');
+ok(/pb\.title\s*=\s*t\('usage\.planIncluded\.title'\)/.test(src), 'D 「计划内计费」徽标使用本地化人话 title tooltip');
 
 // ═══════════ E. 纪律:延续 P1(无裸 px 字号回潮 / 新组件规则零硬编码色)═══════════
 const pxFs = (css.match(/font-size:\s*[0-9.]+px/g) || []);

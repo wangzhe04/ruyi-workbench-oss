@@ -192,7 +192,7 @@ async function saveMem(id, scope, name, description, body, cwd) {
     // ---------- P3-1: 正文超 256KB → 拒绝保存(杜绝"保存成功却从列表消失"的幽灵)----------
     const bigBody = 'X'.repeat(256 * 1024 + 16);
     const bigSave = await postJson(WB_PORT, '/api/memory', { memory: { id: 'too-big-note', scope: 'project', name: 'Too Big', description: 'oversize', type: 'reference', body: bigBody }, cwd: PROJ_A });
-    ok(bigSave.status === 400 && bigSave.body && bigSave.body.ok === false && /256KB/.test(bigSave.body.error || ''), 'P3-1: saving a body > 256KB is rejected with a clear 「超过 256KB 上限」 error');
+    ok(bigSave.status === 400 && bigSave.body && bigSave.body.ok === false && bigSave.body.error?.code === 'api.request_failed' && /256KB/.test(bigSave.body.error?.message || ''), 'P3-1: saving a body > 256KB is rejected with a structured limit error');
     const regAfterBig = await getJson(WB_PORT, '/api/memory?cwd=' + encodeURIComponent(PROJ_A), tokenHeaders());
     ok(!(regAfterBig.memories || []).some(m => m.id === 'too-big-note'), 'P3-1: the rejected oversized memory did NOT land on disk (no ghost)');
     // just-under the limit still saves (boundary sanity)

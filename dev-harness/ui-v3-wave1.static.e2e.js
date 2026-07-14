@@ -68,7 +68,7 @@ ok(/\.agent-runs-subnav/.test(css) && /class="agent-runs-subnav"/.test(html), 'B
 ok(/id="usageMiniLink"/.test(html) && /id="auditMiniLink"/.test(html), 'B2 用量/审计 mini 链接元素存在');
 ok(/usageMiniLink'\)[\s\S]{0,60}switchTab\('usage'\)/.test(src) && /auditMiniLink'\)[\s\S]{0,60}switchTab\('audit'\)/.test(src),
   'B2 mini 链接 wire 到 switchTab(usage/audit)');
-ok(/data-tab="agent-runs"[\s\S]{0,140}'AI 工作'/.test(src), 'B2 applyUiMode 把 agent-runs 页签文案改「AI 工作」');
+ok(/data-tab="agent-runs"[\s\S]{0,180}t\('workflow\.simpleTitle'\)/.test(src), 'B2 applyUiMode 把 agent-runs 页签改为本地化「AI 工作」');
 
 // ───────────── B4 tap-min 接线 ─────────────
 ok(count(css, 'var(--tap-min)') >= 6, 'B4 var(--tap-min) 出现次数 ≥6(实际 ' + count(css, 'var(--tap-min)') + ')');
@@ -103,7 +103,7 @@ ok(!/el\('div',\s*'avatar',\s*role === 'user'/.test(src), 'C4 旧字母方块头
 ok(/\.message\.system \.avatar\s*\{[^}]*background:\s*transparent/.test(css), 'C4 系统头像无底色(⚙ 弱化)');
 
 // ───────────── C6 发送按钮运行态 ─────────────
-ok(/iconTextBtn\(btn, 'stop', '停止'\)/.test(src) && !/⏹ 停止/.test(src), 'C6 运行态发送按钮换 stop 线性 SVG +「停止」(P1 §2.15)');
+ok(/iconTextBtn\(btn, 'stop', (?:'停止'|t\('common\.stop'\))\)/.test(src) && !/⏹ 停止/.test(src), 'C6 运行态发送按钮换 stop 线性 SVG + 已本地化的“停止”(P1 §2.15)');
 
 // ───────────── B3 内置技能中文化(读每个 SKILL.md 校验中文 name frontmatter) ─────────────
 let skillDirs = [];

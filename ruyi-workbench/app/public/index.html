@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
     <meta name="wcw-token" content="__WCW_TOKEN__" />
-    <title>如意 Ruyi</title>
+    <title data-i18n="app.title">如意工作台</title>
     <!-- v0.8-S8 favicon:内联如意 tile 主标(藏蓝墨底 + 固定深色版青花/鎏金 #6b8ff2/#f2c14e)。data-URI,无外链。 -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%20120'%3E%3Crect%20x='2'%20y='2'%20width='116'%20height='116'%20rx='26'%20fill='%230e1526'/%3E%3Cg%20transform='translate(10,10)%20scale(0.84)'%3E%3Cg%20transform='rotate(42%2060%2060)'%3E%3Cpath%20fill='%236b8ff2'%20d='M60%2062%20C46%2055%2030%2044%2030%2032%20A13%2013%200%200%201%2053%2024%20A7.5%207.5%200%201%201%2067%2024%20A13%2013%200%200%201%2090%2032%20C90%2044%2074%2055%2060%2062%20Z'/%3E%3Cpath%20fill='none'%20stroke='%236b8ff2'%20stroke-width='9.5'%20stroke-linecap='round'%20d='M60%2057%20C53.5%2073.7%2066.5%2090.3%2057.7%20107'/%3E%3C/g%3E%3Cpath%20fill='%23f2c14e'%20d='M28%2016%20C29.8%2022%2031.6%2023.8%2037%2025.5%20C31.6%2027.2%2029.8%2029%2028%2035%20C26.2%2029%2024.4%2027.2%2019%2025.5%20C24.4%2023.8%2026.2%2022%2028%2016%20Z'/%3E%3C/g%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/styles.css" />
@@ -57,30 +57,30 @@
             <h1>如意 Ruyi</h1>
             <p id="statusLine">正在连接本地服务…</p>
           </div>
-          <button id="collapseSidebarBtn" class="icon-btn" title="折叠侧栏" aria-label="折叠侧栏" data-icon="collapse"></button>
+          <button id="collapseSidebarBtn" class="icon-btn" title="折叠侧栏" aria-label="折叠侧栏" data-i18n-attr="title:navigation.collapseSidebar;aria-label:navigation.collapseSidebar" data-icon="collapse"></button>
         </div>
 
-        <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus">新会话</button>
+        <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus"><span data-i18n="session.new">新会话</span></button>
 
         <div class="search-wrap">
-          <input id="sessionSearch" type="search" placeholder="搜索会话…" autocomplete="off" />
+          <input id="sessionSearch" type="search" placeholder="搜索会话…" data-i18n-attr="placeholder:session.search" autocomplete="off" />
         </div>
 
         <div id="sessionList" class="session-list"></div>
 
         <div class="sidebar-foot">
-          <button id="openSettingsBtn" class="ghost btn-ic" data-icon="settings">设置</button>
-          <button id="openDoctorBtn" class="ghost btn-ic" data-icon="stethoscope">体检</button>
-          <button id="helpBtn" class="ghost btn-ic" data-icon="help" title="快捷键 (?)" aria-label="快捷键"></button>
+          <button id="openSettingsBtn" class="ghost btn-ic" data-icon="settings"><span data-i18n="navigation.settings">设置</span></button>
+          <button id="openDoctorBtn" class="ghost btn-ic" data-icon="stethoscope"><span data-i18n="navigation.doctor">体检</span></button>
+          <button id="helpBtn" class="ghost btn-ic" data-icon="help" title="快捷键 (?)" aria-label="快捷键" data-i18n-attr="title:navigation.help;aria-label:navigation.help"></button>
         </div>
       </aside>
 
       <!-- ============ CHAT PANE ============ -->
       <main class="chat-pane" data-main-view="chat">
         <header class="topbar">
-          <button id="showSidebarBtn" class="icon-btn hidden" title="展开侧栏" aria-label="展开侧栏" data-icon="menu"></button>
+          <button id="showSidebarBtn" class="icon-btn hidden" title="展开侧栏" aria-label="展开侧栏" data-i18n-attr="title:navigation.expandSidebar;aria-label:navigation.expandSidebar" data-icon="menu"></button>
           <div class="topbar-title">
-            <strong id="sessionTitle">如意工作台</strong>
+            <strong id="sessionTitle" data-i18n="navigation.workbench">如意工作台</strong>
             <span id="sessionMeta"></span>
           </div>
           <div class="topbar-actions">
@@ -134,8 +134,8 @@
         <!-- UI v3 P3a: 中栏主视图 Tab(对话 | 工作台)。data-main-view 状态机切中栏内容;工作台在有活动 run
              时亮点标(.has-activity 显 .wb-mv-dot)。tab 点击 wire 到 switchMainView(见 app.js P3a 模块)。 -->
         <div class="wb-mainview-tabs" role="tablist" aria-label="中栏主视图">
-          <button id="mainViewTabChat" class="wb-mv-tab active" role="tab" aria-selected="true" data-main-view="chat">对话</button>
-          <button id="mainViewTabCanvas" class="wb-mv-tab" role="tab" aria-selected="false" data-main-view="canvas">工作台<span class="wb-mv-dot" aria-hidden="true"></span></button>
+          <button id="mainViewTabChat" class="wb-mv-tab active" role="tab" aria-selected="true" data-main-view="chat" data-i18n="navigation.conversation">对话</button>
+          <button id="mainViewTabCanvas" class="wb-mv-tab" role="tab" aria-selected="false" data-main-view="canvas"><span data-i18n="navigation.workbench">工作台</span><span class="wb-mv-dot" aria-hidden="true"></span></button>
           <span class="wb-mv-spacer"></span>
         </div>
 
@@ -244,13 +244,13 @@
         <button id="jumpLatest" class="jump-latest hidden" title="回到最新" aria-label="回到最新">↓</button>
 
         <section class="composer">
-          <div id="dropHint" class="drop-hint hidden">松开：文件→附件，文件夹→设为工作目录</div>
+          <div id="dropHint" class="drop-hint hidden" data-i18n="onboarding.drop.title">松开：文件→附件，文件夹→设为工作目录</div>
           <div id="resumeBanner" class="resume-banner hidden"></div>
           <div id="attachmentTray" class="attachment-tray"></div>
           <div class="composer-box">
-            <textarea id="promptInput" rows="1" placeholder="描述你要做的事…（Enter 发送，Shift+Enter 换行）"></textarea>
+            <textarea id="promptInput" rows="1" placeholder="描述你要做的事…（Enter 发送，Shift+Enter 换行）" data-i18n-attr="placeholder:chat.placeholder"></textarea>
             <div class="composer-actions">
-              <button id="composerMoreBtn" class="file-label btn-ic" title="更多" aria-label="更多操作" aria-haspopup="menu" data-icon="plus"></button>
+              <button id="composerMoreBtn" class="file-label btn-ic" title="更多" aria-label="更多操作" aria-haspopup="menu" data-i18n-attr="title:common.more;aria-label:common.more" data-icon="plus"></button>
               <button id="skillBtn" class="file-label btn-ic" title="技能库：启用技能 / 命令 / 一键任务 (/)"></button>
               <label class="file-label composer-file btn-ic" title="添加文件" data-icon="paperclip">
                 <input id="fileInput" type="file" multiple />
@@ -293,8 +293,8 @@
             <button data-tab="files" class="active">文件</button>
             <button data-tab="artifacts">产物</button>
             <button data-tab="changes">变更</button>
-            <button data-tab="agent-runs">Agent 工作流</button>
-            <button data-tab="usage">用量</button>
+            <button data-tab="agent-runs" data-i18n="workflow.title">Agent 工作流</button>
+            <button data-tab="usage" data-i18n="usage.title">用量</button>
             <button data-tab="audit">审计</button>
           </span>
           <span class="tool-tabs-sep" aria-hidden="true">开发者</span>
@@ -368,16 +368,16 @@
 
         <section class="tool-section" id="tab-agent-runs">
           <div class="debug-head">
-            <label>Agent 工作流</label>
+            <label data-i18n="workflow.title">Agent 工作流</label>
             <div class="row-actions"><button id="workflowEditorBtn" class="mini primary">新建 / 编辑</button><button id="agentRunsRefreshBtn" class="mini">刷新</button></div>
           </div>
           <!-- v3 (§B2): 简易模式「AI 工作」聚合入口 —— 顶部两个 mini 链接切到隐藏的「用量 / 审计」页签
                (专家模式它们是常驻页签;本行由 CSS 仅在简易模式显示)。switchTab 不拦这两个 tab,点击即切。 -->
           <div class="agent-runs-subnav">
-            <button type="button" id="usageMiniLink" class="link-mini">用量</button>
+            <button type="button" id="usageMiniLink" class="link-mini" data-i18n="usage.title">用量</button>
             <button type="button" id="auditMiniLink" class="link-mini">审计</button>
           </div>
-          <div class="workflow-quick-run"><select id="workflowQuickSelect" aria-label="工作流模板"></select><button id="workflowQuickRunBtn" class="mini">运行模板</button></div>
+          <div class="workflow-quick-run"><select id="workflowQuickSelect" aria-label="工作流模板" data-i18n-attr="aria-label:workflow.templateSelector"></select><button id="workflowQuickRunBtn" class="mini" data-i18n="workflow.runTemplate">运行模板</button></div>
           <p class="changes-hint muted">从模板运行，或图形化创建 DAG；支持条件、循环、质量门和失败策略。</p>
           <div id="agentRunsList" class="agent-runs-list"></div>
         </section>
@@ -468,17 +468,17 @@
 
     <!-- ============ SETTINGS MODAL ============ -->
     <div class="modal-backdrop hidden" id="settingsModal">
-      <div class="modal" role="dialog" aria-modal="true" aria-label="设置">
-        <div class="modal-head"><h3>设置</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-icon="close"></button></div>
+      <div class="modal" role="dialog" aria-modal="true" aria-label="设置" data-i18n-attr="aria-label:settings.title">
+        <div class="modal-head"><h3 data-i18n="settings.title">设置</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-i18n-attr="aria-label:common.close" data-icon="close"></button></div>
         <div class="modal-body" id="settingsBody">
           <div class="tool-tabs settings-tabs" id="settingsTabs">
-            <button type="button" data-stab="basic" class="active">基础</button>
+            <button type="button" data-stab="basic" class="active" data-i18n="settings.general">基础</button>
             <button type="button" data-stab="claude">Claude CLI</button>
-            <button type="button" data-stab="providers">服务商</button>
-            <button type="button" data-stab="agents">Agent 角色</button>
-            <button type="button" data-stab="integrations">集成 / MCP</button>
+            <button type="button" data-stab="providers" data-i18n="settings.providers">服务商</button>
+            <button type="button" data-stab="agents" data-i18n="settings.agents">Agent 角色</button>
+            <button type="button" data-stab="integrations" data-i18n="settings.integrations">集成 / MCP</button>
             <button type="button" data-stab="network">联网搜索</button>
-            <button type="button" data-stab="advanced">高级</button>
+            <button type="button" data-stab="advanced" data-i18n="settings.advanced">高级</button>
           </div>
 
           <!-- ===== 基础 ===== -->
@@ -486,6 +486,14 @@
             <div class="field-block">
               <label for="workspaceInput">默认工作文件夹</label>
               <input id="workspaceInput" type="text" placeholder="C:\path\to\project" />
+            </div>
+            <div class="field-block">
+              <label for="cfgLocale" data-i18n="settings.language">语言</label>
+              <select id="cfgLocale">
+                <option value="auto" data-i18n="settings.language.auto">跟随系统</option>
+                <option value="zh-CN" data-i18n="settings.language.zhCN">简体中文</option>
+                <option value="en-US" data-i18n="settings.language.enUS">English</option>
+              </select>
             </div>
             <!-- v0.9-S1 (C1): 界面模式 + 输出风格 -->
             <div class="field-grid">
@@ -761,8 +769,8 @@
         <div class="modal-foot">
           <span id="settingsStatus" class="muted"></span>
           <span class="composer-spacer"></span>
-          <button data-close-modal>取消</button>
-          <button id="saveConfigBtn" class="primary">保存</button>
+          <button data-close-modal data-i18n="common.cancel">取消</button>
+          <button id="saveConfigBtn" class="primary" data-i18n="common.save">保存</button>
         </div>
       </div>
     </div>

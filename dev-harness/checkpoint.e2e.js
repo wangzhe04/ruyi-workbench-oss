@@ -126,7 +126,7 @@ async function waitFakeDown() { for (let i = 0; i < 50; i++) { if (!await fakeRe
     ok(!fs.existsSync(target), '(b) a.txt removed (create inverse = delete) after whole-turn rollback');
     ok(rb1.reverted.some(r => r.op === 'create'), '(b) reverted list includes the create op');
     const rb1b = (await postJson(WB_PORT, '/api/checkpoints/rollback', { sessionId: sid, turnSeq: 1 }, { 'x-wcw-token': token })).body;
-    ok(rb1b.ok === false && rb1b.error === 'no entries', '(b) re-rolling turn 1 → {ok:false, error:no entries} (idempotent)');
+    ok(rb1b.ok === false && rb1b.error?.code === 'api.request_failed' && rb1b.error?.message === 'no entries', '(b) re-rolling turn 1 returns the structured idempotency error');
 
     // ============ (c) turn 2 recreate (v2), turn 3 edit (v3); roll back only turn 3 → v2 restored ============
     // Driven via /api/tools direct calls with an EXPLICIT turnSeq (the spec's "fake-openai + /api/tools 直

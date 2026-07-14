@@ -1,11 +1,12 @@
 // 如意 Ruyi — client util module (v1.3-FE1 前端模块化 Phase 1)。
 //
-// 纯搬家:无状态的 DOM / 格式化小工具,从原 app.js 原样搬来(函数体一字未改)。app.js 通过
+// 纯搬家:无状态的 DOM / 格式化小工具,从原 app.js 原样搬来。app.js 通过
 // `import { $, el, ... } from './js/util.js'` 取回同名绑定,全文件 233×$()/482×el()/95×toast() 等
 // 调用点无需改动 —— import 绑定在模块作用域全文件可见,调用时点解析,行为与经典脚本一致。
 //
 // 依赖:仅浏览器原生 DOM API + 全局 marked/hljs(经典 vendor 脚本先于 module 加载,仍是全局)。
-// 本模块内部自洽(toast/setStatus 依赖同文件的 $/el),不 import 其他模块 —— 零循环。
+// i18n 为单向依赖：本模块只读取当前 locale，i18n 本身不依赖 util，故无循环。
+import { getLocale } from './i18n.js';
 
 // 按 id 取元素 / 造元素(全站两大高频 helper)。
 export const $ = id => document.getElementById(id);
@@ -22,9 +23,9 @@ export function fmtBytes(n) {
   if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1048576).toFixed(1)} MB`;
 }
-// ISO 时间 → zh-CN 短格式。
+// ISO 时间 → 当前语言的短格式。
 export function fmtTime(iso) {
-  try { const d = new Date(iso); return d.toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit', month: '2-digit', day: '2-digit' }); } catch { return ''; }
+  try { const d = new Date(iso); return d.toLocaleString(getLocale(), { hour: '2-digit', minute: '2-digit', month: '2-digit', day: '2-digit' }); } catch { return ''; }
 }
 // token 数人类可读(K/M,尾零裁剪)。ctx-meter 与各处读数共用。
 export function fmtTokens(n) {

@@ -13,8 +13,52 @@
 // index.html 的 <script src="/app.js"> 已加 type="module" 以启用 import(head 内预绘脚本不受影响)。
 import { state, MSG_WINDOW_THRESHOLD, MSG_WINDOW_TAIL, MSG_WINDOW_STEP } from './js/state.js';
 import { $, el, escapeHtml, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow } from './js/util.js';
-import { wcwToken, authHeaders, api, apiErrText } from './js/net.js';
+import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText } from './js/net.js';
 import { icon, hydrateIcons } from './js/icons.js';
+import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
+
+const API_ERROR_I18N = {
+  'auth.token_invalid': 'error.api.authToken',
+  'api.route_not_found': 'error.api.routeNotFound',
+  'api.request_failed': 'error.api.requestFailed',
+  'api.internal_error': 'error.api.internalError',
+  'api.method_not_allowed': 'error.api.methodNotAllowed',
+  'api.host_rejected': 'error.api.hostRejected',
+  'request.action_unknown': 'error.api.actionUnknown',
+  'session.id_invalid': 'error.api.sessionInvalid',
+  'session.id_required': 'error.api.sessionRequired',
+  'session.not_found': 'error.api.sessionNotFound',
+  'checkpoint.not_found': 'error.api.checkpointNotFound',
+  'checkpoint.reference_invalid': 'error.api.checkpointReferenceInvalid',
+  'file.path_required': 'error.api.pathRequired',
+  'file.path_not_absolute': 'error.api.pathNotAbsolute',
+  'request.field_required': 'error.api.fieldRequired',
+  'agent_run.id_required': 'error.api.agentRunRequired',
+};
+function apiErrText(error) {
+  const info = apiErrorInfo(error);
+  const key = API_ERROR_I18N[info.code];
+  return key ? t(key, info.params) : rawApiErrText(error);
+}
+
+window.addEventListener('i18n:change', () => {
+  const sendButton = $('sendBtn');
+  // The first locale application runs before hydrateIcons(). Defer icon-bearing controls until then so
+  // hydrateIcons remains the only initializer and does not prepend a duplicate SVG.
+  if (sendButton?.dataset.iconized === '1') setStreaming(Boolean(state.streaming));
+  const prompt = $('promptInput');
+  if (prompt) prompt.placeholder = t('chat.placeholder');
+  renderSessions();
+  renderWorkspacePicker();
+  renderResumeBanner();
+  applyUiMode(document.documentElement.getAttribute('data-ui-mode') || 'pro');
+  renderPermChip();
+  void loadAutonomyGrants();
+  if (usageState.data) renderUsage(usageState.data);
+  if (auditState.loaded) renderAuditList();
+  if (document.querySelector('.tool-tabs button.active')?.dataset.tab === 'files') void loadFileTree();
+  if (!state.streaming && state.currentSession) renderCurrentSession();
+});
 
 // UI v3 (§2.15): icon+文字按钮统一重建器 —— 清空后 append [SVG 图标] + [文字]。文案会变的按钮
 // (发送⇄停止 / 技能徽标)复用它:直接赋 textContent 会吞掉已插入的 SVG,故走 append。
@@ -116,7 +160,7 @@ function applyUiMode(mode) {
   const dens = m === 'simple' ? 'comfortable' : 'compact';
   if (document.documentElement.getAttribute('data-density') !== dens) document.documentElement.setAttribute('data-density', dens);
   // v3 (§B2): agent-runs 页签在简易模式显示「AI 工作」(聚合工作流+用量/审计 mini 入口),专家模式保留「Agent 工作流」。
-  { const t = document.querySelector('.tool-pane .tool-tabs button[data-tab="agent-runs"]'); if (t) t.textContent = (m === 'simple' ? 'AI 工作' : 'Agent 工作流'); }
+  { const tab = document.querySelector('.tool-pane .tool-tabs button[data-tab="agent-runs"]'); if (tab) tab.textContent = (m === 'simple' ? t('workflow.simpleTitle') : t('workflow.title')); }
   const btn = $('uiModeToggle');
   if (btn) {
     btn.textContent = m === 'simple' ? '🧸' : '🔧';
@@ -160,9 +204,9 @@ function renderWorkspacePicker() {
   const full = currentWorkspace();
   const nameEl = btn.querySelector('.wp-name');
   // basename that tolerates both \ and / and a trailing separator.
-  const short = full ? (full.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || full) : '工作台';
+  const short = full ? (full.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || full) : t('navigation.workbench');
   if (nameEl) nameEl.textContent = short;         // textContent → XSS-safe (paths are attacker-influenced)
-  btn.title = full || '未设置工作文件夹（点击选择）';
+  btn.title = full || t('workspace.select');
 }
 // LRU-insert a path at the front of config.recentWorkspaces (≤10, de-duped case-insensitively) and persist.
 // Kept in sync with the server's normalizeConfig cleansing (which also truncates to 10).
@@ -182,21 +226,21 @@ async function setWorkspace(dir, { alsoDefault = false } = {}) {
   if (!state.currentSession) await newSession();
   try {
     await patchSession(state.currentSession.id, { cwd: dir });
-  } catch (e) { toast(`切换工作目录失败：${apiErrText(e)}`, 'err'); return; }
+  } catch (e) { toast(t('workspace.switch.failed', { reason: apiErrText(e) }), 'err'); return; }
   pushRecentWorkspace(dir);
   if (alsoDefault) { state.config.defaultWorkspace = dir; saveConfigPartial({ defaultWorkspace: dir }); }
   renderWorkspacePicker();
   const treeTabActive = document.querySelector('.tool-pane .tool-tabs button[data-tab="files"]')?.classList.contains('active');
   if (treeTabActive) loadFileTree();
-  toast(`工作目录已切换到 ${dir}`, 'ok');
+  toast(t('workspace.switch.success', { directory: dir }), 'ok');
 }
 // Native folder dialog → on success, switch the workspace. Shared by the picker popover's 浏览 button.
 async function pickWorkspaceNative() {
-  toast('正在打开文件夹选择器…', '');
+  toast(t('workspace.picker.opening'), '');
   let r;
   try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
-  catch (e) { toast(`选择器出错：${apiErrText(e)}`, 'err'); return; }
-  if (!r || !r.ok) { toast(`无法打开选择器：${(r && r.error) || '未知'}${r && r.hint ? '（' + r.hint + '）' : ''}`, 'err'); return; }
+  catch (e) { toast(t('workspace.picker.failed', { reason: apiErrText(e) }), 'err'); return; }
+  if (!r || !r.ok) { toast(t('workspace.picker.failed', { reason: `${(r && r.error) || t('common.unknown')}${r && r.hint ? ' (' + r.hint + ')' : ''}` }), 'err'); return; }
   if (r.cancelled) return; // silent — user backed out
   if (r.path) await setWorkspace(r.path);
 }
@@ -223,8 +267,8 @@ function looksAbsolutePath(p) {
 }
 async function submitPastedWorkspace(input, close) {
   const raw = stripWrappingQuotes(input.value);
-  if (!raw) { toast('请输入文件夹路径', 'err'); input.focus(); return; }
-  if (!looksAbsolutePath(raw)) { toast('请输入完整的绝对路径（如 C:\\Users\\me\\project）', 'err'); input.focus(); return; }
+  if (!raw) { toast(t('workspace.pathRequired'), 'err'); input.focus(); return; }
+  if (!looksAbsolutePath(raw)) { toast(t('workspace.pathAbsoluteRequired'), 'err'); input.focus(); return; }
   if (close) close();
   await setWorkspace(raw); // 现有链路带 cwd 护栏与人话警告;无效路径后端拒并 toast
 }
@@ -232,14 +276,14 @@ function pickWorkspace() {
   const btn = $('workspacePicker'); if (!btn) return;
   popover(btn, close => {
     const wrap = el('div', 'wp-pop');
-    const browse = el('button', 'wp-pop-browse', '📁 浏览文件夹…'); browse.type = 'button';
+    const browse = el('button', 'wp-pop-browse', `📁 ${t('workspace.browse')}`); browse.type = 'button';
     browse.onclick = () => { close(); pickWorkspaceNative(); };
     wrap.append(browse);
-    wrap.append(el('div', 'wp-pop-or', '或粘贴文件夹路径'));
+    wrap.append(el('div', 'wp-pop-or', t('workspace.pastePath')));
     const row = el('div', 'wp-pop-row');
-    const input = el('input', 'wp-pop-input'); input.type = 'text'; input.placeholder = 'C:\\Users\\me\\project';
+    const input = el('input', 'wp-pop-input'); input.type = 'text'; input.placeholder = t('workspace.pathPlaceholder');
     input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submitPastedWorkspace(input, close); } });
-    const go = el('button', 'wp-pop-go', '确定'); go.type = 'button';
+    const go = el('button', 'wp-pop-go', t('common.confirm')); go.type = 'button';
     go.onclick = () => submitPastedWorkspace(input, close);
     row.append(input, go);
     wrap.append(row);
@@ -249,13 +293,13 @@ function pickWorkspace() {
 }
 
 /* ---------------- sessions ---------------- */
-function groupLabel(iso) {
+function groupKey(iso) {
   const d = new Date(iso); const now = new Date();
   const days = Math.floor((now.setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / 86400000);
-  if (days <= 0) return '今天';
-  if (days === 1) return '昨天';
-  if (days <= 7) return '本周';
-  return '更早';
+  if (days <= 0) return 'session.today';
+  if (days === 1) return 'session.yesterday';
+  if (days <= 7) return 'session.thisWeek';
+  return 'session.earlier';
 }
 function renderSessions() {
   const list = $('sessionList');
@@ -265,30 +309,31 @@ function renderSessions() {
   const pinned = filtered.filter(s => s.pinned);
   const rest = filtered.filter(s => !s.pinned);
   const groups = [];
-  if (pinned.length) groups.push(['📌 置顶', pinned]);
+  if (pinned.length) groups.push([`📌 ${t('session.pinned')}`, pinned]);
   const byGroup = {};
-  for (const s of rest) { const g = groupLabel(s.updatedAt); (byGroup[g] = byGroup[g] || []).push(s); }
-  for (const g of ['今天', '昨天', '本周', '更早']) if (byGroup[g]) groups.push([g, byGroup[g]]);
+  for (const s of rest) { const g = groupKey(s.updatedAt); (byGroup[g] = byGroup[g] || []).push(s); }
+  for (const g of ['session.today', 'session.yesterday', 'session.thisWeek', 'session.earlier']) if (byGroup[g]) groups.push([t(g), byGroup[g]]);
 
   for (const [label, items] of groups) {
     list.appendChild(el('div', 'session-group-label', label));
     for (const s of items) list.appendChild(sessionItem(s));
   }
-  if (!filtered.length) list.appendChild(el('div', 'muted', q ? '无匹配会话' : '暂无会话，点击「新会话」开始'));
+  if (!filtered.length) list.appendChild(el('div', 'muted', q ? t('session.noMatch') : t('session.empty')));
 }
 function sessionItem(s) {
   const item = el('button', `session-item ${state.currentSession?.id === s.id ? 'active' : ''}`);
   const title = el('span', 's-title', (s.pinned ? '📌 ' : '') + (s.title || s.id));
   const running = activeTurns.has(s.id);
   if (running) item.classList.add('running');
-  const sub = el('span', 's-sub', `${running ? '◐ 运行中 · ' : ''}${s.messageCount || 0} 条 · ${s.summary || s.cwd || ''}`);
+  const subParts = [running ? `◐ ${t('session.running')}` : '', tCount('session.messageCount', s.messageCount || 0), s.summary || s.cwd || ''].filter(Boolean);
+  const sub = el('span', 's-sub', subParts.join(' · '));
   const actions = el('span', 's-actions');
-  const pinBtn = el('button', s.pinned ? 's-act pinned' : 's-act'); pinBtn.appendChild(icon('pin', 15)); pinBtn.title = s.pinned ? '取消置顶' : '置顶'; pinBtn.setAttribute('aria-label', pinBtn.title);
+  const pinBtn = el('button', s.pinned ? 's-act pinned' : 's-act'); pinBtn.appendChild(icon('pin', 15)); pinBtn.title = s.pinned ? t('session.unpin') : t('session.pin'); pinBtn.setAttribute('aria-label', pinBtn.title);
   pinBtn.onclick = e => { e.stopPropagation(); patchSession(s.id, { pinned: !s.pinned }); };
-  const renameBtn = el('button', 's-act'); renameBtn.appendChild(icon('edit', 15)); renameBtn.title = '重命名'; renameBtn.setAttribute('aria-label', '重命名');
+  const renameBtn = el('button', 's-act'); renameBtn.appendChild(icon('edit', 15)); renameBtn.title = t('session.rename'); renameBtn.setAttribute('aria-label', renameBtn.title);
   renameBtn.onclick = e => { e.stopPropagation(); openRenamePopover(renameBtn, s); };
-  const delBtn = el('button', 's-act'); delBtn.appendChild(icon('trash', 15)); delBtn.title = '删除'; delBtn.setAttribute('aria-label', '删除');
-  delBtn.onclick = e => { e.stopPropagation(); if (confirm('删除该会话？')) removeSession(s.id); };
+  const delBtn = el('button', 's-act'); delBtn.appendChild(icon('trash', 15)); delBtn.title = t('session.delete'); delBtn.setAttribute('aria-label', delBtn.title);
+  delBtn.onclick = e => { e.stopPropagation(); if (confirm(t('session.delete.confirm'))) removeSession(s.id); };
   actions.append(pinBtn, renameBtn, delBtn);
   item.append(title, sub, actions);
   item.onclick = () => openSession(s.id);
@@ -355,7 +400,7 @@ function toggleStepBar(force) {
 
 // 第26波b: 任务账本进度条。mission=null 或无里程碑 → 隐藏(非账本会话零显示)。
 const MISSION_MARK = { done: '●', blocked: '▲', pending: '○' };
-const MISSION_MODE_LABEL = { 'until-done': '自动推进中', supervised: '待你确认', off: '' };
+const MISSION_MODE_KEY = { 'until-done': 'mission.autoProgress', supervised: 'mission.waitingConfirmation', off: '' };
 function renderMissionBar(mission) {
   const bar = $('missionBar');
   if (!bar) return;
@@ -367,7 +412,8 @@ function renderMissionBar(mission) {
   if (sum) { sum.innerHTML = ''; sum.append(el('span', 'mb-goal', mission.goal), el('span', 'mb-count', ` · ${done}/${ms.length}`)); }
   const modeEl = $('missionBarMode');
   if (modeEl) {
-    const label = MISSION_MODE_LABEL[mission.autoMode] || '';
+    const labelKey = MISSION_MODE_KEY[mission.autoMode] || '';
+    const label = labelKey ? t(labelKey) : '';
     modeEl.textContent = label ? '· ' + label + (mission.autoMode === 'until-done' && mission.budget ? ` (${(mission.spent && mission.spent.autoTurns) || 0}/${mission.budget.maxAutoTurns})` : '') : '';
     modeEl.className = 'mission-bar-mode' + (mission.autoMode === 'until-done' ? ' mb-active' : mission.autoMode === 'supervised' ? ' mb-warn' : '');
   }
@@ -389,10 +435,10 @@ function renderMissionBar(mission) {
 // 账本状态卡(完成/停滞/预算耗尽)—— 插入对话流,借用 plan/error 卡的视觉语言。
 function missionStateCard(evt) {
   const meta = {
-    complete: { cls: 'ok', icon: '✓', title: '任务完成', body: '所有里程碑已达成,已停止自动推进。' },
-    stuck: { cls: 'warn', icon: '⚠', title: '任务卡住了', body: evt.reason || '连续多个回合无进展,已暂停等待你的指示。' },
-    budget_exhausted: { cls: 'warn', icon: '⏸', title: '自动推进已暂停', body: evt.reason || '自动推进预算已用尽,进度已保留,等待你的指示。' },
-  }[evt.state] || { cls: '', icon: '·', title: '任务状态', body: '' };
+    complete: { cls: 'ok', icon: '✓', title: t('mission.complete.title'), body: t('mission.complete.description') },
+    stuck: { cls: 'warn', icon: '⚠', title: t('mission.stuck.title'), body: evt.reason || t('mission.stuck.description') },
+    budget_exhausted: { cls: 'warn', icon: '⏸', title: t('mission.budgetPaused.title'), body: evt.reason || t('mission.budgetPaused.description') },
+  }[evt.state] || { cls: '', icon: '·', title: t('common.unknown'), body: '' };
   const card = el('div', 'mission-card mission-card-' + meta.cls);
   card.append(el('div', 'mission-card-head', `${meta.icon} ${meta.title}`));
   if (meta.body) card.append(el('div', 'mission-card-body', meta.body));
@@ -400,13 +446,15 @@ function missionStateCard(evt) {
 }
 async function stopMission() {
   const s = state.currentSession; if (!s || !s.mission) return;
-  try { const r = await api('/api/mission', { method: 'POST', body: JSON.stringify({ sessionId: s.id, action: 'stop' }) }); if (r && r.ok) { s.mission = r.mission; renderMissionBar(r.mission); toast('已停止自动推进', 'ok'); } }
-  catch (e) { toast('停止失败:' + apiErrText(e), 'err'); }
+  try { const r = await api('/api/mission', { method: 'POST', body: JSON.stringify({ sessionId: s.id, action: 'stop' }) }); if (r && r.ok) { s.mission = r.mission; renderMissionBar(r.mission); toast(t('mission.stop.success'), 'ok'); } }
+  catch (e) { toast(t('mission.stop.failed', { reason: apiErrText(e) }), 'err'); }
 }
 
 /* ---------------- 第27波:自主性授权书 ---------------- */
 // 档位色(复用权限徽章语义):read=安全 / edit=可撤 / exec=高危。exec 视觉上必须更重。
-const GRANT_TIER_LABEL = { read: '读', edit: '写', exec: '执行' };
+function grantTierLabel(tier) {
+  return { read: t('permission.read'), edit: t('permission.edit'), exec: t('permission.execute') }[tier] || tier;
+}
 function grantTierOf(tool) {
   if (tool === 'powershell_run' || tool === 'script_run' || tool === 'Bash') return 'exec';
   if (tool === 'file_read' || tool === 'file_list') return 'read';
@@ -414,7 +462,9 @@ function grantTierOf(tool) {
 }
 function fmtRemain(ms) {
   const m = Math.max(0, Math.round(ms / 60000));
-  return m >= 60 ? Math.floor(m / 60) + ' 小时' + (m % 60 ? ' ' + (m % 60) + ' 分' : '') : m + ' 分钟';
+  return m >= 60
+    ? t('permission.duration.hours', { hours: Math.floor(m / 60), minutes: m % 60 })
+    : t('permission.duration.minutes', { minutes: m });
 }
 // 渲染活动授权列表(read-only 展示 + 撤销)。grants 为 listGrantsView 形状。
 function renderAutonomyBar(grants) {
@@ -427,21 +477,21 @@ function renderAutonomyBar(grants) {
   // 有活动授权、或签发表单展开时,抽屉显示。
   if (!list.length && !formOpen) { bar.classList.add('hidden'); }
   else bar.classList.remove('hidden');
-  if (count) count.textContent = list.length ? '· ' + list.length + ' 张' : '';
+  if (count) count.textContent = list.length ? '· ' + t('permission.activeCount', { count: list.length }) : '';
   if (revokeAll) revokeAll.classList.toggle('hidden', list.length < 2);
   if (!ul) return;
   ul.innerHTML = '';
   for (const g of list) {
     const tier = g.tier || grantTierOf(g.tool);
     const li = el('li', 'autonomy-grant tier-' + tier);
-    const badge = el('span', 'ag-badge ag-' + tier, GRANT_TIER_LABEL[tier] || tier);
+    const badge = el('span', 'ag-badge ag-' + tier, grantTierLabel(tier));
     const name = el('span', 'ag-tool', g.tool);
-    const scope = el('span', 'ag-scope', g.scope === 'run' ? '本次运行' : '会话');
+    const scope = el('span', 'ag-scope', g.scope === 'run' ? t('permission.scope.run') : t('permission.scope.session'));
     const detail = el('span', 'ag-detail', tier === 'exec' ? (g.cmdAllow || []).join(' / ') : (g.pathGlob || []).join(' , '));
-    if (tier === 'exec' && g.netAllowed) detail.append(el('span', 'ag-net', ' ⚠联网'));
-    const uses = el('span', 'ag-uses', (g.usedCount || 0) + '/' + g.maxUses + ' 次');
-    const ttl = el('span', 'ag-ttl', '剩 ' + fmtRemain(g.remainingMs));
-    const x = el('button', 'ag-revoke', '✕'); x.title = '撤销'; x.onclick = () => revokeOneGrant(g.grantId);
+    if (tier === 'exec' && g.netAllowed) detail.append(el('span', 'ag-net', ' ⚠' + t('permission.network')));
+    const uses = el('span', 'ag-uses', t('permission.uses', { used: g.usedCount || 0, max: g.maxUses }));
+    const ttl = el('span', 'ag-ttl', t('permission.remaining', { duration: fmtRemain(g.remainingMs) }));
+    const x = el('button', 'ag-revoke', '✕'); x.title = t('permission.revoke'); x.onclick = () => revokeOneGrant(g.grantId);
     li.append(badge, name, scope, detail, uses, ttl, x);
     ul.appendChild(li);
   }
@@ -453,14 +503,14 @@ async function loadAutonomyGrants() {
 }
 async function revokeOneGrant(grantId) {
   const s = state.currentSession; if (!s) return;
-  try { const r = await api('/api/autonomy/revoke', { method: 'POST', body: JSON.stringify({ sessionId: s.id, grantId }) }); if (r && r.ok) { renderAutonomyBar(r.grants); toast('已撤销授权', 'ok'); } }
-  catch (e) { toast('撤销失败:' + apiErrText(e), 'err'); }
+  try { const r = await api('/api/autonomy/revoke', { method: 'POST', body: JSON.stringify({ sessionId: s.id, grantId }) }); if (r && r.ok) { renderAutonomyBar(r.grants); toast(t('permission.grantRevoked'), 'ok'); } }
+  catch (e) { toast(t('permission.revoke.failed', { reason: apiErrText(e) }), 'err'); }
 }
 async function revokeAllAutonomyGrants() {
   const s = state.currentSession; if (!s) return;
-  if (!confirm('撤销本会话【全部】授权书?进行中的单次调用不受影响,下一次起全部回落弹窗。')) return;
-  try { const r = await api('/api/autonomy/revoke', { method: 'POST', body: JSON.stringify({ sessionId: s.id, all: true }) }); if (r && r.ok) { renderAutonomyBar(r.grants); toast('已撤销 ' + r.revoked + ' 张授权', 'ok'); } }
-  catch (e) { toast('撤销失败:' + apiErrText(e), 'err'); }
+  if (!confirm(t('permission.revokeAll.confirm'))) return;
+  try { const r = await api('/api/autonomy/revoke', { method: 'POST', body: JSON.stringify({ sessionId: s.id, all: true }) }); if (r && r.ok) { renderAutonomyBar(r.grants); toast(t('permission.revokeAll.success', { count: r.revoked }), 'ok'); } }
+  catch (e) { toast(t('permission.revoke.failed', { reason: apiErrText(e) }), 'err'); }
 }
 // 签发表单:工具切换 → 联动显示 glob(文件族)或 cmdAllow(exec)。
 function autonomyFormSync() {
@@ -487,34 +537,34 @@ function autonomyIssuePayload() {
 }
 async function previewGrant() {
   const p = autonomyIssuePayload(); if (!p) return;
-  const box = $('agDryRun'); if (box) box.textContent = '预览中…';
+  const box = $('agDryRun'); if (box) box.textContent = t('permission.preview.loading');
   try {
     const r = await api('/api/autonomy/grant', { method: 'POST', body: JSON.stringify({ ...p, preview: true }) });
     if (r && r.ok) {
       const bits = [];
-      if (grantTierOf(p.tool) !== 'exec') bits.push('将命中约 ' + (r.dryRun ? r.dryRun.count : 0) + ' 个文件' + (r.dryRun && r.dryRun.truncated ? '(计数已截断)' : ''));
-      else bits.push('允许命令前缀:' + (r.grant.cmdAllow || []).join(' / '));
-      if (r.dropped && r.dropped.length) bits.push(r.dropped.length + ' 条被裁剪(' + r.dropped.map(d => d.reason).join(';') + ')');
+      if (grantTierOf(p.tool) !== 'exec') bits.push(t('permission.preview.files', { count: r.dryRun ? r.dryRun.count : 0, truncated: r.dryRun && r.dryRun.truncated ? t('permission.preview.truncated') : '' }));
+      else bits.push(t('permission.preview.commands', { commands: (r.grant.cmdAllow || []).join(' / ') }));
+      if (r.dropped && r.dropped.length) bits.push(t('permission.preview.dropped', { count: r.dropped.length, reasons: r.dropped.map(d => d.reason).join(';') }));
       if (box) box.textContent = bits.join(';');
-    } else if (box) box.textContent = '预览失败:' + (r && r.error || '');
-  } catch (e) { if (box) box.textContent = '预览失败:' + apiErrText(e); }
+    } else if (box) box.textContent = t('permission.preview.failed', { reason: r && r.error || t('common.unknown') });
+  } catch (e) { if (box) box.textContent = t('permission.preview.failed', { reason: apiErrText(e) }); }
 }
 async function submitGrant(ev) {
   if (ev) ev.preventDefault();
   const p = autonomyIssuePayload(); if (!p) return;
   const tier = grantTierOf(p.tool);
   if (tier === 'exec') {
-    if (!p.cmdAllow.length) { toast('exec 授权必须填至少一条命令前缀', 'err'); return; }
-    if (!confirm('高危:你正在授予【无人值守执行命令】的能力。\n工具:' + p.tool + '\n允许命令前缀:' + p.cmdAllow.join(' / ') + '\n联网:' + (p.netAllowed ? '是' : '否') + '\n次数:' + p.maxUses + '\n\n范围外命令仍会弹窗。确认签发?')) return;
+    if (!p.cmdAllow.length) { toast(t('permission.execution.required'), 'err'); return; }
+    if (!confirm(t('permission.executionWarning', { tool: p.tool, commands: p.cmdAllow.join(' / '), network: p.netAllowed ? t('common.yes') : t('common.no'), uses: p.maxUses }))) return;
   }
   try {
     const r = await api('/api/autonomy/grant', { method: 'POST', body: JSON.stringify(p) });
     if (r && r.ok) {
-      toast('授权已签发' + (r.dropped && r.dropped.length ? '(' + r.dropped.length + ' 条 glob 被裁剪)' : ''), 'ok');
+      toast(r.dropped && r.dropped.length ? t('permission.grantIssuedWithDrops', { count: r.dropped.length }) : t('permission.grantIssued'), 'ok');
       $('autonomyIssueForm').classList.add('hidden');
       await loadAutonomyGrants();
-    } else { toast('签发失败:' + (r && r.error || '未知'), 'err'); }
-  } catch (e) { toast('签发失败:' + apiErrText(e), 'err'); }
+    } else { toast(t('permission.grant.failed', { reason: r && r.error || t('common.unknown') }), 'err'); }
+  } catch (e) { toast(t('permission.grant.failed', { reason: apiErrText(e) }), 'err'); }
 }
 
 /* ---------------- v0.8-S3: 「本轮变更」turn-summary card ---------------- */
@@ -529,40 +579,40 @@ function turnSummaryCard(summary) {
   const hasRevertible = files.some(f => f && f.revertible);
   const card = el('div', 'turn-summary');
   const head = el('div', 'turn-summary-head');
-  head.append(el('span', '', '本轮变更'));
+  head.append(el('span', '', t('changes.title')));
   // v0.8-S4b: 「撤销整轮」— rolls back every journaled file of this turn (default entrySeq). Only shown when
   // there is at least one revertible file AND we know the turnSeq (static or live event both carry it).
   if (hasRevertible && Number.isFinite(turnSeq)) {
-    const undoAll = el('button', 'ts-undo-all', '撤销整轮');
-    undoAll.onclick = () => { if (!confirm('撤销整轮改动？将回滚本轮所有可撤销的文件到改动前的内容，且不可恢复。')) return; rollbackTurn(turnSeq, undefined, undoAll, '整轮'); };
+    const undoAll = el('button', 'ts-undo-all', t('changes.revertTurn'));
+    undoAll.onclick = () => { if (!confirm(t('changes.revertTurn.confirm'))) return; rollbackTurn(turnSeq, undefined, undoAll, t('changes.turnLabel')); };
     head.append(undoAll);
   }
   card.append(head);
   const body = el('div', 'turn-summary-body');
   if (!files.length && commands === 0) {
-    body.append(el('div', 'turn-summary-empty', '本次未改动任何文件'));
+    body.append(el('div', 'turn-summary-empty', t('changes.empty')));
   } else {
     for (const f of files) {
       if (!f) continue;
       const row = el('div', 'turn-summary-file');
       const op = (f.op === 'create' || f.op === 'modify' || f.op === 'delete') ? f.op : 'unknown';
-      const opLabel = op === 'create' ? '新建' : op === 'modify' ? '修改' : op === 'delete' ? '删除' : '变更';
+      const opLabel = op === 'create' ? t('changes.create') : op === 'modify' ? t('changes.modify') : op === 'delete' ? t('changes.delete') : t('common.unknown');
       row.append(el('span', `ts-op ${op}`, opLabel), el('span', 'ts-path', f.path || ''));
       // v0.8-S4b: per-file 「撤销」— rolls back a single entry (turnSeq + entrySeq). Only for revertible
       // files that carry an entrySeq (journal-driven). Non-revertible files show nothing extra.
       if (f.revertible && Number.isFinite(turnSeq) && Number.isFinite(Number(f.entrySeq))) {
-        const undo = el('button', 'ts-undo', '撤销');
-        undo.onclick = () => { if (!confirm(`撤销「${f.path || ''}」的改动？将恢复到改动前的内容，且不可恢复。`)) return; rollbackTurn(turnSeq, Number(f.entrySeq), undo, f.path || ''); };
+        const undo = el('button', 'ts-undo', t('changes.revert'));
+        undo.onclick = () => { if (!confirm(t('changes.revert.confirm', { path: f.path || '' }))) return; rollbackTurn(turnSeq, Number(f.entrySeq), undo, f.path || ''); };
         row.append(undo);
       }
       body.append(row);
     }
     const bits = [];
-    if (files.length) bits.push(`文件 ${files.length} 个`);
-    if (commands) bits.push(`命令 ${commands} 条`);
+    if (files.length) bits.push(t('changes.fileCount', { count: files.length }));
+    if (commands) bits.push(t('changes.commandCount', { count: commands }));
     if (bits.length) body.append(el('div', 'turn-summary-cmds', bits.join(' · ')));
     // commands can't be auto-undone — say so, once, when any command ran (C6/B3 discipline).
-    if (commands > 0) body.append(el('div', 'turn-summary-warn', '⚠ 命令/终端操作不可自动撤销'));
+    if (commands > 0) body.append(el('div', 'turn-summary-warn', `⚠ ${t('changes.commandNotRevertible')}`));
   }
   card.append(body);
   return card;
@@ -583,9 +633,9 @@ function turnArtifactChips(summary) {
     chip.append(el('span', 'artifact-chip-icon', ARTIFACT_KIND_ICON[a.kind] || ARTIFACT_KIND_ICON.other));
     const nameEl = el('span', 'artifact-chip-name', fileBasename(p)); nameEl.title = p; // XSS-safe textContent
     chip.append(nameEl);
-    const openBtn = el('button', 'artifact-chip-btn', '打开'); openBtn.type = 'button'; openBtn.title = '用系统程序打开';
+    const openBtn = el('button', 'artifact-chip-btn', t('file.open')); openBtn.type = 'button'; openBtn.title = t('file.open');
     openBtn.onclick = () => revealArtifact(p, 'open');
-    const locBtn = el('button', 'artifact-chip-btn', '📂 定位'); locBtn.type = 'button'; locBtn.title = '在资源管理器中定位';
+    const locBtn = el('button', 'artifact-chip-btn', `📂 ${t('file.reveal')}`); locBtn.type = 'button'; locBtn.title = t('file.reveal');
     locBtn.onclick = () => revealArtifact(p, 'select');
     chip.append(openBtn, locBtn);
     wrap.append(chip);
@@ -598,16 +648,24 @@ async function revealArtifact(fullPath, mode) {
   const sid = state.currentSession?.id || '';
   try {
     const r = await api('/api/file/reveal', { method: 'POST', body: JSON.stringify({ sessionId: sid, path: fullPath, mode }) });
-    if (!r || !r.ok) { toast((r && r.error) || '无法打开文件', 'err'); return; }
+    if (!r || !r.ok) { toast((r && r.error) || t('file.open.unavailable'), 'err'); return; }
     if (r.degradedTo && r.note) toast(r.note, '');
   } catch (e) {
-    toast('打开失败：' + apiErrText(e), 'err');
+    toast(t('file.open.failed', { reason: apiErrText(e) }), 'err');
   }
 }
 /* ---------------- v0.9-S1 (C6): error human-card ---------------- */
-// Built-in mirror of the server ERROR_CLASSES table (server /api/status also ships it top-level as
-// `errorClasses`; we prefer that live copy and fall back to this so an old status payload still renders).
-const ERROR_CLASSES_FALLBACK = {
+// Known machine classes render through the local catalog. The server's legacy zh/next table is retained only
+// for unknown classes from an older/newer server, so it is no longer the UI's sole error-language contract.
+const ERROR_CLASS_I18N = {
+  provider_misconfigured: { title: 'error.providerMisconfigured', next: 'error.providerMisconfigured.next' },
+  network_down: { title: 'error.networkDown', next: 'error.networkDown.next' },
+  permission_denied: { title: 'error.permissionDenied', next: 'error.permissionDenied.next' },
+  tool_error: { title: 'error.toolFailed' },
+  idle_timeout: { title: 'error.idleTimeout' },
+  tool_loop: { title: 'error.toolLoop' },
+};
+const ERROR_CLASSES_LEGACY = {
   provider_misconfigured: { zh: '模型端点未配置或不可用', next: '到 设置→Providers 检查地址与密钥' },
   network_down: { zh: '网络不可用（当前离线）', next: '联网后重试；或改用离线可完成的任务' },
   permission_denied: { zh: '此操作被权限拒绝', next: '在弹窗中允许，或在 设置→权限 调整模式' },
@@ -616,20 +674,23 @@ const ERROR_CLASSES_FALLBACK = {
   tool_loop: { zh: '检测到重复的工具调用，已停止本轮', next: '换个说法或参数再试；若结果不对，先确认前一步的输出' },
 };
 function errorClassInfo(cls) {
-  const table = (state.status && state.status.errorClasses) || ERROR_CLASSES_FALLBACK;
-  return table[cls] || ERROR_CLASSES_FALLBACK[cls] || null;
+  const local = ERROR_CLASS_I18N[cls];
+  if (local) return { title: t(local.title), next: local.next ? t(local.next) : '' };
+  const table = (state.status && state.status.errorClasses) || ERROR_CLASSES_LEGACY;
+  const legacy = table[cls] || ERROR_CLASSES_LEGACY[cls];
+  return legacy ? { title: legacy.zh, next: legacy.next } : null;
 }
 // Map an errorClass → a concrete 「下一步」 action (button). Not every class gets a button (tool_loop is
 // text-only per spec — there's nothing single-click actionable). Returns {label, run} or null.
 function errorClassAction(cls) {
   switch (cls) {
     case 'provider_misconfigured':
-      return { label: '打开 Providers 设置', run: () => { openModal('settingsModal'); switchSettingsTab('providers'); } };
+      return { label: t('provider.configureApiKey'), run: () => { openModal('settingsModal'); switchSettingsTab('providers'); } };
     case 'network_down':
-      return { label: '查看能力矩阵', run: () => { if (typeof openCapPopover === 'function') openCapPopover(); } };
+      return { label: t('capability.view'), run: () => { if (typeof openCapPopover === 'function') openCapPopover(); } };
     case 'permission_denied':
       // v1.0-S2 (IA): 权限收敛为顶栏「安全」chip + 安全弹层；此处打开该弹层并给出人话提示。
-      return { label: '安全设置', run: () => { if (typeof openPermPopover === 'function') openPermPopover(); toast('在顶栏「安全」中调整权限模式', 'ok'); } };
+      return { label: t('permission.title'), run: () => { if (typeof openPermPopover === 'function') openPermPopover(); toast(t('error.permissionDenied.next'), 'ok'); } };
     default:
       return null; // tool_error / idle_timeout / tool_loop → text-only guidance
   }
@@ -640,18 +701,18 @@ function errorCard(cls, rawError, noFilesChanged) {
   const info = errorClassInfo(cls);
   const card = el('div', 'error-card');
   const head = el('div', 'error-card-head');
-  head.append(el('span', 'error-card-icon', '⚠'), el('span', 'error-card-title', (info && info.zh) || '出现了一个问题'));
+  head.append(el('span', 'error-card-icon', '⚠'), el('span', 'error-card-title', (info && info.title) || t('error.generic.title')));
   card.append(head);
   const body = el('div', 'error-card-body');
   if (info && info.next) body.append(el('div', 'error-card-next', info.next));
-  else if (rawError) body.append(el('div', 'error-card-next', String(rawError)));
+  else body.append(el('div', 'error-card-next', rawError ? String(rawError) : t('error.generic.description')));
   const act = errorClassAction(cls);
   if (act) {
     const btn = el('button', 'error-card-btn', act.label);
     btn.onclick = () => { try { act.run(); } catch { /* ignore */ } };
     body.append(btn);
   }
-  if (noFilesChanged) body.append(el('div', 'error-card-noop', '本次未改动任何文件'));
+  if (noFilesChanged) body.append(el('div', 'error-card-noop', t('changes.empty')));
   card.append(body);
   return card;
 }
@@ -661,14 +722,14 @@ function errorCard(cls, rawError, noFilesChanged) {
 function cliMissingCard() {
   const card = el('div', 'error-card cli-missing-card');
   const head = el('div', 'error-card-head');
-  head.append(el('span', 'error-card-icon', '⚠'), el('span', 'error-card-title', '没找到 Claude CLI'));
+  head.append(el('span', 'error-card-icon', '⚠'), el('span', 'error-card-title', t('error.cliMissing.title')));
   card.append(head);
   const body = el('div', 'error-card-body');
-  body.append(el('div', 'error-card-next', '推荐直接配置 API 引擎（如 DeepSeek，注册即得免费额度），无需安装 Claude CLI 即可开始。'));
-  const btn = el('button', 'error-card-btn', '去配置 API Key');
+  body.append(el('div', 'error-card-next', t('error.cliMissing.description')));
+  const btn = el('button', 'error-card-btn', t('error.cliMissing.configureApi'));
   btn.onclick = () => { openModal('settingsModal'); switchSettingsTab('providers'); };
   body.append(btn);
-  const alt = el('button', 'error-card-alt', '或：配置 Claude CLI 路径');
+  const alt = el('button', 'error-card-alt', t('error.cliMissing.configureCli'));
   alt.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude', true); };
   body.append(alt);
   card.append(body);
@@ -679,23 +740,23 @@ function cliMissingCard() {
 // becomes 「已撤销」+ disabled; on failure a toast surfaces the error. Uses api() (carries the UI token).
 async function rollbackTurn(turnSeq, entrySeq, btn, label) {
   const sid = state.currentSession?.id;
-  if (!sid) { toast('无当前会话', 'err'); return; }
-  if (btn) { btn.disabled = true; btn.textContent = '撤销中…'; }
+  if (!sid) { toast(t('error.generic.description'), 'err'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = t('changes.revert'); }
   try {
     const payload = { sessionId: sid, turnSeq };
     if (entrySeq !== undefined) payload.entrySeq = entrySeq;
     const r = await api('/api/checkpoints/rollback', { method: 'POST', body: JSON.stringify(payload) });
     if (!r || !r.ok) {
-      if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? '撤销整轮' : '撤销'; }
-      toast(`撤销失败：${(r && r.error) || (r && r.failed && r.failed.length ? r.failed[0].reason : '未知错误')}`, 'err');
+      if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? t('changes.revertTurn') : t('changes.revert'); }
+      toast(t('changes.revert.failed', { reason: (r && r.error) || (r && r.failed && r.failed.length ? r.failed[0].reason : t('common.unknown')) }), 'err');
       return;
     }
-    if (btn) { btn.textContent = '已撤销'; btn.classList.add('done'); btn.disabled = true; }
+    if (btn) { btn.textContent = t('changes.revert.done'); btn.classList.add('done'); btn.disabled = true; }
     const n = (r.reverted || []).length;
-    toast(`已撤销${entrySeq === undefined ? '整轮' : ''}：${label}${n ? `(${n} 个文件)` : ''}`, 'ok');
+    toast(t('changes.reverted', { label: `${label}${n ? ` (${t('changes.fileCount', { count: n })})` : ''}` }), 'ok');
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? '撤销整轮' : '撤销'; }
-    toast(`撤销失败：${apiErrText(e)}`, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? t('changes.revertTurn') : t('changes.revert'); }
+    toast(t('changes.revert.failed', { reason: apiErrText(e) }), 'err');
   }
 }
 
@@ -706,20 +767,20 @@ function renderResumeBanner() {
   const info = state.resumable;
   if (!info || !info.dangling) { box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
-  const label = el('span', 'resume-banner-text', '上次任务未完成');
-  const btn = el('button', 'resume-banner-btn', '继续');
+  const label = el('span', 'resume-banner-text', t('chat.resume.title'));
+  const btn = el('button', 'resume-banner-btn', t('chat.resume.action'));
   btn.onclick = () => {
     state.resumable = null;
     box.classList.add('hidden');
     box.innerHTML = '';
-    sendPrompt('请继续完成上一个未完成的任务。');
+    sendPrompt(t('chat.resume.prompt'));
   };
   box.append(label, btn);
 }
 
 async function newSession() {
   const cwd = state.config.defaultWorkspace || '';
-  const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: 'New session', cwd }) });
+  const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: t('session.new'), cwd }) });
   state.currentSession = res.session;
   state.resumable = null; // fresh session never dangles
   try { localStorage.setItem('wcw.lastSession', res.session.id); } catch { /* ignore */ }
@@ -746,7 +807,7 @@ async function removeSession(id) {
 function renderCurrentSession() {
   const session = state.currentSession;
   state.shownUsage = null;
-  $('sessionTitle').textContent = session?.title || '如意工作台'; // v0.8-S8 品牌落地(原「本地 Claude 工作台」)
+  $('sessionTitle').textContent = session?.title || t('navigation.workbench'); // v0.8-S8 品牌落地(原「本地 Claude 工作台」)
   $('sessionMeta').textContent = session ? (session.cwd || '') : '';
   renderWorkspacePicker(); // v0.9-S3 (C3): keep the top-bar picker in sync with this session's cwd
   updateSkillBadge(); // v1 技能体系: 会话切换时刷新 composer 技能徽标(已启用技能数)
@@ -786,13 +847,13 @@ function windowStartFor(msgs) {
 function buildLoadEarlierButton(start) {
   const wrap = el('div', 'load-earlier-wrap');
   const step = Math.min(MSG_WINDOW_STEP, start);
-  const btn = el('button', 'load-earlier', `加载更早的 ${step} 条（还有 ${start} 条）`);
+  const btn = el('button', 'load-earlier', t('chat.loadEarlier', { count: step, remaining: start }));
   btn.type = 'button';
   // v1.0 收官(对抗复核·视图):流式回合期间禁止窗口重绘。renderCurrentSession 会 innerHTML='' 抹掉在途的
   // 流式 row/live.bubble,导致「回答正在生成、点侧栏它就凭空消失」的信任观感事故(数据本身无损,已磁盘验证)。
   // 与 rewind/compact 同款守卫:流式中提示稍候,不重绘。
   btn.onclick = () => {
-    if (state.streaming) { toast('请先等待当前回合结束', ''); return; }
+    if (state.streaming) { toast(t('chat.waitCurrentTurn'), ''); return; }
     state.msgWindowStart = Math.max(0, start - MSG_WINDOW_STEP);
     renderCurrentSession();
     // Anchor to the top so the newly-revealed batch reads from its start (don't jump to bottom).
@@ -802,9 +863,9 @@ function buildLoadEarlierButton(start) {
   wrap.appendChild(btn);
   // 「展开全部」— one-click full expand (also the reachable path exercising expandMessageWindowFully, the
   // designated fallback for any future jump-to-message/search flow that must reach an off-screen message).
-  const all = el('button', 'load-earlier load-all', '展开全部');
+  const all = el('button', 'load-earlier load-all', t('chat.expandAll'));
   all.type = 'button';
-  all.onclick = () => { if (state.streaming) { toast('请先等待当前回合结束', ''); return; } expandMessageWindowFully(); const box = $('messages'); if (box) box.scrollTop = 0; };
+  all.onclick = () => { if (state.streaming) { toast(t('chat.waitCurrentTurn'), ''); return; } expandMessageWindowFully(); const box = $('messages'); if (box) box.scrollTop = 0; };
   wrap.appendChild(all);
   return wrap;
 }
@@ -842,8 +903,8 @@ function buildOnboardDropZone() {
   const zone = el('button', 'onboard-drop');
   zone.type = 'button';
   zone.appendChild(el('div', 'onboard-drop-icon', '📁'));
-  zone.appendChild(el('div', 'onboard-drop-title', '把文件夹拖进来，或点击选择'));
-  zone.appendChild(el('div', 'onboard-drop-sub', '选一个文件夹作为 AI 的工作区，它只会看到这里面的东西'));
+  zone.appendChild(el('div', 'onboard-drop-title', t('onboarding.drop.title')));
+  zone.appendChild(el('div', 'onboard-drop-sub', t('onboarding.drop.description')));
   // v1.0.2 (G6): 引导区「点击选择」保持一键直开原生选择器(不弹粘贴 popover —— 引导区语义即「点击选择」)。
   zone.onclick = () => pickWorkspaceNative();
   // dragover 视觉反馈：加 .dragging 类（CSS 用 --accent 描边 + --accent-soft 底）。真正的落盘解析仍由 shell
@@ -1896,7 +1957,7 @@ function setStreaming(on) {
   if (btn) {
     btn.classList.toggle('danger', on);
     btn.classList.toggle('primary', !on);
-    if (on) iconTextBtn(btn, 'stop', '停止'); else iconTextBtn(btn, 'send', '发送'); // v3 (§C6/§2.15): 运行态换停止图标(danger 弱化描边),完成还原发送
+    if (on) iconTextBtn(btn, 'stop', t('common.stop')); else iconTextBtn(btn, 'send', t('chat.send')); // v3 (§C6/§2.15): 运行态换停止图标(danger 弱化描边),完成还原发送
     btn.onclick = on ? stopTurn : () => sendPrompt();
   }
   updateJumpLatest();
@@ -2477,10 +2538,14 @@ function humanizeToolName(name) {
 // Tier badge visuals — read 绿 / edit 黄 / exec 红. Kept here so the popup needn't re-derive tier from the
 // tool name; the server sends `tier` on the permission_request event.
 const TIER_META = {
-  read: { label: '只读', cls: 'read' },
-  edit: { label: '可编辑', cls: 'edit' },
-  exec: { label: '执行', cls: 'exec' },
+  read: { labelKey: 'permission.read', cls: 'read' },
+  edit: { labelKey: 'permission.edit', cls: 'edit' },
+  exec: { labelKey: 'permission.execute', cls: 'exec' },
 };
+function permissionTierMeta(tier) {
+  const meta = TIER_META[tier] || TIER_META.exec;
+  return { ...meta, label: t(meta.labelKey) };
+}
 
 // v0.8-S4b: session-scoped auto-allow (front-end only). sessionId → Set<toolName>. Once a permission is
 // allowed with the "本次会话自动允许" box ticked, later permission_requests for the SAME tool in the SAME
@@ -2497,24 +2562,25 @@ function handlePermissionRequest(evt) {
   const sid = state.currentSession?.id || '';
   const tool = evt.toolName || 'unknown';
   const tier = TIER_META[evt.tier] ? evt.tier : 'exec';
+  const tierMeta = permissionTierMeta(tier);
   const revertible = evt.revertible === true;
   // Session-scoped auto-allow: skip the popup entirely for a tool the user already blessed this session.
   if (sessionAllowHas(sid, tool)) { decide(evt.requestId, 'allow'); return; }
 
   const body = el('div');
   // Humanized title + raw tool name (mono, secondary) so power users still see exactly what runs.
-  body.appendChild(el('p', '', `${engineLabel()} 想执行：`));
+  body.appendChild(el('p', '', t('permission.request.intent', { engine: engineLabel() })));
   const titleRow = el('div', 'perm-title-row');
   titleRow.append(el('span', 'perm-verb', humanizeToolName(tool)));
-  const badge = el('span', `perm-tier ${TIER_META[tier].cls}`);
-  badge.append(el('span', 'perm-tier-dot'), el('span', '', TIER_META[tier].label));
+  const badge = el('span', `perm-tier ${tierMeta.cls}`);
+  badge.append(el('span', 'perm-tier-dot'), el('span', '', tierMeta.label));
   titleRow.append(badge);
   body.append(titleRow);
   body.appendChild(el('div', 's-title perm-rawname', tool));
   // Revertibility line — the decision-moment trust signal (B3). Uses the event's `revertible` field
   // (server truth); the front-end does NOT re-implement the tier→revertible table.
   const revLine = el('div', `perm-revert ${revertible ? 'yes' : 'no'}`,
-    revertible ? '✓ 此操作可一键撤销' : '⚠ 此操作无法自动撤销,请确认');
+    revertible ? t('permission.revertible') : t('permission.notRevertible'));
   body.append(revLine);
   const pre = el('pre'); pre.style.cssText = 'background:var(--code-bg);border-radius:6px;padding:8px;max-height:200px;overflow:auto;font-family:var(--mono);font-size:var(--fs-sm)';
   pre.textContent = (() => { try { return JSON.stringify(evt.input, null, 2); } catch { return String(evt.input); } })();
@@ -2523,25 +2589,25 @@ function handlePermissionRequest(evt) {
   // read/edit tier (never exec/desktop) → persists into config.toolAllowRules.
   const sessWrap = el('label', 'check');
   const sessBox = document.createElement('input'); sessBox.type = 'checkbox';
-  sessWrap.append(sessBox, document.createTextNode(' 本次会话自动允许'));
+  sessWrap.append(sessBox, document.createTextNode(' ' + t('permission.allowSession')));
   body.appendChild(sessWrap);
   let permBox = null;
   if (tier === 'read' || tier === 'edit') {
     const permWrap = el('label', 'check perm-persist');
     permBox = document.createElement('input'); permBox.type = 'checkbox';
-    permWrap.append(permBox, document.createTextNode(' 永久允许(记入配置)'));
+    permWrap.append(permBox, document.createTextNode(' ' + t('permission.allowPersistent')));
     body.appendChild(permWrap);
     // Ticking 永久 implies the session box (superset); keep them consistent.
     permBox.addEventListener('change', () => { if (permBox.checked) sessBox.checked = true; });
   }
 
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
-  const deny = el('button', 'danger', '拒绝');
-  const allow = el('button', 'primary', '允许');
+  const deny = el('button', 'danger', t('permission.deny'));
+  const allow = el('button', 'primary', t('permission.allow'));
   foot.append(deny, allow);
   // Cancel (Escape/✕/backdrop) denies, so the held bridge request is released immediately.
-  const modal = buildModal(`工具权限请求 · ${engineLabel()}`, body, foot, () => decide(evt.requestId, 'deny', { message: '用户取消' }));
-  deny.onclick = () => { decide(evt.requestId, 'deny', { message: '用户拒绝' }); modal.close(); };
+  const modal = buildModal(t('permission.request.title', { engine: engineLabel() }), body, foot, () => decide(evt.requestId, 'deny', { message: t('permission.request.cancelled') }));
+  deny.onclick = () => { decide(evt.requestId, 'deny', { message: t('permission.request.denied') }); modal.close(); };
   allow.onclick = () => {
     if (sessBox.checked) sessionAllowAdd(sid, tool);
     if (permBox && permBox.checked) {
@@ -2549,7 +2615,7 @@ function handlePermissionRequest(evt) {
       // it, so this is safe even if the tier badge and the server disagree.
       const rules = { ...(state.config.toolAllowRules || {}), [tool]: 'allow' };
       saveConfigPartial({ toolAllowRules: rules });
-      toast(`已永久允许「${humanizeToolName(tool)}」`, 'ok');
+      toast(t('permission.alwaysAllowed', { tool: humanizeToolName(tool) }), 'ok');
     }
     decide(evt.requestId, 'allow'); modal.close();
   };
@@ -2565,36 +2631,46 @@ function setComposerHint(text) {
 function decidePlan(planId, decision, note) {
   const sid = state.currentSession?.id || '';
   return api('/api/plan/decision', { method: 'POST', body: JSON.stringify({ sessionId: sid, planId, decision, note: note || '' }) })
-    .catch(e => { toast(`计划决策失败：${apiErrText(e)}`, 'err'); return null; });
+    .catch(e => { toast(t('plan.decision.failed', { reason: apiErrText(e) }), 'err'); return null; });
 }
 // v0.9-S6 (子代理): render/close the nested sub-agent card. `start` opens a collapsed <details> with an accent
 // left bar and a 「🤖 子任务：<task 前 40 字>」head; its `body` hosts the sub-turn's nested tool cards (routed by
 // subagentId in the tool_use/tool_result handlers). `end` stamps the head with ✓/✗ + a short conclusion note.
 // The card lives in live.toolsWrap so it sits with the turn's other tool activity, and is tracked in
 // live.subCards keyed by the subagentId so tool events find their host.
+function workflowStatusLabel(status) {
+  const key = {
+    running: 'workflow.node.running',
+    succeeded: 'workflow.node.succeeded',
+    failed: 'workflow.node.failed',
+    waiting: 'workflow.node.waiting',
+  }[status];
+  return key ? t(key) : (status || t('workflow.run.endedDefault'));
+}
+
 function handleAgentWorkflowEvent(evt, live) {
   const id = evt.id || '';
   if (evt.state === 'start') {
     const d = el('details', 'subagent-card'); d.open = true;
     const sum = el('summary', 'subagent-head');
-    sum.append(el('span', 'sa-icon', '🕸️'), el('span', 'sa-title', `Agent 工作流 · ${evt.nodeCount || 0} 个节点`), el('span', 'sa-status', `运行中 · 并发 ${evt.concurrency || 1}`));
-    d.appendChild(sum); const body = el('div', 'subagent-body', '依赖图已持久化，节点将按依赖自动解锁。'); d.appendChild(body);
+    sum.append(el('span', 'sa-icon', '🕸️'), el('span', 'sa-title', t('workflow.run.title', { count: evt.nodeCount || 0 })), el('span', 'sa-status', t('workflow.run.running', { count: evt.concurrency || 1 })));
+    d.appendChild(sum); const body = el('div', 'subagent-body', t('workflow.run.description')); d.appendChild(body);
     live.toolsWrap.appendChild(d);
     live.workflowCards.set(id, { d, status: sum.querySelector('.sa-status'), done: 0, total: Number(evt.nodeCount) || 0 });
     return;
   }
   const host = live.workflowCards.get(id); if (!host) return;
   if (evt.state === 'node_retry') {
-    host.status.textContent = `${evt.nodeId || ''} 自动重试 ${evt.attempt || 0}/${evt.maxRetries || 0}`;
+    host.status.textContent = t('workflow.run.retry', { nodeId: evt.nodeId || '', attempt: evt.attempt || 0, maxRetries: evt.maxRetries || 0 });
   } else if (evt.state === 'node_loop') {
-    host.status.textContent = `${evt.nodeId || ''} 循环 ${evt.iteration || 0}/${evt.maxIterations || 0} · 无进展 ${evt.noProgressCount || 0}`;
+    host.status.textContent = t('workflow.run.loop', { nodeId: evt.nodeId || '', iteration: evt.iteration || 0, maxIterations: evt.maxIterations || 0, count: evt.noProgressCount || 0 });
   } else if (evt.state === 'node_end') {
     host.done += 1;
-    host.status.textContent = `${host.done}/${host.total} 完成 · ${evt.nodeId || ''} ${evt.status || ''}`;
+    host.status.textContent = t('workflow.run.progress', { done: host.done, total: host.total, nodeId: evt.nodeId || '', status: workflowStatusLabel(evt.status) });
   } else if (evt.state === 'end') {
     const ok = evt.status === 'succeeded';
     host.d.classList.add(ok ? 'sa-ok' : 'sa-err');
-    host.status.textContent = `${ok ? '✓ 完成' : '⚠ ' + (evt.status || '结束')} · 成功 ${evt.succeeded || 0} / 失败 ${evt.failed || 0}`;
+    host.status.textContent = t('workflow.run.ended', { status: ok ? t('workflow.node.succeeded') : workflowStatusLabel(evt.status), succeeded: evt.succeeded || 0, failed: evt.failed || 0 });
     host.status.classList.add(ok ? 'ok' : 'err');
     if (ok) host.d.open = false;
   }
@@ -2607,19 +2683,25 @@ async function loadAgentWorkflows() {
   catch { agentWorkflowLibrary = []; }
   const select = $('workflowQuickSelect'); if (!select) return;
   const previous = select.value; select.textContent = '';
-  for (const wf of agentWorkflowLibrary) { const o = document.createElement('option'); o.value = wf.id; o.textContent = `${wf.source === 'builtin' ? '内置' : wf.source === 'project' ? '项目' : '个人'} · ${wf.title}`; select.appendChild(o); }
+  for (const wf of agentWorkflowLibrary) {
+    const o = document.createElement('option');
+    o.value = wf.id;
+    const sourceKey = wf.source === 'builtin' ? 'workflow.source.builtin' : wf.source === 'project' ? 'workflow.source.project' : 'workflow.source.personal';
+    o.textContent = t(sourceKey) + ' · ' + wf.title;
+    select.appendChild(o);
+  }
   if (agentWorkflowLibrary.some(x => x.id === previous)) select.value = previous;
 }
 async function launchAgentWorkflow(workflow, context) {
   if (!state.currentSession?.id) await newSession();
-  const wf = workflow || agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value); if (!wf) return toast('请选择工作流', 'err');
+  const wf = workflow || agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value); if (!wf) return toast(t('workflow.selectRequired'), 'err');
   try {
     const body = { token: wcwToken(), sessionId: state.currentSession.id, nodes: wf.nodes, workflowId: wf.id, async: true };
     if (context && context.trim()) body.context = context.trim();
     const r = await api('/api/agent-workflow/launch', { method: 'POST', body: JSON.stringify(body) });
     if (!r || (!r.ok && !r.runId)) throw new Error(r && r.error || '启动失败');
-    toast(`工作流已启动：${wf.title}`, 'ok'); switchTab('agent-runs'); await loadAgentRuns(true);
-  } catch (e) { toast(`工作流启动失败：${apiErrText(e)}`, 'err'); }
+    toast(t('workflow.started', { title: wf.title }), 'ok'); switchTab('agent-runs'); await loadAgentRuns(true);
+  } catch (e) { toast(t('workflow.start.failed', { reason: apiErrText(e) }), 'err'); }
 }
 // Quick "运行模板" launch, from the dropdown in the Agent 工作流 tab. Unlike the graphical editor's own
 // "保存并运行" (where the user has already written real per-node task text), a quick-select template's
@@ -2627,19 +2709,19 @@ async function launchAgentWorkflow(workflow, context) {
 // with no relevant task context. Ask for one line of context first; it's prepended to every node's task.
 function launchAgentWorkflowFromQuickSelect() {
   const wf = agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value);
-  if (!wf) return toast('请选择工作流', 'err');
+  if (!wf) return toast(t('workflow.selectRequired'), 'err');
   const body = el('div');
-  body.append(el('p', 'muted', `即将运行「${wf.title}」。补充这次运行的具体任务/主题，工作流的每个节点都会基于它展开（留空则按模板原文运行，多数情况下没有实际意义）。`));
-  const ctx = document.createElement('textarea'); ctx.rows = 4; ctx.placeholder = '例如：评估是否要把订单服务从单体拆成微服务';
-  body.appendChild(workflowField('任务背景', ctx));
+  body.append(el('p', 'muted', t('workflow.quickRun.description', { title: wf.title })));
+  const ctx = document.createElement('textarea'); ctx.rows = 4; ctx.placeholder = t('workflow.quickRun.contextPlaceholder');
+  body.appendChild(workflowField(t('workflow.quickRun.contextLabel'), ctx));
   const foot = el('div', 'modal-actions');
-  const cancel = el('button', '', '取消'); const run = el('button', 'primary', '运行');
+  const cancel = el('button', '', t('common.cancel')); const run = el('button', 'primary', t('workflow.start'));
   foot.append(cancel, run);
-  const modal = buildModal(`运行模板：${wf.title}`, body, foot);
+  const modal = buildModal(t('workflow.quickRun.title', { title: wf.title }), body, foot);
   cancel.onclick = () => modal.close();
   run.onclick = async () => { const context = ctx.value; modal.close(); await launchAgentWorkflow(wf, context); };
 }
-function workflowBlank() { return { id: `workflow-${Date.now().toString(36)}`, title: '新工作流', description: '', source: 'personal', nodes: [{ id: 'step_1', task: '描述这个节点要完成的任务', role: 'worker', dependsOn: [], failurePolicy: 'block', position: { x: 40, y: 120 } }] }; }
+function workflowBlank() { return { id: `workflow-${Date.now().toString(36)}`, title: t('workflow.editor.newBlank'), description: '', source: 'personal', nodes: [{ id: 'step_1', task: t('workflow.editor.defaultTask'), role: 'worker', dependsOn: [], failurePolicy: 'block', position: { x: 40, y: 120 } }] }; }
 function workflowField(label, input) { const wrap = el('label', 'workflow-field'); wrap.append(el('span', '', label), input); return wrap; }
 function workflowConditionText(value) { return value ? `${value.node ? value.node + '.' : ''}${value.path || ''} ${value.operator || 'truthy'}${value.value === undefined ? '' : ' ' + JSON.stringify(value.value)}`.trim() : ''; }
 function parseWorkflowConditionText(text) {
@@ -2671,18 +2753,18 @@ async function openWorkflowEditor(initialId) {
   let roles = []; try { roles = (await api(`/api/agent-roles?cwd=${encodeURIComponent(currentWorkspace())}`)).roles || []; } catch {}
   const body = el('div', 'workflow-editor');
   const meta = el('div', 'workflow-meta'); const idInput = document.createElement('input'); idInput.value = draft.id; const titleInput = document.createElement('input'); titleInput.value = draft.title; const descInput = document.createElement('input'); descInput.value = draft.description || '';
-  const scopeSelect = document.createElement('select'); for (const [v,t] of [['personal','个人'],['project','项目']]) { const o=document.createElement('option');o.value=v;o.textContent=t;scopeSelect.appendChild(o); } scopeSelect.value=draft.source;
-  meta.append(workflowField('ID', idInput), workflowField('名称', titleInput), workflowField('说明', descInput), workflowField('保存范围', scopeSelect)); body.appendChild(meta);
-  const toolbar = el('div', 'workflow-editor-toolbar'); const templateSelect = document.createElement('select'); for (const wf of agentWorkflowLibrary) { const o=document.createElement('option');o.value=wf.id;o.textContent=`载入：${wf.source === 'builtin' ? '内置' : wf.source === 'project' ? '项目' : '个人'} · ${wf.title}`;templateSelect.appendChild(o); } templateSelect.value=draft.id;
+  const scopeSelect = document.createElement('select'); for (const [v, key] of [['personal','workflow.source.personal'],['project','workflow.source.project']]) { const o=document.createElement('option');o.value=v;o.textContent=t(key);scopeSelect.appendChild(o); } scopeSelect.value=draft.source;
+  meta.append(workflowField(t('workflow.editor.id'), idInput), workflowField(t('workflow.editor.name'), titleInput), workflowField(t('workflow.editor.description'), descInput), workflowField(t('workflow.editor.scope'), scopeSelect)); body.appendChild(meta);
+  const toolbar = el('div', 'workflow-editor-toolbar'); const templateSelect = document.createElement('select'); for (const wf of agentWorkflowLibrary) { const o=document.createElement('option');o.value=wf.id;const sourceKey=wf.source === 'builtin' ? 'workflow.source.builtin' : wf.source === 'project' ? 'workflow.source.project' : 'workflow.source.personal';o.textContent=t(sourceKey) + ' · ' + wf.title;templateSelect.appendChild(o); } templateSelect.value=draft.id;
   const nodeSelect = document.createElement('select'); nodeSelect.title = '快速选择节点';
-  const loadBtn=el('button','mini workflow-btn','编辑所选模板'), blankBtn=el('button','mini workflow-btn','新建空白'), addBtn=el('button','mini workflow-btn','＋ 节点'), connectBtn=el('button','mini workflow-btn','连接箭头'), edgeDeleteBtn=el('button','mini danger workflow-btn','删除箭头'), deleteBtn=el('button','mini danger workflow-btn','删除节点'); const _tbGroup=(...els)=>{const g=el('div','wf-tb-group');g.append(...els);return g;}; toolbar.append(_tbGroup(templateSelect,loadBtn,blankBtn),el('div','wf-tb-sep'),_tbGroup(nodeSelect,addBtn,deleteBtn),el('div','wf-tb-sep'),_tbGroup(connectBtn,edgeDeleteBtn)); body.appendChild(toolbar);
+  const loadBtn=el('button','mini workflow-btn',t('workflow.editor.editSelected')), blankBtn=el('button','mini workflow-btn',t('workflow.editor.newBlank')), addBtn=el('button','mini workflow-btn',t('workflow.editor.addNode')), connectBtn=el('button','mini workflow-btn',t('workflow.editor.connect')), edgeDeleteBtn=el('button','mini danger workflow-btn',t('workflow.editor.deleteEdge')), deleteBtn=el('button','mini danger workflow-btn',t('workflow.editor.deleteNode')); const _tbGroup=(...els)=>{const g=el('div','wf-tb-group');g.append(...els);return g;}; toolbar.append(_tbGroup(templateSelect,loadBtn,blankBtn),el('div','wf-tb-sep'),_tbGroup(nodeSelect,addBtn,deleteBtn),el('div','wf-tb-sep'),_tbGroup(connectBtn,edgeDeleteBtn)); body.appendChild(toolbar);
   const layout=el('div','workflow-editor-layout'), graph=el('div','workflow-graph'), inspector=el('div','workflow-inspector'); layout.append(graph,inspector); body.appendChild(layout);
-  const foot=el('div','modal-actions workflow-editor-foot'), footLeft=el('div','workflow-editor-foot-left'), footRight=el('div','workflow-editor-foot-right'), forkBtn=el('button','mini workflow-btn save-as','另存为新模板'), cancel=el('button','','取消'), remove=el('button','ghost-danger','删除保存'), save=el('button','','保存'), run=el('button','primary','保存并运行'); footLeft.append(forkBtn,remove); footRight.append(cancel,save,run); foot.append(footLeft,footRight); const modal=buildModal('工作流图形编辑器',body,foot); const modalEl=modal.backdrop.querySelector('.modal'); modalEl?.classList.add('workflow-modal'); const maxBtn=el('button','workflow-window-btn','□'); maxBtn.type='button'; maxBtn.title='最大化'; maxBtn.setAttribute('aria-label','最大化工作流编辑器'); modalEl?.querySelector('.modal-head button')?.before(maxBtn);
+  const foot=el('div','modal-actions workflow-editor-foot'), footLeft=el('div','workflow-editor-foot-left'), footRight=el('div','workflow-editor-foot-right'), forkBtn=el('button','mini workflow-btn save-as',t('workflow.editor.saveAsNew')), cancel=el('button','',t('common.cancel')), remove=el('button','ghost-danger',t('workflow.editor.deleteSaved')), save=el('button','',t('common.save')), run=el('button','primary',t('workflow.editor.saveAndRun')); footLeft.append(forkBtn,remove); footRight.append(cancel,save,run); foot.append(footLeft,footRight); const modal=buildModal(t('workflow.editor.title'),body,foot); const modalEl=modal.backdrop.querySelector('.modal'); modalEl?.classList.add('workflow-modal'); const maxBtn=el('button','workflow-window-btn','□'); maxBtn.type='button'; maxBtn.title=t('workflow.editor.maximize'); maxBtn.setAttribute('aria-label',t('workflow.editor.maximize')); modalEl?.querySelector('.modal-head button')?.before(maxBtn);
   graph.tabIndex=0;graph.addEventListener('contextmenu',e=>e.preventDefault());graph.addEventListener('pointerdown',e=>{if(e.button!==2)return;e.preventDefault();const sx=e.clientX,sy=e.clientY,sl=graph.scrollLeft,st=graph.scrollTop;graph.classList.add('panning');graph.setPointerCapture?.(e.pointerId);const move=ev=>{graph.scrollLeft=sl-(ev.clientX-sx);graph.scrollTop=st-(ev.clientY-sy);};const up=()=>{graph.classList.remove('panning');graph.removeEventListener('pointermove',move);graph.removeEventListener('pointerup',up);};graph.addEventListener('pointermove',move);graph.addEventListener('pointerup',up);},true);
   function syncMeta(){draft.id=idInput.value.trim();draft.title=titleInput.value.trim();draft.description=descInput.value.trim();draft.source=scopeSelect.value;}
   function edgeKey(edge){return edge ? `${edge.from}->${edge.to}` : '';}
   function edgeExists(edge){const to=draft.nodes.find(n=>n.id===edge?.to);return !!(to&&to.dependsOn||[]).includes(edge?.from);}
-  function resetConnectMode(){connectFromId='';connectBtn.textContent='连接箭头';}
+  function resetConnectMode(){connectFromId='';connectBtn.textContent=t('workflow.editor.connect');}
   function syncNodeSelect(){const prev=nodeSelect.value;nodeSelect.textContent='';for(const n of draft.nodes){const o=document.createElement('option');o.value=n.id;o.textContent=`节点：${n.id}`;nodeSelect.appendChild(o);}nodeSelect.value=draft.nodes.some(n=>n.id===selectedId)?selectedId:(draft.nodes.some(n=>n.id===prev)?prev:(draft.nodes[0]?.id||''));}
   function markSelectedCards(){graph.querySelectorAll('.workflow-node-card').forEach(x=>{x.classList.toggle('selected',x.dataset.nodeId===selectedId);x.classList.toggle('connect-source',x.dataset.nodeId===connectFromId);});nodeSelect.value=selectedId||'';}
   function markSelectedEdges(){graph.querySelectorAll('.workflow-edge').forEach(x=>x.classList.toggle('selected',x.dataset.edgeKey===edgeKey(selectedEdge)));edgeDeleteBtn.disabled=!selectedEdge;}
@@ -2696,10 +2778,10 @@ async function openWorkflowEditor(initialId) {
     const base = draft.id || 'workflow';
     const suffix = Date.now().toString(36);
     draft.id = `${base.replace(/-copy-[a-z0-9]+$/,'')}-copy-${suffix}`.toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'');
-    draft.title = `${draft.title || '工作流'} 副本`;
+    draft.title = t('workflow.editor.copyTitle', { title: draft.title || t('workflow.title') });
     draft.source = 'personal';
     idInput.value = draft.id; titleInput.value = draft.title; scopeSelect.value = draft.source;
-    toast('已切换为新模板副本，保存后不会覆盖原模板', 'ok');
+    toast(t('workflow.editor.copyCreated'), 'ok');
   }
   function drawEdges(svg){
     const NS='http://www.w3.org/2000/svg'; const defs=document.createElementNS(NS,'defs'), marker=document.createElementNS(NS,'marker'); marker.setAttribute('id','wf-arrow');marker.setAttribute('markerWidth','8');marker.setAttribute('markerHeight','8');marker.setAttribute('refX','7');marker.setAttribute('refY','3');marker.setAttribute('orient','auto');const path=document.createElementNS(NS,'path');path.setAttribute('d','M0,0 L0,6 L8,3 z');marker.appendChild(path);defs.appendChild(marker);svg.appendChild(defs);
@@ -2854,13 +2936,13 @@ async function openWorkflowEditor(initialId) {
     apply.onclick=doApplyNode; commitSelectedNode=doApplyNode;
     inspector.appendChild(apply);
   }
-  loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;undoStack.length=0;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast('已载入模板；保存会覆盖同 ID 的个人/项目模板，内置模板会保存为个人副本','');};
-  blankBtn.onclick=()=>{undoStack.length=0;draft=workflowBlank();idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast('已新建空白模板，保存后生成新模板','ok');};
+  loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;undoStack.length=0;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast(t('workflow.editor.loaded'),'');};
+  blankBtn.onclick=()=>{undoStack.length=0;draft=workflowBlank();idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast(t('workflow.editor.blankCreated'),'ok');};
   forkBtn.onclick=()=>{undoStack.length=0;selectedEdge=null;forkWorkflowDraft();renderGraph();renderInspector();};
   nodeSelect.onchange=()=>{if(selectedId!==nodeSelect.value)flushInspector();selectedId=nodeSelect.value;selectedEdge=null;renderGraph();renderInspector();};
-  connectBtn.onclick=()=>{if(connectFromId){resetConnectMode();markSelectedCards();return;}selectedEdge=null;connectFromId=selectedId||draft.nodes[0]?.id||'';connectBtn.textContent='取消连接';markSelectedCards();markSelectedEdges();toast('连接模式：点击目标节点，创建“当前节点 → 目标节点”的依赖箭头','');};
-  edgeDeleteBtn.onclick=()=>{if(!selectedEdge)return;snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast('已删除箭头','ok');}};
-  maxBtn.onclick=()=>{const on=modalEl?.classList.toggle('workflow-fullscreen');maxBtn.textContent=on?'❐':'□';maxBtn.title=on?'还原':'最大化';maxBtn.setAttribute('aria-label',on?'还原工作流编辑器':'最大化工作流编辑器');setTimeout(()=>{renderGraph();renderInspector();},0);};
+  connectBtn.onclick=()=>{if(connectFromId){resetConnectMode();markSelectedCards();return;}selectedEdge=null;connectFromId=selectedId||draft.nodes[0]?.id||'';connectBtn.textContent=t('common.cancel');markSelectedCards();markSelectedEdges();toast(t('workflow.editor.connectHint'),'');};
+  edgeDeleteBtn.onclick=()=>{if(!selectedEdge)return;snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast(t('workflow.editor.edgeDeleted'),'ok');}};
+  maxBtn.onclick=()=>{const on=modalEl?.classList.toggle('workflow-fullscreen');maxBtn.textContent=on?'❐':'□';maxBtn.title=on?t('workflow.editor.restore'):t('workflow.editor.maximize');maxBtn.setAttribute('aria-label',on?t('workflow.editor.restore'):t('workflow.editor.maximize'));setTimeout(()=>{renderGraph();renderInspector();},0);};
   addBtn.onclick=()=>{flushInspector();snapshot();let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();};
   deleteBtn.onclick=()=>{
     if(draft.nodes.length<=1)return toast('至少保留一个节点','err');
@@ -2872,7 +2954,7 @@ async function openWorkflowEditor(initialId) {
     if(cleared)toast(`已删除节点，并清除 ${cleared} 处指向它的运行条件/循环停止条件（这些节点将变为无条件执行）`,'');
   };
   async function saveDraft(){if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false){const err=new Error('检查器有字段无效，请修正后再保存');err.__quiet=true;throw err;}}syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||'保存失败');draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
-  cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast('工作流已保存','ok');modal.close();}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast('内置模板不可删除','err');if(!confirm(`删除工作流模板「${draft.title||draft.id}」？此操作不可恢复。`))return;try{const r=await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();if(r&&r.ok===false){toast('该模板没有已保存的个人/项目副本，无需删除','err');}else{toast('已删除工作流','ok');modal.close();}}catch(e){toast(apiErrText(e),'err');}};
+  cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast(t('workflow.editor.saved'),'ok');modal.close();}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast(t('workflow.editor.builtinCannotDelete'),'err');if(!confirm(t('workflow.editor.delete.confirm',{title:draft.title||draft.id})))return;try{const r=await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();if(r&&r.ok===false){toast(t('workflow.editor.delete.none'),'err');}else{toast(t('workflow.editor.deleted'),'ok');modal.close();}}catch(e){toast(apiErrText(e),'err');}};
   renderGraph();renderInspector();
 }
 
@@ -2986,7 +3068,7 @@ function renderAgentRuns(runs) {
   const knownNodes = new Set([...host.querySelectorAll('.agent-node')].map(x => `${x.dataset.runId}:${x.dataset.nodeId}`).filter(Boolean));
   const openNodes = new Set([...host.querySelectorAll('.agent-node[open]')].map(x => `${x.dataset.runId}:${x.dataset.nodeId}`).filter(Boolean));
   host.textContent = '';
-  if (!runs.length) { host.appendChild(el('div', 'muted', '本会话还没有 Agent 工作流。')); return; }
+  if (!runs.length) { host.appendChild(el('div', 'muted', t('workflow.empty'))); return; }
   for (const run of runs) {
     const card = el('details', `agent-run-card ar-${run.status || 'unknown'}`); card.dataset.runId = run.id; card.open = knownRuns.has(run.id) ? openRuns.has(run.id) : (AGENT_RUN_ACTIVE.has(run.status) || run.status === 'interrupted');
     const nodes = Array.isArray(run.nodes) ? run.nodes : [];
@@ -2997,10 +3079,10 @@ function renderAgentRuns(runs) {
     const agg = el('div', 'ar-agg');
     agg.appendChild(el('span', `ar-agg-chip st-${run.status || 'unknown'}`, agentRunStatusLabel(run.status)));
     // 29b: 恢复分级徽章 —— 只在等人/等续跑的档位(interrupted/paused)显示,终态与运行中不挂。
-    if ((run.status === 'interrupted' || run.status === 'paused') && run.resumeTier === 'manual_resume_required') agg.appendChild(el('span', 'ar-agg-chip st-interrupted', '需人工恢复'));
-    else if (run.status === 'interrupted' && run.resumeTier === 'auto_resumable') agg.appendChild(el('span', 'ar-agg-chip st-queued', '可自动续跑'));
-    agg.appendChild(el('span', 'ar-agg-nodes', `${done}/${nodes.length} 节点`));
-    const elapsed = runElapsedMs(run); if (elapsed) agg.appendChild(el('span', 'ar-agg-time', (run.live ? '已运行 ' : '用时 ') + fmtDuration(elapsed)));
+    if ((run.status === 'interrupted' || run.status === 'paused') && run.resumeTier === 'manual_resume_required') agg.appendChild(el('span', 'ar-agg-chip st-interrupted', t('workflow.resumeManual')));
+    else if (run.status === 'interrupted' && run.resumeTier === 'auto_resumable') agg.appendChild(el('span', 'ar-agg-chip st-queued', t('workflow.resumeAutomatic')));
+    agg.appendChild(el('span', 'ar-agg-nodes', t('workflow.nodes', { done, total: nodes.length })));
+    const elapsed = runElapsedMs(run); if (elapsed) agg.appendChild(el('span', 'ar-agg-time', t(run.live ? 'workflow.elapsed' : 'workflow.duration', { duration: fmtDuration(elapsed) })));
     const cost = runCostLabel(run); if (cost) agg.appendChild(el('span', 'ar-agg-cost', cost));
     sum.appendChild(agg);
     // v3 (§2.9 P2):当前活动行提升到聚合头 —— 收起态也能看到「现在谁在干嘛」。取运行中节点 progressLog 末条。
@@ -3021,17 +3103,17 @@ function renderAgentRuns(runs) {
     const waitingBlocked = nodes.filter(n => nodeDisplayStatus(n) === 'waiting_resource' && Array.isArray(n.resourceBlockers) && n.resourceBlockers.length);
     if (run.persistenceDegraded || run.idleAborted || (run.live && waitingBlocked.length)) {
       const banner = el('div', 'wf-stall-banner'); banner.setAttribute('role', 'alert');
-      const stallMsg = run.persistenceDegraded ? '进度持久化异常：运行记录连续写盘失败，当前进度可能无法恢复（请检查磁盘空间 / 杀毒软件占用）'
-        : run.idleAborted ? '疑似停滞：工作流长时间无进展，已中止' : `疑似停滞：${waitingBlocked.length} 个节点在等待资源`;
+      const stallMsg = run.persistenceDegraded ? t('workflow.stall.persistence')
+        : run.idleAborted ? t('workflow.stall.idle') : t('workflow.stall.waiting', { count: waitingBlocked.length });
       banner.append(el('span', 'wf-stall-icon', '⚠'), el('span', 'wf-stall-text', stallMsg));
       const stallActions = el('div', 'wf-stall-actions');
-      const view = el('button', 'mini', '查看'); view.setAttribute('aria-label', '定位到停滞节点');
+      const view = el('button', 'mini', t('workflow.view')); view.setAttribute('aria-label', t('workflow.viewStalled'));
       view.onclick = () => {
         const target = waitingBlocked[0] || nodes.find(n => n.status !== 'succeeded' && n.status !== 'skipped');
         if (target) { const rowEl = card.querySelector(`.agent-node[data-node-id="${CSS.escape(target.id)}"]`); if (rowEl) { rowEl.open = true; rowEl.scrollIntoView({ block: 'nearest' }); } }
       };
       stallActions.appendChild(view);
-      if (run.live) { const stop = el('button', 'mini danger', '停止'); stop.setAttribute('aria-label', '停止此工作流'); stop.onclick = () => agentRunAction(run.id, 'stop'); stallActions.appendChild(stop); }
+      if (run.live) { const stop = el('button', 'mini danger', t('workflow.stop')); stop.setAttribute('aria-label', t('workflow.stop')); stop.onclick = () => agentRunAction(run.id, 'stop'); stallActions.appendChild(stop); }
       banner.appendChild(stallActions);
       card.appendChild(banner);
     }
@@ -3039,15 +3121,15 @@ function renderAgentRuns(runs) {
     //    /api/agent-runs/:id（action: pause/resume/stop）。按钮均带 aria-label。 ──
     const controls = el('div', 'agent-run-controls');
     if (run.live && !run.paused) {
-      const pause = el('button', 'mini', '暂停'); pause.setAttribute('aria-label', '暂停此工作流'); pause.onclick = () => agentRunAction(run.id, 'pause'); controls.appendChild(pause);
-      const stop = el('button', 'mini danger', '停止'); stop.setAttribute('aria-label', '停止此工作流'); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
+      const pause = el('button', 'mini', t('workflow.pause')); pause.setAttribute('aria-label', t('workflow.pause')); pause.onclick = () => agentRunAction(run.id, 'pause'); controls.appendChild(pause);
+      const stop = el('button', 'mini danger', t('workflow.stop')); stop.setAttribute('aria-label', t('workflow.stop')); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
     } else if (run.live && run.paused) {
-      const resume = el('button', 'mini primary', '继续'); resume.setAttribute('aria-label', '继续此工作流'); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
-      const stop = el('button', 'mini danger', '停止'); stop.setAttribute('aria-label', '停止此工作流'); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
+      const resume = el('button', 'mini primary', t('workflow.resume')); resume.setAttribute('aria-label', t('workflow.resume')); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
+      const stop = el('button', 'mini danger', t('workflow.stop')); stop.setAttribute('aria-label', t('workflow.stop')); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
     } else if (run.status !== 'succeeded') {
-      const resume = el('button', 'mini primary', '恢复未完成节点'); resume.setAttribute('aria-label', '恢复未完成的节点'); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
+      const resume = el('button', 'mini primary', t('workflow.resumeIncomplete')); resume.setAttribute('aria-label', t('workflow.resumeIncompleteAria')); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
     }
-    if (!run.live) { const del = el('button', 'mini', '删除记录'); del.setAttribute('aria-label', '删除此运行记录'); del.onclick = () => deleteAgentRun(run.id); controls.appendChild(del); }
+    if (!run.live) { const del = el('button', 'mini', t('workflow.deleteRecord')); del.setAttribute('aria-label', t('workflow.deleteRecordAria')); del.onclick = () => deleteAgentRun(run.id); controls.appendChild(del); }
     card.appendChild(controls);
     if (run.summary) card.appendChild(el('pre', 'agent-run-summary', run.summary));
     // ── 团队模式 v2 (A4) 共享任务池分区：simple 模式仅当有 proposed 时浮出「待批准的新任务 N」徽标+审批卡；pro 模式
@@ -3059,8 +3141,8 @@ function renderAgentRuns(runs) {
     if (pool.length && (proposedItems.length || !simpleMode)) {
       const section = el('div', 'pool-section');
       const ptitle = el('div', 'pool-title');
-      ptitle.appendChild(el('span', 'pool-title-text', '共享任务池'));
-      if (proposedItems.length) ptitle.appendChild(el('span', 'pool-badge', `待批准的新任务 ${proposedItems.length}`));
+      ptitle.appendChild(el('span', 'pool-title-text', t('workflow.pool.title')));
+      if (proposedItems.length) ptitle.appendChild(el('span', 'pool-badge', t('workflow.pool.pending', { count: proposedItems.length })));
       section.appendChild(ptitle);
       if (run.status === 'waiting_pool' && run.live) {
         // v3 (§2.9 P2):宽限窗倒计时改细进度条(发丝倒计时)替代纯秒数文字。
@@ -3069,7 +3151,7 @@ function renderAgentRuns(runs) {
         const bar = el('div', 'pool-grace-bar'); const fill = el('i');
         fill.style.width = `${Math.max(0, Math.min(100, Math.round((remainMs / POOL_GRACE_HINT_MS) * 100)))}%`;
         bar.appendChild(fill); grace.appendChild(bar);
-        grace.appendChild(el('span', 'pool-grace-label num', `等待审批 · 剩余 ${Math.round(remainMs / 1000)}s`));
+        grace.appendChild(el('span', 'pool-grace-label num', t('workflow.pool.waitingApproval', { seconds: Math.round(remainMs / 1000) })));
         section.appendChild(grace);
       }
       const listItems = simpleMode ? proposedItems : pool;
@@ -3077,20 +3159,20 @@ function renderAgentRuns(runs) {
         const pcard = el('div', `pool-card ps-${item.status || 'proposed'}`);
         const whoNode = (run.nodes || []).find(n => n.id === item.proposedBy);
         const whoLabel = whoNode ? (whoNode.roleLabel || whoNode.id) : (item.proposedBy || '某节点');
-        pcard.appendChild(el('div', 'pool-line pool-who', `谁提议：${whoLabel}`));
+        pcard.appendChild(el('div', 'pool-line pool-who', t('workflow.pool.proposedBy', { name: whoLabel })));
         // 团队模式 v2 (P3-6): pro 模式渲染 task 全文(完整可读);simple 模式截 60 字并把全文挂 title 属性(hover tooltip 看全文)。
         const taskFull = String(item.task || '').trim();
         const taskShort = taskFull.replace(/\s+/g, ' ').slice(0, 60);
-        const whatLine = el('div', 'pool-line pool-what', `做什么：${simpleMode ? taskShort : taskFull}`);
+        const whatLine = el('div', 'pool-line pool-what', t('workflow.pool.task', { task: simpleMode ? taskShort : taskFull }));
         if (simpleMode && taskFull.replace(/\s+/g, ' ').length > taskShort.length) whatLine.title = taskFull;
         pcard.appendChild(whatLine);
-        pcard.appendChild(el('div', 'pool-line pool-cost', `预计消耗：新增 1 个节点，至多约 ${item.maxIters || 100} 轮调用`));
+        pcard.appendChild(el('div', 'pool-line pool-cost', t('workflow.pool.cost', { maxIters: item.maxIters || 100 })));
         if (!simpleMode && item.reason) pcard.appendChild(el('div', 'pool-line pool-reason', `理由：${item.reason}`));
         if (!simpleMode && item.status !== 'proposed') pcard.appendChild(el('div', 'pool-line pool-status', `状态：${poolStatusLabel(item.status)}${item.resultNodeId ? ` · 节点 ${item.resultNodeId}` : ''}`));
         if (item.status === 'proposed' && run.live) {
           const pactions = el('div', 'pool-actions');
-          const yes = el('button', 'mini primary', '同意添加'); yes.setAttribute('aria-label', '同意添加此任务'); yes.onclick = () => poolDecide(run.id, item.id, true);
-          const no = el('button', 'mini', '不用了'); no.setAttribute('aria-label', '拒绝此任务'); no.onclick = () => poolDecide(run.id, item.id, false);
+          const yes = el('button', 'mini primary', t('workflow.pool.approve')); yes.setAttribute('aria-label', t('workflow.pool.approveAria')); yes.onclick = () => poolDecide(run.id, item.id, true);
+          const no = el('button', 'mini', t('workflow.pool.reject')); no.setAttribute('aria-label', t('workflow.pool.rejectAria')); no.onclick = () => poolDecide(run.id, item.id, false);
           pactions.append(yes, no);
           pcard.appendChild(pactions);
         }
@@ -3185,7 +3267,7 @@ function renderAgentRuns(runs) {
       }
       if (Array.isArray(node.progressLog) && node.progressLog.length) {
         const prog = el('div', 'agent-node-progress');
-        prog.appendChild(el('div', 'agent-progress-title', '最近进展'));
+        prog.appendChild(el('div', 'agent-progress-title', t('workflow.progress.recent')));
         for (const item of node.progressLog.slice(-12)) prog.appendChild(el('div', 'agent-progress-line', `${item.at ? new Date(item.at).toLocaleTimeString() + ' · ' : ''}${item.text || ''}`));
         body.appendChild(prog);
       }
@@ -3197,11 +3279,11 @@ function renderAgentRuns(runs) {
       //    retry_node wire 到 POST /api/agent-runs/:id（action: retry_node，服务器要求 run 非 live）。 ──
       if (!run.live) {
         const actions = el('div', 'agent-node-actions');
-        const retry = el('button', 'mini', '仅重试此节点'); retry.setAttribute('aria-label', `仅重试节点 ${node.id}`); retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
-        const cascade = el('button', 'mini', '重试此节点及下游'); cascade.setAttribute('aria-label', `重试节点 ${node.id} 及其下游`); cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
+        const retry = el('button', 'mini', t('workflow.retry.node')); retry.setAttribute('aria-label', t('workflow.retry.nodeAria', { nodeId: node.id })); retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
+        const cascade = el('button', 'mini', t('workflow.retry.cascade')); cascade.setAttribute('aria-label', t('workflow.retry.cascadeAria', { nodeId: node.id })); cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
         actions.append(retry, cascade);
         if ((disp === 'failed' || disp === 'rejected') && (node.error || (Array.isArray(node.schemaErrors) && node.schemaErrors.length))) {
-          const viewErr = el('button', 'mini', '查看错误'); viewErr.setAttribute('aria-label', `查看节点 ${node.id} 的错误`);
+          const viewErr = el('button', 'mini', t('workflow.viewError')); viewErr.setAttribute('aria-label', t('workflow.viewErrorAria', { nodeId: node.id }));
           viewErr.onclick = () => { row.open = true; const errEl = body.querySelector('.agent-node-error'); if (errEl) errEl.scrollIntoView({ block: 'nearest' }); };
           actions.appendChild(viewErr);
         }
@@ -3213,7 +3295,7 @@ function renderAgentRuns(runs) {
       const isDeterministicGate = node.gate && ['vote', 'dedupe'].includes(node.gate.mode);
       if (run.live && ['running', 'queued', 'waiting_resource'].includes(node.status) && (node.engine || 'openai') !== 'claude' && !isDeterministicGate) {
         const steerActions = el('div', 'agent-node-actions');
-        const steer = el('button', 'mini', '插话'); steer.setAttribute('aria-label', `对节点 ${node.id} 插话`);
+        const steer = el('button', 'mini', t('workflow.steer')); steer.setAttribute('aria-label', t('workflow.steerAria', { nodeId: node.id }));
         steer.onclick = () => steerAgentNode(run.id, node.id, node.status);
         steerActions.appendChild(steer);
         body.appendChild(steerActions);
@@ -4030,14 +4112,14 @@ const PRICING_CURRENCIES = [
   { code: 'EUR', label: '欧元 € (EUR)' }, { code: 'GBP', label: '英镑 £ (GBP)' }, { code: 'JPY', label: '日元 ¥ (JPY)' },
 ];
 // 数值小工具：整数千分位、金额（round 到合理精度，避免 0.30000004）、SVG 坐标两位小数。
-function fmtInt(n) { return (Number(n) || 0).toLocaleString('en-US'); }
+function fmtInt(n) { return (Number(n) || 0).toLocaleString(getLocale()); }
 function round2(x) { return Math.round((Number(x) || 0) * 100) / 100; }
 function fmtMoney(amount, currency) {
   const n = Number(amount) || 0;
   const sym = CURRENCY_SYMBOL[currency] || (currency ? currency + ' ' : '');
   // <1 的小额保留至多 4 位有效小数（如 $0.0032），其余 2 位；toLocaleString 负责千分位与裁尾零。
   const maxFrac = (n !== 0 && Math.abs(n) < 1) ? 4 : 2;
-  return sym + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: maxFrac });
+  return sym + n.toLocaleString(getLocale(), { minimumFractionDigits: 2, maximumFractionDigits: maxFrac });
 }
 // costsByCurrency({USD:0.42,CNY:1.8}) → 「约 ¥1.80 · 约 $0.42」。空/全 0 → ''。prefix 用于「约 」前缀。
 function fmtCostsByCurrency(costs, prefix) {
@@ -4055,7 +4137,7 @@ async function loadUsage(force) {
   const host = $('usagePanel'); if (!host) return;
   const range = usageState.range || 'month';
   host.setAttribute('aria-busy', 'true');
-  if (force || !usageState.data) { host.textContent = ''; host.appendChild(usageNoticeCard('正在汇总用量…')); }
+  if (force || !usageState.data) { host.textContent = ''; host.appendChild(usageNoticeCard(t('usage.loading'))); }
   try {
     const r = await api(`/api/usage/summary?range=${encodeURIComponent(range)}`);
     // 29c: 运营指标(干预/预算超支率)随用量面板一并拉,失败静默(纯附加信息,不阻断用量展示)。
@@ -4064,7 +4146,7 @@ async function loadUsage(force) {
     renderUsage(r);
   } catch (e) {
     usageState.loaded = true; usageState.data = null;
-    host.textContent = ''; host.appendChild(usageNoticeCard(`加载用量失败：${apiErrText(e)}`));
+    host.textContent = ''; host.appendChild(usageNoticeCard(t('usage.loadFailed', { reason: apiErrText(e) })));
   } finally { host.removeAttribute('aria-busy'); }
 }
 function setUsageRange(range) {
@@ -4083,7 +4165,7 @@ function usageNoticeCard(msg) {
 function renderUsage(data) {
   const host = $('usagePanel'); if (!host) return;
   host.textContent = '';
-  if (!data || data.ok === false) { host.appendChild(usageNoticeCard('暂时拿不到用量数据，请稍后刷新。')); return; }
+  if (!data || data.ok === false) { host.appendChild(usageNoticeCard(t('usage.unavailable'))); return; }
   const totals = data.totals || {};
   const byEngine = Array.isArray(data.byEngine) ? data.byEngine : [];
   const byProvider = Array.isArray(data.byProvider) ? data.byProvider : [];
@@ -4093,20 +4175,20 @@ function renderUsage(data) {
   if (data.budget && (Number(data.budget.monthly) > 0 || Number(data.budget.spentThisMonth) > 0)) host.appendChild(usageBudgetBanner(data.budget));
   const hasAny = (Number(totals.inTok) || 0) + (Number(totals.outTok) || 0) + (Number(totals.turns) || 0) > 0
     || byEngine.length || byProvider.length || bySession.length || byDay.length;
-  if (!hasAny) { host.appendChild(usageNoticeCard('还没有用量记录，发起对话后这里会汇总花费。')); return; }
+  if (!hasAny) { host.appendChild(usageNoticeCard(t('usage.empty'))); return; }
   host.appendChild(usageAggHead(totals, byEngine.concat(byProvider)));
   // 29c: 运营指标行(近 7 天干预次数 / 任务预算超支率)——无人值守质量一眼可见;无数据(全 0)不占版面。
   const ops = data.opsMetrics;
   if (ops && ops.ok && ((ops.interventions && ops.interventions.total > 0) || (ops.missions && ops.missions.started > 0))) {
     const line = el('div', 'muted usage-ops-line');
-    const bits = [`近 ${ops.days} 天人工干预 ${ops.interventions.total} 次`];
-    if (ops.missions.started > 0) bits.push(`任务 ${ops.missions.started} 个 · 预算超支率 ${(ops.missions.budgetOverrunRate * 100).toFixed(0)}%`);
+    const bits = [t('usage.opsInterventions', { days: ops.days, count: ops.interventions.total })];
+    if (ops.missions.started > 0) bits.push(t('usage.opsMissions', { count: ops.missions.started, rate: (ops.missions.budgetOverrunRate * 100).toFixed(0) + '%' }));
     line.textContent = '🛠 ' + bits.join(' ｜ ');
     host.appendChild(line);
   }
-  if (byEngine.length) host.appendChild(usageGroup('按引擎', byEngine, 'engine'));
-  if (byProvider.length) host.appendChild(usageGroup('按服务商', byProvider, 'provider'));
-  if (bySession.length) host.appendChild(usageGroup('按会话', bySession, 'session'));
+  if (byEngine.length) host.appendChild(usageGroup(t('usage.group.engine'), byEngine, 'engine'));
+  if (byProvider.length) host.appendChild(usageGroup(t('usage.group.provider'), byProvider, 'provider'));
+  if (bySession.length) host.appendChild(usageGroup(t('usage.group.session'), bySession, 'session'));
   if (byDay.length) host.appendChild(usageTrend(byDay));
 }
 // 预算横幅。over=超支 → 琥珀 role=alert；未超 → 软进度条 role=status。措辞带「约/估算」。
@@ -4117,10 +4199,10 @@ function usageBudgetBanner(b) {
   wrap.setAttribute('role', over ? 'alert' : 'status');
   if (over) {
     wrap.appendChild(el('span', 'usage-budget-icon', '⚠'));
-    wrap.appendChild(el('span', 'usage-budget-text', `本月已用约 ${fmtMoney(spent, cur)} / 预算 ${fmtMoney(monthly, cur)}，超出约 ${fmtMoney(spent - monthly, cur)}（估算）`));
+    wrap.appendChild(el('span', 'usage-budget-text', t('usage.budget.over', { spent: fmtMoney(spent, cur), budget: fmtMoney(monthly, cur), over: fmtMoney(spent - monthly, cur) })));
   } else {
     const pct = monthly > 0 ? Math.min(100, Math.round(spent / monthly * 100)) : 0;
-    wrap.appendChild(el('span', 'usage-budget-text', monthly > 0 ? `本月预算：约 ${fmtMoney(spent, cur)} / ${fmtMoney(monthly, cur)}（${pct}%，估算）` : `本月已用约 ${fmtMoney(spent, cur)}（未设预算上限）`));
+    wrap.appendChild(el('span', 'usage-budget-text', monthly > 0 ? t('usage.budget.progress', { spent: fmtMoney(spent, cur), budget: fmtMoney(monthly, cur), percent: pct }) : t('usage.budget.unlimited', { spent: fmtMoney(spent, cur) })));
     if (monthly > 0) { const track = el('div', 'usage-budget-bar'); const fill = el('div', 'usage-budget-fill'); fill.style.width = pct + '%'; track.appendChild(fill); wrap.appendChild(track); }
   }
   return wrap;
@@ -4129,25 +4211,25 @@ function usageBudgetBanner(b) {
 function usageAggHead(totals, mixedEntries) {
   const wrap = el('div', 'usage-agg');
   const stats = el('div', 'usage-agg-stats');
-  stats.appendChild(usageStat('输入 tokens', fmtInt(totals.inTok)));
-  stats.appendChild(usageStat('输出 tokens', fmtInt(totals.outTok)));
+  stats.appendChild(usageStat(t('usage.inputTokens'), fmtInt(totals.inTok)));
+  stats.appendChild(usageStat(t('usage.outputTokens'), fmtInt(totals.outTok)));
   const est = Number(totals.estimatedTurns) || 0;
   // v1.4-OSS 用量看板(补): 工作流子代理回合与辅助调用(压缩/起草)也计入总回合数，附一条小注记说明其构成。
   const subAgents = Number(totals.subagentTurns) || 0;
   const auxCalls = Number(totals.auxCalls) || 0;
-  const turnSub = [est > 0 ? `含 ${fmtInt(est)} 轮估算` : '', subAgents > 0 ? `其中工作流子代理 ${fmtInt(subAgents)} 回合` : '', auxCalls > 0 ? `辅助调用 ${fmtInt(auxCalls)} 次` : ''].filter(Boolean).join(' · ');
-  stats.appendChild(usageStat('对话轮次', fmtInt(totals.turns), turnSub));
+  const turnSub = [est > 0 ? t('usage.turns.estimated', { count: fmtInt(est) }) : '', subAgents > 0 ? t('usage.turns.subagent', { count: fmtInt(subAgents) }) : '', auxCalls > 0 ? t('usage.turns.aux', { count: fmtInt(auxCalls) }) : ''].filter(Boolean).join(' · ');
+  stats.appendChild(usageStat(t('usage.turns'), fmtInt(totals.turns), turnSub));
   wrap.appendChild(stats);
   const cost = el('div', 'usage-agg-cost');
-  cost.appendChild(el('span', 'usage-agg-cost-label', '成本估算'));
-  const costStr = fmtCostsByCurrency(totals.costsByCurrency, '约 ');
-  cost.appendChild(el('span', 'usage-agg-cost-val' + (costStr ? '' : ' muted'), costStr || '暂无成本估算（未配置单价或为计划内计费）'));
+  cost.appendChild(el('span', 'usage-agg-cost-label', t('usage.cost.estimate')));
+  const costStr = fmtCostsByCurrency(totals.costsByCurrency, t('usage.cost.prefix'));
+  cost.appendChild(el('span', 'usage-agg-cost-val' + (costStr ? '' : ' muted'), costStr || t('usage.cost.unavailable')));
   wrap.appendChild(cost);
   // 诚实脚注：优先用后端 totals.planBasedTurns（第三方 Coding Plan/订阅计费的轮数）；forward-compat 再兜底逐条 flag。
   const planTurns = Number(totals.planBasedTurns) || 0;
-  let note = '成本为按量计价的等价估算，非实际扣费。';
-  if (planTurns > 0) note += `其中约 ${fmtInt(planTurns)} 轮为计划内（订阅）计费，只计 token、未计入上方成本。`;
-  else if ((mixedEntries || []).some(entryPlanBased)) note += '部分用量为计划内（订阅）计费，只计 token，未计入上方成本。';
+  let note = t('usage.note.cost');
+  if (planTurns > 0) note += t('usage.note.planTurns', { count: fmtInt(planTurns) });
+  else if ((mixedEntries || []).some(entryPlanBased)) note += t('usage.note.planUsage');
   wrap.appendChild(el('p', 'usage-agg-note muted', note));
   return wrap;
 }
@@ -4164,8 +4246,8 @@ function usageGroup(title, list, kind) {
   wrap.appendChild(el('div', 'usage-group-title', title));
   const rows = list.map(e => ({ e, tok: (Number(e.inTok) || 0) + (Number(e.outTok) || 0) }));
   const max = Math.max(1, ...rows.map(r => r.tok));
-  const names = rows.map(r => `${usageEntryName(r.e, kind)} ${fmtTokens(r.tok)} tok`).join('；');
-  wrap.appendChild(el('p', 'sr-only', `${title}：共 ${rows.length} 项。${names}。`));
+  const names = rows.map(r => usageEntryName(r.e, kind) + ' ' + t('usage.tokenCount', { count: fmtTokens(r.tok) })).join('；');
+  wrap.appendChild(el('p', 'sr-only', t('usage.group.summary', { title, count: rows.length, names })));
   const bars = el('div', 'usage-bars');
   for (const r of rows) bars.appendChild(usageBar(r.e, r.tok, max, kind));
   wrap.appendChild(bars);
@@ -4173,8 +4255,8 @@ function usageGroup(title, list, kind) {
 }
 function usageEntryName(e, kind) {
   if (kind === 'engine') return engineDisplayName(e.engine);
-  if (kind === 'session') return e.title || e.sessionId || '未命名会话';
-  return e.label || e.provider || '未知服务商';
+  if (kind === 'session') return e.title || e.sessionId || t('usage.session.unnamed');
+  return e.label || e.provider || t('usage.provider.unknown');
 }
 function usageBar(entry, tok, max, kind) {
   const row = el('div', 'usage-bar-row');
@@ -4183,12 +4265,12 @@ function usageBar(entry, tok, max, kind) {
   const src = entry.sourceLabel || entry.source;
   if (src && kind !== 'session') labelWrap.appendChild(el('span', 'usage-bar-src', src));
   const plan = entryPlanBased(entry);
-  if (plan) { const pb = el('span', 'usage-bar-plan', '计划内计费'); pb.title = '订阅套餐,按月付费,token 不另计钱。'; labelWrap.appendChild(pb); } // v3 (§2.8): 术语人话 tooltip
+  if (plan) { const pb = el('span', 'usage-bar-plan', t('usage.planIncluded')); pb.title = t('usage.planIncluded.title'); labelWrap.appendChild(pb); } // v3 (§2.8): 术语人话 tooltip
   // 会话条可点击 → 打开该会话（openSession 走 /api/sessions/:id）。键盘可达。
   if (kind === 'session' && entry.sessionId) {
     row.classList.add('clickable'); row.setAttribute('role', 'button'); row.tabIndex = 0;
-    row.setAttribute('aria-label', `打开会话「${usageEntryName(entry, kind)}」`);
-    const go = () => { openSession(entry.sessionId).catch(e => toast('打开会话失败：' + apiErrText(e), 'err')); };
+    row.setAttribute('aria-label', t('usage.openSession', { title: usageEntryName(entry, kind) }));
+    const go = () => { openSession(entry.sessionId).catch(e => toast(t('usage.openSession.failed', { reason: apiErrText(e) }), 'err')); };
     row.onclick = go; row.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } };
   }
   const pct = Math.max(0, Math.min(100, Math.round(tok / max * 100)));
@@ -4196,7 +4278,7 @@ function usageBar(entry, tok, max, kind) {
   row.appendChild(labelWrap);
   row.appendChild(usageBarSvg(pct, colorVar));
   const valWrap = el('div', 'usage-bar-val');
-  valWrap.appendChild(el('span', 'usage-bar-tok', `${fmtTokens(tok)} tok`));
+  valWrap.appendChild(el('span', 'usage-bar-tok', t('usage.tokenCount', { count: fmtTokens(tok) })));
   if (plan) valWrap.appendChild(el('span', 'usage-bar-cost muted', '计划内'));
   else { const c = fmtCostsByCurrency(entry.costsByCurrency, '约 '); if (c) valWrap.appendChild(el('span', 'usage-bar-cost', c)); }
   row.appendChild(valWrap);
@@ -4218,11 +4300,11 @@ function usageBarSvg(pct, colorVar) {
 // 日趋势：手绘 SVG 迷你柱状。按 tokens 归一，深浅主题用 --accent 着色。sr-only 概述 + 首末日期 caption。
 function usageTrend(byDay) {
   const wrap = el('div', 'usage-group usage-trend');
-  wrap.appendChild(el('div', 'usage-group-title', '每日趋势'));
+  wrap.appendChild(el('div', 'usage-group-title', t('usage.dailyTrend')));
   const days = byDay.map(d => ({ date: d.date || '', tok: (Number(d.inTok) || 0) + (Number(d.outTok) || 0) }));
   const max = Math.max(1, ...days.map(d => d.tok));
   const peak = days.reduce((a, b) => (b.tok > a.tok ? b : a), days[0] || { tok: 0, date: '' });
-  wrap.appendChild(el('p', 'sr-only', `每日 token 趋势，共 ${days.length} 天，最高约 ${fmtTokens(peak.tok)} tok（${peak.date}）。`));
+  wrap.appendChild(el('p', 'sr-only', t('usage.dailyTrend.summary', { count: days.length, tokens: t('usage.tokenCount', { count: fmtTokens(peak.tok) }), date: peak.date })));
   wrap.appendChild(usageTrendSvg(days, max));
   if (days.length) { const cap = el('div', 'usage-trend-cap'); cap.appendChild(el('span', '', days[0].date)); cap.appendChild(el('span', '', days[days.length - 1].date)); wrap.appendChild(cap); }
   return wrap;
@@ -4240,7 +4322,7 @@ function usageTrendSvg(days, max) {
     const r = document.createElementNS(NS, 'rect');
     r.setAttribute('class', 'usage-trend-bar' + (d.tok > 0 && d.tok === peakTok ? ' peak' : ''));
     r.setAttribute('x', String(x)); r.setAttribute('y', String(y)); r.setAttribute('width', String(round2(bw))); r.setAttribute('height', String(h)); r.setAttribute('rx', '0.6');
-    const t = document.createElementNS(NS, 'title'); t.textContent = `${d.date}：${fmtTokens(d.tok)} tok`; r.appendChild(t);
+    const titleEl = document.createElementNS(NS, 'title'); titleEl.textContent = t('usage.dailyTrend.point', { date: d.date, tokens: t('usage.tokenCount', { count: fmtTokens(d.tok) }) }); r.appendChild(titleEl);
     svg.appendChild(r);
   });
   return svg;
@@ -4321,8 +4403,8 @@ const renderedPlanIds = new Set();
 
 // 计划决策后收起的人话结果文案(F1a)。
 function planResultLabel(decision, note) {
-  if (decision === 'reject') return { text: '✕ 已放弃该计划', cls: 'rej' };
-  return { text: note ? '✓ 计划已批准（带修改意见）' : '✓ 计划已批准', cls: 'ok' };
+  if (decision === 'reject') return { text: t('plan.result.rejected'), cls: 'rej' };
+  return { text: note ? t('plan.result.approvedWithNote') : t('plan.result.approved'), cls: 'ok' };
 }
 
 // 构建一张计划卡的 DOM。decidedState 非空 → 直接渲染为收起态(静态重渲染 / 已决策);否则渲染可操作态,
@@ -4330,7 +4412,7 @@ function planResultLabel(decision, note) {
 function buildPlanCard(planId, markdown) {
   const card = el('div', 'plan-card');
   // 收起态点击展开:头部作为可点区域。展开=切换 .plan-expanded(CSS 收起态下也能重新露出正文)。
-  const head = el('div', 'plan-card-head', `${engineLabel()} 提出了执行计划，待你批准`);
+  const head = el('div', 'plan-card-head', t('plan.card.heading', { engine: engineLabel() }));
   card.appendChild(head);
 
   const md = el('div', 'plan-card-body md');
@@ -4341,15 +4423,15 @@ function buildPlanCard(planId, markdown) {
   // 修改意见 textarea — hidden until 「修改意见」 is clicked; submitting it = approve carrying the note.
   const noteWrap = el('div', 'plan-card-note'); noteWrap.style.display = 'none';
   const noteTa = document.createElement('textarea');
-  noteTa.rows = 2; noteTa.placeholder = '补充你的修改意见，然后批准执行…';
-  const noteSend = el('button', 'primary', '带意见批准');
+  noteTa.rows = 2; noteTa.placeholder = t('plan.card.notePlaceholder');
+  const noteSend = el('button', 'primary', t('plan.card.approveWithNote'));
   noteWrap.append(noteTa, noteSend);
   card.appendChild(noteWrap);
 
   const foot = el('div', 'plan-card-foot');
-  const approve = el('button', 'primary', '批准执行');
-  const amend = el('button', 'ghost', '修改意见');
-  const reject = el('button', 'danger', '放弃');
+  const approve = el('button', 'primary', t('plan.card.approve'));
+  const amend = el('button', 'ghost', t('plan.card.amend'));
+  const reject = el('button', 'danger', t('plan.card.reject'));
   foot.append(approve, amend, reject);
   card.appendChild(foot);
 
@@ -4369,7 +4451,7 @@ function buildPlanCard(planId, markdown) {
     [approve, amend, reject, noteSend].forEach(b => { b.disabled = true; });
     noteWrap.style.display = 'none';
     const lab = planResultLabel(decision, note);
-    res.textContent = lab.text + '（点此展开原文）';
+    res.textContent = lab.text + t('plan.result.expandHint');
     res.className = `plan-card-result ${lab.cls}`;
   };
 
@@ -4414,21 +4496,21 @@ function handlePlanEvent(evt, main, live) {
     }
   };
 
-  approve.onclick = async () => { const r = await decidePlan(planId, 'approve'); if (r && r.ok) finish('approve'); else if (r) toast(r.error || '该计划已失效', ''); };
-  reject.onclick = async () => { const r = await decidePlan(planId, 'reject'); if (r && r.ok) finish('reject'); else if (r) toast(r.error || '该计划已失效', ''); };
+  approve.onclick = async () => { const r = await decidePlan(planId, 'approve'); if (r && r.ok) finish('approve'); else if (r) toast(r.error || t('plan.expired'), ''); };
+  reject.onclick = async () => { const r = await decidePlan(planId, 'reject'); if (r && r.ok) finish('reject'); else if (r) toast(r.error || t('plan.expired'), ''); };
   amend.onclick = () => { noteWrap.style.display = ''; noteTa.focus(); };
   noteSend.onclick = async () => {
     const note = noteTa.value.trim();
     const r = await decidePlan(planId, 'approve', note);
     if (r && r.ok) finish('approve', note);
-    else if (r) toast(r.error || '该计划已失效', '');
+    else if (r) toast(r.error || t('plan.expired'), '');
   };
 
   const host = main || $('messages');
   // F1b:计划卡插在已封存的旧 bubble 之后、新 bubble(若已建)之前。此刻新 bubble 尚未建(finish 才建),
   // 所以直接 append 即可落在旧文本块之后。
   host.appendChild(card);
-  setComposerHint('AI 在等你批准计划');
+  setComposerHint(t('plan.awaitingApproval'));
   scrollMessagesToBottom();
 }
 
@@ -4503,13 +4585,13 @@ function fileTreeRow(entry, depth) {
       if (!open && !loaded) {
         loaded = true;
         childWrap.textContent = '';
-        childWrap.appendChild(el('div', 'ftree-loading', '加载中…'));
+        childWrap.appendChild(el('div', 'ftree-loading', t('file.tree.loading')));
         try {
           const kids = await fetchDirLevel(entry.path);
           childWrap.textContent = '';
-          if (!kids.length) childWrap.appendChild(el('div', 'ftree-empty', '（空文件夹）'));
+          if (!kids.length) childWrap.appendChild(el('div', 'ftree-empty', t('file.tree.empty')));
           for (const k of kids) childWrap.appendChild(fileTreeRow(k, depth + 1));
-        } catch (e) { childWrap.textContent = ''; childWrap.appendChild(el('div', 'ftree-empty', '读取失败')); loaded = false; }
+        } catch (e) { childWrap.textContent = ''; childWrap.appendChild(el('div', 'ftree-empty', t('file.tree.readFailed', { reason: apiErrText(e) }))); loaded = false; }
       }
     };
     const frag = document.createDocumentFragment();
@@ -4519,7 +4601,7 @@ function fileTreeRow(entry, depth) {
   // file row
   row.append(el('span', 'ftree-caret', ''), el('span', 'ftree-icon', IMG_EXT.test(entry.name) ? '🖼' : '📄'), el('span', 'ftree-name', entry.name));
   const at = el('button', 'ftree-at', '@');
-  at.title = '@提及：把相对路径插入输入框';
+  at.title = t('file.tree.mention.title');
   at.onclick = e => { e.stopPropagation(); mentionFile(entry.path); };
   row.appendChild(at);
   row.onclick = () => previewFile(entry.path);
@@ -4530,18 +4612,18 @@ async function loadFileTree() {
   const rootEl = $('fileTreeRoot'), treeEl = $('fileTree');
   if (!rootEl || !treeEl) return;
   const root = currentWorkspace();
-  rootEl.textContent = root ? ('📂 ' + fileBasename(root)) : '（未设置工作文件夹）';
+  rootEl.textContent = root ? ('📂 ' + fileBasename(root)) : t('file.tree.rootUnset');
   rootEl.title = root || '';
   $('filePreview').classList.add('hidden');
   treeEl.textContent = '';
   if (!root) return;
-  treeEl.appendChild(el('div', 'ftree-loading', '加载中…'));
+  treeEl.appendChild(el('div', 'ftree-loading', t('file.tree.loading')));
   try {
     const entries = await fetchDirLevel(root);
     treeEl.textContent = '';
-    if (!entries.length) { treeEl.appendChild(el('div', 'ftree-empty', '（空文件夹）')); return; }
+    if (!entries.length) { treeEl.appendChild(el('div', 'ftree-empty', t('file.tree.empty'))); return; }
     for (const e of entries) treeEl.appendChild(fileTreeRow(e, 0));
-  } catch (e) { treeEl.textContent = ''; treeEl.appendChild(el('div', 'ftree-empty', '读取失败：' + apiErrText(e))); }
+  } catch (e) { treeEl.textContent = ''; treeEl.appendChild(el('div', 'ftree-empty', t('file.tree.readFailed', { reason: apiErrText(e) }))); }
 }
 // Preview a file into #filePreview (file tree). v0.9-S4: delegates to the shared renderer, which now uses
 // /api/file/preview so images render for real (was a placeholder in S3).
@@ -4565,12 +4647,12 @@ async function renderFilePreviewInto(box, full) {
   box.textContent = '';
   const head = el('div', 'file-preview-head');
   head.append(el('span', 'fp-name', fileBasename(full)));
-  const openBtn = el('button', 'mini', '打开');
+  const openBtn = el('button', 'mini', t('file.open'));
   openBtn.onclick = () => runTool('office_open', { path: full });
   head.appendChild(openBtn);
   box.appendChild(head);
   const body = el('div', 'fp-body-wrap');
-  body.appendChild(el('div', 'fp-loading', '加载中…'));
+  body.appendChild(el('div', 'fp-loading', t('file.preview.loading')));
   box.appendChild(body);
   const sid = state.currentSession && state.currentSession.id;
   try {
@@ -4578,32 +4660,33 @@ async function renderFilePreviewInto(box, full) {
     const r = await api('/api/file/preview' + qs);
     body.textContent = '';
     if (!r || r.ok === false) {
-      body.appendChild(el('div', 'fp-placeholder', (r && (r.error + (r.hint ? '（' + r.hint + '）' : ''))) || '预览失败'));
+      const reason = r && (r.errorText || (r.error && (r.error.message || r.error)) || r.hint);
+      body.appendChild(el('div', 'fp-placeholder', t('file.preview.failed', { reason: String(reason || t('common.unknown')) })));
       return;
     }
-    if (r.truncated) head.appendChild(el('span', 'fp-trunc', `（仅预览前 ${Math.round(1024)}KB，内容已截断）`));
+    if (r.truncated) head.appendChild(el('span', 'fp-trunc', t('file.preview.truncated', { size: Math.round(1024) + 'KB' })));
     if (r.kind === 'image') {
       const img = el('img', 'fp-image');
       img.src = r.dataUri; img.alt = fileBasename(full);
       body.appendChild(img);
     } else if (r.kind === 'image-toobig') {
-      body.appendChild(el('div', 'fp-placeholder', `图片超过 5MB（${fmtBytes(r.size)}），请点「打开」查看。`));
+      body.appendChild(el('div', 'fp-placeholder', t('file.preview.imageTooLarge', { size: fmtBytes(r.size) })));
     } else if (r.kind === 'html') {
       // Fully-locked sandbox: sandbox="" blocks scripts/forms/same-origin/top-nav. Content goes via srcdoc.
       const frame = document.createElement('iframe');
       frame.className = 'fp-html-frame';
       frame.setAttribute('sandbox', ''); // EMPTY = maximally restrictive; DO NOT add allow-scripts here.
       frame.setAttribute('srcdoc', String(r.content || ''));
-      body.appendChild(el('div', 'fp-html-note', '（HTML 已在隔离沙箱中渲染：禁脚本、禁网络、禁表单）'));
+      body.appendChild(el('div', 'fp-html-note', t('file.preview.htmlIsolated')));
       body.appendChild(frame);
     } else if (r.kind === 'text') {
       renderTextPreview(body, full, r.content);
     } else if (r.kind === 'binary') {
-      body.appendChild(el('div', 'fp-placeholder', `二进制/文档文件（${(r.ext || '').toUpperCase() || '未知格式'}）——请点「打开」用系统程序查看。`));
+      body.appendChild(el('div', 'fp-placeholder', t('file.preview.binary', { format: (r.ext || '').toUpperCase() || t('common.unknown') })));
     } else {
-      body.appendChild(el('div', 'fp-placeholder', '无法预览此文件。'));
+      body.appendChild(el('div', 'fp-placeholder', t('file.preview.unavailable')));
     }
-  } catch (e) { body.textContent = ''; body.appendChild(el('div', 'fp-placeholder', '预览失败：' + apiErrText(e))); }
+  } catch (e) { body.textContent = ''; body.appendChild(el('div', 'fp-placeholder', t('file.preview.failed', { reason: apiErrText(e) }))); }
 }
 // Render a text payload by sub-kind: .md → sanitized markdown; .csv → a small table (≤200 rows, every cell
 // textContent); everything else → <pre> textContent.
@@ -4737,7 +4820,7 @@ async function loadAudit() {
   if (auditState.loading) return;
   auditState.loading = true;
   const list = $('auditList');
-  if (list && !auditState.loaded) { list.textContent = ''; list.appendChild(el('div', 'audit-empty', '加载中…')); }
+  if (list && !auditState.loaded) { list.textContent = ''; list.appendChild(el('div', 'audit-empty', t('audit.loading'))); }
   try {
     // Pull a generous window; client-side filters narrow it. limit clamped server-side to ≤500.
     const res = await api('/api/audit?limit=200');
@@ -4747,7 +4830,7 @@ async function loadAudit() {
   } catch (e) {
     auditState.entries = [];
     auditState.sources = null;
-    if (list) { list.textContent = ''; list.appendChild(el('div', 'audit-empty', '加载审计记录失败：' + apiErrText(e))); }
+    if (list) { list.textContent = ''; list.appendChild(el('div', 'audit-empty', t('audit.loadFailed', { reason: apiErrText(e) }))); }
     auditState.loading = false;
     return;
   }
@@ -4761,7 +4844,7 @@ function renderAuditList() {
   list.textContent = '';
   // Desktop-source unavailable → a grey note line at the top (spec: 桌面操作审计需要 ai-computer-control 桥接).
   if (auditState.sources && auditState.sources.desktop === 'unavailable') {
-    list.appendChild(el('div', 'audit-note', '桌面操作审计需要 ai-computer-control 桥接'));
+    list.appendChild(el('div', 'audit-note', t('audit.desktopUnavailable')));
   }
   const srcFilter = $('auditSourceFilter') ? $('auditSourceFilter').value : '';
   const typeFilter = ($('auditTypeFilter') ? $('auditTypeFilter').value : '').trim().toLowerCase();
@@ -4771,7 +4854,7 @@ function renderAuditList() {
     return true;
   });
   if (!rows.length) {
-    list.appendChild(el('div', 'audit-empty', '暂无审计记录'));
+    list.appendChild(el('div', 'audit-empty', t('audit.empty')));
     return;
   }
   for (const e of rows) {
@@ -4780,7 +4863,7 @@ function renderAuditList() {
     head.appendChild(el('span', 'audit-time', formatAuditTime(e.ts)));
     const badge = el('span', 'audit-badge ' + (e.source === 'desktop' ? 'src-desktop' : 'src-workbench'));
     badge.appendChild(el('span', 'audit-dot'));
-    badge.appendChild(el('span', null, e.source === 'desktop' ? '桌面' : '工作台'));
+    badge.appendChild(el('span', null, e.source === 'desktop' ? t('audit.source.desktop') : t('audit.source.workbench')));
     head.appendChild(badge);
     head.appendChild(el('span', 'audit-type', String(e.type || '')));
     head.appendChild(el('span', 'audit-summary', String(e.summary || '')));
@@ -4809,7 +4892,7 @@ function formatAuditTime(ts) {
   const d = new Date(ts);
   if (isNaN(d.getTime())) return String(ts);
   // Local time, HH:MM:SS + date; tabular in the timeline. toLocaleString respects the browser locale.
-  return d.toLocaleString();
+  return d.toLocaleString(getLocale());
 }
 
 /* ---------------- v1.0.2 (G1): 变更中心 (change/rollback center) ---------------- */
@@ -4911,8 +4994,8 @@ function renderChanges(entries) {
     head.append(el('span', 'change-round-title', '第 ' + turnSeq + ' 轮'));
     head.append(el('span', 'change-round-count muted', items.length + ' 个'));
     if (items.some(e => !e.skipped)) {
-      const undoAll = el('button', 'mini change-undo-all', '撤销整轮');
-      undoAll.onclick = () => rollbackTurn(turnSeq, undefined, undoAll, '整轮');
+      const undoAll = el('button', 'mini change-undo-all', t('changes.revertTurn'));
+      undoAll.onclick = () => rollbackTurn(turnSeq, undefined, undoAll, t('changes.turnLabel'));
       head.append(undoAll);
     }
     card.append(head);
@@ -5253,7 +5336,7 @@ function updateEngineDependentUI() {
   updateSkillBadge();
   // A3: composer placeholder follows the active engine label.
   const ta = $('promptInput');
-  if (ta) ta.placeholder = `发给 ${engineLabel()} · ${currentModelId() || '默认'}…（Enter 发送，Shift+Enter 换行）`;
+  if (ta) ta.placeholder = t('chat.placeholder');
   renderModelChip();
   // If the empty state is currently showing, rebuild it so its engine line + CTA track the switch.
   const box = $('messages');
@@ -5368,7 +5451,14 @@ function openPermPopover() {
   }
 }
 async function saveConfigPartial(patch) {
-  try { const res = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) }); state.config = res.config; } catch (e) { toast(`保存失败：${apiErrText(e)}`, 'err'); }
+  try {
+    const res = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) });
+    state.config = res.config;
+    return true;
+  } catch (e) {
+    toast(`保存失败：${apiErrText(e)}`, 'err');
+    return false;
+  }
 }
 
 let agentRoleLibraryData = null;
@@ -5462,6 +5552,7 @@ function addAgentRole() {
 function fillSettings() {
   const c = state.config;
   $('workspaceInput').value = c.defaultWorkspace || '';
+  { const el0 = $('cfgLocale'); if (el0) el0.value = ['auto', 'zh-CN', 'en-US'].includes(c.locale) ? c.locale : 'auto'; }
   { const el0 = $('cfgUiMode'); if (el0) el0.value = (c.uiMode === 'simple' ? 'simple' : 'pro'); } // v0.9-S1
   { const el0 = $('cfgOutputStyle'); if (el0) el0.value = (c.outputStyle === 'concise' ? 'concise' : 'detailed'); } // v0.9-S1
   $('claudePathInput').value = c.claudePath || state.status?.detectedClaudePath || '';
@@ -5549,8 +5640,11 @@ function updateSearchBackendVisibility() {
   if (keyRow) keyRow.classList.toggle('hidden', !showKey);
 }
 async function saveSettings() {
+  const requestedLocale = $('cfgLocale')?.value || state.config.locale || 'auto';
+  const resolvedLocale = await setLocale(requestedLocale);
   const patch = {
     defaultWorkspace: $('workspaceInput').value.trim(),
+    locale: resolvedLocale,
     uiMode: $('cfgUiMode') ? $('cfgUiMode').value : (state.config.uiMode || 'pro'),           // v0.9-S1 (C1)
     outputStyle: $('cfgOutputStyle') ? $('cfgOutputStyle').value : (state.config.outputStyle || 'detailed'), // v0.9-S1 (C1)
     claudePath: $('claudePathInput').value.trim(),
@@ -5629,8 +5723,8 @@ async function saveSettings() {
       return out;
     })(),
   };
-  await saveConfigPartial(patch);
-  $('settingsStatus').textContent = '已保存 ✓';
+  if (!await saveConfigPartial(patch)) return;
+  $('settingsStatus').textContent = `${t('common.saved')} ✓`;
   setTimeout(() => { $('settingsStatus').textContent = ''; }, 2000);
   await refreshStatus();
 }
@@ -7354,7 +7448,9 @@ function renderBootFailure(err) {
 
 /* ---------------- boot ---------------- */
 async function boot() {
+  await initI18n('auto');
   hydrateIcons(); // UI v3 (§2.15): 把 index.html 静态 chrome 按钮/徽标的 [data-icon] 填充为内联 SVG
+  setStreaming(false);
   bindEvents();
   applyTheme((() => { try { return localStorage.getItem('wcw.theme') || 'dark'; } catch { return 'dark'; } })());
   applyUiMode((() => { try { return localStorage.getItem('wcw.uiMode') || 'simple'; } catch { return 'simple'; } })()); // v0.9-S1 (C1) / v1.0.2 (F5): 默认 simple 对齐 server
@@ -7363,6 +7459,12 @@ async function boot() {
   restoreMainView(); // v3 P3a: 恢复中栏主视图(对话/工作台)记忆
   try { const d = localStorage.getItem('wcw.draft'); if (d) { $('promptInput').value = d; autoGrow($('promptInput')); } } catch { /* ignore */ }
   await bootData();
+  const configuredLocale = state.config?.locale || 'auto';
+  const resolvedLocale = await setLocale(configuredLocale);
+  if (configuredLocale === 'auto') {
+    await saveConfigPartial({ locale: resolvedLocale });
+    fillSettings();
+  }
 }
 // v1.5 (§1.3): boot 的「连本地服务 + 拉数据」段拆出成独立函数,供故障卡「重试连接」在不重跑 bindEvents
 // (会重复绑 addEventListener)的前提下重试。任何一步抛错都冒泡给调用方(boot().catch / 重试处理)渲染故障卡。
