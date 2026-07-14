@@ -158,6 +158,8 @@
 
 **AI 主动编排 + 按难度选模型**:对话里出现「调研 / 审计 / 排查 / 选型 / 写文档」这类意图时,两个引擎都会收到模板清单、意图→模板映射,以及**当前可用模型的能力档位清单**(按引擎分组、快 / 均衡 / 强分档)——模型可自主发起 `orchestrate_agents`,并**按每个节点的任务难易自主指派模型**:简单/大批量节点用快模型省成本提速、核心推理/综合/质量门用强模型保质量(带「简单任务别套模板」护栏防过度编排)。也可一键开启「按工具级别自动派档」,让没显式指定模型的节点由后端按 read→快 / exec→强 兜底。
 
+**对话框「Agent 团队」**:需要明确偏好多 Agent 协作时,点一下再发送。本轮会优先匹配预设工作流；没有合适模板时由 AI 自行设计最小必要的 DAG / 并行子任务。开关发送后自动复位,简单问题仍保留“不值得拆就直接做”的护栏；该偏好通过结构化请求分别注入 OpenAI 兼容驱动与 Claude CLI,不会改写用户原始消息。
+
 **团队模式 v2**:运行中的子代理可 `propose_task` **提案追加节点**,经你审批物化进 DAG(运行时嵌套委派的可观测替代);节点间可用 `send_to_agent` 单向异步传话(与用户插话分池);你还能对**指定节点**中途**定向插话**,下一次模型调用前生效。
 
 **长任务自主推进(可跑数小时、崩了能续)**:不是把「继续执行」粗暴地变成无限循环,而是让目标、等待、恢复和人工接管都可见、可控。
@@ -380,7 +382,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 
 ### Capabilities (v1.6)
 
-Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · a native tool loop of 40 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / Office / PDF — bundled ACC MCP v1.8.1, 99 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
+Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · a native tool loop of 40 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / Office / PDF — bundled ACC MCP v1.8.1, 99 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
 
 ### Detailed documentation
 

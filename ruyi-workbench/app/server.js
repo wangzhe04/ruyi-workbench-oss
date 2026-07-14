@@ -5766,6 +5766,8 @@ function appendTurnPolicies(base, config, agentTeam, limit = 0) {
   return prior.slice(0, room) + separator + policy;
 }
 
+// Kept as the sub-agent/consumer compatibility wrapper. Normal calls retain the established
+// response-language-only behavior; top-level Agent team turns use appendTurnPolicies directly.
 function appendResponseLanguagePolicy(base, config, limit = 0) {
   return appendTurnPolicies(base, config, false, limit);
 }
@@ -11632,7 +11634,6 @@ async function streamChat(req, res) {
   try {
     emit({ type: 'session', session });
     const provider = activeOpenAiProvider(config);
-    const turnAgentTeam = body.agentTeam === true && Number(config.subagentMaxPerTurn) > 0;
     // 单回合执行器(首回合=用户消息带附件;账本续跑回合=driverAuto、无附件)。两引擎同签名。
     const runTurn = async (msg, driverAuto) => {
       lastTurnTokens = 0;
@@ -11640,9 +11641,9 @@ async function streamChat(req, res) {
       // 第27f波:标记本会话处于无人值守回合(供 CLI 桥的权限超时→存档暂停判定;provider 路径用闭包 driverAuto)。serial 回合,进出平衡。
       if (driverAuto) driverAutoSessions.add(session.id);
       try {
-        const agentTeam = !driverAuto && turnAgentTeam;
-        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam });
-        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, driverAuto, agentTeam });
+        const turnAgentTeam = !driverAuto && body.agentTeam === true && Number(config.subagentMaxPerTurn) > 0;
+        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam });
+        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, driverAuto, agentTeam: turnAgentTeam });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     await runTurn(String(body.message || ''), false);

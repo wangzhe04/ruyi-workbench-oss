@@ -48,6 +48,7 @@ window.addEventListener('i18n:change', () => {
   // The first locale application runs before hydrateIcons(). Defer icon-bearing controls until then so
   // hydrateIcons remains the only initializer and does not prepend a duplicate SVG.
   if (sendButton?.dataset.iconized === '1') setStreaming(Boolean(state.streaming));
+  updateAgentTeamButton();
   const prompt = $('promptInput');
   if (prompt) prompt.placeholder = t('chat.placeholder');
   renderSessions();
@@ -2009,6 +2010,29 @@ const ACTIVE_TURN_EVENT_CAP = 2_000_000;
 // Re-parsing an ever-growing Markdown document on every token is O(n^2) and eventually monopolizes the UI
 // thread. Stream as incremental plain text, then perform one bounded Markdown pass when the turn settles.
 const LIVE_MARKDOWN_MAX_CHARS = 120_000;
+// 「Agent 团队」是一次性、仅下一条普通用户消息生效的编排偏好。它不写入会话或 localStorage，
+// 避免用户忘记关闭后让后续简单问题持续产生不必要的子代理开销。
+let agentTeamTurnEnabled = false;
+function agentTeamAvailable() {
+  return Number(state.config && state.config.subagentMaxPerTurn) > 0;
+}
+function updateAgentTeamButton() {
+  const btn = $('agentTeamBtn'); if (!btn) return;
+  const available = agentTeamAvailable();
+  if (!available) agentTeamTurnEnabled = false;
+  btn.disabled = Boolean(state.streaming) || !available;
+  btn.setAttribute('aria-pressed', agentTeamTurnEnabled ? 'true' : 'false');
+  btn.title = available
+    ? t(agentTeamTurnEnabled ? 'composer.agentTeam.activeTitle' : 'composer.agentTeam.title')
+    : t('composer.agentTeam.unavailableTitle');
+  btn.setAttribute('aria-label', t('composer.agentTeam.label'));
+  iconTextBtn(btn, 'agents', t(agentTeamTurnEnabled ? 'composer.agentTeam.active' : 'composer.agentTeam.label'));
+}
+function toggleAgentTeamTurn() {
+  if (!agentTeamAvailable() || state.streaming) return;
+  agentTeamTurnEnabled = !agentTeamTurnEnabled;
+  updateAgentTeamButton();
+}
 function attachLiveTextNode(live, bubble) {
   bubble.textContent = '';
   bubble.classList.add('live-plain');
@@ -2087,6 +2111,7 @@ function setStreaming(on) {
     if (on) iconTextBtn(btn, 'stop', t('common.stop')); else iconTextBtn(btn, 'send', t('chat.send')); // v3 (§C6/§2.15): 运行态换停止图标(danger 弱化描边),完成还原发送
     btn.onclick = on ? stopTurn : () => sendPrompt();
   }
+  updateAgentTeamButton();
   updateJumpLatest();
   updateAgentTeamButton();
 }
@@ -2165,11 +2190,9 @@ async function sendPrompt(overrideText) {
   if (!state.currentSession) await newSession();
 
   const turnSessionId = state.currentSession.id;
+  // Slash-command/override turns (for example /compact) must neither consume nor inherit the visible toggle.
   const agentTeam = overrideText == null && agentTeamTurnEnabled && agentTeamAvailable();
-  if (agentTeam) {
-    agentTeamTurnEnabled = false;
-    updateAgentTeamButton();
-  }
+  if (agentTeam) { agentTeamTurnEnabled = false; updateAgentTeamButton(); }
   if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); }
   try { localStorage.removeItem('wcw.draft'); } catch { /* ignore */ }
 
@@ -5527,6 +5550,7 @@ function updateEngineDependentUI() {
   // v1 技能体系: 「技能库」在两个引擎都可用(技能面板承载技能开关 + 命令 + Playbook),不再 Claude-only 隐藏。
   const skillBtn = $('skillBtn'); if (skillBtn) skillBtn.classList.remove('hidden');
   updateSkillBadge();
+  updateAgentTeamButton();
   // A3: composer placeholder follows the active engine label.
   const ta = $('promptInput');
   if (ta) ta.placeholder = t('chat.placeholder');
