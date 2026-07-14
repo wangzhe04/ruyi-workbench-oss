@@ -630,12 +630,44 @@
 | usage-dashboard | 断言过时(v3 §B2 simple 模式 6->4 隐藏 usage/audit,断言仍期望不隐藏) | ✅ 更新断言(§B2 行为) |
 | ui-v3-p1 | color-mix 手写(styles.css:1462 ghost-danger hover,第23波,违反 v3 P1;需 UI 决策:轻量 hover 令牌选择) | KNOWN_FAILURE |
 | capabilities | system prompt 含 "Claude"(identity bleed guard;buildProviderSystemPrompt 函数体无 Claude,注入源在调用方拼接,待排查) | KNOWN_FAILURE |
-| session-index | PATCH title/pinned + 删除 + 合并 dirty-read 9 处回归(某波改 PATCH session 逻辑) | KNOWN_FAILURE |
-| workspace-resolve | PATCH session cwd 持久化 3 处回归(与 session-index PATCH 同源) | KNOWN_FAILURE |
+| session-index | PATCH/DELETE /api/sessions/:id 被 auth 表 deny(第33波 deny-by-default 漏 PATCH/DELETE 条目,e2e 用真实方法命中 deny;前端用 POST+x-http-method override 故生产未挂)-> 9 处回归 | ✅ 第35波修(auth 表补条目) |
+| workspace-resolve | PATCH /api/sessions/:id cwd 持久化 3 处回归(与 session-index 同源:auth 表漏 PATCH) | ✅ 第35波修(同上) |
 
 **诚实交代**:
 - CI 验的是**代码不回归**,不是"产品在气隙环境跑通"(发行包/`package:offline` 的事)。
 - 3 件 live 诚实排除,不假装能跑。
-- 4 件 known-failure 是积压回归(CI 全量首跑暴露,之前手工挑件从未覆盖),后续波逐一修;KNOWN_FAILURE 机制防 CI 永红,unexpected-pass 提醒清理。
+- 4 件 known-failure 是积压回归(CI 全量首跑暴露,之前手工挑件从未覆盖);第35波已修 session-index/workspace-resolve(auth 表 PATCH/DELETE 覆盖缺口),余 2 件(capabilities/ui-v3-p1)后续波修;KNOWN_FAILURE 机制防 CI 永红,unexpected-pass 提醒清理。
 - README 端口表漂移 90 个未登记(L3 端口对账检查待做,治"各波新件忘补登记"卫生债)。
 - 首次 CI(真 windows-latest)大概率暴露几件本机能跑、CI 环境跑不了的件(路径/时序/端口残留),第 2 步就是用来发现并修的。
+
+---
+
+## §31 第35波:auth 路由表补全 PATCH/DELETE 覆盖(第33波 deny-by-default 回归修复)
+
+**背景**:第34波 CI 全量首跑暴露 session-index(9 fail)+ workspace-resolve(3 fail)。根因不在 PATCH 逻辑,而在第33波引入的声明式 auth 路由表(ROUTE_AUTH,deny-by-default)。
+
+**根因(亲验)**:ROUTE_AUTH 表为 4 个 prefix 路由加了 `POST` 条目(供前端 `POST + x-http-method: DELETE/PATCH` override 命中),但**漏了真实 `PATCH`/`DELETE` 方法条目**:
+- `PATCH /api/sessions/:id`、`DELETE /api/sessions/:id`(handler server.js:14131/14137 显式支持真实方法)
+- `DELETE /api/playbooks/:id`(handler :13827)
+- `DELETE /api/agent-workflows/:id`(handler :13941)
+- `DELETE /api/memory/:id`(handler :14109)
+
+表 deny-by-default(authorizeRoute 未匹配 -> 'route not authorized' -> 403),故真实 PATCH/DELETE 全被拒,handler 分支成死代码。e2e 用真实方法(`reqJson(...,'PATCH'/'DELETE',...)`)命中 deny -> 9+3 处回归。
+
+**生产影响**:无。前端(app.js:733/739/2875/6383)对这 4 路由统一用 `POST + x-http-method` override,匹配 POST 条目,故 UI 正常;仅 `DELETE /api/agent-runs/:id`(app.js:2974)用真实 DELETE,该路由表里已有(line 1476)。但 handler 既显式支持真实 PATCH/DELETE,表应与之对齐--HTTP 契约一致性,且正确 HTTP 客户端(非仅本前端)发真实方法应能工作。
+
+**修复**:ROUTE_AUTH 补 5 条(auth 级别与对应 POST 一致,无安全弱化):
+```
+{ m: 'PATCH', p: '/api/sessions/', auth: 'token-browser', prefix: true },
+{ m: 'DELETE', p: '/api/sessions/', auth: 'token-browser', prefix: true },
+{ m: 'DELETE', p: '/api/memory/', auth: 'token-browser', prefix: true },
+{ m: 'DELETE', p: '/api/playbooks/', auth: 'token', prefix: true },
+{ m: 'DELETE', p: '/api/agent-workflows/', auth: 'token', prefix: true },
+```
+
+**验证**:session-index ALL PASS(原 9 fail)、workspace-resolve ALL PASS(原 3 fail)、auth-deny-default ALL PASS（真实 PATCH/DELETE 五路均验证：无 token 403、带 token 到达 handler）、playbooks/workbench-memory ALL PASS。从 KNOWN_FAILURE 移除这 2 件。
+
+**诚实交代**:
+- 这是第33波 deny-by-default 表的覆盖缺口(不是 PATCH 业务逻辑 bug);第34波 CI 全量覆盖才暴露(之前手工挑件从未跑到 session-index/workspace-resolve 的真实 PATCH/DELETE 断言)。
+- playbooks/agent-workflows/memory 的 DELETE 真实方法现由 `auth-deny-default` 覆盖：浏览器无 token 为 403、带 token 必须穿过 auth 表并到达既有 handler。
+- 余 2 件 known-fail(capabilities identity bleed / ui-v3-p1 color-mix)后续波修。

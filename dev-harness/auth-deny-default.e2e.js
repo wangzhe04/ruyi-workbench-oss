@@ -99,6 +99,20 @@ function probe(port, method, p, headers, body) {
     // body-token: mission loopback 无 header token 但有 body token -> 放行(handler 自查)
     const d8 = await probe(PORT, 'POST', '/api/mission', { Host: goodHost, 'content-type': 'application/json' }, { action: 'check', sessionId: 'sess_nonexistent', token });
     ok(d8.status !== 403, 'D8 POST /api/mission body-token -> 非 403 (body-token 豁免 origin,handler 自查) got ' + d8.status);
+    // 第35波：真实 PATCH/DELETE 不能再被 deny-by-default 拦在 handler 之前；带 Origin 的浏览器请求仍必须有 token。
+    const realMethodRoutes = [
+      { method: 'PATCH', path: '/api/sessions/auth_method_probe', body: {} },
+      { method: 'DELETE', path: '/api/sessions/auth_method_probe', body: {} },
+      { method: 'DELETE', path: '/api/memory/auth_method_probe', body: { scope: 'global', cwd: HOME } },
+      { method: 'DELETE', path: '/api/playbooks/auth_method_probe', body: {} },
+      { method: 'DELETE', path: '/api/agent-workflows/auth_method_probe', body: { scope: 'personal', cwd: HOME } },
+    ];
+    for (const item of realMethodRoutes) {
+      const denied = await probe(PORT, item.method, item.path, { Host: goodHost, Origin: origin }, item.body);
+      ok(denied.status === 403, `D9 ${item.method} ${item.path} browser without token -> 403 got ${denied.status}`);
+      const allowed = await probe(PORT, item.method, item.path, { Host: goodHost, Origin: origin, 'x-wcw-token': token }, item.body);
+      ok(allowed.status !== 403, `D9 ${item.method} ${item.path} browser + token reaches handler (got ${allowed.status})`);
+    }
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }

@@ -35,8 +35,6 @@ const SKIP = new Set([
 const KNOWN_FAILURE = {
   'ui-v3-p1.static.e2e.js': 'color-mix 手写(styles.css:1462 ghost-danger hover,第23波引入,违反 v3 P1;需 UI 决策:轻量 hover 的令牌选择',
   'capabilities.e2e.js': 'system prompt 含 "Claude"(identity bleed guard;buildProviderSystemPrompt 函数体无 Claude,注入源在调用方拼接,待排查)',
-  'session-index.e2e.js': 'PATCH title/pinned + 删除 + 合并 dirty-read 9 处回归(某波改 PATCH session 逻辑,与 workspace-resolve 同源)',
-  'workspace-resolve.e2e.js': 'PATCH session cwd 持久化 3 处回归(与 session-index PATCH 同源)',
 };
 
 // 快通道:无端口纯静态锁件(spawn|listen=0),秒级,先跑求快速反馈。
