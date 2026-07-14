@@ -89,6 +89,26 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   assert.ok(html.includes('id="cfgLocale"'), 'settings must expose a locale selector');
   assert.ok(html.includes('data-i18n="app.title"'), 'browser title must use the catalog');
   assert.ok(html.includes('data-i18n-attr="placeholder:session.search"'), 'static attribute translation must be wired');
+  const englishCriticalUi = {
+    'settings.network': 'Web search',
+    'settings.defaultWorkspace': 'Default workspace folder',
+    'settings.uiMode': 'Interface mode',
+    'settings.outputStyle': 'Response style',
+    'settings.monthlyBudget.title': 'Monthly cost budget (optional)',
+    'tool.files': 'Files',
+    'tool.artifacts': 'Artifacts',
+    'tool.sessionArtifacts': 'Artifacts from this chat',
+  };
+  for (const [key, value] of Object.entries(englishCriticalUi)) {
+    assert.strictEqual(en[key], value, `English catalog must translate ${key}`);
+    assert.ok(html.includes(`data-i18n="${key}"`), `static UI must wire ${key}`);
+  }
+  assert.ok(html.includes('data-i18n-attr="placeholder:settings.monthlyBudget.amountPlaceholder"'), 'budget placeholder must be translatable');
+  const settingsStart = html.indexOf('id="settingsModal"');
+  const settingsEnd = html.indexOf('id="paletteModal"');
+  const unlocalizedSettingsLines = html.slice(settingsStart, settingsEnd).split(/\r?\n/)
+    .filter(line => /[\u4e00-\u9fff]/.test(line) && !line.includes('data-i18n') && !line.includes('<!--'));
+  assert.deepStrictEqual(unlocalizedSettingsLines, [], 'settings must not leave fixed Chinese copy outside i18n markup');
   assert.ok(app.includes("from './js/i18n.js'"), 'client must load the i18n runtime');
   assert.ok(app.includes("tCount('session.messageCount'"), 'session rows must use localized pluralization');
   assert.ok(app.includes("t('workspace.switch.success'"), 'workspace success feedback must use the catalog');

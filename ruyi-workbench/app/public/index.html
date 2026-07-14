@@ -290,19 +290,19 @@
              默认激活页签由 powershell 迁到 files（按钮 + section 双处 active）。 -->
         <div class="tool-tabs">
           <span class="tool-tabs-group" data-tt-group="resident">
-            <button data-tab="files" class="active">文件</button>
-            <button data-tab="artifacts">产物</button>
-            <button data-tab="changes">变更</button>
+            <button data-tab="files" class="active" data-i18n="tool.files">文件</button>
+            <button data-tab="artifacts" data-i18n="tool.artifacts">产物</button>
+            <button data-tab="changes" data-i18n="changes.title">变更</button>
             <button data-tab="agent-runs" data-i18n="workflow.title">Agent 工作流</button>
             <button data-tab="usage" data-i18n="usage.title">用量</button>
             <button data-tab="audit">审计</button>
           </span>
-          <span class="tool-tabs-sep" aria-hidden="true">开发者</span>
+          <span class="tool-tabs-sep" aria-hidden="true" data-i18n="tool.developer">开发者</span>
           <span class="tool-tabs-group" data-tt-group="dev">
-            <button data-tab="powershell">终端</button>
-            <button data-tab="desktop">桌面</button>
+            <button data-tab="powershell" data-i18n="tool.terminal">终端</button>
+            <button data-tab="desktop" data-i18n="tool.desktop">桌面</button>
             <button data-tab="mcp">MCP</button>
-            <button data-tab="debug">调试</button>
+            <button data-tab="debug" data-i18n="tool.debug">调试</button>
             <button data-tab="doctor">体检</button>
           </span>
         </div>
@@ -326,19 +326,19 @@
           <!-- v0.9-S3 (C3): file tree of the current session's working folder. Lazy-expand; click a text
                file to preview (≤200KB); 「@」inserts the file's relative path into the composer. -->
           <div class="debug-head">
-            <label>工作文件夹</label>
+            <label data-i18n="tool.workspaceFolder">工作文件夹</label>
             <button id="fileTreeRefreshBtn" class="mini">刷新</button>
           </div>
           <div id="fileTreeRoot" class="file-tree-root" title=""></div>
           <div id="fileTree" class="file-tree"></div>
           <div id="filePreview" class="file-preview hidden"></div>
           <hr class="settings-sep" />
-          <label for="searchPattern">搜索文本</label>
+          <label for="searchPattern" data-i18n="tool.searchText">搜索文本</label>
           <input id="searchPattern" type="text" placeholder="TODO|FIXME" />
-          <button id="searchBtn" class="full">搜索项目</button>
-          <label for="readPath">读取文件</label>
+          <button id="searchBtn" class="full" data-i18n="tool.searchProject">搜索项目</button>
+          <label for="readPath" data-i18n="tool.readFile">读取文件</label>
           <input id="readPath" type="text" placeholder="C:\path\file.txt" />
-          <button id="readFileBtn" class="full">读取</button>
+          <button id="readFileBtn" class="full" data-i18n="tool.read">读取</button>
         </section>
 
         <section class="tool-section" id="tab-artifacts">
@@ -346,7 +346,7 @@
                kind icon + filename + 预览 / 打开. Preview area renders via /api/file/preview (image dataURI /
                md-rendered / csv-table / txt-pre / html in a fully-locked sandbox iframe). -->
           <div class="debug-head">
-            <label>本会话产物</label>
+            <label data-i18n="tool.sessionArtifacts">本会话产物</label>
             <button id="artifactsRefreshBtn" class="mini">刷新</button>
           </div>
           <div id="artifactsList" class="artifacts-list"></div>
@@ -358,10 +358,10 @@
                「回撤到此前状态」按钮 → 确认弹层 → POST /api/checkpoints/rollback。skipped 条目置灰不可撤。
                面向所有用户(simple 模式可见)。撤销整轮请用对话里的「本轮变更」卡。 -->
           <div class="debug-head">
-            <label>可回撤的文件变更</label>
+            <label data-i18n="tool.revertibleChanges">可回撤的文件变更</label>
             <button id="changesRefreshBtn" class="mini">刷新</button>
           </div>
-          <p class="changes-hint muted">AI 用文件工具或桌面控制写文件后会出现在这里。撤销整轮请用对话里的「本轮变更」卡。</p>
+          <p class="changes-hint muted" data-i18n="tool.revertibleChanges.hint">AI 用文件工具或桌面控制写文件后会出现在这里。撤销整轮请用对话里的「本轮变更」卡。</p>
           <div id="changesList" class="changes-list"></div>
           <div id="changesPreview" class="changes-preview hidden"></div>
         </section>
@@ -477,14 +477,14 @@
             <button type="button" data-stab="providers" data-i18n="settings.providers">服务商</button>
             <button type="button" data-stab="agents" data-i18n="settings.agents">Agent 角色</button>
             <button type="button" data-stab="integrations" data-i18n="settings.integrations">集成 / MCP</button>
-            <button type="button" data-stab="network">联网搜索</button>
+            <button type="button" data-stab="network" data-i18n="settings.network">联网搜索</button>
             <button type="button" data-stab="advanced" data-i18n="settings.advanced">高级</button>
           </div>
 
           <!-- ===== 基础 ===== -->
           <div class="settings-tab active" id="stab-basic">
             <div class="field-block">
-              <label for="workspaceInput">默认工作文件夹</label>
+              <label for="workspaceInput" data-i18n="settings.defaultWorkspace">默认工作文件夹</label>
               <input id="workspaceInput" type="text" placeholder="C:\path\to\project" />
             </div>
             <div class="field-block">
@@ -498,40 +498,40 @@
             <!-- v0.9-S1 (C1): 界面模式 + 输出风格 -->
             <div class="field-grid">
               <div class="field-block">
-                <label for="cfgUiMode">界面模式</label>
+                <label for="cfgUiMode" data-i18n="settings.uiMode">界面模式</label>
                 <select id="cfgUiMode">
-                  <option value="pro">专家（完整三栏 / 调试面板）</option>
-                  <option value="simple">精简（人人可用 / 隐藏高级项）</option>
+                  <option value="pro" data-i18n="settings.uiMode.pro">专家（完整三栏 / 调试面板）</option>
+                  <option value="simple" data-i18n="settings.uiMode.simple">精简（人人可用 / 隐藏高级项）</option>
                 </select>
               </div>
               <div class="field-block">
-                <label for="cfgOutputStyle">输出风格</label>
+                <label for="cfgOutputStyle" data-i18n="settings.outputStyle">输出风格</label>
                 <select id="cfgOutputStyle">
-                  <option value="detailed">详细（默认）</option>
-                  <option value="concise">简洁（直接给结果）</option>
+                  <option value="detailed" data-i18n="settings.outputStyle.detailed">详细（默认）</option>
+                  <option value="concise" data-i18n="settings.outputStyle.concise">简洁（直接给结果）</option>
                 </select>
               </div>
             </div>
             <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgKillDisc" /> 关闭页面时同时结束正在运行的任务</label>
-              <label class="check"><input type="checkbox" id="cfgKillPort" /> 启动时接管被旧实例占用的端口</label>
+              <label class="check"><input type="checkbox" id="cfgKillDisc" /> <span data-i18n="settings.stopTasksOnClose">关闭页面时同时结束正在运行的任务</span></label>
+              <label class="check"><input type="checkbox" id="cfgKillPort" /> <span data-i18n="settings.takeOverPort">启动时接管被旧实例占用的端口</span></label>
             </div>
             <hr class="settings-sep" />
-            <h4 class="settings-subhead">月度成本预算（可选）</h4>
-            <p class="muted prov-hint">设置每月成本上限后，「用量」页签会显示进度；超出时给一条不阻断的软提示。留空 = 不设预算。金额只作估算参照，非实际扣费。</p>
+            <h4 class="settings-subhead" data-i18n="settings.monthlyBudget.title">月度成本预算（可选）</h4>
+            <p class="muted prov-hint" data-i18n="settings.monthlyBudget.hint">设置每月成本上限后，「用量」页签会显示进度；超出时给一条不阻断的软提示。留空 = 不设预算。金额只作估算参照，非实际扣费。</p>
             <div class="field-grid">
               <div class="field-block">
-                <label for="cfgUsageBudgetMonthly">每月预算金额</label>
-                <input id="cfgUsageBudgetMonthly" type="number" min="0" step="1" placeholder="如 200（留空 = 不设）" />
+                <label for="cfgUsageBudgetMonthly" data-i18n="settings.monthlyBudget.amount">每月预算金额</label>
+                <input id="cfgUsageBudgetMonthly" type="number" min="0" step="1" placeholder="如 200（留空 = 不设）" data-i18n-attr="placeholder:settings.monthlyBudget.amountPlaceholder" />
               </div>
               <div class="field-block">
-                <label for="cfgUsageBudgetCurrency">币种</label>
+                <label for="cfgUsageBudgetCurrency" data-i18n="settings.currency">币种</label>
                 <select id="cfgUsageBudgetCurrency">
-                  <option value="CNY">人民币 ¥ (CNY)</option>
-                  <option value="USD">美元 $ (USD)</option>
-                  <option value="EUR">欧元 € (EUR)</option>
-                  <option value="GBP">英镑 £ (GBP)</option>
-                  <option value="JPY">日元 ¥ (JPY)</option>
+                  <option value="CNY" data-i18n="settings.currency.CNY">人民币 ¥ (CNY)</option>
+                  <option value="USD" data-i18n="settings.currency.USD">美元 $ (USD)</option>
+                  <option value="EUR" data-i18n="settings.currency.EUR">欧元 € (EUR)</option>
+                  <option value="GBP" data-i18n="settings.currency.GBP">英镑 £ (GBP)</option>
+                  <option value="JPY" data-i18n="settings.currency.JPY">日元 ¥ (JPY)</option>
                 </select>
               </div>
             </div>
@@ -540,128 +540,128 @@
           <!-- ===== Claude CLI ===== -->
           <div class="settings-tab" id="stab-claude">
             <div class="field-block">
-              <label for="claudePathInput">Claude CLI 路径</label>
-              <input id="claudePathInput" type="text" placeholder="claude.cmd 或内网 CLI 完整路径" />
+              <label for="claudePathInput" data-i18n="settings.claudePath">Claude CLI 路径</label>
+              <input id="claudePathInput" type="text" placeholder="claude.cmd 或内网 CLI 完整路径" data-i18n-attr="placeholder:settings.claudePathPlaceholder" />
             </div>
             <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgPartial" /> 实时流式 (--include-partial-messages)</label>
-              <label class="check"><input type="checkbox" id="cfgBeta" /> 交错思维 beta（仅老 CLI 需要；新模型请勿勾）</label>
+              <label class="check"><input type="checkbox" id="cfgPartial" /> <span data-i18n="settings.partialStreaming">实时流式 (--include-partial-messages)</span></label>
+              <label class="check"><input type="checkbox" id="cfgBeta" /> <span data-i18n="settings.betaThinking">交错思维 beta（仅老 CLI 需要；新模型请勿勾）</span></label>
             </div>
             <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgResume" /> 自动续接 Claude 会话</label>
+              <label class="check"><input type="checkbox" id="cfgResume" /> <span data-i18n="settings.resumeClaude">自动续接 Claude 会话</span></label>
             </div>
             <div class="field-grid">
               <div class="field-block">
-                <label for="cfgThinkBudget">思考预算 MAX_THINKING_TOKENS</label>
-                <input id="cfgThinkBudget" type="text" placeholder="留空=自适应(adaptive，推荐新模型)；填数字=固定预算(enabled)" />
+                <label for="cfgThinkBudget" data-i18n="settings.thinkingBudget">思考预算 MAX_THINKING_TOKENS</label>
+                <input id="cfgThinkBudget" type="text" placeholder="留空=自适应(adaptive，推荐新模型)；填数字=固定预算(enabled)" data-i18n-attr="placeholder:settings.thinkingBudgetPlaceholder" />
               </div>
               <div class="field-block">
-                <label for="cfgMaxTurns">最大轮次 --max-turns</label>
-                <input id="cfgMaxTurns" type="text" placeholder="留空=不限" />
+                <label for="cfgMaxTurns" data-i18n="settings.maxTurns">最大轮次 --max-turns</label>
+                <input id="cfgMaxTurns" type="text" placeholder="留空=不限" data-i18n-attr="placeholder:settings.maxTurnsPlaceholder" />
               </div>
             </div>
             <div class="field-block">
-              <label for="cfgExtraArgs">额外 CLI 参数 (每行一个)</label>
+              <label for="cfgExtraArgs" data-i18n="settings.extraArgs">额外 CLI 参数 (每行一个)</label>
               <textarea id="cfgExtraArgs" rows="3" placeholder="--foo&#10;bar"></textarea>
             </div>
             <div class="field-grid">
               <div class="field-block">
-                <label for="cfgEngineMode">对话引擎</label>
+                <label for="cfgEngineMode" data-i18n="settings.chatEngine">对话引擎</label>
                 <select id="cfgEngineMode">
-                  <option value="legacy">legacy（稳定，单向）</option>
-                  <option value="interactive">interactive（可触发提问弹窗/权限）</option>
+                  <option value="legacy" data-i18n="settings.engineMode.legacy">legacy（稳定，单向）</option>
+                  <option value="interactive" data-i18n="settings.engineMode.interactive">interactive（可触发提问弹窗/权限）</option>
                 </select>
               </div>
               <div class="field-block">
-                <label for="cfgMcpMode">MCP 命令模式</label>
+                <label for="cfgMcpMode" data-i18n="settings.mcpCommandMode">MCP 命令模式</label>
                 <select id="cfgMcpMode">
-                  <option value="auto">auto（优先 node+server.js）</option>
+                  <option value="auto" data-i18n="settings.mcpMode.auto">auto（优先 node+server.js）</option>
                   <option value="node">node</option>
                   <option value="exe">exe</option>
                 </select>
               </div>
             </div>
             <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgPermBridge" /> 权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）</label>
+              <label class="check"><input type="checkbox" id="cfgPermBridge" /> <span data-i18n="settings.permissionBridge">权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）</span></label>
             </div>
             <hr class="settings-sep" />
-            <h4 class="settings-subhead">第三方 Anthropic 兼容端点（Coding Plan）</h4>
-            <p class="muted prov-hint">在此配置的端点/密钥/模型会直接注入 Claude CLI 子进程的环境变量，驱动真实对话（不再只是模型清单探测），无需手动 setx。模型可在顶栏「模型」里热切。</p>
+            <h4 class="settings-subhead" data-i18n="settings.anthropicEndpoint.title">第三方 Anthropic 兼容端点（Coding Plan）</h4>
+            <p class="muted prov-hint" data-i18n="settings.anthropicEndpoint.hint">在此配置的端点/密钥/模型会直接注入 Claude CLI 子进程的环境变量，驱动真实对话（不再只是模型清单探测），无需手动 setx。模型可在顶栏「模型」里热切。</p>
             <div class="field-row">
-              <label for="cfgClaudeEndpointPreset">预设</label>
+              <label for="cfgClaudeEndpointPreset" data-i18n="settings.preset">预设</label>
               <select id="cfgClaudeEndpointPreset"></select>
-              <button type="button" id="applyClaudeEndpointPresetBtn" class="mini">应用预设</button>
+              <button type="button" id="applyClaudeEndpointPresetBtn" class="mini" data-i18n="settings.applyPreset">应用预设</button>
             </div>
             <div class="field-grid">
               <div class="field-block">
-                <label for="cfgModelsApiBase">端点 Base URL（留空=沿用系统环境变量 ANTHROPIC_BASE_URL）</label>
+                <label for="cfgModelsApiBase" data-i18n="settings.endpointBaseUrl">端点 Base URL（留空=沿用系统环境变量 ANTHROPIC_BASE_URL）</label>
                 <input id="cfgModelsApiBase" type="text" placeholder="https://ark.cn-beijing.volces.com/api/coding" />
               </div>
               <div class="field-block">
-                <label for="cfgModelsApiKey">端点密钥（留空=沿用系统环境变量）</label>
-                <input id="cfgModelsApiKey" type="password" placeholder="留空=沿用系统环境变量" autocomplete="off" />
+                <label for="cfgModelsApiKey" data-i18n="settings.endpointApiKey">端点密钥（留空=沿用系统环境变量）</label>
+                <input id="cfgModelsApiKey" type="password" placeholder="留空=沿用系统环境变量" autocomplete="off" data-i18n-attr="placeholder:settings.endpointApiKeyPlaceholder" />
               </div>
               <div class="field-block">
-                <label for="cfgClaudeAuthMode">鉴权方式</label>
+                <label for="cfgClaudeAuthMode" data-i18n="settings.authMode">鉴权方式</label>
                 <select id="cfgClaudeAuthMode">
-                  <option value="auto">自动（两种请求头都发，兼容大多数端点）</option>
-                  <option value="bearer">Bearer Token（ANTHROPIC_AUTH_TOKEN，如 Ark Coding Plan）</option>
-                  <option value="x-api-key">x-api-key（ANTHROPIC_API_KEY，Anthropic 官方协议）</option>
+                  <option value="auto" data-i18n="settings.authMode.auto">自动（两种请求头都发，兼容大多数端点）</option>
+                  <option value="bearer" data-i18n="settings.authMode.bearer">Bearer Token（ANTHROPIC_AUTH_TOKEN，如 Ark Coding Plan）</option>
+                  <option value="x-api-key" data-i18n="settings.authMode.apiKey">x-api-key（ANTHROPIC_API_KEY，Anthropic 官方协议）</option>
                 </select>
               </div>
             </div>
             <div class="field-grid">
               <div class="field-block">
-                <label for="cfgClaudePriceIn">输入单价（每百万 token，可选）</label>
-                <input id="cfgClaudePriceIn" type="number" min="0" step="0.01" placeholder="留空 = 不估算成本" />
+                <label for="cfgClaudePriceIn" data-i18n="settings.pricing.input">输入单价（每百万 token，可选）</label>
+                <input id="cfgClaudePriceIn" type="number" min="0" step="0.01" placeholder="留空 = 不估算成本" data-i18n-attr="placeholder:settings.pricing.unavailablePlaceholder" />
               </div>
               <div class="field-block">
-                <label for="cfgClaudePriceOut">输出单价（每百万 token，可选）</label>
-                <input id="cfgClaudePriceOut" type="number" min="0" step="0.01" placeholder="留空 = 不估算成本" />
+                <label for="cfgClaudePriceOut" data-i18n="settings.pricing.output">输出单价（每百万 token，可选）</label>
+                <input id="cfgClaudePriceOut" type="number" min="0" step="0.01" placeholder="留空 = 不估算成本" data-i18n-attr="placeholder:settings.pricing.unavailablePlaceholder" />
               </div>
               <div class="field-block">
-                <label for="cfgClaudePriceCurrency">币种</label>
+                <label for="cfgClaudePriceCurrency" data-i18n="settings.currency">币种</label>
                 <select id="cfgClaudePriceCurrency">
-                  <option value="CNY">人民币 ¥ (CNY)</option>
-                  <option value="USD">美元 $ (USD)</option>
-                  <option value="EUR">欧元 € (EUR)</option>
-                  <option value="GBP">英镑 £ (GBP)</option>
-                  <option value="JPY">日元 ¥ (JPY)</option>
+                  <option value="CNY" data-i18n="settings.currency.CNY">人民币 ¥ (CNY)</option>
+                  <option value="USD" data-i18n="settings.currency.USD">美元 $ (USD)</option>
+                  <option value="EUR" data-i18n="settings.currency.EUR">欧元 € (EUR)</option>
+                  <option value="GBP" data-i18n="settings.currency.GBP">英镑 £ (GBP)</option>
+                  <option value="JPY" data-i18n="settings.currency.JPY">日元 ¥ (JPY)</option>
                 </select>
               </div>
             </div>
-            <p class="muted prov-hint">若上方端点是第三方 Coding Plan（如火山方舟 Ark），此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认<strong>只显 token 消耗</strong>——<strong>计划内（订阅）计费不等于按量扣费</strong>，切勿当作实际花费。</p>
+            <p class="muted prov-hint" data-i18n="settings.pricing.hint">若上方端点是第三方 Coding Plan（如火山方舟 Ark），此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。</p>
             <hr class="settings-sep" />
-            <h4 class="settings-subhead">模型清单发现</h4>
+            <h4 class="settings-subhead" data-i18n="settings.modelDiscovery">模型清单发现</h4>
             <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgDiscoverModels" /> 自动向上方端点拉取可用模型（GET /v1/models；失败自动回退到内置清单）</label>
+              <label class="check"><input type="checkbox" id="cfgDiscoverModels" /> <span data-i18n="settings.discoverModels">自动向上方端点拉取可用模型（GET /v1/models；失败自动回退到内置清单）</span></label>
             </div>
             <div class="field-block">
-              <label for="cfgExtraModels">自定义模型（每行一个，可写 <code>id</code> 或 <code>id|显示名</code>）</label>
-              <textarea id="cfgExtraModels" rows="2" placeholder="claude-opus-4-8|我的Opus&#10;my-internal-model"></textarea>
+              <label for="cfgExtraModels" data-i18n="settings.extraModels">自定义模型（每行一个，可写 id 或 id|显示名）</label>
+              <textarea id="cfgExtraModels" rows="2" placeholder="claude-opus-4-8|我的Opus&#10;my-internal-model" data-i18n-attr="placeholder:settings.extraModelsPlaceholder"></textarea>
             </div>
           </div>
 
           <!-- ===== Providers ===== -->
           <div class="settings-tab" id="stab-providers">
-            <p class="muted prov-hint">把顶栏「引擎」切到某个 Provider 后，对话会<strong>直连它的 /chat/completions</strong>（原生流式）；密钥只保存在本机 config.json。</p>
+            <p class="muted prov-hint" data-i18n="settings.providers.hint">把顶栏“引擎”切到某个 Provider 后，对话会直连它的 /chat/completions（原生流式）；密钥只保存在本机 config.json。</p>
             <div id="providersList" class="providers-list"></div>
             <div class="prov-add">
               <select id="providerPresetSelect"></select>
-              <button type="button" id="addProviderBtn" class="file-label">+ 添加 Provider</button>
+              <button type="button" id="addProviderBtn" class="file-label" data-i18n="settings.providers.add">+ 添加 Provider</button>
             </div>
           </div>
 
           <!-- ===== Agent roles ===== -->
           <div class="settings-tab" id="stab-agents">
-            <p class="muted prov-hint">同一套角色可用于 OpenAI 兼容 API 和 Claude CLI。Claude 使用原生 <code>--agents</code>；项目中的 <code>.claude/agents</code> 也会自动识别并显示。</p>
+            <p class="muted prov-hint" data-i18n="settings.agentRoles.hint">同一套角色可用于 OpenAI 兼容 API 和 Claude CLI。Claude 使用原生 --agents；项目中的 .claude/agents 也会自动识别并显示。</p>
             <div id="agentRoleDriverStatus" class="agent-role-driver-status"></div>
             <div class="agent-role-toolbar">
-              <label for="agentRoleScope">编辑范围</label>
-              <select id="agentRoleScope"><option value="global">全局角色</option><option value="project">当前项目</option></select>
-              <button type="button" id="agentRoleRefreshBtn">刷新</button>
-              <button type="button" id="agentRoleAddBtn">+ 自定义角色</button>
-              <button type="button" id="agentRoleSaveBtn" class="primary">保存角色</button>
+              <label for="agentRoleScope" data-i18n="settings.agentRoles.scope">编辑范围</label>
+              <select id="agentRoleScope"><option value="global" data-i18n="settings.agentRoles.scope.global">全局角色</option><option value="project" data-i18n="settings.agentRoles.scope.project">当前项目</option></select>
+              <button type="button" id="agentRoleRefreshBtn" data-i18n="common.refresh">刷新</button>
+              <button type="button" id="agentRoleAddBtn" data-i18n="settings.agentRoles.add">+ 自定义角色</button>
+              <button type="button" id="agentRoleSaveBtn" class="primary" data-i18n="settings.agentRoles.save">保存角色</button>
             </div>
             <p id="agentRoleScopeHint" class="field-help muted"></p>
             <div id="agentRoleEditorList" class="agent-role-editor-list"></div>
@@ -670,64 +670,64 @@
 
           <!-- ===== 集成 / MCP ===== -->
           <div class="settings-tab" id="stab-integrations">
-            <p class="muted prov-hint">把你自己的<strong>桌面控制 MCP（ai-computer-control）</strong>接进工作台：截图 / 控窗 / OCR 等。Claude 引擎会由 CLI 自行拉起；原生 Provider 引擎（DeepSeek/通义/GLM）则由工作台内建 MCP 客户端桥接。</p>
+            <p class="muted prov-hint" data-i18n="settings.integrations.hint">将桌面控制 MCP（ai-computer-control）接入工作台，可用截图、控窗、OCR 等能力。Claude 引擎由 CLI 自行拉起；原生 Provider 引擎则由工作台内建 MCP 客户端桥接。</p>
             <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgDesktopMcpEnabled" /> 启用桌面 MCP（ai-computer-control）</label>
+              <label class="check"><input type="checkbox" id="cfgDesktopMcpEnabled" /> <span data-i18n="settings.enableDesktopMcp">启用桌面 MCP（ai-computer-control）</span></label>
             </div>
             <div class="field-block">
-              <label>探测状态</label>
+              <label data-i18n="settings.detectionStatus">探测状态</label>
               <div class="adv-row"><code id="cfgDesktopMcpStatus" class="adv-val">—</code></div>
             </div>
             <div class="field-block">
-              <label for="cfgDesktopMcpCommand">命令覆盖（留空 = 自动探测）</label>
-              <input id="cfgDesktopMcpCommand" type="text" placeholder="留空自动探测；或 python / ai-computer-control.exe 完整路径" />
+              <label for="cfgDesktopMcpCommand" data-i18n="settings.commandOverride">命令覆盖（留空 = 自动探测）</label>
+              <input id="cfgDesktopMcpCommand" type="text" placeholder="留空自动探测；或 python / ai-computer-control.exe 完整路径" data-i18n-attr="placeholder:settings.commandOverridePlaceholder" />
             </div>
             <div class="field-grid">
               <div class="field-block">
-                <label for="cfgDesktopMcpArgs">参数（每行一个）</label>
+                <label for="cfgDesktopMcpArgs" data-i18n="settings.arguments">参数（每行一个）</label>
                 <textarea id="cfgDesktopMcpArgs" rows="3" placeholder="-X&#10;utf8&#10;-m&#10;ai_computer_control.server"></textarea>
               </div>
               <div class="field-block">
-                <label for="cfgDesktopMcpCwd">工作目录 cwd（留空 = 自动）</label>
+                <label for="cfgDesktopMcpCwd" data-i18n="settings.workingDirectory">工作目录 cwd（留空 = 自动）</label>
                 <input id="cfgDesktopMcpCwd" type="text" placeholder="C:\\Users\\...\\ai-computer-control" />
               </div>
             </div>
             <hr class="settings-sep" />
             <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgBridgeExternal" /> 把外部 MCP 工具也桥接给原生 Provider 引擎（关闭则 Provider 只用工作台自有工具）</label>
+              <label class="check"><input type="checkbox" id="cfgBridgeExternal" /> <span data-i18n="settings.bridgeExternalMcp">把外部 MCP 工具也桥接给原生 Provider 引擎（关闭则 Provider 只用工作台自有工具）</span></label>
             </div>
             <hr class="settings-sep" />
             <!-- v1.0.2 (G5c): 从文件夹导入外部 MCP。选文件夹 → 读其 ruyi-mcp.json 清单 → 导入 externalMcpServers。 -->
             <div class="field-block">
-              <label>外部 MCP 服务</label>
-              <p class="field-help muted">从含 <code>ruyi-mcp.json</code> 清单的文件夹一键导入一个外部 MCP 服务。</p>
-              <button type="button" id="importMcpFolderBtn" class="file-label">📁 从文件夹添加 MCP…</button>
+              <label data-i18n="settings.externalMcpServer">外部 MCP 服务</label>
+              <p class="field-help muted" data-i18n="settings.externalMcpServer.hint">从含 ruyi-mcp.json 清单的文件夹一键导入一个外部 MCP 服务。</p>
+              <button type="button" id="importMcpFolderBtn" class="file-label" data-i18n="settings.externalMcpServer.import">📁 从文件夹添加 MCP…</button>
             </div>
           </div>
 
           <!-- ===== 联网搜索 (v1.0-S3 B1) ===== -->
           <div class="settings-tab" id="stab-network">
-            <p class="muted prov-hint">配置后 AI 可以联网搜索；断网时自动读本地缓存。</p>
+            <p class="muted prov-hint" data-i18n="settings.network.hint">配置后 AI 可以联网搜索；断网时自动读本地缓存。</p>
             <div class="field-block">
-              <label for="cfgSearchType">搜索服务</label>
+              <label for="cfgSearchType" data-i18n="settings.searchService">搜索服务</label>
               <select id="cfgSearchType">
-                <option value="none">不启用</option>
-                <option value="builtin">内置免费搜索（开箱即用）</option>
-                <option value="searxng">SearXNG（自建实例）</option>
-                <option value="bing">Bing 搜索 API</option>
-                <option value="brave">Brave 搜索 API</option>
-                <option value="tavily">Tavily（AI 搜索 API）</option>
-                <option value="bocha">博查 Bocha（中文搜索 API）</option>
-                <option value="custom">自定义（兼容 SearXNG JSON）</option>
+                <option value="none" data-i18n="settings.search.none">不启用</option>
+                <option value="builtin" data-i18n="settings.search.builtin">内置免费搜索（开箱即用）</option>
+                <option value="searxng" data-i18n="settings.search.searxng">SearXNG（自建实例）</option>
+                <option value="bing" data-i18n="settings.search.bing">Bing 搜索 API</option>
+                <option value="brave" data-i18n="settings.search.brave">Brave 搜索 API</option>
+                <option value="tavily" data-i18n="settings.search.tavily">Tavily（AI 搜索 API）</option>
+                <option value="bocha" data-i18n="settings.search.bocha">博查 Bocha（中文搜索 API）</option>
+                <option value="custom" data-i18n="settings.search.custom">自定义（兼容 SearXNG JSON）</option>
               </select>
             </div>
             <div class="field-block" id="cfgSearchBaseUrlRow">
-              <label for="cfgSearchBaseUrl">端点 Base URL</label>
-              <input id="cfgSearchBaseUrl" type="text" placeholder="例如 http://127.0.0.1:8888" />
+              <label for="cfgSearchBaseUrl" data-i18n="settings.searchBaseUrl">端点 Base URL</label>
+              <input id="cfgSearchBaseUrl" type="text" placeholder="例如 http://127.0.0.1:8888" data-i18n-attr="placeholder:settings.searchBaseUrlPlaceholder" />
             </div>
             <div class="field-block" id="cfgSearchApiKeyRow">
-              <label for="cfgSearchApiKey">API 密钥</label>
-              <input id="cfgSearchApiKey" type="password" autocomplete="off" placeholder="留空=不改动已保存的密钥" />
+              <label for="cfgSearchApiKey" data-i18n="settings.apiKey">API 密钥</label>
+              <input id="cfgSearchApiKey" type="password" autocomplete="off" placeholder="留空=不改动已保存的密钥" data-i18n-attr="placeholder:settings.apiKeyPlaceholder" />
             </div>
           </div>
 
@@ -735,33 +735,33 @@
           <div class="settings-tab" id="stab-advanced">
             <!-- v1.0.2 (G5a): 原生 Provider 引擎单回合工具调用上限 (openaiMaxToolIterations, 1..100, 默认 100)。 -->
             <div class="field-block">
-              <label for="cfgOpenaiMaxToolIterations">单回合工具调用上限</label>
+              <label for="cfgOpenaiMaxToolIterations" data-i18n="settings.advanced.maxToolIterations">单回合工具调用上限</label>
               <input id="cfgOpenaiMaxToolIterations" type="number" min="1" max="100" step="1" placeholder="100" />
-              <p class="field-help muted">AI 一个回合内最多连续调用多少次工具，默认 100（上限）。</p>
+              <p class="field-help muted" data-i18n="settings.advanced.maxToolIterations.hint">AI 一个回合内最多连续调用多少次工具，默认 100（上限）。</p>
             </div>
             <div class="field-grid">
               <div class="field-block">
-                <label for="cfgSubagentMaxConcurrent">子代理每阶段并发数</label>
+                <label for="cfgSubagentMaxConcurrent" data-i18n="settings.advanced.subagentConcurrency">子代理每阶段并发数</label>
                 <input id="cfgSubagentMaxConcurrent" type="number" min="1" max="8" step="1" placeholder="8" />
-                <p class="field-help muted">同一阶段可同时运行的子代理数，范围 1–8（默认 8，上限）。</p>
+                <p class="field-help muted" data-i18n="settings.advanced.subagentConcurrency.hint">同一阶段可同时运行的子代理数，范围 1–8（默认 8，上限）。</p>
               </div>
               <div class="field-block">
-                <label for="cfgSubagentMaxPerTurn">子代理每回合总数</label>
+                <label for="cfgSubagentMaxPerTurn" data-i18n="settings.advanced.subagentPerTurn">子代理每回合总数</label>
                 <input id="cfgSubagentMaxPerTurn" type="number" min="0" max="32" step="1" placeholder="32" />
-                <p class="field-help muted">单次对话回合内 spawn_agent/orchestrate_agents 累计上限；设为 0 可关闭子代理。</p>
+                <p class="field-help muted" data-i18n="settings.advanced.subagentPerTurn.hint">单次对话回合内 spawn_agent/orchestrate_agents 累计上限；设为 0 可关闭子代理。</p>
               </div>
               <div class="field-block">
-                <label for="cfgAgentWorkflowMaxNodes">Agent 工作流节点数上限</label>
+                <label for="cfgAgentWorkflowMaxNodes" data-i18n="settings.advanced.workflowMaxNodes">Agent 工作流节点数上限</label>
                 <input id="cfgAgentWorkflowMaxNodes" type="number" min="1" max="32" step="1" placeholder="32" />
-                <p class="field-help muted">持久化 DAG 工作流（图形编辑器/模板）单次运行最多多少个节点，范围 1–32（默认 32，上限）。与上面的「每回合总数」是两个独立预算。</p>
+                <p class="field-help muted" data-i18n="settings.advanced.workflowMaxNodes.hint">持久化 DAG 工作流（图形编辑器/模板）单次运行最多多少个节点，范围 1–32（默认 32，上限）。与上面的“每回合总数”是两个独立预算。</p>
               </div>
             </div>
             <div class="field-block">
-              <label>数据目录</label>
-              <div class="adv-row"><code id="advDataRoot" class="adv-val"></code><button type="button" id="openDataDirBtn" class="file-label">打开数据目录</button></div>
+              <label data-i18n="settings.advanced.dataDirectory">数据目录</label>
+              <div class="adv-row"><code id="advDataRoot" class="adv-val"></code><button type="button" id="openDataDirBtn" class="file-label" data-i18n="settings.advanced.openDataDirectory">打开数据目录</button></div>
             </div>
             <div class="field-grid">
-              <div class="field-block"><label>版本</label><code id="advVersion" class="adv-val"></code></div>
+              <div class="field-block"><label data-i18n="settings.advanced.version">版本</label><code id="advVersion" class="adv-val"></code></div>
               <div class="field-block"><label>Overlay ID</label><code id="advOverlayId" class="adv-val"></code></div>
             </div>
           </div>
