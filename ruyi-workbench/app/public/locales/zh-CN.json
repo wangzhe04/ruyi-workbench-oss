@@ -196,6 +196,8 @@
   "error.api.pathNotAbsolute": "文件路径必须是绝对路径",
   "error.api.fieldRequired": "缺少必填字段：{{field}}",
   "error.api.agentRunRequired": "请提供会话和工作流运行标识",
+  "error.api.questionNotPending": "这个问题已结束或已被回答",
+  "error.api.questionDeliveryFailed": "选择暂未送达，请重试",
   "error.providerMisconfigured": "模型端点未配置或不可用",
   "error.providerMisconfigured.next": "前往“设置 → 模型服务商”检查地址与密钥",
   "error.networkDown": "网络不可用（当前离线）",

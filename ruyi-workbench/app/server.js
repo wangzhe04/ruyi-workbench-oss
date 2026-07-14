@@ -1338,26 +1338,22 @@ async function generateSessionMcpConfig(sessionId, mode) {
 // leaving it unset/empty means "everything the workbench has configured" for exec-tier nodes.
 async function generateAgentNodeMcpConfig(subagentId, mode, allowedServerIds) {
   const configPath = await generateSessionMcpConfig(subagentId, mode);
-  if (Array.isArray(allowedServerIds) && allowedServerIds.length) {
-    try {
-      const raw = JSON.parse(await fsp.readFile(configPath, 'utf8'));
+  try {
+    const raw = JSON.parse(await fsp.readFile(configPath, 'utf8'));
+    const own = raw.mcpServers && raw.mcpServers['win-claude-workbench'];
+    if (own) own.env = { ...(own.env || {}), WCW_DISABLE_USER_INPUT: '1' };
+    if (Array.isArray(allowedServerIds) && allowedServerIds.length) {
       const allowed = new Set(allowedServerIds);
       raw.mcpServers = Object.fromEntries(Object.entries(raw.mcpServers || {}).filter(([id]) => allowed.has(id)));
-      await fsp.writeFile(configPath, JSON.stringify(raw, null, 2), 'utf8');
-    } catch { /* best-effort — fall through with the unfiltered config rather than fail the node */ }
-  }
+    }
+    await fsp.writeFile(configPath, JSON.stringify(raw, null, 2), 'utf8');
+  } catch { /* best-effort — fall through with the unfiltered config rather than fail the node */ }
   return configPath;
 }
 
 // --- Interactive stream-json envelopes (defensive; exact shapes are underdocumented). ---
 function buildUserEnvelope(text) {
   return { type: 'user', message: { role: 'user', content: [{ type: 'text', text: String(text || '') }] } };
-}
-function buildToolResultEnvelope(toolUseId, content, isError = false) {
-  return {
-    type: 'user',
-    message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolUseId, content: String(content), is_error: Boolean(isError) }] },
-  };
 }
 function writeToChild(sessionId, obj) {
   const reg = activeChildren.get(sessionId);
@@ -1476,6 +1472,7 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/models', auth: 'open' },
   // body-token: MCP 子进程 / 跨源 loopback(handler 自查 body token,豁免 originOk)
   { m: 'POST', p: '/api/permission/request', auth: 'body-token' },
+  { m: 'POST', p: '/api/question/request', auth: 'body-token' },
   { m: 'POST', p: '/api/todo', auth: 'body-token' },
   { m: '*', p: '/api/mission', auth: 'body-token' },
   { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },
@@ -1500,8 +1497,8 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/stop', auth: 'token-browser' },
   { m: 'POST', p: '/api/provider/compact', auth: 'token-browser' },
   { m: 'POST', p: '/api/permission/decision', auth: 'token-browser' },
+  { m: 'POST', p: '/api/chat/answer', auth: 'token-browser' },
   // origin: UI 变更但仅同源基线(现状保持,不收紧)
-  { m: 'POST', p: '/api/chat/answer', auth: 'origin' },
   // token: 始终 tokenOk(敏感变更 + 内容型 GET,handler 多有自查作纵深)
   { m: 'POST', p: '/api/tools/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/config', auth: 'token' },
@@ -3518,6 +3515,9 @@ function logEvent(record) {
 const activeChildren = new Map(); // sessionId -> { child, pid, state, startedAt, lastEventAt, interactive, onEvent }
 // --- Pending tool-permission prompts awaiting a UI decision (v3 bridge). ---
 const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer }
+// Questions are a real turn boundary, not a fire-and-forget notification. Both the Provider tool loop and
+// the Claude MCP bridge wait on this registry; /api/chat/answer settles exactly one matching entry.
+const pendingQuestions = new Map(); // questionId -> { sessionId, questions, timer, deliver }
 // v0.9-S5: pending PLAN approvals awaiting a UI decision (真流程 plan mode). Mirrors pendingPermissions:
 // planId -> { resolve, sessionId, timer }. runOpenAiTurn (plan mode, provider engine) emits a `plan` event
 // after the model's first PLAN: message and PAUSES the turn awaiting /api/plan/decision. resolve() settles
@@ -3545,6 +3545,78 @@ function clearPendingPermissions(sessionId, message) {
       pendingPermissions.delete(rid);
       try { p.resolve({ behavior: 'deny', message: message || 'session ended' }); } catch { /* already settled */ }
     }
+  }
+}
+
+function normalizeUserQuestions(raw) {
+  const source = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.questions) ? raw.questions : [raw]);
+  return source.filter(q => q && typeof q === 'object').slice(0, 3).map((q, index) => ({
+    header: String(q.header || '').trim().slice(0, 80),
+    question: String(q.question || q.header || `Question ${index + 1}`).trim().slice(0, 1000),
+    multiSelect: q.multiSelect === true,
+    options: (Array.isArray(q.options) ? q.options : []).slice(0, 12).map(opt => {
+      if (typeof opt === 'string') return { label: opt.slice(0, 200) };
+      return {
+        label: String((opt && (opt.label || opt.value)) || '').trim().slice(0, 200),
+        description: String((opt && opt.description) || '').trim().slice(0, 500),
+      };
+    }).filter(opt => opt.label),
+  })).filter(q => q.question);
+}
+
+function normalizeQuestionAnswer(body) {
+  const answers = (Array.isArray(body && body.answers) ? body.answers : []).slice(0, 3).map(row => ({
+    question: String((row && row.question) || '').slice(0, 1000),
+    answer: (Array.isArray(row && row.answer) ? row.answer : [row && row.answer])
+      .filter(v => v != null && String(v).trim()).slice(0, 12).map(v => String(v).slice(0, 2000)),
+  }));
+  const content = String((body && body.content) ?? answers.map(a => `${a.question}: ${a.answer.join(', ')}`).join('\n')).slice(0, 12000);
+  return { ok: !(body && body.isError), answers, content };
+}
+
+function formatQuestionGuidance(answer) {
+  const text = String((answer && answer.content) || '').trim() || '(user supplied no answer)';
+  return `<workbench_user_answer>\n${text}\n</workbench_user_answer>\nContinue the current task using this answer. Do not ask the same question again.`;
+}
+
+function registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, deliver) {
+  // Provider call ids are often reused as "call_1" across sessions, so never use them as registry keys.
+  const sourceId = String(questionId || '');
+  const id = makeId('question');
+  const normalized = normalizeUserQuestions(questions);
+  if (!normalized.length) return null;
+  const entry = { sessionId, questions: normalized, timer: null, deliver: null };
+  entry.deliver = answer => {
+    if (pendingQuestions.get(id) !== entry) return false;
+    let accepted = false;
+    try { accepted = deliver(answer) !== false; } catch { accepted = false; }
+    if (!accepted) return false;
+    clearTimeout(entry.timer);
+    pendingQuestions.delete(id);
+    return true;
+  };
+  entry.timer = setTimeout(() => {
+    if (pendingQuestions.get(id) !== entry) return;
+    entry.deliver({ ok: false, answers: [], content: '(question timed out)' });
+  }, Math.max(5000, Number(timeoutMs) || 120000));
+  pendingQuestions.set(id, entry);
+  onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized });
+  return id;
+}
+
+function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs) {
+  return new Promise(resolve => {
+    const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; });
+    if (!id) resolve({ ok: false, answers: [], content: '', error: 'no valid questions' });
+  });
+}
+
+function clearPendingQuestions(sessionId, message) {
+  for (const [qid, q] of pendingQuestions) {
+    if (q.sessionId !== sessionId) continue;
+    try { q.deliver({ ok: false, answers: [], content: message || 'session ended' }); } catch { /* already settled */ }
+    clearTimeout(q.timer);
+    pendingQuestions.delete(qid);
   }
 }
 
@@ -3915,6 +3987,7 @@ function resolveBridge(bridgedRoute, name) {
 function stopSession(sessionId, reason = 'stopped') {
   const entry = activeChildren.get(sessionId);
   clearPendingPermissions(sessionId, `turn ${reason}`);
+  clearPendingQuestions(sessionId, `turn ${reason}`);
   clearPendingPlans(sessionId, `turn ${reason}`); // v0.9-S5: unblock a paused plan-mode turn on abort/stop (reject semantics)
   if (!entry) return false;
   entry.state = reason;
@@ -4156,6 +4229,9 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   if (config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
   if (config.includeWorkbenchMcp) {
     args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode));
+    // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
+    // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
+    if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
   }
   const claudeAgentLibrary = await buildClaudeAgentDefinitions(workingDir, config);
   if (Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
@@ -4179,6 +4255,9 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   // 用户 append)。仅当本会话有启用技能时才探能力/解析(避免给纯 Claude 用户平白加一次 getCapabilities)。
   {
     let appendSys = String(config.appendSystemPrompt || '');
+    if (interactive && config.includeWorkbenchMcp) {
+      appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
+    }
     const enabled = Array.isArray(session.skills) ? session.skills : [];
     if (enabled.length) {
       try {
@@ -4359,7 +4438,8 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       } else onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input });
       // Interactive: an AskUserQuestion tool_use is ours to answer — surface a modal instead of a plain card.
       if (interactive && isAskUserTool(ev.name)) {
-        onEvent({ type: 'ask_user', id: ev.id, questions: (ev.input && ev.input.questions) || ev.input || {} });
+        registerUserQuestion(session.id, ev.id, (ev.input && ev.input.questions) || ev.input || {}, onEvent, config.permissionTimeoutMs,
+          answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))));
       }
     } else if (ev.kind === 'tool_result') {
       const tc = toolCalls.find(t => t.id === ev.id);
@@ -4434,6 +4514,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   if (activeChildren.get(session.id) === reg) {
     activeChildren.delete(session.id);
     clearPendingPermissions(session.id, 'turn ended');
+    clearPendingQuestions(session.id, 'turn ended');
   }
 
   const finalText = assistantText.trim() || (stdoutNoise.trim()) || (stderrText.trim() ? `Claude CLI wrote only stderr:\n${redact(stderrText.trim())}` : '');
@@ -6090,6 +6171,7 @@ function buildOpenAiTools(config, caps, opts) {
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   for (const t of MCP_TOOLS) {
     if (t.name === 'permission_prompt') continue;
+    if (t.name === 'request_user_input' && noSpawnAgent) continue;
     if ((t.name === 'spawn_agent' || t.name === 'orchestrate_agents') && !spawnAgentEnabled) continue;
     if (!allowCmd && (t.name === 'powershell_run' || t.name === 'script_run' || SHELL_TOOLS.has(t.name))) continue;
     if (!allowDesk && (t.name === 'desktop_screenshot' || t.name === 'keyboard_send_keys')) continue;
@@ -6147,6 +6229,7 @@ function buildOpenAiTools(config, caps, opts) {
 // Risk tier per tool → drives permission gating in the native loop (read = auto-allow).
 const NATIVE_TOOL_TIER = {
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
+  request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
   file_read: 'read', file_list: 'read', file_search: 'read', glob: 'read', project_snapshot: 'read', git_status: 'read',
   git_diff: 'read', git_log: 'read', // v1.0-S4: read-only git inspection → auto-allow
   git_commit: 'exec', // v1.0-S4: commit triggers .git/hooks (arbitrary code) → must be exec (never lower)
@@ -10298,6 +10381,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     finally { releaseResourceLease(toolLease); }
                   }
                 }
+              } else if (tc.name === 'request_user_input') {
+                // A Provider function call pauses this tool iteration until the matching UI answer arrives.
+                // Its structured result is appended as the normal role:'tool' reply below, so every
+                // OpenAI-compatible backend sees the choice in the protocol shape it already understands.
+                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.permissionTimeoutMs);
+                resultObj = answer && answer.ok
+                  ? { ok: true, answers: answer.answers, content: answer.content }
+                  : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' };
               } else if (tc.name === 'todo_write') {
                 // v0.8-S3 provider-engine special-case: unlike other tools, todo_write must persist to the
                 // session (session.todos) and drive the UI step-bar. This closure holds the session + onEvent,
@@ -10436,6 +10527,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (activeChildren.get(session.id) === reg) {
     activeChildren.delete(session.id);
     clearPendingPermissions(session.id, 'turn ended');
+    clearPendingQuestions(session.id, 'turn ended');
     clearPendingPlans(session.id, 'turn ended'); // v0.9-S5: settle any lingering plan promise (defensive)
   }
 
@@ -13543,6 +13635,25 @@ Write-Output '${outPath.replace(/'/g, "''")}'
     }
     case 'web_fetch':
       return webFetch(args);
+    case 'request_user_input': {
+      // Provider turns intercept this in their live closure. Claude reaches it through the per-session MCP
+      // child, which loops back to the serve process so the visible chat stream owns the modal and answer.
+      if (RUNTIME.isMcpChild) {
+        const port = process.env.WCW_PORT, host = process.env.WCW_HOST || '127.0.0.1';
+        const token = process.env.WCW_TOKEN, sessionId = process.env.WCW_SESSION_ID || '';
+        if (!port || !token || !sessionId) return { ok: false, error: 'request_user_input requires a live workbench session' };
+        const timeoutMs = Math.max(5000, Number(process.env.WCW_PERMISSION_TIMEOUT_MS) || 120000);
+        try {
+          const resp = await httpRequest({
+            url: `http://${host}:${port}/api/question/request`, method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ token, sessionId, questions: args.questions }), timeoutMs: timeoutMs + 10000,
+          });
+          return safeJsonParse(resp.body, { ok: false, error: 'invalid /api/question/request response' });
+        } catch (e) { return { ok: false, error: `question loopback error: ${(e && e.message) || String(e)}` }; }
+      }
+      return { ok: false, error: 'request_user_input requires a live turn' };
+    }
     case 'todo_write': {
       // v0.8-S3: FULL-REPLACE task list. Two execution contexts:
       //  - serve process (provider engine): the runOpenAiTurn tool loop special-cases todo_write BEFORE
@@ -14245,10 +14356,34 @@ async function handleApi(req, res, pathname) {
     return send(res, json(await runProviderCompact(String(body.sessionId || ''))));
   }
   if (req.method === 'POST' && pathname === '/api/chat/answer') {
-    // UI answer to an AskUserQuestion (or any owned interactive tool) -> tool_result on child stdin.
+    // Settle exactly one live question. A stale/wrong-session answer is a conflict, never a fake success:
+    // the UI must keep the modal open so the user can retry or see that the turn already ended.
     const body = await readJsonBody(req);
-    const written = writeToChild(String(body.sessionId || ''), buildToolResultEnvelope(String(body.toolUseId || ''), body.content ?? '', Boolean(body.isError)));
-    return send(res, json({ ok: true, written }));
+    const sessionId = String(body.sessionId || '');
+    const questionId = String(body.questionId || body.toolUseId || '');
+    const entry = pendingQuestions.get(questionId);
+    if (!entry || entry.sessionId !== sessionId) {
+      return send(res, apiFailure('question.not_pending', {}, 'question is no longer pending', 409));
+    }
+    const delivered = entry.deliver(normalizeQuestionAnswer(body));
+    if (!delivered) return send(res, apiFailure('question.delivery_failed', {}, 'answer could not be delivered; the question is still pending', 409));
+    logEvent({ kind: 'intervention', source: 'question_answer', sessionId, questionId });
+    return send(res, json({ ok: true, delivered: true, questionId }));
+  }
+  if (req.method === 'POST' && pathname === '/api/question/request') {
+    // Called by request_user_input in the per-session Claude MCP child. Hold the tool call until the UI
+    // answers, then return a normal MCP tool result. Provider turns use the same registry in-process.
+    const body = await readJsonBody(req);
+    if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, apiFailure('auth.token_invalid', {}, 'bad token', 403));
+    const sessionId = safeSessionId(body.sessionId);
+    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    const reg = activeChildren.get(sessionId);
+    if (!reg || !reg.onEvent) return send(res, apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
+    const config = await readConfig();
+    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.permissionTimeoutMs);
+    return send(res, json(answer && answer.ok
+      ? { ok: true, answers: answer.answers, content: answer.content }
+      : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' }));
   }
   if (req.method === 'POST' && pathname === '/api/permission/request') {
     // Called by the permission-bridge MCP tool (loopback). Holds until the UI decides or times out.
@@ -15726,6 +15861,38 @@ const MCP_TOOLS = [
       required: ['url'],
     },
   },
+  // Shared main-turn question tool. Provider runs it in-process; Claude runs it through the per-session MCP
+  // loopback. It is hidden from sub-agents and standalone MCP sessions because neither owns the chat UI.
+  {
+    name: 'request_user_input',
+    description: 'Pause and ask the user one to three concise questions in the workbench UI. Use this whenever a missing preference or choice materially affects the result. The tool returns the user answers; continue only after it returns.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        questions: {
+          type: 'array', minItems: 1, maxItems: 3,
+          items: {
+            type: 'object',
+            properties: {
+              header: { type: 'string', description: 'Short label for the question' },
+              question: { type: 'string', description: 'The question shown to the user' },
+              options: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: { label: { type: 'string' }, description: { type: 'string' } },
+                  required: ['label'],
+                },
+              },
+              multiSelect: { type: 'boolean', description: 'Allow more than one option' },
+            },
+            required: ['question'],
+          },
+        },
+      },
+      required: ['questions'],
+    },
+  },
   // v0.8-S3: task-list (TodoWrite) tool. FULL-REPLACE semantics — each call replaces the whole list.
   // Drives the UI step-bar. State lands on session.todos (provider engine: serve-process closure special-
   // case in runOpenAiTurn; Claude engine: loopback POST /api/todo, since the one-shot MCP child must not
@@ -15881,7 +16048,8 @@ async function startMcp() {
           // A single spawn_agent still needs the provider turn closure. The persistent DAG is safe to
           // advertise: in a Claude CLI session it loops back to the serve process and uses a configured
           // OpenAI-compatible provider for worker nodes.
-          return sendMcp(msg.id, { tools: MCP_TOOLS.filter(t => t.name !== 'spawn_agent') });
+          const userInputEnabled = Boolean(process.env.WCW_SESSION_ID) && process.env.WCW_DISABLE_USER_INPUT !== '1';
+          return sendMcp(msg.id, { tools: MCP_TOOLS.filter(t => t.name !== 'spawn_agent' && (t.name !== 'request_user_input' || userInputEnabled)) });
         }
         if (msg.method === 'tools/call') {
           const name = msg.params?.name;

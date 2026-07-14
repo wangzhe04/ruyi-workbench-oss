@@ -34,6 +34,8 @@ const API_ERROR_I18N = {
   'file.path_not_absolute': 'error.api.pathNotAbsolute',
   'request.field_required': 'error.api.fieldRequired',
   'agent_run.id_required': 'error.api.agentRunRequired',
+  'question.not_pending': 'error.api.questionNotPending',
+  'question.delivery_failed': 'error.api.questionDeliveryFailed',
 };
 function apiErrText(error) {
   const info = apiErrorInfo(error);
@@ -1937,6 +1939,10 @@ function rememberTurnLine(turn, line) {
   turn.eventLines.push(line); turn.eventChars += line.length;
   while (turn.eventChars > ACTIVE_TURN_EVENT_CAP && turn.eventLines.length > 1) turn.eventChars -= turn.eventLines.shift().length;
 }
+function surfaceBackgroundQuestion(line, sessionId) {
+  let evt; try { evt = JSON.parse(line); } catch { return; }
+  if (evt?.type === 'ask_user') showAskUserModal(evt.questionId || evt.id, evt.questions, sessionId);
+}
 function mountActiveTurn(sessionId) {
   const turn = activeTurns.get(sessionId);
   if (!turn || state.currentSession?.id !== sessionId) return;
@@ -1951,6 +1957,7 @@ function mountActiveTurn(sessionId) {
   for (const line of turn.eventLines) {
     let evt; try { evt = JSON.parse(line); } catch { continue; }
     if (evt.type === 'session') continue;
+    if (evt.type === 'ask_user' && turn.answeredQuestions?.has(String(evt.questionId || evt.id || ''))) continue;
     if (evt.type === 'assistant_delta') { if (thinking) flush(); text += evt.text || ''; continue; }
     if (evt.type === 'thinking_delta') { if (text) flush(); thinking += evt.text || ''; continue; }
     flush(); handleStreamLine(line, turn.live, turn.main, sessionId);
@@ -2076,7 +2083,7 @@ async function sendPrompt(overrideText) {
   let live = shell.live, main = shell.main;
 
   const turnAbort = new AbortController();
-  const turnState = { abort: turnAbort, startedAt: Date.now(), eventLines: [], eventChars: 0, live, main };
+  const turnState = { abort: turnAbort, startedAt: Date.now(), eventLines: [], eventChars: 0, answeredQuestions: new Set(), live, main };
   activeTurns.set(turnSessionId, turnState);
   syncStreamingUi();
   renderSessions();
@@ -2102,12 +2109,13 @@ async function sendPrompt(overrideText) {
         if (state.currentSession?.id === turnSessionId) {
           live = turnState.live; main = turnState.main;
           handleStreamLine(line, live, main, turnSessionId);
-        }
+        } else surfaceBackgroundQuestion(line, turnSessionId);
       }
     }
     if (buf.trim()) {
       rememberTurnLine(turnState, buf);
       if (state.currentSession?.id === turnSessionId) handleStreamLine(buf, turnState.live, turnState.main, turnSessionId);
+      else surfaceBackgroundQuestion(buf, turnSessionId);
     }
     finalizeLive(turnState.live);
     await refreshSessions();
@@ -2420,7 +2428,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       appendToolOutput(`[stderr] ${evt.text}`, true);
       break;
     case 'ask_user':
-      showAskUserModal(evt.id, evt.questions);
+      showAskUserModal(evt.questionId || evt.id, evt.questions, streamSessionId);
       break;
     case 'permission_request':
       handlePermissionRequest(evt);
@@ -2498,10 +2506,16 @@ function focusFirstInteractive(container) {
   return field || nodes[0] || null;
 }
 
-function showAskUserModal(toolUseId, questions) {
-  const sid = state.currentSession?.id; // pin the session the question belongs to
-  // v1.0.2 (F4②): 同屏只留一个 ask modal —— 新提问到达时先把旧的关掉(走其 __cancel 空答,不让旧回合卡死)。
-  document.querySelectorAll('.modal-backdrop.ask-modal').forEach(b => { if (b.__cancel) b.__cancel(); else b.remove(); });
+function showAskUserModal(questionId, questions, streamSessionId) {
+  const sid = streamSessionId || state.currentSession?.id; // pin the session the question belongs to
+  const qid = String(questionId || '');
+  const turn = sid ? activeTurns.get(sid) : null;
+  if (!sid || !qid || turn?.answeredQuestions?.has(qid)) return;
+  // Replaying a background turn can encounter the same ask_user event again. Reuse the existing modal;
+  // closing it would send a cancellation before the user's real selection and silently win the race.
+  const open = [...document.querySelectorAll('.modal-backdrop.ask-modal')];
+  if (open.some(b => b.dataset.sessionId === sid && b.dataset.questionId === qid)) return;
+  open.forEach(b => { if (b.__cancel) b.__cancel(); else b.remove(); });
   const list = Array.isArray(questions) ? questions : (questions && questions.questions) || [questions];
   const body = el('div');
   const controls = [];
@@ -2531,13 +2545,17 @@ function showAskUserModal(toolUseId, questions) {
   const submit = el('button', 'primary', '提交');
   // Fire-and-forget answer (used only by the cancel path — Esc/✕/backdrop). Cancelling still answers (empty)
   // so the turn doesn't hang waiting for a tool_result. F4④:已实证现有关闭路径确实空答放行,不会丢弃挂起。
+  const markAnswered = () => { const active = activeTurns.get(sid); if (active?.answeredQuestions) active.answeredQuestions.add(qid); };
   const postAnswer = content => {
     if (!sid) { toast('会话已结束，无法回答', 'err'); return; }
-    api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, toolUseId, content }) }).catch(e => toast(apiErrText(e), 'err'));
+    api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid, content, isError: true }) })
+      .then(r => { if (r?.delivered) markAnswered(); }).catch(e => toast(apiErrText(e), 'err'));
   };
   const modal = buildModal(`模型提问 · ${engineLabel()}`, body, submit, () => postAnswer('(用户取消，未选择)'));
   // F4②:标记为 ask modal,供下一条提问到达时精确关旧的。
   modal.backdrop.classList.add('ask-modal');
+  modal.backdrop.dataset.sessionId = sid;
+  modal.backdrop.dataset.questionId = qid;
   // F4①:提交按钮点击后禁用 + 「发送中…」,await POST 回来再 close;失败则 toast + 恢复按钮(不 close,让用户重试)。
   submit.onclick = async () => {
     if (submit.disabled) return;
@@ -2552,7 +2570,9 @@ function showAskUserModal(toolUseId, questions) {
     const prevLabel = submit.textContent;
     submit.disabled = true; submit.textContent = '发送中…';
     try {
-      await api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, toolUseId, content }) });
+      const r = await api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid, answers, content }) });
+      if (!r?.ok || !r.delivered) throw new Error('answer was not delivered');
+      markAnswered();
       modal.close();
     } catch (e) {
       toast(`回答发送失败：${apiErrText(e)}`, 'err');

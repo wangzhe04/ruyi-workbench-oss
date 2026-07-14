@@ -155,13 +155,14 @@ async function main() {
         { header: '框架', question: '用哪个前端框架？', options: [{ label: 'React' }, { label: 'Vue' }, { label: '原生 JS' }], multiSelect: false },
       ] } },
     ] } });
-    // wait for the workbench to write a tool_result on stdin
+    // wait for the workbench to write the documented text user envelope on stdin
     const ans = await stdin.next(60000);
     let chosen = '(超时未答)';
     try {
       const obj = JSON.parse(ans);
       const block = obj?.message?.content?.[0];
-      chosen = typeof block?.content === 'string' ? block.content : JSON.stringify(block?.content);
+      chosen = typeof block?.text === 'string' ? block.text
+        : (typeof block?.content === 'string' ? block.content : JSON.stringify(block?.content));
     } catch { chosen = ans || '(无)'; }
     await replay(textDeltas(`收到，你选择了 **${chosen}**。我按这个来实现。\n`), 25);
     emit(resultEvt(`用户选择了 ${chosen}。`));

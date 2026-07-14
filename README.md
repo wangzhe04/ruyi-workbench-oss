@@ -112,11 +112,12 @@
 - **OpenAI 兼容引擎(原生)**:直连 HTTP + SSE 流式,带完整原生工具循环。内置四组预设:**DeepSeek / 通义千问 DashScope / 智谱 GLM / 自定义**(内网 vLLM、Ollama、one-api 网关均可)。多 Provider 并存,顶栏一键切换模型。
 - **Claude CLI 引擎(可选)**:指向本机已装的 Claude CLI 即可并存使用;工作台自动生成 MCP 配置,把自己的工具与桥接工具喂给 CLI;另有火山方舟 Ark 等 Anthropic 兼容端点预设。
 - **跨引擎续接**:同一会话里从 DeepSeek 切到 Claude(或反向),历史自动嫁接,不断上下文。
+- **可靠交互提问**:Claude CLI 与 OpenAI 兼容引擎共用 `request_user_input` 弹窗通道；选择只有在工作台确认已送达后才会关闭，后台会话的提问也会立即提示。
 - **上下文电量表**:顶栏实时显示已用/上限 token(自动探测上下文窗口,支持手动锁定);超阈值自动两级压缩(蒸发 → 摘要),也可手动 `压缩`。
 - **能力矩阵**:视觉(看图)、推理链、工具调用等能力按端点探测/标注,缺什么 UI 直接告诉你,不让你对着黑箱猜。
 - **计划模式**:提问先出 `PLAN:`,你批准了才动手(provider 引擎真流程,不是提示词装饰)。
 
-### 2. 原生工具环:39 + 3 个内置工具
+### 2. 原生工具环:40 + 3 个内置工具
 
 全部用 Node 内建模块实现(零依赖),按风险三级分档:**read**(只读,自动放行)/ **edit**(写入,先记检查点,可撤销)/ **exec**(执行,最高危,默认逐次确认):
 
@@ -128,7 +129,7 @@
 | 项目智能(6) | `project_snapshot` · `dependency_inventory` · `code_review_scan` · `frontend_audit` · `claude_md_audit` · `docs_search`(全部离线扫描器) |
 | Git(4) | `git_status/diff/log`(只读)· `git_commit` |
 | 联网(3) | `web_search` · `web_fetch`(SSRF 防御 + 离线缓存)· `http_request`(本机/内网 API 调试) |
-| 规划 / 编排(3) | `todo_write`(驱动 UI 步骤条)· `spawn_agent`(隔离子回合)· `orchestrate_agents`(启动 DAG 工作流) |
+| 规划 / 编排(4) | `request_user_input`(可靠收集用户选择)· `todo_write`(驱动 UI 步骤条)· `spawn_agent`(隔离子回合)· `orchestrate_agents`(启动 DAG 工作流) |
 | 按需注册(3) | `skill_read`(技能全文拉取)· `propose_task`(任务池提案)· `send_to_agent`(Agent 邮箱) |
 
 外部 MCP 工具(桌面控制、drop-in 连接器)会**桥接**进这个循环,并沿用同一套分级审批。
@@ -376,7 +377,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 
 ### Capabilities (v1.6)
 
-Dual-engine chat · a native tool loop of 39 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / Office / PDF — bundled ACC MCP v1.8.1, 99 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
+Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · a native tool loop of 40 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / Office / PDF — bundled ACC MCP v1.8.1, 99 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
 
 ### Detailed documentation
 

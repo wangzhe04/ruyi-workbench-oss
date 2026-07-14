@@ -196,6 +196,8 @@
   "error.api.pathNotAbsolute": "The file path must be absolute",
   "error.api.fieldRequired": "Required field is missing: {{field}}",
   "error.api.agentRunRequired": "Provide both the chat and workflow-run identifiers",
+  "error.api.questionNotPending": "This question has ended or was already answered",
+  "error.api.questionDeliveryFailed": "The selection was not delivered; try again",
   "error.providerMisconfigured": "The model endpoint is not configured or unavailable",
   "error.providerMisconfigured.next": "Open Settings → Model providers and check the URL and API key",
   "error.networkDown": "Network unavailable (currently offline)",
