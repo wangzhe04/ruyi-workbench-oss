@@ -26,6 +26,7 @@ const FAKE_PORT = 9007, WB_PORT = 9008;
 const HOME = path.join(os.tmpdir(), 'wcw-plan-mode-e2e');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const errorText = value => typeof value === 'string' ? value : String(value && (value.message || value.code) || '');
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
 function getToken(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 1500 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); }
 function getJson(port, p, headers) { return new Promise((resolve, reject) => { const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 5000, headers: headers || {} }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { resolve(JSON.parse(b)); } catch (e) { reject(new Error('bad json: ' + b)); } }); }); r.on('error', reject); r.on('timeout', () => { r.destroy(); reject(new Error('timeout')); }); }); }
@@ -119,10 +120,10 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const noTok = await postJson(WB_PORT, '/api/plan/decision', { sessionId: sid1, planId: 'plan_whatever', decision: 'approve' });
     ok(noTok.status === 403, '(c) plan decision without token → 403 (got ' + noTok.status + ')');
     const unknown = await postJson(WB_PORT, '/api/plan/decision', { sessionId: sid1, planId: 'plan_does_not_exist', decision: 'approve' }, hdr);
-    ok(unknown.body && unknown.body.ok === false && /no pending plan/.test(unknown.body.error || ''), '(c) unknown planId → {ok:false, no pending plan}');
+    ok(unknown.body && unknown.body.ok === false && /no pending plan/.test(errorText(unknown.body.error)), '(c) unknown planId → {ok:false, no pending plan}');
     // Idempotent: re-deciding the already-consumed approve planId → same "no pending plan".
     const reDecide = await postJson(WB_PORT, '/api/plan/decision', { sessionId: sid1, planId: planEvt.planId, decision: 'reject' }, hdr);
-    ok(reDecide.body && reDecide.body.ok === false && /no pending plan/.test(reDecide.body.error || ''), '(c) re-decide consumed planId → no pending plan (idempotent)');
+    ok(reDecide.body && reDecide.body.ok === false && /no pending plan/.test(errorText(reDecide.body.error)), '(c) re-decide consumed planId → no pending plan (idempotent)');
 
     // ── (b) REJECT → plan event → reject → file_write NOT executed + plan_rejected ──────────────────────
     // Respawn the fake targeting y.txt so the reject scenario has its own write target.

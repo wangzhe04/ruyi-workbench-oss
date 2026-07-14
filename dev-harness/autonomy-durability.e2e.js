@@ -89,7 +89,8 @@ function capturesContaining(dir, needle) {
     ok(/function appendAgentRunEvent\(run, evt\)/.test(src) && (src.match(/appendAgentRunEvent\(/g) || []).length >= 10, 'B 事件日志助手 + ≥10 发射点');
     ok(/op === 'skip'\) continue/.test(src), 'B 幂等跳过不进本轮变更清单');
     const fe = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
-    ok(/persistenceDegraded/.test(fe) && /进度持久化异常/.test(fe), 'B 前端横幅明示持久化退化');
+    const zh = JSON.parse(fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'zh-CN.json'), 'utf8'));
+    ok(/persistenceDegraded/.test(fe) && /workflow\.stall\.persistence/.test(fe) && /进度持久化异常/.test(zh['workflow.stall.persistence'] || ''), 'B 前端横幅明示持久化退化');
   }
 
   // ── C) 崩溃注入·杀点1:≥1 工具完成后强杀 → 续点恢复 + 幂等跳过 ──

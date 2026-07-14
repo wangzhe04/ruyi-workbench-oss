@@ -1751,6 +1751,13 @@ function normalizeSession(raw) {
   if (!Number.isFinite(session.turnSeq)) { session.turnSeq = 0; changed = true; }
   if (!Array.isArray(session.messages)) { session.messages = []; changed = true; }
   if (!Array.isArray(session.providerHistory)) { session.providerHistory = []; changed = true; }
+  // Cursor into display `messages` that has already been mirrored into providerHistory. It is optional on
+  // legacy sessions; runOpenAiTurn derives a safe migration point before the first new Provider turn.
+  if (session.providerHistoryCursor !== undefined &&
+      (!Number.isInteger(session.providerHistoryCursor) || session.providerHistoryCursor < 0)) {
+    delete session.providerHistoryCursor;
+    changed = true;
+  }
   if (!Array.isArray(session.attachments)) { session.attachments = []; changed = true; }
   // v0.8-S3: todo list (TodoWrite). Old sessions predate it → backfill empty array.
   if (!Array.isArray(session.todos)) { session.todos = []; changed = true; }
@@ -2208,6 +2215,7 @@ async function createSession({ title, cwd }) {
     claudeSessionId: null,
     messages: Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [],
     providerHistory: [],
+    providerHistoryCursor: 0,
     attachments: [],
     mission: null, // 第26波b: 任务账本(见 normalizeMission)
   };
@@ -2586,6 +2594,7 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   session.messages = messages.slice(0, cutIndex);
   // providerHistory cleared — lazy-reseed rebuilds it on the next turn (see block comment above).
   session.providerHistory = [];
+  session.providerHistoryCursor = 0;
   // turnSeq NOT rewound (monotonic journal key); todos KEPT (rewind ≠ abandon task list).
   session.claudeSessionId = null; // stale --resume context must not splice removed history back in
   // Refresh the derived summary/title tail off the surviving messages (best-effort).
@@ -4017,8 +4026,7 @@ function parseClaudeEvent(evt) {
 // A Claude CLI print process exits after every workbench turn. Normally --resume reconnects the
 // next process to the native transcript, but continuity is not guaranteed across CLI upgrades,
 // workbench restarts, provider/model changes, or a missing/moved Claude session file. Keep a
-// bounded display-history copy for the first Claude turn handled by this serve process.
-const claudeSessionsSeenThisProcess = new Set();
+// bounded display-history copy on every normal Claude turn.
 const CLAUDE_RECOVERY_HISTORY_CHARS = 24000;
 const CLAUDE_RECOVERY_MESSAGE_CHARS = 6000;
 function buildClaudeRecoveryHistory(messages) {
@@ -4084,20 +4092,19 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   const basePrompt = `${message}${buildAttachmentPrompt(attachments)}`;
-  const requestedClaudeSessionId = session.claudeSessionId || '';
-  // Seed one bounded copy after a serve restart or driver switch. Slash commands must remain the
-  // first input token or Claude will not recognize them.
+  // Seed a bounded continuity copy on every normal Claude turn. `--resume` can silently select a fresh
+  // native transcript (missing/moved CLI state, upgrades, endpoint/model changes), and that fact is only
+  // observable after the prompt has already been sent. A proactive bounded copy is the only side-effect-free
+  // way to guarantee that such a turn never presents itself as a brand-new conversation. Slash commands must
+  // remain the first input token or Claude will not recognize them.
   // E3 (dual-engine continuity): the CLI's native transcript (reached via --resume) only holds Claude turns.
   // When the user ran one or more Provider turns AFTER the last Claude turn and now switches back to Claude,
   // --resume silently drops that middle work. Detect "the previous assistant turn ran on the provider engine"
-  // and force-inject just those trailing Provider turns into the recovery history — even though this
-  // claudeSessionId is already in claudeSessionsSeenThisProcess (which normally suppresses the seed). We inject
-  // ONLY the slice since the last Claude turn so we never re-duplicate content the CLI transcript already holds.
-  const sidSeen = Boolean(requestedClaudeSessionId && claudeSessionsSeenThisProcess.has(requestedClaudeSessionId));
-  const crossEngineGap = sidSeen && lastAssistantEngine(session.messages) === 'openai';
+  // and inject just those trailing Provider turns. We inject ONLY the slice since the last Claude turn so we
+  // never re-duplicate content the CLI transcript already holds.
+  const crossEngineGap = lastAssistantEngine(session.messages) === 'openai';
   const recoverySource = crossEngineGap ? claudeProviderTailSince(session.messages) : session.messages;
-  const recoveryHistory = (!String(message || '').trim().startsWith('/') &&
-    (!sidSeen || crossEngineGap))
+  const recoveryHistory = !String(message || '').trim().startsWith('/')
     ? buildClaudeRecoveryHistory(recoverySource) : '';
   const historyRecoveryInjected = Boolean(recoveryHistory);
   const fullPrompt = recoveryHistory ? `${recoveryHistory}\n\n<current_user_message>\n${basePrompt}\n</current_user_message>` : basePrompt;
@@ -4226,9 +4233,6 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   }
   if (config.autoResumeClaudeSessions && session.claudeSessionId) {
     args.push('--resume', session.claudeSessionId);
-  } else if (config.autoResumeClaudeSessions) {
-    // v1.4.3: fallback to --continue when session ID is lost
-    args.push('--continue');
   }
   if (workingDir) args.push('--add-dir', workingDir);
   // v2 跨会话记忆(C1 评审修订): 启用记忆时把记忆目录加入 --add-dir,使非 bypass 权限模式主回合 Read 可达;
@@ -4301,7 +4305,6 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   let pendingDeltaText = false;
   let pendingDeltaThinking = false;
   let usage = null;
-  let resumeContinuityBroken = false;
   const nativeClaudeAgents = new Map();
   // Context-window sizing: track the LARGEST single-call input side (input+cache_read+cache_creation)
   // and the latest per-message output — NOT the cumulative result.usage (which sums every API call
@@ -4335,7 +4338,6 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     reg.lastEventAt = Date.now();
     if (ev.kind === 'init') {
       if (ev.sessionId) {
-        if (requestedClaudeSessionId && ev.sessionId !== requestedClaudeSessionId) resumeContinuityBroken = true;
         // Follow the ID actually selected by this CLI process. Keeping the original ID after a
         // silent resume miss makes every later turn target the stale branch again.
         session.claudeSessionId = ev.sessionId;
@@ -4379,7 +4381,6 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       const bo = Number(u.output_tokens) || 0; if (bo > billOutMax) billOutMax = bo;
     } else if (ev.kind === 'result') {
       if (ev.sessionId) {
-        if (requestedClaudeSessionId && ev.sessionId !== requestedClaudeSessionId) resumeContinuityBroken = true;
         session.claudeSessionId = ev.sessionId;
       }
       const ru = ev.usage || {};
@@ -4427,10 +4428,6 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   if (stdoutRemainder.trim()) consumeLine(stdoutRemainder);
 
   const wasStopped = reg.state !== 'running';
-  if (exit.code === 0 && !wasStopped && session.claudeSessionId) {
-    if (resumeContinuityBroken) claudeSessionsSeenThisProcess.delete(session.claudeSessionId);
-    else claudeSessionsSeenThisProcess.add(session.claudeSessionId);
-  }
   // Only relinquish the slot AND clear pending prompts if we still own it. A superseding turn may
   // have replaced us; clearing then would wrongly deny the NEW turn's live permission prompt (the
   // superseded turn's own prompts were already cleared at supersede time).
@@ -9669,6 +9666,53 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   return { ok: true, accepted: true, runId };
 }
 
+// Mirror display messages that were created outside the Provider engine (Claude turns and workflow
+// summaries) into its stateless API history exactly once. Provider-native tool traces stay intact; the cursor
+// only accounts for the shared display stream and therefore survives tool calls and context compaction.
+function appendDisplayMessagesToProviderHistory(session, start) {
+  const messages = Array.isArray(session.messages) ? session.messages : [];
+  const from = Math.max(0, Math.min(Number(start) || 0, messages.length));
+  for (let i = from; i < messages.length; i++) {
+    const m = messages[i];
+    if (!m || typeof m.content !== 'string' || !m.content.trim()) continue;
+    if (m.role === 'user') {
+      // Historical images are represented by their attachment prompt only. Re-embedding pixels from every
+      // earlier turn would make an engine switch unexpectedly huge and bypass the live image cap.
+      session.providerHistory.push({ role: 'user', content: m.content + buildAttachmentPrompt(m.attachments) });
+    } else if (m.role === 'assistant') {
+      session.providerHistory.push({ role: 'assistant', content: m.content });
+    }
+  }
+  session.providerHistoryCursor = messages.length;
+}
+
+function syncProviderHistoryFromDisplay(session) {
+  if (!Array.isArray(session.providerHistory)) session.providerHistory = [];
+  const messages = Array.isArray(session.messages) ? session.messages : [];
+  if (session.providerHistory.length === 0) {
+    appendDisplayMessagesToProviderHistory(session, 0);
+    return;
+  }
+
+  let cursor = session.providerHistoryCursor;
+  if (!Number.isInteger(cursor) || cursor < 0 || cursor > messages.length) {
+    // Legacy migration: an existing Provider history already contains all Provider turns. Only a trailing
+    // Claude gap can be missing. Start just after the latest Provider assistant; otherwise mark the current
+    // display tail consumed without duplicating an established history.
+    cursor = messages.length;
+    if (lastAssistantEngine(messages) === 'claude') {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i];
+        if (m && m.role === 'assistant' && (m.engine === 'openai' || String(m.source || '').startsWith('provider:'))) {
+          cursor = i + 1;
+          break;
+        }
+      }
+    }
+  }
+  appendDisplayMessagesToProviderHistory(session, cursor);
+}
+
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto }) {
@@ -9697,28 +9741,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
   }
 
-  // Seed provider history from prior display messages the first time (e.g. switching engine mid-session),
-  // then append this user turn. The API is stateless, so this history IS the context we resend each turn.
-  if (!Array.isArray(session.providerHistory)) session.providerHistory = [];
-  if (session.providerHistory.length === 0 && Array.isArray(session.messages)) {
-    for (const m of session.messages) {
-      if (!m || typeof m.content !== 'string' || !m.content.trim()) continue;
-      if (m.role === 'user') {
-        // v0.9-S7: lazy-reseed (rewind cleared providerHistory, or engine switched mid-session) rebuilds the
-        // user message from the display copy. Image attachments are rebuilt as their TEXT part ONLY — we do
-        // NOT re-read the image files here. Rationale: a reseed can replay MANY turns; re-embedding every
-        // historical screenshot would explode the request (and pruneOldImages already caps live images at 2).
-        // The model keeps the attachment's path/preview via buildAttachmentPrompt; only the pixels are dropped.
-        session.providerHistory.push({ role: 'user', content: m.content + buildAttachmentPrompt(m.attachments) });
-      } else if (m.role === 'assistant') session.providerHistory.push({ role: 'assistant', content: m.content });
-    }
-  }
+  // The API is stateless, so every Claude/workflow message since the previous Provider turn must be mirrored
+  // before this request. The cursor prevents duplicates while retaining Provider-native tool protocol rows.
+  syncProviderHistoryFromDisplay(session);
   // v0.8-S0: one turn = one user message → reply-complete. Bump the session-level monotonic counter at
   // turn start and persist it with the existing save (checkpoint/rewind/summary key downstream).
   session.turnSeq = (Number(session.turnSeq) || 0) + 1;
   // v0.8-S4b: stamp the user message with its turnSeq so rewind can locate a turn's first user message
   // directly (rather than inferring from the following assistant's turnSummary.turnSeq). Additive field.
   session.messages.push({ role: 'user', content: message, attachments: attachments || [], turnSeq: session.turnSeq, createdAt: nowIso(), ...(driverAuto ? { source: 'mission-driver' } : {}) });
+  session.providerHistoryCursor = session.messages.length;
   // v0.9-S7 视觉回路: when THIS provider has vision开 AND the turn carries an image attachment, the user
   // message's providerHistory content is a PARTS array [{text},{image_url}…] (the estimator is parts-aware
   // since S5, so this doesn't force a rewrite). vision=false keeps the historical string (pure-text injection
@@ -9737,6 +9769,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const why = !chatUrl ? 'provider base URL is not set' : (!model ? 'no model is selected for this provider' : 'fetch API is unavailable in this Node runtime');
     const msg = `Cannot start a ${provider.label || provider.id} turn: ${why}. Open Settings → Providers to fix it.`;
     session.messages.push({ role: 'assistant', content: msg, createdAt: nowIso(), source: 'fallback' });
+    session.providerHistoryCursor = session.messages.length;
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: msg });
     // v0.8-S6: attach errorClass (§C6 seed) so the v0.9 error-humanization UI can render 人话 + 下一步.
@@ -10428,6 +10461,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // providerLabel + model lets the badge label a message even after the provider list changes.
     engine: 'openai', providerId: provider.id, providerLabel: provider.label || provider.id, model,
   });
+  session.providerHistoryCursor = session.messages.length;
   if (!session.title || session.title === 'New session') {
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }
@@ -10841,6 +10875,7 @@ async function runProviderCompact(sessionId) {
     content: `🗜 已压缩上下文：${fmtTokensServer(beforeTokens)}→约 ${fmtTokensServer(afterTokens)}（估算）`,
     createdAt: nowIso(), source: 'compact',
   });
+  session.providerHistoryCursor = session.messages.length;
   await saveSession(session);
   logEvent({ kind: 'provider_compact', sessionId: session.id, provider: provider.id, summaryChars: summary.length, beforeTokens, afterTokens });
   return { ok: true, summaryChars: summary.length, beforeTokens, afterTokens };

@@ -22,6 +22,7 @@ const FAKE_PORT = 8986, WB_PORT = 8987;
 const STEER_TEXT = '顺便把结果写成表格';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const errorText = value => typeof value === 'string' ? value : String(value && (value.message || value.code) || '');
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
 function getToken(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 1500 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); }
 function getJson(port, p) { return new Promise((resolve, reject) => { const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 4000 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { resolve(JSON.parse(b)); } catch (e) { reject(new Error('bad json: ' + b)); } }); }); r.on('error', reject); r.on('timeout', () => { r.destroy(); reject(new Error('timeout')); }); }); }
@@ -101,7 +102,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
 
     // ⑤ No active turn yet → steer is rejected.
     const noTurn = await postJson(WB_PORT, '/api/steer', { sessionId: sid, text: STEER_TEXT }, { 'x-wcw-token': token });
-    ok(noTurn.body && noTurn.body.ok === false && /进行中的回合/.test(noTurn.body.error || ''), '(no-turn) steer rejected — 当前没有进行中的回合 (got ' + JSON.stringify(noTurn.body) + ')');
+    ok(noTurn.body && noTurn.body.ok === false && /进行中的回合/.test(errorText(noTurn.body.error)), '(no-turn) steer rejected — 当前没有进行中的回合 (got ' + JSON.stringify(noTurn.body) + ')');
 
     // ⑥ No token → 403.
     const noTok = await postJson(WB_PORT, '/api/steer', { sessionId: sid, text: STEER_TEXT });

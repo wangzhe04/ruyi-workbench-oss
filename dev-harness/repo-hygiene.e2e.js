@@ -155,7 +155,7 @@ function walk(dir, acc, skip) {
   const idx = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : '';
   ok(/<link[^>]*rel=["']icon["']/i.test(idx), '(d) index.html has favicon <link rel="icon">');
   ok(idx.includes('如意'), '(d) index.html contains 如意');
-  ok(/<title>[^<]*如意/.test(idx), '(d) index.html <title> carries 如意');
+  ok(/<title(?:\s[^>]*)?>[^<]*如意/.test(idx), '(d) index.html <title> carries 如意');
 
   // cleanup temp homes
   fs.rmSync(ruyiHome, { recursive: true, force: true });

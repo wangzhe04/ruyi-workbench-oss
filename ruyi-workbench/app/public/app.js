@@ -1741,8 +1741,9 @@ function renderStaticMessage(msg) {
   const { row, main } = messageShell(msg.role, msg.createdAt, meta);
   if (msg.thinking) { const { d } = thinkingPanel(msg.thinking); main.appendChild(d); }
   const bubble = el('div', 'bubble');
-  if (msg.role === 'assistant') { bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(msg.content || ''); highlightIn(bubble); }
-  else { bubble.classList.add('plain'); bubble.textContent = msg.content || ''; }
+  if (msg.role === 'assistant' && String(msg.content || '').length <= LIVE_MARKDOWN_MAX_CHARS) {
+    bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(msg.content || ''); highlightIn(bubble);
+  } else { bubble.classList.add('plain'); bubble.textContent = msg.content || ''; }
   main.appendChild(bubble);
   if (Array.isArray(msg.toolCalls) && msg.toolCalls.length) {
     // v1.0.2 (G4): >3 top-level tool cards → collapse them all into one <details.tool-group>. ≤3 render flat.
@@ -1906,11 +1907,23 @@ async function handleDrop(e) {
 // stays alive, and their final persisted message appears when that session is opened again.
 const activeTurns = new Map(); // sessionId -> { abort, startedAt, eventLines, eventChars, live, main }
 const ACTIVE_TURN_EVENT_CAP = 2_000_000;
+// Re-parsing an ever-growing Markdown document on every token is O(n^2) and eventually monopolizes the UI
+// thread. Stream as incremental plain text, then perform one bounded Markdown pass when the turn settles.
+const LIVE_MARKDOWN_MAX_CHARS = 120_000;
+function attachLiveTextNode(live, bubble) {
+  bubble.textContent = '';
+  bubble.classList.add('live-plain');
+  live.bubble = bubble;
+  live.textNode = document.createTextNode('');
+  live.renderedChars = 0;
+  bubble.appendChild(live.textNode);
+}
 function createLiveAssistantShell() {
   const box = $('messages');
   const { row, main } = messageShell('assistant', new Date().toISOString(), currentEngineMeta());
-  const live = { thinkingText: '', bufferText: '', thinkingEl: null, bubble: null, toolCards: new Map(), subCards: new Map(), workflowCards: new Map(), rendered: false, rafPending: false, rafId: 0 };
-  live.bubble = el('div', 'bubble md stream-cursor');
+  const live = { thinkingText: '', bufferText: '', thinkingEl: null, thinkingNode: null, bubble: null, textNode: null, renderedChars: 0, toolCards: new Map(), subCards: new Map(), workflowCards: new Map(), rendered: false, rafPending: false, rafId: 0 };
+  const bubble = el('div', 'bubble md stream-cursor');
+  attachLiveTextNode(live, bubble);
   main.appendChild(live.bubble);
   live.toolsWrap = el('div'); main.appendChild(live.toolsWrap);
   box.appendChild(row); box.scrollTop = box.scrollHeight;
@@ -1928,11 +1941,21 @@ function mountActiveTurn(sessionId) {
   const turn = activeTurns.get(sessionId);
   if (!turn || state.currentSession?.id !== sessionId) return;
   const shell = createLiveAssistantShell(); turn.live = shell.live; turn.main = shell.main;
+  // Coalesce tiny deltas while preserving tool/workflow boundaries. Keep this shell live: finalizing it here
+  // detaches its text node, so subsequent deltas otherwise remain invisible until the terminal full reload.
+  let text = '', thinking = '';
+  const flush = () => {
+    if (thinking) { handleStreamLine(JSON.stringify({ type: 'thinking_delta', text: thinking }), turn.live, turn.main, sessionId); thinking = ''; }
+    if (text) { handleStreamLine(JSON.stringify({ type: 'assistant_delta', text }), turn.live, turn.main, sessionId); text = ''; }
+  };
   for (const line of turn.eventLines) {
-    try { if (JSON.parse(line).type === 'session') continue; } catch { continue; }
-    handleStreamLine(line, turn.live, turn.main, sessionId);
+    let evt; try { evt = JSON.parse(line); } catch { continue; }
+    if (evt.type === 'session') continue;
+    if (evt.type === 'assistant_delta') { if (thinking) flush(); text += evt.text || ''; continue; }
+    if (evt.type === 'thinking_delta') { if (text) flush(); thinking += evt.text || ''; continue; }
+    flush(); handleStreamLine(line, turn.live, turn.main, sessionId);
   }
-  finalizeLive(turn.live);
+  flush();
 }
 // The proc-dot moved into the model chip (.mc-dot) in v0.7b. setProc now drives that dot's three
 // states (running/stopped/idle) + an engine-aware title, reusing the pulse animation via CSS.
@@ -2091,7 +2114,14 @@ async function sendPrompt(overrideText) {
     if (state.currentSession?.id === turnSessionId) {
       const r = await api(`/api/sessions/${turnSessionId}`);
       state.currentSession = r.session; state.resumable = r.resumable || null;
-      renderCurrentSession(); renderResumeBanner();
+      // The live DOM already contains this complete turn. Rebuilding it here parses/highlights the same long
+      // answer a second time and causes the characteristic end-of-stream stall.
+      $('sessionTitle').textContent = r.session?.title || t('navigation.workbench');
+      $('sessionMeta').textContent = r.session?.cwd || '';
+      renderStepBar(r.session && r.session.todos);
+      renderMissionBar(r.session && r.session.mission);
+      renderContextMeter(latestUsage(r.session));
+      renderResumeBanner();
     }
   } catch (err) {
     // C6: aborts read as a neutral note (.msg-note), real failures as a red .msg-error block — not
@@ -2153,10 +2183,12 @@ function scheduleRender(live) {
   live.rafId = requestAnimationFrame(() => {
     live.rafPending = false;
     live.rafId = 0;
-    live.bubble.innerHTML = renderMarkdown(live.bufferText);
     const box = $('messages');
-    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
-    if (atBottom) box.scrollTop = box.scrollHeight;
+    const atBottom = box && box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+    const pending = live.bufferText.slice(live.renderedChars || 0);
+    if (pending && live.textNode) live.textNode.appendData(pending);
+    live.renderedChars = live.bufferText.length;
+    if (atBottom && box) box.scrollTop = box.scrollHeight;
     updateJumpLatest();
   });
 }
@@ -2170,8 +2202,19 @@ function finalizeLive(live) {
   // If nothing streamed but an error/note block was shown, drop the empty bubble instead of the
   // "（无文本输出）" placeholder (the block already tells the story). Otherwise render the buffer.
   if (!live.bufferText && (live.errorShown || live.noteShown)) { live.bubble.remove(); return; }
-  live.bubble.innerHTML = renderMarkdown(live.bufferText || '（无文本输出）');
-  highlightIn(live.bubble);
+  const text = live.bufferText || '（无文本输出）';
+  const pending = text.slice(live.renderedChars || 0);
+  if (pending && live.textNode) live.textNode.appendData(pending);
+  live.renderedChars = text.length;
+  live.bubble.classList.remove('live-plain');
+  if (text.length <= LIVE_MARKDOWN_MAX_CHARS) {
+    live.bubble.classList.remove('plain');
+    live.bubble.innerHTML = renderMarkdown(text);
+    highlightIn(live.bubble);
+  } else {
+    live.bubble.classList.add('plain');
+    if (!live.textNode || !live.textNode.isConnected) live.bubble.textContent = text;
+  }
   // v1.0.2 (G4): turn end — fold the last completed top-level card(s) into the group (if one formed).
   foldToolGroupAtTurnEnd(live);
 }
@@ -2257,12 +2300,14 @@ function handleStreamLine(line, live, main, streamSessionId) {
       if (!live.thinkingEl) {
         const tp = thinkingPanel('', true); // live shimmer summary "思考中…"
         live.thinkingEl = tp.body; live.thinkingPanelObj = tp;
+        live.thinkingEl.textContent = '';
+        live.thinkingNode = document.createTextNode(''); live.thinkingEl.appendChild(live.thinkingNode);
         // Record a manual toggle so the first-delta auto-collapse can defer to the user (C2).
         tp.summary.addEventListener('click', () => { live.userToggledThinking = true; });
         main.insertBefore(tp.d, live.bubble); tp.d.open = true;
       }
       live.thinkingText += evt.text || '';
-      live.thinkingEl.textContent = live.thinkingText;
+      if (live.thinkingNode) live.thinkingNode.appendData(evt.text || '');
       break;
     case 'subagent':
       // v0.9-S6 (子代理): a delegated sub-turn started/ended. `start` opens a nested collapsed card that will
@@ -3342,6 +3387,9 @@ async function deliverAgentRuns(sid, runs) {
   wbOnRuns(runs); // v3 P3a:同一份轮询数据喂工作台画布(缓存 + 亮点标 + 画布态重绘),不新增请求
   const finishedWithSummary = runs.find(run => run && run.summary && !run.live && !AGENT_RUN_ACTIVE.has(run.status) && !agentRunSummarySeen.has(`${sid}:${run.id}`));
   if (finishedWithSummary) {
+    // The live message tree is the stream's write target. Replacing it here makes subsequent deltas land on
+    // detached nodes, which looks frozen until a later full-session reload dumps the completed answer.
+    if (activeTurns.has(sid)) return;
     agentRunSummarySeen.add(`${sid}:${finishedWithSummary.id}`);
     const fresh = await api(`/api/sessions/${encodeURIComponent(sid)}`).catch(() => null);
     if (fresh && fresh.session && state.currentSession?.id === sid) { state.currentSession = fresh.session; renderCurrentSession(); renderSessions(); }
@@ -3548,6 +3596,9 @@ function switchMainView(v) {
   if (v === 'canvas') {
     if (!wbState.selectedRunId) wbState.selectedRunId = wbPickDefaultRun(wbState.lastRuns);
     renderWorkbench(wbState.lastRuns, true);   // 显式切视图强制重绘(签名跳过仅作用于轮询路径)
+  } else {
+    const turn = state.currentSession && activeTurns.get(state.currentSession.id);
+    if (turn && turn.live) scheduleRender(turn.live);
   }
   syncAgentRunsPolling(); // 复用 agent-runs 轮询:画布态需要它,离开则按监控页签是否激活决定停/留
 }
@@ -4473,7 +4524,9 @@ function handlePlanEvent(evt, main, live) {
   // assistant_delta 写进新块(append 在计划卡之后),保证消息自上而下:文本 → 计划卡 → 后续文本。
   if (live && live.bubble) {
     live.bubble.classList.remove('stream-cursor');
-    if (live.bufferText) { live.bubble.innerHTML = renderMarkdown(live.bufferText); highlightIn(live.bubble); }
+    live.bubble.classList.remove('live-plain');
+    if (live.bufferText && live.bufferText.length <= LIVE_MARKDOWN_MAX_CHARS) { live.bubble.innerHTML = renderMarkdown(live.bufferText); highlightIn(live.bubble); }
+    else if (live.bufferText) { live.bubble.classList.add('plain'); live.bubble.textContent = live.bufferText; }
     else { live.bubble.remove(); } // 空块无意义,直接丢弃,避免留一个空气泡
   }
 
@@ -4492,7 +4545,7 @@ function handlePlanEvent(evt, main, live) {
       live.firstDeltaSeen = false;
       const nb = el('div', 'bubble md stream-cursor');
       (main || $('messages')).appendChild(nb);
-      live.bubble = nb;
+      attachLiveTextNode(live, nb);
     }
   };
 
@@ -4515,15 +4568,43 @@ function handlePlanEvent(evt, main, live) {
 }
 
 /* ---------------- debug panel ---------------- */
-function pushRawEvent(seq, line) {
-  state.rawEvents.push({ seq, line });
-  if (state.rawEvents.length > 2000) state.rawEvents.shift();
-  const pre = $('rawEvents');
+let rawEventDomQueue = [];
+let rawEventRaf = 0;
+function rawEventRow(item) {
   const row = el('div', 'rl');
-  row.innerHTML = `<span class="seq">#${seq}</span> ${escapeHtml(line.slice(0, 4000))}`;
-  pre.appendChild(row);
-  while (pre.childElementCount > 2000) pre.firstChild.remove();
-  if ($('debugAutoscroll').checked) pre.scrollTop = pre.scrollHeight;
+  row.innerHTML = `<span class="seq">#${item.seq}</span> ${escapeHtml(String(item.line || '').slice(0, 4000))}`;
+  return row;
+}
+function renderRawEventSnapshot() {
+  const pre = $('rawEvents'); if (!pre) return;
+  const frag = document.createDocumentFragment();
+  for (const item of state.rawEvents) frag.appendChild(rawEventRow(item));
+  pre.replaceChildren(frag);
+  rawEventDomQueue = [];
+  if ($('debugAutoscroll')?.checked) pre.scrollTop = pre.scrollHeight;
+}
+function scheduleRawEventDom(item) {
+  // The debug feed used to build thousands of hidden DOM rows during normal chat streaming. Keep only the
+  // bounded data cache while its tab is hidden; render it on demand when Debug is opened.
+  const active = document.querySelector('.tool-pane .tool-tabs button[data-tab="debug"].active');
+  if (!active) return;
+  rawEventDomQueue.push(item);
+  if (rawEventRaf) return;
+  rawEventRaf = requestAnimationFrame(() => {
+    rawEventRaf = 0;
+    const pre = $('rawEvents'); if (!pre) { rawEventDomQueue = []; return; }
+    const frag = document.createDocumentFragment();
+    for (const queued of rawEventDomQueue.splice(0)) frag.appendChild(rawEventRow(queued));
+    pre.appendChild(frag);
+    while (pre.childElementCount > 2000) pre.firstChild.remove();
+    if ($('debugAutoscroll')?.checked) pre.scrollTop = pre.scrollHeight;
+  });
+}
+function pushRawEvent(seq, line) {
+  const item = { seq, line };
+  state.rawEvents.push(item);
+  if (state.rawEvents.length > 2000) state.rawEvents.shift();
+  scheduleRawEventDom(item);
 }
 function appendToolOutput(value, append = false) {
   const out = $('toolOutput');
@@ -7095,6 +7176,7 @@ function switchTab(tab) {
   // 用量看板：打开时才拉取（懒加载，同审计）。已加载则用缓存重绘，避免重复请求；刷新/切范围会强制重拉。
   if (tab === 'usage') { if (!usageState.loaded) loadUsage(); else renderUsage(usageState.data); }
   if (tab === 'agent-runs') loadAgentWorkflows();
+  if (tab === 'debug') renderRawEventSnapshot();
   updateAgentRunsPolling(tab);
   maybeSuggestWideRight(tab); // v3 (§2.7/§2.8): 监控/用量页签在 340px 下一次性软提示切 480
 }

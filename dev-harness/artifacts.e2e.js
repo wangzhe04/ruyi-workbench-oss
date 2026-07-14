@@ -29,6 +29,7 @@ const FAKE_PORT = 9005, WB_PORT = 9006;
 const srv = require(path.join(WB, 'app', 'server.js'));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const errorText = value => typeof value === 'string' ? value : String(value && (value.message || value.code) || '');
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
 function getJson(port, p, headers) {
   return new Promise(resolve => {
@@ -240,7 +241,7 @@ const PNG_1x1 = Buffer.from(
 
     // Path OUTSIDE every allowed root → 403 (the load-bearing path-safety assertion).
     const rOut = await pv('path=' + encodeURIComponent(outsideFile) + '&sessionId=' + sid);
-    ok(rOut.status === 403 && rOut.json && /allowed workspace/.test(rOut.json.error || ''), '(b) file outside allowed roots → 403 path not allowed');
+    ok(rOut.status === 403 && rOut.json && /allowed workspace/.test(errorText(rOut.json.error)), '(b) file outside allowed roots → 403 path not allowed');
 
     // A Windows system file, if present — belt-and-suspenders (also outside allowed roots).
     const winIni = 'C:\\Windows\\win.ini';
@@ -294,7 +295,7 @@ const PNG_1x1 = Buffer.from(
     ok(revOut.status === 403 && revOut.json && revOut.json.ok === false, '(f) reveal 越界文件 → 403 拒绝');
     // ③ 不存在的文件(工作区内)→ 404。
     const revMissing = await postJson(WB_PORT, '/api/file/reveal', { sessionId: sid, path: path.join(WS, 'no-such-file.txt'), mode: 'open' }, hdr);
-    ok(revMissing.status === 404 && revMissing.json && /不存在/.test(revMissing.json.error || ''), '(f) reveal 不存在文件 → 404 人话');
+    ok(revMissing.status === 404 && revMissing.json && /不存在/.test(errorText(revMissing.json.error)), '(f) reveal 不存在文件 → 404 人话');
     // ④ 合法(工作区内已存在的 report.md)→ ok:true(spawn explorer, 不真验证弹窗)。
     const revOk = await postJson(WB_PORT, '/api/file/reveal', { sessionId: sid, path: mdPath, mode: 'select' }, hdr);
     ok(revOk.status === 200 && revOk.json && revOk.json.ok === true, '(f) reveal 合法路径 → ok:true');

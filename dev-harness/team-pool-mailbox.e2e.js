@@ -39,6 +39,7 @@ const RECV_ROUNDS = 9;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, label) => { if (v) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
+const errorText = value => typeof value === 'string' ? value : String(value && (value.message || value.code) || '');
 function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
 function sse(res, obj) { res.write('data: ' + JSON.stringify(obj) + '\n\n'); }
 function sseHead(res) { res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' }); }
@@ -243,15 +244,15 @@ async function main(sid, token, hdr) {
   // P3-8 负路径(趁 keeper 仍在跑、run 未收尾 → 走 item.status/lookup 分支而非「运行已结束」):
   //  (a) 同一 poolId 连批两次 → 第二次 409「已处理(materialized)」;
   const apprDup = await pool(run1, 'pool_approve', itemA.id);
-  ok(apprDup.status === 409 && /已处理/.test((apprDup.body && apprDup.body.error) || ''),
+  ok(apprDup.status === 409 && /已处理/.test(errorText(apprDup.body && apprDup.body.error)),
     'P3-8 同一 poolId 连批两次 → 第二次 409（该提案已处理）');
   //  (b) reject 后再 approve 同一提案 → 409「已处理(rejected)」;
   const rejThenAppr = await pool(run1, 'pool_approve', itemB.id);
-  ok(rejThenAppr.status === 409 && /已处理/.test((rejThenAppr.body && rejThenAppr.body.error) || ''),
+  ok(rejThenAppr.status === 409 && /已处理/.test(errorText(rejThenAppr.body && rejThenAppr.body.error)),
     'P3-8 reject 后 approve 同一提案 → 409（该提案已处理）');
   //  (c) 不存在的 poolId → 404(run 仍 live,故先过 !live/closing 闸再到 lookup)。
   const fakePool = await pool(run1, 'pool_approve', 'pool-does-not-exist');
-  ok(fakePool.status === 404 && /提案不存在/.test((fakePool.body && fakePool.body.error) || ''),
+  ok(fakePool.status === 404 && /提案不存在/.test(errorText(fakePool.body && fakePool.body.error)),
     'P3-8 假 poolId → 404（提案不存在）');
   // 等 run 终态，核对物化节点执行 + failurePolicy continue。
   const run1done = await waitFor(async () => { const run = runOf(await getRuns(), run1); return (run && !run.live) ? run : null; }, 300, 80);
@@ -304,7 +305,7 @@ async function main(sid, token, hdr) {
   ok(s3expired && s3expired.status === 'expired', 'A5.5 窗过未决提案置 expired（' + (s3expired && s3expired.status) + '）');
   // run 结束后（closing 已置位 + 已从 live 移除）批准 → 409 带指引。
   const s3late = s3item && await pool(run3, 'pool_approve', s3item.id);
-  ok(s3late && s3late.status === 409 && s3late.body && s3late.body.ok === false && /运行已结束/.test(s3late.body.error || ''),
+  ok(s3late && s3late.status === 409 && s3late.body && s3late.body.ok === false && /运行已结束/.test(errorText(s3late.body.error)),
     'A5.5 run 结束后批准 → 409「运行已结束…」（' + (s3late && s3late.status) + ' / ' + (s3late && s3late.body && s3late.body.error) + '）');
 
   // ============ 场景 4：AUTO-CAPPED（A5.3 cap 转 manual + 总数 >8）============
@@ -401,7 +402,7 @@ async function main(sid, token, hdr) {
   }, 200, 60);
   ok(!!s7, 'S7 squeezer 提交提案且 run 仍 live（keeper7 保活）');
   const s7appr = s7 && await pool(run7, 'pool_approve', s7.item.id);
-  ok(s7appr && s7appr.status === 409 && /节点已达上限/.test((s7appr.body && s7appr.body.error) || ''),
+  ok(s7appr && s7appr.status === 409 && /节点已达上限/.test(errorText(s7appr.body && s7appr.body.error)),
     'P3-8 压 maxNodes 后物化 → 409「节点已达上限」（' + (s7appr && s7appr.status) + ' / ' + (s7appr && s7appr.body && s7appr.body.error) + '）');
 
   // ============ 场景 8：P2-1 宽限窗重新武装（P3-8）============

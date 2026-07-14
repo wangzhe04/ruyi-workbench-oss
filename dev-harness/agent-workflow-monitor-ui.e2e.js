@@ -13,6 +13,7 @@ const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 
 const src = readFrontendSrc();
 const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
+const zh = JSON.parse(fs.readFileSync(path.join(PUB, 'locales', 'zh-CN.json'), 'utf8'));
 
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
@@ -65,8 +66,8 @@ ok(css.includes('.agent-node.an-skipped'), '④ skipped 灰色标存在');
 // ───────────── ⑤ 停滞/失败横幅（§2.5）：idleAborted 或等待资源+blocker ─────────────
 ok(has(renderBody, "'wf-stall-banner'", 'idleAborted', 'waitingBlocked'),
   '⑤ 停滞横幅由 run.idleAborted 或有 blocker 的等待资源节点触发');
-ok(has(renderBody, '疑似停滞'), '⑤ 横幅文案「疑似停滞」');
-ok(has(renderBody, "'查看'", "agentRunAction(run.id, 'stop')"),
+ok(has(renderBody, "t('workflow.stall.idle')", "t('workflow.stall.waiting'") && /疑似停滞/.test(zh['workflow.stall.idle'] || ''), '⑤ 横幅文案「疑似停滞」');
+ok(has(renderBody, "t('workflow.view')", "t('workflow.stop')", "agentRunAction(run.id, 'stop')"),
   '⑤ 横幅 [查看] + [停止](停止 wire 到 stop 动作)');
 ok(has(css, '.wf-stall-banner', 'var(--warn)'), '⑤ 横幅以 --warn 琥珀着色');
 
@@ -84,7 +85,7 @@ ok(has(renderBody, "agentRunAction(run.id, 'pause')", "agentRunAction(run.id, 'r
   '⑦ 运行中 run:暂停/继续/停止 wire 到 pause/resume/stop');
 ok(has(renderBody, "'retry_node'", '仅重试此节点', '重试此节点及下游'),
   '⑦ 失败/结束节点:重试此节点/及下游 wire 到 retry_node');
-ok(has(renderBody, "'查看错误'") && has(renderBody, "disp === 'failed' || disp === 'rejected'"),
+ok(has(renderBody, "t('workflow.viewError')") && /查看错误/.test(zh['workflow.viewError'] || '') && has(renderBody, "disp === 'failed' || disp === 'rejected'"),
   '⑦ 失败/判否节点另给「查看错误」');
 
 // ───────────── ⑧ 无障碍 + XSS 安全 ─────────────

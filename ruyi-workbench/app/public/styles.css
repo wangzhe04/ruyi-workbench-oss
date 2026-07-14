@@ -801,6 +801,7 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .message.user .bubble { background: var(--user-bubble); border-color: var(--user-line); }
 .message.system .bubble { background: var(--sys-bubble); border-color: var(--sys-line); font-family: var(--mono); font-size: var(--fs-md); white-space: pre-wrap; }
 .bubble.plain { white-space: pre-wrap; }
+.bubble.live-plain { white-space: pre-wrap; }
 
 /* markdown content */
 .md > *:first-child { margin-top: 0; }
