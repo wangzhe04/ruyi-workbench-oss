@@ -599,3 +599,43 @@
 **诚实交代**:token 仍随 HTML 明文注入(Part A 后 rebinding 拿不到 index.html 故拿不到 token,但同源合法 UI 仍从 DOM 读 token=设计如此;改 sessionStorage/cookie 注入动前端契约,择期);14 处 handler 自查未移除(表已覆盖,保留纵深更安全,单独清理波);`toolCall()` 40+ 分支表驱动仍为结构演进单独立项;OPTIONS 无 CORS 支持(产品本地回环无需求),deny 合理。
 
 **至此安全收口主线(23 波 mutating 面 + 33 波全 GET 面 + 声明式表)闭环**。
+
+---
+
+## §31 第34波:CI 基建(零依赖串行 runner + GH Actions + KNOWN_FAILURE 机制)
+
+**背景**:113+ e2e 全靠主会话手工挑件串行跑,盲区大(只跑熟悉的件),各波回归靠记忆+grep 核实 file:line。杠杆最大的一波--做完后续每波改动自动验,不再依赖主会话人力兜底。
+
+**现状核实**(亲验,非转述):
+- e2e 116 件;退出码全部统一(`process.exit(fail?1:0)`);入口 100 件 IIFE + 1 件 main() + 7 件 .static 纯静态锁 + 8 件其它结构;**0 件动态端口**(全固定 8751-9126)。
+- **无 runner / 无 .github/workflows / package.json 无 test 脚本**。
+- **真 key/live 依赖仅 3 件**:deepseek-live + deepseek-tools(均 argv[2] KEY,真调 DeepSeek API)+ desktop-bridge-live(真 Python MCP 子进程)。grep `argv[2].*KEY` 确认,不靠文件名猜。
+- **README 端口表漂移**:仅登记 26 个端口(8792-8999 段),e2e 实用 116 个唯一端口(8751-9126)-- **90 个未登记**(各波新件忘补,L3 对账待做)。
+
+**交付**:
+
+- **`dev-harness/run-all.js`**(零依赖,Windows-first):遍历 *.e2e.js,排 SKIP(3 live),快通道(.static 秒级)先跑,串行 spawn,超时 taskkill /F /T /PID 杀整进程树(防 server.js 孙进程残留占端口),汇总+失败 tail。退出码 fail>0 -> 1。支持 `--fast` / 指定件。
+- **`npm test`** 加入 `ruyi-workbench/package.json`(`node ../dev-harness/run-all.js`)。
+- **`.github/workflows/e2e.yml`**:windows-latest + node 20(对齐 engines),push/PR 触发,失败上传 artifact。不进发行包(气隙优先零冲突)。
+- **SKIP 名单**:3 件 live,附判断依据(grep argv[2] KEY),不靠文件名猜。
+- **KNOWN_FAILURE 机制**:积压回归失败不计红(不挂 CI),报告标 [known-fail];PASS 标 [unexpected-pass] 提醒清理。每条附原因--名单非永久豁免,修好即删。
+
+**全量首跑暴露的 8 失败件**(CI 全量覆盖 vs 手工挑件的核心价值):
+
+| 件 | 性质 | 处理 |
+|---|---|---|
+| deepseek-tools | SKIP 遗漏(真 live,401 无 key) | ✅ 修正 SKIP 名单 |
+| failover | 断言漂移(version 1.4.0,实际 1.6.0) | ✅ 1 行修(1.6.0) |
+| git | 断言过时(.diff-add/.diff-del 已用 var(--ok-bg)/var(--danger-bg) 语义令牌,断言仍查手写 color-mix) | ✅ 更新断言(语义令牌,v3 P1 收敛) |
+| usage-dashboard | 断言过时(v3 §B2 simple 模式 6->4 隐藏 usage/audit,断言仍期望不隐藏) | ✅ 更新断言(§B2 行为) |
+| ui-v3-p1 | color-mix 手写(styles.css:1462 ghost-danger hover,第23波,违反 v3 P1;需 UI 决策:轻量 hover 令牌选择) | KNOWN_FAILURE |
+| capabilities | system prompt 含 "Claude"(identity bleed guard;buildProviderSystemPrompt 函数体无 Claude,注入源在调用方拼接,待排查) | KNOWN_FAILURE |
+| session-index | PATCH title/pinned + 删除 + 合并 dirty-read 9 处回归(某波改 PATCH session 逻辑) | KNOWN_FAILURE |
+| workspace-resolve | PATCH session cwd 持久化 3 处回归(与 session-index PATCH 同源) | KNOWN_FAILURE |
+
+**诚实交代**:
+- CI 验的是**代码不回归**,不是"产品在气隙环境跑通"(发行包/`package:offline` 的事)。
+- 3 件 live 诚实排除,不假装能跑。
+- 4 件 known-failure 是积压回归(CI 全量首跑暴露,之前手工挑件从未覆盖),后续波逐一修;KNOWN_FAILURE 机制防 CI 永红,unexpected-pass 提醒清理。
+- README 端口表漂移 90 个未登记(L3 端口对账检查待做,治"各波新件忘补登记"卫生债)。
+- 首次 CI(真 windows-latest)大概率暴露几件本机能跑、CI 环境跑不了的件(路径/时序/端口残留),第 2 步就是用来发现并修的。

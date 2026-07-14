@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node app/server.js serve",
     "doctor": "node app/server.js doctor",
+    "test": "node ../dev-harness/run-all.js",
     "build:exe": "pkg . --targets node24-win-x64 --output dist/Ruyi.exe",
     "package:offline": "powershell -ExecutionPolicy Bypass -File tools/package-offline.ps1"
   },

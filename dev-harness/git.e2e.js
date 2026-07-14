@@ -95,8 +95,8 @@ function gitAvailable() {
     const noColorLiteral = (rule) => !/#[0-9a-fA-F]{3,8}\b/.test(rule) && !/\brgba?\(/.test(rule) && !/\bhsla?\(/.test(rule);
     ok(noColorLiteral(addRule), '⑥ .diff-add 无颜色字面量(仅令牌/color-mix)');
     ok(noColorLiteral(delRule), '⑥ .diff-del 无颜色字面量(仅令牌/color-mix)');
-    ok(/color-mix\(in srgb,\s*var\(--ok\)/.test(addRule), '⑥ .diff-add 用 color-mix(var(--ok))');
-    ok(/color-mix\(in srgb,\s*var\(--danger\)/.test(delRule), '⑥ .diff-del 用 color-mix(var(--danger))');
+    ok(/var\(--ok-bg\)/.test(addRule), '⑥ .diff-add 用 var(--ok-bg)(语义背景令牌,v3 P1 收敛手写 color-mix)');
+    ok(/var\(--danger-bg\)/.test(delRule), '⑥ .diff-del 用 var(--danger-bg)(语义背景令牌,v3 P1 收敛手写 color-mix)');
   }
 
   // ══════════ 动态断言(需 git;缺失则跳过但仍 ALL PASS)══════════

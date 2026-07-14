@@ -59,12 +59,13 @@ ok(/id="usagePanel"/.test(usageSection), '① 面板内含 #usagePanel 渲染宿
 const devTabsDecl = (src.match(/const\s+DEV_TABS\s*=\s*new\s+Set\(\[[^\]]*\]\)/) || [''])[0];
 ok(!!devTabsDecl, '② 找到 DEV_TABS 声明');
 ok(!/['"]usage['"]/.test(devTabsDecl), '② usage 不在 DEV_TABS（简易模式不被改写隐藏）');
-// CSS 简易隐藏页签集合不含 usage。
+// v3 §B2: simple 模式常驻页签 6->4,隐藏 usage/audit(改「AI 工作」面板 mini 链接进入)。
 {
   const simpleHidden = new Set();
   const re = /\[data-ui-mode="simple"\]\s*\.tool-tabs\s*button\[data-tab="([a-z-]+)"\]/g;
   let m; while ((m = re.exec(css))) simpleHidden.add(m[1]);
-  ok(!simpleHidden.has('usage'), '② 无 [data-ui-mode="simple"] 隐藏 data-tab="usage" 的 CSS 规则');
+  ok(simpleHidden.has('usage'), '② v3 §B2: simple 模式隐藏 usage 页签(6->4,改 mini 链接进入)');
+  ok(simpleHidden.has('audit'), '② v3 §B2: simple 模式隐藏 audit 页签(与 usage 同批)');
 }
 
 // ───────────── ③ 懒加载 + 范围段控 ─────────────

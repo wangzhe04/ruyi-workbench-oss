@@ -132,7 +132,7 @@ async function waitWB() { let h = null; for (let i = 0; i < 40 && !h; i++) { awa
     // v1.1-W1a (T3): the safe fallback for an unknown/illegal type is now 'builtin' (the zero-config default),
     // not 'none' — so a corrupt type still leaves search working out of the box. (Was: → 'none'.)
     ok(c3.searchBackend.type === 'builtin', '(A) illegal search type cleansed → builtin (zero-config default)');
-    ok(c3.configSchema === 7 && c3.version === '1.4.0', '(A) configSchema 7 / version stamped to app VERSION');
+    ok(c3.configSchema === 7 && c3.version === '1.6.0', '(A) configSchema 7 / version stamped to app VERSION');
   }
   // (B) extraBaseUrls cleansing via normalizeConfig (sanitizeProvider is not exported; normalizeConfig calls it).
   {

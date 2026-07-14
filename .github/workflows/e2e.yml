@@ -1,0 +1,28 @@
+name: e2e
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  e2e:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run e2e suite
+        working-directory: ${{ github.workspace }}
+        run: node dev-harness/run-all.js
+      - name: Upload failure log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-log
+          path: |
+            dev-harness/*.log
+          if-no-files-found: ignore
+          retention-days: 7
