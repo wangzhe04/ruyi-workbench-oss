@@ -87,7 +87,10 @@ ok(/:root\[data-ui-mode="simple"\]\s*\{[^}]*font-size:\s*15px/.test(css), 'B5 �
 for (const t of ['--elev-1', '--elev-2', '--elev-3']) ok(new RegExp(`${t}\\s*:`).test(css), `C1 ${t} 已定义`);
 ok(/\.popover\s*\{[^}]*box-shadow:\s*var\(--elev-2\)/.test(css), 'C1 .popover 用 var(--elev-2)');
 ok(/\.modal\s*\{[^}]*box-shadow:\s*var\(--elev-3\)/.test(css), 'C1 .modal 用 var(--elev-3)');
-ok(/\.pb-card\s*\{[\s\S]{0,340}box-shadow:\s*var\(--elev-1\)/.test(css), 'C1 .pb-card 用 var(--elev-1)');
+ok(/\.pb-card\s*\{[\s\S]{0,480}box-shadow:\s*var\(--elev-1\)/.test(css), 'C1 .pb-card 用 var(--elev-1)');
+ok(/\.pb-card\s*\{[\s\S]{0,260}white-space:\s*normal/.test(css), 'playbook cards override global button nowrap so localized text can wrap');
+ok(/\.pb-card-title\s*\{[^}]*min-width:\s*0[^}]*overflow-wrap:\s*anywhere/.test(css), 'playbook card titles shrink and wrap within the grid');
+ok(/\.pb-card-desc\s*\{[^}]*overflow-wrap:\s*anywhere[^}]*-webkit-line-clamp:\s*2/.test(css), 'playbook descriptions wrap before their two-line clamp');
 ok(/\[data-theme="light"\]\s*\{[\s\S]*?--elev-1:/.test(css), 'C1 亮色主题覆写 elev(深浅双主题)');
 
 // ───────────── C2 卡片 hover 提质 ─────────────
