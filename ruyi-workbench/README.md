@@ -57,9 +57,12 @@ dist\Ruyi-offline.zip
 
 ## 文档
 
-- 用户手册（简易模式视角，任务导向）：[`docs/manuals/USER-GUIDE_CN.md`](docs/manuals/USER-GUIDE_CN.md)
-- 管理员手册（部署 / 离线包 / 安全边界 / 计费配置）：[`docs/manuals/ADMIN-GUIDE_CN.md`](docs/manuals/ADMIN-GUIDE_CN.md)
-- 架构说明：[`docs/ARCHITECTURE_CN.md`](docs/ARCHITECTURE_CN.md)
+- 用户手册：[English](docs/manuals/USER-GUIDE_EN.md) · [中文](docs/manuals/USER-GUIDE_CN.md)
+- 管理员手册：[English](docs/manuals/ADMIN-GUIDE_EN.md) · [中文](docs/manuals/ADMIN-GUIDE_CN.md)
+- 架构说明：[English](docs/ARCHITECTURE_EN.md) · [中文](docs/ARCHITECTURE_CN.md)
+- 离线部署：[English](docs/OFFLINE_DEPLOYMENT_EN.md) · [中文](docs/OFFLINE_DEPLOYMENT_CN.md)
+- 源码审阅：[English](docs/SOURCE_REVIEW_EN.md) · [中文](docs/SOURCE_REVIEW_CN.md)
+- 多语言契约：[English](../docs/i18n/README_EN.md) · [中文](../docs/i18n/README.md)
 - 迭代记录与验收：[`../docs/OPTIMIZATION-ROADMAP.md`](../docs/OPTIMIZATION-ROADMAP.md)
 
 ## Clean-room 声明

@@ -371,12 +371,25 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 1. **Operation-grade undo/rewind** — file checkpoints and conversation rewind ship as a pair; reversibility surfaces right on the permission prompt. OS-level undo is largely absent from most computer-use products.
 2. **Text-only models can still drive the desktop** — OCR + UIA text grounding, no vision model required. Air-gapped networks often have text-only models; vision is an enhancement, not a prerequisite.
 3. **Air-gap first, auditable, zero runtime deps** — a single `server.js` with **zero npm runtime dependencies** (Node built-ins only), framework-less vanilla-JS frontend, offline zip deployment. Minimal audit surface for enterprise/government review.
-4. **Chinese-first, non-programmer primary persona** — a simple/pro dual-mode UI shared by coders and non-coding knowledge workers.
+4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Core dynamic feedback and stable API errors are localized; simple/pro UI is shared by coders and non-coding knowledge workers.
 5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an on-prem Claude CLI, switchable mid-session with cross-engine context continuation.
 
 ### Capabilities (v1.6)
 
-Dual-engine chat · a native tool loop of 39 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / Office / PDF — bundled ACC MCP v1.8.1, 99 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
+Dual-engine chat · a native tool loop of 39 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / Office / PDF — bundled ACC MCP v1.8.1, 99 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
+
+### Detailed documentation
+
+| Topic | English | 中文 |
+|---|---|---|
+| Everyday operation | [User Guide](ruyi-workbench/docs/manuals/USER-GUIDE_EN.md) | [用户手册](ruyi-workbench/docs/manuals/USER-GUIDE_CN.md) |
+| Deployment, engines, security, and regression | [Administrator Guide](ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md) | [管理员手册](ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md) |
+| Offline package | [Offline Deployment](ruyi-workbench/docs/OFFLINE_DEPLOYMENT_EN.md) | [离线部署说明](ruyi-workbench/docs/OFFLINE_DEPLOYMENT_CN.md) |
+| Runtime design | [Architecture](ruyi-workbench/docs/ARCHITECTURE_EN.md) | [架构说明](ruyi-workbench/docs/ARCHITECTURE_CN.md) |
+| Clean-room rationale | [Source Review](ruyi-workbench/docs/SOURCE_REVIEW_EN.md) | [源码审阅结论](ruyi-workbench/docs/SOURCE_REVIEW_CN.md) |
+| UI language contract | [Localization Guide](docs/i18n/README_EN.md) | [多语言兼容方案](docs/i18n/README.md) |
+
+The complete bilingual documentation index is available in [docs/README.md](docs/README.md).
 
 ### Quick start
 
