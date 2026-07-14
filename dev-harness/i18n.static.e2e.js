@@ -103,6 +103,33 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
     assert.strictEqual(en[key], value, `English catalog must translate ${key}`);
     assert.ok(html.includes(`data-i18n="${key}"`), `static UI must wire ${key}`);
   }
+  const englishDynamicUi = {
+    'brand.name': 'Ruyi Workbench',
+    'provider.testConnection': 'Test connection',
+    'modelMenu.refreshModels': 'Refresh model list',
+    'permission.mode.title': 'Security / permission mode',
+    'capability.networkAndEngine': 'Network and engine',
+    'tool.artifacts.turn': 'Turn {{turn}}',
+    'help.title': 'Keyboard shortcuts',
+    'palette.title': 'Command palette',
+    'skills.title': 'Skills library',
+    'skills.group.playbooks': 'Playbooks',
+    'skills.playbook.pickerError': 'Folder picker error: {{reason}}',
+    'skills.playbook.pickerUnavailable': 'Could not open the folder picker: {{reason}}',
+    'playbook.create.modalTitle': 'Save as playbook',
+    'onboarding.title': 'Welcome to Ruyi Workbench',
+    'emptyState.starter.projectSummary': 'Read this project and summarize its structure',
+  };
+  for (const [key, value] of Object.entries(englishDynamicUi)) {
+    assert.strictEqual(en[key], value, `English catalog must translate ${key}`);
+  }
+  const builtInSkillEntries = Object.entries(en).filter(([key]) => key.startsWith('skills.builtin.'));
+  assert.strictEqual(builtInSkillEntries.length, 66, 'all 33 built-in skill records need localized name and description metadata');
+  assert.ok(builtInSkillEntries.every(([, value]) => !/[\u4e00-\u9fff]/.test(value)), 'English built-in skill metadata must not contain Chinese');
+  assert.ok(html.includes('data-i18n="brand.name"'), 'brand display name must use the catalog');
+  assert.ok(html.includes('data-i18n="help.title"'), 'help dialog title must use the catalog');
+  assert.ok(html.includes('data-i18n-attr="placeholder:palette.placeholder"'), 'palette placeholder must use the catalog');
+  assert.ok(html.includes('data-i18n-attr="placeholder:skills.searchPlaceholder"'), 'skill search placeholder must use the catalog');
   assert.ok(html.includes('data-i18n-attr="placeholder:settings.monthlyBudget.amountPlaceholder"'), 'budget placeholder must be translatable');
   const settingsStart = html.indexOf('id="settingsModal"');
   const settingsEnd = html.indexOf('id="paletteModal"');
@@ -139,6 +166,23 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   assert.ok(app.includes("t('usage.dailyTrend'"), 'usage trend labels must use the catalog');
   assert.ok(app.includes("t('file.preview.imageTooLarge'"), 'file preview feedback must use the catalog');
   assert.ok(app.includes("t('audit.loadFailed'"), 'audit feedback must use the catalog');
+  assert.ok(app.includes("t('provider.testConnection'"), 'provider card actions must use the catalog');
+  assert.ok(app.includes("tCount('modelMenu.modelCount'"), 'model menu counts must use localized pluralization');
+  assert.ok(app.includes("t('permission.mode.title'"), 'permission popover must use the catalog');
+  assert.ok(app.includes("t('capability.networkAndEngine'"), 'capability popover must use the catalog');
+  assert.ok(app.includes("t('tool.artifacts.turn'"), 'artifact turn headings must use the catalog');
+  assert.ok(app.includes("tCount('tool.group.completed'"), 'tool group summaries must use localized pluralization');
+  assert.ok(app.includes('BUILTIN_SKILL_I18N_IDS'), 'built-in skill metadata must have a locale mapping');
+  assert.ok(app.includes('playbookDisplayName(pb)'), 'built-in quick-task cards must use localized metadata');
+  assert.ok(app.includes("t('skills.playbook.pickerError'"), 'quick-task folder picker failures must use the catalog');
+  assert.ok(app.includes("t('skills.playbook.pickerUnavailable'"), 'quick-task folder picker feedback must use the catalog');
+  assert.ok(app.includes("t('playbook.create.modalTitle'"), 'the save-as-playbook editor must use the catalog');
+  assert.ok(app.includes("t('onboarding.title'"), 'first-run onboarding must use the catalog');
+  assert.ok(app.includes("'emptyState.starter.projectSummary'"), 'starter prompts must use the catalog');
+  assert.ok(app.includes("t('navigation.toggleUiMode'"), 'dynamic UI-mode labels must use the catalog');
+  assert.ok(app.includes("t('palette.newSession'"), 'command palette actions must use the catalog');
+  assert.ok(app.includes('renderProviders();'), 'locale changes must redraw provider cards');
+  assert.ok(app.includes('renderSkillList();'), 'locale changes must redraw the skill panel');
   assert.ok(app.includes("'auth.token_invalid': 'error.api.authToken'"), 'structured API errors must map to localized keys');
   assert.ok(app.includes("toLocaleString(getLocale()"), 'usage values must follow the active locale');
   assert.ok(util.includes("toLocaleString(getLocale()"), 'time formatting must follow the active locale');

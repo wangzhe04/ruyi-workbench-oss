@@ -80,8 +80,8 @@ const CRITICAL_IDS = [
   'tab-audit', 'tab-agent-runs', 'agentRunsList', 'agentRunsRefreshBtn', 'tab-debug', 'tab-doctor', 'tab-desktop', 'toggleToolsBtn',
   // 成本/用量看板(usage-dashboard.e2e 依赖):用量页签面板 + 刷新 + 预算/Claude单价配置字段。
   'tab-usage', 'usagePanel', 'usageRefreshBtn', 'cfgUsageBudgetMonthly', 'cfgUsageBudgetCurrency', 'cfgClaudePriceIn', 'cfgClaudePriceOut',
-  // 命令面板 / 帮助 / 更多菜单(openPalette / openMoreMenu / helpModal)。
-  'paletteModal', 'paletteInput', 'paletteList', 'helpModal', 'helpBtn', 'moreMenuBtn',
+  // 命令面板 / 技能库 / 帮助 / 更多菜单。
+  'paletteModal', 'paletteInput', 'paletteList', 'skillModal', 'skillSearch', 'skillList', 'helpModal', 'helpBtn', 'moreMenuBtn',
   // 状态/通知(setStatus / toast)。
   'statusLine', 'toastTray',
   // 恢复横幅 / 计划步骤条(resumable / handlePlanEvent)。

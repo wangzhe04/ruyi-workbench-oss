@@ -15,6 +15,16 @@ placeholder sets.
 The locale configuration accepts auto, zh-CN, and en-US. Auto resolves the browser language on first use and
 persists the result. The UI updates html lang and locale-aware date, number, and time formatting.
 
+## Current coverage
+
+- Settings, Provider cards (including pricing and context windows), model switching, safety and capability popovers,
+  artifacts, tool-call summaries, shortcuts, the command palette, brand status, first-run/empty states, and the skill
+  library redraw when the locale changes. A non-bottom chat reading position is retained during a locale redraw.
+- Built-in skills, commands, quick tasks, and the “save as playbook” editor use catalog metadata for their names,
+  descriptions, and built-in quick-task fields. Fixed capability-unavailability reasons are translated for built-in,
+  user, and project items; user and project-authored SKILL.md or quick-task content remains in its original language
+  rather than being treated as product copy.
+
 ## Authoring rules
 
 - Use semantic, lower-case dotted keys such as workspace.switch.success.

@@ -56,7 +56,7 @@
 1. **操作级撤销** —— 文件检查点 + 对话回溯**成对交付**,可撤销性直接体现在权限弹窗时刻(见下方截图)。多数 computer-use 产品的 OS 级撤销基本缺席,这是最强的安全差异化。
 2. **纯文本模型也能操控桌面** —— OCR + UIA 文本 grounding,不依赖视觉模型。受限内网往往只有文本模型,这直接决定可用性下限(视觉是增强,不是前提)。
 3. **内网部署优先 + 零依赖可审计** —— 单文件后端、零 npm 运行时依赖、前端无框架无构建,全部离线可跑;安全团队要审的面最小。
-4. **中文优先 + 中英双语** —— 默认中文体验，同时可在设置中切换简体中文、英文或跟随系统；高频界面与结构化 API 错误均由语言资源渲染。会写代码的和不写代码的共用一套壳，双模式切换。
+4. **中文优先 + 中英双语** —— 默认中文体验，同时可在设置中切换简体中文、英文或跟随系统；设置、Provider 卡片、权限/能力弹层、模型菜单、产物、快捷键、命令面板、技能库与结构化 API 错误均由语言资源渲染。内置技能和一键任务随界面语言本地化，用户/项目自定义内容保持作者原文。会写代码的和不写代码的共用一套壳，双模式切换。
 5. **双引擎不锁定** —— 任意 OpenAI 兼容端点(DeepSeek / 通义千问 / 智谱 GLM / 内网 vLLM·Ollama)或内网 Claude CLI,随时切换、上下文跨引擎续接。
 
 ## 界面一览
@@ -99,7 +99,7 @@
 | 技能 / 记忆 / Playbook | 四源技能注册表 + 跨会话工作台记忆 + 可复用任务剧本,全部渐进注入 | [§6](#6-技能--记忆--playbook) |
 | 联网检索 | 8 种搜索后端,内置后端零配置可用;SSRF 防御;抓取带离线缓存 | [§7](#7-联网检索与网页抓取) |
 | 成本 / 用量看板 | 分币种逐笔记账,区分官方/第三方计划/按量;子代理与压缩全入账;月度预算告警 | [§8](#8-用量与成本看板诚实计账) |
-| 中英界面 | 设置中支持跟随系统、简体中文、英文；核心动态反馈与 API 错误可本地化 | [多语言方案](docs/i18n/README.md) |
+| 中英界面 | 设置中支持跟随系统、简体中文、英文；设置、动态弹层、技能库/一键任务与 API 错误可本地化 | [多语言方案](docs/i18n/README.md) |
 | 团队模式 | 共享任务池(子代理提案→审批→物化)、Agent 邮箱、对指定节点定向插话 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 分级 UI | 简易/专业双模式、深浅双主题、青花瓷视觉系统 | [§9](#9-分级-ui简易专业双模式) |
 
@@ -372,7 +372,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 1. **Operation-grade undo/rewind** — file checkpoints and conversation rewind ship as a pair; reversibility surfaces right on the permission prompt. OS-level undo is largely absent from most computer-use products.
 2. **Text-only models can still drive the desktop** — OCR + UIA text grounding, no vision model required. Air-gapped networks often have text-only models; vision is an enhancement, not a prerequisite.
 3. **Air-gap first, auditable, zero runtime deps** — a single `server.js` with **zero npm runtime dependencies** (Node built-ins only), framework-less vanilla-JS frontend, offline zip deployment. Minimal audit surface for enterprise/government review.
-4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Core dynamic feedback and stable API errors are localized; simple/pro UI is shared by coders and non-coding knowledge workers.
+4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Settings, Provider cards, safety/capability popovers, model menus, artifacts, shortcuts, the command palette, the skill library, and stable API errors are localized. Built-in skills and quick tasks follow the UI language, while user and project-authored content remains in its original language; simple/pro UI is shared by coders and non-coding knowledge workers.
 5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an on-prem Claude CLI, switchable mid-session with cross-engine context continuation.
 
 ### Capabilities (v1.6)

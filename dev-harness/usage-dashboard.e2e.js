@@ -12,7 +12,7 @@
 //   ⑥ 日趋势：手绘 SVG 迷你柱状(usageTrendSvg + createElementNS)。
 //   ⑦ 预算软告警：usageBudgetBanner；超支 over + role=alert + --warn；未超进度条软提示。
 //   ⑧ 诚实渲染：entryPlanBased 读 planBased/costTrusted；「计划内计费」标注；计划内不伪造金额。
-//   ⑨ provider 单价配置：providerCard 写 p.pricing(inputPerM/outputPerM/currency)+「填了才能算」人话说明。
+//   ⑨ provider 单价配置：providerCard 写 p.pricing(inputPerM/outputPerM/currency)+本地化的说明文案。
 //   ⑩ 预算 / Claude 单价配置：基础 tab cfgUsageBudgetMonthly + Claude tab cfgClaudePriceIn；save/fill 双向。
 //   ⑪ 空状态引导 + a11y(sr-only 概述)+ SVG 数值 round(round2)。
 //   ⑫ CSS：.usage-* 类齐备；预算 over 用 --warn；数字 tabular-nums；青花 token 着色（双主题自适应）。
@@ -118,7 +118,7 @@ ok(/totals\.planBasedTurns/.test(src), '⑧ 聚合诚实脚注由后端 totals.p
 ok(/p\.pricing\s*=\s*\{\}/.test(src) || /p\.pricing\s*=\s*\{/.test(src), '⑨ providerCard 写 p.pricing');
 ok(/inputPerM/.test(src) && /outputPerM/.test(src), '⑨ 单价含 inputPerM / outputPerM（每百万 token）');
 ok(/PRICING_CURRENCIES/.test(src), '⑨ 单价含币种选择(PRICING_CURRENCIES)');
-ok(/填了才能算该服务商的成本/.test(src), '⑨ 提供「填了才能算…不填只显 token」人话说明');
+ok(/t\('provider\.pricing\.help'\)/.test(src), '⑨ 单价说明使用 provider.pricing.help 本地化文案');
 ok(/prov-pricing/.test(src) && /card\.append\([^)]*priceB/.test(src), '⑨ 单价块并入 provider 卡片');
 
 // ───────────── ⑩ 预算 / Claude 单价配置（save/fill 双向）─────────────

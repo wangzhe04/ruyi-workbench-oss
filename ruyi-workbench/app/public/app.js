@@ -54,12 +54,33 @@ window.addEventListener('i18n:change', () => {
   renderWorkspacePicker();
   renderResumeBanner();
   applyUiMode(document.documentElement.getAttribute('data-ui-mode') || 'pro');
+  renderProviders();
+  renderModelChip();
+  populatePermSelect();
   renderPermChip();
+  renderCapBadge();
+  if (state.status) renderStatusLine();
+  updateSkillBadge();
   void loadAutonomyGrants();
   if (usageState.data) renderUsage(usageState.data);
   if (auditState.loaded) renderAuditList();
   if (document.querySelector('.tool-tabs button.active')?.dataset.tab === 'files') void loadFileTree();
-  if (!state.streaming && state.currentSession) renderCurrentSession();
+  if (document.querySelector('.tool-tabs button.active')?.dataset.tab === 'artifacts') renderArtifactsFromState();
+  if (!$('skillModal')?.classList.contains('hidden')) renderSkillList();
+  if (!$('paletteModal')?.classList.contains('hidden')) renderPalette();
+  if (!state.streaming) {
+    if (state.currentSession) {
+      const messages = $('messages');
+      const scrollTop = messages?.scrollTop || 0;
+      const wasAtBottom = !messages || (messages.scrollHeight - messages.clientHeight - scrollTop <= 4);
+      renderCurrentSession();
+      if (messages && !wasAtBottom) messages.scrollTop = Math.min(scrollTop, Math.max(0, messages.scrollHeight - messages.clientHeight));
+    }
+    else if ($('messages')?.querySelector('.empty-state')) {
+      $('messages').innerHTML = '';
+      $('messages').appendChild(buildEmptyState());
+    }
+  }
 });
 
 // UI v3 (§2.15): icon+文字按钮统一重建器 —— 清空后 append [SVG 图标] + [文字]。文案会变的按钮
@@ -166,7 +187,8 @@ function applyUiMode(mode) {
   const btn = $('uiModeToggle');
   if (btn) {
     btn.textContent = m === 'simple' ? '🧸' : '🔧';
-    btn.title = m === 'simple' ? '切换到专家界面' : '切换到精简界面';
+    btn.title = t(m === 'simple' ? 'navigation.switchToExpert' : 'navigation.switchToSimple');
+    btn.setAttribute('aria-label', t('navigation.toggleUiMode'));
   }
   try { localStorage.setItem('wcw.uiMode', m); } catch { /* ignore */ }
   // v1.0-S2 (IA): 更新「⋯」菜单里的界面模式项文案（若菜单当前打开）。
@@ -896,7 +918,7 @@ function engineReadiness() {
     if (p) return { ready: true, name: p.label || p.id };
   }
   if (claudeReady) return { ready: true, name: 'Claude CLI' };
-  if (providerReady) { const p = providers[0]; return { ready: true, name: (p && (p.label || p.id)) || 'Provider' }; }
+  if (providerReady) { const p = providers[0]; return { ready: true, name: (p && (p.label || p.id)) || t('onboarding.engine.providerFallback') }; }
   return { ready: false, name: '' };
 }
 // v1.0-S3 (A2): 大拖放引导区 —— 点击走既有 pickWorkspace()；拖拽走既有的 shell 级 drop 处理（v0.9-S3 已实现，
@@ -923,23 +945,23 @@ function buildOnboardEngine() {
   if (r.ready) {
     const line = el('div', 'onboard-engine ready');
     line.appendChild(el('span', 'onboard-eng-dot'));
-    line.appendChild(el('span', '', `AI 引擎已就绪：${r.name}`));
+    line.appendChild(el('span', '', t('onboarding.engine.readyWithName', { name: r.name })));
     return line;
   }
   // v1.0.2 (F6a):无可用引擎时 —— API 引擎优先。主卡片推荐配 API Key(DeepSeek 注册即得免费额度),
   // 「去配置」直达设置 Providers 页签;Claude CLI 收进折叠的次要入口(details),不再与 API 并列抢注意力。
   const card = el('div', 'onboard-engine warn');
-  card.appendChild(el('div', 'onboard-eng-warn-title', '配置 API Key 即可开始'));
-  card.appendChild(el('div', 'onboard-eng-sub', '推荐 DeepSeek —— 注册即得免费额度，几分钟就能用起来。'));
-  const btn = el('button', 'primary', '去配置 API Key');
+  card.appendChild(el('div', 'onboard-eng-warn-title', t('onboarding.engine.configureKey.title')));
+  card.appendChild(el('div', 'onboard-eng-sub', t('onboarding.engine.configureKey.description')));
+  const btn = el('button', 'primary', t('onboarding.engine.configureKey.action'));
   btn.type = 'button';
   btn.onclick = () => { openModal('settingsModal'); switchSettingsTab('providers'); };
   card.appendChild(btn);
   // 次要入口:我有 Claude CLI（折叠）。展开后给一个直达 Claude CLI 设置页签的链接式按钮。
   const adv = document.createElement('details'); adv.className = 'onboard-eng-adv';
-  const sum = document.createElement('summary'); sum.textContent = '高级：我有 Claude CLI';
+  const sum = document.createElement('summary'); sum.textContent = t('onboarding.engine.advancedClaude');
   adv.appendChild(sum);
-  const advBtn = el('button', 'ghost onboard-eng-adv-btn', '配置 Claude CLI 路径 →');
+  const advBtn = el('button', 'ghost onboard-eng-adv-btn', t('onboarding.engine.configureClaude'));
   advBtn.type = 'button';
   advBtn.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude', true); };
   adv.appendChild(advBtn);
@@ -952,7 +974,7 @@ function buildRuyiLogo() {
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 120 120'); svg.setAttribute('width', '48'); svg.setAttribute('height', '48');
-  svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', '如意 Ruyi');
+  svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', t('brand.name'));
   const g = document.createElementNS(NS, 'g');
   g.setAttribute('transform', 'rotate(42 60 60)');
   const head = document.createElementNS(NS, 'path');
@@ -973,15 +995,15 @@ function buildEmptyState() {
   if (isFirstRun()) return buildFirstRunState();
   const wrap = el('div', 'empty-state');
   wrap.appendChild(buildRuyiLogo());
-  wrap.appendChild(el('h2', '', '直接开始工作'));
+  wrap.appendChild(el('h2', '', t('emptyState.title')));
   // Engine line: "当前引擎：{engineLabel} · {model}" with a colored engine dot.
   const meta = currentEngineMeta();
   const vis = engineVisual(meta);
   const engLine = el('div', 'empty-engine');
   const dot = el('span', 'empty-eng-dot'); dot.style.background = vis.colorVar;
-  engLine.append(dot, el('span', '', `当前引擎：${engineLabel()} · ${currentModelId() || '默认'}`));
+  engLine.append(dot, el('span', '', t('emptyState.currentEngine', { engine: engineLabel(), model: currentModelId() || t('provider.defaultModel') })));
   wrap.appendChild(engLine);
-  wrap.appendChild(el('p', '', '发送需求、拖入文件、选择项目目录。对话与本机工具会交给当前引擎处理。'));
+  wrap.appendChild(el('p', '', t('emptyState.description')));
   // Conditional CTA (at most one). Claude + CLI not detected -> set path; provider + no key -> fill key.
   const cta = buildEmptyCTA();
   if (cta) wrap.appendChild(cta);
@@ -990,7 +1012,12 @@ function buildEmptyState() {
   const pbSection = buildPlaybookSection();
   if (pbSection) wrap.appendChild(pbSection);
   const starters = el('div', 'starters');
-  ['阅读该项目并总结结构', '修复 Windows 下的启动问题', '给这段代码写单元测试', '审查未提交的改动'].forEach(txt => {
+  [
+    'emptyState.starter.projectSummary',
+    'emptyState.starter.windowsStartup',
+    'emptyState.starter.unitTests',
+    'emptyState.starter.reviewChanges',
+  ].map(key => t(key)).forEach(txt => {
     const chip = el('button', 'starter-chip', txt);
     chip.onclick = () => { $('promptInput').value = txt; autoGrow($('promptInput')); $('promptInput').focus(); };
     starters.appendChild(chip);
@@ -1004,8 +1031,8 @@ function buildEmptyState() {
 function buildFirstRunState() {
   const wrap = el('div', 'empty-state onboard');
   wrap.appendChild(buildRuyiLogo());
-  wrap.appendChild(el('h2', '', '欢迎使用如意工作台'));
-  wrap.appendChild(el('p', '', '第一步：选一个工作文件夹，然后描述你要做的事。'));
+  wrap.appendChild(el('h2', '', t('onboarding.title')));
+  wrap.appendChild(el('p', '', t('onboarding.description')));
   wrap.appendChild(buildOnboardDropZone());
   wrap.appendChild(buildOnboardEngine());
   // 任务卡（既有 playbook 首页渲染，不动其逻辑）。
@@ -1034,7 +1061,7 @@ function buildPlaybookSection() {
   const cards = (state.playbooks || []).filter(pb => pb && (pb.uiMode === 'both' || pb.uiMode === mode || !pb.uiMode));
   if (!cards.length) return null;
   const sec = el('div', 'pb-section');
-  sec.appendChild(el('div', 'pb-section-title', '一键任务'));
+  sec.appendChild(el('div', 'pb-section-title', t('skills.group.playbooks')));
   const grid = el('div', 'pb-grid');
   for (const pb of cards) grid.appendChild(buildPlaybookCard(pb));
   sec.appendChild(grid);
@@ -1046,10 +1073,11 @@ function buildPlaybookCard(pb) {
   const available = pb.available !== false;
   const card = el(available ? 'button' : 'div', 'pb-card' + (available ? '' : ' unavailable'));
   const head = el('div', 'pb-card-head');
-  head.append(el('span', 'pb-card-icon', pb.icon || '📄'), el('span', 'pb-card-title', pb.title || pb.id));
+  head.append(el('span', 'pb-card-icon', pb.icon || '📄'), el('span', 'pb-card-title', playbookDisplayName(pb)));
   card.appendChild(head);
-  if (pb.desc) card.appendChild(el('div', 'pb-card-desc', pb.desc));
-  if (!available) card.appendChild(el('div', 'pb-card-reason', pb.unavailableReason || '当前不可用'));
+  const description = playbookDisplayDescription(pb);
+  if (description) card.appendChild(el('div', 'pb-card-desc', description));
+  if (!available) card.appendChild(el('div', 'pb-card-reason', playbookDisplayUnavailableReason(pb) || t('skills.unavailable')));
   if (available) card.onclick = () => openPlaybookModal(pb);
   return card;
 }
@@ -1058,24 +1086,25 @@ function buildPlaybookCard(pb) {
 // call sendPrompt. XSS-safe: labels/hints via el()/textContent.
 function openPlaybookModal(pb) {
   const body = el('div', 'pb-form');
-  if (pb.desc) body.appendChild(el('p', 'pb-form-desc', pb.desc));
+  const description = playbookDisplayDescription(pb);
+  if (description) body.appendChild(el('p', 'pb-form-desc', description));
   const fields = new Map(); // key -> input element
   for (const inp of (pb.inputs || [])) {
     const field = el('div', 'pb-field');
-    field.appendChild(el('label', 'pb-field-label', inp.label || inp.key));
+    field.appendChild(el('label', 'pb-field-label', playbookInputLabel(pb, inp)));
     const ta = el('textarea', 'pb-field-input');
     ta.rows = (inp.type === 'text') ? 3 : 1;
-    ta.placeholder = inp.type === 'folder' ? '粘贴文件夹的完整路径,如 D:\\报表' : (inp.type === 'file' ? '粘贴文件的完整路径' : '');
+    ta.placeholder = inp.type === 'folder' ? t('skills.playbook.folderPlaceholder') : (inp.type === 'file' ? t('skills.playbook.filePlaceholder') : '');
     // v0.9-S3 (C3): folder inputs get a 📁 button that pops the native picker and fills the field.
     if (inp.type === 'folder') {
       const row = el('div', 'pb-field-folder');
-      const pick = el('button', 'file-label pb-pick', '📁 选择');
+      const pick = el('button', 'file-label pb-pick', t('skills.playbook.pickFolder'));
       pick.onclick = async () => {
         let r;
         try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
-        catch (e) { toast(`选择器出错：${apiErrText(e)}`, 'err'); return; }
+        catch (e) { toast(t('skills.playbook.pickerError', { reason: apiErrText(e) }), 'err'); return; }
         if (r && r.ok && r.path) { ta.value = r.path; }
-        else if (r && !r.ok) toast(`无法打开选择器：${r.error || '未知'}`, 'err');
+        else if (r && !r.ok) toast(t('skills.playbook.pickerUnavailable', { reason: r.error || t('common.unknown') }), 'err');
       };
       row.append(ta, pick);
       field.appendChild(row);
@@ -1086,17 +1115,17 @@ function openPlaybookModal(pb) {
     body.appendChild(field);
   }
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
-  const cancel = el('button', '', '取消');
-  const go = el('button', 'primary', '开始');
+  const cancel = el('button', '', t('common.cancel'));
+  const go = el('button', 'primary', t('skills.playbook.start'));
   foot.append(cancel, go);
-  const modal = buildModal(pb.title || '一键任务', body, foot);
+  const modal = buildModal(playbookDisplayName(pb) || t('skills.group.playbooks'), body, foot);
   cancel.onclick = () => modal.close();
   go.onclick = () => {
     const values = {};
     for (const [key, ta] of fields) values[key] = ta.value.trim();
     const prompt = assemblePlaybookPrompt(pb, values);
     modal.close();
-    if (state.streaming) { toast('请先等待当前回合结束', ''); return; }
+    if (state.streaming) { toast(t('chat.waitCurrentTurn'), ''); return; }
     sendPrompt(prompt);
   };
 }
@@ -1117,14 +1146,14 @@ function buildEmptyCTA() {
     const detected = state.status && state.status.detectedClaudePath;
     const configured = state.config && state.config.claudePath;
     if (!detected && !configured) {
-      const b = el('button', 'primary empty-cta', '设置 Claude CLI 路径');
+      const b = el('button', 'primary empty-cta', t('emptyState.configureClaude'));
       b.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude', true); };
       return b;
     }
   } else {
     const p = activeProviderObj();
     if (p && !(p.apiKey && String(p.apiKey).trim())) {
-      const b = el('button', 'primary empty-cta', `填写 ${p.label || p.id} 密钥`);
+      const b = el('button', 'primary empty-cta', t('emptyState.configureProviderKey', { provider: p.label || p.id }));
       b.onclick = () => { openModal('settingsModal'); switchSettingsTab('providers'); };
       return b;
     }
@@ -1376,7 +1405,7 @@ function safeStringify(v) {
 // Live model: live.topTools = [{id, done, el}] in arrival order; live.toolGroup = the <details> (lazy).
 // The group is inserted as the FIRST child of toolsWrap so folded (completed) cards sit above the running
 // one, reading chronologically. buildToolGroup() makes an empty group; foldToolGroup() re-parents cards.
-function toolGroupSummaryText(n) { return '已完成 ' + n + ' 个工具调用'; }
+function toolGroupSummaryText(n) { return tCount('tool.group.completed', n); }
 function ensureLiveToolGroup(live) {
   if (live.toolGroup) return live.toolGroup;
   const det = el('details', 'tool-group');
@@ -1442,7 +1471,7 @@ function buildStaticToolGroup(cardEls) {
   if (!Array.isArray(cardEls) || cardEls.length <= 3) return null;
   const det = el('details', 'tool-group');
   const sum = el('summary', 'tool-group-sum');
-  sum.append(el('span', 'tg-caret', '▸'), el('span', 'tg-label', cardEls.length + ' 个工具调用'));
+  sum.append(el('span', 'tg-caret', '▸'), el('span', 'tg-label', tCount('tool.group.count', cardEls.length)));
   det.appendChild(sum);
   const body = el('div', 'tool-group-body');
   for (const c of cardEls) body.appendChild(c);
@@ -1589,7 +1618,7 @@ function msgActions(msg) {
     // v0.9-S2 (C2): 「存为 playbook」— turn this completed task into a reusable template. Provider engine
     // only (the draft uses the active provider). Hidden when no session or a turn is streaming.
     if (isProviderMode()) {
-      const save = el('button', '', '存为 playbook');
+      const save = el('button', '', t('playbook.create.action'));
       save.onclick = () => saveAsPlaybook(save);
       bar.append(save);
       // v2 跨会话记忆: 「存为记忆」(draft→编辑弹窗→保存)。draft 用 provider,故与「存为 playbook」同处 provider 分支。
@@ -1606,14 +1635,14 @@ function msgActions(msg) {
 // open an edit modal (title/desc/promptTemplate editable) → confirm → POST /api/playbooks.
 async function saveAsPlaybook(btn) {
   const sid = state.currentSession && state.currentSession.id;
-  if (!sid) { toast('没有可保存的会话', 'err'); return; }
+  if (!sid) { toast(t('playbook.create.noSession'), 'err'); return; }
   const orig = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = '起草中…'; }
+  if (btn) { btn.disabled = true; btn.textContent = t('playbook.create.drafting'); }
   try {
     const r = await api('/api/playbooks/draft', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-    if (!r || !r.ok || !r.draft) { toast(`起草失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
+    if (!r || !r.ok || !r.draft) { toast(t('playbook.create.draftFailed', { reason: (r && r.error) || t('common.unknown') }), 'err'); return; }
     openPlaybookEditModal(r.draft);
-  } catch (e) { toast(`起草失败：${apiErrText(e)}`, 'err'); }
+  } catch (e) { toast(t('playbook.create.draftFailed', { reason: apiErrText(e) }), 'err'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
 }
 // Edit modal for a drafted playbook: title / desc / promptTemplate are editable; on confirm, POST the
@@ -1630,31 +1659,31 @@ function openPlaybookEditModal(draft) {
     body.appendChild(field);
     return ta;
   };
-  const titleEl = mkField('标题', draft.title, 1);
-  const descEl = mkField('说明', draft.desc, 2);
-  const tmplEl = mkField('任务模板(用 {参数名} 作占位符)', draft.promptTemplate, 8);
+  const titleEl = mkField(t('playbook.create.fieldTitle'), draft.title, 1);
+  const descEl = mkField(t('playbook.create.fieldDescription'), draft.desc, 2);
+  const tmplEl = mkField(t('playbook.create.fieldTemplate'), draft.promptTemplate, 8);
   // Show the detected input parameters read-only (they come from the draft; folder/file types preserved).
   if ((draft.inputs || []).length) {
-    const info = el('div', 'pb-field-hint', '参数:' + draft.inputs.map(i => `{${i.key}}` + (i.type !== 'text' ? `(${i.type})` : '')).join('  '));
+    const info = el('div', 'pb-field-hint', t('playbook.create.inputs', { inputs: draft.inputs.map(i => `{${i.key}}` + (i.type !== 'text' ? `(${i.type})` : '')).join('  ') }));
     body.appendChild(info);
   }
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
-  const cancel = el('button', '', '取消');
-  const save = el('button', 'primary', '保存');
+  const cancel = el('button', '', t('common.cancel'));
+  const save = el('button', 'primary', t('common.save'));
   foot.append(cancel, save);
-  const modal = buildModal('存为 playbook', body, foot);
+  const modal = buildModal(t('playbook.create.modalTitle'), body, foot);
   cancel.onclick = () => modal.close();
   save.onclick = async () => {
     const pb = { ...draft, title: titleEl.value.trim(), desc: descEl.value.trim(), promptTemplate: tmplEl.value };
-    if (!pb.title || !pb.promptTemplate.trim()) { toast('标题和任务模板不能为空', 'err'); return; }
-    save.disabled = true; save.textContent = '保存中…';
+    if (!pb.title || !pb.promptTemplate.trim()) { toast(t('playbook.create.required'), 'err'); return; }
+    save.disabled = true; save.textContent = t('playbook.create.saving');
     try {
       const r = await api('/api/playbooks', { method: 'POST', body: JSON.stringify({ playbook: pb }) });
       modal.close();
-      if (!r || !r.ok) { toast(`保存失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
-      toast('已存为 playbook', 'ok');
+      if (!r || !r.ok) { toast(t('playbook.create.saveFailed', { reason: (r && r.error) || t('common.unknown') }), 'err'); return; }
+      toast(t('playbook.create.saved'), 'ok');
       refreshPlaybooks(); // reflect the new card in the empty state
-    } catch (e) { modal.close(); toast(`保存失败：${apiErrText(e)}`, 'err'); }
+    } catch (e) { modal.close(); toast(t('playbook.create.saveFailed', { reason: apiErrText(e) }), 'err'); }
   };
 }
 
@@ -4179,8 +4208,7 @@ const usageState = { loaded: false, range: 'month', data: null };
 const CURRENCY_SYMBOL = { CNY: '¥', USD: '$', EUR: '€', GBP: '£', JPY: 'JP¥', HKD: 'HK$', TWD: 'NT$', KRW: '₩' };
 const CURRENCY_ORDER = { CNY: 0, USD: 1, EUR: 2, GBP: 3, JPY: 4 };
 const PRICING_CURRENCIES = [
-  { code: 'CNY', label: '人民币 ¥ (CNY)' }, { code: 'USD', label: '美元 $ (USD)' },
-  { code: 'EUR', label: '欧元 € (EUR)' }, { code: 'GBP', label: '英镑 £ (GBP)' }, { code: 'JPY', label: '日元 ¥ (JPY)' },
+  'CNY', 'USD', 'EUR', 'GBP', 'JPY',
 ];
 // 数值小工具：整数千分位、金额（round 到合理精度，避免 0.30000004）、SVG 坐标两位小数。
 function fmtInt(n) { return (Number(n) || 0).toLocaleString(getLocale()); }
@@ -4886,11 +4914,11 @@ function renderArtifactsFromState() {
   const total = groups.reduce((n, g) => n + g.items.length, 0);
   if (!total) {
     // F7③:空状态文案人话化。
-    list.appendChild(el('div', 'artifacts-empty', '还没有产物——让 AI 生成文件后会出现在这里。'));
+    list.appendChild(el('div', 'artifacts-empty', t('tool.artifacts.empty')));
     return;
   }
   for (const g of groups) {
-    const head = el('div', 'artifacts-turn-head', '第 ' + g.turnSeq + ' 轮');
+    const head = el('div', 'artifacts-turn-head', t('tool.artifacts.turn', { turn: g.turnSeq }));
     list.appendChild(head);
     for (const a of g.items) {
       const row = el('div', 'artifact-row');
@@ -4900,9 +4928,9 @@ function renderArtifactsFromState() {
       );
       row.querySelector('.artifact-name').title = a.path;
       const actions = el('span', 'artifact-actions');
-      const prev = el('button', 'mini', '预览');
+      const prev = el('button', 'mini', t('common.preview'));
       prev.onclick = () => renderFilePreviewInto($('artifactPreview'), a.path);
-      const open = el('button', 'mini', '打开');
+      const open = el('button', 'mini', t('common.open'));
       open.onclick = () => runTool('office_open', { path: a.path });
       actions.append(prev, open);
       row.appendChild(actions);
@@ -5361,17 +5389,7 @@ async function refreshStatus() {
   populatePermSelect();
   updateEngineDependentUI();
   fillSettings();
-  // v1.0.2 (F6b): statusLine 引擎感知。provider 模式下不再显示「未找到 Claude CLI」(那与当前引擎无关) —— 显示
-  // 当前 provider·model;claude 模式才在缺 CLI 时提示去配置。CLI 已配置/检出时显示 CLI 路径。
-  if (isProviderMode()) {
-    const p = activeProviderObj();
-    const label = (p && (p.label || p.id)) || '当前 Provider';
-    const model = (p && p.model) || currentModelId() || '默认';
-    setStatus(`${label} · ${model}`);
-  } else {
-    const ok = state.config.claudePath || state.status.detectedClaudePath;
-    setStatus(ok ? `CLI: ${ok}` : '未找到 Claude CLI（点设置配置）');
-  }
+  renderStatusLine();
   renderDoctor();
   refreshModels(); // background: enrich the model list from the proxy without blocking status
   fetchCapabilities(false); // v0.8-S6: refresh the capability badge (cached; one-shot on status refresh)
@@ -5459,15 +5477,27 @@ async function refreshModels(announce) {
         state.status.models = r.models; // Claude engine: status.models feeds the chip's Claude group
       }
       renderModelChip();
-      if (announce) toast(r.proxyCount ? `模型已刷新（代理 ${r.proxyCount} 个）` : '模型已刷新（内置清单；代理未返回）', 'ok');
-    } else if (announce) { toast('模型未变化', ''); }
-  } catch (e) { if (announce) toast(`刷新模型失败：${apiErrText(e)}`, 'err'); }
+      if (announce) toast(r.proxyCount ? tCount('modelMenu.refreshSuccessProxy', r.proxyCount) : t('modelMenu.refreshSuccessBuiltin'), 'ok');
+    } else if (announce) { toast(t('modelMenu.refreshUnchanged'), ''); }
+  } catch (e) { if (announce) toast(t('modelMenu.refreshFailed', { error: apiErrText(e) }), 'err'); }
+}
+// Keep the compact sidebar status line language-aware as well as engine-aware. It is invoked after
+// status refreshes and on locale changes, rather than leaving a startup-language string behind.
+function renderStatusLine() {
+  if (isProviderMode()) {
+    const p = activeProviderObj();
+    const label = (p && (p.label || p.id)) || t('status.currentProvider');
+    const model = (p && p.model) || currentModelId() || t('provider.defaultModel');
+    setStatus(`${label} · ${model}`);
+    return;
+  }
+  const ok = state.config?.claudePath || state.status?.detectedClaudePath;
+  setStatus(ok ? `CLI: ${ok}` : t('status.claudeMissing'));
 }
 function populatePermSelect() {
   const sel = $('permSelect'); sel.innerHTML = '';
-  const labels = { default: '默认(询问)', acceptEdits: '接受编辑', plan: '计划模式', auto: '智能自动', bypass: '⚠ 跳过权限' };
   for (const m of (state.status?.permissionModes || ['default','acceptEdits','plan','bypass'])) {
-    const o = el('option'); o.value = m; o.textContent = labels[m] || m; if (m === state.config.permissionMode) o.selected = true; sel.appendChild(o);
+    const o = el('option'); o.value = m; o.textContent = permModeOption(m); if (m === state.config.permissionMode) o.selected = true; sel.appendChild(o);
   }
   sel.style.color = state.config.permissionMode === 'bypass' ? 'var(--danger)' : (state.config.permissionMode === 'auto' ? 'var(--accent)' : '');
   renderPermChip(); // v1.0-S2 (IA): keep the topbar 安全 chip in sync with the mode.
@@ -5476,13 +5506,23 @@ function populatePermSelect() {
 /* ---------------- v1.0-S2 (IA): 安全 chip + 安全弹层（四档单选卡） ---------------- */
 // 每档：人话短名 + 一句场景描述；bypass 为警示样式。原始模式名（default/acceptEdits/…）在专家模式作小字。
 const PERM_MODE_META = {
-  default:     { short: '每步都问',   desc: '每个操作先征得你同意，最稳妥' },
-  acceptEdits: { short: '小改动自动做', desc: '文件编辑自动执行，命令等敏感操作仍会问你' },
-  plan:        { short: '先计划再动手', desc: 'AI 先给完整计划，你批准后才执行' },
-  auto:        { short: '智能自动',   desc: 'AI 自动判断风险，低风险自动执行，高风险仍会问你' },
-  bypass:      { short: '全自动',     desc: '不再询问（警示样式）', danger: true },
+  default:     { optionKey: 'permission.mode.default.option', shortKey: 'permission.mode.default.short', descriptionKey: 'permission.mode.default.description' },
+  acceptEdits: { optionKey: 'permission.mode.acceptEdits.option', shortKey: 'permission.mode.acceptEdits.short', descriptionKey: 'permission.mode.acceptEdits.description' },
+  plan:        { optionKey: 'permission.mode.plan.option', shortKey: 'permission.mode.plan.short', descriptionKey: 'permission.mode.plan.description' },
+  auto:        { optionKey: 'permission.mode.auto.option', shortKey: 'permission.mode.auto.short', descriptionKey: 'permission.mode.auto.description' },
+  bypass:      { optionKey: 'permission.mode.bypass.option', shortKey: 'permission.mode.bypass.short', descriptionKey: 'permission.mode.bypass.description', danger: true },
 };
-function permModeShort(mode) { const m = PERM_MODE_META[mode]; return (m && m.short) || mode || '未知'; }
+function permModeText(mode, field) {
+  const meta = PERM_MODE_META[mode];
+  const key = meta && meta[`${field}Key`];
+  return key ? t(key) : (mode || t('common.unknown'));
+}
+function permModeOption(mode) { return permModeText(mode, 'option'); }
+function permModeShort(mode) { return permModeText(mode, 'short'); }
+function permModeDescription(mode) {
+  const meta = PERM_MODE_META[mode];
+  return meta?.descriptionKey ? t(meta.descriptionKey) : '';
+}
 // Reflect the current permissionMode on the topbar 安全 chip: 人话短名 + bypass 警示着色（沿用 bypass 红色心智）。
 function renderPermChip() {
   const chip = $('permChip'); if (!chip) return;
@@ -5491,7 +5531,7 @@ function renderPermChip() {
   if (nameEl) nameEl.textContent = permModeShort(mode); // textContent → 人话短名，XSS 安全
   chip.classList.toggle('warn', mode === 'bypass');
   chip.classList.toggle('info', mode === 'auto');
-  chip.title = `安全 / 权限：${permModeShort(mode)}（点击设置）`;
+  chip.title = t('permission.mode.chipTitle', { mode: permModeShort(mode) });
 }
 // 安全弹层：四档单选卡（枚举来自 state.status.permissionModes，与 permSelect 一致）。点击卡片 =
 // 设置 permSelect.value + dispatch('change')，完全复用既有 onchange（持久化 / bypass 确认 / toast 全部白拿）。
@@ -5502,18 +5542,18 @@ function openPermPopover() {
   const pro = document.documentElement.getAttribute('data-ui-mode') !== 'simple';
   const handle = popover(chip, close => {
     const wrap = el('div', 'perm-pop');
-    wrap.appendChild(el('h4', null, '安全 / 权限模式'));
+    wrap.appendChild(el('h4', null, t('permission.mode.title')));
     const cards = el('div', 'perm-cards'); cards.setAttribute('role', 'radiogroup');
     const modes = (state.status && state.status.permissionModes) || ['default', 'acceptEdits', 'plan', 'bypass'];
     const cur = state.config.permissionMode || 'default';
     modes.forEach(mode => {
-      const meta = PERM_MODE_META[mode] || { short: mode, desc: '' };
-      const card = el('button', 'perm-card' + (meta.danger ? ' danger' : '') + (mode === cur ? ' active' : ''));
+      const meta = PERM_MODE_META[mode];
+      const card = el('button', 'perm-card' + (meta?.danger ? ' danger' : '') + (mode === cur ? ' active' : ''));
       card.type = 'button'; card.setAttribute('role', 'radio'); card.setAttribute('aria-checked', mode === cur ? 'true' : 'false');
       const top = el('div', 'perm-card-top');
-      top.append(el('span', 'perm-card-radio', mode === cur ? '◉' : '○'), el('span', 'perm-card-short', meta.short));
+      top.append(el('span', 'perm-card-radio', mode === cur ? '◉' : '○'), el('span', 'perm-card-short', permModeShort(mode)));
       card.appendChild(top);
-      card.appendChild(el('div', 'perm-card-desc', meta.desc));
+      card.appendChild(el('div', 'perm-card-desc', permModeDescription(mode)));
       if (pro) card.appendChild(el('div', 'perm-card-raw', mode)); // 专家模式附原始模式名小字
       card.onclick = () => {
         const sel = $('permSelect');
@@ -5531,7 +5571,7 @@ function openPermPopover() {
       if (host) { host.classList.remove('hidden'); wrap.appendChild(host); }
     }
     // 信任脚注。
-    wrap.appendChild(el('div', 'perm-pop-foot', '文件改动都有检查点，可在审计中回看、可撤销'));
+    wrap.appendChild(el('div', 'perm-pop-foot', t('permission.mode.footer')));
     return wrap;
   });
   // popover() 关闭（Esc/外点/重点击）时会**同步**移除弹层节点——若原始 select 的 host 被挪进弹层，它会一起被移除。
@@ -5885,46 +5925,46 @@ function renderProviders() {
   const box = $('providersList'); if (!box) return;
   box.innerHTML = '';
   const list = state.providersDraft || [];
-  if (!list.length) { box.appendChild(el('div', 'muted', '未配置 Provider。下方选模板（DeepSeek / 通义千问 / 自定义）添加，再填密钥。')); return; }
+  if (!list.length) { box.appendChild(el('div', 'muted', t('provider.empty'))); return; }
   list.forEach((p, idx) => box.appendChild(providerCard(p, idx)));
 }
 function providerCard(p, idx) {
   const card = el('div', 'prov-card');
   const head = el('div', 'prov-head');
-  const labelIn = el('input', 'prov-label'); labelIn.value = p.label || ''; labelIn.placeholder = '显示名'; labelIn.oninput = () => { p.label = labelIn.value; };
+  const labelIn = el('input', 'prov-label'); labelIn.value = p.label || ''; labelIn.placeholder = t('provider.displayNamePlaceholder'); labelIn.oninput = () => { p.label = labelIn.value; };
   const idTag = el('span', 'prov-id', p.id);
-  const modChip = el('span', 'prov-modct', `${(p.models || []).length} 个模型`);
+  const modChip = el('span', 'prov-modct', tCount('provider.modelCount', (p.models || []).length));
   const reason = el('label', 'check prov-reason'); const rc = el('input'); rc.type = 'checkbox'; rc.checked = !!p.reasoning; rc.onchange = () => { p.reasoning = rc.checked; };
-  reason.appendChild(rc); reason.appendChild(document.createTextNode(' 推理链'));
+  reason.appendChild(rc); reason.appendChild(document.createTextNode(' ' + t('provider.reasoning')));
   // v1.0-S3 (B2): per-provider vision 开关（能力矩阵/视觉回路读 provider.vision）。同 reasoning 开关的模式。
   const visionLbl = el('label', 'check prov-reason'); const vc = el('input'); vc.type = 'checkbox'; vc.checked = !!p.vision; vc.onchange = () => { p.vision = vc.checked; };
-  visionLbl.appendChild(vc); visionLbl.appendChild(document.createTextNode(' 支持视觉（能看图/截图）'));
-  const testBtn = el('button', 'file-label', '测试连接'); testBtn.type = 'button'; testBtn.onclick = () => testProvider(idx, testBtn);
-  const delBtn = el('button', 'file-label prov-del', '删除'); delBtn.type = 'button';
+  visionLbl.appendChild(vc); visionLbl.appendChild(document.createTextNode(' ' + t('provider.vision')));
+  const testBtn = el('button', 'file-label', t('provider.testConnection')); testBtn.type = 'button'; testBtn.onclick = () => testProvider(idx, testBtn);
+  const delBtn = el('button', 'file-label prov-del', t('common.delete')); delBtn.type = 'button';
   // A6: deleting a provider also drops its API key — confirm so a misclick can't silently lose it.
-  delBtn.onclick = () => { if (!confirm('删除 Provider「' + (p.label || p.id) + '」？其 API 密钥将一并移除')) return; state.providersDraft.splice(idx, 1); renderProviders(); };
+  delBtn.onclick = () => { if (!confirm(t('provider.deleteConfirm', { name: p.label || p.id }))) return; state.providersDraft.splice(idx, 1); renderProviders(); };
   head.append(labelIn, idTag, modChip, reason, visionLbl, testBtn, delBtn);
 
   const b2 = el('div', 'field-block'); b2.append(el('label', '', 'Base URL'));
   const bi = el('input'); bi.type = 'text'; bi.value = p.baseUrl || ''; bi.placeholder = 'https://api.deepseek.com'; bi.oninput = () => { p.baseUrl = bi.value.trim(); }; b2.append(bi);
 
   const grid = el('div', 'field-grid');
-  const kb = el('div', 'field-block'); kb.append(el('label', '', 'API 密钥'));
+  const kb = el('div', 'field-block'); kb.append(el('label', '', t('provider.apiKey')));
   const keyWrap = el('div', 'prov-key-wrap');
   const ki = el('input'); ki.type = 'password'; ki.autocomplete = 'off'; ki.value = p.apiKey || ''; ki.placeholder = 'sk-...'; ki.oninput = () => { p.apiKey = ki.value; };
-  const eye = el('button', 'prov-key-eye', '👁'); eye.type = 'button'; eye.title = '显示/隐藏密钥';
+  const eye = el('button', 'prov-key-eye', '👁'); eye.type = 'button'; eye.title = t('provider.toggleApiKeyVisibility');
   eye.onclick = () => { const show = ki.type === 'password'; ki.type = show ? 'text' : 'password'; eye.classList.toggle('on', show); };
   keyWrap.append(ki, eye); kb.append(keyWrap);
-  const mb = el('div', 'field-block'); mb.append(el('label', '', '模型'));
+  const mb = el('div', 'field-block'); mb.append(el('label', '', t('provider.model')));
   const mi = el('input'); mi.type = 'text'; mi.value = p.model || ''; mi.placeholder = 'deepseek-chat'; mi.setAttribute('list', `provModels_${idx}`); mi.oninput = () => { p.model = mi.value.trim(); };
   const dl = el('datalist'); dl.id = `provModels_${idx}`; for (const m of (p.models || [])) { const o = el('option'); o.value = m.id; o.textContent = m.label || m.id; dl.appendChild(o); }
   mb.append(mi, dl); grid.append(kb, mb);
 
   // v1.0.2 (G5b): 上下文窗口手动覆盖(留空=自动检测)。其下小字显示当前生效值(仅当前激活 provider 有,取
   // /api/status.contextWindowResolved),source 人话映射。空串保存时删该字段(providerCard 写 p.contextWindow)。
-  const cwB = el('div', 'field-block'); cwB.append(el('label', '', '上下文窗口'));
+  const cwB = el('div', 'field-block'); cwB.append(el('label', '', t('provider.contextWindow')));
   const cwi = el('input'); cwi.type = 'text'; cwi.value = (p.contextWindow === 0 || p.contextWindow) ? String(p.contextWindow) : '';
-  cwi.placeholder = '自动检测';
+  cwi.placeholder = t('provider.autoDetect');
   cwi.oninput = () => { const v = cwi.value.trim(); if (v === '') { delete p.contextWindow; } else { const n = Math.round(Number(v)); p.contextWindow = Number.isFinite(n) ? n : ''; } };
   cwB.append(cwi);
   cwB.append(contextResolvedHint(p));
@@ -5932,17 +5972,17 @@ function providerCard(p, idx) {
   // 单价 · 成本估算（可选）：inputPerM/outputPerM(每百万 token)+ currency → p.pricing。留空=不估成本，
   // 「用量」看板只显 token 数。填了后端接纳并据以估算该 provider 的成本（按币种分组，不换算）。
   const priceB = el('div', 'field-block prov-pricing');
-  priceB.append(el('label', '', '单价 · 成本估算（可选，每百万 token）'));
+  priceB.append(el('label', '', t('provider.pricing.title')));
   const pr = p.pricing || {};
   const pgrid = el('div', 'prov-pricing-grid');
-  const inCell = el('label', 'prov-pricing-cell'); inCell.append(el('span', 'prov-pricing-cap', '输入 / 百万'));
-  const inI = el('input'); inI.type = 'number'; inI.min = '0'; inI.step = '0.01'; inI.placeholder = '如 2'; inI.value = (pr.inputPerM === 0 || pr.inputPerM) ? String(pr.inputPerM) : ''; inCell.append(inI);
-  const outCell = el('label', 'prov-pricing-cell'); outCell.append(el('span', 'prov-pricing-cap', '输出 / 百万'));
-  const outI = el('input'); outI.type = 'number'; outI.min = '0'; outI.step = '0.01'; outI.placeholder = '如 8'; outI.value = (pr.outputPerM === 0 || pr.outputPerM) ? String(pr.outputPerM) : ''; outCell.append(outI);
-  const curCell = el('label', 'prov-pricing-cell'); curCell.append(el('span', 'prov-pricing-cap', '币种'));
-  const curSel = el('select'); for (const c of PRICING_CURRENCIES) { const o = el('option'); o.value = c.code; o.textContent = c.label; curSel.appendChild(o); } curSel.value = pr.currency || 'CNY'; curCell.append(curSel);
+  const inCell = el('label', 'prov-pricing-cell'); inCell.append(el('span', 'prov-pricing-cap', t('provider.pricing.inputPerM')));
+  const inI = el('input'); inI.type = 'number'; inI.min = '0'; inI.step = '0.01'; inI.placeholder = t('provider.pricing.inputPlaceholder'); inI.value = (pr.inputPerM === 0 || pr.inputPerM) ? String(pr.inputPerM) : ''; inCell.append(inI);
+  const outCell = el('label', 'prov-pricing-cell'); outCell.append(el('span', 'prov-pricing-cap', t('provider.pricing.outputPerM')));
+  const outI = el('input'); outI.type = 'number'; outI.min = '0'; outI.step = '0.01'; outI.placeholder = t('provider.pricing.outputPlaceholder'); outI.value = (pr.outputPerM === 0 || pr.outputPerM) ? String(pr.outputPerM) : ''; outCell.append(outI);
+  const curCell = el('label', 'prov-pricing-cell'); curCell.append(el('span', 'prov-pricing-cap', t('provider.pricing.currency')));
+  const curSel = el('select'); for (const code of PRICING_CURRENCIES) { const o = el('option'); o.value = code; o.textContent = t('settings.currency.' + code); curSel.appendChild(o); } curSel.value = pr.currency || 'CNY'; curCell.append(curSel);
   pgrid.append(inCell, outCell, curCell); priceB.append(pgrid);
-  priceB.append(el('p', 'field-help muted', '填了才能算该服务商的成本，不填只显示 token 数。单价 = 每百万 token 价格。'));
+  priceB.append(el('p', 'field-help muted', t('provider.pricing.help')));
   const syncPricing = () => {
     const iv = inI.value.trim(), ov = outI.value.trim();
     if (iv === '' && ov === '') { delete p.pricing; return; }
@@ -5953,15 +5993,15 @@ function providerCard(p, idx) {
   };
   inI.oninput = syncPricing; outI.oninput = syncPricing; curSel.onchange = syncPricing;
 
-  const adv = el('details', 'prov-adv'); adv.append(el('summary', '', '高级（系统提示 / 采样温度 / 备用端点）'));
-  const sb = el('div', 'field-block'); sb.append(el('label', '', '系统提示（留空=内置）'));
+  const adv = el('details', 'prov-adv'); adv.append(el('summary', '', t('provider.advanced')));
+  const sb = el('div', 'field-block'); sb.append(el('label', '', t('provider.systemPrompt')));
   const st = el('textarea'); st.rows = 2; st.value = p.systemPrompt || ''; st.oninput = () => { p.systemPrompt = st.value; }; sb.append(st);
-  const tb = el('div', 'field-block'); tb.append(el('label', '', '温度（0–2，留空=不发送）'));
-  const ti = el('input'); ti.type = 'text'; ti.value = (p.temperature === 0 || p.temperature) ? String(p.temperature) : ''; ti.placeholder = '例如 0.7';
+  const tb = el('div', 'field-block'); tb.append(el('label', '', t('provider.temperature')));
+  const ti = el('input'); ti.type = 'text'; ti.value = (p.temperature === 0 || p.temperature) ? String(p.temperature) : ''; ti.placeholder = t('provider.temperaturePlaceholder');
   ti.oninput = () => { const v = ti.value.trim(); p.temperature = v === '' ? '' : (Number.isFinite(Number(v)) ? Number(v) : ''); }; tb.append(ti);
   // v1.0-S6 (B4): 备用端点（每行一个，最多 3）。主端点「预首字节」失败（连不上 / 502·503·504）时按顺序切换。
   // 读写 p.extraBaseUrls，空行过滤；后端 sanitizeProvider 会再做 trim/去重/去主端点/截断≤3 的清洗。
-  const eb = el('div', 'field-block'); eb.append(el('label', '', '备用端点（每行一个，最多 3；主端点连不上时按序切换）'));
+  const eb = el('div', 'field-block'); eb.append(el('label', '', t('provider.backupEndpoints')));
   const eti = el('textarea'); eti.rows = 2; eti.placeholder = 'https://backup1.example.com\nhttps://backup2.example.com';
   eti.value = Array.isArray(p.extraBaseUrls) ? p.extraBaseUrls.join('\n') : '';
   eti.oninput = () => { p.extraBaseUrls = eti.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 3); }; eb.append(eti);
@@ -5974,31 +6014,31 @@ function providerCard(p, idx) {
 // v1.0.2 (G5b): 「当前生效」小字。仅当此 provider 是当前激活引擎时,从 /api/status.contextWindowResolved 取
 // 生效值 + 来源。source 人话:manual=手动 / probe=接口探测 / table=内置表 / fallback=保守默认。非激活 provider
 // 或无数据时给一句静态说明(手动填的值下一次该引擎生效时才会体现在这里)。返回一个 .prov-ctx-hint 元素。
-const CTX_SOURCE_LABEL = { manual: '手动', probe: '接口探测', table: '内置表', fallback: '保守默认' };
+const CTX_SOURCE_KEY = { manual: 'provider.contextSource.manual', probe: 'provider.contextSource.probe', table: 'provider.contextSource.table', fallback: 'provider.contextSource.fallback' };
 function contextResolvedHint(p) {
   const hint = el('div', 'prov-ctx-hint muted');
   const r = state.status && state.status.contextWindowResolved;
   if (r && r.provider && p && r.provider === p.id && Number(r.value) > 0) {
-    const src = CTX_SOURCE_LABEL[r.source] || r.source || '未知';
-    hint.textContent = '当前生效：' + Number(r.value).toLocaleString('en-US') + '（来源：' + src + '）';
+    const src = t(CTX_SOURCE_KEY[r.source] || 'provider.contextSource.unknown');
+    hint.textContent = t('provider.contextResolved', { value: Number(r.value).toLocaleString(getLocale()), source: src });
   } else {
-    hint.textContent = '留空自动检测。把此引擎切为当前引擎后，这里会显示实际生效值与来源。';
+    hint.textContent = t('provider.contextAutoHint');
   }
   return hint;
 }
 async function testProvider(idx, btn) {
   const p = state.providersDraft[idx]; if (!p) return;
   const status = $(`provStatus_${idx}`);
-  if (btn) { btn.disabled = true; btn.textContent = '测试中…'; }
+  if (btn) { btn.disabled = true; btn.textContent = t('provider.testing'); }
   try {
     const r = await api('/api/provider/test', { method: 'POST', body: JSON.stringify({ provider: p }) });
     if (r && r.ok) {
       if (Array.isArray(r.models) && r.models.length) p.models = r.models;
-      if (status) { status.textContent = `✓ 连接成功，返回 ${r.models ? r.models.length : 0} 个模型`; status.classList.remove('bad'); status.classList.add('good'); }
+      if (status) { status.textContent = tCount('provider.testSuccess', r.models ? r.models.length : 0); status.classList.remove('bad'); status.classList.add('good'); }
       renderProviders();
-    } else if (status) { status.textContent = `✗ ${(r && r.error) || '连接失败'}`; status.classList.remove('good'); status.classList.add('bad'); }
+    } else if (status) { status.textContent = `✗ ${(r && r.error) || t('provider.testFailure')}`; status.classList.remove('good'); status.classList.add('bad'); }
   } catch (e) { if (status) { status.textContent = `✗ ${apiErrText(e)}`; status.classList.add('bad'); } }
-  finally { if (btn) { btn.disabled = false; btn.textContent = '测试连接'; } }
+  finally { if (btn) { btn.disabled = false; btn.textContent = t('provider.testConnection'); } }
 }
 
 // v1.0.2 (G5c): 从文件夹导入外部 MCP。POST /api/pick-folder(原生选择器)→ 取 path → POST /api/mcp/import-folder。
@@ -6145,6 +6185,124 @@ async function openMcpInspector() {
 let skillRegistry = [];
 let skillFiltered = [];
 let skillIndex = 0;
+// Built-in registry metadata ships with the offline toolkit in Chinese. Keep the server payload
+// canonical and translate it at the UI boundary; user/project SKILL.md content is deliberately
+// left untouched because it is authored content rather than product chrome.
+const BUILTIN_SKILL_I18N_IDS = Object.freeze({
+  'skill:api-debugger': 'apiDebugger',
+  'skill:office-automation': 'officeAutomation',
+  'skill:windows-control': 'windowsControl',
+  'skill:code-simplifier': 'codeSimplifier',
+  'skill:frontend-design-craft': 'frontendDesignCraft',
+  'skill:feature-development': 'featureDevelopment',
+  'skill:security-guidance': 'securityGuidance',
+  'skill:commit-workflow': 'commitWorkflow',
+  'skill:plugin-development': 'pluginDevelopment',
+  'skill:devops-ci-local': 'devopsCiLocal',
+  'skill:local-docs-context': 'localDocsContext',
+  'skill:lsp-local-setup': 'lspLocalSetup',
+  'skill:code-review-offline': 'codeReviewOffline',
+  'skill:offline-packaging': 'offlinePackaging',
+  'skill:browser-debug': 'browserDebug',
+  'skill:claude-md-management': 'claudeMdManagement',
+  'command:api-probe': 'command.apiProbe',
+  'command:claude-md-audit': 'command.claudeMdAudit',
+  'command:commit-message': 'command.commitMessage',
+  'command:dependency-inventory': 'command.dependencyInventory',
+  'command:frontend-audit': 'command.frontendAudit',
+  'command:offline-code-review': 'command.offlineCodeReview',
+  'command:workbench-doctor': 'command.workbenchDoctor',
+  'playbook:pb:pdf-summarize': 'playbook.pdfSummarize',
+  'playbook:pb:weekly-report': 'playbook.weeklyReport',
+  'playbook:pb:merge-excel': 'playbook.mergeExcel',
+  'playbook:pb:desktop-open-app': 'playbook.desktopOpenApp',
+  'playbook:pb:web-form-fill': 'playbook.webFormFill',
+  'playbook:pb:ocr-scan': 'playbook.ocrScan',
+  'playbook:pb:batch-rename': 'playbook.batchRename',
+  'playbook:pb:archive-by-content': 'playbook.archiveByContent',
+  'playbook:pb:clean-downloads': 'playbook.cleanDownloads',
+  'playbook:pb:folder-inventory': 'playbook.folderInventory',
+});
+const BUILTIN_SKILL_AVAILABILITY_I18N_KEYS = Object.freeze({
+  '需要联网(当前离线)': 'skills.requirements.networkOffline',
+  '需要桌面控制(未检测到 ai-computer-control)': 'skills.requirements.desktopControl',
+  '需要视觉模型(当前引擎未开启视觉)': 'skills.requirements.vision',
+});
+const BUILTIN_PLAYBOOK_INPUT_I18N_KEYS = Object.freeze({
+  'archive-by-content:folder': 'skills.playbook.inputs.archiveByContent.folder',
+  'batch-rename:folder': 'skills.playbook.inputs.batchRename.folder',
+  'batch-rename:rule': 'skills.playbook.inputs.batchRename.rule',
+  'clean-downloads:folder': 'skills.playbook.inputs.cleanDownloads.folder',
+  'desktop-open-app:app': 'skills.playbook.inputs.desktopOpenApp.app',
+  'desktop-open-app:goal': 'skills.playbook.inputs.desktopOpenApp.goal',
+  'folder-inventory:folder': 'skills.playbook.inputs.folderInventory.folder',
+  'folder-inventory:output': 'skills.playbook.inputs.folderInventory.output',
+  'merge-excel:folder': 'skills.playbook.inputs.mergeExcel.folder',
+  'merge-excel:output': 'skills.playbook.inputs.mergeExcel.output',
+  'ocr-scan:folder': 'skills.playbook.inputs.ocrScan.folder',
+  'ocr-scan:output': 'skills.playbook.inputs.ocrScan.output',
+  'pdf-summarize:folder': 'skills.playbook.inputs.pdfSummarize.folder',
+  'pdf-summarize:output': 'skills.playbook.inputs.pdfSummarize.output',
+  'web-form-fill:url': 'skills.playbook.inputs.webFormFill.url',
+  'web-form-fill:fields': 'skills.playbook.inputs.webFormFill.fields',
+  'weekly-report:notes': 'skills.playbook.inputs.weeklyReport.notes',
+  'weekly-report:output': 'skills.playbook.inputs.weeklyReport.output',
+});
+function builtinSkillTextKey(entry, field) {
+  if (!entry || entry.source !== 'builtin') return '';
+  const id = BUILTIN_SKILL_I18N_IDS[`${entry.kind}:${entry.id}`];
+  return id ? `skills.builtin.${id}.${field}` : '';
+}
+function skillDisplayText(entry, field) {
+  const raw = String(entry?.[field] || '');
+  const key = builtinSkillTextKey(entry, field);
+  return key ? t(key) : raw;
+}
+function skillDisplayName(entry) {
+  return skillDisplayText(entry, 'name') || String(entry?.id || '');
+}
+function skillDisplayDescription(entry) {
+  return skillDisplayText(entry, 'description');
+}
+function skillDisplaySource(entry) {
+  const key = ({ project: 'skills.source.project', user: 'skills.source.user', builtin: 'skills.source.builtin' })[entry?.source];
+  return key ? t(key) : t('common.unknown');
+}
+function skillDisplayUnavailableReason(entry) {
+  const raw = String(entry?.unavailableReason || '');
+  return BUILTIN_SKILL_AVAILABILITY_I18N_KEYS[raw] ? t(BUILTIN_SKILL_AVAILABILITY_I18N_KEYS[raw]) : raw;
+}
+function builtinPlaybookTextKey(playbook, field) {
+  if (!playbook?.builtin) return '';
+  const id = BUILTIN_SKILL_I18N_IDS[`playbook:pb:${playbook.id}`];
+  return id ? `skills.builtin.${id}.${field}` : '';
+}
+function playbookDisplayText(playbook, field) {
+  const raw = String(playbook?.[field] || '');
+  const key = builtinPlaybookTextKey(playbook, field === 'title' ? 'name' : 'description');
+  return key ? t(key) : raw;
+}
+function playbookDisplayName(playbook) {
+  return playbookDisplayText(playbook, 'title') || String(playbook?.id || '');
+}
+function playbookDisplayDescription(playbook) {
+  return playbookDisplayText(playbook, 'desc');
+}
+function playbookDisplayUnavailableReason(playbook) {
+  const raw = String(playbook?.unavailableReason || '');
+  return BUILTIN_SKILL_AVAILABILITY_I18N_KEYS[raw] ? t(BUILTIN_SKILL_AVAILABILITY_I18N_KEYS[raw]) : raw;
+}
+function playbookInputLabel(pb, input) {
+  const raw = String(input?.label || input?.key || '');
+  if (!pb?.builtin) return raw;
+  const key = BUILTIN_PLAYBOOK_INPUT_I18N_KEYS[`${pb.id}:${input?.key}`];
+  return key ? t(key) : raw;
+}
+function skillMatchesQuery(entry, query) {
+  if (!query) return true;
+  const fields = [skillDisplayName(entry), skillDisplayDescription(entry), entry?.name, entry?.description, entry?.id];
+  return fields.some(value => String(value || '').toLowerCase().includes(query));
+}
 // P3-5: 技能开关串行化 —— 模块级单飞 promise 链(并发点击按序落盘,避免读改写竞态覆盖)+ 在途 id 集合(禁用对应行开关)。
 let skillToggleChain = Promise.resolve();
 const skillTogglePending = new Set();
@@ -6156,7 +6314,7 @@ function enabledSkillIds() {
 async function openSkillPanel() {
   openModal('skillModal');
   const s = $('skillSearch'); s.value = ''; skillIndex = 0; s.focus();
-  $('skillList').innerHTML = '<div class="muted">加载中…</div>';
+  $('skillList').innerHTML = `<div class="muted">${escapeHtml(t('skills.loading'))}</div>`;
   // 每次打开都刷新:项目级技能随 cwd 变、可用性随能力矩阵变、启用状态随会话变。cwd 传当前会话工作目录。
   try { skillRegistry = (await api('/api/skills?cwd=' + encodeURIComponent(currentWorkspace() || ''))).skills || []; }
   catch { skillRegistry = []; }
@@ -6165,7 +6323,7 @@ async function openSkillPanel() {
 function renderSkillList() {
   const q = $('skillSearch').value.trim().toLowerCase();
   const all = skillRegistry || [];
-  const match = s => !q || (s.name || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q) || (s.id || '').toLowerCase().includes(q);
+  const match = s => skillMatchesQuery(s, q);
   const claudeMode = !isProviderMode();
   const skills = all.filter(s => s.kind === 'skill' && match(s));
   const commands = claudeMode ? all.filter(s => s.kind === 'command' && match(s)) : []; // 命令仅 Claude 模式(CLI 原生认 /name)
@@ -6179,14 +6337,14 @@ function renderSkillList() {
   const regSkillIds = new Set(all.filter(s => s.kind === 'skill').map(s => s.id));
   const ghosts = enabledIds.filter(id => !regSkillIds.has(id) && (!q || id.toLowerCase().includes(q)));
   if (!skillFiltered.length && !ghosts.length) {
-    list.appendChild(el('div', 'muted', all.length ? '无匹配' : '未发现技能/命令（可在数据目录 skills/ 或项目 .ruyi/skills/ 放置 SKILL.md）'));
+    list.appendChild(el('div', 'muted', all.length ? t('skills.noMatch') : t('skills.empty')));
     return;
   }
   // v3 (§2.12 P2 r2):分段控件锚点导航 + 两列卡片网格。分组顺序与 skillFiltered 拍平顺序一致(键盘导航 flatIdx 对齐)。
   const groups = [
-    { id: 'skill', label: '技能', sub: '复杂任务的专家流程', items: skills, builder: buildSkillRow },
-    { id: 'cmd', label: '命令', sub: '斜杠触发的动作', items: commands, builder: buildCommandRow },
-    { id: 'play', label: '一键任务', sub: '首页任务卡', items: playbooks, builder: buildPlaybookRow },
+    { id: 'skill', label: t('skills.group.skills'), sub: t('skills.group.skillsDescription'), items: skills, builder: buildSkillRow },
+    { id: 'cmd', label: t('skills.group.commands'), sub: t('skills.group.commandsDescription'), items: commands, builder: buildCommandRow },
+    { id: 'play', label: t('skills.group.playbooks'), sub: t('skills.group.playbooksDescription'), items: playbooks, builder: buildPlaybookRow },
   ].filter(g => g.items.length);
   if (groups.length > 1) list.appendChild(buildSkAnchorNav(groups.map(g => ({ id: 'g-' + g.id, label: g.label, count: g.items.length }))));
   let flatIdx = 0;
@@ -6200,7 +6358,7 @@ function renderSkillList() {
   }
   if (ghosts.length) {
     const grp = el('div', 'sk-group');
-    grp.appendChild(buildSkGroupTitle('已失效', '', ghosts.length));
+    grp.appendChild(buildSkGroupTitle(t('skills.group.unavailable'), '', ghosts.length));
     const grid = el('div', 'sk-grid');
     for (const gid of ghosts) grid.appendChild(buildGhostRow(gid)); // 不带 .skill-item → 键盘导航忽略
     grp.appendChild(grid);
@@ -6209,7 +6367,7 @@ function renderSkillList() {
 }
 // 分段控件式锚点子导航(§2.12):chips 置顶,点击/回车滚动到对应组并高亮。容器可复用(技能库/记忆同构)。
 function buildSkAnchorNav(entries) {
-  const seg = el('nav', 'sk-seg'); seg.setAttribute('aria-label', '分组导航');
+  const seg = el('nav', 'sk-seg'); seg.setAttribute('aria-label', t('skills.groupNavigation'));
   entries.forEach((en, i) => {
     const a = el('a', i === 0 ? 'active' : '');
     a.append(el('span', '', en.label), el('span', 'n num', String(en.count)));
@@ -6248,12 +6406,12 @@ function buildGhostRow(id) {
   const it = el('div', 'skill-ghost');
   const head = el('div', 'skill-head');
   head.appendChild(el('span', 'skill-name', id));
-  head.appendChild(el('span', 'skill-src', '已失效'));
-  const rm = el('button', 'skill-toggle', '移除');
+  head.appendChild(el('span', 'skill-src', t('skills.group.unavailable')));
+  const rm = el('button', 'skill-toggle', t('skills.removeUnavailable'));
   rm.onclick = e => { e.stopPropagation(); removeGhostSkill(id); };
   head.appendChild(rm);
   it.appendChild(head);
-  it.appendChild(el('div', 'skill-reason', '此技能已不在注册表中（可能已删除，或随工作目录变化而不可见）。'));
+  it.appendChild(el('div', 'skill-reason', t('skills.unavailableReason')));
   return it;
 }
 // P3-6: 移除一个失效技能 —— 从启用集里剔除该 id 并落盘(服务端只保留注册表里存在的技能,失效 id 自然被清)。
@@ -6264,8 +6422,8 @@ async function removeGhostSkill(id) {
   try {
     const r = await api('/api/session/skills', { method: 'POST', body: JSON.stringify({ sessionId: session.id, skills: next }) });
     session.skills = (r && Array.isArray(r.skills)) ? r.skills : next.map(x => ({ id: x, source: '' }));
-    toast(`已移除失效技能：${id}`);
-  } catch (e) { toast('移除失败：' + apiErrText(e), 'err'); return; }
+    toast(t('skills.toast.removedUnavailable', { id }));
+  } catch (e) { toast(t('skills.toast.removeFailed', { reason: apiErrText(e) }), 'err'); return; }
   renderSkillList();
   updateSkillBadge();
 }
@@ -6278,14 +6436,16 @@ function buildSkillRow(s, i, enabled) {
   const it = el('div', `skill-item sk-card${on ? ' on' : ''}${i === skillIndex ? ' sel' : ''}${unavailable ? ' unavailable' : ''}`);
   const head = el('div', 'sk-card-h');
   head.appendChild(skillCardIco('skill', s));
-  head.appendChild(el('span', 'sk-name', s.name || s.id)); // 中文名主显
-  head.appendChild(el('span', 'sk-src', s.source === 'project' ? '项目' : (s.source === 'user' ? '用户' : '内置')));
+  head.appendChild(el('span', 'sk-name', skillDisplayName(s)));
+  head.appendChild(el('span', 'sk-src', skillDisplaySource(s)));
   it.appendChild(head);
   it.appendChild(el('div', 'sk-id', s.id)); // mono id 降为小字
-  if (s.description) it.appendChild(el('div', 'sk-desc', s.description));
-  if (unavailable && s.unavailableReason) it.appendChild(el('div', 'sk-reason', s.unavailableReason));
+  const description = skillDisplayDescription(s);
+  if (description) it.appendChild(el('div', 'sk-desc', description));
+  const unavailableReason = skillDisplayUnavailableReason(s);
+  if (unavailable && unavailableReason) it.appendChild(el('div', 'sk-reason', unavailableReason));
   const foot = el('div', 'sk-foot');
-  const toggle = el('button', 'skill-toggle' + (on ? ' on' : ''), unavailable ? '不可用' : (pending ? '…' : (on ? '已启用' : '启用')));
+  const toggle = el('button', 'skill-toggle' + (on ? ' on' : ''), unavailable ? t('skills.unavailable') : (pending ? '…' : (on ? t('skills.enabled') : t('skills.enable'))));
   if (unavailable || pending) toggle.disabled = true;
   toggle.onclick = e => { e.stopPropagation(); toggleSkill(s); };
   foot.appendChild(toggle);
@@ -6299,10 +6459,11 @@ function buildCommandRow(s, i) {
   const it = el('div', `skill-item sk-card${i === skillIndex ? ' sel' : ''}`);
   const head = el('div', 'sk-card-h');
   head.appendChild(skillCardIco('command', s));
-  head.appendChild(el('span', 'sk-name', s.name || s.id));
+  head.appendChild(el('span', 'sk-name', skillDisplayName(s)));
   it.appendChild(head);
   it.appendChild(el('code', 'sk-id', s.insert || ('/' + s.id)));
-  if (s.description) it.appendChild(el('div', 'sk-desc', s.description));
+  const description = skillDisplayDescription(s);
+  if (description) it.appendChild(el('div', 'sk-desc', description));
   it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
   it.onclick = () => { insertSkill(s.insert || ('/' + s.id)); closeModal('skillModal'); };
   return it;
@@ -6314,15 +6475,17 @@ function buildPlaybookRow(s, i) {
   const it = el('div', `skill-item sk-card${i === skillIndex ? ' sel' : ''}${unavailable ? ' unavailable' : ''}`);
   const head = el('div', 'sk-card-h');
   head.appendChild(skillCardIco('playbook', s));
-  head.appendChild(el('span', 'sk-name', s.name || s.id));
+  head.appendChild(el('span', 'sk-name', skillDisplayName(s)));
   it.appendChild(head);
   it.appendChild(el('div', 'sk-id', s.id));
-  if (s.description) it.appendChild(el('div', 'sk-desc', s.description));
-  if (unavailable && s.unavailableReason) it.appendChild(el('div', 'sk-reason', s.unavailableReason));
+  const description = skillDisplayDescription(s);
+  if (description) it.appendChild(el('div', 'sk-desc', description));
+  const unavailableReason = skillDisplayUnavailableReason(s);
+  if (unavailable && unavailableReason) it.appendChild(el('div', 'sk-reason', unavailableReason));
   it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
   it.onclick = () => {
-    if (unavailable) { toast(s.unavailableReason || '当前不可用', 'err'); return; }
-    if (!pb) { toast('该任务模板数据缺失', 'err'); return; }
+    if (unavailable) { toast(unavailableReason || t('skills.toast.unavailable'), 'err'); return; }
+    if (!pb) { toast(t('skills.toast.playbookMissing'), 'err'); return; }
     closeModal('skillModal'); openPlaybookModal(pb);
   };
   return it;
@@ -6331,8 +6494,8 @@ function buildPlaybookRow(s, i) {
 // P3-5: 串行化 —— 接到模块级单飞链尾,并把该 id 记为在途(禁用其开关),避免快速连点产生读改写竞态/覆盖。
 function toggleSkill(entry) {
   const session = state.currentSession;
-  if (!session) { toast('请先新建或选择一个会话', 'err'); return; }
-  if (entry.available === false) { toast(entry.unavailableReason || '该技能当前不可用', 'err'); return; }
+  if (!session) { toast(t('skills.toast.selectSession'), 'err'); return; }
+  if (entry.available === false) { toast(skillDisplayUnavailableReason(entry) || t('skills.toast.unavailable'), 'err'); return; }
   if (skillTogglePending.has(entry.id)) return; // 该行已有在途请求 → 忽略重复点击
   skillTogglePending.add(entry.id);
   renderSkillList(); // 立刻反映 disabled 态
@@ -6349,18 +6512,19 @@ async function doToggleSkill(entry) {
   const on = cur.includes(entry.id);
   let next;
   if (on) next = cur.filter(x => x !== entry.id);
-  else { if (cur.length >= 8) { toast('最多同时启用 8 个技能', 'err'); return; } next = cur.concat(entry.id); }
+  else { if (cur.length >= 8) { toast(t('skills.toast.maxEnabled', { count: 8 }), 'err'); return; } next = cur.concat(entry.id); }
   try {
     const r = await api('/api/session/skills', { method: 'POST', body: JSON.stringify({ sessionId: session.id, skills: next }) });
     session.skills = (r && Array.isArray(r.skills)) ? r.skills : next.map(id => ({ id, source: '' }));
-    toast(on ? `已停用技能：${entry.name || entry.id}` : `已启用技能：${entry.name || entry.id}`);
-  } catch (e) { toast('设置技能失败：' + apiErrText(e), 'err'); }
+    const name = skillDisplayName(entry);
+    toast(on ? t('skills.toast.disabled', { name }) : t('skills.toast.enabled', { name }));
+  } catch (e) { toast(t('skills.toast.updateFailed', { reason: apiErrText(e) }), 'err'); }
 }
 // composer 技能按钮的数量徽标(已启用技能数)。会话切换/启用变更时刷新。
 function updateSkillBadge() {
   const btn = $('skillBtn'); if (!btn) return;
   const n = (state.currentSession && Array.isArray(state.currentSession.skills)) ? state.currentSession.skills.length : 0;
-  iconTextBtn(btn, 'sparkles', n > 0 ? `技能 · ${n}` : '技能'); // v3 (§B1/§2.15): ✨→sparkles 线性 SVG(⌘ 曾是 Mac 心智,已弃)
+  iconTextBtn(btn, 'sparkles', n > 0 ? t('skills.badgeWithCount', { count: n }) : t('skills.badge')); // v3 (§B1/§2.15): ✨→sparkles 线性 SVG(⌘ 曾是 Mac 心智,已弃)
 }
 function updateSkillSel() {
   const items = [...$('skillList').querySelectorAll('.skill-item')];
@@ -6378,7 +6542,8 @@ function pickSkill(i) {
   if (s.kind === 'skill') { toggleSkill(s); return; }
   if (s.kind === 'command') { insertSkill(s.insert || ('/' + s.id)); closeModal('skillModal'); return; }
   if (s.kind === 'playbook') {
-    if (s.available === false || !s.playbook) { toast(s.unavailableReason || '该任务当前不可用', 'err'); return; }
+    if (s.available === false) { toast(skillDisplayUnavailableReason(s) || t('skills.toast.unavailable'), 'err'); return; }
+    if (!s.playbook) { toast(t('skills.toast.playbookMissing'), 'err'); return; }
     closeModal('skillModal'); openPlaybookModal(s.playbook);
   }
 }
@@ -6673,41 +6838,41 @@ async function openMemoryEditModal(m) {
 /* ---------------- command palette ---------------- */
 function paletteActions() {
   const acts = [
-    { label: '新会话', hint: 'Ctrl+N', run: newSession },
-    { label: '切换主题', hint: '', run: toggleTheme },
-    { label: '压缩上下文', hint: '', run: compactContext },
-    { label: '打开设置', hint: '', run: () => openModal('settingsModal') },
-    { label: '打开 Providers 设置', hint: '', run: () => { openModal('settingsModal'); switchSettingsTab('providers'); } },
-    { label: '打开数据目录', hint: '', run: () => { const dr = (state.status && state.status.dataRoot) || ''; if (dr) runTool('browser_open', { url: dr }); else toast('数据目录未知', 'err'); } },
-    { label: '刷新体检', hint: '', run: () => { refreshStatus(); switchTab('doctor'); } },
-    { label: '停止当前回合', hint: 'Esc', run: stopTurn },
-    { label: '导出会话 · Markdown', hint: 'export', run: () => exportSession('md') },
-    { label: '导出会话 · JSON', hint: 'export', run: () => exportSession('json') },
-    { label: '导出会话 · HTML', hint: 'export', run: () => exportSession('html') },
-    { label: '导入会话 (JSON)', hint: 'import', run: importSession },
-    { label: '把当前输入存为模板', hint: 'template', run: addTemplateFromPrompt },
-    { label: 'MCP 工具检查器', hint: 'tools', run: openMcpInspector },
-    { label: '技能库（技能 / 命令 / 一键任务）', hint: '/', run: openSkillPanel },
-    { label: '工作台记忆（跨会话）', hint: 'memory', run: openMemoryPanel },
+    { label: t('palette.newSession'), hint: 'Ctrl+N', run: newSession },
+    { label: t('palette.toggleTheme'), hint: '', run: toggleTheme },
+    { label: t('palette.compactContext'), hint: '', run: compactContext },
+    { label: t('palette.openSettings'), hint: '', run: () => openModal('settingsModal') },
+    { label: t('palette.openProviders'), hint: '', run: () => { openModal('settingsModal'); switchSettingsTab('providers'); } },
+    { label: t('palette.openDataDirectory'), hint: '', run: () => { const dr = (state.status && state.status.dataRoot) || ''; if (dr) runTool('browser_open', { url: dr }); else toast(t('palette.dataDirectoryUnknown'), 'err'); } },
+    { label: t('palette.refreshDiagnostics'), hint: '', run: () => { refreshStatus(); switchTab('doctor'); } },
+    { label: t('palette.stopCurrentTurn'), hint: 'Esc', run: stopTurn },
+    { label: t('palette.exportMarkdown'), hint: 'export', run: () => exportSession('md') },
+    { label: t('palette.exportJson'), hint: 'export', run: () => exportSession('json') },
+    { label: t('palette.exportHtml'), hint: 'export', run: () => exportSession('html') },
+    { label: t('palette.importJson'), hint: 'import', run: importSession },
+    { label: t('palette.saveInputAsTemplate'), hint: 'template', run: addTemplateFromPrompt },
+    { label: t('palette.mcpInspector'), hint: 'tools', run: openMcpInspector },
+    { label: t('palette.skills'), hint: '/', run: openSkillPanel },
+    { label: t('palette.memories'), hint: 'memory', run: openMemoryPanel },
   ];
-  for (const t of getTemplates()) acts.push({ label: `模板 → ${t.name}`, hint: 'template', run: () => insertTemplate(t.text) });
+  for (const template of getTemplates()) acts.push({ label: t('palette.template', { name: template.name }), hint: 'template', run: () => insertTemplate(template.text) });
   // Engine/model actions across ALL engines (C4): Claude CLI group + every provider. Each row switches
   // engine AND model in one setEngineModel call. Label reads "引擎 → {engineLabel} · {model}".
   const curPid = isProviderMode() ? state.config.activeProvider : '';
   const curModel = currentModelId();
-  const claudeModels = (state.status && state.status.models) || [{ id: '', label: '默认' }];
+  const claudeModels = (state.status && state.status.models) || [{ id: '', label: t('palette.defaultModel') }];
   for (const m of claudeModels) {
     const isCur = curPid === '' && (m.id || '') === (curModel || '');
-    acts.push({ label: `引擎 → Claude CLI · ${m.label || m.id || '默认'}`, hint: isCur ? '当前' : 'engine', run: () => setEngineModel('', m.id || '') });
+    acts.push({ label: t('palette.engine', { engine: 'Claude CLI', model: m.label || m.id || t('palette.defaultModel') }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel('', m.id || '') });
   }
   for (const p of (state.config.providers || [])) {
     for (const m of (p.models || [])) {
       if (!m.id) continue;
       const isCur = curPid === p.id && (m.id || '') === (curModel || '');
-      acts.push({ label: `引擎 → ${p.label || p.id} · ${m.label || m.id}`, hint: isCur ? '当前' : 'engine', run: () => setEngineModel(p.id, m.id) });
+      acts.push({ label: t('palette.engine', { engine: p.label || p.id, model: m.label || m.id }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel(p.id, m.id) });
     }
   }
-  for (const s of state.sessions.slice(0, 12)) acts.push({ label: `会话 → ${s.title}`, hint: 'session', run: () => openSession(s.id) });
+  for (const s of state.sessions.slice(0, 12)) acts.push({ label: t('palette.session', { title: s.title }), hint: 'session', run: () => openSession(s.id) });
   return acts;
 }
 function openPalette() {
@@ -6789,8 +6954,9 @@ function renderModelChip() {
   const engEl = chip.querySelector('.mc-engine');
   const modEl = chip.querySelector('.mc-model');
   if (engEl) { engEl.textContent = isProviderMode() ? vis.label : 'Claude CLI'; engEl.style.color = vis.colorVar; }
-  if (modEl) { const m = currentModelId(); modEl.textContent = isProviderMode() ? (m || '(未选模型)') : (m || '默认'); }
-  chip.title = `${engineLabel()} · ${currentModelId() || '默认'}（点击切换引擎/模型）`;
+  const model = currentModelId() || t('provider.defaultModel');
+  if (modEl) { const m = currentModelId(); modEl.textContent = isProviderMode() ? (m || `(${t('modelMenu.unselected')})`) : model; }
+  chip.title = t('modelMenu.chipTitle', { engine: engineLabel(), model });
 }
 // Write activeProvider + model in ONE POST /api/config, then refresh chip + dependent UI + meter +
 // (silently) the live model list. providerId ''(or 'claude-cli') selects the Claude engine; a provider
@@ -6811,7 +6977,9 @@ async function setEngineModel(providerId, modelId) {
   updateContextMeter();
   refreshModels(); // silent enrich for the newly-active engine
   const label = engineLabel();
-  toast(state.streaming ? `引擎/模型：${label} · ${modelId || '默认'}（下一轮生效）` : `引擎/模型：${label} · ${modelId || '默认'}`, 'ok');
+  toast(state.streaming
+    ? t('modelMenu.selectionChangedNextTurn', { engine: label, model: modelId || t('provider.defaultModel') })
+    : t('modelMenu.selectionChanged', { engine: label, model: modelId || t('provider.defaultModel') }), 'ok');
 }
 // Build + open the chip popover: grouped single-select list (Claude CLI group + one group per
 // provider), current row ✓ + highlighted, disabled placeholder for provider groups with no models,
@@ -6841,7 +7009,7 @@ function openModelChipPopover() {
         const isCur = (pid === curPid) && ((m.id || '') === (curModel || ''));
         const row = el('button', 'mc-row' + (isCur ? ' active' : ''));
         row.type = 'button';
-        row.append(el('span', 'mc-check', isCur ? '✓' : ''), el('span', 'mc-rlabel', m.label || m.id || '默认'));
+        row.append(el('span', 'mc-check', isCur ? '✓' : ''), el('span', 'mc-rlabel', m.label || m.id || t('provider.defaultModel')));
         const badge = ctxLenBadge(m.contextLength);
         if (badge) row.append(el('span', 'mc-ctxlen', badge));
         row.onclick = () => { close(); setEngineModel(pid, m.id || ''); };
@@ -6857,35 +7025,35 @@ function openModelChipPopover() {
       if (isActive) {
         const gh = el('div', 'mc-group');
         const dot = el('span', 'mc-gdot'); dot.style.background = colorVar;
-        gh.append(dot, el('span', 'mc-glabel', label), el('span', 'mc-gcount', '· ' + count + ' 个模型'));
+        gh.append(dot, el('span', 'mc-glabel', label), el('span', 'mc-gcount', '· ' + tCount('modelMenu.modelCount', count)));
         wrap.appendChild(gh);
         buildRows(wrap, pid, models, emptyHint, true);
       } else {
         const det = el('details', 'mc-groupd');
         const sum = el('summary', 'mc-group mc-group-sum');
         const dot = el('span', 'mc-gdot'); dot.style.background = colorVar;
-        sum.append(dot, el('span', 'mc-glabel', label), el('span', 'mc-gcount', '· ' + count + ' 个模型'),
-          el('span', 'mc-switch-note', '选择将切换引擎'));
+        sum.append(dot, el('span', 'mc-glabel', label), el('span', 'mc-gcount', '· ' + tCount('modelMenu.modelCount', count)),
+          el('span', 'mc-switch-note', t('modelMenu.switchesEngine')));
         det.appendChild(sum);
         buildRows(det, pid, models, emptyHint, false);
         wrap.appendChild(det);
       }
     };
     // Claude CLI group (models from status.models — the claude-side offline/proxy list, includes '默认').
-    const claudeModels = (state.status && state.status.models) || [{ id: '', label: '默认' }];
+    const claudeModels = (state.status && state.status.models) || [{ id: '', label: t('provider.defaultModel') }];
     addGroup('', 'Claude CLI', 'var(--eng-claude)', claudeModels, '');
     // One group per configured provider.
     for (const p of (state.config.providers || [])) {
       const vis = engineVisual({ engine: 'openai', providerId: p.id, providerLabel: p.label || p.id });
-      addGroup(p.id, p.label || p.id, vis.colorVar, (p.models || []), '（先在设置→Providers 测试连接）');
+      addGroup(p.id, p.label || p.id, vis.colorVar, (p.models || []), t('modelMenu.noModelsHint'));
     }
     // Footer actions.
     wrap.appendChild(el('div', 'mc-sep'));
     const refreshRow = el('button', 'mc-row mc-action'); refreshRow.type = 'button';
-    refreshRow.append(el('span', 'mc-check', '↻'), el('span', 'mc-rlabel', '刷新模型列表'));
+    refreshRow.append(el('span', 'mc-check', '↻'), el('span', 'mc-rlabel', t('modelMenu.refreshModels')));
     refreshRow.onclick = async () => { await refreshModels(true); close(); openModelChipPopover(); };
     const manageRow = el('button', 'mc-row mc-action'); manageRow.type = 'button';
-    manageRow.append(el('span', 'mc-check', '⚙'), el('span', 'mc-rlabel', '管理 Providers…'));
+    manageRow.append(el('span', 'mc-check', '⚙'), el('span', 'mc-rlabel', t('modelMenu.manageProviders')));
     manageRow.onclick = () => { close(); openModal('settingsModal'); switchSettingsTab('providers'); };
     wrap.append(refreshRow, manageRow);
     rows.push(refreshRow, manageRow);
@@ -6996,9 +7164,9 @@ function renderCapBadge() {
   const gaps = badge.querySelector('.cap-gaps');
   const online = caps && caps.network ? caps.network.online : null;
   badge.classList.remove('cap-online', 'cap-offline', 'cap-unknown');
-  if (online === true) { net.textContent = '●'; badge.classList.add('cap-online'); badge.title = '能力矩阵：在线（点击查看）'; }
-  else if (online === false) { net.textContent = '○'; badge.classList.add('cap-offline'); badge.title = '能力矩阵：离线（点击查看）'; }
-  else { net.textContent = '◐'; badge.classList.add('cap-unknown'); badge.title = '能力矩阵：联网状态未知（点击查看）'; }
+  if (online === true) { net.textContent = '●'; badge.classList.add('cap-online'); badge.title = t('capability.badge.online'); }
+  else if (online === false) { net.textContent = '○'; badge.classList.add('cap-offline'); badge.title = t('capability.badge.offline'); }
+  else { net.textContent = '◐'; badge.classList.add('cap-unknown'); badge.title = t('capability.badge.unknown'); }
   const g = capGapCount(caps);
   if (g > 0) { gaps.textContent = String(g); gaps.classList.remove('hidden'); }
   else { gaps.classList.add('hidden'); gaps.textContent = ''; }
@@ -7015,8 +7183,8 @@ function openCapPopover(anchorOverride) {
   const handle = popover(anchor, () => {
     const wrap = el('div', 'cap-pop');
     const caps = _caps || {};
-    const netLabel = (caps.network && caps.network.online === true) ? '在线'
-      : (caps.network && caps.network.online === false) ? '离线' : '未知';
+    const netLabel = (caps.network && caps.network.online === true) ? t('capability.network.online')
+      : (caps.network && caps.network.online === false) ? t('capability.network.offline') : t('capability.network.unknown');
     const netCls = (caps.network && caps.network.online === true) ? 'ok'
       : (caps.network && caps.network.online === false) ? 'bad' : 'muted';
     const item = (k, v, cls) => {
@@ -7025,22 +7193,22 @@ function openCapPopover(anchorOverride) {
       row.appendChild(el('span', 'cap-v' + (cls ? ' ' + cls : ''), v));
       return row;
     };
-    wrap.appendChild(el('h4', null, '网络与引擎'));
-    wrap.appendChild(item('网络', netLabel, netCls));
-    wrap.appendChild(item('引擎', caps.engine === 'openai' ? 'Provider（原生）' : 'Claude CLI'));
+    wrap.appendChild(el('h4', null, t('capability.networkAndEngine')));
+    wrap.appendChild(item(t('capability.network.label'), netLabel, netCls));
+    wrap.appendChild(item(t('capability.engine.label'), caps.engine === 'openai' ? t('capability.engine.providerNative') : 'Claude CLI'));
     if (caps.provider) {
-      wrap.appendChild(item('视觉输入', caps.provider.vision ? '支持' : '不支持', caps.provider.vision ? 'ok' : 'muted'));
-      wrap.appendChild(item('推理模型', caps.provider.reasoning ? '是' : '否', 'muted'));
+      wrap.appendChild(item(t('capability.visionInput'), caps.provider.vision ? t('capability.supported') : t('capability.unsupported'), caps.provider.vision ? 'ok' : 'muted'));
+      wrap.appendChild(item(t('capability.reasoningModel'), caps.provider.reasoning ? t('common.yes') : t('common.no'), 'muted'));
     }
-    wrap.appendChild(el('h4', null, '本地工具'));
-    wrap.appendChild(item('git', caps.binaries && caps.binaries.git ? '可用' : '缺失', caps.binaries && caps.binaries.git ? 'ok' : 'muted'));
-    wrap.appendChild(item('ripgrep 快搜', caps.binaries && caps.binaries.rg ? '可用' : '缺失（用内置搜索）', caps.binaries && caps.binaries.rg ? 'ok' : 'muted'));
-    wrap.appendChild(el('h4', null, '桌面操控'));
+    wrap.appendChild(el('h4', null, t('capability.localTools')));
+    wrap.appendChild(item('git', caps.binaries && caps.binaries.git ? t('capability.available') : t('capability.missing'), caps.binaries && caps.binaries.git ? 'ok' : 'muted'));
+    wrap.appendChild(item(t('capability.ripgrep'), caps.binaries && caps.binaries.rg ? t('capability.available') : t('capability.missingBuiltinSearch'), caps.binaries && caps.binaries.rg ? 'ok' : 'muted'));
+    wrap.appendChild(el('h4', null, t('capability.desktopControl')));
     const dm = caps.desktopMcp || {};
-    wrap.appendChild(item('桌面 MCP', dm.present ? `已连接（${dm.toolCount || 0} 工具）` : '未连接', dm.present ? 'ok' : 'muted'));
+    wrap.appendChild(item(t('capability.desktopMcp'), dm.present ? tCount('capability.connected', dm.toolCount || 0) : t('capability.notConnected'), dm.present ? 'ok' : 'muted'));
     const opt = dm.optional || {};
-    const optStr = ['ocr', 'uia', 'cv2', 'playwright'].filter(k => opt[k]).join('、') || '（无）';
-    wrap.appendChild(item('可选模块', optStr, opt.ocr || opt.uia ? 'ok' : 'muted'));
+    const optStr = ['ocr', 'uia', 'cv2', 'playwright'].filter(k => opt[k]).join(', ') || t('capability.none');
+    wrap.appendChild(item(t('capability.optionalModules'), optStr, opt.ocr || opt.uia ? 'ok' : 'muted'));
     return wrap;
   });
   // Stop the poll when the popover closes (popover() returns {node, close}; but close via outside-click
@@ -7074,17 +7242,17 @@ function openComposerMorePopover() {
   popover(anchor, close => {
     const wrap = el('div', 'composer-more-pop');
     // 添加文件 — reuse the existing hidden #fileInput by clicking it.
-    const attach = el('button', 'cm-item'); attach.type = 'button'; attach.append(icon('paperclip', 16), document.createTextNode('添加文件'));
+    const attach = el('button', 'cm-item'); attach.type = 'button'; attach.append(icon('paperclip', 16), document.createTextNode(t('composer.attachFile')));
     attach.onclick = () => { close(); $('fileInput')?.click(); };
     wrap.appendChild(attach);
     // 技能 — Claude mode only.
     if (!isProviderMode()) {
-      const skill = el('button', 'cm-item'); skill.type = 'button'; skill.append(icon('sparkles', 16), document.createTextNode('技能 / 命令'));
+      const skill = el('button', 'cm-item'); skill.type = 'button'; skill.append(icon('sparkles', 16), document.createTextNode(t('skills.menuLabel')));
       skill.onclick = () => { close(); openSkillPanel(); };
       wrap.appendChild(skill);
     }
     // 🗜 压缩 — both engines (provider goes through the server summary endpoint).
-    const compact = el('button', 'cm-item'); compact.type = 'button'; compact.append(icon('compress', 16), document.createTextNode('压缩上下文'));
+    const compact = el('button', 'cm-item'); compact.type = 'button'; compact.append(icon('compress', 16), document.createTextNode(t('composer.compactContext')));
     compact.onclick = () => { close(); compactContext(); };
     wrap.appendChild(compact);
     return wrap;
@@ -7095,8 +7263,8 @@ function openComposerMorePopover() {
 // 轻量 popover 菜单（role="menu"）：主题切换 / 界面模式切换 / 能力矩阵 / 快捷键。Esc/点外/重点击关闭（popover
 // 原语已实现），菜单项 role="menuitem"。每项复用既有 handler（toggleTheme/toggleUiMode/openCapPopover/openModal），
 // 迁移自原顶栏控件。DOM 全 createElement/textContent 构建（F 安全红线）。
-function themeMenuLabel() { return document.documentElement.getAttribute('data-theme') === 'dark' ? '主题：深色' : '主题：浅色'; }
-function uiModeMenuLabel() { return document.documentElement.getAttribute('data-ui-mode') === 'simple' ? '界面：精简' : '界面：专家'; }
+function themeMenuLabel() { return document.documentElement.getAttribute('data-theme') === 'dark' ? t('navigation.theme.dark') : t('navigation.theme.light'); }
+function uiModeMenuLabel() { return document.documentElement.getAttribute('data-ui-mode') === 'simple' ? t('navigation.uiMode.simple') : t('navigation.uiMode.expert'); }
 // 菜单打开时若主题/界面被切换，更新对应项文案（无 DOM 时静默）。
 function syncMoreMenuLabels() {
   const t = document.getElementById('mm-theme-label'); if (t) t.textContent = themeMenuLabel();
@@ -7123,11 +7291,11 @@ function openMoreMenu() {
     { const caps = _caps; const online = caps && caps.network ? caps.network.online : null;
       const netGlyph = online === true ? '●' : online === false ? '○' : '◐';
       const g = capGapCount(caps);
-      const b = item(`能力矩阵  ${netGlyph}${g > 0 ? ' · 缺口 ' + g : ''}`, null, () => { close(); setTimeout(() => openCapPopover($('moreMenuBtn')), 0); }, true);
+      const b = item(`${t('capability.matrix')}  ${netGlyph}${g > 0 ? ' · ' + tCount('capability.gapCount', g) : ''}`, null, () => { close(); setTimeout(() => openCapPopover($('moreMenuBtn')), 0); }, true);
       menu.appendChild(b);
     }
     // 快捷键：打开既有 helpModal（modal 与 popover 不冲突，可同 tick）。
-    menu.appendChild(item('快捷键', null, () => { close(); openModal('helpModal'); }));
+    menu.appendChild(item(t('navigation.shortcuts'), null, () => { close(); openModal('helpModal'); }));
     return menu;
   });
 }
@@ -7332,12 +7500,12 @@ function bindEvents() {
     // v0.9-S1 (C1): in simple mode the bypass option stays visible but selecting it prompts a confirm once —
     // 精简界面用户更需要一道明确的确认闸门（bypass = 跳过所有权限弹窗）。Cancelling reverts the select.
     if ((e.target.value === 'bypass' || e.target.value === 'auto') && document.documentElement.getAttribute('data-ui-mode') === 'simple') {
-      var modeLabel = e.target.value === 'bypass' ? '跳过权限' : '智能自动';
-      if (!confirm('切换到「' + modeLabel + '」模式？' + (e.target.value === 'bypass' ? '模型无需确认即可修改文件、运行命令。' : 'AI将自动判断风险并执行低风险操作。') + '确定切换？')) {
+      const confirmationKey = e.target.value === 'bypass' ? 'permission.mode.bypass.confirm' : 'permission.mode.auto.confirm';
+      if (!confirm(t(confirmationKey))) {
         e.target.value = state.config.permissionMode || 'bypass'; populatePermSelect(); return;
       }
     }
-    saveConfigPartial({ permissionMode: e.target.value }); state.config.permissionMode = e.target.value; populatePermSelect(); if (e.target.value === 'bypass') toast('⚠ 已切到跳过权限模式', 'err'); else if (e.target.value === 'auto') toast('已切到智能自动模式', 'ok');
+    saveConfigPartial({ permissionMode: e.target.value }); state.config.permissionMode = e.target.value; populatePermSelect(); if (e.target.value === 'bypass') toast(t('permission.mode.bypass.activated'), 'err'); else if (e.target.value === 'auto') toast(t('permission.mode.auto.activated'), 'ok');
   };
   $('themeToggle').onclick = toggleTheme;
   { const um = $('uiModeToggle'); if (um) um.onclick = toggleUiMode; } // v0.9-S1 (C1)
