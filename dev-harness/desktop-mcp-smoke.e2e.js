@@ -6,11 +6,29 @@ const fs = require('fs');
 const SERVER = require('path').resolve(__dirname, '..', 'ruyi-workbench', 'app', 'server.js');
 const REPO = [path.resolve(__dirname, '..', 'ai-computer-control'), path.resolve(__dirname, '..', 'mcp', 'ai-computer-control')]
   .find(p => fs.existsSync(p)) || path.resolve(__dirname, '..', 'mcp', 'ai-computer-control');
-const { McpStdioClient, detectDesktopMcp, resolveExternalMcpServers } = require(SERVER);
+const { McpStdioClient, detectDesktopMcp, pickPython, resolveExternalMcpServers } = require(SERVER);
 
 (async () => {
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
+
+  // A present embedded python.exe is not necessarily usable (older offline overlays omitted mcp). The
+  // deterministic probe seam proves we skip it and retain the working fallback + launcher arguments.
+  const selected = pickPython(REPO, { PYTHONPATH: path.join(REPO, 'src'), PYTHONUTF8: '1' }, {
+    noCache: true,
+    candidates: [
+      { command: 'broken-embedded-python', args: [], source: 'bundled-runtime', requireExisting: false },
+      { command: 'usable-system-python', args: ['-3'], source: 'python-launcher', requireExisting: false },
+    ],
+    probe: candidate => candidate.command === 'usable-system-python',
+  });
+  ok(selected && selected.command === 'usable-system-python' && selected.args[0] === '-3', 'pickPython skips a broken embedded runtime and keeps the usable fallback launcher');
+  const none = pickPython(REPO, { PYTHONPATH: path.join(REPO, 'src'), PYTHONUTF8: '1' }, {
+    noCache: true,
+    candidates: [{ command: 'no-python', args: [], source: 'none', requireExisting: false }],
+    probe: () => false,
+  });
+  ok(none === null, 'pickPython reports no candidate when every runtime fails the ACC import probe');
 
   // ---- #6: detectDesktopMcp() ----
   const det = detectDesktopMcp();
@@ -20,6 +38,7 @@ const { McpStdioClient, detectDesktopMcp, resolveExternalMcpServers } = require(
     ok(typeof det.command === 'string' && det.command.length > 0, 'detected.command is a non-empty string');
     ok(Array.isArray(det.args), 'detected.args is an array');
     ok(det.via === 'python-module' || det.via === 'console-script', 'detected.via is a known strategy (' + det.via + ')');
+    ok(typeof det.pythonSource === 'string' && det.pythonSource.length > 0, 'detected python source is surfaced for diagnosis (' + det.pythonSource + ')');
   }
   // resolveExternalMcpServers with an autodetect desktopMcp should surface id ai-computer-control.
   const resolved = resolveExternalMcpServers({ desktopMcp: { enabled: true, command: '', args: [], cwd: '', autodetect: true }, externalMcpServers: [] });

@@ -67,6 +67,7 @@ function postStream(port, payload) {
     // 账本 digest(第26波b),故断言从「精确等于」改为「以配置值开头」(用户 append 段是最高优先级、恒在最前)。
     const flagVal = flagIdx >= 0 ? String(argv[flagIdx + 1] || '') : '';
     ok(flagVal.startsWith(MARKER), 'the flag carries the configured value (' + MARKER + ') as its leading segment — got ' + JSON.stringify(flagVal.slice(0, 40)));
+    ok(flagVal.includes('<response-language-policy>') && flagVal.endsWith('</response-language-policy>'), 'the final Claude append segment carries the response-language policy');
 
     // The re-read settings.json (after the turn) still has no appendSystemPrompt key.
     const settings2 = JSON.parse(fs.readFileSync(SETTINGS, 'utf8'));

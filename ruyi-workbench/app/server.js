@@ -1165,24 +1165,83 @@ function commandForSelfMcp(mode = 'auto') {
 }
 
 // --- v0.7d: locate the user's ai-computer-control desktop MCP (Windows control FastMCP). ---
-// Cheap + never throws: existence checks only, no process launch. Returns {command,args,cwd,env,via}
-// or null. Strategy: (a) AI_COMPUTER_CONTROL_HOME env → repo; (b) common repo paths; (c) an
-// ai-computer-control(.exe/.cmd) console script on PATH / common install dirs.
-function pickPython(repoRoot) {
-  // Prefer an embedded runtime shipped inside the repo, else a system python. Existence-check only.
-  const cands = [];
-  if (repoRoot) {
-    cands.push(
-      path.join(repoRoot, 'runtime', 'python', 'python.exe'),
-      path.join(repoRoot, 'py-embed', 'python.exe'),
-      path.join(repoRoot, 'python', 'python.exe'),
-      path.join(repoRoot, '.venv', 'Scripts', 'python.exe'),
-      path.join(repoRoot, 'venv', 'Scripts', 'python.exe'),
+// A python.exe merely existing is not enough: older offline bundles can contain a raw embedded interpreter
+// without the MCP package. Verify imports once, cache the result, and fall back to a usable system runtime.
+const DESKTOP_PYTHON_PROBE_TIMEOUT_MS = 5000;
+const DESKTOP_PYTHON_OK_CACHE_MS = 5 * 60 * 1000;
+const DESKTOP_PYTHON_MISS_CACHE_MS = 15000;
+const DESKTOP_PYTHON_IMPORT_PROBE = 'from mcp.server.fastmcp import FastMCP; import ai_computer_control.server';
+const desktopPythonCache = new Map(); // repo/root -> { at, value:{command,args,source}|null }
+
+function desktopPythonCandidates(root) {
+  const candidates = [];
+  const addPath = (command, source) => candidates.push({ command, args: [], source, requireExisting: true });
+  if (root) {
+    // A real venv is normally the installer output, so prefer it over a bundled interpreter.
+    addPath(path.join(root, '.venv', 'Scripts', 'python.exe'), 'repo-venv');
+    addPath(path.join(root, 'venv', 'Scripts', 'python.exe'), 'installed-venv');
+    addPath(path.join(root, 'runtime', 'python', 'python.exe'), 'bundled-runtime');
+    addPath(path.join(root, 'py-embed', 'python.exe'), 'embedded-runtime');
+    addPath(path.join(root, 'python', 'python.exe'), 'repo-python');
+  }
+  const envPython = String(process.env.PYTHON || '').trim();
+  if (envPython) candidates.push({ command: envPython, args: [], source: 'PYTHON', requireExisting: path.isAbsolute(envPython) });
+  if (process.platform === 'win32') {
+    candidates.push(
+      { command: 'python', args: [], source: 'system-path', requireExisting: false },
+      { command: 'python3', args: [], source: 'system-path', requireExisting: false },
+      { command: 'py', args: ['-3'], source: 'python-launcher', requireExisting: false },
+    );
+  } else {
+    candidates.push(
+      { command: 'python3', args: [], source: 'system-path', requireExisting: false },
+      { command: 'python', args: [], source: 'system-path', requireExisting: false },
     );
   }
-  for (const c of cands) { try { if (fs.existsSync(c)) return c; } catch { /* ignore */ } }
-  // System python names — resolved by cp.spawn via PATH at launch (we don't probe by running it).
-  return process.platform === 'win32' ? 'python' : 'python3';
+  return candidates;
+}
+
+function probeDesktopPython(candidate, cwd, desktopEnv) {
+  try {
+    const result = cp.spawnSync(candidate.command, [...(candidate.args || []), '-X', 'utf8', '-c', DESKTOP_PYTHON_IMPORT_PROBE], {
+      cwd: cwd || undefined,
+      env: { ...process.env, ...(desktopEnv || {}) },
+      windowsHide: true,
+      timeout: DESKTOP_PYTHON_PROBE_TIMEOUT_MS,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024,
+    });
+    return !!(result && !result.error && result.status === 0);
+  } catch { return false; }
+}
+
+// Returns the first candidate that can actually import the FastMCP server, or null. `options.probe` is a
+// deterministic test seam; normal callers use a short-lived cache so status polling never repeats probes.
+function pickPython(repoRoot, desktopEnv, options = {}) {
+  const root = String(repoRoot || '');
+  const bypassCache = options.noCache === true || typeof options.probe === 'function';
+  const cacheKey = root + '\n' + String((desktopEnv && desktopEnv.PYTHONPATH) || '');
+  const cached = !bypassCache && desktopPythonCache.get(cacheKey);
+  const now = Date.now();
+  const ttl = cached && cached.value ? DESKTOP_PYTHON_OK_CACHE_MS : DESKTOP_PYTHON_MISS_CACHE_MS;
+  if (cached && (now - cached.at) < ttl) return cached.value;
+
+  const candidates = Array.isArray(options.candidates) ? options.candidates : desktopPythonCandidates(root);
+  const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPython;
+  let selected = null;
+  for (const raw of candidates) {
+    const candidate = raw && typeof raw === 'object' ? raw : { command: String(raw || ''), args: [], source: 'unknown', requireExisting: true };
+    if (!candidate.command) continue;
+    if (candidate.requireExisting !== false) {
+      try { if (!fs.existsSync(candidate.command)) continue; } catch { continue; }
+    }
+    if (probe(candidate, root, desktopEnv)) {
+      selected = { command: candidate.command, args: Array.isArray(candidate.args) ? candidate.args : [], source: candidate.source || 'unknown' };
+      break;
+    }
+  }
+  if (!bypassCache) desktopPythonCache.set(cacheKey, { at: now, value: selected });
+  return selected;
 }
 // True when a directory looks like the ai-computer-control repo (has the src package).
 function isDesktopMcpRepo(dir) {
@@ -1190,7 +1249,6 @@ function isDesktopMcpRepo(dir) {
   catch { return false; }
 }
 function desktopMcpFromRepo(repoRoot) {
-  const python = pickPython(repoRoot);
   const src = path.join(repoRoot, 'src');
   const desktopEnv = { PYTHONPATH: src, PYTHONUTF8: '1' };
   // Offline releases keep Playwright's browser payload beside the embedded Python runtime. Without
@@ -1199,12 +1257,38 @@ function desktopMcpFromRepo(repoRoot) {
   const bundledBrowsers = path.join(repoRoot, 'playwright_browsers');
   try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
   catch { /* optional payload; browser tools will degrade gracefully */ }
+  const python = pickPython(repoRoot, desktopEnv);
+  if (!python) return null;
   return {
-    command: python,
-    args: ['-X', 'utf8', '-m', 'ai_computer_control.server'],
+    command: python.command,
+    args: [...python.args, '-X', 'utf8', '-m', 'ai_computer_control.server'],
     cwd: repoRoot,
     env: desktopEnv,
     via: 'python-module',
+    pythonSource: python.source,
+  };
+}
+
+// The bundled ACC installer writes this layout to %LOCALAPPDATA%\ai-computer-control. It contains an
+// installed package rather than a checkout with src/, so it needs its own recognizer.
+function desktopMcpFromInstalledRoot(installRoot) {
+  const root = String(installRoot || '').trim();
+  if (!root) return null;
+  const python = path.join(root, 'venv', 'Scripts', 'python.exe');
+  try { if (!fs.existsSync(python)) return null; } catch { return null; }
+  const desktopEnv = { PYTHONUTF8: '1' };
+  const bundledBrowsers = path.join(root, 'playwright_browsers');
+  try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
+  catch { /* optional payload; browser tools will degrade gracefully */ }
+  const selected = pickPython(root, desktopEnv, { candidates: [{ command: python, args: [], source: 'installed-venv', requireExisting: true }] });
+  if (!selected) return null;
+  return {
+    command: selected.command,
+    args: [...selected.args, '-X', 'utf8', '-m', 'ai_computer_control.server'],
+    cwd: root,
+    env: desktopEnv,
+    via: 'python-module',
+    pythonSource: selected.source,
   };
 }
 function detectDesktopMcp() {
@@ -1213,7 +1297,11 @@ function detectDesktopMcp() {
     const home = os.homedir();
     // (a) explicit env override.
     const envHome = env.AI_COMPUTER_CONTROL_HOME && String(env.AI_COMPUTER_CONTROL_HOME).trim();
-    if (envHome && isDesktopMcpRepo(envHome)) return desktopMcpFromRepo(path.resolve(envHome));
+    if (envHome) {
+      const root = path.resolve(envHome);
+      if (isDesktopMcpRepo(root)) { const detected = desktopMcpFromRepo(root); if (detected) return detected; }
+      const installed = desktopMcpFromInstalledRoot(root); if (installed) return installed;
+    }
     // (b) common repo locations. Bundled monorepo copies come first (release layout ships the MCP
     // at <repo>/mcp/ai-computer-control with the app at <repo>/ruyi-workbench/app, or flattened
     // with app/ at the package root) so a shipped copy beats a stale user checkout.
@@ -1230,9 +1318,20 @@ function detectDesktopMcp() {
       env.USERPROFILE && path.join(env.USERPROFILE, 'Documents', 'Claude Code', 'ai-computer-control'),
     ].filter(Boolean);
     for (const dir of repoCandidates) {
-      if (isDesktopMcpRepo(dir)) return desktopMcpFromRepo(path.resolve(dir));
+      if (!isDesktopMcpRepo(dir)) continue;
+      const detected = desktopMcpFromRepo(path.resolve(dir));
+      if (detected) return detected;
     }
-    // (c) a console script on PATH or common install dirs (no repo checkout needed).
+    // (c) ACC's own offline installer writes to %LOCALAPPDATA%\ai-computer-control\venv.
+    const installedRoots = [
+      env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'ai-computer-control'),
+      env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs', 'ai-computer-control'),
+    ].filter(Boolean);
+    for (const root of installedRoots) {
+      const detected = desktopMcpFromInstalledRoot(root);
+      if (detected) return detected;
+    }
+    // (d) a console script on PATH or common install dirs (no repo checkout needed).
     const scriptDirs = [
       env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs', 'ai-computer-control'),
       env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs', 'Python', 'Scripts'),
@@ -3875,14 +3974,16 @@ function resolveExternalMcpServers(config) {
     let args = Array.isArray(dm.args) ? dm.args.slice() : [];
     let cwd = String(dm.cwd || '').trim() || undefined;
     let env = {};
+    let pythonSource = '';
     if (command) {
       // Explicit override — trust the user's command/args/cwd; default UTF-8 for a python launch.
       env = { PYTHONUTF8: '1' };
     } else if (dm.autodetect) {
       const det = detectDesktopMcp();
-      if (det) { command = det.command; args = det.args; cwd = det.cwd; env = det.env || {}; }
+      if (det) { command = det.command; args = det.args; cwd = det.cwd; env = det.env || {}; pythonSource = det.pythonSource || ''; }
     }
-    if (command) out.push({ id: 'ai-computer-control', label: '桌面控制 (ai-computer-control)', command, args, cwd, env });
+    if (command) out.push({ id: 'ai-computer-control', label: '桌面控制 (ai-computer-control)', command, args, cwd, env,
+      pythonSource });
   }
   const ext = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
   for (const s of ext) {
@@ -4308,6 +4409,9 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
         if (mh && (appendSys.length + mh.length) <= 8000) appendSys += mh;
       }
     } catch { /* 编排提示注入绝不阻断回合 */ }
+    // The internal skill/workflow/memory hints above are often Chinese. Always reserve the final append
+    // segment for the user-facing response-language policy, even when the user configured no custom prompt.
+    appendSys = appendResponseLanguagePolicy(appendSys, config, 8000);
     if (appendSys) args.push('--append-system-prompt', appendSys);
   }
   if (config.autoResumeClaudeSessions && session.claudeSessionId) {
@@ -5547,6 +5651,35 @@ function parsePlaybookDraft(text) {
 // deepseek-v4-pro claim to be Claude — see slice背景). Identity is pinned to the provider label + model.
 // ============================================================================
 const PROJECT_MEMORY_CAP = 16 * 1024; // 16KB cap on CLAUDE.md/AGENTS.md before truncation
+
+// The workbench's internal instructions, tool output, and project files can be in a different language
+// from the user's conversation. Keep a final, engine-neutral policy separate from those product prompts.
+function buildResponseLanguagePolicy(config) {
+  const locale = String((config && config.locale) || '').trim();
+  const fallback = locale === 'zh-CN'
+    ? 'Chinese'
+    : (locale === 'en-US' ? 'English' : 'the interface language when it is known; otherwise English');
+  return [
+    '<response-language-policy>',
+    'For all user-facing prose, first obey an explicit language preference from the user.',
+    'Otherwise, reply in the language of the latest substantive user request. Preserve the established conversation language when a request is language-neutral.',
+    `Only when no language can be inferred from the conversation, use ${fallback} as the fallback.`,
+    'Never choose or switch the response language because system or application instructions, tool output, skills, project files, metadata, or the UI use another language.',
+    '</response-language-policy>',
+  ].join('\n');
+}
+
+// Claude's append prompt has an 8K contract. Reserve its final segment for the language policy and trim
+// lower-priority generated context from the tail when necessary; user-configured text at the beginning stays.
+function appendResponseLanguagePolicy(base, config, limit = 0) {
+  const prior = String(base || '');
+  const policy = buildResponseLanguagePolicy(config);
+  const separator = prior ? '\n\n' : '';
+  if (!Number.isFinite(limit) || limit <= 0) return prior + separator + policy;
+  if (policy.length >= limit) return policy.slice(0, limit);
+  const room = Math.max(0, limit - policy.length - separator.length);
+  return prior.slice(0, room) + separator + policy;
+}
 
 // Read cwd's project-memory file (CLAUDE.md preferred, then AGENTS.md), ≤16KB. Returns { text, name,
 // truncated } or null when neither exists. Runtime reads the USER'S OWN file (clean-room safe); the content
@@ -7360,6 +7493,8 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   if (allowedTools && allowedTools.length) args.push('--allowed-tools', allowedTools.join(','));
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
   if (turnBudget > 0) args.push('--max-turns', String(Math.min(100, Math.round(turnBudget))));
+  // DAG subagents do not inherit the main turn's append prompt, so give them the same final language rule.
+  args.push('--append-system-prompt', buildResponseLanguagePolicy(config));
   if (cwd) args.push('--add-dir', cwd);
   // 第28波(§28a):Claude 引擎【不适用】服务端子代理压缩(maybeCompactSubHistory)—— claude CLI 自管上下文窗口与压缩,
   // 服务端一次性 spawn 后只累积 assistantText/resultText 求聚合结果,不持有可压缩的 history 数组。与上文桥接分级不对称同源
@@ -7932,7 +8067,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // Reuse the four-layer prompt for the capability/project/provider layers, then prepend the sub-agent identity.
   const baseSys = buildProviderSystemPrompt(provider, subModel, workingDir, tools, caps, config, projectMemory);
   const rolePrompt = role && role.prompt ? `角色：${role.label || role.id}\n${role.prompt}\n\n` : '';
-  const sys = '你是子任务执行体。目标:完成被交办的具体任务后,用简洁文本输出最终结论(不要反问,不要请求进一步指示)。\n\n' + rolePrompt + baseSys;
+  const sys = appendResponseLanguagePolicy(
+    '你是子任务执行体。目标:完成被交办的具体任务后,用简洁文本输出最终结论(不要反问,不要请求进一步指示)。\n\n' + rolePrompt + baseSys,
+    config,
+  );
 
   const subHistory = [{ role: 'user', content: String(task || '') }];
   const headers = { 'content-type': 'application/json' };
@@ -9928,6 +10066,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (planMode) {
     sys += '\n\n当前为计划模式。请先输出执行计划:第一条消息以 `PLAN:` 开头,用 markdown 列出你打算做的步骤,然后停止,等待用户批准。批准前不要调用任何修改类工具。';
   }
+  // Keep this final: dynamic role/workflow/model/plan layers may be in Chinese, but must not decide
+  // the language of an English (or otherwise non-Chinese) user conversation.
+  sys = appendResponseLanguagePolicy(sys, config);
   const headers = { 'content-type': 'application/json' };
   const key = String(provider.apiKey || '').trim();
   if (key) headers['authorization'] = 'Bearer ' + key;
@@ -13977,8 +14118,8 @@ async function handleApi(req, res, pathname) {
         const resolved = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control') || null;
         return {
           enabled,
-          detected: detected ? { command: detected.command, args: detected.args, via: detected.via } : null,
-          resolved: resolved ? { command: resolved.command, args: resolved.args, cwd: resolved.cwd || '' } : null,
+          detected: detected ? { command: detected.command, args: detected.args, via: detected.via, pythonSource: detected.pythonSource || '' } : null,
+          resolved: resolved ? { command: resolved.command, args: resolved.args, cwd: resolved.cwd || '', pythonSource: resolved.pythonSource || '' } : null,
         };
       })(),
       health,
@@ -16196,6 +16337,8 @@ module.exports = {
   MODEL_CONTEXT_TABLE,
   CONTEXT_WINDOW_FALLBACK,
   detectDesktopMcp,
+  pickPython,
+  desktopMcpFromInstalledRoot,
   resolveExternalMcpServers,
   // v1.1-W2 (T2): MCP drop-in scan — exposed for mcp-config e2e (invalidate cache after fixturing folders).
   scanMcpDropIns,
@@ -16220,6 +16363,8 @@ module.exports = {
   getCapabilities,
   invalidateCapabilityCache,
   buildProviderSystemPrompt,
+  buildResponseLanguagePolicy,
+  appendResponseLanguagePolicy,
   buildOpenAiTools,
   readProjectMemory,
   toolRequirementsMet,

@@ -15,6 +15,8 @@ English: [MCP Connectors: Folder Drop-ins](README_EN.md)
 
 本目录下的 `ai-computer-control/` 是**随发行包捆绑的内置桌面控制 MCP**（99 工具：截图、OCR、UIA 定位、鼠标键盘、窗口、文件、Office/PDF 等）。它由工作台的**专用桌面探测**（`desktopMcp` 探测）直接识别并优先加载，**不需要、也不要**给它加 `ruyi-mcp.json` 清单——否则会与专用探测形成**双注册**（同一批工具被登记两次）。
 
+专用探测会先验证候选 Python 能导入 ACC；发现缺依赖的嵌入运行时会跳过并回退到可用 Python。也会识别官方安装器默认写入的 `%LOCALAPPDATA%\ai-computer-control\venv\Scripts\python.exe`。发行包中的 `-IncludeAcc` 仅带源码和安装器；离线机器若没有可用 Python/依赖，仍需使用 ACC 的独立离线安装包。
+
 也就是说：
 
 - `ai-computer-control/` → 由专用桌面探测直接识别，**无清单**。

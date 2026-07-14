@@ -181,6 +181,8 @@
 
 `mcp/ai-computer-control/` 是随发行包捆绑的**桌面控制 MCP**(v1.8.1,Python ≥3.13,共 **99 个工具**),装好后工作台自动探测,并把工具同时供给两个引擎:
 
+启动时，工作台会先验证候选 Python 能否导入 ACC；发现缺少依赖的嵌入运行时会自动跳过并回退到可用的系统 Python。也支持官方安装器默认的 `%LOCALAPPDATA%\ai-computer-control\venv\Scripts\python.exe` 位置。
+
 - **看**:全屏/区域/窗口截图、OCR 文字识别与定位、UIA 控件树读取、模板匹配。
 - **动**:鼠标(移动/点击/拖拽/滚轮)、键盘(输入/组合键)、窗口管理(9 工具)、应用启停、剪贴板、对话框处理、宏录制回放。
 - **办公**:Word/Excel/PPT/PDF 读写,Excel 美化与图表、PPT 生成走**三套内置设计系统**(青花商务/墨白极简/活力现代),中文字体纪律(`w:eastAsia`)内建。
@@ -406,6 +408,8 @@ First launch walks you through picking a workspace folder and configuring a prov
 ### Desktop control (optional)
 
 `mcp/ai-computer-control/` is a bundled **desktop-control MCP** (99 tools, ACC v1.8.1, requires **Python 3.13**). Install via `installer/install.py` or `pip install -r requirements_offline.txt`; the workbench auto-detects it. Offline wheels are distributed via GitHub Release assets, not git. Optional dependencies degrade gracefully.
+
+At startup the workbench verifies that a candidate Python can import ACC. A present but dependency-incomplete embedded runtime is skipped in favor of a usable system Python; the installer default at `%LOCALAPPDATA%\ai-computer-control\venv\Scripts\python.exe` is recognized too. `-IncludeAcc` packages ACC source and its installer, not a fully hydrated offline Python environment; use ACC's separate offline package when the target has neither a compatible Python nor its dependencies.
 
 ### Tests
 

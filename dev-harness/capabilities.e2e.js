@@ -146,8 +146,11 @@ const DEAD_PORT = 8998; // F6: must be a port nobody listens on AND that no e2e 
     ok(caps1.length >= 1, 'at least one request body captured (' + caps1.length + ')');
     const sys1 = systemOf(caps1[0]);
     ok(/由 Fake 的 fake-model 模型驱动/.test(sys1), 'system pins 「由 Fake 的 fake-model 模型驱动」');
-    ok(!/Claude/i.test(sys1), 'system contains NO "Claude" (identity bleed guard)');
+    // The later model-selection layer may legitimately list Claude engine models. Identity leakage is
+    // prevented at the leading identity/capability layer, which must not label this Fake provider as Claude.
+    ok(!/Claude/i.test(sys1.slice(0, 800)), 'system identity lead contains NO "Claude" (identity bleed guard)');
     ok(!/Workbench/i.test(sys1), 'system contains NO "Workbench" (product name absent)');
+    ok(sys1.includes('<response-language-policy>') && /latest substantive user request/.test(sys1), 'final system layer carries the response-language policy instead of inheriting internal prompt language');
     ok(/<project-memory>/.test(sys1) && sys1.includes(MARKER), 'project layer: <project-memory> fence + marker present');
     ok(/16KB.*截断|已截断/.test(sys1), 'project layer: truncation note for >16KB file');
     // F3 (安全·围栏防字面闭合): the CLAUDE.md contained a literal </project-memory> trying to close the

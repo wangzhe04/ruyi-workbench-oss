@@ -85,6 +85,8 @@ async function tokenFor(port) {
       const argv1 = JSON.parse(fs.readFileSync(argvCapture, 'utf8'));
       ok(argv1.includes('--permission-mode') && argv1[argv1.indexOf('--permission-mode') + 1] === 'bypassPermissions', 'role-less node inherits the run permission mode (bypass)');
       ok(argv1.includes('--allowed-tools') && argv1[argv1.indexOf('--allowed-tools') + 1] === 'Read,Grep,Glob,WebSearch,WebFetch', 'role-less node gets the read-tier tool allowlist by default (第22波: 含联网检索)');
+      const policyIdx = argv1.indexOf('--append-system-prompt');
+      ok(policyIdx >= 0 && String(argv1[policyIdx + 1] || '').includes('<response-language-policy>'), 'Claude DAG nodes receive the response-language policy');
 
       // Explicit role + explicit per-node model override on the Claude engine.
       const roled = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: sid, nodes: [{ id: 'role_node', task: 'explore', role: 'explorer', engine: 'claude', model: 'claude-haiku-4-5' }] });
