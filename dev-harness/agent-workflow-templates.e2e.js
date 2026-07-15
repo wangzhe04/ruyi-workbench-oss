@@ -14,6 +14,10 @@ const ok = (value, label) => { if (value) console.log('PASS ' + label); else { f
   try {
     const initial = await server.getAgentWorkflows(PROJECT);
     ok(initial.some(x => x.id === 'debate-and-judge') && initial.some(x => x.id === 'implement-review-fix-test'), 'built-in debate and implementation templates are available');
+    const codeFlow = initial.find(x => x.id === 'implement-review-fix-test');
+    ok(codeFlow && codeFlow.nodes.filter(n => n.role === 'coder').length === 2, 'implementation and conditional fix stages use the specialized Coder role');
+    const debugFlow = initial.find(x => x.id === 'debug-root-cause');
+    ok(debugFlow && debugFlow.nodes.some(n => n.id === 'fix' && n.role === 'coder'), 'root-cause workflow delegates the confirmed fix to Coder');
     const builtInJudge = initial.find(x => x.id === 'debate-and-judge').nodes.find(x => x.id === 'judge');
     ok(builtInJudge.maxIters === undefined, 'built-in workflow nodes inherit role budgets instead of pinning the old maxIters=6 default');
     const personal = await server.saveAgentWorkflow('personal', PROJECT, { id: 'shared-flow', title: 'Personal flow', nodes: [{ id: 'one', task: 'personal', position: { x: 12, y: 34 } }] });

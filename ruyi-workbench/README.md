@@ -9,7 +9,7 @@
 
 **多引擎(v0.5+)**：除内网 Claude CLI 外，还支持 **OpenAI 兼容 provider**（DeepSeek / 通义千问 DashScope / 智谱 GLM / 内网 vLLM·Ollama 等），直连 HTTP + SSE 流式，带原生工具循环。在设置里配置 base URL + 密钥即可切换模型，Claude CLI 引擎与 provider 引擎并存。
 
-**桌面 MCP 桥接(v0.7d+)**：可自动探测本机的 `ai-computer-control` 桌面控制 MCP（及其它自定义 stdio MCP），把它们同时供给 Claude CLI 与 provider 引擎。v1.6.1 起默认按任务装载工具提示词：provider 可在循环中增量加入 schema，Claude CLI 通过风险分级代理发现/调用隐藏工具；“全部常驻”兼容模式仍可在高级设置启用。v1.6.2 增加安全的批量历史清理。v1.6.3 增加 Claude CLI / OpenAI 兼容引擎通用的一次性“Agent 团队”编排开关；Provider 原生工具循环按普通/长任务采用 100/200/300 的进展自适应预算，两种引擎的 Agent 节点显式预算上限均提升到 300。
+**桌面 MCP 桥接(v0.7d+)**：可自动探测本机的 `ai-computer-control` 桌面控制 MCP（及其它自定义 stdio MCP），把它们同时供给 Claude CLI 与 provider 引擎。v1.6.1 起默认按任务装载工具提示词：provider 可在循环中增量加入 schema，Claude CLI 通过风险分级代理发现/调用隐藏工具；“全部常驻”兼容模式仍可在高级设置启用。v1.6.2 增加安全的批量历史清理。v1.6.3 增加 Claude CLI / OpenAI 兼容引擎通用的一次性“Agent 团队”编排开关；Provider 原生工具循环按普通/长任务采用 100/200/300 的进展自适应预算，两种引擎的 Agent 节点显式预算上限均提升到 300。v1.6.4 让两种引擎的父回合都能感知子 Agent/DAG 的真实流式进度，避免活跃团队任务被误判为空闲超时；并新增 Coder 角色，强化编码、调试与审查模板。
 
 压缩包内还包含一个本地 Claude Code marketplace：`resources\plugins\win-workbench-offline`。其中的 `offline-toolkit` 复刻了常用插件/skill 的离线能力，包括代码审查、前端审计、本地文档上下文、提交说明、CLAUDE.md 管理、API 调试、CI 复现、安全检查、插件开发和发布打包提示词。
 

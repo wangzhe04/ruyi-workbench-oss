@@ -158,7 +158,8 @@ const BROWSER = { origin: 'http://evil.example', 'sec-fetch-site': 'cross-site',
   {
     const roles = mod.BUILTIN_AGENT_ROLES.map(r => r.id);
     const roleSet = new Set(roles);
-    ok(roles.length === 9, '角色库共 9 个内置角色(原 4 + 新 5:planner/researcher/critic/synthesizer/analyst),实 ' + roles.length);
+    ok(roles.length === 10, '角色库共 10 个内置角色(含 Coder 与 planner/researcher/critic/synthesizer/analyst),实 ' + roles.length);
+    ok(roleSet.has('coder'), '新角色存在: coder');
     for (const nr of ['planner', 'researcher', 'critic', 'synthesizer', 'analyst']) ok(roleSet.has(nr), '新角色存在: ' + nr);
     const wfs = mod.BUILTIN_AGENT_WORKFLOWS;
     ok(wfs.length === 8, '内置模板 8 个(含新 data-insights),实 ' + wfs.length);

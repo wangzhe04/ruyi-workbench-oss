@@ -13,7 +13,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '1.6.3'; // one-shot Agent team mode + progress-aware 100/200/300 tool budgets
+const VERSION = '1.6.4'; // multi-agent parent heartbeat + Coder role and refined workflow templates
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -551,6 +551,7 @@ const PERMISSION_MODE_ALIASES = { bypassPermissions: 'bypass' };
 const BUILTIN_AGENT_ROLES = Object.freeze([
   { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'blue' },
   { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'green' },
+  { id: 'coder', label: 'Coder', description: '面向代码实现、调试和测试闭环的工程角色。', prompt: '你是 Coder。负责把明确的软件任务落实为可验证的代码：先阅读相关实现、测试和项目约束，定位最小且完整的改动面；遵循现有架构与风格实施，不做无关重构；补充或更新能复现问题、证明行为的测试，运行与风险相称的检查。遇到失败先诊断根因并迭代修复，不把未验证的改动宣称为完成。最后报告修改、测试结果与仍存在的风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 150, claude: 150 }, color: 'green' },
   { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'orange' },
   { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'purple' },
   // 第23波: 新增 5 个角色,覆盖「规划 → 研究 → 批判 → 综合 → 数据分析」的常见协作分工,并据此拓宽内置模板。
@@ -4519,13 +4520,17 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent, session };
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session };
+  // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
+  // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
+  // the parent CLI watchdog mistakes it for an idle process.
+  reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
   activeChildren.set(session.id, reg);
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });
 
   // Watchdog: if the child goes idle for too long (e.g. never emits `result`, or blocks on an
   // unanswered prompt), end the turn so the HTTP stream and process can't hang forever.
-  const idleLimitMs = config.turnIdleTimeoutMs; // guaranteed-finite via normalizeConfig
+  const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs); // env is a test seam
   const watchdog = setInterval(() => {
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀子进程,决定窗口被截断
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
@@ -5733,6 +5738,7 @@ function buildAgentTeamHint() {
     '<agent-team-mode>',
     'The user explicitly enabled Agent team mode for this turn. Multi-agent execution is the default requirement, not a mere suggestion.',
     'Unless the request is genuinely trivial, indivisible, or delegation would clearly make it worse, you MUST actually call orchestrate_agents or spawn_agent before completing the task yourself.',
+    'Duration or complexity alone is not a reason to split work. Use a team when there are genuinely separable responsibilities, useful parallel investigation, independent verification, or distinct specialist roles; keep an indivisible long task with one agent.',
     'First prefer a matching preset workflowId when one is available. If no preset fits, construct a minimal task-specific DAG/nodes plan or dispatch complementary agents directly.',
     'Use at least two agents whenever the work has two meaningful independent responsibilities. Give each agent a distinct deliverable, run independent work in parallel, and include a synthesis or review stage for non-trivial work.',
     'Do not only describe a team plan and then do all work in the parent agent. Execute the orchestration, collect the results, reconcile disagreements, and deliver one integrated answer.',
@@ -8344,6 +8350,18 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // The sub-loop shares the parent's AbortController (ctrl) so a Stop on the parent turn also arrests the
   // sub-turn. rawSeq is local (its raw_line frames carry subagentId so the debug pane can attribute them).
   const rawSeqRef = { n: 0 };
+  // A provider can stream a long answer for a sub-agent without producing a tool event.  The bytes are real
+  // progress, but sub-agent assistant deltas are deliberately hidden from the parent transcript.  Surface a
+  // throttled progress event instead: workflow and parent-turn watchdogs can then distinguish an active stream
+  // from a genuinely wedged request, without flooding the UI or leaking the sub-agent's draft response.
+  let lastStreamActivityEventAt = 0;
+  const streamActivityEventMs = Math.min(15000, Math.max(250, Math.floor((Number(process.env.WCW_TURN_IDLE_MS) || Number(config.turnIdleTimeoutMs) || 600000) / 4)));
+  const touchSubagentStream = () => {
+    const now = Date.now();
+    if (now - lastStreamActivityEventAt < streamActivityEventMs) return;
+    lastStreamActivityEventAt = now;
+    onEvent({ type: 'subagent_progress', subagentId, note: '模型流式响应中' });
+  };
   // v1.4-OSS 用量看板(补): accumulate the sub-turn's OWN token usage (kept OUT of the parent's usage event —
   // the sub-agent bills as its own independent ledger row, never merged into the父回合, so no double counting).
   // Mirrors the parent markUsage's E4 alias handling (prompt_tokens|input_tokens / completion_tokens|output_tokens)
@@ -8375,7 +8393,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       content: '工具/迭代预算已经用尽。现在不要再调用任何工具，只根据上面已经获得的信息给出最终结论。若原任务要求 JSON Schema 或质量门输出，必须只输出符合要求的 JSON；字符串值内部的双引号必须转义为 \\"。',
     });
     try {
-      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: () => {} });
+      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream });
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
       if (!call.httpError && call.text && String(call.text).trim()) {
         resultText += call.text;
@@ -8434,7 +8452,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       let call = null, giveUp = false, transientAttempts = 0;
       while (true) {
         if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; giveUp = true; break; }
-        call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: () => {} });
+        call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream });
         if (call.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; continue; }
         const he0 = String(call.httpError || '');
         const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
@@ -8904,12 +8922,12 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
     ],
   },
   {
-    id: 'implement-review-fix-test', title: '实现 → 审查 → 修复 → 测试', description: 'Worker 实现，Reviewer 审查；仅在审查失败时进入修复，最后由 Verifier 验收。',
+    id: 'implement-review-fix-test', title: '编码实现 → 独立审查 → 定向修复 → 验收', description: 'Coder 完成代码与针对性自测，Reviewer 独立审查；仅对确认的问题定向修复，最后由 Verifier 按验收标准复核。适合可拆成实现与独立复核的代码任务；单一、不可分的长改动不必使用团队。',
     nodes: [
-      { id: 'implement', task: '按需求完成实现并运行基础检查，报告改动、验证和风险。', role: 'worker', failurePolicy: 'block', position: { x: 40, y: 160 } },
-      { id: 'review', task: '独立审查实现的正确性、安全性、回归风险和测试缺口。', role: 'reviewer', dependsOn: ['implement'], failurePolicy: 'continue', position: { x: 310, y: 160 } },
-      { id: 'fix', task: '根据审查发现修复已确认问题，并说明逐项处理结果。', role: 'worker', dependsOn: ['review'], condition: { node: 'review', path: 'verdict', operator: 'equals', value: 'fail' }, failurePolicy: 'continue', position: { x: 580, y: 80 } },
-      { id: 'test', task: '运行验收测试并核验实现是否满足需求；区分事实与推断。', role: 'verifier', dependsOn: ['implement', 'fix'], failurePolicy: 'retry', maxRetries: 1, position: { x: 850, y: 160 } },
+      { id: 'implement', task: '阅读相关实现、测试和项目约束，按需求完成最小且完整的代码改动；补充能证明行为的针对性测试并运行基础检查，报告改动、验证和风险。', role: 'coder', failurePolicy: 'block', position: { x: 40, y: 160 } },
+      { id: 'review', task: '独立审查实现与测试：核对需求覆盖、正确性、安全性、并发/边界条件、回归风险和测试缺口。只报告有具体触发路径或证据的问题；输出明确 verdict(pass/fail)、置信度和逐项发现。', role: 'reviewer', dependsOn: ['implement'], gate: { mode: 'cross_review' }, failurePolicy: 'continue', position: { x: 310, y: 160 } },
+      { id: 'fix', task: '逐项核对 review 的成立问题，只修复已确认的根因；补充对应回归测试并运行相关检查，说明每项采纳或不采纳的证据。', role: 'coder', dependsOn: ['review'], condition: { node: 'review', path: 'verdict', operator: 'equals', value: 'fail' }, failurePolicy: 'continue', position: { x: 580, y: 80 } },
+      { id: 'test', task: '从用户验收标准出发运行独立验证，并覆盖实现者容易遗漏的失败路径；核验最终工作区（含条件修复）是否满足需求，给出实际结果、预期结果和残余风险，不擅自修改产品代码。', role: 'verifier', dependsOn: ['implement', 'fix'], failurePolicy: 'retry', maxRetries: 1, position: { x: 850, y: 160 } },
     ],
   },
   {
@@ -8944,7 +8962,7 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
       { id: 'audit_security', task: '找【安全缺陷】:注入(命令/SQL/路径)、路径穿越、鉴权/越权、敏感信息泄露、SSRF、不安全默认值、反序列化。每条给:文件:行、具体利用路径、影响、修法。只报可利用的,理论风险不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
       { id: 'audit_quality', task: '找【性能与可维护性】问题:热路径/循环内的低效、随数据量或时长恶化的结构、重复三次以上的逻辑、超长函数、死代码、易错的命名/边界。每条给文件:行与可度量的改进点。只报改了确有收益的。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
       { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。输出:①成立发现清单(每条含严重度 P1/P2/P3 与一句根因);②被否证清单及理由。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], failurePolicy: 'continue', position: { x: 680, y: 220 } },
-      { id: 'backlog', task: '把 verify 的成立发现排成修复清单:按(严重度 × 影响 ÷ 改动成本)分三档——立即修 / 下一轮 / 可选打磨;每条给一句修复要点与建议顺序;识别可在同一次改动里顺手带走的同类项。', role: 'explorer', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
+      { id: 'backlog', task: '把 verify 的成立发现排成可执行修复清单:按(严重度 × 影响 ÷ 改动成本)分三档——立即修 / 下一轮 / 可选打磨;标注依赖顺序、建议测试与验收点；识别可在同一次改动里安全带走的同类项，但不要直接修改代码。', role: 'planner', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
   {
@@ -8955,7 +8973,7 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
       { id: 'hypo_a', task: '基于 reproduce 提出 2–3 个【最可能】的根因假设。每个假设说明:机制解释(为什么会导致该现象)、若成立应能观察到什么证据、以及最快的验证手段。按可能性排序。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 110 } },
       { id: 'hypo_b', task: '从 hypo_a 未覆盖的方向提出 2–3 个根因假设:环境/依赖版本、并发时序、数据/边界输入、配置/部署差异、上游变更等。同样给机制、预期证据、验证手段。目标是补齐盲区,而非重复 hypo_a。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 300 } },
       { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪,给出判定(成立/否证/存疑)及证据。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], failurePolicy: 'continue', position: { x: 680, y: 220 } },
-      { id: 'fix', task: '针对 verify 锁定的根因给出最小、聚焦的修复:改动点、为什么它修的是根因而非症状、潜在副作用与回归风险、以及验证修复生效的方法。若可直接改动,则实施并做最小自测,报告结果。', role: 'worker', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
+      { id: 'fix', task: '针对 verify 锁定且有证据支持的根因实施最小、聚焦的代码修复；先补能稳定复现的回归测试，再修改并运行相关测试，说明为什么修的是根因而非症状、潜在副作用与残余风险。若根因仍存疑，不要猜改。', role: 'coder', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
   {
@@ -10263,6 +10281,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // each as a `[用户插话] …` user message into providerHistory (pairing-safe — see drainSteerQueue).
     steerQueue: [],
   };
+  // External bridge/MCP activity can also arrive through the active-turn registry.  Keep that path symmetric
+  // with Claude so a live workflow refreshes the parent watchdog no matter which engine launched it.
+  reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
   activeChildren.set(session.id, reg);
 
   // v0.8-S6: the capability matrix drives BOTH the tool filter (TOOL_REQUIRES) and the prompt能力层. Compute
@@ -10340,7 +10361,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   onEvent({ type: 'process', state: 'running', pid: null, interactive: false, engine: 'openai' });
   logEvent({ kind: 'turn_start', sessionId: session.id, engine: 'openai', provider: provider.id, model, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
 
-  const idleLimitMs = config.turnIdleTimeoutMs;
+  // WCW_TURN_IDLE_MS is a test seam; normalized config remains the production source of truth.
+  const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs);
   let idleAborted = false; // v0.8-S6: distinguish a watchdog (idle-timeout) abort from a user Stop for errorClass
   const watchdog = setInterval(() => {
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀回合(且 abort 中毒 ctrl 令窗口内批准失效)
@@ -10359,6 +10381,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let turnTodos = null;                 // v0.8-S3: last todo_write items this turn (null = none written)
   const rawSeqRef = { n: 0 };
   const touch = () => { reg.lastEventAt = Date.now(); };
+  // Nested agents emit their own progress stream while the parent tool call is awaiting completion.  Forwarding
+  // through this wrapper makes every genuine child/workflow event count as parent-turn activity.  A child that
+  // emits nothing is still stopped by the existing watchdog, so this does not turn the timeout into an unlimited
+  // lease or weaken the user's Stop action (all layers continue to share `ctrl`).
+  const onNestedEvent = evt => { touch(); onEvent(evt); };
   // v0.8-S0 usage accumulation: a multi-round tool turn makes several API calls, each reporting its own
   // usage. The old markUsage was last-write-wins (only the final call counted). Now input/output_tokens
   // ACCUMULATE across the turn's calls; contextTokens keeps the LAST call's total_tokens (that reflects
@@ -10655,7 +10682,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             parentSession: session, provider, config,
             task: effectiveTask, displayTask: originalTask, agentKey, dependsOn,
             toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier), maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai), model: resolveNodeModel(sargs.model, roleDefinition && roleDefinition.models && roleDefinition.models.openai, sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read', 'openai', config, provider),
-            onEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
+            onEvent: onNestedEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
             resources: sargs.resources, resourceGroup: `turn:${session.id}:${session.turnSeq}:${agentKey}`,
             roleDefinition,
           }).then(sub => sub.ok
@@ -10731,7 +10758,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               if (resolved.error) resultObj = { ok: false, error: resolved.error, startedCount: 0 };
               else {
                 resultObj = await runAgentWorkflow({
-                  parentSession: session, provider, config, nodes: resolved.nodes, onEvent, ctrl,
+                  parentSession: session, provider, config, nodes: resolved.nodes, onEvent: onNestedEvent, ctrl,
                   // 第23波(修 bug): 回合内 orchestrate 的【节点数上限】用 agentWorkflowMaxNodes(DAG 节点上限),不再用
                   // subagentTurnCap(=subagentMaxPerTurn,那是 ad-hoc spawn_agent 的【每回合扇出预算】,概念不同)。此前二者
                   // 被混用 → 一个 5 节点的内置模板在 subagentMaxPerTurn=4 的配置下被「节点数超出上限(4)」直接拒掉,而 UI/

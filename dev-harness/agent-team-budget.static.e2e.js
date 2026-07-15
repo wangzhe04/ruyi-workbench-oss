@@ -36,6 +36,7 @@ const hint = server.buildAgentTeamHint();
 assert.match(hint, /MUST actually call orchestrate_agents or spawn_agent/);
 assert.match(hint, /matching preset workflowId/);
 assert.match(hint, /at least two agents/);
+assert.match(hint, /Duration or complexity alone is not a reason to split work/);
 assert.ok(server.appendTurnPolicies('base', server.defaultConfig(), true).includes('<agent-team-mode>'));
 assert.ok(!server.appendTurnPolicies('base', server.defaultConfig(), false).includes('<agent-team-mode>'));
 
@@ -51,6 +52,7 @@ assert.ok(app.includes('agentTeamTurnEnabled = false;'), 'sending consumes one-s
 assert.ok(app.includes('attachments: sentAttachments, agentTeam'));
 assert.ok(source.includes('appendTurnPolicies(appendSys, config, agentTeam, 8000)'), 'Claude CLI receives Agent team policy');
 assert.ok(source.includes('appendTurnPolicies(sys, config, agentTeam)'), 'OpenAI-compatible engine receives Agent team policy');
+assert.strictEqual((source.match(/reg\.onEvent = evt => \{ reg\.lastEventAt = Date\.now\(\); onEvent\(evt\); \};/g) || []).length, 2, 'Claude and OpenAI active-turn registries both count external workflow events as activity');
 assert.ok(source.includes("type: 'tool_budget', state: 'extended'"));
 
 const cfg = server.normalizeConfig({ ...server.defaultConfig(), openaiMaxToolIterations: 999 }).config;
@@ -58,5 +60,6 @@ assert.strictEqual(cfg.openaiMaxToolIterations, 200);
 const role = server.normalizeAgentRole({ id: 'budget-test', label: 'Budget test', budgets: { openai: 999, claude: 999 } });
 assert.strictEqual(role.budgets.openai, 300);
 assert.strictEqual(role.budgets.claude, 300);
+assert.ok(server.BUILTIN_AGENT_ROLES.some(r => r.id === 'coder' && r.toolTier === 'exec'), 'Coder is available as a built-in dual-engine role');
 
 console.log('PASS Agent team one-shot UI, aggressive dual-engine policy, and adaptive 100/200/300 budgets');
