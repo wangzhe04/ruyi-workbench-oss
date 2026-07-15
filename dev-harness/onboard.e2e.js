@@ -93,7 +93,8 @@ function between(hay, startNeedle, endNeedle) {
   ok(/buildOnboardDropZone[\s\S]{0,600}pickWorkspace(?:Native)?\(\)/.test(appjs), '② 拖放引导区点击调文件夹选择(pickWorkspace/pickWorkspaceNative)');
   // provider vision checkbox 构建代码：读写 p.vision。
   ok(/p\.vision\s*=/.test(appjs) && /checked\s*=\s*!!p\.vision/.test(appjs), '② provider 卡片含 vision checkbox（读写 p.vision）');
-  ok(/支持视觉/.test(appjs), '② vision 开关文案「支持视觉」存在');
+  const zhLocale = fs.readFileSync(path.join(PUB, 'locales', 'zh-CN.json'), 'utf8');
+  ok(/t\(['"]provider\.vision['"]\)/.test(appjs) && /支持视觉/.test(zhLocale), '② vision 开关使用 i18n 且中文文案「支持视觉」存在');
 
   // ════════════ ③ styles.css 首跑引导区样式只用令牌 ════════════
   // 抽取 .onboard-* 相关规则行，扫描不得含 #hex 或 rgba() 字面量（color-mix + var 允许）。

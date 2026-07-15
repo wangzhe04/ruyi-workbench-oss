@@ -50,9 +50,9 @@ function postStream(port, payload) {
     let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(WB_PORT); }
     ok(!!h, 'workbench listening on :' + WB_PORT);
 
-    // (3) /api/status exposes configSchema 7 (v0.9-S0 bump) and version 1.0.0.
+    // (3) /api/status exposes the current config schema and package version.
     const status = await getJson(WB_PORT, '/api/status');
-    ok(status.json && status.json.configSchema === 7, 'status.configSchema === 7 (got ' + (status.json && status.json.configSchema) + ')');
+    ok(status.json && status.json.configSchema === 8, 'status.configSchema === 8 (got ' + (status.json && status.json.configSchema) + ')');
     const PKG_VERSION = require(path.join(WB, 'package.json')).version; // 第23波: 版本号动态读,不再硬编码(存量过期断言)
     ok(status.json && status.json.version === PKG_VERSION, 'status.version === package.json version "' + PKG_VERSION + '" (got ' + (status.json && status.json.version) + ')');
 

@@ -60,7 +60,7 @@ function streamChat(port, payload) {
 // vision boolean + whether to bridge fake-mcp (desktop tools) + extra fake env; single active provider.
 function writeConfig(vision, bridgeMcp) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
-    configSchema: 7, version: '1.0.0', permissionMode: 'bypass',
+    configSchema: 8, version: '1.0.0', permissionMode: 'bypass', toolLoadingMode: 'full',
     defaultWorkspace: HOME, recentWorkspaces: [],
     externalMcpServers: bridgeMcp ? [{ id: 'fake', label: 'Fake MCP', command: NODE, args: [FAKE_MCP], enabled: true }] : [],
     desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },

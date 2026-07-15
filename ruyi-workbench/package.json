@@ -1,6 +1,6 @@
 {
   "name": "ruyi-workbench",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": true,
   "description": "如意 Ruyi — clean-room local all-in-one AI workbench for Windows: dual-engine (local Claude CLI + any OpenAI-compatible provider), MCP tools, files, scripting, browser and Office handoff, desktop control.",
   "main": "app/server.js",

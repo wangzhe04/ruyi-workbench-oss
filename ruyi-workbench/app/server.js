@@ -13,13 +13,13 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '1.6.0'; // v1.6:UI v3 全线(rem/图标集/三档宽/监控降噪/工作台全宽视图)+ 工作流编辑器模型指派 + Judge JSON 修复(v1.5=团队模式 v2/Skills/用量看板)
+const VERSION = '1.6.1'; // adaptive tool discovery/loading for OpenAI-compatible + Claude CLI; v1.6 UI v3/workflow editor
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
-const CONFIG_SCHEMA = 7; // v0.9-S0: pure bump; per-slice new config fields ship their own sanitized defaults
+const CONFIG_SCHEMA = 8; // v1.6.1: adaptive tool discovery/loading shared by provider + Claude CLI
 // v0.8-S0: session file schema. Bumped independently of CONFIG_SCHEMA; normalizeSession backfills.
 const SESSION_SCHEMA = 1;
 
@@ -453,6 +453,10 @@ function defaultConfig() {
     // Master switch for line 2: also expose external/desktop MCP tools to the NATIVE provider tool loop
     // (bridged via an in-process MCP stdio client). Off => providers see only the workbench's own tools.
     bridgeExternalToolsToProvider: true,
+    // Adaptive tool loading keeps only task-relevant schemas in the model context. `full` is the
+    // compatibility escape hatch; `auto` pre-routes common packs and exposes compact discovery tools.
+    toolLoadingMode: 'auto',       // auto | full
+    toolCatalogCacheTtlMs: 60000,  // bridged catalog reuse; clamp 5s..10min
     // v1.1-W2 (T2): auto-scan drop-in MCP connectors from <repo>/mcp/*/ruyi-mcp.json and
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
@@ -696,6 +700,12 @@ function normalizeConfig(raw) {
   }
   if (config.bridgeExternalToolsToProvider !== false) config.bridgeExternalToolsToProvider = true;
   else config.bridgeExternalToolsToProvider = false;
+  if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
+  {
+    const ttl = Number(config.toolCatalogCacheTtlMs);
+    const clamped = Number.isFinite(ttl) ? Math.min(600000, Math.max(5000, Math.round(ttl))) : 60000;
+    if (clamped !== config.toolCatalogCacheTtlMs) { config.toolCatalogCacheTtlMs = clamped; changed = true; }
+  }
   // v1.1-W2 (T2): enableMcpDropIn — boolean, default true unless explicitly false (mirror bridge switch).
   { const b = config.enableMcpDropIn !== false; if (b !== config.enableMcpDropIn) { config.enableMcpDropIn = b; changed = true; } }
   // v0.8-S0: bridgedToolTiers — object of {unprefixedToolName: 'read'|'edit'|'exec'}. Drop any non-object
@@ -1401,7 +1411,7 @@ async function generateMcpConfig(mode) {
 
 // Per-session MCP config that injects the session id + loopback port/token into the MCP child's env,
 // so the permission-bridge tool (running in that child) can call back and be routed to the right UI stream.
-async function generateSessionMcpConfig(sessionId, mode) {
+async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   await ensureDirs();
   const cfg = await readConfig().catch(() => null);
   if (!mode) mode = cfg?.mcpCommandMode || 'auto';
@@ -1420,12 +1430,15 @@ async function generateSessionMcpConfig(sessionId, mode) {
           WCW_PORT: String(RUNTIME.port),
           WCW_HOST: RUNTIME.host,
           WCW_TOKEN: RUNTIME.token,
+          WCW_TOOL_LOADING_MODE: cfg?.toolLoadingMode || 'auto',
+          WCW_TOOL_PACKS: Array.isArray(toolPacks) ? toolPacks.join(',') : '',
         },
       },
     },
   };
-  // Desktop/external MCP servers need no per-session token — add them the same as the global config.
-  addExternalMcpServersToMap(mcp.mcpServers, cfg);
+  // In adaptive mode external schemas stay behind the typed invoke proxies, so a simple Claude turn
+  // does not ingest an entire desktop/Office catalog. Full mode retains the historical direct servers.
+  if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg);
   await fsp.writeFile(configPath, JSON.stringify(mcp, null, 2), 'utf8');
   return configPath;
 }
@@ -1436,11 +1449,14 @@ async function generateSessionMcpConfig(sessionId, mode) {
 // own rule (runSubAgentCore): an explicit mcpServers list restricts which bridged servers a node can reach;
 // leaving it unset/empty means "everything the workbench has configured" for exec-tier nodes.
 async function generateAgentNodeMcpConfig(subagentId, mode, allowedServerIds) {
-  const configPath = await generateSessionMcpConfig(subagentId, mode);
+  const configPath = await generateSessionMcpConfig(subagentId, mode, Object.keys(TOOL_PACK_DESCRIPTIONS));
   try {
     const raw = JSON.parse(await fsp.readFile(configPath, 'utf8'));
     const own = raw.mcpServers && raw.mcpServers['win-claude-workbench'];
     if (own) own.env = { ...(own.env || {}), WCW_DISABLE_USER_INPUT: '1' };
+    // This helper is used only for exec-tier Claude nodes. Preserve their explicit direct-MCP contract;
+    // the main interactive Claude path uses adaptive proxies instead.
+    addExternalMcpServersToMap(raw.mcpServers, await readConfig().catch(() => null));
     if (Array.isArray(allowedServerIds) && allowedServerIds.length) {
       const allowed = new Set(allowedServerIds);
       raw.mcpServers = Object.fromEntries(Object.entries(raw.mcpServers || {}).filter(([id]) => allowed.has(id)));
@@ -4035,9 +4051,14 @@ function sanitizeServerId(id) { return String(id || '').replace(/[^A-Za-z0-9_]/g
 // v0.7d line 2: collect bridged tools for THIS turn (once). Returns { tools:[openai fn schema], route }.
 // route maps bridgedName -> { serverId, toolName }. Any server that fails to start/list is skipped;
 // never throws, never blocks the main flow.
-async function collectBridgedTools(config) {
+let bridgedCatalogCache = { key: '', expiresAt: 0, value: null };
+async function collectBridgedTools(config, force = false) {
   if (!config || config.bridgeExternalToolsToProvider === false) return { tools: [], route: {} };
   const entries = resolveExternalMcpServers(config);
+  const cacheKey = JSON.stringify(entries.map(e => [e.id, e.command, e.args || [], e.cwd || '', e.env || {}]));
+  if (!force && bridgedCatalogCache.value && bridgedCatalogCache.key === cacheKey && Date.now() < bridgedCatalogCache.expiresAt) {
+    return bridgedCatalogCache.value;
+  }
   const tools = [];
   const route = {};
   for (const entry of entries) {
@@ -4061,7 +4082,13 @@ async function collectBridgedTools(config) {
       });
     }
   }
-  return { tools, route };
+  const value = { tools, route };
+  bridgedCatalogCache = {
+    key: cacheKey,
+    expiresAt: Date.now() + Math.max(5000, Number(config.toolCatalogCacheTtlMs) || 60000),
+    value,
+  };
+  return value;
 }
 
 // v1.4.1: 桥接工具带 `<serverId>__` 前缀(如 ai_computer_control__excel_read)。部分 provider 模型(实测 qwen)
@@ -4329,7 +4356,8 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   if (config.includePartialMessages) args.push('--include-partial-messages');
   if (config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
   if (config.includeWorkbenchMcp) {
-    args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode));
+    const claudeToolPacks = classifyToolPacks(basePrompt, attachments);
+    args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks));
     // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
     // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
     if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
@@ -4358,6 +4386,9 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     let appendSys = String(config.appendSystemPrompt || '');
     if (interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
+    }
+    if (config.includeWorkbenchMcp && config.toolLoadingMode === 'auto') {
+      appendSys += `${appendSys ? '\n\n' : ''}Ruyi uses adaptive tool loading. Only likely tools are listed for this turn. If a Ruyi/desktop/Office capability is missing, call mcp__win-claude-workbench__tool_search, then invoke the exact result with mcp__win-claude-workbench__tool_invoke_read, _edit, or _exec according to its returned tier. Never use a lower-tier proxy for a higher-tier target.`;
     }
     const enabled = Array.isArray(session.skills) ? session.skills : [];
     if (enabled.length) {
@@ -4798,7 +4829,7 @@ function sanitizeProvider(raw) {
   // trim each, drop empties, length-cap 400 (same as baseUrl), dedupe (case-sensitive — a URL's path can
   // be case-significant), drop any entry equal to the (trimmed) main baseUrl (a duplicate of the primary is
   // pointless as a fallback), cap the list to 3. Absent/non-array → [] (行为与现状完全一致). This is an
-  // ADDITIVE, optional field: a config without it (and configSchema 7) migrates untouched.
+  // ADDITIVE, optional field: older configs migrate untouched.
   const mainBase = str(raw.baseUrl, 400).trim();
   let extraBaseUrls = [];
   if (Array.isArray(raw.extraBaseUrls)) {
@@ -5737,6 +5768,9 @@ function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, pr
     // Tool-protocol guard rails (the old scattered rules, gathered here).
     lines.push('你有读/列/搜文件、编辑与写文件、运行 PowerShell 与脚本、查看 git 等工具。用它们实际检查与修改工作区，不要凭空猜测。使用绝对 Windows 路径（默认落在工作目录）。');
     lines.push('工具协议守则：先读后改（编辑前先读该文件）；最小、精准的改动；工具返回 found:false / 未命中属正常语义，不是错误；重要或多步操作先用 todo_write 列出计划再执行；完成后给一段简洁的变更摘要。');
+    if ((tools || []).some(t => t && t.function && t.function.name === 'tool_search')) {
+      lines.push('工具按需装载：当前只提供任务预判所需的工具。缺少能力时先调用 tool_search，随后用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。');
+    }
     // v1.0.2 返修(用户拍板):工具选用优先级 —— 现成工具(内建 + ACC)优先,终端脚本是兜底而非首选。
     // 理由:内建/ACC 写族受权限弹窗 + 检查点撤销保护,终端命令不可自动撤销;且脚本现场发挥易出编码/兼容坑。
     lines.push('工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）——这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。');
@@ -5779,7 +5813,11 @@ function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, pr
     // it must ground every step on ocr_find_text/ui_find text + coordinates). Desktop absent → neither renders
     // (the capability matrix already told the model desktop control isn't available). caps.provider.vision is
     // the gate — the SAME field that gates the image回路 above, so 规程 and pixels are consistent.
-    const deskPresent = !!(caps && caps.desktopMcp && caps.desktopMcp.present);
+    const deskToolsOffered = [...offeredNames].some(n => {
+      const p = toolPackForName(n, {});
+      return p === 'desktop' || p === 'office';
+    });
+    const deskPresent = !!(caps && caps.desktopMcp && caps.desktopMcp.present && deskToolsOffered);
     // Vision gate keys off the LIVE provider (authoritative, same field that gates the image回路) rather than
     // caps.provider.vision — the capability matrix is 60s-cached and can lag a provider edit, which would
     // otherwise inject the wrong 规程 (视觉 vs 文本) for a turn whose provider just toggled vision.
@@ -6285,6 +6323,29 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
 //     runSubAgent to enforce toolTier: read=only read-tier, edit=read+edit, exec=all). Absent → no filter.
 //   opts.noSpawnAgent : true → never include spawn_agent (禁嵌套: sub-turns pass this). The top-level turn
 //     omits it and instead lets the subagentMaxPerTurn>0 check below decide.
+function adaptiveMetaToolSchemas(includeInvoke = false) {
+  const tools = [
+    {
+      name: 'tool_search',
+      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, and short descriptions without injecting every schema.',
+      inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' } }, required: ['query'] },
+    },
+    {
+      name: 'tool_load',
+      description: 'Load one or more tool packs or exact tool names into the next model call. Use tool_search first when unsure; after this succeeds, call the newly available concrete tool.',
+      inputSchema: { type: 'object', properties: { packs: { type: 'array', items: { type: 'string' }, description: 'Pack ids returned by tool_search.' }, tools: { type: 'array', items: { type: 'string' }, description: 'Exact tool names returned by tool_search.' } } },
+    },
+  ];
+  if (includeInvoke) {
+    for (const tier of ['read', 'edit', 'exec']) tools.push({
+      name: `tool_invoke_${tier}`,
+      description: `Invoke one discovered ${tier}-tier Ruyi tool by exact name. The workbench independently verifies the target risk tier and rejects mismatches.`,
+      inputSchema: { type: 'object', properties: { name: { type: 'string', description: 'Exact tool name from tool_search.' }, arguments: { type: 'object', description: 'Arguments matching that tool schema.' } }, required: ['name'] },
+    });
+  }
+  return tools;
+}
+
 function buildOpenAiTools(config, caps, opts) {
   const allowCmd = config.allowCommandTools !== false;
   const allowDesk = config.allowDesktopTools !== false;
@@ -6303,6 +6364,7 @@ function buildOpenAiTools(config, caps, opts) {
   // tools under 「当前不可用」 so the model is told why they're absent.
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   for (const t of MCP_TOOLS) {
+    if (t.name === 'tool_search' || t.name === 'tool_load' || t.name.startsWith('tool_invoke_')) continue;
     if (t.name === 'permission_prompt') continue;
     if (t.name === 'request_user_input' && noSpawnAgent) continue;
     if ((t.name === 'spawn_agent' || t.name === 'orchestrate_agents') && !spawnAgentEnabled) continue;
@@ -6357,10 +6419,14 @@ function buildOpenAiTools(config, caps, opts) {
       }, required: ['targetNodeKey', 'message'] },
     } });
   }
+  if ((!opts || !opts.noAdaptiveMeta) && config && config.toolLoadingMode === 'auto') {
+    for (const t of adaptiveMetaToolSchemas(false)) out.push({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } });
+  }
   return out;
 }
 // Risk tier per tool → drives permission gating in the native loop (read = auto-allow).
 const NATIVE_TOOL_TIER = {
+  tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
   file_read: 'read', file_list: 'read', file_search: 'read', glob: 'read', project_snapshot: 'read', git_status: 'read',
@@ -6410,6 +6476,107 @@ function bridgedToolTier(unprefixedName, config) {
   if (BRIDGED_READ_TOOLS.has(unprefixedName)) return 'read';
   if (BRIDGED_READ_PREFIXES.some(p => unprefixedName.startsWith(p))) return 'read';
   return 'exec';
+}
+
+const TOOL_PACK_DESCRIPTIONS = Object.freeze({
+  core: 'planning, user questions, mission metadata and tool discovery',
+  files_read: 'read, list, search and inspect workspace files',
+  files_write: 'write, edit, delete, copy and move files',
+  code: 'project inspection, code review and git operations',
+  shell: 'PowerShell, scripts and persistent shell sessions',
+  web: 'web search, fetch, HTTP requests and downloads',
+  desktop: 'screenshots, UI inspection and desktop control',
+  office: 'Excel, Word, PowerPoint and PDF document operations',
+  archive: 'zip and unzip archives',
+  agents: 'sub-agents and workflow orchestration',
+  skills: 'read enabled skill instructions',
+});
+const NATIVE_TOOL_PACKS = Object.freeze({
+  permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
+  tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
+  file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
+  file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
+  dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code',
+  git_status: 'code', git_diff: 'code', git_log: 'code', git_commit: 'code',
+  powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
+  web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
+  desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
+  archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', skill_read: 'skills',
+});
+
+function toolPackForName(name, bridgedRoute) {
+  if (NATIVE_TOOL_PACKS[name]) return NATIVE_TOOL_PACKS[name];
+  const bridge = resolveBridge(bridgedRoute || {}, name);
+  const raw = String(bridge ? bridge.toolName : name || '').toLowerCase();
+  if (/(excel|spreadsheet|workbook|worksheet|word|docx|document|ppt|powerpoint|slide|pdf|chart_image)/.test(raw)) return 'office';
+  if (/(screen|window|mouse|keyboard|click|clipboard|ocr|ui_|desktop|hotkey|type_text|scroll|drag)/.test(raw)) return 'desktop';
+  if (/(archive|zip|unzip|compress|extract)/.test(raw)) return 'archive';
+  if (/(search|fetch|http|url|browser|download|web)/.test(raw)) return 'web';
+  if (/(read|list|get_|find|inspect|status|info|diagnostic|wait_for_)/.test(raw)) return 'files_read';
+  if (/(write|edit|delete|move|copy|create|save|upload)/.test(raw)) return 'files_write';
+  return 'desktop'; // unknown external tools are conservative opt-in, never part of simple chat
+}
+
+function classifyToolPacks(message, attachments) {
+  const s = String(message || '').toLowerCase();
+  const packs = new Set(['core']);
+  const add = (...xs) => xs.forEach(x => packs.add(x));
+  if (Array.isArray(attachments) && attachments.length) add('files_read');
+  if (/(文件|目录|路径|源码|代码|项目|repo|repository|file|folder|directory|source|workspace|read|读取|查看|搜索|查找|分析|审查)/i.test(s)) add('files_read');
+  if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update)/i.test(s)) add('files_read', 'files_write', 'code');
+  if (/(代码|编码|编程|bug|测试|构建|依赖|git|commit|push|pull request|typescript|javascript|python|java|rust|go\b|npm|pnpm|yarn|编译)/i.test(s)) add('files_read', 'code');
+  if (/(运行|执行|命令|终端|shell|powershell|脚本|测试|构建|安装|启动|重启|部署|run|execute|command|terminal|script|test|build|install|start|restart|deploy)/i.test(s)) add('shell');
+  if (/(联网|网页|网站|搜索网络|查新闻|最新|url|https?:|web|internet|online|search the web|fetch)/i.test(s)) add('web');
+  if (/(excel|word|powerpoint|pptx?|docx?|pdf|表格|电子表格|工作簿|幻灯片|演示文稿|文档排版)/i.test(s)) add('office', 'files_read', 'files_write');
+  if (/(截图|桌面|窗口|鼠标|键盘|点击|屏幕|ocr|screenshot|desktop|window|mouse|keyboard|click)/i.test(s)) add('desktop');
+  if (/(压缩|解压|zip|archive|unzip)/i.test(s)) add('archive', 'files_read', 'files_write');
+  if (/(子代理|多代理|工作流|并行|agent|orchestrat|delegate)/i.test(s)) add('agents');
+  if (/(技能|skill)/i.test(s)) add('skills');
+  return [...packs];
+}
+
+function buildToolCatalog(tools, bridgedRoute, config) {
+  return (tools || []).map(t => {
+    const fn = t && t.function || {};
+    const bridge = resolveBridge(bridgedRoute || {}, fn.name);
+    return {
+      name: fn.name || '', pack: toolPackForName(fn.name, bridgedRoute),
+      tier: bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(fn.name),
+      description: String(fn.description || '').replace(/\s+/g, ' ').slice(0, 220), tool: t,
+    };
+  }).filter(x => x.name);
+}
+
+function createToolLoadingState(config, message, attachments, tools, bridgedRoute) {
+  const catalog = buildToolCatalog(tools, bridgedRoute, config);
+  const full = config && config.toolLoadingMode === 'full';
+  const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
+  const activeNames = new Set();
+  const metaNames = new Set(['tool_search', 'tool_load']);
+  const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || activePacks.has(x.pack)).map(x => x.tool);
+  const search = (query, limit) => {
+    const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
+    const max = Math.min(20, Math.max(1, Number(limit) || 8));
+    const scored = catalog.map(x => {
+      const hay = `${x.name} ${x.pack} ${x.description}`.toLowerCase();
+      const score = words.reduce((n, w) => n + (hay.includes(w) ? (x.name.toLowerCase().includes(w) ? 3 : 1) : 0), 0);
+      return { x, score };
+    }).filter(r => !words.length || r.score > 0).sort((a, b) => b.score - a.score || a.x.name.localeCompare(b.x.name)).slice(0, max);
+    return { ok: true, query: String(query || ''), matches: scored.map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description })), packs: TOOL_PACK_DESCRIPTIONS };
+  };
+  const load = args => {
+    const before = new Set(current().map(t => t.function.name));
+    for (const p of Array.isArray(args && args.packs) ? args.packs : []) if (TOOL_PACK_DESCRIPTIONS[p]) activePacks.add(p);
+    for (const n of Array.isArray(args && args.tools) ? args.tools : []) if (catalog.some(x => x.name === n)) activeNames.add(n);
+    const after = current().map(t => t.function.name);
+    return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length };
+  };
+  return { catalog, activePacks, current, search, load, fullCount: catalog.length };
+}
+
+function estimateToolSchemaTokens(tools) {
+  if (!Array.isArray(tools) || !tools.length) return 0;
+  return Math.round(estimateTextTokens(JSON.stringify(tools)));
 }
 
 // Decide gate for a tool call given the permission mode. Returns 'allow' | 'ask' | 'block'.
@@ -8034,7 +8201,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // 非 off(runAgentWorkflow 在策略 off 时不传 proposeTask 闭包)。非工作流的 spawn_agent 子回合两者皆不注册。
   const proposeTaskEnabled = typeof proposeTask === 'function';
   const sendToAgentEnabled = typeof sendToAgent === 'function';
-  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noSpawnAgent: true, proposeTaskEnabled, sendToAgentEnabled });
+  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noSpawnAgent: true, proposeTaskEnabled, sendToAgentEnabled, noAdaptiveMeta: true });
   // 第22波(开放子代理工具面): 桥接(外部/桌面 MCP)工具按 BRIDGED_TOOL_TIERS 分级参与所有层级——原先 read/edit
   // 一刀切不挂桥接面,read 级研究/审查类子代理连 ACC 的只读族(截图/OCR/查找/检查)都拿不到。现按 bridgedToolTier
   // (含 config.bridgedToolTiers 用户覆盖)过滤:read 只带桥接 read 级,edit 加 edit 级,exec 全量(行为不变)。
@@ -10029,7 +10196,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
   const bridgedRoute = bridged.route;
-  const tools = ownTools.concat(bridged.tools);   // own tools first; bridged names are prefixed so never collide
+  const allTools = ownTools.concat(bridged.tools);   // catalog is collected once, schemas are injected lazily
+  const toolLoading = createToolLoadingState(config, fullPrompt, attachments, allTools, bridgedRoute);
+  const initialTools = toolLoading.current();
   const agentRoleMap = new Map((await getAgentRoleLibrary(workingDir, config)).map(role => [role.id, role]));
   // v0.8-S6 layered system prompt (§7.6, PROVIDER-ONLY). Identity is pinned to provider.label + model (the
   // product name never enters the prompt). The project-memory layer reads cwd's CLAUDE.md/AGENTS.md (≤16KB,
@@ -10042,20 +10211,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const enabledMemoryEntries = await resolveEnabledMemoryEntries(session, workingDir,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
   ).catch(() => []);
-  let sys = buildProviderSystemPrompt(provider, model, workingDir, tools, caps, config, projectMemory, false, enabledSkillEntries, enabledMemoryEntries, session.mission);
-  if (agentRoleMap.size && ownTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
+  let sys = buildProviderSystemPrompt(provider, model, workingDir, initialTools, caps, config, projectMemory, false, enabledSkillEntries, enabledMemoryEntries, session.mission);
+  if (agentRoleMap.size && initialTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
     sys += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
   }
   // v1.4.4: list saved/built-in workflow templates so orchestrate_agents' workflowId can actually be used
   // — the model has no other way to discover which ids exist. Only relevant when the tool is offered.
   // 第23波: 提示升级为意图触发(buildOrchestrateHint,与 Claude 引擎共用),不再仅"形状匹配时"被动复用。
-  if (ownTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
+  if (initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
     const workflows = await getAgentWorkflows(workingDir).catch(() => []);
     sys += buildOrchestrateHint(workflows);
   }
   // 第30波:编排/spawn 可用时注入"可选模型 + 能力档位 + 按难度选型指引",让 AI 自主为不同节点选模型(spawn_agent
   // 也有 model 字段,故门控同 9578 的两工具集,不只 orchestrate)。数据取 offlineModelList,零网络。
-  if (ownTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
+  if (initialTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
     sys += buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
   }
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
@@ -10077,14 +10246,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const buildBody = withTools => {
     const b = { model, messages: [{ role: 'system', content: sys }, ...session.providerHistory], stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
-    if (withTools && tools.length) { b.tools = tools; b.tool_choice = 'auto'; }
+    const loadedTools = toolLoading.current();
+    if (withTools && loadedTools.length) { b.tools = loadedTools; b.tool_choice = 'auto'; }
     return b;
   };
 
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
-  onEvent({ type: 'meta', command: `${provider.label || provider.id} · ${base}`, args: [], cwd: workingDir, model, permissionMode: config.permissionMode, engine: 'openai', providerLabel: provider.label || provider.id, tools: tools.length, bridgedTools: bridged.tools.length, cwdWarning: cwdWarn || undefined });
+  onEvent({ type: 'meta', command: `${provider.label || provider.id} · ${base}`, args: [], cwd: workingDir, model, permissionMode: config.permissionMode, engine: 'openai', providerLabel: provider.label || provider.id, tools: initialTools.length, availableTools: allTools.length, bridgedTools: bridged.tools.length, toolLoadingMode: config.toolLoadingMode, toolPacks: [...toolLoading.activePacks], toolSchemaTokens: estimateToolSchemaTokens(initialTools), cwdWarning: cwdWarn || undefined });
   onEvent({ type: 'process', state: 'running', pid: null, interactive: false, engine: 'openai' });
-  logEvent({ kind: 'turn_start', sessionId: session.id, engine: 'openai', provider: provider.id, model, promptLen: fullPrompt.length, tools: tools.length });
+  logEvent({ kind: 'turn_start', sessionId: session.id, engine: 'openai', provider: provider.id, model, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
 
   const idleLimitMs = config.turnIdleTimeoutMs;
   let idleAborted = false; // v0.8-S6: distinguish a watchdog (idle-timeout) abort from a user Stop for errorClass
@@ -10126,7 +10296,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     usageObj = { usage: { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens }, contextTokens: total || undefined, calls: usageCalls };
   };
   const maxIters = Math.max(1, Number(config.openaiMaxToolIterations) || 40); // v1.0.2-S1: 兜底同步 12→40
-  let useTools = tools.length > 0;
+  let useTools = initialTools.length > 0;
   let toolsRetried = false;
   // v0.8-S7 loop detection (§4 A3): per-turn signature run-length counter. `sig = name + ' ' + JSON(args)`.
   // CONSECUTIVE identical sigs accumulate; a different sig resets the run. At the 3rd consecutive hit we
@@ -10218,7 +10388,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // v0.8-S5: two-level auto-compaction runs at the iteration boundary, BEFORE this API call, so the
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
-      if (await maybeAutoCompact(session, provider, sys, config, onEvent, model)) touch();
+      if (await maybeAutoCompact(session, provider, sys, config, onEvent, model, toolLoading.current())) touch();
       const call = await streamWithFailover(buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
       if (call.httpError) {
         // If the server rejected tools, retry the turn once WITHOUT tools (chat-only) before failing.
@@ -10412,6 +10582,19 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             break;
           }
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args });
+          // Adaptive discovery tools are turn-local control-plane operations. They never cross the
+          // filesystem/permission dispatcher; tool_load only changes the schemas attached to NEXT call.
+          if (tc.name === 'tool_search' || tc.name === 'tool_load') {
+            const resultObj = tc.name === 'tool_search'
+              ? toolLoading.search(args.query, args.limit)
+              : toolLoading.load(args);
+            onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: false });
+            if (tc.name === 'tool_load') onEvent({ type: 'tool_catalog', state: 'loaded', ...resultObj, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) });
+            toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            touch();
+            continue;
+          }
           // v0.9-S6 (子代理): spawn_agent is special-cased HERE (like todo_write/bridge) because it needs the
           // live provider/session/journal/onEvent closure to run a sub-turn. It never reaches the generic
           // gate/dispatch below. Two guards, both enforced before running:
@@ -10785,7 +10968,7 @@ function estimateContentTokens(content) {
 }
 // history: provider-history array (or [system, ...providerHistory] — callers may prepend a {role:'system'}
 // message). systemPrompt: optional extra system string to count on top (kept for direct/unit callers).
-function estimateHistoryTokens(history, systemPrompt) {
+function estimateHistoryTokens(history, systemPrompt, tools) {
   if (!Array.isArray(history)) return typeof systemPrompt === 'string' ? Math.round(estimateTextTokens(systemPrompt)) : 0;
   let t = 0;
   for (const m of history) {
@@ -10802,6 +10985,7 @@ function estimateHistoryTokens(history, systemPrompt) {
     }
   }
   if (typeof systemPrompt === 'string' && systemPrompt) t += estimateTextTokens(systemPrompt);
+  if (Array.isArray(tools) && tools.length) t += estimateToolSchemaTokens(tools);
   return Math.round(t);
 }
 
@@ -11124,14 +11308,14 @@ async function runProviderCompact(sessionId) {
 // system message to session.messages (reusing the existing compact-message render path). Mutates
 // session.providerHistory / session.messages in place; the caller persists via its normal saveSession.
 // Returns true if any compaction happened (caller may save immediately). Never throws.
-async function maybeAutoCompact(session, provider, sys, config, onEvent, model) {
+async function maybeAutoCompact(session, provider, sys, config, onEvent, model, tools) {
   try {
     const history = session.providerHistory;
     if (!Array.isArray(history) || !history.length) return false;
     const threshold = Number(config.autoCompactThreshold) || 0.8;
     const budget = threshold * providerContextWindow(provider, model); // v1.0.2-S2: 传激活模型, 走三级解析
     const sysMsg = { role: 'system', content: String(sys || '') };
-    const before = estimateHistoryTokens([sysMsg, ...history]);
+    const before = estimateHistoryTokens([sysMsg, ...history], '', tools);
     if (before <= budget) return false; // under budget → nothing to do (append-only until next crossing)
 
     // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
@@ -11141,7 +11325,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model) 
     // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
     const evaporated = evaporateHistory(history);
     if (evaporated > 0) {
-      const after1 = estimateHistoryTokens([sysMsg, ...history]);
+      const after1 = estimateHistoryTokens([sysMsg, ...history], '', tools);
       onEvent({ type: 'compact', mode: 'evaporate', beforeTokens: before, afterTokens: after1 });
       session.messages.push({ role: 'system', content: `🗜 自动压缩（蒸发旧工具结果 ${evaporated} 条）：${fmtTokensServer(before)}→约 ${fmtTokensServer(after1)}（估算）`, createdAt: nowIso(), source: 'compact' });
       logEvent({ kind: 'auto_compact', mode: 'evaporate', sessionId: session.id, beforeTokens: before, afterTokens: after1, evaporated });
@@ -11150,7 +11334,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model) 
     }
 
     // ── Level 2: summary reseed (still over budget) ─────────────────────────────────────────────────
-    const before2 = estimateHistoryTokens([sysMsg, ...history]);
+    const before2 = estimateHistoryTokens([sysMsg, ...history], '', tools);
     const sc = await providerSummaryCall(provider, history);
     if (!sc.ok) {
       // Level-2 failed (network/timeout). Keep the level-1 result and continue the turn — do NOT abort.
@@ -11166,7 +11350,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model) 
       { role: 'assistant', content: '收到，已基于摘要继续。' },
       ...kept,
     ];
-    const after2 = estimateHistoryTokens([sysMsg, ...session.providerHistory]);
+    const after2 = estimateHistoryTokens([sysMsg, ...session.providerHistory], '', tools);
     onEvent({ type: 'compact', mode: 'summary', beforeTokens: before2, afterTokens: after2 });
     session.messages.push({ role: 'system', content: `🗜 自动压缩（摘要重播种）：${fmtTokensServer(before2)}→约 ${fmtTokensServer(after2)}（估算）`, createdAt: nowIso(), source: 'compact' });
     logEvent({ kind: 'auto_compact', mode: 'summary', sessionId: session.id, ok: true, beforeTokens: before2, afterTokens: after2, summaryChars: sc.summary.length });
@@ -13208,8 +13392,57 @@ async function guardDownloadDest(rawDest, ctx) {
 // passes its live session.id/turnSeq; the MCP child passes nothing (journalSessionCtx resolves both from
 // the injected WCW_SESSION_ID env + the session file). File-mutating tools (file_write/file_edit/
 // file_delete) record a `before` checkpoint immediately before executing.
+async function adaptiveCatalogForMcp(config) {
+  const native = MCP_TOOLS
+    .filter(t => t && t.name && !t.name.startsWith('tool_invoke_') && t.name !== 'tool_load')
+    .map(t => ({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } }));
+  let bridged = { tools: [], route: {} };
+  try { bridged = await collectBridgedTools(config); } catch { /* native-only catalog is still useful */ }
+  return { bridged, catalog: buildToolCatalog(native.concat(bridged.tools), bridged.route, config) };
+}
+
+async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
+  const config = await readConfig();
+  const { bridged, catalog } = await adaptiveCatalogForMcp(config);
+  const item = catalog.find(x => x.name === targetName);
+  if (!item) return { ok: false, error: `tool not found: ${targetName}. Call tool_search first.` };
+  if (item.name === 'permission_prompt' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
+  if (item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
+  const bridge = resolveBridge(bridged.route, targetName);
+  if (!bridge) return toolCall(targetName, targetArgs || {});
+  const client = mcpClients.get(bridge.serverId);
+  if (!client || client.dead) return { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+  const gateRefusal = bridgedOfficeScriptGate(targetName, targetArgs || {});
+  if (gateRefusal) return gateRefusal;
+  const relArg = bridgedWriteRelativePathArg(targetName, targetArgs || {});
+  if (relArg) return { ok: false, error: `desktop/document writes require an absolute path; '${relArg}' is relative` };
+  try {
+    const sid = process.env.WCW_SESSION_ID || '';
+    const session = sid ? await loadSession(sid).catch(() => null) : null;
+    if (session) await journalBridgedWrite(targetName, targetArgs || {}, session, config, { sessionId: sid, turnSeq: session.turnSeq });
+    return await client.callTool(bridge.toolName, targetArgs || {});
+  } catch (e) {
+    return { ok: false, error: (e && e.message) || String(e) };
+  }
+}
+
 async function toolCall(name, args = {}, ctx = null) {
   switch (name) {
+    case 'tool_search': {
+      const config = await readConfig();
+      const { catalog } = await adaptiveCatalogForMcp(config);
+      const words = String(args.query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
+      const limit = Math.min(20, Math.max(1, Number(args.limit) || 8));
+      const matches = catalog.map(x => ({ x, score: words.reduce((n, w) => n + (`${x.name} ${x.pack} ${x.description}`.toLowerCase().includes(w) ? 1 : 0), 0) }))
+        .filter(r => !words.length || r.score > 0).sort((a, b) => b.score - a.score || a.x.name.localeCompare(b.x.name)).slice(0, limit)
+        .map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description }));
+      return { ok: true, query: String(args.query || ''), matches, packs: TOOL_PACK_DESCRIPTIONS, next: 'Call the concrete tool if visible; otherwise use tool_invoke_read/edit/exec with the matching tier.' };
+    }
+    case 'tool_load':
+      return { ok: true, note: 'Claude CLI schemas are fixed for this process. Use tool_search then tool_invoke_read/edit/exec. OpenAI-compatible turns load concrete schemas on the next iteration.' };
+    case 'tool_invoke_read': return invokeAdaptiveMcpTool('read', String(args.name || ''), args.arguments || {});
+    case 'tool_invoke_edit': return invokeAdaptiveMcpTool('edit', String(args.name || ''), args.arguments || {});
+    case 'tool_invoke_exec': return invokeAdaptiveMcpTool('exec', String(args.name || ''), args.arguments || {});
     case 'permission_prompt': {
       // Bridge: the CLI (via --permission-prompt-tool) asks us to approve a tool call. We run inside
       // the MCP child, so we call back to the web server's loopback, which prompts the UI.
@@ -15599,6 +15832,7 @@ async function discoverModels(config) {
 }
 
 const MCP_TOOLS = [
+  ...adaptiveMetaToolSchemas(true),
   {
     name: 'permission_prompt',
     description: 'Internal: handles --permission-prompt-tool requests by asking the workbench UI to allow/deny a tool call.',
@@ -16190,7 +16424,17 @@ async function startMcp() {
           // advertise: in a Claude CLI session it loops back to the serve process and uses a configured
           // OpenAI-compatible provider for worker nodes.
           const userInputEnabled = Boolean(process.env.WCW_SESSION_ID) && process.env.WCW_DISABLE_USER_INPUT !== '1';
-          return sendMcp(msg.id, { tools: MCP_TOOLS.filter(t => t.name !== 'spawn_agent' && (t.name !== 'request_user_input' || userInputEnabled)) });
+          const mode = process.env.WCW_TOOL_LOADING_MODE || 'full';
+          const routedPacks = new Set(String(process.env.WCW_TOOL_PACKS || '').split(',').filter(Boolean));
+          routedPacks.add('core');
+          const adaptiveAlways = new Set(['permission_prompt', 'tool_search', 'tool_load', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
+          const listed = MCP_TOOLS.filter(t => {
+            if (t.name === 'spawn_agent') return false;
+            if (t.name === 'request_user_input' && !userInputEnabled) return false;
+            if (mode !== 'auto') return true;
+            return adaptiveAlways.has(t.name) || routedPacks.has(toolPackForName(t.name, {}));
+          });
+          return sendMcp(msg.id, { tools: listed });
         }
         if (msg.method === 'tools/call') {
           const name = msg.params?.name;
@@ -16366,6 +16610,13 @@ module.exports = {
   buildResponseLanguagePolicy,
   appendResponseLanguagePolicy,
   buildOpenAiTools,
+  classifyToolPacks,
+  toolPackForName,
+  buildToolCatalog,
+  createToolLoadingState,
+  estimateToolSchemaTokens,
+  adaptiveMetaToolSchemas,
+  generateSessionMcpConfig,
   readProjectMemory,
   toolRequirementsMet,
   TOOL_REQUIRES,

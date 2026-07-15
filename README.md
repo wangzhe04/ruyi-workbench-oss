@@ -111,6 +111,7 @@
 
 - **OpenAI 兼容引擎(原生)**:直连 HTTP + SSE 流式,带完整原生工具循环。内置四组预设:**DeepSeek / 通义千问 DashScope / 智谱 GLM / 自定义**(内网 vLLM、Ollama、one-api 网关均可)。多 Provider 并存,顶栏一键切换模型。
 - **Claude CLI 引擎(可选)**:指向本机已装的 Claude CLI 即可并存使用;工作台自动生成 MCP 配置,把自己的工具与桥接工具喂给 CLI;另有火山方舟 Ark 等 Anthropic 兼容端点预设。
+- **工具提示词智能按需**:默认先按任务装载相关工具包,缺少能力时由 AI 搜索并增量装载；OpenAI 兼容引擎在下一次工具循环加入具体 schema，Claude CLI 通过分级代理调用隐藏工具。简单问题不再反复携带整套约 140 个工具；设置 → 高级可切回“全部常驻”兼容模式。[设计与本机 A/B](ruyi-workbench/docs/TOOL-LOADING_CN.md)
 - **跨引擎续接**:同一会话里从 DeepSeek 切到 Claude(或反向),历史自动嫁接,不断上下文。
 - **可靠交互提问**:Claude CLI 与 OpenAI 兼容引擎共用 `request_user_input` 弹窗通道；选择只有在工作台确认已送达后才会关闭，后台会话的提问也会立即提示。
 - **上下文电量表**:顶栏实时显示已用/上限 token(自动探测上下文窗口,支持手动锁定);超阈值自动两级压缩(蒸发 → 摘要),也可手动 `压缩`。
@@ -281,7 +282,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1 -SkipExeBui
 <details>
 <summary><b>接入更多 MCP 连接器(drop-in,免配置)</b></summary>
 
-把任意 stdio MCP 做成文件夹,放进发行包 `mcp/` 或数据目录 `mcp/`,写一个 `ruyi-mcp.json`(`{id, command, args…}`),**重启即自动注册**——不改配置文件;删文件夹即卸载。工具默认桥接给两个引擎,并纳入同一套分级审批(`bridgedToolTiers` 可给桥接工具定级)。详见 [mcp/README.md](mcp/README.md)。
+把任意 stdio MCP 做成文件夹,放进发行包 `mcp/` 或数据目录 `mcp/`,写一个 `ruyi-mcp.json`(`{id, command, args…}`),**重启即自动注册**——不改配置文件;删文件夹即卸载。工具默认桥接给两个引擎，并由按需目录发现、纳入同一套分级审批(`bridgedToolTiers` 可给桥接工具定级)。详见 [mcp/README.md](mcp/README.md)。
 </details>
 
 <details>

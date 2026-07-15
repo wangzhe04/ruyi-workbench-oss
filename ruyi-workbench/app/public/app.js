@@ -5714,6 +5714,7 @@ function fillSettings() {
   { const el0 = $('cfgClaudeAuthMode'); if (el0) el0.value = ['auto', 'bearer', 'x-api-key'].includes(c.claudeAuthMode) ? c.claudeAuthMode : 'auto'; }
   populateClaudeEndpointPresets();
   const kp = $('cfgKillPort'); if (kp) kp.checked = c.killPortOnStart !== false;
+  { const el0 = $('cfgToolLoadingMode'); if (el0) el0.value = c.toolLoadingMode === 'full' ? 'full' : 'auto'; }
   // v1.0.2 (G5a): 单回合工具调用上限 (openaiMaxToolIterations, 1..100, 默认 100)。
   { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 100; }
   { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 8)); }
@@ -5805,6 +5806,7 @@ async function saveSettings() {
     modelsApiKey: $('cfgModelsApiKey').value,
     claudeAuthMode: $('cfgClaudeAuthMode') ? $('cfgClaudeAuthMode').value : (state.config.claudeAuthMode || 'auto'),
     killPortOnStart: $('cfgKillPort') ? $('cfgKillPort').checked : (state.config.killPortOnStart !== false),
+    toolLoadingMode: $('cfgToolLoadingMode') ? $('cfgToolLoadingMode').value : (state.config.toolLoadingMode || 'auto'),
     // v1.0.2 (G5a): 单回合工具调用上限。Number() 转换 + 夹到 1..100(后端 normalizeConfig 亦再夹一次)。
     openaiMaxToolIterations: (() => {
       const el0 = $('cfgOpenaiMaxToolIterations');

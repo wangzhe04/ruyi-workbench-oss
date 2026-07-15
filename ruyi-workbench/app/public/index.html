@@ -733,6 +733,14 @@
 
           <!-- ===== 高级 ===== -->
           <div class="settings-tab" id="stab-advanced">
+            <div class="field-block">
+              <label for="cfgToolLoadingMode" data-i18n="settings.advanced.toolLoadingMode">工具提示词装载</label>
+              <select id="cfgToolLoadingMode">
+                <option value="auto" data-i18n="settings.advanced.toolLoadingAuto">智能按需（推荐）</option>
+                <option value="full" data-i18n="settings.advanced.toolLoadingFull">全部常驻（兼容模式）</option>
+              </select>
+              <p class="field-help muted" data-i18n="settings.advanced.toolLoadingMode.hint">智能按需会先判断任务，只装载相关工具；缺少能力时 AI 可继续搜索并装载。Claude CLI 与 OpenAI 兼容引擎都会生效。</p>
+            </div>
             <!-- v1.0.2 (G5a): 原生 Provider 引擎单回合工具调用上限 (openaiMaxToolIterations, 1..100, 默认 100)。 -->
             <div class="field-block">
               <label for="cfgOpenaiMaxToolIterations" data-i18n="settings.advanced.maxToolIterations">单回合工具调用上限</label>

@@ -78,7 +78,7 @@ function startFakeSearx(port) {
 
 function writeConfig(home, extra) {
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify(Object.assign({
-    configSchema: 7, version: '1.0.0', permissionMode: 'bypass',
+    configSchema: 8, version: '1.0.0', permissionMode: 'bypass', toolLoadingMode: 'full',
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
     activeProvider: 'fake',
     desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },

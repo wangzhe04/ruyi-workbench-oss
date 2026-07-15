@@ -9,7 +9,7 @@
 
 **多引擎(v0.5+)**：除内网 Claude CLI 外，还支持 **OpenAI 兼容 provider**（DeepSeek / 通义千问 DashScope / 智谱 GLM / 内网 vLLM·Ollama 等），直连 HTTP + SSE 流式，带原生工具循环。在设置里配置 base URL + 密钥即可切换模型，Claude CLI 引擎与 provider 引擎并存。
 
-**桌面 MCP 桥接(v0.7d)**：可自动探测本机的 `ai-computer-control` 桌面控制 MCP（及其它自定义 stdio MCP），把它们的工具同时供给 Claude CLI（写进生成的 `.mcp.json`）和 provider 引擎的原生工具循环。
+**桌面 MCP 桥接(v0.7d+)**：可自动探测本机的 `ai-computer-control` 桌面控制 MCP（及其它自定义 stdio MCP），把它们同时供给 Claude CLI 与 provider 引擎。v1.6.1 起默认按任务装载工具提示词：provider 可在循环中增量加入 schema，Claude CLI 通过风险分级代理发现/调用隐藏工具；“全部常驻”兼容模式仍可在高级设置启用。
 
 压缩包内还包含一个本地 Claude Code marketplace：`resources\plugins\win-workbench-offline`。其中的 `offline-toolkit` 复刻了常用插件/skill 的离线能力，包括代码审查、前端审计、本地文档上下文、提交说明、CLAUDE.md 管理、API 调试、CI 复现、安全检查、插件开发和发布打包提示词。
 

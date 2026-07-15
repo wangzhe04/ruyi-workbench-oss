@@ -58,7 +58,7 @@ node dev-harness\openai-engine.e2e.js
 每个离线 e2e 遵循同一骨架:
 
 1. **临时 HOME**:`HOME = path.join(os.tmpdir(), 'wcw-<slice>-e2e')`,开跑前 `rmSync` 清空重建;spawn workbench 时 env 带 `WIN_CLAUDE_WORKBENCH_HOME: HOME`(数据隔离,不污染真实 `~/.win-claude-workbench`)。**v0.8-S8 起也认 `RUYI_HOME`**(优先),测兼容性时可用它。
-2. **写 config.json**:`configSchema: 6`、`version: '0.8.0'`、`providers[{...fake...}]`、`activeProvider: 'fake'`,视需要预置 `permissionMode`/`toolAllowRules`/`contextWindow` 等。**注**:范式示例种子里的 `configSchema:6`/`0.8.0` 是**有意用旧 schema 测迁移路径**(`normalizeConfig` 的 `{...defaultConfig(), ...raw}` 合并 + 末尾覆写 `config.configSchema`/`config.version` 令老种子无损升级);**当前代码基线是 `configSchema 7` / `VERSION 1.0.0`**——新写 e2e 若不为了测迁移,直接用当前 schema/版本亦可。
+2. **写 config.json**:`configSchema: 6`、`version: '0.8.0'`、`providers[{...fake...}]`、`activeProvider: 'fake'`,视需要预置 `permissionMode`/`toolAllowRules`/`contextWindow` 等。**注**:范式示例种子里的旧 schema/version 是**有意测试迁移路径**；当前代码基线是 `configSchema 8` / `VERSION 1.6.1`。新写 e2e 若不测试迁移，应直接用当前值；若旧用例需要验证“所有工具常驻”，请显式设 `toolLoadingMode:'full'`。
 3. **健康轮询**:`for (i<40) { sleep(150); h = await health(port) }`,`GET /health` 返回 JSON 即视为起来。
 4. **token 抓取**(需要 UI-token 门的路由):从 `<HOME>/runtime.json` 读 `token`,或走 body-token 端点(`/api/todo`、`/api/permission/request`)。
 5. **taskkill 清理**:`finally { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F']) }`;spawn fake 与 workbench 都要杀(树杀避免孤儿 powershell 子进程)。

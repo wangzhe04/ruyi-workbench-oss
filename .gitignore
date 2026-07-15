@@ -20,6 +20,9 @@ offline_wheels/
 # Local campaign drafts and generated marketing assets
 /docs/marketing/
 
+# Live model benchmark outputs (may contain local paths and provider responses)
+/benchmark-results/
+
 # Archives & logs
 *.zip
 *.log

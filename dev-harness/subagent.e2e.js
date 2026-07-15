@@ -64,7 +64,7 @@ function streamChatLive(port, payload, onEvent) {
 }
 function writeConfig(fakePort, subagentMaxPerTurn, permissionMode, subagentMaxConcurrent) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
-    configSchema: 7, version: '1.0.0', permissionMode: permissionMode || 'bypass',
+    configSchema: 8, version: '1.0.0', permissionMode: permissionMode || 'bypass', toolLoadingMode: 'full',
     defaultWorkspace: HOME, recentWorkspaces: [],
     subagentMaxPerTurn: subagentMaxPerTurn == null ? 4 : subagentMaxPerTurn,
     subagentMaxConcurrent: subagentMaxConcurrent == null ? 2 : subagentMaxConcurrent,
