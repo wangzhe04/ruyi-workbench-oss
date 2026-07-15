@@ -57,7 +57,7 @@ function postStream(port, payload) {
     ok(settings.statusLine && settings.statusLine.command === 'keep-me', 'unrelated pre-existing settings key preserved (we only stripped appendSystemPrompt)');
 
     // (c): run a Claude turn; the fake captures the exact argv the workbench spawned it with.
-    await postStream(WB_PORT, { message: 'hello claude', cwd: HOME });
+    await postStream(WB_PORT, { message: 'hello claude', cwd: HOME, agentTeam: true });
     let argv = [];
     for (let i = 0; i < 20 && !fs.existsSync(ARGV_CAP); i++) await sleep(100);
     try { argv = JSON.parse(fs.readFileSync(ARGV_CAP, 'utf8')); } catch { /* left empty */ }
@@ -67,6 +67,7 @@ function postStream(port, payload) {
     // 账本 digest(第26波b),故断言从「精确等于」改为「以配置值开头」(用户 append 段是最高优先级、恒在最前)。
     const flagVal = flagIdx >= 0 ? String(argv[flagIdx + 1] || '') : '';
     ok(flagVal.startsWith(MARKER), 'the flag carries the configured value (' + MARKER + ') as its leading segment — got ' + JSON.stringify(flagVal.slice(0, 40)));
+    ok(flagVal.includes('<agent-team-mode>') && flagVal.includes('MUST actually call orchestrate_agents or spawn_agent'), 'Agent team request injects the aggressive orchestration policy into Claude CLI');
     ok(flagVal.includes('<response-language-policy>') && flagVal.endsWith('</response-language-policy>'), 'the final Claude append segment carries the response-language policy');
 
     // The re-read settings.json (after the turn) still has no appendSystemPrompt key.

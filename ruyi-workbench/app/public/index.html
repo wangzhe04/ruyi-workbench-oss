@@ -252,6 +252,7 @@
             <textarea id="promptInput" rows="1" placeholder="描述你要做的事…（Enter 发送，Shift+Enter 换行）" data-i18n-attr="placeholder:chat.placeholder"></textarea>
             <div class="composer-actions">
               <button id="composerMoreBtn" class="file-label btn-ic" title="更多" aria-label="更多操作" aria-haspopup="menu" data-i18n-attr="title:common.more;aria-label:common.more" data-icon="plus"></button>
+              <button id="agentTeamBtn" class="file-label agent-team-btn" type="button" aria-pressed="false" title="Agent 团队" aria-label="Agent 团队"></button>
               <button id="skillBtn" class="file-label btn-ic" title="技能库：启用技能 / 命令 / 一键任务 (/)" aria-label="技能库" data-i18n-attr="title:skills.button.title;aria-label:skills.title"></button>
               <label class="file-label composer-file btn-ic" title="添加文件" data-icon="paperclip">
                 <input id="fileInput" type="file" multiple />
@@ -742,11 +743,11 @@
               </select>
               <p class="field-help muted" data-i18n="settings.advanced.toolLoadingMode.hint">智能按需会先判断任务，只装载相关工具；缺少能力时 AI 可继续搜索并装载。Claude CLI 与 OpenAI 兼容引擎都会生效。</p>
             </div>
-            <!-- v1.0.2 (G5a): 原生 Provider 引擎单回合工具调用上限 (openaiMaxToolIterations, 1..100, 默认 100)。 -->
+            <!-- v1.6.3: Provider 工具预算采用 100/200/300 自适应策略。 -->
             <div class="field-block">
               <label for="cfgOpenaiMaxToolIterations" data-i18n="settings.advanced.maxToolIterations">单回合工具调用上限</label>
-              <input id="cfgOpenaiMaxToolIterations" type="number" min="1" max="100" step="1" placeholder="100" />
-              <p class="field-help muted" data-i18n="settings.advanced.maxToolIterations.hint">AI 一个回合内最多连续调用多少次工具，默认 100（上限）。</p>
+              <input id="cfgOpenaiMaxToolIterations" type="number" min="1" max="200" step="1" placeholder="100" />
+              <p class="field-help muted" data-i18n="settings.advanced.maxToolIterations.hint">普通任务按此基础预算运行（默认 100）；长任务从 200 起步，有持续进展时最多自动续到 300。</p>
             </div>
             <div class="field-grid">
               <div class="field-block">

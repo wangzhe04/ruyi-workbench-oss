@@ -1032,6 +1032,9 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .file-label { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 5px 9px; cursor: pointer; background: var(--panel-2); font-size: var(--fs-base); }
 .file-label:hover { border-color: var(--accent); }
 .file-label input { display: none; }
+.agent-team-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); white-space: nowrap; }
+.agent-team-btn[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 65%, var(--line)); background: color-mix(in srgb, var(--accent) 14%, var(--panel-2)); color: var(--accent); font-weight: 600; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 10%, transparent); }
+.agent-team-btn:disabled { cursor: not-allowed; opacity: .5; }
 .composer-hint { font-size: var(--fs-xs); color: var(--muted); }
 /* ≤560px composer fold (§4.3): the ＋ trigger is hidden on wide screens (buttons tiled); the media
    query below flips it — hiding 📎/⌘/🗜 and revealing ＋, which opens a popover with those three. */

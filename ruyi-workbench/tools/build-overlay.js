@@ -19,6 +19,7 @@ const PAYLOAD_FILES = [
   'app/server.js',
   'app/public/index.html',
   'app/public/app.js',
+  'app/public/js/icons.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/styles.css',

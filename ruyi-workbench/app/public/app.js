@@ -61,6 +61,7 @@ window.addEventListener('i18n:change', () => {
   renderCapBadge();
   if (state.status) renderStatusLine();
   updateSkillBadge();
+  updateAgentTeamButton();
   void loadAutonomyGrants();
   if (usageState.data) renderUsage(usageState.data);
   if (auditState.loaded) renderAuditList();
@@ -1980,6 +1981,30 @@ async function handleDrop(e) {
 // aborts another session's request. Streams for background sessions keep draining so the server connection
 // stays alive, and their final persisted message appears when that session is opened again.
 const activeTurns = new Map(); // sessionId -> { abort, startedAt, eventLines, eventChars, live, main }
+// One-shot preference for the next ordinary user message. It is intentionally not persisted in a
+// session or localStorage: sending the message consumes the preference and immediately resets the UI.
+let agentTeamTurnEnabled = false;
+function agentTeamAvailable() {
+  return Number(state.config && state.config.subagentMaxPerTurn) > 0;
+}
+function updateAgentTeamButton() {
+  const btn = $('agentTeamBtn');
+  if (!btn) return;
+  const available = agentTeamAvailable();
+  if (!available) agentTeamTurnEnabled = false;
+  btn.disabled = Boolean(state.streaming) || !available;
+  btn.setAttribute('aria-pressed', agentTeamTurnEnabled ? 'true' : 'false');
+  btn.title = available
+    ? t(agentTeamTurnEnabled ? 'composer.agentTeam.activeTitle' : 'composer.agentTeam.title')
+    : t('composer.agentTeam.unavailableTitle');
+  btn.setAttribute('aria-label', t('composer.agentTeam.label'));
+  iconTextBtn(btn, 'agents', t(agentTeamTurnEnabled ? 'composer.agentTeam.active' : 'composer.agentTeam.label'));
+}
+function toggleAgentTeamTurn() {
+  if (!agentTeamAvailable() || state.streaming) return;
+  agentTeamTurnEnabled = !agentTeamTurnEnabled;
+  updateAgentTeamButton();
+}
 const ACTIVE_TURN_EVENT_CAP = 2_000_000;
 // Re-parsing an ever-growing Markdown document on every token is O(n^2) and eventually monopolizes the UI
 // thread. Stream as incremental plain text, then perform one bounded Markdown pass when the turn settles.
@@ -2063,6 +2088,7 @@ function setStreaming(on) {
     btn.onclick = on ? stopTurn : () => sendPrompt();
   }
   updateJumpLatest();
+  updateAgentTeamButton();
 }
 function syncStreamingUi() {
   const sid = state.currentSession?.id || '';
@@ -2139,6 +2165,11 @@ async function sendPrompt(overrideText) {
   if (!state.currentSession) await newSession();
 
   const turnSessionId = state.currentSession.id;
+  const agentTeam = overrideText == null && agentTeamTurnEnabled && agentTeamAvailable();
+  if (agentTeam) {
+    agentTeamTurnEnabled = false;
+    updateAgentTeamButton();
+  }
   if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); }
   try { localStorage.removeItem('wcw.draft'); } catch { /* ignore */ }
 
@@ -2162,7 +2193,7 @@ async function sendPrompt(overrideText) {
   try {
     const res = await fetch('/api/chat/stream', {
       method: 'POST', headers: authHeaders(), signal: turnAbort.signal,
-      body: JSON.stringify({ sessionId: turnSessionId, message, cwd: currentWorkspace(), attachments: sentAttachments }),
+      body: JSON.stringify({ sessionId: turnSessionId, message, cwd: currentWorkspace(), attachments: sentAttachments, agentTeam }),
     });
     if (!res.ok || !res.body) throw new Error(await res.text());
     const reader = res.body.getReader();
@@ -3015,7 +3046,7 @@ async function openWorkflowEditor(initialId) {
     engine.onchange=()=>{ rebuildModelOptions(true); };   // 对抗轮 P3: 换引擎时旧引擎模型重置为继承,不再结转为"自定义"(跨引擎必非法)
     role.onchange=updateModelHint;
     rebuildModelOptions();
-    const maxIters=document.createElement('input'); maxIters.type='number'; maxIters.min='1'; maxIters.max='100'; maxIters.placeholder='默认'; maxIters.value=(node.maxIters!=null&&node.maxIters!=='')?node.maxIters:'';
+    const maxIters=document.createElement('input'); maxIters.type='number'; maxIters.min='1'; maxIters.max='300'; maxIters.placeholder='默认'; maxIters.value=(node.maxIters!=null&&node.maxIters!=='')?node.maxIters:'';
     const toolTier=document.createElement('select'); for(const [v,t] of [['','继承角色'],['read','只读+联网检索 read'],['edit','可编辑+联网 edit'],['exec','可执行(全量) exec']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; toolTier.appendChild(o); } toolTier.value=node.toolTier||'';
     // ── 编排 ──
     const deps=document.createElement('select'); deps.multiple=true; deps.size=Math.min(8,Math.max(3,draft.nodes.length-1)); for(const other of draft.nodes.filter(x=>x.id!==node.id)){ const o=document.createElement('option'); o.value=other.id; o.textContent=other.id; o.selected=(node.dependsOn||[]).includes(other.id); deps.appendChild(o); }
@@ -3064,7 +3095,7 @@ async function openWorkflowEditor(initialId) {
       node.maxRetries=failure.value==='retry'?Math.max(1,Math.min(5,Math.round(Number(maxRetries.value)||1))):0;
       node.condition=nextCondition; node.loop=nextLoop;
       node.gate = gate.value ? { ...(node.gate&&typeof node.gate==='object'?node.gate:{}), mode:gate.value } : false;   // 对抗轮 P2: 显式 false=明确无门(null 会被服务端按 reviewer/verifier 角色回填)
-      if(mi) node.maxIters=Math.max(1,Math.min(100,Math.round(Number(mi)||100))); else delete node.maxIters;
+      if(mi) node.maxIters=Math.max(1,Math.min(300,Math.round(Number(mi)||100))); else delete node.maxIters;
       if(toolTier.value) node.toolTier=toolTier.value; else delete node.toolTier;
       if(nextId!==oldId) remapWorkflowNodeRef(oldId,nextId);
       selectedId=nextId; renderGraph(); renderInspector();
@@ -5735,6 +5766,7 @@ function addAgentRole() {
 }
 function fillSettings() {
   const c = state.config;
+  updateAgentTeamButton();
   $('workspaceInput').value = c.defaultWorkspace || '';
   { const el0 = $('cfgLocale'); if (el0) el0.value = ['auto', 'zh-CN', 'en-US'].includes(c.locale) ? c.locale : 'auto'; }
   { const el0 = $('cfgUiMode'); if (el0) el0.value = (c.uiMode === 'simple' ? 'simple' : 'pro'); } // v0.9-S1
@@ -5758,7 +5790,7 @@ function fillSettings() {
   populateClaudeEndpointPresets();
   const kp = $('cfgKillPort'); if (kp) kp.checked = c.killPortOnStart !== false;
   { const el0 = $('cfgToolLoadingMode'); if (el0) el0.value = c.toolLoadingMode === 'full' ? 'full' : 'auto'; }
-  // v1.0.2 (G5a): 单回合工具调用上限 (openaiMaxToolIterations, 1..100, 默认 100)。
+  // v1.6.3: 普通任务基础工具预算 (1..200, 默认 100；长任务可自动续到硬上限 300)。
   { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 100; }
   { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 8)); }
   { const el0 = $('cfgSubagentMaxPerTurn'); if (el0) el0.value = Math.max(0, Math.min(32, Number.isFinite(Number(c.subagentMaxPerTurn)) ? Number(c.subagentMaxPerTurn) : 32)); }
@@ -5850,13 +5882,13 @@ async function saveSettings() {
     claudeAuthMode: $('cfgClaudeAuthMode') ? $('cfgClaudeAuthMode').value : (state.config.claudeAuthMode || 'auto'),
     killPortOnStart: $('cfgKillPort') ? $('cfgKillPort').checked : (state.config.killPortOnStart !== false),
     toolLoadingMode: $('cfgToolLoadingMode') ? $('cfgToolLoadingMode').value : (state.config.toolLoadingMode || 'auto'),
-    // v1.0.2 (G5a): 单回合工具调用上限。Number() 转换 + 夹到 1..100(后端 normalizeConfig 亦再夹一次)。
+    // v1.6.3: 普通任务基础预算夹到 1..200；后端负责长任务与按进展续额。
     openaiMaxToolIterations: (() => {
       const el0 = $('cfgOpenaiMaxToolIterations');
       if (!el0) return state.config.openaiMaxToolIterations || 100;
       const n = Math.round(Number(el0.value));
       if (!Number.isFinite(n)) return 100;
-      return Math.max(1, Math.min(100, n));
+      return Math.max(1, Math.min(200, n));
     })(),
     subagentMaxConcurrent: (() => {
       const el0 = $('cfgSubagentMaxConcurrent');
@@ -7583,6 +7615,7 @@ function bindEvents() {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendPrompt(); }
   });
   $('sendBtn').onclick = () => sendPrompt();
+  $('agentTeamBtn').onclick = toggleAgentTeamTurn;
   $('skillBtn').onclick = openSkillPanel;
   // v3 (§B2): 「AI 工作」面板顶部的用量/审计 mini 链接 —— 简易模式经此切到隐藏页签(switchTab 不拦这两个 tab)。
   { const u = $('usageMiniLink'); if (u) u.onclick = () => { switchTab('usage'); }; }

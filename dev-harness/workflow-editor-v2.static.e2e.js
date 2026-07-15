@@ -29,8 +29,8 @@ ok(/node\.model\s*=\s*engine\.value\s*\?\s*modelVal\s*:\s*''/.test(src), 'A1 保
 // ───────────── A2 补三字段：质量门 / 迭代预算 / 工具权限 ─────────────
 ok(/\['cross_review','cross_review 交叉审查'\]/.test(src) && /\['dedupe','dedupe 去重'\]/.test(src), 'A2 质量门下拉含五种模式');
 ok(/node\.gate\s*=\s*gate\.value\s*\?\s*\{[\s\S]{0,80}mode:gate\.value\s*\}\s*:\s*false/.test(src), 'A2 保存回写 node.gate={...,mode}/false 显式无门(对抗轮P2:null 会被服务端按角色回填)');
-ok(/迭代预算 maxIters/.test(src) && /maxIters\.type='number'/.test(src) && /maxIters\.max='100'/.test(src), 'A2 迭代预算 maxIters（number 1-100，空=默认）');
-ok(/if\(mi\)\s*node\.maxIters=Math\.max\(1,Math\.min\(100/.test(src) && /else delete node\.maxIters/.test(src), 'A2 maxIters 空=删除 / 有值 clamp 回写');
+ok(/迭代预算 maxIters/.test(src) && /maxIters\.type='number'/.test(src) && /maxIters\.max='300'/.test(src), 'A2 迭代预算 maxIters（number 1-300，空=默认）');
+ok(/if\(mi\)\s*node\.maxIters=Math\.max\(1,Math\.min\(300/.test(src) && /else delete node\.maxIters/.test(src), 'A2 maxIters 空=删除 / 有值 clamp 回写');
 ok(/工具权限 toolTier/.test(src) && /\['read','只读\+联网检索 read'\]/.test(src) && /\['exec','可执行\(全量\) exec'\]/.test(src), 'A2 工具权限 toolTier 下拉（继承/read/edit/exec;第22波文案含联网）');
 ok(/if\(toolTier\.value\)\s*node\.toolTier=toolTier\.value;\s*else delete node\.toolTier/.test(src), 'A2 toolTier 保存回写/删除');
 

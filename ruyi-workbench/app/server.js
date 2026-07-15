@@ -13,7 +13,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '1.6.2'; // batch history cleanup + adaptive tool discovery/loading for OpenAI-compatible + Claude CLI
+const VERSION = '1.6.3'; // one-shot Agent team mode + progress-aware 100/200/300 tool budgets
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -443,7 +443,7 @@ function defaultConfig() {
     // --- v0.5: multi-provider engine (native OpenAI-compatible: DeepSeek / DashScope / local vLLM/Ollama) ---
     activeProvider: '',           // '' | 'claude-cli' -> Anthropic via the claude CLI (default). Else a providers[].id -> native engine.
     providers: [],                // [{ id,label,type:'openai-compat',baseUrl,apiKey,model,models,reasoning,systemPrompt,temperature,extraHeaders }]
-    openaiMaxToolIterations: 100, // v1.0.2-S1: safety cap on the native agent tool loop (clamp 1..100; v1.4.4 default raised 40->100, the top of the clamp — most users were hitting this mid-task)
+    openaiMaxToolIterations: 100, // v1.6.3: standard base budget 1..200; long turns start at 200 and may extend to hard cap 300 while progressing
     // --- v0.7d: external / desktop MCP integration ---
     // Convenience entry for the user's own ai-computer-control desktop MCP (Windows control). When
     // enabled + command empty + autodetect, detectDesktopMcp() locates it; blank command => absent => graceful.
@@ -584,8 +584,8 @@ function normalizeAgentRole(raw, opts = {}) {
     mcpServers: strArr(raw.mcpServers, 32),
     permissionMode,
     budgets: {
-      openai: Math.min(100, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 100))) || 100)),
-      claude: Math.min(100, Math.max(1, Math.round(Number(budgets0.claude != null ? budgets0.claude : (raw.maxTurns || 100))) || 100)),
+      openai: Math.min(300, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 100))) || 100)),
+      claude: Math.min(300, Math.max(1, Math.round(Number(budgets0.claude != null ? budgets0.claude : (raw.maxTurns || 100))) || 100)),
     },
     isolation: raw.isolation === 'worktree' ? 'worktree' : 'none',
     color: String(raw.color || '').trim().slice(0, 32),
@@ -670,7 +670,7 @@ function normalizeConfig(raw) {
   }
   {
     const mi = Number(config.openaiMaxToolIterations);
-    const clamped = Number.isFinite(mi) ? Math.min(100, Math.max(1, Math.round(mi))) : 100; // v1.4.4: 兜底 40→100
+    const clamped = Number.isFinite(mi) ? Math.min(200, Math.max(1, Math.round(mi))) : 100;
     if (clamped !== config.openaiMaxToolIterations) { config.openaiMaxToolIterations = clamped; changed = true; }
   }
   // v0.7d: desktopMcp — coerce field types; a malformed/absent value falls back to the enabled+autodetect default.
@@ -4316,7 +4316,7 @@ function claudeProviderTailSince(messages) {
   return lastClaudeIdx >= 0 ? arr.slice(lastClaudeIdx + 1) : arr;
 }
 
-async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driverAuto }) {
+async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driverAuto, agentTeam }) {
   const config = await readConfig();
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
@@ -4470,7 +4470,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     } catch { /* 编排提示注入绝不阻断回合 */ }
     // The internal skill/workflow/memory hints above are often Chinese. Always reserve the final append
     // segment for the user-facing response-language policy, even when the user configured no custom prompt.
-    appendSys = appendResponseLanguagePolicy(appendSys, config, 8000);
+    appendSys = appendTurnPolicies(appendSys, config, agentTeam, 8000);
     if (appendSys) args.push('--append-system-prompt', appendSys);
   }
   if (config.autoResumeClaudeSessions && session.claudeSessionId) {
@@ -5728,16 +5728,72 @@ function buildResponseLanguagePolicy(config) {
   ].join('\n');
 }
 
-// Claude's append prompt has an 8K contract. Reserve its final segment for the language policy and trim
+function buildAgentTeamHint() {
+  return [
+    '<agent-team-mode>',
+    'The user explicitly enabled Agent team mode for this turn. Multi-agent execution is the default requirement, not a mere suggestion.',
+    'Unless the request is genuinely trivial, indivisible, or delegation would clearly make it worse, you MUST actually call orchestrate_agents or spawn_agent before completing the task yourself.',
+    'First prefer a matching preset workflowId when one is available. If no preset fits, construct a minimal task-specific DAG/nodes plan or dispatch complementary agents directly.',
+    'Use at least two agents whenever the work has two meaningful independent responsibilities. Give each agent a distinct deliverable, run independent work in parallel, and include a synthesis or review stage for non-trivial work.',
+    'Do not only describe a team plan and then do all work in the parent agent. Execute the orchestration, collect the results, reconcile disagreements, and deliver one integrated answer.',
+    'Avoid redundant agents and uncontrolled fan-out. Skip orchestration only when the task is too small or cannot be usefully divided.',
+    '</agent-team-mode>',
+  ].join('\n');
+}
+
+// Claude's append prompt has an 8K contract. Reserve its final segment for turn policies and trim
 // lower-priority generated context from the tail when necessary; user-configured text at the beginning stays.
-function appendResponseLanguagePolicy(base, config, limit = 0) {
+function appendTurnPolicies(base, config, agentTeam, limit = 0) {
   const prior = String(base || '');
-  const policy = buildResponseLanguagePolicy(config);
+  const policy = [agentTeam ? buildAgentTeamHint() : '', buildResponseLanguagePolicy(config)].filter(Boolean).join('\n\n');
   const separator = prior ? '\n\n' : '';
   if (!Number.isFinite(limit) || limit <= 0) return prior + separator + policy;
   if (policy.length >= limit) return policy.slice(0, limit);
   const room = Math.max(0, limit - policy.length - separator.length);
   return prior.slice(0, room) + separator + policy;
+}
+
+function appendResponseLanguagePolicy(base, config, limit = 0) {
+  return appendTurnPolicies(base, config, false, limit);
+}
+
+const TOOL_ITERATION_BUDGETS = Object.freeze({ standard: 100, long: 200, hard: 300, extension: 50 });
+
+// Long-task detection is deliberately independent from Agent team mode. A single-agent migration, audit,
+// investigation, or end-to-end implementation can be long; conversely, the explicit team switch is an
+// orchestration preference. Both receive enough starting room, but for different reasons.
+function isLongToolTask(message, context = {}) {
+  if (context.driverAuto === true || context.hasMission === true) return true;
+  const text = String(message || '').trim();
+  if (text.length >= 1200) return true;
+  const explicitLong = /长任务|复杂任务|持续推进|自主推进|不要停|端到端|全面(?:实现|测试|排查|审计)|完整(?:实现|迁移|重构)|批量(?:处理|迁移|测试)|系统性(?:排查|研究|评测)|\b(?:long[- ]running|complex task|end[- ]to[- ]end|comprehensive|systematic|autonomously continue|do not stop|benchmark|migration|refactor|audit|investigation)\b/i;
+  if (explicitLong.test(text)) return true;
+  const implementation = /实现|修改|开发|构建|修复|迁移|重构|implement|build|change|fix|migrate|refactor/i.test(text);
+  const verification = /测试|验证|回归|打包|部署|发布|重启|提交|推送|test|verify|regression|package|deploy|release|restart|commit|push/i.test(text);
+  return implementation && verification && (text.length >= 160 || /然后|并且|同时|and then|as well as/i.test(text));
+}
+
+function resolveToolIterationBudget(configured, message, context = {}) {
+  const raw = Math.round(Number(configured));
+  const base = Number.isFinite(raw) ? Math.max(1, Math.min(200, raw)) : TOOL_ITERATION_BUDGETS.standard;
+  const longTask = isLongToolTask(message, context);
+  const agentTeam = context.agentTeam === true;
+  const elevated = longTask || agentTeam;
+  return {
+    base,
+    initial: elevated ? Math.max(base, TOOL_ITERATION_BUDGETS.long) : base,
+    hardLimit: TOOL_ITERATION_BUDGETS.hard,
+    extension: TOOL_ITERATION_BUDGETS.extension,
+    mode: agentTeam ? 'agent-team' : (longTask ? 'long' : 'standard'),
+    longTask,
+    agentTeam,
+  };
+}
+
+function shouldExtendToolIterationBudget({ currentLimit, hardLimit, iter, lastProgressIter, progressEvents, progressAtLastExtension }) {
+  if (!(currentLimit < hardLimit)) return false;
+  if ((Number(progressEvents) || 0) - (Number(progressAtLastExtension) || 0) < 3) return false;
+  return (Number(iter) || 0) - (Number(lastProgressIter) || 0) <= 8;
 }
 
 // Read cwd's project-memory file (CLAUDE.md preferred, then AGENTS.md), ≤16KB. Returns { text, name,
@@ -7209,7 +7265,7 @@ async function drainSteerQueue(reg, session, onEvent) {
 //   • tool set filtered by toolTier (read/edit/exec) AND with spawn_agent suppressed (noSpawnAgent) — a
 //     sub-agent can therefore never spawn another sub-agent (double guard: the tool isn't offered here AND
 //     the loop below refuses a spawn_agent call if the model somehow emits one);
-//   • independent iteration budget maxIters (clamped 1..100); model = model || provider.subagentModel || main model;
+//   • independent iteration budget maxIters (clamped 1..300); model = model || provider.subagentModel || main model;
 //   • file tools run through the SAME journal ctx {sessionId, turnSeq} as the parent (the sub-turn is part of
 //     the parent turn), so a sub-agent's file_write is journaled under the parent's turnSeq — naturally;
 //   • events: a `subagent` start/end pair is forwarded; the sub-loop's tool_use/tool_result are forwarded too
@@ -7687,7 +7743,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const allowedTools = (role && role.claudeTools && role.claudeTools.length) ? role.claudeTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
   if (allowedTools && allowedTools.length) args.push('--allowed-tools', allowedTools.join(','));
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
-  if (turnBudget > 0) args.push('--max-turns', String(Math.min(100, Math.round(turnBudget))));
+  if (turnBudget > 0) args.push('--max-turns', String(Math.min(300, Math.round(turnBudget))));
   // DAG subagents do not inherit the main turn's append prompt, so give them the same final language rule.
   args.push('--append-system-prompt', buildResponseLanguagePolicy(config));
   if (cwd) args.push('--add-dir', cwd);
@@ -8221,7 +8277,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   }
   const requestedTier = toolTier || (role && role.toolTier);
   const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
-  const budget = Math.min(100, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 100));
+  const budget = Math.min(300, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 100));
 
   // Tool set: same capability gating as the parent, filtered to the requested tier, WITHOUT spawn_agent.
   const caps = await getCapabilities(config).catch(() => null);
@@ -9017,7 +9073,7 @@ function normalizeAgentWorkflow(raw, opts = {}) {
       // value would silently override the role library's larger Reviewer/Verifier budgets and recreate the
       // "子代理已达迭代上限 6 轮" failure on every template launch.
       maxIters: (item.maxIters != null && item.maxIters !== '' && Math.round(Number(item.maxIters)) !== 6)
-        ? Math.max(1, Math.min(100, Math.round(Number(item.maxIters) || 100)))
+        ? Math.max(1, Math.min(300, Math.round(Number(item.maxIters) || 100)))
         : undefined,
       model: String(item.model || '').trim().slice(0, 160),
       resources: (Array.isArray(item.resources) ? item.resources : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 32),
@@ -9290,7 +9346,7 @@ function materializePoolItem(run, item, opts = {}) {
     let toolTier = ['read', 'edit', 'exec'].includes(item.toolTier) ? item.toolTier : propTier;
     if ((tierRank[toolTier] || 0) > (tierRank[propTier] || 0)) toolTier = propTier; // 不得超过提案者
     const resourceSpecs = normalizeAgentResources(item.resources, opts.cwd || '');
-    const maxIters = Math.min(100, Math.max(1, Number(item.maxIters || (proposer && proposer.maxIters)) || 100));
+    const maxIters = Math.min(300, Math.max(1, Number(item.maxIters || (proposer && proposer.maxIters)) || 100));
     // 第30波:池提案节点 model 解析 —— 提案 item.model(校验后)> 角色按引擎默认 > 提案者节点 model(继承);
     // 无 provider 句柄(物化在调度器内,opts 不带 provider)则校验退回 offlineModelList(含 config.model/knownModels)。
     const poolRoleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
@@ -9496,7 +9552,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
       const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, config, provider), maxIters: Math.min(100, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, config, provider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -10131,7 +10187,7 @@ function syncProviderHistoryFromDisplay(session) {
 
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
-async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto }) {
+async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam }) {
   config = config || await readConfig();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
@@ -10265,7 +10321,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // Keep this final: dynamic role/workflow/model/plan layers may be in Chinese, but must not decide
   // the language of an English (or otherwise non-Chinese) user conversation.
-  sys = appendResponseLanguagePolicy(sys, config);
+  sys = appendTurnPolicies(sys, config, agentTeam);
   const headers = { 'content-type': 'application/json' };
   const key = String(provider.apiKey || '').trim();
   if (key) headers['authorization'] = 'Bearer ' + key;
@@ -10323,7 +10379,27 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     usageCalls += 1;
     usageObj = { usage: { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens }, contextTokens: total || undefined, calls: usageCalls };
   };
-  const maxIters = Math.max(1, Number(config.openaiMaxToolIterations) || 40); // v1.0.2-S1: 兜底同步 12→40
+  const toolBudget = resolveToolIterationBudget(config.openaiMaxToolIterations, message, {
+    driverAuto,
+    hasMission: Boolean(session.mission && (
+      session.mission.autoMode === 'until-done'
+      || (Array.isArray(session.mission.milestones) && session.mission.milestones.some(item => item && item.status !== 'done'))
+    )),
+    agentTeam,
+  });
+  let maxIters = toolBudget.initial;
+  let lastProgressIter = -Infinity;
+  let progressEvents = 0;
+  let progressAtLastExtension = 0;
+  const progressSignatures = new Set();
+  const markToolProgress = (tc, resultObj, iter) => {
+    if (!tc || !resultObj || resultObj.ok === false || resultObj.error) return;
+    const fingerprint = crypto.createHash('sha1').update(String(tc.name || '') + '\0' + String(tc.rawArgs || '')).digest('hex');
+    if (progressSignatures.has(fingerprint)) return;
+    progressSignatures.add(fingerprint);
+    progressEvents += 1;
+    lastProgressIter = iter;
+  };
   let useTools = initialTools.length > 0;
   let toolsRetried = false;
   // v0.8-S7 loop detection (§4 A3): per-turn signature run-length counter. `sig = name + ' ' + JSON(args)`.
@@ -10405,9 +10481,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   try {
     for (let iter = 0; ; iter++) {
       if (iter >= maxIters) {
-        const note = `\n\n[已达工具调用上限 ${maxIters} 轮，停止]`;
-        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
-        break;
+        if (shouldExtendToolIterationBudget({
+          currentLimit: maxIters,
+          hardLimit: toolBudget.hardLimit,
+          iter,
+          lastProgressIter,
+          progressEvents,
+          progressAtLastExtension,
+        })) {
+          const from = maxIters;
+          maxIters = Math.min(toolBudget.hardLimit, maxIters + toolBudget.extension);
+          progressAtLastExtension = progressEvents;
+          onEvent({ type: 'tool_budget', state: 'extended', mode: toolBudget.mode, from, to: maxIters, hardLimit: toolBudget.hardLimit });
+        } else {
+          const note = `\n\n[已达工具调用上限 ${maxIters} 轮，停止]`;
+          assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+          break;
+        }
       }
       // v0.8-S7: drain any steering (§4 A3) queued since the last boundary BEFORE this API call, so the
       // request we are about to build carries the user's mid-turn instruction. Pairing-safe here: the
@@ -10620,6 +10710,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             if (tc.name === 'tool_load') onEvent({ type: 'tool_catalog', state: 'loaded', ...resultObj, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            markToolProgress(tc, resultObj, iter);
             touch();
             continue;
           }
@@ -10658,6 +10749,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            markToolProgress(tc, resultObj, iter);
             touch();
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
             continue; // agent orchestration done — skip generic tool dispatch
@@ -10802,6 +10894,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
           // v0.8-S5: tiered truncation — file_read keeps head+tail, others flat 60KB (truncateToolResult).
           session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(toolResultForHistory)) });
+          markToolProgress(tc, resultObj, iter);
           touch();
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
           // v0.8-S7 note: steering is deliberately NOT drained here. A multi-tool batch (parallel
@@ -11505,6 +11598,7 @@ async function streamChat(req, res) {
   try {
     emit({ type: 'session', session });
     const provider = activeOpenAiProvider(config);
+    const turnAgentTeam = body.agentTeam === true && Number(config.subagentMaxPerTurn) > 0;
     // 单回合执行器(首回合=用户消息带附件;账本续跑回合=driverAuto、无附件)。两引擎同签名。
     const runTurn = async (msg, driverAuto) => {
       lastTurnTokens = 0;
@@ -11512,8 +11606,9 @@ async function streamChat(req, res) {
       // 第27f波:标记本会话处于无人值守回合(供 CLI 桥的权限超时→存档暂停判定;provider 路径用闭包 driverAuto)。serial 回合,进出平衡。
       if (driverAuto) driverAutoSessions.add(session.id);
       try {
-        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto });
-        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, driverAuto });
+        const agentTeam = !driverAuto && turnAgentTeam;
+        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam });
+        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, driverAuto, agentTeam });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     await runTurn(String(body.message || ''), false);
@@ -16374,7 +16469,7 @@ const MCP_TOOLS = [
         agentKey: { type: 'string', description: 'optional stable identifier for this sub-agent within the parent turn (for later dependsOn references)' },
         dependsOn: { type: 'array', items: { type: 'string' }, description: 'agentKey values from completed earlier stages whose conclusions should be injected into this task' },
         toolTier: { type: 'string', enum: ['read', 'edit', 'exec'], description: "tool access level for the sub-agent (default 'read')" },
-        maxIters: { type: 'number', description: 'sub-loop iteration budget (default 100, clamped 1..100)' },
+        maxIters: { type: 'number', description: 'sub-loop iteration budget (default 100, clamped 1..300)' },
         model: { type: 'string', description: 'optional model id for the sub-turn (engine is openai), chosen by task difficulty (fast model for simple/bulk work, strong model for hard reasoning). Pick from the OpenAI models listed in the system prompt; a wrong/unknown id makes the sub-agent fail. Omit to use the default.' },
         resources: { type: 'array', items: { type: 'string' }, description: 'resources held for the whole subtask. Examples: desktop, browser:default, file:C:\\project\\a.js, workspace:C:\\project. Prefix with read: for shared access.' },
       },
@@ -16645,7 +16740,13 @@ module.exports = {
   invalidateCapabilityCache,
   buildProviderSystemPrompt,
   buildResponseLanguagePolicy,
+  buildAgentTeamHint,
+  appendTurnPolicies,
   appendResponseLanguagePolicy,
+  isLongToolTask,
+  resolveToolIterationBudget,
+  shouldExtendToolIterationBudget,
+  TOOL_ITERATION_BUDGETS,
   buildOpenAiTools,
   classifyToolPacks,
   toolPackForName,
