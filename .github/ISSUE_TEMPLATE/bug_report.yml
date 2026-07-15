@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a reproducible problem in Ruyi.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Ruyi. Do not include API keys, access tokens, personal data, or details of an unfixed vulnerability. For security reports, follow SECURITY.md instead.
+  - type: input
+    id: version
+    attributes:
+      label: Ruyi version or commit
+      placeholder: "For example: v1.6.0 or aea9f19"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Windows version, Node.js version, and engine type (OpenAI-compatible endpoint or Claude CLI).
+      placeholder: "Windows 11 23H2; Node 20.x; OpenAI-compatible provider"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. ...\n2. ...\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and sanitized logs
+      description: Remove secrets and personal information before submitting.
+    validations:
+      required: true

@@ -1,0 +1,31 @@
+name: Feature request
+description: Propose an improvement that helps a real Ruyi workflow.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the idea. Please focus on the user problem and workflow rather than only a proposed implementation.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Who has this problem, and what makes the current workflow difficult?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe the desired user experience and any constraints (offline, Windows, security, etc.).
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds or other approaches have you tried?
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
