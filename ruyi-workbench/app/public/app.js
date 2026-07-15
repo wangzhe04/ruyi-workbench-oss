@@ -827,6 +827,49 @@ async function removeSession(id) {
   renderCurrentSession();
 }
 
+function openBulkCleanupModal() {
+  const currentId = state.currentSession?.id || '';
+  // The server repeats these guards authoritatively. Keeping the preview aligned makes the destructive
+  // action legible before the user confirms it.
+  const candidates = state.sessions.filter(s => s && !s.pinned && s.id !== currentId && !activeTurns.has(s.id));
+  if (!candidates.length) { toast(t('session.bulkCleanup.empty'), ''); return; }
+
+  const count = candidates.length;
+  const body = el('div');
+  body.append(el('p', '', t('session.bulkCleanup.description', { count })));
+  const note = el('p', 'muted', t('session.bulkCleanup.note'));
+  body.append(note);
+  const purgeLabel = el('label', 'check');
+  const purgeBox = document.createElement('input');
+  purgeBox.type = 'checkbox'; purgeBox.checked = true;
+  purgeLabel.append(purgeBox, document.createTextNode(' ' + t('session.bulkCleanup.purgeAssociated')));
+  body.append(purgeLabel);
+  body.append(el('p', 'muted', t('session.bulkCleanup.purgeHint')));
+
+  const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
+  const cancel = el('button', '', t('common.cancel'));
+  const go = el('button', 'danger', t('session.bulkCleanup.action', { count }));
+  foot.append(cancel, go);
+  const modal = buildModal(t('session.bulkCleanup.title'), body, foot);
+  cancel.onclick = () => modal.close();
+  go.onclick = async () => {
+    go.disabled = true; go.textContent = t('common.loading');
+    try {
+      const r = await api('/api/sessions/bulk-delete', {
+        method: 'POST',
+        body: JSON.stringify({ preserveSessionId: currentId, purgeAssociated: purgeBox.checked }),
+      });
+      if (!r || !r.ok) throw new Error((r && r.error) || 'unknown error');
+      modal.close();
+      await refreshSessions();
+      toast(t('session.bulkCleanup.success', { count: r.deletedCount || 0 }), 'ok');
+    } catch (e) {
+      go.disabled = false; go.textContent = t('session.bulkCleanup.action', { count });
+      toast(t('session.bulkCleanup.failed', { reason: apiErrText(e) }), 'err');
+    }
+  };
+}
+
 /* ---------------- message rendering ---------------- */
 function renderCurrentSession() {
   const session = state.currentSession;
@@ -7487,6 +7530,7 @@ function bindEvents() {
   // sidebar
   $('newSessionBtn').onclick = () => newSession();
   $('sessionSearch').oninput = renderSessions;
+  $('bulkCleanupBtn').onclick = () => openBulkCleanupModal();
   $('openSettingsBtn').onclick = () => openModal('settingsModal');
   $('openDoctorBtn').onclick = () => { refreshStatus(); openToolPane(); switchTab('doctor'); };
   $('helpBtn').onclick = () => openModal('helpModal');

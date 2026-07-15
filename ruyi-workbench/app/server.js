@@ -13,7 +13,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '1.6.1'; // adaptive tool discovery/loading for OpenAI-compatible + Claude CLI; v1.6 UI v3/workflow editor
+const VERSION = '1.6.2'; // batch history cleanup + adaptive tool discovery/loading for OpenAI-compatible + Claude CLI
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -1843,12 +1843,40 @@ async function updateSessionMeta(id, patch) {
   return session;
 }
 
-async function deleteSession(id) {
+// Delete the persisted chat itself. `purgeAssociated` is deliberately opt-in: a normal single-chat
+// delete keeps its previous, conservative behavior, while the batch-cleanup flow can also reclaim
+// the per-chat recovery and workflow records that otherwise have their own GC lifecycle.
+async function deleteSession(id, { purgeAssociated = false } = {}) {
   stopSession(id, 'deleted');
   try { revokeAllGrants(id, 'session-deleted'); } catch { /* best-effort */ } // 第27波:会话销毁 → 授权书全清
   await fsp.unlink(sessionPath(id)).catch(() => {}); // idempotent
+  if (purgeAssociated) {
+    await Promise.all([
+      fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
+      fsp.rm(agentRunDir(id), { recursive: true, force: true }).catch(() => {}),
+    ]);
+  }
   scheduleSessionIndexUpdate(id, SESSION_TOMBSTONE); // PF2: queue removal from the metadata index (debounced; see saveSession)
-  return { ok: true, id };
+  return { ok: true, id, purgedAssociated: Boolean(purgeAssociated) };
+}
+
+// Safety-first bulk history cleanup. It can only delete UNPINNED chats, preserves the explicitly
+// supplied current chat, and refuses to tear down a currently-running chat. This keeps the UI action
+// useful for clearing history without turning a single misclick into a "delete everything" operation.
+async function bulkDeleteUnpinnedSessions({ preserveSessionId, purgeAssociated = false } = {}) {
+  const preserveId = safeSessionId(preserveSessionId);
+  const sessions = await listSessions();
+  const deleted = [];
+  const skipped = { pinned: 0, preserved: 0, active: 0 };
+  for (const meta of sessions) {
+    if (!meta || !meta.id) continue;
+    if (meta.pinned) { skipped.pinned++; continue; }
+    if (preserveId && meta.id === preserveId) { skipped.preserved++; continue; }
+    if (activeChildren.has(meta.id)) { skipped.active++; continue; }
+    await deleteSession(meta.id, { purgeAssociated });
+    deleted.push(meta.id);
+  }
+  return { ok: true, deleted, deletedCount: deleted.length, skipped, purgedAssociated: Boolean(purgeAssociated) };
 }
 
 // v0.8-S0: fold an older/partial session onto the current schema. Mirrors normalizeConfig's shape:
@@ -14695,6 +14723,15 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/sessions') {
     const body = await readJsonBody(req);
     return send(res, json({ ok: true, session: await createSession(body) }));
+  }
+  // Bulk history cleanup is intentionally narrower than the single-session DELETE endpoint: it only
+  // clears unpinned sessions and can preserve the currently open session supplied by the UI.
+  if (req.method === 'POST' && pathname === '/api/sessions/bulk-delete') {
+    const body = await readJsonBody(req);
+    return send(res, json(await bulkDeleteUnpinnedSessions({
+      preserveSessionId: body && body.preserveSessionId,
+      purgeAssociated: Boolean(body && body.purgeAssociated),
+    })));
   }
   if (pathname.startsWith('/api/sessions/')) {
     const id = path.basename(pathname); // guards traversal
