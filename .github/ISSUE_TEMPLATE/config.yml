@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Security vulnerability report
+  - name: "安全漏洞报告 · Security vulnerability report"
     url: https://github.com/wangzhe04/ruyi-workbench-oss/security/advisories/new
-    about: Report an unfixed vulnerability privately. Do not open a public issue.
-  - name: Usage questions and contribution help
+    about: "请私密报告未修复的漏洞，请勿创建公开 Issue。 / Report an unfixed vulnerability privately; do not open a public issue."
+  - name: "使用问题与贡献帮助 · Usage questions and contribution help"
     url: https://github.com/wangzhe04/ruyi-workbench-oss/blob/master/SUPPORT.md
-    about: Read the support guide before opening a question.
+    about: "提问前请先阅读支持说明。 / Read the support guide before opening a question."

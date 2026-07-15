@@ -87,7 +87,7 @@
 
 </details>
 
-## 核心能力一览(v1.6)
+## 核心能力一览(v1.6.5)
 
 | 能力 | 说明 | 详解 |
 |------|------|------|
@@ -321,6 +321,7 @@ node .\app\server.js mcp          # 以 stdio MCP server 方式运行(供 CLI �
 │   └── OPTIMIZATION-ROADMAP.md   迭代记录与验收(§0–§28)
 ├── LICENSE                       Apache-2.0(含 ai-computer-control)
 ├── THIRD-PARTY-NOTICES.md        第三方组件与许可清单
+├── CHANGELOG.md                  双语发行说明
 ├── CONTRIBUTING.md               贡献指南(含五条硬约束)
 ├── CODE_OF_CONDUCT.md             社区行为准则
 ├── SUPPORT.md                     使用支持与问题分流
@@ -368,6 +369,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 
 - 提交修复、功能或文档前，请先阅读 [`CONTRIBUTING.md`](./CONTRIBUTING.md) 中的离线、clean-room、Windows 兼容和 e2e 红线。
 - Bug 与功能建议请使用仓库的 GitHub Issue 表单；使用问题与复现材料的整理方式见 [`SUPPORT.md`](./SUPPORT.md)。
+- 当前及历史版本的变更摘要见 [`CHANGELOG.md`](./CHANGELOG.md)。
 - 请遵守 [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)，让讨论保持友善、聚焦且可协作。
 - **不要在公开 Issue、PR 或讨论中披露未修复的安全问题**；请按 [`SECURITY.md`](./SECURITY.md) 的方式私密报告。
 
@@ -391,7 +393,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Settings, Provider cards, safety/capability popovers, model menus, artifacts, shortcuts, the command palette, the skill library, and stable API errors are localized. Built-in skills and quick tasks follow the UI language, while user and project-authored content remains in its original language; simple/pro UI is shared by coders and non-coding knowledge workers.
 5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an on-prem Claude CLI, switchable mid-session with cross-engine context continuation.
 
-### Capabilities (v1.6)
+### Capabilities (v1.6.5)
 
 Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · a native tool loop of 40 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / Office / PDF — bundled ACC MCP v1.8.1, 99 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
 
@@ -437,6 +439,7 @@ Binds `127.0.0.1` + a page token; Host allowlist against DNS rebinding; every wr
 
 - Read [`CONTRIBUTING.md`](./CONTRIBUTING.md) before sending a fix, feature, or documentation update—the offline, clean-room, Windows-compatibility, and e2e constraints are non-negotiable.
 - Use the repository's GitHub Issue forms for bugs and feature ideas; [`SUPPORT.md`](./SUPPORT.md) explains where to ask usage questions and what to include in a report.
+- See [`CHANGELOG.md`](./CHANGELOG.md) for current and historical release highlights.
 - Participate under the [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md).
 - **Do not disclose unfixed vulnerabilities in public issues, PRs, or discussions.** Report them privately as described in [`SECURITY.md`](./SECURITY.md).
 

@@ -1,31 +1,33 @@
-name: Feature request
-description: Propose an improvement that helps a real Ruyi workflow.
-title: "[Feature]: "
+name: "Feature request · 功能建议"
+description: "Propose an improvement for a real Ruyi workflow. 为真实 Ruyi 工作流提出改进建议。"
+title: "[Feature] "
 body:
   - type: markdown
     attributes:
       value: |
+        感谢你的想法。请优先说明用户问题与工作流，而不只是一种实现方案。
+
         Thank you for the idea. Please focus on the user problem and workflow rather than only a proposed implementation.
   - type: textarea
     id: problem
     attributes:
-      label: Problem to solve
-      description: Who has this problem, and what makes the current workflow difficult?
+      label: "要解决的问题 · Problem to solve"
+      description: "谁会遇到这个问题？当前工作流难在哪里？ / Who has this problem, and what makes the current workflow difficult?"
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed outcome
-      description: Describe the desired user experience and any constraints (offline, Windows, security, etc.).
+      label: "期望结果 · Proposed outcome"
+      description: "说明期望的用户体验和约束（离线、Windows、安全等）。 / Describe the desired user experience and constraints (offline, Windows, security, etc.)."
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives considered
-      description: What workarounds or other approaches have you tried?
+      label: "已考虑的替代方案 · Alternatives considered"
+      description: "已经尝试过哪些绕行方式或其他方案？ / What workarounds or other approaches have you tried?"
   - type: textarea
     id: context
     attributes:
-      label: Additional context
+      label: "补充信息 · Additional context"

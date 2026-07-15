@@ -1,43 +1,45 @@
-name: Bug report
-description: Report a reproducible problem in Ruyi.
-title: "[Bug]: "
+name: "Bug report · 缺陷报告"
+description: "Report a reproducible problem in Ruyi. 报告可复现的问题。"
+title: "[Bug] "
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve Ruyi. Do not include API keys, access tokens, personal data, or details of an unfixed vulnerability. For security reports, follow SECURITY.md instead.
+        感谢帮助改进 Ruyi。请不要包含 API 密钥、访问 token、个人数据或未修复漏洞的细节；安全问题请遵循 SECURITY.md 的私密报告流程。
+
+        Thanks for helping improve Ruyi. Do not include API keys, access tokens, personal data, or details of an unfixed vulnerability. For security reports, follow SECURITY.md's private-reporting process instead.
   - type: input
     id: version
     attributes:
-      label: Ruyi version or commit
-      placeholder: "For example: v1.6.0 or aea9f19"
+      label: "Ruyi 版本或提交 · Ruyi version or commit"
+      placeholder: "例如 / For example: v1.6.5 or aea9f19"
     validations:
       required: true
   - type: input
     id: environment
     attributes:
-      label: Environment
-      description: Windows version, Node.js version, and engine type (OpenAI-compatible endpoint or Claude CLI).
+      label: "运行环境 · Environment"
+      description: "Windows 版本、Node.js 版本和引擎类型（OpenAI 兼容端点或 Claude CLI）。 / Windows version, Node.js version, and engine type (OpenAI-compatible endpoint or Claude CLI)."
       placeholder: "Windows 11 23H2; Node 20.x; OpenAI-compatible provider"
     validations:
       required: true
   - type: textarea
     id: reproduce
     attributes:
-      label: Steps to reproduce
+      label: "复现步骤 · Steps to reproduce"
       placeholder: "1. ...\n2. ...\n3. ..."
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior
+      label: "预期行为 · Expected behavior"
     validations:
       required: true
   - type: textarea
     id: actual
     attributes:
-      label: Actual behavior and sanitized logs
-      description: Remove secrets and personal information before submitting.
+      label: "实际行为与已脱敏日志 · Actual behavior and sanitized logs"
+      description: "提交前请移除密钥和个人信息。 / Remove secrets and personal information before submitting."
     validations:
       required: true
