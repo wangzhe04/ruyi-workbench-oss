@@ -6,22 +6,19 @@ echo   AI Computer Control - One-Click Offline Installer
 echo ============================================================
 echo.
 
-:: Try to find Python
-where python >nul 2>&1
-if %errorlevel% equ 0 (
-    echo Found system Python:
-    python --version
-    echo.
-    python "%~dp0install.py"
+:: A verified full package always prefers its bundled runtime.  This makes the
+:: result independent of Microsoft Store aliases and the machine's Python ABI.
+if exist "%~dp0python_embed\python.exe" (
+    echo Using bundled offline Python...
+    "%~dp0python_embed\python.exe" -X utf8 "%~dp0install.py"
 ) else (
-    :: Try embedded Python
-    if exist "%~dp0python_embed\python.exe" (
-        echo Using embedded Python...
-        "%~dp0python_embed\python.exe" "%~dp0install.py"
+    where python >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo Bundled runtime absent; trying legacy system-Python fallback...
+        python -X utf8 "%~dp0install.py"
     ) else (
-        echo ERROR: Python not found!
-        echo Please install Python 3.10+ from https://python.org
-        echo Or ensure embedded Python is included in this package.
+        echo ERROR: bundled runtime is missing and no system Python was found.
+        exit /b 1
     )
 )
 

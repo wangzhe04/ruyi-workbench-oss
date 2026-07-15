@@ -1,204 +1,232 @@
-"""
-Build offline installation package.
+"""Build and verify a genuinely offline AI Computer Control package.
 
-Run this script on a machine WITH internet access to download all dependencies
-and create a self-contained offline installer zip.
+The release contains a pre-hydrated CPython runtime, a wheel-only repair cache,
+and the matching Playwright browser.  Target machines never need Python, pip,
+a compiler, or network access.
 
 Usage:
-    python installer/build_offline_package.py
-
-Output:
-    ai-computer-control-offline.zip  (ready to deploy to offline machines)
+    python installer/build_offline_package.py [--keep-build]
 """
 
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
 import os
-import sys
 import shutil
 import subprocess
-import zipfile
+import sys
 import urllib.request
-import platform
+import zipfile
 
-# Config
+
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD_DIR = os.path.join(PROJECT_ROOT, "build_offline")
 PACKAGES_DIR = os.path.join(BUILD_DIR, "offline_packages")
 PYTHON_DIR = os.path.join(BUILD_DIR, "python_embed")
 PLAYWRIGHT_DIR = os.path.join(BUILD_DIR, "playwright_browsers")
+VALIDATION_DIR = os.path.join(BUILD_DIR, ".offline-validation")
 OUTPUT_ZIP = os.path.join(PROJECT_ROOT, "ai-computer-control-offline.zip")
 
-PYTHON_VERSION = "3.13.12"
+# CPython 3.12 is deliberate: winsdk publishes a Windows wheel for cp312 but not
+# cp313.  Using 3.13 made pip fall back to a source build on the offline machine.
+PYTHON_VERSION = os.environ.get("ACC_OFFLINE_PYTHON_VERSION", "3.12.10")
 PYTHON_EMBED_URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-embed-amd64.zip"
 GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
+IMPORT_PROBE = (
+    "from mcp.server.fastmcp import FastMCP; "
+    "import ai_computer_control.server; "
+    "import pyautogui, playwright, winsdk"
+)
+
+
+def run(args, *, env=None, cwd=None):
+    printable = " ".join(f'"{x}"' if " " in str(x) else str(x) for x in args)
+    print(f"  $ {printable}")
+    subprocess.run(args, env=env, cwd=cwd, check=True)
 
 
 def clean():
-    """Clean previous build artifacts."""
     if os.path.exists(BUILD_DIR):
         shutil.rmtree(BUILD_DIR)
     os.makedirs(PACKAGES_DIR, exist_ok=True)
 
 
 def download_python_embed():
-    """Download Python embedded distribution."""
-    print("[1/5] Downloading Python embedded distribution...")
+    print("[1/7] Preparing bundled CPython runtime...")
     os.makedirs(PYTHON_DIR, exist_ok=True)
-    zip_path = os.path.join(PYTHON_DIR, "python_embed.zip")
+    archive = os.path.join(PYTHON_DIR, "python_embed.zip")
+    urllib.request.urlretrieve(PYTHON_EMBED_URL, archive)
+    with zipfile.ZipFile(archive, "r") as zf:
+        zf.extractall(PYTHON_DIR)
+    os.remove(archive)
 
-    urllib.request.urlretrieve(PYTHON_EMBED_URL, zip_path)
-
-    # Extract
-    import zipfile as zf
-    with zf.ZipFile(zip_path, "r") as z:
-        z.extractall(PYTHON_DIR)
-    os.remove(zip_path)
-
-    # Enable pip in embedded Python by uncommenting import site
-    pth_files = [f for f in os.listdir(PYTHON_DIR) if f.endswith("._pth")]
-    for pth_file in pth_files:
-        pth_path = os.path.join(PYTHON_DIR, pth_file)
-        with open(pth_path, "r") as f:
+    for name in os.listdir(PYTHON_DIR):
+        if not name.endswith("._pth"):
+            continue
+        pth = os.path.join(PYTHON_DIR, name)
+        with open(pth, "r", encoding="utf-8") as f:
             content = f.read()
         content = content.replace("#import site", "import site")
-        with open(pth_path, "w") as f:
+        with open(pth, "w", encoding="utf-8", newline="\n") as f:
             f.write(content)
 
-    # Download and install pip into embedded Python
     get_pip = os.path.join(PYTHON_DIR, "get-pip.py")
     urllib.request.urlretrieve(GET_PIP_URL, get_pip)
-
     python_exe = os.path.join(PYTHON_DIR, "python.exe")
-    subprocess.run([python_exe, get_pip, "--no-warn-script-location"], check=True)
+    run([python_exe, get_pip, "--no-warn-script-location"])
     os.remove(get_pip)
-
-    print(f"  -> Python {PYTHON_VERSION} embedded ready")
-
-
-def download_packages():
-    """Download all Python package dependencies as wheels."""
-    print("[2/5] Downloading Python packages...")
-    # Download on current platform (Windows amd64) - no platform restriction needed
-    # since we build on the same OS we deploy to
-    subprocess.run(
-        [
-            sys.executable, "-m", "pip", "download",
-            "--dest", PACKAGES_DIR,
-            "-r", os.path.join(PROJECT_ROOT, "requirements_offline.txt"),
-        ],
-        check=True,
-    )
-
-    # Also download the project itself as a wheel
-    subprocess.run(
-        [sys.executable, "-m", "pip", "wheel", "--no-deps", "-w", PACKAGES_DIR, PROJECT_ROOT],
-        check=True,
-    )
-    print(f"  -> Packages downloaded to {PACKAGES_DIR}")
+    run([python_exe, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"])
+    print(f"  -> Bundled Python {PYTHON_VERSION} ready")
+    return python_exe
 
 
-def download_playwright_browser():
-    """Download Playwright Chromium browser for offline use."""
-    print("[3/5] Downloading Playwright Chromium browser...")
+def build_wheelhouse(python_exe):
+    print("[2/7] Building wheel-only dependency cache...")
+    requirements = os.path.join(PROJECT_ROOT, "requirements_offline.txt")
+    # `pip wheel`, not `pip download`: projects published only as sdists (PyAutoGUI
+    # and friends) are converted on the online build machine, never on the target.
+    run([
+        python_exe, "-m", "pip", "wheel", "--prefer-binary",
+        "--wheel-dir", PACKAGES_DIR, "-r", requirements,
+    ])
+    run([
+        python_exe, "-m", "pip", "wheel", "--no-deps",
+        "--wheel-dir", PACKAGES_DIR, PROJECT_ROOT,
+    ])
+    bad = sorted(name for name in os.listdir(PACKAGES_DIR) if not name.lower().endswith(".whl"))
+    if bad:
+        raise RuntimeError("wheel cache contains source/non-wheel artifacts: " + ", ".join(bad))
+    if not any(name.lower().startswith("ai_computer_control-") for name in os.listdir(PACKAGES_DIR)):
+        raise RuntimeError("project wheel is missing from offline cache")
+    print(f"  -> {len(os.listdir(PACKAGES_DIR))} wheels ready; no source archives")
+
+
+def offline_install_args(python_exe, target=None):
+    args = [
+        python_exe, "-m", "pip", "install", "--no-index",
+        "--find-links", PACKAGES_DIR, "--only-binary=:all:",
+    ]
+    if target:
+        args += ["--target", target]
+    args += ["-r", os.path.join(PROJECT_ROOT, "requirements_offline.txt"), "ai-computer-control"]
+    return args
+
+
+def hydrate_runtime(python_exe):
+    print("[3/7] Hydrating bundled runtime from the offline cache...")
+    run(offline_install_args(python_exe))
+    run([python_exe, "-m", "pip", "check"])
+    run([python_exe, "-X", "utf8", "-c", IMPORT_PROBE])
+    print("  -> Runtime imports and dependency graph verified")
+
+
+def download_playwright_browser(python_exe):
+    print("[4/7] Downloading the browser matching bundled Playwright...")
     os.makedirs(PLAYWRIGHT_DIR, exist_ok=True)
-
     env = os.environ.copy()
     env["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_DIR
-
-    subprocess.run(
-        [sys.executable, "-m", "playwright", "install", "chromium"],
-        env=env,
-        check=True,
-    )
-    print(f"  -> Playwright Chromium downloaded to {PLAYWRIGHT_DIR}")
+    run([python_exe, "-m", "playwright", "install", "chromium"], env=env)
+    if not os.listdir(PLAYWRIGHT_DIR):
+        raise RuntimeError("Playwright reported success but browser payload is empty")
+    print("  -> Chromium payload ready")
 
 
-def copy_installer_scripts():
-    """Copy installer scripts to build directory."""
-    print("[4/5] Copying installer scripts...")
+def copy_installer_files():
+    print("[5/7] Copying installer and lock inputs...")
+    for name in ("install.bat", "install.py", "mcp_config_template.json"):
+        shutil.copy2(os.path.join(PROJECT_ROOT, "installer", name), os.path.join(BUILD_DIR, name))
     shutil.copy2(
-        os.path.join(PROJECT_ROOT, "installer", "install.bat"),
-        os.path.join(BUILD_DIR, "install.bat"),
+        os.path.join(PROJECT_ROOT, "requirements_offline.txt"),
+        os.path.join(BUILD_DIR, "requirements_offline.txt"),
     )
-    shutil.copy2(
-        os.path.join(PROJECT_ROOT, "installer", "install.py"),
-        os.path.join(BUILD_DIR, "install.py"),
+
+
+def validate_air_gapped_install(python_exe):
+    print("[6/7] Replaying installation with --no-index in an empty target...")
+    if os.path.exists(VALIDATION_DIR):
+        shutil.rmtree(VALIDATION_DIR)
+    os.makedirs(VALIDATION_DIR)
+    run(offline_install_args(python_exe, VALIDATION_DIR))
+    env = os.environ.copy()
+    env["PYTHONPATH"] = VALIDATION_DIR
+    env["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_DIR
+    # Embedded Python's ._pth can force `import site` even with -S. Replace
+    # sys.path explicitly so the hydrated runtime cannot mask a missing wheel.
+    stdlib_zip = os.path.join(PYTHON_DIR, "python" + "".join(PYTHON_VERSION.split(".")[:2]) + ".zip")
+    # addsitedir processes only the validation target's .pth files (notably
+    # pywin32.pth), preserving real wheel-install semantics without admitting
+    # the hydrated runtime's Lib/site-packages.
+    isolated_probe = (
+        f"import sys, site; sys.path[:]={repr([stdlib_zip, PYTHON_DIR])}; "
+        f"site.addsitedir({VALIDATION_DIR!r}); {IMPORT_PROBE}"
     )
-    # Copy MCP config template
-    shutil.copy2(
-        os.path.join(PROJECT_ROOT, "installer", "mcp_config_template.json"),
-        os.path.join(BUILD_DIR, "mcp_config_template.json"),
-    )
+    run([python_exe, "-S", "-X", "utf8", "-c", isolated_probe], env=env)
+    shutil.rmtree(VALIDATION_DIR)
+    print("  -> Empty-target offline replay passed")
+
+
+def write_manifest():
+    files = []
+    for root, dirs, names in os.walk(BUILD_DIR):
+        dirs[:] = [d for d in dirs if d != ".offline-validation"]
+        for name in names:
+            if name == "offline-manifest.json":
+                continue
+            full = os.path.join(root, name)
+            rel = os.path.relpath(full, BUILD_DIR).replace("\\", "/")
+            digest = hashlib.sha256()
+            with open(full, "rb") as f:
+                for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            files.append({"path": rel, "bytes": os.path.getsize(full), "sha256": digest.hexdigest()})
+    files.sort(key=lambda x: x["path"])
+    manifest = {
+        "schema": 1,
+        "name": "AI Computer Control Offline Runtime",
+        "pythonVersion": PYTHON_VERSION,
+        "wheelOnly": True,
+        "fileCount": len(files),
+        "files": files,
+    }
+    with open(os.path.join(BUILD_DIR, "offline-manifest.json"), "w", encoding="utf-8", newline="\n") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
 
 
 def create_zip():
-    """Create the final offline installation zip."""
-    print("[5/5] Creating offline package zip...")
+    print("[7/7] Creating verified offline package...")
+    write_manifest()
     if os.path.exists(OUTPUT_ZIP):
         os.remove(OUTPUT_ZIP)
-
-    with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
-        for root, dirs, files in os.walk(BUILD_DIR):
-            for file in files:
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, BUILD_DIR)
-                zf.write(file_path, arcname)
-
-    size_mb = os.path.getsize(OUTPUT_ZIP) / (1024 * 1024)
-    print(f"\n{'='*60}")
-    print(f"Offline package created: {OUTPUT_ZIP}")
-    print(f"Size: {size_mb:.1f} MB")
-    print(f"{'='*60}")
-    print(f"\nDeploy this zip to the offline machine and run install.bat")
-
-
-def create_requirements():
-    """Create requirements_offline.txt if it doesn't exist."""
-    req_path = os.path.join(PROJECT_ROOT, "requirements_offline.txt")
-    if not os.path.exists(req_path):
-        # Fallback content only — the real, authoritative list is the checked-in requirements_offline.txt
-        # (this branch fires only if that file was deleted). Keep in sync with it.
-        with open(req_path, "w") as f:
-            f.write("""# Core dependencies for ai-computer-control
-mcp[cli]>=1.0.0
-pyautogui>=0.9.54
-Pillow>=10.0.0
-pywin32>=306
-psutil>=5.9.0
-playwright>=1.40.0
-python-docx>=1.0.0
-openpyxl>=3.1.0
-pdfplumber>=0.10.0
-pyperclip>=1.8.0
-reportlab>=4.0.0
-uiautomation>=2.0.18
-comtypes>=1.2.0
-winsdk>=1.0.0b10
-opencv-python-headless>=4.8.0
-numpy>=1.26.0
-pynput>=1.7.6
-python-pptx>=0.6.23
-matplotlib>=3.8.0
-""")
-    return req_path
+    with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+        for root, _, files in os.walk(BUILD_DIR):
+            for name in files:
+                full = os.path.join(root, name)
+                zf.write(full, os.path.relpath(full, BUILD_DIR))
+    print(f"  -> {OUTPUT_ZIP} ({os.path.getsize(OUTPUT_ZIP) / 1024 / 1024:.1f} MB)")
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--keep-build", action="store_true", help="keep build_offline for embedding in Ruyi")
+    args = parser.parse_args()
     print("=" * 60)
-    print("AI Computer Control - Offline Package Builder")
+    print("AI Computer Control - Verified Offline Package Builder")
     print("=" * 60)
-
-    create_requirements()
     clean()
-    download_python_embed()
-    download_packages()
-    download_playwright_browser()
-    copy_installer_scripts()
-    create_zip()
-
-    # Cleanup build dir
-    print("\nCleaning up build directory...")
-    shutil.rmtree(BUILD_DIR)
-    print("Done!")
+    try:
+        python_exe = download_python_embed()
+        build_wheelhouse(python_exe)
+        hydrate_runtime(python_exe)
+        download_playwright_browser(python_exe)
+        copy_installer_files()
+        validate_air_gapped_install(python_exe)
+        create_zip()
+    finally:
+        if not args.keep_build and os.path.exists(BUILD_DIR):
+            shutil.rmtree(BUILD_DIR)
+    print("Done. Target installation requires no system Python and no network.")
 
 
 if __name__ == "__main__":

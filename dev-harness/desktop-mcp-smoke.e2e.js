@@ -6,7 +6,7 @@ const fs = require('fs');
 const SERVER = require('path').resolve(__dirname, '..', 'ruyi-workbench', 'app', 'server.js');
 const REPO = [path.resolve(__dirname, '..', 'ai-computer-control'), path.resolve(__dirname, '..', 'mcp', 'ai-computer-control')]
   .find(p => fs.existsSync(p)) || path.resolve(__dirname, '..', 'mcp', 'ai-computer-control');
-const { McpStdioClient, detectDesktopMcp, pickPython, resolveExternalMcpServers } = require(SERVER);
+const { McpStdioClient, detectDesktopMcp, desktopMcpFromInstalledRoot, desktopPythonCandidates, pickPython, resolveExternalMcpServers } = require(SERVER);
 
 (async () => {
   let fail = 0;
@@ -29,6 +29,18 @@ const { McpStdioClient, detectDesktopMcp, pickPython, resolveExternalMcpServers 
     probe: () => false,
   });
   ok(none === null, 'pickPython reports no candidate when every runtime fails the ACC import probe');
+  const offlineCandidate = desktopPythonCandidates(REPO).find(candidate => candidate.source === 'offline-embedded-runtime');
+  ok(offlineCandidate && offlineCandidate.command === path.join(REPO, 'python_embed', 'python.exe'), 'repo detection includes the verified offline python_embed runtime');
+
+  const installedRuntime = desktopMcpFromInstalledRoot('C:\\fake-acc-install', {
+    noCache: true,
+    candidates: [
+      { command: 'installed-runtime-python', args: [], source: 'installed-runtime', requireExisting: false },
+      { command: 'legacy-venv-python', args: [], source: 'installed-venv', requireExisting: false },
+    ],
+    probe: candidate => candidate.command === 'installed-runtime-python',
+  });
+  ok(installedRuntime && installedRuntime.command === 'installed-runtime-python' && installedRuntime.pythonSource === 'installed-runtime', 'installed ACC detection prefers the new runtime/python layout');
 
   // ---- #6: detectDesktopMcp() ----
   const det = detectDesktopMcp();

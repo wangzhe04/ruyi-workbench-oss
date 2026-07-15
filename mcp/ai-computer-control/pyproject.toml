@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ai-computer-control"
 version = "1.8.1"
 description = "MCP Server for AI computer control - offline deployable toolkit"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "mcp[cli]>=1.0.0",
     "pyautogui>=0.9.54",

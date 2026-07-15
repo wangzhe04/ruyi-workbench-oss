@@ -13,7 +13,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '1.6.4'; // multi-agent parent heartbeat + Coder role and refined workflow templates
+const VERSION = '1.6.5'; // verified wheel-only ACC offline runtime and full-package install replay
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -1192,6 +1192,7 @@ function desktopPythonCandidates(root) {
     addPath(path.join(root, '.venv', 'Scripts', 'python.exe'), 'repo-venv');
     addPath(path.join(root, 'venv', 'Scripts', 'python.exe'), 'installed-venv');
     addPath(path.join(root, 'runtime', 'python', 'python.exe'), 'bundled-runtime');
+    addPath(path.join(root, 'python_embed', 'python.exe'), 'offline-embedded-runtime');
     addPath(path.join(root, 'py-embed', 'python.exe'), 'embedded-runtime');
     addPath(path.join(root, 'python', 'python.exe'), 'repo-python');
   }
@@ -1282,16 +1283,22 @@ function desktopMcpFromRepo(repoRoot) {
 
 // The bundled ACC installer writes this layout to %LOCALAPPDATA%\ai-computer-control. It contains an
 // installed package rather than a checkout with src/, so it needs its own recognizer.
-function desktopMcpFromInstalledRoot(installRoot) {
+function desktopMcpFromInstalledRoot(installRoot, options = {}) {
   const root = String(installRoot || '').trim();
   if (!root) return null;
-  const python = path.join(root, 'venv', 'Scripts', 'python.exe');
-  try { if (!fs.existsSync(python)) return null; } catch { return null; }
   const desktopEnv = { PYTHONUTF8: '1' };
   const bundledBrowsers = path.join(root, 'playwright_browsers');
   try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
   catch { /* optional payload; browser tools will degrade gracefully */ }
-  const selected = pickPython(root, desktopEnv, { candidates: [{ command: python, args: [], source: 'installed-venv', requireExisting: true }] });
+  const installedCandidates = [
+    { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
+    { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
+  ];
+  const selected = pickPython(root, desktopEnv, {
+    candidates: Array.isArray(options.candidates) ? options.candidates : installedCandidates,
+    probe: typeof options.probe === 'function' ? options.probe : undefined,
+    noCache: options.noCache === true,
+  });
   if (!selected) return null;
   return {
     command: selected.command,
@@ -1333,7 +1340,7 @@ function detectDesktopMcp() {
       const detected = desktopMcpFromRepo(path.resolve(dir));
       if (detected) return detected;
     }
-    // (c) ACC's own offline installer writes to %LOCALAPPDATA%\ai-computer-control\venv.
+    // (c) ACC's verified offline installer writes runtime\python; older releases used venv\Scripts.
     const installedRoots = [
       env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'ai-computer-control'),
       env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs', 'ai-computer-control'),
@@ -16741,6 +16748,7 @@ module.exports = {
   CONTEXT_WINDOW_FALLBACK,
   detectDesktopMcp,
   pickPython,
+  desktopPythonCandidates,
   desktopMcpFromInstalledRoot,
   resolveExternalMcpServers,
   // v1.1-W2 (T2): MCP drop-in scan — exposed for mcp-config e2e (invalidate cache after fixturing folders).

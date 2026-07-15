@@ -13,6 +13,8 @@ venv/
 # Offline wheels (shipped via GitHub Release assets, not git)
 wheels/
 offline_wheels/
+/mcp/ai-computer-control/build/
+/mcp/ai-computer-control/build_offline/
 
 # Tooling / local state
 .claude/

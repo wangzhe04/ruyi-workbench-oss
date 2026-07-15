@@ -180,9 +180,9 @@
 
 ### 5. 桌面 / Office 操控(ACC,可选)
 
-`mcp/ai-computer-control/` 是随发行包捆绑的**桌面控制 MCP**(v1.8.1,Python ≥3.13,共 **99 个工具**),装好后工作台自动探测,并把工具同时供给两个引擎:
+`mcp/ai-computer-control/` 是随发行包捆绑的**桌面控制 MCP**(v1.8.1,Python ≥3.12,共 **99 个工具**),装好后工作台自动探测,并把工具同时供给两个引擎:
 
-启动时，工作台会先验证候选 Python 能否导入 ACC；发现缺少依赖的嵌入运行时会自动跳过并回退到可用的系统 Python。也支持官方安装器默认的 `%LOCALAPPDATA%\ai-computer-control\venv\Scripts\python.exe` 位置。
+启动时，工作台会先验证候选 Python 能否导入 ACC；完整离线包内的 `python_embed` 和安装器部署到 `%LOCALAPPDATA%\ai-computer-control\runtime\python` 的运行时均可直接识别。发现缺少依赖的旧运行时会自动跳过并回退到旧版安装器的 `venv` 或可用的系统 Python。
 
 - **看**:全屏/区域/窗口截图、OCR 文字识别与定位、UIA 控件树读取、模板匹配。
 - **动**:鼠标(移动/点击/拖拽/滚轮)、键盘(输入/组合键)、窗口管理(9 工具)、应用启停、剪贴板、对话框处理、宏录制回放。
@@ -250,17 +250,17 @@ node .\app\server.js serve --open
 <details>
 <summary><b>安装桌面控制(ACC)</b></summary>
 
-需要 **Python 3.13**。二选一:
+完整离线包**不要求目标机预装 Python**；源码开发或普通 pip 安装需要 Python ≥3.12。二选一:
 
 ```powershell
-# 方式一:离线安装器
-python mcp\ai-computer-control\installer\install.py
+# 方式一:完整离线包解压后双击（推荐）
+.\mcp\ai-computer-control\install.bat
 
 # 方式二:pip 装离线依赖清单
 pip install -r mcp\ai-computer-control\requirements_offline.txt
 ```
 
-装好后重启工作台即自动探测(设置 → 集成/MCP 可确认)。离线 wheels 体积较大(含 opencv/matplotlib 等),**不进 git**,从 GitHub Release 附件下载;或直接联网 `pip install`。大多数可选依赖缺失时相关工具会**优雅降级**(如无 `winsdk` 则 OCR 停用,其余照常)。
+装好后重启工作台即自动探测(设置 → 集成/MCP 可确认)。完整离线包包含经过校验的 Python 3.12 运行时、纯 wheel 依赖缓存和匹配的 Chromium；目标机不会联网或现场编译。普通源码安装时，大多数可选依赖缺失会**优雅降级**。
 </details>
 
 <details>
@@ -272,11 +272,11 @@ pip install -r mcp\ai-computer-control\requirements_offline.txt
 cd ruyi-workbench
 # 精简包(不含桌面控制)
 powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1 -SkipExeBuild -Variant 'offline-slim'
-# 完整包(含 ACC 源码与安装器)
-powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1 -SkipExeBuild -IncludeAcc -Variant 'offline-full-acc'
+# 完整包(首次构建 ACC 运行时需联网；目标机完全离线)
+powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1 -SkipExeBuild -IncludeAcc -BuildAccOffline -Variant 'offline-full-acc'
 ```
 
-产物 `dist\Ruyi-<变体>.zip`(内含 node.exe 源码运行器,目标机**无需安装任何东西**),解压后双击 `Start-Workbench.cmd`。也支持 `npx pkg` 打成单体 `Ruyi.exe`,以及增量 overlay 升级包(见 [管理员手册](ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md))。
+产物 `dist\Ruyi-<变体>.zip`(内含 node.exe 源码运行器,目标机**无需安装任何东西**),解压后双击 `Start-Workbench.cmd`。完整包会在首次启动时自动校验、安装并注册 ACC，后续启动走快速检查，开箱即用。也支持 `npx pkg` 打成单体 `Ruyi.exe`,以及增量 overlay 升级包(见 [管理员手册](ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md))。
 </details>
 
 <details>
@@ -408,9 +408,9 @@ First launch walks you through picking a workspace folder and configuring a prov
 
 ### Desktop control (optional)
 
-`mcp/ai-computer-control/` is a bundled **desktop-control MCP** (99 tools, ACC v1.8.1, requires **Python 3.13**). Install via `installer/install.py` or `pip install -r requirements_offline.txt`; the workbench auto-detects it. Offline wheels are distributed via GitHub Release assets, not git. Optional dependencies degrade gracefully.
+`mcp/ai-computer-control/` is a bundled **desktop-control MCP** (99 tools, ACC v1.8.1, requires **Python ≥3.12** for source installs). The verified full offline release includes CPython 3.12, a wheel-only dependency cache, and matching Chromium, so the target needs neither Python nor network access. Optional dependencies degrade gracefully in source installs.
 
-At startup the workbench verifies that a candidate Python can import ACC. A present but dependency-incomplete embedded runtime is skipped in favor of a usable system Python; the installer default at `%LOCALAPPDATA%\ai-computer-control\venv\Scripts\python.exe` is recognized too. `-IncludeAcc` packages ACC source and its installer, not a fully hydrated offline Python environment; use ACC's separate offline package when the target has neither a compatible Python nor its dependencies.
+At startup the workbench verifies that a candidate Python can import ACC. It recognizes both the release's `python_embed` runtime and the installer's `%LOCALAPPDATA%\ai-computer-control\runtime\python\python.exe`, while retaining the legacy `venv` fallback. `-IncludeAcc` now requires a checksummed, pre-hydrated payload; add `-BuildAccOffline` to build it on the connected packaging machine.
 
 ### Tests
 

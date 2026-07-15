@@ -126,22 +126,23 @@ python -m ai_computer_control
 python installer/build_offline_package.py
 ```
 
-生成 `ai-computer-control-offline.zip`，包含：
-- Python 嵌入式运行时
-- 所有 Python 依赖包 (wheels)
+生成 `ai-computer-control-offline.zip`，构建过程会先执行一次严格的 `--no-index` 空目录安装回放，产物包含：
+- 已预装并通过导入检查的 Python 3.12 嵌入式运行时
+- 所有 Python 依赖的纯 wheel 修复缓存（不含 sdist，不在目标机编译）
 - Playwright Chromium 浏览器
-- 安装脚本
+- SHA-256 完整性清单和安装脚本
 
 ### 第二步：离线安装（无需联网）
 
 将 zip 文件拷贝到目标机器，解压后双击运行 `install.bat`。
 
 安装脚本会自动：
-1. 创建 Python 虚拟环境
-2. 从本地缓存安装所有依赖
+1. 校验离线包内全部文件的大小和 SHA-256
+2. 原子部署已预装的 Python 运行时并再次执行 ACC 导入检查
 3. 配置 Playwright 浏览器
-4. 注册 MCP Server 配置
-5. 生成手动启动脚本
+4. 注册 MCP Server 配置并生成手动启动脚本
+
+目标机无需系统 Python、pip、编译器或网络。旧的自定义包仍可使用系统 Python ≥3.12 回退安装，但安装器会明确拒绝任何 `.tar.gz` / sdist，防止再次出现离线构建依赖失败。
 
 ## 项目结构
 
