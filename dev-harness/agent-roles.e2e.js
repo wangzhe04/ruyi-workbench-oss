@@ -14,6 +14,7 @@ process.env.RUYI_HOME = path.join(HOME, 'unit-data');
 const {
   normalizeConfig, getAgentRoleLibrary, saveProjectAgentRoles,
   readClaudeProjectAgentRoles, buildClaudeAgentDefinitions, nativeClaudeAgentResultInfo,
+  buildClaudeCliEnv, decodeClaudeCliText,
 } = require('../ruyi-workbench/app/server.js');
 
 let failures = 0;
@@ -49,6 +50,14 @@ function stream(port, body) { return new Promise((resolve, reject) => { const ra
     'native Claude Agent result is preserved for the expandable child card, not reduced to a length');
   ok(nativeClaudeAgentResultInfo('API Error: Connection closed mid-response.', false).failed === true,
     'a text-only native Agent transport failure is not mislabeled as completed');
+  const claudeEnv = buildClaudeCliEnv({ modelsApiBase: 'https://api.kimi.com/coding/', modelsApiKey: 'test-key', claudeAuthMode: 'auto', model: 'k3' });
+  ok(claudeEnv.ANTHROPIC_BASE_URL === 'https://api.kimi.com/coding/' && claudeEnv.ANTHROPIC_API_KEY === 'test-key' && !claudeEnv.ANTHROPIC_AUTH_TOKEN && claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL === 'k3' && claudeEnv.ANTHROPIC_DEFAULT_SONNET_MODEL === 'k3',
+    'Kimi Claude CLI settings preserve its documented endpoint and map native role aliases to the selected model');
+  const arkEnv = buildClaudeCliEnv({ modelsApiBase: 'https://ark.cn-beijing.volces.com/api/coding', modelsApiKey: 'ark-test-key', claudeAuthMode: 'bearer', model: 'ark-code-latest' });
+  ok(arkEnv.ANTHROPIC_BASE_URL === 'https://ark.cn-beijing.volces.com/api/coding' && arkEnv.ANTHROPIC_AUTH_TOKEN === 'ark-test-key' && !arkEnv.ANTHROPIC_API_KEY && arkEnv.ANTHROPIC_MODEL === 'ark-code-latest' && !arkEnv.CLAUDE_CODE_SUBAGENT_MODEL,
+    'Ark Coding Plan retains its Bearer authentication and does not inherit Kimi-only model aliases');
+  ok(decodeClaudeCliText(Buffer.from([0xC7, 0xEB, 0xC7, 0xF3, 0xCA, 0xA7, 0xB0, 0xDC])) === '请求失败',
+    'a GB18030 Claude CLI diagnostic is decoded instead of being stored as mojibake');
 
   const DATA = path.join(HOME, 'live-data'); fs.mkdirSync(DATA, { recursive: true });
   const capture = path.join(HOME, 'claude-argv.json');

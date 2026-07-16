@@ -1139,6 +1139,36 @@ function detectClaudePath() {
 // installed the CLI). Exported for the doctor/status path — a no-op if never called.
 function invalidateClaudePathCache() { _claudePathProbe = null; }
 
+// Claude Code normally writes UTF-8, but its Windows launcher can forward a local
+// command failure in the active ANSI code page.  Decode GB18030 only after UTF-8
+// proves invalid; this keeps normal CLI diagnostics byte-for-byte unchanged while
+// making the actionable error readable for Chinese Windows installs.
+function decodeClaudeCliText(chunk) {
+  const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || '');
+  if (!bytes.length) return '';
+  const utf8 = bytes.toString('utf8');
+  if (!utf8.includes('\uFFFD')) return utf8;
+  try {
+    const decoded = new TextDecoder('gb18030', { fatal: true }).decode(bytes);
+    return decoded || utf8;
+  } catch {
+    return utf8;
+  }
+}
+
+// Kimi's official Claude Code setup uses the /coding/ endpoint (including its trailing
+// slash) and requires Claude's internal role aliases to resolve to a Kimi model.  Do
+// not apply this to generic Anthropic-compatible endpoints: their aliases can have
+// vendor-specific meanings.
+function isKimiCodingEndpoint(base) {
+  try {
+    const url = new URL(String(base || '').trim());
+    return url.hostname.toLowerCase() === 'api.kimi.com' && url.pathname.replace(/\/+$/, '') === '/coding';
+  } catch {
+    return false;
+  }
+}
+
 // Third-party Anthropic-compatible endpoint (e.g. 火山方舟 Ark Coding Plan) config → env overrides.
 // Only returns keys the user actually configured in modelsApiBase/modelsApiKey/model — an unconfigured
 // field leaves whatever the OS/shell env already has untouched, so an install with no third-party setup
@@ -1152,7 +1182,9 @@ function invalidateClaudePathCache() { _claudePathProbe = null; }
 // present at once makes the CLI pick the wrong auth scheme.
 function buildClaudeCliEnv(config) {
   const env = {};
+  // Preserve a trailing slash: Kimi's documented Claude Code endpoint is /coding/.
   const base = String((config && config.modelsApiBase) || '').trim();
+  const kimiCoding = isKimiCodingEndpoint(base);
   if (base) {
     env.ANTHROPIC_BASE_URL = base;
     // A custom endpoint is moot if the CLI is routed to Bedrock/Vertex instead — both ignore
@@ -1162,13 +1194,29 @@ function buildClaudeCliEnv(config) {
   }
   const key = String((config && config.modelsApiKey) || '').trim();
   if (key) {
-    const mode = ['bearer', 'x-api-key'].includes(config && config.claudeAuthMode) ? config.claudeAuthMode : 'auto';
+    const configuredMode = ['bearer', 'x-api-key'].includes(config && config.claudeAuthMode) ? config.claudeAuthMode : 'auto';
+    // Kimi documents ANTHROPIC_API_KEY; sending a second auth scheme can make a
+    // newer Claude CLI pick a credential path the proxy does not expect.
+    const mode = kimiCoding && configuredMode === 'auto' ? 'x-api-key' : configuredMode;
     if (mode === 'bearer') { env.ANTHROPIC_AUTH_TOKEN = key; env.ANTHROPIC_API_KEY = ''; }
     else if (mode === 'x-api-key') { env.ANTHROPIC_API_KEY = key; env.ANTHROPIC_AUTH_TOKEN = ''; }
     else { env.ANTHROPIC_AUTH_TOKEN = key; env.ANTHROPIC_API_KEY = key; }
   }
   const model = String((config && config.model) || '').trim();
-  if (model) env.ANTHROPIC_MODEL = model;
+  if (model) {
+    env.ANTHROPIC_MODEL = model;
+    if (kimiCoding) {
+      // A native Agent may ask Claude Code for a fast/default family even when the
+      // primary model is overridden.  Route every family to the user's selected
+      // entitled Kimi model instead of falling back to an unavailable Claude id.
+      env.ANTHROPIC_DEFAULT_FABLE_MODEL = model;
+      env.ANTHROPIC_DEFAULT_OPUS_MODEL = model;
+      env.ANTHROPIC_DEFAULT_SONNET_MODEL = model;
+      env.ANTHROPIC_DEFAULT_HAIKU_MODEL = model;
+      env.ANTHROPIC_SMALL_FAST_MODEL = model;
+      env.CLAUDE_CODE_SUBAGENT_MODEL = model;
+    }
+  }
   return env;
 }
 // The full env a Claude CLI child (or the model-discovery probe) should see: the process's own env,
@@ -4758,7 +4806,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   }
 
   child.stderr.on('data', chunk => {
-    const textChunk = chunk.toString('utf8');
+    const textChunk = decodeClaudeCliText(chunk);
     stderrText += textChunk;
     reg.lastEventAt = Date.now();
     onEvent({ type: 'stderr', text: redact(textChunk) });
@@ -8004,7 +8052,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
     try { child.stdin.write(String(task || ''), 'utf8'); child.stdin.end(); } catch { /* ignore */ }
     let stderrText = '';
-    child.stderr.on('data', chunk => { stderrText += chunk.toString('utf8'); lastEventAt = Date.now(); });
+    child.stderr.on('data', chunk => { stderrText += decodeClaudeCliText(chunk); lastEventAt = Date.now(); });
 
     let assistantText = '';
     let progressChars = 0; // v1.4.6 (C): high-water mark of chars already reported via subagent_progress (resets per attempt)
@@ -17094,6 +17142,8 @@ module.exports = {
   collectBridgedTools,
   resolveBridge, // v1.4.1: bridged-name prefix-tolerant routing (models that drop the serverId__ prefix)
   normalizeConfig,
+  buildClaudeCliEnv,
+  decodeClaudeCliText,
   normalizeAgentRole,
   getAgentRoleLibrary,
   readProjectAgentRoles,
