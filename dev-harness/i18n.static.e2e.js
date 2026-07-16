@@ -124,7 +124,7 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
     assert.strictEqual(en[key], value, `English catalog must translate ${key}`);
   }
   const builtInSkillEntries = Object.entries(en).filter(([key]) => key.startsWith('skills.builtin.'));
-  assert.strictEqual(builtInSkillEntries.length, 66, 'all 33 built-in skill records need localized name and description metadata');
+  assert.strictEqual(builtInSkillEntries.length, 96, 'all 48 built-in skill/command/playbook records need localized name and description metadata');
   assert.ok(builtInSkillEntries.every(([, value]) => !/[\u4e00-\u9fff]/.test(value)), 'English built-in skill metadata must not contain Chinese');
   assert.ok(html.includes('data-i18n="brand.name"'), 'brand display name must use the catalog');
   assert.ok(html.includes('data-i18n="help.title"'), 'help dialog title must use the catalog');

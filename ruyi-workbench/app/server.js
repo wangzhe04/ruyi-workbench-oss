@@ -448,6 +448,9 @@ function defaultConfig() {
     // Convenience entry for the user's own ai-computer-control desktop MCP (Windows control). When
     // enabled + command empty + autodetect, detectDesktopMcp() locates it; blank command => absent => graceful.
     desktopMcp: { enabled: true, command: '', args: [], cwd: '', autodetect: true },
+    // Browser target shared with ai-computer-control. `system` opens the user's configured browser and
+    // continues via screenshot/UIA/OCR; Playwright-owned Chrome for Testing is an explicit `bundled` choice.
+    browserAutomation: { mode: 'system', executable: '', cdpUrl: 'http://127.0.0.1:9222' },
     // Extra user-defined stdio MCP servers: [{ id,label,command,args:[],cwd,env:{},enabled }]. Capped at 10.
     externalMcpServers: [],
     // Master switch for line 2: also expose external/desktop MCP tools to the NATIVE provider tool loop
@@ -489,6 +492,11 @@ function defaultConfig() {
     // v0.9-S1 (C1): reply verbosity style, injected as a prompt style layer (buildProviderSystemPrompt).
     // 'detailed' = current behavior (no injection); 'concise' = ask the model for short, direct answers.
     outputStyle: 'detailed',
+    // Skills that are available in every chat without requiring a per-session toggle. Entries keep the
+    // source lock used by session.skills so a project skill cannot silently replace a resident built-in.
+    // Empty by default: the UI highlights suitable built-ins, while the user decides what deserves the
+    // small always-on prompt cost for their own work.
+    residentSkills: [],
     // v0.9-S3 (C3): most-recently-used working folders (absolute paths, ≤10 LRU). Front-inserted on a
     // successful workspace switch (top-bar picker / folder-drag resolve). Also seeds the /api/workspace/
     // resolve candidate roots so a folder the user has worked in before is found even if it lives off the
@@ -687,6 +695,17 @@ function normalizeConfig(raw) {
     if (JSON.stringify(d) !== JSON.stringify(config.desktopMcp)) { config.desktopMcp = d; changed = true; }
     else config.desktopMcp = d;
   }
+  {
+    const raw0 = (config.browserAutomation && typeof config.browserAutomation === 'object' && !Array.isArray(config.browserAutomation)) ? config.browserAutomation : {};
+    const modes = ['system', 'managed', 'custom', 'cdp', 'bundled'];
+    const b = {
+      mode: modes.includes(raw0.mode) ? raw0.mode : 'system',
+      executable: typeof raw0.executable === 'string' ? raw0.executable.trim().slice(0, 1000) : '',
+      cdpUrl: typeof raw0.cdpUrl === 'string' && raw0.cdpUrl.trim() ? raw0.cdpUrl.trim().slice(0, 1000) : 'http://127.0.0.1:9222',
+    };
+    if (JSON.stringify(b) !== JSON.stringify(config.browserAutomation)) { config.browserAutomation = b; changed = true; }
+    else config.browserAutomation = b;
+  }
   // v0.7d: externalMcpServers — sanitize each, drop malformed, dedupe by id, cap 10.
   {
     const rawArr = Array.isArray(config.externalMcpServers) ? config.externalMcpServers : [];
@@ -762,6 +781,21 @@ function normalizeConfig(raw) {
   // default ('pro' / 'detailed') so a corrupt config can never leave the UI in an undefined density/style.
   { const v = (config.uiMode === 'simple' || config.uiMode === 'pro') ? config.uiMode : 'pro'; if (v !== config.uiMode) { config.uiMode = v; changed = true; } }
   { const v = (config.outputStyle === 'concise' || config.outputStyle === 'detailed') ? config.outputStyle : 'detailed'; if (v !== config.outputStyle) { config.outputStyle = v; changed = true; } }
+  // Resident skills are a small, source-locked global set. Existence and capability are checked against
+  // the current workspace registry at use time; normalization only protects the config shape.
+  {
+    const rawArr = Array.isArray(config.residentSkills) ? config.residentSkills : [];
+    const seen = new Set(), clean = [];
+    for (const rawSkill of rawArr) {
+      const id = String(typeof rawSkill === 'string' ? rawSkill : (rawSkill && rawSkill.id) || '').trim();
+      const source = String(typeof rawSkill === 'object' && rawSkill ? rawSkill.source || '' : '').trim();
+      if (!SKILL_ID_RE.test(id) || seen.has(id)) continue;
+      seen.add(id); clean.push({ id, source: ['builtin', 'user', 'project'].includes(source) ? source : '' });
+      if (clean.length >= 8) break;
+    }
+    if (JSON.stringify(clean) !== JSON.stringify(config.residentSkills)) { config.residentSkills = clean; changed = true; }
+    else config.residentSkills = clean;
+  }
   // v0.9-S3 (C3): recentWorkspaces — de-duped array of non-empty absolute-path strings, ≤10 (LRU: the
   // front is most-recent). Drop non-strings/empties; a duplicate (case-insensitive) keeps only the first
   // occurrence (so the front-inserted entry wins). A non-array coerces to []. Never widens anything.
@@ -3394,6 +3428,45 @@ function buildRevealSpawn(mode, absPath) {
 function buildOpenSpawn(target) {
   return { command: 'explorer.exe', args: [String(target || '')] };
 }
+
+// Browser navigation has an extra invariant beyond shell-safety: never reuse the current Workbench tab.
+// For web pages, resolve the user's default HTTP handler and pass its documented new-tab switch. Local folders
+// intentionally retain the Explorer behavior used by the "open data directory" UI action.
+let _defaultBrowserExecutable;
+function windowsRegistryString(key, valueName) {
+  if (process.platform !== 'win32') return '';
+  try {
+    const args = ['query', key, valueName == null ? '/ve' : '/v', ...(valueName == null ? [] : [valueName])];
+    const result = cp.spawnSync('reg.exe', args, { encoding: 'utf8', windowsHide: true, timeout: 1500 });
+    if (result.status !== 0) return '';
+    const line = String(result.stdout || '').split(/\r?\n/).find(s => /\sREG_SZ\s/.test(s));
+    return line ? String(line).replace(/^.*?\sREG_SZ\s+/, '').trim() : '';
+  } catch { return ''; }
+}
+function defaultBrowserExecutable() {
+  if (_defaultBrowserExecutable !== undefined) return _defaultBrowserExecutable;
+  _defaultBrowserExecutable = '';
+  if (process.platform !== 'win32') return _defaultBrowserExecutable;
+  const progId = windowsRegistryString('HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice', 'ProgId');
+  if (!progId) return _defaultBrowserExecutable;
+  const command = windowsRegistryString(`HKCR\\${progId}\\shell\\open\\command`, null);
+  const match = command.match(/^\s*"([^"]+\.exe)"|^\s*([^\s]+\.exe)/i);
+  const executable = match && (match[1] || match[2]);
+  if (executable && fs.existsSync(executable)) _defaultBrowserExecutable = executable;
+  return _defaultBrowserExecutable;
+}
+function isBrowserDocumentTarget(target) {
+  const value = String(target || '').trim();
+  return /^(https?:|file:)/i.test(value) || /\.html?$/i.test(value);
+}
+function buildBrowserOpenSpawn(target, browserExecutable = defaultBrowserExecutable()) {
+  const value = String(target || '');
+  if (!isBrowserDocumentTarget(value) || !browserExecutable) {
+    return { ...buildOpenSpawn(value), mode: 'shell-association', preservesWorkbench: true };
+  }
+  const tabFlag = /firefox/i.test(path.basename(browserExecutable)) ? '-new-tab' : '--new-tab';
+  return { command: browserExecutable, args: [tabFlag, value], mode: 'new-tab', preservesWorkbench: true };
+}
 const PREVIEW_TEXT_EXTS = new Set(['md', 'markdown', 'csv', 'txt', 'html', 'htm', 'json', 'js', 'ts', 'jsx', 'tsx', 'py', 'css', 'xml', 'yaml', 'yml', 'ini', 'log', 'sh', 'ps1', 'bat', 'cmd', 'toml', 'c', 'h', 'cpp', 'java', 'go', 'rs', 'rb', 'php', 'sql', 'tex']);
 const PREVIEW_TEXT_MAX = 1 * 1024 * 1024;   // 1MB text cap (spec)
 const PREVIEW_IMAGE_MAX = 5 * 1024 * 1024;  // 5MB image cap (spec)
@@ -4034,8 +4107,16 @@ function resolveExternalMcpServers(config) {
       const det = detectDesktopMcp();
       if (det) { command = det.command; args = det.args; cwd = det.cwd; env = det.env || {}; pythonSource = det.pythonSource || ''; }
     }
-    if (command) out.push({ id: 'ai-computer-control', label: '桌面控制 (ai-computer-control)', command, args, cwd, env,
+    if (command) {
+      const browser = (config && config.browserAutomation) || {};
+      env = { ...env,
+        ACC_BROWSER_MODE: String(browser.mode || 'system'),
+        ACC_BROWSER_EXECUTABLE: String(browser.executable || ''),
+        ACC_BROWSER_CDP_URL: String(browser.cdpUrl || 'http://127.0.0.1:9222'),
+      };
+      out.push({ id: 'ai-computer-control', label: '桌面控制 (ai-computer-control)', command, args, cwd, env,
       pythonSource });
+    }
   }
   const ext = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
   for (const s of ext) {
@@ -4053,6 +4134,61 @@ function resolveExternalMcpServers(config) {
     }
   }
   return out;
+}
+
+function safeMcpInventory(config) {
+  return resolveExternalMcpServers(config).map(entry => ({
+    id: entry.id, label: entry.label || entry.id, command: entry.command, args: entry.args || [],
+    cwd: entry.cwd || '', envKeys: Object.keys(entry.env || {}),
+    builtin: entry.id === 'ai-computer-control',
+  }));
+}
+
+function invalidateMcpRuntime(id) {
+  invalidateMcpDropInCache();
+  bridgedCatalogCache = { key: '', expiresAt: 0, value: null };
+  if (id) {
+    const client = mcpClients.get(id);
+    if (client) { try { client.kill(); } catch { /* ignore */ } mcpClients.delete(id); }
+    mcpClientFailures.delete(id);
+  }
+}
+
+async function configureMcpFromTool(args, currentConfig) {
+  const operation = String(args && args.operation || '').trim();
+  const config = currentConfig || await readConfig();
+  if (operation === 'set-browser') {
+    const raw = (args && args.browser && typeof args.browser === 'object') ? args.browser : {};
+    const next = await writeConfig({ ...config, browserAutomation: {
+      mode: raw.mode, executable: raw.executable, cdpUrl: raw.cdpUrl,
+    } });
+    invalidateMcpRuntime('ai-computer-control');
+    return { ok: true, operation, browserAutomation: next.browserAutomation,
+      note: '浏览器目标已保存；当前桌面 MCP 连接已刷新，下一次工具发现会按新策略启动。' };
+  }
+  const id = String(args && (args.id || (args.server && args.server.id)) || '').trim();
+  if (!id || id === 'ai-computer-control') return { ok: false, error: '外部 MCP 需要合法 id；内置 ai-computer-control 只能用 set-browser 调整浏览器目标。' };
+  const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
+  const index = list.findIndex(s => s && s.id === id);
+  if (operation === 'remove') {
+    if (index < 0) return { ok: false, error: `未找到外部 MCP: ${id}` };
+    list.splice(index, 1);
+  } else if (operation === 'set-enabled') {
+    if (index < 0) return { ok: false, error: `未找到外部 MCP: ${id}` };
+    list[index] = { ...list[index], enabled: args.enabled !== false };
+  } else if (operation === 'upsert') {
+    const server = sanitizeExternalMcpServer({ ...(args.server || {}), id });
+    if (!server) return { ok: false, error: 'MCP 配置无效：upsert 至少需要 id 与 command，args 必须是字符串数组。' };
+    if (index >= 0) list[index] = server; else list.push(server);
+  } else {
+    return { ok: false, error: 'operation 必须是 upsert、remove、set-enabled 或 set-browser' };
+  }
+  const next = await writeConfig({ ...config, externalMcpServers: list });
+  invalidateMcpRuntime(id);
+  const saved = (next.externalMcpServers || []).find(s => s.id === id);
+  return { ok: true, operation, id, removed: operation === 'remove',
+    server: saved ? { id: saved.id, label: saved.label, command: saved.command, args: saved.args, cwd: saved.cwd, enabled: saved.enabled, envKeys: Object.keys(saved.env || {}) } : null,
+    note: '配置已原子保存并刷新工具目录；若工具仍不可用，请读取 MCP 列表与启动诊断。' };
 }
 
 // Get (lazily starting) a live client for one server entry, or null if it can't start. Caches failures.
@@ -4426,7 +4562,11 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     if (config.includeWorkbenchMcp && config.toolLoadingMode === 'auto') {
       appendSys += `${appendSys ? '\n\n' : ''}Ruyi uses adaptive tool loading. Only likely tools are listed for this turn. If a Ruyi/desktop/Office capability is missing, call mcp__win-claude-workbench__tool_search, then invoke the exact result with mcp__win-claude-workbench__tool_invoke_read, _edit, or _exec according to its returned tier. Never use a lower-tier proxy for a higher-tier target.`;
     }
-    const enabled = Array.isArray(session.skills) ? session.skills : [];
+    if (config.desktopMcp && config.desktopMcp.enabled) {
+      appendSys += `${appendSys ? '\n\n' : ''}${buildBrowserAutomationHint(config)}`;
+    }
+    if (config.includeWorkbenchMcp) appendSys += `${appendSys ? '\n\n' : ''}${buildToolCustomizationHint()}`;
+    const enabled = effectiveSkillSelection(session, config);
     if (enabled.length) {
       try {
         const capsForSkills = await getCapabilities(config).catch(() => null);
@@ -5745,6 +5885,20 @@ function buildResponseLanguagePolicy(config) {
   ].join('\n');
 }
 
+function buildBrowserAutomationHint(config) {
+  const browser = (config && config.browserAutomation) || {};
+  const mode = String(browser.mode || 'system');
+  if (mode === 'system') return 'Browser target: system (default). Open URLs in a new tab/window of the user\'s configured browser/session; never navigate, close, or reuse the Ruyi Workbench tab. Then continue through desktop screenshots and UIA/OCR/keyboard tools. Do not call browser_click/browser_type/DOM tools because the user browser is not Playwright-attached. A Direct3D/hardware-accelerated page may expose only browser chrome to UIA: when ui_inspect/ui_find reports accessibilityLimited, or no page content is visible, do not retry UIA; switch once to OCR/screenshot coordinates and verify the result. Do not launch bundled Chrome for Testing.';
+  if (mode === 'cdp') return `Browser target: CDP (${String(browser.cdpUrl || 'http://127.0.0.1:9222')}). Reuse the attached user browser when available; inspect tabs before opening another one.`;
+  if (mode === 'managed') return 'Browser target: managed installed browser. Use the user\'s configured Chromium-family browser executable through Playwright; this may open a separate automation window. Reuse its current tab unless the user asks for a new tab.';
+  if (mode === 'custom') return `Browser target: custom executable (${String(browser.executable || 'not configured')}). Reuse its current automation tab unless the user asks for a new tab.`;
+  return 'Browser target: bundled Playwright browser (isolated Chrome for Testing). This is an explicit compatibility/testing choice and may open a separate window; never describe it as the user\'s signed-in browser.';
+}
+
+function buildToolCustomizationHint() {
+  return 'Tool/MCP customization: when the user explicitly asks to add, remove, enable, repair, or retarget a tool/MCP connector, first call mcp_list, inspect the existing configuration and relevant local manifest/source, then explain the concrete diff. Apply connector or browser-target changes with mcp_configure only after the normal exec-tier permission approval. Never silently self-modify application binaries, weaken permission tiers, expose secret env values, or claim a connector is usable before refreshing/discovering and testing it. Source-code changes inside the user\'s workspace use the normal file-edit workflow and verification.';
+}
+
 function buildAgentTeamHint() {
   return [
     '<agent-team-mode>',
@@ -5902,6 +6056,7 @@ function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, pr
       lines.push('若完整依赖图在开始时已知，优先一次调用 orchestrate_agents 提交全部节点；运行时会自动并行就绪节点、等待依赖并持久化进度，比逐轮 spawn_agent 更可靠。');
       lines.push('资源感知：会操作同一文件/工作区、同一浏览器 Profile、桌面或 Office 文档的节点必须声明 resources（如 desktop、browser:default、file:C:\\项目\\a.js、workspace:C:\\项目；只读共享加 read: 前缀）。冲突节点会自动排队；实际工具参数还会在调用时自动加锁兜底。');
     }
+    if (offeredNames.has('mcp_list') || offeredNames.has('mcp_configure')) lines.push(buildToolCustomizationHint());
     const unavailable = [];
     for (const [name, spec] of Object.entries(TOOL_REQUIRES)) {
       if (spec.testOnly && !toolRequiresEnabled) continue; // test hook off → not a real restriction
@@ -5927,6 +6082,7 @@ function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, pr
     // otherwise inject the wrong 规程 (视觉 vs 文本) for a turn whose provider just toggled vision.
     const visionCap = provider ? provider.vision === true : !!(caps && caps.provider && caps.provider.vision === true);
     if (deskPresent) {
+      lines.push(buildBrowserAutomationHint(config));
       if (visionCap) {
         lines.push('桌面操控(视觉路径):按「截图 → 观察元素 → 操作(点击/输入) → wait_for_window_idle → 再截图验证结果」的循环推进,每一步都要用截图确认上一步真的生效了才继续。优先用 observe 一次拿到截图+可交互元素+OCR 文本,减少往返。坐标以返回的归一化/缩放比例为准。');
       } else {
@@ -6537,6 +6693,7 @@ const NATIVE_TOOL_TIER = {
   git_diff: 'read', git_log: 'read', // v1.0-S4: read-only git inspection → auto-allow
   git_commit: 'exec', // v1.0-S4: commit triggers .git/hooks (arbitrary code) → must be exec (never lower)
   dependency_inventory: 'read', code_review_scan: 'read', frontend_audit: 'read', claude_md_audit: 'read', docs_search: 'read',
+  mcp_list: 'read', mcp_configure: 'exec',
   todo_write: 'read', // v0.8-S3: writing the task list is a planning act, not a filesystem/exec mutation → auto-allow
   mission_update: 'read', // 第26波b: 更新任务账本是规划/元数据写,非文件/exec 变更 → auto-allow
   skill_read: 'read', // v1 技能体系: 只读已启用技能的 SKILL.md + 目录清单(路径受限该技能目录内)→ auto-allow
@@ -6594,6 +6751,7 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
   archive: 'zip and unzip archives',
   agents: 'sub-agents and workflow orchestration',
   skills: 'read enabled skill instructions',
+  integrations: 'inspect and configure MCP connectors and browser targets',
 });
 const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
@@ -6606,6 +6764,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
   archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', skill_read: 'skills',
+  mcp_list: 'integrations', mcp_configure: 'integrations',
 });
 
 function toolPackForName(name, bridgedRoute) {
@@ -6636,6 +6795,7 @@ function classifyToolPacks(message, attachments) {
   if (/(压缩|解压|zip|archive|unzip)/i.test(s)) add('archive', 'files_read', 'files_write');
   if (/(子代理|多代理|工作流|并行|agent|orchestrat|delegate)/i.test(s)) add('agents');
   if (/(技能|skill)/i.test(s)) add('skills');
+  if (/(mcp|连接器|工具配置|浏览器目标|browser target|connector|tool config)/i.test(s)) add('integrations');
   return [...packs];
 }
 
@@ -13801,7 +13961,7 @@ async function toolCall(name, args = {}, ctx = null) {
       // 路径安全: 遍历时每个文件解析后必须仍在该技能目录内(path.relative 不得以 .. 开头/绝对),防符号链接穿越。
       const session = ctx && ctx.session;
       const cfg = (ctx && ctx.config) || await readConfig().catch(() => null);
-      const enabled = Array.isArray(session && session.skills) ? session.skills : [];
+      const enabled = effectiveSkillSelection(session, cfg);
       const id = String(args.id || '').trim();
       // P2-2: enabled 元素为 {id, source}(或旧裸字符串)。白名单按 id 匹配;source 非空则下方再校验注册表来源一致。
       const enabledEntry = enabled.find(x => (typeof x === 'string' ? x : (x && x.id)) === id);
@@ -14173,10 +14333,20 @@ async function toolCall(name, args = {}, ctx = null) {
     case 'browser_open': {
       const target = String(args.url || '');
       if (!target) throw new Error('url is required');
-      // v1.4.6-S2: explorer.exe, NOT `cmd.exe /c start` — no shell → no & | metacharacter command injection.
-      const s = buildOpenSpawn(target);
+      // Shell-free and non-destructive: URLs/local HTML open in an explicit new browser tab where the
+      // default-browser executable is available; folders keep the safe Explorer handoff behavior.
+      const s = buildBrowserOpenSpawn(target);
       cp.spawn(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
-      return { ok: true, opened: target };
+      return { ok: true, opened: target, browserMode: s.mode, preservedWorkbench: true };
+    }
+    case 'mcp_list': {
+      const cfg = (ctx && ctx.config) || await readConfig();
+      return { ok: true, servers: safeMcpInventory(cfg), browserAutomation: cfg.browserAutomation || defaultConfig().browserAutomation,
+        note: 'env 仅返回键名，不返回可能含密钥的值。' };
+    }
+    case 'mcp_configure': {
+      const cfg = await readConfig(); // use latest disk config, not the turn-start snapshot
+      return configureMcpFromTool(args, cfg);
     }
     case 'office_open': {
       const target = path.resolve(String(args.path || ''));
@@ -14414,6 +14584,15 @@ function docMeta(raw) {
   return { name: fm.name || '', description: fm.description || firstParaDesc(raw) };
 }
 
+// Remove machine-facing frontmatter while keeping the useful workflow body for the skill detail view and
+// provider-compatible command templates. The result is still treated as authored/untrusted content.
+function docBody(raw, max = 12000) {
+  return String(raw || '').replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '').trim().slice(0, max);
+}
+function commandPrompt(raw) {
+  return docBody(raw, 8000).replace(/^#\s+[^\r\n]+\r?\n+/, '').trim();
+}
+
 // v1 技能体系: 解析 SKILL.md frontmatter 的 requires 字段为能力键数组(取值同 PLAYBOOK_REQUIRES)。
 // parseFrontmatter 把整行值当字符串,故支持「requires: network, vision」与「requires: [network, vision]」两写法。
 function parseSkillRequires(val) {
@@ -14441,7 +14620,7 @@ async function readSkillDir(baseDir, source, caps) {
     const requires = parseSkillRequires(parseFrontmatter(raw).requires);
     const avail = evalPlaybookAvailability({ requires }, caps); // 复用 playbook 能力矩阵门控
     out.set(id, {
-      id, name: (meta.name || id).slice(0, 120), description: (meta.description || '').slice(0, 400),
+      id, name: (meta.name || id).slice(0, 120), description: (meta.description || '').slice(0, 400), detail: docBody(raw),
       kind: 'skill', source, dir, insert: '/' + id, requires,
       available: avail.available, unavailableReason: avail.unavailableReason,
     });
@@ -14466,10 +14645,14 @@ async function loadSkillRegistry(cwd, config, caps) {
     for (const d of (await fsp.readdir(skillDir, { withFileTypes: true }).catch(() => []))) {
       if (!d.isDirectory() || !SKILL_ID_RE.test(d.name)) continue;
       const dir = path.join(skillDir, d.name);
-      const meta = docMeta(await readIfExists(path.join(dir, 'SKILL.md'), 4000)); // 现存 16 个无 frontmatter → firstParaDesc 回退
+      const raw = await readIfExists(path.join(dir, 'SKILL.md'), 16000);
+      const meta = docMeta(raw);
+      const requires = parseSkillRequires(parseFrontmatter(raw).requires);
+      const avail = evalPlaybookAvailability({ requires }, caps);
       skillMap.set(d.name, {
-        id: d.name, name: (meta.name || d.name).slice(0, 120), description: (meta.description || '').slice(0, 400),
-        kind: 'skill', source: 'builtin', dir, insert: '/' + d.name, requires: [], available: true, unavailableReason: '',
+        id: d.name, name: (meta.name || d.name).slice(0, 120), description: (meta.description || '').slice(0, 400), detail: docBody(raw),
+        kind: 'skill', source: 'builtin', dir, insert: '/' + d.name, requires,
+        available: avail.available, unavailableReason: avail.unavailableReason,
       });
     }
   }
@@ -14479,14 +14662,15 @@ async function loadSkillRegistry(cwd, config, caps) {
 
   // ---- 命令: builtin(toolkit commands)+ user(~/.claude/commands),沿用旧 scanSkills 的 '/'+name 语义 ----
   const seenCmd = new Set();
-  const addCmd = (name, description, src) => {
+  const addCmd = (name, raw, src) => {
     if (!name || seenCmd.has(name)) return; seenCmd.add(name);
-    out.push({ id: name, name, description: description || '', kind: 'command', source: src, dir: '', insert: '/' + name, requires: [], available: true, unavailableReason: '' });
+    const meta = docMeta(raw);
+    out.push({ id: name, name: meta.name || name, description: meta.description || '', detail: docBody(raw), prompt: commandPrompt(raw), kind: 'command', source: src, dir: '', insert: '/' + name, requires: [], available: true, unavailableReason: '' });
   };
   const cmdDir = path.join(tk, 'commands');
-  for (const f of (await fsp.readdir(cmdDir).catch(() => [])).filter(x => x.endsWith('.md'))) addCmd(path.basename(f, '.md'), docMeta(await readIfExists(path.join(cmdDir, f), 4000)).description, 'builtin');
+  for (const f of (await fsp.readdir(cmdDir).catch(() => [])).filter(x => x.endsWith('.md'))) addCmd(path.basename(f, '.md'), await readIfExists(path.join(cmdDir, f), 12000), 'builtin');
   const userCmd = path.join(os.homedir(), '.claude', 'commands');
-  for (const f of (await fsp.readdir(userCmd).catch(() => [])).filter(x => x.endsWith('.md'))) addCmd(path.basename(f, '.md'), docMeta(await readIfExists(path.join(userCmd, f), 4000)).description, 'user');
+  for (const f of (await fsp.readdir(userCmd).catch(() => [])).filter(x => x.endsWith('.md'))) addCmd(path.basename(f, '.md'), await readIfExists(path.join(userCmd, f), 12000), 'user');
 
   // ---- Playbook: loadAllPlaybooks + evalPlaybookAvailability 映射(id 加 'pb:' 前缀防与技能/命令撞) ----
   for (const pb of (await loadAllPlaybooks().catch(() => []))) {
@@ -14506,8 +14690,22 @@ async function loadSkillRegistry(cwd, config, caps) {
 // v1 技能体系: 把会话启用的技能条目解析成注册表条目(仅 kind==='skill' 且 available)。供两个引擎注入用。
 // P2-2: session.skills 元素为 {id, source}(或旧裸字符串)。source 非空时要求注册表条目 source 一致 —— 换 cwd
 // 后同 id 项目技能顶替已启用的内置/用户技能(调包)会被此校验拦下:跳过注入,并通过 onSourceMismatch 通知一次。
+function effectiveSkillSelection(session, config) {
+  const resident = Array.isArray(config && config.residentSkills) ? config.residentSkills : [];
+  const sessionOnly = Array.isArray(session && session.skills) ? session.skills : [];
+  const out = [], seen = new Set();
+  // Session selection wins on duplicate ids: it reflects the workspace in which the user most recently
+  // enabled the skill, while the resident copy remains available in other sessions/workspaces.
+  for (const raw of [...sessionOnly, ...resident]) {
+    const id = String(typeof raw === 'string' ? raw : (raw && raw.id) || '').trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id); out.push(raw);
+  }
+  return out;
+}
+
 async function resolveEnabledSkillEntries(session, config, cwd, caps, onSourceMismatch) {
-  const enabled = Array.isArray(session && session.skills) ? session.skills : [];
+  const enabled = effectiveSkillSelection(session, config);
   if (!enabled.length) return [];
   let registry = [];
   try { registry = await loadSkillRegistry(cwd, config, caps); } catch { return []; }
@@ -14795,9 +14993,10 @@ async function handleApi(req, res, pathname) {
     }
     const registry = await loadSkillRegistry(cwd, config).catch(() => []);
     const skills = registry.map(e => ({
-      id: e.id, name: e.name, description: e.description, kind: e.kind, type: e.kind,
+      id: e.id, name: e.name, description: e.description, detail: e.detail || '', kind: e.kind, type: e.kind,
       source: e.source, insert: e.insert, dir: e.dir, requires: e.requires,
       available: e.available, unavailableReason: e.unavailableReason,
+      ...(e.kind === 'command' ? { prompt: e.prompt || '' } : {}),
       // Playbook 条目带上完整 playbook 对象(前端「技能库」的 Playbook 项直接走 openPlaybookModal 流程)。
       ...(e.kind === 'playbook' && e.playbook ? { playbook: e.playbook } : {}),
     }));
@@ -16309,11 +16508,31 @@ const MCP_TOOLS = [
   },
   {
     name: 'browser_open',
-    description: 'Open a URL or local HTML file in the default browser',
+    description: 'Open a URL or local HTML file in a new tab of the default browser. Never navigate or close the current Ruyi Workbench tab.',
     inputSchema: {
       type: 'object',
       properties: { url: { type: 'string' } },
       required: ['url'],
+    },
+  },
+  {
+    name: 'mcp_list',
+    description: 'List the currently configured built-in and external MCP connectors, their launch command, argument list, working directory, environment key names, and browser target. Secret environment values are never returned. Use this before changing tool/MCP configuration.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'mcp_configure',
+    description: 'Configure tools/MCP on the user\'s explicit request. Supports upsert/remove/enable of an external stdio MCP connector and changing the ai-computer-control browser target. This is an exec-tier persistent configuration change: inspect with mcp_list first, explain the diff, and rely on the permission prompt before applying. It cannot replace the built-in desktop MCP executable or edit application binaries.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        operation: { type: 'string', enum: ['upsert', 'remove', 'set-enabled', 'set-browser'] },
+        id: { type: 'string', description: 'External MCP id for upsert/remove/set-enabled.' },
+        enabled: { type: 'boolean', description: 'For set-enabled.' },
+        server: { type: 'object', description: 'For upsert: {id,label,command,args[],cwd,env{},enabled}. Keep credentials only in env and never echo them after saving.' },
+        browser: { type: 'object', description: 'For set-browser: {mode:system|managed|custom|cdp|bundled, executable?, cdpUrl?}. system is the safe default and uses the user browser plus desktop UIA/OCR.' },
+      },
+      required: ['operation'],
     },
   },
   {
@@ -16829,6 +17048,10 @@ module.exports = {
   desktopPythonCandidates,
   desktopMcpFromInstalledRoot,
   resolveExternalMcpServers,
+  safeMcpInventory,
+  configureMcpFromTool,
+  buildBrowserAutomationHint,
+  buildToolCustomizationHint,
   // v1.1-W2 (T2): MCP drop-in scan — exposed for mcp-config e2e (invalidate cache after fixturing folders).
   scanMcpDropIns,
   invalidateMcpDropInCache,
@@ -16909,9 +17132,10 @@ module.exports = {
   // v1.0.2-S3: reveal-in-explorer path guard + spawn-argv builder — exposed for e2e 单测护栏逻辑。
   guardWorkspacePath,
   buildRevealSpawn,
-  // v1.4.6-S2/S3: shell-free open-spawn argv builder + native file-tool workspace boundary guard + local
-  // provider detection — exposed for the file-guard e2e (pure argv / containment assertions).
+  // v1.4.6-S2/S3: shell-free open-spawn argv builders + native file-tool workspace boundary guard + local
+  // provider detection — exposed for e2e (pure argv / containment assertions).
   buildOpenSpawn,
+  buildBrowserOpenSpawn,
   guardFileToolPath,
   providerIsLocal,
   // 第31波B(L1): autoexec denylist + 路径归一 — exposed for shell-sandbox e2e 直接单测。

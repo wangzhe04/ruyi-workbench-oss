@@ -6,7 +6,7 @@ chcp 65001 >nul 2>&1
 REM Incremental updater for an ALREADY-INSTALLED ai-computer-control.
 REM   update.bat            -> hot-copy new .py over the installed package (no deps, instant)
 REM   update.bat --code     -> same as above
-REM   update.bat --deps     -> pip-install new wheels from .\wheels (e.g. uiautomation, comtypes)
+REM   update.bat --deps     -> pip-install desktop/OCR wheels from .\wheels (uiautomation, comtypes, winsdk)
 REM Ship this file next to an updated "ai_computer_control\" source tree (and optional "wheels\").
 
 set "INSTALL_DIR=%LOCALAPPDATA%\ai-computer-control"
@@ -45,15 +45,18 @@ echo          (In Claude, the server relaunches on next use; or restart Claude.)
 goto end
 
 :deps
-if not exist "%~dp0wheels" (
-  echo [update] ERROR: no wheels\ folder next to update.bat. Rebuild the offline package to get the wheels,
-  echo          or copy uiautomation/comtypes wheels into wheels\ .
+set "WHEEL_DIR=%~dp0wheels"
+if not exist "%WHEEL_DIR%" set "WHEEL_DIR=%~dp0offline_packages"
+if not exist "%WHEEL_DIR%" set "WHEEL_DIR=%~dp0..\offline_packages"
+if not exist "%WHEEL_DIR%" (
+  echo [update] ERROR: no wheels\ or offline_packages\ directory was found. Rebuild the offline package,
+  echo          or copy uiautomation/comtypes/winsdk wheels into wheels\ .
   exit /b 1
 )
-echo [update] Installing optional deps from local wheels (no internet)...
-"%PY%" -m pip install --no-index --find-links "%~dp0wheels" --no-deps --upgrade uiautomation comtypes
+echo [update] Installing optional desktop and Windows OCR deps from local wheels (no internet)...
+"%PY%" -m pip install --no-index --find-links "%WHEEL_DIR%" --no-deps --upgrade uiautomation comtypes winsdk
 if errorlevel 1 ( echo [update] pip install failed. & exit /b 1 )
-echo [update] Optional UI-Automation deps installed. Now run: update.bat --code
+echo [update] Optional UI-Automation and Windows OCR deps installed. Now run: update.bat --code
 goto end
 
 :end

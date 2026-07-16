@@ -681,6 +681,27 @@
               <div class="adv-row"><code id="cfgDesktopMcpStatus" class="adv-val">—</code></div>
             </div>
             <div class="field-block">
+              <label for="cfgBrowserMode" data-i18n="settings.browserTarget">浏览器目标</label>
+              <select id="cfgBrowserMode">
+                <option value="system" data-i18n="settings.browserTarget.system">系统默认浏览器（推荐，复用用户会话）</option>
+                <option value="managed" data-i18n="settings.browserTarget.managed">已安装的默认 Chromium 浏览器（DOM 自动化，会开独立窗口）</option>
+                <option value="custom" data-i18n="settings.browserTarget.custom">自定义 Chromium 可执行文件</option>
+                <option value="cdp" data-i18n="settings.browserTarget.cdp">连接现有浏览器 CDP 调试端口</option>
+                <option value="bundled" data-i18n="settings.browserTarget.bundled">内置 Chrome for Testing（隔离测试）</option>
+              </select>
+              <p class="field-help muted" data-i18n="settings.browserTarget.hint">默认浏览器模式通过截图、UIA/OCR 操控真实用户窗口；需要 DOM 级 browser_* 工具时再选择受控、CDP 或内置模式。</p>
+            </div>
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgBrowserExecutable" data-i18n="settings.browserExecutable">自定义浏览器路径（custom 模式）</label>
+                <input id="cfgBrowserExecutable" type="text" placeholder="C:\Program Files\...\chrome.exe" />
+              </div>
+              <div class="field-block">
+                <label for="cfgBrowserCdpUrl" data-i18n="settings.browserCdpUrl">CDP 地址（cdp 模式）</label>
+                <input id="cfgBrowserCdpUrl" type="text" placeholder="http://127.0.0.1:9222" />
+              </div>
+            </div>
+            <div class="field-block">
               <label for="cfgDesktopMcpCommand" data-i18n="settings.commandOverride">命令覆盖（留空 = 自动探测）</label>
               <input id="cfgDesktopMcpCommand" type="text" placeholder="留空自动探测；或 python / ai-computer-control.exe 完整路径" data-i18n-attr="placeholder:settings.commandOverridePlaceholder" />
             </div>

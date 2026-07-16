@@ -26,12 +26,45 @@ def _unavailable() -> dict:
             "(update.bat --deps), or rebuild the offline package.", "detail": _IMPORT_ERROR}
 
 
+def _coerce_bytes(value) -> bytes:
+    """Normalize binary inputs across Pillow/winsdk versions without lossy list conversion."""
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, (bytearray, memoryview)):
+        return bytes(value)
+    if hasattr(value, "read"):
+        data = value.read()
+        if isinstance(data, (bytes, bytearray, memoryview)):
+            return bytes(data)
+    raise TypeError(f"OCR image input must be bytes-like, got {type(value).__name__}")
+
+
+def _write_bytes_compat(writer, payload: bytes) -> None:
+    """winsdk releases disagree on DataWriter.write_bytes' accepted Python shape.
+
+    Current builds require a bytes-like object; a few older projections accepted a sequence of
+    integers.  Prefer the correct zero-copy shape and retain a narrow compatibility fallback.
+    """
+    try:
+        writer.write_bytes(payload)
+    except TypeError as first_error:
+        try:
+            writer.write_bytes(list(payload))
+        except TypeError:
+            raise first_error
+
+
 async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
+    payload = _coerce_bytes(png_bytes)
     stream = _streams.InMemoryRandomAccessStream()
     writer = _streams.DataWriter(stream.get_output_stream_at(0))
-    writer.write_bytes(list(png_bytes))
+    _write_bytes_compat(writer, payload)
     await writer.store_async()
     await writer.flush_async()
+    try:
+        writer.detach_stream()
+    except Exception:
+        pass
     stream.seek(0)
     decoder = await _imaging.BitmapDecoder.create_async(stream)
     bitmap = await decoder.get_software_bitmap_async()
@@ -62,10 +95,16 @@ async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
 
 async def _run_ocr(png_bytes: bytes, lang: str | None) -> dict:
     try:
-        return await _recognize(png_bytes, lang)
+        return await _recognize(_coerce_bytes(png_bytes), lang)
     except Exception as e:  # noqa: BLE001
         out = {"error": f"{type(e).__name__}: {e}"}
-        if "language" in str(e).lower():
+        message = str(e).lower()
+        if "bytes-like" in message or "write_bytes" in message:
+            out["hint"] = (
+                "OCR could not pass the captured image to Windows.Media.Ocr. Ensure winsdk is "
+                "current and retry; the tool now accepts bytes, bytearray, memoryview, and binary streams."
+            )
+        elif "language" in message:
             out["needs_language_pack"] = True
             out["hint"] = ("Add a language including its optional OCR feature via Settings > Language "
                            "(e.g. en-US or zh-Hans), then retry.")

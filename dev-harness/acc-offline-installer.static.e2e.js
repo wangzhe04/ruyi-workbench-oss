@@ -12,6 +12,7 @@ const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const builder = read('mcp/ai-computer-control/installer/build_offline_package.py');
 const installer = read('mcp/ai-computer-control/installer/install.py');
 const installBat = read('mcp/ai-computer-control/installer/install.bat');
+const updater = read('mcp/ai-computer-control/installer/update.bat');
 const packager = read('ruyi-workbench/tools/package-offline.ps1');
 const pyproject = read('mcp/ai-computer-control/pyproject.toml');
 
@@ -34,6 +35,8 @@ ok(/--ensure/.test(installer) && /payloadSha256/.test(installer) && /refreshing 
 ok(/source archives and cannot install safely/.test(installer) && /--only-binary=:all:/.test(installer), 'legacy fallback refuses source archives and compilation');
 ok(/-r", REQUIREMENTS_FILE, "ai-computer-control"/.test(installer), 'fallback installs the full feature requirements plus ACC wheel');
 ok(/python_embed\\python\.exe/.test(installBat), 'one-click launcher prefers bundled Python over system Python');
+ok(/uiautomation comtypes winsdk/.test(updater) && /offline_packages/.test(updater) && /--no-index/.test(updater),
+  'incremental offline updater finds Full wheel caches and installs winsdk with UIA dependencies');
 
 ok(/\[switch\]\$BuildAccOffline/.test(packager) && /offline-manifest\.json/.test(packager), 'Ruyi full packager requires or builds a verified ACC payload');
 ok(/Refusing to create a source-only package labeled full\/offline/.test(packager), 'Ruyi refuses misleading source-only full packages');

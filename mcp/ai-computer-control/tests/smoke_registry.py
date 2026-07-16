@@ -49,13 +49,14 @@ def main() -> int:
     failures = []
 
     # 1) version bumped
-    if server.VERSION != "1.8.1":
-        failures.append(f"VERSION expected 1.8.1, got {server.VERSION}")
+    if server.VERSION != "1.8.2":
+        failures.append(f"VERSION expected 1.8.2, got {server.VERSION}")
 
     # 2) exact count (v1.5 was 89; +4 v1.6 Office tools = 93; v1.7 upgrades existing, no new = 93;
-    #    v1.8 adds 4 read/image tools = 97; v1.8.1 adds browser_list_tabs/browser_switch_tab = 99.)
-    if len(names) != 99:
-        failures.append(f"tool count {len(names)} != expected 99 (v1.8.1 adds browser tab list/switch)")
+    #    v1.8 adds 4 read/image tools = 97; v1.8.1 adds browser tab list/switch = 99;
+    #    v1.8.2 adds browser_backend_status = 100.)
+    if len(names) != 100:
+        failures.append(f"tool count {len(names)} != expected 100 (v1.8.2 adds browser backend status)")
 
     # 3) all expected tools present
     missing = sorted(_EXPECTED - names)

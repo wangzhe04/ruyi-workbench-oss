@@ -15,7 +15,7 @@ import inspect
 
 from mcp.server.fastmcp import FastMCP
 
-VERSION = "1.8.1"
+VERSION = "1.8.2"
 
 mcp = FastMCP(
     "AI Computer Control",

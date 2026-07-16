@@ -1159,6 +1159,12 @@ function openPlaybookModal(pb) {
     fields.set(inp.key, ta);
     body.appendChild(field);
   }
+  if (pb.promptTemplate) {
+    const guide = el('details', 'pb-guide');
+    guide.appendChild(el('summary', '', t('skills.playbook.viewGuide')));
+    guide.appendChild(el('pre', 'pb-guide-text', pb.promptTemplate));
+    body.appendChild(guide);
+  }
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
   const cancel = el('button', '', t('common.cancel'));
   const go = el('button', 'primary', t('skills.playbook.start'));
@@ -5807,6 +5813,10 @@ function fillSettings() {
   const dmCmd = $('cfgDesktopMcpCommand'); if (dmCmd) dmCmd.value = dm.command || '';
   const dmArgs = $('cfgDesktopMcpArgs'); if (dmArgs) dmArgs.value = (dm.args || []).join('\n');
   const dmCwd = $('cfgDesktopMcpCwd'); if (dmCwd) dmCwd.value = dm.cwd || '';
+  const browser = c.browserAutomation || {};
+  { const el0 = $('cfgBrowserMode'); if (el0) el0.value = ['system', 'managed', 'custom', 'cdp', 'bundled'].includes(browser.mode) ? browser.mode : 'system'; }
+  { const el0 = $('cfgBrowserExecutable'); if (el0) el0.value = browser.executable || ''; }
+  { const el0 = $('cfgBrowserCdpUrl'); if (el0) el0.value = browser.cdpUrl || 'http://127.0.0.1:9222'; }
   const brEx = $('cfgBridgeExternal'); if (brEx) brEx.checked = c.bridgeExternalToolsToProvider !== false;
   // v1.0-S3 (B1): 联网搜索 (searchBackend {type,baseUrl,apiKey}). apiKey arrives masked from GET /api/status
   // (••••<last4> when hasKey); seed the field with the mask and, if the user leaves it untouched, echo it
@@ -5919,6 +5929,11 @@ async function saveSettings() {
       args: $('cfgDesktopMcpArgs') ? $('cfgDesktopMcpArgs').value.split('\n').map(s => s.trim()).filter(Boolean) : [],
       cwd: $('cfgDesktopMcpCwd') ? $('cfgDesktopMcpCwd').value.trim() : '',
       autodetect: true,
+    },
+    browserAutomation: {
+      mode: $('cfgBrowserMode') ? $('cfgBrowserMode').value : 'system',
+      executable: $('cfgBrowserExecutable') ? $('cfgBrowserExecutable').value.trim() : '',
+      cdpUrl: $('cfgBrowserCdpUrl') ? $('cfgBrowserCdpUrl').value.trim() : 'http://127.0.0.1:9222',
     },
     bridgeExternalToolsToProvider: $('cfgBridgeExternal') ? $('cfgBridgeExternal').checked : true,
     // v1.0-S3 (B1): 联网搜索。apiKey 走 providers 同款掩码回存——若框内仍是 ••••<last4> 掩码（用户没动它），
@@ -6262,9 +6277,8 @@ async function openMcpInspector() {
 }
 
 /* ---------------- skill library panel (v1 技能体系) ---------------- */
-// 「技能库」升级(原「技能 / 命令面板」):三分组——技能(可启用/停用,两个引擎通用)、命令(仅 Claude 模式,
-// 沿用插入 /name)、一键任务(Playbook,走 openPlaybookModal 流程)。技能启用状态存在 session.skills,
-// 通过 POST /api/session/skills 落盘。skillFiltered 是「按显示顺序拍平」的当前可选项(供键盘上下 + Enter)。
+// 「技能库」三分组:技能支持本会话启用 + 全局常驻;命令在 Claude 下插入 /name,Provider 下插入同一
+// 命令正文作为可编辑任务模板;一键任务走 Playbook 表单。skillFiltered 供键盘上下 + Enter。
 let skillRegistry = [];
 let skillFiltered = [];
 let skillIndex = 0;
@@ -6288,6 +6302,10 @@ const BUILTIN_SKILL_I18N_IDS = Object.freeze({
   'skill:offline-packaging': 'offlinePackaging',
   'skill:browser-debug': 'browserDebug',
   'skill:claude-md-management': 'claudeMdManagement',
+  'skill:document-workflow': 'documentWorkflow',
+  'skill:spreadsheet-analysis': 'spreadsheetAnalysis',
+  'skill:research-synthesis': 'researchSynthesis',
+  'skill:structured-writing': 'structuredWriting',
   'command:api-probe': 'command.apiProbe',
   'command:claude-md-audit': 'command.claudeMdAudit',
   'command:commit-message': 'command.commitMessage',
@@ -6295,6 +6313,12 @@ const BUILTIN_SKILL_I18N_IDS = Object.freeze({
   'command:frontend-audit': 'command.frontendAudit',
   'command:offline-code-review': 'command.offlineCodeReview',
   'command:workbench-doctor': 'command.workbenchDoctor',
+  'command:explain-project': 'command.explainProject',
+  'command:fix-tests': 'command.fixTests',
+  'command:test-changes': 'command.testChanges',
+  'command:summarize-changes': 'command.summarizeChanges',
+  'command:security-check': 'command.securityCheck',
+  'command:release-checklist': 'command.releaseChecklist',
   'playbook:pb:pdf-summarize': 'playbook.pdfSummarize',
   'playbook:pb:weekly-report': 'playbook.weeklyReport',
   'playbook:pb:merge-excel': 'playbook.mergeExcel',
@@ -6305,6 +6329,11 @@ const BUILTIN_SKILL_I18N_IDS = Object.freeze({
   'playbook:pb:archive-by-content': 'playbook.archiveByContent',
   'playbook:pb:clean-downloads': 'playbook.cleanDownloads',
   'playbook:pb:folder-inventory': 'playbook.folderInventory',
+  'playbook:pb:compare-documents': 'playbook.compareDocuments',
+  'playbook:pb:meeting-minutes': 'playbook.meetingMinutes',
+  'playbook:pb:clean-csv': 'playbook.cleanCsv',
+  'playbook:pb:translate-document': 'playbook.translateDocument',
+  'playbook:pb:presentation-outline': 'playbook.presentationOutline',
 });
 const BUILTIN_SKILL_AVAILABILITY_I18N_KEYS = Object.freeze({
   '需要联网(当前离线)': 'skills.requirements.networkOffline',
@@ -6330,6 +6359,20 @@ const BUILTIN_PLAYBOOK_INPUT_I18N_KEYS = Object.freeze({
   'web-form-fill:fields': 'skills.playbook.inputs.webFormFill.fields',
   'weekly-report:notes': 'skills.playbook.inputs.weeklyReport.notes',
   'weekly-report:output': 'skills.playbook.inputs.weeklyReport.output',
+  'compare-documents:fileA': 'skills.playbook.inputs.compareDocuments.fileA',
+  'compare-documents:fileB': 'skills.playbook.inputs.compareDocuments.fileB',
+  'compare-documents:output': 'skills.playbook.inputs.compareDocuments.output',
+  'meeting-minutes:notes': 'skills.playbook.inputs.meetingMinutes.notes',
+  'meeting-minutes:output': 'skills.playbook.inputs.meetingMinutes.output',
+  'clean-csv:file': 'skills.playbook.inputs.cleanCsv.file',
+  'clean-csv:rules': 'skills.playbook.inputs.cleanCsv.rules',
+  'clean-csv:output': 'skills.playbook.inputs.cleanCsv.output',
+  'translate-document:file': 'skills.playbook.inputs.translateDocument.file',
+  'translate-document:language': 'skills.playbook.inputs.translateDocument.language',
+  'translate-document:output': 'skills.playbook.inputs.translateDocument.output',
+  'presentation-outline:topic': 'skills.playbook.inputs.presentationOutline.topic',
+  'presentation-outline:materials': 'skills.playbook.inputs.presentationOutline.materials',
+  'presentation-outline:output': 'skills.playbook.inputs.presentationOutline.output',
 });
 function builtinSkillTextKey(entry, field) {
   if (!entry || entry.source !== 'builtin') return '';
@@ -6394,6 +6437,12 @@ function enabledSkillIds() {
   const arr = (state.currentSession && Array.isArray(state.currentSession.skills)) ? state.currentSession.skills : [];
   return arr.map(x => (typeof x === 'string' ? x : (x && x.id))).filter(Boolean);
 }
+function residentSkillEntries() {
+  return Array.isArray(state.config && state.config.residentSkills) ? state.config.residentSkills : [];
+}
+function residentSkillIds() {
+  return residentSkillEntries().map(x => (typeof x === 'string' ? x : (x && x.id))).filter(Boolean);
+}
 async function openSkillPanel() {
   openModal('skillModal');
   const s = $('skillSearch'); s.value = ''; skillIndex = 0; s.focus();
@@ -6407,15 +6456,15 @@ function renderSkillList() {
   const q = $('skillSearch').value.trim().toLowerCase();
   const all = skillRegistry || [];
   const match = s => skillMatchesQuery(s, q);
-  const claudeMode = !isProviderMode();
   const skills = all.filter(s => s.kind === 'skill' && match(s));
-  const commands = claudeMode ? all.filter(s => s.kind === 'command' && match(s)) : []; // 命令仅 Claude 模式(CLI 原生认 /name)
+  const commands = all.filter(s => s.kind === 'command' && match(s));
   const playbooks = all.filter(s => s.kind === 'playbook' && match(s));
   skillFiltered = [...skills, ...commands, ...playbooks]; // 拍平的显示顺序(与 .skill-item DOM 顺序一致)
   if (skillIndex >= skillFiltered.length) skillIndex = Math.max(0, skillFiltered.length - 1);
   const list = $('skillList'); list.innerHTML = '';
   const enabledIds = enabledSkillIds();
   const enabled = new Set(enabledIds);
+  const resident = new Set(residentSkillIds());
   // P3-6: 幽灵启用项 —— session.skills 里但注册表已无对应技能(被删/改名/随 cwd 丢失)。收集以便渲染「已失效」行。
   const regSkillIds = new Set(all.filter(s => s.kind === 'skill').map(s => s.id));
   const ghosts = enabledIds.filter(id => !regSkillIds.has(id) && (!q || id.toLowerCase().includes(q)));
@@ -6425,7 +6474,7 @@ function renderSkillList() {
   }
   // v3 (§2.12 P2 r2):分段控件锚点导航 + 两列卡片网格。分组顺序与 skillFiltered 拍平顺序一致(键盘导航 flatIdx 对齐)。
   const groups = [
-    { id: 'skill', label: t('skills.group.skills'), sub: t('skills.group.skillsDescription'), items: skills, builder: buildSkillRow },
+    { id: 'skill', label: t('skills.group.skills'), sub: t('skills.group.skillsDescription'), items: skills, builder: (s, i) => buildSkillRow(s, i, enabled, resident) },
     { id: 'cmd', label: t('skills.group.commands'), sub: t('skills.group.commandsDescription'), items: commands, builder: buildCommandRow },
     { id: 'play', label: t('skills.group.playbooks'), sub: t('skills.group.playbooksDescription'), items: playbooks, builder: buildPlaybookRow },
   ].filter(g => g.items.length);
@@ -6435,7 +6484,7 @@ function renderSkillList() {
     const grp = el('div', 'sk-group'); grp.id = 'g-' + g.id;
     grp.appendChild(buildSkGroupTitle(g.label, g.sub, g.items.length));
     const grid = el('div', 'sk-grid');
-    for (const s of g.items) grid.appendChild(g.builder(s, flatIdx++, enabled));
+    for (const s of g.items) grid.appendChild(g.builder(s, flatIdx++));
     grp.appendChild(grid);
     list.appendChild(grp);
   }
@@ -6512,9 +6561,11 @@ async function removeGhostSkill(id) {
 }
 // 技能卡(§2.12 r2):中文名主显 + mono id 小字 + 来源标签 + 描述 + 启用开关。启用态 .on 触发青花描边/渗透洗。
 // 保留 .skill-item 类以复用键盘导航(updateSkillSel 查 .skill-item);.sk-card 承载卡片视觉。不可用置灰。
-function buildSkillRow(s, i, enabled) {
+function buildSkillRow(s, i, enabled, resident) {
   const unavailable = s.available === false;
-  const on = enabled.has(s.id);
+  const sessionOn = enabled.has(s.id);
+  const residentOn = resident.has(s.id);
+  const on = sessionOn || residentOn;
   const pending = skillTogglePending.has(s.id); // P3-5: 该行有在途请求 → 开关禁用 + 显示「…」
   const it = el('div', `skill-item sk-card${on ? ' on' : ''}${i === skillIndex ? ' sel' : ''}${unavailable ? ' unavailable' : ''}`);
   const head = el('div', 'sk-card-h');
@@ -6528,14 +6579,48 @@ function buildSkillRow(s, i, enabled) {
   const unavailableReason = skillDisplayUnavailableReason(s);
   if (unavailable && unavailableReason) it.appendChild(el('div', 'sk-reason', unavailableReason));
   const foot = el('div', 'sk-foot');
-  const toggle = el('button', 'skill-toggle' + (on ? ' on' : ''), unavailable ? t('skills.unavailable') : (pending ? '…' : (on ? t('skills.enabled') : t('skills.enable'))));
+  if (s.detail) {
+    const detail = el('button', 'skill-detail-btn', t('skills.details'));
+    detail.onclick = e => { e.stopPropagation(); openSkillDetail(s); };
+    foot.appendChild(detail);
+  }
+  const toggle = el('button', 'skill-toggle' + (sessionOn ? ' on' : ''), unavailable ? t('skills.unavailable') : (pending ? '…' : (sessionOn ? t('skills.enabledForSession') : t('skills.enableForSession'))));
   if (unavailable || pending) toggle.disabled = true;
   toggle.onclick = e => { e.stopPropagation(); toggleSkill(s); };
   foot.appendChild(toggle);
+  const keep = el('button', 'skill-toggle resident' + (residentOn ? ' on' : ''), residentOn ? t('skills.resident') : t('skills.keepResident'));
+  if (unavailable) keep.disabled = true;
+  keep.onclick = e => { e.stopPropagation(); toggleResidentSkill(s); };
+  foot.appendChild(keep);
   it.appendChild(foot);
   it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
   it.onclick = () => { if (!unavailable && !pending) toggleSkill(s); };
   return it;
+}
+
+function openSkillDetail(entry) {
+  const body = el('div', 'skill-detail md');
+  body.innerHTML = renderMarkdown(entry.detail || entry.description || '');
+  const close = el('button', 'primary', t('common.close'));
+  const modal = buildModal(skillDisplayName(entry), body, close);
+  close.onclick = () => modal.close();
+}
+
+let residentSkillTogglePending = false;
+async function toggleResidentSkill(entry) {
+  if (residentSkillTogglePending || entry.available === false) return;
+  const current = residentSkillEntries();
+  const on = current.some(x => (typeof x === 'string' ? x : x && x.id) === entry.id);
+  let next = current.filter(x => (typeof x === 'string' ? x : x && x.id) !== entry.id);
+  if (!on) {
+    if (next.length >= 8) { toast(t('skills.toast.maxResident', { count: 8 }), 'err'); return; }
+    next.push({ id: entry.id, source: entry.source || '' });
+  }
+  residentSkillTogglePending = true;
+  const ok = await saveConfigPartial({ residentSkills: next });
+  residentSkillTogglePending = false;
+  if (ok) toast(on ? t('skills.toast.residentDisabled', { name: skillDisplayName(entry) }) : t('skills.toast.residentEnabled', { name: skillDisplayName(entry) }));
+  renderSkillList(); updateSkillBadge();
 }
 // 命令卡(仅 Claude 模式):中文名主显 + mono /insert 小字。点击插入 /name 到输入框(保留旧行为)。
 function buildCommandRow(s, i) {
@@ -6547,9 +6632,18 @@ function buildCommandRow(s, i) {
   it.appendChild(el('code', 'sk-id', s.insert || ('/' + s.id)));
   const description = skillDisplayDescription(s);
   if (description) it.appendChild(el('div', 'sk-desc', description));
+  if (s.detail) {
+    const foot = el('div', 'sk-foot');
+    const detail = el('button', 'skill-detail-btn', t('skills.viewTemplate'));
+    detail.onclick = e => { e.stopPropagation(); openSkillDetail(s); };
+    foot.appendChild(detail); it.appendChild(foot);
+  }
   it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
-  it.onclick = () => { insertSkill(s.insert || ('/' + s.id)); closeModal('skillModal'); };
+  it.onclick = () => { insertSkill(commandInsertion(s)); closeModal('skillModal'); };
   return it;
+}
+function commandInsertion(entry) {
+  return isProviderMode() ? (entry.prompt || entry.description || entry.name || '') : (entry.insert || ('/' + entry.id));
 }
 // 一键任务卡(Playbook):中文名主显 + playbook emoji 图标。点击走既有 openPlaybookModal。不可用置灰 + 原因。
 function buildPlaybookRow(s, i) {
@@ -6606,7 +6700,7 @@ async function doToggleSkill(entry) {
 // composer 技能按钮的数量徽标(已启用技能数)。会话切换/启用变更时刷新。
 function updateSkillBadge() {
   const btn = $('skillBtn'); if (!btn) return;
-  const n = (state.currentSession && Array.isArray(state.currentSession.skills)) ? state.currentSession.skills.length : 0;
+  const n = new Set([...enabledSkillIds(), ...residentSkillIds()]).size;
   iconTextBtn(btn, 'sparkles', n > 0 ? t('skills.badgeWithCount', { count: n }) : t('skills.badge')); // v3 (§B1/§2.15): ✨→sparkles 线性 SVG(⌘ 曾是 Mac 心智,已弃)
 }
 function updateSkillSel() {
@@ -6623,7 +6717,7 @@ function moveSkillSel(d) {
 function pickSkill(i) {
   const s = skillFiltered[i]; if (!s) return;
   if (s.kind === 'skill') { toggleSkill(s); return; }
-  if (s.kind === 'command') { insertSkill(s.insert || ('/' + s.id)); closeModal('skillModal'); return; }
+  if (s.kind === 'command') { insertSkill(commandInsertion(s)); closeModal('skillModal'); return; }
   if (s.kind === 'playbook') {
     if (s.available === false) { toast(skillDisplayUnavailableReason(s) || t('skills.toast.unavailable'), 'err'); return; }
     if (!s.playbook) { toast(t('skills.toast.playbookMissing'), 'err'); return; }

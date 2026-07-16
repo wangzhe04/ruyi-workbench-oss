@@ -42,7 +42,7 @@ def _focused_window() -> dict:
 def _uia_elements(window_title: str | None, cap: int):
     """Flatten the focused (or named) window's UIA tree to <=cap {name,type,rect,center}.
 
-    Returns a list on success, None when the UIA backend is absent, or the string sentinel
+    Returns {items,limitation} on success, None when the UIA backend is absent, or the string sentinel
     'no_window' when a window_title was given but matched no open window (so the caller can tell the
     model to fix its title instead of assuming the backend is missing)."""
     try:
@@ -55,13 +55,16 @@ def _uia_elements(window_title: str | None, cap: int):
     if root is None:
         return "no_window" if window_title else None
     items, count = [], [0]
+    control_types: set[str] = set()
 
     def walk(ctrl, depth):
-        if len(items) >= cap or depth > 8 or count[0] > 4000:
+        if depth > 8 or count[0] > 4000:
             return
         count[0] += 1
         try:
             node = uia._node(ctrl)  # already carries name/type/automation_id/center
+            if node.get("type"):
+                control_types.add(str(node["type"]))
             r = getattr(ctrl, "BoundingRectangle", None)
             if r is not None:
                 try:
@@ -70,14 +73,12 @@ def _uia_elements(window_title: str | None, cap: int):
                 except Exception:
                     pass
             # Only surface elements that carry some identity (skip anonymous container noise).
-            if node.get("name") or node.get("automation_id"):
+            if len(items) < cap and (node.get("name") or node.get("automation_id")):
                 items.append(node)
         except Exception:
             pass
         try:
             for ch in ctrl.GetChildren():
-                if len(items) >= cap:
-                    break
                 walk(ch, depth + 1)
         except Exception:
             pass
@@ -86,7 +87,8 @@ def _uia_elements(window_title: str | None, cap: int):
         walk(root, 0)
     except Exception:
         pass
-    return items[:cap]
+    limitation = uia._browser_accessibility_status(root, count[0], control_types)
+    return {"items": items[:cap], "limitation": limitation}
 
 
 async def _ocr_words(cap: int) -> list | None:
@@ -157,7 +159,14 @@ async def observe(max_width: int = 1280, window_title: str | None = None,
         elif uia_items is None:
             degraded.append("uia")
         else:
-            out["uia_elements"] = uia_items
+            out["uia_elements"] = uia_items["items"]
+            limitation = uia_items.get("limitation")
+            if limitation:
+                out["uia_accessibility"] = limitation
+                out["grounding_strategy"] = (
+                    "UIA exposed only browser chrome. Prefer DOM/CDP; otherwise use OCR words or "
+                    "screenshot coordinates and verify the result."
+                )
     if include_ocr:
         ocr_items = await _ocr_words(cap=200)
         if ocr_items is None:

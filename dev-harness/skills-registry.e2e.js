@@ -123,6 +123,10 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     ok(byId.has('demo-skill') && /PROJECT_DEMO_MARKER/.test(byId.get('demo-skill').description) && !/USER_VERSION_MARKER/.test(byId.get('demo-skill').description), '(a) demo-skill carries the PROJECT description, not the USER one (override)');
     ok(skills.filter(s => s.id === 'demo-skill').length === 1, '(a) demo-skill appears exactly once (user version shadowed)');
     ok(kinds.has('command'), '(a) registry includes commands');
+    const builtinCommand = skills.find(s => s.kind === 'command' && s.source === 'builtin');
+    ok(builtinCommand && typeof builtinCommand.prompt === 'string' && builtinCommand.prompt.length > 20, '(a) commands expose a provider-compatible full prompt template');
+    const builtinDetailedSkill = skills.find(s => s.kind === 'skill' && s.source === 'builtin');
+    ok(builtinDetailedSkill && typeof builtinDetailedSkill.detail === 'string' && builtinDetailedSkill.detail.length > 20, '(a) skill cards expose the full authored guide');
     ok(kinds.has('playbook'), '(a) registry includes playbooks');
     ok(skills.some(s => s.kind === 'playbook' && s.id.startsWith('pb:')), '(a) playbook ids carry the pb: prefix');
     // pick 10 skill ids for the cap test; P2-2: enabled skills come back as {id, source} — helper to extract ids.
@@ -168,6 +172,20 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     const sysF = (reqF.messages && reqF.messages[0] && reqF.messages[0].content) || '';
     ok(!/已启用的技能/.test(sysF), '(f) no-skills session: system prompt has NO skill index section');
     ok(Array.isArray(reqF.tools) && !reqF.tools.some(t => t.function && t.function.name === 'skill_read'), '(f) no-skills session: tools array has NO skill_read');
+
+    // ---------- (f2) resident skill: config-level selection is effective without a session toggle ----------
+    const cfgResident = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    cfgResident.residentSkills = [{ id: 'user-only-skill', source: 'user' }];
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify(cfgResident, null, 2));
+    clearCap();
+    await postStream(WB_PORT, { sessionId: S2.id, message: 'hello resident skill', cwd: CWD });
+    const capR = readCapBodies();
+    const reqR = capR.find(b => Array.isArray(b.tools)) || capR[0] || {};
+    const sysR = (reqR.messages && reqR.messages[0] && reqR.messages[0].content) || '';
+    ok(sysR.includes('[user-only-skill]') && /USER_ONLY_MARKER/.test(sysR), '(f2) resident skill is injected into a chat with no session skills');
+    ok(Array.isArray(reqR.tools) && reqR.tools.some(t => t.function && t.function.name === 'skill_read'), '(f2) resident skill enables skill_read');
+    cfgResident.residentSkills = [];
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify(cfgResident, null, 2));
 
     // ---------- (g) P2-2 source lock: same-id project skill after a cwd change → injection skipped ----------
     // Build an ALTERNATE cwd whose .ruyi/skills holds a project skill with the SAME id as a builtin skill.

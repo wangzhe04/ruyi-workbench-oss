@@ -121,8 +121,27 @@ Simplified Chinese, or English.
 
 ## 6. Skills, memories, usage, and workflows
 
-Skills are reusable instructions for a chat. Enable them from the slash menu or Skills button; they apply only to
-the current chat until disabled.
+Skills are reusable expert workflows. Use **Enable for chat** for temporary needs or **Keep resident** to make a
+skill available across chats. Resident skills still use progressive loading: only a compact index is always present,
+and the full guide is opened when relevant. Each skill card can show its complete workflow and quality checks.
+
+Commands work in both engines: Claude CLI keeps the native `/name` form, while Provider mode inserts the same
+command as an editable full task template. Playbook forms can also reveal their complete execution guide before run.
+
+### Browser and tool settings through conversation
+
+Opening a URL now defaults to a new tab/window in your system browser and existing signed-in session. The current
+Ruyi Workbench tab is protected: browser tools do not navigate, reuse, or close it. Chrome for Testing is used only
+when you explicitly select the isolated bundled mode under **Settings → Integrations and MCP → Browser target**.
+Use CDP mode to reuse an already attached browser when element-level DOM automation is required.
+
+If a hardware-accelerated page exposes only browser chrome through UI Automation, the AI switches to CDP/DOM,
+OCR, or screenshot coordinates. A purely Direct3D-drawn application has no semantic buttons unless the app itself
+implements an accessibility provider, so pixel capture and recognition are the available fallback there.
+
+You can also ask the AI to retarget the browser or add, disable, or remove an MCP connector. It first shows the
+sanitized current state and proposed difference, then waits for an execution-level permission confirmation before
+saving. Secret environment values are never returned in the inventory.
 
 Workbench memory stores personal practices or project conventions after a draft-and-confirm step. Project memories
 apply to their matching workspace; global memories are enabled deliberately. Keep repository-wide shared rules in

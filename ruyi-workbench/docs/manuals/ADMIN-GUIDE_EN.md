@@ -37,6 +37,22 @@ ai-computer-control is optional. Install its required Python environment only wh
 needed. Usage accounting groups token and estimated cost by engine, provider, chat, and currency; subscription-plan
 traffic is labeled as plan-included instead of fabricated as a monetary charge.
 
+ACC v1.8.2 exposes 100 tools. Browser mode defaults to `system`, which opens a new tab/window in the user's
+associated browser without owning or closing it; the active Ruyi Workbench tab is never navigated, reused, or
+closed. `managed`, `custom`, `cdp`, and explicitly isolated `bundled` modes are available through
+`browserAutomation`. Managed Chromium is launched with renderer accessibility enabled. When an accelerated browser
+surface lacks a UIA Document tree, UIA/observe results carry `accessibilityLimited` and callers should switch to
+CDP/DOM, OCR, or screenshot coordinates.
+
+Default OCR uses the offline Windows.Media.Ocr API through `winsdk`, not Tesseract. Full packages contain and
+verify CPython 3.12 plus the cp312 `winsdk` wheel during both build and installation. For an overlay on an older
+installation, run `update.bat --deps` before `update.bat --code` so `uiautomation`, `comtypes`, and `winsdk` are
+installed from the local wheel cache.
+
+The read-tier `mcp_list` tool returns connector metadata and environment-variable names, never secret values. The
+exec-tier `mcp_configure` tool can persist external connector or browser-target changes only after an explicit user
+request and the normal permission confirmation; it cannot replace the built-in ACC executable or lower tool tiers.
+
 ## 3. Security boundaries
 
 - Ruyi binds loopback only and protects browser-originated sensitive routes with a page token.

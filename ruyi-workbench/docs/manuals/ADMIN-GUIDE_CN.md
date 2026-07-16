@@ -280,16 +280,26 @@ foreach ($v in $vars) {
 - 切换时发 `failover` 事件 `{type:'failover', providerId, from, to, reason}` 并落审计日志。
 - **会话内粘住**：某端点成功后记为 sticky，下一轮优先试它；sticky 仅进程内内存、不持久化，进程退出即清。
 
-### 2.3 桌面 MCP（ai-computer-control，ACC v1.8.1）
+### 2.3 桌面 MCP（ai-computer-control，ACC v1.8.2）
 
-把本机的桌面控制 MCP（截图 / 控窗 / OCR / 键鼠 / 读写 Office / **write_pdf 中文字体链导出 PDF** 等，共 89 个工具）接进工作台，两条线：
+把本机的桌面控制 MCP（截图 / 控窗 / OCR / UIA / 键鼠 / 浏览器 / 读写 Office / **write_pdf 中文字体链导出 PDF** 等，共 100 个工具）接进工作台，两条线：
 
 - **供给 Claude CLI**：生成 `.mcp.json` 时把 `ai-computer-control` 与启用的 `externalMcpServers` 一并写入，CLI 原生调用。
 - **供给 Provider 引擎**：开关 `bridgeExternalToolsToProvider` 打开时，同一批工具经**进程内 MCP stdio 客户端**桥接进原生工具循环。
 
 自动探测 `detectDesktopMcp()`：认 `ai-computer-control` 仓库（存在 `src/ai_computer_control/server.py`），优先读 `AI_COMPUTER_CONTROL_HOME`，找到即用 `python -X utf8 -m ai_computer_control.server` 启动。config：`desktopMcp { enabled, command, args, cwd, autodetect }`。
 
-**offline wheels 安装**：ACC 支持离线部署——`python installer/build_offline_package.py`（需联网一次）生成含嵌入式 Python + 全部 wheels + Playwright Chromium 的 zip，目标机解压跑 `install.bat` 即可，无需公网。可选依赖（uiautomation / winsdk / opencv / playwright / pynput / reportlab）缺失时对应工具优雅降级，不崩服务；`write_pdf` 的中文字体按「微软雅黑 → 宋体 → 内置 STSong-Light CID → Helvetica」顺序注册。
+浏览器由 `browserAutomation { mode, executable, cdpUrl }` 控制，界面入口为“设置 → 集成/MCP”：
+
+- `system`（默认）：以新标签页/窗口交给系统关联的用户浏览器，不需要 Playwright，也不拥有/关闭用户窗口；当前如意工作台标签页不会被导航、复用或关闭，后续用桌面截图、UIA、OCR 和键盘操作。
+- `managed`：用 Playwright 启动已安装的默认 Chromium 浏览器，并加 `--force-renderer-accessibility`；可能出现独立自动化窗口。
+- `custom`：使用管理员指定的浏览器可执行文件；`cdp`：复用已开放调试端口的现有浏览器；`bundled`：显式使用隔离的 Chrome for Testing。
+
+硬件加速页面若没有向 UIA 提供 `DocumentControl`，`ui_inspect` / `ui_find` / `observe` 会返回 `accessibilityLimited`，调用方应停止重试 UIA，依次改用 CDP/DOM、OCR 文字坐标、截图/视觉坐标。Direct3D 像素本身没有控件语义；对自绘应用，只有应用实现 AutomationPeer/UIA Provider 才能恢复真正的元素树，否则只能捕获画面后识别。
+
+工作台自身 MCP 新增只读 `mcp_list` 与执行级 `mcp_configure`。仅当用户在对话里明确要求修改工具/MCP 时，AI 才会检查脱敏清单、说明拟改差异、等待执行级权限确认后持久化并刷新连接。清单只返回环境变量名，不返回值；内置 ACC 可改浏览器目标，但不能由该工具替换可执行程序或降低权限等级。
+
+**offline wheels 安装**：ACC 支持离线部署——`python installer/build_offline_package.py`（需联网一次）生成含 CPython 3.12 + 全部 wheels + Playwright Chromium 的 zip，目标机解压跑 `install.bat` 即可，无需公网。默认 OCR 调用 Windows.Media.Ocr（`winsdk`），不使用 Tesseract；构建、安装与导入探针都会验证 `winsdk`，且 CPython 3.12 是因为其提供 cp312 wheel。旧安装做 overlay 时先运行 `update.bat --deps`（安装 uiautomation / comtypes / winsdk）再运行 `update.bat --code`。可选依赖缺失时对应工具优雅降级，不崩服务；`write_pdf` 的中文字体按「微软雅黑 → 宋体 → 内置 STSong-Light CID → Helvetica」顺序注册。
 
 > 外部 MCP 桥接总开关即 `bridgeExternalToolsToProvider`：关闭时 Provider 引擎只见工作台自身工具。桥接工具的 tier 由 `BRIDGED_TOOL_TIERS` 判定（ACC 只读族 → read，其余默认 exec；`config.bridgedToolTiers` 可覆盖）。
 
@@ -403,7 +413,7 @@ node dev-harness\<name>.e2e.js      # 判定行形如 "<NAME> E2E: ALL PASS"
 ```powershell
 cd ai-computer-control
 pip install -e .                        # 或用 requirements_offline.txt 离线装
-python -X utf8 tests\smoke_registry.py  # 工具注册（89 工具）
+python -X utf8 tests\smoke_registry.py  # 工具注册（100 工具）
 python -X utf8 tests\smoke_stdio.py     # stdio 两种启动各全量（关键回归）
 python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 ```

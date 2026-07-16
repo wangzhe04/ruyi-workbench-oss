@@ -8,9 +8,10 @@ bridges its available tools into the workbench tool loop.
 
 ## Built-in desktop control
 
-ai-computer-control is a bundled, specially detected desktop-control MCP. It is not a normal drop-in manifest,
-which avoids double registration. See [its README](ai-computer-control/README.md) for installation and offline
-deployment.
+ai-computer-control is a bundled, specially detected 100-tool desktop-control MCP. It is not a normal drop-in
+manifest, which avoids double registration. Browser URLs default to a new tab/window in the user's browser, and
+the Workbench tab is never navigated, reused, or closed. See [its README](ai-computer-control/README.md) for
+installation and offline deployment.
 
 Specialized detection verifies that a candidate Python can import ACC before selecting it. A dependency-incomplete
 embedded runtime is skipped in favor of a usable Python, and the installer default at

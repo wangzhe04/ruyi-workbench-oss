@@ -16,7 +16,7 @@
 | 文件系统 | 7 | 读写文件、目录浏览、复制/移动/删除、文件信息 |
 | Shell | 1 | 执行命令行命令 |
 | 系统信息 | 3 | 系统信息、等待、环境变量 |
-| 浏览器 (可选) | 11 | 打开URL、点击/输入、截图、提取文本、JS执行、导航、标签页列表/切换（无 playwright 时优雅降级） |
+| 浏览器 (可选) | 12 | 默认用系统浏览器打开URL；可选 Playwright/CDP 点击、输入、截图、提取文本、JS执行、导航、标签页与后端状态 |
 | 文档读写 | 4 | 读取Word/Excel/PDF、创建Word、创建Excel、导出PDF（中文字体自动内嵌） |
 | Office 模板体系 | 4 | excel_beautify / excel_chart / write_pptx / chart_image——模板驱动出「好看」，三套设计系统（青花商务/墨白极简/活力现代），中文字体纪律（w:eastAsia） |
 | Office 读取 | 2 | excel_read（结构化读表，含公式）/ pdf_read_pages（分页读大 PDF） |
@@ -33,7 +33,14 @@
 | 同步原语 | 1 | wait_for_pixel（轮询像素直到匹配/超时） |
 | 诊断与安全 | 4 | diagnostics / version_info / safety_info / audit_tail |
 
-**共计 99 个工具**（v1.8.1；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
+**共计 100 个工具**（v1.8.2；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
+
+### v1.8.2 浏览器与视觉可靠性
+
+- `browser_open` 默认在用户实际浏览器的新标签页/窗口打开，不再默认启动 Chrome for Testing；不会复用或导航检测到的 Ruyi/Workbench 标签页。可用 `ACC_BROWSER_MODE=managed|custom|cdp|bundled` 自定义；`bundled` 才会显式使用隔离测试浏览器。
+- `browser_backend_status` 返回当前浏览器目标、连接状态和 CDP 地址。系统浏览器不受本工具所有，`browser_close` 不会关闭它。
+- Chromium 管理模式加入 renderer accessibility 参数；如果 Direct3D/硬件加速页面仍只暴露浏览器外壳，`ui_inspect`、`ui_find` 和 `observe` 会返回 `accessibilityLimited`，提示直接切换 DOM/CDP、OCR 或截图坐标，不再反复重试 UIA。
+- OCR 统一接受 `bytes`、`bytearray`、`memoryview` 与二进制流，并兼容不同 winsdk 的 `DataWriter.write_bytes` 参数形态，修复 `TypeError: bytes-like object required`。
 
 ### v1.6–v1.8 新增工具（Office 模板体系 + 读取与图像）
 
@@ -72,7 +79,7 @@
 > **截图预算**：`screenshot` / `screenshot_region` / `window_screenshot` 新增 `max_width`（>0 等比缩放，0=原尺寸）、`format`（png/jpeg）、`quality`（jpeg）；返回 `scale` 供坐标回映（`x_screen = x_in_image / scale`）。**注意**：observe 的 uia_elements/ocr_words 及 ocr_find_text/ui_find 的 rect/center 始终为**未缩放**物理屏幕坐标（可直接点击），仅截图字节受 `scale` 影响。
 > **ocr_click 消歧**：新增 `nth`（0 基读序索引）、`nearest_to{x,y}`（就近点击）、`return_candidates`（只返候选不点击）。
 > **diagnostics.optional**：顶层新增紧凑布尔 `{ocr,uia,cv2,playwright,pynput}`，与工作台 `probeDesktopMcp` 扫描字段对齐（沿用 `optional_modules` 完整导入级映射不变）。
-> **浏览器优雅降级**：playwright 包或其 Chromium 浏览器缺失时，九个 `browser_*` 工具返回 `{ok:false, error:'playwright not installed', hint:'pip install playwright && playwright install chromium'}`，服务不再崩溃。
+> **浏览器目标与降级**：默认 `system` 模式无需 Playwright，通过用户默认浏览器打开后使用桌面截图/UIA/OCR；DOM 工具会明确提示切换到 `managed`、`custom` 或 `cdp`。这些模式缺少 Playwright 时返回安装提示；`bundled` 是显式兼容/测试选项。
 
 ### v1.3 新增工具
 
@@ -96,7 +103,12 @@
 # 安装依赖
 pip install -e .
 
-# 安装 Playwright 浏览器（可选：仅浏览器工具需要；不装则 browser_* 优雅降级）
+# 对齐 Full 包的完整桌面/OCR 能力：在 CPython 3.12 环境中，用完整离线包的
+# offline_packages 作为 wheel 缓存安装 requirements_offline.txt；其中包含 winsdk，
+# 默认 OCR 使用 Windows.Media.Ocr，不需要 Tesseract。
+pip install --no-index --find-links <Full包路径>\offline_packages -r requirements_offline.txt
+
+# 安装 Playwright 浏览器（可选：仅 managed/custom/CDP/bundled DOM 自动化需要；system 模式不需要）
 playwright install chromium
 
 # 启动 MCP Server
@@ -184,4 +196,4 @@ ai-computer-control/
 ## 系统要求
 
 - Windows 10/11 (64位)
-- Python 3.10+（离线包自带嵌入式 Python；预置离线 wheels 按 Python 3.13 构建）
+- Python 3.12（离线 Full 包自带已验证的 CPython 3.12 与纯 wheel 缓存；`winsdk` 的 OCR wheel 以 cp312 提供，默认 OCR 不使用 Tesseract）

@@ -1,4 +1,4 @@
-# 套用 ai-computer-control 增量更新（v1.1，桌面控制 MCP）
+# 套用 ai-computer-control 增量更新（v1.8.2，桌面控制 MCP）
 
 > 面向内网机操作者/AI。**代码更新无需联网、无需重装**——直接热覆盖已安装 venv 里的 .py。
 
@@ -18,17 +18,17 @@
    它把新 `.py` 热覆盖到 `%LOCALAPPDATA%\ai-computer-control\venv\Lib\site-packages\ai_computer_control\`,并写入 `VERSION.txt`。
 4. 让 Claude 重新调用任一工具即可生效（或重启 Claude）。**安全护栏 + batch + 窗口/屏幕/音频等 14 个新工具即刻可用,无需任何新依赖。**
 
-## 启用 UI Automation（可选,需要 uiautomation 库）
-`ui_*` 工具需要 `uiautomation`(+`comtypes`)。二选一:
-- **有 wheels\ 目录**(内含 uiautomation/comtypes 的 .whl)时:
+## 启用 UI Automation 与默认离线 OCR（可选）
+`ui_*` 工具需要 `uiautomation`(+`comtypes`)；`ocr_*` 使用 Windows 内置 `Windows.Media.Ocr`，需要 `winsdk`，**不使用 Tesseract，也不需要网络**。二选一:
+- **有 wheels\ 目录，或 Full 包的 offline_packages\ 目录**（内含 uiautomation/comtypes/winsdk 的 .whl）时:
   ```cmd
   update.bat --deps
   update.bat --code
   ```
-  `--deps` 用本地 wheels 离线安装,不联网。
-- **重打完整离线包**(联网机上):`requirements_offline.txt` 已加入 `uiautomation`/`comtypes`,重跑 `python installer\build_offline_package.py` 即含这两个 wheel,再在内网机重装。
+  `--deps` 会自动识别本地 `wheels\` 或 Full 包的 `offline_packages\`，离线安装,不联网。
+- **重打完整离线包**(联网机上):`requirements_offline.txt` 已加入 `uiautomation`/`comtypes`/`winsdk`,重跑 `python installer\build_offline_package.py` 即含这些 wheel 与 CPython 3.12,再在内网机重装。`winsdk` 当前提供 cp312 wheel，因此 Full 包与推荐开发环境都固定使用 Python 3.12。
 
-不装也无妨——`ui_*` 会返回“uiautomation not installed”的提示,其余工具照常。
+不装也无妨——`ui_*` / `ocr_*` 会返回明确的依赖提示,其余工具照常。已套用旧代码更新包时，务必先执行 `update.bat --deps` 再执行 `update.bat --code`，以避免 OCR 缺少 `winsdk`。
 
 ## 验证
 让 Claude 调用几个新工具:
@@ -36,6 +36,7 @@
 - `kill_process name="notepad"`（先开个记事本）——应精确命中;试 `kill_process name="s"` 应**不再**误杀一片,而是要么无匹配、要么要求 `confirm`。
 - `batch_actions actions=[{"tool":"get_system_info","args":{}},{"tool":"get_mouse_position","args":{}}]`。
 - 若装了 uiautomation:`ui_inspect`（前台窗口控件树）、`ui_find name="..."`。
+- 若装了 winsdk：`ocr_screen` 或 `ocr_image path="..."` 应返回 `success: true` 或语言包安装提示；不应再出现 `TypeError: a bytes-like object is required, not 'list'`。
 
 ## 回滚
 热覆盖前建议先备份 `...\site-packages\ai_computer_control\`。要回滚,把备份拷回该目录即可（或重跑旧版 `update.bat --code`）。

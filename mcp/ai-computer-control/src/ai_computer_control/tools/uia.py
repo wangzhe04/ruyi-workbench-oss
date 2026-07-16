@@ -90,6 +90,42 @@ def _window_identity(root) -> dict:
     return ident
 
 
+def _browser_accessibility_status(root, node_count: int, control_types: set[str]) -> dict | None:
+    """Detect a browser whose accelerated page surface is absent from the UIA tree.
+
+    Chromium/Edge/WebView and Firefox can expose only their native window chrome when renderer
+    accessibility is unavailable.  Retrying UIA cannot reveal that Direct3D surface; callers need
+    a deterministic signal to switch to DOM/CDP, OCR, or screenshot grounding.
+    """
+    ident = _window_identity(root)
+    name = str(ident.get("name", "")).lower()
+    class_name = str(ident.get("class", "")).lower()
+    browser_window = (
+        class_name.startswith("chrome_widgetwin_")
+        or class_name == "mozillawindowclass"
+        or any(token in name for token in ("chrome", "edge", "firefox", "browser"))
+    )
+    if not browser_window:
+        return None
+    normalized_types = {str(value).lower().replace("control", "") for value in control_types}
+    has_document = any(value in {"document", "webarea"} for value in normalized_types)
+    if has_document:
+        return None
+    return {
+        "accessibilityLimited": True,
+        "reason": (
+            "The browser page surface is not exposed through UI Automation; this commonly occurs "
+            "with Direct3D/hardware-accelerated rendering."
+        ),
+        "observedNodes": int(node_count),
+        "fallback": ["browser DOM/CDP", "OCR text coordinates", "screenshot/vision coordinates"],
+        "hint": (
+            "Do not keep retrying UIA. Use browser_* DOM tools in CDP/managed mode when attached; "
+            "otherwise use ocr_find_text/ocr_screen or screenshot-based coordinates."
+        ),
+    }
+
+
 @mcp.tool()
 def ui_inspect(window_title: str | None = None, max_depth: int = 4, max_nodes: int = 200) -> dict:
     """Dump the UI Automation tree of a window (or the foreground window) as nested nodes.
@@ -109,12 +145,15 @@ def ui_inspect(window_title: str | None = None, max_depth: int = 4, max_nodes: i
         return {"error": "window not found", "searched": window_title,
                 "hint": "use wait_for_window(title) if the app was just launched"}
     count = [0]
+    control_types: set[str] = set()
 
     def walk(ctrl, depth):
         if count[0] >= max_nodes or depth > max_depth:
             return None
         count[0] += 1
         node = _node(ctrl)
+        if node.get("type"):
+            control_types.add(str(node["type"]))
         children = []
         if depth < max_depth:
             try:
@@ -134,8 +173,16 @@ def ui_inspect(window_title: str | None = None, max_depth: int = 4, max_nodes: i
         tree = walk(root, 0)
     except Exception as e:  # noqa: BLE001
         return {"error": f"{type(e).__name__}: {e}"}
-    return {"success": True, "nodes": count[0], "truncated": count[0] >= max_nodes, "tree": tree,
-            "window": _window_identity(root)}
+    out = {"success": True, "nodes": count[0], "truncated": count[0] >= max_nodes, "tree": tree,
+           "window": _window_identity(root)}
+    # A deliberately shallow/truncated request has not inspected enough of the tree to diagnose
+    # renderer accessibility; avoid a false Direct3D warning in that case.
+    limitation = None
+    if max_depth >= 3 and count[0] < max_nodes:
+        limitation = _browser_accessibility_status(root, count[0], control_types)
+    if limitation:
+        out.update(limitation)
+    return out
 
 
 @mcp.tool()
@@ -154,6 +201,7 @@ def ui_find(name: str | None = None, control_type: str | None = None, automation
     name_l = name.lower() if name else None
     type_l = control_type.lower() if control_type else None
     matches, count = [], [0]
+    control_types: set[str] = set()
 
     def walk(ctrl, depth):
         if len(matches) >= max_results or depth > max_depth or count[0] > 5000:
@@ -162,6 +210,8 @@ def ui_find(name: str | None = None, control_type: str | None = None, automation
         try:
             nm = (getattr(ctrl, "Name", "") or "")
             tp = (getattr(ctrl, "ControlTypeName", "") or "")
+            if tp:
+                control_types.add(tp)
             aid = (getattr(ctrl, "AutomationId", "") or "")
             ok = True
             if name_l is not None:
@@ -186,8 +236,13 @@ def ui_find(name: str | None = None, control_type: str | None = None, automation
         walk(root, 0)
     except Exception as e:  # noqa: BLE001
         return {"error": f"{type(e).__name__}: {e}"}
-    return {"success": True, "count": len(matches), "matches": matches,
-            "window": _window_identity(root)}
+    out = {"success": True, "count": len(matches), "matches": matches,
+           "window": _window_identity(root)}
+    if not matches:
+        limitation = _browser_accessibility_status(root, count[0], control_types)
+        if limitation:
+            out.update(limitation)
+    return out
 
 
 @mcp.tool(audit=True)
@@ -209,7 +264,11 @@ def ui_invoke(action: str = "invoke", name: str | None = None, control_type: str
     if found.get("error"):
         return found
     if not found.get("matches"):
-        return {"error": "no control matched the selectors"}
+        out = {"error": "no control matched the selectors"}
+        for key in ("accessibilityLimited", "reason", "observedNodes", "fallback", "hint"):
+            if key in found:
+                out[key] = found[key]
+        return out
     root = _root(window_title)
 
     # Re-resolve the concrete control to act on (ui_find returns plain dicts).

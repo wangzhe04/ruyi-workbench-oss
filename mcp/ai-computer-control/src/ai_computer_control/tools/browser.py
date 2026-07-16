@@ -15,6 +15,10 @@ import fails, or `playwright install chromium` was never run, the tools degrade 
 import asyncio
 import base64
 import io
+import os
+import re
+import subprocess
+import sys
 
 from ai_computer_control.server import mcp
 
@@ -31,11 +35,78 @@ except Exception as e:  # noqa: BLE001 — optional dependency; server must stil
 _browser = None
 _page = None
 _playwright = None
+_backend = ""
 _lock = asyncio.Lock()  # Py3.10+: not bound to a loop at construction; safe at module import.
 
+_MODES = {"system", "managed", "custom", "cdp", "bundled"}
 
-def _unavailable() -> dict:
+
+def _configured_mode() -> str:
+    mode = os.environ.get("ACC_BROWSER_MODE", "system").strip().lower()
+    return mode if mode in _MODES else "system"
+
+
+def _system_open(url: str, new_tab: bool) -> None:
+    """Open through the user's browser without navigating the workbench's current tab."""
+    if sys.platform == "win32":
+        executable = _windows_default_browser_executable()
+        if executable:
+            # Chromium-family browsers accept --new-tab; Firefox uses -new-tab.  Starting the
+            # browser directly is still shell-free and gives a stronger non-destructive contract
+            # than handing the URL to the generic shell association.
+            flag = "-new-tab" if "firefox" in os.path.basename(executable).lower() else "--new-tab"
+            subprocess.Popen([executable, flag, url], start_new_session=True)
+        else:
+            # Association fallback: Windows normally opens a tab in the existing browser session,
+            # but cannot provide an explicit tab-placement guarantee without its executable.
+            os.startfile(url)  # type: ignore[attr-defined]
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", url], start_new_session=True)
+    else:
+        subprocess.Popen(["xdg-open", url], start_new_session=True)
+
+
+def _windows_default_browser_executable() -> str:
+    """Best-effort resolve of the executable behind the user's HTTP association."""
+    if sys.platform != "win32":
+        return ""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice") as key:
+            prog_id = str(winreg.QueryValueEx(key, "ProgId")[0])
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, prog_id + r"\shell\open\command") as key:
+            command = str(winreg.QueryValueEx(key, "")[0])
+        match = re.match(r'^\s*"([^"]+\.exe)"|^\s*([^\s]+\.exe)', command, re.I)
+        candidate = (match.group(1) or match.group(2)) if match else ""
+        return candidate if candidate and os.path.isfile(candidate) else ""
+    except Exception:
+        return ""
+
+
+def _managed_executable(mode: str) -> str:
+    explicit = os.environ.get("ACC_BROWSER_EXECUTABLE", "").strip()
+    if explicit:
+        return explicit
+    if mode == "managed":
+        return _windows_default_browser_executable()
+    return ""  # bundled deliberately lets Playwright select Chrome for Testing
+
+
+def _unavailable(mode: str | None = None) -> dict:
     """Uniform degraded response when the Playwright package OR its browser is missing."""
+    chosen = (mode or _configured_mode()).strip().lower()
+    if chosen == "system":
+        return {
+            "ok": False,
+            "error": "the user's system browser is not DOM-attached",
+            "mode": "system",
+            "hint": (
+                "Use desktop screenshot plus UIA/OCR/keyboard tools. If UIA reports "
+                "accessibilityLimited on a hardware-accelerated page, switch to OCR/screenshot; "
+                "choose CDP/managed/custom mode when DOM access is required."
+            ),
+        }
     out = {"ok": False, "error": "playwright not installed",
            "hint": "pip install playwright && playwright install chromium"}
     if _IMPORT_ERROR:
@@ -43,24 +114,42 @@ def _unavailable() -> dict:
     return out
 
 
-async def _ensure_browser():
+async def _ensure_browser(mode: str | None = None):
     """Ensure the browser is launched and return the active page.
 
     Raises RuntimeError with an install hint if the Chromium binary is absent (package imported but
     `playwright install chromium` never run) so the caller can convert it to a graceful envelope.
     """
-    global _browser, _page, _playwright
+    global _browser, _page, _playwright, _backend
+    chosen = (mode or _backend or _configured_mode()).strip().lower()
+    if chosen == "system":
+        raise RuntimeError(
+            "the active browser uses the system/user session and is not Playwright-attached; "
+            "use desktop screenshot + UIA/OCR tools, or choose managed/custom/CDP browser mode"
+        )
     if _page is None or _page.is_closed():
         if _playwright is None:
             _playwright = await async_playwright().start()
         if _browser is None or not _browser.is_connected():
             try:
-                _browser = await _playwright.chromium.launch(headless=False)
+                if chosen == "cdp":
+                    endpoint = os.environ.get("ACC_BROWSER_CDP_URL", "http://127.0.0.1:9222").strip()
+                    _browser = await _playwright.chromium.connect_over_cdp(endpoint)
+                else:
+                    executable = _managed_executable(chosen)
+                    if chosen in {"managed", "custom"} and not executable:
+                        raise RuntimeError("no compatible browser executable was found; set a custom executable or use system mode")
+                    launch_args = {"headless": False, "args": ["--force-renderer-accessibility"]}
+                    if executable:
+                        launch_args["executable_path"] = executable
+                    _browser = await _playwright.chromium.launch(**launch_args)
+                _backend = chosen
             except Exception as e:  # noqa: BLE001 — most often: browser not installed
                 raise RuntimeError(
-                    "chromium browser not available (run 'playwright install chromium'): " + str(e)
+                    f"browser backend '{chosen}' is not available: " + str(e)
                 ) from e
-        _page = await _browser.new_page()
+        pages = _all_pages()
+        _page = pages[-1] if pages else await _browser.new_page()
     return _page
 
 
@@ -73,30 +162,82 @@ def _all_pages():
     return pages
 
 
+async def _is_workbench_page(page) -> bool:
+    """Keep a connected Ruyi/Workbench page from becoming an automation navigation target."""
+    try:
+        url = str(page.url or "").lower()
+        if not re.match(r"^https?://(127\.0\.0\.1|localhost)(?::\d+)?/", url):
+            return False
+        title = (await page.title()).lower()
+        return "ruyi" in title or "如意" in title or "workbench" in title
+    except Exception:
+        return False
+
+
 @mcp.tool()
-async def browser_open(url: str, new_tab: bool = False) -> dict:
+async def browser_open(url: str, new_tab: bool = True, mode: str | None = None) -> dict:
     """Open a URL in the browser.
 
     Args:
         url: URL to navigate to.
-        new_tab: If True, open in a new tab instead of the current one.
+        new_tab: Open in a new tab (default True). The tool never navigates a detected Ruyi/Workbench tab.
 
     Returns:
         dict with 'success', 'url', 'title'.
     """
+    chosen = str(mode or _configured_mode()).strip().lower()
+    if chosen not in _MODES:
+        return {"error": f"unknown browser mode: {chosen}", "modes": sorted(_MODES)}
+    if chosen == "system":
+        try:
+            _system_open(url, new_tab)
+            return {
+                "success": True, "url": url, "mode": "system", "control": "desktop",
+                "hint": (
+                    "Opened in the user's system browser. Continue with desktop_screenshot plus "
+                    "UIA/OCR/keyboard tools. If UIA reports accessibilityLimited for an accelerated "
+                    "page, use OCR/screenshot instead; browser DOM tools require managed/custom/CDP mode."
+                ),
+            }
+        except Exception as e:
+            return {"error": str(e), "mode": "system"}
     if not _AVAILABLE:
-        return _unavailable()
-    global _page
+        return _unavailable(chosen)
+    global _page, _backend
     async with _lock:
         try:
-            if new_tab and _browser and _browser.is_connected():
+            if _backend and _backend != chosen:
+                return {"error": f"browser backend already active as '{_backend}'; call browser_close before switching to '{chosen}'"}
+            _backend = chosen
+            page = await _ensure_browser(chosen)
+            preserved_workbench = await _is_workbench_page(page)
+            if new_tab or preserved_workbench:
                 _page = await _browser.new_page()
-            else:
-                await _ensure_browser()
             await _page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            return {"success": True, "url": _page.url, "title": await _page.title()}
+            return {
+                "success": True, "url": _page.url, "title": await _page.title(), "mode": chosen,
+                "control": "playwright", "newTab": bool(new_tab or preserved_workbench),
+                "preservedWorkbench": preserved_workbench,
+            }
         except Exception as e:
             return {"error": str(e)}
+
+
+@mcp.tool()
+async def browser_backend_status() -> dict:
+    """Show the configured browser target and whether browser_* automation is attached."""
+    configured = _configured_mode()
+    executable = os.environ.get("ACC_BROWSER_EXECUTABLE", "").strip()
+    if configured == "managed" and not executable:
+        executable = _windows_default_browser_executable()
+    return {
+        "configuredMode": configured,
+        "activeMode": _backend or "",
+        "executable": executable,
+        "cdpUrl": os.environ.get("ACC_BROWSER_CDP_URL", "http://127.0.0.1:9222") if configured == "cdp" else "",
+        "attached": bool(_browser and _browser.is_connected()),
+        "systemControlHint": "system mode uses the user's browser and desktop UIA/OCR tools; managed/custom/CDP modes enable browser_* DOM automation",
+    }
 
 
 @mcp.tool()
@@ -350,9 +491,12 @@ async def browser_close() -> dict:
     Returns:
         dict with 'success'.
     """
+    global _browser, _page, _playwright, _backend
+    if (_backend or _configured_mode()) == "system":
+        return {"success": True, "mode": "system", "closed": False,
+                "hint": "The user's browser is not owned by this tool and was left open."}
     if not _AVAILABLE:
         return _unavailable()
-    global _browser, _page, _playwright
     async with _lock:
         try:
             if _page and not _page.is_closed():
@@ -364,6 +508,7 @@ async def browser_close() -> dict:
             _browser = None
             _page = None
             _playwright = None
+            _backend = ""
             return {"success": True}
         except Exception as e:
             return {"error": str(e)}

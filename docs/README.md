@@ -15,6 +15,7 @@ operational commitments.
 | Security policy | [Security Policy](../SECURITY.md) | [安全策略](../SECURITY.md) |
 | Contributor guide | [Contributing](../CONTRIBUTING.md#english-summary) | [贡献指南](../CONTRIBUTING.md) |
 | UI localization contract | [Localization Guide](i18n/README_EN.md) | [多语言兼容方案](i18n/README.md) |
+| Built-in skills and quick tasks | — | [技能与一键任务目录](../ruyi-workbench/docs/SKILLS-CATALOG_CN.md) |
 | MCP connector drop-ins | [MCP Connectors](../mcp/README_EN.md) | [MCP 连接器](../mcp/README.md) |
 
 Historical roadmaps, acceptance notes, design explorations, and generated mockups are retained in their original

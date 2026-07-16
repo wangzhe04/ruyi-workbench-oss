@@ -18,7 +18,7 @@ flowchart LR
   BRIDGE --> MCPself
   BRIDGE --> MCPext
   MCPself --> Tools["PowerShell / 文件 / 脚本 / 浏览器 / Office / 截图 / 审计工具"]
-  MCPext --> ACC["ai-computer-control(99 桌面工具)等外部 MCP"]
+  MCPext --> ACC["ai-computer-control(100 桌面工具)等外部 MCP"]
 ```
 
 > **界面(v1.0 已重构)**:上图 UI 节点标「原生 JS 三栏」为后端视角的历史称谓;**v1.0-S1~S3 已对界面做大改版**——青花主题重铸(配色去 Claude 化,青花/鎏金/藏蓝墨/月白令牌双主题 + WCAG 对比度红线;引擎身份色保留赤陶)、信息架构减负(顶栏 5 项 +⋯菜单、右侧常驻页签 [文件|产物|审计] + 开发者组 5 个[专家模式 only]、权限「安全」chip 四档人话弹层)、简易(默认)/专家双模(**新装默认 `uiMode simple`**)、新手起步引导(首跑空状态大拖放区 + 引擎就绪判断 + 任务卡)。界面细节与操作以 `docs/manuals/{USER-GUIDE_CN,ADMIN-GUIDE_CN}.md` 双手册为准。

@@ -700,6 +700,9 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
   padding: 8px 10px; color: var(--ink); font: inherit; font-size: var(--fs-md); resize: vertical; width: 100%; box-sizing: border-box; }
 .pb-field-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
 .pb-field-hint { font-size: var(--fs-xs); color: var(--muted); }
+.pb-guide { border-top: 1px solid var(--line); padding-top: 10px; }
+.pb-guide summary { cursor: pointer; color: var(--link); font-size: var(--fs-sm); }
+.pb-guide-text { margin: 9px 0 0; max-height: 260px; overflow: auto; white-space: pre-wrap; font-family: inherit; font-size: var(--fs-sm); line-height: 1.55; color: var(--ink-2); background: var(--panel-2); border-radius: var(--r-sm); padding: 10px; }
 
 /* Simple mode (§C1/§1.1): hide starters 区 so playbooks are primary. 卡片放大现由 rem×15px 根字号自动生效(原 pb-card-title/desc 的 px 覆盖已删)。 */
 :root[data-ui-mode="simple"] .empty-state .starters { display: none; }
@@ -1186,6 +1189,9 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .sk-reason { font-size: var(--fs-xs); color: var(--muted); font-style: italic; }
 .sk-foot { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
 .sk-foot .skill-toggle { margin-left: 0; }
+.sk-foot .skill-detail-btn { margin-right: auto; border: 0; background: transparent; color: var(--link); padding: 3px 0; cursor: pointer; font-size: var(--fs-xs); }
+.sk-foot .skill-toggle.resident.on { background: color-mix(in srgb, var(--accent) 18%, var(--panel)); border-color: var(--accent); color: var(--accent); }
+.skill-detail { max-height: min(65vh, 620px); overflow: auto; line-height: 1.65; }
 @media (max-width: 560px) { .sk-grid { grid-template-columns: 1fr; } }
 
 /* v2 跨会话记忆 面板 */
