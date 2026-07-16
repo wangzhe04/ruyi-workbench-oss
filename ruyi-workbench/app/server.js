@@ -4396,6 +4396,42 @@ function parseClaudeEvent(evt) {
   return [{ kind: 'unknown', raw: evt }];
 }
 
+// Claude CLI's native Agent/Task tool returns the child agent's final answer as the parent
+// tool_result.  Unlike workbench-managed sub-turns, the CLI does not expose that child's
+// intermediate events, so this result is the only inspectable evidence of what it did.  Keep a
+// bounded, display-safe copy for the UI instead of reducing it to a character count.
+const NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS = 100000;
+function nativeClaudeAgentResultInfo(content, isError) {
+  const textOf = value => {
+    if (value == null) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (Array.isArray(value)) return value.map(textOf).filter(Boolean).join('\n');
+    if (typeof value === 'object') {
+      // Anthropic accepts both a plain string and content-block arrays for tool_result.
+      if (typeof value.text === 'string') return value.text;
+      if (typeof value.content === 'string') return value.content;
+      if (Array.isArray(value.content)) return textOf(value.content);
+      try { return JSON.stringify(value, null, 2); } catch { return String(value); }
+    }
+    return String(value);
+  };
+  const fullText = textOf(content);
+  const result = fullText.length > NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS
+    ? fullText.slice(0, NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS)
+    : fullText;
+  // Some Anthropic-compatible endpoints send a failed Task result as ordinary text rather than
+  // setting tool_result.is_error.  Classify only unmistakable, leading transport/task failures so
+  // a normal review that merely *mentions* an API error is not marked failed.
+  const looksLikeFailure = /^(?:api\s+error\b|error\s*:|(?:request|network|connection)\s+(?:failed|closed|error)\b|(?:agent|task)\s+(?:failed|error)\b)/i.test(fullText.trim());
+  return {
+    result,
+    resultChars: fullText.length,
+    resultTruncated: fullText.length > result.length,
+    failed: Boolean(isError) || looksLikeFailure,
+  };
+}
+
 // A Claude CLI print process exits after every workbench turn. Normally --resume reconnects the
 // next process to the native transcript, but continuity is not guaranteed across CLI upgrades,
 // workbench restarts, provider/model changes, or a missing/moved Claude session file. Keep a
@@ -4761,8 +4797,8 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       if (tc) tc.result = ev.content;
       const nativeAgent = nativeClaudeAgents.get(ev.id);
       if (nativeAgent) {
-        const chars = typeof ev.content === 'string' ? ev.content.length : JSON.stringify(ev.content || '').length;
-        onEvent({ type: 'subagent', id: ev.id, state: 'end', ok: !ev.isError, resultChars: chars, task: nativeAgent.task, roleId: nativeAgent.roleId, roleLabel: (claudeAgentLibrary.roles.find(r => r.id === nativeAgent.roleId) || {}).label || nativeAgent.roleId, engine: 'claude', native: true });
+        const resultInfo = nativeClaudeAgentResultInfo(ev.content, ev.isError);
+        onEvent({ type: 'subagent', id: ev.id, state: 'end', ok: !resultInfo.failed, result: resultInfo.result, resultChars: resultInfo.resultChars, resultTruncated: resultInfo.resultTruncated, task: nativeAgent.task, roleId: nativeAgent.roleId, roleLabel: (claudeAgentLibrary.roles.find(r => r.id === nativeAgent.roleId) || {}).label || nativeAgent.roleId, engine: 'claude', native: true });
         nativeClaudeAgents.delete(ev.id);
       } else onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError });
     } else if (ev.kind === 'msg_usage') {
@@ -17064,6 +17100,7 @@ module.exports = {
   readClaudeProjectAgentRoles,
   saveProjectAgentRoles,
   buildClaudeAgentDefinitions,
+  nativeClaudeAgentResultInfo,
   BUILTIN_AGENT_ROLES,
   normalizeSession,
   detectDanglingTurn,

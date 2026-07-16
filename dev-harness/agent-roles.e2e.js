@@ -13,7 +13,7 @@ const PROJECT = path.join(HOME, 'project');
 process.env.RUYI_HOME = path.join(HOME, 'unit-data');
 const {
   normalizeConfig, getAgentRoleLibrary, saveProjectAgentRoles,
-  readClaudeProjectAgentRoles, buildClaudeAgentDefinitions,
+  readClaudeProjectAgentRoles, buildClaudeAgentDefinitions, nativeClaudeAgentResultInfo,
 } = require('../ruyi-workbench/app/server.js');
 
 let failures = 0;
@@ -44,6 +44,11 @@ function stream(port, body) { return new Promise((resolve, reject) => { const ra
   const defs = await buildClaudeAgentDefinitions(PROJECT, cfg);
   ok(defs.definitions.worker && defs.definitions.worker.model === 'sonnet', 'Claude definitions carry its independent role model override');
   ok(defs.definitions.reviewer && defs.definitions.reviewer.permissionMode === 'plan' && defs.definitions.reviewer.maxTurns, 'Claude definitions carry permissions and iteration budget');
+  const nativeResult = nativeClaudeAgentResultInfo([{ type: 'text', text: '审查完成：没有阻断问题。' }], false);
+  ok(nativeResult.result === '审查完成：没有阻断问题。' && nativeResult.resultChars === nativeResult.result.length && nativeResult.failed === false,
+    'native Claude Agent result is preserved for the expandable child card, not reduced to a length');
+  ok(nativeClaudeAgentResultInfo('API Error: Connection closed mid-response.', false).failed === true,
+    'a text-only native Agent transport failure is not mislabeled as completed');
 
   const DATA = path.join(HOME, 'live-data'); fs.mkdirSync(DATA, { recursive: true });
   const capture = path.join(HOME, 'claude-argv.json');
@@ -61,7 +66,9 @@ function stream(port, body) { return new Promise((resolve, reject) => { const ra
     const end = events.find(e => e.type === 'subagent' && e.state === 'end');
     ok(meta && meta.agentDriver === 'claude-native' && Array.isArray(meta.agentRoles), 'Claude meta exposes native role driver and role list');
     ok(meta && !JSON.stringify(meta.args || []).includes('SECRET_ROLE_PROMPT'), 'Claude meta redacts role definition payload');
-    ok(start && start.native === true && start.roleId === 'reviewer' && end && end.ok === true, 'Claude Agent tool is normalized into subagent start/end events');
+    ok(start && start.native === true && start.roleId === 'reviewer' && end && end.ok === true && /审查完成/.test(end.result || ''), 'Claude Agent tool is normalized into subagent events with its inspectable result');
+    const app = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
+    ok(/host\.resultPre\.textContent = evt\.result/.test(app) && /子任务结论/.test(app), 'the live child card renders the native Agent result rather than an empty completed card');
     const argv = JSON.parse(fs.readFileSync(capture, 'utf8')); const idx = argv.indexOf('--agents'); const sent = idx >= 0 ? JSON.parse(argv[idx + 1]) : {};
     ok(sent['security-checker'] && sent['security-checker'].model === 'sonnet' && sent['security-checker'].maxTurns === 7, '--agents receives custom model and maxTurns');
     ok(sent['security-checker'] && sent['security-checker'].mcpServers[0] === 'win-claude-workbench' && sent['security-checker'].permissionMode === 'dontAsk', '--agents receives MCP and permission settings');

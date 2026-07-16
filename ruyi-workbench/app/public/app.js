@@ -4556,6 +4556,28 @@ function handleSubagentEvent(evt, live) {
     if (!host) return;
     const ok = evt.ok === true;
     host.d.classList.add(ok ? 'sa-ok' : 'sa-err');
+    // Native Claude Agent/Task calls do not stream the child's internal tool events through the
+    // parent CLI. Their final tool_result is therefore the only useful detail. It used to be
+    // discarded after resultChars was calculated, leaving an empty card that looked like a task
+    // had instantly completed. Keep it visible inside the card, with textContent preserving the
+    // normal XSS boundary used by tool cards.
+    if (typeof evt.result === 'string' && evt.result) {
+      if (!host.resultWrap) {
+        host.resultWrap = el('div', 'sa-result');
+        host.resultLabel = el('div', 'sa-result-label');
+        host.resultPre = el('pre', 'sa-result-text');
+        host.resultWrap.append(host.resultLabel, wrapPreWithCopy(host.resultPre));
+        host.body.appendChild(host.resultWrap);
+      }
+      host.resultLabel.textContent = ok ? '子任务结论' : '子任务错误详情';
+      host.resultPre.textContent = evt.result;
+      if (evt.resultTruncated) {
+        const note = el('div', 'sa-result-note', '结果过长，仅显示前 100,000 个字符。');
+        if (host.resultNote) host.resultNote.replaceWith(note);
+        else host.resultWrap.appendChild(note);
+        host.resultNote = note;
+      }
+    }
     if (host.status) {
       const chars = Number(evt.resultChars) || 0;
       host.status.textContent = `${ok ? '✓ 完成' : '✗ 失败'} · ${chars} 字结论${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
