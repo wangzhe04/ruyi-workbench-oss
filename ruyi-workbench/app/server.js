@@ -1073,6 +1073,41 @@ function batchSafeSpawn(command, args) {
   return { command: comspec, args: ['/d', '/s', '/c', line], opts: { windowsVerbatimArguments: true } };
 }
 
+// ============================================================================
+// cmd8191 防线(技能索引把 Claude CLI 命令行顶爆事故的根治): Windows 上 .cmd/.bat 启动器(claude.cmd)经
+// cmd.exe /d /s /c 执行,cmd 对整条命令行有 8191 字符硬上限 —— 超限直接报「命令行太长。」退出码 1,claude
+// 进程根本没启动。历史上 --append-system-prompt 钳 8000、--agents 钳 6000,两个各自合理的局部钳制相加
+// (14000)远超整行预算 —— 局部钳制 ≠ 全局不变量。这里的防线把不变量收拢到一个汇合点:组装完 args 后用与
+// batchSafeSpawn【严格同构】的构造核算整行长度,超限走确定性降级阶梯(见 runClaudeTurn 组装段)。
+const CMD_EXE_LINE_LIMIT = 8191;          // cmd.exe /c 命令行硬上限(文档值)
+const CMD_LINE_SAFE_BUDGET = 7900;        // 整行(含 comspec 路径与 /d /s /c 前缀)安全预算,留本地化/引号余量
+const DIRECT_SPAWN_LINE_BUDGET = 32000;   // 直启(.exe/node)走 CreateProcess,上限 32767
+const CMD_LINE_QUOTE_MARGIN = 48;         // quoteWinArg 引号翻倍等二阶效应的预留
+// Off-by-default 测试缝: 强制预算值并让长度核算一律走 cmd 公式(即使启动器不是 .cmd)——e2e 借此在
+// WCW_FAKE_CLAUDE(node 直启)下精确演练降级阶梯,无需真实 cmd.exe。
+function cmdLineBudgetSeam() {
+  const v = Number(process.env.WCW_CLAUDE_CMDLINE_BUDGET);
+  return Number.isFinite(v) && v > 200 ? Math.floor(v) : 0;
+}
+// 本次 spawn 适用的整行字符预算;0 = 不设防(非 Windows: execve 上限 ~2MB,无 cmd 路径,保持行为逐字节不变)。
+function cmdLineBudgetFor(command) {
+  const seam = cmdLineBudgetSeam();
+  if (seam) return Math.min(seam, CMD_EXE_LINE_LIMIT);
+  if (process.platform !== 'win32') return 0;
+  return isBatchLauncher(command) ? CMD_LINE_SAFE_BUDGET : DIRECT_SPAWN_LINE_BUDGET;
+}
+// 与 batchSafeSpawn 的行构造严格同构(改 batchSafeSpawn 必须同步改这里;e2e 有断言)。核算的就是 cmd.exe
+// 实际解析的那一整行: "<comspec>" /d /s /c "<quoted join>"。测试缝开启时一律走 cmd 公式(模拟包装)。
+function spawnCmdLineLength(command, args) {
+  if (isBatchLauncher(command) || cmdLineBudgetSeam()) {
+    const comspec = process.env.ComSpec || 'cmd.exe';
+    const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"';
+    return `${comspec} /d /s /c ${line}`.length;
+  }
+  // 直启粗估(Node 自行 quoting): 只用于 32K 量级的宽松判断,无需精确。
+  return String(command).length + args.reduce((n, a) => n + String(a).length + 3, 1);
+}
+
 function claudeInstallCandidates() {
   const home = os.homedir();
   const env = process.env;
@@ -4618,8 +4653,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
     if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
   }
-  const claudeAgentLibrary = await buildClaudeAgentDefinitions(workingDir, config);
-  if (Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
+  // cmd8191 防线: --agents 的推送延后到下方「预算核算与降级阶梯」——角色定义吃 append 之后的剩余预算。
   if (usePermissionBridge) {
     // 【存量兼容标识】permission-prompt-tool 名派生自 MCP server id,须与之一致——随 id 保持 win-claude-workbench。
     args.push('--permission-prompt-tool', 'mcp__win-claude-workbench__permission_prompt');
@@ -4634,12 +4668,55 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   if (cliPermMode) args.push('--permission-mode', cliPermMode);
   if (config.model) args.push('--model', config.model);
   if (config.maxTurns) args.push('--max-turns', String(config.maxTurns));
+  // cmd8191 防线: 先把与 append/agents 无关的尾部参数(tailArgs)全部定下来,才能精确核算整行剩余预算。
+  // (就是原来跟在 append 块后面的 --resume / --add-dir / extraClaudeArgs,内容不变,仅提前收集、最后统一 push。)
+  const tailArgs = [];
+  if (config.autoResumeClaudeSessions && session.claudeSessionId) {
+    tailArgs.push('--resume', session.claudeSessionId);
+  }
+  if (workingDir) tailArgs.push('--add-dir', workingDir);
+  // v2 跨会话记忆(C1 评审修订): 启用记忆时把记忆目录加入 --add-dir,使非 bypass 权限模式主回合 Read 可达;
+  // 仅主回合,子代理 spawn 不加(v2 记忆只注入主回合)。默认启用(项目记忆自动)也算已启用。防御式,失败不阻断。
+  // P2-2 最小授权: 不再 push 整个 paths.memory(会暴露其它项目组 + meta.json),按已启用条目的 scope 分组授权——
+  // 启用了 global 条目 → 加 memory/global;启用了 project 条目 → 加当前项目组 memory/project/<key>。各自去重、跳过 == cwd。
+  try {
+    const memDirEntries = await resolveEnabledMemoryEntries(session, workingDir).catch(() => []);
+    const memDirs = new Set();
+    if (memDirEntries.some(e => e && e.scope === 'global')) memDirs.add(memoryGlobalDir());
+    if (memDirEntries.some(e => e && e.scope === 'project')) memDirs.add(memoryProjectDir(workingDir));
+    for (const d of memDirs) { if (path.resolve(d) !== path.resolve(workingDir || '')) tailArgs.push('--add-dir', d); }
+  } catch { /* ignore */ }
+  // v1.4.3: additional directories from config
+  if (Array.isArray(config.additionalDirectories)) {
+    for (const dir of config.additionalDirectories) { if (dir && dir !== workingDir) tailArgs.push('--add-dir', dir); }
+  }
+  if (Array.isArray(config.extraClaudeArgs)) tailArgs.push(...config.extraClaudeArgs);
+
+  // cmd8191 防线: 整行预算核算。fake 缝(node 直启)不受 cmd 限制,除非 WCW_CLAUDE_CMDLINE_BUDGET 测试缝强制。
+  // 阶梯顺序: ① append 先拿预算(块内 fits-or-drop 自然兑现 用户append>技能>记忆>账本>编排>语言政策);
+  // ② --agents 角色定义吃 append 之后的剩余(子代理编排是增强,用户提示与技能是核心诉求);
+  // ③ 组装后整行复核(引号翻倍等二阶效应的最终闸口)仍超 → 砍 --agents → 围栏安全裁 append → 告警但绝不硬失败。
+  const guardCmd = fakeClaude ? process.execPath : claude;
+  const guardBudget = cmdLineBudgetFor(guardCmd);
+  const cmdlineGuard = { budget: guardBudget, degraded: [], lineLen: 0 };
+  const FLAG_APPEND_ALLOWANCE = '--append-system-prompt'.length + 1 + CMD_LINE_QUOTE_MARGIN;
+  const FLAG_AGENTS_ALLOWANCE = '--agents'.length + 1 + CMD_LINE_QUOTE_MARGIN;
+  const fixedLen = guardBudget > 0 ? spawnCmdLineLength(guardCmd, [...args, ...tailArgs]) : 0;
+  let appendLimit = 8000;
+  if (guardBudget > 0) {
+    appendLimit = Math.min(8000, guardBudget - fixedLen - FLAG_APPEND_ALLOWANCE);
+    if (appendLimit < 200) { appendLimit = 0; cmdlineGuard.degraded.push('append-skipped'); }
+    else if (appendLimit < 8000) cmdlineGuard.degraded.push(`append-trimmed-to-${appendLimit}`);
+  }
   // v1.4.3: --append-system-prompt
   // v1.4.3: --append-system-prompt。v1 技能体系: Claude 引擎不注入 provider 系统层(CLI 自建 prompt),技能索引
-  // 只能走此 flag。把用户自定义 append 与技能索引合成「用户append\n\n技能索引」,整体钳 8000(技能段先截,保住
+  // 只能走此 flag。把用户自定义 append 与技能索引合成「用户append\n\n技能索引」,整体钳 appendLimit(技能段先截,保住
   // 用户 append)。仅当本会话有启用技能时才探能力/解析(避免给纯 Claude 用户平白加一次 getCapabilities)。
+  // cmd8191 防线: appendLimit 由上方整行预算核算动态给出(≤8000)——块内各段的 fits-or-drop/收缩契约不变,
+  // 预算收紧时按 用户append>技能>记忆>账本>编排>语言政策 的顺序自然降级。
+  let appendSys = '';
   {
-    let appendSys = String(config.appendSystemPrompt || '');
+    appendSys = String(config.appendSystemPrompt || '');
     if (interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
@@ -4650,6 +4727,11 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       appendSys += `${appendSys ? '\n\n' : ''}${buildBrowserAutomationHint(config)}`;
     }
     if (config.includeWorkbenchMcp) appendSys += `${appendSys ? '\n\n' : ''}${buildToolCustomizationHint()}`;
+    // cmd8191 配套: 先为末尾政策段(语言政策+团队提示)预留房间,各内容段只在 sectionLimit 内竞争——旧写法各段
+    // 填满 appendLimit 后被末尾政策保留再次硬切,技能段的栏内收缩白做(总在政策再切时被整段顶掉)。预留后
+    // appendSys ≤ sectionLimit ⇒ 末尾政策追加时绝不再切内容段。
+    const policyRoom = appendLimit > 0 ? appendTurnPolicies('', config, agentTeam, appendLimit).length + 2 : 0;
+    const sectionLimit = Math.max(0, appendLimit - policyRoom);
     const enabled = effectiveSkillSelection(session, config);
     if (enabled.length) {
       try {
@@ -4663,19 +4745,19 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
         // cmd 变量展开、!VAR! 触发延迟展开 —— 技能名/描述/路径来自不可信 SKILL.md。仅对技能段做 %→％、!→！ 全角
         // 替换消解该展开面(用户自定义 appendSystemPrompt 不动,保持原样)。
         if (skillSec) skillSec = skillSec.replace(/%/g, '％').replace(/!/g, '！');
-        if (skillSec) appendSys = clampAppendWithSkills(appendSys, skillSec, 8000);
+        if (skillSec) appendSys = clampAppendWithSkills(appendSys, skillSec, sectionLimit);
       } catch { /* 技能注入绝不可阻断回合 */ }
     }
     // v2 跨会话记忆: 已启用记忆的紧凑索引并入 append。优先级 用户append > 技能 > 记忆(记忆作为已含 用户+技能
     // 的 appendSys 的追加段;P3-2 契约:放得下整段才追加,放不下则整体丢弃——绝不中截,免得留悬空 <workbench-memory>
-    // 开围栏破坏不可信带边界),总长仍钳 8000。Claude 侧同技能做 % ! 全角替换。P3-3:传 onSourceMismatch 通知换项目跳过。
+    // 开围栏破坏不可信带边界),总长仍钳 appendLimit。Claude 侧同技能做 % ! 全角替换。P3-3:传 onSourceMismatch 通知换项目跳过。
     try {
       const memEntries = await resolveEnabledMemoryEntries(session, workingDir,
         (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
       ).catch(() => []);
       let memSec = buildMemoryPromptSection(memEntries, 'claude');
       if (memSec) memSec = memSec.replace(/%/g, '％').replace(/!/g, '！');
-      if (memSec) appendSys = appendMemorySection(appendSys, memSec, 8000);
+      if (memSec) appendSys = appendMemorySection(appendSys, memSec, sectionLimit);
     } catch { /* 记忆注入绝不可阻断回合 */ }
     // 第26波b(两引擎对称): 任务账本 digest 并入 append —— 与 Provider 侧 buildMissionPromptSection 同源,
     // 让 Claude 引擎在长任务里同样知道整体目标与进度。fits-or-drop(同记忆契约,免破坏闭合围栏);% ! 全角中和;
@@ -4683,48 +4765,68 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     try {
       let misSec = buildMissionPromptSection(session.mission, 'claude');
       if (misSec) misSec = misSec.replace(/%/g, '％').replace(/!/g, '！');
-      if (misSec) appendSys = appendMemorySection(appendSys, misSec, 8000);
+      if (misSec) appendSys = appendMemorySection(appendSys, misSec, sectionLimit);
     } catch { /* 账本注入绝不可阻断回合 */ }
     // 第23波(主动性·意图触发 · 两引擎对称): Claude 引擎经 MCP 暴露 orchestrate_agents,但 append-system-prompt 此前
     // 只带 用户append+技能+记忆,从不告知有哪些模板 → Claude 侧模型无从用 workflowId(与 Provider 不对称的能力缺口)。
-    // 这里补上 buildOrchestrateHint(与 Provider 同源)。仅编排开启(subagentMaxPerTurn>0)时注入;遵守 8000 钳,放得下
+    // 这里补上 buildOrchestrateHint(与 Provider 同源)。仅编排开启(subagentMaxPerTurn>0)时注入;遵守 appendLimit 钳,放得下
     // 整段才追加(与记忆同契约,免破坏不可信带/其它段边界)。注入绝不阻断回合。
     try {
       if (Number(config.subagentMaxPerTurn) > 0) {
         const wfs = await getAgentWorkflows(workingDir).catch(() => []);
         // 对抗轮 P3:两段【各自】fits-or-drop —— 旧写法把编排提示与模型提示拼一段做单次全或无判定,模型清单变长
-        // 会把总和顶过 8000 致【整段】(含 workflowId 模板发现能力,回归第23波前缺口)被一并丢弃。拆开独立判。
-        const oh = buildOrchestrateHint(wfs);
-        if (oh && (appendSys.length + oh.length) <= 8000) appendSys += oh;
+        // 会把总和顶过 appendLimit 致【整段】(含 workflowId 模板发现能力,回归第23波前缺口)被一并丢弃。拆开独立判。
+        // cmd8191 配套: 编排提示含工作流标题/描述(项目/个人 workflows.json,不可信面同 SKILL.md)——同技能段做 % ! 全角中和。
+        let oh = buildOrchestrateHint(wfs);
+        if (oh) oh = oh.replace(/%/g, '％').replace(/!/g, '！');
+        if (oh && (appendSys.length + oh.length) <= sectionLimit) appendSys += oh;
         const mh = buildModelHint(config, activeOpenAiProvider(config)); // openai 组模型取当前激活 provider
-        if (mh && (appendSys.length + mh.length) <= 8000) appendSys += mh;
+        if (mh && (appendSys.length + mh.length) <= sectionLimit) appendSys += mh;
       }
     } catch { /* 编排提示注入绝不阻断回合 */ }
     // The internal skill/workflow/memory hints above are often Chinese. Always reserve the final append
     // segment for the user-facing response-language policy, even when the user configured no custom prompt.
-    appendSys = appendTurnPolicies(appendSys, config, agentTeam, 8000);
+    // appendLimit<=0(预算耗尽)时整段跳过 —— appendTurnPolicies 的 limit<=0 语义是「不限」,绝不可传入。
+    appendSys = appendLimit > 0 ? appendTurnPolicies(appendSys, config, agentTeam, appendLimit) : '';
     if (appendSys) args.push('--append-system-prompt', appendSys);
   }
-  if (config.autoResumeClaudeSessions && session.claudeSessionId) {
-    args.push('--resume', session.claudeSessionId);
+
+  // cmd8191 防线②: --agents 角色定义吃 append 之后的剩余预算(角色库顺序确定性取舍,放不下的进 omitted 上报)。
+  let agentsBudget = 6000;
+  if (guardBudget > 0) {
+    const appendArgLen = appendSys ? quoteWinArg(appendSys).length + FLAG_APPEND_ALLOWANCE : 0;
+    agentsBudget = Math.max(0, Math.min(6000, guardBudget - fixedLen - appendArgLen - FLAG_AGENTS_ALLOWANCE));
   }
-  if (workingDir) args.push('--add-dir', workingDir);
-  // v2 跨会话记忆(C1 评审修订): 启用记忆时把记忆目录加入 --add-dir,使非 bypass 权限模式主回合 Read 可达;
-  // 仅主回合,子代理 spawn 不加(v2 记忆只注入主回合)。默认启用(项目记忆自动)也算已启用。防御式,失败不阻断。
-  // P2-2 最小授权: 不再 push 整个 paths.memory(会暴露其它项目组 + meta.json),按已启用条目的 scope 分组授权——
-  // 启用了 global 条目 → 加 memory/global;启用了 project 条目 → 加当前项目组 memory/project/<key>。各自去重、跳过 == cwd。
-  try {
-    const memDirEntries = await resolveEnabledMemoryEntries(session, workingDir).catch(() => []);
-    const memDirs = new Set();
-    if (memDirEntries.some(e => e && e.scope === 'global')) memDirs.add(memoryGlobalDir());
-    if (memDirEntries.some(e => e && e.scope === 'project')) memDirs.add(memoryProjectDir(workingDir));
-    for (const d of memDirs) { if (path.resolve(d) !== path.resolve(workingDir || '')) args.push('--add-dir', d); }
-  } catch { /* ignore */ }
-  // v1.4.3: additional directories from config
-  if (Array.isArray(config.additionalDirectories)) {
-    for (const dir of config.additionalDirectories) { if (dir && dir !== workingDir) args.push('--add-dir', dir); }
+  const claudeAgentLibrary = await buildClaudeAgentDefinitions(workingDir, config, agentsBudget);
+  if (Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
+  else if (claudeAgentLibrary.omitted.length) cmdlineGuard.degraded.push('agents-dropped');
+  args.push(...tailArgs);
+
+  // cmd8191 防线③: 整行复核 —— 任何情况下绝不让整行越过预算(引号翻倍等二阶效应的最终闸口)。
+  if (guardBudget > 0) {
+    let lineLen = spawnCmdLineLength(guardCmd, args);
+    for (let g = 0; g < 4 && lineLen > guardBudget; g++) {
+      const ai = args.indexOf('--agents');
+      if (ai >= 0) { args.splice(ai, 2); if (!cmdlineGuard.degraded.includes('agents-dropped')) cmdlineGuard.degraded.push('agents-dropped'); }
+      else {
+        const pi = args.indexOf('--append-system-prompt');
+        if (pi < 0) break;
+        const over = lineLen - guardBudget;
+        const trimmed = fenceSafeSlice(args[pi + 1], Math.max(0, String(args[pi + 1]).length - over - CMD_LINE_QUOTE_MARGIN));
+        if (trimmed && trimmed !== args[pi + 1]) { args[pi + 1] = trimmed; cmdlineGuard.degraded.push('append-final-trim'); }
+        else { args.splice(pi, 2); cmdlineGuard.degraded.push('append-dropped'); }
+      }
+      lineLen = spawnCmdLineLength(guardCmd, args);
+    }
+    cmdlineGuard.lineLen = lineLen;
+    if (lineLen > guardBudget) cmdlineGuard.degraded.push('base-args-too-long');
+    if (cmdlineGuard.degraded.length) {
+      const isCmd = isBatchLauncher(guardCmd) || cmdLineBudgetSeam();
+      const note = `[启动守卫] Claude CLI 命令行超预算(预算 ${guardBudget} 字符${isCmd ? `,cmd.exe 上限 ${CMD_EXE_LINE_LIMIT}` : ''}),已自动降级:${cmdlineGuard.degraded.join(' → ')}。可减少启用技能/缩短自定义系统提示,或把 Claude CLI 路径改为 claude.exe 直启。`;
+      try { onEvent({ type: 'stderr', text: note }); } catch { /* 通知失败不阻断 */ }
+      logEvent({ kind: 'cmdline_guard', sessionId: session.id, budget: guardBudget, lineLen, degraded: cmdlineGuard.degraded });
+    }
   }
-  if (Array.isArray(config.extraClaudeArgs)) args.push(...config.extraClaudeArgs);
 
   // v1.4.4: effectiveAnthropicEnv overlays the config-driven third-party endpoint/model (modelsApiBase/
   // modelsApiKey/claudeAuthMode/model) onto process.env, so a frontend change to any of those actually
@@ -4743,7 +4845,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
 
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   const metaArgs = args.map((arg, i) => args[i - 1] === '--agents' ? `[${Object.keys(claudeAgentLibrary.definitions).length} agent roles]` : redact(arg));
-  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', permissionMode: config.permissionMode, historyRecoveryInjected, agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined });
+  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', permissionMode: config.permissionMode, historyRecoveryInjected, agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
   logEvent({ kind: 'turn_start', sessionId: session.id, model: config.model || 'default', promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
@@ -4916,7 +5018,14 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     clearPendingQuestions(session.id, 'turn ended');
   }
 
-  const finalText = assistantText.trim() || (stdoutNoise.trim()) || (stderrText.trim() ? `Claude CLI wrote only stderr:\n${redact(stderrText.trim())}` : '');
+  // cmd8191 防线(诊断兜底): 预算哨兵应已拦截一切超限;若仍见到 cmd 的「命令行太长。」(哨兵与真实 cmd 行为
+  // 漂移的信号),给用户可操作的明确指引而不是一句裸 stderr,并落审计日志供溯源。
+  const stderrTrimmed = stderrText.trim();
+  const cmdLineOverflow = /命令行太长|command line is too long/i.test(stderrTrimmed);
+  if (cmdLineOverflow) logEvent({ kind: 'cmdline_overflow_escaped', sessionId: session.id, budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen });
+  const finalText = assistantText.trim() || (stdoutNoise.trim()) || (stderrTrimmed ? (cmdLineOverflow
+    ? `[启动守卫] Claude CLI 未能启动:Windows cmd.exe 命令行超过 8191 字符上限(预算哨兵未能拦截,请反馈此情况)。临时规避:减少启用的技能、缩短自定义系统提示,或在设置中把 Claude CLI 路径改为 claude.exe 直启。\n原始错误:${redact(stderrTrimmed)}`
+    : `Claude CLI wrote only stderr:\n${redact(stderrTrimmed)}`) : '');
   // v0.8-S3/S4a: turn_summary from the CLI turn's tool records + this turn's checkpoint journal. Workbench
   // file_* tools (run in the MCP child) checkpointed their `before` to dataRoot/checkpoints/<sid>/ — read
   // those index rows by turnSeq for accurate op + revertible:true. The CLI's native Edit/Write/Bash never
@@ -5999,14 +6108,16 @@ function buildAgentTeamHint() {
 
 // Claude's append prompt has an 8K contract. Reserve its final segment for turn policies and trim
 // lower-priority generated context from the tail when necessary; user-configured text at the beginning stays.
+// cmd8191 防线: 截断一律走 fenceSafeSlice —— 旧写法 prior.slice(0, room) 会切穿 <skill-index> 等围栏留悬空开标签。
 function appendTurnPolicies(base, config, agentTeam, limit = 0) {
   const prior = String(base || '');
   const policy = [agentTeam ? buildAgentTeamHint() : '', buildResponseLanguagePolicy(config)].filter(Boolean).join('\n\n');
   const separator = prior ? '\n\n' : '';
   if (!Number.isFinite(limit) || limit <= 0) return prior + separator + policy;
-  if (policy.length >= limit) return policy.slice(0, limit);
+  if (policy.length >= limit) return fenceSafeSlice(policy, limit);
   const room = Math.max(0, limit - policy.length - separator.length);
-  return prior.slice(0, room) + separator + policy;
+  const trimmed = fenceSafeSlice(prior, room);
+  return trimmed ? trimmed + separator + policy : policy; // 回退到空(切点全在围栏内)时不留前导空行
 }
 
 // Kept as the sub-agent/consumer compatibility wrapper. Normal calls retain the established
@@ -6262,17 +6373,65 @@ function buildSkillsPromptSection(enabledSkills, engine) {
   return header + OPEN + text + CLOSE;
 }
 
+// 围栏感知截断(cmd8191 防线配套): 硬切可能切穿 <skill-index>/<workbench-memory>/<response-language-policy>
+// 等围栏,留下悬空开标签 —— 不可信带边界与伪造围栏中和防线的前提是【所有围栏闭合】。切点落在未闭合围栏
+// 内时回退到最早悬空开标签之前(宁可整段舍弃,不留半个围栏)。自然文本里的 <div> 之类会被当作悬空围栏而
+// 多裁一些 —— 降级方向安全,可接受。
+function fenceSafeSlice(text, room) {
+  const s = String(text || '');
+  if (s.length <= room) return s;
+  let cut = s.slice(0, Math.max(0, room));
+  for (let guard = 0; guard < 8; guard++) {
+    const openIdx = [];
+    const re = /<\/?[a-zA-Z][a-zA-Z0-9-]*>/g;
+    let m;
+    while ((m = re.exec(cut))) {
+      const closing = m[0][1] === '/';
+      const name = m[0].slice(closing ? 2 : 1, -1).toLowerCase();
+      if (closing) { const i = openIdx.findIndex(o => o.name === name); if (i >= 0) openIdx.splice(i, 1); }
+      else openIdx.push({ name, at: m.index });
+    }
+    if (!openIdx.length) return cut.replace(/\s+$/g, '');
+    const back = Math.min(...openIdx.map(o => o.at));
+    if (back <= 0) return ''; // 整个切点都在某个围栏内 —— 无安全内容可留
+    cut = cut.slice(0, back);
+  }
+  return cut.replace(/\s+$/g, '');
+}
+
+// 段内收缩(保围栏): 「头部\n<fence>\n条目行…\n</fence>」结构的段优先在围栏内按行截断并补截断标记,保住
+// 闭合围栏与头部;连外壳(头+开/关标签+标记)都放不下才整段返回 ''(由调用方走 fits-or-drop)。供预算紧张
+// 时收缩技能索引段,替代裸 slice 留半个围栏。
+function shrinkFencedSection(text, room) {
+  const s = String(text || '');
+  if (s.length <= room) return s;
+  const openM = s.match(/<([a-zA-Z][a-zA-Z0-9-]*)>/);
+  if (!openM) return fenceSafeSlice(s, room);
+  const closeTag = `</${openM[1]}>`;
+  if (!s.endsWith(closeTag)) return fenceSafeSlice(s, room); // 非「围栏收尾」结构,回退通用围栏安全截断
+  const openEnd = openM.index + openM[0].length;
+  const TRUNC = '\n…（索引已截断）';
+  const shell = openEnd + closeTag.length + TRUNC.length;
+  if (room < shell + 8) return ''; // 连外壳都放不下 → 整体丢弃
+  let inner = s.slice(openEnd, s.length - closeTag.length).slice(0, room - shell);
+  const lastNl = inner.lastIndexOf('\n');
+  if (lastNl > 0) inner = inner.slice(0, lastNl); // 不切断一条条目行
+  return s.slice(0, openEnd) + inner + TRUNC + closeTag;
+}
+
 // v1 技能体系: 把「用户自定义 append」与「技能索引」合成为一个 --append-system-prompt 串，整体钳到 limit。
 // 「技能段先截」: 优先保住用户的 appendSystemPrompt(config 侧已各自钳 8000),剩余空间才给技能索引。
+// cmd8191 防线: 技能段收缩走 shrinkFencedSection(栏内截断保闭合),用户段走 fenceSafeSlice —— 绝不裸切留半个围栏。
 function clampAppendWithSkills(userAppend, skillSec, limit) {
   const u = String(userAppend || '');
   let s = String(skillSec || '');
-  if (!s) return u.slice(0, limit);
-  if (!u) return s.slice(0, limit);
+  if (!s) return fenceSafeSlice(u, limit);
+  if (!u) return shrinkFencedSection(s, limit);
   const SEP = '\n\n';
   const room = limit - u.length - SEP.length;
-  if (room <= 0) return u.slice(0, limit); // 没空间放技能 → 只保用户 append
-  if (s.length > room) s = s.slice(0, room);
+  if (room <= 0) return fenceSafeSlice(u, limit); // 没空间放技能 → 只保用户 append
+  if (s.length > room) s = shrinkFencedSection(s, room);
+  if (!s) return fenceSafeSlice(u, limit); // 技能段连外壳都放不下 → 整体舍弃,保用户 append
   return u + SEP + s;
 }
 
@@ -7902,7 +8061,7 @@ function claudePermissionMode(mode) {
   if (mode === 'inherit') return undefined;
   return CLAUDE_PERMISSION_MODE_MAP[mode] || mode;
 }
-async function buildClaudeAgentDefinitions(cwd, config) {
+async function buildClaudeAgentDefinitions(cwd, config, jsonBudget = 6000) {
   const roles = (await getAgentRoleLibrary(cwd, config)).filter(r => !r.nativeClaude);
   const definitions = {};
   for (const role of roles) {
@@ -7918,10 +8077,13 @@ async function buildClaudeAgentDefinitions(cwd, config) {
   }
   // Windows .cmd launchers go through cmd.exe, whose command-line limit is small. Keep definitions
   // deterministic and bounded; project-native .claude/agents remain available independently.
+  // cmd8191 防线: jsonBudget 由调用方按整行剩余预算动态给出(默认 6000 维持原契约);预算收紧时按角色
+  // 库顺序确定性取舍,放不下的进 omitted(meta 事件上报,用户可见)。
+  const budget = Math.max(0, Math.min(6000, Math.floor(Number(jsonBudget) || 0)));
   const selected = {}, omitted = [];
   for (const [id, def] of Object.entries(definitions)) {
     const candidate = { ...selected, [id]: def };
-    if (JSON.stringify(candidate).length <= 6000) selected[id] = def; else omitted.push(id);
+    if (JSON.stringify(candidate).length <= budget) selected[id] = def; else omitted.push(id);
   }
   return { definitions: selected, omitted, roles };
 }
@@ -7967,8 +8129,9 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
   // execution error). That is deterministic, not transient - retrying won't change it.
   if (gotResult && resultOk === false) return { retry: false, reason: 'clean_error_result' };
   const s = String(stderrText || '');
-  // Definitive non-transient signatures (auth / model / bad request / context overflow).
-  if (/invalid_api_key|authentication_error|auth.*fail|unauthor|\b401\b|permission_denied|\b403\b|model_not_found|not_found_error|\b404\b|invalid_request_error|context.*(length|window|too\s*long|too\s*large|exceed)|maximum.*context|too_many_tokens|prompt_too_long/i.test(s)) {
+  // Definitive non-transient signatures (auth / model / bad request / context overflow / cmd.exe 命令行超长——
+  // 参数决定的确定性失败,重试同样的 args 只会原样再败;cmd8191 防线的预算哨兵应已拦截,此为兜底)。
+  if (/invalid_api_key|authentication_error|auth.*fail|unauthor|\b401\b|permission_denied|\b403\b|model_not_found|not_found_error|\b404\b|invalid_request_error|context.*(length|window|too\s*long|too\s*large|exceed)|maximum.*context|too_many_tokens|prompt_too_long|命令行太长|command line is too long/i.test(s)) {
     return { retry: false, reason: 'definitive' };
   }
   // Transient signatures: rate limit / overload / 5xx / network / connect / TLS - the same set the OpenAI
@@ -8023,6 +8186,26 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const roleMcpServers = (role && role.mcpServers) || [];
   const mcpConfigPath = tier === 'exec' ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
   if (mcpConfigPath) args.push('--mcp-config', mcpConfigPath);
+
+  // cmd8191 防线(子代理): 子代理 args 小(无技能索引),但自定义 role.claudeTools/超长路径仍可能顶爆 cmd 上限。
+  // 降级阶梯: ① 丢 --append-system-prompt(仅语言政策,可恢复性最低) ② 非 plan 模式丢 --allowed-tools
+  // (bypass/auto 下它不是硬安全边界——bypass 跳过一切许可,见上方分级注释;plan 模式下它有意义,不丢)
+  // ③ 仍超 → 明确报错(分类器把「命令行太长。」列为 definitive,不会无谓重试 3 次)。
+  {
+    const guardCmd = fakeClaude ? process.execPath : claude;
+    const guardBudget = cmdLineBudgetFor(guardCmd);
+    if (guardBudget > 0 && spawnCmdLineLength(guardCmd, args) > guardBudget) {
+      const pi = args.indexOf('--append-system-prompt');
+      if (pi >= 0) args.splice(pi, 2);
+      if (spawnCmdLineLength(guardCmd, args) > guardBudget && effMode !== 'plan') {
+        const ti = args.indexOf('--allowed-tools');
+        if (ti >= 0) args.splice(ti, 2);
+      }
+      if (spawnCmdLineLength(guardCmd, args) > guardBudget) {
+        return { ok: false, error: `Claude CLI 命令行超预算(${guardBudget} 字符):角色工具清单/路径过长,请精简该角色的 claudeTools 或缩短工作目录路径`, iters: 0, toolCalls: 0 };
+      }
+    }
+  }
 
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} } : batchSafeSpawn(claude, args);
   const env = effectiveAnthropicEnv(config);
@@ -17144,12 +17327,21 @@ module.exports = {
   normalizeConfig,
   buildClaudeCliEnv,
   decodeClaudeCliText,
+  // cmd8191 防线 — exposed for e2e unit assertions (长度核算与 batchSafeSpawn 同构性、围栏安全截断、降级阶梯)。
+  quoteWinArg,
+  batchSafeSpawn,
+  spawnCmdLineLength,
+  cmdLineBudgetFor,
+  fenceSafeSlice,
+  shrinkFencedSection,
+  clampAppendWithSkills,
   normalizeAgentRole,
   getAgentRoleLibrary,
   readProjectAgentRoles,
   readClaudeProjectAgentRoles,
   saveProjectAgentRoles,
   buildClaudeAgentDefinitions,
+  classifyClaudeSubagentFailure, // cmd8191: 「命令行太长。」→ definitive 签名 — exposed for e2e unit assertions
   nativeClaudeAgentResultInfo,
   BUILTIN_AGENT_ROLES,
   normalizeSession,

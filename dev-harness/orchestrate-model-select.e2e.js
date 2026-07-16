@@ -53,7 +53,7 @@ ok(/model: resolveNodeModel\(sargs\.model, roleDefinition && roleDefinition\.mod
 ok(/model: \{ type: 'string', description: '可选。为新节点按任务难易指定模型/.test(src) && /model: String\(args && args\.model \|\| ''\)\.trim\(\)\.slice\(0, 160\), \/\/ 第30波/.test(src), 'S propose_task model 通道(schema + item)');
 // 两引擎注入 buildModelHint(带 provider)+ Claude 钳拆分。
 ok(/sys \+= buildModelHint\(config, provider\);/.test(src), 'S provider 引擎注入 buildModelHint(带 provider)');
-ok(/const oh = buildOrchestrateHint\(wfs\);/.test(src) && /const mh = buildModelHint\(config, activeOpenAiProvider\(config\)\);/.test(src), 'S Claude 引擎:编排提示与模型提示【各自】fits-or-drop(对抗轮 P3:不再连坐丢弃)');
+ok(/let oh = buildOrchestrateHint\(wfs\);/.test(src) && /const mh = buildModelHint\(config, activeOpenAiProvider\(config\)\);/.test(src), 'S Claude 引擎:编排提示与模型提示【各自】fits-or-drop(对抗轮 P3:不再连坐丢弃;cmd8191: oh 用 let 以便 % ! 全角中和)');
 // schema 描述改为"填错会失败"(不再宣称"忽略回落")。
 ok(/a wrong\/unknown id makes the node fail/.test(src) && /Omit to use the role\/default model/.test(src), 'S orchestrate model 描述改为引擎匹配+填错失败');
 
