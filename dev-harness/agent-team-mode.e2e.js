@@ -81,7 +81,7 @@ function capturedSystem() {
   const app = fs.readFileSync(path.join(PUB, 'app.js'), 'utf8');
   const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
   ok(/id="agentTeamBtn"[^>]*aria-pressed="false"/.test(html), 'composer exposes an accessible Agent team toggle');
-  ok(/let agentTeamTurnEnabled = false/.test(app) && /if \(agentTeam\) \{ agentTeamTurnEnabled = false/.test(app), 'toggle is turn-local and resets when sent');
+  ok((app.match(/let agentTeamTurnEnabled = false/g) || []).length === 1 && /if \(agentTeam\) \{ agentTeamTurnEnabled = false/.test(app), 'toggle is declared once, remains turn-local, and resets when sent');
   ok(/attachments: sentAttachments, agentTeam/.test(app), 'composer sends a structured agentTeam field without changing user text');
   ok(/agent-team-btn\[aria-pressed="true"\]/.test(css), 'active Agent team state has a visible pressed style');
   const serverModule = require(path.join(WB, 'app', 'server.js'));

@@ -172,11 +172,40 @@ $zip = Join-Path $dist "Ruyi-$Variant.zip"
 if (Test-Path $zip) { Remove-Item -LiteralPath $zip -Force }
 $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
 if ($tar) {
-  # Windows bsdtar is long-path aware and chooses ZIP from the output suffix.
-  & $tar.Source -a -c -f $zip -C $stage .
+  # Windows bsdtar is long-path aware and chooses ZIP from the output suffix. Pass the stage's children
+  # instead of ".": archives whose every entry starts with "./" appear empty to Explorer's ZIP shell.
+  $archiveRoots = @(Get-ChildItem -LiteralPath $stage -Force | Sort-Object Name | ForEach-Object { $_.Name })
+  if ($archiveRoots.Count -eq 0) { throw "Refusing to create an empty offline ZIP from '$stage'." }
+  & $tar.Source -a -c -f $zip -C $stage @archiveRoots
   if ($LASTEXITCODE -ne 0) { throw "Long-path ZIP creation failed with tar exit code $LASTEXITCODE." }
 } else {
   Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zip -Force
+}
+
+# Reject structurally unreadable output and the Explorer-incompatible "./" layout before release.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
+try {
+  if ($archive.Entries.Count -eq 0) { throw "ZIP verification failed: archive is empty." }
+  $badEntries = @($archive.Entries | Where-Object {
+    $_.FullName -eq "." -or $_.FullName.StartsWith("./", [StringComparison]::Ordinal) -or
+    $_.FullName.StartsWith("/", [StringComparison]::Ordinal) -or $_.FullName.Contains("../")
+  })
+  if ($badEntries.Count -gt 0) {
+    throw "ZIP verification failed: Explorer-incompatible or unsafe entry '$($badEntries[0].FullName)'."
+  }
+  $buffer = New-Object byte[] (1MB)
+  foreach ($entry in $archive.Entries) {
+    if ($entry.FullName.EndsWith("/", [StringComparison]::Ordinal)) { continue }
+    $stream = $entry.Open()
+    try {
+      while ($stream.Read($buffer, 0, $buffer.Length) -gt 0) { }
+    } finally {
+      $stream.Dispose()
+    }
+  }
+} finally {
+  $archive.Dispose()
 }
 $zipMB = [math]::Round((Get-Item $zip).Length / 1MB, 2)
 Write-Host "Created $zip  ($zipMB MB)  $accSummary"
