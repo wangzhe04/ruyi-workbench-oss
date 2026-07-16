@@ -67,8 +67,8 @@ const fake = http.createServer((req, res) => {
   ok(!/await Promise\.all\(batch\.map\(/.test(src), 'C 批次屏障代码已移除(Promise.all(batch.map) 不存在)');
   ok(/const inFlight = new Map\(\)/.test(src) && /raceInFlight/.test(src), 'C 连续队列结构在(inFlight/raceInFlight)');
   ok(/function computeSchedulerStep\(nodes, opts\)/.test(src), 'C 调度决策已抽为纯 reducer computeSchedulerStep');
-  // 第28e波:cycleDead 增补 toArm.length===0 && !anyWaiting(有待武装/等待节点时循环仍推进,不误判环)。
-  ok(/const cycleDead = toDispatch\.length === 0 && toArm\.length === 0 && inFlight\.size === 0 && !anyWaiting && !allTerminal/.test(src), 'C 铁律①: reducer 判环=「零派发 且 零武装 且 在飞空 且 无等待 且 未全终态」(防同步 fast-settle + wait 误诊)');
+  // block/skip 也是状态推进；否则多层失败链会在第一层刚 blocked 时把更深层误报成依赖环。
+  ok(/const stateTransitions = toBlock\.length \+ toSkip\.length;[\s\S]{0,160}const cycleDead = stateTransitions === 0 && toDispatch\.length === 0 && toArm\.length === 0 && inFlight\.size === 0 && !anyWaiting && !allTerminal/.test(src), 'C 铁律①: reducer 仅在无 block/skip/派发/武装/在飞/等待且未全终态时判环');
   ok(/if \(step\.cycleDead && !inFlight\.size\)/.test(src), 'C 铁律①(外壳): cycleDead 且外壳在飞仍空才判死(双保险)');
   ok(/nodes\.every\(terminal\) && !inFlight\.size/.test(src), 'C 铁律②: 收尾/宽限窗=「全终态 且 在飞空」(防 run_end 后写/queued 僵尸)');
   ok(/if \(slots <= 0 \|\| inFlight\.has\(node\.id\)\) continue/.test(src), 'C 铁律③a: reducer 派发选择跳过已在飞(防双派发;第28e波与满位判定合并)');
@@ -115,7 +115,9 @@ const fake = http.createServer((req, res) => {
     const wall = Date.now() - t0;
     ok(!!finalRun && finalRun.status === 'succeeded', 'A run 最终 succeeded(实 ' + (finalRun && finalRun.status) + ')');
     ok(sawOverlap, 'A 观测到「fastC 已完成而 slowA 仍在跑」—— 批次屏障下不可能出现的中间态');
-    ok(wall < 4000 + 2500, 'A 总时长 ≈ 慢节点而非串行和(实 ' + wall + 'ms < 6500ms)');
+    // sawOverlap is the deterministic no-batch-barrier proof. Keep only a generous wall-clock watchdog here;
+    // tight timing made the full serial suite flaky under Windows process/AV load without adding semantics.
+    ok(wall < 15000, 'A 总时长有界且无调度停滞(实 ' + wall + 'ms < 15000ms)');
 
     // ── B) 环检测 ──
     const launch2 = (await httpReq(WB_PORT, 'POST', '/api/agent-workflow/launch', {

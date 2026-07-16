@@ -76,7 +76,7 @@ ok(/if \(wasPaused\) bumpRunIntervention\(live\.run, 'resume'\)/.test(src) && /c
 ok(/if \(n\.fromPool && n\.failurePolicy === 'continue' && n\.status !== 'rejected'\) continue;/.test(src), 'S 对抗轮 P2(#7): failuresByClass 对齐 fromPool+continue 排除(与 run 总态口径一致)');
 ok(/const firstExhaust = !m\.budgetExhaustedAt;/.test(src) && /if \(firstExhaust\) logEvent\(\{ kind: 'mission_budget_exhausted'/.test(src), 'S 对抗轮 P2(#6): budget_exhausted 只在转入时落一次(超支率 ≤100%)');
 ok(/budgetExhaustedAt: String\(p\.budgetExhaustedAt \|\| ''\)/.test(src), 'S 对抗轮 P2(#6): normalizeMission 保留 budgetExhaustedAt(update 再武装不清)');
-ok(/if \(node\.status === 'rejected'\) node\.errorClass = 'gate_rejected'; else delete node\.errorClass;/.test(src), 'S 对抗轮 P3(#10): vote 门 rejected 标 errorClass(与模型门对称)');
+ok(/if \(node\.status === 'failed'\) node\.errorClass = 'vote_contract_failed';[\s\S]{0,120}else if \(node\.status === 'rejected'\) node\.errorClass = 'gate_rejected';/.test(src), 'S vote 输入契约错误与真实 rejected 分开分类');
 ok(/if \(activeAgentRuns\.has\(run\.id\)\) continue;/.test(src) && (src.match(/if \(activeAgentRuns\.has\(run\.id\)\) continue;/g) || []).length >= 2, 'S 对抗轮 P2(#2): autoResume 前后双复检 live(防 seq 重号/陈旧覆盖)');
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════

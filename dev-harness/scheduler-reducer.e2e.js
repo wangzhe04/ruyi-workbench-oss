@@ -76,6 +76,16 @@ const N = (id, status, deps, extra = {}) => ({ id, status, dependsOn: deps || []
   const s = step(nodes);
   ok(s.toBlock.length === 1 && s.toBlock[0].id === 'b' && s.toBlock[0].blockers.includes('a'), '5 失败依赖 → 下游 toBlock(附 blockers)');
   ok(!s.toDispatch.includes('b'), '5 被阻塞节点不派发');
+  ok(s.cycleDead === false, '5 本轮产生 block 状态迁移 → 不误判依赖环');
+}
+{
+  // a 已失败，b 本轮才会被 block，c 要到下一轮才看见 b 的终态。旧逻辑会在第一轮把 c 误报 dependency_cycle。
+  const nodes = [N('a', 'failed', []), N('b', 'queued', ['a']), N('c', 'queued', ['b'])];
+  const first = step(nodes);
+  ok(first.toBlock.some(x => x.id === 'b') && !first.cycleDead, '5 多层失败链第一轮只传播一层 block，不误判深层节点为环');
+  nodes[1].status = 'blocked';
+  const second = step(nodes);
+  ok(second.toBlock.some(x => x.id === 'c') && !second.cycleDead, '5 多层失败链下一轮继续诚实传播 block');
 }
 {
   const nodes = [N('a', 'running', []), N('b', 'queued', ['a'])];
@@ -97,6 +107,11 @@ const N = (id, status, deps, extra = {}) => ({ id, status, dependsOn: deps || []
   const nodes = [N('a', 'failed', [], { failurePolicy: 'continue' }), N('b', 'queued', ['a'])];
   const s = step(nodes, { failureContinues: n => n.failurePolicy === 'continue' });
   ok(s.toBlock.length === 0 && s.toDispatch.includes('b'), '7 failureContinues=true → 失败依赖不阻塞');
+}
+{
+  const nodes = [N('a', 'failed', []), N('b', 'queued', ['a'], { dependencyPolicy: 'all_settled' })];
+  const s = step(nodes);
+  ok(s.toBlock.length === 0 && s.toDispatch.includes('b'), '7 all_settled 容错汇总节点在失败依赖终态后仍可运行');
 }
 
 // ── 8) condition 跳过:依赖全终态 + 条件 false → skip ──

@@ -33,6 +33,9 @@ ok(/迭代预算 maxIters/.test(src) && /maxIters\.type='number'/.test(src) && /
 ok(/if\(mi\)\s*node\.maxIters=Math\.max\(1,Math\.min\(300/.test(src) && /else delete node\.maxIters/.test(src), 'A2 maxIters 空=删除 / 有值 clamp 回写');
 ok(/工具权限 toolTier/.test(src) && /\['read','只读\+联网检索 read'\]/.test(src) && /\['exec','可执行\(全量\) exec'\]/.test(src), 'A2 工具权限 toolTier 下拉（继承/read/edit/exec;第22波文案含联网）');
 ok(/if\(toolTier\.value\)\s*node\.toolTier=toolTier\.value;\s*else delete node\.toolTier/.test(src), 'A2 toolTier 保存回写/删除');
+ok(/dependencyPolicy\.value=node\.dependencyPolicy\|\|'all_success'/.test(src) && /node\.dependencyPolicy=dependencyPolicy\.value/.test(src), 'A2 依赖失败处理支持 all_success / all_settled 并保存');
+ok(/progressPath\.value=node\.loop\?\.progressPath\|\|''/.test(src) && /progressPath:progressPath\.value\.trim\(\)/.test(src), 'A2 循环语义进度字段可编辑并保存');
+ok(/minSuccessfulToolCalls/.test(src) && /成功工具调用证据/.test(src), 'A2 事实探针可要求成功工具调用证据');
 
 // ───────────── A3 高级 JSON 折叠区 ─────────────
 ok(/el\('details','wf-insp-advanced'\)/.test(src), 'A3 高级区 <details class=wf-insp-advanced>');

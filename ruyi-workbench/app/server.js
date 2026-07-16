@@ -5118,6 +5118,11 @@ const ERROR_CLASSES = {
   tool_loop: { zh: '检测到重复的工具调用，已停止本轮', next: '换个说法或参数再试；若结果不对，先确认前一步的输出' },
   // v0.9-S5: the user rejected the execution plan in 计划模式 (真流程). No tool ran; the turn ended cleanly.
   plan_rejected: { zh: '你否决了本次执行计划', next: '补充要求后重新发起，或切换权限模式' },
+  schema_failed: { zh: '节点输出不符合结构化契约', next: '检查 outputSchema；可能缺失的字段请显式允许 null' },
+  evidence_missing: { zh: '节点缺少要求的工具执行证据', next: '确认节点工具权限，并让节点实际调用工具后再下结论' },
+  vote_contract_failed: { zh: '投票节点输入格式不正确', next: '让每个投票前序明确输出 verdict 与 confidence' },
+  dependency_cycle: { zh: '依赖图存在真实环或悬空依赖', next: '检查节点依赖方向和引用的节点 ID' },
+  gate_rejected: { zh: '质量门给出不通过裁决', next: '查看 verdict、confidence 和 findings 后决定修复或接受' },
 };
 
 // ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),
@@ -8836,8 +8841,14 @@ function repairJson(input) {
 // v1.5 (Judge JSON 修复 · 核心): 多候选 + 两级(原文/修复)解析。合法 JSON 永远命中"原文 parse"分支，绝不进
 // repairJson，故对合法输入零误伤。签名/返回形状保持不变({ ok, value } | { ok:false, error })。
 function parseStructuredAgentOutput(text) {
-  const s = String(text || '').trim();
+  const s = String(text == null ? '' : text).trim();
   if (!s) return { ok: false, error: '输出不是有效 JSON' };
+  // Exact JSON may legitimately be a primitive when the caller supplied a primitive outputSchema
+  // (for example {type:'integer'} for a counting probe). The older candidate scanner deliberately
+  // accepts only object/array slices from mixed prose, but that also rejected a perfectly clean `127`.
+  // Accept the whole payload first; embedded candidates below stay object/array-only so prose cannot
+  // accidentally promote a stray number/string to the node's structured result.
+  try { return { ok: true, value: JSON.parse(s) }; } catch { /* try bounded object/array recovery below */ }
   const accept = v => v !== null && typeof v === 'object';
   for (const cand of structuredJsonCandidates(s)) {
     try { const v = JSON.parse(cand); if (accept(v)) return { ok: true, value: v }; } catch { /* try repair below */ }
@@ -8901,11 +8912,29 @@ function structuredOfNode(node) {
   const parsed = parseStructuredAgentOutput(node && node.result); return parsed.ok ? parsed.value : null;
 }
 function aggregateAgentVote(dependencies, gate) {
-  const votes = dependencies.map(n => { const v = structuredOfNode(n) || {}; const q = verdictPasses(v, { ...gate, minConfidence: 0 }); return { id: n.id, verdict: q.verdict || 'uncertain', confidence: q.confidence, approve: q.pass }; });
-  const approvals = votes.filter(v => v.approve).length; const rejections = votes.filter(v => ['fail', 'failed', 'reject', 'rejected', 'no'].includes(v.verdict)).length;
-  const decided = approvals + rejections; const score = decided ? approvals / decided : 0; const confidence = votes.length ? votes.reduce((a, v) => a + v.confidence, 0) / votes.length : 0;
-  const pass = approvals >= gate.minApprovals && score >= gate.threshold && confidence >= gate.minConfidence;
-  return { verdict: pass ? 'pass' : 'fail', confidence, summary: `${approvals}/${votes.length} 票赞成，得分 ${score.toFixed(2)}`, score, approvals, rejections, votes };
+  const positive = new Set(['pass', 'passed', 'approve', 'approved', 'accept', 'accepted', 'verified', 'yes']);
+  const negative = new Set(['fail', 'failed', 'reject', 'rejected', 'no']);
+  const abstain = new Set(['uncertain', 'abstain', 'unknown']);
+  const votes = dependencies.map(n => {
+    const v = structuredOfNode(n);
+    const verdict = String(v && v.verdict || '').toLowerCase();
+    const rawConfidence = v && v.confidence;
+    const confidence = Number(rawConfidence);
+    const verdictValid = positive.has(verdict) || negative.has(verdict) || abstain.has(verdict);
+    const confidenceValid = typeof rawConfidence === 'number' && Number.isFinite(confidence) && confidence >= 0 && confidence <= 1;
+    const valid = verdictValid && confidenceValid;
+    return { id: n.id, verdict: verdict || 'missing', confidence: confidenceValid ? confidence : null, approve: valid && positive.has(verdict), reject: valid && negative.has(verdict), valid, reason: !verdictValid ? 'missing_or_invalid_verdict' : (!confidenceValid ? 'missing_or_invalid_confidence' : '') };
+  });
+  const approvals = votes.filter(v => v.approve).length; const rejections = votes.filter(v => v.reject).length;
+  const invalidVotes = votes.filter(v => !v.valid).map(v => ({ id: v.id, reason: v.reason }));
+  const validVotes = votes.filter(v => v.valid);
+  const decided = approvals + rejections; const score = decided ? approvals / decided : 0; const confidence = validVotes.length ? validVotes.reduce((a, v) => a + v.confidence, 0) / validVotes.length : 0;
+  const contractValid = invalidVotes.length === 0 && dependencies.length >= gate.minApprovals;
+  const pass = contractValid && approvals >= gate.minApprovals && score >= gate.threshold && confidence >= gate.minConfidence;
+  const summary = !contractValid
+    ? `投票输入契约无效: ${invalidVotes.length ? invalidVotes.map(v => v.id).join(', ') + ' 缺少有效 verdict/confidence' : `仅 ${dependencies.length} 个投票节点，少于 minApprovals=${gate.minApprovals}`}`
+    : `${approvals}/${votes.length} 票赞成，得分 ${score.toFixed(2)}`;
+  return { verdict: contractValid ? (pass ? 'pass' : 'fail') : 'invalid', confidence, summary, score, approvals, rejections, contractValid, invalidVotes, votes };
 }
 function dedupeAgentFindings(dependencies) {
   const map = new Map();
@@ -9019,7 +9048,7 @@ function normalizeWorkflowLoop(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const maxIterations = Math.max(1, Math.min(20, Math.round(Number(raw.maxIterations) || 1)));
   if (maxIterations <= 1 && !raw.until && !raw.noProgressLimit) return null;
-  return { maxIterations, until: normalizeWorkflowCondition(raw.until), noProgressLimit: Math.max(1, Math.min(10, Math.round(Number(raw.noProgressLimit) || 2))), onNoProgress: raw.onNoProgress === 'fail' ? 'fail' : 'continue' };
+  return { maxIterations, until: normalizeWorkflowCondition(raw.until), progressPath: String(raw.progressPath || '').trim().slice(0, 200), noProgressLimit: Math.max(1, Math.min(10, Math.round(Number(raw.noProgressLimit) || 2))), onNoProgress: raw.onNoProgress === 'fail' ? 'fail' : 'continue' };
 }
 // 第28e波(§28e):wait_for 等待原语规格。node.wait 为 truthy 即 wait_for 节点(与 node.gate 平行)。仿 normalizeAgentGate/
 // normalizeWorkflowLoop 全字段 clamp。各 mode 参数在 poll 时才真正解析/过护栏(file→guardWorkspacePath、url→ssrfCheck),
@@ -9106,8 +9135,10 @@ function normalizeAgentWorkflow(raw, opts = {}) {
       resources: (Array.isArray(item.resources) ? item.resources : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 32),
       isolation: (item.isolation === 'worktree' && !wait) ? 'worktree' : 'none', outputSchema: sanitizeAgentOutputSchema(item.outputSchema), // 第28e波:wait 节点与 worktree 互斥,静默降级 none(避免模板可存却启动被拒)
       gate: normalizeAgentGate(item.gate, String(item.role || '').trim().toLowerCase()), failurePolicy: ['block', 'continue', 'retry'].includes(item.failurePolicy) ? item.failurePolicy : 'block',
+      dependencyPolicy: item.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success',
       degradedPolicy: ['accept', 'retry', 'request_review', 'fail'].includes(item.degradedPolicy) ? item.degradedPolicy : 'accept', // 第28波 §28d
       maxRetries: Math.max(0, Math.min(5, Math.round(Number(item.maxRetries) || 0))), retryFallback: item.retryFallback === 'continue' ? 'continue' : 'block',
+      minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(item.minSuccessfulToolCalls) || 0))),
       condition: normalizeWorkflowCondition(item.condition), loop: normalizeWorkflowLoop(item.loop), position: pos,
     });
   }
@@ -9198,9 +9229,29 @@ function evaluateWorkflowCondition(condition, nodes, currentNode) {
     default: return !!value;
   }
 }
-function workflowProgressFingerprint(node) {
-  const value = node && node.structuredResult != null ? node.structuredResult : String(node && node.result || '').replace(/\s+/g, ' ').trim();
-  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function canonicalWorkflowValue(value, depth = 0) {
+  if (depth > 24 || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(v => canonicalWorkflowValue(v, depth + 1));
+  const out = {};
+  for (const key of Object.keys(value).sort()) out[key] = canonicalWorkflowValue(value[key], depth + 1);
+  return out;
+}
+function workflowProgressFingerprint(node, progressPath = '') {
+  const structured = structuredOfNode(node);
+  let value;
+  if (progressPath) {
+    value = workflowValueAt(structured, progressPath);
+    if (value === undefined) value = { $missingProgressPath: progressPath };
+  } else if (structured !== null) value = structured;
+  else value = String(node && node.result || '').replace(/\s+/g, ' ').trim();
+  return crypto.createHash('sha256').update(JSON.stringify(canonicalWorkflowValue(value))).digest('hex');
+}
+function evaluateNodeToolEvidence(node) {
+  const required = Math.max(0, Math.min(20, Math.round(Number(node && node.minSuccessfulToolCalls) || 0)));
+  const continuation = node && node.continuation;
+  const steps = continuation && continuation.attemptId === node.attempts && Array.isArray(continuation.steps) ? continuation.steps : [];
+  const successful = steps.filter(s => s && s.ok === true && s.tool && s.tool !== '?');
+  return { ok: successful.length >= required, required, successful: successful.length, tools: successful.map(s => s.tool).slice(0, 20) };
 }
 // 第28波(§28b 节点输出四分 + §28c 预算化上下文)——────────────────────────────────────────────────────
 const NODE_SUMMARY_MAX = 2000; // 精简结论字符上限(下游默认消费的是它,不是整段 rawTranscript)
@@ -9382,7 +9433,7 @@ function materializePoolItem(run, item, opts = {}) {
       id: item.id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null,
       dependsOn, resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label),
       isolationMode: 'none', toolTier, engine, model: poolModel,
-      maxIters, outputSchema: null, gate: null, failurePolicy: 'continue', degradedPolicy: 'accept', maxRetries: 0, retryFallback: 'block',
+      maxIters, outputSchema: null, gate: null, failurePolicy: 'continue', dependencyPolicy: 'all_success', degradedPolicy: 'accept', maxRetries: 0, retryFallback: 'block', minSuccessfulToolCalls: 0,
       condition: null, loop: null, position: null, status: 'queued', attempts: 0, loopIteration: 0,
       noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [],
       confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [],
@@ -9416,7 +9467,8 @@ function computeSchedulerStep(nodes, opts) {
     const deps = (node.dependsOn || []).map(byId).filter(Boolean);
     if (deps.length !== (node.dependsOn || []).length || !deps.every(term)) continue; // 依赖未全终态 → 本步不动
     // B8: rejected/skipped 前序不算失败;continue 型失败(failureContinues)也不阻塞。
-    const blockers = deps.filter(d => term(d) && d.status !== 'succeeded' && d.status !== 'skipped' && d.status !== 'rejected' && !failureContinues(d));
+    const tolerateFailedDependencies = node.dependencyPolicy === 'all_settled';
+    const blockers = tolerateFailedDependencies ? [] : deps.filter(d => term(d) && d.status !== 'succeeded' && d.status !== 'skipped' && d.status !== 'rejected' && !failureContinues(d));
     if (blockers.length) { toBlock.push({ id: node.id, blockers: blockers.map(b => b.id) }); blockedIds.add(node.id); continue; }
     if (node.condition && evalCondition && !evalCondition(node.condition, nodes, node)) { toSkip.push({ id: node.id }); skippedIds.add(node.id); }
   }
@@ -9433,9 +9485,10 @@ function computeSchedulerStep(nodes, opts) {
   }
   const allTerminal = nodes.every(term);
   const anyWaiting = nodes.some(n => n && n.status === 'waiting'); // 第28e波:有等待条件的节点在飞外持续轮转
-  // 铁律①(第28e波修正):本步零派发【且】零武装【且】在飞空【且】无等待节点【且】未全终态 → 才是真依赖环/无法解锁。
-  // 有 waiting 或 toArm 时循环仍会推进(poll/arm),绝不能误判为环把整批 failed。
-  const cycleDead = toDispatch.length === 0 && toArm.length === 0 && inFlight.size === 0 && !anyWaiting && !allTerminal;
+  // 本轮 block/skip 本身也是调度进展。尤其在线性失败链 a→b→c 中，第一轮只会把 b 标 blocked；必须再跑
+  // 一轮才能让 c 看见 b 的终态。旧逻辑会在同一轮把 c 误报成 dependency_cycle。
+  const stateTransitions = toBlock.length + toSkip.length;
+  const cycleDead = stateTransitions === 0 && toDispatch.length === 0 && toArm.length === 0 && inFlight.size === 0 && !anyWaiting && !allTerminal;
   return { toBlock, toSkip, toDispatch, toArm, allTerminal, cycleDead };
 }
 
@@ -9511,10 +9564,12 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       n.outputSchema = sanitizeAgentOutputSchema(n.outputSchema);
       n.gate = normalizeAgentGate(n.gate, n.roleId);
       n.failurePolicy = ['block', 'continue', 'retry'].includes(n.failurePolicy) ? n.failurePolicy : 'block';
+      n.dependencyPolicy = n.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success';
       n.degradedPolicy = ['accept', 'retry', 'request_review', 'fail'].includes(n.degradedPolicy) ? n.degradedPolicy : 'accept'; // 第28波 §28d:老 run JSON 回填 accept(零回归)
       n.wait = normalizeWaitSpec(n.wait); // 第28e波:重跑再校验 wait 规格(reset 集里的 waiting 节点会经上面 status!=='succeeded' 回 queued 重新 arm)
       n.maxRetries = Math.max(0, Math.min(5, Math.round(Number(n.maxRetries) || 0)));
       n.retryFallback = n.retryFallback === 'continue' ? 'continue' : 'block';
+      n.minSuccessfulToolCalls = Math.max(0, Math.min(20, Math.round(Number(n.minSuccessfulToolCalls) || 0)));
       n.condition = normalizeWorkflowCondition(n.condition); n.loop = normalizeWorkflowLoop(n.loop);
       // v1.4.4: backfill engine on runs persisted before the Claude-native DAG path existed.
       if (n.engine !== 'claude' && n.engine !== 'openai') n.engine = 'openai';
@@ -9527,7 +9582,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // 陈旧 degraded/warning/summary 会让重跑后被 skip 的依赖在下游标题误标「· 降级」并外泄旧摘要。
       // 注意:【绝不】在此清 continuation/interruptedAttempt —— 崩溃恢复的 interrupted 节点也进 reset(8442),
       // 而 25.4 断点续跑注入正靠这两字段(runNode 8704 读),清了会关掉「断点续跑」(autonomy-durability 回归)。
-      n.degradedRetried = false; delete n.degraded; delete n.warning; n.summary = ''; n.evidence = []; n.artifacts = [];
+      n.degradedRetried = false; delete n.degraded; delete n.warning; delete n.toolEvidence; delete n.gateResult; n.summary = ''; n.evidence = []; n.artifacts = [];
       delete n.errorClass; // 29c: 失败类别随重跑清场(与 error 同生命周期),重跑成功不残留旧分类
     }
     run.status = 'running'; run.completedAt = null; run.resumedAt = nowIso();
@@ -9579,7 +9634,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
       const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, config, provider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, config, provider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -9898,7 +9953,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const qualityInstruction = node.gate && !['vote', 'dedupe'].includes(node.gate.mode)
         ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。`
         : '';
-      const schemaInstruction = effectiveSchema ? `\n\n输出必须是严格 JSON（不要 Markdown 代码围栏），并满足此 JSON Schema：\n${JSON.stringify(effectiveSchema)}\n\n最终回答必须是单个 JSON 对象本身：不要 markdown 标题、不要表格、不要代码围栏、不要任何 JSON 之外的文字；审查分析请写进 JSON 的 summary/findings 字段；字符串值内部的双引号必须写成 \\"。` : '';
+      const reliabilityInstruction = `\n\n【可靠性约束】可由工具核验的事实必须先实际调用工具再下结论。不得在未尝试工具时声称“工具不可用”或输出 TOOL-UNAVAILABLE；工具失败时应写明实际调用的工具和错误，不得猜测事实。`;
+      const toolEvidenceInstruction = node.minSuccessfulToolCalls > 0
+        ? `\n本节点要求至少 ${node.minSuccessfulToolCalls} 次成功工具调用作为执行证据；没有达到时，即使文字答案看似正确，系统也会判定节点失败。`
+        : '';
+      const schemaInstruction = effectiveSchema ? `\n\n输出必须是严格 JSON（不要 Markdown 代码围栏），并满足此 JSON Schema：\n${JSON.stringify(effectiveSchema)}\n\n最终回答必须是单个 JSON 值本身：不要 markdown 标题、不要表格、不要代码围栏、不要任何 JSON 之外的文字；对象型审查分析请写进 JSON 的 summary/findings 字段；字符串值内部的双引号必须写成 \\"。` : '';
       const iterationText = node.loopIteration > 0 && node.result ? `\n\n这是第 ${node.loopIteration + 1} 次循环。上一轮结果如下，请在此基础上取得可验证进展：\n${String(node.result).slice(0, 12000)}` : '';
       // 25.4: 中断续跑注入 —— 仅当续点属于【被中断的那次 attempt】(markInterruptedAgentRuns 记 interruptedAttempt;
       // retry/loop 的常规重排不带此字段,不注入,它们不该有"上次已完成勿重复"语义)。已完成步骤的副作用声明勿重复;
@@ -9916,7 +9975,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // launch-time context string (from the quick-run prompt, or from the model's own orchestrate_agents
       // call) gives every node the same concrete subject to work from, without having to rewrite the DAG.
       const contextPrefix = contextText ? `任务背景（本次运行时提供）：\n${String(contextText).slice(0, 4000)}\n\n` : '';
-      const effectiveTask = contextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + qualityInstruction + schemaInstruction;
+      const effectiveTask = contextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + toolEvidenceInstruction + qualityInstruction + schemaInstruction;
       let agentSession = parentSession;
       let isolated = false;
       let effectiveResources = node.resources;
@@ -9924,13 +9983,17 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         // vote/dedupe are deterministic quality nodes: no extra model call, making their decision
         // reproducible and preventing a summarizer from changing the actual vote arithmetic.
         if (node.gate && node.gate.mode === 'vote') {
-          node.structuredResult = aggregateAgentVote(depNodes, node.gate);
+          node.gateInputIds = depNodes.map(n => n.id);
+          node.gateResult = aggregateAgentVote(depNodes, node.gate);
+          node.structuredResult = node.gateResult;
           node.result = JSON.stringify(node.structuredResult);
           node.confidence = node.structuredResult.confidence;
-          node.status = node.structuredResult.verdict === 'pass' ? 'succeeded' : 'rejected';
+          node.status = !node.structuredResult.contractValid ? 'failed' : (node.structuredResult.verdict === 'pass' ? 'succeeded' : 'rejected');
           node.gateVerdict = node.structuredResult.verdict;
-          node.error = node.status === 'rejected' ? `投票质量门未通过: ${node.structuredResult.summary}` : '';
-          if (node.status === 'rejected') node.errorClass = 'gate_rejected'; else delete node.errorClass; // 29c 对抗轮 P3(#10): 与模型门 rejected(9206)对称,vote 拒也标类别
+          node.error = node.status === 'failed' ? `投票输入契约错误: ${node.structuredResult.summary}` : (node.status === 'rejected' ? `投票质量门未通过: ${node.structuredResult.summary}` : '');
+          if (node.status === 'failed') node.errorClass = 'vote_contract_failed';
+          else if (node.status === 'rejected') node.errorClass = 'gate_rejected';
+          else delete node.errorClass;
         } else if (node.gate && node.gate.mode === 'dedupe') {
           node.structuredResult = dedupeAgentFindings(depNodes);
           node.result = JSON.stringify(node.structuredResult);
@@ -9992,6 +10055,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
               if (!checked.ok) { node.status = 'failed'; node.error = 'JSON Schema 校验失败: ' + checked.errors.join('; ').slice(0, 3500); node.errorClass = 'schema_failed'; }
             }
           }
+          if (node.status === 'succeeded' && node.minSuccessfulToolCalls > 0) {
+            node.toolEvidence = evaluateNodeToolEvidence(node);
+            if (!node.toolEvidence.ok) {
+              node.status = 'failed';
+              node.error = `执行证据不足: 要求至少 ${node.toolEvidence.required} 次成功工具调用，实际 ${node.toolEvidence.successful} 次`;
+              node.errorClass = 'evidence_missing';
+            }
+          }
           if (node.status === 'succeeded' && node.gate) {
             const verdict = verdictPasses(node.structuredResult, node.gate);
             node.confidence = verdict.confidence; node.gateVerdict = verdict.verdict;
@@ -10031,7 +10102,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       }
       if (node.status === 'succeeded' && node.loop) {
         node.loopIteration = (Number(node.loopIteration) || 0) + 1;
-        const fingerprint = workflowProgressFingerprint(node);
+        const fingerprint = workflowProgressFingerprint(node, node.loop.progressPath);
         node.noProgressCount = fingerprint === node.progressFingerprint ? (Number(node.noProgressCount) || 0) + 1 : 0;
         node.progressFingerprint = fingerprint;
         const untilMet = node.loop.until && evaluateWorkflowCondition(node.loop.until, nodes, node);
@@ -10067,7 +10138,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     let dispatched = 0;
     for (const id of step.toDispatch) {
       const node = nodes.find(n => n.id === id); if (!node) continue;
-      node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); startedCount += 1; dispatched += 1;
+      node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); delete node.toolEvidence; startedCount += 1; dispatched += 1;
       appendAgentRunEvent(run, { type: 'node_start', nodeId: node.id, attemptId: node.attempts }); // 25.3
       let flight;
       flight = runNode(node).catch(e => {
@@ -10133,7 +10204,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   } finally { clearInterval(idleWatchdog); if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null; } activeAgentRuns.delete(runId); agentRunSaveFailures.delete(runId); }   // 对抗轮修: 失败计数随 run 生命周期清理(防 Map 泄漏)
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
-    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, gateVerdict: n.gateVerdict || '', error: n.error, dependsOn: n.dependsOn, role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '', jsonRepaired: n.jsonRepaired || false })),
+    results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, gateVerdict: n.gateVerdict || '', gateResult: n.gateResult || null, error: n.error, errorClass: n.errorClass || '', dependsOn: n.dependsOn, dependencyPolicy: n.dependencyPolicy || 'all_success', role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, minSuccessfulToolCalls: n.minSuccessfulToolCalls || 0, toolEvidence: n.toolEvidence || null, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '', jsonRepaired: n.jsonRepaired || false })),
   };
 }
 
@@ -11948,7 +12019,10 @@ function shellStart(args, config) {
 }
 
 // Write input to a session and wait for output to settle. best-effort capture: polls buffer growth and
-// returns when ~300ms passes with no new bytes, or timeoutMs elapses. Long-running tasks won't finish
+// returns when ~300ms passes with no new bytes, or timeoutMs elapses. A newly spawned PowerShell may need
+// more than 600ms before it consumes its first stdin command, so an entirely silent command gets a bounded
+// 2s startup/grace window; returning earlier can leave that command queued and misattribute its output to
+// the next shell_send. Long-running tasks won't finish
 // within one send — track them with shell_poll. output = increment from the pre-send cursor to now.
 async function shellSend(args) {
   const shellId = String(args.shellId || '');
@@ -11969,6 +12043,7 @@ async function shellSend(args) {
   }
   // Settle loop: poll every 60ms; resolve once ~300ms passes with no growth, or on timeout / child exit.
   const deadline = Date.now() + timeoutMs;
+  const sentAt = Date.now();
   let lastLen = shellEndOffset(sess);
   let stableSince = Date.now();
   for (;;) {
@@ -11977,9 +12052,9 @@ async function shellSend(args) {
     if (nowLen !== lastLen) { lastLen = nowLen; stableSince = Date.now(); }
     if (!sess.running) break;
     if (Date.now() - stableSince >= 300 && nowLen > startCursor) break; // grew then went quiet
-    if (Date.now() - stableSince >= 300 && Date.now() - sess.lastUsedAt >= 300 && nowLen === startCursor) {
+    if (nowLen === startCursor && Date.now() - sentAt >= Math.min(2000, timeoutMs)) {
       // No output at all within a settle window (e.g. a command that prints nothing) — don't hang.
-      if (Date.now() - stableSince >= 600) break;
+      break;
     }
     if (Date.now() >= deadline) break;
   }
@@ -16513,7 +16588,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'orchestrate_agents',
-    description: "Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, deterministic voting/deduplication, cross-review, and per-node failure policies (block, degraded continue, retry). Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (available ids + when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) for complex, multi-step tasks that match a listed template (research, codebase audit, debugging, design/选型, doc writing, …); skip it for simple one-shot requests.",
+    description: "Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (available ids + when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) for complex, multi-step tasks that match a listed template; skip it for simple one-shot requests.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -16532,21 +16607,23 @@ const MCP_TOOLS = [
               model: { type: 'string', description: 'optional model id for THIS node, chosen by task difficulty (fast model for simple/bulk nodes, strong model for hard reasoning/synthesis/quality-gates). Pick from the models listed in the system prompt AND matching this node engine; a wrong/unknown id makes the node fail. Omit to use the role/default model.' },
               resources: { type: 'array', items: { type: 'string' }, description: 'exclusive resources required by this node; use read: prefix for shared access' },
               isolation: { type: 'string', enum: ['none', 'worktree'], description: 'worktree runs this node in a detached Git worktree and keeps its commit for explicit user application; never auto-merges' },
-              outputSchema: { type: 'object', description: 'optional JSON Schema for this node final output; invalid JSON/schema fails the node' },
+              outputSchema: { type: 'object', description: 'optional JSON Schema for this node final JSON value (objects, arrays, and primitives supported); invalid JSON/schema fails the node. Fields that may be unavailable must explicitly allow null, for example type:["integer","null"].' },
               gate: {
                 type: 'object', description: 'quality gate; reviewer/verifier roles get one automatically',
                 properties: {
-                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe'] },
+                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe'], description: 'vote/dedupe are deterministic aggregator nodes and do not execute task; vote dependencies must each return explicit verdict+confidence' },
                   threshold: { type: 'number', description: 'vote pass ratio, 0..1' },
                   minApprovals: { type: 'number' },
                 },
               },
               failurePolicy: { type: 'string', enum: ['block', 'continue', 'retry'], description: 'block downstream (default), continue in degraded mode, or retry automatically' },
+              dependencyPolicy: { type: 'string', enum: ['all_success', 'all_settled'], description: 'all_success blocks this node on a failed dependency (default); all_settled runs after every dependency settles and injects failed status/error for tolerant fan-in aggregation' },
               degradedPolicy: { type: 'string', enum: ['accept', 'retry', 'request_review', 'fail'], description: '当节点【降级成功】(产出可用但执行异常)时的处置:accept 照用(默认)/ retry 重跑一次 / request_review 暂停待人工 / fail 判失败(交 failurePolicy 决定下游)' },
               maxRetries: { type: 'number', description: 'additional automatic attempts for retry policy, 0..5' },
               retryFallback: { type: 'string', enum: ['block', 'continue'], description: 'behavior after retries are exhausted' },
+              minSuccessfulToolCalls: { type: 'number', description: '0..20; fail the node unless this attempt records at least this many successful tool calls. Use >=1 for independently checkable factual probes.' },
               condition: { type: 'object', description: 'optional branch condition: {node,path,operator,value}; operators include equals/not_equals/truthy/falsy/contains/comparisons/status_is' },
-              loop: { type: 'object', description: 'bounded loop: {maxIterations,until,noProgressLimit,onNoProgress}; stops automatically after repeated identical results' },
+              loop: { type: 'object', description: 'bounded loop: {maxIterations,until,progressPath,noProgressLimit,onNoProgress}. progressPath selects a stable field from structured output (for example status or remainingCount), so prose/verbosity changes do not fake progress.' },
             },
             required: ['id', 'task'],
           },
@@ -16890,6 +16967,8 @@ module.exports = {
   BUILTIN_AGENT_WORKFLOWS,
   normalizeWorkflowCondition,
   normalizeWorkflowLoop,
+  workflowProgressFingerprint,
+  evaluateNodeToolEvidence,
   normalizeAgentWorkflow,
   getAgentWorkflows,
   saveAgentWorkflow,

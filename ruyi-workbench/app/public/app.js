@@ -3053,11 +3053,14 @@ async function openWorkflowEditor(initialId) {
     const condition=document.createElement('input'); condition.placeholder='如 review.verdict == "fail"'; condition.value=workflowConditionText(node.condition);
     const loopMax=document.createElement('input'); loopMax.type='number'; loopMax.min='1'; loopMax.max='20'; loopMax.value=node.loop?.maxIterations||1;
     const loopUntil=document.createElement('input'); loopUntil.placeholder='可选，如 loop.done == true'; loopUntil.value=workflowConditionText(node.loop?.until);
+    const progressPath=document.createElement('input'); progressPath.placeholder='可选，如 remainingCount 或 status'; progressPath.value=node.loop?.progressPath||'';
     const noProgress=document.createElement('input'); noProgress.type='number'; noProgress.min='1'; noProgress.max='10'; noProgress.value=node.loop?.noProgressLimit||2;
     // ── 质量 ──
     const gate=document.createElement('select'); for(const [v,t] of [['','无（不设质量门）'],['review','review 复核'],['verify','verify 验收'],['vote','vote 投票'],['cross_review','cross_review 交叉审查'],['dedupe','dedupe 去重']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; gate.appendChild(o); } gate.value=(node.gate&&node.gate.mode)||'';
     const failure=document.createElement('select'); for(const [v,t] of [['block','阻塞下游'],['continue','降级继续'],['retry','自动重试']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; failure.appendChild(o); } failure.value=node.failurePolicy||'block';
+    const dependencyPolicy=document.createElement('select'); for(const [v,t] of [['all_success','任一依赖失败则阻塞'],['all_settled','全部结束后仍继续（容错汇总）']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; dependencyPolicy.appendChild(o); } dependencyPolicy.value=node.dependencyPolicy||'all_success';
     const maxRetries=document.createElement('input'); maxRetries.type='number'; maxRetries.min='1'; maxRetries.max='5'; maxRetries.value=node.maxRetries||1;
+    const minToolEvidence=document.createElement('input'); minToolEvidence.type='number'; minToolEvidence.min='0'; minToolEvidence.max='20'; minToolEvidence.value=node.minSuccessfulToolCalls||0;
     // ── 高级 JSON ──
     const adv=el('details','wf-insp-advanced'); adv.appendChild(el('summary','','高级（直接编辑节点 JSON：resources / outputSchema / isolation 等长尾）')); const advTa=document.createElement('textarea'); advTa.className='wf-adv-json'; advTa.rows=8; advTa.spellcheck=false; advTa.value=JSON.stringify(node,null,2); const advApply=el('button','mini','应用 JSON'); advApply.type='button'; adv.append(workflowField('节点完整 JSON',advTa),advApply);
     advApply.onclick=()=>{ let parsed; try{ parsed=JSON.parse(advTa.value); }catch(err){ return toast('JSON 解析失败：'+err.message,'err'); } if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)) return toast('必须是一个 JSON 对象','err'); const nextId=String(parsed.id||'').trim(); if(!/^[A-Za-z0-9_-]+$/.test(nextId)) return toast('JSON 中 id 非法（仅字母/数字/_/-）','err'); if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId)) return toast('JSON 中 id 与其他节点重复','err'); snapshot(); for(const k of Object.keys(node)) delete node[k]; Object.assign(node,parsed); node.id=nextId; if(nextId!==oldId) remapWorkflowNodeRef(oldId,nextId); selectedId=nextId; renderGraph(); renderInspector(); toast('已应用节点 JSON','ok'); };
@@ -3067,8 +3070,8 @@ async function openWorkflowEditor(initialId) {
     inspector.append(
       group('身份', workflowField('节点 ID',nid), workflowField('任务',task), workflowField('角色',role)),
       group('执行', workflowField('执行引擎',engine), modelField, workflowField('迭代预算 maxIters（空=默认）',maxIters), workflowField('工具权限 toolTier',toolTier)),
-      group('编排', workflowField('依赖节点（多选）',deps), el('div','workflow-help','依赖表示箭头方向：被选节点 → 当前节点。也可点“连接箭头”，或从节点右侧圆点手柄拖到目标节点。'), workflowField('运行条件',condition), workflowField('最大循环次数',loopMax), workflowField('循环停止条件',loopUntil), workflowField('连续无进展停止',noProgress)),
-      group('质量', workflowField('质量门 gate',gate), workflowField('失败策略',failure), workflowField('自动重试次数（失败策略=自动重试 时生效）',maxRetries)),
+      group('编排', workflowField('依赖节点（多选）',deps), el('div','workflow-help','依赖表示箭头方向：被选节点 → 当前节点。也可点“连接箭头”，或从节点右侧圆点手柄拖到目标节点。'), workflowField('依赖失败处理',dependencyPolicy), workflowField('运行条件',condition), workflowField('最大循环次数',loopMax), workflowField('循环停止条件',loopUntil), workflowField('语义进度字段',progressPath), el('div','workflow-help','循环输出为 JSON 时，填写稳定字段路径；这样措辞变化不会被误判为有进展。'), workflowField('连续无进展停止',noProgress)),
+      group('质量', workflowField('质量门 gate',gate), el('div','workflow-help','vote / dedupe 是确定性汇总节点，不执行任务正文。vote 的每个依赖都必须明确输出 verdict 和 confidence。'), workflowField('失败策略',failure), workflowField('成功工具调用证据（0=不要求）',minToolEvidence), workflowField('自动重试次数（失败策略=自动重试 时生效）',maxRetries)),
       adv
     );
     const apply=el('button','primary wf-apply','✓ 应用节点设置');
@@ -3088,10 +3091,12 @@ async function openWorkflowEditor(initialId) {
       // All parsed OK — snapshot then commit.
       snapshot();
       if(nextCondition?.node&&nextCondition.node!==nextId&&!nextDependsOn.includes(nextCondition.node)) nextDependsOn.push(nextCondition.node);
-      const nextLoop=lm>1?{maxIterations:lm,until:nextUntil,noProgressLimit:Math.max(1,Number(noProgress.value)||2),onNoProgress:'continue'}:null;
+      const nextLoop=lm>1?{maxIterations:lm,until:nextUntil,progressPath:progressPath.value.trim(),noProgressLimit:Math.max(1,Number(noProgress.value)||2),onNoProgress:'continue'}:null;
       node.id=nextId; node.task=task.value.trim(); node.role=role.value; node.engine=engine.value;
       node.model = engine.value ? modelVal : '';
       node.dependsOn=nextDependsOn; node.failurePolicy=failure.value;
+      node.dependencyPolicy=dependencyPolicy.value;
+      node.minSuccessfulToolCalls=Math.max(0,Math.min(20,Math.round(Number(minToolEvidence.value)||0)));
       node.maxRetries=failure.value==='retry'?Math.max(1,Math.min(5,Math.round(Number(maxRetries.value)||1))):0;
       node.condition=nextCondition; node.loop=nextLoop;
       node.gate = gate.value ? { ...(node.gate&&typeof node.gate==='object'?node.gate:{}), mode:gate.value } : false;   // 对抗轮 P2: 显式 false=明确无门(null 会被服务端按 reviewer/verifier 角色回填)

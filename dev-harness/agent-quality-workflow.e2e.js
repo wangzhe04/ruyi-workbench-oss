@@ -34,7 +34,7 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
   ];
   const good=JSON.stringify({verdict:'pass',confidence:.9,summary:'verified',findings:[{title:'duplicate issue',file:'x.js',line:4,confidence:.8}]});
   const reviewFail=JSON.stringify({verdict:'fail',confidence:.9,summary:'found real bugs',findings:[{title:'bug',file:'a.js',line:1,confidence:.9}]});
-  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',B8_REVIEW_FAIL:reviewFail}};
+  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail}};
   fs.writeFileSync(path.join(HOME,'config.json'),JSON.stringify({configSchema:7,permissionMode:'bypass',defaultWorkspace:HOME,subagentMaxPerTurn:12,subagentMaxConcurrent:6,providers:[{id:'fake',label:'Fake',type:'openai-compat',baseUrl:`http://127.0.0.1:${FP}`,apiKey:'k',model:'fake-model'}],activeProvider:'fake'}));
   const fake=cp.spawn(process.execPath,[path.join(__dirname,'fake-openai.js')],{env:{...process.env,FAKE_OPENAI_PORT:String(FP),FAKE_SUBAGENT_SCRIPT:JSON.stringify(script)},windowsHide:true});
   const wb=cp.spawn(process.execPath,['app/server.js','serve','--port',String(WP)],{cwd:WB,env:{...process.env,RUYI_HOME:HOME},windowsHide:true});
@@ -66,6 +66,17 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
     const controlBy=id=>control.results.find(n=>n.id===id);
     ok(control.ok===true && controlBy('taken').status==='succeeded' && controlBy('skipped').status==='skipped','conditions take the matching branch and persist the skipped branch');
     ok(controlBy('loop').attempts===3 && controlBy('loop').loopStopReason==='no_progress' && controlBy('loop').status==='succeeded','loop stops after the configured consecutive no-progress limit');
+    const reliability=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'plain',task:'PLAIN_NON_VOTE'},
+      {id:'invalid_vote',task:'DETERMINISTIC_VOTE',dependsOn:['plain'],gate:{mode:'vote',minApprovals:1}},
+      {id:'bad_settled',task:'BAD_SETTLED',outputSchema:{type:'object',required:['ok'],properties:{ok:{type:'boolean'}}}},
+      {id:'tolerant_fan_in',task:'VALID_AFTER_SETTLED',dependsOn:['bad_settled'],dependencyPolicy:'all_settled'},
+      {id:'evidence_probe',task:'VALID_BUT_NO_TOOL',minSuccessfulToolCalls:1},
+    ]});
+    const reliabilityBy=id=>reliability.results.find(n=>n.id===id);
+    ok(reliabilityBy('invalid_vote').status==='failed' && reliabilityBy('invalid_vote').errorClass==='vote_contract_failed' && reliabilityBy('invalid_vote').gateResult.verdict==='invalid','malformed vote inputs fail as a contract error instead of a false rejection');
+    ok(reliabilityBy('bad_settled').status==='failed' && reliabilityBy('tolerant_fan_in').status==='succeeded','all_settled fan-in can consume a failed dependency without global continue policy');
+    ok(reliabilityBy('evidence_probe').status==='failed' && reliabilityBy('evidence_probe').errorClass==='evidence_missing','factual probe can require successful tool-call evidence');
     // ── B8: a quality-gate "no" verdict (rejected) is distinct from an execution failure (failed). A rejected
     //    predecessor must NOT block downstream: a conditional child (run fix only when review verdict=fail)
     //    must FIRE, a pure dependsOn child must treat the gate as completed, and the run must not be reported failed.
