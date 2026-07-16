@@ -122,7 +122,13 @@ if ($IncludeAcc) {
     $oldPythonPath = $env:PYTHONPATH
     try {
       $env:PYTHONPATH = Join-Path $accDst "src"
-      & $accPython -X utf8 -c "from mcp.server.fastmcp import FastMCP; import ai_computer_control.server"
+      # Embedded Python can refresh stale .pyc files during startup, invalidating its own signed payload
+      # before install.py verifies it. -B keeps the release payload immutable, and the manifest probe makes
+      # the packager enforce the exact same integrity gate that a clean target machine runs first.
+      $accInstaller = (Join-Path $accDst "install.py").Replace('\', '\\').Replace("'", "\'")
+      & $accPython -B -X utf8 -c "import runpy; m=runpy.run_path('$accInstaller'); assert m['verify_offline_payload']()"
+      if ($LASTEXITCODE -ne 0) { throw "ACC staged manifest verification failed." }
+      & $accPython -B -X utf8 -c "from mcp.server.fastmcp import FastMCP; import ai_computer_control.server"
       if ($LASTEXITCODE -ne 0) { throw "ACC bundled runtime import verification failed after staging." }
     } finally { $env:PYTHONPATH = $oldPythonPath }
     $sourceArchives = @(Get-ChildItem -LiteralPath (Join-Path $accDst "offline_packages") -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -ne '.whl' })
@@ -144,7 +150,7 @@ if ($IncludeAcc) {
   $accBootstrap = @"
 set "ACC_ROOT=%~dp0mcp\ai-computer-control"
 echo [Ruyi] Ensuring AI Computer Control is installed and registered...
-"%ACC_ROOT%\python_embed\python.exe" -X utf8 "%ACC_ROOT%\install.py" --ensure
+"%ACC_ROOT%\python_embed\python.exe" -B -X utf8 "%ACC_ROOT%\install.py" --ensure
 if errorlevel 1 (
   echo [Ruyi] ACC installation failed. See the error above.
   pause
