@@ -11,6 +11,8 @@ param(
 #   -SkipExeBuild  : skip the pkg exe build; bundle node.exe as a zero-install source runner (offline-native).
 #   -IncludeAcc       : bundle ACC source + a verified, pre-hydrated offline runtime (wheel cache + browser).
 #                       It refuses to create a misleading "full" package when the hydrated payload is absent.
+#                       The checked-in ACC source is overlaid into that runtime and the manifest is
+#                       regenerated, so a code-only ACC fix is deployed by --ensure as well.
 #   -BuildAccOffline  : build that ACC payload now (requires internet on the packaging machine).
 #   -AccOfflineSource : existing ACC build_offline folder; defaults to mcp/ai-computer-control/build_offline.
 #   -Variant       : label for the stage dir and zip name.
@@ -50,6 +52,94 @@ function Remove-LongTree([string]$Target, [string]$AllowedRoot) {
   }
   Remove-Item -LiteralPath $targetFull -Recurse -Force
   Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+function Sync-AccReleaseRuntime([string]$AccSource, [string]$AccDestination, [string]$StageRoot) {
+  # The offline runtime is intentionally cached between Full builds, but its embedded wheel can be
+  # older than the checked-in ACC code.  Ruyi launches the installed embedded runtime, not src/,
+  # so copy the current source into site-packages before creating the release manifest.
+  $sourcePackage = Join-Path $AccSource "src\ai_computer_control"
+  $runtimePackage = Join-Path $AccDestination "python_embed\Lib\site-packages\ai_computer_control"
+  if (-not (Test-Path -LiteralPath $sourcePackage -PathType Container)) {
+    throw "ACC source package is missing: $sourcePackage"
+  }
+  if (-not (Test-Path -LiteralPath (Split-Path -Parent $runtimePackage) -PathType Container)) {
+    throw "ACC embedded runtime is missing its site-packages directory."
+  }
+  if (Test-Path -LiteralPath $runtimePackage) {
+    Remove-LongTree $runtimePackage $StageRoot
+  }
+  Copy-LongTree $sourcePackage $runtimePackage | Out-Null
+  Get-ChildItem -LiteralPath $runtimePackage -Recurse -Force -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -eq '__pycache__' } |
+    Sort-Object FullName -Descending |
+    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
+  Get-ChildItem -LiteralPath $runtimePackage -Recurse -Force -File -Filter *.pyc -ErrorAction SilentlyContinue |
+    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
+
+  # Copy the installer inputs after the cached offline payload, otherwise its older copies win.
+  foreach ($name in @('install.py', 'install.bat', 'mcp_config_template.json')) {
+    $source = Join-Path $AccSource "installer\$name"
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "ACC installer input is missing: $source" }
+    Copy-Item -LiteralPath $source -Destination (Join-Path $AccDestination $name) -Force
+  }
+  $requirements = Join-Path $AccSource 'requirements_offline.txt'
+  if (-not (Test-Path -LiteralPath $requirements -PathType Leaf)) { throw "ACC requirements are missing: $requirements" }
+  Copy-Item -LiteralPath $requirements -Destination (Join-Path $AccDestination 'requirements_offline.txt') -Force
+  return $sourcePackage
+}
+
+function Write-AccReleaseManifest([string]$AccDestination, [string]$SourcePackage) {
+  # Keep the verified cached payload entries, replacing only the runtime code and installer inputs
+  # with their release-stage hashes.  The changed manifest digest makes --ensure upgrade an older
+  # installed runtime instead of merely refreshing its MCP registration.
+  $manifestPath = Join-Path $AccDestination 'offline-manifest.json'
+  if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+    throw "ACC offline manifest is missing: $manifestPath"
+  }
+  $base = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+  $changed = @{}
+  foreach ($name in @('install.py', 'install.bat', 'mcp_config_template.json', 'requirements_offline.txt')) {
+    $changed[$name] = $true
+  }
+  $runtimePrefix = 'python_embed/Lib/site-packages/ai_computer_control/'
+  Get-ChildItem -LiteralPath $SourcePackage -Recurse -Force | Where-Object {
+    -not $_.PSIsContainer -and $_.Extension -ne '.pyc' -and $_.FullName -notmatch '\\__pycache__(\\|$)'
+  } | ForEach-Object {
+    $relative = $_.FullName.Substring($SourcePackage.Length).TrimStart('\').Replace('\', '/')
+    $changed[$runtimePrefix + $relative] = $true
+  }
+
+  $files = New-Object System.Collections.Generic.List[object]
+  foreach ($entry in @($base.files)) {
+    $path = [string]$entry.path
+    $staleBytecode = $path.StartsWith($runtimePrefix, [StringComparison]::Ordinal) -and
+      ($path.Contains('/__pycache__/') -or $path.EndsWith('.pyc', [StringComparison]::OrdinalIgnoreCase))
+    if (-not $changed.ContainsKey($path) -and -not $staleBytecode) {
+      $files.Add([ordered]@{ path = [string]$entry.path; bytes = [int64]$entry.bytes; sha256 = [string]$entry.sha256 })
+    }
+  }
+  foreach ($relative in @($changed.Keys | Sort-Object)) {
+    $full = Join-Path $AccDestination ($relative.Replace('/', '\'))
+    if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { throw "ACC manifest input is missing: $relative" }
+    $item = Get-Item -LiteralPath $full
+    $files.Add([ordered]@{
+      path = $relative
+      bytes = [int64]$item.Length
+      sha256 = (Get-FileHash -LiteralPath $full -Algorithm SHA256).Hash.ToLowerInvariant()
+    })
+  }
+  $sortedFiles = @($files | Sort-Object { [string]$_.path })
+  $manifest = [ordered]@{
+    schema = [int]$base.schema
+    name = [string]$base.name
+    pythonVersion = [string]$base.pythonVersion
+    wheelOnly = $true
+    fileCount = $sortedFiles.Count
+    files = $sortedFiles
+  }
+  $json = $manifest | ConvertTo-Json -Depth 5
+  [System.IO.File]::WriteAllText($manifestPath, $json + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 if (Test-Path $stage) {
@@ -118,6 +208,8 @@ if ($IncludeAcc) {
       ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
     # Chromium contains paths beyond the legacy Win32 260-character limit.
     Copy-LongTree $offlineSrc $accDst
+    $releaseSourcePackage = Sync-AccReleaseRuntime $accSrc $accDst $stage
+    Write-AccReleaseManifest $accDst $releaseSourcePackage
     $accPython = Join-Path $accDst "python_embed\python.exe"
     $oldPythonPath = $env:PYTHONPATH
     try {
