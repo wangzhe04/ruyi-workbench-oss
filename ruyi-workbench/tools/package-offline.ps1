@@ -174,7 +174,22 @@ if exist Ruyi.exe (
 "@
 Set-Content -LiteralPath (Join-Path $stage "Start-Workbench.cmd") -Value $launcher -Encoding ASCII
 
-$zip = Join-Path $dist "Ruyi-$Variant.zip"
+$archiveBase = "Ruyi-$Variant"
+$zip = Join-Path $dist "$archiveBase.zip"
+
+# Explorer's built-in ZIP handler applies its legacy path limit to a virtual/temporary extraction path,
+# not only to the final destination. Keep enough headroom for a normal Downloads folder. Chromium and
+# winsdk contain deep paths, so a verbose release asset name can make Explorer silently skip files even
+# when the final visible path looks shorter than MAX_PATH.
+$explorerDefaultPathBudget = 200
+$longestStagedRelativePath = Get-ChildItem -LiteralPath $stage -Recurse -Force -File |
+  ForEach-Object { $_.FullName.Substring($stage.Length).TrimStart('\').Length } |
+  Measure-Object -Maximum
+$projectedExplorerPath = $archiveBase.Length + 1 + [int]$longestStagedRelativePath.Maximum
+if ($projectedExplorerPath -gt $explorerDefaultPathBudget) {
+  throw "Windows Explorer extraction path budget exceeded ($projectedExplorerPath > $explorerDefaultPathBudget). Use a shorter -Variant (for example 'v1.6.5-full') and tell users not to skip files during extraction."
+}
+
 if (Test-Path $zip) { Remove-Item -LiteralPath $zip -Force }
 $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
 if ($tar) {

@@ -280,6 +280,8 @@ powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1 -SkipExeBui
 ```
 
 产物 `dist\Ruyi-<变体>.zip`(内含 node.exe 源码运行器,目标机**无需安装任何东西**),解压后双击 `Start-Workbench.cmd`。完整包会在首次启动时自动校验、安装并注册 ACC，后续启动走快速检查，开箱即用。也支持 `npx pkg` 打成单体 `Ruyi.exe`,以及增量 overlay 升级包(见 [管理员手册](ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md))。
+
+> **Full ACC 发布包必须使用短文件名**（例如 `Ruyi-v1.6.5-full.zip`），并建议解压到 `C:\Ruyi` 等短路径。Chromium/WinSDK 含深层目录，Windows 默认解压器会把 ZIP 文件名和临时目录也计入旧路径上限；若提示路径过长，不能选择“跳过”，否则 ACC 完整性校验会拒绝启动。打包脚本会对这一安全预算做强制检查。
 </details>
 
 <details>

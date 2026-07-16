@@ -16,6 +16,12 @@ Extract the offline package and run:
 
     powershell -ExecutionPolicy Bypass -File .\resources\scripts\install-workbench.ps1
 
+Keep the Full ACC archive name short (for example, `Ruyi-v1.6.5-full.zip`) and extract it to a short location such
+as `C:\Ruyi`. Chromium and WinSDK contain deep paths, and Windows Explorer counts the archive name and temporary
+directory against its legacy extraction limit. Never choose **Skip** for a long-path warning: the ACC integrity
+check will correctly reject an incomplete extraction. The packaging script enforces a conservative Explorer path
+budget before creating a release archive.
+
 When Claude CLI is not on PATH, add its location with the ClaudePath argument. Start the UI with Ruyi.exe serve
 --open or Start-Workbench.cmd.
 
