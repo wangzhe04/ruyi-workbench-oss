@@ -32,6 +32,7 @@ const HOME = path.join(os.tmpdir(), 'wcw-skills-registry-e2e');   // isolated da
 const CWD = path.join(HOME, 'project');                          // isolated project cwd (holds .ruyi/skills)
 const CAP_DIR = path.join(HOME, 'reqcap');                       // fake-openai request-body capture dir
 const ARGV_CAP = path.join(HOME, 'argv.json');                   // fake-claude argv capture
+const STDIN_CAP = path.join(HOME, 'stdin.txt');                  // fake-claude stdin capture(第35波 P2: 索引注入断言点)
 const USER_APPEND_MARKER = 'USER_APPEND_MARKER_ZZ';
 const PROJECT_DEMO_MARKER = 'PROJECT_DEMO_MARKER';
 const PROJECT_SKILL_BODY = 'PROJECT_DEMO_SKILL_BODY_XYZ';
@@ -106,7 +107,7 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   await startFake({}); // plain fake (no tool sequence) for scenarios (a)(b)(c)(f)
-  const env = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, USERPROFILE: HOME, HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: ARGV_CAP };
+  const env = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, USERPROFILE: HOME, HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: ARGV_CAP, WCW_FAKE_STDIN_CAPTURE: STDIN_CAP };
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env, windowsHide: true });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
@@ -228,36 +229,49 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     ok(rFile && rFile.ok === true && typeof rFile.content === 'string' && rFile.content.includes('HELPER FILE BODY'), '(d) P3-1: skill_read{demo-skill,file:helper.md} → returns that file content (got ' + JSON.stringify(rFile && { ok: rFile.ok, len: (rFile.content || '').length }) + ')');
     ok(rBad && rBad.ok === false, '(d) P3-1: skill_read with an out-of-dir file (../../../secret.txt) → ok:false (path guard)');
 
-    // ---------- (e) Claude engine: append-system-prompt carries user append + skill index, ≤8000 ----------
+    // ---------- (e) Claude engine: 用户 append 走 flag;技能索引改走 stdin <workbench-context>(第35波 P2) ----------
     await stopFake();
     writeConfig(''); // switch engine to Claude CLI (activeProvider empty)
     await sleep(200);
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }
+    try { fs.rmSync(STDIN_CAP, { force: true }); } catch { /* ignore */ }
     await postStream(WB_PORT, { sessionId: S1.id, message: 'hello claude with skills', cwd: CWD });
     let argv = [];
     for (let i = 0; i < 20 && !fs.existsSync(ARGV_CAP); i++) await sleep(100);
     try { argv = JSON.parse(fs.readFileSync(ARGV_CAP, 'utf8')); } catch { /* left empty */ }
+    let stdinTxt = '';
+    for (let i = 0; i < 20 && !fs.existsSync(STDIN_CAP); i++) await sleep(100);
+    try { stdinTxt = fs.readFileSync(STDIN_CAP, 'utf8'); } catch { /* left empty */ }
     const ai = argv.indexOf('--append-system-prompt');
     const appendVal = ai >= 0 ? String(argv[ai + 1] || '') : '';
     ok(ai >= 0, '(e) Claude spawn carries --append-system-prompt (argv len ' + argv.length + ')');
     ok(appendVal.includes(USER_APPEND_MARKER), '(e) append value keeps the user config.appendSystemPrompt marker');
-    ok(/已启用的技能/.test(appendVal) && appendVal.includes('demo-skill'), '(e) append value also carries the skill index (demo-skill)');
+    ok(!/<skill-index>/.test(appendVal), '(e) 技能索引不再走 --append-system-prompt(P2 改道 stdin,命令行只留政策/用户段)');
+    ok(/<workbench-context>/.test(stdinTxt) && /已启用的技能/.test(stdinTxt) && stdinTxt.includes('demo-skill'), '(e) 技能索引经 stdin <workbench-context> 注入(含 demo-skill)');
+    ok(stdinTxt.includes('<current_user_message>') && stdinTxt.includes('hello claude with skills'), '(e) stdin 同时保留 <current_user_message> 用户消息定界');
     ok(appendVal.length <= 8000, '(e) combined append length ≤ 8000 (got ' + appendVal.length + ')');
 
-    // ---------- (e2) P3-8: a ~7900-char user append leaves ~no room → skill section dropped/truncated, marker kept, ≤8000 ----------
+    // ---------- (e2) P2 语义: ~7900 字符用户 append 不再挤掉技能索引(索引在 stdin 信道);同会话同内容 → 去重不重注 ----------
     const longAppend = 'Q'.repeat(3950) + USER_APPEND_MARKER + 'Q'.repeat(3950); // ~7921 chars (config clamps to 8000)
     writeConfig('', longAppend); // still Claude engine, but with a near-max user append
     await sleep(200);
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }
+    try { fs.rmSync(STDIN_CAP, { force: true }); } catch { /* ignore */ }
     await postStream(WB_PORT, { sessionId: S1.id, message: 'hello claude long append', cwd: CWD });
     let argv2 = [];
     for (let i = 0; i < 20 && !fs.existsSync(ARGV_CAP); i++) await sleep(100);
     try { argv2 = JSON.parse(fs.readFileSync(ARGV_CAP, 'utf8')); } catch { /* left empty */ }
+    let stdinTxt2 = '';
+    for (let i = 0; i < 20 && !fs.existsSync(STDIN_CAP); i++) await sleep(100);
+    try { stdinTxt2 = fs.readFileSync(STDIN_CAP, 'utf8'); } catch { /* left empty */ }
     const ai2 = argv2.indexOf('--append-system-prompt');
     const appendVal2 = ai2 >= 0 ? String(argv2[ai2 + 1] || '') : '';
     ok(appendVal2.includes(USER_APPEND_MARKER), '(e2) long append keeps the user marker');
     ok(appendVal2.length <= 8000, '(e2) long append total still ≤ 8000 (got ' + appendVal2.length + ')');
-    ok(!/<\/skill-index>/.test(appendVal2), '(e2) long append leaves ~no room → skill index dropped/truncated (no closing <skill-index> fence)');
+    ok(!/<skill-index>/.test(appendVal2), '(e2) 技能索引本就不在 append(P2 前: 此时会被挤出丢失;P2 后: 信道分离不再牺牲)');
+    // 同会话、索引内容未变 → hash 去重:本轮不重注(fake SID 随机 → init 暴露「resume 丢失」会清 hash,下轮自愈重注;
+    // 此处只断言本轮 stdin 无注入块即可,两种时序下都成立:去重跳过 或 本轮注入下轮清)。
+    ok(!/<workbench-context>/.test(stdinTxt2) || /已启用的技能/.test(stdinTxt2), '(e2) stdin 要么去重跳过、要么完整重注(绝不半截)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     await stopFake();

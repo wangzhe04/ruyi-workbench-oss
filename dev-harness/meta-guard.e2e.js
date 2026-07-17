@@ -94,14 +94,16 @@ const src = fs.readFileSync(SERVER, 'utf8');
     ok(/deep-research|codebase-audit|debug-root-cause/.test(fnM[0]), 'E 提示含意图→模板映射示例');
     ok(/不要】套模板|不要套模板/.test(fnM[0]), 'E 提示含"简单任务别套模板"护栏(防过度编排)');
   }
-  // 调用点对称:Provider(runOpenAiTurn)与 Claude(runClaudeTurn 的 --append-system-prompt)都要调 buildOrchestrateHint。
+  // 调用点对称:Provider(runOpenAiTurn)与 Claude(runClaudeTurn)都要调 buildOrchestrateHint。
+  // 第35波 P2: Claude 侧编排提示从 --append-system-prompt 改走 stdin 索引注入(indexSecs → <workbench-context>),
+  // 信道变了但「受 subagentMaxPerTurn 门控 + 与 Provider 同源」的对称契约不变。
   const calls = (src.match(/buildOrchestrateHint\(/g) || []).length;
   ok(calls >= 3, 'E buildOrchestrateHint 被定义 + 两引擎各一次调用(≥3 处,实 ' + calls + ')');
   const claudeStart = src.indexOf('async function runClaudeTurn(');
   const claudeEnd = src.indexOf('async function runOpenAiTurn(');
   const claudeRegion = claudeStart >= 0 && claudeEnd > claudeStart ? src.slice(claudeStart, claudeEnd) : '';
   ok(/buildOrchestrateHint\(/.test(claudeRegion), 'E Claude 引擎(runClaudeTurn)注入模板提示 ← 修两引擎不对称的关键');
-  ok(/append-system-prompt/.test(claudeRegion) && /subagentMaxPerTurn/.test(claudeRegion), 'E Claude 侧提示走 --append-system-prompt 且受 subagentMaxPerTurn 开关门控');
+  ok(/indexSecs\.push\(oh\)/.test(claudeRegion) && /subagentMaxPerTurn/.test(claudeRegion), 'E Claude 侧编排提示走 stdin 索引注入(indexSecs,第35波 P2)且受 subagentMaxPerTurn 开关门控');
   const openaiRegion = claudeEnd >= 0 ? src.slice(claudeEnd, claudeEnd + 40000) : '';
   ok(/buildOrchestrateHint\(/.test(openaiRegion), 'E Provider 引擎(runOpenAiTurn)也注入模板提示(对称)');
 }

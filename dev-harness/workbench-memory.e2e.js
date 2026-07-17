@@ -30,6 +30,7 @@ const OUTSIDE = path.join(os.tmpdir(), 'wcw-memory-outside'); // NOT under HOME 
 const MEMORY_ROOT = path.join(HOME, 'memory');
 const CAP_DIR = path.join(HOME, 'reqcap');
 const ARGV_CAP = path.join(HOME, 'argv.json');
+const STDIN_CAP = path.join(HOME, 'stdin.txt'); // fake-claude stdin capture(第35波 P2: 索引注入断言点)
 
 const MARKER_A = 'PROJECT_A_MEMORY_MARKER';
 const MARKER_B = 'PROJECT_B_MEMORY_MARKER';
@@ -110,7 +111,7 @@ async function saveMem(id, scope, name, description, body, cwd) {
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   await startFake({});
-  const env = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, USERPROFILE: HOME, HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: ARGV_CAP };
+  const env = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, USERPROFILE: HOME, HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: ARGV_CAP, WCW_FAKE_STDIN_CAPTURE: STDIN_CAP };
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env, windowsHide: true });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
@@ -265,43 +266,51 @@ async function saveMem(id, scope, name, description, body, cwd) {
     const regOutside = await getJson(WB_PORT, '/api/memory?cwd=' + encodeURIComponent(OUTSIDE), tokenHeaders());
     ok(regOutside && regOutside.ok && regOutside.projectKey === regA.projectKey, 'extra: cwd outside allowed roots → silently falls back to defaultWorkspace (projectKey == A)');
 
-    // ---------- (2b) Claude engine injection + --add-dir + (extra) 3-section priority ----------
+    // ---------- (2b) Claude engine injection + --add-dir + (extra) 索引段顺序 ----------
     // enable a skill on a fresh A session, keep the default project memory enabled → user append + skill + memory
+    // 第35波 P2: 技能/记忆索引改走 stdin <workbench-context>(内容 hash 去重);--append-system-prompt 只留 用户append+政策尾。
     const S_claude = await mkSession(PROJ_A);
     await postJson(WB_PORT, '/api/session/skills', { sessionId: S_claude.id, skills: ['demo-mem-skill'] });
     writeConfig('', USER_APPEND_MARKER); // switch to Claude engine (activeProvider empty), small user append
     await sleep(200);
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }
+    try { fs.rmSync(STDIN_CAP, { force: true }); } catch { /* ignore */ }
     await postStream(WB_PORT, { sessionId: S_claude.id, message: 'hello claude with memory', cwd: PROJ_A });
     let argv = []; for (let i = 0; i < 25 && !fs.existsSync(ARGV_CAP); i++) await sleep(100);
     try { argv = JSON.parse(fs.readFileSync(ARGV_CAP, 'utf8')); } catch { /* empty */ }
+    let stdinTxt = ''; for (let i = 0; i < 25 && !fs.existsSync(STDIN_CAP); i++) await sleep(100);
+    try { stdinTxt = fs.readFileSync(STDIN_CAP, 'utf8'); } catch { /* empty */ }
     const ai = argv.indexOf('--append-system-prompt');
     const appendVal = ai >= 0 ? String(argv[ai + 1] || '') : '';
-    ok(ai >= 0 && /<workbench-memory>/.test(appendVal), '(2b) Claude --append-system-prompt carries the <workbench-memory> index');
-    ok(appendVal.includes(aConv.file) && /用 Read 工具/.test(appendVal), '(2b) Claude memory index gives the file path + tells the model to use Read');
+    ok(ai >= 0 && appendVal.includes(USER_APPEND_MARKER), '(2b) Claude --append-system-prompt 保留用户 append(政策信道)');
+    ok(!/<workbench-memory>/.test(appendVal) && !/<skill-index>/.test(appendVal), '(2b) 记忆/技能索引不再走 --append-system-prompt(P2 改道 stdin)');
+    ok(/<workbench-context>/.test(stdinTxt) && /<workbench-memory>/.test(stdinTxt), '(2b) 记忆索引经 stdin <workbench-context> 注入');
+    ok(stdinTxt.includes(aConv.file) && /用 Read 工具/.test(stdinTxt), '(2b) Claude memory index gives the file path + tells the model to use Read');
     ok(appendVal.length <= 8000, '(2b) Claude combined append ≤ 8000 (got ' + appendVal.length + ')');
-    const iUser = appendVal.indexOf(USER_APPEND_MARKER), iSkill = appendVal.indexOf('<skill-index>'), iMem = appendVal.indexOf('<workbench-memory>');
-    ok(iUser >= 0 && iSkill > iUser && iMem > iSkill, 'extra: 3-section priority — user append < skill index < memory index (got ' + iUser + ',' + iSkill + ',' + iMem + ')');
+    const iSkill = stdinTxt.indexOf('<skill-index>'), iMem = stdinTxt.indexOf('<workbench-memory>');
+    ok(iSkill >= 0 && iMem > iSkill, 'extra: stdin 索引段顺序 — skill index < memory index (got ' + iSkill + ',' + iMem + ')');
     // P2-2: --add-dir 最小授权 —— 只加「当前项目组」记忆目录(project 记忆已启用),不再暴露整个记忆根(其它项目组 + meta.json)。
     const addDirIdxs = argv.map((a, i) => a === '--add-dir' ? argv[i + 1] : null).filter(Boolean);
     const PROJ_A_MEM_DIR = path.join(MEMORY_ROOT, 'project', regA.projectKey);
     ok(addDirIdxs.some(d => path.resolve(d) === path.resolve(PROJ_A_MEM_DIR)), 'P2-2: main-round Claude spawn adds --add-dir <当前项目组记忆目录> when project memory enabled');
     ok(!addDirIdxs.some(d => path.resolve(d) === path.resolve(MEMORY_ROOT)), 'P2-2: minimal authorization — the BARE memory root is NOT added (no cross-project/meta exposure)');
 
-    // ---------- (extra) near-max user append → memory section dropped, marker kept, ≤ 8000 ----------
+    // ---------- (extra) near-max user append → 记忆索引不再被挤掉(P2 信道分离),append 只受自身预算约束 ----------
     const longAppend = 'Q'.repeat(3950) + USER_APPEND_MARKER + 'Q'.repeat(3950);
     writeConfig('', longAppend); // still Claude
     await sleep(200);
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }
+    try { fs.rmSync(STDIN_CAP, { force: true }); } catch { /* ignore */ }
     await postStream(WB_PORT, { sessionId: S_claude.id, message: 'hello claude long append', cwd: PROJ_A });
     let argv2 = []; for (let i = 0; i < 25 && !fs.existsSync(ARGV_CAP); i++) await sleep(100);
     try { argv2 = JSON.parse(fs.readFileSync(ARGV_CAP, 'utf8')); } catch { /* empty */ }
     const ai2 = argv2.indexOf('--append-system-prompt');
     const appendVal2 = ai2 >= 0 ? String(argv2[ai2 + 1] || '') : '';
     ok(appendVal2.includes(USER_APPEND_MARKER) && appendVal2.length <= 8000, 'extra: near-max user append keeps user marker + total ≤ 8000 (got ' + appendVal2.length + ')');
-    // P3-4(a): 双向断言 —— 整体丢弃(既无闭合围栏也无开围栏),区分「整体丢弃」与「悬空开围栏」两种失败。
-    ok(!/<\/workbench-memory>/.test(appendVal2), 'P3-4(a): near-max append → NO closing </workbench-memory>');
-    ok(!/<workbench-memory>/.test(appendVal2), 'P3-4(a): near-max append → NO opening <workbench-memory> either (whole section dropped, not a dangling open fence)');
+    // P2 语义(P3-4(a) 的演进): 旧契约是「记忆段 fits-or-drop 被整段挤出 append」;P2 后记忆索引走 stdin,根本不与
+    // 用户 append 竞争预算 —— 双向断言改为「append 里既无开围栏也无闭围栏(信道已分离,而非被截断/丢弃)」。
+    ok(!/<\/workbench-memory>/.test(appendVal2), 'P3-4(a)→P2: near-max append → append 无闭合 </workbench-memory>(索引在 stdin,非被丢弃)');
+    ok(!/<workbench-memory>/.test(appendVal2), 'P3-4(a)→P2: near-max append → append 无开 <workbench-memory>(信道分离,非悬空)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     await stopFake();

@@ -24,7 +24,9 @@ if (process.env.WCW_FAKE_ENV_CAPTURE) {
   } catch { /* ignore */ }
 }
 
-const SID = 'fake-' + Math.random().toString(16).slice(2, 10);
+// WCW_FAKE_SID pins the emitted session id: lets a test emulate --resume fidelity (the real CLI reports the
+// SAME id across resumed turns; the random default emulates a fresh conversation each spawn).
+const SID = process.env.WCW_FAKE_SID || 'fake-' + Math.random().toString(16).slice(2, 10);
 const initEvt = { type: 'system', subtype: 'init', session_id: SID, tools: [], model: 'fake-model' };
 const resultEvt = (text) => ({ type: 'result', subtype: 'success', is_error: false, result: text, session_id: SID,
   duration_ms: 2400, num_turns: 1, total_cost_usd: 0.0123, usage: { input_tokens: 812, output_tokens: 214 } });
@@ -102,6 +104,24 @@ function scenarioFromEnvAndPrompt(prompt) {
   return scenario;
 }
 
+// Keyword scenario selection must look at the USER's actual message ONLY. Workbench wrappers around it
+// (recovery history, the 第35波 <workbench-context> index injection) legitimately contain 'agents'
+// (orchestrate_agents) / 'tools' etc., which would otherwise hijack the scenario (last match wins).
+function extractUserText(raw) {
+  let text = String(raw || '');
+  try {
+    const env = JSON.parse(text); // interactive stream-json envelope
+    const c = env && env.message && env.message.content;
+    if (Array.isArray(c) && c[0] && typeof c[0].text === 'string') text = c[0].text;
+    else if (typeof c === 'string') text = c;
+  } catch { /* legacy plain-text prompt */ }
+  // LAST match wins: wrapper texts may legitimately MENTION the delimiter (the workbench-context intro used
+  // to); the real user-message delimiter is always the final one.
+  const matches = [...text.matchAll(/<current_user_message>\s*([\s\S]*?)\s*<\/current_user_message>/g)];
+  const m = matches.length ? matches[matches.length - 1] : null;
+  return (m ? m[1] : text).toLowerCase();
+}
+
 function loadFixture(pathname) {
   return fs.readFileSync(pathname, 'utf8').split(/\r?\n/).filter(l => l.trim())
     .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
@@ -128,6 +148,15 @@ function makeStdin() {
         setTimeout(() => { if (waiter === resolve) { waiter = null; resolve(''); } }, timeoutMs);
       });
     },
+    // Like next() but resolves null on timeout, so genuinely EMPTY lines ('' — the prompt's blank
+    // separator lines) don't terminate a drain loop early.
+    nextOrNull(timeoutMs = 5000) {
+      if (queue.length) return Promise.resolve(queue.shift());
+      return new Promise(resolve => {
+        waiter = resolve;
+        setTimeout(() => { if (waiter === resolve) { waiter = null; resolve(null); } }, timeoutMs);
+      });
+    },
   };
 }
 
@@ -135,10 +164,20 @@ async function main() {
   const interactive = process.env.WCW_FAKE_INTERACTIVE === '1';
   const stdin = makeStdin();
   const firstLine = await stdin.next(1500); // the user envelope (interactive) or raw prompt (legacy)
-  if (process.env.WCW_FAKE_STDIN_CAPTURE) {
-    try { fs.writeFileSync(process.env.WCW_FAKE_STDIN_CAPTURE, String(firstLine || ''), 'utf8'); } catch {}
+  let fullStdinText = String(firstLine || '');
+  if (process.env.WCW_FAKE_STDIN_CAPTURE || !interactive) {
+    try {
+      if (!interactive) {
+        // Legacy print mode: the workbench writes the WHOLE prompt in one stdin write — possibly multi-line
+        // (recovery history, <workbench-context> index injection, <current_user_message>). Drain it all so
+        // tests can assert on any section AND keyword scenario selection sees the user message (which sits
+        // AFTER the injected wrappers). Interactive keeps the raw envelope line (tests JSON.parse it).
+        for (;;) { const more = await stdin.nextOrNull(150); if (more === null) break; fullStdinText += '\n' + more; }
+      }
+      if (process.env.WCW_FAKE_STDIN_CAPTURE) fs.writeFileSync(process.env.WCW_FAKE_STDIN_CAPTURE, fullStdinText, 'utf8');
+    } catch {}
   }
-  const prompt = String(firstLine || '').toLowerCase();
+  const prompt = extractUserText(interactive ? firstLine : fullStdinText);
   const scenario = scenarioFromEnvAndPrompt(prompt);
 
   if (scenario.endsWith('.jsonl') && fs.existsSync(scenario)) {

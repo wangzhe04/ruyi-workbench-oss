@@ -14,6 +14,7 @@ const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
 const HOME = path.join(os.tmpdir(), 'wcw-cmdline-guard-e2e');
 const CWD = path.join(HOME, 'project');
 const ARGV_CAP = path.join(HOME, 'argv.json');
+const STDIN_CAP = path.join(HOME, 'stdin.txt'); // 第35波 P2: 技能索引改走 stdin,断言点
 const PORT_P = [getFreePort(), getFreePort()]; // CJS 不允许顶层 await(Node 24 拒绝 require+TLA 混用)—— main IIFE 里解
 let PORT_A = 0, PORT_B = 0;
 const MARKER = 'CMDGUARD_MARKER_ZQ';
@@ -61,7 +62,7 @@ function postStream(port, payload) {
 async function startServer(port, extraEnv) {
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(port)], {
     cwd: WB, windowsHide: true,
-    env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, USERPROFILE: HOME, HOME, RUYI_HOME: HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: ARGV_CAP, ...extraEnv },
+    env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, USERPROFILE: HOME, HOME, RUYI_HOME: HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: ARGV_CAP, WCW_FAKE_STDIN_CAPTURE: STDIN_CAP, ...extraEnv },
   });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
@@ -169,6 +170,7 @@ function fenceBalance(text) {
 
     // ============================== (C) 对照层(无测试缝 → 不降级) ==============================
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }
+    try { fs.rmSync(STDIN_CAP, { force: true }); } catch { /* ignore */ }
     const B = await startServer(PORT_B, {});
     wbB = B.wb;
     ok(!!B.h, '(C0) 无缝工作台 listening :' + PORT_B);
@@ -180,7 +182,11 @@ function fenceBalance(text) {
     try { argvC = JSON.parse(fs.readFileSync(ARGV_CAP, 'utf8')); } catch { /* left empty */ }
     const aiC = argvC.indexOf('--append-system-prompt');
     const appendC = aiC >= 0 ? String(argvC[aiC + 1] || '') : '';
-    ok(appendC.startsWith(MARKER) && appendC.includes('</skill-index>') && appendC.endsWith('</response-language-policy>'), '(C1) 预算内:技能段完整注入 + 首尾契约不变');
+    let stdinC = ''; for (let i = 0; i < 20 && !fs.existsSync(STDIN_CAP); i++) await sleep(100);
+    try { stdinC = fs.readFileSync(STDIN_CAP, 'utf8'); } catch { /* left empty */ }
+    // 第35波 P2: 技能索引改走 stdin <workbench-context>;append 首尾契约不变(用户 MARKER 开头、语言政策收尾)。
+    ok(appendC.startsWith(MARKER) && !/<skill-index>/.test(appendC) && appendC.endsWith('</response-language-policy>'), '(C1) 预算内:append 首尾契约不变,技能段不在 append(改道 stdin)');
+    ok(/<workbench-context>/.test(stdinC) && /<\/skill-index>/.test(stdinC) && stdinC.includes('guard-skill-0'), '(C1b) 预算内:技能索引经 stdin 完整注入(闭合围栏 + guard-skill-0)');
     ok(argvC.indexOf('--agents') >= 0, '(C2) 预算内:--agents 角色定义照常注入');
     ok(!evtsC.some(e => e.type === 'stderr' && /启动守卫/.test(e.text || '')), '(C3) 预算内:无守卫降级事件(行为逐字节不变)');
     const metaC = evtsC.find(e => e.type === 'meta');

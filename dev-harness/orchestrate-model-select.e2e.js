@@ -54,9 +54,9 @@ ok(/const poolModel = resolveNodeModel\(item\.model, poolRoleModel \|\| \(propos
 ok(/model: resolveNodeModel\(sargs\.model, roleDefinition && roleDefinition\.models && roleDefinition\.models\.openai, sargs\.toolTier \|\| \(roleDefinition && roleDefinition\.toolTier\) \|\| 'read', 'openai', config, provider\)/.test(src), 'S spawn_agent 用 resolveNodeModel(engine=openai)');
 // propose_task model 通道。
 ok(/model: \{ type: 'string', description: '可选。为新节点按任务难易指定模型/.test(src) && /model: String\(args && args\.model \|\| ''\)\.trim\(\)\.slice\(0, 160\), \/\/ 第30波/.test(src), 'S propose_task model 通道(schema + item)');
-// 两引擎注入 buildModelHint(带 provider)+ Claude 钳拆分。
+// 两引擎注入 buildModelHint(带 provider)+ Claude 侧索引信道(第35波 P2: stdin indexSecs)。
 ok(/sys \+= buildModelHint\(config, provider\);/.test(src), 'S provider 引擎注入 buildModelHint(带 provider)');
-ok(/let oh = buildOrchestrateHint\(wfs\);/.test(src) && /const mh = buildModelHint\(config, activeOpenAiProvider\(config\)\);/.test(src), 'S Claude 引擎:编排提示与模型提示【各自】fits-or-drop(对抗轮 P3:不再连坐丢弃;cmd8191: oh 用 let 以便 % ! 全角中和)');
+ok(/const oh = buildOrchestrateHint\(wfs\);/.test(src) && /if \(oh\) indexSecs\.push\(oh\);/.test(src) && /const mh = buildModelHint\(config, activeOpenAiProvider\(config\)\);/.test(src) && /if \(mh\) indexSecs\.push\(mh\);/.test(src), 'S Claude 引擎:编排提示与模型提示各自独立进 stdin 索引段(第35波 P2:indexSecs 注入,不再连坐丢弃、不走命令行故无需 % ! 中和)');
 // schema 描述改为"填错会失败"(不再宣称"忽略回落")。
 ok(/a wrong\/unknown id makes the node fail/.test(src) && /Omit to use the role\/default model/.test(src), 'S orchestrate model 描述改为引擎匹配+填错失败');
 
