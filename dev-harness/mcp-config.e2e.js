@@ -3,6 +3,7 @@
 // identical to pre-0.7d) when disabled. We drive it via a temp HOME + GET /api/status, and also read
 // the generated config file on disk.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const NODE = process.execPath;

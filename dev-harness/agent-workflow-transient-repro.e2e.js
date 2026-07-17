@@ -1,3 +1,4 @@
+(async () => {
 'use strict';
 /*
  * Repro: a transient provider error (503) on a DAG sub-agent node fails the whole workflow,
@@ -116,3 +117,5 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
   console.log('\nAGENT WORKFLOW TRANSIENT REPRO: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
   process.exitCode = failures ? 1 : 0;
 })().catch(e => { console.error(e.stack || e); process.exitCode = 1; });
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

@@ -1,3 +1,4 @@
+(async () => {
 // E2E for v1.0-S2「信息架构减负」: 顶栏收敛 + 页签分组 + composer 减负 + 新装默认简易模式。
 // 零依赖、离线、node 直跑。静态断言只读 index.html/styles.css/app.js；动态断言起临时 HOME 的 workbench。
 //
@@ -167,3 +168,5 @@ function between(hay, startNeedle, endNeedle) {
   console.log('\nIA E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

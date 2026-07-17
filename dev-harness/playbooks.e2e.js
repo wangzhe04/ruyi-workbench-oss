@@ -1,3 +1,5 @@
+(async () => {
+const { getFreePort } = require('./free-port.js');
 // E2E for v0.9-S2 (C2 / §7.8): Playbooks. Backend-testable slices only; the empty-state card grid + form
 // modal are verified via the preview self-check (see delivery notes), not headless DOM here.
 //
@@ -30,7 +32,7 @@ const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort(), DEAD_PORT 
 // present in THIS checkout — so a fixed "unavailable" live-assertion would be environment-dependent).
 const srv = require(path.join(WB, 'app', 'server.js'));
 
-const { getFreePort } = require('./free-port.js');
+
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
@@ -225,3 +227,5 @@ const DRAFT_JSON = JSON.stringify({
   console.log('\nPLAYBOOKS E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exitCode = fail ? 1 : 0;
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

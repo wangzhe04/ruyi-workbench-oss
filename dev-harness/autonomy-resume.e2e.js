@@ -1,3 +1,4 @@
+(async () => {
 // E2E: 第29波「监控与运营 §29b 自动恢复分级」(AUTONOMY-PLAN §29)。端口 WB 9121(已登记,同端口串行多次 boot)。
 // [P] 纯逻辑源抽取 classifyNodeResumeRisk / classifyRunResumeTier(注入 NODE_WRITE_FAMILY):tier×证据×gate×wait×权限面 穷举。
 // [S] 静态锁:opt-in 默认 false、boot 挂点在标死之后、崩溃环护栏先落盘(fail-closed)、boot 防炸 catch、resume 清分级戳。
@@ -193,3 +194,5 @@ let wb = null;
     console.log('AUTONOMY-RESUME E2E: ALL PASS');
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

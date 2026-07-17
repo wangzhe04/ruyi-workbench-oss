@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v1.0-S7 「性能专项」): windowing + startup非阻塞 + 大会话载入. Offline, zero-dep, self-built fixture.
 // Asserts orders of magnitude (generous budgets to avoid flake), NOT precise values:
 //  ① 400-message fixture → serve up → GET /api/sessions/<id> returns the FULL 400 messages AND server-side
@@ -103,3 +104,5 @@ function buildFixture(sessionsDir) {
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

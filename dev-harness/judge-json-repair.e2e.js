@@ -1,3 +1,4 @@
+(async () => {
 'use strict';
 /*
  * E2E (v1.5 · Judge JSON 修复): 多 Agent 工作流的裁判/质量门(gate cross_review)节点 JSON 解析加固 + provider 兜底修复。
@@ -238,3 +239,5 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 1e-6;
     process.exit(failures ? 1 : 0);
   }
 })().catch(e => { console.error(e.stack || e); process.exit(1); });
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

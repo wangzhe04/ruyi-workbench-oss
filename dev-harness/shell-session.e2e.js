@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S2): persistent shell sessions on the native provider engine. Offline; drives the workbench
 // via the fake OpenAI server (FAKE_TOOL_SEQUENCE) for the in-turn tool loop, then hits the token-gated
 // /api/tools/* HTTP surface directly to prove cross-turn survival (session lives in the serve process)
@@ -128,3 +129,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

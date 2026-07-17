@@ -1,3 +1,4 @@
+(async () => {
 // E2E (E4): provider NEVER sends a usage frame (Ollama's default, some vLLM builds). markUsage was never
 // called, so the turn's `usage` event/message stayed empty and the frontend context meter was blank forever.
 // The fix falls back to a token ESTIMATE from the built request history + system prompt, emitted as a usage
@@ -66,3 +67,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

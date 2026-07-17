@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S4b): conversation REWIND on the provider engine (fake-openai, offline). Covers:
 //  (a) 3 turns: t1 plain chat, t2 = FAKE_TOOL_SEQUENCE file_write NEW b.txt (journaled create), t3 plain
 //      chat. Then POST /api/session/rewind {targetTurnSeq: t2, rollbackFiles:true} → assert:
@@ -150,3 +151,5 @@ function spawnFake(seq) {
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S3): todo_write loopback from the MCP child (Claude-engine path). The one-shot MCP child
 // must NOT write session files (races the serve process). Instead todo_write detects isMcpChild and loops
 // back to POST /api/todo, which persists session.todos in the serve process.
@@ -90,3 +91,5 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

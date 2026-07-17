@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S7): mid-turn STEERING on the provider engine (fake-openai, offline). §4 A3 / §7.3 / §6 0.8-S7.
 // FAKE_STREAM_DELAY_MS=150 + a 2-step FAKE_TOOL_SEQUENCE stretch the turn so we can POST /api/steer WHILE
 // the first tool_use is streaming. Assertions:
@@ -198,3 +199,5 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

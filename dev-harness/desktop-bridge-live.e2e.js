@@ -1,3 +1,4 @@
+(async () => {
 // DECISIVE LIVE E2E: a provider model (fake-openai) calls a REAL ai-computer-control tool through the
 // workbench's native MCP bridge. Proves model -> workbench -> McpStdioClient -> real python desktop MCP
 // child -> real result -> fed back. Uses `diagnostics` (returns version + tool_count from the real server).
@@ -70,3 +71,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

@@ -52,7 +52,6 @@ const BROWSER = { origin: 'http://evil.example', 'sec-fetch-site': 'cross-site',
 
 (async () => {
   const WB_PORT = await getFreePort(), FAKE401_PORT = await getFreePort();
-  const WB_PORT = await getFreePort(), FAKE401_PORT = await getFreePort();
   // ============ PART A — 单元(require server.js,不起服务) ============
   const mod = require(SERVER);
 

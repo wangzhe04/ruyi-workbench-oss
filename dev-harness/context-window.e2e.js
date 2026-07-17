@@ -1,3 +1,5 @@
+(async () => {
+const { getFreePort } = require('./free-port.js');
 // E2E for v1.0.2-S2「上下文窗口三级自适应」. 零依赖、离线、node 直跑。
 // 解析链(优先级从高到低):manual(provider.contextWindow) > probe(/v1/models context_length, 缓存 10min)
 //   > table(模型名子串对照) > fallback(65536)。
@@ -24,7 +26,7 @@ const HERE = __dirname;
 const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const srv = require(path.join(WB, 'app', 'server.js'));
 
-const { getFreePort } = require('./free-port.js');
+
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
@@ -122,3 +124,5 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
     process.exit(fail ? 1 : 0);
   }
 })().catch(e => { console.error(e); process.exit(1); });
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

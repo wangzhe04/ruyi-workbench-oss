@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v1.4.1):变更「查看改动」—— GET /api/checkpoints/diff 端点。造一个文本 modify 检查点(手写 journal
 // index + .gz 快照 + 当前文件)+ 一个二进制 modify(含 NUL 字节),验:
 //   (a) token 门:无 token → 403;
@@ -73,3 +74,5 @@ function getJson(port, p, headers) { return new Promise(resolve => { const r = h
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

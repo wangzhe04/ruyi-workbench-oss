@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v1.4-OSS 用量看板「补」): Agent 工作流子代理(sub-agent)消耗入月度用量账本 usage/YYYY-MM.jsonl。
 // Before this fix only top-level CHAT turns were metered; a DAG workflow / spawn_agent sub-agent's tokens
 // were silently dropped ("漏算"). This drives a real dual-engine 2-node workflow (one openai-provider node +
@@ -238,3 +239,5 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

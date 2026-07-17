@@ -1,3 +1,4 @@
+(async () => {
 // E2E (E5): SSE events whose JSON payload is spread across MULTIPLE `data:` lines within one event. Per the
 // WHATWG SSE spec, consecutive `data:` field lines of one event concatenate (joined by '\n') into a single
 // payload before parsing; intranet proxies / self-hosted gateways sometimes re-frame streams this way. The old
@@ -74,3 +75,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

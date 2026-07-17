@@ -1,3 +1,4 @@
+(async () => {
 // i18n integration E2E: packaged static catalogs and persisted locale configuration over the real HTTP API.
 'use strict';
 const assert = require('assert');
@@ -122,3 +123,5 @@ function kill(child) {
   console.error(error.stack || error);
   process.exit(1);
 });
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

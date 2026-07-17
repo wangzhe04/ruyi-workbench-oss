@@ -1,3 +1,4 @@
+(async () => {
 // E2E (PF2 「性能专项」): session metadata index (sessions/index.json). Offline, zero-dep.
 // Spawns fake-openai + workbench; drives session CRUD over HTTP and pokes the on-disk index.json to prove the
 // index is ONLY a cache and the per-session files stay authoritative. Ports 9135 (fake) + 9136 (wb).
@@ -216,3 +217,5 @@ const byId = arr => new Map((arr || []).map(e => [String(e.id), e]));
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

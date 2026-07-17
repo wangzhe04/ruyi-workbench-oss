@@ -1,3 +1,4 @@
+(async () => {
 // E2E (E2): appendSystemPrompt must flow through EXACTLY ONE channel — the --append-system-prompt CLI flag.
 // The old code ALSO wrote a non-standard top-level `appendSystemPrompt` key into ~/.claude/settings.json, which
 // the official Claude Code settings schema does not define (dead config at best, double injection at worst).
@@ -127,3 +128,5 @@ function postStream(port, payload) {
     }
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

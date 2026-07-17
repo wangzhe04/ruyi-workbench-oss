@@ -1,3 +1,4 @@
+(async () => {
 ﻿// E2E (v2 跨会话记忆 · 团队模式 v2 Phase 3, 设计稿 C0-C5): file-backed memory library + draft-confirm write +
 // fenced progressive injection. Fully offline. Stands up a fake OpenAI provider (request-body capture +
 // FAKE_DRAFT_JSON for the draft round-trip) and a fake Claude CLI (argv capture), plus a temp HOME (data
@@ -13,6 +14,7 @@
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
 const { getFreePort } = require('./free-port.js');
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort(); // 自内层 IIFE 提升:顶层 fixture 也要用(9642e26 codemod 事故修复)
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
@@ -105,8 +107,6 @@ async function saveMem(id, scope, name, description, body, cwd) {
 }
 
 (async () => {
-  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
-  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   await startFake({});
@@ -313,3 +313,5 @@ async function saveMem(id, scope, name, description, body, cwd) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

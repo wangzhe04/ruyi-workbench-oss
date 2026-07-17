@@ -1,3 +1,4 @@
+(async () => {
 ﻿// E2E: start a fake OpenAI-compatible server, start the REAL workbench with a config whose
 // activeProvider points at it, then drive /api/chat/stream and /api/models. Fully offline.
 const cp = require('child_process');
@@ -8,6 +9,7 @@ const os = require('os');
 
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort(); // 自内层 IIFE 提升:顶层 fixture 也要用(9642e26 codemod 事故修复)
 
 const HERE = __dirname;
 const HOME = path.join(os.tmpdir(), 'wcw-openai-e2e');
@@ -57,8 +59,6 @@ function postStream(port, payload) {
 }
 
 (async () => {
-  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
-  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], { windowsHide: true });
@@ -102,3 +102,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

@@ -1,3 +1,4 @@
+(async () => {
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -96,3 +97,5 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
   }finally{kill(wb);kill(fake);await sleep(200);fs.rmSync(HOME,{recursive:true,force:true});}
   console.log('\nAGENT QUALITY WORKFLOW E2E: '+(failures?`FAIL (${failures})`:'ALL PASS'));process.exitCode=failures?1:0;
 })().catch(e=>{console.error(e.stack||e);process.exitCode=1;});
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

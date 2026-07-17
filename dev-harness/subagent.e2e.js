@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.9-S6): 子代理 spawn_agent — 主回合内派子回合执行子任务,provider 引擎,离线 via fake-openai.
 // Ports 9009 (fake-openai) + 9010 (workbench). §0.9-S6 / 总纲 §4 A5 · §8 D4.
 //
@@ -476,3 +477,5 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

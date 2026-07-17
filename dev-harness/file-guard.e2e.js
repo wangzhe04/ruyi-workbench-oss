@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v1.4.6-S2 + S3): shell-free open-spawn + native file-tool workspace boundary.
 // PART A — pure units (require the module; no server):
 //   S2  buildOpenSpawn('http://x&calc') → explorer.exe with the target as ONE verbatim argv element, never
@@ -123,3 +124,5 @@ function post(port, p, payload, headers) {
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

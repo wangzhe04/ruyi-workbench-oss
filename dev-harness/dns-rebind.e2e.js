@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v1.4.6-S1): DNS-rebinding + CSRF hardening on the mutating-route auth gate.
 // Boots a real workbench (temp HOME), then drives POST /api/sessions (a mutating route guarded by
 // originOk + the new UI-token conditional) with hand-crafted Host / Origin / token combinations:
@@ -79,3 +80,5 @@ function postSessions(port, headers) {
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

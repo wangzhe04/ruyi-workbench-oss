@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S4a): checkpoint journal + rollback on the provider engine (fake-openai + /api/tools direct
 // calls, offline). Covers:
 //  (a) FAKE_TOOL_SEQUENCE=[file_write NEW a.txt, file_edit a.txt] in ONE turn →
@@ -180,3 +181,5 @@ async function waitFakeDown() { for (let i = 0; i < 50; i++) { if (!await fakeRe
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

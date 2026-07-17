@@ -1,3 +1,4 @@
+(async () => {
 // E2E: 第30波「AI 自主编排按难度选模型」(含对抗轮修订)。端口 WB 9122(已登记)。
 // [S] 静态锁:config 键 + 三写入点/spawn/池 用 resolveNodeModel + propose_task model 通道 + 两引擎注入 buildModelHint
 //     (引擎分组)+ Claude 钳拆分 + 【不】白名单丢弃 + inherit→空 归一。
@@ -167,3 +168,5 @@ wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});
     console.log('ORCHESTRATE-MODEL-SELECT E2E: ALL PASS');
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

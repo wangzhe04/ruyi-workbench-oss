@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v1.0-S6): provider 端点故障转移 (B) + 搜索后端新枚举 tavily/bocha (A). 零依赖、离线、node 直跑。
 //
 // Boundary asserted (B):
@@ -293,3 +294,5 @@ async function waitWB() { let h = null; for (let i = 0; i < 40 && !h; i++) { awa
   console.log('\nFAILOVER E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exitCode = fail ? 1 : 0;
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

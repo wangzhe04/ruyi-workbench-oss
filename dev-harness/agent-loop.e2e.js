@@ -1,11 +1,10 @@
-﻿// E2E (v0.8-S1): agent loop over the new fake modes.
+// E2E (v0.8-S1): agent loop over the new fake modes.
 //  Part 1 (FAKE_TOOL_SEQUENCE): three DIFFERENT tools in order (file_write -> file_read -> file_search).
 //    Asserts 3 tool_use events appear in that order, all 3 tool_result are ok, the terminal usage event
 //    reports calls===4 (3 tool rounds + 1 echo finish) with input_tokens === sum of 4 frames, result ok.
 //  Part 2 (FAKE_PARALLEL_TOOLS): two tools emitted in ONE assistant message. Asserts both tool_use land
 //    in the same assistant round, both tool_result are present, and the turn finishes normally.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
-const { getFreePort } = require('./free-port.js');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const HOME = path.join(os.tmpdir(), 'wcw-agent-loop-e2e');
@@ -50,18 +49,17 @@ function writeConfig(home, fakePort) {
   try {
     // ---- Part 1: sequential three-step loop ----
     {
-      const FP1 = await getFreePort(), WP1 = await getFreePort();
       const home = path.join(HOME, 'seq'); fs.rmSync(home, { recursive: true, force: true }); fs.mkdirSync(home, { recursive: true });
       const target = path.join(home, 'made.txt');
-      writeConfig(home, FP1);
+      writeConfig(home, 8963);
       const seq = JSON.stringify([
         { name: 'file_write', args: { path: target, content: 'FINDME payload here' } },
         { name: 'file_read', args: { path: target } },
         { name: 'file_search', args: { pattern: 'FINDME', root: home } },
       ]);
-      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, FP1, WP1, home);
-      const h = await waitHealthy(WP1); ok(!!h, 'seq: workbench up');
-      const events = await postStream(WP1, { message: '三步走', cwd: home });
+      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8963, 8964, home);
+      const h = await waitHealthy(8964); ok(!!h, 'seq: workbench up');
+      const events = await postStream(8964, { message: '三步走', cwd: home });
       const toolUses = events.filter(e => e.type === 'tool_use');
       const toolResults = events.filter(e => e.type === 'tool_result');
       ok(toolUses.length === 3, 'seq: 3 tool_use events (got ' + toolUses.length + ')');
@@ -81,14 +79,14 @@ function writeConfig(home, fakePort) {
       const home = path.join(HOME, 'par'); fs.rmSync(home, { recursive: true, force: true }); fs.mkdirSync(home, { recursive: true });
       const fA = path.join(home, 'pa.txt'); fs.writeFileSync(fA, 'alpha');
       const fB = path.join(home, 'pb.txt'); fs.writeFileSync(fB, 'beta');
-      writeConfig(home, FP2);
+      writeConfig(home, 8965);
       const par = JSON.stringify([
         { name: 'file_read', args: { path: fA } },
         { name: 'file_read', args: { path: fB } },
       ]);
-      const pair = spawnPair({ FAKE_PARALLEL_TOOLS: par }, FP2, WP2, home);
-      const h = await waitHealthy(WP2); ok(!!h, 'par: workbench up');
-      const events = await postStream(WP2, { message: '并行两个', cwd: home });
+      const pair = spawnPair({ FAKE_PARALLEL_TOOLS: par }, 8965, 8966, home);
+      const h = await waitHealthy(8966); ok(!!h, 'par: workbench up');
+      const events = await postStream(8966, { message: '并行两个', cwd: home });
       const toolUses = events.filter(e => e.type === 'tool_use');
       const toolResults = events.filter(e => e.type === 'tool_result');
       ok(toolUses.length === 2, 'par: 2 tool_use events (got ' + toolUses.length + ')');

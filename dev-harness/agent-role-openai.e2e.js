@@ -4,12 +4,12 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const cp = require('child_process');
-const { getFreePort } = require('./free-port.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-role-openai-e2e');
 const CAP = path.join(HOME, 'captures');
+const FAKE_PORT = 9073, WB_PORT = 9074;
 let failures = 0;
 const ok = (c,l) => { if(c) console.log('PASS '+l); else { failures++; console.error('FAIL '+l); } };
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
@@ -18,7 +18,6 @@ function health(port){return new Promise(resolve=>{const q=http.get({host:'127.0
 function stream(body){return new Promise((resolve,reject)=>{const raw=JSON.stringify(body);const q=http.request({host:'127.0.0.1',port:WB_PORT,path:'/api/chat/stream',method:'POST',headers:{'content-type':'application/json','content-length':Buffer.byteLength(raw)}},r=>{let b='',events=[];r.on('data',c=>{b+=c;let i;while((i=b.indexOf('\n'))>=0){const line=b.slice(0,i);b=b.slice(i+1);try{if(line.trim())events.push(JSON.parse(line));}catch{}}});r.on('end',()=>resolve(events));});q.on('error',reject);q.write(raw);q.end();});}
 
 (async()=>{
-  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   fs.rmSync(HOME,{recursive:true,force:true});fs.mkdirSync(CAP,{recursive:true});
   const forbidden=path.join(HOME,'forbidden.txt');
   fs.writeFileSync(path.join(HOME,'config.json'),JSON.stringify({

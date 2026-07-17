@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S7): loop detection on the provider engine (fake-openai, offline). §4 A3 / §6 0.8-S7.
 // FAKE_TOOL_SEQUENCE = the SAME file_read{path: <same file>} repeated 6×. The workbench's loop guard:
 //   ① the 3rd consecutive identical tool_result carries `loopWarning`;
@@ -121,3 +122,5 @@ function writeConfig(home, fakePort) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

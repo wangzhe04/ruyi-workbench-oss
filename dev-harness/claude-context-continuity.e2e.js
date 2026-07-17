@@ -12,7 +12,8 @@ const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-claude-context-continuity');
 const FAKE = path.join(WB, 'tools', 'fake-claude.js');
-const PORT = await getFreePort();
+const PORT_P = getFreePort(); // Promise<number> — 在 main IIFE 里 await(CJS 不允许顶层 await,Node 24 拒绝 require+TLA 混用)
+let PORT = 0;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let failures = 0;
 const ok = (condition, label) => { if (condition) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
@@ -66,6 +67,7 @@ function start(capture) {
 }
 
 (async () => {
+  PORT = await PORT_P;
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, activeProvider: '', permissionMode: 'bypass', engineMode: 'interactive', includePartialMessages: false }), 'utf8');
   const cap1 = path.join(HOME, 'stdin-1.txt');

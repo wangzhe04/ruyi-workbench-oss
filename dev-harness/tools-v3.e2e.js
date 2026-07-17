@@ -1,3 +1,5 @@
+(async () => {
+const { getFreePort } = require('./free-port.js');
 // E2E (v1.1-W2 T1): tool suite v3 — the five new built-in tools (file_move / file_copy / archive_zip /
 // archive_unzip / http_download) + their trust-layer wiring (checkpoint journal + rollback).
 // Offline where possible; http_download uses a LOCAL fake http server (public 127.0.0.1 target passes SSRF's
@@ -23,7 +25,7 @@ const WB_PORT = await getFreePort(), DL_PORT = await getFreePort();
 // Reuse the server's own exported codec for building fixtures (Zip Slip / round-trip bytes).
 const S = require(SERVER);
 
-const { getFreePort } = require('./free-port.js');
+
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
@@ -262,3 +264,5 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
   console.log('\nTOOLS-V3 E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exitCode = fail ? 1 : 0;
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

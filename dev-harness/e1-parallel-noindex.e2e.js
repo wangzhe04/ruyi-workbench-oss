@@ -1,3 +1,4 @@
+(async () => {
 // E2E (E1): PARALLEL tool_calls streamed WITHOUT `index`. Some vLLM/Ollama/self-hosted OpenAI-compat
 // endpoints emit several concurrent tool_calls whose delta fragments omit the `index` field (and some repeat
 // the id on every fragment while others send it once then bare continuations). The old parser defaulted every
@@ -77,3 +78,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

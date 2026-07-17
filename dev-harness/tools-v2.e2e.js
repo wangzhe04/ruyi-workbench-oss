@@ -1,4 +1,4 @@
-﻿// E2E (v0.8-S1): tool suite v2 — file_read line mode, binary refusal, glob, grep v2 (context/group),
+// E2E (v0.8-S1): tool suite v2 — file_read line mode, binary refusal, glob, grep v2 (context/group),
 // grep backward-compat, file_edit `closest`; (v0.8-S2fix F2) file_search pattern normalization:
 // PCRE inline-flag prefix stripped, invalid regex → literal-text fallback + patternNote.
 // Offline; drives the native provider engine via the
@@ -47,15 +47,14 @@ function writeConfig(home, fakePort) {
   try {
     // ---- (a) line-mode read: 20-line file, lineOffset:5 lineLimit:3 -> lines 5-7, totalLines 20, mode 'lines'
     {
-      const FP0 = await getFreePort(), WP0 = await getFreePort();
       const home = path.join(HOME, 'a'); fs.rmSync(home, { recursive: true, force: true }); fs.mkdirSync(home, { recursive: true });
       const f = path.join(home, 'twenty.txt');
       fs.writeFileSync(f, Array.from({ length: 20 }, (_, i) => 'line-' + (i + 1)).join('\n'));
-      writeConfig(home, FP0);
+      writeConfig(home, 8961);
       const seq = JSON.stringify([{ name: 'file_read', args: { path: f, lineOffset: 5, lineLimit: 3 } }]);
-      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, await getFreePort(), await getFreePort(), home);
-      const h = await waitHealthy(WP0); ok(!!h, '(a) workbench up');
-      const events = await postStream(WP0, { message: '读取行', cwd: home });
+      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
+      const h = await waitHealthy(8962); ok(!!h, '(a) workbench up');
+      const events = await postStream(8962, { message: '读取行', cwd: home });
       const tr = events.find(e => e.type === 'tool_result');
       const c = tr && tr.content;
       ok(!!c && c.ok === true, '(a) file_read ok');
@@ -74,11 +73,11 @@ function writeConfig(home, fakePort) {
     {
       const home = path.join(HOME, 'b'); fs.rmSync(home, { recursive: true, force: true }); fs.mkdirSync(home, { recursive: true });
       const png = path.join(home, 'pic.png'); fs.writeFileSync(png, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
-      writeConfig(home, FP0);
+      writeConfig(home, 8961);
       const seq = JSON.stringify([{ name: 'file_read', args: { path: png } }]);
-      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, await getFreePort(), await getFreePort(), home);
-      const h = await waitHealthy(WP0); ok(!!h, '(b) workbench up');
-      const events = await postStream(WP0, { message: '读图', cwd: home });
+      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
+      const h = await waitHealthy(8962); ok(!!h, '(b) workbench up');
+      const events = await postStream(8962, { message: '读图', cwd: home });
       const tr = events.find(e => e.type === 'tool_result');
       const c = tr && tr.content;
       ok(c && c.ok === false, '(b) png read refused (ok:false)');
@@ -98,11 +97,11 @@ function writeConfig(home, fakePort) {
       fs.writeFileSync(path.join(proj, 'node_modules', 'pkg', 'skip.txt'), 'skip'); await sleep(30);
       fs.writeFileSync(path.join(proj, 'newest.txt'), 'newest');
       fs.writeFileSync(path.join(proj, 'notme.md'), 'md');
-      writeConfig(home, FP0);
+      writeConfig(home, 8961);
       const seq = JSON.stringify([{ name: 'glob', args: { pattern: '**/*.txt', root: proj } }]);
-      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, await getFreePort(), await getFreePort(), home);
-      const h = await waitHealthy(WP0); ok(!!h, '(c) workbench up');
-      const events = await postStream(WP0, { message: 'glob', cwd: home });
+      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
+      const h = await waitHealthy(8962); ok(!!h, '(c) workbench up');
+      const events = await postStream(8962, { message: 'glob', cwd: home });
       const tr = events.find(e => e.type === 'tool_result');
       const c = tr && tr.content;
       ok(c && c.ok === true && Array.isArray(c.files), '(c) glob returns files array');
@@ -124,13 +123,13 @@ function writeConfig(home, fakePort) {
       const proj = path.join(home, 'src'); fs.mkdirSync(proj, { recursive: true });
       fs.writeFileSync(path.join(proj, 'one.js'), ['aaa', 'bbb', 'TARGET here', 'ccc', 'ddd'].join('\n'));
       fs.writeFileSync(path.join(proj, 'two.js'), ['xxx', 'TARGET again', 'yyy'].join('\n'));
-      writeConfig(home, FP0);
+      writeConfig(home, 8961);
       // context:2
       {
         const seq = JSON.stringify([{ name: 'file_search', args: { pattern: 'TARGET', root: proj, context: 2 } }]);
-        const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, await getFreePort(), await getFreePort(), home);
-        const h = await waitHealthy(WP0); ok(!!h, '(d) workbench up (context)');
-        const events = await postStream(WP0, { message: 'grep', cwd: home });
+        const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
+        const h = await waitHealthy(8962); ok(!!h, '(d) workbench up (context)');
+        const events = await postStream(8962, { message: 'grep', cwd: home });
         const tr = events.find(e => e.type === 'tool_result');
         const m = tr && tr.content && tr.content.matches;
         ok(Array.isArray(m) && m.length >= 2, '(d) >=2 matches');
@@ -143,9 +142,9 @@ function writeConfig(home, fakePort) {
       // group:true
       {
         const seq = JSON.stringify([{ name: 'file_search', args: { pattern: 'TARGET', root: proj, group: true } }]);
-        const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, await getFreePort(), await getFreePort(), home);
-        const h = await waitHealthy(WP0); ok(!!h, '(d) workbench up (group)');
-        const events = await postStream(WP0, { message: 'grep-group', cwd: home });
+        const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
+        const h = await waitHealthy(8962); ok(!!h, '(d) workbench up (group)');
+        const events = await postStream(8962, { message: 'grep-group', cwd: home });
         const tr = events.find(e => e.type === 'tool_result');
         const g = tr && tr.content && tr.content.matches;
         ok(Array.isArray(g) && g.length === 2, '(d) grouped into 2 files (got ' + (g && g.length) + ')');
@@ -159,11 +158,11 @@ function writeConfig(home, fakePort) {
       const home = path.join(HOME, 'e'); fs.rmSync(home, { recursive: true, force: true }); fs.mkdirSync(home, { recursive: true });
       const proj = path.join(home, 'src'); fs.mkdirSync(proj, { recursive: true });
       fs.writeFileSync(path.join(proj, 'f.js'), ['zzz', 'NEEDLE line', 'qqq'].join('\n'));
-      writeConfig(home, FP0);
+      writeConfig(home, 8961);
       const seq = JSON.stringify([{ name: 'file_search', args: { pattern: 'NEEDLE', root: proj } }]);
-      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, await getFreePort(), await getFreePort(), home);
-      const h = await waitHealthy(WP0); ok(!!h, '(e) workbench up');
-      const events = await postStream(WP0, { message: 'grep-compat', cwd: home });
+      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
+      const h = await waitHealthy(8962); ok(!!h, '(e) workbench up');
+      const events = await postStream(8962, { message: 'grep-compat', cwd: home });
       const tr = events.find(e => e.type === 'tool_result');
       const m = tr && tr.content && tr.content.matches;
       ok(Array.isArray(m) && m.length === 1, '(e) one match');
@@ -178,12 +177,12 @@ function writeConfig(home, fakePort) {
       const home = path.join(HOME, 'f'); fs.rmSync(home, { recursive: true, force: true }); fs.mkdirSync(home, { recursive: true });
       const f = path.join(home, 'edit-me.txt');
       fs.writeFileSync(f, ['alpha line', 'beta line', 'gamma line', 'delta line', 'epsilon line'].join('\n'));
-      writeConfig(home, FP0);
+      writeConfig(home, 8961);
       // needle close to 'gamma line' but not exact -> closest should land near line 3
       const seq = JSON.stringify([{ name: 'file_edit', args: { path: f, oldText: 'gamma lime', newText: 'X' } }]);
-      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, await getFreePort(), await getFreePort(), home);
-      const h = await waitHealthy(WP0); ok(!!h, '(f) workbench up');
-      const events = await postStream(WP0, { message: 'edit', cwd: home });
+      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
+      const h = await waitHealthy(8962); ok(!!h, '(f) workbench up');
+      const events = await postStream(8962, { message: 'edit', cwd: home });
       const tr = events.find(e => e.type === 'tool_result');
       const c = tr && tr.content;
       ok(c && c.ok === false, '(f) edit ok:false (not found)');
@@ -200,11 +199,11 @@ function writeConfig(home, fakePort) {
       const home = path.join(HOME, 'g'); fs.rmSync(home, { recursive: true, force: true }); fs.mkdirSync(home, { recursive: true });
       const proj = path.join(home, 'src'); fs.mkdirSync(proj, { recursive: true });
       fs.writeFileSync(path.join(proj, 'creds.js'), ['const user = "bob";', 'const PaSsWoRd = "x";', 'done'].join('\n'));
-      writeConfig(home, FP0);
+      writeConfig(home, 8961);
       const seq = JSON.stringify([{ name: 'file_search', args: { pattern: '(?i)pass', root: proj } }]);
-      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, await getFreePort(), await getFreePort(), home);
-      const h = await waitHealthy(WP0); ok(!!h, '(g) workbench up');
-      const events = await postStream(WP0, { message: 'grep-inline-flag', cwd: home });
+      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
+      const h = await waitHealthy(8962); ok(!!h, '(g) workbench up');
+      const events = await postStream(8962, { message: 'grep-inline-flag', cwd: home });
       const tr = events.find(e => e.type === 'tool_result');
       const c = tr && tr.content;
       ok(c && c.ok === true, '(g) (?i)pass does not error (ok:true)');
@@ -219,11 +218,11 @@ function writeConfig(home, fakePort) {
       const home = path.join(HOME, 'h'); fs.rmSync(home, { recursive: true, force: true }); fs.mkdirSync(home, { recursive: true });
       const proj = path.join(home, 'src'); fs.mkdirSync(proj, { recursive: true });
       fs.writeFileSync(path.join(proj, 'weird.txt'), ['nothing here', 'literal ([x marker', 'tail'].join('\n'));
-      writeConfig(home, FP0);
+      writeConfig(home, 8961);
       const seq = JSON.stringify([{ name: 'file_search', args: { pattern: '([x', root: proj } }]);
-      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, await getFreePort(), await getFreePort(), home);
-      const h = await waitHealthy(WP0); ok(!!h, '(h) workbench up');
-      const events = await postStream(WP0, { message: 'grep-literal-fallback', cwd: home });
+      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
+      const h = await waitHealthy(8962); ok(!!h, '(h) workbench up');
+      const events = await postStream(8962, { message: 'grep-literal-fallback', cwd: home });
       const tr = events.find(e => e.type === 'tool_result');
       const c = tr && tr.content;
       ok(c && c.ok === true, '(h) invalid regex does not error (ok:true)');

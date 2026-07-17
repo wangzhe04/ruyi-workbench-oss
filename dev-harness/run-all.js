@@ -219,7 +219,9 @@ async function main() {
 
     const allBuckets = await Promise.allSettled(bucketPromises);
     for (const settled of allBuckets) {
-      const bucketResults = settled.status === 'fulfilled' ? settled.value : [];
+      // 审计教训(第39波): bucket 驳回时静默 [] 会把整桶结果从汇总里抹掉 —— 失败不可见即"假绿"。驳回必须入账。
+      const bucketResults = settled.status === 'fulfilled' ? settled.value
+        : [{ file: '(bucket-runner)', ok: false, timedOut: false, status: -1, out: '[bucket rejected] ' + (settled.reason && settled.reason.stack || settled.reason), ms: 0 }];
       for (const r of bucketResults) {
         results.push(r);
         const known = KNOWN_FAILURE[r.file];
@@ -239,7 +241,7 @@ async function main() {
     console.log(`\n# 失败件 tail(各取末 25 行):`);
     for (const r of failed) {
       console.log(`\n=== ${r.file} (${r.timedOut ? 'TIMEOUT' : 'exit=' + r.status}) ===`);
-      const lines = r.out.split(/\r?\n/).filter(Boolean);
+      const lines = String(r.out || '').split(/\r?\n/).filter(Boolean);
       console.log(lines.slice(-25).join('\n'));
     }
   }

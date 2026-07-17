@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S3): todo_write + turn_summary on the provider engine (fake-openai, offline).
 //  Turn 1 (FAKE_TOOL_SEQUENCE = [todo_write{3 items, 1 done}, file_write{path,content}, powershell_run{echo x}]):
 //    ① the stream carries a `todo` event whose items.length === 3;
@@ -113,3 +114,5 @@ function writeConfig(home, fakePort) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

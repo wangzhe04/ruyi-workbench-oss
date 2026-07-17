@@ -1,3 +1,4 @@
+(async () => {
 // E2E (第33波): 全 GET 面 host 校验 + 声明式 auth 路由表 deny-by-default。
 // 验 four things:
 //   (A) 顶层 hostAllowed 门:rebinding(Host=evil)对 GET / 与 GET /api/status 一律 403(治第29波 backlog #0:
@@ -124,3 +125,5 @@ function probe(port, method, p, headers, body) {
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

@@ -1,3 +1,4 @@
+(async () => {
 // E2E: 第25波「耐久基座」(AUTONOMY-PLAN 25.1-25.5) —— 崩溃注入 + 断点续跑 + 幂等写 + 事件日志。
 // 端口: FAKE 9109 / WB 9110(已登记 dev-harness/README 端口表)。离线,Node 直跑。
 // 断言面:
@@ -221,3 +222,5 @@ function capturesContaining(dir, needle) {
   console.log('\nAUTONOMY-DURABILITY E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exitCode = fail ? 1 : 0;
 })().catch(e => { console.log('ERROR ' + (e && e.stack || e)); process.exitCode = 1; });
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S0 A6): dangling-turn detection surfaced via GET /api/sessions/<id>.resumable.
 // Start workbench → create sessions → write providerHistory shapes directly into the sessions files →
 // GET each session and assert resumable. Cases: tail role:'user' (unanswered turn) → dangling true
@@ -99,3 +100,5 @@ function postJson(port, p, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

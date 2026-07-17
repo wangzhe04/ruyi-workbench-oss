@@ -1,3 +1,5 @@
+(async () => {
+const { getFreePort } = require('./free-port.js');
 // E2E: 第27波「自主性授权书(Autonomy Grant)」(AUTONOMY-PLAN §27)。
 // 端口: WB 9116(已登记 dev-harness/README)。无需 fake provider(授权书路由不触发模型)。
 // 三段:
@@ -103,7 +105,7 @@ const isSensitiveDataPath = p => /SENSITIVE_MARK/.test(String(p || ''));
 const normalizeCwd = (cwd, fb) => path.resolve(cwd || fb || '.');
 let _idc = 0; const makeId = pfx => pfx + '_' + (++_idc);
 const crypto = require('crypto');
-const { getFreePort } = require('./free-port.js');
+
 
 const factory = new Function(
   'NATIVE_TOOL_TIER', 'nativeToolTier', 'globToRegExp', 'isSensitiveDataPath', 'pathWithinRoot', 'normalizeCwd', 'makeId', 'crypto', 'logEvent', 'path',
@@ -400,3 +402,5 @@ ok(/guardFileToolPath\(src, ctx, \{ tool: 'archive_unzip', write: false \}\)/.te
     console.log('AUTONOMY-GRANT E2E: ALL PASS');
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

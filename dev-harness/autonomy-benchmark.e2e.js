@@ -1,3 +1,4 @@
+(async () => {
 // E2E: 第31波「§5 产品侧三任务基准」(AUTONOMY-PLAN §5 验收指标 · 产品侧)。
 // 端口: FAKE 9123 / WB 9124(已登记 dev-harness/README)。离线,Node 直跑。
 // 三个加速模拟离线长任务(用 fake provider 把长任务压到秒级,但保留完整 until-done 语义):
@@ -194,3 +195,5 @@ const fake = http.createServer((rq, rs) => {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

@@ -1,3 +1,4 @@
+(async () => {
 // E2E: 第31波B「shell 沙箱化 L1」(autoexec denylist 下沉到 guardFileToolPath)。
 // 端口: WB 9125(已登记 dev-harness/README)。离线,Node 直跑。
 // 两段:
@@ -174,3 +175,5 @@ console.log('\n── B 段: 全工具分发路径验证 ──');
   console.log('\nSHELL-SANDBOX E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exitCode = fail ? 1 : 0;
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

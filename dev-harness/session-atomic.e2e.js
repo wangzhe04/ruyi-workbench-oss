@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S0): session durability. Verifies the atomic write (no *.tmp residue), corrupt-file
 // isolation (.corrupt + 404 + list survives), the top-level configSchema/version, and turnSeq +
 // schemaVersion after two turns. Offline (fake-openai plain-chat path; no tools needed).
@@ -101,3 +102,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

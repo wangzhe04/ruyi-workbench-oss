@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 /*
  * E2E (v1 定向插话 / steer to a specific running sub-agent node). A LIVE persisted DAG workflow lets the user
  * inject a one-off instruction into ONE running/queued OpenAI-engine node; runSubAgentCore drains it at its
@@ -34,11 +34,11 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 
-const { getFreePort } = require('./free-port.js');
-
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-steer-node');
+const FP = 9101; // fake-openai
+const WP = 9102; // workbench
 const ROUNDS = 10;   // tool rounds per node before the fake emits a final answer
 const DELAY = 200;   // per-round stream delay (ms) — keeps a node `running` for ~ROUNDS*DELAY
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -128,7 +128,6 @@ function nodeOf(run, nodeId) { return run && Array.isArray(run.nodes) && run.nod
 const steer = (runId, sid, nodeId, text, hdr) => post(WP, `/api/agent-runs/${encodeURIComponent(runId)}`, { sessionId: sid, action: 'steer_node', nodeId, text }, hdr);
 
 (async () => {
-  const FP = await getFreePort(), WP = await getFreePort();
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
   // Deterministic Claude-engine node via fake-claude (no dependence on a real Claude CLI on the host).

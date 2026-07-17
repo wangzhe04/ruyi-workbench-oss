@@ -1,3 +1,4 @@
+(async () => {
 ﻿// E2E (v0.9-S9, D6): web_search / web_fetch. SSRF防御 is the security核心 — asserted条条 as EXPORTED pure
 // functions (deterministic, no real network). Ports 9015-9017 (9015 fake-openai, 9016 WB, 9017 fake searxng).
 //
@@ -387,3 +388,5 @@ function writeConfig(home, extra) {
   console.log('\nWEBSEARCH E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exitCode = fail ? 1 : 0;
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

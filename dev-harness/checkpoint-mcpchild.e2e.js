@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S4a): checkpoint journal written from the MCP CHILD (Claude-engine path). The one-shot MCP
 // child does NOT write session files, but it MAY write the checkpoints dir (independent of session files,
 // no race). It resolves turnSeq by reading the session file (read-only) via the injected WCW_SESSION_ID.
@@ -104,3 +105,5 @@ function parseCall(call) { const t = (call.result && call.result.content && call
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

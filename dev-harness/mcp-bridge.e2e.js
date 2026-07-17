@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.7d core acceptance): full bridge chain. fake-openai (provider) asks the workbench to call a
 // BRIDGED tool `fake__echo`; the workbench's in-process MCP stdio client forwards it to fake-mcp.js
 // (a stdio JSON-RPC MCP child); the result is fed back and the model echoes it. Fully offline.
@@ -80,3 +81,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

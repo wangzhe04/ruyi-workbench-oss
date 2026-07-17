@@ -1,3 +1,4 @@
+(async () => {
 // LIVE tool-loop E2E: real DeepSeek v4-pro must call file_read (function calling) on a real temp file
 // and report its secret marker. Proves real function-calling through the workbench agent loop.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
@@ -67,3 +68,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

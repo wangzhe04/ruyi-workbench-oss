@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.9-S7): 视觉回路 + 操控规程 — provider 引擎, 离线 via fake-openai + fake-mcp. §0.9-S7 / 总纲 §7.5 · §8 D3.
 // Ports 9011 (fake-openai) + 9012 (workbench). The fake respawns per scenario on the SAME port段 (serial).
 //
@@ -239,3 +240,5 @@ function hasEvictedPlaceholder(ph) {
     process.exit(fail === 0 ? 0 : 1);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

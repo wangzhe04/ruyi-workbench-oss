@@ -1,3 +1,4 @@
+(async () => {
 // E2E: 第29波「监控与运营 §29a/§29c」(AUTONOMY-PLAN §29)。端口 WB 9120(已登记)。
 // [S] 静态锁:config 键/归一、events 路由排在通配 GET 前、node_progress 跳过 gen、digest 视图、前端增量缓存 + force 全量调用点。
 // [H] Live:digest 轻量视图字段、events afterSeq 补播(幂等重放)+ limit/hasMore + 坏行免疫 + 鉴权 403 + 跨会话空、
@@ -246,3 +247,5 @@ wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});
     console.log('MONITOR-INCREMENTAL E2E: ALL PASS');
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

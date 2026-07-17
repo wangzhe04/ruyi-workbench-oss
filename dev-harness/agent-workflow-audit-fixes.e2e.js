@@ -1,3 +1,4 @@
+(async () => {
 'use strict';
 // Regression coverage for a post-ship audit of the v1.4.4 Agent 工作流 changes. Each part below pins one
 // specific finding so it can't silently come back:
@@ -105,3 +106,5 @@ async function up(port, p = '/health') { for (let i = 0; i < 50; i++) { if (awai
   console.log('\nAGENT WORKFLOW AUDIT FIXES E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
   process.exitCode = failures ? 1 : 0;
 })().catch(e => { console.error(e.stack || e); process.exitCode = 1; });
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

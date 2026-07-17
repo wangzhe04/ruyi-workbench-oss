@@ -1,3 +1,4 @@
+(async () => {
 // E2E: 第26波b「until-done 驱动器 + 任务账本」(AUTONOMY-PLAN §26b)。
 // 端口: FAKE 9113 / WB 9114(已登记 dev-harness/README)。离线,Node 直跑。
 // 内联 fake:每回合按【最后一条 user 消息里第一个未完成里程碑 [mK]】驱动 —— 本轮 0 工具→file_write mK.txt;
@@ -194,3 +195,5 @@ const fake = http.createServer((rq, rs) => {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

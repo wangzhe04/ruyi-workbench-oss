@@ -1,3 +1,5 @@
+(async () => {
+const { getFreePort } = require('./free-port.js');
 ﻿// E2E for v0.9-S4 (C4 / §0.9-S4): 产物画廊 + 本地文件预览端点.
 // Ports 9005 (fake-openai) + 9006 (workbench).
 //
@@ -28,7 +30,7 @@ const HERE = __dirname;
 const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const srv = require(path.join(WB, 'app', 'server.js'));
 
-const { getFreePort } = require('./free-port.js');
+
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const errorText = value => typeof value === 'string' ? value : String(value && (value.message || value.code) || '');
@@ -395,3 +397,5 @@ const PNG_1x1 = Buffer.from(
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

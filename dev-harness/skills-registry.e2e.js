@@ -1,3 +1,4 @@
+(async () => {
 ﻿// E2E (v1 技能体系): unified skill registry + session enable + progressive prompt injection + skill_read tool.
 // Fully offline. Stands up a fake OpenAI-compatible provider (request-body capture + tool sequence) and a fake
 // Claude CLI (argv capture), plus a temp HOME (data isolation) and a temp cwd project with a .ruyi/skills fixture.
@@ -21,6 +22,7 @@
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
 const { getFreePort } = require('./free-port.js');
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort(); // 自内层 IIFE 提升:顶层 fixture 也要用(9642e26 codemod 事故修复)
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
@@ -101,8 +103,6 @@ function startFake(extraEnv) {
 function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { try { cp.execFileSync('taskkill', ['/PID', String(fake.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } fake = null; setTimeout(resolve, 250); }); }
 
 (async () => {
-  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
-  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   await startFake({}); // plain fake (no tool sequence) for scenarios (a)(b)(c)(f)
@@ -268,3 +268,5 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

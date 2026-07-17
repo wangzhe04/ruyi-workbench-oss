@@ -1,3 +1,4 @@
+(async () => {
 // E2E: native agent TOOL LOOP. fake-openai asks the workbench to file_read a real temp file; the
 // workbench executes it in-process and feeds the result back; the model echoes the content. Offline.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
@@ -62,3 +63,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

@@ -8,18 +8,18 @@
 //       </response-language-policy> 收尾;所有围栏开闭配对(无悬空开标签);降级经 stderr 事件与 meta.cmdlineGuard 告知。
 //   (C) 对照(无测试缝): 同样配置不触发任何降级 —— 哨兵不改变预算内行为(append 完整、--agents 在、无守卫事件)。
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
 const HOME = path.join(os.tmpdir(), 'wcw-cmdline-guard-e2e');
 const CWD = path.join(HOME, 'project');
 const ARGV_CAP = path.join(HOME, 'argv.json');
-const PORT_A = await getFreePort(), PORT_B = await getFreePort();
+const PORT_P = [getFreePort(), getFreePort()]; // CJS 不允许顶层 await(Node 24 拒绝 require+TLA 混用)—— main IIFE 里解
+let PORT_A = 0, PORT_B = 0;
 const MARKER = 'CMDGUARD_MARKER_ZQ';
 const BUDGET = 4200; // 对抗预算:真实 7900 的一半强,足以保住 用户append+团队/语言政策,不足以放技能段与 --agents
 
 const srv = require(path.join(WB, 'app', 'server.js'));
-
-const { getFreePort } = require('./free-port.js');
 
 // ---- fixtures -------------------------------------------------------------------------------------------
 fs.rmSync(HOME, { recursive: true, force: true });
@@ -89,6 +89,7 @@ function fenceBalance(text) {
 }
 
 (async () => {
+  [PORT_A, PORT_B] = await Promise.all(PORT_P);
   let fail = 0;
   let wbA = null, wbB = null;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };

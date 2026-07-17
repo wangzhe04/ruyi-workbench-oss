@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v1.4-OSS 用量/成本看板): append-only usage ledger + GET /api/usage/summary aggregation. Offline, zero-dep.
 // Spawns TWO fake-openai endpoints (A: reports usage + a priced provider; B: FAKE_NO_USAGE=1 -> the workbench
 // falls back to an ESTIMATED usage frame) + the workbench, drives real provider turns, then pokes the on-disk
@@ -202,3 +203,5 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

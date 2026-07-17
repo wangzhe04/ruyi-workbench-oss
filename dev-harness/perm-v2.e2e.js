@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S4b): permission UX v2 — the permission_request event's new fields (tier + revertible) and
 // the persistent config.toolAllowRules allowlist (+ its hard cleanse). permissionMode:'default' so an
 // edit-tier tool prompts; permissionTimeoutMs:6000 so an un-answered prompt auto-denies fast. Covers:
@@ -128,3 +129,5 @@ async function withWb(allowRules, fn) {
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

@@ -24,8 +24,6 @@ const http = require('http');
 const cp = require('child_process');
 const { getFreePort } = require('./free-port.js');
 
-const { getFreePort } = require('./free-port.js');
-
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-subturn-loop-guard');
 const sleep = ms => new Promise(r => setTimeout(r, ms));

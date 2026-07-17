@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S0): usage accumulation across a multi-call turn. The fake provider's file_read flow makes
 // TWO API calls in one turn (call 1 requests file_read; call 2 echoes the result), each reporting the
 // same usage frame. Asserts the `usage` event's input_tokens equals the SUM of both prompt_tokens and
@@ -74,3 +75,5 @@ function postStream(port, payload) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

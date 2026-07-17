@@ -1,3 +1,4 @@
+(async () => {
 // E2E for v0.9-S1 (C1/C6): uiMode / outputStyle config round-trip + outputStyle prompt injection +
 // /api/status.errorClasses table. Backend-testable slices only; the UI assertions (simple-mode hides,
 // humanized tool cards, error human-card) are verified via the preview self-check and listed in the
@@ -221,3 +222,5 @@ const SHORT_INSTR = '回答尽量简短，直接给结果，不解释过程除�
   console.log('\nUIMODE-STYLE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exitCode = fail ? 1 : 0;
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

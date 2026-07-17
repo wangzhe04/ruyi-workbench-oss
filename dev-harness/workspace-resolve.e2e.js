@@ -1,3 +1,5 @@
+(async () => {
+const { getFreePort } = require('./free-port.js');
 // E2E for v0.9-S3 (C3 / §0.9-S3): 文件树 + 工作文件夹 + 文件夹拖拽设工作区(指纹定位).
 // Ports 9003 (fake-openai) + 9004 (workbench).
 //
@@ -26,7 +28,7 @@ const HERE = __dirname;
 const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const srv = require(path.join(WB, 'app', 'server.js'));
 
-const { getFreePort } = require('./free-port.js');
+
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
@@ -247,3 +249,5 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
   console.log('\nWORKSPACE-RESOLVE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exitCode = fail ? 1 : 0;
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

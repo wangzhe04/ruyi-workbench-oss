@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.8-S8 收官片): 开源合规 + 如意 Ruyi 品牌落地的回归钉。Ports 8990-8992.
 //
 // 断言:
@@ -217,3 +218,5 @@ function walk(dir, acc, skip) {
   console.log('\nREPO-HYGIENE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

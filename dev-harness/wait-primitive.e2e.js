@@ -1,3 +1,4 @@
+(async () => {
 // E2E: 第28e波「wait_for 等待原语」(AUTONOMY-PLAN §28e)。端口 WB 9118(已登记)。
 // [P] 纯逻辑源抽取:normalizeWaitSpec(clamp/校验)+ evalWaitCondition(timer/file/process/url 四模式,注入护栏桩)。
 // [S] 静态锁:reducer 传 isWaitNode、外壳 arm/poll/tick、wait×worktree 互斥、process 仅信号0、file 过工作区护栏、url 过 SSRF。
@@ -163,3 +164,5 @@ const evalWaitCondition = new Function('guardWorkspacePath', 'fsp', 'path', 'pro
     console.log('WAIT-PRIMITIVE E2E: ALL PASS');
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

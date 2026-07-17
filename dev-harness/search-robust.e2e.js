@@ -1,3 +1,4 @@
+(async () => {
 // E2E for v0.8-S2fix F2 (live-model finding): file_search must survive LLM regex habits.
 // A real DeepSeek run passed `(?i)pass` (PCRE inline flag) and the old `new RegExp` threw
 // 'Invalid group'. normalizeSearchPattern now (1) strips a leading inline-flag group, folding m/s
@@ -84,3 +85,5 @@ function tool(port, token, name, body) {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

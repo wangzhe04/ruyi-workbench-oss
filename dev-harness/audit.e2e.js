@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.9-S8): 审计中心 — GET /api/audit merges the workbench NDJSON logs (logEvent) + the desktop MCP
 // audit_tail into one read-only, ts-descending timeline. Offline (fake-openai; no ACC bridge). Covers:
 //  (a) run one provider turn (fake-openai plain echo) → GET /api/audit (with token) → entries contain the
@@ -144,3 +145,5 @@ async function waitFakeUp() { for (let i = 0; i < 50; i++) { if (await fakeReach
     process.exit(fail ? 1 : 0);
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

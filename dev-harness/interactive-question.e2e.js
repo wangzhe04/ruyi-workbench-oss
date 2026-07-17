@@ -1,3 +1,4 @@
+(async () => {
 ﻿'use strict';
 
 // End-to-end contract for request_user_input on both engines:
@@ -10,6 +11,7 @@ const os = require('os');
 const path = require('path');
 
 const { getFreePort } = require('./free-port.js');
+const PROVIDER_PORT = await getFreePort(), WB_PORT = await getFreePort(); // 自内层 IIFE 提升:顶层 fixture 也要用(9642e26 codemod 事故修复)
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -110,8 +112,6 @@ function startProvider(captures) {
 }
 
 (async () => {
-  const PROVIDER_PORT = await getFreePort(), WB_PORT = await getFreePort();
-  const PROVIDER_PORT = await getFreePort(), WB_PORT = await getFreePort();
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 7, activeProvider: '', engineMode: 'interactive', permissionMode: 'bypass', includeWorkbenchMcp: true,
@@ -161,3 +161,5 @@ function startProvider(captures) {
   console.log('\nINTERACTIVE QUESTION E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
   process.exitCode = failures ? 1 : 0;
 })().catch(err => { console.error(err.stack || err); process.exitCode = 1; });
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

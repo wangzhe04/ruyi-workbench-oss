@@ -1,3 +1,4 @@
+(async () => {
 // E2E: safe bulk history cleanup. It proves the endpoint clears only unpinned, non-current chats
 // and, when requested, purges the per-session checkpoint / Agent-run directories as well.
 'use strict';
@@ -65,3 +66,5 @@ function auxiliary(id) {
   } catch (error) { failures++; console.log('ERROR ' + (error?.stack || error)); }
   finally { kill(server); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); console.log('\nSESSION-BULK-CLEANUP E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS')); process.exit(failures ? 1 : 0); }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

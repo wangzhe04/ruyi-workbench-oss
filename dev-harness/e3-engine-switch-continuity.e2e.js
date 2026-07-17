@@ -1,3 +1,4 @@
+(async () => {
 // E2E (E3): dual-engine continuity. The Claude CLI's native transcript (reached via --resume) only holds
 // Claude turns. When the user runs Provider (OpenAI-compat) turns AFTER a Claude turn and then switches back to
 // Claude in the SAME workbench process, --resume silently drops that middle work AND the recovery-history seed
@@ -138,3 +139,5 @@ function latestProviderRequest() {
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

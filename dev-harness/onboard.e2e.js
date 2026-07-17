@@ -58,7 +58,6 @@ function between(hay, startNeedle, endNeedle) {
 
 (async () => {
   const WB_PORT = await getFreePort(), PORT2 = await getFreePort();
-  const WB_PORT = await getFreePort(), PORT2 = await getFreePort();
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 

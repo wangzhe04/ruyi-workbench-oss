@@ -1,3 +1,4 @@
+(async () => {
 // E2E (v0.9-S5): 计划模式真流程 (plan→批准→执行) on the provider engine, offline via fake-openai.
 // Ports 9007 (fake-openai) + 9008 (workbench). §0.9-S5 / 总纲 §4 A5.
 //
@@ -212,3 +213,5 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     process.exitCode = fail ? 1 : 0;
   }
 })();
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

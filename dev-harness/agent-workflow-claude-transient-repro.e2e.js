@@ -1,3 +1,4 @@
+(async () => {
 'use strict';
 /*
  * Repro (Claude engine): a transient error (503/overloaded) surfacing from the Claude CLI on a DAG
@@ -80,3 +81,5 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
   console.log('\nAGENT WORKFLOW CLAUDE TRANSIENT REPRO: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
   process.exitCode = failures ? 1 : 0;
 })().catch(e => { console.error(e.stack || e); process.exitCode = 1; });
+
+})().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });
