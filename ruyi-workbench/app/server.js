@@ -614,6 +614,10 @@ function mergeAgentRole(base, override, source) {
 function normalizeConfig(raw) {
   const config = { ...defaultConfig(), ...(raw && typeof raw === 'object' ? raw : {}) };
   let changed = !raw || raw.configSchema !== CONFIG_SCHEMA;
+  // P1(cmd8191 根治): npm shim(claude.cmd)→ 真身 claude.exe 的运行时解析(见 resolveClaudeLauncher)。
+  // 收拢在这一个咽喉点 = 全部消费方(runClaudeTurn/子代理/mcp add-json/doctor)一致受益。不置 changed:
+  // 解析是纯运行时升级,配置里保留用户原值,exe 消失时下一次解析自动回落 shim。结果 memoize,热路径零探测。
+  config.claudePath = resolveClaudeLauncher(config.claudePath);
   // v1.4.3: accept CLI-native mode name 'bypassPermissions' as alias for 'bypass'
   if (PERMISSION_MODE_ALIASES[config.permissionMode]) {
     config.permissionMode = PERMISSION_MODE_ALIASES[config.permissionMode];
@@ -1125,6 +1129,52 @@ function spawnCmdLineLength(command, args) {
   return String(command).length + args.reduce((n, a) => n + String(a).length + 3, 1);
 }
 
+// ============================================================================
+// P1(cmd8191 根治): npm 版 Claude Code 的 claude.cmd 只是 4 行 shim —— 内容即转发到同目录
+// node_modules/@anthropic-ai/claude-code/bin/claude.exe(真身,Bun 单文件原生二进制)。经 cmd.exe
+// 启动有 8191 字符整行硬上限(技能索引事故根因);直启 exe 走 CreateProcess(32767,4 倍余量),
+// 且 %VAR%/! 延迟展开被 cmd 吃掉、cmd 层 GBK 错误面、taskkill 多一层遗孤窗口整类消失(实测:
+// 事故规模 11K append 直启逐字回传 %USERPROFILE%/!DELAYED! 未展开;同参 cmd 包装 25ms 内复现
+// 「命令行太长。」)。凡是要 spawn 的 claude 启动器,若指向可解析的 npm shim 就换成真身 exe;
+// 解析不出(老布局/非 npm 安装/探测失败)原样返回 —— 行为逐字节不变,纯升级。cmdLineBudgetFor
+// 按扩展名分档,解析到 .exe 后整行预算自动 7900 → 32000,cmdlineGuard 降级阶梯自然近乎不再触发。
+// 运行时解析,调用方不改写持久化配置:配置里仍是 claude.cmd,exe 消失时下次解析自动回落 shim,
+// 不留死配置。结果按启动器字符串 memoize(与 detectClaudePath 同 TTL),normalizeConfig 热路径零探测。
+const CLAUDE_NPM_EXE_REL = path.join('node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe');
+let _launcherResolveCache = new Map(); // launcher 字符串 → { at, value }
+function resolveClaudeLauncher(launcher) {
+  const p = String(launcher || '').trim();
+  if (!p || process.platform !== 'win32' || !isBatchLauncher(p)) return launcher;
+  const now = Date.now();
+  const hit = _launcherResolveCache.get(p);
+  if (hit && (now - hit.at) < CLAUDEPATH_CACHE_MS) return hit.value;
+  let value = launcher; // 默认:原样返回(解析不出 = 保持现状)
+  try {
+    // 定位 shim 实体:含目录分隔符的按路径 resolve;裸名字(claude.cmd)沿 PATH 逐目录找。
+    let shim = '';
+    if (/[\\/]/.test(p) || path.isAbsolute(p)) {
+      shim = path.resolve(p);
+    } else {
+      for (const dir of String(process.env.PATH || '').split(path.delimiter)) {
+        if (!dir) continue;
+        const cand = path.join(dir, p);
+        if (fs.existsSync(cand)) { shim = cand; break; }
+      }
+    }
+    if (shim && fs.existsSync(shim)) {
+      const exe = path.join(path.dirname(shim), CLAUDE_NPM_EXE_REL);
+      if (fs.existsSync(exe)) {
+        // 真身探测:--version 能跑通才接管(防半截 npm 安装留下坏 exe);失败保持 shim 回退。
+        const ok = cp.spawnSync(exe, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 4000 });
+        if (!ok.error && ok.status !== null) value = exe;
+      }
+    }
+  } catch { /* 解析失败 = 保持原启动器 */ }
+  if (_launcherResolveCache.size > 32) _launcherResolveCache = new Map(); // 防无界(实际路径集合极小)
+  _launcherResolveCache.set(p, { at: now, value });
+  return value;
+}
+
 function claudeInstallCandidates() {
   const home = os.homedir();
   const env = process.env;
@@ -1162,7 +1212,8 @@ function detectClaudePathUncached() {
     try {
       const s = batchSafeSpawn(c, ['--version']);
       const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
-      if (!ok.error && ok.status !== null) return c;
+      // P1: shim(claude.cmd)命中时优先解析出真身 claude.exe(绕过 cmd.exe 8191 上限);解析不出原样返回。
+      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(c);
     } catch {
       // keep scanning
     }
@@ -1173,7 +1224,7 @@ function detectClaudePathUncached() {
       if (!fs.existsSync(full)) continue;
       const s = batchSafeSpawn(full, ['--version']);
       const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
-      if (!ok.error && ok.status !== null) return full;
+      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(full);
     } catch {
       // keep scanning
     }
@@ -17392,6 +17443,7 @@ module.exports = {
   batchSafeSpawn,
   spawnCmdLineLength,
   cmdLineBudgetFor,
+  resolveClaudeLauncher, // P1: npm shim → 真身 claude.exe 解析 — exposed for e2e unit assertions
   fenceSafeSlice,
   shrinkFencedSection,
   clampAppendWithSkills,
