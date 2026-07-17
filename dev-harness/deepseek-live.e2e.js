@@ -1,9 +1,11 @@
 // LIVE E2E: real workbench (runOpenAiTurn) -> real DeepSeek API. Key via argv; temp config wiped after.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
+const { getFreePort } = require('./free-port.js');
+
 const KEY = process.argv[2];
 const MODEL = process.argv[3] || 'deepseek-v4-pro';
-const WB_PORT = 8795;
+const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-deepseek-e2e');
 fs.rmSync(HOME, { recursive: true, force: true });
 fs.mkdirSync(HOME, { recursive: true });

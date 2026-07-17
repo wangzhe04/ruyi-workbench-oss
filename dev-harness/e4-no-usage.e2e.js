@@ -4,9 +4,11 @@
 // event flagged estimated:true (calls:0). This test runs a plain-chat turn against a fake that suppresses all
 // usage frames and asserts the estimated fallback fires.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 9045, WB_PORT = 9046;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-e4-no-usage-e2e');
 
 fs.rmSync(HOME, { recursive: true, force: true });

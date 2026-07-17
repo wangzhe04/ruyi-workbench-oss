@@ -29,9 +29,11 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE = 9099, WB_PORT = 9100;
+const FAKE = await getFreePort(), WB_PORT = await getFreePort();
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
 const HOME = path.join(os.tmpdir(), 'wcw-usage-subagent-ledger-e2e');
 const USAGE_DIR = path.join(HOME, 'usage');

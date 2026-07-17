@@ -4,9 +4,11 @@
 // [H] Live:纯 timer wait 节点 arm→waiting→succeeded(零 token,无 provider 调用);file wait 中途建文件→succeeded;超时→failed。
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
-const WB_PORT = 9118;
+const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-wait-primitive-e2e');
 const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));

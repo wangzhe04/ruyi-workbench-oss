@@ -1,4 +1,4 @@
-// 第23波审计回归锁 —— 八镜头审计确认的 3 P1 + 6 S级P2 修复的行为/契约锁。
+﻿// 第23波审计回归锁 —— 八镜头审计确认的 3 P1 + 6 S级P2 修复的行为/契约锁。
 // 混合三层: (A) 单元 require(server.js) 直调导出函数; (B) 源抽取 + new Function 实跑未导出逻辑; (C) 起真服务打 HTTP。
 //
 //  P1 #1 GET 鉴权(rebinding): 敏感内容型 GET(/api/sessions、/:id、/api/skills)对【浏览器调用方】补 UI token,
@@ -19,13 +19,13 @@ const os = require('os');
 const http = require('http');
 const cp = require('child_process');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.join(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
 const src = fs.readFileSync(SERVER, 'utf8');
 
 // 端口登记(第23波,均在既有 8792-8999 段之外,避免撞车): WB=8751, fake401=8752。
-const WB_PORT = 8751;
-const FAKE401_PORT = 8752;
 
 let failures = 0;
 function ok(cond, label) { if (cond) console.log('PASS ' + label); else { failures++; console.log('FAIL ' + label); } }
@@ -51,6 +51,8 @@ async function health(port) { try { const r = await httpReq(port, 'GET', '/api/s
 const BROWSER = { origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'cors' }; // rebinding 攻击页的浏览器指纹
 
 (async () => {
+  const WB_PORT = await getFreePort(), FAKE401_PORT = await getFreePort();
+  const WB_PORT = await getFreePort(), FAKE401_PORT = await getFreePort();
   // ============ PART A — 单元(require server.js,不起服务) ============
   const mod = require(SERVER);
 

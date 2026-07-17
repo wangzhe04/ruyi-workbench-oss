@@ -6,11 +6,13 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 
+const { getFreePort } = require('./free-port.js');
+
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-claude-context-continuity');
 const FAKE = path.join(WB, 'tools', 'fake-claude.js');
-const PORT = 9075;
+const PORT = await getFreePort();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let failures = 0;
 const ok = (condition, label) => { if (condition) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };

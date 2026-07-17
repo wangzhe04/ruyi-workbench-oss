@@ -22,12 +22,14 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const { readFrontendSrc } = require('./read-frontend-src.js'); // v1.3-FE1:app.js 拆模块后聚合读 public/app.js+public/js/**
 
 const HERE = __dirname;
 const WB = path.resolve(HERE, '..', 'ruyi-workbench');
 const PUB = path.join(WB, 'app', 'public');
-const WB_PORT = 8999;
+const WB_PORT = await getFreePort();
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }

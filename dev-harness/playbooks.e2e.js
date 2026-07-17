@@ -24,11 +24,13 @@ const os = require('os');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 9001, WB_PORT = 9002, DEAD_PORT = 9148; // DEAD_PORT: nothing listens → offline probe
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort(), DEAD_PORT = await getFreePort(); // DEAD_PORT: nothing listens → offline probe
 // Direct-require the server internals so the desktopMcp-availability case can be asserted deterministically
 // as a pure unit test (the live desktopMcp.present depends on whether an ai-computer-control sibling repo is
 // present in THIS checkout — so a fixed "unavailable" live-assertion would be environment-dependent).
 const srv = require(path.join(WB, 'app', 'server.js'));
+
+const { getFreePort } = require('./free-port.js');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }

@@ -6,10 +6,12 @@
 // into the Claude recovery history. Sequence exercised here: Claude(A) -> Provider(B) -> Claude(C), asserting
 // C's Claude prompt re-injects B's work but NOT A's (A is already in the CLI transcript).
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
-const FAKE_PORT = 9050, WB_PORT = 9051;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-e3-engine-switch-e2e');
 const STDIN_CAP = path.join(HOME, 'claude-stdin.txt');   // fake-claude overwrites this with each Claude turn
 const ARGV_CAP = path.join(HOME, 'claude-argv.json');

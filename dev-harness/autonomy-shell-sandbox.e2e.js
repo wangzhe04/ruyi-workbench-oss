@@ -12,8 +12,10 @@
 //   ✓ L1 .git/config/config.worktree 被拒（可用 core.hooksPath 重定向 hook）
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
-const WB_PORT = 9125;
+const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-shell-sandbox-e2e');
 const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));

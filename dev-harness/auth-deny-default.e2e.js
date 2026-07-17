@@ -8,9 +8,11 @@
 //   (D) 回归:各鉴权级别语义不变——open(status)/token-browser(sessions,loopback 豁免)/token(agent-runs,始终须 token)。
 // 连接始终打 127.0.0.1:PORT,仅 Host/Origin/token 头手工构造。端口 9126。无需 fake provider。
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'wcw-auth-deny-e2e');
-const PORT = 9126;
+const PORT = await getFreePort();
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }

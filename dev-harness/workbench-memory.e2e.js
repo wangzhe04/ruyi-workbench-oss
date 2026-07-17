@@ -1,4 +1,4 @@
-// E2E (v2 跨会话记忆 · 团队模式 v2 Phase 3, 设计稿 C0-C5): file-backed memory library + draft-confirm write +
+﻿// E2E (v2 跨会话记忆 · 团队模式 v2 Phase 3, 设计稿 C0-C5): file-backed memory library + draft-confirm write +
 // fenced progressive injection. Fully offline. Stands up a fake OpenAI provider (request-body capture +
 // FAKE_DRAFT_JSON for the draft round-trip) and a fake Claude CLI (argv capture), plus a temp HOME (data
 // isolation = dataRoot) and several temp project cwds (each its own projectKey).
@@ -12,12 +12,12 @@
 //   extras: cwd 越界回退;伪造围栏中和;8000 合成三段优先级(用户 > 技能 > 记忆).
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const FAKE = path.join(HERE, 'fake-openai.js');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
-const FAKE_PORT = 9057;
-const WB_PORT = 9058;
 const HOME = path.join(os.tmpdir(), 'wcw-memory-e2e');       // dataRoot AND ~/.claude
 const PROJ_A = path.join(HOME, 'projectA');
 const PROJ_B = path.join(HOME, 'projectB');
@@ -105,6 +105,8 @@ async function saveMem(id, scope, name, description, body, cwd) {
 }
 
 (async () => {
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   await startFake({});

@@ -13,10 +13,12 @@
 // turn deterministically); the handler returns {ok:false,error:'回合进行中,请先停止'} when activeChildren
 // holds the session. Documented in the delivery notes.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const HOME = path.join(os.tmpdir(), 'wcw-rewind-e2e');
-const FAKE_PORT = 8978, WB_PORT = 8979;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }

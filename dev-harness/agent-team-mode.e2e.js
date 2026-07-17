@@ -1,11 +1,14 @@
-// Agent 团队 composer mode: UI one-shot contract + live dual-driver prompt injection.
+﻿// Agent 团队 composer mode: UI one-shot contract + live dual-driver prompt injection.
 // Fully offline: fake OpenAI captures request bodies; fake Claude captures argv.
 'use strict';
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
+const { getFreePort } = require('./free-port.js');
 const os = require('os');
 const path = require('path');
+
+const { getFreePort } = require('./free-port.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -13,8 +16,6 @@ const PUB = path.join(WB, 'app', 'public');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-team-mode-e2e');
 const CAPTURE_DIR = path.join(HOME, 'captures');
 const ARGV_CAPTURE = path.join(HOME, 'claude-argv.json');
-const FAKE_PORT = 9194;
-const WB_PORT = 9195;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (value, label) => { if (value) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
@@ -76,6 +77,7 @@ function capturedSystem() {
 }
 
 (async () => {
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   // Static UI contract: explicit toggle, one-shot request field, responsive state, and localizations.
   const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
   const app = fs.readFileSync(path.join(PUB, 'app.js'), 'utf8');

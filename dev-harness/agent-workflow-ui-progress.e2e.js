@@ -20,11 +20,11 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-workflow-ui-progress');
-const FP = 9093;
-const WP = 9094;
 const SLOW_TOOL_ROUNDS = 3; // enough tool rounds (each delayed) to keep the OpenAI node `running` for ~1s
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
@@ -102,6 +102,7 @@ async function waitFor(label, fn) {
 function runOf(r, runId) { return r && Array.isArray(r.runs) && r.runs.find(x => x.id === runId); }
 
 (async () => {
+  const FP = await getFreePort(), WP = await getFreePort();
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'evidence.txt'), 'ui progress evidence');

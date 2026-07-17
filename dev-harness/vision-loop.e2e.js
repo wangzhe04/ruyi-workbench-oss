@@ -25,10 +25,12 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const FAKE_MCP = path.join(HERE, 'fake-mcp.js');
-const FAKE_PORT = 9011, WB_PORT = 9012;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-vision-e2e');
 const CAP_DIR = path.join(HOME, 'capture');
 const NODE = process.execPath;

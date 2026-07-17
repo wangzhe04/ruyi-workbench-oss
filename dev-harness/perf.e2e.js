@@ -9,11 +9,13 @@
 // Judgement line (exact): PERF E2E: ALL PASS
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const { readFrontendSrc } = require('./read-frontend-src.js'); // v1.3-FE1:app.js 拆模块后聚合读 public/app.js+public/js/**
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const APP_JS = path.join(WB, 'app', 'public', 'app.js'); // 主前端源文件(聚合读取的第一个;下方 ③ 用 readFrontendSrc 聚合)
 const HOME = path.join(os.tmpdir(), 'wcw-perf-e2e');
-const WB_PORT = 9147;
+const WB_PORT = await getFreePort();
 const SID = 'sess_perfe2e0001';
 const SESSION_LOAD_BUDGET_MS = 2000;
 const COLD_START_BUDGET_MS = 5000;

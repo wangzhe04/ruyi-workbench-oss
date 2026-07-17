@@ -9,8 +9,10 @@
 // 纪律:复用第26波b mission-driver 的 fake SSE + /api/mission 基建;验收主会话亲自实跑。
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
-const FAKE_PORT = 9123, WB_PORT = 9124;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-autonomy-benchmark-e2e');
 const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));

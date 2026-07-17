@@ -3,8 +3,10 @@
 // schemaVersion after two turns. Offline (fake-openai plain-chat path; no tools needed).
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
+const { getFreePort } = require('./free-port.js');
+
 const HERE = __dirname;
-const FAKE_PORT = 8952, WB_PORT = 8951;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-session-atomic-e2e');
 const SESSDIR = path.join(HOME, 'sessions');
 

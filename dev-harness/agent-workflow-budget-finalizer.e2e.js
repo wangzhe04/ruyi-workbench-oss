@@ -12,10 +12,10 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-budget-finalizer');
-const FP = 9091;
-const WP = 9092;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, label) => { if (v) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
@@ -94,6 +94,7 @@ function post(port, p, body, headers = {}) {
 async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/health')) return true; await sleep(120); } return false; }
 
 (async () => {
+  const FP = await getFreePort(), WP = await getFreePort();
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'evidence.txt'), 'evidence for the verifier node');

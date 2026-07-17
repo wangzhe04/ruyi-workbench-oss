@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 /*
  * E2E (B3): sub-turn loop guard. The PARENT turn (runOpenAiTurn) has long had a consecutive-identical-tool
  * signature guard (loop-guard.e2e.js); the SUB-turn (runSubAgentCore) had NONE, so a wedged sub-agent that
@@ -22,11 +22,12 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const cp = require('child_process');
+const { getFreePort } = require('./free-port.js');
+
+const { getFreePort } = require('./free-port.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-subturn-loop-guard');
-const FP = 9095;
-const WP = 9096;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, label) => { if (v) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
@@ -121,6 +122,7 @@ function post(port, p, body, headers = {}) {
 async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/health')) return true; await sleep(120); } return false; }
 
 (async () => {
+  const FP = await getFreePort(), WP = await getFreePort();
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(EVIDENCE(), 'loop guard evidence content');

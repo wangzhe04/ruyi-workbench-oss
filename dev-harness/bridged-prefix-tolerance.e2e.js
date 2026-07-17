@@ -12,6 +12,8 @@ const REPO = [path.resolve(__dirname, '..', 'ai-computer-control'), path.resolve
   .find(p => fs.existsSync(p)) || path.resolve(__dirname, '..', 'mcp', 'ai-computer-control');
 const HERE = __dirname;
 const srv = require(path.join(WB, 'app', 'server.js'));
+const { getFreePort } = require('./free-port.js');
+
 const { resolveBridge, collectBridgedWriteTargets } = srv;
 
 let fail = 0;
@@ -66,7 +68,7 @@ function postStream(port, payload) {
 }
 
 (async () => {
-  const FAKE_PORT = 8917, WB_PORT = 8802;
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   const HOME = path.join(os.tmpdir(), 'wcw-prefix-tol-e2e');
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({

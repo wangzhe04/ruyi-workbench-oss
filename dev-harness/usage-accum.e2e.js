@@ -4,8 +4,10 @@
 // that calls === 2 (old behavior was last-write-wins → would have reported a single call's tokens).
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
+const { getFreePort } = require('./free-port.js');
+
 const HERE = __dirname;
-const FAKE_PORT = 8954, WB_PORT = 8953;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-usage-accum-e2e');
 const TOOLFILE = path.join(HOME, 'read-me.txt');
 

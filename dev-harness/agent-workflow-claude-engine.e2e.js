@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 // Covers three v1.4.4 fixes:
 //  (A) buildClaudeCliEnv actually reaching the spawned Claude CLI child — config wins over a stale OS
 //      env var (the reported "changes back to ark-code-latest no matter what" symptom).
@@ -11,6 +11,8 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const cp = require('child_process');
+
+const { getFreePort } = require('./free-port.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
@@ -31,7 +33,7 @@ async function tokenFor(port) {
   // ---- (A) config-driven third-party endpoint/model reaches the actually-spawned CLI child ----
   {
     const HOME = path.join(os.tmpdir(), 'ruyi-claude-env-e2e');
-    const PORT = 9083;
+    const PORT = await getFreePort();
     fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
     const envCapture = path.join(HOME, 'env-capture.json');
     fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
@@ -62,7 +64,7 @@ async function tokenFor(port) {
   // ---- (B) DAG launch with Claude-native nodes and NO OpenAI Provider configured ----
   {
     const HOME = path.join(os.tmpdir(), 'ruyi-claude-dag-e2e');
-    const PORT = 9084;
+    const PORT = await getFreePort();
     fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
     const argvCapture = path.join(HOME, 'argv-capture.json');
     fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
@@ -104,7 +106,7 @@ async function tokenFor(port) {
   // ---- (C) exec-tier Claude-engine node gets a --mcp-config filtered to role.mcpServers; read-tier gets none ----
   {
     const HOME = path.join(os.tmpdir(), 'ruyi-claude-mcp-e2e');
-    const PORT = 9085;
+    const PORT = await getFreePort();
     fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
     const argvCapture = path.join(HOME, 'argv-capture.json');
     fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({

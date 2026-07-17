@@ -13,11 +13,13 @@ const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
 const HOME = path.join(os.tmpdir(), 'wcw-cmdline-guard-e2e');
 const CWD = path.join(HOME, 'project');
 const ARGV_CAP = path.join(HOME, 'argv.json');
-const PORT_A = 9132, PORT_B = 9133;
+const PORT_A = await getFreePort(), PORT_B = await getFreePort();
 const MARKER = 'CMDGUARD_MARKER_ZQ';
 const BUDGET = 4200; // 对抗预算:真实 7900 的一半强,足以保住 用户append+团队/语言政策,不足以放技能段与 --agents
 
 const srv = require(path.join(WB, 'app', 'server.js'));
+
+const { getFreePort } = require('./free-port.js');
 
 // ---- fixtures -------------------------------------------------------------------------------------------
 fs.rmSync(HOME, { recursive: true, force: true });

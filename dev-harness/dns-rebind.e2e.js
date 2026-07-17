@@ -9,9 +9,11 @@
 // Connection always targets 127.0.0.1:PORT; only the Host HEADER is spoofed (exactly the rebinding shape).
 // Uses port 9041. No fake provider needed — /api/sessions only touches config + the sessions dir.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'wcw-dns-rebind-e2e');
-const WB_PORT = 9041;
+const WB_PORT = await getFreePort();
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }

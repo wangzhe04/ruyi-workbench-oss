@@ -1,4 +1,4 @@
-// E2E (v1 技能体系): unified skill registry + session enable + progressive prompt injection + skill_read tool.
+﻿// E2E (v1 技能体系): unified skill registry + session enable + progressive prompt injection + skill_read tool.
 // Fully offline. Stands up a fake OpenAI-compatible provider (request-body capture + tool sequence) and a fake
 // Claude CLI (argv capture), plus a temp HOME (data isolation) and a temp cwd project with a .ruyi/skills fixture.
 //
@@ -20,12 +20,12 @@
 //       in a different cwd where a same-id PROJECT skill shadows it (source mismatch → injection skipped).
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const FAKE = path.join(HERE, 'fake-openai.js');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
-const FAKE_PORT = 9103;
-const WB_PORT = 9104;
 const HOME = path.join(os.tmpdir(), 'wcw-skills-registry-e2e');   // isolated data home AND ~/.claude
 const CWD = path.join(HOME, 'project');                          // isolated project cwd (holds .ruyi/skills)
 const CAP_DIR = path.join(HOME, 'reqcap');                       // fake-openai request-body capture dir
@@ -101,6 +101,8 @@ function startFake(extraEnv) {
 function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { try { cp.execFileSync('taskkill', ['/PID', String(fake.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } fake = null; setTimeout(resolve, 250); }); }
 
 (async () => {
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   await startFake({}); // plain fake (no tool sequence) for scenarios (a)(b)(c)(f)

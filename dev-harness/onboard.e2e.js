@@ -1,4 +1,4 @@
-// E2E for v1.0-S3「新手起步与设置补全」: 首跑引导 + 设置补全（联网搜索 / provider vision）+ 小白安全默认。
+﻿// E2E for v1.0-S3「新手起步与设置补全」: 首跑引导 + 设置补全（联网搜索 / provider vision）+ 小白安全默认。
 // 零依赖、离线、node 直跑。静态断言读 index.html/styles.css/app.js；动态断言起临时 HOME 的 workbench。
 //
 // 静态断言（读源文件）:
@@ -21,12 +21,13 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const { readFrontendSrc } = require('./read-frontend-src.js'); // v1.3-FE1:app.js 拆模块后聚合读 public/app.js+public/js/**
 
 const HERE = __dirname;
 const WB = path.resolve(HERE, '..', 'ruyi-workbench');
 const PUB = path.join(WB, 'app', 'public');
-const WB_PORT = 8997;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
@@ -56,6 +57,8 @@ function between(hay, startNeedle, endNeedle) {
 }
 
 (async () => {
+  const WB_PORT = await getFreePort(), PORT2 = await getFreePort();
+  const WB_PORT = await getFreePort(), PORT2 = await getFreePort();
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
@@ -179,7 +182,6 @@ function between(hay, startNeedle, endNeedle) {
     }, null, 2));
     const env2 = { ...process.env }; delete env2.RUYI_HOME; env2.WIN_CLAUDE_WORKBENCH_HOME = HOME2;
     delete env2.WCW_FAKE_CLAUDE; // 确保不走假 CLI seam
-    const PORT2 = 9141;
     const wb2 = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT2)], { cwd: WB, env: env2, windowsHide: true });
     wb2.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb2!] ' + l.trim())));
     const postStream = (port, payload) => new Promise((resolve, reject) => {

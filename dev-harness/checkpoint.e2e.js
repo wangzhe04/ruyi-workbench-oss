@@ -12,10 +12,12 @@
 //  (e) POST rollback with NO UI token → 403.
 // Token手法 copied from search-robust; direct tool calls carry sessionId so they journal under the session.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const HOME = path.join(os.tmpdir(), 'wcw-checkpoint-e2e');
-const FAKE_PORT = 8975, WB_PORT = 8976;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }

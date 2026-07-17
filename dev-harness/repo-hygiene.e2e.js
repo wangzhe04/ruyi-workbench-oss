@@ -14,10 +14,12 @@
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const HERE = __dirname;
 const ROOT = path.resolve(HERE, '..');                       // repo root
 const WB = path.resolve(ROOT, 'ruyi-workbench');
-const PORT_A = 8990, PORT_B = 8991, PORT_C = 8992; // PORT_C: F2 apiKey-mask section (dedicated instance)
+const PORT_A = await getFreePort(), PORT_B = await getFreePort(), PORT_C = await getFreePort(); // PORT_C: F2 apiKey-mask section (dedicated instance)
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }

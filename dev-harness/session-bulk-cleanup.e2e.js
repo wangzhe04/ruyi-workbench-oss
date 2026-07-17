@@ -7,8 +7,10 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
-const PORT = 8971;
+const PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'ruyi-session-bulk-cleanup-e2e');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 function kill(child) { if (child?.pid) try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }

@@ -30,9 +30,11 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
-const FP = 9107, WP = 9108;
+const FP = await getFreePort(), WP = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'ruyi-judge-json-repair');
 const UNIT_HOME = path.join(os.tmpdir(), 'ruyi-judge-json-repair-unit');
 const MONTH = new Date().toISOString().slice(0, 7);

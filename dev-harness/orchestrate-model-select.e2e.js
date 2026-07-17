@@ -5,9 +5,11 @@
 // [H] Live:哑 provider 起 DAG,验证节点 model 在【物化(执行前)】即:显式(合法/未知都尊重原样)/ inherit→空 / 省略→空。
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
-const WB_PORT = 9122;
+const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-orch-model-e2e');
 const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));

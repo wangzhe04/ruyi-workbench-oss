@@ -6,7 +6,9 @@
 // No provider/turn needed (detection is pure file inspection). Offline.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
-const WB_PORT = 9149;
+const { getFreePort } = require('./free-port.js');
+
+const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-resume-dangling-e2e');
 const SESSDIR = path.join(HOME, 'sessions');
 

@@ -18,10 +18,12 @@ const cp = require('child_process'), http = require('http'), path = require('pat
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
 const HOME = path.join(os.tmpdir(), 'wcw-tools-v3-e2e');
-const WB_PORT = 9150, DL_PORT = 9151;
+const WB_PORT = await getFreePort(), DL_PORT = await getFreePort();
 
 // Reuse the server's own exported codec for building fixtures (Zip Slip / round-trip bytes).
 const S = require(SERVER);
+
+const { getFreePort } = require('./free-port.js');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }

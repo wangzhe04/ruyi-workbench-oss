@@ -5,9 +5,11 @@
 // the WHOLE frame was dropped. The fixed parser reassembles the event. This test runs plain chat + a tool loop
 // against a fake that emits every frame as multi-line data, asserting content/reasoning arrive intact.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 9047, WB_PORT = 9048;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-e5-multiline-e2e');
 const TOOLFILE = path.join(HOME, 'read-me.txt');
 const MARKER = 'MULTILINE_SSE_TOOL_OK_88';

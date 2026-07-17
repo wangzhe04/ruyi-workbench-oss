@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // End-to-end contract for request_user_input on both engines:
 //   Claude native compatibility event -> text user envelope -> confirmed delivery
@@ -9,12 +9,12 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 
+const { getFreePort } = require('./free-port.js');
+
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-interactive-question-e2e');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
-const PROVIDER_PORT = 9130;
-const WB_PORT = 9131;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let failures = 0;
 const ok = (condition, label) => { if (condition) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
@@ -110,6 +110,8 @@ function startProvider(captures) {
 }
 
 (async () => {
+  const PROVIDER_PORT = await getFreePort(), WB_PORT = await getFreePort();
+  const PROVIDER_PORT = await getFreePort(), WB_PORT = await getFreePort();
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 7, activeProvider: '', engineMode: 'interactive', permissionMode: 'bypass', includeWorkbenchMcp: true,

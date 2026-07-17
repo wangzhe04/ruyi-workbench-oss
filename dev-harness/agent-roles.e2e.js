@@ -6,6 +6,8 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 
+const { getFreePort } = require('./free-port.js');
+
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-roles-e2e');
@@ -65,7 +67,7 @@ function stream(port, body) { return new Promise((resolve, reject) => { const ra
     configSchema: 7, permissionMode: 'bypass', activeProvider: '', engineMode: 'interactive', includePartialMessages: false,
     agentRoleOverrides: [{ id: 'security-checker', label: 'Security Checker', description: 'Checks security', prompt: 'SECRET_ROLE_PROMPT', claudeModel: 'sonnet', claudeTools: ['Read', 'Grep'], mcpServers: ['win-claude-workbench'], permissionMode: 'dontAsk', maxTurns: 7 }],
   }, null, 2));
-  const port = 9072;
+  const port = await getFreePort();
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(port)], { cwd: WB, env: { ...process.env, RUYI_HOME: DATA, WCW_FAKE_CLAUDE: path.join(WB, 'tools', 'fake-claude.js'), WCW_FAKE_ARGV_CAPTURE: capture, WCW_FAKE_SCENARIO: 'agents' }, windowsHide: true });
   try {
     let up = null; for (let i=0;i<40 && !up;i++){await sleep(150);up=await health(port);} ok(!!up, 'Claude role test server starts');

@@ -4,8 +4,10 @@
 //   model -> workbench -> McpStdioClient -> fake-mcp child -> result -> back to model
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
+const { getFreePort } = require('./free-port.js');
+
 const HERE = __dirname;
-const FAKE_PORT = 9146, WB_PORT = 8799;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-bridge-e2e');
 const MARKER = 'BRIDGE_ECHO_MARKER_77';
 const NODE = process.execPath;

@@ -2,9 +2,11 @@
 // and report its secret marker. Proves real function-calling through the workbench agent loop.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
+const { getFreePort } = require('./free-port.js');
+
 const KEY = process.argv[2];
 const MODEL = process.argv[3] || 'deepseek-v4-pro';
-const WB_PORT = 8797;
+const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-ds-tools-e2e');
 const WORK = path.join(HOME, 'work');
 const SECRET = 'ZX_SECRET_TOKEN_9931';

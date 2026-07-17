@@ -6,10 +6,11 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const cp = require('child_process');
+const { getFreePort } = require('./free-port.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-parent-heartbeat');
-const FP = 9167, WP = 9168, IDLE_MS = 3000;
+const IDLE_MS = 3000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, label) => { if (v) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
@@ -85,6 +86,7 @@ function streamChat(body) {
 function kill(proc) { if (proc && proc.pid) try { cp.execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
 
 (async () => {
+  const FP = await getFreePort(), WP = await getFreePort();
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 8, permissionMode: 'bypass', defaultWorkspace: HOME,

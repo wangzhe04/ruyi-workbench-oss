@@ -24,9 +24,11 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_A = 9020, FAKE_B = 9022, WB_PORT = 9021;
+const FAKE_A = await getFreePort(), FAKE_B = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-usage-ledger-e2e');
 const USAGE_DIR = path.join(HOME, 'usage');
 const MONTH = new Date().toISOString().slice(0, 7); // current UTC month = ledger file name

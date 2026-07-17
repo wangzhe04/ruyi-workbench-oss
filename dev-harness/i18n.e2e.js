@@ -7,10 +7,12 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 
+const { getFreePort } = require('./free-port.js');
+
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-i18n-e2e');
-const PORT = 9134;
+const PORT = await getFreePort();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function request(method, pathname, headers = {}, body) {

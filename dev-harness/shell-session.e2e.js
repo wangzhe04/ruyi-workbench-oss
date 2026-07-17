@@ -12,10 +12,12 @@
 //  (d) kill s1 → shell_list no longer contains s1.
 //  (e) F1: cap counts LIVE sessions only — after the kill, a new start succeeds.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const HOME = path.join(os.tmpdir(), 'wcw-shell-session-e2e');
-const FAKE_PORT = 8967, WB_PORT = 8968;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const WORK = path.join(HOME, 'work');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

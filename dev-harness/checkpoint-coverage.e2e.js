@@ -29,6 +29,8 @@ const REPO = [path.resolve(__dirname, '..', 'ai-computer-control'), path.resolve
   .find(p => fs.existsSync(p)) || path.resolve(__dirname, '..', 'mcp', 'ai-computer-control');
 const HERE = __dirname;
 const srv = require(path.join(WB, 'app', 'server.js'));
+const { getFreePort } = require('./free-port.js');
+
 const { McpStdioClient, detectDesktopMcp, auditBridgedWriteCoverage,
         collectBridgedWriteTargets, BRIDGED_WRITE_PATH_ARGS } = srv;
 
@@ -153,7 +155,7 @@ const ACC_TOOL_NAMES_FROZEN = [
     fs.rmSync(D_HOME, { recursive: true, force: true });
     fs.mkdirSync(D_WS, { recursive: true });
     const FAKE_MCP = path.join(HERE, 'fake-mcp.js');
-    const D_FAKE_PORT = 9061, D_WB_PORT = 9062;
+    const D_FAKE_PORT = await getFreePort(), D_WB_PORT = await getFreePort();
     const src = path.join(D_WS, 'orig.txt');
     const dst = path.join(D_WS, 'moved.txt');
     fs.writeFileSync(src, 'ORIGINAL BODY');

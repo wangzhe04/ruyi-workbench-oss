@@ -5,9 +5,11 @@
 // concatenated into one unparseable blob. The fix aggregates by tool_call id. This test drives two parallel
 // file_read calls over DISTINCT files and asserts each is parsed independently (correct, non-crossed paths).
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 9043, WB_PORT = 9044;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-e1-noindex-e2e');
 const FILE_A = path.join(HOME, 'alpha.txt'), FILE_B = path.join(HOME, 'beta.txt');
 const MARK_A = 'ALPHA_CONTENT_11', MARK_B = 'BETA_CONTENT_22';

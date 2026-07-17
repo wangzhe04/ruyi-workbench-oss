@@ -24,6 +24,8 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 
@@ -64,7 +66,7 @@ function seedConfig(home, fakePort) {
 // One scenario: spin a fake (reject flag + optional wording override + capture dir) + a fresh WB, run one
 // turn, and assert the tools-rejected retry fired and the retry request carried no tools.
 async function runRejectScenario({ label, wording, ok }) {
-  const FAKE_PORT = 8993, WB_PORT = 8994;
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   const HOME = path.join(os.tmpdir(), 'wcw-reject-attr-e2e-' + label.replace(/[^a-z0-9]/gi, ''));
   const CAP_DIR = path.join(HOME, 'captures');
   fs.rmSync(HOME, { recursive: true, force: true });

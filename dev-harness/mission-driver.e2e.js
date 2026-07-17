@@ -11,8 +11,10 @@
 //  E) 非账本会话零行为变化:无 mission 的普通会话仍是单回合(无 mission 事件)。
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
-const FAKE_PORT = 9113, WB_PORT = 9114;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-mission-driver-e2e');
 const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));

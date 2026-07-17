@@ -15,10 +15,12 @@
 //      contiguity holds AND the interjection sits AFTER the complete tool block (assistant→tool→tool→user)
 //      — regression pin for the removed mid-batch drain (a steer must never split a tool block).
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const HOME = path.join(os.tmpdir(), 'wcw-steering-e2e');
-const FAKE_PORT = 8986, WB_PORT = 8987;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const STEER_TEXT = '顺便把结果写成表格';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

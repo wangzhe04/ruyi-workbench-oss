@@ -29,10 +29,10 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-deadlock-watchdog');
-const FP = 9097;
-const WP = 9098;
 const LEASE_TIMEOUT_MS = 1500; // WB deadlock backstop for this run (fast enough for a test)
 const IDLE_MS = 3000;          // WB idle-watchdog limit for this run (< the 5s watchdog tick → fires at 1st tick)
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -121,6 +121,7 @@ const runOf = (r, runId) => r && Array.isArray(r.runs) && r.runs.find(x => x.id 
 const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' || s === 'stopped' || s === 'cancelled';
 
 (async () => {
+  const FP = await getFreePort(), WP = await getFreePort();
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
   // Start the fake listener FIRST so its HTTP handle keeps the event loop alive during Section 1. The

@@ -1,4 +1,4 @@
-// E2E for v0.9-S4 (C4 / §0.9-S4): 产物画廊 + 本地文件预览端点.
+﻿// E2E for v0.9-S4 (C4 / §0.9-S4): 产物画廊 + 本地文件预览端点.
 // Ports 9005 (fake-openai) + 9006 (workbench).
 //
 // Two halves:
@@ -25,8 +25,10 @@ const os = require('os');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 9005, WB_PORT = 9006;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const srv = require(path.join(WB, 'app', 'server.js'));
+
+const { getFreePort } = require('./free-port.js');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const errorText = value => typeof value === 'string' ? value : String(value && (value.message || value.code) || '');
@@ -313,7 +315,7 @@ const PNG_1x1 = Buffer.from(
       fs.rmSync(G_HOME, { recursive: true, force: true });
       fs.mkdirSync(G_WS, { recursive: true });
       const FAKE_MCP = path.join(HERE, 'fake-mcp.js');
-      const G_FAKE_PORT = 9139, G_WB_PORT = 9140;
+      const G_FAKE_PORT = await getFreePort(), G_WB_PORT = await getFreePort();
       const docxPath = path.join(G_WS, 'made.docx');
       fs.writeFileSync(path.join(G_HOME, 'config.json'), JSON.stringify({
         configSchema: 6, version: '1.0.0', permissionMode: 'bypass',

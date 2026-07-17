@@ -3,10 +3,12 @@
 // child -> real result -> fed back. Uses `diagnostics` (returns version + tool_count from the real server).
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
+const { getFreePort } = require('./free-port.js');
+
 const REPO = [path.resolve(__dirname, '..', 'ai-computer-control'), path.resolve(__dirname, '..', 'mcp', 'ai-computer-control')]
   .find(p => fs.existsSync(p)) || path.resolve(__dirname, '..', 'mcp', 'ai-computer-control');
 const HERE = __dirname;
-const FAKE_PORT = 8913, WB_PORT = 8798;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-desktop-bridge-e2e');
 fs.rmSync(HOME, { recursive: true, force: true });
 fs.mkdirSync(HOME, { recursive: true });

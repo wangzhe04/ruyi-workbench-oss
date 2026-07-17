@@ -1,4 +1,4 @@
-// E2E for v0.8-S6 能力矩阵 + 分层提示词框架（含身份钉死）+ 错误类播种 + FAKE_REJECT_TOOLS.
+﻿// E2E for v0.8-S6 能力矩阵 + 分层提示词框架（含身份钉死）+ 错误类播种 + FAKE_REJECT_TOOLS.
 //
 // Ports 8984-8985 (live server) + 8998 (dead probe port). Uses fake-openai (FAKE_CAPTURE_DIR to inspect the injected `system` message, and
 // FAKE_REJECT_TOOLS for the tools-rejected retry) + fake-mcp (bridged as ai-computer-control so the desktop
@@ -22,6 +22,8 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+
+const { getFreePort } = require('./free-port.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
@@ -65,10 +67,9 @@ function systemOf(body) {
   return m ? String(m.content || '') : '';
 }
 
-const DEAD_PORT = 8998; // F6: must be a port nobody listens on AND that no e2e registers (was 8986, which
-// collided with steering/loop-guard's 8986-8989 segment). 8998 is unregistered + dead → probe returns false.
 
 (async () => {
+  const DEAD_PORT = await getFreePort(); // port nobody listens on
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
@@ -85,7 +86,7 @@ const DEAD_PORT = 8998; // F6: must be a port nobody listens on AND that no e2e 
   // ─────────────────────────────────────────────────────────────────────────────────────────────────
   // PART A/C/D/E/F — a LIVE fake provider + capture dir.
   // ─────────────────────────────────────────────────────────────────────────────────────────────────
-  const FAKE_PORT = 8984, WB_PORT = 8985;
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   const HOME = path.join(os.tmpdir(), 'wcw-capabilities-e2e');
   const WS = path.join(HOME, 'workspace');
   const CAP_DIR = path.join(HOME, 'captures');
@@ -185,7 +186,7 @@ const DEAD_PORT = 8998; // F6: must be a port nobody listens on AND that no e2e 
   // PART B — offline: capabilityProbeUrl → dead port, fresh instance (cache cold) → online===false.
   // ─────────────────────────────────────────────────────────────────────────────────────────────────
   {
-    const WB_PORT_B = 8985; // reuse (previous instance killed)
+    const WB_PORT_B = await getFreePort(); // was 8985 reuse (previous instance killed)
     const HOME_B = path.join(os.tmpdir(), 'wcw-capabilities-e2e-b');
     fs.rmSync(HOME_B, { recursive: true, force: true });
     fs.mkdirSync(HOME_B, { recursive: true });
@@ -216,7 +217,7 @@ const DEAD_PORT = 8998; // F6: must be a port nobody listens on AND that no e2e 
   // from the tool list AND listed under 「当前不可用」 in the system prompt.
   // ─────────────────────────────────────────────────────────────────────────────────────────────────
   {
-    const FAKE_PORT_E = 8984, WB_PORT_E = 8985;
+    const FAKE_PORT_E = await getFreePort(), WB_PORT_E = await getFreePort();
     const HOME_E = path.join(os.tmpdir(), 'wcw-capabilities-e2e-e');
     const CAP_DIR_E = path.join(HOME_E, 'captures');
     fs.rmSync(HOME_E, { recursive: true, force: true });
@@ -258,7 +259,7 @@ const DEAD_PORT = 8998; // F6: must be a port nobody listens on AND that no e2e 
   // the follow-up captured request carries no `tools`.
   // ─────────────────────────────────────────────────────────────────────────────────────────────────
   {
-    const FAKE_PORT_F = 8984, WB_PORT_F = 8985;
+    const FAKE_PORT_F = await getFreePort(), WB_PORT_F = await getFreePort();
     const HOME_F = path.join(os.tmpdir(), 'wcw-capabilities-e2e-f');
     const CAP_DIR_F = path.join(HOME_F, 'captures');
     fs.rmSync(HOME_F, { recursive: true, force: true });

@@ -1,4 +1,4 @@
-// E2E (v0.7d line 1): the generated .mcp.json for the Claude CLI must include the desktop MCP server
+﻿// E2E (v0.7d line 1): the generated .mcp.json for the Claude CLI must include the desktop MCP server
 // `ai-computer-control` when desktopMcp.enabled with an explicit command; and must OMIT it (back-compat:
 // identical to pre-0.7d) when disabled. We drive it via a temp HOME + GET /api/status, and also read
 // the generated config file on disk.
@@ -223,10 +223,10 @@ async function runDropIn(fakePort, wbPort) {
 }
 
 (async () => {
-  const a = await runCase('enabled', { enabled: true, command: NODE, args: [FAKE_MCP], cwd: '', autodetect: false }, true, 8801);
-  const b = await runCase('disabled', { enabled: false, command: '', args: [], cwd: '', autodetect: false }, false, 9153);
-  const c = await runImportFolder(8803);
-  const d = await runDropIn(8814, 8804);
+  const a = await runCase('enabled', { enabled: true, command: NODE, args: [FAKE_MCP], cwd: '', autodetect: false }, true, await getFreePort());
+  const b = await runCase('disabled', { enabled: false, command: '', args: [], cwd: '', autodetect: false }, false, await getFreePort());
+  const c = await runImportFolder(await getFreePort());
+  const d = await runDropIn(await getFreePort(), await getFreePort());
   const fail = a.fail + b.fail + c.fail + d.fail;
   console.log('\nMCP-CONFIG E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exitCode = fail ? 1 : 0;

@@ -34,6 +34,15 @@ OUTPUT_ZIP = os.path.join(PROJECT_ROOT, "ai-computer-control-offline.zip")
 PYTHON_VERSION = os.environ.get("ACC_OFFLINE_PYTHON_VERSION", "3.12.10")
 PYTHON_EMBED_URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-embed-amd64.zip"
 GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
+
+# SHA-256 pins for supply-chain integrity.  Set via env vars on the build
+# machine, or edit these literals when upgrading versions.  Empty string
+# disables verification (not recommended for release builds).
+#
+# Get the embed hash from https://www.python.org/downloads/release/python-31210/
+# Get the get-pip hash via: curl -sL https://bootstrap.pypa.io/get-pip.py | sha256sum
+PYTHON_EMBED_SHA256 = os.environ.get("ACC_EMBED_SHA256", "")
+GET_PIP_SHA256 = os.environ.get("ACC_GET_PIP_SHA256", "")
 IMPORT_PROBE = (
     "from mcp.server.fastmcp import FastMCP; "
     "import ai_computer_control.server; "
@@ -47,6 +56,37 @@ def run(args, *, env=None, cwd=None):
     subprocess.run(args, env=env, cwd=cwd, check=True)
 
 
+def _sha256_file(path):
+    """Return the hex SHA-256 digest of a file."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _download_verified(url, dest, expected_sha256):
+    """Download *url* to *dest* and verify its SHA-256 hash.
+
+    If *expected_sha256* is empty the check is skipped with a warning (useful
+    during development, but not for release builds).
+    """
+    urllib.request.urlretrieve(url, dest)
+    actual = _sha256_file(dest)
+    if expected_sha256:
+        if actual.lower() != expected_sha256.lower():
+            os.remove(dest)
+            raise RuntimeError(
+                f"SHA-256 mismatch for {url}\n"
+                f"  expected: {expected_sha256}\n"
+                f"  actual:   {actual}"
+            )
+        print(f"  -> SHA-256 verified: {actual[:16]}...")
+    else:
+        print(f"  ⚠ SHA-256 check skipped (no expected hash set). "
+              f"Actual: {actual}")
+
+
 def clean():
     if os.path.exists(BUILD_DIR):
         shutil.rmtree(BUILD_DIR)
@@ -57,7 +97,7 @@ def download_python_embed():
     print("[1/7] Preparing bundled CPython runtime...")
     os.makedirs(PYTHON_DIR, exist_ok=True)
     archive = os.path.join(PYTHON_DIR, "python_embed.zip")
-    urllib.request.urlretrieve(PYTHON_EMBED_URL, archive)
+    _download_verified(PYTHON_EMBED_URL, archive, PYTHON_EMBED_SHA256)
     with zipfile.ZipFile(archive, "r") as zf:
         zf.extractall(PYTHON_DIR)
     os.remove(archive)
@@ -73,7 +113,7 @@ def download_python_embed():
             f.write(content)
 
     get_pip = os.path.join(PYTHON_DIR, "get-pip.py")
-    urllib.request.urlretrieve(GET_PIP_URL, get_pip)
+    _download_verified(GET_PIP_URL, get_pip, GET_PIP_SHA256)
     python_exe = os.path.join(PYTHON_DIR, "python.exe")
     run([python_exe, get_pip, "--no-warn-script-location"])
     os.remove(get_pip)

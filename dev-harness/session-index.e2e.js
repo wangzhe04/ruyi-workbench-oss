@@ -17,9 +17,11 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 9135, WB_PORT = 9136;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-session-index-e2e');
 const SESSDIR = path.join(HOME, 'sessions');
 const IDX = path.join(SESSDIR, 'index.json');

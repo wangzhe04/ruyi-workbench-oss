@@ -10,7 +10,9 @@ const fs = require('fs');
 const os = require('os');
 
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
-const WB_PORT = 9152;
+const { getFreePort } = require('./free-port.js');
+
+const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-search-robust-e2e');
 const WORK = path.join(HOME, 'work');
 

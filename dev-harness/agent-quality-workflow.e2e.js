@@ -4,9 +4,11 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const cp = require('child_process');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-quality-workflow');
-const FP = 9078, WP = 9079;
+const FP = await getFreePort(), WP = await getFreePort();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };

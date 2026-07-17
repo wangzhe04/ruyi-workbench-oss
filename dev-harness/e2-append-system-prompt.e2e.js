@@ -6,9 +6,11 @@
 //   (b) a pre-existing stale appendSystemPrompt key is stripped while unrelated keys are preserved;
 //   (c) the --append-system-prompt flag IS still passed to the (fake) Claude spawn with the configured value.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
-const WB_PORT = 9049;
+const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-e2-append-e2e');   // doubles as isolated ~ (USERPROFILE) AND data home
 const CLAUDE_DIR = path.join(HOME, '.claude');
 const SETTINGS = path.join(CLAUDE_DIR, 'settings.json');

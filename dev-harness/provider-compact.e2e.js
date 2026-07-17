@@ -1,4 +1,4 @@
-// E2E for v0.7b §5.2 provider context compaction. Start fake-openai + the REAL workbench in provider
+﻿// E2E for v0.7b §5.2 provider context compaction. Start fake-openai + the REAL workbench in provider
 // mode, chat one turn (grows providerHistory), POST /api/provider/compact, then assert:
 //   - {ok:true} with before/after token estimates
 //   - GET session -> providerHistory.length === 2 (summary user + ack assistant)
@@ -13,9 +13,9 @@ const fs = require('fs');
 const os = require('os');
 
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
+const { getFreePort } = require('./free-port.js');
+
 const HERE = __dirname;
-const FAKE_PORT = 8931;
-const WB_PORT = 8834;
 const HOME = path.join(os.tmpdir(), 'wcw-compact-e2e');
 
 fs.rmSync(HOME, { recursive: true, force: true });
@@ -69,6 +69,8 @@ function postStream(port, payload) {
 }
 
 (async () => {
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], { windowsHide: true });

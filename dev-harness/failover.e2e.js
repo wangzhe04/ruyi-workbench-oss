@@ -18,12 +18,14 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 // Port map (distinct segment, avoid collisions with other e2e):
 //   9031 live fake-openai (backup endpoint) · 9032 workbench · 9033 401-endpoint fake · 9034 die-midstream fake
 //   9035 fake tavily/bocha search server · 9039 the DEAD (unlistened) primary port for ①.
-const FAKE_LIVE = 9031, WB_PORT = 9032, FAKE_401 = 9033, FAKE_DIE = 9034, SEARCH_PORT = 9035, DEAD_PORT = 9039;
+const FAKE_LIVE = await getFreePort(), WB_PORT = await getFreePort(), FAKE_401 = await getFreePort(), FAKE_DIE = await getFreePort(), SEARCH_PORT = await getFreePort(), DEAD_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-failover-e2e');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

@@ -1,4 +1,4 @@
-// E2E for v0.7a §5.1 message source fields. Two independent workbench instances (fresh HOME each):
+﻿// E2E for v0.7a §5.1 message source fields. Two independent workbench instances (fresh HOME each):
 //   (A) provider mode (fake-openai) — assert the persisted assistant message carries
 //       engine==='openai', providerId==='fake', and a non-empty model.
 //   (B) claude mode (WCW_FAKE_CLAUDE -> workbench's own tools/fake-claude.js, activeProvider empty) —
@@ -11,6 +11,8 @@ const fs = require('fs');
 const os = require('os');
 
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
+const { getFreePort } = require('./free-port.js');
+
 const HERE = __dirname;
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
 
@@ -55,7 +57,7 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
   // ---------- (A) provider mode ----------
-  const FAKE_PORT = 8921, WB_PORT_A = 9144;
+  const FAKE_PORT = await getFreePort(), WB_PORT_A = await getFreePort();
   const HOME_A = path.join(os.tmpdir(), 'wcw-srcfields-openai');
   fs.rmSync(HOME_A, { recursive: true, force: true }); fs.mkdirSync(HOME_A, { recursive: true });
   fs.writeFileSync(path.join(HOME_A, 'config.json'), JSON.stringify({
@@ -84,7 +86,7 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
   finally { kill(wbA); kill(fake); await sleep(300); }
 
   // ---------- (B) claude mode via fake-claude ----------
-  const WB_PORT_B = 9145;
+  const WB_PORT_B = await getFreePort();
   const HOME_B = path.join(os.tmpdir(), 'wcw-srcfields-claude');
   fs.rmSync(HOME_B, { recursive: true, force: true }); fs.mkdirSync(HOME_B, { recursive: true });
   // activeProvider empty => Claude engine. model set so we can also confirm it lands on the message.

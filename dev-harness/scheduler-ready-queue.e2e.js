@@ -13,8 +13,10 @@
 //     node_start 与 node_settled/node_requeued 按 attemptId 一一配对。
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
-const FAKE_PORT = 9111, WB_PORT = 9112;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-ready-queue-e2e');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;

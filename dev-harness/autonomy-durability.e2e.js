@@ -10,9 +10,11 @@
 //  D) 崩溃注入·杀点2(node_start 后、0 个工具完成前强杀):resume 不注入【断点续跑】,run 照常完成。
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 9109, WB_PORT = 9110;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-autonomy-durability-e2e');
 const WS = path.join(HOME, 'ws');
 const CAP1 = path.join(HOME, 'cap1'), CAP2 = path.join(HOME, 'cap2');

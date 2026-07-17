@@ -1,4 +1,4 @@
-// E2E for v0.8-S5 上下文管理 (§7.7): estimate v2 (parts-aware) + two-level auto-compaction + pairing
+﻿// E2E for v0.8-S5 上下文管理 (§7.7): estimate v2 (parts-aware) + two-level auto-compaction + pairing
 // iron law + append-only cache discipline + history snapshot + tiered truncation.
 //
 // Strategy (no fake changes needed — real big file heaps the window): a provider with a SMALL
@@ -33,10 +33,10 @@ const fs = require('fs');
 const os = require('os');
 const zlib = require('zlib');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 8982;
-const WB_PORT = 8983;
 const HOME = path.join(os.tmpdir(), 'wcw-autocompact-e2e');
 const BIGFILE = path.join(HOME, 'big.txt');
 
@@ -87,6 +87,8 @@ function postStream(port, payload) {
 }
 
 (async () => {
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
+  const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 

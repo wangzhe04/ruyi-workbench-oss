@@ -1,4 +1,4 @@
-// E2E (v0.8-S0): bridged-tool permission tiering under permissionMode 'default'.
+﻿// E2E (v0.8-S0): bridged-tool permission tiering under permissionMode 'default'.
 //   Segment A: a READ-tier bridged tool (fake__screenshot_full — matches BRIDGED_TOOL_TIERS' read rule)
 //     must auto-allow: NO permission_request event, tool_result ok.
 //   Segment B: an EXEC-tier bridged tool (fake__echo) must prompt: a permission_request IS emitted;
@@ -6,6 +6,7 @@
 //     and the turn still finishes cleanly.
 // Two independent workbench+fake pairs keep the two provider configs isolated. Fully offline.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const NODE = process.execPath;
@@ -60,8 +61,10 @@ async function runSegment({ label, wbPort, fakePort, home, toolName, toolArgs, p
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   const procs = [];
   try {
+    const WB_PORT_A = await getFreePort(), FAKE_PORT_A = await getFreePort();
+    const WB_PORT_B = await getFreePort(), FAKE_PORT_B = await getFreePort();
     // --- Segment A: read-tier bridged tool auto-allows ---
-    const a = await runSegment({ label: 'A', wbPort: 8955, fakePort: 8956, home: path.join(os.tmpdir(), 'wcw-bridged-read-a'), toolName: 'fake__screenshot_full', toolArgs: {}, procs });
+    const a = await runSegment({ label: 'A', wbPort: WB_PORT_A, fakePort: FAKE_PORT_A, home: path.join(os.tmpdir(), 'wcw-bridged-read-a'), toolName: 'fake__screenshot_full', toolArgs: {}, procs });
     ok(a.listening, 'segment A workbench listening');
     if (a.events) {
       const permReq = a.events.find(e => e.type === 'permission_request');
@@ -75,7 +78,7 @@ async function runSegment({ label, wbPort, fakePort, home, toolName, toolArgs, p
     }
 
     // --- Segment B: exec-tier bridged tool prompts, then denies on timeout ---
-    const b = await runSegment({ label: 'B', wbPort: 8957, fakePort: 8958, home: path.join(os.tmpdir(), 'wcw-bridged-read-b'), toolName: 'fake__echo', toolArgs: { message: 'hi' }, procs });
+    const b = await runSegment({ label: 'B', wbPort: await getFreePort(), fakePort: await getFreePort(), home: path.join(os.tmpdir(), 'wcw-bridged-read-b'), toolName: 'fake__echo', toolArgs: { message: 'hi' }, procs });
     ok(b.listening, 'segment B workbench listening');
     if (b.events) {
       const permReq = b.events.find(e => e.type === 'permission_request');

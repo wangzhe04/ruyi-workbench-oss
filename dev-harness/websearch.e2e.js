@@ -1,4 +1,4 @@
-// E2E (v0.9-S9, D6): web_search / web_fetch. SSRF防御 is the security核心 — asserted条条 as EXPORTED pure
+﻿// E2E (v0.9-S9, D6): web_search / web_fetch. SSRF防御 is the security核心 — asserted条条 as EXPORTED pure
 // functions (deterministic, no real network). Ports 9015-9017 (9015 fake-openai, 9016 WB, 9017 fake searxng).
 //
 // Covers:
@@ -21,9 +21,11 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 9015, WB_PORT = 9016, SEARX_PORT = 9017;
+const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort(), SEARX_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-websearch-e2e');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -180,7 +182,7 @@ function writeConfig(home, extra) {
 
   // (T3-a) Bing HTML parse via a fake "cn.bing" server (baseUrl override, admin-trusted 先例). Asserts
   // title/link/snippet extraction + HTML-entity decode (&amp; → &, &#174; → ®).
-  const BING_PORT = 9018, BAIDU_PORT = 9019;
+  const BING_PORT = await getFreePort(), BAIDU_PORT = await getFreePort();
   const BING_HTML = '<html><body><ol id="b_results">'
     + '<li class="b_algo"><h2><a href="https://ex.example/a?x=1&amp;y=2">如意 &amp; 工作台 &#174;</a></h2>'
     + '<p class="b_lineclamp2">这是<strong>第一条</strong>摘要 &#169; 说明文字。</p></li>'

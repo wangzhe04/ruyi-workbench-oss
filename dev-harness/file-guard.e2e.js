@@ -9,9 +9,11 @@
 //   remote/no-provider config → in-bounds read+write ok; out-of-bounds read+write DENIED (no file written);
 //   flip config to a LOCAL provider → out-of-bounds read now ALLOWED (provider-sensitive, live).
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
-const WB_PORT = 9042;
+const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-file-guard-e2e');           // dataRoot for the spawned WB
 const UNIT_DATA = path.join(os.tmpdir(), 'wcw-file-guard-units');    // separate dataRoot for the required module
 const OUTSIDE = path.join(os.tmpdir(), 'wcw-file-guard-OUTSIDE.txt'); // sibling of HOME → never inside any root

@@ -1,4 +1,4 @@
-// E2E: start workbench A on a port, then B on the SAME port. B must kill stale A and take over.
+﻿// E2E: start workbench A on a port, then B on the SAME port. B must kill stale A and take over.
 // 第36波(v1.7) Phase 2: 无辜旁观者防护 —— 一个【非工作台】的普通 node HTTP 服务占着端口时,
 // 新 boot 的工作台不得 taskkill 它(旧 image:node 分支会误杀任何 node.exe,违背 "never clobber
 // someone else's app" 契约);必须放弃接管(报错退出),旁观者进程始终存活。
@@ -9,7 +9,7 @@ const fs = require('fs');
 const os = require('os');
 
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
-const PORT = 8792;
+const { getFreePort } = require('./free-port.js');
 const HOME = path.join(process.env.TEMP, 'wcw-porttest');
 const env = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME };
 
@@ -31,6 +31,8 @@ function spawnWb(tag) {
 function alive(pid) { try { process.kill(pid, 0); return true; } catch { return false; } }
 
 (async () => {
+  const PORT = await getFreePort(), PORT2 = await getFreePort();
+  const PORT = await getFreePort(), PORT2 = await getFreePort();
   let A, B, fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   try {
@@ -62,7 +64,6 @@ function alive(pid) { try { process.kill(pid, 0); return true; } catch { return 
   }
 
   // ─── Phase 2 (第36波): 无辜旁观者 —— 非工作台的普通 node 服务占口,工作台不得误杀,必须放弃接管 ───
-  const PORT2 = 9154;
   const INNOCENT_SRC = path.join(os.tmpdir(), 'wcw-innocent-bystander.js');
   fs.writeFileSync(INNOCENT_SRC, `require('http').createServer((q,s)=>{s.end('hello');}).listen(${PORT2},'127.0.0.1');setInterval(()=>{},1000);\n`);
   let C = null, innocent = null;

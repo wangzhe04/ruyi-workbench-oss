@@ -10,7 +10,7 @@
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
-const WB_PORT = 9116;
+const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-autonomy-grant-e2e');
 const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -103,6 +103,8 @@ const isSensitiveDataPath = p => /SENSITIVE_MARK/.test(String(p || ''));
 const normalizeCwd = (cwd, fb) => path.resolve(cwd || fb || '.');
 let _idc = 0; const makeId = pfx => pfx + '_' + (++_idc);
 const crypto = require('crypto');
+const { getFreePort } = require('./free-port.js');
+
 const factory = new Function(
   'NATIVE_TOOL_TIER', 'nativeToolTier', 'globToRegExp', 'isSensitiveDataPath', 'pathWithinRoot', 'normalizeCwd', 'makeId', 'crypto', 'logEvent', 'path',
   mm[0] + '\nreturn { autonomyGrants, activeDriverRuns, grantIssueTierInfo, resolveToolPermissionContext, normalizeGrant, consumeGrant, revokeGrant, revokeAllGrants, revokeGrantsForRun, bindDriverRun, listGrantsView, GRANT_EXEC_METACHARS, GRANT_NET_PATTERN, GRANT_EDIT_AUTOEXEC_DENY };'

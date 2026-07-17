@@ -7,8 +7,10 @@
 // 零依赖、离线、node 直跑。判定行:`CHANGES-DIFF E2E: ALL PASS`。
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os'), zlib = require('zlib');
+const { getFreePort } = require('./free-port.js');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
-const PORT = 8807;
+const PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-changes-diff-e2e');
 fs.rmSync(HOME, { recursive: true, force: true });
 fs.mkdirSync(HOME, { recursive: true });

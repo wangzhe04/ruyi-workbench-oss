@@ -1,16 +1,17 @@
 #!/usr/bin/env node
-// CI / 本地共用串行 e2e runner(零依赖,Windows-first)。
+// CI / 本地共用串行/并行 e2e runner(零依赖,Windows-first)。
 //
-// 遍历 dev-harness/*.e2e.js,排除 live 件(真 key/真子进程),串行跑,汇总。
+// 遍历 dev-harness/*.e2e.js,排除 live 件(真 key/真子进程),串行或并行跑,汇总。
 // 每件超时 taskkill /F /T /PID 杀整进程树(防 server.js 孙进程残留占端口)。
 // 退出码:任一失败 -> 1。
 //
 // 用法:
-//   node dev-harness/run-all.js            # 全量
-//   node dev-harness/run-all.js --fast     # 仅快通道(.static 纯静态锁,秒级)
-//   node dev-harness/run-all.js foo.e2e.js # 仅指定件(可多个,空格分隔)
+//   node dev-harness/run-all.js                  # 全量串行
+//   node dev-harness/run-all.js --parallel 4     # 全量并行(4路)
+//   node dev-harness/run-all.js --fast           # 仅快通道(.static 纯静态锁,秒级)
+//   node dev-harness/run-all.js foo.e2e.js       # 仅指定件(可多个,空格分隔)
 //
-// 设计依据见 docs/OPTIMIZATION-ROADMAP.md 第34波(CI 基建)。
+// 设计依据见 docs/OPTIMIZATION-ROADMAP.md 第34波(CI 基建) + 第38波(V1.8-A 并行化)。
 'use strict';
 const cp = require('child_process');
 const fs = require('fs');
@@ -130,11 +131,16 @@ function runOne(file) {
 
 async function main() {
   const argv = process.argv.slice(2);
+  // --parallel N: 并行路数(默认1=串行)
+  const parallelIdx = argv.indexOf('--parallel');
+  const PARALLEL = parallelIdx >= 0 ? Math.max(1, parseInt(argv[parallelIdx + 1], 10) || 4) : 1;
+  const argvClean = argv.filter((_, i) => i !== parallelIdx && i !== parallelIdx + 1);
+
   let files;
-  if (argv.includes('--fast')) {
+  if (argvClean.includes('--fast')) {
     files = listE2e().filter(isFast);
-  } else if (argv.length && !argv[0].startsWith('-')) {
-    files = argv.filter(f => f.endsWith('.e2e.js'));
+  } else if (argvClean.length && !argvClean[0].startsWith('-')) {
+    files = argvClean.filter(f => f.endsWith('.e2e.js'));
   } else {
     files = listE2e();
     // 快通道先跑(秒级反馈),再跑主序(起 server 的件)
@@ -143,7 +149,7 @@ async function main() {
 
   console.log(`# Ruyi e2e runner`);
   console.log(`# 件数: ${files.length} ran / ${SKIP.size} skipped(live)`);
-  console.log(`# 超时: ${TIMEOUT_MS / 1000}s/件,串行(taskkill /T 杀整树)`);
+  console.log(`# 超时: ${TIMEOUT_MS / 1000}s/件,${PARALLEL > 1 ? `并行(${PARALLEL}路)` : '串行(taskkill /T 杀整树)'}`);
   console.log(`# Node ${process.version}, platform ${process.platform}`);
   // 第36波: 端口唯一性审计(见 stripJsComments 上方说明)。撞车即拒跑 —— 带病跑完全量也是浪费。
   const audit = portAudit();
@@ -156,26 +162,74 @@ async function main() {
 
   let pass = 0, fail = 0, knownFail = 0, unexpectedPass = 0;
   const failed = [], results = [];
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i];
-    const tag = isFast(f) ? '[fast]' : '[main]';
-    process.stdout.write(`(${String(i + 1).padStart(3)}/${files.length}) ${tag} ${f} ... `);
-    const r = await runOne(f);
-    results.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], timedOut: r.timedOut, status: r.status, ms: r.ms });
-    const known = KNOWN_FAILURE[f];
-    if (r.ok) {
-      pass++;
-      if (known) { unexpectedPass++; console.log(`PASS [unexpected-pass: known-failure 修好了?清理名单] (${r.ms}ms)`); }
-      else console.log(`PASS (${r.ms}ms)`);
-    } else {
-      if (known) {
-        knownFail++;
-        console.log(`FAIL [known-fail] (${r.ms}ms) - ${known}`);
+
+  if (PARALLEL <= 1) {
+    // ── 串行模式（原有逻辑）──
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const tag = isFast(f) ? '[fast]' : '[main]';
+      process.stdout.write(`(${String(i + 1).padStart(3)}/${files.length}) ${tag} ${f} ... `);
+      const r = await runOne(f);
+      results.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], timedOut: r.timedOut, status: r.status, ms: r.ms });
+      const known = KNOWN_FAILURE[f];
+      if (r.ok) {
+        pass++;
+        if (known) { unexpectedPass++; console.log(`PASS [unexpected-pass: known-failure 修好了?清理名单] (${r.ms}ms)`); }
+        else console.log(`PASS (${r.ms}ms)`);
       } else {
-        fail++;
-        const reason = r.timedOut ? `TIMEOUT(>${TIMEOUT_MS / 1000}s)` : `exit=${r.status}`;
-        console.log(`FAIL ${reason} (${r.ms}ms)`);
-        failed.push(r);
+        if (known) {
+          knownFail++;
+          console.log(`FAIL [known-fail] (${r.ms}ms) - ${known}`);
+        } else {
+          fail++;
+          const reason = r.timedOut ? `TIMEOUT(>${TIMEOUT_MS / 1000}s)` : `exit=${r.status}`;
+          console.log(`FAIL ${reason} (${r.ms}ms)`);
+          failed.push(r);
+        }
+      }
+    }
+  } else {
+    // ── 并行模式 ──
+    // 将文件分成 PARALLEL 个桶,桶间并行,桶内串行
+    const buckets = Array.from({ length: PARALLEL }, () => []);
+    for (let i = 0; i < files.length; i++) buckets[i % PARALLEL].push(files[i]);
+
+    console.log(`# 并行模式: ${PARALLEL} 路,每桶 ~${Math.ceil(files.length / PARALLEL)} 件\n`);
+
+    const bucketPromises = buckets.map(async (bucket, bi) => {
+      const bucketResults = [];
+      for (const f of bucket) {
+        const tag = isFast(f) ? '[fast]' : '[main]';
+        const prefix = `[B${bi}]`;
+        process.stdout.write(`${prefix} (${tag}) ${f} ... `);
+        const r = await runOne(f);
+        bucketResults.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], timedOut: r.timedOut, status: r.status, ms: r.ms });
+        const known = KNOWN_FAILURE[f];
+        if (r.ok) {
+          if (known) console.log(`${prefix} PASS [unexpected-pass] (${r.ms}ms)`);
+          else console.log(`${prefix} PASS (${r.ms}ms)`);
+        } else {
+          const reason = r.timedOut ? `TIMEOUT(>${TIMEOUT_MS / 1000}s)` : `exit=${r.status}`;
+          if (known) console.log(`${prefix} FAIL [known-fail] (${r.ms}ms) - ${known}`);
+          else console.log(`${prefix} FAIL ${reason} (${r.ms}ms)`);
+        }
+      }
+      return bucketResults;
+    });
+
+    const allBuckets = await Promise.allSettled(bucketPromises);
+    for (const settled of allBuckets) {
+      const bucketResults = settled.status === 'fulfilled' ? settled.value : [];
+      for (const r of bucketResults) {
+        results.push(r);
+        const known = KNOWN_FAILURE[r.file];
+        if (r.ok) {
+          pass++;
+          if (known) unexpectedPass++;
+        } else {
+          if (known) knownFail++;
+          else { fail++; failed.push(r); }
+        }
       }
     }
   }
@@ -194,7 +248,7 @@ async function main() {
     fs.writeFileSync(path.join(HARNESS, 'last-run.log'), [
       `# Ruyi e2e last-run log`,
       `# ${pass} pass / ${fail} fail / ${knownFail} known-fail / ${unexpectedPass} unexpected-pass / ${files.length} ran / ${SKIP.size} skipped`,
-      `# Node ${process.version}, platform ${process.platform}`,
+      `# Node ${process.version}, platform ${process.platform}, parallel=${PARALLEL}`,
       ...results.map(r => `${r.ok ? (r.known ? 'UNEXPECTED_PASS' : 'PASS') : (r.known ? 'KNOWN_FAIL' : 'FAIL')}\t${r.ms}ms\t${r.file}`),
     ].join('\n') + '\n');
   } catch { /* 只读环境(CI 沙箱)忽略 */ }
