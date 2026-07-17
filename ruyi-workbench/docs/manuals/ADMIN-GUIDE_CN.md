@@ -280,7 +280,7 @@ foreach ($v in $vars) {
 - 切换时发 `failover` 事件 `{type:'failover', providerId, from, to, reason}` 并落审计日志。
 - **会话内粘住**：某端点成功后记为 sticky，下一轮优先试它；sticky 仅进程内内存、不持久化，进程退出即清。
 
-### 2.3 桌面 MCP（ai-computer-control，ACC v1.8.2）
+### 2.3 桌面 MCP（ai-computer-control，ACC v1.8.3）
 
 把本机的桌面控制 MCP（截图 / 控窗 / OCR / UIA / 键鼠 / 浏览器 / 读写 Office / **write_pdf 中文字体链导出 PDF** 等，共 100 个工具）接进工作台，两条线：
 

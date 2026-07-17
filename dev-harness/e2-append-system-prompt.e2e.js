@@ -18,7 +18,9 @@ const MARKER = 'E2_APPEND_MARKER_XYZ';
 fs.rmSync(HOME, { recursive: true, force: true });
 fs.mkdirSync(CLAUDE_DIR, { recursive: true });
 // (b) seed a stale settings.json with the non-standard key AND an unrelated key that must survive.
-fs.writeFileSync(SETTINGS, JSON.stringify({ appendSystemPrompt: 'STALE_VALUE', statusLine: { type: 'command', command: 'keep-me' } }, null, 2));
+// 第36波(v1.7) (d1): 再 seed 一个【用户手写】model —— 工作台 config 无 model 时,sync 绝不得删它
+// (旧码 else delete settings.model 会抹掉用户配置;现由 sidecar 权属追踪保护,见下)。
+fs.writeFileSync(SETTINGS, JSON.stringify({ appendSystemPrompt: 'STALE_VALUE', statusLine: { type: 'command', command: 'keep-me' }, model: 'user-hand-written-model' }, null, 2));
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
   configSchema: 4, version: '1.0.0', permissionMode: 'default', engineMode: 'print',
   activeProvider: '', appendSystemPrompt: MARKER,
@@ -56,6 +58,13 @@ function postStream(port, payload) {
     ok(settings.permissions && settings.permissions.defaultMode === 'default', 'settings.json still carries permissions.defaultMode (supported key written) — got ' + JSON.stringify(settings.permissions));
     ok(settings.statusLine && settings.statusLine.command === 'keep-me', 'unrelated pre-existing settings key preserved (we only stripped appendSystemPrompt)');
 
+    // (d1) 第36波: 用户手写的 settings.model 必须存活(工作台 config 无 model;旧码会无条件 delete)。
+    ok(settings.model === 'user-hand-written-model', '(d1) hand-written settings.model survives sync when workbench has no model (got ' + JSON.stringify(settings.model) + ')');
+    // sidecar 权属记录已落盘(dataRoot=HOME/claude-settings-sync.json,model:null = 工作台无 model 可声明)。
+    let sidecar = null;
+    try { sidecar = JSON.parse(fs.readFileSync(path.join(HOME, 'claude-settings-sync.json'), 'utf8')); } catch { /* absent */ }
+    ok(sidecar && sidecar.model === null, '(d1) ownership sidecar written with model:null (got ' + JSON.stringify(sidecar) + ')');
+
     // (c): run a Claude turn; the fake captures the exact argv the workbench spawned it with.
     await postStream(WB_PORT, { message: 'hello claude', cwd: HOME, agentTeam: true });
     let argv = [];
@@ -73,12 +82,46 @@ function postStream(port, payload) {
     // The re-read settings.json (after the turn) still has no appendSystemPrompt key.
     const settings2 = JSON.parse(fs.readFileSync(SETTINGS, 'utf8'));
     ok(!Object.prototype.hasOwnProperty.call(settings2, 'appendSystemPrompt'), 'settings.json STILL has no appendSystemPrompt key after a turn');
+    ok(settings2.model === 'user-hand-written-model', '(d1) hand-written settings.model STILL survives after a turn');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
-    console.log('\nE2-APPEND-SYSTEM-PROMPT E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
-    process.exitCode = fail ? 1 : 0;
+  }
+
+  // ── (d2) 第36波: 权属可证时删除照常工作 —— sidecar 记录的上一版同步值仍原样躺在 settings.model 里,
+  // 说明那是【我们写的】(非用户手写),工作台无 model 时应予清除(陈旧覆盖不留存)。
+  {
+    const HOME2 = path.join(os.tmpdir(), 'wcw-e2-append-e2e-d2');
+    const CLAUDE_DIR2 = path.join(HOME2, '.claude');
+    const SETTINGS2 = path.join(CLAUDE_DIR2, 'settings.json');
+    fs.rmSync(HOME2, { recursive: true, force: true });
+    fs.mkdirSync(CLAUDE_DIR2, { recursive: true });
+    fs.writeFileSync(SETTINGS2, JSON.stringify({ model: 'our-previously-synced-model', statusLine: { type: 'command', command: 'keep-me-2' } }, null, 2));
+    // sidecar 证明 'our-previously-synced-model' 是工作台上一版写入的。
+    fs.writeFileSync(path.join(HOME2, 'claude-settings-sync.json'), JSON.stringify({ model: 'our-previously-synced-model' }));
+    fs.writeFileSync(path.join(HOME2, 'config.json'), JSON.stringify({
+      configSchema: 4, version: '1.0.0', permissionMode: 'default', engineMode: 'print', activeProvider: '',
+    }, null, 2));
+    const env2 = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME2, USERPROFILE: HOME2, HOME: HOME2, WCW_FAKE_CLAUDE: FAKE_CLAUDE };
+    const wb2 = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: env2, windowsHide: true });
+    wb2.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb2!] ' + l.trim())));
+    try {
+      let h2 = null; for (let i = 0; i < 40 && !h2; i++) { await sleep(150); h2 = await health(WB_PORT); }
+      ok(!!h2, '(d2) workbench listening (ownership-delete phase)');
+      const s2 = JSON.parse(fs.readFileSync(SETTINGS2, 'utf8'));
+      ok(!Object.prototype.hasOwnProperty.call(s2, 'model'), '(d2) sidecar-proven stale model deleted (keys: ' + JSON.stringify(Object.keys(s2)) + ')');
+      ok(s2.statusLine && s2.statusLine.command === 'keep-me-2', '(d2) unrelated keys still preserved on the delete path');
+      const sc2 = JSON.parse(fs.readFileSync(path.join(HOME2, 'claude-settings-sync.json'), 'utf8'));
+      ok(sc2 && sc2.model === null, '(d2) sidecar updated to model:null after cleanup');
+    } catch (e) { console.log('ERROR(d2) ' + (e && e.stack || e.message || e)); fail++; }
+    finally {
+      if (wb2 && wb2.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb2.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+      await sleep(300);
+      fs.rmSync(HOME2, { recursive: true, force: true });
+      console.log('\nE2-APPEND-SYSTEM-PROMPT E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
+      process.exitCode = fail ? 1 : 0;
+    }
   }
 })();

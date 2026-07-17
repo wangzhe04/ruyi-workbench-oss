@@ -33,7 +33,18 @@
 | 同步原语 | 1 | wait_for_pixel（轮询像素直到匹配/超时） |
 | 诊断与安全 | 4 | diagnostics / version_info / safety_info / audit_tail |
 
-**共计 100 个工具**（v1.8.2；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
+**共计 100 个工具**(v1.8.3；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
+
+### v1.8.3 评审修复批（如意工作台 v1.7）
+
+- `read_file` 的 `max_bytes` 修正为真**字节**预算（原先按字符读取却按字节判截断,中文文件误报/超额）。
+- `list_directory` 递归分支 1000 条封顶硬停,并如实标注 `capped: true`。
+- `ocr_click` 的 `nth` 越界包络自洽：`ok:false`（执行拒绝）+ `found:true`（查询有果）,不再 `ok:true` 与 `error` 并存。
+- `launch_application` 新增独立 `wait_timeout`（默认 120s,钳 [1,600]）,`wait=true` 不再被 2 秒 `ready_timeout` 卡死。
+- 审计日志对字符串**值**脱敏（`password=`/`Bearer`/`sk-`/JWT/`ghp_`）,命令行里的口令不再原文落盘。
+- `window_screenshot` / `get_clipboard_image` 的输出路径补系统保护目录护栏（`allow_protected` 覆盖）。
+- `installer/update.bat` 支持新旧两种安装布局（`runtime\python` 优先,`venv\` 兜底）。
+- 行为锁：`tests/smoke_v183.py`（29 断言,真文件往返 + 包络 + 等待预算 + 脱敏 + 护栏 + 布局静态锁）。
 
 ### v1.8.2 浏览器与视觉可靠性
 

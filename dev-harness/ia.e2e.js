@@ -13,7 +13,7 @@
 //
 // 动态断言（临时 HOME 起服务）:
 //   ⑧ 全新 HOME 首启后 config.uiMode === 'simple'（新装默认简易）。
-//   ⑨ POST 非法 uiMode 仍清洗 → 'pro'（非法值回退保持 pro；uimode-style.e2e.js 同款不变契约）。
+//   ⑨ POST 非法 uiMode 仍清洗 → 'simple'（第36波:非法值回退与 defaultConfig 对齐为 simple,不再是 pro）。
 //
 // 判定行精确为 `IA E2E: ALL PASS`（失败打印明细并非零退出）。Port 8999（空闲段，见 dev-harness/README.md）。
 'use strict';
@@ -151,11 +151,11 @@ function between(hay, startNeedle, endNeedle) {
     const disk = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
     ok(disk.uiMode === 'simple', '⑧ 磁盘 config.json uiMode === simple（got ' + disk.uiMode + '）');
 
-    // ⑨ POST 非法 uiMode 仍清洗 → 'pro'（非法回退保持 pro；与 uimode-style.e2e.js 同款不变契约）。
+    // ⑨ POST 非法 uiMode 仍清洗 → 'simple'（第36波:回退与 defaultConfig 对齐;uimode-style.e2e.js 同款契约）。
     const bad = await postJson(WB_PORT, '/api/config', { uiMode: 'ultra' }, hdr);
     ok(bad.status === 200 && bad.json && bad.json.ok === true, '⑨ POST 非法 uiMode 被接受（清洗）');
     st = await getJson(WB_PORT, '/api/status');
-    ok(st.json && st.json.config && st.json.config.uiMode === 'pro', '⑨ 非法 uiMode 清洗 → pro（got ' + (st.json && st.json.config && st.json.config.uiMode) + '）');
+    ok(st.json && st.json.config && st.json.config.uiMode === 'simple', '⑨ 非法 uiMode 清洗 → simple（got ' + (st.json && st.json.config && st.json.config.uiMode) + '）');
   } finally {
     killp(wb);
     await sleep(300);

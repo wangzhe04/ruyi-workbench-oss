@@ -10,14 +10,24 @@ REM   update.bat --deps     -> pip-install desktop/OCR wheels from .\wheels (uia
 REM Ship this file next to an updated "ai_computer_control\" source tree (and optional "wheels\").
 
 set "INSTALL_DIR=%LOCALAPPDATA%\ai-computer-control"
-set "SITEPKG=%INSTALL_DIR%\venv\Lib\site-packages\ai_computer_control"
-set "PY=%INSTALL_DIR%\venv\Scripts\python.exe"
 set "SRC=%~dp0ai_computer_control"
 set "MODE=%1"
 if "%MODE%"=="" set "MODE=--code"
 
-if not exist "%PY%" (
-  echo [update] ERROR: not installed at "%INSTALL_DIR%". Run install.bat first.
+REM Two install layouts exist: new packages install a hydrated embedded runtime at
+REM runtime\python (install.py), older ones built a venv at venv\. Probe both (new first).
+set "PY="
+set "SITEPKG="
+if exist "%INSTALL_DIR%\runtime\python\python.exe" (
+  set "PY=%INSTALL_DIR%\runtime\python\python.exe"
+  set "SITEPKG=%INSTALL_DIR%\runtime\python\Lib\site-packages\ai_computer_control"
+) else if exist "%INSTALL_DIR%\venv\Scripts\python.exe" (
+  set "PY=%INSTALL_DIR%\venv\Scripts\python.exe"
+  set "SITEPKG=%INSTALL_DIR%\venv\Lib\site-packages\ai_computer_control"
+)
+
+if not defined PY (
+  echo [update] ERROR: not installed at "%INSTALL_DIR%" ^(no runtime\python or venv layout^). Run install.bat first.
   exit /b 1
 )
 

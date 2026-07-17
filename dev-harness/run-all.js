@@ -32,13 +32,60 @@ const SKIP = new Set([
 
 // 已知失败件(积压回归,CI 全量暴露,后续波修)。失败不计红(不挂 CI),但报告标 [known-fail];
 // 若 PASS 则标 [unexpected-pass] 提醒清理名单。每条附原因 -- 名单不能成永久豁免,修好即删。
+// 第36波(v1.7): capabilities 毕业 —— 挂账的 identity bleed 断言实测已过;真正失败的是 W1a 主动检索
+// 指引(自适应装载后 web_search 不进首批 schema,D6 行按旧"已 offer"口径永不渲染),已修为目录可用口径。
 const KNOWN_FAILURE = {
   'ui-v3-p1.static.e2e.js': 'color-mix 手写(styles.css:1462 ghost-danger hover,第23波引入,违反 v3 P1;需 UI 决策:轻量 hover 的令牌选择',
-  'capabilities.e2e.js': 'system prompt 含 "Claude"(identity bleed guard;buildProviderSystemPrompt 函数体无 Claude,注入源在调用方拼接,待排查)',
 };
 
 // 快通道:无端口纯静态锁件(spawn|listen=0),秒级,先跑求快速反馈。
 const isFast = f => /\.static\.e2e\.js$/.test(f);
+
+// ─── 第36波(v1.7): 端口唯一性审计 ─────────────────────────────────────────────────────────────
+// 串行时代跨文件撞端口无痛,但它是未来并行化的前置条件;且让"端口登记表"从人肉维护升级为机制断言
+// (第34波亲验:README 登记 26 个、实际用 116 个,纯靠约定防撞)。占用即声明、撞车即红,新文件无需
+// 任何登记动作。判定 = 代码体(剥注释、保留字符串)里 8700-9199 测试带的数字字面量:注释里的历史
+// 提及不算占用,字符串里的 'http://127.0.0.1:PORT' 算(它真引用该端口)。
+// 剥注释用手写状态机而非正则:字符串态(含转义)内的 // 与 /* 绝不误判;模板串整体视为字符串
+// (端口字面量不会写在 ${} 里),合法 JS 不存在字符串外的裸 // 序列。
+function stripJsComments(src) {
+  let out = '';
+  let i = 0;
+  const n = src.length;
+  let st = 'code'; // code | line | block | sq | dq | tpl
+  while (i < n) {
+    const c = src[i], d = src[i + 1];
+    if (st === 'code') {
+      if (c === '/' && d === '/') { st = 'line'; i += 2; continue; }
+      if (c === '/' && d === '*') { st = 'block'; i += 2; continue; }
+      if (c === "'") { st = 'sq'; out += c; i++; continue; }
+      if (c === '"') { st = 'dq'; out += c; i++; continue; }
+      if (c === '`') { st = 'tpl'; out += c; i++; continue; }
+      out += c; i++; continue;
+    }
+    if (st === 'line') { if (c === '\n') { out += '\n'; st = 'code'; } i++; continue; }
+    if (st === 'block') { if (c === '*' && d === '/') { st = 'code'; i += 2; continue; } if (c === '\n') out += '\n'; i++; continue; }
+    const term = st === 'sq' ? "'" : st === 'dq' ? '"' : '`';
+    if (c === '\\') { out += c + (d || ''); i += 2; continue; }
+    out += c; i++;
+    if (c === term) st = 'code';
+  }
+  return out;
+}
+const PORT_BAND = /\b(8[7-9]\d\d|9[01]\d\d)\b/g;
+function portAudit() {
+  const claims = new Map(); // port -> Set<file>
+  for (const f of fs.readdirSync(HARNESS).filter(x => x.endsWith('.e2e.js'))) {
+    const body = stripJsComments(fs.readFileSync(path.join(HARNESS, f), 'utf8'));
+    for (const m of body.matchAll(PORT_BAND)) {
+      if (!claims.has(m[1])) claims.set(m[1], new Set());
+      claims.get(m[1]).add(f);
+    }
+  }
+  const collisions = [...claims.entries()].filter(([, set]) => set.size > 1)
+    .map(([p, set]) => `${p} <- ${[...set].join(', ')}`);
+  return { count: claims.size, collisions };
+}
 
 function listE2e() {
   return fs.readdirSync(HARNESS)
@@ -97,7 +144,15 @@ async function main() {
   console.log(`# Ruyi e2e runner`);
   console.log(`# 件数: ${files.length} ran / ${SKIP.size} skipped(live)`);
   console.log(`# 超时: ${TIMEOUT_MS / 1000}s/件,串行(taskkill /T 杀整树)`);
-  console.log(`# Node ${process.version}, platform ${process.platform}\n`);
+  console.log(`# Node ${process.version}, platform ${process.platform}`);
+  // 第36波: 端口唯一性审计(见 stripJsComments 上方说明)。撞车即拒跑 —— 带病跑完全量也是浪费。
+  const audit = portAudit();
+  if (audit.collisions.length) {
+    console.error(`#\n# 端口唯一性审计失败(${audit.collisions.length} 处跨文件撞车),请先改端口再跑:`);
+    for (const c of audit.collisions) console.error('#   ' + c);
+    process.exit(2);
+  }
+  console.log(`# 端口审计: ${audit.count} 个带内端口,跨文件零撞车\n`);
 
   let pass = 0, fail = 0, knownFail = 0, unexpectedPass = 0;
   const failed = [], results = [];

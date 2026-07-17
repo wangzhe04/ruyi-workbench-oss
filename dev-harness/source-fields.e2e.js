@@ -55,7 +55,7 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
   // ---------- (A) provider mode ----------
-  const FAKE_PORT = 8921, WB_PORT_A = 8797;
+  const FAKE_PORT = 8921, WB_PORT_A = 9144;
   const HOME_A = path.join(os.tmpdir(), 'wcw-srcfields-openai');
   fs.rmSync(HOME_A, { recursive: true, force: true }); fs.mkdirSync(HOME_A, { recursive: true });
   fs.writeFileSync(path.join(HOME_A, 'config.json'), JSON.stringify({
@@ -84,7 +84,7 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
   finally { kill(wbA); kill(fake); await sleep(300); }
 
   // ---------- (B) claude mode via fake-claude ----------
-  const WB_PORT_B = 8798;
+  const WB_PORT_B = 9145;
   const HOME_B = path.join(os.tmpdir(), 'wcw-srcfields-claude');
   fs.rmSync(HOME_B, { recursive: true, force: true }); fs.mkdirSync(HOME_B, { recursive: true });
   // activeProvider empty => Claude engine. model set so we can also confirm it lands on the message.

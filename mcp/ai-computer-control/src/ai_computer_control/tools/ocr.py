@@ -205,7 +205,11 @@ async def ocr_click(text: str, region: str | None = None, lang: str | None = Non
         chosen = min(matches, key=lambda w: (w["center"][0] - px) ** 2 + (w["center"][1] - py) ** 2)
     elif nth is not None:
         if not (0 <= int(nth) < len(matches)):
-            return {"ok": True, "found": True, "error": f"nth={nth} out of range (0..{len(matches) - 1})",
+            # Usage error = execution refused (nothing was clicked), so ok MUST be False. The old
+            # ok:True + error shape was self-contradictory: _normalize trusts an explicit ok key,
+            # so callers saw a failed disambiguation reported as a successful call.
+            return {"ok": False, "found": True, "clicked": None,
+                    "error": f"nth={nth} out of range (0..{len(matches) - 1})",
                     "count": len(matches), "candidates": matches}
         chosen = matches[int(nth)]
     else:

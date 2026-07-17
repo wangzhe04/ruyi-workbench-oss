@@ -5,13 +5,16 @@
 or write is swallowed so auditing can NEVER break the tool it is auditing. `audit_tail(n)` reads
 the most recent n records back for inspection.
 
-Sensitive-looking fields (password/token/secret/key/...) are redacted, and the args summary is
-truncated to <=500 characters.
+Sensitive-looking fields (password/token/secret/key/...) are redacted by KEY name, and string
+VALUES are scrubbed for inline credential shapes (``password=...``, ``Bearer ...``, ``sk-...``,
+JWTs, ...) so e.g. a run_command line carrying a password does not land in the log verbatim.
+The args summary is truncated to <=500 characters.
 """
 
 import datetime
 import json
 import os
+import re
 
 from ai_computer_control.server import mcp
 from ai_computer_control.paths import logs_dir
@@ -20,10 +23,33 @@ _MAX_ARGS_CHARS = 500
 _SECRET_HINTS = ("password", "passwd", "secret", "token", "api_key", "apikey",
                  "access_key", "private_key", "credential", "auth")
 
+# Inline credential shapes scrubbed from every string VALUE (keys like "command" or "content"
+# aren't secret-looking, but the command line / file body can still carry a credential).
+# Mirrors the workbench-side redact() coverage so both audit sources follow one policy.
+# ORDER MATTERS: token shapes run BEFORE the generic key=value shape — otherwise
+# "Authorization: Bearer abc123" loses "Bearer" to the generic shape and leaks the token.
+_SECRET_VALUE_PATTERNS = (
+    (re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{6,}"), "Bearer ***"),
+    (re.compile(r"(?i)\b(sk|pk|xox[baprs])-[A-Za-z0-9-]{8,}\b"), r"\1-***"),
+    (re.compile(r"\b(ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{8,}\b"), "***"),
+    # JWT (header always starts with eyJ = base64 of `{"`)
+    (re.compile(r"\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{2,}\b"), "***"),
+    # key=value / key: value forms, LAST (see order note above)
+    (re.compile(r"(?i)\b(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|"
+                r"private[_-]?key|credential|authorization)\b\s*[:=]\s*(\"[^\"]*\"|'[^']*'|\S+)"),
+     r"\1=***"),
+)
+
 
 def _looks_secret(key: str) -> bool:
     k = key.lower()
     return any(h in k for h in _SECRET_HINTS)
+
+
+def _scrub_value(v: str) -> str:
+    for rx, rep in _SECRET_VALUE_PATTERNS:
+        v = rx.sub(rep, v)
+    return v
 
 
 def _summarize_args(args) -> str:
@@ -35,6 +61,7 @@ def _summarize_args(args) -> str:
                 if _looks_secret(str(k)):
                     safe[k] = "***"
                 elif isinstance(v, str):
+                    v = _scrub_value(v)
                     safe[k] = v if len(v) <= 120 else v[:120] + "..."
                 elif isinstance(v, (int, float, bool)) or v is None:
                     safe[k] = v
@@ -46,7 +73,7 @@ def _summarize_args(args) -> str:
                     safe[k] = f"<{type(v).__name__}>"
             s = json.dumps(safe, ensure_ascii=False, default=str)
         else:
-            s = str(args)
+            s = _scrub_value(str(args))
     except Exception:
         try:
             s = str(args)

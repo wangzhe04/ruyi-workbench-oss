@@ -18,7 +18,7 @@ const cp = require('child_process'), http = require('http'), path = require('pat
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
 const HOME = path.join(os.tmpdir(), 'wcw-tools-v3-e2e');
-const WB_PORT = 8971, DL_PORT = 8972;
+const WB_PORT = 9150, DL_PORT = 9151;
 
 // Reuse the server's own exported codec for building fixtures (Zip Slip / round-trip bytes).
 const S = require(SERVER);

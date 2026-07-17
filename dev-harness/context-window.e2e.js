@@ -11,7 +11,7 @@
 //      · FAKE_MODELS_CONTEXT_LEN=200000 → GET /api/models 每个模型带 contextLength=200000(探测生效);
 //      · 探测后 GET /api/status 的 contextWindowResolved.source==='probe' 且 value===200000;
 //      · 关掉 FAKE_MODELS_CONTEXT_LEN(默认)时 provider model 'fake-model' 无名称表命中 → source==='fallback' value 65536。
-//  判定行:`CONTEXT-WINDOW E2E: ALL PASS`。Port 9021(fake)+9022(wb)。
+//  判定行:`CONTEXT-WINDOW E2E: ALL PASS`。Port 9142(fake)+9143(wb)。
 'use strict';
 const cp = require('child_process');
 const http = require('http');
@@ -21,7 +21,7 @@ const os = require('os');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 9021, WB_PORT = 9022;
+const FAKE_PORT = 9142, WB_PORT = 9143;
 const srv = require(path.join(WB, 'app', 'server.js'));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

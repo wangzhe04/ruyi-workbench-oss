@@ -512,11 +512,12 @@ function defaultConfig() {
     // v1.4.4: max nodes a persisted Agent 工作流 DAG may have (both a fresh /api/agent-workflow/launch and
     // a resumed run). Previously the fresh-launch path wrongly reused subagentMaxPerTurn (a per-CHAT-TURN
     // ad hoc fan-out budget) as the DAG's node-count ceiling — a 4-node default rejected any real pipeline
-    // with 5+ nodes outright, while resuming the SAME run used a hardcoded 32. Clamp 1..32 (32 is also the
-    // hard systemic cap in normalizeAgentWorkflow/runAgentWorkflow's own `.slice(0, 32)`).
+    // with 5+ nodes outright, while resuming the SAME run used a hardcoded 32. 第23波起 Clamp 1..64、默认 48
+    // (64 is also the hard systemic cap in runAgentWorkflow's own `.slice(0, 64)` and the orchestrate_agents
+    // schema's maxItems — 第36波(v1.7) 三方对齐, 此前注释与 schema 仍写 32 是漂移)。
     agentWorkflowMaxNodes: 48,
     // 团队模式 v2 (A2): 共享任务池审批策略。manual=UI 运行卡逐条批准(默认);auto-capped=自动批准直到 poolAutoCap
-    // 用尽后转 manual;off=不注册 propose_task 工具。物化仍受 agentWorkflowMaxNodes(32)硬顶复检(见 materializePoolItem)。
+    // 用尽后转 manual;off=不注册 propose_task 工具。物化仍受 agentWorkflowMaxNodes(上限 64)复检(见 materializePoolItem)。
     agentTaskPoolPolicy: 'manual',
     agentTaskPoolAutoCap: 3,
     // Global role overrides/custom roles. Built-ins are merged at read time; project roles live in
@@ -778,8 +779,10 @@ function normalizeConfig(raw) {
   }
   { const b = config.enableToolRequiresProbe === true; if (b !== config.enableToolRequiresProbe) { config.enableToolRequiresProbe = b; changed = true; } }
   // v0.9-S1 (C1): uiMode / outputStyle — cleanse to their enums. An unknown value falls back to the
-  // default ('pro' / 'detailed') so a corrupt config can never leave the UI in an undefined density/style.
-  { const v = (config.uiMode === 'simple' || config.uiMode === 'pro') ? config.uiMode : 'pro'; if (v !== config.uiMode) { config.uiMode = v; changed = true; } }
+  // default ('simple' / 'detailed') so a corrupt config can never leave the UI in an undefined density/style.
+  // 第36波(v1.7): uiMode 回退值与 defaultConfig 对齐('simple' = 人人可用面是产品默认;此前回退 'pro' 与
+  // defaultConfig 的 'simple' 两处默认不一致,损坏配置会把普通用户扔进开发者面)。
+  { const v = (config.uiMode === 'simple' || config.uiMode === 'pro') ? config.uiMode : 'simple'; if (v !== config.uiMode) { config.uiMode = v; changed = true; } }
   { const v = (config.outputStyle === 'concise' || config.outputStyle === 'detailed') ? config.outputStyle : 'detailed'; if (v !== config.outputStyle) { config.outputStyle = v; changed = true; } }
   // Resident skills are a small, source-locked global set. Existence and capability are checked against
   // the current workspace registry at use time; normalization only protects the config shape.
@@ -994,9 +997,19 @@ async function syncClaudeCliSettings(config) {
     // 1. Permission mode
     const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
     settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
-    // 2. Model
+    // 2. Model. 第36波(v1.7): 只删【自己写过的】model —— settings.json 是用户自己的配置,工作台未设模型时
+    // 无条件 delete 会把用户手写的 settings.model 一并抹掉(越权接管,与本函数 "MERGE: existing keys are
+    // preserved" 的契约直接冲突)。权属用工作台侧 sidecar(dataRoot, 非用户 ~/.claude)追踪:记住上次同步写入的
+    // 值,仅当 settings.model 仍等于该值时才删除(证明是我们写的);否则原样保留。sidecar 缺失(老版本首次升级)
+    // 时宁可留一次陈旧值也不误删。
+    const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
+    let prevSyncedModel = null;
+    try {
+      const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
+      if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
+    } catch { /* no sidecar yet */ }
     if (config.model && typeof config.model === 'string') settings.model = config.model;
-    else delete settings.model;
+    else if (prevSyncedModel && settings.model === prevSyncedModel) delete settings.model;
     // 3. Thinking budget -> env.MAX_THINKING_TOKENS
     if (config.thinkingBudget) {
       settings.env = { ...(settings.env || {}), MAX_THINKING_TOKENS: String(config.thinkingBudget) };
@@ -1010,6 +1023,10 @@ async function syncClaudeCliSettings(config) {
 
     await fsp.mkdir(claudeDir, { recursive: true }).catch(() => {});
     await atomicWriteJson(settingsPath, JSON.stringify(settings, null, 2));   // 25.1 收编
+    // 第36波: 记录本次同步的 model 权属(见上方 "2. Model");null 表示本工作台当前无 model 可声明。
+    await atomicWriteJson(sidecarPath, JSON.stringify({
+      model: (config.model && typeof config.model === 'string') ? config.model : null,
+    })).catch(() => {});
   } catch { /* non-fatal: CLI flag --permission-mode is the primary mechanism */ }
 }
 
@@ -1660,7 +1677,9 @@ async function serveStatic(urlPath) {
   const base = staticBase();
   const rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
   const full = path.normalize(path.join(base, rel));
-  if (!full.startsWith(path.normalize(base))) return text('Forbidden', 403);
+  // 第36波(v1.7): 改用 pathWithinRoot 的段比较 —— 此前 startsWith 前缀判定与 pathWithinRoot 注释里批评的
+  // classic prefix bug 同款(public-evil/ 这类同级兄弟目录可越界)。
+  if (!pathWithinRoot(full, path.normalize(base))) return text('Forbidden', 403);
   try {
     // Inject the per-server token into the HTML shell so the UI can authenticate its /api calls.
     if (full.toLowerCase().endsWith('index.html')) {
@@ -6289,9 +6308,15 @@ function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, pr
       lines.push('Office 产出规程(必须遵守):制作 Excel = write_excel 写入数据 → excel_beautify 统一美化 →(需要图表时)excel_chart 内嵌图表;制作 PPT = write_pptx 传入结构化 slides,并按内容选版式——关键指标/财务数字用 stats(大数字卡片,勿写成文字列表)、对比与明细用 table、趋势/占比先 chart_image 出图再用 image 版式放入、要点用 content(每页≤5 条,勿把大段文字塞一页);Word/PDF = write_document / write_pdf。【禁止】用 script_run 或终端命令手写 Python/脚本来生成 Office 文件——那会绕过统一模板(观感参差)且无法一键撤销;只有当上述现成工具确实覆盖不了的特殊格式需求时才可退回脚本,并需向用户说明该产出不可自动撤销。');
     }
 
-    // D6 主动检索指令位 (§7.6): render ONLY when a web_search tool is actually offered AND online. In S6 no
-    // such tool exists, so this line NEVER renders — the code位 + 注释 are seeded for v0.9-S9. Do NOT remove.
-    const hasWebSearch = offeredNames.has('web_search');
+    // D6 主动检索指令位 (§7.6): render ONLY when web_search is actually usable AND online. 第36波(v1.7):
+    // 判定从「在本次请求的 schema 集里」(offeredNames)修正为「在可用目录里」(TOOL_REQUIRES 全满足) ——
+    // 自适应装载(toolLoadingMode 默认 'auto')下 web pack 未被消息关键词激活时 web_search 不进首批 schema,
+    // 但它目录可用、tool_search 可发现即装;旧口径下该行永不渲染,v1.1-W1a 的主动检索指引名存实亡
+    // (capabilities.e2e 的 W1a 断言挂账即此)。离线(network cap 不满足)时 toolRequirementsMet 为 false,
+    // 行仍不渲染,原离线语义不变。
+    const searchBackendOn = !!(config && config.searchBackend && config.searchBackend.type && config.searchBackend.type !== 'none');
+    const hasWebSearch = offeredNames.has('web_search')
+      || (searchBackendOn && toolRequirementsMet('web_search', caps, false, config).met);
     const onlineNow = !!(caps && caps.network && caps.network.online === true);
     if (hasWebSearch && onlineNow) {
       lines.push('联网可用时，对时效性、外部事实类问题应主动使用 web_search 检索后再回答。');
@@ -9826,8 +9851,8 @@ function materializePoolItem(run, item, opts = {}) {
     const nodes = Array.isArray(run.nodes) ? run.nodes : [];
     const rawTask = String(item && item.task || '').trim();
     if (!rawTask) return { ok: false, error: '提案任务为空' };
-    // 团队模式 v2 (P3-7): 节点数上限复检用配置值(Math.min(32, config)),与 launch 检查同名来源 agentWorkflowMaxNodes;
-    // 硬顶仍 32。opts.config 缺失(如角色库不可用时以空库物化的降级路径)回退 32。
+    // 团队模式 v2 (P3-7): 节点数上限复检用配置值(Math.min(64, config)),与 launch 检查同名来源 agentWorkflowMaxNodes;
+    // 硬顶 64(第36波(v1.7) 修注释漂移, 此前写 32)。opts.config 缺失(如角色库不可用时以空库物化的降级路径)回退 48。
     const maxNodes = Math.min(64, Number(opts.config && opts.config.agentWorkflowMaxNodes) || 48);
     if (nodes.length >= maxNodes) return { ok: false, error: `工作流节点已达上限(${maxNodes}),无法追加该任务` };
     if (nodes.some(n => n.id === item.id)) return { ok: false, error: '节点 id 已存在' };
@@ -14617,13 +14642,25 @@ async function toolCall(name, args = {}, ctx = null) {
     }
     case 'office_open': {
       const target = path.resolve(String(args.path || ''));
+      // 第36波(v1.7) 评审结论:本工具【不】加工作区读闸,理由记录在案防复报 —— 打开的文件内容不回流模型
+      // (无 S3 外传通道),"打开桌面/下载里的文档"正是非程序员用户的正当主流程,读闸会误杀;模型可控路径
+      // 的风险面是命令注入(S2 已修)与关联程序执行,后者由 exec tier 权限弹窗/授权书把守,与其它 exec 工具同级。
       // v1.4.6-S2: same cmd.exe injection fix as browser_open — direct explorer.exe spawn, no shell.
       const s = buildOpenSpawn(target);
       cp.spawn(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
       return { ok: true, opened: target };
     }
     case 'desktop_screenshot': {
-      const outPath = path.resolve(args.outputPath || path.join(paths.generated, `screenshot-${Date.now()}.png`));
+      const outPathRaw = path.resolve(args.outputPath || path.join(paths.generated, `screenshot-${Date.now()}.png`));
+      // 第36波(v1.7): 模型【给定】的 outputPath 过工作区写闸(越界写恒拒,与 file_write 同闸;bypass 模式下这是
+      // 唯一防线)。缺省落 generated/ 是应用自选路径,不过此闸 —— generated 属 isSensitiveDataPath 敏感名单
+      // (内含带 token 的会话 MCP 配置),文件工具闸会连缺省路径一起误拒;应用自身写自己的产物目录本就合法。
+      let outPath = outPathRaw;
+      if (args.outputPath) {
+        const gShot = await guardFileToolPath(outPathRaw, ctx, { tool: 'desktop_screenshot', write: true });
+        if (!gShot.ok) return { ok: false, error: gShot.error, code: gShot.code, path: outPathRaw };
+        outPath = gShot.absPath;
+      }
       const ps = `
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -16234,6 +16271,17 @@ function processImage(pid) {
     });
   });
 }
+// 第36波(v1.7): 命令行取证 —— node.exe 镜像名单独不足以证明"这是我们的 stale workbench"(见 freeStalePort
+// 的 image:node 分支)。返回 CommandLine+ExecutablePath 的小写合并串供证据匹配,拿不到返回 ''。pid 是 netstat
+// 解析出的整数,execFile 直调无 shell,无注入面;CIM 首次查询较慢,给 8s。
+function processCommandLine(pid) {
+  return new Promise(resolve => {
+    const ps = `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"; if ($p) { $p.CommandLine; $p.ExecutablePath }`;
+    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000 }, (err, stdout) => {
+      resolve(err || !stdout ? '' : String(stdout).toLowerCase());
+    });
+  });
+}
 function killPid(pid) {
   return new Promise(resolve => {
     cp.execFile('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, timeout: 5000 }, () => resolve());
@@ -16272,7 +16320,19 @@ async function freeStalePort(port, host) {
     else {
       const img = await processImage(pid);
       if (/Ruyi|WinClaudeWorkbench/i.test(img)) why = 'image:' + img; // v1.0-S9 exe 改名 Ruyi.exe;双名兼容(旧构建/存量进程仍可能名 WinClaudeWorkbench)
-      else if (/^node(\.exe)?$/i.test(img)) why = 'image:node';
+      else if (/^node(\.exe)?$/i.test(img)) {
+        // 第36波(v1.7): node.exe 镜像名【不是】充分的处死证据 —— 占着同一端口的可能是任何人的 node 服务,旧
+        // image:node 分支直接 taskkill,与本函数头注 "never clobber someone else's app" 的契约矛盾。补命令行
+        // 取证:命令行指向【本应用的 server.js 全路径】(源码/overlay 形态),或 server.js 与 Ruyi/WinClaudeWorkbench
+        // 命名的发行目录同现(打包 runtime\node 形态 —— Start-Workbench.cmd 以相对路径 "app\server.js" 启动,
+        // 靠 ExecutablePath 里的发行目录名佐证)。证据不足一律 blocked(安全方向),报错请用户手动处理。
+        const evidence = await processCommandLine(pid);
+        const ourServer = path.join(__dirname, 'server.js').toLowerCase();
+        const isOurs = evidence.includes(ourServer)
+          || (/server\.js/.test(evidence) && /ruyi|winclaudeworkbench/.test(evidence));
+        if (isOurs) why = 'image:node+cmdline';
+        else return { ok: false, blocked: { pid, image: img || '(unknown)' } };
+      }
       else return { ok: false, blocked: { pid, image: img || '(unknown)' } };
     }
     await killPid(pid);
@@ -17079,7 +17139,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         nodes: {
-          type: 'array', minItems: 1, maxItems: 32,
+          type: 'array', minItems: 1, maxItems: 64,
           items: {
             type: 'object',
             properties: {

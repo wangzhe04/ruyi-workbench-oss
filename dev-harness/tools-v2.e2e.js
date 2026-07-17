@@ -3,7 +3,7 @@
 // PCRE inline-flag prefix stripped, invalid regex → literal-text fallback + patternNote.
 // Offline; drives the native provider engine via the
 // fake OpenAI server. Each sub-test spawns its own fake (FAKE_TOOL_SEQUENCE differs per case) + a fresh
-// workbench, asserts on the streamed tool_result, then tears both down. Uses ports 8961-8964.
+// workbench, asserts on the streamed tool_result, then tears both down. Uses ports 8961-8962.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;

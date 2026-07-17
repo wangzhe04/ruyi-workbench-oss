@@ -24,7 +24,7 @@ const os = require('os');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 9001, WB_PORT = 9002, DEAD_PORT = 9009; // DEAD_PORT: nothing listens → offline probe
+const FAKE_PORT = 9001, WB_PORT = 9002, DEAD_PORT = 9148; // DEAD_PORT: nothing listens → offline probe
 // Direct-require the server internals so the desktopMcp-availability case can be asserted deterministically
 // as a pure unit test (the live desktopMcp.present depends on whether an ai-computer-control sibling repo is
 // present in THIS checkout — so a fixed "unavailable" live-assertion would be environment-dependent).

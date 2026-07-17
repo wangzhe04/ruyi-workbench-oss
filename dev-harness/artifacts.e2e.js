@@ -313,7 +313,7 @@ const PNG_1x1 = Buffer.from(
       fs.rmSync(G_HOME, { recursive: true, force: true });
       fs.mkdirSync(G_WS, { recursive: true });
       const FAKE_MCP = path.join(HERE, 'fake-mcp.js');
-      const G_FAKE_PORT = 9007, G_WB_PORT = 9008;
+      const G_FAKE_PORT = 9139, G_WB_PORT = 9140;
       const docxPath = path.join(G_WS, 'made.docx');
       fs.writeFileSync(path.join(G_HOME, 'config.json'), JSON.stringify({
         configSchema: 6, version: '1.0.0', permissionMode: 'bypass',

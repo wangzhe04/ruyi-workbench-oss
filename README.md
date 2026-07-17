@@ -31,7 +31,7 @@
 
 | | |
 |---|---|
-| **1 个文件** | 后端是单文件 `server.js`(约 1.4 万行),**零 npm 运行时依赖**,只用 Node 内建模块——`node server.js` 直接跑,无需 `npm install`,政企内网过审成本最低 |
+| **1 个文件** | 后端是单文件 `server.js`(1.7 万+ 行,随迭代持续增长),**零 npm 运行时依赖**,只用 Node 内建模块——`node server.js` 直接跑,无需 `npm install`,政企内网过审成本最低 |
 | **39+3 个原生工具 · 100 个桌面工具** | 文件/终端/搜索/Git/联网/编排等 39 个常驻原生工具(+3 个按需注册),外加可选的桌面控制组件 ACC(截图/OCR/UIA/键鼠/窗口/Office/PDF 共 100 个工具) |
 | **8 套模板 · 9 种角色 · 100+ 离线 e2e** | 内置 8 套多 Agent 工作流模板与 9 种节点角色;每项功能经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付,附 100+ 离线 e2e |
 
@@ -96,7 +96,7 @@
 | 多 Agent 编排 | DAG 工作流、8 套模板、9 种角色、5 种质量门、图形编辑器、实时监控;AI 主动编排并按任务难易自主选模型 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 长任务自主推进 | 任务账本 until-done 驱动;零 token 等待;可选的分级崩溃恢复;增量监控(传输量降 ≥80%)与运营指标 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 信任层 | 文件检查点 + 对话回溯成对交付;5 档权限模式 × 工具三级;全量审计时间线 | [§4](#4-信任层检查点--回溯--权限--审计) |
-| 桌面 / Office 操控 | 截图/OCR/UIA/键鼠/窗口/Office/PDF(桌面控制 MCP,ACC v1.8.2,100 工具,可选安装) | [§5](#5-桌面--office-操控acc可选) |
+| 桌面 / Office 操控 | 截图/OCR/UIA/键鼠/窗口/Office/PDF(桌面控制 MCP,ACC v1.8.3,100 工具,可选安装) | [§5](#5-桌面--office-操控acc可选) |
 | 技能 / 记忆 / Playbook | 四源技能注册表 + 跨会话工作台记忆 + 可复用任务剧本,全部渐进注入 | [§6](#6-技能--记忆--playbook) |
 | 联网检索 | 8 种搜索后端,内置后端零配置可用;SSRF 防御;抓取带离线缓存 | [§7](#7-联网检索与网页抓取) |
 | 成本 / 用量看板 | 分币种逐笔记账,区分官方/第三方计划/按量;子代理与压缩全入账;月度预算告警 | [§8](#8-用量与成本看板诚实计账) |
@@ -183,7 +183,7 @@
 
 ### 5. 桌面 / Office 操控(ACC,可选)
 
-`mcp/ai-computer-control/` 是随发行包捆绑的**桌面控制 MCP**(v1.8.2,Python ≥3.12,共 **100 个工具**),装好后工作台自动探测,并把工具同时供给两个引擎:
+`mcp/ai-computer-control/` 是随发行包捆绑的**桌面控制 MCP**(v1.8.3,Python ≥3.12,共 **100 个工具**),装好后工作台自动探测,并把工具同时供给两个引擎:
 
 启动时，工作台会先验证候选 Python 能否导入 ACC；完整离线包内的 `python_embed` 和安装器部署到 `%LOCALAPPDATA%\ai-computer-control\runtime\python` 的运行时均可直接识别。发现缺少依赖的旧运行时会自动跳过并回退到旧版安装器的 `venv` 或可用的系统 Python。
 
@@ -400,7 +400,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 
 ### Capabilities (v1.6)
 
-Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · a native tool loop of 40 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.8.2, 100 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
+Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · a native tool loop of 40 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.8.3, 100 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
 
 ### Detailed documentation
 
@@ -429,7 +429,7 @@ First launch walks you through picking a workspace folder and configuring a prov
 
 ### Desktop control (optional)
 
-`mcp/ai-computer-control/` is a bundled **desktop-control MCP** (100 tools, ACC v1.8.2, requires **Python ≥3.12** for source installs). Browser URLs default to the user's system browser; managed, custom-executable, CDP, and explicitly isolated bundled modes are configurable. The verified full offline release includes CPython 3.12, a wheel-only dependency cache, and matching Chromium, so the target needs neither Python nor network access. Optional dependencies degrade gracefully in source installs.
+`mcp/ai-computer-control/` is a bundled **desktop-control MCP** (100 tools, ACC v1.8.3, requires **Python ≥3.12** for source installs). Browser URLs default to the user's system browser; managed, custom-executable, CDP, and explicitly isolated bundled modes are configurable. The verified full offline release includes CPython 3.12, a wheel-only dependency cache, and matching Chromium, so the target needs neither Python nor network access. Optional dependencies degrade gracefully in source installs.
 
 At startup the workbench verifies that a candidate Python can import ACC. It recognizes both the release's `python_embed` runtime and the installer's `%LOCALAPPDATA%\ai-computer-control\runtime\python\python.exe`, while retaining the legacy `venv` fallback. `-IncludeAcc` now requires a checksummed, pre-hydrated payload; add `-BuildAccOffline` to build it on the connected packaging machine.
 

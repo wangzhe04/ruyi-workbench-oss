@@ -12,6 +12,7 @@ import time
 from ctypes import wintypes
 
 from ai_computer_control.server import mcp
+from ai_computer_control.tools.safety import protected_path_reason
 
 _user32 = ctypes.windll.user32
 _kernel32 = ctypes.windll.kernel32
@@ -105,11 +106,12 @@ def get_pixel_color(x: int, y: int) -> dict:
 
 
 @mcp.tool()
-def get_clipboard_image(save_path: str | None = None) -> dict:
+def get_clipboard_image(save_path: str | None = None, allow_protected: bool = False) -> dict:
     """Read an image currently on the clipboard (e.g. a screenshot the user copied).
 
     Args:
         save_path: Optional PNG path to save to. If omitted, a base64 PNG is returned.
+        allow_protected: Override the protected-system-root guard on save_path (default off).
 
     Returns:
         dict with 'has_image', and either 'path'+size or 'image_base64', or 'files' if the clipboard
@@ -127,6 +129,11 @@ def get_clipboard_image(save_path: str | None = None) -> dict:
     # data is a PIL Image
     width, height = data.size
     if save_path:
+        # Saving is a file write — apply the same protected-destination guard as write_file.
+        reason = protected_path_reason(save_path)
+        if reason and not allow_protected:
+            return {"has_image": True,
+                    "error": f"refused to write: destination {reason}. Pass allow_protected=true to override."}
         data.save(save_path, "PNG")
         # v1.5.1: 补 output_path(== path)供产物收割。
         return {"has_image": True, "path": os.path.abspath(save_path), "output_path": os.path.abspath(save_path), "width": width, "height": height}

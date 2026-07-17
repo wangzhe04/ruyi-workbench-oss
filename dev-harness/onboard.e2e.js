@@ -179,7 +179,7 @@ function between(hay, startNeedle, endNeedle) {
     }, null, 2));
     const env2 = { ...process.env }; delete env2.RUYI_HOME; env2.WIN_CLAUDE_WORKBENCH_HOME = HOME2;
     delete env2.WCW_FAKE_CLAUDE; // 确保不走假 CLI seam
-    const PORT2 = 8998;
+    const PORT2 = 9141;
     const wb2 = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT2)], { cwd: WB, env: env2, windowsHide: true });
     wb2.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb2!] ' + l.trim())));
     const postStream = (port, payload) => new Promise((resolve, reject) => {

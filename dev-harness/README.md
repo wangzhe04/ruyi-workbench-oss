@@ -66,6 +66,11 @@ node dev-harness\openai-engine.e2e.js
 
 ## 端口段登记表(878x-899x)
 
+> **第36波(v1.7)起,权威是机制不是本表**:`run-all.js` 启动时对全部 `*.e2e.js` 做端口唯一性审计
+> (剥注释后扫 8700-9199 带内数字字面量,跨文件撞车即拒跑,exit 2)。**占用即声明,撞车即红,无需手工登记**
+> ——本表从此只承担"每件测什么/端口角色"的描述价值,不再保证完整(此前登记 26/实际 116 的漂移即教训)。
+> 第36波已清完全部 12 处真实撞车(含 live 件),串行模型下端口从"约定防撞"变为"断言防撞"。
+
 **每件 e2e 用固定端口串行跑**(确定性 + 失败定位清晰)。多数件同时占一个 **fake-openai 端口**(891x/892x/893x 段)
 与一个 **workbench 端口**(879x/88xx 或 895x+ 段);下表登记两者。已用段:
 
@@ -75,20 +80,23 @@ node dev-harness\openai-engine.e2e.js
 | 8793 | openai-engine · WB |
 | 8795 | deepseek-live · WB(live,需真密钥) |
 | 8796 | openai-tools · WB |
-| 8797-8798 | source-fields · WB_A/WB_B |
-| 8797 | deepseek-tools · WB(live)※ 与 source-fields WB_A 共用端口 |
-| 8798 | desktop-bridge-live · WB(live)※ 与 source-fields WB_B 共用端口 |
-| 8799 | mcp-bridge · WB |
-| 8801-8802 | mcp-config · WB |
+| 8797 | deepseek-tools · WB(live) |
+| 8798 | desktop-bridge-live · WB(live) |
+| 9144-9145 | source-fields · WB_A/WB_B(第36波自 8797/8798 迁出,消除与两件 live 件的共用) |
+| 8799 | mcp-bridge · WB(fake 第36波 8913→9146) |
+| 8801/8803/8814/9153 | mcp-config · WB(第36波 8802→9153,消除与 bridged-prefix-tolerance 撞车) |
 | 8834 | provider-compact · WB |
-| 8911 / 8912 / 8913 / 8921 / 8931 | fake-openai 端口:openai-engine / openai-tools / mcp-bridge·desktop-bridge-live※ / source-fields / provider-compact |
+| 8911 / 8912 / 8913 / 8921 / 8931 / 9146 | fake-openai 端口:openai-engine / openai-tools / desktop-bridge-live※ / source-fields / provider-compact / mcp-bridge(9146) |
 | desktop-mcp-smoke | 无 HTTP 端口(纯 stdio,`node app/server.js mcp` 子进程) |
-| 8951-8952 | session-atomic ※ resume-dangling 共用 8951 |
+| 8951-8952 | session-atomic |
+| 9149 | resume-dangling(第36波自 8951 迁出,消除与 session-atomic 共用) |
 | 8953-8954 | usage-accum(S0) |
 | 8955-8958 | bridged-read-noprompt(S0) |
-| 8961-8966 | tools-v2 / agent-loop(S1) |
+| 8961-8966 | tools-v2(8961-8962) / agent-loop(8963-8966)(S1) |
+| 9135-9136 | session-index(第36波自 8966-8967 迁出,消除与 agent-loop/shell-session 撞车) |
 | 8967-8969 | shell-session / shell-mcp-guard(S2) |
-| 8971 | search-robust(S2fix) |
+| 9152 | search-robust(S2fix;第36波自 8971 迁出) |
+| 9150-9151 | tools-v3(第36波自 8971/8972 迁出) |
 | 8972-8974 | todo-summary / todo-loopback(S3) |
 | 8975-8977 | checkpoint / checkpoint-mcpchild(S4a) |
 | 8978-8981 | rewind / perm-v2(S4b) |
@@ -98,22 +106,22 @@ node dev-harness\openai-engine.e2e.js
 | **8990-8992** | **repo-hygiene(S8)**(8990/8991 = RUYI_HOME 优先级;8992 = F2 apiKey 掩码段) |
 | **8993-8994** | **reject-attribution(v0.9-S0)**(8993 = fake-openai;8994 = WB;两场景串行复用同段) |
 | **8995-8996** | **uimode-style(v0.9-S1)**(8995 = fake-openai;8996 = WB;config 往返 + outputStyle 注入 + errorClasses) |
-| **9001-9002 + 9009[dead]** | **playbooks(v0.9-S2)**(9001 = fake-openai[FAKE_DRAFT_JSON];9002 = WB;9009 = 死端口令 network 探测=false→网络类 playbook 置灰) |
+| **9001-9002 + 9148[dead]** | **playbooks(v0.9-S2)**(9001 = fake-openai[FAKE_DRAFT_JSON];9002 = WB;9148 = 死端口令 network 探测=false→网络类 playbook 置灰;第36波自 9009 迁出,消除与 subagent 撞车) |
 | **9003-9004** | **workspace-resolve(v0.9-S3)**(9003 = fake-openai;9004 = WB;指纹解析唯一/多候选/零命中 + recentWorkspaces LRU + pick-folder 降级 + session cwd PATCH) |
 | **9005-9006** | **artifacts(v0.9-S4)**(9005 = fake-openai[FAKE_TOOL_SEQUENCE file_write ×3];9006 = WB;turn_summary.artifacts 分类 + GET session 累计 + /api/file/preview 文本/图片/html/binary + 路径穿越 403 + >1MB 截断) |
 | **9007-9008** | **plan-mode(v0.9-S5)**(9007 = fake-openai[FAKE_PLAN_FIRST + FAKE_TOOL_SEQUENCE file_write];9008 = WB;plan 事件→approve 放行执行/reject 收尾 plan_rejected + 无 token 403 + 未知 planId 幂等 + FAKE_PLAN_FIRST 关时非读工具仍硬拦截;fake 按场景在同段串行重启复用) |
-| **9009-9010** | **subagent(v0.9-S6)**(9009 = fake-openai[FAKE_SUBAGENT_SCRIPT / FAKE_SUBAGENT_PARALLEL];9010 = WB;基本派生 file_write + subagent start/end 事件对 + 子 tool_use/result 带 subagentId + journal 同父 turnSeq + 父收子结论 · 禁嵌套拒绝 · 单批次扇出上限[第 3 个拒] · read tier 子回合写不成 · subagentMaxPerTurn:0 工具不注册 + 直调 /api/tools 拒。**9009 与 playbooks 的死端口共用段但串行无重叠**——playbooks 只把 9009 当无人监听的死端口做离线探测,subagent 运行时在 9009 起真 fake,两件串行跑不冲突) |
+| **9009-9010** | **subagent(v0.9-S6)**(9009 = fake-openai[FAKE_SUBAGENT_SCRIPT / FAKE_SUBAGENT_PARALLEL];9010 = WB;基本派生 file_write + subagent start/end 事件对 + 子 tool_use/result 带 subagentId + journal 同父 turnSeq + 父收子结论 · 禁嵌套拒绝 · 单批次扇出上限[第 3 个拒] · read tier 子回合写不成 · subagentMaxPerTurn:0 工具不注册 + 直调 /api/tools 拒) |
 | **9011-9012** | **vision-loop(v0.9-S7)**(9011 = fake-openai[FAKE_VISION + FAKE_TOOL_SEQUENCE(fake__screenshot_full) + FAKE_SEQUENCE_PRIORITY];9012 = WB;fake-mcp 桥入令 screenshot_full 可用 + desktopMcp.present=true。(a) vision 路径图片附件走 parts + SEEN_IMAGE 回显 + 视觉规程;(b) 工具截图入回路:tool 图字段剥离占位 + 批后 user 图片消息 + tool_image 事件 + 连续性;(c) 保图≤2 淘汰最老;(d) 无 vision 路径 user content 是字符串 + 文本规程 + 工具图字段保留不转图;(e) 全程配对+连续性。WB 起一次、fake 按场景在同段串行重启复用) |
 | **9013-9014** | **audit(v0.9-S8)**(9013 = fake-openai;9014 = WB;跑一 turn → GET /api/audit 断言含 workbench turn_start/end + ts 降序 + summary 人话化 + 无 token 403 + source=workbench 过滤 + desktop unavailable degraded + redact 脱敏[注入 sk- 秘钥断言明文不入响应]+ limit=9999 钳≤500。config `desktopMcp.enabled:false` 令桌面源确定性 unavailable) |
 | **9015-9017** | **websearch(v0.9-S9)**(9015 = fake-openai[FAKE_TOOL_SEQUENCE web_search];9016 = WB;9017 = 本地 fake searxng JSON 端点[后端 baseUrl 可信不过 SSRF]。**纯函数直测**:ssrfCheck 逐条拒内网/回环/元数据/协议 + 放行公网、extractMainText 剥 script/style/head·段落换行·实体解、缓存往返 + SSRF 拒不落缓存 + 离线回落 fromCache、webSearch searxng 分流、maskSecrets/unmaskSecrets 覆盖 providers+searchBackend。**live**:type none → web_search 被过滤 + system「当前不可用」;searxng 配好 → web_search/web_fetch 出现 + D6 指令句渲染 + 真调 web_search 结果回流;apiKey `bing-secret-key-123456` → status/config 掩为 `••••3456` + 掩码回存不丢真 key) |
 | **9018-9019** | **ssrf-hardening(v0.9 收官修复批)**(**保留登记但实际不用**:每条断言都是纯函数调用[`embeddedIpv4FromV6`/`ssrfCheck`/`isPrivateIpv4`],不开任何 socket) |
 | **9020-9022** | **usage-ledger(v1.4-OSS 用量看板)**(9020 = fake-openai[有 usage 帧,配 pricing 的 provider];9022 = fake-openai[`FAKE_NO_USAGE`→估算轮];9021 = WB)。append-only 月账本 `usage/YYYY-MM.jsonl` + `GET /api/usage/summary`:两 priced 轮 + 一估算轮追加 3 行;summary totals/byEngine/byProvider/bySession(标题取自会话索引)分组、成本按币种(CNY)合计、estimatedTurns 计数、range=today/week/month/all 过滤(注入旧月行只入 all)、损坏账本行跳过、第三方 Claude 端点行 `costTrusted:false` 计入 planBasedTurns 且成本不入 costsByCurrency(source 取 CLAUDE_ENDPOINT_PRESETS 标签)、budget.spentThisMonth 当月可信合计、无账本空聚合不 500、无 token 403 |
 | **无端口** | **theme(v1.0-S1)**(纯静态:只读解析 `app/public/styles.css` + `index.html`,不起服务不触网。青花令牌键集一致 + 旧赤陶橙隔离 + WCAG 对比度红线 + 空状态无字母 "C" 残留) |
-| 8999 | **ia(v1.0-S2)· WB**(顶栏 5+⋯、右侧常驻页签+开发者组、权限安全 chip 四档、新装默认 uiMode simple、非法 uiMode 清洗回 pro) |
-| 8997 | **onboard(v1.0-S3)· WB**(首跑引导 + 新装三键翻转 permissionMode default/engineMode interactive/permissionBridge true + 联网搜索页签 searchBackend 存续 + provider vision 开关) |
+| 8999 | **ia(v1.0-S2)· WB**(顶栏 5+⋯、右侧常驻页签+开发者组、权限安全 chip 四档、新装默认 uiMode simple、非法 uiMode 清洗回 simple[第36波对齐 defaultConfig]) |
+| 8997 + 9141 | **onboard(v1.0-S3)· WB**(首跑引导 + 新装三键翻转 permissionMode default/engineMode interactive/permissionBridge true + 联网搜索页签 searchBackend 存续 + provider vision 开关;第二实例 PORT2=9141,第36波自 8998 迁出,保住 capabilities 死端口的"无人监听"语义) |
 | **getFreePort()** | **git(v1.0-S4)· WB**(端口动态取:`git_status`/`git_diff`/`git_log`/`git_commit` —— execFile 无 shell、`--output=` 旗标走私被 `--` 挡、仓库外 cwd 拒、diff 上色数据) |
 | **9031-9035 + 9039[dead]** | **failover(v1.0-S6)**(9031 = live 备用端点 fake-openai;9032 = WB;9033 = 401-端点 fake;9034 = 半截流[die-midstream] fake;9035 = fake tavily/博查 搜索端点[后端 baseUrl 可信不过 SSRF];9039 = 无人监听的死主端口[①预首字节失败切备用]。extraBaseUrls 故障转移:预首字节失败切下一端点发 `failover` 事件 + 401 不切 + 流中死亡不切 + 会话粘住;normalizeConfig 清洗 extraBaseUrls;webSearch tavily/bocha 分流) |
-| 8991 | **perf(v1.0-S7)· WB**(性能专项:`/api/sessions/<id>` 等端点响应时延门限;※ 与 repo-hygiene 的 8990-8992 段字面重叠——当前串行执行同刻只跑一件,并行/CI 前须迁移) |
+| 9147 | **perf(v1.0-S7)· WB**(性能专项:`/api/sessions/<id>` 等端点响应时延门限;第36波自 8991 迁出,消除与 repo-hygiene 8990-8992 段撞车) |
 | **无端口** | **manuals(v1.0-S8)**(纯文件断言:双手册 `USER-GUIDE_CN.md`/`ADMIN-GUIDE_CN.md` 各 ≥4000 字节 + 关键词齐 + 无 sk- 密钥/无旧品牌名「Win Claude Workbench」空格形[存量兼容标识 `win-claude-workbench` 行豁免]/无 TODO 残留 + README 含两手册链接) |
 | **无端口** | **context-governance(第28波 · 上下文与产物治理)**(纯源抽取 + 静态锁,离线 Node 直跑,不起服务)。[S] 静态锁:§28c 两处上游装配点(DAG runNode + spawn_agent)改用 `buildUpstreamContext`、旧 `join.slice(0,32000)` 定长消失;§28b `deriveNodeOutputs` 产 summary/evidence/artifacts;§28a 子代理循环边界调 `maybeCompactSubHistory`、L2 用【原地 splice】、Claude 引擎不引入 subHistory 压缩(有意不对称);§28d `degradedPolicy` 枚举 ≥3 处归一 + resume 回填 + 翻译接缝 + 工具 schema。[P] `buildUpstreamContext` rung 分级(全文→摘要→二分截断,均分预算防靠后依赖被挤掉)、`deriveNodeOutputs`(结构化 summary/verdict、findings→evidence、写族续点→artifacts)。[A] `maybeCompactSubHistory`(new Function 实跑 + 注入真 evaporateHistory/recentTurnsBoundary):未超预算不动、L1 蒸发+配对不破、L2 原地 splice 同一引用+钉 task[0]+记账、L2 内核失败保 L1 不抛) |
 | **9041** | **dns-rebind(v1.4.6-S1)· WB**(DNS 重绑定/CSRF:伪造 Host 头[evil.example]命中 POST /api/sessions 被拒 403 + 浏览器 Origin 无 token 被拒 + 同源 Origin+token 放行 + 回环无 Origin 无 token 仍放行[离线 harness 豁免]) |
@@ -147,14 +155,17 @@ node dev-harness\openai-engine.e2e.js
 
 | **9130-9131** | **interactive-question**(9130 = 内联 OpenAI 兼容 Provider；9131 = WB + fake-claude ask)。双引擎统一 `request_user_input`：Claude 原生兼容事件走文本用户信封并确认送达；Provider 工具调用暂停后收到结构化 `role:tool` 选择再继续；重复回答返回 409；后台提问立即弹出；会话重挂载不重复取消同一问题。 |
 | **9132-9133** | **claude-cmdline-guard(cmd8191 防线 · 技能索引顶爆 cmd.exe 8191 事故回归)**(9132 = WB 挂 `WCW_CLAUDE_CMDLINE_BUDGET=4200` 测试缝;9133 = WB 无缝对照;均挂 `WCW_FAKE_CLAUDE`+`WCW_FAKE_ARGV_CAPTURE`,临时 HOME + cwd 项目 4 技能 + ~800 字用户 append + agentTeam)。[A] 单元:`spawnCmdLineLength` 与 `batchSafeSpawn` 真实构造严格同构(等长断言)、`cmdLineBudgetFor` 分档(.cmd 7900/直启 32000/缝覆盖/非 win 0)、`fenceSafeSlice` 栏内切点回退无悬空围栏、`shrinkFencedSection` 栏内截断保闭合/外壳放不下整段丢、`clampAppendWithSkills` 极限压缩围栏配对、`appendTurnPolicies` 政策段恒完整收尾、`classifyClaudeSubagentFailure` 中英文「命令行太长。」→ definitive 不重试;[B] 带缝集成:对抗配置回合正常完成、重建 cmd 整行 ≤ 预算、append 以用户 MARKER 开头 + `</response-language-policy>` 收尾 + 全围栏配对、降级经 stderr「启动守卫」事件 + `meta.cmdlineGuard.degraded` 明细告知、`--agents` 被裁或 JSON 完好;[C] 无缝对照:技能段完整注入、`--agents` 照常、零守卫事件(预算内行为逐字节不变) |
+| **9137-9138** | **agent-workflow-transient-repro**(第36波自 9087/9088 迁出,消除与 agent-workflow-audit-fixes 撞车) |
+| **9139-9140** | **artifacts · G 段端口**(第36波自 9007/9008 迁出,消除与 plan-mode 撞车;主段仍 9005-9006) |
+| **9142-9143** | **context-window**(第36波自 9021/9022 迁出,消除与 usage-ledger 9020-9022 段撞车) |
 
-> ※ 标注的行与旧件/兄弟件共用端口:**在当前串行执行下有意共用**(同刻只有一件在跑);
-> **并行/CI 前须迁移**到独立端口或改用 `free-port.js` 的 `getFreePort()` 动态取端口
-> (fake 走 env `FAKE_OPENAI_PORT`,workbench 走 `--port`)。**现有件不改**(串行硬编码没问题)。
+> 第36波前曾有 12 处跨文件端口共用(含 live 件与 dead-port 语义冲突),串行执行下无痛但阻碍未来并行;
+> 已全部迁移清零并由 run-all.js 启动审计机械维持。并行化若提上日程:fake 走 env `FAKE_OPENAI_PORT`,
+> workbench 走 `--port`,或改用 `free-port.js` 的 `getFreePort()` 动态取端口。
 
 ## 新 e2e 检查单
 
-- [ ] 端口取**空闲段**(见上表),或用 `getFreePort()`。
+- [ ] 端口取**空闲段**(可用 `node -e` 小脚本或 run-all 审计确认未占用;占用即声明,无需登记)。
 - [ ] 临时 `HOME`(tmpdir),开跑清空;spawn env 带数据目录变量。
 - [ ] 健康轮询起服务,别裸 sleep 猜时间。
 - [ ] 需要 mutating 路由的 UI-token → 从 `runtime.json` 读;body-token 端点走 body。
@@ -162,4 +173,4 @@ node dev-harness\openai-engine.e2e.js
 - [ ] 逐条 `PASS/FAIL <label>`;`process.exit(fail?1:0)`。
 - [ ] 断言只加不改语义(事件协议纪律);新字段可断言,别断言旧字段被删。
 - [ ] 跑两遍确认无端口/临时目录残留导致的偶发。
-- [ ] 登记进上面的端口段表。
+- [ ] `node dev-harness/run-all.js` 启动时的端口唯一性审计会自动覆盖新件(撞车即红,无需手工登记);端口角色有描述价值时可在上表补一行。

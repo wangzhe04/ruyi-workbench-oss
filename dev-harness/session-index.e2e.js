@@ -1,6 +1,6 @@
 // E2E (PF2 「性能专项」): session metadata index (sessions/index.json). Offline, zero-dep.
 // Spawns fake-openai + workbench; drives session CRUD over HTTP and pokes the on-disk index.json to prove the
-// index is ONLY a cache and the per-session files stay authoritative. Ports 8966 (fake) + 8967 (wb).
+// index is ONLY a cache and the per-session files stay authoritative. Ports 9135 (fake) + 9136 (wb).
 //
 // Asserts:
 //  ① after listing, sessions/index.json exists and its id-set + fields MATCH the real session files.
@@ -19,7 +19,7 @@ const os = require('os');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const FAKE_PORT = 8966, WB_PORT = 8967;
+const FAKE_PORT = 9135, WB_PORT = 9136;
 const HOME = path.join(os.tmpdir(), 'wcw-session-index-e2e');
 const SESSDIR = path.join(HOME, 'sessions');
 const IDX = path.join(SESSDIR, 'index.json');

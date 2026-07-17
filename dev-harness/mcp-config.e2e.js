@@ -224,7 +224,7 @@ async function runDropIn(fakePort, wbPort) {
 
 (async () => {
   const a = await runCase('enabled', { enabled: true, command: NODE, args: [FAKE_MCP], cwd: '', autodetect: false }, true, 8801);
-  const b = await runCase('disabled', { enabled: false, command: '', args: [], cwd: '', autodetect: false }, false, 8802);
+  const b = await runCase('disabled', { enabled: false, command: '', args: [], cwd: '', autodetect: false }, false, 9153);
   const c = await runImportFolder(8803);
   const d = await runDropIn(8814, 8804);
   const fail = a.fail + b.fail + c.fail + d.fail;

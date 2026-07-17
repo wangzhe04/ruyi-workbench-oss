@@ -1,8 +1,18 @@
-# 套用 ai-computer-control 增量更新（v1.8.2，桌面控制 MCP）
+# 套用 ai-computer-control 增量更新（v1.8.3，桌面控制 MCP）
 
-> 面向内网机操作者/AI。**代码更新无需联网、无需重装**——直接热覆盖已安装 venv 里的 .py。
+> 面向内网机操作者/AI。**代码更新无需联网、无需重装**——直接热覆盖已安装运行时的 .py。
+> v1.8.3 起 `update.bat` 自动探测两种安装布局：新包的 `runtime\python`（优先）与旧包的 `venv\`（兜底）。
 
-## 本次新增/修复
+## 本次新增/修复（v1.8.3，对应如意工作台 v1.7 评审批）
+- **`read_file` 真字节预算（bug 修复）**：`max_bytes` 原按**字符数**读取却按字节判定截断——中文 UTF-8 文件（1 字≈3 字节）会在内容已全量返回时误报 `truncated`，或读入多达 3 倍承诺字节。现按二进制读取 +1 探测截断再解码，预算即字节。
+- **`list_directory` 递归封顶修复**：递归分支 1000 条上限原只 `break` 内层循环，条目可超限；现硬停并在结果标注 `capped: true`（glob 分支同标）。
+- **`ocr_click` 包络自洽（bug 修复）**：`nth` 越界原返回 `ok:true` + `error` 并存的自矛盾包络（调用方会把失败的消歧当成功）；现 `ok:false`（执行拒绝）+ `found:true`（查询有果）+ 候选清单。
+- **`launch_application` 等待上限独立**：`wait=true` 原复用 2 秒 `ready_timeout` 当进程等待上限，同步等待几乎必超时。新增 `wait_timeout`（默认 120s，钳 [1,600]），超时时如实回显预算。
+- **审计日志值级脱敏（安全）**：原先只按**键名**脱敏，`run_command` 命令行里的口令（`password=...`、`Bearer ...`、`sk-...`、JWT、`ghp_...`）会原文落审计；现对字符串值按形状擦除，良性值不受影响。
+- **输出路径护栏补齐（安全）**：`window_screenshot` 的 `output_path` 与 `get_clipboard_image` 的 `save_path` 现过与 `write_file` 族相同的系统保护目录闸（`allow_protected` 覆盖）。
+- **`update.bat` 双布局**：修复 Full 包（hydrated `runtime\python` 布局）用户跑增量更新报"未安装"的问题。
+
+### v1.8.2（历史）
 - **安全护栏（重要 bug 修复）**：`kill_process` 原来用**子串匹配**，`name="s"` 会误杀所有含 "s" 的进程。现改为**精确基名匹配**（`contains=true` 才用子串）、**关键系统进程 denylist**（lsass/csrss/... 拒杀,`allow_critical` 覆盖）、**多进程匹配需 `confirm=true`**。`delete_file` 拒删系统保护根（Windows/Program Files/盘根等,`allow_protected` 覆盖）。`run_command` 拒执行明显破坏性命令(format/rmdir /s/Remove-Item -Recurse -Force/shutdown/reg delete HKLM 等,`allow_dangerous` 覆盖)。
 - **`batch_actions` / `macro_run`**：一次调用里按顺序跑多个工具,`on_error=stop|continue`,减少往返;每步独立 try/except,返回结构化结果。
 - **窗口/屏幕/剪贴板/音频（纯 ctypes/pyautogui/PIL/winsound,无需新依赖）**：`wait_for_window`、`wait_for_window_idle`、`get_pixel_color`、`get_clipboard_image`、`list_monitors`、`get_dpi_info`、`beep`、`notify_attention`、`play_sound`。启动时设 **Per-Monitor-V2 DPI 感知**,坐标更一致。
@@ -15,7 +25,7 @@
    ```cmd
    update.bat --code
    ```
-   它把新 `.py` 热覆盖到 `%LOCALAPPDATA%\ai-computer-control\venv\Lib\site-packages\ai_computer_control\`,并写入 `VERSION.txt`。
+   它把新 `.py` 热覆盖到已安装包——新布局 `%LOCALAPPDATA%\ai-computer-control\runtime\python\Lib\site-packages\ai_computer_control\`（优先）或旧布局 `...\venv\Lib\site-packages\ai_computer_control\`（自动探测）,并写入 `VERSION.txt`。
 4. 让 Claude 重新调用任一工具即可生效（或重启 Claude）。**安全护栏 + batch + 窗口/屏幕/音频等 14 个新工具即刻可用,无需任何新依赖。**
 
 ## 启用 UI Automation 与默认离线 OCR（可选）

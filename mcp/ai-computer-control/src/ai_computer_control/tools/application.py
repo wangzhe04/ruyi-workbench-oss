@@ -119,6 +119,7 @@ def launch_application(
     working_dir: str | None = None,
     wait: bool = False,
     ready_timeout: float = 2.0,
+    wait_timeout: float = 120.0,
 ) -> dict:
     """Launch an application and report whether it actually started.
 
@@ -136,6 +137,9 @@ def launch_application(
               meaningless for GUI apps — use wait=False + the returned 'window'/wait_for_window).
         ready_timeout: Seconds to wait for the app's main window to appear (0 to skip). The window
               info is returned so you can focus/click it immediately without a separate poll.
+        wait_timeout: Seconds to wait for process exit when wait=True (default 120, clamped to
+              [1, 600]). Previously the 2-second ready_timeout was (mis)reused as this cap, so a
+              synchronous wait almost always "timed_out" — the two budgets are now independent.
 
     Returns:
         dict with 'success' + real 'pid' + 'name'; plus 'window' {hwnd,title,rect} and 'ready' when
@@ -172,8 +176,9 @@ def launch_application(
 
     if wait:
         try:
-            stdout, stderr = proc.communicate(timeout=max(1, int(ready_timeout) if ready_timeout else 60))
-            return {
+            cap = max(1, min(600, int(wait_timeout)))
+            stdout, stderr = proc.communicate(timeout=cap)
+            out = {
                 "success": proc.returncode == 0,
                 "pid": proc.pid,
                 "name": os.path.basename(exe),
@@ -181,9 +186,13 @@ def launch_application(
                 "stdout": stdout or "",
                 "stderr": stderr or "",
             }
+            if cap != int(wait_timeout):
+                out["wait_timeout_capped"] = cap
+            return out
         except subprocess.TimeoutExpired:
             return {"success": True, "pid": proc.pid, "name": os.path.basename(exe),
-                    "timed_out": True, "note": "still running; not killed. Use run_command for bounded console capture."}
+                    "timed_out": True, "wait_timeout": cap,
+                    "note": "still running; not killed. Use run_command for bounded console capture."}
 
     # Non-wait: quick liveness check — a program that exits non-zero almost immediately did NOT launch.
     time.sleep(0.25)

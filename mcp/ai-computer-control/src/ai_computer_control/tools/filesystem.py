@@ -14,16 +14,25 @@ def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000) ->
     Args:
         path: File path to read.
         encoding: Text encoding (default utf-8).
-        max_bytes: Maximum bytes to read (default 1MB).
+        max_bytes: Maximum bytes to read (default 1MB). This is a BYTE budget: the file is read
+            in binary and decoded, so a UTF-8 Chinese file (1 char ~= 3 bytes) returns at most
+            ~max_bytes/3 characters — never max_bytes *characters* (~3x the promised bytes).
 
     Returns:
         dict with 'content' and 'size'.
     """
     try:
         size = os.path.getsize(path)
-        with open(path, "r", encoding=encoding, errors="replace") as f:
-            content = f.read(max_bytes)
-        truncated = size > max_bytes
+        # Read max_bytes+1 raw bytes so truncation is detected from the read itself (a getsize
+        # race or a grow-while-reading file can't fool a size comparison). Decode afterwards:
+        # a multi-byte char split at the cut boundary becomes U+FFFD via errors="replace".
+        limit = max(0, int(max_bytes))
+        with open(path, "rb") as f:
+            raw = f.read(limit + 1)
+        truncated = len(raw) > limit
+        if truncated:
+            raw = raw[:limit]
+        content = raw.decode(encoding, errors="replace")
         return {"content": content, "size": size, "truncated": truncated}
     except Exception as e:
         return {"error": str(e)}
@@ -81,6 +90,7 @@ def list_directory(
 
     try:
         entries = []
+        capped = False
 
         if pattern:
             if recursive:
@@ -88,6 +98,7 @@ def list_directory(
             else:
                 search = os.path.join(path, pattern)
             matches = glob_module.glob(search, recursive=recursive)
+            capped = len(matches) > 1000
             for match in matches[:1000]:
                 stat = os.stat(match)
                 entries.append({
@@ -99,8 +110,16 @@ def list_directory(
         else:
             items = os.listdir(path) if not recursive else []
             if recursive:
+                # The 1000-entry cap must stop os.walk itself: a bare `break` only exits the
+                # inner per-directory loop, so every further directory appended one more entry
+                # before breaking again (entries could exceed 1000 by the remaining dir count).
                 for root, dirs, files in os.walk(path):
                     for name in dirs + files:
+                        # Looking at a 1001st item proves the response is partial. Checking before
+                        # appending avoids reporting capped=True for an exactly-1000-entry tree.
+                        if len(entries) >= 1000:
+                            capped = True
+                            break
                         full = os.path.join(root, name)
                         if not include_hidden and name.startswith("."):
                             continue
@@ -111,8 +130,8 @@ def list_directory(
                             "type": "directory" if os.path.isdir(full) else "file",
                             "size": stat.st_size,
                         })
-                        if len(entries) >= 1000:
-                            break
+                    if capped:
+                        break
             else:
                 for name in sorted(items):
                     if not include_hidden and name.startswith("."):
@@ -129,7 +148,11 @@ def list_directory(
                     except OSError:
                         continue
 
-        return {"entries": entries, "total": len(entries)}
+        out = {"entries": entries, "total": len(entries)}
+        if capped:
+            # Honest partial-result marker so the caller knows the listing is truncated.
+            out["capped"] = True
+        return out
     except Exception as e:
         return {"error": str(e)}
 

@@ -671,3 +671,58 @@
 - 这是第33波 deny-by-default 表的覆盖缺口(不是 PATCH 业务逻辑 bug);第34波 CI 全量覆盖才暴露(之前手工挑件从未跑到 session-index/workspace-resolve 的真实 PATCH/DELETE 断言)。
 - playbooks/agent-workflows/memory 的 DELETE 真实方法现由 `auth-deny-default` 覆盖：浏览器无 token 为 403、带 token 必须穿过 auth 表并到达既有 handler。
 - 余 2 件 known-fail(capabilities identity bleed / ui-v3-p1 color-mix)后续波修。
+
+---
+
+## §31 第36波:v1.7 评审批收口(10 bug 修复 + 护栏补齐 + 漂移清零 + CI 对齐)
+
+**背景**:四路并行深度评审(后端 17.5k 行/前端 8k 行/ACC 9.1k 行/测试打包基建,关键论断主会话逐条对照源码核实)产出 B 表 10 个确认 bug + 一批一致性欠债。本波 = v1.7 全部计划一次落地:修 bug、补护栏、收漂移、capabilities 从 KNOWN_FAILURE 毕业、CI 版本轴对齐。**除标注的 office_open 一处偏差(理由在案)外,评审清单全量执行。**
+
+**ACC v1.8.3(版本三处 + smoke_registry 钉同步 bump;`tests/smoke_v183.py` 29 断言 ALL PASS,全部真文件往返/真进程):**
+
+| 修复 | 位置 | 要点 |
+|---|---|---|
+| read_file max_bytes 字符/字节错位 | tools/filesystem.py | 文本模式 f.read(n) 读的是【字符】却按字节判截断:中文 UTF-8(1 字≈3 字节)会"内容已全量返回却误报 truncated"或读入 3 倍承诺字节。改二进制读 max_bytes+1 自证截断再 decode(errors=replace 容错边界半字) |
+| list_directory 递归封顶失效 | tools/filesystem.py | break 只跳内层循环,os.walk 继续,每目录多塞 1 条可超 1000。硬停 + 如实标 `capped:true`(glob 分支同标) |
+| ocr_click nth 越界自矛盾包络 | tools/ocr.py | ok:true+error 并存,_normalize 信任显式 ok 键 → 失败的消歧被当成功。改 ok:false(执行拒绝)+found:true(查询有果)+candidates,符合 ok 语义分层契约 |
+| launch_application wait 卡死 | tools/application.py | wait=True 复用 2 秒 ready_timeout 当进程等待上限,同步等待几乎必 timed_out。新增独立 wait_timeout(默认 120s 钳 [1,600]),超时如实回显预算 |
+| 审计值脱敏 | tools/audit.py | 原只按【键名】脱敏,run_command 命令行里的 password=/Bearer/sk-/JWT/ghp_ 原文落盘。新增 _SECRET_VALUE_PATTERNS 值级擦除;**顺序敏感**(token 形状先于 generic key=value,否则 "Authorization: Bearer abc" 的 Bearer 被当值吃掉、令牌泄漏——评审级发现,已注释防回潮) |
+| update.bat 布局脱节 | installer/update.bat | 写死旧 venv 布局,Full 包(hydrated runtime\python)用户跑增量更新直接"未安装"。改双布局探测(runtime\python 优先,venv 兜底) |
+| 输出路径护栏×2 | tools/capture.py, desktop_extra.py | window_screenshot.output_path / get_clipboard_image.save_path 补 protected_path_reason(与 write_file 族同闸,allow_protected 覆盖) |
+
+**server.js(v1.7):**
+
+| 修复 | 位置 | 要点 |
+|---|---|---|
+| serveStatic 前缀子串 bug | :1663 | `full.startsWith(normalize(base))` 与作者在 :3322 亲自批评的 classic prefix bug 同款(public-evil/ 兄弟目录可越界)。改复用 pathWithinRoot 段比较 |
+| settings.model 越权删除 | syncClaudeCliSettings | 工作台无 model 时 `else delete settings.model` 把用户手写配置一并抹掉,与该函数 "MERGE: existing keys are preserved" 契约直接冲突。改**权属 sidecar**(dataRoot/claude-settings-sync.json 记录上次同步值,仅当 settings.model 仍等于该值才删=只删自己写过的);sidecar 缺失(老版本首升)宁可留一次陈旧值不误删 |
+| freeStalePort 误杀面 | :16272 | `image:node` 分支会 taskkill【任何】占口的 node.exe,与头注 "never clobber someone else's app" 矛盾。补 processCommandLine 取证(CIM 拿 CommandLine+ExecutablePath):仅当指向本应用 server.js 全路径,或 server.js 与 Ruyi/WinClaudeWorkbench 发行目录同现(打包 runtime\node 相对路径形态)才处死;证据不足一律 blocked(安全方向) |
+| desktop_screenshot 越界写 | toolCall | 模型给定 outputPath 无围栏(bypass 模式唯一防线缺失)。补 guardFileToolPath 写闸;**缺省落 generated/ 不过闸**(generated 属 isSensitiveDataPath 敏感名单,应用自选路径会被自家闸误拒——注释在案) |
+| uiMode 回退漂移 | normalizeConfig | 非法值回退 'pro' 但 defaultConfig 是 'simple'(两处默认不一致,损坏配置把普通用户扔进开发者面)。对齐 'simple';ia/uimode-style 两件 e2e 断言同步翻 |
+| orchestrate maxItems 三处漂移 | schema vs 实现 vs 注释 | schema maxItems:32、实现 slice(0,64)+clamp 1..64 默认 48、两处注释写 32。统一:schema 64 + 注释全改 64/48 |
+| D6 主动检索指引名存实亡 | buildProviderSystemPrompt | 判定"web_search 已 offer"是自适应装载前语义;toolLoadingMode:'auto'(默认)下 web pack 未被消息关键词激活时 web_search 不进首批 schema → 该行**永不渲染**。改"目录可用"口径(toolRequirementsMet: network+searchBackend 全满足),离线语义不变 |
+
+**office_open 不加读闸的偏差决策(记录在案防复报)**:打开的文件内容不回流模型(无 S3 外传通道),"打开桌面/下载里的文档"正是非程序员用户的正当主流程,读闸会误杀;模型可控路径的风险面是命令注入(S2 已修)与关联程序执行,后者由 exec tier 弹窗/授权书把守,与其它 exec 工具同级。注释已落在 toolCall 分支。
+
+**capabilities 毕业(真相与挂账不同)**:KNOWN_FAILURE 挂账的"identity bleed(system prompt 含 Claude)"实测**早已不过**——当前真正失败的是 W1a 断言(上面 D6 行)。修 D6 后 48 断言 ALL PASS,名单删除(剩 ui-v3-p1 唯一挂账)。
+
+**端口登记表漂移根治(机制替代人肉)**:README 登记 26/实际 186(第34波亲验 116,仍在涨)。①`run-all.js` 启动即做**端口唯一性审计**:手写状态机剥注释(字符串态含转义,模板串整体视为字符串,合法 JS 无字符串外裸 //),扫 8700-9199 带内数字字面量,跨文件撞车 exit 2 拒跑——占用即声明、撞车即红、零登记动作;负向自测(临时撞口文件→exit 2+人话报错)。②**12 处真实撞车全迁移**(注释假阳性由剥注释自然消解):session-index→9135/6、transient-repro→9137/8、artifacts G 段→9139/40、onboard PORT2→9141(保住 capabilities 8998 死端口语义)、context-window→9142/3、source-fields→9144/5(消除与两件 live 件共用)、mcp-bridge fake→9146、perf→9147、playbooks dead→9148、resume-dangling→9149、tools-v3→9150/1、search-robust→9152、mcp-config disabled→9153。13 件重跑 ALL PASS。③README 表改"描述性",检查单去登记化。
+
+**CI 对齐**:e2e.yml Node 20→24(与 build:exe node24/本地开发同轴,此前三轴不一);新增语法门 step `dev-harness/syntax-gate.js`(node --check 覆盖 151 个一手 JS;依赖 Node≥22 的 --check ESM 自动探测,app/public 是 ESM——版本轴对齐是它的前置)。
+
+**漂移收口**:README "约 1.4 万行"→"1.7 万+ 行"(实测 17,546);ACC v1.8.2→v1.8.3 引用 6 处(根 README×4、ACC README、ADMIN-GUIDE×2);APPLY-PYTHON-UPDATE.md 改 v1.8.3 双布局 + 本批修复清单;ACC README 补 v1.8.3 章节。
+
+**e2e 回归锁(本波新增/扩展)**:
+- `v17-review-fixes.static.e2e.js`(快通道,29 断言):S1-S9 源码锁(绝迹断言+新机制断言双向)+ pathWithinRoot 单元矩阵(public-evil 兄弟目录形核心用例)。
+- `port-fallback.e2e.js` Phase 2:无辜旁观者(非工作台 node 服务)占口 → 工作台**拒杀**并让位退出,旁观者全程存活(旧码必误杀);全新 HOME2 杜绝 pid 回收偶发。
+- `e2-append-system-prompt.e2e.js` (d1)(d2):手写 settings.model 跨 boot/跨回合存活 + sidecar 落 model:null;权属可证时删除照常 + 无关键保留。16 断言 ALL PASS。
+- `run-all.js` 端口审计(自检:全量 187 端口零撞车)。
+
+**验证汇总**:ACC smoke_v183 29 断言 + smoke_registry/v16/v161/v17/v171/v18/v13 全 PASS(smoke_v15 失败为**预存环境项**:子进程 PYTHONPATH 怪癖,git stash 干净树同样失败,与本波无关);capabilities 48 断言 ALL PASS;13 件重港件 ALL PASS;port-fallback/e2-append/v17-static 全绿;**全量 127 件:126 pass / 0 fail / 1 known-fail(ui-v3-p1 预存)/ 0 unexpected-pass**(3 live 件按单跳过)。
+
+**诚实交代**:
+- ui-v3-p1(color-mix 手写)成唯一挂账,需 UI 决策,不属本波。
+- sidecar 权属机制首升时会留一次陈旧 model(无法证明权属宁留勿删),第二次清理即自愈——取舍记录在注释。
+- 端口审计只覆盖 8700-9199 测试带;字符串内端口字面量计为占用(真引用),注释提及不计——语义正确,但若未来有人用 `String.fromCharCode` 拼端口则逃逸(接受:工程约束非对抗场景)。
+- smoke_v15 预存环境失败(子进程 reportlab 屏蔽测试在本机 PYTHONPATH 下找不到包)未修——与本波无关但记录,后续波查。
+- office_open 与评审建议的偏差是实地判断(读闸会误杀正当主流程),非漏做。

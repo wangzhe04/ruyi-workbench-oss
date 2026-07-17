@@ -11,6 +11,7 @@ import time
 from ctypes import wintypes
 
 from ai_computer_control.server import mcp
+from ai_computer_control.tools.safety import protected_path_reason
 
 _user32 = ctypes.windll.user32
 _gdi32 = ctypes.windll.gdi32
@@ -132,7 +133,8 @@ def _printwindow_to_pil(hwnd, width, height):
 
 @mcp.tool(audit=True)
 def window_screenshot(title_substring: str, output_path: str | None = None,
-                      max_width: int = 0, format: str = "png", quality: int = 80) -> dict:
+                      max_width: int = 0, format: str = "png", quality: int = 80,
+                      allow_protected: bool = False) -> dict:
     """Screenshot a specific window by (case-insensitive) title substring.
 
     Tries PrintWindow (captures even background/occluded windows); falls back to cropping the
@@ -147,6 +149,7 @@ def window_screenshot(title_substring: str, output_path: str | None = None,
             the window's pixels.
         format: 'png' (default) or 'jpeg' for the returned base64 (ignored when saving to a path).
         quality: JPEG quality 1-100 (ignored for PNG / when saving to a path).
+        allow_protected: Override the protected-system-root guard on output_path (default off).
 
     Returns:
         dict with ok, matched_title, width, height, scale, and either 'path' or 'image_base64'.
@@ -199,6 +202,12 @@ def window_screenshot(title_substring: str, output_path: str | None = None,
     out = {"ok": True, "matched_title": matched, "width": img.width, "height": img.height,
            "method": method, "scale": 1.0}
     if output_path:
+        # Same protected-destination guard as the write_file family — a screenshot output path is
+        # a file write and must not bypass it just because it arrives via a capture tool.
+        reason = protected_path_reason(output_path)
+        if reason and not allow_protected:
+            return {"ok": False, "matched_title": matched,
+                    "error": f"refused to write: destination {reason}. Pass allow_protected=true to override."}
         try:
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
             img.save(output_path, "PNG")
