@@ -36,6 +36,19 @@ function postJson(port, p, payload) {
 (async () => {
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
+  // v1.9 存储 v2:providerHistory 正文在 <id>.provider.ndjson,头只带 providerHistoryCount 计数(头是提交点)。
+  // 带外注入 = 重写正文 + 同步头计数;legacy 单文件布局回退内联写(与 e3/mission-driver 同款迁移)。
+  function injectProviderHistory(id, entries) {
+    const file = path.join(SESSDIR, id + '.json');
+    const head = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (head.storageVersion === 2 || Number.isInteger(head.providerHistoryCount)) {
+      fs.writeFileSync(path.join(SESSDIR, id + '.provider.ndjson'), entries.map(e => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : ''), 'utf8');
+      head.providerHistoryCount = entries.length;
+    } else {
+      head.providerHistory = entries;
+    }
+    fs.writeFileSync(file, JSON.stringify(head, null, 2));
+  }
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
@@ -47,14 +60,11 @@ function postJson(port, p, payload) {
     const mkA = await postJson(WB_PORT, '/api/sessions', { title: 'dangling', cwd: HOME });
     const idA = mkA && mkA.session && mkA.session.id;
     ok(!!idA, 'dangling session created (id=' + idA + ')');
-    const fileA = path.join(SESSDIR, idA + '.json');
-    const sessA = JSON.parse(fs.readFileSync(fileA, 'utf8'));
-    sessA.providerHistory = [
+    injectProviderHistory(idA, [
       { role: 'user', content: '第一件事' },
       { role: 'assistant', content: '好的，已完成第一件事。' },
       { role: 'user', content: '第二件事（未完成）' }, // dangling tail
-    ];
-    fs.writeFileSync(fileA, JSON.stringify(sessA, null, 2));
+    ]);
     const getA = await getJson(WB_PORT, '/api/sessions/' + idA);
     ok(getA.status === 200 && getA.json && getA.json.ok === true, 'GET dangling session ok (status ' + getA.status + ')');
     ok(getA.json && getA.json.resumable && getA.json.resumable.dangling === true, 'resumable.dangling === true (got ' + JSON.stringify(getA.json && getA.json.resumable) + ')');
@@ -64,13 +74,10 @@ function postJson(port, p, payload) {
     const mkB = await postJson(WB_PORT, '/api/sessions', { title: 'complete', cwd: HOME });
     const idB = mkB && mkB.session && mkB.session.id;
     ok(!!idB, 'complete session created (id=' + idB + ')');
-    const fileB = path.join(SESSDIR, idB + '.json');
-    const sessB = JSON.parse(fs.readFileSync(fileB, 'utf8'));
-    sessB.providerHistory = [
+    injectProviderHistory(idB, [
       { role: 'user', content: '做点事' },
       { role: 'assistant', content: '已完成。' },
-    ];
-    fs.writeFileSync(fileB, JSON.stringify(sessB, null, 2));
+    ]);
     const getB = await getJson(WB_PORT, '/api/sessions/' + idB);
     ok(getB.json && getB.json.resumable && getB.json.resumable.dangling === false, 'complete session resumable.dangling === false (got ' + JSON.stringify(getB.json && getB.json.resumable) + ')');
 
@@ -80,14 +87,11 @@ function postJson(port, p, payload) {
     const mkC = await postJson(WB_PORT, '/api/sessions', { title: 'stopped-mid-loop', cwd: HOME });
     const idC = mkC && mkC.session && mkC.session.id;
     ok(!!idC, 'stopped-mid-loop session created (id=' + idC + ')');
-    const fileC = path.join(SESSDIR, idC + '.json');
-    const sessC = JSON.parse(fs.readFileSync(fileC, 'utf8'));
-    sessC.providerHistory = [
+    injectProviderHistory(idC, [
       { role: 'user', content: '读取文件' },
       { role: 'assistant', content: '', tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'file_read', arguments: '{"path":"x.txt"}' } }] },
       { role: 'tool', tool_call_id: 'call_1', content: '{"ok":true,"content":"..."}' }, // answered, but no closing assistant
-    ];
-    fs.writeFileSync(fileC, JSON.stringify(sessC, null, 2));
+    ]);
     const getC = await getJson(WB_PORT, '/api/sessions/' + idC);
     ok(getC.json && getC.json.resumable && getC.json.resumable.dangling === true, 'tail role:tool resumable.dangling === true (got ' + JSON.stringify(getC.json && getC.json.resumable) + ')');
     ok(getC.json && getC.json.resumable && getC.json.resumable.kind === 'tool_calls', "tail role:tool resumable.kind === 'tool_calls'");

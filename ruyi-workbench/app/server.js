@@ -433,7 +433,7 @@ function defaultConfig() {
     // v1.9 数据管家: 保留策略(专家界面「存储」页签可配)。默认保守:logs 按文件名日期保 30 天;
     // 真终态 run 的事件日志 14 天后 gzip(仍可读,体积 ÷~10);webcache 默认【不】自动清 —— v0.9-S9
     // 的设计承诺是"离线无价,旧副本仍有用",条目上限留作用户 opt-in(0=不限)。
-    storagePolicy: { logsKeepDays: 30, agentRunEventsCompressDays: 14, webcacheMaxEntries: 0 },
+    storagePolicy: { logsKeepDays: 30, agentRunEventsCompressDays: 14, webcacheMaxEntries: 0, engineTranscriptDays: 30 },
     turnIdleTimeoutMs: 600000,    // watchdog: kill a turn idle (no events) longer than this
     // --- v0.4.4: model list discovery ---
     knownModels: [],              // models actually selected/used — remembered so they stay in the list
@@ -1891,6 +1891,99 @@ function sessionPath(id) {
 // 第25波对抗轮: per-session 写链(见 saveSession)—— 与 agentRunWriteChains 同范式。
 const sessionWriteChains = new Map();
 
+// ===== v1.9 会话存储 v2(head JSON + append-only NDJSON 正文)=====================================
+// 背景:旧格式把整个 messages+providerHistory 塞进单个 <id>.json,saveSession 每轮全量序列化+原子重写
+// —— 写放大 O(会话总历史)/轮:5MB 会话 = 每轮重写 5MB。v2 拆分为:
+//   <id>.json              「头」:全部标量/小字段 + messageCount/providerHistoryCount + storageVersion:2(小,每次重写)
+//   <id>.messages.ndjson   展示消息正文,一行一条 JSON,append-only
+//   <id>.provider.ndjson   provider 引擎历史正文,同上
+// 快路径(saveSession):两个数组只在尾部增长 → 每文件一次 append,O(增量)/轮。
+// 慢路径(全量重写正文):任何前缀变化自动触发 —— rewind(slice)/compaction(reseed)/pop/蒸发改写。
+// 检测机制【不靠调用方自觉打标记】:进程内状态表存每行的 sha1-16 hash,save 时前缀逐行重算比对;
+// 任何对不上(含未来新代码忘了声明的中间改写)都安全降级为全量重写 —— 失配只可能损失性能,不可能丢数据。
+// 崩溃语义:头是提交点(正文先写、头后写)。append 崩溃中途 → 无 \n 终结的撕裂尾行,读取时物理截断;
+// append 完成但头写未完成 → 正文比头声明的多出「未提交尾巴」,读取时按头计数截断;慢路径(全量重写)
+// 崩溃 → .prevbody 快照(重写前旧正文)恢复与旧头重新配对;正文比头声明的短 / 中间行损坏且无快照可退
+// = 真损坏 → v1bak 回退(迁移期)或隔离为 .corrupt(与旧单文件损坏同纪律)。
+// 迁移:legacy <id>.json 首次 load 时原样备份 <id>.json.v1bak 再落 v2;v2 下次成功读取后自动删 v1bak。
+const SESSION_STORAGE_VERSION = 2;
+function sessionBodyPaths(id) {
+  return {
+    messages: path.join(paths.sessions, `${id}.messages.ndjson`),
+    provider: path.join(paths.sessions, `${id}.provider.ndjson`),
+  };
+}
+function sessionLineHash(line) {
+  return crypto.createHash('sha1').update(line).digest('hex').slice(0, 16);
+}
+// 进程内「已落盘正文」状态:id → { msgHashes:[sha1-16/行], provHashes:[...], bodiesOk }
+// bodiesOk=false 表示上次正文写失败(可能半成品)→ 下次 save 强制全量重写自愈。
+// 内存占用 16B/行,万行会话 ≈ 160KB,可忽略;进程重启后由 loadSession 重建。
+const sessionBodyState = new Map();
+// 读一个 NDJSON 正文文件。返回 { entries, hashes } | null(文件缺失) | { corrupt:true }(中间行坏)。
+// 崩溃语义:写入侧永远「整行 + 尾随 \n」一次 append,所以【无 \n 终结的尾行 = 撕裂】(append 崩溃中途,
+// 其所属的头写未完成,等于那次 save 没发生)—— 发现即【物理截断】到最后一个好行边界,而不是只在内存里
+// 容忍:否则磁盘上留着半行,下次快路径 append 会接在撕裂字节之后,把新的真消息焊进坏行 → 中间坏行 →
+// 整个会话被判 corrupt 隔离(真丢数据)。中间空行/坏行一律 corrupt(不应发生,发生即数据事故)。
+async function readSessionBodyFile(p) {
+  let txt;
+  try { txt = await fsp.readFile(p, 'utf8'); } catch { return null; }
+  const lines = txt.split('\n');
+  const entries = [], hashes = [], lineEndBytes = [];
+  let goodBytes = 0; // 已确认好行的 utf8 字节数(含每行结尾 \n),撕裂截断点
+  let torn = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (i === lines.length - 1) { // split 尾元:文件以 \n 结尾 → '';非空 = 无终结尾行(撕裂)
+      if (line !== '') torn = true;
+      break;
+    }
+    if (line === '') return { corrupt: true }; // 中间空行 = 坏
+    try { entries.push(JSON.parse(line)); }
+    catch { return { corrupt: true }; } // 中间坏行 = 坏
+    hashes.push(sessionLineHash(line));
+    goodBytes += Buffer.byteLength(line, 'utf8') + 1;
+    lineEndBytes.push(goodBytes);
+  }
+  if (torn) await fsp.truncate(p, goodBytes).catch(() => {}); // 截断失败 → 下次 load 再试,不阻塞读取
+  return { entries, hashes, lineEndBytes };
+}
+// 快路径判定:entries 的前 persistedHashes.length 行逐行 hash 全等 → 返回 {appendLines, appendHashes, allHashes};
+// 否则(前缀变/缩短/无状态)返回 null → 调用方全量重写。注意:必须逐行重算 hash,不能只比长度+尾行 ——
+// 蒸发(evaporateHistory)会在保持长度不变的情况下原地改写中间行的 content。
+function planSessionBodyAppend(entries, persistedHashes) {
+  if (!persistedHashes || persistedHashes.length > entries.length) return null;
+  const allHashes = new Array(entries.length);
+  const allLines = new Array(entries.length);
+  for (let i = 0; i < entries.length; i++) {
+    let line;
+    try { line = JSON.stringify(entries[i]); } catch { return null; } // 不可序列化 → 全量重写兜底
+    const h = sessionLineHash(line);
+    if (i < persistedHashes.length && h !== persistedHashes[i]) return null; // 前缀变 → 全量重写
+    allHashes[i] = h;
+    allLines[i] = line;
+  }
+  return {
+    appendLines: allLines.slice(persistedHashes.length),
+    appendHashes: allHashes.slice(persistedHashes.length),
+    allLines,
+    allHashes,
+  };
+}
+// 全量重写用的整体序列化(行数组 + hash 数组)。返回 null = 有条目不可序列化(调用方跳过正文写并标
+// bodiesOk=false —— 宁可下次再试,绝不写出半个正文文件)。
+function serializeSessionBody(entries) {
+  const lines = new Array(entries.length), hashes = new Array(entries.length);
+  for (let i = 0; i < entries.length; i++) {
+    let line;
+    try { line = JSON.stringify(entries[i]); } catch { return null; }
+    lines[i] = line;
+    hashes[i] = sessionLineHash(line);
+  }
+  return { lines, hashes };
+}
+function sessionBodyText(lines) { return lines.length ? lines.join('\n') + '\n' : ''; }
+
 // ===== PF2: session metadata index (sessions/index.json) =====================================================
 // listSessions used to JSON.parse EVERY session file in full just to show 7 sidebar fields, and saveSession
 // rewrote each session whole; both costs grow with session count/size. We keep a lightweight index of just
@@ -2058,6 +2151,19 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   stopSession(id, 'deleted');
   try { revokeAllGrants(id, 'session-deleted'); } catch { /* best-effort */ } // 第27波:会话销毁 → 授权书全清
   await fsp.unlink(sessionPath(id)).catch(() => {}); // idempotent
+  // v1.9 存储 v2:正文/迁移备份/损坏隔离副本一并清(用户删会话 = 删除其全部数据载体)。
+  const bp = sessionBodyPaths(id);
+  await Promise.all([
+    fsp.unlink(bp.messages).catch(() => {}),
+    fsp.unlink(bp.provider).catch(() => {}),
+    fsp.unlink(sessionPath(id) + '.v1bak').catch(() => {}),
+    fsp.unlink(sessionPath(id) + '.corrupt').catch(() => {}),
+    fsp.unlink(bp.messages + '.corrupt').catch(() => {}),
+    fsp.unlink(bp.provider + '.corrupt').catch(() => {}),
+    fsp.unlink(bp.messages + '.prevbody').catch(() => {}),
+    fsp.unlink(bp.provider + '.prevbody').catch(() => {}),
+  ]);
+  sessionBodyState.delete(id);
   if (purgeAssociated) {
     await Promise.all([
       fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
@@ -2501,6 +2607,9 @@ function detectDanglingTurn(session) {
 // Returns the normalized session, or null when the file is missing/unreadable. A file that exists but
 // fails to parse is renamed to <id>.json.corrupt (isolated, not deleted) so a truncated write can't
 // keep 500-ing every read; callers treat null as "not found".
+// v1.9 存储 v2:头(storageVersion:2)从两个 NDJSON 正文装配 messages/providerHistory;正文缺失/坏 →
+// v1bak 回退(迁移备份),无 v1bak 才按损坏隔离。legacy 单文件首次加载后打非枚举 __v1bakPending 标记,
+// 由 saveSession 完成「先备份 v1bak、再落 v2」的懒迁移(对调用方完全透明)。
 async function loadSession(id) {
   let raw;
   try {
@@ -2516,34 +2625,185 @@ async function loadSession(id) {
     return null;
   }
   if (Array.isArray(parsed)) return null; // sessions/index.json is an array, not a session; never load it as one
+  let legacy = true;
+  if (parsed && parsed.storageVersion === SESSION_STORAGE_VERSION) {
+    const bp = sessionBodyPaths(id);
+    let msg = await readSessionBodyFile(bp.messages);
+    let prov = await readSessionBodyFile(bp.provider);
+    // 头是提交点:正文行数【少于】头声明 = 已提交数据丢失,与 corrupt 同级;【多于】头声明 = 崩溃于
+    // 「append 完成、头写未完成」之间,多余行是未提交尾巴,物理截断(见下),不算损坏。
+    const shortOf = (body, count) => Number.isInteger(count) && body && !body.corrupt && body.entries.length < count;
+    const bodyBad = () => !msg || !prov || msg.corrupt || prov.corrupt
+      || shortOf(msg, parsed.messageCount) || shortOf(prov, parsed.providerHistoryCount);
+    const countsDiffer = () => (Number.isInteger(parsed.messageCount) && msg && !msg.corrupt && msg.entries.length !== parsed.messageCount)
+      || (Number.isInteger(parsed.providerHistoryCount) && prov && !prov.corrupt && prov.entries.length !== parsed.providerHistoryCount);
+    // .prevbody 快照(saveSession 慢路径重写前的旧正文)在场 + 正文坏/计数与头不符 = 上次慢路径中断
+    // (崩溃于「正文重写、头未提交」之间)→ 恢复快照,与磁盘上的旧头重新配对。
+    // 注意区分:头计数==正文行数时 prevbody 是「头已提交、清理未完成」的陈旧快照 → 不恢复,随下方清理删掉。
+    const pm = bp.messages + '.prevbody', pp = bp.provider + '.prevbody';
+    const hasPrev = await fsp.stat(pm).then(() => true).catch(() => false)
+      && await fsp.stat(pp).then(() => true).catch(() => false);
+    if (hasPrev && (bodyBad() || countsDiffer())) {
+      sessionBodyState.delete(id);
+      await fsp.rename(pm, bp.messages).catch(() => {});
+      await fsp.rename(pp, bp.provider).catch(() => {});
+      msg = await readSessionBodyFile(bp.messages);
+      prov = await readSessionBodyFile(bp.provider);
+    }
+    if (bodyBad()) {
+      // 磁盘正文已不可信 → 先作废进程内镜像,否则 save 的快路径会拿旧 hash 往坏正文上 append。
+      sessionBodyState.delete(id);
+      // 正文缺失/损坏 → 迁移备份回退(v1 原文重走迁移,等价于回到迁移前一刻)。
+      const bak = await loadSessionV1Backup(id);
+      if (bak) return bak;
+      // 无备份可退:坏正文隔离(不删,留取证),头按损坏处理。
+      for (const p of [bp.messages, bp.provider]) await fsp.rename(p, p + '.corrupt').catch(() => {});
+      await fsp.rename(sessionPath(id), sessionPath(id) + '.corrupt').catch(() => {});
+      return null;
+    }
+    // 未提交尾巴截断:不物理截断的话,磁盘上多出的行会在下次快路径 append 后「复活」进会话。
+    for (const [body, count, file] of [[msg, parsed.messageCount, bp.messages], [prov, parsed.providerHistoryCount, bp.provider]]) {
+      if (Number.isInteger(count) && body.entries.length > count) {
+        const cut = count > 0 ? body.lineEndBytes[count - 1] : 0;
+        await fsp.truncate(file, cut).catch(() => {});
+        body.entries.length = count; body.hashes.length = count;
+      }
+    }
+    parsed.messages = msg.entries;
+    parsed.providerHistory = prov.entries;
+    sessionBodyState.set(id, { msgHashes: msg.hashes, provHashes: prov.hashes, bodiesOk: true });
+    // v2 完整可读 → 迁移残留的 v1bak 与慢路径残留 prevbody 快照一并清掉(备份使命已完成;也防无界堆积)。
+    await fsp.unlink(sessionPath(id) + '.v1bak').catch(() => {});
+    await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
+    await fsp.unlink(bp.provider + '.prevbody').catch(() => {});
+    delete parsed.storageVersion; // 运行时对象不携带存储标记(保持与 v1 同形),saveSession 落盘时重新加
+    delete parsed.messageCount;        // 计数同理:落盘字段,运行时以真数组为准,带出只会是过期副本
+    delete parsed.providerHistoryCount;
+    legacy = false;
+  }
   const { session, changed } = normalizeSession(parsed);
   if (session.id == null) session.id = id;
-  if (changed) await saveSession(session).catch(() => {});
+  if (legacy) {
+    // 懒迁移:标记后无条件 save —— 老会话首次被真正使用时一次性转 v2,之后读写全走新格式。
+    Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
+    await saveSession(session).catch(() => {});
+  } else if (changed) await saveSession(session).catch(() => {});
+  return session;
+}
+
+// 迁移备份回退:<id>.json.v1bak 是 legacy 单文件原样拷贝(写入侧 COPYFILE_EXCL 保证它永不被覆盖)。
+// 读出后走正常 legacy 路径(重打迁移标记,save 时 v1bak 已存在 → EXCL 失败被吞,内容不变 —— 幂等)。
+// 防线:v1bak 里若是 v2 头(带 storageVersion 且没有 messages 数组),说明备份已被污染/根本不是备份,
+// 宁可回退失败走损坏隔离,也绝不拿一个空正文重建会话(那等于丢历史)。
+async function loadSessionV1Backup(id) {
+  let raw;
+  try { raw = await fsp.readFile(sessionPath(id) + '.v1bak', 'utf8'); }
+  catch { return null; }
+  const parsed = safeJsonParse(raw, null);
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') return null;
+  if (parsed.storageVersion === SESSION_STORAGE_VERSION) return null;
+  const { session } = normalizeSession(parsed);
+  if (session.id == null) session.id = id;
+  Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
+  await saveSession(session).catch(() => {});
   return session;
 }
 
 // Atomic write: serialize to <id>.json.tmp then rename over the target. rename is atomic within a
 // volume, so a crash mid-write leaves the previous good file intact instead of a truncated one.
+// v1.9 存储 v2(save 侧):头(小)仍 tmp+rename 原子重写;两个正文数组优先 append-only 快路径
+// (前缀逐行 hash 比对,见文件头部「会话存储 v2」块注释),任何前缀变化/状态缺失/上次失败 → 全量重写正文。
 async function saveSession(session) {
   await ensureDirs();
   session.updatedAt = nowIso();
-  const finalPath = sessionPath(session.id);
+  const id = session.id;
+  const finalPath = sessionPath(id);
+  const messages = Array.isArray(session.messages) ? session.messages : [];
+  const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+  // 头 = 运行时对象剥掉两个大数组 + 存储标记 + 计数(计数供 listSessions 兜底扫描/sessionMeta 不读正文)。
+  const head = { ...session };
+  delete head.messages;
+  delete head.providerHistory;
+  head.storageVersion = SESSION_STORAGE_VERSION;
+  head.messageCount = messages.length;
+  head.providerHistoryCount = providerHistory.length;
   // Serialize the payload and snapshot the 7 index fields in the SAME synchronous tick, so the background index
   // write reflects EXACTLY what we persist here (no drift if `session` is mutated during the awaits below).
-  const payload = JSON.stringify(session, null, 2);
+  const payload = JSON.stringify(head, null, 2);
   const metaSnapshot = sessionMeta(session);
   // 第25波 25.1: 写体收编进 atomicWriteJson(唯一 tmp 名防并发互踩 + rename 瞬时锁重试 + 失败清 tmp)。
   // 对抗轮修: 同会话并发写者(回合保存 + 节流 flush + updateSessionMeta)此前不串行 —— 加了 rename 重试后,
   // 旧载荷可在 ~680ms 退避后覆写掉新载荷(stale-overwrites-fresh 窗口从 writeFile 粒度拉宽到 680ms)。
   // 按 saveAgentRun 同款 per-id 写链串行化:链内按提交顺序落盘,窗口归零;链错误吞掉(下一写自愈)。
-  const prevWrite = sessionWriteChains.get(session.id) || Promise.resolve();
-  const thisWrite = prevWrite.catch(() => {}).then(() => atomicWriteJson(finalPath, payload));
-  sessionWriteChains.set(session.id, thisWrite);
+  // v2:整个「正文 append/重写 + 头写」都在链内 —— 进程内状态表与磁盘正文的一致性靠同一条链保证。
+  const prevWrite = sessionWriteChains.get(id) || Promise.resolve();
+  const thisWrite = prevWrite.catch(() => {}).then(async () => {
+    const bp = sessionBodyPaths(id);
+    // 懒迁移:legacy 单文件先原样备份 v1bak。必须 COPYFILE_EXCL(已存在则失败被吞)—— v1bak 回退
+    // 恢复路径也会走到这里,若允许覆盖会把「 pristine legacy 备份」冲成 v2 头,备份使命直接报废。
+    if (session.__v1bakPending === true) {
+      await fsp.copyFile(finalPath, finalPath + '.v1bak', fs.constants.COPYFILE_EXCL).catch(() => {});
+      session.__v1bakPending = false;
+    }
+    const state = sessionBodyState.get(id);
+    const msgPlan = state && state.bodiesOk ? planSessionBodyAppend(messages, state.msgHashes) : null;
+    const provPlan = state && state.bodiesOk ? planSessionBodyAppend(providerHistory, state.provHashes) : null;
+    let nextMsgHashes, nextProvHashes;
+    if (msgPlan && provPlan) {
+      // 快路径:只 append 增量行(0 增量 = 不动正文文件,仅更新头)。
+      if (msgPlan.appendLines.length) await fsp.appendFile(bp.messages, msgPlan.appendLines.join('\n') + '\n', 'utf8');
+      if (provPlan.appendLines.length) await fsp.appendFile(bp.provider, provPlan.appendLines.join('\n') + '\n', 'utf8');
+      nextMsgHashes = msgPlan.allHashes;
+      nextProvHashes = provPlan.allHashes;
+    } else {
+      // 慢路径:全量重写两个正文。【崩溃窗口设防】重写前把旧正文快照为 .prevbody(EXCL:已有快照不覆盖
+      // —— 在场快照必属「上一个未干净完成的慢路径」,其配对的头更老,覆盖会把一致态快照冲成未提交内容)。
+      // 收缩型重写(rewind/compaction 后行数变少)若崩溃于「正文已重写、头未提交」之间,旧头计数 > 新正文
+      // 行数,读取侧本会把会话判 corrupt;有 .prevbody 即可回滚到崩溃前的一致态(loadSession 恢复,见下)。
+      const msgSer = serializeSessionBody(messages);
+      const provSer = serializeSessionBody(providerHistory);
+      if (!msgSer || !provSer) throw new Error('session body not serializable');
+      await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+      await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+      try {
+        await atomicWriteJson(bp.messages, sessionBodyText(msgSer.lines));
+        await atomicWriteJson(bp.provider, sessionBodyText(provSer.lines));
+      } catch (werr) {
+        // 进程内写失败(非崩溃)→ 立即回滚快照,磁盘回到重写前的一致态;bodiesOk=false 由外层标。
+        await fsp.rename(bp.messages + '.prevbody', bp.messages).catch(() => {});
+        await fsp.rename(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        throw werr;
+      }
+      nextMsgHashes = msgSer.hashes;
+      nextProvHashes = provSer.hashes;
+    }
+    // 头最后写:头指向的正文状态必须先于头落盘(头=「正文有效」的声明)。
+    await atomicWriteJson(finalPath, payload);
+    // 头已提交 → prevbody 快照使命完成(崩溃于清理前也无妨:下次读取按「头计数==正文行数」判其为陈旧快照,
+    // 顺带清除,见 loadSession)。
+    await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
+    await fsp.unlink(bp.provider + '.prevbody').catch(() => {});
+    sessionBodyState.set(id, { msgHashes: nextMsgHashes, provHashes: nextProvHashes, bodiesOk: true });
+  });
+  sessionWriteChains.set(id, thisWrite);
   try { await thisWrite; }
-  finally { if (sessionWriteChains.get(session.id) === thisWrite) sessionWriteChains.delete(session.id); }
+  catch (e) {
+    // 正文/头任何一步失败:标 bodiesOk=false(下次 save 全量重写自愈),再把错误抛给调用方(与旧语义一致:
+    // save 失败对调用方可见,回合层自会 .catch)。
+    const st = sessionBodyState.get(id);
+    sessionBodyState.set(id, { msgHashes: st ? st.msgHashes : null, provHashes: st ? st.provHashes : null, bodiesOk: false });
+    throw e;
+  }
+  finally { if (sessionWriteChains.get(id) === thisWrite) sessionWriteChains.delete(id); }
   // PF2: queue the sidebar metadata index update (cheap sync Map.set; the write is debounced + coalesced). The
   // index is only a cache and listSessions falls back to a full file scan whenever its id-set drifts from disk.
-  scheduleSessionIndexUpdate(session.id, metaSnapshot);
+  scheduleSessionIndexUpdate(id, metaSnapshot);
+  // v1.9 P-B: 引擎转录白名单账本(仅记录本工作台 spawn 过的 claudeSessionId;GC 只清「账本内 + 无活会话
+  // 引用 + 超保留期」三者同时成立的转录,绝不碰用户自己 Claude Code 的转录)。fire-and-forget,账本写失败
+  // 不影响会话保存(大不了 GC 永远不碰这条转录 —— 保守方向)。
+  if (typeof session.claudeSessionId === 'string' && session.claudeSessionId) {
+    void recordEngineTranscript(session.claudeSessionId, session.cwd).catch(() => {});
+  }
   return session;
 }
 
@@ -5827,7 +6087,8 @@ async function buildOpsMetrics(days) {
 //                        interrupted 可续跑(恢复时 syncRunEventSeq 要读原文)、paused 等人、running 活着,一律不碰。
 //   webcache             默认【不】自动清 —— v0.9-S9 的设计承诺"离线无价,旧副本仍有用",自动 TTL 会违背它;
 //                        条目上限(LRU 按 mtime)留作用户 opt-in(0=不限)。
-// 引擎转录(~/.claude/projects)本波只【统计展示】,不做 GC(P-B 后续,红线:绝不碰非本工作台 spawn 的转录)。
+//   引擎转录(P-B)       白名单账本制:只清「本工作台 spawn + 无活会话引用 + 超保留期」三者同时成立的
+//                        ~/.claude/projects 转录(见 sweepEngineTranscriptsStore 块注释的红线)。
 // ============================================================================
 const STORAGE_STEWARD = { sweeping: false, lastAt: null, lastResult: null };
 const STORAGE_ARCHIVE_TERMINAL = new Set(['completed', 'failed', 'stopped', 'cancelled']);
@@ -5839,6 +6100,7 @@ function normalizeStoragePolicy(raw) {
     logsKeepDays: clampInt(r.logsKeepDays, 7, 365, 30),
     agentRunEventsCompressDays: clampInt(r.agentRunEventsCompressDays, 0, 365, 14),
     webcacheMaxEntries: clampInt(r.webcacheMaxEntries, 0, 100000, 0),
+    engineTranscriptDays: clampInt(r.engineTranscriptDays, 0, 365, 30), // 0=关(不自动清转录);默认 30 天
   };
 }
 
@@ -5870,11 +6132,11 @@ async function collectStorageStats(config) {
   ];
   const stores = {}; let totalBytes = 0;
   for (const [key, dir] of defs) { const s = await dirStat(dir); stores[key] = s; totalBytes += s.bytes; }
-  // 引擎转录(claude CLI 的 ~/.claude/projects):只读统计;e2e 的 USERPROFILE/HOME 重定向下 os.homedir()
-  // 在子进程里已被改写,天然跟随夹具。读不到 = null(非本机 CLI 用户/无转录),前端省略该行。
+  // 引擎转录(claude CLI 的 ~/.claude/projects):只读统计;GC 走 sweepEngineTranscriptsStore(白名单账本,
+  // 见下)。根目录与 sweep 共用 claudeProjectsRoot()(e2e 可用 WCW_CLAUDE_PROJECTS_DIR 重定向)。
   let engineTranscripts = null;
   try {
-    const d = path.join(os.homedir(), '.claude', 'projects');
+    const d = claudeProjectsRoot();
     const s = await dirStat(d);
     if (s.files > 0) engineTranscripts = { path: d, ...s };
   } catch { /* no engine transcripts */ }
@@ -5968,6 +6230,105 @@ async function sweepWebcacheStore(policy, result) {
   }
 }
 
+// ===== v1.9 P-B: 引擎转录 GC(claude CLI 的 ~/.claude/projects)====================================
+// 背景:claude 引擎每会话/每子代理在 ~/.claude/projects/<mangled-cwd>/<sessionId>.jsonl 留转录,
+// 无人管理、只增不减(实测重度用户单项目目录数百 MB)。工作台是唯一知道「哪些转录是自己 spawn 的」
+// 角色(会话里存 claudeSessionId),据此做【白名单式】GC:
+//   ① 账本(dataRoot/engine-transcripts.json)只记本工作台 spawn 过的 sessionId → cwd(saveSession 时登记);
+//   ② sweep 只考虑账本内的 id,且要求【当前无活会话引用】+【mtime 超保留期】同时成立;
+//   ③ 删除 = 该 id 的 .jsonl + 同名目录(子代理侧录);绝不按目录通配,绝不碰账本外任何文件
+//      (用户的 Claude Code 自己产生的转录永远安全)。
+// 会话删除时不立即连带(保守)—— 活引用消失后由保留期兜底清理。
+function claudeProjectsRoot() {
+  // e2e 缝:WCW_CLAUDE_PROJECTS_DIR 重定向(stats 与 sweep 共用此根,保证测的就是生产的判定路径)。
+  return process.env.WCW_CLAUDE_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects');
+}
+// claude CLI 的项目目录键:把 cwd 的非字母数字字符全部换成 '-'(E:\a\b → E--a-b,与 CLI 实测一致)。
+function claudeProjectDirKey(cwd) { return String(cwd || '').replace(/[^a-zA-Z0-9]/g, '-'); }
+const ENGINE_TRANSCRIPT_ID_RE = /^[A-Za-z0-9_-]{8,128}$/; // claude sessionId 形状(UUID/hex);脏值拒绝入账
+const engineTranscriptKnown = new Map(); // sessionId -> { cwd, firstSeen }
+let engineTranscriptLedgerLoaded = false;
+let engineTranscriptLedgerChain = Promise.resolve();
+function engineTranscriptLedgerPath() { return path.join(paths.data, 'engine-transcripts.json'); }
+async function engineTranscriptLedgerLoad() {
+  if (engineTranscriptLedgerLoaded) return;
+  engineTranscriptLedgerLoaded = true;
+  try {
+    const raw = safeJsonParse(await fsp.readFile(engineTranscriptLedgerPath(), 'utf8'), null);
+    const known = raw && raw.known;
+    if (known && typeof known === 'object' && !Array.isArray(known)) {
+      for (const [sid, meta] of Object.entries(known)) {
+        if (!ENGINE_TRANSCRIPT_ID_RE.test(sid)) continue;
+        engineTranscriptKnown.set(sid, { cwd: String((meta && meta.cwd) || ''), firstSeen: String((meta && meta.firstSeen) || '') });
+      }
+    }
+  } catch { /* 无账本/坏账本 → 空起步(保守:不认识的一律不碰) */ }
+}
+async function engineTranscriptLedgerSave() {
+  const known = {};
+  for (const [sid, meta] of engineTranscriptKnown) known[sid] = { cwd: meta.cwd, firstSeen: meta.firstSeen };
+  const thisWrite = engineTranscriptLedgerChain.catch(() => {}).then(() => atomicWriteJson(engineTranscriptLedgerPath(), { version: 1, known }));
+  engineTranscriptLedgerChain = thisWrite;
+  await thisWrite;
+}
+// saveSession 钩子:登记本工作台 spawn 的转录 id。仅新 id 落盘(同 id 重复登记零 IO)。
+async function recordEngineTranscript(claudeSessionId, cwd) {
+  const sid = String(claudeSessionId || '').trim();
+  if (!ENGINE_TRANSCRIPT_ID_RE.test(sid)) return;
+  await engineTranscriptLedgerLoad();
+  if (engineTranscriptKnown.has(sid)) return;
+  engineTranscriptKnown.set(sid, { cwd: String(cwd || ''), firstSeen: nowIso() });
+  await engineTranscriptLedgerSave().catch(() => {});
+}
+// 活引用扫描:所有会话头(v2 头/legacy 全文都有 claudeSessionId 字段;头很小,全扫便宜)。
+async function collectLiveClaudeSessionIds() {
+  const live = new Set();
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { return live; }
+  for (const f of files) {
+    if (!f.endsWith('.json') || f === SESSION_INDEX_FILE) continue;
+    try {
+      const o = safeJsonParse(await fsp.readFile(path.join(paths.sessions, f), 'utf8'), null);
+      if (o && typeof o.claudeSessionId === 'string' && ENGINE_TRANSCRIPT_ID_RE.test(o.claudeSessionId)) live.add(o.claudeSessionId);
+    } catch { /* 单个坏文件不阻塞扫描 */ }
+  }
+  return live;
+}
+async function sweepEngineTranscriptsStore(policy, result) {
+  const days = Number(policy.engineTranscriptDays) || 0;
+  if (days <= 0) return;
+  const cutoffMs = Date.now() - days * 86400000;
+  await engineTranscriptLedgerLoad();
+  if (!engineTranscriptKnown.size) return;
+  const live = await collectLiveClaudeSessionIds();
+  const root = claudeProjectsRoot();
+  let ledgerDirty = false;
+  for (const [sid, meta] of [...engineTranscriptKnown]) {
+    if (live.has(sid)) continue; // 活会话引用 → 绝不碰
+    const dirKey = claudeProjectDirKey(meta.cwd);
+    const file = path.join(root, dirKey, sid + '.jsonl');
+    // 防账本脏 cwd 拼出逃逸路径:dirKey 只能含字母数字与 '-',sid 过白名单正则,path.join 结果必在 root 下。
+    const st = await fsp.stat(file).catch(() => null);
+    if (!st || !st.isFile()) { engineTranscriptKnown.delete(sid); ledgerDirty = true; continue; } // 转录已不在 → 账本除名
+    if (st.mtimeMs > cutoffMs) continue; // 太新 → 保留
+    let freed = st.size, unlinked = true;
+    await fsp.unlink(file).catch(() => { unlinked = false; });
+    if (unlinked) {
+      const sideDir = path.join(root, dirKey, sid); // 子代理侧录目录(新版 CLI),存在才连带
+      const sideStat = await fsp.stat(sideDir).catch(() => null);
+      if (sideStat && sideStat.isDirectory()) {
+        const sideBytes = (await dirStat(sideDir)).bytes;
+        await fsp.rm(sideDir, { recursive: true, force: true }).catch(() => {});
+        freed += sideBytes;
+      }
+      engineTranscriptKnown.delete(sid); ledgerDirty = true;
+      result.freedBytes += freed;
+      result.actions.push({ store: 'engineTranscripts', action: 'delete', detail: `${dirKey}/${sid}.jsonl`, bytes: freed });
+    }
+  }
+  if (ledgerDirty) await engineTranscriptLedgerSave().catch(() => {});
+}
+
 // 统一 sweep 入口:boot 自动(全目标) + POST /api/storage/clean(可单目标)。进程内串行(并发第二
 // 次调用直接拒绝);结果留痕 STORAGE_STEWARD 并落审计账。targets=null 表示全部。
 async function storageSweep(policy, targets = null) {
@@ -5980,6 +6341,7 @@ async function storageSweep(policy, targets = null) {
     if (want('logs')) await sweepLogsStore(p, result);
     if (want('agent-runs')) await sweepAgentRunEventsStore(p, result);
     if (want('webcache')) await sweepWebcacheStore(p, result);
+    if (want('engine-transcripts')) await sweepEngineTranscriptsStore(p, result);
     STORAGE_STEWARD.lastAt = nowIso();
     STORAGE_STEWARD.lastResult = { freedBytes: result.freedBytes, actions: result.actions.length };
     if (result.actions.length) logEvent({ kind: 'storage_sweep', freedBytes: result.freedBytes, actions: result.actions.slice(0, 20) });
@@ -16460,7 +16822,7 @@ async function handleApi(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/storage/clean') {
     const body = await readJsonBody(req);
-    const VALID = new Set(['logs', 'agent-runs', 'webcache']);
+    const VALID = new Set(['logs', 'agent-runs', 'webcache', 'engine-transcripts']);
     let targets = null; // null = 全部
     if (body && body.target && body.target !== 'all') {
       const t = String(body.target);
@@ -17705,6 +18067,15 @@ module.exports = {
   collectStorageStats,
   storageSweep,
   readAgentRunEvents,
+  // v1.9 会话存储 v2 + 引擎转录 GC — exposed for e2e(迁移/快路径/撕裂容忍/白名单账本/保留期清理)。
+  loadSession,
+  saveSession,
+  deleteSession,
+  listSessions,
+  sessionBodyPaths,
+  recordEngineTranscript,
+  claudeProjectsRoot,
+  claudeProjectDirKey,
   fenceSafeSlice,
   shrinkFencedSection,
   clampAppendWithSkills,

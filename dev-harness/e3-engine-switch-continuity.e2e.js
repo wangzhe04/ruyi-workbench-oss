@@ -93,9 +93,18 @@ function latestProviderRequest() {
     // mask the preceding Provider turn. Inject one after B; without the lastAssistantEngine skip-meta fix this
     // makes Turn C read no cross-engine gap and silently drop B. With it, C still injects the provider tail.
     const sessFile = path.join(HOME, 'sessions', sid + '.json');
-    { const s = JSON.parse(fs.readFileSync(sessFile, 'utf8'));
-      s.messages.push({ role: 'assistant', content: '（工作流总结）已完成 2 个节点', createdAt: new Date().toISOString(), source: 'agent_workflow', runId: 'run_deadbeef01' });
-      fs.writeFileSync(sessFile, JSON.stringify(s)); }
+    { const meta = { role: 'assistant', content: '（工作流总结）已完成 2 个节点', createdAt: new Date().toISOString(), source: 'agent_workflow', runId: 'run_deadbeef01' };
+      const s = JSON.parse(fs.readFileSync(sessFile, 'utf8'));
+      if (s.storageVersion === 2) {
+        // v1.9 存储 v2:正文在 <sid>.messages.ndjson —— 带外注入 = 追加一行 + 头计数 +1(头是提交点,
+        // 不 bump 计数的话下一论 loadSession 会把这行当「未提交尾巴」截掉)。
+        fs.appendFileSync(path.join(HOME, 'sessions', sid + '.messages.ndjson'), JSON.stringify(meta) + '\n', 'utf8');
+        s.messageCount = (Number.isInteger(s.messageCount) ? s.messageCount : 0) + 1;
+        fs.writeFileSync(sessFile, JSON.stringify(s));
+      } else {
+        s.messages.push(meta);
+        fs.writeFileSync(sessFile, JSON.stringify(s));
+      } }
 
     // Switch back to Claude and run Turn C.
     const c2 = await postConfig(WB_PORT, token, { activeProvider: '' });
@@ -129,7 +138,9 @@ function latestProviderRequest() {
     ok(dMeta && dMeta.engine === 'openai', 'Turn D ran on the provider engine');
     ok(dReq && JSON.stringify(dReq.messages || []).includes(cQuestion), 'Turn D Provider request absorbs the intervening Claude turn even with non-empty providerHistory');
     const persisted = JSON.parse(fs.readFileSync(sessFile, 'utf8'));
-    ok(persisted.providerHistoryCursor === persisted.messages.length, 'Provider/display history cursor is persisted at the shared tail');
+    // v1.9 存储 v2:头不再内联 messages,权威计数是 messageCount(legacy 回退 messages.length)。
+    const persistedMsgCount = Number.isInteger(persisted.messageCount) ? persisted.messageCount : (persisted.messages || []).length;
+    ok(persisted.providerHistoryCursor === persistedMsgCount, 'Provider/display history cursor is persisted at the shared tail');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }

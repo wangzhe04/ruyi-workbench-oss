@@ -60,7 +60,8 @@ function readIndexFile() { try { const a = JSON.parse(fs.readFileSync(IDX, 'utf8
 function truthFromFiles() {
   const out = [];
   for (const f of fs.readdirSync(SESSDIR).filter(f => f.endsWith('.json') && f !== 'index.json')) {
-    try { const s = JSON.parse(fs.readFileSync(path.join(SESSDIR, f), 'utf8')); out.push({ id: s.id, title: s.title, messageCount: (s.messages || []).length, updatedAt: s.updatedAt }); } catch { /* skip */ }
+    // v1.9 存储 v2:头带 messageCount 计数(权威);legacy 单文件回退 messages.length。
+    try { const s = JSON.parse(fs.readFileSync(path.join(SESSDIR, f), 'utf8')); out.push({ id: s.id, title: s.title, messageCount: Number.isInteger(s.messageCount) ? s.messageCount : (s.messages || []).length, updatedAt: s.updatedAt }); } catch { /* skip */ }
   }
   return out;
 }

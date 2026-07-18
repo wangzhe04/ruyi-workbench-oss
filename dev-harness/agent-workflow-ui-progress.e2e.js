@@ -163,8 +163,11 @@ function runOf(r, runId) { return r && Array.isArray(r.runs) && r.runs.find(x =>
       return run && run.status === 'succeeded' && run.summary && run.nodes && run.nodes[0] && run.nodes[0].result && run;
     });
     ok(!!doneRun && /UI progress workflow completed/.test(doneRun.summary), 'finished run persists readable summary and node result');
-    const session = JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', `${sid}.json`), 'utf8'));
-    ok(session.messages.some(m => m && m.source === 'agent_workflow' && /UI progress workflow completed/.test(m.content || '')), 'workflow completion appends an assistant summary message to the session');
+    // v1.9 存储 v2:头文件不再内联 messages —— v2 读 <sid>.messages.ndjson 正文,legacy 读单文件。
+    const headRaw = JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', `${sid}.json`), 'utf8'));
+    const sessionMessages = Array.isArray(headRaw.messages) ? headRaw.messages
+      : fs.readFileSync(path.join(HOME, 'sessions', `${sid}.messages.ndjson`), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l));
+    ok(sessionMessages.some(m => m && m.source === 'agent_workflow' && /UI progress workflow completed/.test(m.content || '')), 'workflow completion appends an assistant summary message to the session');
     ok(toolRequests >= 1, 'fake provider actually exercised sub-agent tool progress');
 
     // ---- (C) Claude-engine node: persisted "生成中 · N 字" milestone + independent done entry ----

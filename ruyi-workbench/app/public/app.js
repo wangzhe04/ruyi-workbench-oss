@@ -5151,10 +5151,11 @@ function fmtBytes(n) {
 }
 function applyStoragePolicyToForm(policy) {
   if (!policy) return;
-  const a = $('storagePolicyLogsDays'), b = $('storagePolicyCompressDays'), c = $('storagePolicyWebcacheMax');
+  const a = $('storagePolicyLogsDays'), b = $('storagePolicyCompressDays'), c = $('storagePolicyWebcacheMax'), d = $('storagePolicyTranscriptDays');
   if (a) a.value = policy.logsKeepDays;
   if (b) b.value = policy.agentRunEventsCompressDays;
   if (c) c.value = policy.webcacheMaxEntries;
+  if (d) d.value = policy.engineTranscriptDays;
 }
 async function loadStorage() {
   if (storageState.loading) return;
@@ -5196,7 +5197,7 @@ function renderStorage(data) {
   if (data.engineTranscripts) {
     const et = data.engineTranscripts;
     host.appendChild(el('div', 'storage-note muted',
-      `引擎转录(Claude CLI 自管目录,仅供参考,不在自动清理范围): ${fmtBytes(et.bytes)} / ${et.files} 个文件`));
+      `引擎转录(Claude CLI 自管目录): ${fmtBytes(et.bytes)} / ${et.files} 个文件 —— 自动清理只限本工作台发起且已无会话引用、超过保留天数的转录`));
   }
   if (data.sweep && data.sweep.lastAt) {
     const last = data.sweep.lastResult || {};
@@ -5209,6 +5210,7 @@ async function saveStoragePolicy() {
     logsKeepDays: Number($('storagePolicyLogsDays') && $('storagePolicyLogsDays').value),
     agentRunEventsCompressDays: Number($('storagePolicyCompressDays') && $('storagePolicyCompressDays').value),
     webcacheMaxEntries: Number($('storagePolicyWebcacheMax') && $('storagePolicyWebcacheMax').value),
+    engineTranscriptDays: Number($('storagePolicyTranscriptDays') && $('storagePolicyTranscriptDays').value),
   };
   try {
     const r = await api('/api/storage/policy', { method: 'POST', body: JSON.stringify(body) });

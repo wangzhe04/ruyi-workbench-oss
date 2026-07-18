@@ -109,6 +109,13 @@ const fake = http.createServer((rq, rs) => {
     const token = (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
     const H = { 'x-wcw-token': token };
     const sessionPath = sid => path.join(HOME, 'sessions', sid + '.json');
+    // v1.9 存储 v2:头不再内联 messages —— v2 读 <sid>.messages.ndjson 正文,legacy 读单文件。
+    const readSessionMessages = sid => {
+      const head = readJson(sessionPath(sid)) || {};
+      if (Array.isArray(head.messages)) return head.messages;
+      try { return fs.readFileSync(path.join(HOME, 'sessions', sid + '.messages.ndjson'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)); }
+      catch { return []; }
+    };
 
     // ── A/B) 3 里程碑无人值守跑完 ──
     const s1 = (await req('POST', '/api/sessions', { title: 'mission', cwd: WS }, H)).json.session;
@@ -127,8 +134,7 @@ const fake = http.createServer((rq, rs) => {
     ok(['m1', 'm2', 'm3'].every(k => fs.existsSync(path.join(WS, k + '.txt'))), 'A 三个里程碑文件都已写出');
     ok(finalMission.spent.autoTurns === 2, 'A spent.autoTurns==2(首回合用户 + 2 自动)实 ' + finalMission.spent.autoTurns);
     ok(finalMission.autoMode === 'off', 'A 完成后 autoMode=off');
-    const sess1 = readJson(sessionPath(s1.id));
-    const driverMsgs = (sess1.messages || []).filter(m => m.role === 'user' && m.source === 'mission-driver');
+    const driverMsgs = readSessionMessages(s1.id).filter(m => m.role === 'user' && m.source === 'mission-driver');
     ok(driverMsgs.length === 2, 'B 自动续跑消息标 source:mission-driver(实 ' + driverMsgs.length + ')');
     // 机器验收:删掉 mission_update 效果无关 —— 断言 file_exists check 已被驱动器执行(证据落 evidence)
     ok(finalMission.milestones.every(m => m.evidence), 'B 每个里程碑有 evidence(机器验收/模型标记留痕)');

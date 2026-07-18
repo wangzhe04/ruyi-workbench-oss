@@ -466,13 +466,14 @@
             <label>存储管理</label>
             <div class="row-actions"><button id="storageRefreshBtn" class="mini">刷新</button><button id="storageCleanBtn" class="mini">立即清理</button></div>
           </div>
-          <p class="changes-hint muted">数据目录各仓占用。「立即清理」按下方策略执行:过期日志删除、终态工作流事件日志压缩归档(仍可读)。检查点有独立的 200MB 自动上限,不在此列。</p>
+          <p class="changes-hint muted">数据目录各仓占用。「立即清理」按下方策略执行:过期日志删除、终态工作流事件日志压缩归档(仍可读)、无人引用的引擎转录到期清除(只限本工作台发起过的)。检查点有独立的 200MB 自动上限,不在此列。</p>
           <div id="storageSummary" class="storage-panel" aria-live="polite"></div>
           <div class="debug-head"><label>保留策略</label></div>
           <div class="storage-policy">
             <label class="storage-policy-row">日志保留天数<input id="storagePolicyLogsDays" type="number" min="7" max="365" step="1" /></label>
             <label class="storage-policy-row">事件日志压缩天数(0=关)<input id="storagePolicyCompressDays" type="number" min="0" max="365" step="1" /></label>
             <label class="storage-policy-row">网页缓存条目上限(0=不限)<input id="storagePolicyWebcacheMax" type="number" min="0" max="100000" step="100" /></label>
+            <label class="storage-policy-row">引擎转录保留天数(0=不清)<input id="storagePolicyTranscriptDays" type="number" min="0" max="365" step="1" /></label>
             <button id="storagePolicySaveBtn" class="mini primary">保存策略</button>
           </div>
         </section>
