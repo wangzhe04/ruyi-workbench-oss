@@ -792,3 +792,84 @@
 **P1 /api/metrics 性能观测面**(ROUTE_AUTH token 门,专家界面存储页签下段):① 请求耗时 —— createServer 顶层插桩,进程内环形(300 条)零持久化,6 桶直方图 + slowest top8;路径归一化(sess_/run_/hex id → :id,观测面不落会话 id);**/health 不计数**(高频探针会淹没真分布)。② 进程内存 —— 自身 memoryUsage + 在册子进程(activeChildren 引擎回合/mcpClients 桥接)pid 清单,RSS 经一次 tasklist 全表匹配(仅 win32,失败降级 null)。③ 存储趋势 —— summary/metrics 被取时 ≥1h 节流追点,storage-trend.json 240 点封顶(≈10 天),缺文件 = 空史不硬失败。
 
 **验证**:boot-resume-parallel.e2e 16 断言(mapPool 并发度+wall-clock 反串行证明/尾窗==全扫/巨单行回落/撕裂同语义 + 真 boot 6 run 全标 interrupted 且 run_interrupted 精确落 seq 1001[错号会落 991]+ autoResume 分级两分支);metrics-panel.e2e 19 断言(归一化/分桶/环形封顶/节流 + 403/字段齐/health 不计数/趋势落盘)。ui-v3-p1 毕业后 ALL PASS 并移出名单。smoke_v15 裸跑与 -X utf8 双绿。
+
+## 37. V2.0「立柱」总体规划(2026-07-18 立项)—— 结构债付清 + 上下文压缩 v2
+
+**定位**:付清结构债(18K 行单文件复利风险)+ 把压缩体系从「健全但有死角」做到「无死角可度量」。
+**不变红线**:运行时产物单文件、零 npm 依赖、气隙可审;每波带对抗轮 + 验收 e2e。
+
+### 37.0 上下文压缩现状评估(V2.0 立项依据)
+
+两套体系 **API 和 CLI 不通用 —— 有意设计**,但留下真实缺口:
+
+| 维度 | Provider(API)引擎 | Claude(CLI)引擎 |
+|---|---|---|
+| 自动压缩 | ✅ 完整两级:迭代边界检测(阈值 0.8×窗口)→ L1 蒸发旧工具结果(原地、幂等、append-only 保前缀缓存)→ L2 摘要重播种(保留最近 2 个完整回合逐字) | ❌ 服务端零介入,完全依赖 CLI 自管(有意不对称) |
+| 手动压缩 | ✅ `/api/provider/compact` 与自动 L2 共用同一摘要内核 | ✅ 前端发 `/compact` 斜杠命令,CLI 自己压 |
+| 子代理 | ✅ `maybeCompactSubHistory` 镜像两级 + 原始任务钉入摘要 | ❌ 一次性 spawn,无压缩(有意) |
+| 超窗兜底 | ⚠️ 子代理只分类报错;**主回合对 400-context 无恢复路径** | ❌ **主回合 prompt too long = 回合直接失败** |
+
+**做得好的**:token 估算 CJK 感知(ascii/3.6 + cjk/1.5);蒸发幂等且保前缀缓存;摘要内核单点共用;压缩前 gz 快照;压缩调用全额记账;窗口来源四级链(手动→/v1/models 探测→名称表→64K 兜底)对小白透明。
+
+**4 个缺陷(按严重度)**:
+1. **摘要调用自身载荷无界**(死锁角):`providerSummaryCall` 把整个 history 发给 /chat/completions。history 已超窗时摘要调用自己 400 → 自动压缩每轮迭代重试都失败 → 每轮白付 60s 超时,永远压不下去。
+2. **L2 失败 = 回合慢性死亡**:L2 失败后 payload 仍超预算 → 回合 API 照样 400 → 回合失败。主回合没有「400-context → 强制压缩 → 重试一次」的最后防线。
+3. **Claude 引擎超窗零兜底**:子代理 context overflow 判 definitive 不重试,主回合无恢复路径;CLI print 模式是否 auto-compact **从未真机验证**(全套件建在 fake-claude 上)。
+4. **摘要质量无保障也无度量**:单段中文 prompt 一次性压全史无结构,无「压缩后关键事实还在不在」的验收手段。
+
+**结论**:要迭代,纳入 V2.0。压缩体系集中在 server.js 的 ~12400-12820 区段,模块化拆分后正好是独立 `context-governance` 模块 —— **压缩 v2 排在模块化之后**,在新模块边界内重写。
+
+### 37.1 波次计划(总工期估 18-23 天,5 波)
+
+**第 41 波 · toolCall() 表驱动拆分(3-4 天)**
+- 41a:40+ 分支 switch 拆 6 个表驱动子分发器(file/shell/script/desktop/network/archive),每工具声明 `{name, tier, guard, handler}` —— 全量套件逐字节行为回归。
+- 41b:护栏声明化,新工具忘 guard = 静态锁红(archive 漏 guard、desktop_screenshot 越界写这类事故整类消失)。
+- 41c:统一上下文解析器与表驱动合流;红队 R-P1-2 的 e2e 全绿。
+
+**第 42 波 · 测试基建先行(3-4 天)** —— 模块化和压缩 v2 的共同前置
+- 42a:**静态锁大盘点 + 行为化迁移**,产出模块化成本实测报告 —— 43 波 go/no-go 决策依据。
+- 42b:**真实 claude 二进制冒烟基建**(本机有真 CLI 才跑的 live 标记用例,沿用 SKIP 机制):exe 直启、stream-json 协议、权限桥握手。
+- 42c:**CLI print 模式压缩行为探针**(live):构造超窗会话验证 `-p --resume` 下 CLI 是否自己 auto-compact —— 44c 的设计依据,目前是未知。
+
+**第 43 波 · 构建期拼接模块化(5-7 天,需 42a 的 go 决策)**
+- `app/src/` 拆分:config / session-store / checkpoint-journal / workspace-guard / mcp-bridge / claude-engine / openai-engine / tool-dispatcher / context-governance / http-router;零依赖 `build.js` 拼出单文件 server.js 产物。
+- CI 加「构建产物与 src 一致」校验;发行包附源映射保审计面。
+- **降级预案**:42a 实测超标 → 退做 43'(文件顶部目录索引 + 体积预算护栏),不硬上。
+- 验收:全量套件 + 42b 真实二进制冒烟双绿。
+
+**第 44 波 · 上下文压缩 v2(4-5 天)** —— 消死角 + 可度量
+- 44a 摘要载荷预算化:摘要输入先蒸发、再按窗口 50% 预算截断中段(保头保尾);超长会话升级 map-reduce 分段摘要 → 修缺陷 1(死锁角)。
+- 44b 主回合 400-context 强制压缩重试(provider 引擎,事件流如实告知用户)→ 修缺陷 2。
+- 44c Claude 引擎超窗兜底(设计依 42c 探针):若 print 模式不 auto-compact → 检测 over-window → 自动 /compact 回合 → 重试原消息;子代理 over-window 允许无 resume 新鲜会话重试一次 → 修缺陷 3。
+- 44d 估算自校准:API 真实 usage 反推校准系数(每 provider+model,指数滑动平均)→ 触发精度。
+- 44e 结构化摘要 prompt(目标/已确认决定/未完成事项/关键文件清单四段式)+ 压缩质量评测夹具(live):长会话埋 10 个关键事实 → 压缩 → 追问,验收 ≥8 可回忆 → 修缺陷 4。
+- **量化目标**:摘要调用永不因自身超窗失败;超窗 400 不再终结任何回合(e2e 自动恢复率 100%);压缩后关键事实保留率 ≥80%。
+
+**第 45 波 · 剩余测试深化 + v2.0 封版(3 天)**
+- 浏览器 DOM 冒烟(Playwright 渲染真实前端点 DAG 编辑器 —— v3 重设计首次被真实渲染验证)。
+- ACC 离线回归(fake-mcp 扩关键 20 工具契约)。
+- 编排盲区补测(跨节点资源死锁、loop×retry、双引擎 tier 等价、双冷 resume 窄窗测试先行)。
+- 封版:CHANGELOG、路线图回填、全量 + live 三层全绿。
+
+### 37.2 依赖图与风险
+
+```
+41(表驱动)──┐
+            ├─→ 43(模块化)─→ 44(压缩v2)─→ 45(封版)
+42(测试基建)─┘      ↑            ↑
+                  42a go决策   42c 探针定设计
+```
+
+1. 最大风险 = 43 的静态锁迁移 → 42a 先做成本实测,有降级预案,不硬上。
+2. 44c 依赖 42c 真机探针结论 → 若 CLI print 模式已自管压缩,44c 缩水为「只修子代理重试」,省 1-2 天。
+3. 44 波每个子项带对抗轮 —— 压缩是「改模型能看到什么」的高危面,历史教训(field-shadow、auto-allow 放大)都出在这类判定逻辑上。
+
+## 38. 第41波:V2.0 开工 —— toolCall() 表驱动拆分(41a)+ guard 声明化行为锁(41b)
+
+**背景**:V2.0 第一波。toolCall() 的 50 分支 switch(14886-15580,约 700 行)是 tool-dispatcher 模块化的最大障碍,也是「新工具忘了挂护栏」事故(archive 漏 guard、desktop_screenshot 越界)的结构性温床。
+
+**41a 表驱动拆分**:codemod(codemod-toolcall-table.js)机械搬运 —— 50 个 case 原文转入 `TOOL_DISPATCH` 注册表(9 组 `{paths, guardNote, handler}`,按 file/shell/script/desktop/network/archive 分域);toolCall 缩为 4 行查表分发;装时机重名断言(静默覆盖 = 启动即炸)。转写完整性机器证据:codemod 干跑 50/50 + 实质行多重集 diff 对消(零丢失)。
+
+**41b guard 声明化行为锁**:tool-dispatch.e2e(18 断言)—— 内省注册表非 grep 源码形状,是 V2.0「静态锁行为化迁移」的第一个样板:每个 exec/edit 级工具必须显式声明 guard(guardNote 非空),未知工具显式 tier 而非靠兜底。首擒两条真实 drift:① `permission_prompt` 无 tier 声明(靠 unknown→exec 兜底)→ 已显式化;② **`project_snapshot` 缺读闸**(file_list/file_search/glob 同族都有,远端模型可越界列目录)→ 已补 —— 注册表的第一个实战成果。
+
+**验证**:file-guard / autonomy-grant / v17-static / shell-session / subagent / tool-dispatch 定向回归全绿;全量套件见提交注记。
