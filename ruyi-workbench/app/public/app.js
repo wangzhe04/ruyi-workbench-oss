@@ -5230,6 +5230,94 @@ async function cleanStorage() {
   loadStorage();
 }
 
+/* ---------------- 第40波: 性能观测面(存储页签下段,仅专家) ---------------- */
+// GET /api/metrics → {memory, requests:{total,buckets,slowest}, children, storageTrend}。与存储面板同款
+// 纪律:打开页签懒加载一次,不轮询;DOM 全 createElement/textContent。
+const metricsState = { loaded: false, loading: false, data: null };
+async function loadMetrics() {
+  if (metricsState.loading) return;
+  metricsState.loading = true;
+  const host = $('metricsPanel');
+  if (host && !metricsState.loaded) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', '正在采集性能指标…')); }
+  try {
+    const res = await api('/api/metrics');
+    metricsState.data = res; metricsState.loaded = true;
+  } catch (e) {
+    metricsState.data = null; metricsState.loaded = true;
+    if (host) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', '性能指标加载失败:' + apiErrText(e))); }
+    metricsState.loading = false;
+    return;
+  }
+  metricsState.loading = false;
+  renderMetrics(metricsState.data);
+}
+function renderMetrics(data) {
+  const host = $('metricsPanel'); if (!host) return;
+  host.textContent = '';
+  if (!data || data.ok === false) { host.appendChild(el('div', 'audit-empty', '性能指标不可用')); return; }
+  // ── 进程内存 + 运行时长 ──
+  const mem = data.memory || {};
+  const memRow = el('div', 'storage-row');
+  memRow.appendChild(el('span', 'storage-name', '工作台进程'));
+  memRow.appendChild(el('span', 'storage-bytes', fmtBytes(mem.rssOs || mem.rss || 0)));
+  const up = Number(data.uptimeSec) || 0;
+  const upText = up >= 3600 ? Math.floor(up / 3600) + ' 小时 ' + Math.floor((up % 3600) / 60) + ' 分' : up >= 60 ? Math.floor(up / 60) + ' 分 ' + (up % 60) + ' 秒' : up + ' 秒';
+  memRow.appendChild(el('span', 'storage-files muted', '已运行 ' + upText));
+  host.appendChild(memRow);
+  // ── 子进程(引擎回合 / 桥接 MCP)──
+  for (const c of (Array.isArray(data.children) ? data.children : [])) {
+    const row = el('div', 'storage-row');
+    row.appendChild(el('span', 'storage-name', c.kind === 'engine-turn' ? '引擎回合子进程' : '桥接 MCP 子进程'));
+    row.appendChild(el('span', 'storage-bytes', c.rss ? fmtBytes(c.rss) : '—'));
+    row.appendChild(el('span', 'storage-files muted', 'pid ' + c.pid + (c.ref ? ' · ' + c.ref : '')));
+    host.appendChild(row);
+  }
+  // ── 请求耗时分布(6 桶)──
+  const rq = data.requests || { total: 0, buckets: [0, 0, 0, 0, 0, 0], slowest: [] };
+  host.appendChild(el('div', 'storage-note muted', '请求耗时分布(本进程累计 ' + rq.total + ' 个):'));
+  const edges = ['<10ms', '<50ms', '<200ms', '<1s', '<5s', '≥5s'];
+  const maxB = Math.max(1, ...rq.buckets);
+  const bars = el('div', 'metrics-bars');
+  rq.buckets.forEach((n, i) => {
+    const row = el('div', 'metrics-bar-row');
+    row.appendChild(el('span', 'metrics-bar-label', edges[i]));
+    const track = el('span', 'metrics-bar-track');
+    const fill = el('span', 'metrics-bar-fill');
+    fill.style.width = Math.round((n / maxB) * 100) + '%';
+    track.appendChild(fill);
+    row.appendChild(track);
+    row.appendChild(el('span', 'metrics-bar-count muted', String(n)));
+    bars.appendChild(row);
+  });
+  host.appendChild(bars);
+  // ── 最慢请求 top 8 ──
+  if (rq.slowest && rq.slowest.length) {
+    host.appendChild(el('div', 'storage-note muted', '最近最慢请求:'));
+    const table = el('div', 'storage-table');
+    for (const s of rq.slowest) {
+      const row = el('div', 'storage-row');
+      row.appendChild(el('span', 'storage-name', s.m + ' ' + s.p));
+      row.appendChild(el('span', 'storage-bytes', s.ms + ' ms'));
+      table.appendChild(row);
+    }
+    host.appendChild(table);
+  }
+  // ── 存储趋势(最近 12 点)──
+  const trend = Array.isArray(data.storageTrend) ? data.storageTrend : [];
+  if (trend.length) {
+    host.appendChild(el('div', 'storage-note muted', '存储占用趋势(每小时一点,最多 240 点):'));
+    const table = el('div', 'storage-table');
+    for (const p of trend.slice(-12).reverse()) {
+      const row = el('div', 'storage-row');
+      row.appendChild(el('span', 'storage-name', formatAuditTime(p.ts)));
+      row.appendChild(el('span', 'storage-bytes', fmtBytes(p.totalBytes)));
+      row.appendChild(el('span', 'storage-files muted', p.engineBytes ? '引擎转录 ' + fmtBytes(p.engineBytes) : ''));
+      table.appendChild(row);
+    }
+    host.appendChild(table);
+  }
+}
+
 /* ---------------- v1.0.2 (G1): 变更中心 (change/rollback center) ---------------- */
 // GET /api/checkpoints?sessionId=<id> → {ok, entries:[{turnSeq, entrySeq, tool, path, op, bytes, skipped?, ts}], totalBytes}.
 // Group by file path; within a file, newest checkpoint first (time desc). Each revertible entry gets a
@@ -7662,7 +7750,7 @@ function switchTab(tab) {
   // 用量看板：打开时才拉取（懒加载，同审计）。已加载则用缓存重绘，避免重复请求；刷新/切范围会强制重拉。
   if (tab === 'usage') { if (!usageState.loaded) loadUsage(); else renderUsage(usageState.data); }
   // v1.9 数据管家: 存储页签同款懒加载(不轮询,打开时一次性统计;手动「刷新」重拉)。
-  if (tab === 'storage') { if (!storageState.loaded) loadStorage(); else renderStorage(storageState.data); }
+  if (tab === 'storage') { if (!storageState.loaded) loadStorage(); else renderStorage(storageState.data); if (!metricsState.loaded) loadMetrics(); else renderMetrics(metricsState.data); }
   if (tab === 'agent-runs') loadAgentWorkflows();
   if (tab === 'debug') renderRawEventSnapshot();
   updateAgentRunsPolling(tab);
@@ -7898,6 +7986,7 @@ function bindEvents() {
   { const au = $('auditRefreshBtn'); if (au) au.onclick = () => { auditState.loaded = false; loadAudit(); }; }
   // v1.9 数据管家: 存储页签 —— 刷新强制重拉;「立即清理」按当前策略全目标 sweep 后重绘。
   { const sr = $('storageRefreshBtn'); if (sr) sr.onclick = () => { storageState.loaded = false; loadStorage(); }; }
+  { const mr = $('metricsRefreshBtn'); if (mr) mr.onclick = () => { metricsState.loaded = false; loadMetrics(); }; }
   { const sc = $('storageCleanBtn'); if (sc) sc.onclick = cleanStorage; }
   { const sp = $('storagePolicySaveBtn'); if (sp) sp.onclick = saveStoragePolicy; }
   { const asf = $('auditSourceFilter'); if (asf) asf.onchange = renderAuditList; }

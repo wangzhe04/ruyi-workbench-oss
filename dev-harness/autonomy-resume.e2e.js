@@ -39,7 +39,9 @@ const markIdx = src.indexOf('await markInterruptedAgentRuns();');
 const autoIdx = src.indexOf('void autoResumeInterruptedRuns().catch');
 ok(markIdx > 0 && autoIdx > markIdx, 'S boot 挂点:自动恢复在诚实标死【之后】且 fire-and-forget');
 ok(/const AUTO_RESUME_MAX = 2;/.test(src), 'S 崩溃环上限 AUTO_RESUME_MAX=2');
-ok(/try \{ await saveAgentRun\(run\); \} catch \{ guardPersisted = false; \}/.test(src) && /if \(!guardPersisted\) continue;/.test(src), 'S 崩溃环护栏先落盘,写不进就不启动(fail-closed)');
+// 第40波:锁迁移 —— autoResumeInterruptedRuns 并发化(mapPool 工作项回调)后,跳过当前 run 的语句从
+// continue 变 return(回调内早退 == 旧循环 continue 语义);fail-closed 语义不变:护栏没落盘就不启动。
+ok(/try \{ await saveAgentRun\(run\); \} catch \{ guardPersisted = false; \}/.test(src) && /if \(!guardPersisted\) return;/.test(src), 'S 崩溃环护栏先落盘,写不进就不启动(fail-closed)');
 ok((src.match(/await saveAgentRun\(run\)\.catch\(\(\) => \{\}\); \/\/ 29b 顺手修/g) || []).length >= 1 && /if \(dirty\) await saveAgentRun\(run\)\.catch\(\(\) => \{\}\);/.test(src), 'S boot 标死写盘防炸(磁盘故障不再放倒 startServer)');
 ok(/if \(interventionKind\) bumpRunIntervention\(run, interventionKind\);/.test(src) && /interventionKind: 'resume'/.test(src) && /interventionKind: 'retry_node'/.test(src), 'S 冷 resume/retry 计干预;boot 自动续跑不传(不计)');
 ok(/delete run\.resumeTier; delete run\.resumeTierReasons;/.test(src) && /delete run\.pendingReview;/.test(src), 'S resume 清分级戳 + 顺手清 28d pendingReview(此前只设不清)');

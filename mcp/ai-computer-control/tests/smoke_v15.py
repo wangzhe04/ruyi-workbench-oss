@@ -24,6 +24,15 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _SRC = os.path.join(_ROOT, "src")
 sys.path.insert(0, _SRC)
 
+# 第40波: 控制台编码自卫 —— 文件头建议 `-X utf8` 运行,但 GBK(cp936)控制台下裸跑时,打印含 •(U+2022)
+# 等字符的回读样本会抛 UnicodeEncodeError,被 readback 的 broad except 吞成「测试失败」—— 控制台编码
+# 问题伪报成产品缺陷。reconfigure errors='backslashreplace':不可编码字符转义输出,print 永不抛。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="backslashreplace")
+    except Exception:  # noqa: BLE001 — 非文本流(重定向/嵌入)无 reconfigure,跳过即可
+        pass
+
 # Isolate data dir BEFORE importing the server (safety.json + audit log live here).
 _DATA = os.path.join(tempfile.gettempdir(), "acc_smoke_v15_data")
 os.makedirs(_DATA, exist_ok=True)

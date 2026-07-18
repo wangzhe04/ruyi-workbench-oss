@@ -100,6 +100,9 @@
   --ok-bg: color-mix(in srgb, var(--ok) 16%, var(--panel)); --ok-fg: var(--ok);
   --warn-bg: color-mix(in srgb, var(--warn) 16%, var(--panel)); --warn-fg: var(--warn);
   --danger-bg: color-mix(in srgb, var(--danger) 16%, var(--panel)); --danger-fg: var(--danger);
+  /* 第40波: ghost-danger hover 的轻量红纱 —— 透明基底(ghost 按钮可坐在任意面上,不能用 --danger-bg 的
+     panel 不透明底),与 --panel-veil 同族命名。两主题对称。 */
+  --danger-veil: color-mix(in srgb, var(--danger) 12%, transparent);
   --info-bg: color-mix(in srgb, var(--info) 16%, var(--panel)); --info-fg: var(--info);
   --code-bg: #0b111b;
   --shadow: 0 12px 32px rgba(0,0,0,.42);
@@ -151,6 +154,7 @@
   --ok-bg: color-mix(in srgb, var(--ok) 16%, var(--panel)); --ok-fg: var(--ok);
   --warn-bg: color-mix(in srgb, var(--warn) 16%, var(--panel)); --warn-fg: var(--warn);
   --danger-bg: color-mix(in srgb, var(--danger) 16%, var(--panel)); --danger-fg: var(--danger);
+  --danger-veil: color-mix(in srgb, var(--danger) 12%, transparent); /* 第40波: ghost hover 红纱,与 dark 对称 */
   --info-bg: color-mix(in srgb, var(--info) 16%, var(--panel)); --info-fg: var(--info);
   --code-bg: #f2f4f8;
   /* off-table 阴影:暖棕 rgba 迁到藏蓝墨冷色调,并入青花族。明度/透明度关系不变。 */
@@ -1475,7 +1479,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .workflow-inspector .wf-apply { margin-top: 12px; padding: 8px 12px; font-weight: 600; border-radius: var(--radius-sm); box-shadow: none; position: sticky; bottom: 0; }
 /* 第23波: 轻量危险按钮(纯红字,无实心边框),给「删除保存」这类破坏性但非主操作用,不与主 primary 抢视觉重量。 */
 button.ghost-danger { background: transparent; border-color: transparent; color: var(--danger-fg); font-weight: 500; }
-button.ghost-danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: transparent; color: var(--danger-fg); }
+button.ghost-danger:hover { background: var(--danger-veil); border-color: transparent; color: var(--danger-fg); }
 .workflow-editor-layout { display: grid; grid-template-columns: minmax(560px, 1fr) 290px; gap: 10px; }
 /* Fixed (not min-) height, bounded by viewport: the graph's own horizontal/vertical scrollbars must sit
    inside this box at a height that's always on-screen without first scrolling the outer .modal-body —
@@ -1772,6 +1776,13 @@ button.ghost-danger:hover { background: color-mix(in srgb, var(--danger) 12%, tr
 .storage-policy-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: var(--fs-md); color: var(--ink-2); }
 .storage-policy-row input { width: 110px; flex: none; }
 .storage-policy .mini { align-self: flex-end; }
+/* 第40波: 性能观测面 —— 请求耗时直方图(令牌色 accent 填充,轨道走 --line,两主题自适应) */
+.metrics-bars { display: flex; flex-direction: column; gap: 3px; padding: 4px 10px 8px; }
+.metrics-bar-row { display: flex; align-items: center; gap: 8px; }
+.metrics-bar-label { flex: none; width: 52px; font-size: var(--fs-xs); color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+.metrics-bar-track { flex: 1; height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+.metrics-bar-fill { display: block; height: 100%; border-radius: 5px; background: var(--accent); min-width: 0; transition: width .25s ease; }
+.metrics-bar-count { flex: none; width: 40px; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 
 /* workspace confirm / chooser sheet (folder-drag) */
 .ws-confirm { display: flex; flex-direction: column; gap: 10px; }

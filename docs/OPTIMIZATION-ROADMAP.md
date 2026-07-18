@@ -95,6 +95,8 @@
 
 ## 4. P2 · 性能（"随使用时长恶化"的热点，派 Sonnet）
 
+> **回填(第40波)**:PF1 ✅ 已交付(journalBytesAdjust 增量缓存 + 滞回全扫,server.js:2857 起,常态路径跳过 O(全检查点) 扫描);PF2 ✅ 已交付(sessions/index.json 七字段增量索引 + id 集精确比对回退真扫描;「全量读写」根治由第39波会话存储 v2 完成);PF6 ✅ 已交付(scheduleRender 改增量 appendData,只追加 renderedChars 之后的切片,不再每帧全量 marked.parse)。PF3/PF4/PF5 仍开放。
+
 - **PF1（高）** 检查点 GC 全局扫描挂在每次文件写工具的关键路径 — `journalGc`(1521-1562) 每次 `file_write` 都 `await` 一遍全会话目录递归 stat 求总字节。单次工具调用延迟随**应用总使用时长/历史会话数**单调增长；一次 workflow 50 次编辑=50 次全量扫描。→ 全局体积维护增量缓存（写时 `+=`、GC 时 `-=`）或降频。
 - **PF2（高）** 会话文件全量读写且无索引 — `saveSession`(1376) 每次整份 `JSON.stringify` 落盘且同轮每次工具调用都重写(6662)；`listSessions`(1078) 为显示 7 个字段把每个会话文件完整读入。成本随会话规模/历史会话数恶化。→ 独立轻量元数据索引 `sessions/index.json`（增量更新）；单轮多工具的中间保存降频。
 - **PF3（中高）** `/api/workspace/resolve` 全同步扫描阻塞事件循环 — `resolveWorkspace`(2019) 用 `readdirSync` 遍历 A-Z 盘符(2043)，预算只管打分不管候选构建；慢速/掉线网络映射盘会冻结整个进程（含正在推流的 chat/stream）。→ 迁 `fs.promises` + 硬超时 + 让出事件循环。
@@ -726,3 +728,67 @@
 - 端口审计只覆盖 8700-9199 测试带;字符串内端口字面量计为占用(真引用),注释提及不计——语义正确,但若未来有人用 `String.fromCharCode` 拼端口则逃逸(接受:工程约束非对抗场景)。
 - smoke_v15 预存环境失败(子进程 reportlab 屏蔽测试在本机 PYTHONPATH 下找不到包)未修——与本波无关但记录,后续波查。
 - office_open 与评审建议的偏差是实地判断(读闸会误杀正当主流程),非漏做。
+
+---
+
+## 33. 第37波:cmd8191 三部曲(P0 防线 → P1 根治 → P2 信道分离)+ CI 连红扑救
+
+**背景**:Windows 上 npm 安装的 claude CLI 是 cmd shim,Node spawn 不经 shell 起不了 .cmd;且整行命令经 cmd /d /s /c 转述时有 cmd 元字符注入面(实测 issue cmd8191)。三部曲收根治本,顺带扑灭 CI 连红 5 个提交的基建大火。
+
+**P0 防线**:cmd 整行预算 7900 字符 + 超长降级阶梯(砍索引→砍账本→砍政策尾,保用户 append)+ `%!` 全角中和;降级/溢出全留审计痕。
+**P1 根治**:`resolveClaudeLauncher` —— npm shim 相对解析出 `node_modules/@anthropic-ai/claude-code/bin/claude.exe`,真身 --version 探测通过才接管,60s memoize;收拢在 normalizeConfig 咽喉点,六个消费方(runClaudeTurn/子代理/mcp add-json/doctor 等)一致受益;运行时替换不落盘,exe 消失自动回落;解析不出**原样返回行为逐字节不变**。cmdLineBudgetFor 按扩展名分档,exe 直启后预算 7900→32000,降级阶梯近乎不再触发。
+**P2 信道分离**:稳定索引段(技能/记忆/编排提示)从 --append-system-prompt 迁出,改走 stdin `<workbench-context>` 块按内容 hash 一次性注入;命令行只留用户 append + 账本 digest + 政策尾。五规则:resume 连续+hash 不变跳过;无 resume 每轮必注;slash 不注不污染 hash;进程未启动清 hash;init 暴露静默 resume 丢失清 hash 下轮自愈。**附带收益:预算耗尽不再截肢技能索引(该降级面整类消失),索引原文注入路径保真**。
+
+**测试抓出的两个真 bug**:注入块导语字面写 `<current_user_message>` 被 fake 误当定界起点(导语去角括号 + 提取取 LAST 匹配双保险);注入内容含 `orchestrate_agents` 命中 fake 场景关键字把 ask 场景抢走(fake 改只从真正用户消息定界段选场景,顺带修掉 recoveryHistory 旧消息污染场景的存量盲区)。
+
+**CI 扑救(与 cmd8191 无关但阻塞一切)**:Node 24 拒收 require+顶层 await 混用(62 件秒崩 → 整文件包 async IIFE);9642e26 端口 codemod 批量破坏(11 件重复 const/6 件 TDZ/6 件作用域丢失/9 件不可单行修 → 回滚静态端口已知良好版);run-all.js bucket 驳回静默吞整桶结果(假绿漏洞 → 驳回入账)。
+
+**验证**:claude-exe-resolve.e2e(13 断言)+ index-dedup.e2e(15 断言);全量 127-128 pass / 0 fail / 1 known-fail。提交 7b29790(基建)+ 79873d4(P1)+ 87415cc(P2,提交信息误标"第35波",以此节编号为准)。
+
+---
+
+## 34. 第38波:v1.9「轻装机」第一波 —— 数据管家(Storage Steward)
+
+**背景**:运行时资源审计(实测+代码锚点)发现存储半数仓无自动清理:logs 按日滚动永不删、sessions 无上限、agent-runs append-only(单 run 可达数十 MB)、webcache 无 TTL;唯一完整的容量闭环是 checkpoints(单条 5MB 跳过/每会话 20 轮/全局 200MB 硬顶)。本波把该闭环模板推广成统一保留策略引擎。
+
+**交付**:
+- `storagePolicy` 配置三项全 clamp:日志保留天数 [7,365] 默认 30、事件日志压缩天数 [0,365] 默认 14、网页缓存上限 [0,100000] 默认 0=**不限**(尊重 v0.9-S9「离线无价」承诺,自动清理仅用户 opt-in)。
+- `collectStorageStats`:13 仓 bytes/files(10 万文件防爆截断)+ 引擎转录只读统计行。
+- `storageSweep`:boot 自动(fire-and-forget 不阻塞启动)+ 手动单目标;进程内串行;动作落审计账 `storage_sweep`。日志按**文件名日期**保留(不依赖 mtime);真终态 run 事件日志超期 **gzip 归档**(可读,体积 ÷~10,tmp+rename 原子,幂等);**interrupted 可续跑/paused 等人/running 活着一律不碰**;readAgentRunEvents 透明读 .gz,删除运行记录连带删 .gz。
+- 前端「存储」页签(**仅专家界面**,简易模式 CSS 隐藏 + DEV_TABS 兜底):数据目录总计、各仓占用表、保留策略表单(clamp 后回显)、立即清理。懒加载不轮询,DOM 全 textContent。
+
+**验证**:storage-steward.e2e 30 断言(clamp/日期保留/gzip 归档+回退全读/paused 不压/webcache 默认不限+opt-in LRU/单目标隔离/幂等/HTTP 403/策略持久);ia.e2e 开发者组清单 5→6;autonomy-durability tmp 写点静态锁 3→4(归档二进制写与检查点回滚同类豁免)。全量 129 pass / 0 fail / 1 known-fail。提交 12c3722。
+
+---
+
+## 35. 第39波:v1.9 会话存储 v2 + 引擎转录 GC —— 写放大 O(N)→O(增量),688MB 无主之仓收口
+
+**背景**:审计两大单项:① saveSession 每轮全量序列化+落盘 O(会话总历史)/轮,5MB 会话=每轮写 5MB,写放大随使用时长线性恶化;② `~/.claude/projects/` 引擎转录实测 **688MB**(单项目最大 333MB)完全无人管理 —— claude 引擎每会话/每子代理留 jsonl 转录,工作台知道自己的 claudeSessionId 却从不清理。
+
+**会话存储 v2(head JSON + append-only NDJSON 正文)**:
+- `<id>.json` 头(标量/小字段 + messageCount/providerHistoryCount + storageVersion:2,每次重写但极小);`<id>.messages.ndjson` / `<id>.provider.ndjson` 正文,一行一条,append-only。
+- 快路径:进程内状态表存每行 sha1-16,save 时前缀逐行重算比对,只在尾部增长 → 每文件一次 append **O(增量)/轮**;任何前缀变化(rewind/compaction/pop/蒸发改写)/状态缺失/上次失败 → 自动降级全量重写。**不靠调用方自觉打标记,失配只损性能不丢数据**。
+- 崩溃三防线:append 中途崩溃 → 无 \n 终结的撕裂尾行**物理截断**(否则下次 append 把新消息焊进坏行→整会话判 corrupt 真丢数据);append 完成头未写 → 头是提交点,多出行为未提交尾巴按头计数截断;慢路径(全量重写)崩溃 → .prevbody 快照恢复与旧头重新配对(头计数==正文行数时 prevbody 是陈旧快照不恢复)。
+- v1bak 懒迁移:legacy 单文件首次 load 原样备份(COPYFILE_EXCL 防覆盖回退锚),v2 下次成功读取后自动删;坏正文隔离 .corrupt 与旧单文件损坏同纪律。
+- 实测真实会话 2.78MB 单文件 → 1.7KB 头 + 正文,逐字节回读一致。
+
+**引擎转录 GC**:白名单账本(本工作台 spawn 的 claudeSessionId 才可清)+ 活引用扫描(会话存活引用不清)+ 保留期。**红线:账本外转录绝不触碰(那是用户 Claude Code 自己的数据),专测锁死**。
+
+**验证**:session-storage-v2.e2e 48 断言(快路径/降级/撕裂/未提交尾/prevbody/v1bak/转录 GC 红线);resume-dangling/e3/mission-driver/session-index/agent-workflow-ui-progress 五件带外注入迁移 v2 布局(头不再内联 messages/providerHistory,注入=写正文+同步头计数)。全量 129 pass / 0 fail / 1 known-fail。提交 f3c19a5。
+
+---
+
+## 36. 第40波:v1.9 收尾 —— 债务清零(KNOWN_FAILURE 空表)+ boot 恢复并发化 + 性能观测面
+
+**背景**:v1.9「轻装机」封版波。清掉最后两项挂账,把第39波审计承诺的两个 P1 项落地。
+
+**P0 债务清零**:
+- ui-v3-p1 双 FAIL 毕业:① ghost-danger hover 手写 `color-mix(danger 12%, transparent)` → 新令牌 `--danger-veil`(两主题对称;透明基底 —— ghost 按钮可坐任意面,不能用 --danger-bg 的 panel 不透明底,与 --panel-veil 同族命名);② 「发送⇄停止 SVG」静态锁是 i18n 化(`t('common.stop')/t('chat.send')`,zh-CN 解析已核验)没跟上的陈旧形状,锁迁移非代码修。**KNOWN_FAILURE 名单清零(空表),机制保留**。
+- smoke_v15:GBK 控制台下裸跑(未按文件头 -X utf8)时,打印含 •(U+2022) 的回读样本抛 UnicodeEncodeError,被 readback 的 broad except 吞成「测试失败」—— 控制台编码问题伪报产品缺陷。stdout/stderr reconfigure errors='backslashreplace',print 永不抛;子进程侧(-X utf8 + PYTHONIOENCODING + PYTHONPATH)经查已正确,无需动。
+- §4 性能波回填:PF1/PF2/PF6 实际早已交付未登记(journal 增量缓存/会话索引/流式增量 appendData),已在 §4 补交付注记。
+
+**P1 boot 中断恢复并发化**:旧状 = markInterruptedAgentRuns/autoResumeInterruptedRuns 双扫描顺序 for,且 syncRunEventSeq 对每个 run **整读** events.ndjson(长跑 run 可达数十 MB)→ N 个中断 run = 数百 MB 顺序盘 IO。三改动:① syncRunEventSeq 尾窗化(>512KB 只读尾窗,seq 单调且 append 串行故最大值必在尾部;窗内无 seq 的巨单行极端 → 回落全读保正确;同一 scanMax 函数保证两路径逐字节同语义);② 双扫描工作项化 + mapPool(4) 并发(run 级相互独立:写链/事件链按 run.id 串行,live 复检纪律原样保留);③ launchPersistedAgentRun 接受 configOverride(boot sweep 传入已读 config,免 N 次 readConfig 盘 IO;人工 HTTP resume 不传 —— 必须读新鲜 permissionMode)。
+
+**P1 /api/metrics 性能观测面**(ROUTE_AUTH token 门,专家界面存储页签下段):① 请求耗时 —— createServer 顶层插桩,进程内环形(300 条)零持久化,6 桶直方图 + slowest top8;路径归一化(sess_/run_/hex id → :id,观测面不落会话 id);**/health 不计数**(高频探针会淹没真分布)。② 进程内存 —— 自身 memoryUsage + 在册子进程(activeChildren 引擎回合/mcpClients 桥接)pid 清单,RSS 经一次 tasklist 全表匹配(仅 win32,失败降级 null)。③ 存储趋势 —— summary/metrics 被取时 ≥1h 节流追点,storage-trend.json 240 点封顶(≈10 天),缺文件 = 空史不硬失败。
+
+**验证**:boot-resume-parallel.e2e 16 断言(mapPool 并发度+wall-clock 反串行证明/尾窗==全扫/巨单行回落/撕裂同语义 + 真 boot 6 run 全标 interrupted 且 run_interrupted 精确落 seq 1001[错号会落 991]+ autoResume 分级两分支);metrics-panel.e2e 19 断言(归一化/分桶/环形封顶/节流 + 403/字段齐/health 不计数/趋势落盘)。ui-v3-p1 毕业后 ALL PASS 并移出名单。smoke_v15 裸跑与 -X utf8 双绿。

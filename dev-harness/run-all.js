@@ -35,9 +35,9 @@ const SKIP = new Set([
 // 若 PASS 则标 [unexpected-pass] 提醒清理名单。每条附原因 -- 名单不能成永久豁免,修好即删。
 // 第36波(v1.7): capabilities 毕业 —— 挂账的 identity bleed 断言实测已过;真正失败的是 W1a 主动检索
 // 指引(自适应装载后 web_search 不进首批 schema,D6 行按旧"已 offer"口径永不渲染),已修为目录可用口径。
-const KNOWN_FAILURE = {
-  'ui-v3-p1.static.e2e.js': 'color-mix 手写(styles.css:1462 ghost-danger hover,第23波引入,违反 v3 P1;需 UI 决策:轻量 hover 的令牌选择',
-};
+// 第40波(v1.9): ui-v3-p1 毕业 —— ghost-danger hover 补 --danger-veil 令牌(两主题对称);发送⇄停止锁
+// 迁移到 i18n 形状。名单清零,机制保留(空表 = 全绿无例外)。
+const KNOWN_FAILURE = {};
 
 // 快通道:无端口纯静态锁件(spawn|listen=0),秒级,先跑求快速反馈。
 const isFast = f => /\.static\.e2e\.js$/.test(f);

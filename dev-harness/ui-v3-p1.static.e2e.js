@@ -72,7 +72,9 @@ for (const gone of ['🛡', '🧰', '☰', '✨', '📎', '▷', '✕']) {
 }
 // app.js 动态 chrome 按钮改用 icon():旧 emoji 字面量已清。
 ok(/iconTextBtn\(btn, 'sparkles'/.test(src), '4 app.js 技能徽标 sparkles SVG');
-ok(/iconTextBtn\(btn, 'stop', '停止'\)/.test(src) && /iconTextBtn\(btn, 'send', '发送'\)/.test(src), '4 app.js 发送⇄停止 SVG 切换');
+// 第40波: 锁迁移到 i18n 形状(文案键 t('common.stop')/t('chat.send'),zh-CN 解析为 停止/发送 已核验);
+// 语义不变 —— 运行态 stop 图标 + 停止文案,完成还原 send 图标 + 发送文案。
+ok(/iconTextBtn\(btn, 'stop', t\('common\.stop'\)\)/.test(src) && /iconTextBtn\(btn, 'send', t\('chat\.send'\)\)/.test(src), '4 app.js 发送⇄停止 SVG 切换');
 ok(/icon\('pin', 15\)/.test(src) && /icon\('edit', 15\)/.test(src) && /icon\('trash', 15\)/.test(src), '4 app.js 会话项操作(置顶/改名/删)SVG');
 ok(/icon\(isDesktopTool \? 'monitor' : 'wrench'/.test(src), '4 app.js 工具卡 tc-icon SVG(monitor/wrench)');
 ok(!/\? '🖥' : '🔧'/.test(src), '4 app.js 旧 tc-icon emoji 三元已清');

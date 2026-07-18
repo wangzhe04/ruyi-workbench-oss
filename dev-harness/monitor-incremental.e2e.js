@@ -80,7 +80,9 @@ ok(/if \(n\.fromPool && n\.failurePolicy === 'continue' && n\.status !== 'reject
 ok(/const firstExhaust = !m\.budgetExhaustedAt;/.test(src) && /if \(firstExhaust\) logEvent\(\{ kind: 'mission_budget_exhausted'/.test(src), 'S 对抗轮 P2(#6): budget_exhausted 只在转入时落一次(超支率 ≤100%)');
 ok(/budgetExhaustedAt: String\(p\.budgetExhaustedAt \|\| ''\)/.test(src), 'S 对抗轮 P2(#6): normalizeMission 保留 budgetExhaustedAt(update 再武装不清)');
 ok(/if \(node\.status === 'failed'\) node\.errorClass = 'vote_contract_failed';[\s\S]{0,120}else if \(node\.status === 'rejected'\) node\.errorClass = 'gate_rejected';/.test(src), 'S vote 输入契约错误与真实 rejected 分开分类');
-ok(/if \(activeAgentRuns\.has\(run\.id\)\) continue;/.test(src) && (src.match(/if \(activeAgentRuns\.has\(run\.id\)\) continue;/g) || []).length >= 2, 'S 对抗轮 P2(#2): autoResume 前后双复检 live(防 seq 重号/陈旧覆盖)');
+// 第40波:锁迁移 —— autoResume 并发化(mapPool 回调)后双复检语句从 continue 变 return,语义不变:
+// append/save 前与 syncRunEventSeq await 后各即时复检一次 live 注册,已接管即跳过。
+ok(/if \(activeAgentRuns\.has\(run\.id\)\) return;/.test(src) && (src.match(/if \(activeAgentRuns\.has\(run\.id\)\) return;/g) || []).length >= 2, 'S 对抗轮 P2(#2): autoResume 前后双复检 live(防 seq 重号/陈旧覆盖)');
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 // [H] Live

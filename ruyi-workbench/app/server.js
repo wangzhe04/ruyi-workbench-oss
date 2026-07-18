@@ -1855,6 +1855,7 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/storage/summary', auth: 'token' },
   { m: 'POST', p: '/api/storage/policy', auth: 'token' },
   { m: 'POST', p: '/api/storage/clean', auth: 'token' },
+  { m: 'GET', p: '/api/metrics', auth: 'token' },
 ];
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;
@@ -6151,6 +6152,101 @@ async function collectStorageStats(config) {
   };
 }
 
+// ===== 第40波:/api/metrics 性能观测面 =================================================================
+// 三个数据面,全部轻量:① 请求耗时 —— 进程内环形(零持久化),createServer 顶层插桩;② 进程内存 —— 自身
+// process.memoryUsage() + 在册子进程(activeChildren 引擎回合 / mcpClients 桥接)pid 清单,RSS 经一次
+// tasklist 全表匹配(仅 win32,失败降级 null —— 观测面绝不硬失败);③ 存储趋势 —— 在 summary/metrics
+// 被取时按 ≥1h 节流追点(240 点封顶 ≈ 10 天),boot/手动 sweep 的频率天然决定颗粒度。
+const REQ_METRICS = {
+  total: 0,
+  buckets: [0, 0, 0, 0, 0, 0], // <10 / <50 / <200 / <1000 / <5000 / ≥5000 ms
+  recent: [],                  // 环形:最近 300 条 { m, p, ms }(p 已归一化,不含 id/查询串)
+};
+const REQ_METRICS_RECENT_MAX = 300;
+function metricsBucketIndex(ms) { return ms < 10 ? 0 : ms < 50 ? 1 : ms < 200 ? 2 : ms < 1000 ? 3 : ms < 5000 ? 4 : 5; }
+// 归一化:/api/sessions/sess_ab12cd/events → /api/sessions/:id/events —— 观测面不落会话 id(数量级保护 +
+// 轻微隐私),只看得到端点形状。段内带数字/下划线长尾的视为 id。
+function normalizeMetricsPath(pathname) {
+  const segs = String(pathname || '').split('/').filter(Boolean);
+  return '/' + segs.map(s => (/^(sess_|run_|[0-9a-f]{8,})/i.test(s) ? ':id' : s)).join('/');
+}
+function recordRequestMetric(method, pathname, ms) {
+  REQ_METRICS.total++;
+  REQ_METRICS.buckets[metricsBucketIndex(ms)]++;
+  REQ_METRICS.recent.push({ m: method, p: normalizeMetricsPath(pathname), ms: Math.round(ms) });
+  if (REQ_METRICS.recent.length > REQ_METRICS_RECENT_MAX) REQ_METRICS.recent.splice(0, REQ_METRICS.recent.length - REQ_METRICS_RECENT_MAX);
+}
+// 存储趋势:storage-trend.json,点 = { ts, totalBytes, stores:{key:bytes}, engineBytes }。读失败 = 空史(不硬失败)。
+const STORAGE_TREND_MAX = 240;
+const STORAGE_TREND_MIN_GAP_MS = 3600 * 1000;
+function storageTrendPath() { return path.join(paths.data, 'storage-trend.json'); }
+async function readStorageTrend() {
+  try { const v = safeJsonParse(await fsp.readFile(storageTrendPath(), 'utf8'), []); return Array.isArray(v) ? v : []; }
+  catch { return []; }
+}
+async function maybeRecordStorageTrend(stats) {
+  try {
+    const trend = await readStorageTrend();
+    const last = trend[trend.length - 1];
+    if (last && Date.now() - Date.parse(last.ts) < STORAGE_TREND_MIN_GAP_MS) return;
+    const stores = {};
+    for (const [k, s] of Object.entries(stats.stores || {})) stores[k] = s.bytes;
+    trend.push({ ts: nowIso(), totalBytes: stats.totalBytes, stores, engineBytes: stats.engineTranscripts ? stats.engineTranscripts.bytes : 0 });
+    while (trend.length > STORAGE_TREND_MAX) trend.shift();
+    await fsp.writeFile(storageTrendPath(), JSON.stringify(trend), 'utf8');
+  } catch { /* 趋势是观测辅助,失败不影响主流程 */ }
+}
+// 在册子进程快照:引擎回合(activeChildren)+ 桥接 MCP(mcpClients)。pid 收齐后一次 tasklist 匹配 RSS。
+function collectChildProcessInfo() {
+  const out = [];
+  for (const [sessionId, ent] of activeChildren) {
+    if (ent && ent.pid) out.push({ kind: 'engine-turn', pid: ent.pid, ref: sessionId, startedAt: ent.startedAt || null });
+  }
+  for (const [serverId, client] of mcpClients) {
+    const pid = client && client.child && client.child.pid;
+    if (pid) out.push({ kind: 'mcp-bridge', pid, ref: serverId, startedAt: null });
+  }
+  return out;
+}
+async function sampleProcessRss(pids) {
+  if (process.platform !== 'win32' || !pids.length) return {};
+  try {
+    const out = cp.execFileSync('tasklist', ['/fo', 'csv', '/nh'], { encoding: 'utf8', timeout: 5000, windowsHide: true });
+    const want = new Set(pids.map(String));
+    const rss = {};
+    for (const line of String(out).split('\n')) {
+      const cols = line.trim().replace(/^"|"$/g, '').split('","');
+      if (cols.length < 5 || !want.has(cols[1])) continue;
+      const kb = Number(cols[cols.length - 1].replace(/[^0-9]/g, ''));
+      if (Number.isFinite(kb)) rss[cols[1]] = kb * 1024;
+    }
+    return rss;
+  } catch { return {}; } // tasklist 不可用/超时 → RSS 缺省 null,不硬失败
+}
+async function buildMetricsPayload(config) {
+  const storage = await collectStorageStats(config);
+  await maybeRecordStorageTrend(storage);
+  const children = collectChildProcessInfo();
+  const rss = await sampleProcessRss([process.pid, ...children.map(c => c.pid)]);
+  const mem = process.memoryUsage();
+  // 近 300 条里最慢的 8 条(观测尾部延迟,直方图看不出具体端点)
+  const slowest = [...REQ_METRICS.recent].sort((a, b) => b.ms - a.ms).slice(0, 8);
+  return {
+    ok: true,
+    uptimeSec: Math.round(process.uptime()),
+    pid: process.pid, node: process.version,
+    memory: { rss: mem.rss, heapUsed: mem.heapUsed, external: mem.external, rssOs: rss[String(process.pid)] || null },
+    requests: {
+      total: REQ_METRICS.total,
+      buckets: REQ_METRICS.buckets.slice(),
+      bucketEdgesMs: [10, 50, 200, 1000, 5000],
+      slowest,
+    },
+    children: children.map(c => ({ ...c, rss: rss[String(c.pid)] || null })),
+    storageTrend: await readStorageTrend(),
+  };
+}
+
 // logs 保留:workbench-YYYY-MM-DD.ndjson 按文件名日期与 cutoff 字典序比较(零填充日期可序)。
 async function sweepLogsStore(policy, result) {
   const keep = policy.logsKeepDays;
@@ -9020,14 +9116,37 @@ function agentRunEventsFile(sessionId, runId) { return path.join(agentRunDir(ses
 // 对抗轮修(第25波): 从磁盘装载 run 后、任何 append 前,把 run.eventSeq 快进到事件文件尾行的 seq ——
 // 崩溃窗口里(事件已落行、快照没跟上)重启装载的是旧 eventSeq,不快进就会复用已存在的 seq(严格单调破功,
 // 取证排序在最需要它的崩溃场景失效)。只在装载点调用(markInterruptedAgentRuns / launchPersistedAgentRun)。
+// 第40波:尾窗化 —— 旧实现整文件 readFile:长跑 run 的 events.ndjson 可达数十 MB,boot 两个恢复扫描
+// (markInterrupted/autoResume)与每次 launchPersistedAgentRun 都对每个 run 全读一遍,N 个中断 run = 数百 MB
+// 顺序盘 IO(实测分钟级尾延迟)。seq 由本进程单调分配且按 run 串行 append(agentRunEventChains 写链),
+// 最大 seq 必在尾部;崩溃撕裂只留不完整尾行,regex 扫片段的行为与旧全读逐字节一致(同一 match 语义)。
+// 故:小文件整读;大文件只读尾窗(与 readAgentRunEvents 同阈值);窗内一个 seq 都找不到(极端:单行大于窗,
+// seq 前缀在窗外)→ 回落全读保正确。
 async function syncRunEventSeq(run) {
-  try {
-    const raw = await fsp.readFile(agentRunEventsFile(run.sessionId, run.id), 'utf8');
+  const scanMax = raw => {
     let maxSeq = 0;
     for (const line of raw.split('\n')) {
       const t = line.trim(); if (!t) continue;
       const m = t.match(/"seq":(\d+)/); if (m) { const s = Number(m[1]); if (s > maxSeq) maxSeq = s; }
     }
+    return maxSeq;
+  };
+  const file = agentRunEventsFile(run.sessionId, run.id);
+  try {
+    const { size } = await fsp.stat(file);
+    if (size > AGENT_RUN_EVENTS_TAIL_BYTES) {
+      let fh = null;
+      try {
+        fh = await fsp.open(file, 'r');
+        const buf = Buffer.alloc(AGENT_RUN_EVENTS_TAIL_BYTES);
+        const { bytesRead } = await fh.read(buf, 0, AGENT_RUN_EVENTS_TAIL_BYTES, size - AGENT_RUN_EVENTS_TAIL_BYTES);
+        const maxSeq = scanMax(buf.toString('utf8', 0, bytesRead));
+        if (maxSeq > 0) { if (maxSeq > (Number(run.eventSeq) || 0)) run.eventSeq = maxSeq; return; }
+      } finally { if (fh) await fh.close().catch(() => {}); }
+      // 窗内无 seq(单行大于窗)→ 落下面全读
+    }
+    const raw = await fsp.readFile(file, 'utf8');
+    const maxSeq = scanMax(raw);
     if (maxSeq > (Number(run.eventSeq) || 0)) run.eventSeq = maxSeq;
   } catch { /* 无事件文件 → 无需快进 */ }
 }
@@ -9288,33 +9407,51 @@ function classifyRunResumeTier(run, currentPermissionMode) {
 // 续跑 +1 autoResumeCount 并【先落盘再启动】,护栏写不进盘就不启动(fail-closed —— run 本身可能就是崩溃根因,
 // 无限重启环比不恢复更糟);≥AUTO_RESUME_MAX 次后降 manual。人工 resume 不受此限。
 const AUTO_RESUME_MAX = 2;
+// 第40波:小并发池 —— boot 恢复扫描专用。工作项(run 级)相互独立(写链/事件链按 run.id 串行,live 复检
+// 在决策点即时做),并发只压盘 IO 等待,不改语义。上限 4:盘 IO 并发收益饱和点,再大只增抖动。
+async function mapPool(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
 async function autoResumeInterruptedRuns() {
   let config; try { config = await readConfig(); } catch { return; }
   if (config.autonomyAutoResume !== true) return;
   let sessionDirs = []; try { sessionDirs = await fsp.readdir(paths.agentRuns, { withFileTypes: true }); } catch { return; }
-  for (const dirent of sessionDirs) {
-    if (!dirent.isDirectory() || !safeSessionId(dirent.name)) continue;
+  // 第40波:先并发收集全部 (sessionId, interruptedRun) 工作项,再池化处理 —— 旧顺序 for 的每 run 成本
+  // (事件文件读 + 快照写)叠加成分钟级尾延迟。launchPersistedAgentRun 是 void 派发(不等 run 完成),
+  // 并发不会串起引擎进程尖峰(顺序循环的启动本来也就是背靠背)。
+  const workItems = [];
+  await mapPool(sessionDirs.filter(d => d.isDirectory() && safeSessionId(d.name)), 4, async dirent => {
     const runs = await listAgentRuns(dirent.name).catch(() => []);
-    for (const run of runs) {
-      if (!run || run.status !== 'interrupted') continue;
+    for (const run of runs) if (run && run.status === 'interrupted') workItems.push({ sessionId: dirent.name, run });
+  });
+  await mapPool(workItems, 4, async ({ sessionId, run }) => {
       // 对抗轮 P2(#2): boot 自动恢复与 HTTP 服务并发 —— 用户在 UI 重连后手动 resume 同一 run,已注册 live 并开始
       // append 事件;此处若继续用手里这份【陈旧对象】append(seq 与 live 对象重号,破坏严格单调硬承诺 + 客户端按
       // seq 去重静默吞一条)、saveAgentRun(把 interrupted 时代节点状态覆盖 live 最新快照,崩溃后二次重放)就出错。
       // listAgentRuns 到本次处理之间有 syncRunEventSeq 等 await 窗口,故【每个 run append/save 前】即时复检 live 注册:
       // 已 live = 用户/上一轮已接管,跳过(launchPersistedAgentRun 的 9345 has 守卫只拦启动,拦不住这些前置写)。
-      if (activeAgentRuns.has(run.id)) continue;
+      if (activeAgentRuns.has(run.id)) return;
       const cls = classifyRunResumeTier(run, config.permissionMode);
       const attempts = Number(run.autoResumeCount) || 0;
       await syncRunEventSeq(run); // 装载点纪律:append 前快进(见 syncRunEventSeq 注释)
-      if (activeAgentRuns.has(run.id)) continue; // syncRunEventSeq 的 await 后再复检一次(窗口内可能刚被手动 resume 接管)
+      if (activeAgentRuns.has(run.id)) return; // syncRunEventSeq 的 await 后再复检一次(窗口内可能刚被手动 resume 接管)
       if (cls.tier === 'auto_resumable' && attempts < AUTO_RESUME_MAX) {
         run.autoResumeCount = attempts + 1;
         run.resumeTier = 'auto_resumable'; run.resumeTierReasons = [];
         appendAgentRunEvent(run, { type: 'run_auto_resume', data: { attempt: run.autoResumeCount } });
         let guardPersisted = true;
         try { await saveAgentRun(run); } catch { guardPersisted = false; }
-        if (!guardPersisted) continue; // fail-closed: 崩溃环护栏没落盘,不自动续跑
-        await launchPersistedAgentRun({ sessionId: dirent.name, runId: run.id }).catch(() => {});
+        if (!guardPersisted) return; // fail-closed: 崩溃环护栏没落盘,不自动续跑
+        await launchPersistedAgentRun({ sessionId, runId: run.id, configOverride: config }).catch(() => {});
       } else {
         run.resumeTier = 'manual_resume_required';
         run.resumeTierReasons = (cls.tier === 'auto_resumable') ? [{ nodeId: '', reason: 'auto_resume_loop' }] : cls.reasons;
@@ -9322,16 +9459,18 @@ async function autoResumeInterruptedRuns() {
         appendAgentRunEvent(run, { type: 'run_resume_deferred', data: { tier: run.resumeTier, reasons: run.resumeTierReasons } });
         await saveAgentRun(run).catch(() => {});
       }
-    }
-  }
+  });
 }
 async function markInterruptedAgentRuns() {
   let bootConfig = null; try { bootConfig = await readConfig(); } catch { /* 分级戳降级为跳过,标死不受影响 */ }
   let sessionDirs = []; try { sessionDirs = await fsp.readdir(paths.agentRuns, { withFileTypes: true }); } catch { return; }
-  for (const dirent of sessionDirs) {
-    if (!dirent.isDirectory() || !safeSessionId(dirent.name)) continue;
-    const runs = await listAgentRuns(dirent.name);
-    for (const run of runs) {
+  // 第40波:与 autoResumeInterruptedRuns 同款并发化 —— 先并发收集 (sessionId, run) 工作项再池化处理。
+  const workItems = [];
+  await mapPool(sessionDirs.filter(d => d.isDirectory() && safeSessionId(d.name)), 4, async dirent => {
+    const runs = await listAgentRuns(dirent.name).catch(() => []);
+    for (const run of runs) if (run) workItems.push(run);
+  });
+  await mapPool(workItems, 4, async run => {
       // 团队模式 v2: waiting_pool(收尾宽限窗)也是活跃 live 态,进程重启后同样是"未清理的孤儿",一并标中断。
       // 对抗轮 P3: paused run 不标中断(resume 仍可续跑),但内存邮箱同样已随进程消失——未投递消息补标 dropped,
       // 否则 UI 邮箱时间线里这些消息永远显示"待投递"(与 P3-1 诚实标记原则对齐)。
@@ -9341,9 +9480,9 @@ async function markInterruptedAgentRuns() {
         // 29b 顺手修(测绘发现): boot 期间快照写失败(磁盘满/杀软锁)此前会把整个 startServer 炸掉 ——
         // 诚实标记是 best-effort,boot 必须活着;持久化降级横幅由 saveAgentRun 内部计数兜底。下同。
         if (dirty) await saveAgentRun(run).catch(() => {});
-        continue;
+        return;
       }
-      if (run.status !== 'running' && run.status !== 'waiting_pool') continue;
+      if (run.status !== 'running' && run.status !== 'waiting_pool') return;
       run.status = 'interrupted'; run.interruptedAt = nowIso(); run.poolGraceUntil = 0;
       for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = 'auto'; p.decidedAt = nowIso(); }
       // 团队模式 v2 (P3-1): 与池提案 expire 对称——进程重启中断的 run,把从未投递(deliveredAt:null)且未标记的消息补标
@@ -9364,8 +9503,7 @@ async function markInterruptedAgentRuns() {
       await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
-    }
-  }
+  });
 }
 
 async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail }) {
@@ -11292,14 +11430,16 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   };
 }
 
-async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind }) {
+async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
   try { run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null); } catch { run = null; }
   if (!run) return { ok: false, error: 'agent run not found' };
   await syncRunEventSeq(run);   // 对抗轮修: 磁盘装载点快进 eventSeq(见 syncRunEventSeq 注释)
   if (interventionKind) bumpRunIntervention(run, interventionKind); // 29c: 冷 resume/retry_node 是人工干预(boot 自动续跑不传,不计)
-  const config = await readConfig();
+  // 第40波: boot 自动续跑扫到 N 个 run 时,逐个 readConfig 是 N 次盘 IO;调用方(boot sweep)已持有刚读的
+  // config,直接传入。人工 HTTP resume 不传 —— 用户可能刚改完 permissionMode,必须读新鲜值。
+  const config = configOverride || await readConfig();
   const provider = resolveProvider(config, run.providerId) || activeOpenAiProvider(config);
   // Only the nodes that actually need an OpenAI Provider require one to be configured to resume —
   // an all-Claude-engine run resumes fine with none (see the dual-engine note on the launch handler).
@@ -16805,7 +16945,19 @@ async function handleApi(req, res, pathname) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const config = await readConfig();
     try {
-      return send(res, json(await collectStorageStats(config)));
+      const stats = await collectStorageStats(config);
+      await maybeRecordStorageTrend(stats); // 第40波:summary 与 metrics 共用趋势追点(≥1h 节流)
+      return send(res, json(stats));
+    } catch (e) {
+      return send(res, json({ ok: false, error: String(e && e.message || e) }, 500));
+    }
+  }
+  // 第40波:性能观测面(只读;请求耗时环形 + 进程/子进程内存 + 存储趋势)。
+  if (req.method === 'GET' && pathname === '/api/metrics') {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const config = await readConfig();
+    try {
+      return send(res, json(await buildMetricsPayload(config)));
     } catch (e) {
       return send(res, json({ ok: false, error: String(e && e.message || e) }, 500));
     }
@@ -17064,6 +17216,8 @@ async function startServer(opts) {
   const port = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {
+    const reqT0 = Date.now(); // 第40波:请求耗时插桩(res finish 时入账,/health 不计 —— 高频探针会淹没真分布)
+    res.on('finish', () => { try { const u0 = new URL(req.url, 'http://x'); if (u0.pathname !== '/health') recordRequestMetric(req.method, u0.pathname, Date.now() - reqT0); } catch { /* 观测不阻断 */ } });
     try {
       // 第33波:顶层 host 门(DNS-rebinding 防御覆盖全 GET 面 + 静态 /,治第29波 backlog #0)。hostAllowed 之前
       // 只在 originOk(mutating 块)内调用,GET 与 serveStatic 跳过 -> index.html 的 token 可被 rebinding 页读走。
@@ -18067,6 +18221,17 @@ module.exports = {
   collectStorageStats,
   storageSweep,
   readAgentRunEvents,
+  // 第40波:boot 恢复并发化 + syncRunEventSeq 尾窗化 — exposed for e2e(尾窗/全读回落/池语义直测)。
+  syncRunEventSeq,
+  mapPool,
+  autoResumeInterruptedRuns,
+  markInterruptedAgentRuns,
+  // 第40波:性能观测面 — exposed for e2e(路径归一化/直方图分桶/趋势节流直测)。
+  recordRequestMetric,
+  normalizeMetricsPath,
+  maybeRecordStorageTrend,
+  readStorageTrend,
+  buildMetricsPayload,
   // v1.9 会话存储 v2 + 引擎转录 GC — exposed for e2e(迁移/快路径/撕裂容忍/白名单账本/保留期清理)。
   loadSession,
   saveSession,

@@ -476,6 +476,13 @@
             <label class="storage-policy-row">引擎转录保留天数(0=不清)<input id="storagePolicyTranscriptDays" type="number" min="0" max="365" step="1" /></label>
             <button id="storagePolicySaveBtn" class="mini primary">保存策略</button>
           </div>
+          <!-- 第40波: 性能观测面(GET /api/metrics)。与存储页签同款纪律:打开懒加载一次,不轮询,全 textContent。 -->
+          <div class="debug-head">
+            <label>性能观测</label>
+            <div class="row-actions"><button id="metricsRefreshBtn" class="mini">刷新</button></div>
+          </div>
+          <p class="changes-hint muted">进程内存、请求耗时分布与最慢请求、存储占用趋势。请求分布只统计本进程运行期,重启清零。</p>
+          <div id="metricsPanel" class="storage-panel" aria-live="polite"></div>
         </section>
 
         <pre id="toolOutput" class="tool-output"></pre>
