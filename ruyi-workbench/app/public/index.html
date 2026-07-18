@@ -306,6 +306,7 @@
             <button data-tab="mcp">MCP</button>
             <button data-tab="debug" data-i18n="tool.debug">调试</button>
             <button data-tab="doctor">体检</button>
+            <button data-tab="storage">存储</button>
           </span>
         </div>
 
@@ -455,6 +456,25 @@
         <section class="tool-section" id="tab-doctor">
           <button id="refreshDoctorBtn" class="full">刷新体检</button>
           <div id="doctorPanel" class="doctor-panel"></div>
+        </section>
+
+        <section class="tool-section" id="tab-storage">
+          <!-- v1.9 数据管家: 各仓占用一览 + 保留策略 + 手动清理。仅专家页签(DEV_TABS 成员,简易模式
+               switchTab 兜底回 files)。打开页签时懒加载一次(不轮询 —— 与审计页签同款安静纪律);
+               DOM 全 createElement/textContent(app.js renderStorage),XSS 安全。 -->
+          <div class="debug-head">
+            <label>存储管理</label>
+            <div class="row-actions"><button id="storageRefreshBtn" class="mini">刷新</button><button id="storageCleanBtn" class="mini">立即清理</button></div>
+          </div>
+          <p class="changes-hint muted">数据目录各仓占用。「立即清理」按下方策略执行:过期日志删除、终态工作流事件日志压缩归档(仍可读)。检查点有独立的 200MB 自动上限,不在此列。</p>
+          <div id="storageSummary" class="storage-panel" aria-live="polite"></div>
+          <div class="debug-head"><label>保留策略</label></div>
+          <div class="storage-policy">
+            <label class="storage-policy-row">日志保留天数<input id="storagePolicyLogsDays" type="number" min="7" max="365" step="1" /></label>
+            <label class="storage-policy-row">事件日志压缩天数(0=关)<input id="storagePolicyCompressDays" type="number" min="0" max="365" step="1" /></label>
+            <label class="storage-policy-row">网页缓存条目上限(0=不限)<input id="storagePolicyWebcacheMax" type="number" min="0" max="100000" step="100" /></label>
+            <button id="storagePolicySaveBtn" class="mini primary">保存策略</button>
+          </div>
         </section>
 
         <pre id="toolOutput" class="tool-output"></pre>

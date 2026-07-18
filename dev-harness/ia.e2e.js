@@ -10,7 +10,7 @@
 //   ⑤ 顶栏 header.topbar 内无 #capBadge/#themeToggle/#uiModeToggle 作为可见控件迁出（它们仍在 DOM 供 handler 复用，
 //      但被 CSS display:none）；存在 #permChip 与 #moreMenuBtn。
 //   ⑥ #permSelect 仍在 DOM。
-//   ⑦ styles.css 简易模式隐藏规则覆盖开发者组五页签（powershell/desktop/mcp/debug/doctor）。
+//   ⑦ styles.css 简易模式隐藏规则覆盖开发者组六页签（powershell/desktop/mcp/debug/doctor/storage）。
 //
 // 动态断言（临时 HOME 起服务）:
 //   ⑧ 全新 HOME 首启后 config.uiMode === 'simple'（新装默认简易）。
@@ -80,8 +80,8 @@ function between(hay, startNeedle, endNeedle) {
     const ti = toolTabs.indexOf(`data-tab="${t}"`);
     ok(ti >= 0 && ti < devIdx, `① 常驻页签 ${t} 在开发者组之前`);
   }
-  // 开发者组内含 powershell/desktop/mcp/debug/doctor 五个，且都在 dev 组标记之后。
-  for (const t of ['powershell', 'desktop', 'mcp', 'debug', 'doctor']) {
+  // 开发者组内含 powershell/desktop/mcp/debug/doctor/storage 六个(v1.9 数据管家增「存储」),且都在 dev 组标记之后。
+  for (const t of ['powershell', 'desktop', 'mcp', 'debug', 'doctor', 'storage']) {
     const ti = toolTabs.indexOf(`data-tab="${t}"`);
     ok(ti > devIdx, `① 开发者页签 ${t} 在开发者组内`);
   }
@@ -118,12 +118,12 @@ function between(hay, startNeedle, endNeedle) {
   // ════════════ ⑥ #permSelect 仍在 DOM ════════════
   ok(/id="permSelect"/.test(html), '⑥ #permSelect 仍在 DOM');
 
-  // ════════════ ⑦ 简易模式隐藏规则覆盖开发者组五页签 ════════════
+  // ════════════ ⑦ 简易模式隐藏规则覆盖开发者组六页签 ════════════
   // 收集所有 [data-ui-mode="simple"] .tool-tabs button[data-tab="X"] 选择器命中的 X。
   const simpleHidden = new Set();
   const re = /\[data-ui-mode="simple"\]\s*\.tool-tabs\s*button\[data-tab="([a-z]+)"\]/g;
   let m; while ((m = re.exec(css))) simpleHidden.add(m[1]);
-  for (const t of ['powershell', 'desktop', 'mcp', 'debug', 'doctor']) {
+  for (const t of ['powershell', 'desktop', 'mcp', 'debug', 'doctor', 'storage']) {
     ok(simpleHidden.has(t), `⑦ 简易模式隐藏开发者页签 ${t}`);
   }
 

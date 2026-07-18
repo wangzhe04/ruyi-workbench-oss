@@ -1306,13 +1306,14 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
   /* +1px base font — a small, calm density bump for the 人人可用 surface. */
   font-size: 15px;
 }
-/* v1.0-S2 (IA): 简易模式隐藏整个开发者组页签（终端/桌面/MCP/调试/体检）+ 组分隔标，
-   侧栏只剩常驻组（文件/产物/审计）。原仅藏 debug/mcp 两个的规则扩为五个。 */
+/* v1.0-S2 (IA): 简易模式隐藏整个开发者组页签（终端/桌面/MCP/调试/体检/存储）+ 组分隔标，
+   侧栏只剩常驻组（文件/产物/审计）。原仅藏 debug/mcp 两个的规则扩为五个(v1.9 数据管家再补「存储」第六个)。 */
 :root[data-ui-mode="simple"] .tool-tabs button[data-tab="powershell"],
 :root[data-ui-mode="simple"] .tool-tabs button[data-tab="desktop"],
 :root[data-ui-mode="simple"] .tool-tabs button[data-tab="mcp"],
 :root[data-ui-mode="simple"] .tool-tabs button[data-tab="debug"],
 :root[data-ui-mode="simple"] .tool-tabs button[data-tab="doctor"],
+:root[data-ui-mode="simple"] .tool-tabs button[data-tab="storage"],
 :root[data-ui-mode="simple"] .tool-tabs .tool-tabs-sep { display: none; }
 /* v3 (§B2): 简易模式常驻页签 6→4 —— 另隐藏「用量」「审计」按钮(改从「AI 工作」面板顶部的 mini 链接进入)。
    这两页签不在 DEV_TABS,switchTab 不拦截,mini 链接与 JS 兜底可正常切到;agent-runs 文案由 JS 改「AI 工作」。 */
@@ -1753,6 +1754,24 @@ button.ghost-danger:hover { background: color-mix(in srgb, var(--danger) 12%, tr
 .audit-row.open .audit-caret { transform: rotate(90deg); }
 .audit-detail { padding: 8px 10px; margin: 0; background: var(--panel-2); border-top: 1px solid var(--line);
   font-family: var(--mono); font-size: var(--fs-xs); white-space: pre-wrap; word-break: break-all; max-height: 40vh; overflow: auto; }
+
+/* v1.9 数据管家: 存储管理(专家页签「存储」) */
+.storage-panel { font-size: var(--fs-md); }
+.storage-total { display: flex; align-items: baseline; justify-content: space-between; padding: 8px 10px; margin-bottom: 8px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); }
+.storage-total-label { font-weight: 600; color: var(--ink); }
+.storage-total-value { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.storage-table { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); overflow: hidden; }
+.storage-row { display: flex; align-items: baseline; gap: 8px; padding: 5px 10px; border-bottom: 1px solid var(--line); }
+.storage-row:last-child { border-bottom: 0; }
+.storage-name { flex: 1; min-width: 0; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.storage-bytes { flex: none; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.storage-files { flex: none; font-size: var(--fs-xs); }
+.storage-note { padding: 6px 2px 0; font-size: var(--fs-xs); line-height: 1.6; }
+.storage-policy { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.storage-policy-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: var(--fs-md); color: var(--ink-2); }
+.storage-policy-row input { width: 110px; flex: none; }
+.storage-policy .mini { align-self: flex-end; }
 
 /* workspace confirm / chooser sheet (folder-drag) */
 .ws-confirm { display: flex; flex-direction: column; gap: 10px; }

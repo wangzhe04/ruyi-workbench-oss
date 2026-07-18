@@ -5131,6 +5131,103 @@ function formatAuditTime(ts) {
   return d.toLocaleString(getLocale());
 }
 
+/* ---------------- v1.9 数据管家: 存储管理(专家页签「存储」) ---------------- */
+// 各仓占用一览(GET /api/storage/summary) + 保留策略表单(POST /api/storage/policy) + 手动清理
+// (POST /api/storage/clean)。与审计页签同款纪律:打开时懒加载一次,不轮询;DOM 全 createElement/
+// textContent。检查点仓有独立 200MB 上限(journal GC),本面板只展示不动它。
+const storageState = { loaded: false, loading: false, data: null };
+const STORAGE_STORE_LABELS = {
+  logs: '日志', sessions: '会话', checkpoints: '检查点', agentRuns: '工作流运行', webcache: '网页缓存',
+  uploads: '上传附件', usage: '用量台账', memory: '记忆库', playbooks: 'Playbook', skills: '技能',
+  generated: '生成物', agentWorkflows: '工作流模板', agentWorktrees: '隔离工作树',
+};
+function fmtBytes(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return n + ' B';
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let v = n / 1024, i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) + ' ' + units[i];
+}
+function applyStoragePolicyToForm(policy) {
+  if (!policy) return;
+  const a = $('storagePolicyLogsDays'), b = $('storagePolicyCompressDays'), c = $('storagePolicyWebcacheMax');
+  if (a) a.value = policy.logsKeepDays;
+  if (b) b.value = policy.agentRunEventsCompressDays;
+  if (c) c.value = policy.webcacheMaxEntries;
+}
+async function loadStorage() {
+  if (storageState.loading) return;
+  storageState.loading = true;
+  const host = $('storageSummary');
+  if (host && !storageState.loaded) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', '正在统计各仓占用…')); }
+  try {
+    const res = await api('/api/storage/summary');
+    storageState.data = res; storageState.loaded = true;
+    applyStoragePolicyToForm(res && res.policy);
+  } catch (e) {
+    storageState.data = null; storageState.loaded = true;
+    if (host) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', '存储统计加载失败:' + apiErrText(e))); }
+    storageState.loading = false;
+    return;
+  }
+  storageState.loading = false;
+  renderStorage(storageState.data);
+}
+function renderStorage(data) {
+  const host = $('storageSummary'); if (!host) return;
+  host.textContent = '';
+  if (!data || data.ok === false) { host.appendChild(el('div', 'audit-empty', '存储统计不可用')); return; }
+  const total = el('div', 'storage-total');
+  total.appendChild(el('span', 'storage-total-label', '数据目录总计'));
+  total.appendChild(el('span', 'storage-total-value', fmtBytes(data.totalBytes)));
+  host.appendChild(total);
+  const table = el('div', 'storage-table');
+  const stores = data.stores || {};
+  for (const key of Object.keys(STORAGE_STORE_LABELS)) {
+    const s = stores[key]; if (!s) continue;
+    const row = el('div', 'storage-row');
+    row.appendChild(el('span', 'storage-name', STORAGE_STORE_LABELS[key]));
+    row.appendChild(el('span', 'storage-bytes', fmtBytes(s.bytes) + (s.truncated ? '+' : '')));
+    row.appendChild(el('span', 'storage-files muted', String(s.files) + ' 个文件'));
+    table.appendChild(row);
+  }
+  host.appendChild(table);
+  if (data.engineTranscripts) {
+    const et = data.engineTranscripts;
+    host.appendChild(el('div', 'storage-note muted',
+      `引擎转录(Claude CLI 自管目录,仅供参考,不在自动清理范围): ${fmtBytes(et.bytes)} / ${et.files} 个文件`));
+  }
+  if (data.sweep && data.sweep.lastAt) {
+    const last = data.sweep.lastResult || {};
+    host.appendChild(el('div', 'storage-note muted',
+      `上次清理: ${formatAuditTime(data.sweep.lastAt)} · 释放 ${fmtBytes(last.freedBytes || 0)}(${last.actions || 0} 项)`));
+  }
+}
+async function saveStoragePolicy() {
+  const body = {
+    logsKeepDays: Number($('storagePolicyLogsDays') && $('storagePolicyLogsDays').value),
+    agentRunEventsCompressDays: Number($('storagePolicyCompressDays') && $('storagePolicyCompressDays').value),
+    webcacheMaxEntries: Number($('storagePolicyWebcacheMax') && $('storagePolicyWebcacheMax').value),
+  };
+  try {
+    const r = await api('/api/storage/policy', { method: 'POST', body: JSON.stringify(body) });
+    applyStoragePolicyToForm(r && r.policy); // 回显服务端 clamp 后的真实值
+    toast('保留策略已保存', 'ok');
+  } catch (e) { toast('保存策略失败:' + apiErrText(e), 'err'); }
+}
+async function cleanStorage() {
+  const btn = $('storageCleanBtn'); if (btn) btn.disabled = true;
+  try {
+    const r = await api('/api/storage/clean', { method: 'POST', body: JSON.stringify({ target: 'all' }) });
+    const n = Array.isArray(r && r.actions) ? r.actions.length : 0;
+    toast(n ? `清理完成: 释放 ${fmtBytes(r.freedBytes)}(${n} 项)` : '没有需要清理的内容', 'ok');
+  } catch (e) { toast('清理失败:' + apiErrText(e), 'err'); }
+  if (btn) btn.disabled = false;
+  storageState.loaded = false;
+  loadStorage();
+}
+
 /* ---------------- v1.0.2 (G1): 变更中心 (change/rollback center) ---------------- */
 // GET /api/checkpoints?sessionId=<id> → {ok, entries:[{turnSeq, entrySeq, tool, path, op, bytes, skipped?, ts}], totalBytes}.
 // Group by file path; within a file, newest checkpoint first (time desc). Each revertible entry gets a
@@ -7537,7 +7634,7 @@ function switchSettingsTab(name, force) {
 // v1.3-FE1:autoGrow 已搬入 ./js/util.js(纯 DOM 尺寸计算,顶部 import 取回);调用点(sendPrompt/boot 等)不变。
 
 // v1.0-S2 (IA): 开发者组页签集合（简易模式全部隐藏；JS 兜底切回 files）。
-const DEV_TABS = new Set(['powershell', 'desktop', 'mcp', 'debug', 'doctor']);
+const DEV_TABS = new Set(['powershell', 'desktop', 'mcp', 'debug', 'doctor', 'storage']);
 // v1.0-S2 (IA): #toolOutput 全局原始输出槽只在这些页签下可见——常驻组(文件/产物/审计)有各自的预览区，
 // 不该冒无关原始输出；文件/终端/桌面/MCP 的搜索/读取/运行确实写入此槽。简易模式一律隐藏（CSS 兜底）。
 const TOOLOUT_TABS = new Set(['powershell', 'files', 'desktop', 'mcp']);
@@ -7562,6 +7659,8 @@ function switchTab(tab) {
   if (tab === 'audit') { if (!auditState.loaded) loadAudit(); else renderAuditList(); }
   // 用量看板：打开时才拉取（懒加载，同审计）。已加载则用缓存重绘，避免重复请求；刷新/切范围会强制重拉。
   if (tab === 'usage') { if (!usageState.loaded) loadUsage(); else renderUsage(usageState.data); }
+  // v1.9 数据管家: 存储页签同款懒加载(不轮询,打开时一次性统计;手动「刷新」重拉)。
+  if (tab === 'storage') { if (!storageState.loaded) loadStorage(); else renderStorage(storageState.data); }
   if (tab === 'agent-runs') loadAgentWorkflows();
   if (tab === 'debug') renderRawEventSnapshot();
   updateAgentRunsPolling(tab);
@@ -7795,6 +7894,10 @@ function bindEvents() {
   // v0.9-S8 (§4 B4): audit tab — refresh re-pulls (resets loaded so loadAudit re-fetches); filters are
   // client-side over the already-fetched list (instant, no re-fetch).
   { const au = $('auditRefreshBtn'); if (au) au.onclick = () => { auditState.loaded = false; loadAudit(); }; }
+  // v1.9 数据管家: 存储页签 —— 刷新强制重拉;「立即清理」按当前策略全目标 sweep 后重绘。
+  { const sr = $('storageRefreshBtn'); if (sr) sr.onclick = () => { storageState.loaded = false; loadStorage(); }; }
+  { const sc = $('storageCleanBtn'); if (sc) sc.onclick = cleanStorage; }
+  { const sp = $('storagePolicySaveBtn'); if (sp) sp.onclick = saveStoragePolicy; }
   { const asf = $('auditSourceFilter'); if (asf) asf.onchange = renderAuditList; }
   { const atf = $('auditTypeFilter'); if (atf) atf.oninput = renderAuditList; }
   $('searchBtn').onclick = () => runTool('file_search', { root: currentWorkspace(), pattern: $('searchPattern').value || 'TODO|FIXME', maxResults: 200 });

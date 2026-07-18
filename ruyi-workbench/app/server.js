@@ -430,6 +430,10 @@ function defaultConfig() {
     // exec→强)。默认关=零行为变化(未指定即继承)。AI 编排者【显式】设的 model 始终优先且不受此开关影响 ——
     // 本开关只管"AI 没设时后端要不要替它按 tier 挑一个"。
     agentAutoModelTiering: false,
+    // v1.9 数据管家: 保留策略(专家界面「存储」页签可配)。默认保守:logs 按文件名日期保 30 天;
+    // 真终态 run 的事件日志 14 天后 gzip(仍可读,体积 ÷~10);webcache 默认【不】自动清 —— v0.9-S9
+    // 的设计承诺是"离线无价,旧副本仍有用",条目上限留作用户 opt-in(0=不限)。
+    storagePolicy: { logsKeepDays: 30, agentRunEventsCompressDays: 14, webcacheMaxEntries: 0 },
     turnIdleTimeoutMs: 600000,    // watchdog: kill a turn idle (no events) longer than this
     // --- v0.4.4: model list discovery ---
     knownModels: [],              // models actually selected/used — remembered so they stay in the list
@@ -651,6 +655,12 @@ function normalizeConfig(raw) {
   config.monitorIncremental = config.monitorIncremental !== false;
   config.autonomyAutoResume = config.autonomyAutoResume === true;
   config.agentAutoModelTiering = config.agentAutoModelTiering === true; // 第30波:后端按 tier 兜底挑模型(opt-in,默认关)
+  // v1.9 数据管家: 保留策略归一(逐项 clamp,见 normalizeStoragePolicy)。
+  {
+    const sp = normalizeStoragePolicy(config.storagePolicy);
+    if (JSON.stringify(sp) !== JSON.stringify(config.storagePolicy)) { config.storagePolicy = sp; changed = true; }
+    else config.storagePolicy = sp;
+  }
   // Model lists must be arrays of strings; knownModels is capped so it can't grow unbounded.
   for (const k of ['knownModels', 'extraModels']) {
     if (!Array.isArray(config[k]) || config[k].some(a => typeof a !== 'string')) {
@@ -1842,6 +1852,9 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/checkpoints/', auth: 'token', prefix: true },
   { m: 'GET', p: '/api/file/preview', auth: 'token' },
   { m: 'GET', p: '/api/audit', auth: 'token' },
+  { m: 'GET', p: '/api/storage/summary', auth: 'token' },
+  { m: 'POST', p: '/api/storage/policy', auth: 'token' },
+  { m: 'POST', p: '/api/storage/clean', auth: 'token' },
 ];
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;
@@ -5805,6 +5818,175 @@ async function buildOpsMetrics(days) {
   return out;
 }
 
+// ============================================================================
+// v1.9 数据管家(Storage Steward)—— 统一保留策略 + 各仓占用统计(专家界面「存储」页签)。
+// 纪律与 journal GC 同源:safety-net,不是闸门 —— 任何清理失败静默(best-effort),绝不阻塞主流程;
+// 清理决策永远基于真实磁盘状态,无缓存猜测。默认策略保守:
+//   logs                 按【文件名日期】保 N 天(确定性,不依赖可被备份工具改写的 mtime)。
+//   agent-runs 事件日志  真终态 run 超 N 天 gzip 归档(仍可读,体积 ÷~10)。只压 STORAGE_ARCHIVE_TERMINAL:
+//                        interrupted 可续跑(恢复时 syncRunEventSeq 要读原文)、paused 等人、running 活着,一律不碰。
+//   webcache             默认【不】自动清 —— v0.9-S9 的设计承诺"离线无价,旧副本仍有用",自动 TTL 会违背它;
+//                        条目上限(LRU 按 mtime)留作用户 opt-in(0=不限)。
+// 引擎转录(~/.claude/projects)本波只【统计展示】,不做 GC(P-B 后续,红线:绝不碰非本工作台 spawn 的转录)。
+// ============================================================================
+const STORAGE_STEWARD = { sweeping: false, lastAt: null, lastResult: null };
+const STORAGE_ARCHIVE_TERMINAL = new Set(['completed', 'failed', 'stopped', 'cancelled']);
+
+function normalizeStoragePolicy(raw) {
+  const r = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+  const clampInt = (v, lo, hi, dflt) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : dflt; };
+  return {
+    logsKeepDays: clampInt(r.logsKeepDays, 7, 365, 30),
+    agentRunEventsCompressDays: clampInt(r.agentRunEventsCompressDays, 0, 365, 14),
+    webcacheMaxEntries: clampInt(r.webcacheMaxEntries, 0, 100000, 0),
+  };
+}
+
+// 递归占用统计(字节 + 文件数)。cap 防爆(异常巨大的树截断并标记,不拖死请求);任何节点读不到即跳过,
+// 整体永不抛 —— 统计是展示辅助,不是审计依据。
+async function dirStat(dir, cap = 100000) {
+  const out = { bytes: 0, files: 0, truncated: false };
+  async function walk(d) {
+    if (out.files >= cap) { out.truncated = true; return; }
+    const ents = await fsp.readdir(d, { withFileTypes: true }).catch(() => []);
+    for (const ent of ents) {
+      if (out.files >= cap) { out.truncated = true; return; }
+      const p = path.join(d, ent.name);
+      if (ent.isDirectory()) await walk(p);
+      else { const st = await fsp.stat(p).catch(() => null); if (st) { out.bytes += st.size; out.files++; } }
+    }
+  }
+  await walk(dir);
+  return out;
+}
+
+async function collectStorageStats(config) {
+  const defs = [
+    ['logs', paths.logs], ['sessions', paths.sessions], ['checkpoints', paths.checkpoints],
+    ['agentRuns', paths.agentRuns], ['webcache', paths.webcache], ['uploads', paths.uploads],
+    ['usage', paths.usage], ['memory', paths.memory], ['playbooks', paths.playbooks],
+    ['skills', paths.skills], ['generated', paths.generated], ['agentWorkflows', paths.agentWorkflows],
+    ['agentWorktrees', paths.agentWorktrees],
+  ];
+  const stores = {}; let totalBytes = 0;
+  for (const [key, dir] of defs) { const s = await dirStat(dir); stores[key] = s; totalBytes += s.bytes; }
+  // 引擎转录(claude CLI 的 ~/.claude/projects):只读统计;e2e 的 USERPROFILE/HOME 重定向下 os.homedir()
+  // 在子进程里已被改写,天然跟随夹具。读不到 = null(非本机 CLI 用户/无转录),前端省略该行。
+  let engineTranscripts = null;
+  try {
+    const d = path.join(os.homedir(), '.claude', 'projects');
+    const s = await dirStat(d);
+    if (s.files > 0) engineTranscripts = { path: d, ...s };
+  } catch { /* no engine transcripts */ }
+  return {
+    ok: true,
+    dataRoot: paths.data,
+    stores,
+    totalBytes,
+    engineTranscripts,
+    policy: normalizeStoragePolicy(config && config.storagePolicy),
+    sweep: { running: STORAGE_STEWARD.sweeping, lastAt: STORAGE_STEWARD.lastAt, lastResult: STORAGE_STEWARD.lastResult },
+  };
+}
+
+// logs 保留:workbench-YYYY-MM-DD.ndjson 按文件名日期与 cutoff 字典序比较(零填充日期可序)。
+async function sweepLogsStore(policy, result) {
+  const keep = policy.logsKeepDays;
+  const cutoff = new Date(Date.now() - keep * 86400000).toISOString().slice(0, 10);
+  let files = [];
+  try { files = await fsp.readdir(paths.logs); } catch { return; }
+  for (const f of files) {
+    const m = /^workbench-(\d{4}-\d{2}-\d{2})\.ndjson$/.exec(f);
+    if (!m || m[1] >= cutoff) continue;
+    const p = path.join(paths.logs, f);
+    const st = await fsp.stat(p).catch(() => null);
+    await fsp.unlink(p).catch(() => {});
+    if (st) { result.freedBytes += st.size; result.actions.push({ store: 'logs', action: 'delete', detail: f, bytes: st.size }); }
+  }
+}
+
+// 终态 run 事件日志 gzip 归档:<runId>.events.ndjson → .events.ndjson.gz(tmp+rename 原子替换后再删原文;
+// 崩溃在 rename 与 unlink 之间 → 下次 sweep 见 .gz 已存在,补删原文即可,幂等)。
+async function sweepAgentRunEventsStore(policy, result) {
+  const days = policy.agentRunEventsCompressDays;
+  if (days <= 0) return;
+  const cutoffMs = Date.now() - days * 86400000;
+  let sessionDirs = [];
+  try { sessionDirs = await fsp.readdir(paths.agentRuns, { withFileTypes: true }); } catch { return; }
+  for (const dirent of sessionDirs) {
+    if (!dirent.isDirectory() || !safeSessionId(dirent.name)) continue;
+    const dir = path.join(paths.agentRuns, dirent.name);
+    let files = [];
+    try { files = await fsp.readdir(dir); } catch { continue; }
+    for (const f of files) {
+      const m = /^(run_[A-Za-z0-9_-]+)\.json$/.exec(f);
+      if (!m) continue;
+      const runId = m[1];
+      let run = null;
+      try { run = safeJsonParse(await fsp.readFile(path.join(dir, f), 'utf8'), null); } catch { continue; }
+      if (!run || !STORAGE_ARCHIVE_TERMINAL.has(String(run.status || ''))) continue;
+      let basis = Date.parse(run.updatedAt || run.completedAt || '');
+      if (!Number.isFinite(basis)) { const st = await fsp.stat(path.join(dir, f)).catch(() => null); basis = st ? st.mtimeMs : NaN; }
+      if (!Number.isFinite(basis) || basis > cutoffMs) continue;
+      const eventsFile = path.join(dir, `${runId}.events.ndjson`);
+      const gzFile = eventsFile + '.gz';
+      const gzTmp = gzFile + '.tmp'; // 单一 tmp 名(tmp+rename 原子替换;崩溃留 .tmp 孤儿由 catch 清理)
+      const st = await fsp.stat(eventsFile).catch(() => null);
+      if (!st || st.size === 0) continue;
+      try {
+        if (!fs.existsSync(gzFile)) {
+          const gz = zlib.gzipSync(await fsp.readFile(eventsFile));
+          await fsp.writeFile(gzTmp, gz);
+          await fsp.rename(gzTmp, gzFile);
+        }
+        await fsp.unlink(eventsFile);
+        const gzSize = (await fsp.stat(gzFile).catch(() => null) || {}).size || 0;
+        result.freedBytes += Math.max(0, st.size - gzSize);
+        result.actions.push({ store: 'agentRuns', action: 'gzip', detail: `${dirent.name}/${runId}.events.ndjson`, bytes: Math.max(0, st.size - gzSize) });
+      } catch { await fsp.unlink(gzTmp).catch(() => {}); /* best-effort: 下次 sweep 重试 */ }
+    }
+  }
+}
+
+// webcache LRU:超上限按 mtime 删最旧(默认 0=不限,尊重"离线无价"设计,仅用户 opt-in 生效)。
+async function sweepWebcacheStore(policy, result) {
+  const max = policy.webcacheMaxEntries;
+  if (max <= 0) return;
+  let files = [];
+  try { files = (await fsp.readdir(paths.webcache)).filter(f => f.endsWith('.json')); } catch { return; }
+  if (files.length <= max) return;
+  const withMtime = [];
+  for (const f of files) {
+    const st = await fsp.stat(path.join(paths.webcache, f)).catch(() => null);
+    if (st) withMtime.push({ f, mtime: st.mtimeMs, size: st.size });
+  }
+  withMtime.sort((a, b) => a.mtime - b.mtime);
+  for (const victim of withMtime.slice(0, Math.max(0, withMtime.length - max))) {
+    await fsp.unlink(path.join(paths.webcache, victim.f)).catch(() => {});
+    result.freedBytes += victim.size;
+    result.actions.push({ store: 'webcache', action: 'delete', detail: victim.f, bytes: victim.size });
+  }
+}
+
+// 统一 sweep 入口:boot 自动(全目标) + POST /api/storage/clean(可单目标)。进程内串行(并发第二
+// 次调用直接拒绝);结果留痕 STORAGE_STEWARD 并落审计账。targets=null 表示全部。
+async function storageSweep(policy, targets = null) {
+  if (STORAGE_STEWARD.sweeping) return { ok: false, error: 'sweep already running' };
+  STORAGE_STEWARD.sweeping = true;
+  const result = { ok: true, freedBytes: 0, actions: [] };
+  try {
+    const p = normalizeStoragePolicy(policy);
+    const want = k => !targets || targets.has(k);
+    if (want('logs')) await sweepLogsStore(p, result);
+    if (want('agent-runs')) await sweepAgentRunEventsStore(p, result);
+    if (want('webcache')) await sweepWebcacheStore(p, result);
+    STORAGE_STEWARD.lastAt = nowIso();
+    STORAGE_STEWARD.lastResult = { freedBytes: result.freedBytes, actions: result.actions.length };
+    if (result.actions.length) logEvent({ kind: 'storage_sweep', freedBytes: result.freedBytes, actions: result.actions.slice(0, 20) });
+  } finally { STORAGE_STEWARD.sweeping = false; }
+  return result;
+}
+
 // Pull the desktop MCP's audit tail via the live ai-computer-control bridge, if present. Returns
 // { entries, available }: available=false means the bridge isn't live or the call failed (degraded — the
 // caller marks sources.desktop='unavailable' and simply omits desktop rows; never an error).
@@ -8539,7 +8721,14 @@ async function readAgentRunEvents(sessionId, runId, afterSeq, limit) {
   const finish = matched => { matched.sort((a, b) => Number(a.seq) - Number(b.seq)); return { events: matched.slice(0, cap), hasMore: matched.length > cap }; };
   const fullRead = async () => { let raw = ''; try { raw = await fsp.readFile(file, 'utf8'); } catch { return { events: [], hasMore: false }; } return finish(parseEventWindow(raw, floor, false).matched); };
   let size = -1;
-  try { size = (await fsp.stat(file)).size; } catch { return { events: [], hasMore: false }; } // 无文件 = 无事件
+  try { size = (await fsp.stat(file)).size; } catch {
+    // v1.9 数据管家:事件日志可能已被 gzip 归档(<file>.gz,仅真终态 run)。归档文件不再增长,无尾窗
+    // 需求,整体 gunzip 后按全读路径解析;读不到 = 无事件(与原"无文件"语义一致)。
+    try {
+      const raw = zlib.gunzipSync(await fsp.readFile(file + '.gz')).toString('utf8');
+      return finish(parseEventWindow(raw, floor, false).matched);
+    } catch { return { events: [], hasMore: false }; }
+  }
   if (size <= AGENT_RUN_EVENTS_TAIL_BYTES) return fullRead(); // 小文件整读(恒完整,便宜)
   // 大文件:先只读尾窗;窗回溯到 afterSeq+1 即完整,否则回落全读。
   let fh = null;
@@ -16041,6 +16230,7 @@ async function handleApi(req, res, pathname) {
       // 对抗轮修(第25波): 删除快照必须连带删姊妹事件日志 —— 用户删「运行记录」的心智模型是数据消失,
       // 取证 ndjson(含时间线/错误切片)不该在删除后无限期残留。
       await fsp.unlink(agentRunEventsFile(sessionId, runId)).catch(() => {});
+      await fsp.unlink(agentRunEventsFile(sessionId, runId) + '.gz').catch(() => {}); // v1.9 数据管家: 归档压缩变体一并删
     } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
     return send(res, json({ ok: true }));
   }
@@ -16245,6 +16435,40 @@ async function handleApi(req, res, pathname) {
     } catch (e) {
       return send(res, json({ ok: false, error: String(e && e.message || e) }, 500));
     }
+  }
+  // v1.9 数据管家: 存储管理(专家界面「存储」页签)。GET 在 handler 内自查 token(同 /api/audit 纵深纪律);
+  // 两个 POST 由 ROUTE_AUTH 表的 token 级把门。清理全部 best-effort,慢盘/失败不 500(sweep 内部全静默,
+  // 只有 stats 聚合异常才落 500)。
+  if (req.method === 'GET' && pathname === '/api/storage/summary') {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const config = await readConfig();
+    try {
+      return send(res, json(await collectStorageStats(config)));
+    } catch (e) {
+      return send(res, json({ ok: false, error: String(e && e.message || e) }, 500));
+    }
+  }
+  if (req.method === 'POST' && pathname === '/api/storage/policy') {
+    const body = await readJsonBody(req);
+    const src = (body && typeof body === 'object')
+      ? (body.storagePolicy && typeof body.storagePolicy === 'object' ? body.storagePolicy : body)
+      : {};
+    const config = await readConfig();
+    config.storagePolicy = { ...(config.storagePolicy || {}), ...src };
+    const saved = await writeConfig(config);
+    return send(res, json({ ok: true, policy: normalizeStoragePolicy(saved.storagePolicy) }));
+  }
+  if (req.method === 'POST' && pathname === '/api/storage/clean') {
+    const body = await readJsonBody(req);
+    const VALID = new Set(['logs', 'agent-runs', 'webcache']);
+    let targets = null; // null = 全部
+    if (body && body.target && body.target !== 'all') {
+      const t = String(body.target);
+      if (!VALID.has(t)) return send(res, json({ ok: false, error: 'unknown target' }, 400));
+      targets = new Set([t]);
+    }
+    const config = await readConfig();
+    return send(res, json(await storageSweep(config.storagePolicy, targets)));
   }
   // v0.8-S4a: checkpoint rollback (mutating; header-token — see needsToken whitelist above). entrySeq given
   // = single-entry rollback; omitted = whole turn (all entries for turnSeq, reverse order). Idempotent:
@@ -16473,6 +16697,8 @@ async function startServer(opts) {
   await syncClaudeCliSettings(config);
   await syncAgentRolesToClaude(config.defaultWorkspace || os.homedir(), config);
   await syncMcpServersToClaude(config);
+  // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
+  void storageSweep(config.storagePolicy).catch(() => {});
   const port = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {
@@ -17474,6 +17700,11 @@ module.exports = {
   spawnCmdLineLength,
   cmdLineBudgetFor,
   resolveClaudeLauncher, // P1: npm shim → 真身 claude.exe 解析 — exposed for e2e unit assertions
+  // v1.9 数据管家 — exposed for e2e direct unit assertions(保留策略归一/统计/sweep/归档读取回退)。
+  normalizeStoragePolicy,
+  collectStorageStats,
+  storageSweep,
+  readAgentRunEvents,
   fenceSafeSlice,
   shrinkFencedSection,
   clampAppendWithSkills,
