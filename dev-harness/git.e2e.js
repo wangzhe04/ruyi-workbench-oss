@@ -13,6 +13,7 @@
 //
 // 末行判定固定为 `GIT E2E: ALL PASS`(任何失败打印明细并以非零码退出)。finally 清临时 HOME/仓库。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -59,7 +60,7 @@ function gitAvailable() {
 
   // ══════════ 静态断言(不依赖 git,总是跑)══════════
   {
-    const server = fs.readFileSync(SERVER_JS, 'utf8');
+    const server = readServerSource();
     const appjs = readFrontendSrc(); // 聚合:public/app.js + public/js/**/*.js(拆分后函数不再只在 app.js)
     const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
 

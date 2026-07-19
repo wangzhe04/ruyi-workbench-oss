@@ -873,3 +873,18 @@
 **41b guard 声明化行为锁**:tool-dispatch.e2e(18 断言)—— 内省注册表非 grep 源码形状,是 V2.0「静态锁行为化迁移」的第一个样板:每个 exec/edit 级工具必须显式声明 guard(guardNote 非空),未知工具显式 tier 而非靠兜底。首擒两条真实 drift:① `permission_prompt` 无 tier 声明(靠 unknown→exec 兜底)→ 已显式化;② **`project_snapshot` 缺读闸**(file_list/file_search/glob 同族都有,远端模型可越界列目录)→ 已补 —— 注册表的第一个实战成果。
 
 **验证**:file-guard / autonomy-grant / v17-static / shell-session / subagent / tool-dispatch 定向回归全绿;全量套件见提交注记。
+
+## 39. 第42波:测试基建先行 —— 静态锁收口(42a)+ 真身 CLI 冒烟(42b)+ 压缩行为探针(42c)
+
+**42a 静态锁大盘点(43 波 go 决策已出:GO·方案A)**:机器扫描全仓 548 条源码形状断言/34 件(后端 ~150/19 件,前端 ~400/14 件)。落地 `dev-harness/src-reader.js` —— 后端「逻辑全文」统一读取口(今天读单体;43 后自动按 manifest 拼接),19 件后端锁测试 codemod 迁移 + 全绿,unit//产品代码零直读残留。报告:docs/STATIC-LOCK-AUDIT.md。决策:43 走「有序切片+构建期拼接+产物字节级不变」,548 锁零迁移;硬约束五条(声明顺序保序/顶层声明边界下刀/产物无 banner/run-all freshness/CI build 幂等)。
+
+**42b 真身 claude 二进制冒烟(claude-binary-live.e2e.js,SKIP 登记手工跑)**——首战即擒【线上真 bug】:
+- 覆盖:① resolveClaudeLauncher npm shim→真身 exe(顺带校正:resolver 只对批处理 shim 动手,裸名经 isBatchLauncher 门原样返回,镜像 detectClaudePath 语义);② 直启 --version;③ stream-json 握手(init/result.success/usage/session_id 四要件);④ 权限桥端到端(真 CLI+permissionMode=default→permission_request→批准→tool_result 真 PID)。
+- **擒获:CLI ≥2.1 的 --permission-prompt-tool 响应是 zod union,allow 变体必须带 updatedInput record;UI 纯「允许」时工作台回 {behavior:'allow'}(updatedInput 被 JSON 序列化掉键)→ CLI 判 invalid_union 拒掉工具 → 用户批准了权限工具照样失败**。fake-claude 全套件绿是因为 fake 不校验 schema —— 这正是 live 层的存在理由。修复:/api/permission/request 出口统一回填 updatedInput=原始输入(授权书快路径同款)。防伪纪律:断言只认 tool_result 里的真实 PID(模型文本可编造);批准要批准【每一个】请求(模型可能多次调用)。
+- 过程中发现上轮断线遗留已收编:fmtBytes 共享化 + GB/TB/PB 量纲 + syntax-gate ESM 解析(ab20513)。
+
+**42c CLI print 模式压缩行为探针(claude-compact-probe-live.e2e.js + 补刀探针)**——44c 设计依据,真机实测:
+- P1:print 模式 `/compact` **可用**(resume 发 /compact → system/compact_boundary + success)→ 手动压缩退路存在。
+- P2:resume 累积 ~330K tokens(turn2 in=129K + cache_read=199K)**不报错**;补刀探针(turn3 极小回合测转录大小):**input 仅 294 tokens 且暗号 PINEAPPLE-42 完整保留** → CLI 在 resume 路径上【自动压缩了转录】,且压缩质量过关。
+- **结论:CLI print+resume 自管压缩,工作台主回合零兜底。44c 从「主回合+子代理双兜底」缩水为「只修子代理重试」(子代理一次性 spawn 无 resume,超窗仍是裸失败),省 1-2 天。** haiku 实测窗口 >217K(大于名义 200K,44d 估算自校准的窗口表须按实测而非名义值)。
+- 成本纪律:探针为一次性决策件(~$0.5 两轮),SKIP 登记;大 prompt 走 stdin(argv 撞 Windows ENAMETOOLONG)。

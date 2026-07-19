@@ -7,6 +7,7 @@
 //        编辑器条件文本 parse 支持 无node前缀 / 空path / 纯op 形态(与 evaluateWorkflowCondition 合法形态对齐)。
 // 纯函数按锚点从 server.js / app.js 逐字节抽出实跑(不 spawn 服务,不碰 dataRoot)。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const fs = require('fs');
 const path = require('path');
 
@@ -22,7 +23,7 @@ function cutBlock(src, startAnchor, endAnchor, what) {
 }
 
 // ---- 抽取 server.js 纯函数 ----
-const serverSrc = fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench', 'app', 'server.js'), 'utf8');
+const serverSrc = readServerSource();
 const blockA = cutBlock(serverSrc, 'const QUALITY_GATE_OUTPUT_SCHEMA', 'const BUILTIN_AGENT_WORKFLOWS', 'judge fns');
 const blockB = cutBlock(serverSrc, 'function normalizeWorkflowCondition(', 'function projectAgentWorkflowsFile(', 'normalize fns');
 const S = {};

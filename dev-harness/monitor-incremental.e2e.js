@@ -4,6 +4,7 @@
 // [H] Live:digest 轻量视图字段、events afterSeq 补播(幂等重放)+ limit/hasMore + 坏行免疫 + 鉴权 403 + 跨会话空、
 //     【验收锁】增量模式传输字节 ≤ 全量模式 20%(忠实模拟客户端算法 N tick)、run.metrics 干预计数、ops 指标端点、单 run GET live 叠加。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -28,7 +29,7 @@ function req(method, p, body, headers = {}) {
   });
 }
 async function up() { for (let i = 0; i < 60; i++) { try { const r = await req('GET', '/health'); if (r.status === 200) return true; } catch {} await sleep(150); } return false; }
-const src = fs.readFileSync(SERVER, 'utf8');
+const src = readServerSource();
 const app = fs.readFileSync(APPJS, 'utf8');
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════

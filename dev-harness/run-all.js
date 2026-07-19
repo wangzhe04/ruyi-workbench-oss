@@ -25,10 +25,16 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 //   - deepseek-live:        真调 DeepSeek API,需 DEEPSEEK_API_KEY(argv[2])
 //   - deepseek-tools:       真调 DeepSeek v4-pro function-calling,需 key(argv[2]);头部标 LIVE
 //   - desktop-bridge-live:  真起 Python MCP 子进程(ai-computer-control),CI 无 Python 环境
+//   - claude-binary-live:   第42b波 真身 claude.exe 冒烟(解析/直启/stream-json/权限桥;真实 API 小额消耗)
+//   - claude-compact-probe-live: 第42c波 print 模式压缩行为探针(真实 API,大额 token;手工决策用)
 const SKIP = new Set([
   'deepseek-live.e2e.js',
   'deepseek-tools.e2e.js',
   'desktop-bridge-live.e2e.js',
+  // 第42b波: 真身 claude 二进制冒烟(真实 API 调用,需本机已登录 CLI;手工 node 直跑)
+  'claude-binary-live.e2e.js',
+  // 第42c波: CLI print 模式压缩行为探针(真实 API,大额 token 消耗;手工 node 直跑)
+  'claude-compact-probe-live.e2e.js',
 ]);
 
 // 已知失败件(积压回归,CI 全量暴露,后续波修)。失败不计红(不挂 CI),但报告标 [known-fail];

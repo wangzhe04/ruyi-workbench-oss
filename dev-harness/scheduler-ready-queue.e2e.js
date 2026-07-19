@@ -13,6 +13,7 @@
 //  E) 收尾封口:run 完成后快照不再变动(mtime/eventSeq 冻结)、事件日志末条=run_end、
 //     node_start 与 node_settled/node_requeued 按 attemptId 一一配对。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -64,7 +65,7 @@ const fake = http.createServer((req, res) => {
 (async () => {
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
-  const src = fs.readFileSync(path.join(WB, 'app', 'server.js'), 'utf8');
+  const src = readServerSource();
 
   // ── C) 静态锁(第26波c: 判环/派发/就绪逻辑已抽入纯 reducer computeSchedulerStep,静态锁随之校验 reducer 形态) ──
   ok(!/await Promise\.all\(batch\.map\(/.test(src), 'C 批次屏障代码已移除(Promise.all(batch.map) 不存在)');

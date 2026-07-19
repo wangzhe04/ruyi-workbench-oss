@@ -5,6 +5,7 @@
 // [H] Live 三次 boot:①默认关=零行为变化(interrupted 停住,只盖分级戳);②开=安全 run 自动续跑到 succeeded +
 //     危险 run 停 paused(manual_resume_required)+ run_resume_deferred 事件;③崩溃环 autoResumeCount≥2 → 降 manual。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -28,7 +29,7 @@ function req(method, p, body, headers = {}) {
   });
 }
 async function up() { for (let i = 0; i < 60; i++) { try { const r = await req('GET', '/health'); if (r.status === 200) return true; } catch {} await sleep(150); } return false; }
-const src = fs.readFileSync(SERVER, 'utf8');
+const src = readServerSource();
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 // [S] 静态锁

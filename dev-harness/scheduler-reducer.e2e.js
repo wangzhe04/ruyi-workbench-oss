@@ -2,9 +2,10 @@
 // 源抽取 + new Function 实跑(无需起服务,纯函数),穷举 retry×loop×gate×pause×crash×inflight 组合,
 // 锁死 26a 三铁律 + block/skip/condition/并发/依赖门语义。技术同 audit-w23 的源抽取范式。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const fs = require('fs'), path = require('path');
 const SERVER = path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'server.js');
-const src = fs.readFileSync(SERVER, 'utf8');
+const src = readServerSource();
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 

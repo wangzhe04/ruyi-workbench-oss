@@ -3,9 +3,10 @@
 //     窗口内经 /api/permission/decision(直接 resolve entry)→按决定返回。
 // [S] 静态锁:config 默认 opt-in false + TTL clamp;provider gate 仅 driverAuto 启用;CLI 桥仅 driverAutoSessions;两路径 fail-closed deny。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const fs = require('fs'), path = require('path');
 const SERVER = path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'server.js');
-const src = fs.readFileSync(SERVER, 'utf8');
+const src = readServerSource();
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));

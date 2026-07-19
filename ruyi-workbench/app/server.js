@@ -16376,7 +16376,9 @@ async function handleApi(req, res, pathname) {
     // 回落到下方正常弹窗由人定夺。default→'ask' 授权书生效;bypass→'allow' 本就免弹窗,无需授权书。
     if (nativeToolGate(config.permissionMode, bridgeTier) === 'ask') {
       const grantHit = consumeGrant({ id: sessionId }, String(body.toolName || ''), body.input || {}, 'cli', null);
-      if (grantHit) return send(res, json({ behavior: 'allow' }));
+      // 第42b波(live 冒烟擒获):CLI ≥2.1 的 zod union 要求 allow 变体【必须】带 updatedInput record,
+      // 裸 {behavior:'allow'} 会被 CLI 判 invalid_union 拒掉 → 回显原始输入。
+      if (grantHit) return send(res, json({ behavior: 'allow', updatedInput: body.input || {} }));
     }
     reg.onEvent({ type: 'permission_request', requestId, toolName: body.toolName, input: body.input, tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
     // 第27f波:CLI 桥超时→存档暂停(与 provider 路径对称)。仅【opt-in + 本会话处于无人值守 driverAuto 回合】才启用;
@@ -16401,6 +16403,12 @@ async function handleApi(req, res, pathname) {
     });
     if (reg) { reg.pausePending = false; reg.lastEventAt = Date.now(); } // 解除暂停豁免 + 重置看门狗时钟(暂停不算子进程空闲)
     if (res.writableEnded || res.destroyed) return; // request already gone (e.g. child died)
+    // 第42b波(live 冒烟擒获):CLI ≥2.1 的 --permission-prompt-tool 响应是 zod union —— allow 变体必须
+    // 带 updatedInput record;UI 纯「允许」(未改输入)时 decision.updatedInput 为 undefined,JSON 序列化
+    // 掉键后被 CLI 拒(invalid_union: expected record, received undefined)→ 回合必败。回填原始输入。
+    if (decision && decision.behavior === 'allow' && (typeof decision.updatedInput !== 'object' || decision.updatedInput === null || Array.isArray(decision.updatedInput))) {
+      decision.updatedInput = body.input || {};
+    }
     return send(res, json(decision));
   }
   if (req.method === 'POST' && pathname === '/api/permission/decision') {

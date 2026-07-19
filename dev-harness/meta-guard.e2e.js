@@ -2,6 +2,7 @@
 // 本轮审计连撞两类实例——① 10 处 e2e 硬编码旧版本号 1.4.0/ACC 1.8.0 跟着重构失效;② 敏感 GET 路由漏鉴权(P1)。
 // 这里把「门面数字」与「敏感路由必分类」转成 CI 可跑的断言,复发即红,不再靠人工记得同步。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const fs = require('fs');
 const path = require('path');
 
@@ -16,7 +17,7 @@ function ok(cond, label) { if (cond) console.log('PASS ' + label); else { failur
 
 const pkg = require(path.join(WB, 'package.json'));
 const readme = fs.readFileSync(README, 'utf8');
-const src = fs.readFileSync(SERVER, 'utf8');
+const src = readServerSource();
 
 // ── A) README 门面版本号 === package.json 主次版本(存量:README 曾停在 v1.5,实际已 1.6.0) ──
 {

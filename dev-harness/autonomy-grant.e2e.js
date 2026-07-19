@@ -1,4 +1,5 @@
 (async () => {
+const { readServerSource } = require('./src-reader');
 const { getFreePort } = require('./free-port.js');
 // E2E: 第27波「自主性授权书(Autonomy Grant)」(AUTONOMY-PLAN §27)。
 // 端口: WB 9116(已登记 dev-harness/README)。无需 fake provider(授权书路由不触发模型)。
@@ -31,7 +32,7 @@ function req(method, p, body, headers = {}) {
 }
 async function up() { for (let i = 0; i < 60; i++) { try { const r = await req('GET', '/health'); if (r.status === 200) return true; } catch {} await sleep(150); } return false; }
 
-const src = fs.readFileSync(SERVER, 'utf8');
+const src = readServerSource();
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 // [S] 静态源锁

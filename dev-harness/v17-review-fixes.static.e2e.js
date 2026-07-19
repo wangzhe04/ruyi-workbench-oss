@@ -16,6 +16,7 @@
 //                                        update.bat 双布局、read_file 真字节预算、launch wait_timeout。
 //   S9 run-all 端口审计 + capabilities 毕业 —— portAudit/stripJsComments 在;KNOWN_FAILURE 不再含 capabilities。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const fs = require('fs');
 const path = require('path');
 
@@ -27,7 +28,7 @@ const ACC = path.join(ROOT, 'mcp', 'ai-computer-control');
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-const server = fs.readFileSync(SERVER, 'utf8');
+const server = readServerSource();
 const runall = fs.readFileSync(RUNALL, 'utf8');
 
 // ── S1: serveStatic 用段比较,startsWith 前缀判定绝迹 ─────────────────────────

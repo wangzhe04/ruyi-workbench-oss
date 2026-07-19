@@ -4,6 +4,7 @@
 // [S] 静态锁:reducer 传 isWaitNode、外壳 arm/poll/tick、wait×worktree 互斥、process 仅信号0、file 过工作区护栏、url 过 SSRF。
 // [H] Live:纯 timer wait 节点 arm→waiting→succeeded(零 token,无 provider 调用);file wait 中途建文件→succeeded;超时→failed。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -27,7 +28,7 @@ function req(method, p, body, headers = {}) {
   });
 }
 async function up() { for (let i = 0; i < 60; i++) { try { const r = await req('GET', '/health'); if (r.status === 200) return true; } catch {} await sleep(150); } return false; }
-const src = fs.readFileSync(SERVER, 'utf8');
+const src = readServerSource();
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 // [S] 静态锁
@@ -153,8 +154,10 @@ const evalWaitCondition = new Function('guardWorkspacePath', 'fsp', 'path', 'pro
     ok(r2 && r2.status === 'succeeded' && r2.nodes[0].status === 'succeeded', 'H2 建文件后 → succeeded');
 
     // (3) file wait 超时:文件永不建 + 短 timeout → failed。
+    // 轮询余量 15s→30s(第42波:全量套件高负载下节点起 wait 前调度可超 15s,语义不变只加宽余量)。
     const l3 = await launch([{ id: 'w3', wait: { mode: 'file', path: path.join(WS, 'never.flag'), exists: true, pollMs: 500, timeoutMs: 1000 } }]);
-    const r3 = await pollRun(l3.runId, 15000);
+    const r3 = await pollRun(l3.runId, 30000);
+    if (!(r3 && r3.nodes[0].status === 'failed')) console.log('   [diag H3] r3=' + (r3 ? `run=${r3.status} node=${r3.nodes[0].status} err=${r3.nodes[0].error || ''} cls=${r3.nodes[0].errorClass || ''} waitStartedAt=${r3.nodes[0].waitStartedAt || ''}` : 'null(30s 未到终态)'));
     ok(r3 && r3.nodes[0].status === 'failed' && /超时/.test(r3.nodes[0].error || ''), 'H3 文件永不建 + 短 timeout → failed(超时)');
   } catch (e) { ok(false, 'H 异常:' + (e && e.message)); }
   finally {

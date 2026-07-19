@@ -1,12 +1,13 @@
 'use strict';
 
+const { readServerSource } = require('./src-reader');
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const app = fs.readFileSync(path.join(ROOT, 'ruyi-workbench/app/public/app.js'), 'utf8');
 const css = fs.readFileSync(path.join(ROOT, 'ruyi-workbench/app/public/styles.css'), 'utf8');
-const server = fs.readFileSync(path.join(ROOT, 'ruyi-workbench/app/server.js'), 'utf8');
+const server = readServerSource();
 
 let fail = 0;
 function ok(cond, label) {

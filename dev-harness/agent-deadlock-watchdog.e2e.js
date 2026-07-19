@@ -250,8 +250,15 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
     });
     ok(!!wdRun && wdRun.idleAborted === true, 'run.idleAborted is set — the idle watchdog fired on the async path');
     if (wdRun) {
-      ok(isTerminal(wdRun.status), 'wedged run reaches a terminal state after the watchdog abort');
-      console.log('  watchdog run status:', wdRun.status, '| idleAborted:', wdRun.idleAborted);
+      // 第42波修竞态:idleAborted 置位与 status 转终态不是同一步(置位后还要一个 tick 收尾)——
+      // 高负载下会读到「已置位但尚未终态」的中间快照。轮询到终态再断言,而非只看置位时的快照。
+      const termRun = await waitFor('wedged run reaches a terminal state after the watchdog abort', async () => {
+        const r = await get(WP, `/api/agent-runs?sessionId=${encodeURIComponent(sid)}`, hdr);
+        const run = runOf(r, wd.runId);
+        return run && isTerminal(run.status) && run;
+      });
+      ok(!!termRun, 'wedged run reaches a terminal state after the watchdog abort');
+      console.log('  watchdog run status:', termRun && termRun.status, '| idleAborted:', termRun && termRun.idleAborted);
     }
 
     // -------- Section 4: a run PAUSED longer than the idle limit must NOT be idle-killed --------

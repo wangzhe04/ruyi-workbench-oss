@@ -10,6 +10,7 @@
 //     events.ndjson: seq 严格单调,含 run_created/node_start/run_interrupted/run_resumed/node_settled/run_end。
 //  D) 崩溃注入·杀点2(node_start 后、0 个工具完成前强杀):resume 不注入【断点续跑】,run 照常完成。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -59,7 +60,7 @@ function capturesContaining(dir, needle) {
 (async () => {
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(WS, { recursive: true });
-  const src = fs.readFileSync(path.join(WB, 'app', 'server.js'), 'utf8');
+  const src = readServerSource();
 
   // ── A) atomicWriteJson 源抽取 + 并发单测 ──
   {

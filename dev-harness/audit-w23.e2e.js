@@ -13,6 +13,7 @@
 //  P2 #8 saveSession/writeConfigAtomic 唯一 tmp 名(pid+随机),不再固定 '.tmp' 被并发写者互踩成 .corrupt。 —— 源(B)
 //  P2 #9 DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染,残缺结果不再当干净成功)。 —— 源(B)
 'use strict';
+const { readServerSource } = require('./src-reader');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -23,7 +24,7 @@ const { getFreePort } = require('./free-port.js');
 
 const WB = path.join(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
-const src = fs.readFileSync(SERVER, 'utf8');
+const src = readServerSource();
 
 // 端口登记(第23波,均在既有 8792-8999 段之外,避免撞车): WB=8751, fake401=8752。
 

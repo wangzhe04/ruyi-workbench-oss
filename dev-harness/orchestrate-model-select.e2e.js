@@ -5,6 +5,7 @@
 // [P] 纯逻辑源抽取:modelCapabilityTier / buildModelHint(引擎分组) / tierModelForNode(引擎感知+池拓宽) / resolveNodeModel(尊重显式+inherit归空)。
 // [H] Live:哑 provider 起 DAG,验证节点 model 在【物化(执行前)】即:显式(合法/未知都尊重原样)/ inherit→空 / 省略→空。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -28,7 +29,7 @@ function req(method, p, body, headers = {}) {
   });
 }
 async function up() { for (let i = 0; i < 60; i++) { try { const r = await req('GET', '/health'); if (r.status === 200) return true; } catch {} await sleep(150); } return false; }
-const src = fs.readFileSync(SERVER, 'utf8');
+const src = readServerSource();
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 // [S] 静态锁

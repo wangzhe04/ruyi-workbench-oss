@@ -1,6 +1,7 @@
 // Agent 团队 composer mode: UI one-shot contract + live dual-driver prompt injection.
 // Fully offline: fake OpenAI captures request bodies; fake Claude captures argv.
 'use strict';
+const { readServerSource } = require('./src-reader');
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -147,7 +148,7 @@ function capturedSystem() {
     ok(!capturedSystem().includes('<agent-team-mode>'), 'server ignores agentTeam when sub-agents are disabled');
 
     // Static guard: driverAuto MUST bypass agentTeam (verified via source-code pattern check).
-    const serverSrc = fs.readFileSync(path.join(WB, 'app', 'server.js'), 'utf8');
+    const serverSrc = readServerSource();
     ok(/const turnAgentTeam = !driverAuto && body\.agentTeam === true/.test(serverSrc),
       'server.js guards agentTeam behind !driverAuto to protect autonomous turns');
   } finally {

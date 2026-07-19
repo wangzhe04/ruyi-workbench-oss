@@ -3,9 +3,10 @@
 //       §28a 子代理两级压缩 maybeCompactSubHistory(关键:const 原地 splice + 钉住 task[0] + L1/L2 分级)· §28d degradedPolicy(4 归一 + 翻译接缝)。
 // 技术同 scheduler-reducer/audit-w23:源抽取 + new Function 实跑纯逻辑 + 正则静态锁接线。
 'use strict';
+const { readServerSource } = require('./src-reader');
 const fs = require('fs'), path = require('path');
 const SERVER = path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'server.js');
-const src = fs.readFileSync(SERVER, 'utf8');
+const src = readServerSource();
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
