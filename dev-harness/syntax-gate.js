@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
+const FRONTEND_MODULE_ROOT = path.join(ROOT, 'ruyi-workbench', 'app', 'public') + path.sep;
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.venv', '__pycache__', 'python_embed', 'playwright_browsers']);
 
 // vendor/ 是第三方资产(marked/highlight),非一手代码,不在本门范围(它坏了有 e2e 兜底,语义无从断言)。
@@ -39,7 +40,19 @@ function collect() {
 const files = collect();
 let bad = 0;
 for (const f of files) {
-  const r = cp.spawnSync(process.execPath, ['--check', f], { encoding: 'utf8', windowsHide: true });
+  // `node --check file.js` can miss ES Module early errors when the nearest
+  // package.json does not declare `type: module` (for example, an imported
+  // binding redeclared in app.js). Parse browser modules explicitly via stdin.
+  const isFrontendModule = f.startsWith(FRONTEND_MODULE_ROOT);
+  const r = cp.spawnSync(
+    process.execPath,
+    isFrontendModule ? ['--check', '--input-type=module'] : ['--check', f],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      input: isFrontendModule ? fs.readFileSync(f) : undefined,
+    },
+  );
   if (r.status !== 0) {
     bad++;
     console.error(`SYNTAX FAIL: ${path.relative(ROOT, f)}`);

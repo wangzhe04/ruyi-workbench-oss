@@ -21,7 +21,11 @@ export function fmtBytes(n) {
   if (!Number.isFinite(n)) return '';
   if (n < 1024) return `${n} B`;
   if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1048576).toFixed(1)} MB`;
+  const units = ['MB', 'GB', 'TB', 'PB'];
+  let value = n / 1048576;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
+  return `${value.toFixed(1)} ${units[unit]}`;
 }
 // ISO 时间 → 当前语言的短格式。
 export function fmtTime(iso) {

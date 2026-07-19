@@ -5141,14 +5141,6 @@ const STORAGE_STORE_LABELS = {
   uploads: '上传附件', usage: '用量台账', memory: '记忆库', playbooks: 'Playbook', skills: '技能',
   generated: '生成物', agentWorkflows: '工作流模板', agentWorktrees: '隔离工作树',
 };
-function fmtBytes(n) {
-  n = Number(n) || 0;
-  if (n < 1024) return n + ' B';
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let v = n / 1024, i = 0;
-  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-  return (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) + ' ' + units[i];
-}
 function applyStoragePolicyToForm(policy) {
   if (!policy) return;
   const a = $('storagePolicyLogsDays'), b = $('storagePolicyCompressDays'), c = $('storagePolicyWebcacheMax'), d = $('storagePolicyTranscriptDays');
