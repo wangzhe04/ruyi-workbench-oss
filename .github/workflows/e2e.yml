@@ -28,7 +28,9 @@ jobs:
       # 端口已全面动态化,桶间不会撞车。路数可通过 --parallel N 调整。
       - name: Run e2e suite
         working-directory: ${{ github.workspace }}
-        run: node dev-harness/run-all.js --parallel 4
+        # The suite launches nested Node, Claude, Python, and desktop-MCP processes.
+        # Run serially on the 2-vCPU hosted Windows runner to avoid silent process termination.
+        run: node dev-harness/run-all.js
       - name: Upload failure log on failure
         if: failure()
         uses: actions/upload-artifact@v4
