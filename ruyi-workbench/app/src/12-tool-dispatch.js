@@ -628,7 +628,7 @@ const NETWORK_TOOL_HANDLERS = {
       const exists = await fsp.stat(dest).then(() => true).catch(() => false);
       const before = exists ? await fsp.readFile(dest) : null;
       const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', dest, exists ? 'modify' : 'create', exists ? before : null);
+      await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', path.resolve(String(args.dest)), exists ? 'modify' : 'create', exists ? before : null);
       await fsp.mkdir(path.dirname(dest), { recursive: true });
       await fsp.writeFile(dest, got.body);
       markNetworkOnline(); // 成功下载 = 在线证据，顺手刷新能力缓存
@@ -725,6 +725,7 @@ const INTEGRATION_TOOL_HANDLERS = {
         return { ok: false, id, error: `技能 ${id} 来源已变化(启用时为 ${wantSource},现为 ${entry.source || '未知'}),已暂停;请在技能库重新启用该技能。` };
       }
       const dir = path.resolve(entry.dir);
+      const dirReal = await realpathForContainment(dir);
       // P3-1: 传了 file(相对路径)→ 返回该文件内容(截 20000)而非清单;复用同款目录内守卫(path.relative 不得越界)。
       const fileArg = String(args.file || '').trim();
       if (fileArg) {
@@ -732,7 +733,7 @@ const INTEGRATION_TOOL_HANDLERS = {
         const frel = path.relative(dir, fabs);
         if (frel.startsWith('..') || path.isAbsolute(frel)) return { ok: false, id, file: fileArg, error: '文件路径越界(只能读取该技能目录内的文件)' };
         const freal = await fsp.realpath(fabs).catch(() => fabs); // 解析符号链接后再判一次,防穿越
-        const frelReal = path.relative(dir, freal);
+        const frelReal = path.relative(dirReal, freal);
         if (frelReal.startsWith('..') || path.isAbsolute(frelReal)) return { ok: false, id, file: fileArg, error: '文件路径越界(只能读取该技能目录内的文件)' };
         let fileContent = '';
         try { const st = await fsp.stat(freal); if (!st.isFile()) return { ok: false, id, file: fileArg, error: '不是文件' }; fileContent = String(await fsp.readFile(freal, 'utf8')); }

@@ -83,6 +83,10 @@ function post(port, p, payload, headers) {
     const aliasCtx = { config: { ...P('https://api.deepseek.com'), defaultWorkspace: ALIAS_WS }, session: { cwd: ALIAS_WS } };
     const ga = await S.guardFileToolPath(missingViaAlias, aliasCtx, { write: true });
     ok(ga.ok === true, 'S3 missing write target through short-name/junction alias remains in-bounds');
+    const missingRootViaAlias = path.join(ALIAS_WS, 'not-created-workspace');
+    const missingRootCtx = { config: { ...P('https://api.deepseek.com'), defaultWorkspace: missingRootViaAlias }, session: { cwd: missingRootViaAlias } };
+    const gm = await S.guardFileToolPath(path.join(missingRootViaAlias, 'new-file.txt'), missingRootCtx, { write: true });
+    ok(gm.ok === true, 'S3 missing workspace root and target share the same canonical existing parent');
 
     const ESCAPE_WS = path.join(os.tmpdir(), 'wcw-file-guard-escape-target');
     const ESCAPE_LINK = path.join(REAL_WS, 'escape-link');

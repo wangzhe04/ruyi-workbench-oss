@@ -3399,10 +3399,10 @@ async function journalBridgedWrite(bridgedName, args, session, config, ctx) {
         try { before = await fsp.readFile(p); exists = true; } catch { before = null; exists = false; }
         if (target.mode === 'delete') {
           if (!exists) continue; // 删/移一个不存在(或读不到)的源 → 没什么可回退
-          await journalRecord(jctx.sessionId, jctx.turnSeq, bridgedName, p, 'delete', before);
+          await journalRecord(jctx.sessionId, jctx.turnSeq, bridgedName, path.resolve(target.path), 'delete', before);
         } else {
           // write:存在→modify(存 before);不存在→create(无 before,回滚=删除)。
-          await journalRecord(jctx.sessionId, jctx.turnSeq, bridgedName, p, exists ? 'modify' : 'create', exists ? before : null);
+          await journalRecord(jctx.sessionId, jctx.turnSeq, bridgedName, path.resolve(target.path), exists ? 'modify' : 'create', exists ? before : null);
         }
       } catch {
         // 单目标安全网:该目标本回合不可撤销,但工具与其它目标照常。
@@ -3749,7 +3749,7 @@ async function guardWorkspacePath(rawPath, session, config) {
   // 不许暴露也不许被下载覆写(否则可覆写 config.json/runtime.json 致配置损毁/token 替换)。与文件工具同源拒绝。
   await ensureDataRootReal();
   if (isSensitiveDataPath(target) || isSensitiveDataPath(real)) return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据,已禁止访问' };
-  const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
+  const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
   if (!pathWithinAnyRoot(real, realRoots)) return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内' };
   return { ok: true, absPath: real };
 }
@@ -3826,12 +3826,12 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   }
   if (config && config.allowOutsideWorkspace === true) {
     const roots0 = fileAllowedRoots(session, config);
-    const realRoots0 = await Promise.all(roots0.map(r => fsp.realpath(r).catch(() => r)));
+    const realRoots0 = await Promise.all(roots0.map(r => realpathForContainment(r)));
     if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'allow-config', pathLen: abs.length });
     return { ok: true, absPath: real };
   }
   const roots = fileAllowedRoots(session, config);
-  const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
+  const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
     logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny', pathLen: abs.length });
@@ -15520,7 +15520,7 @@ const NETWORK_TOOL_HANDLERS = {
       const exists = await fsp.stat(dest).then(() => true).catch(() => false);
       const before = exists ? await fsp.readFile(dest) : null;
       const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', dest, exists ? 'modify' : 'create', exists ? before : null);
+      await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', path.resolve(String(args.dest)), exists ? 'modify' : 'create', exists ? before : null);
       await fsp.mkdir(path.dirname(dest), { recursive: true });
       await fsp.writeFile(dest, got.body);
       markNetworkOnline(); // 成功下载 = 在线证据，顺手刷新能力缓存
@@ -15617,6 +15617,7 @@ const INTEGRATION_TOOL_HANDLERS = {
         return { ok: false, id, error: `技能 ${id} 来源已变化(启用时为 ${wantSource},现为 ${entry.source || '未知'}),已暂停;请在技能库重新启用该技能。` };
       }
       const dir = path.resolve(entry.dir);
+      const dirReal = await realpathForContainment(dir);
       // P3-1: 传了 file(相对路径)→ 返回该文件内容(截 20000)而非清单;复用同款目录内守卫(path.relative 不得越界)。
       const fileArg = String(args.file || '').trim();
       if (fileArg) {
@@ -15624,7 +15625,7 @@ const INTEGRATION_TOOL_HANDLERS = {
         const frel = path.relative(dir, fabs);
         if (frel.startsWith('..') || path.isAbsolute(frel)) return { ok: false, id, file: fileArg, error: '文件路径越界(只能读取该技能目录内的文件)' };
         const freal = await fsp.realpath(fabs).catch(() => fabs); // 解析符号链接后再判一次,防穿越
-        const frelReal = path.relative(dir, freal);
+        const frelReal = path.relative(dirReal, freal);
         if (frelReal.startsWith('..') || path.isAbsolute(frelReal)) return { ok: false, id, file: fileArg, error: '文件路径越界(只能读取该技能目录内的文件)' };
         let fileContent = '';
         try { const st = await fsp.stat(freal); if (!st.isFile()) return { ok: false, id, file: fileArg, error: '不是文件' }; fileContent = String(await fsp.readFile(freal, 'utf8')); }

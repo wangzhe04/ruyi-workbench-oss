@@ -79,10 +79,10 @@ async function journalBridgedWrite(bridgedName, args, session, config, ctx) {
         try { before = await fsp.readFile(p); exists = true; } catch { before = null; exists = false; }
         if (target.mode === 'delete') {
           if (!exists) continue; // 删/移一个不存在(或读不到)的源 → 没什么可回退
-          await journalRecord(jctx.sessionId, jctx.turnSeq, bridgedName, p, 'delete', before);
+          await journalRecord(jctx.sessionId, jctx.turnSeq, bridgedName, path.resolve(target.path), 'delete', before);
         } else {
           // write:存在→modify(存 before);不存在→create(无 before,回滚=删除)。
-          await journalRecord(jctx.sessionId, jctx.turnSeq, bridgedName, p, exists ? 'modify' : 'create', exists ? before : null);
+          await journalRecord(jctx.sessionId, jctx.turnSeq, bridgedName, path.resolve(target.path), exists ? 'modify' : 'create', exists ? before : null);
         }
       } catch {
         // 单目标安全网:该目标本回合不可撤销,但工具与其它目标照常。
@@ -429,7 +429,7 @@ async function guardWorkspacePath(rawPath, session, config) {
   // 不许暴露也不许被下载覆写(否则可覆写 config.json/runtime.json 致配置损毁/token 替换)。与文件工具同源拒绝。
   await ensureDataRootReal();
   if (isSensitiveDataPath(target) || isSensitiveDataPath(real)) return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据,已禁止访问' };
-  const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
+  const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
   if (!pathWithinAnyRoot(real, realRoots)) return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内' };
   return { ok: true, absPath: real };
 }
@@ -506,12 +506,12 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   }
   if (config && config.allowOutsideWorkspace === true) {
     const roots0 = fileAllowedRoots(session, config);
-    const realRoots0 = await Promise.all(roots0.map(r => fsp.realpath(r).catch(() => r)));
+    const realRoots0 = await Promise.all(roots0.map(r => realpathForContainment(r)));
     if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'allow-config', pathLen: abs.length });
     return { ok: true, absPath: real };
   }
   const roots = fileAllowedRoots(session, config);
-  const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
+  const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
     logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny', pathLen: abs.length });

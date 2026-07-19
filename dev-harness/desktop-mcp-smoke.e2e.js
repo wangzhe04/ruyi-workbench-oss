@@ -44,7 +44,8 @@ const { McpStdioClient, detectDesktopMcp, desktopMcpFromInstalledRoot, desktopPy
 
   // ---- #6: detectDesktopMcp() ----
   const det = detectDesktopMcp();
-  ok(!!det, 'detectDesktopMcp() returns non-null (real repo present)');
+  if (det) ok(true, 'detectDesktopMcp() returns a verified usable runtime');
+  else console.log('SKIP detectDesktopMcp runtime probe — checkout has no usable ACC Python dependencies');
   if (det) {
     console.log('  detected: ' + JSON.stringify({ command: det.command, args: det.args, via: det.via, cwd: det.cwd }));
     ok(typeof det.command === 'string' && det.command.length > 0, 'detected.command is a non-empty string');
@@ -54,7 +55,8 @@ const { McpStdioClient, detectDesktopMcp, desktopMcpFromInstalledRoot, desktopPy
   }
   // resolveExternalMcpServers with an autodetect desktopMcp should surface id ai-computer-control.
   const resolved = resolveExternalMcpServers({ desktopMcp: { enabled: true, command: '', args: [], cwd: '', autodetect: true }, externalMcpServers: [] });
-  ok(resolved.some(s => s.id === 'ai-computer-control'), 'resolveExternalMcpServers surfaces ai-computer-control when autodetected');
+  if (det) ok(resolved.some(s => s.id === 'ai-computer-control'), 'resolveExternalMcpServers surfaces ai-computer-control when autodetected');
+  else ok(!resolved.some(s => s.id === 'ai-computer-control'), 'resolveExternalMcpServers does not surface an unusable ACC runtime');
 
   // ---- #5: real desktop MCP smoke (best-effort) ----
   // Prefer the detected launch; fall back to an explicit python -X utf8 -m against the known repo.
