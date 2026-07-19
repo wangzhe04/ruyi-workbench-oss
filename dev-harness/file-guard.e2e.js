@@ -72,6 +72,32 @@ function post(port, p, payload, headers) {
   const gv = await S.guardFileToolPath(OUTSIDE, ctx('https://api.deepseek.com'), { write: true });
   ok(gv.ok === false && gv.code === 'not-allowed' && typeof gv.error === 'string', 'S3 denial carries {ok:false, code:not-allowed, error}');
 
+  // Windows hosted runners expose TEMP through an 8.3 short path (RUNNER~1). A missing destination cannot
+  // itself be realpath'd, so the guard must canonicalize its existing parent before comparing allowed roots.
+  const REAL_WS = path.join(UNIT_DATA, 'real-ws');
+  const ALIAS_WS = path.join(UNIT_DATA, 'alias-ws');
+  fs.mkdirSync(REAL_WS, { recursive: true });
+  try {
+    fs.symlinkSync(REAL_WS, ALIAS_WS, process.platform === 'win32' ? 'junction' : 'dir');
+    const missingViaAlias = path.join(ALIAS_WS, 'new-dir', 'new-file.txt');
+    const aliasCtx = { config: { ...P('https://api.deepseek.com'), defaultWorkspace: ALIAS_WS }, session: { cwd: ALIAS_WS } };
+    const ga = await S.guardFileToolPath(missingViaAlias, aliasCtx, { write: true });
+    ok(ga.ok === true, 'S3 missing write target through short-name/junction alias remains in-bounds');
+
+    const ESCAPE_WS = path.join(os.tmpdir(), 'wcw-file-guard-escape-target');
+    const ESCAPE_LINK = path.join(REAL_WS, 'escape-link');
+    fs.rmSync(ESCAPE_WS, { recursive: true, force: true });
+    fs.mkdirSync(ESCAPE_WS, { recursive: true });
+    fs.symlinkSync(ESCAPE_WS, ESCAPE_LINK, process.platform === 'win32' ? 'junction' : 'dir');
+    const escapeCtx = { config: { ...P('https://api.deepseek.com'), defaultWorkspace: REAL_WS }, session: { cwd: REAL_WS } };
+    const ge = await S.guardFileToolPath(path.join(ESCAPE_LINK, 'missing.txt'), escapeCtx, { write: true });
+    ok(ge.ok === false && ge.code === 'not-allowed', 'S3 missing write target through escaping junction remains denied');
+    fs.unlinkSync(ESCAPE_LINK);
+    fs.rmSync(ESCAPE_WS, { recursive: true, force: true });
+  } catch (e) {
+    ok(false, 'S3 short-name/junction regression setup (' + (e && e.message || e) + ')');
+  }
+
   // ── PART B: integration on a live workbench ───────────────────────────────────────────────────────────
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   const WS2 = path.join(HOME, 'ws'); fs.mkdirSync(WS2, { recursive: true });

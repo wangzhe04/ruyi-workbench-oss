@@ -47,6 +47,7 @@ ok(/explorerDefaultPathBudget\s*=\s*200/.test(packager) && /projectedExplorerPat
 ok(/verify_offline_payload/.test(packager) && /ACC staged manifest verification failed/.test(packager), 'full-package assembly verifies the signed ACC manifest before release');
 ok(/Remove-LongTree/.test(packager) && /Refusing to remove path outside package output root/.test(packager), 'long-path cleanup is constrained to the package output root');
 ok(/\.Extension -ne '\.zip'/.test(packager), 'full package excludes nested local ACC zip build artifacts');
+ok(/if \(-not \$SkipExeBuild -and \(Test-Path \$exe\)\)/.test(packager), 'SkipExeBuild cannot package a stale dist/Ruyi.exe');
 ok(/requires-python = ">=3\.12"/.test(pyproject), 'ACC metadata supports the bundled Python 3.12 runtime');
 
 console.log('\nACC OFFLINE INSTALLER CONTRACT: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));

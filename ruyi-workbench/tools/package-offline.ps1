@@ -164,10 +164,10 @@ if (-not $SkipExeBuild) {
 }
 
 $exe = Join-Path $dist "Ruyi.exe"
-if (Test-Path $exe) {
+if (-not $SkipExeBuild -and (Test-Path $exe)) {
   Copy-Item $exe (Join-Path $stage "Ruyi.exe")
 } else {
-  Write-Warning "EXE not found (SkipExeBuild or not built). Packaging source-runner + bundled node.exe (zero-install offline)."
+  Write-Warning "EXE build skipped or unavailable. Packaging source-runner + bundled node.exe (zero-install offline)."
 }
 
 Copy-Item (Join-Path $root "app") (Join-Path $stage "app") -Recurse

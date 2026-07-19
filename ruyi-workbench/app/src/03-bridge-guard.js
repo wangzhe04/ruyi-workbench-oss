@@ -362,6 +362,28 @@ function pathWithinRoot(target, root) {
 function pathWithinAnyRoot(target, roots) {
   return roots.some(r => pathWithinRoot(target, r));
 }
+// Resolve the existing prefix of a path and then re-attach any missing tail. A plain realpath() fallback
+// to the lexical input is not enough for create destinations: on Windows the parent may be addressed via
+// an 8.3 short name (RUNNER~1) or a junction while the allowed root resolves to its long/real name. Comparing
+// those two spellings rejects a legitimate new file. Resolving the nearest existing ancestor preserves the
+// symlink/junction escape protection while also canonicalizing paths whose leaf does not exist yet.
+async function realpathForContainment(rawPath) {
+  const abs = path.resolve(String(rawPath || ''));
+  let probe = abs;
+  const missing = [];
+  for (;;) {
+    try {
+      const real = await fsp.realpath(probe);
+      return missing.length ? path.join(real, ...missing) : real;
+    } catch (err) {
+      if (!err || (err.code !== 'ENOENT' && err.code !== 'ENOTDIR')) return abs;
+      const parent = path.dirname(probe);
+      if (parent === probe) return abs;
+      missing.unshift(path.basename(probe));
+      probe = parent;
+    }
+  }
+}
 // 审计 P1: dataRoot 是文件工具的允许根之一(fileAllowedRoots),本意只为读写【应用产物】(uploads/checkpoints
 // 内容/generated 产物)。但它同时罩住了应用自身的【控制面文件】:config.json(明文 provider 密钥)、sessions/
 // (完整对话记录,含 file_read 读回的文件内容与讨论到的密钥)、memory/(跨会话记忆)、usage/(计费台账)、logs/
@@ -402,7 +424,7 @@ async function guardWorkspacePath(rawPath, session, config) {
   if (!rawPath || !path.isAbsolute(rawPath)) return { ok: false, code: 'bad-path', error: '路径必须是绝对路径' };
   const target = path.resolve(rawPath);
   const roots = fileAllowedRoots(session, config);
-  const real = await fsp.realpath(target).catch(() => target);
+  const real = await realpathForContainment(target);
   // 审计 P1(对抗轮补漏): reveal(在资源管理器打开/定位)与 http_download 落盘目标都经此护栏 —— 敏感控制面文件既
   // 不许暴露也不许被下载覆写(否则可覆写 config.json/runtime.json 致配置损毁/token 替换)。与文件工具同源拒绝。
   await ensureDataRootReal();
@@ -463,7 +485,7 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
-  const real = await fsp.realpath(abs).catch(() => abs);
+  const real = await realpathForContainment(abs);
   // 审计 P1: 敏感控制面文件二次拒绝(见 isSensitiveDataPath)。放在 allowOutsideWorkspace 逃生舱【之前】——即便用户
   // 开了越界豁免,应用自身的 config/runtime/sessions/memory 等也绝不可经文件工具读写(密钥/会话/token 外传面)。
   // 词法 abs 与 realpath 后 real 都查,双保险(junction/短名部署下两者不同)。

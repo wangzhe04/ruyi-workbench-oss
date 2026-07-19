@@ -12,6 +12,7 @@ This file records user-facing release highlights; it does not replace the comple
 - 根治 Windows `cmd.exe` 8191 字符命令行上限：解析 npm `claude.cmd` shim 到真实 `claude.exe`，稳定索引改走一次性 stdin 通道，技能索引不再把启动参数撑爆。
 - 引入数据管家、会话存储 v2、引擎转录 GC 与 `/api/metrics`：会话正文改为增量 NDJSON，支持保留策略、压缩、统计和可观测性，降低长期运行的写放大与磁盘堆积。
 - 后端工具分发改为表驱动，并将约 1.8 万行服务端按 15 个有序源码片段进行构建期拼接；运行时仍是零 npm 依赖的单文件 `app/server.js`，CI、打包和开发启动均校验产物新鲜度与语法。
+- 修复 Windows 8.3 短路径与目录联接下的新文件路径误判：护栏会规范化最近的现存父目录，允许工作区内创建文件，同时继续拒绝经联接逃逸到工作区外的目标。
 - 测试与供应链继续加固：动态端口、并行测试、真实 Claude CLI 手工探针、前端 ES Module 语法门、离线包完整性校验；本次发布前全量结果为 134 pass / 0 fail。
 
 ### English
@@ -21,6 +22,7 @@ This file records user-facing release highlights; it does not replace the comple
 - Removes the Windows `cmd.exe` 8191-character launch limit by resolving npm `claude.cmd` shims to the real `claude.exe` and moving stable index injection to one-time stdin input.
 - Adds Storage Steward, session storage v2, engine transcript GC, and `/api/metrics`. Session bodies use incremental NDJSON with retention, compression, statistics, and lower long-running write amplification.
 - Converts native tool dispatch to a table-driven registry and splits the roughly 18k-line backend into 15 ordered build-time source slices. Runtime remains a zero-npm-dependency single-file `app/server.js`, with freshness and syntax gates across CI, packaging, and developer startup.
+- Fixes new-file containment checks under Windows 8.3 short paths and directory junctions by canonicalizing the nearest existing parent, while preserving denial of junction escapes outside the workspace.
 - Hardens tests and supply-chain checks with dynamic ports, parallel execution, real-Claude manual probes, an ES Module syntax gate, and offline archive integrity validation. The release suite completed with 134 pass / 0 fail.
 
 ## v1.6.6 · 2026-07-16
