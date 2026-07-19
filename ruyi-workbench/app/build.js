@@ -47,6 +47,9 @@ function syntaxGate(text, label) {
 }
 
 const out = build();
+// `--check` is also the release-packaging gate, so a byte-fresh but syntactically
+// broken artifact must fail here instead of being accepted by source-runner builds.
+syntaxGate(out, 'concat(src)');
 const check = process.argv.includes('--check');
 if (check) {
   const cur = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
@@ -54,7 +57,6 @@ if (check) {
   console.error('build --check: 产物落后于 src(或手改了产物)— 跑 node app/build.js 重建');
   process.exit(1);
 }
-syntaxGate(out, 'concat(src)');
 // 原子写(tmp+rename;tmp 带 PID 防并发 build 互踩)。Windows 上 AV/索引器瞬时锁会 EPERM,
 // 短退避重试 3 次(43e 对抗轮实测 rename 覆盖已存在目标 OK,EPERM 来自句柄占用)。
 const tmp = OUT + '.build-tmp.' + process.pid;

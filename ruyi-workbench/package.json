@@ -1,12 +1,14 @@
 {
   "name": "ruyi-workbench",
-  "version": "1.6.6",
+  "version": "1.6.7",
   "private": true,
   "description": "如意 Ruyi — clean-room local all-in-one AI workbench for Windows: dual-engine (local Claude CLI + any OpenAI-compatible provider), MCP tools, files, scripting, browser and Office handoff, desktop control.",
   "main": "app/server.js",
   "bin": "app/server.js",
   "scripts": {
+    "prestart": "node app/build.js --check",
     "start": "node app/server.js serve",
+    "predoctor": "node app/build.js --check",
     "doctor": "node app/server.js doctor",
     "test": "node ../dev-harness/run-all.js",
     "build:exe": "pkg . --targets node24-win-x64 --output dist/Ruyi.exe",

@@ -142,14 +142,14 @@ function Write-AccReleaseManifest([string]$AccDestination, [string]$SourcePackag
   [System.IO.File]::WriteAllText($manifestPath, $json + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding($false)))
 }
 
+# Release gate: validate the generated server before removing the previous stage.
+& node (Join-Path $root "app\build.js") --check
+if ($LASTEXITCODE -ne 0) { throw "app/server.js is stale; run node app/build.js before packaging." }
+
 if (Test-Path $stage) {
   Remove-LongTree $stage $dist
 }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
-
-# 第43波 freshness 门:产物必须 == 拼接(src),陈旧产物不进发行包。
-& node (Join-Path $root "app\build.js") --check
-if ($LASTEXITCODE -ne 0) { throw "app/server.js 落后于 app/src/(或手改了产物)— 先跑 node app/build.js 重建再打包" }
 
 if (-not $SkipExeBuild) {
   Push-Location $root
