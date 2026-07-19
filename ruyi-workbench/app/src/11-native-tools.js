@@ -82,9 +82,9 @@ function shellStart(args, config) {
 
 // Write input to a session and wait for output to settle. best-effort capture: polls buffer growth and
 // returns when ~300ms passes with no new bytes, or timeoutMs elapses. A newly spawned PowerShell may need
-// more than 600ms before it consumes its first stdin command, so an entirely silent command gets a bounded
-// 2s startup/grace window; returning earlier can leave that command queued and misattribute its output to
-// the next shell_send. Long-running tasks won't finish
+// several seconds before it consumes its first stdin command on a cold hosted Windows runner, so an
+// entirely silent command gets a bounded 5s startup/grace window; returning earlier can leave that command
+// queued and misattribute its output to the next shell_send. Long-running tasks won't finish
 // within one send — track them with shell_poll. output = increment from the pre-send cursor to now.
 async function shellSend(args) {
   const shellId = String(args.shellId || '');
@@ -114,7 +114,7 @@ async function shellSend(args) {
     if (nowLen !== lastLen) { lastLen = nowLen; stableSince = Date.now(); }
     if (!sess.running) break;
     if (Date.now() - stableSince >= 300 && nowLen > startCursor) break; // grew then went quiet
-    if (nowLen === startCursor && Date.now() - sentAt >= Math.min(2000, timeoutMs)) {
+    if (nowLen === startCursor && Date.now() - sentAt >= Math.min(5000, timeoutMs)) {
       // No output at all within a settle window (e.g. a command that prints nothing) — don't hang.
       break;
     }
