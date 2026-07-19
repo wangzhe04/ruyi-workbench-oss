@@ -888,3 +888,21 @@
 - P2:resume 累积 ~330K tokens(turn2 in=129K + cache_read=199K)**不报错**;补刀探针(turn3 极小回合测转录大小):**input 仅 294 tokens 且暗号 PINEAPPLE-42 完整保留** → CLI 在 resume 路径上【自动压缩了转录】,且压缩质量过关。
 - **结论:CLI print+resume 自管压缩,工作台主回合零兜底。44c 从「主回合+子代理双兜底」缩水为「只修子代理重试」(子代理一次性 spawn 无 resume,超窗仍是裸失败),省 1-2 天。** haiku 实测窗口 >217K(大于名义 200K,44d 估算自校准的窗口表须按实测而非名义值)。
 - 成本纪律:探针为一次性决策件(~$0.5 两轮),SKIP 登记;大 prompt 走 stdin(argv 撞 Windows ENAMETOOLONG)。
+
+## 40. 第43波:V2.0「立柱」主梁 —— 构建期拼接模块化(42a 方案A 落地)
+
+**切片(43a/43b)**:18,485 行单体 → `app/src/` 15 模块(388-2362 行,43a 程序验证 15 个切点全部「前一行空白+切点顶格」;codemod-slice-modules.js 机械切,不手工搬)。`app/build.js` 零依赖拼接器(manifest.json 顺序 join('\n'),tmp+rename 原子写,装载首行自检)。**首轮切片 git diff 为空(字节级不变)已证**;dev-harness/src-reader.js 逻辑全文 === 产物已证;548 条静态锁零迁移存活。dev 循环实测:改 src → build → 产物 +9 行(banner),一切正常。
+
+**接线(43c)**:run-all.js 起跑前 freshness 门(--check → 落后自动重建,失败拒跑;build.js 不存在跳门兼容单体时代);.github/workflows/e2e.yml 加 build --check fail-fast(CI 拒陈旧入库,与开发机的自动重建分工);build-overlay.js 打包前 --check + src 清单 manifest 驱动;package-offline.ps1 同款门;README 单文件叙事更新为「产物单文件,源码 15 模块」。
+
+**43e 对抗验证轮(用户指定,3 个 agent 并行,全部只读+TEMP 实验)**——三声明(critic 独立复核全部 CONFIRMED:产物==拼接字节级/与单体仅差 9 行 banner/零 npm 依赖)+ 对抗审查擒获 8 项,全部收口:
+- 【高·已修】CRLF 污染链:build.js 丢 CR 防线 → CRLF 模块静默污染产物(模板字面量换行被改写)且 CI 新门在 autocrlf 环境假阳性全红 → .gitattributes 钉 `*.js text eol=lf`(checkout 层根除)+ build.js 恢复 CR 拒绝(第二道铃)
+- 【高·存量已修】overlay 前端模块漏列 4/5(FE1 只发了 icons.js,base 安装的 state/util/net/i18n 停在旧版;第42波 fmtBytes 收编后旧 util.js 缺导出 = 白屏实爆条件)→ 5 模块全列
+- 【中·已修】build.js 产物零语法校验 → 落盘前 node --check(尾部半成品不覆盖旧产物);首行自检补空文件拒绝
+- 【中·已修】manifest 行区间失修(banner +9 漂移)→ 回填并对当前产物自洽(18494 行全覆盖)
+- 【低·已修】run-all 失败诊断吞 r.error;src-reader 单件跑无 freshness 门(拼接后全量比对产物);tmp+rename EPERM 重试+PID 后缀
+- 【低·存量已修】产物含 2 个裸 NUL 字节(探测缓存键字面量)→ rg 判 binary 截断后文检索 → 改 `'\0'` 转义(语义同字符),rg 恢复全文可搜
+
+**验证**:全量套件 134 pass / 0 fail / 0 known-fail(freshness 门工作);claude-binary-live 冒烟 ALL PASS(重建产物 × 真身 CLI × 权限桥);overlay 端到端打包实测 36 文件齐(含全部 src + 5 前端模块)。
+
+**V2.0 剩余**:第44波 上下文压缩 v2(42c 探针已把 44c 缩水为子代理重试)→ 第45波 测试深化封版。

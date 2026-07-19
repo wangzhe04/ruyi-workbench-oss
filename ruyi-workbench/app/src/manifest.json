@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "note": "第43波 构建期拼接模块化:模块 = 产物连续行区间(顺序即声明顺序);node app/build.js 拼接出 app/server.js。改代码改 src/,产物由 build 重建,不手改。startLine/endLine 对应当前产物行号(随编辑由 codemod/手工回填)。",
+  "modules": [
+    {
+      "file": "00-boot.js",
+      "startLine": 1,
+      "endLine": 397,
+      "note": "shebang/use strict/requires/paths/小工具"
+    },
+    {
+      "file": "01-config.js",
+      "startLine": 398,
+      "endLine": 1903,
+      "note": "defaultConfig/normalizeConfig/readConfig/launcher 解析/ROUTE_AUTH"
+    },
+    {
+      "file": "02-session-store.js",
+      "startLine": 1904,
+      "endLine": 3320,
+      "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志"
+    },
+    {
+      "file": "03-bridge-guard.js",
+      "startLine": 3321,
+      "endLine": 3992,
+      "note": "桥接写族覆盖审计/工作区护栏"
+    },
+    {
+      "file": "04-permission-runtime.js",
+      "startLine": 3993,
+      "endLine": 4934,
+      "note": "视觉回路/pendingPermissions/plan 批准/原生权限请求"
+    },
+    {
+      "file": "05-claude-engine.js",
+      "startLine": 4935,
+      "endLine": 5764,
+      "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线"
+    },
+    {
+      "file": "06-provider-engine.js",
+      "startLine": 5765,
+      "endLine": 7205,
+      "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks"
+    },
+    {
+      "file": "07-autonomy.js",
+      "startLine": 7206,
+      "endLine": 9117,
+      "note": "授权书/工具 gate/资源归一化"
+    },
+    {
+      "file": "08-agent-runs.js",
+      "startLine": 9118,
+      "endLine": 10726,
+      "note": "run 事件日志/恢复分级/runSubAgentCore"
+    },
+    {
+      "file": "09-workflow.js",
+      "startLine": 10727,
+      "endLine": 12459,
+      "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
+    },
+    {
+      "file": "10-context-governance.js",
+      "startLine": 12460,
+      "endLine": 13172,
+      "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
+    },
+    {
+      "file": "11-native-tools.js",
+      "startLine": 13173,
+      "endLine": 14870,
+      "note": "shell 会话/git 族/web_search/归档族/桌面桥"
+    },
+    {
+      "file": "12-tool-dispatch.js",
+      "startLine": 14871,
+      "endLine": 15891,
+      "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
+    },
+    {
+      "file": "13-http-router.js",
+      "startLine": 15892,
+      "endLine": 18253,
+      "note": "handleApi 全路由"
+    },
+    {
+      "file": "14-main.js",
+      "startLine": 18254,
+      "endLine": 18494,
+      "note": "main()/module.exports"
+    }
+  ]
+}

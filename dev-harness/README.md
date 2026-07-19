@@ -168,6 +168,7 @@ node dev-harness\openai-engine.e2e.js
 | **无端口** | **src-reader(第42波 42a · 后端「逻辑全文」统一读取口)**(非测试件,公共 helper)。今天读单体 app/server.js;第43波模块化后自动改读 app/src/manifest.json 清单按序拼接。19 件后端锁测试已迁移(codemod),unit/产品代码零直读残留;盘点与 43 波 go 决策(方案A 有序切片+字节级不变产物)见 docs/STATIC-LOCK-AUDIT.md |
 | **LIVE(手工)** | **claude-binary-live(第42波 42b · 真身 claude.exe 冒烟,SKIP 登记手工 node 直跑)**。① resolveClaudeLauncher npm shim→真身 exe;② 直启 --version;③ stream-json 握手(init/result.success/usage/session_id 四要件);④ 权限桥端到端(真 CLI+permissionMode=default→permission_request→逐个批准→tool_result 真 PID 防伪)。**首战擒线上真 bug**:CLI≥2.1 zod union 要 allow 带 updatedInput record,纯批准被 CLI 拒(invalid_union)→ 已修(/api/permission/request 出口回填原始输入,授权书快路径同款) |
 | **LIVE(手工)** | **claude-compact-probe-live(第42波 42c · CLI print 模式压缩行为探针,一次性决策件,~$0.5)**。P1:print 模式 /compact 可用(compact_boundary+success);P2+补刀:resume 累积 ~330K 不报错,第三回合 input 仅 294 tokens 且暗号保留 → **CLI print+resume 自管压缩**,44c 缩水为只修子代理重试;haiku 实测窗口 >217K(窗口表按实测不按名义) |
+| **基建** | **build.js + app/src/(第43波 V2.0「立柱」· 构建期拼接模块化)**(非测试件)。ruyi-workbench/app/build.js 把 app/src/ 15 个模块按 manifest.json 顺序拼接出 app/server.js 产物(零依赖;tmp+rename 原子写;装载时逐模块首行切点自检)。`--check` = freshness/幂等校验。铁律:声明顺序=原单体、产物无 banner 字节级可复现、切点只许顶层声明边界、运行时永远跑产物。首轮切片 git diff 为空(字节级不变)已证;dev-harness/src-reader.js 逻辑全文 === 产物已证;548 条静态锁零迁移存活。run-all.js 起跑前自动 freshness 检查+重建。发行 overlay 携带 build.js + src/ 保审计面 |
 
 > 第36波前曾有 12 处跨文件端口共用(含 live 件与 dead-port 语义冲突),串行执行下无痛但阻碍未来并行;
 > 已全部迁移清零并由 run-all.js 启动审计机械维持。并行化若提上日程:fake 走 env `FAKE_OPENAI_PORT`,

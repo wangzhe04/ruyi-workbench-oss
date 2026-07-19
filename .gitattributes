@@ -10,3 +10,9 @@
 *.xlsx binary
 *.docx binary
 *.pptx binary
+# 第43波(43e 对抗轮·高):构建期拼接要求 src/ 与产物全 LF —— autocrlf=true 的 checkout
+# 会把文件转 CRLF,build 的 join('\n') 在拼接点留裸 \n → 混合 EOL 产物 + CI freshness 假阳性。
+# 钉死 eol=lf,checkout 层面根除(模板字面量内换行 \n→\r\n 会静默改运行时字符串值)。
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf

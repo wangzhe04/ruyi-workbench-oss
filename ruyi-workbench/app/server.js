@@ -1,6 +1,15 @@
 #!/usr/bin/env node
 'use strict';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 如意工作台 server(第43波 构建期拼接模块化)
+//
+// 本文件(app/src/00-boot.js)是【源码模块】之一:app/server.js 是由 app/build.js
+// 把 app/src/*.js 按 src/manifest.json 顺序拼接出的【产物】。改代码请改 src/ 对应
+// 模块,然后 `node app/build.js` 重建产物;不要手改 app/server.js(会被下次构建覆盖)。
+// 产物字节级可复现(build --check 校验),运行时零依赖单文件,气隙可审。
+// ─────────────────────────────────────────────────────────────────────────────
+
 const http = require('http');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -12480,10 +12489,10 @@ function extractContextLength(rawModelEntry) {
   }
   return undefined;
 }
-// 探测缓存:键 `${providerId} ${modelId}` → { at, contextLength }. TTL 10 分钟。进程内, 无落盘。
+// 探测缓存:键 `${providerId}\u0000${modelId}` → { at, contextLength }. TTL 10 分钟。进程内, 无落盘。
 const CTX_PROBE_CACHE = new Map();
 const CTX_PROBE_TTL_MS = 10 * 60 * 1000;
-function ctxProbeKey(providerId, modelId) { return String(providerId || '') + ' ' + String(modelId || ''); }
+function ctxProbeKey(providerId, modelId) { return String(providerId || '') + '\0' + String(modelId || ''); }
 function cacheContextLength(providerId, modelId, contextLength) {
   if (!(Number.isFinite(contextLength) && contextLength > 0)) return;
   CTX_PROBE_CACHE.set(ctxProbeKey(providerId, modelId), { at: Date.now(), contextLength: Math.round(contextLength) });

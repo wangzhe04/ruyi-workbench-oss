@@ -19,6 +19,11 @@ jobs:
       - name: Syntax gate (node --check)
         working-directory: ${{ github.workspace }}
         run: node dev-harness/syntax-gate.js
+      # 第43波: 产物新鲜度 fail-fast 门 —— 改了 src/ 忘跑 build 的陈旧产物在此拦截
+      # (run-all 的 freshness 是自动重建继续测,那是对开发机友好;CI 必须【拒绝】陈旧入库)。
+      - name: Build freshness (artifact == concat(src))
+        working-directory: ${{ github.workspace }}
+        run: node ruyi-workbench/app/build.js --check
       # 第38波(v1.8-A): 并行跑 e2e,CI 反馈从 ~25min 降到 ~7min。
       # 端口已全面动态化,桶间不会撞车。路数可通过 --parallel N 调整。
       - name: Run e2e suite

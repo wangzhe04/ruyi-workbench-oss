@@ -15,10 +15,26 @@ const outRoot = path.join(root, 'dist', 'overlay');
 const payload = path.join(outRoot, 'payload');
 
 // Files that land in the deployed folder (path relative to deployed root == relative to `root`).
+// 第43波: src 模块清单改 manifest.json 驱动(单一真相 —— 增删模块不用同步两处;43e 对抗轮裁决)。
+// 第43波(freshness): 打包前强制「产物 == 拼接(src)」—— 陈旧产物进发行包是静默事故,此处拦截。
+cp.execFileSync(process.execPath, [path.join(root, 'app', 'build.js'), '--check'], { stdio: 'inherit' });
+const srcModules = JSON.parse(fs.readFileSync(path.join(root, 'app', 'src', 'manifest.json'), 'utf8')).modules
+  .map(m => 'app/src/' + (typeof m === 'string' ? m : m.file));
 const PAYLOAD_FILES = [
   'app/server.js',
+  // 第43波: 模块化源码 + 拼接器随包发布(运行时只用产物,src 保气隙审计面)
+  'app/build.js',
+  'app/src/manifest.json',
+  ...srcModules,
   'app/public/index.html',
   'app/public/app.js',
+  // v1.3-FE1 前端模块化的全部 5 个模块 —— 43e 对抗轮擒获存量 bug:只发 icons.js 会让 base 安装
+  // 的 state/util/net/i18n 停在旧版(overlay 只覆写不删除),app.js 顶部 import 全 5 个 → 版本偏斜,
+  // 第42波 fmtBytes 收编后旧 util.js 缺导出 = ES module 实例化失败白屏。全量列出。
+  'app/public/js/state.js',
+  'app/public/js/util.js',
+  'app/public/js/net.js',
+  'app/public/js/i18n.js',
   'app/public/js/icons.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',

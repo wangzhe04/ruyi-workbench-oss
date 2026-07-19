@@ -26,7 +26,14 @@ function readServerSource() {
   if (cache) return cache;
   if (fs.existsSync(MANIFEST)) {
     const mods = JSON.parse(fs.readFileSync(MANIFEST, 'utf8')).modules;
-    cache = mods.map(m => fs.readFileSync(path.join(APP, 'src', m), 'utf8')).join('\n');
+    // manifest.modules 条目兼容两种形状:'NN-name.js' 或 {file, startLine, endLine, note}(43 波带行区间元数据)
+    cache = mods.map(m => fs.readFileSync(path.join(APP, 'src', typeof m === 'string' ? m : m.file), 'utf8')).join('\n');
+    // 43e 对抗轮:直接单件跑测试(不走 run-all 的 freshness 门)时,「锁读新 src、server 跑旧产物」
+    // 的错配无任何提示。拼接后与产物做一次全量比对 —— 不一致即 fail 并指路,1.3MB×2 读取 ~ms 级。
+    const artifact = fs.readFileSync(SINGLE_FILE, 'utf8');
+    if (artifact !== cache) {
+      throw new Error('src-reader freshness: app/src/ 与产物 app/server.js 不一致 —— 先跑 node ruyi-workbench/app/build.js 重建再测(否则锁读新代码、server 跑旧行为,结果不可信)');
+    }
   } else {
     cache = fs.readFileSync(SINGLE_FILE, 'utf8');
   }

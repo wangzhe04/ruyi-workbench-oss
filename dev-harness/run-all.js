@@ -165,6 +165,25 @@ async function main() {
     process.exit(2);
   }
   console.log(`# 端口审计: ${audit.count} 个带内端口,跨文件零撞车\n`);
+  // 第43波: 构建 freshness 门 —— 测试永远跑【新鲜产物】。src/ 被改过而产物未重建时,
+  // 自动重建(确定性操作,静默跑陈旧代码才是真风险);重建失败(切点自检不过)即拒跑。
+  // build.js 不存在(部分检出/回滚到 43 波前的单体时代)则跳门,保持向后兼容。
+  {
+    const buildJs = path.join(HARNESS, '..', 'ruyi-workbench', 'app', 'build.js');
+    if (!fs.existsSync(buildJs)) {
+      console.log('# build freshness: app/build.js 不存在(单体时代树)— 跳门');
+    } else {
+      const b = cp.spawnSync(process.execPath, [buildJs, '--check'], { encoding: 'utf8', windowsHide: true });
+      if (b.status !== 0) {
+        console.log('# build freshness: 产物落后于 src —— 自动重建(node app/build.js)');
+        const r = cp.spawnSync(process.execPath, [buildJs], { encoding: 'utf8', windowsHide: true });
+        if (r.status !== 0) { console.error('# build 重建失败:\n' + (r.error && r.error.stack || r.stderr || r.stdout || '(无输出)')); process.exit(2); }
+        console.log('# ' + String(r.stdout).trim());
+      } else {
+        console.log('# build freshness: 产物与 src 一致');
+      }
+    }
+  }
 
   let pass = 0, fail = 0, knownFail = 0, unexpectedPass = 0;
   const failed = [], results = [];
