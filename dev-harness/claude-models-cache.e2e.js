@@ -1,7 +1,7 @@
 (async () => {
 // E2E: 第44波「Claude 模型列表 API 化 + 代理发现缓存 + 自定义模型可删」。
 // fake Anthropic 兼容代理(GET /v1/models)→ workbench(claude 引擎,modelsApiBase 指向 fake):
-//   a) /api/models = 默认+别名 ∪ 代理 live ∪ 自定义(extraModels/knownModels);【无】版本化硬编码型号
+//   a) /api/models = 默认 ∪ 代理 live ∪ 自定义(extraModels/knownModels);【无】版本化硬编码型号;【无】别名(44e)
 //   b) 发现成功写 sidecar <dataRoot>/proxy-models-cache.json(不写 config.json,防竞态)
 //   c) 代理挂掉、重启 workbench 后,/api/models 与 /api/status 仍含缓存模型(离线兜底,proxyCount=0 佐证非 live)
 //   d) POST /api/config 清空 extraModels/knownModels(= 前端行内 × 的后端半)→ 自定义条目消失、缓存条目保留
@@ -70,7 +70,7 @@ try {
   ok(r1 && r1.proxyCount === 2, 'a) proxyCount=2(got ' + (r1 && r1.proxyCount) + ')');
   ok(ids1.includes('claude-fake-strong') && ids1.includes('claude-fake-fast'), 'a) 含代理 live 模型');
   ok(!ids1.includes('claude-opus-4-8') && !ids1.includes('claude-fable-5') && !ids1.includes('claude-sonnet-5') && !ids1.includes('claude-haiku-4-5'), 'a) 无版本化硬编码型号(第44波去硬编码)');
-  ok(ids1.includes('') && ids1.includes('opus') && ids1.includes('sonnet') && ids1.includes('haiku'), 'a) 保留 默认+三别名(CLI 内建解析)');
+  ok(ids1.includes('') && !ids1.includes('opus') && !ids1.includes('sonnet') && !ids1.includes('haiku'), 'a) 保留 默认(CLI 配置);44e 别名也出列表');
   ok(ids1.includes('my-custom') && ids1.includes('remembered-1'), 'a) 含自定义(extraModels ∪ knownModels)');
   const mc = ((r1 && r1.models) || []).find(m => m.id === 'my-custom');
   ok(mc && mc.label === '我的自定义', 'a) extraModels 的 "id|label" 标注生效');
@@ -109,7 +109,7 @@ try {
   const ids3 = ((r3 && r3.models) || []).map(m => m.id);
   ok(!ids3.includes('my-custom') && !ids3.includes('remembered-1'), 'd) 自定义条目已删除');
   ok(ids3.includes('claude-fake-strong') && ids3.includes('claude-fake-fast'), 'd) 缓存的 API 条目不受删除影响(端点真实清单非用户数据)');
-  ok(ids3.includes('') && ids3.includes('opus'), 'd) 默认+别名仍在');
+  ok(ids3.includes('') && !ids3.includes('opus'), 'd) 默认仍在,别名已移除');
 } catch (e) { ok(false, '异常:' + (e && e.stack || e)); }
 finally {
   kill(wb);
