@@ -7359,6 +7359,24 @@ async function setEngineModel(providerId, modelId) {
     ? t('modelMenu.selectionChangedNextTurn', { engine: label, model: modelId || t('provider.defaultModel') })
     : t('modelMenu.selectionChanged', { engine: label, model: modelId || t('provider.defaultModel') }), 'ok');
 }
+// 第44波: 删除 Claude 引擎下的自定义模型(extraModels 的 "id|label" 条目 ∪ knownModels 记忆条目)——之前只增不删,
+// 列表越用越脏。若删的是当前选中模型,一并重置为「默认」。写一次 POST /api/config,再静默刷新列表。
+// 注意:代理发现缓存里的 API 条目不受影响(那是端点真实清单,非用户数据)——删完仍显示的行说明它来自代理。
+async function deleteCustomModel(modelId) {
+  const id = String(modelId || '').trim(); if (!id) return;
+  const patch = {
+    extraModels: (state.config.extraModels || []).filter(raw => String(raw).split('|')[0].trim() !== id),
+    knownModels: (state.config.knownModels || []).filter(k => String(k || '').trim() !== id),
+  };
+  if ((state.config.model || '') === id) patch.model = '';
+  Object.assign(state.config, patch); // 乐观更新,失败由 toast 告知(下次刷新会回弹真实值)
+  try {
+    await saveConfigPartial(patch);
+    toast(t('modelMenu.modelDeleted', { model: id }), 'ok');
+  } catch (e) { toast(t('modelMenu.deleteFailed', { error: apiErrText(e) }), 'err'); }
+  renderModelChip();
+  await refreshModels(); // 静默重建 status.models
+}
 // Build + open the chip popover: grouped single-select list (Claude CLI group + one group per
 // provider), current row ✓ + highlighted, disabled placeholder for provider groups with no models,
 // footer actions (refresh / manage providers). Keyboard: ↑↓ move, Enter select, Esc close.
@@ -7379,8 +7397,9 @@ function openModelChipPopover() {
     const curModel = currentModelId();
     // v1.0.2 (G3): 分组折叠 — 当前激活引擎组展开置顶；其它引擎组折叠(details/summary)。组头显示引擎名 + 模型数,
     // 非当前引擎组注明「选择将切换引擎」。模型行有 contextLength 时显示紧凑徽标(128K / 1M)。当前模型 ✓ 保持。
-    // buildRows(container, pid, models, emptyHint, isActive) — appends model rows into `container`.
-    const buildRows = (container, pid, models, emptyHint, isActive) => {
+    // buildRows(container, pid, models, emptyHint, isActive, deletableIds) — appends model rows into `container`.
+    // deletableIds(第44波): 命中的行尾渲染 ×(span+role=button,行本身是 <button> 不可嵌套),点击删自定义模型。
+    const buildRows = (container, pid, models, emptyHint, isActive, deletableIds) => {
       const list = (models && models.length) ? models : [];
       if (!list.length) { container.appendChild(el('div', 'mc-row disabled', emptyHint)); return; }
       for (const m of list) {
@@ -7390,6 +7409,13 @@ function openModelChipPopover() {
         row.append(el('span', 'mc-check', isCur ? '✓' : ''), el('span', 'mc-rlabel', m.label || m.id || t('provider.defaultModel')));
         const badge = ctxLenBadge(m.contextLength);
         if (badge) row.append(el('span', 'mc-ctxlen', badge));
+        if (deletableIds && m.id && deletableIds.has(m.id)) {
+          const del = el('span', 'mc-del', '×');
+          del.title = t('modelMenu.deleteCustomModel');
+          del.setAttribute('role', 'button');
+          del.onclick = async (e) => { e.stopPropagation(); await deleteCustomModel(m.id); close(); openModelChipPopover(); };
+          row.append(del);
+        }
         row.onclick = () => { close(); setEngineModel(pid, m.id || ''); };
         rows.push(row);
         container.appendChild(row);
@@ -7397,7 +7423,7 @@ function openModelChipPopover() {
     };
     // Render one engine group. Active engine → open <div> with a plain group head. Non-active → collapsed
     // <details> whose summary shows the label + model count + 「选择将切换引擎」note.
-    const addGroup = (pid, label, colorVar, models, emptyHint) => {
+    const addGroup = (pid, label, colorVar, models, emptyHint, deletableIds) => {
       const isActive = (pid === curPid);
       const count = (models && models.length) || 0;
       if (isActive) {
@@ -7405,7 +7431,7 @@ function openModelChipPopover() {
         const dot = el('span', 'mc-gdot'); dot.style.background = colorVar;
         gh.append(dot, el('span', 'mc-glabel', label), el('span', 'mc-gcount', '· ' + tCount('modelMenu.modelCount', count)));
         wrap.appendChild(gh);
-        buildRows(wrap, pid, models, emptyHint, true);
+        buildRows(wrap, pid, models, emptyHint, true, deletableIds);
       } else {
         const det = el('details', 'mc-groupd');
         const sum = el('summary', 'mc-group mc-group-sum');
@@ -7413,13 +7439,17 @@ function openModelChipPopover() {
         sum.append(dot, el('span', 'mc-glabel', label), el('span', 'mc-gcount', '· ' + tCount('modelMenu.modelCount', count)),
           el('span', 'mc-switch-note', t('modelMenu.switchesEngine')));
         det.appendChild(sum);
-        buildRows(det, pid, models, emptyHint, false);
+        buildRows(det, pid, models, emptyHint, false, deletableIds);
         wrap.appendChild(det);
       }
     };
     // Claude CLI group (models from status.models — the claude-side offline/proxy list, includes '默认').
+    // 第44波: 自定义模型(extraModels 的 id 部分 ∪ knownModels)行尾可删 —— 别名/代理 API 条目不可删。
+    const customModelIds = new Set();
+    for (const raw of (state.config.extraModels || [])) { const v = String(raw).split('|')[0].trim(); if (v) customModelIds.add(v); }
+    for (const id of (state.config.knownModels || [])) { const v = String(id || '').trim(); if (v) customModelIds.add(v); }
     const claudeModels = (state.status && state.status.models) || [{ id: '', label: t('provider.defaultModel') }];
-    addGroup('', 'Claude CLI', 'var(--eng-claude)', claudeModels, '');
+    addGroup('', 'Claude CLI', 'var(--eng-claude)', claudeModels, '', customModelIds);
     // One group per configured provider.
     for (const p of (state.config.providers || [])) {
       const vis = engineVisual({ engine: 'openai', providerId: p.id, providerLabel: p.label || p.id });

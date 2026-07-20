@@ -905,4 +905,18 @@
 
 **验证**:全量套件 134 pass / 0 fail / 0 known-fail(freshness 门工作);claude-binary-live 冒烟 ALL PASS(重建产物 × 真身 CLI × 权限桥);overlay 端到端打包实测 36 文件齐(含全部 src + 5 前端模块)。
 
-**V2.0 剩余**:第44波 上下文压缩 v2(42c 探针已把 44c 缩水为子代理重试)→ 第45波 测试深化封版。
+## 41. 第44波:Claude 模型列表 API 化 + 自定义模型可删
+
+**动机(用户反馈)**:Claude CLI 下模型选择器硬编码 5 个版本化型号(claude-opus-4-8 等),新型号发布即过时、须改代码跟进;且自定义添加的模型(extraModels/knownModels)只增不删,无任何删除入口。
+
+**切片**:
+- **44a 列表来源收口(后端)**:`MODEL_PRESETS` 砍掉全部版本化型号,只留「默认(CLI 配置)+ CLI 内建别名 opus/sonnet/haiku」(别名由 CLI 自己解析、非版本号,永不失效);版本化型号的唯一来源 = 代理 `/v1/models` 发现 + 用户自定义标注。列表构成 = 默认+别名 ∪ 代理发现缓存 ∪ extraModels ∪ knownModels ∪ config.model。
+- **44b 代理发现 sidecar 缓存(后端)**:发现成功落盘 `<dataRoot>/proxy-models-cache.json`(归一化+去重+cap 50,内容没变不写盘);`offlineModelList`/`/api/status` 即时列表合并缓存 → 代理挂掉/离线启动时 API 型号仍在。**刻意不写进 config.json**:GET /api/models 是读路径,缓存合并进 config 再 writeConfig 会让陈旧全量快照与 POST /api/config 竞态互踩(25.1 对抗轮教训);sidecar 独占写点零竞态。
+- **44c 编排 hint 引擎归属跟进(后端)**:`buildModelHint` Claude 组 = 别名 ∪ 代理缓存(替代原硬编码组);openai 兜底池与 `tierModelForNode` 同步排除缓存 id(缓存模型属 Claude 端,混入 openai 组会诱导 AI 选错必失败 —— 第30波对抗轮教训的延伸)。
+- **44d 行内删除(前端)**:模型 chip 弹层 Claude 组里,extraModels/knownModels 来源的行尾渲染 ×(span+role=button,行本身是 `<button>` 不可嵌套);点击 = 一次 POST /api/config 从两数组移除(删的是当前选中模型则重置为默认),toast + 静默刷新。代理 API 条目不可删(端点真实清单非用户数据)。i18n 三键(zh-CN/en-US)+ `.mc-del` 样式。
+
+**e2e**:orchestrate-model-select 静态锁/[P] 沙箱更新(tier 池 filter 新形状 + 缓存 stub 夹具 + 引擎归属断言 7 条新增);新增 claude-models-cache.e2e.js(20 断言:fake Anthropic 代理两轮——在线验证列表构成/无硬编码/sidecar 落盘且不入 config,离线重启验证缓存兜底 proxyCount=0,删除流后端半验证自定义消失缓存保留)。
+
+**验证**:claude-models-cache ALL PASS ×2;orchestrate-model-select ALL PASS;openai-engine / agent-workflow-claude-engine 相邻回归 ALL PASS;单元 148/148。
+
+**V2.0 剩余**:第45波 上下文压缩 v2(42c 探针已把其缩水为子代理重试)→ 第46波 测试深化封版。

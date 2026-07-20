@@ -1480,26 +1480,58 @@ async function startServer(opts) {
   }
 }
 
-// Curated offline fallback (used when the proxy can't be queried). Aliases opus/sonnet/haiku are
-// resolved by the CLI itself. The live list from the intranet proxy is merged on top when available.
+// 第44波(模型列表 API 化):预设只剩「默认 + CLI 内建别名(opus/sonnet/haiku)」——别名由 CLI 自己解析、非版本
+// 型号,永不失效;版本化型号(如 claude-opus-4-8)【不再硬编码】,真实清单来自代理 /v1/models 的发现缓存
+// (getProxyModelsCache)+ 用户自定义(extraModels/knownModels)。离线兜底见 offlineModelList。
 const MODEL_PRESETS = [
   { id: '', label: '默认 (CLI 配置)' },
   { id: 'opus', label: 'Opus (别名·最强)' },
   { id: 'sonnet', label: 'Sonnet (别名·均衡)' },
   { id: 'haiku', label: 'Haiku (别名·最快)' },
-  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
-  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7' },
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
-  { id: 'claude-fable-5', label: 'Claude Fable 5' },
 ];
 
-// Offline list = curated presets ∪ manual (extraModels: "id" or "id|Label") ∪ remembered (knownModels)
+// 第44波: 代理模型列表 sidecar 缓存(<dataRoot>/proxy-models-cache.json)。发现成功即落盘,供离线启动时的列表
+// 兜底 + buildModelHint 的 Claude 组。【不】写进 config.json:GET /api/models 是读路径,把缓存合并进 config 再
+// writeConfig 会让陈旧全量快照与用户的 POST /api/config 竞态互踩(25.1 对抗轮教训);sidecar 独占写点、零竞态。
+const PROXY_MODELS_CACHE_PATH = () => path.join(paths.data, 'proxy-models-cache.json');
+let proxyModelsCacheMemo = null; // null=未读盘;读后为 {at, models:[{id,label}]}(可为空数组)
+function getProxyModelsCache() {
+  if (proxyModelsCacheMemo === null) {
+    proxyModelsCacheMemo = { at: '', models: [] };
+    try {
+      const j = JSON.parse(fs.readFileSync(PROXY_MODELS_CACHE_PATH(), 'utf8'));
+      if (j && Array.isArray(j.models)) {
+        proxyModelsCacheMemo = {
+          at: String(j.at || ''),
+          models: j.models.filter(m => m && m.id).map(m => ({ id: String(m.id), label: String(m.label || m.id) })).slice(0, 50),
+        };
+      }
+    } catch { /* 无缓存文件/坏 JSON → 空缓存 */ }
+  }
+  return proxyModelsCacheMemo;
+}
+// 发现成功时调用:归一化 + 去重 + cap 50;内容没变则不写盘(避免每次 /api/models 都动文件)。尽力而为,不抛。
+function setProxyModelsCache(models) {
+  const seen = new Map();
+  for (const m of (Array.isArray(models) ? models : [])) {
+    const id = String((m && m.id) || '').trim();
+    if (id && !seen.has(id)) seen.set(id, { id, label: String((m && m.label) || id) });
+    if (seen.size >= 50) break;
+  }
+  const next = { at: new Date().toISOString(), models: [...seen.values()] };
+  const prev = getProxyModelsCache();
+  if (JSON.stringify(prev.models) === JSON.stringify(next.models)) return;
+  proxyModelsCacheMemo = next;
+  atomicWriteJson(PROXY_MODELS_CACHE_PATH(), next).catch(() => { /* 失败只影响下次离线兜底 */ });
+}
+
+// Offline list = 默认+别名预设 ∪ 代理发现缓存 ∪ manual (extraModels: "id" or "id|Label") ∪ remembered (knownModels)
 // ∪ the current custom model. Deduped by id; the empty '默认' entry stays first. No network.
 function offlineModelList(config) {
   const seen = new Map();
   const add = (id, label) => { const k = String(id ?? ''); if (!seen.has(k)) seen.set(k, { id: k, label: label || (k || '默认 (CLI 配置)') }); };
   for (const m of MODEL_PRESETS) add(m.id, m.label);
+  for (const m of getProxyModelsCache().models) add(m.id, m.label); // 第44波: API 发现的版本化型号由此进列表
   for (const raw of (config.extraModels || [])) { const [id, label] = String(raw).split('|'); if (id && id.trim()) add(id.trim(), (label || '').trim() || undefined); }
   for (const id of (config.knownModels || [])) if (id) add(id);
   if (config.model && !seen.has(String(config.model))) add(config.model, config.model + ' (自定义)');
@@ -1530,7 +1562,8 @@ const MODEL_TIER_LABEL = { strong: '强', balanced: '均衡', fast: '快' };
 const MODEL_TIER_USE = { strong: '复杂推理/综合/裁判/难题', balanced: '一般实现与分析', fast: '简单/大批量/检索类节点' };
 const MODEL_PRESET_IDS = new Set(MODEL_PRESETS.map(m => m.id).filter(Boolean)); // Claude 预设别名集(引擎归属判定用)
 // 供编排者(AI)选型的可选模型清单 + 能力档位 + 按难度选型指引。【引擎分组】:OpenAI 节点用 provider 模型 + 用户
-// 自定义(非预设);Claude 节点用预设别名。防 AI 给 openai 节点选 Claude 别名(必失败)。label 扁平化防注入。
+// 自定义(非预设);Claude 节点用别名 ∪ 代理发现缓存(第44波,替代原硬编码版本型号)。防 AI 给 openai 节点选 Claude
+// 别名(必失败)。label 扁平化防注入。
 function buildModelHint(config, provider) {
   const all = offlineModelList(config).filter(m => m.id);
   if (!all.length) return '';
@@ -1541,8 +1574,10 @@ function buildModelHint(config, provider) {
   const addP = id => { id = String(id || '').trim(); if (id && !seenP.has(id) && !MODEL_PRESET_IDS.has(id)) { seenP.add(id); const f = all.find(m => m.id === id); provList.push(f || { id, label: id }); } };
   if (provider) { if (Array.isArray(provider.models)) for (const x of provider.models) addP((x && x.id) || x); if (provider.model) addP(provider.model); }
   // provider 声明了模型 → 只列这些;什么都没声明(自建单模型)→ 退回非预设自定义(尽力)。
-  const openaiModels = provList.length ? provList : all.filter(m => !MODEL_PRESET_IDS.has(m.id));
-  const claudeModels = all.filter(m => MODEL_PRESET_IDS.has(m.id));                        // 预设别名(Claude)
+  // 第44波: Claude 组 = 别名 ∪ 代理发现缓存(API 真实清单);openai 兜底池同步排除两者(防跨引擎诱导选错必失败)。
+  const claudeCacheIds = new Set(getProxyModelsCache().models.map(m => m.id));
+  const openaiModels = provList.length ? provList : all.filter(m => !MODEL_PRESET_IDS.has(m.id) && !claudeCacheIds.has(m.id));
+  const claudeModels = all.filter(m => MODEL_PRESET_IDS.has(m.id) || claudeCacheIds.has(m.id)); // 别名 + 代理缓存(Claude)
   const fmt = m => { const t = modelCapabilityTier(m.id, m.label); const lb = m.label && m.label !== m.id ? '（' + String(m.label).replace(/\s+/g, ' ').trim() + '）' : ''; return `- ${m.id}【${MODEL_TIER_LABEL[t]}·${MODEL_TIER_USE[t]}】${lb}`; };
   const parts = [];
   if (openaiModels.length) parts.push('OpenAI 引擎节点(engine:openai)可选:\n' + openaiModels.map(fmt).join('\n'));
@@ -1566,7 +1601,8 @@ function tierModelForNode(toolTier, engine, config, provider) {
   let ids;
   if (provIds.length) ids = provIds;
   else { ids = []; for (const raw of (config.extraModels || [])) { const id = String(raw).split('|')[0].trim(); if (id) ids.push(id); } for (const id of (config.knownModels || [])) if (id) ids.push(String(id)); if (config.model) ids.push(String(config.model)); }
-  const pool = [...new Set(ids)].filter(id => !MODEL_PRESET_IDS.has(id)); // 排除 Claude 预设别名
+  const claudeCacheIds = new Set(getProxyModelsCache().models.map(m => m.id)); // 第44波: 缓存的 Claude 端模型同样排除
+  const pool = [...new Set(ids)].filter(id => !MODEL_PRESET_IDS.has(id) && !claudeCacheIds.has(id)); // 排除 Claude 别名+代理缓存
   if (!pool.length) return '';
   const want = toolTier === 'exec' ? 'strong' : (toolTier === 'edit' ? 'balanced' : 'fast');
   const order = want === 'strong' ? ['strong', 'balanced', 'fast'] : want === 'fast' ? ['fast', 'balanced', 'strong'] : ['balanced', 'fast', 'strong'];
@@ -1614,8 +1650,10 @@ async function fetchProxyModels(config, timeoutMs = 2500) {
 }
 
 // Full list surfaced to the UI = proxy (live) ∪ offline, deduped, '默认' first.
+// 第44波: 发现成功即更新 sidecar 缓存(setProxyModelsCache 内部做变更比对,没变不写盘)。
 async function discoverModels(config) {
   const proxy = (config && config.discoverModelsFromProxy !== false) ? await fetchProxyModels(config).catch(() => []) : [];
+  if (proxy.length) setProxyModelsCache(proxy);
   const seen = new Map();
   const add = (id, label) => { const k = String(id ?? ''); if (!seen.has(k)) seen.set(k, { id: k, label: label || k }); };
   add('', '默认 (CLI 配置)');

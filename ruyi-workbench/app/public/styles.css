@@ -586,6 +586,11 @@ input:focus, textarea:focus, select:focus {
   padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--muted) 12%, transparent); }
 .mc-row.mc-action { color: var(--ink-2); }
 .mc-row.mc-action .mc-check { color: var(--muted); }
+/* 第44波: Claude 组自定义模型行内删除(×)。span+role=button(行本身是 <button>,不可嵌套 button)。 */
+.mc-row .mc-del { flex: none; margin-left: auto; color: var(--muted); font-size: var(--fs-sm);
+  padding: 0 4px; border-radius: 4px; cursor: pointer; line-height: 1.4; }
+.mc-row .mc-del:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.mc-row .mc-ctxlen + .mc-del { margin-left: 4px; }
 .mc-sep { border-top: 1px solid var(--line); margin: 6px 4px; }
 
 /* context-meter popover (§4.6) */
