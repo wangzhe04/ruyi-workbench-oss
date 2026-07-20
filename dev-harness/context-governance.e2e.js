@@ -22,7 +22,7 @@ ok(!/\.join\('\\n\\n'\)\.slice\(0, 32000\)/.test(src), 'S §28c 旧 join.slice(0
 ok(/deriveNodeOutputs\(node\);/.test(src), 'S §28b runNode 完成调 deriveNodeOutputs');
 ok(/function deriveNodeOutputs\(node\)/.test(src) && /node\.summary =/.test(src) && /node\.evidence =/.test(src) && /node\.artifacts =/.test(src), 'S §28b deriveNodeOutputs 产 summary/evidence/artifacts');
 // §28a:子代理循环边界压缩;Claude 引擎不引入。
-ok(/await maybeCompactSubHistory\(\{ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession \}\)/.test(src), 'S §28a runSubAgentCore 循环边界调 maybeCompactSubHistory');
+ok(/await maybeCompactSubHistory\(\{ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools \}\)/.test(src), 'S §28a runSubAgentCore 循环边界调 maybeCompactSubHistory(45f P3-3:带 tools 估算口径)');
 ok(/subHistory\.splice\(0, subHistory\.length, \.\.\.reseeded\)/.test(src), 'S §28a L2 重播种用【原地 splice】(const 闭包安全)');
 {
   const claudeOnce = (src.match(/async function runClaudeSubAgentOnce\([\s\S]*?\nasync function runSubAgentCore\(/) || [''])[0];
@@ -106,10 +106,12 @@ const estimateHistoryTokens = h => (Array.isArray(h) ? h : []).reduce((t, m) => 
 let summaryOk = true;
 const providerSummaryCall = async () => (summaryOk ? { ok: true, summary: 'SUMMARY', usage: null } : { ok: false, error: 'boom' });
 let recordCalls = 0; const recordCompactUsage = () => { recordCalls++; };
+// 第45波:maybeCompactSubHistory 预算判定改走 calibratedEstimate(45d 校准入口)—— 桩镜像「无样本=因子1」。
+const calibratedEstimate = (p, m, h) => estimateHistoryTokens(h);
 const maybeCompactSubHistory = new Function(
-  'providerContextWindow', 'estimateHistoryTokens', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage',
+  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage',
   mm[0] + '\nreturn maybeCompactSubHistory;'
-)(providerContextWindow, estimateHistoryTokens, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage);
+)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage);
 
 const cfg = { autoCompactThreshold: 0.8 }; // budget = 0.8 × 1000 = 800 token
 const prov = { model: 'm' };

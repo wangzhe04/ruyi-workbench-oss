@@ -505,7 +505,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let resultText = '';
   let iters = 0, toolCallCount = 0;
   let subOk = true, subErr = '';
-  let subOverWindow = false; // v0.9 F6: set when the sub-turn's 400 looks like a context-window overflow
+  let subOverWindow = false;
+  let overWindowRetried = false; // 45c:over-window 强压重试,每子回合仅一次 // v0.9 F6: set when the sub-turn's 400 looks like a context-window overflow
   // 第32波: sub-agent savepoint——每次工具调用批次成功后存快照,传输/超时失败时自动从检查点恢复续跑(不重做已完成的工具调用)。
   let savepoint = null;         // { subHistory, resultText, iter, iters, toolCallCount } | null
   let checkpointRestored = false; // 仅恢复一次(防无限重试循环)
@@ -570,7 +571,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       }
       // 第28波(§28a):迭代边界两级自动压缩(与主回合 9208 一一对应)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
       // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
-      await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession });
+      await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools });
       // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
       // (502/503/504) + a toolsRejected retry; the sub-turn previously had NEITHER, so a single transient
       // gateway blip, rate-limit (429) or connect/TLS failure on a sub-agent call failed the whole node - and
@@ -628,6 +629,30 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         // message + hint instead. (Full subHistory compaction is a documented leftover, not done here.)
         const he = String(call.httpError || '');
         const isOverWindow = /^HTTP 400\b/.test(he) && (/context|token|length|maximum|too\s*long|too\s*large|exceed/i.test(he) || he.length > 400);
+        // 第45波 45c(对称 45b):over-window 不再是终态 —— 强制压缩 subHistory(L1 蒸发 + L2 预算化摘要)
+        // 并重试本迭代一次。maybeCompactSubHistory 只在迭代边界触发,单条巨型工具结果可在边界前爆窗。
+        if (isOverWindow && !overWindowRetried && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+          overWindowRetried = true;
+          const estNow = estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]);
+          noteWindowOvershoot(provider.id, subModel, estNow); // 45d(b)
+          onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+          const ev = evaporateHistory(subHistory);
+          const sc = await providerSummaryCall(provider, subHistory);
+          if (sc.ok) {
+            const boundary = recentTurnsBoundary(subHistory);
+            const task0 = subHistory[0];
+            const kept = subHistory.slice(boundary).filter(m => m !== task0);
+            // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
+            subHistory.splice(0, subHistory.length,
+              { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【前文因上下文超限已压缩为摘要】\n' + String(sc.summary || '') },
+              { role: 'assistant', content: '已了解原任务与以上摘要,继续推进。' },
+              ...kept);
+            if (parentSession) recordCompactUsage(parentSession, provider, sc);
+            subOk = true; subErr = '';
+            iter--; continue;
+          }
+          if (ev > 0) { subOk = true; subErr = ''; iter--; continue; } // L2 失败但 L1 有斩获,试最后一次
+        }
         subErr = isOverWindow ? '子任务上下文超限' : he;
         subOverWindow = isOverWindow;
         break;

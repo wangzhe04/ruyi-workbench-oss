@@ -920,3 +920,23 @@
 **验证**:claude-models-cache ALL PASS ×2;orchestrate-model-select ALL PASS;openai-engine / agent-workflow-claude-engine 相邻回归 ALL PASS;单元 148/148。
 
 **V2.0 剩余**:第45波 上下文压缩 v2(42c 探针已把其缩水为子代理重试)→ 第46波 测试深化封版。
+
+## 42. 第45波:上下文压缩 v2 —— 消死角 + 可度量(V2.0 最后功能波)
+
+> 编号注记:V2.0 规划的「第44波 压缩 v2」因用户并行会话以「第44波」落了模型列表 API 化,顺延为第45波;封版波顺移 46。
+
+**45a 摘要载荷预算化(修死锁角)**:providerSummaryCall 旧状把整个 history 发给 /chat/completions —— history 超窗时摘要调用自身 400,自动压缩每轮重试每轮败。内核重写:① fitHistoryForSummary 按「窗口×50%」预算保头(原始目标 user 块)保尾(最近 2 个 user 块)、中段整块省略(user 块边界配对安全;全程副本不动调用方);② 仍超 → map-reduce 按块分组逐段摘要再总摘要(usage 聚合);单条消息截断随预算动态取(45f P2-3:固定 cap 在学到小窗口时会复活死锁角)。
+
+**45b 主回合 400 强压重试**:context 类 400 → 快照 → L1 蒸发 → L2 预算化摘要 → 重试一次(forced_400)。配套修复(45f 对抗轮):① isContextOverflowError 收紧为「上下文×长度共现」(裸 context/max_tokens 会把 tools 拒绝类 400 吸进破坏性压缩);② openAiStreamOnce 恢复 tools-rejected 优先(真实超窗报文一般不含 tool 字样;"invalid_request_error" 是 OpenAI 系 400 标准 type,曾把真实 DeepSeek 超限误吸进剥 stream_options 重试);③ 事件/系统消息只在确有压缩成果后广播(零成果不虚报);④ L1-only 重试 skipAutoCompactOnce(不白跑第二次 L2)。
+
+**45c 子代理超窗兜底(42c 探针后缩水项)**:claude 子代理 over_window 从 definitive 拆出,允许一次缩载新鲜重试(progress_made 先判 → 零进展无重放面;任务 ≤60K 不白烧 spawn);**45f P1-2 差点整条死代码**:真实 Anthropic 报文是「prompt is too long: N tokens > M maximum」(空格非下划线),且 CLI 执行期错误常以 result 帧收尾 —— 判定上移到 clean_error_result 之前 + 扫描 resultText + 真实形态正则。provider 子代理对称:over-window 强制压缩 subHistory(原地 splice+钉原始 task)重试。
+
+**45d 估算自校准 + 窗口学习**:① EMA 因子(真实 usage÷发送前估算,clamp[0.5,3],样本≥3 生效)接入主/子回合预算判定(45f P3-3:子代理口径补 tools);② 窗口超限学习(失败时估算×0.9,只降不升)在 providerContextWindow 咽喉点应用;**45f P1-1:改【重试成功才落账】** —— 误判不再永久压窗;持久化 tmp+rename + .corrupt 隔离(45f P2-1);/api/status 展示 learnedCap(45f P3-5)。
+
+**45e 结构化摘要 + 质量夹具**:四段式 prompt(目标/决定/未完成/关键文件)+ 保真要求(代号/数字/日期/人名/路径/禁令原样保留)。compact-quality-live(10 事实标记,确定性命中计数):deepseek-v4-flash 裸四段式 **6/10 → 保真要求 9/10**(验收线 ≥8 达成)。
+
+**45f 对抗验证轮(2 agent 并行)**:擒 P1×2(判定器过宽毁历史+永久压窗;45c 真实报文死代码)+ P2×5 + P3×7,全部收口;测试同步:C4-C6 真实报文形态断言、context-governance 锁迁签名、autocompact FAKE_NO_USAGE 解耦(玩具 usage 会把因子打到 0.5)。
+
+**量化目标复核**:摘要调用永不因自身超窗失败(预算化+动态截断)✅;超窗 400 不再终结回合(e2e B 段:回合 ok)✅;压缩后事实保留率 9/10 ≥ 80% ✅。
+
+**验证**:context-compact-v2.e2e 26 断言 + 全量套件 136 件全绿 / 0 known-fail。

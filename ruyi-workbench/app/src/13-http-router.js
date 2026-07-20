@@ -37,7 +37,9 @@ async function handleApi(req, res, pathname) {
         const p = activeOpenAiProvider(config);
         const model = p ? String(p.model || (p.models && p.models[0] && p.models[0].id) || '').trim() : '';
         const r = resolveContextWindow(p, model);
-        return { value: r.value, source: r.source, provider: p ? p.id : '', model };
+        // 45f 对抗轮 P3-5:窗口学习生效时如实展示 —— 否则用户看到「才用一半就压缩」会对不上账。
+        const cap = p ? learnedWindowCap(p.id, model) : 0;
+        return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };
       })(),
       models: offlineModelList(config), // instant offline list; UI enriches via GET /api/models (proxy)
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (DeepSeek/DashScope/custom)

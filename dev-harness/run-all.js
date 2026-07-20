@@ -35,6 +35,8 @@ const SKIP = new Set([
   'claude-binary-live.e2e.js',
   // 第42c波: CLI print 模式压缩行为探针(真实 API,大额 token 消耗;手工 node 直跑)
   'claude-compact-probe-live.e2e.js',
+  // 第45波45e: 压缩质量评测(真实 provider API,读真实 config 拿凭据;手工 node 直跑)
+  'compact-quality-live.e2e.js',
 ]);
 
 // 已知失败件(积压回归,CI 全量暴露,后续波修)。失败不计红(不挂 CI),但报告标 [known-fail];

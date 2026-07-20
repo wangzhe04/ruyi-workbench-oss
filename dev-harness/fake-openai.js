@@ -149,6 +149,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 //    failover event. Purely observational; does not alter any streaming behavior.
 const HTTP_STATUS = Number(process.env.FAKE_HTTP_STATUS || 0) || 0;
 const DIE_MIDSTREAM = process.env.FAKE_DIE_MIDSTREAM === '1';
+// 第45波 45b/45c:FAKE_CONTEXT_400_ONCE — 第 1 个 /chat/completions 请求回 400「maximum context length
+// exceeded」类错误,后续请求照常。驱动主回合强制压缩重试与子代理 over-window 重试的回归。
+const CONTEXT_400_ONCE = process.env.FAKE_CONTEXT_400_ONCE === '1';
+// 第45波 45a:FAKE_RECORD_SUMMARY_DIR — 把【非流式摘要请求】(body 不含 stream:true)落盘到 <dir>/sum-<n>.json,
+// 供预算化断言(摘要调用的 payload 必须 ≤ 预算,超长历史触发 map-reduce 时可见 N 个分段请求)。
+const RECORD_SUMMARY_DIR = process.env.FAKE_RECORD_SUMMARY_DIR || '';
+let summarySeq = 0;
 let chatRequestCount = 0; // increments on every /chat/completions request served by this process
 // v0.8-S6 FAKE_CAPTURE_DIR: write each request body to <dir>/req-<n>.json (n = 1-based, zero-padded). The
 // capabilities e2e reads these to assert the injected `system` message content (identity pin / project
@@ -246,6 +253,17 @@ const server = http.createServer((req, res) => {
       }
       let parsed = {};
       try { parsed = JSON.parse(body); } catch { /* ignore */ }
+      // 第45波 45a:摘要请求落盘(非流式请求 = 摘要内核的调用形状),供预算化/map-reduce 断言。
+      if (RECORD_SUMMARY_DIR && parsed.stream === false) {
+        summarySeq += 1;
+        try { require('fs').mkdirSync(RECORD_SUMMARY_DIR, { recursive: true }); require('fs').writeFileSync(require('path').join(RECORD_SUMMARY_DIR, `sum-${String(summarySeq).padStart(3, '0')}.json`), body); } catch { /* ignore */ }
+      }
+      // 第45波 45b/45c:首个请求回 context 类 400(后续照常),驱动强制压缩重试回归。
+      if (CONTEXT_400_ONCE && chatRequestCount === 1) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: "This model's maximum context length is 65536 tokens. Your request exceeded the limit.", type: 'invalid_request_error', code: 'context_length_exceeded' } }));
+        return;
+      }
       const id = 'chatcmpl-fake';
       const msgs = Array.isArray(parsed.messages) ? parsed.messages : [];
       const hasTools = Array.isArray(parsed.tools) && parsed.tools.length > 0;

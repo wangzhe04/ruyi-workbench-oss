@@ -82,12 +82,13 @@ function capturesContaining(dir, needle) {
   // ── B) 静态锁 ──
   {
     ok((src.match(/await atomicWriteJson\(/g) || []).length >= 14, 'B 原子写调用点 ≥14(全量收编,实 ' + (src.match(/await atomicWriteJson\(/g) || []).length + ')');
-    // 硬不变量:全文件 " + '.tmp'" 只允许 4 处豁免 —— ①atomicWriteJson 自身的唯一名构造;②flushSessionIndexSync
+    // 硬不变量:全文件 " + '.tmp'" 只允许 5 处豁免 —— ①atomicWriteJson 自身的唯一名构造;②flushSessionIndexSync
     // (exit 监听器只能同步 I/O,但 tmp 名同样唯一);③检查点回滚的二进制内容恢复(非 JSON,单写者语义);
-    // ④v1.9 数据管家 sweep 的 events.ndjson.gz 归档(二进制,进程内串行 sweep 单写者,tmp+rename 原子替换)。
-    // 任何人新增第 5 处手写 tmp 写点 → 此断言红,逼着走 atomicWriteJson。
+    // ④v1.9 数据管家 sweep 的 events.ndjson.gz 归档(二进制,进程内串行 sweep 单写者,tmp+rename 原子替换);
+    // ⑤第45波 context-calibration.json(45f P2-1:进程内串行写链单写者,tmp+rename —— 不写原子就要吞撕裂)。
+    // 任何人新增第 6 处手写 tmp 写点 → 此断言红,逼着走 atomicWriteJson。
     const tmpSites = (src.match(/\+ '\.tmp'/g) || []).length;
-    ok(tmpSites === 4, 'B 手写 tmp 写点=4(白名单豁免;实 ' + tmpSites + ')');
+    ok(tmpSites === 5, 'B 手写 tmp 写点=5(白名单豁免;实 ' + tmpSites + ')');
     ok(!/dest \+ '\.' \+ process\.pid \+ '\.tmp'/.test(src), 'B saveAgentRun 旧 pid-only tmp 模式已清零');
     ok(/AGENT_RUN_PERSIST_DEGRADED_AFTER = 3/.test(src) && /AGENT_RUN_PERSIST_PAUSE_AFTER = 8/.test(src), 'B 持久化退化阈值常量在(3/8)');
     ok(/live\.run\.persistenceDegraded\) run\.persistenceDegraded = true/.test(src), 'B GET /api/agent-runs 经 live 叠加下发 persistenceDegraded');

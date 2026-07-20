@@ -8291,9 +8291,18 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   if (res && res.status === 400) {
     let t = ''; try { t = await res.text(); } catch { /* ignore */ }
     const toolsSemantics = /tool|function/i.test(t);
+    // tools-rejected 仍最先(45f 对抗轮 P1-1 恢复既有存活路径):真实超窗报文一般不含 tool/function 字样,
+    // 而 tools 拒绝报文可能带 "in this context" —— 顺序反了会把非超窗错误吸进破坏性压缩。
     if (requestHasTools && toolsSemantics) {
       // tools-rejected takes priority over the stream_options retry (§0.9-S0).
       return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, toolsRejected: true, text: '', reasoning: '', toolCalls: [] };
+    }
+    // 第45波:context-overflow 先于 stream_options 误判 —— "invalid_request_error" 是 OpenAI 系 400
+    // 的标准 type(真实 DeepSeek 超限报文正是它),而 stream_options 嗅探的正则含裸 /invalid/,会把上下文
+    // 超限误吸进「剥 stream_options 静默重试」(剥了也照样超窗,纯浪费一次调用还掩盖 45b 的强压入口)。
+    // (45f P1-1:判定器已收紧为「上下文×长度共现」,裸 invalid/context 字样不再命中。)
+    if (isContextOverflowError('HTTP 400: ' + t)) {
+      return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, contextOverflow: true, text: '', reasoning: '', toolCalls: [] };
     }
     // Some servers reject stream_options — retry once without it before failing.
     if (body.stream_options && /stream_options|unsupported|unknown|invalid|not\s*support/i.test(t)) {
@@ -8897,19 +8906,29 @@ const CLAUDE_SUBAGENT_SAFE_MODES = new Set(['bypass', 'auto', 'dontAsk', 'plan']
 // 502/503/504 via failoverStatus, expressed here as CLI stderr text) plus the CLI-specific "died before
 // producing anything" startup-crash case. Definitive errors (auth / model-not-found / context overflow /
 // a clean error result the CLI emitted on exit 0) are NOT retried - retrying them only burns time.
-function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistantText, toolCallCount, gotResult, resultOk }) {
+function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistantText, toolCallCount, gotResult, resultOk, resultText }) {
   if (killed) return { retry: false, reason: 'aborted' };
   // 防重放: the CLI already emitted assistant text or executed tools before failing. Re-running would
   // replay those side effects (file writes etc.), so never retry - matches runSubAgentCore's "mid-stream
   // errors are NOT retried" rule.
   if ((assistantText && String(assistantText).trim()) || toolCallCount > 0) return { retry: false, reason: 'progress_made' };
+  // 第45波 45c:context overflow 从 definitive 拆出 —— 允许一次【缩载新鲜重试】。检查顺序保证安全:
+  // progress_made 已先判(有 tool 调用/文本即不可重试),走到这里 = 零进展 → 无重放面。
+  // 45f 对抗轮 P1-2:判定必须【先于】clean_error_result(CLI 执行期 API 错误常以 result 帧
+  // subtype:error_during_execution 收尾,落不到 stderr),且扫描 stderr+result 合并文本;
+  // 正则用 CONTEXT_OVERFLOW_PATTERNS(含真实 Anthropic 形态 "prompt is too long: N tokens > M maximum",
+  // 作者假想形态 prompt_too_long 曾让整条分支成为死代码)。
+  const combined = String(stderrText || '') + '\n' + String(resultText || '');
+  if (CONTEXT_OVERFLOW_PATTERNS.test(combined) || /prompt_too_long/i.test(combined)) {
+    return { retry: true, reason: 'over_window' };
+  }
   // The CLI ran to a clean `result` event but reported is_error / subtype:error (e.g. an in-CLI tool
   // execution error). That is deterministic, not transient - retrying won't change it.
   if (gotResult && resultOk === false) return { retry: false, reason: 'clean_error_result' };
   const s = String(stderrText || '');
-  // Definitive non-transient signatures (auth / model / bad request / context overflow / cmd.exe 命令行超长——
+  // Definitive non-transient signatures (auth / model / bad request / cmd.exe 命令行超长——
   // 参数决定的确定性失败,重试同样的 args 只会原样再败;cmd8191 防线的预算哨兵应已拦截,此为兜底)。
-  if (/invalid_api_key|authentication_error|auth.*fail|unauthor|\b401\b|permission_denied|\b403\b|model_not_found|not_found_error|\b404\b|invalid_request_error|context.*(length|window|too\s*long|too\s*large|exceed)|maximum.*context|too_many_tokens|prompt_too_long|命令行太长|command line is too long/i.test(s)) {
+  if (/invalid_api_key|authentication_error|auth.*fail|unauthor|\b401\b|permission_denied|\b403\b|model_not_found|not_found_error|\b404\b|invalid_request_error|命令行太长|command line is too long/i.test(s)) {
     return { retry: false, reason: 'definitive' };
   }
   // Transient signatures: rate limit / overload / 5xx / network / connect / TLS - the same set the OpenAI
@@ -9003,6 +9022,8 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const onAbort = () => { killed = true; if (currentChild) { try { currentChild.stdin.end(); } catch { /* ignore */ } killChildTree(currentChild.pid); } };
   if (ctrl && ctrl.signal) { if (ctrl.signal.aborted) killed = true; else ctrl.signal.addEventListener('abort', onAbort, { once: true }); }
 
+  // 45c:over_window 重试时的可变任务(缩载);初值 = 原任务。
+  let taskForAttempt = task, overWindowShrunk = false;
   // One CLI spawn attempt -> collected exit/output state. Does NOT decide retry; the loop below does.
   const runOnce = () => new Promise(resolve => {
     const child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
@@ -9011,7 +9032,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     // Idle watchdog - a wedged CLI must not hang the whole DAG run forever (per-attempt).
     const watchdog = setInterval(() => { if (!killed && Date.now() - lastEventAt > idleLimitMs) onAbort(); }, 5000);
     child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
-    try { child.stdin.write(String(task || ''), 'utf8'); child.stdin.end(); } catch { /* ignore */ }
+    try { child.stdin.write(String(taskForAttempt || ''), 'utf8'); child.stdin.end(); } catch { /* ignore */ }
     let stderrText = '';
     child.stderr.on('data', chunk => { stderrText += decodeClaudeCliText(chunk); lastEventAt = Date.now(); });
 
@@ -9098,8 +9119,16 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       }
       lastFinalText = finalText; lastToolCalls = res.toolCallCount;
       lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
-      const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk });
+      const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk, resultText: res.resultText });
       if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) break;
+      // 45c:over_window → 缩载后新鲜重试(一次性 spawn 无 resume,超窗 = 任务载荷本身过大;cap 60K 字符)。
+      // 45f P3-7:任务本就不超 60K 时缩无可缩(超窗根因是系统提示/schema),重试必败 —— 不再白烧一次 spawn。
+      if (cls.reason === 'over_window') {
+        const raw = String(task || '');
+        if (overWindowShrunk || raw.length <= 60000) break;
+        overWindowShrunk = true;
+        taskForAttempt = raw.slice(0, 60000) + `\n\n…(原任务 ${raw.length} 字符,上次因上下文超限失败已截断;请聚焦完成可达部分)`;
+      }
       onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: cls.reason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
       // Bounded backoff an abort can cut short (mirrors runSubAgentCore's transient-retry sleep).
       await new Promise(r => {
@@ -9644,7 +9673,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let resultText = '';
   let iters = 0, toolCallCount = 0;
   let subOk = true, subErr = '';
-  let subOverWindow = false; // v0.9 F6: set when the sub-turn's 400 looks like a context-window overflow
+  let subOverWindow = false;
+  let overWindowRetried = false; // 45c:over-window 强压重试,每子回合仅一次 // v0.9 F6: set when the sub-turn's 400 looks like a context-window overflow
   // 第32波: sub-agent savepoint——每次工具调用批次成功后存快照,传输/超时失败时自动从检查点恢复续跑(不重做已完成的工具调用)。
   let savepoint = null;         // { subHistory, resultText, iter, iters, toolCallCount } | null
   let checkpointRestored = false; // 仅恢复一次(防无限重试循环)
@@ -9709,7 +9739,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       }
       // 第28波(§28a):迭代边界两级自动压缩(与主回合 9208 一一对应)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
       // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
-      await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession });
+      await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools });
       // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
       // (502/503/504) + a toolsRejected retry; the sub-turn previously had NEITHER, so a single transient
       // gateway blip, rate-limit (429) or connect/TLS failure on a sub-agent call failed the whole node - and
@@ -9767,6 +9797,30 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         // message + hint instead. (Full subHistory compaction is a documented leftover, not done here.)
         const he = String(call.httpError || '');
         const isOverWindow = /^HTTP 400\b/.test(he) && (/context|token|length|maximum|too\s*long|too\s*large|exceed/i.test(he) || he.length > 400);
+        // 第45波 45c(对称 45b):over-window 不再是终态 —— 强制压缩 subHistory(L1 蒸发 + L2 预算化摘要)
+        // 并重试本迭代一次。maybeCompactSubHistory 只在迭代边界触发,单条巨型工具结果可在边界前爆窗。
+        if (isOverWindow && !overWindowRetried && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+          overWindowRetried = true;
+          const estNow = estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]);
+          noteWindowOvershoot(provider.id, subModel, estNow); // 45d(b)
+          onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+          const ev = evaporateHistory(subHistory);
+          const sc = await providerSummaryCall(provider, subHistory);
+          if (sc.ok) {
+            const boundary = recentTurnsBoundary(subHistory);
+            const task0 = subHistory[0];
+            const kept = subHistory.slice(boundary).filter(m => m !== task0);
+            // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
+            subHistory.splice(0, subHistory.length,
+              { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【前文因上下文超限已压缩为摘要】\n' + String(sc.summary || '') },
+              { role: 'assistant', content: '已了解原任务与以上摘要,继续推进。' },
+              ...kept);
+            if (parentSession) recordCompactUsage(parentSession, provider, sc);
+            subOk = true; subErr = '';
+            iter--; continue;
+          }
+          if (ev > 0) { subOk = true; subErr = ''; iter--; continue; } // L2 失败但 L1 有斩获,试最后一次
+        }
         subErr = isOverWindow ? '子任务上下文超限' : he;
         subOverWindow = isOverWindow;
         break;
@@ -11740,6 +11794,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     turnUsage.input_tokens += inTok;
     turnUsage.output_tokens += outTok;
     usageCalls += 1;
+    noteEstimateSample(provider.id, model, lastEstBeforeCall, inTok); // 45d(a):真实 usage ÷ 发送前估算 → EMA 校准
     usageObj = { usage: { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens }, contextTokens: total || undefined, calls: usageCalls };
   };
   const toolBudget = resolveToolIterationBudget(config.openaiMaxToolIterations, message, {
@@ -11765,6 +11820,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   let useTools = initialTools.length > 0;
   let toolsRetried = false;
+  let contextRetried = false; // 45b:context 类 400 强制压缩重试,每回合仅一次
+  let lastEstBeforeCall = 0; // 45d(a) 采样对:最近一次发送前估算(markUsage 闭包可读)
+  let skipAutoCompactOnce = false; // 45f P2-5:L1-only 强压重试后,下一迭代跳过 maybeAutoCompact
+  let pendingOvershootLearn = 0; // 45f P1-1:重试成功才落窗口学习的待决值
   // v0.8-S7 loop detection (§4 A3): per-turn signature run-length counter. `sig = name + ' ' + JSON(args)`.
   // CONSECUTIVE identical sigs accumulate; a different sig resets the run. At the 3rd consecutive hit we
   // annotate that tool_result with `loopWarning`; at the 5th we DON'T execute — we abort the turn with a
@@ -11869,13 +11928,57 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // v0.8-S5: two-level auto-compaction runs at the iteration boundary, BEFORE this API call, so the
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
-      if (await maybeAutoCompact(session, provider, sys, config, onEvent, model, toolLoading.current())) touch();
+      if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:L1-only 重试的下一迭代跳过 L2 白跑
+      else if (await maybeAutoCompact(session, provider, sys, config, onEvent, model, toolLoading.current())) touch();
+      lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a) 采样对:发送前估算
+      const estBeforeCall = lastEstBeforeCall;
       const call = await streamWithFailover(buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
       if (call.httpError) {
         // If the server rejected tools, retry the turn once WITHOUT tools (chat-only) before failing.
         if (useTools && call.toolsRejected && !toolsRetried) { toolsRetried = true; useTools = false; onEvent({ type: 'stderr', text: '[provider] tools rejected — retrying without tools' }); iter--; continue; }
+        // 第45波 45b:context 类 400 → 强制压缩重试一次(回合的最后防线)。
+        // 场景:估窗失效(真实窗口 < 估算,maybeAutoCompact 的预算判定没触发)或单条巨型载荷,
+        // provider 直接 400 —— 旧行为是回合慢性死亡(L2 失败照样 400)。现在:快照 → L1 蒸发 →
+        // L2 预算化摘要(45a 保证摘要调用自身不超窗)→ 重试一次。
+        // 45f 对抗轮修订:① 事件/系统消息只在【确有压缩成果】后广播(P2-4:零成果时不再虚报);
+        // ② 窗口学习(45d(b))改【重试成功才落账】(P1-1:误判不再永久压窗);
+        // ③ L1-only 重试置 skipAutoCompactOnce,下一迭代不再白跑一次 L2(P2-5)。
+        if (!contextRetried && isContextOverflowError(call.httpError)) {
+          contextRetried = true;
+          logEvent({ kind: 'auto_compact', mode: 'forced_400', sessionId: session.id, beforeTokens: estBeforeCall, error: String(call.httpError).slice(0, 200) });
+          await writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory).catch(() => {});
+          const ev = evaporateHistory(session.providerHistory);
+          const sc = await providerSummaryCall(provider, session.providerHistory);
+          if (sc.ok) {
+            const boundary = recentTurnsBoundary(session.providerHistory);
+            const kept = session.providerHistory.slice(boundary);
+            session.providerHistory = [
+              { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + sc.summary },
+              { role: 'assistant', content: '收到,已基于摘要继续。' },
+              ...kept,
+            ];
+            recordCompactUsage(session, provider, sc);
+            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            session.messages.push({ role: 'system', content: `🗜 服务端判定上下文超限(HTTP 400),已自动压缩历史并重试(约 ${fmtTokensServer(estBeforeCall)},估算)`, createdAt: nowIso(), source: 'compact' });
+            pendingOvershootLearn = estBeforeCall; // 重试成功后落 45d(b) 学习(见 call 成功路径)
+            await saveSession(session).catch(() => {});
+            touch();
+            iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
+          }
+          if (ev > 0) {
+            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            session.messages.push({ role: 'system', content: `🗜 服务端判定上下文超限(HTTP 400),已蒸发旧工具结果 ${ev} 条并重试(约 ${fmtTokensServer(estBeforeCall)},估算)`, createdAt: nowIso(), source: 'compact' });
+            skipAutoCompactOnce = true; // P2-5:下一迭代不再白跑一次 L2(几秒前刚失败过)
+            await saveSession(session).catch(() => {});
+            touch();
+            iter--; continue; // L2 失败但 L1 有斩获,试最后一次
+          }
+          onEvent({ type: 'stderr', text: '[provider] 上下文超限且自动压缩无果(无可蒸发内容,摘要调用失败)' }); // P2-4:零成果不虚报
+        }
         ok = false; errorMsg = call.httpError; break;
       }
+      // 45f P1-1:窗口学习只在【强压重试成功】后落账 —— 证明确实是超窗,误判不再永久压窗。
+      if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, model, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.reasoning) thinkingText += call.reasoning;
       if (call.text) assistantText += call.text;
       // Aborted while streaming → discard this (possibly partial) step, keep history valid.
@@ -12546,7 +12649,108 @@ function resolveContextWindow(provider, model) {
 }
 // Effective context window for a provider (手动/探测/表/兜底). Never returns 0. `model` optional (解析激活模型)。
 function providerContextWindow(provider, model) {
-  return resolveContextWindow(provider, model).value;
+  const resolved = resolveContextWindow(provider, model).value;
+  // 45d(b):窗口超限学习 —— context-400 实测教训只降不升(42c 探针证明名义值不可信:haiku 名义 200K 实测 >217K)。
+  const cap = learnedWindowCap(provider && provider.id, model);
+  return cap ? Math.min(resolved, cap) : resolved;
+}
+
+// ── 第45波 45d:token 估算自校准 + 窗口超限学习 ─────────────────────────────────
+// 两条学习线,存 data/context-calibration.json(小 JSON,内存 Map + 异步写穿):
+//   (a) 估算因子:每次 API 调用用【真实 usage.input_tokens ÷ 发送前估算】采样,EMA(α=0.3)得每
+//       provider+model 的校准因子(clamp [0.5,3],样本 ≥3 才生效防单次异常带偏)→ 压缩触发精度从
+//       「拍脑袋常数」变「越用越准」。只用于预算判定,不改 UI 估算显示(那是对人的口径)。
+//   (b) 窗口超限学习:context 类 400 发生时的估算占用 × 0.9 记为该 provider+model 的窗口上限,
+//       只降不升(保守);providerContextWindow 单咽喉点应用。条目 ≤200(超出按插入序淘汰)。
+const CONTEXT_CALIBRATION_MAX = 200;
+let _ctxCalib = null; // { factors: {key:{f,n}}, windowCaps: {key:{cap,at}} }
+function loadContextCalibration() {
+  if (_ctxCalib) return _ctxCalib;
+  _ctxCalib = { factors: {}, windowCaps: {} };
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(paths.data, 'context-calibration.json'), 'utf8'));
+    if (j && typeof j === 'object') { if (j.factors) _ctxCalib.factors = j.factors; if (j.windowCaps) _ctxCalib.windowCaps = j.windowCaps; }
+  } catch (e) {
+    // 45f 对抗轮 P2-1:文件不存在与【文件损坏】必须分流 —— 损坏时静默重建空史,下次写回就把
+    // 全部学习成果无声清掉。损坏走 .corrupt 隔离(沿用 session 文件同款先例)+ 落账,再从空史重建。
+    if (e && e.code !== 'ENOENT') {
+      try { fs.copyFileSync(path.join(paths.data, 'context-calibration.json'), path.join(paths.data, 'context-calibration.json.corrupt')); } catch { /* ignore */ }
+      try { logEvent({ kind: 'context_calibration_corrupt', error: String(e && e.message || e).slice(0, 200) }); } catch { /* ignore */ }
+    }
+  }
+  return _ctxCalib;
+}
+const _calibKey = (providerId, model) => String(providerId || '') + '/' + String(model || '');
+let _calibWriteChain = Promise.resolve();
+function persistContextCalibration() {
+  // 单写者假设(45f 对抗轮 P2-2 裁决):note* 调用点全部在 serve 进程内(MCP 子进程走 HTTP loopback,
+  // 不是写者);多 serve 实例共享 dataRoot 是窄面,接受互覆,不做跨进程合并。
+  _calibWriteChain = _calibWriteChain.then(async () => {
+    try {
+      const c = loadContextCalibration();
+      for (const bucket of ['factors', 'windowCaps']) {
+        const keys = Object.keys(c[bucket]);
+        if (keys.length > CONTEXT_CALIBRATION_MAX) for (const k of keys.slice(0, keys.length - CONTEXT_CALIBRATION_MAX)) delete c[bucket][k];
+      }
+      // 45f 对抗轮 P2-1:tmp+rename 原子写 —— 写中途崩溃不留撕裂 JSON(撕裂曾会被静默重建清空学习)。
+      const file = path.join(paths.data, 'context-calibration.json');
+      const tmp = file + '.tmp';
+      await fsp.writeFile(tmp, JSON.stringify(c), 'utf8');
+      await fsp.rename(tmp, file);
+    } catch { /* 记账永不阻断 */ }
+  });
+  return _calibWriteChain;
+}
+function noteEstimateSample(providerId, model, estimated, actual) {
+  try {
+    estimated = Number(estimated) || 0; actual = Number(actual) || 0;
+    if (estimated < 500 || actual <= 0) return; // 小样本噪声大,不采
+    const c = loadContextCalibration();
+    const k = _calibKey(providerId, model);
+    const ratio = Math.min(3, Math.max(0.5, actual / estimated));
+    const prev = c.factors[k];
+    c.factors[k] = { f: prev ? prev.f * 0.7 + ratio * 0.3 : ratio, n: (prev ? prev.n : 0) + 1 };
+    persistContextCalibration();
+  } catch { /* ignore */ }
+}
+function estimateFactor(providerId, model) {
+  try {
+    const f = loadContextCalibration().factors[_calibKey(providerId, model)];
+    return (f && f.n >= 3 && Number.isFinite(f.f)) ? f.f : 1;
+  } catch { return 1; }
+}
+function noteWindowOvershoot(providerId, model, estimatedAtFailure) {
+  try {
+    estimatedAtFailure = Math.floor(Number(estimatedAtFailure) || 0);
+    if (estimatedAtFailure < 1000) return;
+    const c = loadContextCalibration();
+    const k = _calibKey(providerId, model);
+    const learned = Math.floor(estimatedAtFailure * 0.9);
+    const prev = c.windowCaps[k];
+    if (prev && prev.cap <= learned) return; // 只降不升
+    c.windowCaps[k] = { cap: learned, at: nowIso() };
+    persistContextCalibration();
+  } catch { /* ignore */ }
+}
+function learnedWindowCap(providerId, model) {
+  try {
+    const w = loadContextCalibration().windowCaps[_calibKey(providerId, model)];
+    return (w && Number(w.cap) > 0) ? Number(w.cap) : 0;
+  } catch { return 0; }
+}
+// 校准后的预算估算(45d(a) 唯一应用点):估算 × 因子。签名与 maybeAutoCompact 的估算同款。
+function calibratedEstimate(provider, model, messages, tools) {
+  return Math.round(estimateHistoryTokens(messages, '', tools) * estimateFactor(provider && provider.id, model));
+}
+
+// context 类 400 判定(45b):HTTP 400/413/422 + 上下文/长度【共现】语义。宁可漏判(不压)不误判(乱压历史)。
+// 45f 对抗轮 P1-1 收紧:裸 `context` / `max_tokens` / 裸 `too long` 全删 —— 它们会命中
+// "function calling is not supported in this context" / 参数校验类 400,把非超窗错误吸进破坏性压缩。
+const CONTEXT_OVERFLOW_PATTERNS = /context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\s+is\s+too\s+long|too_many_tokens|tokens\s*>|input\s+too\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度/i;
+function isContextOverflowError(httpError) {
+  const s = String(httpError || '');
+  if (!/\b(400|413|422)\b/.test(s)) return false;
+  return CONTEXT_OVERFLOW_PATTERNS.test(s);
 }
 
 // v0.8-S5 tiered tool-result truncation. Replaces the old flat 60KB slice at the tool-result push site.
@@ -12633,14 +12837,75 @@ function evaporateHistory(history) {
 // prompt). Returns { ok:true, summary } or { ok:false, error }. NEVER throws. Used by BOTH the manual
 // /api/provider/compact endpoint AND the auto-compact level-2 (§7.7 "共用内核"), so their summary behavior
 // is identical. Does NOT mutate the session — the caller decides how to reseed history.
-async function providerSummaryCall(provider, history) {
+//
+// ── 第45波(压缩 v2)45a:摘要载荷预算化(修「死锁角」)────────────────────────────────
+// 旧内核把整个 history 发给 /chat/completions:history 已超窗(窗口估小/单条巨型工具结果)时,摘要
+// 调用自身也 400 → 自动压缩每轮重试每轮失败,白付 60s 超时且永远压不下去。现在内核自带预算:
+//   ① fitHistoryForSummary:按「窗口 × SUMMARY_INPUT_BUDGET_RATIO」预算适配输入 —— 保头(原始目标
+//      user 块)保尾(最近 2 个 user 块),中段整块省略(user 块边界,配对安全;全程副本,不动调用方);
+//   ② 适配后仍超预算(巨型单块)→ map-reduce:按 user 块分组(≤预算/组,超大块内消息内容截断)
+//      逐组摘要,再对拼接的分段摘要做总摘要;usage 聚合记账,元数据 mapReduce.chunks。
+// ── 45e:结构化摘要 prompt(目标/决定/未完成/关键文件四段式,替代旧单段流水)─────────────
+const SUMMARY_INPUT_BUDGET_RATIO = 0.5;
+const SUMMARY_CHUNK_MSG_CAP = 30000; // map-reduce 组内单条消息内容截断(字符,防单条巨型结果吃掉整组预算)
+const SUMMARY_PROMPT = '请把以上对话压缩为结构化摘要,严格按以下四节输出(某节无内容写「无」):\n'
+  + '【目标】用户的核心目标与关键约束\n'
+  + '【已确认的决定】已拍板的事实、方案选择、用户偏好\n'
+  + '【未完成事项】待办、进行中的工作、悬而未决的问题\n'
+  + '【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论\n'
+  + '保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、'
+  + '文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n'
+  + '只输出摘要本身。';
+
+function userBlockStarts(history) {
+  const idx = [];
+  for (let i = 0; i < history.length; i++) if (history[i] && history[i].role === 'user') idx.push(i);
+  return idx;
+}
+
+// 预算适配(45a):返回【新数组】,绝不 mutate 调用方 history(manual compact 失败时「原样保留」契约)。
+function fitHistoryForSummary(history, budgetTokens) {
+  if (!Array.isArray(history) || !history.length) return { messages: [], droppedMiddle: 0 };
+  if (estimateHistoryTokens(history) <= budgetTokens) return { messages: history.slice(), droppedMiddle: 0 };
+  const starts = userBlockStarts(history);
+  if (starts.length <= 3) return { messages: history.slice(), droppedMiddle: 0, needsMapReduce: true };
+  const headEnd = starts[1];                 // 头 = 第 2 个 user 块之前(含原始目标)
+  const tailStart = starts[starts.length - 2]; // 尾 = 最近 2 个 user 块(逐字)
+  const middleCount = tailStart - headEnd;
+  const marker = { role: 'user', content: `(摘要输入预算截断:此处省略中间 ${middleCount} 条消息)` };
+  const fitted = [...history.slice(0, headEnd), marker, ...history.slice(tailStart)];
+  if (estimateHistoryTokens(fitted) <= budgetTokens) return { messages: fitted, droppedMiddle: middleCount };
+  return { messages: history.slice(), droppedMiddle: 0, needsMapReduce: true }; // 头尾本身已超 → map-reduce
+}
+
+// map-reduce 分组(45a):按 user 块聚合,组 ≤ 预算;单块超预算时块内消息内容截断。
+// 45f 对抗轮 P2-3:截断量随预算动态取(窗口学习把预算压到 <30K 字符时,固定 30K cap 会让
+// 单块照样超预算 → 摘要调用自身 400,死锁角借尸还魂)。字符 ≈ token×1.5(CJK 保守)。
+function chunkHistoryByBudget(history, budgetTokens) {
+  const starts = userBlockStarts(history);
+  const blocks = [];
+  for (let i = 0; i < starts.length; i++) blocks.push(history.slice(starts[i], starts[i + 1] || history.length));
+  const msgCap = Math.max(2000, Math.min(SUMMARY_CHUNK_MSG_CAP, Math.floor(budgetTokens * 1.5)));
+  const capContent = m => {
+    const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '');
+    return c.length > msgCap ? { ...m, content: c.slice(0, msgCap) + `\n…(单条内容过长,摘要输入截断,原 ${c.length} 字符)` } : m;
+  };
+  const chunks = [];
+  let cur = [], curTokens = 0;
+  for (const b of blocks) {
+    const capped = b.map(capContent);
+    const t = estimateHistoryTokens(capped);
+    if (cur.length && curTokens + t > budgetTokens) { chunks.push(cur); cur = []; curTokens = 0; }
+    cur.push(...capped); curTokens += t;
+  }
+  if (cur.length) chunks.push(cur);
+  return chunks;
+}
+
+// 单次摘要调用(原内核体,45a 拆出以便 map-reduce 复用)。messages 为历史,prompt 追加于尾。
+async function singleSummaryCall(provider, messages, model) {
   const base = providerBaseWithV1(provider.baseUrl);
   const chatUrl = base ? base + '/chat/completions' : '';
-  const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
-  if (!chatUrl || !model || typeof fetch !== 'function') {
-    return { ok: false, error: !chatUrl ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable') };
-  }
-  const summaryPrompt = '请把以上对话压缩成一段简明摘要，保留：用户目标、已确认的事实与决定、未完成事项、关键文件/路径/代码要点。直接输出摘要本身。';
   const headers = { 'content-type': 'application/json' };
   const key = String(provider.apiKey || '').trim();
   if (key) headers['authorization'] = 'Bearer ' + key;
@@ -12648,7 +12913,7 @@ async function providerSummaryCall(provider, history) {
   // v0.8-S6: prepend the IDENTITY-ONLY layer so the summary call keeps the pinned identity (product name
   // never enters). identityOnly skips the capability/project layers — a摘要 call needs the pin, not the矩阵.
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  const bodyObj = { model, messages: [{ role: 'system', content: sysIdentity }, ...history, { role: 'user', content: summaryPrompt }], stream: false };
+  const bodyObj = { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }], stream: false };
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -12670,6 +12935,45 @@ async function providerSummaryCall(provider, history) {
   } finally { if (timer) clearTimeout(timer); }
 }
 
+async function providerSummaryCall(provider, history, opts) {
+  const base = providerBaseWithV1(provider.baseUrl);
+  const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
+  if (!base || !model || typeof fetch !== 'function') {
+    return { ok: false, error: !base ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable') };
+  }
+  // 45f 对抗轮 P3-6:无 user 消息的 history 不做摘要 —— 空摘要会把整段历史静默抹成一段「无内容」。
+  if (!userBlockStarts(history).length) return { ok: false, error: 'no user turns to summarize' };
+  // 45a:摘要输入预算 = 窗口 × 50%(余量留给输出+系统层;窗口缺省 64K 时预算 32K)。
+  const budget = Math.max(4000, Math.floor(providerContextWindow(provider, model) * SUMMARY_INPUT_BUDGET_RATIO));
+  const fitted = fitHistoryForSummary(history, budget);
+  if (!fitted.needsMapReduce) {
+    const sc = await singleSummaryCall(provider, fitted.messages, model);
+    if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
+    return sc;
+  }
+  // map-reduce:分组 → 逐组摘要 → 总摘要。任一组失败即整体失败(错误原样上浮,调用方保留 L1 降级)。
+  const chunks = chunkHistoryByBudget(history, budget);
+  if (chunks.length <= 1) return singleSummaryCall(provider, chunks[0] || [], model);
+  const partials = [];
+  let aggIn = 0, aggOut = 0, aggEst = 0;
+  for (const c of chunks) {
+    const r = await singleSummaryCall(provider, c, model);
+    if (!r.ok) return r;
+    partials.push(r.summary);
+    if (r.usage) { aggIn += Number(r.usage.prompt_tokens != null ? r.usage.prompt_tokens : r.usage.input_tokens) || 0; aggOut += Number(r.usage.completion_tokens != null ? r.usage.completion_tokens : r.usage.output_tokens) || 0; }
+    aggEst += Number(r.promptTokensEst) || 0;
+  }
+  const joined = [{ role: 'user', content: partials.map((s, i) => `【分段摘要 ${i + 1}/${partials.length}】\n${s}`).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。' }];
+  const final = await singleSummaryCall(provider, joined, model);
+  if (!final.ok) return final;
+  if (final.usage) { final.usage.prompt_tokens = (Number(final.usage.prompt_tokens) || 0) + aggIn; final.usage.completion_tokens = (Number(final.usage.completion_tokens) || 0) + aggOut; }
+  // 45f 对抗轮 P3-4a:总摘要无 usage 但分段有实测 → 分段实测不丢(挂到 final 上一起记账)。
+  else if (aggIn > 0 || aggOut > 0) final.usage = { prompt_tokens: aggIn, completion_tokens: aggOut, aggregated: true };
+  final.promptTokensEst = (Number(final.promptTokensEst) || 0) + aggEst;
+  final.mapReduce = { chunks: chunks.length };
+  return final;
+}
+
 // v1.4-OSS 用量看板(补): record a compaction summary call as an 'aux' ledger row (kind:'aux', note:'compact').
 // Tokens from the response usage (prompt/completion, with input/output aliases); when the endpoint omits usage
 // they are ESTIMATED from the sent payload + the returned summary and flagged estimated:true. Both compact call
@@ -12681,8 +12985,12 @@ function recordCompactUsage(session, provider, sc) {
     const u = sc.usage;
     const uIn = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
     const uOut = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
-    if (uIn > 0 || uOut > 0) { inTok = uIn; outTok = uOut; }
-    else { inTok = Number(sc.promptTokensEst) || 0; outTok = Math.round(estimateContentTokens(sc.summary || '')); estimated = true; }
+    if (uIn > 0 || uOut > 0) {
+      // 45f 对抗轮 P3-4b:分项回退 —— usage 存在但某侧为 0(某些网关)时,该侧用估算补,另一侧保实测。
+      inTok = uIn > 0 ? uIn : (Number(sc.promptTokensEst) || 0);
+      outTok = uOut > 0 ? uOut : Math.round(estimateContentTokens(sc.summary || ''));
+      estimated = (uIn <= 0 || uOut <= 0);
+    } else { inTok = Number(sc.promptTokensEst) || 0; outTok = Math.round(estimateContentTokens(sc.summary || '')); estimated = true; }
     const { cost, currency } = computeProviderCost(provider, inTok, outTok);
     appendUsageLedger({
       sessionId: session.id, engine: 'openai', provider: provider.id, model: sc.model || provider.model || '',
@@ -12712,16 +13020,16 @@ function recentTurnsBoundary(history) {
 // splice】替换内容,绝不能重新赋值(否则闭包仍指旧数组,压缩对已发请求体静默失效)。evaporate 本就原地改 content,天然安全。
 // 【子代理专属】主回合无固定目标,子代理有单一 task(subHistory[0])—— L2 重播种【钉住 task[0]】,防摘要吞掉原始目标后跑偏。
 async function maybeCompactSubHistory(opts) {
-  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession } = opts || {};
+  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools } = opts || {};
   try {
     if (!Array.isArray(subHistory) || subHistory.length < 3 || !provider) return false;
     const budget = (Number(config && config.autoCompactThreshold) || 0.8) * providerContextWindow(provider, subModel);
     const withSys = h => [{ role: 'system', content: String(sys || '') }, ...h];
-    const before = estimateHistoryTokens(withSys(subHistory));
+    const before = calibratedEstimate(provider, subModel, withSys(subHistory), tools); // 45d(a):校准后估算判预算(45f P3-3:子代理实际带 tools,估算口径必须含)
     if (before <= budget) return false;                          // append-only 到下次跨阈,与主回合同
     // L1 蒸发(逐字复用):把最近 2 个 assistant 回合之前的 role:'tool' 内容改写为占位。原地、幂等、配对安全。
     const evaporated = evaporateHistory(subHistory);
-    const after1 = estimateHistoryTokens(withSys(subHistory));
+    const after1 = calibratedEstimate(provider, subModel, withSys(subHistory), tools); // 45d(a) 同上含 tools
     const emit = (mode, after) => { try { if (onEvent) onEvent({ type: 'compact', mode, subagentId, beforeTokens: before, afterTokens: after }); } catch { /* stream gone */ } };
     if (evaporated > 0 && after1 <= budget) { emit('evaporate', after1); return true; }
     // L2 摘要重播种(仍超预算):复用共用摘要内核。失败 → 保留 L1、不中断子回合(镜像主回合)。
@@ -12799,7 +13107,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     const threshold = Number(config.autoCompactThreshold) || 0.8;
     const budget = threshold * providerContextWindow(provider, model); // v1.0.2-S2: 传激活模型, 走三级解析
     const sysMsg = { role: 'system', content: String(sys || '') };
-    const before = estimateHistoryTokens([sysMsg, ...history], '', tools);
+    const before = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a):校准后估算判预算
     if (before <= budget) return false; // under budget → nothing to do (append-only until next crossing)
 
     // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
@@ -12809,7 +13117,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
     const evaporated = evaporateHistory(history);
     if (evaporated > 0) {
-      const after1 = estimateHistoryTokens([sysMsg, ...history], '', tools);
+      const after1 = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a)
       onEvent({ type: 'compact', mode: 'evaporate', beforeTokens: before, afterTokens: after1 });
       session.messages.push({ role: 'system', content: `🗜 自动压缩（蒸发旧工具结果 ${evaporated} 条）：${fmtTokensServer(before)}→约 ${fmtTokensServer(after1)}（估算）`, createdAt: nowIso(), source: 'compact' });
       logEvent({ kind: 'auto_compact', mode: 'evaporate', sessionId: session.id, beforeTokens: before, afterTokens: after1, evaporated });
@@ -12818,7 +13126,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     }
 
     // ── Level 2: summary reseed (still over budget) ─────────────────────────────────────────────────
-    const before2 = estimateHistoryTokens([sysMsg, ...history], '', tools);
+    const before2 = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a)
     const sc = await providerSummaryCall(provider, history);
     if (!sc.ok) {
       // Level-2 failed (network/timeout). Keep the level-1 result and continue the turn — do NOT abort.
@@ -15951,7 +16259,9 @@ async function handleApi(req, res, pathname) {
         const p = activeOpenAiProvider(config);
         const model = p ? String(p.model || (p.models && p.models[0] && p.models[0].id) || '').trim() : '';
         const r = resolveContextWindow(p, model);
-        return { value: r.value, source: r.source, provider: p ? p.id : '', model };
+        // 45f 对抗轮 P3-5:窗口学习生效时如实展示 —— 否则用户看到「才用一半就压缩」会对不上账。
+        const cap = p ? learnedWindowCap(p.id, model) : 0;
+        return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };
       })(),
       models: offlineModelList(config), // instant offline list; UI enriches via GET /api/models (proxy)
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (DeepSeek/DashScope/custom)
@@ -18336,6 +18646,17 @@ if (require.main === module) {
 module.exports = {
   McpStdioClient,
   estimateHistoryTokens, // v0.8-S5: exposed for e2e direct unit testing (parts-aware token estimate v2)
+  // 第45波(压缩 v2):摘要内核 + 45a 预算适配/map-reduce 分组 — exposed for e2e(死锁角回归)。
+  providerSummaryCall,
+  fitHistoryForSummary,
+  chunkHistoryByBudget,
+  // 第45波 45b/45d:context-400 判定 + 估算自校准/窗口学习 — exposed for e2e(校准 EMA/只降不升/超窗重试)。
+  isContextOverflowError,
+  noteEstimateSample,
+  estimateFactor,
+  noteWindowOvershoot,
+  learnedWindowCap,
+  calibratedEstimate,
   // v1.0.2-S2: context-window three-level resolution — exposed for e2e direct units.
   resolveContextWindow,
   providerContextWindow,

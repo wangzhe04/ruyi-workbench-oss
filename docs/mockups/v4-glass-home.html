@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计图 v4 · 毛玻璃对话首页 · 如意 Ruyi</title>
+<style>
+/* ============================================================
+   如意 Ruyi · v4 毛玻璃(Glassmorphism)设计原型 —— 对话首页
+   基座 token 对齐 app/public/styles.css;新增材质 token 族见
+   docs/optimization-plan/01-ui-modernization.md §3.2-A~F:
+   --scene-bg / --glass-bg-1..3 / --glass-border / --glass-highlight
+   / --glass-blur-1..3 / --glass-shadow
+   语言:底层有景 · 中层磨砂 · 上层点睛(青花蓝收敛为点色)
+   ============================================================ */
+:root{
+  font-size:14px;
+  --font:"Segoe UI","Microsoft YaHei",system-ui,Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;
+  --fs-xs:0.786rem;--fs-sm:0.857rem;--fs-md:0.929rem;--fs-base:1rem;--fs-lg:1.143rem;--fs-xl:1.429rem;--fs-2xl:1.714rem;
+  --r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:22px;--r-pill:999px;
+  --ease-out:cubic-bezier(.2,.7,.3,1);--dur-fast:120ms;--dur-base:200ms;--dur-slow:320ms;
+  --ring:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent);
+  --ruyi-cloud:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2070'%3E%3Cpath%20fill='%23000'%20d='M60%2062%20C46%2055%2030%2044%2030%2032%20A13%2013%200%200%201%2053%2024%20A7.5%207.5%200%201%201%2067%2024%20A13%2013%200%200%201%2090%2032%20C90%2044%2074%2055%2060%2062%20Z'/%3E%3C/svg%3E");
+  /* 玻璃模糊三档(封顶 24px,saturate 提亮背透色) */
+  --glass-blur-1:blur(8px) saturate(1.2);
+  --glass-blur-2:blur(16px) saturate(1.3);
+  --glass-blur-3:blur(24px) saturate(1.4);
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --panel:#141a29;--panel-2:#182031;--panel-3:#202a40;
+  --ink:#eef1f8;--ink-2:#c9d2e4;--muted:#8b9cb8;--line:#222c42;--line-2:#303d59;
+  --accent:#6e86f2;--accent-hover:#8497f8;--accent-ink:#fff;--accent-soft:#1a2440;
+  --accent-2:#9a72f0; /* 黛紫:青花的高级感渐变搭档 */
+  --link:#93b1f8;--gold:#dcba75;--gold-soft:#2c2413;
+  --danger:#e06a66;--ok:#5cc093;--warn:#d9ae62;--info:#6b9ef0;
+  --code-bg:#090e18;--scroll:rgba(120,140,175,.30);--eng-claude:#dd8a68;
+  /* — 底层有景:墨夜更深、光晕更收敛更大,蓝紫双色远景(玻璃之「景」)— */
+  --scene-bg:
+    radial-gradient(1080px 620px at 88% -14%, color-mix(in srgb,var(--accent) 13%,transparent), transparent 64%),
+    radial-gradient(840px 520px at -10% 112%, color-mix(in srgb,var(--accent-2) 9%,transparent), transparent 62%),
+    radial-gradient(640px 420px at 32% 118%, color-mix(in srgb,var(--info) 6%,transparent), transparent 66%),
+    linear-gradient(160deg,#090d16 0%,#0b1120 48%,#0e1526 100%);
+  /* 微噪点纹理:压住大底色的「塑料感」,近看有纸面颗粒 */
+  --noise:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'/%3E%3CfeColorMatrix%20type='saturate'%20values='0'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
+  /* — 玻璃材质:暗色调蓝玻璃,描边更细、投影更深更远 — */
+  --glass-bg-1:rgba(146,166,214,.065);   /* 框架族 */
+  --glass-bg-2:rgba(158,178,224,.085);   /* 浮层族 */
+  --glass-bg-3:rgba(140,160,208,.05);    /* 卡片族 */
+  --glass-border:rgba(180,200,240,.09);
+  --glass-border-strong:rgba(190,208,248,.15);
+  --glass-highlight:inset 0 1px 0 rgba(210,225,255,.08);
+  --glass-shadow:0 24px 60px rgba(2,6,16,.55);
+  --glass-shadow-soft:0 10px 30px rgba(2,6,16,.35);
+  --elev-1:0 1px 2px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.10);
+  --glow-accent:0 0 0 1px color-mix(in srgb,var(--accent) 42%,transparent),0 12px 32px -8px color-mix(in srgb,var(--accent) 48%,transparent);
+  --gold-line:color-mix(in srgb,var(--gold) 55%,transparent);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --panel:#fff;--panel-2:#f7f9fc;--panel-3:#eef2f8;
+  --ink:#1a2334;--ink-2:#33405a;--muted:#5d6a84;--line:#dbe2ee;--line-2:#c6d1e3;
+  --accent:#2050c8;--accent-hover:#1a43ab;--accent-ink:#fff;--accent-soft:#e7edfa;
+  --accent-2:#7a5fd0;
+  --link:#2050c8;--gold:#a8822f;--gold-soft:#f6edd8;
+  --danger:#b42318;--ok:#22794e;--warn:#a1650f;--info:#2b6cb0;
+  --code-bg:#f2f4f8;--scroll:rgba(95,108,133,.30);--eng-claude:#c96442;
+  /* — 底层有景:月白晨雾微渐变 + 青花/黛色轻染 — */
+  --scene-bg:
+    radial-gradient(980px 540px at 88% -12%, color-mix(in srgb,var(--accent) 8%,transparent), transparent 62%),
+    radial-gradient(800px 500px at -8% 112%, color-mix(in srgb,var(--accent-2) 5%,transparent), transparent 60%),
+    radial-gradient(600px 400px at 30% 118%, color-mix(in srgb,var(--info) 5%,transparent), transparent 65%),
+    linear-gradient(158deg,#f6f8fc 0%,#eef2f9 48%,#e9eef8 100%);
+  --noise:none;
+  /* — 玻璃材质:亮主题靠「留白 + 柔影」— */
+  --glass-bg-1:rgba(255,255,255,.58);
+  --glass-bg-2:rgba(255,255,255,.72);
+  --glass-bg-3:rgba(255,255,255,.46);
+  --glass-border:rgba(20,28,48,.09);
+  --glass-border-strong:rgba(20,28,48,.14);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.75);
+  --glass-shadow:0 18px 50px rgba(20,28,48,.15);
+  --glass-shadow-soft:0 8px 28px rgba(20,28,48,.09);
+  --elev-1:0 1px 2px rgba(20,28,48,.08),0 2px 8px rgba(20,28,48,.06);
+  --glow-accent:0 0 0 1px color-mix(in srgb,var(--accent) 24%,transparent),0 10px 26px -10px color-mix(in srgb,var(--accent) 28%,transparent);
+  --gold-line:color-mix(in srgb,var(--gold) 60%,transparent);
+}
+/* 无 backdrop-filter 环境:token 级实色回退,布局零变化 */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  :root[data-theme="dark"]{--glass-bg-1:#151c2e;--glass-bg-2:#19213a;--glass-bg-3:#131a2b;}
+  :root[data-theme="light"]{--glass-bg-1:#f4f7fc;--glass-bg-2:#ffffff;--glass-bg-3:#f2f5fa;}
+}
+@media (prefers-reduced-transparency:reduce){
+  :root{--glass-blur-1:none;--glass-blur-2:none;--glass-blur-3:none;}
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{background:var(--scene-bg);background-attachment:fixed;color:var(--ink);
+  font-family:var(--font);-webkit-font-smoothing:antialiased;font-size:var(--fs-base);}
+/* 微噪点纹理层(仅暗主题,--noise 在亮主题为 none) */
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:var(--noise);opacity:.05;}
+.anno-bar,.app{position:relative;z-index:1;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;}
+:where(button,[tabindex]):focus-visible{outline:none;box-shadow:var(--ring);}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;}}
+.num{font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1;letter-spacing:.01em;}
+/* 双色调(duotone)图标原语:描边 1.5 + 同色 14% 填充,比纯线性更「实」一档 */
+.ic{flex:none;display:inline-block;vertical-align:-0.16em;stroke:currentColor;fill:none;
+  stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.ic-duo{fill:currentColor;fill-opacity:.14;}
+
+/* ── 玻璃原语 ── */
+.glass-1,.glass-2,.glass-3{
+  border:1px solid var(--glass-border);
+  box-shadow:var(--glass-highlight),var(--glass-shadow-soft);
+  -webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);}
+.glass-1{background:var(--glass-bg-1);}
+.glass-2{background:var(--glass-bg-2);-webkit-backdrop-filter:var(--glass-blur-3);backdrop-filter:var(--glass-blur-3);
+  box-shadow:var(--glass-highlight),var(--glass-shadow);}
+.glass-3{background:var(--glass-bg-3);-webkit-backdrop-filter:var(--glass-blur-1);backdrop-filter:var(--glass-blur-1);}
+
+/* ── 顶部设计图标注条(实色,不入玻璃体系)── */
+.anno-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-2) var(--sp-5);border-bottom:1px solid var(--glass-border);
+  background:var(--glass-bg-1);-webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);}
+.anno-left{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm);color:var(--muted);flex-wrap:wrap;}
+.anno-tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:var(--r-pill);
+  background:var(--gold-soft);color:var(--gold);border:1px solid var(--gold-line);
+  font-weight:600;font-size:var(--fs-xs);letter-spacing:.3px;}
+.theme-btn{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:var(--r-pill);
+  background:var(--glass-bg-3);color:var(--ink);border:1px solid var(--glass-border);font-size:var(--fs-sm);
+  transition:all var(--dur-fast) var(--ease-out);}
+.theme-btn:hover{border-color:var(--glass-border-strong);transform:translateY(-1px);}
+
+/* ── 应用骨架:全视窗,玻璃面板浮于景深之上 ── */
+.app{display:grid;grid-template-columns:264px 1fr;height:calc(100vh - 41px);}
+
+/* ── 侧栏(玻璃二档·框架族)── */
+.sidebar{display:flex;flex-direction:column;border-right:1px solid var(--glass-border);
+  background:var(--glass-bg-1);-webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);
+  box-shadow:var(--glass-highlight);}
+.sb-brand{display:flex;align-items:center;gap:10px;padding:var(--sp-4) var(--sp-4) var(--sp-3);}
+.sb-mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  box-shadow:var(--glow-accent);}
+.sb-mark svg{stroke:#fff;fill:rgba(255,255,255,.22);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+.sb-brand h1{margin:0;font-size:var(--fs-lg);font-weight:700;letter-spacing:.5px;}
+.sb-brand .sub{font-size:var(--fs-xs);color:var(--muted);margin-top:1px;}
+.sb-new{margin:0 var(--sp-4) var(--sp-3);display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:9px 0;border-radius:var(--r-md);font-weight:600;font-size:var(--fs-md);
+  color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);
+  transition:all var(--dur-fast) var(--ease-out);}
+.sb-new:hover{background:color-mix(in srgb,var(--accent) 16%,transparent);box-shadow:var(--glow-accent);transform:translateY(-1px);}
+.sb-search{margin:0 var(--sp-4) var(--sp-3);display:flex;align-items:center;gap:8px;padding:8px 12px;
+  border-radius:var(--r-md);border:1px solid var(--glass-border);background:var(--glass-bg-3);
+  color:var(--muted);font-size:var(--fs-sm);}
+.sb-list{flex:1;overflow-y:auto;padding:0 var(--sp-2);}
+.sb-sec{padding:var(--sp-2) var(--sp-3) var(--sp-1);font-size:var(--fs-xs);color:var(--muted);letter-spacing:.08em;}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;margin:1px 0;border-radius:var(--r-sm);
+  border:1px solid transparent;color:var(--ink-2);cursor:pointer;font-size:var(--fs-md);
+  transition:all var(--dur-fast) var(--ease-out);position:relative;}
+.sb-item:hover{background:var(--glass-bg-3);}
+.sb-item.active{background:var(--glass-bg-3);border-color:var(--glass-border);
+  box-shadow:var(--glass-highlight);color:var(--ink);font-weight:600;}
+.sb-item.active::before{content:"";position:absolute;left:-1px;top:8px;bottom:8px;width:3px;border-radius:2px;
+  background:var(--accent);box-shadow:0 0 8px color-mix(in srgb,var(--accent) 60%,transparent);}
+.sb-item .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sb-item .n{font-size:var(--fs-xs);color:var(--muted);}
+.sb-foot{padding:var(--sp-3) var(--sp-4);border-top:1px solid var(--glass-border);
+  display:flex;align-items:center;gap:10px;color:var(--muted);font-size:var(--fs-sm);}
+.sb-foot .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);
+  border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);font-weight:700;font-size:var(--fs-xs);}
+
+/* ── 主区 ── */
+.main{display:flex;flex-direction:column;min-width:0;}
+
+/* 顶栏(玻璃二档):chip 群降噪——玻璃底 + 点色语义;底部一线青花渐变微光 */
+.topbar{position:relative;display:flex;align-items:center;gap:var(--sp-2);padding:10px var(--sp-4);
+  border-bottom:1px solid var(--glass-border);background:var(--glass-bg-1);
+  -webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);box-shadow:var(--glass-highlight);}
+.topbar::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;pointer-events:none;
+  background:linear-gradient(90deg,transparent 8%,color-mix(in srgb,var(--accent) 30%,transparent) 50%,transparent 92%);}
+.tb-folder{display:flex;align-items:center;gap:8px;font-size:var(--fs-md);color:var(--ink-2);
+  padding:6px 10px;border-radius:var(--r-sm);}
+.tb-folder:hover{background:var(--glass-bg-3);}
+.tb-spacer{flex:1;}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:var(--r-pill);
+  border:1px solid var(--glass-border);background:var(--glass-bg-3);color:var(--ink-2);
+  font-size:var(--fs-sm);min-height:32px;box-shadow:var(--glass-highlight);
+  transition:all var(--dur-fast) var(--ease-out);}
+.chip:hover{border-color:var(--glass-border-strong);transform:translateY(-1px);}
+.chip .c-dot{width:7px;height:7px;border-radius:50%;}
+.chip.ok .c-dot{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent);}
+.chip .c-label{color:var(--muted);font-size:var(--fs-xs);}
+.chip.model{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 32%,transparent);
+  background:color-mix(in srgb,var(--accent) 8%,transparent);font-weight:600;}
+.meter{width:52px;height:5px;border-radius:3px;background:color-mix(in srgb,var(--ink) 12%,transparent);overflow:hidden;}
+.meter i{display:block;height:100%;width:38%;border-radius:3px;
+  background:linear-gradient(90deg,var(--ok),color-mix(in srgb,var(--ok) 70%,var(--info)));}
+.icon-btn{width:34px;height:34px;display:grid;place-items:center;border-radius:var(--r-sm);
+  color:var(--muted);border:1px solid transparent;transition:all var(--dur-fast) var(--ease-out);}
+.icon-btn:hover{background:var(--glass-bg-3);color:var(--ink);border-color:var(--glass-border);}
+
+/* 消息流 */
+.chat{flex:1;overflow-y:auto;padding:var(--sp-6) var(--sp-6) var(--sp-4);}
+.msg-col{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-5);}
+.dayline{display:flex;align-items:center;gap:var(--sp-3);color:var(--muted);font-size:var(--fs-xs);}
+.dayline::before,.dayline::after{content:"";flex:1;height:1px;
+  background:linear-gradient(90deg,transparent,var(--glass-border-strong),transparent);}
+
+/* 用户气泡:点色玻璃 + 蓝紫渐变(青花成块的唯一处,渐变提质感) */
+.m-user{align-self:flex-end;max-width:78%;padding:11px 15px;border-radius:var(--r-lg) var(--r-lg) var(--r-sm) var(--r-lg);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--accent-2) 15%,transparent));
+  border:1px solid color-mix(in srgb,var(--accent) 34%,transparent);
+  box-shadow:var(--glass-highlight),0 8px 26px -10px color-mix(in srgb,var(--accent) 40%,transparent);
+  -webkit-backdrop-filter:var(--glass-blur-1);backdrop-filter:var(--glass-blur-1);
+  color:var(--ink);line-height:1.65;font-size:var(--fs-base);}
+
+/* 助手卡:玻璃三档,阅读面克制 */
+.m-bot{align-self:stretch;display:flex;gap:var(--sp-3);}
+.m-avatar{width:30px;height:30px;flex:none;border-radius:9px;display:grid;place-items:center;margin-top:2px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  box-shadow:0 4px 14px -4px color-mix(in srgb,var(--accent) 55%,transparent);}
+.m-avatar svg{stroke:#fff;fill:rgba(255,255,255,.22);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+.m-body{flex:1;min-width:0;}
+.m-card{padding:13px 16px;border-radius:var(--r-lg);line-height:1.75;font-size:var(--fs-base);
+  background:var(--glass-bg-3);border:1px solid var(--glass-border);box-shadow:var(--glass-highlight);
+  -webkit-backdrop-filter:var(--glass-blur-1);backdrop-filter:var(--glass-blur-1);}
+.m-card p{margin:0 0 .6em;}
+.m-card p:last-child{margin-bottom:0;}
+.m-card code{font-family:var(--mono);font-size:.92em;padding:1px 6px;border-radius:5px;
+  background:var(--code-bg);border:1px solid var(--glass-border);}
+/* 代码块:实色阅读面,不磨砂 */
+.codeblock{margin-top:10px;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--glass-border);
+  background:var(--code-bg);}
+.codeblock .cb-head{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:var(--fs-xs);
+  color:var(--muted);border-bottom:1px solid var(--glass-border);background:rgba(127,147,180,.06);}
+.codeblock pre{margin:0;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-sm);line-height:1.7;overflow-x:auto;}
+
+/* 工具卡:玻璃三档 + 状态色左缘(渗透式,不铺底) */
+.tool{display:flex;flex-direction:column;gap:0;border-radius:var(--r-md);overflow:hidden;
+  background:var(--glass-bg-3);border:1px solid var(--glass-border);box-shadow:var(--glass-highlight);
+  -webkit-backdrop-filter:var(--glass-blur-1);backdrop-filter:var(--glass-blur-1);}
+.tool-head{display:flex;align-items:center;gap:9px;padding:8px 12px;font-size:var(--fs-sm);color:var(--ink-2);}
+.tool-head .t-ic{width:24px;height:24px;display:grid;place-items:center;border-radius:7px;
+  color:var(--info);background:color-mix(in srgb,var(--info) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--info) 26%,transparent);}
+.tool-head .t-name{font-weight:600;font-family:var(--mono);font-size:var(--fs-sm);}
+.tool-head .t-arg{color:var(--muted);font-family:var(--mono);font-size:var(--fs-xs);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tool-head .t-stat{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-xs);color:var(--ok);}
+.tool-head .t-stat i{width:6px;height:6px;border-radius:50%;background:var(--ok);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 20%,transparent);}
+.tool-result{border-top:1px dashed var(--glass-border);padding:8px 12px;font-family:var(--mono);
+  font-size:var(--fs-xs);color:var(--muted);line-height:1.6;}
+
+/* thinking 卡:更轻的磨砂 */
+.think{border-left:2px solid color-mix(in srgb,var(--muted) 45%,transparent);
+  padding:6px 12px;color:var(--muted);font-size:var(--fs-sm);line-height:1.65;
+  background:color-mix(in srgb,var(--glass-bg-3) 60%,transparent);border-radius:0 var(--r-sm) var(--r-sm) 0;}
+
+/* 插话卡(steer):青花点色 + 玻璃 */
+.steer{align-self:flex-end;display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:var(--r-pill);
+  font-size:var(--fs-sm);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 36%,transparent);
+  background:color-mix(in srgb,var(--accent) 10%,transparent);box-shadow:var(--glass-highlight);
+  -webkit-backdrop-filter:var(--glass-blur-1);backdrop-filter:var(--glass-blur-1);}
+
+/* composer(玻璃一档,浮于景深) */
+.composer-zone{padding:0 var(--sp-6) var(--sp-5);}
+.composer{max-width:820px;margin:0 auto;border-radius:var(--r-xl);padding:12px 14px;
+  background:var(--glass-bg-1);border:1px solid var(--glass-border-strong);
+  box-shadow:var(--glass-highlight),var(--glass-shadow);
+  -webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);
+  transition:border-color var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out);}
+.composer:focus-within{border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+  box-shadow:var(--glass-highlight),var(--glass-shadow),var(--glow-accent);}
+.cp-text{color:var(--ink-2);font-size:var(--fs-base);line-height:1.6;padding:2px 4px 10px;}
+.cp-text .ph{color:var(--muted);}
+.cp-row{display:flex;align-items:center;gap:6px;}
+.cp-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:var(--r-sm);
+  color:var(--muted);font-size:var(--fs-sm);transition:all var(--dur-fast) var(--ease-out);}
+.cp-btn:hover{background:var(--glass-bg-3);color:var(--ink);}
+.cp-spacer{flex:1;}
+.cp-model{font-size:var(--fs-xs);color:var(--muted);padding:0 6px;}
+.cp-send{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:#fff;
+  background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,var(--accent-2) 45%));
+  box-shadow:var(--glow-accent);transition:all var(--dur-fast) var(--ease-out);}
+.cp-send:hover{transform:translateY(-1px) scale(1.04);}
+.cp-send svg{stroke:#fff;fill:rgba(255,255,255,.18);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+
+@media (max-width:960px){.app{grid-template-columns:1fr;}.sidebar{display:none;}}
+</style>
+</head>
+<body>
+
+<!-- 设计图标注条 -->
+<div class="anno-bar">
+  <div class="anno-left">
+    <span class="anno-tag">设计图 v4 · 毛玻璃</span>
+    <span>对话首页 · 语言:底层有景 / 中层磨砂 / 上层点睛 · token 规格见 docs/optimization-plan/01-ui-modernization.md §3.2</span>
+  </div>
+  <button class="theme-btn" id="themeBtn">
+    <svg class="ic" width="14" height="14" viewBox="0 0 24 24" id="themeIcon"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5 5l1.6 1.6M17.4 17.4L19 19M19 5l-1.6 1.6M6.6 17.4L5 19"/></svg>
+    <span id="themeLabel">月白模式</span>
+  </button>
+</div>
+
+<div class="app">
+
+  <!-- ── 侧栏:玻璃二档 ── -->
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-mark"><svg width="17" height="17" viewBox="0 0 24 24"><path d="M12 20c-3.3-1.7-7-4.3-7-8a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.7-3.7 6.3-7 8z"/></svg></div>
+      <div><h1>如意</h1><div class="sub">Ruyi Workbench</div></div>
+    </div>
+    <button class="sb-new">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      新对话
+    </button>
+    <div class="sb-search">
+      <svg class="ic" width="13" height="13" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20.5 20.5L16 16"/></svg>
+      搜索会话…
+    </div>
+    <div class="sb-list">
+      <div class="sb-sec">今天</div>
+      <div class="sb-item active"><span class="t">优化规划文档评审</span><span class="n num">12</span></div>
+      <div class="sb-item"><span class="t">毛玻璃 mockup 调优</span><span class="n num">4</span></div>
+      <div class="sb-item"><span class="t">v1.6.7 发版检查单</span><span class="n num">7</span></div>
+      <div class="sb-sec">昨天</div>
+      <div class="sb-item"><span class="t">Claude 引擎 steer 探针</span><span class="n num">23</span></div>
+      <div class="sb-item"><span class="t">ACC 桥超时契约修复</span><span class="n num">9</span></div>
+      <div class="sb-item"><span class="t">季度报表整理(Office)</span><span class="n num">31</span></div>
+    </div>
+    <div class="sb-foot">
+      <span class="av">如</span><span>本地模式 · 气隙优先</span>
+    </div>
+  </aside>
+
+  <!-- ── 主区 ── -->
+  <div class="main">
+
+    <!-- 顶栏:玻璃二档,chip 群玻璃底 + 点色 -->
+    <div class="topbar">
+      <button class="tb-folder">
+        <svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>
+        E:\Claude\ruyi-workbench-oss
+      </button>
+      <span class="tb-spacer"></span>
+      <span class="chip ok"><i class="c-dot"></i><span class="c-label">安全</span>检查点已开</span>
+      <span class="chip"><span class="c-label">上下文</span><span class="meter"><i></i></span><span class="num">38%</span></span>
+      <span class="chip model">
+        <svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path class="ic-duo" d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/></svg>
+        Kimi K2 · Provider
+      </span>
+      <button class="icon-btn" title="更多">
+        <svg class="ic" width="16" height="16" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>
+      </button>
+    </div>
+
+    <!-- 消息流 -->
+    <div class="chat">
+      <div class="msg-col">
+
+        <div class="dayline">今天 23:12</div>
+
+        <div class="m-user">帮我把这个项目的文档和代码都过一遍,给出下一轮优化规划。UI 我想要现代的、带毛玻璃质感的,不要现在这种大片纯主色。</div>
+
+        <div class="m-bot">
+          <div class="m-avatar"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 20c-3.3-1.7-7-4.3-7-8a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.7-3.7 6.3-7 8z"/></svg></div>
+          <div class="m-body">
+            <div class="think">已通读 13 份设计文档与 15 个后端模块,正在交叉核对 OPTIMIZATION-ROADMAP 的已修/悬而未决清单……</div>
+          </div>
+        </div>
+
+        <div class="m-bot">
+          <div class="m-avatar"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 20c-3.3-1.7-7-4.3-7-8a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.7-3.7 6.3-7 8z"/></svg></div>
+          <div class="m-body">
+            <div class="tool">
+              <div class="tool-head">
+                <span class="t-ic"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path class="ic-duo" d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="M8 9h8M8 13h5"/></svg></span>
+                <span class="t-name">read_file</span>
+                <span class="t-arg">docs/optimization-plan/01-ui-modernization.md</span>
+                <span class="t-stat"><i></i>完成 · 0.4s</span>
+              </div>
+              <div class="tool-result">已读取 120 行 · 材质 token 族 §3.2-B 定位完成</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="m-bot">
+          <div class="m-avatar"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 20c-3.3-1.7-7-4.3-7-8a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.7-3.7 6.3-7 8z"/></svg></div>
+          <div class="m-body">
+            <div class="m-card">
+              <p>好的,方向明确。毛玻璃落地为三层材质:<strong>底层</strong>深空/晨雾微渐变,<strong>中层</strong>框架与浮层磨砂,<strong>上层</strong>青花蓝只做点色。阅读区(正文/代码/diff)保持实色,保证长时间使用不疲劳:</p>
+              <div class="codeblock">
+                <div class="cb-head">styles.css · 材质 token(暗主题)</div>
+                <pre>--glass-bg-1: rgba(255,255,255,.055);
+--glass-border: rgba(255,255,255,.10);
+--glass-blur-2: blur(16px) saturate(1.3);
+--glass-highlight: inset 0 1px 0 rgba(255,255,255,.09);</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="steer">
+          <svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="M4 12h11M11 6l6 6-6 6"/><path d="M19 5v14"/></svg>
+          插话:先把 mockup 做出来,文档后补
+        </div>
+
+      </div>
+    </div>
+
+    <!-- composer:玻璃一档 -->
+    <div class="composer-zone">
+      <div class="composer">
+        <div class="cp-text"><span class="ph">向如意提问,或描述一个任务… 支持粘贴图片 / 拖入文件,对话进行中可随时插话纠偏</span></div>
+        <div class="cp-row">
+          <button class="cp-btn"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l9-9a3.7 3.7 0 0 1 5.2 5.2l-8.8 8.8a1.85 1.85 0 0 1-2.6-2.6l8-8"/></svg>附件</button>
+          <button class="cp-btn"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path class="ic-duo" d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/></svg>技能</button>
+          <button class="cp-btn"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="12" r="2.4"/><path d="M8 7l7.5 3.5M8 17l7.5-3.5"/></svg>Agent 团队</button>
+          <span class="cp-spacer"></span>
+          <span class="cp-model num">Kimi K2 · 预算 100</span>
+          <button class="cp-send" title="发送">
+            <svg width="17" height="17" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement,btn=document.getElementById('themeBtn'),
+      label=document.getElementById('themeLabel'),icon=document.getElementById('themeIcon');
+  var sun='<circle cx="12" cy="12" r="4.2" fill="currentColor" fill-opacity=".16"/><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5 5l1.6 1.6M17.4 17.4L19 19M19 5l-1.6 1.6M6.6 17.4L5 19"/>';
+  var moon='<path d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5z" fill="currentColor" fill-opacity=".16"/><path d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5z"/>';
+  function paint(){var d=root.getAttribute('data-theme')==='dark';
+    label.textContent=d?'月白模式':'墨夜模式';icon.innerHTML=d?sun:moon;}
+  btn.addEventListener('click',function(){
+    root.setAttribute('data-theme',root.getAttribute('data-theme')==='dark'?'light':'dark');paint();});
+  paint();
+})();
+</script>
+</body>
+</html>

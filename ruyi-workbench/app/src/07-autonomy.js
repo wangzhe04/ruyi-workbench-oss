@@ -1064,9 +1064,18 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   if (res && res.status === 400) {
     let t = ''; try { t = await res.text(); } catch { /* ignore */ }
     const toolsSemantics = /tool|function/i.test(t);
+    // tools-rejected 仍最先(45f 对抗轮 P1-1 恢复既有存活路径):真实超窗报文一般不含 tool/function 字样,
+    // 而 tools 拒绝报文可能带 "in this context" —— 顺序反了会把非超窗错误吸进破坏性压缩。
     if (requestHasTools && toolsSemantics) {
       // tools-rejected takes priority over the stream_options retry (§0.9-S0).
       return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, toolsRejected: true, text: '', reasoning: '', toolCalls: [] };
+    }
+    // 第45波:context-overflow 先于 stream_options 误判 —— "invalid_request_error" 是 OpenAI 系 400
+    // 的标准 type(真实 DeepSeek 超限报文正是它),而 stream_options 嗅探的正则含裸 /invalid/,会把上下文
+    // 超限误吸进「剥 stream_options 静默重试」(剥了也照样超窗,纯浪费一次调用还掩盖 45b 的强压入口)。
+    // (45f P1-1:判定器已收紧为「上下文×长度共现」,裸 invalid/context 字样不再命中。)
+    if (isContextOverflowError('HTTP 400: ' + t)) {
+      return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, contextOverflow: true, text: '', reasoning: '', toolCalls: [] };
     }
     // Some servers reject stream_options — retry once without it before failing.
     if (body.stream_options && /stream_options|unsupported|unknown|invalid|not\s*support/i.test(t)) {
@@ -1670,19 +1679,29 @@ const CLAUDE_SUBAGENT_SAFE_MODES = new Set(['bypass', 'auto', 'dontAsk', 'plan']
 // 502/503/504 via failoverStatus, expressed here as CLI stderr text) plus the CLI-specific "died before
 // producing anything" startup-crash case. Definitive errors (auth / model-not-found / context overflow /
 // a clean error result the CLI emitted on exit 0) are NOT retried - retrying them only burns time.
-function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistantText, toolCallCount, gotResult, resultOk }) {
+function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistantText, toolCallCount, gotResult, resultOk, resultText }) {
   if (killed) return { retry: false, reason: 'aborted' };
   // 防重放: the CLI already emitted assistant text or executed tools before failing. Re-running would
   // replay those side effects (file writes etc.), so never retry - matches runSubAgentCore's "mid-stream
   // errors are NOT retried" rule.
   if ((assistantText && String(assistantText).trim()) || toolCallCount > 0) return { retry: false, reason: 'progress_made' };
+  // 第45波 45c:context overflow 从 definitive 拆出 —— 允许一次【缩载新鲜重试】。检查顺序保证安全:
+  // progress_made 已先判(有 tool 调用/文本即不可重试),走到这里 = 零进展 → 无重放面。
+  // 45f 对抗轮 P1-2:判定必须【先于】clean_error_result(CLI 执行期 API 错误常以 result 帧
+  // subtype:error_during_execution 收尾,落不到 stderr),且扫描 stderr+result 合并文本;
+  // 正则用 CONTEXT_OVERFLOW_PATTERNS(含真实 Anthropic 形态 "prompt is too long: N tokens > M maximum",
+  // 作者假想形态 prompt_too_long 曾让整条分支成为死代码)。
+  const combined = String(stderrText || '') + '\n' + String(resultText || '');
+  if (CONTEXT_OVERFLOW_PATTERNS.test(combined) || /prompt_too_long/i.test(combined)) {
+    return { retry: true, reason: 'over_window' };
+  }
   // The CLI ran to a clean `result` event but reported is_error / subtype:error (e.g. an in-CLI tool
   // execution error). That is deterministic, not transient - retrying won't change it.
   if (gotResult && resultOk === false) return { retry: false, reason: 'clean_error_result' };
   const s = String(stderrText || '');
-  // Definitive non-transient signatures (auth / model / bad request / context overflow / cmd.exe 命令行超长——
+  // Definitive non-transient signatures (auth / model / bad request / cmd.exe 命令行超长——
   // 参数决定的确定性失败,重试同样的 args 只会原样再败;cmd8191 防线的预算哨兵应已拦截,此为兜底)。
-  if (/invalid_api_key|authentication_error|auth.*fail|unauthor|\b401\b|permission_denied|\b403\b|model_not_found|not_found_error|\b404\b|invalid_request_error|context.*(length|window|too\s*long|too\s*large|exceed)|maximum.*context|too_many_tokens|prompt_too_long|命令行太长|command line is too long/i.test(s)) {
+  if (/invalid_api_key|authentication_error|auth.*fail|unauthor|\b401\b|permission_denied|\b403\b|model_not_found|not_found_error|\b404\b|invalid_request_error|命令行太长|command line is too long/i.test(s)) {
     return { retry: false, reason: 'definitive' };
   }
   // Transient signatures: rate limit / overload / 5xx / network / connect / TLS - the same set the OpenAI
@@ -1776,6 +1795,8 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const onAbort = () => { killed = true; if (currentChild) { try { currentChild.stdin.end(); } catch { /* ignore */ } killChildTree(currentChild.pid); } };
   if (ctrl && ctrl.signal) { if (ctrl.signal.aborted) killed = true; else ctrl.signal.addEventListener('abort', onAbort, { once: true }); }
 
+  // 45c:over_window 重试时的可变任务(缩载);初值 = 原任务。
+  let taskForAttempt = task, overWindowShrunk = false;
   // One CLI spawn attempt -> collected exit/output state. Does NOT decide retry; the loop below does.
   const runOnce = () => new Promise(resolve => {
     const child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
@@ -1784,7 +1805,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     // Idle watchdog - a wedged CLI must not hang the whole DAG run forever (per-attempt).
     const watchdog = setInterval(() => { if (!killed && Date.now() - lastEventAt > idleLimitMs) onAbort(); }, 5000);
     child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
-    try { child.stdin.write(String(task || ''), 'utf8'); child.stdin.end(); } catch { /* ignore */ }
+    try { child.stdin.write(String(taskForAttempt || ''), 'utf8'); child.stdin.end(); } catch { /* ignore */ }
     let stderrText = '';
     child.stderr.on('data', chunk => { stderrText += decodeClaudeCliText(chunk); lastEventAt = Date.now(); });
 
@@ -1871,8 +1892,16 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       }
       lastFinalText = finalText; lastToolCalls = res.toolCallCount;
       lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
-      const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk });
+      const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk, resultText: res.resultText });
       if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) break;
+      // 45c:over_window → 缩载后新鲜重试(一次性 spawn 无 resume,超窗 = 任务载荷本身过大;cap 60K 字符)。
+      // 45f P3-7:任务本就不超 60K 时缩无可缩(超窗根因是系统提示/schema),重试必败 —— 不再白烧一次 spawn。
+      if (cls.reason === 'over_window') {
+        const raw = String(task || '');
+        if (overWindowShrunk || raw.length <= 60000) break;
+        overWindowShrunk = true;
+        taskForAttempt = raw.slice(0, 60000) + `\n\n…(原任务 ${raw.length} 字符,上次因上下文超限失败已截断;请聚焦完成可达部分)`;
+      }
       onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: cls.reason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
       // Bounded backoff an abort can cut short (mirrors runSubAgentCore's transient-retry sleep).
       await new Promise(r => {

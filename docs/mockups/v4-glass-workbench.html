@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计图 v4 · 毛玻璃工作台(DAG 画布) · 如意 Ruyi</title>
+<style>
+/* ============================================================
+   如意 Ruyi · v4 毛玻璃(Glassmorphism)设计原型 —— 工作台 DAG 画布
+   材质 token 族与分档纪律同 v4-glass-home.html;
+   画布层做「景深」:点阵 + 远景光晕,节点卡玻璃三档,边为状态色流光。
+   ============================================================ */
+:root{
+  font-size:14px;
+  --font:"Segoe UI","Microsoft YaHei",system-ui,Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;
+  --fs-xs:0.786rem;--fs-sm:0.857rem;--fs-md:0.929rem;--fs-base:1rem;--fs-lg:1.143rem;--fs-xl:1.429rem;
+  --r-sm:8px;--r-md:12px;--r-lg:16px;--r-pill:999px;
+  --ease-out:cubic-bezier(.2,.7,.3,1);--dur-fast:120ms;--dur-base:200ms;--dur-slow:320ms;
+  --ring:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent);
+  --ruyi-cloud:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2070'%3E%3Cpath%20fill='%23000'%20d='M60%2062%20C46%2055%2030%2044%2030%2032%20A13%2013%200%200%201%2053%2024%20A7.5%207.5%200%201%201%2067%2024%20A13%2013%200%200%201%2090%2032%20C90%2044%2074%2055%2060%2062%20Z'/%3E%3C/svg%3E");
+  --glass-blur-1:blur(8px) saturate(1.2);
+  --glass-blur-2:blur(16px) saturate(1.3);
+  --glass-blur-3:blur(24px) saturate(1.4);
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --panel:#151d2b;--panel-2:#1a2436;--panel-3:#24304a;
+  --ink:#e9edf5;--ink-2:#c4cee0;--muted:#8fa0b8;--line:#263349;--line-2:#33425e;
+  --accent:#5b7ee8;--accent-hover:#6f8cf0;--accent-ink:#fff;--accent-soft:#1c2a4a;
+  --link:#8fadf7;--gold:#f2c14e;--gold-soft:#332a12;
+  --danger:#e56060;--ok:#53c08a;--warn:#e3b054;--info:#5b93e6;
+  --code-bg:#0b111b;--scroll:rgba(120,140,175,.35);--eng-claude:#d97757;--eng-provider:#5b7ee8;
+  --scene-bg:
+    radial-gradient(920px 520px at 88% -12%, color-mix(in srgb,var(--accent) 16%,transparent), transparent 62%),
+    radial-gradient(760px 480px at -8% 112%, color-mix(in srgb,#7a5fd0 10%,transparent), transparent 60%),
+    linear-gradient(158deg,#0d1322 0%,#0f1624 46%,#111b2e 100%);
+  --canvas-dots:rgba(143,160,184,.13);
+  --glass-bg-1:rgba(255,255,255,.055);
+  --glass-bg-2:rgba(255,255,255,.075);
+  --glass-bg-3:rgba(255,255,255,.05);
+  --glass-border:rgba(255,255,255,.10);
+  --glass-border-strong:rgba(255,255,255,.16);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.09);
+  --glass-shadow:0 18px 50px rgba(0,0,0,.45);
+  --glass-shadow-soft:0 8px 28px rgba(0,0,0,.30);
+  --glow-accent:0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent),0 10px 30px -8px color-mix(in srgb,var(--accent) 45%,transparent);
+  --glow-run:0 0 0 1px color-mix(in srgb,var(--info) 45%,transparent),0 8px 26px -6px color-mix(in srgb,var(--info) 50%,transparent);
+  --gold-line:color-mix(in srgb,var(--gold) 55%,transparent);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --panel:#fff;--panel-2:#f7f9fc;--panel-3:#eef2f8;
+  --ink:#1b2436;--ink-2:#33405a;--muted:#5f6c85;--line:#dbe2ee;--line-2:#c6d1e3;
+  --accent:#2350a8;--accent-hover:#1c4390;--accent-ink:#fff;--accent-soft:#e7edfa;
+  --link:#2350a8;--gold:#a97b1e;--gold-soft:#f6edd8;
+  --danger:#b42318;--ok:#22794e;--warn:#a1650f;--info:#2b6cb0;
+  --code-bg:#f2f4f8;--scroll:rgba(95,108,133,.30);--eng-claude:#c96442;--eng-provider:#2350a8;
+  --scene-bg:
+    radial-gradient(920px 520px at 88% -12%, color-mix(in srgb,var(--accent) 9%,transparent), transparent 62%),
+    radial-gradient(760px 480px at -8% 112%, color-mix(in srgb,#7a5fd0 6%,transparent), transparent 60%),
+    linear-gradient(158deg,#f5f7fb 0%,#eef2f8 48%,#e9eef7 100%);
+  --canvas-dots:rgba(95,108,133,.16);
+  --glass-bg-1:rgba(255,255,255,.58);
+  --glass-bg-2:rgba(255,255,255,.72);
+  --glass-bg-3:rgba(255,255,255,.5);
+  --glass-border:rgba(20,28,48,.09);
+  --glass-border-strong:rgba(20,28,48,.14);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.75);
+  --glass-shadow:0 18px 50px rgba(20,28,48,.15);
+  --glass-shadow-soft:0 8px 28px rgba(20,28,48,.09);
+  --glow-accent:0 0 0 1px color-mix(in srgb,var(--accent) 24%,transparent),0 10px 26px -10px color-mix(in srgb,var(--accent) 28%,transparent);
+  --glow-run:0 0 0 1px color-mix(in srgb,var(--info) 30%,transparent),0 8px 24px -8px color-mix(in srgb,var(--info) 32%,transparent);
+  --gold-line:color-mix(in srgb,var(--gold) 60%,transparent);
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  :root[data-theme="dark"]{--glass-bg-1:#182134;--glass-bg-2:#1b2540;--glass-bg-3:#162032;}
+  :root[data-theme="light"]{--glass-bg-1:#f4f7fc;--glass-bg-2:#ffffff;--glass-bg-3:#f2f5fa;}
+}
+@media (prefers-reduced-transparency:reduce){
+  :root{--glass-blur-1:none;--glass-blur-2:none;--glass-blur-3:none;}
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{background:var(--scene-bg);background-attachment:fixed;color:var(--ink);
+  font-family:var(--font);-webkit-font-smoothing:antialiased;font-size:var(--fs-base);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;}
+:where(button,[tabindex]):focus-visible{outline:none;box-shadow:var(--ring);}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;}}
+.num{font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1;letter-spacing:.01em;}
+.ic{flex:none;display:inline-block;vertical-align:-0.16em;stroke:currentColor;fill:none;
+  stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+
+/* ── 标注条 ── */
+.anno-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-2) var(--sp-5);border-bottom:1px solid var(--glass-border);
+  background:var(--glass-bg-1);-webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);}
+.anno-left{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm);color:var(--muted);flex-wrap:wrap;}
+.anno-tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:var(--r-pill);
+  background:var(--gold-soft);color:var(--gold);border:1px solid var(--gold-line);
+  font-weight:600;font-size:var(--fs-xs);letter-spacing:.3px;}
+.theme-btn{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:var(--r-pill);
+  background:var(--glass-bg-3);color:var(--ink);border:1px solid var(--glass-border);font-size:var(--fs-sm);
+  transition:all var(--dur-fast) var(--ease-out);}
+.theme-btn:hover{border-color:var(--glass-border-strong);transform:translateY(-1px);}
+
+.app{display:flex;flex-direction:column;height:calc(100vh - 41px);min-height:0;}
+
+/* ── 顶部:Tab + run chips(玻璃二档)── */
+.topzone{border-bottom:1px solid var(--glass-border);background:var(--glass-bg-1);
+  -webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);box-shadow:var(--glass-highlight);}
+.tabs{display:flex;align-items:center;gap:2px;padding:10px var(--sp-4) 0;}
+.tab{position:relative;padding:9px 18px;color:var(--muted);font-size:var(--fs-base);font-weight:600;
+  border-radius:var(--r-sm) var(--r-sm) 0 0;transition:color var(--dur-fast) var(--ease-out);}
+.tab:hover{color:var(--ink);}
+.tab.active{color:var(--accent);}
+.tab.active::after{content:"";position:absolute;left:6px;right:6px;bottom:-1px;height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent) 22%,var(--accent) 78%,transparent);}
+.tab .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);
+  margin-left:7px;vertical-align:middle;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent);
+  animation:blink 1.8s var(--ease-out) infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.tabs-spacer{flex:1;}
+.tabs-mode{font-size:var(--fs-xs);color:var(--muted);padding-bottom:9px;}
+
+.runbar{display:flex;align-items:center;gap:var(--sp-2);padding:10px var(--sp-4);overflow-x:auto;}
+.rb-label{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-xs);color:var(--muted);
+  letter-spacing:.08em;margin-right:4px;white-space:nowrap;}
+.rb-cloud{width:16px;height:10px;flex:none;background:var(--muted);opacity:.55;
+  -webkit-mask:var(--ruyi-cloud) center/contain no-repeat;mask:var(--ruyi-cloud) center/contain no-repeat;}
+.run-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:var(--r-pill);
+  border:1px solid var(--glass-border);background:var(--glass-bg-3);color:var(--ink-2);
+  white-space:nowrap;font-size:var(--fs-sm);box-shadow:var(--glass-highlight);
+  transition:all var(--dur-fast) var(--ease-out);}
+.run-chip:hover{border-color:var(--glass-border-strong);transform:translateY(-1px);}
+.run-chip.active{background:color-mix(in srgb,var(--accent) 10%,transparent);
+  border-color:color-mix(in srgb,var(--accent) 38%,transparent);color:var(--ink);font-weight:600;}
+.run-chip .st{width:7px;height:7px;border-radius:50%;}
+.st.run{background:var(--info);box-shadow:0 0 0 3px color-mix(in srgb,var(--info) 22%,transparent);animation:blink 1.4s infinite;}
+.st.ok{background:var(--ok);}
+.st.fail{background:var(--danger);}
+.st.gold{color:var(--gold);}
+
+/* ── 画布区 ── */
+.stage{flex:1;display:grid;grid-template-columns:1fr 320px;min-height:0;}
+.canvas{position:relative;overflow:hidden;
+  background-image:radial-gradient(var(--canvas-dots) 1px,transparent 1.2px);
+  background-size:22px 22px;}
+.canvas svg.edges{position:absolute;inset:0;width:100%;height:100%;}
+.edge{fill:none;stroke-width:2;opacity:.85;}
+.edge.done{stroke:var(--ok);}
+.edge.run{stroke:var(--info);stroke-dasharray:7 6;animation:flow 1.2s linear infinite;}
+.edge.wait{stroke:var(--line-2);stroke-dasharray:3 6;}
+@keyframes flow{to{stroke-dashoffset:-13;}}
+
+/* 节点卡:玻璃三档 220×88 */
+.node{position:absolute;width:220px;min-height:88px;border-radius:var(--r-md);padding:10px 12px;
+  background:var(--glass-bg-3);border:1px solid var(--glass-border);
+  box-shadow:var(--glass-highlight),var(--glass-shadow-soft);
+  -webkit-backdrop-filter:var(--glass-blur-1);backdrop-filter:var(--glass-blur-1);
+  transition:transform var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out);}
+.node:hover{transform:translateY(-2px);border-color:var(--glass-border-strong);}
+.node.selected{border-color:color-mix(in srgb,var(--accent) 45%,transparent);box-shadow:var(--glass-highlight),var(--glow-accent);}
+.node.running{box-shadow:var(--glass-highlight),var(--glow-run);}
+.n-top{display:flex;align-items:center;gap:8px;}
+.n-dot{width:8px;height:8px;border-radius:50%;flex:none;}
+.n-title{font-weight:600;font-size:var(--fs-md);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.n-eng{font-size:10px;padding:2px 7px;border-radius:var(--r-pill);font-weight:700;letter-spacing:.4px;}
+.n-eng.p{color:var(--eng-provider);background:color-mix(in srgb,var(--eng-provider) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--eng-provider) 30%,transparent);}
+.n-eng.c{color:var(--eng-claude);background:color-mix(in srgb,var(--eng-claude) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--eng-claude) 30%,transparent);}
+.n-meta{margin-top:7px;display:flex;align-items:center;gap:10px;font-size:var(--fs-xs);color:var(--muted);}
+.n-prog{margin-top:8px;height:5px;border-radius:3px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden;}
+.n-prog i{display:block;height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--info),color-mix(in srgb,var(--info) 60%,var(--accent)));}
+.n-status{font-size:var(--fs-xs);margin-top:6px;}
+.n-status.ok{color:var(--ok);}.n-status.run{color:var(--info);}.n-status.wait{color:var(--muted);}.n-status.fail{color:var(--danger);}
+/* 停滞告警:警示描边呼吸 */
+.node.stalled{border-color:color-mix(in srgb,var(--warn) 55%,transparent);
+  animation:stall-breathe 2.2s var(--ease-out) infinite;}
+@keyframes stall-breathe{0%,100%{box-shadow:var(--glass-highlight),0 0 0 0 color-mix(in srgb,var(--warn) 0%,transparent)}
+  50%{box-shadow:var(--glass-highlight),0 0 18px 2px color-mix(in srgb,var(--warn) 30%,transparent)}}
+
+/* 画布角件:缩放与图例 */
+.canvas-tools{position:absolute;right:14px;top:14px;display:flex;flex-direction:column;gap:6px;}
+.cv-btn{width:32px;height:32px;display:grid;place-items:center;border-radius:var(--r-sm);
+  background:var(--glass-bg-2);border:1px solid var(--glass-border);color:var(--ink-2);
+  box-shadow:var(--glass-highlight);-webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);}
+.cv-btn:hover{color:var(--ink);border-color:var(--glass-border-strong);}
+.legend{position:absolute;left:14px;bottom:12px;display:flex;gap:14px;padding:7px 14px;border-radius:var(--r-pill);
+  background:var(--glass-bg-2);border:1px solid var(--glass-border);box-shadow:var(--glass-highlight);
+  -webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);
+  font-size:var(--fs-xs);color:var(--muted);}
+.legend b{display:inline-flex;align-items:center;gap:6px;font-weight:500;}
+.legend i{width:14px;height:2px;border-radius:1px;}
+
+/* ── 右侧详情板:玻璃二档 ── */
+.side{border-left:1px solid var(--glass-border);background:var(--glass-bg-1);
+  -webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);
+  box-shadow:var(--glass-highlight);display:flex;flex-direction:column;min-height:0;}
+.side-sec{padding:var(--sp-4);border-bottom:1px solid var(--glass-border);}
+.side-sec h3{margin:0 0 10px;font-size:var(--fs-xs);color:var(--muted);letter-spacing:.1em;font-weight:600;}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:var(--fs-sm);padding:4px 0;color:var(--ink-2);}
+.kv b{color:var(--ink);font-weight:600;}
+.kv .num{color:var(--ink);}
+.progressline{margin-top:8px;height:6px;border-radius:3px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden;}
+.progressline i{display:block;height:100%;width:64%;border-radius:3px;
+  background:linear-gradient(90deg,var(--info),color-mix(in srgb,var(--info) 60%,var(--accent)));}
+.log{font-family:var(--mono);font-size:var(--fs-xs);color:var(--muted);line-height:1.8;
+  max-height:132px;overflow-y:auto;}
+.log .t{color:var(--ink-2);}
+/* 插话框(steer):点色玻璃 */
+.steer-box{display:flex;gap:8px;align-items:center;padding:8px;border-radius:var(--r-md);
+  background:color-mix(in srgb,var(--accent) 7%,transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);}
+.steer-box input{flex:1;background:none;border:none;outline:none;color:var(--ink);font:inherit;font-size:var(--fs-sm);}
+.steer-box input::placeholder{color:var(--muted);}
+.steer-send{width:30px;height:30px;flex:none;border-radius:9px;display:grid;place-items:center;color:#fff;
+  background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 70%,#7a5fd0 30%));
+  box-shadow:var(--glow-accent);}
+.steer-send svg{stroke:#fff;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+.pool{display:flex;flex-direction:column;gap:8px;}
+.pool-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);
+  background:var(--glass-bg-3);border:1px solid var(--glass-border);font-size:var(--fs-sm);}
+.pool-item .p-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 20%,transparent);}
+.pool-item .p-t{flex:1;color:var(--ink-2);}
+.pool-item .p-a{color:var(--accent);font-weight:600;font-size:var(--fs-xs);}
+
+/* ── 底部统计条:玻璃一档 ── */
+.statusbar{display:flex;align-items:center;gap:var(--sp-5);padding:8px var(--sp-4);
+  border-top:1px solid var(--glass-border);background:var(--glass-bg-1);
+  -webkit-backdrop-filter:var(--glass-blur-2);backdrop-filter:var(--glass-blur-2);
+  font-size:var(--fs-sm);color:var(--muted);}
+.statusbar b{color:var(--ink);font-weight:600;}
+.sb-right{margin-left:auto;display:flex;gap:var(--sp-4);}
+
+@media (max-width:960px){.stage{grid-template-columns:1fr;}.side{display:none;}}
+</style>
+</head>
+<body>
+
+<div class="anno-bar">
+  <div class="anno-left">
+    <span class="anno-tag">设计图 v4 · 毛玻璃</span>
+    <span>工作台 DAG 画布 · 节点卡玻璃三档 + 状态色流光边 · 布局算法沿用 P3 分层布局(220×88 节点)</span>
+  </div>
+  <button class="theme-btn" id="themeBtn">
+    <svg class="ic" width="14" height="14" viewBox="0 0 24 24" id="themeIcon"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5 5l1.6 1.6M17.4 17.4L19 19M19 5l-1.6 1.6M6.6 17.4L5 19"/></svg>
+    <span id="themeLabel">月白模式</span>
+  </button>
+</div>
+
+<div class="app">
+
+  <!-- Tab + run chips -->
+  <div class="topzone">
+    <div class="tabs">
+      <button class="tab">对话</button>
+      <button class="tab active">工作台<span class="dot"></span></button>
+      <span class="tabs-spacer"></span>
+      <span class="tabs-mode">专业模式 · 实时 DAG 监控</span>
+    </div>
+    <div class="runbar">
+      <span class="rb-label"><i class="rb-cloud"></i>运行</span>
+      <button class="run-chip active"><i class="st run"></i>文档深度审计 ×8<span class="num">· 04:12</span></button>
+      <button class="run-chip"><i class="st ok"></i>v1.6.7 回归全测<span class="st gold">✦</span></button>
+      <button class="run-chip"><i class="st fail"></i>ACC 离线打包</button>
+      <button class="run-chip"><i class="st ok"></i>营销图重拍</button>
+    </div>
+  </div>
+
+  <!-- 画布 + 详情板 -->
+  <div class="stage">
+    <div class="canvas" id="canvas">
+      <svg class="edges" viewBox="0 0 1000 560" preserveAspectRatio="none">
+        <path class="edge done" d="M260,96 C310,96 280,197 330,197"/>
+        <path class="edge done" d="M260,96 C310,96 280,317 330,317"/>
+        <path class="edge done" d="M150,140 C150,240 150,320 150,420"/>
+        <path class="edge run"  d="M550,197 C600,197 590,246 640,246"/>
+        <path class="edge wait" d="M550,317 C600,317 590,246 640,246"/>
+      </svg>
+
+      <!-- L0 -->
+      <div class="node" style="left:40px;top:52px">
+        <div class="n-top"><i class="n-dot" style="background:var(--ok)"></i><span class="n-title">任务解析 · 拆区</span><span class="n-eng p">Provider</span></div>
+        <div class="n-meta"><span class="num">8 子任务</span><span class="num">12.4k tok</span></div>
+        <div class="n-status ok">完成 · 3.2s</div>
+      </div>
+      <!-- L1 -->
+      <div class="node running selected" style="left:330px;top:142px">
+        <div class="n-top"><i class="n-dot" style="background:var(--info)"></i><span class="n-title">后端代码深读</span><span class="n-eng p">Provider</span></div>
+        <div class="n-meta"><span class="num">迭代 41/100</span><span class="num">86k tok</span></div>
+        <div class="n-prog"><i style="width:64%"></i></div>
+        <div class="n-status run">运行中 · read_file ×15</div>
+      </div>
+      <div class="node stalled" style="left:330px;top:262px">
+        <div class="n-top"><i class="n-dot" style="background:var(--warn)"></i><span class="n-title">ACC 工具库盘点</span><span class="n-eng c">Claude</span></div>
+        <div class="n-meta"><span class="num">迭代 12/50</span><span class="num">31k tok</span></div>
+        <div class="n-prog"><i style="width:24%;background:linear-gradient(90deg,var(--warn),color-mix(in srgb,var(--warn) 60%,var(--gold)))"></i></div>
+        <div class="n-status" style="color:var(--warn)">疑似停滞 · 90s 无进展</div>
+      </div>
+      <!-- L2 -->
+      <div class="node" style="left:640px;top:202px">
+        <div class="n-top"><i class="n-dot" style="background:var(--line-2)"></i><span class="n-title">汇总交叉验证</span><span class="n-eng p">Provider</span></div>
+        <div class="n-meta"><span>等待 2/8 上游</span></div>
+        <div class="n-status wait">排队中</div>
+      </div>
+      <!-- L3 -->
+      <div class="node" style="left:40px;top:420px">
+        <div class="n-top"><i class="n-dot" style="background:var(--ok)"></i><span class="n-title">文档分区通读</span><span class="n-eng c">Claude</span></div>
+        <div class="n-meta"><span class="num">迭代 28/100</span><span class="num">54k tok</span></div>
+        <div class="n-status ok">完成 · 41s</div>
+      </div>
+
+      <div class="canvas-tools">
+        <button class="cv-btn" title="放大"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20.5 20.5L16 16M8.5 11h5M11 8.5v5"/></svg></button>
+        <button class="cv-btn" title="缩小"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20.5 20.5L16 16M8.5 11h5"/></svg></button>
+        <button class="cv-btn" title="适应画布"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/></svg></button>
+      </div>
+      <div class="legend">
+        <b><i style="background:var(--ok)"></i>完成</b>
+        <b><i style="background:var(--info)"></i>运行(流光)</b>
+        <b><i style="background:var(--warn)"></i>停滞呼吸</b>
+        <b><i style="background:var(--line-2)"></i>等待</b>
+      </div>
+    </div>
+
+    <!-- 右侧详情板 -->
+    <aside class="side">
+      <div class="side-sec">
+        <h3>节点详情 · 后端代码深读</h3>
+        <div class="kv"><span>引擎</span><b>Provider · Kimi K2</b></div>
+        <div class="kv"><span>迭代</span><span class="num">41 / 100</span></div>
+        <div class="kv"><span>Token</span><span class="num">86,204 in · 9,830 out</span></div>
+        <div class="kv"><span>资源锁</span><span>read:app/src(共享)</span></div>
+        <div class="progressline"><i></i></div>
+      </div>
+      <div class="side-sec">
+        <h3>实时进度</h3>
+        <div class="log">
+          <div><span class="t">23:31:02</span> read_file 13-http-router.js:1-400</div>
+          <div><span class="t">23:31:19</span> read_file 13-http-router.js:401-900</div>
+          <div><span class="t">23:32:04</span> grep steer 全模块 → 9 处命中</div>
+          <div><span class="t">23:33:40</span> 里程碑:双引擎对齐现状梳理完成</div>
+        </div>
+      </div>
+      <div class="side-sec">
+        <h3>向该节点插话</h3>
+        <div class="steer-box">
+          <input placeholder="插话纠偏:补充范围 / 调整方向…" />
+          <button class="steer-send" title="发送插话">
+            <svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="side-sec" style="border-bottom:none">
+        <h3>任务池 · 待审批</h3>
+        <div class="pool">
+          <div class="pool-item"><i class="p-dot"></i><span class="p-t">写权限:docs/optimization-plan/</span><span class="p-a">审批</span></div>
+          <div class="pool-item"><i class="p-dot"></i><span class="p-t">exec:python render_campaign.py</span><span class="p-a">审批</span></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- 底部统计条 -->
+  <div class="statusbar">
+    <span>节点 <b class="num">4/12</b> 完成</span>
+    <span>运行中 <b class="num" style="color:var(--info)">1</b></span>
+    <span>停滞 <b class="num" style="color:var(--warn)">1</b></span>
+    <span>预算 <b class="num">62%</b></span>
+    <span class="sb-right">
+      <span>引擎:Provider ×3 · Claude ×1</span>
+      <span>耗时 <b class="num">04:12</b></span>
+    </span>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement,btn=document.getElementById('themeBtn'),
+      label=document.getElementById('themeLabel'),icon=document.getElementById('themeIcon');
+  var sun='<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5 5l1.6 1.6M17.4 17.4L19 19M19 5l-1.6 1.6M6.6 17.4L5 19"/>';
+  var moon='<path d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5z"/>';
+  function paint(){var d=root.getAttribute('data-theme')==='dark';
+    label.textContent=d?'月白模式':'墨夜模式';icon.innerHTML=d?sun:moon;}
+  btn.addEventListener('click',function(){
+    root.setAttribute('data-theme',root.getAttribute('data-theme')==='dark'?'light':'dark');paint();});
+  paint();
+})();
+</script>
+</body>
+</html>

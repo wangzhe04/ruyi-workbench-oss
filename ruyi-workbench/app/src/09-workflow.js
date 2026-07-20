@@ -992,6 +992,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     turnUsage.input_tokens += inTok;
     turnUsage.output_tokens += outTok;
     usageCalls += 1;
+    noteEstimateSample(provider.id, model, lastEstBeforeCall, inTok); // 45d(a):真实 usage ÷ 发送前估算 → EMA 校准
     usageObj = { usage: { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens }, contextTokens: total || undefined, calls: usageCalls };
   };
   const toolBudget = resolveToolIterationBudget(config.openaiMaxToolIterations, message, {
@@ -1017,6 +1018,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   let useTools = initialTools.length > 0;
   let toolsRetried = false;
+  let contextRetried = false; // 45b:context 类 400 强制压缩重试,每回合仅一次
+  let lastEstBeforeCall = 0; // 45d(a) 采样对:最近一次发送前估算(markUsage 闭包可读)
+  let skipAutoCompactOnce = false; // 45f P2-5:L1-only 强压重试后,下一迭代跳过 maybeAutoCompact
+  let pendingOvershootLearn = 0; // 45f P1-1:重试成功才落窗口学习的待决值
   // v0.8-S7 loop detection (§4 A3): per-turn signature run-length counter. `sig = name + ' ' + JSON(args)`.
   // CONSECUTIVE identical sigs accumulate; a different sig resets the run. At the 3rd consecutive hit we
   // annotate that tool_result with `loopWarning`; at the 5th we DON'T execute — we abort the turn with a
@@ -1121,13 +1126,57 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // v0.8-S5: two-level auto-compaction runs at the iteration boundary, BEFORE this API call, so the
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
-      if (await maybeAutoCompact(session, provider, sys, config, onEvent, model, toolLoading.current())) touch();
+      if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:L1-only 重试的下一迭代跳过 L2 白跑
+      else if (await maybeAutoCompact(session, provider, sys, config, onEvent, model, toolLoading.current())) touch();
+      lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a) 采样对:发送前估算
+      const estBeforeCall = lastEstBeforeCall;
       const call = await streamWithFailover(buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
       if (call.httpError) {
         // If the server rejected tools, retry the turn once WITHOUT tools (chat-only) before failing.
         if (useTools && call.toolsRejected && !toolsRetried) { toolsRetried = true; useTools = false; onEvent({ type: 'stderr', text: '[provider] tools rejected — retrying without tools' }); iter--; continue; }
+        // 第45波 45b:context 类 400 → 强制压缩重试一次(回合的最后防线)。
+        // 场景:估窗失效(真实窗口 < 估算,maybeAutoCompact 的预算判定没触发)或单条巨型载荷,
+        // provider 直接 400 —— 旧行为是回合慢性死亡(L2 失败照样 400)。现在:快照 → L1 蒸发 →
+        // L2 预算化摘要(45a 保证摘要调用自身不超窗)→ 重试一次。
+        // 45f 对抗轮修订:① 事件/系统消息只在【确有压缩成果】后广播(P2-4:零成果时不再虚报);
+        // ② 窗口学习(45d(b))改【重试成功才落账】(P1-1:误判不再永久压窗);
+        // ③ L1-only 重试置 skipAutoCompactOnce,下一迭代不再白跑一次 L2(P2-5)。
+        if (!contextRetried && isContextOverflowError(call.httpError)) {
+          contextRetried = true;
+          logEvent({ kind: 'auto_compact', mode: 'forced_400', sessionId: session.id, beforeTokens: estBeforeCall, error: String(call.httpError).slice(0, 200) });
+          await writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory).catch(() => {});
+          const ev = evaporateHistory(session.providerHistory);
+          const sc = await providerSummaryCall(provider, session.providerHistory);
+          if (sc.ok) {
+            const boundary = recentTurnsBoundary(session.providerHistory);
+            const kept = session.providerHistory.slice(boundary);
+            session.providerHistory = [
+              { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + sc.summary },
+              { role: 'assistant', content: '收到,已基于摘要继续。' },
+              ...kept,
+            ];
+            recordCompactUsage(session, provider, sc);
+            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            session.messages.push({ role: 'system', content: `🗜 服务端判定上下文超限(HTTP 400),已自动压缩历史并重试(约 ${fmtTokensServer(estBeforeCall)},估算)`, createdAt: nowIso(), source: 'compact' });
+            pendingOvershootLearn = estBeforeCall; // 重试成功后落 45d(b) 学习(见 call 成功路径)
+            await saveSession(session).catch(() => {});
+            touch();
+            iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
+          }
+          if (ev > 0) {
+            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            session.messages.push({ role: 'system', content: `🗜 服务端判定上下文超限(HTTP 400),已蒸发旧工具结果 ${ev} 条并重试(约 ${fmtTokensServer(estBeforeCall)},估算)`, createdAt: nowIso(), source: 'compact' });
+            skipAutoCompactOnce = true; // P2-5:下一迭代不再白跑一次 L2(几秒前刚失败过)
+            await saveSession(session).catch(() => {});
+            touch();
+            iter--; continue; // L2 失败但 L1 有斩获,试最后一次
+          }
+          onEvent({ type: 'stderr', text: '[provider] 上下文超限且自动压缩无果(无可蒸发内容,摘要调用失败)' }); // P2-4:零成果不虚报
+        }
         ok = false; errorMsg = call.httpError; break;
       }
+      // 45f P1-1:窗口学习只在【强压重试成功】后落账 —— 证明确实是超窗,误判不再永久压窗。
+      if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, model, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.reasoning) thinkingText += call.reasoning;
       if (call.text) assistantText += call.text;
       // Aborted while streaming → discard this (possibly partial) step, keep history valid.

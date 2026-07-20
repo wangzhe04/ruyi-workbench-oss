@@ -119,7 +119,12 @@ function postStream(port, payload) {
 
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], {
     windowsHide: true,
-    env: { ...process.env, FAKE_TOOL_SEQUENCE: JSON.stringify([
+    env: { ...process.env,
+      // 第45波:本件测的是压缩【机制】(L1 蒸发/配对铁律/快照),不是估算校准 —— fake 的 usage 是
+      // 玩具数(11/18 tokens),45d 会把 factor 学到 0.5 下限 → 校准后估算减半 → 预算永不跨越。
+      // 关掉 usage 帧 = 无样本 = 因子恒 1,机制断言与校准解耦(校准本身的回归在 context-compact-v2)。
+      FAKE_NO_USAGE: '1',
+      FAKE_TOOL_SEQUENCE: JSON.stringify([
       { name: 'file_read', args: { path: BIGFILE } },
       { name: 'file_read', args: { path: BIGFILE } },
       { name: 'file_read', args: { path: BIGFILE } },
