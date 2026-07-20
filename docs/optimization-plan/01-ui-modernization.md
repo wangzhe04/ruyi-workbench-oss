@@ -96,6 +96,7 @@ Step 3  守护上线 + 精修（1 波，含 vNext 决策点）
 
    - **色彩纪律**：亮主题整体提亮背景层级、暗主题压掉纯黑底（`color-mix` 已全覆盖，改 token 即可）；语义色降饱和；青花蓝收敛点色后，现有"大片主色"区域（侧栏选中态、按钮族、chip 族）逐一改为"玻璃底 + 点色描边/文字"的新范式。
    - **mockup 先行**：新增 `docs/mockups/v4-glass-home.html` 与 `v4-glass-workbench.html` 双主题毛玻璃原型（**已产出并经 Chromium 双主题截图验证**，预览图 `_preview_v4-glass-*_{dark,light}.png`），token 值在原型上调好后回写 `styles.css`；旧 6 个 mockup 同步刷新到 rem 基线并加 CI 漂移校验。
+     - **第 2 轮质感迭代已完成**（所有者反馈"深色要更高级"后）：墨底加深（`#090d16→#0e1526`）、青花蓝改 `#6e86f2` 并引入黛紫渐变搭档 `--accent-2:#9a72f0`（品牌标/头像/发送键/用户气泡走蓝紫渐变）、玻璃改调蓝玻璃（`rgba(146,166,214,.065)` 族）+ 更深更远投影、暗主题加 5% 微噪点纹理压"塑料感"、图标升级 duotone（1.5 描边 + 14% 同色填充）、顶栏底部青花渐变微光发线、鎏金改香槟 `#dcba75`。亮主题 accent 同步调为 `#2050c8`。
 3. **token 清障**：删除或启用 `--density-scale`、`--gold-soft`、`--sp-7`；把 4 处硬编码 `#fff`（`styles.css:222/505/1157/1435`）token 化。
 4. **mockup 刷新**：6 个 mockup 的 token 块更新到 rem 基线并加 CI 漂移校验（mockup 自称"照抄 app token"，正好机械断言）。
 5. **CSS 分层拆分**：2225 行单文件按 `tokens / base / components / views / themes` 拆分（构建期拼接或直接多文件引入，与 server.js 的 manifest 拼接同款思路）。
