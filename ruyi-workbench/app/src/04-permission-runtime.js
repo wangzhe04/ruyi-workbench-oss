@@ -206,6 +206,26 @@ function killChildTree(pid) {
   }
 }
 
+// 47b 桥超时契约:按工具声明式超时表(裸名小写)。默认 120s;长时工具按其自身参数上限放宽 ——
+// ACC run_command timeout cap 600s / launch_application wait_timeout cap 600s,桥给 650s(含网络缓冲),
+// 消灭"桥先 120s 死、ACC 侧 600s 任务变僵尸"的契约错位(03 方案 Phase A 核心项)。
+// WCW_BRIDGED_TIMEOUT_OVERRIDE='name:ms,name:ms' 是测试缝(e2e 把秒级超时打进 fake 工具)。
+const BRIDGED_TOOL_TIMEOUTS = {
+  run_command: 650000,
+  launch_application: 650000,
+  macro_run: 300000,
+};
+const BRIDGED_TOOL_TIMEOUT_DEFAULT_MS = 120000;
+function bridgedToolTimeoutMs(name) {
+  const bare = String(name || '').toLowerCase();
+  const ov = String(process.env.WCW_BRIDGED_TIMEOUT_OVERRIDE || '');
+  for (const pair of ov.split(',')) {
+    const [k, v] = pair.split(':').map(s => String(s || '').trim());
+    if (k && k.toLowerCase() === bare && Number(v) > 0) return Number(v);
+  }
+  return BRIDGED_TOOL_TIMEOUTS[bare] || BRIDGED_TOOL_TIMEOUT_DEFAULT_MS;
+}
+
 function clearPendingPermissions(sessionId, message) {
   for (const [rid, p] of pendingPermissions) {
     if (p.sessionId === sessionId) {
@@ -288,6 +308,13 @@ function clearPendingQuestions(sessionId, message) {
   }
 }
 
+// 47a(Steer Phase A 分流纪律):会话当前是否有等待回答的 AskUser 提问。Claude 引擎的提问答案与插话同走
+// stdin user envelope —— 提问挂起期间注入插话,CLI 可能把插话误收为答案(串扰)。/api/steer 据此拒绝。
+function hasPendingQuestionForSession(sessionId) {
+  for (const [, q] of pendingQuestions) if (q.sessionId === sessionId) return true;
+  return false;
+}
+
 // v0.9-S5: clear any pending PLAN approvals for a session (abort/stop/turn-end), resolving each as a REJECT
 // so the paused runOpenAiTurn unblocks and finishes cleanly (never left hanging). Mirrors
 // clearPendingPermissions — called from stopSession (abort/stop) and at turn end.
@@ -334,6 +361,9 @@ class McpStdioClient {
       const id = this._nextId++;
       const timer = setTimeout(() => {
         this._pending.delete(id);
+        // 47b 桥 cancel 契约:tools/call 超时先按 MCP 标准发 notifications/cancelled(对端若实现协作式取消
+        // 可收手);真正的兜底是 callTool catch 里的 kill 进程树(ACC 侧不响应取消也不留僵尸执行)。
+        if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
         reject(new Error(`mcp ${method} timed out`));
       }, Math.max(1000, timeoutMs));
       this._pending.set(id, { resolve, reject, timer });
@@ -429,9 +459,12 @@ class McpStdioClient {
   listTools() { return this.tools; }
 
   // Call a tool and normalize the MCP result into a workbench result object. Never throws.
-  async callTool(name, args, timeoutMs = 120000) {
+  // 47b:超时走契约化处理 —— notifications/cancelled(_rpc 内已发)+ kill 客户端进程树(无僵尸执行),
+  // 下次调用由 mcpClients 惰性重 spawn。错误文本如实告知"已杀进程树"。
+  async callTool(name, args, timeoutMs) {
+    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolTimeoutMs(name));
     try {
-      const res = await this._rpc('tools/call', { name, arguments: args || {} }, timeoutMs);
+      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit);
       const isError = !!(res && res.isError);
       // Prefer the first text content block; parse it as JSON when it is JSON (desktop MCP returns {ok,...}).
       let textOut = '';
@@ -451,7 +484,13 @@ class McpStdioClient {
       return { ok: !isError, content: (res && res.content) || [] };
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
-      return { ok: false, error: /timed out/.test(m) ? 'tool timed out' : m };
+      if (/timed out/.test(m)) {
+        // 47b:超时即杀桥进程树 —— 旧行为是桥先超时、ACC 继续僵尸执行(用户"纠偏"后旧命令仍在后台写文件,
+        // 比不能打断更危险)。cancelled 通知已在 _rpc 超时点发出;此处保证无论对端是否协作取消都不留活口。
+        try { this.kill(); } catch { /* already dead */ }
+        return { ok: false, error: `tool timed out after ${Math.round(limit / 1000)}s; 桥接进程树已终止(防僵尸执行),下次调用将自动重连` };
+      }
+      return { ok: false, error: m };
     }
   }
 
@@ -659,6 +698,18 @@ async function getMcpClient(entry) {
 function killAllMcpClients() {
   for (const [, c] of mcpClients) { try { c.kill(); } catch { /* ignore */ } }
   mcpClients.clear();
+}
+
+// 47b:桥客户端获取的统一入口 —— 活则直给;死/缺则按 config 的服务器条目经 getMcpClient 惰性重 spawn。
+// 此前三处分发点(12-tool-dispatch / 08 / 09)直接 mcpClients.get,47b 超时杀客户端后永远 'not available'
+// 无法自愈;统一走这里后,"超时杀 → 下次调用自动重连"的契约闭环。
+async function getBridgedClient(serverId, config) {
+  const live = mcpClients.get(serverId);
+  if (live && !live.dead) return live;
+  const list = resolveExternalMcpServers(config || await readConfig());
+  const entry = (list || []).find(s => s.id === serverId);
+  if (!entry || !entry.command) return null;
+  return getMcpClient(entry);
 }
 
 // Stable, reversible-ish server-id sanitizer for the bridged tool-name prefix. Non [A-Za-z0-9_] -> _.

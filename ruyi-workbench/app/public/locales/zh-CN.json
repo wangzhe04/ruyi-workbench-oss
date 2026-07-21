@@ -382,6 +382,8 @@
   "workflow.viewErrorAria": "查看节点 {{nodeId}} 的错误",
   "workflow.steer": "插话",
   "workflow.steerAria": "对节点 {{nodeId}} 插话",
+  "workflow.steerDeferred": "插话·延迟",
+  "workflow.steerDeferredAria": "对节点 {{nodeId}} 延迟插话（节点结束后注入下游）",
   "agent.title": "Agent",
   "agent.taskPool": "任务池",
   "agent.mailbox": "Agent 邮箱",

@@ -100,9 +100,9 @@ function mcpClient() {
     ok(init.result && init.result.serverInfo && init.result.serverInfo.name === 'fake-mcp', 'P1 initialize → serverInfo fake-mcp');
     const list = await mcp.call('tools/list');
     const names = (list.result && list.result.tools || []).map(t => t.name).sort();
-    ok(names.length === 20, 'P1 tools/list 恰好 20 件 (got ' + names.length + ')');
-    const EXPECTED20 = ['add', 'chart_image', 'copy_file', 'delete_file', 'diagnostics', 'echo', 'excel_beautify', 'excel_chart', 'get_clipboard_image', 'image_resize', 'move_file', 'read_file', 'screenshot_full', 'window_screenshot', 'write_docx', 'write_document', 'write_excel', 'write_file', 'write_pdf', 'write_pptx'].sort();
-    ok(JSON.stringify(names) === JSON.stringify(EXPECTED20), 'P1 20 件名集与契约清单一致');
+    ok(names.length === 21, 'P1 tools/list 恰好 21 件(20 契约 + slow_task 47b 超时测试件) (got ' + names.length + ')');
+    const EXPECTED21 = ['add', 'chart_image', 'copy_file', 'delete_file', 'diagnostics', 'echo', 'excel_beautify', 'excel_chart', 'get_clipboard_image', 'image_resize', 'move_file', 'read_file', 'screenshot_full', 'slow_task', 'window_screenshot', 'write_docx', 'write_document', 'write_excel', 'write_file', 'write_pdf', 'write_pptx'].sort();
+    ok(JSON.stringify(names) === JSON.stringify(EXPECTED21), 'P1 21 件名集与契约清单一致');
     ok((list.result.tools || []).every(t => t.inputSchema && t.inputSchema.type === 'object'), 'P1 每件都有 object inputSchema');
 
     const fx = path.join(TMP, 'p1');

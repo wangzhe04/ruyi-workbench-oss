@@ -296,7 +296,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session };
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude' }; // 47a: kind 供 /api/steer 按引擎分派
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.

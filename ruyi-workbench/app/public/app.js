@@ -13,7 +13,7 @@
 // index.html 的 <script src="/app.js"> 已加 type="module" 以启用 import(head 内预绘脚本不受影响)。
 import { state, MSG_WINDOW_THRESHOLD, MSG_WINDOW_TAIL, MSG_WINDOW_STEP } from './js/state.js';
 import { $, el, escapeHtml, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow } from './js/util.js';
-import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText } from './js/net.js';
+import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken } from './js/net.js';
 import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
 
@@ -2162,12 +2162,11 @@ async function compactContext() {
 }
 
 async function sendPrompt(overrideText) {
-  // v0.8-S7 steering (§4 A3): while a PROVIDER turn streams, the composer is no longer inert — a send
-  // becomes an interjection routed to /api/steer (enqueued + injected at the next tool-loop boundary).
-  // The Claude engine keeps the old behavior (composer ignored mid-stream: its tools run in a transient
-  // MCP child, out of this slice).
+  // v0.8-S7 steering (§4 A3) + 47a 双引擎:任何引擎回合流式中,composer 的发送都变为插话路由到 /api/steer。
+  // provider 经队列在下一边界注入;Claude(interactive)经 stdin 即时注入;Claude print 模式由服务器返回
+  // 人话错误(print 不支持),toast 呈现——前端不再按引擎静默吞掉输入。
   const selectedId = state.currentSession?.id || '';
-  if (selectedId && activeTurns.has(selectedId)) { if (isProviderMode()) return steerPrompt(overrideText); return; }
+  if (selectedId && activeTurns.has(selectedId)) return steerPrompt(overrideText);
   const message = (overrideText != null ? overrideText : $('promptInput').value).trim();
   if (!message) return;
   if (!state.currentSession) await newSession();
@@ -2253,11 +2252,11 @@ async function sendPrompt(overrideText) {
   }
 }
 
-// v0.8-S7 steering (§4 A3). Called when the composer sends WHILE a provider turn streams. POSTs the text
-// to /api/steer (enqueues it on the live turn); on success clears the input, toasts, and optimistically
-// renders the user's interjection in the message flow with a muted 「插话」 badge. The server also emits a
-// `steered` event when it actually injects the text at the next boundary — steeredSeen dedups that echo
-// against this optimistic render (by text within a short time window).
+// v0.8-S7 steering (§4 A3) + 47a 双引擎. Called when the composer sends WHILE a turn streams. POSTs the text
+// to /api/steer — provider: enqueued on the live turn (下一迭代边界注入);Claude interactive: stdin 即时注入。
+// On success clears the input, toasts (按 r.injected 区分即时/下步生效), and optimistically renders the user's
+// interjection in the message flow with a muted 「插话」 badge. The server also emits a `steered` event when it
+// actually injects the text — steeredSeen dedups that echo against this optimistic render (by text within a short time window).
 const steeredSeen = []; // [{text, ts}] recently rendered locally, for `steered`-event dedup
 async function steerPrompt(overrideText) {
   const text = (overrideText != null ? overrideText : $('promptInput').value).trim();
@@ -2269,7 +2268,7 @@ async function steerPrompt(overrideText) {
     if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); }
     steeredSeen.push({ text, ts: Date.now() });
     renderSteeredMessage(text);
-    toast('已插话，下一步生效', 'ok');
+    toast(r.injected ? '已插话，即时注入生效' : '已插话，下一步生效', 'ok');
   } catch (e) { toast(`插话失败：${apiErrText(e)}`, 'err'); }
 }
 
@@ -3215,16 +3214,21 @@ async function agentRunAction(runId, action, extra) {
 // 运行列表让「插话」里程碑尽快显现。失败用 apiErrText 提示。
 // v3 P3b:presetText 提供时走内联提交（工作台右板段1 的插话框直接传输入值，不弹 prompt）；不提供时保留原
 // prompt() 交互（右栏 agent-runs tab 的「插话」按钮仍是 3 参调用）。两条路径共用同一 steer_node action 与 toast。
-async function steerAgentNode(runId, nodeId, nodeStatus, presetText) {
+async function steerAgentNode(runId, nodeId, nodeStatus, presetText, engine) {
   const sid = state.currentSession?.id; if (!sid) return;
-  const text = (presetText != null ? presetText : (prompt(`对节点 ${nodeId} 插话（下一次调用前生效）：`) || '')).trim();
+  // 47a Phase C-A:Claude 节点(-p 单发)无迭代边界,插话为【延迟生效】(节点结束后注入下游)——
+  // 提示文案与成功 toast 都如实区分,不假装即时生效。
+  const deferred = (engine || 'openai') === 'claude';
+  const hint = deferred ? `对节点 ${nodeId} 延迟插话（节点结束后注入下游节点生效）：` : `对节点 ${nodeId} 插话（下一次调用前生效）：`;
+  const text = (presetText != null ? presetText : (prompt(hint) || '')).trim();
   if (!text) return;
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action: 'steer_node', nodeId, text }) });
     if (!r || !r.ok) throw new Error((r && r.error) || '插话失败');
     // running 节点在下一次迭代边界（下一次模型调用前）就会消费队列；queued/waiting_resource 节点要等它真正
     // 开跑才会消费——如果节点在那之前被跳过/阻塞/工作流停止，排队的插话会被直接丢弃，成功提示要如实区分这两种情况。
-    const msg = nodeStatus === 'running' ? '已插话，下一次调用前生效' : '已排队，节点开跑时投递（若节点被跳过/阻塞则丢弃）';
+    const msg = r.deferred ? '已记录延迟插话，节点结束后注入下游生效'
+      : nodeStatus === 'running' ? '已插话，下一次调用前生效' : '已排队，节点开跑时投递（若节点被跳过/阻塞则丢弃）';
     toast(msg, 'ok');
     await loadAgentRuns(true);
     return true;
@@ -3468,14 +3472,17 @@ function renderAgentRuns(runs) {
         }
         body.appendChild(actions);
       }
-      // v1 定向插话（steer）：对 live run 中运行/排队/等待资源的非 Claude 引擎节点给一个「插话」按钮。Claude 引擎
-      // 节点是 -p 单发进程，任务写入后 stdin 即关，无迭代边界可注入，故不提供（与后端 steer_node 拒绝一致）。
+      // v1 定向插话（steer）+ 47a Phase C-A：对 live run 中运行/排队/等待资源的节点给「插话」按钮。
+      // OpenAI 节点:即时语义(下一次调用前注入);Claude 节点(-p 单发无迭代边界):延迟语义(节点结束后
+      // 注入下游),按钮文案明示差异(不假装即时生效,与后端 steer_node 的 deferred 分支一致)。
       // vote/dedupe 质量门节点是确定性短路，从不调用模型、没有迭代边界会消费插话队列，同样不提供（与后端一致）。
       const isDeterministicGate = node.gate && ['vote', 'dedupe'].includes(node.gate.mode);
-      if (run.live && ['running', 'queued', 'waiting_resource'].includes(node.status) && (node.engine || 'openai') !== 'claude' && !isDeterministicGate) {
+      if (run.live && ['running', 'queued', 'waiting_resource'].includes(node.status) && !isDeterministicGate) {
+        const isClaudeNode = (node.engine || 'openai') === 'claude';
         const steerActions = el('div', 'agent-node-actions');
-        const steer = el('button', 'mini', t('workflow.steer')); steer.setAttribute('aria-label', t('workflow.steerAria', { nodeId: node.id }));
-        steer.onclick = () => steerAgentNode(run.id, node.id, node.status);
+        const steer = el('button', 'mini', isClaudeNode ? t('workflow.steerDeferred') : t('workflow.steer'));
+        steer.setAttribute('aria-label', t(isClaudeNode ? 'workflow.steerDeferredAria' : 'workflow.steerAria', { nodeId: node.id }));
+        steer.onclick = () => steerAgentNode(run.id, node.id, node.status, undefined, node.engine);
         steerActions.appendChild(steer);
         body.appendChild(steerActions);
       }
@@ -4190,13 +4197,14 @@ function wbNodeDetailBody(run, node) {
   if (node.error) box.appendChild(el('pre', 'wb-det-pre wb-det-error', node.error));
   return box;
 }
-// 插话资格判定(§6#6):镜像后端 nodeDeliveryEligibility + run.live 要求。返回 {ok, reason, msg}。禁用文案与
-// 服务端 steer_node 409 返回逐字一致(claude_engine / deterministic_gate / terminal),非 live 则整段不出插话框。
+// 插话资格判定(§6#6):镜像后端 nodeDeliveryEligibility + run.live 要求。返回 {ok, reason, msg}。
+// 47a Phase C-A:claude_engine 不再整段禁用 —— 改延迟语义(deferred),标签/placeholder 明示「节点结束后生效」;
+// 其余禁用文案与 服务端 steer_node 409 返回逐字一致(deterministic_gate / terminal),非 live 则整段不出插话框。
 function wbSteerEligibility(run, node) {
   if (!run.live) return { ok: false, reason: 'not_live', msg: '' };
-  if ((node.engine || 'openai') === 'claude') return { ok: false, reason: 'claude_engine', msg: 'Claude 引擎节点为单发进程，暂不支持中途插话' };
   if (node.gate && ['vote', 'dedupe'].includes(node.gate.mode)) return { ok: false, reason: 'deterministic_gate', msg: '确定性质量门节点不经过模型，无法插话' };
   if (!['running', 'queued', 'waiting_resource'].includes(node.status)) return { ok: false, reason: 'terminal', msg: '节点已结束，无法插话' };
+  if ((node.engine || 'openai') === 'claude') return { ok: true, reason: 'deferred', msg: '' };
   return { ok: true, reason: 'ok', msg: '' };
 }
 // 插话框:资格命中显输入 + 发送(复用 steer_node action，内联提交不弹 prompt);不命中显禁用输入 + 原因(与 409 一致);
@@ -4204,8 +4212,9 @@ function wbSteerEligibility(run, node) {
 function wbSteerBox(run, node) {
   const elig = wbSteerEligibility(run, node);
   if (elig.reason === 'not_live') return el('span', 'wb-steer-none');
+  const deferred = elig.reason === 'deferred';
   const wrap = el('div', 'wb-steer');
-  wrap.appendChild(el('div', 'wb-steer-label', elig.ok ? '插话（下一次调用前生效）' : '插话不可用'));
+  wrap.appendChild(el('div', 'wb-steer-label', elig.ok ? (deferred ? '延迟插话（节点结束后注入下游生效）' : '插话（下一次调用前生效）') : '插话不可用'));
   const boxrow = el('div', 'wb-steer-box');
   const input = el('input', 'wb-steer-input'); input.id = 'wbSteerInput'; input.type = 'text';
   input.placeholder = elig.ok ? `给 ${node.id} 补一句指令…` : elig.msg;
@@ -4216,7 +4225,7 @@ function wbSteerBox(run, node) {
     const submit = async () => {
       const t = (input.value || '').trim(); if (!t) return;
       input.value = '';
-      const ok = await steerAgentNode(run.id, node.id, node.status, t);
+      const ok = await steerAgentNode(run.id, node.id, node.status, t, node.engine);
       if (ok === false) { const inp = $('wbSteerInput'); if (inp && !inp.disabled) { inp.value = t; inp.focus(); } else toast(`未发送的插话内容：${t.slice(0, 80)}`, 'err'); }
     };
     send.onclick = submit;
@@ -8135,6 +8144,7 @@ function renderBootFailure(err) {
 
 /* ---------------- boot ---------------- */
 async function boot() {
+  await initToken(); // 47c(S1):bootstrap 握手取 token 进 sessionStorage(HTML 不再明文下发);须在任何 api() 前
   await initI18n('auto');
   hydrateIcons(); // UI v3 (§2.15): 把 index.html 静态 chrome 按钮/徽标的 [data-icon] 填充为内联 SVG
   setStreaming(false);

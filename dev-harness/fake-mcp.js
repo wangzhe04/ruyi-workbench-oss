@@ -55,9 +55,14 @@ const TOOLS = [
   { name: 'get_clipboard_image', description: 'Read clipboard image (mirrors ACC get_clipboard_image契约:save_path 可选)', inputSchema: { type: 'object', properties: { save_path: { type: 'string' } } } },
   // 删除(ACC delete_file 契约:{success:true};快照表 op:delete → 回滚=写回)。
   { name: 'delete_file', description: 'Delete a file (mirrors ACC delete_file契约)', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
+  // 47b 桥 cancel/超时契约测试件:慢工具 —— sleep args.ms(默认 30000)后才返回,期间不响应任何
+  // notifications(模拟不协作取消的 ACC 僵尸执行)。配合 FAKE_MCP_NOTIFY_CAPTURE 断言桥发了 cancelled。
+  { name: 'slow_task', description: 'Sleep ms then return (47b 桥超时契约测试件)', inputSchema: { type: 'object', properties: { ms: { type: 'number' } } } },
 ];
 let OPTIONAL = { ocr: true, uia: true, cv2: false, playwright: false };
 try { const v = process.env.FAKE_MCP_OPTIONAL; if (v) { const o = JSON.parse(v); if (o && typeof o === 'object') OPTIONAL = { ocr: !!o.ocr, uia: !!o.uia, cv2: !!o.cv2, playwright: !!o.playwright }; } } catch { /* ignore */ }
+// 47b:pid 捕获(追加,一行一个)—— 让 e2e 能断言"第一个 fake-mcp 超时后确实被杀、重连的新 pid 活着"。
+if (process.env.FAKE_MCP_PID_CAPTURE) { try { fs.appendFileSync(process.env.FAKE_MCP_PID_CAPTURE, String(process.pid) + '\n', 'utf8'); } catch { /* ignore */ } }
 
 function send(obj) { process.stdout.write(JSON.stringify(obj) + '\n'); }
 
@@ -68,6 +73,10 @@ rl.on('line', line => {
   let msg;
   try { msg = JSON.parse(line); } catch { return; }
   if (!msg || !msg.method) return;
+  // 47b:通知捕获 —— FAKE_MCP_NOTIFY_CAPTURE 落盘全部 notification(无 id 的帧,如 notifications/cancelled)。
+  if (msg.id === undefined && process.env.FAKE_MCP_NOTIFY_CAPTURE) {
+    try { fs.appendFileSync(process.env.FAKE_MCP_NOTIFY_CAPTURE, JSON.stringify(msg) + '\n', 'utf8'); } catch { /* ignore */ }
+  }
   try {
     if (msg.method === 'initialize') {
       return send({ jsonrpc: '2.0', id: msg.id, result: {
@@ -237,6 +246,13 @@ rl.on('line', line => {
           if (!p) { result = { error: 'path is required' }; isError = true; }
           else { fs.rmSync(p, { force: false }); result = { success: true }; }
         } catch (e) { result = { error: (e && e.message) || String(e) }; isError = true; }
+      } else if (name === 'slow_task') {
+        // 47b 测试件:sleep ms(默认 30000)才返回 —— 桥超时远小于此时,用于验证 cancelled + 杀进程树。
+        const ms = Math.max(0, Number(args.ms) || 30000);
+        setTimeout(() => {
+          send({ jsonrpc: '2.0', id: msg.id, result: { content: [{ type: 'text', text: JSON.stringify({ ok: true, slept: ms }) }], isError: false } });
+        }, ms);
+        return; // 异步应答:本帧不立即 send
       } else {
         result = { ok: false, error: 'unknown tool: ' + name }; isError = true;
       }

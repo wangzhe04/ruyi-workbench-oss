@@ -742,8 +742,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             if (gate !== 'allow') {
               resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
             } else if (bridge) {
-              const client = mcpClients.get(bridge.serverId);
-              if (!client || client.dead) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+              const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
+              if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
               else {
                 // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
                 const subGateRefusal = bridgedOfficeScriptGate(tc.name, args);
@@ -1427,15 +1427,21 @@ function buildUpstreamContext(depNodes, budgetTokens) {
   if (!Array.isArray(depNodes) || !depNodes.length) return '';
   const shareTokens = Math.max(200, Math.floor(Number(budgetTokens) / depNodes.length) || 200);
   const truncTo = (body, cap) => { let lo = 0, hi = body.length; while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (estimateContentTokens(body.slice(0, mid)) <= cap) lo = mid; else hi = mid - 1; } return body.slice(0, lo); };
+  // 47a Phase C-A:Claude 节点的延迟插话随上游上下文注入下游 —— 独立小节,不混入 result(防污染 schema/质量门)。
+  const steerSection = d => {
+    const ss = Array.isArray(d.deferredSteers) ? d.deferredSteers : [];
+    if (!ss.length) return '';
+    return '\n[用户插话 · 延迟生效]\n' + ss.map(s => '- ' + String(s).replace(/\s+/g, ' ').trim()).join('\n');
+  };
   const out = depNodes.map(d => {
     const header = `### ${d.id} (${d.status}${d.degraded ? ' · 降级' : ''})`;
     const full = String(d.result || d.error || '').replace(/\s+/g, ' ').trim();
-    if (estimateContentTokens(full) <= shareTokens) return header + '\n' + full; // rung1 全文(无损)
+    if (estimateContentTokens(full) <= shareTokens) return header + '\n' + full + steerSection(d); // rung1 全文(无损)
     // 对抗轮 P2:防御式扁平化 summary(deriveNodeOutputs 已在源头扁平,此处对 spawn_agent 等直传对象再兜一道)。
     const summ = (typeof d.summary === 'string' && d.summary.trim()) ? d.summary.replace(/\s+/g, ' ').trim() : '';
-    if (summ && estimateContentTokens(summ) <= shareTokens) return header + `\n${summ}\n[…精简结论,完整产出见节点 ${d.id} 存档…]`; // rung2 摘要
+    if (summ && estimateContentTokens(summ) <= shareTokens) return header + `\n${summ}\n[…精简结论,完整产出见节点 ${d.id} 存档…]` + steerSection(d); // rung2 摘要
     const body = (summ && estimateContentTokens(summ) < estimateContentTokens(full)) ? summ : full; // rung3 截断更短者
-    return header + '\n' + truncTo(body, shareTokens) + `\n[…按预算截断,完整产出见节点 ${d.id} 存档…]`;
+    return header + '\n' + truncTo(body, shareTokens) + `\n[…按预算截断,完整产出见节点 ${d.id} 存档…]` + steerSection(d);
   });
   // 对抗轮 P3:总量【硬钳制】—— 旧 32000 总截断被本波移除,而 200-token/依赖下限 + 未计入的 header/标注在高扇入时可累计
   // 超预算(小窗口下甚至击穿窗口)。此处对拼接结果按总预算再截一刀,恢复"预算是硬天花板"不变式。

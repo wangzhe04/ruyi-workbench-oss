@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
+    <!-- 47c(S3):CSP 起步。前端只连本源(/api 由后端代理外部),故 connect-src 'self' 阻断 token/数据外泄;
+         script-src 排除外域(阻外部脚本注入),保留 'unsafe-inline' 兼容首屏主题预绘内联脚本(后续可改 hash 收紧);
+         object-src 'none' 禁插件;img/font 允许 data: (favicon data-URI、base64 图)。 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="wcw-token" content="__WCW_TOKEN__" />
     <title data-i18n="app.title">如意工作台</title>
     <!-- v0.8-S8 favicon:内联如意 tile 主标(藏蓝墨底 + 固定深色版青花/鎏金 #6b8ff2/#f2c14e)。data-URI,无外链。 -->

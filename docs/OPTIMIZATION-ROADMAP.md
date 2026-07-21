@@ -968,3 +968,27 @@ V2.0「立柱」规划(§37)的 41–45 波已全部交付(toolCall 表驱动 / 
 - **封版**:CHANGELOG v2.0.0(中英,盖 44/44e/45/46 四波);README「39 常驻+3 按需」为常驻轴旧口径,与 TOOL_HANDLERS 轴(50)的关系已写入 facts._axes,营销刷新列第50波发版检查单。
 
 **验证**:全部亲跑——unit 148/148;快通道 13 件全绿;fake-mcp 家族 9 件回归全绿;resume/deadlock/loop/tier 家族 8 件回归全绿;ACC smoke 11/11;facts 静态锁 12 断言全绿;46e 对抗轮 stash 复现确认。
+
+## 45. 第47波:快赢波 -- Steer 双引擎 + 桥 cancel 契约 + token Bootstrap/CSP + overlay 载荷锁
+
+封版后第一个功能波(02/03/05 方案快赢项),四件同波交付(47a/47b 共享 stdin/cancel 基建,必须同波)。
+
+- **47a Steer Phase A 双引擎(对话 + 工作台)**:Claude 引擎对话 steer 此前被一刀切拒(`/api/steer` 对 `kind!=='openai'` 直接 409,前端静默 return)。打通:
+  - **对话·Claude interactive**:`/api/steer` 按 `reg.kind` 分派 -- Claude 走 `writeToChild`+`buildUserEnvelope` 经 stdin **即时注入** `[用户插话]` 消息(与 AskUser 应答同通道,故两条分流纪律:①`hasPendingQuestionForSession` 提问挂起时拒插话防误收为答案;②入参 `[用户插话]` 前缀先剥,伪造前缀中和)。每回合计数上限 3(print 模式无 stdin 通道,人话拒)。provider 引擎维持原队列+迭代边界 drain,语义不变。
+  - **工作台·Claude 节点(`-p` 单发,无迭代边界)**:02 方案 Phase C 选项 A -- `steer_node` 对 Claude 节点改**延迟插话**(`deferred:true`),挂 `node.deferredSteers`,节点结束后经 `buildUpstreamContext` 的「[用户插话 · 延迟生效]」小节注入下游节点(不混入 result 防污染 schema/质量门)。前端按钮文案/placeholder 明示「延迟」差异,不假装即时生效。
+  - **前端**:`sendPrompt` 去掉 `if(isProviderMode())` 静默门(任何引擎流式中发送都路由 steer);`steerPrompt` toast 按 `r.injected` 区分即时/下步生效;工作台 `steerAgentNode`/`wbSteerBox` 传 engine、延迟文案;`workflow.steerDeferred`/`steerDeferredAria` 中英双键同交。
+  - **探针先行**:`fake-claude.js` 加 `steer` 交互剧本(慢滴正文留窗口 + 循环吞 stdin 插话 envelope 落盘)+ `WCW_FAKE_SLOW_MS` 测试缝(防 launch→注册竞态 flake)。
+  - **验证**:`steering-claude.e2e.js`(S 静态锁 10 + A 对话全路径 8 + B AskUser 分流 4 + C print 拒 + D 工作台延迟插话注入下游 7);`agent-steer-node.e2e.js` (c) Claude 节点断言改 200 deferred;steer 家族 7 件回归全绿;steering-claude 5× 稳定(无 flake)。
+- **47b 桥 cancel/超时契约**:消灭"桥先 120s 超时、ACC 侧 600s 任务僵尸执行"(用户纠偏后旧命令仍在后台写文件,比不能打断更危险)。
+  - **声明式按工具超时表** `BRIDGED_TOOL_TIMEOUTS`(`run_command`/`launch_application` 650s 对齐 ACC 自身 cap,`macro_run` 300s,默认 120s);`callTool` 缺省超时走表(4 个调用点免费获得,不逐处传);`WCW_BRIDGED_TIMEOUT_OVERRIDE` env 测试缝。
+  - **超时即发 `notifications/cancelled`**(MCP 标准,requestId 数字,reason=timeout)+ **kill 客户端进程树**(`this.kill()` -> taskkill /T 杀孙进程),错误文本如实告知"桥接进程树已终止";`getBridgedClient` 统一入口 -- 三处分发点(12-tool-dispatch/08/09)原直接 `mcpClients.get` 在超时杀后永远 'not available',改走它后"超时杀 -> 下次调用惰性重 spawn"闭环自愈。
+  - **验证**:`bridge-cancel-timeout.e2e.js`(E 静态锁 5 + A 超时错误文本 2 + B cancelled 通知 3 + C 旧进程被杀+新进程重连 2 + D 下次调用恢复 1);fake-mcp 加 `slow_task` 测试件 + 通知/pid 捕获;fake-mcp-contract.e2e 件数 20->21 同步;桥家族 9 件回归全绿;3× 稳定。
+- **47c S1 token Bootstrap + S3 CSP**:token 不再随 HTML 明文下发(view-source/缓存/抓包 HTML 均不可得)。
+  - **S1**:`serveStatic` 浏览器导航(UA 含 Mozilla / Origin / sec-fetch-dest)GET / -> HTML wcw-token content 置空;非浏览器(无 UA,curl/node e2e/MCP child)仍明文注入(向后兼容,信任面同旧规,74 个 token-scraping e2e 零回归);新增 `POST /api/bootstrap`(open 级,顶层 host 门已挡 rebinding)为浏览器拿 token 的唯一通道;`net.js` `initToken()` 握手存 sessionStorage + 模块变量,`app.js` boot 第一件事 `await initToken()`。
+  - **S3**:index.html head 加 CSP meta -- `connect-src 'self'`(阻断 token/数据外泄)、`script-src 'self' 'unsafe-inline'`(排外域,unsafe-inline 兼容首屏主题预绘内联脚本,后续可改 hash 收紧)、`object-src 'none'`、`base-uri 'self'`。
+  - **验证**:`token-bootstrap-csp.e2e.js`(S 静态锁 6 + S1 五性:浏览器 HTML 空/非浏览器兼容/bootstrap 返 token/rebinding 403/闭环鉴权 + S3 CSP 在);dom-smoke 真实 Edge 全绿(modelChip 渲染依赖 bootstrap→/api/status 鉴权 = 握手活);auth-deny-default 回归全绿。
+- **47d X2 overlay 载荷锁**:`overlay-payload-lock.static.e2e.js` -- PAYLOAD_FILES 与运行时依赖集三向机械对账(① index.html/app.js 引用 ⊆ 载荷表;② 载荷每条磁盘存在;③ 敏感目录 js/locales/vendor/src 磁盘文件 ⊆ 载荷表,防"新文件忘登记" -- 43e 同款白屏事故的预防针)。对抗验证:放未登记文件 -> ③ 精确擒获红。
+
+**验证**:全部亲跑--auth/steer/bridge 家族 10 件全绿;dom-smoke 真实浏览器全绿;facts 静态锁全绿(e2e 146->150,4 新件);全量并行 4 路跑(完成态见提交)。
+
+**未做(留后续波)**:Phase B 打断语义(Codex 级"立即生效"批次边界中断,02 方案);Phase D 插话队列可视化/插话卡静态重渲染;S2 token 持久化策略(sessionStorage 关标签页即失效是刻意的--每次启动重新握手,token 不长留);CSP 收紧('unsafe-inline' -> hash);README/ARCHITECTURE 引擎能力表同步"双引擎 steer"(列第50波文档刷新)。

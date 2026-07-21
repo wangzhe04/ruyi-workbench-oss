@@ -100,7 +100,7 @@ function build(scenario) {
 
 function scenarioFromEnvAndPrompt(prompt) {
   let scenario = process.env.WCW_FAKE_SCENARIO || 'happy';
-  for (const k of ['thinking', 'tools', 'error', 'ask', 'agents']) if (prompt.includes(k)) scenario = k;
+  for (const k of ['thinking', 'tools', 'error', 'ask', 'agents', 'steer']) if (prompt.includes(k)) scenario = k;
   return scenario;
 }
 
@@ -179,6 +179,9 @@ async function main() {
   }
   const prompt = extractUserText(interactive ? firstLine : fullStdinText);
   const scenario = scenarioFromEnvAndPrompt(prompt);
+  // 47a 测试缝:WCW_FAKE_SLOW_MS 整体放慢(默认 0 关闭)—— 给 steer 等并发操作确定性窗口,防时序 flake。
+  const slowMs = Number(process.env.WCW_FAKE_SLOW_MS) || 0;
+  if (slowMs > 0) await sleep(slowMs);
 
   if (scenario.endsWith('.jsonl') && fs.existsSync(scenario)) {
     await replay(loadFixture(scenario));
@@ -205,6 +208,32 @@ async function main() {
     } catch { chosen = ans || '(无)'; }
     await replay(textDeltas(`收到，你选择了 **${chosen}**。我按这个来实现。\n`), 25);
     emit(resultEvt(`用户选择了 ${chosen}。`));
+    process.exit(0);
+  }
+
+  // 47a 探针:steer 剧本。慢速滴出正文(给测试留出 POST /api/steer 的窗口),然后循环吞读 stdin 上的
+  // 插话 envelope(每来一条回声一条;静默 2s 才收工 —— 回合保活由本 fake 控制,测试连续注入多条无竞态)。
+  // 全部原始行落盘 WCW_FAKE_STEER_CAPTURE(每行一条 envelope),断言注入内容/格式都靠它。
+  if (interactive && scenario === 'steer') {
+    emit(initEvt);
+    await replay(textDeltas('正在处理任务,先输出第一段内容,给插话留出时间窗口。\n'), 120);
+    const lines = [];
+    const first = await stdin.next(30000);
+    if (first) lines.push(first);
+    if (lines.length) {
+      for (;;) { const more = await stdin.nextOrNull(2000); if (more === null || more === '') break; lines.push(more); }
+    }
+    if (process.env.WCW_FAKE_STEER_CAPTURE) { try { fs.writeFileSync(process.env.WCW_FAKE_STEER_CAPTURE, lines.join('\n'), 'utf8'); } catch {} }
+    const texts = lines.map(line => {
+      try {
+        const obj = JSON.parse(line);
+        const block = obj && obj.message && obj.message.content && obj.message.content[0];
+        return typeof (block && block.text) === 'string' ? block.text : '(非文本插话)';
+      } catch { return String(line || '(空)'); }
+    });
+    if (!texts.length) texts.push('(未收到插话)');
+    await replay(textDeltas(`收到插话 ${texts.length} 条:${texts.join(' / ')}。按插话调整后续方向。\n`), 25);
+    emit(resultEvt(`steer round-trip: ${texts.join(' / ')}`));
     process.exit(0);
   }
 

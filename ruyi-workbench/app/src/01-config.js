@@ -1346,7 +1346,7 @@ function staticBase() {
   return path.join(__dirname, 'public');
 }
 
-async function serveStatic(urlPath) {
+async function serveStatic(urlPath, req) {
   const base = staticBase();
   const rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
   const full = path.normalize(path.join(base, rel));
@@ -1356,7 +1356,13 @@ async function serveStatic(urlPath) {
   try {
     // Inject the per-server token into the HTML shell so the UI can authenticate its /api calls.
     if (full.toLowerCase().endsWith('index.html')) {
-      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', RUNTIME.token || '');
+      // 47c(S1):浏览器导航不再随 HTML 明文下发 token(token 只在内存 + sessionStorage,view-source/
+      // 缓存/抓包 HTML 均不可得)—— 改 bootstrap 握手(app.js 启动时 POST /api/bootstrap 换取)。
+      // 非浏览器调用方(curl/node e2e/MCP child:无 Sec-Fetch、无 Origin、非 Mozilla UA)保持 meta
+      // 注入兼容。浏览器导航信号任一命中即判浏览器:Sec-Fetch-Dest / Origin / Mozilla UA。
+      const h = (req && req.headers) || {};
+      const browserNav = Boolean(h['sec-fetch-dest']) || Boolean(h.origin) || /mozilla/i.test(String(h['user-agent'] || ''));
+      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', browserNav ? '' : (RUNTIME.token || ''));
       return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }, body: html };
     }
     const body = await fsp.readFile(full);
@@ -1402,6 +1408,9 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/status', auth: 'open' },
   { m: 'GET', p: '/api/capabilities', auth: 'open' },
   { m: 'GET', p: '/api/models', auth: 'open' },
+  // 47c(S1):bootstrap 握手 —— 浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。open 级的安全性 =
+  // 顶层 host 门(rebinding 的 Host 是攻击域,直接被拒)+ 与旧 GET / 明文下发完全同等的信任面。
+  { m: 'POST', p: '/api/bootstrap', auth: 'open' },
   // body-token: MCP 子进程 / 跨源 loopback(handler 自查 body token,豁免 originOk)
   { m: 'POST', p: '/api/permission/request', auth: 'body-token' },
   { m: 'POST', p: '/api/question/request', auth: 'body-token' },

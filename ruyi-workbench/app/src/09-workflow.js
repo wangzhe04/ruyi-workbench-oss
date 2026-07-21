@@ -1480,8 +1480,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             }
             if (!resultObj) {
               if (bridge) {
-                const client = mcpClients.get(bridge.serverId);
-                if (!client || client.dead) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+                const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
+                if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
                 else {
                   // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
                   const gateRefusal = bridgedOfficeScriptGate(tc.name, args);

@@ -5,8 +5,34 @@
 //
 // 依赖:仅浏览器原生 fetch/DOM。本模块内部自洽(api→authHeaders→wcwToken 同文件),不 import 其他模块。
 
-// 从 index.html <meta name="wcw-token"> 读取本地服务的一次性 token。
-export function wcwToken() { return document.querySelector('meta[name="wcw-token"]')?.content || ''; }
+// 47c(S1):token 不再从 <meta> 明文读(HTML 不下发 token,view-source/缓存/抓包均不可得)。改 bootstrap 握手
+// -- app.js boot 调 initToken():POST /api/bootstrap(open 级,host 门已挡 rebinding)换 token,存 sessionStorage +
+// 模块变量。wcwToken() 同步读模块变量(boot 后必有)。无 sessionStorage 时回退 meta 兼容旧 e2e/非浏览器。
+let _token = '';
+function loadStoredToken() {
+  if (_token) return _token;
+  try { _token = sessionStorage.getItem('wcw.token') || ''; } catch { /* no sessionStorage */ }
+  return _token;
+}
+// 启动期握手:取 token 进内存 + sessionStorage。幂等。app.js boot 第一件事 await 它。
+export async function initToken() {
+  if (_token) return _token;
+  loadStoredToken();
+  if (_token) return _token;
+  try {
+    const res = await fetch('/api/bootstrap', { method: 'POST', headers: { 'content-type': 'application/json' } });
+    const j = await res.json();
+    if (j && j.ok && j.token) { _token = j.token; try { sessionStorage.setItem('wcw.token', _token); } catch { /* ignore */ } }
+  } catch { /* boot 故障卡兜住后续 api 失败 */ }
+  return _token;
+}
+// 同步读 token(boot 后必有)。无 sessionStorage 时回退 <meta>(非浏览器/旧路径兼容)。
+export function wcwToken() {
+  if (_token) return _token;
+  loadStoredToken();
+  if (_token) return _token;
+  try { return document.querySelector('meta[name="wcw-token"]')?.content || ''; } catch { return ''; }
+}
 // 标准鉴权头(JSON + x-wcw-token),可合并 extra。
 export function authHeaders(extra = {}) { return { 'content-type': 'application/json', 'x-wcw-token': wcwToken(), ...extra }; }
 // 带鉴权头的 JSON fetch。非 2xx 抛错(错误信息为响应体文本,供 apiErrText 提取人话)。

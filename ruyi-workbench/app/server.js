@@ -1743,7 +1743,7 @@ function staticBase() {
   return path.join(__dirname, 'public');
 }
 
-async function serveStatic(urlPath) {
+async function serveStatic(urlPath, req) {
   const base = staticBase();
   const rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
   const full = path.normalize(path.join(base, rel));
@@ -1753,7 +1753,13 @@ async function serveStatic(urlPath) {
   try {
     // Inject the per-server token into the HTML shell so the UI can authenticate its /api calls.
     if (full.toLowerCase().endsWith('index.html')) {
-      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', RUNTIME.token || '');
+      // 47c(S1):浏览器导航不再随 HTML 明文下发 token(token 只在内存 + sessionStorage,view-source/
+      // 缓存/抓包 HTML 均不可得)—— 改 bootstrap 握手(app.js 启动时 POST /api/bootstrap 换取)。
+      // 非浏览器调用方(curl/node e2e/MCP child:无 Sec-Fetch、无 Origin、非 Mozilla UA)保持 meta
+      // 注入兼容。浏览器导航信号任一命中即判浏览器:Sec-Fetch-Dest / Origin / Mozilla UA。
+      const h = (req && req.headers) || {};
+      const browserNav = Boolean(h['sec-fetch-dest']) || Boolean(h.origin) || /mozilla/i.test(String(h['user-agent'] || ''));
+      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', browserNav ? '' : (RUNTIME.token || ''));
       return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }, body: html };
     }
     const body = await fsp.readFile(full);
@@ -1799,6 +1805,9 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/status', auth: 'open' },
   { m: 'GET', p: '/api/capabilities', auth: 'open' },
   { m: 'GET', p: '/api/models', auth: 'open' },
+  // 47c(S1):bootstrap 握手 —— 浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。open 级的安全性 =
+  // 顶层 host 门(rebinding 的 Host 是攻击域,直接被拒)+ 与旧 GET / 明文下发完全同等的信任面。
+  { m: 'POST', p: '/api/bootstrap', auth: 'open' },
   // body-token: MCP 子进程 / 跨源 loopback(handler 自查 body token,豁免 originOk)
   { m: 'POST', p: '/api/permission/request', auth: 'body-token' },
   { m: 'POST', p: '/api/question/request', auth: 'body-token' },
@@ -4220,6 +4229,26 @@ function killChildTree(pid) {
   }
 }
 
+// 47b 桥超时契约:按工具声明式超时表(裸名小写)。默认 120s;长时工具按其自身参数上限放宽 ——
+// ACC run_command timeout cap 600s / launch_application wait_timeout cap 600s,桥给 650s(含网络缓冲),
+// 消灭"桥先 120s 死、ACC 侧 600s 任务变僵尸"的契约错位(03 方案 Phase A 核心项)。
+// WCW_BRIDGED_TIMEOUT_OVERRIDE='name:ms,name:ms' 是测试缝(e2e 把秒级超时打进 fake 工具)。
+const BRIDGED_TOOL_TIMEOUTS = {
+  run_command: 650000,
+  launch_application: 650000,
+  macro_run: 300000,
+};
+const BRIDGED_TOOL_TIMEOUT_DEFAULT_MS = 120000;
+function bridgedToolTimeoutMs(name) {
+  const bare = String(name || '').toLowerCase();
+  const ov = String(process.env.WCW_BRIDGED_TIMEOUT_OVERRIDE || '');
+  for (const pair of ov.split(',')) {
+    const [k, v] = pair.split(':').map(s => String(s || '').trim());
+    if (k && k.toLowerCase() === bare && Number(v) > 0) return Number(v);
+  }
+  return BRIDGED_TOOL_TIMEOUTS[bare] || BRIDGED_TOOL_TIMEOUT_DEFAULT_MS;
+}
+
 function clearPendingPermissions(sessionId, message) {
   for (const [rid, p] of pendingPermissions) {
     if (p.sessionId === sessionId) {
@@ -4302,6 +4331,13 @@ function clearPendingQuestions(sessionId, message) {
   }
 }
 
+// 47a(Steer Phase A 分流纪律):会话当前是否有等待回答的 AskUser 提问。Claude 引擎的提问答案与插话同走
+// stdin user envelope —— 提问挂起期间注入插话,CLI 可能把插话误收为答案(串扰)。/api/steer 据此拒绝。
+function hasPendingQuestionForSession(sessionId) {
+  for (const [, q] of pendingQuestions) if (q.sessionId === sessionId) return true;
+  return false;
+}
+
 // v0.9-S5: clear any pending PLAN approvals for a session (abort/stop/turn-end), resolving each as a REJECT
 // so the paused runOpenAiTurn unblocks and finishes cleanly (never left hanging). Mirrors
 // clearPendingPermissions — called from stopSession (abort/stop) and at turn end.
@@ -4348,6 +4384,9 @@ class McpStdioClient {
       const id = this._nextId++;
       const timer = setTimeout(() => {
         this._pending.delete(id);
+        // 47b 桥 cancel 契约:tools/call 超时先按 MCP 标准发 notifications/cancelled(对端若实现协作式取消
+        // 可收手);真正的兜底是 callTool catch 里的 kill 进程树(ACC 侧不响应取消也不留僵尸执行)。
+        if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
         reject(new Error(`mcp ${method} timed out`));
       }, Math.max(1000, timeoutMs));
       this._pending.set(id, { resolve, reject, timer });
@@ -4443,9 +4482,12 @@ class McpStdioClient {
   listTools() { return this.tools; }
 
   // Call a tool and normalize the MCP result into a workbench result object. Never throws.
-  async callTool(name, args, timeoutMs = 120000) {
+  // 47b:超时走契约化处理 —— notifications/cancelled(_rpc 内已发)+ kill 客户端进程树(无僵尸执行),
+  // 下次调用由 mcpClients 惰性重 spawn。错误文本如实告知"已杀进程树"。
+  async callTool(name, args, timeoutMs) {
+    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolTimeoutMs(name));
     try {
-      const res = await this._rpc('tools/call', { name, arguments: args || {} }, timeoutMs);
+      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit);
       const isError = !!(res && res.isError);
       // Prefer the first text content block; parse it as JSON when it is JSON (desktop MCP returns {ok,...}).
       let textOut = '';
@@ -4465,7 +4507,13 @@ class McpStdioClient {
       return { ok: !isError, content: (res && res.content) || [] };
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
-      return { ok: false, error: /timed out/.test(m) ? 'tool timed out' : m };
+      if (/timed out/.test(m)) {
+        // 47b:超时即杀桥进程树 —— 旧行为是桥先超时、ACC 继续僵尸执行(用户"纠偏"后旧命令仍在后台写文件,
+        // 比不能打断更危险)。cancelled 通知已在 _rpc 超时点发出;此处保证无论对端是否协作取消都不留活口。
+        try { this.kill(); } catch { /* already dead */ }
+        return { ok: false, error: `tool timed out after ${Math.round(limit / 1000)}s; 桥接进程树已终止(防僵尸执行),下次调用将自动重连` };
+      }
+      return { ok: false, error: m };
     }
   }
 
@@ -4673,6 +4721,18 @@ async function getMcpClient(entry) {
 function killAllMcpClients() {
   for (const [, c] of mcpClients) { try { c.kill(); } catch { /* ignore */ } }
   mcpClients.clear();
+}
+
+// 47b:桥客户端获取的统一入口 —— 活则直给;死/缺则按 config 的服务器条目经 getMcpClient 惰性重 spawn。
+// 此前三处分发点(12-tool-dispatch / 08 / 09)直接 mcpClients.get,47b 超时杀客户端后永远 'not available'
+// 无法自愈;统一走这里后,"超时杀 → 下次调用自动重连"的契约闭环。
+async function getBridgedClient(serverId, config) {
+  const live = mcpClients.get(serverId);
+  if (live && !live.dead) return live;
+  const list = resolveExternalMcpServers(config || await readConfig());
+  const entry = (list || []).find(s => s.id === serverId);
+  if (!entry || !entry.command) return null;
+  return getMcpClient(entry);
 }
 
 // Stable, reversible-ish server-id sanitizer for the bridged tool-name prefix. Non [A-Za-z0-9_] -> _.
@@ -5252,7 +5312,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session };
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude' }; // 47a: kind 供 /api/steer 按引擎分派
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.
@@ -9915,8 +9975,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             if (gate !== 'allow') {
               resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
             } else if (bridge) {
-              const client = mcpClients.get(bridge.serverId);
-              if (!client || client.dead) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+              const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
+              if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
               else {
                 // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
                 const subGateRefusal = bridgedOfficeScriptGate(tc.name, args);
@@ -10600,15 +10660,21 @@ function buildUpstreamContext(depNodes, budgetTokens) {
   if (!Array.isArray(depNodes) || !depNodes.length) return '';
   const shareTokens = Math.max(200, Math.floor(Number(budgetTokens) / depNodes.length) || 200);
   const truncTo = (body, cap) => { let lo = 0, hi = body.length; while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (estimateContentTokens(body.slice(0, mid)) <= cap) lo = mid; else hi = mid - 1; } return body.slice(0, lo); };
+  // 47a Phase C-A:Claude 节点的延迟插话随上游上下文注入下游 —— 独立小节,不混入 result(防污染 schema/质量门)。
+  const steerSection = d => {
+    const ss = Array.isArray(d.deferredSteers) ? d.deferredSteers : [];
+    if (!ss.length) return '';
+    return '\n[用户插话 · 延迟生效]\n' + ss.map(s => '- ' + String(s).replace(/\s+/g, ' ').trim()).join('\n');
+  };
   const out = depNodes.map(d => {
     const header = `### ${d.id} (${d.status}${d.degraded ? ' · 降级' : ''})`;
     const full = String(d.result || d.error || '').replace(/\s+/g, ' ').trim();
-    if (estimateContentTokens(full) <= shareTokens) return header + '\n' + full; // rung1 全文(无损)
+    if (estimateContentTokens(full) <= shareTokens) return header + '\n' + full + steerSection(d); // rung1 全文(无损)
     // 对抗轮 P2:防御式扁平化 summary(deriveNodeOutputs 已在源头扁平,此处对 spawn_agent 等直传对象再兜一道)。
     const summ = (typeof d.summary === 'string' && d.summary.trim()) ? d.summary.replace(/\s+/g, ' ').trim() : '';
-    if (summ && estimateContentTokens(summ) <= shareTokens) return header + `\n${summ}\n[…精简结论,完整产出见节点 ${d.id} 存档…]`; // rung2 摘要
+    if (summ && estimateContentTokens(summ) <= shareTokens) return header + `\n${summ}\n[…精简结论,完整产出见节点 ${d.id} 存档…]` + steerSection(d); // rung2 摘要
     const body = (summ && estimateContentTokens(summ) < estimateContentTokens(full)) ? summ : full; // rung3 截断更短者
-    return header + '\n' + truncTo(body, shareTokens) + `\n[…按预算截断,完整产出见节点 ${d.id} 存档…]`;
+    return header + '\n' + truncTo(body, shareTokens) + `\n[…按预算截断,完整产出见节点 ${d.id} 存档…]` + steerSection(d);
   });
   // 对抗轮 P3:总量【硬钳制】—— 旧 32000 总截断被本波移除,而 200-token/依赖下限 + 未计入的 header/标注在高扇入时可累计
   // 超预算(小窗口下甚至击穿窗口)。此处对拼接结果按总预算再截一刀,恢复"预算是硬天花板"不变式。
@@ -12287,8 +12353,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             }
             if (!resultObj) {
               if (bridge) {
-                const client = mcpClients.get(bridge.serverId);
-                if (!client || client.dead) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+                const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
+                if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
                 else {
                   // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
                   const gateRefusal = bridgedOfficeScriptGate(tc.name, args);
@@ -15224,8 +15290,8 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   if (item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   const bridge = resolveBridge(bridged.route, targetName);
   if (!bridge) return toolCall(targetName, targetArgs || {});
-  const client = mcpClients.get(bridge.serverId);
-  if (!client || client.dead) return { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+  const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
+  if (!client) return { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
   const gateRefusal = bridgedOfficeScriptGate(targetName, targetArgs || {});
   if (gateRefusal) return gateRefusal;
   const relArg = bridgedWriteRelativePathArg(targetName, targetArgs || {});
@@ -16252,6 +16318,12 @@ async function handleApi(req, res, pathname) {
     return send(res, apiFailure(code, {}, authErr, 403));
   }
 
+  if (req.method === 'POST' && pathname === '/api/bootstrap') {
+    // 47c(S1):浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。auth=open -> 顶层 host 门已挡 rebinding
+    // (Host=攻击域 -> 403),信任面与旧 GET / 明文下发完全等同;非浏览器(curl/node)亦同旧规可得。
+    // 不查 Origin:'open' 级本就允许 loopback 非浏览器,浏览器同源(Host=loopback)也放行,跨站 rebinding 已被 host 门拦。
+    return send(res, json({ ok: true, token: RUNTIME.token || '' }));
+  }
   if (req.method === 'GET' && pathname === '/api/status') {
     const config = await readConfig();
     const { health, manifest } = await computeHealth(config);
@@ -17103,7 +17175,21 @@ async function handleApi(req, res, pathname) {
       // 团队模式 v2 (B1): 投递资格判定与 send_to_agent 共用同一小函数(不复制两份),reason 各自映射为本处既有措辞。
       const elig = nodeDeliveryEligibility(live.run, nodeId);
       if (elig.reason === 'not_found') return send(res, json({ ok: false, error: '节点不存在' }, 404));
-      if (elig.reason === 'claude_engine') return send(res, json({ ok: false, error: 'Claude 引擎节点为单发进程，暂不支持中途插话' }, 409));
+      if (elig.reason === 'claude_engine') {
+        // 47a Phase C-A(工作台 Claude 节点 steer):-p 单发进程无迭代边界,插话改【延迟生效】——挂到节点
+        // deferredSteers,节点结束后经 buildUpstreamContext 注入下游节点(与父回合汇总)。UI 明示「延迟」,
+        // 不假装即时生效(02 方案 Phase C 选项 A)。仍拒终态节点;队列同 cap 3;干预计数与即时插话一致。
+        if (!['running', 'queued', 'waiting_resource'].includes(elig.node.status)) return send(res, json({ ok: false, error: '节点已结束，无法插话' }, 409));
+        const text2 = String(body.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim();
+        if (!text2) return send(res, json({ ok: false, error: '插话内容不能为空' }, 400));
+        if (!Array.isArray(elig.node.deferredSteers)) elig.node.deferredSteers = [];
+        if (elig.node.deferredSteers.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '该节点延迟插话已达上限(3 条)' }, 409));
+        elig.node.deferredSteers.push(text2);
+        if (Array.isArray(elig.node.progressLog)) elig.node.progressLog.push({ at: nowIso(), text: '收到延迟插话(节点结束后注入下游):' + text2.slice(0, 80), kind: 'steer' });
+        bumpRunIntervention(live.run, 'steer_node'); // 29c
+        await saveAgentRun(live.run).catch(() => {});
+        return send(res, json({ ok: true, deferred: true, queued: elig.node.deferredSteers.length }));
+      }
       if (elig.reason === 'deterministic_gate') return send(res, json({ ok: false, error: '确定性质量门节点不经过模型，无法插话' }, 409));
       if (elig.reason === 'terminal') return send(res, json({ ok: false, error: '节点已结束，无法插话' }, 409));
       const text = String(body.text || '').trim().slice(0, 2000);
@@ -17453,18 +17539,37 @@ async function handleApi(req, res, pathname) {
     if (body.targetTurnSeq === undefined || body.targetTurnSeq === null) return send(res, apiFailure('request.field_required', { field: 'targetTurnSeq' }, 'targetTurnSeq is required', 400));
     return send(res, json(await rewindSession(sessionId, body.targetTurnSeq, !!body.rollbackFiles)));
   }
-  // v0.8-S7: mid-turn STEERING (§4 A3). UI-only, header-token (needsToken whitelist above). Enqueues plain
-  // user text onto the LIVE provider turn's steerQueue; the tool loop drains it at the next boundary (see
-  // drainSteerQueue). Rejects (never crashes) when: no live turn / the live turn is the Claude engine (its
-  // tools run in a transient MCP child — stdin steering is out of this slice) / the queue is full (cap 3).
+  // v0.8-S7: mid-turn STEERING (§4 A3). UI-only, header-token (needsToken whitelist above). 第47波47a 起双引擎:
+  // provider 走既有 steerQueue(下一次迭代边界 drain 注入);Claude(interactive)经 stdin user envelope【即时注入】
+  // —— 与 AskUser 应答同通道,故有两条分流纪律:①提问挂起(hasPendingQuestionForSession)时拒绝插话(防被误收为
+  // 答案);②[用户插话] 前缀只能由服务端加,入参里的同名前缀先剥(伪造前缀中和,与 07 工具结果中和同精神)。
+  // Rejects (never crashes) when: no live turn / Claude 为 print 模式(无 stdin 通道)/ 提问挂起 / 队列(计数)满 3。
   if (req.method === 'POST' && pathname === '/api/steer') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId); // F4
-    const text = String(body.text || '').trim().slice(0, 2000); // 与 steer_node 的单条插话长度上限对齐
+    const text = String(body.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim(); // 与 steer_node 上限对齐 + 前缀中和
     if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
     if (!text) return send(res, apiFailure('request.field_required', { field: 'text' }, 'text is required', 400));
     const reg = activeChildren.get(sessionId);
     if (!reg) return send(res, json({ ok: false, error: '当前没有进行中的回合' }));
+    if (reg.kind === 'claude') {
+      // 47a Phase A:Claude interactive 引擎 —— stdin 即时注入,无迭代边界队列。
+      if (!reg.interactive) return send(res, json({ ok: false, error: 'Claude 引擎当前为 print 模式,不支持插话;设置 → Claude CLI → 引擎模式改为 interactive 后可用' }));
+      if (hasPendingQuestionForSession(sessionId)) return send(res, json({ ok: false, error: '请先回答当前提问,再插话(避免插话被误收为答案)' }));
+      reg.claudeSteerCount = Number(reg.claudeSteerCount) || 0;
+      if (reg.claudeSteerCount >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '本回合插话已达上限(3 条)' }));
+      const injected = writeToChild(sessionId, buildUserEnvelope('[用户插话] ' + text));
+      if (!injected) return send(res, json({ ok: false, error: '注入失败:子进程输入通道已关闭' }));
+      reg.claudeSteerCount += 1;
+      // 持久呈现(与 provider drain 同形):插话入会话正文 + steered 事件,静态重渲染可见、刷新不丢。
+      if (reg.session) {
+        reg.session.messages.push({ role: 'user', content: text, turnSeq: reg.session.turnSeq, steered: true, createdAt: nowIso() });
+        try { await saveSession(reg.session); } catch { /* best-effort(回合末还会保存) */ }
+      }
+      try { if (reg.onEvent) reg.onEvent({ type: 'steered', text }); } catch { /* stream gone */ }
+      logEvent({ kind: 'intervention', source: 'steer', sessionId }); // 29c
+      return send(res, json({ ok: true, injected: true }));
+    }
     if (reg.kind !== 'openai') return send(res, json({ ok: false, error: '仅 provider 引擎支持插话' }));
     if (!Array.isArray(reg.steerQueue)) reg.steerQueue = [];
     if (reg.steerQueue.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '插话队列已满' }));
@@ -17673,7 +17778,7 @@ async function startServer(opts) {
           body: JSON.stringify({ ok: true, version: VERSION, overlayId: OVERLAY_ID, launchMode: LAUNCH_MODE, uptimeSec: Math.round(process.uptime()) }) });
       }
       if (u.pathname.startsWith('/api/')) return await handleApi(req, res, u.pathname);
-      return send(res, await serveStatic(u.pathname));
+      return send(res, await serveStatic(u.pathname, req));
     } catch (err) {
       return sendError(res, err);
     }

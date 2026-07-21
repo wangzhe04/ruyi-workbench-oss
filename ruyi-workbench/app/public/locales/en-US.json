@@ -382,6 +382,8 @@
   "workflow.viewErrorAria": "View the error for node {{nodeId}}",
   "workflow.steer": "Steer",
   "workflow.steerAria": "Send an instruction to node {{nodeId}}",
+  "workflow.steerDeferred": "Steer (deferred)",
+  "workflow.steerDeferredAria": "Send a deferred instruction to node {{nodeId}} (applied downstream after the node finishes)",
   "agent.title": "Agents",
   "agent.taskPool": "Task pool",
   "agent.mailbox": "Agent mailbox",

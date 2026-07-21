@@ -7,8 +7,8 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   if (item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   const bridge = resolveBridge(bridged.route, targetName);
   if (!bridge) return toolCall(targetName, targetArgs || {});
-  const client = mcpClients.get(bridge.serverId);
-  if (!client || client.dead) return { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+  const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
+  if (!client) return { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
   const gateRefusal = bridgedOfficeScriptGate(targetName, targetArgs || {});
   if (gateRefusal) return gateRefusal;
   const relArg = bridgedWriteRelativePathArg(targetName, targetArgs || {});

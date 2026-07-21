@@ -183,11 +183,12 @@ const steer = (runId, sid, nodeId, text, hdr) => post(WP, `/api/agent-runs/${enc
     });
     ok(!!phase1, 'phase 1 reached: work running, later/claudenext/gate queued, run live');
 
-    // (c) Claude-engine node steer → 409 (single-shot -p process). Engine check precedes the status check, so
-    // even a `queued` Claude node (an otherwise-steerable status) is rejected purely on engine.
-    const cRes = await steer(runId, sid, 'claudenext', 'NOPE', hdr);
-    ok(cRes.status === 409 && cRes.body && cRes.body.ok === false && /Claude 引擎节点/.test(apiErrorMessage(cRes.body)),
-      '(c) steer on Claude-engine node → 409 with wording (got ' + cRes.status + ' / ' + apiErrorMessage(cRes.body) + ')');
+    // (c) Claude-engine node steer → 第47波47a 起接受为【延迟插话】(deferred:true,节点结束后注入下游),
+    // 不再 409。引擎分支先于状态分支,queued 的 Claude 节点同样走 deferred。延迟插话注入下游上下文的
+    // 全路径见 steering-claude.e2e.js D 段,此处锁 action 层的接受语义与响应字段。
+    const cRes = await steer(runId, sid, 'claudenext', 'CLAUDE_DEFERRED_MARK', hdr);
+    ok(cRes.status === 200 && cRes.body && cRes.body.ok === true && cRes.body.deferred === true,
+      '(c) steer on Claude-engine node → 200 deferred:true(47a 延迟插话语义) (got ' + cRes.status + ' / ' + JSON.stringify(cRes.body || {}) + ')');
 
     // (f) vote-gate node steer → 409 (aggregateAgentVote is a deterministic short-circuit in runAgentWorkflow —
     // it never calls runSubAgent, so there is no iteration boundary to ever drain a queued steer). `gate` is
