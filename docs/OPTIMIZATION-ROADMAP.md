@@ -940,3 +940,17 @@
 **量化目标复核**:摘要调用永不因自身超窗失败(预算化+动态截断)✅;超窗 400 不再终结回合(e2e B 段:回合 ok)✅;压缩后事实保留率 9/10 ≥ 80% ✅。
 
 **验证**:context-compact-v2.e2e 26 断言 + 全量套件 136 件全绿 / 0 known-fail。
+
+## 43. 后续迭代规划(2026-07-21 重基线)—— 指针与波次映射
+
+V2.0「立柱」规划(§37)的 41–45 波已全部交付(toolCall 表驱动 / 测试基建 / 构建期模块化 / 模型列表 API 化 / 压缩 v2)。**后续迭代规划以 `docs/optimization-plan/` 为准**(8 路只读分析产出,5 份文档:UI 现代化 / Steer / ACC·MCP / 提示词工作流 / 附加方向),本节只做波次映射与状态钉:
+
+- **第46波 · V2.0 封版**:§37.1 原"封版波"顺移至此——浏览器 DOM 冒烟 v1(兼 01 方案视觉回归门脚手架)、ACC fake-mcp 20 工具契约、编排盲区补测、unit/ 接 runner、CHANGELOG 封版、facts.json 起步。
+- **第47波 · 快赢波**:Steer Phase A(Claude 引擎对话 steer,02 方案)+ 桥 cancel/超时契约(03 Phase A)+ S1/S3 安全 + X2 overlay 载荷锁。
+- **第48波 · 地基波**:FE Phase 2 架构拆分(01 Step 1)+ 提示词护栏(04 Phase A)+ MCP 配置导入器 v1 + 性能 P1/P2/P5 + S2/R2/R3。
+- **第49波 · 生态工具波**:ACC 质量战役 + 新工具首批(edit_file/fetch/memory/sequential-thinking)+ 远程 MCP transport + A1 后端拆分 + E4 CI 扩展。
+- **第50波 · UI 视觉焕新波**:01 Step 0 收尾(UI-DESIGN-V4 定稿,v4-glass mockup 已产出)+ Step 2 毛玻璃铺层 + Step 3 视觉回归门/i18n 清零/a11y。
+- **第51波 · 提示词与工作流规范化波**:04 Phase B/C/D(外置 i18n / prefix-cache 稳定分层 / 语义 loop-guard / 规范文档)。
+- **第52波+ · 发布与范式**:overlay 更新 GUI、vNext「交办台」立项决策、产品扩展评估。
+
+依赖要点:47a 与 47b 共享 stdin/cancel 基础设施须同波;48 是 50/51 的硬前置(FE 架构→视觉焕新,提示词护栏→文本改动);49 先于 51(新工具的 description 需同步)。详见 optimization-plan/README.md §2。
