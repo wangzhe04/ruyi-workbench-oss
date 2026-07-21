@@ -619,6 +619,82 @@ function resolveExternalMcpServers(config) {
   return out;
 }
 
+// 48c: MCP 配置导入器 v1 -- 从 Claude Code .mcp.json / ~/.claude.json / Codex config.toml 导入(03 §4.1)。
+// 零依赖:JSON 直解;TOML 用行级状态机迷你 parser(只解 [mcp_servers.X] 段的 command/args/env/cwd,够 Codex 用)。
+// ${VAR}/%VAR% 双向插值(从 process.env,未定义保留原样)。sse/http 标 unsupported(远程 transport 03 §4.2 后续波)。
+function _expandMcpVar(s) {
+  return String(s == null ? '' : s)
+    .replace(/\$\{([A-Z_][A-Z0-9_]*)\}/gi, (_, n) => (process.env[n] != null ? String(process.env[n]) : '${' + n + '}'))
+    .replace(/%([A-Z_][A-Z0-9_]*)%/gi, (_, n) => (process.env[n] != null ? String(process.env[n]) : '%' + n + '%'));
+}
+function _parseTomlMcpServers(text) {
+  const out = [];
+  const lines = text.split(/\r?\n/);
+  let cur = null;
+  const unquote = v => { v = v.trim(); return /^["'].*["']$/.test(v) ? v.slice(1, -1) : v; };
+  for (const line of lines) {
+    const sec = line.match(/^\s*\[\s*mcp_servers\.([^\]\s]+)\s*\]\s*$/);
+    if (sec) { const id = sec[1].replace(/^["']|["']$/g, ''); cur = { id, label: id, type: 'stdio', command: '', args: [], env: {}, cwd: '' }; out.push(cur); continue; }
+    if (!cur) continue;
+    if (/^\s*\[/.test(line)) { cur = null; continue; } // 进入其它段,结束当前 mcp_servers 段
+    const km = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*$/);
+    if (!km) continue;
+    const k = km[1], v = km[2];
+    if (k === 'command') cur.command = unquote(v);
+    else if (k === 'cwd') cur.cwd = unquote(v);
+    else if (k === 'args') {
+      const arr = v.match(/^\[(.*)\]$/s);
+      if (arr) cur.args = [...arr[1].matchAll(/"([^"]*)"|'([^']*)'/g)].map(m => m[1] != null ? m[1] : m[2]);
+    } else if (k === 'env') {
+      const tbl = v.match(/^\{(.*)\}$/s);
+      if (tbl) for (const e of tbl[1].matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"/g)) cur.env[e[1]] = e[2];
+    }
+  }
+  return out.filter(s => s.command);
+}
+// 解析单个 MCP 配置文件。返回 { servers, error? }。从不抛(缺失/格式错 -> error,供 UI 明示)。
+function parseMcpConfigFile(filePath) {
+  let text;
+  try { text = fs.readFileSync(filePath, 'utf8'); } catch (e) { return { servers: [], error: '读失败: ' + (e.code === 'ENOENT' ? '文件不存在' : e.message) }; }
+  if (text.length > 256 * 1024) return { servers: [], error: '文件过大(>256KB,跳过)' };
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith('.json')) {
+    let j; try { j = JSON.parse(text); } catch (e) { return { servers: [], error: 'JSON 解析失败: ' + e.message }; }
+    const ms = (j && j.mcpServers && typeof j.mcpServers === 'object') ? j.mcpServers : null;
+    if (!ms) return { servers: [], error: '未找到 mcpServers 字段' };
+    const servers = [];
+    for (const [id, raw] of Object.entries(ms)) {
+      if (!raw || typeof raw !== 'object') continue;
+      const type = String(raw.type || 'stdio').toLowerCase();
+      // 48c:解析即插值规范化(${VAR}/%VAR%),apply 拿到的已是终值。
+      const srv = { id: String(id), label: String(id), type, command: _expandMcpVar(String(raw.command || '')), args: Array.isArray(raw.args) ? raw.args.map(a => _expandMcpVar(String(a))) : [], env: {}, cwd: _expandMcpVar(String(raw.cwd || '')) };
+      if (raw.env && typeof raw.env === 'object') for (const [k, v] of Object.entries(raw.env)) srv.env[k] = _expandMcpVar(String(v));
+      if (type === 'sse' || type === 'http') { srv.url = String(raw.url || ''); srv.unsupported = '远程 transport(sse/http) 暂不支持,后续波落地'; }
+      servers.push(srv);
+    }
+    return { servers };
+  }
+  if (lower.endsWith('.toml') || /\[mcp_servers\./.test(text)) {
+    return { servers: _parseTomlMcpServers(text).map(s => ({ ...s, command: _expandMcpVar(s.command), args: s.args.map(_expandMcpVar), env: Object.fromEntries(Object.entries(s.env).map(([k, v]) => [k, _expandMcpVar(v)])), cwd: _expandMcpVar(s.cwd) })) };
+  }
+  return { servers: [], error: '未知格式(需 .json 含 mcpServers,或 .toml 含 [mcp_servers.X])' };
+}
+// 扫描多个源文件,插值 + 标冲突。返回 { servers, errors }。servers 每条带 source + conflict(撞 config 已有 id)。
+async function scanMcpSources(filePaths, config) {
+  const servers = [], errors = [];
+  const existingIds = new Set((Array.isArray(config && config.externalMcpServers) ? config.externalMcpServers : []).map(s => s && s.id).filter(Boolean));
+  for (const fp of filePaths) {
+    const r = parseMcpConfigFile(fp);
+    for (const s of r.servers) {
+      s.source = fp;
+      s.conflict = existingIds.has(s.id);
+      servers.push(s);
+    }
+    if (r.error) errors.push({ path: fp, error: r.error });
+  }
+  return { servers, errors };
+}
+
 function safeMcpInventory(config) {
   return resolveExternalMcpServers(config).map(entry => ({
     id: entry.id, label: entry.label || entry.id, command: entry.command, args: entry.args || [],

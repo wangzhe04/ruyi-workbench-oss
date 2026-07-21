@@ -1144,6 +1144,45 @@ async function handleApi(req, res, pathname) {
     const serverEcho = { ...cleaned, env: maskedEnv };
     return send(res, json({ ok: true, ...(updated ? { updated: true } : { added: true }), server: serverEcho }));
   }
+  // 48c: MCP 配置导入器 v1 -- 从 Claude Code / Codex 配置导入(03 §4.1)。两步:scan(发现+冲突检测) -> apply(勾选写回)。
+  //   POST /api/mcp/import-config/scan { paths?: [...] }  -- paths 缺省自动发现 ~/.claude.json + ~/.codex/config.toml
+  //   POST /api/mcp/import-config/apply { servers: [{id,label,command,args,env,cwd}] }  -- 只导 stdio(unsupported 跳过),id 撞名更新,≤10 上限
+  if (req.method === 'POST' && pathname === '/api/mcp/import-config/scan') {
+    const body = await readJsonBody(req);
+    const config = await readConfig();
+    let paths = Array.isArray(body && body.paths) ? body.paths.map(p => String(p || '').trim()).filter(Boolean) : null;
+    if (!paths || !paths.length) {
+      // 自动发现:用户级 ~/.claude.json(Claude Code 全局)+ ~/.codex/config.toml(Codex 全局)。项目级 .mcp.json 由用户显式传 path。
+      paths = [path.join(os.homedir(), '.claude.json'), path.join(os.homedir(), '.codex', 'config.toml')];
+    }
+    const { servers, errors } = await scanMcpSources(paths, config);
+    logEvent({ kind: 'mcp_import_scan', sources: paths.length, found: servers.length, errors: errors.length });
+    return send(res, json({ ok: true, servers, errors, scanned: paths }));
+  }
+  if (req.method === 'POST' && pathname === '/api/mcp/import-config/apply') {
+    const body = await readJsonBody(req);
+    const config = await readConfig();
+    const incoming = Array.isArray(body && body.servers) ? body.servers : [];
+    const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
+    const added = [], updated = [], skipped = [];
+    for (const raw of incoming) {
+      // 48c 对抗修:先按 type 跳过 sse/http(它们 command 常为空,sanitize 会判"无效条目"语义不准),再 sanitize stdio。
+      if (raw && (raw.type === 'sse' || raw.type === 'http')) { skipped.push({ id: String(raw && raw.id || ''), reason: '远程 transport(sse/http) 暂不支持' }); continue; }
+      const srv = sanitizeExternalMcpServer(raw); // 复用 import-folder 同款清洗(stdio:需 id+command)
+      if (!srv) { skipped.push({ id: String(raw && raw.id || ''), reason: '无效条目(缺 id/command)' }); continue; }
+      const idx = list.findIndex(s => s && s.id === srv.id);
+      if (idx >= 0) { list[idx] = srv; updated.push(srv.id); }
+      else {
+        if (list.length >= 10) { skipped.push({ id: srv.id, reason: '外部 MCP 数量已达上限(10)' }); continue; }
+        list.push(srv); added.push(srv.id);
+      }
+    }
+    if (!added.length && !updated.length) return send(res, json({ ok: false, error: '没有可导入的条目', skipped }));
+    const next = await writeConfig({ ...config, externalMcpServers: list });
+    await generateMcpConfig(next.mcpCommandMode).catch(() => {});
+    logEvent({ kind: 'mcp_import', ids: [...added, ...updated], added: added.length, updated: updated.length, source: 'import-config' });
+    return send(res, json({ ok: true, added, updated, skipped }));
+  }
   // v0.9-S8 (§4 B4): 审计中心 — merged read-only timeline of workbench NDJSON logs + desktop MCP audit_tail.
   // GET /api/audit?limit=&source=&type= . This is a GET, so it NEVER runs through the mutating auth block;
   // the token gate MUST be applied HERE in the handler (the S0 lesson — same as /api/checkpoints & preview).

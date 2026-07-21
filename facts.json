@@ -6,12 +6,12 @@
     "accTools": "ACC 活注册表 list_tools 数(venv 探针;CI acc-smoke 对账)。",
     "e2eCount": "dev-harness/*.e2e.js 总件数(含 live 跳过件)。"
   },
-  "generatedAt": "2026-07-21T09:00:01.564Z",
+  "generatedAt": "2026-07-21T10:38:57.872Z",
   "workbenchVersion": "2.0.0",
   "accVersion": "1.8.3",
   "nativeTools": 50,
   "accTools": 100,
-  "e2eCount": 150,
+  "e2eCount": 153,
   "e2eLiveSkipped": 6,
   "unitSuites": 5,
   "accSmokes": 11

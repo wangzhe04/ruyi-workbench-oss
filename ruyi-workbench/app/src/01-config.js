@@ -586,6 +586,12 @@ async function writeConfigAtomic(data) {
   configWriteChain = thisWrite;
   await thisWrite;
 }
+// 48b(P1) readConfig 内存缓存 -- 经对抗验证【回退】。根因:5 件 e2e(usage-ledger/skills-registry/
+// workbench-memory/vision-loop/subagent)直接 fs 写 config.json 切换 provider/配置,依赖 readConfig 每次
+// 读盘拾取(usage-ledger:137 注释明述"readConfig is uncached -> picked up");缓存让这些直接写不可见。
+// 生产环境 config 变更走 POST /api/config(writeConfig 可失效缓存)故缓存对生产正确,但测试直接写是合法
+// 提速捷径,且 mutate 别名隐患(structuredClone 仅治标),perf 收益(小 config + OS 已缓存磁盘读)不抵
+// 5 件回归 + 风险。05 方案 P1 留作后续:若重做须先把 e2e 改用 POST /api/config(镜像生产)或加 mtime 失效。
 async function readConfig() {
   await ensureDirs();
   let raw = null;
@@ -1452,6 +1458,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/checkpoints/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/file/reveal', auth: 'token' },
   { m: 'POST', p: '/api/mcp/import-folder', auth: 'token' },
+  // 48c:MCP 配置导入器(scan 发现+冲突检测 / apply 勾选写回),token 级同 import-folder。
+  { m: 'POST', p: '/api/mcp/import-config/scan', auth: 'token' },
+  { m: 'POST', p: '/api/mcp/import-config/apply', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
   { m: 'POST', p: '/api/playbooks', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/', auth: 'token', prefix: true },

@@ -947,10 +947,10 @@ V2.0「立柱」规划(§37)的 41–45 波已全部交付(toolCall 表驱动 / 
 
 - **第46波 · V2.0 封版**:§37.1 原"封版波"顺移至此——浏览器 DOM 冒烟 v1(兼 01 方案视觉回归门脚手架)、ACC fake-mcp 20 工具契约、编排盲区补测、unit/ 接 runner、CHANGELOG 封版、facts.json 起步。
 - **第47波 · 快赢波**:Steer Phase A(Claude 引擎对话 steer,02 方案)+ 桥 cancel/超时契约(03 Phase A)+ S1/S3 安全 + X2 overlay 载荷锁。
-- **第48波 · 地基波**:FE Phase 2 架构拆分(01 Step 1)+ 提示词护栏(04 Phase A)+ MCP 配置导入器 v1 + 性能 P1/P2/P5 + S2/R2/R3。
+- **第48波 · 地基波**:提示词护栏(04 Phase A:快照测试+落盘断言扩展+A/B 夹具骨架+预算断言)+ MCP 配置导入器 v1(03 §4.1:.mcp.json/config.toml 导入+冲突降级)+ 性能 P2(verifyManifest mtime 快路径);P1 readConfig 缓存经对抗验证回退(5 件 e2e 依赖 uncached)+ FE 拆分契约铺路(dom-contract data-testid 升级,01 Step 1 验收#5);**FE 全量拆分(01 Step 1,app.js 8175->3000 行)随 50 波视觉焕新同步推进**(01 方案自定 1-2 波,单轮实拆风险高于价值--48d 只立 testid 契约为 50 波重构铺路)。P5 端口迁移 46 波已做 103/150,余件随改动域顺手迁。
 - **第49波 · 生态工具波**:ACC 质量战役 + 新工具首批(edit_file/fetch/memory/sequential-thinking)+ 远程 MCP transport + A1 后端拆分 + E4 CI 扩展。
-- **第50波 · UI 视觉焕新波**:01 Step 0 收尾(UI-DESIGN-V4 定稿,v4-glass mockup 已产出)+ Step 2 毛玻璃铺层 + Step 3 视觉回归门/i18n 清零/a11y。
-- **第51波 · 提示词与工作流规范化波**:04 Phase B/C/D(外置 i18n / prefix-cache 稳定分层 / 语义 loop-guard / 规范文档)。
+- **第50波 · UI 视觉焕新波**:01 Step 0 收尾(UI-DESIGN-V4 定稿,v4-glass mockup 已产出)+ Step 1 FE 全量拆分收尾 + Step 2 毛玻璃铺层 + Step 3 视觉回归门/i18n 清零/a11y + **02 Phase D 插话队列可视化/插话卡静态重渲染**(前端呈现同域,47 波未做项并入)。
+- **第51波 · 提示词与工作流规范化波**:04 Phase B/C/D(外置 i18n / prefix-cache 稳定分层 / 语义 loop-guard / 规范文档) + **02 Phase B 打断语义(Codex 级批次边界中断,与语义 loop-guard 同域,47 波未做项并入)**。
 - **第52波+ · 发布与范式**:overlay 更新 GUI、vNext「交办台」立项决策、产品扩展评估。
 
 依赖要点:47a 与 47b 共享 stdin/cancel 基础设施须同波;48 是 50/51 的硬前置(FE 架构→视觉焕新,提示词护栏→文本改动);49 先于 51(新工具的 description 需同步)。详见 optimization-plan/README.md §2。
@@ -992,3 +992,27 @@ V2.0「立柱」规划(§37)的 41–45 波已全部交付(toolCall 表驱动 / 
 **验证**:全部亲跑--auth/steer/bridge 家族 10 件全绿;dom-smoke 真实浏览器全绿;facts 静态锁全绿(e2e 146->150,4 新件);全量并行 4 路跑(完成态见提交)。
 
 **未做(留后续波)**:Phase B 打断语义(Codex 级"立即生效"批次边界中断,02 方案);Phase D 插话队列可视化/插话卡静态重渲染;S2 token 持久化策略(sessionStorage 关标签页即失效是刻意的--每次启动重新握手,token 不长留);CSP 收紧('unsafe-inline' -> hash);README/ARCHITECTURE 引擎能力表同步"双引擎 steer"(列第50波文档刷新)。
+
+## 46. 第48波:地基波 -- 提示词护栏 + MCP 导入器 + 性能 P1/P2 + FE testid 契约
+
+封版后第二个功能波(02 Phase B/D 已补排进 50/51 波)。四件交付,为 50/51 铺路。
+
+- **48a 提示词护栏(04 Phase A)**:"先护栏后文本"--51 波任何提示词改动过评测才合入。
+  - **分层快照测试** `prompt-snapshot.static.e2e.js`(20 断言):buildProviderSystemPrompt 在固定假配置下的输出逐层断言(身份/工具协议/能力/skills/mission/provider 各层关键标记)+ identityOnly/无工具/mission 分支 + 总长闸 + skill-index 围栏闭合。快照即"改动清单自动生成器"--任何提示词 diff 体现为快照更新,review 可见。
+  - **A/B 评测夹具骨架** `dev-harness/prompt-benchmark/`(README + seeds.json):04 点名 5 类(tool-protocol/read-before-write/office-ban/loop-self-rescue/plan-trigger),pass_criteria 机械可判(工具子集/序列/关键词),运行器留 51 波填实。
+  - **预算断言**:总长闸(800<len<12000 最小配置)+ 技能索引 3000 字上限静态锁。
+  - **capture 现状**:压缩(context-compact-v2)/playbook 已用 FAKE_CAPTURE_DIR;质量门/JSON修复随 51 波补断言(fake-openai 全捕获,机制已在)。
+- **48b 性能 P1(回退)/P2**:
+  - **P1 readConfig 内存缓存 -- 经对抗验证【回退】**:实现 `_configCache` + writeConfigAtomic 单点失效 + structuredClone 防 mutate 别名。但对抗验证擒获:5 件 e2e(usage-ledger/skills-registry/workbench-memory/vision-loop/subagent)直接 fs 写 config.json 切换 provider/配置,依赖 readConfig 每次读盘(usage-ledger:137 注释明述"readConfig is uncached -> picked up");缓存让这些直接写不可见。生产环境 config 变更走 POST /api/config(writeConfig 可失效)故缓存对生产正确,但测试直接写是合法提速捷径,且 mutate 别名隐患,perf 收益(小 config + OS 已缓存磁盘读)不抵 5 件回归 + 风险。**回退至原 readConfig,留 01-config.js 注释说明重做前提**(e2e 改用 POST /api/config 镜像生产,或加 mtime 失效)。这是 48 波对抗验证的核心收获--"缓存正确性 ≠ 缓存安全",测试对 uncached 的依赖是隐性契约。
+  - **P2 verifyManifest mtime+size 快路径(保留)**:`_maniCache` 按文件 mtime/size 未变跳过 SHA-256(经 computeHealth->/api/status 每轮全 hash 是纯浪费)+ 60s forceFull 全量校验(mtime 伪造防御)+ manifest.version 变更失效(新 overlay 落地重算)。无测试依赖 uncached manifest,安全保留。
+  - **验证** `perf-config-cache.e2e.js`(P1 回退锁 + P2 5 静态/3 行为锁)全绿;5 件回归 e2e 回归全绿。
+- **48c MCP 配置导入器 v1(03 §4.1)**:从 Claude Code .mcp.json / ~/.claude.json / Codex config.toml 导入(此前只有出口 generateMcpConfig,无入口)。
+  - **解析器**(04-permission-runtime.js):JSON 直解 mcpServers 字典;TOML 行级状态机迷你 parser([mcp_servers.X] 段 + command/args/env/cwd,零依赖);${VAR}/%VAR% 双向插值(解析即规范化);sse/http 标 unsupported(远程 transport 03 §4.2 后续波,不静默丢)。
+  - **两步 handler**:scan(发现+冲突检测,paths 缺省自动发现 ~/.claude.json + ~/.codex/config.toml)/ apply(只导 stdio,id 撞名更新,≤10 上限,复用 sanitizeExternalMcpServer 清洗)。
+  - **对抗修**:apply 先按 type 跳 sse/http(sanitize 前,sse command 空否则误判"无效条目"),再 sanitize stdio。
+  - **验证** `mcp-import-config.e2e.js`(12 解析器单测 + 3 静态锁 + 8 HTTP 全路径)全绿;解析器 export 供 e2e 直测 TOML 边角。
+- **48d FE 拆分契约铺路(01 Step 1 验收#5)**:index.html 13 个关键静态节点加 data-testid(与 id 同值,零视觉变化);dom-smoke 升级 B5 断言 testid 语义契约。为 50 波 FE 全量拆分铺路(重构时断言不绑死文本/结构)。**workbench 一域实拆随 50 波**(01 方案自定 1-2 波,app.js 8175->3000 行非单轮可竟,单函数抽取不具代表性且有破坏风险)。
+
+**对抗验证(用户要求查 bug)**:**P1 readConfig 缓存引入 5 件回归--对抗验证擒获并回退**。全量跑暴露 usage-ledger/skills-registry/workbench-memory/vision-loop/subagent 5 件 fail;bisect(stash 48 源码)确认 47 基线全绿、48 引入;根因:5 件 e2e 直接 fs 写 config.json 切换 provider,依赖 readConfig 每次读盘(usage-ledger:137 注释明述),缓存让直接写不可见;structuredClone 仅治 mutate 别名标症不治本。裁决回退 P1,保留 P2(无测试依赖 uncached manifest)。教训:"缓存对生产正确"≠"缓存安全"--测试对 uncached 的依赖是隐性契约,破它即回归。其余核查:P2 mtime 快路径 forceFull+version 失效兜底;48c TOML regex 路径逃逸/malformed 不崩;48d testid 不破坏 overlay 载荷锁。回归:5 件回归件 + auth-deny-default/mcp-config/mcp-bridge/capabilities/perm-v2/context-compact-v2/agent-quality-gates/overlay-payload-lock 全绿。
+
+**未做(留后续波)**:FE 全量拆分(01 Step 1,50 波);提示词外置/i18n/缓存分层(04 Phase B/C,51 波);A/B 运行器填实(51 波);远程 MCP transport(03 §4.2,49 波);质量门/JSON修复 capture 断言(51 波)。

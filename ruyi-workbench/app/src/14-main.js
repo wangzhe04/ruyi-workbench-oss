@@ -110,6 +110,9 @@ module.exports = {
   cwdWarning,
   defaultConfig,
   sanitizeExternalMcpServer,
+  // 48c: MCP 配置导入器解析器(e2e 直测 TOML/JSON 边角)。
+  parseMcpConfigFile,
+  scanMcpSources,
   // v0.8-S6: capability matrix + layered prompt + error枚举 (exposed for e2e + UI).
   getCapabilities,
   invalidateCapabilityCache,

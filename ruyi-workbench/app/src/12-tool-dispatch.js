@@ -797,26 +797,41 @@ async function toolCall(name, args = {}, ctx = null) {
 
 let LAUNCH_MODE = 'unknown';
 
+// 48b(P2):overlay 清单校验缓存。verifyManifest 经 computeHealth -> /api/status 被前端轮询,旧实现每轮全文件
+// SHA-256 是纯浪费。mtime+size 快路径:文件未变则复用上次算的 sha,跳过读盘+hash;60s 强制全量校验防
+// mtime 伪造/同 mtime 异内容边角。缓存按 manifest.version 失效(新 overlay 落地即重算)。
+let _maniCache = null; // { version, files: Map(full->{sha,mtime,size}), lastFullAt, result }
+const MANIFEST_FULL_VERIFY_MS = 60000;
 async function verifyManifest() {
   const manifestPath = path.join(externalRoot(), 'update-manifest.json');
-  if (!fs.existsSync(manifestPath)) return { present: false };
+  if (!fs.existsSync(manifestPath)) { _maniCache = null; return { present: false }; }
   try {
     const manifest = JSON.parse(await fsp.readFile(manifestPath, 'utf8'));
     const base = path.normalize(externalRoot());
     const mismatches = [];
+    const newFiles = new Map();
+    const forceFull = !_maniCache || _maniCache.version !== manifest.version
+      || (Date.now() - (_maniCache.lastFullAt || 0)) > MANIFEST_FULL_VERIFY_MS;
     for (const entry of manifest.files || []) {
       const full = path.normalize(path.join(base, entry.path));
       if (!full.startsWith(base)) { mismatches.push({ path: entry.path, reason: 'path-escape' }); continue; }
       try {
-        const buf = await fsp.readFile(full);
-        const sha = crypto.createHash('sha256').update(buf).digest('hex');
+        const st = await fsp.stat(full);
+        const prev = _maniCache && _maniCache.files.get(full);
+        // 快路径:非强制全量 + 文件 mtime/size 未变 + 缓存 sha 存在 -> 复用,跳过读盘+hash。
+        const canSkip = !forceFull && prev && prev.mtime === st.mtimeMs && prev.size === st.size && prev.sha;
+        const sha = canSkip ? prev.sha : crypto.createHash('sha256').update(await fsp.readFile(full)).digest('hex');
+        newFiles.set(full, { sha, mtime: st.mtimeMs, size: st.size });
         if (sha !== entry.sha256) mismatches.push({ path: entry.path, reason: 'hash' });
       } catch {
         mismatches.push({ path: entry.path, reason: 'missing' });
       }
     }
-    return { present: true, version: manifest.version, overlay: manifest.overlay, ok: mismatches.length === 0, mismatches };
+    const result = { present: true, version: manifest.version, overlay: manifest.overlay, ok: mismatches.length === 0, mismatches };
+    _maniCache = { version: manifest.version, files: newFiles, lastFullAt: Date.now(), result };
+    return result;
   } catch (e) {
+    _maniCache = null;
     return { present: true, ok: false, error: e.message };
   }
 }

@@ -90,6 +90,11 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
       for (const id of ['sidebar', 'sessionList', 'messages', 'promptInput', 'sendBtn', 'modelChip', 'workflowEditorBtn', 'newSessionBtn']) {
         ok(dom.includes('id="' + id + '"'), 'B4 结构节点 #' + id + ' 在渲染后 DOM 中');
       }
+      // 48d(01 Step 1 验收#5): data-testid 语义契约--为 50 波 FE 全量拆分铺路(重构时断言不绑死文本/结构)。
+      // testid 与 id 同值,零视觉变化;断言 testid 存在 = 解放后续搬家被文本级断言绑死。
+      for (const tid of ['sidebar', 'messages', 'promptInput', 'sendBtn', 'modelChip', 'workflowEditorBtn']) {
+        ok(dom.includes('data-testid="' + tid + '"'), 'B5 data-testid="' + tid + '" 语义契约在(50 波拆分重构锚点)');
+      }
       // C 段: JS 真启动 —— modelChip title 是 app.js 拉 /api/status 后渲染的,静态 HTML 里没有。
       const chip = dom.match(/id="modelChip"[^>]*title="([^"]*)"/);
       ok(!!chip && /Claude CLI/.test(chip[1]), 'C1 modelChip 已按 /api/status 渲染引擎标签(title="' + (chip && chip[1]) + '") = JS boot + API + 渲染全活');

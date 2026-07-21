@@ -45,7 +45,7 @@
   <body>
     <div class="app-shell">
       <!-- ============ SIDEBAR ============ -->
-      <aside class="sidebar" id="sidebar">
+      <aside class="sidebar" id="sidebar" data-testid="sidebar">
         <div class="brand">
           <!-- v0.8-S8 品牌主标(如意 Ruyi 简化标,~22px)。颜色走 CSS 变量 --brand-qh/--brand-au 随主题切换。 -->
           <div class="brand-mark" aria-hidden="true">
@@ -61,16 +61,16 @@
             <h1 data-i18n="brand.name">如意 Ruyi</h1>
             <p id="statusLine" data-i18n="status.connecting">正在连接本地服务…</p>
           </div>
-          <button id="collapseSidebarBtn" class="icon-btn" title="折叠侧栏" aria-label="折叠侧栏" data-i18n-attr="title:navigation.collapseSidebar;aria-label:navigation.collapseSidebar" data-icon="collapse"></button>
+          <button id="collapseSidebarBtn" class="icon-btn" title="折叠侧栏" aria-label="折叠侧栏" data-i18n-attr="title:navigation.collapseSidebar;aria-label:navigation.collapseSidebar" data-icon="collapse" data-testid="collapseSidebarBtn"></button>
         </div>
 
-        <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus"><span data-i18n="session.new">新会话</span></button>
+        <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus" data-testid="newSessionBtn"><span data-i18n="session.new">新会话</span></button>
 
         <div class="search-wrap">
           <input id="sessionSearch" type="search" placeholder="搜索会话…" data-i18n-attr="placeholder:session.search" autocomplete="off" />
         </div>
 
-        <div id="sessionList" class="session-list"></div>
+        <div id="sessionList" class="session-list" data-testid="sessionList"></div>
 
         <div class="sidebar-foot">
           <button id="bulkCleanupBtn" class="ghost btn-ic" data-icon="trash"><span data-i18n="session.bulkCleanup">清理历史</span></button>
@@ -105,14 +105,14 @@
             <!-- v1.0-S2 (IA): 安全 chip（原顶栏「权限 select」收敛为 shield 心智）。显示当前档人话短名；
                  点击开安全弹层（四档单选卡）。#permSelect 保留在 DOM 内(移入 #permSelectHost，平时 hidden；
                  弹层复用它的 change handler，专家模式在弹层内可见作为原始下拉)。 -->
-            <button id="permChip" class="perm-chip" aria-haspopup="dialog" title="安全 / 权限（点击设置）" data-i18n-attr="title:permission.mode.initialChipTitle">
+            <button id="permChip" class="perm-chip" aria-haspopup="dialog" title="安全 / 权限（点击设置）" data-i18n-attr="title:permission.mode.initialChipTitle" data-testid="permChip">
               <span class="pc-icon" aria-hidden="true" data-icon="shield" data-icon-size="15"></span>
               <span class="pc-name" data-i18n="permission.everyStep">每步都问</span>
             </button>
             <div id="permSelectHost" class="perm-select-host hidden">
               <select id="permSelect"></select>
             </div>
-            <button id="modelChip" class="model-chip" aria-haspopup="listbox" title="引擎与模型（点击切换）">
+            <button id="modelChip" class="model-chip" aria-haspopup="listbox" title="引擎与模型（点击切换）" data-testid="modelChip">
               <span class="mc-dot idle"></span>
               <span class="mc-engine">Claude CLI</span>
               <span class="mc-model">默认</span>
@@ -157,7 +157,7 @@
 
         <!-- 第27波:自主性授权书抽屉。默认隐藏,有活动授权或用户展开时显示。授权书 = 现有权限的严格子集缓存,
              只把范围内的 ask 弹窗就地降为 allow;签发唯 header token,exec 纯内存进程重启即清。 -->
-        <div id="autonomyBar" class="autonomy-bar hidden" role="region" aria-label="自主性授权书">
+        <div id="autonomyBar" class="autonomy-bar hidden" role="region" aria-label="自主性授权书" data-testid="autonomyBar">
           <div class="autonomy-bar-head">
             <span class="autonomy-bar-icon" aria-hidden="true">🎟️</span>
             <span class="autonomy-bar-title">自主性授权书</span>
@@ -228,7 +228,7 @@
           <ul id="stepBarList" class="step-bar-list hidden"></ul>
         </div>
 
-        <section id="messages" class="messages">
+        <section id="messages" class="messages" data-testid="messages">
           <div class="empty-state" id="emptyState">
             <!-- v1.0-S1: 如意 Ruyi 主标(48px),复用 .brand-mark 的路径/填色/viewBox,随主题走 --brand-* 变量。 -->
             <div class="empty-logo" aria-hidden="true">
@@ -253,17 +253,17 @@
           <div id="resumeBanner" class="resume-banner hidden"></div>
           <div id="attachmentTray" class="attachment-tray"></div>
           <div class="composer-box">
-            <textarea id="promptInput" rows="1" placeholder="描述你要做的事…（Enter 发送，Shift+Enter 换行）" data-i18n-attr="placeholder:chat.placeholder"></textarea>
+            <textarea id="promptInput" rows="1" placeholder="描述你要做的事…（Enter 发送，Shift+Enter 换行）" data-i18n-attr="placeholder:chat.placeholder" data-testid="promptInput"></textarea>
             <div class="composer-actions">
-              <button id="composerMoreBtn" class="file-label btn-ic" title="更多" aria-label="更多操作" aria-haspopup="menu" data-i18n-attr="title:common.more;aria-label:common.more" data-icon="plus"></button>
-              <button id="agentTeamBtn" class="file-label agent-team-btn" type="button" aria-pressed="false" title="Agent 团队" aria-label="Agent 团队"></button>
+              <button id="composerMoreBtn" class="file-label btn-ic" title="更多" aria-label="更多操作" aria-haspopup="menu" data-i18n-attr="title:common.more;aria-label:common.more" data-icon="plus" data-testid="composerMoreBtn"></button>
+              <button id="agentTeamBtn" class="file-label agent-team-btn" type="button" aria-pressed="false" title="Agent 团队" aria-label="Agent 团队" data-testid="agentTeamBtn"></button>
               <button id="skillBtn" class="file-label btn-ic" title="技能库：启用技能 / 命令 / 一键任务 (/)" aria-label="技能库" data-i18n-attr="title:skills.button.title;aria-label:skills.title"></button>
               <label class="file-label composer-file btn-ic" title="添加文件" data-icon="paperclip">
                 <input id="fileInput" type="file" multiple />
               </label>
               <span class="composer-spacer"></span>
               <span id="composerHint" class="composer-hint"></span>
-              <button id="sendBtn" class="primary btn-ic" data-icon="send">发送</button>
+              <button id="sendBtn" class="primary btn-ic" data-icon="send" data-testid="sendBtn">发送</button>
             </div>
           </div>
           <!-- v1.0-S2 (IA): #compactBtn 移出 .composer-actions（composer 减负）→ 入上下文用量弹层的「立即压缩」。
@@ -376,7 +376,7 @@
         <section class="tool-section" id="tab-agent-runs">
           <div class="debug-head">
             <label data-i18n="workflow.title">Agent 工作流</label>
-            <div class="row-actions"><button id="workflowEditorBtn" class="mini primary">新建 / 编辑</button><button id="agentRunsRefreshBtn" class="mini">刷新</button></div>
+            <div class="row-actions"><button id="workflowEditorBtn" class="mini primary" data-testid="workflowEditorBtn">新建 / 编辑</button><button id="agentRunsRefreshBtn" class="mini">刷新</button></div>
           </div>
           <!-- v3 (§B2): 简易模式「AI 工作」聚合入口 —— 顶部两个 mini 链接切到隐藏的「用量 / 审计」页签
                (专家模式它们是常驻页签;本行由 CSS 仅在简易模式显示)。switchTab 不拦这两个 tab,点击即切。 -->

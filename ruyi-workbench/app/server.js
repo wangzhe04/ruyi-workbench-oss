@@ -983,6 +983,12 @@ async function writeConfigAtomic(data) {
   configWriteChain = thisWrite;
   await thisWrite;
 }
+// 48b(P1) readConfig 内存缓存 -- 经对抗验证【回退】。根因:5 件 e2e(usage-ledger/skills-registry/
+// workbench-memory/vision-loop/subagent)直接 fs 写 config.json 切换 provider/配置,依赖 readConfig 每次
+// 读盘拾取(usage-ledger:137 注释明述"readConfig is uncached -> picked up");缓存让这些直接写不可见。
+// 生产环境 config 变更走 POST /api/config(writeConfig 可失效缓存)故缓存对生产正确,但测试直接写是合法
+// 提速捷径,且 mutate 别名隐患(structuredClone 仅治标),perf 收益(小 config + OS 已缓存磁盘读)不抵
+// 5 件回归 + 风险。05 方案 P1 留作后续:若重做须先把 e2e 改用 POST /api/config(镜像生产)或加 mtime 失效。
 async function readConfig() {
   await ensureDirs();
   let raw = null;
@@ -1849,6 +1855,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/checkpoints/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/file/reveal', auth: 'token' },
   { m: 'POST', p: '/api/mcp/import-folder', auth: 'token' },
+  // 48c:MCP 配置导入器(scan 发现+冲突检测 / apply 勾选写回),token 级同 import-folder。
+  { m: 'POST', p: '/api/mcp/import-config/scan', auth: 'token' },
+  { m: 'POST', p: '/api/mcp/import-config/apply', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
   { m: 'POST', p: '/api/playbooks', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/', auth: 'token', prefix: true },
@@ -4640,6 +4649,82 @@ function resolveExternalMcpServers(config) {
     }
   }
   return out;
+}
+
+// 48c: MCP 配置导入器 v1 -- 从 Claude Code .mcp.json / ~/.claude.json / Codex config.toml 导入(03 §4.1)。
+// 零依赖:JSON 直解;TOML 用行级状态机迷你 parser(只解 [mcp_servers.X] 段的 command/args/env/cwd,够 Codex 用)。
+// ${VAR}/%VAR% 双向插值(从 process.env,未定义保留原样)。sse/http 标 unsupported(远程 transport 03 §4.2 后续波)。
+function _expandMcpVar(s) {
+  return String(s == null ? '' : s)
+    .replace(/\$\{([A-Z_][A-Z0-9_]*)\}/gi, (_, n) => (process.env[n] != null ? String(process.env[n]) : '${' + n + '}'))
+    .replace(/%([A-Z_][A-Z0-9_]*)%/gi, (_, n) => (process.env[n] != null ? String(process.env[n]) : '%' + n + '%'));
+}
+function _parseTomlMcpServers(text) {
+  const out = [];
+  const lines = text.split(/\r?\n/);
+  let cur = null;
+  const unquote = v => { v = v.trim(); return /^["'].*["']$/.test(v) ? v.slice(1, -1) : v; };
+  for (const line of lines) {
+    const sec = line.match(/^\s*\[\s*mcp_servers\.([^\]\s]+)\s*\]\s*$/);
+    if (sec) { const id = sec[1].replace(/^["']|["']$/g, ''); cur = { id, label: id, type: 'stdio', command: '', args: [], env: {}, cwd: '' }; out.push(cur); continue; }
+    if (!cur) continue;
+    if (/^\s*\[/.test(line)) { cur = null; continue; } // 进入其它段,结束当前 mcp_servers 段
+    const km = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*$/);
+    if (!km) continue;
+    const k = km[1], v = km[2];
+    if (k === 'command') cur.command = unquote(v);
+    else if (k === 'cwd') cur.cwd = unquote(v);
+    else if (k === 'args') {
+      const arr = v.match(/^\[(.*)\]$/s);
+      if (arr) cur.args = [...arr[1].matchAll(/"([^"]*)"|'([^']*)'/g)].map(m => m[1] != null ? m[1] : m[2]);
+    } else if (k === 'env') {
+      const tbl = v.match(/^\{(.*)\}$/s);
+      if (tbl) for (const e of tbl[1].matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"/g)) cur.env[e[1]] = e[2];
+    }
+  }
+  return out.filter(s => s.command);
+}
+// 解析单个 MCP 配置文件。返回 { servers, error? }。从不抛(缺失/格式错 -> error,供 UI 明示)。
+function parseMcpConfigFile(filePath) {
+  let text;
+  try { text = fs.readFileSync(filePath, 'utf8'); } catch (e) { return { servers: [], error: '读失败: ' + (e.code === 'ENOENT' ? '文件不存在' : e.message) }; }
+  if (text.length > 256 * 1024) return { servers: [], error: '文件过大(>256KB,跳过)' };
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith('.json')) {
+    let j; try { j = JSON.parse(text); } catch (e) { return { servers: [], error: 'JSON 解析失败: ' + e.message }; }
+    const ms = (j && j.mcpServers && typeof j.mcpServers === 'object') ? j.mcpServers : null;
+    if (!ms) return { servers: [], error: '未找到 mcpServers 字段' };
+    const servers = [];
+    for (const [id, raw] of Object.entries(ms)) {
+      if (!raw || typeof raw !== 'object') continue;
+      const type = String(raw.type || 'stdio').toLowerCase();
+      // 48c:解析即插值规范化(${VAR}/%VAR%),apply 拿到的已是终值。
+      const srv = { id: String(id), label: String(id), type, command: _expandMcpVar(String(raw.command || '')), args: Array.isArray(raw.args) ? raw.args.map(a => _expandMcpVar(String(a))) : [], env: {}, cwd: _expandMcpVar(String(raw.cwd || '')) };
+      if (raw.env && typeof raw.env === 'object') for (const [k, v] of Object.entries(raw.env)) srv.env[k] = _expandMcpVar(String(v));
+      if (type === 'sse' || type === 'http') { srv.url = String(raw.url || ''); srv.unsupported = '远程 transport(sse/http) 暂不支持,后续波落地'; }
+      servers.push(srv);
+    }
+    return { servers };
+  }
+  if (lower.endsWith('.toml') || /\[mcp_servers\./.test(text)) {
+    return { servers: _parseTomlMcpServers(text).map(s => ({ ...s, command: _expandMcpVar(s.command), args: s.args.map(_expandMcpVar), env: Object.fromEntries(Object.entries(s.env).map(([k, v]) => [k, _expandMcpVar(v)])), cwd: _expandMcpVar(s.cwd) })) };
+  }
+  return { servers: [], error: '未知格式(需 .json 含 mcpServers,或 .toml 含 [mcp_servers.X])' };
+}
+// 扫描多个源文件,插值 + 标冲突。返回 { servers, errors }。servers 每条带 source + conflict(撞 config 已有 id)。
+async function scanMcpSources(filePaths, config) {
+  const servers = [], errors = [];
+  const existingIds = new Set((Array.isArray(config && config.externalMcpServers) ? config.externalMcpServers : []).map(s => s && s.id).filter(Boolean));
+  for (const fp of filePaths) {
+    const r = parseMcpConfigFile(fp);
+    for (const s of r.servers) {
+      s.source = fp;
+      s.conflict = existingIds.has(s.id);
+      servers.push(s);
+    }
+    if (r.error) errors.push({ path: fp, error: r.error });
+  }
+  return { servers, errors };
 }
 
 function safeMcpInventory(config) {
@@ -16080,26 +16165,41 @@ async function toolCall(name, args = {}, ctx = null) {
 
 let LAUNCH_MODE = 'unknown';
 
+// 48b(P2):overlay 清单校验缓存。verifyManifest 经 computeHealth -> /api/status 被前端轮询,旧实现每轮全文件
+// SHA-256 是纯浪费。mtime+size 快路径:文件未变则复用上次算的 sha,跳过读盘+hash;60s 强制全量校验防
+// mtime 伪造/同 mtime 异内容边角。缓存按 manifest.version 失效(新 overlay 落地即重算)。
+let _maniCache = null; // { version, files: Map(full->{sha,mtime,size}), lastFullAt, result }
+const MANIFEST_FULL_VERIFY_MS = 60000;
 async function verifyManifest() {
   const manifestPath = path.join(externalRoot(), 'update-manifest.json');
-  if (!fs.existsSync(manifestPath)) return { present: false };
+  if (!fs.existsSync(manifestPath)) { _maniCache = null; return { present: false }; }
   try {
     const manifest = JSON.parse(await fsp.readFile(manifestPath, 'utf8'));
     const base = path.normalize(externalRoot());
     const mismatches = [];
+    const newFiles = new Map();
+    const forceFull = !_maniCache || _maniCache.version !== manifest.version
+      || (Date.now() - (_maniCache.lastFullAt || 0)) > MANIFEST_FULL_VERIFY_MS;
     for (const entry of manifest.files || []) {
       const full = path.normalize(path.join(base, entry.path));
       if (!full.startsWith(base)) { mismatches.push({ path: entry.path, reason: 'path-escape' }); continue; }
       try {
-        const buf = await fsp.readFile(full);
-        const sha = crypto.createHash('sha256').update(buf).digest('hex');
+        const st = await fsp.stat(full);
+        const prev = _maniCache && _maniCache.files.get(full);
+        // 快路径:非强制全量 + 文件 mtime/size 未变 + 缓存 sha 存在 -> 复用,跳过读盘+hash。
+        const canSkip = !forceFull && prev && prev.mtime === st.mtimeMs && prev.size === st.size && prev.sha;
+        const sha = canSkip ? prev.sha : crypto.createHash('sha256').update(await fsp.readFile(full)).digest('hex');
+        newFiles.set(full, { sha, mtime: st.mtimeMs, size: st.size });
         if (sha !== entry.sha256) mismatches.push({ path: entry.path, reason: 'hash' });
       } catch {
         mismatches.push({ path: entry.path, reason: 'missing' });
       }
     }
-    return { present: true, version: manifest.version, overlay: manifest.overlay, ok: mismatches.length === 0, mismatches };
+    const result = { present: true, version: manifest.version, overlay: manifest.overlay, ok: mismatches.length === 0, mismatches };
+    _maniCache = { version: manifest.version, files: newFiles, lastFullAt: Date.now(), result };
+    return result;
   } catch (e) {
+    _maniCache = null;
     return { present: true, ok: false, error: e.message };
   }
 }
@@ -17448,6 +17548,45 @@ async function handleApi(req, res, pathname) {
     for (const [k, v] of Object.entries(cleaned.env || {})) maskedEnv[k] = maskKey(String(v));
     const serverEcho = { ...cleaned, env: maskedEnv };
     return send(res, json({ ok: true, ...(updated ? { updated: true } : { added: true }), server: serverEcho }));
+  }
+  // 48c: MCP 配置导入器 v1 -- 从 Claude Code / Codex 配置导入(03 §4.1)。两步:scan(发现+冲突检测) -> apply(勾选写回)。
+  //   POST /api/mcp/import-config/scan { paths?: [...] }  -- paths 缺省自动发现 ~/.claude.json + ~/.codex/config.toml
+  //   POST /api/mcp/import-config/apply { servers: [{id,label,command,args,env,cwd}] }  -- 只导 stdio(unsupported 跳过),id 撞名更新,≤10 上限
+  if (req.method === 'POST' && pathname === '/api/mcp/import-config/scan') {
+    const body = await readJsonBody(req);
+    const config = await readConfig();
+    let paths = Array.isArray(body && body.paths) ? body.paths.map(p => String(p || '').trim()).filter(Boolean) : null;
+    if (!paths || !paths.length) {
+      // 自动发现:用户级 ~/.claude.json(Claude Code 全局)+ ~/.codex/config.toml(Codex 全局)。项目级 .mcp.json 由用户显式传 path。
+      paths = [path.join(os.homedir(), '.claude.json'), path.join(os.homedir(), '.codex', 'config.toml')];
+    }
+    const { servers, errors } = await scanMcpSources(paths, config);
+    logEvent({ kind: 'mcp_import_scan', sources: paths.length, found: servers.length, errors: errors.length });
+    return send(res, json({ ok: true, servers, errors, scanned: paths }));
+  }
+  if (req.method === 'POST' && pathname === '/api/mcp/import-config/apply') {
+    const body = await readJsonBody(req);
+    const config = await readConfig();
+    const incoming = Array.isArray(body && body.servers) ? body.servers : [];
+    const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
+    const added = [], updated = [], skipped = [];
+    for (const raw of incoming) {
+      // 48c 对抗修:先按 type 跳过 sse/http(它们 command 常为空,sanitize 会判"无效条目"语义不准),再 sanitize stdio。
+      if (raw && (raw.type === 'sse' || raw.type === 'http')) { skipped.push({ id: String(raw && raw.id || ''), reason: '远程 transport(sse/http) 暂不支持' }); continue; }
+      const srv = sanitizeExternalMcpServer(raw); // 复用 import-folder 同款清洗(stdio:需 id+command)
+      if (!srv) { skipped.push({ id: String(raw && raw.id || ''), reason: '无效条目(缺 id/command)' }); continue; }
+      const idx = list.findIndex(s => s && s.id === srv.id);
+      if (idx >= 0) { list[idx] = srv; updated.push(srv.id); }
+      else {
+        if (list.length >= 10) { skipped.push({ id: srv.id, reason: '外部 MCP 数量已达上限(10)' }); continue; }
+        list.push(srv); added.push(srv.id);
+      }
+    }
+    if (!added.length && !updated.length) return send(res, json({ ok: false, error: '没有可导入的条目', skipped }));
+    const next = await writeConfig({ ...config, externalMcpServers: list });
+    await generateMcpConfig(next.mcpCommandMode).catch(() => {});
+    logEvent({ kind: 'mcp_import', ids: [...added, ...updated], added: added.length, updated: updated.length, source: 'import-config' });
+    return send(res, json({ ok: true, added, updated, skipped }));
   }
   // v0.9-S8 (§4 B4): 审计中心 — merged read-only timeline of workbench NDJSON logs + desktop MCP audit_tail.
   // GET /api/audit?limit=&source=&type= . This is a GET, so it NEVER runs through the mutating auth block;
@@ -18853,6 +18992,9 @@ module.exports = {
   cwdWarning,
   defaultConfig,
   sanitizeExternalMcpServer,
+  // 48c: MCP 配置导入器解析器(e2e 直测 TOML/JSON 边角)。
+  parseMcpConfigFile,
+  scanMcpSources,
   // v0.8-S6: capability matrix + layered prompt + error枚举 (exposed for e2e + UI).
   getCapabilities,
   invalidateCapabilityCache,
