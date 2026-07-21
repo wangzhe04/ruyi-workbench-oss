@@ -79,7 +79,10 @@ ok(!/"ok": True, "found": True, "error"/.test(accOcr), 'S8: ocr_click nth 越界
 ok(updateBat.includes('runtime\\python\\python.exe') && updateBat.includes('venv\\Scripts\\python.exe'), 'S8: update.bat 双布局探测');
 
 // ── S9: 端口审计在 + capabilities 毕业 ──────────────────────────────────────
-ok(/function portAudit\(\)/.test(runall) && /function stripJsComments\(/.test(runall), 'S9: run-all 端口唯一性审计在');
+// 第46波46a: 实现抽至 lib/port-audit.js 真身(runner 与 unit 同源);锁改为"run-all require 真身
+// + 真身含两个函数",防回退成各写一份的副本漂移。
+const portAuditLib = (() => { try { return fs.readFileSync(path.join(__dirname, 'lib', 'port-audit.js'), 'utf8'); } catch { return ''; } })();
+ok(/require\('\.\/lib\/port-audit'\)/.test(runall) && /function portAuditFromDir\(/.test(portAuditLib) && /function stripJsComments\(/.test(portAuditLib), 'S9: 端口唯一性审计真身在(lib/port-audit.js)且 run-all 引用');
 ok(!/capabilities\.e2e\.js/.test(runall), 'S9: capabilities 已从 KNOWN_FAILURE 毕业');
 
 // ── 单元矩阵: pathWithinRoot(prefix bug 的核心判定,导出直测)─────────────────

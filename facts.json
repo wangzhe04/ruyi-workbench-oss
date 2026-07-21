@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "_comment": "门面数字单一事实源(第46波46f)。由 dev-harness/facts-generate.js 机械生成,facts.static.e2e.js 重算比对。改数字请跑生成器,不要手改本文件。每字段注明测量轴。",
+  "_axes": {
+    "nativeTools": "TOOL_HANDLERS 派发注册表键数(经 toolCall 可达全集;含按需注册件)。README「39 常驻+3 按需」是【常驻轴】旧口径,与本轴不同 —— 文档刷新时以本数为准重述。",
+    "accTools": "ACC 活注册表 list_tools 数(venv 探针;CI acc-smoke 对账)。",
+    "e2eCount": "dev-harness/*.e2e.js 总件数(含 live 跳过件)。"
+  },
+  "generatedAt": "2026-07-21T04:36:57.051Z",
+  "workbenchVersion": "2.0.0",
+  "accVersion": "1.8.3",
+  "nativeTools": 50,
+  "accTools": 100,
+  "e2eCount": 146,
+  "e2eLiveSkipped": 6,
+  "unitSuites": 5,
+  "accSmokes": 11
+}

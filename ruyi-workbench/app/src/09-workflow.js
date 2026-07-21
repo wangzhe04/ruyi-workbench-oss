@@ -42,7 +42,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
   if (existingRun) {
     run = existingRun; nodes = Array.isArray(run.nodes) ? run.nodes : []; runId = run.id;
+    // 第46波46e(双冷 resume 窄窗修复):守卫必须先于本分支【一切】mutation 与 run_resumed append,且
+    // 单查 activeAgentRuns 不够 —— 从本分支校验到下方注册之间有 await,两个近同时 resume 会都穿过
+    // activeAgentRuns.has(旧 bug:重复 append run_resumed + eventSeq 重号)。resumeInFlight 同步占位
+    // 关窗;早退/异常由 finally 释放,成功注册由注册点释放(分支出口到注册之间无 await,释放时机安全)。
+    if (activeAgentRuns.has(runId) || resumeInFlight.has(runId)) return { ok: false, error: '该工作流已在运行', startedCount: 0, runId };
     if (!nodes.length) return { ok: false, error: '运行记录没有节点', startedCount: 0 };
+    resumeInFlight.add(runId);
+    try {
     const reset = new Set();
     if (retryNodeId) {
       const target = nodes.find(n => n.id === retryNodeId);
@@ -107,6 +114,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     delete run.pendingReview;
     // 25.3: 恢复入事件日志(带被重排的节点集,崩溃取证的关键锚点)。
     appendAgentRunEvent(run, { type: 'run_resumed', data: { reset: [...reset], retryNodeId: retryNodeId || '' } });
+    } finally {
+      // 46e:分支出口(含 pendingIsolation 早退/异常)统一释放在飞标记。出口到下方 activeAgentRuns.set
+      // 之间无 await(纯同步),第二个并发 resume 不可能从「释放」与「注册」之间穿过 —— 窗关死。
+      resumeInFlight.delete(runId);
+    }
   } else {
     runId = safeSessionId(runIdOverride) || makeId('run');
     const limit = Math.max(0, Number(maxNodes) || 0);

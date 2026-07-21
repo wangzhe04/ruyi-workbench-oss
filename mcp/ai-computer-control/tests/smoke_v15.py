@@ -199,6 +199,7 @@ print("ERR=" + str(err))
     proc = subprocess.run(
         [sys.executable, "-X", "utf8", "-c", child],
         capture_output=True, text=True, encoding="utf-8", timeout=120,
+        env=env,  # 第46波修复:env 此前构造了却没传,子进程丢 PYTHONPATH 必挂 ModuleNotFoundError
     )
     stdout = proc.stdout or ""
     degrade_ok = "DEGRADE_OK" in stdout

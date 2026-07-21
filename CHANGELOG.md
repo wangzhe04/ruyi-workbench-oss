@@ -3,6 +3,26 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
+## v2.0.0 · 2026-07-21
+
+### 中文
+
+- **Claude CLI 模型列表彻底 API 化**：删除全部硬编码型号与 opus/sonnet/haiku 别名，模型菜单只显示「默认（CLI 配置）+ 代理 `/v1/models` 实际返回的模型 + 你的自定义标注」；代理发现的模型会缓存到本地，代理或网络不可用时依然可选；自定义模型在模型弹层行尾 × 一键删除。
+- **上下文压缩 v2**：摘要生成预算化并在上下文爆满（400）时强压重试，子代理超窗有独立兜底，上下文估算随校准数据自我纠偏，长会话不再因压缩失败而慢性死亡。
+- **编排可靠性**：修复「双冷恢复窄窗」——两次近同时手动恢复同一工作流不再重复写事件日志；补齐跨节点资源死锁（三节点传递环）、循环保护×节点重试收敛、双引擎模型档位等价等编排盲区的回归测试。
+- **测试基建封版**：单元测试接入统一 runner 与 CI；失败用例自动重试一次并标记 `[flaky]`；新增真实浏览器 DOM 冒烟（系统 Edge/Chrome 无头渲染，零新增依赖）；fake-mcp 从 7 件扩到 20 件关键 ACC 工具契约，快照/回撤全操作形离线回归；ACC 11 个冒烟脚本收拢为统一入口并接入 CI。
+- **门面数字单一事实源**：`facts.json` 机械生成工具数/版本号/测试数（当前：原生工具 50、ACC 100、e2e 146 件），静态锁重算比对防漂移。
+- 本次发布前全量结果：146 pass / 0 fail（另 6 件 live 手工件除外）。
+
+### English
+
+- **Claude CLI model list is now fully API-driven**: all hard-coded model names and the opus/sonnet/haiku aliases are gone; the model menu shows only "default (CLI config)" + models actually returned by the proxy `/v1/models` + your custom entries; discovered models are cached locally so they remain selectable offline; custom models can be deleted inline (×) in the model popover.
+- **Context compaction v2**: budgeted summarization with forced compaction retry on context-overflow (400), an independent fallback for sub-agent overflow, and self-calibrating context estimates — long sessions no longer decay when compaction fails.
+- **Orchestration reliability**: fixed the dual-cold resume narrow window (two near-simultaneous manual resumes no longer duplicate the run event log); added regression coverage for cross-node resource deadlocks (three-node transitive rings), loop-guard × node-retry convergence, and dual-engine model-tier equivalence.
+- **Test infrastructure finalization**: unit tests wired into the unified runner and CI; failed cases auto-retry once and are flagged `[flaky]`; new real-browser DOM smoke (headless system Edge/Chrome, zero new dependencies); fake-mcp expanded from 7 to 20 key ACC tool contracts with full create/modify/delete/move/copy snapshot-rollback regression; the 11 ACC smoke scripts now have a unified runner wired into CI.
+- **Single source of truth for headline numbers**: `facts.json` is machine-generated (native tools 50, ACC 100, 146 e2e pieces) with a static lock that recomputes and compares.
+- Full suite before this release: 146 pass / 0 fail (excluding 6 manual live probes).
+
 ## v1.6.7 · 2026-07-20
 
 ### 中文

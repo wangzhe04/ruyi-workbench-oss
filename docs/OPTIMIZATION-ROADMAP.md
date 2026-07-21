@@ -954,3 +954,17 @@ V2.0「立柱」规划(§37)的 41–45 波已全部交付(toolCall 表驱动 / 
 - **第52波+ · 发布与范式**:overlay 更新 GUI、vNext「交办台」立项决策、产品扩展评估。
 
 依赖要点:47a 与 47b 共享 stdin/cancel 基础设施须同波;48 是 50/51 的硬前置(FE 架构→视觉焕新,提示词护栏→文本改动);49 先于 51(新工具的 description 需同步)。详见 optimization-plan/README.md §2。
+
+## 44. 第46波:V2.0 封版 —— 测试基建收口 + facts.json + CHANGELOG v2.0.0
+
+§37.1 既定封版波(顺移至 46)全量交付,版本号直升 **2.0.0**(00-boot.js VERSION + package.json + package-lock 三角一致,facts 静态锁钉死)。
+
+- **46a unit/ 不再是孤儿**:run-all 快通道最前跑 `node --test dev-harness/unit/*.test.js`(挂即拒跑);CI e2e.yml 同步独立步骤。E2 根治:`stripJsComments`/`portAuditFromDir` 抽真身到 `dev-harness/lib/port-audit.js`,runner 与两件 unit 测试同源 require(此前测的是复制重实现的副本,会随真身漂移而假绿)。顺手修 v17-review-fixes S9 静态锁跟随迁移。顺带擒获一个存量 bug:run-all 无 `--parallel` 时 argv 过滤式误删 argv[0](`--fast` 被吞跑全量、指定件清单丢第一件)。
+- **46b 失败重试 + [flaky]**:失败件自动重跑一次,二跑通过记 `[flaky]`(汇总+名单+last-run.log 三处可见,沉默的 flaky 是明天的红);按件超时表 TIMEOUT_OVERRIDES 起步(scheduler-ready-queue 180s)。
+- **46c 浏览器 DOM 冒烟 v1**(`dom-smoke.e2e.js`,19 断言):系统 Edge/Chrome headless `--dump-dom --virtual-time-budget` 渲染真实前端,零新增依赖(01 方案"Playwright 已捆绑"实测不成立:无 node_modules/无 npm 包/无 python playwright;视觉回归门第50波可延续同款 headless `--screenshot` 或再评估)。三层断言:静态资源全 200 / 渲染后 DOM 结构 + token 占位符已替换 / modelChip 按 /api/status 渲染(JS boot 真活)。
+- **46d fake-mcp 20 工具契约**:7 → 20 件,新增 13 件镜像真实 ACC 契约(write_document/write_excel/write_pdf/write_pptx/write_file/delete_file/excel_beautify/excel_chart/chart_image/image_resize/window_screenshot/get_clipboard_image/read_file),写族真写文件、错误契约镜像(非 .pdf 报错/改写不存在报错/缺路径参数回 base64)。新 `fake-mcp-contract.e2e.js`(63 断言):P1 直连契约逐件直调;P2 workbench 集成一回合 14 步覆盖快照表全操作形(create/modify/delete/move/copy)+ 整轮回撤工作区归零;P3 静态锁【fake 写族 == BRIDGED_WRITE_PATH_ARGS 键集 15 件】("漏表=不能撤销"的 v1.1 返修教训机制化)。E6:ACC 11 个 smoke 收拢 `tests/run_all.py`(stdlib 零依赖统一入口,--ci 子集),CI 新增 acc-smoke job;顺手修 smoke_v15 存量 bug(构造了 env 没传给子进程,降级断言必挂)。
+- **46e 编排盲区补测 + 双冷窄窗修复**(`orchestration-blindspots.e2e.js`,37 断言):S1 三节点传递环死锁快拒(原只有两节点覆盖);S2 loop×retry 收敛(3 尝试 × 5 连击 = 15 请求封顶,attempts=3,中止原因不丢);S3 双引擎 tier 等价源抽取直测(claude 恒空/openai 本引擎池/别名+缓存绝不跨引擎/显式尊重/inherit 归空对称);S4 **修复 roadmap §28 既定欠账**——runAgentWorkflow existingRun 分支 run_resumed append 在守卫之前,并发双 resume 重复 append + eventSeq 重号;修 = resumeInFlight 同步占位提前关窗(finally 统一释放)。对抗验证:stash 修复后 e2e 精确擒获 run_resumed +2,恢复后 +1。
+- **46f facts.json 单一事实源(D1 起步)**:`dev-harness/facts-generate.js` 机械生成(当前:workbench 2.0.0 / ACC 1.8.3 / 原生工具 50(TOOL_HANDLERS 轴) / ACC 100(活注册表轴) / e2e 146 件(6 live 跳过) / unit 5 套件 / ACC smoke 11),`facts.static.e2e.js` 独立重算逐字段比对 + README 过时口径软锁(99/98 绝迹);CI acc-smoke job 补 accTools 活注册表对账。生成器首秀即擒版本号不一致(package.json 已 bump 而 00-boot 未同步)。
+- **封版**:CHANGELOG v2.0.0(中英,盖 44/44e/45/46 四波);README「39 常驻+3 按需」为常驻轴旧口径,与 TOOL_HANDLERS 轴(50)的关系已写入 facts._axes,营销刷新列第50波发版检查单。
+
+**验证**:全部亲跑——unit 148/148;快通道 13 件全绿;fake-mcp 家族 9 件回归全绿;resume/deadlock/loop/tier 家族 8 件回归全绿;ACC smoke 11/11;facts 静态锁 12 断言全绿;46e 对抗轮 stash 复现确认。

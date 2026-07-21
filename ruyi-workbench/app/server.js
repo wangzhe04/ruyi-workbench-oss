@@ -22,7 +22,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '1.6.7'; // Claude CLI compatibility, storage hardening, and build-time server modularization
+const VERSION = '2.0.0'; // V2.0 封版(第46波):模型列表 API 化、上下文压缩 v2、测试基建封版
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -8494,6 +8494,11 @@ function agentRunDir(sessionId) { return path.join(paths.agentRuns, safeSessionI
 function agentRunFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.json`); }
 const agentRunWriteChains = new Map();
 const activeAgentRuns = new Map(); // runId -> { run, ctrl, paused, stopRequested, resumeWaiters, steerQueues }
+// 第46波46e(双冷 resume 窄窗修复):resume「在飞」标记。activeAgentRuns 只在 runtime 构造好才注册,
+// 而 existingRun 分支从校验到注册之间有 await(getAgentRoleLibrary/cleanupAgentWorktree)——两个近同时
+// 的 resume 会都穿过 activeAgentRuns.has 守卫。此集合在分支【入口同步】占位,成功注册或早退/异常即释,
+// 把窄窗从「await 全程」关到「零」。只在 runAgentWorkflow 内使用(09-workflow.js)。
+const resumeInFlight = new Set();
 // v1 定向插话（steer 到指定运行中子代理节点）: per-node steer queue cap. Reused BOTH by the workflow node
 // steer action and by /api/steer's per-turn cap so the two steering surfaces stay symmetric.
 const STEER_QUEUE_MAX = 3;
@@ -10844,7 +10849,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
   if (existingRun) {
     run = existingRun; nodes = Array.isArray(run.nodes) ? run.nodes : []; runId = run.id;
+    // 第46波46e(双冷 resume 窄窗修复):守卫必须先于本分支【一切】mutation 与 run_resumed append,且
+    // 单查 activeAgentRuns 不够 —— 从本分支校验到下方注册之间有 await,两个近同时 resume 会都穿过
+    // activeAgentRuns.has(旧 bug:重复 append run_resumed + eventSeq 重号)。resumeInFlight 同步占位
+    // 关窗;早退/异常由 finally 释放,成功注册由注册点释放(分支出口到注册之间无 await,释放时机安全)。
+    if (activeAgentRuns.has(runId) || resumeInFlight.has(runId)) return { ok: false, error: '该工作流已在运行', startedCount: 0, runId };
     if (!nodes.length) return { ok: false, error: '运行记录没有节点', startedCount: 0 };
+    resumeInFlight.add(runId);
+    try {
     const reset = new Set();
     if (retryNodeId) {
       const target = nodes.find(n => n.id === retryNodeId);
@@ -10909,6 +10921,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     delete run.pendingReview;
     // 25.3: 恢复入事件日志(带被重排的节点集,崩溃取证的关键锚点)。
     appendAgentRunEvent(run, { type: 'run_resumed', data: { reset: [...reset], retryNodeId: retryNodeId || '' } });
+    } finally {
+      // 46e:分支出口(含 pendingIsolation 早退/异常)统一释放在飞标记。出口到下方 activeAgentRuns.set
+      // 之间无 await(纯同步),第二个并发 resume 不可能从「释放」与「注册」之间穿过 —— 窗关死。
+      resumeInFlight.delete(runId);
+    }
   } else {
     runId = safeSessionId(runIdOverride) || makeId('run');
     const limit = Math.max(0, Number(maxNodes) || 0);

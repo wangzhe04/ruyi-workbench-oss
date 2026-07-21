@@ -1,54 +1,15 @@
 #!/usr/bin/env node
-// Unit tests for portAudit() — port collision detection in run-all.js.
+// Unit tests for portAudit() — port collision detection.
 // Uses Node built-in test runner + temp directories for fixture files.
+//
+// 第46波46a: require 真身(dev-harness/lib/port-audit.js),不再测复制重实现的副本。
 'use strict';
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-
-// ── Re-implement portAudit logic from run-all.js for isolated testing ──
-const PORT_BAND = /\b(8[7-9]\d\d|9[01]\d\d)\b/g;
-
-function stripJsComments(src) {
-  let out = '';
-  let i = 0;
-  const n = src.length;
-  let st = 'code';
-  while (i < n) {
-    const c = src[i], d = src[i + 1];
-    if (st === 'code') {
-      if (c === '/' && d === '/') { st = 'line'; i += 2; continue; }
-      if (c === '/' && d === '*') { st = 'block'; i += 2; continue; }
-      if (c === "'") { st = 'sq'; out += c; i++; continue; }
-      if (c === '"') { st = 'dq'; out += c; i++; continue; }
-      if (c === '`') { st = 'tpl'; out += c; i++; continue; }
-      out += c; i++; continue;
-    }
-    if (st === 'line') { if (c === '\n') { out += '\n'; st = 'code'; } i++; continue; }
-    if (st === 'block') { if (c === '*' && d === '/') { st = 'code'; i += 2; continue; } if (c === '\n') out += '\n'; i++; continue; }
-    const term = st === 'sq' ? "'" : st === 'dq' ? '"' : '`';
-    if (c === '\\') { out += c + (d || ''); i += 2; continue; }
-    out += c; i++;
-    if (c === term) st = 'code';
-  }
-  return out;
-}
-
-function portAuditFromDir(dir) {
-  const claims = new Map();
-  for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.e2e.js'))) {
-    const body = stripJsComments(fs.readFileSync(path.join(dir, f), 'utf8'));
-    for (const m of body.matchAll(PORT_BAND)) {
-      if (!claims.has(m[1])) claims.set(m[1], new Set());
-      claims.get(m[1]).add(f);
-    }
-  }
-  const collisions = [...claims.entries()].filter(([, set]) => set.size > 1)
-    .map(([p, set]) => `${p} <- ${[...set].join(', ')}`);
-  return { count: claims.size, collisions };
-}
+const { portAuditFromDir } = require('../lib/port-audit');
 
 // ── Fixture helpers ──
 let tmpDir;

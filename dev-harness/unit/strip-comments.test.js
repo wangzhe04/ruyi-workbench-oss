@@ -1,37 +1,12 @@
 #!/usr/bin/env node
-// Unit tests for stripJsComments() — the state-machine comment stripper in run-all.js.
+// Unit tests for stripJsComments() — the state-machine comment stripper.
 // Uses Node built-in test runner (node:test), zero dependencies.
 //
-// We re-implement the canonical function from run-all.js (lines 51-74) directly.
+// 第46波46a: require 真身(dev-harness/lib/port-audit.js),不再测复制重实现的副本。
 'use strict';
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-
-// ── Canonical re-implementation of stripJsComments (run-all.js:51-74) ──
-function stripJsComments(src) {
-  let out = '';
-  let i = 0;
-  const n = src.length;
-  let st = 'code'; // code | line | block | sq | dq | tpl
-  while (i < n) {
-    const c = src[i], d = src[i + 1];
-    if (st === 'code') {
-      if (c === '/' && d === '/') { st = 'line'; i += 2; continue; }
-      if (c === '/' && d === '*') { st = 'block'; i += 2; continue; }
-      if (c === "'") { st = 'sq'; out += c; i++; continue; }
-      if (c === '"') { st = 'dq'; out += c; i++; continue; }
-      if (c === '`') { st = 'tpl'; out += c; i++; continue; }
-      out += c; i++; continue;
-    }
-    if (st === 'line') { if (c === '\n') { out += '\n'; st = 'code'; } i++; continue; }
-    if (st === 'block') { if (c === '*' && d === '/') { st = 'code'; i += 2; continue; } if (c === '\n') out += '\n'; i++; continue; }
-    const term = st === 'sq' ? "'" : st === 'dq' ? '"' : '`';
-    if (c === '\\') { out += c + (d || ''); i += 2; continue; }
-    out += c; i++;
-    if (c === term) st = 'code';
-  }
-  return out;
-}
+const { stripJsComments } = require('../lib/port-audit');
 
 describe('stripJsComments', () => {
   // ── Line comments ──
