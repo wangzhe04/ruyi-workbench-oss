@@ -4,15 +4,15 @@
  *
  *  P 段 解析器单测(require 真身):
  *   - .mcp.json stdio 条目 -> {id,command,args,env,cwd,type:stdio}
- *   - .mcp.json sse/http 条目 -> unsupported 标记(不静默丢)
+ *   - .mcp.json sse/http 条目 -> 远程条目(49c 起可导入;headers 密钥引用不展开)
  *   - Codex config.toml [mcp_servers.X] 段 -> command/args/env/cwd 正确提取
- *   - ${VAR}/%VAR% 插值(从 process.env)
+ *   - ${VAR}/%VAR% 插值(从 process.env;headers 除外 —— 保持引用)
  *   - 错误:文件缺失/坏 JSON/无 mcpServers/未知格式 -> 各自 error 不抛
  *  H 段 HTTP 全路径:
  *   - scan 自动发现(paths 缺省)返回 servers + errors
  *   - scan 显式 paths 解析多源 + conflict 检测(撞 config 已有 id)
- *   - apply 写 stdio 条目 -> config.externalMcpServers 增条
- *   - apply 跳过 sse/http(unsupported)
+ *   - apply 写 stdio + sse 条目(49c 远程落地) -> config.externalMcpServers 增条
+ *   - apply 跳过缺 url 的远程条目(unsupported 标记)
  *   - apply id 撞名 -> 更新(非追加)
  *   - apply ≤10 上限
  *  S 段 静态锁: handler / ROUTE_AUTH / 解析器 export
@@ -59,10 +59,10 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
   fs.writeFileSync(mcpJsonPath, JSON.stringify({
     mcpServers: {
       'stdio-srv': { type: 'stdio', command: '${HOME_VAR}/server.exe', args: ['--flag', '%PORT_VAR%'], env: { KEY: '${HOME_VAR}' }, cwd: '${HOME_VAR}' },
-      'sse-srv': { type: 'sse', url: 'http://example/sse' },
+      'sse-srv': { type: 'sse', url: 'http://example/sse', headers: { Authorization: 'Bearer ${MCP_SECRET_VAR}' } },
     },
   }));
-  process.env.HOME_VAR = 'C:/exp'; process.env.PORT_VAR = '8080';
+  process.env.HOME_VAR = 'C:/exp'; process.env.PORT_VAR = '8080'; process.env.MCP_SECRET_VAR = 'should-not-bake-in';
   const r1 = srv.parseMcpConfigFile(mcpJsonPath);
   ok(r1.servers.length === 2 && !r1.error, 'P1 .mcp.json 解析出 2 条(stdio + sse)');
   const stdio = r1.servers.find(s => s.id === 'stdio-srv');
@@ -70,7 +70,9 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
   ok(!!stdio && stdio.args[1] === '8080', 'P3 args %VAR% 插值 (got ' + JSON.stringify(stdio && stdio.args) + ')');
   ok(!!stdio && stdio.env.KEY === 'C:/exp' && stdio.cwd === 'C:/exp', 'P4 env/cwd 插值');
   const sse = r1.servers.find(s => s.id === 'sse-srv');
-  ok(!!sse && sse.unsupported && sse.url === 'http://example/sse', 'P5 sse 条目标 unsupported(不静默丢)');
+  // 49c:sse/http 已落地 —— 不再 unsupported;headers 的密钥引用保持 ${VAR} 原样(连接时才展开,不落盘明文)。
+  ok(!!sse && !sse.unsupported && sse.url === 'http://example/sse', 'P5 sse 条目 49c 起可导入(不再 unsupported)');
+  ok(!!sse && sse.headers && sse.headers.Authorization === 'Bearer ${MCP_SECRET_VAR}', 'P5b headers 密钥引用不展开(防明文落盘)');
 
   const tomlPath = path.join(HOME, 'config.toml');
   fs.writeFileSync(tomlPath, [
@@ -127,7 +129,7 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
     ok(sc && sc.status === 200 && sc.json && sc.json.ok === true, 'H1 scan 200 ok');
     const scanIds = (sc.json && sc.json.servers || []).map(s => s.id);
     ok(scanIds.includes('stdio-srv') && scanIds.includes('github') && scanIds.includes('fetch'), 'H2 scan 多源合并(stdio-srv + github + fetch)');
-    ok((sc.json && sc.json.servers || []).some(s => s.id === 'sse-srv' && s.unsupported), 'H3 scan 含 sse unsupported 条目(不丢)');
+    ok((sc.json && sc.json.servers || []).some(s => s.id === 'sse-srv' && !s.unsupported && s.url === 'http://example/sse'), 'H3 scan 含 sse 条目(49c 起可导入,不再 unsupported)');
     ok((sc.json && sc.json.errors || []).length === 0, 'H4 scan 无解析错误(两文件均合法)');
 
     // scan conflict 检测:撞 config 已有 'existing' id
@@ -137,17 +139,22 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
     const ex = (sc2.json && sc2.json.servers || []).find(s => s.id === 'existing');
     ok(!!ex && ex.conflict === true, 'H5 scan conflict 检测(撞 config 已有 id 标 conflict=true)');
 
-    // apply:写 stdio + 跳 sse
+    // apply:stdio + sse 都导(49c 远程落地后);密钥引用保持不展开
     const ap = await post(WP, '/api/mcp/import-config/apply', { servers: [
       { id: 'imported-stdio', label: '导入的', command: 'node', args: ['s.js'], env: {}, cwd: '' },
-      { id: 'imported-sse', type: 'sse', url: 'http://x', command: '' },
+      { id: 'imported-sse', type: 'sse', url: 'http://x', headers: { Authorization: 'Bearer ${MCP_SECRET_VAR}' }, command: '' },
+      { id: 'imported-bad', type: 'http', url: '', command: '' },
     ] }, hdr);
     ok(ap && ap.status === 200 && ap.json && ap.json.ok === true, 'H6 apply 200 ok');
-    ok(ap.json.added.includes('imported-stdio') && ap.json.skipped.some(s => s.id === 'imported-sse'), 'H7 apply 写 stdio + 跳过 sse(unsupported)');
+    ok(ap.json.added.includes('imported-stdio') && ap.json.added.includes('imported-sse'), 'H7 apply 写 stdio + sse(49c 远程已落地)');
+    ok(ap.json.skipped.some(s => s.id === 'imported-bad'), 'H7b apply 跳过缺 url 的远程条目');
     // 验证写回 config
     const cfg = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
     const ids = (cfg.externalMcpServers || []).map(s => s.id);
-    ok(ids.includes('imported-stdio') && !ids.includes('imported-sse'), 'H8 config.externalMcpServers 含 stdio 不含 sse');
+    ok(ids.includes('imported-stdio') && ids.includes('imported-sse'), 'H8 config.externalMcpServers 含 stdio + sse');
+    const sseCfg = (cfg.externalMcpServers || []).find(s => s.id === 'imported-sse');
+    ok(!!sseCfg && sseCfg.transport === 'sse' && sseCfg.url === 'http://x', 'H8b 远程条目落盘形状(transport/url)');
+    ok(!!sseCfg && sseCfg.headers && sseCfg.headers.Authorization === 'Bearer ${MCP_SECRET_VAR}', 'H8c 落盘 headers 保持 ${VAR} 引用(密钥未明文)');
 
     // apply id 撞名 -> 更新(非追加)
     const ap2 = await post(WP, '/api/mcp/import-config/apply', { servers: [{ id: 'existing', label: '更新后', command: 'updated.exe', args: [], env: {}, cwd: '' }] }, hdr);

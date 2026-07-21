@@ -32,11 +32,20 @@ def _protected_write_guard(path: str, allow_protected: bool):
 def read_document(path: str) -> dict:
     """Read the text content of a document file (Word .docx, Excel .xlsx, PDF .pdf).
 
+    何时用: 只想快速拿走一个小文档的全部文字(一页纸的 docx、小 xlsx、几页的 pdf)。
+    何时别用(v1.9 收敛, 03 Phase B):
+      * .pdf → 请改用 pdf_read_pages(分页点读 + 大纲 + 每页字符上限);本分支【已弃用】,
+        无分页上限会整本抽取,50 页 PDF 直接爆上下文。
+      * .xlsx → 请改用 excel_read(结构化二维 data + 表头 + 公式/数字格式);本分支【已弃用】,
+        静默截 500 行且把结构拍平成文本。
+      * .docx 分支仍是本工具的主用途(无 successor)。
+
     Args:
         path: Path to the document file.
 
     Returns:
-        dict with 'content' (extracted text), 'type', 'pages'/'sheets' count.
+        dict with 'content' (extracted text), 'type', 'pages'/'sheets' count. 弃用分支附带
+        'deprecated'/'successor' 字段明示替代工具。
     """
     ext = os.path.splitext(path)[1].lower()
 
@@ -44,9 +53,15 @@ def read_document(path: str) -> dict:
         if ext == ".docx":
             return _read_docx(path)
         elif ext == ".xlsx":
-            return _read_xlsx(path)
+            out = _read_xlsx(path)
+            out["deprecated"] = True
+            out["successor"] = "excel_read"
+            return out
         elif ext == ".pdf":
-            return _read_pdf(path)
+            out = _read_pdf(path)
+            out["deprecated"] = True
+            out["successor"] = "pdf_read_pages"
+            return out
         else:
             return {"error": f"Unsupported format: {ext}. Supported: .docx, .xlsx, .pdf"}
     except Exception as e:

@@ -36,6 +36,9 @@ _EXPECTED = {
     "excel_beautify", "excel_chart", "write_pptx", "chart_image",
     # v1.8 补齐盲操作痛点: 结构化读表 / 分页读 PDF / 图片信息+缩放
     "excel_read", "pdf_read_pages", "image_info", "image_resize",
+    # v1.9 生态工具首批: 局部编辑 / 网页抓取(SSRF) / 持久记忆 x4 / 链式思考
+    "edit_file", "fetch", "memory_save", "memory_read", "memory_list", "memory_delete",
+    "sequential_thinking",
 }
 
 
@@ -49,14 +52,15 @@ def main() -> int:
     failures = []
 
     # 1) version bumped
-    if server.VERSION != "1.8.3":
-        failures.append(f"VERSION expected 1.8.3, got {server.VERSION}")
+    if server.VERSION != "1.9.0":
+        failures.append(f"VERSION expected 1.9.0, got {server.VERSION}")
 
     # 2) exact count (v1.5 was 89; +4 v1.6 Office tools = 93; v1.7 upgrades existing, no new = 93;
     #    v1.8 adds 4 read/image tools = 97; v1.8.1 adds browser tab list/switch = 99;
-    #    v1.8.2 adds browser_backend_status = 100; v1.8.3 fixes existing, no new = 100.)
-    if len(names) != 100:
-        failures.append(f"tool count {len(names)} != expected 100 (v1.8.2 adds browser backend status)")
+    #    v1.8.2 adds browser_backend_status = 100; v1.8.3 fixes existing, no new = 100;
+    #    v1.9 adds 7 eco tools (edit_file/fetch/memory x4/sequential_thinking) = 107.)
+    if len(names) != 107:
+        failures.append(f"tool count {len(names)} != expected 107 (v1.9 adds 7 eco tools)")
 
     # 3) all expected tools present
     missing = sorted(_EXPECTED - names)
@@ -86,6 +90,9 @@ def main() -> int:
         "excel_beautify", "excel_chart", "write_pptx", "chart_image"}))
     print("v1.8 new tools present:", sorted(n for n in names if n in {
         "excel_read", "pdf_read_pages", "image_info", "image_resize"}))
+    print("v1.9 new tools present:", sorted(n for n in names if n in {
+        "edit_file", "fetch", "memory_save", "memory_read", "memory_list", "memory_delete",
+        "sequential_thinking"}))
     return 0
 
 

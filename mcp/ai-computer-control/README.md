@@ -32,8 +32,21 @@
 | 宏录制 (可选) | 3 | record_start / record_stop / macro_list（无 pynput 时录制降级） |
 | 同步原语 | 1 | wait_for_pixel（轮询像素直到匹配/超时） |
 | 诊断与安全 | 4 | diagnostics / version_info / safety_info / audit_tail |
+| 局部编辑 (v1.9) | 1 | edit_file（精确字符串替换，唯一性安全闸，进工作台检查点可撤销） |
+| 网络抓取 (v1.9) | 1 | fetch（http(s) 抓取 + SSRF 防护：私网/回环拒绝、逐跳重定向重校验、字节预算） |
+| 持久记忆 (v1.9) | 4 | memory_save / memory_read / memory_list / memory_delete（独立存储，腐败隔离） |
+| 推理辅助 (v1.9) | 1 | sequential_thinking（链式思考记录，支持修订/分支） |
 
-**共计 100 个工具**(v1.8.3；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
+**共计 107 个工具**(v1.9.0；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
+
+### v1.9.0 生态工具首批 + 质量战役（如意工作台第49波）
+
+- **新工具 7 件**：`edit_file`（局部精确替换——此前只能整文件 `write_file`，又险又费 token；唯一性安全闸 + 编码回环 + protected 护栏，入工作台检查点快照表天然可撤销）、`fetch`（http(s) 抓取，SSRF 防护镜像工作台原生模式：scheme 白名单 + 私网/回环/保留段/IPv4-mapped 拒绝 + 逐跳重定向重校验 + 字节预算）、`memory_save/read/list/delete`（独立持久记忆库，tmp+rename 防撕裂、腐败隔离 .corrupt，与如意工作台记忆库互补）、`sequential_thinking`（社区契约镜像：链式思考 + 修订 + 分支）。
+- **ACC_TOOLSETS 子集注册**：环境变量按能力族裁剪注册（如 `ACC_TOOLSETS=filesystem,shell`），独立部署可裁剪首 token 成本；未设置=全开（向后兼容）。
+- **读取栈收敛**：`read_document` 的 .pdf/.xlsx 分支标记弃用（响应带 `deprecated`/`successor`），分别指向 `pdf_read_pages`/`excel_read`；.docx 分支保留。
+- **pyproject 修正**：playwright/uiautomation/python-pptx/matplotlib 等可选依赖移入 extras（`browser`/`uia`/`pptx`/`charts`），硬依赖只剩真必需 9 件——依赖声明与「可选优雅降级」的实际行为对齐；`requirements_offline.txt` 保持全量不受影响。
+- **description 规范**：新工具全部遵守「何时用 + 何时别用 + 参数约定」；`tests/smoke_descriptions.py` 审计 107 件并硬锁新约定。
+- 行为锁：`tests/smoke_v19.py`（53 断言）、`tests/smoke_toolsets.py`、`tests/smoke_descriptions.py`。
 
 ### v1.8.3 评审修复批（如意工作台 v1.7）
 

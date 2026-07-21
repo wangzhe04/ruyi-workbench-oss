@@ -776,13 +776,29 @@ function unmaskProviders(incoming, currentProviders) {
   });
 }
 
-// v0.7d: sanitize one user-defined external stdio MCP server entry. id + command are required (a server
+// v0.7d: sanitize one user-defined external MCP server entry. stdio: id + command required (a server
 // with no command is useless and could smuggle a non-string into cp.spawn). env values coerced to strings.
+// 49c:远程条目(type/transport: sse|http|streamable-http)id + http(s) url 必备;headers 值保留 ${VAR}
+//   引用【不展开】—— 连接时由 McpHttpClient 从 process.env 展开,密钥永不明文落盘(03 §4.2 纪律)。
 function sanitizeExternalMcpServer(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const id = String(raw.id || '').trim().slice(0, 64);
+  if (!id) return null;
+  const label = (typeof raw.label === 'string' ? raw.label : '').trim().slice(0, 80) || id;
+  const typeRaw = String(raw.type || raw.transport || 'stdio').toLowerCase();
+  if (typeRaw === 'sse' || typeRaw === 'http' || typeRaw === 'streamable-http') {
+    const url = (typeof raw.url === 'string' ? raw.url : '').trim().slice(0, 2000);
+    if (!/^https?:\/\//i.test(url)) return null;
+    const headers = {};
+    if (raw.headers && typeof raw.headers === 'object') {
+      for (const [k, v] of Object.entries(raw.headers)) {
+        if (typeof k === 'string' && typeof v === 'string') headers[k.slice(0, 120)] = v.slice(0, 2048);
+      }
+    }
+    return { id, label, transport: typeRaw === 'sse' ? 'sse' : 'http', url, headers, enabled: raw.enabled !== false };
+  }
   const command = (typeof raw.command === 'string' ? raw.command : '').trim().slice(0, 1000);
-  if (!id || !command) return null;
+  if (!command) return null;
   const args = Array.isArray(raw.args) ? raw.args.filter(a => typeof a === 'string').slice(0, 50) : [];
   const env = {};
   if (raw.env && typeof raw.env === 'object') {
@@ -792,7 +808,7 @@ function sanitizeExternalMcpServer(raw) {
   }
   return {
     id,
-    label: (typeof raw.label === 'string' ? raw.label : '').trim().slice(0, 80) || id,
+    label,
     command,
     args,
     cwd: (typeof raw.cwd === 'string' ? raw.cwd : '').trim().slice(0, 1000),

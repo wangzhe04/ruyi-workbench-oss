@@ -94,15 +94,15 @@ function mcpClient() {
 
   try {
     // ─────────────────────────── P1: 直连契约 ───────────────────────────
-    console.log('── P1 段: fake-mcp 直连(20 件清单 + 13 件新契约) ──');
+    console.log('── P1 段: fake-mcp 直连(28 件清单 + 新契约逐件直调) ──');
     const mcp = mcpClient();
     const init = await mcp.call('initialize', { protocolVersion: '2024-11-05' });
     ok(init.result && init.result.serverInfo && init.result.serverInfo.name === 'fake-mcp', 'P1 initialize → serverInfo fake-mcp');
     const list = await mcp.call('tools/list');
     const names = (list.result && list.result.tools || []).map(t => t.name).sort();
-    ok(names.length === 21, 'P1 tools/list 恰好 21 件(20 契约 + slow_task 47b 超时测试件) (got ' + names.length + ')');
-    const EXPECTED21 = ['add', 'chart_image', 'copy_file', 'delete_file', 'diagnostics', 'echo', 'excel_beautify', 'excel_chart', 'get_clipboard_image', 'image_resize', 'move_file', 'read_file', 'screenshot_full', 'slow_task', 'window_screenshot', 'write_docx', 'write_document', 'write_excel', 'write_file', 'write_pdf', 'write_pptx'].sort();
-    ok(JSON.stringify(names) === JSON.stringify(EXPECTED21), 'P1 21 件名集与契约清单一致');
+    ok(names.length === 28, 'P1 tools/list 恰好 28 件(21 + 49b 新增 7 件生态工具) (got ' + names.length + ')');
+    const EXPECTED28 = ['add', 'chart_image', 'copy_file', 'delete_file', 'diagnostics', 'echo', 'edit_file', 'excel_beautify', 'excel_chart', 'fetch', 'get_clipboard_image', 'image_resize', 'memory_delete', 'memory_list', 'memory_read', 'memory_save', 'move_file', 'read_file', 'screenshot_full', 'sequential_thinking', 'slow_task', 'window_screenshot', 'write_docx', 'write_document', 'write_excel', 'write_file', 'write_pdf', 'write_pptx'].sort();
+    ok(JSON.stringify(names) === JSON.stringify(EXPECTED28), 'P1 28 件名集与契约清单一致');
     ok((list.result.tools || []).every(t => t.inputSchema && t.inputSchema.type === 'object'), 'P1 每件都有 object inputSchema');
 
     const fx = path.join(TMP, 'p1');
@@ -162,6 +162,36 @@ function mcpClient() {
     ok(r13b.isError, 'P1 delete_file 不存在 → 报错');
     const r14 = await mcp.callTool('add', { a: 2, b: 40 });
     ok(r14.result && r14.result.sum === 42, 'P1 add 回归(旧契约不动)');
+
+    // ── 第49波49b: 7 件生态工具契约 ──
+    fs.writeFileSync(path.join(fx, 'edit.txt'), 'alpha beta gamma\n', 'utf8');
+    const r15 = await mcp.callTool('edit_file', { path: path.join(fx, 'edit.txt'), old_string: 'beta', new_string: 'BETA' });
+    ok(r15.result && r15.result.success === true && r15.result.replacements === 1 && fs.readFileSync(path.join(fx, 'edit.txt'), 'utf8') === 'alpha BETA gamma\n', 'P1 edit_file 唯一替换真落盘 + output_path');
+    const r15b = await mcp.callTool('edit_file', { path: path.join(fx, 'edit.txt'), old_string: 'zzz', new_string: 'q' });
+    ok(r15b.isError && /未出现/.test((r15b.result && r15b.result.error) || ''), 'P1 edit_file 0 次出现 → 报错(唯一性闸)');
+    const r15c = await mcp.callTool('edit_file', { path: path.join(fx, 'ghost.txt'), old_string: 'a', new_string: 'b' });
+    ok(r15c.isError, 'P1 edit_file 缺失文件 → 报错');
+
+    const r16 = await mcp.callTool('fetch', { url: 'http://example.com/x' });
+    ok(r16.result && r16.result.ok === true && r16.result.status === 200 && /FAKE_FETCH_BODY/.test(r16.result.content), 'P1 fetch 公网 ok 包络');
+    const r16b = await mcp.callTool('fetch', { url: 'http://127.0.0.1:8765/secret' });
+    ok(r16b.isError && /refused/.test((r16b.result && r16b.result.error) || ''), 'P1 fetch 回环地址 → refused(SSRF 形状)');
+
+    const r17 = await mcp.callTool('memory_save', { key: 'k1', content: '记住这件事', tags: 'a,b' });
+    ok(r17.result && r17.result.success === true && r17.result.overwritten === false, 'P1 memory_save 首存');
+    const r17b = await mcp.callTool('memory_read', { key: 'k1' });
+    ok(r17b.result && r17b.result.found === true && r17b.result.content === '记住这件事', 'P1 memory_read 命中');
+    const r17c = await mcp.callTool('memory_list', { query: '记住' });
+    ok(r17c.result && r17c.result.ok === true && r17c.result.total === 1, 'P1 memory_list 搜索命中');
+    const r17d = await mcp.callTool('memory_delete', { key: 'k1' });
+    ok(r17d.result && r17d.result.deleted === true, 'P1 memory_delete 删除');
+    const r17e = await mcp.callTool('memory_read', { key: 'k1' });
+    ok(r17e.result && r17e.result.found === false && r17e.result.ok === true, 'P1 memory_read 删后 found:false 但 ok:true');
+
+    const r18 = await mcp.callTool('sequential_thinking', { thought: '第一步', thought_number: 1, total_thoughts: 2, next_thought_needed: true });
+    ok(r18.result && r18.result.ok === true && r18.result.thought_history_length === 1, 'P1 sequential_thinking 契约形状');
+    const r18b = await mcp.callTool('sequential_thinking', { thought: '', thought_number: 1, total_thoughts: 1, next_thought_needed: false });
+    ok(r18b.isError, 'P1 sequential_thinking 空 thought → 报错');
     mcp.kill();
 
     // ─────────────────────────── P3 静态锁(提前做,结果指导 P2 覆盖面) ───────────────────────────

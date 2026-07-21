@@ -1016,3 +1016,38 @@ V2.0「立柱」规划(§37)的 41–45 波已全部交付(toolCall 表驱动 / 
 **对抗验证(用户要求查 bug)**:**P1 readConfig 缓存引入 5 件回归--对抗验证擒获并回退**。全量跑暴露 usage-ledger/skills-registry/workbench-memory/vision-loop/subagent 5 件 fail;bisect(stash 48 源码)确认 47 基线全绿、48 引入;根因:5 件 e2e 直接 fs 写 config.json 切换 provider,依赖 readConfig 每次读盘(usage-ledger:137 注释明述),缓存让直接写不可见;structuredClone 仅治 mutate 别名标症不治本。裁决回退 P1,保留 P2(无测试依赖 uncached manifest)。教训:"缓存对生产正确"≠"缓存安全"--测试对 uncached 的依赖是隐性契约,破它即回归。其余核查:P2 mtime 快路径 forceFull+version 失效兜底;48c TOML regex 路径逃逸/malformed 不崩;48d testid 不破坏 overlay 载荷锁。回归:5 件回归件 + auth-deny-default/mcp-config/mcp-bridge/capabilities/perm-v2/context-compact-v2/agent-quality-gates/overlay-payload-lock 全绿。
 
 **未做(留后续波)**:FE 全量拆分(01 Step 1,50 波);提示词外置/i18n/缓存分层(04 Phase B/C,51 波);A/B 运行器填实(51 波);远程 MCP transport(03 §4.2,49 波);质量门/JSON修复 capture 断言(51 波)。
+
+## 47. 第49波:生态工具波 -- ACC 新工具首批 + 远程 MCP transport + ACC 质量战役 + CI 扩展 + A1 首批拆分
+
+封版后第三个功能波(03 方案子命题一/二/三 + 05 E4/A1),六件交付。
+
+- **49a ACC 新工具首批(v1.8.3 -> v1.9.0,100 -> 107 工具)**:03 子命题二首批全落地,零依赖 stdlib 实现。
+  - **edit_file(P0)**:局部精确替换(此前模型只能整文件 write_file--既危险又费 token)。唯一性安全闸(0 次/多次均人话拒,replace_all 除外)、old==new 空改动拒、>10MB 拒、编码回环(同编码读写)、protected 护栏、audit 落账;入 `BRIDGED_WRITE_PATH_ARGS`(op:write)--**入表即获得检查点+撤销**(03 P0 联动要求)。
+  - **fetch(P0)**:http(s) 抓取 + SSRF 防护(镜像工作台 11-native-tools 模式:scheme 白名单 + DNS 解析 + 私网/回环/链路本地/保留段拒绝 + IPv4-mapped IPv6 拆包 + **逐跳重定向重校验** ≤5 跳 + 字节预算 200KB/硬顶 2MB + charset 按声明解码)。stdlib urllib,零 requests 依赖。
+  - **memory x4(P1)**:memory_save/read/list/delete 独立持久存储(data_dir/memory.json,与工作台记忆库互补非冲突);tmp+rename 防撕裂、腐败隔离 .corrupt、500 条/4000 字上限、缺失键 found:false 但 ok:true(查询无果≠执行失败)。
+  - **sequential_thinking(P1)**:镜像社区高装机契约(修订/分支/参数校验,进程内链状态)。
+  - description 全部遵守"何时用+何时别用+参数约定"新规范(49d 硬锁)。`smoke_v19.py` 53 断言全绿。
+- **49b fake-mcp 镜像 + 写族表 + facts**:fake-mcp 21->28 件(7 件新契约镜像,edit_file 唯一性闸/fetch SSRF 形状/memory 四件/thinking);`fake-mcp-contract.e2e` P1 名集锁 21->28 + 7 件新契约逐件直调;facts.json accTools 107/e2e 154/accSmokes 14 重生成。
+- **49c 远程 MCP transport(03 §4.2)**:`McpHttpClient` 双 transport 零依赖落地(04-permission-runtime.js)。
+  - **streamable-HTTP(2025-03-26)**:POST 单端点,application/json 与 text/event-stream 两种响应形态都解(多行 data 按规范 \n 重拼--e5-multiline-sse 教训),Mcp-Session-Id 捕获回显。
+  - **legacy SSE(2024-11-05)**:GET 流 endpoint 发现 -> POST 202 -> 流上 message 事件回应答;**tools/list_changed 通知 -> listTools 惰性重列**(03 §4.2 协议升级项)。
+  - **headers ${VAR} 连接时展开**:配置/导入落盘只存引用(密钥永不明文落盘);sanitizeExternalMcpServer 远程分支(id+http(s) url,streamable-http 归一 http);resolveExternalMcpServers/drop-in/getBridgedClient/collectBridgedTools cacheKey/safeMcpInventory 全链路接通;48c 导入器 sse/http 从 unsupported 解锁(缺 url 仍标 unsupported 跳过)。
+  - 超时语义与 47b 对齐但无进程树可杀:断连接 + 下次调用 getBridgedClient 惰性重建 + 人话告知。
+  - **对抗验证修 1 个真 bug**:e2e A12 撞出 `_rpcHttp` 无 dead 闸(stdio 有,http 漏)--kill 后同实例仍可调用,补闸。
+  - **验证** `mcp-remote-transport.e2e.js`(A 直连 12 + B 桥接 4 + S 静态 6)全绿;`mcp-import-config.e2e` 断言翻转到"可导入+密钥引用不展开"全绿;MCP/桥家族 6 件回归全绿。
+- **49d ACC 质量战役(03 Phase B 四件)**:
+  - **读取栈收敛**:read_document 的 pdf/xlsx 分支标弃用(description 明示 + 响应带 deprecated/successor 字段),指向 pdf_read_pages/excel_read;docx 保留主用途。
+  - **description 一致性审计** `smoke_descriptions.py`:107 件全量报告(Args 段覆盖 73、新约定覆盖 8)+ 硬锁 v1.9 新 7 件 + read_document 必须合规;存量改造留后续波(报告已列清单)。
+  - **ACC_TOOLSETS 子集注册**(03 T9 schema 减重):server.py 改 importlib 按能力族导入(desktop/office/browser/filesystem/shell/uia/ocr/vision/macro/memory/web/thinking/observe/audio/sync + audit/diagnostics 常驻),未设 env=全开向后兼容;`smoke_toolsets.py` 子进程隔离验证(全开 107/filesystem+shell=15/未知族忽略/office 族正确/新工具族可裁)。
+  - **pyproject 修正(03 T2)**:playwright/uiautomation/comtypes/python-pptx/matplotlib 移入 extras(browser/uia/pptx/charts),硬依赖只剩真必需 9 件--依赖声明与 README"可选优雅降级"对齐;requirements_offline.txt 保持全量不受影响;旧注释引用不存在的 macro.py/pdf_tools.py 一并更正。仓库卫生(T10)核查本已干净(__pycache__/build/zip 均未入库)。
+  - ACC 全量 14 件 smoke 全绿(v19/toolsets/descriptions 3 件新增)。
+- **49e E4 CI 扩展**:
+  - **permissions: contents: read** 最小权限 + 四个 action **钉 SHA**(checkout v4.2.2/setup-node v4.4.0/setup-python v5.6.0/upload-artifact v4.6.2,SHA 经 release 页逐一核实,注释保留版本标签)。
+  - **linux-static job**(ubuntu):syntax gate + build freshness + unit + prompt-snapshot(确认平台无关子集)——双平台信号,防"静态件悄悄写 Windows-only 假设"。
+  - **release-dryrun job**:`dev-harness/release-dryrun.js` 打包干跑(产物新鲜度 -> build-overlay 全装配 -> manifest sha256 抽查对账 -> pkg 打包 -> Ruyi.exe serve /health 200 冒烟)。本地 `--pkg` 全路径亲跑全绿;顺手修 npm.cmd 在 execFile 下 ENOENT/EINVAL(Node 批处理防护,经 cmd /c 调,与 batchSafeSpawn 同教训)。
+  - run_all.py CI_SUBSET 补 smoke_toolsets/smoke_descriptions(无显示依赖)。
+- **49f A1 后端巨函数拆分(第一批)**:handleApi 三组域路由**原样抽出**至新模块 `13b-api-domain-routes.js`(MCP/checkpoint·storage/steer,~170 行);共享作用域拼接零 import 接线,行为不变。关键坑:send() 无返回值,委托判定用 `res.writableEnded` 而非返回值(否则命中后继续 fallthrough 双响应)。manifest.json 注册第 16 模块,overlay 载荷自动纳入(build-overlay 从 manifest 派生)。
+
+**验证**:全部亲跑--ACC smoke 14/14;mcp-remote-transport/mcp-import-config/fake-mcp-contract 全绿;MCP/桥家族 6 件 + checkpoint/storage/steer 家族 7 件回归全绿;release-dryrun --pkg 全路径(含 Ruyi.exe 冒烟)全绿;facts 静态锁全绿。全量并行 4 路 148 ran:145 pass + 8 flaky(重跑过)+ 2 fail 逐一收口——meta-guard 擒真实文档漂移(ADMIN-GUIDE/README 的 ACC 版本与件数引用未随 1.9.0 同步,已修并新增 v1.9 章节,复跑全绿);perm-v2 为并行负载 flake(solo 3x 稳定,与 46 波已标记的时序族同类,记入待治理名单)。
+
+**未做(留后续波)**:description 存量 99 件新约定改造(报告已列清单,随工具改动顺手);ACC_TOOLSETS 的 tool_search A/B token 数字重测刷新营销证据(03 验收#2);MCP 管理面板 UI(03 §4.1.3);A1 剩余组(agent-runs/permission/session,随邻近改动顺手);github/官方 filesystem 兼容层(03 P2)。

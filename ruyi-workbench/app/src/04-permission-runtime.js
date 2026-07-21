@@ -503,6 +503,281 @@ class McpStdioClient {
   }
 }
 
+// ===================================================================================================
+// 49c — zero-dependency remote MCP client (03 §4.2). Two transports:
+//   * 'http'  — streamable HTTP (2025-03-26): POST JSON-RPC to one endpoint; the response is either
+//               application/json or text/event-stream (we parse both). Mcp-Session-Id is captured at
+//               initialize and echoed on every later request.
+//   * 'sse'   — legacy SSE transport (2024-11-05): GET opens an event stream whose first `endpoint`
+//               event yields the POST uri; responses arrive back on the stream as `message` events.
+// headers 值里的 ${VAR}/%VAR% 在【连接时】从 process.env 展开(配置里只存引用,密钥不落盘明文)。
+// tools/list_changed:sse 流上收到该通知即惰性重列工具(下次 listTools 前刷新)。
+// ===================================================================================================
+class McpHttpClient {
+  constructor({ id, transport, url, headers }) {
+    this.id = id;
+    this.transport = transport === 'sse' ? 'sse' : 'http';
+    this.url = String(url || '');
+    // 连接时展开密钥引用;未定义的变量保留原样(与 48c 导入器同语义)。
+    this.headers = {};
+    for (const [k, v] of Object.entries(headers || {})) this.headers[k] = _expandMcpVar(String(v));
+    this.dead = false;
+    this.started = false;
+    this.tools = [];
+    this._nextId = 1;
+    this._pending = new Map();     // rpc id -> { resolve, reject, timer }
+    this._sessionId = null;
+    this._sseReq = null;           // legacy-sse GET stream (http.ClientRequest)
+    this._ssePostUrl = null;       // legacy-sse endpoint uri
+    this._sseBuf = '';
+    this._toolsStale = false;      // tools/list_changed 通知标记
+  }
+
+  _failAllPending(err) {
+    for (const [, p] of this._pending) { clearTimeout(p.timer); try { p.reject(err); } catch { /* settled */ } }
+    this._pending.clear();
+  }
+
+  _baseHeaders(extra) {
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/event-stream',
+      ...(this._sessionId ? { 'Mcp-Session-Id': this._sessionId } : {}),
+      ...this.headers,
+      ...(extra || {}),
+    };
+  }
+
+  // One HTTP request. Returns { status, headers, body } (body = Buffer, capped at 8MB). Never throws.
+  _request(method, urlStr, payload, timeoutMs, extraHeaders) {
+    return new Promise(resolve => {
+      let u; try { u = new URL(urlStr); } catch { return resolve({ error: 'bad url: ' + urlStr }); }
+      const lib = u.protocol === 'https:' ? require('https') : http;
+      const bodyBuf = payload ? Buffer.from(JSON.stringify(payload), 'utf8') : null;
+      const req = lib.request(u, {
+        method,
+        headers: { ...this._baseHeaders(extraHeaders), ...(bodyBuf ? { 'Content-Length': bodyBuf.length } : {}) },
+        timeout: Math.max(1000, timeoutMs || 10000),
+      }, res => {
+        const chunks = [];
+        let size = 0;
+        res.on('data', c => {
+          size += c.length;
+          if (size <= 8 * 1024 * 1024) chunks.push(c); // cap runaway bodies
+        });
+        res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+        res.on('error', e => resolve({ error: (e && e.message) || String(e) }));
+      });
+      req.on('timeout', () => { req.destroy(new Error('request timed out')); });
+      req.on('error', e => resolve({ error: (e && e.message) || String(e) }));
+      if (bodyBuf) req.write(bodyBuf);
+      req.end();
+    });
+  }
+
+  // Parse a text/event-stream body, returning the JSON-RPC messages it carries (data: lines, possibly
+  // multi-line per event — the e5-multiline-sse lesson: join data lines with \n before JSON.parse).
+  static _parseSseMessages(text) {
+    const out = [];
+    let dataLines = [];
+    const flush = () => {
+      if (!dataLines.length) return;
+      const raw = dataLines.join('\n');
+      dataLines = [];
+      const msg = safeJsonParse(raw, null);
+      if (msg && typeof msg === 'object') out.push(msg);
+    };
+    for (const line of String(text).split(/\r?\n/)) {
+      if (line === '') { flush(); continue; }
+      if (line.startsWith(':')) continue;                 // comment/heartbeat
+      const m = line.match(/^data:\s?(.*)$/);
+      if (m) dataLines.push(m[1]);
+    }
+    flush();
+    return out;
+  }
+
+  // streamable-HTTP round trip: POST one JSON-RPC message, resolve with the matching-id result.
+  async _rpcHttp(method, params, timeoutMs) {
+    if (this.dead) throw new Error('mcp client not running');
+    const id = this._nextId++;
+    const resp = await this._request('POST', this.url, { jsonrpc: '2.0', id, method, params: params || {} }, timeoutMs);
+    if (resp.error) throw new Error('mcp http: ' + resp.error);
+    const sid = resp.headers && (resp.headers['mcp-session-id'] || resp.headers['Mcp-Session-Id']);
+    if (sid && !this._sessionId) this._sessionId = String(sid);
+    const ctype = String((resp.headers && resp.headers['content-type']) || '');
+    let msgs = [];
+    if (ctype.includes('text/event-stream')) msgs = McpHttpClient._parseSseMessages(resp.body.toString('utf8'));
+    else { const j = safeJsonParse(resp.body.toString('utf8'), null); if (j) msgs = [j]; }
+    const mine = msgs.find(m => m && m.id === id);
+    if (!mine) throw new Error('mcp http: 响应中无匹配 id(状态 ' + resp.status + ')');
+    if (mine.error) throw new Error(mine.error.message || 'mcp error');
+    return mine.result;
+  }
+
+  // legacy-SSE round trip: POST to the endpoint uri (202 ack), the result arrives on the GET stream.
+  _rpcSse(method, params, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      if (this.dead || !this._ssePostUrl) return reject(new Error('mcp sse: 事件流未就绪'));
+      const id = this._nextId++;
+      const timer = setTimeout(() => {
+        this._pending.delete(id);
+        if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
+        reject(new Error(`mcp ${method} timed out`));
+      }, Math.max(1000, timeoutMs));
+      this._pending.set(id, { resolve, reject, timer });
+      this._request('POST', this._ssePostUrl, { jsonrpc: '2.0', id, method, params: params || {} }, timeoutMs)
+        .then(resp => {
+          if (resp.error || (resp.status && resp.status >= 400)) {
+            clearTimeout(timer); this._pending.delete(id);
+            reject(new Error('mcp sse post: ' + (resp.error || ('HTTP ' + resp.status))));
+          }
+        });
+    });
+  }
+
+  _rpc(method, params, timeoutMs = 8000) {
+    return this.transport === 'sse' ? this._rpcSse(method, params, timeoutMs) : this._rpcHttp(method, params, timeoutMs);
+  }
+
+  _notify(method, params) {
+    if (this.dead) return;
+    const url = this.transport === 'sse' ? this._ssePostUrl : this.url;
+    if (!url) return;
+    this._request('POST', url, { jsonrpc: '2.0', method, params: params || {} }, 5000).catch(() => {});
+  }
+
+  // legacy-SSE: open the GET event stream, wait for the `endpoint` event, then keep reading `message`
+  // events into the pending map. tools/list_changed notifications mark the catalog stale.
+  async _openSseStream() {
+    let u; try { u = new URL(this.url); } catch { throw new Error('bad url: ' + this.url); }
+    const lib = u.protocol === 'https:' ? require('https') : http;
+    await new Promise((resolve, reject) => {
+      const req = lib.request(u, { method: 'GET', headers: { ...this.headers, 'Accept': 'text/event-stream' } }, res => {
+        if (res.statusCode >= 400) { reject(new Error('mcp sse: HTTP ' + res.statusCode)); res.resume(); return; }
+        this._sseReq = req;
+        res.setEncoding('utf8');
+        let opened = false;
+        const openTimer = setTimeout(() => reject(new Error('mcp sse: 等 endpoint 事件超时')), 8000);
+        // 干净的事件累积器:event:/data: 逐行累积,空行派发(多行 data 以 \n 连接 —— e5-multiline-sse 教训)。
+        let evtName = 'message', evtData = [];
+        const dispatch = () => {
+          if (!evtData.length) { evtName = 'message'; return; }
+          const raw = evtData.join('\n');
+          const name = evtName;
+          evtName = 'message'; evtData = [];
+          if (name === 'endpoint' && !opened) {
+            opened = true; clearTimeout(openTimer);
+            this._ssePostUrl = new URL(raw.trim(), this.url).toString();
+            resolve();
+            return;
+          }
+          const msgObj = safeJsonParse(raw, null);
+          if (!msgObj) return;
+          if (msgObj.id != null) {
+            const p = this._pending.get(msgObj.id);
+            if (p) {
+              clearTimeout(p.timer); this._pending.delete(msgObj.id);
+              if (msgObj.error) p.reject(new Error(msgObj.error.message || 'mcp error'));
+              else p.resolve(msgObj.result);
+            }
+          } else if (msgObj.method === 'notifications/tools/list_changed') {
+            this._toolsStale = true; // 03 §4.2:响应 tools/list_changed —— 下次 listTools 前重列
+          }
+        };
+        res.on('data', chunk => {
+          this._sseBuf += chunk;
+          let nl;
+          while ((nl = this._sseBuf.indexOf('\n')) >= 0) {
+            const line = this._sseBuf.slice(0, nl).replace(/\r$/, '');
+            this._sseBuf = this._sseBuf.slice(nl + 1);
+            if (line === '') { dispatch(); continue; }
+            if (line.startsWith(':')) continue; // heartbeat/comment
+            const em = line.match(/^event:\s?(.*)$/); if (em) { evtName = em[1].trim() || 'message'; continue; }
+            const dm = line.match(/^data:\s?(.*)$/); if (dm) { evtData.push(dm[1]); continue; }
+          }
+        });
+        res.on('end', () => { this.dead = true; this._failAllPending(new Error('mcp sse: 事件流断开')); });
+        res.on('error', e => { this.dead = true; this._failAllPending(new Error('mcp sse: ' + (e && e.message))); });
+      });
+      req.on('error', e => { clearTimeout(openTimer); reject(new Error('mcp sse connect: ' + (e && e.message))); });
+      req.end();
+    });
+  }
+
+  async start() {
+    if (this.started) return;
+    this.started = true;
+    try {
+      if (this.transport === 'sse') await this._openSseStream();
+      const init = await this._rpc('initialize', {
+        protocolVersion: '2025-03-26',
+        capabilities: {},
+        clientInfo: { name: 'win-claude-workbench', version: VERSION },
+      }, 10000);
+      this.serverInfo = (init && init.serverInfo) || {};
+      this._notify('notifications/initialized', {});
+      const listed = await this._rpc('tools/list', {}, 10000);
+      this.tools = (listed && Array.isArray(listed.tools)) ? listed.tools : [];
+    } catch (e) {
+      this.kill();
+      this.dead = true;
+      throw new Error(`remote mcp handshake failed: ${e && e.message ? e.message : e}`);
+    }
+    return this;
+  }
+
+  // 03 §4.2 tools/list_changed:sse 通知把目录标陈旧,此处惰性重列(不主动推,桥是拉模型)。
+  async listTools() {
+    if (this._toolsStale && !this.dead) {
+      try {
+        const listed = await this._rpc('tools/list', {}, 8000);
+        this.tools = (listed && Array.isArray(listed.tools)) ? listed.tools : [];
+      } catch { /* 保留旧目录,下次再试 */ }
+      this._toolsStale = false;
+    }
+    return this.tools;
+  }
+
+  // Same result normalization as McpStdioClient.callTool — never throws.
+  async callTool(name, args, timeoutMs) {
+    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolTimeoutMs(name));
+    try {
+      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit);
+      const isError = !!(res && res.isError);
+      let textOut = '';
+      if (res && Array.isArray(res.content)) {
+        const t = res.content.find(c => c && c.type === 'text' && typeof c.text === 'string');
+        if (t) textOut = t.text;
+      }
+      if (textOut) {
+        const parsed = safeJsonParse(textOut, undefined);
+        if (parsed && typeof parsed === 'object') {
+          if (typeof parsed.ok === 'boolean') return parsed;
+          return { ok: !isError, ...parsed };
+        }
+        return { ok: !isError, text: textOut };
+      }
+      return { ok: !isError, content: (res && res.content) || [] };
+    } catch (e) {
+      const m = (e && e.message) ? e.message : String(e);
+      if (/timed out/.test(m)) {
+        // 远程无进程树可杀 —— 断连接 + 下次调用惰性重建(sse 流 / session 重新握手)。
+        try { this.kill(); } catch { /* already dead */ }
+        return { ok: false, error: `tool timed out after ${Math.round(limit / 1000)}s; 远程连接已重置,下次调用将自动重连` };
+      }
+      return { ok: false, error: m };
+    }
+  }
+
+  kill() {
+    this.dead = true;
+    this._failAllPending(new Error('mcp client killed'));
+    try { if (this._sseReq) this._sseReq.destroy(); } catch { /* ignore */ }
+    this._sseReq = null;
+  }
+}
+
 // Live bridged-client registry (shared across turns). Lazy start; a failed start is cached as a
 // negative entry (with a timestamp) so we don't respawn a broken server on every single turn.
 const mcpClients = new Map();       // serverId -> McpStdioClient
@@ -603,8 +878,15 @@ function resolveExternalMcpServers(config) {
   }
   const ext = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
   for (const s of ext) {
-    if (!s || s.enabled === false || !s.command) continue;
+    if (!s || s.enabled === false) continue;
     if (out.some(o => o.id === s.id)) continue;   // desktop entry wins on id collision
+    // 49c:远程条目(sse/http)按 transport+url 直通(headers 引用不展开,连接时才展开)。
+    if (s.transport === 'sse' || s.transport === 'http') {
+      if (!s.url) continue;
+      out.push({ id: s.id, label: s.label || s.id, transport: s.transport, url: s.url, headers: s.headers || {} });
+      continue;
+    }
+    if (!s.command) continue;
     out.push({ id: s.id, label: s.label || s.id, command: s.command, args: s.args || [], cwd: s.cwd || undefined, env: s.env || {} });
   }
   // v1.1-W2 (T2): merge drop-in connectors LAST → any id already claimed by a desktop/config entry wins;
@@ -613,6 +895,11 @@ function resolveExternalMcpServers(config) {
   if (!config || config.enableMcpDropIn !== false) {
     for (const d of scanMcpDropIns()) {
       if (out.some(o => o.id === d.id)) { logEvent({ kind: 'mcp_dropin_skip', reason: 'id-conflict-config-wins', id: d.id, folder: d._dropInFolder, source: d._dropInSource }); continue; }
+      if (d.transport === 'sse' || d.transport === 'http') {
+        if (!d.url) continue;
+        out.push({ id: d.id, label: d.label || d.id, transport: d.transport, url: d.url, headers: d.headers || {} });
+        continue;
+      }
       out.push({ id: d.id, label: d.label || d.id, command: d.command, args: d.args || [], cwd: d.cwd || undefined, env: d.env || {} });
     }
   }
@@ -667,9 +954,18 @@ function parseMcpConfigFile(filePath) {
       if (!raw || typeof raw !== 'object') continue;
       const type = String(raw.type || 'stdio').toLowerCase();
       // 48c:解析即插值规范化(${VAR}/%VAR%),apply 拿到的已是终值。
+      // 49c:sse/http 不再是 unsupported —— 映射为远程条目;但 headers 值【不展开】(密钥引用 ${VAR}
+      //   原样保留进 config,连接时才从 process.env 展开,防明文落盘)。
       const srv = { id: String(id), label: String(id), type, command: _expandMcpVar(String(raw.command || '')), args: Array.isArray(raw.args) ? raw.args.map(a => _expandMcpVar(String(a))) : [], env: {}, cwd: _expandMcpVar(String(raw.cwd || '')) };
       if (raw.env && typeof raw.env === 'object') for (const [k, v] of Object.entries(raw.env)) srv.env[k] = _expandMcpVar(String(v));
-      if (type === 'sse' || type === 'http') { srv.url = String(raw.url || ''); srv.unsupported = '远程 transport(sse/http) 暂不支持,后续波落地'; }
+      if (type === 'sse' || type === 'http') {
+        srv.url = String(raw.url || '');
+        if (raw.headers && typeof raw.headers === 'object') {
+          srv.headers = {};
+          for (const [k, v] of Object.entries(raw.headers)) if (typeof v === 'string') srv.headers[k] = v;
+        }
+        if (!srv.url) srv.unsupported = '远程条目缺 url';
+      }
       servers.push(srv);
     }
     return { servers };
@@ -699,6 +995,8 @@ function safeMcpInventory(config) {
   return resolveExternalMcpServers(config).map(entry => ({
     id: entry.id, label: entry.label || entry.id, command: entry.command, args: entry.args || [],
     cwd: entry.cwd || '', envKeys: Object.keys(entry.env || {}),
+    // 49c:远程条目无 command,回显 transport+url(headers 键名可见,值永不回显)。
+    ...(entry.transport ? { transport: entry.transport, url: entry.url || '', headerKeys: Object.keys(entry.headers || {}) } : {}),
     builtin: entry.id === 'ai-computer-control',
   }));
 }
@@ -751,13 +1049,14 @@ async function configureMcpFromTool(args, currentConfig) {
 }
 
 // Get (lazily starting) a live client for one server entry, or null if it can't start. Caches failures.
+// 49c:按 entry.transport 选客户端类 —— sse/http 走 McpHttpClient(无进程,远程连接),其余走 stdio。
 async function getMcpClient(entry) {
   const existing = mcpClients.get(entry.id);
   if (existing && !existing.dead) return existing;
   if (existing && existing.dead) mcpClients.delete(entry.id);
   const fail = mcpClientFailures.get(entry.id);
   if (fail && (Date.now() - fail.at) < MCP_FAILURE_COOLDOWN_MS) return null;   // in cooldown
-  const client = new McpStdioClient(entry);
+  const client = (entry.transport === 'sse' || entry.transport === 'http') ? new McpHttpClient(entry) : new McpStdioClient(entry);
   try {
     await client.start();
     mcpClients.set(entry.id, client);
@@ -784,7 +1083,7 @@ async function getBridgedClient(serverId, config) {
   if (live && !live.dead) return live;
   const list = resolveExternalMcpServers(config || await readConfig());
   const entry = (list || []).find(s => s.id === serverId);
-  if (!entry || !entry.command) return null;
+  if (!entry || (!entry.command && !entry.url)) return null; // 49c:远程条目无 command,认 url
   return getMcpClient(entry);
 }
 
@@ -798,7 +1097,7 @@ let bridgedCatalogCache = { key: '', expiresAt: 0, value: null };
 async function collectBridgedTools(config, force = false) {
   if (!config || config.bridgeExternalToolsToProvider === false) return { tools: [], route: {} };
   const entries = resolveExternalMcpServers(config);
-  const cacheKey = JSON.stringify(entries.map(e => [e.id, e.command, e.args || [], e.cwd || '', e.env || {}]));
+  const cacheKey = JSON.stringify(entries.map(e => [e.id, e.command || '', e.args || [], e.cwd || '', e.env || {}, e.transport || 'stdio', e.url || '']));
   if (!force && bridgedCatalogCache.value && bridgedCatalogCache.key === cacheKey && Date.now() < bridgedCatalogCache.expiresAt) {
     return bridgedCatalogCache.value;
   }
@@ -809,7 +1108,7 @@ async function collectBridgedTools(config, force = false) {
     try { client = await getMcpClient(entry); } catch { client = null; }
     if (!client) continue;
     const prefix = sanitizeServerId(entry.id);
-    for (const t of client.listTools()) {
+    for (const t of await client.listTools()) {
       if (!t || typeof t.name !== 'string' || !t.name) continue;
       const bridgedName = `${prefix}__${t.name}`;
       // Never overwrite an already-claimed name (defensive; prefixes make collisions unlikely).

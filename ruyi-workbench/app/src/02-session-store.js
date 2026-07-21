@@ -1376,6 +1376,9 @@ const BRIDGED_WRITE_PATH_ARGS = {
   //   (image_tools.py: image_resize(path, output_path, …) 签名核对)。落盘可能在工作区内 → 快照可撤;
   //   护栏外 (image_resize 自带 protected_path 护栏兜底) → journalBridgedWrite 自然跳过。
   image_resize: { field: 'output_path', op: 'write' },
+  // 第49波(49a):ACC v1.9 edit_file —— in-place 精确替换(path 指向既有文件),op:write 快照 before
+  //   → 回滚=写回原内容(与整文件 write_file 同保真度)。入表即获得检查点+撤销能力(03 方案 P0 联动要求)。
+  edit_file: { field: 'path', op: 'write' },
 };
 // 从 bridged 工具名 + args 解析出「该工具将要动的所有目标文件」。返回 [{path, mode}, ...](可能空数组)。
 // mode ∈ 'write'|'delete'。纯字符串/查表逻辑,无 I/O。每个目标:path 缺失/非字符串/非绝对路径 → 跳过该目标

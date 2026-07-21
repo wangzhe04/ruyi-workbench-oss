@@ -84,7 +84,13 @@
       "file": "13-http-router.js",
       "startLine": 15892,
       "endLine": 18253,
-      "note": "handleApi 全路由"
+      "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
+    },
+    {
+      "file": "13b-api-domain-routes.js",
+      "startLine": 0,
+      "endLine": 0,
+      "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "14-main.js",

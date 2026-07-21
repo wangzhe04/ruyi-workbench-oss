@@ -58,6 +58,14 @@ const TOOLS = [
   // 47b 桥 cancel/超时契约测试件:慢工具 —— sleep args.ms(默认 30000)后才返回,期间不响应任何
   // notifications(模拟不协作取消的 ACC 僵尸执行)。配合 FAKE_MCP_NOTIFY_CAPTURE 断言桥发了 cancelled。
   { name: 'slow_task', description: 'Sleep ms then return (47b 桥超时契约测试件)', inputSchema: { type: 'object', properties: { ms: { type: 'number' } } } },
+  // ── 第49波49b: ACC v1.9 生态工具首批镜像(契约对齐真身) ──
+  { name: 'edit_file', description: 'Partial edit via exact-string replacement (mirrors ACC edit_file契约:唯一性闸)', inputSchema: { type: 'object', properties: { path: { type: 'string' }, old_string: { type: 'string' }, new_string: { type: 'string' }, replace_all: { type: 'boolean' } }, required: ['path', 'old_string', 'new_string'] } },
+  { name: 'fetch', description: 'Fetch a URL with SSRF guard (mirrors ACC fetch契约, fake 不联网)', inputSchema: { type: 'object', properties: { url: { type: 'string' }, max_bytes: { type: 'number' }, timeout: { type: 'number' } }, required: ['url'] } },
+  { name: 'memory_save', description: 'Save a memory entry (mirrors ACC memory_save契约)', inputSchema: { type: 'object', properties: { key: { type: 'string' }, content: { type: 'string' }, tags: { type: 'string' } }, required: ['key', 'content'] } },
+  { name: 'memory_read', description: 'Read a memory entry (mirrors ACC memory_read契约)', inputSchema: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] } },
+  { name: 'memory_list', description: 'List memory entries (mirrors ACC memory_list契约)', inputSchema: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'number' } } } },
+  { name: 'memory_delete', description: 'Delete a memory entry (mirrors ACC memory_delete契约)', inputSchema: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] } },
+  { name: 'sequential_thinking', description: 'Record a thinking step (mirrors ACC sequential_thinking契约)', inputSchema: { type: 'object', properties: { thought: { type: 'string' }, thought_number: { type: 'number' }, total_thoughts: { type: 'number' }, next_thought_needed: { type: 'boolean' } }, required: ['thought', 'thought_number', 'total_thoughts', 'next_thought_needed'] } },
 ];
 let OPTIONAL = { ocr: true, uia: true, cv2: false, playwright: false };
 try { const v = process.env.FAKE_MCP_OPTIONAL; if (v) { const o = JSON.parse(v); if (o && typeof o === 'object') OPTIONAL = { ocr: !!o.ocr, uia: !!o.uia, cv2: !!o.cv2, playwright: !!o.playwright }; } } catch { /* ignore */ }
@@ -253,6 +261,65 @@ rl.on('line', line => {
           send({ jsonrpc: '2.0', id: msg.id, result: { content: [{ type: 'text', text: JSON.stringify({ ok: true, slept: ms }) }], isError: false } });
         }, ms);
         return; // 异步应答:本帧不立即 send
+      // ── 第49波49b: ACC v1.9 生态工具首批 handler ────────────────────────────────────
+      } else if (name === 'edit_file') {
+        // 镜像 ACC edit_file 契约:唯一性闸(0 次/多次均报错,replace_all 除外)+ {success, replacements, output_path}。
+        try {
+          const p = String(args.path || '');
+          if (!p || !fs.existsSync(p)) { result = { error: 'file not found: ' + (p || '(空)') }; isError = true; }
+          else {
+            const text = fs.readFileSync(p, 'utf8');
+            const oldS = String(args.old_string == null ? '' : args.old_string);
+            const newS = String(args.new_string == null ? '' : args.new_string);
+            const count = oldS ? text.split(oldS).length - 1 : 0;
+            if (!oldS) { result = { error: 'old_string 为空' }; isError = true; }
+            else if (count === 0) { result = { error: 'old_string 在文件中未出现(0 次)' }; isError = true; }
+            else if (count > 1 && !args.replace_all) { result = { error: 'old_string 出现 ' + count + ' 次,不唯一' }; isError = true; }
+            else {
+              const replaced = args.replace_all ? text.split(oldS).join(newS) : text.replace(oldS, newS);
+              fs.writeFileSync(p, replaced, 'utf8');
+              result = { success: true, replacements: args.replace_all ? count : 1, output_path: path.resolve(p) };
+            }
+          }
+        } catch (e) { result = { error: (e && e.message) || String(e) }; isError = true; }
+      } else if (name === 'fetch') {
+        // fake 不联网:镜像 ok 包络 + 内网拒绝契约(127.0.0.1/localhost 直接拒,验证 SSRF 形状)。
+        const u = String(args.url || '');
+        if (!u) { result = { ok: false, error: 'url is required' }; isError = true; }
+        else if (/^(https?:\/\/)?(127\.|localhost|192\.168\.|10\.|169\.254\.|\[::1\])/.test(u)) {
+          result = { ok: false, error: 'refused: 目标主机指向本机/内网(SSRF 防护)。' }; isError = true;
+        } else {
+          result = { ok: true, url: u, status: 200, content_type: 'text/plain; charset=utf-8', content: 'FAKE_FETCH_BODY for ' + u, bytes: 21 + u.length, truncated: false, redirects: 0 };
+        }
+      } else if (name === 'memory_save' || name === 'memory_read' || name === 'memory_list' || name === 'memory_delete') {
+        // 进程内记忆(契约形状镜像;不落盘 —— 真身落盘行为由 ACC smoke_v19 覆盖)。
+        global.__fakeMemory = global.__fakeMemory || {};
+        const store = global.__fakeMemory;
+        if (name === 'memory_save') {
+          const k = String(args.key || '');
+          if (!k) { result = { error: 'key 为空' }; isError = true; }
+          else {
+            const overwritten = k in store;
+            store[k] = { content: String(args.content == null ? '' : args.content), tags: String(args.tags || '').split(',').map(s => s.trim()).filter(Boolean), updated: '2026-01-01T00:00:00' };
+            result = { success: true, key: k, updated: store[k].updated, overwritten };
+          }
+        } else if (name === 'memory_read') {
+          const e = store[String(args.key || '')];
+          result = e ? { found: true, key: String(args.key), content: e.content, tags: e.tags, updated: e.updated } : { ok: true, found: false, key: String(args.key || '') };
+        } else if (name === 'memory_list') {
+          const q = String(args.query || '').toLowerCase();
+          const entries = Object.keys(store).filter(k => !q || k.toLowerCase().includes(q) || store[k].content.toLowerCase().includes(q))
+            .map(k => ({ key: k, preview: store[k].content.slice(0, 120), tags: store[k].tags, updated: store[k].updated }));
+          result = { ok: true, entries, total: entries.length, capped: false };
+        } else {
+          const k = String(args.key || '');
+          const deleted = k in store; delete store[k];
+          result = { success: true, deleted, key: k };
+        }
+      } else if (name === 'sequential_thinking') {
+        // 镜像 ACC sequential_thinking 契约形状(不维护真链,回显+最小校验)。
+        if (!String(args.thought || '').trim()) { result = { ok: false, error: 'thought 为空' }; isError = true; }
+        else result = { ok: true, thought_number: Number(args.thought_number) || 1, total_thoughts: Number(args.total_thoughts) || 1, next_thought_needed: !!args.next_thought_needed, thought_history_length: Number(args.thought_number) || 1, branches: [] };
       } else {
         result = { ok: false, error: 'unknown tool: ' + name }; isError = true;
       }

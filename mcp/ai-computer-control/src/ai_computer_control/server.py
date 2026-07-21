@@ -15,7 +15,7 @@ import inspect
 
 from mcp.server.fastmcp import FastMCP
 
-VERSION = "1.8.3"
+VERSION = "1.9.0"
 
 mcp = FastMCP(
     "AI Computer Control",
@@ -133,45 +133,64 @@ mcp.tool = tool  # type: ignore[assignment]
 
 
 # Import and register all tool modules
-from ai_computer_control.tools import screen      # noqa: E402, F401
-from ai_computer_control.tools import mouse       # noqa: E402, F401
-from ai_computer_control.tools import keyboard    # noqa: E402, F401
-from ai_computer_control.tools import clipboard   # noqa: E402, F401
-from ai_computer_control.tools import window      # noqa: E402, F401
-from ai_computer_control.tools import application # noqa: E402, F401
-from ai_computer_control.tools import filesystem  # noqa: E402, F401
-from ai_computer_control.tools import shell       # noqa: E402, F401
-from ai_computer_control.tools import system      # noqa: E402, F401
-from ai_computer_control.tools import browser     # noqa: E402, F401
-from ai_computer_control.tools import document    # noqa: E402, F401
-from ai_computer_control.tools import dialog      # noqa: E402, F401
-# v1.1 additions
-from ai_computer_control.tools import batch          # noqa: E402, F401
-from ai_computer_control.tools import audio          # noqa: E402, F401
-from ai_computer_control.tools import desktop_extra  # noqa: E402, F401
-from ai_computer_control.tools import uia            # noqa: E402, F401 (optional: graceful if lib absent)
-# v1.2 additions (optional: graceful if lib absent)
-from ai_computer_control.tools import ocr            # noqa: E402, F401
-from ai_computer_control.tools import vision         # noqa: E402, F401
-# v1.3 additions
-from ai_computer_control.tools import audit          # noqa: E402, F401
-from ai_computer_control.tools import diagnostics    # noqa: E402, F401
-from ai_computer_control.tools import capture        # noqa: E402, F401
-from ai_computer_control.tools import sync           # noqa: E402, F401
-# v1.4 additions
-from ai_computer_control.tools import observe        # noqa: E402, F401
-from ai_computer_control.tools import act_and_verify # noqa: E402, F401
-from ai_computer_control.tools import record         # noqa: E402, F401 (optional: pynput graceful)
-# v1.6 additions — Office 模板驱动 (design-token beautify/generate). excel tools use core openpyxl;
-# pptx/matplotlib are optional (guarded import in-module) and degrade gracefully if absent.
-from ai_computer_control.tools import office_excel    # noqa: E402, F401
-from ai_computer_control.tools import office_pptx      # noqa: E402, F401 (optional: python-pptx graceful)
-from ai_computer_control.tools import office_chart     # noqa: E402, F401 (optional: matplotlib graceful)
-# v1.8 additions — 补齐「AI 盲操作」痛点: 结构化读表 / 分页读 PDF / 图片信息+缩放.
-# office_read (excel_read/pdf_read_pages): openpyxl/pdfplumber 核心依赖，缺失时工具内人话降级 (import 守护)。
-# image_tools (image_info/image_resize): Pillow 核心依赖；image_resize 是写族 (output_path 契约 + protected 护栏).
-from ai_computer_control.tools import office_read      # noqa: E402, F401
-from ai_computer_control.tools import image_tools      # noqa: E402, F401
+# v1.9 (49d, 03 Phase B #3): ACC_TOOLSETS 环境变量按能力子集注册 —— 逗号分隔的能力名
+# (如 "filesystem,shell,office"),未设置=全开(向后兼容)。审计/诊断/文件基础永远注册。
+# 价值:100+ 工具全量 schema 是 token 主来源(03 方案 T9),独立部署按宿主需求裁剪首 token 成本。
+import os as _os  # noqa: E402
+
+_TOOLSET_MODULES = {
+    "desktop":   ["screen", "mouse", "keyboard", "clipboard", "window", "application", "system", "desktop_extra", "dialog"],
+    "office":    ["document", "office_excel", "office_pptx", "office_chart", "office_read"],
+    "browser":   ["browser"],
+    "filesystem": ["filesystem", "editing", "image_tools"],
+    "shell":     ["shell"],
+    "uia":       ["uia"],
+    "ocr":       ["ocr"],
+    "vision":    ["vision", "capture"],
+    "macro":     ["record", "batch"],
+    "memory":    ["memory"],
+    "web":       ["web_fetch"],
+    "thinking":  ["thinking"],
+    "observe":   ["observe", "act_and_verify"],
+    "audio":     ["audio"],
+    "sync":      ["sync"],
+}
+_ALWAYS_MODULES = ["audit", "diagnostics"]
+
+
+def _active_modules() -> list[str]:
+    raw = _os.environ.get("ACC_TOOLSETS", "").strip()
+    if not raw:
+        mods = []
+        for group in _TOOLSET_MODULES.values():
+            mods.extend(group)
+        return _ALWAYS_MODULES + mods
+    mods = list(_ALWAYS_MODULES)
+    unknown = []
+    for name in (p.strip().lower() for p in raw.split(",")):
+        if not name:
+            continue
+        if name in _TOOLSET_MODULES:
+            mods.extend(_TOOLSET_MODULES[name])
+        else:
+            unknown.append(name)
+    if unknown:
+        import sys as _sys
+        print(f"[ai-computer-control] ACC_TOOLSETS: unknown toolset(s) ignored: {', '.join(unknown)}", file=_sys.stderr)
+    # preserve order, drop dupes
+    seen, out = set(), []
+    for m in mods:
+        if m not in seen:
+            seen.add(m)
+            out.append(m)
+    return out
+
+
+import importlib as _importlib  # noqa: E402
+
+for _mod in _active_modules():
+    _importlib.import_module(f"ai_computer_control.tools.{_mod}")
+del _mod
 
 
 def main():
