@@ -54,6 +54,7 @@ function startStreamableHttpMcp(port, captured) {
         return reply({ protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'fake-http-mcp', version: '1.0' } }, false);
       }
       if (msg.method === 'notifications/initialized') { res.writeHead(202); return res.end(); }
+      if (msg.method === 'notifications/cancelled') { captured.push({ cancelled: true, requestId: msg.params && msg.params.requestId }); res.writeHead(202); return res.end(); } // 49c 对抗验证:超时 cancelled 通知(协作式取消,best-effort)
       if (msg.method === 'tools/list') return reply({ tools }, true);   // SSE 形态
       if (msg.method === 'tools/call') {
         const a = (msg.params && msg.params.arguments) || {};
@@ -140,6 +141,8 @@ function startLegacySseMcp(port, state) {
   // 超时:无进程树可杀 → ok:false + 连接重置人话 + 下次调用重连
   const slow = await hclient.callTool('remote_echo', { message: 'x', slowMs: 1 }, 1500);
   ok(slow && slow.ok === false && /连接已重置/.test(slow.error || ''), 'A11 http 超时 → 远程连接重置人话(非杀进程树) (got ' + (slow && slow.error) + ')');
+  await sleep(400); // 等 _notify 的 fire-and-forget cancelled POST 到达 fake-http-mcp
+  ok(httpCalls.some(c => c.cancelled === true), 'A11b http 超时发 notifications/cancelled(49c 对抗验证修:与 _rpcSse/stdio _rpc 一致)');
   const after = await hclient.callTool('remote_echo', { message: 'again' }, 3000);
   ok(after && after.ok === false, 'A12 客户端 dead 后同实例不再可用(重连走 getBridgedClient 惰性重建)');
 

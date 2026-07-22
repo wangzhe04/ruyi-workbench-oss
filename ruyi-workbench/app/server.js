@@ -4644,7 +4644,12 @@ class McpHttpClient {
     if (this.dead) throw new Error('mcp client not running');
     const id = this._nextId++;
     const resp = await this._request('POST', this.url, { jsonrpc: '2.0', id, method, params: params || {} }, timeoutMs);
-    if (resp.error) throw new Error('mcp http: ' + resp.error);
+    if (resp.error) {
+      // 49c 对抗验证修(第50波):_rpcHttp 超时也发 notifications/cancelled(与 _rpcSse/stdio _rpc 一致--
+      //   对端若实现协作式取消可收手,不留无主处理)。连接可能已断,_notify 静默失败 best-effort。
+      if (method === 'tools/call' && /timed out/i.test(resp.error)) { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
+      throw new Error('mcp http: ' + resp.error);
+    }
     const sid = resp.headers && (resp.headers['mcp-session-id'] || resp.headers['Mcp-Session-Id']);
     if (sid && !this._sessionId) this._sessionId = String(sid);
     const ctype = String((resp.headers && resp.headers['content-type']) || '');

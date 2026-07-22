@@ -148,7 +148,7 @@ function highlightIn(container) {
     block.dataset.hl = '1';
     const pre = block.parentElement;
     if (pre && !pre.querySelector('.copy-code')) {
-      const btn = el('button', 'copy-code', '复制');
+      const btn = el('button', 'copy-code', t('common.copy'));
       btn.onclick = () => { navigator.clipboard?.writeText(block.textContent).then(() => toast(t("toast.copyCode"), 'ok')); };
       pre.appendChild(btn);
     }
@@ -240,7 +240,7 @@ function toggleUiMode() {
   applyUiMode(next);
   if (state.config) state.config.uiMode = next;
   saveConfigPartial({ uiMode: next });
-  toast(next === 'simple' ? '已切到精简界面' : '已切到专家界面', 'ok');
+  toast(next === 'simple' ? t('toast.uiModeSimple') : t('toast.uiModeExpert'), 'ok');
 }
 
 /* ---------------- v0.9-S3 (C3): working-folder ---------------- */
@@ -1361,7 +1361,7 @@ function middleEllipsis(s, max = 44) {
 // the wrapper to append. copies the pre's textContent to the clipboard.
 function wrapPreWithCopy(pre) {
   const wrap = el('div', 'tc-pre-wrap');
-  const btn = el('button', 'copy-code', '复制'); btn.type = 'button';
+  const btn = el('button', 'copy-code', t('common.copy')); btn.type = 'button';
   btn.onclick = e => { e.preventDefault(); e.stopPropagation(); navigator.clipboard?.writeText(pre.textContent || '').then(() => toast(t("toast.copied"), 'ok')); };
   wrap.append(pre, btn);
   return wrap;
@@ -1685,13 +1685,13 @@ function updateContextMeter() { renderContextMeter(state.shownUsage || latestUsa
 
 function msgActions(msg) {
   const bar = el('div', 'msg-actions');
-  const copy = el('button', '', '复制');
+  const copy = el('button', '', t('common.copy'));
   copy.onclick = () => { navigator.clipboard?.writeText(msg.content || '').then(() => toast(t("toast.copied"), 'ok')); };
   bar.appendChild(copy);
   if (msg.role === 'user') {
-    const edit = el('button', '', '编辑重发');
+    const edit = el('button', '', t('chat.editResend'));
     edit.onclick = () => { $('promptInput').value = msg.content || ''; autoGrow($('promptInput')); $('promptInput').focus(); };
-    const retry = el('button', '', '重试');
+    const retry = el('button', '', t('chat.retry'));
     retry.onclick = () => sendPrompt(msg.content || '');
     bar.append(edit, retry);
     // v0.8-S4b B2: 「⏪ 回溯到此处」— rewind the conversation to just before this message.
@@ -1827,7 +1827,7 @@ function openRewindModal(msg) {
   }
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
   const cancel = el('button', '', '取消');
-  const go = el('button', 'danger', '回溯');
+  const go = el('button', 'danger', t('chat.rewind'));
   foot.append(cancel, go);
   const modal = buildModal('回溯对话', body, foot);
   cancel.onclick = () => modal.close();

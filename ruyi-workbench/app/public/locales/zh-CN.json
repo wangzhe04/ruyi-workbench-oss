@@ -1018,5 +1018,10 @@
   "toast.presetHint": "（{{m}}）",
   "toast.steerInjected": "已插话，即时注入生效",
   "toast.steerQueued": "已插话，下一步生效",
-  "chat.steerQueuedHint": "队列中 {{n}} 条插话 · 下一步生效"
+  "chat.steerQueuedHint": "队列中 {{n}} 条插话 · 下一步生效",
+  "toast.uiModeSimple": "已切到精简界面",
+  "toast.uiModeExpert": "已切到专家界面",
+  "chat.editResend": "编辑重发",
+  "chat.retry": "重试",
+  "chat.rewind": "回溯"
 }

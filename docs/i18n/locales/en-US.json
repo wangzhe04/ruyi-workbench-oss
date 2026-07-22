@@ -1018,5 +1018,10 @@
   "toast.presetHint": "({{m}})",
   "toast.steerInjected": "Steer injected (immediate)",
   "toast.steerQueued": "Steer queued (applied next step)",
-  "chat.steerQueuedHint": "Steer queue: {{n}} (applied next step)"
+  "chat.steerQueuedHint": "Steer queue: {{n}} (applied next step)",
+  "toast.uiModeSimple": "Switched to simple UI",
+  "toast.uiModeExpert": "Switched to expert UI",
+  "chat.editResend": "Edit & resend",
+  "chat.retry": "Retry",
+  "chat.rewind": "Rewind"
 }
