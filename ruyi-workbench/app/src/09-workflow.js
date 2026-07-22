@@ -1675,7 +1675,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     engine: 'openai', providerId: provider.id, providerLabel: provider.label || provider.id, model,
   });
   session.providerHistoryCursor = session.messages.length;
-  if (!session.title || session.title === 'New session') {
+  if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }
   session.summary = (finalText.replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';

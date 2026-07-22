@@ -71,10 +71,16 @@ function parseTokenBlock(css, selector) {
     ok(onlyDark.length === 0, '(a) dark 无 light 缺失的令牌' + (onlyDark.length ? ' → 多出: ' + onlyDark.join(',') : ''));
     ok(onlyLight.length === 0, '(a) light 无 dark 缺失的令牌' + (onlyLight.length ? ' → 多出: ' + onlyLight.join(',') : ''));
 
-    // 五个新令牌必须两主题都定义。
-    const NEW5 = ['--panel-2', '--accent-hover', '--link', '--gold', '--gold-soft'];
+    // 五个新令牌必须两主题都定义(第50波清障:--gold-soft 零引用删除,移出必查清单;键集对称断言仍兜底)。
+    const NEW5 = ['--panel-2', '--accent-hover', '--link', '--gold'];
     for (const t of NEW5) {
       ok(t in dark && t in light, '(a) 新令牌 ' + t + ' 两主题均定义');
+    }
+    // 第50波(UI-DESIGN-V4):玻璃/场景令牌族必须两主题对称定义(键集断言之上的点名锁)。
+    const GLASS = ['--scene-bg', '--glass-bg-1', '--glass-bg-2', '--glass-bg-3', '--glass-border',
+      '--glass-border-strong', '--glass-highlight', '--glass-shadow', '--glass-shadow-soft', '--accent-2', '--noise'];
+    for (const t of GLASS) {
+      ok(t in dark && t in light, '(a) 玻璃令牌 ' + t + ' 两主题均定义(UI-DESIGN-V4)');
     }
   }
 

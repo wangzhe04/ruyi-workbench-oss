@@ -17,9 +17,12 @@
     <link id="hljs-light" rel="stylesheet" href="/vendor/github.min.css" disabled />
     <script>
       // Pre-paint theme to avoid a flash of the wrong theme.
+      // 第50波:三态(light/dark/system)—— system 档预绘即按 prefers-color-scheme 解析,防闪。
       (function () {
         try {
           var t = localStorage.getItem('wcw.theme') || 'dark';
+          if (t === 'system') t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+          if (t !== 'light') t = 'dark';
           document.documentElement.setAttribute('data-theme', t);
         } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
       })();

@@ -99,6 +99,11 @@ async function getToken(port) {
   ok(/ta\.addEventListener\('input'.*updateSendBtn\(\)/.test(app.replace(/\n/g, ' ')) || app.includes("} updateSendBtn(); }); // 50-fix"), 'S14 input 事件即时切换插话/停止');
   ok(zh.includes('"chat.steer"') && en.includes('"chat.steer"') && zh.includes('"chat.steerHint"') && en.includes('"chat.steerHint"'), 'S15 i18n 双语键同交(chat.steer/chat.steerHint)');
   ok(app.includes("autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」"), 'S16 steerPrompt 清空输入后按钮回落停止');
+  // 50-fix(Steer 双消息):回声去重不限时(provider drain 可远超旧 15s 窗)
+  ok(!app.includes('now - s.ts < 15000'), 'S17 steered 回声去重无 15s 窗(不限时文本队列)');
+  ok(app.includes("steeredSeen.findIndex(s => s.text === evt.text)"), 'S18 文本逐条 splice 去重在');
+  // 50-fix(标题):前端空标题 + 展示助手
+  ok(app.includes("title: '', cwd") && app.includes('sessionDisplayTitle'), 'S19 前端创建传空标题 + sessionDisplayTitle 展示助手在');
 
   // ───────────────── 起服务(interactive + fake-claude) ─────────────────
   const WP = await getFreePort(), FP = await getFreePort();
@@ -225,6 +230,23 @@ async function getToken(port) {
       ok(foundSection, 'D6 下游 o2 请求体含「用户插话 · 延迟生效」小节(buildUpstreamContext 注入)');
       ok(foundSteer, 'D7 下游 o2 请求体含插话文本本体');
     }
+
+    // ───────────────── E 段: 会话标题自动命名(50-fix 标题卡死) ─────────────────
+    console.log('── E 段: 标题自动命名(空标题默认 + 中文占位下一轮补名) ──');
+    const e1 = await post(WP, '/api/sessions', { title: '', cwd: HOME }, hdr);
+    ok(!!e1 && e1.session && e1.session.title === 'New session', 'E1 空标题创建 → 后端默认 New session(展示侧本地化) (got ' + (e1 && e1.session && e1.session.title) + ')');
+    const e2 = await post(WP, '/api/sessions', { title: '新会话', cwd: HOME }, hdr);
+    ok(!!e2 && e2.session && e2.session.title === '新会话', 'E2 历史中文占位创建原样保留(待首轮补名)');
+    const turnE = streamChat(WP, { sessionId: e2.session.id, message: 'explain the quantum budget report', cwd: HOME });
+    await turnE.done.catch(() => {});
+    const sessE = await get(WP, `/api/sessions/${encodeURIComponent(e2.session.id)}`, hdr);
+    const titleE = sessE && sessE.session && sessE.session.title;
+    ok(!!titleE && titleE !== '新会话' && titleE !== 'New session' && /quantum budget report/.test(titleE),
+      'E3 中文占位会话首轮结束自动补名(取自首条消息) (got "' + titleE + '")');
+    // 后端判定函数单测(require 真身)
+    const srv = require(SERVER);
+    ok(srv.isUntitledSessionTitle('') && srv.isUntitledSessionTitle('New session') && srv.isUntitledSessionTitle('新会话') && srv.isUntitledSessionTitle('New chat'), 'E4 isUntitledSessionTitle 占位集全中');
+    ok(!srv.isUntitledSessionTitle('预算报告解读') && !srv.isUntitledSessionTitle('  x  '), 'E5 真实标题不误判');
   } catch (e) { console.error('ERROR ' + (e && e.stack || e)); failures++; }
   finally {
     kill(wb); kill(fakeProvider);

@@ -106,6 +106,7 @@ module.exports = {
   nativeClaudeAgentResultInfo,
   BUILTIN_AGENT_ROLES,
   normalizeSession,
+  isUntitledSessionTitle, // 50-fix: 未命名标题判定(双引擎自动命名共用) — exposed for e2e
   detectDanglingTurn,
   bridgedToolTier,
   cwdWarning,

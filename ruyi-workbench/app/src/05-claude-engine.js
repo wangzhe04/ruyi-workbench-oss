@@ -501,7 +501,9 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     session.messages.push({ role: 'system', content: redact(stderrText.trim()), createdAt: nowIso(), source: 'stderr' });
   }
   // Local, offline session title/summary (no extra CLI call).
-  if (!session.title || session.title === 'New session') {
+  // 50-fix(标题卡死):前端曾把本地化占位名(新会话)当标题落库,旧的 `=== 'New session'` 判定永不
+  // 匹配 → 所有会话标题卡死。未命名判定拓宽为中英占位集,历史会话下一轮自动补名。
+  if (isUntitledSessionTitle(session.title)) {
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }
   session.summary = (finalText.replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';

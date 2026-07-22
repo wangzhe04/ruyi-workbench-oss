@@ -2835,6 +2835,13 @@ async function saveSession(session) {
   return session;
 }
 
+// 50-fix(标题卡死):未命名标题判定 —— 后端占位 'New session' 与历史前端本地化占位('新会话'/'New chat')
+// 均视为未命名,两引擎回合结束据此自动命名(历史会话下一轮补名)。
+function isUntitledSessionTitle(title) {
+  const v = String(title || '').trim();
+  return !v || v === 'New session' || v === '新会话' || v === 'New chat';
+}
+
 async function createSession({ title, cwd }) {
   const id = makeId('sess');
   const config = await readConfig();
@@ -5904,7 +5911,9 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     session.messages.push({ role: 'system', content: redact(stderrText.trim()), createdAt: nowIso(), source: 'stderr' });
   }
   // Local, offline session title/summary (no extra CLI call).
-  if (!session.title || session.title === 'New session') {
+  // 50-fix(标题卡死):前端曾把本地化占位名(新会话)当标题落库,旧的 `=== 'New session'` 判定永不
+  // 匹配 → 所有会话标题卡死。未命名判定拓宽为中英占位集,历史会话下一轮自动补名。
+  if (isUntitledSessionTitle(session.title)) {
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }
   session.summary = (finalText.replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
@@ -12951,7 +12960,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     engine: 'openai', providerId: provider.id, providerLabel: provider.label || provider.id, model,
   });
   session.providerHistoryCursor = session.messages.length;
-  if (!session.title || session.title === 'New session') {
+  if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }
   session.summary = (finalText.replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
@@ -19333,6 +19342,7 @@ module.exports = {
   nativeClaudeAgentResultInfo,
   BUILTIN_AGENT_ROLES,
   normalizeSession,
+  isUntitledSessionTitle, // 50-fix: 未命名标题判定(双引擎自动命名共用) — exposed for e2e
   detectDanglingTurn,
   bridgedToolTier,
   cwdWarning,

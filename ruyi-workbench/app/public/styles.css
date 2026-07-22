@@ -34,8 +34,8 @@
   --wf-claude: var(--accent);
   --wf-provider: var(--eng-claude);
   /* --- v1.5 (§3.1) 青花设计 token 补全。非颜色 token 放 :root(不参与 [data-theme] 键集对齐)。--- */
-  /* 间距阶梯补全(§3.1):4/8/12/16/24/32/48/64。--sp-1..6 已在上方,补 7/8。 */
-  --sp-7: 48px; --sp-8: 64px;
+  /* 间距阶梯补全(§3.1):4/8/12/16/24/32/64。--sp-1..6 已在上方,补 8(--sp-7 零引用,第50波清障删除)。 */
+  --sp-8: 64px;
   /* 圆角(§3.1):sm/md/lg/pill = 6/10/16/999。--r-lg 已在上方(14px,沿用已适配值),补 sm/md/pill。 */
   --r-sm: 6px; --r-md: 10px; --r-pill: 999px;
   /* 动效(§3.1):--ease-out + fast/base/slow 三档(120/200/320ms),全部受 prefers-reduced-motion 收敛。
@@ -46,17 +46,23 @@
   --elev-1: 0 1px 2px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.10);
   --elev-2: 0 6px 20px rgba(0,0,0,.20);
   --elev-3: 0 16px 40px rgba(0,0,0,.28);
-  /* 密度(§3.4)默认值:compact 基线。[data-density] 块覆盖(comfortable 更大点击区/scale)。 */
-  --density-scale: 1; --tap-min: 32px;
+  /* 密度(§3.4)默认值:compact 基线。[data-density] 块覆盖(comfortable 更大点击区)。
+     --density-scale 零引用(第50波清障删除,只留 --tap-min 联动)。 */
+  --tap-min: 32px;
+  /* 第50波(UI-DESIGN-V4):毛玻璃材质 token 族 —— 模糊三档(封顶 24px,saturate 提亮背透色)。
+     颜色类玻璃 token 在 [data-theme] 块双主题对称定义;blur 不参与键集对齐(非颜色)。 */
+  --glass-blur-1: blur(8px) saturate(1.2);
+  --glass-blur-2: blur(16px) saturate(1.3);
+  --glass-blur-3: blur(24px) saturate(1.4);
   /* 如意云纹(§3.3):内联 SVG 云头(复用 docs/branding/ruyi-mark.svg 的三曲瓣云头路径),作空状态/故障卡
      极淡水印。用作 mask-image:形状取 alpha,颜色由使用处 --brand-qh 上色(随主题走,不硬编码),opacity≤0.05。
      离线内联 data-URI,不引外部资源。 */
   --ruyi-cloud: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2070'%3E%3Cpath%20fill='%23000'%20d='M60%2062%20C46%2055%2030%2044%2030%2032%20A13%2013%200%200%201%2053%2024%20A7.5%207.5%200%201%201%2067%2024%20A13%2013%200%200%201%2090%2032%20C90%2044%2074%2055%2060%2062%20Z'/%3E%3C/svg%3E");
 }
-/* 密度分级(§3.4):comfortable=舒适(简易/主画像,更大点击区 + 略放大 scale)、compact=紧凑(专家,信息密度高)。
-   保守缩放:只放大点击区与选定间距,不重定义全站 --sp-*,避免撑破三栏布局。data-density 由 applyUiMode 联动。 */
-:root[data-density="comfortable"] { --density-scale: 1.06; --tap-min: 40px; }
-:root[data-density="compact"] { --density-scale: 1; --tap-min: 30px; }
+/* 密度分级(§3.4):comfortable=舒适(简易/主画像,更大点击区)、compact=紧凑(专家,信息密度高)。
+   保守缩放:只放大点击区,不重定义全站 --sp-*,避免撑破三栏布局。data-density 由 applyUiMode 联动。 */
+:root[data-density="comfortable"] { --tap-min: 40px; }
+:root[data-density="compact"] { --tap-min: 30px; }
 /* 第23波: 节点角色配色调色板(9 色,两主题通用的中调,仅作强调:胶囊/描边/左色条)。定义在非主题作用域 :root,
    dark/light 均继承。--wf-role-color 由 JS 按节点角色注入;initial=保证无效,使 var(--wf-role-color, 回退) 走回退,
    未指定角色色的节点回退 --muted/transparent。 */
@@ -82,8 +88,8 @@
   --accent-ink: #ffffff;
   --accent-soft: #1c2a4a;
   --link: #8fadf7;
-  --gold: #f2c14e;
-  --gold-soft: #332a12;
+  /* 第50波:鎏金改香槟(mockup 第2轮);--gold-soft 零引用清障删除(键集对称,light 同删)。 */
+  --gold: #dcba75;
   /* v0.8-S8 品牌标(如意 Ruyi)——青花 + 鎏金,随主题切换。暗色版。 */
   --brand-qh: #6b8ff2; --brand-au: #f2c14e;
   --user-bubble: #1c2740;
@@ -116,6 +122,27 @@
   --panel-veil: color-mix(in srgb, var(--panel) 78%, transparent);
   --glow-accent: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent), 0 10px 30px -8px color-mix(in srgb, var(--accent) 38%, transparent);
   --gold-line: color-mix(in srgb, var(--gold) 55%, transparent);
+  /* 第50波(UI-DESIGN-V4 · mockup 第2轮质感迭代回写):黛紫渐变搭档(青花点色化的高级感拍档)。
+     注:mockup 的 accent #6e86f2 对 accent-ink 白字对比仅 3.3,不过 theme.e2e 的 WCAG 4.5 红线,
+     故 --accent 保留 #4a6cd9;蓝紫渐变只作装饰面(品牌标/头像/发光),不作文字底色。 */
+  --accent-2: #9a72f0;
+  /* — 底层有景:墨夜深空微渐变 + 蓝紫双色远景(玻璃之「景」)— */
+  --scene-bg:
+    radial-gradient(1080px 620px at 88% -14%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 64%),
+    radial-gradient(840px 520px at -10% 112%, color-mix(in srgb, var(--accent-2) 9%, transparent), transparent 62%),
+    radial-gradient(640px 420px at 32% 118%, color-mix(in srgb, var(--info) 6%, transparent), transparent 66%),
+    linear-gradient(160deg, #090d16 0%, #0b1120 48%, #0e1526 100%);
+  /* 微噪点纹理(仅暗主题):压大底色「塑料感」,body::before 以 .05 不透明度铺。 */
+  --noise: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'/%3E%3CfeColorMatrix%20type='saturate'%20values='0'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
+  /* — 玻璃材质:暗色调蓝玻璃(提亮路数),描边细、投影深而远 — */
+  --glass-bg-1: rgba(146,166,214,.065);   /* 框架族(顶栏/侧栏/右栏/composer) */
+  --glass-bg-2: rgba(158,178,224,.085);   /* 浮层族(modal/popover/toast/命令面板) */
+  --glass-bg-3: rgba(140,160,208,.05);    /* 卡片族 */
+  --glass-border: rgba(180,200,240,.09);
+  --glass-border-strong: rgba(190,208,248,.15);
+  --glass-highlight: inset 0 1px 0 rgba(210,225,255,.08);
+  --glass-shadow: 0 24px 60px rgba(2,6,16,.55);
+  --glass-shadow-soft: 0 10px 30px rgba(2,6,16,.35);
 }
 
 :root[data-theme="light"] {
@@ -133,13 +160,12 @@
   --line: #dbe2ee;
   /* off-table 强分隔线,line 之上一档,青花族。 */
   --line-2: #c6d1e3;
-  --accent: #2350a8;
-  --accent-hover: #1c4390;
+  --accent: #2050c8;
+  --accent-hover: #1a43ab;
   --accent-ink: #ffffff;
   --accent-soft: #e7edfa;
-  --link: #2350a8;
-  --gold: #a97b1e;
-  --gold-soft: #f6edd8;
+  --link: #2050c8;
+  --gold: #a8822f;
   /* v0.8-S8 品牌标(如意 Ruyi)——青花 + 鎏金,随主题切换。亮色版。 */
   --brand-qh: #2350a8; --brand-au: #d9a441;
   --user-bubble: #eaf0fc;
@@ -170,9 +196,37 @@
   --panel-veil: color-mix(in srgb, var(--panel) 82%, transparent);
   --glow-accent: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent), 0 10px 26px -10px color-mix(in srgb, var(--accent) 25%, transparent);
   --gold-line: color-mix(in srgb, var(--gold) 60%, transparent);
+  /* 第50波(UI-DESIGN-V4):亮主题黛紫 + 晨雾 scene + 「留白+柔影」玻璃(与暗主题键集对称)。 */
+  --accent-2: #7a5fd0;
+  /* — 底层有景:月白晨雾微渐变 + 青花/黛色轻染 — */
+  --scene-bg:
+    radial-gradient(980px 540px at 88% -12%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 62%),
+    radial-gradient(800px 500px at -8% 112%, color-mix(in srgb, var(--accent-2) 5%, transparent), transparent 60%),
+    radial-gradient(600px 400px at 30% 118%, color-mix(in srgb, var(--info) 5%, transparent), transparent 65%),
+    linear-gradient(158deg, #f6f8fc 0%, #eef2f9 48%, #e9eef8 100%);
+  --noise: none; /* 键集对称:噪点仅暗主题 */
+  /* — 玻璃材质:亮主题靠「留白 + 柔影」— */
+  --glass-bg-1: rgba(255,255,255,.58);
+  --glass-bg-2: rgba(255,255,255,.72);
+  --glass-bg-3: rgba(255,255,255,.46);
+  --glass-border: rgba(20,28,48,.09);
+  --glass-border-strong: rgba(20,28,48,.14);
+  --glass-highlight: inset 0 1px 0 rgba(255,255,255,.75);
+  --glass-shadow: 0 18px 50px rgba(20,28,48,.15);
+  --glass-shadow-soft: 0 8px 28px rgba(20,28,48,.09);
   /* engine accent colors, light variants (§3): slightly darker for contrast on the light surface. */
   --eng-claude: #c96442; --eng-deepseek: #4059d8; --eng-qwen: #6d3fd8;
   --eng-glm: #178f80; --eng-custom: #5c6570;
+}
+
+/* 第50波(UI-DESIGN-V4 §3.2-E):无 backdrop-filter 环境 → token 级实色回退,布局零变化;
+   prefers-reduced-transparency → 关模糊(保留半透明底色,仍可读)。 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-theme="dark"] { --glass-bg-1: #151c2e; --glass-bg-2: #19213a; --glass-bg-3: #131a2b; }
+  :root[data-theme="light"] { --glass-bg-1: #f4f7fc; --glass-bg-2: #ffffff; --glass-bg-3: #f2f5fa; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass-blur-1: none; --glass-blur-2: none; --glass-blur-3: none; }
 }
 
 /* keyboard focus ring (A9): a visible ring only for keyboard nav, no outline on mouse focus. */
@@ -189,12 +243,21 @@
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: var(--bg);
+  /* 第50波(UI-DESIGN-V4 §3.2-A):底层有景 —— body 从平色 --bg 改 --scene-bg 微渐变(玻璃之「景」),
+     fixed 附着使滚动时远景不位移;--bg 保留为阅读面/回退 token。 */
+  background: var(--scene-bg);
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font);
   /* v3 (§B5): body 不再硬编码 font-size —— 继承 :root 基线(pro 14 / simple 15),密度/无障碍缩放才生效。 */
   -webkit-font-smoothing: antialiased;
 }
+/* 第50波:微噪点纹理层(仅暗主题,--noise 在亮主题为 none),压大底色「塑料感」。 */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: var(--noise); opacity: .05;
+}
+/* 应用骨架抬到噪点层之上(z-index 加在主 .app-shell 规则上,见下)。 */
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 6px; }
@@ -216,10 +279,11 @@ button {
 button:hover { background: var(--panel-3); border-color: var(--line-2); }
 button:active { transform: translateY(1px); }
 button:disabled { opacity: .5; cursor: not-allowed; }
-button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button.primary { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, var(--accent-2))); /* 第50波点色化:青花-黛紫渐变 */
+  border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 button.danger { background: transparent; border-color: var(--danger); color: var(--danger-fg); font-weight: 600; }
-button.danger:hover { background: var(--danger); color: #fff; }
+button.danger:hover { background: var(--danger); color: var(--accent-ink); } /* 第50波清障: #fff -> token */
 button.ghost { background: transparent; border-color: transparent; color: var(--muted); }
 button.ghost:hover { background: var(--panel-2); color: var(--ink); }
 button.full { width: 100%; }
@@ -276,6 +340,7 @@ input:focus, textarea:focus, select:focus {
      localStorage('wcw.rightWidth');全屏档见下方 .tools-fullscreen(fixed 覆盖中栏,不占轨)。 */
   --right-w: 340px;
   position: relative; /* 承载右栏拖拽手柄(.right-resize-handle)绝对定位锚点 */
+  z-index: 1; /* 第50波:抬到 body::before 噪点层(z:0)之上 */
   grid-template-columns: 288px minmax(420px, 1fr) var(--right-w);
   overflow: hidden;
   /* v1.0.2 (F2): 折叠/展开侧栏时栅格列宽的短过渡(≤0.15s),避免瞬跳。 */
@@ -295,15 +360,19 @@ input:focus, textarea:focus, select:focus {
 .tool-pane { grid-column: 3; }
 
 .sidebar, .tool-pane {
-  background: var(--panel);
+  /* 第50波(UI-DESIGN-V4 分档):框架族 = 玻璃二档(--glass-bg-1 + blur-2,贴边无圆角)。
+     模糊预算:框架族固定 4 面(sidebar/tool-pane/topbar/composer),滚动区不增面(模糊的是身后 scene)。 */
+  background: var(--glass-bg-1);
+  -webkit-backdrop-filter: var(--glass-blur-2); backdrop-filter: var(--glass-blur-2);
+  box-shadow: var(--glass-highlight);
   padding: 14px;
   overflow: auto;
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.sidebar { border-right: 1px solid var(--line); gap: 10px; }
-.tool-pane { border-left: 1px solid var(--line); }
+.sidebar { border-right: 1px solid var(--glass-border); gap: 10px; }
+.tool-pane { border-left: 1px solid var(--glass-border); }
 .app-shell.tools-collapsed .tool-pane,
 .app-shell.sidebar-collapsed .sidebar { display: none; }
 
@@ -347,7 +416,7 @@ input:focus, textarea:focus, select:focus {
 .search-wrap input { background: var(--panel-2); }
 .session-list { display: flex; flex-direction: column; gap: 3px; flex: 1; overflow: auto; }
 .session-group-label { font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 10px 4px 3px; }
-.session-item {
+.session-item { position: relative;
   /* 第23波: flex:none —— 会话项是 .session-list(flex column)的子项,原来会被压缩到 min-height:30px,把两行内容(≈34px)
      挤出边框box,hover 图标也随之越到框外。不压缩 → 每项取自然高度,内容与图标都稳稳在圆角框内。 */
   flex: none;
@@ -356,7 +425,10 @@ input:focus, textarea:focus, select:focus {
   transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); /* v3 (§C2) */
 }
 .session-item:hover { background: var(--panel-2); }
-.session-item.active { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.session-item.active { background: var(--glass-bg-3); border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: var(--glass-highlight); } /* 第50波点色化:玻璃底+点色描边 */
+.session-item.active::before { content: ""; position: absolute; left: -1px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px;
+  background: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
 .session-item .s-title { font-size: var(--fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; grid-column: 1; }
 .session-item .s-sub { grid-column: 1; color: var(--muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 第23波: 会话项 hover 操作 —— 三个图标做成【紧贴框内】的紧凑组:22×22 图标钮、无独立底/边框(不做浮层药丸,免得
@@ -376,7 +448,7 @@ input:focus, textarea:focus, select:focus {
    messages 落进 auto 轨(无限撑高、不滚动)、composer 落进 1fr 轨(压成 0px 被顶出视口)。flex 列对
    display:none 子元素天然免疫(直接消失、剩余项正确排布)。min-height:0 仍是关键:让 messages 能在
    flex:1 下内部滚动,而非撑破 .app-shell(overflow:hidden)。 */
-.chat-pane { position: relative; min-width: 0; min-height: 0; height: 100%; display: flex; flex-direction: column; background: var(--bg); overflow: hidden; }
+.chat-pane { position: relative; min-width: 0; min-height: 0; height: 100%; display: flex; flex-direction: column; background: transparent; /* 第50波:scene 透出,卡片浮景 */ overflow: hidden; }
 /* v0.8-S3 step-bar: a collapsible task-list strip between the topbar and the message list. flex:0 0 auto —
    auto height when shown, and simply removed from the flex flow when display:none (no track-shift bug). */
 .step-bar { flex: 0 0 auto; border-bottom: 1px solid var(--line); background: var(--panel-2); font-size: var(--fs-md); }
@@ -468,10 +540,17 @@ input:focus, textarea:focus, select:focus {
   box-shadow: var(--shadow); color: var(--ink-2); font-size: var(--fs-lg); line-height: 1; }
 .jump-latest:hover { background: var(--panel-2); border-color: var(--accent); color: var(--ink); }
 .topbar {
+  position: relative; /* 第50波:承载 ::after 青花渐变发线 */
   flex: 0 0 54px; height: 54px; /* v1.0.1: 固定顶栏高度(原由 grid 轨道给的 54px) */
   display: flex; align-items: center; gap: 10px; padding: 0 14px;
-  background: var(--panel); border-bottom: 1px solid var(--line);
+  /* 第50波:框架族玻璃二档 */
+  background: var(--glass-bg-1);
+  -webkit-backdrop-filter: var(--glass-blur-2); backdrop-filter: var(--glass-blur-2);
+  box-shadow: var(--glass-highlight);
+  border-bottom: 1px solid var(--glass-border);
 }
+.topbar::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent 8%, color-mix(in srgb, var(--accent) 30%, transparent) 50%, transparent 92%); } /* 第50波:顶栏底部青花渐变微光发线(mockup) */
 .topbar-title { min-width: 0; flex: 1; display: flex; flex-direction: column; }
 .topbar-title strong { font-size: var(--fs-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topbar-title span { color: var(--muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -502,7 +581,7 @@ input:focus, textarea:focus, select:focus {
 .cap-badge.cap-offline .cap-net { color: var(--danger-fg); }
 .cap-badge.cap-unknown .cap-net { color: var(--muted); }
 .cap-badge .cap-gaps { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--danger);
-  color: #fff; font-size: var(--fs-xs); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+  color: var(--accent-ink); /* 第50波清障: #fff -> token */ font-size: var(--fs-xs); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 /* capability popover contents */
 .cap-pop { display: flex; flex-direction: column; gap: 2px; min-width: 260px; padding: 4px 2px; }
 .cap-pop h4 { font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin: 6px 8px 2px; }
@@ -557,7 +636,8 @@ input:focus, textarea:focus, select:focus {
 .more-menu .mm-sep { height: 1px; background: var(--line); margin: 4px 2px; }
 
 /* popover primitive (§4.2): fixed-position, anchored panel shared by the chip + context meter */
-.popover { position: fixed; z-index: 55; background: var(--panel); border: 1px solid var(--line-2);
+.popover { position: fixed; z-index: 55; background: var(--glass-bg-2); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur-3); backdrop-filter: var(--glass-blur-3); /* 第50波:浮层族玻璃一档 */
   border-radius: var(--radius); box-shadow: var(--elev-2); padding: 6px; min-width: 260px; max-height: 60vh; /* v3 (§C1): 浮层 elev-2 */
   overflow: auto; animation: pop-in var(--dur-1) var(--ease); }
 @keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
@@ -808,10 +888,15 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
   background: var(--eng-color, var(--eng-custom)); flex: none; }
 .eng-model { color: var(--muted); font-size: var(--fs-xs); font-family: var(--mono); }
 .bubble {
-  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  /* 第50波:卡片族玻璃三档底色(列表降级=半透明纯色不叠 blur,§3.2-E 模糊预算);
+     阅读面克制 —— 代码块/diff 仍实色 --code-bg。 */
+  background: var(--glass-bg-3); border: 1px solid var(--glass-border); border-radius: var(--radius);
+  box-shadow: var(--glass-highlight);
   padding: 12px 14px; line-height: 1.65; overflow-wrap: anywhere;
 }
-.message.user .bubble { background: var(--user-bubble); border-color: var(--user-line); }
+.message.user .bubble { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent-2) 15%, transparent));
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  box-shadow: var(--glass-highlight), 0 8px 26px -10px color-mix(in srgb, var(--accent) 40%, transparent); } /* 第50波:点色玻璃渐变(列表降级无 blur) */
 .message.system .bubble { background: var(--sys-bubble); border-color: var(--sys-line); font-family: var(--mono); font-size: var(--fs-md); white-space: pre-wrap; }
 .bubble.plain { white-space: pre-wrap; }
 .bubble.live-plain { white-space: pre-wrap; }
@@ -1020,7 +1105,10 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .rewind-preview { margin: 8px 0; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--panel-2); border-radius: 4px; font-size: var(--fs-md); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 120px; overflow: auto; }
 
 /* ============================ composer ============================ */
-.composer { flex: 0 0 auto; position: relative; background: var(--panel); border-top: 1px solid var(--line); padding: 12px 16px 14px; }
+.composer { flex: 0 0 auto; position: relative; background: var(--glass-bg-1);
+  -webkit-backdrop-filter: var(--glass-blur-2); backdrop-filter: var(--glass-blur-2); /* 第50波:框架族玻璃二档 */
+  box-shadow: var(--glass-highlight);
+  border-top: 1px solid var(--glass-border); padding: 12px 16px 14px; }
 .drop-hint { position: absolute; inset: 8px; border: 2px dashed var(--accent); border-radius: var(--radius); display: grid; place-items: center; color: var(--accent); font-weight: 600; background: color-mix(in srgb, var(--accent) 10%, var(--panel)); z-index: 5; }
 .attachment-tray { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 /* v0.8-S0 A6: resume banner for an interrupted turn. color-mix keeps it readable in both themes. */
@@ -1040,7 +1128,7 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .attachment-pill { border: 1px solid var(--line-2); background: var(--panel-2); border-radius: 16px; padding: 4px 6px 4px 11px; font-size: var(--fs-sm); color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
 .attachment-pill button { padding: 0 5px; font-size: var(--fs-md); line-height: 1; background: transparent; border: none; color: var(--muted); }
 .attachment-pill button:hover { color: var(--danger-fg); }
-.composer-box { border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--panel); padding: 6px 8px 8px; transition: border-color var(--transition), box-shadow var(--transition); }
+.composer-box { border: 1px solid var(--glass-border); border-radius: var(--radius); background: var(--glass-bg-3); /* 第50波:输入盒卡片档底色(不叠 blur) */ padding: 6px 8px 8px; transition: border-color var(--transition), box-shadow var(--transition); }
 .composer-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
 .composer-box textarea { border: none; background: transparent; padding: 6px; max-height: 260px; }
 .composer-box textarea:focus { box-shadow: none; }
@@ -1114,7 +1202,9 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 
 /* ============================ modals ============================ */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 50; padding: 20px; animation: backdrop-in var(--dur-2) var(--ease); }
-.modal { background: var(--panel); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: var(--elev-3); width: min(640px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; animation: modal-in var(--dur-2) var(--ease); }
+.modal { background: var(--glass-bg-2); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur-3); backdrop-filter: var(--glass-blur-3); /* 第50波:浮层族玻璃一档 */
+  border-radius: 14px; box-shadow: var(--glass-highlight), var(--glass-shadow); width: min(640px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; animation: modal-in var(--dur-2) var(--ease); }
 .modal.small { width: min(420px, 100%); }
 /* modal entrance (§4.9/C7): backdrop fades, panel scales .98→1. reduced-motion global block disables. */
 @keyframes backdrop-in { from { opacity: 0; } }
@@ -1154,7 +1244,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .skill-src { font-size: var(--fs-xs); color: var(--muted); border: 1px solid var(--line-2); border-radius: 10px; padding: 1px 7px; }
 .skill-toggle { margin-left: auto; font-size: var(--fs-xs); padding: 2px 10px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); color: var(--ink); cursor: pointer; }
 .skill-toggle:hover:not(:disabled) { border-color: var(--accent); }
-.skill-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.skill-toggle.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); } /* 第50波清障: #fff -> token */
 .skill-toggle:disabled { opacity: .5; cursor: default; }
 .skill-item.unavailable { opacity: .6; cursor: default; }
 .skill-item.unavailable:hover { border-color: var(--line); background: var(--panel-2); }
@@ -1216,7 +1306,9 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 
 /* command palette */
 .palette-backdrop { align-items: flex-start; padding-top: 12vh; }
-.palette { background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: var(--shadow); width: min(560px, 100%); overflow: hidden; animation: modal-in var(--dur-2) var(--ease); }
+.palette { background: var(--glass-bg-2); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur-3); backdrop-filter: var(--glass-blur-3); /* 第50波:浮层族玻璃一档 */
+  border-radius: 12px; box-shadow: var(--glass-highlight), var(--glass-shadow); width: min(560px, 100%); overflow: hidden; animation: modal-in var(--dur-2) var(--ease); }
 .palette input { border: none; border-radius: 0; border-bottom: 1px solid var(--line); padding: 14px 16px; font-size: 1.071rem; /* body-input 特例:≈15px 视觉,rem 化随根缩放 */ }
 .palette input:focus { box-shadow: none; }
 .palette-list { max-height: 50vh; overflow: auto; padding: 6px; }
@@ -1230,7 +1322,8 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 
 /* toasts */
 .toast-tray { position: fixed; bottom: 18px; right: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
-.toast { background: var(--panel); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 10px 14px; font-size: var(--fs-md); max-width: 340px; animation: slidein var(--dur-base) var(--ease-out); }
+.toast { background: var(--glass-bg-2); border: 1px solid var(--glass-border); border-left: 3px solid var(--accent);
+  -webkit-backdrop-filter: var(--glass-blur-1); backdrop-filter: var(--glass-blur-1); /* 第50波:浮层族,blur-1 防多 toast 叠爆预算 */ border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 10px 14px; font-size: var(--fs-md); max-width: 340px; animation: slidein var(--dur-base) var(--ease-out); }
 .toast.err { border-left-color: var(--danger); }
 .toast.ok { border-left-color: var(--ok); }
 .toast.warn { border-left-color: var(--warn); } /* v1.0-S6 (B4): failover 提示 — 复用既有 --warn 令牌，无新色字面量 */
@@ -1432,7 +1525,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .fp-image { display: block; max-width: 100%; height: auto; margin: 8px auto; }
 .fp-md { padding: 9px; font-size: var(--fs-md); color: var(--ink-2); }
 .fp-html-note { padding: 6px 9px; font-size: var(--fs-xs); color: var(--muted); border-bottom: 1px dashed var(--line); }
-.fp-html-frame { display: block; width: 100%; height: 32vh; border: 0; background: #fff; }
+.fp-html-frame { display: block; width: 100%; height: 32vh; border: 0; background: var(--panel); } /* 第50波清障: #fff -> token(暗主题预览不再突兀白底) */
 .fp-csv-wrap { padding: 9px; overflow-x: auto; }
 .fp-csv { border-collapse: collapse; font-size: var(--fs-sm); }
 .fp-csv th, .fp-csv td { border: 1px solid var(--line); padding: 3px 7px; text-align: left; white-space: nowrap; color: var(--ink-2); }
@@ -2052,11 +2145,11 @@ button.ghost-danger:hover { background: var(--danger-veil); border-color: transp
 /* — 泳道层淡标签:落在层行上缘空隙,veil 底 + 发丝缘,避开节点(节点行居中排布,标签在行上方空隙带)。 — */
 .wb-layer-tag { position: absolute; z-index: 1; font-size: var(--fs-xs); color: var(--muted); letter-spacing: .06em;
   padding: 2px 9px; border-radius: var(--r-pill); background: var(--panel-veil); border: 1px solid var(--line);
-  backdrop-filter: blur(3px); pointer-events: none; white-space: nowrap; }
+  backdrop-filter: var(--glass-blur-1); /* 第50波:blur 走 token(G3 纪律) */ pointer-events: none; white-space: nowrap; }
 
 /* — 缩放胶囊(右下,挂 .wb-main 非滚动层 → 滚动画布时固定):− / 读数 / ＋ / 适应视图。 — */
 .wb-cvtools { position: absolute; right: calc(var(--wb-side-w, 372px) + 16px); bottom: 16px; z-index: 6;
-  display: flex; align-items: center; background: var(--panel-veil); backdrop-filter: blur(4px);
+  display: flex; align-items: center; background: var(--panel-veil); backdrop-filter: var(--glass-blur-1); /* 第50波:blur 走 token(G3 纪律) */
   border: 1px solid var(--line); border-radius: var(--r-pill); overflow: hidden; box-shadow: var(--elev-1); }
 .wb-cv-btn { width: 32px; height: 30px; display: grid; place-items: center; border: none; background: none;
   color: var(--ink-2); cursor: pointer; font-size: var(--fs-base); }

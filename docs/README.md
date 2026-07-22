@@ -20,3 +20,14 @@ operational commitments.
 
 Historical roadmaps, acceptance notes, design explorations, and generated mockups are retained in their original
 language. They are engineering records rather than normative user or deployment guides.
+
+## UI 设计稿生命周期(第50波 D3 标注)
+
+| 设计稿 | 状态 | 说明 |
+|---|---|---|
+| [UI-DESIGN-V4.md](UI-DESIGN-V4.md) | **定稿(现行基线)** | 现代毛玻璃质感;token 值与 styles.css 一致(第50波落地),mockup: `mockups/v4-glass-*.html` |
+| [UI-ORCHESTRATION-REDESIGN.md](UI-ORCHESTRATION-REDESIGN.md) | 已竣工 | 编排 redesign,已落地(对应波次见 OPTIMIZATION-ROADMAP) |
+| [UI-DESIGN-V3.md](UI-DESIGN-V3.md) | 已竣工 | V3 设计稿,波次表已清空落地 |
+| [UI-DESIGN-P3-WORKBENCH.md](UI-DESIGN-P3-WORKBENCH.md) + [UI-DESIGN-R2-NOTES.md](UI-DESIGN-R2-NOTES.md) | 已竣工 | P3 工作台 + R2 视觉跃升,§6 十条验收全过 |
+| [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | 概念待立项 | 唯一未落地概念稿(「交办台」);vNext 立项决策列第52波+,双壳并存死线 ≤2 release |
+

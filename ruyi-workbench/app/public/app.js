@@ -156,17 +156,44 @@ function highlightIn(container) {
 }
 
 /* ---------------- theme ---------------- */
+// 第50波(UI-DESIGN-V4 §5):主题三态 —— light/dark/system(跟随系统)。wcw.theme 存偏好值;
+// data-theme 落有效值(system 经 matchMedia 解析并监听变更)。切换循环 dark→light→system→dark。
+// themeToggle 由 emoji(🌙/☀️)换 SVG(icons.js theme/monitor,emoji 清零目标的高频控件首例)。
+function effectiveTheme(pref) {
+  return pref === 'system'
+    ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : (pref === 'light' ? 'light' : 'dark');
+}
+let _themeMediaWired = false;
 function applyTheme(theme) {
+  const pref = theme === 'light' || theme === 'system' ? theme : 'dark';
+  const eff = effectiveTheme(pref);
   // v1.0.2 (F5): 同 applyUiMode —— 值未变不重写 data-theme,避免 config 到达后与预绘同值时的无谓重排。
   // 主题预绘(index.html)默认 'dark',与 server defaultConfig().theme 一致,新装机无闪;此处仅回写 localStorage。
-  if (document.documentElement.getAttribute('data-theme') !== theme) document.documentElement.setAttribute('data-theme', theme);
-  $('hljs-dark').disabled = theme !== 'dark';
-  $('hljs-light').disabled = theme === 'dark';
-  $('themeToggle').textContent = theme === 'dark' ? '🌙' : '☀️';
-  try { localStorage.setItem('wcw.theme', theme); } catch { /* ignore */ }
+  if (document.documentElement.getAttribute('data-theme') !== eff) document.documentElement.setAttribute('data-theme', eff);
+  $('hljs-dark').disabled = eff !== 'dark';
+  $('hljs-light').disabled = eff === 'dark';
+  const tbtn = $('themeToggle');
+  if (tbtn) {
+    iconTextBtn(tbtn, pref === 'system' ? 'monitor' : 'theme', '');
+    tbtn.title = t('navigation.switchTheme') + ' · ' + t('navigation.theme.' + pref);
+    tbtn.setAttribute('aria-label', tbtn.title);
+  }
+  // system 档监听 OS 主题变更(注册一次;非 system 档变更时无害——applyTheme 只在 pref=system 时响应)。
+  if (!_themeMediaWired && window.matchMedia) {
+    _themeMediaWired = true;
+    try {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        let cur = 'dark'; try { cur = localStorage.getItem('wcw.theme') || 'dark'; } catch { /* ignore */ }
+        if (cur === 'system') applyTheme('system');
+      });
+    } catch { /* ignore */ }
+  }
+  try { localStorage.setItem('wcw.theme', pref); } catch { /* ignore */ }
 }
 function toggleTheme() {
-  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  const cur = (() => { try { return localStorage.getItem('wcw.theme') || 'dark'; } catch { return 'dark'; } })();
+  const next = cur === 'dark' ? 'light' : cur === 'light' ? 'system' : 'dark';
   applyTheme(next);
   saveConfigPartial({ theme: next });
 }
@@ -348,7 +375,7 @@ function renderSessions() {
 }
 function sessionItem(s) {
   const item = el('button', `session-item ${state.currentSession?.id === s.id ? 'active' : ''}`);
-  const title = el('span', 's-title', (s.pinned ? '📌 ' : '') + (s.title || s.id));
+  const title = el('span', 's-title', (s.pinned ? '📌 ' : '') + sessionDisplayTitle(s)); // 50-fix:未命名显示本地化占位
   const running = activeTurns.has(s.id);
   if (running) item.classList.add('running');
   const subParts = [running ? `◐ ${t('session.running')}` : '', tCount('session.messageCount', s.messageCount || 0), s.summary || s.cwd || ''].filter(Boolean);
@@ -804,9 +831,15 @@ function renderResumeBanner() {
   box.append(label, btn);
 }
 
+// 50-fix:未命名标题的本地化占位显示(后端占位 'New session' / 历史中文占位 '新会话' 均视为未命名)。
+function isUntitledTitle(tt) { const v = String(tt || '').trim(); return !v || v === 'New session' || v === '新会话'; }
+function sessionDisplayTitle(s) { return isUntitledTitle(s && s.title) ? t('session.new') : String(s.title).trim(); }
 async function newSession() {
   const cwd = state.config.defaultWorkspace || '';
-  const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: t('session.new'), cwd }) });
+  // 50-fix(标题不生成):不再把本地化占位名(新会话/New chat)当标题传给后端 —— 后端回合结束的
+  // 自动命名以 'New session' 占位判定,中文占位名永不匹配导致所有会话标题卡死。传空串,
+  // 后端默认 'New session' → 首轮结束自动命名生效;展示侧经 sessionDisplayTitle 本地化占位。
+  const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: '', cwd }) });
   state.currentSession = res.session;
   state.resumable = null; // fresh session never dangles
   try { localStorage.setItem('wcw.lastSession', res.session.id); } catch { /* ignore */ }
@@ -876,7 +909,7 @@ function openBulkCleanupModal() {
 function renderCurrentSession() {
   const session = state.currentSession;
   state.shownUsage = null;
-  $('sessionTitle').textContent = session?.title || t('navigation.workbench'); // v0.8-S8 品牌落地(原「本地 Claude 工作台」)
+  $('sessionTitle').textContent = isUntitledTitle(session?.title) ? t('navigation.workbench') : session.title.trim(); // v0.8-S8 品牌落地(原「本地 Claude 工作台」);50-fix 未命名回落
   $('sessionMeta').textContent = session ? (session.cwd || '') : '';
   renderWorkspacePicker(); // v0.9-S3 (C3): keep the top-bar picker in sync with this session's cwd
   updateSkillBadge(); // v1 技能体系: 会话切换时刷新 composer 技能徽标(已启用技能数)
@@ -2240,7 +2273,7 @@ async function sendPrompt(overrideText) {
       state.currentSession = r.session; state.resumable = r.resumable || null;
       // The live DOM already contains this complete turn. Rebuilding it here parses/highlights the same long
       // answer a second time and causes the characteristic end-of-stream stall.
-      $('sessionTitle').textContent = r.session?.title || t('navigation.workbench');
+      $('sessionTitle').textContent = isUntitledTitle(r.session?.title) ? t('navigation.workbench') : r.session.title.trim();
       $('sessionMeta').textContent = r.session?.cwd || '';
       renderStepBar(r.session && r.session.todos);
       renderMissionBar(r.session && r.session.mission);
@@ -2265,7 +2298,7 @@ async function sendPrompt(overrideText) {
 // On success clears the input, toasts (按 r.injected 区分即时/下步生效), and optimistically renders the user's
 // interjection in the message flow with a muted 「插话」 badge. The server also emits a `steered` event when it
 // actually injects the text — steeredSeen dedups that echo against this optimistic render (by text within a short time window).
-const steeredSeen = []; // [{text, ts}] recently rendered locally, for `steered`-event dedup
+const steeredSeen = []; // [{text, ts}] recently rendered locally, for `steered`-event dedup(不限时,逐条 splice;cap 50)
 async function steerPrompt(overrideText) {
   const text = (overrideText != null ? overrideText : $('promptInput').value).trim();
   if (!text) return;
@@ -2275,6 +2308,7 @@ async function steerPrompt(overrideText) {
     if (!r || !r.ok) { toast(`插话失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
     if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」
     steeredSeen.push({ text, ts: Date.now() });
+    if (steeredSeen.length > 50) steeredSeen.splice(0, steeredSeen.length - 50); // 50-fix:cap 防无限积
     renderSteeredMessage(text);
     toast(r.injected ? '已插话，即时注入生效' : '已插话，下一步生效', 'ok');
   } catch (e) { toast(`插话失败：${apiErrText(e)}`, 'err'); }
@@ -2507,9 +2541,11 @@ function handleStreamLine(line, live, main, streamSessionId) {
       break;
     case 'steered': {
       // v0.8-S7: the server injected a steering interjection at a boundary. If this UI already rendered it
-      // optimistically (steerPrompt pushed steeredSeen), dedup within a short window; else render it now.
-      const now = Date.now();
-      const idx = steeredSeen.findIndex(s => s.text === evt.text && now - s.ts < 15000);
+      // optimistically (steerPrompt pushed steeredSeen), dedup against that echo; else render it now.
+      // 50-fix(用户真机报告「Steer 一次发两条」):provider 引擎的 echo 在【下一次迭代边界 drain】时才发,
+      // 慢工具下可远超旧 15s 窗口 → 窗口失效回声双写。改为【不限时文本队列】去重:同文本逐条 splice,
+      // 两条相同插话仍各消各的(正确),回声多晚到都能命中。cap 50 防无限积。
+      const idx = steeredSeen.findIndex(s => s.text === evt.text);
       if (idx >= 0) { steeredSeen.splice(idx, 1); break; } // already shown locally → drop the echo
       renderSteeredMessage(evt.text || '');
       break;
@@ -7688,7 +7724,11 @@ function openComposerMorePopover() {
 // 轻量 popover 菜单（role="menu"）：主题切换 / 界面模式切换 / 能力矩阵 / 快捷键。Esc/点外/重点击关闭（popover
 // 原语已实现），菜单项 role="menuitem"。每项复用既有 handler（toggleTheme/toggleUiMode/openCapPopover/openModal），
 // 迁移自原顶栏控件。DOM 全 createElement/textContent 构建（F 安全红线）。
-function themeMenuLabel() { return document.documentElement.getAttribute('data-theme') === 'dark' ? t('navigation.theme.dark') : t('navigation.theme.light'); }
+function themeMenuLabel() {
+  // 第50波三态:菜单项显示当前偏好(含 system),不再只看有效值。
+  let pref = 'dark'; try { pref = localStorage.getItem('wcw.theme') || 'dark'; } catch { /* ignore */ }
+  return t('navigation.theme.' + (pref === 'light' || pref === 'system' ? pref : 'dark'));
+}
 function uiModeMenuLabel() { return document.documentElement.getAttribute('data-ui-mode') === 'simple' ? t('navigation.uiMode.simple') : t('navigation.uiMode.expert'); }
 // 菜单打开时若主题/界面被切换，更新对应项文案（无 DOM 时静默）。
 function syncMoreMenuLabels() {

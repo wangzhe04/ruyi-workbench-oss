@@ -878,5 +878,6 @@
   "skills.builtin.playbook.presentationOutline.name": "生成汇报大纲",
   "skills.builtin.playbook.presentationOutline.description": "把主题和素材整理成逐页汇报结构、关键数据与讲述逻辑",
   "chat.steer": "插话",
-  "chat.steerHint": "插话：不打断当前回合，内容将在下一步或即时注入"
+  "chat.steerHint": "插话：不打断当前回合，内容将在下一步或即时注入",
+  "navigation.theme.system": "主题：跟随系统"
 }

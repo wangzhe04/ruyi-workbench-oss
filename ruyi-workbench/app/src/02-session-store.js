@@ -914,6 +914,13 @@ async function saveSession(session) {
   return session;
 }
 
+// 50-fix(标题卡死):未命名标题判定 —— 后端占位 'New session' 与历史前端本地化占位('新会话'/'New chat')
+// 均视为未命名,两引擎回合结束据此自动命名(历史会话下一轮补名)。
+function isUntitledSessionTitle(title) {
+  const v = String(title || '').trim();
+  return !v || v === 'New session' || v === '新会话' || v === 'New chat';
+}
+
 async function createSession({ title, cwd }) {
   const id = makeId('sess');
   const config = await readConfig();
