@@ -40,7 +40,7 @@ ok(/minSuccessfulToolCalls/.test(src) && /成功工具调用证据/.test(src), '
 // ───────────── A3 高级 JSON 折叠区 ─────────────
 ok(/el\('details','wf-insp-advanced'\)/.test(src), 'A3 高级区 <details class=wf-insp-advanced>');
 ok(/advTa\.value=JSON\.stringify\(node,null,2\)/.test(src), 'A3 textarea 预填当前节点完整 JSON');
-ok(/JSON\.parse\(advTa\.value\)/.test(src) && /toast\('JSON 解析失败/.test(src), 'A3 应用按钮 JSON.parse 校验，坏 JSON toast 拒绝');
+ok(/JSON\.parse\(advTa\.value\)/.test(src) && /toast\(t\("toast\.wfJsonParseFail"/.test(src), 'A3 应用按钮 JSON.parse 校验，坏 JSON toast 拒绝(50c i18n:toast.wfJsonParseFail)');
 ok(/for\(const k of Object\.keys\(node\)\) delete node\[k\]/.test(src) && /Object\.assign\(node,parsed\)/.test(src), 'A3 应用 JSON 原地重写节点（保持 draft 引用）');
 
 // ───────────── A4 检查器四分组 ─────────────

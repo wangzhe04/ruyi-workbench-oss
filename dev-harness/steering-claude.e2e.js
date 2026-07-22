@@ -88,7 +88,7 @@ async function getToken(port) {
   ok(src.includes('deferredSteers') && src.includes('deferred: true'), 'S4 steer_node Claude 节点延迟插话分支在');
   ok(src.includes('[用户插话 · 延迟生效]'), 'S5 buildUpstreamContext 延迟插话注入小节在');
   ok(!app.includes('if (isProviderMode()) return steerPrompt(overrideText); return;'), 'S6 前端 sendPrompt 引擎静默门已去');
-  ok(app.includes('r.injected') && app.includes('即时注入生效'), 'S7 前端 toast 区分即时/下步生效');
+  ok(app.includes('r.injected') && app.includes("t('toast.steerInjected')") && app.includes("t('toast.steerQueued')"), 'S7 前端 toast 区分即时/下步生效(50c i18n:toast.steerInjected/Queued)');
   ok(app.includes("t('workflow.steerDeferred')") && app.includes('steerDeferredAria'), 'S8 工作台 Claude 节点插话按钮延迟文案在');
   ok(zh.includes('"workflow.steerDeferred"') && en.includes('"workflow.steerDeferred"'), 'S9 i18n 双语键同交(steerDeferred)');
   ok(src.indexOf("reg.kind === 'claude'") > 0 && src.indexOf("reg.kind === 'claude'") < src.indexOf('仅 provider 引擎支持插话'), 'S10 claude 分派先于旧口径 fallthrough(不再一刀切)');
@@ -104,6 +104,10 @@ async function getToken(port) {
   ok(app.includes("steeredSeen.findIndex(s => s.text === evt.text)"), 'S18 文本逐条 splice 去重在');
   // 50-fix(标题):前端空标题 + 展示助手
   ok(app.includes("title: '', cwd") && app.includes('sessionDisplayTitle'), 'S19 前端创建传空标题 + sessionDisplayTitle 展示助手在');
+  // 50d(02 Phase D):插话卡静态重渲染 + 队列可视化
+  ok(/if \(msg\.steered\) main\.appendChild\(el\('span', 'steered-badge'/.test(app), 'S20 renderStaticMessage 处理 msg.steered(刷新后插话卡带徽章,不丢)');
+  ok(/renderStaticMessage\(\{ role: 'user', content: text,[^}]*steered: true \}\)/.test(app), 'S21 renderSteeredMessage 传 steered:true(徽章统一在 renderStaticMessage,不再手动 insertBefore)');
+  ok(app.includes("t('chat.steerQueuedHint'") && app.includes('r.queued'), 'S22 provider 插话队列可视化(composerHint "队列中 N 条",r.queued 驱动)');
 
   // ───────────────── 起服务(interactive + fake-claude) ─────────────────
   const WP = await getFreePort(), FP = await getFreePort();

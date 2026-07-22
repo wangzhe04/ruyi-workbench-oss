@@ -1053,3 +1053,28 @@ V2.0「立柱」规划(§37)的 41–45 波已全部交付(toolCall 表驱动 / 
 **验证**:全部亲跑--ACC smoke 14/14;mcp-remote-transport/mcp-import-config/fake-mcp-contract 全绿;MCP/桥家族 6 件 + checkpoint/storage/steer 家族 7 件回归全绿;release-dryrun --pkg 全路径(含 Ruyi.exe 冒烟)全绿;facts 静态锁全绿。全量并行 4 路 148 ran:145 pass + 8 flaky(重跑过)+ 2 fail 逐一收口——meta-guard 擒真实文档漂移(ADMIN-GUIDE/README 的 ACC 版本与件数引用未随 1.9.0 同步,已修并新增 v1.9 章节,复跑全绿);perm-v2 为并行负载 flake(solo 3x 稳定,与 46 波已标记的时序族同类,记入待治理名单)。
 
 **未做(留后续波)**:description 存量 99 件新约定改造(报告已列清单,随工具改动顺手);ACC_TOOLSETS 的 tool_search A/B token 数字重测刷新营销证据(03 验收#2);MCP 管理面板 UI(03 §4.1.3);A1 剩余组(agent-runs/permission/session,随邻近改动顺手);github/官方 filesystem 兼容层(03 P2)。
+
+
+## 48. 第50波:UI 视觉焕新波 -- V4 毛玻璃定稿 + 玻璃铺层 + i18n 清零 + a11y + 插话可视化
+
+封版后第四个功能波(01 Step 0/2/3 + 02 Phase D),分上下两半提交。
+
+### 上半(470308b):Step 0 定稿 + Step 2 玻璃铺层 + 标题/Steer 热修
+
+- **50a Step 0 收尾**:`UI-DESIGN-V4.md` 定稿(§3.2-A~F token 值与分档表);mockup 第 2 轮质感迭代值回写 styles.css(--scene-bg 微渐变 + 噪点 / --glass-bg-1~3 / --glass-border/-strong / --glass-highlight / --glass-shadow/-soft / --glass-blur-1~3 / --accent-2 黛紫 / 鎏金香槟 / 亮 accent #2050c8);token 清障(删零引用 --density-scale/--gold-soft/--sp-7;4 处硬编码 #fff token 化);docs/README 设计稿生命周期标注(D3,五份稿状态钉)。**WCAG 裁决**:暗 accent 保留 #4a6cd9(mockup #6e86f2 对 accent-ink 白字对比 3.3 不过 theme.e2e 4.5 红线),蓝紫高级感经 --accent-2 渐变/glow 表达。
+- **50b Step 2 玻璃铺层**:body --scene-bg + 噪点层(暗主题);框架族玻璃二档(sidebar/tool-pane/topbar/composer);浮层族玻璃一档(modal/palette/popover/toast,toast blur-1 防多 toast 叠爆预算);卡片族 --glass-bg-3 列表降级无 blur(§3.2-E 模糊预算同屏 ≤6);点色化(侧栏选中玻璃底+点色左条/主按钮青花-黛紫渐变/顶栏青花发线);主题三态 light/dark/system(matchMedia 解析+监听+预绘防闪,themeToggle emoji 换 SVG monitor/theme);@supports not backdrop-filter 实色回退 + prefers-reduced-transparency 关模糊。`ui-v4-glass.static.e2e` 8 组锁(G1 blur 三档/G2 白名单/G3 禁散写 blur/G4 scene/G5 降级/G6 阅读区克制/G7 三态/G8 点色)。
+- **热修①(用户报告 标题卡死)**:前端把本地化占位名(新会话)当标题落库,后端 'New session' 判定永不匹配 -> 所有会话标题卡死。前端传空标题 + 展示侧 sessionDisplayTitle 本地化占位;后端 isUntitledSessionTitle 中英占位集(New session/新会话/New chat),历史会话下一轮自动补名。steering-claude E1-E5 行为锁。
+- **热修②(用户报告 Steer 双消息)**:steered 回声去重 15s 窗对 provider drain(下一迭代边界才发)太短,慢工具下窗口失效回声双写。改不限时文本队列逐条 splice(cap 50)。steering-claude S17-S18 锁。
+
+### 下半:Step 3 i18n/a11y + 02 Phase D 插话可视化
+
+- **50c Step 3 i18n 清零 + a11y P0 + 视觉回归门 v1**:
+  - **i18n 清零**:TOOL_VERB_MAP 改 t() 键;wbSteerBox/wbPoolBody/wbMailBody/段头/节点操作区全 i18n;95 处硬编码中文 toast 批量转 t()(codemod:形态 A 纯文本 / B 模板 ${} -> {{pN}} / C 拼接);4 目录事实源同步。i18n.static 全绿。顺手补 steerPrompt toast i18n 遗漏(三元形态 codemod 未捕获)。
+  - **a11y P0**:installFocusTrap(buildModal 动态模态 + 静态模态 Tab/Shift+Tab 焦点循环不外泄,ESC 与焦点归还已由全局快捷键/buildModal 承担)。**role="log" 评估**:#messages 全清重建架构(01 方案 P2 待做)下 role="log" 隐含 aria-live=polite 会致屏幕阅读器重读全部历史消息(可用性倒退),标 P2 增量渲染联动,不强行加。
+  - **视觉回归门 v1**:dom-smoke(dark 渲染)+ ui-v4-glass.static(玻璃 token)+ theme.e2e(双主题 WCAG)三件组合覆盖静态 + dark 渲染层。v2 双主题像素对比需 ?theme= URL 注入基建 + 基线图,留后续。
+- **50d 02 Phase D 插话可视化**:
+  - **插话卡静态重渲染**:renderStaticMessage 统一处理 msg.steered(刷新/重进会话后 steered:true 消息带「插话」徽章,47a 只做流式期 optimistic render);renderSteeredMessage 传 steered:true,徽章逻辑单源(不再手动 insertBefore)。steering-claude S20-S21 锁。
+  - **插话队列可视化**:provider 引擎 steer 排队中(r.queued>0)时 composerHint 显示"队列中 N 条·下一步生效",回合结束 setStreaming(false) 清空。Claude interactive 即时注入不排队不显。steering-claude S22 锁。
+- **50e 收尾**:server.js freshness 确认;facts 重生成;全量对抗验证;roadmap §48;提交。
+
+**未做(留后续波)**:role="log"(P2 增量渲染联动,全清重建下加会致屏幕阅读器重读);视觉回归门 v2 双主题像素对比(需 ?theme= URL 注入基建 + 基线图);CSS 分层拆分(tokens/base/components/views/themes,与 FE 全量拆分同域随 51 波);README/ARCHITECTURE steer 旧口径"仅 provider 引擎"全量刷新(47 波欠账,本波未做,留 51 波顺手);div+cursor:pointer 键盘等价散点(随邻近改动);截图/营销资产重拍(毛玻璃是营销卖点,列发版检查单)。

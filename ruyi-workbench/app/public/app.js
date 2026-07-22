@@ -149,7 +149,7 @@ function highlightIn(container) {
     const pre = block.parentElement;
     if (pre && !pre.querySelector('.copy-code')) {
       const btn = el('button', 'copy-code', '复制');
-      btn.onclick = () => { navigator.clipboard?.writeText(block.textContent).then(() => toast('已复制代码', 'ok')); };
+      btn.onclick = () => { navigator.clipboard?.writeText(block.textContent).then(() => toast(t("toast.copyCode"), 'ok')); };
       pre.appendChild(btn);
     }
   });
@@ -1362,7 +1362,7 @@ function middleEllipsis(s, max = 44) {
 function wrapPreWithCopy(pre) {
   const wrap = el('div', 'tc-pre-wrap');
   const btn = el('button', 'copy-code', '复制'); btn.type = 'button';
-  btn.onclick = e => { e.preventDefault(); e.stopPropagation(); navigator.clipboard?.writeText(pre.textContent || '').then(() => toast('已复制', 'ok')); };
+  btn.onclick = e => { e.preventDefault(); e.stopPropagation(); navigator.clipboard?.writeText(pre.textContent || '').then(() => toast(t("toast.copied"), 'ok')); };
   wrap.append(pre, btn);
   return wrap;
 }
@@ -1686,7 +1686,7 @@ function updateContextMeter() { renderContextMeter(state.shownUsage || latestUsa
 function msgActions(msg) {
   const bar = el('div', 'msg-actions');
   const copy = el('button', '', '复制');
-  copy.onclick = () => { navigator.clipboard?.writeText(msg.content || '').then(() => toast('已复制', 'ok')); };
+  copy.onclick = () => { navigator.clipboard?.writeText(msg.content || '').then(() => toast(t("toast.copied"), 'ok')); };
   bar.appendChild(copy);
   if (msg.role === 'user') {
     const edit = el('button', '', '编辑重发');
@@ -1809,10 +1809,10 @@ function rewindImpact(msg) {
   return { turns, fileCount: filePaths.size };
 }
 function openRewindModal(msg) {
-  if (state.streaming) { toast('请先停止当前回合再回溯', ''); return; }
+  if (state.streaming) { toast(t("toast.rewindStopTurn"), ''); return; }
   const sid = state.currentSession?.id;
   const targetTurnSeq = turnSeqForUserMessage(msg);
-  if (!sid || targetTurnSeq == null) { toast('无法定位该消息的回合', 'err'); return; }
+  if (!sid || targetTurnSeq == null) { toast(t("toast.rewindNoTurn"), 'err'); return; }
   const { turns, fileCount } = rewindImpact(msg);
   const body = el('div');
   body.append(el('p', '', `回到这条消息之前?将删除之后的 ${turns} 轮对话。`));
@@ -1836,7 +1836,7 @@ function openRewindModal(msg) {
     try {
       const r = await api('/api/session/rewind', { method: 'POST', body: JSON.stringify({ sessionId: sid, targetTurnSeq, rollbackFiles: !!(fileBox && fileBox.checked) }) });
       modal.close();
-      if (!r || !r.ok) { toast(`回溯失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
+      if (!r || !r.ok) { toast(t("toast.rewindFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
       // Reload the truncated session and re-render; refill the composer with the removed user text.
       // v1.0-S7 (perf): reset the window cursor so the shrunken conversation re-windows from its new tail.
       if (state.currentSession?.id === sid) { const s = await api(`/api/sessions/${sid}`); state.currentSession = s.session; state.resumable = s.resumable || null; state.msgWindowStart = null; renderCurrentSession(); renderResumeBanner(); }
@@ -1848,7 +1848,7 @@ function openRewindModal(msg) {
       if (reverted) m += ` · 撤销 ${reverted} 个文件`;
       if (failed) m += ` · ${failed} 个未能撤销`;
       toast(m, failed ? '' : 'ok');
-    } catch (e) { modal.close(); toast(`回溯失败：${apiErrText(e)}`, 'err'); }
+    } catch (e) { modal.close(); toast(t("toast.rewindFail", { p1: apiErrText(e) }), 'err'); }
   };
 }
 function renderStaticMessage(msg) {
@@ -1856,6 +1856,9 @@ function renderStaticMessage(msg) {
   const { row, main } = messageShell(msg.role, msg.createdAt, meta);
   if (msg.thinking) { const { d } = thinkingPanel(msg.thinking); main.appendChild(d); }
   const bubble = el('div', 'bubble');
+  // 50d(02 Phase D):插话卡静态重渲染 -- steered:true 消息(刷新/重进会话后从 session.messages 读出)
+  //   统一在此加「插话」徽章,与流式期 renderSteeredMessage 同源(后者也传 steered:true 走此路径)。
+  if (msg.steered) main.appendChild(el('span', 'steered-badge', t('chat.steer')));
   if (msg.role === 'assistant' && String(msg.content || '').length <= LIVE_MARKDOWN_MAX_CHARS) {
     bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(msg.content || ''); highlightIn(bubble);
   } else { bubble.classList.add('plain'); bubble.textContent = msg.content || ''; }
@@ -1894,12 +1897,12 @@ function fileToBase64(file) {
 }
 async function uploadFiles(files) {
   for (const file of files) {
-    if (file.size > 90 * 1048576) { toast(`${file.name} 过大（>90MB）`, 'err'); continue; }
+    if (file.size > 90 * 1048576) { toast(t("toast.fileTooLarge", { p1: file.name }), 'err'); continue; }
     try {
       const data = await fileToBase64(file);
       const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
       state.attachments.push(res.file);
-    } catch (e) { toast(`上传失败：${apiErrText(e)}`, 'err'); }
+    } catch (e) { toast(t("toast.uploadFail", { p1: apiErrText(e) }), 'err'); }
   }
   renderAttachments();
 }
@@ -1931,12 +1934,12 @@ function readDirEntryChildren(dirEntry) {
 async function resolveDroppedFolder(name, children) {
   let r;
   try { r = await api('/api/workspace/resolve', { method: 'POST', body: JSON.stringify({ name, children }) }); }
-  catch (e) { toast(`定位文件夹失败：${apiErrText(e)}`, 'err'); return; }
+  catch (e) { toast(t("toast.locateFolderFail", { p1: apiErrText(e) }), 'err'); return; }
   const matches = (r && Array.isArray(r.matches)) ? r.matches : [];
   if (!matches.length) {
     // v1.0.2 返修二:浏览器安全模型拿不到拖入文件夹的完整路径,指纹搜索对深层目录(如 Videos\…\子目录)
     // 天然无解 —— 失败时别只闪图标,直接把选择弹层(含粘贴路径输入)送到手边,兜底一步可达。
-    toast(`未能自动定位「${name}」——拖拽无法还原深层路径。可直接粘贴完整路径。`, 'err');
+    toast(t("toast.dragPathLost", { p1: name }), 'err');
     flashWorkspacePicker();
     pickWorkspace();
     return;
@@ -2164,7 +2167,7 @@ function beginCompactIndicator() {
   bar.classList.remove('hidden');
   // 90s 兜底:即便完成路径没触发(异常/流未正常收束),也恢复按钮与指示条。
   clearTimeout(compactState.timer);
-  compactState.timer = setTimeout(() => { if (compactState.active) { endCompactIndicator(); toast('压缩似乎超时,已恢复。可重试。', 'err'); } }, 90000);
+  compactState.timer = setTimeout(() => { if (compactState.active) { endCompactIndicator(); toast(t("toast.compactTimeout"), 'err'); } }, 90000);
 }
 function endCompactIndicator() {
   compactState.active = false;
@@ -2181,12 +2184,12 @@ function endCompactIndicator() {
 // providerHistory), then reload the session and show the before/after estimate.
 async function compactContext() {
   if (compactState.active) return; // F3⑥ 进行中再点=忽略
-  if (state.streaming) { toast('请等当前回合结束再压缩', ''); return; }
-  if (!state.currentSession || !(state.currentSession.messages || []).length) { toast('还没有可压缩的对话', ''); return; }
+  if (state.streaming) { toast(t("toast.compactWaitTurn"), ''); return; }
+  if (!state.currentSession || !(state.currentSession.messages || []).length) { toast(t("toast.compactEmpty"), ''); return; }
   if (!isProviderMode()) {
     // Claude 模式:/compact 是流式回合。开指示,sendPrompt 走完流后 setStreaming(false) 会调 endCompactIndicator。
     beginCompactIndicator();
-    toast('已请求压缩上下文（/compact）', 'ok');
+    toast(t("toast.compactRequested"), 'ok');
     sendPrompt('/compact');
     return;
   }
@@ -2194,11 +2197,11 @@ async function compactContext() {
   beginCompactIndicator();
   try {
     const r = await api('/api/provider/compact', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-    if (!r || !r.ok) { toast(`压缩失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
+    if (!r || !r.ok) { toast(t("toast.compactFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
     if (state.currentSession?.id === sid) { const s = await api(`/api/sessions/${sid}`); state.currentSession = s.session; renderCurrentSession(); }
     await refreshSessions();
-    toast(`已压缩上下文：${fmtTokens(r.beforeTokens || 0)}→约 ${fmtTokens(r.afterTokens || 0)}（估算）`, 'ok');
-  } catch (e) { toast(`压缩失败：${apiErrText(e)}`, 'err'); }
+    toast(t("toast.compactDone", { p1: fmtTokens(r.beforeTokens || 0), p2: fmtTokens(r.afterTokens || 0) }), 'ok');
+  } catch (e) { toast(t("toast.compactFail", { p1: apiErrText(e) }), 'err'); }
   finally { endCompactIndicator(); }
 }
 
@@ -2283,8 +2286,8 @@ async function sendPrompt(overrideText) {
   } catch (err) {
     // C6: aborts read as a neutral note (.msg-note), real failures as a red .msg-error block — not
     // stuffed into the markdown buffer. finalizeLive still renders whatever text streamed before this.
-    if (err.name === 'AbortError') { appendMsgNote(main, live, '已停止'); toast('已停止当前回合'); }
-    else { appendMsgError(main, live, apiErrText(err)); toast(`出错：${apiErrText(err)}`, 'err'); }
+    if (err.name === 'AbortError') { appendMsgNote(main, live, '已停止'); toast(t("toast.turnStopped")); }
+    else { appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
     finalizeLive(live);
   } finally {
     activeTurns.delete(turnSessionId);
@@ -2305,13 +2308,17 @@ async function steerPrompt(overrideText) {
   if (!state.currentSession?.id) return;
   try {
     const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId: state.currentSession.id, text }) });
-    if (!r || !r.ok) { toast(`插话失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
+    if (!r || !r.ok) { toast(t("toast.steerFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
     if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」
     steeredSeen.push({ text, ts: Date.now() });
     if (steeredSeen.length > 50) steeredSeen.splice(0, steeredSeen.length - 50); // 50-fix:cap 防无限积
     renderSteeredMessage(text);
-    toast(r.injected ? '已插话，即时注入生效' : '已插话，下一步生效', 'ok');
-  } catch (e) { toast(`插话失败：${apiErrText(e)}`, 'err'); }
+    toast(r.injected ? t('toast.steerInjected') : t('toast.steerQueued'), 'ok');
+    // 50d(02 Phase D):插话队列可视化 -- provider 引擎排队中(r.queued>0)时,composer 上方持续指示
+    //   "队列中 N 条·下一步生效",回合结束 setStreaming(false) 清空 composerHint(自动消失)。
+    //   Claude interactive 即时注入(r.injected)不排队,不显指示。
+    if (r.queued) { const h = $('composerHint'); if (h) h.textContent = t('chat.steerQueuedHint', { n: r.queued }); }
+  } catch (e) { toast(t("toast.steerFail", { p1: apiErrText(e) }), 'err'); }
 }
 
 // Render a user interjection row with a muted 「插话」 badge. Used by steerPrompt (optimistic) and by the
@@ -2319,10 +2326,8 @@ async function steerPrompt(overrideText) {
 function renderSteeredMessage(text) {
   const box = $('messages');
   box.querySelector('.empty-state')?.remove();
-  const row = renderStaticMessage({ role: 'user', content: text, createdAt: new Date().toISOString() });
-  const badge = el('span', 'steered-badge', '插话');
-  const bubble = row.querySelector('.bubble');
-  if (bubble && bubble.parentNode) bubble.parentNode.insertBefore(badge, bubble);
+  // 50d:传 steered:true,徽章由 renderStaticMessage 统一渲染(与刷新后静态重渲染同源,不再手动 insertBefore)。
+  const row = renderStaticMessage({ role: 'user', content: text, createdAt: new Date().toISOString(), steered: true });
   box.appendChild(row);
   scrollMessagesToBottom();
 }
@@ -2432,7 +2437,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // Documents/Downloads root (acting on everything the user owns is the highest-risk misfire).
       if (evt.cwdWarning && live && !live.cwdWarned) {
         live.cwdWarned = true;
-        toast('⚠ 当前工作目录是用户主目录，建议为任务选择具体文件夹', 'err');
+        toast(t("toast.homeCwdWarn"), 'err');
       }
       break;
     }
@@ -2536,7 +2541,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       break;
     case 'autonomy_grant_consumed':
       // 第27波:一次范围内的免弹窗放行 —— 低调提示 + 刷新计数(可观测,不打断)。
-      toast('授权自动放行:' + (evt.tool || '') + '(剩 ' + (evt.remaining != null ? evt.remaining : '?') + ' 次)', 'ok');
+      toast(t('toast.grantAuto', { tool: evt.tool || '', remaining: evt.remaining != null ? evt.remaining : '?' }), 'ok');
       loadAutonomyGrants();
       break;
     case 'steered': {
@@ -2588,7 +2593,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
     case 'permission_paused':
       // 第27f波:无人值守回合的权限弹窗超时后【存档暂停】(不立即拒),延长等待窗口。弹窗仍在,你的决定仍被接受;
       // 超过设定时限(autonomyPauseTtlMs)才回落拒绝。低调提示,不打断。
-      toast(`权限请求已存档暂停,仍在等待你的决定(约 ${Math.round((evt.ttlMs || 2700000) / 60000)} 分钟内有效,超时才回落拒绝)`, 'warn');
+      toast(t("toast.permPaused", { p1: Math.round((evt.ttlMs || 2700000) / 60000) }), 'warn');
       break;
     case 'plan':
       // v0.9-S5 (真流程 plan mode): the model proposed an execution plan and the turn is paused. Render an
@@ -2604,7 +2609,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // v1.0-S6 (B4): the provider's primary endpoint failed pre-first-byte and the turn switched to a backup.
       // Surface a warn-level toast so the user knows the request is now going elsewhere. The raw event is also
       // visible in the 调试 (debug) 原始事件流 automatically — no extra work needed there.
-      toast(`已切换到备用端点 ${evt.to || ''}`, 'warn');
+      toast(t("toast.failoverSwitched", { p1: evt.to || '' }), 'warn');
       break;
     case 'error':
       // v1.0.2 (F6c): CLI 缺失 → 友好引导卡(向后兼容:无 code 字段走原始 .msg-error 文本块)。
@@ -2635,13 +2640,14 @@ function buildModal(title, bodyEl, footEl, onCancel) {
   modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-label', title);
   const head = el('div', 'modal-head');
   head.append(el('h3', '', title));
-  const x = el('button', 'icon-btn'); x.appendChild(icon('close', 16)); x.setAttribute('aria-label', '关闭'); x.onclick = () => finish(true);
+  const x = el('button', 'icon-btn'); x.appendChild(icon('close', 16)); x.setAttribute('aria-label', t('common.close')); x.onclick = () => finish(true);
   head.append(x);
   const body = el('div', 'modal-body'); body.appendChild(bodyEl);
   const foot = el('div', 'modal-foot'); if (footEl) foot.appendChild(footEl);
   modal.append(head, body, foot);
   backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) finish(true); });
   backdrop.appendChild(modal);
+  installFocusTrap(backdrop); // 第50波 a11y P0:Tab 焦点陷阱
   document.body.appendChild(backdrop);
   // §4.9: focus the first interactive element inside the modal (input/button), falling back to ✕.
   setTimeout(() => { (focusFirstInteractive(modal) || x)?.focus?.(); }, 0);
@@ -2656,6 +2662,23 @@ function focusFirstInteractive(container) {
   // Prefer a field the user is expected to type into over the leading ✕/close button.
   const field = nodes.find(n => /^(INPUT|SELECT|TEXTAREA)$/.test(n.tagName));
   return field || nodes[0] || null;
+}
+// 第50波(a11y P0):模态焦点陷阱 —— Tab/Shift+Tab 在模态内循环,焦点不外泄到背景(ESC 与焦点归还
+// 已由全局快捷键/buildModal 承担)。动态(buildModal)与静态(index.html)模态共用。
+function installFocusTrap(backdrop) {
+  if (!backdrop || backdrop.__trapInstalled) return;
+  backdrop.__trapInstalled = true;
+  backdrop.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    const modal = backdrop.querySelector('.modal') || backdrop;
+    const sel = 'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const nodes = [...modal.querySelectorAll(sel)].filter(n => n.offsetParent !== null);
+    if (!nodes.length) return;
+    const first = nodes[0], last = nodes[nodes.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || !modal.contains(active))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (active === last || !modal.contains(active))) { e.preventDefault(); first.focus(); }
+  });
 }
 
 function showAskUserModal(questionId, questions, streamSessionId) {
@@ -2699,7 +2722,7 @@ function showAskUserModal(questionId, questions, streamSessionId) {
   // so the turn doesn't hang waiting for a tool_result. F4④:已实证现有关闭路径确实空答放行,不会丢弃挂起。
   const markAnswered = () => { const active = activeTurns.get(sid); if (active?.answeredQuestions) active.answeredQuestions.add(qid); };
   const postAnswer = content => {
-    if (!sid) { toast('会话已结束，无法回答', 'err'); return; }
+    if (!sid) { toast(t("toast.sessionEndedNoAnswer"), 'err'); return; }
     api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid, content, isError: true }) })
       .then(r => { if (r?.delivered) markAnswered(); }).catch(e => toast(apiErrText(e), 'err'));
   };
@@ -2711,7 +2734,7 @@ function showAskUserModal(questionId, questions, streamSessionId) {
   // F4①:提交按钮点击后禁用 + 「发送中…」,await POST 回来再 close;失败则 toast + 恢复按钮(不 close,让用户重试)。
   submit.onclick = async () => {
     if (submit.disabled) return;
-    if (!sid) { toast('会话已结束，无法回答', 'err'); modal.close(); return; }
+    if (!sid) { toast(t("toast.sessionEndedNoAnswer"), 'err'); modal.close(); return; }
     const answers = list.map((q, qi) => {
       const mine = controls.filter(c => c.qi === qi);
       const picked = mine.filter(c => c.free ? c.input.value.trim() : c.input.checked)
@@ -2727,7 +2750,7 @@ function showAskUserModal(questionId, questions, streamSessionId) {
       markAnswered();
       modal.close();
     } catch (e) {
-      toast(`回答发送失败：${apiErrText(e)}`, 'err');
+      toast(t("toast.answerFail", { p1: apiErrText(e) }), 'err');
       submit.disabled = false; submit.textContent = prevLabel;
     }
   };
@@ -2735,21 +2758,20 @@ function showAskUserModal(questionId, questions, streamSessionId) {
 
 // v0.8-S4b B3: plain-language tool-name map (人话化). ai_computer_control__ prefixed bridged tools →
 // 「桌面操作：<去前缀名>」. shell_* → 终端操作. Unknown → the raw name.
+// 第50波(i18n 清零):值改 i18n 键(tools.verb.*),humanizeToolName 经 t() 取文案。
 const TOOL_VERB_MAP = {
-  file_edit: '修改文件', file_write: '写入文件', file_delete: '删除文件',
-  // v1.1-W2 (T1) 新内建工具 —— 人话动词
-  file_move: '移动文件', file_copy: '复制文件', archive_zip: '压缩打包', archive_unzip: '解压缩', http_download: '下载文件',
-  powershell_run: '执行命令', script_run: '执行命令',
-  desktop_screenshot: '屏幕截图', keyboard_send_keys: '模拟按键', http_request: '网络请求',
-  // v1.0-S4 git 工具族 —— 人话动词
-  git_status: '查看版本状态', git_diff: '查看改动', git_log: '查看历史', git_commit: '保存版本',
+  file_edit: 'tools.verb.file_edit', file_write: 'tools.verb.file_write', file_delete: 'tools.verb.file_delete',
+  file_move: 'tools.verb.file_move', file_copy: 'tools.verb.file_copy', archive_zip: 'tools.verb.archive_zip', archive_unzip: 'tools.verb.archive_unzip', http_download: 'tools.verb.http_download',
+  powershell_run: 'tools.verb.exec_command', script_run: 'tools.verb.exec_command',
+  desktop_screenshot: 'tools.verb.desktop_screenshot', keyboard_send_keys: 'tools.verb.keyboard_send_keys', http_request: 'tools.verb.http_request',
+  git_status: 'tools.verb.git_status', git_diff: 'tools.verb.git_diff', git_log: 'tools.verb.git_log', git_commit: 'tools.verb.git_commit',
 };
 function humanizeToolName(name) {
   const n = String(name || '');
-  if (!n) return '未知操作';
-  if (TOOL_VERB_MAP[n]) return TOOL_VERB_MAP[n];
-  if (n.startsWith('shell_')) return '终端操作';
-  if (n.startsWith('ai_computer_control__')) return `桌面操作：${n.slice('ai_computer_control__'.length)}`;
+  if (!n) return t('tools.verb.unknown');
+  if (TOOL_VERB_MAP[n]) return t(TOOL_VERB_MAP[n]);
+  if (n.startsWith('shell_')) return t('tools.verb.shell');
+  if (n.startsWith('ai_computer_control__')) return t('tools.verb.desktop', { name: n.slice('ai_computer_control__'.length) });
   return n;
 }
 // Tier badge visuals — read 绿 / edit 黄 / exec 红. Kept here so the popup needn't re-derive tier from the
@@ -2965,7 +2987,7 @@ async function openWorkflowEditor(initialId) {
   // 校验失败不阻断切换(免困死),但 doApplyNode 已弹具体错误,这里补一句"已放弃"让丢弃不再无声。
   function flushInspector() {
     if (!commitSelectedNode) return;
-    if (commitSelectedNode() === false) toast('未通过校验的节点编辑已放弃', 'err');
+    if (commitSelectedNode() === false) toast(t("toast.wfEditDiscarded"), 'err');
   }
   let roles = []; try { roles = (await api(`/api/agent-roles?cwd=${encodeURIComponent(currentWorkspace())}`)).roles || []; } catch {}
   const body = el('div', 'workflow-editor');
@@ -3002,15 +3024,15 @@ async function openWorkflowEditor(initialId) {
   }
   function drawEdges(svg){
     const NS='http://www.w3.org/2000/svg'; const defs=document.createElementNS(NS,'defs'), marker=document.createElementNS(NS,'marker'); marker.setAttribute('id','wf-arrow');marker.setAttribute('markerWidth','8');marker.setAttribute('markerHeight','8');marker.setAttribute('refX','7');marker.setAttribute('refY','3');marker.setAttribute('orient','auto');const path=document.createElementNS(NS,'path');path.setAttribute('d','M0,0 L0,6 L8,3 z');marker.appendChild(path);defs.appendChild(marker);svg.appendChild(defs);
-    for(const node of draft.nodes){for(const dep of node.dependsOn||[]){const from=draft.nodes.find(x=>x.id===dep);if(!from)continue;const edge={from:dep,to:node.id},x1=(from.position?.x||0)+210,y1=(from.position?.y||0)+45,x2=node.position?.x||0,y2=(node.position?.y||0)+45;const g=document.createElementNS(NS,'g');g.classList.add('workflow-edge');if(edgeKey(selectedEdge)===edgeKey(edge))g.classList.add('selected');g.dataset.from=dep;g.dataset.to=node.id;g.dataset.edgeKey=edgeKey(edge);const line=document.createElementNS(NS,'line');line.classList.add('workflow-edge-line');line.setAttribute('x1',String(x1));line.setAttribute('y1',String(y1));line.setAttribute('x2',String(x2));line.setAttribute('y2',String(y2));line.setAttribute('marker-end','url(#wf-arrow)');const hit=document.createElementNS(NS,'line');hit.classList.add('workflow-edge-hit');hit.setAttribute('x1',String(x1));hit.setAttribute('y1',String(y1));hit.setAttribute('x2',String(x2));hit.setAttribute('y2',String(y2));hit.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();selectedEdge=edge;selectedId='';resetConnectMode();markSelectedCards();markSelectedEdges();renderInspector();const endpoint=edgeEndpointByPointer(e,from,node);const sx=e.clientX,sy=e.clientY;let moved=false;hit.setPointerCapture?.(e.pointerId);const move=ev=>{if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>4)moved=true;};const up=ev=>{hit.removeEventListener('pointermove',move);hit.removeEventListener('pointerup',up);if(moved){const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&(snapshot(),replaceWorkflowEdge(edge,endpoint,targetId))){selectedId='';renderGraph();renderInspector();toast(endpoint==='from'?'已调整箭头起点':'已调整箭头终点','ok');}else{renderGraph();renderInspector();if(targetId)toast('不能连接到自身或重复箭头','err');}}else markSelectedEdges();};hit.addEventListener('pointermove',move);hit.addEventListener('pointerup',up);});g.append(line,hit);svg.appendChild(g);}}
+    for(const node of draft.nodes){for(const dep of node.dependsOn||[]){const from=draft.nodes.find(x=>x.id===dep);if(!from)continue;const edge={from:dep,to:node.id},x1=(from.position?.x||0)+210,y1=(from.position?.y||0)+45,x2=node.position?.x||0,y2=(node.position?.y||0)+45;const g=document.createElementNS(NS,'g');g.classList.add('workflow-edge');if(edgeKey(selectedEdge)===edgeKey(edge))g.classList.add('selected');g.dataset.from=dep;g.dataset.to=node.id;g.dataset.edgeKey=edgeKey(edge);const line=document.createElementNS(NS,'line');line.classList.add('workflow-edge-line');line.setAttribute('x1',String(x1));line.setAttribute('y1',String(y1));line.setAttribute('x2',String(x2));line.setAttribute('y2',String(y2));line.setAttribute('marker-end','url(#wf-arrow)');const hit=document.createElementNS(NS,'line');hit.classList.add('workflow-edge-hit');hit.setAttribute('x1',String(x1));hit.setAttribute('y1',String(y1));hit.setAttribute('x2',String(x2));hit.setAttribute('y2',String(y2));hit.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();selectedEdge=edge;selectedId='';resetConnectMode();markSelectedCards();markSelectedEdges();renderInspector();const endpoint=edgeEndpointByPointer(e,from,node);const sx=e.clientX,sy=e.clientY;let moved=false;hit.setPointerCapture?.(e.pointerId);const move=ev=>{if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>4)moved=true;};const up=ev=>{hit.removeEventListener('pointermove',move);hit.removeEventListener('pointerup',up);if(moved){const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&(snapshot(),replaceWorkflowEdge(edge,endpoint,targetId))){selectedId='';renderGraph();renderInspector();toast(endpoint==='from'?'已调整箭头起点':'已调整箭头终点','ok');}else{renderGraph();renderInspector();if(targetId)toast(t("toast.wfEdgeInvalid"),'err');}}else markSelectedEdges();};hit.addEventListener('pointermove',move);hit.addEventListener('pointerup',up);});g.append(line,hit);svg.appendChild(g);}}
   }
   // ── 编辑器 v2 基础设施：撤销栈 / 实时校验 / 模型数据源（第14波）──
   let undoStack = [];
   function snapshot(){ try { undoStack.push(structuredClone(draft.nodes)); } catch { undoStack.push(cloneWorkflow(draft.nodes)); } if (undoStack.length > 20) undoStack.shift(); }
-  function undo(){ if(!undoStack.length){ toast('没有可撤销的步骤',''); return; } const prev=undoStack.pop(); draft.nodes=prev; if(!draft.nodes.some(n=>n.id===selectedId)) selectedId=(draft.nodes[0]&&draft.nodes[0].id)||''; selectedEdge=null; resetConnectMode(); renderGraph(); renderInspector(); toast('已撤销','ok'); }
+  function undo(){ if(!undoStack.length){ toast(t("toast.wfNoUndo"),''); return; } const prev=undoStack.pop(); draft.nodes=prev; if(!draft.nodes.some(n=>n.id===selectedId)) selectedId=(draft.nodes[0]&&draft.nodes[0].id)||''; selectedEdge=null; resetConnectMode(); renderGraph(); renderInspector(); toast(t("toast.wfUndone"),'ok'); }
   const problemChip = el('button','wf-problem-chip'); problemChip.type='button'; problemChip.hidden=true; toolbar.appendChild(problemChip);
   let lastProblems=[];
-  problemChip.onclick=()=>{ if(lastProblems.length) toast('校验问题：\n'+lastProblems.join('\n'),'err'); };
+  problemChip.onclick=()=>{ if(lastProblems.length) toast(t("toast.wfProblems") + '\n' + lastProblems.join('\n'), 'err'); };
   function validateDraft(){
     const nodes=draft.nodes, ids=new Set(nodes.map(n=>n.id)), problems=[], bad=new Set(), seen=new Set();
     for(const n of nodes){ if(seen.has(n.id)){ problems.push('节点 ID 重复：'+n.id); bad.add(n.id); } seen.add(n.id); }
@@ -3042,10 +3064,10 @@ async function openWorkflowEditor(initialId) {
       if(node.model){const mv=el('span','wf-node-model',node.model.length>18?node.model.slice(0,18)+'…':node.model);mv.title='模型：'+node.model;card.appendChild(mv);}
       card.appendChild(el('small','',(node.dependsOn||[]).length?`依赖 ${(node.dependsOn||[]).join(', ')}`:'起点'));
       const port=el('span','wf-port');port.title='从这里拖到目标节点，创建依赖箭头';
-      port.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();const gsvg=graph.querySelector('svg.workflow-edges');const temp=document.createElementNS(NS,'line');temp.setAttribute('class','wf-temp-edge');const x1=(node.position?.x||0)+210,y1=(node.position?.y||0)+45;temp.setAttribute('x1',x1);temp.setAttribute('y1',y1);temp.setAttribute('x2',x1);temp.setAttribute('y2',y1);if(gsvg)gsvg.appendChild(temp);port.setPointerCapture?.(e.pointerId);const move=ev=>{const p=clientToCanvas(ev.clientX,ev.clientY);temp.setAttribute('x2',p.x);temp.setAttribute('y2',p.y);};const up=ev=>{port.removeEventListener('pointermove',move);port.removeEventListener('pointerup',up);temp.remove();const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&targetId!==node.id){snapshot();if(addWorkflowEdge(node.id,targetId)){selectedEdge=null;renderGraph();renderInspector();toast('已连线','ok');}else{undoStack.pop();toast('不能连接到自身或重复箭头','err');}}};port.addEventListener('pointermove',move);port.addEventListener('pointerup',up);});
+      port.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();const gsvg=graph.querySelector('svg.workflow-edges');const temp=document.createElementNS(NS,'line');temp.setAttribute('class','wf-temp-edge');const x1=(node.position?.x||0)+210,y1=(node.position?.y||0)+45;temp.setAttribute('x1',x1);temp.setAttribute('y1',y1);temp.setAttribute('x2',x1);temp.setAttribute('y2',y1);if(gsvg)gsvg.appendChild(temp);port.setPointerCapture?.(e.pointerId);const move=ev=>{const p=clientToCanvas(ev.clientX,ev.clientY);temp.setAttribute('x2',p.x);temp.setAttribute('y2',p.y);};const up=ev=>{port.removeEventListener('pointermove',move);port.removeEventListener('pointerup',up);temp.remove();const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&targetId!==node.id){snapshot();if(addWorkflowEdge(node.id,targetId)){selectedEdge=null;renderGraph();renderInspector();toast(t("toast.wfEdgeAdded"),'ok');}else{undoStack.pop();toast(t("toast.wfEdgeInvalid"),'err');}}};port.addEventListener('pointermove',move);port.addEventListener('pointerup',up);});
       card.appendChild(port);
       card.addEventListener('dblclick',ev=>{ev.preventDefault();if(selectedId!==node.id)flushInspector();selectedId=node.id;selectedEdge=null;renderInspector();const t=inspector.querySelector('[data-wf-field="task"]');if(t)t.focus();});
-      card.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(connectFromId&&connectFromId!==node.id){snapshot();if(!(node.dependsOn||[]).includes(connectFromId))node.dependsOn=[...(node.dependsOn||[]),connectFromId];else undoStack.pop();selectedId=node.id;selectedEdge=null;resetConnectMode();syncNodeSelect();renderGraph();renderInspector();toast('已新增依赖箭头','ok');return;}if(selectedId!==node.id)flushInspector();selectedId=node.id;selectedEdge=null;renderInspector();markSelectedCards();markSelectedEdges();const sx=e.clientX,sy=e.clientY,ox=node.position?.x||0,oy=node.position?.y||0;let moved=false;card.setPointerCapture(e.pointerId);const move=ev=>{const dx=ev.clientX-sx,dy=ev.clientY-sy;if(Math.abs(dx)+Math.abs(dy)>3){if(!moved){moved=true;snapshot();}node.position={x:Math.max(0,ox+dx),y:Math.max(0,oy+dy)};card.style.left=`${node.position.x}px`;card.style.top=`${node.position.y}px`;}};const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);if(moved)renderGraph();else{markSelectedCards();markSelectedEdges();}};card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);});
+      card.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(connectFromId&&connectFromId!==node.id){snapshot();if(!(node.dependsOn||[]).includes(connectFromId))node.dependsOn=[...(node.dependsOn||[]),connectFromId];else undoStack.pop();selectedId=node.id;selectedEdge=null;resetConnectMode();syncNodeSelect();renderGraph();renderInspector();toast(t("toast.wfDepAdded"),'ok');return;}if(selectedId!==node.id)flushInspector();selectedId=node.id;selectedEdge=null;renderInspector();markSelectedCards();markSelectedEdges();const sx=e.clientX,sy=e.clientY,ox=node.position?.x||0,oy=node.position?.y||0;let moved=false;card.setPointerCapture(e.pointerId);const move=ev=>{const dx=ev.clientX-sx,dy=ev.clientY-sy;if(Math.abs(dx)+Math.abs(dy)>3){if(!moved){moved=true;snapshot();}node.position={x:Math.max(0,ox+dx),y:Math.max(0,oy+dy)};card.style.left=`${node.position.x}px`;card.style.top=`${node.position.y}px`;}};const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);if(moved)renderGraph();else{markSelectedCards();markSelectedEdges();}};card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);});
       graph.appendChild(card); }
     if(!draft.nodes.length){const guide=el('div','wf-canvas-empty');guide.appendChild(el('div','wf-canvas-empty-title','画布还是空的，从这里开始'));const row=el('div','wf-canvas-empty-actions');const fromTpl=el('button','mini','从模板开始');fromTpl.type='button';fromTpl.onclick=()=>{templateSelect.focus();};const addFirst=el('button','mini primary','＋ 添加第一个节点');addFirst.type='button';addFirst.onclick=()=>addBtn.click();row.append(fromTpl,addFirst);guide.appendChild(row);graph.appendChild(guide);}
     const controls=el('div','wf-canvas-controls');const fitBtn=el('button','mini wf-fit-btn','适应视图');fitBtn.type='button';fitBtn.title='把所有节点居中到视口';fitBtn.onclick=fitView;controls.appendChild(fitBtn);graph.appendChild(controls);
@@ -3075,7 +3097,7 @@ async function openWorkflowEditor(initialId) {
     }
     return cleared;
   }
-  function renderInspector(){inspector.textContent='';commitSelectedNode=null;if(selectedEdge&&!edgeExists(selectedEdge))selectedEdge=null;if(selectedEdge){const fromSel=document.createElement('select'),toSel=document.createElement('select');for(const n of draft.nodes){const a=document.createElement('option');a.value=n.id;a.textContent=n.id;fromSel.appendChild(a);const b=document.createElement('option');b.value=n.id;b.textContent=n.id;toSel.appendChild(b);}fromSel.value=selectedEdge.from;toSel.value=selectedEdge.to;const applyEdge=el('button','mini primary','应用箭头'),delEdge=el('button','mini danger','删除箭头');inspector.append(el('p','workflow-help','已选择箭头。可在这里改起点/终点，也可直接拖动箭头靠近某一端的位置到目标节点。'),workflowField('起点节点',fromSel),workflowField('结束节点',toSel));applyEdge.onclick=()=>{const next={from:fromSel.value,to:toSel.value};if(next.from===next.to)return toast('箭头不能连接到自身','err');if(edgeKey(next)!==edgeKey(selectedEdge)&&edgeExists(next))return toast('重复箭头','err');snapshot();const old=selectedEdge;removeWorkflowEdge(old);if(!addWorkflowEdge(next.from,next.to)){addWorkflowEdge(old.from,old.to);return toast('无法应用箭头','err');}selectedEdge=next;renderGraph();renderInspector();};delEdge.onclick=()=>{snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast('已删除箭头','ok');}};inspector.append(applyEdge,delEdge);return;}const node=draft.nodes.find(x=>x.id===selectedId);
+  function renderInspector(){inspector.textContent='';commitSelectedNode=null;if(selectedEdge&&!edgeExists(selectedEdge))selectedEdge=null;if(selectedEdge){const fromSel=document.createElement('select'),toSel=document.createElement('select');for(const n of draft.nodes){const a=document.createElement('option');a.value=n.id;a.textContent=n.id;fromSel.appendChild(a);const b=document.createElement('option');b.value=n.id;b.textContent=n.id;toSel.appendChild(b);}fromSel.value=selectedEdge.from;toSel.value=selectedEdge.to;const applyEdge=el('button','mini primary','应用箭头'),delEdge=el('button','mini danger','删除箭头');inspector.append(el('p','workflow-help','已选择箭头。可在这里改起点/终点，也可直接拖动箭头靠近某一端的位置到目标节点。'),workflowField('起点节点',fromSel),workflowField('结束节点',toSel));applyEdge.onclick=()=>{const next={from:fromSel.value,to:toSel.value};if(next.from===next.to)return toast(t("toast.wfEdgeSelf"),'err');if(edgeKey(next)!==edgeKey(selectedEdge)&&edgeExists(next))return toast(t("toast.wfEdgeDup"),'err');snapshot();const old=selectedEdge;removeWorkflowEdge(old);if(!addWorkflowEdge(next.from,next.to)){addWorkflowEdge(old.from,old.to);return toast(t("toast.wfEdgeApplyFail"),'err');}selectedEdge=next;renderGraph();renderInspector();};delEdge.onclick=()=>{snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast(t("toast.wfEdgeDeleted"),'ok');}};inspector.append(applyEdge,delEdge);return;}const node=draft.nodes.find(x=>x.id===selectedId);
     if(!node){ inspector.append(el('p','muted','选择一个节点')); return; }
     const oldId=node.id;
     // ── 身份 ──
@@ -3112,7 +3134,7 @@ async function openWorkflowEditor(initialId) {
     const minToolEvidence=document.createElement('input'); minToolEvidence.type='number'; minToolEvidence.min='0'; minToolEvidence.max='20'; minToolEvidence.value=node.minSuccessfulToolCalls||0;
     // ── 高级 JSON ──
     const adv=el('details','wf-insp-advanced'); adv.appendChild(el('summary','','高级（直接编辑节点 JSON：resources / outputSchema / isolation 等长尾）')); const advTa=document.createElement('textarea'); advTa.className='wf-adv-json'; advTa.rows=8; advTa.spellcheck=false; advTa.value=JSON.stringify(node,null,2); const advApply=el('button','mini','应用 JSON'); advApply.type='button'; adv.append(workflowField('节点完整 JSON',advTa),advApply);
-    advApply.onclick=()=>{ let parsed; try{ parsed=JSON.parse(advTa.value); }catch(err){ return toast('JSON 解析失败：'+err.message,'err'); } if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)) return toast('必须是一个 JSON 对象','err'); const nextId=String(parsed.id||'').trim(); if(!/^[A-Za-z0-9_-]+$/.test(nextId)) return toast('JSON 中 id 非法（仅字母/数字/_/-）','err'); if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId)) return toast('JSON 中 id 与其他节点重复','err'); snapshot(); for(const k of Object.keys(node)) delete node[k]; Object.assign(node,parsed); node.id=nextId; if(nextId!==oldId) remapWorkflowNodeRef(oldId,nextId); selectedId=nextId; renderGraph(); renderInspector(); toast('已应用节点 JSON','ok'); };
+    advApply.onclick=()=>{ let parsed; try{ parsed=JSON.parse(advTa.value); }catch(err){ return toast(t("toast.wfJsonParseFail", { p1: err.message }), 'err'); } if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)) return toast(t("toast.wfJsonNotObject"),'err'); const nextId=String(parsed.id||'').trim(); if(!/^[A-Za-z0-9_-]+$/.test(nextId)) return toast(t("toast.wfJsonIdIllegal"),'err'); if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId)) return toast(t("toast.wfJsonIdDup"),'err'); snapshot(); for(const k of Object.keys(node)) delete node[k]; Object.assign(node,parsed); node.id=nextId; if(nextId!==oldId) remapWorkflowNodeRef(oldId,nextId); selectedId=nextId; renderGraph(); renderInspector(); toast(t("toast.wfJsonApplied"),'ok'); };
     // ── 分组装配（身份 / 执行 / 编排 / 质量）──
     const group=(title,...items)=>{ const g=el('div','wf-insp-group'); g.appendChild(el('div','wf-insp-group-title',title)); for(const it of items) if(it) g.appendChild(it); return g; };
     const modelField=workflowField('模型（可为该职位指派更强模型）',model); modelField.append(modelCustom,modelHint);
@@ -3127,14 +3149,14 @@ async function openWorkflowEditor(initialId) {
     const doApplyNode=()=>{
       // Validate EVERYTHING first — nothing on `node`/`draft` is written until every field parses.
       const nextId=nid.value.trim();
-      if(!/^[A-Za-z0-9_-]+$/.test(nextId)){ toast('节点 ID 只能用字母、数字、_、-','err'); return false; }
-      if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId)){ toast('节点 ID 重复','err'); return false; }
+      if(!/^[A-Za-z0-9_-]+$/.test(nextId)){ toast(t("toast.wfIdCharset"),'err'); return false; }
+      if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId)){ toast(t("toast.wfIdDup"),'err'); return false; }
       const nextDependsOn=[...deps.selectedOptions].map(x=>x.value).filter(x=>x&&x!==nextId);
       const nextCondition=parseWorkflowConditionText(condition.value);
-      if(condition.value.trim()&&!nextCondition){ toast('运行条件格式无效','err'); return false; }
+      if(condition.value.trim()&&!nextCondition){ toast(t("toast.wfCondInvalid"),'err'); return false; }
       const lm=Math.max(1,Number(loopMax.value)||1);
       const nextUntil=parseWorkflowConditionText(loopUntil.value);
-      if(loopUntil.value.trim()&&!nextUntil){ toast('循环停止条件格式无效','err'); return false; }
+      if(loopUntil.value.trim()&&!nextUntil){ toast(t("toast.wfLoopCondInvalid"),'err'); return false; }
       const mi=maxIters.value.trim();
       const modelVal=currentModelChoice();
       // All parsed OK — snapshot then commit.
@@ -3167,13 +3189,13 @@ async function openWorkflowEditor(initialId) {
   maxBtn.onclick=()=>{const on=modalEl?.classList.toggle('workflow-fullscreen');maxBtn.textContent=on?'❐':'□';maxBtn.title=on?t('workflow.editor.restore'):t('workflow.editor.maximize');maxBtn.setAttribute('aria-label',on?t('workflow.editor.restore'):t('workflow.editor.maximize'));setTimeout(()=>{renderGraph();renderInspector();},0);};
   addBtn.onclick=()=>{flushInspector();snapshot();let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();};
   deleteBtn.onclick=()=>{
-    if(draft.nodes.length<=1)return toast('至少保留一个节点','err');
+    if(draft.nodes.length<=1)return toast(t("toast.wfKeepOne"),'err');
     if(!confirm(`删除节点「${selectedId}」？其依赖它的运行条件/循环停止条件将被清除（可用 Ctrl+Z 撤销）。`))return;   // 对抗轮 P3: 原文案称"不可撤销"与 snapshot/undo 实现矛盾
     snapshot();const deadId=selectedId;
     draft.nodes=draft.nodes.filter(x=>x.id!==deadId);
     const cleared=clearWorkflowNodeRef(deadId);
     selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();
-    if(cleared)toast(`已删除节点，并清除 ${cleared} 处指向它的运行条件/循环停止条件（这些节点将变为无条件执行）`,'');
+    if(cleared)toast(t("toast.wfNodeDeleted", { p1: cleared }),'');
   };
   async function saveDraft(){if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false){const err=new Error('检查器有字段无效，请修正后再保存');err.__quiet=true;throw err;}}syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||'保存失败');draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
   cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast(t('workflow.editor.saved'),'ok');modal.close();}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast(t('workflow.editor.builtinCannotDelete'),'err');if(!confirm(t('workflow.editor.delete.confirm',{title:draft.title||draft.id})))return;try{const r=await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();if(r&&r.ok===false){toast(t('workflow.editor.delete.none'),'err');}else{toast(t('workflow.editor.deleted'),'ok');modal.close();}}catch(e){toast(apiErrText(e),'err');}};
@@ -3188,16 +3210,16 @@ function agentRunStatusLabel(status) {
   return ({ queued: '等待中', waiting_resource: '等待资源', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', waiting_pool: '等待任务池审批', succeeded: '已完成', skipped: '条件跳过', partial: '部分完成', failed: '失败', rejected: '质量门判否', degraded: '降级完成', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
 }
 // 团队模式 v2 (A4): 任务池提案状态人话标签。
-function poolStatusLabel(s) { return ({ proposed: '待审批', approved: '已批准', materialized: '已加入', rejected: '已拒绝', expired: '已过期' })[s] || s || ''; }
+function poolStatusLabel(s) { return t('workflow.pool.status.' + s) || s || ''; } // 第50波 i18n
 // 团队模式 v2 (A4): 审批/拒绝一条任务池提案 → POST pool_approve/pool_reject（服务器要求 run 仍 live 且未收尾）。
 async function poolDecide(runId, poolId, approve) {
   const sid = state.currentSession?.id; if (!sid) return;
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action: approve ? 'pool_approve' : 'pool_reject', poolId }) });
     if (!r || !r.ok) throw new Error((r && r.error) || '操作失败');
-    toast(approve ? '已同意，新任务已加入工作流' : '已拒绝该提案', 'ok');
+    toast(approve ? t('workflow.pool.approvedToast') : t('workflow.pool.rejectedToast'), 'ok');
     await loadAgentRuns(true); // 29a: 动作后强制全量(审批物化的新节点等不靠事件推断,直接拉权威快照)
-  } catch (e) { toast(`任务池：${apiErrText(e)}`, 'err'); }
+  } catch (e) { toast(t('workflow.pool.err', { err: apiErrText(e) }), 'err'); }
 }
 // v1.5 运行监控：展示态状态语义。把「质量门判否」从「执行失败」里分出来——后端可能已直接发 'rejected'，也可能
 // 仍发 'failed' 但带 gateVerdict/structuredResult.verdict==='fail'。两种都归一到 rejected（琥珀，语义=「发现问题
@@ -3250,8 +3272,8 @@ async function agentRunAction(runId, action, extra) {
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action, ...(extra || {}) }) });
     if (!r.ok) throw new Error(r.error || '操作失败');
-    toast('Agent 工作流操作已提交', 'ok'); await loadAgentRuns(true); // 29a: 动作后强制全量(apply_isolation 等冷路径不发事件)
-  } catch (e) { toast(`Agent 工作流：${apiErrText(e)}`, 'err'); }
+    toast(t("toast.wfActionSubmitted"), 'ok'); await loadAgentRuns(true); // 29a: 动作后强制全量(apply_isolation 等冷路径不发事件)
+  } catch (e) { toast(t("toast.wfError", { p1: apiErrText(e) }), 'err'); }
 }
 // v1 定向插话（steer 到指定运行中子代理节点）：对某个运行中/排队中的 OpenAI 引擎节点插一句话，服务器在该节点
 // 下一次 API 调用前把它注入为 user 消息。prompt() 取文本（与现有 confirm 风格一致，不引入新组件）；成功后刷新
@@ -3276,12 +3298,12 @@ async function steerAgentNode(runId, nodeId, nodeStatus, presetText, engine) {
     toast(msg, 'ok');
     await loadAgentRuns(true);
     return true;
-  } catch (e) { toast(`插话失败：${apiErrText(e)}`, 'err'); return false; }   // 对抗轮 P2: 调用方按返回值区分失败以回填文本
+  } catch (e) { toast(t("toast.steerFail", { p1: apiErrText(e) }), 'err'); return false; }   // 对抗轮 P2: 调用方按返回值区分失败以回填文本
 }
 async function deleteAgentRun(runId) {
   const sid = state.currentSession?.id; if (!sid || !confirm('删除这条 Agent 工作流记录？')) return;
   try { await api(`/api/agent-runs/${encodeURIComponent(runId)}?sessionId=${encodeURIComponent(sid)}`, { method: 'DELETE' }); await loadAgentRuns(true); }
-  catch (e) { toast(`删除失败：${apiErrText(e)}`, 'err'); }
+  catch (e) { toast(t("toast.deleteFail", { p1: apiErrText(e) }), 'err'); }
 }
 // v1.5 运行监控重设计（§2 多 Agent 编排实时监控）：把纵向 <details> 列表升级为「聚合头 + 状态徽标节点卡」的
 // 实时监控。数据仍来自 /api/agent-runs 的 2s 轮询（协议不变）。所有不可信内容一律 el()/textContent 渲染，
@@ -3395,7 +3417,7 @@ function renderAgentRuns(runs) {
         pcard.appendChild(whatLine);
         pcard.appendChild(el('div', 'pool-line pool-cost', t('workflow.pool.cost', { maxIters: item.maxIters || 100 })));
         if (!simpleMode && item.reason) pcard.appendChild(el('div', 'pool-line pool-reason', `理由：${item.reason}`));
-        if (!simpleMode && item.status !== 'proposed') pcard.appendChild(el('div', 'pool-line pool-status', `状态：${poolStatusLabel(item.status)}${item.resultNodeId ? ` · 节点 ${item.resultNodeId}` : ''}`));
+        if (!simpleMode && item.status !== 'proposed') pcard.appendChild(el('div', 'pool-line pool-status', `状态：${poolStatusLabel(item.status)}${item.resultNodeId ? ` + ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) + ` : ''}`));
         if (item.status === 'proposed' && run.live) {
           const pactions = el('div', 'pool-actions');
           const yes = el('button', 'mini primary', t('workflow.pool.approve')); yes.setAttribute('aria-label', t('workflow.pool.approveAria')); yes.onclick = () => poolDecide(run.id, item.id, true);
@@ -4138,13 +4160,13 @@ function renderWorkbenchSide(run) {
   const proposed = (Array.isArray(run.taskPool) ? run.taskPool : []).filter(p => p && p.status === 'proposed');
   const mails = Array.isArray(run.messages) ? run.messages : [];
   host.appendChild(wbSection('detail', '选中节点详情', sel ? { text: sel.id } : null, wbNodeDetailBody(run, sel)));
-  host.appendChild(wbSection('pool', '任务池审批', proposed.length ? { text: `待批准 ${proposed.length}`, warn: true } : ((run.taskPool || []).length ? { text: String((run.taskPool || []).length) } : null), wbPoolBody(run)));
-  host.appendChild(wbSection('mail', '邮箱消息流', mails.length ? { text: String(mails.length) } : null, wbMailBody(run)));
+  host.appendChild(wbSection('pool', t('workflow.section.pool'), proposed.length ? { text: t('workflow.section.pendingCount', { count: proposed.length }), warn: true } : ((run.taskPool || []).length ? { text: String((run.taskPool || []).length) } : null), wbPoolBody(run)));
+  host.appendChild(wbSection('mail', t('workflow.section.mail'), mails.length ? { text: String(mails.length) } : null, wbMailBody(run)));
   if (keepSteer) {
     const inp = $('wbSteerInput');
     if (inp && !inp.disabled) { inp.value = steerVal; inp.focus(); try { inp.setSelectionRange(caret, caret); } catch { /* ignore */ } }
     // 对抗轮 P2: run finalize/节点终局的轮询边界会移除或禁用插话框——打了一半的文本不再静默蒸发,弹一次可见提示。
-    else if (steerVal && steerVal.trim()) toast(`插话已不可发送（节点/运行已结束），未发送内容：${steerVal.trim().slice(0, 80)}`, 'err');
+    else if (steerVal && steerVal.trim()) toast(t("toast.steerUnsendable", { p1: steerVal.trim().slice(0, 80) }), 'err');
   }
   else wbRestoreFocus(host, fk);
   host.scrollTop = prevScroll;
@@ -4226,17 +4248,17 @@ function wbNodeDetailBody(run, node) {
   // 操作区:非 live 显重试入口(retry_node);失败/判否有错误显查看错误。
   if (!run.live) {
     const acts = el('div', 'wb-det-actions');
-    const retry = el('button', 'wb-btn', '重试此节点'); retry.dataset.fk = `retry:${node.id}`; retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
-    const cascade = el('button', 'wb-btn', '重试及下游'); cascade.dataset.fk = `cascade:${node.id}`; cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
+    const retry = el('button', 'wb-btn', t('workflow.node.retry')); retry.dataset.fk = `retry:${node.id}`; retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
+    const cascade = el('button', 'wb-btn', t('workflow.node.retryCascade')); cascade.dataset.fk = `cascade:${node.id}`; cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
     acts.append(retry, cascade);
     if ((disp === 'failed' || disp === 'rejected') && (node.error || (Array.isArray(node.schemaErrors) && node.schemaErrors.length))) {
-      const view = el('button', 'wb-btn', '查看错误'); view.onclick = () => { const err = box.querySelector('.wb-det-error'); if (err) err.scrollIntoView({ block: 'nearest' }); };
+      const view = el('button', 'wb-btn', t('workflow.node.viewError')); view.onclick = () => { const err = box.querySelector('.wb-det-error'); if (err) err.scrollIntoView({ block: 'nearest' }); };
       acts.appendChild(view);
     }
     box.appendChild(acts);
   }
   // 结果 / 错误全文
-  if (node.result) { const rw = el('details', 'wb-det-result'); rw.appendChild(el('summary', 'wb-det-task-sum', '查看结果')); rw.appendChild(el('pre', 'wb-det-pre', node.result)); rw.open = !!wbState.detailExpand.result; rw.addEventListener('toggle', () => { wbState.detailExpand.result = rw.open; }); box.appendChild(rw); }
+  if (node.result) { const rw = el('details', 'wb-det-result'); rw.appendChild(el('summary', 'wb-det-task-sum', t('workflow.node.viewResult'))); rw.appendChild(el('pre', 'wb-det-pre', node.result)); rw.open = !!wbState.detailExpand.result; rw.addEventListener('toggle', () => { wbState.detailExpand.result = rw.open; }); box.appendChild(rw); }
   if (Array.isArray(node.schemaErrors) && node.schemaErrors.length) box.appendChild(el('pre', 'wb-det-pre wb-det-error', `Schema: ${node.schemaErrors.join('; ')}`));
   if (node.error) box.appendChild(el('pre', 'wb-det-pre wb-det-error', node.error));
   return box;
@@ -4246,8 +4268,8 @@ function wbNodeDetailBody(run, node) {
 // 其余禁用文案与 服务端 steer_node 409 返回逐字一致(deterministic_gate / terminal),非 live 则整段不出插话框。
 function wbSteerEligibility(run, node) {
   if (!run.live) return { ok: false, reason: 'not_live', msg: '' };
-  if (node.gate && ['vote', 'dedupe'].includes(node.gate.mode)) return { ok: false, reason: 'deterministic_gate', msg: '确定性质量门节点不经过模型，无法插话' };
-  if (!['running', 'queued', 'waiting_resource'].includes(node.status)) return { ok: false, reason: 'terminal', msg: '节点已结束，无法插话' };
+  if (node.gate && ['vote', 'dedupe'].includes(node.gate.mode)) return { ok: false, reason: 'deterministic_gate', msg: t('workflow.steerBox.noDeterministic') };
+  if (!['running', 'queued', 'waiting_resource'].includes(node.status)) return { ok: false, reason: 'terminal', msg: t('workflow.steerBox.noTerminal') };
   if ((node.engine || 'openai') === 'claude') return { ok: true, reason: 'deferred', msg: '' };
   return { ok: true, reason: 'ok', msg: '' };
 }
@@ -4258,19 +4280,19 @@ function wbSteerBox(run, node) {
   if (elig.reason === 'not_live') return el('span', 'wb-steer-none');
   const deferred = elig.reason === 'deferred';
   const wrap = el('div', 'wb-steer');
-  wrap.appendChild(el('div', 'wb-steer-label', elig.ok ? (deferred ? '延迟插话（节点结束后注入下游生效）' : '插话（下一次调用前生效）') : '插话不可用'));
+  wrap.appendChild(el('div', 'wb-steer-label', elig.ok ? (deferred ? t('workflow.steerBox.deferredLabel') : t('workflow.steerBox.liveLabel')) : t('workflow.steerBox.disabledLabel')));
   const boxrow = el('div', 'wb-steer-box');
   const input = el('input', 'wb-steer-input'); input.id = 'wbSteerInput'; input.type = 'text';
-  input.placeholder = elig.ok ? `给 ${node.id} 补一句指令…` : elig.msg;
-  const send = el('button', 'wb-btn primary', '发送'); send.dataset.fk = 'steer:send';
+  input.placeholder = elig.ok ? t('workflow.steerBox.placeholder', { node: node.id }) : elig.msg;
+  const send = el('button', 'wb-btn primary', t('chat.send')); send.dataset.fk = 'steer:send';
   if (!elig.ok) { input.disabled = true; send.disabled = true; input.title = elig.msg; }
   else {
     // 对抗轮 P2: 先清空防连击重复发送;失败(409/断网)回填并聚焦——聚焦令 keepSteer 在下一轮重建中保住文本。
     const submit = async () => {
-      const t = (input.value || '').trim(); if (!t) return;
+      const t2 = (input.value || '').trim(); if (!t2) return;
       input.value = '';
-      const ok = await steerAgentNode(run.id, node.id, node.status, t, node.engine);
-      if (ok === false) { const inp = $('wbSteerInput'); if (inp && !inp.disabled) { inp.value = t; inp.focus(); } else toast(`未发送的插话内容：${t.slice(0, 80)}`, 'err'); }
+      const ok = await steerAgentNode(run.id, node.id, node.status, t2, node.engine);
+      if (ok === false) { const inp = $('wbSteerInput'); if (inp && !inp.disabled) { inp.value = t; inp.focus(); } else toast(t('workflow.steerBox.unsent', { text: t2.slice(0, 80) }), 'err'); }
     };
     send.onclick = submit;
     // 对抗轮 P2: isComposing 守卫——中文输入法选字回车不再把半截拼音直接发出去(与主 composer 同款守卫)。
@@ -4284,31 +4306,31 @@ function wbSteerBox(run, node) {
 //   waiting_pool 宽限窗倒计时细进度条。已决项 → 紧凑状态行。空池 → 占位。
 function wbPoolBody(run) {
   const pool = Array.isArray(run.taskPool) ? run.taskPool : [];
-  if (!pool.length) return el('div', 'wb-det-empty', '暂无任务池提案。运行中的子代理可提议新增任务，经你审批后加入。');
+  if (!pool.length) return el('div', 'wb-det-empty', t('workflow.pool.empty'));
   const box = el('div', 'wb-pool');
   if (run.status === 'waiting_pool' && run.live) {
     const remainMs = run.poolGraceUntil ? Math.max(0, Number(run.poolGraceUntil) - Date.now()) : 0;
     const grace = el('div', 'wb-pool-grace'); const bar = el('div', 'wb-pool-grace-bar'); const fill = el('i');
     fill.style.width = `${Math.max(0, Math.min(100, Math.round((remainMs / POOL_GRACE_HINT_MS) * 100)))}%`; bar.appendChild(fill); grace.appendChild(bar);
-    grace.appendChild(el('span', 'wb-pool-grace-label num', `宽限窗剩余 ${Math.round(remainMs / 1000)}s`)); box.appendChild(grace);
+    grace.appendChild(el('span', 'wb-pool-grace-label num', t('workflow.pool.graceLeft', { secs: Math.round(remainMs / 1000) }))); box.appendChild(grace);
   }
   for (const item of pool) {
     if (item.status === 'proposed') {
       const whoNode = (run.nodes || []).find(n => n.id === item.proposedBy);
       const whoLabel = whoNode ? (whoNode.roleLabel || whoNode.id) : (item.proposedBy || '某节点');
       const card = el('div', 'wb-pool-card');
-      const who = el('div', 'wb-pool-line'); who.appendChild(el('span', 'k', '谁提议：')); who.appendChild(document.createTextNode(whoLabel)); card.appendChild(who);
-      const what = el('div', 'wb-pool-line'); what.appendChild(el('span', 'k', '做什么：')); what.appendChild(document.createTextNode(String(item.task || '').trim())); card.appendChild(what);
-      card.appendChild(el('div', 'wb-pool-line muted num', `预计消耗：新增 1 个节点，至多约 ${item.maxIters || 100} 轮调用`));
+      const who = el('div', 'wb-pool-line'); who.appendChild(el('span', 'k', t('workflow.pool.who'))); who.appendChild(document.createTextNode(whoLabel)); card.appendChild(who);
+      const what = el('div', 'wb-pool-line'); what.appendChild(el('span', 'k', t('workflow.pool.what'))); what.appendChild(document.createTextNode(String(item.task || '').trim())); card.appendChild(what);
+      card.appendChild(el('div', 'wb-pool-line muted num', t('workflow.pool.cost', { iters: item.maxIters || 100 })));
       if (run.live) {
         const acts = el('div', 'wb-pool-actions');
-        const yes = el('button', 'wb-btn primary', '同意添加'); yes.setAttribute('aria-label', '同意添加此任务'); yes.dataset.fk = `pool:${item.id}:y`; yes.onclick = () => poolDecide(run.id, item.id, true);
-        const no = el('button', 'wb-btn', '不用了'); no.setAttribute('aria-label', '拒绝此任务'); no.dataset.fk = `pool:${item.id}:n`; no.onclick = () => poolDecide(run.id, item.id, false);
+        const yes = el('button', 'wb-btn primary', t('workflow.pool.approve')); yes.setAttribute('aria-label', t('workflow.pool.approveAria')); yes.dataset.fk = `pool:${item.id}:y`; yes.onclick = () => poolDecide(run.id, item.id, true);
+        const no = el('button', 'wb-btn', t('workflow.pool.reject')); no.setAttribute('aria-label', t('workflow.pool.rejectAria')); no.dataset.fk = `pool:${item.id}:n`; no.onclick = () => poolDecide(run.id, item.id, false);
         acts.append(yes, no); card.appendChild(acts);
       }
       box.appendChild(card);
     } else {
-      box.appendChild(el('div', 'wb-pool-decided', `${poolStatusLabel(item.status)}${item.resultNodeId ? ` · 节点 ${item.resultNodeId}` : ''}：${String(item.task || '').replace(/\s+/g, ' ').slice(0, 40)}`));
+      box.appendChild(el('div', 'wb-pool-decided', `${poolStatusLabel(item.status)}${item.resultNodeId ? ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) : ''}：${String(item.task || '').replace(/s+/g, ' ').slice(0, 40)}`));
     }
   }
   return box;
@@ -4316,7 +4338,7 @@ function wbPoolBody(run) {
 // 段3 体:邮箱消息流(§6#8)。run.messages 时间线,每条 sender → target · 摘要 + 送达/未送达状态。只读。空 → 占位。
 function wbMailBody(run) {
   const mails = Array.isArray(run.messages) ? run.messages : [];
-  if (!mails.length) return el('div', 'wb-det-empty', '暂无 Agent 间消息。子代理可用 send_to_agent 互相传话，这里按时间列出。');
+  if (!mails.length) return el('div', 'wb-det-empty', t('workflow.mail.empty'));
   const box = el('div', 'wb-mail');
   for (const m of mails) {
     const item = el('div', `wb-mail-item${m.dropped ? ' dropped' : ''}`);
@@ -4325,9 +4347,9 @@ function wbMailBody(run) {
     const route = el('div', 'wb-mail-route num'); route.appendChild(document.createTextNode(m.sender || '?')); route.appendChild(el('span', 'wb-mail-arw', '→')); route.appendChild(document.createTextNode(m.target || '?')); body.appendChild(route);
     body.appendChild(el('div', 'wb-mail-text', String(m.text || '')));
     const meta = el('div', 'wb-mail-meta num');
-    if (m.dropped) { meta.appendChild(document.createTextNode(m.createdAt ? new Date(m.createdAt).toLocaleTimeString() : '')); meta.appendChild(el('span', 'wb-mail-badge', '未送达')); }
-    else if (m.deliveredAt) meta.appendChild(document.createTextNode(`已送达 · ${new Date(m.deliveredAt).toLocaleTimeString()}`));
-    else meta.appendChild(document.createTextNode('投递中…'));
+    if (m.dropped) { meta.appendChild(document.createTextNode(m.createdAt ? new Date(m.createdAt).toLocaleTimeString() : '')); meta.appendChild(el('span', 'wb-mail-badge', t('workflow.mail.dropped'))); }
+    else if (m.deliveredAt) meta.appendChild(document.createTextNode(t('workflow.mail.delivered', { time: new Date(m.deliveredAt).toLocaleTimeString() })));
+    else meta.appendChild(document.createTextNode(t('workflow.mail.pending')));
     body.appendChild(meta); item.appendChild(body); box.appendChild(item);
   }
   return box;
@@ -4824,7 +4846,7 @@ function appendToolOutput(value, append = false) {
 async function runTool(name, body) {
   appendToolOutput('运行中…');
   try { const res = await api(`/api/tools/${name}`, { method: 'POST', body: JSON.stringify(body || {}) }); appendToolOutput(res.result); }
-  catch (err) { appendToolOutput(err.message || String(err)); toast(`工具出错：${apiErrText(err)}`, 'err'); }
+  catch (err) { appendToolOutput(err.message || String(err)); toast(t("toast.toolError", { p1: apiErrText(err) }), 'err'); }
 }
 
 /* ---------------- v0.9-S3 (C3): file tree ---------------- */
@@ -5260,8 +5282,8 @@ async function saveStoragePolicy() {
   try {
     const r = await api('/api/storage/policy', { method: 'POST', body: JSON.stringify(body) });
     applyStoragePolicyToForm(r && r.policy); // 回显服务端 clamp 后的真实值
-    toast('保留策略已保存', 'ok');
-  } catch (e) { toast('保存策略失败:' + apiErrText(e), 'err'); }
+    toast(t("toast.policySaved"), 'ok');
+  } catch (e) { toast(t('toast.policySaveFail', { err: apiErrText(e) }), 'err'); }
 }
 async function cleanStorage() {
   const btn = $('storageCleanBtn'); if (btn) btn.disabled = true;
@@ -5269,7 +5291,7 @@ async function cleanStorage() {
     const r = await api('/api/storage/clean', { method: 'POST', body: JSON.stringify({ target: 'all' }) });
     const n = Array.isArray(r && r.actions) ? r.actions.length : 0;
     toast(n ? `清理完成: 释放 ${fmtBytes(r.freedBytes)}(${n} 项)` : '没有需要清理的内容', 'ok');
-  } catch (e) { toast('清理失败:' + apiErrText(e), 'err'); }
+  } catch (e) { toast(t('toast.cleanFail', { err: apiErrText(e) }), 'err'); }
   if (btn) btn.disabled = false;
   storageState.loaded = false;
   loadStorage();
@@ -5567,26 +5589,26 @@ function confirmRollbackEntry(entry, fullPath, btn) {
 }
 async function rollbackChangeEntry(turnSeq, entrySeq, fullPath, btn) {
   const sid = state.currentSession?.id;
-  if (!sid) { toast('无当前会话', 'err'); return; }
+  if (!sid) { toast(t("toast.noSession"), 'err'); return; }
   if (btn) { btn.disabled = true; btn.textContent = '回撤中…'; }
   try {
     const r = await api('/api/checkpoints/rollback', { method: 'POST', body: JSON.stringify({ sessionId: sid, turnSeq, entrySeq }) });
     if (!r || !r.ok) {
       if (btn) { btn.disabled = false; btn.textContent = '回撤到此前状态'; }
-      const reason = (r && r.error) || (r && r.failed && r.failed.length ? r.failed[0].reason : '') || '未知错误';
-      toast('回撤失败：' + reason, 'err');
+      const reason = (r && r.error) || (r && r.failed && r.failed.length ? r.failed[0].reason : '') || t('common.unknownError');
+      toast(t('toast.rollbackFail', { p1: reason }), 'err');
       return;
     }
     if ((r.failed || []).length) {
       if (btn) { btn.disabled = false; btn.textContent = '回撤到此前状态'; }
-      toast('回撤失败：' + (r.failed[0].reason || '未知错误'), 'err');
+      toast(t('toast.rollbackFail', { p1: r.failed[0].reason || t('common.unknownError') }), 'err');
       return;
     }
-    toast('已回撤：' + fileBasename(fullPath), 'ok');
+    toast(t('toast.rollbackDone', { p1: fileBasename(fullPath) }), 'ok');
     loadChanges(); // re-fetch: the reverted entry is removed from the index server-side
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = '回撤到此前状态'; }
-    toast('回撤失败：' + apiErrText(e), 'err');
+    toast(t('toast.rollbackFail', { p1: apiErrText(e) }), 'err');
   }
 }
 
@@ -5691,8 +5713,8 @@ function stopShellTail() {
 }
 
 async function killShell(shellId) {
-  try { await shellCall('shell_kill', { shellId }); toast('已结束 shell 会话', 'ok'); }
-  catch (err) { toast(`结束失败：${apiErrText(err)}`, 'err'); }
+  try { await shellCall('shell_kill', { shellId }); toast(t("toast.shellEnded"), 'ok'); }
+  catch (err) { toast(t("toast.endFail", { p1: apiErrText(err) }), 'err'); }
   if (shellUi.expanded === shellId) { stopShellTail(); shellUi.expanded = null; }
   refreshShellList();
 }
@@ -5700,9 +5722,9 @@ async function killShell(shellId) {
 async function newShellSession() {
   const cwd = (state.config && state.config.defaultWorkspace) || '';
   try { const res = await shellCall('shell_start', { cwd }); const r = res.result || {};
-    if (r.ok) toast(`已新建 shell 会话 ${r.name || r.shellId}`, 'ok');
+    if (r.ok) toast(t("toast.shellCreated", { p1: r.name || r.shellId }), 'ok');
     else toast(r.error || '新建失败', 'err');
-  } catch (err) { toast(`新建失败：${apiErrText(err)}`, 'err'); }
+  } catch (err) { toast(t("toast.createFail", { p1: apiErrText(err) }), 'err'); }
   refreshShellList();
 }
 
@@ -5937,7 +5959,7 @@ async function saveConfigPartial(patch) {
     state.config = res.config;
     return true;
   } catch (e) {
-    toast(`保存失败：${apiErrText(e)}`, 'err');
+    toast(t("toast.saveFail", { p1: apiErrText(e) }), 'err');
     return false;
   }
 }
@@ -6019,12 +6041,12 @@ async function loadAgentRoles() {
     const d = data.drivers || {}, omitted = d.claude?.omitted || [];
     $('agentRoleDriverStatus').textContent = `OpenAI：工作台原生执行 · Claude：原生 --agents 已同步 ${(d.claude?.synced || []).length} 个${omitted.length ? `，${omitted.length} 个因命令长度未同步` : ''}`;
     resetAgentRoleDraft();
-  } catch (e) { toast(`角色库加载失败：${apiErrText(e)}`, 'err'); }
+  } catch (e) { toast(t("toast.rolesLoadFail", { p1: apiErrText(e) }), 'err'); }
 }
 async function saveAgentRoles() {
   captureAgentRoleDraft(); const scope = $('agentRoleScope')?.value || 'global';
-  try { await api('/api/agent-roles', { method: 'POST', body: JSON.stringify({ scope, cwd: currentWorkspace(), roles: agentRoleDraft }) }); toast('Agent 角色已保存', 'ok'); await loadAgentRoles(); }
-  catch (e) { toast(`角色保存失败：${apiErrText(e)}`, 'err'); }
+  try { await api('/api/agent-roles', { method: 'POST', body: JSON.stringify({ scope, cwd: currentWorkspace(), roles: agentRoleDraft }) }); toast(t("toast.roleSaved"), 'ok'); await loadAgentRoles(); }
+  catch (e) { toast(t("toast.roleSaveFail", { p1: apiErrText(e) }), 'err'); }
 }
 function addAgentRole() {
   captureAgentRoleDraft(); const used = new Set(agentRoleDraft.map(r => r.id)); let n = 1, id = 'custom-agent'; while (used.has(id)) id = `custom-agent-${++n}`;
@@ -6247,7 +6269,7 @@ function applyClaudeEndpointPreset() {
   if (preset.models && preset.models.length) {
     $('cfgExtraModels').value = preset.models.filter(m => m.id).map(m => `${m.id}|${m.label || m.id}`).join('\n');
   }
-  toast(`已应用预设：${preset.label}${preset.defaultModelHint ? '（' + preset.defaultModelHint + '）' : ''}，请填入密钥后保存`, 'ok');
+  toast(t("toast.presetApplied", { p1: preset.label, p2: preset.defaultModelHint ? t('toast.presetHint', { m: preset.defaultModelHint }) : '' }), 'ok');
 }
 /* ---------------- providers (native OpenAI-compatible engines) ---------------- */
 function populateProviderPresets() {
@@ -6400,8 +6422,8 @@ async function importMcpFromFolder(btn) {
   if (btn) { btn.disabled = true; }
   let pf;
   try { pf = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
-  catch (e) { toast('选择器出错：' + apiErrText(e), 'err'); if (btn) btn.disabled = false; return; }
-  if (!pf || !pf.ok) { toast('无法打开选择器：' + ((pf && pf.error) || '未知'), 'err'); if (btn) btn.disabled = false; return; }
+  catch (e) { toast(t("toast.error", { p1: apiErrText(e) }), 'err'); if (btn) btn.disabled = false; return; }
+  if (!pf || !pf.ok) { toast(t('toast.pickerOpenFail', { err: (pf && pf.error) || t('common.unknownError') }), 'err'); if (btn) btn.disabled = false; return; }
   if (pf.cancelled || !pf.path) { if (btn) btn.disabled = false; return; } // user backed out
   try {
     const r = await api('/api/mcp/import-folder', { method: 'POST', body: JSON.stringify({ path: pf.path }) });
@@ -6413,10 +6435,10 @@ async function importMcpFromFolder(btn) {
     } else {
       // 缺少/无效清单 → 弹模板说明 modal(若响应带 template);否则纯 toast。
       if (r && r.template) showMcpTemplateModal(r.error || '该文件夹缺少 ruyi-mcp.json 清单', r.template);
-      else toast('导入失败：' + ((r && r.error) || '未知错误'), 'err');
+      else toast(t('toast.importFail', { err: (r && r.error) || t('common.unknownError') }), 'err');
     }
   } catch (e) {
-    toast('导入失败：' + apiErrText(e), 'err');
+    toast(t('toast.importFail', { err: apiErrText(e) }), 'err');
   } finally { if (btn) btn.disabled = false; }
 }
 // v1.0.2 (G5c): 缺清单说明 modal。展示可复制的 ruyi-mcp.json 模板(textContent — 绝不 innerHTML 拼接)。
@@ -6433,7 +6455,7 @@ function showMcpTemplateModal(reason, template) {
   copyBtn.type = 'button';
   copyBtn.onclick = async () => {
     try { await navigator.clipboard.writeText(tplText); copyBtn.textContent = '已复制 ✓'; setTimeout(() => { copyBtn.textContent = '复制'; }, 1500); }
-    catch { toast('复制失败，请手动选择文本复制', 'err'); }
+    catch { toast(t("toast.copyFail"), 'err'); }
   };
   preWrap.append(copyBtn, pre);
   body.append(preWrap);
@@ -6463,7 +6485,7 @@ function healthRow(ok, id, detail) {
 /* ---------------- v4: export/import, templates, MCP inspector ---------------- */
 function exportSession(fmt) {
   const s = state.currentSession;
-  if (!s) { toast('先打开一个会话', 'err'); return; }
+  if (!s) { toast(t("toast.openSessionFirst"), 'err'); return; }
   let content, mime, ext;
   if (fmt === 'json') {
     content = JSON.stringify(s, null, 2); mime = 'application/json'; ext = 'json';
@@ -6487,17 +6509,17 @@ function importSession() {
       const data = JSON.parse(await file.text());
       const messages = Array.isArray(data.messages) ? data.messages : [];
       const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: (data.title || file.name) + ' (导入)', cwd: data.cwd || '', messages }) });
-      await refreshSessions(); await openSession(res.session.id); toast('已导入会话', 'ok');
-    } catch (e) { toast('导入失败：' + apiErrText(e), 'err'); }
+      await refreshSessions(); await openSession(res.session.id); toast(t("toast.sessionImported"), 'ok');
+    } catch (e) { toast(t('toast.importFail', { err: apiErrText(e) }), 'err'); }
   };
   inp.click();
 }
 function getTemplates() { try { return JSON.parse(localStorage.getItem('wcw.templates') || '[]'); } catch { return []; } }
 function saveTemplates(t) { try { localStorage.setItem('wcw.templates', JSON.stringify(t)); } catch { /* ignore */ } }
 function addTemplateFromPrompt() {
-  const text = $('promptInput').value.trim(); if (!text) { toast('输入框为空', 'err'); return; }
+  const text = $('promptInput').value.trim(); if (!text) { toast(t("toast.inputEmpty"), 'err'); return; }
   const name = prompt('模板名称', text.slice(0, 24)); if (!name) return;
-  const t = getTemplates(); t.push({ name, text }); saveTemplates(t); toast('已保存模板', 'ok');
+  const t = getTemplates(); t.push({ name, text }); saveTemplates(t); toast(t("toast.templateSaved"), 'ok');
 }
 function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; autoGrow(ta); ta.focus(); }
 
@@ -7127,7 +7149,7 @@ function buildOtherProjectRow(p) {
 }
 function toggleMemory(m) {
   const session = state.currentSession;
-  if (!session) { toast('请先新建或选择一个会话', 'err'); return; }
+  if (!session) { toast(t("toast.needSession"), 'err'); return; }
   const key = m.scope + ':' + m.id;
   if (memoryTogglePending.has(key)) return;
   memoryTogglePending.add(key);
@@ -7147,13 +7169,13 @@ async function doToggleMemory(m) {
   const cur = [...enabled].map(k => { const i = k.indexOf(':'); const scope = k.slice(0, i), id = k.slice(i + 1); const o = { scope, id }; if (scope === 'project' && pkByKey.get(k)) o.projectKey = pkByKey.get(k); return o; });
   let next;
   if (enabled.has(key)) next = cur.filter(x => (x.scope + ':' + x.id) !== key);
-  else { if (cur.length >= 8) { toast('最多同时启用 8 条记忆', 'err'); return; } next = cur.concat({ scope: m.scope, id: m.id }); }
+  else { if (cur.length >= 8) { toast(t("toast.memoryMax8"), 'err'); return; } next = cur.concat({ scope: m.scope, id: m.id }); }
   try {
     const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, memories: next }) });
     session.memories = (r && Array.isArray(r.memories)) ? r.memories : next;
     session.memoriesExplicit = true;
     toast(enabled.has(key) ? `已停用记忆：${m.name || m.id}` : `已启用记忆：${m.name || m.id}`);
-  } catch (e) { toast('设置记忆失败：' + apiErrText(e), 'err'); }
+  } catch (e) { toast(t('toast.memorySetFail', { err: apiErrText(e) }), 'err'); }
 }
 async function removeGhostMemory(m) {
   const session = state.currentSession;
@@ -7164,17 +7186,17 @@ async function removeGhostMemory(m) {
     const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, memories: next }) });
     session.memories = (r && Array.isArray(r.memories)) ? r.memories : next;
     session.memoriesExplicit = true;
-    toast(`已移除失效记忆：${m.id}`);
-  } catch (e) { toast('移除失败：' + apiErrText(e), 'err'); return; }
+    toast(t("toast.memoryPruned", { p1: m.id }));
+  } catch (e) { toast(t('toast.removeFail', { err: apiErrText(e) }), 'err'); return; }
   renderMemoryList();
 }
 async function deleteMemoryRow(m) {
   if (!confirm(`删除记忆「${m.name || m.id}」？此操作不可撤销。`)) return;
   try {
     const r = await api('/api/memory/' + encodeURIComponent(m.id), { method: 'POST', headers: { 'x-http-method': 'DELETE' }, body: JSON.stringify({ scope: m.scope, cwd: currentWorkspace() || '' }) });
-    if (!r || !r.ok) { toast(`删除失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
-    toast('已删除记忆', 'ok');
-  } catch (e) { toast('删除失败：' + apiErrText(e), 'err'); return; }
+    if (!r || !r.ok) { toast(t("toast.deleteFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+    toast(t("toast.memoryDeleted"), 'ok');
+  } catch (e) { toast(t("toast.deleteFail", { p1: apiErrText(e) }), 'err'); return; }
   openMemoryPanel();
 }
 async function migrateGroupToCurrent(p) {
@@ -7202,14 +7224,14 @@ async function migrateGroupToCurrent(p) {
 // 从当前会话起草(provider 引擎):draft → 编辑弹窗 → 保存。
 async function saveAsMemory(btn) {
   const sid = state.currentSession && state.currentSession.id;
-  if (!sid) { toast('没有可保存的会话', 'err'); return; }
+  if (!sid) { toast(t("toast.noSessionToSave"), 'err'); return; }
   const orig = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '起草中…'; }
   try {
     const r = await api('/api/memory/draft', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-    if (!r || !r.ok || !r.draft) { toast(`起草失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
+    if (!r || !r.ok || !r.draft) { toast(t("toast.draftFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
     openMemoryEditModal({ ...r.draft, scope: 'project', _isDraft: true });
-  } catch (e) { toast(`起草失败：${apiErrText(e)}`, 'err'); }
+  } catch (e) { toast(t("toast.draftFail", { p1: apiErrText(e) }), 'err'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
 }
 // 编辑/新建弹窗。编辑现有项时先拉全文回填正文(注册表不带 body)。
@@ -7254,15 +7276,15 @@ async function openMemoryEditModal(m) {
     const memory = { name: nameEl.value.trim(), description: descEl.value.trim(), type: typeSel.value, body: bodyTa.value, scope: scopeSel.value };
     if (editing) memory.id = m.id;
     if (full && full.sourceSessionId) memory.sourceSessionId = full.sourceSessionId;
-    if (!memory.name || !memory.body.trim()) { toast('名称和正文不能为空', 'err'); return; }
+    if (!memory.name || !memory.body.trim()) { toast(t("toast.memoryFieldsRequired"), 'err'); return; }
     save.disabled = true; save.textContent = '保存中…';
     try {
       const r = await api('/api/memory', { method: 'POST', body: JSON.stringify({ memory, cwd: currentWorkspace() || '' }) });
       modal.close();
-      if (!r || !r.ok) { toast(`保存失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
-      toast('已保存工作台记忆', 'ok');
+      if (!r || !r.ok) { toast(t("toast.saveFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+      toast(t("toast.memorySaved"), 'ok');
       if (!$('memoryModal').classList.contains('hidden')) openMemoryPanel();
-    } catch (e) { modal.close(); toast(`保存失败：${apiErrText(e)}`, 'err'); }
+    } catch (e) { modal.close(); toast(t("toast.saveFail", { p1: apiErrText(e) }), 'err'); }
   };
 }
 
@@ -7916,7 +7938,7 @@ function maybeSuggestWideRight(tab) {
   if ((tab !== 'agent-runs' && tab !== 'usage') || isNarrow()) return;
   if ((state._rightTier || '340') !== '340') return;
   try { if (localStorage.getItem('wcw.rightWidthHintShown') === '1') return; localStorage.setItem('wcw.rightWidthHintShown', '1'); } catch { /* ignore */ }
-  toast('监控和用量在更宽的面板里更好读 —— 拖右栏左缘或双击手柄可切到 480');
+  toast(t("toast.widenPanelHint"));
 }
 function initRightResize() {
   const handle = $('rightResizeHandle'); if (!handle) return;
@@ -8093,7 +8115,7 @@ function bindEvents() {
   // Route static-modal closes through closeModal(id) so focus returns to the trigger (§4.9). Dynamic
   // buildModal backdrops have no id / no [data-close-modal] and manage their own focus restore.
   document.querySelectorAll('[data-close-modal]').forEach(b => { b.onclick = () => { const bd = b.closest('.modal-backdrop'); if (bd && bd.id) closeModal(bd.id); else if (bd) bd.classList.add('hidden'); }; });
-  document.querySelectorAll('.modal-backdrop').forEach(m => { m.addEventListener('mousedown', e => { if (e.target === m) { if (m.id) closeModal(m.id); else m.classList.add('hidden'); } }); });
+  document.querySelectorAll('.modal-backdrop').forEach(m => { m.addEventListener('mousedown', e => { if (e.target === m) { if (m.id) closeModal(m.id); else m.classList.add('hidden'); } }); installFocusTrap(m); }); // 第50波 a11y P0:静态模态也装焦点陷阱
 
   // palette
   $('paletteInput').addEventListener('input', () => { state.paletteIndex = 0; renderPalette(); });
@@ -8167,7 +8189,7 @@ function buildBootFailureCard(err) {
   // 诊断面板:默认折叠;原始错误文本(可能含英文栈)只在这里出现。用 el/textContent 构建,永不 innerHTML。
   const panel = el('div', 'boot-failure-diag');
   panel.id = 'bootDiagPanel'; panel.hidden = true;
-  panel.appendChild(el('pre', 'boot-failure-diag-pre', apiErrText(err) || '未知错误'));
+  panel.appendChild(el('pre', 'boot-failure-diag-pre', apiErrText(err) || t('common.unknownError')));
   panel.appendChild(el('p', 'boot-failure-hint', '若多次重试仍失败：请关闭本页并重新启动如意工作台；仍不行时，把上面的技术详情反馈给维护者。'));
   const diag = el('button', 'ghost boot-diag', '查看日志 / 诊断');
   diag.type = 'button';
@@ -8181,7 +8203,7 @@ function buildBootFailureCard(err) {
 }
 function renderBootFailure(err) {
   try { setStatus('无法连接本地服务'); } catch { /* ignore */ }
-  try { toast('无法连接本地服务，请点「重试连接」', 'err'); } catch { /* ignore */ }
+  try { toast(t("toast.connectFail"), 'err'); } catch { /* ignore */ }
   const box = $('messages');
   if (!box) return;
   box.innerHTML = '';
