@@ -92,6 +92,13 @@ async function getToken(port) {
   ok(app.includes("t('workflow.steerDeferred')") && app.includes('steerDeferredAria'), 'S8 工作台 Claude 节点插话按钮延迟文案在');
   ok(zh.includes('"workflow.steerDeferred"') && en.includes('"workflow.steerDeferred"'), 'S9 i18n 双语键同交(steerDeferred)');
   ok(src.indexOf("reg.kind === 'claude'") > 0 && src.indexOf("reg.kind === 'claude'") < src.indexOf('仅 provider 引擎支持插话'), 'S10 claude 分派先于旧口径 fallthrough(不再一刀切)');
+  // 50-fix:三态按钮(用户报告"流式中输入后还是停止,不会变成 Steer")
+  ok(app.includes('function updateSendBtn()'), 'S11 updateSendBtn 三态函数在(发送/插话/停止)');
+  ok(/steer = streaming && !!\(\(\$\('promptInput'\)/.test(app) || app.includes("const steer = streaming &&"), 'S12 流式+有文本 → 插话态判定在');
+  ok(app.includes("iconTextBtn(btn, 'send', t('chat.steer'))"), 'S13 插话态按钮文案走 chat.steer');
+  ok(/ta\.addEventListener\('input'.*updateSendBtn\(\)/.test(app.replace(/\n/g, ' ')) || app.includes("} updateSendBtn(); }); // 50-fix"), 'S14 input 事件即时切换插话/停止');
+  ok(zh.includes('"chat.steer"') && en.includes('"chat.steer"') && zh.includes('"chat.steerHint"') && en.includes('"chat.steerHint"'), 'S15 i18n 双语键同交(chat.steer/chat.steerHint)');
+  ok(app.includes("autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」"), 'S16 steerPrompt 清空输入后按钮回落停止');
 
   // ───────────────── 起服务(interactive + fake-claude) ─────────────────
   const WP = await getFreePort(), FP = await getFreePort();

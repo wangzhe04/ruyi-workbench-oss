@@ -993,6 +993,8 @@ V2.0「立柱」规划(§37)的 41–45 波已全部交付(toolCall 表驱动 / 
 
 **未做(留后续波)**:Phase B 打断语义(Codex 级"立即生效"批次边界中断,02 方案);Phase D 插话队列可视化/插话卡静态重渲染;S2 token 持久化策略(sessionStorage 关标签页即失效是刻意的--每次启动重新握手,token 不长留);CSP 收紧('unsafe-inline' -> hash);README/ARCHITECTURE 引擎能力表同步"双引擎 steer"(列第50波文档刷新)。
 
+**47e 补丁(2026-07-22,用户真机报告)**:对话流式中发送按钮恒为「停止」——输入文本也不变 Steer(47a 只通了后端路由与 Enter 隐藏路径,`setStreaming` 把按钮硬编码 stopTurn)。修为 **updateSendBtn 三态**(ChatGPT 同款):非流式=发送;流式+输入框有文本=「插话」(sendPrompt 路由 /api/steer,btn.title 提示不打断回合);流式+空输入=「■ 停止」。配套:composer input 事件即时切态;steerPrompt 清空输入后按钮回落停止;i18n `chat.steer`/`chat.steerHint` 双语键(runtime + docs/i18n 事实源同步);steering-claude S11-S16 静态锁。验证:steering-claude×2/i18n.static/i18n/dom-smoke/ui-v3-p3b/agent-steer-node/openai-engine 全绿。顺手清 locale 文件重复键块(JSON last-wins 语义不变)。
+
 ## 46. 第48波:地基波 -- 提示词护栏 + MCP 导入器 + 性能 P1/P2 + FE testid 契约
 
 封版后第二个功能波(02 Phase B/D 已补排进 50/51 波)。四件交付,为 50/51 铺路。

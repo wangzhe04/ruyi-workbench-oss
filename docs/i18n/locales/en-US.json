@@ -93,8 +93,8 @@
   "chat.send": "Send",
   "composer.agentTeam.label": "Agent team",
   "composer.agentTeam.active": "Agent team · next turn",
-  "composer.agentTeam.title": "Use an Agent team for the next message: prefer a preset workflow or orchestrate multiple agents",
-  "composer.agentTeam.activeTitle": "Enabled: the next message will default to multi-agent orchestration, then turn off automatically",
+  "composer.agentTeam.title": "Use an Agent team for the next message: encourage the AI to run a preset workflow or orchestrate multiple agents",
+  "composer.agentTeam.activeTitle": "Enabled: the next message will favor multi-agent collaboration, then this turns off automatically",
   "composer.agentTeam.unavailableTitle": "Agent team is unavailable: enable sub-agents in Advanced settings first",
   "chat.stopGenerating": "Stop generating",
   "chat.copyCode": "Copy",
@@ -653,11 +653,6 @@
   "navigation.uiMode.expert": "Interface: Expert",
   "composer.attachFile": "Attach file",
   "composer.compactContext": "Compact context",
-  "composer.agentTeam.label": "Agent team",
-  "composer.agentTeam.active": "Agent team · next turn",
-  "composer.agentTeam.title": "Use an Agent team for the next message: encourage the AI to run a preset workflow or orchestrate multiple agents",
-  "composer.agentTeam.activeTitle": "Enabled: the next message will favor multi-agent collaboration, then this turns off automatically",
-  "composer.agentTeam.unavailableTitle": "Agent team is unavailable: enable sub-agents in Advanced settings first",
   "help.title": "Keyboard shortcuts",
   "help.sendMessage": "Send message",
   "help.newLine": "New line",
@@ -881,5 +876,7 @@
   "skills.builtin.playbook.translateDocument.name": "Translate a Document",
   "skills.builtin.playbook.translateDocument.description": "Translate a document while preserving headings, lists, tables, numbers, and terminology.",
   "skills.builtin.playbook.presentationOutline.name": "Create a Presentation Outline",
-  "skills.builtin.playbook.presentationOutline.description": "Turn a topic and source material into a slide-by-slide story, evidence plan, and speaking flow."
+  "skills.builtin.playbook.presentationOutline.description": "Turn a topic and source material into a slide-by-slide story, evidence plan, and speaking flow.",
+  "chat.steer": "Steer",
+  "chat.steerHint": "Steer: send without stopping the current turn"
 }

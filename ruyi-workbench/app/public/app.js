@@ -2078,6 +2078,20 @@ function setProc(state_) {
 }
 // Send⇄Stop same-position toggle (§4.3). While streaming, #sendBtn becomes "■ 停止" (danger) wired to
 // stopTurn; otherwise it is "发送 ▷" (primary) wired to sendPrompt. The old topbar #stopBtn is gone.
+// 50-fix(三态):流式中按钮按输入内容分态 —— 输入框【有文本】→「插话」(sendPrompt 路由 /api/steer,不打扰
+// 当前回合);【空输入】→「■ 停止」(stopTurn)。旧行为流式中恒为停止,插话只剩 Enter 一条隐藏路径,
+// 用户"输入后还是停止,不会变成 Steer"(ChatGPT 同款三态:generating + typing → send)。
+function updateSendBtn() {
+  const btn = $('sendBtn');
+  if (!btn) return;
+  const streaming = Boolean(state.streaming);
+  const steer = streaming && !!(($('promptInput')?.value || '').trim());
+  btn.classList.toggle('danger', streaming && !steer);
+  btn.classList.toggle('primary', !streaming || steer);
+  if (!streaming) { iconTextBtn(btn, 'send', t('chat.send')); btn.onclick = () => sendPrompt(); btn.title = ''; }
+  else if (steer) { iconTextBtn(btn, 'send', t('chat.steer')); btn.onclick = () => sendPrompt(); btn.title = t('chat.steerHint'); }
+  else { iconTextBtn(btn, 'stop', t('common.stop')); btn.onclick = stopTurn; btn.title = ''; }
+}
 function setStreaming(on) {
   state.streaming = on;
   // v3 (§B6): 有活动回合即让上下文电量表现身(不再等 60%,两模式一致);无用量数据时 renderContextMeter 自持隐藏。
@@ -2087,13 +2101,7 @@ function setStreaming(on) {
   if (!on) { const h = $('composerHint'); if (h) h.textContent = ''; }
   // v1.0.2 (F3): Claude 模式的 /compact 是流式回合 —— 回合结束(setStreaming(false))即压缩完成,收指示条。
   if (!on && compactState.active) endCompactIndicator();
-  const btn = $('sendBtn');
-  if (btn) {
-    btn.classList.toggle('danger', on);
-    btn.classList.toggle('primary', !on);
-    if (on) iconTextBtn(btn, 'stop', t('common.stop')); else iconTextBtn(btn, 'send', t('chat.send')); // v3 (§C6/§2.15): 运行态换停止图标(danger 弱化描边),完成还原发送
-    btn.onclick = on ? stopTurn : () => sendPrompt();
-  }
+  updateSendBtn(); // 50-fix:发送/插话/停止 三态(原:流式恒停止)
   updateAgentTeamButton();
   updateJumpLatest();
   updateAgentTeamButton();
@@ -2265,7 +2273,7 @@ async function steerPrompt(overrideText) {
   try {
     const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId: state.currentSession.id, text }) });
     if (!r || !r.ok) { toast(`插话失败：${(r && r.error) || '未知错误'}`, 'err'); return; }
-    if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); }
+    if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」
     steeredSeen.push({ text, ts: Date.now() });
     renderSteeredMessage(text);
     toast(r.injected ? '已插话，即时注入生效' : '已插话，下一步生效', 'ok');
@@ -7952,7 +7960,7 @@ function bindEvents() {
 
   // composer
   const ta = $('promptInput');
-  ta.addEventListener('input', () => { autoGrow(ta); try { localStorage.setItem('wcw.draft', ta.value); } catch { /* ignore */ } });
+  ta.addEventListener('input', () => { autoGrow(ta); try { localStorage.setItem('wcw.draft', ta.value); } catch { /* ignore */ } updateSendBtn(); }); // 50-fix:输入变化即时切「插话/停止」
   ta.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendPrompt(); }
   });

@@ -93,8 +93,8 @@
   "chat.send": "发送",
   "composer.agentTeam.label": "Agent 团队",
   "composer.agentTeam.active": "Agent 团队 · 本轮",
-  "composer.agentTeam.title": "为下一条消息启用 Agent 团队：优先调用预设工作流，或自行编排多个 Agent",
-  "composer.agentTeam.activeTitle": "已启用：下一条消息将默认使用多 Agent 编排，发送后自动关闭",
+  "composer.agentTeam.title": "为下一条消息启用 Agent 团队：鼓励 AI 调用预设工作流或自行编排多个 Agent",
+  "composer.agentTeam.activeTitle": "已启用：下一条消息会优先使用多个 Agent 协作，发送后自动关闭",
   "composer.agentTeam.unavailableTitle": "Agent 团队不可用：请先在高级设置中启用子代理",
   "chat.stopGenerating": "停止生成",
   "chat.copyCode": "复制",
@@ -659,11 +659,6 @@
   "capability.gapCount.other": "缺口 {{count}}",
   "composer.attachFile": "添加文件",
   "composer.compactContext": "压缩上下文",
-  "composer.agentTeam.label": "Agent 团队",
-  "composer.agentTeam.active": "Agent 团队 · 本轮",
-  "composer.agentTeam.title": "为下一条消息启用 Agent 团队：鼓励 AI 调用预设工作流或自行编排多个 Agent",
-  "composer.agentTeam.activeTitle": "已启用：下一条消息会优先使用多个 Agent 协作，发送后自动关闭",
-  "composer.agentTeam.unavailableTitle": "Agent 团队不可用：请先在高级设置中启用子代理",
   "palette.title": "命令面板",
   "palette.placeholder": "输入命令…（会话名、模型、工具）",
   "palette.newSession": "新会话",
@@ -881,5 +876,7 @@
   "skills.builtin.playbook.translateDocument.name": "翻译一份文档",
   "skills.builtin.playbook.translateDocument.description": "翻译文档并保持标题、列表、表格、数字和专有名词结构",
   "skills.builtin.playbook.presentationOutline.name": "生成汇报大纲",
-  "skills.builtin.playbook.presentationOutline.description": "把主题和素材整理成逐页汇报结构、关键数据与讲述逻辑"
+  "skills.builtin.playbook.presentationOutline.description": "把主题和素材整理成逐页汇报结构、关键数据与讲述逻辑",
+  "chat.steer": "插话",
+  "chat.steerHint": "插话：不打断当前回合，内容将在下一步或即时注入"
 }
