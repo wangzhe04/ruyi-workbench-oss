@@ -12331,6 +12331,31 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // the turn (declared here, not module-level) so counters never leak across turns.
   let loopSig = null, loopCount = 0, loopAborted = false;
   const LOOP_WARN_AT = 3, LOOP_ABORT_AT = 5;
+  // 04 Phase D 语义 loop-guard(§04-D1): 结果指纹无进展判定 -- 与"同签名连击"(loopSig/loopCount)互补。
+  // 同签名连击抓"完全相同调用(name+rawArgs)";结果指纹抓"换参数但结果无新信息"(如换路径反复读同类文件,
+  // 或 grep 不同 pattern 都返回空 -- sig 每次不同但结果内容摘要不变)。连续 N 次结果指纹相同 -> loopWarning
+  // nudge(warn 先行【不】abort,与同签名连击第5次 abort 不同--语义死循环证据弱于签名死循环,只 nudge 让模型自救)。
+  // 误报防护:探索类工具(read/search/glob/grep/web_search/ocr/ui_find)宽阈值--换路径读不同内容是正常进展
+  // (结果内容变->指纹变->reset),只有真反复得到相同结果才 warn。计数 turn-local(同 loopSig,不跨回合泄漏)。
+  let lastResultFp = null, noProgressRun = 0;
+  const NO_PROGRESS_WARN_AT = 4, EXPLORATORY_WARN_AT = 8;
+  const EXPLORATORY_TOOLS = new Set(['file_read', 'read_file', 'list_directory', 'grep', 'glob', 'find_template', 'web_search', 'ocr_screen', 'ocr_find_text', 'ocr_image', 'ui_find', 'ui_inspect', 'screenshot', 'find_on_screen', 'find_all_templates']);
+  // 结果指纹: ok + toolName(不同工具结果不混比) + 结果内容摘要(前200字+长度)。【不含】调用参数--"换参数但
+  // 结果相同"正是要抓的语义死循环(若含参数则换路径自动 reset,退化为同签名连击的重复)。错误/空结果返回 null
+  // (错误本身是新信息,reset 计数)。轻量字符串摘要(非 sha256,主回合每轮调用性能敏感;节点级
+  // workflowProgressFingerprint 用 sha256 是节点级低频)。
+  const resultFingerprint = (resultObj, toolName) => {
+    if (!resultObj || typeof resultObj !== 'object' || resultObj.ok === false) return null;
+    let text = '';
+    if (typeof resultObj.content === 'string') text = resultObj.content;
+    else if (typeof resultObj.text === 'string') text = resultObj.text;
+    else if (typeof resultObj.output === 'string') text = resultObj.output;
+    else if (typeof resultObj.result === 'string') text = resultObj.result;
+    else text = JSON.stringify(resultObj).slice(0, 500);
+    text = String(text).replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+    return toolName + '|' + text.length + '|' + text.slice(0, 200);
+  };
   // v0.9-S5 (真流程 plan mode) turn-local state. `planApproved` is the CLOSURE approval flag — set true only
   // after the user approves this turn's plan. It NEVER touches config.permissionMode (防止一次批准永久放权):
   // approval is scoped to this single turn's closure and vanishes when the turn ends. `planPhase` guards the
@@ -12839,6 +12864,22 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // here). Applied whether the call succeeded or failed — a succeeding-but-repeating loop is still a loop.
           if (loopCount >= LOOP_WARN_AT && resultObj && typeof resultObj === 'object') {
             resultObj.loopWarning = '检测到连续第 3 次相同调用;若结果不符合预期,请改变参数或换用其它工具,不要原样重试。';
+          }
+          // 04 Phase D 语义 loop-guard: 结果指纹无进展判定(同签名连击未覆盖的盲区)。与上面 loopWarning 互补--
+          // !resultObj.loopWarning 守卫:若同签名连击已 warn,语义判定跳过(避免双 warn)。
+          if (resultObj && typeof resultObj === 'object' && !resultObj.loopWarning) {
+            const rfp = resultFingerprint(resultObj, tc.name);
+            if (rfp !== null) {
+              if (rfp === lastResultFp) noProgressRun += 1; else { lastResultFp = rfp; noProgressRun = 0; }
+              const baseName = String(tc.name).replace(/^.+?__/, ''); // 去桥接前缀 <serverId>__ 后匹配探索工具集
+              const warnAt = EXPLORATORY_TOOLS.has(baseName) ? EXPLORATORY_WARN_AT : NO_PROGRESS_WARN_AT;
+              if (noProgressRun >= warnAt) {
+                resultObj.loopWarning = `检测到连续 ${noProgressRun} 次工具结果无新信息;若在反复检查同一状态,请改变策略或换用其它工具,不要原样重试。`;
+              }
+            } else {
+              // 错误/空结果 = 有新信息(错误本身是信息)-> reset,不累积。
+              noProgressRun = 0; lastResultFp = null;
+            }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
           onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });

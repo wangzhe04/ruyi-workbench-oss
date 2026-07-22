@@ -1078,3 +1078,15 @@ V2.0「立柱」规划(§37)的 41–45 波已全部交付(toolCall 表驱动 / 
 - **50e 收尾**:server.js freshness 确认;facts 重生成;全量对抗验证;roadmap §48;提交。
 
 **未做(留后续波)**:role="log"(P2 增量渲染联动,全清重建下加会致屏幕阅读器重读);视觉回归门 v2 双主题像素对比(需 ?theme= URL 注入基建 + 基线图);CSS 分层拆分(tokens/base/components/views/themes,与 FE 全量拆分同域随 51 波);README/ARCHITECTURE steer 旧口径"仅 provider 引擎"全量刷新(47 波欠账,本波未做,留 51 波顺手);div+cursor:pointer 键盘等价散点(随邻近改动);截图/营销资产重拍(毛玻璃是营销卖点,列发版检查单)。
+
+## 49. 第51波（进行中）:提示词与工作流规范化波 -- 51a 语义 loop-guard + 规范文档
+
+封版后第五个功能波(04 Phase B/C/D + 02 Phase B),四块跨多会话交付。本节随各阶段交付追加。
+
+### 51a 04 Phase D 语义 loop-guard + 《模型工作流规范》文档
+
+- **语义 loop-guard(主回合结果指纹无进展判定)**:09-workflow.js 主回合 loop-guard 原仅"同签名连击"(sig=name+rawArgs,WARN3/ABORT5)抓"完全相同调用";补"结果指纹无进展"判定--工具结果内容摘要指纹(【不含】调用参数,"换参数但结果相同"正是要抓的语义死循环;含参数则换路径自动 reset,退化为同签名连击重复),连续 N 次指纹相同 -> loopWarning nudge。普通工具阈值 4,探索类工具(read/search/glob/grep/web_search/ocr/ui_find)宽阈值 8(换路径读不同内容是正常进展,指纹变 reset);warn 先行【不】abort(语义死循环证据弱于签名死循环,只 nudge);错误/空结果视为有新信息 reset。与同签名连击互补:连击先判定(warn 后语义跳过 !loopWarning 避免双 warn),语义补盲区(sig 不同但结果相同)。计数 turn-local 不跨回合泄漏。复用节点级 workflowProgressFingerprint(08:1379)思路推广到主回合(04 Phase D 验收:09:611 节点级已验证)。
+- **《模型工作流规范》文档双语**:`ruyi-workbench/docs/MODEL-WORKFLOW-SPEC_CN.md` + `_EN.md`。面向用户与贡献者写清"规划-执行-检查-循环保护-预算-压缩"六环节 + 各档预算语义(TOOL_ITERATION_BUDGETS standard100/long200/hard300/extension50 + isLongToolTask 升档 + shouldExtendToolIterationBudget 动态扩展)。循环保护章含双判定(同签名连击 + 结果指纹)+ 探索工具宽阈值 + warn 先行不 abort。规范即营销素材("可审计的工作方式")。
+- **验证**:`semantic-loop-guard.e2e.js`(A 段真死循环捕获:9 个不同路径同内容文件 file_read,sig 每次不同但结果指纹同,第9次 noProgressRun=8>=探索阈值8 -> 语义 warn"无新信息",非同签名连击"第3次";B 段正常探索不误伤:3 个不同内容文件 -> 指纹变 reset -> 不 warn;12 步全执行 warn 不 abort);loop-guard 家族回归(loop-guard/agent-subturn-loop-guard/prompt-snapshot)全绿;facts e2e 155->156。
+
+**未做(留后续阶段)**:51b 02 Phase B 打断语义(批次边界中断 + 桥打断取消,与语义 loop-guard 同域 09);51c 04 Phase B 提示词外置 i18n(app/prompts/ 中英双份 + PROMPT_PACK_VERSION);51d 04 Phase C prefix-cache 稳定分层(system 首条逐字节稳定 + 易变层移 user 侧);51e 收尾(A/B 运行器填实 + 质量门/JSON修复 capture 断言 + 全量对抗验证)。04 Phase D 其他项(预算口径统一/回合级输出契约/Claude 引擎对齐)随邻近阶段顺手。
