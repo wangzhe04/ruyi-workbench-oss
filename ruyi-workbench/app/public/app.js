@@ -3207,7 +3207,7 @@ const agentRunSummarySeen = new Set();
 // 团队模式 v2: waiting_pool(收尾宽限窗,等待任务池审批)是活跃 live 态,并入 ACTIVE 集(卡片自动展开、不当作已完成)。
 const AGENT_RUN_ACTIVE = new Set(['running', 'paused', 'waiting_pool']);
 function agentRunStatusLabel(status) {
-  return ({ queued: '等待中', waiting_resource: '等待资源', blocked: '被依赖阻塞', running: '运行中', paused: '已暂停', waiting_pool: '等待任务池审批', succeeded: '已完成', skipped: '条件跳过', partial: '部分完成', failed: '失败', rejected: '质量门判否', degraded: '降级完成', interrupted: '已中断', cancelled: '已取消', stopped: '已停止' })[status] || status || '未知';
+  return t('workflow.node.status.' + status) || status || t('common.unknown');
 }
 // 团队模式 v2 (A4): 任务池提案状态人话标签。
 function poolStatusLabel(s) { return t('workflow.pool.status.' + s) || s || ''; } // 第50波 i18n
@@ -5406,7 +5406,7 @@ const CHANGE_TOOL_LABEL = {
 };
 function changeToolLabel(e) {
   const tool = String(e && e.tool || '').replace(/^.+?__/, '');   // 去桥接前缀 <serverId>__
-  return tool ? (CHANGE_TOOL_LABEL[tool] || tool) : '';
+  return tool ? (t('changes.tool.' + tool) || tool) : '';
 }
 // v1.4.1「改了什么」的量化:大小变化(原 → 现)。currentBytes 由 /api/checkpoints 附带(改动后磁盘大小)。
 function changeSizeTransition(e) {
@@ -5496,7 +5496,7 @@ function renderChanges(entries) {
       const row = el('div', 'change-row' + (e.skipped ? ' skipped' : ''));
       // 第一行:操作徽章 + 图标 + 文件名(整行宽,少截断)+ 回撤
       const r1 = el('div', 'change-row-head');
-      r1.append(el('span', 'change-op ' + op, CHANGE_OP_LABEL[op] || '变更'));
+      r1.append(el('span', 'change-op ' + op, t('changes.op.' + op) || t('changes.op.modify')));
       r1.append(el('span', 'change-icon', changeKindIcon(p)));
       const nameEl = el('span', 'change-name', fileBasename(p)); nameEl.title = p; // XSS: textContent via el()
       r1.append(nameEl);

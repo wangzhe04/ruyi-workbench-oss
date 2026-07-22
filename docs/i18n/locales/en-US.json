@@ -1023,5 +1023,58 @@
   "toast.uiModeExpert": "Switched to expert UI",
   "chat.editResend": "Edit & resend",
   "chat.retry": "Retry",
-  "chat.rewind": "Rewind"
+  "chat.rewind": "Rewind",
+  "common": {
+    "unknown": "Unknown"
+  },
+  "workflow": {
+    "node": {
+      "status": {
+        "queued": "Queued",
+        "waiting_resource": "Waiting for resources",
+        "blocked": "Blocked by dependency",
+        "running": "Running",
+        "paused": "Paused",
+        "waiting_pool": "Awaiting pool approval",
+        "succeeded": "Completed",
+        "skipped": "Conditionally skipped",
+        "partial": "Partially completed",
+        "failed": "Failed",
+        "rejected": "Rejected by quality gate",
+        "degraded": "Completed degraded",
+        "interrupted": "Interrupted",
+        "cancelled": "Cancelled",
+        "stopped": "Stopped"
+      }
+    }
+  },
+  "changes": {
+    "op": {
+      "create": "Created",
+      "modify": "Modified",
+      "delete": "Deleted"
+    },
+    "tool": {
+      "file_write": "Write",
+      "file_edit": "Edit",
+      "file_delete": "Delete",
+      "file_move": "Move",
+      "file_copy": "Copy",
+      "archive_zip": "Archive",
+      "archive_unzip": "Extract",
+      "http_download": "Download",
+      "write_file": "Write",
+      "delete_file": "Delete",
+      "move_file": "Move",
+      "copy_file": "Copy",
+      "write_document": "Generate Word",
+      "write_excel": "Generate Excel",
+      "write_pdf": "Export PDF",
+      "excel_beautify": "Beautify Excel",
+      "excel_chart": "Excel chart",
+      "write_pptx": "Generate PPT",
+      "chart_image": "Chart",
+      "image_resize": "Resize image"
+    }
+  }
 }
