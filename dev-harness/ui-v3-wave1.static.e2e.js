@@ -86,7 +86,7 @@ ok(/:root\[data-ui-mode="simple"\]\s*\{[^}]*font-size:\s*15px/.test(css), 'B5 �
 // ───────────── C1 投影 elev 接线 ─────────────
 for (const t of ['--elev-1', '--elev-2', '--elev-3']) ok(new RegExp(`${t}\\s*:`).test(css), `C1 ${t} 已定义`);
 ok(/\.popover\s*\{[^}]*box-shadow:\s*var\(--elev-2\)/.test(css), 'C1 .popover 用 var(--elev-2)');
-ok(/\.modal\s*\{[^}]*box-shadow:\s*var\(--elev-3\)/.test(css), 'C1 .modal 用 var(--elev-3)');
+ok(/\.modal\s*\{[^}]*box-shadow:\s*var\(--glass-highlight\),\s*var\(--glass-shadow\)/.test(css), 'C1 .modal 用玻璃投影(50b 玻璃化:--glass-highlight+--glass-shadow)');
 ok(/\.pb-card\s*\{[\s\S]{0,480}box-shadow:\s*var\(--elev-1\)/.test(css), 'C1 .pb-card 用 var(--elev-1)');
 ok(/\.pb-card\s*\{[\s\S]{0,260}white-space:\s*normal/.test(css), 'playbook cards override global button nowrap so localized text can wrap');
 ok(/\.pb-card-title\s*\{[^}]*min-width:\s*0[^}]*overflow-wrap:\s*anywhere/.test(css), 'playbook card titles shrink and wrap within the grid');

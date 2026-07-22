@@ -34,7 +34,7 @@ ok(app.includes("edgeDeleteBtn=el('button','mini danger workflow-btn',t('workflo
 ok(app.includes("graph.addEventListener('contextmenu'") && app.includes("if(e.button!==2)return") && app.includes("graph.scrollLeft=sl-(ev.clientX-sx)"), 'right mouse drag pans the workflow graph');
 ok(app.includes("classList.add('workflow-edge')") && app.includes('workflow-edge-hit') && app.includes('edgeEndpointByPointer(e,from,node)'), 'edges are interactive and choose the dragged endpoint from pointer position');
 ok(app.includes('replaceWorkflowEdge(edge,endpoint,targetId)') && app.includes('nodeIdAtClientPoint(ev.clientX,ev.clientY)'), 'dragging an edge endpoint can retarget it to a node');
-ok(app.includes('removeWorkflowEdge(selectedEdge)') && app.includes('已删除箭头'), 'selected edges can be deleted');
+ok(app.includes('removeWorkflowEdge(selectedEdge)') && app.includes('toast.wfEdgeDeleted'), 'selected edges can be deleted(50c i18n:toast.wfEdgeDeleted)');
 ok(css.includes('.modal.workflow-modal.workflow-fullscreen') && css.includes('.workflow-window-btn') && css.includes('.workflow-graph.panning') && css.includes('.workflow-edge.selected .workflow-edge-line'), 'fullscreen, titlebar, panning, and selected-edge states are styled');
 ok(css.includes('.workflow-editor-foot-left') && css.includes('.workflow-btn.save-as'), 'footer save-as and workflow buttons are styled');
 
