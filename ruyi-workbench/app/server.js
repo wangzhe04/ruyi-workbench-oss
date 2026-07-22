@@ -12329,7 +12329,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // annotate that tool_result with `loopWarning`; at the 5th we DON'T execute — we abort the turn with a
   // SELF-CONTAINED message (distinct from the 「已达工具调用上限」 iteration-cap message above). Lives with
   // the turn (declared here, not module-level) so counters never leak across turns.
-  let loopSig = null, loopCount = 0, loopAborted = false;
+  let loopSig = null, loopCount = 0, loopAborted = false, steerAborted = false;
   const LOOP_WARN_AT = 3, LOOP_ABORT_AT = 5;
   // 04 Phase D 语义 loop-guard(§04-D1): 结果指纹无进展判定 -- 与"同签名连击"(loopSig/loopCount)互补。
   // 同签名连击抓"完全相同调用(name+rawArgs)";结果指纹抓"换参数但结果无新信息"(如换路径反复读同类文件,
@@ -12904,10 +12904,26 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           markToolProgress(tc, resultObj, iter);
           touch();
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
-          // v0.8-S7 note: steering is deliberately NOT drained here. A multi-tool batch (parallel
-          // tool_calls) must keep its role:'tool' replies CONTIGUOUS after their assistant message —
-          // a user message wedged between tool₁ and tool₂ is a hard 400 on strict providers. The
-          // iteration-top drain fully covers the semantics (a steer is only consumed by the NEXT API call).
+          // 51b 02 Phase B: between-tools steer 检查(单个工具完成后、下一个前)。有插话则配对安全中断剩余
+          // 批次,外层 continue 回 line 1162 drainSteerQueue 注入插话(Codex 级立即生效,替代整批跑完才注入)。
+          // 配对铁律:复用 loop_abort(line 1390-1399)的 answeredIds 逐条补配对模式,给本批剩余未执行 tool_call
+          // 各补一条 refusal role:'tool' -- 保证 assistant.tool_calls(N ids) -> 连续 N 条 role:'tool' 不劈块
+          // (strict provider 对未配对 tool_call_id 报 400 永久卡死会话)。中断后 steerAborted=true break,图片
+          // flush 跳过(部分批次纪律,同 aborted),reset 后走 saveSession+continue 回 drainSteerQueue。
+          if (!steerAborted && reg.steerQueue && reg.steerQueue.length > 0) {
+            const answeredIds = new Set(toolCalls.map(t => t && t.id));
+            for (const rem of call.toolCalls) {
+              if (!rem || answeredIds.has(rem.id)) continue;
+              let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
+              const skip = { ok: false, error: '本轮已因用户插话中断,该调用未执行' };
+              onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
+              onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
+              toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
+              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
+            }
+            steerAborted = true;
+            break;
+          }
         }
         // v0.9-S7 视觉回路: FLUSH the batch's queued tool screenshots NOW — the whole tool block is closed
         // (every role:'tool' reply pushed above), so appending user image messages here honors the连续性铁律
@@ -12915,7 +12931,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // note + image_url part(s); a `tool_image` event lets the UI show a thumbnail (加法, optional). After
         // each injection, pruneOldImages enforces 保图≤2 (oldest image parts demote to text占位). Skipped when
         // aborted (a partial/broken batch must not gain a trailing user message that could dangle).
-        if (!aborted && pendingToolImages.length) {
+        if (!aborted && !steerAborted && pendingToolImages.length) {
           for (const pim of pendingToolImages) {
             session.providerHistory.push({ role: 'user', content: pim.parts });
             onEvent({ type: 'tool_image', toolCallId: pim.toolCallId, note: pim.note });
@@ -12924,6 +12940,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
         if (aborted) break;
         if (loopAborted) break;       // v0.8-S7: repeated-call guard tripped → end the turn (self-contained note below)
+        if (steerAborted) steerAborted = false;  // 51b 02 Phase B: 插话中断 reset(不结束回合,走 saveSession+continue 回 drainSteerQueue 注入插话)
         await saveSession(session);   // persist the growing tool trace
         continue;                     // loop: let the model react to the tool results
       }
