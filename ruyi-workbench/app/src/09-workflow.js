@@ -917,20 +917,21 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
   ).catch(() => []);
   let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
+  let volatileExtras = ''; // 52c(51d C2): 920-945 附加提示移 user 侧(与 turnVolatile 合并),sys 纯稳定(prefix-cache 完整命中)
   if (agentRoleMap.size && initialTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
-    sys += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
+    volatileExtras += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
   }
   // v1.4.4: list saved/built-in workflow templates so orchestrate_agents' workflowId can actually be used
   // — the model has no other way to discover which ids exist. Only relevant when the tool is offered.
   // 第23波: 提示升级为意图触发(buildOrchestrateHint,与 Claude 引擎共用),不再仅"形状匹配时"被动复用。
   if (initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
     const workflows = await getAgentWorkflows(workingDir).catch(() => []);
-    sys += buildOrchestrateHint(workflows);
+    volatileExtras += buildOrchestrateHint(workflows);
   }
   // 第30波:编排/spawn 可用时注入"可选模型 + 能力档位 + 按难度选型指引",让 AI 自主为不同节点选模型(spawn_agent
   // 也有 model 字段,故门控同 9578 的两工具集,不只 orchestrate)。数据取 offlineModelList,零网络。
   if (initialTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
-    sys += buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
+    volatileExtras += buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
   }
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
   // instruction (not baked into buildProviderSystemPrompt — kept here so it never leaks into summary/identity
@@ -938,13 +939,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // for THIS turn only. If the model ignores the format, the turn falls back to the legacy hard-block behavior.
   const planMode = config.permissionMode === 'plan';
   if (planMode) {
-    sys += '\n\n' + PROMPT_ZH.planMode;
+    volatileExtras += '\n\n' + PROMPT_ZH.planMode;
   }
   // Keep this final: dynamic role/workflow/model/plan layers may be in Chinese, but must not decide
   // the language of an English (or otherwise non-Chinese) user conversation.
-  sys = appendTurnPolicies(sys, config, agentTeam);
+  volatileExtras = appendTurnPolicies(volatileExtras, config, agentTeam);
   // 51d C1b: 易变层前缀(每回合动态,buildBody 注入第一条 user 消息[经 findIndex 动态定位],不持久化避 854 参数未初始化)
-  const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission);
+  const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
