@@ -1113,3 +1113,14 @@ app.js 3 处前端硬编码中文 map 转 t() 键:agentRunStatusLabel(line 3210,
 - **Phase2(后续)**:PROMPT_EN 英文版 + locale 感知切换(config.locale en-US 时加载英文)+ A/B 基准集验证(英文行为漂移风险,行为关键层优先审校)。48a prompt-snapshot 护栏已就位。
 
 **待续 51d**:04 Phase C prefix-cache 稳定分层。Deepseek 分析(20 次工具调用)verdict:可行有风险,建议 C1 低风险启动。C1:拆分 buildProviderSystemPrompt 为 buildStableSystemPrompt(身份/工具协议/桌面规程/风格/provider append 稳定层)+ buildVolatileParts(能力/项目/技能/记忆/账本易变层);易变层用 Option A(前缀合并到第一条 user content,不破坏 user↔assistant 交替契约,避免双连续 user);09:919 sys 只调稳定层,09:854 user 消息前缀注入易变层。风险:6+ e2e 断言 system text 标记(如 capabilities 的"当前能力")会失效,需批量改为查 user 消息;provider 兼容性(短 system+巨 user)需 fake-openai 多 provider 断言。C2(需 provider 实测):迁移 09:920-945 附加提示 + 压缩预算微调。关键:Option A 比 Option B(独立 user 消息)安全得多,必须选 Option A。
+
+### 51d C1a 04 Phase C prefix-cache 分层基础(稳定/易变层拆分,Deepseek 分析)
+
+- **06 buildProviderSystemPrompt 拆分**:buildStableSystemPrompt(身份+工具协议+provider append,会话内逐字节稳定,prefix-cache 友好)+ buildVolatileParts(能力/桌面规程/搜索/风格/项目/技能/记忆/账本,每回合可能变化)+ buildProviderSystemPrompt 向后兼容包装(stable+volatile,行为零漂移)。14-main 导出两个新函数。
+- **prompt-snapshot 加 D 段断言**:stable 不含 volatile 标记(能力/桌面/技能/账本)+ volatile 含 + 包装=stable+volatile(向后兼容)。行为零漂移:prompt-snapshot 1294 字不变。
+- **Deepseek 协作(Provider 端点多 agent)**:分析节点(39 次工具调用)产出 C1 实现+e2e 改动+风险,verdict 低风险(2/5)本轮可行。**主会话亲读复核抓到 1 处时序错误**:Deepseek 建议 09:854 前缀注入 buildVolatileParts,但 854 在参数初始化(892-919 caps/initialTools/projectMemory/skillEntries/memoryEntries)之前不可行。改 C1a 零风险基础(拆分+向后兼容),C1b 留下轮。
+- **验证**:prompt-snapshot(D段)/meta-guard/semantic-loop-guard/steering/loop-guard/facts.static/dom-smoke 全绿。
+- **C1b(后续)**:09 启用分层(sys=buildStableSystemPrompt,volatile 动态注入 buildBody messages[1] 不持久化,避开 854 参数未初始化);920-945 追加(角色/编排/模型/plan/policies)留 sys(C2 再移 user 侧)。实际 prefix-cache 收益:非 plan 回合 sys 跨回合稳定(命中)。
+- **memory 更新**:新增 ruyi-multiagent-pattern(只读分析/审查用 Deepseek 可靠+主会话复核;src/ 主树串行;Provider 端点等特定任务该用多 agent)。更新对 orchestrate 可靠性的认知(早期 probe ~60% 是 probe 场景,51 波只读分析/审查可靠性高)。
+
+**待续 51e**:收尾(A/B 运行器填实 dev-harness/prompt-benchmark/run.js--5 seeds × fake-openai 剧本 + 真 provider 可选 + baseline 对比;质量门/JSON修复 capture 断言;全量对抗验证)。A/B 运行器 fake-openai 模式测流程非行为漂移(真 A/B 要真实 API),需仔细设计。
