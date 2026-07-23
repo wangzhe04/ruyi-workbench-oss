@@ -57,7 +57,15 @@ function readCaptures(dir) {
     .map(f => { try { return JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); } catch { return null; } })
     .filter(Boolean);
 }
-function systemOf(body) { const m = (body && Array.isArray(body.messages)) ? body.messages.find(x => x && x.role === 'system') : null; return m ? String(m.content || '') : ''; }
+function systemOf(body) {
+  if (!body || !Array.isArray(body.messages)) return '';
+  const sys = body.messages.find(x => x && x.role === 'system');
+  const user = body.messages.find(x => x && x.role === 'user');
+  let userText = '';
+  if (user && typeof user.content === 'string') userText = user.content;
+  else if (user && Array.isArray(user.content)) userText = user.content.map(part => (part && part.type === 'text') ? String(part.text || '') : '').join('\n');
+  return (sys ? String(sys.content || '') : '') + '\n' + userText;
+}
 function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
 
 // A tiny local "searxng" JSON endpoint: GET /search?q=&format=json → {results:[{title,url,content}]}. It is

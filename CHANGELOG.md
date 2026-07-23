@@ -17,7 +17,7 @@ This file records user-facing release highlights; it does not replace the comple
 
 **第50波 · UI 视觉焕新波**：V4 毛玻璃定稿（scene-bg 微渐变 + 噪点 + 三档玻璃 + 黛紫/香槟 + 主题三态 light/dark/system）；i18n 清零（95 处 toast codemod + TOOL_VERB_MAP + 工作台节点/Pool/Mail）；a11y P0（installFocusTrap 焦点循环，role="log" 评估为 P2 联动不强行加）；02 Phase D 插话可视化（插话卡静态重渲染 + 队列可视化）；热修（标题卡死「新对话」+ Steer 双消息）。对抗验证修复：`_rpcHttp` 超时补发 `notifications/cancelled` + 7 处 i18n 遗漏。
 
-**第51波 · 提示词与工作流规范化波**：04 Phase D 语义 loop-guard（主回合结果指纹无进展判定，与同签名连击互补，探索工具宽阈值，warn 先行不 abort）+ 《模型工作流规范》双语文档；02 Phase B 打断语义（between-tools 批次边界中断，配对安全补 refusal，Codex 级立即生效）；前端 i18n 清零（50 波遗留 3 处硬编码 map）。
+**第51波 · 提示词与工作流规范化波**：04 Phase D 语义 loop-guard（主回合结果指纹无进展判定，与同签名连击互补，探索工具宽阈值，warn 先行不 abort）+ 《模型工作流规范》双语文档；02 Phase B 打断语义（between-tools 批次边界中断，配对安全补 refusal，Codex 级立即生效）；前端 i18n 清零（50 波遗留 3 处硬编码 map）；51c‑b 提示词外置 i18n 骨架（`06b-prompt-registry.js`，PROMPT_PACK_VERSION='2026-w51-1'，中英双语系统提示词按 UI 语言从 `i18n/prompt-packs/` 按需加载）；51d 系统提示词 stable/volatile 分层注入（provider 引擎 system prompt 拆为逐字节稳定的锚点层 + volatile 层注入第一条 user 消息，prefix-cache 友好，多轮 token 节省显著）。
 
 ### English
 
@@ -29,7 +29,7 @@ This file records user-facing release highlights; it does not replace the comple
 
 **Wave 50 · UI visual refresh**: V4 glassmorphism finalized (scene-bg micro-gradient + noise + three glass tiers + purple/champagne + theme tri-state light/dark/system); i18n cleanup (95 toast codemod + TOOL_VERB_MAP + workbench node/Pool/Mail); a11y P0 (installFocusTrap focus cycling, role="log" deferred to P2 incremental-render); 02 Phase D steer visualization (steer-card static re-render + queue viz); hotfixes (title stuck at "New chat" + Steer double-message). Adversarial-review fixes: `_rpcHttp` timeout now sends `notifications/cancelled` + 7 i18n omissions.
 
-**Wave 51 · Prompt & workflow normalization**: 04 Phase D semantic loop-guard (main-turn result-fingerprint no-progress detection, complementary to identical-signature runs, lenient threshold for exploratory tools, warn-first no-abort) + bilingual Model Workflow Spec doc; 02 Phase B interrupt semantics (between-tools batch-boundary interrupt, pairing-safe refusal, Codex-grade immediate effect); frontend i18n cleanup (3 hardcoded maps left over from wave 50).
+**Wave 51 · Prompt & workflow normalization**: 04 Phase D semantic loop-guard (main-turn result-fingerprint no-progress detection, complementary to identical-signature runs, lenient threshold for exploratory tools, warn-first no-abort) + bilingual Model Workflow Spec doc; 02 Phase B interrupt semantics (between-tools batch-boundary interrupt, pairing-safe refusal, Codex-grade immediate effect); frontend i18n cleanup (3 hardcoded maps left over from wave 50); 51c-b prompt externalization i18n skeleton (`06b-prompt-registry.js`, PROMPT_PACK_VERSION='2026-w51-1', bilingual system prompts loaded on-demand from `i18n/prompt-packs/` per UI language); 51d stable/volatile system prompt layering (provider system prompt split into byte-stable anchor layer + volatile layer injected into first user message, prefix-cache friendly, significant multi-turn token savings).
 
 ## v2.0.0 · 2026-07-21
 

@@ -37,7 +37,7 @@ ai-computer-control is optional. Install its required Python environment only wh
 needed. Usage accounting groups token and estimated cost by engine, provider, chat, and currency; subscription-plan
 traffic is labeled as plan-included instead of fabricated as a monetary charge.
 
-ACC v1.8.3 exposes 100 tools. Browser mode defaults to `system`, which opens a new tab/window in the user's
+ACC v1.9.0 exposes 107 tools. Browser mode defaults to `system`, which opens a new tab/window in the user's
 associated browser without owning or closing it; the active Ruyi Workbench tab is never navigated, reused, or
 closed. `managed`, `custom`, `cdp`, and explicitly isolated `bundled` modes are available through
 `browserAutomation`. Managed Chromium is launched with renderer accessibility enabled. When an accelerated browser

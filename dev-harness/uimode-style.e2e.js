@@ -69,7 +69,11 @@ function clearCaptures(dir) {
 function systemOf(reqBody) {
   const msgs = (reqBody && Array.isArray(reqBody.messages)) ? reqBody.messages : [];
   const sys = msgs.find(m => m && m.role === 'system');
-  return (sys && typeof sys.content === 'string') ? sys.content : '';
+  const user = msgs.find(m => m && m.role === 'user');
+  let userText = '';
+  if (user && typeof user.content === 'string') userText = user.content;
+  else if (user && Array.isArray(user.content)) userText = user.content.map(part => (part && part.type === 'text') ? String(part.text || '') : '').join('\n');
+  return ((sys && typeof sys.content === 'string') ? sys.content : '') + '\n' + userText;
 }
 function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
 function seedConfig(home, extra) {
@@ -185,14 +189,14 @@ const SHORT_INSTR = '回答尽量简短，直接给结果，不解释过程除�
     ok(disk.uiMode === 'simple' && disk.outputStyle === 'concise', '(A) both persisted to disk config.json');
 
     // ── B) outputStyle prompt injection ──────────────────────────────────────────────────────────────
-    // concise is active now → the turn's captured system message contains the short-answer instruction.
+    // concise is active now → the captured stable-system + volatile-user prompt contains the instruction.
     clearCaptures(CAP_DIR);
     await postStream(WB_PORT, { message: 'hello concise' });
     await sleep(300); // let the fake flush its req-NNN.json capture to disk
     let caps = readCaptures(CAP_DIR);
     ok(caps.length >= 1, '(B) concise: request captured (' + caps.length + ')');
     const sysConcise = caps.map(systemOf).join('\n');
-    ok(sysConcise.includes(SHORT_INSTR), '(B) concise: system contains short-answer instruction');
+    ok(sysConcise.includes(SHORT_INSTR), '(B) concise: request prompt contains short-answer instruction');
 
     // Switch to detailed → the instruction is absent.
     await postJson(WB_PORT, '/api/config', { outputStyle: 'detailed' }, hdr);
@@ -202,7 +206,7 @@ const SHORT_INSTR = '回答尽量简短，直接给结果，不解释过程除�
     caps = readCaptures(CAP_DIR);
     ok(caps.length >= 1, '(B) detailed: request captured (' + caps.length + ')');
     const sysDetailed = caps.map(systemOf).join('\n');
-    ok(!sysDetailed.includes(SHORT_INSTR), '(B) detailed: system does NOT contain short-answer instruction');
+    ok(!sysDetailed.includes(SHORT_INSTR), '(B) detailed: request prompt does NOT contain short-answer instruction');
     // Sanity: the identity pin is present either way (proves we captured a real layered prompt, not empty).
     ok(/由 .* 的 .* 模型驱动/.test(sysDetailed), '(B) detailed: identity-pinned system prompt captured (sanity)');
 

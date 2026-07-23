@@ -102,9 +102,12 @@
 | 成本 / 用量看板 | 分币种逐笔记账,区分官方/第三方计划/按量;子代理与压缩全入账;月度预算告警 | [§8](#8-用量与成本看板诚实计账) |
 | 中英界面 | 设置中支持跟随系统、简体中文、英文；设置、动态弹层、技能库/一键任务与 API 错误可本地化 | [多语言方案](docs/i18n/README.md) |
 | 团队模式 | 共享任务池(子代理提案→审批→物化)、Agent 邮箱、对指定节点定向插话 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
+| 语义防卡 · 防空转 | 主回合结果指纹无进展判定，与同签名连击互补；探索工具宽阈值，warn 先行不 abort | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
+| 智能打断与恢复 | between-tools 批次边界中断 + steerable 打断流；配对安全补 refusal；连续执行 loop-guard 暂停 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
+| 提示词分层注入与 i18n | system prompt 拆为逐字节稳定的锚点层 + volatile 层注入第一条 user 消息（prefix-cache 友好）；中英双语提示词按 UI 语言加载 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 分级 UI | 简易/专业双模式、深/浅/跟随系统三主题、V4 毛玻璃视觉系统 | [§9](#9-分级-ui简易专业双模式) |
 
-> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付,附 100+ 离线 e2e。迭代记录见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)。
+> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付,附 150+ 离线 e2e。迭代记录见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)。
 
 ## 功能详解
 
@@ -170,6 +173,12 @@
 - **恢复按副作用分级**:每一步状态原子落盘,重启后先诚实标出中断点。开启自动恢复后,纯读 / 等待 / 确定性质量门可继续;命令执行、已写入或能力不明的节点一律暂停等待确认,**绝不盲目重放不可逆副作用**。
 - **上下文、产物与监控都有边界**:子代理的上游结论按预算收敛,文件产物可单独追溯;监控改走增量事件流(相比全量轮询传输量降 ≥80%),运行干预次数、失败分类和预算超支率随手可查。
 
+**语义防卡 · 防空转**(51a):主回合结果指纹(`resultFingerprint`)无进展判定——连续 N 轮工具输出均为相同结构/无新写入文件/无新 URL → 判定循环暂停;与"同签名连击"互补（连击看工具名+参数,loop-guard 看结果产出）;探索类工具(`read_file`/`file_search`/`glob`等)宽阈值;warn 先行不直接 abort,用户可主动"调整方向"解锁。
+
+**智能打断与恢复**(51b):between-tools 批次边界中断——steer 队列(`steerQueue`)在每轮结束时检查,命中时注入定向提示到下一轮 system prompt（Codex 级立即生效）;配对安全补 `refusal`——被打断的回合若模型已产出 refusal 片段,系统自动补完安全拒绝语义,避免半句 refusal 暴露给用户;连续执行 loop-guard 暂停后,用户发消息即触发恢复。
+
+**提示词分层注入与 i18n**(51c-b/51d):provider 引擎 system prompt 拆为两层——① **锚点层**（`buildStableSystemPrompt`：身份+工具协议+provider 追加指令）,同一会话逐字节稳定,prefix-cache 友好;② **volatile 层**（`buildVolatileParts`：能力探测/桌面状态/搜索配置/风格/项目/技能/记忆/任务账本）,每轮合并为 Markdown 块注入第一条 user 消息。首轮 token 开销下降约 1000–3000,多轮累积节省显著。中英双语系统提示词通过 `06b-prompt-registry.js`(PROMPT_PACK_VERSION='2026-w51-1')按 UI 语言从 `i18n/prompt-packs/` 按需加载。
+
 ### 4. 信任层:检查点 / 回溯 / 权限 / 审计
 
 「让 AI 动手」的前提是「动错了能收回来」:
@@ -183,7 +192,7 @@
 
 ### 5. 桌面 / Office 操控(ACC,可选)
 
-`mcp/ai-computer-control/` 是随发行包捆绑的**桌面控制 MCP**(v1.8.3,Python ≥3.12,共 **100 个工具**),装好后工作台自动探测,并把工具同时供给两个引擎:
+`mcp/ai-computer-control/` 是随发行包捆绑的**桌面控制 MCP**(v1.9.0,Python ≥3.12,共 **107 个工具**),装好后工作台自动探测,并把工具同时供给两个引擎:
 
 启动时，工作台会先验证候选 Python 能否导入 ACC；完整离线包内的 `python_embed` 和安装器部署到 `%LOCALAPPDATA%\ai-computer-control\runtime\python` 的运行时均可直接识别。发现缺少依赖的旧运行时会自动跳过并回退到旧版安装器的 `venv` 或可用的系统 Python。
 
@@ -400,7 +409,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 
 ### Capabilities (v2.0)
 
-Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · a native tool loop of 40 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.0, 107 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 100+ offline e2e.
+Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · a native tool loop of 40 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.0, 107 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 150+ offline e2e.
 
 ### Detailed documentation
 

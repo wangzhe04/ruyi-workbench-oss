@@ -93,7 +93,18 @@ function postStream(port, payload) {
 }
 function clearCap() { try { for (const f of fs.readdirSync(CAP_DIR)) fs.rmSync(path.join(CAP_DIR, f), { force: true }); } catch { /* ignore */ } }
 function readCapBodies() { try { return fs.readdirSync(CAP_DIR).filter(f => f.endsWith('.json')).sort().map(f => { try { return JSON.parse(fs.readFileSync(path.join(CAP_DIR, f), 'utf8')); } catch { return null; } }).filter(Boolean); } catch { return []; } }
-function sysOfLastStreamBody() { const cap = readCapBodies(); const streamed = cap.filter(b => b.stream !== false); const b = streamed[streamed.length - 1] || cap[cap.length - 1] || {}; return (b.messages && b.messages[0] && b.messages[0].content) || ''; }
+function sysOfLastStreamBody() {
+  const cap = readCapBodies();
+  const streamed = cap.filter(b => b.stream !== false);
+  const b = streamed[streamed.length - 1] || cap[cap.length - 1] || {};
+  if (!Array.isArray(b.messages)) return '';
+  const sys = b.messages.find(message => message && message.role === 'system');
+  const user = b.messages.find(message => message && message.role === 'user');
+  let userText = '';
+  if (user && typeof user.content === 'string') userText = user.content;
+  else if (user && Array.isArray(user.content)) userText = user.content.map(part => (part && part.type === 'text') ? String(part.text || '') : '').join('\n');
+  return (sys ? String(sys.content || '') : '') + '\n' + userText;
+}
 function memorySection(sys) { const start = sys.indexOf('以下为本会话已启用的「工作台记忆」索引'); if (start < 0) return ''; const close = sys.indexOf('</workbench-memory>', start); if (close < 0) return ''; return sys.slice(start, close + '</workbench-memory>'.length); }
 function readLedgerRows() { try { const dir = path.join(HOME, 'usage'); return fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')).flatMap(f => fs.readFileSync(path.join(dir, f), 'utf8').split(/\r?\n/).filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean)); } catch { return []; } }
 

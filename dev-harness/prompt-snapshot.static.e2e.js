@@ -87,6 +87,10 @@ ok(/<skill-index>/.test(volatile), 'D5 volatile 含技能索引围栏');
 ok(volatile.length > 100 && volatile.length < 5000, 'D6 volatile 长度合理(got ' + volatile.length + ')');
 // 向后兼容:buildProviderSystemPrompt(包装) = stable + volatile(文本不变)
 ok(full.length >= stable.length + volatile.length - 5, 'D7 包装=stable+volatile(向后兼容,full ' + full.length + ' >= stable ' + stable.length + ' + volatile ' + volatile.length + ')');
+// C1b 请求装配:易变层用真实换行注入,且上下文治理预算必须包含 stable+volatile。
+ok(src.includes("turnVolatile + '\\n\\n'") && !src.includes("turnVolatile + '\\\\n\\\\n'"), 'D8 volatile 前缀使用真实换行,不向模型发送字面量 \\\\n');
+ok(/const budgetPrompt = turnVolatile \? sys \+ '\\n\\n' \+ turnVolatile : sys;/.test(src), 'D9 上下文预算提示包含 stable+volatile');
+ok(/maybeAutoCompact\(session, provider, budgetPrompt,/.test(src) && /estimateHistoryTokens\(session\.providerHistory, budgetPrompt\)/.test(src), 'D10 自动压缩与 fallback 估算均使用完整预算提示');
 
 console.log('\nPROMPT SNAPSHOT STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

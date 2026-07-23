@@ -45,7 +45,7 @@ ok(/function renderInspector\(\)\{inspector\.textContent='';commitSelectedNode=n
 ok(has(src, 'const doApplyNode=()=>{'), 'BUG2-C 节点 apply 逻辑具名为 doApplyNode');
 ok(has(src, 'apply.onclick=doApplyNode; commitSelectedNode=doApplyNode;'), 'BUG2-C doApplyNode 同时挂 apply.onclick 与 commitSelectedNode');
 // D. 校验早退返回 false(而非原 return toast 的 undefined),成功路径 return true —— 供 saveDraft 判定 flush 成败。
-ok(has(src, "{ toast('节点 ID 重复','err'); return false; }", "{ toast('运行条件格式无效','err'); return false; }"), 'BUG2-D 校验失败早退改为 { toast(...); return false; }');
+ok(has(src, 'toast(t("toast.wfIdDup"),\'err\'); return false;', 'toast(t("toast.wfCondInvalid"),\'err\'); return false;'), 'BUG2-D i18n 校验失败早退为 toast(t(...)); return false');
 ok(/selectedId=nextId; renderGraph\(\); renderInspector\(\);\s*\n\s*return true;/.test(src), 'BUG2-D doApplyNode 成功路径末尾 return true');
 ok(!/apply\.onclick=\(\)=>\{/.test(src), 'BUG2-D 旧匿名 apply.onclick=()=>{ 已被具名 doApplyNode 取代');
 // E. saveDraft 保存前先 flush,校验失败抛错阻断 POST,且 flush 早于 POST。

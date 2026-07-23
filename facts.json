@@ -11,7 +11,7 @@
   "accVersion": "1.9.0",
   "nativeTools": 50,
   "accTools": 107,
-  "e2eCount": 157,
+  "e2eCount": 153,
   "e2eLiveSkipped": 6,
   "unitSuites": 5,
   "accSmokes": 14

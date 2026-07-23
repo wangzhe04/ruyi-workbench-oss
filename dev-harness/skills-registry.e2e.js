@@ -90,6 +90,15 @@ function postStream(port, payload) {
 }
 function clearCap() { try { for (const f of fs.readdirSync(CAP_DIR)) fs.rmSync(path.join(CAP_DIR, f), { force: true }); } catch { /* ignore */ } }
 function readCapBodies() { try { return fs.readdirSync(CAP_DIR).filter(f => f.endsWith('.json')).sort().map(f => { try { return JSON.parse(fs.readFileSync(path.join(CAP_DIR, f), 'utf8')); } catch { return null; } }).filter(Boolean); } catch { return []; } }
+function promptOf(body) {
+  if (!body || !Array.isArray(body.messages)) return '';
+  return body.messages.map(message => {
+    if (!message || (message.role !== 'system' && message.role !== 'user')) return '';
+    if (typeof message.content === 'string') return message.content;
+    if (Array.isArray(message.content)) return message.content.map(part => (part && part.type === 'text') ? String(part.text || '') : '').join('\n');
+    return '';
+  }).join('\n');
+}
 
 // ---- fake-openai spawn (restartable with different env) --------------------------------------------------
 let fake = null;
@@ -162,7 +171,7 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     await postStream(WB_PORT, { sessionId: S1.id, message: 'hello with skills', cwd: CWD });
     const capC = readCapBodies();
     const reqC = capC.find(b => Array.isArray(b.tools)) || capC[0] || {};
-    const sysC = (reqC.messages && reqC.messages[0] && reqC.messages[0].content) || '';
+    const sysC = promptOf(reqC);
     ok(/已启用的技能/.test(sysC), '(c) provider system prompt carries the skill index header');
     ok(sysC.includes('[demo-skill]') && sysC.includes(PROJECT_DEMO_MARKER), '(c) skill index line has the demo-skill id + description marker');
     ok(Array.isArray(reqC.tools) && reqC.tools.some(t => t.function && t.function.name === 'skill_read'), '(c) tools array includes skill_read when a skill is enabled');
@@ -172,7 +181,7 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     await postStream(WB_PORT, { sessionId: S2.id, message: 'hello no skills', cwd: CWD });
     const capF = readCapBodies();
     const reqF = capF.find(b => Array.isArray(b.tools)) || capF[0] || {};
-    const sysF = (reqF.messages && reqF.messages[0] && reqF.messages[0].content) || '';
+    const sysF = promptOf(reqF);
     ok(!/已启用的技能/.test(sysF), '(f) no-skills session: system prompt has NO skill index section');
     ok(Array.isArray(reqF.tools) && !reqF.tools.some(t => t.function && t.function.name === 'skill_read'), '(f) no-skills session: tools array has NO skill_read');
 
@@ -184,7 +193,7 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     await postStream(WB_PORT, { sessionId: S2.id, message: 'hello resident skill', cwd: CWD });
     const capR = readCapBodies();
     const reqR = capR.find(b => Array.isArray(b.tools)) || capR[0] || {};
-    const sysR = (reqR.messages && reqR.messages[0] && reqR.messages[0].content) || '';
+    const sysR = promptOf(reqR);
     ok(sysR.includes('[user-only-skill]') && /USER_ONLY_MARKER/.test(sysR), '(f2) resident skill is injected into a chat with no session skills');
     ok(Array.isArray(reqR.tools) && reqR.tools.some(t => t.function && t.function.name === 'skill_read'), '(f2) resident skill enables skill_read');
     cfgResident.residentSkills = [];
@@ -203,7 +212,7 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     await postStream(WB_PORT, { sessionId: S4.id, message: 'turn in alt cwd', cwd: ALT_CWD }); // now the id resolves to source=project → mismatch
     const capG = readCapBodies();
     const reqG = capG.find(b => Array.isArray(b.tools)) || capG[0] || {};
-    const sysG = (reqG.messages && reqG.messages[0] && reqG.messages[0].content) || '';
+    const sysG = promptOf(reqG);
     ok(!/已启用的技能/.test(sysG), '(g) source mismatch (builtin locked, project now shadows it) → skill index NOT injected');
     ok(!/HIJACK_MARKER/.test(sysG), '(g) the shadowing project skill is not injected');
     ok(Array.isArray(reqG.tools) && !reqG.tools.some(t => t.function && t.function.name === 'skill_read'), '(g) source mismatch → no skill_read tool offered');

@@ -12287,6 +12287,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   sys = appendTurnPolicies(sys, config, agentTeam);
   // 51d C1b: 易变层前缀(每回合动态,buildBody 注入 messages[1],不持久化避 854 参数未初始化)
   const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission);
+  // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
+  // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
+  // indexes, so omitting it here can delay compaction until the provider rejects the request.
+  const budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
   const headers = { 'content-type': 'application/json' };
   const key = String(provider.apiKey || '').trim();
   if (key) headers['authorization'] = 'Bearer ' + key;
@@ -12294,12 +12298,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const buildBody = withTools => {
     const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];
-    // 51d C1b: volatile 前缀注入到第一条 user(messages[1]),不持久化(每回合动态)
-    if (turnVolatile && msgs[1] && msgs[1].role === 'user') {
-      if (typeof msgs[1].content === 'string') {
-        msgs[1] = { ...msgs[1], content: turnVolatile + '\\n\\n' + msgs[1].content };
-      } else if (Array.isArray(msgs[1].content) && msgs[1].content[0] && msgs[1].content[0].type === 'text') {
-        msgs[1] = { ...msgs[1], content: [{ ...msgs[1].content[0], text: turnVolatile + '\\n\\n' + msgs[1].content[0].text }, ...msgs[1].content.slice(1)] };
+    // 51d C1b: volatile 前缀注入到第一条 user,不持久化(每回合动态)。Do not assume messages[1]
+    // or parts[0] is text: compacted/imported histories and multimodal providers may use another shape.
+    const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
+    if (turnVolatile && firstUserIndex > 0) {
+      const firstUser = msgs[firstUserIndex];
+      if (typeof firstUser.content === 'string') {
+        msgs[firstUserIndex] = { ...firstUser, content: turnVolatile + '\n\n' + firstUser.content };
+      } else if (Array.isArray(firstUser.content)) {
+        const textPartIndex = firstUser.content.findIndex(part => part && part.type === 'text');
+        if (textPartIndex >= 0) {
+          const content = firstUser.content.slice();
+          content[textPartIndex] = { ...content[textPartIndex], text: turnVolatile + '\n\n' + String(content[textPartIndex].text || '') };
+          msgs[firstUserIndex] = { ...firstUser, content };
+        }
       }
     }
     const b = { model, messages: msgs, stream: true, stream_options: { include_usage: true } };
@@ -12517,8 +12529,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:L1-only 重试的下一迭代跳过 L2 白跑
-      else if (await maybeAutoCompact(session, provider, sys, config, onEvent, model, toolLoading.current())) touch();
-      lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a) 采样对:发送前估算
+      else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current())) touch();
+      lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
       const call = await streamWithFailover(buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
       if (call.httpError) {
@@ -13042,7 +13054,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // approximate context occupancy. Flagged estimated:true so the client renders it as approximate; calls:0
     // records that no real usage frame arrived. This branch only runs when NO real usage frame was seen, so
     // it never clobbers a provider-reported figure.
-    const estTotal = estimateHistoryTokens(session.providerHistory, sys);
+    const estTotal = estimateHistoryTokens(session.providerHistory, budgetPrompt);
     if (estTotal > 0) {
       const lastMsg = session.providerHistory[session.providerHistory.length - 1];
       const estOut = (lastMsg && lastMsg.role === 'assistant') ? Math.round(estimateContentTokens(lastMsg.content)) : 0;
