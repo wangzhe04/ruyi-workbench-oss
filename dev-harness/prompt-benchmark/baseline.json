@@ -1,0 +1,75 @@
+[
+  {
+    "id": "tp-01",
+    "category": "tool-protocol",
+    "pass": true,
+    "tools": [
+      "file_search",
+      "glob"
+    ],
+    "checks": {
+      "tool_subset_of": true,
+      "must_not_use_terminal_first": true
+    },
+    "skipped": [
+      "output_contains_regex(fake echo 不回真实工具结果,用 --provider 真测)"
+    ]
+  },
+  {
+    "id": "rbw-01",
+    "category": "read-before-write",
+    "pass": true,
+    "tools": [
+      "file_read",
+      "file_edit"
+    ],
+    "checks": {
+      "tool_sequence_starts_with": true,
+      "must_read_before_edit": true,
+      "no_write_file_overwrite": true
+    },
+    "skipped": []
+  },
+  {
+    "id": "ob-01",
+    "category": "office-ban",
+    "pass": null,
+    "tools": [
+      "script_run"
+    ],
+    "checks": {},
+    "skipped": [
+      "needs_bridge(office 软闸需 ACC 桥接,fake 模式 desktopMcp disabled 不触发,用 --provider 真测)"
+    ]
+  },
+  {
+    "id": "lsr-01",
+    "category": "loop-self-rescue",
+    "pass": true,
+    "tools": [
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read"
+    ],
+    "checks": {
+      "loop_guard_aborts": true,
+      "abort_reason_contains": true,
+      "not_budget_exhausted": true
+    },
+    "skipped": []
+  },
+  {
+    "id": "pt-01",
+    "category": "plan-trigger",
+    "pass": null,
+    "tools": [
+      "file_delete"
+    ],
+    "checks": {},
+    "skipped": [
+      "needs_plan_mode(plan 在 fake bypass 不触发,用 plan-mode e2e 或 --provider 真测)"
+    ]
+  }
+]
