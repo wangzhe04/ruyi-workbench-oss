@@ -1101,3 +1101,15 @@ V2.0「立柱」规划(§37)的 41–45 波已全部交付(toolCall 表驱动 / 
 
 ### 51c-a 前端 i18n 清零(50 波遗留,顺手)
 app.js 3 处前端硬编码中文 map 转 t() 键:agentRunStatusLabel(line 3210,16 节点状态)-> t('workflow.node.status.'+status);CHANGE_OP_LABEL 使用处(line 5499,3 操作)-> t('changes.op.'+op);changeToolLabel(line 5409,16 工具)-> t('changes.tool.'+tool)。新增 39 i18n key x 4 locale 文件(workflow.node.status.*15 / changes.op.*3 / changes.tool.*19 / common.unknown)。i18n.static/i18n.e2e/dom-smoke/dom-contract 全绿。**51c-b(04 Phase B 提示词外置,~25 段+中英双份+registry.js+PROMPT_PACK_VERSION)是大重构,Deepseek 分析已留存,留后续阶段。**
+
+### 51c-b 04 Phase B 提示词外置 i18n 骨架(Phase1 中文版,Deepseek 分析)
+
+- **registry 单一注册点**:新建 src/06b-prompt-registry.js(manifest 第 17 模块,06 后):PROMPT_PACK_VERSION='2026-w51-1' + PROMPT_ZH 中文包(身份/工具协议/能力/操控规程/检索/风格/项目/技能header/记忆header/账本/plan-mode,逐层模板函数,文本逐字搬自原内联)。方案 A(JS 模块进 manifest,零 IO 失败,构建时语法校验兜底)。
+- **buildProviderSystemPrompt 瘦身**:06 的 17 层 lines.push 文本 -> PROMPT_ZH.xxx(params) 调用,条件逻辑(hasTools/identityOnly/deskPresent/visionCap 等)留 JS。06 buildSkillsPromptSection header + 07 buildMemory/MissionPromptSection 全部文本 + 09:941 plan-mode 中文 -> registry。
+- **PROMPT_PACK_VERSION 入会话元数据**:02 sessionMeta 加 promptPack 字段(为 A/B 实验与问题回溯奠基)。
+- **行为零漂移**:文本逐字搬,prompt-snapshot 1294 字不变(断言中文标记全绿)。meta-guard F 段适配外置(digest「不得覆盖」检查兼容 PROMPT_ZH.mission.header 引用 + 全局文本守护)。
+- **Deepseek 协作**:分析节点(33 次工具调用读 06/07/09/01/build.js)产出外置清单+registry 设计+瘦身改法,建议分阶段(Phase1 中文版零漂移),主会话亲读复核+主树串行实现。
+- **验证**:prompt-snapshot/steering/loop-guard/semantic-loop-guard/steering-claude/facts.static/meta-guard/dom-smoke 全绿。
+- **Phase2(后续)**:PROMPT_EN 英文版 + locale 感知切换(config.locale en-US 时加载英文)+ A/B 基准集验证(英文行为漂移风险,行为关键层优先审校)。48a prompt-snapshot 护栏已就位。
+
+**待续 51d**:04 Phase C prefix-cache 稳定分层。Deepseek 分析(20 次工具调用)verdict:可行有风险,建议 C1 低风险启动。C1:拆分 buildProviderSystemPrompt 为 buildStableSystemPrompt(身份/工具协议/桌面规程/风格/provider append 稳定层)+ buildVolatileParts(能力/项目/技能/记忆/账本易变层);易变层用 Option A(前缀合并到第一条 user content,不破坏 user↔assistant 交替契约,避免双连续 user);09:919 sys 只调稳定层,09:854 user 消息前缀注入易变层。风险:6+ e2e 断言 system text 标记(如 capabilities 的"当前能力")会失效,需批量改为查 user 消息;provider 兼容性(短 system+巨 user)需 fake-openai 多 provider 断言。C2(需 provider 实测):迁移 09:920-945 附加提示 + 压缩预算微调。关键:Option A 比 Option B(独立 user 消息)安全得多,必须选 Option A。
