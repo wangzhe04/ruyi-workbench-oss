@@ -17,6 +17,7 @@ operational commitments.
 | UI localization contract | [Localization Guide](i18n/README_EN.md) | [多语言兼容方案](i18n/README.md) |
 | Built-in skills and quick tasks | — | [技能与一键任务目录](../ruyi-workbench/docs/SKILLS-CATALOG_CN.md) |
 | MCP connector drop-ins | [MCP Connectors](../mcp/README_EN.md) | [MCP 连接器](../mcp/README.md) |
+| Release lines and future roadmap | [Release & optimization roadmap](OPTIMIZATION-ROADMAP.md) | [发布线与优化路线图](OPTIMIZATION-ROADMAP.md) |
 
 Historical roadmaps, acceptance notes, design explorations, and generated mockups are retained in their original
 language. They are engineering records rather than normative user or deployment guides.
@@ -46,4 +47,3 @@ language. They are engineering records rather than normative user or deployment 
 | [UI-ORCHESTRATION-REDESIGN.md](archive/UI-ORCHESTRATION-REDESIGN.md) | — | 已竣工(编排 redesign) |
 | `archive/mockups/p2-refinements.html` | — | 旧版 mockup(R2 版在 `mockups/`) |
 | `archive/mockups/p3-workbench.html` | — | 旧版 mockup(R2 版在 `mockups/`) |
-

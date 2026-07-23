@@ -1,4 +1,4 @@
-# 如意 Ruyi · 本地 AI 全能工作台
+# 如意 Ruyi Escapade 2.0 · 本地 AI 全能工作台
 
 <img src="docs/branding/ruyi-mark.svg" alt="如意 Ruyi" width="72" align="right" />
 
@@ -12,6 +12,8 @@
 
 一台 Windows 机器 + 任意一个可用的模型端点(任意 OpenAI 兼容 API 或内网 Claude CLI)= 一个**能真正替你动手**的本地 AI 工作台:读写文件、跑脚本、操控桌面和 Office、派一队子代理协作调研——每一步可审计、可撤销、成本透明,**有网没网都能正常运行**。
 
+> **当前发布线：Ruyi Escapade 2.0**（技术版本 `v2.0.0`）。Escapade 是整个 2.x 系列的产品代号；后续修订仍沿用这个名字，例如 **Ruyi Escapade 2.0.1**、**2.1**。内部的「第 N 波」只用于拆分开发计划，绝不直接充当用户版本号。下一代预留代号为 **Ruyi Pretender 3.0**。
+
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
   <img src="docs/screenshots/hero-dark.png" alt="如意主界面:对话驱动本机工具,回答带表格结论,文件改动可一键撤销" />
@@ -19,7 +21,7 @@
 
 <sub>▲ 真实工作流:一句话让 AI 读取工作区里的 CSV → 分析并落一份报告文件 → 对话里给出结构化结论;每个工具调用有卡片、每处文件改动可「撤销」、每轮消耗有账。</sub>
 
-**快速跳转**:[这是什么](#如意是什么) · [与同类软件对比](#与同类软件的对比) · [界面导览](#界面一览) · [核心能力](#核心能力一览v16) · [功能详解](#功能详解) · [快速开始](#快速开始五分钟跑起来) · [进阶指引](#进阶操作指引) · [English](#english)
+**快速跳转**:[这是什么](#如意是什么) · [与同类软件对比](#与同类软件的对比) · [界面导览](#界面一览) · [核心能力](#核心能力一览v20--escapade) · [功能详解](#功能详解) · [快速开始](#快速开始五分钟跑起来) · [进阶指引](#进阶操作指引) · [English](#english)
 
 ---
 
@@ -31,9 +33,9 @@
 
 | | |
 |---|---|
-| **1 个文件** | 后端运行时产物是单文件 `app/server.js`(1.8 万+ 行;第43波起由 `app/build.js` 把 `app/src/` 15 个源码模块按序拼接而成,字节级可复现),**零 npm 运行时依赖**,只用 Node 内建模块——`node server.js` 直接跑,无需 `npm install`,政企内网过审成本最低 |
-| **39+3 个原生工具 · 107 个桌面工具** | 文件/终端/搜索/Git/联网/编排等 39 个常驻原生工具(+3 个按需注册),外加可选的桌面控制组件 ACC(截图/OCR/UIA/键鼠/窗口/Office/PDF/编辑/抓取/记忆共 107 个工具) |
-| **8 套模板 · 9 种角色 · 100+ 离线 e2e** | 内置 8 套多 Agent 工作流模板与 9 种节点角色;每项功能经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付,附 100+ 离线 e2e |
+| **1 个运行产物** | 后端运行时产物是单文件 `app/server.js`(1.8 万+ 行;由 `app/build.js` 把 `app/src/` 的 17 个有序源码模块拼接而成,字节级可复现),**零 npm 运行时依赖**,只用 Node 内建模块——`node server.js` 直接跑,无需 `npm install`,政企内网过审成本最低 |
+| **50 个原生工具 · 107 个桌面工具** | 文件/终端/搜索/Git/联网/编排等原生工具按统一派发表计 50 个，外加可选的桌面控制组件 ACC(截图/OCR/UIA/键鼠/窗口/Office/PDF/编辑/抓取/记忆共 107 个工具) |
+| **8 套模板 · 9 种角色 · 157+ 离线 e2e** | 内置 8 套多 Agent 工作流模板与 9 种节点角色;每项功能经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付。默认运行 151 项离线 e2e，另有 6 项需真实外部环境的探针按需启用 |
 
 > 原名 **Win Claude Workbench**,自 v0.8 起更名**如意 Ruyi**——去 "Claude" 化是开源发布的法务考量(商标风险 + 旧提示词曾致 provider 模型自称「我是 Claude」的身份错认)。「如意」取「称心如意、如你所愿」之意,图标为青花如意云纹。
 
@@ -87,12 +89,12 @@
 
 </details>
 
-## 核心能力一览(v2.0)
+## 核心能力一览(v2.0) · Escapade
 
 | 能力 | 说明 | 详解 |
 |------|------|------|
 | 双引擎对话 | 任意 OpenAI 兼容端点与 Claude CLI 随时切换,跨引擎上下文续接 | [§1](#1-双引擎任意模型端点都能开工) |
-| 原生工具环 | 39 常驻 + 3 按需的内置工具:文件/终端/搜索/Git/联网/编排,按 read/edit/exec 三级分档 | [§2](#2-原生工具环39--3-个内置工具) |
+| 原生工具环 | 50 个内置工具:文件/终端/搜索/Git/联网/编排,按 read/edit/exec 三级分档 | [§2](#2-原生工具环50-个内置工具) |
 | 多 Agent 编排 | DAG 工作流、8 套模板、9 种角色、5 种质量门、图形编辑器、实时监控;AI 主动编排并按任务难易自主选模型 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 长任务自主推进 | 任务账本 until-done 驱动;零 token 等待;可选的分级崩溃恢复;增量监控(传输量降 ≥80%)与运营指标 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 信任层 | 文件检查点 + 对话回溯成对交付;5 档权限模式 × 工具三级;全量审计时间线 | [§4](#4-信任层检查点--回溯--权限--审计) |
@@ -107,7 +109,7 @@
 | 提示词分层注入与 i18n | system prompt 拆为逐字节稳定的锚点层 + volatile 层注入第一条 user 消息（prefix-cache 友好）；中英双语提示词按 UI 语言加载 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 分级 UI | 简易/专业双模式、深/浅/跟随系统三主题、V4 毛玻璃视觉系统 | [§9](#9-分级-ui简易专业双模式) |
 
-> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付,附 150+ 离线 e2e。迭代记录见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)。
+> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付。当前共 157+ 项离线 e2e（默认运行 151 项），迭代与发布规则见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)；面向用户的发行摘要见 [`CHANGELOG.md`](./CHANGELOG.md)。
 
 ## 功能详解
 
@@ -122,7 +124,7 @@
 - **能力矩阵**:视觉(看图)、推理链、工具调用等能力按端点探测/标注,缺什么 UI 直接告诉你,不让你对着黑箱猜。
 - **计划模式**:提问先出 `PLAN:`,你批准了才动手(provider 引擎真流程,不是提示词装饰)。
 
-### 2. 原生工具环:40 + 3 个内置工具
+### 2. 原生工具环:50 个内置工具
 
 全部用 Node 内建模块实现(零依赖),按风险三级分档:**read**(只读,自动放行)/ **edit**(写入,先记检查点,可撤销)/ **exec**(执行,最高危,默认逐次确认):
 
@@ -293,7 +295,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1 -SkipExeBui
 
 产物 `dist\Ruyi-<变体>.zip`(内含 node.exe 源码运行器,目标机**无需安装任何东西**),解压后双击 `Start-Workbench.cmd`。完整包会在首次启动时自动校验、安装并注册 ACC，后续启动走快速检查，开箱即用。也支持 `npx pkg` 打成单体 `Ruyi.exe`,以及增量 overlay 升级包(见 [管理员手册](ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md))。
 
-> **Full ACC 发布包必须使用短文件名**（例如 `Ruyi-v1.6.5-full.zip`），并建议解压到 `C:\Ruyi` 等短路径。Chromium/WinSDK 含深层目录，Windows 默认解压器会把 ZIP 文件名和临时目录也计入旧路径上限；若提示路径过长，不能选择“跳过”，否则 ACC 完整性校验会拒绝启动。打包脚本会对这一安全预算做强制检查。
+> **Full ACC 发布包必须使用短文件名**（例如 `Ruyi-v2.0.0-full.zip`），并建议解压到 `C:\Ruyi` 等短路径。产品代号显示在 Release 标题中，技术文件名保持短且稳定。Chromium/WinSDK 含深层目录，Windows 默认解压器会把 ZIP 文件名和临时目录也计入旧路径上限；若提示路径过长，不能选择“跳过”，否则 ACC 完整性校验会拒绝启动。打包脚本会对这一安全预算做强制检查。
 </details>
 
 <details>
@@ -306,7 +308,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1 -SkipExeBui
 <summary><b>常用 CLI 与排障</b></summary>
 
 ```powershell
-node .\app\server.js doctor       # 体检:引擎/依赖/端口/数据目录一图看清(UI 里也有「体检」按钮)
+node .\app\server.js doctor       # 体检:引擎/依赖/端口/数据目录一图看清(UI 的「设置」内也有体检面板)
 node .\app\server.js mcp-config   # 输出可粘贴进 .mcp.json 的工作台 MCP 配置
 node .\app\server.js install      # 把工作台 MCP 注册进本机 Claude CLI
 node .\app\server.js mcp          # 以 stdio MCP server 方式运行(供 CLI 调用)
@@ -407,9 +409,11 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Settings, Provider cards, safety/capability popovers, model menus, artifacts, shortcuts, the command palette, the skill library, and stable API errors are localized. Built-in skills and quick tasks follow the UI language, while user and project-authored content remains in its original language; simple/pro UI is shared by coders and non-coding knowledge workers.
 5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an on-prem Claude CLI, switchable mid-session with cross-engine context continuation.
 
-### Capabilities (v2.0)
+> **Current release train: Ruyi Escapade 2.0** (technical version `v2.0.0`). *Escapade* names the whole 2.x product family, so follow-up releases remain **Ruyi Escapade 2.0.1** or **2.1**. Internal “waves” are planning slices only, never user-facing version numbers. The next major generation is reserved as **Ruyi Pretender 3.0**.
 
-Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · a native tool loop of 40 resident + 3 conditional built-in tools (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.0, 107 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with 150+ offline e2e.
+### Capabilities (v2.0) · Escapade
+
+Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · **50 native built-in tools** (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.0, 107 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with **157+ offline e2e cases** (151 run by default; 6 external-environment probes are opt-in).
 
 ### Detailed documentation
 

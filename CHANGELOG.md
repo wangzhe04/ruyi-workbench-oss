@@ -3,9 +3,11 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
-## v2.0.0 后续迭代 · 2026-07-21 ~ 07-23（47-52 波，未 bump 版本号）
+## 如意 Ruyi Escapade 2.0 · v2.0.0 · 2026-07-24
 
-封版后五个功能波（快赢/地基/生态/视觉/规范化），ACC 同步升至 **v1.9.0**（100→107 工具）。全部经"实现 → 对抗多 agent 审查 → 定向修复 → 离线 e2e 回归"循环。
+这是 2.x 产品代号 **Escapade** 的首个公开版本。它汇总 v2.0 基座（第 44–46 波）及其后的五个功能波（第 47–52 波）；ACC 同步升至 **v1.9.0**（100→107 工具）。全部经“实现 → 对抗多 agent 审查 → 定向修复 → 离线 e2e 回归”循环。发布验证为 **151 pass / 0 fail**，另有 6 项真实外部环境探针按需启用。
+
+This is the first public release of the 2.x product line, **Escapade**. It combines the v2.0 foundation (waves 44–46) with five follow-through waves (47–52), raises ACC to **v1.9.0** (100→107 tools), and passed **151 / 151** default offline checks; six probes requiring real external environments remain opt-in.
 
 ### 中文
 
@@ -35,7 +37,7 @@ This file records user-facing release highlights; it does not replace the comple
 
 **Wave 52 · Release-pattern follow-through**: adds an offline A/B prompt benchmark runner and baseline; keeps dynamic role, orchestration, model, and policy text in the OpenAI user-side volatile prefix while the system layer stays byte-stable for prefix-cache reuse; adds `PROMPT_EN` with locale-aware selection; lets users choose a preferred provider and model for sub-agents, including cross-provider routing; and hardens steer queue visibility, cancellation, injection confirmation, and session isolation. Final UX fixes replace free-text sub-agent provider/model IDs with linked dropdowns, remove the duplicate permission selector, move diagnostics into Settings, restyle the Steer queue for both themes, avoid labeling Claude background-agent launch receipts as completed work, and open change diffs in a dedicated window with a local-app action.
 
-## v2.0.0 · 2026-07-21
+## v2.0.0 基座（第 44–46 波，已包含在 Escapade 2.0）· 2026-07-21
 
 ### 中文
 
