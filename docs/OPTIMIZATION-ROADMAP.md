@@ -1124,3 +1124,24 @@ app.js 3 处前端硬编码中文 map 转 t() 键:agentRunStatusLabel(line 3210,
 - **memory 更新**:新增 ruyi-multiagent-pattern(只读分析/审查用 Deepseek 可靠+主会话复核;src/ 主树串行;Provider 端点等特定任务该用多 agent)。更新对 orchestrate 可靠性的认知(早期 probe ~60% 是 probe 场景,51 波只读分析/审查可靠性高)。
 
 **待续 51e**:收尾(A/B 运行器填实 dev-harness/prompt-benchmark/run.js--5 seeds × fake-openai 剧本 + 真 provider 可选 + baseline 对比;质量门/JSON修复 capture 断言;全量对抗验证)。A/B 运行器 fake-openai 模式测流程非行为漂移(真 A/B 要真实 API),需仔细设计。
+
+## 50. 第52波(进行中):发布与范式 + 51 波遗留收尾
+
+roadmap §43 line 954"第52波+ · 发布与范式"+ 51 波遗留技术债收尾。本节随各阶段交付追加。
+
+### 52c 51d C2 迁移 920-945 附加提示到 user 侧(sys 纯稳定层)
+
+- **09-workflow.js runOpenAiTurn**:920-945 附加提示(角色/编排/模型/plan/appendTurnPolicies)从 `sys +=` 迁移到 `volatileExtras`(与 turnVolatile 合并,注入 user 侧 messages[1])。sys 纯稳定层(只 buildStableSystemPrompt:身份+工具协议+provider),prefix-cache 完整命中。budgetPrompt 估算不变(sys + turnVolatile 总量)。
+- **e2e 不破**:C1b 已把 systemOf 改 system+user 拼接,C2 的 920-945 追加在 user 侧,system+user 拼接含。验证:prompt-snapshot/capabilities/plan-mode/steering/meta-guard/subagent/uimode-style/loop-guard/facts.static 全绿。facts e2eCount 修正 153->157(之前文档审计误改)。
+
+### 52d PROMPT_PACK_VERSION 语义化版本检查(前向伏笔清理)
+
+- **14-main 导出 PROMPT_PACK_VERSION**(06b registry 的提示词包版本常量)。
+- **prompt-snapshot 加 D9 断言**:PROMPT_PACK_VERSION 存在 + 语义化版本号格式(/^20\d\d-w\d+-\d+$/),为 A/B 实验与问题回溯奠基(版本可追溯)。
+- **前向伏笔清理**:子回合 loop-guard B3 已在 08:514-672 实现(无需做);双层语义判定(同签名连击+结果指纹)51a 已做;04 Phase D 其他项(预算口径统一/回合级输出契约/Claude 引擎对齐)留后续。
+
+### 待续
+
+- **52a**:04 Phase B Phase2 英文版提示词(PROMPT_EN 17 层翻译 + config.locale en-US 时加载英文 + locale 切换机制)。大工程(完整翻译才有价值),行为漂移风险需 A/B 验证。
+- **52b**:51e 收尾(capture 断言 + A/B 运行器填实 dev-harness/prompt-benchmark/run.js)。A/B fake-openai 模式测流程非行为漂移(真 A/B 要真实 API)。
+- **52e**:§43 发布与范式(overlay 更新 GUI、vNext「交办台」立项决策、产品扩展评估)。
