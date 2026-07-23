@@ -920,7 +920,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const enabledMemoryEntries = await resolveEnabledMemoryEntries(session, workingDir,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
   ).catch(() => []);
-  let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
+  let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false, config); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
   let volatileExtras = ''; // 52c(51d C2): 920-945 附加提示移 user 侧(与 turnVolatile 合并),sys 纯稳定(prefix-cache 完整命中)
   if (agentRoleMap.size && initialTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
     volatileExtras += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
@@ -943,7 +943,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // for THIS turn only. If the model ignores the format, the turn falls back to the legacy hard-block behavior.
   const planMode = config.permissionMode === 'plan';
   if (planMode) {
-    volatileExtras += '\n\n' + PROMPT_ZH.planMode;
+    volatileExtras += '\n\n' + getPromptPack(config && config.locale).planMode;
   }
   // Keep this final: dynamic role/workflow/model/plan layers may be in Chinese, but must not decide
   // the language of an English (or otherwise non-Chinese) user conversation.

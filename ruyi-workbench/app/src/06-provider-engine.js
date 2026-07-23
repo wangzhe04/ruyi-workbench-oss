@@ -1196,23 +1196,23 @@ async function readProjectMemory(cwd) {
 // 向后兼容包装(stable+volatile),行为零漂移(prompt-snapshot 绿)。C1b(后续):09 启用分层(sys=stable,
 // volatile 动态注入 messages[1],避开 09:854 参数未初始化 + 持久化问题)。
 // 稳定层:身份 + 工具协议 + provider append(会话内逐字节稳定,prefix-cache 友好)。
-function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly) {
+function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config) {
   const label = String((provider && provider.label) || (provider && provider.id) || '模型端点').trim();
   const modelName = String(model || '').trim() || '(未指定模型)';
   const hasTools = Array.isArray(tools) && tools.length > 0;
   const lines = [];
   // [身份层]
-  lines.push(PROMPT_ZH.identity({ label, modelName, cwd }));
+  lines.push(getPromptPack(config && config.locale).identity({ label, modelName, cwd }));
   if (hasTools) {
     // [工具协议层]
-    lines.push(PROMPT_ZH.toolProtocol.intro);
-    lines.push(PROMPT_ZH.toolProtocol.rules);
+    lines.push(getPromptPack(config && config.locale).toolProtocol.intro);
+    lines.push(getPromptPack(config && config.locale).toolProtocol.rules);
     if ((tools || []).some(t => t && t.function && t.function.name === 'tool_search')) {
-      lines.push(PROMPT_ZH.toolProtocol.onDemand);
+      lines.push(getPromptPack(config && config.locale).toolProtocol.onDemand);
     }
-    lines.push(PROMPT_ZH.toolProtocol.priority);
+    lines.push(getPromptPack(config && config.locale).toolProtocol.priority);
   } else if (!identityOnly) {
-    lines.push(PROMPT_ZH.noTools);
+    lines.push(getPromptPack(config && config.locale).noTools);
   }
   // [provider 层]
   const psp = String((provider && provider.systemPrompt) || '').trim();
@@ -1230,20 +1230,20 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   const deskN = (caps && caps.desktopMcp && Number(caps.desktopMcp.toolCount)) || 0;
   const gitStr = (caps && caps.binaries && caps.binaries.git) ? '有 git' : '无 git';
   const rgStr = (caps && caps.binaries && caps.binaries.rg) ? '有 ripgrep 快搜' : '无 ripgrep（用内置搜索）';
-  lines.push(PROMPT_ZH.capability.line({ netStr, deskN, gitStr, rgStr }));
+  lines.push(getPromptPack(config && config.locale).capability.line({ netStr, deskN, gitStr, rgStr }));
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   const offeredNames = new Set((tools || []).map(t => t && t.function && t.function.name).filter(Boolean));
   if (offeredNames.has('spawn_agent')) {
     const concurrent = Math.max(1, Number(config && config.subagentMaxConcurrent) || 2);
     const total = Math.max(0, Number(config && config.subagentMaxPerTurn) || 0);
-    lines.push(PROMPT_ZH.capability.subagentConcurrency({ concurrent, total }));
-    lines.push(PROMPT_ZH.capability.subagentOrchestrate);
-    lines.push(PROMPT_ZH.capability.subagentResources);
+    lines.push(getPromptPack(config && config.locale).capability.subagentConcurrency({ concurrent, total }));
+    lines.push(getPromptPack(config && config.locale).capability.subagentOrchestrate);
+    lines.push(getPromptPack(config && config.locale).capability.subagentResources);
     // 52x: 子 agent 优先端点+模型(设了 subagentPreferredProvider 且 id 有效才提示)
     const spProv = config && config.subagentPreferredProvider;
     if (spProv) {
       const spProvObj = (config.providers || []).find(p => p.id === spProv);
-      if (spProvObj) lines.push(PROMPT_ZH.capability.subagentPreferred({ provider: spProvObj.label || spProv, model: (config.subagentPreferredModel || '').trim() }));
+      if (spProvObj) lines.push(getPromptPack(config && config.locale).capability.subagentPreferred({ provider: spProvObj.label || spProv, model: (config.subagentPreferredModel || '').trim() }));
     }
   }
   if (offeredNames.has('mcp_list') || offeredNames.has('mcp_configure')) lines.push(buildToolCustomizationHint());
@@ -1254,7 +1254,7 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     const chk = toolRequirementsMet(name, caps, toolRequiresEnabled, config);
     if (!chk.met) unavailable.push(`${name}（${chk.reason || '当前不可用'}）`);
   }
-  if (unavailable.length) lines.push(PROMPT_ZH.capability.unavailable({ list: unavailable.join('、') }));
+  if (unavailable.length) lines.push(getPromptPack(config && config.locale).capability.unavailable({ list: unavailable.join('、') }));
   // [操控规程层]
   const deskToolsOffered = [...offeredNames].some(n => {
     const p2 = toolPackForName(n, {});
@@ -1265,11 +1265,11 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   if (deskPresent) {
     lines.push(buildBrowserAutomationHint(config));
     if (visionCap) {
-      lines.push(PROMPT_ZH.desktop.vision);
+      lines.push(getPromptPack(config && config.locale).desktop.vision);
     } else {
-      lines.push(PROMPT_ZH.desktop.text);
+      lines.push(getPromptPack(config && config.locale).desktop.text);
     }
-    lines.push(PROMPT_ZH.desktop.office);
+    lines.push(getPromptPack(config && config.locale).desktop.office);
   }
   // [检索指引]
   const searchBackendOn = !!(config && config.searchBackend && config.searchBackend.type && config.searchBackend.type !== 'none');
@@ -1277,37 +1277,37 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     || (searchBackendOn && toolRequirementsMet('web_search', caps, false, config).met);
   const onlineNow = !!(caps && caps.network && caps.network.online === true);
   if (hasWebSearch && onlineNow) {
-    lines.push(PROMPT_ZH.webSearch);
+    lines.push(getPromptPack(config && config.locale).webSearch);
   }
   // [风格层]
   if (config && config.outputStyle === 'concise') {
-    lines.push(PROMPT_ZH.styleConcise);
+    lines.push(getPromptPack(config && config.locale).styleConcise);
   }
   // [项目层]
   if (projectMemory && projectMemory.text) {
     const note = projectMemory.truncated ? `（超过 16KB，已截断）` : '';
-    lines.push(PROMPT_ZH.projectMemory({ note, text: projectMemory.text }));
+    lines.push(getPromptPack(config && config.locale).projectMemory({ note, text: projectMemory.text }));
   }
   // [技能层]
   if (Array.isArray(skillEntries) && skillEntries.length) {
-    const skillSec = buildSkillsPromptSection(skillEntries, 'openai');
+    const skillSec = buildSkillsPromptSection(skillEntries, 'openai', config);
     if (skillSec) lines.push(skillSec);
   }
   // [记忆层]
   if (Array.isArray(memoryEntries) && memoryEntries.length) {
-    const memSec = buildMemoryPromptSection(memoryEntries, 'openai');
+    const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config);
     if (memSec) lines.push(memSec);
   }
   // [任务账本层]
   if (mission) {
-    const misSec = buildMissionPromptSection(mission, 'openai');
+    const misSec = buildMissionPromptSection(mission, 'openai', config);
     if (misSec) lines.push(misSec);
   }
   return lines.join('\n');
 }
 // 向后兼容包装(行为零漂移):identityOnly 时只 stable,否则 stable+volatile。
 function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission) {
-  const stable = buildStableSystemPrompt(provider, model, cwd, tools, identityOnly);
+  const stable = buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config);
   if (identityOnly) return stable;
   const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission);
   return volatile ? stable + '\n' + volatile : stable;
@@ -1317,7 +1317,7 @@ function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, pr
 // 说明用 Read 工具读取路径下的 SKILL.md 及其目录内脚本/资源；否则(provider) → 每行附 [id]，说明用 skill_read
 // 工具按需读取全文。每技能一行「- <name>：<description ≤160字>」。整段上限 3000 字符(超出截断加省略行)。
 // 只认 kind==='skill' 且带 dir 的条目;其余(command/playbook)不进系统提示。
-function buildSkillsPromptSection(enabledSkills, engine) {
+function buildSkillsPromptSection(enabledSkills, engine, config) {
   const skills = (Array.isArray(enabledSkills) ? enabledSkills : []).filter(s => s && s.kind === 'skill' && s.dir);
   if (!skills.length) return '';
   const isClaude = engine === 'claude';
@@ -1325,7 +1325,7 @@ function buildSkillsPromptSection(enabledSkills, engine) {
   // 技能行包进 <skill-index> 围栏(不可信带),并中和技能名/描述里可能伪造围栏的 <skill-index> / </skill-index> 记号
   // (同 project-memory 的 fence 手法,把尖括号换成方括号)。
   const fence = t => String(t).replace(/<(\/?)skill-index/gi, '[$1skill-index');
-  const header = isClaude ? PROMPT_ZH.skillsHeader.claude : PROMPT_ZH.skillsHeader.provider;
+  const header = isClaude ? getPromptPack(config && config.locale).skillsHeader.claude : getPromptPack(config && config.locale).skillsHeader.provider;
   const body = [];
   for (const s of skills) {
     const desc = fence(String(s.description || '').replace(/\s+/g, ' ').trim().slice(0, 160));
@@ -1334,7 +1334,7 @@ function buildSkillsPromptSection(enabledSkills, engine) {
     else body.push(`- ${name} [${s.id}]：${desc}`);
   }
   // 整段上限 ~3000 字符：仅截断围栏内的技能行,闭合围栏始终保留(截断行落在栏内)。
-  const OPEN = '\n<skill-index>\n', CLOSE = '\n</skill-index>', TRUNC = '\n' + PROMPT_ZH.skillsHeader.truncated;
+  const OPEN = '\n<skill-index>\n', CLOSE = '\n</skill-index>', TRUNC = '\n' + getPromptPack(config && config.locale).skillsHeader.truncated;
   let text = body.join('\n');
   const budget = 3000 - header.length - OPEN.length - CLOSE.length;
   if (text.length > budget) text = text.slice(0, Math.max(0, budget - TRUNC.length)) + TRUNC;

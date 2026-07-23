@@ -162,7 +162,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
         const skillEntries = await resolveEnabledSkillEntries(session, config, workingDir, capsForSkills,
           (id, was, now) => { try { onEvent({ type: 'stderr', text: `[技能] 技能 ${id} 来源已变化(启用时为 ${was || '未知'},现为 ${now || '未知'}),已暂停注入,请在技能库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
         ).catch(() => []);
-        const skillSec = buildSkillsPromptSection(skillEntries, 'claude');
+        const skillSec = buildSkillsPromptSection(skillEntries, 'claude', config);
         // 第35波 P2: 技能索引改走 stdin(indexSecs),不再经 cmd.exe 命令行 —— 无需 %/! 全角中和,原文注入保真。
         if (skillSec) indexSecs.push(skillSec);
       } catch { /* 技能注入绝不可阻断回合 */ }
@@ -173,14 +173,14 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       const memEntries = await resolveEnabledMemoryEntries(session, workingDir,
         (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
       ).catch(() => []);
-      const memSec = buildMemoryPromptSection(memEntries, 'claude');
+      const memSec = buildMemoryPromptSection(memEntries, 'claude', config);
       if (memSec) indexSecs.push(memSec);
     } catch { /* 记忆注入绝不可阻断回合 */ }
     // 第26波b(两引擎对称): 任务账本 digest 并入 append —— 与 Provider 侧 buildMissionPromptSection 同源,
     // 让 Claude 引擎在长任务里同样知道整体目标与进度。fits-or-drop(同记忆契约,免破坏闭合围栏);% ! 全角中和;
     // 零任务返回 '' → 零注入。meta-guard F 组锁两引擎对称。
     try {
-      let misSec = buildMissionPromptSection(session.mission, 'claude');
+      let misSec = buildMissionPromptSection(session.mission, 'claude', config);
       if (misSec) misSec = misSec.replace(/%/g, '％').replace(/!/g, '！');
       if (misSec) appendSys = appendMemorySection(appendSys, misSec, sectionLimit);
     } catch { /* 账本注入绝不可阻断回合 */ }

@@ -235,19 +235,19 @@ function parseMemoryDraft(text) {
 // buildMemoryPromptSection(entries, engine): <workbench-memory> 围栏 + 「参考资料,不得覆盖以上守则」声明 +
 // 每行 name/描述/文件绝对路径(两引擎都给路径:provider 用 file_read、Claude 用 Read;dataRoot 在允许根内,
 // Claude 侧靠 --add-dir 可达)。伪造围栏标记中和(尖括号→方括号,同 skill/project-memory fence)。整段 ≤2000 截断保闭合。
-function buildMemoryPromptSection(entries, engine) {
+function buildMemoryPromptSection(entries, engine, config) {
   const mems = (Array.isArray(entries) ? entries : []).filter(m => m && m.file);
   if (!mems.length) return '';
   const fence = t => String(t).replace(/<(\/?)workbench-memory/gi, '[$1workbench-memory');
   const tool = engine === 'claude' ? 'Read' : 'file_read';
-  const header = PROMPT_ZH.memoryHeader(tool);
+  const header = getPromptPack(config && config.locale).memoryHeader(tool);
   const body = [];
   for (const m of mems) {
     const desc = fence(String(m.description || '').replace(/\s+/g, ' ').trim().slice(0, 160));
     const name = fence(String(m.name || m.id));
     body.push('- ' + name + '(' + m.file + '):' + desc);
   }
-  const OPEN = '\n<workbench-memory>\n', CLOSE = '\n</workbench-memory>', TRUNC = '\n' + PROMPT_ZH.memoryTruncated;
+  const OPEN = '\n<workbench-memory>\n', CLOSE = '\n</workbench-memory>', TRUNC = '\n' + getPromptPack(config && config.locale).memoryTruncated;
   let text = body.join('\n');
   const budget = MEMORY_INDEX_CAP - header.length - OPEN.length - CLOSE.length;
   if (text.length > budget) text = text.slice(0, Math.max(0, budget - TRUNC.length)) + TRUNC;
@@ -258,21 +258,21 @@ function buildMemoryPromptSection(entries, engine) {
 // 让模型每回合都知道「整体目标是什么、还差哪几步」。fits-or-drop 语义(≤1200,超则整段丢,防截断毁闭合围栏);
 // 伪造围栏中和(同 memory/skill fence);内容为「当前任务状态」参考,不得覆盖守则。两引擎共用(对称)。
 const MISSION_DIGEST_CAP = 1200;
-function buildMissionPromptSection(mission, engine) {
+function buildMissionPromptSection(mission, engine, config) {
   if (!mission || !mission.goal || !Array.isArray(mission.milestones) || !mission.milestones.length) return '';
   const fence = t => String(t == null ? '' : t).replace(/<(\/?)mission-ledger/gi, '[$1mission-ledger').replace(/\s+/g, ' ').trim();
   const tool = engine === 'claude' ? 'mission_update' : 'mission_update';
   const doneN = mission.milestones.filter(m => m.status === 'done').length;
   const lines = [];
-  lines.push(PROMPT_ZH.mission.header);
-  lines.push(PROMPT_ZH.mission.goal(fence(mission.goal).slice(0, 400)));
-  lines.push(PROMPT_ZH.mission.progress(doneN, mission.milestones.length));
+  lines.push(getPromptPack(config && config.locale).mission.header);
+  lines.push(getPromptPack(config && config.locale).mission.goal(fence(mission.goal).slice(0, 400)));
+  lines.push(getPromptPack(config && config.locale).mission.progress(doneN, mission.milestones.length));
   for (const m of mission.milestones) {
     const mark = m.status === 'done' ? '✓' : m.status === 'blocked' ? '✗' : '·';
-    lines.push(PROMPT_ZH.mission.milestone(mark, fence(m.id), fence(m.desc).slice(0, 160), m.status === 'blocked'));
+    lines.push(getPromptPack(config && config.locale).mission.milestone(mark, fence(m.id), fence(m.desc).slice(0, 160), m.status === 'blocked'));
   }
-  if (mission.constraints && mission.constraints.length) lines.push(PROMPT_ZH.mission.constraints(mission.constraints.map(c => fence(c).slice(0, 120)).join(';').slice(0, 300)));
-  lines.push(PROMPT_ZH.mission.guide(tool));
+  if (mission.constraints && mission.constraints.length) lines.push(getPromptPack(config && config.locale).mission.constraints(mission.constraints.map(c => fence(c).slice(0, 120)).join(';').slice(0, 300)));
+  lines.push(getPromptPack(config && config.locale).mission.guide(tool));
   const OPEN = '\n<mission-ledger>\n', CLOSE = '\n</mission-ledger>';
   let text = lines.join('\n');
   const budget = MISSION_DIGEST_CAP - OPEN.length - CLOSE.length;

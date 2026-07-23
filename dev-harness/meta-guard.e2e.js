@@ -112,11 +112,11 @@ const src = readServerSource();
 // ── F) 两引擎能力对称(第26波b):任务账本 digest 必须【两个引擎都注入】。buildMissionPromptSection 共用,
 //        Provider 走 buildProviderSystemPrompt、Claude 走 --append-system-prompt;缺任一侧则长任务在该引擎失忆。──
 {
-  const fnM = src.match(/function buildMissionPromptSection\(mission, engine\) \{[\s\S]*?\n\}/);
+  const fnM = src.match(/function buildMissionPromptSection\(mission, engine(?:, config)?\) \{[\s\S]*?\n\}/);
   ok(!!fnM, 'F buildMissionPromptSection 定义存在(两引擎共用的账本 digest 构造)');
   if (fnM) {
     ok(/mission-ledger/.test(fnM[0]), 'F digest 含 <mission-ledger> 围栏');
-    ok(/不得覆盖/.test(fnM[0]) || /PROMPT_ZH\.mission\.header/.test(fnM[0]), 'F digest 声明「不得覆盖守则」(不可信参考带纪律;51c-b 外置后文本在 PROMPT_ZH.mission.header,函数体引用即合规)');
+    ok(/不得覆盖/.test(fnM[0]) || /\.mission\.header/.test(fnM[0]), 'F digest 声明「不得覆盖守则」(不可信参考带纪律;51c-b/52a 外置后文本在 registry mission.header,函数体引用即合规)');
     ok(/fits-or-drop|整段丢/.test(fnM[0]) && /return ''/.test(fnM[0]), 'F digest fits-or-drop(超预算整段丢,不中截毁围栏)');
   }
   const calls = (src.match(/buildMissionPromptSection\(/g) || []).length;
