@@ -400,10 +400,17 @@ async function refreshSessions() {
 }
 async function openSession(id) {
   const res = await api(`/api/sessions/${encodeURIComponent(id)}`);
+  const prevId = state.currentSession?.id;
   state.currentSession = res.session;
   state.resumable = res.resumable || null; // v0.8-S0 A6: dangling-turn info for the resume banner
   state.msgWindowStart = null; // v1.0-S7 (perf): each session opens windowed to its tail (recompute per open)
   try { localStorage.setItem('wcw.lastSession', id); } catch { /* ignore */ }
+  // v1.9.1: 会话切换清空 steer 状态(模块级单例不按会话隔离,否则 A 的插话卡片/steeredSeen 残留到 B;
+  //   切到流式会话 setStreaming(true) 不清空 -> B 看到 A 的插话 + ×按钮报错 + steeredSeen 孤儿吞事件)。对抗验证发现。
+  if (prevId !== id) {
+    steerPendingList.length = 0; steeredSeen.length = 0;
+    const h = $('composerHint'); if (h) { h.innerHTML = ''; h.style.display = 'none'; }
+  }
   renderSessions();
   renderCurrentSession();
   renderResumeBanner();
@@ -1858,7 +1865,9 @@ function renderStaticMessage(msg) {
   const bubble = el('div', 'bubble');
   // 50d(02 Phase D):插话卡静态重渲染 -- steered:true 消息(刷新/重进会话后从 session.messages 读出)
   //   统一在此加「插话」徽章,与流式期 renderSteeredMessage 同源(后者也传 steered:true 走此路径)。
+  // v1.9.1: 同步设 data-steered,让全量重渲染的行也能被 renderSteeredMessage 幂等检查 + steered 事件闪绿匹配覆盖。
   if (msg.steered) main.appendChild(el('span', 'steered-badge', t('chat.steer')));
+  if (msg.steered) row.dataset.steered = 'true'; // v1.9.1: 让全量重渲染的行也能被 renderSteeredMessage 幂等检查 + steered 事件闪绿匹配覆盖
   if (msg.role === 'assistant' && String(msg.content || '').length <= LIVE_MARKDOWN_MAX_CHARS) {
     bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(msg.content || ''); highlightIn(bubble);
   } else { bubble.classList.add('plain'); bubble.textContent = msg.content || ''; }
@@ -2134,7 +2143,7 @@ function setStreaming(on) {
   if (on) { try { updateContextMeter(); } catch { /* ignore */ } }
   // v0.9-S5: clear any lingering 「AI 在等你批准计划」 hint when a turn ends (stop/error can bypass the card's
   // own finish()). Set fresh by handlePlanEvent while a plan is pending.
-  if (!on) { const h = $('composerHint'); if (h) { h.innerHTML = ''; h.style.display = 'none'; } steerPendingList.length = 0; }
+  if (!on) { const h = $('composerHint'); if (h) { h.innerHTML = ''; h.style.display = 'none'; } steerPendingList.length = 0; steeredSeen.length = 0; }
   // v1.0.2 (F3): Claude 模式的 /compact 是流式回合 —— 回合结束(setStreaming(false))即压缩完成,收指示条。
   if (!on && compactState.active) endCompactIndicator();
   updateSendBtn(); // 50-fix:发送/插话/停止 三态(原:流式恒停止)
@@ -2313,6 +2322,7 @@ function renderSteerQueue() {
   if (!steerPendingList.length) { h.innerHTML = ''; h.style.display = 'none'; return; }
   h.style.display = '';
   const n = steerPendingList.length;
+  const queuedCount = steerPendingList.filter(p => !p.injected).length; // v1.9.1: provider 排队项数(Claude injected 不计)
   // Never interpolate user-provided steer text into innerHTML or inline onclick. Besides XSS, quoted text
   // would break the old onclick attribute. textContent + listeners keep both short and truncated strings safe.
   const card = document.createElement('div');
@@ -2321,9 +2331,10 @@ function renderSteerQueue() {
   header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px';
   const title = document.createElement('span');
   title.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary,#666)';
-  title.textContent = `📎 ${t('chat.steerQueueTitle')} (${n})`;
+  // v1.9.1: 混合态优先显「插话队列」(还有排队项);全已注入显「已注入」(Claude 即时注入确认)
+  title.textContent = `📎 ${t(queuedCount > 0 ? 'chat.steerQueueTitle' : 'chat.steerInjectedTitle')} (${n})`;
   header.appendChild(title);
-  if (n > 1) {
+  if (queuedCount > 1) {
     const clear = document.createElement('button');
     clear.type = 'button'; clear.textContent = t('chat.steerClearAll');
     clear.style.cssText = 'border:0;background:none;cursor:pointer;font-size:11px;color:var(--text-secondary,#999);text-decoration:underline';
@@ -2337,12 +2348,19 @@ function renderSteerQueue() {
     const text = document.createElement('span');
     text.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
     text.title = pending.text;
-    text.textContent = pending.text.length > 80 ? pending.text.slice(0, 80) + '…' : pending.text;
-    const cancel = document.createElement('button');
-    cancel.type = 'button'; cancel.textContent = '×'; cancel.title = t('chat.steerCancelAria'); cancel.setAttribute('aria-label', t('chat.steerCancelAria'));
-    cancel.style.cssText = 'border:0;background:none;cursor:pointer;color:var(--text-secondary,#999);font-size:13px;padding:0 2px;line-height:1';
-    cancel.addEventListener('click', () => { void window.cancelSteer(encodeURIComponent(pending.text)); });
-    item.append(text, cancel); card.appendChild(item);
+    const truncated = pending.text.length > 80 ? pending.text.slice(0, 80) + '…' : pending.text;
+    text.textContent = (pending.injected ? '✓ ' : '') + truncated; // v1.9.1: injected 项前缀 ✓
+    if (pending.injected) {
+      // Claude 即时注入不可撤回(后端 DELETE 会拒绝),不显示 × 按钮
+      item.appendChild(text);
+    } else {
+      const cancel = document.createElement('button');
+      cancel.type = 'button'; cancel.textContent = '×'; cancel.title = t('chat.steerCancelAria'); cancel.setAttribute('aria-label', t('chat.steerCancelAria'));
+      cancel.style.cssText = 'border:0;background:none;cursor:pointer;color:var(--text-secondary,#999);font-size:13px;padding:0 2px;line-height:1';
+      cancel.addEventListener('click', () => { void window.cancelSteer(encodeURIComponent(pending.text)); });
+      item.append(text, cancel);
+    }
+    card.appendChild(item);
   }
   h.replaceChildren(card);
 }
@@ -2354,17 +2372,23 @@ window.cancelSteer = async function(encodedText, clearAll = false) {
   }
   if (!state.currentSession?.id) return;
   if (clearAll) {
-    // 批量撤回:逐条调用 DELETE,忽略单条失败(可能已被模型消费)
+    // 批量撤回:逐条调用 DELETE,忽略单条失败(可能已被模型消费)。跳过 Claude injected 项(不可撤回,DELETE 恒失败)。
     const items = [...steerPendingList];
     for (const p of items) {
+      if (p.injected) continue; // v1.9.1: Claude injected 项不可撤回,跳过
       try { await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId: state.currentSession.id, text: p.text }) }); } catch {}
     }
-    steerPendingList.length = 0;
+    // v1.9.1: 只移除快照中的非 injected 项,不 length=0 --否则 await 期间并发新 steer 会被误清(对抗验证发现)。
+    for (const p of items) {
+      if (p.injected) continue;
+      const i = steerPendingList.indexOf(p);
+      if (i >= 0) steerPendingList.splice(i, 1);
+    }
   } else {
     try {
       const r = await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId: state.currentSession.id, text }) });
       if (r && r.ok) {
-        const idx = steerPendingList.findIndex(p => p.text === text);
+        const idx = steerPendingList.findIndex(p => p.text === text && !p.injected); // v1.9.1: 不匹配 Claude injected 项(不可撤回)
         if (idx >= 0) steerPendingList.splice(idx, 1);
       } else {
         toast(t('toast.steerFail', { p1: (r && r.error) || t('common.unknownError') }), 'err');
@@ -2385,12 +2409,25 @@ async function steerPrompt(overrideText) {
     steeredSeen.push({ text, ts: Date.now() });
     if (steeredSeen.length > 50) steeredSeen.splice(0, steeredSeen.length - 50); // 50-fix:cap 防无限积
     renderSteeredMessage(text);
-    // v1.9.0: 队列可视化——排队型(r.queued>0)加入 pendingList 并渲染卡片;
-    // Claude 即时注入型(r.injected)不排队,仅 toast 确认。
+    // v1.9.1: 两条路径都显示卡片(provider 排队可撤回 / Claude 已注入确认 2.5s)。
     if (r.queued) {
-      steerPendingList.push({ text, ts: Date.now() });
-      renderSteerQueue();
-      toast(t('toast.steerQueued'), 'ok');
+      // provider: 排队等待下次迭代边界注入,卡片可撤回
+      if (state.streaming) { steerPendingList.push({ text, ts: Date.now(), injected: false }); renderSteerQueue(); }
+      toast(t('toast.steerQueued'), 'ok'); // v1.9.1: turn 已结束(POST 迟到)只 toast 不显卡片(无 drain 事件移除会持久残留)
+    } else if (r.injected) {
+      // v1.9.1: Claude 即时注入也显示卡片(「已注入」确认,不可撤回),2.5 秒后自动消失。
+      //   Claude 不排队(无迭代边界),steered 事件几乎与 POST 响应同时到 -> 不依赖事件移除,否则卡片一闪而过。
+      if (!state.streaming) { toast(t('toast.steerInjected'), 'ok'); } // v1.9.1: turn 已结束(POST 迟到)不显示卡片,避免在已结束 turn 残留 2.5s
+      else {
+        const item = { text, ts: Date.now(), injected: true };
+        steerPendingList.push(item);
+        renderSteerQueue();
+        toast(t('toast.steerInjected'), 'ok');
+        setTimeout(() => {
+          const i = steerPendingList.indexOf(item);
+          if (i >= 0) { steerPendingList.splice(i, 1); renderSteerQueue(); }
+        }, 2500);
+      }
     } else {
       toast(t('toast.steerInjected'), 'ok');
     }
@@ -2399,13 +2436,38 @@ async function steerPrompt(overrideText) {
 
 // Render a user interjection row with a muted 「插话」 badge. Used by steerPrompt (optimistic) and by the
 // `steered` stream event (when the UI didn't already show it locally — e.g. a steer from another tab).
-function renderSteeredMessage(text) {
+// v1.9.1: 闪绿插话徽章 3 秒(注入确认)。从 steered 事件内联抽出复用--乐观行/事件行/已存在行补闪都走它。
+function flashSteerBadge(row) {
+  const badge = row && row.querySelector('.steered-badge');
+  if (!badge) return;
+  badge.textContent = t('chat.steerInjectedBadge');
+  badge.style.color = '#16a34a';
+  badge.style.fontWeight = '600';
+  badge.style.background = 'rgba(22,163,74,.1)';
+  setTimeout(() => { badge.style.color = ''; badge.style.fontWeight = ''; badge.style.background = ''; }, 3000);
+}
+function renderSteeredMessage(text, justInjected) {
   const box = $('messages');
   box.querySelector('.empty-state')?.remove();
+  // v1.9.1 幂等:同文本插话只渲染一次。防 SSE 比 POST 响应先到的竞态双写
+  //   (事件先到 -> steeredSeen 空 -> 下方 steered case 渲染行A;POST 返回 -> 乐观再渲染行B = 两条)。
+  //   DOM 文本去重不依赖时序,第二次调用发现同文本 steered 行已存在则跳过。
+  const now = Date.now();
+  // v1.9.1 幂等加时间窗口:同文本且 1.5 秒内才算同一条的乐观/事件重复(跳过);超窗视为不同条同文本插话(跨回合重发或连发),各自渲染。纯文本去重会误杀不同条(对抗验证发现)。
+  for (const node of box.querySelectorAll('[data-steered="true"]')) {
+    if (node.dataset.steerTs && now - Number(node.dataset.steerTs) > 1500) continue; // v1.9.1: 只对设了 steerTs 的乐观/事件行判窗;历史行(静态重渲染无 steerTs)始终参与文本去重,防会话切回 mountActiveTurn 重放双写
+    const md = node.querySelector('.bubble'); // steered 行是 user .plain bubble(.markdown 类不存在);直接 .bubble 匹配
+    if (md && md.textContent.trim() === String(text || '').trim()) {
+      if (justInjected) flashSteerBadge(node); // 行已存在(事件先到,乐观尚未渲染),补闪绿
+      return;
+    }
+  }
   // 50d:传 steered:true,徽章由 renderStaticMessage 统一渲染(与刷新后静态重渲染同源,不再手动 insertBefore)。
   const row = renderStaticMessage({ role: 'user', content: text, createdAt: new Date().toISOString(), steered: true });
-  row.dataset.steered = 'true'; // v1.9.0: 标记行以便 steered 事件匹配注入确认
+  row.dataset.steered = 'true'; // renderStaticMessage 已设,此处冗余保留
+  row.dataset.steerTs = String(now); // v1.9.1: 时间戳供幂等窗口判定(静态重渲染行无此标记 -> 超窗 -> 不阻止新插话)
   box.appendChild(row);
+  if (justInjected) flashSteerBadge(row); // 事件触发的渲染直接闪绿(乐观行可能尚未出现,等不到事件来闪)
   scrollMessagesToBottom();
 }
 
@@ -2629,29 +2691,25 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // 两条相同插话仍各消各的(正确),回声多晚到都能命中。cap 50 防无限积。
       const idx = steeredSeen.findIndex(s => s.text === evt.text);
       if (idx >= 0) { steeredSeen.splice(idx, 1); }
-      // v1.9.0: 从 pendingList 移除已注入项,刷新队列卡片
-      const pidx = steerPendingList.findIndex(p => p.text === evt.text);
+      // v1.9.1: 从 pendingList 移除已注入项。只移除 provider 排队项(!injected);
+      //   Claude injected 项由 steerPrompt 的 setTimeout 管理--否则 steered 事件(与 POST 几乎同时到)立即移除,Claude 卡片一闪而过看不见。
+      const pidx = steerPendingList.findIndex(p => p.text === evt.text && !p.injected);
       if (pidx >= 0) { steerPendingList.splice(pidx, 1); renderSteerQueue(); }
-      // v1.9.0: 在消息流中找到对应的插话行并标记「✓ 已注入」确认
-      if (evt.text) {
-        const all = main.querySelectorAll('[data-steered="true"]');
-        for (const node of all) {
-          const md = node.querySelector('.markdown');
-          if (md && md.textContent.trim() === evt.text.trim()) {
-            const badge = node.querySelector('.steered-badge');
-            if (badge) {
-              badge.textContent = t('chat.steerInjectedBadge');
-              badge.style.color = '#16a34a';
-              badge.style.fontWeight = '600';
-              badge.style.background = 'rgba(22,163,74,.1)';
-              // 3 秒后恢复原样式
-              setTimeout(() => { badge.style.color = ''; badge.style.fontWeight = ''; badge.style.background = ''; }, 3000);
-            }
-            break;
-          }
+      // v1.9.1: 闪绿消息行「✓ 已注入」。关键:steered 行 append 到 $('messages') 顶层(非 assistant main 内部),
+      //   旧代码用 main.querySelectorAll 永远匹配不到 -> 闪绿失效(用户报告"看不到插话插到哪里")。
+      // v1.9.1: 闪绿只在 idx>=0(乐观行已存在)时做;idx<0(事件先到)交给 renderSteeredMessage justInjected 闪新行,
+      //   否则预闪会打在历史同文本行上(跨回合闪错行)+ 双重闪绿(对抗验证发现)。匹配最后一个(DOM 序=最新)。
+      if (evt.text && idx >= 0) {
+        const box = $('messages');
+        let target = null;
+        for (const node of box.querySelectorAll('[data-steered="true"]')) {
+          const md = node.querySelector('.bubble');
+          if (md && md.textContent.trim() === evt.text.trim()) target = node;
         }
+        if (target) flashSteerBadge(target);
       }
-      if (idx < 0) renderSteeredMessage(evt.text || '');
+      // v1.9.1: justInjected-事件触发渲染直接闪绿(乐观行可能尚未出现,等不到事件来闪)
+      if (idx < 0) renderSteeredMessage(evt.text || '', true);
       break;
     }
     case 'turn_summary':

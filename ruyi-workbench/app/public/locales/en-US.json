@@ -885,6 +885,7 @@
   "chat.steerCancelAria": "Cancel this steer",
   "chat.steerClearAll": "Clear all",
   "chat.steerInjectedBadge": "✓ Injected",
+  "chat.steerInjectedTitle": "Injected",
   "navigation.theme.system": "Theme: System",
   "tools.verb.file_edit": "Edit file",
   "tools.verb.file_write": "Write file",

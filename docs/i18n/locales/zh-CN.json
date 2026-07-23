@@ -885,6 +885,7 @@
   "chat.steerCancelAria": "撤回此插话",
   "chat.steerClearAll": "清空队列",
   "chat.steerInjectedBadge": "✓ 已注入",
+  "chat.steerInjectedTitle": "已注入",
   "navigation.theme.system": "主题：跟随系统",
   "tools.verb.file_edit": "修改文件",
   "tools.verb.file_write": "写入文件",
