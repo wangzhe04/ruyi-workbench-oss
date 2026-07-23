@@ -19514,6 +19514,7 @@ module.exports = {
   getCapabilities,
   invalidateCapabilityCache,
   buildProviderSystemPrompt,
+  PROMPT_PACK_VERSION, // 52d: 提示词包版本(语义化版本检查)
   buildStableSystemPrompt, // 51d C1a:稳定层(prefix-cache 友好)
   buildVolatileParts, // 51d C1a:易变层(C1b 移 user 侧)
   buildResponseLanguagePolicy,
