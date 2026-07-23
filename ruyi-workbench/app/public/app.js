@@ -6239,6 +6239,8 @@ function fillSettings() {
   { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 100; }
   { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 8)); }
   { const el0 = $('cfgSubagentMaxPerTurn'); if (el0) el0.value = Math.max(0, Math.min(32, Number.isFinite(Number(c.subagentMaxPerTurn)) ? Number(c.subagentMaxPerTurn) : 32)); }
+  { const el0 = $('cfgSubagentPreferredProvider'); if (el0) el0.value = String(c.subagentPreferredProvider || ''); }
+  { const el0 = $('cfgSubagentPreferredModel'); if (el0) el0.value = String(c.subagentPreferredModel || ''); }
   { const el0 = $('cfgAgentWorkflowMaxNodes'); if (el0) el0.value = Math.max(1, Math.min(32, Number(c.agentWorkflowMaxNodes) || 32)); }
   // v0.7d: integrations / MCP tab.
   const dm = c.desktopMcp || {};
@@ -6349,6 +6351,8 @@ async function saveSettings() {
       const n = Math.round(Number(el0 ? el0.value : state.config.subagentMaxPerTurn));
       return Number.isFinite(n) ? Math.max(0, Math.min(32, n)) : 32;
     })(),
+    subagentPreferredProvider: (() => { const el0 = $('cfgSubagentPreferredProvider'); return String(el0 ? el0.value : state.config.subagentPreferredProvider || '').trim().slice(0, 120); })(),
+    subagentPreferredModel: (() => { const el0 = $('cfgSubagentPreferredModel'); return String(el0 ? el0.value : state.config.subagentPreferredModel || '').trim().slice(0, 160); })(),
     agentWorkflowMaxNodes: (() => {
       const el0 = $('cfgAgentWorkflowMaxNodes');
       const n = Math.round(Number(el0 ? el0.value : state.config.agentWorkflowMaxNodes));

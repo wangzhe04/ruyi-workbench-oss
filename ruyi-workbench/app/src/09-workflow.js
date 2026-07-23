@@ -152,7 +152,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
       const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, config, provider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      // 52x: openai 节点用子 agent 优先端点(跨 provider)挑模型,与运行时 subProvider 一致,防 tier 用主 provider 池挑模型送 subProvider 跑 404
+      const matProvider = (engine === 'openai' && config.subagentPreferredProvider && (config.providers || []).find(p => p.id === config.subagentPreferredProvider)) || provider;
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, config, matProvider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -526,8 +528,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命
           }
           const nodeEvent = evt => { runtime.lastActivityAt = Date.now(); try { onEvent(evt); } finally { if (evt && evt.type === 'subagent_usage') accumulateRunUsage(run, evt); recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); } };
+          // 52x: openai 节点用子 agent 优先端点(跨 provider);claude 节点固定 Claude 引擎不跨
+          const subProvider = ((node.engine || 'openai') === 'openai' && config.subagentPreferredProvider && (config.providers || []).find(p => p.id === config.subagentPreferredProvider)) || provider;
           const sub = await runSubAgent({
-            parentSession: agentSession, provider, config, engine: node.engine || 'openai',
+            parentSession: agentSession, provider: subProvider, config, engine: node.engine || 'openai',
             task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
             displayTask: node.task, agentKey: node.id,
             dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
@@ -1376,10 +1380,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const effectiveTask = dependencyText
             ? `${originalTask}\n\n以下是已完成的前序子代理结果，请基于它们继续，不要重新执行前序任务：\n\n${dependencyText}`
             : originalTask;
+          // 52x: 子 agent 优先端点(config.subagentPreferredProvider,跨 provider)--设了用它,否则主 provider
+          const subProvider = (config.subagentPreferredProvider && (config.providers || []).find(p => p.id === config.subagentPreferredProvider)) || provider;
           const promise = runSubAgent({
-            parentSession: session, provider, config,
+            parentSession: session, provider: subProvider, config,
             task: effectiveTask, displayTask: originalTask, agentKey, dependsOn,
-            toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier), maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai), model: resolveNodeModel(sargs.model, roleDefinition && roleDefinition.models && roleDefinition.models.openai, sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read', 'openai', config, provider),
+            toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier), maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai), model: resolveNodeModel(sargs.model, roleDefinition && roleDefinition.models && roleDefinition.models.openai, sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read', 'openai', config, subProvider),
             onEvent: onNestedEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
             resources: sargs.resources, resourceGroup: `turn:${session.id}:${session.turnSeq}:${agentKey}`,
             roleDefinition,

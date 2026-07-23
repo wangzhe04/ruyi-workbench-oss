@@ -31,6 +31,7 @@ const PROMPT_ZH = {
     subagentConcurrency: ({ concurrent, total }) => `子代理编排：同一阶段可并行调用最多 ${concurrent} 个 spawn_agent，本回合累计最多 ${total} 个。存在依赖时分阶段调用：先并行派发独立角色，等待本阶段全部 tool_result 返回，再在下一次调用中用 agentKey + dependsOn 派发评审/总结角色；不要把有依赖的任务塞进同一批。dependsOn 的前序结论会自动注入后续子代理上下文。`,
     subagentOrchestrate: '若完整依赖图在开始时已知，优先一次调用 orchestrate_agents 提交全部节点；运行时会自动并行就绪节点、等待依赖并持久化进度，比逐轮 spawn_agent 更可靠。',
     subagentResources: '资源感知：会操作同一文件/工作区、同一浏览器 Profile、桌面或 Office 文档的节点必须声明 resources（如 desktop、browser:default、file:C:\\项目\\a.js、workspace:C:\\项目；只读共享加 read: 前缀）。冲突节点会自动排队；实际工具参数还会在调用时自动加锁兜底。',
+    subagentPreferred: ({ provider, model }) => `子代理默认端点与模型：${provider}${model ? ' / ' + model : ''}。spawn_agent 默认走此端点与模型；对于更复杂的任务，你可以经 spawn_agent.model 选同端点下的更强模型（如带 Pro 的版本），或对该任务自己直接处理而不派子代理。`,
     unavailable: ({ list }) => '当前不可用：' + list + '。',
   },
 

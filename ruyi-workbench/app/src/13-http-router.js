@@ -1534,6 +1534,8 @@ function resolveNodeModel(rawModel, roleModel, toolTier, engine, config, provide
   if (m) return m;                                  // 显式非空 → 原样尊重(不白名单丢弃)
   const rm = String(roleModel || '').trim();
   if (rm && rm !== 'inherit') return rm;            // 角色默认(用户配置)
+  // 52x: 全局子 agent 优先模型(openai 引擎,跨 provider)--用户显式选择,优先于自动 tier
+  if (engine === 'openai' && config && config.subagentPreferredModel) { const pm = String(config.subagentPreferredModel).trim().slice(0, 160); if (pm) return pm; }
   if (config && config.agentAutoModelTiering) { const t = tierModelForNode(toolTier, engine, config, provider); if (t) return t; }
   return '';                                        // 继承 / provider 兜底链
 }

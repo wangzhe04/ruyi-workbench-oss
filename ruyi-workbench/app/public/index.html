@@ -817,6 +817,16 @@
                 <p class="field-help muted" data-i18n="settings.advanced.subagentPerTurn.hint">单次对话回合内 spawn_agent/orchestrate_agents 累计上限；设为 0 可关闭子代理。</p>
               </div>
               <div class="field-block">
+                <label for="cfgSubagentPreferredProvider" data-i18n="settings.advanced.subagentPreferredProvider">子代理优先端点</label>
+                <input id="cfgSubagentPreferredProvider" type="text" maxlength="120" />
+                <p class="field-help muted" data-i18n="settings.advanced.subagentPreferredProvider.hint">spawn_agent / 工作流节点的默认 Provider id（可跨端点）；留空则用当前主端点。复杂任务模型可经 spawn_agent.model 选同端点下别的模型（如 Pro 版）。</p>
+              </div>
+              <div class="field-block">
+                <label for="cfgSubagentPreferredModel" data-i18n="settings.advanced.subagentPreferredModel">子代理优先模型</label>
+                <input id="cfgSubagentPreferredModel" type="text" maxlength="160" />
+                <p class="field-help muted" data-i18n="settings.advanced.subagentPreferredModel.hint">子代理默认模型 id；留空则按 角色 / 分级 / 主模型 兜底。</p>
+              </div>
+              <div class="field-block">
                 <label for="cfgAgentWorkflowMaxNodes" data-i18n="settings.advanced.workflowMaxNodes">Agent 工作流节点数上限</label>
                 <input id="cfgAgentWorkflowMaxNodes" type="number" min="1" max="32" step="1" placeholder="32" />
                 <p class="field-help muted" data-i18n="settings.advanced.workflowMaxNodes.hint">持久化 DAG 工作流（图形编辑器/模板）单次运行最多多少个节点，范围 1–32（默认 32，上限）。与上面的“每回合总数”是两个独立预算。</p>

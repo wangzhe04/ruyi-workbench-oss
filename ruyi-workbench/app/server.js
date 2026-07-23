@@ -522,6 +522,10 @@ function defaultConfig() {
     // (subagentMaxConcurrent 1..8, subagentMaxPerTurn 0..32) — most real workflows were hitting these.
     subagentMaxConcurrent: 8,
     subagentMaxPerTurn: 32,
+    // 52x: 子 agent 优先端点+模型。spawn_agent/orchestrate 的 openai 节点默认用此 provider+model(可跨 provider);
+    //   模型仍可经 spawn_agent.model 参数选同端点下别的模型(如 Pro 版),或 omit 继承默认。未配置 -> fallback 主 provider + provider.subagentModel。
+    subagentPreferredProvider: '',
+    subagentPreferredModel: '',
     // v1.4.4: max nodes a persisted Agent 工作流 DAG may have (both a fresh /api/agent-workflow/launch and
     // a resumed run). Previously the fresh-launch path wrongly reused subagentMaxPerTurn (a per-CHAT-TURN
     // ad hoc fan-out budget) as the DAG's node-count ceiling — a 4-node default rejected any real pipeline
@@ -859,6 +863,13 @@ function normalizeConfig(raw) {
     if (clamped !== config.subagentMaxPerTurn) { config.subagentMaxPerTurn = clamped; changed = true; }
   }
   if (config.subagentBudgetMigrated !== true) { config.subagentBudgetMigrated = true; changed = true; }
+  // 52x: 子 agent 优先端点+模型规范化(字符串 trim + 长度截断,与 UI 保存口径一致)
+  {
+    const sp = String(config.subagentPreferredProvider || '').trim().slice(0, 120);
+    if (sp !== config.subagentPreferredProvider) { config.subagentPreferredProvider = sp; changed = true; }
+    const sm = String(config.subagentPreferredModel || '').trim().slice(0, 160);
+    if (sm !== config.subagentPreferredModel) { config.subagentPreferredModel = sm; changed = true; }
+  }
   // v1.4.4: agentWorkflowMaxNodes — persisted Agent 工作流 DAG node-count ceiling (see defaultConfig())。第23波上限 32→64。
   {
     const am = Number(config.agentWorkflowMaxNodes);
@@ -7504,6 +7515,12 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     lines.push(PROMPT_ZH.capability.subagentConcurrency({ concurrent, total }));
     lines.push(PROMPT_ZH.capability.subagentOrchestrate);
     lines.push(PROMPT_ZH.capability.subagentResources);
+    // 52x: 子 agent 优先端点+模型(设了 subagentPreferredProvider 且 id 有效才提示)
+    const spProv = config && config.subagentPreferredProvider;
+    if (spProv) {
+      const spProvObj = (config.providers || []).find(p => p.id === spProv);
+      if (spProvObj) lines.push(PROMPT_ZH.capability.subagentPreferred({ provider: spProvObj.label || spProv, model: (config.subagentPreferredModel || '').trim() }));
+    }
   }
   if (offeredNames.has('mcp_list') || offeredNames.has('mcp_configure')) lines.push(buildToolCustomizationHint());
   const unavailable = [];
@@ -7708,6 +7725,7 @@ const PROMPT_ZH = {
     subagentConcurrency: ({ concurrent, total }) => `子代理编排：同一阶段可并行调用最多 ${concurrent} 个 spawn_agent，本回合累计最多 ${total} 个。存在依赖时分阶段调用：先并行派发独立角色，等待本阶段全部 tool_result 返回，再在下一次调用中用 agentKey + dependsOn 派发评审/总结角色；不要把有依赖的任务塞进同一批。dependsOn 的前序结论会自动注入后续子代理上下文。`,
     subagentOrchestrate: '若完整依赖图在开始时已知，优先一次调用 orchestrate_agents 提交全部节点；运行时会自动并行就绪节点、等待依赖并持久化进度，比逐轮 spawn_agent 更可靠。',
     subagentResources: '资源感知：会操作同一文件/工作区、同一浏览器 Profile、桌面或 Office 文档的节点必须声明 resources（如 desktop、browser:default、file:C:\\项目\\a.js、workspace:C:\\项目；只读共享加 read: 前缀）。冲突节点会自动排队；实际工具参数还会在调用时自动加锁兜底。',
+    subagentPreferred: ({ provider, model }) => `子代理默认端点与模型：${provider}${model ? ' / ' + model : ''}。spawn_agent 默认走此端点与模型；对于更复杂的任务，你可以经 spawn_agent.model 选同端点下的更强模型（如带 Pro 的版本），或对该任务自己直接处理而不派子代理。`,
     unavailable: ({ list }) => '当前不可用：' + list + '。',
   },
 
@@ -10109,7 +10127,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const base = providerBaseWithV1(provider.baseUrl);
   const chatUrl = base ? base + '/chat/completions' : '';
   const role = roleDefinition || null;
-  const subModel = String(model || (role && role.models && role.models.openai) || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
+  const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
     return { ok: false, error: '子代理无法启动:provider 端点或模型未配置', iters: 0, toolCalls: 0 };
   }
@@ -11495,7 +11513,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
       const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, config, provider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      // 52x: openai 节点用子 agent 优先端点(跨 provider)挑模型,与运行时 subProvider 一致,防 tier 用主 provider 池挑模型送 subProvider 跑 404
+      const matProvider = (engine === 'openai' && config.subagentPreferredProvider && (config.providers || []).find(p => p.id === config.subagentPreferredProvider)) || provider;
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, config, matProvider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -11869,8 +11889,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命
           }
           const nodeEvent = evt => { runtime.lastActivityAt = Date.now(); try { onEvent(evt); } finally { if (evt && evt.type === 'subagent_usage') accumulateRunUsage(run, evt); recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); } };
+          // 52x: openai 节点用子 agent 优先端点(跨 provider);claude 节点固定 Claude 引擎不跨
+          const subProvider = ((node.engine || 'openai') === 'openai' && config.subagentPreferredProvider && (config.providers || []).find(p => p.id === config.subagentPreferredProvider)) || provider;
           const sub = await runSubAgent({
-            parentSession: agentSession, provider, config, engine: node.engine || 'openai',
+            parentSession: agentSession, provider: subProvider, config, engine: node.engine || 'openai',
             task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
             displayTask: node.task, agentKey: node.id,
             dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
@@ -12719,10 +12741,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const effectiveTask = dependencyText
             ? `${originalTask}\n\n以下是已完成的前序子代理结果，请基于它们继续，不要重新执行前序任务：\n\n${dependencyText}`
             : originalTask;
+          // 52x: 子 agent 优先端点(config.subagentPreferredProvider,跨 provider)--设了用它,否则主 provider
+          const subProvider = (config.subagentPreferredProvider && (config.providers || []).find(p => p.id === config.subagentPreferredProvider)) || provider;
           const promise = runSubAgent({
-            parentSession: session, provider, config,
+            parentSession: session, provider: subProvider, config,
             task: effectiveTask, displayTask: originalTask, agentKey, dependsOn,
-            toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier), maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai), model: resolveNodeModel(sargs.model, roleDefinition && roleDefinition.models && roleDefinition.models.openai, sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read', 'openai', config, provider),
+            toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier), maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai), model: resolveNodeModel(sargs.model, roleDefinition && roleDefinition.models && roleDefinition.models.openai, sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read', 'openai', config, subProvider),
             onEvent: onNestedEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
             resources: sargs.resources, resourceGroup: `turn:${session.id}:${session.turnSeq}:${agentKey}`,
             roleDefinition,
@@ -18406,6 +18430,8 @@ function resolveNodeModel(rawModel, roleModel, toolTier, engine, config, provide
   if (m) return m;                                  // 显式非空 → 原样尊重(不白名单丢弃)
   const rm = String(roleModel || '').trim();
   if (rm && rm !== 'inherit') return rm;            // 角色默认(用户配置)
+  // 52x: 全局子 agent 优先模型(openai 引擎,跨 provider)--用户显式选择,优先于自动 tier
+  if (engine === 'openai' && config && config.subagentPreferredModel) { const pm = String(config.subagentPreferredModel).trim().slice(0, 160); if (pm) return pm; }
   if (config && config.agentAutoModelTiering) { const t = tierModelForNode(toolTier, engine, config, provider); if (t) return t; }
   return '';                                        // 继承 / provider 兜底链
 }

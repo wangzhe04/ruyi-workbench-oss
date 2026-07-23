@@ -406,7 +406,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const base = providerBaseWithV1(provider.baseUrl);
   const chatUrl = base ? base + '/chat/completions' : '';
   const role = roleDefinition || null;
-  const subModel = String(model || (role && role.models && role.models.openai) || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
+  const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
     return { ok: false, error: '子代理无法启动:provider 端点或模型未配置', iters: 0, toolCalls: 0 };
   }

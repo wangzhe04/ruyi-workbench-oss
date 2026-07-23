@@ -125,6 +125,10 @@ function defaultConfig() {
     // (subagentMaxConcurrent 1..8, subagentMaxPerTurn 0..32) — most real workflows were hitting these.
     subagentMaxConcurrent: 8,
     subagentMaxPerTurn: 32,
+    // 52x: 子 agent 优先端点+模型。spawn_agent/orchestrate 的 openai 节点默认用此 provider+model(可跨 provider);
+    //   模型仍可经 spawn_agent.model 参数选同端点下别的模型(如 Pro 版),或 omit 继承默认。未配置 -> fallback 主 provider + provider.subagentModel。
+    subagentPreferredProvider: '',
+    subagentPreferredModel: '',
     // v1.4.4: max nodes a persisted Agent 工作流 DAG may have (both a fresh /api/agent-workflow/launch and
     // a resumed run). Previously the fresh-launch path wrongly reused subagentMaxPerTurn (a per-CHAT-TURN
     // ad hoc fan-out budget) as the DAG's node-count ceiling — a 4-node default rejected any real pipeline
@@ -462,6 +466,13 @@ function normalizeConfig(raw) {
     if (clamped !== config.subagentMaxPerTurn) { config.subagentMaxPerTurn = clamped; changed = true; }
   }
   if (config.subagentBudgetMigrated !== true) { config.subagentBudgetMigrated = true; changed = true; }
+  // 52x: 子 agent 优先端点+模型规范化(字符串 trim + 长度截断,与 UI 保存口径一致)
+  {
+    const sp = String(config.subagentPreferredProvider || '').trim().slice(0, 120);
+    if (sp !== config.subagentPreferredProvider) { config.subagentPreferredProvider = sp; changed = true; }
+    const sm = String(config.subagentPreferredModel || '').trim().slice(0, 160);
+    if (sm !== config.subagentPreferredModel) { config.subagentPreferredModel = sm; changed = true; }
+  }
   // v1.4.4: agentWorkflowMaxNodes — persisted Agent 工作流 DAG node-count ceiling (see defaultConfig())。第23波上限 32→64。
   {
     const am = Number(config.agentWorkflowMaxNodes);

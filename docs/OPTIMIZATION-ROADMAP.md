@@ -1140,8 +1140,24 @@ roadmap §43 line 954"第52波+ · 发布与范式"+ 51 波遗留技术债收尾
 - **prompt-snapshot 加 D9 断言**:PROMPT_PACK_VERSION 存在 + 语义化版本号格式(/^20\d\d-w\d+-\d+$/),为 A/B 实验与问题回溯奠基(版本可追溯)。
 - **前向伏笔清理**:子回合 loop-guard B3 已在 08:514-672 实现(无需做);双层语义判定(同签名连击+结果指纹)51a 已做;04 Phase D 其他项(预算口径统一/回合级输出契约/Claude 引擎对齐)留后续。
 
+### 52b A/B 运行器填实(51e 收尾)
+
+- **dev-harness/prompt-benchmark/run.js**:提示词改动前后对比通过率,挡住行为漂移。与 prompt-snapshot.static(文本基线锁)互补--快照管"文本变了可见",A/B 管"行为没变可证"。
+- **fake-openai 模式(默认,离线冒烟)**:按 seed.fake_script 剧本回工具,验证工具流程 + loop-guard 行为 + system 注入(CAPTURE 冒烟)。真 provider 模式(--provider)真 A/B,复用 model-tier-probe。
+- **--before 落 baseline.json,--after 对比 diff**(无差异=未漂移)。非回归件(CI 不阻断)。
+- **seeds.json**:加 fake_script + setup_files;lsr-01 字段修正 loop_guard_aborts_at(主回合);pt-01 needs_plan_mode/ob-01 needs_bridge(fake bypass 不触发,标 skip)。
+- **判据**:tool/loop 可靠(tool_subset_of/sequence/read-before-write/loop_guard_aborts);office/plan/output 标 skip(fake 局限);system_prompt_nonempty(CAPTURE 冒烟)。验证:--before 3/3 pass(2 skipped),--after diff 0。
+
+### 52x 子 agent 优先端点+模型(用户需求)
+
+- **config 加 subagentPreferredProvider + subagentPreferredModel**(全局,跨 provider)。spawn_agent/orchestrate 的 openai 节点默认用此 provider+model;模型仍可经 spawn_agent.model 选同端点下别的模型(如 Pro),或 omit 继承。未配置 fallback 主 provider + provider.subagentModel。
+- **跨 provider 链路**:resolveNodeModel(13)+runSubAgentCore subModel(08)加 subagentPreferredModel fallback;spawn_agent(09:1379)+orchestrate 节点(09:529)+DAG 物化(09:155)用 subProvider(config.providers.find)。Claude 引擎固定不跨。
+- **设置 UI**:agent 部分加 cfgSubagentPreferredProvider/Model(index.html + app.js 读取/保存)+ i18n(zh-CN/en-US + docs)。
+- **提示词**:subagentPreferred 条件渲染(06,设了且 id 有效才提示),告诉模型子 agent 默认端点+模型,复杂任务可选同端点别的模型或自己。
+- **对抗验证修复**:DAG 物化用 subProvider 挑模型(防 tier 用主 provider 池挑模型送 subProvider 跑 404,与 spawn_agent 路径一致);subagentPreferredModel 提到 tierModel 前(用户显式优先于自动分级);normalizeConfig 规范化;提示词无效 id 不注入。
+- **验证**:subagent/agent-quality-gates/prompt-snapshot/capabilities/i18n.static/facts.static/dom-smoke 全绿。
+
 ### 待续
 
-- **52a**:04 Phase B Phase2 英文版提示词(PROMPT_EN 17 层翻译 + config.locale en-US 时加载英文 + locale 切换机制)。大工程(完整翻译才有价值),行为漂移风险需 A/B 验证。
-- **52b**:51e 收尾(capture 断言 + A/B 运行器填实 dev-harness/prompt-benchmark/run.js)。A/B fake-openai 模式测流程非行为漂移(真 A/B 要真实 API)。
+- **52a**:04 Phase B Phase2 英文版提示词(PROMPT_EN 17 层翻译 + config.locale en-US 时加载英文 + locale 切换机制)。大工程(完整翻译才有价值),行为漂移风险需 A/B 验证(52b run.js 已就位)。
 - **52e**:§43 发布与范式(overlay 更新 GUI、vNext「交办台」立项决策、产品扩展评估)。

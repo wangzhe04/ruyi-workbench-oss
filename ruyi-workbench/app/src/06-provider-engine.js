@@ -1239,6 +1239,12 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     lines.push(PROMPT_ZH.capability.subagentConcurrency({ concurrent, total }));
     lines.push(PROMPT_ZH.capability.subagentOrchestrate);
     lines.push(PROMPT_ZH.capability.subagentResources);
+    // 52x: 子 agent 优先端点+模型(设了 subagentPreferredProvider 且 id 有效才提示)
+    const spProv = config && config.subagentPreferredProvider;
+    if (spProv) {
+      const spProvObj = (config.providers || []).find(p => p.id === spProv);
+      if (spProvObj) lines.push(PROMPT_ZH.capability.subagentPreferred({ provider: spProvObj.label || spProv, model: (config.subagentPreferredModel || '').trim() }));
+    }
   }
   if (offeredNames.has('mcp_list') || offeredNames.has('mcp_configure')) lines.push(buildToolCustomizationHint());
   const unavailable = [];
