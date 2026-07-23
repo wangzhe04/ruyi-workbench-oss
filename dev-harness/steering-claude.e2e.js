@@ -107,7 +107,9 @@ async function getToken(port) {
   // 50d(02 Phase D):插话卡静态重渲染 + 队列可视化
   ok(/if \(msg\.steered\) main\.appendChild\(el\('span', 'steered-badge'/.test(app), 'S20 renderStaticMessage 处理 msg.steered(刷新后插话卡带徽章,不丢)');
   ok(/renderStaticMessage\(\{ role: 'user', content: text,[^}]*steered: true \}\)/.test(app), 'S21 renderSteeredMessage 传 steered:true(徽章统一在 renderStaticMessage,不再手动 insertBefore)');
-  ok(app.includes("t('chat.steerQueuedHint'") && app.includes('r.queued'), 'S22 provider 插话队列可视化(composerHint "队列中 N 条",r.queued 驱动)');
+  ok(app.includes('function renderSteerQueue') && app.includes('steerPendingList.push') && app.includes('r.queued'), 'S22 provider 插话队列可视化(待注入列表 + r.queued 驱动)');
+  ok(!app.includes('onclick="window.cancelSteer') && app.includes("addEventListener('click'") && app.includes('h.replaceChildren(card)'), 'S22b 插话文本不进入内联 onclick/innerHTML(安全 DOM 绑定)');
+  ok(!app.includes("cancelSteer('__all__')") && app.includes("cancelSteer('', true)"), 'S22c 清空队列使用独立控制参数(用户文本 __all__ 不会误清全部)');
 
   // ───────────────── 起服务(interactive + fake-claude) ─────────────────
   const WP = await getFreePort(), FP = await getFreePort();

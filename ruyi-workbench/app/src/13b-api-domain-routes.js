@@ -183,5 +183,24 @@ async function handleSteerApiRoute(req, res, pathname) {
     logEvent({ kind: 'intervention', source: 'steer', sessionId }); // 29c
     return send(res, json({ ok: true, queued: reg.steerQueue.length }));
   }
+  // v1.9.0: DELETE /api/steer — 撤回(取消)一条已入队的插话。body: { sessionId, text }。
+  // 找到 steerQueue 中第一个匹配 text 的条目并移除;返回剩余队列长度。
+  if (req.method === 'DELETE' && pathname === '/api/steer') {
+    const body = await readJsonBody(req);
+    const sessionId = safeSessionId(body.sessionId);
+    // Mirror POST normalization: callers can cancel text that POST accepted after stripping a spoofed prefix.
+    const text = String(body.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim();
+    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!text) return send(res, apiFailure('request.field_required', { field: 'text' }, 'text is required', 400));
+    const reg = activeChildren.get(sessionId);
+    if (!reg) return send(res, json({ ok: false, error: '当前没有进行中的回合' }));
+    // Claude 引擎走即时注入,不可撤回
+    if (reg.kind === 'claude') return send(res, json({ ok: false, error: 'Claude 引擎的插话已即时注入,无法撤回' }));
+    if (!Array.isArray(reg.steerQueue) || !reg.steerQueue.length) return send(res, json({ ok: false, error: '队列为空' }));
+    const idx = reg.steerQueue.indexOf(text);
+    if (idx < 0) return send(res, json({ ok: false, error: '未找到该插话内容' }));
+    reg.steerQueue.splice(idx, 1);
+    return send(res, json({ ok: true, remaining: reg.steerQueue.length }));
+  }
   return false;
 }

@@ -1454,6 +1454,7 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/pick-folder', auth: 'token' },
   { m: 'POST', p: '/api/plan/decision', auth: 'token' },
   { m: 'POST', p: '/api/steer', auth: 'token' },
+  { m: 'DELETE', p: '/api/steer', auth: 'token' },
   { m: 'POST', p: '/api/session/rewind', auth: 'token' },
   { m: 'POST', p: '/api/checkpoints/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/file/reveal', auth: 'token' },

@@ -1851,6 +1851,7 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/pick-folder', auth: 'token' },
   { m: 'POST', p: '/api/plan/decision', auth: 'token' },
   { m: 'POST', p: '/api/steer', auth: 'token' },
+  { m: 'DELETE', p: '/api/steer', auth: 'token' },
   { m: 'POST', p: '/api/session/rewind', auth: 'token' },
   { m: 'POST', p: '/api/checkpoints/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/file/reveal', auth: 'token' },
@@ -12285,7 +12286,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // Keep this final: dynamic role/workflow/model/plan layers may be in Chinese, but must not decide
   // the language of an English (or otherwise non-Chinese) user conversation.
   sys = appendTurnPolicies(sys, config, agentTeam);
-  // 51d C1b: 易变层前缀(每回合动态,buildBody 注入 messages[1],不持久化避 854 参数未初始化)
+  // 51d C1b: 易变层前缀(每回合动态,buildBody 注入第一条 user 消息[经 findIndex 动态定位],不持久化避 854 参数未初始化)
   const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission);
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
@@ -19368,6 +19369,25 @@ async function handleSteerApiRoute(req, res, pathname) {
     reg.steerQueue.push(text);
     logEvent({ kind: 'intervention', source: 'steer', sessionId }); // 29c
     return send(res, json({ ok: true, queued: reg.steerQueue.length }));
+  }
+  // v1.9.0: DELETE /api/steer — 撤回(取消)一条已入队的插话。body: { sessionId, text }。
+  // 找到 steerQueue 中第一个匹配 text 的条目并移除;返回剩余队列长度。
+  if (req.method === 'DELETE' && pathname === '/api/steer') {
+    const body = await readJsonBody(req);
+    const sessionId = safeSessionId(body.sessionId);
+    // Mirror POST normalization: callers can cancel text that POST accepted after stripping a spoofed prefix.
+    const text = String(body.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim();
+    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!text) return send(res, apiFailure('request.field_required', { field: 'text' }, 'text is required', 400));
+    const reg = activeChildren.get(sessionId);
+    if (!reg) return send(res, json({ ok: false, error: '当前没有进行中的回合' }));
+    // Claude 引擎走即时注入,不可撤回
+    if (reg.kind === 'claude') return send(res, json({ ok: false, error: 'Claude 引擎的插话已即时注入,无法撤回' }));
+    if (!Array.isArray(reg.steerQueue) || !reg.steerQueue.length) return send(res, json({ ok: false, error: '队列为空' }));
+    const idx = reg.steerQueue.indexOf(text);
+    if (idx < 0) return send(res, json({ ok: false, error: '未找到该插话内容' }));
+    reg.steerQueue.splice(idx, 1);
+    return send(res, json({ ok: true, remaining: reg.steerQueue.length }));
   }
   return false;
 }

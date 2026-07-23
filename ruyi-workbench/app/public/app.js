@@ -2134,7 +2134,7 @@ function setStreaming(on) {
   if (on) { try { updateContextMeter(); } catch { /* ignore */ } }
   // v0.9-S5: clear any lingering 「AI 在等你批准计划」 hint when a turn ends (stop/error can bypass the card's
   // own finish()). Set fresh by handlePlanEvent while a plan is pending.
-  if (!on) { const h = $('composerHint'); if (h) h.textContent = ''; }
+  if (!on) { const h = $('composerHint'); if (h) { h.innerHTML = ''; h.style.display = 'none'; } steerPendingList.length = 0; }
   // v1.0.2 (F3): Claude 模式的 /compact 是流式回合 —— 回合结束(setStreaming(false))即压缩完成,收指示条。
   if (!on && compactState.active) endCompactIndicator();
   updateSendBtn(); // 50-fix:发送/插话/停止 三态(原:流式恒停止)
@@ -2302,6 +2302,78 @@ async function sendPrompt(overrideText) {
 // interjection in the message flow with a muted 「插话」 badge. The server also emits a `steered` event when it
 // actually injects the text — steeredSeen dedups that echo against this optimistic render (by text within a short time window).
 const steeredSeen = []; // [{text, ts}] recently rendered locally, for `steered`-event dedup(不限时,逐条 splice;cap 50)
+
+// v1.9.0: 插话队列可视化——在客户端维护一份「已发送但尚未被模型消费」的待注入列表。
+// 每次 steerPrompt 排队成功后 push;收到 steered 事件时 splice 已注入项;回合结束清空。
+// composerHint 从纯文本升级为卡片列表,每条显示截断文本 + ×撤回按钮 + 清空队列。
+const steerPendingList = []; // [{text, ts}]
+function renderSteerQueue() {
+  const h = $('composerHint');
+  if (!h) return;
+  if (!steerPendingList.length) { h.innerHTML = ''; h.style.display = 'none'; return; }
+  h.style.display = '';
+  const n = steerPendingList.length;
+  // Never interpolate user-provided steer text into innerHTML or inline onclick. Besides XSS, quoted text
+  // would break the old onclick attribute. textContent + listeners keep both short and truncated strings safe.
+  const card = document.createElement('div');
+  card.style.cssText = 'border:1px solid var(--border-subtle,#e0e0e0);border-radius:6px;padding:6px 10px;margin-bottom:8px;background:var(--bg-surface,#f8f8f8)';
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px';
+  const title = document.createElement('span');
+  title.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary,#666)';
+  title.textContent = `📎 ${t('chat.steerQueueTitle')} (${n})`;
+  header.appendChild(title);
+  if (n > 1) {
+    const clear = document.createElement('button');
+    clear.type = 'button'; clear.textContent = t('chat.steerClearAll');
+    clear.style.cssText = 'border:0;background:none;cursor:pointer;font-size:11px;color:var(--text-secondary,#999);text-decoration:underline';
+    clear.addEventListener('click', () => { void window.cancelSteer('', true); });
+    header.appendChild(clear);
+  }
+  card.appendChild(header);
+  for (const pending of steerPendingList) {
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 0;font-size:12px;opacity:.85';
+    const text = document.createElement('span');
+    text.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    text.title = pending.text;
+    text.textContent = pending.text.length > 80 ? pending.text.slice(0, 80) + '…' : pending.text;
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.textContent = '×'; cancel.title = t('chat.steerCancelAria'); cancel.setAttribute('aria-label', t('chat.steerCancelAria'));
+    cancel.style.cssText = 'border:0;background:none;cursor:pointer;color:var(--text-secondary,#999);font-size:13px;padding:0 2px;line-height:1';
+    cancel.addEventListener('click', () => { void window.cancelSteer(encodeURIComponent(pending.text)); });
+    item.append(text, cancel); card.appendChild(item);
+  }
+  h.replaceChildren(card);
+}
+// cancelSteer: 从队列中撤回一条插话。clearAll 是独立控制参数，绝不复用用户文本作哨兵值。
+window.cancelSteer = async function(encodedText, clearAll = false) {
+  let text = '';
+  if (!clearAll) {
+    try { text = decodeURIComponent(encodedText); } catch { return; }
+  }
+  if (!state.currentSession?.id) return;
+  if (clearAll) {
+    // 批量撤回:逐条调用 DELETE,忽略单条失败(可能已被模型消费)
+    const items = [...steerPendingList];
+    for (const p of items) {
+      try { await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId: state.currentSession.id, text: p.text }) }); } catch {}
+    }
+    steerPendingList.length = 0;
+  } else {
+    try {
+      const r = await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId: state.currentSession.id, text }) });
+      if (r && r.ok) {
+        const idx = steerPendingList.findIndex(p => p.text === text);
+        if (idx >= 0) steerPendingList.splice(idx, 1);
+      } else {
+        toast(t('toast.steerFail', { p1: (r && r.error) || t('common.unknownError') }), 'err');
+      }
+    } catch (e) { toast(t('toast.steerFail', { p1: apiErrText(e) }), 'err'); }
+  }
+  renderSteerQueue();
+};
+
 async function steerPrompt(overrideText) {
   const text = (overrideText != null ? overrideText : $('promptInput').value).trim();
   if (!text) return;
@@ -2313,11 +2385,15 @@ async function steerPrompt(overrideText) {
     steeredSeen.push({ text, ts: Date.now() });
     if (steeredSeen.length > 50) steeredSeen.splice(0, steeredSeen.length - 50); // 50-fix:cap 防无限积
     renderSteeredMessage(text);
-    toast(r.injected ? t('toast.steerInjected') : t('toast.steerQueued'), 'ok');
-    // 50d(02 Phase D):插话队列可视化 -- provider 引擎排队中(r.queued>0)时,composer 上方持续指示
-    //   "队列中 N 条·下一步生效",回合结束 setStreaming(false) 清空 composerHint(自动消失)。
-    //   Claude interactive 即时注入(r.injected)不排队,不显指示。
-    if (r.queued) { const h = $('composerHint'); if (h) h.textContent = t('chat.steerQueuedHint', { n: r.queued }); }
+    // v1.9.0: 队列可视化——排队型(r.queued>0)加入 pendingList 并渲染卡片;
+    // Claude 即时注入型(r.injected)不排队,仅 toast 确认。
+    if (r.queued) {
+      steerPendingList.push({ text, ts: Date.now() });
+      renderSteerQueue();
+      toast(t('toast.steerQueued'), 'ok');
+    } else {
+      toast(t('toast.steerInjected'), 'ok');
+    }
   } catch (e) { toast(t("toast.steerFail", { p1: apiErrText(e) }), 'err'); }
 }
 
@@ -2328,6 +2404,7 @@ function renderSteeredMessage(text) {
   box.querySelector('.empty-state')?.remove();
   // 50d:传 steered:true,徽章由 renderStaticMessage 统一渲染(与刷新后静态重渲染同源,不再手动 insertBefore)。
   const row = renderStaticMessage({ role: 'user', content: text, createdAt: new Date().toISOString(), steered: true });
+  row.dataset.steered = 'true'; // v1.9.0: 标记行以便 steered 事件匹配注入确认
   box.appendChild(row);
   scrollMessagesToBottom();
 }
@@ -2551,8 +2628,30 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // 慢工具下可远超旧 15s 窗口 → 窗口失效回声双写。改为【不限时文本队列】去重:同文本逐条 splice,
       // 两条相同插话仍各消各的(正确),回声多晚到都能命中。cap 50 防无限积。
       const idx = steeredSeen.findIndex(s => s.text === evt.text);
-      if (idx >= 0) { steeredSeen.splice(idx, 1); break; } // already shown locally → drop the echo
-      renderSteeredMessage(evt.text || '');
+      if (idx >= 0) { steeredSeen.splice(idx, 1); }
+      // v1.9.0: 从 pendingList 移除已注入项,刷新队列卡片
+      const pidx = steerPendingList.findIndex(p => p.text === evt.text);
+      if (pidx >= 0) { steerPendingList.splice(pidx, 1); renderSteerQueue(); }
+      // v1.9.0: 在消息流中找到对应的插话行并标记「✓ 已注入」确认
+      if (evt.text) {
+        const all = main.querySelectorAll('[data-steered="true"]');
+        for (const node of all) {
+          const md = node.querySelector('.markdown');
+          if (md && md.textContent.trim() === evt.text.trim()) {
+            const badge = node.querySelector('.steered-badge');
+            if (badge) {
+              badge.textContent = t('chat.steerInjectedBadge');
+              badge.style.color = '#16a34a';
+              badge.style.fontWeight = '600';
+              badge.style.background = 'rgba(22,163,74,.1)';
+              // 3 秒后恢复原样式
+              setTimeout(() => { badge.style.color = ''; badge.style.fontWeight = ''; badge.style.background = ''; }, 3000);
+            }
+            break;
+          }
+        }
+      }
+      if (idx < 0) renderSteeredMessage(evt.text || '');
       break;
     }
     case 'turn_summary':

@@ -37,6 +37,13 @@ function postJson(port, p, payload, headers) {
     req.on('error', reject); req.write(data); req.end();
   });
 }
+function deleteJson(port, p, payload, headers) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload || {});
+    const req = http.request({ host: '127.0.0.1', port, path: p, method: 'DELETE', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), ...(headers || {}) } }, res => { let b = ''; res.on('data', c => (b += c)); res.on('end', () => { let parsed = null; try { parsed = JSON.parse(b); } catch { /* ignore */ } resolve({ status: res.statusCode, body: parsed }); }); });
+    req.on('error', reject); req.write(data); req.end();
+  });
+}
 // Streaming POST to /api/chat/stream that invokes onEvent(evt) for each parsed line as it arrives (so a
 // test can act mid-turn). Resolves with the full events array at stream end.
 function streamChatLive(port, payload, onEvent) {
@@ -110,6 +117,29 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     // ⑥ No token → 403.
     const noTok = await postJson(WB_PORT, '/api/steer', { sessionId: sid, text: STEER_TEXT });
     ok(noTok.status === 403, '(no-token) steer → 403 (got ' + noTok.status + ')');
+    const noTokDelete = await deleteJson(WB_PORT, '/api/steer', { sessionId: sid, text: STEER_TEXT });
+    ok(noTokDelete.status === 403, '(no-token) cancel steer → 403 (got ' + noTokDelete.status + ')');
+
+    // New cancel API: queue then withdraw at the meta boundary, before the delayed fake provider emits its
+    // first tool call. The canceled text must never reach either the stream or persisted session messages.
+    const cancelSession = await postJson(WB_PORT, '/api/sessions', { title: 'steer cancel test', cwd: HOME }, { 'x-wcw-token': token });
+    const cancelSid = cancelSession.body && cancelSession.body.session && cancelSession.body.session.id;
+    const cancelText = '[用户插话] 这条应被撤回';
+    let queueThenCancel = null;
+    const cancelEvents = await streamChatLive(WB_PORT, { sessionId: cancelSid, message: '撤回一条插话', cwd: HOME }, evt => {
+      if (evt.type === 'meta' && !queueThenCancel) {
+        queueThenCancel = postJson(WB_PORT, '/api/steer', { sessionId: cancelSid, text: cancelText }, { 'x-wcw-token': token })
+          .then(queued => deleteJson(WB_PORT, '/api/steer', { sessionId: cancelSid, text: cancelText }, { 'x-wcw-token': token }).then(canceled => ({ queued, canceled })))
+          .catch(error => ({ error }));
+      }
+    });
+    const cancelResult = await queueThenCancel;
+    ok(cancelResult && cancelResult.queued && cancelResult.queued.body && cancelResult.queued.body.ok === true && cancelResult.queued.body.queued === 1, '(cancel) steer first enters queue');
+    ok(cancelResult && cancelResult.canceled && cancelResult.canceled.status === 200 && cancelResult.canceled.body && cancelResult.canceled.body.ok === true && cancelResult.canceled.body.remaining === 0, '(cancel) DELETE is authorized and removes the queued steer');
+    ok(!cancelEvents.some(e => e.type === 'steered' && e.text === '这条应被撤回'), '(cancel) withdrawn steer emits no steered event');
+    const canceledHistory = await getJson(WB_PORT, '/api/sessions/' + cancelSid);
+    const canceledMessages = (canceledHistory.session && canceledHistory.session.messages) || [];
+    ok(!canceledMessages.some(m => m && m.steered === true && m.content === '这条应被撤回'), '(cancel) withdrawn steer is absent from persisted session messages');
 
     // ---- Live turn: steer on the FIRST tool_use ----
     let steerResp = null, steered = false;
