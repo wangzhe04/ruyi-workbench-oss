@@ -75,6 +75,9 @@ function capturedBodies() {
 function capturedSystem() {
   return capturedBodies().flatMap(body => body.messages || []).filter(message => message.role === 'system').map(message => String(message.content || '')).join('\n');
 }
+function capturedUser() {
+  return capturedBodies().flatMap(body => body.messages || []).filter(message => message.role === 'user').map(message => String(message.content || '')).join('\n');
+}
 
 (async () => {
   // Static UI contract: explicit toggle, one-shot request field, responsive state, and localizations.
@@ -118,15 +121,16 @@ function capturedSystem() {
     const providerSession = (await postJson(WB_PORT, '/api/sessions', { title: 'provider-team', cwd: HOME }, headers)).session;
     clearCaptures();
     await stream({ sessionId: providerSession.id, message: 'research this topic', cwd: HOME, agentTeam: true }, headers);
-    ok(capturedSystem().includes('<agent-team-mode>'), 'OpenAI-compatible driver receives Agent team system policy');
+    ok(!capturedSystem().includes('<agent-team-mode>') && capturedUser().includes('<agent-team-mode>'), 'OpenAI-compatible driver receives Agent team policy in the volatile user prefix');
     const providerMessages = capturedBodies().flatMap(body => body.messages || []);
-    ok(providerMessages.some(message => message.role === 'user' && String(message.content || '').includes('research this topic')) &&
-      !providerMessages.some(message => message.role === 'user' && String(message.content || '').includes('<agent-team-mode>')),
-      'Agent team policy does not pollute the OpenAI user message');
+    const providerUserMessages = providerMessages.filter(message => message.role === 'user').map(message => String(message.content || ''));
+    ok(providerUserMessages.some(content => content.includes('research this topic')) &&
+      providerUserMessages.some(content => content.includes('<agent-team-mode>') && content.includes('research this topic')),
+      'Agent team policy prefixes the business user message without dropping its content');
 
     clearCaptures();
     await stream({ sessionId: providerSession.id, message: 'plain follow-up', cwd: HOME, agentTeam: false }, headers);
-    ok(!capturedSystem().includes('<agent-team-mode>'), 'OpenAI-compatible driver omits the policy on a normal turn');
+    ok(!capturedSystem().includes('<agent-team-mode>') && !capturedUser().includes('<agent-team-mode>'), 'OpenAI-compatible driver omits the policy on a normal turn');
 
     await postJson(WB_PORT, '/api/config', { activeProvider: '' }, headers);
     const claudeSession = (await postJson(WB_PORT, '/api/sessions', { title: 'claude-team', cwd: HOME }, headers)).session;
@@ -145,7 +149,7 @@ function capturedSystem() {
     await postJson(WB_PORT, '/api/config', { activeProvider: 'fake', subagentMaxPerTurn: 0 }, headers);
     clearCaptures();
     await stream({ sessionId: providerSession.id, message: 'try disabled team mode', cwd: HOME, agentTeam: true }, headers);
-    ok(!capturedSystem().includes('<agent-team-mode>'), 'server ignores agentTeam when sub-agents are disabled');
+    ok(!capturedSystem().includes('<agent-team-mode>') && !capturedUser().includes('<agent-team-mode>'), 'server ignores agentTeam when sub-agents are disabled');
 
     // Static guard: driverAuto MUST bypass agentTeam (verified via source-code pattern check).
     const serverSrc = readServerSource();

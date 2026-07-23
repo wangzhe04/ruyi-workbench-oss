@@ -1157,7 +1157,20 @@ roadmap §43 line 954"第52波+ · 发布与范式"+ 51 波遗留技术债收尾
 - **对抗验证修复**:DAG 物化用 subProvider 挑模型(防 tier 用主 provider 池挑模型送 subProvider 跑 404,与 spawn_agent 路径一致);subagentPreferredModel 提到 tierModel 前(用户显式优先于自动分级);normalizeConfig 规范化;提示词无效 id 不注入。
 - **验证**:subagent/agent-quality-gates/prompt-snapshot/capabilities/i18n.static/facts.static/dom-smoke 全绿。
 
+### 52y 前端体验收口（7 项实机反馈）
+
+- **权限 / 设置 IA**：安全弹层只保留人话单选卡，隐藏 select 仅作兼容事件载体；侧栏和右栏删除重复“体检”入口，诊断面板迁入设置并对精简模式开放。
+- **模型 / 子代理选择**：顶栏状态点、端点名、模型名与箭头统一中心线；子代理优先端点与模型改为联动 select，端点切换会清空旧模型并按新 Provider 重建模型列表，避免 Kimi / Ark / 其它 Coding Plan 间串用模型 id。
+- **Steer / Claude Agent**：Steer 队列改用语义 token、状态 chip 和响应式布局，随深浅主题切换；前端识别 Claude 原生后台 Agent 的 launch acknowledgement，显示“后台执行中”而非“完成”，真正结论仍按既有完成态展示。
+- **改动查看**：“查看改动”默认打开独立窗口 / tab，复用当前主题并提供“用本机应用打开当前文件”；浏览器阻止弹窗时回退到原页预览并自动滚入视口。
+- **验证**：DOM/IA/i18n/主题/Claude 子代理/Steer/changes targeted 回归通过；真实浏览器确认权限弹层零可见 select、Provider→model 联动、体检设置页、深浅主题模型中心线，控制台零错误。
+
+### 52a 04 Phase B Phase2 英文提示词包 + locale 感知切换
+
+- **PROMPT_EN + `getPromptPack(locale)`**:补齐英文提示词包并与 `PROMPT_ZH` 保持同一层级结构；`en-US` 选择英文包，`auto` 与其它 locale 保持中文包，确保既有中文会话零漂移。
+- **全链路接线**:`buildStableSystemPrompt`、`buildVolatileParts`、skills/memory/mission 提示段都显式接收 config 后按 locale 取包，避免任一动态提示仍泄漏中文固定文本。
+- **验证**:meta-guard、capabilities、prompt-snapshot、subagent 定向回归通过；52b 的 A/B 基准工具可用于后续真实 provider 的提示词行为比较。
+
 ### 待续
 
-- **52a**:04 Phase B Phase2 英文版提示词(PROMPT_EN 17 层翻译 + config.locale en-US 时加载英文 + locale 切换机制)。大工程(完整翻译才有价值),行为漂移风险需 A/B 验证(52b run.js 已就位)。
 - **52e**:§43 发布与范式(overlay 更新 GUI、vNext「交办台」立项决策、产品扩展评估)。

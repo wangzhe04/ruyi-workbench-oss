@@ -78,7 +78,6 @@
         <div class="sidebar-foot">
           <button id="bulkCleanupBtn" class="ghost btn-ic" data-icon="trash"><span data-i18n="session.bulkCleanup">清理历史</span></button>
           <button id="openSettingsBtn" class="ghost btn-ic" data-icon="settings"><span data-i18n="navigation.settings">设置</span></button>
-          <button id="openDoctorBtn" class="ghost btn-ic" data-icon="stethoscope"><span data-i18n="navigation.doctor">体检</span></button>
           <button id="helpBtn" class="ghost btn-ic" data-icon="help" title="快捷键 (?)" aria-label="快捷键" data-i18n-attr="title:navigation.help;aria-label:navigation.help"></button>
         </div>
       </aside>
@@ -105,9 +104,8 @@
               </svg>
               <span class="ctx-text"></span>
             </div>
-            <!-- v1.0-S2 (IA): 安全 chip（原顶栏「权限 select」收敛为 shield 心智）。显示当前档人话短名；
-                 点击开安全弹层（四档单选卡）。#permSelect 保留在 DOM 内(移入 #permSelectHost，平时 hidden；
-                 弹层复用它的 change handler，专家模式在弹层内可见作为原始下拉)。 -->
+            <!-- 安全 chip：点击后只展示一套人话单选卡。#permSelect 作为隐藏状态载体保留，
+                 继续复用既有持久化、危险模式确认和 toast 链路，不再作为第二套可见选择器。 -->
             <button id="permChip" class="perm-chip" aria-haspopup="dialog" title="安全 / 权限（点击设置）" data-i18n-attr="title:permission.mode.initialChipTitle" data-testid="permChip">
               <span class="pc-icon" aria-hidden="true" data-icon="shield" data-icon-size="15"></span>
               <span class="pc-name" data-i18n="permission.everyStep">每步都问</span>
@@ -294,8 +292,8 @@
 
       <!-- ============ TOOL / SIDE PANE ============ -->
       <aside class="tool-pane" id="toolPane">
-        <!-- v1.0-S2 (IA): 页签分组 — 常驻组[文件|产物|审计]在前，开发者组[终端|桌面|MCP|调试|体检]在后，
-             组间以 .tool-tabs-sep 小组标分隔。data-tab 值一律不变（PowerShell 仅显示文案改「终端」）。
+        <!-- v1.0-S2 (IA): 页签分组 — 常驻组[文件|产物|审计]在前，开发者组[终端|桌面|MCP|调试|存储]在后，
+             组间以 .tool-tabs-sep 小组标分隔（PowerShell 仅显示文案改「终端」）。
              默认激活页签由 powershell 迁到 files（按钮 + section 双处 active）。 -->
         <div class="tool-tabs">
           <span class="tool-tabs-group" data-tt-group="resident">
@@ -312,7 +310,6 @@
             <button data-tab="desktop" data-i18n="tool.desktop">桌面</button>
             <button data-tab="mcp">MCP</button>
             <button data-tab="debug" data-i18n="tool.debug">调试</button>
-            <button data-tab="doctor">体检</button>
             <button data-tab="storage">存储</button>
           </span>
         </div>
@@ -373,6 +370,7 @@
           </div>
           <p class="changes-hint muted" data-i18n="tool.revertibleChanges.hint">AI 用文件工具或桌面控制写文件后会出现在这里。撤销整轮请用对话里的「本轮变更」卡。</p>
           <div id="changesList" class="changes-list"></div>
+          <!-- 仅在浏览器阻止新窗口时作为就地降级预览；正常“查看改动”会打开独立窗口。 -->
           <div id="changesPreview" class="changes-preview hidden"></div>
         </section>
 
@@ -460,11 +458,6 @@
           <pre id="rawEvents" class="raw-events"></pre>
         </section>
 
-        <section class="tool-section" id="tab-doctor">
-          <button id="refreshDoctorBtn" class="full">刷新体检</button>
-          <div id="doctorPanel" class="doctor-panel"></div>
-        </section>
-
         <section class="tool-section" id="tab-storage">
           <!-- v1.9 数据管家: 各仓占用一览 + 保留策略 + 手动清理。仅专家页签(DEV_TABS 成员,简易模式
                switchTab 兜底回 files)。打开页签时懒加载一次(不轮询 —— 与审计页签同款安静纪律);
@@ -515,6 +508,7 @@
             <button type="button" data-stab="agents" data-i18n="settings.agents">Agent 角色</button>
             <button type="button" data-stab="integrations" data-i18n="settings.integrations">集成 / MCP</button>
             <button type="button" data-stab="network" data-i18n="settings.network">联网搜索</button>
+            <button type="button" data-stab="doctor" data-i18n="navigation.doctor">体检</button>
             <button type="button" data-stab="advanced" data-i18n="settings.advanced">高级</button>
           </div>
 
@@ -789,6 +783,18 @@
             </div>
           </div>
 
+          <!-- ===== 体检 ===== -->
+          <div class="settings-tab" id="stab-doctor">
+            <div class="settings-section-head">
+              <div>
+                <h4 class="settings-subhead" data-i18n="settings.doctor.title">运行环境体检</h4>
+                <p class="muted prov-hint" data-i18n="settings.doctor.hint">检查服务、Claude CLI、Node.js、Git、搜索和桌面能力是否可用。</p>
+              </div>
+              <button type="button" id="refreshDoctorBtn" class="mini" data-i18n="settings.doctor.refresh">重新体检</button>
+            </div>
+            <div id="doctorPanel" class="doctor-panel settings-doctor-panel"></div>
+          </div>
+
           <!-- ===== 高级 ===== -->
           <div class="settings-tab" id="stab-advanced">
             <div class="field-block">
@@ -818,12 +824,12 @@
               </div>
               <div class="field-block">
                 <label for="cfgSubagentPreferredProvider" data-i18n="settings.advanced.subagentPreferredProvider">子代理优先端点</label>
-                <input id="cfgSubagentPreferredProvider" type="text" maxlength="120" />
+                <select id="cfgSubagentPreferredProvider"></select>
                 <p class="field-help muted" data-i18n="settings.advanced.subagentPreferredProvider.hint">spawn_agent / 工作流节点的默认 Provider id（可跨端点）；留空则用当前主端点。复杂任务模型可经 spawn_agent.model 选同端点下别的模型（如 Pro 版）。</p>
               </div>
               <div class="field-block">
                 <label for="cfgSubagentPreferredModel" data-i18n="settings.advanced.subagentPreferredModel">子代理优先模型</label>
-                <input id="cfgSubagentPreferredModel" type="text" maxlength="160" />
+                <select id="cfgSubagentPreferredModel"></select>
                 <p class="field-help muted" data-i18n="settings.advanced.subagentPreferredModel.hint">子代理默认模型 id；留空则按 角色 / 分级 / 主模型 兜底。</p>
               </div>
               <div class="field-block">

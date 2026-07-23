@@ -71,13 +71,13 @@ const CRITICAL_IDS = [
   'themeToggle', 'uiModeToggle', 'hljs-dark', 'hljs-light',
   // 设置弹层与页签(onboard.e2e:network 页签 + 搜索后端表单;ia.e2e:设置结构)。
   'settingsModal', 'settingsTabs', 'settingsBody', 'settingsStatus', 'saveConfigBtn', 'openSettingsBtn',
-  'stab-basic', 'stab-providers', 'stab-claude', 'stab-integrations', 'stab-network', 'stab-advanced',
+  'stab-basic', 'stab-providers', 'stab-claude', 'stab-integrations', 'stab-network', 'stab-doctor', 'stab-advanced',
   'cfgSearchType', 'cfgSearchBaseUrl', 'cfgSearchApiKey', 'cfgSearchApiKeyRow', 'cfgSearchBaseUrlRow',
   'cfgEngineMode', 'cfgUiMode', 'addProviderBtn', 'providersList', 'providerPresetSelect',
-  'cfgSubagentMaxConcurrent', 'cfgSubagentMaxPerTurn',
+  'cfgSubagentMaxConcurrent', 'cfgSubagentMaxPerTurn', 'cfgSubagentPreferredProvider', 'cfgSubagentPreferredModel', 'doctorPanel', 'refreshDoctorBtn',
   // 右侧工具页签(switchTab;ia.e2e 依赖 tab 结构 + 简易模式隐开发者组)。
   'toolPane', 'tab-files', 'tab-changes', 'tab-powershell', 'tab-mcp', 'tab-artifacts',
-  'tab-audit', 'tab-agent-runs', 'agentRunsList', 'agentRunsRefreshBtn', 'tab-debug', 'tab-doctor', 'tab-desktop', 'toggleToolsBtn',
+  'tab-audit', 'tab-agent-runs', 'agentRunsList', 'agentRunsRefreshBtn', 'tab-debug', 'tab-desktop', 'toggleToolsBtn',
   // 成本/用量看板(usage-dashboard.e2e 依赖):用量页签面板 + 刷新 + 预算/Claude单价配置字段。
   'tab-usage', 'usagePanel', 'usageRefreshBtn', 'cfgUsageBudgetMonthly', 'cfgUsageBudgetCurrency', 'cfgClaudePriceIn', 'cfgClaudePriceOut',
   // 命令面板 / 技能库 / 帮助 / 更多菜单。
@@ -144,7 +144,9 @@ const CRITICAL_FUNCS = [
   // 计划事件(战略清单点名)
   'handlePlanEvent',
   'handleAgentWorkflowEvent',
+  'handleSubagentEvent', 'isNativeClaudeBackgroundAck',
   'loadAgentRuns', 'renderAgentRuns', 'agentRunAction',
+  'populateSubagentPreferenceSelects', 'createChangeDiffWindow',
   // 成本/用量看板(usage-dashboard.e2e 依赖):懒加载 + 渲染 + 手绘 SVG 条/趋势。
   'loadUsage', 'renderUsage', 'usageBar', 'usageBarSvg', 'usageTrendSvg', 'usageBudgetBanner', 'fmtMoney',
   // Phase 1 抽离的纯工具 / 网络函数(util.js / net.js)—— 拆后聚合源码里仍须有定义。
@@ -185,6 +187,22 @@ ok(!/state\.currentSession\?\.id\s*===\s*turnSessionId\)\s*for\s*\(const line/.t
   'background stream lines are not discarded while another session is visible');
 ok(!/data-ui-mode[^\n]+simple[^\n]+pct\s*<\s*0\.6/.test(src),
   'simple mode keeps context occupancy and compact entry visible after usage exists');
+ok(/<select id="cfgSubagentPreferredProvider">/.test(html) && /<select id="cfgSubagentPreferredModel">/.test(html)
+  && !/<input id="cfgSubagentPreferred(?:Provider|Model)"/.test(html),
+  'subagent preferred endpoint/model are controlled dropdowns, not free-text ids');
+ok(/class="settings-tab" id="stab-doctor"/.test(html) && !/id="tab-doctor"/.test(html) && !/id="openDoctorBtn"/.test(html),
+  'diagnostics lives inside Settings and is removed from the lower-left/tool-pane duplicates');
+ok(/window\.open\('', '_blank'/.test(src) && /change-diff-standalone/.test(src),
+  'change diff opens in a dedicated window/tab with an inline fallback');
+ok(/isNativeClaudeBackgroundAck\(evt\)/.test(src) && /sa-background/.test(src) && /后台执行中/.test(src),
+  'native Claude background launch acknowledgements are not mislabeled as completed');
+const bgAckSource = src.match(/function\s+isNativeClaudeBackgroundAck\s*\([^)]*\)\s*\{[\s\S]*?\n\}/);
+const bgAck = bgAckSource ? Function(`${bgAckSource[0]}; return isNativeClaudeBackgroundAck;`)() : null;
+ok(bgAck && bgAck({ native: true, engine: 'claude', result: 'Async agent launched successfully.\\nagentId: abc\\noutput_file: C:\\\\tmp\\\\agent.txt' }) === true
+  && bgAck({ native: true, engine: 'claude', result: '审查完成：没有阻断问题。' }) === false,
+  'Claude background acknowledgement classifier distinguishes launch receipts from real conclusions');
+ok(/steer-queue-item/.test(src) && /steer-queue[\s\S]*color-mix\(in srgb, var\(--accent\)/.test(fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8')),
+  'Steer queue uses semantic theme-aware classes instead of hardcoded light colors');
 
 const files = frontendSrcFiles().map(f => path.relative(PUB, f).replace(/\\/g, '/'));
 console.log(`INFO 参与聚合的前端源文件(${files.length}): ${files.join(', ')}`);

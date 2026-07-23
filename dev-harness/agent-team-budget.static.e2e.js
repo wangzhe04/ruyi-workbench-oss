@@ -51,7 +51,7 @@ assert.ok(app.includes('const agentTeam = overrideText == null && agentTeamTurnE
 assert.ok(app.includes('agentTeamTurnEnabled = false;'), 'sending consumes one-shot preference');
 assert.ok(app.includes('attachments: sentAttachments, agentTeam'));
 assert.ok(source.includes('appendTurnPolicies(appendSys, config, agentTeam, appendLimit)'), 'Claude CLI receives Agent team policy (cmd8191: limit 由整行预算动态给出, ≤8000)');
-assert.ok(source.includes('appendTurnPolicies(sys, config, agentTeam)'), 'OpenAI-compatible engine receives Agent team policy');
+assert.ok(source.includes('appendTurnPolicies(volatileExtras, config, agentTeam)'), 'OpenAI-compatible engine places Agent team policy in the volatile user prefix');
 assert.strictEqual((source.match(/reg\.onEvent = evt => \{ reg\.lastEventAt = Date\.now\(\); onEvent\(evt\); \};/g) || []).length, 2, 'Claude and OpenAI active-turn registries both count external workflow events as activity');
 assert.ok(source.includes("type: 'tool_budget', state: 'extended'"));
 

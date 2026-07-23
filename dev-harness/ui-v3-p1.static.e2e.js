@@ -61,7 +61,7 @@ for (const need of ['folder', 'shield', 'toolbox', 'paperclip', 'sparkles', 'sen
 // index.html 静态 chrome 按钮/徽标带 data-icon(启动时 hydrateIcons 注入 SVG)。
 for (const [id, name] of [['workspacePicker...folder', 'folder'], ['perm...shield', 'shield'], ['tools...toolbox', 'toolbox'],
   ['sidebar...menu', 'menu'], ['more', 'more'], ['send', 'send'], ['plus', 'plus'], ['paperclip', 'paperclip'],
-  ['settings', 'settings'], ['stethoscope', 'stethoscope'], ['collapse', 'collapse'], ['help', 'help'], ['close', 'close']]) {
+  ['settings', 'settings'], ['collapse', 'collapse'], ['help', 'help'], ['close', 'close']]) {
   ok(new RegExp('data-icon="' + name + '"').test(html), '4 index.html data-icon="' + name + '" 就位');
 }
 ok(/id="skillBtn"[^>]*\bbtn-ic\b/.test(html), '4 技能按钮 btn-ic(sparkles 由 app.js 重建)');

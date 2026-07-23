@@ -3,7 +3,7 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
-## v2.0.0 后续迭代 · 2026-07-21 ~ 07-23（47-51 波，未 bump 版本号）
+## v2.0.0 后续迭代 · 2026-07-21 ~ 07-23（47-52 波，未 bump 版本号）
 
 封版后五个功能波（快赢/地基/生态/视觉/规范化），ACC 同步升至 **v1.9.0**（100→107 工具）。全部经"实现 → 对抗多 agent 审查 → 定向修复 → 离线 e2e 回归"循环。
 
@@ -19,6 +19,8 @@ This file records user-facing release highlights; it does not replace the comple
 
 **第51波 · 提示词与工作流规范化波**：04 Phase D 语义 loop-guard（主回合结果指纹无进展判定，与同签名连击互补，探索工具宽阈值，warn 先行不 abort）+ 《模型工作流规范》双语文档；02 Phase B 打断语义（between-tools 批次边界中断，配对安全补 refusal，Codex 级立即生效）；前端 i18n 清零（50 波遗留 3 处硬编码 map）；51c‑b 提示词外置 i18n 骨架（`06b-prompt-registry.js`，PROMPT_PACK_VERSION='2026-w51-1'，中英双语系统提示词按 UI 语言从 `i18n/prompt-packs/` 按需加载）；51d 系统提示词 stable/volatile 分层注入（provider 引擎 system prompt 拆为逐字节稳定的锚点层 + volatile 层注入第一条 user 消息，prefix-cache 友好，多轮 token 节省显著）。
 
+**第52波 · 发布与范式收尾**：补齐离线 A/B 提示词基准运行器与基线；将所有动态角色、编排、模型和策略提示稳定地置于 OpenAI 首条 user 消息，system 层保持字节稳定以提高 prefix-cache 命中；新增 `PROMPT_EN` 与 locale 感知选择；设置中可为子代理独立选择优先 endpoint 与模型（可跨 provider）；并收紧插话队列的可见、撤回、注入确认与跨会话隔离行为。收尾 UX 修复将子代理 endpoint/model 改为联动下拉，移除权限模式的重复选择器，把体检收入设置，重绘深浅主题 Steer 队列，修正 Claude 后台 Agent 启动回执被误标“完成”，并让“查看改动”在独立窗口展示、可调用本机应用打开文件。
+
 ### English
 
 **Wave 47 · Quick wins**: Dual-engine steer (Claude chat engine injects via stdin on the fly + provider engine drains the queue at iteration boundaries); bridge cancel/timeout contract (declarative per-tool timeout table + `notifications/cancelled` + kill process tree + lazy re-spawn self-heal); token Bootstrap + CSP (HTML no longer ships the token in plaintext; browsers handshake via `POST /api/bootstrap`); overlay payload lock. 47e: three-state send button while streaming (send/steer/stop, ChatGPT-style).
@@ -30,6 +32,8 @@ This file records user-facing release highlights; it does not replace the comple
 **Wave 50 · UI visual refresh**: V4 glassmorphism finalized (scene-bg micro-gradient + noise + three glass tiers + purple/champagne + theme tri-state light/dark/system); i18n cleanup (95 toast codemod + TOOL_VERB_MAP + workbench node/Pool/Mail); a11y P0 (installFocusTrap focus cycling, role="log" deferred to P2 incremental-render); 02 Phase D steer visualization (steer-card static re-render + queue viz); hotfixes (title stuck at "New chat" + Steer double-message). Adversarial-review fixes: `_rpcHttp` timeout now sends `notifications/cancelled` + 7 i18n omissions.
 
 **Wave 51 · Prompt & workflow normalization**: 04 Phase D semantic loop-guard (main-turn result-fingerprint no-progress detection, complementary to identical-signature runs, lenient threshold for exploratory tools, warn-first no-abort) + bilingual Model Workflow Spec doc; 02 Phase B interrupt semantics (between-tools batch-boundary interrupt, pairing-safe refusal, Codex-grade immediate effect); frontend i18n cleanup (3 hardcoded maps left over from wave 50); 51c-b prompt externalization i18n skeleton (`06b-prompt-registry.js`, PROMPT_PACK_VERSION='2026-w51-1', bilingual system prompts loaded on-demand from `i18n/prompt-packs/` per UI language); 51d stable/volatile system prompt layering (provider system prompt split into byte-stable anchor layer + volatile layer injected into first user message, prefix-cache friendly, significant multi-turn token savings).
+
+**Wave 52 · Release-pattern follow-through**: adds an offline A/B prompt benchmark runner and baseline; keeps dynamic role, orchestration, model, and policy text in the OpenAI user-side volatile prefix while the system layer stays byte-stable for prefix-cache reuse; adds `PROMPT_EN` with locale-aware selection; lets users choose a preferred provider and model for sub-agents, including cross-provider routing; and hardens steer queue visibility, cancellation, injection confirmation, and session isolation. Final UX fixes replace free-text sub-agent provider/model IDs with linked dropdowns, remove the duplicate permission selector, move diagnostics into Settings, restyle the Steer queue for both themes, avoid labeling Claude background-agent launch receipts as completed work, and open change diffs in a dedicated window with a local-app action.
 
 ## v2.0.0 · 2026-07-21
 

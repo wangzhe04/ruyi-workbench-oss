@@ -51,13 +51,13 @@ ok(/if \(m\) return m;\s*\/\/ 显式非空 → 原样尊重/.test(src), 'S resol
 ok(/if \(engine === 'claude'\) return '';/.test(src), 'S tier 兜底:claude 引擎继承 CLI 默认(不猜)');
 ok(/for \(const id of \(config\.knownModels \|\| \[\]\)\) if \(id\) ids\.push\(String\(id\)\);/.test(src) && /\.filter\(id => !CLAUDE_ALIAS_IDS\.has\(id\) && !claudeCacheIds\.has\(id\)\)/.test(src), 'S tier 池拓宽 knownModels/config.model 且排除 Claude 别名+代理缓存(修 provider.models=[] 静默失效;第44波缓存同属 Claude 端)');
 // 三写入点都走 resolveNodeModel(engine 参)。
-ok(/engine, model: resolveNodeModel\(raw\.model, roleModel, explicitTier \|\| \(role && role\.toolTier\) \|\| 'read', engine, config, provider\)/.test(src), 'S 主 DAG 写入点用 resolveNodeModel(带 engine)');
+ok(/const matProvider = \(engine === 'openai' && config\.subagentPreferredProvider/.test(src) && /engine, model: resolveNodeModel\(raw\.model, roleModel, explicitTier \|\| \(role && role\.toolTier\) \|\| 'read', engine, config, matProvider\)/.test(src), 'S 主 DAG 写入点用子代理优先端点解析模型(带 engine)');
 ok(/const poolModel = resolveNodeModel\(item\.model, poolRoleModel \|\| \(proposer && proposer\.model\), toolTier, engine, opts\.config, opts\.provider\);/.test(src), 'S 池物化用 resolveNodeModel');
-ok(/model: resolveNodeModel\(sargs\.model, roleDefinition && roleDefinition\.models && roleDefinition\.models\.openai, sargs\.toolTier \|\| \(roleDefinition && roleDefinition\.toolTier\) \|\| 'read', 'openai', config, provider\)/.test(src), 'S spawn_agent 用 resolveNodeModel(engine=openai)');
+ok(/const subProvider = \(config\.subagentPreferredProvider/.test(src) && /model: resolveNodeModel\(sargs\.model, roleDefinition && roleDefinition\.models && roleDefinition\.models\.openai, sargs\.toolTier \|\| \(roleDefinition && roleDefinition\.toolTier\) \|\| 'read', 'openai', config, subProvider\)/.test(src), 'S spawn_agent 用子代理优先端点解析模型(engine=openai)');
 // propose_task model 通道。
 ok(/model: \{ type: 'string', description: '可选。为新节点按任务难易指定模型/.test(src) && /model: String\(args && args\.model \|\| ''\)\.trim\(\)\.slice\(0, 160\), \/\/ 第30波/.test(src), 'S propose_task model 通道(schema + item)');
 // 两引擎注入 buildModelHint(带 provider)+ Claude 侧索引信道(第35波 P2: stdin indexSecs)。
-ok(/sys \+= buildModelHint\(config, provider\);/.test(src), 'S provider 引擎注入 buildModelHint(带 provider)');
+ok(/volatileExtras \+= buildModelHint\(config, provider\);/.test(src), 'S provider 引擎在 volatile user 前缀注入 buildModelHint(带 provider)');
 ok(/const oh = buildOrchestrateHint\(wfs\);/.test(src) && /if \(oh\) indexSecs\.push\(oh\);/.test(src) && /const mh = buildModelHint\(config, activeOpenAiProvider\(config\)\);/.test(src) && /if \(mh\) indexSecs\.push\(mh\);/.test(src), 'S Claude 引擎:编排提示与模型提示各自独立进 stdin 索引段(第35波 P2:indexSecs 注入,不再连坐丢弃、不走命令行故无需 % ! 中和)');
 // schema 描述改为"填错会失败"(不再宣称"忽略回落")。
 ok(/a wrong\/unknown id makes the node fail/.test(src) && /Omit to use the role\/default model/.test(src), 'S orchestrate model 描述改为引擎匹配+填错失败');

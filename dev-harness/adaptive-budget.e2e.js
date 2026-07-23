@@ -96,8 +96,10 @@ function killTree(child) {
     ok(teamEvents.some(event => event.type === 'result' && event.ok === true), 'Agent team turn completes');
     const captures = fs.readdirSync(CAPTURE).filter(name => name.endsWith('.json')).sort();
     const teamBody = JSON.parse(fs.readFileSync(path.join(CAPTURE, captures[captures.length - 1]), 'utf8'));
-    const systemText = String(teamBody.messages && teamBody.messages[0] && teamBody.messages[0].content || '');
-    ok(systemText.includes('<agent-team-mode>') && systemText.includes('MUST actually call orchestrate_agents or spawn_agent'), 'OpenAI request receives the aggressive Agent team policy');
+    const messages = Array.isArray(teamBody.messages) ? teamBody.messages : [];
+    const systemText = messages.filter(message => message.role === 'system').map(message => String(message.content || '')).join('\n');
+    const volatileUserText = messages.filter(message => message.role === 'user').map(message => String(message.content || '')).join('\n');
+    ok(!systemText.includes('<agent-team-mode>') && volatileUserText.includes('<agent-team-mode>') && volatileUserText.includes('MUST actually call orchestrate_agents or spawn_agent'), 'OpenAI request keeps Agent team policy in the volatile user prefix');
   } catch (error) {
     fail++;
     console.log('ERROR ' + (error && error.stack || error));

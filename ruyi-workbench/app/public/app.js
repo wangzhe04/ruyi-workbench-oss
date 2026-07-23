@@ -2325,43 +2325,38 @@ function renderSteerQueue() {
   const queuedCount = steerPendingList.filter(p => !p.injected).length; // v1.9.1: provider 排队项数(Claude injected 不计)
   // Never interpolate user-provided steer text into innerHTML or inline onclick. Besides XSS, quoted text
   // would break the old onclick attribute. textContent + listeners keep both short and truncated strings safe.
-  const card = document.createElement('div');
-  card.style.cssText = 'border:1px solid var(--border-subtle,#e0e0e0);border-radius:6px;padding:6px 10px;margin-bottom:8px;background:var(--bg-surface,#f8f8f8)';
-  const header = document.createElement('div');
-  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px';
-  const title = document.createElement('span');
-  title.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary,#666)';
+  const card = el('div', 'steer-queue' + (queuedCount ? '' : ' injected'));
+  const header = el('div', 'steer-queue-head');
+  const title = el('span', 'steer-queue-title');
   // v1.9.1: 混合态优先显「插话队列」(还有排队项);全已注入显「已注入」(Claude 即时注入确认)
-  title.textContent = `📎 ${t(queuedCount > 0 ? 'chat.steerQueueTitle' : 'chat.steerInjectedTitle')} (${n})`;
+  title.textContent = `${t(queuedCount > 0 ? 'chat.steerQueueTitle' : 'chat.steerInjectedTitle')} · ${n}`;
   header.appendChild(title);
   if (queuedCount > 1) {
-    const clear = document.createElement('button');
+    const clear = el('button', 'steer-queue-clear');
     clear.type = 'button'; clear.textContent = t('chat.steerClearAll');
-    clear.style.cssText = 'border:0;background:none;cursor:pointer;font-size:11px;color:var(--text-secondary,#999);text-decoration:underline';
     clear.addEventListener('click', () => { void window.cancelSteer('', true); });
     header.appendChild(clear);
   }
   card.appendChild(header);
+  const items = el('div', 'steer-queue-items');
   for (const pending of steerPendingList) {
-    const item = document.createElement('div');
-    item.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 0;font-size:12px;opacity:.85';
-    const text = document.createElement('span');
-    text.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    const item = el('div', 'steer-queue-item' + (pending.injected ? ' is-injected' : ''));
+    const text = el('span', 'steer-queue-text');
     text.title = pending.text;
     const truncated = pending.text.length > 80 ? pending.text.slice(0, 80) + '…' : pending.text;
-    text.textContent = (pending.injected ? '✓ ' : '') + truncated; // v1.9.1: injected 项前缀 ✓
+    text.textContent = truncated;
+    item.append(text, el('span', 'steer-queue-state', pending.injected ? t('chat.steerInjectedTitle') : t('chat.steerQueueTitle')));
     if (pending.injected) {
       // Claude 即时注入不可撤回(后端 DELETE 会拒绝),不显示 × 按钮
-      item.appendChild(text);
     } else {
-      const cancel = document.createElement('button');
+      const cancel = el('button', 'steer-queue-cancel');
       cancel.type = 'button'; cancel.textContent = '×'; cancel.title = t('chat.steerCancelAria'); cancel.setAttribute('aria-label', t('chat.steerCancelAria'));
-      cancel.style.cssText = 'border:0;background:none;cursor:pointer;color:var(--text-secondary,#999);font-size:13px;padding:0 2px;line-height:1';
       cancel.addEventListener('click', () => { void window.cancelSteer(encodeURIComponent(pending.text)); });
-      item.append(text, cancel);
+      item.append(cancel);
     }
-    card.appendChild(item);
+    items.appendChild(item);
   }
+  card.appendChild(items);
   h.replaceChildren(card);
 }
 // cancelSteer: 从队列中撤回一条插话。clearAll 是独立控制参数，绝不复用用户文本作哨兵值。
@@ -4743,6 +4738,16 @@ function usageTrendSvg(days, max) {
   });
   return svg;
 }
+
+function isNativeClaudeBackgroundAck(evt) {
+  if (!evt || evt.native !== true || evt.engine !== 'claude' || typeof evt.result !== 'string') return false;
+  const text = evt.result;
+  return /\b(?:async|background)\s+(?:agent|task)\b[\s\S]{0,160}\b(?:launched|started|running)\b/i.test(text)
+    || /\b(?:agentId|output_file)\s*[:=]/i.test(text)
+    || /\b(?:agent|task)\b[\s\S]{0,160}\bworking in the background\b/i.test(text)
+    || /(?:后台|异步)(?:代理|任务)?.{0,40}(?:已启动|运行中)/.test(text);
+}
+
 function handleSubagentEvent(evt, live) {
   const id = evt.id || '';
   if (evt.type === 'subagent_progress') {
@@ -4787,12 +4792,11 @@ function handleSubagentEvent(evt, live) {
     const host = live.subCards.get(id);
     if (!host) return;
     const ok = evt.ok === true;
-    host.d.classList.add(ok ? 'sa-ok' : 'sa-err');
+    const backgroundAck = ok && isNativeClaudeBackgroundAck(evt);
+    host.d.classList.add(backgroundAck ? 'sa-background' : (ok ? 'sa-ok' : 'sa-err'));
     // Native Claude Agent/Task calls do not stream the child's internal tool events through the
-    // parent CLI. Their final tool_result is therefore the only useful detail. It used to be
-    // discarded after resultChars was calculated, leaving an empty card that looked like a task
-    // had instantly completed. Keep it visible inside the card, with textContent preserving the
-    // normal XSS boundary used by tool cards.
+    // parent CLI. The tool_result is either a real conclusion or a background-launch receipt.
+    // Keep it visible and distinguish those states; textContent preserves the normal XSS boundary.
     if (typeof evt.result === 'string' && evt.result) {
       if (!host.resultWrap) {
         host.resultWrap = el('div', 'sa-result');
@@ -4801,7 +4805,7 @@ function handleSubagentEvent(evt, live) {
         host.resultWrap.append(host.resultLabel, wrapPreWithCopy(host.resultPre));
         host.body.appendChild(host.resultWrap);
       }
-      host.resultLabel.textContent = ok ? '子任务结论' : '子任务错误详情';
+      host.resultLabel.textContent = backgroundAck ? 'Claude CLI 启动回执' : (ok ? '子任务结论' : '子任务错误详情');
       host.resultPre.textContent = evt.result;
       if (evt.resultTruncated) {
         const note = el('div', 'sa-result-note', '结果过长，仅显示前 100,000 个字符。');
@@ -4812,8 +4816,10 @@ function handleSubagentEvent(evt, live) {
     }
     if (host.status) {
       const chars = Number(evt.resultChars) || 0;
-      host.status.textContent = `${ok ? '✓ 完成' : '✗ 失败'} · ${chars} 字结论${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
-      host.status.classList.add(ok ? 'ok' : 'err');
+      host.status.textContent = backgroundAck
+        ? `后台执行中 · 已交给 Claude CLI${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`
+        : `${ok ? '✓ 完成' : '✗ 失败'} · ${chars} 字结论${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
+      host.status.classList.add(backgroundAck ? 'running' : (ok ? 'ok' : 'err'));
     }
     if (!ok) host.d.open = true; // surface a failed sub-turn automatically
   }
@@ -5665,7 +5671,7 @@ function renderChanges(entries) {
       const tool = changeToolLabel(e); if (tool) r2.append(el('span', 'change-tool', tool));
       const sz = changeSizeTransition(e); if (sz) r2.append(el('span', 'change-size', sz));
       if (!e.skipped && e.op !== 'delete') {
-        if (isTextishPath(p)) { const v = el('button', 'link-mini change-view', '查看改动'); v.onclick = () => openChangeDiff(e); r2.append(v); }
+        if (isTextishPath(p)) { const v = el('button', 'link-mini change-view', t('changes.viewDiff')); v.onclick = () => openChangeDiff(e); r2.append(v); }
         else { const o = el('button', 'link-mini change-view', '打开'); o.onclick = () => runTool('office_open', { path: p }); r2.append(o); }
       }
       row.append(r2);
@@ -5675,22 +5681,60 @@ function renderChanges(entries) {
     list.append(card);
   }
 }
-// v1.4.1「曾经」:拉取单条变更的「改动前↔现在」,渲染进 #changesPreview。文本文件逐行 diff;二进制只报大小 + 打开。
+function createChangeDiffWindow(entry) {
+  let popup = null;
+  try { popup = window.open('', '_blank', 'popup=yes,width=1100,height=780,resizable=yes,scrollbars=yes'); } catch { /* popup blocked */ }
+  if (!popup) return null;
+  try {
+    const doc = popup.document;
+    const root = document.documentElement;
+    doc.documentElement.setAttribute('data-theme', root.getAttribute('data-theme') || 'dark');
+    doc.documentElement.setAttribute('data-ui-mode', root.getAttribute('data-ui-mode') || 'pro');
+    doc.title = `${fileBasename(entry.path)} · ${t('changes.viewDiff')}`;
+    const charset = doc.createElement('meta'); charset.setAttribute('charset', 'utf-8');
+    const viewport = doc.createElement('meta'); viewport.name = 'viewport'; viewport.content = 'width=device-width, initial-scale=1';
+    const css = doc.createElement('link'); css.rel = 'stylesheet'; css.href = new URL('styles.css', window.location.href).href;
+    doc.head.replaceChildren(charset, viewport, doc.createElement('title'), css);
+    doc.head.querySelector('title').textContent = doc.title;
+    const page = doc.createElement('main'); page.className = 'change-diff-page';
+    const host = doc.createElement('section'); host.className = 'changes-preview change-diff-standalone';
+    page.appendChild(host);
+    doc.body.replaceChildren(page);
+    popup.focus();
+    return { popup, host };
+  } catch {
+    try { popup.close(); } catch { /* ignore */ }
+    return null;
+  }
+}
+
+// 拉取单条变更的「改动前↔现在」。默认打开独立窗口/标签，避免预览沉到长列表底部；
+// 浏览器阻止弹窗时才回退到原页预览并自动滚动到可见位置。
 async function openChangeDiff(entry) {
-  const box = $('changesPreview'); if (!box) return;
   const sid = state.currentSession?.id; if (!sid) return;
+  const standalone = createChangeDiffWindow(entry);
+  const box = standalone?.host || $('changesPreview'); if (!box) return;
   box.classList.remove('hidden'); box.textContent = '';
   box.append(el('div', 'cdiff-note muted', '加载改动…'));
+  if (!standalone) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   let d = null;
   try { d = await api(`/api/checkpoints/diff?sessionId=${encodeURIComponent(sid)}&turnSeq=${Number(entry.turnSeq)}&entrySeq=${Number(entry.entrySeq)}`); }
   catch (err) { box.textContent = ''; box.append(el('div', 'cdiff-note muted', '加载改动失败:' + apiErrText(err))); return; }
+  if (standalone && standalone.popup.closed) return;
   box.textContent = '';
-  renderChangeDiffInto(box, d, entry);
+  renderChangeDiffInto(box, d, entry, standalone);
 }
-function renderChangeDiffInto(box, d, entry) {
+function renderChangeDiffInto(box, d, entry, standalone) {
   const head = el('div', 'cdiff-head');
   head.append(el('span', 'cdiff-name', fileBasename(entry.path)));
-  const close = el('button', 'link-mini', '收起'); close.onclick = () => box.classList.add('hidden'); head.append(close);
+  if (entry.op !== 'delete') {
+    const open = el('button', 'link-mini', t('changes.openCurrentFile'));
+    open.onclick = () => runTool('office_open', { path: entry.path });
+    head.append(open);
+  }
+  const close = el('button', 'link-mini', standalone ? t('common.close') : '收起');
+  close.onclick = () => standalone ? standalone.popup.close() : box.classList.add('hidden');
+  head.append(close);
   box.append(head);
   if (!d || d.ok === false) { box.append(el('div', 'cdiff-note muted', '无法读取改动:' + ((d && d.error) || '未知'))); return; }
   if (d.skipped) { box.append(el('div', 'cdiff-note muted', '此条改动前的内容过大未保存快照,无法比对。')); return; }
@@ -6052,14 +6096,13 @@ function renderPermChip() {
   chip.classList.toggle('info', mode === 'auto');
   chip.title = t('permission.mode.chipTitle', { mode: permModeShort(mode) });
 }
-// 安全弹层：四档单选卡（枚举来自 state.status.permissionModes，与 permSelect 一致）。点击卡片 =
+// 安全弹层：只展示一套单选卡（枚举来自 state.status.permissionModes）。点击卡片 =
 // 设置 permSelect.value + dispatch('change')，完全复用既有 onchange（持久化 / bypass 确认 / toast 全部白拿）。
-// 专家模式把真正的 <select id="permSelect"> 挪进弹层可见作为原始下拉；关闭时挪回 host。DOM 全 createElement/
-// textContent 构建，禁 innerHTML 拼接动态内容（F 安全红线）。
+// 隐藏的 permSelect 只作为状态/事件载体，不再形成第二套可见选择器。DOM 全 createElement/textContent 构建。
 function openPermPopover() {
   const chip = $('permChip'); if (!chip) return;
   const pro = document.documentElement.getAttribute('data-ui-mode') !== 'simple';
-  const handle = popover(chip, close => {
+  popover(chip, close => {
     const wrap = el('div', 'perm-pop');
     wrap.appendChild(el('h4', null, t('permission.mode.title')));
     const cards = el('div', 'perm-cards'); cards.setAttribute('role', 'radiogroup');
@@ -6083,32 +6126,10 @@ function openPermPopover() {
       cards.appendChild(card);
     });
     wrap.appendChild(cards);
-    // 专家模式：把真正的 <select id="permSelect"> 移进弹层可见（作为原始下拉）。关闭时须挪回 host，
-    // 否则它会随弹层 DOM 一起被移除。移进的是「host + 内含 select」整块，restore 时把整块挪回锚点旁。
-    if (pro) {
-      const host = $('permSelectHost');
-      if (host) { host.classList.remove('hidden'); wrap.appendChild(host); }
-    }
     // 信任脚注。
     wrap.appendChild(el('div', 'perm-pop-foot', t('permission.mode.footer')));
     return wrap;
   });
-  // popover() 关闭（Esc/外点/重点击）时会**同步**移除弹层节点——若原始 select 的 host 被挪进弹层，它会一起被移除。
-  // 用 MutationObserver 盯住弹层节点从 body 的移除：一旦被移除，立刻把 host（含 select）挪回顶栏、重新隐藏。
-  // 直接持有 host 引用（不再靠 getElementById，detached 元素查不到），故顺序/时序都可靠。
-  if (handle && pro && handle.node) {
-    const host = $('permSelectHost');
-    const parkHost = () => {
-      if (!host) return;
-      const bar = document.querySelector('.topbar-actions'); const chipEl = $('permChip');
-      if (bar) { if (chipEl && chipEl.nextSibling) bar.insertBefore(host, chipEl.nextSibling); else bar.appendChild(host); }
-      host.classList.add('hidden');
-    };
-    const obs = new MutationObserver(muts => {
-      for (const mu of muts) { for (const n of mu.removedNodes) { if (n === handle.node) { parkHost(); obs.disconnect(); return; } } }
-    });
-    obs.observe(document.body, { childList: true });
-  }
 }
 async function saveConfigPartial(patch) {
   try {
@@ -6209,6 +6230,73 @@ function addAgentRole() {
   captureAgentRoleDraft(); const used = new Set(agentRoleDraft.map(r => r.id)); let n = 1, id = 'custom-agent'; while (used.has(id)) id = `custom-agent-${++n}`;
   agentRoleDraft.push({ id, label: '自定义角色', description: '', prompt: '', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, isolation: 'none' }); renderAgentRoleEditors();
 }
+
+function subagentProviderModels(provider) {
+  if (!provider) return [];
+  const seen = new Set();
+  const out = [];
+  const add = (id, label) => {
+    const value = String(id || '').trim();
+    if (!value || seen.has(value)) return;
+    seen.add(value);
+    out.push({ id: value, label: String(label || value) });
+  };
+  add(provider.subagentModel);
+  add(provider.model);
+  for (const model of (Array.isArray(provider.models) ? provider.models : [])) {
+    if (typeof model === 'string') add(model);
+    else if (model) add(model.id, model.label);
+  }
+  return out;
+}
+
+// 子代理端点/模型使用受控下拉：避免用户手抄 Provider/model id，也避免从 Kimi 切到 Ark 后
+// 把上一端点的模型误送给新端点。空值仍保留既有“跟随主端点/自动分级”语义。
+function populateSubagentPreferenceSelects(providerValue, modelValue) {
+  const providerSel = $('cfgSubagentPreferredProvider');
+  const modelSel = $('cfgSubagentPreferredModel');
+  if (!providerSel || !modelSel) return;
+  const providers = Array.isArray(state.config?.providers) ? state.config.providers : [];
+  const preferredProvider = String(providerValue || '').trim();
+  providerSel.textContent = '';
+  const follow = el('option', '', t('settings.advanced.subagentPreferredProvider.followPrimary'));
+  follow.value = '';
+  providerSel.appendChild(follow);
+  for (const provider of providers) {
+    if (!provider || !provider.id) continue;
+    const option = el('option', '', provider.label || provider.id);
+    option.value = provider.id;
+    providerSel.appendChild(option);
+  }
+  if (preferredProvider && !providers.some(provider => provider && provider.id === preferredProvider)) {
+    const stale = el('option', '', t('settings.advanced.savedValue', { value: preferredProvider }));
+    stale.value = preferredProvider;
+    providerSel.appendChild(stale);
+  }
+  providerSel.value = preferredProvider;
+
+  const effectiveProviderId = preferredProvider || state.config?.activeProvider || '';
+  const provider = providers.find(item => item && item.id === effectiveProviderId) || providers[0] || null;
+  const models = subagentProviderModels(provider);
+  const preferredModel = String(modelValue || '').trim();
+  modelSel.textContent = '';
+  const automatic = el('option', '', t('settings.advanced.subagentPreferredModel.automatic'));
+  automatic.value = '';
+  modelSel.appendChild(automatic);
+  for (const model of models) {
+    const option = el('option', '', model.label === model.id ? model.id : `${model.label} · ${model.id}`);
+    option.value = model.id;
+    modelSel.appendChild(option);
+  }
+  if (preferredModel && !models.some(model => model.id === preferredModel)) {
+    const stale = el('option', '', t('settings.advanced.savedValue', { value: preferredModel }));
+    stale.value = preferredModel;
+    modelSel.appendChild(stale);
+  }
+  modelSel.value = preferredModel;
+  modelSel.disabled = !provider;
+}
+
 function fillSettings() {
   const c = state.config;
   updateAgentTeamButton();
@@ -6239,8 +6327,7 @@ function fillSettings() {
   { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 100; }
   { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 8)); }
   { const el0 = $('cfgSubagentMaxPerTurn'); if (el0) el0.value = Math.max(0, Math.min(32, Number.isFinite(Number(c.subagentMaxPerTurn)) ? Number(c.subagentMaxPerTurn) : 32)); }
-  { const el0 = $('cfgSubagentPreferredProvider'); if (el0) el0.value = String(c.subagentPreferredProvider || ''); }
-  { const el0 = $('cfgSubagentPreferredModel'); if (el0) el0.value = String(c.subagentPreferredModel || ''); }
+  populateSubagentPreferenceSelects(c.subagentPreferredProvider, c.subagentPreferredModel);
   { const el0 = $('cfgAgentWorkflowMaxNodes'); if (el0) el0.value = Math.max(1, Math.min(32, Number(c.agentWorkflowMaxNodes) || 32)); }
   // v0.7d: integrations / MCP tab.
   const dm = c.desktopMcp || {};
@@ -7458,7 +7545,7 @@ function paletteActions() {
     { label: t('palette.openSettings'), hint: '', run: () => openModal('settingsModal') },
     { label: t('palette.openProviders'), hint: '', run: () => { openModal('settingsModal'); switchSettingsTab('providers'); } },
     { label: t('palette.openDataDirectory'), hint: '', run: () => { const dr = (state.status && state.status.dataRoot) || ''; if (dr) runTool('browser_open', { url: dr }); else toast(t('palette.dataDirectoryUnknown'), 'err'); } },
-    { label: t('palette.refreshDiagnostics'), hint: '', run: () => { refreshStatus(); switchTab('doctor'); } },
+    { label: t('palette.refreshDiagnostics'), hint: '', run: () => { openModal('settingsModal'); switchSettingsTab('doctor', true); refreshStatus(); } },
     { label: t('palette.stopCurrentTurn'), hint: 'Esc', run: stopTurn },
     { label: t('palette.exportMarkdown'), hint: 'export', run: () => exportSession('md') },
     { label: t('palette.exportJson'), hint: 'export', run: () => exportSession('json') },
@@ -7970,7 +8057,7 @@ function anyModalOpen() { return [...document.querySelectorAll('.modal-backdrop'
 // v1.5 (§1.2): 简易模式可见的设置页签白名单 —— 只留「基础/服务商/联网搜索」。其余(Claude CLI/Agent 角色/
 // 集成 MCP/高级)含 MAX_THINKING_TOKENS / --max-turns / Overlay ID 等开发者字段,对非程序员主画像纯劝退,
 // 一律隐藏。CSS(styles.css)隐藏页签按钮,这里的 JS 兜底防「隐藏页签的面板悬空显示」。
-const SETTINGS_SIMPLE_TABS = new Set(['basic', 'providers', 'network']);
+const SETTINGS_SIMPLE_TABS = new Set(['basic', 'providers', 'network', 'doctor']);
 // Settings tab switcher (§4.5): toggles the tab-bar button + the matching .settings-tab panel.
 // v1.5 (§1.2): 简易模式下,非白名单页签一律落回「基础」;force=true 供明确的开发者入口(如引导页
 // 「配置 Claude CLI」逃生门)绕过收敛,直达目标页签。
@@ -7980,13 +8067,14 @@ function switchSettingsTab(name, force) {
   document.querySelectorAll('#settingsTabs button').forEach(b => b.classList.toggle('active', b.dataset.stab === name));
   document.querySelectorAll('.settings-tab').forEach(s => s.classList.toggle('active', s.id === `stab-${name}`));
   if (name === 'agents') loadAgentRoles();
+  if (name === 'doctor') refreshStatus();
 }
 
 /* ---------------- composer helpers ---------------- */
 // v1.3-FE1:autoGrow 已搬入 ./js/util.js(纯 DOM 尺寸计算,顶部 import 取回);调用点(sendPrompt/boot 等)不变。
 
 // v1.0-S2 (IA): 开发者组页签集合（简易模式全部隐藏；JS 兜底切回 files）。
-const DEV_TABS = new Set(['powershell', 'desktop', 'mcp', 'debug', 'doctor', 'storage']);
+const DEV_TABS = new Set(['powershell', 'desktop', 'mcp', 'debug', 'storage']);
 // v1.0-S2 (IA): #toolOutput 全局原始输出槽只在这些页签下可见——常驻组(文件/产物/审计)有各自的预览区，
 // 不该冒无关原始输出；文件/终端/桌面/MCP 的搜索/读取/运行确实写入此槽。简易模式一律隐藏（CSS 兜底）。
 const TOOLOUT_TABS = new Set(['powershell', 'files', 'desktop', 'mcp']);
@@ -8137,7 +8225,6 @@ function bindEvents() {
   $('sessionSearch').oninput = renderSessions;
   $('bulkCleanupBtn').onclick = () => openBulkCleanupModal();
   $('openSettingsBtn').onclick = () => openModal('settingsModal');
-  $('openDoctorBtn').onclick = () => { refreshStatus(); openToolPane(); switchTab('doctor'); };
   $('helpBtn').onclick = () => openModal('helpModal');
   // v1.0.2 (F2): 折叠/展开侧栏走同一函数,状态持久化到 localStorage('wcw.sidebarCollapsed'),boot 时恢复。
   $('collapseSidebarBtn').onclick = () => setSidebarCollapsed(true);
@@ -8270,6 +8357,7 @@ function bindEvents() {
   { const b = $('agentRoleAddBtn'); if (b) b.onclick = addAgentRole; }
   { const b = $('agentRoleSaveBtn'); if (b) b.onclick = saveAgentRoles; }
   { const s = $('agentRoleScope'); if (s) s.onchange = resetAgentRoleDraft; }
+  { const s = $('cfgSubagentPreferredProvider'); if (s) s.onchange = () => populateSubagentPreferenceSelects(s.value, ''); }
   document.querySelectorAll('#settingsTabs button').forEach(b => { b.onclick = () => switchSettingsTab(b.dataset.stab); });
   { const st = $('cfgSearchType'); if (st) st.onchange = updateSearchBackendVisibility; } // v1.0-S3 (B1)
   { const od = $('openDataDirBtn'); if (od) od.onclick = () => { const dr = (state.status && state.status.dataRoot) || ''; if (dr) runTool('browser_open', { url: dr }); }; }
