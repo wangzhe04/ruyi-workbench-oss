@@ -916,7 +916,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const enabledMemoryEntries = await resolveEnabledMemoryEntries(session, workingDir,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
   ).catch(() => []);
-  let sys = buildProviderSystemPrompt(provider, model, workingDir, initialTools, caps, config, projectMemory, false, enabledSkillEntries, enabledMemoryEntries, session.mission);
+  let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
   if (agentRoleMap.size && initialTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
     sys += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
   }
@@ -943,13 +943,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // Keep this final: dynamic role/workflow/model/plan layers may be in Chinese, but must not decide
   // the language of an English (or otherwise non-Chinese) user conversation.
   sys = appendTurnPolicies(sys, config, agentTeam);
+  // 51d C1b: 易变层前缀(每回合动态,buildBody 注入 messages[1],不持久化避 854 参数未初始化)
+  const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission);
   const headers = { 'content-type': 'application/json' };
   const key = String(provider.apiKey || '').trim();
   if (key) headers['authorization'] = 'Bearer ' + key;
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const buildBody = withTools => {
-    const b = { model, messages: [{ role: 'system', content: sys }, ...session.providerHistory], stream: true, stream_options: { include_usage: true } };
+    const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];
+    // 51d C1b: volatile 前缀注入到第一条 user(messages[1]),不持久化(每回合动态)
+    if (turnVolatile && msgs[1] && msgs[1].role === 'user') {
+      if (typeof msgs[1].content === 'string') {
+        msgs[1] = { ...msgs[1], content: turnVolatile + '\\n\\n' + msgs[1].content };
+      } else if (Array.isArray(msgs[1].content) && msgs[1].content[0] && msgs[1].content[0].type === 'text') {
+        msgs[1] = { ...msgs[1], content: [{ ...msgs[1].content[0], text: turnVolatile + '\\n\\n' + msgs[1].content[0].text }, ...msgs[1].content.slice(1)] };
+      }
+    }
+    const b = { model, messages: msgs, stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
     const loadedTools = toolLoading.current();
     if (withTools && loadedTools.length) { b.tools = loadedTools; b.tool_choice = 'auto'; }

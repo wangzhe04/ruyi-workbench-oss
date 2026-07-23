@@ -129,7 +129,7 @@ const src = readServerSource();
   ok(/buildMissionPromptSection\(session\.mission/.test(claudeRegion), 'F Claude 引擎(runClaudeTurn)注入账本 digest');
   ok(/append-system-prompt/.test(claudeRegion) && /appendMemorySection\(appendSys, misSec/.test(claudeRegion), 'F Claude 侧走 --append-system-prompt 且 fits-or-drop 合并(同记忆契约)');
   const openaiRegion = claudeEnd >= 0 ? src.slice(claudeEnd, claudeEnd + 60000) : '';
-  ok(/buildProviderSystemPrompt\([^)]*session\.mission/.test(openaiRegion), 'F Provider 引擎(runOpenAiTurn)也传 session.mission 注入(对称)');
+  ok(/(buildProviderSystemPrompt|buildVolatileParts)\([^)]*session\.mission/.test(openaiRegion), 'F Provider 引擎(runOpenAiTurn)也传 session.mission 注入(对称;51d C1b 后走 buildVolatileParts)');
 }
 
 console.log('');

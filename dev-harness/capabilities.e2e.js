@@ -63,8 +63,16 @@ function readCaptures(dir) {
     .filter(Boolean);
 }
 function systemOf(body) {
-  const m = (body && Array.isArray(body.messages)) ? body.messages.find(x => x && x.role === 'system') : null;
-  return m ? String(m.content || '') : '';
+  // 51d C1b: volatile 移 user 侧,systemOf 取 system + 第一条 user(volatile 前缀)拼接,断言查标记仍绿
+  if (!body || !Array.isArray(body.messages)) return '';
+  const sys = body.messages.find(x => x && x.role === 'system');
+  const user = body.messages.find(x => x && x.role === 'user');
+  let userText = '';
+  if (user) {
+    if (typeof user.content === 'string') userText = user.content;
+    else if (Array.isArray(user.content)) userText = user.content.map(p => (p && p.text) || '').join('\n');
+  }
+  return (sys ? String(sys.content || '') : '') + '\n' + userText;
 }
 
 

@@ -171,7 +171,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     try {
       for (const file of fs.readdirSync(capO).filter(f => /req-\d+\.json$/.test(f))) {
         const body = JSON.parse(fs.readFileSync(path.join(capO, file), 'utf8'));
-        const system = (body.messages || []).find(m => m && m.role === 'system');
+        const system = { content: (body.messages || []).filter(m => m && (m.role === 'system' || m.role === 'user')).map(m => typeof m.content === 'string' ? m.content : (Array.isArray(m.content) ? m.content.map(p => p && p.text || '').join('\n') : '')).join('\n') };
         if (system && String(system.content || '').includes('子代理编排') && String(system.content || '').includes('dependsOn')) orchestrationPromptPresent = true;
         const users = (body.messages || []).filter(m => m && m.role === 'user').map(m => String(m.content || '')).join('\n');
         if (users.includes('以下是已完成的前序子代理结果') && users.includes('前序观点结论')) priorContextInjected = true;

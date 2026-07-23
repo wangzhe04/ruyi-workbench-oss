@@ -149,7 +149,7 @@ function hasEvictedPlaceholder(ph) {
     ok(userMsgA && Array.isArray(userMsgA.content) && userMsgA.content.some(p => p && p.type === 'image_url'), '(a) user content has an image_url part');
     ok(userMsgA && Array.isArray(userMsgA.content) && userMsgA.content.some(p => p && p.type === 'text'), '(a) user content still has the text part');
     // System prompt carries the VISION 操控规程 (desktop bridge is present via fake-mcp).
-    const sysA = capsA.length && (capsA[0].messages || []).find(m => m && m.role === 'system');
+    const sysA = capsA.length && { content: (capsA[0].messages || []).filter(m => m && (m.role === 'system' || m.role === 'user')).map(m => typeof m.content === 'string' ? m.content : (Array.isArray(m.content) ? m.content.map(p => p && p.text || '').join('\n') : '')).join('\n') };
     ok(sysA && /桌面操控\(视觉路径\)/.test(String(sysA.content || '')), '(a) system prompt has 桌面操控(视觉路径) regimen');
     ok(sysA && !/桌面操控\(文本路径\)/.test(String(sysA.content || '')), '(a) vision path does NOT inject the text-path regimen');
 
@@ -218,7 +218,7 @@ function hasEvictedPlaceholder(ph) {
     const capsD = readCaptures();
     const userMsgD = capsD.length && [...(capsD[0].messages || [])].reverse().find(m => m && m.role === 'user');
     ok(userMsgD && typeof userMsgD.content === 'string', '(d) no-vision: user content is a STRING (no image parts)');
-    const sysD = capsD.length && (capsD[0].messages || []).find(m => m && m.role === 'system');
+    const sysD = capsD.length && { content: (capsD[0].messages || []).filter(m => m && (m.role === 'system' || m.role === 'user')).map(m => typeof m.content === 'string' ? m.content : (Array.isArray(m.content) ? m.content.map(p => p && p.text || '').join('\n') : '')).join('\n') };
     ok(sysD && /桌面操控\(文本路径\)/.test(String(sysD.content || '')), '(d) system prompt has 桌面操控(文本路径) regimen');
     ok(sysD && !/桌面操控\(视觉路径\)/.test(String(sysD.content || '')), '(d) text path does NOT inject the vision-path regimen');
     // (d2) tool screenshot fields are RETAINED in the tool result (NOT converted to an image message).
