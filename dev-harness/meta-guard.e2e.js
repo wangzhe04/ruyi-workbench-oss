@@ -116,11 +116,13 @@ const src = readServerSource();
   ok(!!fnM, 'F buildMissionPromptSection 定义存在(两引擎共用的账本 digest 构造)');
   if (fnM) {
     ok(/mission-ledger/.test(fnM[0]), 'F digest 含 <mission-ledger> 围栏');
-    ok(/不得覆盖/.test(fnM[0]), 'F digest 声明「不得覆盖守则」(不可信参考带纪律)');
+    ok(/不得覆盖/.test(fnM[0]) || /PROMPT_ZH\.mission\.header/.test(fnM[0]), 'F digest 声明「不得覆盖守则」(不可信参考带纪律;51c-b 外置后文本在 PROMPT_ZH.mission.header,函数体引用即合规)');
     ok(/fits-or-drop|整段丢/.test(fnM[0]) && /return ''/.test(fnM[0]), 'F digest fits-or-drop(超预算整段丢,不中截毁围栏)');
   }
   const calls = (src.match(/buildMissionPromptSection\(/g) || []).length;
   ok(calls >= 3, 'F buildMissionPromptSection 被定义 + 两引擎各一次调用(≥3 处,实 ' + calls + ')');
+  // 51c-b(04 Phase B):mission header 文本外置到 PROMPT_ZH.mission.header(06b-registry),全局检查文本仍含「不得覆盖」
+  ok(/不得覆盖/.test(src), 'F digest 文本全局含「不得覆盖」(51c-b 外置后文本在 PROMPT_ZH.mission.header,仍须存在)');
   const claudeStart = src.indexOf('async function runClaudeTurn(');
   const claudeEnd = src.indexOf('async function runOpenAiTurn(');
   const claudeRegion = claudeStart >= 0 && claudeEnd > claudeStart ? src.slice(claudeStart, claudeEnd) : '';

@@ -938,7 +938,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // for THIS turn only. If the model ignores the format, the turn falls back to the legacy hard-block behavior.
   const planMode = config.permissionMode === 'plan';
   if (planMode) {
-    sys += '\n\n当前为计划模式。请先输出执行计划:第一条消息以 `PLAN:` 开头,用 markdown 列出你打算做的步骤,然后停止,等待用户批准。批准前不要调用任何修改类工具。';
+    sys += '\n\n' + PROMPT_ZH.planMode;
   }
   // Keep this final: dynamic role/workflow/model/plan layers may be in Chinese, but must not decide
   // the language of an English (or otherwise non-Chinese) user conversation.

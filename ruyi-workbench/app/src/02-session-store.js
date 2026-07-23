@@ -115,6 +115,7 @@ function sessionMeta(o) {
     createdAt: o.createdAt,
     updatedAt: o.updatedAt,
     messageCount: Number.isFinite(o.messageCount) ? o.messageCount : (o.messages?.length || 0),
+    promptPack: PROMPT_PACK_VERSION, // 51c-b(04 Phase B):提示词包版本,为 A/B 实验与问题回溯奠基
   };
 }
 function sortSessionMetas(arr) {

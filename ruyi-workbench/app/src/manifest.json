@@ -45,6 +45,12 @@
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks"
     },
     {
+      "file": "06b-prompt-registry.js",
+      "startLine": 0,
+      "endLine": 0,
+      "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)"
+    },
+    {
       "file": "07-autonomy.js",
       "startLine": 7206,
       "endLine": 9117,
