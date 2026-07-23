@@ -3,6 +3,34 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
+## v2.0.0 后续迭代 · 2026-07-21 ~ 07-23（47-51 波，未 bump 版本号）
+
+封版后五个功能波（快赢/地基/生态/视觉/规范化），ACC 同步升至 **v1.9.0**（100→107 工具）。全部经"实现 → 对抗多 agent 审查 → 定向修复 → 离线 e2e 回归"循环。
+
+### 中文
+
+**第47波 · 快赢波**：Steer 双引擎（Claude 对话引擎 stdin 即时注入 + provider 引擎队列迭代边界 drain）；桥 cancel/超时契约（声明式按工具超时表 + `notifications/cancelled` + 杀进程树 + 惰性重 spawn 自愈）；token Bootstrap + CSP（HTML 不再明文下发 token，浏览器走 `POST /api/bootstrap` 握手）；overlay 载荷锁。47e：流式中发送按钮三态（发送/插话/停止，ChatGPT 同款）。
+
+**第48波 · 地基波**：提示词护栏 04 Phase A（分层快照测试 + A/B 夹具骨架 + 预算断言）；MCP 配置导入器 v1（.mcp.json / ~/.claude.json / Codex config.toml，TOML 行级状态机零依赖）；P2 verifyManifest mtime 缓存（P1 readConfig 缓存经对抗验证回退）；FE testid 契约铺路。
+
+**第49波 · 生态工具波**：ACC v1.9.0 七新工具（edit_file 局部精确替换 + fetch SSRF 防护 + memory×4 + sequential_thinking）；远程 MCP transport（McpHttpClient 双 transport：streamable-HTTP 2025-03-26 + legacy SSE，headers `${VAR}` 连接时展开密钥不落盘）；ACC 质量战役（读取栈收敛 + TOOLSETS 子集注册 + pyproject extras）；E4 CI（钉 SHA + linux-static + release-dryrun）；A1 后端拆分首批。
+
+**第50波 · UI 视觉焕新波**：V4 毛玻璃定稿（scene-bg 微渐变 + 噪点 + 三档玻璃 + 黛紫/香槟 + 主题三态 light/dark/system）；i18n 清零（95 处 toast codemod + TOOL_VERB_MAP + 工作台节点/Pool/Mail）；a11y P0（installFocusTrap 焦点循环，role="log" 评估为 P2 联动不强行加）；02 Phase D 插话可视化（插话卡静态重渲染 + 队列可视化）；热修（标题卡死「新对话」+ Steer 双消息）。对抗验证修复：`_rpcHttp` 超时补发 `notifications/cancelled` + 7 处 i18n 遗漏。
+
+**第51波 · 提示词与工作流规范化波**：04 Phase D 语义 loop-guard（主回合结果指纹无进展判定，与同签名连击互补，探索工具宽阈值，warn 先行不 abort）+ 《模型工作流规范》双语文档；02 Phase B 打断语义（between-tools 批次边界中断，配对安全补 refusal，Codex 级立即生效）；前端 i18n 清零（50 波遗留 3 处硬编码 map）。
+
+### English
+
+**Wave 47 · Quick wins**: Dual-engine steer (Claude chat engine injects via stdin on the fly + provider engine drains the queue at iteration boundaries); bridge cancel/timeout contract (declarative per-tool timeout table + `notifications/cancelled` + kill process tree + lazy re-spawn self-heal); token Bootstrap + CSP (HTML no longer ships the token in plaintext; browsers handshake via `POST /api/bootstrap`); overlay payload lock. 47e: three-state send button while streaming (send/steer/stop, ChatGPT-style).
+
+**Wave 48 · Foundation**: Prompt guardrails 04 Phase A (layered snapshot tests + A/B fixture scaffold + budget asserts); MCP config importer v1 (.mcp.json / ~/.claude.json / Codex config.toml, zero-dep TOML state machine); P2 verifyManifest mtime cache (P1 readConfig cache reverted after adversarial review); FE testid contract groundwork.
+
+**Wave 49 · Ecosystem tooling**: ACC v1.9.0 seven new tools (edit_file precise in-place replace + fetch SSRF defenses + memory×4 + sequential_thinking); remote MCP transport (McpHttpClient dual transport: streamable-HTTP 2025-03-26 + legacy SSE, headers `${VAR}` expanded at connect, keys never persisted); ACC quality campaign (read-stack convergence + TOOLSETS subset registration + pyproject extras); E4 CI (pinned SHA + linux-static + release-dryrun); A1 backend split batch 1.
+
+**Wave 50 · UI visual refresh**: V4 glassmorphism finalized (scene-bg micro-gradient + noise + three glass tiers + purple/champagne + theme tri-state light/dark/system); i18n cleanup (95 toast codemod + TOOL_VERB_MAP + workbench node/Pool/Mail); a11y P0 (installFocusTrap focus cycling, role="log" deferred to P2 incremental-render); 02 Phase D steer visualization (steer-card static re-render + queue viz); hotfixes (title stuck at "New chat" + Steer double-message). Adversarial-review fixes: `_rpcHttp` timeout now sends `notifications/cancelled` + 7 i18n omissions.
+
+**Wave 51 · Prompt & workflow normalization**: 04 Phase D semantic loop-guard (main-turn result-fingerprint no-progress detection, complementary to identical-signature runs, lenient threshold for exploratory tools, warn-first no-abort) + bilingual Model Workflow Spec doc; 02 Phase B interrupt semantics (between-tools batch-boundary interrupt, pairing-safe refusal, Codex-grade immediate effect); frontend i18n cleanup (3 hardcoded maps left over from wave 50).
+
 ## v2.0.0 · 2026-07-21
 
 ### 中文
