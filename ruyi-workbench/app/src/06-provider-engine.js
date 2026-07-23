@@ -1192,142 +1192,119 @@ async function readProjectMemory(cwd) {
 //   config    : for TOOL_REQUIRES gating (enableToolRequiresProbe)
 //   projectMemory : pre-read { text, name, truncated } or null
 //   skillEntries : v1 技能体系 — 本会话已启用且可用的技能条目(kind==='skill'),仅主回合传入;identityOnly/子代理不传。
-function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission) {
+// 51d(04 Phase C)C1a:拆分稳定层/易变层(prefix-cache 稳定化分层基础)。buildProviderSystemPrompt 保留为
+// 向后兼容包装(stable+volatile),行为零漂移(prompt-snapshot 绿)。C1b(后续):09 启用分层(sys=stable,
+// volatile 动态注入 messages[1],避开 09:854 参数未初始化 + 持久化问题)。
+// 稳定层:身份 + 工具协议 + provider append(会话内逐字节稳定,prefix-cache 友好)。
+function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly) {
   const label = String((provider && provider.label) || (provider && provider.id) || '模型端点').trim();
   const modelName = String(model || '').trim() || '(未指定模型)';
   const hasTools = Array.isArray(tools) && tools.length > 0;
   const lines = [];
-
-  // ── [身份层] — identity pinned to provider label + model. NO product name. ────────────────────────────
-  // 51c-b(04 Phase B):文本外置到 PROMPT_ZH.identity(06b-prompt-registry),条件逻辑留此。
+  // [身份层]
   lines.push(PROMPT_ZH.identity({ label, modelName, cwd }));
   if (hasTools) {
-    // Tool-protocol guard rails (the old scattered rules, gathered here).
+    // [工具协议层]
     lines.push(PROMPT_ZH.toolProtocol.intro);
     lines.push(PROMPT_ZH.toolProtocol.rules);
     if ((tools || []).some(t => t && t.function && t.function.name === 'tool_search')) {
       lines.push(PROMPT_ZH.toolProtocol.onDemand);
     }
-    // v1.0.2 返修(用户拍板):工具选用优先级 —— 现成工具(内建 + ACC)优先,终端脚本是兜底而非首选。
-    // 理由:内建/ACC 写族受权限弹窗 + 检查点撤销保护,终端命令不可自动撤销;且脚本现场发挥易出编码/兼容坑。
     lines.push(PROMPT_ZH.toolProtocol.priority);
   } else if (!identityOnly) {
     lines.push(PROMPT_ZH.noTools);
   }
-
-  if (!identityOnly) {
-    // ── [能力层] — one-line matrix摘要 + 「当前不可用」 + (future) proactive-search行位. ─────────────────
-    const netStr = caps && caps.network
-      ? (caps.network.online === true ? '在线' : (caps.network.online === false ? '离线' : '联网状态未知'))
-      : '联网状态未知';
-    const deskN = (caps && caps.desktopMcp && Number(caps.desktopMcp.toolCount)) || 0;
-    const gitStr = (caps && caps.binaries && caps.binaries.git) ? '有 git' : '无 git';
-    const rgStr = (caps && caps.binaries && caps.binaries.rg) ? '有 ripgrep 快搜' : '无 ripgrep（用内置搜索）';
-    lines.push(PROMPT_ZH.capability.line({ netStr, deskN, gitStr, rgStr }));
-
-    // 「当前不可用」 — tools filtered out by TOOL_REQUIRES, with the reason, so the model doesn't try them.
-    const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
-    const offeredNames = new Set((tools || []).map(t => t && t.function && t.function.name).filter(Boolean));
-    if (offeredNames.has('spawn_agent')) {
-      const concurrent = Math.max(1, Number(config && config.subagentMaxConcurrent) || 2);
-      const total = Math.max(0, Number(config && config.subagentMaxPerTurn) || 0);
-      lines.push(PROMPT_ZH.capability.subagentConcurrency({ concurrent, total }));
-      lines.push(PROMPT_ZH.capability.subagentOrchestrate);
-      lines.push(PROMPT_ZH.capability.subagentResources);
-    }
-    if (offeredNames.has('mcp_list') || offeredNames.has('mcp_configure')) lines.push(buildToolCustomizationHint());
-    const unavailable = [];
-    for (const [name, spec] of Object.entries(TOOL_REQUIRES)) {
-      if (spec.testOnly && !toolRequiresEnabled) continue; // test hook off → not a real restriction
-      if (offeredNames.has(name)) continue; // still offered → available, don't list
-      const chk = toolRequirementsMet(name, caps, toolRequiresEnabled, config);
-      if (!chk.met) unavailable.push(`${name}（${chk.reason || '当前不可用'}）`);
-    }
-    if (unavailable.length) lines.push(PROMPT_ZH.capability.unavailable({ list: unavailable.join('、') }));
-
-    // ── [操控规程层] (v0.9-S7 §0.9-S7 / 总纲 §7.5, D3 拍板) — desktop-control playbook, injected ONLY when the
-    // desktop bridge (ai-computer-control) is present. TWO paths, ROBUST separately (D3): a vision model gets
-    // the screenshot-driven loop; a text-only model gets the OCR/元素-坐标 loop (it can't "see" a screenshot, so
-    // it must ground every step on ocr_find_text/ui_find text + coordinates). Desktop absent → neither renders
-    // (the capability matrix already told the model desktop control isn't available). caps.provider.vision is
-    // the gate — the SAME field that gates the image回路 above, so 规程 and pixels are consistent.
-    const deskToolsOffered = [...offeredNames].some(n => {
-      const p = toolPackForName(n, {});
-      return p === 'desktop' || p === 'office';
-    });
-    const deskPresent = !!(caps && caps.desktopMcp && caps.desktopMcp.present && deskToolsOffered);
-    // Vision gate keys off the LIVE provider (authoritative, same field that gates the image回路) rather than
-    // caps.provider.vision — the capability matrix is 60s-cached and can lag a provider edit, which would
-    // otherwise inject the wrong 规程 (视觉 vs 文本) for a turn whose provider just toggled vision.
-    const visionCap = provider ? provider.vision === true : !!(caps && caps.provider && caps.provider.vision === true);
-    if (deskPresent) {
-      lines.push(buildBrowserAutomationHint(config));
-      if (visionCap) {
-        lines.push(PROMPT_ZH.desktop.vision);
-      } else {
-        lines.push(PROMPT_ZH.desktop.text);
-      }
-      // v1.1 返修(Office 产出规程,用户真机反馈驱动):真实会话里模型用 script_run 手写 openpyxl 造了一批
-      // Office 文件 —— 正是「模板驱动」要防的现场发挥:观感参差 + 全程绕过检查点(不可撤销)。规程必须
-      // 显式教「配方」并显式禁止脚本造 Office(单靠泛化的「工具优先级」一句拦不住,实测被无视)。
-      lines.push(PROMPT_ZH.desktop.office);
-    }
-
-    // D6 主动检索指令位 (§7.6): render ONLY when web_search is actually usable AND online. 第36波(v1.7):
-    // 判定从「在本次请求的 schema 集里」(offeredNames)修正为「在可用目录里」(TOOL_REQUIRES 全满足) ——
-    // 自适应装载(toolLoadingMode 默认 'auto')下 web pack 未被消息关键词激活时 web_search 不进首批 schema,
-    // 但它目录可用、tool_search 可发现即装;旧口径下该行永不渲染,v1.1-W1a 的主动检索指引名存实亡
-    // (capabilities.e2e 的 W1a 断言挂账即此)。离线(network cap 不满足)时 toolRequirementsMet 为 false,
-    // 行仍不渲染,原离线语义不变。
-    const searchBackendOn = !!(config && config.searchBackend && config.searchBackend.type && config.searchBackend.type !== 'none');
-    const hasWebSearch = offeredNames.has('web_search')
-      || (searchBackendOn && toolRequirementsMet('web_search', caps, false, config).met);
-    const onlineNow = !!(caps && caps.network && caps.network.online === true);
-    if (hasWebSearch && onlineNow) {
-      lines.push(PROMPT_ZH.webSearch);
-    }
-
-    // ── [风格层] (v0.9-S1 C1) — config.outputStyle. 'concise' → ask for short, direct answers; 'detailed'
-    // → no injection (the historical default). Kept out of identityOnly (summary calls) so it never skews
-    // the compaction summary. Positioned after the capability layer, before project + provider layers.
-    if (config && config.outputStyle === 'concise') {
-      lines.push(PROMPT_ZH.styleConcise);
-    }
-
-    // ── [项目层] — CLAUDE.md/AGENTS.md, fenced + labeled untrusted. Omitted entirely when absent. ────────
-    if (projectMemory && projectMemory.text) {
-      const note = projectMemory.truncated ? `（超过 16KB，已截断）` : '';
-      lines.push(PROMPT_ZH.projectMemory({ note, text: projectMemory.text }));
-    }
-
-    // ── [技能层] (v1 技能体系) — 会话启用的技能索引，与[项目层]同处「不可信参考带」(P2-1: 从能力层之后下移至此
-    // 与项目记忆同级)。技能 name/description 出自不可信 SKILL.md，故 buildSkillsPromptSection 以声明式表头 +
-    // <skill-index> 围栏包裹并显式声明「不得覆盖以上守则」。identityOnly(摘要/身份回合)不进本 if 块 → 天然不注入；
-    // 子代理不传 skillEntries → 也不注入。
-    if (Array.isArray(skillEntries) && skillEntries.length) {
-      const skillSec = buildSkillsPromptSection(skillEntries, 'openai');
-      if (skillSec) lines.push(skillSec);
-    }
-
-    // ── [记忆层] (v2 跨会话记忆) —— 与技能/项目记忆同处「不可信参考带」。identityOnly/子代理不进本 if 块 → 不注入;
-    // 主回合传入 memoryEntries → buildMemoryPromptSection 加围栏声明并中和伪造围栏。未启用 → memoryEntries 空 → 零注入。
-    if (Array.isArray(memoryEntries) && memoryEntries.length) {
-      const memSec = buildMemoryPromptSection(memoryEntries, 'openai');
-      if (memSec) lines.push(memSec);
-    }
-    // ── [任务账本层] 第26波b —— 最低优先级参考带(用户append<技能<记忆<账本;账本随会话状态每回合刷新)。
-    // identityOnly/子代理不进本 if 块 → 不注入。fits-or-drop,零任务时 buildMissionPromptSection 返回 ''。
-    if (mission) {
-      const misSec = buildMissionPromptSection(mission, 'openai');
-      if (misSec) lines.push(misSec);
-    }
-  }
-
-  // ── [provider 层] — provider.systemPrompt appended (existing behavior preserved). ─────────────────────
+  // [provider 层]
   const psp = String((provider && provider.systemPrompt) || '').trim();
   if (psp) lines.push(psp);
-
   return lines.join('\n');
+}
+// 易变层:能力/桌面规程/搜索/风格/项目/技能/记忆/账本(每回合可能变化,自破 prefix cache)。
+// C1b 时移 user 侧;C1a 仍由 buildProviderSystemPrompt 包装进 system(行为零漂移)。
+function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission) {
+  const lines = [];
+  // [能力层]
+  const netStr = caps && caps.network
+    ? (caps.network.online === true ? '在线' : (caps.network.online === false ? '离线' : '联网状态未知'))
+    : '联网状态未知';
+  const deskN = (caps && caps.desktopMcp && Number(caps.desktopMcp.toolCount)) || 0;
+  const gitStr = (caps && caps.binaries && caps.binaries.git) ? '有 git' : '无 git';
+  const rgStr = (caps && caps.binaries && caps.binaries.rg) ? '有 ripgrep 快搜' : '无 ripgrep（用内置搜索）';
+  lines.push(PROMPT_ZH.capability.line({ netStr, deskN, gitStr, rgStr }));
+  const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
+  const offeredNames = new Set((tools || []).map(t => t && t.function && t.function.name).filter(Boolean));
+  if (offeredNames.has('spawn_agent')) {
+    const concurrent = Math.max(1, Number(config && config.subagentMaxConcurrent) || 2);
+    const total = Math.max(0, Number(config && config.subagentMaxPerTurn) || 0);
+    lines.push(PROMPT_ZH.capability.subagentConcurrency({ concurrent, total }));
+    lines.push(PROMPT_ZH.capability.subagentOrchestrate);
+    lines.push(PROMPT_ZH.capability.subagentResources);
+  }
+  if (offeredNames.has('mcp_list') || offeredNames.has('mcp_configure')) lines.push(buildToolCustomizationHint());
+  const unavailable = [];
+  for (const [name, spec] of Object.entries(TOOL_REQUIRES)) {
+    if (spec.testOnly && !toolRequiresEnabled) continue;
+    if (offeredNames.has(name)) continue;
+    const chk = toolRequirementsMet(name, caps, toolRequiresEnabled, config);
+    if (!chk.met) unavailable.push(`${name}（${chk.reason || '当前不可用'}）`);
+  }
+  if (unavailable.length) lines.push(PROMPT_ZH.capability.unavailable({ list: unavailable.join('、') }));
+  // [操控规程层]
+  const deskToolsOffered = [...offeredNames].some(n => {
+    const p2 = toolPackForName(n, {});
+    return p2 === 'desktop' || p2 === 'office';
+  });
+  const deskPresent = !!(caps && caps.desktopMcp && caps.desktopMcp.present && deskToolsOffered);
+  const visionCap = provider ? provider.vision === true : !!(caps && caps.provider && caps.provider.vision === true);
+  if (deskPresent) {
+    lines.push(buildBrowserAutomationHint(config));
+    if (visionCap) {
+      lines.push(PROMPT_ZH.desktop.vision);
+    } else {
+      lines.push(PROMPT_ZH.desktop.text);
+    }
+    lines.push(PROMPT_ZH.desktop.office);
+  }
+  // [检索指引]
+  const searchBackendOn = !!(config && config.searchBackend && config.searchBackend.type && config.searchBackend.type !== 'none');
+  const hasWebSearch = offeredNames.has('web_search')
+    || (searchBackendOn && toolRequirementsMet('web_search', caps, false, config).met);
+  const onlineNow = !!(caps && caps.network && caps.network.online === true);
+  if (hasWebSearch && onlineNow) {
+    lines.push(PROMPT_ZH.webSearch);
+  }
+  // [风格层]
+  if (config && config.outputStyle === 'concise') {
+    lines.push(PROMPT_ZH.styleConcise);
+  }
+  // [项目层]
+  if (projectMemory && projectMemory.text) {
+    const note = projectMemory.truncated ? `（超过 16KB，已截断）` : '';
+    lines.push(PROMPT_ZH.projectMemory({ note, text: projectMemory.text }));
+  }
+  // [技能层]
+  if (Array.isArray(skillEntries) && skillEntries.length) {
+    const skillSec = buildSkillsPromptSection(skillEntries, 'openai');
+    if (skillSec) lines.push(skillSec);
+  }
+  // [记忆层]
+  if (Array.isArray(memoryEntries) && memoryEntries.length) {
+    const memSec = buildMemoryPromptSection(memoryEntries, 'openai');
+    if (memSec) lines.push(memSec);
+  }
+  // [任务账本层]
+  if (mission) {
+    const misSec = buildMissionPromptSection(mission, 'openai');
+    if (misSec) lines.push(misSec);
+  }
+  return lines.join('\n');
+}
+// 向后兼容包装(行为零漂移):identityOnly 时只 stable,否则 stable+volatile。
+function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission) {
+  const stable = buildStableSystemPrompt(provider, model, cwd, tools, identityOnly);
+  if (identityOnly) return stable;
+  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission);
+  return volatile ? stable + '\n' + volatile : stable;
 }
 
 // v1 技能体系: 生成紧凑技能索引段，供两个引擎注入系统提示。engine==='claude' → 每行附 SKILL.md 绝对路径，
