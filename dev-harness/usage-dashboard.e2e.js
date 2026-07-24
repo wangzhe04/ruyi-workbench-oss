@@ -27,6 +27,7 @@ const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
 const src = readFrontendSrc();
+const zh = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'docs', 'i18n', 'locales', 'zh-CN.json'), 'utf8'));
 
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
@@ -85,7 +86,8 @@ ok(/totals\.inTok/.test(src) && /totals\.outTok/.test(src), '④ 聚合头读取
 ok(/estimatedTurns/.test(src) && /usage\.turns\.estimated/.test(src), '④ estimatedTurns>0 时标注估算回合');
 ok(/costsByCurrency/.test(src), '④ 渲染 costsByCurrency（按币种分组，不换算）');
 ok(/usage\.cost\.estimate/.test(src) && /usage\.note\.cost/.test(src), '④ 成本用「估算/非实际扣费」诚实措辞');
-ok(/'约 '/.test(src), '④ 金额带「约」前缀（fmtCostsByCurrency prefix）');
+ok(/t\('usage\.cost\.prefix'\)/.test(src) && zh['usage.cost.prefix'] === '约 ',
+  '④ 金额带「约」前缀（fmtCostsByCurrency prefix，代码与中文 locale 双向锁）');
 
 // ───────────── ⑤ 分组条：手绘 SVG + 引擎双色 ─────────────
 ok(/function usageGroup\(/.test(src), '⑤ 定义 usageGroup（按引擎/服务商/会话）');

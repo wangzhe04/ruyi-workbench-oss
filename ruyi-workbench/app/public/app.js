@@ -1858,6 +1858,35 @@ function openRewindModal(msg) {
     } catch (e) { modal.close(); toast(t("toast.rewindFail", { p1: apiErrText(e) }), 'err'); }
   };
 }
+function renderStaticNativeAgent(record) {
+  const ok = record && record.ok === true;
+  const interrupted = record && (record.interrupted || record.status === 'interrupted');
+  const d = el('details', `subagent-card ${ok ? 'sa-ok' : 'sa-err'}`);
+  d.open = !ok;
+  const sum = el('summary', 'subagent-head');
+  const task = String(record && record.task || '').replace(/\s+/g, ' ').trim();
+  const taskShort = task.length > 40 ? task.slice(0, 40) + '…' : task;
+  const roleTag = record && (record.roleLabel || record.roleId) ? ` · ${record.roleLabel || record.roleId}` : '';
+  const driverTag = t('chat.claudeNative');
+  sum.append(
+    el('span', 'sa-icon', '🤖'),
+    el('span', 'sa-title', t('chat.subtask', { desc: taskShort || t('chat.noDescription') })),
+    el('span', `sa-status ${ok ? 'ok' : 'err'}`, `${ok ? t('chat.nativeAgentCompleted') : (interrupted ? t('chat.nativeAgentInterrupted') : t('status.failed'))}${roleTag}${driverTag}`),
+  );
+  d.appendChild(sum);
+  const body = el('div', 'subagent-body');
+  if (record && record.result) {
+    const wrap = el('div', 'sa-result');
+    wrap.appendChild(el('div', 'sa-result-label', ok ? t('chat.subtaskConclusion') : t('chat.subtaskError')));
+    const pre = el('pre', 'sa-result-text', record.result);
+    wrap.appendChild(wrapPreWithCopy(pre));
+    if (record.resultTruncated) wrap.appendChild(el('div', 'sa-result-note', t('chat.resultTooLong')));
+    body.appendChild(wrap);
+  }
+  d.appendChild(body);
+  return d;
+}
+
 function renderStaticMessage(msg) {
   const meta = msg.role === 'assistant' ? metaFromMessage(msg) : null;
   const { row, main } = messageShell(msg.role, msg.createdAt, meta);
@@ -1872,13 +1901,18 @@ function renderStaticMessage(msg) {
     bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(msg.content || ''); highlightIn(bubble);
   } else { bubble.classList.add('plain'); bubble.textContent = msg.content || ''; }
   main.appendChild(bubble);
-  if (Array.isArray(msg.toolCalls) && msg.toolCalls.length) {
+  const nativeAgents = Array.isArray(msg.nativeAgents) ? msg.nativeAgents : [];
+  const visibleToolCalls = Array.isArray(msg.toolCalls)
+    ? msg.toolCalls.filter(tc => !nativeAgents.length || !['Agent', 'Task', 'TaskOutput'].includes(tc && tc.name))
+    : [];
+  if (visibleToolCalls.length) {
     // v1.0.2 (G4): >3 top-level tool cards → collapse them all into one <details.tool-group>. ≤3 render flat.
-    const cardEls = msg.toolCalls.map(tc => toolCard(tc).d);
+    const cardEls = visibleToolCalls.map(tc => toolCard(tc).d);
     const group = buildStaticToolGroup(cardEls);
     if (group) main.appendChild(group);
     else for (const c of cardEls) main.appendChild(c);
   }
+  for (const record of nativeAgents) main.appendChild(renderStaticNativeAgent(record));
   if (msg.turnSummary) {
     main.appendChild(turnSummaryCard(msg.turnSummary)); // v0.8-S3 「本轮变更」
     const chips = turnArtifactChips(msg.turnSummary); if (chips) main.appendChild(chips); // v1.0.2 (G2)
@@ -2244,7 +2278,7 @@ async function sendPrompt(overrideText) {
   let live = shell.live, main = shell.main;
 
   const turnAbort = new AbortController();
-  const turnState = { abort: turnAbort, startedAt: Date.now(), eventLines: [], eventChars: 0, answeredQuestions: new Set(), live, main };
+  const turnState = { abort: turnAbort, startedAt: Date.now(), message, eventLines: [], eventChars: 0, answeredQuestions: new Set(), live, main };
   activeTurns.set(turnSessionId, turnState);
   syncStreamingUi();
   renderSessions();
@@ -2610,12 +2644,12 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // v0.9-S6 (子代理): a delegated sub-turn started/ended. `start` opens a nested collapsed card that will
       // hold the sub-turn's own tool_use/tool_result (routed here by subagentId). `end` stamps the head with
       // ✓/✗ + a short conclusion summary. See handleSubagentEvent.
-      handleSubagentEvent(evt, live);
+      handleSubagentEvent(evt, live, streamSessionId);
       break;
     case 'subagent_progress':
       // v1.4.6 (C): a tool-less Claude sub-turn reporting streamed-text growth. Refresh its card head so the
       // live chat view shows "生成中 · N 字" instead of a silent stall until the ✓/✗ (routed by subagentId).
-      handleSubagentEvent(evt, live);
+      handleSubagentEvent(evt, live, streamSessionId);
       break;
     case 'agent_workflow':
       handleAgentWorkflowEvent(evt, live);
@@ -2718,6 +2752,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       scrollMessagesToBottom();
       break;
     case 'result':
+      wbNativeClaudeFinalize(streamSessionId, evt);
       // v0.9-S1 (C6): error human-card. On a failed turn (or any turn carrying an errorClass) render a plain-
       // language card with the zh copy + one 「下一步」 action (from ERROR_CLASSES). A clean turn has no
       // errorClass and ok:true → nothing renders. noFilesChanged reassurance shows only when the turn_summary
@@ -3293,8 +3328,8 @@ async function openWorkflowEditor(initialId) {
     inspector.append(
       group(t('workflow.nodeIdentity'), workflowField(t('workflow.nodeId'),nid), workflowField(t('workflow.nodeTask'),task), workflowField(t('workflow.nodeRole'),role)),
       group(t('workflow.nodeExecution'), workflowField(t('workflow.nodeEngine'),engine), modelField, workflowField(t('workflow.nodeMaxIters'),maxIters), workflowField(t('workflow.nodeToolTier'),toolTier)),
-      group(t('workflow.nodeOrchestration'), workflowField(t('workflow.nodeDependsOn'),deps), el('div','workflow-help',t('workflow.nodeDependsOnHint')), workflowField(t('workflow.nodeFailurePolicy'),dependencyPolicy), workflowField(t('workflow.nodeCondition'),condition), workflowField(t('workflow.nodeLoopMax'),loopMax), workflowField(t('workflow.nodeLoopUntil'),loopUntil), workflowField(t('workflow.nodeProgressPath'),progressPath), el('div','workflow-help',t('workflow.nodeProgressPathHint')), workflowField(t('workflow.nodeNoProgressLimit'),noProgress)),
-      group(t('workflow.nodeQuality'), workflowField(t('workflow.nodeGate'),gate), el('div','workflow-help',t('workflow.nodeGateHint')), workflowField('失败策略',failure), workflowField(t('workflow.nodeMinToolCalls'),minToolEvidence), workflowField(t('workflow.nodeMaxRetries'),maxRetries)),
+      group(t('workflow.nodeOrchestration'), workflowField(t('workflow.nodeDependsOn'),deps), el('div','workflow-help',t('workflow.nodeDependsOnHint')), workflowField(t('workflow.nodeDependencyPolicy'),dependencyPolicy), workflowField(t('workflow.nodeCondition'),condition), workflowField(t('workflow.nodeLoopMax'),loopMax), workflowField(t('workflow.nodeLoopUntil'),loopUntil), workflowField(t('workflow.nodeProgressPath'),progressPath), el('div','workflow-help',t('workflow.nodeProgressPathHint')), workflowField(t('workflow.nodeNoProgressLimit'),noProgress)),
+      group(t('workflow.nodeQuality'), workflowField(t('workflow.nodeGate'),gate), el('div','workflow-help',t('workflow.nodeGateHint')), workflowField(t('workflow.nodeFailurePolicy'),failure), workflowField(t('workflow.nodeMinToolCalls'),minToolEvidence), workflowField(t('workflow.nodeMaxRetries'),maxRetries)),
       adv
     );
     const apply=el('button','primary wf-apply',t('workflow.applyNodeSettings'));
@@ -3902,8 +3937,206 @@ try { window.layoutWorkbenchDAG = layoutWorkbenchDAG; } catch { /* ignore */ }
 // P3a 视图状态(§5.3)。selectedRunId 决定画布画哪个 run;lastRuns 缓存最近一次轮询数据供切视图即时重绘;
 // posCache 按 run 记忆布局(拓扑签名不变则复用坐标 → 状态/进度变化时节点不抖动)。
 // v3 P3b 追加交互态:zoom(画布缩放挡位)/panelOpen(右板三段折叠记忆,轮询重绘不丢)/sideOpen(窄屏抽屉开合)。
-const wbState = { view: 'chat', selectedRunId: null, selectedNodeId: null, lastRuns: [], posCache: {}, zoom: 1, panelOpen: { detail: true, pool: true, mail: true }, detailExpand: { task: false, result: false }, sideOpen: false };
+const wbState = { view: 'chat', selectedRunId: null, selectedNodeId: null, persistedRuns: [], lastRuns: [], posCache: {}, zoom: 1, panelOpen: { detail: true, pool: true, mail: true }, detailExpand: { task: false, result: false }, sideOpen: false };
 try { window.wbState = wbState; } catch { /* ignore */ } // preview/调试可及(同 window.state 兼容层)
+// Claude CLI's native Agent calls are not workbench-managed workflow runs, but the parent stream exposes
+// an honest parent→child relationship and lifecycle. Keep a small read-only in-memory projection so they
+// are visible in the DAG without pretending that Ruyi controls their internal nodes or dependencies.
+const nativeClaudeDagRuns = new Map(); // sessionId -> run[] (latest first, max 8)
+function wbNativeClaudeSessionRuns(sessionId) {
+  if (!sessionId) return [];
+  if (!nativeClaudeDagRuns.has(sessionId)) nativeClaudeDagRuns.set(sessionId, []);
+  return nativeClaudeDagRuns.get(sessionId);
+}
+function wbNativeClaudeHydratedRuns(session) {
+  const messages = session && Array.isArray(session.messages) ? session.messages : [];
+  const runs = [];
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+    const records = message && Array.isArray(message.nativeAgents) ? message.nativeAgents : [];
+    if (!records.length) continue;
+    let parentTask = t('workflow.nativeClaude.parentTask');
+    for (let j = i - 1; j >= 0; j--) {
+      if (messages[j] && messages[j].role === 'user') { parentTask = messages[j].content || parentTask; break; }
+    }
+    const turnSeq = Number(message.turnSeq) || 0;
+    const createdAt = records.map(r => r && r.startedAt).find(Boolean) || message.createdAt || new Date().toISOString();
+    const completedAt = records.map(r => r && r.completedAt).filter(Boolean).sort().pop() || message.createdAt || createdAt;
+    const nodes = [{
+      id: 'claude-parent',
+      roleId: 'claude-parent',
+      roleLabel: t('workflow.nativeClaude.parentRole'),
+      task: parentTask,
+      result: message.content || '',
+      engine: 'claude',
+      status: message.source === 'aborted' ? 'interrupted' : 'succeeded',
+      startedAt: createdAt,
+      completedAt,
+      dependsOn: [],
+      progressLog: [{ at: completedAt, text: message.source === 'aborted' ? t('workflow.nativeClaude.parentFailed') : t('workflow.nativeClaude.parentCompleted') }],
+    }];
+    for (const record of records) {
+      if (!record || !record.toolUseId) continue;
+      const status = record.ok === true ? 'succeeded' : (record.interrupted || record.status === 'interrupted' ? 'interrupted' : 'failed');
+      nodes.push({
+        id: String(record.toolUseId),
+        roleId: record.roleId || 'general-purpose',
+        roleLabel: record.roleLabel || record.roleId || t('workflow.nativeClaude.childRole'),
+        task: record.task || '',
+        result: record.result || '',
+        error: record.ok === true ? '' : (record.result || t('workflow.nativeClaude.failed')),
+        engine: 'claude',
+        status,
+        startedAt: record.startedAt || createdAt,
+        completedAt: record.completedAt || completedAt,
+        dependsOn: ['claude-parent'],
+        progressLog: [{ at: record.completedAt || completedAt, text: status === 'succeeded' ? t('workflow.nativeClaude.completed') : (status === 'interrupted' ? t('workflow.nativeClaude.interrupted') : t('workflow.nativeClaude.failed')) }],
+      });
+    }
+    const failed = nodes.some(n => n.status === 'failed' || n.status === 'interrupted');
+    if (failed) nodes[0].status = message.source === 'aborted' ? 'interrupted' : 'failed';
+    runs.push({
+      id: `claude-native-history-${session.id}-${turnSeq || i}`,
+      title: t('workflow.nativeClaude.runTitle'),
+      turnSeq,
+      status: failed ? (message.source === 'aborted' ? 'interrupted' : 'failed') : 'succeeded',
+      live: false,
+      nativeClaude: true,
+      readOnly: true,
+      createdAt,
+      completedAt,
+      updatedAt: completedAt,
+      taskPool: [],
+      messages: [],
+      nodes,
+    });
+  }
+  return runs.reverse().slice(0, 8);
+}
+function wbNativeClaudeMergedRuns(persisted) {
+  const sid = state.currentSession && state.currentSession.id;
+  const observed = wbNativeClaudeSessionRuns(sid);
+  const observedTurns = new Set(observed.map(r => Number(r.turnSeq) || 0).filter(Boolean));
+  const history = wbNativeClaudeHydratedRuns(state.currentSession).filter(r => !r.turnSeq || !observedTurns.has(r.turnSeq));
+  return [...observed, ...history, ...(Array.isArray(persisted) ? persisted : [])];
+}
+function wbNativeClaudeProgress(node, text, at) {
+  if (!node || !text) return;
+  if (!Array.isArray(node.progressLog)) node.progressLog = [];
+  const last = node.progressLog[node.progressLog.length - 1];
+  if (!last || last.text !== text) node.progressLog.push({ at: at || new Date().toISOString(), text });
+  if (node.progressLog.length > 24) node.progressLog = node.progressLog.slice(-24);
+}
+function wbNativeClaudeEnsureRun(sessionId) {
+  const turn = activeTurns.get(sessionId);
+  if (!turn) return null;
+  const runs = wbNativeClaudeSessionRuns(sessionId);
+  let run = turn.nativeDagRunId && runs.find(r => r.id === turn.nativeDagRunId);
+  if (run) return run;
+  const startedAt = new Date(turn.startedAt || Date.now()).toISOString();
+  const runId = `claude-native-${sessionId}-${turn.startedAt || Date.now()}`;
+  run = {
+    id: runId,
+    title: t('workflow.nativeClaude.runTitle'),
+    status: 'running',
+    live: true,
+    nativeClaude: true,
+    readOnly: true,
+    turnSeq: Number(state.currentSession && state.currentSession.turnSeq) || 0,
+    createdAt: startedAt,
+    updatedAt: startedAt,
+    taskPool: [],
+    messages: [],
+    nodes: [{
+      id: 'claude-parent',
+      roleId: 'claude-parent',
+      roleLabel: t('workflow.nativeClaude.parentRole'),
+      task: turn.message || t('workflow.nativeClaude.parentTask'),
+      engine: 'claude',
+      status: 'running',
+      startedAt,
+      dependsOn: [],
+      progressLog: [{ at: startedAt, text: t('workflow.nativeClaude.parentStarted') }],
+    }],
+  };
+  turn.nativeDagRunId = runId;
+  runs.unshift(run);
+  if (runs.length > 8) runs.splice(8);
+  return run;
+}
+function wbNativeClaudeRefresh() {
+  const merged = wbNativeClaudeMergedRuns(wbState.persistedRuns);
+  wbState.lastRuns = merged;
+  wbUpdateActivityDot(merged);
+  if (wbState.view === 'canvas') renderWorkbench(merged);
+}
+function wbNativeClaudeOnSubagent(evt, sessionId) {
+  if (!evt || evt.native !== true || evt.engine !== 'claude' || !sessionId) return;
+  const run = wbNativeClaudeEnsureRun(sessionId);
+  if (!run) return;
+  const nodeId = String(evt.id || evt.subagentId || '');
+  if (!nodeId) return;
+  let node = run.nodes.find(n => n.id === nodeId);
+  if (evt.state === 'start' && !node) {
+    const at = new Date().toISOString();
+    node = {
+      id: nodeId,
+      roleId: evt.roleId || 'general-purpose',
+      roleLabel: evt.roleLabel || evt.roleId || t('workflow.nativeClaude.childRole'),
+      task: evt.task || '',
+      engine: 'claude',
+      model: evt.model || '',
+      status: 'running',
+      startedAt: at,
+      dependsOn: ['claude-parent'],
+      progressLog: [{ at, text: t('workflow.nativeClaude.childStarted') }],
+    };
+    run.nodes.push(node);
+  }
+  if (!node) return;
+  const at = new Date().toISOString();
+  if (evt.type === 'subagent_progress' || evt.state === 'background') {
+    node.status = 'running';
+    wbNativeClaudeProgress(node, evt.note || (evt.state === 'background' ? t('workflow.nativeClaude.background') : t('workflow.nativeClaude.running')), at);
+  } else if (evt.state === 'end') {
+    node.status = evt.ok === true ? 'succeeded' : (evt.interrupted || evt.status === 'interrupted' ? 'interrupted' : 'failed');
+    node.completedAt = at;
+    node.result = evt.result || '';
+    if (evt.ok !== true) node.error = evt.result || t('workflow.nativeClaude.failed');
+    wbNativeClaudeProgress(node, evt.ok === true ? t('workflow.nativeClaude.completed') : (node.status === 'interrupted' ? t('workflow.nativeClaude.interrupted') : t('workflow.nativeClaude.failed')), at);
+  }
+  run.updatedAt = at;
+  wbNativeClaudeRefresh();
+}
+function wbNativeClaudeFinalize(sessionId, resultEvt) {
+  const turn = activeTurns.get(sessionId);
+  if (!turn || !turn.nativeDagRunId) return;
+  const run = wbNativeClaudeSessionRuns(sessionId).find(r => r.id === turn.nativeDagRunId);
+  if (!run || !run.live) return;
+  const at = new Date().toISOString();
+  for (const node of run.nodes.slice(1)) {
+    if (node.status === 'running' || node.status === 'waiting_resource') {
+      node.status = 'interrupted';
+      node.completedAt = at;
+      node.error = t('workflow.nativeClaude.interrupted');
+      wbNativeClaudeProgress(node, t('workflow.nativeClaude.interrupted'), at);
+    }
+  }
+  const parent = run.nodes.find(n => n.id === 'claude-parent');
+  const childFailed = run.nodes.slice(1).some(n => n.status === 'failed' || n.status === 'interrupted');
+  const ok = resultEvt && resultEvt.ok === true && !childFailed;
+  if (parent) {
+    parent.status = ok ? 'succeeded' : (resultEvt && resultEvt.aborted ? 'interrupted' : 'failed');
+    parent.completedAt = at;
+    parent.result = turn.live && turn.live.bufferText || '';
+    wbNativeClaudeProgress(parent, ok ? t('workflow.nativeClaude.parentCompleted') : t('workflow.nativeClaude.parentFailed'), at);
+  }
+  run.status = ok ? 'succeeded' : (resultEvt && resultEvt.aborted ? 'interrupted' : 'failed');
+  run.live = false;
+  run.completedAt = at;
+  run.updatedAt = at;
+  wbNativeClaudeRefresh();
+}
 // v3 P3b 缩放挡位(§5.4:0.75/1/1.25;画布只读，整容器 CSS transform:scale，坐标系不变，无指针耦合)。
 const WB_ZOOM_GEARS = [0.75, 1, 1.25];
 // 窄屏(<1180)右板走抽屉:点节点/手动开合从右滑出;≤760 全宽浮层。matchMedia 判定，SSR/无 window 时防御回退。
@@ -3972,7 +4205,8 @@ function wbUpdateActivityDot(runs) {
 }
 // 画布数据入口(loadAgentRuns 每轮调用):缓存 runs、刷新亮点标,画布态则重绘。
 function wbOnRuns(runs) {
-  wbState.lastRuns = Array.isArray(runs) ? runs : [];
+  wbState.persistedRuns = Array.isArray(runs) ? runs : [];
+  wbState.lastRuns = wbNativeClaudeMergedRuns(wbState.persistedRuns);
   // 对抗轮 P3: posCache 只增不减——按当前 runs 清理已消失的 run,删除记录/切会话后不再缓慢累积。
   for (const k of Object.keys(wbState.posCache)) if (!wbState.lastRuns.some(r => r.id === k)) delete wbState.posCache[k];
   wbUpdateActivityDot(wbState.lastRuns);
@@ -4398,7 +4632,7 @@ function wbNodeDetailBody(run, node) {
   // 插话框(§6#6):live run + 资格判定;不符合显禁用 + 原因(与后端 409 文案一致)。
   box.appendChild(wbSteerBox(run, node));
   // 操作区:非 live 显重试入口(retry_node);失败/判否有错误显查看错误。
-  if (!run.live) {
+  if (!run.live && !run.nativeClaude) {
     const acts = el('div', 'wb-det-actions');
     const retry = el('button', 'wb-btn', t('workflow.node.retry')); retry.dataset.fk = `retry:${node.id}`; retry.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: false });
     const cascade = el('button', 'wb-btn', t('workflow.node.retryCascade')); cascade.dataset.fk = `cascade:${node.id}`; cascade.onclick = () => agentRunAction(run.id, 'retry_node', { nodeId: node.id, cascade: true });
@@ -4419,6 +4653,7 @@ function wbNodeDetailBody(run, node) {
 // 47a Phase C-A:claude_engine 不再整段禁用 —— 改延迟语义(deferred),标签/placeholder 明示「节点结束后生效」;
 // 其余禁用文案与 服务端 steer_node 409 返回逐字一致(deterministic_gate / terminal),非 live 则整段不出插话框。
 function wbSteerEligibility(run, node) {
+  if (run && run.nativeClaude) return { ok: false, reason: 'native_read_only', msg: t('workflow.nativeClaude.readOnly') };
   if (!run.live) return { ok: false, reason: 'not_live', msg: '' };
   if (node.gate && ['vote', 'dedupe'].includes(node.gate.mode)) return { ok: false, reason: 'deterministic_gate', msg: t('workflow.steerBox.noDeterministic') };
   if (!['running', 'queued', 'waiting_resource'].includes(node.status)) return { ok: false, reason: 'terminal', msg: t('workflow.steerBox.noTerminal') };
@@ -4430,6 +4665,7 @@ function wbSteerEligibility(run, node) {
 function wbSteerBox(run, node) {
   const elig = wbSteerEligibility(run, node);
   if (elig.reason === 'not_live') return el('span', 'wb-steer-none');
+  if (elig.reason === 'native_read_only') return el('div', 'wb-steer-why', elig.msg);
   const deferred = elig.reason === 'deferred';
   const wrap = el('div', 'wb-steer');
   wrap.appendChild(el('div', 'wb-steer-label', elig.ok ? (deferred ? t('workflow.steerBox.deferredLabel') : t('workflow.steerBox.liveLabel')) : t('workflow.steerBox.disabledLabel')));
@@ -4748,7 +4984,8 @@ function isNativeClaudeBackgroundAck(evt) {
     || /(?:后台|异步)(?:代理|任务)?.{0,40}(?:已启动|运行中)/.test(text);
 }
 
-function handleSubagentEvent(evt, live) {
+function handleSubagentEvent(evt, live, streamSessionId) {
+  wbNativeClaudeOnSubagent(evt, streamSessionId);
   const id = evt.id || '';
   if (evt.type === 'subagent_progress') {
     // v1.4.6 (C): keyed by subagentId (not id); refresh the sub-card head with the streamed-text milestone
@@ -4781,6 +5018,18 @@ function handleSubagentEvent(evt, live) {
     live.subCards.set(id, { d, body, status: sum.querySelector('.sa-status'), tierTag, roleTag, modelTag, driverTag, dependencyTag });
     return;
   }
+  if (evt.state === 'background') {
+    const host = live.subCards.get(id);
+    if (host) {
+      host.d.classList.add('sa-background');
+      if (host.status) {
+        host.status.textContent = `${t('chat.claudeBackgroundRunning')}${host.roleTag || ''}${host.tierTag || ''}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
+        host.status.classList.remove('ok', 'err');
+        host.status.classList.add('running');
+      }
+    }
+    return;
+  }
   if (evt.state === 'retry') {
     // v1.4.5: a Claude/CLI sub-agent's transient failure is being retried inline (bounded). Surface it
     // on the card head so the user sees "retrying" rather than a silent stall before the final ✓/✗.
@@ -4793,6 +5042,7 @@ function handleSubagentEvent(evt, live) {
     if (!host) return;
     const ok = evt.ok === true;
     const backgroundAck = ok && isNativeClaudeBackgroundAck(evt);
+    host.d.classList.remove('sa-background', 'sa-ok', 'sa-err');
     host.d.classList.add(backgroundAck ? 'sa-background' : (ok ? 'sa-ok' : 'sa-err'));
     // Native Claude Agent/Task calls do not stream the child's internal tool events through the
     // parent CLI. The tool_result is either a real conclusion or a background-launch receipt.
@@ -4819,6 +5069,7 @@ function handleSubagentEvent(evt, live) {
       host.status.textContent = backgroundAck
         ? `后台执行中 · 已交给 Claude CLI${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`
         : `${ok ? '✓ 完成' : t('status.failed')} · ${chars} 字结论${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
+      host.status.classList.remove('running', 'ok', 'err');
       host.status.classList.add(backgroundAck ? 'running' : (ok ? 'ok' : 'err'));
     }
     if (!ok) host.d.open = true; // surface a failed sub-turn automatically
@@ -6856,9 +7107,9 @@ const BUILTIN_SKILL_I18N_IDS = Object.freeze({
   'playbook:pb:presentation-outline': 'playbook.presentationOutline',
 });
 const BUILTIN_SKILL_AVAILABILITY_I18N_KEYS = Object.freeze({
-  t('mcp.needOnline'): 'skills.requirements.networkOffline',
-  t('mcp.needDesktop'): 'skills.requirements.desktopControl',
-  t('mcp.needVision'): 'skills.requirements.vision',
+  '需要联网(当前离线)': 'skills.requirements.networkOffline',
+  '需要桌面控制(未检测到 ai-computer-control)': 'skills.requirements.desktopControl',
+  '需要视觉模型(当前引擎未开启视觉)': 'skills.requirements.vision',
 });
 const BUILTIN_PLAYBOOK_INPUT_I18N_KEYS = Object.freeze({
   'archive-by-content:folder': 'skills.playbook.inputs.archiveByContent.folder',

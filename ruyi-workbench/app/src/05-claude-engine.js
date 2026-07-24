@@ -152,7 +152,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     // cmd8191 配套: 先为末尾政策段(语言政策+团队提示)预留房间,append 内剩余内容(用户 append + 账本 digest)只在
     // sectionLimit 内竞争。预留后 appendSys ≤ sectionLimit ⇒ 末尾政策追加时绝不再切内容段。
     // (第35波 P2 起技能/记忆/编排索引已改道 stdin,不再参与此处的预算竞争。)
-    const policyRoom = appendLimit > 0 ? appendTurnPolicies('', config, agentTeam, appendLimit).length + 2 : 0;
+    const policyRoom = appendLimit > 0 ? appendTurnPolicies('', config, agentTeam, appendLimit, true).length + 2 : 0;
     const sectionLimit = Math.max(0, appendLimit - policyRoom);
     const enabled = effectiveSkillSelection(session, config);
     if (enabled.length) {
@@ -200,7 +200,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     // The internal skill/workflow/memory hints above are often Chinese. Always reserve the final append
     // segment for the user-facing response-language policy, even when the user configured no custom prompt.
     // appendLimit<=0(预算耗尽)时整段跳过 —— appendTurnPolicies 的 limit<=0 语义是「不限」,绝不可传入。
-    appendSys = appendLimit > 0 ? appendTurnPolicies(appendSys, config, agentTeam, appendLimit) : '';
+    appendSys = appendLimit > 0 ? appendTurnPolicies(appendSys, config, agentTeam, appendLimit, true) : '';
     if (appendSys) args.push('--append-system-prompt', appendSys);
   }
 
@@ -329,6 +329,109 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   let pendingDeltaThinking = false;
   let usage = null;
   const nativeClaudeAgents = new Map();
+  const nativeClaudeAgentRecords = [];
+  const nativeClaudeAgentIds = new Map(); // Claude task/agent id -> original Agent tool_use id
+  const nativeClaudeWaitTools = new Map(); // TaskOutput tool_use id -> original Agent tool_use id
+  let nativeContinuationAttempts = 0;
+  const nativeContinuationMax = 2;
+  let nativeContinuationTextStart = -1;
+  let interactiveStdinClosed = !interactive;
+  const nativeRoleLabel = roleId => (claudeAgentLibrary.roles.find(r => r.id === roleId) || {}).label || roleId;
+  const nativeAgentFor = (toolUseId, taskId) => {
+    const direct = toolUseId && nativeClaudeAgents.get(toolUseId);
+    if (direct) return direct;
+    const originalId = taskId && nativeClaudeAgentIds.get(taskId);
+    return originalId ? nativeClaudeAgents.get(originalId) : null;
+  };
+  const emitNativeProgress = (agent, note, extra = {}) => {
+    if (!agent) return;
+    reg.lastEventAt = Date.now();
+    onEvent({
+      type: 'subagent_progress',
+      subagentId: agent.toolUseId,
+      note,
+      elapsedMs: Date.now() - agent.startedAt,
+      engine: 'claude',
+      native: true,
+      ...extra,
+    });
+  };
+  const finishNativeAgent = (agent, resultInfo, extra = {}) => {
+    if (!agent || !nativeClaudeAgents.has(agent.toolUseId)) return;
+    const failed = Boolean(resultInfo && resultInfo.failed);
+    const completedAt = nowIso();
+    nativeClaudeAgentRecords.push({
+      toolUseId: agent.toolUseId,
+      agentId: agent.agentId || '',
+      outputFile: agent.outputFile || '',
+      roleId: agent.roleId,
+      roleLabel: nativeRoleLabel(agent.roleId),
+      task: agent.task,
+      status: resultInfo && resultInfo.status || (failed ? 'failed' : 'completed'),
+      ok: !failed,
+      result: resultInfo && resultInfo.result || '',
+      resultChars: Number(resultInfo && resultInfo.resultChars) || 0,
+      resultTruncated: Boolean(resultInfo && resultInfo.resultTruncated),
+      startedAt: new Date(agent.startedAt).toISOString(),
+      completedAt,
+      interrupted: Boolean(extra.interrupted),
+    });
+    onEvent({
+      type: 'subagent',
+      id: agent.toolUseId,
+      state: 'end',
+      ok: !failed,
+      status: resultInfo && resultInfo.status || (failed ? 'failed' : 'completed'),
+      result: resultInfo && resultInfo.result || '',
+      resultChars: Number(resultInfo && resultInfo.resultChars) || 0,
+      resultTruncated: Boolean(resultInfo && resultInfo.resultTruncated),
+      task: agent.task,
+      roleId: agent.roleId,
+      roleLabel: nativeRoleLabel(agent.roleId),
+      engine: 'claude',
+      native: true,
+      agentId: agent.agentId || '',
+      outputFile: agent.outputFile || '',
+      elapsedMs: Date.now() - agent.startedAt,
+      ...extra,
+    });
+    nativeClaudeAgents.delete(agent.toolUseId);
+    if (agent.agentId) nativeClaudeAgentIds.delete(agent.agentId);
+    for (const [waitToolId, originalId] of nativeClaudeWaitTools) {
+      if (originalId === agent.toolUseId) nativeClaudeWaitTools.delete(waitToolId);
+    }
+  };
+  const closeInteractiveStdin = () => {
+    if (!interactive || interactiveStdinClosed) return;
+    interactiveStdinClosed = true;
+    try { reg.child.stdin.end(); } catch { /* already closed */ }
+  };
+  const requestNativeAgentContinuation = () => {
+    if (!interactive || interactiveStdinClosed || !nativeClaudeAgents.size || nativeContinuationAttempts >= nativeContinuationMax) return false;
+    nativeContinuationAttempts += 1;
+    const pending = [...nativeClaudeAgents.values()];
+    for (const agent of pending) emitNativeProgress(agent, `正在等待 Claude 子代理返回 · ${Math.max(1, Math.round((Date.now() - agent.startedAt) / 1000))}s`, { state: 'waiting' });
+    const ids = pending.map(agent => agent.agentId).filter(Boolean);
+    const continuation = [
+      '<ruyi-native-agent-continuation>',
+      'The parent turn attempted to finish while native Claude Agents are still running.',
+      `Outstanding task ids: ${ids.length ? ids.join(', ') : '(task id not yet reported; inspect the latest Agent results)'}.`,
+      'For every outstanding task, call TaskOutput with block:true and timeout:600000. Wait for the actual result, integrate it into the user-facing answer, and do not launch another background Agent.',
+      'Do not say you will notify the user later. Complete this response only after the child results have been collected.',
+      '</ruyi-native-agent-continuation>',
+    ].join('\n');
+    if (assistantText && !assistantText.endsWith('\n')) assistantText += '\n\n';
+    nativeContinuationTextStart = assistantText.length;
+    reg.child.stdin.write(JSON.stringify(buildUserEnvelope(continuation)) + '\n', 'utf8');
+    return true;
+  };
+  // Native Agent internals are not included in the parent stream-json protocol. Emit honest elapsed-time
+  // heartbeats so the UI distinguishes a live child from a frozen card without inventing fake milestones.
+  const nativeAgentProgressTimer = setInterval(() => {
+    for (const agent of nativeClaudeAgents.values()) {
+      emitNativeProgress(agent, `Claude 子代理运行中 · ${Math.max(1, Math.round((Date.now() - agent.startedAt) / 1000))}s`, { state: 'running' });
+    }
+  }, 2000);
   // Context-window sizing: track the LARGEST single-call input side (input+cache_read+cache_creation)
   // and the latest per-message output — NOT the cumulative result.usage (which sums every API call
   // in the turn and wildly overcounts once tools are used).
@@ -380,8 +483,16 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       if (isNativeAgent) {
         const roleId = String(ev.input && (ev.input.subagent_type || ev.input.agent || ev.input.role) || 'general-purpose');
         const role = claudeAgentLibrary.roles.find(r => r.id === roleId);
-        nativeClaudeAgents.set(ev.id, { roleId, task: String(ev.input && (ev.input.prompt || ev.input.description || ev.input.task) || '') });
-        onEvent({ type: 'subagent', id: ev.id, state: 'start', task: String(ev.input && (ev.input.prompt || ev.input.description || ev.input.task) || ''), roleId, roleLabel: role && role.label || roleId, toolTier: role && role.toolTier || '', engine: 'claude', native: true });
+        const task = String(ev.input && (ev.input.prompt || ev.input.description || ev.input.task) || '');
+        nativeClaudeAgents.set(ev.id, { toolUseId: ev.id, roleId, task, startedAt: Date.now(), agentId: '', outputFile: '' });
+        onEvent({ type: 'subagent', id: ev.id, state: 'start', task, roleId, roleLabel: role && role.label || roleId, toolTier: role && role.toolTier || '', engine: 'claude', native: true });
+      } else if (ev.name === 'TaskOutput') {
+        const taskId = String(ev.input && (ev.input.task_id || ev.input.taskId) || '');
+        const agent = nativeAgentFor('', taskId);
+        if (agent) {
+          nativeClaudeWaitTools.set(ev.id, agent.toolUseId);
+          emitNativeProgress(agent, `正在等待 Claude 子代理结果${taskId ? ` · ${taskId}` : ''}`, { state: 'waiting' });
+        } else onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input });
       } else onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input });
       // Interactive: an AskUserQuestion tool_use is ours to answer — surface a modal instead of a plain card.
       if (interactive && isAskUserTool(ev.name)) {
@@ -394,9 +505,54 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       const nativeAgent = nativeClaudeAgents.get(ev.id);
       if (nativeAgent) {
         const resultInfo = nativeClaudeAgentResultInfo(ev.content, ev.isError);
-        onEvent({ type: 'subagent', id: ev.id, state: 'end', ok: !resultInfo.failed, result: resultInfo.result, resultChars: resultInfo.resultChars, resultTruncated: resultInfo.resultTruncated, task: nativeAgent.task, roleId: nativeAgent.roleId, roleLabel: (claudeAgentLibrary.roles.find(r => r.id === nativeAgent.roleId) || {}).label || nativeAgent.roleId, engine: 'claude', native: true });
-        nativeClaudeAgents.delete(ev.id);
+        if (resultInfo.agentId) {
+          nativeAgent.agentId = resultInfo.agentId;
+          nativeClaudeAgentIds.set(resultInfo.agentId, nativeAgent.toolUseId);
+        }
+        if (resultInfo.outputFile) nativeAgent.outputFile = resultInfo.outputFile;
+        if (resultInfo.background) {
+          emitNativeProgress(nativeAgent, 'Claude 子代理已在后台启动，正在等待结果', {
+            state: 'background',
+            agentId: nativeAgent.agentId,
+            outputFile: nativeAgent.outputFile,
+          });
+          onEvent({
+            type: 'subagent',
+            id: nativeAgent.toolUseId,
+            state: 'background',
+            task: nativeAgent.task,
+            roleId: nativeAgent.roleId,
+            roleLabel: nativeRoleLabel(nativeAgent.roleId),
+            engine: 'claude',
+            native: true,
+            agentId: nativeAgent.agentId,
+            outputFile: nativeAgent.outputFile,
+          });
+        } else finishNativeAgent(nativeAgent, resultInfo);
+      } else if (nativeClaudeWaitTools.has(ev.id)) {
+        const originalId = nativeClaudeWaitTools.get(ev.id);
+        nativeClaudeWaitTools.delete(ev.id);
+        const waitingAgent = nativeClaudeAgents.get(originalId);
+        const resultInfo = nativeClaudeAgentResultInfo(ev.content, ev.isError);
+        if (waitingAgent && resultInfo.background) emitNativeProgress(waitingAgent, 'Claude 子代理仍在运行，继续等待', { state: 'waiting' });
+        else if (waitingAgent) finishNativeAgent(waitingAgent, resultInfo);
       } else onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError });
+    } else if (ev.kind === 'subagent_notification') {
+      const nativeAgent = nativeAgentFor(ev.toolUseId, ev.taskId);
+      if (nativeAgent) {
+        if (ev.taskId && !nativeAgent.agentId) {
+          nativeAgent.agentId = ev.taskId;
+          nativeClaudeAgentIds.set(ev.taskId, nativeAgent.toolUseId);
+        }
+        if (ev.outputFile) nativeAgent.outputFile = ev.outputFile;
+        finishNativeAgent(nativeAgent, {
+          result: ev.result || ev.summary || ev.note || '',
+          resultChars: Number(ev.resultChars) || String(ev.result || ev.summary || ev.note || '').length,
+          resultTruncated: Boolean(ev.resultTruncated),
+          failed: Boolean(ev.failed),
+          status: ev.status,
+        }, { summary: ev.summary || '', note: ev.note || '' });
+      }
     } else if (ev.kind === 'msg_usage') {
       const u = ev.usage || {};
       const inSide = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
@@ -415,10 +571,18 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       // Prefer accurate per-call context size; fall back to the cumulative sum only if no per-message usage was seen.
       const contextTokens = maxCtxInput > 0 ? (maxCtxInput + lastCtxOutput) : (summed > 0 ? summed : undefined);
       usage = { usage: ev.usage, costUsd: ev.costUsd, durationMs: ev.durationMs, numTurns: ev.numTurns, contextTokens };
-      if (ev.result && !assistantText.trim()) { assistantText += ev.result; onEvent({ type: 'assistant_delta', text: ev.result }); }
+      if (ev.result && (!assistantText.trim() || (nativeContinuationTextStart >= 0 && assistantText.length <= nativeContinuationTextStart))) {
+        assistantText += ev.result;
+        onEvent({ type: 'assistant_delta', text: ev.result });
+      }
+      nativeContinuationTextStart = -1;
       onEvent({ type: 'usage', ...usage });
-      // Interactive: the turn is done — close stdin so the child can exit.
-      if (interactive) { try { reg.child.stdin.end(); } catch { /* already closed */ } }
+      // A print-mode result can arrive while background Agents are still alive. Keep the interactive
+      // process open and force a bounded TaskOutput continuation instead of terminating the children
+      // and losing their notification/result. Normal turns still close immediately.
+      if (interactive && nativeClaudeAgents.size) {
+        if (!requestNativeAgentContinuation()) closeInteractiveStdin();
+      } else closeInteractiveStdin();
     }
   };
 
@@ -452,7 +616,21 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     child.on('close', code => { reg.exited = true; resolve({ code }); });
   });
   clearInterval(watchdog);
+  clearInterval(nativeAgentProgressTimer);
   if (stdoutRemainder.trim()) consumeLine(stdoutRemainder);
+  // Never leave a native child card permanently "running" after its owning CLI process has exited.
+  // A clean exit here still means Ruyi can no longer observe that background process, so surface the
+  // interruption honestly instead of inventing a completion.
+  for (const agent of [...nativeClaudeAgents.values()]) {
+    const interruptedResult = 'Claude CLI 已结束，但没有收到该子代理的完成通知。结果未被标记为完成；请重试本轮任务。';
+    finishNativeAgent(agent, {
+      result: interruptedResult,
+      resultChars: interruptedResult.length,
+      resultTruncated: false,
+      failed: true,
+      status: 'interrupted',
+    }, { interrupted: true });
+  }
 
   const wasStopped = reg.state !== 'running';
   // Only relinquish the slot AND clear pending prompts if we still own it. A superseding turn may
@@ -485,8 +663,10 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   session.messages.push({
     role: 'assistant',
     content: finalText,
+    turnSeq: session.turnSeq,
     thinking: thinkingText.trim() || undefined,
     toolCalls: toolCalls.length ? toolCalls : undefined,
+    nativeAgents: nativeClaudeAgentRecords.length ? nativeClaudeAgentRecords : undefined,
     turnSummary, // v0.8-S3
     usage: usage || undefined,
     createdAt: nowIso(),

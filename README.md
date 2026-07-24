@@ -12,7 +12,7 @@
 
 一台 Windows 机器 + 任意一个可用的模型端点(任意 OpenAI 兼容 API 或内网 Claude CLI)= 一个**能真正替你动手**的本地 AI 工作台:读写文件、跑脚本、操控桌面和 Office、派一队子代理协作调研——每一步可审计、可撤销、成本透明,**有网没网都能正常运行**。
 
-> **当前发布线：Ruyi Escapade 2.0**（技术版本 `v2.0.0`）。Escapade 是整个 2.x 系列的产品代号；后续修订仍沿用这个名字，例如 **Ruyi Escapade 2.0.1**、**2.1**。内部的「第 N 波」只用于拆分开发计划，绝不直接充当用户版本号。下一代预留代号为 **Ruyi Pretender 3.0**。
+> **当前发布线：Ruyi Escapade 2.0.1**（技术版本 `v2.0.1`）。Escapade 是整个 2.x 系列的产品代号；后续修订仍沿用这个名字，例如 **Ruyi Escapade 2.0.2**、**2.1**。内部的「第 N 波」只用于拆分开发计划，绝不直接充当用户版本号。下一代预留代号为 **Ruyi Pretender 3.0**。
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
@@ -95,7 +95,7 @@
 |------|------|------|
 | 双引擎对话 | 任意 OpenAI 兼容端点与 Claude CLI 随时切换,跨引擎上下文续接 | [§1](#1-双引擎任意模型端点都能开工) |
 | 原生工具环 | 50 个内置工具:文件/终端/搜索/Git/联网/编排,按 read/edit/exec 三级分档 | [§2](#2-原生工具环50-个内置工具) |
-| 多 Agent 编排 | DAG 工作流、8 套模板、9 种角色、5 种质量门、图形编辑器、实时监控;AI 主动编排并按任务难易自主选模型 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
+| 多 Agent 编排 | DAG 工作流、8 套模板、9 种角色、5 种质量门、图形编辑器、实时监控；Claude CLI 原生子 Agent 也可显示只读父子图、等待进度与回传结果 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 长任务自主推进 | 任务账本 until-done 驱动;零 token 等待;可选的分级崩溃恢复;增量监控(传输量降 ≥80%)与运营指标 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 信任层 | 文件检查点 + 对话回溯成对交付;5 档权限模式 × 工具三级;全量审计时间线 | [§4](#4-信任层检查点--回溯--权限--审计) |
 | 桌面 / Office 操控 | 截图/OCR/UIA/键鼠/窗口/Office/PDF(桌面控制 MCP,ACC v1.9.0,107 工具,可选安装) | [§5](#5-桌面--office-操控acc可选) |
@@ -295,7 +295,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1 -SkipExeBui
 
 产物 `dist\Ruyi-<变体>.zip`(内含 node.exe 源码运行器,目标机**无需安装任何东西**),解压后双击 `Start-Workbench.cmd`。完整包会在首次启动时自动校验、安装并注册 ACC，后续启动走快速检查，开箱即用。也支持 `npx pkg` 打成单体 `Ruyi.exe`,以及增量 overlay 升级包(见 [管理员手册](ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md))。
 
-> **Full ACC 发布包必须使用短文件名**（例如 `Ruyi-v2.0.0-full.zip`），并建议解压到 `C:\Ruyi` 等短路径。产品代号显示在 Release 标题中，技术文件名保持短且稳定。Chromium/WinSDK 含深层目录，Windows 默认解压器会把 ZIP 文件名和临时目录也计入旧路径上限；若提示路径过长，不能选择“跳过”，否则 ACC 完整性校验会拒绝启动。打包脚本会对这一安全预算做强制检查。
+> **必须先完整解压 ZIP，不能直接在压缩包预览中运行 `Start-Workbench.cmd`。**Full ACC 发布包必须使用短文件名（例如 `Ruyi-v2.0.1-full.zip`），并建议解压到 `C:\Ruyi` 等短路径。产品代号显示在 Release 标题中，技术文件名保持短且稳定。Chromium/WinSDK 含深层目录，Windows 默认解压器会把 ZIP 文件名和临时目录也计入旧路径上限；若提示路径过长，不能选择“跳过”，否则 ACC 完整性校验会拒绝桌面控制组件，但基础工作台仍会启动并给出恢复提示。打包脚本会对这一安全预算做强制检查。
 </details>
 
 <details>
@@ -409,7 +409,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Settings, Provider cards, safety/capability popovers, model menus, artifacts, shortcuts, the command palette, the skill library, and stable API errors are localized. Built-in skills and quick tasks follow the UI language, while user and project-authored content remains in its original language; simple/pro UI is shared by coders and non-coding knowledge workers.
 5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an on-prem Claude CLI, switchable mid-session with cross-engine context continuation.
 
-> **Current release train: Ruyi Escapade 2.0** (technical version `v2.0.0`). *Escapade* names the whole 2.x product family, so follow-up releases remain **Ruyi Escapade 2.0.1** or **2.1**. Internal “waves” are planning slices only, never user-facing version numbers. The next major generation is reserved as **Ruyi Pretender 3.0**.
+> **Current release train: Ruyi Escapade 2.0.1** (technical version `v2.0.1`). *Escapade* names the whole 2.x product family, so follow-up releases remain **Ruyi Escapade 2.0.2** or **2.1**. Internal “waves” are planning slices only, never user-facing version numbers. The next major generation is reserved as **Ruyi Pretender 3.0**.
 
 ### Capabilities (v2.0) · Escapade
 

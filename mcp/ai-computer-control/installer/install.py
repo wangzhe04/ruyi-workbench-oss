@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import time
+import traceback
 
 
 INSTALL_DIR = os.environ.get("ACC_INSTALL_DIR") or os.path.join(
@@ -29,6 +30,14 @@ INSTALL_STATE_FILE = os.path.join(INSTALL_DIR, "install-state.json")
 RUNTIME_DIR = os.path.join(INSTALL_DIR, "runtime", "python")
 VENV_DIR = os.path.join(INSTALL_DIR, "venv")  # legacy/custom-package fallback
 IMPORT_PROBE = "from mcp.server.fastmcp import FastMCP; import ai_computer_control.server"
+ERROR_LOG = os.path.join(
+    os.environ.get("LOCALAPPDATA") or os.environ.get("TEMP") or "C:\\Users\\Public",
+    "Ruyi", "logs", "acc-install-latest.log",
+)
+
+
+class IncompletePackageError(RuntimeError):
+    """The ZIP was run without full extraction, or extraction skipped a file."""
 
 
 def _run(args, **kwargs):
@@ -49,7 +58,7 @@ def _python_ok(command, require_acc=False):
     code = IMPORT_PROBE if require_acc else "import sys; assert sys.version_info >= (3, 12)"
     try:
         result = subprocess.run(
-            [command, "-X", "utf8", "-c", code],
+            [command, "-B", "-X", "utf8", "-c", code],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             timeout=20,
@@ -69,21 +78,35 @@ def verify_offline_payload():
     if manifest.get("wheelOnly") is not True or not isinstance(manifest.get("files"), list):
         raise RuntimeError("offline-manifest.json is invalid or not wheel-only")
     root = os.path.realpath(SCRIPT_DIR)
-    for entry in manifest["files"]:
+    files = manifest["files"]
+    print(f"  -> Checking {len(files)} packaged files. This may take a moment...", flush=True)
+    for index, entry in enumerate(files, 1):
         rel = str(entry.get("path") or "").replace("/", os.sep)
         full = os.path.realpath(os.path.join(root, rel))
         if os.path.commonpath([root, full]) != root:
             raise RuntimeError(f"unsafe manifest path: {rel}")
         native = _native_path(full)
         if not os.path.isfile(native) or os.path.getsize(native) != int(entry.get("bytes", -1)):
-            raise RuntimeError(f"offline payload is missing or truncated: {rel}")
+            raise IncompletePackageError(
+                "offline payload is missing or truncated: "
+                + rel
+                + "\nThe ZIP was not fully extracted. Extract the entire package to a short path "
+                + r"such as C:\Ruyi; never run it inside the ZIP preview or choose Skip."
+            )
         digest = hashlib.sha256()
         with open(native, "rb") as src:
             for chunk in iter(lambda: src.read(1024 * 1024), b""):
                 digest.update(chunk)
         if digest.hexdigest().lower() != str(entry.get("sha256") or "").lower():
-            raise RuntimeError(f"offline payload checksum mismatch: {rel}")
-    print(f"  -> Verified {len(manifest['files'])} files")
+            raise IncompletePackageError(
+                "offline payload checksum mismatch: "
+                + rel
+                + "\nThe extraction or download is incomplete. Verify the release SHA256 and "
+                + r"extract again to a short path such as C:\Ruyi."
+            )
+        if index % 1000 == 0:
+            print(f"     verified {index}/{len(files)} files", flush=True)
+    print(f"  -> Verified {len(files)} files", flush=True)
     return True
 
 
@@ -133,7 +156,7 @@ def bundled_python():
 
 def install_bundled_runtime(source_python):
     """Copy the hydrated runtime with rollback if activation/probing fails."""
-    print("[1/4] Installing bundled Python runtime...")
+    print("[1/4] Installing bundled Python runtime...", flush=True)
     runtime_parent = os.path.dirname(RUNTIME_DIR)
     os.makedirs(runtime_parent, exist_ok=True)
     staging = os.path.join(runtime_parent, f"python.new-{os.getpid()}-{int(time.time())}")
@@ -239,7 +262,7 @@ def install_from_wheel_cache(venv_python):
 
 
 def install_playwright_payload():
-    print("[3/4] Installing Playwright browser payload...")
+    print("[3/4] Installing Playwright browser payload...", flush=True)
     target = os.path.join(INSTALL_DIR, "playwright_browsers")
     if os.path.isdir(PLAYWRIGHT_DIR):
         if os.path.exists(target):
@@ -251,7 +274,7 @@ def install_playwright_payload():
 
 
 def configure_mcp(python_exe):
-    print("[4/4] Writing MCP configuration...")
+    print("[4/4] Writing MCP configuration...", flush=True)
     os.makedirs(INSTALL_DIR, exist_ok=True)
     browser_path = os.path.join(INSTALL_DIR, "playwright_browsers")
     server = {
@@ -335,5 +358,23 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as exc:
-        print(f"\nERROR: {exc}", file=sys.stderr)
+        try:
+            os.makedirs(os.path.dirname(ERROR_LOG), exist_ok=True)
+            with open(ERROR_LOG, "w", encoding="utf-8", newline="\n") as log:
+                log.write("AI Computer Control installation failed\n")
+                log.write(f"Package root: {SCRIPT_DIR}\n")
+                log.write(f"Install directory: {INSTALL_DIR}\n\n")
+                log.write(traceback.format_exc())
+        except Exception:
+            pass
+        print(f"\nERROR: {exc}", file=sys.stderr, flush=True)
+        print(f"Package root: {SCRIPT_DIR}", file=sys.stderr, flush=True)
+        print(f"Diagnostic log: {ERROR_LOG}", file=sys.stderr, flush=True)
+        if isinstance(exc, OSError) and getattr(exc, "winerror", None) in {3, 5, 206}:
+            print(
+                "Recovery: fully extract the ZIP to C:\\Ruyi and retry. "
+                "If access is denied, close old Ruyi/ACC processes first.",
+                file=sys.stderr,
+                flush=True,
+            )
         sys.exit(1)

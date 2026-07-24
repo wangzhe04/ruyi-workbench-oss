@@ -1,33 +1,48 @@
 @echo off
-chcp 65001 >nul
-setlocal
-cd /d "%~dp0"
-REM Ruyi launcher (overlay v0.3+; formerly Win Claude Workbench).
-REM ASCII-only on purpose: a Chinese comment here breaks parsing under the GBK code page.
-REM Node-first: runs the (overlaid) app\server.js via the bundled Node runtime so UI/server changes
-REM take effect without rebuilding the exe. Set WCW_FORCE_EXE=1 to force the baked exe instead.
-
-if "%WCW_FORCE_EXE%"=="1" goto :exe
-
-if exist "runtime\node\node.exe" if exist "app\server.js" (
-  "runtime\node\node.exe" "app\server.js" serve --open
-  goto :end
+chcp 65001 >nul 2>&1
+setlocal EnableExtensions DisableDelayedExpansion
+set "RUYI_ROOT=%~dp0"
+cd /d "%RUYI_ROOT%" 2>nul
+if errorlevel 1 (
+  set "RUYI_MISSING=package directory"
+  goto :package_incomplete
 )
 
-:exe
-REM v1.0-S9: exe renamed to Ruyi.exe; dual-name compat -- try new name then legacy WinClaudeWorkbench.exe.
-if exist "Ruyi.exe" (
-  "Ruyi.exe" serve --open
-  goto :end
+REM Fail early with an actionable message when this launcher was run from inside
+REM the ZIP or Windows skipped files while extracting a long path.
+if not exist "%RUYI_ROOT%package.json" (
+  set "RUYI_MISSING=package.json"
+  goto :package_incomplete
 )
-if exist "WinClaudeWorkbench.exe" (
-  "WinClaudeWorkbench.exe" serve --open
-  goto :end
+if not exist "%RUYI_ROOT%app\server.js" (
+  set "RUYI_MISSING=app\server.js"
+  goto :package_incomplete
+)
+if not exist "%RUYI_ROOT%runtime\node\node.exe" (
+  set "RUYI_MISSING=runtime\node\node.exe"
+  goto :package_incomplete
 )
 
-echo [Start-Workbench] Could not find runtime\node\node.exe + app\server.js, nor Ruyi.exe / WinClaudeWorkbench.exe.
-echo Make sure you extracted the full package into this folder.
+"%RUYI_ROOT%runtime\node\node.exe" "%RUYI_ROOT%app\server.js" serve --open
+set "RUYI_EXIT=%ERRORLEVEL%"
+if not "%RUYI_EXIT%"=="0" (
+  echo.
+  echo [Ruyi] Workbench stopped with exit code %RUYI_EXIT%.
+  pause
+)
+exit /b %RUYI_EXIT%
+
+:package_incomplete
+echo.
+echo [Ruyi] PACKAGE INCOMPLETE - missing: %RUYI_MISSING%
+echo.
+echo Do not run Start-Workbench.cmd from inside the ZIP preview.
+echo Right-click the downloaded ZIP, choose "Extract All", and then run
+echo Start-Workbench.cmd from the extracted folder.
+echo.
+echo Recommended location: C:\Ruyi
+echo Avoid deep OneDrive/Desktop paths. Never choose "Skip" during extraction.
+echo See README-START-HERE.txt for Chinese and English instructions.
+echo.
 pause
-
-:end
-endlocal
+exit /b 2

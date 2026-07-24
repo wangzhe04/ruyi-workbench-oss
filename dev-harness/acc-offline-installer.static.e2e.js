@@ -29,7 +29,15 @@ ok(/sys\.path\[:\]=/.test(builder) && /site\.addsitedir/.test(builder) && /"-S",
 ok(/offline-manifest\.json/.test(builder) && /sha256/.test(builder), 'builder emits a checksummed manifest');
 
 ok(/verify_offline_payload/.test(installer) && /checksum mismatch/.test(installer), 'installer verifies the offline manifest before activation');
+ok(/IncompletePackageError/.test(installer) && /never run it inside the ZIP preview/.test(installer),
+  'installer turns incomplete extraction into an actionable first-run error');
+ok(/acc-install-latest\.log/.test(installer) && /Diagnostic log/.test(installer),
+  'installer persists first-run diagnostics instead of losing the underlying exception');
+ok(/verified \{index\}/.test(installer) && /flush=True/.test(installer),
+  'long Full verification emits unbuffered progress so first launch does not look frozen');
 ok(/def _native_path/.test(installer) && /\\\\\\\\\?\\\\/.test(installer), 'installer verifies and copies deep Chromium trees with Win32 extended paths');
+ok(/\[command,\s*"-B",\s*"-X",\s*"utf8"/.test(installer),
+  'installer import probes cannot mutate the signed source payload with fresh bytecode');
 ok(/runtime[^\n]+python/.test(installer) && /install_bundled_runtime/.test(installer), 'installer atomically deploys the pre-hydrated runtime');
 ok(/--ensure/.test(installer) && /payloadSha256/.test(installer) && /refreshing MCP registration/.test(installer), 'installer supports an idempotent fast first-launch ensure mode');
 ok(/source archives and cannot install safely/.test(installer) && /--only-binary=:all:/.test(installer), 'legacy fallback refuses source archives and compilation');
@@ -40,7 +48,16 @@ ok(/uiautomation comtypes winsdk/.test(updater) && /offline_packages/.test(updat
 
 ok(/\[switch\]\$BuildAccOffline/.test(packager) && /offline-manifest\.json/.test(packager), 'Ruyi full packager requires or builds a verified ACC payload');
 ok(/Refusing to create a source-only package labeled full\/offline/.test(packager), 'Ruyi refuses misleading source-only full packages');
-ok(/python\.exe" -B -X utf8 .*install\.py" --ensure/.test(packager) && /ACC installation failed/.test(packager), 'full-package launcher keeps the signed payload immutable while installing and registering ACC');
+ok(/python\.exe" -u -B -X utf8 .*install\.py" --ensure/.test(packager) && /Desktop-control setup failed/.test(packager),
+  'full-package launcher keeps the signed payload immutable while installing and registering ACC');
+ok(/PACKAGE INCOMPLETE/.test(packager) && /Do not run Start-Workbench\.cmd from inside the ZIP preview/.test(packager),
+  'Full and Slim launchers preflight missing extraction files with a clear recovery path');
+ok(/Desktop-control setup failed[\s\S]+base Workbench will still start/.test(packager) &&
+   !/Desktop-control setup failed[\s\S]{0,300}exit \/b 1/.test(packager),
+  'ACC setup failure degrades to the base Workbench instead of blocking first launch');
+ok(/runtime\\node\\node\.exe/.test(packager) && /Refusing to create a package without/.test(packager),
+  'packager and launcher require the bundled Node runtime for deterministic Slim and Full startup');
+ok(/README-START-HERE\.txt/.test(packager), 'both packages include visible extract-before-running instructions');
 ok(/Copy-LongTree/.test(packager) && /robocopy\.exe/.test(packager) && /tar\.exe/.test(packager), 'full-package assembly handles Chromium paths beyond legacy MAX_PATH');
 ok(/@archiveRoots/.test(packager) && /Explorer-incompatible/.test(packager) && /ZipFile\]::OpenRead/.test(packager), 'offline ZIP avoids Explorer-invisible dot entries and verifies every archive before release');
 ok(/explorerDefaultPathBudget\s*=\s*200/.test(packager) && /projectedExplorerPath/.test(packager) && /Use a shorter -Variant/.test(packager), 'packager rejects release names that make deep ACC paths unsafe for Windows Explorer');

@@ -103,6 +103,7 @@ module.exports = {
   saveProjectAgentRoles,
   buildClaudeAgentDefinitions,
   classifyClaudeSubagentFailure, // cmd8191: 「命令行太长。」→ definitive 签名 — exposed for e2e unit assertions
+  parseClaudeTaskNotification,
   nativeClaudeAgentResultInfo,
   BUILTIN_AGENT_ROLES,
   normalizeSession,
@@ -124,6 +125,7 @@ module.exports = {
   buildVolatileParts, // 51d C1a:易变层(C1b 移 user 侧)
   buildResponseLanguagePolicy,
   buildAgentTeamHint,
+  buildClaudeNativeAgentPolicy,
   appendTurnPolicies,
   appendResponseLanguagePolicy,
   isLongToolTask,

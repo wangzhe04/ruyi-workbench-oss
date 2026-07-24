@@ -1091,12 +1091,27 @@ function buildAgentTeamHint() {
   ].join('\n');
 }
 
+function buildClaudeNativeAgentPolicy() {
+  return [
+    '<ruyi-claude-native-agent-lifecycle>',
+    'This Ruyi Claude CLI turn is a one-shot print session whose response stream must remain complete.',
+    'Whenever you call the native Agent tool, set run_in_background:false so the child result is returned before you finish the parent turn.',
+    'Never end the parent response by promising that a background Agent will notify the user later. Wait for every native child and integrate its actual result into the same response.',
+    'If a native Agent was already launched in the background, use TaskOutput with block:true and a generous timeout for its task id, then continue only after collecting the result.',
+    '</ruyi-claude-native-agent-lifecycle>',
+  ].join('\n');
+}
+
 // Claude's append prompt has an 8K contract. Reserve its final segment for turn policies and trim
 // lower-priority generated context from the tail when necessary; user-configured text at the beginning stays.
 // cmd8191 防线: 截断一律走 fenceSafeSlice —— 旧写法 prior.slice(0, room) 会切穿 <skill-index> 等围栏留悬空开标签。
-function appendTurnPolicies(base, config, agentTeam, limit = 0) {
+function appendTurnPolicies(base, config, agentTeam, limit = 0, claudeNative = false) {
   const prior = String(base || '');
-  const policy = [agentTeam ? buildAgentTeamHint() : '', buildResponseLanguagePolicy(config)].filter(Boolean).join('\n\n');
+  const policy = [
+    agentTeam ? buildAgentTeamHint() : '',
+    claudeNative ? buildClaudeNativeAgentPolicy() : '',
+    buildResponseLanguagePolicy(config),
+  ].filter(Boolean).join('\n\n');
   const separator = prior ? '\n\n' : '';
   if (!Number.isFinite(limit) || limit <= 0) return prior + separator + policy;
   if (policy.length >= limit) return fenceSafeSlice(policy, limit);

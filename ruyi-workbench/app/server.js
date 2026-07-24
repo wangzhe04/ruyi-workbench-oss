@@ -22,7 +22,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '2.0.0'; // V2.0 封版(第46波):模型列表 API 化、上下文压缩 v2、测试基建封版
+const VERSION = '2.0.1'; // Escapade 2.0.1:Full/Slim 首次解压与启动链修复
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -5246,6 +5246,50 @@ function deltaOf(streamEvent) {
   if (streamEvent.event) return deltaOf(streamEvent.event);
   return null;
 }
+
+const CLAUDE_TASK_NOTIFICATION_MAX_CHARS = 100000;
+function decodeClaudeTaskXmlText(value) {
+  return String(value || '')
+    .replace(/&#(\d+);/g, (_, n) => {
+      const code = Number(n);
+      return Number.isFinite(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : _;
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => {
+      const code = parseInt(n, 16);
+      return Number.isFinite(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : _;
+    })
+    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'").replace(/&amp;/gi, '&');
+}
+function claudeTaskNotificationTag(text, tag, maxChars = CLAUDE_TASK_NOTIFICATION_MAX_CHARS) {
+  const match = String(text || '').match(new RegExp(`<${tag}>\\s*([\\s\\S]*?)\\s*</${tag}>`, 'i'));
+  if (!match) return '';
+  return decodeClaudeTaskXmlText(match[1]).slice(0, Math.max(0, maxChars));
+}
+// Claude Code emits background-Agent completion as a string-valued user message rather than a
+// tool_result block. Keep this parser deliberately narrow: only the documented task-notification
+// envelope is accepted, tags are bounded, and the raw XML is never surfaced as an assistant reply.
+function parseClaudeTaskNotification(content) {
+  const text = typeof content === 'string' ? content : '';
+  if (!/<task-notification(?:\s|>)/i.test(text)) return null;
+  const status = claudeTaskNotificationTag(text, 'status', 80).trim().toLowerCase();
+  const result = claudeTaskNotificationTag(text, 'result');
+  const summary = claudeTaskNotificationTag(text, 'summary', 4000);
+  const failed = /^(?:failed|error|cancelled|canceled|stopped|interrupted)$/.test(status);
+  return {
+    kind: 'subagent_notification',
+    taskId: claudeTaskNotificationTag(text, 'task-id', 256).trim(),
+    toolUseId: claudeTaskNotificationTag(text, 'tool-use-id', 256).trim(),
+    outputFile: claudeTaskNotificationTag(text, 'output-file', 4096).trim(),
+    status: status || (failed ? 'failed' : 'completed'),
+    summary,
+    note: claudeTaskNotificationTag(text, 'note', 4000),
+    result: (result || summary).slice(0, CLAUDE_TASK_NOTIFICATION_MAX_CHARS),
+    resultChars: (result || summary).length,
+    resultTruncated: (result || summary).length > CLAUDE_TASK_NOTIFICATION_MAX_CHARS,
+    failed,
+  };
+}
 function parseClaudeEvent(evt) {
   const out = [];
   if (!evt || typeof evt !== 'object') return [{ kind: 'unknown', raw: evt }];
@@ -5300,10 +5344,15 @@ function parseClaudeEvent(evt) {
     return out.length ? out : [{ kind: 'unknown', raw: evt }];
   }
 
-  if (evt.type === 'user' && evt.message && Array.isArray(evt.message.content)) {
-    for (const block of evt.message.content) {
-      if (block && block.type === 'tool_result') {
-        out.push({ kind: 'tool_result', id: block.tool_use_id, content: block.content, isError: Boolean(block.is_error) });
+  if (evt.type === 'user' && evt.message) {
+    if (typeof evt.message.content === 'string') {
+      const notification = parseClaudeTaskNotification(evt.message.content);
+      if (notification) return [notification];
+    } else if (Array.isArray(evt.message.content)) {
+      for (const block of evt.message.content) {
+        if (block && block.type === 'tool_result') {
+          out.push({ kind: 'tool_result', id: block.tool_use_id, content: block.content, isError: Boolean(block.is_error) });
+        }
       }
     }
     return out.length ? out : [{ kind: 'unknown', raw: evt }];
@@ -5347,18 +5396,55 @@ function nativeClaudeAgentResultInfo(content, isError) {
     return String(value);
   };
   const fullText = textOf(content);
-  const result = fullText.length > NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS
-    ? fullText.slice(0, NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS)
-    : fullText;
+  let structured = null;
+  if (content && !Array.isArray(content) && typeof content === 'object') structured = content;
+  if (!structured && typeof content === 'string' && /^\s*\{[\s\S]*\}\s*$/.test(content)) {
+    try { structured = JSON.parse(content); } catch { /* ordinary text result */ }
+  }
+  const notification = parseClaudeTaskNotification(fullText);
+  const structuredStatus = String(structured && structured.status || notification && notification.status || '').trim().toLowerCase();
+  const agentId = String(
+    structured && (structured.agentId || structured.agent_id || structured.taskId || structured.task_id)
+      || notification && notification.taskId
+      || (fullText.match(/(?:^|\n)\s*(?:agentId|agent_id|taskId|task_id)\s*:\s*([^\s\r\n]+)/i) || [])[1]
+      || ''
+  ).trim().slice(0, 256);
+  const outputFile = String(
+    structured && (structured.outputFile || structured.output_file)
+      || notification && notification.outputFile
+      || (fullText.match(/(?:^|\n)\s*(?:output_file|outputFile)\s*:\s*([^\r\n]+)/i) || [])[1]
+      || ''
+  ).trim().slice(0, 4096);
+  const background = structuredStatus === 'async_launched'
+    || /^(?:running|pending|in_progress|started)$/.test(structuredStatus)
+    || /\b(?:async|background)\s+(?:agent|task)\b[\s\S]{0,200}\b(?:launched|started|running)\b/i.test(fullText)
+    || /\b(?:agent|task)\b[\s\S]{0,200}\bworking in the background\b/i.test(fullText)
+    || /(?:^|\n)\s*output_file\s*:/i.test(fullText)
+    || /\b(?:task|agent)\s+(?:is\s+)?still\s+running\b/i.test(fullText);
+  const notificationResult = notification && notification.result;
+  const structuredResult = structured && typeof structured === 'object'
+    ? (typeof structured.result === 'string' ? structured.result
+      : (Array.isArray(structured.content) ? textOf(structured.content) : ''))
+    : '';
+  const displayText = notificationResult || structuredResult || fullText;
+  const result = displayText.length > NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS
+    ? displayText.slice(0, NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS)
+    : displayText;
   // Some Anthropic-compatible endpoints send a failed Task result as ordinary text rather than
   // setting tool_result.is_error.  Classify only unmistakable, leading transport/task failures so
   // a normal review that merely *mentions* an API error is not marked failed.
-  const looksLikeFailure = /^(?:api\s+error\b|error\s*:|(?:request|network|connection)\s+(?:failed|closed|error)\b|(?:agent|task)\s+(?:failed|error)\b)/i.test(fullText.trim());
+  const looksLikeFailure = /^(?:api\s+error\b|error\s*:|(?:request|network|connection)\s+(?:failed|closed|error)\b|(?:agent|task)\s+(?:failed|error)\b)/i.test(fullText.trim())
+    || /^(?:failed|error|cancelled|canceled|stopped|interrupted)$/.test(structuredStatus)
+    || Boolean(notification && notification.failed);
   return {
     result,
-    resultChars: fullText.length,
-    resultTruncated: fullText.length > result.length,
+    resultChars: displayText.length,
+    resultTruncated: displayText.length > result.length,
     failed: Boolean(isError) || looksLikeFailure,
+    background,
+    agentId,
+    outputFile,
+    status: structuredStatus || (background ? 'running' : (looksLikeFailure ? 'failed' : 'completed')),
   };
 }
 
@@ -5580,7 +5666,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     // cmd8191 配套: 先为末尾政策段(语言政策+团队提示)预留房间,append 内剩余内容(用户 append + 账本 digest)只在
     // sectionLimit 内竞争。预留后 appendSys ≤ sectionLimit ⇒ 末尾政策追加时绝不再切内容段。
     // (第35波 P2 起技能/记忆/编排索引已改道 stdin,不再参与此处的预算竞争。)
-    const policyRoom = appendLimit > 0 ? appendTurnPolicies('', config, agentTeam, appendLimit).length + 2 : 0;
+    const policyRoom = appendLimit > 0 ? appendTurnPolicies('', config, agentTeam, appendLimit, true).length + 2 : 0;
     const sectionLimit = Math.max(0, appendLimit - policyRoom);
     const enabled = effectiveSkillSelection(session, config);
     if (enabled.length) {
@@ -5628,7 +5714,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     // The internal skill/workflow/memory hints above are often Chinese. Always reserve the final append
     // segment for the user-facing response-language policy, even when the user configured no custom prompt.
     // appendLimit<=0(预算耗尽)时整段跳过 —— appendTurnPolicies 的 limit<=0 语义是「不限」,绝不可传入。
-    appendSys = appendLimit > 0 ? appendTurnPolicies(appendSys, config, agentTeam, appendLimit) : '';
+    appendSys = appendLimit > 0 ? appendTurnPolicies(appendSys, config, agentTeam, appendLimit, true) : '';
     if (appendSys) args.push('--append-system-prompt', appendSys);
   }
 
@@ -5757,6 +5843,109 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   let pendingDeltaThinking = false;
   let usage = null;
   const nativeClaudeAgents = new Map();
+  const nativeClaudeAgentRecords = [];
+  const nativeClaudeAgentIds = new Map(); // Claude task/agent id -> original Agent tool_use id
+  const nativeClaudeWaitTools = new Map(); // TaskOutput tool_use id -> original Agent tool_use id
+  let nativeContinuationAttempts = 0;
+  const nativeContinuationMax = 2;
+  let nativeContinuationTextStart = -1;
+  let interactiveStdinClosed = !interactive;
+  const nativeRoleLabel = roleId => (claudeAgentLibrary.roles.find(r => r.id === roleId) || {}).label || roleId;
+  const nativeAgentFor = (toolUseId, taskId) => {
+    const direct = toolUseId && nativeClaudeAgents.get(toolUseId);
+    if (direct) return direct;
+    const originalId = taskId && nativeClaudeAgentIds.get(taskId);
+    return originalId ? nativeClaudeAgents.get(originalId) : null;
+  };
+  const emitNativeProgress = (agent, note, extra = {}) => {
+    if (!agent) return;
+    reg.lastEventAt = Date.now();
+    onEvent({
+      type: 'subagent_progress',
+      subagentId: agent.toolUseId,
+      note,
+      elapsedMs: Date.now() - agent.startedAt,
+      engine: 'claude',
+      native: true,
+      ...extra,
+    });
+  };
+  const finishNativeAgent = (agent, resultInfo, extra = {}) => {
+    if (!agent || !nativeClaudeAgents.has(agent.toolUseId)) return;
+    const failed = Boolean(resultInfo && resultInfo.failed);
+    const completedAt = nowIso();
+    nativeClaudeAgentRecords.push({
+      toolUseId: agent.toolUseId,
+      agentId: agent.agentId || '',
+      outputFile: agent.outputFile || '',
+      roleId: agent.roleId,
+      roleLabel: nativeRoleLabel(agent.roleId),
+      task: agent.task,
+      status: resultInfo && resultInfo.status || (failed ? 'failed' : 'completed'),
+      ok: !failed,
+      result: resultInfo && resultInfo.result || '',
+      resultChars: Number(resultInfo && resultInfo.resultChars) || 0,
+      resultTruncated: Boolean(resultInfo && resultInfo.resultTruncated),
+      startedAt: new Date(agent.startedAt).toISOString(),
+      completedAt,
+      interrupted: Boolean(extra.interrupted),
+    });
+    onEvent({
+      type: 'subagent',
+      id: agent.toolUseId,
+      state: 'end',
+      ok: !failed,
+      status: resultInfo && resultInfo.status || (failed ? 'failed' : 'completed'),
+      result: resultInfo && resultInfo.result || '',
+      resultChars: Number(resultInfo && resultInfo.resultChars) || 0,
+      resultTruncated: Boolean(resultInfo && resultInfo.resultTruncated),
+      task: agent.task,
+      roleId: agent.roleId,
+      roleLabel: nativeRoleLabel(agent.roleId),
+      engine: 'claude',
+      native: true,
+      agentId: agent.agentId || '',
+      outputFile: agent.outputFile || '',
+      elapsedMs: Date.now() - agent.startedAt,
+      ...extra,
+    });
+    nativeClaudeAgents.delete(agent.toolUseId);
+    if (agent.agentId) nativeClaudeAgentIds.delete(agent.agentId);
+    for (const [waitToolId, originalId] of nativeClaudeWaitTools) {
+      if (originalId === agent.toolUseId) nativeClaudeWaitTools.delete(waitToolId);
+    }
+  };
+  const closeInteractiveStdin = () => {
+    if (!interactive || interactiveStdinClosed) return;
+    interactiveStdinClosed = true;
+    try { reg.child.stdin.end(); } catch { /* already closed */ }
+  };
+  const requestNativeAgentContinuation = () => {
+    if (!interactive || interactiveStdinClosed || !nativeClaudeAgents.size || nativeContinuationAttempts >= nativeContinuationMax) return false;
+    nativeContinuationAttempts += 1;
+    const pending = [...nativeClaudeAgents.values()];
+    for (const agent of pending) emitNativeProgress(agent, `正在等待 Claude 子代理返回 · ${Math.max(1, Math.round((Date.now() - agent.startedAt) / 1000))}s`, { state: 'waiting' });
+    const ids = pending.map(agent => agent.agentId).filter(Boolean);
+    const continuation = [
+      '<ruyi-native-agent-continuation>',
+      'The parent turn attempted to finish while native Claude Agents are still running.',
+      `Outstanding task ids: ${ids.length ? ids.join(', ') : '(task id not yet reported; inspect the latest Agent results)'}.`,
+      'For every outstanding task, call TaskOutput with block:true and timeout:600000. Wait for the actual result, integrate it into the user-facing answer, and do not launch another background Agent.',
+      'Do not say you will notify the user later. Complete this response only after the child results have been collected.',
+      '</ruyi-native-agent-continuation>',
+    ].join('\n');
+    if (assistantText && !assistantText.endsWith('\n')) assistantText += '\n\n';
+    nativeContinuationTextStart = assistantText.length;
+    reg.child.stdin.write(JSON.stringify(buildUserEnvelope(continuation)) + '\n', 'utf8');
+    return true;
+  };
+  // Native Agent internals are not included in the parent stream-json protocol. Emit honest elapsed-time
+  // heartbeats so the UI distinguishes a live child from a frozen card without inventing fake milestones.
+  const nativeAgentProgressTimer = setInterval(() => {
+    for (const agent of nativeClaudeAgents.values()) {
+      emitNativeProgress(agent, `Claude 子代理运行中 · ${Math.max(1, Math.round((Date.now() - agent.startedAt) / 1000))}s`, { state: 'running' });
+    }
+  }, 2000);
   // Context-window sizing: track the LARGEST single-call input side (input+cache_read+cache_creation)
   // and the latest per-message output — NOT the cumulative result.usage (which sums every API call
   // in the turn and wildly overcounts once tools are used).
@@ -5808,8 +5997,16 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       if (isNativeAgent) {
         const roleId = String(ev.input && (ev.input.subagent_type || ev.input.agent || ev.input.role) || 'general-purpose');
         const role = claudeAgentLibrary.roles.find(r => r.id === roleId);
-        nativeClaudeAgents.set(ev.id, { roleId, task: String(ev.input && (ev.input.prompt || ev.input.description || ev.input.task) || '') });
-        onEvent({ type: 'subagent', id: ev.id, state: 'start', task: String(ev.input && (ev.input.prompt || ev.input.description || ev.input.task) || ''), roleId, roleLabel: role && role.label || roleId, toolTier: role && role.toolTier || '', engine: 'claude', native: true });
+        const task = String(ev.input && (ev.input.prompt || ev.input.description || ev.input.task) || '');
+        nativeClaudeAgents.set(ev.id, { toolUseId: ev.id, roleId, task, startedAt: Date.now(), agentId: '', outputFile: '' });
+        onEvent({ type: 'subagent', id: ev.id, state: 'start', task, roleId, roleLabel: role && role.label || roleId, toolTier: role && role.toolTier || '', engine: 'claude', native: true });
+      } else if (ev.name === 'TaskOutput') {
+        const taskId = String(ev.input && (ev.input.task_id || ev.input.taskId) || '');
+        const agent = nativeAgentFor('', taskId);
+        if (agent) {
+          nativeClaudeWaitTools.set(ev.id, agent.toolUseId);
+          emitNativeProgress(agent, `正在等待 Claude 子代理结果${taskId ? ` · ${taskId}` : ''}`, { state: 'waiting' });
+        } else onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input });
       } else onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input });
       // Interactive: an AskUserQuestion tool_use is ours to answer — surface a modal instead of a plain card.
       if (interactive && isAskUserTool(ev.name)) {
@@ -5822,9 +6019,54 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       const nativeAgent = nativeClaudeAgents.get(ev.id);
       if (nativeAgent) {
         const resultInfo = nativeClaudeAgentResultInfo(ev.content, ev.isError);
-        onEvent({ type: 'subagent', id: ev.id, state: 'end', ok: !resultInfo.failed, result: resultInfo.result, resultChars: resultInfo.resultChars, resultTruncated: resultInfo.resultTruncated, task: nativeAgent.task, roleId: nativeAgent.roleId, roleLabel: (claudeAgentLibrary.roles.find(r => r.id === nativeAgent.roleId) || {}).label || nativeAgent.roleId, engine: 'claude', native: true });
-        nativeClaudeAgents.delete(ev.id);
+        if (resultInfo.agentId) {
+          nativeAgent.agentId = resultInfo.agentId;
+          nativeClaudeAgentIds.set(resultInfo.agentId, nativeAgent.toolUseId);
+        }
+        if (resultInfo.outputFile) nativeAgent.outputFile = resultInfo.outputFile;
+        if (resultInfo.background) {
+          emitNativeProgress(nativeAgent, 'Claude 子代理已在后台启动，正在等待结果', {
+            state: 'background',
+            agentId: nativeAgent.agentId,
+            outputFile: nativeAgent.outputFile,
+          });
+          onEvent({
+            type: 'subagent',
+            id: nativeAgent.toolUseId,
+            state: 'background',
+            task: nativeAgent.task,
+            roleId: nativeAgent.roleId,
+            roleLabel: nativeRoleLabel(nativeAgent.roleId),
+            engine: 'claude',
+            native: true,
+            agentId: nativeAgent.agentId,
+            outputFile: nativeAgent.outputFile,
+          });
+        } else finishNativeAgent(nativeAgent, resultInfo);
+      } else if (nativeClaudeWaitTools.has(ev.id)) {
+        const originalId = nativeClaudeWaitTools.get(ev.id);
+        nativeClaudeWaitTools.delete(ev.id);
+        const waitingAgent = nativeClaudeAgents.get(originalId);
+        const resultInfo = nativeClaudeAgentResultInfo(ev.content, ev.isError);
+        if (waitingAgent && resultInfo.background) emitNativeProgress(waitingAgent, 'Claude 子代理仍在运行，继续等待', { state: 'waiting' });
+        else if (waitingAgent) finishNativeAgent(waitingAgent, resultInfo);
       } else onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError });
+    } else if (ev.kind === 'subagent_notification') {
+      const nativeAgent = nativeAgentFor(ev.toolUseId, ev.taskId);
+      if (nativeAgent) {
+        if (ev.taskId && !nativeAgent.agentId) {
+          nativeAgent.agentId = ev.taskId;
+          nativeClaudeAgentIds.set(ev.taskId, nativeAgent.toolUseId);
+        }
+        if (ev.outputFile) nativeAgent.outputFile = ev.outputFile;
+        finishNativeAgent(nativeAgent, {
+          result: ev.result || ev.summary || ev.note || '',
+          resultChars: Number(ev.resultChars) || String(ev.result || ev.summary || ev.note || '').length,
+          resultTruncated: Boolean(ev.resultTruncated),
+          failed: Boolean(ev.failed),
+          status: ev.status,
+        }, { summary: ev.summary || '', note: ev.note || '' });
+      }
     } else if (ev.kind === 'msg_usage') {
       const u = ev.usage || {};
       const inSide = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
@@ -5843,10 +6085,18 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       // Prefer accurate per-call context size; fall back to the cumulative sum only if no per-message usage was seen.
       const contextTokens = maxCtxInput > 0 ? (maxCtxInput + lastCtxOutput) : (summed > 0 ? summed : undefined);
       usage = { usage: ev.usage, costUsd: ev.costUsd, durationMs: ev.durationMs, numTurns: ev.numTurns, contextTokens };
-      if (ev.result && !assistantText.trim()) { assistantText += ev.result; onEvent({ type: 'assistant_delta', text: ev.result }); }
+      if (ev.result && (!assistantText.trim() || (nativeContinuationTextStart >= 0 && assistantText.length <= nativeContinuationTextStart))) {
+        assistantText += ev.result;
+        onEvent({ type: 'assistant_delta', text: ev.result });
+      }
+      nativeContinuationTextStart = -1;
       onEvent({ type: 'usage', ...usage });
-      // Interactive: the turn is done — close stdin so the child can exit.
-      if (interactive) { try { reg.child.stdin.end(); } catch { /* already closed */ } }
+      // A print-mode result can arrive while background Agents are still alive. Keep the interactive
+      // process open and force a bounded TaskOutput continuation instead of terminating the children
+      // and losing their notification/result. Normal turns still close immediately.
+      if (interactive && nativeClaudeAgents.size) {
+        if (!requestNativeAgentContinuation()) closeInteractiveStdin();
+      } else closeInteractiveStdin();
     }
   };
 
@@ -5880,7 +6130,21 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     child.on('close', code => { reg.exited = true; resolve({ code }); });
   });
   clearInterval(watchdog);
+  clearInterval(nativeAgentProgressTimer);
   if (stdoutRemainder.trim()) consumeLine(stdoutRemainder);
+  // Never leave a native child card permanently "running" after its owning CLI process has exited.
+  // A clean exit here still means Ruyi can no longer observe that background process, so surface the
+  // interruption honestly instead of inventing a completion.
+  for (const agent of [...nativeClaudeAgents.values()]) {
+    const interruptedResult = 'Claude CLI 已结束，但没有收到该子代理的完成通知。结果未被标记为完成；请重试本轮任务。';
+    finishNativeAgent(agent, {
+      result: interruptedResult,
+      resultChars: interruptedResult.length,
+      resultTruncated: false,
+      failed: true,
+      status: 'interrupted',
+    }, { interrupted: true });
+  }
 
   const wasStopped = reg.state !== 'running';
   // Only relinquish the slot AND clear pending prompts if we still own it. A superseding turn may
@@ -5913,8 +6177,10 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   session.messages.push({
     role: 'assistant',
     content: finalText,
+    turnSeq: session.turnSeq,
     thinking: thinkingText.trim() || undefined,
     toolCalls: toolCalls.length ? toolCalls : undefined,
+    nativeAgents: nativeClaudeAgentRecords.length ? nativeClaudeAgentRecords : undefined,
     turnSummary, // v0.8-S3
     usage: usage || undefined,
     createdAt: nowIso(),
@@ -7367,12 +7633,27 @@ function buildAgentTeamHint() {
   ].join('\n');
 }
 
+function buildClaudeNativeAgentPolicy() {
+  return [
+    '<ruyi-claude-native-agent-lifecycle>',
+    'This Ruyi Claude CLI turn is a one-shot print session whose response stream must remain complete.',
+    'Whenever you call the native Agent tool, set run_in_background:false so the child result is returned before you finish the parent turn.',
+    'Never end the parent response by promising that a background Agent will notify the user later. Wait for every native child and integrate its actual result into the same response.',
+    'If a native Agent was already launched in the background, use TaskOutput with block:true and a generous timeout for its task id, then continue only after collecting the result.',
+    '</ruyi-claude-native-agent-lifecycle>',
+  ].join('\n');
+}
+
 // Claude's append prompt has an 8K contract. Reserve its final segment for turn policies and trim
 // lower-priority generated context from the tail when necessary; user-configured text at the beginning stays.
 // cmd8191 防线: 截断一律走 fenceSafeSlice —— 旧写法 prior.slice(0, room) 会切穿 <skill-index> 等围栏留悬空开标签。
-function appendTurnPolicies(base, config, agentTeam, limit = 0) {
+function appendTurnPolicies(base, config, agentTeam, limit = 0, claudeNative = false) {
   const prior = String(base || '');
-  const policy = [agentTeam ? buildAgentTeamHint() : '', buildResponseLanguagePolicy(config)].filter(Boolean).join('\n\n');
+  const policy = [
+    agentTeam ? buildAgentTeamHint() : '',
+    claudeNative ? buildClaudeNativeAgentPolicy() : '',
+    buildResponseLanguagePolicy(config),
+  ].filter(Boolean).join('\n\n');
   const separator = prior ? '\n\n' : '';
   if (!Number.isFinite(limit) || limit <= 0) return prior + separator + policy;
   if (policy.length >= limit) return fenceSafeSlice(policy, limit);
@@ -19613,6 +19894,7 @@ module.exports = {
   saveProjectAgentRoles,
   buildClaudeAgentDefinitions,
   classifyClaudeSubagentFailure, // cmd8191: 「命令行太长。」→ definitive 签名 — exposed for e2e unit assertions
+  parseClaudeTaskNotification,
   nativeClaudeAgentResultInfo,
   BUILTIN_AGENT_ROLES,
   normalizeSession,
@@ -19634,6 +19916,7 @@ module.exports = {
   buildVolatileParts, // 51d C1a:易变层(C1b 移 user 侧)
   buildResponseLanguagePolicy,
   buildAgentTeamHint,
+  buildClaudeNativeAgentPolicy,
   appendTurnPolicies,
   appendResponseLanguagePolicy,
   isLongToolTask,

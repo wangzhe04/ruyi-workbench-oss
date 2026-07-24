@@ -11,6 +11,7 @@ const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
 const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
 const src = readFrontendSrc(); // app.js + js/**
+const zh = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'docs', 'i18n', 'locales', 'zh-CN.json'), 'utf8'));
 
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
@@ -116,7 +117,11 @@ ok(/\.wb-um b\s*\{[^}]*font-size:\s*var\(--fs-xl\)/.test(css), 'F CSS 大数字 
 // ═══════════ G. 空态(§3.3)═══════════
 ok(/function renderWorkbenchEmpty\(/.test(src), 'G 空态渲染器 renderWorkbenchEmpty 存在');
 const empty = fnBody('renderWorkbenchEmpty');
-ok(has(empty, '本会话还没有 Agent 工作流', '去对话交办任务', '从模板运行'), 'G 空态引导卡(标题 + 两个引导按钮)');
+ok(has(empty, "t('workflow.empty.title')", "t('workflow.empty.goChat')", "t('workflow.empty.runTemplate')") &&
+  zh['workflow.empty.title'] === '本会话还没有 Agent 工作流' &&
+  zh['workflow.empty.goChat'] === '去对话交办任务' &&
+  zh['workflow.empty.runTemplate'] === '从模板运行',
+  'G 空态引导卡(标题 + 两个引导按钮，代码与中文 locale 双向锁)');
 ok(has(empty, "'wb-empty-cloud'") && /\.wb-empty-cloud\s*\{[^}]*var\(--ruyi-cloud\)/.test(css), 'G 云纹水印(--ruyi-cloud mask)');
 ok(/function renderWorkbench\(runs, force\)/.test(src) && has(fnBody('renderWorkbench'), 'renderWorkbenchEmpty()'), 'G 无 run 分派到空态(renderWorkbench;对抗轮P2:新增签名跳过的 force 参数)');
 

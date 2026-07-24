@@ -39,6 +39,8 @@ assert.match(hint, /at least two agents/);
 assert.match(hint, /Duration or complexity alone is not a reason to split work/);
 assert.ok(server.appendTurnPolicies('base', server.defaultConfig(), true).includes('<agent-team-mode>'));
 assert.ok(!server.appendTurnPolicies('base', server.defaultConfig(), false).includes('<agent-team-mode>'));
+assert.ok(server.appendTurnPolicies('base', server.defaultConfig(), false, 0, true).includes('<ruyi-claude-native-agent-lifecycle>'));
+assert.ok(!server.appendTurnPolicies('base', server.defaultConfig(), false).includes('<ruyi-claude-native-agent-lifecycle>'), 'provider policy must not inherit Claude CLI lifecycle instructions');
 
 const html = read('app/public/index.html');
 const css = read('app/public/styles.css');
@@ -50,7 +52,7 @@ assert.ok(app.includes('let agentTeamTurnEnabled = false'));
 assert.ok(app.includes('const agentTeam = overrideText == null && agentTeamTurnEnabled && agentTeamAvailable()'));
 assert.ok(app.includes('agentTeamTurnEnabled = false;'), 'sending consumes one-shot preference');
 assert.ok(app.includes('attachments: sentAttachments, agentTeam'));
-assert.ok(source.includes('appendTurnPolicies(appendSys, config, agentTeam, appendLimit)'), 'Claude CLI receives Agent team policy (cmd8191: limit 由整行预算动态给出, ≤8000)');
+assert.ok(source.includes('appendTurnPolicies(appendSys, config, agentTeam, appendLimit, true)'), 'Claude CLI receives Agent team + native lifecycle policy (cmd8191: limit 由整行预算动态给出, ≤8000)');
 assert.ok(source.includes('appendTurnPolicies(volatileExtras, config, agentTeam)'), 'OpenAI-compatible engine places Agent team policy in the volatile user prefix');
 assert.strictEqual((source.match(/reg\.onEvent = evt => \{ reg\.lastEventAt = Date\.now\(\); onEvent\(evt\); \};/g) || []).length, 2, 'Claude and OpenAI active-turn registries both count external workflow events as activity');
 assert.ok(source.includes("type: 'tool_budget', state: 'extended'"));

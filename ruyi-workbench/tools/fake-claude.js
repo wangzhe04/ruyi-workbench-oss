@@ -7,7 +7,8 @@
  * stdin and streams a canned stream-json scenario to stdout so the parser / renderer / tool-cards /
  * thinking panel / debug panel / interactive AskUserQuestion round-trip can be exercised end to end.
  *
- * Scenario: env WCW_FAKE_SCENARIO = happy | thinking | tools | error | ask, OR a path to a .jsonl
+ * Scenario: env WCW_FAKE_SCENARIO = happy | thinking | tools | error | ask | agents-background,
+ * OR a path to a .jsonl
  * fixture captured from a REAL claude (wire-truth). A keyword in the prompt also selects the scenario.
  * WCW_FAKE_INTERACTIVE=1 (set by the workbench in interactive engine mode) enables the ask round-trip.
  */
@@ -100,7 +101,7 @@ function build(scenario) {
 
 function scenarioFromEnvAndPrompt(prompt) {
   let scenario = process.env.WCW_FAKE_SCENARIO || 'happy';
-  for (const k of ['thinking', 'tools', 'error', 'ask', 'agents', 'steer']) if (prompt.includes(k)) scenario = k;
+  for (const k of ['thinking', 'tools', 'error', 'ask', 'agents', 'agents-background', 'steer']) if (prompt.includes(k)) scenario = k;
   return scenario;
 }
 
@@ -234,6 +235,53 @@ async function main() {
     if (!texts.length) texts.push('(未收到插话)');
     await replay(textDeltas(`收到插话 ${texts.length} 条:${texts.join(' / ')}。按插话调整后续方向。\n`), 25);
     emit(resultEvt(`steer round-trip: ${texts.join(' / ')}`));
+    process.exit(0);
+  }
+
+  // Claude Code native Agents run in the background by default in recent CLI versions. Reproduce the
+  // real protocol: Agent's tool_result is only a launch receipt, the parent emits an early result, then
+  // Ruyi must keep stdin open and ask TaskOutput to block until a string-valued task-notification arrives.
+  if (interactive && scenario === 'agents-background') {
+    emit(initEvt);
+    const agentToolId = 'toolu_bg_agent1';
+    const agentId = 'agent-bg-1';
+    emit({ type: 'assistant', session_id: SID, message: { role: 'assistant', content: [
+      { type: 'tool_use', id: agentToolId, name: 'Agent', input: { subagent_type: 'reviewer', description: '后台审查', prompt: '检查后台子代理生命周期' } },
+    ] } });
+    emit({ type: 'user', session_id: SID, message: { role: 'user', content: [
+      { type: 'tool_result', tool_use_id: agentToolId, is_error: false, content: [
+        'Async agent launched successfully. (This tool result is internal metadata.)',
+        `agentId: ${agentId}`,
+        'The agent is working in the background. You will be notified automatically when it completes.',
+        'output_file: C:\\fake\\agent-bg-1.output',
+      ].join('\n') },
+    ] } });
+    emit(assistantText('子代理仍在运行，我会等它完成后继续。'));
+    emit(resultEvt('子代理仍在运行，我会等它完成后继续。'));
+
+    const continuation = await stdin.next(10000);
+    if (process.env.WCW_FAKE_CONTINUATION_CAPTURE) {
+      try { fs.writeFileSync(process.env.WCW_FAKE_CONTINUATION_CAPTURE, continuation || '', 'utf8'); } catch {}
+    }
+    const waitToolId = 'toolu_task_output1';
+    emit({ type: 'assistant', session_id: SID, message: { role: 'assistant', content: [
+      { type: 'tool_use', id: waitToolId, name: 'TaskOutput', input: { task_id: agentId, block: true, timeout: 600000 } },
+    ] } });
+    emit({ type: 'user', session_id: SID, message: { role: 'user', content: [
+      '<task-notification>',
+      `  <task-id>${agentId}</task-id>`,
+      `  <tool-use-id>${agentToolId}</tool-use-id>`,
+      '  <output-file>C:\\fake\\agent-bg-1.output</output-file>',
+      '  <status>completed</status>',
+      '  <summary>后台审查完成</summary>',
+      '  <result>后台审查完成：没有发现阻断问题，&amp; 生命周期结果已回传。</result>',
+      '</task-notification>',
+    ].join('\n') } });
+    emit({ type: 'user', session_id: SID, message: { role: 'user', content: [
+      { type: 'tool_result', tool_use_id: waitToolId, is_error: false, content: 'Task completed successfully.' },
+    ] } });
+    emit(assistantText('后台审查已完成：没有发现阻断问题，生命周期结果已成功回传。'));
+    emit(resultEvt('后台审查已完成：没有发现阻断问题，生命周期结果已成功回传。'));
     process.exit(0);
   }
 

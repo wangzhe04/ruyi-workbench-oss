@@ -3,6 +3,26 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
+## 如意 Ruyi Escapade 2.0.1 · v2.0.1 · 2026-07-24
+
+### 中文
+
+- 修复新用户直接在 ZIP 预览中运行启动脚本时出现 `The system cannot find the path specified` 与笼统 `Installation Failed` 的问题。Full 与 Slim 现在会在启动前检查关键文件，并明确提示“完整解压到 `C:\Ruyi` 等短路径”，不再把缺文件误报成安装器故障。
+- Full 包对不完整解压、长路径跳过文件与校验损坏给出具体文件名、恢复方式和持久诊断日志；校验期间持续显示进度，避免首次启动看似卡死。
+- ACC 桌面控制准备失败时不再阻断整个产品，基础工作台会继续启动；修复后重新运行即可恢复桌面控制。
+- 打包门新增双包共用的 Node 运行时强校验，并在包根目录加入双语 `README-START-HERE.txt`，防止发布出“能下载但无法启动”的离线包。
+- 修复 Claude CLI 原生子 Agent 长期停在“运行中”、完成结果丢失及父对话无法自动续接的问题：识别后台启动回执与 `<task-notification>` 完成通知，必要时自动阻塞等待 `TaskOutput`，并在 CLI 异常结束时明确标为中断而非伪完成。
+- 工作台 DAG 新增 Claude 原生 Agent 的只读观测图，显示“主对话 → 子 Agent”的真实启动、等待与完成状态；Claude CLI 未暴露的内部步骤不会被伪造。
+
+### English
+
+- Fixes first-run `The system cannot find the path specified` / generic `Installation Failed` errors when a user launches from the ZIP preview or Windows skips files during extraction. Full and Slim now preflight required files and direct users to fully extract to a short path such as `C:\Ruyi`.
+- Full now identifies the missing or damaged payload file, prints verification progress, and persists an installation diagnostic log.
+- A desktop-control setup failure no longer blocks the base Workbench from starting; users can correct extraction or permissions and retry later.
+- Packaging now refuses to emit either variant without its bundled Node runtime and includes a bilingual `README-START-HERE.txt`.
+- Fixes Claude CLI native Agents remaining stuck at “running,” losing completion output, or leaving the parent unable to resume. Ruyi now recognizes launch receipts and string-valued `<task-notification>` completions, performs a bounded blocking `TaskOutput` recovery when needed, and marks unobserved exits as interrupted instead of completed.
+- Adds a read-only Claude-native parent→child projection to the Workbench DAG. It shows the lifecycle Ruyi can actually observe without fabricating internal CLI steps.
+
 ## 如意 Ruyi Escapade 2.0 · v2.0.0 · 2026-07-24
 
 这是 2.x 产品代号 **Escapade** 的首个公开版本。它汇总 v2.0 基座（第 44–46 波）及其后的五个功能波（第 47–52 波）；ACC 同步升至 **v1.9.0**（100→107 工具）。全部经“实现 → 对抗多 agent 审查 → 定向修复 → 离线 e2e 回归”循环。发布验证为 **151 pass / 0 fail**，另有 6 项真实外部环境探针按需启用。

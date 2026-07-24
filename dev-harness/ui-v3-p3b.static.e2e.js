@@ -12,6 +12,7 @@ const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
 const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
 const src = readFrontendSrc(); // app.js + js/**
+const zh = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'docs', 'i18n', 'locales', 'zh-CN.json'), 'utf8'));
 
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
@@ -110,7 +111,8 @@ ok(has(fit, 'wrap.scrollLeft = Math.max(0, (W * gear - wrap.clientWidth) / 2)'),
 // ═══════════ H. 泳道层标注(§5.4;落行上缘空隙,避开节点)═══════════
 ok(/function wbBuildLayerTags\(/.test(src), 'H 泳道层标 wbBuildLayerTags 存在');
 const lanes = fnBody('wbBuildLayerTags');
-ok(has(lanes, 'wb-layer-tag', '第 ${L} 层'), 'H 每层「第 N 层」淡标签');
+ok(has(lanes, 'wb-layer-tag', "t('workflow.canvas.layerTag', { L: L })") &&
+  zh['workflow.canvas.layerTag'] === '第 {{L}} 层', 'H 每层「第 N 层」淡标签(代码与中文 locale 双向锁)');
 ok(has(lanes, 'y - 22') || has(lanes, 'Math.max(2, y - 22)'), 'H 标签落层行上缘空隙带(避开节点重叠)');
 ok(/\.wb-layer-tag\s*\{[^}]*var\(--panel-veil\)/.test(css), 'H CSS 层标 veil 底 + 发丝缘');
 

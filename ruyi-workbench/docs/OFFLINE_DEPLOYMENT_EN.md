@@ -7,23 +7,25 @@ This is the English companion to [离线部署说明](OFFLINE_DEPLOYMENT_CN.md).
 - Windows 10, Windows 11, or Windows Server.
 - An available internal Claude CLI, or an OpenAI-compatible provider configured later in the UI.
 - No public internet access is required.
-- The offline package includes Ruyi.exe and, where practical, a Node runtime fallback. Runtime npm installation is
-  not required.
+- Release archives always include a bundled Node runtime; Ruyi.exe is an optional build artifact. Runtime npm
+  installation is not required.
 
 ## Install and start
 
-Extract the offline package and run:
+Fully extract the offline package first. Do not run scripts from the ZIP preview. Then run:
 
     powershell -ExecutionPolicy Bypass -File .\resources\scripts\install-workbench.ps1
 
-Keep the Full ACC archive name short (for example, `Ruyi-v1.6.5-full.zip`) and extract it to a short location such
+Keep the Full ACC archive name short (for example, `Ruyi-v2.0.1-full.zip`) and extract it to a short location such
 as `C:\Ruyi`. Chromium and WinSDK contain deep paths, and Windows Explorer counts the archive name and temporary
 directory against its legacy extraction limit. Never choose **Skip** for a long-path warning: the ACC integrity
 check will correctly reject an incomplete extraction. The packaging script enforces a conservative Explorer path
 budget before creating a release archive.
 
-When Claude CLI is not on PATH, add its location with the ClaudePath argument. Start the UI with Ruyi.exe serve
---open or Start-Workbench.cmd.
+When Claude CLI is not on PATH, add its location with the ClaudePath argument. Start the UI with
+Start-Workbench.cmd. Both variants preflight their required files. If Full desktop-control setup fails, the base
+Workbench continues to start and the detailed reason is retained in
+`%LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log`.
 
 ## Claude CLI and MCP registration
 

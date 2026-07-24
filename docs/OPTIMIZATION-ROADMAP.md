@@ -15,10 +15,10 @@
 
 | 对外产品线 | 技术版本与 Git tag | 面向用户的写法 | 状态 |
 |---|---|---|---|
-| **Escapade** | `v2.x.y` | **如意 Ruyi Escapade 2.0**；修订版写作 Escapade 2.0.1、2.1 | 当前大版本；`v2.0.0` 为首个公开发行 |
+| **Escapade** | `v2.x.y` | **如意 Ruyi Escapade 2.0**；修订版写作 Escapade 2.0.1、2.1 | 当前大版本；`v2.0.1` 为当前补丁版 |
 | **Pretender** | 预留 `v3.x.y` | **如意 Ruyi Pretender 3.0** | 下一个大版本代号，尚未立项或承诺范围 |
 
-- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析的 `v2.0.0`。离线包也继续用短文件名（如 `Ruyi-v2.0.0-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效。
+- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析（当前为 `v2.0.1`）。离线包也继续用短文件名（如 `Ruyi-v2.0.1-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效。
 - `第53波`、`53a` 等只表示内部工作切片；一个 Release 可以汇总多波，一个波也可只在后续补丁版发布。只有范围冻结、测试与打包门通过后，才决定是 `2.0.x` 补丁、`2.x` 功能版本或下一主版本。
 - 每个对外大版本以一个产品代号统摄体验目标；Escapade 结束前不会提前把 Pretender 的概念或版本号混入用户界面、下载名或兼容承诺。
 
@@ -1366,3 +1366,11 @@ build --check(产物新鲜 + manifest 行区间自洽)✓;facts.static(含新 6 
 **验证(全亲跑,二轮)**:build --check/facts.static/manifest-ranges/release-dryrun(A1-A5)/i18n.static(1212 键)/dom-smoke/meta-guard/storage-steward/ia/uimode-style/manuals/overlay-payload-lock + agent-workflow-templates/session-index/usage-ledger/subagent/perm-v2/auth-deny-default/prompt-snapshot/capabilities 全绿。**i18n 系统验证:712 静态 t() 键 + 4 动态前缀全解析,0 真缺失键**。
 
 **教训**:子代理 codemod 规格(find/replace)对含 `${}` 模板字面量的行易出错(3660/3572),跑 codemod 后必须**系统验证所有 t() 键可解析** + grep mangled 模式(`t(' / 嵌套反引号);51c-a 的嵌套 locale 错误潜伏多波(i18n.static 只查 catalog 对等不查键可解析性,dom-smoke 不触发 workflow 节点状态标签),对抗验证的"提取所有 t() 键逐一查 locale"才抓到。**t() 扁平查找是本仓库的硬约束,locale 必须全扁平点号键**。
+
+### EC-A 发布加固续项 · 首装与 Claude 原生 Agent 生命周期（2026-07-24）
+
+- **首装交付**：Full/Slim 启动前校验关键文件与自带 Node，ZIP 预览/不完整解压/长路径漏文件给出短路径完整解压指引；Full 的 ACC 安装失败降级为基础工作台可用，并保留诊断日志。
+- **原生 Agent 协议闭环**：解析 Claude Code 字符串形态的 `<task-notification>`；后台启动回执保持 running，不再误报 completed；父回合提前返回且仍有子 Agent 时，interactive 进程自动追加有界 `TaskOutput(block:true)` 等待并汇总结果。
+- **终态诚实性**：CLI 退出仍未收到完成通知时，将子 Agent 标为 interrupted，避免永久“运行中”或伪造成功。
+- **DAG 可见性**：前端把可观测的“Claude 主对话 → 原生子 Agent”投影为只读内存 DAG，展示启动、真实等待时长、成功/失败/中断；不虚构 Claude CLI 未提供的内部工具步骤，也不开放无效的插话/重试操作。
+- **兼容边界**：生命周期政策只注入 Claude CLI 主回合，不进入 OpenAI-compatible Provider、工作流 Claude 节点或 Kimi/Ark 端点环境映射；现有双引擎与 Coding Plan 切换契约保持不变。

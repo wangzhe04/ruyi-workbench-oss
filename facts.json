@@ -9,8 +9,8 @@
     "tokenBootstrap": "浏览器获取 UI token 的方式(47c S1):api-bootstrap = POST /api/bootstrap 握手,HTML 不再明文下发 token。",
     "liveProbes": "run-all.js SKIP 集中真 live probe 件数(需真实外部依赖;每条文件名须含 live 或在白名单)。"
   },
-  "generatedAt": "2026-07-24T06:22:38.603Z",
-  "workbenchVersion": "2.0.0",
+  "generatedAt": "2026-07-24T15:10:12.279Z",
+  "workbenchVersion": "2.0.1",
   "accVersion": "1.9.0",
   "nativeTools": 50,
   "accTools": 107,

@@ -5,11 +5,11 @@
 - Windows 10/11 或 Windows Server。
 - 已有可用的内网 `claude` CLI，或稍后在 UI 设置 Claude CLI 路径。
 - 不要求公网。
-- 不要求 npm install；压缩包内会带 `Ruyi.exe`，并尽量带一个 Node 运行时作为源码 fallback。
+- 不要求 npm install；发布压缩包固定携带 Node 运行时，`Ruyi.exe` 为可选构建产物。
 
 ## 安装
 
-解压离线包后，在包根目录运行：
+必须先**完整解压**离线包，不能在 ZIP 预览窗口里直接运行脚本。建议解压到 `C:\Ruyi` 等短路径；如果 Windows 提示路径过长，不能选择“跳过”。解压完成后，在包根目录运行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\resources\scripts\install-workbench.ps1
@@ -23,15 +23,11 @@ powershell -ExecutionPolicy Bypass -File .\resources\scripts\install-workbench.p
 
 启动 UI：
 
-```powershell
-.\Ruyi.exe serve --open
-```
-
-或：
-
 ```cmd
 Start-Workbench.cmd
 ```
+
+启动器会先检查 Full/Slim 的关键文件。Full 的桌面控制组件准备失败时，基础工作台仍会继续启动，并在控制台和 `%LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log` 中保留具体原因。
 
 ## Claude CLI 接入
 

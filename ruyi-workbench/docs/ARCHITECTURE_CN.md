@@ -1,6 +1,6 @@
 # 如意 Ruyi 架构(原 Win Claude Workbench)
 
-> 版本基线:`app/server.js` `VERSION 2.0.0` / `configSchema 8` / 会话 `schemaVersion 1`。v2.0.0 基线:OpenAI 兼容引擎与 Claude CLI 共用的工具目录、任务预路由、按需装载、目录缓存与 schema token 计量；`toolLoadingMode:'full'` 保留旧的全部常驻行为。其余架构延续 v1.5 团队模式、Skills、用量看板及 v0.7d–v2.0 的多引擎、检查点、Agent 工作流、桌面/Office MCP 桥接能力。
+> 版本基线:`app/server.js` `VERSION 2.0.1` / `configSchema 8` / 会话 `schemaVersion 1`。v2.0.1 延续 v2.0.0 的 OpenAI 兼容引擎与 Claude CLI 共用工具目录、任务预路由、按需装载、目录缓存与 schema token 计量，并修复 Full/Slim 首次解压与启动链；`toolLoadingMode:'full'` 保留旧的全部常驻行为。其余架构延续 v1.5 团队模式、Skills、用量看板及 v0.7d–v2.0 的多引擎、检查点、Agent 工作流、桌面/Office MCP 桥接能力。
 >
 > **品牌与兼容(v1.0-S9 发布工程)**:产品名为**如意 Ruyi**(`APP_NAME`,/api/status.app 与启动横幅随之)。目录名已改 `ruyi-workbench/`、可执行文件名已改 `Ruyi.exe`(启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`)。**数据目录解析**:`RUYI_HOME` 优先,旧变量 `WIN_CLAUDE_WORKBENCH_HOME` 继续识别(至少保留一个大版本);默认目录仍 `~/.win-claude-workbench`。**以下存量兼容标识有意保持不变(v2.0 仍保持不变(存量兼容))**:MCP server id `win-claude-workbench`、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`(存量 `.mcp.json` 兼容)。子进程 MCP 配置注入的是旧变量名(值=已解析 dataRoot),故老 `.mcp.json` 照常工作。
 

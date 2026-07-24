@@ -175,6 +175,7 @@ Copy-Item (Join-Path $root "resources") (Join-Path $stage "resources") -Recurse
 Copy-Item (Join-Path $root "config") (Join-Path $stage "config") -Recurse
 Copy-Item (Join-Path $root "docs") (Join-Path $stage "docs") -Recurse
 Copy-Item (Join-Path $root "package.json") (Join-Path $stage "package.json")
+Copy-Item (Join-Path $root "README-START-HERE.txt") (Join-Path $stage "README-START-HERE.txt")
 
 $accSummary = "(no ACC)"
 if ($IncludeAcc) {
@@ -236,37 +237,89 @@ if ($IncludeAcc) {
 }
 
 $node = Get-Command node.exe -ErrorAction SilentlyContinue
-if ($node) {
-  New-Item -ItemType Directory -Force -Path (Join-Path $stage "runtime\node") | Out-Null
-  Copy-Item $node.Source (Join-Path $stage "runtime\node\node.exe")
+if (-not $node) {
+  throw "Node.js was not found on the packaging machine. Refusing to create a package without runtime\node\node.exe."
 }
+New-Item -ItemType Directory -Force -Path (Join-Path $stage "runtime\node") | Out-Null
+Copy-Item $node.Source (Join-Path $stage "runtime\node\node.exe")
 
+$accPreflight = ""
 $accBootstrap = ""
 if ($IncludeAcc) {
+  $accPreflight = @"
+if not exist "%RUYI_ROOT%mcp\ai-computer-control\install.py" (
+  set "RUYI_MISSING=mcp\ai-computer-control\install.py"
+  goto :package_incomplete
+)
+if not exist "%RUYI_ROOT%mcp\ai-computer-control\offline-manifest.json" (
+  set "RUYI_MISSING=mcp\ai-computer-control\offline-manifest.json"
+  goto :package_incomplete
+)
+if not exist "%RUYI_ROOT%mcp\ai-computer-control\python_embed\python.exe" (
+  set "RUYI_MISSING=mcp\ai-computer-control\python_embed\python.exe"
+  goto :package_incomplete
+)
+"@
   $accBootstrap = @"
-set "ACC_ROOT=%~dp0mcp\ai-computer-control"
+set "ACC_ROOT=%RUYI_ROOT%mcp\ai-computer-control"
 echo [Ruyi] Ensuring AI Computer Control is installed and registered...
-"%ACC_ROOT%\python_embed\python.exe" -B -X utf8 "%ACC_ROOT%\install.py" --ensure
+"%ACC_ROOT%\python_embed\python.exe" -u -B -X utf8 "%ACC_ROOT%\install.py" --ensure
 if errorlevel 1 (
-  echo [Ruyi] ACC installation failed. See the error above.
-  pause
-  exit /b 1
+  echo.
+  echo [Ruyi] Desktop-control setup failed. The base Workbench will still start.
+  echo [Ruyi] Review the specific error and recovery hint above, then run this launcher again.
+  echo.
 )
 "@
 }
 
 $launcher = @"
 @echo off
-setlocal
-cd /d "%~dp0"
-$accBootstrap
-if exist Ruyi.exe (
-  Ruyi.exe serve --open
-) else if exist runtime\node\node.exe (
-  runtime\node\node.exe app\server.js serve --open
-) else (
-  where node >nul 2>nul && ( node app\server.js serve --open ) || ( echo [Ruyi] no bundled node runtime and no node on PATH ^(need Node ^>= 20^). & pause )
+chcp 65001 >nul 2>&1
+setlocal EnableExtensions DisableDelayedExpansion
+set "RUYI_ROOT=%~dp0"
+cd /d "%RUYI_ROOT%" 2>nul
+if errorlevel 1 (
+  set "RUYI_MISSING=package directory"
+  goto :package_incomplete
 )
+if not exist "%RUYI_ROOT%package.json" (
+  set "RUYI_MISSING=package.json"
+  goto :package_incomplete
+)
+if not exist "%RUYI_ROOT%app\server.js" (
+  set "RUYI_MISSING=app\server.js"
+  goto :package_incomplete
+)
+if not exist "%RUYI_ROOT%runtime\node\node.exe" (
+  set "RUYI_MISSING=runtime\node\node.exe"
+  goto :package_incomplete
+)
+$accPreflight
+$accBootstrap
+"%RUYI_ROOT%runtime\node\node.exe" "%RUYI_ROOT%app\server.js" serve --open
+set "RUYI_EXIT=%ERRORLEVEL%"
+if not "%RUYI_EXIT%"=="0" (
+  echo.
+  echo [Ruyi] Workbench stopped with exit code %RUYI_EXIT%.
+  pause
+)
+exit /b %RUYI_EXIT%
+
+:package_incomplete
+echo.
+echo [Ruyi] PACKAGE INCOMPLETE - missing: %RUYI_MISSING%
+echo.
+echo Do not run Start-Workbench.cmd from inside the ZIP preview.
+echo Right-click the downloaded ZIP, choose "Extract All", and then run
+echo Start-Workbench.cmd from the extracted folder.
+echo.
+echo Recommended location: C:\Ruyi
+echo Avoid deep OneDrive/Desktop paths. Never choose "Skip" during extraction.
+echo See README-START-HERE.txt for Chinese and English instructions.
+echo.
+pause
+exit /b 2
 "@
 Set-Content -LiteralPath (Join-Path $stage "Start-Workbench.cmd") -Value $launcher -Encoding ASCII
 
