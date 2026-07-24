@@ -726,19 +726,19 @@ const ERROR_CLASS_I18N = {
   tool_loop: { title: 'error.toolLoop' },
 };
 const ERROR_CLASSES_LEGACY = {
-  provider_misconfigured: { zh: '模型端点未配置或不可用', next: '到 设置→Providers 检查地址与密钥' },
-  network_down: { zh: '网络不可用（当前离线）', next: '联网后重试；或改用离线可完成的任务' },
-  permission_denied: { zh: '此操作被权限拒绝', next: '在弹窗中允许，或在 设置→权限 调整模式' },
-  tool_error: { zh: '工具执行出错', next: '查看工具返回的错误详情，调整参数后重试' },
-  idle_timeout: { zh: '回合空闲超时，已中止', next: '重新发送，或缩小单步任务范围' },
-  tool_loop: { zh: '检测到重复的工具调用，已停止本轮', next: '换个说法或参数再试；若结果不对，先确认前一步的输出' },
+  provider_misconfigured: { zh: () => t('error.providerMisconfigured'), next: () => t('error.providerMisconfigured.next') },
+  network_down: { zh: () => t('error.networkDown'), next: () => t('error.networkDown.next') },
+  permission_denied: { zh: () => t('error.permissionDenied'), next: () => t('error.permissionDenied.next') },
+  tool_error: { zh: () => t('error.toolFailed'), next: () => t('error.toolFailed.next') },
+  idle_timeout: { zh: () => t('error.idleTimeout'), next: () => t('error.idleTimeout.next') },
+  tool_loop: { zh: () => t('error.toolLoop'), next: () => t('error.toolLoop.next') },
 };
 function errorClassInfo(cls) {
   const local = ERROR_CLASS_I18N[cls];
   if (local) return { title: t(local.title), next: local.next ? t(local.next) : '' };
   const table = (state.status && state.status.errorClasses) || ERROR_CLASSES_LEGACY;
   const legacy = table[cls] || ERROR_CLASSES_LEGACY[cls];
-  return legacy ? { title: legacy.zh, next: legacy.next } : null;
+  return legacy ? { title: (typeof legacy.zh === 'function' ? legacy.zh() : legacy.zh), next: (typeof legacy.next === 'function' ? legacy.next() : legacy.next) } : null;
 }
 // Map an errorClass → a concrete 「下一步」 action (button). Not every class gets a button (tool_loop is
 // text-only per spec — there's nothing single-click actionable). Returns {label, run} or null.
@@ -839,7 +839,7 @@ function renderResumeBanner() {
 }
 
 // 50-fix:未命名标题的本地化占位显示(后端占位 'New session' / 历史中文占位 '新会话' 均视为未命名)。
-function isUntitledTitle(tt) { const v = String(tt || '').trim(); return !v || v === 'New session' || v === '新会话'; }
+function isUntitledTitle(tt) { const v = String(tt || '').trim(); return !v || v === 'New session' || v === t('chat.newSession'); }
 function sessionDisplayTitle(s) { return isUntitledTitle(s && s.title) ? t('session.new') : String(s.title).trim(); }
 async function newSession() {
   const cwd = state.config.defaultWorkspace || '';
@@ -1271,7 +1271,7 @@ function messageShell(role, whenIso, meta) {
     const model = meta && meta.model;
     if (model) head.append(el('span', 'eng-model', model));
   } else {
-    head.append(el('span', 'who', role === 'user' ? '你' : '系统'));
+    head.append(el('span', 'who', role === 'user' ? t('chat.roleUser') : t('chat.roleSystem')));
   }
   if (whenIso) head.append(el('span', 'when', fmtTime(whenIso)));
   main.appendChild(head);
@@ -1330,17 +1330,17 @@ function thinkingCharCount(text) { return String(text || '').length; }
 // The summary label for a SETTLED thinking panel: "思考过程 · N 字" (N = char count), or plain "思考过程"
 // when empty. The mid-stream "思考中…" + shimmer state is chosen by the caller (thinkingPanel/setLive),
 // not here. Pure helper for testing the collapsed-state text.
-function thinkingSummaryLabel(text) { const n = thinkingCharCount(text); return n > 0 ? `思考过程 · ${n} 字` : '思考过程'; }
+function thinkingSummaryLabel(text) { const n = thinkingCharCount(text); return n > 0 ? `${t('chat.thinkingProcessCount', {count: n})}` : t('chat.thinkingProcess'); }
 // text (optional) seeds the body; `live` renders the streaming "思考中…" shimmer summary. Returns the
 // <details>, the body element, and setLive(on)/refreshLabel() so the streaming path can settle it.
 function thinkingPanel(text, live) {
   const d = el('details', 'thinking');
-  const sum = el('summary', '', live ? '思考中…' : thinkingSummaryLabel(text));
+  const sum = el('summary', '', live ? t('chat.thinking') : thinkingSummaryLabel(text));
   if (live) sum.classList.add('thinking-live');
   d.appendChild(sum);
   const body = el('div', 'think-body', text); d.appendChild(body);
   const setLive = on => {
-    if (on) { sum.classList.add('thinking-live'); sum.textContent = '思考中…'; }
+    if (on) { sum.classList.add('thinking-live'); sum.textContent = t('chat.thinking'); }
     else { sum.classList.remove('thinking-live'); sum.textContent = thinkingSummaryLabel(body.textContent); }
   };
   return { d, body, summary: sum, setLive };
@@ -1408,7 +1408,7 @@ function renderDiffView(diffText) {
   };
   appendLines(0, collapsed ? DIFF_COLLAPSE_LINES : total);
   if (collapsed) {
-    const btn = el('button', 'diff-expand', `展开全部（共 ${total} 行）`); btn.type = 'button';
+    const btn = el('button', 'diff-expand', `t('chat.expandAll', { total })`); btn.type = 'button';
     btn.onclick = e => {
       e.preventDefault(); e.stopPropagation();
       appendLines(DIFF_COLLAPSE_LINES, total);
@@ -1443,7 +1443,7 @@ function toolCard(tc) {
   // Duration slot: filled now for static cards that carry durationMs; streaming fills it on tool_result.
   const dur = el('span', 'tc-dur'); if (done && Number.isFinite(tc.durationMs)) dur.textContent = `· ${(tc.durationMs / 1000).toFixed(1)}s`;
   sum.appendChild(dur);
-  const status = el('span', 'tc-status', done ? (tc.isError ? '出错' : '完成') : '运行中…');
+  const status = el('span', 'tc-status', done ? (tc.isError ? t('status.error') : t('status.done')) : t('status.running'));
   if (done) status.classList.add(tc.isError ? 'err' : 'ok');
   sum.appendChild(status);
   d.appendChild(sum);
@@ -1459,11 +1459,11 @@ function toolCard(tc) {
   // mode the 「详情」summary shows so a 人人可用 user can collapse the raw JSON. It starts open either way,
   // so content is never hidden by default — simple users opt INTO folding.
   const detail = el('details', 'tc-detail'); detail.open = true;
-  const detailSum = el('summary', 'tc-detail-sum'); detailSum.textContent = '详情'; detail.appendChild(detailSum);
-  detail.appendChild(el('div', 'tc-label', '输入'));
+  const detailSum = el('summary', 'tc-detail-sum'); detailSum.textContent = t('chat.details'); detail.appendChild(detailSum);
+  detail.appendChild(el('div', 'tc-label', t('chat.input')));
   const inp = el('pre'); inp.textContent = safeStringify(tc.input); detail.appendChild(wrapPreWithCopy(inp));
-  const resLabel = el('div', 'tc-label', '结果'); detail.appendChild(resLabel);
-  const resPre = el('pre'); resPre.textContent = done ? safeStringify(tc.result) : '（等待结果）'; detail.appendChild(wrapPreWithCopy(resPre));
+  const resLabel = el('div', 'tc-label', t('chat.result')); detail.appendChild(resLabel);
+  const resPre = el('pre'); resPre.textContent = done ? safeStringify(tc.result) : t('chat.waitingResult'); detail.appendChild(wrapPreWithCopy(resPre));
   body.appendChild(detail);
   d.appendChild(body);
   if (done && tc.isError) d.open = true; // failed static cards start expanded
@@ -1478,7 +1478,7 @@ function renderGitDiffInto(host, name, result) {
   if (name !== 'git_diff') return;
   const text = gitDiffText(result);
   if (!text || !text.trim()) return;
-  host.appendChild(el('div', 'tc-label', '改动'));
+  host.appendChild(el('div', 'tc-label', t('chat.changes')));
   host.appendChild(renderDiffView(text));
 }
 function safeStringify(v) {
@@ -1577,7 +1577,7 @@ function usageLine(u, meta) {
   const inp = u.usage?.input_tokens, out = u.usage?.output_tokens;
   // E4: providers that never send a usage frame get a server-side estimate flagged estimated:true — prefix
   // it with 约 (approx.) so the number does not read as an exact provider-reported count.
-  if (inp != null || out != null) parts.push(`<b>${u.estimated ? '约' : ''}↑${fmtTokens(inp ?? 0)} ↓${fmtTokens(out ?? 0)}</b>`);
+  if (inp != null || out != null) parts.push(`<b>${u.estimated ? t('common.about') : ''}↑${fmtTokens(inp ?? 0)} ↓${fmtTokens(out ?? 0)}</b>`);
   if (u.durationMs != null) parts.push(`<b>${(u.durationMs / 1000).toFixed(1)}s</b>`);
   if (u.costUsd != null) parts.push(`<b>$${Number(u.costUsd).toFixed(4)}</b>`);
   if (u.numTurns != null) parts.push(`${u.numTurns} 轮`);
@@ -1638,11 +1638,11 @@ function ctxWindow() {
 }
 // 当前上限读数的来源人话标签(供电量表 tooltip + 弹层)。「按名称推测」= 端点未报告真实上限、只能按模型名猜,可能不准。
 function ctxWindowSourceLabel() {
-  if (ctxWindowManual() > 0) return '手动锁定';
+  if (ctxWindowManual() > 0) return t('ctx.sourceLabel.manual');
   const r = state.status && state.status.contextWindowResolved;
-  if (r && r.source === 'probe' && r.value > 0) return '接口探测';
-  if (r && r.source === 'manual' && r.value > 0) return '设置固定';
-  return '按名称推测';
+  if (r && r.source === 'probe' && r.value > 0) return t('ctx.sourceLabel.probe');
+  if (r && r.source === 'manual' && r.value > 0) return t('ctx.sourceLabel.settingsFixed');
+  return t('ctx.sourceLabel.guessed');
 }
 // Context "in play" after a turn. Prefer the server's accurate per-call figure (contextTokens);
 // fall back to summing raw usage fields only for older payloads that lack it.
@@ -1702,7 +1702,7 @@ function msgActions(msg) {
     retry.onclick = () => sendPrompt(msg.content || '');
     bar.append(edit, retry);
     // v0.8-S4b B2: 「⏪ 回溯到此处」— rewind the conversation to just before this message.
-    const rewind = el('button', '', '⏪ 回溯到此处');
+    const rewind = el('button', '', t('chat.rewindHere'));
     rewind.onclick = () => openRewindModal(msg);
     bar.append(rewind);
   } else if (msg.role === 'assistant') {
@@ -1713,7 +1713,7 @@ function msgActions(msg) {
       save.onclick = () => saveAsPlaybook(save);
       bar.append(save);
       // v2 跨会话记忆: 「存为记忆」(draft→编辑弹窗→保存)。draft 用 provider,故与「存为 playbook」同处 provider 分支。
-      const mem = el('button', '', '存为记忆');
+      const mem = el('button', '', t('chat.saveMemory'));
       mem.onclick = () => saveAsMemory(mem);
       bar.append(mem);
     }
@@ -1833,13 +1833,13 @@ function openRewindModal(msg) {
     body.append(wrap);
   }
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
-  const cancel = el('button', '', '取消');
+  const cancel = el('button', '', t('common.cancel'));
   const go = el('button', 'danger', t('chat.rewind'));
   foot.append(cancel, go);
-  const modal = buildModal('回溯对话', body, foot);
+  const modal = buildModal(t('chat.rewindTitle'), body, foot);
   cancel.onclick = () => modal.close();
   go.onclick = async () => {
-    go.disabled = true; go.textContent = '回溯中…';
+    go.disabled = true; go.textContent = t('chat.rewinding');
     try {
       const r = await api('/api/session/rewind', { method: 'POST', body: JSON.stringify({ sessionId: sid, targetTurnSeq, rollbackFiles: !!(fileBox && fileBox.checked) }) });
       modal.close();
@@ -1895,7 +1895,7 @@ function renderAttachments() {
   state.attachments.forEach((f, i) => {
     const pill = el('span', 'attachment-pill');
     pill.append(el('span', '', `${f.name} · ${fmtBytes(f.size)}`));
-    const x = el('button', 'attach-x'); x.appendChild(icon('close', 12)); x.setAttribute('aria-label', '移除附件'); x.title = '移除';
+    const x = el('button', 'attach-x'); x.appendChild(icon('close', 12)); x.setAttribute('aria-label', t('chat.attachRemoveAria')); x.title = t('common.remove');
     x.onclick = () => { state.attachments.splice(i, 1); renderAttachments(); };
     pill.appendChild(x);
     tray.appendChild(pill);
@@ -1974,13 +1974,13 @@ function confirmWorkspaceSwitch(name, dir) {
   body.appendChild(el('code', 'ws-confirm-path', dir)); // textContent via el → XSS-safe
   const defWrap = el('label', 'ws-confirm-def');
   const defChk = el('input'); defChk.type = 'checkbox';
-  defWrap.append(defChk, document.createTextNode(' 同时设为默认工作区'));
+  defWrap.append(defChk, document.createTextNode(t('workspace.setDefault')));
   body.appendChild(defWrap);
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
-  const cancel = el('button', '', '取消');
-  const go = el('button', 'primary', '切换');
+  const cancel = el('button', '', t('common.cancel'));
+  const go = el('button', 'primary', t('workspace.switchBtn'));
   foot.append(cancel, go);
-  const modal = buildModal('切换工作文件夹', body, foot);
+  const modal = buildModal(t('workspace.switchTitle'), body, foot);
   cancel.onclick = () => modal.close();
   go.onclick = async () => { modal.close(); await setWorkspace(dir, { alsoDefault: defChk.checked }); };
 }
@@ -1991,15 +1991,15 @@ function chooseWorkspaceMatch(name, matches) {
   const list = el('div', 'ws-match-list');
   for (const m of matches) {
     const item = el('button', 'ws-match-item');
-    item.append(el('code', 'ws-match-path', m.path), el('span', 'ws-match-score', '匹配度 ' + Math.round(m.score * 100) + '%'));
+    item.append(el('code', 'ws-match-path', m.path), el('span', 'ws-match-score', t('common.relevance') + Math.round(m.score * 100) + '%'));
     item.onclick = async () => { modal.close(); await setWorkspace(m.path); };
     list.appendChild(item);
   }
   body.appendChild(list);
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
-  const cancel = el('button', '', '取消');
+  const cancel = el('button', '', t('common.cancel'));
   foot.append(cancel);
-  const modal = buildModal('选择工作文件夹', body, foot);
+  const modal = buildModal(t('workspace.chooseTitle'), body, foot);
   cancel.onclick = () => modal.close();
 }
 // The unified drop handler. Splits dropped items via webkitGetAsEntry: files → attachment flow (existing),
@@ -2164,12 +2164,12 @@ const compactState = { active: false, timer: 0 };
 function beginCompactIndicator() {
   compactState.active = true;
   const btn = $('compactBtn');
-  if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = '⏳ 压缩中…'; }
+  if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = t('chat.compacting'); }
   // 持续指示条:插在 composer 顶部(resumeBanner 之上),复用 chip/toast 令牌,自带 spinner。
   let bar = $('compactIndicator');
   if (!bar) {
     bar = el('div', 'compact-indicator'); bar.id = 'compactIndicator';
-    bar.append(el('span', 'compact-spinner'), el('span', '', '正在压缩上下文——这可能需要十几秒'));
+    bar.append(el('span', 'compact-spinner'), el('span', '', t('chat.compactHint')));
     const composer = document.querySelector('.composer');
     if (composer) composer.insertBefore(bar, composer.firstChild);
   }
@@ -2295,7 +2295,7 @@ async function sendPrompt(overrideText) {
   } catch (err) {
     // C6: aborts read as a neutral note (.msg-note), real failures as a red .msg-error block — not
     // stuffed into the markdown buffer. finalizeLive still renders whatever text streamed before this.
-    if (err.name === 'AbortError') { appendMsgNote(main, live, '已停止'); toast(t("toast.turnStopped")); }
+    if (err.name === 'AbortError') { appendMsgNote(main, live, t('status.stopped')); toast(t("toast.turnStopped")); }
     else { appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
     finalizeLive(live);
   } finally {
@@ -2499,7 +2499,7 @@ function finalizeLive(live) {
   // If nothing streamed but an error/note block was shown, drop the empty bubble instead of the
   // "（无文本输出）" placeholder (the block already tells the story). Otherwise render the buffer.
   if (!live.bufferText && (live.errorShown || live.noteShown)) { live.bubble.remove(); return; }
-  const text = live.bufferText || '（无文本输出）';
+  const text = live.bufferText || t('chat.noTextOutput');
   const pending = text.slice(live.renderedChars || 0);
   if (pending && live.textNode) live.textNode.appendData(pending);
   live.renderedChars = text.length;
@@ -2642,7 +2642,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
         card.resPre.textContent = safeStringify(evt.content);
         // v1.0-S4: if this was git_diff, paint the colorized diff view now that the result is in.
         if (!evt.isError) renderGitDiffInto(card.diffHost, card.name, evt.content);
-        card.status.textContent = evt.isError ? '出错' : '完成';
+        card.status.textContent = evt.isError ? t('status.error') : t('status.done');
         card.status.classList.remove('ok', 'err'); card.status.classList.add(evt.isError ? 'err' : 'ok');
         // Status bar: running → ok/err.
         if (card.statusbar) { card.statusbar.classList.remove('running', 'ok', 'err'); card.statusbar.classList.add(evt.isError ? 'err' : 'ok'); }
@@ -2864,12 +2864,12 @@ function showAskUserModal(questionId, questions, streamSessionId) {
         controls.push({ qi, multi, input: inp, label });
       });
     } else {
-      const inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = '输入回答';
+      const inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = t('chat.inputPlaceholder');
       block.appendChild(inp); controls.push({ qi, multi: false, input: inp, free: true });
     }
     body.appendChild(block);
   });
-  const submit = el('button', 'primary', '提交');
+  const submit = el('button', 'primary', t('chat.submit'));
   // Fire-and-forget answer (used only by the cancel path — Esc/✕/backdrop). Cancelling still answers (empty)
   // so the turn doesn't hang waiting for a tool_result. F4④:已实证现有关闭路径确实空答放行,不会丢弃挂起。
   const markAnswered = () => { const active = activeTurns.get(sid); if (active?.answeredQuestions) active.answeredQuestions.add(qid); };
@@ -2878,7 +2878,7 @@ function showAskUserModal(questionId, questions, streamSessionId) {
     api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid, content, isError: true }) })
       .then(r => { if (r?.delivered) markAnswered(); }).catch(e => toast(apiErrText(e), 'err'));
   };
-  const modal = buildModal(`模型提问 · ${engineLabel()}`, body, submit, () => postAnswer('(用户取消，未选择)'));
+  const modal = buildModal(`模型提问 · ${engineLabel()}`, body, submit, () => postAnswer(t('chat.userCancelled')));
   // F4②:标记为 ask modal,供下一条提问到达时精确关旧的。
   modal.backdrop.classList.add('ask-modal');
   modal.backdrop.dataset.sessionId = sid;
@@ -2895,7 +2895,7 @@ function showAskUserModal(questionId, questions, streamSessionId) {
     });
     const content = answers.map(a => `${a.question}: ${a.answer.join(', ')}`).join('\n');
     const prevLabel = submit.textContent;
-    submit.disabled = true; submit.textContent = '发送中…';
+    submit.disabled = true; submit.textContent = t('chat.sending');
     try {
       const r = await api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid, answers, content }) });
       if (!r?.ok || !r.delivered) throw new Error('answer was not delivered');
@@ -3090,7 +3090,7 @@ async function launchAgentWorkflow(workflow, context) {
     const body = { token: wcwToken(), sessionId: state.currentSession.id, nodes: wf.nodes, workflowId: wf.id, async: true };
     if (context && context.trim()) body.context = context.trim();
     const r = await api('/api/agent-workflow/launch', { method: 'POST', body: JSON.stringify(body) });
-    if (!r || (!r.ok && !r.runId)) throw new Error(r && r.error || '启动失败');
+    if (!r || (!r.ok && !r.runId)) throw new Error(r && r.error || t('chat.startFailed'));
     toast(t('workflow.started', { title: wf.title }), 'ok'); switchTab('agent-runs'); await loadAgentRuns(true);
   } catch (e) { toast(t('workflow.start.failed', { reason: apiErrText(e) }), 'err'); }
 }
@@ -3147,7 +3147,7 @@ async function openWorkflowEditor(initialId) {
   const scopeSelect = document.createElement('select'); for (const [v, key] of [['personal','workflow.source.personal'],['project','workflow.source.project']]) { const o=document.createElement('option');o.value=v;o.textContent=t(key);scopeSelect.appendChild(o); } scopeSelect.value=draft.source;
   meta.append(workflowField(t('workflow.editor.id'), idInput), workflowField(t('workflow.editor.name'), titleInput), workflowField(t('workflow.editor.description'), descInput), workflowField(t('workflow.editor.scope'), scopeSelect)); body.appendChild(meta);
   const toolbar = el('div', 'workflow-editor-toolbar'); const templateSelect = document.createElement('select'); for (const wf of agentWorkflowLibrary) { const o=document.createElement('option');o.value=wf.id;const sourceKey=wf.source === 'builtin' ? 'workflow.source.builtin' : wf.source === 'project' ? 'workflow.source.project' : 'workflow.source.personal';o.textContent=t(sourceKey) + ' · ' + wf.title;templateSelect.appendChild(o); } templateSelect.value=draft.id;
-  const nodeSelect = document.createElement('select'); nodeSelect.title = '快速选择节点';
+  const nodeSelect = document.createElement('select'); nodeSelect.title = t('workflow.canvas.quickSelect');
   const loadBtn=el('button','mini workflow-btn',t('workflow.editor.editSelected')), blankBtn=el('button','mini workflow-btn',t('workflow.editor.newBlank')), addBtn=el('button','mini workflow-btn',t('workflow.editor.addNode')), connectBtn=el('button','mini workflow-btn',t('workflow.editor.connect')), edgeDeleteBtn=el('button','mini danger workflow-btn',t('workflow.editor.deleteEdge')), deleteBtn=el('button','mini danger workflow-btn',t('workflow.editor.deleteNode')); const _tbGroup=(...els)=>{const g=el('div','wf-tb-group');g.append(...els);return g;}; toolbar.append(_tbGroup(templateSelect,loadBtn,blankBtn),el('div','wf-tb-sep'),_tbGroup(nodeSelect,addBtn,deleteBtn),el('div','wf-tb-sep'),_tbGroup(connectBtn,edgeDeleteBtn)); body.appendChild(toolbar);
   const layout=el('div','workflow-editor-layout'), graph=el('div','workflow-graph'), inspector=el('div','workflow-inspector'); layout.append(graph,inspector); body.appendChild(layout);
   const foot=el('div','modal-actions workflow-editor-foot'), footLeft=el('div','workflow-editor-foot-left'), footRight=el('div','workflow-editor-foot-right'), forkBtn=el('button','mini workflow-btn save-as',t('workflow.editor.saveAsNew')), cancel=el('button','',t('common.cancel')), remove=el('button','ghost-danger',t('workflow.editor.deleteSaved')), save=el('button','',t('common.save')), run=el('button','primary',t('workflow.editor.saveAndRun')); footLeft.append(forkBtn,remove); footRight.append(cancel,save,run); foot.append(footLeft,footRight); const modal=buildModal(t('workflow.editor.title'),body,foot); const modalEl=modal.backdrop.querySelector('.modal'); modalEl?.classList.add('workflow-modal'); const maxBtn=el('button','workflow-window-btn','□'); maxBtn.type='button'; maxBtn.title=t('workflow.editor.maximize'); maxBtn.setAttribute('aria-label',t('workflow.editor.maximize')); modalEl?.querySelector('.modal-head button')?.before(maxBtn);
@@ -3156,7 +3156,7 @@ async function openWorkflowEditor(initialId) {
   function edgeKey(edge){return edge ? `${edge.from}->${edge.to}` : '';}
   function edgeExists(edge){const to=draft.nodes.find(n=>n.id===edge?.to);return !!(to&&to.dependsOn||[]).includes(edge?.from);}
   function resetConnectMode(){connectFromId='';connectBtn.textContent=t('workflow.editor.connect');}
-  function syncNodeSelect(){const prev=nodeSelect.value;nodeSelect.textContent='';for(const n of draft.nodes){const o=document.createElement('option');o.value=n.id;o.textContent=`节点：${n.id}`;nodeSelect.appendChild(o);}nodeSelect.value=draft.nodes.some(n=>n.id===selectedId)?selectedId:(draft.nodes.some(n=>n.id===prev)?prev:(draft.nodes[0]?.id||''));}
+  function syncNodeSelect(){const prev=nodeSelect.value;nodeSelect.textContent='';for(const n of draft.nodes){const o=document.createElement('option');o.value=n.id;o.textContent=`${t('workflow.nodeLabel', {id: n.id})}`;nodeSelect.appendChild(o);}nodeSelect.value=draft.nodes.some(n=>n.id===selectedId)?selectedId:(draft.nodes.some(n=>n.id===prev)?prev:(draft.nodes[0]?.id||''));}
   function markSelectedCards(){graph.querySelectorAll('.workflow-node-card').forEach(x=>{x.classList.toggle('selected',x.dataset.nodeId===selectedId);x.classList.toggle('connect-source',x.dataset.nodeId===connectFromId);});nodeSelect.value=selectedId||'';}
   function markSelectedEdges(){graph.querySelectorAll('.workflow-edge').forEach(x=>x.classList.toggle('selected',x.dataset.edgeKey===edgeKey(selectedEdge)));edgeDeleteBtn.disabled=!selectedEdge;}
   function removeWorkflowEdge(edge){const to=draft.nodes.find(n=>n.id===edge?.to);if(!to)return false;const before=(to.dependsOn||[]).length;to.dependsOn=(to.dependsOn||[]).filter(x=>x!==edge.from);return to.dependsOn.length!==before;}
@@ -3176,7 +3176,7 @@ async function openWorkflowEditor(initialId) {
   }
   function drawEdges(svg){
     const NS='http://www.w3.org/2000/svg'; const defs=document.createElementNS(NS,'defs'), marker=document.createElementNS(NS,'marker'); marker.setAttribute('id','wf-arrow');marker.setAttribute('markerWidth','8');marker.setAttribute('markerHeight','8');marker.setAttribute('refX','7');marker.setAttribute('refY','3');marker.setAttribute('orient','auto');const path=document.createElementNS(NS,'path');path.setAttribute('d','M0,0 L0,6 L8,3 z');marker.appendChild(path);defs.appendChild(marker);svg.appendChild(defs);
-    for(const node of draft.nodes){for(const dep of node.dependsOn||[]){const from=draft.nodes.find(x=>x.id===dep);if(!from)continue;const edge={from:dep,to:node.id},x1=(from.position?.x||0)+210,y1=(from.position?.y||0)+45,x2=node.position?.x||0,y2=(node.position?.y||0)+45;const g=document.createElementNS(NS,'g');g.classList.add('workflow-edge');if(edgeKey(selectedEdge)===edgeKey(edge))g.classList.add('selected');g.dataset.from=dep;g.dataset.to=node.id;g.dataset.edgeKey=edgeKey(edge);const line=document.createElementNS(NS,'line');line.classList.add('workflow-edge-line');line.setAttribute('x1',String(x1));line.setAttribute('y1',String(y1));line.setAttribute('x2',String(x2));line.setAttribute('y2',String(y2));line.setAttribute('marker-end','url(#wf-arrow)');const hit=document.createElementNS(NS,'line');hit.classList.add('workflow-edge-hit');hit.setAttribute('x1',String(x1));hit.setAttribute('y1',String(y1));hit.setAttribute('x2',String(x2));hit.setAttribute('y2',String(y2));hit.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();selectedEdge=edge;selectedId='';resetConnectMode();markSelectedCards();markSelectedEdges();renderInspector();const endpoint=edgeEndpointByPointer(e,from,node);const sx=e.clientX,sy=e.clientY;let moved=false;hit.setPointerCapture?.(e.pointerId);const move=ev=>{if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>4)moved=true;};const up=ev=>{hit.removeEventListener('pointermove',move);hit.removeEventListener('pointerup',up);if(moved){const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&(snapshot(),replaceWorkflowEdge(edge,endpoint,targetId))){selectedId='';renderGraph();renderInspector();toast(endpoint==='from'?'已调整箭头起点':'已调整箭头终点','ok');}else{renderGraph();renderInspector();if(targetId)toast(t("toast.wfEdgeInvalid"),'err');}}else markSelectedEdges();};hit.addEventListener('pointermove',move);hit.addEventListener('pointerup',up);});g.append(line,hit);svg.appendChild(g);}}
+    for(const node of draft.nodes){for(const dep of node.dependsOn||[]){const from=draft.nodes.find(x=>x.id===dep);if(!from)continue;const edge={from:dep,to:node.id},x1=(from.position?.x||0)+210,y1=(from.position?.y||0)+45,x2=node.position?.x||0,y2=(node.position?.y||0)+45;const g=document.createElementNS(NS,'g');g.classList.add('workflow-edge');if(edgeKey(selectedEdge)===edgeKey(edge))g.classList.add('selected');g.dataset.from=dep;g.dataset.to=node.id;g.dataset.edgeKey=edgeKey(edge);const line=document.createElementNS(NS,'line');line.classList.add('workflow-edge-line');line.setAttribute('x1',String(x1));line.setAttribute('y1',String(y1));line.setAttribute('x2',String(x2));line.setAttribute('y2',String(y2));line.setAttribute('marker-end','url(#wf-arrow)');const hit=document.createElementNS(NS,'line');hit.classList.add('workflow-edge-hit');hit.setAttribute('x1',String(x1));hit.setAttribute('y1',String(y1));hit.setAttribute('x2',String(x2));hit.setAttribute('y2',String(y2));hit.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();selectedEdge=edge;selectedId='';resetConnectMode();markSelectedCards();markSelectedEdges();renderInspector();const endpoint=edgeEndpointByPointer(e,from,node);const sx=e.clientX,sy=e.clientY;let moved=false;hit.setPointerCapture?.(e.pointerId);const move=ev=>{if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>4)moved=true;};const up=ev=>{hit.removeEventListener('pointermove',move);hit.removeEventListener('pointerup',up);if(moved){const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&(snapshot(),replaceWorkflowEdge(edge,endpoint,targetId))){selectedId='';renderGraph();renderInspector();toast(endpoint==='from'?t('workflow.canvas.arrowStartAdjusted'):t('workflow.canvas.arrowEndAdjusted'),'ok');}else{renderGraph();renderInspector();if(targetId)toast(t("toast.wfEdgeInvalid"),'err');}}else markSelectedEdges();};hit.addEventListener('pointermove',move);hit.addEventListener('pointerup',up);});g.append(line,hit);svg.appendChild(g);}}
   }
   // ── 编辑器 v2 基础设施：撤销栈 / 实时校验 / 模型数据源（第14波）──
   let undoStack = [];
@@ -3187,17 +3187,17 @@ async function openWorkflowEditor(initialId) {
   problemChip.onclick=()=>{ if(lastProblems.length) toast(t("toast.wfProblems") + '\n' + lastProblems.join('\n'), 'err'); };
   function validateDraft(){
     const nodes=draft.nodes, ids=new Set(nodes.map(n=>n.id)), problems=[], bad=new Set(), seen=new Set();
-    for(const n of nodes){ if(seen.has(n.id)){ problems.push('节点 ID 重复：'+n.id); bad.add(n.id); } seen.add(n.id); }
-    for(const n of nodes){ if(!String(n.task||'').trim()){ problems.push('节点「'+n.id+'」任务为空'); bad.add(n.id); } }
-    for(const n of nodes){ for(const d of n.dependsOn||[]){ if(!ids.has(d)){ problems.push('节点「'+n.id+'」依赖不存在的「'+d+'」'); bad.add(n.id); } } }
+    for(const n of nodes){ if(seen.has(n.id)){ problems.push(t('workflow.canvas.duplicateNodeId')+n.id); bad.add(n.id); } seen.add(n.id); }
+    for(const n of nodes){ if(!String(n.task||'').trim()){ problems.push(t('workflow.canvas.problemPrefix',{id:n.id})+t('workflow.canvas.emptyTask')); bad.add(n.id); } }
+    for(const n of nodes){ for(const d of n.dependsOn||[]){ if(!ids.has(d)){ problems.push(t('workflow.canvas.problemPrefix',{id:n.id})+t('workflow.canvas.missingDep')+d+'」'); bad.add(n.id); } } }
     const color=new Map(); let cyc=false;
     const dfs=id=>{ color.set(id,1); const n=nodes.find(x=>x.id===id); for(const d of (n&&n.dependsOn||[]).filter(x=>ids.has(x))){ const c=color.get(d)||0; if(c===1){ cyc=true; bad.add(id); bad.add(d); } else if(c===0) dfs(d); } color.set(id,2); };
     for(const n of nodes){ if((color.get(n.id)||0)===0) dfs(n.id); }
-    if(cyc) problems.push('存在环依赖（节点相互依赖，无法排序）');
+    if(cyc) problems.push(t('workflow.canvas.cycleDeps'));
     return { problems, bad };
   }
   let validateTimer=null;
-  function scheduleValidate(){ clearTimeout(validateTimer); validateTimer=setTimeout(()=>{ const r=validateDraft(); lastProblems=r.problems; graph.querySelectorAll('.workflow-node-card').forEach(c=>c.classList.toggle('wf-node-invalid',r.bad.has(c.dataset.nodeId))); if(r.problems.length){ problemChip.hidden=false; problemChip.textContent='⚠ '+r.problems.length+' 个问题'; } else problemChip.hidden=true; }, 300); }
+  function scheduleValidate(){ clearTimeout(validateTimer); validateTimer=setTimeout(()=>{ const r=validateDraft(); lastProblems=r.problems; graph.querySelectorAll('.workflow-node-card').forEach(c=>c.classList.toggle('wf-node-invalid',r.bad.has(c.dataset.nodeId))); if(r.problems.length){ problemChip.hidden=false; problemChip.textContent='⚠ '+r.problems.length+t('workflow.canvas.issueCount'); } else problemChip.hidden=true; }, 300); }
   function roleById(id){ return roles.find(r=>r.id===id)||null; }
   function engineModelOptions(eng){
     if(eng==='openai'){ const p=activeProviderObj(); return (p&&p.models||[]).map(m=>({value:m.id,label:m.label||m.id})); }
@@ -3211,18 +3211,18 @@ async function openWorkflowEditor(initialId) {
   function clientToCanvas(cx,cy){ const r=graph.getBoundingClientRect(); return { x:cx-r.left+graph.scrollLeft, y:cy-r.top+graph.scrollTop }; }
   function renderGraph(){ graph.textContent=''; const NS='http://www.w3.org/2000/svg',svg=document.createElementNS(NS,'svg');svg.classList.add('workflow-edges');graph.appendChild(svg);drawEdges(svg);
     for(const node of draft.nodes){const card=el('button',`workflow-node-card${node.id===selectedId?' selected':''}${node.id===connectFromId?' connect-source':''}`);card.type='button';card.dataset.nodeId=node.id;card.style.left=`${node.position?.x||0}px`;card.style.top=`${node.position?.y||0}px`;
-      const head=el('div','wf-node-head');head.appendChild(el('strong','',node.id));const badge=agentEngineBadge(node.engine);if(badge)head.appendChild(badge);if(node.gate&&node.gate.mode){const gm=el('span','wf-node-gate','⚖');gm.title='质量门：'+node.gate.mode;head.appendChild(gm);}card.appendChild(head);
-      const _role=roleById(node.role);const _rc=_role&&_role.color?_role.color:'';if(_rc)card.style.setProperty('--wf-role-color',`var(--role-${_rc}, var(--muted))`);card.appendChild(el('span','wf-role-chip',_role?(_role.label||node.role):(node.role||'无角色')));
-      if(node.model){const mv=el('span','wf-node-model',node.model.length>18?node.model.slice(0,18)+'…':node.model);mv.title='模型：'+node.model;card.appendChild(mv);}
-      card.appendChild(el('small','',(node.dependsOn||[]).length?`依赖 ${(node.dependsOn||[]).join(', ')}`:'起点'));
-      const port=el('span','wf-port');port.title='从这里拖到目标节点，创建依赖箭头';
+      const head=el('div','wf-node-head');head.appendChild(el('strong','',node.id));const badge=agentEngineBadge(node.engine);if(badge)head.appendChild(badge);if(node.gate&&node.gate.mode){const gm=el('span','wf-node-gate','⚖');gm.title=t('workflow.canvas.qualityGate')+node.gate.mode;head.appendChild(gm);}card.appendChild(head);
+      const _role=roleById(node.role);const _rc=_role&&_role.color?_role.color:'';if(_rc)card.style.setProperty('--wf-role-color',`var(--role-${_rc}, var(--muted))`);card.appendChild(el('span','wf-role-chip',_role?(_role.label||node.role):(node.role||t('workflow.canvas.noRole'))));
+      if(node.model){const mv=el('span','wf-node-model',node.model.length>18?node.model.slice(0,18)+'…':node.model);mv.title=t('workflow.canvas.model')+node.model;card.appendChild(mv);}
+      card.appendChild(el('small','',(node.dependsOn||[]).length?`${t('workflow.canvas.deps', {deps: (node.dependsOn||[]).join(', ')})}`:t('workflow.canvas.startNode')));
+      const port=el('span','wf-port');port.title=t('workflow.canvas.dragHint');
       port.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();const gsvg=graph.querySelector('svg.workflow-edges');const temp=document.createElementNS(NS,'line');temp.setAttribute('class','wf-temp-edge');const x1=(node.position?.x||0)+210,y1=(node.position?.y||0)+45;temp.setAttribute('x1',x1);temp.setAttribute('y1',y1);temp.setAttribute('x2',x1);temp.setAttribute('y2',y1);if(gsvg)gsvg.appendChild(temp);port.setPointerCapture?.(e.pointerId);const move=ev=>{const p=clientToCanvas(ev.clientX,ev.clientY);temp.setAttribute('x2',p.x);temp.setAttribute('y2',p.y);};const up=ev=>{port.removeEventListener('pointermove',move);port.removeEventListener('pointerup',up);temp.remove();const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&targetId!==node.id){snapshot();if(addWorkflowEdge(node.id,targetId)){selectedEdge=null;renderGraph();renderInspector();toast(t("toast.wfEdgeAdded"),'ok');}else{undoStack.pop();toast(t("toast.wfEdgeInvalid"),'err');}}};port.addEventListener('pointermove',move);port.addEventListener('pointerup',up);});
       card.appendChild(port);
       card.addEventListener('dblclick',ev=>{ev.preventDefault();if(selectedId!==node.id)flushInspector();selectedId=node.id;selectedEdge=null;renderInspector();const t=inspector.querySelector('[data-wf-field="task"]');if(t)t.focus();});
       card.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(connectFromId&&connectFromId!==node.id){snapshot();if(!(node.dependsOn||[]).includes(connectFromId))node.dependsOn=[...(node.dependsOn||[]),connectFromId];else undoStack.pop();selectedId=node.id;selectedEdge=null;resetConnectMode();syncNodeSelect();renderGraph();renderInspector();toast(t("toast.wfDepAdded"),'ok');return;}if(selectedId!==node.id)flushInspector();selectedId=node.id;selectedEdge=null;renderInspector();markSelectedCards();markSelectedEdges();const sx=e.clientX,sy=e.clientY,ox=node.position?.x||0,oy=node.position?.y||0;let moved=false;card.setPointerCapture(e.pointerId);const move=ev=>{const dx=ev.clientX-sx,dy=ev.clientY-sy;if(Math.abs(dx)+Math.abs(dy)>3){if(!moved){moved=true;snapshot();}node.position={x:Math.max(0,ox+dx),y:Math.max(0,oy+dy)};card.style.left=`${node.position.x}px`;card.style.top=`${node.position.y}px`;}};const up=()=>{card.removeEventListener('pointermove',move);card.removeEventListener('pointerup',up);if(moved)renderGraph();else{markSelectedCards();markSelectedEdges();}};card.addEventListener('pointermove',move);card.addEventListener('pointerup',up);});
       graph.appendChild(card); }
-    if(!draft.nodes.length){const guide=el('div','wf-canvas-empty');guide.appendChild(el('div','wf-canvas-empty-title','画布还是空的，从这里开始'));const row=el('div','wf-canvas-empty-actions');const fromTpl=el('button','mini','从模板开始');fromTpl.type='button';fromTpl.onclick=()=>{templateSelect.focus();};const addFirst=el('button','mini primary','＋ 添加第一个节点');addFirst.type='button';addFirst.onclick=()=>addBtn.click();row.append(fromTpl,addFirst);guide.appendChild(row);graph.appendChild(guide);}
-    const controls=el('div','wf-canvas-controls');const fitBtn=el('button','mini wf-fit-btn','适应视图');fitBtn.type='button';fitBtn.title='把所有节点居中到视口';fitBtn.onclick=fitView;controls.appendChild(fitBtn);graph.appendChild(controls);
+    if(!draft.nodes.length){const guide=el('div','wf-canvas-empty');guide.appendChild(el('div','wf-canvas-empty-title',t('workflow.canvas.emptyHint')));const row=el('div','wf-canvas-empty-actions');const fromTpl=el('button','mini',t('workflow.canvas.fromTemplate'));fromTpl.type='button';fromTpl.onclick=()=>{templateSelect.focus();};const addFirst=el('button','mini primary',t('workflow.canvas.addFirstNode'));addFirst.type='button';addFirst.onclick=()=>addBtn.click();row.append(fromTpl,addFirst);guide.appendChild(row);graph.appendChild(guide);}
+    const controls=el('div','wf-canvas-controls');const fitBtn=el('button','mini wf-fit-btn',t('workflow.canvas.fitView'));fitBtn.type='button';fitBtn.title=t('workflow.canvas.fitViewHint');fitBtn.onclick=fitView;controls.appendChild(fitBtn);graph.appendChild(controls);
     syncNodeSelect();
     markSelectedEdges();
     scheduleValidate();
@@ -3249,55 +3249,55 @@ async function openWorkflowEditor(initialId) {
     }
     return cleared;
   }
-  function renderInspector(){inspector.textContent='';commitSelectedNode=null;if(selectedEdge&&!edgeExists(selectedEdge))selectedEdge=null;if(selectedEdge){const fromSel=document.createElement('select'),toSel=document.createElement('select');for(const n of draft.nodes){const a=document.createElement('option');a.value=n.id;a.textContent=n.id;fromSel.appendChild(a);const b=document.createElement('option');b.value=n.id;b.textContent=n.id;toSel.appendChild(b);}fromSel.value=selectedEdge.from;toSel.value=selectedEdge.to;const applyEdge=el('button','mini primary','应用箭头'),delEdge=el('button','mini danger','删除箭头');inspector.append(el('p','workflow-help','已选择箭头。可在这里改起点/终点，也可直接拖动箭头靠近某一端的位置到目标节点。'),workflowField('起点节点',fromSel),workflowField('结束节点',toSel));applyEdge.onclick=()=>{const next={from:fromSel.value,to:toSel.value};if(next.from===next.to)return toast(t("toast.wfEdgeSelf"),'err');if(edgeKey(next)!==edgeKey(selectedEdge)&&edgeExists(next))return toast(t("toast.wfEdgeDup"),'err');snapshot();const old=selectedEdge;removeWorkflowEdge(old);if(!addWorkflowEdge(next.from,next.to)){addWorkflowEdge(old.from,old.to);return toast(t("toast.wfEdgeApplyFail"),'err');}selectedEdge=next;renderGraph();renderInspector();};delEdge.onclick=()=>{snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast(t("toast.wfEdgeDeleted"),'ok');}};inspector.append(applyEdge,delEdge);return;}const node=draft.nodes.find(x=>x.id===selectedId);
-    if(!node){ inspector.append(el('p','muted','选择一个节点')); return; }
+  function renderInspector(){inspector.textContent='';commitSelectedNode=null;if(selectedEdge&&!edgeExists(selectedEdge))selectedEdge=null;if(selectedEdge){const fromSel=document.createElement('select'),toSel=document.createElement('select');for(const n of draft.nodes){const a=document.createElement('option');a.value=n.id;a.textContent=n.id;fromSel.appendChild(a);const b=document.createElement('option');b.value=n.id;b.textContent=n.id;toSel.appendChild(b);}fromSel.value=selectedEdge.from;toSel.value=selectedEdge.to;const applyEdge=el('button','mini primary',t('workflow.canvas.applyArrow')),delEdge=el('button','mini danger',t('workflow.canvas.deleteArrow'));inspector.append(el('p','workflow-help',t('workflow.canvas.arrowSelected')),workflowField(t('workflow.canvas.startNodeId'),fromSel),workflowField(t('workflow.canvas.endNodeId'),toSel));applyEdge.onclick=()=>{const next={from:fromSel.value,to:toSel.value};if(next.from===next.to)return toast(t("toast.wfEdgeSelf"),'err');if(edgeKey(next)!==edgeKey(selectedEdge)&&edgeExists(next))return toast(t("toast.wfEdgeDup"),'err');snapshot();const old=selectedEdge;removeWorkflowEdge(old);if(!addWorkflowEdge(next.from,next.to)){addWorkflowEdge(old.from,old.to);return toast(t("toast.wfEdgeApplyFail"),'err');}selectedEdge=next;renderGraph();renderInspector();};delEdge.onclick=()=>{snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast(t("toast.wfEdgeDeleted"),'ok');}};inspector.append(applyEdge,delEdge);return;}const node=draft.nodes.find(x=>x.id===selectedId);
+    if(!node){ inspector.append(el('p','muted',t('workflow.canvas.selectNode'))); return; }
     const oldId=node.id;
     // ── 身份 ──
     const nid=document.createElement('input'); nid.value=node.id;
     const task=document.createElement('textarea'); task.rows=5; task.value=node.task||''; task.dataset.wfField='task';
-    const role=document.createElement('select'); { const empty=document.createElement('option'); empty.value=''; empty.textContent='无角色'; role.appendChild(empty); for(const r of roles){ const o=document.createElement('option'); o.value=r.id; o.textContent=r.label||r.id; role.appendChild(o); } role.value=node.role||''; }
+    const role=document.createElement('select'); { const empty=document.createElement('option'); empty.value=''; empty.textContent=t('workflow.canvas.noRole'); role.appendChild(empty); for(const r of roles){ const o=document.createElement('option'); o.value=r.id; o.textContent=r.label||r.id; role.appendChild(o); } role.value=node.role||''; }
     // ── 执行 ──
-    const engine=document.createElement('select'); for(const [v,t] of [['','自动（跟随可用引擎）'],['openai','OpenAI Provider'],['claude','Claude CLI']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; engine.appendChild(o); } engine.value=node.engine||'';
+    const engine=document.createElement('select'); for(const [v,t] of [['',t('workflow.canvas.autoEngine')],['openai','OpenAI Provider'],['claude','Claude CLI']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; engine.appendChild(o); } engine.value=node.engine||'';
     const model=document.createElement('select');
-    const modelCustom=document.createElement('input'); modelCustom.className='wf-model-custom'; modelCustom.placeholder='输入自定义模型 id'; modelCustom.style.display='none';
+    const modelCustom=document.createElement('input'); modelCustom.className='wf-model-custom'; modelCustom.placeholder=t('workflow.canvas.customModelPlaceholder'); modelCustom.style.display='none';
     const modelHint=el('div','wf-model-hint');
     function currentModelChoice(){ return model.value==='__custom' ? modelCustom.value.trim() : model.value; }
-    function updateModelHint(){ const eng=engine.value; if(!eng){ modelHint.textContent='引擎为自动时不单独指定模型，跟随角色/引擎默认'; return; } const chosen=currentModelChoice(); if(chosen){ modelHint.textContent='当前生效：节点指定 · '+chosen; return; } const rm=roleModelFor(role.value,eng); if(rm){ modelHint.textContent='当前生效：角色默认 · '+rm; return; } const g=globalModelFor(eng); modelHint.textContent = g ? '当前生效：全局默认 · '+g : '当前生效：引擎内置默认'; }
-    function rebuildModelOptions(resetForeign){ const eng=engine.value; const cur=node.model||''; model.textContent=''; const inh=document.createElement('option'); inh.value=''; inh.textContent='继承（角色/全局默认）'; model.appendChild(inh); for(const m of engineModelOptions(eng)){ const o=document.createElement('option'); o.value=m.value; o.textContent=m.label; model.appendChild(o); } const cus=document.createElement('option'); cus.value='__custom'; cus.textContent='自定义…'; model.appendChild(cus); if(eng===''){ model.value=''; model.disabled=true; modelCustom.style.display='none'; } else { model.disabled=false; if(!cur) model.value=''; else if([...model.options].some(o=>o.value===cur)) model.value=cur; else if(resetForeign){ model.value=''; modelCustom.value=''; } else { model.value='__custom'; modelCustom.value=cur; } modelCustom.style.display = model.value==='__custom' ? '' : 'none'; } updateModelHint(); }
+    function updateModelHint(){ const eng=engine.value; if(!eng){ modelHint.textContent=t('workflow.canvas.engineAutoHint'); return; } const chosen=currentModelChoice(); if(chosen){ modelHint.textContent=t('workflow.canvas.currentEffect.node')+chosen; return; } const rm=roleModelFor(role.value,eng); if(rm){ modelHint.textContent=t('workflow.canvas.currentEffect.role')+rm; return; } const g=globalModelFor(eng); modelHint.textContent = g ? t('workflow.canvas.currentEffect.global')+g : t('workflow.canvas.currentEffect.engine'); }
+    function rebuildModelOptions(resetForeign){ const eng=engine.value; const cur=node.model||''; model.textContent=''; const inh=document.createElement('option'); inh.value=''; inh.textContent=t('workflow.canvas.inherit'); model.appendChild(inh); for(const m of engineModelOptions(eng)){ const o=document.createElement('option'); o.value=m.value; o.textContent=m.label; model.appendChild(o); } const cus=document.createElement('option'); cus.value='__custom'; cus.textContent=t('common.custom'); model.appendChild(cus); if(eng===''){ model.value=''; model.disabled=true; modelCustom.style.display='none'; } else { model.disabled=false; if(!cur) model.value=''; else if([...model.options].some(o=>o.value===cur)) model.value=cur; else if(resetForeign){ model.value=''; modelCustom.value=''; } else { model.value='__custom'; modelCustom.value=cur; } modelCustom.style.display = model.value==='__custom' ? '' : 'none'; } updateModelHint(); }
     model.onchange=()=>{ modelCustom.style.display = model.value==='__custom' ? '' : 'none'; if(model.value==='__custom') modelCustom.focus(); updateModelHint(); };
     modelCustom.oninput=updateModelHint;
     engine.onchange=()=>{ rebuildModelOptions(true); };   // 对抗轮 P3: 换引擎时旧引擎模型重置为继承,不再结转为"自定义"(跨引擎必非法)
     role.onchange=updateModelHint;
     rebuildModelOptions();
-    const maxIters=document.createElement('input'); maxIters.type='number'; maxIters.min='1'; maxIters.max='300'; maxIters.placeholder='默认'; maxIters.value=(node.maxIters!=null&&node.maxIters!=='')?node.maxIters:'';
-    const toolTier=document.createElement('select'); for(const [v,t] of [['','继承角色'],['read','只读+联网检索 read'],['edit','可编辑+联网 edit'],['exec','可执行(全量) exec']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; toolTier.appendChild(o); } toolTier.value=node.toolTier||'';
+    const maxIters=document.createElement('input'); maxIters.type='number'; maxIters.min='1'; maxIters.max='300'; maxIters.placeholder=t('common.default'); maxIters.value=(node.maxIters!=null&&node.maxIters!=='')?node.maxIters:'';
+    const toolTier=document.createElement('select'); for(const [v,t] of [['',t('workflow.canvas.inheritRole')],['read',t('workflow.toolTier.read')],['edit',t('workflow.toolTier.edit')],['exec',t('workflow.toolTier.exec')]]){ const o=document.createElement('option'); o.value=v; o.textContent=t; toolTier.appendChild(o); } toolTier.value=node.toolTier||'';
     // ── 编排 ──
     const deps=document.createElement('select'); deps.multiple=true; deps.size=Math.min(8,Math.max(3,draft.nodes.length-1)); for(const other of draft.nodes.filter(x=>x.id!==node.id)){ const o=document.createElement('option'); o.value=other.id; o.textContent=other.id; o.selected=(node.dependsOn||[]).includes(other.id); deps.appendChild(o); }
-    const condition=document.createElement('input'); condition.placeholder='如 review.verdict == "fail"'; condition.value=workflowConditionText(node.condition);
+    const condition=document.createElement('input'); condition.placeholder=t('workflow.condition.reviewVerdict'); condition.value=workflowConditionText(node.condition);
     const loopMax=document.createElement('input'); loopMax.type='number'; loopMax.min='1'; loopMax.max='20'; loopMax.value=node.loop?.maxIterations||1;
-    const loopUntil=document.createElement('input'); loopUntil.placeholder='可选，如 loop.done == true'; loopUntil.value=workflowConditionText(node.loop?.until);
-    const progressPath=document.createElement('input'); progressPath.placeholder='可选，如 remainingCount 或 status'; progressPath.value=node.loop?.progressPath||'';
+    const loopUntil=document.createElement('input'); loopUntil.placeholder=t('workflow.condition.loopDone'); loopUntil.value=workflowConditionText(node.loop?.until);
+    const progressPath=document.createElement('input'); progressPath.placeholder=t('workflow.condition.progressPath'); progressPath.value=node.loop?.progressPath||'';
     const noProgress=document.createElement('input'); noProgress.type='number'; noProgress.min='1'; noProgress.max='10'; noProgress.value=node.loop?.noProgressLimit||2;
     // ── 质量 ──
-    const gate=document.createElement('select'); for(const [v,t] of [['','无（不设质量门）'],['review','review 复核'],['verify','verify 验收'],['vote','vote 投票'],['cross_review','cross_review 交叉审查'],['dedupe','dedupe 去重']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; gate.appendChild(o); } gate.value=(node.gate&&node.gate.mode)||'';
-    const failure=document.createElement('select'); for(const [v,t] of [['block','阻塞下游'],['continue','降级继续'],['retry','自动重试']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; failure.appendChild(o); } failure.value=node.failurePolicy||'block';
-    const dependencyPolicy=document.createElement('select'); for(const [v,t] of [['all_success','任一依赖失败则阻塞'],['all_settled','全部结束后仍继续（容错汇总）']]){ const o=document.createElement('option'); o.value=v; o.textContent=t; dependencyPolicy.appendChild(o); } dependencyPolicy.value=node.dependencyPolicy||'all_success';
+    const gate=document.createElement('select'); for(const [v,t] of [['',t('workflow.gate.none')],['review',t('workflow.gate.review')],['verify',t('workflow.gate.verify')],['vote',t('workflow.gate.vote')],['cross_review',t('workflow.gate.crossReview')],['dedupe',t('workflow.gate.dedupe')]]){ const o=document.createElement('option'); o.value=v; o.textContent=t; gate.appendChild(o); } gate.value=(node.gate&&node.gate.mode)||'';
+    const failure=document.createElement('select'); for(const [v,t] of [['block',t('workflow.failurePolicy.block')],['continue',t('workflow.failurePolicy.continue')],['retry',t('workflow.failurePolicy.retry')]]){ const o=document.createElement('option'); o.value=v; o.textContent=t; failure.appendChild(o); } failure.value=node.failurePolicy||'block';
+    const dependencyPolicy=document.createElement('select'); for(const [v,t] of [['all_success',t('workflow.depPolicy.allSuccess')],['all_settled',t('workflow.depPolicy.allSettled')]]){ const o=document.createElement('option'); o.value=v; o.textContent=t; dependencyPolicy.appendChild(o); } dependencyPolicy.value=node.dependencyPolicy||'all_success';
     const maxRetries=document.createElement('input'); maxRetries.type='number'; maxRetries.min='1'; maxRetries.max='5'; maxRetries.value=node.maxRetries||1;
     const minToolEvidence=document.createElement('input'); minToolEvidence.type='number'; minToolEvidence.min='0'; minToolEvidence.max='20'; minToolEvidence.value=node.minSuccessfulToolCalls||0;
     // ── 高级 JSON ──
-    const adv=el('details','wf-insp-advanced'); adv.appendChild(el('summary','','高级（直接编辑节点 JSON：resources / outputSchema / isolation 等长尾）')); const advTa=document.createElement('textarea'); advTa.className='wf-adv-json'; advTa.rows=8; advTa.spellcheck=false; advTa.value=JSON.stringify(node,null,2); const advApply=el('button','mini','应用 JSON'); advApply.type='button'; adv.append(workflowField('节点完整 JSON',advTa),advApply);
+    const adv=el('details','wf-insp-advanced'); adv.appendChild(el('summary','',t('workflow.advancedJson'))); const advTa=document.createElement('textarea'); advTa.className='wf-adv-json'; advTa.rows=8; advTa.spellcheck=false; advTa.value=JSON.stringify(node,null,2); const advApply=el('button','mini',t('workflow.applyJson')); advApply.type='button'; adv.append(workflowField(t('workflow.fullNodeJson'),advTa),advApply);
     advApply.onclick=()=>{ let parsed; try{ parsed=JSON.parse(advTa.value); }catch(err){ return toast(t("toast.wfJsonParseFail", { p1: err.message }), 'err'); } if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)) return toast(t("toast.wfJsonNotObject"),'err'); const nextId=String(parsed.id||'').trim(); if(!/^[A-Za-z0-9_-]+$/.test(nextId)) return toast(t("toast.wfJsonIdIllegal"),'err'); if(nextId!==oldId&&draft.nodes.some(x=>x.id===nextId)) return toast(t("toast.wfJsonIdDup"),'err'); snapshot(); for(const k of Object.keys(node)) delete node[k]; Object.assign(node,parsed); node.id=nextId; if(nextId!==oldId) remapWorkflowNodeRef(oldId,nextId); selectedId=nextId; renderGraph(); renderInspector(); toast(t("toast.wfJsonApplied"),'ok'); };
     // ── 分组装配（身份 / 执行 / 编排 / 质量）──
     const group=(title,...items)=>{ const g=el('div','wf-insp-group'); g.appendChild(el('div','wf-insp-group-title',title)); for(const it of items) if(it) g.appendChild(it); return g; };
-    const modelField=workflowField('模型（可为该职位指派更强模型）',model); modelField.append(modelCustom,modelHint);
+    const modelField=workflowField(t('workflow.nodeModel'),model); modelField.append(modelCustom,modelHint);
     inspector.append(
-      group('身份', workflowField('节点 ID',nid), workflowField('任务',task), workflowField('角色',role)),
-      group('执行', workflowField('执行引擎',engine), modelField, workflowField('迭代预算 maxIters（空=默认）',maxIters), workflowField('工具权限 toolTier',toolTier)),
-      group('编排', workflowField('依赖节点（多选）',deps), el('div','workflow-help','依赖表示箭头方向：被选节点 → 当前节点。也可点“连接箭头”，或从节点右侧圆点手柄拖到目标节点。'), workflowField('依赖失败处理',dependencyPolicy), workflowField('运行条件',condition), workflowField('最大循环次数',loopMax), workflowField('循环停止条件',loopUntil), workflowField('语义进度字段',progressPath), el('div','workflow-help','循环输出为 JSON 时，填写稳定字段路径；这样措辞变化不会被误判为有进展。'), workflowField('连续无进展停止',noProgress)),
-      group('质量', workflowField('质量门 gate',gate), el('div','workflow-help','vote / dedupe 是确定性汇总节点，不执行任务正文。vote 的每个依赖都必须明确输出 verdict 和 confidence。'), workflowField('失败策略',failure), workflowField('成功工具调用证据（0=不要求）',minToolEvidence), workflowField('自动重试次数（失败策略=自动重试 时生效）',maxRetries)),
+      group(t('workflow.nodeIdentity'), workflowField(t('workflow.nodeId'),nid), workflowField(t('workflow.nodeTask'),task), workflowField(t('workflow.nodeRole'),role)),
+      group(t('workflow.nodeExecution'), workflowField(t('workflow.nodeEngine'),engine), modelField, workflowField(t('workflow.nodeMaxIters'),maxIters), workflowField(t('workflow.nodeToolTier'),toolTier)),
+      group(t('workflow.nodeOrchestration'), workflowField(t('workflow.nodeDependsOn'),deps), el('div','workflow-help',t('workflow.nodeDependsOnHint')), workflowField(t('workflow.nodeFailurePolicy'),dependencyPolicy), workflowField(t('workflow.nodeCondition'),condition), workflowField(t('workflow.nodeLoopMax'),loopMax), workflowField(t('workflow.nodeLoopUntil'),loopUntil), workflowField(t('workflow.nodeProgressPath'),progressPath), el('div','workflow-help',t('workflow.nodeProgressPathHint')), workflowField(t('workflow.nodeNoProgressLimit'),noProgress)),
+      group(t('workflow.nodeQuality'), workflowField(t('workflow.nodeGate'),gate), el('div','workflow-help',t('workflow.nodeGateHint')), workflowField('失败策略',failure), workflowField(t('workflow.nodeMinToolCalls'),minToolEvidence), workflowField(t('workflow.nodeMaxRetries'),maxRetries)),
       adv
     );
-    const apply=el('button','primary wf-apply','✓ 应用节点设置');
+    const apply=el('button','primary wf-apply',t('workflow.applyNodeSettings'));
     const doApplyNode=()=>{
       // Validate EVERYTHING first — nothing on `node`/`draft` is written until every field parses.
       const nextId=nid.value.trim();
@@ -3339,7 +3339,7 @@ async function openWorkflowEditor(initialId) {
   connectBtn.onclick=()=>{if(connectFromId){resetConnectMode();markSelectedCards();return;}selectedEdge=null;connectFromId=selectedId||draft.nodes[0]?.id||'';connectBtn.textContent=t('common.cancel');markSelectedCards();markSelectedEdges();toast(t('workflow.editor.connectHint'),'');};
   edgeDeleteBtn.onclick=()=>{if(!selectedEdge)return;snapshot();if(removeWorkflowEdge(selectedEdge)){selectedEdge=null;renderGraph();renderInspector();toast(t('workflow.editor.edgeDeleted'),'ok');}};
   maxBtn.onclick=()=>{const on=modalEl?.classList.toggle('workflow-fullscreen');maxBtn.textContent=on?'❐':'□';maxBtn.title=on?t('workflow.editor.restore'):t('workflow.editor.maximize');maxBtn.setAttribute('aria-label',on?t('workflow.editor.restore'):t('workflow.editor.maximize'));setTimeout(()=>{renderGraph();renderInspector();},0);};
-  addBtn.onclick=()=>{flushInspector();snapshot();let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:'描述任务',role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();};
+  addBtn.onclick=()=>{flushInspector();snapshot();let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:t('workflow.describeTask'),role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();};
   deleteBtn.onclick=()=>{
     if(draft.nodes.length<=1)return toast(t("toast.wfKeepOne"),'err');
     if(!confirm(`删除节点「${selectedId}」？其依赖它的运行条件/循环停止条件将被清除（可用 Ctrl+Z 撤销）。`))return;   // 对抗轮 P3: 原文案称"不可撤销"与 snapshot/undo 实现矛盾
@@ -3349,7 +3349,7 @@ async function openWorkflowEditor(initialId) {
     selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();
     if(cleared)toast(t("toast.wfNodeDeleted", { p1: cleared }),'');
   };
-  async function saveDraft(){if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false){const err=new Error('检查器有字段无效，请修正后再保存');err.__quiet=true;throw err;}}syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||'保存失败');draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
+  async function saveDraft(){if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false){const err=new Error(t('workflow.invalidFields'));err.__quiet=true;throw err;}}syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||t('workflow.saveFailed'));draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
   cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast(t('workflow.editor.saved'),'ok');modal.close();}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast(t('workflow.editor.builtinCannotDelete'),'err');if(!confirm(t('workflow.editor.delete.confirm',{title:draft.title||draft.id})))return;try{const r=await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();if(r&&r.ok===false){toast(t('workflow.editor.delete.none'),'err');}else{toast(t('workflow.editor.deleted'),'ok');modal.close();}}catch(e){toast(apiErrText(e),'err');}};
   renderGraph();renderInspector();
 }
@@ -3368,7 +3368,7 @@ async function poolDecide(runId, poolId, approve) {
   const sid = state.currentSession?.id; if (!sid) return;
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action: approve ? 'pool_approve' : 'pool_reject', poolId }) });
-    if (!r || !r.ok) throw new Error((r && r.error) || '操作失败');
+    if (!r || !r.ok) throw new Error((r && r.error) || t('workflow.operationFailed'));
     toast(approve ? t('workflow.pool.approvedToast') : t('workflow.pool.rejectedToast'), 'ok');
     await loadAgentRuns(true); // 29a: 动作后强制全量(审批物化的新节点等不靠事件推断,直接拉权威快照)
   } catch (e) { toast(t('workflow.pool.err', { err: apiErrText(e) }), 'err'); }
@@ -3423,7 +3423,7 @@ async function agentRunAction(runId, action, extra) {
   const sid = state.currentSession?.id; if (!sid) return;
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action, ...(extra || {}) }) });
-    if (!r.ok) throw new Error(r.error || '操作失败');
+    if (!r.ok) throw new Error(r.error || t('workflow.operationFailed'));
     toast(t("toast.wfActionSubmitted"), 'ok'); await loadAgentRuns(true); // 29a: 动作后强制全量(apply_isolation 等冷路径不发事件)
   } catch (e) { toast(t("toast.wfError", { p1: apiErrText(e) }), 'err'); }
 }
@@ -3442,18 +3442,18 @@ async function steerAgentNode(runId, nodeId, nodeStatus, presetText, engine) {
   if (!text) return;
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action: 'steer_node', nodeId, text }) });
-    if (!r || !r.ok) throw new Error((r && r.error) || '插话失败');
+    if (!r || !r.ok) throw new Error((r && r.error) || t('workflow.injectFailed'));
     // running 节点在下一次迭代边界（下一次模型调用前）就会消费队列；queued/waiting_resource 节点要等它真正
     // 开跑才会消费——如果节点在那之前被跳过/阻塞/工作流停止，排队的插话会被直接丢弃，成功提示要如实区分这两种情况。
-    const msg = r.deferred ? '已记录延迟插话，节点结束后注入下游生效'
-      : nodeStatus === 'running' ? '已插话，下一次调用前生效' : '已排队，节点开跑时投递（若节点被跳过/阻塞则丢弃）';
+    const msg = r.deferred ? t('workflow.injectDelayed')
+      : nodeStatus === 'running' ? t('workflow.injectImmediate') : t('workflow.injectQueued');
     toast(msg, 'ok');
     await loadAgentRuns(true);
     return true;
   } catch (e) { toast(t("toast.steerFail", { p1: apiErrText(e) }), 'err'); return false; }   // 对抗轮 P2: 调用方按返回值区分失败以回填文本
 }
 async function deleteAgentRun(runId) {
-  const sid = state.currentSession?.id; if (!sid || !confirm('删除这条 Agent 工作流记录？')) return;
+  const sid = state.currentSession?.id; if (!sid || !confirm(t('workflow.deleteConfirm'))) return;
   try { await api(`/api/agent-runs/${encodeURIComponent(runId)}?sessionId=${encodeURIComponent(sid)}`, { method: 'DELETE' }); await loadAgentRuns(true); }
   catch (e) { toast(t("toast.deleteFail", { p1: apiErrText(e) }), 'err'); }
 }
@@ -3653,7 +3653,7 @@ function renderAgentRuns(runs) {
         for (const resource of node.resources) resourceRow.appendChild(el('span', `agent-resource-chip${waitingSet.has(resource) ? ' blocking' : ''}`, resource));
         body.appendChild(resourceRow);
       }
-      if (Array.isArray(node.resourceBlockers) && node.resourceBlockers.length) body.appendChild(el('div', 'agent-resource-wait', `被 ${node.resourceBlockers.map(b => b.group).join(', ')} 占用`));
+      if (Array.isArray(node.resourceBlockers) && node.resourceBlockers.length) body.appendChild(el('div', 'agent-resource-wait', `${t('workflow.resourceBlocked',{groups:node.resourceBlockers.map(b=>b.group).join(', ')})}`));
       if (node.isolation && node.isolation.mode === 'worktree') {
         const iso = el('div', `agent-isolation ai-${node.isolation.status || 'unknown'}`);
         const shortCommit = node.isolation.commit ? String(node.isolation.commit).slice(0, 10) : '';
@@ -3911,7 +3911,7 @@ function wbIsNarrow() { try { return window.matchMedia('(max-width: 1180px)').ma
 const WB_SVGNS = 'http://www.w3.org/2000/svg';
 function wbSvg(tag, attrs) { const e = document.createElementNS(WB_SVGNS, tag); if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
 // run 友好名:runs 目前不持久化 title(见 server.js run 对象),回退占位 + 由 id chip 承载唯一标识。
-function wbRunName(run) { return (run && (run.title || run.workflowTitle || run.label)) || '工作流'; }
+function wbRunName(run) { return (run && (run.title || run.workflowTitle || run.label)) || t('workflow.tabTitle'); }
 // 首个活动 run(无则首个)作为默认选中。
 function wbPickDefaultRun(runs) {
   const arr = Array.isArray(runs) ? runs : [];
@@ -4007,7 +4007,7 @@ function renderWorkbenchRunbar(runs, selectedRunId) {
   const bar = $('wbRunbar'); if (!bar) return;
   bar.textContent = '';
   if (!runs.length) return;
-  const label = el('span', 'wb-rb-label'); label.appendChild(el('span', 'wb-rb-cloud')); label.appendChild(document.createTextNode('运行'));
+  const label = el('span', 'wb-rb-label'); label.appendChild(el('span', 'wb-rb-cloud')); label.appendChild(document.createTextNode(t('common.run')));
   bar.appendChild(label);
   for (const run of runs) {
     const st = AGENT_RUN_ACTIVE.has(run.status) ? 'running' : (run.status === 'succeeded' ? 'succeeded' : ((run.status === 'failed' || run.status === 'rejected') ? 'failed' : 'other'));
@@ -4085,14 +4085,14 @@ function wbBuildLayerTags(nodes, pos) {
 // 右下缩放胶囊(§5.4):− / 读数 / ＋ / 适应视图。挡位循环 0.75/1/1.25;适应视图取能容下的最大挡并居中滚动。
 function wbBuildZoomCapsule() {
   const z = wbState.zoom || 1;
-  const cap = el('div', 'wb-cvtools'); cap.setAttribute('role', 'group'); cap.setAttribute('aria-label', '画布缩放');
+  const cap = el('div', 'wb-cvtools'); cap.setAttribute('role', 'group'); cap.setAttribute('aria-label', t('workflow.canvas.zoom'));
   const idx = WB_ZOOM_GEARS.indexOf(z);
-  const minus = el('button', 'wb-cv-btn', '−'); minus.title = '缩小'; minus.setAttribute('aria-label', '缩小'); minus.dataset.fk = 'zoom:minus';
+  const minus = el('button', 'wb-cv-btn', '−'); minus.title = t('workflow.canvas.zoomOut'); minus.setAttribute('aria-label', '缩小'); minus.dataset.fk = 'zoom:minus';
   minus.disabled = idx <= 0; minus.onclick = () => wbSetZoom(WB_ZOOM_GEARS[Math.max(0, (idx < 0 ? 1 : idx) - 1)]);
   const read = el('span', 'wb-cv-zoom num', `${Math.round(z * 100)}%`);
-  const plus = el('button', 'wb-cv-btn', '＋'); plus.title = '放大'; plus.setAttribute('aria-label', '放大'); plus.dataset.fk = 'zoom:plus';
+  const plus = el('button', 'wb-cv-btn', '＋'); plus.title = t('workflow.canvas.zoomIn'); plus.setAttribute('aria-label', '放大'); plus.dataset.fk = 'zoom:plus';
   plus.disabled = idx >= WB_ZOOM_GEARS.length - 1; plus.onclick = () => wbSetZoom(WB_ZOOM_GEARS[Math.min(WB_ZOOM_GEARS.length - 1, (idx < 0 ? 1 : idx) + 1)]);
-  const fit = el('button', 'wb-cv-btn wb-cv-fit', '⤢'); fit.title = '适应视图'; fit.setAttribute('aria-label', '适应视图'); fit.dataset.fk = 'zoom:fit';
+  const fit = el('button', 'wb-cv-btn wb-cv-fit', '⤢'); fit.title = t('workflow.canvas.fitView'); fit.setAttribute('aria-label', t('workflow.canvas.fitView')); fit.dataset.fk = 'zoom:fit';
   fit.onclick = () => wbFitView();
   cap.append(minus, read, plus, fit);
   return cap;
@@ -4306,7 +4306,7 @@ function renderWorkbenchSide(run) {
   const preScrolls = [...host.querySelectorAll('.wb-det-pre')].map(p => p.scrollTop);   // 任务全文/结果 <pre> 内部滚动
   host.textContent = '';
   // 窄屏抽屉的关闭按钮(≥1180 由 CSS 隐藏;抽屉态点它或点 backdrop 关闭)。
-  const close = el('button', 'wb-side-close', '收起 ✕'); close.setAttribute('aria-label', '收起上下文板抽屉'); close.dataset.fk = 'side:close'; close.onclick = () => wbOpenSide(false); host.appendChild(close);
+  const close = el('button', 'wb-side-close', t('workflow.canvas.collapsePanel')); close.setAttribute('aria-label', t('workflow.collapseContextPanel')); close.dataset.fk = 'side:close'; close.onclick = () => wbOpenSide(false); host.appendChild(close);
   const nodes = Array.isArray(run.nodes) ? run.nodes : [];
   const sel = wbState.selectedNodeId ? nodes.find(n => n.id === wbState.selectedNodeId) : null;
   const proposed = (Array.isArray(run.taskPool) ? run.taskPool : []).filter(p => p && p.status === 'proposed');
@@ -4542,7 +4542,7 @@ function fmtCostsByCurrency(costs, prefix) {
 // 诚实渲染判定：后端可能给 planBased(true)=第三方计划内计费，或 costTrusted(false)=成本不可当真实金额。
 // 二者任一命中即视为「计划内 / 成本不可信」——只显 token，不显伪造金额。
 function entryPlanBased(e) { return !!(e && (e.planBased === true || e.costTrusted === false)); }
-function engineDisplayName(engine) { return engine === 'claude' ? 'Claude' : engine === 'openai' ? 'Provider（原生 API）' : (engine || '其他'); }
+function engineDisplayName(engine) { return engine === 'claude' ? 'Claude' : engine === 'openai' ? t('chat.providerNative') : (engine || t('common.other')); }
 
 async function loadUsage(force) {
   const host = $('usagePanel'); if (!host) return;
@@ -4690,8 +4690,8 @@ function usageBar(entry, tok, max, kind) {
   row.appendChild(usageBarSvg(pct, colorVar));
   const valWrap = el('div', 'usage-bar-val');
   valWrap.appendChild(el('span', 'usage-bar-tok', t('usage.tokenCount', { count: fmtTokens(tok) })));
-  if (plan) valWrap.appendChild(el('span', 'usage-bar-cost muted', '计划内'));
-  else { const c = fmtCostsByCurrency(entry.costsByCurrency, '约 '); if (c) valWrap.appendChild(el('span', 'usage-bar-cost', c)); }
+  if (plan) valWrap.appendChild(el('span', 'usage-bar-cost muted', t('common.planned')));
+  else { const c = fmtCostsByCurrency(entry.costsByCurrency, t('common.aboutPrefix')); if (c) valWrap.appendChild(el('span', 'usage-bar-cost', c)); }
   row.appendChild(valWrap);
   return row;
 }
@@ -4766,12 +4766,12 @@ function handleSubagentEvent(evt, live) {
     const tierTag = evt.toolTier ? ` · ${evt.toolTier}` : '';
     const roleTag = (evt.roleLabel || evt.roleId) ? ` · ${evt.roleLabel || evt.roleId}` : '';
     const modelTag = evt.model ? ` · ${evt.model}` : '';
-    const driverTag = evt.native && evt.engine === 'claude' ? ' · Claude 原生' : '';
+    const driverTag = evt.native && evt.engine === 'claude' ? t('chat.claudeNative') : '';
     const keyTag = evt.agentKey ? `[${evt.agentKey}] ` : '';
     const dependencyTag = Array.isArray(evt.dependsOn) && evt.dependsOn.length ? ` · 依赖 ${evt.dependsOn.join(', ')}` : '';
     sum.append(
       el('span', 'sa-icon', '🤖'),
-      el('span', 'sa-title', `${keyTag}子任务：${taskShort || '(无描述)'}`),
+      el('span', 'sa-title', `${keyTag}${t('chat.subtask',{desc:taskShort||t('chat.noDescription')})}`),
       el('span', 'sa-status', `执行中…${roleTag}${tierTag}${modelTag}${driverTag}${dependencyTag}`),
     );
     d.appendChild(sum);
@@ -4805,10 +4805,10 @@ function handleSubagentEvent(evt, live) {
         host.resultWrap.append(host.resultLabel, wrapPreWithCopy(host.resultPre));
         host.body.appendChild(host.resultWrap);
       }
-      host.resultLabel.textContent = backgroundAck ? 'Claude CLI 启动回执' : (ok ? '子任务结论' : '子任务错误详情');
+      host.resultLabel.textContent = backgroundAck ? t('chat.claudeCliReceipt') : (ok ? t('chat.subtaskConclusion') : t('chat.subtaskError'));
       host.resultPre.textContent = evt.result;
       if (evt.resultTruncated) {
-        const note = el('div', 'sa-result-note', '结果过长，仅显示前 100,000 个字符。');
+        const note = el('div', 'sa-result-note', t('chat.resultTooLong'));
         if (host.resultNote) host.resultNote.replaceWith(note);
         else host.resultWrap.appendChild(note);
         host.resultNote = note;
@@ -4818,7 +4818,7 @@ function handleSubagentEvent(evt, live) {
       const chars = Number(evt.resultChars) || 0;
       host.status.textContent = backgroundAck
         ? `后台执行中 · 已交给 Claude CLI${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`
-        : `${ok ? '✓ 完成' : '✗ 失败'} · ${chars} 字结论${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
+        : `${ok ? '✓ 完成' : t('status.failed')} · ${chars} 字结论${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
       host.status.classList.add(backgroundAck ? 'running' : (ok ? 'ok' : 'err'));
     }
     if (!ok) host.d.open = true; // surface a failed sub-turn automatically
@@ -5007,7 +5007,7 @@ function appendToolOutput(value, append = false) {
 
 /* ---------------- tools ---------------- */
 async function runTool(name, body) {
-  appendToolOutput('运行中…');
+  appendToolOutput(t('status.running'));
   try { const res = await api(`/api/tools/${name}`, { method: 'POST', body: JSON.stringify(body || {}) }); appendToolOutput(res.result); }
   catch (err) { appendToolOutput(err.message || String(err)); toast(t("toast.toolError", { p1: apiErrText(err) }), 'err'); }
 }
@@ -5194,7 +5194,7 @@ function renderCsvTable(s) {
     table.appendChild(tr);
   });
   wrap.appendChild(table);
-  if (rows.length >= 200) wrap.appendChild(el('div', 'fp-trunc', '（仅显示前 200 行）'));
+  if (rows.length >= 200) wrap.appendChild(el('div', 'fp-trunc', t('chat.first200Lines')));
   return wrap;
 }
 // Insert a file's path (relative to the workspace when possible) into the composer at the caret.
@@ -5550,18 +5550,18 @@ function renderMetrics(data) {
 // 「回撤到此前状态」button → confirm modal → POST /api/checkpoints/rollback {sessionId, turnSeq, entrySeq}.
 // skipped entries render greyed + non-actionable (their before-content was too large to snapshot).
 // Rolled-back entries are removed server-side, so a re-fetch after success naturally drops them.
-const CHANGE_OP_LABEL = { create: '新建', modify: '修改', delete: '删除' };
+const CHANGE_OP_LABEL = { create: t('common.create'), modify: t('common.modify'), delete: '删除' };
 // v1.4.1: 「用什么改的」人话标签 —— checkpoint 条目自带 tool 字段(如 file_edit / excel_beautify / acc__write_file)。
 // 只标注「修改」用户不知道具体改了什么;补上工具名(+ 原大小)让每条变更能一眼看出是哪种改动。
 const CHANGE_TOOL_LABEL = {
   // 内建文件工具
-  file_write: '写入', file_edit: '编辑', file_delete: '删除', file_move: '移动', file_copy: '复制',
-  archive_zip: '压缩', archive_unzip: '解压', http_download: '下载',
+  file_write: t('changes.tool.file_write'), file_edit: t('changes.tool.file_edit'), file_delete: t('changes.tool.file_delete'), file_move: t('changes.tool.file_move'), file_copy: t('changes.tool.file_copy'),
+  archive_zip: t('common.compress'), archive_unzip: t('common.extract'), http_download: t('common.download'),
   // ACC(ai-computer-control)工具名
-  write_file: '写入', delete_file: '删除', move_file: '移动', copy_file: '复制',
-  write_document: '生成 Word', write_excel: '生成 Excel', write_pdf: '导出 PDF',
-  excel_beautify: '美化 Excel', excel_chart: 'Excel 图表', write_pptx: '生成 PPT', chart_image: '制图',
-  image_resize: '缩放图片',
+  write_file: t('changes.tool.write_file'), delete_file: t('changes.tool.delete_file'), move_file: t('changes.tool.move_file'), copy_file: t('changes.tool.copy_file'),
+  write_document: t('tools.generateWord'), write_excel: t('tools.generateExcel'), write_pdf: t('tools.exportPdf'),
+  excel_beautify: t('tools.beautifyExcel'), excel_chart: t('tools.excelChart'), write_pptx: t('tools.generatePpt'), chart_image: t('tools.createChart'),
+  image_resize: t('tools.resizeImage'),
 };
 function changeToolLabel(e) {
   const tool = String(e && e.tool || '').replace(/^.+?__/, '');   // 去桥接前缀 <serverId>__
@@ -5749,7 +5749,7 @@ function renderChangeDiffInto(box, d, entry, standalone) {
   for (const l of diff.removed) addLine('del', '−', l);
   for (const l of diff.added) addLine('add', '+', l);
   for (const l of diff.ctxAfter) addLine('ctx', ' ', l);
-  if (!diff.removed.length && !diff.added.length) pre.append(el('div', 'cdiff-line ctx', el('span', 'cdiff-text', '(内容未变化)')));
+  if (!diff.removed.length && !diff.added.length) pre.append(el('div', 'cdiff-line ctx', el('span', 'cdiff-text', t('common.noChange'))));
   box.append(pre);
 }
 // 轻量行级 diff:裁掉公共前缀/后缀,中间即改动区(单块连续编辑=精确;分散编辑=改动区略大但仍正确)。
@@ -5774,7 +5774,7 @@ function confirmRollbackEntry(entry, fullPath, btn) {
   const bodyEl = el('div', 'confirm-body');
   bodyEl.append(el('p', '', t('changes.confirmRollbackBody', {path: fileBasename(fullPath), turn: (turnSeq || 0)})));
   const foot = el('div', 'confirm-foot');
-  const cancel = el('button', '', '取消');
+  const cancel = el('button', '', t('common.cancel'));
   const ok = el('button', 'primary', t('changes.revert'));
   foot.append(cancel, ok);
   const m = buildModal(t('changes.confirmRollbackTitle'), bodyEl, foot);
@@ -5841,7 +5841,7 @@ async function refreshShellList() {
   const openText = openPre ? openPre.textContent : '';
   host.innerHTML = '';
   if (!shells.length) {
-    const empty = el('div', 'shell-empty', '模型可通过 shell_start/send/poll 使用持久终端;仅 provider 引擎可用。');
+    const empty = el('div', 'shell-empty', t('chat.shellHint'));
     host.appendChild(empty);
     return;
   }
@@ -5849,7 +5849,7 @@ async function refreshShellList() {
     const row = el('div', 'shell-item');
     const head = el('div', 'shell-item-head');
     const dot = el('span', 'shell-dot' + (s.running ? ' running' : ' stopped'));
-    dot.title = s.running ? '运行中' : ('已结束' + (s.exitCode != null ? `(exit ${s.exitCode})` : ''));
+    dot.title = s.running ? t('status.runningShort') : (t('status.ended') + (s.exitCode != null ? `(exit ${s.exitCode})` : ''));
     const meta = el('div', 'shell-meta');
     const title = el('div', 'shell-name');
     title.appendChild(dot);
@@ -5859,9 +5859,9 @@ async function refreshShellList() {
     meta.appendChild(el('div', 'shell-cwd', s.cwd || ''));
     head.appendChild(meta);
     const actions = el('div', 'shell-actions');
-    const viewBtn = el('button', 'mini', shellUi.expanded === s.shellId ? '收起' : '查看');
+    const viewBtn = el('button', 'mini', shellUi.expanded === s.shellId ? t('common.collapse') : t('common.view'));
     viewBtn.onclick = () => toggleShellView(s.shellId);
-    const killBtn = el('button', 'mini danger', '结束');
+    const killBtn = el('button', 'mini danger', t('common.end'));
     killBtn.onclick = () => killShell(s.shellId);
     actions.appendChild(viewBtn);
     actions.appendChild(killBtn);
@@ -5920,7 +5920,7 @@ async function newShellSession() {
   const cwd = (state.config && state.config.defaultWorkspace) || '';
   try { const res = await shellCall('shell_start', { cwd }); const r = res.result || {};
     if (r.ok) toast(t("toast.shellCreated", { p1: r.name || r.shellId }), 'ok');
-    else toast(r.error || '新建失败', 'err');
+    else toast(r.error || t('common.createFailed'), 'err');
   } catch (err) { toast(t("toast.createFail", { p1: apiErrText(err) }), 'err'); }
   refreshShellList();
 }
@@ -6007,7 +6007,7 @@ function updateEngineDependentUI() {
   // §5.2 (v0.7b): compactBtn is now visible in BOTH engines (provider goes through the server summary
   // endpoint). skillBtn stays Claude-only (A2: /skill is a CLI concept). Titles follow the engine.
   const compactBtn = $('compactBtn');
-  if (compactBtn) { compactBtn.classList.remove('hidden'); compactBtn.title = prov ? '压缩上下文：服务端摘要压缩对话历史，释放上下文空间' : '压缩上下文：让 Claude 概括并压缩对话历史（/compact），释放上下文空间'; }
+  if (compactBtn) { compactBtn.classList.remove('hidden'); compactBtn.title = prov ? t('chat.compactContextProvider') : t('chat.compactContextClaude'); }
   // v1 技能体系: 「技能库」在两个引擎都可用(技能面板承载技能开关 + 命令 + Playbook),不再 Claude-only 隐藏。
   const skillBtn = $('skillBtn'); if (skillBtn) skillBtn.classList.remove('hidden');
   updateSkillBadge();
@@ -6170,33 +6170,33 @@ function roleSelect(field, value, choices) { const s = document.createElement('s
 function renderAgentRoleEditors() {
   const host = $('agentRoleEditorList'); if (!host) return; host.textContent = '';
   const scope = $('agentRoleScope')?.value || 'global';
-  $('agentRoleScopeHint').textContent = scope === 'project' ? `保存到 ${currentWorkspace()}\\.ruyi\\agents.json；适合随项目共享。` : '保存在本机配置中，对所有项目生效；内置角色可在这里覆盖。';
+  $('agentRoleScopeHint').textContent = scope === 'project' ? `${t('role.saveToLocal')}` : '保存在本机配置中，对所有项目生效；内置角色可在这里覆盖。';
   for (const role of agentRoleDraft) {
     const card = el('details', 'agent-role-edit-card'); card.open = agentRoleDraft.length <= 5; card.dataset.builtin = role.builtin ? '1' : '0';
     card.appendChild(el('summary', 'agent-role-edit-head', `${role.label || role.id} · ${role.toolTier || 'read'} · ${role.permissionMode || 'inherit'}`));
     const body = el('div', 'agent-role-edit-body');
     const idInput = roleInput('id', role.id); if (role.builtin) idInput.readOnly = true;
-    body.append(roleField('角色 ID', idInput), roleField('显示名', roleInput('label', role.label)), roleField('用途描述', roleInput('description', role.description)));
-    const prompt = document.createElement('textarea'); prompt.rows = 3; prompt.value = role.prompt || ''; prompt.dataset.roleField = 'prompt'; body.appendChild(roleField('角色指令', prompt));
+    body.append(roleField(t('role.id'), idInput), roleField(t('role.displayName'), roleInput('label', role.label)), roleField(t('role.description'), roleInput('description', role.description)));
+    const prompt = document.createElement('textarea'); prompt.rows = 3; prompt.value = role.prompt || ''; prompt.dataset.roleField = 'prompt'; body.appendChild(roleField(t('role.instructions'), prompt));
     body.append(
-      roleField('工具级别', roleSelect('toolTier', role.toolTier || 'read', [['read','只读+联网检索'],['edit','可编辑+联网'],['exec','可执行(全量)']])),
-      roleField('角色权限', roleSelect('permissionMode', role.permissionMode || 'inherit', [['inherit','继承父级'],['default','逐项确认'],['acceptEdits','自动接受编辑'],['dontAsk','不询问，未授权即拒绝'],['plan','只读计划'],['auto','智能自动'],['bypass','跳过权限']])),
-      roleField('隔离', roleSelect('isolation', role.isolation || 'none', [['none','不隔离'],['worktree','Git worktree']])),
-      roleField('OpenAI 模型', roleInput('openaiModel', role.models?.openai || '')),
-      roleField('Claude 模型', roleInput('claudeModel', role.models?.claude || 'inherit')),
-      roleField('OpenAI 迭代', roleInput('openaiBudget', role.budgets?.openai || 100, 'number')),
-      roleField('Claude 轮次', roleInput('claudeBudget', role.budgets?.claude || 100, 'number')),
-      roleField('OpenAI 工具白名单', roleInput('openaiTools', (role.openaiTools || []).join(', '))),
-      roleField('Claude 工具白名单', roleInput('claudeTools', (role.claudeTools || []).join(', '))),
-      roleField('MCP 服务 ID', roleInput('mcpServers', (role.mcpServers || []).join(', ')))
+      roleField(t('role.toolTier'), roleSelect('toolTier', role.toolTier || 'read', [['read',t('role.toolTierRead')],['edit',t('role.toolTierEdit')],['exec',t('role.toolTierExec')]])),
+      roleField(t('role.permissions'), roleSelect('permissionMode', role.permissionMode || 'inherit', [['inherit',t('role.permInherit')],['default',t('role.permConfirm')],['acceptEdits',t('role.permAutoEdit')],['dontAsk',t('role.permDeny')],['plan',t('role.permReadOnly')],['auto',t('role.permSmart')],['bypass',t('role.permSkip')]])),
+      roleField(t('role.isolation'), roleSelect('isolation', role.isolation || 'none', [['none',t('role.noIsolation')],['worktree','Git worktree']])),
+      roleField(t('role.openaiModel'), roleInput('openaiModel', role.models?.openai || '')),
+      roleField(t('role.claudeModel'), roleInput('claudeModel', role.models?.claude || 'inherit')),
+      roleField(t('role.openaiIter'), roleInput('openaiBudget', role.budgets?.openai || 100, 'number')),
+      roleField(t('role.claudeRounds'), roleInput('claudeBudget', role.budgets?.claude || 100, 'number')),
+      roleField(t('role.openaiTools'), roleInput('openaiTools', (role.openaiTools || []).join(', '))),
+      roleField(t('role.claudeTools'), roleInput('claudeTools', (role.claudeTools || []).join(', '))),
+      roleField(t('role.mcpServiceId'), roleInput('mcpServers', (role.mcpServers || []).join(', ')))
     );
-    const remove = el('button', 'mini danger', role.builtin ? '恢复内置默认' : '删除角色');
+    const remove = el('button', 'mini danger', role.builtin ? t('role.resetDefault') : t('role.deleteRole'));
     remove.type = 'button'; remove.onclick = () => { captureAgentRoleDraft(); if (role.builtin && agentRoleLibraryData) { const base = (agentRoleLibraryData.builtinRoles || []).find(r => r.id === role.id); agentRoleDraft = agentRoleDraft.map(r => r.id === role.id ? JSON.parse(JSON.stringify(base)) : r); } else agentRoleDraft = agentRoleDraft.filter(r => r.id !== role.id); renderAgentRoleEditors(); };
     body.appendChild(remove); card.appendChild(body); host.appendChild(card);
   }
   const nativeHost = $('nativeClaudeRoleList'); nativeHost.textContent = '';
   const native = agentRoleLibraryData?.nativeClaudeRoles || [];
-  if (native.length) { nativeHost.appendChild(el('h4', 'settings-subhead', 'Claude 项目原生角色（只读）')); for (const r of native) nativeHost.appendChild(el('div', 'native-claude-role', `${r.label} · ${r.file || ''}`)); }
+  if (native.length) { nativeHost.appendChild(el('h4', 'settings-subhead', t('role.claudeNative'))); for (const r of native) nativeHost.appendChild(el('div', 'native-claude-role', `${r.label} · ${r.file || ''}`)); }
 }
 function resetAgentRoleDraft() {
   if (!agentRoleLibraryData) return;
@@ -6213,7 +6213,7 @@ async function loadAgentRoles() {
   try {
     const data = await api(`/api/agent-roles?cwd=${encodeURIComponent(currentWorkspace())}`); agentRoleLibraryData = data;
     const d = data.drivers || {}, omitted = d.claude?.omitted || [];
-    $('agentRoleDriverStatus').textContent = `OpenAI：工作台原生执行 · Claude：原生 --agents 已同步 ${(d.claude?.synced || []).length} 个${omitted.length ? `，${omitted.length} 个因命令长度未同步` : ''}`;
+    $('agentRoleDriverStatus').textContent = `${t('role.driverStatus', {openai: 'OpenAI', claudeSynced: (d.claude?.synced || []).length, omitted: omitted.length || 0})}`;
     resetAgentRoleDraft();
   } catch (e) { toast(t("toast.rolesLoadFail", { p1: apiErrText(e) }), 'err'); }
 }
@@ -6224,7 +6224,7 @@ async function saveAgentRoles() {
 }
 function addAgentRole() {
   captureAgentRoleDraft(); const used = new Set(agentRoleDraft.map(r => r.id)); let n = 1, id = 'custom-agent'; while (used.has(id)) id = `custom-agent-${++n}`;
-  agentRoleDraft.push({ id, label: '自定义角色', description: '', prompt: '', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, isolation: 'none' }); renderAgentRoleEditors();
+  agentRoleDraft.push({ id, label: t('role.customRoles'), description: '', prompt: '', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, isolation: 'none' }); renderAgentRoleEditors();
 }
 
 function subagentProviderModels(provider) {
@@ -6349,10 +6349,10 @@ function fillSettings() {
   const dmStat = $('cfgDesktopMcpStatus');
   if (dmStat) {
     const info = (state.status && state.status.desktopMcp) || null;
-    if (!info || info.enabled === false) dmStat.textContent = '（未启用）';
-    else if (info.resolved && info.resolved.command) dmStat.textContent = '已发现桌面 MCP: ' + info.resolved.command + (info.resolved.args && info.resolved.args.length ? ' ' + info.resolved.args.join(' ') : '');
-    else if (info.detected && info.detected.command) dmStat.textContent = '已探测: ' + info.detected.command + (info.detected.args && info.detected.args.length ? ' ' + info.detected.args.join(' ') : '');
-    else dmStat.textContent = '未发现（请填写命令覆盖，或确认 ai-computer-control 已安装）';
+    if (!info || info.enabled === false) dmStat.textContent = t('mcp.notEnabled');
+    else if (info.resolved && info.resolved.command) dmStat.textContent = t('mcp.desktopFound') + info.resolved.command + (info.resolved.args && info.resolved.args.length ? ' ' + info.resolved.args.join(' ') : '');
+    else if (info.detected && info.detected.command) dmStat.textContent = t('mcp.probed') + info.detected.command + (info.detected.args && info.detected.args.length ? ' ' + info.detected.args.join(' ') : '');
+    else dmStat.textContent = t('mcp.notFound');
   }
   // Advanced tab: read-only diagnostics.
   const s = state.status || {};
@@ -6386,7 +6386,7 @@ function updateSearchBackendVisibility() {
   if (baseRow) {
     baseRow.classList.toggle('hidden', !showBase);
     const lbl = baseRow.querySelector('label');
-    if (lbl) lbl.textContent = optionalBase ? 'Base URL（可选，留空用官方地址）' : 'Base URL';
+    if (lbl) lbl.textContent = optionalBase ? t('mcp.baseUrl') : 'Base URL';
   }
   if (keyRow) keyRow.classList.toggle('hidden', !showKey);
 }
@@ -6673,12 +6673,12 @@ async function importMcpFromFolder(btn) {
     const r = await api('/api/mcp/import-folder', { method: 'POST', body: JSON.stringify({ path: pf.path }) });
     if (r && r.ok) {
       const srv = r.server || {};
-      const name = srv.label || srv.id || '外部 MCP';
-      toast((r.updated ? '已更新 ' : '已添加 ') + name, 'ok');
+      const name = srv.label || srv.id || t('mcp.external');
+      toast((r.updated ? t('mcp.updated') : t('mcp.added')) + name, 'ok');
       await refreshStatus(); // re-pull config → fillSettings re-seeds the integrations view
     } else {
       // 缺少/无效清单 → 弹模板说明 modal(若响应带 template);否则纯 toast。
-      if (r && r.template) showMcpTemplateModal(r.error || '该文件夹缺少 ruyi-mcp.json 清单', r.template);
+      if (r && r.template) showMcpTemplateModal(r.error || t('mcp.missingManifest'), r.template);
       else toast(t('toast.importFail', { err: (r && r.error) || t('common.unknownError') }), 'err');
     }
   } catch (e) {
@@ -6689,24 +6689,24 @@ async function importMcpFromFolder(btn) {
 function showMcpTemplateModal(reason, template) {
   const body = el('div', 'mcp-tpl-body');
   body.append(el('p', 'mcp-tpl-reason', reason));
-  body.append(el('p', 'muted', '在该文件夹下创建一个 ruyi-mcp.json 文件，内容参考下面的模板（至少填 id 与 command），再重新导入即可。'));
+  body.append(el('p', 'muted', t('mcp.createManifestHint')));
   const preWrap = el('div', 'mcp-tpl-pre-wrap');
   const pre = el('pre', 'mcp-tpl-pre');
   let tplText = '';
   try { tplText = JSON.stringify(template, null, 2); } catch { tplText = String(template); }
   pre.textContent = tplText; // XSS: textContent, never innerHTML
-  const copyBtn = el('button', 'mini mcp-tpl-copy', '复制');
+  const copyBtn = el('button', 'mini mcp-tpl-copy', t('common.copy'));
   copyBtn.type = 'button';
   copyBtn.onclick = async () => {
-    try { await navigator.clipboard.writeText(tplText); copyBtn.textContent = '已复制 ✓'; setTimeout(() => { copyBtn.textContent = '复制'; }, 1500); }
+    try { await navigator.clipboard.writeText(tplText); copyBtn.textContent = t('common.copied'); setTimeout(() => { copyBtn.textContent = '复制'; }, 1500); }
     catch { toast(t("toast.copyFail"), 'err'); }
   };
   preWrap.append(copyBtn, pre);
   body.append(preWrap);
   const foot = el('div', 'confirm-foot');
-  const ok = el('button', 'primary', '知道了');
+  const ok = el('button', 'primary', t('common.gotIt'));
   foot.append(ok);
-  const m = buildModal('缺少 MCP 清单', body, foot);
+  const m = buildModal(t('mcp.missingManifestTitle'), body, foot);
   ok.onclick = () => m.close();
 }
 
@@ -6715,7 +6715,7 @@ function renderDoctor() {
   const panel = $('doctorPanel'); if (!panel) return;
   panel.innerHTML = '';
   const s = state.status;
-  panel.appendChild(healthRow(true, '版本', `v${s.version} · 启动=${s.launchMode} · overlay=${s.overlayId}`));
+  panel.appendChild(healthRow(true, t('common.version'), `v${s.version} · 启动=${s.launchMode} · overlay=${s.overlayId}`));
   for (const h of (s.health || [])) panel.appendChild(healthRow(h.ok, h.id, h.detail));
 }
 function healthRow(ok, id, detail) {
@@ -6752,7 +6752,7 @@ function importSession() {
     try {
       const data = JSON.parse(await file.text());
       const messages = Array.isArray(data.messages) ? data.messages : [];
-      const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: (data.title || file.name) + ' (导入)', cwd: data.cwd || '', messages }) });
+      const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: (data.title || file.name) + t('session.imported'), cwd: data.cwd || '', messages }) });
       await refreshSessions(); await openSession(res.session.id); toast(t("toast.sessionImported"), 'ok');
     } catch (e) { toast(t('toast.importFail', { err: apiErrText(e) }), 'err'); }
   };
@@ -6762,7 +6762,7 @@ function getTemplates() { try { return JSON.parse(localStorage.getItem('wcw.temp
 function saveTemplates(t) { try { localStorage.setItem('wcw.templates', JSON.stringify(t)); } catch { /* ignore */ } }
 function addTemplateFromPrompt() {
   const text = $('promptInput').value.trim(); if (!text) { toast(t("toast.inputEmpty"), 'err'); return; }
-  const name = prompt('模板名称', text.slice(0, 24)); if (!name) return;
+  const name = prompt(t('mcp.templateName'), text.slice(0, 24)); if (!name) return;
   const t = getTemplates(); t.push({ name, text }); saveTemplates(t); toast(t("toast.templateSaved"), 'ok');
 }
 function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; autoGrow(ta); ta.focus(); }
@@ -6770,7 +6770,7 @@ function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; au
 async function openMcpInspector() {
   switchTab('mcp'); openToolPane();
   const box = $('mcpToolList'); if (!box) return;
-  box.innerHTML = '运行中…';
+  box.innerHTML = t('status.running');
   const tools = state.status?.tools || [];
   box.innerHTML = '';
   for (const t of tools) {
@@ -6784,7 +6784,7 @@ async function openMcpInspector() {
       bodyEl.appendChild(el('div', 'tc-label', key + (props[key].type ? ` (${props[key].type})` : '')));
       const inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = key; inputs[key] = inp; bodyEl.appendChild(inp);
     }
-    const run = el('button', 'mini', '运行');
+    const run = el('button', 'mini', t('common.run'));
     run.onclick = () => {
       const args = {};
       for (const [k, inp] of Object.entries(inputs)) { if (inp.value !== '') { const t2 = props[k]?.type; args[k] = t2 === 'number' ? Number(inp.value) : t2 === 'boolean' ? inp.value === 'true' : inp.value; } }
@@ -6856,9 +6856,9 @@ const BUILTIN_SKILL_I18N_IDS = Object.freeze({
   'playbook:pb:presentation-outline': 'playbook.presentationOutline',
 });
 const BUILTIN_SKILL_AVAILABILITY_I18N_KEYS = Object.freeze({
-  '需要联网(当前离线)': 'skills.requirements.networkOffline',
-  '需要桌面控制(未检测到 ai-computer-control)': 'skills.requirements.desktopControl',
-  '需要视觉模型(当前引擎未开启视觉)': 'skills.requirements.vision',
+  t('mcp.needOnline'): 'skills.requirements.networkOffline',
+  t('mcp.needDesktop'): 'skills.requirements.desktopControl',
+  t('mcp.needVision'): 'skills.requirements.vision',
 });
 const BUILTIN_PLAYBOOK_INPUT_I18N_KEYS = Object.freeze({
   'archive-by-content:folder': 'skills.playbook.inputs.archiveByContent.folder',
@@ -7309,7 +7309,7 @@ function renderMemoryList() {
   for (const g of memGroups) {
     const grp = el('div', 'sk-group'); grp.id = 'm-' + g.id;
     grp.appendChild(buildSkGroupTitle(g.label, g.sub, g.items.length));
-    if (!g.items.length) { grp.appendChild(el('div', 'muted', '（暂无）')); }
+    if (!g.items.length) { grp.appendChild(el('div', 'muted', t('common.none'))); }
     else { const grid = el('div', 'sk-grid'); for (const m of g.items) grid.appendChild(buildMemoryRow(m, enabled)); grp.appendChild(grid); }
     list.appendChild(grp);
   }
@@ -7325,7 +7325,7 @@ function renderMemoryList() {
   }
   // 其它项目组(迁移到当前项目)
   if ((memoryOtherProjects || []).length) {
-    list.appendChild(el('div', 'skill-group-title', '其它项目组'));
+    list.appendChild(el('div', 'skill-group-title', t('memory.otherProjects')));
     for (const p of memoryOtherProjects) list.appendChild(buildOtherProjectRow(p));
   }
 }
@@ -7352,14 +7352,14 @@ function buildMemoryRow(m, enabled) {
   const meta = el('div', 'sk-reason');
   meta.textContent = (m.createdAt ? String(m.createdAt).slice(0, 10) + ' · ' : '') + (m.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project'));
   it.appendChild(meta);
-  if (stale) it.appendChild(el('div', 'sk-reason', '⚠ 来源项目已变化，已暂停注入（重新启用可锁定到当前项目）。'));
+  if (stale) it.appendChild(el('div', 'sk-reason', t('memory.sourceChanged')));
   const foot = el('div', 'sk-foot');
   const toggle = el('button', 'skill-toggle' + (on ? ' on' : ''), pending ? t('memory.togglePending') : (on ? t('memory.enabled') : t('memory.enable')));
   if (pending) toggle.disabled = true;
   toggle.onclick = e => { e.stopPropagation(); toggleMemory(m); };
-  const editB = el('button', 'mini', '编辑');
+  const editB = el('button', 'mini', t('common.edit'));
   editB.onclick = e => { e.stopPropagation(); openMemoryEditModal(m); };
-  const delB = el('button', 'mini danger', '删除');
+  const delB = el('button', 'mini danger', t('common.delete'));
   delB.onclick = e => { e.stopPropagation(); deleteMemoryRow(m); };
   foot.append(toggle, editB, delB);
   it.appendChild(foot);
@@ -7371,11 +7371,11 @@ function buildMemoryGhostRow(m) {
   const head = el('div', 'skill-head');
   head.appendChild(el('span', 'skill-name', m.id));
   head.appendChild(el('span', 'skill-src', t('memory.ghostLabel')));
-  const rm = el('button', 'skill-toggle', '移除');
+  const rm = el('button', 'skill-toggle', t('common.remove'));
   rm.onclick = e => { e.stopPropagation(); removeGhostMemory(m); };
   head.appendChild(rm);
   it.appendChild(head);
-  it.appendChild(el('div', 'skill-reason', '此记忆已不在库中（可能已删除，或随项目目录变化而不可见）。'));
+  it.appendChild(el('div', 'skill-reason', t('memory.notInRepo')));
   return it;
 }
 // 其它项目组行:显示 label/path/条目数 + 「全部迁移到当前项目」。
@@ -7384,7 +7384,7 @@ function buildOtherProjectRow(p) {
   const head = el('div', 'skill-head');
   head.appendChild(el('span', 'skill-name', p.label || p.projectKey));
   head.appendChild(el('span', 'skill-type', `${p.count} 条`));
-  const btn = el('button', 'skill-toggle', '迁移到当前项目');
+  const btn = el('button', 'skill-toggle', t('memory.migrateToCurrent'));
   btn.onclick = e => { e.stopPropagation(); migrateGroupToCurrent(p); };
   head.appendChild(btn);
   it.appendChild(head);
@@ -7462,7 +7462,7 @@ async function migrateGroupToCurrent(p) {
   if (okCount) parts.push(`迁移 ${okCount} 条`);
   if (conflictCount) parts.push(`${conflictCount} 条冲突跳过`);
   if (errCount) parts.push(`${errCount} 条失败`);
-  toast(parts.length ? parts.join('，') : '没有可迁移的记忆', okCount ? 'ok' : 'err');
+  toast(parts.length ? parts.join('，') : t('memory.noMigratable'), okCount ? 'ok' : 'err');
   openMemoryPanel();
 }
 // 从当前会话起草(provider 引擎):draft → 编辑弹窗 → 保存。
@@ -7470,7 +7470,7 @@ async function saveAsMemory(btn) {
   const sid = state.currentSession && state.currentSession.id;
   if (!sid) { toast(t("toast.noSessionToSave"), 'err'); return; }
   const orig = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = '起草中…'; }
+  if (btn) { btn.disabled = true; btn.textContent = t('common.drafting'); }
   try {
     const r = await api('/api/memory/draft', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
     if (!r || !r.ok || !r.draft) { toast(t("toast.draftFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
@@ -7511,8 +7511,8 @@ async function openMemoryEditModal(m) {
   scopeField.appendChild(scopeSel); body.appendChild(scopeField);
   const bodyTa = mkField(t('memory.edit.body'), full ? full.body : '', 8);
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
-  const cancel = el('button', '', '取消');
-  const save = el('button', 'primary', '保存');
+  const cancel = el('button', '', t('common.cancel'));
+  const save = el('button', 'primary', t('common.save'));
   foot.append(cancel, save);
   const modal = buildModal(editing ? t('memory.edit.title') : t('memory.edit.create.title'), body, foot);
   cancel.onclick = () => modal.close();
@@ -7521,7 +7521,7 @@ async function openMemoryEditModal(m) {
     if (editing) memory.id = m.id;
     if (full && full.sourceSessionId) memory.sourceSessionId = full.sourceSessionId;
     if (!memory.name || !memory.body.trim()) { toast(t("toast.memoryFieldsRequired"), 'err'); return; }
-    save.disabled = true; save.textContent = '保存中…';
+    save.disabled = true; save.textContent = t('common.saving');
     try {
       const r = await api('/api/memory', { method: 'POST', body: JSON.stringify({ memory, cwd: currentWorkspace() || '' }) });
       modal.close();
@@ -7815,14 +7815,14 @@ function openContextPopover() {
     barIn.style.width = Math.max(0, Math.min(100, pct)) + '%';
     if (pct >= 90) barIn.style.background = 'var(--danger)'; else if (pct >= 70) barIn.style.background = 'var(--warn)'; else barIn.style.background = 'var(--ok)';
     bar.appendChild(barIn); wrap.appendChild(bar);
-    wrap.appendChild(el('div', 'ctx-pop-src muted', `当前模型：${currentModelId() || '默认'} · 上限来源：${srcLabel}`));
+    wrap.appendChild(el('div', 'ctx-pop-src muted', `${t('ctx.currentModel', {model: currentModelId() || t('common.default')})} · ${t('ctx.limitSource', {src: srcLabel})}`));
     // v1.4.1: 端点未报告真实上限时(名称推测),明确提示可能不准 + 手动锁定仅对当前模型生效。
-    if (manual <= 0 && srcLabel === '按名称推测') {
-      wrap.appendChild(el('div', 'ctx-pop-hint muted', '该端点未报告真实上限，下面数字为按模型名推测、可能不准。点选实际上限即锁定（仅对当前模型生效）。'));
+    if (manual <= 0 && srcLabel === t('ctx.sourceLabel.guessed')) {
+      wrap.appendChild(el('div', 'ctx-pop-hint muted', t('ctx.pop.hint')));
     }
     // Preset chips + custom input.
     const chips = el('div', 'ctx-chips');
-    const presets = [['64K', 65536], ['128K', 131072], ['200K', 200000], ['1M', 1000000], ['自动', 0]];
+    const presets = [['64K', 65536], ['128K', 131072], ['200K', 200000], ['1M', 1000000], [t('ctx.auto'), 0]];
     const applyWin = n => { setCtxWindowManual(n); updateContextMeter(); close(); };
     for (const [label, n] of presets) {
       const c = el('button', 'ctx-chip'); c.type = 'button'; c.textContent = label;
@@ -7831,7 +7831,7 @@ function openContextPopover() {
       chips.appendChild(c);
     }
     wrap.appendChild(chips);
-    const custom = el('input', 'ctx-custom'); custom.type = 'text'; custom.placeholder = '自定义上限（Enter 生效）';
+    const custom = el('input', 'ctx-custom'); custom.type = 'text'; custom.placeholder = t('ctx.customLimit');
     custom.value = manual > 0 ? String(manual) : '';
     custom.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); const v = custom.value.replace(/[,\s]/g, ''); const n = parseInt(v, 10); if (v === '') applyWin(0); else if (Number.isFinite(n) && n > 0) applyWin(n); }
@@ -7950,10 +7950,10 @@ function openCapPopover(anchorOverride) {
 function openRenamePopover(anchorEl, s) {
   popover(anchorEl, close => {
     const wrap = el('div', 'rename-pop');
-    const inp = el('input', 'rename-input'); inp.type = 'text'; inp.value = s.title || ''; inp.placeholder = '会话名称';
+    const inp = el('input', 'rename-input'); inp.type = 'text'; inp.value = s.title || ''; inp.placeholder = t('session.name');
     const commit = () => { const t = inp.value.trim(); close(); if (t && t !== s.title) patchSession(s.id, { title: t }); };
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
-    const ok = el('button', 'primary', '确定'); ok.type = 'button'; ok.onclick = commit;
+    const ok = el('button', 'primary', t('common.confirm')); ok.type = 'button'; ok.onclick = commit;
     const row = el('div', 'rename-row'); row.append(inp, ok);
     wrap.appendChild(row);
     setTimeout(() => { inp.focus(); inp.select(); }, 0);
@@ -8406,13 +8406,13 @@ function buildBootFailureCard(err) {
   const wrap = el('div', 'boot-failure');
   wrap.setAttribute('role', 'alert');
   wrap.appendChild(el('div', 'boot-failure-icon', '⚠'));
-  wrap.appendChild(el('h2', 'boot-failure-title', '无法连接本地服务'));
-  wrap.appendChild(el('p', 'boot-failure-lead', '如意工作台需要本机后台服务才能工作。刚才尝试连接时没有成功。'));
+  wrap.appendChild(el('h2', 'boot-failure-title', t('bootFailure.title')));
+  wrap.appendChild(el('p', 'boot-failure-lead', t('bootFailure.lead')));
   const ul = el('ul', 'boot-failure-reasons');
   [
-    ['端口被占用', '可能有旧的实例还在后台运行，占着同一个端口。'],
-    ['服务未启动', '本机后台服务可能没起来，或者已经退出了。'],
-    ['被安全软件拦截', '防火墙或杀毒软件可能挡住了本机连接。'],
+    [t('connection.reason.portOccupied'), t('connection.reason.portOccupiedDesc')],
+    [t('connection.reason.serverNotStarted'), t('connection.reason.serverNotStartedDesc')],
+    [t('connection.reason.securityBlock'), t('connection.reason.securityBlockDesc')],
   ].forEach(([t, d]) => {
     const li = el('li', 'boot-failure-reason');
     li.appendChild(el('span', 'boot-failure-reason-t', t));
@@ -8421,12 +8421,12 @@ function buildBootFailureCard(err) {
   });
   wrap.appendChild(ul);
   const actions = el('div', 'boot-failure-actions');
-  const retry = el('button', 'primary boot-retry', '重试连接');
+  const retry = el('button', 'primary boot-retry', t('bootFailure.retry'));
   retry.type = 'button';
-  retry.setAttribute('aria-label', '重试连接本地服务');
+  retry.setAttribute('aria-label', t('bootFailure.retryAria'));
   retry.onclick = async () => {
-    retry.disabled = true; retry.textContent = '正在重连…';
-    setStatus('正在重连本地服务…');
+    retry.disabled = true; retry.textContent = t('bootFailure.reconnecting');
+    setStatus(t('bootFailure.reconnectingStatus'));
     try { await bootData(); } // 成功后 bootData 会重绘 #messages(会话/空状态),故障卡自然被替换
     catch (e) { renderBootFailure(e); }
   };
@@ -8435,8 +8435,8 @@ function buildBootFailureCard(err) {
   const panel = el('div', 'boot-failure-diag');
   panel.id = 'bootDiagPanel'; panel.hidden = true;
   panel.appendChild(el('pre', 'boot-failure-diag-pre', apiErrText(err) || t('common.unknownError')));
-  panel.appendChild(el('p', 'boot-failure-hint', '若多次重试仍失败：请关闭本页并重新启动如意工作台；仍不行时，把上面的技术详情反馈给维护者。'));
-  const diag = el('button', 'ghost boot-diag', '查看日志 / 诊断');
+  panel.appendChild(el('p', 'boot-failure-hint', t('bootFailure.diagHint')));
+  const diag = el('button', 'ghost boot-diag', t('bootFailure.diagButton'));
   diag.type = 'button';
   diag.setAttribute('aria-controls', 'bootDiagPanel');
   diag.setAttribute('aria-expanded', 'false');
@@ -8447,7 +8447,7 @@ function buildBootFailureCard(err) {
   return wrap;
 }
 function renderBootFailure(err) {
-  try { setStatus('无法连接本地服务'); } catch { /* ignore */ }
+  try { setStatus(t('connection.cannotConnect')); } catch { /* ignore */ }
   try { toast(t("toast.connectFail"), 'err'); } catch { /* ignore */ }
   const box = $('messages');
   if (!box) return;
