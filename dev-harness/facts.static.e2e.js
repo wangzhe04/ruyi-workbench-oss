@@ -64,6 +64,25 @@ if (fs.existsSync(venvPy)) {
   ok(Number.isInteger(facts.accTools) && facts.accTools > 0, `facts.accTools(${facts.accTools}) 是正整数(无 venv,活对账由 CI acc-smoke 承担)`);
 }
 
+// EC-A 真实基线:默认端口(00-boot.js DEFAULT_PORT 常量重算)。
+const bootPort = parseInt((boot.match(/const DEFAULT_PORT = (\d+)/) || [])[1], 10);
+ok(facts.defaultPort === bootPort, `facts.defaultPort(${facts.defaultPort}) == 00-boot.js DEFAULT_PORT(${bootPort})`);
+
+// EC-A:token bootstrap 语义锁(47c S1)。锁语义不锁行号(允许重构迁移,只要模式不变):
+// ① ROUTE_AUTH 表有 POST /api/bootstrap 标 auth='open'(浏览器拿 token 唯一通道);
+// ② serveStatic 浏览器导航分支把 __WCW_TOKEN__ 置空(HTML 不再明文下发 token)。
+ok(facts.tokenBootstrap === 'api-bootstrap', `facts.tokenBootstrap(${facts.tokenBootstrap}) == 'api-bootstrap'`);
+ok(built.includes("p: '/api/bootstrap', auth: 'open'"), "ROUTE_AUTH 含 POST /api/bootstrap(auth=open,浏览器拿 token 唯一通道)");
+ok(built.includes('__WCW_TOKEN__') && built.includes("browserNav ? ''"), "serveStatic 浏览器分支置空 token(HTML 不再明文下发)");
+
+// EC-A:live probe 数 = SKIP 集大小;且每条 SKIP 条目文件名须含 'live' 或在白名单
+// (防 SKIP 混入非 live 件如已知 flaky,使 liveProbes 语义失真)。deepseek-tools 文件名不含 live 但属 live probe(真 API 调用)。
+ok(facts.liveProbes === skipped, `facts.liveProbes(${facts.liveProbes}) == SKIP 集大小(${skipped})`);
+const skipFiles = (skipBlock.match(/'[^']+\.e2e\.js'/g) || []).map(s => s.slice(1, -1));
+const LIVE_WHITELIST = new Set(['deepseek-tools.e2e.js']);
+const nonLiveInSkip = skipFiles.filter(f => !/live/i.test(f) && !LIVE_WHITELIST.has(f));
+ok(nonLiveInSkip.length === 0, `SKIP 集每条都是 live probe(非 live 混入: ${nonLiveInSkip.join(', ') || '无'})`);
+
 // README 门面口径软锁:README 提到 ACC 工具数时必须与 facts 一致(防 99/100 双口径复发)。
 const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
 const accMentions = [...readme.matchAll(/(\d+)\s*个?(?:桌面| )?工具/g)].map(m => Number(m[1]));

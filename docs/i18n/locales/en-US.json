@@ -1095,5 +1095,31 @@
       "chart_image": "Chart",
       "image_resize": "Resize image"
     }
+  },
+  "storage": {
+    "store": {
+      "logs": "Logs",
+      "sessions": "Sessions",
+      "checkpoints": "Checkpoints",
+      "agentRuns": "Workflow runs",
+      "webcache": "Web cache",
+      "uploads": "Uploads",
+      "usage": "Usage ledger",
+      "memory": "Memory",
+      "playbooks": "Playbooks",
+      "skills": "Skills",
+      "generated": "Generated",
+      "agentWorkflows": "Workflow templates",
+      "agentWorktrees": "Isolated worktrees"
+    },
+    "loading": "Tallying storage usage…",
+    "loadFailed": "Storage stats load failed: {{err}}",
+    "unavailable": "Storage stats unavailable",
+    "totalLabel": "Data directory total",
+    "fileCount": "{{n}} files",
+    "transcriptNote": "Engine transcripts (Claude CLI-managed): {{bytes}} / {{n}} files -- auto-cleanup only covers transcripts this workbench spawned, with no live session refs, past retention",
+    "lastSweepNote": "Last cleanup: {{when}} · freed {{bytes}}({{n}} items)",
+    "cleanDone": "Cleanup done: freed {{bytes}}({{n}} items)",
+    "cleanNothing": "Nothing to clean"
   }
 }

@@ -11,6 +11,8 @@ const cp = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const version = process.argv[2] || '0.3.0';
+// EC-A: 真实宿主版本(package.json),作为 overlay manifest 的 minHostVersion(apply 前兼容预检用)。
+const pkgVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 const outRoot = path.join(root, 'dist', 'overlay');
 const payload = path.join(outRoot, 'payload');
 
@@ -71,7 +73,7 @@ for (const rel of OVERLAY_FILES) {
 }
 
 // Generate the manifest over the payload.
-cp.execFileSync(process.execPath, [path.join(root, 'tools', 'gen-manifest.js'), payload, version, `overlay-${version}`], { stdio: 'inherit' });
+cp.execFileSync(process.execPath, [path.join(root, 'tools', 'gen-manifest.js'), payload, version, `overlay-${version}`, pkgVersion], { stdio: 'inherit' });
 
 console.log(`Overlay assembled at ${outRoot}`);
 console.log(`Payload files: ${PAYLOAD_FILES.length}`);

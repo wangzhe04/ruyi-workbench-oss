@@ -104,10 +104,12 @@ The layout has a chat sidebar, the central conversation, and a right-hand tool p
 - The top bar selects the workspace, permission mode, engine, theme, UI mode, and language. It also shows context
   usage when relevant.
 - Files shows the workspace tree and previews text files. Artifacts lists files generated in the current chat.
-  Audit shows a filterable timeline of actions and decisions.
+  Audit shows a filterable timeline of actions and decisions. Changes shows reversible file edits grouped by turn.
+  Agent Workflows is the monitoring canvas for multi-agent orchestrations. Usage displays token consumption
+  and cost for the current turn.
 - The composer supports attachments, task cards, slash commands, and ordinary natural-language requests.
 - Simple mode hides developer-oriented panels and uses plain-language labels. Pro mode exposes terminal, desktop,
-  MCP, debugging, and health panels.
+  MCP, debugging, and storage panels.
 
 ## 5. Settings
 

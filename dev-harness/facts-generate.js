@@ -35,7 +35,14 @@ function computeStatic() {
   const e2eLiveSkipped = (skipBlock.match(/'[^']+\.e2e\.js'/g) || []).length;
   const unitSuites = fs.readdirSync(path.join(__dirname, 'unit')).filter(f => f.endsWith('.test.js')).length;
   const accSmokes = fs.readdirSync(path.join(ROOT, 'mcp', 'ai-computer-control', 'tests')).filter(f => /^smoke_.*\.py$/.test(f)).length;
-  return { workbenchVersion: pkg.version, accVersion, nativeTools, e2eCount, e2eLiveSkipped, unitSuites, accSmokes };
+  // EC-A 真实基线:默认端口(00-boot.js DEFAULT_PORT 常量)。
+  const defaultPort = parseInt((boot.match(/const DEFAULT_PORT = (\d+)/) || [])[1], 10);
+  if (!Number.isInteger(defaultPort) || defaultPort <= 0) throw new Error('DEFAULT_PORT 未在 00-boot.js 找到 -- 产物异常');
+  // EC-A:token 获取方式语义标记(47c S1) -- 浏览器经 POST /api/bootstrap 拿 token,HTML 不再明文下发。
+  const tokenBootstrap = 'api-bootstrap';
+  // EC-A:live probe 数 = SKIP 集大小(独立字段,语义是"live probe"非"跳过件";当前数值与 e2eLiveSkipped 相同)。
+  const liveProbes = e2eLiveSkipped;
+  return { workbenchVersion: pkg.version, accVersion, nativeTools, e2eCount, e2eLiveSkipped, unitSuites, accSmokes, defaultPort, tokenBootstrap, liveProbes };
 }
 
 // ACC 工具数:唯一权威来源 = 活注册表(FastMCP list_tools)。需要本机 venv;不在则保留旧值。
@@ -62,6 +69,9 @@ const facts = {
     nativeTools: 'TOOL_HANDLERS 派发注册表键数(经 toolCall 可达全集;含按需注册件)。README「39 常驻+3 按需」是【常驻轴】旧口径,与本轴不同 —— 文档刷新时以本数为准重述。',
     accTools: 'ACC 活注册表 list_tools 数(venv 探针;CI acc-smoke 对账)。',
     e2eCount: 'dev-harness/*.e2e.js 总件数(含 live 跳过件)。',
+    defaultPort: '00-boot.js DEFAULT_PORT 常量(默认监听端口;文档与实现各写各的防漂移)。',
+    tokenBootstrap: '浏览器获取 UI token 的方式(47c S1):api-bootstrap = POST /api/bootstrap 握手,HTML 不再明文下发 token。',
+    liveProbes: 'run-all.js SKIP 集中真 live probe 件数(需真实外部依赖;每条文件名须含 live 或在白名单)。',
   },
   generatedAt: new Date().toISOString(),
   workbenchVersion: static_.workbenchVersion,
@@ -72,6 +82,9 @@ const facts = {
   e2eLiveSkipped: static_.e2eLiveSkipped,
   unitSuites: static_.unitSuites,
   accSmokes: static_.accSmokes,
+  defaultPort: static_.defaultPort,
+  tokenBootstrap: static_.tokenBootstrap,
+  liveProbes: static_.liveProbes,
 };
 fs.writeFileSync(FACTS_PATH, JSON.stringify(facts, null, 2) + '\n');
 console.log('# facts.json 已生成:');

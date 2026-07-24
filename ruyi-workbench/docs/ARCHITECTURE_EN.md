@@ -4,6 +4,8 @@ This is the English companion to [架构说明](ARCHITECTURE_CN.md).
 
 ## Components
 
+> Version baseline: workbench **v2.0.0** · native tools **50** · ACC **107** (v1.9.0).
+
 Ruyi has a framework-less browser frontend and a Node.js local server. The browser handles chats, workspace
 selection, settings, permission cards, file and audit views, workflow monitoring, and language resources. The
 server owns configuration, session persistence, provider and Claude CLI engines, tool execution, checkpoints,
@@ -22,7 +24,9 @@ MCP configuration; doctor reports deployment readiness.
 
 The HTTP API serves static assets, configuration, sessions, tool actions, files, checkpoints, audit events,
 providers, workflows, usage, memories, and MCP integration. Sensitive browser routes require the per-process page
-token. Error responses use stable code/params/message objects so the frontend can localize them without branching
+token. The browser obtains the token via `POST /api/bootstrap` (open level, host gate blocks DNS rebinding) and
+stores it in `sessionStorage`; HTML no longer embeds the token; `index.html` ships a CSP meta (`connect-src 'self'`).
+Error responses use stable code/params/message objects so the frontend can localize them without branching
 on a human-language error string.
 
 ## Workbench MCP and external MCP
@@ -31,15 +35,26 @@ The workbench's stdio MCP server exposes local Windows capabilities to Claude CL
 added through a drop-in manifest and bridged into the provider tool loop. Permission tiers, path guards, checkpoint
 coverage, and audit logging continue to apply at the workbench boundary.
 
+## Modular build
+
+The product is a single-file `app/server.js`; source lives in `app/src/` (17 modules, see `app/src/manifest.json`)
+joined by `app/build.js`. Edit modules under `src/` and rebuild the product with `node app/build.js`.
+
 ## Workflows, skills, memories, and usage
 
 Agent workflows persist DAG state, dependency edges, budgets, retries, resource leases, quality gates, optional Git
-worktree isolation, task-pool proposals, mailbox messages, and directed steering queues. The browser monitors runs
+worktree isolation, task-pool proposals, mailbox messages, and directed steering queues. Steering works on both
+engines: the Claude engine injects user interjections via stdin at turn boundaries (limit 3/turn, print mode refuses);
+the provider engine queues and drains at iteration boundaries; workflow Claude nodes use deferred interjection; the
+composer send button is three-state (send/interject/stop). The browser monitors runs
 incrementally and can pause, resume, stop, retry, or approve proposed work.
 
 Skills come from built-in, user, project, and playbook sources and are progressively injected. Workbench memory is
 stored globally or per project and enters prompts only through bounded, fenced indexes. Usage ledgers append local
 records and summarize tokens, currency-specific estimates, plan-included traffic, and budgets.
+
+Subagent dispatch is governed by `config.subagentPreferredProvider` / `config.subagentPreferredModel` (cross-provider;
+52x) and the `PROMPT_EN` constant (52a).
 
 ## Data root
 

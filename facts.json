@@ -4,15 +4,21 @@
   "_axes": {
     "nativeTools": "TOOL_HANDLERS 派发注册表键数(经 toolCall 可达全集;含按需注册件)。README「39 常驻+3 按需」是【常驻轴】旧口径,与本轴不同 —— 文档刷新时以本数为准重述。",
     "accTools": "ACC 活注册表 list_tools 数(venv 探针;CI acc-smoke 对账)。",
-    "e2eCount": "dev-harness/*.e2e.js 总件数(含 live 跳过件)。"
+    "e2eCount": "dev-harness/*.e2e.js 总件数(含 live 跳过件)。",
+    "defaultPort": "00-boot.js DEFAULT_PORT 常量(默认监听端口;文档与实现各写各的防漂移)。",
+    "tokenBootstrap": "浏览器获取 UI token 的方式(47c S1):api-bootstrap = POST /api/bootstrap 握手,HTML 不再明文下发 token。",
+    "liveProbes": "run-all.js SKIP 集中真 live probe 件数(需真实外部依赖;每条文件名须含 live 或在白名单)。"
   },
-  "generatedAt": "2026-07-23T08:20:57.647Z",
+  "generatedAt": "2026-07-24T06:22:38.603Z",
   "workbenchVersion": "2.0.0",
   "accVersion": "1.9.0",
   "nativeTools": 50,
   "accTools": 107,
-  "e2eCount": 157,
+  "e2eCount": 158,
   "e2eLiveSkipped": 6,
   "unitSuites": 5,
-  "accSmokes": 14
+  "accSmokes": 14,
+  "defaultPort": 8765,
+  "tokenBootstrap": "api-bootstrap",
+  "liveProbes": 6
 }

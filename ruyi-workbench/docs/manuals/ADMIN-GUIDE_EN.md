@@ -55,7 +55,10 @@ request and the normal permission confirmation; it cannot replace the built-in A
 
 ## 3. Security boundaries
 
-- Ruyi binds loopback only and protects browser-originated sensitive routes with a page token.
+- Ruyi binds loopback only and protects browser-originated sensitive routes with a page token obtained via
+  `POST /api/bootstrap` (token stored in `sessionStorage`, never in plain HTML; a CSP `<meta>` tag in
+  `index.html` restricts script sources). A deny-by-default host gate rejects cross-origin and same-machine
+  non-browser requests.
 - Permission modes gate read, edit, and exec operations. File changes are checkpointed before mutation.
 - Web tools reject private, loopback, and link-local destinations to reduce SSRF exposure.
 - Workspace guards constrain file access; sensitive application data is denied even when reached through links.
@@ -69,7 +72,7 @@ See the repository [Security Policy](../../../SECURITY.md) for reporting and thr
 ## 4. Pro-mode panels
 
 Pro mode exposes Files, Artifacts, Changes, Agent workflows, Usage, Audit, Terminal, Desktop, MCP, Debug, and
-Health panels. Simple mode deliberately hides developer-focused controls without disabling their underlying safety
+Storage panels. Health/diagnostics checks have moved into Settings. Simple mode deliberately hides developer-focused controls without disabling their underlying safety
 checks.
 
 ## 5. Acceptance and regression

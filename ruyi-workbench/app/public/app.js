@@ -5374,11 +5374,7 @@ function formatAuditTime(ts) {
 // (POST /api/storage/clean)。与审计页签同款纪律:打开时懒加载一次,不轮询;DOM 全 createElement/
 // textContent。检查点仓有独立 200MB 上限(journal GC),本面板只展示不动它。
 const storageState = { loaded: false, loading: false, data: null };
-const STORAGE_STORE_LABELS = {
-  logs: '日志', sessions: '会话', checkpoints: '检查点', agentRuns: '工作流运行', webcache: '网页缓存',
-  uploads: '上传附件', usage: '用量台账', memory: '记忆库', playbooks: 'Playbook', skills: '技能',
-  generated: '生成物', agentWorkflows: '工作流模板', agentWorktrees: '隔离工作树',
-};
+const STORAGE_STORE_KEYS = ['logs','sessions','checkpoints','agentRuns','webcache','uploads','usage','memory','playbooks','skills','generated','agentWorkflows','agentWorktrees'];
 function applyStoragePolicyToForm(policy) {
   if (!policy) return;
   const a = $('storagePolicyLogsDays'), b = $('storagePolicyCompressDays'), c = $('storagePolicyWebcacheMax'), d = $('storagePolicyTranscriptDays');
@@ -5391,14 +5387,14 @@ async function loadStorage() {
   if (storageState.loading) return;
   storageState.loading = true;
   const host = $('storageSummary');
-  if (host && !storageState.loaded) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', '正在统计各仓占用…')); }
+  if (host && !storageState.loaded) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', t('storage.loading'))); }
   try {
     const res = await api('/api/storage/summary');
     storageState.data = res; storageState.loaded = true;
     applyStoragePolicyToForm(res && res.policy);
   } catch (e) {
     storageState.data = null; storageState.loaded = true;
-    if (host) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', '存储统计加载失败:' + apiErrText(e))); }
+    if (host) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', t('storage.loadFailed', { err: apiErrText(e) }))); }
     storageState.loading = false;
     return;
   }
@@ -5408,31 +5404,31 @@ async function loadStorage() {
 function renderStorage(data) {
   const host = $('storageSummary'); if (!host) return;
   host.textContent = '';
-  if (!data || data.ok === false) { host.appendChild(el('div', 'audit-empty', '存储统计不可用')); return; }
+  if (!data || data.ok === false) { host.appendChild(el('div', 'audit-empty', t('storage.unavailable'))); return; }
   const total = el('div', 'storage-total');
-  total.appendChild(el('span', 'storage-total-label', '数据目录总计'));
+  total.appendChild(el('span', 'storage-total-label', t('storage.totalLabel')));
   total.appendChild(el('span', 'storage-total-value', fmtBytes(data.totalBytes)));
   host.appendChild(total);
   const table = el('div', 'storage-table');
   const stores = data.stores || {};
-  for (const key of Object.keys(STORAGE_STORE_LABELS)) {
+  for (const key of STORAGE_STORE_KEYS) {
     const s = stores[key]; if (!s) continue;
     const row = el('div', 'storage-row');
-    row.appendChild(el('span', 'storage-name', STORAGE_STORE_LABELS[key]));
+    row.appendChild(el('span', 'storage-name', t('storage.store.' + key)));
     row.appendChild(el('span', 'storage-bytes', fmtBytes(s.bytes) + (s.truncated ? '+' : '')));
-    row.appendChild(el('span', 'storage-files muted', String(s.files) + ' 个文件'));
+    row.appendChild(el('span', 'storage-files muted', t('storage.fileCount', { n: s.files })));
     table.appendChild(row);
   }
   host.appendChild(table);
   if (data.engineTranscripts) {
     const et = data.engineTranscripts;
     host.appendChild(el('div', 'storage-note muted',
-      `引擎转录(Claude CLI 自管目录): ${fmtBytes(et.bytes)} / ${et.files} 个文件 —— 自动清理只限本工作台发起且已无会话引用、超过保留天数的转录`));
+      t("storage.transcriptNote", { bytes: fmtBytes(et.bytes), n: et.files })));
   }
   if (data.sweep && data.sweep.lastAt) {
     const last = data.sweep.lastResult || {};
     host.appendChild(el('div', 'storage-note muted',
-      `上次清理: ${formatAuditTime(data.sweep.lastAt)} · 释放 ${fmtBytes(last.freedBytes || 0)}(${last.actions || 0} 项)`));
+      t('storage.lastSweepNote', { when: formatAuditTime(data.sweep.lastAt), bytes: fmtBytes(last.freedBytes || 0), n: last.actions || 0 })));
   }
 }
 async function saveStoragePolicy() {
@@ -5453,7 +5449,7 @@ async function cleanStorage() {
   try {
     const r = await api('/api/storage/clean', { method: 'POST', body: JSON.stringify({ target: 'all' }) });
     const n = Array.isArray(r && r.actions) ? r.actions.length : 0;
-    toast(n ? `清理完成: 释放 ${fmtBytes(r.freedBytes)}(${n} 项)` : '没有需要清理的内容', 'ok');
+    toast(n ? t('storage.cleanDone', { bytes: fmtBytes(r.freedBytes), n }) : t('storage.cleanNothing'), 'ok');
   } catch (e) { toast(t('toast.cleanFail', { err: apiErrText(e) }), 'err'); }
   if (btn) btn.disabled = false;
   storageState.loaded = false;

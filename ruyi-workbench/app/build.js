@@ -36,7 +36,24 @@ function build() {
     if (!first || /^\s/.test(first) || /^[)\]};,]/.test(first)) throw new Error(`模块首行不安全: ${file}: ${JSON.stringify(first.slice(0, 50))}`);
     parts.push(body);
   }
-  return parts.join('\n');
+  return { out: parts.join('\n'), parts, manifest };
+}
+
+// EC-A 真实基线:计算每个模块在产物 server.js 中的 [startLine, endLine](1-indexed)。
+// 约定(对齐原 43 波 manifest):src 文件以 \n 结尾,故每模块区间 = [startLine, startLine + 该模块换行数]
+// (含其尾随 \n 所在的空行边界);下一模块 startLine = 本模块 endLine + 1。区间连续无缝隙覆盖全产物。
+// build 写模式自动回填 -> manifest 行区间永不漂移;--check 模式校验 -> 0/0 与过期区间在 CI 静默不过。
+function computeRanges(parts) {
+  const ranges = [];
+  let line = 1;
+  for (const p of parts) {
+    const nl = (p.match(/\n/g) || []).length;
+    const startLine = line;
+    const endLine = line + nl;
+    ranges.push({ startLine, endLine });
+    line = endLine + 1;
+  }
+  return ranges;
 }
 
 function syntaxGate(text, label) {
@@ -46,17 +63,49 @@ function syntaxGate(text, label) {
   if (r.status !== 0) throw new Error(`产物语法校验失败(${label}):\n${r.stderr || r.stdout}`);
 }
 
-const out = build();
+const { out, parts, manifest } = build();
 // `--check` is also the release-packaging gate, so a byte-fresh but syntactically
 // broken artifact must fail here instead of being accepted by source-runner builds.
 syntaxGate(out, 'concat(src)');
-const check = process.argv.includes('--check');
-if (check) {
-  const cur = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
-  if (cur === out) { console.log('build --check: 产物与 src 一致(新鲜)'); process.exit(0); }
-  console.error('build --check: 产物落后于 src(或手改了产物)— 跑 node app/build.js 重建');
-  process.exit(1);
+// EC-A 真实基线: 行区间校验(两模式都跑 -- 0/0 与过期区间在 CI/打包门静默不过)。
+const expectedRanges = computeRanges(parts);
+const manifestPath = path.join(SRC, "manifest.json");
+function rangeMismatches() {
+  const bad = [];
+  for (let i = 0; i < manifest.modules.length; i++) {
+    const m = manifest.modules[i]; const e = expectedRanges[i];
+    const file = typeof m === "string" ? m : m.file;
+    if (typeof m === "string" || m.startLine == null || m.endLine == null || m.startLine === 0 || m.endLine === 0) {
+      bad.push(file + ": startLine/endLine 缺失或 0/0(预期 [" + e.startLine + "," + e.endLine + "])");
+    } else if (m.startLine !== e.startLine || m.endLine !== e.endLine) {
+      bad.push(file + ": 声明 [" + m.startLine + "," + m.endLine + "] != 实际 [" + e.startLine + "," + e.endLine + "](过期)");
+    }
+  }
+  return bad;
 }
+const check = process.argv.includes("--check");
+if (check) {
+  const cur = fs.existsSync(OUT) ? fs.readFileSync(OUT, "utf8") : "";
+  if (cur !== out) { console.error("build --check: 产物落后于 src 或被手改, 跑 node app/build.js 重建"); process.exit(1); }
+  const bad = rangeMismatches();
+  if (bad.length) { console.error("build --check: manifest 行区间过期(跑 node app/build.js 自动回填):\n  - " + bad.join("\n  - ")); process.exit(1); }
+  console.log("build --check: 产物与 src 一致(新鲜),manifest 行区间自洽");
+  process.exit(0);
+}
+// 写模式: 回填 manifest 行区间(若漂移)。原子写(tmp+rename),保 schema/note/file 不变。
+const bad = rangeMismatches();
+if (bad.length) {
+  const updated = { schema: manifest.schema, note: manifest.note, modules: manifest.modules.map((m, i) => {
+    const file = typeof m === "string" ? m : m.file;
+    const note = typeof m === "string" ? undefined : m.note;
+    return note !== undefined ? { file, startLine: expectedRanges[i].startLine, endLine: expectedRanges[i].endLine, note } : { file, startLine: expectedRanges[i].startLine, endLine: expectedRanges[i].endLine };
+  }) };
+  const mtmp = manifestPath + ".tmp." + process.pid;
+  fs.writeFileSync(mtmp, JSON.stringify(updated, null, 2) + "\n", "utf8");
+  fs.renameSync(mtmp, manifestPath);
+  console.log("build: manifest 行区间已回填(" + bad.length + " 处漂移修正)");
+}
+
 // 原子写(tmp+rename;tmp 带 PID 防并发 build 互踩)。Windows 上 AV/索引器瞬时锁会 EPERM,
 // 短退避重试 3 次(43e 对抗轮实测 rename 覆盖已存在目标 OK,EPERM 来自句柄占用)。
 const tmp = OUT + '.build-tmp.' + process.pid;

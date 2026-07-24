@@ -1095,5 +1095,31 @@
       "chart_image": "制图",
       "image_resize": "缩放图片"
     }
+  },
+  "storage": {
+    "store": {
+      "logs": "日志",
+      "sessions": "会话",
+      "checkpoints": "检查点",
+      "agentRuns": "工作流运行",
+      "webcache": "网页缓存",
+      "uploads": "上传附件",
+      "usage": "用量台账",
+      "memory": "记忆库",
+      "playbooks": "Playbook",
+      "skills": "技能",
+      "generated": "生成物",
+      "agentWorkflows": "工作流模板",
+      "agentWorktrees": "隔离工作树"
+    },
+    "loading": "正在统计各仓占用…",
+    "loadFailed": "存储统计加载失败:{{err}}",
+    "unavailable": "存储统计不可用",
+    "totalLabel": "数据目录总计",
+    "fileCount": "{{n}} 个文件",
+    "transcriptNote": "引擎转录(Claude CLI 自管目录): {{bytes}} / {{n}} 个文件 -- 自动清理只限本工作台发起且已无会话引用、超过保留天数的转录",
+    "lastSweepNote": "上次清理: {{when}} · 释放 {{bytes}}({{n}} 项)",
+    "cleanDone": "清理完成: 释放 {{bytes}}({{n}} 项)",
+    "cleanNothing": "没有需要清理的内容"
   }
 }

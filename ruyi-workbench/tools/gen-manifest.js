@@ -14,6 +14,8 @@ const crypto = require('crypto');
 const payloadDir = path.resolve(process.argv[2] || '.');
 const version = process.argv[3] || '0.0.0';
 const overlay = process.argv[4] || `overlay-${version}`;
+// EC-A: 最低兼容宿主版本(apply 前预检用;build-overlay 从 package.json 传入真实版本)。
+const minHostVersion = process.argv[5] || version;
 
 function walk(dir, base, out) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -31,6 +33,6 @@ function walk(dir, base, out) {
 const files = [];
 walk(payloadDir, payloadDir, files);
 files.sort((a, b) => a.path.localeCompare(b.path));
-const manifest = { name: 'Ruyi Overlay', version, overlay, generatedFrom: 'gen-manifest.js', fileCount: files.length, files };
+const manifest = { name: 'Ruyi Overlay', version, overlay, minHostVersion, generatedFrom: 'gen-manifest.js', fileCount: files.length, files };
 fs.writeFileSync(path.join(payloadDir, 'update-manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
 console.log(`Wrote update-manifest.json: ${files.length} files, version ${version}`);

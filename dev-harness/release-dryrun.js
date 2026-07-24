@@ -30,6 +30,17 @@ const NPM_RUN = process.platform === 'win32'
   try { run(process.execPath, [path.join(WB, 'app', 'build.js'), '--check'], WB, { quiet: true }); ok(true, '① 产物新鲜度(build.js --check)'); }
   catch (e) { ok(false, '① 产物新鲜度 —— 陈旧产物: ' + ((e.stdout || e.message) + '').slice(0, 200)); }
 
+  // EC-A A3: 版本三角(package.json == 00-boot.js VERSION == facts.workbenchVersion == 产物)
+  try {
+    const pkgV = JSON.parse(fs.readFileSync(path.join(WB, 'package.json'), 'utf8'));
+    const boot = fs.readFileSync(path.join(WB, 'app', 'src', '00-boot.js'), 'utf8');
+    const bootV = (boot.match(/const VERSION = '([^']+)'/) || [])[1];
+    const facts = JSON.parse(fs.readFileSync(path.join(ROOT, 'facts.json'), 'utf8'));
+    const built = fs.readFileSync(path.join(WB, 'app', 'server.js'), 'utf8');
+    ok(pkgV.version === bootV, 'A3 版本三角: package.json(' + pkgV.version + ') == 00-boot.js(' + bootV + ')');
+    ok(facts.workbenchVersion === pkgV.version, 'A3 facts.workbenchVersion(' + facts.workbenchVersion + ') == package.json(' + pkgV.version + ')');
+    ok(built.includes("const VERSION = '" + pkgV.version + "'"), 'A3 产物 server.js 版本一致(' + pkgV.version + ')');
+  } catch (e) { ok(false, 'A3 版本三角: ' + (e.message || e)); }
   // ② build-overlay 全装配
   try {
     run(process.execPath, [path.join(WB, 'tools', 'build-overlay.js'), VERSION], WB, { quiet: true });
@@ -45,16 +56,18 @@ const NPM_RUN = process.platform === 'win32'
     const entries = Array.isArray(manifest.files) ? manifest.files : [];
     ok(entries.length > 30 && entries.every(e => e && typeof e.path === 'string' && typeof e.sha256 === 'string'),
       '③ manifest 覆盖 ' + entries.length + ' 个 payload 文件(>30, 逐条 {path, sha256})');
-    // 抽查 5 个重算 sha256
-    let checked = 0, mismatch = 0;
-    for (const e of entries.filter((_, i) => i % Math.ceil(entries.length / 5) === 0).slice(0, 5)) {
+    // EC-A A2: 全量 sha256 对账(36 文件,毫秒级,不再抽样)
+    let mismatch = 0, missing = 0;
+    for (const e of entries) {
       const full = path.join(payload, e.path);
-      if (!fs.existsSync(full)) { mismatch++; continue; }
+      if (!fs.existsSync(full)) { missing++; continue; }
       const actual = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');
       if (e.sha256 !== actual) mismatch++;
-      checked++;
     }
-    ok(checked > 0 && mismatch === 0, '③ manifest sha256 抽查 ' + checked + ' 个全对账(mismatch=' + mismatch + ')');
+    ok(mismatch === 0 && missing === 0, 'A2 manifest 全量 sha256 对账(' + entries.length + ' 个, mismatch=' + mismatch + ', missing=' + missing + ')');
+    // EC-A A4: minHostVersion 字段存在且为合法版本号(运行时兼容预检属 EC-B)
+    const mhv = manifest.minHostVersion;
+    ok(typeof mhv === 'string' && /^\d+\.\d+\.\d+/.test(mhv), 'A4 update-manifest.minHostVersion 存在且合法(' + mhv + ')');
   }
 
   // ④ pkg 冒烟(可选)
@@ -83,6 +96,29 @@ const NPM_RUN = process.platform === 'win32'
     console.log('SKIP ④ pkg 冒烟(传 --pkg 启用;CI release-dryrun job 会跑)');
   }
 
+  // EC-A A5: live probe 四态报告(配置探针,不实际调用 API;skip 不算 pass)
+  try {
+    const skipBlock = fs.readFileSync(path.join(__dirname, 'run-all.js'), 'utf8');
+    const skipMatch = (skipBlock.match(/const SKIP = new Set\(\[([\s\S]*?)\]\)/) || [])[1] || '';
+    const probes = (skipMatch.match(/'[^']+\.e2e\.js'/g) || []).map(x => x.slice(1, -1));
+    const home = process.env.WIN_CLAUDE_WORKBENCH_HOME || path.join(process.env.USERPROFILE || process.env.HOME, '.win-claude-workbench');
+    let cfg = null; try { cfg = JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8')); } catch {}
+    const claudeOnPath = (() => { try { cp.execFileSync(process.platform === 'win32' ? 'where' : 'which', ['claude'], { stdio: 'pipe', timeout: 5000 }); return true; } catch { return false; } })();
+    const accVenv = fs.existsSync(path.join(ROOT, 'mcp', 'ai-computer-control', '.venv', 'Scripts', 'python.exe'));
+    const providerKeyed = !!(cfg && cfg.providers && Object.values(cfg.providers).find(pr => pr && pr.apiKey));
+    const dsKey = !!process.env.DEEPSEEK_API_KEY;
+    function statusOf(name) {
+      if (name === 'deepseek-live.e2e.js' || name === 'deepseek-tools.e2e.js') return dsKey ? 'CONFIGURED' : 'UNCONFIGURED';
+      if (name === 'desktop-bridge-live.e2e.js') return accVenv ? 'CONFIGURED' : 'UNCONFIGURED';
+      if (name === 'claude-binary-live.e2e.js' || name === 'claude-compact-probe-live.e2e.js') return claudeOnPath ? 'CONFIGURED' : 'UNCONFIGURED';
+      if (name === 'compact-quality-live.e2e.js') return providerKeyed ? 'CONFIGURED' : 'UNCONFIGURED';
+      return 'UNKNOWN';
+    }
+    console.log('  A5 live probe 状态(配置探针,不实跑;默认不调真实 API,--live 才真跑):');
+    let configured = 0;
+    for (const name of probes) { const st = statusOf(name); if (st === 'CONFIGURED') configured++; console.log('    ' + name + ': ' + st); }
+    ok(probes.length > 0, 'A5 live probe 独立列出 ' + probes.length + ' 件(' + configured + ' CONFIGURED,余 UNCONFIGURED -- skip 不算 pass)');
+  } catch (e) { ok(false, 'A5 live probe 报告失败: ' + (e.message || e)); }
   console.log('\nRELEASE-DRYRUN: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.log('ERROR ' + (e && e.stack || e)); process.exit(1); });
