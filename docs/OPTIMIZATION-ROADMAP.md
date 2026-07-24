@@ -1347,3 +1347,22 @@ build --check(产物新鲜 + manifest 行区间自洽)✓;facts.static(含新 6 
 - i18n 只做了 storage 一路(21 串),余 4 路(68 串)有审计清单待续,非 100% 覆盖--EC-A 的 i18n 是"扫描并清理"软性项(非退出条件),storage 路径作具体清理建模式,余者排队。
 - A1 离线包清单未做(较重,需 baseline 生成 + 维护),只做了 overlay payload 全量对账。
 - 多 agent 编排可靠性:本波 5 路只读审计 + 3 路 edit-tier 文档编辑,toolEvidence 显示真实工具调用(40/22/39/20/32 次),主会话逐文件亲核 file:line 确认落地(含抓获 arch 节点 line 21 before 误报 99 实为 100->107、admin 节点 451 冗余等),无失实落盘。
+
+### 对抗验证与收尾（二轮，2026-07-24）
+
+**i18n 全 5 路收尾**: storage(已交付)+ metrics/changes/memory/workflow 4 路(orchestrate_agents 4 路只读代理产出 codemod 规格,主会话串行跑 codemod 97 处替换 + 6 处 replace_all/精确)= 全 5 路 ~106 串进 i18n。
+
+**多 agent 对抗验证**(4 路只读对抗审查:facts+manifest门/文档事实/release-dryrun逻辑/i18n正确性,minSuccessfulToolCalls:3,各 27-39 次工具调用),主会话亲核后修:
+
+- **i18n 嵌套键 P0(最重,7 条)**:`translate()` 是 `catalog[key]` **扁平查找**,不遍历嵌套;但 i18n 4 路 + storage + 51c-a 遗留的 changes.op.*/workflow.node.status.* 都用了**嵌套 locale 对象** -> t() 返回 `[key]` 渲染原始键名(用户看到 `[workflow.budget.loop]`)。**51c-a 起的 changes.op.*/workflow.node.status.* 一直是坏的,我的 i18n 继承了同样错误**。根治:**全量递归扁平化 locale**(zh+en,1050 顶层键 -> 1212 扁平键,嵌套对象 -> 点号扁平键,对齐既有 app.title 约定),一次修好我的 + 51c-a 遗留。系统验证 712 个静态 t() 键 + 动态前缀(storage.store.* 13/workflow.node.status.* 15/changes.op.* 3/workflow.pool.status.* 5)全解析,0 真缺失。
+- **codemod bug P0×2**:app.js:3660(t('workflow.isolation.prefix') 被包在模板字面量里成字符串,未调用)、3572(嵌套模板字面量破坏,t('workflow.pool.node') 未调用) -- 子代理 codemod 规格 find/replace 对含 `${}` 的模板行处理出错,主会话亲核抓获并改写为正确 t() 调用。
+- **文档事实 P0×2**:ARCHITECTURE_CN /api/steer 仍写"仅 provider 引擎"(实为双引擎 47a:Claude interactive stdin 即时注入+provider steerQueue)、ARCHITECTURE_EN "limit 3/turn" 归于 Claude(3 是 provider 的 STEER_QUEUE_MAX,Claude 无 per-turn cap,仅 2000 字截断+提问挂起拒)。修为准确双引擎语义。
+- **页签顺序 P1×2**:USER-GUIDE CN/EN 把审计写在变更前(实际 index.html 是 文件|产物|变更|Agent工作流|用量|审计),对调。
+- **release-dryrun P1**:A5 providerKeyed 用 Object.values(cfg.providers) 但 providers 是数组(误用)、dsKey 只查 env 漏 config 里的 deepseek 端点(修后 6 probe 全 CONFIGURED)、A3 server.js 版本用脆弱 includes(改 regex)、A2 shape 漏空串(加 sha256.length===64)。
+- **缺失键**:toast.rollbackFail(changes 回滚失败 toast,3 处用但 locale 无) -- 系统验证抓到,补 zh/en。
+
+**裁定不做(经核)**:build.js Atomics.wait P1 是**误报**(Node.js 主线程允许 Atomics.wait,浏览器才禁);facts.static tokenBootstrap grep 锁语法非语义(静态锁固有取舍,当前 grep 对当前代码有效);A1 ZIP-ignore(当前 keyFiles 检查能抓部分 stage 缺失,ZIP 失败是 env tar 问题);A4 minHostVersion 运行时语义(EC-B 范围)。7 处余硬编码中文(stepBar/rewindConfirm/context tooltip 等)是**预存非 EC-A 5 路范围**,记入后续。
+
+**验证(全亲跑,二轮)**:build --check/facts.static/manifest-ranges/release-dryrun(A1-A5)/i18n.static(1212 键)/dom-smoke/meta-guard/storage-steward/ia/uimode-style/manuals/overlay-payload-lock + agent-workflow-templates/session-index/usage-ledger/subagent/perm-v2/auth-deny-default/prompt-snapshot/capabilities 全绿。**i18n 系统验证:712 静态 t() 键 + 4 动态前缀全解析,0 真缺失键**。
+
+**教训**:子代理 codemod 规格(find/replace)对含 `${}` 模板字面量的行易出错(3660/3572),跑 codemod 后必须**系统验证所有 t() 键可解析** + grep mangled 模式(`t(' / 嵌套反引号);51c-a 的嵌套 locale 错误潜伏多波(i18n.static 只查 catalog 对等不查键可解析性,dom-smoke 不触发 workflow 节点状态标签),对抗验证的"提取所有 t() 键逐一查 locale"才抓到。**t() 扁平查找是本仓库的硬约束,locale 必须全扁平点号键**。

@@ -44,7 +44,7 @@ joined by `app/build.js`. Edit modules under `src/` and rebuild the product with
 
 Agent workflows persist DAG state, dependency edges, budgets, retries, resource leases, quality gates, optional Git
 worktree isolation, task-pool proposals, mailbox messages, and directed steering queues. Steering works on both
-engines: the Claude engine injects user interjections via stdin at turn boundaries (limit 3/turn, print mode refuses);
+engines: the Claude engine injects user interjections via stdin immediately in interactive mode (print mode refuses; refused while a question is pending); the provider engine queues (cap 3) and drains at iteration boundaries;
 the provider engine queues and drains at iteration boundaries; workflow Claude nodes use deferred interjection; the
 composer send button is three-state (send/interject/stop). The browser monitors runs
 incrementally and can pause, resume, stop, retry, or approve proposed work.

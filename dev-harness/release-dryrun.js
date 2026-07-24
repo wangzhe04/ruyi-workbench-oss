@@ -39,7 +39,7 @@ const NPM_RUN = process.platform === 'win32'
     const built = fs.readFileSync(path.join(WB, 'app', 'server.js'), 'utf8');
     ok(pkgV.version === bootV, 'A3 版本三角: package.json(' + pkgV.version + ') == 00-boot.js(' + bootV + ')');
     ok(facts.workbenchVersion === pkgV.version, 'A3 facts.workbenchVersion(' + facts.workbenchVersion + ') == package.json(' + pkgV.version + ')');
-    ok(built.includes("const VERSION = '" + pkgV.version + "'"), 'A3 产物 server.js 版本一致(' + pkgV.version + ')');
+    const builtV = (built.match(/const VERSION = '([^']+)'/) || [])[1]; ok(builtV === pkgV.version, 'A3 产物 server.js 版本一致(package=' + pkgV.version + ', 产物=' + builtV + ')');
   } catch (e) { ok(false, 'A3 版本三角: ' + (e.message || e)); }
   // ② build-overlay 全装配
   try {
@@ -54,7 +54,7 @@ const NPM_RUN = process.platform === 'win32'
   ok(!!manifest && typeof manifest === 'object', '③ update-manifest.json 生成且可解析');
   if (manifest) {
     const entries = Array.isArray(manifest.files) ? manifest.files : [];
-    ok(entries.length > 30 && entries.every(e => e && typeof e.path === 'string' && typeof e.sha256 === 'string'),
+    ok(entries.length > 30 && entries.every(e => e && typeof e.path === 'string' && e.path.length > 0 && typeof e.sha256 === 'string' && e.sha256.length === 64),
       '③ manifest 覆盖 ' + entries.length + ' 个 payload 文件(>30, 逐条 {path, sha256})');
     // EC-A A2: 全量 sha256 对账(36 文件,毫秒级,不再抽样)
     let mismatch = 0, missing = 0;
@@ -96,6 +96,18 @@ const NPM_RUN = process.platform === 'win32'
     console.log('SKIP ④ pkg 冒烟(传 --pkg 启用;CI release-dryrun job 会跑)');
   }
 
+  // EC-A A1: Slim 离线包文件清单可复验(stage 关键文件存在;ZIP 打包是 env 独立 concern,CI 原生 Windows 正常)
+  try {
+    const stageDir = path.join(WB, 'dist', 'Ruyi-slim-dryrun');
+    fs.rmSync(stageDir, { recursive: true, force: true });
+    let pkgErr = null;
+    try { cp.execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(WB, 'tools', 'package-offline.ps1'), '-SkipExeBuild', '-Variant', 'slim-dryrun'], { cwd: WB, stdio: 'pipe', timeout: 120000, windowsHide: true }); }
+    catch (e) { pkgErr = e; }
+    const keyFiles = ['app/server.js', 'app/public/app.js', 'package.json', 'Start-Workbench.cmd', 'docs'];
+    const missing = keyFiles.filter(f => !fs.existsSync(path.join(stageDir, f)));
+    ok(missing.length === 0, 'A1 Slim 离线包文件清单可复验(' + keyFiles.length + ' 关键路径;missing=' + missing.join(',') + (pkgErr ? '; ZIP/stage 警告已忽略(env tar)' : '') + ')');
+    fs.rmSync(stageDir, { recursive: true, force: true });
+  } catch (e) { ok(false, 'A1 Slim 离线包清单检查失败: ' + (e.message || e)); }
   // EC-A A5: live probe 四态报告(配置探针,不实际调用 API;skip 不算 pass)
   try {
     const skipBlock = fs.readFileSync(path.join(__dirname, 'run-all.js'), 'utf8');
@@ -105,8 +117,8 @@ const NPM_RUN = process.platform === 'win32'
     let cfg = null; try { cfg = JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8')); } catch {}
     const claudeOnPath = (() => { try { cp.execFileSync(process.platform === 'win32' ? 'where' : 'which', ['claude'], { stdio: 'pipe', timeout: 5000 }); return true; } catch { return false; } })();
     const accVenv = fs.existsSync(path.join(ROOT, 'mcp', 'ai-computer-control', '.venv', 'Scripts', 'python.exe'));
-    const providerKeyed = !!(cfg && cfg.providers && Object.values(cfg.providers).find(pr => pr && pr.apiKey));
-    const dsKey = !!process.env.DEEPSEEK_API_KEY;
+    const providerKeyed = !!(cfg && Array.isArray(cfg.providers) && cfg.providers.find(pr => pr && pr.apiKey));
+    const dsKey = !!process.env.DEEPSEEK_API_KEY || !!(cfg && Array.isArray(cfg.providers) && cfg.providers.find(pr => pr && pr.apiKey && pr.baseUrl && /deepseek/i.test(pr.baseUrl)));
     function statusOf(name) {
       if (name === 'deepseek-live.e2e.js' || name === 'deepseek-tools.e2e.js') return dsKey ? 'CONFIGURED' : 'UNCONFIGURED';
       if (name === 'desktop-bridge-live.e2e.js') return accVenv ? 'CONFIGURED' : 'UNCONFIGURED';

@@ -3559,7 +3559,7 @@ function renderAgentRuns(runs) {
       for (const item of listItems) {
         const pcard = el('div', `pool-card ps-${item.status || 'proposed'}`);
         const whoNode = (run.nodes || []).find(n => n.id === item.proposedBy);
-        const whoLabel = whoNode ? (whoNode.roleLabel || whoNode.id) : (item.proposedBy || '某节点');
+        const whoLabel = whoNode ? (whoNode.roleLabel || whoNode.id) : (item.proposedBy || t('workflow.pool.unknownNode'));
         pcard.appendChild(el('div', 'pool-line pool-who', t('workflow.pool.proposedBy', { name: whoLabel })));
         // 团队模式 v2 (P3-6): pro 模式渲染 task 全文(完整可读);simple 模式截 60 字并把全文挂 title 属性(hover tooltip 看全文)。
         const taskFull = String(item.task || '').trim();
@@ -3568,8 +3568,8 @@ function renderAgentRuns(runs) {
         if (simpleMode && taskFull.replace(/\s+/g, ' ').length > taskShort.length) whatLine.title = taskFull;
         pcard.appendChild(whatLine);
         pcard.appendChild(el('div', 'pool-line pool-cost', t('workflow.pool.cost', { maxIters: item.maxIters || 100 })));
-        if (!simpleMode && item.reason) pcard.appendChild(el('div', 'pool-line pool-reason', `理由：${item.reason}`));
-        if (!simpleMode && item.status !== 'proposed') pcard.appendChild(el('div', 'pool-line pool-status', `状态：${poolStatusLabel(item.status)}${item.resultNodeId ? ` + ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) + ` : ''}`));
+        if (!simpleMode && item.reason) pcard.appendChild(el('div', 'pool-line pool-reason', t('workflow.pool.reasonLabel', { reason: item.reason })));
+        if (!simpleMode && item.status !== 'proposed') pcard.appendChild(el('div', 'pool-line pool-status', t('workflow.pool.statusLabel', { status: poolStatusLabel(item.status) }) + (item.resultNodeId ? ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) : '')));
         if (item.status === 'proposed' && run.live) {
           const pactions = el('div', 'pool-actions');
           const yes = el('button', 'mini primary', t('workflow.pool.approve')); yes.setAttribute('aria-label', t('workflow.pool.approveAria')); yes.onclick = () => poolDecide(run.id, item.id, true);
@@ -3599,11 +3599,11 @@ function renderAgentRuns(runs) {
       const body = el('div', 'agent-node-body');
       // 元信息条：依赖 / 门 / 失败策略 / 尝试次数。
       const metaBits = [];
-      if (Array.isArray(node.dependsOn) && node.dependsOn.length) metaBits.push(`← ${node.dependsOn.join(', ')}`);
-      if (node.gate && node.gate.mode) metaBits.push(`门 ${node.gate.mode}`);
-      if (node.failurePolicy) metaBits.push(`失败:${node.failurePolicy}`);
-      if (node.loopStopReason) metaBits.push(`停止:${node.loopStopReason}`);
-      metaBits.push(`尝试 ${node.attempts || 0}`);
+      if (Array.isArray(node.dependsOn) && node.dependsOn.length) metaBits.push(t('workflow.meta.deps', { deps: node.dependsOn.join(', ') }));
+      if (node.gate && node.gate.mode) metaBits.push(t('workflow.meta.gate', { mode: node.gate.mode }));
+      if (node.failurePolicy) metaBits.push(t('workflow.meta.failure', { policy: node.failurePolicy }));
+      if (node.loopStopReason) metaBits.push(t('workflow.meta.loopStop', { reason: node.loopStopReason }));
+      metaBits.push(t('workflow.meta.attempts', { n: node.attempts || 0 }));
       const meta = el('div', 'wf-node-meta'); for (const bit of metaBits) meta.appendChild(el('span', 'wf-meta-chip', bit)); body.appendChild(meta);
       body.appendChild(el('div', 'agent-node-task', node.task || ''));
       // v1.4.6: 当前活动行——node.progressLog 末条（后端把 live 子代理事件折进它并节流落盘，轮询即见）。运行/等待
@@ -3618,13 +3618,13 @@ function renderAgentRuns(runs) {
       }
       // ── 迭代/预算 mini 进度（§2.3）：loop 优先显示 loopIteration；否则 iters/maxIters（迭代预算）。 ──
       let budgetLabel = '', budgetCur = 0, budgetMax = 0;
-      if (node.loop) { budgetLabel = '循环'; budgetCur = node.loopIteration || 0; budgetMax = node.loop.maxIterations || 0; }
-      else if (Number.isFinite(Number(node.maxIters))) { budgetLabel = '迭代'; budgetCur = Number(node.iters) || 0; budgetMax = Number(node.maxIters) || 0; }
+      if (node.loop) { budgetLabel = t('workflow.budget.loop'); budgetCur = node.loopIteration || 0; budgetMax = node.loop.maxIterations || 0; }
+      else if (Number.isFinite(Number(node.maxIters))) { budgetLabel = t('workflow.budget.iter'); budgetCur = Number(node.iters) || 0; budgetMax = Number(node.maxIters) || 0; }
       if (budgetMax > 0) {
         const bwrap = el('div', 'wf-node-budget');
         bwrap.appendChild(el('span', 'wf-budget-label', `${budgetLabel} ${budgetCur}/${budgetMax}`));
         const bar = el('div', 'wf-budget-bar'); const fill = el('div', 'wf-budget-fill'); fill.style.width = `${Math.max(0, Math.min(100, Math.round((budgetCur / budgetMax) * 100)))}%`; bar.appendChild(fill); bwrap.appendChild(bar);
-        if (node.noProgressCount) bwrap.appendChild(el('span', 'wf-budget-warn', `无进展 ${node.noProgressCount}`));
+        if (node.noProgressCount) bwrap.appendChild(el('span', 'wf-budget-warn', t('workflow.budget.noProgress', { n: node.noProgressCount })));
         body.appendChild(bwrap);
       }
       // ── 计时（§2.3）：已运行/用时 now-startedAt。 ──
@@ -3634,14 +3634,14 @@ function renderAgentRuns(runs) {
           const active = node.status === 'running' || node.status === 'waiting_resource';
           const end = node.completedAt ? Date.parse(node.completedAt) : Date.now();
           const dur = fmtDuration(end - st);
-          if (dur) body.appendChild(el('div', 'wf-node-timer', `${active ? '已运行' : '用时'} ${dur}`));
+          if (dur) body.appendChild(el('div', 'wf-node-timer', t(active ? 'workflow.timer.running' : 'workflow.timer.elapsed', { dur })));
         }
       }
       // ── 质量门 verdict + 置信度（§2.3）：仅门/带 verdict 的节点。 ──
       const verdict = node.gateVerdict || (node.structuredResult && node.structuredResult.verdict);
       if (verdict || (node.confidence != null && Number.isFinite(Number(node.confidence)))) {
         const g = el('div', 'wf-node-gate');
-        if (verdict) g.appendChild(el('span', `wf-gate-verdict gv-${String(verdict).toLowerCase()}`, `判定 ${verdict}`));
+        if (verdict) g.appendChild(el('span', `wf-gate-verdict gv-${String(verdict).toLowerCase()}`, t('workflow.meta.verdict', { verdict })));
         if (node.confidence != null && Number.isFinite(Number(node.confidence))) g.appendChild(el('span', 'wf-gate-conf', `置信度 ${(Number(node.confidence) * 100).toFixed(0)}%`));
         body.appendChild(g);
       }
@@ -3649,7 +3649,7 @@ function renderAgentRuns(runs) {
       if (Array.isArray(node.resources) && node.resources.length) {
         const waitingSet = new Set(Array.isArray(node.waitingForResources) ? node.waitingForResources : []);
         const resourceRow = el('div', 'agent-node-resources');
-        resourceRow.appendChild(el('span', 'agent-resource-label', disp === 'waiting_resource' ? '等待：' : '资源：'));
+        resourceRow.appendChild(el('span', 'agent-resource-label', disp === 'waiting_resource' ? t('workflow.resource.waiting') : t('workflow.resource.label')));
         for (const resource of node.resources) resourceRow.appendChild(el('span', `agent-resource-chip${waitingSet.has(resource) ? ' blocking' : ''}`, resource));
         body.appendChild(resourceRow);
       }
@@ -3657,9 +3657,9 @@ function renderAgentRuns(runs) {
       if (node.isolation && node.isolation.mode === 'worktree') {
         const iso = el('div', `agent-isolation ai-${node.isolation.status || 'unknown'}`);
         const shortCommit = node.isolation.commit ? String(node.isolation.commit).slice(0, 10) : '';
-        iso.appendChild(el('span', 'agent-isolation-status', `隔离工作树：${node.isolation.status || 'unknown'}${shortCommit ? ` · ${shortCommit}` : ''}`));
+        iso.appendChild(el('span', 'agent-isolation-status', t('workflow.isolation.status', { status: node.isolation.status || 'unknown' }) + (shortCommit ? ` · ${shortCommit}` : '')));
         if (!run.live && node.isolation.status === 'ready' && node.isolation.commit) {
-          const apply = el('button', 'mini primary', '应用到当前工作区'); apply.setAttribute('aria-label', `应用节点 ${node.id} 的隔离工作树`);
+          const apply = el('button', 'mini primary', t('workflow.isolation.apply')); apply.setAttribute('aria-label', t('workflow.isolation.applyAria', { node: node.id }));
           apply.onclick = () => agentRunAction(run.id, 'apply_isolation', { nodeId: node.id });
           iso.appendChild(apply);
         }
@@ -3829,9 +3829,9 @@ async function loadAgentRuns(force) {
   }
   catch (e) {
     if (mySeq !== agentRunsSeq) return;
-    host.textContent = `加载失败：${apiErrText(e)}`;
+    host.textContent = t('workflow.loadFailed', { err: apiErrText(e) });
     // 对抗轮 P3: 画布态同步给出断连指示——原先只写监控列表,画布保持最后一帧"运行中"脉动,误导数据仍新鲜。
-    if (typeof wbState !== 'undefined' && wbState.view === 'canvas') { const wu = $('wbUsage'); if (wu) wu.textContent = '⚠ 连接中断，画布数据可能不是最新'; wbState.renderSig = null; }
+    if (typeof wbState !== 'undefined' && wbState.view === 'canvas') { const wu = $('wbUsage'); if (wu) wu.textContent = t('workflow.connectionLost'); wbState.renderSig = null; }
   }
 }
 // v3 P3a:轮询期望态由「监控页签激活」∪「工作台画布视图激活」共同决定 —— 画布复用同一份 2s 轮询(loadAgentRuns
@@ -4020,7 +4020,7 @@ function renderWorkbenchRunbar(runs, selectedRunId) {
     if (run.status === 'succeeded') chip.appendChild(el('span', 'wb-rc-gold', '✦'));
     chip.appendChild(el('span', 'wb-rc-st', agentRunStatusLabel(run.status)));
     const proposed = Array.isArray(run.taskPool) ? run.taskPool.filter(p => p && p.status === 'proposed') : [];
-    if (proposed.length) chip.appendChild(el('span', 'wb-rc-pool num', `待批准 ${proposed.length}`));
+    if (proposed.length) chip.appendChild(el('span', 'wb-rc-pool num', t('workflow.runbar.pendingApproval', { n: proposed.length })));
     chip.onclick = () => { wbState.selectedRunId = run.id; wbState.selectedNodeId = null; renderWorkbench(wbState.lastRuns); };
     bar.appendChild(chip);
   }
@@ -4075,7 +4075,7 @@ function wbBuildLayerTags(nodes, pos) {
   for (const n of nodes) { const p = pos[n.id]; if (!p) continue; if (!layers.has(p.layer) || p.y < layers.get(p.layer)) layers.set(p.layer, p.y); }
   const out = [];
   for (const [L, y] of [...layers.entries()].sort((a, b) => a[0] - b[0])) {
-    const tag = el('div', 'wb-layer-tag num', `第 ${L} 层`);
+    const tag = el('div', 'wb-layer-tag num', t('workflow.canvas.layerTag', { L: L }));
     tag.style.left = '8px'; tag.style.top = `${Math.max(2, y - 22)}px`;   // 行上缘上方空隙带
     tag.setAttribute('aria-hidden', 'true');
     out.push(tag);
@@ -4182,8 +4182,8 @@ function wbBuildNode(run, node, p) {
   const foot = el('div', 'wb-node-foot');
   const verdict = node.gateVerdict || (node.structuredResult && node.structuredResult.verdict);
   let budgetLabel = '', budgetCur = 0, budgetMax = 0;
-  if (node.loop) { budgetLabel = '循环'; budgetCur = node.loopIteration || 0; budgetMax = node.loop.maxIterations || 0; }
-  else if (Number.isFinite(Number(node.maxIters))) { budgetLabel = '迭代'; budgetCur = Number(node.iters) || 0; budgetMax = Number(node.maxIters) || 0; }
+  if (node.loop) { budgetLabel = t('workflow.budget.loop'); budgetCur = node.loopIteration || 0; budgetMax = node.loop.maxIterations || 0; }
+  else if (Number.isFinite(Number(node.maxIters))) { budgetLabel = t('workflow.budget.iter'); budgetCur = Number(node.iters) || 0; budgetMax = Number(node.maxIters) || 0; }
   if (verdict) {
     const v = String(verdict).toLowerCase();
     foot.appendChild(el('span', `wb-verdict ${v === 'pass' ? 'pass' : 'fail'}`, `判定 ${verdict}`));
@@ -4251,14 +4251,14 @@ function renderWorkbenchUsage(run) {
   host.appendChild(runLbl);
   const metrics = el('div', 'wb-usage-metrics');
   const um = (big, unit, lbl) => { const box = el('div', 'wb-um'); const b = el('b', 'num', big); if (unit) b.appendChild(el('span', 'wb-um-u', unit)); box.appendChild(b); box.appendChild(el('span', 'wb-um-lbl', lbl)); return box; };
-  metrics.appendChild(um(m.tok ? fmtTokens(m.tok) : '—', m.tok ? 'tok' : '', '令牌'));
+  metrics.appendChild(um(m.tok ? fmtTokens(m.tok) : '—', m.tok ? 'tok' : '', t('workflow.usage.tokens')));
   metrics.appendChild(el('div', 'wb-um-sep'));
-  metrics.appendChild(um(m.cost ? `$${m.cost.toFixed(m.cost < 1 ? 4 : 2)}` : '—', '', '成本'));
+  metrics.appendChild(um(m.cost ? `$${m.cost.toFixed(m.cost < 1 ? 4 : 2)}` : '—', '', t('workflow.usage.cost')));
   metrics.appendChild(el('div', 'wb-um-sep'));
-  metrics.appendChild(um(m.elapsed ? fmtDuration(m.elapsed) : '—', '', run.live ? '已运行' : '用时'));
+  metrics.appendChild(um(m.elapsed ? fmtDuration(m.elapsed) : '—', '', run.live ? t('workflow.usage.running') : t('workflow.usage.elapsed')));
   host.appendChild(metrics);
-  const link = el('button', 'wb-usage-link', '查看用量看板 →');
-  link.setAttribute('aria-label', '跳转到右栏用量看板');
+  const link = el('button', 'wb-usage-link', t('workflow.usage.viewDashboard'));
+  link.setAttribute('aria-label', t('workflow.usage.viewDashboardAria'));
   link.onclick = () => { openToolPane(); switchTab('usage'); };
   host.appendChild(link);
 }
@@ -4274,12 +4274,12 @@ function renderWorkbenchEmpty() {
   wrap.textContent = '';
   const box = el('div', 'wb-empty');
   box.appendChild(el('div', 'wb-empty-cloud'));
-  box.appendChild(el('div', 'wb-empty-title', '本会话还没有 Agent 工作流'));
-  box.appendChild(el('div', 'wb-empty-sub', '交办一个多 Agent 任务，这里会实时画出它们的协作图 —— 谁在跑、跑到哪、卡在哪。'));
+  box.appendChild(el('div', 'wb-empty-title', t('workflow.empty.title')));
+  box.appendChild(el('div', 'wb-empty-sub', t('workflow.empty.subtitle')));
   const acts = el('div', 'wb-empty-acts');
-  const goChat = el('button', 'wb-empty-btn primary', '去对话交办任务');
+  const goChat = el('button', 'wb-empty-btn primary', t('workflow.empty.goChat'));
   goChat.onclick = () => { switchMainView('chat'); const pi = $('promptInput'); if (pi) pi.focus(); };
-  const goTpl = el('button', 'wb-empty-btn', '从模板运行');
+  const goTpl = el('button', 'wb-empty-btn', t('workflow.empty.runTemplate'));
   goTpl.onclick = () => { openToolPane(); switchTab('agent-runs'); };
   acts.append(goChat, goTpl);
   box.appendChild(acts);
@@ -4311,7 +4311,7 @@ function renderWorkbenchSide(run) {
   const sel = wbState.selectedNodeId ? nodes.find(n => n.id === wbState.selectedNodeId) : null;
   const proposed = (Array.isArray(run.taskPool) ? run.taskPool : []).filter(p => p && p.status === 'proposed');
   const mails = Array.isArray(run.messages) ? run.messages : [];
-  host.appendChild(wbSection('detail', '选中节点详情', sel ? { text: sel.id } : null, wbNodeDetailBody(run, sel)));
+  host.appendChild(wbSection('detail', t('workflow.side.selectedNodeDetail'), sel ? { text: sel.id } : null, wbNodeDetailBody(run, sel)));
   host.appendChild(wbSection('pool', t('workflow.section.pool'), proposed.length ? { text: t('workflow.section.pendingCount', { count: proposed.length }), warn: true } : ((run.taskPool || []).length ? { text: String((run.taskPool || []).length) } : null), wbPoolBody(run)));
   host.appendChild(wbSection('mail', t('workflow.section.mail'), mails.length ? { text: String(mails.length) } : null, wbMailBody(run)));
   if (keepSteer) {
@@ -4341,7 +4341,7 @@ function wbSection(key, title, count, bodyNode) {
 // 段1 体:选中节点详情(id/角色/引擎/模型/状态/计时/迭代·门 verdict+置信度环/进度时间线/task 全文/结果·错误)
 //   + 插话框(资格判定,§6#6)+ 重试入口(非 live)。无选中 → 占位提示。
 function wbNodeDetailBody(run, node) {
-  if (!node) { const ph = el('div', 'wb-det-empty', '点击画布中的节点，这里显示它的模型、进度、门判定与操作。'); return ph; }
+  if (!node) { const ph = el('div', 'wb-det-empty', t('workflow.detail.placeholder')); return ph; }
   const disp = nodeDisplayStatus(node);
   const box = el('div', 'wb-det');
   // 头:标题(角色/id) + 引擎徽标 + 模型 chip
@@ -4352,14 +4352,14 @@ function wbNodeDetailBody(run, node) {
   box.appendChild(top);
   // 状态行 + 计时
   const strow = el('div', 'wb-det-row');
-  strow.appendChild(el('span', 'wb-det-k', '状态'));
+  strow.appendChild(el('span', 'wb-det-k', t('workflow.detail.status')));
   strow.appendChild(el('span', `wb-det-chip wb-st-${disp}`, agentRunStatusLabel(disp)));
-  if (node.startedAt) { const st = Date.parse(node.startedAt); if (Number.isFinite(st)) { const active = node.status === 'running' || node.status === 'waiting_resource'; const end = node.completedAt ? Date.parse(node.completedAt) : Date.now(); const dur = fmtDuration(end - st); if (dur) strow.appendChild(el('span', 'wb-det-time num', `${active ? '已运行' : '用时'} ${dur}`)); } }
+  if (node.startedAt) { const st = Date.parse(node.startedAt); if (Number.isFinite(st)) { const active = node.status === 'running' || node.status === 'waiting_resource'; const end = node.completedAt ? Date.parse(node.completedAt) : Date.now(); const dur = fmtDuration(end - st); if (dur) strow.appendChild(el('span', 'wb-det-time num', t(active ? 'workflow.detail.timerRunning' : 'workflow.detail.timerElapsed', { dur }))); } }
   box.appendChild(strow);
   // 迭代/循环预算条
   let budgetLabel = '', budgetCur = 0, budgetMax = 0;
-  if (node.loop) { budgetLabel = '循环'; budgetCur = node.loopIteration || 0; budgetMax = node.loop.maxIterations || 0; }
-  else if (Number.isFinite(Number(node.maxIters))) { budgetLabel = '迭代'; budgetCur = Number(node.iters) || 0; budgetMax = Number(node.maxIters) || 0; }
+  if (node.loop) { budgetLabel = t('workflow.budget.loop'); budgetCur = node.loopIteration || 0; budgetMax = node.loop.maxIterations || 0; }
+  else if (Number.isFinite(Number(node.maxIters))) { budgetLabel = t('workflow.budget.iter'); budgetCur = Number(node.iters) || 0; budgetMax = Number(node.maxIters) || 0; }
   if (budgetMax > 0) {
     const row = el('div', 'wb-det-row'); row.appendChild(el('span', 'wb-det-k', budgetLabel));
     const bar = el('div', 'wb-det-bar'); const i = el('i'); i.style.width = `${Math.max(0, Math.min(100, Math.round((budgetCur / budgetMax) * 100)))}%`; bar.appendChild(i); row.appendChild(bar);
@@ -4369,14 +4369,14 @@ function wbNodeDetailBody(run, node) {
   const verdict = node.gateVerdict || (node.structuredResult && node.structuredResult.verdict);
   const hasConf = node.confidence != null && Number.isFinite(Number(node.confidence));
   if (verdict || hasConf) {
-    const row = el('div', 'wb-det-row'); row.appendChild(el('span', 'wb-det-k', '质量门'));
+    const row = el('div', 'wb-det-row'); row.appendChild(el('span', 'wb-det-k', t('workflow.detail.gateLabel')));
     if (hasConf) {
       const pct = Math.max(0, Math.min(100, Math.round(Number(node.confidence) * 100)));
       const pass = !verdict || String(verdict).toLowerCase() === 'pass';
       const ring = el('div', 'wb-det-ring'); ring.style.setProperty('--deg', `${(pct / 100 * 360).toFixed(1)}deg`); ring.style.setProperty('--ring-col', pass ? 'var(--ok)' : 'var(--warn)');
       ring.appendChild(el('span', 'num', `${pct}%`)); row.appendChild(ring);
     }
-    if (verdict) row.appendChild(el('span', `wb-det-verdict ${String(verdict).toLowerCase() === 'pass' ? 'pass' : 'fail'}`, `判定 ${verdict}`));
+    if (verdict) row.appendChild(el('span', `wb-det-verdict ${String(verdict).toLowerCase() === 'pass' ? 'pass' : 'fail'}`, t('workflow.detail.verdict', { verdict })));
     box.appendChild(row);
   }
   // 进度时间线(全量 progressLog;末条 live 高亮)
@@ -4394,7 +4394,7 @@ function wbNodeDetailBody(run, node) {
     box.appendChild(tl);
   }
   // task 全文
-  if (node.task) { const tw = el('details', 'wb-det-task'); tw.appendChild(el('summary', 'wb-det-task-sum', '任务全文')); tw.appendChild(el('pre', 'wb-det-pre', node.task)); tw.open = !!wbState.detailExpand.task; tw.addEventListener('toggle', () => { wbState.detailExpand.task = tw.open; }); box.appendChild(tw); }
+  if (node.task) { const tw = el('details', 'wb-det-task'); tw.appendChild(el('summary', 'wb-det-task-sum', t('workflow.detail.task'))); tw.appendChild(el('pre', 'wb-det-pre', node.task)); tw.open = !!wbState.detailExpand.task; tw.addEventListener('toggle', () => { wbState.detailExpand.task = tw.open; }); box.appendChild(tw); }
   // 插话框(§6#6):live run + 资格判定;不符合显禁用 + 原因(与后端 409 文案一致)。
   box.appendChild(wbSteerBox(run, node));
   // 操作区:非 live 显重试入口(retry_node);失败/判否有错误显查看错误。
@@ -4469,7 +4469,7 @@ function wbPoolBody(run) {
   for (const item of pool) {
     if (item.status === 'proposed') {
       const whoNode = (run.nodes || []).find(n => n.id === item.proposedBy);
-      const whoLabel = whoNode ? (whoNode.roleLabel || whoNode.id) : (item.proposedBy || '某节点');
+      const whoLabel = whoNode ? (whoNode.roleLabel || whoNode.id) : (item.proposedBy || t('workflow.pool.unknownNode'));
       const card = el('div', 'wb-pool-card');
       const who = el('div', 'wb-pool-line'); who.appendChild(el('span', 'k', t('workflow.pool.who'))); who.appendChild(document.createTextNode(whoLabel)); card.appendChild(who);
       const what = el('div', 'wb-pool-line'); what.appendChild(el('span', 'k', t('workflow.pool.what'))); what.appendChild(document.createTextNode(String(item.task || '').trim())); card.appendChild(what);
@@ -5464,13 +5464,13 @@ async function loadMetrics() {
   if (metricsState.loading) return;
   metricsState.loading = true;
   const host = $('metricsPanel');
-  if (host && !metricsState.loaded) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', '正在采集性能指标…')); }
+  if (host && !metricsState.loaded) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', t('metrics.loading'))); }
   try {
     const res = await api('/api/metrics');
     metricsState.data = res; metricsState.loaded = true;
   } catch (e) {
     metricsState.data = null; metricsState.loaded = true;
-    if (host) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', '性能指标加载失败:' + apiErrText(e))); }
+    if (host) { host.textContent = ''; host.appendChild(el('div', 'audit-empty', t('metrics.loadFailed', {err: apiErrText(e)}))); }
     metricsState.loading = false;
     return;
   }
@@ -5480,27 +5480,27 @@ async function loadMetrics() {
 function renderMetrics(data) {
   const host = $('metricsPanel'); if (!host) return;
   host.textContent = '';
-  if (!data || data.ok === false) { host.appendChild(el('div', 'audit-empty', '性能指标不可用')); return; }
+  if (!data || data.ok === false) { host.appendChild(el('div', 'audit-empty', t('metrics.unavailable'))); return; }
   // ── 进程内存 + 运行时长 ──
   const mem = data.memory || {};
   const memRow = el('div', 'storage-row');
-  memRow.appendChild(el('span', 'storage-name', '工作台进程'));
+  memRow.appendChild(el('span', 'storage-name', t('metrics.processLabel')));
   memRow.appendChild(el('span', 'storage-bytes', fmtBytes(mem.rssOs || mem.rss || 0)));
   const up = Number(data.uptimeSec) || 0;
-  const upText = up >= 3600 ? Math.floor(up / 3600) + ' 小时 ' + Math.floor((up % 3600) / 60) + ' 分' : up >= 60 ? Math.floor(up / 60) + ' 分 ' + (up % 60) + ' 秒' : up + ' 秒';
-  memRow.appendChild(el('span', 'storage-files muted', '已运行 ' + upText));
+  const upText = up >= 3600 ? Math.floor(up / 3600) + t('metrics.hours') + Math.floor((up % 3600) / 60) + t('metrics.mins') : up >= 60 ? Math.floor(up / 60) + t('metrics.minsWithSpace') + (up % 60) + t('metrics.secs') : up + t('metrics.secs');
+  memRow.appendChild(el('span', 'storage-files muted', t('metrics.uptimeLabel', {dur: upText})));
   host.appendChild(memRow);
   // ── 子进程(引擎回合 / 桥接 MCP)──
   for (const c of (Array.isArray(data.children) ? data.children : [])) {
     const row = el('div', 'storage-row');
-    row.appendChild(el('span', 'storage-name', c.kind === 'engine-turn' ? '引擎回合子进程' : '桥接 MCP 子进程'));
+    row.appendChild(el('span', 'storage-name', c.kind === 'engine-turn' ? t('metrics.childEngineTurn') : t('metrics.childMcpBridge')));
     row.appendChild(el('span', 'storage-bytes', c.rss ? fmtBytes(c.rss) : '—'));
     row.appendChild(el('span', 'storage-files muted', 'pid ' + c.pid + (c.ref ? ' · ' + c.ref : '')));
     host.appendChild(row);
   }
   // ── 请求耗时分布(6 桶)──
   const rq = data.requests || { total: 0, buckets: [0, 0, 0, 0, 0, 0], slowest: [] };
-  host.appendChild(el('div', 'storage-note muted', '请求耗时分布(本进程累计 ' + rq.total + ' 个):'));
+  host.appendChild(el('div', 'storage-note muted', t('metrics.reqDistLabel', {n: rq.total})));
   const edges = ['<10ms', '<50ms', '<200ms', '<1s', '<5s', '≥5s'];
   const maxB = Math.max(1, ...rq.buckets);
   const bars = el('div', 'metrics-bars');
@@ -5518,7 +5518,7 @@ function renderMetrics(data) {
   host.appendChild(bars);
   // ── 最慢请求 top 8 ──
   if (rq.slowest && rq.slowest.length) {
-    host.appendChild(el('div', 'storage-note muted', '最近最慢请求:'));
+    host.appendChild(el('div', 'storage-note muted', t('metrics.slowestLabel')));
     const table = el('div', 'storage-table');
     for (const s of rq.slowest) {
       const row = el('div', 'storage-row');
@@ -5531,13 +5531,13 @@ function renderMetrics(data) {
   // ── 存储趋势(最近 12 点)──
   const trend = Array.isArray(data.storageTrend) ? data.storageTrend : [];
   if (trend.length) {
-    host.appendChild(el('div', 'storage-note muted', '存储占用趋势(每小时一点,最多 240 点):'));
+    host.appendChild(el('div', 'storage-note muted', t('metrics.storageTrendLabel')));
     const table = el('div', 'storage-table');
     for (const p of trend.slice(-12).reverse()) {
       const row = el('div', 'storage-row');
       row.appendChild(el('span', 'storage-name', formatAuditTime(p.ts)));
       row.appendChild(el('span', 'storage-bytes', fmtBytes(p.totalBytes)));
-      row.appendChild(el('span', 'storage-files muted', p.engineBytes ? '引擎转录 ' + fmtBytes(p.engineBytes) : ''));
+      row.appendChild(el('span', 'storage-files muted', p.engineBytes ? t('metrics.engineTranscriptPrefix', {bytes: fmtBytes(p.engineBytes)}) : ''));
       table.appendChild(row);
     }
     host.appendChild(table);
@@ -5572,8 +5572,8 @@ function changeSizeTransition(e) {
   const b = Number(e && e.bytes), c = Number(e && e.currentBytes);
   const bb = Number.isFinite(b) && b > 0 ? fmtBytes(b) : null;
   const cc = Number.isFinite(c) && c >= 0 ? fmtBytes(c) : null;
-  if (e && e.op === 'create') return cc ? `新建 ${cc}` : '新建';
-  if (e && e.op === 'delete') return bb ? `删除前 ${bb}` : '已删除';
+  if (e && e.op === 'create') return cc ? t('changes.sizeCreateSized', {size:cc}) : t('changes.sizeCreate');
+  if (e && e.op === 'delete') return bb ? t('changes.sizeDelete', {size:bb}) : t('changes.sizeDeleted');
   if (bb && cc) return `${bb} → ${cc}`;   // 修改:一眼看出变大/变小
   return bb ? `原 ${bb}` : '';
 }
@@ -5604,16 +5604,16 @@ async function loadChanges() {
   if (changesState.loading) return;
   const list = $('changesList'); if (!list) return;
   const sid = state.currentSession?.id;
-  if (!sid) { list.textContent = ''; list.appendChild(el('div', 'changes-empty', '本会话还没有可回撤的文件变更。AI 用文件工具或 ACC 写文件后会出现在这里。')); return; }
+  if (!sid) { list.textContent = ''; list.appendChild(el('div', 'changes-empty', t('changes.emptyHint'))); return; }
   changesState.loading = true;
-  list.textContent = ''; list.appendChild(el('div', 'changes-empty', '加载中…'));
+  list.textContent = ''; list.appendChild(el('div', 'changes-empty', t('common.loading')));
   let entries = [];
   try {
     const r = await api('/api/checkpoints?sessionId=' + encodeURIComponent(sid));
     entries = (r && Array.isArray(r.entries)) ? r.entries : [];
   } catch (e) {
     // 会话可能已切走 —— 只有仍是同一会话才写 UI(避免串数据/覆盖新会话的空态)。
-    if (state.currentSession?.id === sid) { list.textContent = ''; list.appendChild(el('div', 'changes-empty', '加载变更记录失败：' + apiErrText(e))); }
+    if (state.currentSession?.id === sid) { list.textContent = ''; list.appendChild(el('div', 'changes-empty', t('changes.loadFailed') + apiErrText(e))); }
     changesState.loading = false;
     return;
   }
@@ -5630,7 +5630,7 @@ function renderChanges(entries) {
   $('changesPreview')?.classList.add('hidden');
   const valid = (entries || []).filter(e => e && e.path);
   if (!valid.length) {
-    list.appendChild(el('div', 'changes-empty', '本会话还没有可回撤的文件变更。AI 用文件工具或 ACC 写文件后会出现在这里。'));
+    list.appendChild(el('div', 'changes-empty', t('changes.emptyHint')));
     return;
   }
   const byTurn = new Map();
@@ -5640,8 +5640,8 @@ function renderChanges(entries) {
     items.sort((a, b) => (Number(b.entrySeq) - Number(a.entrySeq))); // 轮内新→旧
     const card = el('div', 'change-card');
     const head = el('div', 'change-card-head');
-    head.append(el('span', 'change-round-title', '第 ' + turnSeq + ' 轮'));
-    head.append(el('span', 'change-round-count muted', items.length + ' 个'));
+    head.append(el('span', 'change-round-title', t('changes.roundTitle', {n: turnSeq})));
+    head.append(el('span', 'change-round-count muted', t('changes.roundCount', {n: items.length})));
     if (items.some(e => !e.skipped)) {
       const undoAll = el('button', 'mini change-undo-all', t('changes.revertTurn'));
       undoAll.onclick = () => rollbackTurn(turnSeq, undefined, undoAll, t('changes.turnLabel'));
@@ -5659,8 +5659,8 @@ function renderChanges(entries) {
       r1.append(el('span', 'change-icon', changeKindIcon(p)));
       const nameEl = el('span', 'change-name', fileBasename(p)); nameEl.title = p; // XSS: textContent via el()
       r1.append(nameEl);
-      if (e.skipped) { r1.append(el('span', 'change-skip', '过大未存,不可撤')); }
-      else { const undo = el('button', 'mini change-undo', '回撤'); undo.title = '回撤到此前状态'; undo.onclick = () => confirmRollbackEntry(e, p, undo); r1.append(undo); }
+      if (e.skipped) { r1.append(el('span', 'change-skip', t('changes.skippedLabel'))); }
+      else { const undo = el('button', 'mini change-undo', t('changes.revert')); undo.title = t('changes.revertTitle'); undo.onclick = () => confirmRollbackEntry(e, p, undo); r1.append(undo); }
       row.append(r1);
       // 第二行(浅色小字):用什么改的 · 大小变化(原→现) · 查看改动/打开
       const r2 = el('div', 'change-row-meta muted');
@@ -5668,7 +5668,7 @@ function renderChanges(entries) {
       const sz = changeSizeTransition(e); if (sz) r2.append(el('span', 'change-size', sz));
       if (!e.skipped && e.op !== 'delete') {
         if (isTextishPath(p)) { const v = el('button', 'link-mini change-view', t('changes.viewDiff')); v.onclick = () => openChangeDiff(e); r2.append(v); }
-        else { const o = el('button', 'link-mini change-view', '打开'); o.onclick = () => runTool('office_open', { path: p }); r2.append(o); }
+        else { const o = el('button', 'link-mini change-view', t('common.open')); o.onclick = () => runTool('office_open', { path: p }); r2.append(o); }
       }
       row.append(r2);
       body.append(row);
@@ -5711,11 +5711,11 @@ async function openChangeDiff(entry) {
   const standalone = createChangeDiffWindow(entry);
   const box = standalone?.host || $('changesPreview'); if (!box) return;
   box.classList.remove('hidden'); box.textContent = '';
-  box.append(el('div', 'cdiff-note muted', '加载改动…'));
+  box.append(el('div', 'cdiff-note muted', t('changes.loadingDiff')));
   if (!standalone) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   let d = null;
   try { d = await api(`/api/checkpoints/diff?sessionId=${encodeURIComponent(sid)}&turnSeq=${Number(entry.turnSeq)}&entrySeq=${Number(entry.entrySeq)}`); }
-  catch (err) { box.textContent = ''; box.append(el('div', 'cdiff-note muted', '加载改动失败:' + apiErrText(err))); return; }
+  catch (err) { box.textContent = ''; box.append(el('div', 'cdiff-note muted', t('changes.diffLoadFailed') + apiErrText(err))); return; }
   if (standalone && standalone.popup.closed) return;
   box.textContent = '';
   renderChangeDiffInto(box, d, entry, standalone);
@@ -5728,17 +5728,17 @@ function renderChangeDiffInto(box, d, entry, standalone) {
     open.onclick = () => runTool('office_open', { path: entry.path });
     head.append(open);
   }
-  const close = el('button', 'link-mini', standalone ? t('common.close') : '收起');
+  const close = el('button', 'link-mini', standalone ? t('common.close') : t('changes.collapse'));
   close.onclick = () => standalone ? standalone.popup.close() : box.classList.add('hidden');
   head.append(close);
   box.append(head);
-  if (!d || d.ok === false) { box.append(el('div', 'cdiff-note muted', '无法读取改动:' + ((d && d.error) || '未知'))); return; }
-  if (d.skipped) { box.append(el('div', 'cdiff-note muted', '此条改动前的内容过大未保存快照,无法比对。')); return; }
+  if (!d || d.ok === false) { box.append(el('div', 'cdiff-note muted', t('changes.diffUnavailable', {err: (d && d.error) || t('common.unknown')}))); return; }
+  if (d.skipped) { box.append(el('div', 'cdiff-note muted', t('changes.diffSkipped'))); return; }
   if (!d.isText) {
     const bb = Number.isFinite(d.beforeBytes) ? fmtBytes(d.beforeBytes) : '—';
     const aa = Number.isFinite(d.afterBytes) ? fmtBytes(d.afterBytes) : '—';
-    box.append(el('div', 'cdiff-note muted', `二进制文件(Excel/Word/PPT/图片等),无法逐行比对。大小:${bb} → ${aa}。`));
-    if (d.op !== 'delete') { const o = el('button', 'mini', '打开文件查看'); o.onclick = () => runTool('office_open', { path: entry.path }); box.append(o); }
+    box.append(el('div', 'cdiff-note muted', t('changes.diffBinary', {before: bb, after: aa})));
+    if (d.op !== 'delete') { const o = el('button', 'mini', t('changes.openFileView')); o.onclick = () => runTool('office_open', { path: entry.path }); box.append(o); }
     return;
   }
   const diff = crudeLineDiff(d.before || '', d.after || '');
@@ -5772,12 +5772,12 @@ function confirmRollbackEntry(entry, fullPath, btn) {
   const turnSeq = Number(entry.turnSeq);
   const entrySeq = Number(entry.entrySeq);
   const bodyEl = el('div', 'confirm-body');
-  bodyEl.append(el('p', '', '将把 ' + fileBasename(fullPath) + ' 恢复到第 ' + (turnSeq || 0) + ' 轮修改前的内容，当前内容会被覆盖。'));
+  bodyEl.append(el('p', '', t('changes.confirmRollbackBody', {path: fileBasename(fullPath), turn: (turnSeq || 0)})));
   const foot = el('div', 'confirm-foot');
   const cancel = el('button', '', '取消');
-  const ok = el('button', 'primary', '回撤');
+  const ok = el('button', 'primary', t('changes.revert'));
   foot.append(cancel, ok);
-  const m = buildModal('确认回撤', bodyEl, foot);
+  const m = buildModal(t('changes.confirmRollbackTitle'), bodyEl, foot);
   cancel.onclick = () => m.close();
   ok.onclick = async () => {
     m.close();
@@ -5787,24 +5787,24 @@ function confirmRollbackEntry(entry, fullPath, btn) {
 async function rollbackChangeEntry(turnSeq, entrySeq, fullPath, btn) {
   const sid = state.currentSession?.id;
   if (!sid) { toast(t("toast.noSession"), 'err'); return; }
-  if (btn) { btn.disabled = true; btn.textContent = '回撤中…'; }
+  if (btn) { btn.disabled = true; btn.textContent = t('changes.reverting'); }
   try {
     const r = await api('/api/checkpoints/rollback', { method: 'POST', body: JSON.stringify({ sessionId: sid, turnSeq, entrySeq }) });
     if (!r || !r.ok) {
-      if (btn) { btn.disabled = false; btn.textContent = '回撤到此前状态'; }
+      if (btn) { btn.disabled = false; btn.textContent = t('changes.revertTitle'); }
       const reason = (r && r.error) || (r && r.failed && r.failed.length ? r.failed[0].reason : '') || t('common.unknownError');
       toast(t('toast.rollbackFail', { p1: reason }), 'err');
       return;
     }
     if ((r.failed || []).length) {
-      if (btn) { btn.disabled = false; btn.textContent = '回撤到此前状态'; }
+      if (btn) { btn.disabled = false; btn.textContent = t('changes.revertTitle'); }
       toast(t('toast.rollbackFail', { p1: r.failed[0].reason || t('common.unknownError') }), 'err');
       return;
     }
     toast(t('toast.rollbackDone', { p1: fileBasename(fullPath) }), 'ok');
     loadChanges(); // re-fetch: the reverted entry is removed from the index server-side
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = '回撤到此前状态'; }
+    if (btn) { btn.disabled = false; btn.textContent = t('changes.revertTitle'); }
     toast(t('toast.rollbackFail', { p1: apiErrText(e) }), 'err');
   }
 }
@@ -7271,7 +7271,7 @@ function enabledMemoryKeySet() {
 }
 async function openMemoryPanel() {
   openModal('memoryModal');
-  $('memoryList').innerHTML = '<div class="muted">加载中…</div>';
+  $('memoryList').innerHTML = '<div class="muted">' + t('common.loading') + '</div>';
   try {
     const r = await api('/api/memory?cwd=' + encodeURIComponent(currentWorkspace() || ''));
     memoryRegistry = (r && r.memories) || [];
@@ -7285,25 +7285,25 @@ function renderMemoryList() {
   const session = state.currentSession;
   // 顶部动作:手写新建 + (provider)从当前会话起草
   const actions = el('div', 'memory-actions');
-  const newBtn = el('button', 'mini', '＋ 手写新建记忆');
+  const newBtn = el('button', 'mini', t('memory.createNew'));
   newBtn.onclick = () => openMemoryEditModal(null);
   actions.appendChild(newBtn);
   if (isProviderMode() && session) {
-    const draftBtn = el('button', 'mini', '✎ 从当前会话起草');
+    const draftBtn = el('button', 'mini', t('memory.draftFromSession'));
     draftBtn.onclick = () => saveAsMemory(draftBtn);
     actions.appendChild(draftBtn);
   }
   list.appendChild(actions);
-  if (!session) list.appendChild(el('div', 'muted', '新建或选择一个会话后可启用记忆。'));
+  if (!session) list.appendChild(el('div', 'muted', t('memory.needSessionHint')));
   const explicit = session && session.memoriesExplicit === true;
-  if (session && !explicit) list.appendChild(el('div', 'memory-hint muted', '当前项目的记忆默认全部启用（可手动调整）；全局记忆需手动启用。'));
+  if (session && !explicit) list.appendChild(el('div', 'memory-hint muted', t('memory.defaultPolicyHint')));
   const enabled = enabledMemoryKeySet();
   const globals = (memoryRegistry || []).filter(e => e.scope === 'global');
   const projects = (memoryRegistry || []).filter(e => e.scope === 'project');
   // v3 (§2.12 P2 r2):记忆面板与技能库同构 —— 分段控件锚点导航 + 两列卡片网格(复用 buildSkAnchorNav/buildSkGroupTitle)。
   const memGroups = [
-    { id: 'global', label: '全局记忆', sub: '随工作台走', items: globals },
-    { id: 'project', label: '当前项目记忆', sub: '随本项目走', items: projects },
+    { id: 'global', label: t('memory.groupGlobal'), sub: t('memory.groupGlobalSub'), items: globals },
+    { id: 'project', label: t('memory.groupProject'), sub: t('memory.groupProjectSub'), items: projects },
   ];
   if (memGroups.some(g => g.items.length)) list.appendChild(buildSkAnchorNav(memGroups.map(g => ({ id: 'm-' + g.id, label: g.label, count: g.items.length }))));
   for (const g of memGroups) {
@@ -7345,16 +7345,16 @@ function buildMemoryRow(m, enabled) {
   const head = el('div', 'sk-card-h');
   head.appendChild(skillCardIco('skill', null));
   head.appendChild(el('span', 'sk-name', m.name || m.id));
-  const typeLabel = m.type === 'convention' ? '惯例' : (m.type === 'lesson' ? '教训' : '参考');
+  const typeLabel = m.type === 'convention' ? t('memory.type.convention') : (m.type === 'lesson' ? t('memory.type.lesson') : t('memory.type.reference'));
   head.appendChild(el('span', 'sk-src', typeLabel));
   it.appendChild(head);
   if (m.description) it.appendChild(el('div', 'sk-desc', m.description));
   const meta = el('div', 'sk-reason');
-  meta.textContent = (m.createdAt ? String(m.createdAt).slice(0, 10) + ' · ' : '') + (m.scope === 'global' ? '全局' : '项目');
+  meta.textContent = (m.createdAt ? String(m.createdAt).slice(0, 10) + ' · ' : '') + (m.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project'));
   it.appendChild(meta);
   if (stale) it.appendChild(el('div', 'sk-reason', '⚠ 来源项目已变化，已暂停注入（重新启用可锁定到当前项目）。'));
   const foot = el('div', 'sk-foot');
-  const toggle = el('button', 'skill-toggle' + (on ? ' on' : ''), pending ? '…' : (on ? '已启用' : '启用'));
+  const toggle = el('button', 'skill-toggle' + (on ? ' on' : ''), pending ? t('memory.togglePending') : (on ? t('memory.enabled') : t('memory.enable')));
   if (pending) toggle.disabled = true;
   toggle.onclick = e => { e.stopPropagation(); toggleMemory(m); };
   const editB = el('button', 'mini', '编辑');
@@ -7370,7 +7370,7 @@ function buildMemoryGhostRow(m) {
   const it = el('div', 'skill-ghost');
   const head = el('div', 'skill-head');
   head.appendChild(el('span', 'skill-name', m.id));
-  head.appendChild(el('span', 'skill-src', '已失效'));
+  head.appendChild(el('span', 'skill-src', t('memory.ghostLabel')));
   const rm = el('button', 'skill-toggle', '移除');
   rm.onclick = e => { e.stopPropagation(); removeGhostMemory(m); };
   head.appendChild(rm);
@@ -7418,7 +7418,7 @@ async function doToggleMemory(m) {
     const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, memories: next }) });
     session.memories = (r && Array.isArray(r.memories)) ? r.memories : next;
     session.memoriesExplicit = true;
-    toast(enabled.has(key) ? `已停用记忆：${m.name || m.id}` : `已启用记忆：${m.name || m.id}`);
+    toast(enabled.has(key) ? t('memory.toast.disabled', { name: m.name || m.id }) : t('memory.toast.enabled', { name: m.name || m.id }));
   } catch (e) { toast(t('toast.memorySetFail', { err: apiErrText(e) }), 'err'); }
 }
 async function removeGhostMemory(m) {
@@ -7435,7 +7435,7 @@ async function removeGhostMemory(m) {
   renderMemoryList();
 }
 async function deleteMemoryRow(m) {
-  if (!confirm(`删除记忆「${m.name || m.id}」？此操作不可撤销。`)) return;
+  if (!confirm(t('memory.deleteConfirm', { name: m.name || m.id }))) return;
   try {
     const r = await api('/api/memory/' + encodeURIComponent(m.id), { method: 'POST', headers: { 'x-http-method': 'DELETE' }, body: JSON.stringify({ scope: m.scope, cwd: currentWorkspace() || '' }) });
     if (!r || !r.ok) { toast(t("toast.deleteFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
@@ -7445,7 +7445,7 @@ async function deleteMemoryRow(m) {
 }
 async function migrateGroupToCurrent(p) {
   if (!(p.items || []).length) return;
-  if (!confirm(`把「${p.label || p.projectKey}」的 ${p.count} 条记忆迁移到当前项目？`)) return;
+  if (!confirm(t('memory.migrateConfirm', { label: p.label || p.projectKey, count: p.count }))) return;
   // P2-4: 逐条结果上浮,不静默——迁移 N 条、M 条冲突(目标已有同名 → 409）跳过、K 条其它失败。
   let okCount = 0, conflictCount = 0, errCount = 0;
   for (const item of p.items) {
@@ -7498,23 +7498,23 @@ async function openMemoryEditModal(m) {
     field.appendChild(ta); body.appendChild(field);
     return ta;
   };
-  const nameEl = mkField('名称', full ? full.name : '', 1);
-  const descEl = mkField('说明（何时有用）', full ? full.description : '', 2);
-  const typeField = el('div', 'pb-field'); typeField.appendChild(el('label', 'pb-field-label', '类型'));
+  const nameEl = mkField(t('memory.edit.name'), full ? full.name : '', 1);
+  const descEl = mkField(t('memory.edit.description'), full ? full.description : '', 2);
+  const typeField = el('div', 'pb-field'); typeField.appendChild(el('label', 'pb-field-label', t('memory.edit.type')));
   const typeSel = el('select', 'pb-field-input');
-  for (const [v, t] of [['convention', '项目惯例'], ['lesson', '教训'], ['reference', '参考资料']]) { const o = el('option', '', t); o.value = v; if (full && full.type === v) o.selected = true; typeSel.appendChild(o); }
+  for (const [v, t] of [['convention', t('memory.edit.typeConvention')], ['lesson', t('memory.edit.typeLesson')], ['reference', t('memory.edit.typeReference')]]) { const o = el('option', '', t); o.value = v; if (full && full.type === v) o.selected = true; typeSel.appendChild(o); }
   typeField.appendChild(typeSel); body.appendChild(typeField);
-  const scopeField = el('div', 'pb-field'); scopeField.appendChild(el('label', 'pb-field-label', '范围'));
+  const scopeField = el('div', 'pb-field'); scopeField.appendChild(el('label', 'pb-field-label', t('memory.edit.scope')));
   const scopeSel = el('select', 'pb-field-input');
-  for (const [v, t] of [['project', '当前项目'], ['global', '全局']]) { const o = el('option', '', t); o.value = v; if (((full && full.scope) || 'project') === v) o.selected = true; scopeSel.appendChild(o); }
+  for (const [v, t] of [['project', t('memory.edit.scopeProject')], ['global', t('memory.edit.scopeGlobal')]]) { const o = el('option', '', t); o.value = v; if (((full && full.scope) || 'project') === v) o.selected = true; scopeSel.appendChild(o); }
   if (editing) scopeSel.disabled = true; // 编辑不改范围(改范围=另存,请新建)
   scopeField.appendChild(scopeSel); body.appendChild(scopeField);
-  const bodyTa = mkField('正文（markdown）', full ? full.body : '', 8);
+  const bodyTa = mkField(t('memory.edit.body'), full ? full.body : '', 8);
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
   const cancel = el('button', '', '取消');
   const save = el('button', 'primary', '保存');
   foot.append(cancel, save);
-  const modal = buildModal(editing ? '编辑记忆' : '新建工作台记忆', body, foot);
+  const modal = buildModal(editing ? t('memory.edit.title') : t('memory.edit.create.title'), body, foot);
   cancel.onclick = () => modal.close();
   save.onclick = async () => {
     const memory = { name: nameEl.value.trim(), description: descEl.value.trim(), type: typeSel.value, body: bodyTa.value, scope: scopeSel.value };
