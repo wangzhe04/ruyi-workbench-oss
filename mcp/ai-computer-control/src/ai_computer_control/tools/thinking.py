@@ -25,6 +25,15 @@ def sequential_thinking(thought: str, thought_number: int, total_thoughts: int,
         链式记录让思考过程可审计、可回退。
     何时别用: 简单一步能答的问题(徒增往返);真正的计算/检索(这不是执行工具,只记录思考)。
 
+    最简用法示例（90% 场景只需这样）:
+      第1步: sequential_thinking(thought="先分析需求...", thought_number=1, total_thoughts=3, next_thought_needed=true)
+      第2步: sequential_thinking(thought="然后对比方案...", thought_number=2, total_thoughts=3, next_thought_needed=true)
+      第3步: sequential_thinking(thought="最终结论是...", thought_number=3, total_thoughts=3, next_thought_needed=false)
+
+    高级用法（可选参数）:
+      is_revision=True, revises_thought=2  → 修订之前的第2步
+      branch_from_thought=2, branch_id="方案B" → 从第2步分叉出另一条思路
+
     Args:
         thought: The content of this thinking step.
         thought_number: 1-based sequence number of this step (can exceed total_thoughts when the

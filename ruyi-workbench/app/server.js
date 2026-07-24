@@ -7574,6 +7574,23 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config);
     if (memSec) lines.push(memSec);
   }
+  // [ACC 记忆工具引导] — 当 ACC memory_save/read/list/delete 在工具列表中时，注入使用指引
+  if (Array.isArray(tools) && tools.some(t => t && t.function && t.function.name === 'memory_save')) {
+    lines.push('[ACC 跨会话记忆库指引]');
+    lines.push('你有四个跨会话记忆工具（memory_save / memory_read / memory_list / memory_delete）：');
+    lines.push('- 遇到用户偏好、项目约定、环境细节等值得长期保存的信息时，主动调用 memory_save 存储');
+    lines.push('- 每次新对话开始时，用 memory_list 检索是否有与当前任务相关的已有记忆');
+    lines.push('- 用户说"记住/以后/偏好"等关键词时，优先考虑 memory_save');
+    lines.push('- 不要把大段文档/代码存进记忆（4000 字上限），只存路径或摘要');
+  }
+  // [ACC 序列思维工具引导] — 当 sequential_thinking 在工具列表中时，注入使用指引
+  if (Array.isArray(tools) && tools.some(t => t && t.function && t.function.name === 'sequential_thinking')) {
+    lines.push('[序列思维工具指引]');
+    lines.push('你有 sequential_thinking 工具用于外化多步推理链。以下场景应主动使用：');
+    lines.push('- 复杂多步规划（>3 步）、方案对比权衡、调试根因分析');
+    lines.push('- 最简用法: sequential_thinking(thought="...", thought_number=1, total_thoughts=3, next_thought_needed=true)');
+    lines.push('- 简单一步能答的问题不要用（徒增往返）；这不是执行工具，只记录思考过程');
+  }
   // [任务账本层]
   if (mission) {
     const misSec = buildMissionPromptSection(mission, 'openai', config);
@@ -8387,6 +8404,8 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
   agents: 'sub-agents and workflow orchestration',
   skills: 'read enabled skill instructions',
   integrations: 'inspect and configure MCP connectors and browser targets',
+  memory: 'cross-session memory read/write/search (memory_save/read/list/delete)',
+  thinking: 'step-by-step reasoning chains and sequential thinking',
 });
 const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
@@ -8410,6 +8429,8 @@ function toolPackForName(name, bridgedRoute) {
   if (/(screen|window|mouse|keyboard|click|clipboard|ocr|ui_|desktop|hotkey|type_text|scroll|drag)/.test(raw)) return 'desktop';
   if (/(archive|zip|unzip|compress|extract)/.test(raw)) return 'archive';
   if (/(search|fetch|http|url|browser|download|web)/.test(raw)) return 'web';
+  if (/^memory_(save|read|list|delete)$/.test(raw)) return 'memory';
+  if (/sequential_thinking/.test(raw)) return 'thinking';
   if (/(read|list|get_|find|inspect|status|info|diagnostic|wait_for_)/.test(raw)) return 'files_read';
   if (/(write|edit|delete|move|copy|create|save|upload)/.test(raw)) return 'files_write';
   return 'desktop'; // unknown external tools are conservative opt-in, never part of simple chat
@@ -8431,6 +8452,8 @@ function classifyToolPacks(message, attachments) {
   if (/(子代理|多代理|工作流|并行|agent|orchestrat|delegate)/i.test(s)) add('agents');
   if (/(技能|skill)/i.test(s)) add('skills');
   if (/(mcp|连接器|工具配置|浏览器目标|browser target|connector|tool config)/i.test(s)) add('integrations');
+  if (/(记住|记忆|偏好|以后别忘|remember|memorize|preference|recall)/i.test(s)) add('memory');
+  if (/(思考|推理|分析|对比|决策|规划|方案|权衡|think|reason|analy|compare|decide|plan|strateg)/i.test(s)) add('thinking');
   return [...packs];
 }
 

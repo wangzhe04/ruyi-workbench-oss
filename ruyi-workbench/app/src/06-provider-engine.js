@@ -1298,6 +1298,23 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config);
     if (memSec) lines.push(memSec);
   }
+  // [ACC 记忆工具引导] — 当 ACC memory_save/read/list/delete 在工具列表中时，注入使用指引
+  if (Array.isArray(tools) && tools.some(t => t && t.function && t.function.name === 'memory_save')) {
+    lines.push('[ACC 跨会话记忆库指引]');
+    lines.push('你有四个跨会话记忆工具（memory_save / memory_read / memory_list / memory_delete）：');
+    lines.push('- 遇到用户偏好、项目约定、环境细节等值得长期保存的信息时，主动调用 memory_save 存储');
+    lines.push('- 每次新对话开始时，用 memory_list 检索是否有与当前任务相关的已有记忆');
+    lines.push('- 用户说"记住/以后/偏好"等关键词时，优先考虑 memory_save');
+    lines.push('- 不要把大段文档/代码存进记忆（4000 字上限），只存路径或摘要');
+  }
+  // [ACC 序列思维工具引导] — 当 sequential_thinking 在工具列表中时，注入使用指引
+  if (Array.isArray(tools) && tools.some(t => t && t.function && t.function.name === 'sequential_thinking')) {
+    lines.push('[序列思维工具指引]');
+    lines.push('你有 sequential_thinking 工具用于外化多步推理链。以下场景应主动使用：');
+    lines.push('- 复杂多步规划（>3 步）、方案对比权衡、调试根因分析');
+    lines.push('- 最简用法: sequential_thinking(thought="...", thought_number=1, total_thoughts=3, next_thought_needed=true)');
+    lines.push('- 简单一步能答的问题不要用（徒增往返）；这不是执行工具，只记录思考过程');
+  }
   // [任务账本层]
   if (mission) {
     const misSec = buildMissionPromptSection(mission, 'openai', config);

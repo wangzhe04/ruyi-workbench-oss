@@ -546,6 +546,8 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
   agents: 'sub-agents and workflow orchestration',
   skills: 'read enabled skill instructions',
   integrations: 'inspect and configure MCP connectors and browser targets',
+  memory: 'cross-session memory read/write/search (memory_save/read/list/delete)',
+  thinking: 'step-by-step reasoning chains and sequential thinking',
 });
 const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
@@ -569,6 +571,8 @@ function toolPackForName(name, bridgedRoute) {
   if (/(screen|window|mouse|keyboard|click|clipboard|ocr|ui_|desktop|hotkey|type_text|scroll|drag)/.test(raw)) return 'desktop';
   if (/(archive|zip|unzip|compress|extract)/.test(raw)) return 'archive';
   if (/(search|fetch|http|url|browser|download|web)/.test(raw)) return 'web';
+  if (/^memory_(save|read|list|delete)$/.test(raw)) return 'memory';
+  if (/sequential_thinking/.test(raw)) return 'thinking';
   if (/(read|list|get_|find|inspect|status|info|diagnostic|wait_for_)/.test(raw)) return 'files_read';
   if (/(write|edit|delete|move|copy|create|save|upload)/.test(raw)) return 'files_write';
   return 'desktop'; // unknown external tools are conservative opt-in, never part of simple chat
@@ -590,6 +594,8 @@ function classifyToolPacks(message, attachments) {
   if (/(子代理|多代理|工作流|并行|agent|orchestrat|delegate)/i.test(s)) add('agents');
   if (/(技能|skill)/i.test(s)) add('skills');
   if (/(mcp|连接器|工具配置|浏览器目标|browser target|connector|tool config)/i.test(s)) add('integrations');
+  if (/(记住|记忆|偏好|以后别忘|remember|memorize|preference|recall)/i.test(s)) add('memory');
+  if (/(思考|推理|分析|对比|决策|规划|方案|权衡|think|reason|analy|compare|decide|plan|strateg)/i.test(s)) add('thinking');
   return [...packs];
 }
 
