@@ -1681,11 +1681,11 @@ function renderContextMeter(u) {
   if (pct >= 0.9) box.classList.add('crit'); else if (pct >= 0.7) box.classList.add('warn');
   const g = u.usage || {};
   const srcLabel = ctxWindowSourceLabel();
-  const srcLine = locked
-    ? `上限来源:手动锁定 ${win.toLocaleString()}（点击电量表→「自动」可改回自动推断）`
-    : `上限来源:${srcLabel}${srcLabel === '按名称推测' ? '（该端点未报告真实上限，按模型名推测，可能不准；点电量表可手动锁定实际值）' : ''}`;
-  box.title = `上下文 ≈ ${n.toLocaleString()} / 上限 ${win.toLocaleString()} tokens\n` +
-    `输入 ${g.input_tokens || 0} · 缓存读 ${g.cache_read_input_tokens || 0} · 缓存写 ${g.cache_creation_input_tokens || 0} · 输出 ${g.output_tokens || 0}\n${srcLine}`;
+  const srcHint = locked
+    ? t('ctx.tooltip.locked', { win: win.toLocaleString() })
+    : t('ctx.tooltip.srcAuto', { src: srcLabel }) + (srcLabel === t('ctx.sourceLabel.guessed') ? ' ' + t('ctx.tooltip.srcGuessed') : '');
+  box.title = t('ctx.tooltip.summary', { n: n.toLocaleString(), win: win.toLocaleString() }) + '\n' +
+    t('ctx.tooltip.usageLine', { input: g.input_tokens || 0, cacheRead: g.cache_read_input_tokens || 0, cacheWrite: g.cache_creation_input_tokens || 0, output: g.output_tokens || 0 }) + '\n' + srcHint;
   box.classList.remove('hidden');
 }
 function updateContextMeter() { renderContextMeter(state.shownUsage || latestUsage(state.currentSession)); }

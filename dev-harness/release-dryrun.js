@@ -108,6 +108,22 @@ const NPM_RUN = process.platform === 'win32'
     ok(missing.length === 0, 'A1 Slim 离线包文件清单可复验(' + keyFiles.length + ' 关键路径;missing=' + missing.join(',') + (pkgErr ? '; ZIP/stage 警告已忽略(env tar)' : '') + ')');
     fs.rmSync(stageDir, { recursive: true, force: true });
   } catch (e) { ok(false, 'A1 Slim 离线包清单检查失败: ' + (e.message || e)); }
+  // EC-A A1 Full: 若 ACC 离线运行时已 hydrate(build_offline 存在)则跑 Full 包校验;否则 SKIP(未配置,不算 pass)
+  try {
+    const accOffline = path.join(ROOT, 'mcp', 'ai-computer-control', 'build_offline');
+    if (!fs.existsSync(accOffline)) {
+      console.log('  A1 Full: SKIP (build_offline 未 hydrate;跑 package-offline.ps1 -BuildAccOffline 联网生成后再验;不算 pass)');
+    } else {
+      const fullStage = path.join(WB, 'dist', 'Ruyi-full-dryrun');
+      fs.rmSync(fullStage, { recursive: true, force: true });
+      try { cp.execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(WB, 'tools', 'package-offline.ps1'), '-SkipExeBuild', '-IncludeAcc', '-AccOfflineSource', accOffline, '-Variant', 'full-dryrun'], { cwd: WB, stdio: 'pipe', timeout: 180000, windowsHide: true }); }
+      catch (e) { /* ZIP 可能失败,按 stage 校验 */ }
+      const fullKeys = ['app/server.js', 'app/public/app.js', 'package.json', 'mcp/ai-computer-control'];
+      const fullMissing = fullKeys.filter(f => !fs.existsSync(path.join(fullStage, f)));
+      ok(fullMissing.length === 0, 'A1 Full 离线包文件清单可复验(' + fullKeys.length + ' 关键路径;missing=' + fullMissing.join(',') + ')');
+      fs.rmSync(fullStage, { recursive: true, force: true });
+    }
+  } catch (e) { ok(false, 'A1 Full 离线包清单检查失败: ' + (e.message || e)); }
   // EC-A A5: live probe 四态报告(配置探针,不实际调用 API;skip 不算 pass)
   try {
     const skipBlock = fs.readFileSync(path.join(__dirname, 'run-all.js'), 'utf8');
