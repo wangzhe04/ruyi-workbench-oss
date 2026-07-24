@@ -6556,6 +6556,7 @@ function fillSettings() {
   $('cfgBeta').checked = !!c.betaInterleavedThinking;
   $('cfgResume').checked = !!c.autoResumeClaudeSessions;
   $('cfgKillDisc').checked = !!c.killOnDisconnect;
+  { const el0 = $('cfgThinkingEffort'); if (el0) el0.value = ['', 'low', 'medium', 'high', 'xhigh', 'max'].includes(c.claudeThinkingEffort) ? c.claudeThinkingEffort : ''; }
   $('cfgThinkBudget').value = c.thinkingBudget || '';
   $('cfgMaxTurns').value = c.maxTurns || '';
   $('cfgExtraArgs').value = (c.extraClaudeArgs || []).join('\n');
@@ -6654,6 +6655,7 @@ async function saveSettings() {
     betaInterleavedThinking: $('cfgBeta').checked,
     autoResumeClaudeSessions: $('cfgResume').checked,
     killOnDisconnect: $('cfgKillDisc').checked,
+    claudeThinkingEffort: $('cfgThinkingEffort') ? $('cfgThinkingEffort').value : (state.config.claudeThinkingEffort || ''),
     thinkingBudget: $('cfgThinkBudget').value.trim(),
     maxTurns: $('cfgMaxTurns').value.trim(),
     extraClaudeArgs: $('cfgExtraArgs').value.split('\n').map(s => s.trim()).filter(Boolean),
@@ -7903,8 +7905,36 @@ function renderModelChip() {
   const modEl = chip.querySelector('.mc-model');
   if (engEl) { engEl.textContent = isProviderMode() ? vis.label : 'Claude CLI'; engEl.style.color = vis.colorVar; }
   const model = currentModelId() || t('provider.defaultModel');
-  if (modEl) { const m = currentModelId(); modEl.textContent = isProviderMode() ? (m || `(${t('modelMenu.unselected')})`) : model; }
-  chip.title = t('modelMenu.chipTitle', { engine: engineLabel(), model });
+  const effort = state.config?.claudeThinkingEffort || '';
+  const effortLabel = effort ? t(`thinkingEffort.${effort}`) : '';
+  if (modEl) {
+    const m = currentModelId();
+    modEl.textContent = isProviderMode()
+      ? (m || `(${t('modelMenu.unselected')})`)
+      : (effort ? t('modelMenu.modelWithEffort', { model, effort: effortLabel }) : model);
+  }
+  chip.title = (!isProviderMode() && effort)
+    ? t('modelMenu.chipTitleWithEffort', { engine: engineLabel(), model, effort: effortLabel })
+    : t('modelMenu.chipTitle', { engine: engineLabel(), model });
+}
+const CLAUDE_THINKING_EFFORTS_UI = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
+async function setClaudeThinkingEffort(value) {
+  const effort = CLAUDE_THINKING_EFFORTS_UI.includes(value) ? value : '';
+  const previous = state.config?.claudeThinkingEffort || '';
+  if (effort === previous) return true;
+  state.config.claudeThinkingEffort = effort;
+  renderModelChip();
+  const saved = await saveConfigPartial({ claudeThinkingEffort: effort });
+  if (!saved) {
+    state.config.claudeThinkingEffort = previous;
+    renderModelChip();
+    return false;
+  }
+  renderModelChip();
+  toast(state.streaming
+    ? t('modelMenu.effortChangedNextTurn', { effort: t(`thinkingEffort.${effort || 'default'}`) })
+    : t('modelMenu.effortChanged', { effort: t(`thinkingEffort.${effort || 'default'}`) }), 'ok');
+  return true;
 }
 // Write activeProvider + model in ONE POST /api/config, then refresh chip + dependent UI + meter +
 // (silently) the live model list. providerId ''(or 'claude-cli') selects the Claude engine; a provider
@@ -7993,7 +8023,7 @@ function openModelChipPopover() {
     };
     // Render one engine group. Active engine → open <div> with a plain group head. Non-active → collapsed
     // <details> whose summary shows the label + model count + 「选择将切换引擎」note.
-    const addGroup = (pid, label, colorVar, models, emptyHint, deletableIds) => {
+    const addGroup = (pid, label, colorVar, models, emptyHint, deletableIds, appendExtra) => {
       const isActive = (pid === curPid);
       const count = (models && models.length) || 0;
       if (isActive) {
@@ -8002,6 +8032,7 @@ function openModelChipPopover() {
         gh.append(dot, el('span', 'mc-glabel', label), el('span', 'mc-gcount', '· ' + tCount('modelMenu.modelCount', count)));
         wrap.appendChild(gh);
         buildRows(wrap, pid, models, emptyHint, true, deletableIds);
+        if (appendExtra) appendExtra(wrap);
       } else {
         const det = el('details', 'mc-groupd');
         const sum = el('summary', 'mc-group mc-group-sum');
@@ -8010,6 +8041,7 @@ function openModelChipPopover() {
           el('span', 'mc-switch-note', t('modelMenu.switchesEngine')));
         det.appendChild(sum);
         buildRows(det, pid, models, emptyHint, false, deletableIds);
+        if (appendExtra) appendExtra(det);
         wrap.appendChild(det);
       }
     };
@@ -8019,7 +8051,27 @@ function openModelChipPopover() {
     for (const raw of (state.config.extraModels || [])) { const v = String(raw).split('|')[0].trim(); if (v) customModelIds.add(v); }
     for (const id of (state.config.knownModels || [])) { const v = String(id || '').trim(); if (v) customModelIds.add(v); }
     const claudeModels = (state.status && state.status.models) || [{ id: '', label: t('provider.defaultModel') }];
-    addGroup('', 'Claude CLI', 'var(--eng-claude)', claudeModels, '', customModelIds);
+    const appendClaudeEffort = container => {
+      const control = el('label', 'mc-effort-control');
+      control.appendChild(el('span', 'mc-effort-label', t('modelMenu.thinkingEffort')));
+      const select = el('select', 'mc-effort-select');
+      for (const value of CLAUDE_THINKING_EFFORTS_UI) {
+        const option = el('option');
+        option.value = value;
+        option.textContent = t(`thinkingEffort.${value || 'default'}`);
+        select.appendChild(option);
+      }
+      select.value = state.config?.claudeThinkingEffort || '';
+      select.onchange = async () => {
+        select.disabled = true;
+        const saved = await setClaudeThinkingEffort(select.value);
+        if (saved) close();
+        else select.disabled = false;
+      };
+      control.appendChild(select);
+      container.appendChild(control);
+    };
+    addGroup('', 'Claude CLI', 'var(--eng-claude)', claudeModels, '', customModelIds, appendClaudeEffort);
     // One group per configured provider.
     for (const p of (state.config.providers || [])) {
       const vis = engineVisual({ engine: 'openai', providerId: p.id, providerLabel: p.label || p.id });
@@ -8039,6 +8091,7 @@ function openModelChipPopover() {
     let idx = Math.max(0, rows.findIndex(r => r.classList.contains('active')));
     setTimeout(() => { (rows[idx] || rows[0])?.focus(); }, 0);
     wrap.addEventListener('keydown', e => {
+      if (e.target && e.target.tagName === 'SELECT') return;
       if (e.key === 'ArrowDown') { e.preventDefault(); idx = Math.min(rows.length - 1, idx + 1); rows[idx].focus(); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); idx = Math.max(0, idx - 1); rows[idx].focus(); }
       else if (e.key === 'Enter') { e.preventDefault(); (document.activeElement && rows.includes(document.activeElement) ? document.activeElement : rows[idx])?.click(); }

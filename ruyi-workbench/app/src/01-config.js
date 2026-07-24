@@ -19,6 +19,7 @@ function defaultConfig() {
     locale: 'auto',
     includePartialMessages: true, // real-time token streaming via --include-partial-messages
     thinkingBudget: '',           // sets MAX_THINKING_TOKENS when non-empty
+    claudeThinkingEffort: '',     // '' inherits the CLI config; otherwise passed via --effort
     betaInterleavedThinking: false, // adds --betas interleaved-thinking (probe first; may be rejected by older CLI)
     mcpCommandMode: 'auto',       // auto | node | exe — which command the generated MCP config points at
     killOnDisconnect: true,       // taskkill the claude child when the UI aborts/disconnects
@@ -169,6 +170,7 @@ function defaultConfig() {
 }
 
 const PERMISSION_MODES = ['default', 'acceptEdits', 'plan', 'auto', 'bypass'];
+const CLAUDE_THINKING_EFFORTS = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
 const AGENT_ROLE_PERMISSION_MODES = ['inherit', 'default', 'acceptEdits', 'dontAsk', 'bypass', 'plan', 'auto'];
 // v1.4.3: Canonical mapping from workbench-internal mode names to Claude CLI mode names.
 // 'bypass' -> 'bypassPermissions'; 'auto' is a CLI-native name (no alias needed).
@@ -255,6 +257,12 @@ function normalizeConfig(raw) {
   // stops a config-injection from smuggling non-string payloads).
   if (!Array.isArray(config.extraClaudeArgs) || config.extraClaudeArgs.some(a => typeof a !== 'string')) {
     config.extraClaudeArgs = Array.isArray(config.extraClaudeArgs) ? config.extraClaudeArgs.filter(a => typeof a === 'string') : [];
+    changed = true;
+  }
+  // Claude CLI owns the concrete effort semantics. Keep the workbench value to the CLI's documented
+  // enum so a malformed config can never turn into an invalid spawn argument.
+  if (!CLAUDE_THINKING_EFFORTS.includes(config.claudeThinkingEffort)) {
+    config.claudeThinkingEffort = '';
     changed = true;
   }
   // Clamp numeric timeouts to sane ranges (a non-numeric value must never disable the watchdog).

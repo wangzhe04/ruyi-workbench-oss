@@ -5,6 +5,7 @@
   "includeWorkbenchMcp": true,
   "autoResumeClaudeSessions": true,
   "model": "",
+  "claudeThinkingEffort": "",
   "maxTurns": "",
   "extraClaudeArgs": [],
   "allowCommandTools": true,

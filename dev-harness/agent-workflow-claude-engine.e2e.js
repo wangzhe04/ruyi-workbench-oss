@@ -69,6 +69,7 @@ async function tokenFor(port) {
     const argvCapture = path.join(HOME, 'argv-capture.json');
     fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
       configSchema: 7, permissionMode: 'bypass', defaultWorkspace: HOME, providers: [], activeProvider: '',
+      claudeThinkingEffort: 'xhigh',
     }, null, 2));
     const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], {
       cwd: WB, windowsHide: true,
@@ -86,6 +87,7 @@ async function tokenFor(port) {
       ok(bare.ok === true && bare.results[0].engine === 'claude' && bare.results[0].status === 'succeeded', 'DAG node with no engine/provider defaults to and runs via the Claude CLI engine');
       const argv1 = JSON.parse(fs.readFileSync(argvCapture, 'utf8'));
       ok(argv1.includes('--permission-mode') && argv1[argv1.indexOf('--permission-mode') + 1] === 'bypassPermissions', 'role-less node inherits the run permission mode (bypass)');
+      ok(argv1.includes('--effort') && argv1[argv1.indexOf('--effort') + 1] === 'xhigh', 'Claude DAG node inherits the configured thinking effort');
       ok(argv1.includes('--allowed-tools') && argv1[argv1.indexOf('--allowed-tools') + 1] === 'Read,Grep,Glob,WebSearch,WebFetch', 'role-less node gets the read-tier tool allowlist by default (第22波: 含联网检索)');
       const policyIdx = argv1.indexOf('--append-system-prompt');
       ok(policyIdx >= 0 && String(argv1[policyIdx + 1] || '').includes('<response-language-policy>'), 'Claude DAG nodes receive the response-language policy');

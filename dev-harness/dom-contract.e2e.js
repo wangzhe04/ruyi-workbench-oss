@@ -73,7 +73,7 @@ const CRITICAL_IDS = [
   'settingsModal', 'settingsTabs', 'settingsBody', 'settingsStatus', 'saveConfigBtn', 'openSettingsBtn',
   'stab-basic', 'stab-providers', 'stab-claude', 'stab-integrations', 'stab-network', 'stab-doctor', 'stab-advanced',
   'cfgSearchType', 'cfgSearchBaseUrl', 'cfgSearchApiKey', 'cfgSearchApiKeyRow', 'cfgSearchBaseUrlRow',
-  'cfgEngineMode', 'cfgUiMode', 'addProviderBtn', 'providersList', 'providerPresetSelect',
+  'cfgEngineMode', 'cfgThinkingEffort', 'cfgUiMode', 'addProviderBtn', 'providersList', 'providerPresetSelect',
   'cfgSubagentMaxConcurrent', 'cfgSubagentMaxPerTurn', 'cfgSubagentPreferredProvider', 'cfgSubagentPreferredModel', 'doctorPanel', 'refreshDoctorBtn',
   // 右侧工具页签(switchTab;ia.e2e 依赖 tab 结构 + 简易模式隐开发者组)。
   'toolPane', 'tab-files', 'tab-changes', 'tab-powershell', 'tab-mcp', 'tab-artifacts',
@@ -109,6 +109,7 @@ const CRITICAL_CLASSES = [
   'batt-fill',          // ctx-meter:电量填充
   'ctx-text',           // ctx-meter:读数文本
   'ctx-chip',           // ctx-meter:上限预设 chip
+  'mc-effort-control',  // model-chip popover: Claude thinking-effort quick control
   'msg-actions',        // 消息操作条(复制/编辑重发/重试/回溯)
   'modal-backdrop',     // 弹层遮罩(closeModal / Esc 关闭链路)
   'tool-tabs',          // 右侧/设置页签容器
@@ -154,6 +155,8 @@ const CRITICAL_FUNCS = [
   'wcwToken', 'authHeaders', 'api', 'apiErrText',
   // ctx-meter 族(Phase 1 保留 app.js,Phase 2 拟抽;契约先固化)
   'ctxWindowGuess', 'ctxWindow', 'ctxTokensOf', 'renderContextMeter', 'updateContextMeter', 'openContextPopover',
+  // Claude CLI thinking effort: topbar popover persists the closed enum through /api/config.
+  'setClaudeThinkingEffort',
   // 引导入口
   'boot', 'bindEvents',
 ];

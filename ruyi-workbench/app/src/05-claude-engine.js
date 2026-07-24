@@ -87,6 +87,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
   if (cliPermMode) args.push('--permission-mode', cliPermMode);
   if (config.model) args.push('--model', config.model);
+  if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
   if (config.maxTurns) args.push('--max-turns', String(config.maxTurns));
   // cmd8191 防线: 先把与 append/agents 无关的尾部参数(tailArgs)全部定下来,才能精确核算整行剩余预算。
   // (就是原来跟在 append 块后面的 --resume / --add-dir / extraClaudeArgs,内容不变,仅提前收集、最后统一 push。)
@@ -288,7 +289,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
 
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   const metaArgs = args.map((arg, i) => args[i - 1] === '--agents' ? `[${Object.keys(claudeAgentLibrary.definitions).length} agent roles]` : redact(arg));
-  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
+  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: config.claudeThinkingEffort || 'default', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
   logEvent({ kind: 'turn_start', sessionId: session.id, model: config.model || 'default', promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});

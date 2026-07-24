@@ -1748,6 +1748,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const args = ['-p', '--output-format', 'stream-json', '--verbose'];
   const pm = claudePermissionMode(effMode); if (pm) args.push('--permission-mode', pm);
   if (subModel && subModel !== 'inherit') args.push('--model', subModel);
+  if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
   const allowedTools = (role && role.claudeTools && role.claudeTools.length) ? role.claudeTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
   if (allowedTools && allowedTools.length) args.push('--allowed-tools', allowedTools.join(','));
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;

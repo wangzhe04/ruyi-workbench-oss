@@ -27,6 +27,7 @@ fs.rmSync(HOME, { recursive: true, force: true });
 fs.mkdirSync(CWD, { recursive: true });
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
   configSchema: 7, version: '1.0.0', permissionMode: 'bypass', engineMode: 'print',
+  claudeThinkingEffort: 'xhigh',
   appendSystemPrompt: MARKER + ' ' + '用户自定义系统提示。'.repeat(80), // ~800 字用户 append,最高优先级
 }, null, 2));
 function writeSkill(id, descLen) {
@@ -139,6 +140,9 @@ function fenceBalance(text) {
     const clsEn = srv.classifyClaudeSubagentFailure({ killed: false, exitCode: 1, stderrText: 'The command line is too long.', assistantText: '', toolCallCount: 0, gotResult: false, resultOk: true });
     ok(clsZh.retry === false && clsZh.reason === 'definitive', '(A7a) 中文签名 → definitive 不重试');
     ok(clsEn.retry === false && clsEn.reason === 'definitive', '(A7b) 英文签名 → definitive 不重试');
+    // A8: thinking effort is a closed enum. Invalid hand-written config falls back to CLI inheritance.
+    ok(srv.normalizeConfig({ configSchema: 8, claudeThinkingEffort: 'turbo' }).config.claudeThinkingEffort === '', '(A8a) 非法 thinking effort → 默认继承 CLI');
+    ok(srv.normalizeConfig({ configSchema: 8, claudeThinkingEffort: 'max' }).config.claudeThinkingEffort === 'max', '(A8b) max thinking effort 保留');
 
     // ============================== (B) 集成层(测试缝强制预算) ==============================
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }
@@ -155,6 +159,8 @@ function fenceBalance(text) {
     try { argv = JSON.parse(fs.readFileSync(ARGV_CAP, 'utf8')); } catch { /* left empty */ }
     const lineLen = cmdLineOf(argv);
     ok(lineLen <= BUDGET, '(B2) 重建 cmd 整行长度 ' + lineLen + ' ≤ 预算 ' + BUDGET);
+    const effortIdx = argv.indexOf('--effort');
+    ok(effortIdx >= 0 && argv[effortIdx + 1] === 'xhigh', '(B2b) 前端配置的 thinking effort 经 --effort xhigh 到达 Claude CLI');
     const ai = argv.indexOf('--append-system-prompt');
     ok(ai >= 0, '(B3) --append-system-prompt 仍在');
     const appendVal = ai >= 0 ? String(argv[ai + 1] || '') : '';

@@ -583,6 +583,17 @@
             </div>
             <div class="field-grid">
               <div class="field-block">
+                <label for="cfgThinkingEffort" data-i18n="settings.thinkingEffort">思考强度 --effort</label>
+                <select id="cfgThinkingEffort">
+                  <option value="" data-i18n="thinkingEffort.default">默认（继承 CLI 配置）</option>
+                  <option value="low" data-i18n="thinkingEffort.low">低</option>
+                  <option value="medium" data-i18n="thinkingEffort.medium">中</option>
+                  <option value="high" data-i18n="thinkingEffort.high">高</option>
+                  <option value="xhigh" data-i18n="thinkingEffort.xhigh">超高</option>
+                  <option value="max" data-i18n="thinkingEffort.max">最大</option>
+                </select>
+              </div>
+              <div class="field-block">
                 <label for="cfgThinkBudget" data-i18n="settings.thinkingBudget">思考预算 MAX_THINKING_TOKENS</label>
                 <input id="cfgThinkBudget" type="text" placeholder="留空=自适应(adaptive，推荐新模型)；填数字=固定预算(enabled)" data-i18n-attr="placeholder:settings.thinkingBudgetPlaceholder" />
               </div>
