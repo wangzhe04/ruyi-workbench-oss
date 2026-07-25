@@ -53,55 +53,55 @@
     {
       "file": "07-autonomy.js",
       "startLine": 8165,
-      "endLine": 10117,
+      "endLine": 10143,
       "note": "授权书/工具 gate/资源归一化"
     },
     {
       "file": "08-agent-runs.js",
-      "startLine": 10118,
-      "endLine": 11798,
+      "startLine": 10144,
+      "endLine": 11824,
       "note": "run 事件日志/恢复分级/runSubAgentCore"
     },
     {
       "file": "09-workflow.js",
-      "startLine": 11799,
-      "endLine": 13700,
+      "startLine": 11825,
+      "endLine": 13726,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 13701,
-      "endLine": 14618,
+      "startLine": 13727,
+      "endLine": 14644,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 14619,
-      "endLine": 16316,
+      "startLine": 14645,
+      "endLine": 16342,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 16317,
-      "endLine": 17353,
+      "startLine": 16343,
+      "endLine": 17384,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 17354,
-      "endLine": 19678,
+      "startLine": 17385,
+      "endLine": 19709,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 19679,
-      "endLine": 19890,
+      "startLine": 19710,
+      "endLine": 19921,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "14-main.js",
-      "startLine": 19891,
-      "endLine": 20153,
+      "startLine": 19922,
+      "endLine": 20184,
       "note": "main()/module.exports"
     }
   ]

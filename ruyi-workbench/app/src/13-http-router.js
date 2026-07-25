@@ -2205,7 +2205,7 @@ async function startMcp() {
           const mode = process.env.WCW_TOOL_LOADING_MODE || 'full';
           const routedPacks = new Set(String(process.env.WCW_TOOL_PACKS || '').split(',').filter(Boolean));
           routedPacks.add('core');
-          const adaptiveAlways = new Set(['permission_prompt', 'tool_search', 'tool_load', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
+          const adaptiveAlways = new Set(['permission_prompt', 'list_tools', 'tool_search', 'tool_load', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
           const listed = MCP_TOOLS.filter(t => {
             if (t.name === 'spawn_agent') return false;
             if (t.name === 'request_user_input' && !userInputEnabled) return false;

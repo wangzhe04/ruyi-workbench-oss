@@ -1452,10 +1452,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args });
           // Adaptive discovery tools are turn-local control-plane operations. They never cross the
           // filesystem/permission dispatcher; tool_load only changes the schemas attached to NEXT call.
-          if (tc.name === 'tool_search' || tc.name === 'tool_load') {
-            const resultObj = tc.name === 'tool_search'
-              ? toolLoading.search(args.query, args.limit)
-              : toolLoading.load(args);
+          if (tc.name === 'list_tools' || tc.name === 'tool_search' || tc.name === 'tool_load') {
+            const resultObj = tc.name === 'list_tools'
+              ? toolLoading.list(args)
+              : (tc.name === 'tool_search' ? toolLoading.search(args.query, args.limit) : toolLoading.load(args));
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: false });
             if (tc.name === 'tool_load') onEvent({ type: 'tool_catalog', state: 'loaded', ...resultObj, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });

@@ -7,7 +7,7 @@
 // 设计:文本逐字搬(与原内联一致,prompt-snapshot 断言中文标记不变->护栏绿)。带参数的层用模板函数
 // (params 白名单),无参数的用纯字符串。条件分支(hasTools/identityOnly/deskPresent/visionCap 等)留 JS 层。
 
-const PROMPT_PACK_VERSION = '2026-w51-1';
+const PROMPT_PACK_VERSION = '2026-w51-2';
 
 // 中文提示词包(Phase1 基线,与原内联文本逐字一致)
 const PROMPT_ZH = {
@@ -19,7 +19,7 @@ const PROMPT_ZH = {
   toolProtocol: {
     intro: '你有读/列/搜文件、编辑与写文件、运行 PowerShell 与脚本、查看 git 等工具。用它们实际检查与修改工作区，不要凭空猜测。使用绝对 Windows 路径（默认落在工作目录）。',
     rules: '工具协议守则：先读后改（编辑前先读该文件）；最小、精准的改动；工具返回 found:false / 未命中属正常语义，不是错误；重要或多步操作先用 todo_write 列出计划再执行；完成后给一段简洁的变更摘要。',
-    onDemand: '工具按需装载：当前只提供任务预判所需的工具。缺少能力时先调用 tool_search，随后用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。',
+    onDemand: '工具按需装载：当前只提供任务预判所需的工具。不知道有哪些能力时先调用 list_tools；知道目标时直接调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。',
     priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
   },
   // [无工具兜底] - !hasTools && !identityOnly
@@ -88,7 +88,7 @@ const PROMPT_EN = {
   toolProtocol: {
     intro: 'You have tools to read/list/search files, edit and write files, run PowerShell and scripts, inspect git, and more. Use them to actually check and modify the workspace; do not guess. Use absolute Windows paths (they default to the working directory).',
     rules: 'Tool protocol: read before edit (read the file before editing it); make minimal, precise changes; a tool returning found:false / no-match is normal semantics, not an error; for important or multi-step operations, list a plan with todo_write first, then execute; after finishing, give a brief change summary.',
-    onDemand: 'On-demand tool loading: only the tools the current task likely needs are provided. When a capability is missing, first call tool_search, then tool_load with the returned pack or exact tool name; after a successful load, call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.',
+    onDemand: 'On-demand tool loading: only the tools the current task likely needs are provided. If you do not know what capabilities exist, call list_tools first; when you know the target, call tool_search, then tool_load with the returned pack or exact tool name. After a successful load, call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.',
     priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
   },
 

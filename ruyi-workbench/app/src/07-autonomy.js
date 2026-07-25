@@ -379,6 +379,11 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
 function adaptiveMetaToolSchemas(includeInvoke = false) {
   const tools = [
     {
+      name: 'list_tools',
+      description: 'List the compact Ruyi tool directory when you are unsure what capability or tool name to search for. Returns names grouped by pack, without descriptions or schemas; use tool_search next for details and risk tier.',
+      inputSchema: { type: 'object', properties: { pack: { type: 'string', description: 'Optional exact pack id to list.' }, cursor: { type: 'number', description: 'Optional zero-based cursor from a previous response.' }, limit: { type: 'number', description: 'Maximum names, 1..200. Defaults to 200 (normally the complete catalog).' } } },
+    },
+    {
       name: 'tool_search',
       description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, and short descriptions without injecting every schema.',
       inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' } }, required: ['query'] },
@@ -417,7 +422,7 @@ function buildOpenAiTools(config, caps, opts) {
   // tools under 「当前不可用」 so the model is told why they're absent.
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   for (const t of MCP_TOOLS) {
-    if (t.name === 'tool_search' || t.name === 'tool_load' || t.name.startsWith('tool_invoke_')) continue;
+    if (t.name === 'list_tools' || t.name === 'tool_search' || t.name === 'tool_load' || t.name.startsWith('tool_invoke_')) continue;
     if (t.name === 'permission_prompt') continue;
     if (t.name === 'request_user_input' && noSpawnAgent) continue;
     if ((t.name === 'spawn_agent' || t.name === 'orchestrate_agents') && !spawnAgentEnabled) continue;
@@ -480,7 +485,7 @@ function buildOpenAiTools(config, caps, opts) {
 // Risk tier per tool → drives permission gating in the native loop (read = auto-allow).
 const NATIVE_TOOL_TIER = {
   permission_prompt: 'exec', // CLI 权限桥(由 --permission-prompt-tool 触达);原靠 unknown→exec 兜底,第41波显式化
-  tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
+  list_tools: 'read', tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
   file_read: 'read', file_list: 'read', file_search: 'read', glob: 'read', project_snapshot: 'read', git_status: 'read',
@@ -551,7 +556,7 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
 });
 const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
-  tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
+  list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
   dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code',
@@ -611,12 +616,32 @@ function buildToolCatalog(tools, bridgedRoute, config) {
   }).filter(x => x.name);
 }
 
+function listCompactTools(catalog, args) {
+  const pack = String(args && args.pack || '').trim();
+  const cursor = Math.max(0, Math.floor(Number(args && args.cursor) || 0));
+  const limit = Math.min(200, Math.max(1, Math.floor(Number(args && args.limit) || 200)));
+  const available = (catalog || []).filter(x => !pack || x.pack === pack)
+    .slice().sort((a, b) => a.pack.localeCompare(b.pack) || a.name.localeCompare(b.name));
+  const page = available.slice(cursor, cursor + limit);
+  const groups = {};
+  for (const item of page) {
+    if (!groups[item.pack]) groups[item.pack] = [];
+    groups[item.pack].push(item.name);
+  }
+  const nextCursor = cursor + page.length < available.length ? cursor + page.length : null;
+  return {
+    ok: true, pack: pack || null, total: available.length, cursor, count: page.length, nextCursor,
+    groups, availablePacks: Object.keys(TOOL_PACK_DESCRIPTIONS),
+    next: nextCursor === null ? 'Use tool_search with a capability or exact name for descriptions and risk tiers.' : `Call list_tools again with cursor ${nextCursor}.`,
+  };
+}
+
 function createToolLoadingState(config, message, attachments, tools, bridgedRoute) {
   const catalog = buildToolCatalog(tools, bridgedRoute, config);
   const full = config && config.toolLoadingMode === 'full';
   const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
   const activeNames = new Set();
-  const metaNames = new Set(['tool_search', 'tool_load']);
+  const metaNames = new Set(['list_tools', 'tool_search', 'tool_load']);
   const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || activePacks.has(x.pack)).map(x => x.tool);
   const search = (query, limit) => {
     const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
@@ -635,7 +660,8 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
     const after = current().map(t => t.function.name);
     return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length };
   };
-  return { catalog, activePacks, current, search, load, fullCount: catalog.length };
+  const list = args => listCompactTools(catalog, args);
+  return { catalog, activePacks, current, list, search, load, fullCount: catalog.length };
 }
 
 function estimateToolSchemaTokens(tools) {

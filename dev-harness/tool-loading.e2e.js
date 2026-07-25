@@ -89,6 +89,7 @@ function mcpSession(extraEnv) {
 
   try {
     const sequence = [
+      { name: 'list_tools', args: {} },
       { name: 'tool_search', args: { query: 'read workspace file' } },
       { name: 'tool_load', args: { packs: ['files_read'] } },
       { name: 'file_read', args: { path: TOOL_FILE } },
@@ -101,20 +102,24 @@ function mcpSession(extraEnv) {
     const events = await postStream(wbPort, { message: 'Hello. Please answer briefly.' });
     const requests = fs.readdirSync(CAPTURE).filter(f => f.endsWith('.json')).sort().map(f => JSON.parse(fs.readFileSync(path.join(CAPTURE, f), 'utf8')));
     const names = body => new Set((body.tools || []).map(t => t.function && t.function.name));
-    ok(requests.length >= 4, 'four provider calls captured (search -> load -> concrete tool -> answer)');
-    ok(names(requests[0]).has('tool_search') && names(requests[0]).has('tool_load'), 'simple request exposes compact discovery controls');
-    ok(!names(requests[0]).has('file_read') && !names(requests[1]).has('file_read'), 'unrelated file schema absent before tool_load');
-    ok(names(requests[2]).has('file_read') && names(requests[3]).has('file_read'), 'loaded file schema appears next iteration and remains stable');
+    ok(requests.length >= 5, 'five provider calls captured (list -> search -> load -> concrete tool -> answer)');
+    ok(names(requests[0]).has('list_tools') && names(requests[0]).has('tool_search') && names(requests[0]).has('tool_load'), 'simple request exposes compact discovery controls');
+    ok(!names(requests[0]).has('file_read') && !names(requests[1]).has('file_read') && !names(requests[2]).has('file_read'), 'unrelated file schema absent before tool_load');
+    ok(names(requests[3]).has('file_read') && names(requests[4]).has('file_read'), 'loaded file schema appears next iteration and remains stable');
     const meta = events.find(e => e.type === 'meta');
     ok(meta && meta.toolLoadingMode === 'auto' && meta.tools < meta.availableTools, 'meta reports reduced initial tool surface');
     ok(events.some(e => e.type === 'tool_catalog' && e.state === 'loaded'), 'tool_catalog loaded telemetry emitted');
+    ok(events.some(e => e.type === 'tool_result' && e.content && e.content.groups && Array.isArray(e.content.groups.core) && e.content.groups.core.includes('list_tools')), 'Provider compact directory lists names without loading schemas');
     ok(events.some(e => e.type === 'tool_result' && JSON.stringify(e.content).includes('ADAPTIVE_TOOL_LOADING_OK')), 'concrete tool executes after loading');
 
     const compact = mcpSession({ WCW_TOOL_LOADING_MODE: 'auto', WCW_TOOL_PACKS: 'core', WCW_SESSION_ID: 'test' }); children.push(compact.child);
     await compact.call('initialize', { protocolVersion: '2024-11-05' });
     const list1 = await compact.call('tools/list');
     const listed1 = new Set((list1.result.tools || []).map(t => t.name));
-    ok(listed1.has('tool_search') && listed1.has('tool_invoke_read') && !listed1.has('file_read'), 'Claude core route stays compact but keeps discovery proxies');
+    ok(listed1.has('list_tools') && listed1.has('tool_search') && listed1.has('tool_invoke_read') && !listed1.has('file_read'), 'Claude core route stays compact but keeps discovery proxies');
+    const directory = await compact.call('tools/call', { name: 'list_tools', arguments: {} });
+    const directoryText = JSON.parse(directory.result.content[0].text);
+    ok(directoryText.groups.files_write.includes('file_write') && !JSON.stringify(directoryText).includes('"description"'), 'Claude compact directory enumerates hidden names without schemas or descriptions');
     const search = await compact.call('tools/call', { name: 'tool_search', arguments: { query: 'file_write' } });
     const searchText = JSON.parse(search.result.content[0].text);
     ok(searchText.matches.some(m => m.name === 'file_write' && m.tier === 'edit'), 'Claude discovery returns hidden tool and exact risk tier');

@@ -61,6 +61,7 @@ for (const seg of segs) {
 //        null → 不触文件路径,guardNote 必须录理由(设计豁免/权限门/纯网络/loopback)。
 const GROUPS = {
   CORE: {
+    list_tools: [null, '紧凑工具目录控制面,不触文件路径'],
     tool_search: [null, '目录检索控制面,不触文件路径'],
     tool_load: [null, '元工具提示,不触文件路径'],
     tool_invoke_read: [null, '代理分发:桥接工具经 bridgedWriteRelativePathArg/journalBridgedWrite;原生目标递归回本注册表走各自 guard'],

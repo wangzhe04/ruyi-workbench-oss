@@ -8024,7 +8024,7 @@ function appendMemorySection(base, memSec, limit) {
 // 设计:文本逐字搬(与原内联一致,prompt-snapshot 断言中文标记不变->护栏绿)。带参数的层用模板函数
 // (params 白名单),无参数的用纯字符串。条件分支(hasTools/identityOnly/deskPresent/visionCap 等)留 JS 层。
 
-const PROMPT_PACK_VERSION = '2026-w51-1';
+const PROMPT_PACK_VERSION = '2026-w51-2';
 
 // 中文提示词包(Phase1 基线,与原内联文本逐字一致)
 const PROMPT_ZH = {
@@ -8036,7 +8036,7 @@ const PROMPT_ZH = {
   toolProtocol: {
     intro: '你有读/列/搜文件、编辑与写文件、运行 PowerShell 与脚本、查看 git 等工具。用它们实际检查与修改工作区，不要凭空猜测。使用绝对 Windows 路径（默认落在工作目录）。',
     rules: '工具协议守则：先读后改（编辑前先读该文件）；最小、精准的改动；工具返回 found:false / 未命中属正常语义，不是错误；重要或多步操作先用 todo_write 列出计划再执行；完成后给一段简洁的变更摘要。',
-    onDemand: '工具按需装载：当前只提供任务预判所需的工具。缺少能力时先调用 tool_search，随后用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。',
+    onDemand: '工具按需装载：当前只提供任务预判所需的工具。不知道有哪些能力时先调用 list_tools；知道目标时直接调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。',
     priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
   },
   // [无工具兜底] - !hasTools && !identityOnly
@@ -8105,7 +8105,7 @@ const PROMPT_EN = {
   toolProtocol: {
     intro: 'You have tools to read/list/search files, edit and write files, run PowerShell and scripts, inspect git, and more. Use them to actually check and modify the workspace; do not guess. Use absolute Windows paths (they default to the working directory).',
     rules: 'Tool protocol: read before edit (read the file before editing it); make minimal, precise changes; a tool returning found:false / no-match is normal semantics, not an error; for important or multi-step operations, list a plan with todo_write first, then execute; after finishing, give a brief change summary.',
-    onDemand: 'On-demand tool loading: only the tools the current task likely needs are provided. When a capability is missing, first call tool_search, then tool_load with the returned pack or exact tool name; after a successful load, call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.',
+    onDemand: 'On-demand tool loading: only the tools the current task likely needs are provided. If you do not know what capabilities exist, call list_tools first; when you know the target, call tool_search, then tool_load with the returned pack or exact tool name. After a successful load, call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.',
     priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
   },
 
@@ -8543,6 +8543,11 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
 function adaptiveMetaToolSchemas(includeInvoke = false) {
   const tools = [
     {
+      name: 'list_tools',
+      description: 'List the compact Ruyi tool directory when you are unsure what capability or tool name to search for. Returns names grouped by pack, without descriptions or schemas; use tool_search next for details and risk tier.',
+      inputSchema: { type: 'object', properties: { pack: { type: 'string', description: 'Optional exact pack id to list.' }, cursor: { type: 'number', description: 'Optional zero-based cursor from a previous response.' }, limit: { type: 'number', description: 'Maximum names, 1..200. Defaults to 200 (normally the complete catalog).' } } },
+    },
+    {
       name: 'tool_search',
       description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, and short descriptions without injecting every schema.',
       inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' } }, required: ['query'] },
@@ -8581,7 +8586,7 @@ function buildOpenAiTools(config, caps, opts) {
   // tools under 「当前不可用」 so the model is told why they're absent.
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   for (const t of MCP_TOOLS) {
-    if (t.name === 'tool_search' || t.name === 'tool_load' || t.name.startsWith('tool_invoke_')) continue;
+    if (t.name === 'list_tools' || t.name === 'tool_search' || t.name === 'tool_load' || t.name.startsWith('tool_invoke_')) continue;
     if (t.name === 'permission_prompt') continue;
     if (t.name === 'request_user_input' && noSpawnAgent) continue;
     if ((t.name === 'spawn_agent' || t.name === 'orchestrate_agents') && !spawnAgentEnabled) continue;
@@ -8644,7 +8649,7 @@ function buildOpenAiTools(config, caps, opts) {
 // Risk tier per tool → drives permission gating in the native loop (read = auto-allow).
 const NATIVE_TOOL_TIER = {
   permission_prompt: 'exec', // CLI 权限桥(由 --permission-prompt-tool 触达);原靠 unknown→exec 兜底,第41波显式化
-  tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
+  list_tools: 'read', tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
   file_read: 'read', file_list: 'read', file_search: 'read', glob: 'read', project_snapshot: 'read', git_status: 'read',
@@ -8715,7 +8720,7 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
 });
 const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
-  tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
+  list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
   dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code',
@@ -8775,12 +8780,32 @@ function buildToolCatalog(tools, bridgedRoute, config) {
   }).filter(x => x.name);
 }
 
+function listCompactTools(catalog, args) {
+  const pack = String(args && args.pack || '').trim();
+  const cursor = Math.max(0, Math.floor(Number(args && args.cursor) || 0));
+  const limit = Math.min(200, Math.max(1, Math.floor(Number(args && args.limit) || 200)));
+  const available = (catalog || []).filter(x => !pack || x.pack === pack)
+    .slice().sort((a, b) => a.pack.localeCompare(b.pack) || a.name.localeCompare(b.name));
+  const page = available.slice(cursor, cursor + limit);
+  const groups = {};
+  for (const item of page) {
+    if (!groups[item.pack]) groups[item.pack] = [];
+    groups[item.pack].push(item.name);
+  }
+  const nextCursor = cursor + page.length < available.length ? cursor + page.length : null;
+  return {
+    ok: true, pack: pack || null, total: available.length, cursor, count: page.length, nextCursor,
+    groups, availablePacks: Object.keys(TOOL_PACK_DESCRIPTIONS),
+    next: nextCursor === null ? 'Use tool_search with a capability or exact name for descriptions and risk tiers.' : `Call list_tools again with cursor ${nextCursor}.`,
+  };
+}
+
 function createToolLoadingState(config, message, attachments, tools, bridgedRoute) {
   const catalog = buildToolCatalog(tools, bridgedRoute, config);
   const full = config && config.toolLoadingMode === 'full';
   const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
   const activeNames = new Set();
-  const metaNames = new Set(['tool_search', 'tool_load']);
+  const metaNames = new Set(['list_tools', 'tool_search', 'tool_load']);
   const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || activePacks.has(x.pack)).map(x => x.tool);
   const search = (query, limit) => {
     const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
@@ -8799,7 +8824,8 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
     const after = current().map(t => t.function.name);
     return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length };
   };
-  return { catalog, activePacks, current, search, load, fullCount: catalog.length };
+  const list = args => listCompactTools(catalog, args);
+  return { catalog, activePacks, current, list, search, load, fullCount: catalog.length };
 }
 
 function estimateToolSchemaTokens(tools) {
@@ -13250,10 +13276,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args });
           // Adaptive discovery tools are turn-local control-plane operations. They never cross the
           // filesystem/permission dispatcher; tool_load only changes the schemas attached to NEXT call.
-          if (tc.name === 'tool_search' || tc.name === 'tool_load') {
-            const resultObj = tc.name === 'tool_search'
-              ? toolLoading.search(args.query, args.limit)
-              : toolLoading.load(args);
+          if (tc.name === 'list_tools' || tc.name === 'tool_search' || tc.name === 'tool_load') {
+            const resultObj = tc.name === 'list_tools'
+              ? toolLoading.list(args)
+              : (tc.name === 'tool_search' ? toolLoading.search(args.query, args.limit) : toolLoading.load(args));
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: false });
             if (tc.name === 'tool_load') onEvent({ type: 'tool_catalog', state: 'loaded', ...resultObj, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
@@ -16319,7 +16345,7 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   const { bridged, catalog } = await adaptiveCatalogForMcp(config);
   const item = catalog.find(x => x.name === targetName);
   if (!item) return { ok: false, error: `tool not found: ${targetName}. Call tool_search first.` };
-  if (item.name === 'permission_prompt' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
+  if (item.name === 'permission_prompt' || item.name === 'list_tools' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   if (item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   const bridge = resolveBridge(bridged.route, targetName);
   if (!bridge) return toolCall(targetName, targetArgs || {});
@@ -16348,6 +16374,11 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
 // 调用;paths:null 必须有非空 guardNote;注册表键集 === NATIVE_TOOL_PACKS 键集(目录漂移=锁红)。
 // 新工具忘了声明 = 锁红 —— archive 漏 guard(第27波)、desktop_screenshot 越界写(第36波)这类漏审整类收口。
 const CORE_TOOL_HANDLERS = {
+  list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
+      const config = await readConfig();
+      const { catalog } = await adaptiveCatalogForMcp(config);
+      return listCompactTools(catalog, args);
+  } },
   tool_search: { paths: null, guardNote: "目录检索控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config);
@@ -19558,7 +19589,7 @@ async function startMcp() {
           const mode = process.env.WCW_TOOL_LOADING_MODE || 'full';
           const routedPacks = new Set(String(process.env.WCW_TOOL_PACKS || '').split(',').filter(Boolean));
           routedPacks.add('core');
-          const adaptiveAlways = new Set(['permission_prompt', 'tool_search', 'tool_load', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
+          const adaptiveAlways = new Set(['permission_prompt', 'list_tools', 'tool_search', 'tool_load', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
           const listed = MCP_TOOLS.filter(t => {
             if (t.name === 'spawn_agent') return false;
             if (t.name === 'request_user_input' && !userInputEnabled) return false;

@@ -3,7 +3,7 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   const { bridged, catalog } = await adaptiveCatalogForMcp(config);
   const item = catalog.find(x => x.name === targetName);
   if (!item) return { ok: false, error: `tool not found: ${targetName}. Call tool_search first.` };
-  if (item.name === 'permission_prompt' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
+  if (item.name === 'permission_prompt' || item.name === 'list_tools' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   if (item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   const bridge = resolveBridge(bridged.route, targetName);
   if (!bridge) return toolCall(targetName, targetArgs || {});
@@ -32,6 +32,11 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
 // 调用;paths:null 必须有非空 guardNote;注册表键集 === NATIVE_TOOL_PACKS 键集(目录漂移=锁红)。
 // 新工具忘了声明 = 锁红 —— archive 漏 guard(第27波)、desktop_screenshot 越界写(第36波)这类漏审整类收口。
 const CORE_TOOL_HANDLERS = {
+  list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
+      const config = await readConfig();
+      const { catalog } = await adaptiveCatalogForMcp(config);
+      return listCompactTools(catalog, args);
+  } },
   tool_search: { paths: null, guardNote: "目录检索控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config);
