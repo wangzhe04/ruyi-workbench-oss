@@ -160,7 +160,12 @@ async function handleSteerApiRoute(req, res, pathname) {
     if (!reg) return send(res, json({ ok: false, error: '当前没有进行中的回合' }));
     if (reg.kind === 'claude') {
       // 47a Phase A:Claude interactive 引擎 —— stdin 即时注入,无迭代边界队列。
-      if (!reg.interactive) return send(res, json({ ok: false, error: 'Claude 引擎当前为 print 模式,不支持插话;设置 → Claude CLI → 引擎模式改为 interactive 后可用' }));
+      if (!reg.interactive) return send(res, apiFailure(
+        'steer.claude_requires_interactive',
+        {},
+        '当前 Claude 回合使用 legacy/print 模式,无法插话;请在设置 → Claude CLI 中切换为 interactive,下一回合生效',
+        409
+      ));
       if (hasPendingQuestionForSession(sessionId)) return send(res, json({ ok: false, error: '请先回答当前提问,再插话(避免插话被误收为答案)' }));
       reg.claudeSteerCount = Number(reg.claudeSteerCount) || 0;
       if (reg.claudeSteerCount >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '本回合插话已达上限(3 条)' }));

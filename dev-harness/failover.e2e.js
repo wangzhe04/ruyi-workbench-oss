@@ -136,7 +136,7 @@ async function waitWB() { let h = null; for (let i = 0; i < 40 && !h; i++) { awa
     // not 'none' — so a corrupt type still leaves search working out of the box. (Was: → 'none'.)
     ok(c3.searchBackend.type === 'builtin', '(A) illegal search type cleansed → builtin (zero-config default)');
     const appVersion = require(path.join(WB, 'package.json')).version;
-    ok(c3.configSchema === 8 && c3.version === appVersion, `(A) configSchema 8 / version stamped to app VERSION (${appVersion})`);
+    ok(c3.configSchema === 9 && c3.version === appVersion, `(A) configSchema 9 / version stamped to app VERSION (${appVersion})`);
   }
   // (B) extraBaseUrls cleansing via normalizeConfig (sanitizeProvider is not exported; normalizeConfig calls it).
   {

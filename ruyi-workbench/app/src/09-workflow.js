@@ -37,9 +37,17 @@ function recordNodeContinuation(node, evt) {
   c.updatedAt = nowIso();
 }
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel }) {
   let run, nodes, runId;
   const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
+  let defaultRoute = {
+    engine: parentEngine === 'claude' ? 'claude' : (provider ? 'openai' : 'claude'),
+    provider: provider || null,
+    model: String(parentModel || (provider && provider.model) || '').trim(),
+    preferenceUsed: false,
+    fallbackReason: '',
+  };
+  let routeConfig = config;
   if (existingRun) {
     run = existingRun; nodes = Array.isArray(run.nodes) ? run.nodes : []; runId = run.id;
     // 第46波46e(双冷 resume 窄窗修复):守卫必须先于本分支【一切】mutation 与 run_resumed append,且
@@ -126,6 +134,13 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     // 第23波: 现在 in-turn orchestrate 与 persisted DAG launch 两条路径的 limit 都 = agentWorkflowMaxNodes(节点数上限),
     // 口径统一(此前 in-turn 误用 subagentMaxPerTurn 那个 ad-hoc 扇出预算,导致内置模板被卡)。limit=0 仍视为禁编排。
     if (!limit || rawNodes.length > limit) return { ok: false, error: `节点数超出上限(${limit}),需要 ${rawNodes.length}`, startedCount: 0 };
+    defaultRoute = await resolveAgentTeamRoute(config, provider, parentEngine || (provider ? 'openai' : 'claude'), parentModel || (provider && provider.model) || '');
+    // Once a preferred route fails its preflight, clear the two preference fields for this launch so later
+    // node normalization/execution cannot accidentally resurrect the invalid endpoint or model.
+    if (!defaultRoute.preferenceUsed) routeConfig = { ...config, subagentPreferredProvider: '', subagentPreferredModel: '' };
+    if (defaultRoute.fallbackReason && typeof onEvent === 'function') {
+      onEvent({ type: 'stderr', text: `[Agent team] ${defaultRoute.fallbackReason}` });
+    }
     const ids = new Set(); nodes = [];
     for (const raw of rawNodes.slice(0, 64)) {
       const id = String(raw && raw.id || '').trim().slice(0, 64);
@@ -150,11 +165,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // every existing workflow/test), else 'claude' so a Claude-CLI-only setup no longer needs a Provider
       // just to run the DAG. role.models.claude/openai are each read for their OWN engine — previously
       // this only ever read role.models.openai, so a Claude-side per-role model was silently ignored.
-      const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : (provider ? 'openai' : 'claude');
+      const engine = raw.engine === 'claude' || raw.engine === 'openai' ? raw.engine : defaultRoute.engine;
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
       // 52x: openai 节点用子 agent 优先端点(跨 provider)挑模型,与运行时 subProvider 一致,防 tier 用主 provider 池挑模型送 subProvider 跑 404
-      const matProvider = (engine === 'openai' && config.subagentPreferredProvider && (config.providers || []).find(p => p.id === config.subagentPreferredProvider)) || provider;
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, config, matProvider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      const matProvider = engine === 'openai' ? (defaultRoute.provider || provider) : provider;
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -171,7 +186,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     const rp0 = String(poolPolicyParam || config.agentTaskPoolPolicy || '').trim();
     const resolvedPoolPolicy = ['manual', 'auto-capped', 'off'].includes(rp0) ? rp0 : 'manual';
     const resolvedAutoCap = Number.isFinite(Number(config.agentTaskPoolAutoCap)) ? Math.min(16, Math.max(0, Math.round(Number(config.agentTaskPoolAutoCap)))) : 3;
-    run = { schemaVersion: 4, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: provider && provider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), taskPool: [], messages: [], poolPolicy: resolvedPoolPolicy, poolAutoCap: resolvedAutoCap,
+    const runProvider = defaultRoute.engine === 'openai' ? defaultRoute.provider : provider;
+    run = { schemaVersion: 4, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: runProvider && runProvider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), taskPool: [], messages: [], poolPolicy: resolvedPoolPolicy, poolAutoCap: resolvedAutoCap,
       // 29b/29c: 首跑权限面存档(boot 自动恢复分级用 —— 恢复时 config.permissionMode 若比首跑更宽,自动续跑
       // 等于权限静默升级,必须降人工)+ 运营指标(interventions 干预计数 / failuresByClass 收尾聚合)。
       permissionModeAtLaunch: String(permModeOverride || config.permissionMode || ''), metrics: { interventions: {} }, nodes };
@@ -528,8 +544,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命
           }
           const nodeEvent = evt => { runtime.lastActivityAt = Date.now(); try { onEvent(evt); } finally { if (evt && evt.type === 'subagent_usage') accumulateRunUsage(run, evt); recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); } };
-          // 52x: openai 节点用子 agent 优先端点(跨 provider);claude 节点固定 Claude 引擎不跨
-          const subProvider = ((node.engine || 'openai') === 'openai' && config.subagentPreferredProvider && (config.providers || []).find(p => p.id === config.subagentPreferredProvider)) || provider;
+          // Fresh runs persist the preflight-approved route in run.providerId. Reuse that exact endpoint for
+          // every default OpenAI node; never re-read a now-known-bad preference from config mid-run.
+          const subProvider = (node.engine || 'openai') === 'openai'
+            ? (resolveProvider(config, run.providerId) || provider)
+            : provider;
           const sub = await runSubAgent({
             parentSession: agentSession, provider: subProvider, config, engine: node.engine || 'openai',
             task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
@@ -1463,6 +1482,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               else {
                 resultObj = await runAgentWorkflow({
                   parentSession: session, provider, config, nodes: resolved.nodes, onEvent: onNestedEvent, ctrl,
+                  parentEngine: 'openai', parentModel: model,
                   // 第23波(修 bug): 回合内 orchestrate 的【节点数上限】用 agentWorkflowMaxNodes(DAG 节点上限),不再用
                   // subagentTurnCap(=subagentMaxPerTurn,那是 ad-hoc spawn_agent 的【每回合扇出预算】,概念不同)。此前二者
                   // 被混用 → 一个 5 节点的内置模板在 subagentMaxPerTurn=4 的配置下被「节点数超出上限(4)」直接拒掉,而 UI/

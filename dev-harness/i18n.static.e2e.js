@@ -72,6 +72,8 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   const net = await import(`data:text/javascript;base64,${Buffer.from(fs.readFileSync(netPath, 'utf8')).toString('base64')}`);
   const structured = net.apiErrorInfo(new Error(JSON.stringify({ error: { code: 'file.path_required', params: { field: 'path' }, message: 'path is required' } })));
   assert.deepStrictEqual(structured, { code: 'file.path_required', params: { field: 'path' }, message: 'path is required' });
+  const directStructured = net.apiErrorInfo({ code: 'steer.claude_requires_interactive', params: {}, message: 'switch to interactive' });
+  assert.deepStrictEqual(directStructured, { code: 'steer.claude_requires_interactive', params: {}, message: 'switch to interactive' });
   assert.strictEqual(net.apiErrText(new Error(JSON.stringify({ error: { code: 'x', message: 'fallback message' } }))), 'fallback message');
   console.log('PASS error contract: structured and legacy API errors normalize safely');
 

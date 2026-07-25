@@ -1316,6 +1316,47 @@ function buildOrchestrateHint(workflows) {
   return '\n\n可用工作流模板（orchestrate_agents 的 workflowId）：' + list +
     '。\n主动编排指引：当用户的请求属于【复杂、多步、值得拆解并行或多视角核验】的任务时，优先用 orchestrate_agents（传 workflowId + context，context 填这次的具体主题/任务），复用上面的模板，而不是一个人从头硬做或临时手写 nodes——典型触发：调研/研究某主题→deep-research；审计或体检代码库→codebase-audit；定位难缠的 bug→debug-root-cause；技术选型/架构/多方案权衡→design-and-decide；从零写文档/报告/方案书→doc-from-scratch；实现改动且要质量把关→implement-review-fix-test；有争议议题要裁决→debate-and-judge。反之，简单、一步能答或纯闲聊的请求【不要】套模板（并行子代理有额外开销与延迟）。已有模板形状不完全吻合时，可用 workflowId 起手再增删节点，或直接手写 nodes。';
 }
+
+// Agent-team default routing is resolved by the runtime, not guessed by the parent model. A configured
+// sub-agent endpoint/model is useful only while BOTH are callable together. Probe a non-current route through
+// its OpenAI-compatible /models endpoint before launching the DAG; if the endpoint disappeared, the probe
+// fails, or the preferred model is absent, fall back to the model that is already serving the parent turn.
+// The current route is treated as live without another network round-trip because the parent is using it now.
+async function resolveAgentTeamRoute(config, currentProvider, currentEngine = 'openai', currentModel = '') {
+  const engine = currentEngine === 'claude' ? 'claude' : 'openai';
+  const current = {
+    engine,
+    provider: engine === 'openai' ? (currentProvider || null) : null,
+    model: String(currentModel || (engine === 'openai' && currentProvider && (currentProvider.model || (currentProvider.models && currentProvider.models[0] && (currentProvider.models[0].id || currentProvider.models[0]))) || '')).trim(),
+    preferenceUsed: false,
+    fallbackReason: '',
+  };
+  const preferredProviderId = String(config && config.subagentPreferredProvider || '').trim();
+  const preferredModel = String(config && config.subagentPreferredModel || '').trim();
+  if (!preferredProviderId && !preferredModel) return current;
+
+  const candidate = preferredProviderId ? resolveProvider(config, preferredProviderId) : current.provider;
+  if (!candidate || !providerBaseWithV1(candidate.baseUrl)) {
+    return { ...current, fallbackReason: '配置的子代理优先端点不存在或缺少可调用 URL，已回退当前对话端点与模型' };
+  }
+  const candidateModel = String(preferredModel || candidate.model || (candidate.models && candidate.models[0] && (candidate.models[0].id || candidate.models[0])) || '').trim();
+  if (!candidateModel) {
+    return { ...current, fallbackReason: '配置的子代理优先端点没有可用模型，已回退当前对话端点与模型' };
+  }
+
+  const currentProviderId = String(current.provider && current.provider.id || '');
+  if (engine === 'openai' && String(candidate.id || '') === currentProviderId && candidateModel === current.model) {
+    return { engine: 'openai', provider: candidate, model: candidateModel, preferenceUsed: true, fallbackReason: '' };
+  }
+
+  const probe = await fetchOpenAiModels(candidate, 1800);
+  const availableIds = new Set((probe && Array.isArray(probe.models) ? probe.models : []).map(item => String(item && (item.id || item.model) || item || '').trim()).filter(Boolean));
+  if (!probe || !probe.ok || !availableIds.has(candidateModel)) {
+    const why = !probe || !probe.ok ? '端点探测失败' : `端点未提供模型 ${candidateModel}`;
+    return { ...current, fallbackReason: `配置的子代理优先路由不可用（${why}），已回退当前对话端点与模型` };
+  }
+  return { engine: 'openai', provider: candidate, model: candidateModel, preferenceUsed: true, fallbackReason: '' };
+}
 // v1.4.4: shared by every orchestrate_agents dispatch site (in-turn OpenAI call, MCP-child loopback via
 // /api/agent-workflow/launch, and that same HTTP handler for a direct UI launch) so a saved/builtin
 // workflow can be referenced BY ID instead of the caller always re-authoring a full inline `nodes` DAG —

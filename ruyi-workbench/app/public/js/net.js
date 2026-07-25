@@ -48,6 +48,16 @@ export async function api(path, options = {}) {
 // { ok:false, error:{ code, params, message? } }. Older routes still send error as a string.
 // Normalize both shapes so callers can localize stable codes while retaining an actionable fallback.
 export function apiErrorInfo(e) {
+  // Business-level failures often arrive as an already-parsed JSON response ({ok:false,error:{...}})
+  // instead of an Error thrown for a non-2xx response. Accept that direct structured shape too; otherwise
+  // callers interpolating apiErrText(result.error) would see "[object Object]".
+  if (e && typeof e === 'object' && !(e instanceof Error)) {
+    const detail = e.error && typeof e.error === 'object' && e.error !== null ? e.error : e;
+    if (detail.code || detail.message || detail.params) {
+      const params = detail.params && typeof detail.params === 'object' && !Array.isArray(detail.params) ? detail.params : {};
+      return { code: String(detail.code || ''), params, message: String(detail.message || detail.code || '') };
+    }
+  }
   const raw = (e && e.message) || String(e || '');
   try {
     const j = JSON.parse(raw);

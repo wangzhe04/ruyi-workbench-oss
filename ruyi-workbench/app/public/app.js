@@ -36,6 +36,7 @@ const API_ERROR_I18N = {
   'agent_run.id_required': 'error.api.agentRunRequired',
   'question.not_pending': 'error.api.questionNotPending',
   'question.delivery_failed': 'error.api.questionDeliveryFailed',
+  'steer.claude_requires_interactive': 'error.api.steerClaudeRequiresInteractive',
 };
 function apiErrText(error) {
   const info = apiErrorInfo(error);
@@ -2164,12 +2165,30 @@ function updateSendBtn() {
   const btn = $('sendBtn');
   if (!btn) return;
   const streaming = Boolean(state.streaming);
-  const steer = streaming && !!(($('promptInput')?.value || '').trim());
-  btn.classList.toggle('danger', streaming && !steer);
+  const hasText = !!(($('promptInput')?.value || '').trim());
+  const steerCapability = activeTurnSteerCapability();
+  const steer = streaming && hasText && steerCapability.ok;
+  const blockedSteer = streaming && hasText && !steerCapability.ok;
+  btn.classList.toggle('danger', streaming && !steer && !blockedSteer);
   btn.classList.toggle('primary', !streaming || steer);
   if (!streaming) { iconTextBtn(btn, 'send', t('chat.send')); btn.onclick = () => sendPrompt(); btn.title = ''; }
   else if (steer) { iconTextBtn(btn, 'send', t('chat.steer')); btn.onclick = () => sendPrompt(); btn.title = t('chat.steerHint'); }
+  else if (blockedSteer) { iconTextBtn(btn, 'settings', t('chat.steerEnable')); btn.onclick = showClaudeSteerSetup; btn.title = t('chat.steerEnableHint'); }
   else { iconTextBtn(btn, 'stop', t('common.stop')); btn.onclick = stopTurn; btn.title = ''; }
+}
+function activeTurnSteerCapability() {
+  const sid = state.currentSession?.id || '';
+  const turn = sid ? activeTurns.get(sid) : null;
+  if (turn && turn.engine === 'claude' && !turn.claudeInteractive) {
+    return { ok: false, reason: 'claude_requires_interactive' };
+  }
+  return { ok: true, reason: '' };
+}
+function showClaudeSteerSetup() {
+  toast(t('toast.steerRequiresInteractive'), 'err');
+  openModal('settingsModal');
+  switchSettingsTab('claude', true);
+  setTimeout(() => { const mode = $('cfgEngineMode'); if (mode) { mode.focus(); mode.scrollIntoView({ block: 'center' }); } }, 0);
 }
 function setStreaming(on) {
   state.streaming = on;
@@ -2278,7 +2297,9 @@ async function sendPrompt(overrideText) {
   let live = shell.live, main = shell.main;
 
   const turnAbort = new AbortController();
-  const turnState = { abort: turnAbort, startedAt: Date.now(), message, eventLines: [], eventChars: 0, answeredQuestions: new Set(), live, main };
+  const turnEngine = isProviderMode() ? 'openai' : 'claude';
+  const turnState = { abort: turnAbort, startedAt: Date.now(), message, eventLines: [], eventChars: 0, answeredQuestions: new Set(), live, main,
+    engine: turnEngine, claudeInteractive: turnEngine !== 'claude' || state.config.engineMode === 'interactive' };
   activeTurns.set(turnSessionId, turnState);
   syncStreamingUi();
   renderSessions();
@@ -2420,7 +2441,7 @@ window.cancelSteer = async function(encodedText, clearAll = false) {
         const idx = steerPendingList.findIndex(p => p.text === text && !p.injected); // v1.9.1: 不匹配 Claude injected 项(不可撤回)
         if (idx >= 0) steerPendingList.splice(idx, 1);
       } else {
-        toast(t('toast.steerFail', { p1: (r && r.error) || t('common.unknownError') }), 'err');
+        toast(t('toast.steerFail', { p1: r?.error ? apiErrText(r.error) : t('common.unknownError') }), 'err');
       }
     } catch (e) { toast(t('toast.steerFail', { p1: apiErrText(e) }), 'err'); }
   }
@@ -2431,9 +2452,10 @@ async function steerPrompt(overrideText) {
   const text = (overrideText != null ? overrideText : $('promptInput').value).trim();
   if (!text) return;
   if (!state.currentSession?.id) return;
+  if (!activeTurnSteerCapability().ok) { showClaudeSteerSetup(); return; }
   try {
     const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId: state.currentSession.id, text }) });
-    if (!r || !r.ok) { toast(t("toast.steerFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+    if (!r || !r.ok) { toast(t("toast.steerFail", { p1: r?.error ? apiErrText(r.error) : t('common.unknownError') }), 'err'); return; }
     if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」
     steeredSeen.push({ text, ts: Date.now() });
     if (steeredSeen.length > 50) steeredSeen.splice(0, steeredSeen.length - 50); // 50-fix:cap 防无限积
@@ -3477,7 +3499,7 @@ async function steerAgentNode(runId, nodeId, nodeStatus, presetText, engine) {
   if (!text) return;
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action: 'steer_node', nodeId, text }) });
-    if (!r || !r.ok) throw new Error((r && r.error) || t('workflow.injectFailed'));
+    if (!r || !r.ok) throw new Error(r?.error ? apiErrText(r.error) : t('workflow.injectFailed'));
     // running 节点在下一次迭代边界（下一次模型调用前）就会消费队列；queued/waiting_resource 节点要等它真正
     // 开跑才会消费——如果节点在那之前被跳过/阻塞/工作流停止，排队的插话会被直接丢弃，成功提示要如实区分这两种情况。
     const msg = r.deferred ? t('workflow.injectDelayed')

@@ -91,6 +91,12 @@ function capturedUser() {
   const serverModule = require(path.join(WB, 'app', 'server.js'));
   const capped = serverModule.appendResponseLanguagePolicy('x'.repeat(16000), { locale: 'en-US' }, 8000);
   ok(capped.length <= 8000 && capped.includes('<response-language-policy>'), 'language-policy compatibility wrapper keeps sub-agent prompts within the 8K cap');
+  const teamPolicy = serverModule.buildAgentTeamHint();
+  ok(teamPolicy.includes('MUST call orchestrate_agents at least once') &&
+    teamPolicy.includes('Calling spawn_agent does not satisfy this requirement') &&
+    teamPolicy.includes('configured sub-agent preferred endpoint/model') &&
+    teamPolicy.includes('falls back to the endpoint/model serving the current conversation'),
+  'Agent team policy requires Orchestrate Agent and declares the validated preference -> current conversation routing order');
 
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
@@ -114,6 +120,25 @@ function capturedUser() {
   try {
     ok(await waitListening(FAKE_PORT), 'fake OpenAI provider starts');
     ok(await waitHealth(WB_PORT), 'workbench starts');
+    const currentProvider = { id: 'current', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, model: 'fake-model', models: [{ id: 'fake-model' }] };
+    const preferredProvider = { id: 'preferred', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, model: 'fake-model', models: [{ id: 'fake-model' }] };
+    const usableRoute = await serverModule.resolveAgentTeamRoute({
+      subagentPreferredProvider: 'preferred', subagentPreferredModel: 'fake-model', providers: [currentProvider, preferredProvider],
+    }, currentProvider, 'openai', 'fake-model');
+    ok(usableRoute.preferenceUsed && usableRoute.provider && usableRoute.provider.id === 'preferred' && usableRoute.model === 'fake-model',
+      'available configured preferred endpoint/model wins after a live model probe');
+    const invalidModelRoute = await serverModule.resolveAgentTeamRoute({
+      subagentPreferredProvider: 'preferred', subagentPreferredModel: 'missing-model', providers: [currentProvider, preferredProvider],
+    }, currentProvider, 'openai', 'fake-model');
+    ok(!invalidModelRoute.preferenceUsed && invalidModelRoute.provider && invalidModelRoute.provider.id === 'current' &&
+      invalidModelRoute.model === 'fake-model' && /回退当前对话/.test(invalidModelRoute.fallbackReason),
+    'unavailable preferred model falls back to the current conversation endpoint/model');
+    const missingEndpointRoute = await serverModule.resolveAgentTeamRoute({
+      subagentPreferredProvider: 'removed-provider', subagentPreferredModel: 'fake-model', providers: [currentProvider],
+    }, null, 'claude', 'sonnet');
+    ok(!missingEndpointRoute.preferenceUsed && missingEndpointRoute.engine === 'claude' && missingEndpointRoute.provider === null &&
+      missingEndpointRoute.model === 'sonnet',
+    'missing preferred endpoint falls back to the current Claude conversation model');
     const token = await browserToken();
     const headers = { 'x-wcw-token': token };
     ok(!!token, 'browser token available');
@@ -122,6 +147,8 @@ function capturedUser() {
     clearCaptures();
     await stream({ sessionId: providerSession.id, message: 'research this topic', cwd: HOME, agentTeam: true }, headers);
     ok(!capturedSystem().includes('<agent-team-mode>') && capturedUser().includes('<agent-team-mode>'), 'OpenAI-compatible driver receives Agent team policy in the volatile user prefix');
+    ok(capturedUser().includes('MUST call orchestrate_agents at least once') && capturedUser().includes('Calling spawn_agent does not satisfy this requirement'),
+      'OpenAI-compatible Agent team turn receives the mandatory Orchestrate Agent contract');
     const providerMessages = capturedBodies().flatMap(body => body.messages || []);
     const providerUserMessages = providerMessages.filter(message => message.role === 'user').map(message => String(message.content || ''));
     ok(providerUserMessages.some(content => content.includes('research this topic')) &&
@@ -138,6 +165,7 @@ function capturedUser() {
     let argv = JSON.parse(fs.readFileSync(ARGV_CAPTURE, 'utf8'));
     let index = argv.indexOf('--append-system-prompt');
     ok(index >= 0 && String(argv[index + 1] || '').includes('<agent-team-mode>'), 'Claude CLI driver receives Agent team through --append-system-prompt');
+    ok(index >= 0 && String(argv[index + 1] || '').includes('MUST call orchestrate_agents at least once'), 'Claude CLI receives the mandatory Orchestrate Agent contract');
     ok(index >= 0 && String(argv[index + 1] || '').includes('<response-language-policy>'), 'Claude CLI keeps the response-language policy alongside Agent team mode');
 
     await stream({ sessionId: claudeSession.id, message: 'plain follow-up', cwd: HOME, agentTeam: false }, headers);

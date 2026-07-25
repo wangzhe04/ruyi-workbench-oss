@@ -99,7 +99,7 @@ function killTree(child) {
     const messages = Array.isArray(teamBody.messages) ? teamBody.messages : [];
     const systemText = messages.filter(message => message.role === 'system').map(message => String(message.content || '')).join('\n');
     const volatileUserText = messages.filter(message => message.role === 'user').map(message => String(message.content || '')).join('\n');
-    ok(!systemText.includes('<agent-team-mode>') && volatileUserText.includes('<agent-team-mode>') && volatileUserText.includes('MUST actually call orchestrate_agents or spawn_agent'), 'OpenAI request keeps Agent team policy in the volatile user prefix');
+    ok(!systemText.includes('<agent-team-mode>') && volatileUserText.includes('<agent-team-mode>') && volatileUserText.includes('MUST call orchestrate_agents at least once'), 'OpenAI request keeps Agent team policy in the volatile user prefix');
   } catch (error) {
     fail++;
     console.log('ERROR ' + (error && error.stack || error));

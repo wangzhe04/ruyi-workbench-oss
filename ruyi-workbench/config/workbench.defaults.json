@@ -4,6 +4,7 @@
   "permissionMode": "bypass",
   "includeWorkbenchMcp": true,
   "autoResumeClaudeSessions": true,
+  "engineMode": "interactive",
   "model": "",
   "claudeThinkingEffort": "",
   "maxTurns": "",

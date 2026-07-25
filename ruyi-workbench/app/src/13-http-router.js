@@ -699,7 +699,14 @@ async function handleApi(req, res, pathname) {
     const session = await loadSession(sessionId);
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     const config = await readConfig();
-    const provider = resolveProvider(config, body.providerId) || (config.providers || []).find(p => p && p.baseUrl && (p.model || (p.models && p.models.length)));
+    const reg = activeChildren.get(sessionId);
+    const parentEngine = reg && reg.kind === 'claude' ? 'claude' : 'openai';
+    const provider = resolveProvider(config, body.providerId)
+      || activeOpenAiProvider(config)
+      || (config.providers || []).find(p => p && p.baseUrl && (p.model || (p.models && p.models.length)));
+    const parentModel = parentEngine === 'claude'
+      ? String(config.model || '')
+      : String(provider && (provider.model || (provider.models && provider.models[0] && (provider.models[0].id || provider.models[0]))) || '');
     const claudeCli = config.claudePath || detectClaudePath();
     const claudeCliUsable = Boolean(process.env.WCW_FAKE_CLAUDE) || Boolean(claudeCli && existsExecutable(claudeCli)); // test seam, see runClaudeTurn
     // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
@@ -707,7 +714,7 @@ async function handleApi(req, res, pathname) {
     if (!provider && !claudeCliUsable) {
       return send(res, json({ ok: false, error: 'Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI' }, 400));
     }
-    const reg = activeChildren.get(sessionId); const onEvent = reg && reg.onEvent ? reg.onEvent : () => {};
+    const onEvent = reg && reg.onEvent ? reg.onEvent : () => {};
     const resolved = await resolveOrchestrateNodes(body, normalizeCwd(session.cwd, config.defaultWorkspace));
     if (resolved.error) return send(res, json({ ok: false, error: resolved.error, startedCount: 0 }));
     // v1.4.4: a persisted DAG's node-count ceiling is agentWorkflowMaxNodes, NOT subagentMaxPerTurn (that's
@@ -718,7 +725,7 @@ async function handleApi(req, res, pathname) {
     const completion = run => appendAgentWorkflowSummaryToSession(session.id, run, { title: body.workflowId ? `Agent 工作流 ${body.workflowId}` : 'Agent 工作流' });
     if (body.async === true) {
       const runId = makeId('run');
-      void runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy }).catch(async e => {
+      void runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel }).catch(async e => {
         activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
         const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
         await saveAgentRun(run).catch(() => {});
@@ -726,7 +733,7 @@ async function handleApi(req, res, pathname) {
       });
       return send(res, json({ ok: true, accepted: true, runId }));
     }
-    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, onComplete: activeChildren.has(session.id) ? null : completion, poolPolicy: body.poolPolicy });
+    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, onComplete: activeChildren.has(session.id) ? null : completion, poolPolicy: body.poolPolicy, parentEngine, parentModel });
     return send(res, json(result));
   }
   // v1.4-OSS 用量/成本看板: read-only aggregation over the append-only usage ledgers. Same gate as the other
@@ -2131,7 +2138,7 @@ const MCP_TOOLS = [
               dependsOn: { type: 'array', items: { type: 'string' }, description: 'node ids that must finish before this node starts' },
               toolTier: { type: 'string', enum: ['read', 'edit', 'exec'] },
               maxIters: { type: 'number' },
-              model: { type: 'string', description: 'optional model id for THIS node, chosen by task difficulty (fast model for simple/bulk nodes, strong model for hard reasoning/synthesis/quality-gates). Pick from the models listed in the system prompt AND matching this node engine; a wrong/unknown id makes the node fail. Omit to use the role/default model.' },
+              model: { type: 'string', description: 'optional explicit model override for THIS node. Omit by default so the runtime can validate and use the configured sub-agent preferred endpoint/model, then fall back to the current conversation endpoint/model. Set only when the user/task requires a different model; it must match the node engine.' },
               resources: { type: 'array', items: { type: 'string' }, description: 'exclusive resources required by this node; use read: prefix for shared access' },
               isolation: { type: 'string', enum: ['none', 'worktree'], description: 'worktree runs this node in a detached Git worktree and keeps its commit for explicit user application; never auto-merges' },
               outputSchema: { type: 'object', description: 'optional JSON Schema for this node final JSON value (objects, arrays, and primitives supported); invalid JSON/schema fails the node. Fields that may be unavailable must explicitly allow null, for example type:["integer","null"].' },
@@ -2155,7 +2162,7 @@ const MCP_TOOLS = [
             required: ['id', 'task'],
           },
         },
-        providerId: { type: 'string', description: 'optional configured OpenAI-compatible provider id; useful when the Claude CLI parent launches this DAG' },
+        providerId: { type: 'string', description: 'optional explicit OpenAI-compatible provider override. Omit by default so runtime routing can validate the configured sub-agent preference and safely fall back to the current conversation route.' },
         workflowId: { type: 'string', description: 'saved/built-in workflow id to launch instead of sending nodes' },
         context: { type: 'string', description: "this run's actual subject/task, prepended to every node's task — required in practice when workflowId is used, since template node tasks are generic placeholders" },
       },

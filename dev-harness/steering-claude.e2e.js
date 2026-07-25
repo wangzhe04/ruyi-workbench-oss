@@ -80,6 +80,7 @@ async function getToken(port) {
   console.log('── S 段: 静态锁(后端分派 + 前端去门 + i18n 双键) ──');
   const src = fs.readFileSync(SERVER, 'utf8');
   const app = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
+  const net = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'net.js'), 'utf8');
   const zh = fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'zh-CN.json'), 'utf8');
   const en = fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'en-US.json'), 'utf8');
   ok(/kind: 'claude' \}/.test(src) || /kind: 'claude',/.test(src) || /kind: 'claude'$/.test(src.trim()) || src.includes("kind: 'claude'"), 'S1 claude 引擎 reg 带 kind 标记(/api/steer 分派依据)');
@@ -110,6 +111,13 @@ async function getToken(port) {
   ok(app.includes('function renderSteerQueue') && app.includes('steerPendingList.push') && app.includes('r.queued'), 'S22 provider 插话队列可视化(待注入列表 + r.queued 驱动)');
   ok(!app.includes('onclick="window.cancelSteer') && app.includes("addEventListener('click'") && app.includes('h.replaceChildren(card)'), 'S22b 插话文本不进入内联 onclick/innerHTML(安全 DOM 绑定)');
   ok(!app.includes("cancelSteer('__all__')") && app.includes("cancelSteer('', true)"), 'S22c 清空队列使用独立控制参数(用户文本 __all__ 不会误清全部)');
+  ok(app.includes('function activeTurnSteerCapability') && app.includes("t('chat.steerEnable')") && app.includes('showClaudeSteerSetup'),
+    'S23 legacy Claude 回合不再伪装可插话，按钮引导切换 interactive');
+  ok(app.includes('apiErrText(r.error)') && net.includes("callers interpolating apiErrText(result.error)"),
+    'S24 结构化业务错误经 apiErrText 展开，不再显示 [object Object]');
+  ok(zh.includes('"chat.steerEnable"') && en.includes('"chat.steerEnable"')
+    && zh.includes('"toast.steerRequiresInteractive"') && en.includes('"toast.steerRequiresInteractive"'),
+    'S25 legacy 插话引导文案双语齐全');
 
   // ───────────────── 起服务(interactive + fake-claude) ─────────────────
   const WP = await getFreePort(), FP = await getFreePort();

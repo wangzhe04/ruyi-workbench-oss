@@ -28,7 +28,7 @@ const VERSION = '2.0.1'; // Escapade 2.0.1:Full/Slim 首次解压与启动链修
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
-const CONFIG_SCHEMA = 8; // v1.6.1: adaptive tool discovery/loading shared by provider + Claude CLI
+const CONFIG_SCHEMA = 9; // v2.0.1: one-time legacy/print -> interactive Claude engine migration
 // v0.8-S0: session file schema. Bumped independently of CONFIG_SCHEMA; normalizeSession backfills.
 const SESSION_SCHEMA = 1;
 

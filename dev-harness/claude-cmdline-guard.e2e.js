@@ -143,6 +143,8 @@ function fenceBalance(text) {
     // A8: thinking effort is a closed enum. Invalid hand-written config falls back to CLI inheritance.
     ok(srv.normalizeConfig({ configSchema: 8, claudeThinkingEffort: 'turbo' }).config.claudeThinkingEffort === '', '(A8a) 非法 thinking effort → 默认继承 CLI');
     ok(srv.normalizeConfig({ configSchema: 8, claudeThinkingEffort: 'max' }).config.claudeThinkingEffort === 'max', '(A8b) max thinking effort 保留');
+    ok(srv.normalizeConfig({ configSchema: 8, engineMode: 'legacy' }).config.engineMode === 'interactive', '(A9a) schema 8 legacy 一次性迁移到 interactive');
+    ok(srv.normalizeConfig({ configSchema: 9, engineMode: 'legacy' }).config.engineMode === 'legacy', '(A9b) schema 9 用户显式 legacy 选择保持不变');
 
     // ============================== (B) 集成层(测试缝强制预算) ==============================
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }

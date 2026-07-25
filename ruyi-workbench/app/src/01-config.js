@@ -235,6 +235,7 @@ function mergeAgentRole(base, override, source) {
 // Fold older config files onto the current schema. Returns { config, changed }.
 function normalizeConfig(raw) {
   const config = { ...defaultConfig(), ...(raw && typeof raw === 'object' ? raw : {}) };
+  const incomingConfigSchema = Number(raw && raw.configSchema) || 0;
   let changed = !raw || raw.configSchema !== CONFIG_SCHEMA;
   // P1(cmd8191 根治): npm shim(claude.cmd)→ 真身 claude.exe 的运行时解析(见 resolveClaudeLauncher)。
   // 收拢在这一个咽喉点 = 全部消费方(runClaudeTurn/子代理/mcp add-json/doctor)一致受益。不置 changed:
@@ -251,6 +252,20 @@ function normalizeConfig(raw) {
   }
   if (!['auto', 'zh-CN', 'en-US'].includes(config.locale)) {
     config.locale = 'auto';
+    changed = true;
+  }
+  // Schema 9 makes interactive the effective default for upgraded installs too. Older configs could
+  // indefinitely retain legacy/print even though new installs already defaulted to interactive, leaving the
+  // composer advertising a steer action that the live CLI process could not accept. Migrate once; after the
+  // schema stamp, a user may still explicitly switch back to legacy from Settings and that choice is retained.
+  if (incomingConfigSchema < 9 && ['legacy', 'print'].includes(config.engineMode)) {
+    config.engineMode = 'interactive';
+    changed = true;
+  } else if (config.engineMode === 'print') {
+    config.engineMode = 'legacy'; // tolerate the historical internal alias
+    changed = true;
+  } else if (!['legacy', 'interactive'].includes(config.engineMode)) {
+    config.engineMode = 'interactive';
     changed = true;
   }
   // Only string args reach cp.spawn — filter out anything else (prevents a spawn TypeError/DoS and

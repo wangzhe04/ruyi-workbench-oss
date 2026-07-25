@@ -248,6 +248,7 @@ module.exports = {
   workflowProgressFingerprint,
   evaluateNodeToolEvidence,
   normalizeAgentWorkflow,
+  resolveAgentTeamRoute,
   getAgentWorkflows,
   saveAgentWorkflow,
   deleteAgentWorkflow,

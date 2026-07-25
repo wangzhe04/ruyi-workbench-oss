@@ -33,10 +33,11 @@ assert.strictEqual(server.shouldExtendToolIterationBudget({ currentLimit: 150, h
 assert.strictEqual(server.shouldExtendToolIterationBudget({ currentLimit: 300, hardLimit: 300, iter: 300, lastProgressIter: 299, progressEvents: 99, progressAtLastExtension: 0 }), false, 'hard cap never extends');
 
 const hint = server.buildAgentTeamHint();
-assert.match(hint, /MUST actually call orchestrate_agents or spawn_agent/);
+assert.match(hint, /MUST call orchestrate_agents at least once/);
+assert.match(hint, /Calling spawn_agent does not satisfy this requirement/);
 assert.match(hint, /matching preset workflowId/);
-assert.match(hint, /at least two agents/);
-assert.match(hint, /Duration or complexity alone is not a reason to split work/);
+assert.match(hint, /at least two execution nodes/);
+assert.match(hint, /never use that concern to skip the required orchestrate_agents call/);
 assert.ok(server.appendTurnPolicies('base', server.defaultConfig(), true).includes('<agent-team-mode>'));
 assert.ok(!server.appendTurnPolicies('base', server.defaultConfig(), false).includes('<agent-team-mode>'));
 assert.ok(server.appendTurnPolicies('base', server.defaultConfig(), false, 0, true).includes('<ruyi-claude-native-agent-lifecycle>'));

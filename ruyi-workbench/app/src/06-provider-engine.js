@@ -1080,13 +1080,14 @@ function buildToolCustomizationHint() {
 function buildAgentTeamHint() {
   return [
     '<agent-team-mode>',
-    'The user explicitly enabled Agent team mode for this turn. Multi-agent execution is the default requirement, not a mere suggestion.',
-    'Unless the request is genuinely trivial, indivisible, or delegation would clearly make it worse, you MUST actually call orchestrate_agents or spawn_agent before completing the task yourself.',
-    'Duration or complexity alone is not a reason to split work. Use a team when there are genuinely separable responsibilities, useful parallel investigation, independent verification, or distinct specialist roles; keep an indivisible long task with one agent.',
-    'First prefer a matching preset workflowId when one is available. If no preset fits, construct a minimal task-specific DAG/nodes plan or dispatch complementary agents directly.',
-    'Use at least two agents whenever the work has two meaningful independent responsibilities. Give each agent a distinct deliverable, run independent work in parallel, and include a synthesis or review stage for non-trivial work.',
+    'The user explicitly enabled Agent team mode for this turn. This is an execution contract, not a suggestion.',
+    'You MUST call orchestrate_agents at least once before producing the final answer. Calling spawn_agent does not satisfy this requirement. Do not answer directly, merely describe a team plan, or skip the tool because the request appears simple.',
+    'First prefer a matching preset workflowId when one is available. If no preset fits, call orchestrate_agents with a minimal task-specific DAG/nodes plan.',
+    'Preserve endpoint/model choices already pinned by a preset workflow node or configured Agent role. For ad-hoc nodes, omit providerId, engine, and model by default: the runtime first validates and uses the configured sub-agent preferred endpoint/model, then falls back to the endpoint/model serving the current conversation.',
+    'Only override a node route when the user or task explicitly requires a different engine/model. A model appearing in the available-model list is not by itself a reason to override the configured preference.',
+    'Use at least two execution nodes whenever the work has two meaningful independent responsibilities. For an indivisible request, still call orchestrate_agents with the smallest useful DAG, such as one execution node plus an independent review/verification node.',
     'Do not only describe a team plan and then do all work in the parent agent. Execute the orchestration, collect the results, reconcile disagreements, and deliver one integrated answer.',
-    'Avoid redundant agents and uncontrolled fan-out. Skip orchestration only when the task is too small or cannot be usefully divided.',
+    'Avoid redundant nodes and uncontrolled fan-out, but never use that concern to skip the required orchestrate_agents call.',
     '</agent-team-mode>',
   ].join('\n');
 }
