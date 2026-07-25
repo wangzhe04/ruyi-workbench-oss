@@ -15,8 +15,9 @@ reportlab>=4.0.0
 # Optional: if absent, the ui_* tools degrade gracefully with an install hint.
 uiautomation>=2.0.18
 comtypes>=1.2.0
-# Offline OCR (built-in Windows.Media.Ocr). Optional; ocr_* tools degrade gracefully.
-winsdk>=1.0.0b10
+# Full-offline OCR contract (built-in Windows.Media.Ocr). This exact cp312 wheel is mandatory
+# for a release labeled Full; the packager rejects a missing wheel or failed WinRT OCR import.
+winsdk==1.0.0b10
 # Multi-scale template matching (~50MB of wheels). Optional; vision tools degrade gracefully.
 opencv-python-headless>=4.8.0
 numpy>=1.26.0

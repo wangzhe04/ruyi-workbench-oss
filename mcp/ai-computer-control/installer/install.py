@@ -29,7 +29,17 @@ MANIFEST_FILE = os.path.join(SCRIPT_DIR, "offline-manifest.json")
 INSTALL_STATE_FILE = os.path.join(INSTALL_DIR, "install-state.json")
 RUNTIME_DIR = os.path.join(INSTALL_DIR, "runtime", "python")
 VENV_DIR = os.path.join(INSTALL_DIR, "venv")  # legacy/custom-package fallback
-IMPORT_PROBE = "from mcp.server.fastmcp import FastMCP; import ai_computer_control.server"
+REQUIRED_FULL_IMPORTS = (
+    "mcp.server.fastmcp",
+    "ai_computer_control.server",
+    "pyautogui",
+    "playwright",
+    "winsdk.windows.media.ocr",
+    "winsdk.windows.graphics.imaging",
+    "winsdk.windows.storage.streams",
+    "winsdk.windows.globalization",
+)
+IMPORT_PROBE = "; ".join(f"import {name}" for name in REQUIRED_FULL_IMPORTS)
 ERROR_LOG = os.path.join(
     os.environ.get("LOCALAPPDATA") or os.environ.get("TEMP") or "C:\\Users\\Public",
     "Ruyi", "logs", "acc-install-latest.log",
@@ -58,7 +68,7 @@ def _python_ok(command, require_acc=False):
     code = IMPORT_PROBE if require_acc else "import sys; assert sys.version_info >= (3, 12)"
     try:
         result = subprocess.run(
-            [command, "-B", "-X", "utf8", "-c", code],
+            [command, "-I", "-B", "-X", "utf8", "-c", code],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             timeout=20,
@@ -77,6 +87,12 @@ def verify_offline_payload():
         manifest = json.load(f)
     if manifest.get("wheelOnly") is not True or not isinstance(manifest.get("files"), list):
         raise RuntimeError("offline-manifest.json is invalid or not wheel-only")
+    declared_imports = manifest.get("requiredImports")
+    if declared_imports != list(REQUIRED_FULL_IMPORTS):
+        raise RuntimeError(
+            "offline-manifest.json does not declare the complete Full capability contract "
+            "(including winsdk Windows.Media.Ocr)"
+        )
     root = os.path.realpath(SCRIPT_DIR)
     files = manifest["files"]
     print(f"  -> Checking {len(files)} packaged files. This may take a moment...", flush=True)
@@ -167,7 +183,7 @@ def install_bundled_runtime(source_python):
     staging_python = os.path.join(staging, "python.exe")
     if not _python_ok(staging_python, require_acc=True):
         shutil.rmtree(staging, ignore_errors=True)
-        raise RuntimeError("bundled runtime failed its ACC import check after copying")
+        raise RuntimeError("bundled runtime failed its ACC/winsdk OCR import check after copying")
 
     if os.path.exists(backup):
         shutil.rmtree(backup)
@@ -179,7 +195,7 @@ def install_bundled_runtime(source_python):
         os.replace(staging, RUNTIME_DIR)
         final_python = os.path.join(RUNTIME_DIR, "python.exe")
         if not _python_ok(final_python, require_acc=True):
-            raise RuntimeError("installed runtime failed its ACC import check")
+            raise RuntimeError("installed runtime failed its ACC/winsdk OCR import check")
         if moved_old:
             shutil.rmtree(backup, ignore_errors=True)
         print(f"  -> Runtime installed at {RUNTIME_DIR}")
@@ -257,7 +273,7 @@ def install_from_wheel_cache(venv_python):
     ])
     _run([venv_python, "-m", "pip", "check"])
     if not _python_ok(venv_python, require_acc=True):
-        raise RuntimeError("ACC import check failed after wheel installation")
+        raise RuntimeError("ACC/winsdk OCR import check failed after wheel installation")
     print("  -> Wheel-only installation verified")
 
 
@@ -336,7 +352,10 @@ def main():
         python_exe = install_bundled_runtime(embedded)
     else:
         if verified_manifest:
-            raise RuntimeError("verified package does not contain a usable hydrated Python runtime")
+            raise RuntimeError(
+                "verified Full package does not contain a usable hydrated Python runtime "
+                "with winsdk Windows.Media.Ocr"
+            )
         print("  -> Legacy package detected; using wheel-only system-Python fallback")
         system_python = find_system_python()
         if not system_python:
@@ -348,7 +367,7 @@ def main():
     configure_mcp(python_exe)
     write_install_state(python_exe)
     print("\n" + "=" * 60)
-    print("Installation complete and import-verified.")
+    print("Installation complete; ACC and winsdk Windows.Media.Ocr imports verified.")
     print("=" * 60)
     print(f"Runtime: {python_exe}")
     print("Restart Ruyi/Claude Desktop to reconnect ACC.")

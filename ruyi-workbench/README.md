@@ -51,6 +51,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1
 powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1 -SkipExeBuild -IncludeAcc -BuildAccOffline -Variant offline-full-acc
 ```
 
+标记为 Full 的包必须同时满足以下硬要求：固定使用 CPython 3.12 与
+`winsdk==1.0.0b10` 的 `cp312-win_amd64` wheel；embedded runtime 必须能实际导入
+`winsdk.windows.media.ocr` 及其 imaging/streams/globalization 投影；wheel 与运行时文件必须全部进入
+`offline-manifest.json` 的 SHA-256 清单。任一条件不满足，打包脚本会拒绝生成 Full ZIP。
+
 输出：
 
 ```text

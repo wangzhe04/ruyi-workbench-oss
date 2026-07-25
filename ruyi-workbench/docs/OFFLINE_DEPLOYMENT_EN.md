@@ -27,6 +27,12 @@ Start-Workbench.cmd. Both variants preflight their required files. If Full deskt
 Workbench continues to start and the detailed reason is retained in
 `%LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log`.
 
+A Full release must include CPython 3.12, the exact `winsdk==1.0.0b10`
+`cp312-win_amd64` wheel, and an embedded runtime that imports
+`winsdk.windows.media.ocr` plus its imaging, streams, and globalization projections. Packaging, the signed
+manifest, and target installation independently enforce this contract. A missing requirement prevents the archive
+from being released or activated. After installation, ACC `diagnostics` must report `optional.ocr: true`.
+
 ## Claude CLI and MCP registration
 
 The installer attempts to register the workbench MCP server. If JSON registration fails under PowerShell because a

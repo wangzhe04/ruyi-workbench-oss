@@ -29,6 +29,11 @@ Start-Workbench.cmd
 
 启动器会先检查 Full/Slim 的关键文件。Full 的桌面控制组件准备失败时，基础工作台仍会继续启动，并在控制台和 `%LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log` 中保留具体原因。
 
+Full 包的发布契约要求内置 CPython 3.12、固定的 `winsdk==1.0.0b10`
+`cp312-win_amd64` wheel，以及能够实际导入 `winsdk.windows.media.ocr` 的 embedded runtime。
+打包、完整性清单和目标机安装会分别校验这三项；任何一项缺失都不能作为 Full 包发布或激活。
+安装后可调用 ACC 的 `diagnostics`，其中 `optional.ocr` 必须为 `true`。
+
 ## Claude CLI 接入
 
 安装脚本会尝试执行：

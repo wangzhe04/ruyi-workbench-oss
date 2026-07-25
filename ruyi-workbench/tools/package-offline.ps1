@@ -135,11 +135,66 @@ function Write-AccReleaseManifest([string]$AccDestination, [string]$SourcePackag
     name = [string]$base.name
     pythonVersion = [string]$base.pythonVersion
     wheelOnly = $true
+    requiredImports = @(
+      'mcp.server.fastmcp',
+      'ai_computer_control.server',
+      'pyautogui',
+      'playwright',
+      'winsdk.windows.media.ocr',
+      'winsdk.windows.graphics.imaging',
+      'winsdk.windows.storage.streams',
+      'winsdk.windows.globalization'
+    )
     fileCount = $sortedFiles.Count
     files = $sortedFiles
   }
   $json = $manifest | ConvertTo-Json -Depth 5
   [System.IO.File]::WriteAllText($manifestPath, $json + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+function Assert-FullAccOcrPayload([string]$PayloadRoot, [string]$PythonExe, [switch]$RequireReleaseManifest) {
+  $requiredVersion = '1.0.0b10'
+  $wheel = Join-Path $PayloadRoot "offline_packages\winsdk-$requiredVersion-cp312-cp312-win_amd64.whl"
+  if (-not (Test-Path -LiteralPath $wheel -PathType Leaf)) {
+    throw "Full package is missing the required cp312 WinSDK wheel: $wheel"
+  }
+  if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
+    throw "Full package embedded Python is missing: $PythonExe"
+  }
+  & $PythonExe -I -B -X utf8 -c "import ai_computer_control.server; import winsdk.windows.media.ocr; import winsdk.windows.graphics.imaging; import winsdk.windows.storage.streams; import winsdk.windows.globalization"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Full package embedded runtime cannot import winsdk Windows.Media.Ocr and its required WinRT projections."
+  }
+  if ($RequireReleaseManifest) {
+    $requirements = Join-Path $PayloadRoot 'requirements_offline.txt'
+    if (-not (Test-Path -LiteralPath $requirements -PathType Leaf) -or
+        -not (Select-String -LiteralPath $requirements -Pattern '^winsdk==1\.0\.0b10$' -Quiet)) {
+      throw "Full package requires the exact offline OCR dependency winsdk==$requiredVersion."
+    }
+    $manifestPath = Join-Path $PayloadRoot 'offline-manifest.json'
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $manifestPaths = @($manifest.files | ForEach-Object { [string]$_.path })
+    $requiredImports = @($manifest.requiredImports | ForEach-Object { [string]$_ })
+    foreach ($requiredImport in @(
+      'winsdk.windows.media.ocr',
+      'winsdk.windows.graphics.imaging',
+      'winsdk.windows.storage.streams',
+      'winsdk.windows.globalization'
+    )) {
+      if ($requiredImport -notin $requiredImports) {
+        throw "Full package manifest is missing required import contract: $requiredImport"
+      }
+    }
+    foreach ($requiredPath in @(
+      "offline_packages/winsdk-$requiredVersion-cp312-cp312-win_amd64.whl",
+      'python_embed/Lib/site-packages/winsdk/_winrt.pyd',
+      'python_embed/Lib/site-packages/winsdk/windows/media/ocr/__init__.py'
+    )) {
+      if ($requiredPath -notin $manifestPaths) {
+        throw "Full package manifest does not integrity-cover required OCR payload: $requiredPath"
+      }
+    }
+  }
 }
 
 # Release gate: validate the generated server before removing the previous stage.
@@ -197,6 +252,7 @@ if ($IncludeAcc) {
     if ($manifestJson.wheelOnly -ne $true -or -not (Test-Path -LiteralPath (Join-Path $offlineSrc "python_embed\python.exe"))) {
       throw "ACC offline payload is invalid: it must be wheel-only and include python_embed\python.exe."
     }
+    Assert-FullAccOcrPayload $offlineSrc (Join-Path $offlineSrc "python_embed\python.exe")
     $accDst = Join-Path $stage "mcp\ai-computer-control"
     New-Item -ItemType Directory -Force -Path $accDst | Out-Null
     # Copy checked-in source without recursively nesting local build products into the release.
@@ -216,6 +272,7 @@ if ($IncludeAcc) {
     $releaseSourcePackage = Sync-AccReleaseRuntime $accSrc $accDst $stage
     Write-AccReleaseManifest $accDst $releaseSourcePackage
     $accPython = Join-Path $accDst "python_embed\python.exe"
+    Assert-FullAccOcrPayload $accDst $accPython -RequireReleaseManifest
     $oldPythonPath = $env:PYTHONPATH
     try {
       $env:PYTHONPATH = Join-Path $accDst "src"
@@ -223,10 +280,10 @@ if ($IncludeAcc) {
       # before install.py verifies it. -B keeps the release payload immutable, and the manifest probe makes
       # the packager enforce the exact same integrity gate that a clean target machine runs first.
       $accInstaller = (Join-Path $accDst "install.py").Replace('\', '\\').Replace("'", "\'")
-      & $accPython -B -X utf8 -c "import runpy; m=runpy.run_path('$accInstaller'); assert m['verify_offline_payload']()"
+      & $accPython -I -B -X utf8 -c "import runpy; m=runpy.run_path('$accInstaller'); assert m['verify_offline_payload']()"
       if ($LASTEXITCODE -ne 0) { throw "ACC staged manifest verification failed." }
-      & $accPython -B -X utf8 -c "from mcp.server.fastmcp import FastMCP; import ai_computer_control.server"
-      if ($LASTEXITCODE -ne 0) { throw "ACC bundled runtime import verification failed after staging." }
+      & $accPython -I -B -X utf8 -c "from mcp.server.fastmcp import FastMCP; import ai_computer_control.server; import winsdk.windows.media.ocr; import winsdk.windows.graphics.imaging; import winsdk.windows.storage.streams; import winsdk.windows.globalization"
+      if ($LASTEXITCODE -ne 0) { throw "ACC/winsdk OCR bundled runtime import verification failed after staging." }
     } finally { $env:PYTHONPATH = $oldPythonPath }
     $sourceArchives = @(Get-ChildItem -LiteralPath (Join-Path $accDst "offline_packages") -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -ne '.whl' })
     if ($sourceArchives.Count -gt 0) { throw "ACC staged wheel cache contains non-wheel artifacts: $($sourceArchives.Name -join ', ')" }

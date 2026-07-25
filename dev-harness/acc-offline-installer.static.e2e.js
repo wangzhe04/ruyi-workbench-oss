@@ -15,6 +15,7 @@ const installBat = read('mcp/ai-computer-control/installer/install.bat');
 const updater = read('mcp/ai-computer-control/installer/update.bat');
 const packager = read('ruyi-workbench/tools/package-offline.ps1');
 const pyproject = read('mcp/ai-computer-control/pyproject.toml');
+const requirements = read('mcp/ai-computer-control/requirements_offline.txt');
 
 let failures = 0;
 function ok(condition, label) {
@@ -23,6 +24,9 @@ function ok(condition, label) {
 }
 
 ok(/PYTHON_VERSION[^\n]+3\.12\.10/.test(builder), 'builder pins CPython 3.12 with a published winsdk wheel');
+ok(/winsdk-1\.0\.0b10-cp312-cp312-win_amd64\.whl/.test(builder) &&
+   /winsdk\.windows\.media\.ocr/.test(builder) && /requiredImports/.test(builder),
+  'builder requires the exact cp312 winsdk wheel and imports the real Windows.Media.Ocr projection');
 ok(/"pip",\s*"wheel"/.test(builder) && /wheel cache contains source\/non-wheel artifacts/.test(builder), 'builder converts dependencies to a wheel-only cache');
 ok((builder.match(/--no-index/g) || []).length >= 1 && /--only-binary=:all:/.test(builder), 'builder performs a binary-only no-index replay');
 ok(/sys\.path\[:\]=/.test(builder) && /site\.addsitedir/.test(builder) && /"-S",\s*"-X",\s*"utf8"/.test(builder), 'empty-target probe excludes hydrated packages while honoring target wheel .pth files');
@@ -36,10 +40,13 @@ ok(/acc-install-latest\.log/.test(installer) && /Diagnostic log/.test(installer)
 ok(/verified \{index\}/.test(installer) && /flush=True/.test(installer),
   'long Full verification emits unbuffered progress so first launch does not look frozen');
 ok(/def _native_path/.test(installer) && /\\\\\\\\\?\\\\/.test(installer), 'installer verifies and copies deep Chromium trees with Win32 extended paths');
-ok(/\[command,\s*"-B",\s*"-X",\s*"utf8"/.test(installer),
-  'installer import probes cannot mutate the signed source payload with fresh bytecode');
+ok(/\[command,\s*"-I",\s*"-B",\s*"-X",\s*"utf8"/.test(installer),
+  'installer import probes are isolated from ambient packages and cannot mutate the signed payload with bytecode');
 ok(/runtime[^\n]+python/.test(installer) && /install_bundled_runtime/.test(installer), 'installer atomically deploys the pre-hydrated runtime');
 ok(/--ensure/.test(installer) && /payloadSha256/.test(installer) && /refreshing MCP registration/.test(installer), 'installer supports an idempotent fast first-launch ensure mode');
+ok(/winsdk\.windows\.media\.ocr/.test(installer) && /requiredImports/.test(installer) &&
+   /ACC\/winsdk OCR import check/.test(installer),
+  'installer refuses cached, bundled, copied, or fallback runtimes without the Full OCR capability');
 ok(/source archives and cannot install safely/.test(installer) && /--only-binary=:all:/.test(installer), 'legacy fallback refuses source archives and compilation');
 ok(/-r", REQUIREMENTS_FILE, "ai-computer-control"/.test(installer), 'fallback installs the full feature requirements plus ACC wheel');
 ok(/python_embed\\python\.exe/.test(installBat), 'one-click launcher prefers bundled Python over system Python');
@@ -62,10 +69,16 @@ ok(/Copy-LongTree/.test(packager) && /robocopy\.exe/.test(packager) && /tar\.exe
 ok(/@archiveRoots/.test(packager) && /Explorer-incompatible/.test(packager) && /ZipFile\]::OpenRead/.test(packager), 'offline ZIP avoids Explorer-invisible dot entries and verifies every archive before release');
 ok(/explorerDefaultPathBudget\s*=\s*200/.test(packager) && /projectedExplorerPath/.test(packager) && /Use a shorter -Variant/.test(packager), 'packager rejects release names that make deep ACC paths unsafe for Windows Explorer');
 ok(/verify_offline_payload/.test(packager) && /ACC staged manifest verification failed/.test(packager), 'full-package assembly verifies the signed ACC manifest before release');
+ok(/Assert-FullAccOcrPayload/.test(packager) &&
+   /winsdk-\$requiredVersion-cp312-cp312-win_amd64\.whl/.test(packager) &&
+   /winsdk\.windows\.media\.ocr/.test(packager) &&
+   /manifest does not integrity-cover required OCR payload/.test(packager),
+  'Ruyi Full packager requires the OCR wheel, live imports, and manifest coverage before emitting a ZIP');
 ok(/Remove-LongTree/.test(packager) && /Refusing to remove path outside package output root/.test(packager), 'long-path cleanup is constrained to the package output root');
 ok(/\.Extension -ne '\.zip'/.test(packager), 'full package excludes nested local ACC zip build artifacts');
 ok(/if \(-not \$SkipExeBuild -and \(Test-Path \$exe\)\)/.test(packager), 'SkipExeBuild cannot package a stale dist/Ruyi.exe');
 ok(/requires-python = ">=3\.12"/.test(pyproject), 'ACC metadata supports the bundled Python 3.12 runtime');
+ok(/^winsdk==1\.0\.0b10$/m.test(requirements), 'Full offline requirements pin the verified winsdk cp312 release exactly');
 
 console.log('\nACC OFFLINE INSTALLER CONTRACT: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
 process.exit(failures ? 1 : 0);

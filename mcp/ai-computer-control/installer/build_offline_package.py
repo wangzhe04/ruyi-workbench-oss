@@ -43,11 +43,17 @@ GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
 # Get the get-pip hash via: curl -sL https://bootstrap.pypa.io/get-pip.py | sha256sum
 PYTHON_EMBED_SHA256 = os.environ.get("ACC_EMBED_SHA256", "")
 GET_PIP_SHA256 = os.environ.get("ACC_GET_PIP_SHA256", "")
-IMPORT_PROBE = (
-    "from mcp.server.fastmcp import FastMCP; "
-    "import ai_computer_control.server; "
-    "import pyautogui, playwright, winsdk"
+REQUIRED_FULL_IMPORTS = (
+    "mcp.server.fastmcp",
+    "ai_computer_control.server",
+    "pyautogui",
+    "playwright",
+    "winsdk.windows.media.ocr",
+    "winsdk.windows.graphics.imaging",
+    "winsdk.windows.storage.streams",
+    "winsdk.windows.globalization",
 )
+IMPORT_PROBE = "; ".join(f"import {name}" for name in REQUIRED_FULL_IMPORTS)
 
 
 def run(args, *, env=None, cwd=None):
@@ -140,6 +146,11 @@ def build_wheelhouse(python_exe):
         raise RuntimeError("wheel cache contains source/non-wheel artifacts: " + ", ".join(bad))
     if not any(name.lower().startswith("ai_computer_control-") for name in os.listdir(PACKAGES_DIR)):
         raise RuntimeError("project wheel is missing from offline cache")
+    required_winsdk = "winsdk-1.0.0b10-cp312-cp312-win_amd64.whl"
+    if required_winsdk.lower() not in {name.lower() for name in os.listdir(PACKAGES_DIR)}:
+        raise RuntimeError(
+            "Full offline OCR wheel is missing or incompatible; required exactly: " + required_winsdk
+        )
     print(f"  -> {len(os.listdir(PACKAGES_DIR))} wheels ready; no source archives")
 
 
@@ -158,7 +169,7 @@ def hydrate_runtime(python_exe):
     print("[3/7] Hydrating bundled runtime from the offline cache...")
     run(offline_install_args(python_exe))
     run([python_exe, "-m", "pip", "check"])
-    run([python_exe, "-X", "utf8", "-c", IMPORT_PROBE])
+    run([python_exe, "-I", "-X", "utf8", "-c", IMPORT_PROBE])
     print("  -> Runtime imports and dependency graph verified")
 
 
@@ -227,6 +238,7 @@ def write_manifest():
         "name": "AI Computer Control Offline Runtime",
         "pythonVersion": PYTHON_VERSION,
         "wheelOnly": True,
+        "requiredImports": list(REQUIRED_FULL_IMPORTS),
         "fileCount": len(files),
         "files": files,
     }
