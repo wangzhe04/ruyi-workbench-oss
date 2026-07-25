@@ -1,6 +1,6 @@
 # 第 33 波 · 安全收口:全 GET 面 host 校验 + 声明式 auth 路由表 deny-by-default
 
-日期:2026-07-13。承接第29波 backlog #0(`OPTIMIZATION-ROADMAP.md:485`:"DNS-rebind 对只读 GET…需全 GET 面 host 校验单独立项")+ 早期审计声明的"声明式 auth 路由表 deny-by-default"杠杆。
+日期:2026-07-13。承接第29波 backlog #0（见 `OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`："DNS-rebind 对只读 GET…需全 GET 面 host 校验单独立项"）+ 早期审计声明的"声明式 auth 路由表 deny-by-default"杠杆。
 
 ## 1. 威胁模型(核实,非转述)
 

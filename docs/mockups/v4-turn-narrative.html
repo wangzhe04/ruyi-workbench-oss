@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark" data-engine="claude">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Escapade · 回合叙事化对话原型 · 如意 Ruyi</title>
+<style>
+:root{
+  font-size:14px;
+  --font:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+  --mono:"Cascadia Mono",Consolas,monospace;
+  --xs:.786rem;--sm:.857rem;--md:.929rem;--base:1rem;--lg:1.143rem;
+  --r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:22px;--pill:999px;
+  --blur:blur(16px) saturate(1.3);
+  --ease:cubic-bezier(.2,.7,.3,1);--dur:180ms;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --panel:#141a29;--panel-2:#182031;--panel-3:#202a40;
+  --ink:#eef1f8;--ink-2:#c9d2e4;--muted:#8b9cb8;--line:#263149;--line-2:#34425f;
+  --accent:#6e86f2;--accent-2:#9a72f0;--ok:#5cc093;--danger:#e06a66;--warn:#d9ae62;
+  --code:#090e18;--glass:rgba(146,166,214,.065);--glass-card:rgba(140,160,208,.05);
+  --glass-border:rgba(190,208,248,.13);--highlight:inset 0 1px 0 rgba(210,225,255,.08);
+  --shadow:0 24px 60px rgba(2,6,16,.50);
+  --scene:
+    radial-gradient(980px 620px at 92% -12%,rgba(110,134,242,.13),transparent 64%),
+    radial-gradient(760px 480px at -8% 110%,rgba(154,114,240,.09),transparent 62%),
+    linear-gradient(160deg,#090d16,#0b1120 48%,#0e1526);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --panel:#fff;--panel-2:#f7f9fc;--panel-3:#eef2f8;
+  --ink:#1a2334;--ink-2:#33405a;--muted:#5d6a84;--line:#dbe2ee;--line-2:#c6d1e3;
+  --accent:#2050c8;--accent-2:#7a5fd0;--ok:#22794e;--danger:#b42318;--warn:#a1650f;
+  --code:#f2f4f8;--glass:rgba(255,255,255,.58);--glass-card:rgba(255,255,255,.50);
+  --glass-border:rgba(20,28,48,.12);--highlight:inset 0 1px 0 rgba(255,255,255,.80);
+  --shadow:0 18px 50px rgba(20,28,48,.14);
+  --scene:
+    radial-gradient(900px 540px at 90% -10%,rgba(32,80,200,.08),transparent 62%),
+    radial-gradient(760px 480px at -8% 110%,rgba(122,95,208,.05),transparent 60%),
+    linear-gradient(158deg,#f6f8fc,#eef2f9 48%,#e9eef8);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);color:var(--ink);background:var(--scene);font-size:var(--base)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{height:100%;display:grid;grid-template-columns:244px 1fr;position:relative}
+.sidebar,.topbar,.composer{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
+.sidebar{border-right:1px solid var(--glass-border);display:flex;flex-direction:column;min-height:0}
+.brand{display:flex;gap:10px;align-items:center;padding:18px 16px 14px}
+.mark,.avatar{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:white;display:grid;place-items:center;box-shadow:0 8px 24px rgba(80,90,220,.28)}
+.mark{width:31px;height:31px;border-radius:9px;font-weight:800}
+.brand b{display:block}.brand small{color:var(--muted)}
+.new{margin:0 14px 12px;padding:9px;border-radius:11px;border:1px solid color-mix(in srgb,var(--accent) 32%,transparent);color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent);font-weight:600}
+.side-search{margin:0 14px 10px;padding:8px 11px;border:1px solid var(--glass-border);border-radius:10px;color:var(--muted);font-size:var(--sm)}
+.sessions{padding:4px 8px;overflow:auto}.sec{padding:8px 9px 4px;color:var(--muted);font-size:var(--xs)}
+.session{padding:9px 10px;border-radius:9px;color:var(--ink-2);font-size:var(--md);display:flex;gap:8px}
+.session.active{background:var(--glass-card);border:1px solid var(--glass-border);color:var(--ink);font-weight:600}
+.session span{margin-left:auto;color:var(--muted);font-size:var(--xs)}
+.sidefoot{margin-top:auto;padding:13px 16px;border-top:1px solid var(--glass-border);color:var(--muted);font-size:var(--sm)}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.topbar{min-height:58px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;padding:0 18px;gap:9px}
+.path{color:var(--ink-2);font-size:var(--md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spacer{flex:1}
+.chip,.toggle{display:flex;align-items:center;gap:7px;border:1px solid var(--glass-border);background:var(--glass-card);padding:6px 11px;border-radius:var(--pill);font-size:var(--sm)}
+.chip{color:var(--muted)}.chip b{color:var(--ink-2)}
+.toggle{padding:3px}
+.toggle button{padding:4px 9px;border-radius:var(--pill);font-size:var(--xs);color:var(--muted)}
+.toggle button.active{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);font-weight:700}
+.chat{flex:1;overflow:auto;padding:26px 24px 18px}
+.column{max-width:890px;margin:0 auto}
+.date{text-align:center;color:var(--muted);font-size:var(--xs);margin-bottom:18px}
+.user{max-width:74%;margin:0 0 22px auto;padding:11px 15px;border-radius:16px 16px 8px 16px;line-height:1.65;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--accent-2) 15%,transparent));border:1px solid color-mix(in srgb,var(--accent) 34%,transparent);box-shadow:var(--highlight)}
+.turn{display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px}
+.avatar{width:32px;height:32px;border-radius:9px;font-weight:800;margin-top:1px}
+.turn-card{background:var(--glass-card);border:1px solid var(--glass-border);border-radius:var(--r-lg);box-shadow:var(--highlight),var(--shadow);overflow:hidden}
+.turn-head{height:42px;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid color-mix(in srgb,var(--glass-border) 65%,transparent)}
+.turn-head b{font-size:var(--md)}.engine{font-size:var(--xs);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent);padding:2px 7px;border-radius:var(--pill)}
+.turn-time{margin-left:auto;color:var(--muted);font-size:var(--xs)}
+.segments{padding:15px 17px 0}
+.text{line-height:1.78;color:var(--ink);margin:0 0 11px}
+.text p{margin:0 0 .72em}.text p:last-child{margin-bottom:0}.text strong{color:var(--ink)}
+.activity{position:relative;margin:10px 0 12px;padding-left:16px}
+.activity:before{content:"";position:absolute;left:3px;top:7px;bottom:7px;width:1px;background:linear-gradient(var(--accent),color-mix(in srgb,var(--accent) 15%,transparent))}
+.tool-row,.tool-group{border:1px solid var(--line);background:color-mix(in srgb,var(--panel-2) 86%,transparent);border-radius:10px;margin:4px 0;overflow:hidden}
+.tool-row summary,.tool-group>summary{list-style:none;min-height:34px;padding:7px 10px;display:flex;align-items:center;gap:8px;font-size:var(--sm);cursor:pointer}
+.tool-row summary::-webkit-details-marker,.tool-group>summary::-webkit-details-marker{display:none}
+.status{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 16%,transparent);flex:none}
+.status.running{background:var(--accent);animation:pulse 1.3s ease-in-out infinite}
+.tool-verb{font-weight:650;color:var(--ink-2)}
+.raw-name{font-family:var(--mono);font-size:var(--xs);color:var(--muted)}
+.tool-object{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-family:var(--mono);font-size:var(--xs)}
+.tool-meta{margin-left:auto;color:var(--muted);font-size:var(--xs);white-space:nowrap}
+.caret{color:var(--muted);font-size:10px;transition:transform var(--dur) var(--ease)}
+details[open]>summary .caret{transform:rotate(90deg)}
+.tool-detail{border-top:1px solid var(--line);padding:9px 11px;color:var(--muted);font-size:var(--xs);line-height:1.65;background:var(--code)}
+.group-body{padding:0 8px 7px}.group-body .tool-row{margin-top:3px;background:var(--panel)}
+.interjection{display:flex;align-items:center;gap:7px;color:var(--accent);font-size:var(--xs);margin:11px 0;padding:5px 9px;border-left:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent);border-radius:0 7px 7px 0}
+.dock{margin-top:16px;border-top:1px solid var(--glass-border);background:color-mix(in srgb,var(--panel-2) 68%,transparent)}
+.dock-head{display:flex;align-items:center;gap:9px;padding:10px 16px;color:var(--ink-2);font-size:var(--sm)}
+.dock-head strong{font-size:var(--md)}.dock-head span{color:var(--muted)}.dock-head button{margin-left:auto;color:var(--accent);font-size:var(--xs)}
+.dock-body{padding:0 16px 13px}
+.summary-tools{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+.summary-tools>summary{list-style:none;display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:var(--sm);cursor:pointer}
+.summary-tools>summary::-webkit-details-marker{display:none}
+.summary-list{border-top:1px solid var(--line);padding:5px 9px}
+.summary-item{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:7px;padding:5px 2px;color:var(--muted);font-size:var(--xs)}
+.summary-item b{color:var(--ink-2);font-weight:550}.summary-item button{color:var(--accent);font-size:var(--xs)}
+.outputs{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.output{display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel);padding:6px 8px;border-radius:9px;font-size:var(--xs)}
+.output b{font-family:var(--mono);font-weight:550}.output button{color:var(--accent);font-size:var(--xs)}
+.change{display:flex;align-items:center;gap:8px;margin-top:7px;color:var(--muted);font-size:var(--xs)}
+.change code{color:var(--ink-2);font-family:var(--mono)}.change button{margin-left:auto;color:var(--accent);font-size:var(--xs)}
+.usage{padding:0 16px 11px;color:var(--muted);font-size:var(--xs);text-align:right}
+.composer-zone{padding:0 24px 18px}
+.composer{max-width:890px;margin:0 auto;border:1px solid var(--glass-border);border-radius:var(--r-xl);box-shadow:var(--highlight),var(--shadow);padding:12px 14px}
+.placeholder{color:var(--muted);padding:2px 3px 13px}
+.compose-row{display:flex;align-items:center;gap:7px}.compose-row button{color:var(--muted);font-size:var(--sm);padding:5px 7px}
+.send{margin-left:auto!important;width:37px;height:37px;border-radius:11px!important;color:white!important;background:linear-gradient(135deg,var(--accent),var(--accent-2))!important;font-size:18px!important}
+.note{position:fixed;right:18px;bottom:18px;max-width:330px;border:1px solid var(--glass-border);background:var(--panel);box-shadow:var(--shadow);padding:10px 12px;border-radius:11px;font-size:var(--xs);color:var(--muted);opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s}
+.note.show{opacity:1;transform:none}
+@keyframes pulse{50%{opacity:.35}}
+@media(max-width:850px){.app{grid-template-columns:1fr}.sidebar{display:none}.topbar .chip{display:none}.chat{padding:18px 12px}.composer-zone{padding:0 12px 12px}.turn{grid-template-columns:26px minmax(0,1fr);gap:8px}.avatar{width:26px;height:26px}.segments{padding:13px 12px 0}.dock-head,.dock-body,.usage{padding-left:12px;padding-right:12px}.user{max-width:90%}.raw-name{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="mark">如</div><div><b>如意</b><small>Ruyi Workbench</small></div></div>
+    <button class="new">＋ 新对话</button>
+    <div class="side-search">⌕ 搜索会话…</div>
+    <div class="sessions">
+      <div class="sec">今天</div>
+      <div class="session active">Escapade 对话体验设计<span>8</span></div>
+      <div class="session">双引擎事件契约<span>14</span></div>
+      <div class="session">优化路线图复核<span>6</span></div>
+      <div class="sec">昨天</div>
+      <div class="session">发版检查单<span>19</span></div>
+    </div>
+    <div class="sidefoot">本地模式 · 气隙优先</div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="path">▣ E:\Claude\ruyi-workbench-oss</div>
+      <div class="spacer"></div>
+      <div class="chip">安全 <b>检查点已开</b></div>
+      <div class="toggle" aria-label="预览引擎">
+        <button class="active" data-engine-button="claude">Claude CLI</button>
+        <button data-engine-button="openai">OpenAI 兼容</button>
+      </div>
+      <button class="chip" id="themeButton">☼ <b>月白</b></button>
+    </header>
+
+    <section class="chat">
+      <div class="column">
+        <div class="date">今天 23:42</div>
+        <div class="user">请看 Optimization Roadmap。Escapade 里我想把文字、工具调用和后续说明放回同一个大对话框，过程别再拆成几条，末尾仍保留完整工具记录和文件产出；Claude CLI 和 OpenAI 兼容都要优化到。</div>
+
+        <article class="turn" aria-label="如意的本轮回复">
+          <div class="avatar">如</div>
+          <div class="turn-card">
+            <header class="turn-head">
+              <b>如意</b>
+              <span class="engine" id="engineBadge">Claude CLI</span>
+              <span class="turn-time">刚刚</span>
+            </header>
+
+            <div class="segments">
+              <section class="text">
+                <p>我先把现有路线图和消息渲染方式对一下。方向不是简单地把工具卡“塞回去”，而是把一轮回复重新当成一个完整叙事：我说到哪里、在那里做了什么、然后为什么接着往下说。</p>
+              </section>
+
+              <div class="activity">
+                <details class="tool-row" id="inline-tool-roadmap">
+                  <summary>
+                    <i class="status"></i>
+                    <span class="tool-verb">读取路线图</span>
+                    <span class="raw-name">file_read</span>
+                    <span class="tool-object">docs/OPTIMIZATION-ROADMAP.md</span>
+                    <span class="tool-meta">390 行 · 0.4s</span>
+                    <span class="caret">▶</span>
+                  </summary>
+                  <div class="tool-detail">输入：docs/OPTIMIZATION-ROADMAP.md<br>结果：已定位 Escapade 发布线、W1–W3 与 UI v4 设计基线。</div>
+                </details>
+              </div>
+
+              <section class="text">
+                <p>现状的根因很明确：流式期固定创建了一个文字容器和一个工具容器；持久化时又把 <strong>content</strong> 与 <strong>toolCalls</strong> 分开存，所以刷新后也无法还原“文字 → 工具 → 文字”的真实顺序。</p>
+                <p>我建议在 Escapade 较早加入一层“回合片段”协议，两种引擎先归一成同一条有序序列，再由前端渲染。</p>
+              </section>
+
+              <div class="activity">
+                <details class="tool-group">
+                  <summary>
+                    <i class="status"></i>
+                    <span class="tool-verb">并行完成 3 项核对</span>
+                    <span class="tool-object">双引擎事件 · 持久化 · 现有折叠器</span>
+                    <span class="tool-meta">1.2s</span>
+                    <span class="caret">▶</span>
+                  </summary>
+                  <div class="group-body">
+                    <details class="tool-row">
+                      <summary><i class="status"></i><span class="tool-verb">核对 Claude 事件</span><span class="raw-name">rg</span><span class="tool-meta">完成</span><span class="caret">▶</span></summary>
+                      <div class="tool-detail">assistant_delta、tool_use、tool_result 已按发生顺序发出，可直接接入 segment builder。</div>
+                    </details>
+                    <details class="tool-row">
+                      <summary><i class="status"></i><span class="tool-verb">核对 Provider 事件</span><span class="raw-name">rg</span><span class="tool-meta">完成</span><span class="caret">▶</span></summary>
+                      <div class="tool-detail">每次模型响应的 text 先于同批 tool_calls；批次可由本次响应生成 batchId。</div>
+                    </details>
+                    <details class="tool-row">
+                      <summary><i class="status"></i><span class="tool-verb">核对工具折叠</span><span class="raw-name">file_read</span><span class="tool-meta">完成</span><span class="caret">▶</span></summary>
+                      <div class="tool-detail">现有第 4 个工具后自动折叠的规则可复用，但容器要从 toolsWrap 移入 segment list。</div>
+                    </details>
+                  </div>
+                </details>
+              </div>
+
+              <div class="interjection">↳ 已接收你的补充：Claude CLI 与 OpenAI 兼容必须同构</div>
+
+              <section class="text">
+                <p>最终界面仍是你认可的<strong>一个大对话框</strong>。框内的工具只占一行，多项自动收起；工具前后的文字自然分段。到了末尾，再用“本轮记录”把全部工具、文件变更和产物统一汇总一遍，既有活人感，也不牺牲审计性。</p>
+              </section>
+            </div>
+
+            <footer class="dock">
+              <div class="dock-head">
+                <strong>本轮记录</strong>
+                <span>4 次工具 · 2 个文件 · 1 个产物 · 18.6s</span>
+                <button id="expandSummary">展开工具记录</button>
+              </div>
+              <div class="dock-body">
+                <details class="summary-tools" id="summaryTools">
+                  <summary><span class="caret">▶</span><strong>全部工具记录</strong><span class="tool-meta">成功 4 · 失败 0</span></summary>
+                  <div class="summary-list">
+                    <div class="summary-item"><span>01</span><b>读取 Optimization Roadmap</b><button data-jump="inline-tool-roadmap">定位到过程</button></div>
+                    <div class="summary-item"><span>02</span><b>核对 Claude CLI 事件序列</b><span>完成</span></div>
+                    <div class="summary-item"><span>03</span><b>核对 OpenAI 兼容事件序列</b><span>完成</span></div>
+                    <div class="summary-item"><span>04</span><b>核对现有工具折叠器</b><span>完成</span></div>
+                  </div>
+                </details>
+                <div class="change"><span>修改</span><code>docs/OPTIMIZATION-ROADMAP.md</code><button>撤销</button></div>
+                <div class="outputs">
+                  <div class="output"><span>▤</span><b>UI-ESCAPADE-TURN-NARRATIVE.md</b><button>打开</button><button>定位</button></div>
+                </div>
+              </div>
+              <div class="usage">↑ 12.4k · ↓ 2.1k · <span id="usageEngine">Claude CLI</span></div>
+            </footer>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="composer-zone">
+      <div class="composer">
+        <div class="placeholder">向如意提问，或在对话进行中随时插话纠偏…</div>
+        <div class="compose-row"><button>＋ 附件</button><button>✦ 技能</button><button>⌘ Agent 团队</button><button class="send">↑</button></div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="note" id="note">已定位到这次工具调用</div>
+<script>
+(function(){
+  var root=document.documentElement;
+  var engineBadge=document.getElementById("engineBadge");
+  var usageEngine=document.getElementById("usageEngine");
+  document.querySelectorAll("[data-engine-button]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      document.querySelectorAll("[data-engine-button]").forEach(function(x){x.classList.remove("active")});
+      btn.classList.add("active");
+      var isClaude=btn.dataset.engineButton==="claude";
+      root.dataset.engine=isClaude?"claude":"openai";
+      engineBadge.textContent=isClaude?"Claude CLI":"OpenAI 兼容";
+      usageEngine.textContent=isClaude?"Claude CLI":"OpenAI 兼容";
+    });
+  });
+  document.getElementById("themeButton").addEventListener("click",function(){
+    var dark=root.dataset.theme==="dark";
+    root.dataset.theme=dark?"light":"dark";
+    this.innerHTML=dark?"☾ <b>墨夜</b>":"☼ <b>月白</b>";
+  });
+  var summary=document.getElementById("summaryTools");
+  document.getElementById("expandSummary").addEventListener("click",function(){
+    summary.open=!summary.open;
+    this.textContent=summary.open?"收起工具记录":"展开工具记录";
+  });
+  document.querySelectorAll("[data-jump]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var target=document.getElementById(btn.dataset.jump);
+      target.open=true;
+      target.scrollIntoView({behavior:"smooth",block:"center"});
+      target.animate([{boxShadow:"0 0 0 0 rgba(110,134,242,0)"},{boxShadow:"0 0 0 4px rgba(110,134,242,.32)"},{boxShadow:"0 0 0 0 rgba(110,134,242,0)"}],{duration:1100});
+      var note=document.getElementById("note");note.classList.add("show");setTimeout(function(){note.classList.remove("show")},1500);
+    });
+  });
+})();
+</script>
+</body>
+</html>

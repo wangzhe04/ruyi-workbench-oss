@@ -139,8 +139,8 @@ This is the first public release of the 2.x product line, **Escapade**. It combi
 
 ### 中文
 
-在 `v1.6.5` 之前的迭代记录、设计说明和验收材料见 [`docs/OPTIMIZATION-ROADMAP.md`](./docs/OPTIMIZATION-ROADMAP.md)。
+在 `v1.6.5` 之前的迭代记录、设计说明和验收材料见 [`docs/archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`](./docs/archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md)。
 
 ### English
 
-For iteration records, design notes, and acceptance material before `v1.6.5`, see [`docs/OPTIMIZATION-ROADMAP.md`](./docs/OPTIMIZATION-ROADMAP.md).
+For iteration records, design notes, and acceptance material before `v1.6.5`, see [`docs/archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`](./docs/archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md).

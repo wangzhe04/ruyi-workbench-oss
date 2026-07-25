@@ -27,6 +27,7 @@ language. They are engineering records rather than normative user or deployment 
 | 设计稿 | 状态 | 说明 |
 |---|---|---|
 | [UI-DESIGN-V4.md](UI-DESIGN-V4.md) | **定稿(现行基线)** | 现代毛玻璃质感;token 值与 styles.css 一致(第50波落地),mockup: `mockups/v4-glass-*.html` |
+| [UI-ESCAPADE-TURN-NARRATIVE.md](UI-ESCAPADE-TURN-NARRATIVE.md) | **Escapade 提案(P1，建议前置)** | 一轮一个大框，文字/工具按真实顺序穿插；末尾保留完整工具、变更与产物复盘；Claude CLI/OpenAI 兼容共用协议与渲染器 |
 | [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | 概念待立项 | 唯一未落地概念稿(「交办台」);vNext 立项决策列第52波+,双壳并存死线 ≤2 release |
 
 ## 归档区(`archive/`)
@@ -35,6 +36,7 @@ language. They are engineering records rather than normative user or deployment 
 
 | 文档 | 对应波次 | 状态 |
 |---|---|---|
+| [OPTIMIZATION-ROADMAP-HISTORY-V1-2.md](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md) | 第1–45波 | 已归档（早期审计、v1.x 与 V2.0 立项/交付） |
 | [AUTONOMY-PLAN.md](archive/AUTONOMY-PLAN.md) | 第25-26波 | 已落地(耐久基座 + 调度监督) |
 | [TEAM-MODE-V2-DESIGN.md](archive/TEAM-MODE-V2-DESIGN.md) | 第8/9波后 | 已落地(团队模式 v2) |
 | [WAVE31-ACCEPTANCE.md](archive/WAVE31-ACCEPTANCE.md) | 第31波 | 已交付(§5 工程7/7 + 产品4/4 达标) |
