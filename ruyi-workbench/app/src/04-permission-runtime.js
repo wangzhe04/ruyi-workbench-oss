@@ -794,6 +794,7 @@ class McpHttpClient {
 const mcpClients = new Map();       // serverId -> McpStdioClient
 const mcpClientFailures = new Map(); // serverId -> { at, error }
 const MCP_FAILURE_COOLDOWN_MS = 60000;
+const mcpClientPending = new Map();  // 55a: serverId -> 进行中的 start Promise(并发互斥,防孤儿子进程)
 
 // ============================================================================
 // v1.1-W2 (T2) — MCP drop-in 自动扫描。
@@ -1067,17 +1068,25 @@ async function getMcpClient(entry) {
   if (existing && existing.dead) mcpClients.delete(entry.id);
   const fail = mcpClientFailures.get(entry.id);
   if (fail && (Date.now() - fail.at) < MCP_FAILURE_COOLDOWN_MS) return null;   // in cooldown
-  const client = (entry.transport === 'sse' || entry.transport === 'http') ? new McpHttpClient(entry) : new McpStdioClient(entry);
-  try {
-    await client.start();
-    mcpClients.set(entry.id, client);
-    mcpClientFailures.delete(entry.id);
-    return client;
-  } catch (e) {
-    mcpClientFailures.set(entry.id, { at: Date.now(), error: (e && e.message) || String(e) });
-    logEvent({ kind: 'mcp_bridge_start_failed', serverId: entry.id, error: (e && e.message) || String(e) });
-    return null;
-  }
+  // 55a: 并发互斥 -- 同一 entry.id 的并发 getMcpClient 复用同一个 start Promise。probeMcpConnector 的
+  // start race-timeout(可低至 2s)先于 getMcpClient 的 8s rpc 超时返回,若无互斥,第二次 probe 会 spawn
+  // 第二个子进程;两个都成功时第一个子进程成孤儿(child.unref 只防阻止退出不杀进程,持有句柄/端口/锁)。
+  if (mcpClientPending.has(entry.id)) return mcpClientPending.get(entry.id);
+  const p = (async () => {
+    const client = (entry.transport === 'sse' || entry.transport === 'http') ? new McpHttpClient(entry) : new McpStdioClient(entry);
+    try {
+      await client.start();
+      mcpClients.set(entry.id, client);
+      mcpClientFailures.delete(entry.id);
+      return client;
+    } catch (e) {
+      mcpClientFailures.set(entry.id, { at: Date.now(), error: (e && e.message) || String(e) });
+      logEvent({ kind: 'mcp_bridge_start_failed', serverId: entry.id, error: (e && e.message) || String(e) });
+      return null;
+    }
+  })();
+  mcpClientPending.set(entry.id, p);
+  try { return await p; } finally { mcpClientPending.delete(entry.id); }
 }
 
 // Kill every live bridged client (called on process exit / cleanup).
@@ -1142,6 +1151,206 @@ async function collectBridgedTools(config, force = false) {
     value,
   };
   return value;
+}
+
+// ── 第55波 EC-C 55a: MCP 运维闭环 -- 统一读模型 + 健康探针 + 错误归类 + 兼容矩阵 ──────────
+// 目标(roadmap EC-C):让非程序员不编辑 JSON 也能判断「接上了没有、为什么不可用、怎样恢复」。
+// 本批为后端地基(路由在 13b,前端在 55c):
+//  - MCP_COMPAT_MATRIX:在连接前说明 stdio/sse/http 各 transport 的能力与局限(退出条件#4)。
+//  - classifyMcpError:把裸错误归一为 7 类(startup/network/auth/protocol/tool_registration/timeout/
+//    security),而非统一「连接失败」(退出条件#3)。
+//  - probeMcpConnector:对单连接器做一次显式健康探测,复用 getMcpClient(活则直给、死则重 spawn),
+//    绝不抛,返回结构化 status。start 阶段用 probe 超时竞速(避免 8s rpc 超时拖慢用户重测)。
+//  - buildMcpConnectorInventory:合并 desktop/config/drop-in 三源为带 source/transport/commandOrUrl/
+//    enabled/builtIn/capabilities 的统一清单(含 disabled 条目,UI 需展示并允许启用);env 值掩码,
+//    不返回可执行命令串供前端拼写(配置变更走 import/toggle 路由 + token + 审计,退出条件#5)。
+const MCP_COMPAT_MATRIX = {
+  stdio: {
+    transport: 'stdio',
+    capabilities: ['initialize', 'tools/list', 'tools/call', 'notifications/cancelled'],
+    limitations: ['无服务端推送 tools/list_changed(工具列表变化需重新 tools/list 探测)'],
+    supportsListChanged: false,
+  },
+  http: {
+    transport: 'http (streamable-HTTP 2025-03-26)',
+    capabilities: ['initialize', 'tools/list', 'tools/call', 'Mcp-Session-Id 会话', 'tools/list_changed 推送'],
+    limitations: ['需可访问 URL;密钥引用连接时才展开(不落盘明文)'],
+    supportsListChanged: true,
+  },
+  sse: {
+    transport: 'sse (legacy 2024-11-05)',
+    capabilities: ['initialize', 'tools/list', 'tools/call', 'tools/list_changed 推送'],
+    limitations: ['legacy transport;新建连接器优先 streamable-HTTP'],
+    supportsListChanged: true,
+  },
+};
+
+// 把裸错误归一为 EC-C 退出条件要求的 7 类。顺序敏感:先匹配更具体的类别(auth/startup/network/
+// timeout/security/tool_registration 在 protocol 之前,因为握手失败往往携带更具体的根因词)。
+function classifyMcpError(err, entry) {
+  const raw = (err && err.message) ? err.message : String(err == null ? '' : err);
+  const msg = raw.toLowerCase();
+  const transport = entry && entry.transport;
+  // auth:HTTP 401/403(远程 transport 鉴权失败)。锚定 HTTP 上下文(HTTP/状态/status/code + 数字),
+  // 避免误匹配端口号(如 ECONNREFUSED 127.0.0.1:401 -> 应归 network,非 auth)。
+  if (/(?:HTTP|状态|status|code)\s*(401|403)\b|unauthorized|forbidden/i.test(msg)) return { category: 'auth', message: raw };
+  // startup:spawn 失败 / 子进程退出 / ENOENT / not running(stdio 进程层)
+  if (/spawn failed|enoent|exited|not running|child error/.test(msg)) return { category: 'startup', message: raw };
+  // network:连接层(ECONNREFUSED/ENOTFOUND/ETIMEDOUT/ECONNRESET/bad url/EPIPE/socket hang up)
+  if (/econnrefused|enotfound|etimedout|econnreset|eai_again|bad url|epipe|connect econn|socket hang up/.test(msg)) return { category: 'network', message: raw };
+  // timeout:rpc/请求/探针超时
+  if (/timed out|timeout/.test(msg)) return { category: 'timeout', message: raw };
+  // security:SSRF / sanitize 拒绝 / 非 http(s) url
+  if (/ssrf|内网|sanitize|invalid entry|non-http|ftp:/.test(msg)) return { category: 'security', message: raw };
+  // tool_registration:tools/list 失败或空目录
+  if (/tools\/list|no tools|empty tools/.test(msg)) return { category: 'tool_registration', message: raw };
+  // protocol:握手失败 / 非 MCP 响应 / JSON-RPC 错误 / initialize 被拒
+  if (/handshake failed|non-mcp|bad json|protocol|initialize|mcp error|parse|json-rpc|无匹配 id/.test(msg)) return { category: 'protocol', message: raw };
+  return { category: 'unknown', message: raw };
+}
+
+// 对单连接器做一次显式健康探测(用户「为什么不可用」排查 / 清单 ?probe=1)。
+// 复用 getMcpClient(活则直给,死则按 config 条目重 spawn;受 MCP_FAILURE_COOLDOWN_MS 冷却约束 ->
+// 冷却中返回存储的失败归类)。start 阶段用 probe 超时竞速,避免 stdio 8s rpc 超时拖慢用户重测。
+// 绝不抛;返回 {id, status:'ok'|'degraded'|'failed', category?, message?, toolCount?, latencyMs, ...}。
+async function probeMcpConnector(entry, opts = {}) {
+  const startedAt = Date.now();
+  const probedAt = new Date().toISOString();
+  const timeoutMs = Math.max(2000, Number(opts && opts.timeoutMs) || 10000);
+  if (!entry || (!entry.id && !entry.command && !entry.url)) {
+    return { id: null, status: 'failed', category: 'startup', message: 'invalid entry', latencyMs: 0, probedAt };
+  }
+  let client = mcpClients.get(entry.id);
+  if (!client || client.dead) {
+    try {
+      client = await Promise.race([
+        getMcpClient(entry),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('mcp probe timed out (start)')), timeoutMs)),
+      ]);
+    } catch (e) {
+      const cls = classifyMcpError(e, entry);
+      return { id: entry.id, status: 'failed', ...cls, latencyMs: Date.now() - startedAt, probedAt };
+    }
+  }
+  if (!client) {
+    // getMcpClient 返回 null:冷却中或 start 失败已存。回放存储的失败归类。
+    const fail = mcpClientFailures.get(entry.id);
+    const err = fail ? new Error(fail.error) : new Error('mcp client not available');
+    const cls = classifyMcpError(err, entry);
+    return { id: entry.id, status: 'failed', ...cls, latencyMs: Date.now() - startedAt, probedAt };
+  }
+  try {
+    const tools = await Promise.race([
+      Promise.resolve(client.listTools()),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('mcp tools/list timed out')), timeoutMs)),
+    ]);
+    const toolCount = Array.isArray(tools) ? tools.length : 0;
+    return {
+      id: entry.id,
+      status: toolCount > 0 ? 'ok' : 'degraded',
+      toolCount,
+      latencyMs: Date.now() - startedAt,
+      serverInfo: client.serverInfo || null,
+      transport: entry.transport || 'stdio',
+      probedAt,
+    };
+  } catch (e) {
+    const cls = classifyMcpError(e, entry);
+    return { id: entry.id, status: 'failed', ...cls, latencyMs: Date.now() - startedAt, probedAt };
+  }
+}
+
+// 55a: 远程条目 URL 展示脱敏 -- 剥离 userinfo(http://user:pass@host -> http://host),防凭据经
+// token 保护的路由返回给前端(浏览器扩展/日志/共享机器可截获)。解析失败则原样返回(不阻断展示)。
+function safeUrlForDisplay(urlStr) {
+  try { const u = new URL(String(urlStr)); u.username = ''; u.password = ''; return u.toString(); }
+  catch { return String(urlStr || ''); }
+}
+
+// 合并 desktop/config/drop-in 三源为统一读模型。与 resolveExternalMcpServers 的关键差异:本函数
+// 【包含 disabled 条目】(UI 需展示已停用的连接器并允许启用),并附 source/transport/commandOrUrl/
+// enabled/builtIn/capabilities。probe 时复用 resolveExternalMcpServers 取真实 entry(含完整 env,无漂移)。
+// env 值经 maskKey 掩码(防 token 类泄漏);command/url 不掩(配置面非密钥,UI 需识别连接器)。
+async function buildMcpConnectorInventory(config, opts = {}) {
+  const doProbe = !!(opts && opts.probe);
+  const probeTimeoutMs = Math.max(2000, Number(opts && opts.probeTimeoutMs) || 10000);
+  const resolvedById = new Map();
+  if (doProbe) {
+    for (const e of resolveExternalMcpServers(config)) resolvedById.set(e.id, e);
+  }
+  const out = [];
+  const addItem = (spec) => {
+    const transport = (spec.transport === 'sse' || spec.transport === 'http') ? spec.transport : 'stdio';
+    const cap = MCP_COMPAT_MATRIX[transport] || MCP_COMPAT_MATRIX.stdio;
+    const maskedEnv = {};
+    for (const [k, v] of Object.entries(spec.env || {})) maskedEnv[k] = maskKey(String(v));
+    out.push({
+      id: spec.id,
+      label: spec.label || spec.id,
+      source: spec.source,
+      builtIn: !!spec.builtIn,
+      transport,
+      commandOrUrl: transport === 'stdio' ? String(spec.command || '') : safeUrlForDisplay(spec.url),
+      enabled: spec.enabled !== false,
+      capabilities: cap,
+      envKeys: Object.keys(spec.env || {}),
+      env: maskedEnv,
+      argsCount: Array.isArray(spec.args) ? spec.args.length : 0,
+      cwd: spec.cwd || '',
+      health: null,
+    });
+  };
+  // 1. desktop MCP(ai-computer-control,工作台签名能力 -- 内置)
+  const dm = config && config.desktopMcp;
+  if (dm) {
+    let command = String(dm.command || '').trim();
+    let args = Array.isArray(dm.args) ? dm.args.slice() : [];
+    let cwd = String(dm.cwd || '').trim() || undefined;
+    let env = {};
+    if (command) {
+      env = { PYTHONUTF8: '1' };
+    } else if (dm.enabled !== false && dm.autodetect) {
+      // 55a: 仅在启用时 autodetect(detectDesktopMcp 内部 spawnSync 最多 5s,禁用时不应阻塞 GET 清单)。
+      const det = detectDesktopMcp();
+      if (det) { command = det.command; args = det.args; cwd = det.cwd; env = det.env || {}; }
+    }
+    if (command) {
+      const browser = (config && config.browserAutomation) || {};
+      env = { ...env,
+        ACC_BROWSER_MODE: String(browser.mode || 'system'),
+        ACC_BROWSER_EXECUTABLE: String(browser.executable || ''),
+        ACC_BROWSER_CDP_URL: String(browser.cdpUrl || 'http://127.0.0.1:9222'),
+      };
+      addItem({ id: 'ai-computer-control', label: '桌面控制 (ai-computer-control)', source: 'desktop', builtIn: true, transport: 'stdio', command, args, cwd, env, enabled: dm.enabled !== false });
+    }
+  }
+  // 2. config.externalMcpServers(用户连接器 -- 含 disabled)
+  const ext = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
+  for (const s of ext) {
+    if (!s || !s.id) continue;
+    const transport = (s.transport === 'sse' || s.transport === 'http') ? s.transport : 'stdio';
+    if (transport !== 'stdio' && !s.url) continue;     // 远程条目缺 url 不入清单(与 resolveExternalMcpServers 一致)
+    if (transport === 'stdio' && !s.command) continue;
+    addItem({ id: s.id, label: s.label, source: 'config', builtIn: false, transport, command: s.command, url: s.url, args: s.args || [], cwd: s.cwd || '', env: s.env || {}, enabled: s.enabled !== false });
+  }
+  // 3. drop-in(repo/<dataRoot>/mcp/*/ 运行时扫描 -- 内置,不写回 config)
+  if (!config || config.enableMcpDropIn !== false) {
+    for (const d of scanMcpDropIns()) {
+      if (out.some(o => o.id === d.id)) continue;       // config 显式条目优先(与 resolveExternalMcpServers 一致)
+      const transport = (d.transport === 'sse' || d.transport === 'http') ? d.transport : 'stdio';
+      if (transport !== 'stdio' && !d.url) continue;
+      addItem({ id: d.id, label: d.label, source: 'drop-in', builtIn: true, transport, command: d.command, url: d.url, args: d.args || [], cwd: d.cwd || '', env: d.env || {}, enabled: true });
+    }
+  }
+  if (doProbe) {
+    for (const item of out) {
+      if (!item.enabled) { item.health = { id: item.id, status: 'disabled', probedAt: new Date().toISOString() }; continue; }
+      const realEntry = resolvedById.get(item.id);
+      if (!realEntry) { item.health = { id: item.id, status: 'disabled', probedAt: new Date().toISOString() }; continue; }
+      item.health = await probeMcpConnector(realEntry, { timeoutMs: probeTimeoutMs });
+    }
+  }
+  return out;
 }
 
 // v1.4.1: 桥接工具带 `<serverId>__` 前缀(如 ai_computer_control__excel_read)。部分 provider 模型(实测 qwen)

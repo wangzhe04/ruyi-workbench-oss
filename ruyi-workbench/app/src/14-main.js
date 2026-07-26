@@ -59,6 +59,13 @@ module.exports = {
   invalidateMcpDropInCache,
   collectBridgedTools,
   resolveBridge, // v1.4.1: bridged-name prefix-tolerant routing (models that drop the serverId__ prefix)
+  // 第55波 EC-C(55a): MCP 运维闭环 -- 统一读模型 + 健康探针 + 错误归类 + 兼容矩阵 - exposed for e2e 直测。
+  MCP_COMPAT_MATRIX,
+  classifyMcpError,
+  probeMcpConnector,
+  buildMcpConnectorInventory,
+  safeUrlForDisplay, // 55a:远程 URL 展示脱敏 - exposed for e2e 直测
+  killAllMcpClients, // 55a:e2e 直测探针后清理 spawn 的 fake-mcp 子进程(避免 unref 子进程泄漏)
   normalizeConfig,
   buildClaudeCliEnv,
   decodeClaudeCliText,

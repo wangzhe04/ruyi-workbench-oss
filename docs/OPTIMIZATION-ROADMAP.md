@@ -593,3 +593,39 @@ verdict has_bugs -> 4 real bug 全修 + 3 minor 收口:
 ### 第54波退出结论
 
 第54波范围已闭环，无本波待续项。EC-D 的全应用 `app.js` 领域拆分、CSS tokens/base/components/views/themes 全量物理分层、Mission/Agent 节点的更广泛 keyed 更新和性能基准属于原计划“第55波后半”，按独立契约与迁移批次继续，避免用一次高风险搬家稀释本波用户可见交付。
+
+## 第55波 EC-C · MCP 运维闭环 -- 55a 后端地基（2026-07-26）
+
+按 §“EC-C · MCP 运维闭环”退出条件推进。本波让非程序员不编辑 JSON 也能判断「接上了没有、为什么不可用、怎样恢复」。55a 为后端地基（统一读模型 + 健康探针 + 错误归类 + 兼容矩阵 + 路由 + e2e），前端 GUI 与启停/删除持久化在 55b/55c。
+
+### 55a 统一读模型 + 健康探针 + 错误归类
+
+- **`04-permission-runtime.js` 四函数**（collectBridgedTools 之后）：
+  - `MCP_COMPAT_MATRIX`：stdio / sse / http(streamable-HTTP 2025-03-26) 三 transport 的能力清单 + 局限 + `supportsListChanged`，连接前说明（退出条件#4）。
+  - `classifyMcpError(err, entry)`：裸错误归一为 7 类（`startup`/`network`/`auth`/`protocol`/`tool_registration`/`timeout`/`security`），顺序敏感（auth/startup/network/timeout/security/tool_registration 在 protocol 之前，因握手失败常携带更具体根因词），而非统一「连接失败」（退出条件#3）。
+  - `probeMcpConnector(entry, opts)`：单连接器显式健康探测，复用 `getMcpClient`（活则直给、死则重 spawn），绝不抛，返回 `{status:'ok'|'degraded'|'failed', category?, toolCount?, latencyMs, probedAt}`。start 阶段用 probe 超时竞速（避免 stdio 8s rpc 超时拖慢用户重测）。
+  - `buildMcpConnectorInventory(config, {probe})`：合并 desktop/config/drop-in 三源为带 `source`/`transport`/`commandOrUrl`/`enabled`/`builtIn`/`capabilities` 的统一清单（**含 disabled 条目**，UI 需展示并允许启用）；probe 时复用 `resolveExternalMcpServers` 取真实 entry（无漂移）；env 值 `maskKey` 掩码，远程 URL 经 `safeUrlForDisplay` 剥离 userinfo（退出条件#5：配置变更走 token+审计路由，禁止前端拼拼写启动命令）。
+- **`13b-api-domain-routes.js` 两条路由**（handleMcpApiRoutes 末尾，token 级）：
+  - `GET /api/mcp/connectors?probe=1`：统一清单 + 兼容矩阵随附；`probe=1` 时对 enabled 条目附 health。
+  - `POST /api/mcp/connectors/health {id, timeoutMs?}`：单连接器显式重测；id 不在启用清单（disabled/未配置）-> 404 人话。
+- **`fake-mcp.js` 故障注入件**：`FAKE_MCP_HANG_INIT`（不应答 initialize -> timeout 类）、`FAKE_MCP_BREAK_INIT`（回 JSON-RPC error -> protocol 类），纯加法默认行为不变。
+- **`dev-harness/mcp-ops-closure.e2e.js`**（约 60 断言）：P 段 classifyMcpError 7 类 + 端口号不误归 auth + URL 脱敏；U 段 inventory 无探针形状（三源/disabled/env 掩码）；G 段 inventory 探针（enabled ok / disabled 不探针）；I 段 GET 清单形状 + compat；A-F 段 POST /health 五探针场景（成功/启动失败/协议不兼容/超时/HTTP 401 鉴权）+ legacy SSE `tools/list_changed` 工具列表变化（2->3）；G2 段并发探针互斥（PID 计数验证只 spawn 1 个子进程）；S 段静态锁。
+
+### 对抗验证（Deepseek V4 Pro，17 次工具调用亲读六件源码）
+
+verdict 需修后合入 -> 1 P2 + 3 P3 全修：
+- **P2 `getMcpClient` 无互斥**（real）：probeMcpConnector 的 start race-timeout（可低至 2s）先于 getMcpClient 的 8s rpc 超时返回，第二次同 id 探针在 pending 窗内会 spawn 第二个子进程；两个都成功时第一个成孤儿（`child.unref` 只防阻止退出不杀进程，持有句柄/端口/锁）。修：加 `mcpClientPending` Map，同一 entry.id 的并发调用复用同一个 start Promise（一处约 10 行）。e2e G2c 用 `FAKE_MCP_PID_CAPTURE` 计数子进程验证：并发探针恰好 spawn 1 个。
+- **P3 auth 正则误匹配端口号**（real）：`(^|[^\d])(401|403)` 会把 `ECONNREFUSED 127.0.0.1:401` 归 auth（端口 401）。修：锚定 HTTP 上下文 `(?:HTTP|状态|status|code)\s*(401|403)\b|unauthorized|forbidden`，端口不误归。e2e P8b 覆盖。
+- **P3 disabled 时仍阻塞 autodetect**（real）：`buildMcpConnectorInventory` 的 guard 是 `if (dm)` 非 `if (dm && dm.enabled)`，`dm.enabled===false` 且 `dm.autodetect===true`（normalizeConfig 默认）时仍调 `detectDesktopMcp()`（内部 `spawnSync` 最多 5s），无 ACC 安装的用户每 15s 的 GET 清单阻塞事件循环。修：autodetect 分支加 `dm.enabled !== false` 守卫（与 `resolveExternalMcpServers` 的 `if (dm && dm.enabled)` 对齐）。
+- **P3 URL 凭据泄漏**（real）：`commandOrUrl` 原样返回 URL，`http://user:pass@host/mcp` 的凭据经 token 路由返回前端。修：`safeUrlForDisplay` 用 `new URL` 剥离 `username`/`password` 再 toString。e2e P10 覆盖。
+
+### 验证（全部亲跑）
+
+`mcp-ops-closure.e2e`（约 60 断言）全绿；MCP 家族回归（`mcp-bridge`/`mcp-remote-transport`/`mcp-import-config`/`mcp-config`/`fake-mcp-contract`）全绿；`build --check` 新鲜；`facts.static`（e2e 162->163）；`overlay-payload-lock`/`auth-deny-default`/`dom-smoke` 回归全绿。getMcpClient 互斥改动向后兼容（单调用路径行为不变）。
+
+### 待续（记入后续波）
+
+- **55b 启停/删除持久化**：`POST /api/mcp/connectors/toggle` {id, enabled}、`DELETE /api/mcp/connectors` {id}（仅 config 源；desktop/drop-in 拒绝并给原因）；启停/删除不影响无关连接器，重启后状态与配置一致（退出条件#3）。
+- **55c 前端 GUI**：设置面板「MCP 运维」页签 -- 统一连接器列表（source 徽章 + transport + 健康灯 + 错误类别人话）+ 重测/启停/移除按钮 + 导入入口;从导入到健康检查的常见路径完全在 UI 内完成（退出条件#1）。
+- **EC-D 后半（第55波后半）**：全应用 `app.js` 领域拆分、CSS tokens/base/components/views/themes 全量物理分层、性能基准（首屏 <1.5s、视图切换 P95 <200ms），按独立迁移批次继续。
+- 本波不 bump 版本（保持 2.0.1）；EC-C 完整（55b/55c）经范围冻结/测试/打包门后再决定 2.1.x 发布。

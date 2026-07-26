@@ -87,6 +87,32 @@ async function handleMcpApiRoutes(req, res, pathname) {
     logEvent({ kind: 'mcp_import', ids: [...added, ...updated], added: added.length, updated: updated.length, source: 'import-config' });
     return send(res, json({ ok: true, added, updated, skipped }));
   }
+  // ── 第55波 EC-C 55a: MCP 运维闭环 -- 统一连接器读模型 + 健康探针 ──
+  // GET /api/mcp/connectors?probe=1  -> 统一清单(desktop/config/drop-in 三源 + source/transport/
+  //   commandOrUrl/enabled/builtIn/capabilities;probe=1 时对 enabled 条目跑一次 probeMcpConnector 附
+  //   health)。env 值掩码;不返回可执行命令串供前端拼写(配置变更走 import/toggle 路由 + token + 审计)。
+  //   兼容矩阵随附(连接前说明各 transport 能力与局限,退出条件#4)。
+  if (req.method === 'GET' && pathname === '/api/mcp/connectors') {
+    const config = await readConfig();
+    let probe = false;
+    try { probe = new URL(req.url, 'http://127.0.0.1').searchParams.get('probe') === '1'; } catch { /* ignore */ }
+    const connectors = await buildMcpConnectorInventory(config, { probe });
+    logEvent({ kind: 'mcp_connectors_list', count: connectors.length, probe });
+    return send(res, json({ ok: true, connectors, compat: MCP_COMPAT_MATRIX }));
+  }
+  // POST /api/mcp/connectors/health { id, timeoutMs? } -> 单连接器显式重测(用户「为什么不可用」排查)。
+  //   id 必须在 resolveExternalMcpServers 的启用清单内;disabled/未配置 -> 404 人话。返回 {ok, health}。
+  if (req.method === 'POST' && pathname === '/api/mcp/connectors/health') {
+    const body = await readJsonBody(req);
+    const id = String((body && body.id) || '').trim();
+    if (!id) return send(res, json({ ok: false, error: 'id is required' }, 400));
+    const config = await readConfig();
+    const entry = resolveExternalMcpServers(config).find(e => e.id === id);
+    if (!entry) return send(res, json({ ok: false, error: '连接器不在当前启用清单内(可能已禁用或未配置): ' + id }, 404));
+    const health = await probeMcpConnector(entry, { timeoutMs: Math.max(2000, Number(body.timeoutMs) || 10000) });
+    logEvent({ kind: 'mcp_connector_probe', id, status: health.status, category: health.category || null });
+    return send(res, json({ ok: true, health }));
+  }
   return false;
 }
 

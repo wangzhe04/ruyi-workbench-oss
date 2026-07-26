@@ -87,6 +87,16 @@ rl.on('line', line => {
   }
   try {
     if (msg.method === 'initialize') {
+      // 第55波 EC-C(55a): 故障注入测试件 -- 两个 env 开关模拟握手期失败,供 mcp-ops-closure.e2e 验证
+      // probeMcpConnector 的错误归类。纯加法,默认行为不变(无 env 时正常握手)。
+      if (process.env.FAKE_MCP_HANG_INIT) {
+        // 不应答 initialize -> 客户端 rpc 超时 / probe start 竞速超时 -> 归类 timeout。
+        return;
+      }
+      if (process.env.FAKE_MCP_BREAK_INIT) {
+        // 回 JSON-RPC error -> 客户端 _rpc reject 'mcp error' -> start 抛 'handshake failed' -> 归类 protocol。
+        return send({ jsonrpc: '2.0', id: msg.id, error: { code: -32000, message: 'protocol broken (FAKE_MCP_BREAK_INIT)' } });
+      }
       return send({ jsonrpc: '2.0', id: msg.id, result: {
         protocolVersion: (msg.params && msg.params.protocolVersion) || '2024-11-05',
         capabilities: { tools: {} },

@@ -1497,6 +1497,9 @@ const ROUTE_AUTH = [
   // 48c:MCP 配置导入器(scan 发现+冲突检测 / apply 勾选写回),token 级同 import-folder。
   { m: 'POST', p: '/api/mcp/import-config/scan', auth: 'token' },
   { m: 'POST', p: '/api/mcp/import-config/apply', auth: 'token' },
+  // 第55波 EC-C(55a):MCP 运维闭环 -- 统一连接器读模型 + 健康探针。token 级(只读清单 + 探针,不改配置)。
+  { m: 'GET', p: '/api/mcp/connectors', auth: 'token' },
+  { m: 'POST', p: '/api/mcp/connectors/health', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
   { m: 'POST', p: '/api/playbooks', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/', auth: 'token', prefix: true },
