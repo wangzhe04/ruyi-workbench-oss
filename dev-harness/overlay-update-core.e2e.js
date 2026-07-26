@@ -348,6 +348,33 @@ function zipOverlayPkg(pkgDir, zipPath) {
     kill(wb);
   }
 
+  // ── E 段: 故障注入(verify 失败检测 + 中断可恢复 + 审计可追溯,EC-B 退出条件#2) ──
+  console.log('── E 段: 故障注入(verify 失败 + 中断可恢复 + 审计追溯) ──');
+  // 独立部署,避免污染 D 段状态。VALID_PKG 是合法 overlay 包目录(仍在)。
+  const DEPLOY_E = path.join(HOME, 'deploy-e');
+  fs.mkdirSync(path.join(DEPLOY_E, 'app', 'public'), { recursive: true });
+  fs.writeFileSync(path.join(DEPLOY_E, 'app', 'public', 'hello.txt'), 'ORIGINAL-E');
+  fs.writeFileSync(path.join(DEPLOY_E, 'package.json'), JSON.stringify({ version: '2.0.1' }));
+  // apply 合法包(建备份 + 写新内容)
+  const ea = runPs1('apply', VALID_PKG, DEPLOY_E);
+  ok(ea.json && ea.json.ok === true, 'E1 apply 合法包到 E 部署 ok=true');
+  ok(fs.readFileSync(path.join(DEPLOY_E, 'app', 'public', 'hello.txt'), 'utf8') === 'NEW-OVERLAY-DATA', 'E2 apply 写入新内容');
+  // 故障:篡改已应用文件(模拟磁盘损坏 / 杀毒实时改写 / copy 中途留下损坏文件)
+  fs.writeFileSync(path.join(DEPLOY_E, 'app', 'public', 'hello.txt'), 'CORRUPTED-BY-FAULT');
+  // verify 应检测到 mismatch(post-apply 完整性校验的独立验证)
+  const ev = runPs1('verify', VALID_PKG, DEPLOY_E);
+  ok(ev.json && ev.json.ok === false, 'E3 verify 检测到篡改 ok=false');
+  ok(ev.json && Array.isArray(ev.json.mismatches) && ev.json.mismatches.some(m => m.includes('hello.txt')), 'E4 verify mismatches 含 hello.txt');
+  // 中断可恢复:rollback -Force 恢复到 apply 前的原数据(用户数据不丢)
+  const er = runPs1('rollback', null, DEPLOY_E, ['-Force']);
+  ok(er.json && er.json.ok === true, 'E5 故障后 rollback -Force 恢复 ok=true');
+  ok(fs.readFileSync(path.join(DEPLOY_E, 'app', 'public', 'hello.txt'), 'utf8') === 'ORIGINAL-E', 'E6 rollback 恢复用户原数据(故障可恢复,数据不丢)');
+  // 审计可追溯:audit 尾含 apply ok(故障前)+ rollback ok(恢复),整条故障->恢复链可追溯
+  const eau = runPs1('audit', null, DEPLOY_E);
+  ok(eau.json && eau.json.entries.some(e => e.action === 'apply' && e.result === 'ok'), 'E7 audit 含 apply ok(故障前状态)');
+  ok(eau.json && eau.json.entries.some(e => e.action === 'rollback' && e.result === 'ok'), 'E8 audit 含 rollback ok(恢复操作)');
+  ok(eau.json && eau.json.entries.filter(e => e.action === 'apply' || e.action === 'rollback').length >= 2, 'E9 audit 完整追溯故障->恢复链(>=2 条)');
+
   // 收尾
   fs.rmSync(HOME, { recursive: true, force: true });
   console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAIL`);

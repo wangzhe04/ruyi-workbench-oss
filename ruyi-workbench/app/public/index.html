@@ -510,6 +510,7 @@
             <button type="button" data-stab="network" data-i18n="settings.network">联网搜索</button>
             <button type="button" data-stab="doctor" data-i18n="navigation.doctor">体检</button>
             <button type="button" data-stab="advanced" data-i18n="settings.advanced">高级</button>
+            <button type="button" data-stab="update" data-i18n="settings.update">更新中心</button>
           </div>
 
           <!-- ===== 基础 ===== -->
@@ -856,6 +857,56 @@
             <div class="field-grid">
               <div class="field-block"><label data-i18n="settings.advanced.version">版本</label><code id="advVersion" class="adv-val"></code></div>
               <div class="field-block"><label>Overlay ID</label><code id="advOverlayId" class="adv-val"></code></div>
+            </div>
+          </div>
+
+          <!-- ===== 更新中心(第53波 EC-B)===== -->
+          <div class="settings-tab" id="stab-update">
+            <div class="field-block">
+              <label data-i18n="settings.update.current">当前状态</label>
+              <div class="adv-row"><code id="ovCurrent" class="adv-val">—</code></div>
+              <p class="field-help muted" id="ovCurrentHint"> </p>
+            </div>
+            <div class="field-block">
+              <label data-i18n="settings.update.selectZip">选择增量更新包(zip)</label>
+              <div class="adv-row">
+                <button type="button" id="ovPickBtn" class="file-label" data-i18n="settings.update.browse">选择 zip…</button>
+                <code id="ovZipPath" class="adv-val" style="flex:1;overflow:hidden;text-overflow:ellipsis">—</code>
+              </div>
+              <p class="field-help muted" data-i18n="settings.update.selectZip.hint">先预检(路径/完整性/版本兼容/幂等)再决定是否应用。CLI 救援:Manage-Overlay.cmd apply。</p>
+            </div>
+            <div class="field-block">
+              <div class="adv-row">
+                <button type="button" id="ovPrecheckBtn" class="file-label" data-i18n="settings.update.precheck">预检</button>
+                <button type="button" id="ovApplyBtn" class="primary" disabled data-i18n="settings.update.apply">应用更新</button>
+                <label class="muted" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="ovForceChk" /> <span data-i18n="settings.update.force">强制重装</span></label>
+              </div>
+              <p class="field-help muted" id="ovPrecheckHint"> </p>
+            </div>
+            <div class="field-block" id="ovPreviewBox" style="display:none">
+              <label data-i18n="settings.update.preview">变更预览</label>
+              <div class="field-grid">
+                <div><span class="muted" data-i18n="settings.update.newFiles">新增</span> <code id="ovNew">0</code></div>
+                <div><span class="muted" data-i18n="settings.update.overwritten">覆盖</span> <code id="ovOverw">0</code></div>
+                <div><span class="muted" data-i18n="settings.update.unchanged">未变</span> <code id="ovUnch">0</code></div>
+                <div><span class="muted" data-i18n="settings.update.deleted">移除</span> <code id="ovDel">0</code></div>
+              </div>
+              <p class="field-help muted" id="ovCompat"> </p>
+              <div id="ovErrors" class="error-card-next" style="display:none"></div>
+            </div>
+            <div class="field-block" id="ovResultBox" style="display:none">
+              <div id="ovResult" class="adv-row"> </div>
+            </div>
+            <div class="field-block">
+              <div class="adv-row">
+                <button type="button" id="ovRollbackBtn" class="file-label" data-i18n="settings.update.rollback">回滚到上一版</button>
+                <button type="button" id="ovRefreshBtn" class="file-label" data-i18n="settings.update.refresh">刷新</button>
+              </div>
+              <p class="field-help muted" id="ovRollbackHint"> </p>
+            </div>
+            <div class="field-block">
+              <label data-i18n="settings.update.audit">最近更新记录</label>
+              <div id="ovAudit" class="muted" style="max-height:180px;overflow:auto;font-size:12px"> </div>
             </div>
           </div>
         </div>

@@ -1486,6 +1486,7 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/provider/test', auth: 'token' },
   { m: 'POST', p: '/api/workspace/resolve', auth: 'token' },
   { m: 'POST', p: '/api/pick-folder', auth: 'token' },
+  { m: 'POST', p: '/api/pick-file', auth: 'token' },  // 第53波 EC-B(53d):原生文件选择器(选 overlay zip)
   { m: 'POST', p: '/api/plan/decision', auth: 'token' },
   { m: 'POST', p: '/api/steer', auth: 'token' },
   { m: 'DELETE', p: '/api/steer', auth: 'token' },

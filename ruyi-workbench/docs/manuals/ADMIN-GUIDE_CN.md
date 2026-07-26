@@ -52,7 +52,7 @@ Manage-Overlay.ps1 -Action audit     -Target "C:\...\Ruyi-offline" [-Json]
 
 **precheck 四类写入前拒绝**（第53波 EC-B）：① 路径逃逸（manifest 条目含 `..`/盘符/绝对路径，防 zip-slip 越界写）② 完整性（payload 每文件 sha256 == manifest，防篡改/缺文件包）③ 版本兼容（包 `minHostVersion` > 宿主 `package.json` version 则拒）④ 幂等（同版本已 apply 且无 `-Force` -> precheck 警告，apply 升格拒）。`-Json` 输出单 JSON 对象供 API 消费。
 
-**应用内更新（第53波 EC-B API 编排层）**：后端四条 token 级路由编排同一份 PS1（不复制第二套实现）--`POST /api/overlay/precheck` { zipPath } / `POST /api/overlay/apply` { zipPath, force? } / `GET /api/overlay/status`（当前版本+备份+审计尾）/ `POST /api/overlay/rollback`。流程：选 zip -> 解压到数据目录 -> precheck 预览 -> 确认 apply -> restartNeeded 提示。CLI 保留为救援路径。
+**应用内更新（第53波 EC-B）**：设置 -> 「更新中心」页签(专家模式可见)编排后端四条 token 级路由(`POST /api/overlay/precheck|apply|rollback` + `GET /api/overlay/status`),不复制第二套 PS1 实现。流程:选 zip(`/api/pick-file` 原生文件选择器) -> 预检预览(新增/覆盖/未变/移除 + 宿主/最低版本兼容) -> 确认 apply -> restartNeeded 提示 -> 失败恢复卡(一键回滚) + 审计尾 + 回滚按钮。CLI 保留为救援路径。
 
 > 套用后验证：浏览器打开 `http://127.0.0.1:<端口>/health` 应返回 `{"ok":true,...}`；「体检」页签的 `overlay-integrity` 应为 `verified`。
 

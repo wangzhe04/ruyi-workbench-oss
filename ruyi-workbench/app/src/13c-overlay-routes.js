@@ -49,27 +49,23 @@ async function findOverlayRoot(extractedDir) {
 }
 
 // 调用 PS1,捕获 stdout(期待 -Json 单对象输出),切片解析。返回 {ok, json?, raw?, error?}。
+// 对抗审查 F4:用 cp.execFile(异步)非 execFileSync -- 后者阻塞 Node 事件循环最长 5min,apply 期间全服务挂起。
+// 路由处 await。PS1 非 0 退出(precheck 失败/apply 拒绝)仍向 stdout 写 JSON 再 exit 1,故从 stdout 取。
 function runOverlayPs1(ps1Path, action, overlayRoot, target, extraArgs) {
   const args = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ps1Path, '-Action', action, '-Json'];
   if (overlayRoot) args.push('-OverlayRoot', overlayRoot);
   if (target) args.push('-Target', target);
   if (Array.isArray(extraArgs)) args.push(...extraArgs);
-  let raw = '';
-  try {
-    raw = cp.execFileSync('powershell', args, { encoding: 'utf8', timeout: OVERLAY_PS1_TIMEOUT, maxBuffer: 16 * 1024 * 1024 });
-  } catch (e) {
-    // PS1 非 0 退出(precheck 失败 / apply 拒绝)也会进 catch;execFileSync 把 stderr 合并到错误。
-    // 但 PS1 -Json 失败路径仍向 stdout 写了 JSON(再 exit 1),所以从 e.stdout 取。
-    const so = e && e.stdout ? String(e.stdout) : '';
-    if (so) {
+  return new Promise(resolve => {
+    cp.execFile('powershell', args, { encoding: 'utf8', timeout: OVERLAY_PS1_TIMEOUT, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+      const so = String(stdout || (err && err.stdout) || '');
       const j = tryParseJson(so);
-      if (j) return { ok: true, json: j, raw: so };
-    }
-    return { ok: false, error: String(e && e.message || e), stderr: e && e.stderr ? String(e.stderr) : '', raw: so };
-  }
-  const j = tryParseJson(raw);
-  if (j) return { ok: true, json: j, raw };
-  return { ok: false, error: 'non-JSON output from PS1', raw };
+      if (j) return resolve({ ok: true, json: j, raw: so });
+      if (err && !so) return resolve({ ok: false, error: String(err.message || err), stderr: String(stderr || ''), raw: '' });
+      if (err) return resolve({ ok: false, error: String(err.message || err), stderr: String(stderr || ''), raw: so });
+      resolve({ ok: false, error: 'non-JSON output from PS1', raw: so });
+    });
+  });
 }
 
 // 从可能含杂质的 stdout 中切首个 {...} 解析(PS1 -Json 应只输出单对象,但防御性切片)。
@@ -140,7 +136,7 @@ async function handleOverlayApiRoutes(req, res, pathname) {
     if (!overlayRoot) { await fsp.rm(extractDir, { recursive: true, force: true }).catch(() => {}); return send(res, json({ ok: false, error: '解压后未找到 overlay 包(缺 Manage-Overlay.ps1 + payload/update-manifest.json)' }, 400)); }
     await cacheOverlayPs1(overlayRoot);
     const target = externalRoot();
-    const r = runOverlayPs1(OVERLAY_PS1(), 'precheck', overlayRoot, target, []);
+    const r = await runOverlayPs1(OVERLAY_PS1(), 'precheck', overlayRoot, target, []);
     await fsp.rm(extractDir, { recursive: true, force: true }).catch(() => {});
     logEvent({ kind: 'overlay_precheck', ok: !!(r.ok && r.json && r.json.ok), version: r.json && r.json.version });
     if (!r.ok || !r.json) return send(res, json({ ok: false, error: (r && r.error) || 'PS1 调用失败', raw: r && r.raw }, 500));
@@ -161,7 +157,7 @@ async function handleOverlayApiRoutes(req, res, pathname) {
     if (!overlayRoot) { await fsp.rm(extractDir, { recursive: true, force: true }).catch(() => {}); return send(res, json({ ok: false, error: '解压后未找到 overlay 包' }, 400)); }
     await cacheOverlayPs1(overlayRoot);
     const target = externalRoot();
-    const r = runOverlayPs1(OVERLAY_PS1(), 'apply', overlayRoot, target, force ? ['-Force'] : []);
+    const r = await runOverlayPs1(OVERLAY_PS1(), 'apply', overlayRoot, target, force ? ['-Force'] : []);
     await fsp.rm(extractDir, { recursive: true, force: true }).catch(() => {});
     logEvent({ kind: 'overlay_apply', ok: !!(r.ok && r.json && r.json.ok), version: r.json && r.json.version, force });
     if (!r.ok || !r.json) return send(res, json({ ok: false, error: (r && r.error) || 'PS1 调用失败', raw: r && r.raw }, 500));
@@ -184,7 +180,7 @@ async function handleOverlayApiRoutes(req, res, pathname) {
     if (!fs.existsSync(OVERLAY_PS1())) return send(res, json({ ok: false, error: '未缓存 overlay 工具;请先对一个 overlay 包执行预检,或用 Manage-Overlay.cmd rollback 作为救援路径' }, 409));
     const target = externalRoot();
     // -Force:API 跑在服务内,PS1 rollback 默认拒(服务在跑);-Force 跳过端口拒,文件覆写后 restart 加载恢复的旧文件(同 apply 语义)。
-    const r = runOverlayPs1(OVERLAY_PS1(), 'rollback', null, target, ['-Force']);
+    const r = await runOverlayPs1(OVERLAY_PS1(), 'rollback', null, target, ['-Force']);
     logEvent({ kind: 'overlay_rollback', ok: !!(r.ok && r.json && r.json.ok) });
     if (!r.ok || !r.json) return send(res, json({ ok: false, error: (r && r.error) || 'PS1 调用失败', raw: r && r.raw }, 500));
     return send(res, json(r.json));

@@ -915,3 +915,36 @@ async function pickFolder() {
   // Unexpected shape → treat as cancel rather than inventing a path.
   return { ok: true, cancelled: true };
 }
+
+// 第53波 EC-B(53d):原生文件选择器(OpenFileDialog,选 overlay zip 等单文件)。同 pickFolder 的 TopMost owner
+// 模式(无 owner 的 ShowDialog 会被压浏览器后面);filter 如 "Zip 包 (*.zip)|*.zip|所有文件|*.*"。
+async function pickFile(filter) {
+  if (process.platform !== 'win32') {
+    return { ok: false, error: '原生文件选择器仅支持 Windows', hint: '请直接粘贴完整路径' };
+  }
+  const safeFilter = String(filter || 'All files|*.*').replace(/'/g, '');
+  const script = "Add-Type -AssemblyName System.Windows.Forms; "
+    + "$f = New-Object System.Windows.Forms.Form; $f.TopMost = $true; $f.ShowInTaskbar = $false; "
+    + "$f.FormBorderStyle = 'None'; $f.Opacity = 0; "
+    + "$f.StartPosition = 'CenterScreen'; $f.Show(); $f.Activate(); "
+    + "$d = New-Object System.Windows.Forms.OpenFileDialog; "
+    + "$d.Filter = '" + safeFilter + "'; "
+    + "if ($d.ShowDialog($f) -eq 'OK') { Write-Output ('OK' + [char]9 + $d.FileName) } else { Write-Output 'CANCEL' }; "
+    + "$f.Close()";
+  let result;
+  try {
+    result = await runProcess('powershell.exe', [
+      '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-Command', script,
+    ], { cwd: os.homedir(), timeoutMs: 120000 });
+  } catch (e) {
+    return { ok: false, error: '无法启动文件选择器: ' + (e && e.message || e), hint: '请直接粘贴完整路径' };
+  }
+  const out = String((result && result.stdout) || '').trim();
+  if (result && result.ok === false && !out) {
+    return { ok: false, error: String(result.stderr || '选择器不可用').slice(0, 400), hint: '请直接粘贴完整路径' };
+  }
+  if (/^CANCEL$/m.test(out) || out === '') return { ok: true, cancelled: true };
+  const m = out.match(/^OK	(.+)$/m);
+  if (m && m[1].trim()) return { ok: true, path: path.resolve(m[1].trim()) };
+  return { ok: true, cancelled: true };
+}

@@ -8390,6 +8390,122 @@ function switchSettingsTab(name, force) {
   document.querySelectorAll('.settings-tab').forEach(s => s.classList.toggle('active', s.id === `stab-${name}`));
   if (name === 'agents') loadAgentRoles();
   if (name === 'doctor') refreshStatus();
+  if (name === 'update') refreshOverlayStatus();
+}
+
+/* ---------------- 第53波 EC-B(53d):更新中心(编排 /api/overlay/*,PS1 受测核心) ---------------- */
+let _ovZipPath = '';
+async function refreshOverlayStatus() {
+  try {
+    const s = await api('/api/overlay/status');
+    const cur = $('ovCurrent'), hint = $('ovCurrentHint'), audit = $('ovAudit');
+    if (s.current) {
+      cur.textContent = `v${s.current.version}  ·  ${new Date(s.current.appliedAt).toLocaleString()}`;
+      hint.textContent = (s.backups && s.backups.length) ? t('settings.update.backupsCount', { p1: s.backups.length }) : t('settings.update.noBackups');
+    } else {
+      cur.textContent = t('settings.update.notApplied');
+      hint.textContent = '';
+    }
+    if (audit) {
+      const ents = Array.isArray(s.audit) ? s.audit : [];
+      if (!ents.length) { audit.textContent = t('settings.update.noAudit'); }
+      else {
+        audit.innerHTML = ents.slice().reverse().map(e => {
+          const ver = e.version ? ` v${escapeHtml(String(e.version))}` : '';
+          const err = e.error ? `  (${escapeHtml(String(e.error))})` : '';
+          return `<div>#${e.seq} ${escapeHtml(String(e.action))}${ver} -> ${escapeHtml(String(e.result))}${err}</div>`;
+        }).join('');
+      }
+    }
+  } catch { /* status 失败不阻断 UI */ }
+}
+async function overlayPickZip() {
+  try {
+    const r = await api('/api/pick-file', { method: 'POST', body: JSON.stringify({ filter: 'Zip 包 (*.zip)|*.zip|所有文件|*.*' }) });
+    if (!r || r.cancelled) return;
+    if (!r.ok) { toast(r.error || t('settings.update.pickFailed'), 'err'); return; }
+    _ovZipPath = r.path;
+    const zp = $('ovZipPath'); if (zp) zp.textContent = r.path;
+    const ab = $('ovApplyBtn'); if (ab) ab.disabled = true;
+    const ph = $('ovPrecheckHint'); if (ph) ph.textContent = '';
+    const pb = $('ovPreviewBox'); if (pb) pb.style.display = 'none';
+  } catch (e) { toast(apiErrText(e), 'err'); }
+}
+async function overlayPrecheck() {
+  if (!_ovZipPath) { toast(t('settings.update.pickFirst'), 'err'); return; }
+  const ph = $('ovPrecheckHint'); if (ph) ph.textContent = t('settings.update.prechecking');
+  const pb = $('ovPreviewBox'); if (pb) pb.style.display = 'none';
+  const ab = $('ovApplyBtn'); if (ab) ab.disabled = true;
+  try {
+    const r = await api('/api/overlay/precheck', { method: 'POST', body: JSON.stringify({ zipPath: _ovZipPath }) });
+    if (r.ok) {
+      if (ph) ph.textContent = Array.isArray(r.warnings) && r.warnings.length ? r.warnings.join('; ') : t('settings.update.precheckOk', { p1: r.version });
+      const pv = r.preview || {};
+      const setN = (id, n) => { const e = $(id); if (e) e.textContent = n; };
+      setN('ovNew', (pv.new || []).length); setN('ovOverw', (pv.overwritten || []).length);
+      setN('ovUnch', (pv.unchanged || []).length); setN('ovDel', (pv.deleted || []).length);
+      const compat = $('ovCompat'); if (compat) compat.textContent = t('settings.update.compatInfo', { p1: r.hostVersion || '?', p2: r.minHostVersion || '?' });
+      const errs = $('ovErrors'); if (errs) { errs.style.display = 'none'; errs.textContent = ''; }
+      const ab2 = $('ovApplyBtn'); if (ab2) ab2.disabled = false;
+    } else {
+      if (ph) ph.textContent = t('settings.update.precheckFailed');
+      const errs = $('ovErrors'); if (errs) { errs.style.display = 'block'; errs.textContent = (r.errors || []).join('; '); }
+      const ab2 = $('ovApplyBtn'); if (ab2) ab2.disabled = true;
+    }
+    if (pb) pb.style.display = 'block';
+  } catch (e) {
+    if (ph) ph.textContent = t('settings.update.precheckFailed') + ': ' + apiErrText(e);
+  }
+}
+async function overlayApply() {
+  if (!_ovZipPath) { toast(t('settings.update.pickFirst'), 'err'); return; }
+  const forceChk = $('ovForceChk');
+  const force = !!(forceChk && forceChk.checked);
+  const ab = $('ovApplyBtn'); if (ab) { ab.disabled = true; ab.textContent = t('settings.update.applying'); }
+  const rb = $('ovResultBox'); if (rb) rb.style.display = 'none';
+  try {
+    const r = await api('/api/overlay/apply', { method: 'POST', body: JSON.stringify({ zipPath: _ovZipPath, force }) });
+    const rr = $('ovResult');
+    if (rb) rb.style.display = 'block';
+    if (r.ok) {
+      if (rr) rr.innerHTML = `<span class="ok">${t('settings.update.applyOk', { p1: escapeHtml(String(r.version)) })}</span>`;
+      toast(t('settings.update.restartNeeded'), 'ok');
+      if (ab) { ab.disabled = false; ab.textContent = t('settings.update.apply'); }
+      refreshOverlayStatus();
+    } else if (r.idempotent) {
+      if (rr) rr.innerHTML = `<span class="warn">${t('settings.update.idempotent')}</span>`;
+      if (ab) { ab.disabled = false; ab.textContent = t('settings.update.apply'); }
+    } else if (r.rejected) {
+      if (rr) rr.innerHTML = `<span class="err">${t('settings.update.precheckFailed')}: ${escapeHtml((r.errors || []).join('; '))}</span>`;
+      if (ab) { ab.disabled = false; ab.textContent = t('settings.update.apply'); }
+    } else {
+      const err = r.error || (r.verify && r.verify.mismatches && r.verify.mismatches.length ? r.verify.mismatches.join('; ') : t('settings.update.applyFailed'));
+      if (rr) rr.innerHTML = `<span class="err">${t('settings.update.applyFailed')}: ${escapeHtml(String(err))}</span> <button class="mini" id="ovRecoverBtn">${t('settings.update.rollback')}</button>`;
+      const rc = $('ovRecoverBtn'); if (rc) rc.onclick = overlayRollback;
+      if (ab) { ab.disabled = false; ab.textContent = t('settings.update.apply'); }
+      toast(t('settings.update.applyFailed'), 'err');
+    }
+  } catch (e) {
+    const rr = $('ovResult'); if (rr) rr.innerHTML = `<span class="err">${apiErrText(e)}</span>`;
+    if (rb) rb.style.display = 'block';
+    if (ab) { ab.disabled = false; ab.textContent = t('settings.update.apply'); }
+  }
+}
+async function overlayRollback() {
+  const rh = $('ovRollbackHint'); if (rh) rh.textContent = t('settings.update.rollingBack');
+  try {
+    const r = await api('/api/overlay/rollback', { method: 'POST', body: '{}' });
+    if (r.ok) {
+      if (rh) rh.textContent = t('settings.update.rolledBack', { p1: r.restored });
+      toast(t('settings.update.rolledBackShort'), 'ok');
+      refreshOverlayStatus();
+    } else {
+      if (rh) rh.textContent = r.error || t('settings.update.rollbackFailed');
+      toast(r.error || t('settings.update.rollbackFailed'), 'err');
+    }
+  } catch (e) {
+    if (rh) rh.textContent = apiErrText(e);
+  }
 }
 
 /* ---------------- composer helpers ---------------- */
@@ -8683,6 +8799,12 @@ function bindEvents() {
   document.querySelectorAll('#settingsTabs button').forEach(b => { b.onclick = () => switchSettingsTab(b.dataset.stab); });
   { const st = $('cfgSearchType'); if (st) st.onchange = updateSearchBackendVisibility; } // v1.0-S3 (B1)
   { const od = $('openDataDirBtn'); if (od) od.onclick = () => { const dr = (state.status && state.status.dataRoot) || ''; if (dr) runTool('browser_open', { url: dr }); }; }
+  // 第53波 EC-B(53d):更新中心按钮绑定
+  { const b = $('ovPickBtn'); if (b) b.onclick = overlayPickZip; }
+  { const b = $('ovPrecheckBtn'); if (b) b.onclick = overlayPrecheck; }
+  { const b = $('ovApplyBtn'); if (b) b.onclick = overlayApply; }
+  { const b = $('ovRollbackBtn'); if (b) b.onclick = overlayRollback; }
+  { const b = $('ovRefreshBtn'); if (b) b.onclick = refreshOverlayStatus; }
   // Route static-modal closes through closeModal(id) so focus returns to the trigger (§4.9). Dynamic
   // buildModal backdrops have no id / no [data-close-modal] and manage their own focus restore.
   document.querySelectorAll('[data-close-modal]').forEach(b => { b.onclick = () => { const bd = b.closest('.modal-backdrop'); if (bd && bd.id) closeModal(bd.id); else if (bd) bd.classList.add('hidden'); }; });

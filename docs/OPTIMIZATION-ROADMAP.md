@@ -490,3 +490,56 @@ verdict has_bugs -> 3 real bug 全修 + 4 minor 全收口:
 - **53e 签名预检**:现 precheck 覆盖 manifest+checksum(完整性)+路径穿越+版本兼容;真正的包签名(Authenticode/PKI)未做(需密钥基建),属 EC-B 后续。
 - **53f 故障注入 e2e 扩展**:apply 中断(kill 中途)+ verify 失败 + 重启失败 三类故障注入,验证原版本可恢复且用户数据不丢(EC-B 退出条件#2 的完整覆盖;本波 D 段只测了 rollback 正常路径)。
 - **CHANGELOG/版本**:本波是 EC-B 内部首批交付,不 bump 版本(保持 2.0.1);EC-B 完整(GUI + 签名 + 故障注入)经范围冻结/测试/打包门后再决定 2.1 发布。
+
+
+### 第53波 EC-B 续项交付 53d/53e/53f（2026-07-26）
+
+按首批交付的「待续」推进 53d/53f,53e 经评估裁定。多 agent 协作:Deepseek V4 Pro 对抗审查(29 次工具调用亲读 GUI/PS1/e2e)+ 主会话亲核修复。
+
+### 53d 前端更新中心 GUI
+
+设置面板新增「更新中心」页签(专家模式可见,简易模式收敛),编排 53b API(不复制第二套实现):
+
+- **index.html `stab-update` 面板**:当前状态(版本/应用时间/备份数)+ 选 zip(`ovPickBtn`)+ 预检(`ovPrecheckBtn`)+ 应用(`ovApplyBtn` + `ovForceChk` 强制重装)+ 变更预览(新增/覆盖/未变/移除 + 宿主/最低版本兼容)+ 失败恢复卡(`ovResult`/`ovRecoverBtn`)+ 回滚/刷新 + 审计尾(`ovAudit`)。
+- **app.js overlay 函数族**:`refreshOverlayStatus`(GET status)/`overlayPickZip`(POST pick-file)/`overlayPrecheck`(POST precheck,启 apply)/`overlayApply`(POST apply,restartNeeded)/`overlayRollback`(POST rollback)。`switchSettingsTab` 加 update hook。
+- **`/api/pick-file` 后端**:`pickFile(filter)`(10-context-governance.js,OpenFileDialog + TopMost owner,同 pickFolder 模式)+ 路由 + ROUTE_AUTH token 级。前端选 zip 的原生文件选择器。
+- **i18n**:35 个 `settings.update.*` 键 × zh-CN/en-US 双语(locale + docs/i18n 事实源四向同步)。占位符 `{{p1}}/{{p2}}` 契约。
+- **`overlay-update-gui.static.e2e.js`**(24 断言):HTML 页签/面板/按钮/字段 + app.js 函数族/hook/绑定/API 调用 + locale 中英对等/占位符 + 后端 pickFile/路由 wiring。
+
+### 53e 签名预检 -- 评估裁定不做实现
+
+经评估,真正的包签名(Authenticode/PKI)需要密钥基建(证书签发 + 私钥管理 + 公钥分发),当前不具备,属 EC-B 后续。裁定理由:
+
+- 当前 precheck 的 **sha256 完整性校验已是事实保证**(防篡改/缺文件包,逐文件校验 manifest),覆盖了"包内容可信"的核心需求。
+- 真正的**来源认证**(确认包来自可信发布者)需要非对称签名(RSA/Ed25519 + 公钥分发)。轻量 HMAC(对称密钥)方案有**虚假安全感**:密钥必须存在部署里用于校验,攻击者拿到部署即拿到密钥,可重签任意包。
+- 在密钥基建就绪前,签名框架是空壳(签名字段恒空),不引入价值。框架留待 PKI 就绪后落地(gen-manifest 加签名工具 + 部署预置公钥 + precheck 验签)。
+
+### 53f 故障注入 e2e E 段（EC-B 退出条件#2 完整覆盖）
+
+`overlay-update-core.e2e.js` 加 E 段(9 断言),验证"故障后原版本可恢复且用户数据不丢"+"可从审计追溯":
+
+- **verify 失败检测**:apply 合法包 -> 篡改已应用文件(模拟磁盘损坏/杀毒改写)-> `Do-Verify` 报 `ok=false` + mismatches 含该文件。
+- **中断可恢复**:篡改后 `rollback -Force` -> 恢复到 apply 前原数据(`ORIGINAL-E`,用户数据不丢)。
+- **审计可追溯**:`audit` 尾含 `apply ok`(故障前)+ `rollback ok`(恢复),故障->恢复链完整(>=2 条)。
+- E6 磁盘直读验证(非假绿);E 段独立 `DEPLOY_E` 不污染 D 段。
+
+### 对抗验证(Deepseek V4 Pro,29 次工具调用亲读 GUI/PS1/e2e)
+
+verdict has_bugs -> 4 real bug 全修 + 3 minor 收口:
+- **A1/A2 XSS**(real):`refreshOverlayStatus` audit innerHTML + `overlayApply` ok innerHTML 拼接 `e.version`/`r.version`(来自 overlay manifest,攻击者可控)-> 存储型 XSS。修:动态值经 `escapeHtml()`(app.js 已导入)。`t()` 的 interpolate 不转义,故 version 先 escape 再传 t()。
+- **A3 mismatches innerHTML**(minor):文件路径进 innerHTML,利用难但防御性 escape。
+- **B2 按钮状态机**(real/minor):`overlayApply` rejected/else/ok 分支未恢复 `ab.disabled=false`,apply 失败后按钮卡死(需重选 zip 恢复)。修:三分支恢复 disabled。B1(precheck catch 保持 apply 禁用)经核 notbug(precheck 失败时 apply 应禁用)。
+- **F4 事件循环阻塞**(real):`runOverlayPs1` 用 `cp.execFileSync` 阻塞 Node 事件循环最长 5min(apply 期间全服务挂起)。修:改 `cp.execFile` + Promise 异步化,3 路由调用处加 `await`。
+- **C `_ovZipPath` TOCTOU**(minor):用户快速切换 zip,precheck A 但 apply B。需用户快速操作,留后续(可加 precheck 快照比对)。
+- **pickFile/D/13c 路由** notbug:safeFilter 单引号移除够(PS 单引号内元字符字面量);zipPath 三重校验;status GET 自查 token;rollback 无 body 无害。
+
+### 验证(全部亲跑)
+
+`overlay-update-core.e2e`(70 断言:S9+A13+B15+C21+D3+E9)全绿;`overlay-update-gui.static`(24)全绿;`build --check` 新鲜;`facts.static`(e2eCount 159->160);`i18n.static`(1212+35 键);`dom-smoke`/`auth-deny-default`/`mcp-import-config`/`checkpoint`/`overlay-payload-lock`/`manifest-ranges` 回归全绿。runOverlayPs1 异步化后 70 断言无回归。
+
+### 待续(记入后续波)
+
+- **53e 签名预检**:PKI 基建就绪后落地(评估结论见上)。
+- **53g 收尾**:EC-B 完整后经范围冻结/测试/打包门,决定 2.1 发布(本波仍 2.0.1,不 bump)。
+- **C TOCTOU**:precheck 快照比对(用户快速切换 zip 的竞态,minor)。
+- **重启交接自动化**:当前 apply 成功提示用户手动重启;自动化 restart handoff(优雅停服->apply->重启)留后续。

@@ -132,6 +132,11 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/pick-folder') {
     return send(res, json(await pickFolder()));
   }
+  // 第53波 EC-B(53d): POST /api/pick-file - 原生文件选择器(OpenFileDialog,选 overlay zip 等)。token 级。
+  if (req.method === 'POST' && pathname === '/api/pick-file') {
+    const body = await readJsonBody(req);
+    return send(res, json(await pickFile(body && body.filter)));
+  }
   if (req.method === 'GET' && pathname === '/api/models') {
     // Live-enriched model list. For an active native provider: its models ∪ live GET /models.
     // Otherwise the Claude path: proxy ∪ offline. Read-only, best-effort; never throws.
