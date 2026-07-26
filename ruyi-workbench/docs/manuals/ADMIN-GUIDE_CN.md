@@ -34,16 +34,25 @@ Start-Workbench.cmd                      # 便捷启动脚本（内部走上面�
 
 ### 1.3 overlay 增量包套用
 
-发布升级走**增量覆盖包（overlay）**，不重装整包。包内结构：`Manage-Overlay.cmd`（薄封装）→ `Manage-Overlay.ps1` → `payload\`（落地文件 + `update-manifest.json`，内含每个文件的 sha256）。四个动作：
+发布升级走**增量覆盖包（overlay）**，不重装整包。包内结构：`Manage-Overlay.cmd`（薄封装）→ `Manage-Overlay.ps1` → `payload\`（落地文件 + `update-manifest.json`，内含每个文件的 sha256 + `minHostVersion`）。六个动作（第53波 EC-B 起 `precheck`/`audit` 为安全原语）：
 
 ```cmd
 Manage-Overlay.cmd apply    "C:\...\Ruyi-offline"
 Manage-Overlay.cmd rollback "C:\...\Ruyi-offline"
 Manage-Overlay.cmd list     "C:\...\Ruyi-offline"
 Manage-Overlay.cmd verify   "C:\...\Ruyi-offline"
+:: EC-B 安全原语（GUI/API 编排用，CLI 亦可）:
+::   precheck  写入前全检(路径逃逸/完整性/版本兼容/幂等) + 变更预览,不写一字节
+::   audit     查看 .overlay-audit.jsonl 审计尾
+Manage-Overlay.ps1 -Action precheck -OverlayRoot <解压包> -Target "C:\...\Ruyi-offline" [-Json] [-Force]
+Manage-Overlay.ps1 -Action audit     -Target "C:\...\Ruyi-offline" [-Json]
 ```
 
-套用流程（`Do-Apply`）：**先备份**目标里将被覆盖的每个文件到 `目标\.overlay-backups\<版本>-<时间戳>\` → 复制 payload 覆盖 → 写 `.overlay-applied.json` 标记 → **用 sha256 逐文件校验**（`VERIFY OK: all N files match` 即成功）→ 只保留最近 5 份备份。`rollback` 恢复最近一次备份（服务运行时**拒绝**回滚，先停进程；新增的文件如 vendor 库会留下，无害）。套用前若探测到 8765 / 8799 端口有工作台在跑，会告警提示先关闭，否则新 `server.js` 不生效。
+套用流程（`Do-Apply`，第53波 EC-B 加固）：**先内联 precheck 全检**（失败即拒、绝不写入，backup 目录都不建）-> **先备份**目标里将被覆盖的每个文件到 `目标\.overlay-backups\<版本>-<时间戳>\` → 复制 payload 覆盖 → 写 `.overlay-applied.json` 标记 + 追加 `.overlay-audit.jsonl` 审计条目 -> **post-apply 用 sha256 逐文件校验**，verify 结果决定顶层 `ok`/审计 `result`（`ok`/`verify_failed`，不再硬编码 ok）-> 只保留最近 5 份备份。`rollback` 恢复最近一次备份（服务运行时默认**拒绝**回滚，先停进程；`-Force` 跳过端口拒--API 路径自动带，因 API 跑在服务内，文件覆写后 restart 加载恢复的旧文件；新增的文件如 vendor 库会留下，无害）。套用前若探测到 8765 / 8799 端口有工作台在跑，会告警提示先关闭，否则新 `server.js` 不生效。
+
+**precheck 四类写入前拒绝**（第53波 EC-B）：① 路径逃逸（manifest 条目含 `..`/盘符/绝对路径，防 zip-slip 越界写）② 完整性（payload 每文件 sha256 == manifest，防篡改/缺文件包）③ 版本兼容（包 `minHostVersion` > 宿主 `package.json` version 则拒）④ 幂等（同版本已 apply 且无 `-Force` -> precheck 警告，apply 升格拒）。`-Json` 输出单 JSON 对象供 API 消费。
+
+**应用内更新（第53波 EC-B API 编排层）**：后端四条 token 级路由编排同一份 PS1（不复制第二套实现）--`POST /api/overlay/precheck` { zipPath } / `POST /api/overlay/apply` { zipPath, force? } / `GET /api/overlay/status`（当前版本+备份+审计尾）/ `POST /api/overlay/rollback`。流程：选 zip -> 解压到数据目录 -> precheck 预览 -> 确认 apply -> restartNeeded 提示。CLI 保留为救援路径。
 
 > 套用后验证：浏览器打开 `http://127.0.0.1:<端口>/health` 应返回 `{"ok":true,...}`；「体检」页签的 `overlay-integrity` 应为 `verified`。
 

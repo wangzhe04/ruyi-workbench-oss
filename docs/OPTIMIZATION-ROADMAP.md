@@ -446,3 +446,47 @@ build --check(产物新鲜 + manifest 行区间自洽)✓;facts.static(含新 6 
 - **终态诚实性**：CLI 退出仍未收到完成通知时，将子 Agent 标为 interrupted，避免永久“运行中”或伪造成功。
 - **DAG 可见性**：前端把可观测的“Claude 主对话 → 原生子 Agent”投影为只读内存 DAG，展示启动、真实等待时长、成功/失败/中断；不虚构 Claude CLI 未提供的内部工具步骤，也不开放无效的插话/重试操作。
 - **兼容边界**：生命周期政策只注入 Claude CLI 主回合，不进入 OpenAI-compatible Provider、工作流 Claude 节点或 Kimi/Ark 端点环境映射；现有双引擎与 Coding Plan 切换契约保持不变。
+
+## 第53波 EC-B · 安全更新中心 -- 首批交付（2026-07-26）
+
+按 §"EC-B · 安全更新中心" 退出条件推进。本波把已有 `Manage-Overlay.ps1` 的 apply/rollback/verify 安全原语加固为「先预检、可审计、可幂等」的受测核心,并加后端 API 编排层;GUI 不复制第二套更新实现,只编排同一份 PS1。多 agent 协作:Deepseek V4 Pro 对抗审查(20 次工具调用亲读 PS1/API/e2e 三件)+ 主会话亲核修复。
+
+### 交付
+
+- **53a PS1 受测核心加固(`tools/Manage-Overlay.ps1`)**:UTF-8 BOM(PS5.1 cp936 系统正确解析中文注释)。新增 `precheck`/`audit` action + `-OverlayRoot`/`-Json`/`-Force` 参数。
+  - **precheck(写入前全检)**:四类失败均在写入前拒绝 -- ① 路径逃逸(manifest 条目含 `..`/盘符/绝对路径,防 zip-slip 越界写)② 完整性(payload 每文件 sha256 == manifest,防篡改/缺文件包)③ 版本兼容(包 `minHostVersion` > 宿主 `package.json` version -> 拒)④ 幂等(同版本已 apply 且无 `-Force` -> precheck 警告,apply 升格拒)。变更预览(new/overwritten/unchanged/deleted)。
+  - **apply 内联 precheck**:Do-Apply 先跑 precheck 全检,失败即拒、绝不写入(backup 目录都不建)。post-apply verify 结果决定顶层 `ok`/审计 `result`(对抗审查 BUG-2:不再硬编码 ok,copy 成功但写入损坏时 verify 抓得到,审计如实记 `verify_failed`)。`.overlay-audit.jsonl` append-only 审计日志(每条 seq/ts/action/version/result/fileCount/backup/error)。
+  - **rollback `-Force`**:默认拒(服务在跑别覆盖,向后兼容 CLI 安全);`-Force` 跳过(API 路径自动带,因 API 跑在服务内,文件覆写后 restart 加载恢复的旧文件 -- 与 apply 同语义)。
+  - **输出纪律(-Json)**:每个 action 向 pipeline 输出恰好一个 JSON 对象。内部 helper 全赋值收集、`New-Item|Out-Null`、自增用 `$x=$x+1`(对抗审查 BUG-1:`$x++` 表达式会向 pipeline 吐旧值破坏 JSON)。`Get-PrecheckCore` 抽出 4 检查供 `Invoke-Precheck`(带预览+输出)与 `Invoke-PrecheckInternal`(Do-Apply 内联)共用,消除重复(对抗审查 BUG-3)。
+- **53b 后端 API 编排层(`app/src/13c-overlay-routes.js`,manifest 模块 18)**:不复制第二套更新实现,只编排 PS1。
+  - 四条路由(全 `token` 级,同 checkpoints/rollback 破坏性档,入 `ROUTE_AUTH`):`POST /api/overlay/precheck` { zipPath } / `POST /api/overlay/apply` { zipPath, force? } / `GET /api/overlay/status` / `POST /api/overlay/rollback`。
+  - 流程:zipPath 绝对路径+.zip+存在校验 -> PowerShell `Expand-Archive` 解压到 `dataRoot/overlay-tool/extract-<ts>-<rand>/`(工作区内) -> `findOverlayRoot`(Manage-Overlay.ps1 + payload/update-manifest.json,深度≤2) -> 缓存 PS1 到 `dataRoot/overlay-tool/`(供后续 rollback/audit) -> 调 PS1 -Json -Target externalRoot() -> 解析 JSON 返回。extractDir 成功/失败路径都清理。
+  - `status` 直接读 `.overlay-applied.json`/`.overlay-backups/`/`.overlay-audit.jsonl`(无需 PS1,无缓存也能工作);剥 BOM(PS5.1 `Set-Content -Encoding UTF8` 带BOM,Node `JSON.parse` 遇BOM抛)。GET handler 内自查 `tokenOk`(同 `/api/audit` 纵深纪律)。
+  - 单引号转义防 `Expand-Archive` 命令注入;`logEvent` 审计每个动作。
+- **53c e2e 故障注入(`dev-harness/overlay-update-core.e2e.js`,65 断言全绿)**:
+  - **S 段静态锁**(9):PS1 含 precheck/audit/路径逃逸/版本兼容/幂等/审计/内联 precheck;API 入 bundle;四路由入 ROUTE_AUTH;manifest 模块 18。
+  - **A 段 PS1 核心**(13):precheck 合法包(预览 new/overwritten) + apply(写入+备份+标记+restartNeeded) + audit;A13 输出无管道泄漏(BUG-1 防回归:严格解析检测 first-{ 前非空白)。
+  - **B 段故障注入**(15):路径穿越/篡改/缺文件/版本不兼容 四类坏包,precheck + apply 均 rejected,且**零写入**(不建 `.overlay-backups`、不越界写文件)。
+  - **C 段 API 编排**(21):precheck(合法+非zip/相对路径 400) + apply + 幂等拒 + -Force 覆盖 + status(版本/备份/审计) + apply V2(不同版本) + status 版本切换;无 token 403。
+  - **D 段可恢复**(3):API rollback 一步回退(V2-DATA -> NEW-OVERLAY-DATA,证上一步状态恢复)。
+  - 测试 server.js 复制到临时部署跑(externalRoot()=临时部署,不污染真源);token 经 `POST /api/bootstrap`(47c,不依赖 index.html)。
+
+### 对抗验证(Deepseek V4 Pro 子代理,20 次工具调用亲读三件)
+
+verdict has_bugs -> 3 real bug 全修 + 4 minor 全收口:
+- **BUG-1 `$restored++` 管道泄漏**(Do-Rollback):表达式向 pipeline 吐 0,1,2... 破坏 -Json 单对象输出;e2e forgiving 切片解析漏抓(假绿)。修:`$restored = $restored + 1`(赋值无输出)。e2e 加 A13 严格泄漏检测防回归。
+- **BUG-2 apply 审计硬编码 ok**(Do-Apply):post-apply verify 结果未影响顶层 ok/审计 result;copy 成功但写入损坏时审计谎报 ok。修:`$applyOk = $vr.ok`;result=`ok`/`verify_failed`;顶层 ok=$applyOk。
+- **BUG-3 `Invoke-Precheck` 与 `Invoke-PrecheckInternal` 重复~90%**:未来修改易分歧,apply 内联路径漏检。修:抽 `Get-PrecheckCore`(4 检查)共用。
+- **MINOR-1/2**:B2/B3/B4 补零写入断言 + B4 补 apply 拒绝测试;C15 -Force 补备份计数断言(证 apply 真执行)。
+- **裁定不做**(经核):MINOR-3 rollback 不删 overlay 新增文件(已文档化 "harmless",原 PS1 同行为,需先逃过 4 项 precheck);MINOR-4 apply 中途失败半旧半新态(有备份可手动 rollback,设计如此)。
+
+### 验证(全部亲跑)
+
+`overlay-update-core.e2e`(65 断言)全绿;`build --check`(产物新鲜+manifest 行区间自洽);`facts.static`(e2eCount 158->159);`manifest-ranges`(模块 18 区间);`overlay-payload-lock`(13c 经 src 模块清单入载荷,敏感目录无未登记);`auth-deny-default`/`dom-smoke`/`mcp-import-config`/`checkpoint` 回归全绿。PS1 BOM 后 Parser API 干净解析;precheck/apply/rollback -Json 输出经严格解析(无管道泄漏)。
+
+### 待续(记入后续波)
+
+- **53d 前端 GUI**:设置面板「更新中心」入口 -- 选 zip -> precheck 预览(新增/覆盖/删除/不兼容) -> 确认 apply -> 进度 + restartNeeded 提示 -> 失败恢复卡 + 最近更新记录。i18n 双语。CLI 保留为救援路径。本波只交付后端 API + 受测核心,GUI 是 EC-B 用户价值落地的最后一环。
+- **53e 签名预检**:现 precheck 覆盖 manifest+checksum(完整性)+路径穿越+版本兼容;真正的包签名(Authenticode/PKI)未做(需密钥基建),属 EC-B 后续。
+- **53f 故障注入 e2e 扩展**:apply 中断(kill 中途)+ verify 失败 + 重启失败 三类故障注入,验证原版本可恢复且用户数据不丢(EC-B 退出条件#2 的完整覆盖;本波 D 段只测了 rollback 正常路径)。
+- **CHANGELOG/版本**:本波是 EC-B 内部首批交付,不 bump 版本(保持 2.0.1);EC-B 完整(GUI + 签名 + 故障注入)经范围冻结/测试/打包门后再决定 2.1 发布。

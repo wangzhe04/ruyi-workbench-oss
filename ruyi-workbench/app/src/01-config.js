@@ -1521,6 +1521,11 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/storage/policy', auth: 'token' },
   { m: 'POST', p: '/api/storage/clean', auth: 'token' },
   { m: 'GET', p: '/api/metrics', auth: 'token' },
+  // 第53波 EC-B(53b): overlay 离线更新 -- 破坏性档(同 checkpoints/rollback),token 级把门。
+  { m: 'POST', p: '/api/overlay/precheck', auth: 'token' },
+  { m: 'POST', p: '/api/overlay/apply', auth: 'token' },
+  { m: 'GET', p: '/api/overlay/status', auth: 'token' },
+  { m: 'POST', p: '/api/overlay/rollback', auth: 'token' },
 ];
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;

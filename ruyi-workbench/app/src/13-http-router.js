@@ -1157,6 +1157,8 @@ async function handleApi(req, res, pathname) {
   await handleCheckpointApiRoutes(req, res, pathname); if (res.writableEnded) return;
   // 49f(A1): steer 域路由抽至 13b-api-domain-routes.js。
   await handleSteerApiRoute(req, res, pathname); if (res.writableEnded) return;
+  // 第53波 EC-B(53b): overlay 离线更新域路由抽至 13c-overlay-routes.js(precheck/apply/rollback/status,编排 Manage-Overlay.ps1)。
+  await handleOverlayApiRoutes(req, res, pathname); if (res.writableEnded) return;
   if (req.method === 'POST' && pathname === '/api/upload') {
     const body = await readJsonBody(req);
     const file = await makeAttachmentRecord(body);
