@@ -955,39 +955,42 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 @keyframes blink { 50% { opacity: 0; } }
 
 /* thinking panel */
-.thinking { margin-top: 8px; border: 1px dashed var(--line-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
-.thinking > summary { cursor: pointer; padding: 7px 12px; color: var(--muted); font-size: var(--fs-sm); user-select: none; list-style: none; }
+.thinking { margin: 5px 0 2px; border: 0; border-left: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line)); border-radius: 0; background: transparent; }
+.thinking > summary { cursor: pointer; width: fit-content; max-width: 100%; min-height: 26px; padding: 3px 8px; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; letter-spacing: .02em; user-select: none; list-style: none; transition: color var(--transition); }
 .thinking > summary::-webkit-details-marker { display: none; }
-.thinking > summary::before { content: '🧠 '; }
-.thinking[open] > summary { border-bottom: 1px dashed var(--line-2); }
-.thinking .think-body { padding: 10px 13px; color: var(--ink-2); font-size: var(--fs-md); line-height: 1.6; white-space: pre-wrap; max-height: 320px; overflow: auto; }
-/* "思考中…" shimmer (C2): a moving light sweep across the summary text. Gradient runs --muted→--ink→
-   --muted (both themes visible — never hard-coded), clipped to the text; the .thinking-live class is
-   set on the <summary> while streaming and removed once the panel settles into "思考过程 · N 字". */
-.thinking > summary.thinking-live { color: transparent; -webkit-text-fill-color: transparent; background-image: linear-gradient(90deg, var(--muted) 0%, var(--ink) 50%, var(--muted) 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; animation: shimmer 1.6s linear infinite; }
-/* keep the 🧠 marker visible (it must not inherit the transparent text fill of the shimmer). */
-.thinking > summary.thinking-live::before { -webkit-text-fill-color: var(--muted); color: var(--muted); background: none; }
+.thinking > summary:hover { color: var(--ink-2); }
+.thinking-icon { width: 14px; height: 14px; display: inline-grid; place-items: center; flex: none; color: color-mix(in srgb, var(--accent) 58%, var(--muted)); }
+.thinking-caret { width: 5px; height: 5px; margin-left: 1px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg) translateY(-1px); transition: transform var(--transition); opacity: .7; }
+.thinking[open] .thinking-caret { transform: rotate(225deg) translate(-1px, -1px); }
+.thinking .think-body { margin: 1px 8px 5px 27px; padding: 7px 10px; border-left: 1px solid var(--line); border-radius: 0 6px 6px 0; background: color-mix(in srgb, var(--panel-2) 48%, transparent); color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.55; white-space: pre-wrap; max-height: 240px; overflow: auto; }
+/* Keep active reasoning visible but quiet: the label gets a cool light sweep and the trace softly pulses. */
+.thinking > summary.thinking-live .thinking-label { color: transparent; -webkit-text-fill-color: transparent; background-image: linear-gradient(90deg, var(--muted) 0%, var(--ink-2) 50%, var(--muted) 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; animation: shimmer 1.8s linear infinite; }
+.thinking > summary.thinking-live .thinking-icon { animation: thinking-trace 1.8s ease-in-out infinite; }
+@keyframes thinking-trace { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* tool-call cards (C1) — 3px status bar (running/ok/fail), arg summary, per-turn duration, copy btns */
-.tool-card { position: relative; margin-top: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; background: var(--panel-2); }
+.tool-card { position: relative; margin: 5px 0 2px; border: 0; border-left: 2px solid var(--line); border-radius: 0; overflow: hidden; background: transparent; }
 /* left status bar: a child .tc-statusbar so its color/animation can change post-render (details ::before
    is awkward to restyle live). Running = accent breathing; ok = --ok; fail = --danger. */
-.tool-card .tc-statusbar { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--muted); border-top-left-radius: var(--radius-sm); border-bottom-left-radius: var(--radius-sm); }
+.tool-card .tc-statusbar { position: absolute; left: 0; top: 3px; bottom: 3px; width: 2px; background: var(--muted); }
 .tool-card .tc-statusbar.running { background: var(--accent); animation: breathe 1.4s ease-in-out infinite; }
 .tool-card .tc-statusbar.ok { background: var(--ok); }
 .tool-card .tc-statusbar.err { background: var(--danger); }
 @keyframes breathe { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
-.tool-card > summary { cursor: pointer; padding: 8px 12px 8px 14px; display: flex; align-items: center; gap: 8px; font-size: var(--fs-md); list-style: none; }
+.tool-card > summary { cursor: pointer; min-height: 28px; padding: 3px 8px 3px 10px; display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); line-height: 1.35; list-style: none; transition: background var(--transition); }
 .tool-card > summary::-webkit-details-marker { display: none; }
-.tool-card .tc-icon { color: var(--accent); flex: none; }
+.tool-card > summary:hover { background: color-mix(in srgb, var(--panel-2) 58%, transparent); }
+.tool-card .tc-icon { width: 14px; height: 14px; display: inline-grid; place-items: center; color: color-mix(in srgb, var(--accent) 68%, var(--muted)); flex: none; }
 .tool-card .tc-name { font-family: var(--mono); font-weight: 600; flex: none; }
 .tool-card .tc-arg { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .tool-card .tc-dur { font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 .tool-card .tc-status { margin-left: auto; font-size: var(--fs-xs); color: var(--muted); flex: none; }
 .tool-card .tc-status.err { color: var(--danger-fg); }
 .tool-card .tc-status.ok { color: var(--ok-fg); }
-.tool-card .tc-body { border-top: 1px solid var(--line); padding: 10px 12px 10px 14px; }
+.tool-card .tc-caret { width: 5px; height: 5px; margin: 0 1px 0 2px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); transform: rotate(45deg) translateY(-1px); transition: transform var(--transition); flex: none; }
+.tool-card[open] .tc-caret { transform: rotate(225deg) translate(-1px, -1px); }
+.tool-card .tc-body { margin: 1px 8px 5px 20px; border: 0; border-left: 1px solid var(--line); border-radius: 0 6px 6px 0; padding: 7px 10px; background: color-mix(in srgb, var(--panel-2) 48%, transparent); }
 .tool-card .tc-label { font-size: var(--fs-xs); color: var(--muted); margin: 6px 0 3px; text-transform: uppercase; letter-spacing: .4px; }
 .tool-card .tc-pre-wrap { position: relative; }
 .tool-card pre { background: var(--code-bg); border-radius: 6px; padding: 9px 11px; margin: 0; font-family: var(--mono); font-size: var(--fs-sm); overflow-x: auto; max-height: 260px; overflow-y: auto; }
@@ -996,17 +999,17 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .tool-card .tc-pre-wrap:hover .copy-code { opacity: 1; }
 
 /* v1.0.2 (G4): 同回合多工具卡折叠成组。收纳已完成的工具卡；正在运行的卡留在组外可见。 */
-.tool-group { margin-top: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); overflow: hidden; }
-.tool-group > summary.tool-group-sum { cursor: pointer; padding: 7px 12px; display: flex; align-items: center; gap: 6px;
-  font-size: var(--fs-sm); color: var(--muted); list-style: none; user-select: none; }
+.tool-group { margin: 5px 0 2px; border: 0; border-left: 2px solid var(--line); border-radius: 0; background: transparent; overflow: hidden; }
+.tool-group > summary.tool-group-sum { cursor: pointer; min-height: 28px; padding: 3px 8px 3px 10px; display: flex; align-items: center; gap: 6px;
+  font-size: var(--fs-xs); line-height: 1.35; color: var(--muted); list-style: none; user-select: none; }
 .tool-group > summary.tool-group-sum::-webkit-details-marker { display: none; }
 .tool-group .tg-caret { flex: none; font-size: var(--fs-xs); transition: transform var(--dur-1) var(--ease); }
 .tool-group[open] .tg-caret { transform: rotate(90deg); }
 .tool-group .tg-label { font-weight: 600; }
-.tool-group .tool-group-body { padding: 4px 8px 8px; }
+.tool-group .tool-group-body { margin-left: 10px; padding: 1px 0 4px 8px; border-left: 1px solid var(--line); }
 /* nested cards lose their own top margin at the group's head to sit flush, keep spacing between them. */
 .tool-group .tool-group-body > .tool-card:first-child { margin-top: 4px; }
-.narrative-tool-batch { margin-top: 8px; }
+.narrative-tool-batch { margin-top: 5px; }
 
 /* v1.0-S4 git_diff colorized view — one row per diff line, tinted by change kind. Tokens only (no color
    literals): add/del/hunk backgrounds are token-mixed washes so both themes stay legible. Monospace,

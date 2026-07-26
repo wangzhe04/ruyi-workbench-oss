@@ -12,6 +12,7 @@ const provider = read('ruyi-workbench/app/src/09-workflow.js');
 const app = read('ruyi-workbench/app/public/app.js');
 const index = read('ruyi-workbench/app/public/index.html');
 const narrativeModule = read('ruyi-workbench/app/public/js/turn-narrative.js');
+const icons = read('ruyi-workbench/app/public/js/icons.js');
 const css = read('ruyi-workbench/app/public/styles.css');
 const zh = JSON.parse(read('ruyi-workbench/app/public/locales/zh-CN.json'));
 const en = JSON.parse(read('ruyi-workbench/app/public/locales/en-US.json'));
@@ -71,6 +72,17 @@ ok(/role="log"[^>]*aria-live="polite"/.test(index) && /role === 'assistant' \? '
 ok(/messageDomKey/.test(app) && /captureScrollAnchor/.test(app) && /restoreScrollAnchor/.test(app)
   && /export function messageRenderSignature/.test(narrativeModule), 'N10d keyed 消息更新与滚动锚点已拆入叙事模块');
 ok(/consecutive\.length > 3/.test(app) && /narrative-completed-run/.test(app), 'N10e 超长静态/流式工具序列保持常数级可见行');
+ok(/trace:\s*\[\['path'/.test(icons) && /icon\('trace', 13\)/.test(app)
+  && !css.includes('🧠') && !css.includes('💭'), 'N10f 思考片段使用冷色线性轨迹图标且无脑形 emoji');
+ok(/function settleLiveThinking\(/.test(app) && /evt\.type !== 'thinking_delta'/.test(app)
+  && !/firstDeltaSeen/.test(app), 'N10g 每个思考阶段遇任一后续事件都会独立结算收起');
+ok(/\.thinking\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/.test(css)
+  && /\.thinking > summary\s*\{[^}]*min-height:\s*26px/.test(css), 'N10h 思考摘要降级为紧凑无整框样式');
+ok(/\.tool-card\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/.test(css)
+  && /\.tool-card > summary\s*\{[^}]*min-height:\s*28px/.test(css)
+  && !/card\.d\.open = true/.test(app) && !/done && tc\.isError\) d\.open = true/.test(app)
+  && !/owner\.group\.open =/.test(app),
+  'N10i 工具片段为紧凑默认收起行，失败项也不自动展开');
 ok(/\.message\s*\{\s*width:\s*min\(1320px,\s*94%\)/.test(css), 'N11 全屏聊天宽度提升至 min(1320px,94%)');
 for (const key of ['chat.turnRecord', 'chat.jumpToTool', 'chat.planSegment', 'chat.questionSegment',
   'chat.conversationAria', 'chat.assistantTurnAria', 'narrative.permission', 'narrative.workflow',

@@ -1381,15 +1381,30 @@ function thinkingSummaryLabel(text) { const n = thinkingCharCount(text); return 
 // <details>, the body element, and setLive(on)/refreshLabel() so the streaming path can settle it.
 function thinkingPanel(text, live) {
   const d = el('details', 'thinking');
-  const sum = el('summary', '', live ? t('chat.thinking') : thinkingSummaryLabel(text));
+  const sum = el('summary', 'thinking-summary');
+  const iconWrap = el('span', 'thinking-icon'); iconWrap.appendChild(icon('trace', 13));
+  const label = el('span', 'thinking-label', live ? t('chat.thinkingLive') : thinkingSummaryLabel(text));
+  const caret = el('span', 'thinking-caret');
+  sum.append(iconWrap, label, caret);
   if (live) sum.classList.add('thinking-live');
   d.appendChild(sum);
   const body = el('div', 'think-body', text); d.appendChild(body);
   const setLive = on => {
-    if (on) { sum.classList.add('thinking-live'); sum.textContent = t('chat.thinking'); }
-    else { sum.classList.remove('thinking-live'); sum.textContent = thinkingSummaryLabel(body.textContent); }
+    if (on) { sum.classList.add('thinking-live'); label.textContent = t('chat.thinkingLive'); }
+    else { sum.classList.remove('thinking-live'); label.textContent = thinkingSummaryLabel(body.textContent); }
   };
-  return { d, body, summary: sum, setLive };
+  return { d, body, summary: sum, label, setLive, userToggled: false };
+}
+function settleLiveThinking(live) {
+  if (!live) return;
+  const panel = live.thinkingPanelObj;
+  if (panel) {
+    panel.setLive(false);
+    if (!panel.userToggled) panel.d.open = false;
+  }
+  live.thinkingActive = false;
+  live.thinkingEl = null;
+  live.thinkingNode = null;
 }
 // Pick the first present string field from a tool's input for the header summary (C1), in priority
 // order, then middle-ellipsize to ≤44 chars keeping head+tail. Returns '' when nothing usable. Pure.
@@ -1465,7 +1480,8 @@ function renderDiffView(diffText) {
   return view;
 }
 // tc: { name, input, result?, isError?, durationMs? }. Builds the upgraded card (C1): left status bar
-// (running/ok/err), arg summary, optional duration, copy buttons on both <pre>. Fail auto-opens.
+// (running/ok/err), arg summary, optional duration, copy buttons on both <pre>. All states stay collapsed
+// by default; failures remain visible through their red status and can be opened on demand.
 // Returns handles the streaming path uses to fill the result + timing + status bar post-render.
 function toolCard(tc) {
   const d = el('details', 'tool-card');
@@ -1477,7 +1493,7 @@ function toolCard(tc) {
   const isDesktopTool = typeof tc.name === 'string' && tc.name.startsWith('ai_computer_control__'); // v3 (§2.15): tc-icon emoji → 线性 SVG(monitor/wrench)
   // v0.9-S1 (C1): both a raw name (pro) and a plain-language verb (simple) ship; CSS shows one per uiMode
   // via [data-ui-mode]. The verb reuses humanizeToolName (the shared 人话 map, also used by permission popups).
-  const tcIconEl = el('span', 'tc-icon'); tcIconEl.appendChild(icon(isDesktopTool ? 'monitor' : 'wrench', 15));
+  const tcIconEl = el('span', 'tc-icon'); tcIconEl.appendChild(icon(isDesktopTool ? 'monitor' : 'wrench', 13));
   sum.append(
     tcIconEl,
     el('span', 'tc-name', tc.name || 'tool'),
@@ -1492,6 +1508,7 @@ function toolCard(tc) {
   const status = el('span', 'tc-status', done ? (tc.isError ? t('status.error') : t('status.done')) : t('status.running'));
   if (done) status.classList.add(tc.isError ? 'err' : 'ok');
   sum.appendChild(status);
+  sum.appendChild(el('span', 'tc-caret'));
   d.appendChild(sum);
   const body = el('div', 'tc-body');
   // v1.0-S4: git_diff gets a colorized diff view at the TOP of the body (the 「改了什么」 primary view, useful
@@ -1512,7 +1529,6 @@ function toolCard(tc) {
   const resPre = el('pre'); resPre.textContent = done ? safeStringify(tc.result) : t('chat.waitingResult'); detail.appendChild(wrapPreWithCopy(resPre));
   body.appendChild(detail);
   d.appendChild(body);
-  if (done && tc.isError) d.open = true; // failed static cards start expanded
   return { d, status, resPre, statusbar, dur, argEl, diffHost, name: tc.name };
 }
 // v1.0-S4: fill a tool card's diff-host with the colorized diff view IFF this is a git_diff result carrying
@@ -2322,7 +2338,6 @@ function registerNarrativeTool(live, evt, card) {
   const item = { id: evt.id, card: card.d, done: false, error: false, status: 'running', anchorId, tc: { id: evt.id, name: evt.name, input: evt.input } };
   batch.items.push(item); live.toolIndex.push(item);
   if (batch.group) {
-    batch.group.open = true;
     batch.group._tgBody.appendChild(card.d);
     batch.group._tgLabel.textContent = toolGroupSummaryText(batch.items.length);
   }
@@ -2369,7 +2384,6 @@ function settleNarrativeTool(live, id, isError) {
     owner.group = group;
   }
   owner.group._tgLabel.textContent = toolGroupSummaryText(owner.items.length);
-  owner.group.open = owner.items.some(entry => !entry.done || entry.error);
 }
 function createLiveAssistantShell() {
   const box = $('messages');
@@ -2813,8 +2827,8 @@ function scheduleRender(live) {
   });
 }
 function finalizeLive(live) {
-  // C2: whatever happened, the thinking panel ends on its settled "思考过程 · N 字" label (no shimmer).
-  if (live.thinkingPanelObj) live.thinkingPanelObj.setLive(false);
+  // Every terminal path settles and collapses the active reasoning note unless the user toggled it.
+  settleLiveThinking(live);
   if (live.bubble && !live.bufferText && (live.errorShown || live.noteShown || live.narrative.childElementCount > 1)) sealLiveTextSegment(live);
   else if (live.bubble) {
     if (!live.bufferText) live.bufferText = t('chat.noTextOutput');
@@ -2887,6 +2901,9 @@ function handleStreamLine(line, live, main, streamSessionId) {
   if (!line.trim()) return;
   let evt;
   try { evt = JSON.parse(line); } catch { return; }
+  // Any real event after a reasoning delta closes that phase. This covers thinking → tool/plan/question,
+  // not only thinking → assistant text, so interleaved turns never leave completed reasoning panels open.
+  if (live?.thinkingActive && evt.type !== 'thinking_delta' && evt.type !== 'raw_line') settleLiveThinking(live);
   switch (evt.type) {
     case 'session':
       if (evt.session && state.currentSession?.id === streamSessionId) { state.currentSession = evt.session; renderSessions(); }
@@ -2910,18 +2927,6 @@ function handleStreamLine(line, live, main, streamSessionId) {
       setProc(evt.state);
       break;
     case 'assistant_delta':
-      live.thinkingActive = false;
-      // First real text delta (C2): auto-collapse the thinking panel + settle its summary to
-      // "思考过程 · N 字" — UNLESS the user already toggled it open by hand (respect their choice).
-      if (evt.text && !live.firstDeltaSeen) {
-        live.firstDeltaSeen = true;
-        if (live.thinkingPanelObj && !live.userToggledThinking) {
-          live.thinkingPanelObj.d.open = false;
-          live.thinkingPanelObj.setLive(false);
-        } else if (live.thinkingPanelObj) {
-          live.thinkingPanelObj.setLive(false); // keep it open, but stop the shimmer + label it
-        }
-      }
       ensureLiveTextSegment(live);
       live.bufferText += evt.text || '';
       scheduleRender(live);
@@ -2933,8 +2938,8 @@ function handleStreamLine(line, live, main, streamSessionId) {
         live.thinkingEl = tp.body; live.thinkingPanelObj = tp;
         live.thinkingEl.textContent = '';
         live.thinkingNode = document.createTextNode(''); live.thinkingEl.appendChild(live.thinkingNode);
-        // Record a manual toggle so the first-delta auto-collapse can defer to the user (C2).
-        tp.summary.addEventListener('click', () => { live.userToggledThinking = true; });
+        // Respect a manual toggle when this reasoning phase settles.
+        tp.summary.addEventListener('click', () => { tp.userToggled = true; });
         (live.narrative || main).appendChild(tp.d); tp.d.open = true;
         live.thinkingActive = true;
       }
@@ -2984,7 +2989,6 @@ function handleStreamLine(line, live, main, streamSessionId) {
         if (card.statusbar) { card.statusbar.classList.remove('running', 'ok', 'err'); card.statusbar.classList.add(evt.isError ? 'err' : 'ok'); }
         // Duration: performance.now() delta since tool_use, shown as "· 1.2s".
         if (card.dur && card.t0 != null) card.dur.textContent = `· ${((performance.now() - card.t0) / 1000).toFixed(1)}s`;
-        if (evt.isError) card.d.open = true; // surface failures automatically
         settleNarrativeTool(live, evt.id, evt.isError);
       }
       break;
@@ -5510,7 +5514,6 @@ function handlePlanEvent(evt, main, live) {
     setComposerHint('');
     setDecided(decision, note);
     savePlanDecision(planId, decision, note); // F1d 持久化
-    if (live) live.firstDeltaSeen = false;
   };
 
   approve.onclick = async () => { const r = await decidePlan(planId, 'approve'); if (r && r.ok) finish('approve'); else if (r) toast(r.error || t('plan.expired'), ''); };
