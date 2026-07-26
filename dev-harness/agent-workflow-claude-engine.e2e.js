@@ -84,7 +84,8 @@ async function tokenFor(port) {
       // No engine specified, no role, no Provider configured -> must default to 'claude' instead of
       // rejecting the launch (the old hard "需要至少配置一个 OpenAI 兼容 Provider" requirement).
       const bare = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: sid, nodes: [{ id: 'bare_node', task: 'say hi' }] });
-      ok(bare.ok === true && bare.results[0].engine === 'claude' && bare.results[0].status === 'succeeded', 'DAG node with no engine/provider defaults to and runs via the Claude CLI engine');
+      ok(bare.ok === true && bare.results[0].engine === 'claude' && bare.results[0].status === 'succeeded',
+        'DAG node with no engine/provider defaults to and runs via the Claude CLI engine (got ' + JSON.stringify(bare) + ')');
       const argv1 = JSON.parse(fs.readFileSync(argvCapture, 'utf8'));
       ok(argv1.includes('--permission-mode') && argv1[argv1.indexOf('--permission-mode') + 1] === 'bypassPermissions', 'role-less node inherits the run permission mode (bypass)');
       ok(argv1.includes('--effort') && argv1[argv1.indexOf('--effort') + 1] === 'xhigh', 'Claude DAG node inherits the configured thinking effort');

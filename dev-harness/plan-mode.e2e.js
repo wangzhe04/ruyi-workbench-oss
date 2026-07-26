@@ -118,6 +118,11 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(ts1 && Array.isArray(ts1.filesChanged) && ts1.filesChanged.some(f => (f.path || '').replace(/\\/g, '/').endsWith('x.txt')), '(a) turn_summary.filesChanged records x.txt (journal entry)');
     const res1 = ev1.find(e => e.type === 'result');
     ok(res1 && res1.ok === true && !res1.errorClass, '(a) turn result ok, no errorClass');
+    ok(ev1.some(e => e.type === 'plan_decision' && e.planId === planEvt.planId && e.decision === 'approve'),
+      '(a) approved plan emits a semantic plan_decision event');
+    const saved1 = await getJson(WB_PORT, '/api/sessions/' + encodeURIComponent(sid1), hdr);
+    const savedPlan1 = saved1.session.messages.flatMap(m => Array.isArray(m.segments) ? m.segments : []).find(s => s.type === 'plan');
+    ok(savedPlan1 && savedPlan1.status === 'approved', '(a) approved plan state survives static session reload');
 
     // ── (c) token / unknown-planId guards (use the approve planId which is now consumed) ─────────────────
     const noTok = await postJson(WB_PORT, '/api/plan/decision', { sessionId: sid1, planId: 'plan_whatever', decision: 'approve' });
@@ -152,6 +157,9 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(!ev2.find(e => e.type === 'tool_use'), '(b) no tool_use streamed (turn ended at rejection)');
     const res2 = ev2.find(e => e.type === 'result');
     ok(res2 && res2.errorClass === 'plan_rejected', '(b) result.errorClass === plan_rejected (got ' + (res2 && res2.errorClass) + ')');
+    const saved2 = await getJson(WB_PORT, '/api/sessions/' + encodeURIComponent(sid2), hdr);
+    const savedPlan2 = saved2.session.messages.flatMap(m => Array.isArray(m.segments) ? m.segments : []).find(s => s.type === 'plan');
+    ok(savedPlan2 && savedPlan2.status === 'rejected' && savedPlan2.note === '先别改', '(b) rejected plan state and note survive static session reload');
 
     // ── (d) FAKE_PLAN_FIRST OFF → first assistant msg jumps straight to a tool_call (no PLAN:) → v0.9 F5:
     // the plan-phase guard now REFUSES the whole first tool batch («请先提交 PLAN:») instead of letting it slip

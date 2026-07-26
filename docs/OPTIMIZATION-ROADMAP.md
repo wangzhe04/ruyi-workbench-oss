@@ -540,6 +540,56 @@ verdict has_bugs -> 4 real bug 全修 + 3 minor 收口:
 ### 待续(记入后续波)
 
 - **53e 签名预检**:PKI 基建就绪后落地(评估结论见上)。
-- **53g 收尾**:EC-B 完整后经范围冻结/测试/打包门,决定 2.1 发布(本波仍 2.0.1,不 bump)。
+- **53g 工程收尾（已完成）**:2026-07-26 复跑 `overlay-update-core.e2e` 70 断言、`overlay-update-gui.static.e2e` 24 断言与 `build --check` 全绿；第53波工程范围闭环。当前仍保持 2.0.1，不因内部波次自动 bump 版本；是否发布 2.1 另走范围冻结与打包门。
 - **C TOCTOU**:precheck 快照比对(用户快速切换 zip 的竞态,minor)。
 - **重启交接自动化**:当前 apply 成功提示用户手动重启;自动化 restart handoff(优雅停服->apply->重启)留后续。
+
+## 第54波 EC-D · 安静工作台 -- 已完成（2026-07-26）
+
+按 §“EC-D · 安静工作台”的 P1 首要切片推进。本波完成双引擎有序回合数据、流式/静态同构渲染、决策状态复原、宽屏阅读面、键盘/读屏增量语义与双主题像素门；EC-D 更大范围的全应用拆域和 CSS 全量分层继续属于第55波后半，不再混入第54波验收。
+
+### 54a 双引擎有序回合协议
+
+- `02-session-store.js` 新增共享 `createTurnSegmentBuilder()`；Claude CLI 与 OpenAI 兼容引擎都将 `assistant_delta / thinking_delta / tool_use / tool_result / subagent / plan / ask_user` 归一为有序 `message.segments`。
+- 工具段只存 `toolCallId/name/batchId/status`，输入与结果继续以旧 `message.toolCalls` 为事实源，避免 session JSON 再复制一份大结果；兼容期继续写 `content/thinking/toolCalls/turnSummary`，旧客户端与旧会话不受影响。
+- OpenAI 同一模型响应的并行工具共享 `batchId`；Claude 连续 `tool_use` 同样归入一批。`tool_result` 按 id 回填状态，避免并行结果串卡。
+- 旧会话没有 `segments` 时严格保持原来的 `content → toolCalls → turnSummary` 展示，不推测历史上已经丢失的事件顺序。
+
+### 54b 回合叙事化渲染
+
+- 流式助手消息改为单一 `.turn-narrative` 容器：文字遇到工具/计划/询问/错误时先封存为独立 Markdown 段，后续文字在事件之后另起段，因此真实呈现“文字 A → 工具 → 文字 B”。
+- 静态重进由 `renderStaticTurnNarrative()` 读取同一 `message.segments` 顺序；Claude CLI 与 OpenAI 兼容不再各有一套排序逻辑。
+- 同批多个成功工具自动折叠为紧凑组；运行中或失败组保持展开。回合尾部新增折叠的“本轮记录”，完整列出工具并可“定位到过程”；现有变更/撤销、产物和用量继续在末尾展示。
+- plan 流式文本会被语义计划段替换，避免“计划正文 + 同内容计划卡”重复；question/note 也进入回合过程。
+
+### 54c 全屏聊天宽度
+
+- 桌面消息与“加载更早”阅读面从固定 `max-width:880px` 调整为 `width:min(1320px, 94%)`。全屏与超宽屏不再只有约四分之一到三分之一宽度，中等窗口仍保留 3% 两侧呼吸边距，窄屏自然收缩。
+
+### 54d 决策、工作流与 Mission 状态闭环
+
+- `permission_request / permission_paused / permission_decision`、`ask_user / question_answer`、`plan / plan_decision`、`agent_workflow` 与 `mission` 全部进入同一个 TurnSegmentBuilder；请求段原位更新到 allowed/denied、answered/cancelled、approved/rejected、done/error 等终态。
+- 决定事件由服务端在真正 settle promise 时发出，超时、停止和远端决定也走同一路径；刷新后的静态消息不再依赖仅存于浏览器内存的状态。计划驳回意见与提问答案摘要按上限持久化，完整工具输入/结果仍不复制。
+- 流式权限、提问、Mission 卡在叙事原位更新；工作流沿用现有详细监控卡，静态重进提供紧凑状态摘要。顺手修复“无活动父回合、无 Provider 的直接 DAG 启动误选 OpenAI”问题，Claude-only 工作台恢复默认走 Claude CLI。
+
+### 54e keyed 增量、长回合与无障碍
+
+- 新增前端领域模块 `public/js/turn-narrative.js`，集中消息 key、O(1) 渲染签名和滚动锚点；静态 reconcile 不再 `messages.innerHTML=''`，复用未变化消息节点，并在 locale/config 刷新时保留在途 live shell 与阅读位置。
+- 消息区使用 `role="log"`；静态历史 reconcile 期间临时 `aria-live=off + aria-busy=true`，避免读屏重播历史，恢复后仅播报新增/状态变化。助手回合使用带本地化标签的 `article`。
+- “定位到过程”会移动键盘焦点并显示定位环；原生 `details/summary` 保持键盘可达。静态和流式连续成功工具第 4 项起归并为完成组，失败/运行项留在原位；100 次工具调用不再产生 100 条默认可见行。
+
+### 54f 视觉回归门 v2 与发布载荷
+
+- 新增 `dom-screenshot.e2e.js`：通过 `?theme=dark|light` 固定主题、系统 Edge/Chrome 截取 `1440×1000`，零 npm 依赖解析 PNG，并以 12×8 感知网格和容差对比 checked-in 基线；明暗两态必须彼此显著不同且各自命中基线。
+- `turn-narrative.js` 已进入 overlay 显式载荷表，`overlay-payload-lock` 同时锁住 HTML 引用与敏感目录，避免增量包漏模块导致白屏。
+
+### 验证（全部亲跑）
+
+- `turn-narrative.static.e2e`：builder 顺序、batch/status、plan 去重、权限/提问/工作流/Mission 终态、keyed/scroll/a11y、长工具折叠、尾部定位、1320px 宽度和双语键全绿。
+- `source-fields.e2e`：真实启动两套离线引擎；OpenAI 并行工具持久化 `tool,tool,text` 且共享 batchId，Claude 工具剧本持久化 `text,tool,text` 且 result 状态回填，全绿。
+- `plan-mode.e2e`：批准/驳回事件与 session 静态状态复原；`interactive-question.e2e`：Claude/OpenAI 同构 answered 事件；`perm-v2.e2e`：超时拒绝状态；`mission-driver.e2e` 与 `agent-workflow-claude-engine.e2e` 全绿。
+- `dom-screenshot.e2e` 明暗像素基线、`dom-smoke` 真实 Edge、`build --check`、`manifest-ranges`、`overlay-payload-lock`、`facts.static`、`i18n.static`、`ui-v4-glass.static`、`theme`、`uimode-style` 全绿；事实计数 160 → 162。
+
+### 第54波退出结论
+
+第54波范围已闭环，无本波待续项。EC-D 的全应用 `app.js` 领域拆分、CSS tokens/base/components/views/themes 全量物理分层、Mission/Agent 节点的更广泛 keyed 更新和性能基准属于原计划“第55波后半”，按独立契约与迁移批次继续，避免用一次高风险搬家稀释本波用户可见交付。

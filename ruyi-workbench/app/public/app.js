@@ -16,6 +16,14 @@ import { $, el, escapeHtml, fmtBytes, fmtTime, fmtTokens, toast, setStatus, auto
 import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken } from './js/net.js';
 import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
+import {
+  captureScrollAnchor,
+  messageDomKey,
+  messageRenderSignature,
+  normalizeTurnSegments,
+  restoreScrollAnchor,
+  turnToolAnchorId,
+} from './js/turn-narrative.js';
 
 const API_ERROR_I18N = {
   'auth.token_invalid': 'error.api.authToken',
@@ -165,9 +173,18 @@ function effectiveTheme(pref) {
     ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     : (pref === 'light' ? 'light' : 'dark');
 }
+function themeOverrideFromUrl() {
+  try {
+    const value = new URLSearchParams(window.location.search).get('theme');
+    return value === 'dark' || value === 'light' ? value : '';
+  } catch { return ''; }
+}
 let _themeMediaWired = false;
 function applyTheme(theme) {
-  const pref = theme === 'light' || theme === 'system' ? theme : 'dark';
+  // Deterministic visual-regression entry point. It affects only this page load and never broadens the
+  // persisted three-state preference contract.
+  const forced = themeOverrideFromUrl();
+  const pref = forced || (theme === 'light' || theme === 'system' ? theme : 'dark');
   const eff = effectiveTheme(pref);
   // v1.0.2 (F5): 同 applyUiMode —— 值未变不重写 data-theme,避免 config 到达后与预绘同值时的无谓重排。
   // 主题预绘(index.html)默认 'dark',与 server defaultConfig().theme 一致,新装机无闪;此处仅回写 localStorage。
@@ -190,7 +207,7 @@ function applyTheme(theme) {
       });
     } catch { /* ignore */ }
   }
-  try { localStorage.setItem('wcw.theme', pref); } catch { /* ignore */ }
+  if (!forced) { try { localStorage.setItem('wcw.theme', pref); } catch { /* ignore */ } }
 }
 function toggleTheme() {
   const cur = (() => { try { return localStorage.getItem('wcw.theme') || 'dark'; } catch { return 'dark'; } })();
@@ -925,8 +942,20 @@ function renderCurrentSession() {
   renderMissionBar(session && session.mission); // 第26波b: 会话切换时刷新账本进度条(无账本→隐藏)
   loadAutonomyGrants(); // 第27波: 会话切换时拉取活动授权书(无授权→隐藏抽屉)
   const box = $('messages');
-  box.innerHTML = '';
-  if (!session || !session.messages?.length) { box.appendChild(buildEmptyState()); renderContextMeter(null); return; }
+  const anchor = captureScrollAnchor(box);
+  const previousLive = box.getAttribute('aria-live') || 'polite';
+  box.setAttribute('aria-live', 'off'); // static reconciliation must not make a screen reader replay history
+  box.setAttribute('aria-busy', 'true');
+  const settleLog = () => {
+    box.setAttribute('aria-busy', 'false');
+    queueMicrotask(() => box.setAttribute('aria-live', previousLive === 'off' ? 'polite' : previousLive));
+  };
+  if (!session || !session.messages?.length) {
+    box.replaceChildren(buildEmptyState());
+    settleLog();
+    renderContextMeter(null);
+    return;
+  }
   // v1.0-S7 (perf): message windowing. For a big conversation, render only the tail so opening it doesn't
   // build thousands of DOM nodes up front. `start` = index of the first message we render. Small sessions
   // (≤ MSG_WINDOW_THRESHOLD) always render in full (start=0), byte-for-byte the old behavior.
@@ -935,9 +964,23 @@ function renderCurrentSession() {
   // When windowed (start > 0), prepend a「加载更早的 N 条」button that reveals MSG_WINDOW_STEP more per click
   // (repeatable to full). It sits above the first rendered message so earlier turns become reachable — this
   // is what keeps rewind/checkpoint targets on off-screen messages recoverable (click up until they render).
-  if (start > 0) box.appendChild(buildLoadEarlierButton(start));
-  for (let i = start; i < msgs.length; i++) box.appendChild(renderStaticMessage(msgs[i]));
-  box.scrollTop = box.scrollHeight;
+  const existing = new Map(Array.from(box.querySelectorAll('[data-message-key]')).map(row => [row.dataset.messageKey, row]));
+  const fragment = document.createDocumentFragment();
+  if (start > 0) fragment.appendChild(buildLoadEarlierButton(start));
+  for (let i = start; i < msgs.length; i++) {
+    const key = messageDomKey(msgs[i], i, session.id);
+    const signature = messageRenderSignature(msgs[i], getLocale());
+    let row = existing.get(key);
+    if (!row || row.dataset.renderSignature !== signature) row = renderStaticMessage(msgs[i], key, signature);
+    fragment.appendChild(row);
+  }
+  // Locale/config refreshes may legitimately call this while the current turn is streaming. Keep its live
+  // keyed shell attached instead of reproducing the old "innerHTML clears the answer in progress" failure.
+  const activeRow = activeTurns.get(session.id)?.live?.narrative?.closest('.message');
+  if (activeRow && activeRow.isConnected) fragment.appendChild(activeRow);
+  box.replaceChildren(fragment);
+  settleLog();
+  restoreScrollAnchor(box, anchor || { atBottom: true });
   renderContextMeter(latestUsage(session));
 }
 // v1.0-S7 (perf): compute the first-rendered-message index for the current window. Returns 0 (render all)
@@ -1255,7 +1298,9 @@ function buildEmptyCTA() {
 // meta (optional, assistant only): engine identity used to render the source badge + colored avatar
 // so a multi-engine session shows WHICH engine/model produced each reply (A4/§4.4).
 function messageShell(role, whenIso, meta) {
-  const row = el('div', `message ${role}`);
+  const row = document.createElement(role === 'assistant' ? 'article' : 'div');
+  row.className = `message ${role}`;
+  if (role === 'assistant') row.setAttribute('aria-label', t('chat.assistantTurnAria'));
   // v3 (§C4): 头像从字母方块升级为品牌 SVG —— 用户=中性人形剪影 / 助手=如意云头(引擎色底白标) / 系统=无底色 ⚙。
   const avatar = el('div', 'avatar');
   buildMsgAvatar(avatar, role);
@@ -1488,73 +1533,7 @@ function safeStringify(v) {
   try { return JSON.stringify(v, null, 2); } catch { return String(v); }
 }
 /* ---------------- v1.0.2 (G4): 同回合多工具卡折叠成组 ---------------- */
-// A turn with >3 top-level tool cards collapses its COMPLETED cards into a single <details.tool-group>
-// (summary counts them); the currently-running card stays outside the group, always visible. Each card's
-// own DOM (details.tool-card) is untouched — it is merely re-parented into the group container, so the e2e
-// contract on card internals holds. Nested sub-agent tool cards (subagentId → their own body) are never
-// folded here (they already live in their own container).
-//
-// Live model: live.topTools = [{id, done, el}] in arrival order; live.toolGroup = the <details> (lazy).
-// The group is inserted as the FIRST child of toolsWrap so folded (completed) cards sit above the running
-// one, reading chronologically. buildToolGroup() makes an empty group; foldToolGroup() re-parents cards.
 function toolGroupSummaryText(n) { return tCount('tool.group.completed', n); }
-function ensureLiveToolGroup(live) {
-  if (live.toolGroup) return live.toolGroup;
-  const det = el('details', 'tool-group');
-  const sum = el('summary', 'tool-group-sum');
-  sum.append(el('span', 'tg-caret', '▸'), el('span', 'tg-label', toolGroupSummaryText(0)));
-  det.appendChild(sum);
-  const body = el('div', 'tool-group-body');
-  det.appendChild(body);
-  det._tgBody = body; det._tgLabel = sum.querySelector('.tg-label');
-  live.toolGroup = det;
-  // Insert at the top of the tools wrap so completed cards read above the running card.
-  live.toolsWrap.insertBefore(det, live.toolsWrap.firstChild);
-  return det;
-}
-function refreshLiveToolGroupCount(live) {
-  if (!live.toolGroup) return;
-  const n = live.toolGroup._tgBody.childElementCount;
-  live.toolGroup._tgLabel.textContent = toolGroupSummaryText(n);
-}
-// Move every COMPLETED top-level card that is not already inside the group into the group body (in order).
-// Running cards are left in place (outside the group, visible). Called after the 4th card appears and after
-// each subsequent tool_result / at turn end.
-function foldCompletedTopTools(live) {
-  if (!live.toolGroup) return;
-  const body = live.toolGroup._tgBody;
-  for (const t of live.topTools) {
-    if (t.done && t.el.parentNode !== body) body.appendChild(t.el);
-  }
-  refreshLiveToolGroupCount(live);
-}
-// Register a newly-appeared top-level tool card. When the 4th appears, create the group and fold the
-// already-completed cards into it.
-function registerTopToolCard(live, id, cardEl) {
-  if (!live.topTools) live.topTools = [];
-  live.topTools.push({ id, el: cardEl, done: false });
-  if (live.topTools.length >= 4 && !live.toolGroup) {
-    ensureLiveToolGroup(live);
-    foldCompletedTopTools(live);
-  }
-}
-// Mark a top-level card done (on tool_result) and fold it in if the group already exists.
-function markTopToolDone(live, id) {
-  if (!live.topTools) return;
-  const t = live.topTools.find(x => x.id === id);
-  if (t) t.done = true;
-  if (live.toolGroup) foldCompletedTopTools(live);
-}
-// Turn end: fold the last completed card(s) in (finalizeLive calls this). No-op if the group never formed.
-function foldToolGroupAtTurnEnd(live) {
-  if (!live || !live.toolGroup) return;
-  // Mark any card whose status bar shows a settled (ok/err) state as done, then fold.
-  for (const t of (live.topTools || [])) {
-    const sb = t.el.querySelector('.tc-statusbar');
-    if (sb && !sb.classList.contains('running')) t.done = true;
-  }
-  foldCompletedTopTools(live);
-}
 // Static re-render (history): given an array of top-level tool-card elements, if there are >3, wrap them
 // ALL into a collapsed <details.tool-group> (summary = 「N 个工具调用」). Returns the group element, or null
 // when ≤3 (caller appends the cards individually). Sub-agent cards are handled by their own path and are
@@ -1888,38 +1867,238 @@ function renderStaticNativeAgent(record) {
   return d;
 }
 
-function renderStaticMessage(msg) {
+// 第54波 EC-D: render one persisted ordered narrative for both engines. `segments` is additive; old
+// sessions keep the legacy content -> toolCalls -> turnSummary path below without guessed chronology.
+function validTurnSegments(msg) {
+  return normalizeTurnSegments(msg);
+}
+function narrativeToolAnchor(toolCallId, scope) {
+  return turnToolAnchorId(toolCallId, scope);
+}
+function narrativeTextBubble(text) {
+  const bubble = el('div', 'bubble');
+  const value = String(text || '');
+  if (value.length <= LIVE_MARKDOWN_MAX_CHARS) {
+    bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(value); highlightIn(bubble);
+  } else { bubble.classList.add('plain'); bubble.textContent = value; }
+  return bubble;
+}
+function narrativePlanCard(segment) {
+  const card = el('div', 'plan-card narrative-plan');
+  const head = el('div', 'plan-card-head');
+  head.append(el('span', '', t('chat.planSegment')), narrativeStatePill(segment.status));
+  card.append(head);
+  const body = el('div', 'plan-card-body md');
+  body.innerHTML = renderMarkdown(segment.markdown || ''); highlightIn(body);
+  card.append(body);
+  if (segment.note) card.append(el('div', 'narrative-state-note', segment.note));
+  return card;
+}
+function narrativeQuestionCard(segment) {
+  const card = el('div', 'msg-note narrative-question narrative-state-card');
+  card.dataset.segmentKey = String(segment.questionId || segment.id || '');
+  const questions = Array.isArray(segment.questions) ? segment.questions : [];
+  const labels = questions.map(q => q && (q.question || q.prompt || q.label)).filter(Boolean);
+  const title = el('div', 'narrative-state-head');
+  title.append(el('span', '', labels.length ? `${t('chat.questionSegment')}：${labels.join(' / ')}` : t('chat.questionSegment')), narrativeStatePill(segment.status));
+  card.append(title);
+  if (segment.answerSummary) card.append(el('div', 'narrative-state-note', segment.answerSummary));
+  return card;
+}
+function narrativeStateLabel(status) {
+  const key = {
+    pending: 'narrative.status.pending', paused: 'narrative.status.paused',
+    allowed: 'narrative.status.allowed', denied: 'narrative.status.denied',
+    approved: 'narrative.status.approved', rejected: 'narrative.status.rejected',
+    answered: 'narrative.status.answered', cancelled: 'narrative.status.cancelled',
+    running: 'status.running', done: 'status.done', error: 'status.error',
+    updated: 'narrative.status.updated',
+  }[String(status || '')] || 'narrative.status.updated';
+  return t(key);
+}
+function narrativeStatePill(status) {
+  const value = String(status || 'updated');
+  return el('span', `narrative-state-pill state-${value}`, narrativeStateLabel(value));
+}
+function narrativeSemanticCard(segment) {
+  const type = String(segment.type || 'note');
+  const card = el('div', `narrative-state-card narrative-${type}`);
+  card.dataset.segmentKey = String(segment.requestId || segment.workflowId || segment.missionId || segment.id || '');
+  const titleKey = {
+    permission: 'narrative.permission',
+    workflow: 'narrative.workflow',
+    mission: 'narrative.mission',
+  }[type] || 'narrative.event';
+  let detail = '';
+  if (type === 'permission') detail = segment.toolName || '';
+  else if (type === 'workflow') {
+    const total = Number(segment.nodeCount) || 0;
+    detail = total ? t('narrative.workflowNodes', { count: total }) : '';
+  } else if (type === 'mission') {
+    const total = Number(segment.total) || 0;
+    detail = total ? t('narrative.missionProgress', { done: Number(segment.completed) || 0, total }) : (segment.goal || '');
+  }
+  const head = el('div', 'narrative-state-head');
+  head.append(el('span', 'narrative-state-title', `${t(titleKey)}${detail ? ' · ' + detail : ''}`), narrativeStatePill(segment.status));
+  card.append(head);
+  if (segment.note) card.append(el('div', 'narrative-state-note', segment.note));
+  return card;
+}
+function buildNarrativeToolBatch(items) {
+  if (!Array.isArray(items) || items.length < 2 || items.some(item => item.status === 'error')) return null;
+  const details = el('details', 'tool-group narrative-tool-batch');
+  const sum = el('summary', 'tool-group-sum');
+  sum.append(el('span', 'tg-caret', '▸'), el('span', 'tg-label', tCount('tool.group.completed', items.length)));
+  details.append(sum);
+  const body = el('div', 'tool-group-body');
+  for (const item of items) body.append(item.card);
+  details.append(body);
+  return details;
+}
+function renderStaticTurnNarrative(msg, host) {
+  const segments = validTurnSegments(msg);
+  if (!segments.length) return null;
+  const tools = new Map((Array.isArray(msg.toolCalls) ? msg.toolCalls : []).filter(Boolean).map(tc => [String(tc.id || ''), tc]));
+  const nativeAgents = new Map((Array.isArray(msg.nativeAgents) ? msg.nativeAgents : []).filter(Boolean).map(record => [String(record.toolUseId || ''), record]));
+  const narrative = el('div', 'turn-narrative');
+  const toolIndex = [];
+  const renderedNative = new Set();
+  for (let i = 0; i < segments.length;) {
+    const segment = segments[i];
+    if (segment.type === 'tool') {
+      const consecutive = [];
+      while (i < segments.length && segments[i].type === 'tool') {
+        const toolSegment = segments[i++];
+        const tc = tools.get(String(toolSegment.toolCallId || '')) || { id: toolSegment.toolCallId, name: toolSegment.name || 'tool' };
+        const staticTc = { ...tc, isError: toolSegment.status === 'error' || tc.isError === true };
+        const card = toolCard(staticTc).d;
+        const anchorId = narrativeToolAnchor(toolSegment.toolCallId || tc.id, msg.turnSeq || msg.createdAt);
+        if (anchorId !== 'turn-tool-') card.id = anchorId;
+        consecutive.push({
+          card, batchId: String(toolSegment.batchId || ''),
+          status: toolSegment.status || (staticTc.isError ? 'error' : 'done'),
+        });
+        toolIndex.push({ tc: staticTc, status: toolSegment.status || (staticTc.isError ? 'error' : 'done'), anchorId });
+      }
+      if (consecutive.length > 3) {
+        // A long tool-only stretch stays constant-height. Failures remain outside and split the completed
+        // groups, preserving their chronological position instead of being swallowed by the fold.
+        let completed = [];
+        const flushCompleted = () => {
+          if (!completed.length) return;
+          const group = buildNarrativeToolBatch(completed);
+          if (group) narrative.append(group); else for (const item of completed) narrative.append(item.card);
+          completed = [];
+        };
+        for (const item of consecutive) {
+          if (item.status === 'error' || item.status === 'running') {
+            flushCompleted(); narrative.append(item.card);
+          } else completed.push(item);
+        }
+        flushCompleted();
+      } else {
+        for (let cursor = 0; cursor < consecutive.length;) {
+          const batchId = consecutive[cursor].batchId;
+          const batch = [];
+          while (cursor < consecutive.length && consecutive[cursor].batchId === batchId) batch.push(consecutive[cursor++]);
+          const group = buildNarrativeToolBatch(batch);
+          if (group) narrative.append(group); else for (const item of batch) narrative.append(item.card);
+        }
+      }
+      continue;
+    }
+    i += 1;
+    if (segment.type === 'text') narrative.append(narrativeTextBubble(segment.text));
+    else if (segment.type === 'thinking') narrative.append(thinkingPanel(segment.text || '').d);
+    else if (segment.type === 'plan') narrative.append(narrativePlanCard(segment));
+    else if (segment.type === 'question') narrative.append(narrativeQuestionCard(segment));
+    else if (segment.type === 'permission' || segment.type === 'workflow' || segment.type === 'mission') narrative.append(narrativeSemanticCard(segment));
+    else if (segment.type === 'note') narrative.append(el('div', 'msg-note', segment.text || ''));
+    else if (segment.type === 'error') narrative.append(el('div', 'msg-error', segment.text || ''));
+    else if (segment.type === 'subagent') {
+      const record = nativeAgents.get(String(segment.toolCallId || ''));
+      if (record) { narrative.append(renderStaticNativeAgent(record)); renderedNative.add(String(segment.toolCallId || '')); }
+    }
+  }
+  host.append(narrative);
+  return { toolIndex, renderedNative };
+}
+function turnToolIndexCard(items) {
+  if (!Array.isArray(items) || !items.length) return null;
+  const details = el('details', 'turn-record');
+  const summary = el('summary', 'turn-record-head', t('chat.turnRecord', { count: items.length }));
+  details.append(summary);
+  const body = el('div', 'turn-record-body');
+  for (const item of items) {
+    const row = el('div', 'turn-record-tool');
+    const name = String(item.tc && item.tc.name || 'tool');
+    const status = item.status === 'error' ? t('status.error') : (item.status === 'running' ? t('status.running') : t('status.done'));
+    row.append(el('span', 'turn-record-tool-name', name), el('span', `turn-record-tool-status ${item.status === 'error' ? 'err' : 'ok'}`, status));
+    if (item.anchorId && item.anchorId !== 'turn-tool-') {
+      const jump = el('button', 'turn-record-jump', t('chat.jumpToTool'));
+      jump.type = 'button';
+      jump.onclick = () => {
+        const target = document.getElementById(item.anchorId);
+        if (!target) return;
+        target.tabIndex = -1;
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.focus({ preventScroll: true });
+        target.classList.add('narrative-located');
+        setTimeout(() => target.classList.remove('narrative-located'), 1400);
+      };
+      row.append(jump);
+    }
+    body.append(row);
+  }
+  details.append(body);
+  return details;
+}
+
+function renderStaticMessage(msg, messageKey, renderSignature) {
   const meta = msg.role === 'assistant' ? metaFromMessage(msg) : null;
   const { row, main } = messageShell(msg.role, msg.createdAt, meta);
-  if (msg.thinking) { const { d } = thinkingPanel(msg.thinking); main.appendChild(d); }
-  const bubble = el('div', 'bubble');
+  const segments = validTurnSegments(msg);
   // 50d(02 Phase D):插话卡静态重渲染 -- steered:true 消息(刷新/重进会话后从 session.messages 读出)
   //   统一在此加「插话」徽章,与流式期 renderSteeredMessage 同源(后者也传 steered:true 走此路径)。
   // v1.9.1: 同步设 data-steered,让全量重渲染的行也能被 renderSteeredMessage 幂等检查 + steered 事件闪绿匹配覆盖。
   if (msg.steered) main.appendChild(el('span', 'steered-badge', t('chat.steer')));
   if (msg.steered) row.dataset.steered = 'true'; // v1.9.1: 让全量重渲染的行也能被 renderSteeredMessage 幂等检查 + steered 事件闪绿匹配覆盖
-  if (msg.role === 'assistant' && String(msg.content || '').length <= LIVE_MARKDOWN_MAX_CHARS) {
-    bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(msg.content || ''); highlightIn(bubble);
-  } else { bubble.classList.add('plain'); bubble.textContent = msg.content || ''; }
-  main.appendChild(bubble);
   const nativeAgents = Array.isArray(msg.nativeAgents) ? msg.nativeAgents : [];
   const visibleToolCalls = Array.isArray(msg.toolCalls)
     ? msg.toolCalls.filter(tc => !nativeAgents.length || !['Agent', 'Task', 'TaskOutput'].includes(tc && tc.name))
     : [];
-  if (visibleToolCalls.length) {
+  let narrativeResult = null;
+  if (msg.role === 'assistant' && segments.length) narrativeResult = renderStaticTurnNarrative(msg, main);
+  else {
+    if (msg.thinking) { const { d } = thinkingPanel(msg.thinking); main.appendChild(d); }
+    const bubble = el('div', 'bubble');
+    if (msg.role === 'assistant' && String(msg.content || '').length <= LIVE_MARKDOWN_MAX_CHARS) {
+      bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(msg.content || ''); highlightIn(bubble);
+    } else { bubble.classList.add('plain'); bubble.textContent = msg.content || ''; }
+    main.appendChild(bubble);
+  }
+  if (!narrativeResult && visibleToolCalls.length) {
     // v1.0.2 (G4): >3 top-level tool cards → collapse them all into one <details.tool-group>. ≤3 render flat.
     const cardEls = visibleToolCalls.map(tc => toolCard(tc).d);
     const group = buildStaticToolGroup(cardEls);
     if (group) main.appendChild(group);
     else for (const c of cardEls) main.appendChild(c);
   }
-  for (const record of nativeAgents) main.appendChild(renderStaticNativeAgent(record));
+  for (const record of nativeAgents) {
+    if (!narrativeResult || !narrativeResult.renderedNative.has(String(record && record.toolUseId || ''))) main.appendChild(renderStaticNativeAgent(record));
+  }
+  if (narrativeResult) {
+    const record = turnToolIndexCard(narrativeResult.toolIndex);
+    if (record) main.appendChild(record);
+  }
   if (msg.turnSummary) {
     main.appendChild(turnSummaryCard(msg.turnSummary)); // v0.8-S3 「本轮变更」
     const chips = turnArtifactChips(msg.turnSummary); if (chips) main.appendChild(chips); // v1.0.2 (G2)
   }
   if (msg.usage) main.appendChild(usageLine(msg.usage, meta));
   main.appendChild(msgActions(msg));
+  if (messageKey) row.dataset.messageKey = messageKey;
+  if (renderSignature) row.dataset.renderSignature = renderSignature;
   return row;
 }
 
@@ -2104,14 +2283,102 @@ function attachLiveTextNode(live, bubble) {
   live.renderedChars = 0;
   bubble.appendChild(live.textNode);
 }
+function startLiveTextSegment(live) {
+  if (!live || !live.narrative) return null;
+  live.completedRun = [];
+  live.completedGroup = null;
+  const bubble = el('div', 'bubble md stream-cursor');
+  live.bufferText = '';
+  attachLiveTextNode(live, bubble);
+  live.narrative.appendChild(bubble);
+  return bubble;
+}
+function ensureLiveTextSegment(live) {
+  return live && live.bubble && live.bubble.isConnected ? live.bubble : startLiveTextSegment(live);
+}
+function sealLiveTextSegment(live, dropIfText) {
+  if (!live || !live.bubble) return;
+  if (live.rafId) { cancelAnimationFrame(live.rafId); live.rafId = 0; }
+  live.rafPending = false;
+  const bubble = live.bubble;
+  const text = String(live.bufferText || '');
+  const drop = dropIfText != null && text.trim() === String(dropIfText || '').trim();
+  bubble.classList.remove('stream-cursor', 'live-plain');
+  if (!text || drop) bubble.remove();
+  else if (text.length <= LIVE_MARKDOWN_MAX_CHARS) {
+    bubble.classList.remove('plain'); bubble.innerHTML = renderMarkdown(text); highlightIn(bubble);
+  } else { bubble.classList.add('plain'); bubble.textContent = text; }
+  live.bubble = null; live.textNode = null; live.bufferText = ''; live.renderedChars = 0;
+}
+function registerNarrativeTool(live, evt, card) {
+  if (!live || !card) return;
+  sealLiveTextSegment(live);
+  const anchorId = narrativeToolAnchor(evt.id, state.currentSession && state.currentSession.turnSeq);
+  if (anchorId !== 'turn-tool-') card.d.id = anchorId;
+  live.narrative.appendChild(card.d);
+  const batchId = String(evt.batchId || `single-${evt.id || live.toolIndex.length}`);
+  let batch = live.toolBatches.get(batchId);
+  if (!batch) { batch = { id: batchId, items: [], group: null }; live.toolBatches.set(batchId, batch); }
+  const item = { id: evt.id, card: card.d, done: false, error: false, status: 'running', anchorId, tc: { id: evt.id, name: evt.name, input: evt.input } };
+  batch.items.push(item); live.toolIndex.push(item);
+  if (batch.group) {
+    batch.group.open = true;
+    batch.group._tgBody.appendChild(card.d);
+    batch.group._tgLabel.textContent = toolGroupSummaryText(batch.items.length);
+  }
+}
+function settleNarrativeTool(live, id, isError) {
+  if (!live) return;
+  let owner = null, item = null;
+  for (const batch of live.toolBatches.values()) {
+    item = batch.items.find(candidate => String(candidate.id) === String(id));
+    if (item) { owner = batch; break; }
+  }
+  if (!owner || !item) return;
+  item.done = true; item.error = Boolean(isError); item.status = isError ? 'error' : 'done';
+  if (owner.items.length < 2) {
+    if (item.error) { live.completedRun = []; live.completedGroup = null; return; }
+    if (!Array.isArray(live.completedRun)) live.completedRun = [];
+    live.completedRun.push(item);
+    if (live.completedRun.length === 4) {
+      const group = el('details', 'tool-group narrative-tool-batch narrative-completed-run');
+      const sum = el('summary', 'tool-group-sum');
+      sum.append(el('span', 'tg-caret', '▸'), el('span', 'tg-label', toolGroupSummaryText(live.completedRun.length)));
+      const body = el('div', 'tool-group-body');
+      group.append(sum, body);
+      live.completedRun[0].card.before(group);
+      for (const entry of live.completedRun) body.appendChild(entry.card);
+      group._tgBody = body; group._tgLabel = sum.querySelector('.tg-label');
+      live.completedGroup = group;
+    } else if (live.completedRun.length > 4 && live.completedGroup) {
+      live.completedGroup._tgBody.appendChild(item.card);
+      live.completedGroup._tgLabel.textContent = toolGroupSummaryText(live.completedRun.length);
+    }
+    return;
+  }
+  live.completedRun = []; live.completedGroup = null;
+  if (!owner.group) {
+    const first = owner.items[0].card;
+    const group = el('details', 'tool-group narrative-tool-batch');
+    const sum = el('summary', 'tool-group-sum');
+    sum.append(el('span', 'tg-caret', '▸'), el('span', 'tg-label', toolGroupSummaryText(owner.items.length)));
+    const body = el('div', 'tool-group-body');
+    group.append(sum, body); group._tgBody = body; group._tgLabel = sum.querySelector('.tg-label');
+    first.before(group);
+    for (const entry of owner.items) body.appendChild(entry.card);
+    owner.group = group;
+  }
+  owner.group._tgLabel.textContent = toolGroupSummaryText(owner.items.length);
+  owner.group.open = owner.items.some(entry => !entry.done || entry.error);
+}
 function createLiveAssistantShell() {
   const box = $('messages');
   const { row, main } = messageShell('assistant', new Date().toISOString(), currentEngineMeta());
-  const live = { thinkingText: '', bufferText: '', thinkingEl: null, thinkingNode: null, bubble: null, textNode: null, renderedChars: 0, toolCards: new Map(), subCards: new Map(), workflowCards: new Map(), rendered: false, rafPending: false, rafId: 0 };
-  const bubble = el('div', 'bubble md stream-cursor');
-  attachLiveTextNode(live, bubble);
-  main.appendChild(live.bubble);
-  live.toolsWrap = el('div'); main.appendChild(live.toolsWrap);
+  const live = { thinkingText: '', thinkingActive: false, bufferText: '', thinkingEl: null, thinkingNode: null, bubble: null, textNode: null, renderedChars: 0, toolCards: new Map(), toolBatches: new Map(), toolIndex: [], subCards: new Map(), workflowCards: new Map(), semanticCards: new Map(), semanticData: new Map(), completedRun: [], completedGroup: null, rendered: false, rafPending: false, rafId: 0 };
+  live.narrative = el('div', 'turn-narrative');
+  main.appendChild(live.narrative);
+  live.toolsWrap = live.narrative; // compatibility host for sub-agent/workflow cards
+  startLiveTextSegment(live);
   box.appendChild(row); box.scrollTop = box.scrollHeight;
   return { live, main };
 }
@@ -2546,34 +2813,18 @@ function scheduleRender(live) {
   });
 }
 function finalizeLive(live) {
-  // Cancel any queued render so it can't overwrite the final highlighted markdown.
-  if (live.rafId) { cancelAnimationFrame(live.rafId); live.rafId = 0; }
-  live.rafPending = false;
-  live.bubble.classList.remove('stream-cursor');
   // C2: whatever happened, the thinking panel ends on its settled "思考过程 · N 字" label (no shimmer).
   if (live.thinkingPanelObj) live.thinkingPanelObj.setLive(false);
-  // If nothing streamed but an error/note block was shown, drop the empty bubble instead of the
-  // "（无文本输出）" placeholder (the block already tells the story). Otherwise render the buffer.
-  if (!live.bufferText && (live.errorShown || live.noteShown)) { live.bubble.remove(); return; }
-  const text = live.bufferText || t('chat.noTextOutput');
-  const pending = text.slice(live.renderedChars || 0);
-  if (pending && live.textNode) live.textNode.appendData(pending);
-  live.renderedChars = text.length;
-  live.bubble.classList.remove('live-plain');
-  if (text.length <= LIVE_MARKDOWN_MAX_CHARS) {
-    live.bubble.classList.remove('plain');
-    live.bubble.innerHTML = renderMarkdown(text);
-    highlightIn(live.bubble);
-  } else {
-    live.bubble.classList.add('plain');
-    if (!live.textNode || !live.textNode.isConnected) live.bubble.textContent = text;
+  if (live.bubble && !live.bufferText && (live.errorShown || live.noteShown || live.narrative.childElementCount > 1)) sealLiveTextSegment(live);
+  else if (live.bubble) {
+    if (!live.bufferText) live.bufferText = t('chat.noTextOutput');
+    sealLiveTextSegment(live);
   }
-  // v1.0.2 (G4): turn end — fold the last completed top-level card(s) into the group (if one formed).
-  foldToolGroupAtTurnEnd(live);
 }
 // C6: insert an independent .msg-error block (red) into the live container. Text via textContent so
 // it is never markdown-parsed. Placed after the tools wrap so it reads as the turn's terminal state.
 function appendMsgError(main, live, text) {
+  if (live) sealLiveTextSegment(live);
   const box = el('div', 'msg-error'); box.textContent = text;
   main.appendChild(box);
   if (live) live.errorShown = true;
@@ -2581,6 +2832,7 @@ function appendMsgError(main, live, text) {
 }
 // C6: a neutral, muted variant for benign notes ("已停止"). Same structure, no alarm coloring.
 function appendMsgNote(main, live, text) {
+  if (live) sealLiveTextSegment(live);
   const box = el('div', 'msg-note'); box.textContent = text;
   main.appendChild(box);
   if (live) live.noteShown = true;
@@ -2606,6 +2858,29 @@ function scrollMessagesToBottom() {
   const box = $('messages');
   if (box) box.scrollTop = box.scrollHeight;
   updateJumpLatest();
+}
+
+function registerLiveSemanticCard(live, segment) {
+  if (!live || !live.narrative) return null;
+  sealLiveTextSegment(live);
+  live.completedRun = []; live.completedGroup = null;
+  const key = String(segment.requestId || segment.questionId || segment.workflowId || segment.missionId || segment.id || '');
+  if (key && live.semanticCards.has(key)) return live.semanticCards.get(key);
+  const card = segment.type === 'question' ? narrativeQuestionCard(segment) : narrativeSemanticCard(segment);
+  live.narrative.appendChild(card);
+  if (key) { live.semanticCards.set(key, card); live.semanticData.set(key, { ...segment }); }
+  return card;
+}
+function updateLiveSemanticCard(live, key, segment) {
+  if (!live) return;
+  const normalizedKey = String(key || '');
+  const old = live.semanticCards.get(normalizedKey);
+  if (!old) return;
+  const merged = { ...(live.semanticData.get(normalizedKey) || {}), ...segment };
+  const fresh = merged.type === 'question' ? narrativeQuestionCard(merged) : narrativeSemanticCard(merged);
+  old.replaceWith(fresh);
+  live.semanticCards.set(normalizedKey, fresh);
+  live.semanticData.set(normalizedKey, merged);
 }
 
 function handleStreamLine(line, live, main, streamSessionId) {
@@ -2635,6 +2910,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       setProc(evt.state);
       break;
     case 'assistant_delta':
+      live.thinkingActive = false;
       // First real text delta (C2): auto-collapse the thinking panel + settle its summary to
       // "思考过程 · N 字" — UNLESS the user already toggled it open by hand (respect their choice).
       if (evt.text && !live.firstDeltaSeen) {
@@ -2646,18 +2922,21 @@ function handleStreamLine(line, live, main, streamSessionId) {
           live.thinkingPanelObj.setLive(false); // keep it open, but stop the shimmer + label it
         }
       }
+      ensureLiveTextSegment(live);
       live.bufferText += evt.text || '';
       scheduleRender(live);
       break;
     case 'thinking_delta':
-      if (!live.thinkingEl) {
+      if (!live.thinkingActive) {
+        sealLiveTextSegment(live);
         const tp = thinkingPanel('', true); // live shimmer summary "思考中…"
         live.thinkingEl = tp.body; live.thinkingPanelObj = tp;
         live.thinkingEl.textContent = '';
         live.thinkingNode = document.createTextNode(''); live.thinkingEl.appendChild(live.thinkingNode);
         // Record a manual toggle so the first-delta auto-collapse can defer to the user (C2).
         tp.summary.addEventListener('click', () => { live.userToggledThinking = true; });
-        main.insertBefore(tp.d, live.bubble); tp.d.open = true;
+        (live.narrative || main).appendChild(tp.d); tp.d.open = true;
+        live.thinkingActive = true;
       }
       live.thinkingText += evt.text || '';
       if (live.thinkingNode) live.thinkingNode.appendData(evt.text || '');
@@ -2666,6 +2945,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // v0.9-S6 (子代理): a delegated sub-turn started/ended. `start` opens a nested collapsed card that will
       // hold the sub-turn's own tool_use/tool_result (routed here by subagentId). `end` stamps the head with
       // ✓/✗ + a short conclusion summary. See handleSubagentEvent.
+      if (evt.state === 'start') { live.thinkingActive = false; sealLiveTextSegment(live); }
       handleSubagentEvent(evt, live, streamSessionId);
       break;
     case 'subagent_progress':
@@ -2674,9 +2954,11 @@ function handleStreamLine(line, live, main, streamSessionId) {
       handleSubagentEvent(evt, live, streamSessionId);
       break;
     case 'agent_workflow':
+      if (evt.state === 'start' || evt.state === 'running') { live.thinkingActive = false; sealLiveTextSegment(live); }
       handleAgentWorkflowEvent(evt, live);
       break;
     case 'tool_use': {
+      live.thinkingActive = false;
       const card = toolCard({ name: evt.name, input: evt.input });
       card.t0 = performance.now(); // start the clock; tool_result computes the elapsed seconds
       live.toolCards.set(evt.id, card);
@@ -2686,9 +2968,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       if (subHost) {
         subHost.body.appendChild(card.d);
       } else {
-        live.toolsWrap.appendChild(card.d);
-        // v1.0.2 (G4): register this top-level card; the 4th one forms the fold group.
-        registerTopToolCard(live, evt.id, card.d);
+        registerNarrativeTool(live, evt, card);
       }
       break;
     }
@@ -2705,8 +2985,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
         // Duration: performance.now() delta since tool_use, shown as "· 1.2s".
         if (card.dur && card.t0 != null) card.dur.textContent = `· ${((performance.now() - card.t0) / 1000).toFixed(1)}s`;
         if (evt.isError) card.d.open = true; // surface failures automatically
-        // v1.0.2 (G4): this top-level card is now complete → fold it into the group (if formed).
-        markTopToolDone(live, evt.id);
+        settleNarrativeTool(live, evt.id, evt.isError);
       }
       break;
     }
@@ -2720,8 +2999,20 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // 第26波b: 任务账本进度/状态。缓存到会话 + 刷新进度条;完成/停滞/预算耗尽额外插一张卡片。
       if (state.currentSession) state.currentSession.mission = evt.mission || null;
       renderMissionBar(evt.mission || null);
-      if (evt.state === 'complete' || evt.state === 'stuck' || evt.state === 'budget_exhausted') {
-        main.appendChild(missionStateCard(evt));
+      {
+        const mission = evt.mission || {};
+        const missionId = String(mission.id || mission.createdAt || 'active');
+        const milestones = Array.isArray(mission.milestones) ? mission.milestones : [];
+        const segment = {
+          type: 'mission', missionId, goal: mission.goal || '', state: evt.state || 'updated',
+          completed: milestones.filter(item => item && item.status === 'done').length,
+          total: milestones.length,
+          status: evt.state === 'complete' ? 'done'
+            : (evt.state === 'stuck' || evt.state === 'budget_exhausted' ? 'error' : 'updated'),
+          note: evt.reason || '',
+        };
+        if (live.semanticCards.has(missionId)) updateLiveSemanticCard(live, missionId, segment);
+        else registerLiveSemanticCard(live, segment);
         scrollMessagesToBottom();
       }
       break;
@@ -2766,8 +3057,10 @@ function handleStreamLine(line, live, main, streamSessionId) {
     case 'turn_summary':
       // v0.8-S3: render the 「本轮变更」card at the tail of the live assistant message. finalizeLive keeps
       // the streamed markdown bubble intact; this card sits after the tools wrap.
+      { const record = turnToolIndexCard(live && live.toolIndex ? live.toolIndex : []); if (record) main.appendChild(record); }
       main.appendChild(turnSummaryCard(evt));
       { const chips = turnArtifactChips(evt); if (chips) main.appendChild(chips); } // v1.0.2 (G2)
+      if (live && live.pendingUsage) { main.appendChild(usageLine(live.pendingUsage)); live.pendingUsage = null; }
       // v0.9-S1 (C6): remember whether anything actually changed, so a following error `result` can decide
       // whether to append the 「本次未改动任何文件」 reassurance line.
       if (live) live.filesTouched = (Array.isArray(evt.filesChanged) && evt.filesChanged.length > 0) || (Number(evt.commands) || 0) > 0;
@@ -2782,37 +3075,55 @@ function handleStreamLine(line, live, main, streamSessionId) {
       if (evt.errorClass || evt.ok === false) {
         // v1.0.2 (F6c): CLI 缺失 → 友好引导卡(向后兼容:无 code 字段走原 errorCard)。
         const noFiles = !(live && live.filesTouched);
-        main.appendChild(evt.code === 'cli-missing' ? cliMissingCard() : errorCard(evt.errorClass, evt.error, noFiles));
+        (live && live.narrative ? live.narrative : main).appendChild(evt.code === 'cli-missing' ? cliMissingCard() : errorCard(evt.errorClass, evt.error, noFiles));
         scrollMessagesToBottom();
       }
       break;
     case 'usage':
-      main.appendChild(usageLine(evt));
+      if (live) live.pendingUsage = evt; else main.appendChild(usageLine(evt));
       renderContextMeter(evt);
       break;
     case 'stderr':
       appendToolOutput(`[stderr] ${evt.text}`, true);
       break;
     case 'ask_user':
+      registerLiveSemanticCard(live, { ...evt, type: 'question', status: 'pending' });
       showAskUserModal(evt.questionId || evt.id, evt.questions, streamSessionId);
       break;
+    case 'question_answer':
+      updateLiveSemanticCard(live, evt.questionId || evt.id, {
+        ...evt, type: 'question', status: evt.ok === false ? 'cancelled' : 'answered',
+        answerSummary: evt.summary || '',
+      });
+      break;
     case 'permission_request':
+      registerLiveSemanticCard(live, { ...evt, type: 'permission', status: 'pending' });
       handlePermissionRequest(evt);
       break;
     case 'permission_paused':
       // 第27f波:无人值守回合的权限弹窗超时后【存档暂停】(不立即拒),延长等待窗口。弹窗仍在,你的决定仍被接受;
       // 超过设定时限(autonomyPauseTtlMs)才回落拒绝。低调提示,不打断。
+      updateLiveSemanticCard(live, evt.requestId, { ...evt, type: 'permission', status: 'paused' });
       toast(t("toast.permPaused", { p1: Math.round((evt.ttlMs || 2700000) / 60000) }), 'warn');
+      break;
+    case 'permission_decision':
+      updateLiveSemanticCard(live, evt.requestId, {
+        ...evt, type: 'permission', status: evt.behavior === 'allow' ? 'allowed' : 'denied',
+      });
       break;
     case 'plan':
       // v0.9-S5 (真流程 plan mode): the model proposed an execution plan and the turn is paused. Render an
       // in-flow plan card (assistant-bubble variant) with the plan markdown + 批准执行 / 修改意见 / 放弃; the
       // decision POSTs to /api/plan/decision and the turn resumes (or ends). Composer hints while pending.
-      handlePlanEvent(evt, main, live);
+      handlePlanEvent(evt, live && live.narrative ? live.narrative : main, live);
       break;
     case 'plan_note':
       // The user attached a note when approving (修改意见). Show it as a muted interjection so the flow reads.
-      if (evt.text) appendMsgNote(main, live, `已按你的补充意见继续：${evt.text}`);
+      if (evt.text) appendMsgNote(live && live.narrative ? live.narrative : main, live, `已按你的补充意见继续：${evt.text}`);
+      break;
+    case 'plan_decision':
+      // The interactive plan card settles synchronously after the decision POST. The stream event exists so
+      // service-side replay can persist the same state without creating a second live card.
       break;
     case 'failover':
       // v1.0-S6 (B4): the provider's primary endpoint failed pre-first-byte and the turn switched to a backup.
@@ -2822,10 +3133,10 @@ function handleStreamLine(line, live, main, streamSessionId) {
       break;
     case 'error':
       // v1.0.2 (F6c): CLI 缺失 → 友好引导卡(向后兼容:无 code 字段走原始 .msg-error 文本块)。
-      if (evt.code === 'cli-missing') { main.appendChild(cliMissingCard()); if (live) live.errorShown = true; scrollMessagesToBottom(); break; }
+      if (evt.code === 'cli-missing') { (live && live.narrative ? live.narrative : main).appendChild(cliMissingCard()); if (live) live.errorShown = true; scrollMessagesToBottom(); break; }
       // C6: a real .msg-error block (red tint + left bar), text via textContent — never folded into the
       // markdown buffer where it would render as bold prose and could be mis-parsed.
-      appendMsgError(main, live, String(evt.error ?? ''));
+      appendMsgError(live && live.narrative ? live.narrative : main, live, String(evt.error ?? ''));
       break;
     default: break;
   }
@@ -5186,15 +5497,9 @@ function handlePlanEvent(evt, main, live) {
   if (planId && renderedPlanIds.has(planId)) return;
   if (planId) renderedPlanIds.add(planId);
 
-  // F1b(时序):plan 事件到达时先「封存」当前流式文本块 —— 去掉光标并新起一个空 bubble,让 plan 之后的
-  // assistant_delta 写进新块(append 在计划卡之后),保证消息自上而下:文本 → 计划卡 → 后续文本。
-  if (live && live.bubble) {
-    live.bubble.classList.remove('stream-cursor');
-    live.bubble.classList.remove('live-plain');
-    if (live.bufferText && live.bufferText.length <= LIVE_MARKDOWN_MAX_CHARS) { live.bubble.innerHTML = renderMarkdown(live.bufferText); highlightIn(live.bubble); }
-    else if (live.bufferText) { live.bubble.classList.add('plain'); live.bubble.textContent = live.bufferText; }
-    else { live.bubble.remove(); } // 空块无意义,直接丢弃,避免留一个空气泡
-  }
+  // 第54波: plan 本身通常已作为 assistant_delta 流过。若当前文本块与 markdown 相同，转成语义计划卡
+  // 而不是重复显示；后续 assistant_delta 会在卡片后按需创建新的文本段。
+  if (live) sealLiveTextSegment(live, evt.markdown || '');
 
   const built = buildPlanCard(planId, evt.markdown || '');
   const { card, approve, amend, reject, noteWrap, noteTa, noteSend, setDecided } = built;
@@ -5205,14 +5510,7 @@ function handlePlanEvent(evt, main, live) {
     setComposerHint('');
     setDecided(decision, note);
     savePlanDecision(planId, decision, note); // F1d 持久化
-    // F1b(续):决策后为后续 assistant_delta 备好一个新 bubble,append 在计划卡之后。
-    if (live) {
-      live.bufferText = '';
-      live.firstDeltaSeen = false;
-      const nb = el('div', 'bubble md stream-cursor');
-      (main || $('messages')).appendChild(nb);
-      attachLiveTextNode(live, nb);
-    }
+    if (live) live.firstDeltaSeen = false;
   };
 
   approve.onclick = async () => { const r = await decidePlan(planId, 'approve'); if (r && r.ok) finish('approve'); else if (r) toast(r.error || t('plan.expired'), ''); };

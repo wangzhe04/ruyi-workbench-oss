@@ -11,6 +11,8 @@ node dev-harness\openai-engine.e2e.js
 # 每件自成一体:spawn fake-openai/fake-mcp + workbench,断言,taskkill 清理,exit 0=全绿。
 ```
 
+第54波的回合叙事视觉门禁可单独运行 `node dev-harness\dom-screenshot.e2e.js`；它调用系统 Edge/Chrome 截取明暗主题，并与 `visual-baselines/workbench-shell-v2.json` 的低分辨率感知网格比较。只有确认视觉变更是预期行为时才使用 `--update` 更新基线。
+
 **离线件应 ALL PASS**(不含需真端点/真 Python 的 live 件)。每件文件头部注释都列了它断言的边界。
 需外部条件的件:`deepseek-live`/`deepseek-tools`(真 DeepSeek 密钥)、`desktop-bridge-live`(真 python 桌面 MCP)、
 `desktop-mcp-smoke`(`AI_COMPUTER_CONTROL_HOME` 指向 ACC 仓库)。

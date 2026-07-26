@@ -532,6 +532,7 @@ async function handleApi(req, res, pathname) {
       }
       pendingPermissions.set(requestId, entry);
     });
+    try { reg.onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
     if (reg) { reg.pausePending = false; reg.lastEventAt = Date.now(); } // 解除暂停豁免 + 重置看门狗时钟(暂停不算子进程空闲)
     if (res.writableEnded || res.destroyed) return; // request already gone (e.g. child died)
     // 第42b波(live 冒烟擒获):CLI ≥2.1 的 --permission-prompt-tool 响应是 zod union —— allow 变体必须
@@ -705,10 +706,13 @@ async function handleApi(req, res, pathname) {
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     const config = await readConfig();
     const reg = activeChildren.get(sessionId);
-    const parentEngine = reg && reg.kind === 'claude' ? 'claude' : 'openai';
     const provider = resolveProvider(config, body.providerId)
       || activeOpenAiProvider(config)
       || (config.providers || []).find(p => p && p.baseUrl && (p.model || (p.models && p.models.length)));
+    // A direct UI/MCP launch has no active parent registry. In a Claude-only installation, defaulting such
+    // a launch to OpenAI manufactured an unusable route with provider=null and failed before the fake/real
+    // Claude child could start. Choose from actual availability when no live parent turn exists.
+    const parentEngine = reg ? (reg.kind === 'claude' ? 'claude' : 'openai') : (provider ? 'openai' : 'claude');
     const parentModel = parentEngine === 'claude'
       ? String(config.model || '')
       : String(provider && (provider.model || (provider.models && provider.models[0] && (provider.models[0].id || provider.models[0]))) || '');

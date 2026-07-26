@@ -65,7 +65,15 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
     providers: [{ id: 'fake', label: 'Fake Provider', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: true }],
     activeProvider: 'fake',
   }, null, 2));
-  const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], { windowsHide: true });
+  const providerFileA = path.join(HOME_A, 'provider-a.txt'), providerFileB = path.join(HOME_A, 'provider-b.txt');
+  fs.writeFileSync(providerFileA, 'A'); fs.writeFileSync(providerFileB, 'B');
+  const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], {
+    windowsHide: true,
+    env: { ...process.env, FAKE_PARALLEL_TOOLS: JSON.stringify([
+      { name: 'file_read', args: { path: providerFileA } },
+      { name: 'file_read', args: { path: providerFileB } },
+    ]) },
+  });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));
   const wbA = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT_A)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME_A }, windowsHide: true });
   wbA.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wbA!] ' + l.trim())));
@@ -82,6 +90,10 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
     ok(a && a.providerId === 'fake', '[openai] providerId==="fake" (got ' + (a && a.providerId) + ')');
     ok(a && typeof a.model === 'string' && a.model.length > 0, '[openai] model non-empty (got ' + JSON.stringify(a && a.model) + ')');
     ok(a && a.providerLabel === 'Fake Provider', '[openai] providerLabel preserved (got ' + JSON.stringify(a && a.providerLabel) + ')');
+    const openaiSegments = a && Array.isArray(a.segments) ? a.segments : [];
+    ok(openaiSegments.map(s => s.type).join(',') === 'tool,tool,text', '[openai] persisted ordered tool,tool,text segments');
+    ok(openaiSegments[0] && openaiSegments[1] && openaiSegments[0].batchId === openaiSegments[1].batchId,
+      '[openai] parallel calls share one batchId');
   } catch (e) { console.log('ERROR(openai) ' + e.message); fail++; }
   finally { kill(wbA); kill(fake); await sleep(300); }
 
@@ -99,7 +111,7 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
   try {
     const h = await waitHealth(WB_PORT_B);
     ok(!!h, '[claude] workbench listening on :' + WB_PORT_B);
-    const events = await postStream(WB_PORT_B, { message: 'hello claude' });
+    const events = await postStream(WB_PORT_B, { message: 'tools' });
     const sid = (events.find(e => e.type === 'session') || {}).session?.id;
     ok(!!sid, '[claude] session id captured');
     const r = await getJson(WB_PORT_B, '/api/sessions/' + encodeURIComponent(sid));
@@ -107,6 +119,9 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
     ok(!!a, '[claude] last assistant message present');
     ok(a && a.engine === 'claude', '[claude] engine==="claude" (got ' + (a && a.engine) + ')');
     ok(a && a.model === 'claude-test-model', '[claude] model carried through (got ' + JSON.stringify(a && a.model) + ')');
+    const claudeSegments = a && Array.isArray(a.segments) ? a.segments : [];
+    ok(claudeSegments.map(s => s.type).join(',') === 'text,tool,text', '[claude] persisted ordered text,tool,text segments');
+    ok(claudeSegments[1] && claudeSegments[1].status === 'done', '[claude] tool_result updates segment status');
   } catch (e) { console.log('ERROR(claude) ' + e.message); fail++; }
   finally { kill(wbB); await sleep(300); }
 

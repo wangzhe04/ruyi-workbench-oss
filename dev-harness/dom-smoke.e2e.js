@@ -73,7 +73,7 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
 
     // ── A 段: 静态资源完整 ──
     console.log('── A 段: 静态资源全 200 ──');
-    for (const p of ['/', '/app.js', '/styles.css', '/locales/zh-CN.json', '/locales/en-US.json']) {
+    for (const p of ['/', '/app.js', '/js/turn-narrative.js', '/styles.css', '/locales/zh-CN.json', '/locales/en-US.json']) {
       const r = await get(p);
       ok(r.status === 200 && r.body.length > 100, 'A GET ' + p + ' -> 200 (' + r.body.length + 'B) got ' + r.status);
     }

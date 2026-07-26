@@ -2480,6 +2480,191 @@ async function evaluateMissionCheck(check, cwd) {
   return null;
 }
 
+// 第54波 EC-D: one ordered narrative ledger for both Claude CLI and OpenAI-compatible turns. The ledger is
+// additive: engines still persist content/thinking/toolCalls/turnSummary for old clients, while new clients
+// use segments to reconstruct the actual text -> tool -> text sequence after a refresh. Tool payloads stay in
+// toolCalls; a tool segment only stores its id/name/status/batch reference, avoiding a second copy of large
+// inputs/results in the session JSON.
+function createTurnSegmentBuilder() {
+  const segments = [];
+  const toolSegments = new Map();
+  const subagentSegments = new Map();
+  const permissionSegments = new Map();
+  const questionSegments = new Map();
+  const planSegments = new Map();
+  const workflowSegments = new Map();
+  const missionSegments = new Map();
+  let segmentSeq = 0;
+  let batchSeq = 0;
+  let fallbackBatchId = '';
+  let lastEventType = '';
+  const nextId = () => `segment-${++segmentSeq}`;
+  const createBatchId = engine => `${String(engine || 'turn')}-batch-${++batchSeq}`;
+  const appendText = (type, text) => {
+    const value = String(text || '');
+    if (!value) return;
+    const last = segments[segments.length - 1];
+    if (last && last.type === type) last.text += value;
+    else segments.push({ id: nextId(), type, text: value });
+    fallbackBatchId = '';
+    lastEventType = type;
+  };
+  const consume = evt => {
+    if (!evt || typeof evt !== 'object') return;
+    if (evt.type === 'assistant_delta') { appendText('text', evt.text); return; }
+    if (evt.type === 'thinking_delta') { appendText('thinking', evt.text); return; }
+    if (evt.type === 'tool_use' && !evt.subagentId) {
+      const toolCallId = String(evt.id || '');
+      if (!toolCallId || toolSegments.has(toolCallId)) return;
+      if (lastEventType !== 'tool_use') fallbackBatchId = '';
+      const batchId = String(evt.batchId || fallbackBatchId || createBatchId('turn'));
+      fallbackBatchId = batchId;
+      const segment = { id: nextId(), type: 'tool', toolCallId, name: String(evt.name || 'tool'), batchId, status: 'running' };
+      segments.push(segment);
+      toolSegments.set(toolCallId, segment);
+      lastEventType = 'tool_use';
+      return;
+    }
+    if (evt.type === 'tool_result' && !evt.subagentId) {
+      const segment = toolSegments.get(String(evt.id || ''));
+      if (segment) segment.status = evt.isError ? 'error' : 'done';
+      fallbackBatchId = '';
+      lastEventType = 'tool_result';
+      return;
+    }
+    if (evt.type === 'subagent') {
+      const key = String(evt.id || '');
+      if (!key) return;
+      if (evt.state === 'start' && !subagentSegments.has(key)) {
+        const segment = { id: nextId(), type: 'subagent', toolCallId: key, status: 'running' };
+        segments.push(segment); subagentSegments.set(key, segment);
+      } else if (subagentSegments.has(key) && (evt.state === 'end' || evt.state === 'background')) {
+        subagentSegments.get(key).status = evt.state === 'background' ? 'running' : (evt.ok === false ? 'error' : 'done');
+      }
+      fallbackBatchId = '';
+      lastEventType = 'subagent';
+      return;
+    }
+    if (evt.type === 'permission_request') {
+      const requestId = String(evt.requestId || '');
+      if (!requestId || permissionSegments.has(requestId)) return;
+      const segment = {
+        id: nextId(), type: 'permission', requestId,
+        toolName: String(evt.toolName || 'tool'), tier: String(evt.tier || 'exec'),
+        revertible: evt.revertible === true, status: 'pending',
+      };
+      segments.push(segment); permissionSegments.set(requestId, segment);
+      fallbackBatchId = ''; lastEventType = 'permission';
+      return;
+    }
+    if (evt.type === 'permission_paused' || evt.type === 'permission_decision') {
+      const segment = permissionSegments.get(String(evt.requestId || ''));
+      if (segment) {
+        if (evt.type === 'permission_paused') segment.status = 'paused';
+        else {
+          segment.status = evt.behavior === 'allow' ? 'allowed' : 'denied';
+          if (evt.message) segment.note = String(evt.message).slice(0, 500);
+        }
+      }
+      fallbackBatchId = ''; lastEventType = evt.type;
+      return;
+    }
+    if (evt.type === 'plan') {
+      const markdown = String(evt.markdown || '');
+      const last = segments[segments.length - 1];
+      // Provider streaming already emitted the plan as assistant_delta. Replace that duplicate text block with
+      // the semantic plan segment so static re-entry renders it once, as a decision point.
+      if (last && last.type === 'text' && last.text.trim() === markdown.trim()) segments.pop();
+      const segment = { id: nextId(), type: 'plan', planId: String(evt.planId || ''), markdown, status: 'pending' };
+      segments.push(segment);
+      if (segment.planId) planSegments.set(segment.planId, segment);
+      fallbackBatchId = '';
+      lastEventType = 'plan';
+      return;
+    }
+    if (evt.type === 'plan_decision') {
+      const segment = planSegments.get(String(evt.planId || ''));
+      if (segment) {
+        segment.status = evt.decision === 'approve' ? 'approved' : 'rejected';
+        if (evt.note) segment.note = String(evt.note).slice(0, 2000);
+      }
+      fallbackBatchId = ''; lastEventType = 'plan_decision';
+      return;
+    }
+    if (evt.type === 'plan_note') { appendText('note', evt.text); return; }
+    if (evt.type === 'ask_user') {
+      const segment = {
+        id: nextId(), type: 'question', questionId: String(evt.questionId || evt.id || ''),
+        questions: evt.questions || [], status: 'pending',
+      };
+      segments.push(segment);
+      if (segment.questionId) questionSegments.set(segment.questionId, segment);
+      fallbackBatchId = '';
+      lastEventType = 'question';
+      return;
+    }
+    if (evt.type === 'question_answer') {
+      const segment = questionSegments.get(String(evt.questionId || evt.id || ''));
+      if (segment) {
+        segment.status = evt.ok === false ? 'cancelled' : 'answered';
+        if (evt.summary) segment.answerSummary = String(evt.summary).slice(0, 500);
+      }
+      fallbackBatchId = ''; lastEventType = 'question_answer';
+      return;
+    }
+    if (evt.type === 'agent_workflow') {
+      const workflowId = String(evt.id || 'workflow');
+      let segment = workflowSegments.get(workflowId);
+      if (!segment) {
+        segment = { id: nextId(), type: 'workflow', workflowId, status: 'running', state: String(evt.state || 'running'), eventCount: 0 };
+        segments.push(segment); workflowSegments.set(workflowId, segment);
+      }
+      segment.eventCount += 1;
+      segment.state = String(evt.state || segment.state || 'running');
+      if (Number.isFinite(Number(evt.nodeCount))) segment.nodeCount = Number(evt.nodeCount);
+      if (evt.nodeId != null) segment.lastNodeId = String(evt.nodeId);
+      if (Number.isFinite(Number(evt.succeeded))) segment.succeeded = Number(evt.succeeded);
+      if (Number.isFinite(Number(evt.failed))) segment.failed = Number(evt.failed);
+      if (evt.state === 'end') segment.status = evt.status === 'completed' || Number(evt.failed) === 0 ? 'done' : 'error';
+      else if (evt.state === 'run_paused' || evt.state === 'pool_waiting' || evt.state === 'node_wait') segment.status = 'paused';
+      else segment.status = 'running';
+      fallbackBatchId = ''; lastEventType = 'workflow';
+      return;
+    }
+    if (evt.type === 'mission') {
+      const mission = evt.mission && typeof evt.mission === 'object' ? evt.mission : {};
+      const missionId = String(mission.id || mission.createdAt || 'active');
+      let segment = missionSegments.get(missionId);
+      if (!segment) {
+        segment = { id: nextId(), type: 'mission', missionId, status: 'updated' };
+        segments.push(segment); missionSegments.set(missionId, segment);
+      }
+      const milestones = Array.isArray(mission.milestones) ? mission.milestones : [];
+      segment.goal = String(mission.goal || '').slice(0, 500);
+      segment.completed = milestones.filter(item => item && item.status === 'done').length;
+      segment.total = milestones.length;
+      segment.state = String(evt.state || 'updated');
+      segment.status = evt.state === 'complete' ? 'done'
+        : (evt.state === 'stuck' || evt.state === 'budget_exhausted' ? 'error' : 'updated');
+      if (evt.reason) segment.note = String(evt.reason).slice(0, 500);
+      fallbackBatchId = ''; lastEventType = 'mission';
+      return;
+    }
+    if (evt.type === 'result' && evt.ok === false && (evt.error || evt.reason)) {
+      segments.push({
+        id: nextId(), type: 'error',
+        text: String(evt.error || evt.reason || '').slice(0, 4000),
+        errorClass: String(evt.errorClass || ''),
+      });
+      fallbackBatchId = ''; lastEventType = 'error';
+    }
+  };
+  const snapshot = () => segments
+    .filter(segment => segment && (segment.type !== 'text' && segment.type !== 'thinking' && segment.type !== 'note' || String(segment.text || '').length))
+    .map(segment => ({ ...segment }));
+  return { consume, snapshot, createBatchId };
+}
+
 // v0.8-S3/S4a: derive a turn_summary from the turn's tool records + checkpoint journal. Both engines call
 // this with their own toolCalls array (provider: {name,input,result}; claude: {name,input,result} where
 // result is the raw MCP text) AND this turn's journal entries (index rows for this turnSeq). DATA SOURCE:
@@ -4365,6 +4550,12 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
     if (!accepted) return false;
     clearTimeout(entry.timer);
     pendingQuestions.delete(id);
+    try {
+      const summary = answer && answer.ok !== false
+        ? String(answer.content || '').replace(/\s+/g, ' ').trim().slice(0, 500)
+        : '';
+      onEvent({ type: 'question_answer', questionId: id, ok: answer && answer.ok !== false, summary });
+    } catch { /* a closed stream must not prevent the waiter from settling */ }
     return true;
   };
   entry.timer = setTimeout(() => {
@@ -5542,6 +5733,9 @@ function claudeProviderTailSince(messages) {
 }
 
 async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driverAuto, agentTeam }) {
+  const turnSegments = createTurnSegmentBuilder();
+  const downstreamEvent = onEvent;
+  onEvent = evt => { turnSegments.consume(evt); downstreamEvent(evt); };
   const config = await readConfig();
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
@@ -5590,7 +5784,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       `已保存你的输入到会话 ${session.id}。`,
       `工作目录:${workingDir}`,
     ].join('\n');
-    session.messages.push({ role: 'assistant', content: fallback, createdAt: nowIso(), source: 'fallback' });
+    session.messages.push({ role: 'assistant', content: fallback, segments: [{ id: 'segment-1', type: 'text', text: fallback }], createdAt: nowIso(), source: 'fallback' });
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: fallback });
     onEvent({ type: 'result', ok: false, reason: 'claude_not_found', code: 'cli-missing' });
@@ -6210,6 +6404,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     turnSeq: session.turnSeq,
     thinking: thinkingText.trim() || undefined,
     toolCalls: toolCalls.length ? toolCalls : undefined,
+    segments: turnSegments.snapshot(),
     nativeAgents: nativeClaudeAgentRecords.length ? nativeClaudeAgentRecords : undefined,
     turnSummary, // v0.8-S3
     usage: usage || undefined,
@@ -8878,16 +9073,23 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
   return new Promise(resolve => {
     const requestId = makeId('perm');
     onEvent({ type: 'permission_request', requestId, toolName, input, tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
-    const entry = { resolve, sessionId, timer: null };
+    let settled = false;
+    const settle = decision => {
+      if (settled) return;
+      settled = true;
+      try { onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
+      resolve(decision);
+    };
+    const entry = { resolve: settle, sessionId, timer: null };
     const baseMs = Math.max(5000, Number(timeoutMs) || 120000);
     if (pause && pause.enabled) {
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
         try { onEvent({ type: 'permission_paused', requestId, toolName, tier: tier || 'exec', ttlMs: pause.ttlMs }); } catch { /* stream gone */ }
-        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); }, Math.max(60000, Number(pause.ttlMs) || 2700000));
+        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); settle({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); }, Math.max(60000, Number(pause.ttlMs) || 2700000));
       }, baseMs);
     } else {
-      entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); }, baseMs);
+      entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); settle({ behavior: 'deny', message: 'permission prompt timed out' }); }, baseMs);
     }
     pendingPermissions.set(requestId, entry);
   });
@@ -8908,8 +9110,15 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
   return new Promise(resolve => {
     const planId = makeId('plan');
     onEvent({ type: 'plan', planId, markdown: String(markdown || '') });
-    const timer = setTimeout(() => { pendingPlans.delete(planId); resolve({ decision: 'reject', note: 'plan approval timed out' }); }, Math.max(5000, Number(timeoutMs) || 120000));
-    pendingPlans.set(planId, { resolve, sessionId, timer });
+    let settled = false;
+    const settle = decision => {
+      if (settled) return;
+      settled = true;
+      try { onEvent({ type: 'plan_decision', planId, decision: decision && decision.decision === 'approve' ? 'approve' : 'reject', note: decision && decision.note }); } catch { /* stream gone */ }
+      resolve(decision);
+    };
+    const timer = setTimeout(() => { pendingPlans.delete(planId); settle({ decision: 'reject', note: 'plan approval timed out' }); }, Math.max(5000, Number(timeoutMs) || 120000));
+    pendingPlans.set(planId, { resolve: settle, sessionId, timer });
   });
 }
 
@@ -12659,6 +12868,16 @@ function syncProviderHistoryFromDisplay(session) {
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam }) {
+  const turnSegments = createTurnSegmentBuilder();
+  const downstreamEvent = onEvent;
+  let activeProviderBatchId = '';
+  onEvent = evt => {
+    const normalized = evt && evt.type === 'tool_use' && activeProviderBatchId && !evt.batchId
+      ? { ...evt, batchId: activeProviderBatchId }
+      : evt;
+    turnSegments.consume(normalized);
+    downstreamEvent(normalized);
+  };
   config = config || await readConfig();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
@@ -12711,7 +12930,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (!chatUrl || !model || typeof fetch !== 'function') {
     const why = !chatUrl ? 'provider base URL is not set' : (!model ? 'no model is selected for this provider' : 'fetch API is unavailable in this Node runtime');
     const msg = `Cannot start a ${provider.label || provider.id} turn: ${why}. Open Settings → Providers to fix it.`;
-    session.messages.push({ role: 'assistant', content: msg, createdAt: nowIso(), source: 'fallback' });
+    session.messages.push({ role: 'assistant', content: msg, segments: [{ id: 'segment-1', type: 'text', text: msg }], createdAt: nowIso(), source: 'fallback' });
     session.providerHistoryCursor = session.messages.length;
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: msg });
@@ -13093,6 +13312,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, model, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.reasoning) thinkingText += call.reasoning;
       if (call.text) assistantText += call.text;
+      activeProviderBatchId = call.toolCalls && call.toolCalls.length ? turnSegments.createBatchId('openai') : '';
       // Aborted while streaming → discard this (possibly partial) step, keep history valid.
       if (reg.state !== 'running') { aborted = true; ok = false; break; }
       // v0.9-S5 (真流程 plan mode): the FIRST assistant message decides the plan flow. When it opens with
@@ -13606,6 +13826,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   session.messages.push({
     role: 'assistant', content: finalText, thinking: thinkingText.trim() || undefined,
     toolCalls: toolCalls.length ? toolCalls : undefined,
+    segments: turnSegments.snapshot(),
     turnSummary, // v0.8-S3
     usage: usageObj || undefined, createdAt: nowIso(), source: wasStopped ? 'aborted' : ('provider:' + provider.id),
     // Engine identity so the UI can render a per-message source badge (§5.1). Keeping providerId +
@@ -17955,6 +18176,7 @@ async function handleApi(req, res, pathname) {
       }
       pendingPermissions.set(requestId, entry);
     });
+    try { reg.onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
     if (reg) { reg.pausePending = false; reg.lastEventAt = Date.now(); } // 解除暂停豁免 + 重置看门狗时钟(暂停不算子进程空闲)
     if (res.writableEnded || res.destroyed) return; // request already gone (e.g. child died)
     // 第42b波(live 冒烟擒获):CLI ≥2.1 的 --permission-prompt-tool 响应是 zod union —— allow 变体必须
@@ -18128,10 +18350,13 @@ async function handleApi(req, res, pathname) {
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     const config = await readConfig();
     const reg = activeChildren.get(sessionId);
-    const parentEngine = reg && reg.kind === 'claude' ? 'claude' : 'openai';
     const provider = resolveProvider(config, body.providerId)
       || activeOpenAiProvider(config)
       || (config.providers || []).find(p => p && p.baseUrl && (p.model || (p.models && p.models.length)));
+    // A direct UI/MCP launch has no active parent registry. In a Claude-only installation, defaulting such
+    // a launch to OpenAI manufactured an unusable route with provider=null and failed before the fake/real
+    // Claude child could start. Choose from actual availability when no live parent turn exists.
+    const parentEngine = reg ? (reg.kind === 'claude' ? 'claude' : 'openai') : (provider ? 'openai' : 'claude');
     const parentModel = parentEngine === 'claude'
       ? String(config.model || '')
       : String(provider && (provider.model || (provider.models && provider.models[0] && (provider.models[0].id || provider.models[0]))) || '');

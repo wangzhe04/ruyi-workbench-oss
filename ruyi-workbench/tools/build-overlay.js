@@ -38,6 +38,7 @@ const PAYLOAD_FILES = [
   'app/public/js/net.js',
   'app/public/js/i18n.js',
   'app/public/js/icons.js',
+  'app/public/js/turn-narrative.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/styles.css',

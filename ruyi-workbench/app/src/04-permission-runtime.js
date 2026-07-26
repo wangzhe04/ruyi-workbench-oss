@@ -281,6 +281,12 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
     if (!accepted) return false;
     clearTimeout(entry.timer);
     pendingQuestions.delete(id);
+    try {
+      const summary = answer && answer.ok !== false
+        ? String(answer.content || '').replace(/\s+/g, ' ').trim().slice(0, 500)
+        : '';
+      onEvent({ type: 'question_answer', questionId: id, ok: answer && answer.ok !== false, summary });
+    } catch { /* a closed stream must not prevent the waiter from settling */ }
     return true;
   };
   entry.timer = setTimeout(() => {

@@ -1,4 +1,7 @@
 async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driverAuto, agentTeam }) {
+  const turnSegments = createTurnSegmentBuilder();
+  const downstreamEvent = onEvent;
+  onEvent = evt => { turnSegments.consume(evt); downstreamEvent(evt); };
   const config = await readConfig();
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
@@ -47,7 +50,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       `已保存你的输入到会话 ${session.id}。`,
       `工作目录:${workingDir}`,
     ].join('\n');
-    session.messages.push({ role: 'assistant', content: fallback, createdAt: nowIso(), source: 'fallback' });
+    session.messages.push({ role: 'assistant', content: fallback, segments: [{ id: 'segment-1', type: 'text', text: fallback }], createdAt: nowIso(), source: 'fallback' });
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: fallback });
     onEvent({ type: 'result', ok: false, reason: 'claude_not_found', code: 'cli-missing' });
@@ -667,6 +670,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
     turnSeq: session.turnSeq,
     thinking: thinkingText.trim() || undefined,
     toolCalls: toolCalls.length ? toolCalls : undefined,
+    segments: turnSegments.snapshot(),
     nativeAgents: nativeClaudeAgentRecords.length ? nativeClaudeAgentRecords : undefined,
     turnSummary, // v0.8-S3
     usage: usage || undefined,

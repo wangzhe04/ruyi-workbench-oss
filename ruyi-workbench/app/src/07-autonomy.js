@@ -708,16 +708,23 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
   return new Promise(resolve => {
     const requestId = makeId('perm');
     onEvent({ type: 'permission_request', requestId, toolName, input, tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
-    const entry = { resolve, sessionId, timer: null };
+    let settled = false;
+    const settle = decision => {
+      if (settled) return;
+      settled = true;
+      try { onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
+      resolve(decision);
+    };
+    const entry = { resolve: settle, sessionId, timer: null };
     const baseMs = Math.max(5000, Number(timeoutMs) || 120000);
     if (pause && pause.enabled) {
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
         try { onEvent({ type: 'permission_paused', requestId, toolName, tier: tier || 'exec', ttlMs: pause.ttlMs }); } catch { /* stream gone */ }
-        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); }, Math.max(60000, Number(pause.ttlMs) || 2700000));
+        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); settle({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); }, Math.max(60000, Number(pause.ttlMs) || 2700000));
       }, baseMs);
     } else {
-      entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); }, baseMs);
+      entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); settle({ behavior: 'deny', message: 'permission prompt timed out' }); }, baseMs);
     }
     pendingPermissions.set(requestId, entry);
   });
@@ -738,8 +745,15 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
   return new Promise(resolve => {
     const planId = makeId('plan');
     onEvent({ type: 'plan', planId, markdown: String(markdown || '') });
-    const timer = setTimeout(() => { pendingPlans.delete(planId); resolve({ decision: 'reject', note: 'plan approval timed out' }); }, Math.max(5000, Number(timeoutMs) || 120000));
-    pendingPlans.set(planId, { resolve, sessionId, timer });
+    let settled = false;
+    const settle = decision => {
+      if (settled) return;
+      settled = true;
+      try { onEvent({ type: 'plan_decision', planId, decision: decision && decision.decision === 'approve' ? 'approve' : 'reject', note: decision && decision.note }); } catch { /* stream gone */ }
+      resolve(decision);
+    };
+    const timer = setTimeout(() => { pendingPlans.delete(planId); settle({ decision: 'reject', note: 'plan approval timed out' }); }, Math.max(5000, Number(timeoutMs) || 120000));
+    pendingPlans.set(planId, { resolve: settle, sessionId, timer });
   });
 }
 

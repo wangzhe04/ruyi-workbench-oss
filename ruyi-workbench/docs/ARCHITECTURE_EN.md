@@ -4,7 +4,7 @@ This is the English companion to [架构说明](ARCHITECTURE_CN.md).
 
 ## Components
 
-> Version baseline: workbench **v2.0.1** · native tools **50** · ACC **107** (v1.9.0).
+> Version baseline: workbench **v2.0.1** · native tools **51** · ACC **107** (v1.9.0).
 
 Ruyi has a framework-less browser frontend and a Node.js local server. The browser handles chats, workspace
 selection, settings, permission cards, file and audit views, workflow monitoring, and language resources. The
@@ -16,6 +16,20 @@ audit records, MCP bridging, workflow scheduling, skills, memories, and usage le
 The provider engine communicates with OpenAI-compatible HTTP and streaming endpoints. The optional Claude CLI
 engine runs a user-supplied local executable and injects the generated workbench MCP configuration. Both engines
 share the same session, local tools, permission policy, checkpoint journal, audit model, skills, and memories.
+
+Both engines also share the Wave 54 ordered-turn protocol. `createTurnSegmentBuilder()` persists text, thinking,
+tool, subagent, plan, question, permission, workflow, Mission, and error events as `message.segments`; tool segments
+reference the existing `message.toolCalls` payload by id, and calls from one model response share a `batchId`.
+Permission, plan, and question decisions close their pending segments in place, so allowed/denied, approved/rejected,
+and answered states survive static re-entry. Legacy fields remain populated, and sessions without `segments` keep
+the previous content-then-tools fallback without fabricated chronology.
+
+The browser uses the same ordered narrative for streaming and static re-entry. Helpers in
+`public/js/turn-narrative.js` provide stable keys, render signatures, and scroll anchors so unchanged message DOM is
+reused. The conversation is a `role="log"` that announces additions and status changes without replaying the whole
+history; tail-index navigation restores keyboard focus to the corresponding process row. Successful sequential
+tools fold after the third item while running and failed items stay visible. A zero-dependency dark/light browser
+screenshot grid supplies the Wave 54 visual regression lock.
 
 ## Entry points and HTTP API
 

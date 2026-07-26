@@ -88,6 +88,8 @@ async function withWb(allowRules, fn) {
       ok(!!pr, '① permission_request emitted for file_write');
       ok(pr && pr.tier === 'edit', '① permission_request tier === edit (got ' + (pr && pr.tier) + ')');
       ok(pr && pr.revertible === true, '① permission_request revertible === true');
+      const pd = ev.find(e => e.type === 'permission_decision');
+      ok(pd && pd.requestId === pr.requestId && pd.behavior === 'deny', '① timed-out permission emits a matching denied semantic state');
       const result = ev.find(e => e.type === 'result');
       ok(!!result, '① turn produced a result event (finished normally after auto-deny)');
       ok(elapsed >= 5500, '① turn waited out the ~6s permission timeout (elapsed ' + elapsed + 'ms)');

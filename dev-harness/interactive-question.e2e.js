@@ -134,6 +134,8 @@ function startProvider(captures) {
     const claudeAsk = claude.events.find(e => e.type === 'ask_user');
     ok(!!claudeAsk && Array.isArray(claudeAsk.questions), 'Claude question is emitted to the UI stream');
     ok(claude.answer?.status === 200 && claude.answer?.json?.delivered === true, 'Claude answer endpoint confirms actual delivery');
+    ok(claude.events.some(e => e.type === 'question_answer' && e.questionId === claudeAsk.questionId && e.ok === true),
+      'Claude emits the answered semantic state before continuing');
     ok(claude.events.filter(e => e.type === 'assistant_delta').map(e => String(e.text || '')).join('').includes('React'), 'Claude continues with the selected answer');
     const meta = claude.events.find(e => e.type === 'meta');
     ok(meta?.args?.includes('--disallowedTools') && meta?.args?.includes('AskUserQuestion'), 'real Claude runs prefer the reliable workbench MCP question tool');
@@ -145,6 +147,8 @@ function startProvider(captures) {
     const providerTurn = await streamAndAnswer({ sessionId, message: 'ask me which framework to use', cwd: HOME }, token, 'Vue');
     ok(!!providerTurn.events.find(e => e.type === 'ask_user'), 'Provider request_user_input opens the same UI question channel');
     ok(providerTurn.answer?.status === 200 && providerTurn.answer?.json?.delivered === true, 'Provider answer is confirmed delivered');
+    ok(providerTurn.events.some(e => e.type === 'question_answer' && e.ok === true),
+      'Provider emits the same answered semantic state');
     ok(captures[0]?.tools?.some(t => t.function?.name === 'request_user_input'), 'Provider receives the request_user_input tool schema');
     ok(captures.some(c => c.messages?.some(m => m.role === 'tool' && String(m.content || '').includes('Vue'))), 'Provider continuation receives the selected answer as a tool result');
     ok(providerTurn.events.some(e => e.type === 'assistant_delta' && String(e.text).includes('Provider received Vue')), 'Provider continues after the user selection');

@@ -829,6 +829,16 @@ function syncProviderHistoryFromDisplay(session) {
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam }) {
+  const turnSegments = createTurnSegmentBuilder();
+  const downstreamEvent = onEvent;
+  let activeProviderBatchId = '';
+  onEvent = evt => {
+    const normalized = evt && evt.type === 'tool_use' && activeProviderBatchId && !evt.batchId
+      ? { ...evt, batchId: activeProviderBatchId }
+      : evt;
+    turnSegments.consume(normalized);
+    downstreamEvent(normalized);
+  };
   config = config || await readConfig();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
@@ -881,7 +891,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (!chatUrl || !model || typeof fetch !== 'function') {
     const why = !chatUrl ? 'provider base URL is not set' : (!model ? 'no model is selected for this provider' : 'fetch API is unavailable in this Node runtime');
     const msg = `Cannot start a ${provider.label || provider.id} turn: ${why}. Open Settings → Providers to fix it.`;
-    session.messages.push({ role: 'assistant', content: msg, createdAt: nowIso(), source: 'fallback' });
+    session.messages.push({ role: 'assistant', content: msg, segments: [{ id: 'segment-1', type: 'text', text: msg }], createdAt: nowIso(), source: 'fallback' });
     session.providerHistoryCursor = session.messages.length;
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: msg });
@@ -1263,6 +1273,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, model, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.reasoning) thinkingText += call.reasoning;
       if (call.text) assistantText += call.text;
+      activeProviderBatchId = call.toolCalls && call.toolCalls.length ? turnSegments.createBatchId('openai') : '';
       // Aborted while streaming → discard this (possibly partial) step, keep history valid.
       if (reg.state !== 'running') { aborted = true; ok = false; break; }
       // v0.9-S5 (真流程 plan mode): the FIRST assistant message decides the plan flow. When it opens with
@@ -1776,6 +1787,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   session.messages.push({
     role: 'assistant', content: finalText, thinking: thinkingText.trim() || undefined,
     toolCalls: toolCalls.length ? toolCalls : undefined,
+    segments: turnSegments.snapshot(),
     turnSummary, // v0.8-S3
     usage: usageObj || undefined, createdAt: nowIso(), source: wasStopped ? 'aborted' : ('provider:' + provider.id),
     // Engine identity so the UI can render a per-message source badge (§5.1). Keeping providerId +
