@@ -185,7 +185,9 @@ async function main() {
   if (slowMs > 0) await sleep(slowMs);
 
   if (scenario.endsWith('.jsonl') && fs.existsSync(scenario)) {
-    await replay(loadFixture(scenario));
+    const fixtureDelay = Number(process.env.WCW_FAKE_REPLAY_DELAY_MS)
+      || (/long-process/i.test(scenario) ? 500 : 35);
+    await replay(loadFixture(scenario), fixtureDelay);
     process.exit(0);
   }
 

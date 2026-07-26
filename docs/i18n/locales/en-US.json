@@ -1304,6 +1304,7 @@
   "chat.details": "Details",
   "chat.turnRecord": "Turn record · {{count}} tool calls",
   "chat.jumpToTool": "Jump to step",
+  "chat.processStage": "Process · {{tools}} tools · {{thinking}} reasoning steps",
   "chat.planSegment": "Execution plan",
   "chat.questionSegment": "Waiting for your answer",
   "chat.conversationAria": "Conversation history",

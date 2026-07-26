@@ -1402,6 +1402,10 @@ function settleLiveThinking(live) {
     panel.setLive(false);
     if (!panel.userToggled) panel.d.open = false;
   }
+  if (live.thinkingFollowTimer) clearTimeout(live.thinkingFollowTimer);
+  live.thinkingFollowTimer = 0;
+  live.followThinkingPanel = false;
+  live.followThinkingMessages = false;
   live.thinkingActive = false;
   live.thinkingEl = null;
   live.thinkingNode = null;
@@ -1971,6 +1975,81 @@ function buildNarrativeToolBatch(items) {
   details.append(body);
   return details;
 }
+function isNarrativeProcessNode(node) {
+  return Boolean(node && node.nodeType === 1 && (
+    node.classList.contains('thinking')
+    || node.classList.contains('tool-card')
+    || node.classList.contains('tool-group')
+    || node.classList.contains('narrative-process-group')
+  ));
+}
+function isSettledNarrativeProcessNode(node) {
+  return isNarrativeProcessNode(node)
+    && !node.querySelector('.thinking-live')
+    && !node.querySelector('.tc-statusbar.running');
+}
+function narrativeProcessStats(nodes) {
+  let tools = 0, thinking = 0;
+  for (const node of nodes || []) {
+    tools += node.classList.contains('tool-card') ? 1 : node.querySelectorAll('.tool-card').length;
+    thinking += node.classList.contains('thinking') ? 1 : node.querySelectorAll('.thinking').length;
+  }
+  return { tools, thinking };
+}
+function refreshNarrativeProcessGroup(group) {
+  if (!group) return;
+  const body = group._processBody || group.querySelector('.narrative-process-body');
+  const label = group._processLabel || group.querySelector('.narrative-process-label');
+  if (!body || !label) return;
+  const stats = narrativeProcessStats(Array.from(body.children));
+  label.textContent = t('chat.processStage', stats);
+}
+function buildNarrativeProcessGroup(nodes) {
+  if (!Array.isArray(nodes) || !nodes.length) return null;
+  const group = el('details', 'narrative-process-group');
+  const summary = el('summary', 'narrative-process-summary');
+  const iconWrap = el('span', 'narrative-process-icon'); iconWrap.appendChild(icon('trace', 13));
+  const label = el('span', 'narrative-process-label');
+  const caret = el('span', 'narrative-process-caret');
+  summary.append(iconWrap, label, caret);
+  const body = el('div', 'narrative-process-body');
+  group.append(summary, body);
+  group._processBody = body;
+  group._processLabel = label;
+  for (const node of nodes) body.appendChild(node);
+  refreshNarrativeProcessGroup(group);
+  return group;
+}
+// A model may alternate reasoning and one or two tools for a long time without emitting prose. Keep the
+// current running step visible, but fold settled process-only stretches into one chronological stage row.
+// This rule is engine-neutral, so Claude CLI and OpenAI-compatible streams converge on the same density.
+function compactNarrativeProcessRuns(narrative) {
+  if (!narrative) return;
+  const flush = block => {
+    if (!block.length) return;
+    const existing = block.find(node => node.classList.contains('narrative-process-group'));
+    const settled = block.filter(node => !node.classList.contains('narrative-process-group')
+      && isSettledNarrativeProcessNode(node));
+    if (existing) {
+      const body = existing._processBody || existing.querySelector('.narrative-process-body');
+      for (const node of settled) body.appendChild(node);
+      refreshNarrativeProcessGroup(existing);
+      return;
+    }
+    const stats = narrativeProcessStats(settled);
+    if (settled.length < 5 || stats.tools + stats.thinking < 6 || stats.thinking < 2) return;
+    const marker = document.createComment('narrative-process-stage');
+    settled[0].before(marker);
+    const group = buildNarrativeProcessGroup(settled);
+    marker.replaceWith(group);
+  };
+  let block = [];
+  for (const node of Array.from(narrative.children)) {
+    if (isNarrativeProcessNode(node)) block.push(node);
+    else { flush(block); block = []; }
+  }
+  flush(block);
+}
 function renderStaticTurnNarrative(msg, host) {
   const segments = validTurnSegments(msg);
   if (!segments.length) return null;
@@ -1996,7 +2075,7 @@ function renderStaticTurnNarrative(msg, host) {
         });
         toolIndex.push({ tc: staticTc, status: toolSegment.status || (staticTc.isError ? 'error' : 'done'), anchorId });
       }
-      if (consecutive.length > 3) {
+      if (consecutive.length > 1) {
         // A long tool-only stretch stays constant-height. Failures remain outside and split the completed
         // groups, preserving their chronological position instead of being swallowed by the fold.
         let completed = [];
@@ -2036,10 +2115,28 @@ function renderStaticTurnNarrative(msg, host) {
       if (record) { narrative.append(renderStaticNativeAgent(record)); renderedNative.add(String(segment.toolCallId || '')); }
     }
   }
+  compactNarrativeProcessRuns(narrative);
   host.append(narrative);
   return { toolIndex, renderedNative };
 }
-function turnToolIndexCard(items) {
+function revealNarrativeTarget(target) {
+  if (!target) return;
+  const ancestors = [];
+  for (let node = target.parentElement; node; node = node.parentElement) {
+    if (node.tagName === 'DETAILS') ancestors.push(node);
+  }
+  for (const details of ancestors.reverse()) details.open = true;
+  if (target.tagName === 'DETAILS') target.open = true;
+  // Opening nested details changes layout. Wait for that layout before scrolling and focusing the tool.
+  requestAnimationFrame(() => {
+    target.tabIndex = -1;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.focus({ preventScroll: true });
+    target.classList.add('narrative-located');
+    setTimeout(() => target.classList.remove('narrative-located'), 1400);
+  });
+}
+function turnToolIndexCard(items, scopeHost) {
   if (!Array.isArray(items) || !items.length) return null;
   const details = el('details', 'turn-record');
   const summary = el('summary', 'turn-record-head', t('chat.turnRecord', { count: items.length }));
@@ -2054,13 +2151,10 @@ function turnToolIndexCard(items) {
       const jump = el('button', 'turn-record-jump', t('chat.jumpToTool'));
       jump.type = 'button';
       jump.onclick = () => {
-        const target = document.getElementById(item.anchorId);
-        if (!target) return;
-        target.tabIndex = -1;
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        target.focus({ preventScroll: true });
-        target.classList.add('narrative-located');
-        setTimeout(() => target.classList.remove('narrative-located'), 1400);
+        const target = scopeHost
+          ? scopeHost.querySelector(`#${CSS.escape(item.anchorId)}`)
+          : document.getElementById(item.anchorId);
+        revealNarrativeTarget(target);
       };
       row.append(jump);
     }
@@ -2104,7 +2198,7 @@ function renderStaticMessage(msg, messageKey, renderSignature) {
     if (!narrativeResult || !narrativeResult.renderedNative.has(String(record && record.toolUseId || ''))) main.appendChild(renderStaticNativeAgent(record));
   }
   if (narrativeResult) {
-    const record = turnToolIndexCard(narrativeResult.toolIndex);
+    const record = turnToolIndexCard(narrativeResult.toolIndex, main);
     if (record) main.appendChild(record);
   }
   if (msg.turnSummary) {
@@ -2301,6 +2395,7 @@ function attachLiveTextNode(live, bubble) {
 }
 function startLiveTextSegment(live) {
   if (!live || !live.narrative) return null;
+  compactNarrativeProcessRuns(live.narrative);
   live.completedRun = [];
   live.completedGroup = null;
   const bubble = el('div', 'bubble md stream-cursor');
@@ -2355,7 +2450,7 @@ function settleNarrativeTool(live, id, isError) {
     if (item.error) { live.completedRun = []; live.completedGroup = null; return; }
     if (!Array.isArray(live.completedRun)) live.completedRun = [];
     live.completedRun.push(item);
-    if (live.completedRun.length === 4) {
+    if (live.completedRun.length === 2) {
       const group = el('details', 'tool-group narrative-tool-batch narrative-completed-run');
       const sum = el('summary', 'tool-group-sum');
       sum.append(el('span', 'tg-caret', '▸'), el('span', 'tg-label', toolGroupSummaryText(live.completedRun.length)));
@@ -2365,13 +2460,16 @@ function settleNarrativeTool(live, id, isError) {
       for (const entry of live.completedRun) body.appendChild(entry.card);
       group._tgBody = body; group._tgLabel = sum.querySelector('.tg-label');
       live.completedGroup = group;
-    } else if (live.completedRun.length > 4 && live.completedGroup) {
+    } else if (live.completedRun.length > 2 && live.completedGroup) {
       live.completedGroup._tgBody.appendChild(item.card);
       live.completedGroup._tgLabel.textContent = toolGroupSummaryText(live.completedRun.length);
     }
     return;
   }
   live.completedRun = []; live.completedGroup = null;
+  // A parallel Claude/provider batch remains as individual rows while any member is still running. Folding
+  // only after the whole batch settles keeps the current action visible instead of hiding it mid-flight.
+  if (!owner.items.every(entry => entry.done)) return;
   if (!owner.group) {
     const first = owner.items[0].card;
     const group = el('details', 'tool-group narrative-tool-batch');
@@ -2388,7 +2486,7 @@ function settleNarrativeTool(live, id, isError) {
 function createLiveAssistantShell() {
   const box = $('messages');
   const { row, main } = messageShell('assistant', new Date().toISOString(), currentEngineMeta());
-  const live = { thinkingText: '', thinkingActive: false, bufferText: '', thinkingEl: null, thinkingNode: null, bubble: null, textNode: null, renderedChars: 0, toolCards: new Map(), toolBatches: new Map(), toolIndex: [], subCards: new Map(), workflowCards: new Map(), semanticCards: new Map(), semanticData: new Map(), completedRun: [], completedGroup: null, rendered: false, rafPending: false, rafId: 0 };
+  const live = { thinkingText: '', thinkingActive: false, bufferText: '', thinkingEl: null, thinkingNode: null, bubble: null, textNode: null, renderedChars: 0, toolCards: new Map(), toolBatches: new Map(), toolIndex: [], subCards: new Map(), workflowCards: new Map(), semanticCards: new Map(), semanticData: new Map(), completedRun: [], completedGroup: null, rendered: false, rafPending: false, rafId: 0, thinkingFollowTimer: 0, followThinkingPanel: false, followThinkingMessages: false };
   live.narrative = el('div', 'turn-narrative');
   main.appendChild(live.narrative);
   live.toolsWrap = live.narrative; // compatibility host for sub-agent/workflow cards
@@ -2829,6 +2927,7 @@ function scheduleRender(live) {
 function finalizeLive(live) {
   // Every terminal path settles and collapses the active reasoning note unless the user toggled it.
   settleLiveThinking(live);
+  compactNarrativeProcessRuns(live && live.narrative);
   if (live.bubble && !live.bufferText && (live.errorShown || live.noteShown || live.narrative.childElementCount > 1)) sealLiveTextSegment(live);
   else if (live.bubble) {
     if (!live.bufferText) live.bufferText = t('chat.noTextOutput');
@@ -2873,6 +2972,27 @@ function scrollMessagesToBottom() {
   if (box) box.scrollTop = box.scrollHeight;
   updateJumpLatest();
 }
+function scheduleLiveThinkingFollow(live, followPanel, followMessages) {
+  if (!live) return;
+  live.followThinkingPanel = live.followThinkingPanel || followPanel;
+  live.followThinkingMessages = live.followThinkingMessages || followMessages;
+  if (live.thinkingFollowTimer) return;
+  // A zero-delay task still coalesces token bursts, but unlike requestAnimationFrame it is not suspended
+  // just because the app window is backgrounded during a long model turn.
+  live.thinkingFollowTimer = setTimeout(() => {
+    live.thinkingFollowTimer = 0;
+    if (live.followThinkingPanel && live.thinkingPanelObj?.d.open && live.thinkingEl) {
+      live.thinkingEl.scrollTop = live.thinkingEl.scrollHeight;
+    }
+    if (live.followThinkingMessages) {
+      const box = $('messages');
+      if (box) box.scrollTop = box.scrollHeight;
+    }
+    live.followThinkingPanel = false;
+    live.followThinkingMessages = false;
+    updateJumpLatest();
+  }, 0);
+}
 
 function registerLiveSemanticCard(live, segment) {
   if (!live || !live.narrative) return null;
@@ -2903,7 +3023,10 @@ function handleStreamLine(line, live, main, streamSessionId) {
   try { evt = JSON.parse(line); } catch { return; }
   // Any real event after a reasoning delta closes that phase. This covers thinking → tool/plan/question,
   // not only thinking → assistant text, so interleaved turns never leave completed reasoning panels open.
-  if (live?.thinkingActive && evt.type !== 'thinking_delta' && evt.type !== 'raw_line') settleLiveThinking(live);
+  if (live?.thinkingActive && evt.type !== 'thinking_delta' && evt.type !== 'raw_line') {
+    settleLiveThinking(live);
+    compactNarrativeProcessRuns(live.narrative);
+  }
   switch (evt.type) {
     case 'session':
       if (evt.session && state.currentSession?.id === streamSessionId) { state.currentSession = evt.session; renderSessions(); }
@@ -2932,8 +3055,14 @@ function handleStreamLine(line, live, main, streamSessionId) {
       scheduleRender(live);
       break;
     case 'thinking_delta':
+      {
+      const followMessages = messagesAtBottom();
       if (!live.thinkingActive) {
         sealLiveTextSegment(live);
+        // Reasoning is a real chronological boundary: tools on opposite sides must never be pulled into
+        // one tool group, or their expanded order would disagree with the actual event stream.
+        live.completedRun = [];
+        live.completedGroup = null;
         const tp = thinkingPanel('', true); // live shimmer summary "思考中…"
         live.thinkingEl = tp.body; live.thinkingPanelObj = tp;
         live.thinkingEl.textContent = '';
@@ -2943,9 +3072,14 @@ function handleStreamLine(line, live, main, streamSessionId) {
         (live.narrative || main).appendChild(tp.d); tp.d.open = true;
         live.thinkingActive = true;
       }
+      const followPanel = live.thinkingEl
+        ? live.thinkingEl.scrollHeight - live.thinkingEl.scrollTop - live.thinkingEl.clientHeight < 36
+        : true;
       live.thinkingText += evt.text || '';
       if (live.thinkingNode) live.thinkingNode.appendData(evt.text || '');
+      scheduleLiveThinkingFollow(live, followPanel, followMessages);
       break;
+      }
     case 'subagent':
       // v0.9-S6 (子代理): a delegated sub-turn started/ended. `start` opens a nested collapsed card that will
       // hold the sub-turn's own tool_use/tool_result (routed here by subagentId). `end` stamps the head with
@@ -2990,6 +3124,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
         // Duration: performance.now() delta since tool_use, shown as "· 1.2s".
         if (card.dur && card.t0 != null) card.dur.textContent = `· ${((performance.now() - card.t0) / 1000).toFixed(1)}s`;
         settleNarrativeTool(live, evt.id, evt.isError);
+        compactNarrativeProcessRuns(live.narrative);
       }
       break;
     }
@@ -3061,7 +3196,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
     case 'turn_summary':
       // v0.8-S3: render the 「本轮变更」card at the tail of the live assistant message. finalizeLive keeps
       // the streamed markdown bubble intact; this card sits after the tools wrap.
-      { const record = turnToolIndexCard(live && live.toolIndex ? live.toolIndex : []); if (record) main.appendChild(record); }
+      { const record = turnToolIndexCard(live && live.toolIndex ? live.toolIndex : [], main); if (record) main.appendChild(record); }
       main.appendChild(turnSummaryCard(evt));
       { const chips = turnArtifactChips(evt); if (chips) main.appendChild(chips); } // v1.0.2 (G2)
       if (live && live.pendingUsage) { main.appendChild(usageLine(live.pendingUsage)); live.pendingUsage = null; }

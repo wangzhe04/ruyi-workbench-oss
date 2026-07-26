@@ -67,11 +67,25 @@ ok(/activeProviderBatchId\s*=\s*call\.toolCalls/.test(provider), 'N7 OpenAI 同�
 ok(/function renderStaticTurnNarrative\(/.test(app) && /validTurnSegments\(msg\)/.test(app), 'N8 静态重进走同一有序叙事渲染器');
 ok(/registerNarrativeTool\(live, evt, card\)/.test(app) && /sealLiveTextSegment\(live\)/.test(app), 'N9 流式工具边界封存当前文本段');
 ok(/function turnToolIndexCard\(/.test(app) && /narrativeToolAnchor/.test(app), 'N10 回合尾部工具索引可定位过程');
-ok(/target\.focus\(\{\s*preventScroll:\s*true\s*\}\)/.test(app) && /narrative-located/.test(app), 'N10b 尾部定位具备键盘焦点与可见反馈');
+ok(/function revealNarrativeTarget\(/.test(app)
+  && /for \(const details of ancestors\.reverse\(\)\) details\.open = true/.test(app)
+  && /target\.open = true/.test(app)
+  && /scopeHost\.querySelector\(`#\$\{CSS\.escape\(item\.anchorId\)\}`\)/.test(app)
+  && /target\.focus\(\{\s*preventScroll:\s*true\s*\}\)/.test(app)
+  && /narrative-located/.test(app), 'N10b 尾部定位逐层展开过程组与工具，并给出键盘焦点和可见反馈');
 ok(/role="log"[^>]*aria-live="polite"/.test(index) && /role === 'assistant' \? 'article'/.test(app), 'N10c 消息区 role=log 且助手回合使用 article');
 ok(/messageDomKey/.test(app) && /captureScrollAnchor/.test(app) && /restoreScrollAnchor/.test(app)
   && /export function messageRenderSignature/.test(narrativeModule), 'N10d keyed 消息更新与滚动锚点已拆入叙事模块');
-ok(/consecutive\.length > 3/.test(app) && /narrative-completed-run/.test(app), 'N10e 超长静态/流式工具序列保持常数级可见行');
+ok(/consecutive\.length > 1/.test(app) && /live\.completedRun\.length === 2/.test(app)
+  && /owner\.items\.every\(entry => entry\.done\)/.test(app)
+  && /narrative-completed-run/.test(app), 'N10e Claude 与兼容引擎的连续工具从第 2 项起自动收成工具组，运行项留在组外');
+ok(/function compactNarrativeProcessRuns\(/.test(app)
+  && /settled\.length < 5/.test(app)
+  && /stats\.thinking < 2/.test(app)
+  && /\.narrative-process-group/.test(css), 'N10e2 长思考与工具交替阶段自动收成一行过程记录');
+ok(/function scheduleLiveThinkingFollow\(/.test(app)
+  && /live\.thinkingEl\.scrollTop = live\.thinkingEl\.scrollHeight/.test(app)
+  && /messagesAtBottom\(\)/.test(app), 'N10e3 流式思考框与消息区采用近底部跟随滚动');
 ok(/trace:\s*\[\['path'/.test(icons) && /icon\('trace', 13\)/.test(app)
   && !css.includes('🧠') && !css.includes('💭'), 'N10f 思考片段使用冷色线性轨迹图标且无脑形 emoji');
 ok(/function settleLiveThinking\(/.test(app) && /evt\.type !== 'thinking_delta'/.test(app)
@@ -84,7 +98,7 @@ ok(/\.tool-card\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/.test(css)
   && !/owner\.group\.open =/.test(app),
   'N10i 工具片段为紧凑默认收起行，失败项也不自动展开');
 ok(/\.message\s*\{\s*width:\s*min\(1320px,\s*94%\)/.test(css), 'N11 全屏聊天宽度提升至 min(1320px,94%)');
-for (const key of ['chat.turnRecord', 'chat.jumpToTool', 'chat.planSegment', 'chat.questionSegment',
+for (const key of ['chat.turnRecord', 'chat.jumpToTool', 'chat.processStage', 'chat.planSegment', 'chat.questionSegment',
   'chat.conversationAria', 'chat.assistantTurnAria', 'narrative.permission', 'narrative.workflow',
   'narrative.mission', 'narrative.status.answered']) {
   ok(Boolean(zh[key] && en[key]), 'N12 双语键 ' + key);

@@ -1304,6 +1304,7 @@
   "chat.details": "详情",
   "chat.turnRecord": "本轮记录 · {{count}} 次工具调用",
   "chat.jumpToTool": "定位到过程",
+  "chat.processStage": "过程记录 · {{tools}} 次工具 · {{thinking}} 段思考",
   "chat.planSegment": "执行计划",
   "chat.questionSegment": "等待你的回答",
   "chat.conversationAria": "对话记录",

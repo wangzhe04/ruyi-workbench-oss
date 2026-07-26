@@ -1011,6 +1011,19 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .tool-group .tool-group-body > .tool-card:first-child { margin-top: 4px; }
 .narrative-tool-batch { margin-top: 5px; }
 
+/* Long reasoning/tool-only stretches collapse as one chronological process stage. The active step stays
+   outside until it settles, so compactness never hides what is running right now. */
+.narrative-process-group { margin: 5px 0 2px; border: 0; border-left: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line)); background: transparent; }
+.narrative-process-summary { cursor: pointer; width: fit-content; max-width: 100%; min-height: 28px; padding: 3px 8px; display: flex; align-items: center; gap: 6px; list-style: none; user-select: none; color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; }
+.narrative-process-summary::-webkit-details-marker { display: none; }
+.narrative-process-summary:hover { color: var(--ink-2); }
+.narrative-process-icon { width: 14px; height: 14px; display: inline-grid; place-items: center; flex: none; color: color-mix(in srgb, var(--accent) 58%, var(--muted)); }
+.narrative-process-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.narrative-process-caret { width: 5px; height: 5px; margin-left: 1px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg) translateY(-1px); transition: transform var(--transition); opacity: .7; }
+.narrative-process-group[open] .narrative-process-caret { transform: rotate(225deg) translate(-1px, -1px); }
+.narrative-process-body { margin-left: 10px; padding: 1px 0 4px 8px; border-left: 1px solid var(--line); }
+.narrative-process-body > :first-child { margin-top: 4px; }
+
 /* v1.0-S4 git_diff colorized view — one row per diff line, tinted by change kind. Tokens only (no color
    literals): add/del/hunk backgrounds are token-mixed washes so both themes stay legible. Monospace,
    --code-bg surface, horizontal scroll for long lines, capped height with vertical scroll. */
