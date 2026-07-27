@@ -106,7 +106,9 @@ function buildOverlayPkg(pkgDir, opts) {
 function zipOverlayPkg(pkgDir, zipPath) {
   fs.rmSync(zipPath, { force: true });
   // Compress-Archive -Path 包内条目(Manage-Overlay.ps1 + payload/)->zip 根。
-  const qs = s => String(s).replace(/'/g, "''");
+  // replaceAll 而非 /'/g:port-audit 的注释剥离状态机不识别正则字面量,正则里的 ' 会让它状态翻转、
+  // 后续行注释漏剥(第55波 EC-C 收尾:本文件注释里的 8765 漏剥后与 fake-mcp-contract 撞车假阳性)。
+  const qs = s => String(s).replaceAll("'", "''");
   const items = path.join(pkgDir, '*');
   cp.execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
     `Compress-Archive -Path '${qs(items)}' -DestinationPath '${qs(zipPath)}' -Force`], { encoding: 'utf8', timeout: 60000 });

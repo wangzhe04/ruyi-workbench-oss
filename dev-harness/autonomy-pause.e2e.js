@@ -22,8 +22,9 @@ ok(/config\.autonomyPauseTtlMs = Number\.isFinite\(apt\) \? Math\.min\(6 \* 3600
 ok(/\(config\.autonomyPauseOnTimeout && driverAuto\) \? \{/.test(src), 'S provider gate 仅【opt-in + driverAuto 无人值守】启用');
 ok(/const cliPause = config\.autonomyPauseOnTimeout && driverAutoSessions\.has\(sessionId\);/.test(src), 'S CLI 桥仅【opt-in + driverAutoSessions】启用');
 ok(/if \(driverAuto\) driverAutoSessions\.add\(session\.id\);/.test(src) && /if \(driverAuto\) driverAutoSessions\.delete\(session\.id\);/.test(src), 'S runTurn 维护 driverAutoSessions(进出平衡)');
-// fail-closed:两处 pause 分支的 TTL 定时器都 resolve deny(pausedTimeout)。
-ok((src.match(/resolve\(\{ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true \}\)/g) || []).length >= 2, 'S 两引擎路径 TTL 到点均 fail-closed deny(pausedTimeout)');
+// fail-closed:两处 pause 分支的 TTL 定时器都 resolve/settle deny(pausedTimeout)。
+// 07-autonomy.js 后经重构用 settle(语义同 resolve);静态锁按行为契约匹配,不绑死 callee 名。
+ok((src.match(/(?:resolve|settle)\(\{ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true \}\)/g) || []).length >= 2, 'S 两引擎路径 TTL 到点均 fail-closed deny(pausedTimeout)');
 // 对抗轮 P2:两引擎 idle 看门狗都在暂停期间豁免(否则 idle 会在 TTL 内先杀回合/子进程,provider 还会 abort 中毒 ctrl 令窗口内批准失效)。
 ok((src.match(/if \(reg\.exited \|\| reg\.pausePending\) return;/g) || []).length >= 2, 'S 两引擎 idle 看门狗暂停期间豁免(reg.exited||reg.pausePending)');
 ok((src.match(/pausePending: false,/g) || []).length >= 2, 'S 两引擎 reg 都带 pausePending 字段');

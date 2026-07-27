@@ -12,7 +12,7 @@
 
 一台 Windows 机器 + 任意一个可用的模型端点(任意 OpenAI 兼容 API 或内网 Claude CLI)= 一个**能真正替你动手**的本地 AI 工作台:读写文件、跑脚本、操控桌面和 Office、派一队子代理协作调研——每一步可审计、可撤销、成本透明,**有网没网都能正常运行**。
 
-> **当前发布线：Ruyi Escapade 2.0.1**（技术版本 `v2.0.1`）。Escapade 是整个 2.x 系列的产品代号；后续修订仍沿用这个名字，例如 **Ruyi Escapade 2.0.2**、**2.1**。内部的「第 N 波」只用于拆分开发计划，绝不直接充当用户版本号。下一代预留代号为 **Ruyi Pretender 3.0**。
+> **当前发布线：Ruyi Escapade 2.1**（技术版本 `v2.1.0`）。Escapade 是整个 2.x 系列的产品代号；后续修订仍沿用这个名字，例如 **Ruyi Escapade 2.0.2**、**2.1**。内部的「第 N 波」只用于拆分开发计划，绝不直接充当用户版本号。下一代预留代号为 **Ruyi Pretender 3.0**。
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
@@ -409,7 +409,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Settings, Provider cards, safety/capability popovers, model menus, artifacts, shortcuts, the command palette, the skill library, and stable API errors are localized. Built-in skills and quick tasks follow the UI language, while user and project-authored content remains in its original language; simple/pro UI is shared by coders and non-coding knowledge workers.
 5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an on-prem Claude CLI, switchable mid-session with cross-engine context continuation.
 
-> **Current release train: Ruyi Escapade 2.0.1** (technical version `v2.0.1`). *Escapade* names the whole 2.x product family, so follow-up releases remain **Ruyi Escapade 2.0.2** or **2.1**. Internal “waves” are planning slices only, never user-facing version numbers. The next major generation is reserved as **Ruyi Pretender 3.0**.
+> **Current release train: Ruyi Escapade 2.1** (technical version `v2.1.0`). *Escapade* names the whole 2.x product family, so follow-up releases remain **Ruyi Escapade 2.0.2** or **2.1**. Internal “waves” are planning slices only, never user-facing version numbers. The next major generation is reserved as **Ruyi Pretender 3.0**.
 
 ### Capabilities (v2.0) · Escapade
 

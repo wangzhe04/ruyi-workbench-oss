@@ -114,7 +114,18 @@ async function turn(port, sessionId, message) {
     // (E) slash 命令轮: 不注入、不污染 hash
     const t5 = await turn(PORT, sess.id, '/compact');
     ok(!/<workbench-context>/.test(t5.stdinTxt), '(E1) slash 命令轮 stdin 无注入块(必须占首 token)');
-    ok(t5.stdinTxt.trim().startsWith('/compact'), '(E2) slash 命令原文居首');
+    // v2.0.1(CONFIG_SCHEMA 9)print -> interactive 迁移后,stdin 是 stream-json 信封而非裸文本
+    // (05-claude-engine: interactive -> buildUserEnvelope(fullPrompt))。slash「居首」契约在信封
+    // 语义下 = 首条(唯一)user content 的 text 以斜杠命令开头且其前无任何注入内容;print 模式仍裸文本。
+    const t5first = (() => {
+      try {
+        const j = JSON.parse(t5.stdinTxt.trim());
+        const c = j && j.message && j.message.content;
+        if (Array.isArray(c) && c[0] && c[0].type === 'text') return String(c[0].text || '');
+      } catch { /* 非信封 -> 裸文本 */ }
+      return t5.stdinTxt;
+    })();
+    ok(t5first.trim().startsWith('/compact'), '(E2) slash 命令原文居首(stream-json 信封则取首条 text 内容)');
     const t6 = await turn(PORT, sess.id, 'dedup turn six');
     ok(t6.meta.indexInjected === false && t6.meta.indexHash === t3.meta.indexHash, '(E3) slash 轮未污染 hash —— 后续普通轮仍按去重跳过');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }

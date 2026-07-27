@@ -3,6 +3,24 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
+## 如意 Ruyi Escapade 2.1 · v2.1.0 · 2026-07-27
+
+汇总 v2.0.1 之后的三个功能波：第53波 EC-B 安全更新中心、第54波回合叙事化对话、第55波 EC-C MCP 运维闭环。发布验证为 **158 pass / 0 fail**（串行默认门），另有 6 项真实外部环境探针按需启用。
+
+### 中文
+
+- **MCP 运维闭环（第55波 EC-C）**：设置面板新增「MCP 运维」页签——不用编辑 JSON 即可看到全部连接器（内置桌面 / 用户导入 / drop-in 目录）的来源、传输方式、连接状态与失败原因（鉴权失败、进程启动失败、网络不可达等 8 类人话归类），并可重测、启停、移除；启停与删除立即生效且重启后保持一致，不影响其它连接器；同 id 的 drop-in 接管会明确提示而非静默生效。stdio / SSE / Streamable HTTP 三种传输的能力与限制在连接前明示。
+- **安全更新中心（第53波 EC-B）**：设置面板「更新中心」支持选 zip → 预检（完整性 / 路径穿越 / 版本兼容 / 幂等）→ 应用 → 失败可回滚；全部更新写入本地审计，apply 中断、校验失败、重启失败均可恢复原版本；GUI 只编排同一份受测 PowerShell 核心，CLI 保留为救援路径。
+- **回合叙事化对话（第54波 EC-D 前置）**：一次助手回合中的文字、工具调用、后续文字、计划/询问与错误按真实发生顺序放进同一个回合容器；并行工具共享批次；旧会话保持原有展示，不伪造历史过程。
+- 修复首次解压/启动链之外的若干测试基建问题（端口审计误报、旧静态锁锚点漂移），发布门回到全绿。
+
+### English
+
+- **MCP operations closure (wave 55, EC-C)**: a new "MCP Ops" settings tab shows every connector (built-in desktop / user-imported / drop-in folder) with its source, transport, health and human-readable failure category (auth, startup, network, …) — no JSON editing required. Retest, enable/disable and remove take effect immediately, stay consistent after restart, never affect unrelated connectors, and honestly warn when a same-id drop-in takes over. stdio / SSE / Streamable HTTP capabilities and limits are stated before connecting.
+- **Safe update center (wave 53, EC-B)**: the "Update Center" settings tab flows zip → precheck (integrity / path-traversal / version compatibility / idempotency) → apply → rollback; every update is audited locally, and interrupted applies, verification failures and restart failures all recover the original version. The GUI orchestrates the same tested PowerShell core; the CLI remains the rescue path.
+- **Turn-narrative chat (wave 54, EC-D groundwork)**: text, tool calls, follow-up text, plans/questions and errors within one assistant turn now render in true chronological order inside a single turn container; parallel calls share a batch; old sessions keep their legacy rendering without fabricated history.
+- Fixes several test-infrastructure issues (port-audit false positive, stale static-lock anchors), bringing the release gate back to all-green.
+
 ## 如意 Ruyi Escapade 2.0.1 · v2.0.1 · 2026-07-24
 
 ### 中文

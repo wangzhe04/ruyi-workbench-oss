@@ -291,6 +291,17 @@ async function saveMem(id, scope, name, description, body, cwd) {
     try { argv = JSON.parse(fs.readFileSync(ARGV_CAP, 'utf8')); } catch { /* empty */ }
     let stdinTxt = ''; for (let i = 0; i < 25 && !fs.existsSync(STDIN_CAP); i++) await sleep(100);
     try { stdinTxt = fs.readFileSync(STDIN_CAP, 'utf8'); } catch { /* empty */ }
+    // v2.0.1(CONFIG_SCHEMA 9)print -> interactive 迁移后,stdin 是 stream-json 信封(05-claude-engine:
+    // interactive -> buildUserEnvelope):反斜杠被 JSON 转义(C:\\Users),裸路径 includes 假红。
+    // 解封取首条 text 内容作逻辑 stdin 文本(与 index-dedup E2 同款适配);print 模式非 JSON 原样返回。
+    stdinTxt = (() => {
+      try {
+        const j = JSON.parse(stdinTxt.trim());
+        const c = j && j.message && j.message.content;
+        if (Array.isArray(c) && c[0] && c[0].type === 'text') return String(c[0].text || '');
+      } catch { /* 非信封 -> 裸文本 */ }
+      return stdinTxt;
+    })();
     const ai = argv.indexOf('--append-system-prompt');
     const appendVal = ai >= 0 ? String(argv[ai + 1] || '') : '';
     ok(ai >= 0 && appendVal.includes(USER_APPEND_MARKER), '(2b) Claude --append-system-prompt 保留用户 append(政策信道)');

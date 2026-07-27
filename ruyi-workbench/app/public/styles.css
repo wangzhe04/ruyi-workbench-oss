@@ -2417,25 +2417,25 @@ button.ghost-danger:hover { background: var(--danger-veil); border-color: transp
 .mcp-conn-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
 .mcp-conn-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .mcp-conn-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.mcp-conn-title strong { font-size: 13px; }
+.mcp-conn-title strong { font-size: var(--fs-md); }
 .mcp-lamp { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; background: var(--muted); }
 .mcp-lamp-ok { background: var(--ok); }
 .mcp-lamp-degraded { background: var(--warn); }
 .mcp-lamp-failed { background: var(--danger); }
 .mcp-lamp-disabled { background: var(--muted); opacity: .6; }
-.mcp-badge { font-size: 11px; line-height: 1.6; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.mcp-badge { font-size: var(--fs-xs); line-height: 1.6; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
 .mcp-badge-desktop { border-color: var(--info-fg); color: var(--info-fg); }
 .mcp-badge-config { border-color: var(--ok); color: var(--ok); }
 .mcp-badge-dropin { border-color: var(--warn); color: var(--warn); }
-.mcp-transport { font-size: 11px; color: var(--muted); }
-.mcp-conn-sub { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcp-transport { font-size: var(--fs-xs); color: var(--muted); }
+.mcp-conn-sub { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mcp-conn-sub code { color: var(--muted); }
-.mcp-conn-health { font-size: 12px; color: var(--muted); }
+.mcp-conn-health { font-size: var(--fs-sm); color: var(--muted); }
 .mcp-conn-health .mcp-health-failed { color: var(--danger); }
 .mcp-conn-health .mcp-health-degraded { color: var(--warn); }
 .mcp-conn-health .mcp-health-ok { color: var(--ok); }
 .mcp-conn-actions { display: flex; gap: 6px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
-.mcp-compat { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.mcp-compat { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); color: var(--muted); }
 .mcp-compat-item { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--panel-2); }
 .mcp-compat-item code { color: var(--ink); }
 .mcp-compat-line { margin-top: 2px; }

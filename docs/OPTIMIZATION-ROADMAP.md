@@ -12,10 +12,10 @@
 
 | 对外产品线 | 技术版本与 Git tag | 面向用户的写法 | 状态 |
 |---|---|---|---|
-| **Escapade** | `v2.x.y` | **如意 Ruyi Escapade 2.0**；修订版写作 Escapade 2.0.1、2.1 | 当前大版本；`v2.0.1` 为当前补丁版 |
+| **Escapade** | `v2.x.y` | **如意 Ruyi Escapade 2.0**；修订版写作 Escapade 2.0.1、2.1 | 当前大版本；`v2.1.0` 为当前发布版 |
 | **Pretender** | 预留 `v3.x.y` | **如意 Ruyi Pretender 3.0** | 下一个大版本代号，尚未立项或承诺范围 |
 
-- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析（当前为 `v2.0.1`）。离线包也继续用短文件名（如 `Ruyi-v2.0.1-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效。
+- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析（当前为 `v2.1.0`）。离线包也继续用短文件名（如 `Ruyi-v2.0.1-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效。
 - `第53波`、`53a` 等只表示内部工作切片；一个 Release 可以汇总多波，一个波也可只在后续补丁版发布。只有范围冻结、测试与打包门通过后，才决定是 `2.0.x` 补丁、`2.x` 功能版本或下一主版本。
 - 每个对外大版本以一个产品代号统摄体验目标；Escapade 结束前不会提前把 Pretender 的概念或版本号混入用户界面、下载名或兼容承诺。
 
@@ -687,7 +687,33 @@ verdict SAFE，零真实缺陷：XSS 面（全 textContent + 后端 userinfo 剥
 
 ### 待续（记入后续波）
 
-- **EC-C 收尾**：55a/55b/55c 三切片已齐（读模型 + 写路径 + GUI）。范围冻结/测试/打包门后可评估 2.1.x 发布。
+- **EC-C 收尾（已交付，见下节 —— 2.1.0 已发布）**。
 - **EC-D 后半（第55波后半）**：全应用 `app.js` 领域拆分、CSS 全量物理分层、性能基准（首屏 <1.5s、视图切换 P95 <200ms）。
-- 本波不 bump 版本（保持 2.0.1）。
 
+## 第55波 EC-C 收尾 -- 发布门 + 2.1.0（2026-07-27）
+
+按 55c「待续」推进。55a/55b/55c 三切片齐备后走范围冻结与发布门；门全绿，Escapade 2.1（v2.1.0）落地。
+
+### 发布门（全部亲跑）
+
+- `build --check` 新鲜；unit 148/148；**run-all 串行默认门（CI 同路径）158 pass / 0 fail / 0 flaky**（6 live skip 不算 pass）；release-dryrun ALL PASS（产物新鲜 + A2 全量 sha256 40 文件 + A3 版本三角 + A4 minHostVersion + A5 live 四态独立列出）。
+- 门过程抓出并修复 5 处存量测试基建问题（均为测试侧，非产品 bug；修复后同一棵树上跑绿）：
+  1. **端口审计假阳性**：overlay-update-core 的 `replace(/'/g)` 正则字面量让 port-audit 注释剥离状态机状态翻转，注释里的 8765 漏剥后与 fake-mcp-contract 撞车拒跑 → 改 `replaceAll`。
+  2. **index-dedup E2**：v2.0.1 engine 迁移后 stdin 为 stream-json 信封，slash 轮断言改取信封首条 text 内容（print 裸文本兼容）。
+  3. **workbench-memory (2b)**：同款信封适配（反斜杠 JSON 转义致裸路径 includes 假红）。
+  4. **session-atomic**：硬编码 configSchema===8 改动态读 src/00-boot.js（v2.0.1 已升 9）。
+  5. **streaming-responsiveness / ui-v3-p1~p3b 静态锁**：第54波重构后函数锚点漂移（finalizeLive→sealLiveTextSegment 委托链）+ 55c 新 CSS 引入 6 处裸 px（改 `var(--fs-*)`）。
+- **诚实交代**：并行 4 路下 `mcp-ops-closure` 存在并行特有 flake（getFreePort check-then-use 竞态 + K 段 taskkill 重启窗口；裸 http.get 无 error 兜底的崩溃形态已修，竞态本身未根治）——串行默认门（CI 路径）不受此影响。并行模式 flake 治理记入后续波。
+
+### 版本落地 2.1.0
+
+- `package.json` + `src/00-boot.js` VERSION → 2.1.0（同长字符串，manifest 行区间零漂移）；server.js 重建（20951 行）；facts.json 重生成。
+- ARCHITECTURE_CN/EN 版本基线（含 configSchema 8→9 存量错标修正）、README 中英发布线（Escapade 2.1）、roadmap 版本口径行同步。
+- CHANGELOG 2.1.0 条目：汇总 v2.0.1 后第53波（EC-B 安全更新中心）/第54波（回合叙事化）/第55波（EC-C MCP 运维闭环）。
+- bump 后复跑：release-dryrun ALL PASS（A3 版本三角 2.1.0、A4 minHostVersion 2.1.0）+ facts.static + build --check 全绿。
+
+### 待续（记入后续波）
+
+- **EC-D 后半（第55波后半）**：全应用 `app.js` 领域拆分、CSS tokens/base/components/views/themes 全量物理分层、性能基准（首屏 <1.5s、视图切换 P95 <200ms）。
+- **并行模式 flake 治理**：mcp-ops-closure 的 getFreePort 竞态 + K 段重启窗口（见上「诚实交代」）；run-all --parallel 成为可信路径前不算并行门。
+- git tag `v2.1.0` 与 origin 推送属发布动作，待用户确认后执行。

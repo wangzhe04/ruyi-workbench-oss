@@ -63,6 +63,17 @@ function del(port, p, body, headers = {}) { // 55b: DELETE 带 body(与 post 同
 }
 function pidAlive(pid) { try { process.kill(pid, 0); return true; } catch { return false; } }
 const errText = r => { const e = r && r.json && r.json.error; return typeof e === 'string' ? e : (e && e.message) || ''; }; // 55b: 4xx 错误被包装为 {code,message}
+// 取首页 HTML(非浏览器导航 -> meta 携带 bootstrap token)。必须挂 error/timeout:并行全量跑时
+// getFreePort 的 check-then-use 竞态可让端口在本调用前被别件抢占(up() 过了也会被偷),裸 http.get
+// 的 ECONNREFUSED 是 unhandled -> 整进程崩、输出空(第55波 EC-C 收尾并行门抓到的形态)。
+function getHtml(port) {
+  return new Promise(resolve => {
+    const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 5000 }, res => {
+      let b = ''; res.on('data', c => b += c); res.on('end', () => resolve(b));
+    });
+    r.on('error', () => resolve('')); r.on('timeout', () => { r.destroy(); resolve(''); });
+  });
+}
 
 // ── fake HTTP 401 server(E 段:鉴权失败)──
 function start401Server(port) {
@@ -206,7 +217,7 @@ function startLegacySseMcp(port, state) {
   let wb = spawnWb();
   try {
     ok(await up(WP), 'workbench up');
-    const html = await new Promise(resolve => http.get({ host: '127.0.0.1', port: WP, path: '/' }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => resolve(b)); }));
+    const html = await getHtml(WP);
     const token = (html.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1] || '';
     const hdr = { 'x-wcw-token': token };
 
@@ -373,7 +384,7 @@ function startLegacySseMcp(port, state) {
     await sleep(500);
     wb = spawnWb();
     ok(await up(WP), 'K1 重启后 workbench up');
-    const html2 = await new Promise(resolve => http.get({ host: '127.0.0.1', port: WP, path: '/' }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => resolve(b)); }));
+    const html2 = await getHtml(WP);
     const hdr2 = { 'x-wcw-token': (html2.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1] || '' };
     const liK = await get(WP, '/api/mcp/connectors', hdr2);
     const kGood = liK && liK.json && liK.json.connectors.find(c => c.id === 'stdio-good');

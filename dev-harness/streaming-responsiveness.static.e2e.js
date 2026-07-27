@@ -29,7 +29,12 @@ const deliver = fnBody('deliverAgentRuns');
 ok(deliver.includes('if (activeTurns.has(sid)) return;'), 'workflow polling never replaces a live chat message tree');
 
 const finalize = fnBody('finalizeLive');
-ok(finalize.includes('LIVE_MARKDOWN_MAX_CHARS') && finalize.includes("classList.add('plain')"), 'very large settled answers keep a non-blocking plain-text fallback');
+// 第54波叙事化重构后,finalizeLive 委托 sealLiveTextSegment 收尾文本段;大答案的 plain 兜底随委托
+// 链落在 sealLiveTextSegment(LIVE_MARKDOWN_MAX_CHARS 阈值 + classList.add('plain') 非阻塞纯文本)。
+// 锁委托链 + 兜底原位两点,行为契约不变(旧锚点只钉 finalizeLive 本体,重构后假红)。
+ok(finalize.includes('sealLiveTextSegment'), 'finalizeLive settles via sealLiveTextSegment');
+const seal = fnBody('sealLiveTextSegment');
+ok(seal.includes('LIVE_MARKDOWN_MAX_CHARS') && seal.includes("classList.add('plain')"), 'very large settled answers keep a non-blocking plain-text fallback');
 
 if (fail) { console.log(`\nSTREAMING RESPONSIVENESS STATIC E2E: FAIL (${fail})`); process.exitCode = 1; }
 else console.log('\nSTREAMING RESPONSIVENESS STATIC E2E: ALL PASS');

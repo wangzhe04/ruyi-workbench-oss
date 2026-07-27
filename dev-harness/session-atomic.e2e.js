@@ -55,7 +55,10 @@ function postStream(port, payload) {
 
     // (3) /api/status exposes the current config schema and package version.
     const status = await getJson(WB_PORT, '/api/status');
-    ok(status.json && status.json.configSchema === 8, 'status.configSchema === 8 (got ' + (status.json && status.json.configSchema) + ')');
+    // 第55波 EC-C 收尾:schema 动态读 src/00-boot.js(同下行动态读版本号),不再硬编码
+    // —— v2.0.1 CONFIG_SCHEMA 8->9(engine 迁移)后硬编码 8 假红。
+    const EXPECT_SCHEMA = Number((fs.readFileSync(path.join(WB, 'app', 'src', '00-boot.js'), 'utf8').match(/const CONFIG_SCHEMA = (\d+)/) || [])[1]);
+    ok(status.json && status.json.configSchema === EXPECT_SCHEMA, 'status.configSchema === src CONFIG_SCHEMA ' + EXPECT_SCHEMA + ' (got ' + (status.json && status.json.configSchema) + ')');
     const PKG_VERSION = require(path.join(WB, 'package.json')).version; // 第23波: 版本号动态读,不再硬编码(存量过期断言)
     ok(status.json && status.json.version === PKG_VERSION, 'status.version === package.json version "' + PKG_VERSION + '" (got ' + (status.json && status.json.version) + ')');
 
