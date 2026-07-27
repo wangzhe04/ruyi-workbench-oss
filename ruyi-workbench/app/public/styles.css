@@ -913,6 +913,16 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .turn-narrative { display: flex; flex-direction: column; min-width: 0; }
 .turn-narrative > :first-child { margin-top: 0; }
 .turn-narrative > .bubble + .bubble { margin-top: 8px; }
+/* EC-D 56: 插话作为 turn narrative 内的内嵌 segment(落在当前流式位置,非末尾独立行)。
+   右对齐 + 点色玻璃气泡 + 「插话」徽章,与助手正文区分(用户侧发言)。 */
+.turn-narrative .narrative-steer { display: flex; flex-direction: column; align-items: flex-end; margin: 10px 0; }
+.turn-narrative .narrative-steer .steered-badge { align-self: flex-end; margin-bottom: 3px; }
+.turn-narrative .narrative-steer .bubble {
+  max-width: 85%; padding: 8px 12px; font-size: var(--fs-sm); line-height: 1.6; overflow-wrap: anywhere;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent-2) 15%, transparent));
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  box-shadow: var(--glass-highlight), 0 6px 18px -10px color-mix(in srgb, var(--accent) 40%, transparent);
+}
 .narrative-plan .plan-card-body { max-height: 34rem; overflow: auto; }
 .narrative-question { border-left-color: var(--accent); }
 .narrative-state-card { margin-top: 8px; padding: 8px 11px; border: 1px solid var(--line); border-left: 3px solid var(--accent);

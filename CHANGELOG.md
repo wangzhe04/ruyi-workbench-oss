@@ -3,6 +3,18 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
+## 如意 Ruyi Escapade 2.1.x · 未发布（第56波 EC-D 后半 · 切片一：对话交互收口）
+
+### 中文
+
+- **插话落在插入时机点**：流式中插话（Steer）不再追加到对话框最底部钉死，而是作为回合叙事内的内嵌片段，落在它真正被插入的位置--助手先输出的文字 -> 插话 -> 后续文字，顺序与实际发生一致。刷新或重进会话后，旧会话仍按既有的独立插话行展示（兼容期，不伪造历史过程）。
+- **粘性自动滚动**：助手输出时页面自动跟随最新内容；当你上滑阅读历史时，跟随自动暂停（新输出不会把你拽回底部，底部会出现「↓ 回到最新」按钮）；滚回接近底部时自动恢复跟随。工具卡、错误、计划、提问、Mission 等所有流式增长内容都遵守同一粘性规则，不再因任一输出把你从阅读中拉走。
+
+### English
+
+- **Steer interjections land at their insertion point**: a steer sent mid-stream is no longer pinned to the very bottom of the chat. It renders as an inline segment inside the turn narrative at the point it was actually injected - assistant text A -> interjection -> text B - matching the real chronological order. After refresh or re-entry, legacy sessions still show interjections as standalone rows (compatibility period; no fabricated history).
+- **Sticky auto-scroll**: the page follows the latest output while you're at the bottom; scroll up to read history and following pauses (new output no longer yanks you back - a "↓ jump to latest" button appears instead); scroll back near the bottom and following resumes. Tool cards, errors, plans, questions, mission cards and every streaming-growth path now obey the same sticky rule, so no single output pulls you away mid-read.
+
 ## 如意 Ruyi Escapade 2.1 · v2.1.0 · 2026-07-27
 
 汇总 v2.0.1 之后的三个功能波：第53波 EC-B 安全更新中心、第54波回合叙事化对话、第55波 EC-C MCP 运维闭环。发布验证为 **158 pass / 0 fail**（串行默认门），另有 6 项真实外部环境探针按需启用。

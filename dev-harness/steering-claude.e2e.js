@@ -107,7 +107,18 @@ async function getToken(port) {
   ok(app.includes("title: '', cwd") && app.includes('sessionDisplayTitle'), 'S19 前端创建传空标题 + sessionDisplayTitle 展示助手在');
   // 50d(02 Phase D):插话卡静态重渲染 + 队列可视化
   ok(/if \(msg\.steered\) main\.appendChild\(el\('span', 'steered-badge'/.test(app), 'S20 renderStaticMessage 处理 msg.steered(刷新后插话卡带徽章,不丢)');
-  ok(/renderStaticMessage\(\{ role: 'user', content: text,[^}]*steered: true \}\)/.test(app), 'S21 renderSteeredMessage 传 steered:true(徽章统一在 renderStaticMessage,不再手动 insertBefore)');
+  ok(/renderStaticMessage\(\{ role: 'user', content: text,[^}]*steered: true \}\)/.test(app), 'S21 renderSteeredMessage 无活动 turn 回退独立行仍传 steered:true(fallback 徽章走 renderStaticMessage)');
+  // EC-D 56(插话插入点):有活动 live turn 时插话作为 narrative-steer segment 内嵌在当前流式位置,不再追加到 #messages 末尾钉死底部。
+  ok(app.includes("'turn-segment narrative-steer'") && app.includes('sealLiveTextSegment(turn.live)')
+    && /narrative\.appendChild\(seg\)/.test(app) && app.includes('startLiveTextSegment(turn.live)')
+    && /turn\.live\.narrative\.isConnected/.test(app), 'S21b EC-D 56 插话内嵌 narrative(seal 当前段 -> append segment -> 开新文本段,有活动 turn 前提)');
+  // EC-D 56(防重复):活动 live turn 的 steered 消息已内嵌,静态渲染跳过其独立行(turnSeq 匹配 + 活动 turn 存在)。
+  ok(/m\.steered && liveForSession && Number\.isFinite\(activeTurnSeq\) && Number\(m\.turnSeq\) === activeTurnSeq/.test(app), 'S21c EC-D 56 renderCurrentSession 跳过活动 turn 的 steered 静态行(防内嵌与静态重复)');
+  // EC-D 56(粘性自动滚动):上滑阅读不拽回,接近底部恢复跟随。
+  ok(app.includes('let stickToBottom = true;') && app.includes('function maybeScrollToBottom') && app.includes('function syncStickToBottom'), 'S26 EC-D 56 粘性滚动状态 + 辅助函数在');
+  ok(app.includes("mb.addEventListener('scroll', syncStickToBottom") && /if \(stickToBottom\) \{ const box = \$\('messages'\); if \(box\) box\.scrollTop = box\.scrollHeight; \}/.test(app)
+    && app.includes('stickToBottom = true; box.scrollTop = box.scrollHeight; // EC-D 56: 新 turn 开始'), 'S27 EC-D 56 scroll 监听走粘性 + scheduleRender/新 turn 走粘性重置');
+  ok(app.includes("if (live) live.errorShown = true;\n  maybeScrollToBottom();") && app.includes("if (live) live.noteShown = true;\n  maybeScrollToBottom();"), 'S28 EC-D 56 错误/备注流式增长路径改粘性滚动(maybeScrollToBottom,不无条件拽回底部)');
   ok(app.includes('function renderSteerQueue') && app.includes('steerPendingList.push') && app.includes('r.queued'), 'S22 provider 插话队列可视化(待注入列表 + r.queued 驱动)');
   ok(!app.includes('onclick="window.cancelSteer') && app.includes("addEventListener('click'") && app.includes('h.replaceChildren(card)'), 'S22b 插话文本不进入内联 onclick/innerHTML(安全 DOM 绑定)');
   ok(!app.includes("cancelSteer('__all__')") && app.includes("cancelSteer('', true)"), 'S22c 清空队列使用独立控制参数(用户文本 __all__ 不会误清全部)');

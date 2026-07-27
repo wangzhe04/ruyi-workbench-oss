@@ -426,7 +426,7 @@ async function openSession(id) {
   // v1.9.1: 会话切换清空 steer 状态(模块级单例不按会话隔离,否则 A 的插话卡片/steeredSeen 残留到 B;
   //   切到流式会话 setStreaming(true) 不清空 -> B 看到 A 的插话 + ×按钮报错 + steeredSeen 孤儿吞事件)。对抗验证发现。
   if (prevId !== id) {
-    steerPendingList.length = 0; steeredSeen.length = 0;
+    steerPendingList.length = 0; steeredSeen.length = 0; stickToBottom = true; // EC-D 56: 切会话 -> 恢复跟随最新
     const h = $('composerHint'); if (h) { h.innerHTML = ''; h.style.display = 'none'; }
   }
   renderSessions();
@@ -967,11 +967,17 @@ function renderCurrentSession() {
   const existing = new Map(Array.from(box.querySelectorAll('[data-message-key]')).map(row => [row.dataset.messageKey, row]));
   const fragment = document.createDocumentFragment();
   if (start > 0) fragment.appendChild(buildLoadEarlierButton(start));
+  // EC-D 56: 活动 live turn 的插话已作为 segment 内嵌在 narrative 内,跳过其静态独立行防重复
+  //   (live DOM 在 turn 结束后保留;活动 turn 删除后 liveForSession 为空 -> 守卫自动失效,steered 行正常静态渲染)。
+  const liveForSession = activeTurns.get(session.id);
+  const activeTurnSeq = Number(session.turnSeq);
   for (let i = start; i < msgs.length; i++) {
-    const key = messageDomKey(msgs[i], i, session.id);
-    const signature = messageRenderSignature(msgs[i], getLocale());
+    const m = msgs[i];
+    if (m && m.steered && liveForSession && Number.isFinite(activeTurnSeq) && Number(m.turnSeq) === activeTurnSeq) continue;
+    const key = messageDomKey(m, i, session.id);
+    const signature = messageRenderSignature(m, getLocale());
     let row = existing.get(key);
-    if (!row || row.dataset.renderSignature !== signature) row = renderStaticMessage(msgs[i], key, signature);
+    if (!row || row.dataset.renderSignature !== signature) row = renderStaticMessage(m, key, signature);
     fragment.appendChild(row);
   }
   // Locale/config refreshes may legitimately call this while the current turn is streaming. Keep its live
@@ -2491,7 +2497,7 @@ function createLiveAssistantShell() {
   main.appendChild(live.narrative);
   live.toolsWrap = live.narrative; // compatibility host for sub-agent/workflow cards
   startLiveTextSegment(live);
-  box.appendChild(row); box.scrollTop = box.scrollHeight;
+  box.appendChild(row); stickToBottom = true; box.scrollTop = box.scrollHeight; // EC-D 56: 新 turn 开始 -> 恢复跟随最新
   return { live, main };
 }
 function rememberTurnLine(turn, line) {
@@ -2892,13 +2898,34 @@ function renderSteeredMessage(text, justInjected) {
       return;
     }
   }
-  // 50d:传 steered:true,徽章由 renderStaticMessage 统一渲染(与刷新后静态重渲染同源,不再手动 insertBefore)。
+  // EC-D 56(插话插入点):有活动 live turn 时,把插话作为 turn narrative 内的 segment 落在当前流式位置--
+  //   seal 当前文本段(插话前的助手文字)-> 插入 narrative-steer segment -> startLiveTextSegment(后续文字流入新 bubble)。
+  //   不再追加到 #messages 末尾钉死底部。无活动 turn(回合已结束/事件迟到)回退原独立 user 行。
+  const sid = state.currentSession?.id || '';
+  const turn = sid ? activeTurns.get(sid) : null;
+  const narrative = turn && turn.live && turn.live.narrative && turn.live.narrative.isConnected ? turn.live.narrative : null;
+  if (narrative) {
+    sealLiveTextSegment(turn.live); // 封存插话前的助手文本 -> 插话落在其后(无文本则移除空 bubble)
+    const seg = el('div', 'turn-segment narrative-steer');
+    seg.appendChild(el('span', 'steered-badge', t('chat.steer')));
+    const bubble = el('div', 'bubble');
+    bubble.textContent = String(text || ''); // 用户插话原文不进 markdown(textContent 防 XSS 与引用断裂)
+    seg.appendChild(bubble);
+    seg.dataset.steered = 'true'; // renderStaticMessage 已设,此处冗余保留(幂等检查/闪绿匹配覆盖)
+    seg.dataset.steerTs = String(now); // 时间戳供幂等窗口判定(静态重渲染行无此标记 -> 超窗 -> 不阻止新插话)
+    narrative.appendChild(seg);
+    startLiveTextSegment(turn.live); // 插话后开新文本段,后续助手文本流入新 bubble(空则 finalizeLive 移除)
+    if (justInjected) flashSteerBadge(seg); // 事件触发的渲染直接闪绿(乐观行可能尚未出现,等不到事件来闪)
+    maybeScrollToBottom();
+    return;
+  }
+  // 回退:无活动 live turn -> 独立 user 行(刷新后静态渲染同源)
   const row = renderStaticMessage({ role: 'user', content: text, createdAt: new Date().toISOString(), steered: true });
   row.dataset.steered = 'true'; // renderStaticMessage 已设,此处冗余保留
   row.dataset.steerTs = String(now); // v1.9.1: 时间戳供幂等窗口判定(静态重渲染行无此标记 -> 超窗 -> 不阻止新插话)
   box.appendChild(row);
   if (justInjected) flashSteerBadge(row); // 事件触发的渲染直接闪绿(乐观行可能尚未出现,等不到事件来闪)
-  scrollMessagesToBottom();
+  maybeScrollToBottom();
 }
 
 function stopTurn() {
@@ -2915,12 +2942,11 @@ function scheduleRender(live) {
   live.rafId = requestAnimationFrame(() => {
     live.rafPending = false;
     live.rafId = 0;
-    const box = $('messages');
-    const atBottom = box && box.scrollHeight - box.scrollTop - box.clientHeight < 120;
     const pending = live.bufferText.slice(live.renderedChars || 0);
     if (pending && live.textNode) live.textNode.appendData(pending);
     live.renderedChars = live.bufferText.length;
-    if (atBottom && box) box.scrollTop = box.scrollHeight;
+    // EC-D 56: 粘性跟随--用户上滑阅读时不打扰(scroll 监听已置 stickToBottom=false),滚回底部自动恢复跟随。
+    if (stickToBottom) { const box = $('messages'); if (box) box.scrollTop = box.scrollHeight; }
     updateJumpLatest();
   });
 }
@@ -2941,7 +2967,7 @@ function appendMsgError(main, live, text) {
   const box = el('div', 'msg-error'); box.textContent = text;
   main.appendChild(box);
   if (live) live.errorShown = true;
-  scrollMessagesToBottom();
+  maybeScrollToBottom();
 }
 // C6: a neutral, muted variant for benign notes ("已停止"). Same structure, no alarm coloring.
 function appendMsgNote(main, live, text) {
@@ -2949,10 +2975,14 @@ function appendMsgNote(main, live, text) {
   const box = el('div', 'msg-note'); box.textContent = text;
   main.appendChild(box);
   if (live) live.noteShown = true;
-  scrollMessagesToBottom();
+  maybeScrollToBottom();
 }
 
 /* ---------------- ↓ 回到最新 (§4.4) ---------------- */
+// EC-D 56(粘性自动滚动):stickToBottom 记录用户是否处于「跟随最新输出」状态。
+//   默认 true(跟随);用户上滑阅读历史 -> scroll 监听置 false(打断跟随,新输出不把视图拽回底部);
+//   滚回接近底部(120px 内)-> 恢复 true(继续跟随最新)。新 turn / 切会话 / 点「回到最新」显式重置 true。
+let stickToBottom = true;
 // A round floating button over the messages area. Visible only while streaming AND the user has
 // scrolled up (not near the bottom); clicking snaps to the newest content. Auto-hides at the bottom
 // or when the turn ends. The scroll listener (bound once in bindEvents) recomputes on every scroll.
@@ -2966,6 +2996,17 @@ function updateJumpLatest() {
   if (!btn) return;
   const show = state.streaming && !messagesAtBottom();
   btn.classList.toggle('hidden', !show);
+}
+// EC-D 56: 流式增长路径(工具卡/插话/错误/计划/Mission/turn_summary 尾卡)统一走粘性滚动--
+//   仅当 stickToBottom 时滚到底部,否则只刷新「回到最新」按钮,不打扰上滑阅读的用户。
+function maybeScrollToBottom() {
+  if (stickToBottom) { const box = $('messages'); if (box) box.scrollTop = box.scrollHeight; }
+  updateJumpLatest();
+}
+// #messages scroll 监听回调:按当前滚动位置刷新粘性状态 + 「回到最新」按钮可见性。
+function syncStickToBottom() {
+  stickToBottom = messagesAtBottom();
+  updateJumpLatest();
 }
 function scrollMessagesToBottom() {
   const box = $('messages');
@@ -3086,6 +3127,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // ✓/✗ + a short conclusion summary. See handleSubagentEvent.
       if (evt.state === 'start') { live.thinkingActive = false; sealLiveTextSegment(live); }
       handleSubagentEvent(evt, live, streamSessionId);
+      maybeScrollToBottom(); // EC-D 56: 子代理卡入列也走粘性跟随
       break;
     case 'subagent_progress':
       // v1.4.6 (C): a tool-less Claude sub-turn reporting streamed-text growth. Refresh its card head so the
@@ -3095,6 +3137,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
     case 'agent_workflow':
       if (evt.state === 'start' || evt.state === 'running') { live.thinkingActive = false; sealLiveTextSegment(live); }
       handleAgentWorkflowEvent(evt, live);
+      maybeScrollToBottom(); // EC-D 56: 工作流卡入列也走粘性跟随
       break;
     case 'tool_use': {
       live.thinkingActive = false;
@@ -3109,6 +3152,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       } else {
         registerNarrativeTool(live, evt, card);
       }
+      maybeScrollToBottom(); // EC-D 56: 工具卡入列也走粘性跟随(用户要"页面跟着滚动",上滑阅读时不打扰)
       break;
     }
     case 'tool_result': {
@@ -3152,7 +3196,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
         };
         if (live.semanticCards.has(missionId)) updateLiveSemanticCard(live, missionId, segment);
         else registerLiveSemanticCard(live, segment);
-        scrollMessagesToBottom();
+        maybeScrollToBottom();
       }
       break;
     case 'autonomy_grant':
@@ -3203,7 +3247,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       // v0.9-S1 (C6): remember whether anything actually changed, so a following error `result` can decide
       // whether to append the 「本次未改动任何文件」 reassurance line.
       if (live) live.filesTouched = (Array.isArray(evt.filesChanged) && evt.filesChanged.length > 0) || (Number(evt.commands) || 0) > 0;
-      scrollMessagesToBottom();
+      maybeScrollToBottom();
       break;
     case 'result':
       wbNativeClaudeFinalize(streamSessionId, evt);
@@ -3215,7 +3259,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
         // v1.0.2 (F6c): CLI 缺失 → 友好引导卡(向后兼容:无 code 字段走原 errorCard)。
         const noFiles = !(live && live.filesTouched);
         (live && live.narrative ? live.narrative : main).appendChild(evt.code === 'cli-missing' ? cliMissingCard() : errorCard(evt.errorClass, evt.error, noFiles));
-        scrollMessagesToBottom();
+        maybeScrollToBottom();
       }
       break;
     case 'usage':
@@ -3228,6 +3272,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
     case 'ask_user':
       registerLiveSemanticCard(live, { ...evt, type: 'question', status: 'pending' });
       showAskUserModal(evt.questionId || evt.id, evt.questions, streamSessionId);
+      maybeScrollToBottom(); // EC-D 56: 提问卡入列走粘性跟随(模态浮层不影响消息区滚动)
       break;
     case 'question_answer':
       updateLiveSemanticCard(live, evt.questionId || evt.id, {
@@ -3238,6 +3283,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
     case 'permission_request':
       registerLiveSemanticCard(live, { ...evt, type: 'permission', status: 'pending' });
       handlePermissionRequest(evt);
+      maybeScrollToBottom(); // EC-D 56: 权限卡入列走粘性跟随
       break;
     case 'permission_paused':
       // 第27f波:无人值守回合的权限弹窗超时后【存档暂停】(不立即拒),延长等待窗口。弹窗仍在,你的决定仍被接受;
@@ -3272,7 +3318,7 @@ function handleStreamLine(line, live, main, streamSessionId) {
       break;
     case 'error':
       // v1.0.2 (F6c): CLI 缺失 → 友好引导卡(向后兼容:无 code 字段走原始 .msg-error 文本块)。
-      if (evt.code === 'cli-missing') { (live && live.narrative ? live.narrative : main).appendChild(cliMissingCard()); if (live) live.errorShown = true; scrollMessagesToBottom(); break; }
+      if (evt.code === 'cli-missing') { (live && live.narrative ? live.narrative : main).appendChild(cliMissingCard()); if (live) live.errorShown = true; maybeScrollToBottom(); break; }
       // C6: a real .msg-error block (red tint + left bar), text via textContent — never folded into the
       // markdown buffer where it would render as bold prose and could be mis-parsed.
       appendMsgError(live && live.narrative ? live.narrative : main, live, String(evt.error ?? ''));
@@ -5666,7 +5712,7 @@ function handlePlanEvent(evt, main, live) {
   // 所以直接 append 即可落在旧文本块之后。
   host.appendChild(card);
   setComposerHint(t('plan.awaitingApproval'));
-  scrollMessagesToBottom();
+  maybeScrollToBottom();
 }
 
 /* ---------------- debug panel ---------------- */
@@ -9276,9 +9322,9 @@ function bindEvents() {
   { const pv = $('agPreview'); if (pv) pv.onclick = previewGrant; }
   { const cx = $('agCancel'); if (cx) cx.onclick = () => { $('autonomyIssueForm').classList.add('hidden'); loadAutonomyGrants(); }; }
   { const fm = $('autonomyIssueForm'); if (fm) fm.onsubmit = submitGrant; }
-  // ↓ 回到最新: click snaps to bottom; the messages scroll listener toggles its visibility.
-  { const jl = $('jumpLatest'); if (jl) jl.onclick = scrollMessagesToBottom; }
-  { const mb = $('messages'); if (mb) mb.addEventListener('scroll', updateJumpLatest, { passive: true }); }
+  // ↓ 回到最新: click snaps to bottom 并恢复跟随;the messages scroll listener toggles its visibility + 粘性状态。
+  { const jl = $('jumpLatest'); if (jl) jl.onclick = () => { stickToBottom = true; scrollMessagesToBottom(); }; }
+  { const mb = $('messages'); if (mb) mb.addEventListener('scroll', syncStickToBottom, { passive: true }); }
   // A5: clicking the dimmed backdrop closes the narrow-screen drawer.
   { const bd = $('drawerBackdrop'); if (bd) bd.onclick = closeToolDrawer; }
 

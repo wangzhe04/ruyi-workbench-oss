@@ -717,3 +717,25 @@ verdict SAFE，零真实缺陷：XSS 面（全 textContent + 后端 userinfo 剥
 - **EC-D 后半（第55波后半）**：全应用 `app.js` 领域拆分、CSS tokens/base/components/views/themes 全量物理分层、性能基准（首屏 <1.5s、视图切换 P95 <200ms）。
 - **并行模式 flake 治理**：mcp-ops-closure 的 getFreePort 竞态 + K 段重启窗口（见上「诚实交代」）；run-all --parallel 成为可信路径前不算并行门。
 - git tag `v2.1.0` 与 origin 推送属发布动作，待用户确认后执行。
+
+## 第56波 EC-D 后半 · 切片一 -- 对话交互收口：插话插入点 + 粘性自动滚动（2026-07-27）
+
+按 §“EC-D · 安静工作台”退出条件“输入焦点和滚动锚点保持稳定”推进。本切片收口用户报告的两处交互负担，是 54 波回合叙事化之后的自然交互收尾（EC-D 后半按独立迁移批次继续，本切片不混入 `app.js` 全量拆域 / CSS 分层 / 性能基准）。
+
+### 交付
+
+- **插话插入点（Issue 1）**：`renderSteeredMessage` 改为「有活动 live turn 时，seal 当前文本段 -> 向 `live.narrative` 插入 `narrative-steer` 内嵌 segment（带 `steered-badge` + 用户文本 bubble，textContent 防 XSS）-> `startLiveTextSegment` 开新文本段」；插话落在助手「文字 A -> 插话 -> 文字 B」的真实插入位置，不再 `appendChild` 到 `#messages` 末尾钉死底部。无活动 turn（回合已结束 / 事件迟到）回退原独立 user 行。`steered` 事件经 `handleStreamLine` 分发且 `rememberTurnLine` 捕获，`mountActiveTurn` 重放时一致内嵌；`renderCurrentSession` 跳过活动 turn 的 steered 静态行（`turnSeq` 匹配 + 活动 turn 存在）防内嵌与静态重复，turn 结束 `activeTurns.delete` 后守卫自动失效、steered 行正常静态渲染（兼容期：刷新后旧会话仍按独立行展示，不伪造历史过程）。
+- **粘性自动滚动（Issue 2）**：新增 `stickToBottom` 状态（默认 true）+ `syncStickToBottom`（scroll 监听按 120px 阈值刷新）+ `maybeScrollToBottom`（仅粘性时滚到底，否则只刷新「回到最新」按钮）。`scheduleRender` 与全部流式增长路径（`tool_use` / `tool_result` 侧的错误卡 / `appendMsgError` / `appendMsgNote` / `mission` / `turn_summary` / `plan` / `ask_user` / `permission_request` / `subagent` / `agent_workflow` start / 插话 segment）统一走粘性滚动；用户上滑阅读时新输出不拽回底部，滚回接近底部自动恢复跟随。新 turn（`createLiveAssistantShell`）/ 切会话（`openSession`）/ 点「回到最新」（`jumpLatest`）显式重置 `stickToBottom = true`。`scrollMessagesToBottom`（无条件）仅保留给用户显式跳转。
+- **CSS**：`.turn-narrative .narrative-steer` 右对齐点色玻璃气泡 + 「插话」徽章，与助手正文区分；`.steered-badge` 的 `align-self` 在 segment 内覆盖为 `flex-end`（特异性 3 类 > 1 类）。
+
+### 验证（全部亲跑）
+
+- 快通道 21 件静态锁全绿（含 `streaming-responsiveness` / `turn-narrative` / `ui-v3-p1~p3b` / `ui-v4-glass` / `ui-bugfix` / `i18n` / `overlay-payload-lock`）；`steering-claude.e2e` 全绿（新增 S21b/S21c/S26/S27/S28 静态锁 + live A-E 段）；`steer-interrupt.e2e` / `dom-smoke.e2e`（真实 Edge 渲染）/ `claude-context-continuity.e2e` / `e3-engine-switch-continuity.e2e` 全绿。
+- **对抗验证**：Deepseek V4 Pro 子代理 8 场景亲读源码判定 SAFE--null bubble seal 安全 / dedup 与闪绿 DOM 匹配内嵌 segment / `mountActiveTurn` 重放一致 / 重复渲染守卫在 turn 结束后正确失效 / 粘性状态机无振荡 / 无路径误用 `scrollMessagesToBottom` / CSS 特异性覆盖生效 / 无静态锁破坏。审查另指出 4 处既有（非本波引入）覆盖缺口（`subagent` / `agent_workflow` / `ask_user` / `permission_request` 不跟随滚动），本切片顺手补全。
+
+### 待续（记入后续波）
+
+- **EC-D 后半（继续）**：全应用 `app.js` 领域拆分、CSS tokens/base/components/views/themes 全量物理分层、性能基准（首屏 <1.5s、视图切换 P95 <200ms）。
+- **插话段持久化进 segments**：当前刷新后插话回退独立行（兼容期）；后续可把 steered 消息并入助手回合的 `segments` 数组，让静态重进也内嵌（消除 live↔静态的视觉差异）。
+- **`scheduleLiveThinkingFollow` 粘性对齐**：思考框跟随滚动仍用事件期捕获的 `messagesAtBottom()`（独立于 `stickToBottom`，亚毫秒竞态），后续可统一到粘性状态机。
+- 本切片不 bump 版本（保持 2.1.0）；收尾时另走 2.1.x 发布门。
