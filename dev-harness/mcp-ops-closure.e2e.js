@@ -1,8 +1,8 @@
 'use strict';
 /*
- * E2E (第55波 EC-C 55a): MCP 运维闭环 -- 统一读模型 + 健康探针 + 错误归类 + 兼容矩阵。
+ * E2E (第55波 EC-C 55a/55b): MCP 运维闭环 -- 统一读模型 + 健康探针 + 错误归类 + 兼容矩阵 + 启停/删除持久化。
  *
- * 覆盖 roadmap EC-C 退出条件的后端地基(路由 + 探针;前端在 55c):
+ * 覆盖 roadmap EC-C 退出条件的后端地基(路由 + 探针 + 配置变更;前端在 55c):
  *  P 段 classifyMcpError 单测:7 类归一(startup/network/auth/protocol/tool_registration/timeout/security)。
  *  U 段 buildMcpConnectorInventory 无探针形状:三源(desktop/config/drop-in)标注、disabled 含、env 掩码。
  *  G 段 buildMcpConnectorInventory 探针:enabled 跑探针(ok),disabled -> status:disabled(不探针)。
@@ -13,6 +13,10 @@
  *  D 段 POST health {stdio-hang,timeoutMs:2000}:不应答 initialize -> failed + timeout(probe start 竞速)。
  *  E 段 POST health {http-401}:HTTP 401 -> failed + auth。
  *  F 段 POST health {sse-chg} x2:legacy SSE tools/list_changed -> 第一次 toolCount=2,推变更后第二次=3。
+ *  H 段(55b)POST /api/mcp/connectors/toggle:停用全路径(落盘/清单/探针 404/活客户端被杀/无关连接器
+ *    不受影响)+ 启用回连 + desktop/drop-in 409 拒 + 未知 404 + 参数 400 + 无 token 拒。
+ *  J 段(55b)DELETE /api/mcp/connectors:删除全路径(落盘/清单消失/探针 404)+ desktop/drop-in 409 拒 + 无 token 拒。
+ *  K 段(55b)重启一致性:同 HOME 重启后停用仍停用、删除不复活、无关条目不受影响(退出条件#3)。
  *  S 段 静态锁:四函数/路由表/路由接线在 server.js。
  *
  * Run: node dev-harness/mcp-ops-closure.e2e.js
@@ -47,6 +51,18 @@ function post(port, p, body, headers = {}) {
   });
 }
 async function up(port) { for (let i = 0; i < 60; i++) { if (await get(port, '/health')) return true; await sleep(120); } return false; }
+function del(port, p, body, headers = {}) { // 55b: DELETE 带 body(与 post 同形,仅方法不同)
+  return new Promise(resolve => {
+    const raw = JSON.stringify(body);
+    const r = http.request({ host: '127.0.0.1', port, path: p, method: 'DELETE', timeout: 12000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => {
+      let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve({ status: res.statusCode, json: JSON.parse(b) }); } catch { resolve({ status: res.statusCode, raw: b }); } });
+    });
+    r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); });
+    r.write(raw); r.end();
+  });
+}
+function pidAlive(pid) { try { process.kill(pid, 0); return true; } catch { return false; } }
+const errText = r => { const e = r && r.json && r.json.error; return typeof e === 'string' ? e : (e && e.message) || ''; }; // 55b: 4xx 错误被包装为 {code,message}
 
 // ── fake HTTP 401 server(E 段:鉴权失败)──
 function start401Server(port) {
@@ -163,11 +179,19 @@ function startLegacySseMcp(port, state) {
   await sleep(200);
 
   // ── Boot: 真身 workbench ──
+  // 55b:drop-in 连接器(dataRoot/mcp/drop-test)供「drop-in 拒绝启停/删除」断言;故 enableMcpDropIn 开。
+  const DROPIN_DIR = path.join(HOME, 'mcp', 'drop-test');
+  fs.mkdirSync(DROPIN_DIR, { recursive: true });
+  fs.writeFileSync(path.join(DROPIN_DIR, 'ruyi-mcp.json'), JSON.stringify({ id: 'drop-test', label: 'dropin', command: process.execPath, args: [FAKE_MCP] }));
+  // 55b 对抗审查件:drop-shadow 同时存在 config 条目(遮蔽)与 drop-in 目录,验证停用/删除时的接管警告。
+  const DROPIN_DIR2 = path.join(HOME, 'mcp', 'drop-shadow');
+  fs.mkdirSync(DROPIN_DIR2, { recursive: true });
+  fs.writeFileSync(path.join(DROPIN_DIR2, 'ruyi-mcp.json'), JSON.stringify({ id: 'drop-shadow', label: 'shadow', command: process.execPath, args: [FAKE_MCP] }));
   const WP = await getFreePort();
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
-    configSchema: 7, version: '2.0.1', permissionMode: 'bypass', enableMcpDropIn: false, desktopMcp: { enabled: false },
+    configSchema: 7, version: '2.0.1', permissionMode: 'bypass', enableMcpDropIn: true, desktopMcp: { enabled: false },
     externalMcpServers: [
-      { id: 'stdio-good', label: '好的', command: process.execPath, args: [FAKE_MCP], env: { SECRET: 'ghp_xxx' }, cwd: '', enabled: true },
+      { id: 'stdio-good', label: '好的', command: process.execPath, args: [FAKE_MCP], env: { SECRET: 'ghp_xxx', FAKE_MCP_PID_CAPTURE: path.join(HOME, 'good-pids.txt') }, cwd: '', enabled: true },
       { id: 'stdio-disabled', label: '停用的', command: process.execPath, args: [FAKE_MCP], env: {}, cwd: '', enabled: false },
       { id: 'stdio-bad', label: '坏命令', command: '__nonexistent_mcp_xyz__.exe', args: [], env: {}, cwd: '', enabled: true },
       { id: 'stdio-break', label: '协议坏', command: process.execPath, args: [FAKE_MCP], env: { FAKE_MCP_BREAK_INIT: '1' }, cwd: '', enabled: true },
@@ -175,9 +199,11 @@ function startLegacySseMcp(port, state) {
       { id: 'stdio-conc', label: '并发互斥', command: process.execPath, args: [FAKE_MCP], env: { FAKE_MCP_HANG_INIT: '1', FAKE_MCP_PID_CAPTURE: path.join(HOME, 'conc-pids.txt') }, cwd: '', enabled: true },
       { id: 'http-401', label: '鉴权失败', transport: 'http', url: `http://127.0.0.1:${P401}/mcp`, headers: {}, enabled: true },
       { id: 'sse-chg', label: '列表变化', transport: 'sse', url: `http://127.0.0.1:${PSSE}/sse`, headers: {}, enabled: true },
+      { id: 'drop-shadow', label: '遮蔽dropin', command: process.execPath, args: [FAKE_MCP], env: {}, cwd: '', enabled: true },
     ],
   }));
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+  const spawnWb = () => cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+  let wb = spawnWb();
   try {
     ok(await up(WP), 'workbench up');
     const html = await new Promise(resolve => http.get({ host: '127.0.0.1', port: WP, path: '/' }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => resolve(b)); }));
@@ -275,6 +301,89 @@ function startLegacySseMcp(port, state) {
     let pidCount = 0;
     try { pidCount = fs.readFileSync(pidFile, 'utf8').split('\n').filter(l => l.trim()).length; } catch { /* ignore */ }
     ok(pidCount === 1, 'G2c 并发探针只 spawn 1 个子进程(互斥,无孤儿) (got ' + pidCount + ')');
+
+    // ── H 段(55b): toggle 启停持久化 ──
+    // stdio-good 在 A 段已探针 -> 活客户端在 mcpClients 缓存;停用它必须杀掉该客户端且不动无关连接器。
+    console.log('── H 段: toggle 启停持久化 ──');
+    let goodPid = 0;
+    try { goodPid = Number((fs.readFileSync(path.join(HOME, 'good-pids.txt'), 'utf8').trim().split('\n').pop() || '').trim()) || 0; } catch { /* ignore */ }
+    ok(goodPid > 0 && pidAlive(goodPid), 'H0 前置:A 段探针后 stdio-good 活客户端在 (pid ' + goodPid + ')');
+    const t1 = await post(WP, '/api/mcp/connectors/toggle', { id: 'stdio-good', enabled: false }, hdr);
+    ok(t1 && t1.status === 200 && t1.json && t1.json.ok === true && t1.json.enabled === false, 'H1 停用 -> 200 ok enabled:false');
+    const cfgOff = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    ok(cfgOff.externalMcpServers.find(s => s.id === 'stdio-good').enabled === false, 'H2 停用已原子落盘 config.json');
+    const liOff = await get(WP, '/api/mcp/connectors', hdr);
+    ok(liOff && liOff.json && liOff.json.connectors.find(c => c.id === 'stdio-good').enabled === false, 'H3 GET 清单反映 enabled:false');
+    const hOff = await post(WP, '/api/mcp/connectors/health', { id: 'stdio-good' }, hdr);
+    ok(hOff && hOff.status === 404, 'H4 停用后 /health -> 404(不在启用清单)');
+    await sleep(300);
+    ok(goodPid > 0 && !pidAlive(goodPid), 'H5 停用后活客户端被杀( invalidateMcpRuntime )');
+    // 无关连接器不受影响:sse-chg 客户端仍活(探针仍 ok),config 其它条目 enabled 不变
+    const hSse = await post(WP, '/api/mcp/connectors/health', { id: 'sse-chg' }, hdr);
+    ok(hSse && hSse.json && hSse.json.health && hSse.json.health.status === 'ok', 'H6a 无关连接器(sse-chg)探针仍 ok(客户端未被误杀)');
+    ok(cfgOff.externalMcpServers.find(s => s.id === 'stdio-bad').enabled === true && cfgOff.externalMcpServers.length === 9, 'H6b 无关条目配置不变(条数 9 不变)');
+    const t2 = await post(WP, '/api/mcp/connectors/toggle', { id: 'stdio-good', enabled: true }, hdr);
+    ok(t2 && t2.status === 200 && t2.json && t2.json.enabled === true, 'H7a 启用 -> 200 ok enabled:true');
+    const hOn = await post(WP, '/api/mcp/connectors/health', { id: 'stdio-good' }, hdr);
+    ok(hOn && hOn.status === 200 && hOn.json && hOn.json.health && hOn.json.health.status === 'ok', 'H7b 启用后可立即重测(失败冷却已清) -> ok');
+    const tDesk = await post(WP, '/api/mcp/connectors/toggle', { id: 'ai-computer-control', enabled: false }, hdr);
+    ok(tDesk && tDesk.status === 409 && /内置/.test(errText(tDesk)), 'H8 desktop 内置连接器 -> 409 + 人话原因');
+    const tDrop = await post(WP, '/api/mcp/connectors/toggle', { id: 'drop-test', enabled: false }, hdr);
+    ok(tDrop && tDrop.status === 409 && /drop-in/.test(errText(tDrop)), 'H9 drop-in 连接器 -> 409 + 人话原因(目录管理)');
+    const tUnk = await post(WP, '/api/mcp/connectors/toggle', { id: 'no-such', enabled: true }, hdr);
+    ok(tUnk && tUnk.status === 404, 'H10 未知 id -> 404');
+    const tBad = await post(WP, '/api/mcp/connectors/toggle', { id: 'stdio-good' }, hdr);
+    ok(tBad && tBad.status === 400, 'H11 enabled 非布尔 -> 400');
+    const tNoTok = await post(WP, '/api/mcp/connectors/toggle', { id: 'stdio-good', enabled: false }, {});
+    ok(tNoTok && (tNoTok.status === 401 || tNoTok.status === 403), 'H12 无 token -> 401/403');
+    const t3 = await post(WP, '/api/mcp/connectors/toggle', { id: 'stdio-good', enabled: false }, hdr);
+    ok(t3 && t3.status === 200, 'H13 再停用 stdio-good(为 K 段重启一致性留终态)');
+    // 55b 对抗审查件:停用遮蔽同 id drop-in 的 config 条目 -> warning 如实告知接管
+    const tSh = await post(WP, '/api/mcp/connectors/toggle', { id: 'drop-shadow', enabled: false }, hdr);
+    ok(tSh && tSh.status === 200 && /drop-in/.test((tSh.json && tSh.json.warning) || ''), 'H14 停用遮蔽 drop-in 的条目 -> warning 告知接管');
+    const tSh2 = await post(WP, '/api/mcp/connectors/toggle', { id: 'drop-shadow', enabled: true }, hdr);
+    ok(tSh2 && tSh2.status === 200 && !(tSh2.json && tSh2.json.warning), 'H15 启用路径不带 warning(无接管问题)');
+
+    // ── J 段(55b): DELETE 删除持久化 ──
+    console.log('── J 段: DELETE 删除持久化 ──');
+    const dUnk = await del(WP, '/api/mcp/connectors', { id: 'no-such' }, hdr);
+    ok(dUnk && dUnk.status === 404, 'J1 删除未知 id -> 404');
+    const dDesk = await del(WP, '/api/mcp/connectors', { id: 'ai-computer-control' }, hdr);
+    ok(dDesk && dDesk.status === 409 && /内置/.test(errText(dDesk)), 'J2 删除 desktop -> 409 + 人话原因');
+    const dDrop = await del(WP, '/api/mcp/connectors', { id: 'drop-test' }, hdr);
+    ok(dDrop && dDrop.status === 409 && /drop-in/.test(errText(dDrop)), 'J3 删除 drop-in -> 409(请移除目录)');
+    const dBad = await del(WP, '/api/mcp/connectors', { id: 'stdio-bad' }, hdr);
+    ok(dBad && dBad.status === 200 && dBad.json && dBad.json.ok === true && dBad.json.removed === true, 'J4 删除 stdio-bad -> 200 removed:true');
+    const cfgDel = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    ok(!cfgDel.externalMcpServers.some(s => s.id === 'stdio-bad') && cfgDel.externalMcpServers.length === 8, 'J5 删除已落盘(9->8,无关条目不动)');
+    const liDel = await get(WP, '/api/mcp/connectors', hdr);
+    ok(liDel && liDel.json && !liDel.json.connectors.some(c => c.id === 'stdio-bad'), 'J6 GET 清单不再含 stdio-bad');
+    const hBad = await post(WP, '/api/mcp/connectors/health', { id: 'stdio-bad' }, hdr);
+    ok(hBad && hBad.status === 404, 'J7 删除后 /health -> 404');
+    const dSh = await del(WP, '/api/mcp/connectors', { id: 'drop-shadow' }, hdr);
+    ok(dSh && dSh.status === 200 && /drop-in/.test((dSh.json && dSh.json.warning) || ''), 'J9 删除遮蔽 drop-in 的条目 -> warning 告知接管(55b 对抗审查修复)');
+    const cfgDel2 = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    ok(!cfgDel2.externalMcpServers.some(x => x.id === 'drop-shadow') && cfgDel2.externalMcpServers.length === 7, 'J10 删除已落盘(8->7)');
+    const dNoTok = await del(WP, '/api/mcp/connectors', { id: 'stdio-good' }, {});
+    ok(dNoTok && (dNoTok.status === 401 || dNoTok.status === 403), 'J8 无 token -> 401/403');
+
+    // ── K 段(55b): 重启一致性 -- 同 HOME 重启,停用仍停用、删除不复活、无关条目在(退出条件#3)──
+    console.log('── K 段: 重启一致性 ──');
+    try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+    await sleep(500);
+    wb = spawnWb();
+    ok(await up(WP), 'K1 重启后 workbench up');
+    const html2 = await new Promise(resolve => http.get({ host: '127.0.0.1', port: WP, path: '/' }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => resolve(b)); }));
+    const hdr2 = { 'x-wcw-token': (html2.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1] || '' };
+    const liK = await get(WP, '/api/mcp/connectors', hdr2);
+    const kGood = liK && liK.json && liK.json.connectors.find(c => c.id === 'stdio-good');
+    ok(kGood && kGood.enabled === false, 'K2 重启后 stdio-good 仍停用(状态与配置一致)');
+    ok(liK && liK.json && !liK.json.connectors.some(c => c.id === 'stdio-bad'), 'K3 重启后 stdio-bad 不复活');
+    ok(liK && liK.json && liK.json.connectors.some(c => c.id === 'sse-chg' && c.enabled === true), 'K4 无关连接器(sse-chg)重启后仍在且启用');
+    const tDel = await post(WP, '/api/mcp/connectors/toggle', { id: 'stdio-bad', enabled: true }, hdr2);
+    ok(tDel && tDel.status === 404, 'K5 重启后操作已删除条目 -> 404');
+    const hDis = await post(WP, '/api/mcp/connectors/health', { id: 'stdio-good' }, hdr2);
+    ok(hDis && hDis.status === 404, 'K6 重启后停用条目仍不可探针(不自动重连)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
     if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
@@ -294,6 +403,12 @@ function startLegacySseMcp(port, state) {
   ok(/category: 'auth'/.test(src) && /category: 'startup'/.test(src) && /category: 'protocol'/.test(src) && /category: 'timeout'/.test(src), 'S6 7 类归类字面量');
   ok(/mcpClientPending/.test(src) && /复用同一个 start Promise/.test(src), 'S7 getMcpClient 并发互斥在(防孤儿子进程)');
   ok(/function safeUrlForDisplay/.test(src) && /u\.username = ''/.test(src), 'S8 URL userinfo 脱敏在');
+  // 55b: 启停/删除持久化
+  ok(/'\/api\/mcp\/connectors\/toggle'/.test(src) && /mcp_connector_toggle/.test(src), 'S9 toggle 路由 + 审计事件在');
+  ok(/req\.method === 'DELETE' && pathname === '\/api\/mcp\/connectors'/.test(src) && /mcp_connector_delete/.test(src), 'S10 DELETE 路由 + 审计事件在');
+  ok(/function mcpConnectorMutateError/.test(src) && /ai-computer-control\).*(不可|启停)/.test(src), 'S11 源守卫(desktop/drop-in 拒绝)在');
+  ok(/\{ m: 'POST', p: '\/api\/mcp\/connectors\/toggle', auth: 'token' \}/.test(src) && /\{ m: 'DELETE', p: '\/api\/mcp\/connectors', auth: 'token' \}/.test(src), 'S12 ROUTE_AUTH 两条 token 级');
+  ok(/invalidateMcpRuntime\(id\)/.test(src), 'S13 启停/删除后 invalidateMcpRuntime(杀活客户端/清冷却)');
 
   await sleep(150);
   console.log('\nMCP OPS CLOSURE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

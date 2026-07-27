@@ -625,7 +625,40 @@ verdict 需修后合入 -> 1 P2 + 3 P3 全修：
 
 ### 待续（记入后续波）
 
-- **55b 启停/删除持久化**：`POST /api/mcp/connectors/toggle` {id, enabled}、`DELETE /api/mcp/connectors` {id}（仅 config 源；desktop/drop-in 拒绝并给原因）；启停/删除不影响无关连接器，重启后状态与配置一致（退出条件#3）。
+- **55b 启停/删除持久化（已交付，见下节）**。
 - **55c 前端 GUI**：设置面板「MCP 运维」页签 -- 统一连接器列表（source 徽章 + transport + 健康灯 + 错误类别人话）+ 重测/启停/移除按钮 + 导入入口;从导入到健康检查的常见路径完全在 UI 内完成（退出条件#1）。
 - **EC-D 后半（第55波后半）**：全应用 `app.js` 领域拆分、CSS tokens/base/components/views/themes 全量物理分层、性能基准（首屏 <1.5s、视图切换 P95 <200ms），按独立迁移批次继续。
 - 本波不 bump 版本（保持 2.0.1）；EC-C 完整（55b/55c）经范围冻结/测试/打包门后再决定 2.1.x 发布。
+
+### 第55波 EC-C 续项 -- 55b 启停/删除持久化（2026-07-27）
+
+按 55a「待续」推进。本切片让用户连接器的启停与移除走 token + 审计 + 原子落盘的持久化路径，内置与用户连接器边界清晰（EC-C 退出条件#3：启停或删除连接器不影响无关连接器，重启后状态与配置一致）。多 agent 协作：Deepseek V4 对抗审查（40 次工具调用亲读改动）+ 主会话亲核修复。
+
+### 交付
+
+- **两条路由（`13b-api-domain-routes.js`，token 级入 `ROUTE_AUTH`）**：
+  - `POST /api/mcp/connectors/toggle {id, enabled:boolean}`：启停用户（config 源）连接器。enabled 非布尔 -> 400；未知 id -> 404。
+  - `DELETE /api/mcp/connectors {id}`：删除用户连接器（持久化卸载，重启不复活）。
+  - **源守卫 `mcpConnectorMutateError`**（toggle/delete 共用，防两路判定分歧）：仅 `config.externalMcpServers` 里的条目可操作；`ai-computer-control`（内置 desktop）-> 409 + 「请在设置中调整」；drop-in（运行时目录合并）-> 409 + 「请移除对应目录」；都没有 -> 404。内置连接器与用户连接器的清楚边界（退出条件：边界清晰）。
+  - **持久化闭环**：`writeConfig` 原子落盘（重启后状态与配置一致）-> `invalidateMcpRuntime(id)` 杀该 id 活客户端 + 清失败冷却（停用后不再重连、启用后可立即重测）-> `generateMcpConfig` 再生成（与 import 路径一致）-> `logEvent` 审计（`mcp_connector_toggle`/`mcp_connector_delete`）。只动该 id，无关连接器的客户端与配置不受影响。
+  - **drop-in 遮蔽接管警告**：停用或删除「遮蔽同 id drop-in 的 config 条目」后，drop-in 版本将静默生效（resolveExternalMcpServers 语义：config 优先，条目消失则 drop-in 落入清单）——响应附 `warning` 字段如实告知，不假装彻底停用/删除。
+- **e2e 扩展（`mcp-ops-closure.e2e.js`，约 60 -> 101 断言）**：
+  - **H 段 toggle（15）**：停用全路径（200/落盘/清单反映/探针 404/活客户端经 PID 证实被杀）+ 无关连接器（sse-chg 探针仍 ok、条目数不变）+ 启用后立即可重测（冷却已清）+ desktop 409/drop-in 409/未知 404/参数 400/无 token 403 + 遮蔽接管 warning（H14/H15）。
+  - **J 段 delete（10）**：未知 404/desktop 409/drop-in 409/删除 200 + 落盘（9->8->7）+ 清单消失 + 探针 404/无 token 403 + 遮蔽接管 warning（J9/J10）。
+  - **K 段 重启一致性（6）**：同 HOME 重启后停用仍停用、删除不复活、无关条目在且启用、已删除条目操作 404、停用条目不自动重连。
+  - **S 段静态锁 +5**：两路由 + 审计事件 + 源守卫 + ROUTE_AUTH 两条 token 级 + invalidateMcpRuntime 调用。
+
+### 对抗验证（Deepseek V4，40 次工具调用亲读 git diff 与产物）
+
+verdict has_bugs -> 1 real bug 已修：
+- **delete 缺 drop-in 遮蔽接管警告**（real，与 toggle 不对称）：删除遮蔽同 id drop-in 的 config 条目后用户看到 `removed:true`，实际 drop-in 版本静默接管。修：delete 路径补 `shadowed` 检查 + `warning` 响应字段（与 toggle 对称）；e2e 加 drop-shadow 夹具（config 条目 + 同 id drop-in 目录）与 H14/H15/J9/J10 断言。
+
+### 验证（全部亲跑）
+
+`mcp-ops-closure.e2e`（101 断言）全绿 ×3（无 flake）；MCP/桥/权限家族回归（`mcp-bridge`/`mcp-remote-transport`/`mcp-import-config`/`mcp-config`/`fake-mcp-contract`/`auth-deny-default`）全绿；unit 148/148；`build --check` 新鲜 + manifest 行区间自洽；`facts.static`（e2e 断言计数随 H/J/K 段增长重生成）/`manifest-ranges`/`overlay-payload-lock`/`dom-smoke` 全绿。
+
+### 待续（记入后续波）
+
+- **55c 前端 GUI**：设置面板「MCP 运维」页签 -- 统一连接器列表（source 徽章 + transport + 健康灯 + 错误类别人话）+ 重测/启停/移除按钮 + 导入入口（55a 读模型 + 55b 写路径已全部就绪）；从导入到健康检查的常见路径完全在 UI 内完成（退出条件#1）。i18n 双语。
+- **EC-D 后半（第55波后半）**：全应用 `app.js` 领域拆分、CSS 全量物理分层、性能基准。
+- 本波不 bump 版本（保持 2.0.1）；EC-C 完整（55c GUI）经范围冻结/测试/打包门后再决定 2.1.x 发布。

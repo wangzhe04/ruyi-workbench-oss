@@ -1500,6 +1500,9 @@ const ROUTE_AUTH = [
   // 第55波 EC-C(55a):MCP 运维闭环 -- 统一连接器读模型 + 健康探针。token 级(只读清单 + 探针,不改配置)。
   { m: 'GET', p: '/api/mcp/connectors', auth: 'token' },
   { m: 'POST', p: '/api/mcp/connectors/health', auth: 'token' },
+  // 55b:启停/删除持久化 -- 写配置路径,token 级同 import/apply。
+  { m: 'POST', p: '/api/mcp/connectors/toggle', auth: 'token' },
+  { m: 'DELETE', p: '/api/mcp/connectors', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
   { m: 'POST', p: '/api/playbooks', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/', auth: 'token', prefix: true },

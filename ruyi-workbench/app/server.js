@@ -1897,6 +1897,9 @@ const ROUTE_AUTH = [
   // 第55波 EC-C(55a):MCP 运维闭环 -- 统一连接器读模型 + 健康探针。token 级(只读清单 + 探针,不改配置)。
   { m: 'GET', p: '/api/mcp/connectors', auth: 'token' },
   { m: 'POST', p: '/api/mcp/connectors/health', auth: 'token' },
+  // 55b:启停/删除持久化 -- 写配置路径,token 级同 import/apply。
+  { m: 'POST', p: '/api/mcp/connectors/toggle', auth: 'token' },
+  { m: 'DELETE', p: '/api/mcp/connectors', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
   { m: 'POST', p: '/api/playbooks', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/', auth: 'token', prefix: true },
@@ -20305,7 +20308,66 @@ async function handleMcpApiRoutes(req, res, pathname) {
     logEvent({ kind: 'mcp_connector_probe', id, status: health.status, category: health.category || null });
     return send(res, json({ ok: true, health }));
   }
+  // ── 第55波 EC-C 55b: 启停/删除持久化 -- 仅 config 源(externalMcpServers)可操作 ──
+  //   desktop(内置 ai-computer-control)与 drop-in(运行时目录合并)拒绝并给原因 -- 内置连接器与
+  //   用户连接器必须有清楚边界(EC-C 退出条件)。启停/删除只动该 id:writeConfig 原子落盘(重启后
+  //   状态与配置一致) + invalidateMcpRuntime(id) 杀活客户端/清失败冷却(停用后不再重连,启用后
+  //   可立即重测) + 审计;无关连接器的客户端与配置不受影响。
+  //   mcpConnectorMutateError(id, config):可 mutate 返回 null;否则 {status, error} 人话原因。
+  // POST /api/mcp/connectors/toggle {id, enabled:boolean} -> 启停用户连接器。
+  if (req.method === 'POST' && pathname === '/api/mcp/connectors/toggle') {
+    const body = await readJsonBody(req);
+    const id = String((body && body.id) || '').trim();
+    if (!id) return send(res, json({ ok: false, error: 'id is required' }, 400));
+    if (typeof (body && body.enabled) !== 'boolean') return send(res, json({ ok: false, error: 'enabled 必须是布尔值(true=启用 / false=停用)' }, 400));
+    const enabled = body.enabled;
+    const config = await readConfig();
+    const guard = mcpConnectorMutateError(id, config);
+    if (guard) return send(res, json({ ok: false, error: guard.error }, guard.status));
+    const list = config.externalMcpServers.slice();
+    const idx = list.findIndex(s => s && s.id === id);
+    list[idx] = { ...list[idx], enabled };
+    const next = await writeConfig({ ...config, externalMcpServers: list });
+    invalidateMcpRuntime(id);
+    await generateMcpConfig(next.mcpCommandMode).catch(() => {}); // 与 import 路径一致:启用集变化后再生成 .mcp.json
+    // 同 id drop-in 存在时,停用 config 条目会让 drop-in 版本接管(resolveExternalMcpServers:config 优先,
+    // 停用后 drop-in 落入清单)——如实告知,不静默。
+    const shadowed = !enabled && scanMcpDropIns().some(d => d && d.id === id);
+    const warning = shadowed ? `注意:存在同 id 的 drop-in 连接器,停用该 config 条目后 drop-in 版本将生效;如需彻底停用,请移除对应 drop-in 目录。` : null;
+    logEvent({ kind: 'mcp_connector_toggle', id, enabled });
+    return send(res, json({ ok: true, id, enabled, ...(warning ? { warning } : {}) }));
+  }
+  // DELETE /api/mcp/connectors {id} -> 删除用户连接器(持久化;删后即卸载,重启不复活)。
+  if (req.method === 'DELETE' && pathname === '/api/mcp/connectors') {
+    const body = await readJsonBody(req);
+    const id = String((body && body.id) || '').trim();
+    if (!id) return send(res, json({ ok: false, error: 'id is required' }, 400));
+    const config = await readConfig();
+    const guard = mcpConnectorMutateError(id, config);
+    if (guard) return send(res, json({ ok: false, error: guard.error }, guard.status));
+    const list = config.externalMcpServers.filter(s => !(s && s.id === id));
+    const next = await writeConfig({ ...config, externalMcpServers: list });
+    invalidateMcpRuntime(id);
+    await generateMcpConfig(next.mcpCommandMode).catch(() => {});
+    // 与 toggle 对称(55b 对抗审查):删除遮蔽同 id drop-in 的 config 条目后,drop-in 版本将静默接管
+    // (resolveExternalMcpServers:config 优先,条目消失则 drop-in 落入清单)——如实告知,不假装彻底删除。
+    const shadowed = scanMcpDropIns().some(d => d && d.id === id);
+    const warning = shadowed ? `注意:存在同 id 的 drop-in 连接器,删除该 config 条目后 drop-in 版本将生效;如需彻底移除,请同时删除对应 drop-in 目录。` : null;
+    logEvent({ kind: 'mcp_connector_delete', id });
+    return send(res, json({ ok: true, id, removed: true, ...(warning ? { warning } : {}) }));
+  }
   return false;
+}
+
+// 55b: toggle/delete 的源守卫。config 源(externalMcpServers 里有该 id)-> null(可操作);
+// 内置 desktop / drop-in -> 409 + 人话原因;都没找到 -> 404。toggle 与 delete 共用,防两路判定分歧。
+function mcpConnectorMutateError(id, config) {
+  if (id === 'ai-computer-control') return { status: 409, error: '内置桌面连接器(ai-computer-control)不可在此启停/删除;请在「设置」中调整桌面控制开关。' };
+  const list = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
+  if (list.some(s => s && s.id === id)) return null;
+  const drop = scanMcpDropIns().find(d => d && d.id === id);
+  if (drop) return { status: 409, error: `连接器「${id}」是 drop-in 目录运行时合并的(${drop._dropInFolder}),不可在此启停/删除;请移除对应目录后再试。` };
+  return { status: 404, error: '未找到连接器: ' + id };
 }
 
 // ── checkpoint·storage 域:/api/storage/policy|clean、/api/checkpoints/rollback、/api/session/rewind ──
