@@ -8827,6 +8827,7 @@ function switchSettingsTab(name, force) {
   if (name === 'agents') loadAgentRoles();
   if (name === 'doctor') refreshStatus();
   if (name === 'update') refreshOverlayStatus();
+  if (name === 'mcp') refreshMcpOps(false); // 55c:打开页签先取清单(不 probe);「全部重测」按钮才 probe=1
 }
 
 /* ---------------- 第53波 EC-B(53d):更新中心(编排 /api/overlay/*,PS1 受测核心) ---------------- */
@@ -8942,6 +8943,145 @@ async function overlayRollback() {
   } catch (e) {
     if (rh) rh.textContent = apiErrText(e);
   }
+}
+
+/* ---------------- 第55波 EC-C(55c):MCP 运维页签 -- 统一连接器清单 + 健康灯 + 重测/启停/移除 ---------------- */
+// 后端读模型(55a GET /api/mcp/connectors)给 source/transport/enabled/capabilities/health;
+// 写路径(55b toggle/delete)仅 config 源可操作,desktop/drop-in 按钮禁用并给原因(后端同守卫,双保险)。
+// 连接器字段(label/commandOrUrl/message)全部走 el()/textContent,绝不 innerHTML 拼接(配置串注入面)。
+const MCP_SOURCE_KEYS = { desktop: 'settings.mcp.source.desktop', config: 'settings.mcp.source.config', 'drop-in': 'settings.mcp.source.dropIn' };
+const MCP_HEALTH_KEYS = { ok: 'settings.mcp.health.ok', degraded: 'settings.mcp.health.degraded', failed: 'settings.mcp.health.failed', disabled: 'settings.mcp.health.disabled' };
+const MCP_CAT_KEYS = { auth: 'settings.mcp.cat.auth', startup: 'settings.mcp.cat.startup', network: 'settings.mcp.cat.network', timeout: 'settings.mcp.cat.timeout', security: 'settings.mcp.cat.security', tool_registration: 'settings.mcp.cat.toolRegistration', protocol: 'settings.mcp.cat.protocol', unknown: 'settings.mcp.cat.unknown' };
+let _mcpConnCache = [];
+
+function mcpHealthLampClass(item) {
+  if (!item || item.enabled === false) return 'mcp-lamp-disabled';
+  const h = item.health;
+  if (!h || !h.status) return '';
+  if (h.status === 'ok') return 'mcp-lamp-ok';
+  if (h.status === 'degraded') return 'mcp-lamp-degraded';
+  if (h.status === 'failed') return 'mcp-lamp-failed';
+  return 'mcp-lamp-disabled';
+}
+function mcpHealthText(item) {
+  if (item && item.enabled === false) return t('settings.mcp.health.disabled');
+  const h = item && item.health;
+  if (!h || !h.status) return t('settings.mcp.health.unknown');
+  const parts = [t(MCP_HEALTH_KEYS[h.status] || 'settings.mcp.health.unknown')];
+  if (h.category) parts.push(t(MCP_CAT_KEYS[h.category] || 'settings.mcp.cat.unknown'));
+  if (typeof h.toolCount === 'number') parts.push(t('settings.mcp.toolCount', { p1: h.toolCount }));
+  if (typeof h.latencyMs === 'number') parts.push(h.latencyMs + 'ms');
+  if (h.message) parts.push(String(h.message));
+  return parts.join(' · ');
+}
+
+async function refreshMcpOps(probe) {
+  const hint = $('mcpListHint');
+  if (hint) hint.textContent = t(probe ? 'settings.mcp.probing' : 'settings.mcp.loading');
+  const btn = $('mcpRefreshBtn'); if (btn) btn.disabled = true;
+  try {
+    const r = await api('/api/mcp/connectors' + (probe ? '?probe=1' : ''));
+    _mcpConnCache = Array.isArray(r.connectors) ? r.connectors : [];
+    renderMcpCompat(r.compat);
+    renderMcpConnList();
+    if (hint) hint.textContent = t('settings.mcp.count', { p1: _mcpConnCache.length });
+  } catch (e) {
+    if (hint) hint.textContent = apiErrText(e);
+  } finally { if (btn) btn.disabled = false; }
+}
+
+function renderMcpCompat(compat) {
+  const box = $('mcpCompatBox'); if (!box) return;
+  box.textContent = '';
+  const entries = compat && typeof compat === 'object' ? Object.values(compat) : [];
+  for (const c of entries) {
+    const item = el('div', 'mcp-compat-item');
+    const head = el('div'); head.append(el('code', '', String(c.transport || '')));
+    item.append(head,
+      el('div', 'mcp-compat-line', t('settings.mcp.capabilities') + ': ' + (Array.isArray(c.capabilities) ? c.capabilities.join(', ') : '')),
+      el('div', 'mcp-compat-line', t('settings.mcp.limitations') + ': ' + (Array.isArray(c.limitations) ? c.limitations.join('; ') : '')));
+    box.append(item);
+  }
+}
+
+function renderMcpConnList() {
+  const list = $('mcpConnList'); if (!list) return;
+  list.textContent = '';
+  if (!_mcpConnCache.length) { list.append(el('p', 'muted', t('settings.mcp.empty'))); return; }
+  for (const item of _mcpConnCache) list.append(mcpConnItemEl(item));
+}
+
+function mcpConnItemEl(item) {
+  const root = el('div', 'mcp-conn-item');
+  const main = el('div', 'mcp-conn-main');
+  const title = el('div', 'mcp-conn-title');
+  const badgeCls = item.source === 'desktop' ? 'mcp-badge-desktop' : item.source === 'drop-in' ? 'mcp-badge-dropin' : 'mcp-badge-config';
+  title.append(
+    el('span', ('mcp-lamp ' + mcpHealthLampClass(item)).trim()),
+    el('strong', '', String(item.label || item.id || '')),
+    el('span', 'mcp-badge ' + badgeCls, t(MCP_SOURCE_KEYS[item.source] || 'settings.mcp.source.config')),
+    el('code', 'mcp-transport', String(item.transport || 'stdio')),
+    el('span', 'muted', item.enabled === false ? t('settings.mcp.status.disabled') : t('settings.mcp.status.enabled')));
+  const sub = el('div', 'mcp-conn-sub'); sub.append(el('code', '', String(item.commandOrUrl || '')));
+  const h = item.health;
+  const hCls = item.enabled === false || !h || !h.status ? '' : (h.status === 'ok' ? 'mcp-health-ok' : h.status === 'degraded' ? 'mcp-health-degraded' : h.status === 'failed' ? 'mcp-health-failed' : '');
+  const health = el('div', 'mcp-conn-health'); health.append(el('span', hCls, mcpHealthText(item)));
+  main.append(title, sub, health);
+  const actions = el('div', 'mcp-conn-actions');
+  const retest = el('button', 'mini', t('settings.mcp.action.retest')); retest.type = 'button';
+  retest.disabled = item.enabled === false;
+  if (item.enabled === false) retest.title = t('settings.mcp.retestDisabledHint');
+  else retest.onclick = () => mcpRetest(item.id);
+  actions.append(retest);
+  const toggle = el('button', 'mini', item.enabled === false ? t('settings.mcp.action.enable') : t('settings.mcp.action.disable')); toggle.type = 'button';
+  const remove = el('button', 'mini', t('settings.mcp.action.remove')); remove.type = 'button';
+  if (item.source !== 'config') {
+    // 与 55b 后端守卫同源的人话(按钮禁用 + title 说明;后端 409 双保险)。
+    const reason = item.source === 'desktop' ? t('settings.mcp.guardDesktop') : t('settings.mcp.guardDropIn');
+    toggle.disabled = true; remove.disabled = true; toggle.title = reason; remove.title = reason;
+  } else {
+    toggle.onclick = () => mcpToggle(item.id, item.enabled !== false);
+    remove.onclick = () => mcpRemove(item.id);
+  }
+  actions.append(toggle, remove);
+  root.append(main, actions);
+  return root;
+}
+
+async function mcpRetest(id) {
+  try {
+    const r = await api('/api/mcp/connectors/health', { method: 'POST', body: JSON.stringify({ id }) });
+    const h = r && r.health;
+    const it = _mcpConnCache.find(c => c.id === id);
+    if (it && h) it.health = h;
+    renderMcpConnList();
+    if (h && h.status === 'ok') toast(t('settings.mcp.retestOk', { p1: id, p2: h.toolCount || 0 }), 'ok');
+    else if (h) toast(mcpHealthText({ health: h, enabled: true }), 'err');
+  } catch (e) { toast(apiErrText(e), 'err'); }
+}
+
+async function mcpToggle(id, currentlyEnabled) {
+  try {
+    const r = await api('/api/mcp/connectors/toggle', { method: 'POST', body: JSON.stringify({ id, enabled: !currentlyEnabled }) });
+    if (r && r.ok) {
+      toast(t(!currentlyEnabled ? 'settings.mcp.enabledOk' : 'settings.mcp.disabledOk', { p1: id }), 'ok');
+      if (r.warning) toast(String(r.warning)); // 55b: drop-in 同名接管警告(如实告知,不静默)
+    }
+  } catch (e) { toast(apiErrText(e), 'err'); } // 409 守卫人话由 apiErrText 提取
+  await refreshMcpOps(false);
+}
+
+async function mcpRemove(id) {
+  if (!confirm(t('settings.mcp.removeConfirm', { p1: id }))) return;
+  try {
+    // 与 sessions/memory 删除同款:POST + x-http-method 覆盖(代理友好;ROUTE_AUTH 按覆盖后方法匹配 DELETE)。
+    const r = await api('/api/mcp/connectors', { method: 'POST', headers: { 'x-http-method': 'DELETE' }, body: JSON.stringify({ id }) });
+    if (r && r.ok) {
+      toast(t('settings.mcp.removedOk', { p1: id }), 'ok');
+      if (r.warning) toast(String(r.warning));
+    }
+  } catch (e) { toast(apiErrText(e), 'err'); }
+  await refreshMcpOps(false);
 }
 
 /* ---------------- composer helpers ---------------- */
@@ -9227,6 +9367,9 @@ function bindEvents() {
   { const ap = $('addProviderBtn'); if (ap) ap.onclick = addProviderFromPreset; }
   { const cp0 = $('applyClaudeEndpointPresetBtn'); if (cp0) cp0.onclick = applyClaudeEndpointPreset; }
   { const im = $('importMcpFolderBtn'); if (im) im.onclick = () => importMcpFromFolder(im); } // v1.0.2 (G5c)
+  // 55c:MCP 运维页签 -- 全部重测(probe=1) + 导入入口(导入成功后刷新清单)。
+  { const rb = $('mcpRefreshBtn'); if (rb) rb.onclick = () => refreshMcpOps(true); }
+  { const mb = $('mcpImportBtn'); if (mb) mb.onclick = async () => { await importMcpFromFolder(mb); refreshMcpOps(false); }; }
   { const b = $('agentRoleRefreshBtn'); if (b) b.onclick = loadAgentRoles; }
   { const b = $('agentRoleAddBtn'); if (b) b.onclick = addAgentRole; }
   { const b = $('agentRoleSaveBtn'); if (b) b.onclick = saveAgentRoles; }

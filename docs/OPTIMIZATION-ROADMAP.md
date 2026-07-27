@@ -626,7 +626,7 @@ verdict 需修后合入 -> 1 P2 + 3 P3 全修：
 ### 待续（记入后续波）
 
 - **55b 启停/删除持久化（已交付，见下节）**。
-- **55c 前端 GUI**：设置面板「MCP 运维」页签 -- 统一连接器列表（source 徽章 + transport + 健康灯 + 错误类别人话）+ 重测/启停/移除按钮 + 导入入口;从导入到健康检查的常见路径完全在 UI 内完成（退出条件#1）。
+- **55c 前端 GUI（已交付，见 55b 节后）**。
 - **EC-D 后半（第55波后半）**：全应用 `app.js` 领域拆分、CSS tokens/base/components/views/themes 全量物理分层、性能基准（首屏 <1.5s、视图切换 P95 <200ms），按独立迁移批次继续。
 - 本波不 bump 版本（保持 2.0.1）；EC-C 完整（55b/55c）经范围冻结/测试/打包门后再决定 2.1.x 发布。
 
@@ -659,6 +659,35 @@ verdict has_bugs -> 1 real bug 已修：
 
 ### 待续（记入后续波）
 
-- **55c 前端 GUI**：设置面板「MCP 运维」页签 -- 统一连接器列表（source 徽章 + transport + 健康灯 + 错误类别人话）+ 重测/启停/移除按钮 + 导入入口（55a 读模型 + 55b 写路径已全部就绪）；从导入到健康检查的常见路径完全在 UI 内完成（退出条件#1）。i18n 双语。
+- **55c 前端 GUI（已交付，见下节）**。
 - **EC-D 后半（第55波后半）**：全应用 `app.js` 领域拆分、CSS 全量物理分层、性能基准。
 - 本波不 bump 版本（保持 2.0.1）；EC-C 完整（55c GUI）经范围冻结/测试/打包门后再决定 2.1.x 发布。
+
+### 第55波 EC-C 续项 -- 55c 前端 GUI（2026-07-27）
+
+按 55b「待续」推进。本切片把 55a 读模型 + 55b 写路径接上设置面板「MCP 运维」页签，非程序员从导入到健康检查的常见路径完全在 UI 内完成（EC-C 退出条件#1）。多 agent 协作：Deepseek V4 对抗审查（27 次工具调用亲读 diff 与契约对账，verdict SAFE）+ 主会话亲核接线。
+
+### 交付
+
+- **页签（`index.html`）**：`data-stab="mcp"` 页签按钮 + `stab-mcp` 面板（全部重测 / 从文件夹导入按钮 + 连接器清单容器 + 传输兼容性说明区）。简易模式（人人可用界面）不含该页签：CSS 隐藏按钮（`styles.css` simple 规则 + `data-stab="mcp"`）+ `SETTINGS_SIMPLE_TABS` 白名单不收 mcp（JS 兜底切回基础）。
+- **清单渲染（`app.js` refreshMcpOps 函数族）**：每条连接器 = 健康灯（ok/degraded/failed/disabled 四态）+ label + **source 徽章**（内置桌面/用户导入/drop-in 目录三色）+ transport + 启停状态 + commandOrUrl（后端已剥 userinfo）+ 健康行（状态 + **8 类错误归类人话**（auth/startup/network/timeout/security/tool_registration/protocol/unknown）+ 工具数 + 延迟 + 原始 message）。底部渲染 `MCP_COMPAT_MATRIX` 三 transport 能力/限制（连接前说明，退出条件#4）。
+- **操作**：每条 重测（POST health，原地更新该行健康态）/ 启停（toggle 后全量重拉，响应 warning 如实 toast）/ 移除（confirm 后 POST + `x-http-method: DELETE`，与 sessions/memory 删除同款代理友好模式）；desktop/drop-in 源的启停/移除按钮禁用 + title 人话原因（与 55b 后端 409 守卫同源，双保险）。「全部重测」= probe=1 全量探针；「从文件夹导入」复用 importMcpFromFolder，导入成功后刷新清单。
+- **渲染纪律**：连接器字段（label/commandOrUrl/health.message 均可被配置串控制）全部走 `el()`/textContent，55c 块零 innerHTML 赋值（静态锁 M13）。
+- **i18n**：`settings.mcp.*` 43 键 × zh-CN/en-US ×（运行时 + docs/i18n 事实源）四份同步；占位符 `{{p1}}/{{p2}}` 中英对称。
+- **e2e（新 `mcp-ops-gui.static.e2e.js`，66 断言，53d 模式）**：页签/面板/容器在（M1-M4）、函数族 + hook + 按钮绑定 + 四条 API 调用 + 删除 x-http-method 形态（M5-M10）、简易模式双保险（M11/M12）、零 innerHTML（M13）、样式类（M14）、43 键四份对等 + 占位符对称（M15-M18）、后端 8 类别与路由在位（M19/M20）。
+- **顺手还债**：`dom-contract` 补登 `ovRecoverBtn` 动态 id 豁免（53d 既有遗漏，overlayApply 失败分支 innerHTML 动态建再 `$()` 取——与 55c 无关，本波回归抓出）。
+
+### 对抗验证（Deepseek V4，27 次工具调用亲读 git diff/契约/locale）
+
+verdict SAFE，零真实缺陷：XSS 面（全 textContent + 后端 userinfo 剥离）、字段名与 API 契约逐一对账（15 字段零 typo）、i18n 43 键四份在、`_mcpConnCache` 三操作刷新策略（retest 原地 mutate / toggle·remove 全量重拉）、事件绑定全路径闭合、M1-M20 断言无假阳性。主会话另亲核页签委托接线（`#settingsTabs button` → switchSettingsTab）。
+
+### 验证（全部亲跑）
+
+`mcp-ops-gui.static.e2e`（66 断言）全绿；`i18n.static`/`i18n.e2e`/`dom-smoke`/`dom-contract`/`facts.static`（重生成）全绿；`mcp-ops-closure`（101 断言）回归全绿。public/ 改动不涉及 src/，无需 build（manifest 行区间不受影响）。
+
+### 待续（记入后续波）
+
+- **EC-C 收尾**：55a/55b/55c 三切片已齐（读模型 + 写路径 + GUI）。范围冻结/测试/打包门后可评估 2.1.x 发布。
+- **EC-D 后半（第55波后半）**：全应用 `app.js` 领域拆分、CSS 全量物理分层、性能基准（首屏 <1.5s、视图切换 P95 <200ms）。
+- 本波不 bump 版本（保持 2.0.1）。
+

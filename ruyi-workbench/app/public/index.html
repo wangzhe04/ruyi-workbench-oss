@@ -507,6 +507,7 @@
             <button type="button" data-stab="providers" data-i18n="settings.providers">服务商</button>
             <button type="button" data-stab="agents" data-i18n="settings.agents">Agent 角色</button>
             <button type="button" data-stab="integrations" data-i18n="settings.integrations">集成 / MCP</button>
+            <button type="button" data-stab="mcp" data-i18n="settings.mcp.tab">MCP 运维</button>
             <button type="button" data-stab="network" data-i18n="settings.network">联网搜索</button>
             <button type="button" data-stab="doctor" data-i18n="navigation.doctor">体检</button>
             <button type="button" data-stab="advanced" data-i18n="settings.advanced">高级</button>
@@ -766,6 +767,27 @@
               <label data-i18n="settings.externalMcpServer">外部 MCP 服务</label>
               <p class="field-help muted" data-i18n="settings.externalMcpServer.hint">从含 ruyi-mcp.json 清单的文件夹一键导入一个外部 MCP 服务。</p>
               <button type="button" id="importMcpFolderBtn" class="file-label" data-i18n="settings.externalMcpServer.import">📁 从文件夹添加 MCP…</button>
+            </div>
+          </div>
+
+          <!-- ===== MCP 运维 (第55波 EC-C 55c): 统一连接器清单 + 健康灯 + 重测/启停/移除 ===== -->
+          <div class="settings-tab" id="stab-mcp">
+            <div class="settings-section-head">
+              <div>
+                <h4 class="settings-subhead" data-i18n="settings.mcp.title">MCP 连接器运维</h4>
+                <p class="muted prov-hint" data-i18n="settings.mcp.hint">查看全部连接器（内置桌面 / 用户导入 / drop-in 目录）的连接状态与失败原因，可重测、启停或移除，无需手改 JSON 配置。</p>
+              </div>
+            </div>
+            <div class="adv-row">
+              <button type="button" id="mcpRefreshBtn" class="file-label" data-i18n="settings.mcp.refreshAll">🔄 全部重测</button>
+              <button type="button" id="mcpImportBtn" class="file-label" data-i18n="settings.mcp.import">📁 从文件夹导入 MCP…</button>
+            </div>
+            <p class="field-help muted" id="mcpListHint"> </p>
+            <div class="mcp-conn-list" id="mcpConnList"></div>
+            <hr class="settings-sep" />
+            <div class="field-block">
+              <label data-i18n="settings.mcp.compat">传输兼容性说明</label>
+              <div class="mcp-compat" id="mcpCompatBox"></div>
             </div>
           </div>
 
