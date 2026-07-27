@@ -112,8 +112,14 @@ async function getToken(port) {
   ok(app.includes("'turn-segment narrative-steer'") && app.includes('sealLiveTextSegment(turn.live)')
     && /narrative\.appendChild\(seg\)/.test(app) && app.includes('startLiveTextSegment(turn.live)')
     && /turn\.live\.narrative\.isConnected/.test(app), 'S21b EC-D 56 插话内嵌 narrative(seal 当前段 -> append segment -> 开新文本段,有活动 turn 前提)');
-  // EC-D 56(防重复):活动 live turn 的 steered 消息已内嵌,静态渲染跳过其独立行(turnSeq 匹配 + 活动 turn 存在)。
-  ok(/m\.steered && liveForSession && Number\.isFinite\(activeTurnSeq\) && Number\(m\.turnSeq\) === activeTurnSeq/.test(app), 'S21c EC-D 56 renderCurrentSession 跳过活动 turn 的 steered 静态行(防内嵌与静态重复)');
+  // EC-D 56/56b(防重复):插话已内嵌(活动 live turn 或助手回合 segments 含 steer 段)时,静态渲染跳过其独立行。
+  ok(app.includes('turnsWithSteerSegment') && /turnsWithSteerSegment\.has\(ts\)/.test(app)
+    && /\(liveForSession && Number\.isFinite\(activeTurnSeq\) && ts === activeTurnSeq\)/.test(app)
+    && app.includes('Number(am.turnSeq != null ? am.turnSeq : (am.turnSummary && am.turnSummary.turnSeq))'), 'S21c EC-D 56/56b renderCurrentSession 跳过插话独立行(活动 turn 或助手回合 segments 含 steer 段,防内嵌重复)');
+  // EC-D 56b(持久化):后端 turnSegments.consume 把 steered 事件持久化为 steer segment -> 刷新后静态内嵌(消除 live↔静态差异)。
+  ok(src.includes("evt.type === 'steered'") && /segments\.push\(\{ id: nextId\(\), type: 'steer', text:/.test(src), 'S29 EC-D 56b 后端 consume steered->steer segment 持久化');
+  ok(app.includes('function buildNarrativeSteerSegment') && /segment\.type === 'steer'/.test(app)
+    && /narrative\.append\(buildNarrativeSteerSegment\(segment\.text\)\)/.test(app), 'S30 EC-D 56b 静态叙事渲染 steer 段(buildNarrativeSteerSegment live/静态共享)');
   // EC-D 56(粘性自动滚动):上滑阅读不拽回,接近底部恢复跟随。
   ok(app.includes('let stickToBottom = true;') && app.includes('function maybeScrollToBottom') && app.includes('function syncStickToBottom'), 'S26 EC-D 56 粘性滚动状态 + 辅助函数在');
   ok(app.includes("mb.addEventListener('scroll', syncStickToBottom") && /if \(stickToBottom\) \{ const box = \$\('messages'\); if \(box\) box\.scrollTop = box\.scrollHeight; \}/.test(app)
@@ -176,6 +182,11 @@ async function getToken(port) {
     const steeredMsgs = msgs.filter(m => m && m.steered === true);
     ok(steeredMsgs.length === 3, 'A7 会话正文持久化 steered:true ×3(刷新不丢, got ' + steeredMsgs.length + ')');
     ok(steeredMsgs.some(m => m.content === '伪造前缀测试'), 'A8 伪造前缀被中和(正文不残留 [用户插话] 前缀)');
+    // EC-D 56b: 助手回合 segments 含 steer 段(刷新后静态内嵌,消除 live↔静态差异)。
+    const assistantWithSteer = msgs.filter(m => m && m.role === 'assistant' && Array.isArray(m.segments) && m.segments.some(s => s && s.type === 'steer'));
+    const steerSegs = assistantWithSteer.length ? assistantWithSteer[assistantWithSteer.length - 1].segments.filter(s => s && s.type === 'steer') : [];
+    ok(assistantWithSteer.length >= 1, 'A7b 助手回合 segments 含 steer 段(持久化, got ' + assistantWithSteer.length + ')');
+    ok(steerSegs.length === 3 && steerSegs.some(s => s.text === '改用方案B'), 'A7c steer segment ×3 与 steered 事件一致(位置由事件流顺序决定, got ' + steerSegs.length + ')');
 
     // ───────────────── B 段: 分流纪律(提问挂起拒 → 回答后不再因此拒) ─────────────────
     console.log('── B 段: AskUser 挂起分流 ──');

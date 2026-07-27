@@ -2656,6 +2656,16 @@ function createTurnSegmentBuilder() {
       fallbackBatchId = ''; lastEventType = 'mission';
       return;
     }
+    if (evt.type === 'steered') {
+      // EC-D 56b: 插话作为 turn narrative 内的 segment 持久化(与 live 内嵌同源),刷新后静态渲染也内嵌在助手回合内,
+      //   不再回退为独立 user 行(消除 live↔静态视觉差异)。位置由事件流顺序决定(注入时机点 = pre 文字之后/post 文字之前)。
+      //   空文本守卫与 appendText 一致(API 层已拒空文本,此为防御性兜底,防空 steer 段渲染空 bubble)。
+      const steerText = String(evt.text || '');
+      if (!steerText.trim()) return;
+      segments.push({ id: nextId(), type: 'steer', text: steerText });
+      fallbackBatchId = ''; lastEventType = 'steer';
+      return;
+    }
     if (evt.type === 'result' && evt.ok === false && (evt.error || evt.reason)) {
       segments.push({
         id: nextId(), type: 'error',

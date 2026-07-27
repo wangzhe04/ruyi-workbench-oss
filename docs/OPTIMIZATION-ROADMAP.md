@@ -718,7 +718,7 @@ verdict SAFE，零真实缺陷：XSS 面（全 textContent + 后端 userinfo 剥
 - **并行模式 flake 治理**：mcp-ops-closure 的 getFreePort 竞态 + K 段重启窗口（见上「诚实交代」）；run-all --parallel 成为可信路径前不算并行门。
 - git tag `v2.1.0` 与 origin 推送属发布动作，待用户确认后执行。
 
-## 第56波 EC-D 后半 · 切片一 -- 对话交互收口：插话插入点 + 粘性自动滚动（2026-07-27）
+## 第56波 EC-D 后半 · 切片一 + 切片二 -- 对话交互收口：插话插入点 + 粘性自动滚动（2026-07-27）
 
 按 §“EC-D · 安静工作台”退出条件“输入焦点和滚动锚点保持稳定”推进。本切片收口用户报告的两处交互负担，是 54 波回合叙事化之后的自然交互收尾（EC-D 后半按独立迁移批次继续，本切片不混入 `app.js` 全量拆域 / CSS 分层 / 性能基准）。
 
@@ -733,9 +733,17 @@ verdict SAFE，零真实缺陷：XSS 面（全 textContent + 后端 userinfo 剥
 - 快通道 21 件静态锁全绿（含 `streaming-responsiveness` / `turn-narrative` / `ui-v3-p1~p3b` / `ui-v4-glass` / `ui-bugfix` / `i18n` / `overlay-payload-lock`）；`steering-claude.e2e` 全绿（新增 S21b/S21c/S26/S27/S28 静态锁 + live A-E 段）；`steer-interrupt.e2e` / `dom-smoke.e2e`（真实 Edge 渲染）/ `claude-context-continuity.e2e` / `e3-engine-switch-continuity.e2e` 全绿。
 - **对抗验证**：Deepseek V4 Pro 子代理 8 场景亲读源码判定 SAFE--null bubble seal 安全 / dedup 与闪绿 DOM 匹配内嵌 segment / `mountActiveTurn` 重放一致 / 重复渲染守卫在 turn 结束后正确失效 / 粘性状态机无振荡 / 无路径误用 `scrollMessagesToBottom` / CSS 特异性覆盖生效 / 无静态锁破坏。审查另指出 4 处既有（非本波引入）覆盖缺口（`subagent` / `agent_workflow` / `ask_user` / `permission_request` 不跟随滚动），本切片顺手补全。
 
+### 切片二 · 56b -- 插话段持久化进 segments（消除 live↔静态差异）
+
+切片一刷新后插话回退独立行（兼容期）；本切片把 steered 事件持久化为助手回合的 `steer` segment，让静态重进也内嵌在原位。
+
+- **后端**：`createTurnSegmentBuilder.consume`（`02-session-store.js`）新增 `steered` case -> push `{type:'steer',text}` segment（空文本守卫与 `appendText` 一致）。`steered` 事件在双引擎都流经 `onEvent` 包装的 `turnSegments.consume`（Claude 路由 `13b:265` / provider `drainSteerQueue` `07:1281`），位置由事件流顺序决定（pre 文字 -> 插话 -> post 文字）。`snapshot()` 在 turn 末把 steer 段写进助手消息 `segments`。
+- **前端**：抽 `buildNarrativeSteerSegment(text)` 共享 helper（live `renderSteeredMessage` 与静态 `renderStaticTurnNarrative` 复用，DOM 完全一致）；`renderStaticTurnNarrative` 新增 `segment.type === 'steer'` 分支。`renderCurrentSession` 跳过逻辑扩展：除活动 live turn 外，助手回合 segments 含 steer 段时（`turnsWithSteerSegment` Set，turnSeq 取 `am.turnSeq ?? am.turnSummary?.turnSeq` 兼容 provider 无顶层 turnSeq）也跳过 steered 独立行。旧会话（无 steer segment）不命中 -> 仍独立行（向后兼容）。steered 行恒在助手回合之前（push 顺序），窗口内跳过不丢内容（j>i>=start）。
+- **验证**：`steering-claude.e2e` 新增 S29（后端 consume）/ S30（静态渲染 + helper）/ A7b/c（助手回合持久化 steer 段 ×3，位置正确）全绿；快通道 21 件 + `steer-interrupt`（provider 路径）/ `dom-smoke` / `claude-context-continuity` 全绿；build freshness 一致。**对抗验证**：Deepseek V4 Pro 8 场景亲读源码 SAFE（segment 位置 / tool batch 不误并 / turnSeq 回退 / 窗口边界 / live↔静态 DOM 一致 / 冗余不误导 / 无回归 / 空文本守卫）。
+
 ### 待续（记入后续波）
 
 - **EC-D 后半（继续）**：全应用 `app.js` 领域拆分、CSS tokens/base/components/views/themes 全量物理分层、性能基准（首屏 <1.5s、视图切换 P95 <200ms）。
-- **插话段持久化进 segments**：当前刷新后插话回退独立行（兼容期）；后续可把 steered 消息并入助手回合的 `segments` 数组，让静态重进也内嵌（消除 live↔静态的视觉差异）。
 - **`scheduleLiveThinkingFollow` 粘性对齐**：思考框跟随滚动仍用事件期捕获的 `messagesAtBottom()`（独立于 `stickToBottom`，亚毫秒竞态），后续可统一到粘性状态机。
-- 本切片不 bump 版本（保持 2.1.0）；收尾时另走 2.1.x 发布门。
+- **steered 消息数据冗余**：steered user 消息仍保留在 `session.messages`（保 messageCount 准确 + 向后兼容 + 跨引擎同步），UI 由 `renderCurrentSession` 跳过不重复显示；后续可评估是否从 messages 移除仅留 segment。
+- 本波不 bump 版本（保持 2.1.0）；收尾时另走 2.1.x 发布门。

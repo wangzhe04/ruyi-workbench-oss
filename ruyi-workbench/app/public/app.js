@@ -967,13 +967,27 @@ function renderCurrentSession() {
   const existing = new Map(Array.from(box.querySelectorAll('[data-message-key]')).map(row => [row.dataset.messageKey, row]));
   const fragment = document.createDocumentFragment();
   if (start > 0) fragment.appendChild(buildLoadEarlierButton(start));
-  // EC-D 56: 活动 live turn 的插话已作为 segment 内嵌在 narrative 内,跳过其静态独立行防重复
-  //   (live DOM 在 turn 结束后保留;活动 turn 删除后 liveForSession 为空 -> 守卫自动失效,steered 行正常静态渲染)。
+  // EC-D 56/56b: 插话已作为 segment 内嵌在助手回合 narrative 内时,跳过其独立 user 行防重复。
+  //   ① 活动 live turn(已内嵌 live;turn 结束 activeTurns.delete 后 liveForSession 空 -> 此条失效);
+  //   ② 助手回合 segments 已含 steer 段(刷新后静态内嵌,56b)-> 跳过独立行。
+  //   旧会话(无 steer segment)不命中 ② -> 仍按独立行渲染(向后兼容)。steered 行恒在助手回合之前(push 顺序),
+  //   故 steered 行在窗口内(i>=start)时其助手回合必也在窗口内(j>i>=start),跳过不会丢内容。
   const liveForSession = activeTurns.get(session.id);
   const activeTurnSeq = Number(session.turnSeq);
+  const turnsWithSteerSegment = new Set();
+  for (const am of msgs) {
+    if (am && am.role === 'assistant' && Array.isArray(am.segments) && am.segments.some(s => s && s.type === 'steer')) {
+      const ts = Number(am.turnSeq != null ? am.turnSeq : (am.turnSummary && am.turnSummary.turnSeq));
+      if (Number.isFinite(ts)) turnsWithSteerSegment.add(ts);
+    }
+  }
   for (let i = start; i < msgs.length; i++) {
     const m = msgs[i];
-    if (m && m.steered && liveForSession && Number.isFinite(activeTurnSeq) && Number(m.turnSeq) === activeTurnSeq) continue;
+    if (m && m.steered) {
+      const ts = Number(m.turnSeq);
+      if ((liveForSession && Number.isFinite(activeTurnSeq) && ts === activeTurnSeq)
+        || (Number.isFinite(ts) && turnsWithSteerSegment.has(ts))) continue;
+    }
     const key = messageDomKey(m, i, session.id);
     const signature = messageRenderSignature(m, getLocale());
     let row = existing.get(key);
@@ -2110,6 +2124,7 @@ function renderStaticTurnNarrative(msg, host) {
     }
     i += 1;
     if (segment.type === 'text') narrative.append(narrativeTextBubble(segment.text));
+    else if (segment.type === 'steer') narrative.append(buildNarrativeSteerSegment(segment.text)); // EC-D 56b: 刷新后插话内嵌在助手回合内(与 live 同源)
     else if (segment.type === 'thinking') narrative.append(thinkingPanel(segment.text || '').d);
     else if (segment.type === 'plan') narrative.append(narrativePlanCard(segment));
     else if (segment.type === 'question') narrative.append(narrativeQuestionCard(segment));
@@ -2882,6 +2897,16 @@ function flashSteerBadge(row) {
   badge.style.background = 'rgba(22,163,74,.1)';
   setTimeout(() => { badge.style.color = ''; badge.style.fontWeight = ''; badge.style.background = ''; }, 3000);
 }
+// EC-D 56b: 构造 turn narrative 内的内嵌插话 segment(live renderSteeredMessage 与静态 renderStaticTurnNarrative 共享,
+//   确保流式与刷新后视觉一致)。用户插话原文用 textContent(不进 markdown,防 XSS 与引用断裂)。
+function buildNarrativeSteerSegment(text) {
+  const seg = el('div', 'turn-segment narrative-steer');
+  seg.appendChild(el('span', 'steered-badge', t('chat.steer')));
+  const bubble = el('div', 'bubble');
+  bubble.textContent = String(text || '');
+  seg.appendChild(bubble);
+  return seg;
+}
 function renderSteeredMessage(text, justInjected) {
   const box = $('messages');
   box.querySelector('.empty-state')?.remove();
@@ -2906,12 +2931,8 @@ function renderSteeredMessage(text, justInjected) {
   const narrative = turn && turn.live && turn.live.narrative && turn.live.narrative.isConnected ? turn.live.narrative : null;
   if (narrative) {
     sealLiveTextSegment(turn.live); // 封存插话前的助手文本 -> 插话落在其后(无文本则移除空 bubble)
-    const seg = el('div', 'turn-segment narrative-steer');
-    seg.appendChild(el('span', 'steered-badge', t('chat.steer')));
-    const bubble = el('div', 'bubble');
-    bubble.textContent = String(text || ''); // 用户插话原文不进 markdown(textContent 防 XSS 与引用断裂)
-    seg.appendChild(bubble);
-    seg.dataset.steered = 'true'; // renderStaticMessage 已设,此处冗余保留(幂等检查/闪绿匹配覆盖)
+    const seg = buildNarrativeSteerSegment(text);
+    seg.dataset.steered = 'true'; // 幂等检查/闪绿匹配覆盖
     seg.dataset.steerTs = String(now); // 时间戳供幂等窗口判定(静态重渲染行无此标记 -> 超窗 -> 不阻止新插话)
     narrative.appendChild(seg);
     startLiveTextSegment(turn.live); // 插话后开新文本段,后续助手文本流入新 bubble(空则 finalizeLive 移除)
