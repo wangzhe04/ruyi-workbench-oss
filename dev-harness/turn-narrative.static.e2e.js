@@ -9,11 +9,16 @@ const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const store = read('ruyi-workbench/app/src/02-session-store.js');
 const claude = read('ruyi-workbench/app/src/05-claude-engine.js');
 const provider = read('ruyi-workbench/app/src/09-workflow.js');
-const app = read('ruyi-workbench/app/public/app.js');
+const app = [
+  read('ruyi-workbench/app/public/app.js'),
+  read('ruyi-workbench/app/public/js/chat-render-primitives.js'),
+  read('ruyi-workbench/app/public/js/chat-static-renderer.js'),
+  read('ruyi-workbench/app/public/js/chat-stream-runtime.js'),
+].join('\n');
 const index = read('ruyi-workbench/app/public/index.html');
 const narrativeModule = read('ruyi-workbench/app/public/js/turn-narrative.js');
 const icons = read('ruyi-workbench/app/public/js/icons.js');
-const css = read('ruyi-workbench/app/public/styles.css');
+const css = require('./read-frontend-css.js').readFrontendCss();
 const zh = JSON.parse(read('ruyi-workbench/app/public/locales/zh-CN.json'));
 const en = JSON.parse(read('ruyi-workbench/app/public/locales/en-US.json'));
 
@@ -85,7 +90,8 @@ ok(/function compactNarrativeProcessRuns\(/.test(app)
   && /\.narrative-process-group/.test(css), 'N10e2 长思考与工具交替阶段自动收成一行过程记录');
 ok(/function scheduleLiveThinkingFollow\(/.test(app)
   && /live\.thinkingEl\.scrollTop = live\.thinkingEl\.scrollHeight/.test(app)
-  && /messagesAtBottom\(\)/.test(app), 'N10e3 流式思考框与消息区采用近底部跟随滚动');
+  && /maybeScrollToBottom\(\)/.test(app)
+  && !/followThinkingMessages/.test(app), 'N10e3 流式思考框与消息区统一走粘性控制器(无事件期位置快照)');
 ok(/trace:\s*\[\['path'/.test(icons) && /icon\('trace', 13\)/.test(app)
   && !css.includes('🧠') && !css.includes('💭'), 'N10f 思考片段使用冷色线性轨迹图标且无脑形 emoji');
 ok(/function settleLiveThinking\(/.test(app) && /evt\.type !== 'thinking_delta'/.test(app)

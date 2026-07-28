@@ -12,7 +12,7 @@ const path = require('path');
 const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 
 const src = readFrontendSrc();
-const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
+const css = require('./read-frontend-css.js').readFrontendCss();
 const zh = JSON.parse(fs.readFileSync(path.join(PUB, 'locales', 'zh-CN.json'), 'utf8'));
 
 let fail = 0;

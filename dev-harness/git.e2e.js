@@ -62,7 +62,7 @@ function gitAvailable() {
   {
     const server = readServerSource();
     const appjs = readFrontendSrc(); // 聚合:public/app.js + public/js/**/*.js(拆分后函数不再只在 app.js)
-    const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
+    const css = require('./read-frontend-css.js').readFrontendCss();
 
     // ⑥a server.js 的 NATIVE_TOOL_TIER 表里 git_commit 为 exec(读 tier 表断言)。
     ok(/git_commit:\s*'exec'/.test(server), "⑥ server.js NATIVE_TOOL_TIER git_commit === 'exec'");

@@ -44,8 +44,11 @@ assert.ok(server.appendTurnPolicies('base', server.defaultConfig(), false, 0, tr
 assert.ok(!server.appendTurnPolicies('base', server.defaultConfig(), false).includes('<ruyi-claude-native-agent-lifecycle>'), 'provider policy must not inherit Claude CLI lifecycle instructions');
 
 const html = read('app/public/index.html');
-const css = read('app/public/styles.css');
-const app = read('app/public/app.js');
+const css = require('./read-frontend-css.js').readFrontendCss();
+const app = [
+  read('app/public/app.js'),
+  read('app/public/js/chat-stream-runtime.js'),
+].join('\n');
 const source = read('app/server.js');
 assert.ok(html.includes('id="agentTeamBtn"'));
 assert.ok(css.includes('.agent-team-btn[aria-pressed="true"]'));

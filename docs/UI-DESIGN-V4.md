@@ -1,9 +1,10 @@
 # UI-DESIGN-V4 · 现代毛玻璃质感(定稿)
 
 > 状态:**定稿**(2026-07-22,第50波)。本文是如意工作台第四代视觉语言的设计基线,token 值与
-> `ruyi-workbench/app/public/styles.css` 一致(设计稿生命周期见 docs/README.md)。
+> `ruyi-workbench/app/public/css/tokens.css` 与 `css/themes/color-schemes.css` 一致；
+> `styles.css` 仅保留按级联顺序导入各层的兼容清单(设计稿生命周期见 docs/README.md)。
 > 原型:`docs/mockups/v4-glass-home.html` / `v4-glass-workbench.html`(双主题,经所有者两轮质感评审:
-> 第 2 轮"深色要更高级"迭代值已回写 styles.css)。
+> 第 2 轮"深色要更高级"迭代值已回写上述 token / 主题层)。
 
 ## 1. 总体语言:从"纯色平铺"到"分层磨砂"
 
@@ -55,7 +56,7 @@
   场景**自动降级**为半透明纯色(`data-glass="off"` 统一切换,静态锁机械约束)。
 - **合成层纪律**:玻璃元素禁滥用 `will-change`;浮层动画只动 transform/opacity;blur 封顶 24px。
 - **降级路径**:`@supports not (backdrop-filter)` → token 级实色回退(布局零变化);
-  `prefers-reduced-transparency` → 关模糊(均已落 styles.css)。
+  `prefers-reduced-transparency` → 关模糊(均已落 `css/themes/ui-modes.css`)。
 - **对比度兜底**:阅读区不磨砂;框架/浮层文字底色是 panel 系实色,玻璃只在其上叠一层薄纱,
   theme.e2e 的 WCAG 红线(ink/bg≥7、muted/panel≥4.5、accent-ink/accent≥4.5、link/bg≥4.5)持续生效。
 

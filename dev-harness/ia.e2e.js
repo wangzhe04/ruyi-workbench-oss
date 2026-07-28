@@ -66,7 +66,7 @@ function between(hay, startNeedle, endNeedle) {
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
   const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
-  const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
+  const css = require('./read-frontend-css.js').readFrontendCss();
   const appjs = readFrontendSrc(); // 聚合:public/app.js + public/js/**/*.js(拆分后函数不再只在 app.js)
 
   // ════════════ ① tool-tabs 两组结构，常驻组在前 ════════════

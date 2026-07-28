@@ -11,6 +11,10 @@ import { getLocale } from './i18n.js';
 // 按 id 取元素 / 造元素(全站两大高频 helper)。
 export const $ = id => document.getElementById(id);
 export const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+export const fileBasename = pathValue => {
+  const value = String(pathValue || '');
+  return value.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || value;
+};
 
 // HTML 转义(XSS 安全渲染兜底)。
 export function escapeHtml(s) {

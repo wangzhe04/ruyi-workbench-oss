@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 
-const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
+const css = require('./read-frontend-css.js').readFrontendCss();
 const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
 const src = readFrontendSrc();
 const SKILLS_DIR = path.resolve(__dirname, '..', 'ruyi-workbench', 'resources', 'plugins',

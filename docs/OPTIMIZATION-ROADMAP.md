@@ -744,6 +744,221 @@ verdict SAFE，零真实缺陷：XSS 面（全 textContent + 后端 userinfo 剥
 ### 待续（记入后续波）
 
 - **EC-D 后半（继续）**：全应用 `app.js` 领域拆分、CSS tokens/base/components/views/themes 全量物理分层、性能基准（首屏 <1.5s、视图切换 P95 <200ms）。
-- **`scheduleLiveThinkingFollow` 粘性对齐**：思考框跟随滚动仍用事件期捕获的 `messagesAtBottom()`（独立于 `stickToBottom`，亚毫秒竞态），后续可统一到粘性状态机。
+- **`scheduleLiveThinkingFollow` 粘性对齐（已交付，见第57波）**：思考框原先使用事件期捕获的 `messagesAtBottom()`（独立于 `stickToBottom`，存在亚毫秒竞态），现已统一到聊天滚动控制器。
 - **steered 消息数据冗余**：steered user 消息仍保留在 `session.messages`（保 messageCount 准确 + 向后兼容 + 跨引擎同步），UI 由 `renderCurrentSession` 跳过不重复显示；后续可评估是否从 messages 移除仅留 segment。
 - 本波不 bump 版本（保持 2.1.0）；收尾时另走 2.1.x 发布门。
+
+## 第57波 EC-D 后半 · 切片三 -- 聊天滚动领域拆分 + 思考跟随竞态收口（2026-07-28）
+
+按第56波待续项「`scheduleLiveThinkingFollow` 粘性对齐」推进，同时开始兑现 EC-D 的 `app.js` 领域拆分。本切片只抽滚动状态与事件入口，不混入 CSS 全量搬家或大规模视图重写。
+
+### 交付
+
+- **新前端领域模块 `public/js/chat-scroll.js`**：`createChatScrollController` 统一持有“是否跟随最新”的用户意图，对外提供 `maybeScrollToBottom`、`syncStickToBottom`、`resetStickyScroll`、`scrollMessagesToBottom`、`updateJumpLatest` 等窄接口；DOM 获取与 streaming 状态通过依赖注入，模块可在无浏览器环境直接做行为测试。`app.js` 删除原 `stickToBottom` 全局单例和五个散落辅助函数，正文、思考、工具、语义卡、错误/备注统一走同一入口。
+- **根治思考跟随亚毫秒竞态**：旧 `thinking_delta` 在 DOM 增长前捕获 `messagesAtBottom()`，timer 执行时按这份事件期快照决定是否滚动；正文 RAF 则读 `stickToBottom`，两条路径可能分歧。新实现只有 `#messages` 的真实 `scroll` 事件能改变粘性意图；DOM 增长只调用 `maybeScrollToBottom()`。用户在底部时持续跟随，真实上滑后任何流式增长都不再把阅读位置拽回。
+- **生命周期统一**：新回合开始、切会话与点击「回到最新」均经控制器恢复粘性；流结束后跳转按钮按 streaming 状态收起。思考面板自己的内部滚动仍独立尊重用户是否停在面板底部，不与消息区状态混用。
+- **发布载荷闭环**：`chat-scroll.js` 登记进 overlay `PAYLOAD_FILES`；既有三向载荷锁继续保证“运行时 import、磁盘文件、增量包清单”一致。
+- **行为测试**：新增 `unit/chat-scroll.test.js` 四场景——DOM 增长保持跟随、真实上滑停止跟随并在近底恢复、显式跳转恢复粘性、流结束隐藏跳转按钮；`steering-claude` 与 `turn-narrative.static` 增加“无 `followThinkingMessages` 事件期快照”的静态契约。
+
+### 验证
+
+- unit **152/152**（其中 `chat-scroll` 4/4）；快通道 **21 pass / 0 fail / 0 flaky**；`turn-narrative.static`、`steering-claude.e2e`（完整 Claude 即时插话 / AskUser 分流 / print 拒绝 / 工作台延迟插话 / 标题链路）、`overlay-payload-lock.static` 全绿。
+- `dom-smoke`（真实 Edge + 新 ES module 载入）、`steer-interrupt`（provider 路径）、`claude-context-continuity`、`e3-engine-switch-continuity` 全绿；`build --check` 新鲜；`facts.static` 全绿，unit suites 5 → 6。
+- 本波不 bump 版本（保持 2.1.0）。
+
+### 待续（记入后续波）
+
+- **EC-D 前端拆域继续**：按独立迁移批次抽 workbench、settings、artifacts/changes 等领域；最终目标仍是 `app.js < 3000` 且 locale/单事件不触发主区域全量 DOM 重建。
+- **CSS 物理分层 + 性能基准**：tokens/base/components/views/themes 全量拆分；落地首屏 `<1.5s`、主要视图切换 P95 `<200ms` 的本地可复现门。
+- **并行模式 flake 治理**：`mcp-ops-closure` 的 `getFreePort` check-then-use 与 K 段重启窗口仍待根治。
+
+## 第58波 EC-D 后半 · 切片四 -- 设置运维域拆分：更新中心 + MCP 运维（2026-07-28）
+
+沿第57波「按独立迁移批次抽 settings」继续推进，先选择设置页中 API、状态与按钮边界最完整的两个运维子域。本切片保持既有后端协议和页面结构不变，只收窄 `app.js` 的职责，并把动态内容渲染同步收口到安全 DOM。
+
+### 交付
+
+- **新前端领域模块 `public/js/settings-operations.js`**：`createSettingsOperationsDomain` 统一封装更新中心的状态读取、ZIP 选择、预检、应用与回滚，以及 MCP 连接器的清单、兼容矩阵、健康复测、启停与移除。模块仅通过依赖注入接收错误格式化和既有文件夹导入入口，对外暴露 `bindSettingsOperations`、`refreshOverlayStatus`、`refreshMcpOps` 三个窄接口。
+- **状态与事件归域**：原全局 `_ovZipPath`、`_mcpConnCache` 收入模块闭包；更新中心与 MCP 按钮接线由 `bindSettingsOperations()` 自持。`app.js` 只保留模块装配，以及切入相应设置页签时的刷新 hook，当前降至 **9319 行**。
+- **安全 DOM 收口**：新模块动态渲染全部使用 `textContent`、`el()`、`replaceChildren()` 和文档片段，保持 **零 `innerHTML =`**；恢复按钮改为直接持有元素引用，不再创建动态 `ovRecoverBtn` id，对应删除 `dom-contract` 的历史豁免。
+- **发布载荷闭环**：`settings-operations.js` 登记进 overlay `PAYLOAD_FILES`；载荷静态锁现同时核对运行时 import、磁盘模块与增量包清单。
+- **静态契约迁移**：`overlay-update-gui.static.e2e` 与 `mcp-ops-gui.static.e2e` 改为分别检查领域模块实现和 `app.js` 装配边界；更新中心新增安全 DOM 断言，防止后续重新拼接 manifest、审计或错误内容。
+
+### 验证
+
+- unit **152/152**；快通道 **21 pass / 0 fail / 0 flaky**；`overlay-update-gui.static`、`mcp-ops-gui.static`、`overlay-payload-lock.static`、`dom-smoke`、`dom-contract`、`i18n` 全绿；`app.js` 与新模块均通过 ES module 语法解析。
+- `overlay-update-core.e2e` 隔离执行全绿。`mcp-ops-closure.e2e` 的纯函数、探针与静态段全绿，但独立复跑仍在“workbench up”监听窗口失败，后续 HTTP 断言连带失败；该形态与第55/57波已记录的 `getFreePort` check-then-use / 重启窗口测试基建 flake 一致，本切片未改后端 MCP 实现，不将其误报为产品通过。
+- 本波不 bump 版本（保持 2.1.0），`facts.json` 计数不变（本切片只迁移既有 e2e，未新增测试文件）。
+
+### 待续（记入后续波）
+
+- **EC-D 前端拆域继续**：优先评估 workbench 或 artifacts/changes 的下一块独立边界；设置页其余常规配置按可独立测试的子域继续迁移。
+- **CSS 物理分层 + 性能基准**：tokens/base/components/views/themes 全量拆分；落地首屏 `<1.5s`、主要视图切换 P95 `<200ms` 的本地可复现门。
+- **并行模式 flake 根治**：让 MCP 闭环测试持有已绑定端口或使用可重试启动协议，并消除 K 段 `taskkill` 后的重启竞态，再把并行门升级为可信门。
+
+## 第59波 EC-D 后半 · 切片五至七 -- 工作区信息面与运维观测连续拆域（2026-07-28）
+
+按“下一次多推进一些”的批次扩大要求，本波连续迁移三块低耦合领域：文件浏览、安全预览、产物/变更历史，以及审计/存储/性能观测。高耦合的 workbench DAG 暂不混入，留作独立切片处理。
+
+### 交付
+
+- **`public/js/file-browser.js`（切片五）**：收拢目录单层懒加载、树节点展开、文件 `@` 提及、多格式预览和刷新按钮。当前工作区、Markdown 安全渲染、代码高亮与工具调用由组合根注入；图片继续走 data URI，HTML 继续使用空 `sandbox` iframe，Markdown 是模块内唯一 `innerHTML` 且只接收既有 allowlist 清洗器的输出。
+- **`public/js/artifact-changes.js`（切片六）**：统一持有会话产物按轮次聚合、产物刷新/预览/打开、检查点按轮次分组、文本 diff、单文件/整轮回撤与按钮接线。`changesState` 收入模块闭包；纯 helper `collectSessionArtifacts`、`crudeLineDiff` 保留显式导出。迁移时顺手修复“无改动”分支把 HTMLElement 传给 `el(..., text)` 而显示成 `[object HTMLSpanElement]` 的存量渲染错误。
+- **`public/js/operations-observability.js`（切片七）**：审计、存储和性能指标共享“首次打开懒加载、手动刷新强制重拉、locale 变化缓存重绘、无轮询”生命周期；`auditState`、`storageState`、`metricsState` 全部归入闭包。组合根只调用 `openAuditTab`、`openStorageTab`、`bindOperationsObservability` 与 locale 刷新窄接口。
+- **通用路径 helper 归位**：`fileBasename` 移入 `public/js/util.js`，供消息产物 chip、文件浏览和产物/变更域共同复用，避免跨领域模块为了一个 basename helper 产生反向依赖。
+- **组合根继续减重**：三个领域实现、内部状态和九组按钮/筛选器接线移出 `app.js`；`app.js` 从第58波的 **9319 行降至 8558 行**，本波净减 **761 行**。
+- **载荷与契约闭环**：三个新模块全部登记进 overlay `PAYLOAD_FILES`；新增 `frontend-domains.static.e2e.js`，锁定模块归属、API、按钮、页签、locale 重绘、安全 DOM 与载荷关系。`i18n.static` 改读对应领域事实源，不再错误要求实现留在 `app.js`。
+
+### 验证
+
+- unit **152/152**；快通道扩为 **22 pass / 0 fail / 0 flaky**；新增 `frontend-domains.static` 全绿，`i18n.static` / `i18n.e2e`、`overlay-payload-lock.static`、`dom-contract` 与四个 ES module 语法解析全绿。
+- 串行关键闭环 **5 pass / 0 fail / 0 flaky**：`dom-smoke`（真实 Edge 加载全部新模块）、`artifacts`、`checkpoint`、`audit`、`storage-steward`。
+- `facts.json` 已机械重生成：e2eCount **164 → 165**，其余口径不变；`build --check` 保持新鲜。
+- 本波不 bump 版本（保持 2.1.0）。
+
+### 待续（记入后续波）
+
+- **Workbench DAG 独立拆域**：该块约 850 行，跨 Agent run 列表、Claude 原生子代理投影、画布布局、侧栏详情和事件流；下一批应先定义窄 adapter，再整体迁移，避免组合根和领域模块互相回调。
+- **设置域继续**：provider/模型、Agent 角色、技能/记忆可按各自 API 与弹层边界继续迁移。
+- **CSS 物理分层 + 性能基准**：待 JS 主要领域边界稳定后，推进 tokens/base/components/views/themes，并落地首屏 `<1.5s`、主要视图切换 P95 `<200ms` 的本地可复现门。
+- **并行模式 flake 根治**：MCP 闭环的动态端口与 K 段重启竞态仍单独排期，不与前端拆域混写。
+
+## 第60波 EC-D 后半 · 切片八 -- Workbench DAG 整体拆域（2026-07-28）
+
+按第59波预先定义的“窄 adapter 后整体迁移”方案推进。本切片一次迁出 Workbench 的完整闭环：主视图状态、Agent run 投影、原生 Claude 子代理 DAG、画布、用量条、审批池、邮箱与详情侧栏；不改变后端协议、DOM 结构或轮询频率。
+
+### 交付
+
+- **新前端领域模块 `public/js/workbench.js`**：`createWorkbenchDomain` 闭包持有 `wbState`、布局缓存与 `nativeClaudeDagRuns`，统一实现 DAG 分层布局、节点/连线/泳道、run chips、用量聚合、空态、缩放/适应视图、侧栏三段、节点插话与任务池审批，以及原生 Claude 子代理的实时投影、结束收口和历史 hydration。
+- **17 个窄 adapter 注入**：领域只从组合根接收 Agent/pool 状态标签与操作、活动回合查询、时长/引擎展示、侧栏跳转、轮询同步和调度渲染；`AGENT_RUN_ACTIVE` 与宽限时长通过值注入，避免模块反向读取组合根私有状态。
+- **组合根边界收紧**：`app.js` 不再直接读写 `wbState`。轮询期望态改走 `isWorkbenchCanvasView()`，断连提示改走 `markWorkbenchConnectionLost()`；stream、run 投递和启动恢复分别只调用 `wbNativeClaudeOnSubagent`、`wbNativeClaudeFinalize`、`wbOnRuns`、`restoreMainView`。主视图 Tab 与窄屏 backdrop 的 DOM 接线由 `bindWorkbench()` 自持。
+- **等价迁移校准**：迁移主体与 Git 基线 Workbench 区块逐行比对（仅 `activeTurns.get` 按设计替换为 `getActiveTurn` adapter），861 行主体零意外差异；模块保持零 `innerHTML =`，所有不可信文本继续走 `el()`/`textContent`。
+- **组合根继续减重**：`app.js` 从第59波的 **8558 行降至 7723 行**，本波净减 **835 行**；Workbench 的 861 行主体加装配边界独立成 922 行可测试模块。
+- **载荷与契约闭环**：`workbench.js` 登记进 overlay `PAYLOAD_FILES`；`frontend-domains.static.e2e` 新增 D21-D26，锁定装配、函数归属、状态不泄漏、轮询窄接口、安全 DOM 与载荷关系。P3a 静态锁同步改为验证领域自持绑定和画布态 adapter；`agent-roles.e2e` 改从新模块核验原生 Claude DAG 实现。
+
+### 验证
+
+- unit **152/152**；Workbench 领域契约、P3a、P3b、UI bugfix 静态锁全部全绿；`app.js` / `workbench.js` 均通过 ES module 语法解析。
+- 真实与关键闭环：`dom-smoke`、`dom-contract`、`agent-workflow-monitor-ui`、`steering-claude`、`overlay-payload-lock` 全绿；`agent-roles.e2e` 在迁移测试事实源后全绿，覆盖原生 Claude 前后台子代理生命周期、持久化与历史 DAG hydration。
+- `facts.json` 口径不变（扩展既有静态测试文件，未新增 e2e 文件）；`build --check` 保持新鲜。
+- 本波不 bump 版本（保持 2.1.0）。
+
+### 待续（记入后续波）
+
+- **设置域继续**：provider/模型配置、Agent 角色、技能/记忆可按 API 与弹层边界分批迁移；优先选择能把状态与事件一起收进闭包的完整切片。
+- **其余前端领域**：会话列表/搜索、聊天主渲染、用量看板、工作流编辑器仍是 `app.js < 3000` 的主要剩余块，继续按“领域状态 + DOM 绑定 + locale 重绘”整体迁移。
+- **CSS 物理分层 + 性能基准**：待主要 JS 边界继续稳定后，推进 tokens/base/components/views/themes，并落地首屏 `<1.5s`、主要视图切换 P95 `<200ms` 的可复现门。
+- **并行模式 flake 根治**：MCP 闭环动态端口与 K 段重启竞态继续独立治理。
+
+## 第61波 EC-D 后半 · 切片九至十 -- 用量看板 + Agent 角色设置连续拆域（2026-07-28）
+
+按第60波待续继续扩大批次，本波同时迁出两个状态/API/事件边界完整的领域：只读成本用量看板，以及 Agent 角色库、角色草稿和子代理偏好选择。组合根不再持有两块内部缓存，仅保留页签入口和跨域 adapter。
+
+### 交付
+
+- **`public/js/usage-dashboard.js`（切片九）**：闭包持有 `usageState` 与范围筛选，统一完成 `/api/usage/summary`、附加运营指标、加载/错误/空态、预算软告警、引擎/Provider/会话分组、手绘 SVG 水平条和日趋势。对外仅暴露 `bindUsageDashboard`、`openUsageDashboard`、`refreshLocalizedUsage` 和显式刷新入口；会话跳转、错误格式化通过 adapter 注入。
+- **用量生命周期收口**：工具页签切入只调用 `openUsageDashboard()`，模块自行决定首次拉取或缓存重绘；刷新与四档范围按钮由 `bindUsageDashboard()` 自持；locale 变化通过 `refreshLocalizedUsage()` 重绘缓存，不再由 `app.js` 读取 `usageState`。
+- **`public/js/agent-roles.js`（切片十）**：闭包持有 `agentRoleLibraryData` 与 `agentRoleDraft`，收拢角色库 GET、全局/项目草稿合并、编辑卡、安全表单读取、新增/恢复/删除、POST 保存、Claude 原生角色状态，以及子代理 Provider/模型受控下拉。只注入工作区读取与错误格式化，配置事实仍从共享 `state` 读取。
+- **角色事件归域**：刷新、新增、保存、作用域切换和子代理 Provider 切换五组接线统一进入 `bindAgentRoles()`；设置页签仍通过 `loadAgentRoles()` 懒加载，`fillSettings()` 只使用 `populateSubagentPreferenceSelects()` 窄接口回填配置。
+- **依赖归属校准**：迁移审计发现 `PRICING_CURRENCIES` 虽物理位于旧用量区块，实际只服务 Provider 单价编辑器；该常量留在设置写模型侧，没有为了机械搬家制造 Provider → 用量看板反向依赖。
+- **组合根继续减重**：`app.js` 从第60波的 **7723 行降至 7354 行**，本波净减 **369 行**；新增用量领域 267 行、角色领域 188 行，两者均保持零 `innerHTML =`。
+- **载荷与契约闭环**：两个模块均登记进 overlay `PAYLOAD_FILES`；`frontend-domains.static.e2e` 扩展 D27-D36，锁定装配、实现归属、内部状态不泄漏、GET/POST、页签/locale 窄接口、安全 DOM 和载荷。`usage-dashboard.e2e` 改为明确核验组合根 → 领域懒加载链，不再依赖聚合源码偶然命中。
+
+### 验证
+
+- unit **152/152**；`frontend-domains.static`、`usage-dashboard`、`dom-contract` 全绿；`app.js` 与两个新模块均通过 ES module 语法解析。
+- 关键真实闭环 **5 pass / 0 fail / 0 flaky**：`dom-smoke`（真实 Edge 装载并渲染 Provider/设置）、`usage-dashboard`、`agent-roles`（原生 Claude 角色及前后台子代理生命周期）、`i18n`、`overlay-payload-lock`。
+- `build --check` 新鲜；`facts.json` 口径不变（扩展既有测试，没有新增 e2e 文件）。
+- 本波不 bump 版本（保持 2.1.0）。
+
+### 待续（记入后续波）
+
+- **Provider/模型设置域**：当前仍包含状态栏/模型 chip 与设置表单共用的读模型；下一批先拆“Provider 配置编辑与测试”闭环，再决定模型选择器是否独立成域，避免把运行时引擎状态误塞入设置模块。
+- **会话侧栏与搜索**：会话清单、搜索、重命名、删除和批量清理约 600 行，可按会话 API 与选择态完整迁移。
+- **聊天主渲染 / 工作流编辑器**：仍是 `app.js < 3000` 的主要剩余块，需继续按状态、DOM 绑定和流事件边界拆分。
+- **CSS 物理分层 + 性能基准**：JS 主要边界稳定后推进 tokens/base/components/views/themes，并落地首屏 `<1.5s`、主要视图切换 P95 `<200ms` 的可复现门。
+
+## 第62波 EC-D 后半 · app.js 拆域收尾 -- 八领域连续迁移，组合根降至 3000 行内（2026-07-28）
+
+用户要求不再按小切片停顿，直接完成 `app.js` 拆域。本波以 Roadmap 既定退出线 **`app.js < 3000`** 为完成标准，连续迁出剩余八个大领域；每迁出一批即跑真实 Edge 装载，最终把组合根从第61波的 7354 行压到 2822 行。
+
+### 交付
+
+- **`skills-memory.js`（749 行）**：技能/命令/Playbook 注册表、搜索与键盘选择、会话启用/常驻技能、技能详情，以及全局/项目记忆的加载、启停、幽灵项清理、迁移、起草和编辑全部归域；搜索框和技能按钮由 `bindSkillsMemory()` 自持。
+- **`provider-settings.js`（734 行）**：运行时状态、引擎元信息、模型刷新、权限 chip、设置回填/保存、Claude/Provider 预设与测试、诊断、导入导出、模板及 MCP Inspector 归入同一设置读写模型。
+- **`agent-workflows.js`（785 行）**：工作流模板、启动、完整图编辑器、Agent run 增量轮询、节点操作与状态派生统一归域；该模块组合 `workbench.js`，`app.js` 不再直接装配 Workbench，实现“工作流运行域 → Workbench 展示域”的单向依赖。
+- **`navigation-controls.js`（791 行）**：命令面板、popover、模型/上下文/能力弹层、模态开关、设置与工具页签、侧栏/右栏布局全部归域。简易模式页签兜底改为 `normalizeTabsForUiMode()`，避免跨 ES module 依赖 `DEV_TABS` / `SETTINGS_SIMPLE_TABS` 的词法常量。
+- **`session-experience.js`（994 行）**：会话侧栏、搜索/重命名/删除/批量清理、打开与新建、任务条/使命/授权、消息窗口化、历史回合渲染、空态/首次引导和 Playbook 表单归域。活动回合与插话数组在初始化完成后按真实引用注入，切会话清理语义不变。
+- **`interaction-prompts.js`（309 行）**：动态模态、焦点陷阱、AskUser、工具权限、计划决策与工作流事件卡归域；只注入引擎标签、活动回合查询、配置保存和错误格式化。
+- **`tool-runtime.js`（322 行）**：计划卡持久化、原始事件队列、工具输出、通用 `/api/tools/*` 调用和 PowerShell 会话列表/尾随/终止归域。
+- **`workspace-preferences.js`（202 行）**：主题三态、UI 简易/专家密度、当前/最近工作区、原生文件夹选择和粘贴路径入口归域。
+- **循环依赖处理**：Provider、导航、会话、技能和工作流之间使用惰性 adapter 闭包，模块构造期不调用尚未初始化的跨域函数；`activeTurns` 在构造期需要的场景使用只暴露 `get/has` 的 facade，真实可变 Map 仍只有聊天流持有。
+- **组合根达标**：`app.js` **7354 → 2822 行，净减 4532 行（61.6%）**；从第58波 9319 行基线累计减少 6497 行（69.7%）。当前文件保留共享错误映射、Markdown 安全渲染、聊天流实时编排、统一事件绑定与 boot，已达到 EC-D 既定 `<3000` 退出线。
+- **载荷与事实源**：八个模块全部进入 overlay `PAYLOAD_FILES`；`frontend-domains.static.e2e` 增加 D37-D40，机械锁定 8 模块装配/载荷、核心函数归属、`app.js < 3000` 和实现不回流。迁移影响的 workflow editor、usage、steering、i18n、MCP/update、V4 theme 静态锁全部改读领域事实源或聚合前端源码。
+
+### 验证
+
+- 包含 `app.js` 在内的全部 23 个前端 ES module 通过 `vm.SourceTextModule` 语法解析；无生成截断哨兵残留；`git diff --check` 通过。
+- unit **152/152**；快通道 **22 pass / 0 fail / 0 flaky**；`facts.static` 与 `build --check` 新鲜。
+- 真实 Edge `dom-smoke` 在迁移每个大批次后均通过，最终 `/app.js` 从约 445 KB 降至约 150 KB，boot、i18n、状态接口和模型 chip 正常。
+- 领域主回归：原批次 16 件中 13 件一次通过；三处仅因测试仍固定读取 `app.js` 的事实源漂移（workflow editor、usage、steering）改为领域/聚合源码后分别复跑全绿。覆盖 `agent-roles`、工作流编辑/监控/模板、技能注册表、工作台记忆、Provider compact、工作区解析、Shell 会话/MCP 守卫、计划模式、用量、i18n 与 Claude 插话全链路。
+- 本波不 bump 版本（保持 2.1.0），未新增 e2e 文件，`facts.json` 计数口径不变。
+
+### 待续（进入新的优化阶段）
+
+- **聊天流内部模块化**：`app.js` 虽已达到 `<3000` 门，剩余主体主要是静态消息/回合叙事与实时 stream reducer；后续若继续收缩，应按“静态渲染”和“实时回合状态机”拆成两个可单测模块，而不是再按连续行机械搬运。
+- **CSS 物理分层**：JS 拆域退出条件已达，下一主线转向 tokens/base/components/views/themes 物理拆分。
+- **性能基准**：建立首屏 `<1.5s`、主要视图切换 P95 `<200ms` 的本地可复现门，并测量模块化后的请求/解析成本。
+- **并行模式 flake**：MCP 闭环动态端口与 K 段重启竞态仍作为测试基础设施专项治理。
+
+## 第63波 EC-D 后半 · 聊天流内部模块化收尾 -- 组件原语 / 静态叙事 / 实时状态机三层解耦（2026-07-28）
+
+按第62波待续项一次完成聊天流内部模块化，并把后续 CSS 物理分层需要的 DOM 选择器所有权一并固定。迁移保持后端协议、事件顺序、DOM 结构和样式类名不变，只把实现从组合根移入三个单向职责层。
+
+### 交付
+
+- **`chat-render-primitives.js`（690 行）**：统一持有消息壳、头像、Markdown 白名单净化、思考块、工具卡、diff、用量行、上下文占用表、消息操作、Playbook 保存和回退入口。它成为后续 `components/chat-*` CSS 的组件事实源，集中覆盖 `.message`、`.bubble`、`.thinking`、`.tool-card`、上下文表与消息操作。
+- **`chat-static-renderer.js`（391 行）**：统一持有历史消息重进、ordered turn segments、连续工具折叠、过程阶段压缩、语义状态卡和回合尾部工具索引。它成为后续聊天视图 CSS 的事实源，集中覆盖 `.turn-narrative`、`.narrative-*`、`.narrative-process-group` 与 `.turn-record`。
+- **`chat-stream-runtime.js`（1135 行）**：闭包持有 `activeTurns`、下一回合 Agent team 偏好、插话队列/去重、增量文本段、工具/思考/语义卡状态、发送/停止/压缩、stream reducer 与 Claude 原生子代理投影。它成为后续 live state CSS 的事实源，集中覆盖 `.stream-cursor`、`.steer-queue`、`.narrative-completed-run` 与 `.subagent-card`。
+- **循环依赖收口**：组件原语需要发送/会话动作，静态渲染需要会话摘要卡，实时状态机又需要静态卡与工作流投影；组合根统一注入惰性 adapter，构造期不读取未初始化绑定。真实状态容器只由所属领域持有，其他模块拿窄函数或 `get/has` facade。
+- **组合根进一步纯化**：`app.js` 从第62波的 **2822 行降至 1051 行，净减 1771 行（62.8%）**；从第58波 9319 行基线累计减少 8268 行（88.7%）。最终入口只保留领域装配、locale 广播、附件/拖放与统一事件绑定、boot 和少量跨域 glue；`/app.js` 由约 150 KB 降至约 48 KB。
+- **载荷与事实源闭环**：三个新模块全部登记到 overlay `PAYLOAD_FILES`；`frontend-domains.static` 增加 D41-D46，锁定三层装配、核心函数归属、状态不泄漏、`app.js < 1200` 与发布载荷。Markdown/XSS unit、Agent team、turn narrative、steering 和 DOM 契约改读所属模块或聚合前端源码。
+
+### 验证
+
+- 包含 `app.js` 在内的全部 26 个前端 ES module 通过 `vm.SourceTextModule` 解析；TypeScript 检查辅助确认三个新工厂无未注入自由变量；无截断哨兵残留，`git diff --check` 通过。
+- unit 全绿；快通道 **22 pass / 0 fail / 0 flaky**；`facts.static`、overlay payload lock 与 `build --check` 新鲜。
+- 最终聊天主链 **6 pass / 0 fail / 0 flaky**：Agent team、Claude context continuity、DOM contract、真实 Edge `dom-smoke`、plan mode 与完整 `steering-claude` A-E 链路全绿。迁移中发现并修正的失败均为测试事实源仍固定读取 `app.js` 或测试函数提取未适配工厂缩进，不是产品行为回归。
+- 本波不 bump 版本（保持 2.1.0），未新增 e2e 文件，`facts.json` 计数口径不变。
+
+### 待续（CSS 物理分层可直接启动）
+
+- **CSS 物理拆分顺序**：先抽 `tokens.css` 与 `base.css`，再按本波三层所有权迁出 `components/chat-primitives.css`、`views/chat-narrative.css`、`states/chat-live.css`，最后迁移其余 views/themes；每批保持现有加载顺序和 selector specificity。
+- **CSS 载荷门**：把新样式文件同步登记到 index、overlay 与 payload lock，并为重复 selector、未解析 token、主题覆盖顺序和首屏请求数增加静态门。
+- **性能基准**：在 CSS 分层后建立首屏 `<1.5s`、主要视图切换 P95 `<200ms` 的本地可复现门，并记录拆分前后的请求、解析与 style recalculation 成本。
+- **并行模式 flake**：MCP 闭环动态端口与 K 段重启竞态继续作为测试基础设施专项治理，不与 CSS 搬迁混写。
+
+## 第64波 EC-D 后半 · CSS 物理分层收口（2026-07-28）
+
+在第63波固定聊天流 DOM 与 selector 所有权后，完成前端 CSS 的全量物理拆分。此次迁移不改 selector、声明、specificity 或级联顺序；浏览器入口改为并行加载分层文件，同时保留 `/styles.css` 兼容入口。
+
+### 交付
+
+- **十个有序物理层**：原 2451 行单体样式按原始连续区间迁入 `css/tokens.css`、`css/themes/color-schemes.css`、`css/base.css`、`css/layout.css`、`css/views/chat.css`、`css/components/tool-pane.css`、`css/themes/ui-modes.css`、`css/views/workspace.css`、`css/views/usage.css` 与 `css/views/workbench.css`。各层只增加职责注释，样式载荷顺序与原文件逐字节等价。
+- **双入口加载**：`index.html` 按上述级联顺序直接声明十个 `<link>`，避免 `@import` 串行发现；`styles.css` 改为同序 `@import` 兼容清单，继续服务旧入口与外部集成。
+- **发布闭环**：十个 CSS 文件及兼容清单全部登记进 overlay `PAYLOAD_FILES`；真实 Edge `dom-smoke` 同时请求直连分层与 `/styles.css`，确保开发态和 overlay 均不漏载。
+- **单一测试事实源**：新增 `dev-harness/read-frontend-css.js`，按生产加载顺序聚合 CSS；原先直接读取单体 `styles.css` 的静态锁统一迁移到该 helper，避免物理路径变化被误判为产品回归。
+- **无损迁移门**：`frontend-domains.static` 扩展 D47-D51，锁定 index/manifest 顺序、磁盘与 overlay 完整性、关键 selector/token 归属，并将各层去除职责注释后重组，校验原单体 SHA-256 `f667405d52603bd5d490cd2b386969ca97099e9ea0ac3da11756982e35749497`。
+
+### 验证
+
+- CSS 重组 SHA、manifest/index 顺序、overlay payload lock 与 26 个前端 ES module 语法检查全绿；所有分层文件括号、注释与字符串边界闭合。
+- 快通道 **22 pass / 0 fail / 0 flaky**，unit 全绿，`facts.static` 与 `build --check` 新鲜。
+- 真实 Edge 与视觉主链覆盖 `dom-smoke`、`dom-screenshot` 双主题像素基线、theme、IA、onboard、git、usage、workflow editor/monitor、DOM contract、完整 `steering-claude` A-E 与 UI mode；迁移测试事实源后均通过。
+- 本波不 bump 版本（保持 2.1.0）；CSS 物理分层完成，后续进入可复现的首屏与视图切换性能基准。
+
+### 待续（进入性能基准）
+
+- **首屏预算**：记录冷启动 CSS/JS 请求、传输与解析成本，建立首屏 `<1.5s` 的本地可复现门。
+- **交互预算**：为主要视图切换建立 P95 `<200ms` 的采样基线，区分脚本、style recalculation 与 layout 成本。
+- **CSS 所有权细化**：在不改变既有级联语义的前提下，再按聊天 primitive / narrative / live state 等组件边界细分；必须继续通过 SHA/顺序门或显式记录有意样式变更。

@@ -3,10 +3,11 @@
 const { readServerSource } = require('./src-reader');
 const fs = require('fs');
 const path = require('path');
+const { readFrontendSrc } = require('./read-frontend-src.js');
 
 const ROOT = path.resolve(__dirname, '..');
-const app = fs.readFileSync(path.join(ROOT, 'ruyi-workbench/app/public/app.js'), 'utf8');
-const css = fs.readFileSync(path.join(ROOT, 'ruyi-workbench/app/public/styles.css'), 'utf8');
+const app = readFrontendSrc();
+const css = require('./read-frontend-css.js').readFrontendCss();
 const server = readServerSource();
 
 let fail = 0;

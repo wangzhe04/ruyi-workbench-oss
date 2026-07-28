@@ -18,6 +18,7 @@
 (async () => {
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
+const { CSS_ROUTES } = require('./read-frontend-css.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'wcw-dom-smoke-e2e');
@@ -73,7 +74,8 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
 
     // ── A 段: 静态资源完整 ──
     console.log('── A 段: 静态资源全 200 ──');
-    for (const p of ['/', '/app.js', '/js/turn-narrative.js', '/styles.css', '/locales/zh-CN.json', '/locales/en-US.json']) {
+    for (const p of ['/', '/app.js', '/js/turn-narrative.js', '/styles.css',
+      ...CSS_ROUTES.map(route => '/' + route), '/locales/zh-CN.json', '/locales/en-US.json']) {
       const r = await get(p);
       ok(r.status === 200 && r.body.length > 100, 'A GET ' + p + ' -> 200 (' + r.body.length + 'B) got ' + r.status);
     }

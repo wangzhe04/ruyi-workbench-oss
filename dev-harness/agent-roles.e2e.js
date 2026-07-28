@@ -90,16 +90,17 @@ function stream(port, body) { return new Promise((resolve, reject) => { const ra
     ok(meta && !JSON.stringify(meta.args || []).includes('SECRET_ROLE_PROMPT'), 'Claude meta redacts role definition payload');
     ok(start && start.native === true && start.roleId === 'reviewer' && end && end.ok === true && /审查完成/.test(end.result || ''), 'Claude Agent tool is normalized into subagent events with its inspectable result');
     const app = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
+    const workbench = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'workbench.js'), 'utf8');
     ok(/host\.resultPre\.textContent = evt\.result/.test(app) &&
       /t\('chat\.subtaskConclusion'\)/.test(app) &&
       ZH['chat.subtaskConclusion'] === '子任务结论',
     'the live child card renders the native Agent result rather than an empty completed card');
-    ok(/const nativeClaudeDagRuns = new Map\(\)/.test(app) &&
-      /dependsOn: \['claude-parent'\]/.test(app) &&
+    ok(/const nativeClaudeDagRuns = new Map\(\)/.test(workbench) &&
+      /dependsOn: \['claude-parent'\]/.test(workbench) &&
       /wbNativeClaudeOnSubagent\(evt, streamSessionId\)/.test(app) &&
-      /function wbNativeClaudeHydratedRuns\(session\)/.test(app) &&
+      /function wbNativeClaudeHydratedRuns\(session\)/.test(workbench) &&
       /function renderStaticNativeAgent\(record\)/.test(app) &&
-      /run && run\.nativeClaude/.test(app),
+      /run && run\.nativeClaude/.test(workbench),
     'native Claude parent/child lifecycle is projected into a persistent read-only workbench DAG and refreshed chat card');
     const argv = JSON.parse(fs.readFileSync(capture, 'utf8')); const idx = argv.indexOf('--agents'); const sent = idx >= 0 ? JSON.parse(argv[idx + 1]) : {};
     ok(sent['security-checker'] && sent['security-checker'].model === 'sonnet' && sent['security-checker'].maxTurns === 7, '--agents receives custom model and maxTurns');

@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const { readFrontendSrc, frontendSrcFiles, PUB } = require('./read-frontend-src.js');
+const { readFrontendCss } = require('./read-frontend-css.js');
 
 const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
 const src = readFrontendSrc();
@@ -40,7 +41,6 @@ const DYNAMIC_ID_ALLOW = new Set([
   'mm-theme-label',    // app.js:openMoreMenu 里 item(...,'mm-theme-label',...) 动态建;syncMoreMenuLabels 用 getElementById 且 if(t) 守护
   'mm-uimode-label',   // app.js:openMoreMenu 里 item(...,'mm-uimode-label',...) 动态建;同上 if(u) 守护
   'wbSteerInput',      // app.js:renderSteerBar 里 el('input',...) 后 input.id='wbSteerInput' 动态建;keepSteer/focus 守护(既有遗漏,第27波回归补登)
-  'ovRecoverBtn',      // app.js:overlayApply 失败分支 innerHTML 动态建(id 在同一串里),随即 $('ovRecoverBtn') 绑 onclick(53d 既有遗漏,第55波回归补登)
 ]);
 const referencedIds = new Set();
 // $('id') / $("id")
@@ -200,12 +200,17 @@ ok(/window\.open\('', '_blank'/.test(src) && /change-diff-standalone/.test(src),
   'change diff opens in a dedicated window/tab with an inline fallback');
 ok(/isNativeClaudeBackgroundAck\(evt\)/.test(src) && /sa-background/.test(src) && /后台执行中/.test(src),
   'native Claude background launch acknowledgements are not mislabeled as completed');
-const bgAckSource = src.match(/function\s+isNativeClaudeBackgroundAck\s*\([^)]*\)\s*\{[\s\S]*?\n\}/);
-const bgAck = bgAckSource ? Function(`${bgAckSource[0]}; return isNativeClaudeBackgroundAck;`)() : null;
+const chatStreamSource = fs.readFileSync(path.join(PUB, 'js', 'chat-stream-runtime.js'), 'utf8');
+const bgAckStart = chatStreamSource.indexOf('function isNativeClaudeBackgroundAck(');
+const bgAckEnd = chatStreamSource.indexOf('\n  function handleSubagentEvent(', bgAckStart);
+const bgAckSource = bgAckStart >= 0 && bgAckEnd > bgAckStart
+  ? chatStreamSource.slice(bgAckStart, bgAckEnd).trim()
+  : '';
+const bgAck = bgAckSource ? Function(`${bgAckSource}; return isNativeClaudeBackgroundAck;`)() : null;
 ok(bgAck && bgAck({ native: true, engine: 'claude', result: 'Async agent launched successfully.\\nagentId: abc\\noutput_file: C:\\\\tmp\\\\agent.txt' }) === true
   && bgAck({ native: true, engine: 'claude', result: '审查完成：没有阻断问题。' }) === false,
   'Claude background acknowledgement classifier distinguishes launch receipts from real conclusions');
-ok(/steer-queue-item/.test(src) && /steer-queue[\s\S]*color-mix\(in srgb, var\(--accent\)/.test(fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8')),
+ok(/steer-queue-item/.test(src) && /steer-queue[\s\S]*color-mix\(in srgb, var\(--accent\)/.test(readFrontendCss()),
   'Steer queue uses semantic theme-aware classes instead of hardcoded light colors');
 
 const files = frontendSrcFiles().map(f => path.relative(PUB, f).replace(/\\/g, '/'));

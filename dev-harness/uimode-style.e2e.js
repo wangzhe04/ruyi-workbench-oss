@@ -96,9 +96,9 @@ const SHORT_INSTR = '回答尽量简短，直接给结果，不解释过程除�
   // 青花设计 token 补全 + 如意云纹极淡水印。纯字符串/正则断言（与本仓其它 e2e 同款静态护栏风格）。
   {
     const PUB = path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'public');
-    const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
+    const css = require('./read-frontend-css.js').readFrontendCss();
     const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
-    const appjs = fs.readFileSync(path.join(PUB, 'app.js'), 'utf8');
+    const appjs = require('./read-frontend-src.js').readFrontendSrc();
     const zh = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'docs', 'i18n', 'locales', 'zh-CN.json'), 'utf8'));
 
     // ── (S1) 设置弹窗按 uiMode 收敛（§1.2）──────────────────────────────────────────────────────

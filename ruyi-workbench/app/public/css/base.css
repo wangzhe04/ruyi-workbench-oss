@@ -1,0 +1,103 @@
+/* Global reset, accessibility, typography, and primitive controls. */
+/* keyboard focus ring (A9): a visible ring only for keyboard nav, no outline on mouse focus. */
+:where(button, [tabindex], summary, a):focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* reduced-motion (A9): honor the OS preference — kill animations/transitions, no smooth scroll. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .messages { scroll-behavior: auto; }
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  /* 第50波(UI-DESIGN-V4 §3.2-A):底层有景 —— body 从平色 --bg 改 --scene-bg 微渐变(玻璃之「景」),
+     fixed 附着使滚动时远景不位移;--bg 保留为阅读面/回退 token。 */
+  background: var(--scene-bg);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font);
+  /* v3 (§B5): body 不再硬编码 font-size —— 继承 :root 基线(pro 14 / simple 15),密度/无障碍缩放才生效。 */
+  -webkit-font-smoothing: antialiased;
+}
+/* 第50波:微噪点纹理层(仅暗主题,--noise 在亮主题为 none),压大底色「塑料感」。 */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: var(--noise); opacity: .05;
+}
+/* 应用骨架抬到噪点层之上(z-index 加在主 .app-shell 规则上,见下)。 */
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+button, input, textarea, select { font: inherit; color: inherit; }
+
+button {
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  min-height: var(--tap-min); /* v3 (§B4/§1.3): 点击区达标,随密度联动(mini/icon-btn 例外,见下) */
+  white-space: nowrap; /* 第23波: 按钮文案不换行(修工具栏「编辑所选模板」等在窄容器里被挤成两行) */
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), transform var(--transition), opacity var(--transition);
+}
+button:hover { background: var(--panel-3); border-color: var(--line-2); }
+button:active { transform: translateY(1px); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.primary { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, var(--accent-2))); /* 第50波点色化:青花-黛紫渐变 */
+  border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+button.danger { background: transparent; border-color: var(--danger); color: var(--danger-fg); font-weight: 600; }
+button.danger:hover { background: var(--danger); color: var(--accent-ink); } /* 第50波清障: #fff -> token */
+button.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+button.ghost:hover { background: var(--panel-2); color: var(--ink); }
+button.full { width: 100%; }
+button.mini { padding: 3px 8px; font-size: var(--fs-sm); min-height: 0; } /* v3 (§B4): mini 免除 tap-min 下限 */
+.icon-btn {
+  border: 1px solid transparent; background: transparent; color: var(--muted);
+  /* v3 (§B4/§1.3): 图标钮随密度联动(comfortable 40 / compact ≥32),下限 32；min-height:0 让方形由 w/h 定。 */
+  width: max(var(--tap-min), 32px); height: max(var(--tap-min), 32px); min-height: 0;
+  padding: 0; display: inline-grid; place-items: center; border-radius: var(--radius-sm);
+}
+.icon-btn:hover { background: var(--panel-2); color: var(--ink); }
+/* v3 (§B4/§1.3): 补挂 --tap-min 到会话项 / 工具页签 / 技能开关 / 任务池审批按钮(base button 已挂,这里强调并覆盖非-button)。 */
+.session-item, .tool-tabs button, .skill-toggle, .pool-actions button { min-height: var(--tap-min); }
+
+/* ── UI v3 (§2.15): SVG 线性图标集 —— icons.js 构建,stroke=currentColor 随文字/引擎色走。 ── */
+.ic { flex: none; display: inline-block; vertical-align: -0.15em; }
+/* icon+文字按钮:图标与文字水平居中 + 6px 间隙(发送/技能/设置/体检/新会话/composer 弹层项)。 */
+.btn-ic { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn-ic .ic { vertical-align: 0; }
+/* 会话项操作按钮(置顶/改名/删):图标态,置顶态填充 pin 作状态提示。 */
+.s-actions .s-act { display: inline-grid; place-items: center; color: var(--muted); }
+.s-actions .s-act:hover { color: var(--ink); }
+.s-actions .s-act.pinned { color: var(--accent); }
+.s-actions .s-act.pinned .ic { fill: currentColor; }
+/* 附件 pill 移除按钮(close 图标)。 */
+.attachment-pill .attach-x { display: inline-grid; place-items: center; padding: 0 2px; background: transparent; border: 0; color: var(--muted); min-height: 0; }
+.attachment-pill .attach-x:hover { color: var(--danger-fg); }
+
+input, textarea, select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: var(--panel);
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+select { cursor: pointer; }
+textarea { resize: vertical; }
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.hidden { display: none !important; }
+.muted { color: var(--muted); font-size: var(--fs-sm); }
+.composer-spacer { flex: 1; }

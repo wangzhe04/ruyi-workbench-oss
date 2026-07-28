@@ -1,0 +1,79 @@
+/* Simple/pro density and presentation-mode overrides. */
+/* ============================================================================
+   v0.9-S1 (C1): uiMode simple / pro. [data-ui-mode] on <html> drives everything.
+   Pro is the baseline (no changes vs. before). Simple hides advanced surfaces,
+   humanizes tool cards, and bumps the base font +1px.
+   ============================================================================ */
+
+/* Tool card: the humanized verb (.tc-verb) and the nested 详情 summary (.tc-detail-sum) are pro-hidden by
+   default; simple mode reveals them and hides the raw mono tool name. The nested <details> starts open, so
+   content is visible in both modes — simple users can opt into folding it. */
+.tool-card .tc-verb { display: none; font-weight: 600; }
+.tool-card .tc-detail { border: 0; padding: 0; margin: 0; background: transparent; }
+.tool-card .tc-detail > summary.tc-detail-sum { display: none; }
+.tool-card .tc-detail > summary.tc-detail-sum::-webkit-details-marker { display: none; }
+
+:root[data-ui-mode="simple"] {
+  /* +1px base font — a small, calm density bump for the 人人可用 surface. */
+  font-size: 15px;
+}
+/* v1.0-S2 (IA): 简易模式隐藏整个开发者组页签（终端/桌面/MCP/调试/体检/存储）+ 组分隔标，
+   侧栏只剩常驻组（文件/产物/审计）。原仅藏 debug/mcp 两个的规则扩为五个(v1.9 数据管家再补「存储」第六个)。 */
+:root[data-ui-mode="simple"] .tool-tabs button[data-tab="powershell"],
+:root[data-ui-mode="simple"] .tool-tabs button[data-tab="desktop"],
+:root[data-ui-mode="simple"] .tool-tabs button[data-tab="mcp"],
+:root[data-ui-mode="simple"] .tool-tabs button[data-tab="debug"],
+:root[data-ui-mode="simple"] .tool-tabs button[data-tab="storage"],
+:root[data-ui-mode="simple"] .tool-tabs .tool-tabs-sep { display: none; }
+/* v3 (§B2): 简易模式常驻页签 6→4 —— 另隐藏「用量」「审计」按钮(改从「AI 工作」面板顶部的 mini 链接进入)。
+   这两页签不在 DEV_TABS,switchTab 不拦截,mini 链接与 JS 兜底可正常切到;agent-runs 文案由 JS 改「AI 工作」。 */
+:root[data-ui-mode="simple"] .tool-tabs button[data-tab="usage"],
+:root[data-ui-mode="simple"] .tool-tabs button[data-tab="audit"] { display: none; }
+/* 「AI 工作」面板顶部的「用量 / 审计」mini 链接行:仅简易模式显示(专家模式它们各是常驻页签,无需重复入口)。 */
+.agent-runs-subnav { display: none; }
+:root[data-ui-mode="simple"] .agent-runs-subnav { display: flex; gap: 12px; margin: 2px 0 8px; }
+/* v1.0-S2 (IA): 简易模式全局原始输出槽也隐藏（人人可用界面不冒原始 pre 文本）。 */
+:root[data-ui-mode="simple"] #toolOutput { display: none; }
+/* 设置弹窗按 uiMode 收敛 —— 简易模式保留「基础/服务商/联网搜索/体检」,隐藏含开发者字段
+   (MAX_THINKING_TOKENS / --max-turns / Overlay ID 等)的 Claude CLI / Agent 角色 / 集成 MCP / 高级 四个。
+   app.js switchSettingsTab 有配套 JS 兜底(非白名单页签落回「基础」),防隐藏页签的面板悬空显示。 */
+:root[data-ui-mode="simple"] #settingsTabs button[data-stab="claude"],
+:root[data-ui-mode="simple"] #settingsTabs button[data-stab="agents"],
+:root[data-ui-mode="simple"] #settingsTabs button[data-stab="integrations"],
+:root[data-ui-mode="simple"] #settingsTabs button[data-stab="mcp"],
+:root[data-ui-mode="simple"] #settingsTabs button[data-stab="advanced"] { display: none; }
+/* Composer advanced buttons: 技能 折叠；#compactBtn 已移出 composer（入上下文弹层），此处不再需要藏它。
+   📎 附件 和 发送 stay. */
+/* v3 (§B1): 简易模式技能入口【显示】—— 原先那条把简易模式技能按钮设为不可见的规则已删除。
+   主画像不识命令行 `/`,技能按钮是唯一可发现的入口。(≤560px 折叠进 ＋ 的响应式规则另属别处,不受影响。) */
+/* Tool card: show the verb, hide the raw name; reveal the collapsible 详情 summary. */
+:root[data-ui-mode="simple"] .tool-card .tc-name { display: none; }
+:root[data-ui-mode="simple"] .tool-card .tc-verb { display: inline; }
+:root[data-ui-mode="simple"] .tool-card .tc-detail > summary.tc-detail-sum {
+  display: block; cursor: pointer; list-style: none; font-size: var(--fs-xs); color: var(--muted);
+  text-transform: uppercase; letter-spacing: .4px; margin: 2px 0 4px; user-select: none;
+}
+:root[data-ui-mode="simple"] .tool-card .tc-detail > summary.tc-detail-sum::before { content: '▸ '; }
+:root[data-ui-mode="simple"] .tool-card .tc-detail[open] > summary.tc-detail-sum::before { content: '▾ '; }
+
+/* ---------------- v0.9-S1 (C6): error human-card ---------------- */
+.error-card { margin-top: 8px; border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--line));
+  border-left: 3px solid var(--danger); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--danger) 7%, var(--panel-2)); /* -bg 豁免:base=panel-2 面 */ overflow: hidden; }
+.error-card-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-weight: 600;
+  font-size: var(--fs-md); color: var(--ink); border-bottom: 1px solid color-mix(in srgb, var(--danger) 20%, var(--line)); }
+.error-card-icon { color: var(--danger-fg); flex: none; }
+.error-card-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.error-card-next { font-size: var(--fs-md); color: var(--ink-2); line-height: 1.55; }
+.error-card-btn { align-self: flex-start; padding: 6px 12px; font-size: var(--fs-md); font-weight: 600;
+  background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: var(--radius-sm); }
+.error-card-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.error-card-noop { font-size: var(--fs-sm); color: var(--muted); }
+/* v1.0.2 (F6c): CLI 缺失引导卡 —— 友好而非告警,改用 accent 描边;次要「或」链接式按钮。 */
+.cli-missing-card { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel-2)); }
+.cli-missing-card .error-card-head { border-bottom-color: color-mix(in srgb, var(--accent) 20%, var(--line)); }
+.cli-missing-card .error-card-icon { color: var(--accent); }
+.error-card-alt { align-self: flex-start; padding: 2px 0; font-size: var(--fs-sm); color: var(--muted);
+  background: transparent; border: none; text-decoration: underline; cursor: pointer; }
+.error-card-alt:hover { color: var(--ink-2); }

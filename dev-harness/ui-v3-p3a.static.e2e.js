@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 
-const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
+const css = require('./read-frontend-css.js').readFrontendCss();
 const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
 const src = readFrontendSrc(); // app.js + js/**
 const zh = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'docs', 'i18n', 'locales', 'zh-CN.json'), 'utf8'));
@@ -42,7 +42,9 @@ ok(has(smv, 'renderWorkbench(', 'syncAgentRunsPolling('), 'A 进画布即时重�
 ok(/function restoreMainView\(/.test(src) && has(fnBody('restoreMainView'), "localStorage.getItem('wcw.mainView')"), 'A restoreMainView 恢复记忆(boot 接入)');
 ok(/restoreMainView\(\)/.test(fnBody('boot', 1200)), 'A boot() 调用 restoreMainView');
 ok(/function wbUpdateActivityDot\(/.test(src) && has(fnBody('wbUpdateActivityDot'), "'has-activity'", 'AGENT_RUN_ACTIVE.has'), 'A 有活动 run 时主 Tab 亮点标(.has-activity ← AGENT_RUN_ACTIVE)');
-ok(/\.wb-mainview-tabs \.wb-mv-tab'\)\.forEach\(b => \{ b\.onclick = \(\) => switchMainView\(b\.dataset\.mainView\)/.test(src), 'A bindEvents wire 主 Tab → switchMainView');
+ok(/function bindWorkbench\(/.test(src)
+  && has(fnBody('bindWorkbench'), '.wb-mainview-tabs .wb-mv-tab', 'switchMainView(button.dataset.mainView)')
+  && /bindWorkbench\(\)/.test(fnBody('bindEvents', 12000)), 'A Workbench 域自持主 Tab → switchMainView 绑定');
 // CSS:view-switch 隐藏/显示(零 DOM 重建)。
 ok(/\.chat-pane\[data-main-view="canvas"\] > #messages/.test(css) && /\.chat-pane\[data-main-view="canvas"\] > \.composer/.test(css), 'A CSS canvas 态隐藏对话消息流 + composer');
 ok(/\.chat-pane\[data-main-view="chat"\] > \.wb-view\s*\{\s*display:\s*none/.test(css), 'A CSS chat 态隐藏工作台视图');
@@ -132,7 +134,7 @@ ok(/setInterval\(loadAgentRuns, 2000\)/.test(src), 'H 复用现有 2s 轮询(set
 // 契约语义不变:画布仍复用同一份轮询数据、零新增请求;loadAgentRuns 两条路径都必须经 deliverAgentRuns 投递。
 ok(/wbOnRuns\(runs\)/.test(fnBody('deliverAgentRuns', 1200)), 'H 投递尾段 deliverAgentRuns 喂画布 wbOnRuns(不新增请求)');
 ok((fnBody('loadAgentRuns', 8000).match(/await deliverAgentRuns\(sid, runs\)/g) || []).length >= 2, 'H loadAgentRuns 全量/增量两路都经 deliverAgentRuns 投递');
-ok(/function agentRunsPollWanted\(/.test(src) && has(fnBody('agentRunsPollWanted'), "wbState.view === 'canvas'"), 'H 轮询期望态并入画布视图(监控页签 ∪ 画布)');
+ok(/function agentRunsPollWanted\(/.test(src) && has(fnBody('agentRunsPollWanted'), 'isWorkbenchCanvasView()'), 'H 轮询期望态通过窄接口并入画布视图(监控页签 ∪ 画布)');
 ok(has(fnBody('wbOnRuns'), 'wbState.lastRuns', "wbState.view === 'canvas'", 'renderWorkbench('), 'H wbOnRuns 缓存 runs + 画布态重绘 + 刷新亮点标');
 // XSS:各构建器不用 innerHTML(el()/textContent + createElementNS)。
 for (const [fn, body] of [['wbBuildNode', node], ['wbBuildEdges', edges], ['renderWorkbenchRunbar', runbar], ['renderWorkbenchUsage', usage], ['renderWorkbenchEmpty', empty]])

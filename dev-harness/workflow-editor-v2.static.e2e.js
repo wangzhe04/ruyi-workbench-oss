@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 
-const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
+const css = require('./read-frontend-css.js').readFrontendCss();
 const src = readFrontendSrc();
 const zh = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'docs', 'i18n', 'locales', 'zh-CN.json'), 'utf8'));
 

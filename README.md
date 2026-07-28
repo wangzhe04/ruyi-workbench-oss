@@ -324,7 +324,7 @@ node .\app\server.js mcp          # 以 stdio MCP server 方式运行(供 CLI �
 ├── .github/                        Windows e2e CI、Issue 表单与 PR 模板
 ├── ruyi-workbench/               如意工作台(Node 后端 + 原生 JS 三栏 UI + 自身 MCP server)
 │   ├── app/server.js             主服务(零 npm 运行时依赖);双引擎 + 原生工具循环 + MCP stdio 桥
-│   ├── app/public/               index.html / app.js / styles.css(原生 JS,无框架无构建)
+│   ├── app/public/               index.html / app.js / css/{tokens,base,components,views,themes} + styles.css 兼容清单
 │   ├── docs/                     架构说明 + 手册(USER-GUIDE / ADMIN-GUIDE)
 │   └── tools/                    离线打包 / overlay 升级 / 开发脚手架
 ├── mcp/

@@ -22,6 +22,7 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 const { getFreePort } = require('./free-port.js');
+const { readFrontendSrc } = require('./read-frontend-src.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
@@ -79,7 +80,7 @@ async function getToken(port) {
   // ───────────────── S 段: 静态锁 ─────────────────
   console.log('── S 段: 静态锁(后端分派 + 前端去门 + i18n 双键) ──');
   const src = fs.readFileSync(SERVER, 'utf8');
-  const app = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
+  const app = readFrontendSrc();
   const net = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'net.js'), 'utf8');
   const zh = fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'zh-CN.json'), 'utf8');
   const en = fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'en-US.json'), 'utf8');
@@ -121,10 +122,15 @@ async function getToken(port) {
   ok(app.includes('function buildNarrativeSteerSegment') && /segment\.type === 'steer'/.test(app)
     && /narrative\.append\(buildNarrativeSteerSegment\(segment\.text\)\)/.test(app), 'S30 EC-D 56b 静态叙事渲染 steer 段(buildNarrativeSteerSegment live/静态共享)');
   // EC-D 56(粘性自动滚动):上滑阅读不拽回,接近底部恢复跟随。
-  ok(app.includes('let stickToBottom = true;') && app.includes('function maybeScrollToBottom') && app.includes('function syncStickToBottom'), 'S26 EC-D 56 粘性滚动状态 + 辅助函数在');
-  ok(app.includes("mb.addEventListener('scroll', syncStickToBottom") && /if \(stickToBottom\) \{ const box = \$\('messages'\); if \(box\) box\.scrollTop = box\.scrollHeight; \}/.test(app)
-    && app.includes('stickToBottom = true; box.scrollTop = box.scrollHeight; // EC-D 56: 新 turn 开始'), 'S27 EC-D 56 scroll 监听走粘性 + scheduleRender/新 turn 走粘性重置');
-  ok(app.includes("if (live) live.errorShown = true;\n  maybeScrollToBottom();") && app.includes("if (live) live.noteShown = true;\n  maybeScrollToBottom();"), 'S28 EC-D 56 错误/备注流式增长路径改粘性滚动(maybeScrollToBottom,不无条件拽回底部)');
+  ok(app.includes("from './js/chat-scroll.js'") && app.includes('createChatScrollController') && app.includes('function scheduleLiveThinkingFollow(live, followPanel)'),
+    'S26 EC-D 57 粘性滚动状态已收敛到 chat-scroll 领域模块');
+  ok(app.includes("mb.addEventListener('scroll', syncStickToBottom") && app.includes('maybeScrollToBottom();')
+    && app.includes('box.appendChild(row); scrollMessagesToBottom();'), 'S27 EC-D 57 scroll 监听、正文增长与新 turn 统一走滚动控制器');
+  ok(!app.includes('followThinkingMessages') && !/scheduleLiveThinkingFollow\(live,\s*followPanel,\s*followMessages\)/.test(app)
+    && /scheduleLiveThinkingFollow\(live,\s*followPanel\)/.test(app), 'S27b 思考跟随不再捕获事件期 messagesAtBottom 快照');
+  ok(/if \(live\) live\.errorShown = true;\s*maybeScrollToBottom\(\);/.test(app)
+    && /if \(live\) live\.noteShown = true;\s*maybeScrollToBottom\(\);/.test(app),
+  'S28 EC-D 56 错误/备注流式增长路径改粘性滚动(maybeScrollToBottom,不无条件拽回底部)');
   ok(app.includes('function renderSteerQueue') && app.includes('steerPendingList.push') && app.includes('r.queued'), 'S22 provider 插话队列可视化(待注入列表 + r.queued 驱动)');
   ok(!app.includes('onclick="window.cancelSteer') && app.includes("addEventListener('click'") && app.includes('h.replaceChildren(card)'), 'S22b 插话文本不进入内联 onclick/innerHTML(安全 DOM 绑定)');
   ok(!app.includes("cancelSteer('__all__')") && app.includes("cancelSteer('', true)"), 'S22c 清空队列使用独立控制参数(用户文本 __all__ 不会误清全部)');

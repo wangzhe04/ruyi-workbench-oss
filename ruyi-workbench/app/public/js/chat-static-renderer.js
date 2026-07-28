@@ -1,0 +1,391 @@
+'use strict';
+
+export function createChatStaticRenderer(deps = {}) {
+  const {
+    buildNarrativeSteerSegment,
+    buildStaticToolGroup,
+    el,
+    highlightIn,
+    icon,
+    messageShell,
+    metaFromMessage,
+    msgActions,
+    normalizeTurnSegments,
+    renderMarkdown,
+    t,
+    tCount,
+    thinkingPanel,
+    toolCard,
+    turnArtifactChips,
+    turnSummaryCard,
+    turnToolAnchorId,
+    usageLine,
+    wrapPreWithCopy,
+  } = deps;
+  const LIVE_MARKDOWN_MAX_CHARS = Number(deps.liveMarkdownMaxChars) || 120_000;
+
+  function renderStaticNativeAgent(record) {
+    const ok = record && record.ok === true;
+    const interrupted = record && (record.interrupted || record.status === 'interrupted');
+    const d = el('details', `subagent-card ${ok ? 'sa-ok' : 'sa-err'}`);
+    d.open = !ok;
+    const sum = el('summary', 'subagent-head');
+    const task = String(record && record.task || '').replace(/\s+/g, ' ').trim();
+    const taskShort = task.length > 40 ? task.slice(0, 40) + '…' : task;
+    const roleTag = record && (record.roleLabel || record.roleId) ? ` · ${record.roleLabel || record.roleId}` : '';
+    const driverTag = t('chat.claudeNative');
+    sum.append(
+      el('span', 'sa-icon', '🤖'),
+      el('span', 'sa-title', t('chat.subtask', { desc: taskShort || t('chat.noDescription') })),
+      el('span', `sa-status ${ok ? 'ok' : 'err'}`, `${ok ? t('chat.nativeAgentCompleted') : (interrupted ? t('chat.nativeAgentInterrupted') : t('status.failed'))}${roleTag}${driverTag}`),
+    );
+    d.appendChild(sum);
+    const body = el('div', 'subagent-body');
+    if (record && record.result) {
+      const wrap = el('div', 'sa-result');
+      wrap.appendChild(el('div', 'sa-result-label', ok ? t('chat.subtaskConclusion') : t('chat.subtaskError')));
+      const pre = el('pre', 'sa-result-text', record.result);
+      wrap.appendChild(wrapPreWithCopy(pre));
+      if (record.resultTruncated) wrap.appendChild(el('div', 'sa-result-note', t('chat.resultTooLong')));
+      body.appendChild(wrap);
+    }
+    d.appendChild(body);
+    return d;
+  }
+
+  // 第54波 EC-D: render one persisted ordered narrative for both engines. `segments` is additive; old
+  // sessions keep the legacy content -> toolCalls -> turnSummary path below without guessed chronology.
+  function validTurnSegments(msg) {
+    return normalizeTurnSegments(msg);
+  }
+  function narrativeToolAnchor(toolCallId, scope) {
+    return turnToolAnchorId(toolCallId, scope);
+  }
+  function narrativeTextBubble(text) {
+    const bubble = el('div', 'bubble');
+    const value = String(text || '');
+    if (value.length <= LIVE_MARKDOWN_MAX_CHARS) {
+      bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(value); highlightIn(bubble);
+    } else { bubble.classList.add('plain'); bubble.textContent = value; }
+    return bubble;
+  }
+  function narrativePlanCard(segment) {
+    const card = el('div', 'plan-card narrative-plan');
+    const head = el('div', 'plan-card-head');
+    head.append(el('span', '', t('chat.planSegment')), narrativeStatePill(segment.status));
+    card.append(head);
+    const body = el('div', 'plan-card-body md');
+    body.innerHTML = renderMarkdown(segment.markdown || ''); highlightIn(body);
+    card.append(body);
+    if (segment.note) card.append(el('div', 'narrative-state-note', segment.note));
+    return card;
+  }
+  function narrativeQuestionCard(segment) {
+    const card = el('div', 'msg-note narrative-question narrative-state-card');
+    card.dataset.segmentKey = String(segment.questionId || segment.id || '');
+    const questions = Array.isArray(segment.questions) ? segment.questions : [];
+    const labels = questions.map(q => q && (q.question || q.prompt || q.label)).filter(Boolean);
+    const title = el('div', 'narrative-state-head');
+    title.append(el('span', '', labels.length ? `${t('chat.questionSegment')}：${labels.join(' / ')}` : t('chat.questionSegment')), narrativeStatePill(segment.status));
+    card.append(title);
+    if (segment.answerSummary) card.append(el('div', 'narrative-state-note', segment.answerSummary));
+    return card;
+  }
+  function narrativeStateLabel(status) {
+    const key = {
+      pending: 'narrative.status.pending', paused: 'narrative.status.paused',
+      allowed: 'narrative.status.allowed', denied: 'narrative.status.denied',
+      approved: 'narrative.status.approved', rejected: 'narrative.status.rejected',
+      answered: 'narrative.status.answered', cancelled: 'narrative.status.cancelled',
+      running: 'status.running', done: 'status.done', error: 'status.error',
+      updated: 'narrative.status.updated',
+    }[String(status || '')] || 'narrative.status.updated';
+    return t(key);
+  }
+  function narrativeStatePill(status) {
+    const value = String(status || 'updated');
+    return el('span', `narrative-state-pill state-${value}`, narrativeStateLabel(value));
+  }
+  function narrativeSemanticCard(segment) {
+    const type = String(segment.type || 'note');
+    const card = el('div', `narrative-state-card narrative-${type}`);
+    card.dataset.segmentKey = String(segment.requestId || segment.workflowId || segment.missionId || segment.id || '');
+    const titleKey = {
+      permission: 'narrative.permission',
+      workflow: 'narrative.workflow',
+      mission: 'narrative.mission',
+    }[type] || 'narrative.event';
+    let detail = '';
+    if (type === 'permission') detail = segment.toolName || '';
+    else if (type === 'workflow') {
+      const total = Number(segment.nodeCount) || 0;
+      detail = total ? t('narrative.workflowNodes', { count: total }) : '';
+    } else if (type === 'mission') {
+      const total = Number(segment.total) || 0;
+      detail = total ? t('narrative.missionProgress', { done: Number(segment.completed) || 0, total }) : (segment.goal || '');
+    }
+    const head = el('div', 'narrative-state-head');
+    head.append(el('span', 'narrative-state-title', `${t(titleKey)}${detail ? ' · ' + detail : ''}`), narrativeStatePill(segment.status));
+    card.append(head);
+    if (segment.note) card.append(el('div', 'narrative-state-note', segment.note));
+    return card;
+  }
+  function buildNarrativeToolBatch(items) {
+    if (!Array.isArray(items) || items.length < 2 || items.some(item => item.status === 'error')) return null;
+    const details = el('details', 'tool-group narrative-tool-batch');
+    const sum = el('summary', 'tool-group-sum');
+    sum.append(el('span', 'tg-caret', '▸'), el('span', 'tg-label', tCount('tool.group.completed', items.length)));
+    details.append(sum);
+    const body = el('div', 'tool-group-body');
+    for (const item of items) body.append(item.card);
+    details.append(body);
+    return details;
+  }
+  function isNarrativeProcessNode(node) {
+    return Boolean(node && node.nodeType === 1 && (
+      node.classList.contains('thinking')
+      || node.classList.contains('tool-card')
+      || node.classList.contains('tool-group')
+      || node.classList.contains('narrative-process-group')
+    ));
+  }
+  function isSettledNarrativeProcessNode(node) {
+    return isNarrativeProcessNode(node)
+      && !node.querySelector('.thinking-live')
+      && !node.querySelector('.tc-statusbar.running');
+  }
+  function narrativeProcessStats(nodes) {
+    let tools = 0, thinking = 0;
+    for (const node of nodes || []) {
+      tools += node.classList.contains('tool-card') ? 1 : node.querySelectorAll('.tool-card').length;
+      thinking += node.classList.contains('thinking') ? 1 : node.querySelectorAll('.thinking').length;
+    }
+    return { tools, thinking };
+  }
+  function refreshNarrativeProcessGroup(group) {
+    if (!group) return;
+    const body = group._processBody || group.querySelector('.narrative-process-body');
+    const label = group._processLabel || group.querySelector('.narrative-process-label');
+    if (!body || !label) return;
+    const stats = narrativeProcessStats(Array.from(body.children));
+    label.textContent = t('chat.processStage', stats);
+  }
+  function buildNarrativeProcessGroup(nodes) {
+    if (!Array.isArray(nodes) || !nodes.length) return null;
+    const group = el('details', 'narrative-process-group');
+    const summary = el('summary', 'narrative-process-summary');
+    const iconWrap = el('span', 'narrative-process-icon'); iconWrap.appendChild(icon('trace', 13));
+    const label = el('span', 'narrative-process-label');
+    const caret = el('span', 'narrative-process-caret');
+    summary.append(iconWrap, label, caret);
+    const body = el('div', 'narrative-process-body');
+    group.append(summary, body);
+    group._processBody = body;
+    group._processLabel = label;
+    for (const node of nodes) body.appendChild(node);
+    refreshNarrativeProcessGroup(group);
+    return group;
+  }
+  // A model may alternate reasoning and one or two tools for a long time without emitting prose. Keep the
+  // current running step visible, but fold settled process-only stretches into one chronological stage row.
+  // This rule is engine-neutral, so Claude CLI and OpenAI-compatible streams converge on the same density.
+  function compactNarrativeProcessRuns(narrative) {
+    if (!narrative) return;
+    const flush = block => {
+      if (!block.length) return;
+      const existing = block.find(node => node.classList.contains('narrative-process-group'));
+      const settled = block.filter(node => !node.classList.contains('narrative-process-group')
+        && isSettledNarrativeProcessNode(node));
+      if (existing) {
+        const body = existing._processBody || existing.querySelector('.narrative-process-body');
+        for (const node of settled) body.appendChild(node);
+        refreshNarrativeProcessGroup(existing);
+        return;
+      }
+      const stats = narrativeProcessStats(settled);
+      if (settled.length < 5 || stats.tools + stats.thinking < 6 || stats.thinking < 2) return;
+      const marker = document.createComment('narrative-process-stage');
+      settled[0].before(marker);
+      const group = buildNarrativeProcessGroup(settled);
+      marker.replaceWith(group);
+    };
+    let block = [];
+    for (const node of Array.from(narrative.children)) {
+      if (isNarrativeProcessNode(node)) block.push(node);
+      else { flush(block); block = []; }
+    }
+    flush(block);
+  }
+  function renderStaticTurnNarrative(msg, host) {
+    const segments = validTurnSegments(msg);
+    if (!segments.length) return null;
+    const tools = new Map((Array.isArray(msg.toolCalls) ? msg.toolCalls : []).filter(Boolean).map(tc => [String(tc.id || ''), tc]));
+    const nativeAgents = new Map((Array.isArray(msg.nativeAgents) ? msg.nativeAgents : []).filter(Boolean).map(record => [String(record.toolUseId || ''), record]));
+    const narrative = el('div', 'turn-narrative');
+    const toolIndex = [];
+    const renderedNative = new Set();
+    for (let i = 0; i < segments.length;) {
+      const segment = segments[i];
+      if (segment.type === 'tool') {
+        const consecutive = [];
+        while (i < segments.length && segments[i].type === 'tool') {
+          const toolSegment = segments[i++];
+          const tc = tools.get(String(toolSegment.toolCallId || '')) || { id: toolSegment.toolCallId, name: toolSegment.name || 'tool' };
+          const staticTc = { ...tc, isError: toolSegment.status === 'error' || tc.isError === true };
+          const card = toolCard(staticTc).d;
+          const anchorId = narrativeToolAnchor(toolSegment.toolCallId || tc.id, msg.turnSeq || msg.createdAt);
+          if (anchorId !== 'turn-tool-') card.id = anchorId;
+          consecutive.push({
+            card, batchId: String(toolSegment.batchId || ''),
+            status: toolSegment.status || (staticTc.isError ? 'error' : 'done'),
+          });
+          toolIndex.push({ tc: staticTc, status: toolSegment.status || (staticTc.isError ? 'error' : 'done'), anchorId });
+        }
+        if (consecutive.length > 1) {
+          // A long tool-only stretch stays constant-height. Failures remain outside and split the completed
+          // groups, preserving their chronological position instead of being swallowed by the fold.
+          let completed = [];
+          const flushCompleted = () => {
+            if (!completed.length) return;
+            const group = buildNarrativeToolBatch(completed);
+            if (group) narrative.append(group); else for (const item of completed) narrative.append(item.card);
+            completed = [];
+          };
+          for (const item of consecutive) {
+            if (item.status === 'error' || item.status === 'running') {
+              flushCompleted(); narrative.append(item.card);
+            } else completed.push(item);
+          }
+          flushCompleted();
+        } else {
+          for (let cursor = 0; cursor < consecutive.length;) {
+            const batchId = consecutive[cursor].batchId;
+            const batch = [];
+            while (cursor < consecutive.length && consecutive[cursor].batchId === batchId) batch.push(consecutive[cursor++]);
+            const group = buildNarrativeToolBatch(batch);
+            if (group) narrative.append(group); else for (const item of batch) narrative.append(item.card);
+          }
+        }
+        continue;
+      }
+      i += 1;
+      if (segment.type === 'text') narrative.append(narrativeTextBubble(segment.text));
+      else if (segment.type === 'steer') narrative.append(buildNarrativeSteerSegment(segment.text)); // EC-D 56b: 刷新后插话内嵌在助手回合内(与 live 同源)
+      else if (segment.type === 'thinking') narrative.append(thinkingPanel(segment.text || '').d);
+      else if (segment.type === 'plan') narrative.append(narrativePlanCard(segment));
+      else if (segment.type === 'question') narrative.append(narrativeQuestionCard(segment));
+      else if (segment.type === 'permission' || segment.type === 'workflow' || segment.type === 'mission') narrative.append(narrativeSemanticCard(segment));
+      else if (segment.type === 'note') narrative.append(el('div', 'msg-note', segment.text || ''));
+      else if (segment.type === 'error') narrative.append(el('div', 'msg-error', segment.text || ''));
+      else if (segment.type === 'subagent') {
+        const record = nativeAgents.get(String(segment.toolCallId || ''));
+        if (record) { narrative.append(renderStaticNativeAgent(record)); renderedNative.add(String(segment.toolCallId || '')); }
+      }
+    }
+    compactNarrativeProcessRuns(narrative);
+    host.append(narrative);
+    return { toolIndex, renderedNative };
+  }
+  function revealNarrativeTarget(target) {
+    if (!target) return;
+    const ancestors = [];
+    for (let node = target.parentElement; node; node = node.parentElement) {
+      if (node.tagName === 'DETAILS') ancestors.push(node);
+    }
+    for (const details of ancestors.reverse()) details.open = true;
+    if (target.tagName === 'DETAILS') target.open = true;
+    // Opening nested details changes layout. Wait for that layout before scrolling and focusing the tool.
+    requestAnimationFrame(() => {
+      target.tabIndex = -1;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.focus({ preventScroll: true });
+      target.classList.add('narrative-located');
+      setTimeout(() => target.classList.remove('narrative-located'), 1400);
+    });
+  }
+  function turnToolIndexCard(items, scopeHost) {
+    if (!Array.isArray(items) || !items.length) return null;
+    const details = el('details', 'turn-record');
+    const summary = el('summary', 'turn-record-head', t('chat.turnRecord', { count: items.length }));
+    details.append(summary);
+    const body = el('div', 'turn-record-body');
+    for (const item of items) {
+      const row = el('div', 'turn-record-tool');
+      const name = String(item.tc && item.tc.name || 'tool');
+      const status = item.status === 'error' ? t('status.error') : (item.status === 'running' ? t('status.running') : t('status.done'));
+      row.append(el('span', 'turn-record-tool-name', name), el('span', `turn-record-tool-status ${item.status === 'error' ? 'err' : 'ok'}`, status));
+      if (item.anchorId && item.anchorId !== 'turn-tool-') {
+        const jump = el('button', 'turn-record-jump', t('chat.jumpToTool'));
+        jump.type = 'button';
+        jump.onclick = () => {
+          const target = scopeHost
+            ? scopeHost.querySelector(`#${CSS.escape(item.anchorId)}`)
+            : document.getElementById(item.anchorId);
+          revealNarrativeTarget(target);
+        };
+        row.append(jump);
+      }
+      body.append(row);
+    }
+    details.append(body);
+    return details;
+  }
+
+  function renderStaticMessage(msg, messageKey, renderSignature) {
+    const meta = msg.role === 'assistant' ? metaFromMessage(msg) : null;
+    const { row, main } = messageShell(msg.role, msg.createdAt, meta);
+    const segments = validTurnSegments(msg);
+    // 50d(02 Phase D):插话卡静态重渲染 -- steered:true 消息(刷新/重进会话后从 session.messages 读出)
+    //   统一在此加「插话」徽章,与流式期 renderSteeredMessage 同源(后者也传 steered:true 走此路径)。
+    // v1.9.1: 同步设 data-steered,让全量重渲染的行也能被 renderSteeredMessage 幂等检查 + steered 事件闪绿匹配覆盖。
+    if (msg.steered) main.appendChild(el('span', 'steered-badge', t('chat.steer')));
+    if (msg.steered) row.dataset.steered = 'true'; // v1.9.1: 让全量重渲染的行也能被 renderSteeredMessage 幂等检查 + steered 事件闪绿匹配覆盖
+    const nativeAgents = Array.isArray(msg.nativeAgents) ? msg.nativeAgents : [];
+    const visibleToolCalls = Array.isArray(msg.toolCalls)
+      ? msg.toolCalls.filter(tc => !nativeAgents.length || !['Agent', 'Task', 'TaskOutput'].includes(tc && tc.name))
+      : [];
+    let narrativeResult = null;
+    if (msg.role === 'assistant' && segments.length) narrativeResult = renderStaticTurnNarrative(msg, main);
+    else {
+      if (msg.thinking) { const { d } = thinkingPanel(msg.thinking); main.appendChild(d); }
+      const bubble = el('div', 'bubble');
+      if (msg.role === 'assistant' && String(msg.content || '').length <= LIVE_MARKDOWN_MAX_CHARS) {
+        bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(msg.content || ''); highlightIn(bubble);
+      } else { bubble.classList.add('plain'); bubble.textContent = msg.content || ''; }
+      main.appendChild(bubble);
+    }
+    if (!narrativeResult && visibleToolCalls.length) {
+      // v1.0.2 (G4): >3 top-level tool cards → collapse them all into one <details.tool-group>. ≤3 render flat.
+      const cardEls = visibleToolCalls.map(tc => toolCard(tc).d);
+      const group = buildStaticToolGroup(cardEls);
+      if (group) main.appendChild(group);
+      else for (const c of cardEls) main.appendChild(c);
+    }
+    for (const record of nativeAgents) {
+      if (!narrativeResult || !narrativeResult.renderedNative.has(String(record && record.toolUseId || ''))) main.appendChild(renderStaticNativeAgent(record));
+    }
+    if (narrativeResult) {
+      const record = turnToolIndexCard(narrativeResult.toolIndex, main);
+      if (record) main.appendChild(record);
+    }
+    if (msg.turnSummary) {
+      main.appendChild(turnSummaryCard(msg.turnSummary)); // v0.8-S3 「本轮变更」
+      const chips = turnArtifactChips(msg.turnSummary); if (chips) main.appendChild(chips); // v1.0.2 (G2)
+    }
+    if (msg.usage) main.appendChild(usageLine(msg.usage, meta));
+    main.appendChild(msgActions(msg));
+    if (messageKey) row.dataset.messageKey = messageKey;
+    if (renderSignature) row.dataset.renderSignature = renderSignature;
+    return row;
+  }
+
+
+  return {
+    compactNarrativeProcessRuns,
+    narrativeQuestionCard,
+    narrativeSemanticCard,
+    narrativeToolAnchor,
+    renderStaticMessage,
+    turnToolIndexCard,
+  };
+}

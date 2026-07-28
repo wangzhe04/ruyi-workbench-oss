@@ -1,0 +1,110 @@
+/* Application shell, columns, resize handles, and sidebar. */
+/* ============================ layout ============================ */
+.app-shell {
+  height: 100vh;
+  display: grid;
+  /* v3 (§2.7 P2): 右栏三档宽 —— 340(默认)/480/全屏。第三轨宽走 --right-w,由 applyRightWidth() 改写并记忆到
+     localStorage('wcw.rightWidth');全屏档见下方 .tools-fullscreen(fixed 覆盖中栏,不占轨)。 */
+  --right-w: 340px;
+  position: relative; /* 承载右栏拖拽手柄(.right-resize-handle)绝对定位锚点 */
+  z-index: 1; /* 第50波:抬到 body::before 噪点层(z:0)之上 */
+  grid-template-columns: 288px minmax(420px, 1fr) var(--right-w);
+  overflow: hidden;
+  /* v1.0.2 (F2): 折叠/展开侧栏时栅格列宽的短过渡(≤0.15s),避免瞬跳。 */
+  transition: grid-template-columns var(--dur-fast) var(--ease-out); /* v3 (§C5): 收敛散写 duration 到 token */
+}
+/* 拖拽/切档瞬间去过渡,手柄跟手不拖影 */
+.app-shell.right-resizing { transition: none; }
+.app-shell.tools-collapsed { grid-template-columns: 288px minmax(420px, 1fr) 0; }
+.app-shell.sidebar-collapsed { grid-template-columns: 0 minmax(420px, 1fr) var(--right-w); }
+.app-shell.sidebar-collapsed.tools-collapsed { grid-template-columns: 0 1fr 0; }
+/* v1.0.2 收官返修(把关直修):三列【显式】落轨 —— 防轨道错位。v1.0.1「输入框消失」与本次「折叠侧栏后
+   工具面板占满全屏、退不掉」同根:位置网格 + 子元素 display:none 会让后续子元素滑进错误的轨
+   (sidebar 是第一个子元素,display:none 后 chat-pane 滑进 0px 轨、tool-pane 滑进主轨)。
+   显式 grid-column 后,任何一列隐藏都不再影响其余列的落位。(≤760px 档单列网格另行覆写 chat-pane。) */
+.sidebar { grid-column: 1; }
+.chat-pane { grid-column: 2; }
+.tool-pane { grid-column: 3; }
+
+.sidebar, .tool-pane {
+  /* 第50波(UI-DESIGN-V4 分档):框架族 = 玻璃二档(--glass-bg-1 + blur-2,贴边无圆角)。
+     模糊预算:框架族固定 4 面(sidebar/tool-pane/topbar/composer),滚动区不增面(模糊的是身后 scene)。 */
+  background: var(--glass-bg-1);
+  -webkit-backdrop-filter: var(--glass-blur-2); backdrop-filter: var(--glass-blur-2);
+  box-shadow: var(--glass-highlight);
+  padding: 14px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sidebar { border-right: 1px solid var(--glass-border); gap: 10px; }
+.tool-pane { border-left: 1px solid var(--glass-border); }
+.app-shell.tools-collapsed .tool-pane,
+.app-shell.sidebar-collapsed .sidebar { display: none; }
+
+/* v3 (§2.7 P2): 右栏拖拽手柄 —— 4px 命中带贴在 tool-pane 左缘(right:var(--right-w)),pointer 拖动改 --right-w、
+   松手吸附最近档;双击循环 340->480->全屏(见 app.js initRightResize/cycleRightWidth)。桌面栅格档专属。 */
+.right-resize-handle {
+  position: absolute; top: 0; bottom: 0; right: var(--right-w); width: 8px; transform: translateX(4px);
+  cursor: col-resize; z-index: 46; touch-action: none; background: transparent; border: 0; padding: 0;
+}
+.right-resize-handle::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; border-radius: 2px;
+  background: transparent; transition: background var(--dur-fast) var(--ease-out);
+}
+.right-resize-handle:hover::before,
+.app-shell.right-resizing .right-resize-handle::before { background: var(--accent); }
+.right-resize-handle:focus-visible { outline: none; box-shadow: var(--ring); }
+/* 工具栏折叠时无右栏可拖 → 隐藏手柄 */
+.app-shell.tools-collapsed .right-resize-handle { display: none; }
+/* 全屏档:tool-pane 变 fixed 覆盖中栏(sidebar 保留);手柄挪到面板左缘,双击/Esc 可退出全屏。 */
+.app-shell.tools-fullscreen .tool-pane {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 288px; width: auto;
+  z-index: 30; box-shadow: var(--elev-3); border-left: 1px solid var(--line);
+}
+.app-shell.tools-fullscreen.sidebar-collapsed .tool-pane { left: 0; }
+.app-shell.tools-fullscreen .right-resize-handle { right: auto; left: 288px; }
+.app-shell.tools-fullscreen.sidebar-collapsed .right-resize-handle { left: 0; }
+
+/* ============================ sidebar ============================ */
+.brand { display: flex; gap: 10px; align-items: center; }
+.brand-mark {
+  /* v0.8-S8:承载内联如意主标 SVG(青花/鎏金,走 --brand-* 变量随主题)。去掉旧 terracotta 底,
+     改极淡底衬托品牌色(不使用 terracotta 作品牌视觉)。 */
+  width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--brand-qh) 12%, transparent); flex: none;
+}
+.brand-mark svg { display: block; }
+.brand-text { min-width: 0; flex: 1; }
+.brand h1 { margin: 0; font-size: var(--fs-lg); letter-spacing: .2px; }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.search-wrap input { background: var(--panel-2); }
+.session-list { display: flex; flex-direction: column; gap: 3px; flex: 1; overflow: auto; }
+.session-group-label { font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 10px 4px 3px; }
+.session-item { position: relative;
+  /* 第23波: flex:none —— 会话项是 .session-list(flex column)的子项,原来会被压缩到 min-height:30px,把两行内容(≈34px)
+     挤出边框box,hover 图标也随之越到框外。不压缩 → 每项取自然高度,内容与图标都稳稳在圆角框内。 */
+  flex: none;
+  text-align: left; padding: 9px 10px; border: 1px solid transparent; background: transparent;
+  border-radius: var(--radius-sm); display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; align-items: center;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); /* v3 (§C2) */
+}
+.session-item:hover { background: var(--panel-2); }
+.session-item.active { background: var(--glass-bg-3); border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: var(--glass-highlight); } /* 第50波点色化:玻璃底+点色描边 */
+.session-item.active::before { content: ""; position: absolute; left: -1px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px;
+  background: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
+.session-item .s-title { font-size: var(--fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; grid-column: 1; }
+.session-item .s-sub { grid-column: 1; color: var(--muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 第23波: 会话项 hover 操作 —— 三个图标做成【紧贴框内】的紧凑组:22×22 图标钮、无独立底/边框(不做浮层药丸,免得
+   看着像框外的悬浮片),整组高度小于会话项、align-self:center 垂直居中,绝不越出会话卡的圆角框。 */
+.session-item .s-actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; justify-self: end; display: flex; align-items: center; gap: 1px; opacity: 0; }
+.session-item:hover .s-actions, .session-item.active .s-actions { opacity: 1; }
+.session-item .s-actions button { width: 22px; height: 22px; min-height: 0; padding: 0; display: inline-grid; place-items: center; border-radius: var(--radius-sm); font-size: var(--fs-sm); background: transparent; border-color: transparent; color: var(--muted); }
+.session-item .s-actions button:hover { background: color-mix(in srgb, var(--ink) 13%, transparent); color: var(--ink); }
+.session-item .pin-badge { color: var(--accent); }
+
+.sidebar-foot { display: flex; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
+.sidebar-foot button { flex: 1; font-size: var(--fs-sm); }

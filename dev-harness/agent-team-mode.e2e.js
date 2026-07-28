@@ -82,8 +82,11 @@ function capturedUser() {
 (async () => {
   // Static UI contract: explicit toggle, one-shot request field, responsive state, and localizations.
   const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
-  const app = fs.readFileSync(path.join(PUB, 'app.js'), 'utf8');
-  const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
+  const app = [
+    fs.readFileSync(path.join(PUB, 'app.js'), 'utf8'),
+    fs.readFileSync(path.join(PUB, 'js', 'chat-stream-runtime.js'), 'utf8'),
+  ].join('\n');
+  const css = require('./read-frontend-css.js').readFrontendCss();
   ok(/id="agentTeamBtn"[^>]*aria-pressed="false"/.test(html), 'composer exposes an accessible Agent team toggle');
   ok((app.match(/let agentTeamTurnEnabled = false/g) || []).length === 1 && /if \(agentTeam\) \{ agentTeamTurnEnabled = false/.test(app), 'toggle is declared once, remains turn-local, and resets when sent');
   ok(/attachments: sentAttachments, agentTeam/.test(app), 'composer sends a structured agentTeam field without changing user text');

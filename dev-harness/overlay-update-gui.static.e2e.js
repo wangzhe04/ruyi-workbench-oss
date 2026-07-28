@@ -1,7 +1,8 @@
 'use strict';
 /*
  * 静态锁(第53波 EC-B 53d):更新中心 GUI 三件套 wiring -- index.html(页签+面板+按钮) /
- * app.js(overlay 函数族 + switchSettingsTab hook + 按钮绑定) / locale(中英 i18n 键对等) /
+ * settings-operations.js(overlay 函数族 + 按钮绑定) / app.js(组合根 + switchSettingsTab hook) /
+ * locale(中英 i18n 键对等) /
  * 后端 pick-file 路由 + pickFile 函数。防 GUI 接线漂移(漏按钮/漏键/漏路由 -> 白屏或哑按钮)。
  *
  * Run: node dev-harness/overlay-update-gui.static.e2e.js
@@ -12,6 +13,8 @@ const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const html = fs.readFileSync(path.join(WB, 'app', 'public', 'index.html'), 'utf8');
 const appjs = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
+const operations = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'settings-operations.js'), 'utf8');
+const navigation = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'navigation-controls.js'), 'utf8');
 const zh = JSON.parse(fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'zh-CN.json'), 'utf8'));
 const en = JSON.parse(fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'en-US.json'), 'utf8'));
 const server = fs.readFileSync(path.join(WB, 'app', 'server.js'), 'utf8');
@@ -29,15 +32,19 @@ let fieldsOk = true;
 for (const f of fields) if (!html.includes(`id="${f}"`)) fieldsOk = false;
 ok(fieldsOk, 'G4 预览/状态/结果/审计字段全在(14 个)');
 
-// ── app.js:overlay 函数族 + hook + 绑定 ──
+// ── settings operations module + app.js composition root ──
 const fns = ['refreshOverlayStatus', 'overlayPickZip', 'overlayPrecheck', 'overlayApply', 'overlayRollback'];
-for (const f of fns) ok(appjs.includes(`function ${f}(`) || appjs.includes(`async function ${f}(`), `G5 ${f}() 在 app.js`);
-ok(appjs.includes("if (name === 'update') refreshOverlayStatus();"), 'G6 switchSettingsTab update hook 在');
-ok(/ovPickBtn.{0,80}onclick = overlayPickZip/.test(appjs), 'G7 ovPickBtn 绑 overlayPickZip');
-ok(/ovApplyBtn.{0,80}onclick = overlayApply/.test(appjs), 'G8 ovApplyBtn 绑 overlayApply');
-ok(/ovRollbackBtn.{0,80}onclick = overlayRollback/.test(appjs), 'G9 ovRollbackBtn 绑 overlayRollback');
-ok(appjs.includes("'/api/overlay/precheck'") && appjs.includes("'/api/overlay/apply'") && appjs.includes("'/api/overlay/rollback'") && appjs.includes("'/api/overlay/status'"), 'G10 app.js 调四条 overlay API');
-ok(appjs.includes("'/api/pick-file'"), 'G11 app.js 调 /api/pick-file(选 zip)');
+for (const f of fns) ok(operations.includes(`function ${f}(`) || operations.includes(`async function ${f}(`), `G5 ${f}() 在 settings-operations 模块`);
+ok(appjs.includes("from './js/settings-operations.js'") && appjs.includes('createSettingsOperationsDomain')
+  && appjs.includes('bindSettingsOperations();'), 'G5b app.js 仅保留模块组合与一次绑定');
+ok(navigation.includes("if (name === 'update') refreshOverlayStatus();"), 'G6 switchSettingsTab update hook 在');
+ok(/ovPickBtn.{0,100}onclick = overlayPickZip/.test(operations), 'G7 ovPickBtn 绑 overlayPickZip');
+ok(/ovApplyBtn.{0,100}onclick = overlayApply/.test(operations), 'G8 ovApplyBtn 绑 overlayApply');
+ok(/ovRollbackBtn.{0,100}onclick = overlayRollback/.test(operations), 'G9 ovRollbackBtn 绑 overlayRollback');
+ok(operations.includes("'/api/overlay/precheck'") && operations.includes("'/api/overlay/apply'") && operations.includes("'/api/overlay/rollback'") && operations.includes("'/api/overlay/status'"), 'G10 operations 模块调四条 overlay API');
+ok(operations.includes("'/api/pick-file'"), 'G11 operations 模块调 /api/pick-file(选 zip)');
+ok(!/\.innerHTML\s*=/.test(operations) && operations.includes('function renderOverlayResult(')
+  && operations.includes('audit.replaceChildren(fragment)'), 'G11b 运维模块零 innerHTML，更新审计/结果走安全 DOM');
 
 // ── locale:中英对等 + 关键键 ──
 const keys = ['settings.update', 'settings.update.current', 'settings.update.precheck', 'settings.update.apply', 'settings.update.rollback', 'settings.update.preview', 'settings.update.audit', 'settings.update.restartNeeded', 'settings.update.idempotent', 'settings.update.compatInfo'];

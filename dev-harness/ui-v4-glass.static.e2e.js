@@ -18,8 +18,9 @@
  */
 const fs = require('fs'), path = require('path');
 const ROOT = path.resolve(__dirname, '..');
-const CSS = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'styles.css'), 'utf8');
+const CSS = require('./read-frontend-css.js').readFrontendCss();
 const APP = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'app.js'), 'utf8');
+const WORKSPACE_PREFS = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'js', 'workspace-preferences.js'), 'utf8');
 const HTML = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'index.html'), 'utf8');
 const readLoc = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const zh = readLoc('ruyi-workbench/app/public/locales/zh-CN.json');
@@ -69,9 +70,9 @@ ok(!/\.chat-pane \{[^}]*backdrop-filter/s.test(CSS), 'G6b chat-pane 无 blur(阅
 ok(/--code-bg: #/.test(CSS), 'G6c 代码块保持实色 token(--code-bg)');
 
 // ── G7 主题三态 ──
-ok(APP.includes('function effectiveTheme(') && APP.includes("prefers-color-scheme: dark"), 'G7a effectiveTheme system 解析在');
-ok(/cur === 'dark' \? 'light' : cur === 'light' \? 'system' : 'dark'/.test(APP), 'G7b toggleTheme dark→light→system 循环');
-ok(/addEventListener\('change'/.test(APP) && APP.includes("if (cur === 'system') applyTheme('system')"), 'G7c matchMedia 变更监听(system 档随 OS)');
+ok(WORKSPACE_PREFS.includes('function effectiveTheme(') && WORKSPACE_PREFS.includes("prefers-color-scheme: dark"), 'G7a effectiveTheme system 解析在');
+ok(/cur === 'dark' \? 'light' : cur === 'light' \? 'system' : 'dark'/.test(WORKSPACE_PREFS), 'G7b toggleTheme dark→light→system 循环');
+ok(/addEventListener\('change'/.test(WORKSPACE_PREFS) && WORKSPACE_PREFS.includes("if (cur === 'system') applyTheme('system')"), 'G7c matchMedia 变更监听(system 档随 OS)');
 ok(HTML.includes("t === 'system'") && HTML.includes('prefers-color-scheme'), 'G7d index.html 预绘解析 system(防闪)');
 ok(!APP.includes("$('themeToggle').textContent = theme === 'dark' ? '🌙' : '☀️'"), 'G7e themeToggle emoji 已换 SVG(emoji 清零首例)');
 for (const [name, content] of [['zh', zh], ['en', en], ['docs-zh', dzh], ['docs-en', den]]) {

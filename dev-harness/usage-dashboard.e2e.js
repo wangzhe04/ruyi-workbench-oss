@@ -25,8 +25,11 @@ const path = require('path');
 const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 
 const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
-const css = fs.readFileSync(path.join(PUB, 'styles.css'), 'utf8');
+const css = require('./read-frontend-css.js').readFrontendCss();
 const src = readFrontendSrc();
+const app = fs.readFileSync(path.join(PUB, 'app.js'), 'utf8');
+const usageDomain = fs.readFileSync(path.join(PUB, 'js', 'usage-dashboard.js'), 'utf8');
+const navigation = fs.readFileSync(path.join(PUB, 'js', 'navigation-controls.js'), 'utf8');
 const zh = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'docs', 'i18n', 'locales', 'zh-CN.json'), 'utf8'));
 
 let fail = 0;
@@ -70,7 +73,9 @@ ok(!/['"]usage['"]/.test(devTabsDecl), '② usage 不在 DEV_TABS（简易模式
 }
 
 // ───────────── ③ 懒加载 + 范围段控 ─────────────
-ok(/tab === 'usage'/.test(src) && /loadUsage\(\)/.test(src), '③ switchTab 打开 usage 时才 loadUsage（懒加载）');
+ok(/if \(tab === 'usage'\) openUsageDashboard\(\)/.test(navigation)
+  && /function openUsageDashboard\(/.test(usageDomain)
+  && /return loadUsage\(\)/.test(usageDomain), '③ switchTab 通过领域入口懒加载 usage');
 ok(/\/api\/usage\/summary\?range=/.test(src), '③ loadUsage 命中 GET /api/usage/summary?range=');
 ok(/usageState\s*=\s*\{[^}]*range:\s*'month'/.test(src), '③ 默认范围为本月(month)');
 for (const r of ['today', 'week', 'month', 'all']) {

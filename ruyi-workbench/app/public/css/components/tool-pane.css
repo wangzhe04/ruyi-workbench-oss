@@ -1,0 +1,242 @@
+/* Tool pane, modals, overlays, toasts, and responsive shell rules. */
+/* ============================ tool pane ============================ */
+.tool-tabs { display: flex; gap: 3px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.tool-tabs button { padding: 4px 7px; font-size: var(--fs-sm); background: transparent; border-color: transparent; color: var(--muted); }
+.tool-tabs button:hover { color: var(--ink); background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
+.tool-tabs button.active { background: color-mix(in srgb, var(--accent) 14%, var(--panel-2)); border-color: color-mix(in srgb, var(--accent) 38%, var(--line)); color: var(--accent); font-weight: 600; }
+/* v1.0-S2 (IA): 页签分组 — 常驻组 / 开发者组内联成组，组间以「开发者」小组标 .tool-tabs-sep 分隔。 */
+.tool-tabs .tool-tabs-group { display: inline-flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.tool-tabs .tool-tabs-sep { display: inline-flex; align-items: center; padding: 0 4px 0 8px; margin-left: 2px;
+  border-left: 1px solid var(--line); color: var(--muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .5px; }
+.tool-section { display: none; }
+.tool-section.active { display: block; }
+.tool-section label { display: block; color: var(--muted); font-size: var(--fs-sm); margin: 10px 0 5px; }
+.tool-section > label:first-child { margin-top: 0; }
+.tool-section button, .tool-section input, .tool-section textarea { margin-bottom: 6px; }
+.tool-output { margin: 12px 0 0; padding: 11px; background: var(--code-bg); border: 1px solid var(--line); color: var(--ink-2); border-radius: var(--radius-sm); min-height: 120px; max-height: 34vh; overflow: auto; white-space: pre-wrap; font-family: var(--mono); font-size: var(--fs-sm); }
+/* v1.0-S2 (IA): 全局原始输出槽在常驻组（产物/审计等自带预览的）页签下隐藏；switchTab 按激活页签切换此类。 */
+.tool-output.toolout-hidden { display: none; }
+
+/* v0.8-S2: persistent shell session panel (provider engine only) */
+.shell-sessions { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.shell-list { display: flex; flex-direction: column; gap: 6px; }
+.shell-empty { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; padding: 4px 2px; }
+.shell-item { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); padding: 8px 10px; }
+.shell-item-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.shell-meta { min-width: 0; }
+.shell-name { display: flex; align-items: center; gap: 6px; font-size: var(--fs-md); color: var(--ink); }
+.shell-name-text { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shell-id { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); }
+.shell-cwd { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shell-actions { display: flex; gap: 4px; flex: none; }
+.shell-actions button.danger { color: var(--danger-fg); }
+.shell-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+.shell-dot.running { background: var(--ok); animation: pulse 1.1s infinite; }
+.shell-dot.stopped { background: var(--muted); }
+.shell-output { margin: 8px 0 0; padding: 8px; background: var(--code-bg); border: 1px solid var(--line); color: var(--ink-2); border-radius: var(--radius-sm); max-height: 26vh; overflow: auto; white-space: pre-wrap; word-break: break-all; font-family: var(--mono); font-size: var(--fs-xs); }
+
+.debug-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.debug-actions { display: flex; gap: 4px; align-items: center; }
+.mini-check { font-size: var(--fs-xs); color: var(--muted); display: flex; align-items: center; gap: 3px; margin: 0; }
+.raw-events { background: var(--code-bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px; height: 62vh; overflow: auto; font-family: var(--mono); font-size: var(--fs-xs); white-space: pre-wrap; word-break: break-all; margin: 0; }
+.raw-events .rl { color: var(--ink-2); border-bottom: 1px solid var(--line); padding: 2px 0; }
+.raw-events .rl .seq { color: var(--muted); }
+
+.doctor-panel { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.health-row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); }
+.health-row .h-dot { flex: none; margin-top: 2px; }
+.health-row.ok .h-dot { color: var(--ok-fg); }
+.health-row.bad .h-dot { color: var(--danger-fg); }
+.health-row .h-body { min-width: 0; }
+.health-row .h-id { font-weight: 600; font-size: var(--fs-md); }
+.health-row .h-detail { color: var(--muted); font-size: var(--fs-sm); word-break: break-word; }
+
+/* ============================ modals ============================ */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 50; padding: 20px; animation: backdrop-in var(--dur-2) var(--ease); }
+.modal { background: var(--glass-bg-2); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur-3); backdrop-filter: var(--glass-blur-3); /* 第50波:浮层族玻璃一档 */
+  border-radius: 14px; box-shadow: var(--glass-highlight), var(--glass-shadow); width: min(640px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; animation: modal-in var(--dur-2) var(--ease); }
+.modal.small { width: min(420px, 100%); }
+/* modal entrance (§4.9/C7): backdrop fades, panel scales .98→1. reduced-motion global block disables. */
+@keyframes backdrop-in { from { opacity: 0; } }
+@keyframes modal-in { from { opacity: 0; transform: scale(.98); } }
+/* settings modal is wider to hold the tabbed layout (§4.5) */
+#settingsModal .modal { width: min(720px, 100%); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.modal-head h3 { margin: 0; font-size: var(--fs-lg); }
+.modal-body { padding: 16px 18px; overflow: auto; }
+.modal-foot { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.field-block { margin-bottom: 12px; }
+.field-block label { display: block; color: var(--muted); font-size: var(--fs-sm); margin-bottom: 5px; }
+/* v1.0.2 (G5a): 字段下方帮助小字 */
+.field-block .field-help { margin: 5px 0 0; font-size: var(--fs-sm); line-height: 1.5; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.check { display: flex; align-items: center; gap: 7px; font-size: var(--fs-md); color: var(--ink-2); cursor: pointer; }
+.check input { width: auto; }
+.kbd-table { width: 100%; border-collapse: collapse; }
+.kbd-table td { padding: 7px 4px; border-bottom: 1px solid var(--line); font-size: var(--fs-md); }
+.kbd-table td:first-child { width: 42%; }
+kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; font-family: var(--mono); font-size: var(--fs-xs); }
+
+/* skill / command panel */
+.skill-search-wrap { padding: 12px 18px 0; }
+.skill-search-wrap input { background: var(--panel-2); }
+.skill-list { display: flex; flex-direction: column; gap: 4px; }
+.skill-item { padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; background: var(--panel-2); transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); }
+.skill-item:hover, .skill-item.sel { border-color: var(--accent); background: var(--accent-soft); }
+.skill-head { display: flex; align-items: center; gap: 8px; }
+.skill-name { font-family: var(--mono); font-weight: 600; color: var(--accent); background: none; padding: 0; }
+.skill-type { margin-left: auto; font-size: var(--fs-xs); color: var(--muted); border: 1px solid var(--line-2); border-radius: 10px; padding: 1px 7px; }
+.skill-desc { color: var(--muted); font-size: var(--fs-sm); margin-top: 3px; line-height: 1.45; }
+/* v1 技能体系: 技能库分组标题 + 来源标签 + 启用开关 + 不可用置灰 */
+.skill-group-title { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); text-transform: none; margin: 10px 2px 2px; letter-spacing: .02em; }
+.skill-group-title:first-child { margin-top: 2px; }
+.skill-src { font-size: var(--fs-xs); color: var(--muted); border: 1px solid var(--line-2); border-radius: 10px; padding: 1px 7px; }
+.skill-toggle { margin-left: auto; font-size: var(--fs-xs); padding: 2px 10px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); color: var(--ink); cursor: pointer; }
+.skill-toggle:hover:not(:disabled) { border-color: var(--accent); }
+.skill-toggle.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); } /* 第50波清障: #fff -> token */
+.skill-toggle:disabled { opacity: .5; cursor: default; }
+.skill-item.unavailable { opacity: .6; cursor: default; }
+.skill-item.unavailable:hover { border-color: var(--line); background: var(--panel-2); }
+.skill-reason { color: var(--muted); font-size: var(--fs-xs); margin-top: 3px; font-style: italic; }
+/* P3-6: 已失效技能行（注册表缺失的启用项）—— 虚线边 + 弱化,与可选技能行区分,提供移除按钮。 */
+.skill-ghost { padding: 9px 11px; border: 1px dashed var(--line-2); border-radius: var(--radius-sm); background: var(--panel-2); opacity: .75; }
+.skill-ghost .skill-name { color: var(--muted); }
+
+/* v3 (§2.12 P2 r2):技能库 / 记忆卡片化 —— 分段控件锚点导航 + 两列卡片网格 + 启用态青花描边/渗透洗 + 中文名主显、
+   mono id 降为小字。启用态与节点卡「渗透」同一口音(青花描边 + 顶部青花洗 + 实心图标块)。 */
+.sk-seg { display: flex; flex-wrap: wrap; gap: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px; margin: 0 0 14px; }
+.sk-seg a { padding: 5px 14px; border-radius: var(--r-pill); font-size: var(--fs-sm); color: var(--ink-2); text-decoration: none; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out); }
+.sk-seg a:hover { color: var(--ink); }
+.sk-seg a.active { background: var(--panel); color: var(--accent); font-weight: 600; box-shadow: var(--elev-1); }
+.sk-seg a:focus-visible { outline: none; box-shadow: var(--ring); }
+.sk-seg a .n { font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.sk-seg a.active .n { color: var(--accent); }
+.sk-group { margin-bottom: 18px; }
+.sk-group:last-child { margin-bottom: 0; }
+.sk-group-t { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.sk-group-t .t { font-size: var(--fs-sm); font-weight: 700; letter-spacing: .18em; color: var(--ink-2); white-space: nowrap; }
+.sk-group-t .sub { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+.sk-group-t .cnt { font-size: var(--fs-xs); color: var(--muted); background: var(--panel-3); padding: 0 7px; border-radius: var(--r-pill); line-height: 18px; font-variant-numeric: tabular-nums; }
+.sk-group-t .line { flex: 1; height: 1px; min-width: 12px; background: linear-gradient(90deg, var(--line-2), transparent); }
+.sk-group-t .cloud { width: 18px; height: 11px; flex: none; background: var(--muted); opacity: .45;
+  -webkit-mask: var(--ruyi-cloud) center/contain no-repeat; mask: var(--ruyi-cloud) center/contain no-repeat; }
+.sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sk-card { position: relative; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel-2); padding: 12px 13px 11px; display: flex; flex-direction: column; gap: 6px; cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.sk-card:hover { transform: translateY(-1px); box-shadow: var(--elev-1); border-color: var(--line-2); }
+.sk-card.sel { border-color: var(--accent); box-shadow: var(--ring); }
+/* 启用态:发丝青花描边 + 顶部青花渗透洗 + 实心图标块(与节点卡「渗透」同一语言)。 */
+.sk-card.on { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, var(--panel-2)), var(--panel-2) 58%); }
+.sk-card.unavailable { opacity: .6; cursor: default; }
+.sk-card.unavailable:hover { transform: none; box-shadow: none; border-color: var(--line); }
+.sk-card-h { display: flex; align-items: center; gap: 9px; }
+.sk-ico { width: 28px; height: 28px; border-radius: var(--r-sm); display: grid; place-items: center; flex: none; background: var(--accent-soft); color: var(--accent); font-size: var(--fs-md);
+  transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
+.sk-ico svg { display: block; }
+.sk-card.on .sk-ico { background: var(--accent); color: var(--accent-ink); box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--accent) 55%, transparent); }
+.sk-name { font-size: var(--fs-base); font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.sk-src { flex: none; font-size: var(--fs-xs); color: var(--muted); border: 1px solid var(--line-2); border-radius: var(--r-pill); padding: 1px 7px; }
+.sk-id { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sk-desc { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.5; flex: 1; }
+.sk-reason { font-size: var(--fs-xs); color: var(--muted); font-style: italic; }
+.sk-foot { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.sk-foot .skill-toggle { margin-left: 0; }
+.sk-foot .skill-detail-btn { margin-right: auto; border: 0; background: transparent; color: var(--link); padding: 3px 0; cursor: pointer; font-size: var(--fs-xs); }
+.sk-foot .skill-toggle.resident.on { background: color-mix(in srgb, var(--accent) 18%, var(--panel)); border-color: var(--accent); color: var(--accent); }
+.skill-detail { max-height: min(65vh, 620px); overflow: auto; line-height: 1.65; }
+@media (max-width: 560px) { .sk-grid { grid-template-columns: 1fr; } }
+
+/* v2 跨会话记忆 面板 */
+.memory-intro { padding: 0 16px 8px; font-size: var(--fs-sm); line-height: 1.5; }
+.memory-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 2px 8px; }
+.memory-hint { font-size: var(--fs-xs); margin: 0 2px 6px; }
+.memory-rowbar { display: flex; gap: 6px; margin-top: 7px; }
+.memory-rowbar .mini { font-size: var(--fs-xs); }
+
+/* command palette */
+.palette-backdrop { align-items: flex-start; padding-top: 12vh; }
+.palette { background: var(--glass-bg-2); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur-3); backdrop-filter: var(--glass-blur-3); /* 第50波:浮层族玻璃一档 */
+  border-radius: 12px; box-shadow: var(--glass-highlight), var(--glass-shadow); width: min(560px, 100%); overflow: hidden; animation: modal-in var(--dur-2) var(--ease); }
+.palette input { border: none; border-radius: 0; border-bottom: 1px solid var(--line); padding: 14px 16px; font-size: 1.071rem; /* body-input 特例:≈15px 视觉,rem 化随根缩放 */ }
+.palette input:focus { box-shadow: none; }
+.palette-list { max-height: 50vh; overflow: auto; padding: 6px; }
+.palette-item { padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer; display: flex; gap: 10px; align-items: center; font-size: var(--fs-md); }
+.palette-item .p-hint { margin-left: auto; color: var(--muted); font-size: var(--fs-xs); }
+.palette-item.sel, .palette-item:hover { background: var(--accent-soft); }
+
+/* narrow-screen tool drawer backdrop: hidden by default everywhere; the ≤1180px block reveals it
+   only while .app-shell.tools-open. Declared here so desktop never shows a stray full-screen overlay. */
+.drawer-backdrop { display: none; }
+
+/* toasts */
+.toast-tray { position: fixed; bottom: 18px; right: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
+.toast { background: var(--glass-bg-2); border: 1px solid var(--glass-border); border-left: 3px solid var(--accent);
+  -webkit-backdrop-filter: var(--glass-blur-1); backdrop-filter: var(--glass-blur-1); /* 第50波:浮层族,blur-1 防多 toast 叠爆预算 */ border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 10px 14px; font-size: var(--fs-md); max-width: 340px; animation: slidein var(--dur-base) var(--ease-out); }
+.toast.err { border-left-color: var(--danger); }
+.toast.ok { border-left-color: var(--ok); }
+.toast.warn { border-left-color: var(--warn); } /* v1.0-S6 (B4): failover 提示 — 复用既有 --warn 令牌，无新色字面量 */
+@keyframes slidein { from { transform: translateX(20px); opacity: 0; } }
+
+/* ============================ responsive ============================ */
+@media (max-width: 1180px) {
+  /* Two-column grid: the tool pane leaves the grid and becomes a right-side overlay drawer (A5) so the
+     debug/doctor panels are reachable on narrow screens (previously display:none = 🧰 did nothing). */
+  .app-shell { grid-template-columns: 260px minmax(340px,1fr); }
+  /* v3 (§2.7 P2): 窄屏走抽屉机制,右栏三档宽与拖拽手柄不适用 —— 隐藏手柄。 */
+  .right-resize-handle { display: none; }
+  .app-shell.tools-collapsed { grid-template-columns: 260px 1fr; }
+  /* v1.0.2 (F2): 折叠侧栏必须真收起 260px 轨道 —— 否则中间宽度档(761–1180px)残留空列,内容被挤到左侧、
+     右侧一大片空白,观感=「根本没折叠」。侧栏为 display:none,轨道归 0,聊天列吃满剩余宽度。 */
+  .app-shell.sidebar-collapsed { grid-template-columns: 0 1fr; }
+  .app-shell.sidebar-collapsed.tools-collapsed { grid-template-columns: 0 1fr; }
+  /* Keep the pane displayed (override the base .tools-collapsed display:none) but slide it off-canvas;
+     .tools-open slides it in. It is fixed, so it no longer affects the grid columns. */
+  .app-shell.tools-collapsed .tool-pane { display: flex; }
+  .tool-pane {
+    position: fixed; right: 0; top: 0; height: 100%; width: min(380px, 92vw);
+    transform: translateX(100%); transition: transform var(--dur-2) var(--ease);
+    z-index: 45; box-shadow: var(--shadow); border-left: 1px solid var(--line);
+  }
+  .app-shell.tools-open .tool-pane { transform: none; }
+  /* Backdrop: only present while the drawer is open on narrow screens. Clicking it closes the drawer
+     (JS wires the click). Pure-CSS element keeps this cheap — no JS node bookkeeping. */
+  .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 44; display: none; }
+  .app-shell.tools-open ~ .drawer-backdrop { display: block; }
+}
+@media (max-width: 760px) {
+  .app-shell { grid-template-columns: 1fr; }
+  /* v1.0.2 (F2): ≤760px 侧栏是绝对定位浮层(不占栅格轨道),折叠时栅格保持单列 1fr —— 覆盖上面 ≤1180px
+     档的 `0 1fr`(那是给「侧栏是栅格列」的中宽档用的)。 */
+  .app-shell.sidebar-collapsed,
+  .app-shell.sidebar-collapsed.tools-collapsed { grid-template-columns: 1fr; }
+  .sidebar { position: absolute; z-index: 40; width: 288px; height: 100%; box-shadow: var(--shadow); }
+  .app-shell.sidebar-collapsed .sidebar { display: none; }
+  /* 单列网格:chat-pane 的显式 grid-column:2 会在此档制造隐式轨(第 1 轨空、内容跑第 2 轨),覆写回第 1 轨。 */
+  .chat-pane { grid-column: 1; }
+  #showSidebarBtn { display: inline-grid; }
+  .topbar-field > span { display: none; }
+  /* v3 (§A1): 顶栏不再定高裁切 —— flex-basis 解锁 + 自适应高度 + 允许换行两行;任何宽度内容都不被裁出视口。 */
+  .topbar { flex: 0 0 auto; height: auto; min-height: 54px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; row-gap: 6px; }
+  /* 三 chip 降级紧凑态:工作台只留图标 / 安全留盾+短名截 4 字 / 模型隐藏 mono 型号只留引擎名+状态点。 */
+  .workspace-picker .wp-name { display: none; }
+  .perm-chip .pc-name { max-width: 4em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .model-chip .mc-model { display: none; }
+}
+/* ≤560px: fold ⌘技能/📎附件 into a single ＋ popover (§4.3 tail). sendBtn stays visible always.
+   The individual buttons hide; ＋ shows and JS wires its popover to those actions.
+   v1.0-S2 (IA): #compactBtn 已移出 composer（入上下文弹层），此处不再列它。 */
+@media (max-width: 560px) {
+  .composer-actions > #skillBtn,
+  .composer-actions > .file-label.composer-file { display: none; }
+  #composerMoreBtn { display: inline-flex; align-items: center; justify-content: center; }
+}
+
+/* v3 (§A3): 触屏(无 hover)下常显 hover-only 操作 —— 消息操作 / 会话项操作 / 文件树 @ 按钮,低透明度 .75 不喧宾夺主。 */
+@media (hover: none) {
+  .msg-actions,
+  .session-item .s-actions,
+  .ftree-at { opacity: .75; }
+}

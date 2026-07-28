@@ -16,7 +16,6 @@ const path = require('path');
 const { readFrontendSrc } = require('./read-frontend-src.js'); // v1.3-FE1:app.js 拆模块后聚合读 public/app.js+public/js/**
 
 const PUB = path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'public');
-const CSS_PATH = path.join(PUB, 'styles.css');
 const HTML_PATH = path.join(PUB, 'index.html');
 
 // ── WCAG 相对亮度 + 对比度 ──────────────────────────────────────────────────────────────────────
@@ -51,7 +50,7 @@ function parseTokenBlock(css, selector) {
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-  const css = fs.readFileSync(CSS_PATH, 'utf8');
+  const css = require('./read-frontend-css.js').readFrontendCss();
   const html = fs.readFileSync(HTML_PATH, 'utf8');
   const appjs = readFrontendSrc(); // 聚合:public/app.js + public/js/**/*.js(拆分后函数不再只在 app.js)
 

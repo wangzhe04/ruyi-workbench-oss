@@ -1,0 +1,70 @@
+/* Design tokens shared by every visual layer. */
+/* ============================================================
+   如意 Ruyi — theme tokens (dark default + light;原 Win Claude Workbench)
+   ============================================================ */
+:root {
+  /* v3 (§B5): 显式基线字号 —— pro 模式 = 14px(原靠 body 硬编码 14px；body 已解锁,改由此继承)。
+     simple 模式在下方 [data-ui-mode="simple"] 覆盖为 15px,故两模式字号正确分档。 */
+  font-size: 14px;
+  --radius: var(--r-md);   /* 双轨合一(§1.2):别名 → --r-md(10px) */
+  --radius-sm: var(--r-sm); /* 双轨合一(§1.2):别名 → --r-sm(6px,7→6 全站微变可接受) */
+  --font: "Segoe UI", "Microsoft YaHei", system-ui, Arial, sans-serif;
+  --mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+  /* 如意 Ruyi 青花:default-theme fallbacks (dark 墨夜 values). Real per-theme tokens live in the
+     [data-theme] blocks below; these only matter before data-theme is set (pre-paint sets it immediately). */
+  --accent: #4a6cd9;
+  --accent-ink: #ffffff;
+  --transition: .15s ease;
+  /* --- v0.7 design tokens (§3). Defined now; site-wide adoption is incremental across later slices,
+     but focus-visible / reduced-motion / engine badges below rely on them today. --- */
+  /* spacing (4px base) */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px;
+  /* type scale — rem-based on :root font-size(pro 14px / simple 15px);7 级阶梯 + 2xl。半像素字号统一就近归档(round-half-up)。 */
+  --fs-xs: 0.786rem; --fs-sm: 0.857rem; --fs-md: 0.929rem; --fs-base: 1rem; --fs-lg: 1.143rem; --fs-xl: 1.429rem; --fs-2xl: 1.714rem;
+  /* radius: reuse --radius/--radius-sm; add a large one for modals/drawers */
+  --r-lg: 14px;
+  /* motion */
+  --dur-1: 120ms; --dur-2: 180ms; --ease: cubic-bezier(.2,.7,.3,1);
+  /* keyboard focus ring */
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  /* engine accent colors (badges / chip dots / avatars — never large fills). Dark defaults; light below. */
+  --eng-claude: #d97757; --eng-deepseek: #5b7cfa; --eng-qwen: #8b5cf6;
+  --eng-glm: #2eb8a6; --eng-custom: #7d8590;
+  /* v1.5 workflow engine badges (§3.2): Claude=青花蓝 accent, Provider=釉里红/赭 warm. Defined via var()
+     indirection so both resolve per-theme at the use site (--accent/--eng-claude are themed below). */
+  --wf-claude: var(--accent);
+  --wf-provider: var(--eng-claude);
+  /* --- v1.5 (§3.1) 青花设计 token 补全。非颜色 token 放 :root(不参与 [data-theme] 键集对齐)。--- */
+  /* 间距阶梯补全(§3.1):4/8/12/16/24/32/64。--sp-1..6 已在上方,补 8(--sp-7 零引用,第50波清障删除)。 */
+  --sp-8: 64px;
+  /* 圆角(§3.1):sm/md/lg/pill = 6/10/16/999。--r-lg 已在上方(14px,沿用已适配值),补 sm/md/pill。 */
+  --r-sm: 6px; --r-md: 10px; --r-pill: 999px;
+  /* 动效(§3.1):--ease-out + fast/base/slow 三档(120/200/320ms),全部受 prefers-reduced-motion 收敛。
+     旧 --dur-1/--dur-2/--ease 保留(已被采用),新增语义化别名。 */
+  --ease-out: cubic-bezier(.2,.7,.3,1);
+  --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms;
+  /* 投影层级(§3.1):卡/浮层/模态。新增 token,未被旧布局引用 → 取值安全;各处 --shadow 仍按主题定义。 */
+  --elev-1: 0 1px 2px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.10);
+  --elev-2: 0 6px 20px rgba(0,0,0,.20);
+  --elev-3: 0 16px 40px rgba(0,0,0,.28);
+  /* 密度(§3.4)默认值:compact 基线。[data-density] 块覆盖(comfortable 更大点击区)。
+     --density-scale 零引用(第50波清障删除,只留 --tap-min 联动)。 */
+  --tap-min: 32px;
+  /* 第50波(UI-DESIGN-V4):毛玻璃材质 token 族 —— 模糊三档(封顶 24px,saturate 提亮背透色)。
+     颜色类玻璃 token 在 [data-theme] 块双主题对称定义;blur 不参与键集对齐(非颜色)。 */
+  --glass-blur-1: blur(8px) saturate(1.2);
+  --glass-blur-2: blur(16px) saturate(1.3);
+  --glass-blur-3: blur(24px) saturate(1.4);
+  /* 如意云纹(§3.3):内联 SVG 云头(复用 docs/branding/ruyi-mark.svg 的三曲瓣云头路径),作空状态/故障卡
+     极淡水印。用作 mask-image:形状取 alpha,颜色由使用处 --brand-qh 上色(随主题走,不硬编码),opacity≤0.05。
+     离线内联 data-URI,不引外部资源。 */
+  --ruyi-cloud: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2070'%3E%3Cpath%20fill='%23000'%20d='M60%2062%20C46%2055%2030%2044%2030%2032%20A13%2013%200%200%201%2053%2024%20A7.5%207.5%200%201%201%2067%2024%20A13%2013%200%200%201%2090%2032%20C90%2044%2074%2055%2060%2062%20Z'/%3E%3C/svg%3E");
+}
+/* 密度分级(§3.4):comfortable=舒适(简易/主画像,更大点击区)、compact=紧凑(专家,信息密度高)。
+   保守缩放:只放大点击区,不重定义全站 --sp-*,避免撑破三栏布局。data-density 由 applyUiMode 联动。 */
+:root[data-density="comfortable"] { --tap-min: 40px; }
+:root[data-density="compact"] { --tap-min: 30px; }
+/* 第23波: 节点角色配色调色板(9 色,两主题通用的中调,仅作强调:胶囊/描边/左色条)。定义在非主题作用域 :root,
+   dark/light 均继承。--wf-role-color 由 JS 按节点角色注入;initial=保证无效,使 var(--wf-role-color, 回退) 走回退,
+   未指定角色色的节点回退 --muted/transparent。 */
+:root { --role-blue: #4a7fd0; --role-green: #3aa06a; --role-orange: #d1802f; --role-purple: #8a68d0; --role-teal: #2f9e94; --role-cyan: #2f93c4; --role-red: #d15555; --role-amber: #c9962f; --role-indigo: #5d6fd8; --wf-role-color: initial; }

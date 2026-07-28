@@ -18,9 +18,9 @@ const fs = require('fs');
 const path = require('path');
 
 // ── Extract ALLOWED_TAGS to cross-check XSS vectors ──
-const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'ruyi-workbench', 'app', 'public', 'app.js'), 'utf8');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'ruyi-workbench', 'app', 'public', 'js', 'chat-render-primitives.js'), 'utf8');
 const tagsMatch = appSrc.match(/const ALLOWED_TAGS = new Set\(\[([^\]]+)\]\)/);
-if (!tagsMatch) throw new Error('Could not extract ALLOWED_TAGS from app.js');
+if (!tagsMatch) throw new Error('Could not extract ALLOWED_TAGS from chat-render-primitives.js');
 const ALLOWED_TAGS = new Set(tagsMatch[1].split(',').map(s => s.trim().replace(/'/g, '')));
 
 // ── Protocol allowlist (mirrors sanitizeNode logic) ──

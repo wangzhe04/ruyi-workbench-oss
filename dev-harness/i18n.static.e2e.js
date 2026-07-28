@@ -4,6 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { readFrontendSrc } = require('./read-frontend-src.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
@@ -86,8 +87,12 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   console.log('PASS config: locale default and allowlist normalization');
 
   const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-  const app = fs.readFileSync(path.join(PUBLIC, 'app.js'), 'utf8');
+  const app = readFrontendSrc();
   const util = fs.readFileSync(path.join(PUBLIC, 'js', 'util.js'), 'utf8');
+  const fileBrowser = fs.readFileSync(path.join(PUBLIC, 'js', 'file-browser.js'), 'utf8');
+  const artifactChanges = fs.readFileSync(path.join(PUBLIC, 'js', 'artifact-changes.js'), 'utf8');
+  const observability = fs.readFileSync(path.join(PUBLIC, 'js', 'operations-observability.js'), 'utf8');
+  const usageDashboard = fs.readFileSync(path.join(PUBLIC, 'js', 'usage-dashboard.js'), 'utf8');
   assert.ok(html.includes('id="cfgLocale"'), 'settings must expose a locale selector');
   assert.ok(html.includes('data-i18n="app.title"'), 'browser title must use the catalog');
   assert.ok(html.includes('data-i18n-attr="placeholder:session.search"'), 'static attribute translation must be wired');
@@ -163,16 +168,16 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   assert.ok(html.includes('data-i18n="workflow.runTemplate"'), 'workflow quick-run entry must use the catalog');
   assert.ok(app.includes("t('workflow.pool.approve'"), 'workflow task-pool approval controls must use the catalog');
   assert.ok(app.includes("t('workflow.retry.node'"), 'workflow node retry controls must use the catalog');
-  assert.ok(app.includes("t('usage.loading')"), 'usage loading feedback must use the catalog');
-  assert.ok(app.includes("t('usage.budget.over'"), 'usage budget feedback must use the catalog');
-  assert.ok(app.includes("t('usage.dailyTrend'"), 'usage trend labels must use the catalog');
-  assert.ok(app.includes("t('file.preview.imageTooLarge'"), 'file preview feedback must use the catalog');
-  assert.ok(app.includes("t('audit.loadFailed'"), 'audit feedback must use the catalog');
+  assert.ok(usageDashboard.includes("t('usage.loading')"), 'usage loading feedback must use the catalog');
+  assert.ok(usageDashboard.includes("t('usage.budget.over'"), 'usage budget feedback must use the catalog');
+  assert.ok(usageDashboard.includes("t('usage.dailyTrend'"), 'usage trend labels must use the catalog');
+  assert.ok(fileBrowser.includes("t('file.preview.imageTooLarge'"), 'file preview feedback must use the catalog');
+  assert.ok(observability.includes("t('audit.loadFailed'"), 'audit feedback must use the catalog');
   assert.ok(app.includes("t('provider.testConnection'"), 'provider card actions must use the catalog');
   assert.ok(app.includes("tCount('modelMenu.modelCount'"), 'model menu counts must use localized pluralization');
   assert.ok(app.includes("t('permission.mode.title'"), 'permission popover must use the catalog');
   assert.ok(app.includes("t('capability.networkAndEngine'"), 'capability popover must use the catalog');
-  assert.ok(app.includes("t('tool.artifacts.turn'"), 'artifact turn headings must use the catalog');
+  assert.ok(artifactChanges.includes("t('tool.artifacts.turn'"), 'artifact turn headings must use the catalog');
   assert.ok(app.includes("tCount('tool.group.completed'"), 'tool group summaries must use localized pluralization');
   assert.ok(app.includes('BUILTIN_SKILL_I18N_IDS'), 'built-in skill metadata must have a locale mapping');
   assert.ok(app.includes('playbookDisplayName(pb)'), 'built-in quick-task cards must use localized metadata');
@@ -185,8 +190,11 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   assert.ok(app.includes("t('palette.newSession'"), 'command palette actions must use the catalog');
   assert.ok(app.includes('renderProviders();'), 'locale changes must redraw provider cards');
   assert.ok(app.includes('renderSkillList();'), 'locale changes must redraw the skill panel');
+  assert.ok(app.includes('refreshLocalizedArtifactChanges();'), 'locale changes must redraw the active artifact view');
+  assert.ok(app.includes('refreshLocalizedObservability();'), 'locale changes must redraw loaded observability views');
+  assert.ok(app.includes('refreshLocalizedUsage();'), 'locale changes must redraw cached usage data through its domain');
   assert.ok(app.includes("'auth.token_invalid': 'error.api.authToken'"), 'structured API errors must map to localized keys');
-  assert.ok(app.includes("toLocaleString(getLocale()"), 'usage values must follow the active locale');
+  assert.ok(usageDashboard.includes("toLocaleString(getLocale()"), 'usage values must follow the active locale');
   assert.ok(util.includes("toLocaleString(getLocale()"), 'time formatting must follow the active locale');
   console.log('PASS static wiring: locale settings and translated P0/P1 UI are present');
   console.log('I18N STATIC E2E: ALL PASS');
