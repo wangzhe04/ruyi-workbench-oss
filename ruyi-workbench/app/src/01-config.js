@@ -1456,6 +1456,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/question/request', auth: 'body-token' },
   { m: 'POST', p: '/api/todo', auth: 'body-token' },
   { m: '*', p: '/api/mission', auth: 'body-token' },
+  // 第70波(EC-E):/api/missions 聚合只读投影 —— 内容型 GET,与 /api/sessions 同门(token-browser)。
+  { m: 'GET', p: '/api/missions', auth: 'token-browser' },
+  { m: 'GET', p: '/api/missions/', auth: 'token-browser', prefix: true },
   { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },
   // token-browser: 敏感内容型 GET + UI 变更型(浏览器须 token;loopback 非浏览器须同源,无需 token)
   { m: 'GET', p: '/api/sessions', auth: 'token-browser' },

@@ -259,6 +259,8 @@ async function handleApi(req, res, pathname) {
   }
   // EC-D Wave 65: session CRUD routes live in 13d-core-domain-routes.js.
   await handleSessionApiRoutes(req, res, pathname); if (res.writableEnded) return;
+  // 第70波(EC-E):/api/missions 聚合只读投影,同在 13d。
+  await handleMissionsApiRoutes(req, res, pathname); if (res.writableEnded) return;
   // v1 技能体系: 统一技能注册表(四源合并)。read-only → same-origin gate 足够(不在 needsToken)。?cwd= 供
   // 解析项目级技能(<cwd>/.ruyi/skills);缺省用 defaultWorkspace。向后兼容: 保留 skills 数组字段名,每项在
   // 原有 name/description/insert 之外新增 kind/source/dir/available/unavailableReason,并给老前端 type=kind。
@@ -482,6 +484,7 @@ async function handleApi(req, res, pathname) {
       const input = { ...(bodyOrQ.mission || bodyOrQ) };
       if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
       session.mission = normalizeMission(input, null, trusted);
+      session.kind = 'mission'; // 第70波(EC-E):start 是显式任务动作 → Quick Ask 翻转 Mission(非启发式)
       logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
     } else {
       if (!session.mission) return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));

@@ -1067,3 +1067,29 @@ EC-D 工程闭环后的第一个稳健性切片：`--resume` 是 Claude 引擎�
 ### 待续
 
 - 2.2.0 发布动作仍待用户确认(第67波门已通过);下一主线 EC-E Mission Ready。
+
+## 第70波 EC-E 首切片 · /api/missions 聚合只读投影 + Quick Ask 显式标识(2026-07-28)
+
+EC-E(Mission Ready,候选 2.3)开工,按三波切片:70=聚合读模型(本波) → 71=Intervention 持久化 → 72=任务结果模型。本波纯读模型,零执行语义改动,为后两波与第56波 Pretender 立项门打数据地基。
+
+### 交付
+
+- **Quick Ask / Mission 显式标识**(EC-E 第3条):session 新增 `kind` 字段 —— `createSession` 显式写 `'quick_ask'`(默认);`/api/mission action:'start'` 是显式任务动作,翻转 `'mission'`(非启发式文本猜测)。`sessionMeta` 携带 kind(侧栏/索引同源)。
+- **旧会话只读适配 + 迁移契约**(EC-E 第5条):`sessionKind()` 对第70波前落盘的无 kind 会话只读派生(有 mission 即 'mission'),e2e 实证派生结果【绝不回写磁盘】——无破坏性批量改写。
+- **`/api/missions` 聚合读模型**(EC-E 第1条):只读投影,不复制第二套执行状态机,全部从既有权威源现算。
+  - `GET /api/missions` 列表:扫会话头文件(头含 mission,不用索引缓存——旧索引条目缺 mission 会漏收存量任务),卡片投影 goal/进度(done/total)/autoMode/budget/spent/status(complete|active|paused|idle)/未决计数/runCount/lastRun。
+  - `GET /api/missions/:sessionId` 稳定任务快照:mission 全账本 + acceptance(里程碑计数+逐项证据)+ runs digest(对齐 agent-runs digest + 用量字段)+ changes(跨回合 turnSummary 折叠:filesChanged 按 path 后写胜带 revertible/op,artifacts 去重)+ checkpoints(turnSeqs/totalBytes/rollbackAvailable,回滚入口引用)+ usage(月度账本按 sessionId 切片)+ pending(权限/提问/计划/任务池四源统一计数)+ cursor(turnSeq + 各 run eventSeq,增量消费位置令牌)。
+  - 鉴权:ROUTE_AUTH 两条 `token-browser`(与 /api/sessions 同门)+ handler 内 tokenOk 自查纵深;deny-by-default 表未匹配即 403,新路由不入表即死路(红跑实证)。
+- 不可逆标注复用既有布尔级机制(filesChanged[].revertible,journal skipped→false);exec/desktop/network 类无 journal 条目的操作本就不在变更清单——第72波结果模型再立正向「不可逆操作账」。
+
+### 验证
+
+- 新件 `missions-readmodel.e2e.js` 41 断言红绿双证:红跑路由 403(deny-by-default)+ kind undefined;绿跑 ALL PASS。覆盖:显式标识/列表不收纯问答/旧会话两个方向只读派生且不回写/卡片与快照投影/变更 revertible/产物/检查点/用量/游标/404/静态锁 6 条。
+- 回归族 12 件全绿:mission-driver / session-index / session-storage-v2 / auth-deny-default / meta-guard / monitor-incremental / rewind / provider-pairing-repair / facts.static / frontend-domains.static / ec-d-closure.static / manifest-ranges.static;unit 152/152。
+- facts.json 机械重生成:e2e **169 → 170**;版本保持 2.1.0。
+
+### 待续
+
+- 第71波:未决事项统一持久化 Intervention(permission/question/plan/task-pool 落盘 + 列表查询 API + 重启终态化/重挂 + 残留 pending 叙事段清理;保留超时自动拒绝与权限默认不放宽语义)——治「重启后 pending 永挂」现存缺陷。
+- 第72波:任务结果模型(验收状态/成果引用/未完成项/变更摘要/真实回滚引用/不可逆正向账)。
+- 2.2.0 发布动作仍待用户确认(第67波门已通过)。

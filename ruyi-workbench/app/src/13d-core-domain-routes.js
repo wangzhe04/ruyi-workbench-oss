@@ -36,6 +36,178 @@ async function handleSessionApiRoutes(req, res, pathname) {
   return false;
 }
 
+// ============================================================================
+// 第70波(EC-E Mission Ready 首切片):/api/missions 聚合只读投影。
+// 纪律:①纯读模型 —— 不复制第二套执行状态机,快照全部从既有权威源(mission 账本 / run 快照 /
+// checkpoint journal / usage 月度账本 / 内存 pending 注册表)现算;②旧会话适配只读派生(sessionKind),
+// 绝不回写磁盘;③列表只读会话头文件(<id>.json 含 mission,不触 messages/provider 正文),详情才全量加载。
+// ============================================================================
+
+// 卡片/快照共用的状态派生:complete(全部里程碑 done) > active(until-done 驱动中) > paused(supervised =
+// 预算耗尽/停滞/用户接管后的待命态) > idle(off 且未完成)。mission 缺失时不应出现在任务列表('none')。
+function missionCardStatus(m) {
+  if (!m) return 'none';
+  const ms = Array.isArray(m.milestones) ? m.milestones : [];
+  if (ms.length > 0 && ms.every(x => x && x.status === 'done')) return 'complete';
+  if (m.autoMode === 'until-done') return 'active';
+  if (m.autoMode === 'supervised') return 'paused';
+  return 'idle';
+}
+
+// 未决事项统一读形(第70波只投影计数;第71波才把 permission/question/plan/task-pool 持久化为 Intervention)。
+// 前三者是纯内存注册表(04-permission-runtime),task-pool 的 proposed 随 run 快照持久化。
+function missionPendingCounts(sessionId, runs) {
+  let permissions = 0, questions = 0, plans = 0;
+  for (const [, p] of pendingPermissions) if (p && p.sessionId === sessionId) permissions++;
+  for (const [, q] of pendingQuestions) if (q && q.sessionId === sessionId) questions++;
+  for (const [, p] of pendingPlans) if (p && p.sessionId === sessionId) plans++;
+  let pool = 0;
+  for (const r of (runs || [])) for (const item of ((r && r.taskPool) || [])) if (item && item.status === 'proposed') pool++;
+  return { permissions, questions, plans, pool };
+}
+
+// run 摘要投影(对齐 /api/agent-runs?view=digest 的标量集 + 用量字段;live run 以内存为准)。
+function missionRunDigest(r) {
+  const live = activeAgentRuns.get(r.id);
+  const mem = live && live.run ? live.run : null;
+  const src = mem || r;
+  return {
+    id: src.id, status: src.status, eventSeq: Number(src.eventSeq) || 0,
+    createdAt: src.createdAt || '', updatedAt: src.updatedAt || '', completedAt: src.completedAt || '',
+    nodeCount: Array.isArray(src.nodes) ? src.nodes.length : 0,
+    poolPending: ((src.taskPool) || []).filter(p => p && p.status === 'proposed').length,
+    live: !!live, paused: !!(live && live.paused), resumeTier: src.resumeTier || '',
+    totalTokens: Number(src.totalTokens) || 0, costUsd: Number(src.costUsd) || 0,
+  };
+}
+
+// 列表卡片:从会话头文件投影(头含 mission,见 saveSession 头/正文拆分)。
+function buildMissionCard(head, runs) {
+  const m = head.mission;
+  const ms = (m && Array.isArray(m.milestones)) ? m.milestones : [];
+  return {
+    sessionId: head.id, title: head.title || '', cwd: head.cwd || '', kind: 'mission',
+    createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
+    status: missionCardStatus(m),
+    mission: {
+      goal: m.goal || '', createdAt: m.createdAt || '', updatedAt: m.updatedAt || '',
+      autoMode: m.autoMode || 'off',
+      milestonesTotal: ms.length,
+      done: ms.filter(x => x && x.status === 'done').length,
+      blocked: ms.filter(x => x && x.status === 'blocked').length,
+      pending: ms.filter(x => !x || x.status === 'pending').length,
+      budget: m.budget || { maxAutoTurns: 0, maxTokens: 0 },
+      spent: m.spent || { autoTurns: 0, tokens: 0 },
+      budgetExhausted: Boolean(m.budgetExhaustedAt),
+    },
+    pending: missionPendingCounts(head.id, runs),
+    runCount: (runs || []).length,
+    lastRun: runs && runs.length ? missionRunDigest(runs[runs.length - 1]) : null,
+  };
+}
+
+async function handleMissionsApiRoutes(req, res, pathname) {
+  // 列表:扫会话头文件(不用索引缓存 —— 索引是派生物,旧条目缺 mission 字段会漏收存量任务会话;
+  // 头文件是权威源且不含正文,读取代价与索引同量级)。
+  if (req.method === 'GET' && pathname === '/api/missions') {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const missions = [];
+    let files = [];
+    try { files = await fsp.readdir(paths.sessions); } catch { files = []; }
+    for (const f of files) {
+      if (!/^sess_[A-Za-z0-9_-]+\.json$/.test(f)) continue; // 跳过 index.json / *.ndjson / 备份
+      const head = safeJsonParse(await fsp.readFile(path.join(paths.sessions, f), 'utf8').catch(() => ''), null);
+      if (!head || !head.id || sessionKind(head) !== 'mission') continue;
+      const runs = await listAgentRuns(head.id).catch(() => []);
+      missions.push(buildMissionCard(head, runs));
+    }
+    missions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    return send(res, json({ ok: true, missions }));
+  }
+  // 详情:单会话稳定任务快照(EC-E:mission + Agent Run + 产物 + 变更 + 检查点 + 用量 + 游标)。
+  if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const session = await loadSession(sessionId);
+    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    const runs = await listAgentRuns(sessionId).catch(() => []);
+
+    // 验收投影:里程碑计数 + 逐项状态(机器验收证据随行)。
+    const ms = (session.mission && Array.isArray(session.mission.milestones)) ? session.mission.milestones : [];
+    const acceptance = {
+      total: ms.length,
+      done: ms.filter(x => x && x.status === 'done').length,
+      blocked: ms.filter(x => x && x.status === 'blocked').length,
+      pending: ms.filter(x => !x || x.status === 'pending').length,
+      items: ms.map(x => ({ id: x && x.id, desc: x && x.desc, status: (x && x.status) || 'pending', checkType: (x && x.check && x.check.type) || 'none', evidence: (x && x.evidence) || '' })),
+    };
+
+    // 变更/产物聚合:跨回合 turnSummary 折叠 —— filesChanged 按 path 后写胜(最新 op/revertible 为当前态),
+    // artifacts 按 path 先去重(首次产出记回合)。revertible=false 即不可逆显式标注(journal skipped 或天生不在账内)。
+    const filesChanged = new Map(), artifacts = new Map();
+    let commands = 0;
+    for (const msg of (session.messages || [])) {
+      const ts = msg && msg.turnSummary;
+      if (!ts) continue;
+      for (const f of (ts.filesChanged || [])) {
+        if (f && f.path) filesChanged.set(f.path, { path: f.path, op: f.op || '', revertible: f.revertible === true, turnSeq: ts.turnSeq, entrySeq: f.entrySeq });
+      }
+      for (const a of (ts.artifacts || [])) {
+        if (a && a.path && !artifacts.has(a.path)) artifacts.set(a.path, { path: a.path, kind: a.kind || '', turnSeq: ts.turnSeq });
+      }
+      commands += (ts.commands || []).length;
+    }
+
+    // 检查点引用(真实回滚能力的入口:POST /api/checkpoints/rollback {sessionId, turnSeq, entrySeq?})。
+    const cpEntries = await journalReadIndex(sessionId).catch(() => []);
+    const cpTurnSeqs = [...new Set(cpEntries.map(e => e && e.turnSeq).filter(Number.isFinite))].sort((a, b) => a - b);
+    const checkpoints = {
+      entries: cpEntries.length,
+      turnSeqs: cpTurnSeqs,
+      totalBytes: cpEntries.reduce((s, e) => s + (Number(e && e.bytes) || 0), 0),
+      rollbackAvailable: cpEntries.length > 0,
+    };
+
+    // 用量切片:append-only 月度账本按 sessionId 过滤(权威存储,session 对象上无聚合字段)。
+    const usageRows = (await readUsageRows(0).catch(() => [])).filter(r => r && String(r.sessionId || '') === sessionId);
+    const costsByCurrency = {};
+    const usage = { inTok: 0, outTok: 0, turns: 0, subagentTurns: 0, costsByCurrency };
+    for (const r of usageRows) {
+      usage.inTok += Number(r.inTok) || 0; usage.outTok += Number(r.outTok) || 0; usage.turns += 1;
+      if (r.kind === 'subagent') usage.subagentTurns += 1;
+      const cost = Number(r.cost);
+      if (r.costTrusted !== false && typeof r.currency === 'string' && r.currency && Number.isFinite(cost)) costsByCurrency[r.currency] = (costsByCurrency[r.currency] || 0) + cost;
+    }
+    for (const k of Object.keys(costsByCurrency)) costsByCurrency[k] = Math.round(costsByCurrency[k] * 1e6) / 1e6;
+
+    // 游标:增量消费的位置令牌 —— 会话 turnSeq(单调不回绕)+ 各 run 事件流 eventSeq(严格单调,afterSeq 补播)。
+    const cursor = {
+      turnSeq: Number(session.turnSeq) || 0,
+      runs: Object.fromEntries(runs.map(r => [r.id, Number(r && r.eventSeq) || 0])),
+      snapshotAt: nowIso(),
+    };
+
+    return send(res, json({
+      ok: true,
+      snapshot: {
+        sessionId, kind: sessionKind(session), title: session.title || '', summary: session.summary || '',
+        cwd: session.cwd || '', createdAt: session.createdAt || '', updatedAt: session.updatedAt || '',
+        status: missionCardStatus(session.mission),
+        mission: session.mission || null,
+        acceptance,
+        runs: runs.map(missionRunDigest),
+        changes: { filesChanged: [...filesChanged.values()], artifacts: [...artifacts.values()], commands },
+        checkpoints,
+        usage,
+        pending: missionPendingCounts(sessionId, runs),
+        cursor,
+      },
+    }));
+  }
+  return false;
+}
+
 async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/chat/answer') {
     // Settle exactly one live question. A stale/wrong-session answer is a conflict, never a fake success:

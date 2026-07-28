@@ -103,6 +103,15 @@ function sessionBodyText(lines) { return lines.length ? lines.join('\n') + '\n' 
 const SESSION_INDEX_FILE = 'index.json';
 function sessionIndexPath() { return path.join(paths.sessions, SESSION_INDEX_FILE); }
 
+// 第70波(EC-E):会话类型显式标识 —— 'quick_ask'(纯问答,默认) | 'mission'(任务会话,mission start 时显式翻转,
+// 非启发式文本猜测)。旧会话(第70波前落盘)无 kind 字段:有 mission 派生 'mission',否则 'quick_ask'。
+// 迁移契约:只读派生,绝不把派生结果回写磁盘(无破坏性批量改写)。
+function sessionKind(o) {
+  const k = o && o.kind;
+  if (k === 'mission' || k === 'quick_ask') return k;
+  return (o && o.mission) ? 'mission' : 'quick_ask';
+}
+
 // The 7 sidebar fields. Accepts a full session (has .messages) OR an index entry (has .messageCount), so the
 // same shaper builds index entries and normalizes them on read.
 function sessionMeta(o) {
@@ -116,6 +125,7 @@ function sessionMeta(o) {
     updatedAt: o.updatedAt,
     messageCount: Number.isFinite(o.messageCount) ? o.messageCount : (o.messages?.length || 0),
     promptPack: PROMPT_PACK_VERSION, // 51c-b(04 Phase B):提示词包版本,为 A/B 实验与问题回溯奠基
+    kind: sessionKind(o), // 第70波:Quick Ask / Mission 显式标识(旧索引条目只读派生,见 sessionKind)
   };
 }
 function sortSessionMetas(arr) {
@@ -1170,6 +1180,7 @@ async function createSession({ title, cwd }) {
     providerHistoryCursor: 0,
     attachments: [],
     mission: null, // 第26波b: 任务账本(见 normalizeMission)
+    kind: 'quick_ask', // 第70波(EC-E):显式 Quick Ask 标识;mission start 时翻转 'mission'(见 13-http-router /api/mission)
   };
   await saveSession(session);
   return session;
