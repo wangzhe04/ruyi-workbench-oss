@@ -3,7 +3,7 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
-## 如意 Ruyi Escapade 2.1.x · 未发布（第56波 EC-D 后半 · 切片一+二：对话交互收口）
+## 如意 Ruyi Escapade 2.2 · v2.2.0 · 2026-07-28
 
 ### 中文
 
@@ -14,6 +14,8 @@ This file records user-facing release highlights; it does not replace the comple
 
 - **Steer interjections land at their insertion point (consistent across refresh)**: a steer sent mid-stream is no longer pinned to the very bottom of the chat. It renders as an inline segment inside the turn narrative at the point it was actually injected - assistant text A -> interjection -> text B - matching the real chronological order. The interjection is also persisted as a `steer` segment on the assistant turn, so **after refresh or re-entry it stays inline at the same position** instead of falling back to a standalone row (eliminating the streaming-vs-refresh visual gap). Legacy sessions without the segment keep their standalone-row rendering; no history is fabricated.
 - **Sticky auto-scroll**: the page follows the latest output while you're at the bottom; scroll up to read history and following pauses (new output no longer yanks you back - a "↓ jump to latest" button appears instead); scroll back near the bottom and following resumes. Tool cards, errors, plans, questions, mission cards and every streaming-growth path now obey the same sticky rule, so no single output pulls you away mid-read.
+
+- **Claude resume recovery and Mission projection**: native Claude runs recover their resume linkage after connection interruptions, while the new read-only Mission projection gives the workbench a compact, trustworthy view of active goals without fabricating execution progress.
 
 ## 如意 Ruyi Escapade 2.1 · v2.1.0 · 2026-07-27
 
