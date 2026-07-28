@@ -116,6 +116,7 @@ module.exports = {
   normalizeSession,
   isUntitledSessionTitle, // 50-fix: 未命名标题判定(双引擎自动命名共用) — exposed for e2e
   detectDanglingTurn,
+  repairProviderHistoryPairing, // 配对铁律自愈(孤儿 tool_calls 补合成 tool 回复) — exposed for e2e 直测
   bridgedToolTier,
   cwdWarning,
   defaultConfig,

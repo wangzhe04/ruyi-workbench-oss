@@ -181,6 +181,12 @@ function logEvent(record) {
 
 // --- Active claude child registry keyed by session id, for stop/restart/interrupt + disconnect kill. ---
 const activeChildren = new Map(); // sessionId -> { child, pid, state, startedAt, lastEventAt, interactive, onEvent }
+// 回合 settle 登记表(第69波 rewind 竞态修复):sessionId -> { promise, resolve }。driver(chat/stream)
+// 在回合开始登记、driver finally(收尾 saveSession 已落盘后)resolve 并删除。stopSession 会立即删
+// activeChildren,但被停回合的收尾(推 aborted assistant + saveSession)发生在此之后 —— rewindSession
+// 若只看 activeChildren 就会在这个窗口截断落盘,然后被 dying turn 的收尾 save 整份盖回(丢失写:
+// 「回溯了但消息又回来」)。rewindSession 先等本表 settle 再截断,顺序由此确定。
+const turnSettlers = new Map();
 // --- Pending tool-permission prompts awaiting a UI decision (v3 bridge). ---
 const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer }
 // Questions are a real turn boundary, not a fire-and-forget notification. Both the Provider tool loop and

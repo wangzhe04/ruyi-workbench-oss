@@ -311,6 +311,7 @@ const {
   loadAutonomyGrants: () => loadAutonomyGrants(),
   maybeScrollToBottom,
   messageShell,
+  msgActions: (...args) => msgActions(...args),
   narrativeQuestionCard: (...args) => narrativeQuestionCard(...args),
   narrativeSemanticCard: (...args) => narrativeSemanticCard(...args),
   narrativeToolAnchor: (...args) => narrativeToolAnchor(...args),

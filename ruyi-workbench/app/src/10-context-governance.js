@@ -682,6 +682,11 @@ async function streamChat(req, res) {
   // 第27波:本次 HTTP 回合 = 一个「run」。登记活动 runId,scope:'run' 授权绑定它(含首回合内经 UI 签发的 bindNextRun 补绑)。
   const driverRunId = makeId('drun');
   bindDriverRun(session.id, driverRunId);
+  // 第69波:登记 settle 信号 —— rewind 截断前等它( dying turn 的收尾 saveSession 落盘先于 driver finally,
+  // 由此保证 rewind 的截断写在最后,不被收尾 save 整份盖回)。
+  let settleResolve = null;
+  const settleEntry = { promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now() };
+  turnSettlers.set(session.id, settleEntry);
   try {
     emit({ type: 'session', session });
     const provider = activeOpenAiProvider(config);
@@ -712,6 +717,8 @@ async function streamChat(req, res) {
     // TTL/次数耗尽或显式撤销/切模式。
     try { revokeGrantsForRun(session.id, driverRunId); } catch { /* best-effort */ }
     if (activeDriverRuns.get(session.id) === driverRunId) activeDriverRuns.delete(session.id);
+    if (settleResolve) { try { settleResolve(); } catch { /* best-effort */ } }
+    if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     res.end();
   }
 }

@@ -111,6 +111,26 @@ try { const v = process.env.FAKE_SUBAGENT_SCRIPT; if (v) { const o = JSON.parse(
 let SUBAGENT_PARALLEL = null;
 try { const v = process.env.FAKE_SUBAGENT_PARALLEL; if (v) { const a = JSON.parse(v); if (Array.isArray(a) && a.length) SUBAGENT_PARALLEL = a; } } catch { SUBAGENT_PARALLEL = null; }
 const SUB_IDENTITY_MARKER = '子任务执行体';
+// 配对铁律(strict provider 仿真,第67波后):FAKE_STRICT_PAIRING=1 时,每个 /chat/completions 请求先过
+// DeepSeek 式配对校验 —— 凡 assistant 消息带 tool_calls,其【紧随其后】的消息必须对每个 tool_call_id
+// 各有一条 role:'tool',缺一即 400(措辞与 DeepSeek 线上一致)。驱动「孤儿 tool_calls 历史导致会话
+// 永久卡死」的复现与修复回归。FAKE_LOG_BODY=<path> 时把每个请求体 messages 追加成 NDJSON 落盘,
+// 供 e2e 断言「修复后真正发到线上的历史已配对完整」。
+const STRICT_PAIRING = process.env.FAKE_STRICT_PAIRING === '1';
+const LOG_BODY = process.env.FAKE_LOG_BODY || '';
+function pairingViolation(msgs) {
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i];
+    if (!m || m.role !== 'assistant' || !Array.isArray(m.tool_calls) || !m.tool_calls.length) continue;
+    const answered = new Set();
+    for (let j = i + 1; j < msgs.length && msgs[j] && msgs[j].role === 'tool'; j++) {
+      if (msgs[j].tool_call_id != null) answered.add(String(msgs[j].tool_call_id));
+    }
+    const missing = m.tool_calls.filter(tc => tc && tc.id != null && !answered.has(String(tc.id)));
+    if (missing.length) return missing.map(tc => tc.id).join(',');
+  }
+  return '';
+}
 function systemText(msgs) { const s = (msgs || []).find(m => m && m.role === 'system'); return s && typeof s.content === 'string' ? s.content : ''; }
 function isSubRequest(msgs) { return systemText(msgs).includes(SUB_IDENTITY_MARKER); }
 // Return the first image_url data URI found across all messages' array-shaped content, or '' if none.
@@ -266,6 +286,16 @@ const server = http.createServer((req, res) => {
       }
       const id = 'chatcmpl-fake';
       const msgs = Array.isArray(parsed.messages) ? parsed.messages : [];
+      // 配对铁律仿真(第67波后):先于一切分支 —— strict provider 对孤儿 tool_call_id 一律 400。
+      if (LOG_BODY) { try { require('fs').appendFileSync(LOG_BODY, JSON.stringify({ messages: msgs }) + '\n'); } catch { /* ignore */ } }
+      if (STRICT_PAIRING) {
+        const viol = pairingViolation(msgs);
+        if (viol) {
+          res.writeHead(400, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. (insufficient tool messages following tool_calls message)", type: 'invalid_request_error', param: null, code: 'invalid_request_error' } }));
+          return;
+        }
+      }
       const hasTools = Array.isArray(parsed.tools) && parsed.tools.length > 0;
       const toolMsg = [...msgs].reverse().find(m => m && m.role === 'tool');
       // v0.9-S0 FAKE_VISION: fingerprint of an image_url part if one arrived (else ''). Non-empty only when

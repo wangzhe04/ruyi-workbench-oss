@@ -10,9 +10,11 @@
 //  (b) send a NEW turn after the rewind → normal reply (lazy reseed works) AND the new turnSeq keeps
 //      incrementing (NOT rewound — monotonic journal key).
 //  (c) rewind with NO UI token → 403.
-// Active-turn rejection is covered by CODE REVIEW (no FAKE_STREAM_DELAY env in this slice to force a live
-// turn deterministically); the handler returns {ok:false,error:'回合进行中,请先停止'} when activeChildren
-// holds the session. Documented in the delivery notes.
+//  (d) 第69波:live-turn rewind — 旧行为直接拒「回合进行中,请先停止」(非 UI 持有回合死锁 + dying turn
+//      收尾 save 盖回截断的丢失写);现自动 stopSession('rewind') + 等 turnSettlers settle 再截断。
+//      FAKE_STREAM_DELAY_MS 把回合确定性摁在「进行中」窗口驱动回归。
+//  (e) 第69波静态锁:sendPrompt 乐观 user 行(合成对象,无 turnSeq/不在 messages)的操作条在回合拿到
+//      持久化真身后重绑 —— 否则其「回溯到此处」必弹「无法定位该消息的回合」(用户线上报告)。
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -55,8 +57,8 @@ function writeConfig(home, fakePort) {
   }, null, 2));
 }
 // Spawn a fake-openai (optionally with a FAKE_TOOL_SEQUENCE) for one turn, then it's killed by the caller.
-function spawnFake(seq) {
-  const env = { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT) };
+function spawnFake(seq, extraEnv) {
+  const env = { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), ...(extraEnv || {}) };
   if (seq) env.FAKE_TOOL_SEQUENCE = JSON.stringify(seq);
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env, windowsHide: true });
   fake.stdout.on('data', () => {});
@@ -142,6 +144,36 @@ function spawnFake(seq) {
     // ============ (c) rewind with NO UI token → 403 ============
     const noTok = await postJson(WB_PORT, '/api/session/rewind', { sessionId: sid, targetTurnSeq: 1 });
     ok(noTok.status === 403, '(c) rewind without UI token → 403 (got ' + noTok.status + ')');
+
+    // ============ (d) 第69波:活回合 rewind = 自动停回合 + 等 settle,无丢失写 ============
+    // 旧行为:activeChildren.has → 直接拒「回合进行中,请先停止」——非 UI 持有的回合(页面重载/后台
+    // 调度)下前端没有停止按钮,用户永远「回不去」;且 stop 后 dying turn 的收尾 saveSession 会把 rewind
+    // 的截断整份盖回(丢失写:消息「回来了」)。现:rewind 自动 stopSession('rewind') + 等 turnSettlers
+    // settle(driver finally,收尾 save 之后)再截断。
+    const beforeD = (await getJson(WB_PORT, '/api/sessions/' + sid)).body.session;
+    const msgsBeforeD = (beforeD.messages || []).length;
+    const f5 = spawnFake(null, { FAKE_STREAM_DELAY_MS: '3000' }); procs.push(f5);
+    ok(await waitFakeUp(), '(d) fake up (FAKE_STREAM_DELAY_MS=3000)');
+    const liveTurn = postStream(WB_PORT, { sessionId: sid, message: 'slow turn interrupted by rewind', cwd: HOME });
+    await sleep(700); // 请求已到 fake 且被 delay 摁住 —— 回合钉在「进行中」窗口
+    const rwLive = (await postJson(WB_PORT, '/api/session/rewind', { sessionId: sid, targetTurnSeq: Number(beforeD.turnSeq) + 1 }, { 'x-wcw-token': token })).body;
+    ok(rwLive && rwLive.ok === true, '(d) 活回合 rewind ok=true — 自动停回合(旧:回合进行中拒绝;实 ' + JSON.stringify(rwLive && { ok: rwLive.ok, error: rwLive.error }) + ')');
+    await liveTurn.catch(() => {}); // 被停回合的流收尾(abort → driver finally → settle;rewind 已等过)
+    killp(f5); await waitFakeDown();
+    await sleep(400);
+    const postD = (await getJson(WB_PORT, '/api/sessions/' + sid)).body.session;
+    ok((postD.messages || []).length === msgsBeforeD, '(d) 截断不被 dying turn 收尾盖回 — 消息仍 ' + msgsBeforeD + ' 条(实 ' + (postD.messages || []).length + ';丢失写则回弹)');
+    ok(!(postD.messages || []).some(m => m && m.role === 'user' && m.content === 'slow turn interrupted by rewind'), '(d) 被停回合的 user 消息已随截断移除');
+
+    // ============ (e) 第69波静态锁:乐观 user 行操作条重绑(「无法定位该消息的回合」修复) ============
+    // sendPrompt 乐观渲染的 user 行是合成对象(无 turnSeq、不在 session.messages),其「回溯到此处」
+    // 必弹「无法定位该消息的回合」;回合拿到持久化真身后必须重绑操作条。
+    const rtSrc = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'chat-stream-runtime.js'), 'utf8');
+    const appSrc = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
+    ok(/const optimisticUserRow = renderStaticMessage\(/.test(rtSrc), '(e) 乐观 user 行引用被捕获(optimisticUserRow)');
+    ok(/rebindOptimisticUserRow = sess =>/.test(rtSrc) && /bar\.replaceWith\(msgActions\(real\)\)/.test(rtSrc), '(e) rebindOptimisticUserRow 用真身重建 msgActions');
+    ok((rtSrc.match(/rebindOptimisticUserRow\(/g) || []).length >= 2, '(e) 成功路径与失败路径都调重绑(>=2 处调用)');
+    ok(/msgActions: \(\.\.\.args\) => msgActions\(\.\.\.args\),/.test(appSrc), '(e) app.js 把 msgActions 注入 stream runtime deps');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of procs) killp(c);

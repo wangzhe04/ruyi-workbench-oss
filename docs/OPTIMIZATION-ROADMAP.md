@@ -1031,3 +1031,39 @@ EC-D 工程闭环后的第一个稳健性切片：`--resume` 是 Claude 引擎�
 
 - **2.2.0 发布动作(未做,待用户确认)**:版本三角 bump 2.1.0->2.2.0(package.json / 00-boot.js / facts 重生成;README 能力标签须同步到 v2.2 否则 meta-guard 复红)-> 重建 -> 门复跑 -> v2.2.0 tag + 离线包 + 推送。
 - 下一主线仍为 EC-E Mission Ready(候选 2.3)。
+
+## 第68波 Provider 配对铁律自愈 -- 孤儿 tool_calls 致 DeepSeek 400 永久卡死(2026-07-28)
+
+**用户线上事故**:[DeepSeek 请求失败] HTTP 400 "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'",会话每回合重发同一份孤儿历史、永久卡死。
+
+### 根因
+
+配对铁律(每个 assistant.tool_calls.id 必须有紧随的 role:'tool' 回复)全库只有【预防】(abort 路径 rem skip 填充)与【检测】(detectDanglingTurn → UI resumable 徽标),没有【修复面】:进程在工具块中途被杀/崩溃时 abort 填充来不及跑,持久化的孤儿 tool_calls 在下一回合被 runOpenAiTurn 无条件 push 新 user 消息顶成 assistant.tool_calls → user → strict provider 400。
+
+### 修复(先红后绿)
+
+- `02-session-store.js` 新 `repairProviderHistoryPairing(history)`:全历史单遍扫描,未应答 id 在块尾【原位插入】合成 tool 回复(声明「结果丢失,勿重放」),不删不改既有消息,返回补条数。
+- `09-workflow.js` runOpenAiTurn 回合开始(syncProviderHistoryFromDisplay 之后、push user 之前)调用;>0 则 logEvent('provider_pairing_repair') + 🛠 系统消息(同 🗜 压缩先例,诚实告知)。
+- fake-openai 新 FAKE_STRICT_PAIRING(DeepSeek 同款校验+措辞)与 FAKE_LOG_BODY(请求体落盘)模式。
+- 新件 `provider-pairing-repair.e2e.js`:U 段 6 断言(完整不动/尾部分应答/零应答/中段原位/无 tc 不动/修后全历史过校验)+ L 段 7 断言(孤儿会话发新回合完成、线上请求体配对完整、🛠 消息、第二回合不反弹)。**红跑逐字复现用户 400**;绿跑 13/13。
+- 真实数据核查:当前全部会话 provider.ndjson 0 孤儿(事故状态或被压缩自愈掩盖,修复面覆盖一切历史成因)。
+
+## 第69波 回溯到此处修复 -- 活回合自动停+settle 无丢失写 / 乐观行重绑(2026-07-28)
+
+**用户报告**:「回溯到此处经常回不去」,补充现象 = **无法定位**。
+
+### 根因二条(均实证)
+
+1. **「无法定位该消息的回合」必然复现**:sendPrompt 乐观渲染的 user 行是合成对象(无 turnSeq、不在 session.messages),其操作条「回溯到此处」三级定位梯(turnSeq 戳/跟随助手 turnSummary/序号身份)全落空——用户在回合刚结束想撤回重发时点击必弹「无法定位」(刷新后真身入列即愈,故「经常」而非「总是」)。
+2. **活回合拒绝 + 丢失写竞态**:rewindSession 对 activeChildren 一律拒「回合进行中,请先停止」——非 UI 持有的回合(页面重载 killOnDisconnect 窗口/后台调度)前端无停止按钮,死锁;且 stopSession 立即删登记表,dying turn 收尾 saveSession 会把 rewind 截断整份盖回(消息「回来了」)。
+
+### 修复
+
+- 前端:chat-stream-runtime 捕获乐观行引用,回合拿到持久化真身后 `rebindOptimisticUserRow`(按文本自尾匹配,跳过 steered,msgActions 重建),成功/失败两路径都调;app.js 注入 msgActions 进 stream runtime deps。
+- 服务端:rewindSession 改【自动停回合 + 等 settle】(supersede 语义,与新回合 stopSession('superseded') 对齐):stopSession('rewind') + 等 turnSettlers(driver finally resolve,晚于收尾 save)再截断,8s 超时兜底记 rewind_settle_timeout;settle 后整体重读会话。
+- 配套:04 新 turnSettlers 登记表;10 driver 登记/resolve(只删自己的条目,supersede 安全)。
+- rewind.e2e 补 (d) 活回合 rewind 全链(FAKE_STREAM_DELAY_MS=3000 摁住回合;红跑精确复现旧拒绝「回合进行中,请先停止」)+(e) 重绑静态锁 4 断言。绿跑 ALL PASS。
+
+### 待续
+
+- 2.2.0 发布动作仍待用户确认(第67波门已通过);下一主线 EC-E Mission Ready。

@@ -27,6 +27,7 @@ export function createChatStreamRuntime(deps = {}) {
     loadAutonomyGrants,
     maybeScrollToBottom,
     messageShell,
+    msgActions,
     narrativeQuestionCard,
     narrativeSemanticCard,
     narrativeToolAnchor,
@@ -383,7 +384,26 @@ export function createChatStreamRuntime(deps = {}) {
     // Capture & clear attachments now so a failed/aborted turn doesn't silently re-send them.
     const sentAttachments = state.attachments;
     state.attachments = []; renderAttachments();
-    box.appendChild(renderStaticMessage({ role: 'user', content: message, createdAt: new Date().toISOString(), attachments: sentAttachments }));
+    // 第69波:留住乐观 user 行的引用 —— 它是合成对象(无 turnSeq、不在 session.messages),其操作条里的
+    // 「回溯到此处」必然 toast「无法定位该消息的回合」;回合拿到持久化真身后必须重绑(见下方 finally 前)。
+    const optimisticUserRow = renderStaticMessage({ role: 'user', content: message, createdAt: new Date().toISOString(), attachments: sentAttachments });
+    box.appendChild(optimisticUserRow);
+    // 把乐观行的操作条重绑到持久化的真实 user 消息(按文本自尾向前匹配,跳过 steered)。
+    // 成功路径直接用回合末已重取的 session;失败/中止路径单独拉一次。重绑失败无碍 —— 下次全量重渲染自然换真行。
+    const rebindOptimisticUserRow = sess => {
+      try {
+        if (!optimisticUserRow.isConnected || !sess) return;
+        const msgs = Array.isArray(sess.messages) ? sess.messages : [];
+        let real = null;
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const m = msgs[i];
+          if (m && m.role === 'user' && !m.steered && String(m.content || '') === String(message || '')) { real = m; break; }
+        }
+        if (!real) return;
+        const bar = optimisticUserRow.querySelector('.msg-actions');
+        if (bar) bar.replaceWith(msgActions(real));
+      } catch { /* best-effort */ }
+    };
 
     // Live assistant container — tag it with the current engine so its badge/avatar match the engine
     // producing this reply (the server sends the authoritative meta on the persisted message).
@@ -432,6 +452,7 @@ export function createChatStreamRuntime(deps = {}) {
       if (state.currentSession?.id === turnSessionId) {
         const r = await api(`/api/sessions/${turnSessionId}`);
         state.currentSession = r.session; state.resumable = r.resumable || null;
+        rebindOptimisticUserRow(r.session); // 第69波:乐观行的「回溯到此处」重绑到持久化真身
         // The live DOM already contains this complete turn. Rebuilding it here parses/highlights the same long
         // answer a second time and causes the characteristic end-of-stream stall.
         $('sessionTitle').textContent = isUntitledTitle(r.session?.title) ? t('navigation.workbench') : r.session.title.trim();
@@ -447,6 +468,8 @@ export function createChatStreamRuntime(deps = {}) {
       if (err.name === 'AbortError') { appendMsgNote(main, live, t('status.stopped')); toast(t("toast.turnStopped")); }
       else { appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
       finalizeLive(live);
+      // 失败/中止路径没有成功路径的回合末重取 —— 单独拉一次,把乐观行的操作条重绑到持久化真身。
+      api(`/api/sessions/${turnSessionId}`).then(s => rebindOptimisticUserRow(s && s.session)).catch(() => {});
     } finally {
       activeTurns.delete(turnSessionId);
       syncStreamingUi();

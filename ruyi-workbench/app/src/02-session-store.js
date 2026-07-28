@@ -907,6 +907,40 @@ function detectDanglingTurn(session) {
   return { dangling: false, kind: null };
 }
 
+// 配对铁律自愈(strict provider 400 永久卡死会话的修复面):detectDanglingTurn 只【检测】悬挂,而
+// runOpenAiTurn 回合开始会无条件 push 新 user 消息 —— 若持久化的 providerHistory 里某个
+// assistant.tool_calls 有未应答 id(进程在工具块中途被杀/崩溃,abort 路径的 skip 填充来不及跑),
+// 下一回合请求体就是 assistant.tool_calls -> user,DeepSeek/DashScope 直接 400
+// (insufficient tool messages following tool_calls),且每次重发同一份孤儿历史 -> 会话永久卡死。
+// 本函数全历史单遍扫描:对每个带 tool_calls 的 assistant,统计紧随其后的 role:'tool' 块已应答 id,
+// 缺的 id 在【块尾原位插入】合成 tool 回复(保持 assistant.tool_calls -> 连续 N 条 tool 的相邻契约,
+// 不删不改任何既有消息 —— 与 abort 时 rem skip 填充同一思路,见 09-workflow.js)。
+// 返回补的条数(0 = 历史本就配对完整,调用方无需落盘/发事件)。
+function repairProviderHistoryPairing(history) {
+  if (!Array.isArray(history) || !history.length) return 0;
+  let repaired = 0;
+  for (let i = 0; i < history.length; i++) {
+    const m = history[i];
+    if (!m || m.role !== 'assistant' || !Array.isArray(m.tool_calls) || !m.tool_calls.length) continue;
+    const answered = new Set();
+    let j = i + 1;
+    while (j < history.length && history[j] && history[j].role === 'tool') {
+      if (history[j].tool_call_id != null) answered.add(String(history[j].tool_call_id));
+      j++;
+    }
+    const missing = m.tool_calls.filter(tc => tc && tc.id != null && !answered.has(String(tc.id)));
+    if (!missing.length) continue;
+    const fills = missing.map(tc => ({
+      role: 'tool', tool_call_id: tc.id,
+      content: '[工具结果丢失:上次回会在执行该工具时中断,结果未保存。请勿重放此调用,按上下文继续。]',
+    }));
+    history.splice(j, 0, ...fills);
+    repaired += fills.length;
+    i = j + fills.length - 1; // 跳过刚插入的填充条,继续扫块后第一条未检查的消息
+  }
+  return repaired;
+}
+
 // Returns the normalized session, or null when the file is missing/unreadable. A file that exists but
 // fails to parse is renamed to <id>.json.corrupt (isolated, not deleted) so a truncated write can't
 // keep 500-ing every read; callers treat null as "not found".
@@ -1446,10 +1480,26 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
 // Returns {ok, removedTurns, lastUserText, filesReverted:[], filesFailed:[]} (or {ok:false,error} when a
 // turn is live or the target can't be located).
 async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
-  const session = await loadSession(sessionId);
+  let session = await loadSession(sessionId);
   if (!session) return { ok: false, error: 'session not found' };
-  // Refuse while a turn is running for this session — truncating live state races the tool loop.
-  if (activeChildren.has(sessionId)) return { ok: false, error: '回合进行中,请先停止' };
+  // 第69波:回合进行中不再拒绝,改为【自动停回合 + 等 settle 再截断】(supersede 语义,与 09-workflow
+  // 新回合 stopSession('superseded') 对齐)。原拒绝路径(activeChildren.has → '回合进行中,请先停止')
+  // 对非 UI 持有的回合是死锁:页面重载/后台调度回合下前端无停止按钮,用户永远「回不去」。
+  // 丢失写竞态:stopSession 立即删 activeChildren,但被停回合的收尾(推 aborted assistant + saveSession)
+  // 在其后落盘;若 rewind 在此窗口截断落盘,会被 dying turn 的收尾 save 整份盖回(消息「回来了」)。
+  // turnSettlers 在 driver finally(收尾 save 之后)resolve —— 等它即保证截断写在最后。超时兜底:
+  // 回合真楔死(.abort 不生效)时按原状截断,残留风险记日志(此时该回合本就在写坏状态)。
+  if (activeChildren.has(sessionId)) {
+    stopSession(sessionId, 'rewind');
+    logEvent({ kind: 'rewind_autostop', sessionId, targetTurnSeq: Number(targetTurnSeq) || null });
+  }
+  const settler = turnSettlers.get(sessionId);
+  if (settler && settler.promise) {
+    const settled = await Promise.race([settler.promise.then(() => true), new Promise(r => setTimeout(() => r(false), 8000))]);
+    if (!settled) logEvent({ kind: 'rewind_settle_timeout', sessionId });
+  }
+  const live = await loadSession(sessionId); // settle 后重读: dying turn 的收尾(含 aborted assistant)已落盘
+  if (live) session = live;
   const target = Number(targetTurnSeq);
   if (!Number.isFinite(target)) return { ok: false, error: 'targetTurnSeq is required' };
   const messages = Array.isArray(session.messages) ? session.messages : [];

@@ -867,6 +867,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // The API is stateless, so every Claude/workflow message since the previous Provider turn must be mirrored
   // before this request. The cursor prevents duplicates while retaining Provider-native tool protocol rows.
   syncProviderHistoryFromDisplay(session);
+  // 配对铁律自愈:持久化历史若带孤儿 tool_calls(上次回合在工具块中途被杀/崩溃,abort 的 skip 填充
+  // 来不及跑),下面 push 新 user 消息后请求体即触发 strict provider 400 且每次重发同一份孤儿历史
+  // (会话永久卡死)。在 push user 之前把缺失的 role:'tool' 补齐(原位插入,不删不改既有消息)。
+  const pairingRepaired = repairProviderHistoryPairing(session.providerHistory);
+  if (pairingRepaired > 0) {
+    logEvent({ kind: 'provider_pairing_repair', sessionId: session.id, repaired: pairingRepaired, turnSeq: (Number(session.turnSeq) || 0) + 1 });
+    session.messages.push({ role: 'system', content: `🛠 检测到上次回会在工具执行中中断,已补 ${pairingRepaired} 条丢失的工具结果占位(防 strict provider 400 卡死会话)`, createdAt: nowIso(), source: 'repair' });
+    session.providerHistoryCursor = session.messages.length;
+  }
   // v0.8-S0: one turn = one user message → reply-complete. Bump the session-level monotonic counter at
   // turn start and persist it with the existing save (checkpoint/rewind/summary key downstream).
   session.turnSeq = (Number(session.turnSeq) || 0) + 1;
