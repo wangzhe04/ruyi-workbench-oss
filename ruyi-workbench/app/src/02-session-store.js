@@ -20,6 +20,83 @@ function sessionBodyPaths(id) {
     provider: path.join(paths.sessions, `${id}.provider.ndjson`),
   };
 }
+
+// ── 第71波 EC-E 切片二:未决事项 Intervention 持久化(append-only NDJSON)──────────────────────────
+// permission/question/plan 三类未决事项此前是纯内存 Map(04-permission-runtime:191/194/199),进程重启即消失
+// -- 无审计、无终态化,/api/missions 的 missionPendingCounts(13d:59)前三类读空 Map 归零,与前端 stale 卡片
+// 不一致。本波把它们旁路持久化为 Intervention 记录:注册时 append 一行(pending),决策/超时/清理时 append 一行
+// (终态),读时按 id 后写胜折叠。**不参与 promise resolve 链** -- 超时自动拒绝、权限默认不放宽语义完全不动,
+// Intervention 只是审计/读模型/重启终态化的旁路记录(执行权威源仍是内存 Map)。task-pool proposed 已随 run
+// 快照持久化(08:380 标 expired / paused 存活但不可操作),71b 再统一进 Intervention。
+//
+// 崩溃语义:同 messages.ndjson -- append 永远「整行 + 尾随 \n」一次写,撕裂尾行(无 \n 终结)读取时 JSON.parse
+// 失败被跳过(append-only,丢一条审计记录不致命:执行语义走内存 Map,读模型少一条不阻断)。后写胜折叠保证
+// 同一 ivId 的多条记录(request -> settle -> cancel_restart)取最后一条为权威终态。
+function interventionFilePath(sessionId) {
+  return path.join(paths.sessions, `${sessionId}.interventions.ndjson`);
+}
+// per-session 写链:串行化同会话的 append,防两条 line 交错(注册在流式期、决策在用户点击,可能并发)。
+// 独立于 sessionWriteChains(saveSession 的链),互不影响;链错误吞掉(下一写自愈)。
+const interventionWriteChains = new Map();
+// 追加一条 Intervention 记录(append-only,整行+\n)。fire-and-forget:落盘失败不阻断执行(内存 Map 是执行权威源)。
+function appendIntervention(sessionId, record) {
+  const sid = String(sessionId || '');
+  if (!sid) return;
+  const line = JSON.stringify(record) + '\n';
+  const file = interventionFilePath(sid);
+  const prev = interventionWriteChains.get(sid) || Promise.resolve();
+  const next = prev.catch(() => {}).then(() => fsp.appendFile(file, line, 'utf8').catch(() => { /* 丢一条读模型记录,不阻断执行 */ }));
+  interventionWriteChains.set(sid, next);
+  next.then(() => { if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid); });
+}
+// 注册一个 pending Intervention。type: 'permission'|'question'|'plan'。ivId 复用 requestId/questionId/planId(执行权威源的同一 id)。
+function registerIntervention(sessionId, type, ivId, extra) {
+  appendIntervention(sessionId, { id: String(ivId || ''), type, sessionId: String(sessionId || ''), status: 'pending', requestedAt: nowIso(), decidedAt: '', decidedBy: '', ...(extra || {}) });
+}
+// 结算一个 Intervention(append 一条终态记录,后写胜)。status: allowed/denied/answered/cancelled/approved/rejected/cancelled_restart。
+// 重复结算(竞态)会 append 多条,读时后写胜折叠取最后一条 -- 状态仍可区分,不致命。
+function settleIntervention(sessionId, ivId, status, extra) {
+  appendIntervention(sessionId, { id: String(ivId || ''), sessionId: String(sessionId || ''), status, decidedAt: nowIso(), decidedBy: '', ...(extra || {}) });
+}
+// 读一个会话的全部 Intervention,按 id 后写胜折叠。返回 Intervention[](按 requestedAt 稳定排序)。
+async function readInterventions(sessionId) {
+  let txt;
+  try { txt = await fsp.readFile(interventionFilePath(String(sessionId || '')), 'utf8'); } catch { return []; }
+  const byId = new Map();
+  const lines = txt.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue; // 空行(文件以 \n 结尾的尾元 / 段间空行)
+    let rec;
+    try { rec = JSON.parse(line); } catch { continue; } // 撕裂尾行/坏行跳过(append-only,不致命)
+    if (!rec || !rec.id) continue;
+    byId.set(String(rec.id), rec); // 后写胜:同 ivId 的后一条覆盖前一条
+  }
+  const out = Array.from(byId.values());
+  out.sort((a, b) => String(a.requestedAt || '').localeCompare(String(b.requestedAt || '')));
+  return out;
+}
+// boot 终态化:进程重启后,内存 Map 清空,但磁盘上可能留有 pending Intervention(上次生命周期注册后未结算 --
+// 进程被杀时超时 timer/clearPending 来不及跑)。与 markInterruptedAgentRuns(08:357)对称:重启 = 上次生命周期
+// 结束,pending 的 Intervention **不重挂**(原回合的 promise 已无处 resolve,重挂需先 autoResume 续跑回合 +
+// re-wire intervention promise,复杂且危险),而是诚实标 cancelled_restart + decidedAt。下次读模型读到的是终态,
+// 不永挂。用户若想重新决策,开新回合即可(新回合注册新 Intervention)。
+async function markInterruptedInterventions() {
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { return; }
+  const stamp = nowIso();
+  for (const f of files) {
+    if (!f.endsWith('.interventions.ndjson')) continue;
+    const sessionId = f.slice(0, -'.interventions.ndjson'.length);
+    if (!/^sess_[A-Za-z0-9_-]+$/.test(sessionId)) continue; // 跳过非法名(防穿越/脏文件)
+    const ivs = await readInterventions(sessionId).catch(() => []);
+    const pending = ivs.filter(iv => iv && iv.status === 'pending');
+    if (!pending.length) continue;
+    for (const iv of pending) {
+      appendIntervention(sessionId, { id: iv.id, sessionId, type: iv.type || '', status: 'cancelled_restart', decidedAt: stamp, decidedBy: 'restart' });
+    }
+  }
+}
 function sessionLineHash(line) {
   return crypto.createHash('sha1').update(line).digest('hex').slice(0, 16);
 }

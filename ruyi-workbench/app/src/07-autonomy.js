@@ -708,10 +708,12 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
   return new Promise(resolve => {
     const requestId = makeId('perm');
     onEvent({ type: 'permission_request', requestId, toolName, input, tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
+    registerIntervention(sessionId, 'permission', requestId, { toolName: String(toolName || ''), tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
     let settled = false;
     const settle = decision => {
       if (settled) return;
       settled = true;
+      settleIntervention(sessionId, requestId, decision && decision.behavior === 'allow' ? 'allowed' : 'denied', { decidedBy: decision && decision.behavior === 'allow' ? 'user' : 'auto', note: decision && decision.message ? String(decision.message).slice(0, 500) : '' });
       try { onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
       resolve(decision);
     };
@@ -745,10 +747,12 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
   return new Promise(resolve => {
     const planId = makeId('plan');
     onEvent({ type: 'plan', planId, markdown: String(markdown || '') });
+    registerIntervention(sessionId, 'plan', planId, { planSummary: String(markdown || '').slice(0, 500) });
     let settled = false;
     const settle = decision => {
       if (settled) return;
       settled = true;
+      settleIntervention(sessionId, planId, decision && decision.decision === 'approve' ? 'approved' : 'rejected', { decidedBy: decision && decision.decision === 'approve' ? 'user' : 'auto', note: decision && decision.note ? String(decision.note).slice(0, 500) : '' });
       try { onEvent({ type: 'plan_decision', planId, decision: decision && decision.decision === 'approve' ? 'approve' : 'reject', note: decision && decision.note }); } catch { /* stream gone */ }
       resolve(decision);
     };

@@ -1856,6 +1856,8 @@ const ROUTE_AUTH = [
   // 第70波(EC-E):/api/missions 聚合只读投影 —— 内容型 GET,与 /api/sessions 同门(token-browser)。
   { m: 'GET', p: '/api/missions', auth: 'token-browser' },
   { m: 'GET', p: '/api/missions/', auth: 'token-browser', prefix: true },
+  // 第71波(EC-E):/api/interventions/:sessionId 只读派生 -- 内容型 GET,同 /api/missions 门(token-browser)。
+  { m: 'GET', p: '/api/interventions/', auth: 'token-browser', prefix: true },
   { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },
   // token-browser: 敏感内容型 GET + UI 变更型(浏览器须 token;loopback 非浏览器须同源,无需 token)
   { m: 'GET', p: '/api/sessions', auth: 'token-browser' },
@@ -1990,6 +1992,83 @@ function sessionBodyPaths(id) {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),
     provider: path.join(paths.sessions, `${id}.provider.ndjson`),
   };
+}
+
+// ── 第71波 EC-E 切片二:未决事项 Intervention 持久化(append-only NDJSON)──────────────────────────
+// permission/question/plan 三类未决事项此前是纯内存 Map(04-permission-runtime:191/194/199),进程重启即消失
+// -- 无审计、无终态化,/api/missions 的 missionPendingCounts(13d:59)前三类读空 Map 归零,与前端 stale 卡片
+// 不一致。本波把它们旁路持久化为 Intervention 记录:注册时 append 一行(pending),决策/超时/清理时 append 一行
+// (终态),读时按 id 后写胜折叠。**不参与 promise resolve 链** -- 超时自动拒绝、权限默认不放宽语义完全不动,
+// Intervention 只是审计/读模型/重启终态化的旁路记录(执行权威源仍是内存 Map)。task-pool proposed 已随 run
+// 快照持久化(08:380 标 expired / paused 存活但不可操作),71b 再统一进 Intervention。
+//
+// 崩溃语义:同 messages.ndjson -- append 永远「整行 + 尾随 \n」一次写,撕裂尾行(无 \n 终结)读取时 JSON.parse
+// 失败被跳过(append-only,丢一条审计记录不致命:执行语义走内存 Map,读模型少一条不阻断)。后写胜折叠保证
+// 同一 ivId 的多条记录(request -> settle -> cancel_restart)取最后一条为权威终态。
+function interventionFilePath(sessionId) {
+  return path.join(paths.sessions, `${sessionId}.interventions.ndjson`);
+}
+// per-session 写链:串行化同会话的 append,防两条 line 交错(注册在流式期、决策在用户点击,可能并发)。
+// 独立于 sessionWriteChains(saveSession 的链),互不影响;链错误吞掉(下一写自愈)。
+const interventionWriteChains = new Map();
+// 追加一条 Intervention 记录(append-only,整行+\n)。fire-and-forget:落盘失败不阻断执行(内存 Map 是执行权威源)。
+function appendIntervention(sessionId, record) {
+  const sid = String(sessionId || '');
+  if (!sid) return;
+  const line = JSON.stringify(record) + '\n';
+  const file = interventionFilePath(sid);
+  const prev = interventionWriteChains.get(sid) || Promise.resolve();
+  const next = prev.catch(() => {}).then(() => fsp.appendFile(file, line, 'utf8').catch(() => { /* 丢一条读模型记录,不阻断执行 */ }));
+  interventionWriteChains.set(sid, next);
+  next.then(() => { if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid); });
+}
+// 注册一个 pending Intervention。type: 'permission'|'question'|'plan'。ivId 复用 requestId/questionId/planId(执行权威源的同一 id)。
+function registerIntervention(sessionId, type, ivId, extra) {
+  appendIntervention(sessionId, { id: String(ivId || ''), type, sessionId: String(sessionId || ''), status: 'pending', requestedAt: nowIso(), decidedAt: '', decidedBy: '', ...(extra || {}) });
+}
+// 结算一个 Intervention(append 一条终态记录,后写胜)。status: allowed/denied/answered/cancelled/approved/rejected/cancelled_restart。
+// 重复结算(竞态)会 append 多条,读时后写胜折叠取最后一条 -- 状态仍可区分,不致命。
+function settleIntervention(sessionId, ivId, status, extra) {
+  appendIntervention(sessionId, { id: String(ivId || ''), sessionId: String(sessionId || ''), status, decidedAt: nowIso(), decidedBy: '', ...(extra || {}) });
+}
+// 读一个会话的全部 Intervention,按 id 后写胜折叠。返回 Intervention[](按 requestedAt 稳定排序)。
+async function readInterventions(sessionId) {
+  let txt;
+  try { txt = await fsp.readFile(interventionFilePath(String(sessionId || '')), 'utf8'); } catch { return []; }
+  const byId = new Map();
+  const lines = txt.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue; // 空行(文件以 \n 结尾的尾元 / 段间空行)
+    let rec;
+    try { rec = JSON.parse(line); } catch { continue; } // 撕裂尾行/坏行跳过(append-only,不致命)
+    if (!rec || !rec.id) continue;
+    byId.set(String(rec.id), rec); // 后写胜:同 ivId 的后一条覆盖前一条
+  }
+  const out = Array.from(byId.values());
+  out.sort((a, b) => String(a.requestedAt || '').localeCompare(String(b.requestedAt || '')));
+  return out;
+}
+// boot 终态化:进程重启后,内存 Map 清空,但磁盘上可能留有 pending Intervention(上次生命周期注册后未结算 --
+// 进程被杀时超时 timer/clearPending 来不及跑)。与 markInterruptedAgentRuns(08:357)对称:重启 = 上次生命周期
+// 结束,pending 的 Intervention **不重挂**(原回合的 promise 已无处 resolve,重挂需先 autoResume 续跑回合 +
+// re-wire intervention promise,复杂且危险),而是诚实标 cancelled_restart + decidedAt。下次读模型读到的是终态,
+// 不永挂。用户若想重新决策,开新回合即可(新回合注册新 Intervention)。
+async function markInterruptedInterventions() {
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { return; }
+  const stamp = nowIso();
+  for (const f of files) {
+    if (!f.endsWith('.interventions.ndjson')) continue;
+    const sessionId = f.slice(0, -'.interventions.ndjson'.length);
+    if (!/^sess_[A-Za-z0-9_-]+$/.test(sessionId)) continue; // 跳过非法名(防穿越/脏文件)
+    const ivs = await readInterventions(sessionId).catch(() => []);
+    const pending = ivs.filter(iv => iv && iv.status === 'pending');
+    if (!pending.length) continue;
+    for (const iv of pending) {
+      appendIntervention(sessionId, { id: iv.id, sessionId, type: iv.type || '', status: 'cancelled_restart', decidedAt: stamp, decidedBy: 'restart' });
+    }
+  }
 }
 function sessionLineHash(line) {
   return crypto.createHash('sha1').update(line).digest('hex').slice(0, 16);
@@ -4587,6 +4666,7 @@ function clearPendingPermissions(sessionId, message) {
       clearTimeout(p.timer);
       pendingPermissions.delete(rid);
       try { p.resolve({ behavior: 'deny', message: message || 'session ended' }); } catch { /* already settled */ }
+      settleIntervention(sessionId, rid, 'denied', { decidedBy: 'clear', note: String(message || 'session ended').slice(0, 500) });
     }
   }
 }
@@ -4636,6 +4716,7 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
     if (!accepted) return false;
     clearTimeout(entry.timer);
     pendingQuestions.delete(id);
+    settleIntervention(sessionId, id, answer && answer.ok !== false ? 'answered' : 'cancelled', { decidedBy: answer && answer.ok !== false ? 'user' : 'auto', note: answer && answer.content ? String(answer.content).slice(0, 500) : '' });
     try {
       const summary = answer && answer.ok !== false
         ? String(answer.content || '').replace(/\s+/g, ' ').trim().slice(0, 500)
@@ -4650,6 +4731,7 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
   }, Math.max(5000, Number(timeoutMs) || 120000));
   pendingQuestions.set(id, entry);
   onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized });
+  registerIntervention(sessionId, 'question', id, { questionSummary: normalized.map(q => String(q.question || '').slice(0, 200)).join(' | ') });
   return id;
 }
 
@@ -9472,10 +9554,12 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
   return new Promise(resolve => {
     const requestId = makeId('perm');
     onEvent({ type: 'permission_request', requestId, toolName, input, tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
+    registerIntervention(sessionId, 'permission', requestId, { toolName: String(toolName || ''), tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
     let settled = false;
     const settle = decision => {
       if (settled) return;
       settled = true;
+      settleIntervention(sessionId, requestId, decision && decision.behavior === 'allow' ? 'allowed' : 'denied', { decidedBy: decision && decision.behavior === 'allow' ? 'user' : 'auto', note: decision && decision.message ? String(decision.message).slice(0, 500) : '' });
       try { onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
       resolve(decision);
     };
@@ -9509,10 +9593,12 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
   return new Promise(resolve => {
     const planId = makeId('plan');
     onEvent({ type: 'plan', planId, markdown: String(markdown || '') });
+    registerIntervention(sessionId, 'plan', planId, { planSummary: String(markdown || '').slice(0, 500) });
     let settled = false;
     const settle = decision => {
       if (settled) return;
       settled = true;
+      settleIntervention(sessionId, planId, decision && decision.decision === 'approve' ? 'approved' : 'rejected', { decidedBy: decision && decision.decision === 'approve' ? 'user' : 'auto', note: decision && decision.note ? String(decision.note).slice(0, 500) : '' });
       try { onEvent({ type: 'plan_decision', planId, decision: decision && decision.decision === 'approve' ? 'approve' : 'reject', note: decision && decision.note }); } catch { /* stream gone */ }
       resolve(decision);
     };
@@ -19018,6 +19104,7 @@ async function listenWithFallback(server, port, host, config) {
 async function startServer(opts) {
   await ensureDirs();
   await markInterruptedAgentRuns();
+  await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   // 第29波(§29b): boot 自动恢复分级(opt-in,默认 false=零行为变化)。放在诚实标死【之后】、fire-and-forget:
   // 恢复失败/慢盘绝不阻塞 boot;真正的续跑在 runAgentWorkflow 内自走调度环。
   void autoResumeInterruptedRuns().catch(() => {});
@@ -20559,13 +20646,19 @@ function missionCardStatus(m) {
   return 'idle';
 }
 
-// 未决事项统一读形(第70波只投影计数;第71波才把 permission/question/plan/task-pool 持久化为 Intervention)。
-// 前三者是纯内存注册表(04-permission-runtime),task-pool 的 proposed 随 run 快照持久化。
-function missionPendingCounts(sessionId, runs) {
+// 未决事项统一读形(第71波:permission/question/plan 从 session.interventions NDJSON 现算,pool 仍从 run.taskPool)。
+// 前三者此前是纯内存 Map(04-permission-runtime:191/194/199),重启即归零;现旁路持久化为 Intervention(02
+// append-only NDJSON),重启终态化(markInterruptedInterventions)后 pending 标 cancelled_restart -> 计数归零,
+// 与"无活回合=无 pending"一致。pool(task-pool proposed)71b 再统一进 Intervention。
+async function missionPendingCounts(sessionId, runs) {
+  const ivs = await readInterventions(sessionId).catch(() => []);
   let permissions = 0, questions = 0, plans = 0;
-  for (const [, p] of pendingPermissions) if (p && p.sessionId === sessionId) permissions++;
-  for (const [, q] of pendingQuestions) if (q && q.sessionId === sessionId) questions++;
-  for (const [, p] of pendingPlans) if (p && p.sessionId === sessionId) plans++;
+  for (const iv of ivs) {
+    if (!iv || iv.status !== 'pending') continue;
+    if (iv.type === 'permission') permissions++;
+    else if (iv.type === 'question') questions++;
+    else if (iv.type === 'plan') plans++;
+  }
   let pool = 0;
   for (const r of (runs || [])) for (const item of ((r && r.taskPool) || [])) if (item && item.status === 'proposed') pool++;
   return { permissions, questions, plans, pool };
@@ -20587,7 +20680,7 @@ function missionRunDigest(r) {
 }
 
 // 列表卡片:从会话头文件投影(头含 mission,见 saveSession 头/正文拆分)。
-function buildMissionCard(head, runs) {
+async function buildMissionCard(head, runs) {
   const m = head.mission;
   const ms = (m && Array.isArray(m.milestones)) ? m.milestones : [];
   return {
@@ -20605,7 +20698,7 @@ function buildMissionCard(head, runs) {
       spent: m.spent || { autoTurns: 0, tokens: 0 },
       budgetExhausted: Boolean(m.budgetExhaustedAt),
     },
-    pending: missionPendingCounts(head.id, runs),
+    pending: await missionPendingCounts(head.id, runs),
     runCount: (runs || []).length,
     lastRun: runs && runs.length ? missionRunDigest(runs[runs.length - 1]) : null,
   };
@@ -20624,7 +20717,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       const head = safeJsonParse(await fsp.readFile(path.join(paths.sessions, f), 'utf8').catch(() => ''), null);
       if (!head || !head.id || sessionKind(head) !== 'mission') continue;
       const runs = await listAgentRuns(head.id).catch(() => []);
-      missions.push(buildMissionCard(head, runs));
+      missions.push(await buildMissionCard(head, runs));
     }
     missions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
     return send(res, json({ ok: true, missions }));
@@ -20692,6 +20785,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       runs: Object.fromEntries(runs.map(r => [r.id, Number(r && r.eventSeq) || 0])),
       snapshotAt: nowIso(),
     };
+    const pendingCounts = await missionPendingCounts(sessionId, runs);
 
     return send(res, json({
       ok: true,
@@ -20705,7 +20799,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         changes: { filesChanged: [...filesChanged.values()], artifacts: [...artifacts.values()], commands },
         checkpoints,
         usage,
-        pending: missionPendingCounts(sessionId, runs),
+        pending: pendingCounts,
         cursor,
       },
     }));
@@ -20714,6 +20808,24 @@ async function handleMissionsApiRoutes(req, res, pathname) {
 }
 
 async function handleInterventionApiRoutes(req, res, pathname) {
+  // 第71波:会话的持久化 Intervention 只读派生(注册/决策/超时/清理/重启终态化的旁路记录,02 NDJSON)。
+  if (req.method === 'GET' && pathname.startsWith('/api/interventions/')) {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const interventions = await readInterventions(sessionId).catch(() => []);
+    const counts = { permission: 0, question: 0, plan: 0, pending: 0, resolved: 0 };
+    for (const iv of interventions) {
+      if (!iv) continue;
+      if (iv.status === 'pending') {
+        counts.pending++;
+        if (iv.type === 'permission') counts.permission++;
+        else if (iv.type === 'question') counts.question++;
+        else if (iv.type === 'plan') counts.plan++;
+      } else counts.resolved++;
+    }
+    return send(res, json({ ok: true, sessionId, interventions, counts }));
+  }
   if (req.method === 'POST' && pathname === '/api/chat/answer') {
     // Settle exactly one live question. A stale/wrong-session answer is a conflict, never a fake success:
     // the UI must keep the modal open so the user can retry or see that the turn already ended.
@@ -20773,6 +20885,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       if (grantHit) return send(res, json({ behavior: 'allow', updatedInput: body.input || {} }));
     }
     reg.onEvent({ type: 'permission_request', requestId, toolName: body.toolName, input: body.input, tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
+    registerIntervention(sessionId, 'permission', requestId, { toolName: String(body.toolName || ''), tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
     // 第27f波:CLI 桥超时→存档暂停(与 provider 路径对称)。仅【opt-in + 本会话处于无人值守 driverAuto 回合】才启用;
     // 否则维持"超时即拒杀"安全默认。两段定时:基础超时→检查点(logEvent+saveSession)+ permission_paused 事件 + 延长到 TTL;
     // TTL 内无决定则回落 deny(fail-closed)。entry.timer 重赋为 TTL 定时器,/api/permission/decision 与 clearPendingPermissions 照常清对。
@@ -20786,10 +20899,10 @@ async function handleInterventionApiRoutes(req, res, pathname) {
           try { logEvent({ kind: 'permission_paused', sessionId, tool: String(body.toolName || ''), tier: bridgeTier, requestId, engine: 'claude' }); } catch { /* ignore */ }
           loadSession(sessionId).then(s => s && saveSession(s)).catch(() => {}); // 检查点:会话已在磁盘,重写一遍固化
           try { reg.onEvent({ type: 'permission_paused', requestId, toolName: body.toolName, tier: bridgeTier, ttlMs: config.autonomyPauseTtlMs }); } catch { /* stream gone */ }
-          entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); }, Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000));
+          entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: 'paused ttl timeout' }); }, Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000));
         }, baseMs);
       } else {
-        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); }, baseMs);
+        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: 'permission prompt timed out' }); }, baseMs);
       }
       pendingPermissions.set(requestId, entry);
     });
@@ -20816,6 +20929,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // 存档暂停(27f)窗口内的决定与基础窗内的决定走同一 handler,天然同权重。
     logEvent({ kind: 'intervention', source: 'permission_decision', sessionId: entry.sessionId || '', behavior });
     entry.resolve(behavior === 'allow' ? { behavior: 'allow', updatedInput: body.updatedInput } : { behavior: 'deny', message: body.message || 'denied by user' });
+    settleIntervention(entry.sessionId, String(body.requestId || ''), behavior === 'allow' ? 'allowed' : 'denied', { decidedBy: 'user', note: behavior === 'deny' ? String(body.message || '') : '' });
     return send(res, json({ ok: true }));
   }
   if (req.method === 'POST' && pathname === '/api/plan/decision') {
@@ -20834,6 +20948,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const decision = body.decision === 'approve' ? 'approve' : 'reject';
     logEvent({ kind: 'intervention', source: 'plan_decision', sessionId, decision }); // 29c
     entry.resolve({ decision, note: body.note != null ? String(body.note) : '' });
+    settleIntervention(sessionId, planId, decision === 'approve' ? 'approved' : 'rejected', { decidedBy: 'user', note: body.note != null ? String(body.note) : '' });
     return send(res, json({ ok: true }));
   }
   return false;

@@ -959,6 +959,7 @@ async function listenWithFallback(server, port, host, config) {
 async function startServer(opts) {
   await ensureDirs();
   await markInterruptedAgentRuns();
+  await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   // 第29波(§29b): boot 自动恢复分级(opt-in,默认 false=零行为变化)。放在诚实标死【之后】、fire-and-forget:
   // 恢复失败/慢盘绝不阻塞 boot;真正的续跑在 runAgentWorkflow 内自走调度环。
   void autoResumeInterruptedRuns().catch(() => {});

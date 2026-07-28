@@ -46,8 +46,10 @@ let timers = [];
 const setTimeoutF = (cb, ms) => { const t = { cb, ms, cleared: false }; timers.push(t); return t; };
 const clearTimeoutF = t => { if (t) t.cleared = true; };
 const fireNext = () => { const live = timers.filter(x => !x.cleared).sort((a, b) => a.ms - b.ms); if (live[0]) { live[0].cleared = true; live[0].cb(); return true; } return false; };
-const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pendingPermissions', 'setTimeout', 'clearTimeout',
-  m[0] + '\nreturn requestNativePermission;')(makeId, toolIsRevertible, pending, setTimeoutF, clearTimeoutF);
+// 第71波:requestNativePermission 的 settle 内旁路调 settleIntervention(02 持久化),onEvent 后旁路调 registerIntervention。
+// 源抽取注入 noop(本件测定时器行为,不测 Intervention 持久化 -- 后者见 interventions-persist.e2e.js)。
+const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pendingPermissions', 'setTimeout', 'clearTimeout', 'registerIntervention', 'settleIntervention',
+  m[0] + '\nreturn requestNativePermission;')(makeId, toolIsRevertible, pending, setTimeoutF, clearTimeoutF, () => {}, () => {});
 
 (async () => {
   const settle = p => Promise.race([p, sleep(0).then(() => '__pending__')]);

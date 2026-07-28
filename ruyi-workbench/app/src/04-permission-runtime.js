@@ -238,6 +238,7 @@ function clearPendingPermissions(sessionId, message) {
       clearTimeout(p.timer);
       pendingPermissions.delete(rid);
       try { p.resolve({ behavior: 'deny', message: message || 'session ended' }); } catch { /* already settled */ }
+      settleIntervention(sessionId, rid, 'denied', { decidedBy: 'clear', note: String(message || 'session ended').slice(0, 500) });
     }
   }
 }
@@ -287,6 +288,7 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
     if (!accepted) return false;
     clearTimeout(entry.timer);
     pendingQuestions.delete(id);
+    settleIntervention(sessionId, id, answer && answer.ok !== false ? 'answered' : 'cancelled', { decidedBy: answer && answer.ok !== false ? 'user' : 'auto', note: answer && answer.content ? String(answer.content).slice(0, 500) : '' });
     try {
       const summary = answer && answer.ok !== false
         ? String(answer.content || '').replace(/\s+/g, ' ').trim().slice(0, 500)
@@ -301,6 +303,7 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
   }, Math.max(5000, Number(timeoutMs) || 120000));
   pendingQuestions.set(id, entry);
   onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized });
+  registerIntervention(sessionId, 'question', id, { questionSummary: normalized.map(q => String(q.question || '').slice(0, 200)).join(' | ') });
   return id;
 }
 

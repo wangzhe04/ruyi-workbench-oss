@@ -54,13 +54,19 @@ function missionCardStatus(m) {
   return 'idle';
 }
 
-// 未决事项统一读形(第70波只投影计数;第71波才把 permission/question/plan/task-pool 持久化为 Intervention)。
-// 前三者是纯内存注册表(04-permission-runtime),task-pool 的 proposed 随 run 快照持久化。
-function missionPendingCounts(sessionId, runs) {
+// 未决事项统一读形(第71波:permission/question/plan 从 session.interventions NDJSON 现算,pool 仍从 run.taskPool)。
+// 前三者此前是纯内存 Map(04-permission-runtime:191/194/199),重启即归零;现旁路持久化为 Intervention(02
+// append-only NDJSON),重启终态化(markInterruptedInterventions)后 pending 标 cancelled_restart -> 计数归零,
+// 与"无活回合=无 pending"一致。pool(task-pool proposed)71b 再统一进 Intervention。
+async function missionPendingCounts(sessionId, runs) {
+  const ivs = await readInterventions(sessionId).catch(() => []);
   let permissions = 0, questions = 0, plans = 0;
-  for (const [, p] of pendingPermissions) if (p && p.sessionId === sessionId) permissions++;
-  for (const [, q] of pendingQuestions) if (q && q.sessionId === sessionId) questions++;
-  for (const [, p] of pendingPlans) if (p && p.sessionId === sessionId) plans++;
+  for (const iv of ivs) {
+    if (!iv || iv.status !== 'pending') continue;
+    if (iv.type === 'permission') permissions++;
+    else if (iv.type === 'question') questions++;
+    else if (iv.type === 'plan') plans++;
+  }
   let pool = 0;
   for (const r of (runs || [])) for (const item of ((r && r.taskPool) || [])) if (item && item.status === 'proposed') pool++;
   return { permissions, questions, plans, pool };
@@ -82,7 +88,7 @@ function missionRunDigest(r) {
 }
 
 // 列表卡片:从会话头文件投影(头含 mission,见 saveSession 头/正文拆分)。
-function buildMissionCard(head, runs) {
+async function buildMissionCard(head, runs) {
   const m = head.mission;
   const ms = (m && Array.isArray(m.milestones)) ? m.milestones : [];
   return {
@@ -100,7 +106,7 @@ function buildMissionCard(head, runs) {
       spent: m.spent || { autoTurns: 0, tokens: 0 },
       budgetExhausted: Boolean(m.budgetExhaustedAt),
     },
-    pending: missionPendingCounts(head.id, runs),
+    pending: await missionPendingCounts(head.id, runs),
     runCount: (runs || []).length,
     lastRun: runs && runs.length ? missionRunDigest(runs[runs.length - 1]) : null,
   };
@@ -119,7 +125,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       const head = safeJsonParse(await fsp.readFile(path.join(paths.sessions, f), 'utf8').catch(() => ''), null);
       if (!head || !head.id || sessionKind(head) !== 'mission') continue;
       const runs = await listAgentRuns(head.id).catch(() => []);
-      missions.push(buildMissionCard(head, runs));
+      missions.push(await buildMissionCard(head, runs));
     }
     missions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
     return send(res, json({ ok: true, missions }));
@@ -187,6 +193,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       runs: Object.fromEntries(runs.map(r => [r.id, Number(r && r.eventSeq) || 0])),
       snapshotAt: nowIso(),
     };
+    const pendingCounts = await missionPendingCounts(sessionId, runs);
 
     return send(res, json({
       ok: true,
@@ -200,7 +207,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         changes: { filesChanged: [...filesChanged.values()], artifacts: [...artifacts.values()], commands },
         checkpoints,
         usage,
-        pending: missionPendingCounts(sessionId, runs),
+        pending: pendingCounts,
         cursor,
       },
     }));
@@ -209,6 +216,24 @@ async function handleMissionsApiRoutes(req, res, pathname) {
 }
 
 async function handleInterventionApiRoutes(req, res, pathname) {
+  // 第71波:会话的持久化 Intervention 只读派生(注册/决策/超时/清理/重启终态化的旁路记录,02 NDJSON)。
+  if (req.method === 'GET' && pathname.startsWith('/api/interventions/')) {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const interventions = await readInterventions(sessionId).catch(() => []);
+    const counts = { permission: 0, question: 0, plan: 0, pending: 0, resolved: 0 };
+    for (const iv of interventions) {
+      if (!iv) continue;
+      if (iv.status === 'pending') {
+        counts.pending++;
+        if (iv.type === 'permission') counts.permission++;
+        else if (iv.type === 'question') counts.question++;
+        else if (iv.type === 'plan') counts.plan++;
+      } else counts.resolved++;
+    }
+    return send(res, json({ ok: true, sessionId, interventions, counts }));
+  }
   if (req.method === 'POST' && pathname === '/api/chat/answer') {
     // Settle exactly one live question. A stale/wrong-session answer is a conflict, never a fake success:
     // the UI must keep the modal open so the user can retry or see that the turn already ended.
@@ -268,6 +293,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       if (grantHit) return send(res, json({ behavior: 'allow', updatedInput: body.input || {} }));
     }
     reg.onEvent({ type: 'permission_request', requestId, toolName: body.toolName, input: body.input, tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
+    registerIntervention(sessionId, 'permission', requestId, { toolName: String(body.toolName || ''), tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
     // 第27f波:CLI 桥超时→存档暂停(与 provider 路径对称)。仅【opt-in + 本会话处于无人值守 driverAuto 回合】才启用;
     // 否则维持"超时即拒杀"安全默认。两段定时:基础超时→检查点(logEvent+saveSession)+ permission_paused 事件 + 延长到 TTL;
     // TTL 内无决定则回落 deny(fail-closed)。entry.timer 重赋为 TTL 定时器,/api/permission/decision 与 clearPendingPermissions 照常清对。
@@ -281,10 +307,10 @@ async function handleInterventionApiRoutes(req, res, pathname) {
           try { logEvent({ kind: 'permission_paused', sessionId, tool: String(body.toolName || ''), tier: bridgeTier, requestId, engine: 'claude' }); } catch { /* ignore */ }
           loadSession(sessionId).then(s => s && saveSession(s)).catch(() => {}); // 检查点:会话已在磁盘,重写一遍固化
           try { reg.onEvent({ type: 'permission_paused', requestId, toolName: body.toolName, tier: bridgeTier, ttlMs: config.autonomyPauseTtlMs }); } catch { /* stream gone */ }
-          entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); }, Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000));
+          entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: 'paused ttl timeout' }); }, Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000));
         }, baseMs);
       } else {
-        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); }, baseMs);
+        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: 'permission prompt timed out' }); }, baseMs);
       }
       pendingPermissions.set(requestId, entry);
     });
@@ -311,6 +337,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // 存档暂停(27f)窗口内的决定与基础窗内的决定走同一 handler,天然同权重。
     logEvent({ kind: 'intervention', source: 'permission_decision', sessionId: entry.sessionId || '', behavior });
     entry.resolve(behavior === 'allow' ? { behavior: 'allow', updatedInput: body.updatedInput } : { behavior: 'deny', message: body.message || 'denied by user' });
+    settleIntervention(entry.sessionId, String(body.requestId || ''), behavior === 'allow' ? 'allowed' : 'denied', { decidedBy: 'user', note: behavior === 'deny' ? String(body.message || '') : '' });
     return send(res, json({ ok: true }));
   }
   if (req.method === 'POST' && pathname === '/api/plan/decision') {
@@ -329,6 +356,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const decision = body.decision === 'approve' ? 'approve' : 'reject';
     logEvent({ kind: 'intervention', source: 'plan_decision', sessionId, decision }); // 29c
     entry.resolve({ decision, note: body.note != null ? String(body.note) : '' });
+    settleIntervention(sessionId, planId, decision === 'approve' ? 'approved' : 'rejected', { decidedBy: 'user', note: body.note != null ? String(body.note) : '' });
     return send(res, json({ ok: true }));
   }
   return false;

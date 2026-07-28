@@ -1459,6 +1459,8 @@ const ROUTE_AUTH = [
   // 第70波(EC-E):/api/missions 聚合只读投影 —— 内容型 GET,与 /api/sessions 同门(token-browser)。
   { m: 'GET', p: '/api/missions', auth: 'token-browser' },
   { m: 'GET', p: '/api/missions/', auth: 'token-browser', prefix: true },
+  // 第71波(EC-E):/api/interventions/:sessionId 只读派生 -- 内容型 GET,同 /api/missions 门(token-browser)。
+  { m: 'GET', p: '/api/interventions/', auth: 'token-browser', prefix: true },
   { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },
   // token-browser: 敏感内容型 GET + UI 变更型(浏览器须 token;loopback 非浏览器须同源,无需 token)
   { m: 'GET', p: '/api/sessions', auth: 'token-browser' },

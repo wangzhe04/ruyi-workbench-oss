@@ -1093,3 +1093,29 @@ EC-E(Mission Ready,候选 2.3)开工,按三波切片:70=聚合读模型(本波) 
 - 第71波:未决事项统一持久化 Intervention(permission/question/plan/task-pool 落盘 + 列表查询 API + 重启终态化/重挂 + 残留 pending 叙事段清理;保留超时自动拒绝与权限默认不放宽语义)——治「重启后 pending 永挂」现存缺陷。
 - 第72波:任务结果模型(验收状态/成果引用/未完成项/变更摘要/真实回滚引用/不可逆正向账)。
 - 2.2.0 发布动作仍待用户确认(第67波门已通过)。
+
+## 第71波 EC-E 切片二 · 未决事项 Intervention 持久化(2026-07-29)
+
+治「重启后 pending 永挂」现存缺陷:permission/question/plan 三类未决事项此前是纯内存 Map(04-permission-runtime:191/194/199),进程重启即消失--无审计、无终态化,`/api/missions` 的 missionPendingCounts 前三类读空 Map 归零。本波旁路持久化为 Intervention(不参与执行),task-pool proposed 已随 run 快照持久化(71b 再统一)。
+
+### 交付
+
+- **Intervention 持久化(02-session-store)**:append-only `<id>.interventions.ndjson`(同 messages.ndjson 模式)。`appendIntervention`(经 per-session `interventionWriteChains` 串行防交错,fire-and-forget 落盘失败不阻断执行)、`registerIntervention`(pending)、`settleIntervention`(终态)、`readInterventions`(按 id 后写胜折叠,撕裂尾行 JSON.parse 跳过)、`markInterruptedInterventions`(boot 扫盘)。
+- **三类未决事项旁路持久化**:
+  - permission:原生(07 requestNativePermission 注册 + settle 内结算)+ 桥(13d 注册 + decision + 超时 timer 结算)+ clearPendingPermissions(04 清理结算)。
+  - question:04 registerUserQuestion 注册 + deliver 内结算(answered/cancelled)。
+  - plan:07 requestPlanApproval 注册 + settle 内结算(approved/rejected)。
+  - **不改 promise resolve 链**:注册/决策/超时/clear 的执行语义原样不动,只在旁路 append。超时自动拒绝、权限默认不放宽完全保留。
+- **重启终态化(13-http-router boot)**:`markInterruptedInterventions` 扫 `*.interventions.ndjson`,折叠找 pending,append `cancelled_restart`(decidedBy=restart)。与 `markInterruptedAgentRuns` 对称--**不重挂**(原回合 promise 已无处 resolve,重挂需先 autoResume 续跑 + re-wire intervention promise,复杂且危险),诚实标终态,下次读模型不永挂。已结算的 Intervention 不被动。
+- **`/api/interventions/:sessionId` 只读路由(13d)**:GET 返回 interventions + counts(pending/resolved 分型),鉴权 tokenOk 自查 + ROUTE_AUTH token-browser(01-config),safeSessionId 挡穿越。
+- **missionPendingCounts 改源(13d)**:permission/question/plan 从 readInterventions 现算(此前读空内存 Map);pool 仍从 run.taskPool(71b 统一)。buildMissionCard/detail 改 async。
+
+### 验证
+
+- 新件 `interventions-persist.e2e.js` 34 断言 ALL PASS:注册落盘(ask_user -> pending NDJSON)+ 决策同步(answer -> answered)+ 重复决策 409(不重复执行)+ 重启终态化(pending -> cancelled_restart,已结算不动)+ 只读派生不回写 + 鉴权 403/200 + 静态锁 16 条。
+- 回归族全绿:autonomy-pause(源抽取注入 noop)/ interactive-question / plan-mode / steering-claude / missions-readmodel(第70波 async 改造无回归);run-all 快通道 **165 pass / 0 fail / 2 flaky**(既有 subagent/wait-primitive,非本波引入);facts.static / manifest-ranges.static / frontend-domains.static / ec-d-closure.static 全绿;facts.json e2e 170->171;版本保持 2.2.0。
+
+### 待续
+
+- task-pool proposed 统一进 Intervention(71b):当前 task-pool 已随 run 快照持久化但 paused run 不可操作(13d:488 要求 live runtime),71b 统一四源 + 残留 pending 叙事段清理。
+- 第72波:任务结果模型。
