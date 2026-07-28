@@ -329,7 +329,7 @@ Escapade 2.0 已完成公开发布。以下是从既有 52e 未竟项、当前�
 - 假 MCP 与真实连接器探针覆盖成功、超时、鉴权失败、协议不兼容和工具列表变化。
 - 启停或删除连接器不影响无关连接器，重启后状态与配置一致。
 
-### EC-D · 安静工作台（候选 `2.2`，第54波 + 第55波后半）
+### EC-D · 安静工作台（候选 `2.2`，第54波 + 第55波后半；第65波工程闭环）
 
 **目标**：降低“能力很多但看不清当前任务”的负担，同时偿还前后端热点文件的维护债。
 
@@ -962,3 +962,28 @@ verdict SAFE，零真实缺陷：XSS 面（全 textContent + 后端 userinfo 剥
 - **首屏预算**：记录冷启动 CSS/JS 请求、传输与解析成本，建立首屏 `<1.5s` 的本地可复现门。
 - **交互预算**：为主要视图切换建立 P95 `<200ms` 的采样基线，区分脚本、style recalculation 与 layout 成本。
 - **CSS 所有权细化**：在不改变既有级联语义的前提下，再按聊天 primitive / narrative / live state 等组件边界细分；必须继续通过 SHA/顺序门或显式记录有意样式变更。
+
+## 第65波 EC-D 工程闭环 · 性能预算 + 聊天 CSS 所有权 + 退出账本（2026-07-28）
+
+按第64波待续一次收完 EC-D。此次不新增产品能力，重点是把原先只有目标数字的性能条款变成真实浏览器硬门，把聊天 CSS 从单一视图文件细化到第63波已经固定的职责边界，并逐条核对 EC-D 的后端与交互退出条件。
+
+### 交付
+
+- **真实浏览器性能门 `ec-d-performance.e2e.js`**：零 npm 依赖，启动系统 Edge/Chrome headless 并通过 CDP 观测真实页面。测试内置 30 回合、60 条消息的稳定本地基准会话，连续执行三次禁用缓存导航；首屏完成标准同时要求文档 load、模型 chip 已由 `/api/status` 填充、输入框可用且消息区离开 `aria-busy`。
+- **首屏预算硬失败**：三次样本均须 `<1500ms`，不是只打印统计。五层聊天 CSS 落地后的实测为 **507.1 / 330.7 / 298.1ms，最大 507.1ms**；同时记录 44 个资源、14 个直连 CSS、26 个 JS、传输字节与最长资源响应时间。数字只代表当前本地基准机器，不外推为所有硬件承诺。
+- **视图 P95 硬失败**：对话↔工作台完成预热后取 30 个样本；文件/产物/变更/Agent 工作流/用量/审计取 30 个样本。每次点击后等待双 `requestAnimationFrame`，强制读取 `getBoundingClientRect()` 纳入 style/layout/paint。五层聊天 CSS 落地后的实测主视图 **P95 51.1ms**、右栏视图 **P95 57.6ms**，均低于 `<200ms` 门。
+- **聊天 CSS 五层所有权**：原 `views/chat.css` 载荷按连续级联区间拆为 `views/chat-shell.css`、`components/chat-primitives.css`、`views/chat-narrative.css`、`states/chat-live.css` 与 `components/chat-composer.css`；`index.html` 和根 `styles.css` 直接按原顺序加载五层，`views/chat.css` 保留同序兼容入口。
+- **无损与发布闭环**：测试 helper 把五个聊天子层视为同一个原始 payload group，去除职责注释后重组仍命中第64波原单体 SHA-256；14 个直连 CSS 文件、聊天兼容入口和根兼容入口全部进入 overlay 清单与真实 HTTP 冒烟。
+- **后端热点路由收口 `13d-core-domain-routes.js`（396 行）**：将 session CRUD、question/permission/plan 干预，以及 Agent Run 查询/事件/控制三组 API 编排从 `13-http-router.js` 原样迁出；主路由由约 2340 行降至 **1956 行**，只在原顺序位置调用三个窄 handler。领域实现继续分别归属 `02-session-store.js`、`04-permission-runtime.js` 与 `08-agent-runs.js`，没有复制状态机或改变鉴权顺序；新模块进入 manifest，构建自动回填全部产物行区间。
+- **退出条件账本 `ec-d-closure.static.e2e.js`**：机械锁定回合同构/并行 batch、末尾工具与变更/产物可达、keyed reconciliation、滚动锚点、读屏语义、视觉/模式/性能旅程、聊天 CSS 所有权和前后端拆域边界；同时禁止上述三组路由实现回流 `13-http-router.js`。
+
+### 验证
+
+- `ec-d-performance.e2e` 真实 Edge 首屏与两组 P95 全绿；`ec-d-closure.static` E1-E9 全绿。
+- `frontend-domains.static` 扩至 D52，CSS 原单体 SHA、index/manifest 顺序、聊天兼容入口与 overlay payload lock 全绿。
+- 后端物理迁移家族 **8 pass / 0 fail / 0 flaky**：session storage v2、历史批量清理、permission v2、双引擎 interactive question、plan mode、Agent team、原生 Claude Agent 角色/子代理生命周期与工作流监控；构建产物语法、新鲜度和 manifest 行区间自洽。
+- `facts.json` 机械重生成：e2e **165 → 167**；版本保持 2.1.0。
+
+### EC-D 结论
+
+EC-D 工程范围完成：回合叙事与双引擎同构、增量/keyed 渲染、焦点与滚动稳定、前端领域模块化、后端领域边界、深浅主题/简易专业/键盘读屏验收、CSS 物理分层及本地性能预算均已有可重复门。下一候选主线转入 **EC-E Mission Ready**；是否发布 `2.2` 仍须独立走范围冻结、完整串行测试、离线包与版本发布门，不因内部波次自动 bump。

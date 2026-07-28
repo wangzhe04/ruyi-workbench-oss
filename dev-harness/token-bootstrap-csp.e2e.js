@@ -49,6 +49,10 @@ async function up() { for (let i = 0; i < 50; i++) { try { const r = await req('
   ok(src.includes("{ m: 'POST', p: '/api/bootstrap', auth: 'open' }"), 'S2 ROUTE_AUTH bootstrap open 条目在');
   ok(/browserNav = Boolean\(h\['sec-fetch-dest'\]\)/.test(src) && /browserNav \? '' :/.test(src), 'S3 serveStatic 浏览器导航分支不下发明文 token');
   ok(net.includes('export async function initToken') && net.includes("fetch('/api/bootstrap'") && net.includes("sessionStorage.setItem('wcw.token'"), 'S4 net.js initToken 握手 + sessionStorage 存储');
+  ok(net.includes('export async function initToken(force = false)')
+    && net.includes("sessionStorage.removeItem('wcw.token')")
+    && /invalidTokenResponse\(res\.status, body\)[\s\S]*await initToken\(true\)[\s\S]*res = await request\(\)/.test(net),
+  'S4b 后台重启后 403/auth.token_invalid 自动刷新 token 并单次重放请求');
   ok(app.includes('await initToken();'), 'S5 app.js boot 调 initToken(在任何 api 前)');
   ok(/<meta http-equiv="Content-Security-Policy"/.test(html) && html.includes("connect-src 'self'") && html.includes("object-src 'none'"), 'S6 CSP meta 在(connect-src self + object-src none)');
 

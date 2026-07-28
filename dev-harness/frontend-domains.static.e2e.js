@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const {
+  CSS_COMPAT_ROUTES,
   CSS_ROUTES,
   LEGACY_STYLES_SHA256,
   readFrontendCss,
@@ -38,6 +39,7 @@ const chatStaticRenderer = read('js/chat-static-renderer.js');
 const chatStreamRuntime = read('js/chat-stream-runtime.js');
 const indexHtml = read('index.html');
 const styleManifest = read('styles.css');
+const chatStyleManifest = read('css/views/chat.css');
 const layeredCss = readFrontendCss();
 const overlayBuilder = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js'), 'utf8');
 
@@ -254,6 +256,9 @@ for (const name of [
   ok(chatRenderPrimitives.includes(`function ${name}(`),
     `D42 chat-render-primitives 持有 ${name}()`);
 }
+ok(/const\s*\{\s*\$,\s*api,/.test(chatRenderPrimitives)
+  && /createChatRenderPrimitives\(\{\s*\$,\s*api,/.test(app),
+  'D42 chat-render-primitives 显式接收并注入 DOM 查询 helper');
 for (const name of [
   'renderStaticMessage',
   'renderStaticTurnNarrative',
@@ -278,6 +283,9 @@ ok(chatStreamRuntime.includes('const activeTurns = new Map()')
   && chatStreamRuntime.includes('const steeredSeen = []')
   && !/\bconst (activeTurns|steerPendingList|steeredSeen)\b/.test(app),
   'D44 实时回合与插话状态只由 chat-stream-runtime 持有');
+ok(/return\s*\{[\s\S]*\bsyncStreamingUi,/.test(chatStreamRuntime)
+  && /createSessionExperienceDomain\(\{[\s\S]*syncStreamingUi:\s*\(\)\s*=>\s*syncStreamingUi\(\)/.test(app),
+  'D44 实时流 UI 同步入口已显式导出并注入会话领域');
 ok(!/function (messageShell|thinkingPanel|toolCard|renderContextMeter|renderStaticMessage|renderStaticTurnNarrative|sendPrompt|handleStreamLine|createLiveAssistantShell|renderSteeredMessage|handleSubagentEvent)\(/.test(app)
   && app.split(/\r?\n/).length < 1200,
   'D45 聊天实现离开 app.js 且组合根低于 1200 行');
@@ -292,6 +300,7 @@ ok(JSON.stringify(indexCssRoutes) === JSON.stringify(CSS_ROUTES),
 ok(JSON.stringify(manifestCssRoutes) === JSON.stringify(CSS_ROUTES),
   'D48 styles.css 兼容清单与直接加载顺序一致');
 ok(CSS_ROUTES.every(route => overlayBuilder.includes(`'app/public/${route}'`))
+  && CSS_COMPAT_ROUTES.every(route => overlayBuilder.includes(`'app/public/${route}'`))
   && CSS_ROUTES.every(route => fs.existsSync(path.join(PUBLIC, ...route.split('/')))),
   'D49 CSS 层磁盘文件与 overlay 载荷完整');
 ok(layeredCss.includes(':root[data-theme="dark"]')
@@ -303,6 +312,10 @@ ok(layeredCss.includes(':root[data-theme="dark"]')
   'D50 tokens/themes/chat/tooling/modes/usage/workbench 关键层事实齐全');
 ok(crypto.createHash('sha256').update(readLayerPayload()).digest('hex') === LEGACY_STYLES_SHA256,
   'D51 分层 CSS 重组后与原单体样式字节等价（仅新增层说明注释）');
+const chatOwnedRoutes = CSS_ROUTES.filter(route => /(?:chat|composer)/.test(route));
+const chatCompatRoutes = [...chatStyleManifest.matchAll(/@import url\("\/(css\/[^"]+\.css)"\);/g)].map(match => match[1]);
+ok(JSON.stringify(chatCompatRoutes) === JSON.stringify(chatOwnedRoutes),
+  'D52 chat.css 兼容入口按 shell/primitives/narrative/live/composer 所有权顺序导入');
 
 console.log(`\nFRONTEND DOMAINS STATIC E2E: ${failures ? `FAIL (${failures})` : 'ALL PASS'}`);
 process.exit(failures ? 1 : 0);

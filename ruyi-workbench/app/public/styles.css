@@ -7,7 +7,11 @@
 @import url("/css/themes/color-schemes.css");
 @import url("/css/base.css");
 @import url("/css/layout.css");
-@import url("/css/views/chat.css");
+@import url("/css/views/chat-shell.css");
+@import url("/css/components/chat-primitives.css");
+@import url("/css/views/chat-narrative.css");
+@import url("/css/states/chat-live.css");
+@import url("/css/components/chat-composer.css");
 @import url("/css/components/tool-pane.css");
 @import url("/css/themes/ui-modes.css");
 @import url("/css/views/workspace.css");

@@ -2,6 +2,7 @@
 
 export function createChatRenderPrimitives(deps = {}) {
   const {
+    $,
     api,
     apiErrText,
     autoGrow,

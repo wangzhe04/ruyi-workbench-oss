@@ -89,25 +89,31 @@
     {
       "file": "13-http-router.js",
       "startLine": 17870,
-      "endLine": 20205,
+      "endLine": 19826,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 20206,
-      "endLine": 20502,
+      "startLine": 19827,
+      "endLine": 20123,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 20503,
-      "endLine": 20691,
+      "startLine": 20124,
+      "endLine": 20312,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
+      "file": "13d-core-domain-routes.js",
+      "startLine": 20313,
+      "endLine": 20709,
+      "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
+    },
+    {
       "file": "14-main.js",
-      "startLine": 20692,
-      "endLine": 20961,
+      "startLine": 20710,
+      "endLine": 20979,
       "note": "main()/module.exports"
     }
   ]

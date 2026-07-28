@@ -14,8 +14,13 @@ function loadStoredToken() {
   try { _token = sessionStorage.getItem('wcw.token') || ''; } catch { /* no sessionStorage */ }
   return _token;
 }
-// 启动期握手:取 token 进内存 + sessionStorage。幂等。app.js boot 第一件事 await 它。
-export async function initToken() {
+// 启动期握手:取 token 进内存 + sessionStorage。幂等。force=true 用于后台进程重启后刷新
+// 失效 token；/api/bootstrap 仍受服务端 loopback Host 门保护。
+export async function initToken(force = false) {
+  if (force) {
+    _token = '';
+    try { sessionStorage.removeItem('wcw.token'); } catch { /* no sessionStorage */ }
+  }
   if (_token) return _token;
   loadStoredToken();
   if (_token) return _token;
@@ -35,10 +40,33 @@ export function wcwToken() {
 }
 // 标准鉴权头(JSON + x-wcw-token),可合并 extra。
 export function authHeaders(extra = {}) { return { 'content-type': 'application/json', 'x-wcw-token': wcwToken(), ...extra }; }
-// 带鉴权头的 JSON fetch。非 2xx 抛错(错误信息为响应体文本,供 apiErrText 提取人话)。
+
+function invalidTokenResponse(status, body) {
+  if (status !== 403) return false;
+  try {
+    const payload = JSON.parse(body);
+    const error = payload && payload.error;
+    if (error && typeof error === 'object' && error.code === 'auth.token_invalid') return true;
+    if (typeof error === 'string' && error === 'missing or invalid workbench token') return true;
+  } catch { /* legacy/plain-text response */ }
+  return /missing or invalid workbench token/i.test(String(body || ''));
+}
+
+// 带鉴权头的 JSON fetch。后台进程在同一端口重启时，旧页面的 sessionStorage token 会失效；
+// 服务端在路由执行前以 403/auth.token_invalid 拒绝，因此刷新 bootstrap token 后原请求重放一次是安全的。
+// 其它非 2xx 仍直接抛错(错误信息为响应体文本,供 apiErrText 提取人话)。
 export async function api(path, options = {}) {
-  const res = await fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
-  if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
+  const request = () => fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
+  let res = await request();
+  if (!res.ok) {
+    const body = await res.text();
+    if (invalidTokenResponse(res.status, body) && await initToken(true)) {
+      res = await request();
+      if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
+    } else {
+      throw new Error(body || `HTTP ${res.status}`);
+    }
+  }
   return res.json();
 }
 

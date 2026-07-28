@@ -11,6 +11,7 @@ const os = require('os');
 const path = require('path');
 
 const { getFreePort } = require('./free-port.js');
+const { readFrontendSrc } = require('./read-frontend-src.js');
 const PROVIDER_PORT = await getFreePort(), WB_PORT = await getFreePort(); // 自内层 IIFE 提升:顶层 fixture 也要用(9642e26 codemod 事故修复)
 
 const ROOT = path.resolve(__dirname, '..');
@@ -153,7 +154,7 @@ function startProvider(captures) {
     ok(captures.some(c => c.messages?.some(m => m.role === 'tool' && String(m.content || '').includes('Vue'))), 'Provider continuation receives the selected answer as a tool result');
     ok(providerTurn.events.some(e => e.type === 'assistant_delta' && String(e.text).includes('Provider received Vue')), 'Provider continues after the user selection');
 
-    const app = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
+    const app = readFrontendSrc();
     ok(app.includes("turn.answeredQuestions?.has(String(evt.questionId || evt.id || ''))"), 'active-turn replay skips already answered questions');
     ok(app.includes('b.dataset.sessionId === sid && b.dataset.questionId === qid'), 'duplicate question events reuse the open modal without auto-cancelling it');
     ok(app.includes("if (evt?.type === 'ask_user') showAskUserModal"), 'a background-session question is surfaced immediately instead of waiting for chat remount');

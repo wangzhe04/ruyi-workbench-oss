@@ -18,7 +18,7 @@
 (async () => {
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
-const { CSS_ROUTES } = require('./read-frontend-css.js');
+const { CSS_COMPAT_ROUTES, CSS_ROUTES } = require('./read-frontend-css.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'wcw-dom-smoke-e2e');
@@ -34,6 +34,27 @@ function get(p) {
       let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => res({ status: resp.statusCode, body: b }));
     });
     r.on('error', () => res({ status: 0, body: '' })); r.on('timeout', () => { r.destroy(); res({ status: 0, body: '' }); });
+  });
+}
+
+function post(p, body, headers = {}) {
+  return new Promise(resolve => {
+    const payload = JSON.stringify(body || {});
+    const req = http.request({
+      host: '127.0.0.1',
+      port: PORT,
+      path: p,
+      method: 'POST',
+      timeout: 3000,
+      headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload), ...headers },
+    }, resp => {
+      let raw = '';
+      resp.on('data', chunk => { raw += chunk; });
+      resp.on('end', () => resolve({ status: resp.statusCode, body: raw }));
+    });
+    req.on('error', () => resolve({ status: 0, body: '' }));
+    req.on('timeout', () => { req.destroy(); resolve({ status: 0, body: '' }); });
+    req.end(payload);
   });
 }
 
@@ -71,11 +92,20 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
     let up = false;
     for (let i = 0; i < 40 && !up; i++) { await sleep(150); up = (await get('/health')).status === 200; }
     ok(up, 'workbench up on :' + PORT);
+    const bootstrap = await post('/api/bootstrap', {});
+    let token = '';
+    try { token = JSON.parse(bootstrap.body).token || ''; } catch { /* asserted below */ }
+    const seeded = token
+      ? await post('/api/sessions', { title: 'DOM smoke startup', cwd: '' }, { 'x-wcw-token': token })
+      : { status: 0, body: '' };
+    ok(bootstrap.status === 200 && !!token && seeded.status === 200,
+      'workbench seeded with an existing session (exercise openSession boot path)');
 
     // ── A 段: 静态资源完整 ──
     console.log('── A 段: 静态资源全 200 ──');
     for (const p of ['/', '/app.js', '/js/turn-narrative.js', '/styles.css',
-      ...CSS_ROUTES.map(route => '/' + route), '/locales/zh-CN.json', '/locales/en-US.json']) {
+      ...CSS_ROUTES.map(route => '/' + route), ...CSS_COMPAT_ROUTES.map(route => '/' + route),
+      '/locales/zh-CN.json', '/locales/en-US.json']) {
       const r = await get(p);
       ok(r.status === 200 && r.body.length > 100, 'A GET ' + p + ' -> 200 (' + r.body.length + 'B) got ' + r.status);
     }
@@ -102,6 +132,10 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
       ok(!!chip && /Claude CLI/.test(chip[1]), 'C1 modelChip 已按 /api/status 渲染引擎标签(title="' + (chip && chip[1]) + '") = JS boot + API + 渲染全活');
       ok(dom.includes('提示词、计划或问题') || dom.includes('placeholder="描述你要做的事') || /placeholder="[^"]{4,}"/.test(dom.match(/id="promptInput"[^>]*/)?.[0] || ''),
         'C2 输入框 placeholder 就位(i18n/静态文案管线活)');
+      ok(!dom.includes('class="boot-failure"') && !dom.includes('无法连接本地服务'),
+        'C3 bootData 全链完成，未被前端运行时异常误报为本地服务断连');
+      ok(dom.includes('DOM smoke startup'),
+        'C4 已有会话启动路径完成渲染（跨聊天模块依赖接线完整）');
     }
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {

@@ -3,6 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { readFrontendSrc } = require('./read-frontend-src.js');
 const http = require('http');
 const cp = require('child_process');
 
@@ -89,7 +90,7 @@ function stream(port, body) { return new Promise((resolve, reject) => { const ra
     ok(meta && meta.agentDriver === 'claude-native' && Array.isArray(meta.agentRoles), 'Claude meta exposes native role driver and role list');
     ok(meta && !JSON.stringify(meta.args || []).includes('SECRET_ROLE_PROMPT'), 'Claude meta redacts role definition payload');
     ok(start && start.native === true && start.roleId === 'reviewer' && end && end.ok === true && /审查完成/.test(end.result || ''), 'Claude Agent tool is normalized into subagent events with its inspectable result');
-    const app = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
+    const app = readFrontendSrc();
     const workbench = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'workbench.js'), 'utf8');
     ok(/host\.resultPre\.textContent = evt\.result/.test(app) &&
       /t\('chat\.subtaskConclusion'\)/.test(app) &&

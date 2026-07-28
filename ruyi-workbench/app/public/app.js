@@ -240,6 +240,7 @@ const {
   usageLine,
   wrapPreWithCopy,
 } = createChatRenderPrimitives({
+  $,
   api,
   apiErrText,
   autoGrow,
@@ -277,6 +278,7 @@ const {
   sealLiveTextSegment,
   sendPrompt,
   setStreaming,
+  syncStreamingUi,
   steerPendingList,
   steeredSeen,
   stopTurn,
@@ -765,6 +767,7 @@ const {
   openCapPopover: (...args) => openCapPopover(...args),
   openPermPopover: (...args) => openPermPopover(...args),
   sendPrompt: text => sendPrompt(text),
+  syncStreamingUi: () => syncStreamingUi(),
   buildModal: (...args) => buildModal(...args),
   renderContextMeter: usage => renderContextMeter(usage),
   isProviderMode: () => isProviderMode(),

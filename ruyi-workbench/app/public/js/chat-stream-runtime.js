@@ -1125,6 +1125,7 @@ export function createChatStreamRuntime(deps = {}) {
     sealLiveTextSegment,
     sendPrompt,
     setStreaming,
+    syncStreamingUi,
     steerPendingList,
     steeredSeen,
     stopTurn,

@@ -22,6 +22,7 @@ export function createSessionExperienceDomain({
   openCapPopover = () => {},
   openPermPopover = () => {},
   sendPrompt = async () => {},
+  syncStreamingUi = () => {},
   buildModal = () => null,
   renderContextMeter = () => {},
   isProviderMode = () => false,
