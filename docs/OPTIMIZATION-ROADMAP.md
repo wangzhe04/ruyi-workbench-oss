@@ -987,3 +987,26 @@ verdict SAFE，零真实缺陷：XSS 面（全 textContent + 后端 userinfo 剥
 ### EC-D 结论
 
 EC-D 工程范围完成：回合叙事与双引擎同构、增量/keyed 渲染、焦点与滚动稳定、前端领域模块化、后端领域边界、深浅主题/简易专业/键盘读屏验收、CSS 物理分层及本地性能预算均已有可重复门。下一候选主线转入 **EC-E Mission Ready**；是否发布 `2.2` 仍须独立走范围冻结、完整串行测试、离线包与版本发布门，不因内部波次自动 bump。
+
+## 第66波 EC-D 收尾补钉 · Claude 原生 resume 连接恢复 + D51 静态锁修复（2026-07-28）
+
+EC-D 工程闭环后的第一个稳健性切片：`--resume` 是 Claude 引擎连续性的命脉，但此前三类确定性失败都要付出一次「注定要死的 CLI 拉起」才能事后发现。本波把它变成事前门 + 单次自愈重试，并顺手修复第65波遗留的一处恒红静态锁。
+
+### 交付
+
+- **主动兼容门（05-claude-engine）**：会话在绑定原生 `claudeSessionId` 时同步钉住无密钥三元组（model / cwd / routeKey=base+authMode 的 sha256 截断）。下一回合开始前比对当前配置，cwd 变更（Claude 按 `projects/<mangled-cwd>` 分桶存 transcript，换目录必丢）、模型切换、端点切换三者任一命中即事前放弃 `--resume`，清空注入 hash 并发出 `resume_recovery` 事件（`claude_resume_reset` 日志），连续性由既有 bounded recoveryHistory 兜底，不再白白拉起一次必败子进程。
+- **台账回填（06-provider-engine）**：`engineTranscriptCwd()` 从引擎 transcript 台账读取该原生 id 首次落盘时的 cwd；老会话没有新三元组字段时用它回填 cwd 判定，未知 id 保持宽松兼容（CLI 报错重试仍是最终守卫）。
+- **resume 目标丢失的单次自愈**：CLI 明确报「conversation not found / session not found」类错误（`isClaudeResumeMissingError` 多形态匹配）时，同一逻辑回合自动重试一次：去掉陈旧 `--resume`、复用同一份 recoveryHistory，**不重复 push 用户消息、不 bump turnSeq**（`_resumeRecoveryAttempt` 内部开关），重试成功后经 `bindNativeClaudeSession` 绑定新原生 id。
+- **离线回归 `claude-resume-recovery.e2e.js`（14 断言）**：A) resume 目标消失→恰好一次自动重试、陈旧 `--resume` 被剥、用户消息与 turnSeq 不重复、新 id 绑定；B) 模型切换→事前 reset 并全新开局；C) cwd 切换→事前 reset 并在新工作区跑通。fake CLI 记录每次 argv 到 ndjson 供机械对账。
+- **D51 静态锁修复（read-frontend-css.js）**：845bb8c 把 `chat.css` 拆成 5 个聊天层并改了载荷拼接，却漏更新 `LEGACY_STYLES_SHA256` 锁 → D51 自该提交起恒红（第65波「全绿」记录失实）。主会话逐行 diff 旧单体载荷（重算恰为旧锁 f667405d…）vs 新分层载荷：**仅丢 2 行空行**（拆文件后组内以 '' 拼接，原段间空行随边界消失），0 条规则漂移，符合「无 CSS 漂移」本意；锁重新钉为新载荷 SHA 并留注释。
+
+### 验证
+
+- `build --check` 产物与 src 一致、manifest 行区间自洽。
+- 新件 `claude-resume-recovery` 14 断言全绿；受影响回归族 9 件全绿：resume-dangling / claude-context-continuity / autonomy-resume / boot-resume-parallel / agent-workflow-claude-engine / steering-claude / claude-cmdline-guard / openai-engine / provider-compact。
+- unit 152/152；facts.static / frontend-domains.static（D51 修复后）/ ec-d-closure.static 全绿。
+- `facts.json` 机械重生成：e2e **167 → 168**；版本保持 2.1.0。
+
+### 待续
+
+- 下一候选主线仍为 **EC-E Mission Ready**；Escapade 2.2 发布与否继续走独立发布门评估。

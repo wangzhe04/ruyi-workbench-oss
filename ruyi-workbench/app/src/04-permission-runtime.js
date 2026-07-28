@@ -1614,6 +1614,43 @@ function nativeClaudeAgentResultInfo(content, isError) {
 // bounded display-history copy on every normal Claude turn.
 const CLAUDE_RECOVERY_HISTORY_CHARS = 24000;
 const CLAUDE_RECOVERY_MESSAGE_CHARS = 6000;
+
+// Claude Code stores native transcripts under ~/.claude/projects/<mangled-cwd>/, and `--resume`
+// only searches the bucket selected by the child process cwd. A model/endpoint switch can also make
+// a vendor-backed transcript unusable even when the local file still exists. Persist a secret-free
+// binding alongside claudeSessionId so the next turn can reject a known-incompatible resume BEFORE
+// spawning the CLI, then rely on the bounded workbench history copy below for continuity.
+function claudeResumeRouteKey(config) {
+  const payload = JSON.stringify({
+    base: String((config && config.modelsApiBase) || '').trim().replace(/\/+$/, '').toLowerCase(),
+    authMode: String((config && config.claudeAuthMode) || 'auto'),
+  });
+  return crypto.createHash('sha256').update(payload).digest('hex').slice(0, 16);
+}
+function sameClaudeResumeCwd(a, b) {
+  if (!a || !b) return true; // unknown legacy binding: let the ledger/runtime fallback decide
+  const left = path.resolve(String(a)).replace(/[\\/]+$/, '');
+  const right = path.resolve(String(b)).replace(/[\\/]+$/, '');
+  return process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
+}
+function lastSuccessfulClaudeModel(messages) {
+  const arr = Array.isArray(messages) ? messages : [];
+  for (let i = arr.length - 1; i >= 0; i--) {
+    const m = arr[i];
+    if (!m || m.role !== 'assistant') continue;
+    const isClaude = m.engine === 'claude' || (!m.engine && m.source === 'claude-cli');
+    if (!isClaude || Number(m.exitCode) !== 0) continue;
+    return String(m.model || '');
+  }
+  return null;
+}
+function isClaudeResumeMissingError(text) {
+  const s = String(text || '');
+  return /No conversation found with session ID/i.test(s)
+    || /conversation\s+(?:was\s+)?not found[\s\S]{0,120}session/i.test(s)
+    || /session(?:\s+ID)?[\s\S]{0,120}(?:not found|does not exist)/i.test(s);
+}
+
 function buildClaudeRecoveryHistory(messages) {
   const source = (Array.isArray(messages) ? messages : []).filter(m => m && (
     m.role === 'user' || m.role === 'assistant' || (m.role === 'system' && m.source === 'compact')

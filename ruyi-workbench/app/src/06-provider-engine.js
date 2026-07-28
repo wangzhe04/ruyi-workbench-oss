@@ -621,6 +621,16 @@ async function recordEngineTranscript(claudeSessionId, cwd) {
   engineTranscriptKnown.set(sid, { cwd: String(cwd || ''), firstSeen: nowIso() });
   await engineTranscriptLedgerSave().catch(() => {});
 }
+// Resume compatibility probe used by the Claude turn path. The ledger records the cwd that first
+// produced a native session id, which is exactly the Claude project bucket where its transcript lives.
+// Unknown ids stay permissive for backward compatibility; the CLI-error retry remains the final guard.
+async function engineTranscriptCwd(claudeSessionId) {
+  const sid = String(claudeSessionId || '').trim();
+  if (!ENGINE_TRANSCRIPT_ID_RE.test(sid)) return '';
+  await engineTranscriptLedgerLoad();
+  const meta = engineTranscriptKnown.get(sid);
+  return String((meta && meta.cwd) || '');
+}
 // 活引用扫描:所有会话头(v2 头/legacy 全文都有 claudeSessionId 字段;头很小,全扫便宜)。
 async function collectLiveClaudeSessionIds() {
   const live = new Set();

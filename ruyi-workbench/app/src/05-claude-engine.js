@@ -1,10 +1,38 @@
-async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driverAuto, agentTeam }) {
+async function runClaudeTurn({
+  session, message, attachments, cwd, onEvent, driverAuto, agentTeam,
+  _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null,
+}) {
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
   onEvent = evt => { turnSegments.consume(evt); downstreamEvent(evt); };
   const config = await readConfig();
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
+  const currentClaudeModel = String(config.model || '');
+  const currentResumeRouteKey = claudeResumeRouteKey(config);
+  let resumeResetReason = '';
+  // Proactive compatibility gate. This catches the two common deterministic failures without paying
+  // for a doomed CLI spawn: (1) cwd changed, so Claude will search a different projects/<cwd> bucket;
+  // (2) model/vendor route changed, so the old native branch is no longer a safe continuation target.
+  if (!_resumeRecoveryAttempt && config.autoResumeClaudeSessions && session.claudeSessionId) {
+    const boundModel = typeof session.claudeSessionModel === 'string'
+      ? session.claudeSessionModel : lastSuccessfulClaudeModel(session.messages);
+    const boundCwd = typeof session.claudeSessionCwd === 'string' && session.claudeSessionCwd
+      ? session.claudeSessionCwd
+      : await engineTranscriptCwd(session.claudeSessionId).catch(() => '');
+    if (boundCwd && !sameClaudeResumeCwd(boundCwd, workingDir)) resumeResetReason = 'cwd-changed';
+    else if (boundModel !== null && boundModel !== currentClaudeModel) resumeResetReason = 'model-changed';
+    else if (session.claudeSessionRouteKey && session.claudeSessionRouteKey !== currentResumeRouteKey) resumeResetReason = 'endpoint-changed';
+    if (resumeResetReason) {
+      session.claudeSessionId = null;
+      delete session.claudeSessionModel;
+      delete session.claudeSessionCwd;
+      delete session.claudeSessionRouteKey;
+      session.injectedIndexHash = null;
+      logEvent({ kind: 'claude_resume_reset', sessionId: session.id, reason: resumeResetReason });
+      onEvent({ type: 'resume_recovery', reason: resumeResetReason, automatic: true });
+    }
+  }
   const basePrompt = `${message}${buildAttachmentPrompt(attachments)}`;
   // Seed a bounded continuity copy on every normal Claude turn. `--resume` can silently select a fresh
   // native transcript (missing/moved CLI state, upgrades, endpoint/model changes), and that fact is only
@@ -18,8 +46,9 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   // never re-duplicate content the CLI transcript already holds.
   const crossEngineGap = lastAssistantEngine(session.messages) === 'openai';
   const recoverySource = crossEngineGap ? claudeProviderTailSince(session.messages) : session.messages;
-  const recoveryHistory = !String(message || '').trim().startsWith('/')
-    ? buildClaudeRecoveryHistory(recoverySource) : '';
+  const recoveryHistory = typeof _recoveryHistoryOverride === 'string'
+    ? _recoveryHistoryOverride
+    : (!String(message || '').trim().startsWith('/') ? buildClaudeRecoveryHistory(recoverySource) : '');
   const historyRecoveryInjected = Boolean(recoveryHistory);
   // 第35波 P2(索引去重注入): fullPrompt 的组装延后到 appendSys 块之后 —— 技能/记忆/编排三类「稳定索引段」
   // 在那里算好并经内容 hash 决定去重,再以 <workbench-context> 块并入 stdin 消息流(见下方注释)。
@@ -29,16 +58,18 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || '';
 
   // v0.8-S0: bump the session-level monotonic turn counter at turn start (see runOpenAiTurn).
-  session.turnSeq = (Number(session.turnSeq) || 0) + 1;
-  session.messages.push({
-    role: 'user',
-    content: message,
-    attachments: attachments || [],
-    turnSeq: session.turnSeq, // v0.8-S4b: stamp turnSeq for rewind (see runOpenAiTurn)
-    createdAt: nowIso(),
-    ...(driverAuto ? { source: 'mission-driver' } : {}), // 第26波b: 标记账本驱动器自动续跑,前端可区分显示
-  });
-  await saveSession(session);
+  if (!_resumeRecoveryAttempt) {
+    session.turnSeq = (Number(session.turnSeq) || 0) + 1;
+    session.messages.push({
+      role: 'user',
+      content: message,
+      attachments: attachments || [],
+      turnSeq: session.turnSeq, // v0.8-S4b: stamp turnSeq for rewind (see runOpenAiTurn)
+      createdAt: nowIso(),
+      ...(driverAuto ? { source: 'mission-driver' } : {}), // 第26波b: 标记账本驱动器自动续跑,前端可区分显示
+    });
+    await saveSession(session);
+  }
 
   if (!fakeClaude && (!claude || !existsExecutable(claude))) {
     // v1.0.2-S6: engine=claude 且 CLI 探测失败 —— 错误文本改中文人话, 并给错误事件附加 code:'cli-missing'
@@ -292,8 +323,8 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
 
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   const metaArgs = args.map((arg, i) => args[i - 1] === '--agents' ? `[${Object.keys(claudeAgentLibrary.definitions).length} agent roles]` : redact(arg));
-  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: config.claudeThinkingEffort || 'default', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
-  logEvent({ kind: 'turn_start', sessionId: session.id, model: config.model || 'default', promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude) });
+  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: config.claudeThinkingEffort || 'default', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
+  logEvent({ kind: 'turn_start', sessionId: session.id, model: config.model || 'default', promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude), resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
 
@@ -446,6 +477,13 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   // context-window sizing and must NOT be reused for cost. These are the abort-fallback billing lower bound.
   let billInMax = 0;
   let billOutMax = 0;
+  const bindNativeClaudeSession = sid => {
+    if (!sid) return;
+    session.claudeSessionId = sid;
+    session.claudeSessionModel = currentClaudeModel;
+    session.claudeSessionCwd = workingDir;
+    session.claudeSessionRouteKey = currentResumeRouteKey;
+  };
 
   child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
   if (interactive) {
@@ -473,7 +511,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
         // 第35波 P2: 静默 resume 丢失(实际 id ≠ --resume 目标)= 原生 transcript 是新的、不含此前注入的索引
         // → 清注入 hash,下轮自愈重注(本轮 prompt 已发出,与 recoveryHistory 同为事后才可观测,接受一轮窗口)。
         if (resumeActive && ev.sessionId !== session.claudeSessionId) session.injectedIndexHash = null;
-        session.claudeSessionId = ev.sessionId;
+        bindNativeClaudeSession(ev.sessionId);
       }
     } else if (ev.kind === 'text') {
       if (ev.partial) { pendingDeltaText = true; assistantText += ev.text; onEvent({ type: 'assistant_delta', text: ev.text }); }
@@ -568,7 +606,7 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
       const bo = Number(u.output_tokens) || 0; if (bo > billOutMax) billOutMax = bo;
     } else if (ev.kind === 'result') {
       if (ev.sessionId) {
-        session.claudeSessionId = ev.sessionId;
+        bindNativeClaudeSession(ev.sessionId);
       }
       const ru = ev.usage || {};
       const summed = (ru.input_tokens || 0) + (ru.cache_read_input_tokens || 0) + (ru.cache_creation_input_tokens || 0) + (ru.output_tokens || 0);
@@ -651,6 +689,25 @@ async function runClaudeTurn({ session, message, attachments, cwd, onEvent, driv
   const stderrTrimmed = stderrText.trim();
   const cmdLineOverflow = /命令行太长|command line is too long/i.test(stderrTrimmed);
   if (cmdLineOverflow) logEvent({ kind: 'cmdline_overflow_escaped', sessionId: session.id, budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen });
+  // Reactive fallback for legacy/unknown bindings and externally moved/deleted transcripts. Retry the
+  // SAME logical turn once without --resume: the user message/turnSeq were already persisted above, so the
+  // retry skips that mutation and reuses the pre-turn recovery history instead of duplicating the prompt.
+  const resumeTranscriptMissing = resumeActive && exit.code !== 0 && !wasStopped
+    && !assistantText.trim() && toolCalls.length === 0 && isClaudeResumeMissingError(stderrTrimmed);
+  if (resumeTranscriptMissing && !_resumeRecoveryAttempt) {
+    session.claudeSessionId = null;
+    delete session.claudeSessionModel;
+    delete session.claudeSessionCwd;
+    delete session.claudeSessionRouteKey;
+    session.injectedIndexHash = null;
+    await saveSession(session);
+    logEvent({ kind: 'claude_resume_retry', sessionId: session.id, reason: 'transcript-missing' });
+    downstreamEvent({ type: 'resume_recovery', reason: 'transcript-missing', automatic: true });
+    return runClaudeTurn({
+      session, message, attachments, cwd, onEvent: downstreamEvent, driverAuto, agentTeam,
+      _resumeRecoveryAttempt: true, _recoveryHistoryOverride: recoveryHistory,
+    });
+  }
   // 第35波 P2: 进程根本没启动(spawn error 或 cmd 拒绝执行)→ prompt 未送达,原生 transcript 不含本轮注入的索引
   // → 清注入 hash,下轮(同内容也会)重注。abort/watchdog 杀不在此列:prompt 已写入 stdin,transcript 已含索引。
   if ((exit.code === -1 && exit.error) || cmdLineOverflow) session.injectedIndexHash = null;
