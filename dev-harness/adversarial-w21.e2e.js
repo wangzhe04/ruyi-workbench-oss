@@ -8,6 +8,7 @@
 // 纯函数按锚点从 server.js / app.js 逐字节抽出实跑(不 spawn 服务,不碰 dataRoot)。
 'use strict';
 const { readServerSource } = require('./src-reader');
+const { readFrontendSrc } = require('./read-frontend-src.js'); // 2.2 门修复:845bb8c 拆域后条件文本函数搬到 js/agent-workflows.js,单读 app.js 锚点全失
 const fs = require('fs');
 const path = require('path');
 
@@ -29,8 +30,8 @@ const blockB = cutBlock(serverSrc, 'function normalizeWorkflowCondition(', 'func
 const S = {};
 new Function('exports', blockA + '\n' + blockB + '\nexports.parseStructuredAgentOutput=parseStructuredAgentOutput;exports.repairJson=repairJson;exports.structuredJsonCandidates=structuredJsonCandidates;exports.balancedJsonSpan=balancedJsonSpan;exports.normalizeAgentGate=normalizeAgentGate;exports.normalizeAgentWorkflow=normalizeAgentWorkflow;exports.verdictPasses=verdictPasses;')(S);
 
-// ---- 抽取 app.js 条件文本纯函数 ----
-const appSrc = fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'app.js'), 'utf8');
+// ---- 抽取前端条件文本纯函数(聚合读:拆域后在 js/agent-workflows.js) ----
+const appSrc = readFrontendSrc();
 const blockF = cutBlock(appSrc, 'function workflowConditionText(', 'async function openWorkflowEditor(', 'condition fns');
 const F = {};
 new Function('exports', blockF + '\nexports.workflowConditionText=workflowConditionText;exports.parseWorkflowConditionText=parseWorkflowConditionText;')(F);

@@ -11,6 +11,7 @@
 //  D) 崩溃注入·杀点2(node_start 后、0 个工具完成前强杀):resume 不注入【断点续跑】,run 照常完成。
 'use strict';
 const { readServerSource } = require('./src-reader');
+const { readFrontendSrc } = require('./read-frontend-src.js'); // 2.2 门修复:845bb8c 拆域后 persistenceDegraded 横幅搬到 js/agent-workflows.js
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -94,7 +95,7 @@ function capturesContaining(dir, needle) {
     ok(/live\.run\.persistenceDegraded\) run\.persistenceDegraded = true/.test(src), 'B GET /api/agent-runs 经 live 叠加下发 persistenceDegraded');
     ok(/function appendAgentRunEvent\(run, evt\)/.test(src) && (src.match(/appendAgentRunEvent\(/g) || []).length >= 10, 'B 事件日志助手 + ≥10 发射点');
     ok(/op === 'skip'\) continue/.test(src), 'B 幂等跳过不进本轮变更清单');
-    const fe = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
+    const fe = readFrontendSrc(); // 聚合:public/app.js + public/js/**/*.js(拆域后横幅在 js/agent-workflows.js)
     const zh = JSON.parse(fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'zh-CN.json'), 'utf8'));
     ok(/persistenceDegraded/.test(fe) && /workflow\.stall\.persistence/.test(fe) && /进度持久化异常/.test(zh['workflow.stall.persistence'] || ''), 'B 前端横幅明示持久化退化');
   }

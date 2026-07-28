@@ -5,12 +5,12 @@
 //     【验收锁】增量模式传输字节 ≤ 全量模式 20%(忠实模拟客户端算法 N tick)、run.metrics 干预计数、ops 指标端点、单 run GET live 叠加。
 'use strict';
 const { readServerSource } = require('./src-reader');
+const { readFrontendSrc } = require('./read-frontend-src.js'); // 2.2 门修复:845bb8c 拆域后前端增量缓存逻辑搬到 js/ 域文件,单读 app.js 9 条 S 锁恒红
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
-const APPJS = path.join(WB, 'app', 'public', 'app.js');
 const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-monitor-incremental-e2e');
 const WS = path.join(HOME, 'ws');
@@ -30,7 +30,7 @@ function req(method, p, body, headers = {}) {
 }
 async function up() { for (let i = 0; i < 60; i++) { try { const r = await req('GET', '/health'); if (r.status === 200) return true; } catch {} await sleep(150); } return false; }
 const src = readServerSource();
-const app = fs.readFileSync(APPJS, 'utf8');
+const app = readFrontendSrc(); // 聚合:public/app.js + public/js/**/*.js(拆域后断言目标分散在域文件)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 // [S] 静态锁

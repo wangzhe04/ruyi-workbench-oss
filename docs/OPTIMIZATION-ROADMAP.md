@@ -1010,3 +1010,24 @@ EC-D 工程闭环后的第一个稳健性切片：`--resume` 是 Claude 引擎�
 ### 待续
 
 - 下一候选主线仍为 **EC-E Mission Ready**；Escapade 2.2 发布与否继续走独立发布门评估。
+
+## 第67波 Escapade 2.2 发布门 -- 评估通过,暂不发布(2026-07-28)
+
+按 EC-D 结论「2.2 仍须独立走范围冻结、完整串行测试、离线包发布门」执行评估,三门全绿;用户决定本轮只提交门修复,版本三角保持 2.1.0 不 bump、不打 tag。
+
+### 门结果(全部主会话亲跑)
+
+- **范围冻结**:v2.1.0..HEAD 恰 5 提交(EC-D 第54-66波),工作区干净,无未跟踪文件。
+- **完整串行测试(修复后)**:`run-all.js` **162 pass / 0 fail / 0 flaky / 6 live-skip**,exit 0。
+- **离线包发布门**:`release-dryrun.js --pkg` ALL PASS(产物新鲜、版本三角 2.1.0、overlay 75 文件 sha256 全量对账、A4 minHostVersion、Ruyi.exe serve /health 200 冒烟、A1 Slim/Full 清单可复验、A5 六件 live probe 独立列出)。
+
+### 门过程抓出并修复 5 处存量红(与第55波同型;首轮串行 157 pass / 5 fail)
+
+1. **adversarial-w21 / monitor-incremental / autonomy-durability(3 件,测试基建)**:845bb8c(第65波)前端拆域把 workflowConditionText/openWorkflowEditor、persistenceDegraded 横幅、监控增量缓存逻辑搬出 app.js 进 public/js/ 域文件,这 3 件仍直读单 app.js -> 锚点全失,共 11 条断言自第65波起恒红(再次坐实第65波「全绿」记录失实,见 [[第66波]] D51 同款教训)。统一改用既有 readFrontendSrc() 聚合读(git.e2e.js 等 10+ 件同型)。
+2. **meta-guard A(文档)**:README 能力标签停在 v2.0 而 package.json 已 2.1.0 -- 2.1.0 发布提交漏 bump 两处标签(红自 7deb718 起)。已改「核心能力一览(v2.1)」「Capabilities (v2.1)」+ TOC 锚点 v20->v21。
+3. **overlay-update-core C1(干扰,非真红)**:首轮串行启动失败级联 23 条;单跑即绿,修复后全量串行亦绿,判定为前序失败件残留进程/端口干扰。
+
+### 待续
+
+- **2.2.0 发布动作(未做,待用户确认)**:版本三角 bump 2.1.0->2.2.0(package.json / 00-boot.js / facts 重生成;README 能力标签须同步到 v2.2 否则 meta-guard 复红)-> 重建 -> 门复跑 -> v2.2.0 tag + 离线包 + 推送。
+- 下一主线仍为 EC-E Mission Ready(候选 2.3)。
