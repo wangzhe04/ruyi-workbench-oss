@@ -1197,4 +1197,30 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 - Escapade 线:2.3 发布门评估(EC-E 三切片 + 71/71b + 本波打包)。
 
 
+## 第73波 · Escapade 2.3 发布门评估(2026-07-29)
+
+按「Escapade 通用发布准入」与第67波(2.2 门)同型三门评估,**只评估不发布**。范围 = v2.2.0..HEAD 恰 4 提交:第71波(Intervention 持久化)、第71b波(pool 统一 + 残留 pending 段清理)、第72波(任务结果模型 + 不可逆正向账)、第56波(Pretender 立项门 + 全局需要你聚合)。(第70波聚合读模型已随 2.2.0 发布。)
+
+### 三门结果(全部主会话亲跑)
+
+- **门① 范围冻结 ✅**:v2.2.0..HEAD 4 提交无遗漏;工作区干净;版本三角一致停在 2.2.0(评估期不自动 bump)。
+- **门② 冻树全量串行 ✅**:`node dev-harness/run-all.js` **168 pass / 0 fail / 0 flaky / 6 live-skip,exit 0**,一轮通过零修复(对比 2.2 门首轮 5 处存量红——本周期无新增失实记录)。
+- **门③ 离线包发布门 ✅**:`release-dryrun --pkg` ALL PASS——产物新鲜度(build --check)、版本三角四方一致、overlay 76 文件 sha256 全量对账(mismatch=0)、minHostVersion 合法、pkg 出 Ruyi.exe + `/health` 200 冒烟、Slim/Full 清单可复验、6 件 live probe 独立列出(全 CONFIGURED,skip 不算 pass)。已知非阻塞告警:pkg 提示 `mcp/ai-computer-control` ENOENT——运行时可选桌面 MCP(用户本机 %LOCALAPPDATA% 安装,仓库本不含此目录),2.2.0 发布时同型告警,exe 冒烟实证不受影响。
+
+### EC-E 退出条件核对(立项原文逐条)
+
+- 未决事项刷新/重启不丢失;重复决策不重复执行;过期/取消/已处理可区分 ✅(71/71b:append-only Intervention + 重启终态化 + 决策 409 幂等)。
+- 老会话无损打开;`/api/mission`、Agent Run、检查点调用方不因新投影失效 ✅(70 只读派生绝不回写;全量门 168 件回归零红)。
+- 单任务/长任务/多 Agent/Quick Ask 四旅程概念验证 + 第56波 go/no-go 评审材料 ✅(`docs/PRETENDER-GATE-REVIEW.md` + pretender-gate.e2e 31 断言数据面证据)。
+- 现有壳层最小「需要你」聚合入口,不提前发布 Pretender 品牌 ✅(56:全局 `/api/interventions` 只读收件箱)。
+
+### 通用发布准入逐项
+
+版本与构建 ✅(门③ A2/A3/A4);行为回归 ✅(门②,KNOWN_FAILURE 零扩张);视觉与无障碍——本范围**无新产品 UI**(71/71b/72 纯后端;56 的 PoC 在 docs/ 不进产品界面,mission-state.js 仅注册载荷未接线),theme/uimode 既有锁在全量门内常绿;离线交付 ✅(门③);外部探针 ✅(6 件独立列出);文档与迁移 ⚠️ 发布时动作——CHANGELOG「2.2.x(未发布)」节目前只覆盖第71波,发布时须补 71b/72/56 条目并改题 2.3;README 能力标签须随 bump 跟进(2.1/2.2 两次 meta-guard 同型教训)。
+
+### 结论:**具备发布条件**
+
+剩余发布动作(一次发布提交):①版本三角 bump 2.2.0→2.3.0(package.json / package-lock / 00-boot.js / facts 重生成)+ README 标签跟进 + CHANGELOG 补全改题;②重建 + build --check;③门复跑(冻树串行 + dryrun --pkg);④`v2.3.0` tag + 离线包 + 推送。拍板后执行。
+
+
 
