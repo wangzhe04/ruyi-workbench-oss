@@ -109,6 +109,8 @@ async function buildMissionCard(head, runs) {
       budget: m.budget || { maxAutoTurns: 0, maxTokens: 0 },
       spent: m.spent || { autoTurns: 0, tokens: 0 },
       budgetExhausted: Boolean(m.budgetExhaustedAt),
+      // 第72波:结果章存根(列表卡片只带状态+时间,明细走详情快照 result)
+      result: (m.result && typeof m.result === 'object') ? { status: m.result.status || '', finishedAt: m.result.finishedAt || '' } : null,
     },
     pending: await missionPendingCounts(head.id, runs),
     runCount: (runs || []).length,
@@ -153,21 +155,14 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       items: ms.map(x => ({ id: x && x.id, desc: x && x.desc, status: (x && x.status) || 'pending', checkType: (x && x.check && x.check.type) || 'none', evidence: (x && x.evidence) || '' })),
     };
 
-    // 变更/产物聚合:跨回合 turnSummary 折叠 —— filesChanged 按 path 后写胜(最新 op/revertible 为当前态),
-    // artifacts 按 path 先去重(首次产出记回合)。revertible=false 即不可逆显式标注(journal skipped 或天生不在账内)。
-    const filesChanged = new Map(), artifacts = new Map();
-    let commands = 0;
-    for (const msg of (session.messages || [])) {
-      const ts = msg && msg.turnSummary;
-      if (!ts) continue;
-      for (const f of (ts.filesChanged || [])) {
-        if (f && f.path) filesChanged.set(f.path, { path: f.path, op: f.op || '', revertible: f.revertible === true, turnSeq: ts.turnSeq, entrySeq: f.entrySeq });
-      }
-      for (const a of (ts.artifacts || [])) {
-        if (a && a.path && !artifacts.has(a.path)) artifacts.set(a.path, { path: a.path, kind: a.kind || '', turnSeq: ts.turnSeq });
-      }
-      commands += (ts.commands || []).length;
-    }
+    // 变更/产物聚合:跨回合 turnSummary 折叠(02 foldTurnSummaries 单一实现,与 buildMissionResult 共用) ——
+    // filesChanged 按 path 后写胜(最新 op/revertible 为当前态),artifacts 按 path 先去重(首次产出记回合)。
+    // revertible=false 即不可逆显式标注(journal skipped 或天生不在账内)。
+    // 第72波顺手修:旧内联折叠 `commands += (ts.commands || []).length` 把数字当数组,commands>0 即 NaN
+    // (JSON 序列化为 null)——统一走 fold 后该 bug 消失;irreversible 正向账随行,旧回合(无该字段)的
+    // commands 诚实单列 legacyCommands,不混进新账假装有据。
+    const fold = foldTurnSummaries(session);
+    const filesChangedList = fold.filesChanged, artifactsList = fold.artifacts, commands = fold.commands;
 
     // 检查点引用(真实回滚能力的入口:POST /api/checkpoints/rollback {sessionId, turnSeq, entrySeq?})。
     const cpEntries = await journalReadIndex(sessionId).catch(() => []);
@@ -208,7 +203,11 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         mission: session.mission || null,
         acceptance,
         runs: runs.map(missionRunDigest),
-        changes: { filesChanged: [...filesChanged.values()], artifacts: [...artifacts.values()], commands },
+        changes: { filesChanged: filesChangedList, artifacts: artifactsList, commands },
+        // 第72波:不可逆操作正向账(活任务也随快照下发;终态任务以 mission.result 盖章版为准)
+        irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands },
+        // 第72波:任务结果快照(终态盖章;active/paused 为 null,看 acceptance/changes/irreversible 实时投影)
+        result: (session.mission && session.mission.result) || null,
         checkpoints,
         usage,
         pending: pendingCounts,

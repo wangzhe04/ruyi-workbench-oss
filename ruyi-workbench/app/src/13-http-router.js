@@ -458,7 +458,12 @@ async function handleApi(req, res, pathname) {
     const action = String(bodyOrQ.action || 'update');
     const emitMission = () => { const reg = activeChildren.get(sessionId); if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } } };
     if (action === 'stop') {
-      if (session.mission) { session.mission.autoMode = 'off'; session.mission.updatedAt = nowIso(); await saveSession(session); emitMission(); }
+      if (session.mission) {
+        session.mission.autoMode = 'off';
+        // 第72波:stop 是终态动作 → 盖 stopped 结果章(验收/未完成项/变更/回滚/不可逆账定格在此刻)。
+        session.mission.result = await buildMissionResult(session, { status: 'stopped', how: 'stop' });
+        session.mission.updatedAt = nowIso(); await saveSession(session); emitMission();
+      }
       return send(res, json({ ok: true, mission: session.mission || null }));
     }
     if (action === 'check') {
@@ -472,6 +477,7 @@ async function handleApi(req, res, pathname) {
         if (r && !r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
       }
       if (session.mission) session.mission.updatedAt = nowIso();
+      await maybeFinalizeMission(session, 'check'); // 第72波:全 done 盖 complete 章
       await saveSession(session); emitMission();
       return send(res, json({ ok: true, mission: session.mission || null, checks: results }));
     }
@@ -490,6 +496,7 @@ async function handleApi(req, res, pathname) {
       if (!session.mission) return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
       session.mission = applyMissionUpdate(session.mission, bodyOrQ.patch || bodyOrQ, trusted);
       if (bodyOrQ.autoMode != null) session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : session.mission.autoMode;
+      await maybeFinalizeMission(session, 'update'); // 第72波:全 done 盖 complete 章 / 再武装清旧章
     }
     await saveSession(session); emitMission();
     return send(res, json({ ok: true, mission: session.mission }));

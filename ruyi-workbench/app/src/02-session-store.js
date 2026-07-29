@@ -543,6 +543,9 @@ function normalizeMission(raw, prev, trusted = true) {
     // 必须保住它,否则再耗尽会二次落 mission_budget_exhausted 使超支率 >100%;全新 start(prev=null → p={})自然清空,
     // 新任务的耗尽正常重记。budget 无法经 update 抬高(applyMissionUpdate 不碰 budget),故不需"抬预算才清"的额外逻辑。
     budgetExhaustedAt: String(p.budgetExhaustedAt || ''),
+    // 第72波:任务结果快照(终态时由 maybeFinalizeMission 盖章;再武装由它清理)。深拷必须携带,
+    // 否则每次 applyMissionUpdate(normalizeMission({}, prev))都把已盖章的结果静默抹掉。
+    result: (p.result && typeof p.result === 'object') ? p.result : null,
     createdAt: p.createdAt || nowIso(),
     updatedAt: nowIso(),
   };
@@ -589,6 +592,90 @@ function applyMissionUpdate(prev, patch, trusted = false) {
 function missionProgressDigest(mission) {
   if (!mission || !Array.isArray(mission.milestones)) return '';
   return mission.milestones.map(m => m.id + ':' + m.status + ':' + Math.floor(String(m.evidence || '').length / 20)).join(' ');
+}
+
+// ── 第72波(EC-E 切片三):任务结果模型 ─────────────────────────────────────────────────────
+// 跨回合 turnSummary 折叠(单一实现,13d /api/missions 详情与本波 buildMissionResult 共用):
+// filesChanged 按 path 后写胜(最新 op/revertible 为当前态),artifacts 按 path 先去重(首次产出记回合),
+// irreversible 逐条拼接(回合序),legacyCommands = 第72波前旧回合(无 irreversible 字段)的 commands 计数 ——
+// 旧回合的不可逆操作只有计数没有明细,诚实单列,不混进新账假装有据。
+function foldTurnSummaries(session) {
+  const filesChanged = new Map(), artifacts = new Map();
+  const irreversible = [];
+  let commands = 0, legacyCommands = 0;
+  for (const msg of ((session && session.messages) || [])) {
+    const ts = msg && msg.turnSummary;
+    if (!ts) continue;
+    for (const f of (ts.filesChanged || [])) {
+      if (f && f.path) filesChanged.set(f.path, { path: f.path, op: f.op || '', revertible: f.revertible === true, turnSeq: ts.turnSeq, entrySeq: f.entrySeq });
+    }
+    for (const a of (ts.artifacts || [])) {
+      if (a && a.path && !artifacts.has(a.path)) artifacts.set(a.path, { path: a.path, kind: a.kind || '', turnSeq: ts.turnSeq });
+    }
+    commands += (ts.commands || []).length || Number(ts.commands) || 0;
+    if (Array.isArray(ts.irreversible)) {
+      for (const iv of ts.irreversible) {
+        if (iv && iv.name && irreversible.length < 200) irreversible.push({ turnSeq: ts.turnSeq, kind: iv.kind || 'exec', name: String(iv.name), detail: String(iv.detail || ''), ok: iv.ok !== false });
+      }
+    } else {
+      legacyCommands += (ts.commands || []).length || Number(ts.commands) || 0;
+    }
+  }
+  const byKind = {};
+  for (const iv of irreversible) byKind[iv.kind] = (byKind[iv.kind] || 0) + 1;
+  return {
+    filesChanged: [...filesChanged.values()], artifacts: [...artifacts.values()], commands,
+    irreversible: { total: irreversible.length, byKind, items: irreversible, legacyCommands },
+  };
+}
+// 任务结果快照(EC-E 立项:验收状态 + 成果引用 + 未完成项 + 变更摘要 + 真实回滚能力 + 不可逆显式标注)。
+// 终态盖章时现算并持久化进 mission.result —— 盖章时刻的数字是历史证据,不随后续回合漂移。
+async function buildMissionResult(session, opts) {
+  const o = (opts && typeof opts === 'object') ? opts : {};
+  const m = session.mission;
+  const ms = (m && Array.isArray(m.milestones)) ? m.milestones : [];
+  const fold = foldTurnSummaries(session);
+  const cpEntries = await journalReadIndex(session.id).catch(() => []);
+  const cpTurnSeqs = [...new Set(cpEntries.map(e => e && e.turnSeq).filter(Number.isFinite))].sort((a, b) => a - b);
+  const byOp = {};
+  for (const f of fold.filesChanged) byOp[f.op || 'unknown'] = (byOp[f.op || 'unknown'] || 0) + 1;
+  return {
+    status: o.status === 'stopped' ? 'stopped' : 'complete',
+    how: String(o.how || '').slice(0, 32),
+    finishedAt: nowIso(),
+    acceptance: {
+      total: ms.length,
+      done: ms.filter(x => x && x.status === 'done').length,
+      blocked: ms.filter(x => x && x.status === 'blocked').length,
+      pending: ms.filter(x => !x || x.status === 'pending').length,
+    },
+    unfinished: ms.filter(x => !x || x.status !== 'done').map(x => ({ id: x && x.id, desc: String((x && x.desc) || '').slice(0, 200), status: (x && x.status) || 'pending' })),
+    todosOpen: ((session.todos) || []).filter(t => t && t.status !== 'done').length,
+    artifacts: fold.artifacts.slice(0, 50),
+    changes: {
+      filesChanged: fold.filesChanged.length, byOp,
+      irreversibleFiles: fold.filesChanged.filter(f => f.revertible !== true).length,
+      commands: fold.commands,
+    },
+    checkpoints: { entries: cpEntries.length, turnSeqs: cpTurnSeqs.slice(0, 50), rollbackAvailable: cpEntries.length > 0 },
+    irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands },
+  };
+}
+// 终态盖章/再武装清理。在【任何 mission 突变点】调用(/api/mission check/update、09 回合内 mission_update):
+// 全部里程碑 done 且尚无 complete 章 → 盖章;否则有旧章 → 清理(再武装 = 结果不再是终态,章会撒谎)。
+// 返回是否改变了 mission(调用方负责 saveSession)。stop 不走这里 —— 它直接盖 stopped 章(13-http-router)。
+async function maybeFinalizeMission(session, how) {
+  const m = session && session.mission;
+  if (!m || !Array.isArray(m.milestones)) return false;
+  const allDone = m.milestones.length > 0 && m.milestones.every(x => x && x.status === 'done');
+  if (allDone) {
+    if (m.result && m.result.status === 'complete') return false; // 已盖章,不重复
+    m.result = await buildMissionResult(session, { status: 'complete', how });
+    m.updatedAt = nowIso();
+    return true;
+  }
+  if (m.result) { m.result = null; m.updatedAt = nowIso(); return true; } // 再武装:清旧章
+  return false;
 }
 // 执行一条里程碑的机器验收(command 判退出码+可选输出包含;file_exists 判在)。'none' 返回 null(交模型自报)。
 // 只读判定,不改文件;command 走工作区 cwd,复用 runProcess 基建;绝不用于副作用。
@@ -879,6 +966,56 @@ const TURN_SUMMARY_KNOWN_TOOLS = new Set([
   // 它们产生的 journal 条目由 buildTurnSummary 的 journalEntries 叠加为 filesChanged(revertible:true)。
   'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download',
 ]);
+// ── 第72波(EC-E 切片三):不可逆操作正向账 ─────────────────────────────────────────────────
+// toolIsRevertible 是名字级承诺 + journal 缺位这个负信号;exec/desktop/network 类操作天然不在变更清单,
+// 此前只有一个 commands 计数 —— 「这个任务到底干过哪些撤不掉的事」无处可查。本账在回合摘要里正向记录
+// 每一条【有副作用且无 journal 快照】的工具调用:{kind, name, detail, ok}。
+// 收录判据(与权限系统同一风险分级,不另立启发式):
+//  - 内建:nativeToolTier(name)==='exec' 且非可撤销(journal 族已被 toolIsRevertible 覆盖)且非编排元工具;
+//  - 桥接:bridgedToolTier 默认即 'exec'(未知一律最严)——只收显式已知会留副作用的族,防把未知 MCP 的
+//    只读调用误记为不可逆(谎报比漏报更糟:用户会不再信任账);未命中白名单的桥接 exec 不记账(不谎称账全);
+//  - claude 引擎未知名:CLI 原生工具不过 toolCall —— Bash 族/Edit/Write 直落盘无 journal(08:238 注),记账;
+//    其余未知名保持原样只进 commands 计数。
+// 注意:exec 命令【结果失败也记账】(ok:false)——命令已跑,副作用可能已发生;与文件工具「失败=未改动」不同。
+const IRREVERSIBLE_NATIVE_KIND = {
+  powershell_run: 'exec', script_run: 'exec', shell_start: 'exec', shell_send: 'exec', shell_kill: 'exec',
+  git_commit: 'exec', mcp_configure: 'exec',
+  keyboard_send_keys: 'desktop', browser_open: 'desktop', office_open: 'desktop', desktop_screenshot: 'desktop',
+  http_request: 'network',
+};
+// 桥接(exec 默认)里的已知副作用族 → kind;未列出的桥接 exec 工具不记账(见上「不谎称账全」)。
+const IRREVERSIBLE_BRIDGED_KIND = {
+  run_command: 'exec', kill_process: 'exec', launch_application: 'exec',
+  mouse_click: 'desktop', mouse_move: 'desktop', mouse_drag: 'desktop', mouse_scroll: 'desktop', scroll_at: 'desktop',
+  type_text: 'desktop', press_key: 'desktop', hotkey: 'desktop', key_down: 'desktop', key_up: 'desktop',
+  set_clipboard: 'desktop', set_clipboard_image: 'desktop', close_window: 'desktop', move_window: 'desktop',
+  resize_window: 'desktop', minimize_window: 'desktop', maximize_window: 'desktop', set_window_topmost: 'desktop',
+  message_box: 'desktop', show_notification: 'desktop', beep: 'desktop', play_sound: 'desktop', notify_attention: 'desktop',
+  browser_open: 'network', fetch: 'network',
+};
+const CLAUDE_IRREVERSIBLE_KIND = {
+  Bash: 'exec', BashOutput: 'exec', KillBash: 'exec', KillShell: 'exec',
+  Edit: 'exec', Write: 'exec', MultiEdit: 'exec', NotebookEdit: 'exec', // CLI 直落盘,工作台无 journal(08:238)
+};
+const IRREVERSIBLE_LEDGER_MAX = 50;
+function irreversibleToolKind(name) {
+  const n = String(name || '');
+  if (Object.prototype.hasOwnProperty.call(IRREVERSIBLE_NATIVE_KIND, n)) return IRREVERSIBLE_NATIVE_KIND[n];
+  if (Object.prototype.hasOwnProperty.call(CLAUDE_IRREVERSIBLE_KIND, n)) return CLAUDE_IRREVERSIBLE_KIND[n];
+  const bare = unprefixedBridgedName(n);
+  if (bare !== n && Object.prototype.hasOwnProperty.call(IRREVERSIBLE_BRIDGED_KIND, bare)) return IRREVERSIBLE_BRIDGED_KIND[bare];
+  return '';
+}
+// 账条 detail:从 input 里挑最有辨识度的字段(command/url/path/text),截断 120 字符;全工具调用正文
+// 本就存在会话里,无新增暴露面。
+function irreversibleDetail(input) {
+  const o = (input && typeof input === 'object') ? input : {};
+  for (const k of ['command', 'cmd', 'code', 'script', 'url', 'path', 'text', 'name', 'pid']) {
+    if (typeof o[k] === 'string' && o[k].trim()) return o[k].replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (typeof o[k] === 'number' && Number.isFinite(o[k])) return String(o[k]);
+  }
+  return '';
+}
 // Best-effort: coerce a tool result into a plain object. Handles (a) an object already; (b) a JSON string;
 // (c) an MCP content array [{type:'text',text:'{...}'}] (the shape the Claude CLI reports for workbench
 // tools) — parse the concatenated text as JSON. Returns null when nothing parses.
@@ -895,10 +1032,18 @@ function asResultObject(result) {
 function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
   const byPath = new Map(); // path → {path, op, revertible} — journal entries take precedence over records
   let commands = 0;
+  const irreversible = []; // 第72波:不可逆操作正向账(收录判据见 IRREVERSIBLE_*_KIND 头注)
+  const noteIrreversible = (name, input, result) => {
+    const kind = irreversibleToolKind(name);
+    if (!kind || irreversible.length >= IRREVERSIBLE_LEDGER_MAX) return;
+    const r = asResultObject(result);
+    irreversible.push({ kind, name: String(name || ''), detail: irreversibleDetail(input), ok: !(r && r.ok === false) });
+  };
   for (const tc of (Array.isArray(toolCalls) ? toolCalls : [])) {
     if (!tc || !tc.name) continue;
     const name = String(tc.name);
     const input = (tc.input && typeof tc.input === 'object') ? tc.input : {};
+    noteIrreversible(name, input, tc.result);
     if (TURN_SUMMARY_FILE_TOOLS.has(name)) {
       const r = asResultObject(tc.result);
       // Path: prefer the tool input; fall back to the parsed result (claude workbench tools echo .path).
@@ -973,7 +1118,7 @@ function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
     }
   }
   const artifacts = [...artByPath.values()];
-  return { turnSeq: Number(turnSeq) || 0, filesChanged, commands, artifacts };
+  return { turnSeq: Number(turnSeq) || 0, filesChanged, commands, artifacts, irreversible };
 }
 
 // v0.8-S0 A6: detect an interrupted (dangling) turn from providerHistory. Dangling shapes:

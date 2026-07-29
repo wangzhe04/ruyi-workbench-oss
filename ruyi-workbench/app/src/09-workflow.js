@@ -1620,6 +1620,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 if (session.mission) {
                   // 对抗轮 P1: 模型路径 trusted=false —— 不能设 check.cmd、不能把 done 回退 pending。
                   session.mission = applyMissionUpdate(session.mission, { milestones: args.milestones, goal: args.goal }, false);
+                  // 第72波:complete 章【推迟到回合收尾】盖(见下方 turnSummary 入列后的 finalize) —— 此刻本回合
+                  // 的 turnSummary 尚未入 session.messages,立即盖章会让结果快照漏算完成它的这个回合。
+                  Object.defineProperty(session, '__missionFinalizeHow', { value: 'update', writable: true, configurable: true, enumerable: false });
                   onEvent({ type: 'mission', mission: session.mission });
                   resultObj = { ok: true, milestones: session.mission.milestones.length };
                 } else {
@@ -1806,6 +1809,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     engine: 'openai', providerId: provider.id, providerLabel: provider.label || provider.id, model,
   });
   session.providerHistoryCursor = session.messages.length;
+  // 第72波:回合内 mission_update 推迟的 complete 章在此刻盖 —— 本回合 turnSummary 已入 messages,
+  // 结果快照的不可逆账/变更/验收才能包含完成它的这个回合;盖章随下方 saveSession 一并落盘。
+  if (session.__missionFinalizeHow) {
+    const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
+    try { if (await maybeFinalizeMission(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
+  }
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }

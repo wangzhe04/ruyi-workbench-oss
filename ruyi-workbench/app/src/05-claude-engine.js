@@ -758,7 +758,10 @@ async function runClaudeTurn({
   // clobber a skill toggle the user made while this turn was running (identical pattern to todos above).
   // P2-3(记忆): 同理回读 session.memories + memoriesExplicit —— 否则回合边缘窗口(reg 未注册/已删时)用户「全部停用」
   // 会被本回合陈旧内存副本回滚,下一回合默认策略又自动全启,直接违背用户意图。memoriesExplicit 仅当磁盘为 boolean 才覆盖。
-  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos; if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; } catch { /* keep in-memory */ }
+  // 第72波: mission 一并回读 —— claude 引擎的 mission_update 经 MCP 子进程 loopback POST /api/mission 落【磁盘】
+  // (12-tool-dispatch),本回合内存副本是旧的;不回读则收尾 save 把 loopback 的里程碑更新与结果章整份盖回
+  // (与 todos 完全同型,此前 mission 不在回读清单是漏项)。provider 引擎是 in-process 更新,不在此列(09 不回读)。
+  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos; if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && onDisk.mission && typeof onDisk.mission === 'object') session.mission = onDisk.mission; } catch { /* keep in-memory */ }
   await saveSession(session);
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
   // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for

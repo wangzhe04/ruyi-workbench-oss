@@ -1140,5 +1140,32 @@ EC-E(Mission Ready,候选 2.3)开工,按三波切片:70=聚合读模型(本波) 
 
 ### 待续
 
-- 第72波:任务结果模型(验收状态/成果引用/未完成项/变更摘要/真实回滚引用/不可逆正向账)。
+- ~~第72波:任务结果模型~~ → 已交付,见下。EC-E 立项 5 条至此全部落地,下一站:第56波 Pretender 立项门(拿 70–72 波真实数据评审交办台)或 2.3 发布门评估。
+
+## 第72波 EC-E 切片三 · 任务结果模型 + 不可逆操作正向账(2026-07-29)
+
+EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未完成项、变更摘要和真实的回滚能力;不可逆操作显式标注。」此前现状:70波已有实时投影(acceptance/changes/checkpoints),但 ①任务终结没有定格快照——历史只剩活投影,完成那刻的数字无处可查;②不可逆操作只有 toolIsRevertible 名字级承诺 + journal 缺位负信号,exec/desktop/network 类操作只进一个 commands 计数,「这个任务干过哪些撤不掉的事」无正向账。
+
+### 交付
+
+- **不可逆操作正向账(buildTurnSummary 新增 `irreversible:[]`)**:收录判据与权限系统同一风险分级(NATIVE_TOOL_TIER/bridged 已知副作用族/CLAUDE_IRREVERSIBLE_KIND),不另立启发式;账条 {kind:exec|desktop|network, name, detail≤120, ok}。exec 命令**结果失败也记账**(命令已跑,副作用可能已发生;与文件工具「失败=未改动」不同)。未知桥接 exec 工具不记账——不谎称账全(谎报比漏报更糟)。回合 cap 50 条。
+- **foldTurnSummaries(02)单一折叠实现**:filesChanged 后写胜/artifacts 首记/irreversible 拼接/**legacyCommands**(第72波前旧回合无 irreversible 字段,其 commands 诚实单列,不混进新账假装有据)。13d 详情与 buildMissionResult 共用。
+- **任务结果快照(mission.result 持久化盖章)**:buildMissionResult 全字段——acceptance(验收计数)/ unfinished(未完成里程碑)/ todosOpen / artifacts(成果引用)/ changes(变更摘要 byOp + irreversibleFiles)/ checkpoints(真实回滚引用,rollbackAvailable + turnSeqs)/ irreversible(正向账 + legacyCommands)。盖章即定格,不随后续回合漂移。
+  - **盖章点(全部 mission 突变点覆盖)**:13 /api/mission check + update → maybeFinalizeMission(全 done 盖 complete / 再武装清旧章);stop → 直接盖 stopped 章;09 provider 回合内 mission_update → **推迟到回合收尾盖章**(回合内立即盖章会让结果漏算完成它的这个回合——turnSummary 尚未入列;推迟点在本回合消息入列后、saveSession 前,非枚举旗标 __missionFinalizeHow 传递)。
+  - normalizeMission 深拷携带 result(否则每次 applyMissionUpdate 静默抹章);重复盖章幂等(已 complete 不重复盖,finishedAt 稳定)。
+  - **05 claude 收尾磁盘回读补 mission**:claude 引擎 mission_update 经 MCP 子进程 loopback 落磁盘,不回读则收尾 save 把 loopback 的里程碑更新与结果章整份盖回——与 todos 同型的【存量漏项】,本波一并修(里程碑更新本身此前也会被盖回)。
+- **读模型下发**:13d 详情快照新增 result(终态章,active/paused 为 null)+ irreversible 活投影(total/byKind/items/legacyCommands);列表卡片 mission 块带 result 存根(status/finishedAt)。
+- **顺手修第70波存量 bug**:13d 旧内联折叠 `commands += (ts.commands || []).length` 把数字当数组——commands>0 即 NaN(JSON 序列化为 null),e2e 未抓(测试会话 commands=0)。统一走 fold 后消失,本波 e2e 钉回归断言(commands===1 是数字)。
+
+### 验证
+
+- 新件 `mission-result.e2e.js` 38 断言红绿双证:红跑特性缺失(turn_summary 无 irreversible 账),绿跑 ALL PASS——(a) 回合内全 done 盖 complete 章(how=update)且章内含本回合不可逆账(powershell_run 入账 exec+detail、file_read 只读不记账)、验收 2/2、回滚引用、NaN 回归;(b) 再武装清章、stop 盖 stopped 章列未完成项、路由路径盖 complete、重复 update 不重复盖(finishedAt 稳定);(c) 旧回合 commands=2 单列 legacyCommands、重启后章仍在;(s) 静态锁 14 条。绿跑首轮抓出【回合内盖章漏算本回合】真问题 → 改推迟盖章后全绿。
+- 回归族全绿:mission-driver / missions-readmodel / artifacts / checkpoint / autonomy-pause / rewind / interventions-pool / interventions-persist;facts.json e2e 172->173;版本保持 2.2.0。
+- 冻树全量门一次通过:**167 pass / 0 fail / 0 flaky / 6 live-skip**。
+
+### 待续
+
+- 残余已知竞态(本波记录,非本波引入):provider 回合进行中经路由突变 mission(UI check/stop),回合收尾 save 会用内存副本盖回磁盘突变——mission 写并发是既有架构债,本波 05 回读修了 claude 侧,provider 侧(in-process 为权威)待专门一波。
+- EC-E 收官,下一站:第56波 Pretender 立项门(70–72 波真实数据评审「交办台」)或 2.3 发布门评估。
+
 
