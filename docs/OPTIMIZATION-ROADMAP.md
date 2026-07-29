@@ -1168,4 +1168,33 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 - 残余已知竞态(本波记录,非本波引入):provider 回合进行中经路由突变 mission(UI check/stop),回合收尾 save 会用内存副本盖回磁盘突变——mission 写并发是既有架构债,本波 05 回读修了 claude 侧,provider 侧(in-process 为权威)待专门一波。
 - EC-E 收官,下一站:第56波 Pretender 立项门(70–72 波真实数据评审「交办台」)或 2.3 发布门评估。
 
+## 第56波 · Pretender 立项门评审(2026-07-29)
+
+按路线图第56波定义,本波不交付 Pretender 功能清单,只做 go / no-go 评审。评审材料:`docs/PRETENDER-GATE-REVIEW.md`(5 项输入逐条评估、9 条 go 条件打分、6 个 no-go 触发器排查、四旅程改善证据、6 条遗留缺口)。
+
+### 评审前补齐的缺口(EC-E 363 退出条件 + P0 概念验证)
+
+- **全局「需要你」聚合 `GET /api/interventions`**(13d + ROUTE_AUTH token-browser):跨会话 pending 收件箱,FIFO 排序,counts 分型(permission/question/plan/pool),条目带 live(活回合可即时决策提示)。补齐 EC-E「在现有壳层提供最小需要你聚合入口」的退出条件缺口。同 endpoint 顺手补 per-session counts 的 pool 键(71 波漏)。
+- **`activeTurn` 活回合投影**(13d 快照 + 列表卡片):五态派生「进行中」的权威活信号之一(与 run.live 同型内存叠加,不作终态判据)。
+- **任务单五态派生纯函数 `public/js/mission-state.js`**:交办中/进行中/需要你/已收工/已停工 + quick_ask 逃生舱;只读权威字段(持久化 mission 账本/result 章/Intervention 计数/kind/run 活标志),**绝不读 assistant 文本猜**(go 条件 #1);每条派生带 sources 证据;双导出(window + node),fromCard/fromSnapshot 双适配,单一文件不复制逻辑。
+- **真实数据 PoC `docs/mockups/vnext-poc.html`**:任务坞瓷章(五态着色 + 鎏金需要你脉冲)+ 全局需要你收件箱 + 任务单(成果/台账/不可逆账/反悔柄);纯 GET 零写操作,决策/回滚一律回经典壳层(不提前发布 Pretender 品牌)。
+- **overlay 载荷登记**(tools/build-overlay.js):mission-state.js 入离线包载荷清单——冻树门首轮 overlay-payload-lock 红(敏感目录未登记文件)抓出,当场修复复跑转绿。
+
+### 评审结论:**GO(有条件,4 条)**
+
+①新壳层性能门未实测——P2 Preview 公开前 EC-D 性能硬门必须对新壳层复跑通过(go 条件 #8 唯一 ⚠️);②双壳退出死线(新壳层默认后最迟第 2 个公开 Release 退出)写入发布计划;③全局需要你**决策动作**列 P3 显式范围(本波只读聚合,不得绕过现有 decision 端点幂等语义);④provider 侧 mission 写并发残余竞态(72 波挂号)P1 schema 冻结时一并评估。9 条 go 条件 8✅+1⚠️(#8),6 个 no-go 触发器零命中。**最终立项决定权在项目所有者**;评审通过仅代表可冻结 Pretender 3.0 范围,不代表立即发布;Escapade 2.x 与 Pretender 正交继续迭代(2.3 候选 = EC-E 数据层,可先行)。
+
+### 验证
+
+- 新件 `pretender-gate.e2e.js` 31 断言红绿双证:红跑(旧后端)全局收件箱特性缺失 FAIL 级联;绿跑 ALL PASS——(a) 全局收件箱出现/决策后消失/403/counts 分型;(b) 五态全真数据驱动(dispatching/needs_you/done/stopped/running/quick_ask)+ fromCard≡fromSnapshot + sources 证据;(c) 四旅程数据面(单任务结果章+回滚引用、长任务游标+用量、多 Agent runs digest+run 游标、Quick Ask 显式 kind 不进任务列表);(d) 静态锁 9 条。
+- 回归族全绿:interventions-persist / interventions-pool(另见 flake 记录)/ missions-readmodel / mission-result / meta-guard / frontend-domains.static;facts.json e2e 173->174;版本保持 2.2.0。
+- 冻树全量门(载荷修复后复跑)**168 pass / 0 fail / 0 flaky / 6 live-skip**。
+- **flake 记录**:interventions-pool 回归首轮一次性崩溃(未捕获异常,live 工作流时序),随后 3 连跑 ALL PASS,判定偶发时序 flake 非本波引入,已在案。
+
+### 待续
+
+- 若所有者拍板 GO:按评审 §5 冻结 Pretender 3.0 范围/兼容策略/时间表(P1 schema 冻结文书先行:mission.id 主键决策——「一单多会话」目标与当前 1:1 投影的差距)。
+- Escapade 线:2.3 发布门评估(EC-E 三切片 + 71/71b + 本波打包)。
+
+
 

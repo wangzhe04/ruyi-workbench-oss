@@ -58,6 +58,8 @@ const PAYLOAD_FILES = [
   'app/public/js/interaction-prompts.js',
   'app/public/js/tool-runtime.js',
   'app/public/js/workspace-preferences.js',
+  // 第56波:任务单五态派生纯函数(Pretender P0;PoC 与将来新壳层共用,须随离线包发布)
+  'app/public/js/mission-state.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',

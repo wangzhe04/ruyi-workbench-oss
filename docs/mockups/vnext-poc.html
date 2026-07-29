@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>交办台 PoC · 真实数据(第56波 Pretender 立项门 P0)</title>
+<!--
+  交办台(Dispatch Desk)真实数据概念验证 —— 第56波 Pretender 立项门 P0。
+  用法:先用浏览器打开一次工作台拿到 token,然后
+    file:///.../docs/mockups/vnext-poc.html?port=8765&token=<token>
+  全部数据来自运行中的 Escapade 实例的【真实只读 API】(70-72波+本波):
+    GET /api/missions          任务卡片(五态派生输入)
+    GET /api/missions/:id      任务单快照(验收/成果/变更/检查点/不可逆账/结果章)
+    GET /api/interventions     全局「需要你」收件箱(跨会话 pending)
+    GET /api/sessions          速问逃生舱(kind=quick_ask)
+  五态派生纯函数单一来源:ruyi-workbench/app/public/js/mission-state.js(相对引用,不复制逻辑)。
+  本页不写入任何状态(纯 GET),决策/回滚动作一律回经典壳层 —— 概念稿:PoC 不提前发布 Pretender 品牌。
+-->
+<style>
+  :root { --qinghua:#2b5b8a; --qinghua-dim:#e8f0f7; --liujin:#c9a227; --liujin-bg:#fbf3dc; --ink:#1c2b3a; --mut:#6b7c8d; --line:#d8e2ec; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.6 "Microsoft YaHei", system-ui, sans-serif; color:var(--ink); background:#f6f8fa; }
+  header { display:flex; align-items:center; gap:16px; padding:10px 18px; background:var(--qinghua); color:#fff; }
+  header .brand { font-size:17px; font-weight:700; letter-spacing:1px; }
+  header .fact { font-size:12px; opacity:.85; }
+  header .bell { margin-left:auto; background:rgba(255,255,255,.14); border:none; color:#fff; border-radius:18px; padding:5px 14px; cursor:pointer; font-size:13px; }
+  header .bell.gold { background:var(--liujin); color:#3a2f05; font-weight:700; animation:pulse 1.6s infinite; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 6px rgba(201,162,39,.25); } }
+  .layout { display:flex; min-height:calc(100vh - 46px); }
+  .dock { width:76px; background:#fff; border-right:1px solid var(--line); padding:12px 6px; display:flex; flex-direction:column; gap:12px; align-items:center; }
+  .seal { width:52px; text-align:center; cursor:pointer; }
+  .seal .ring { width:44px; height:44px; margin:0 auto; border-radius:50%; border:3px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:700; color:var(--qinghua); background:#fff; }
+  .seal .cap { font-size:10px; color:var(--mut); margin-top:3px; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .seal.running .ring { border-color:var(--qinghua); }
+  .seal.needs_you .ring { border-color:var(--liujin); animation:pulse 1.6s infinite; }
+  .seal.done .ring { border-color:#9db8cd; color:#9db8cd; }
+  .seal.stopped .ring { border-style:dashed; color:var(--mut); }
+  .seal.dispatching .ring { border-color:#7fa8cc; border-style:dotted; }
+  .seal.quick_ask .ring { border-color:#cfd9e2; color:var(--mut); font-weight:400; }
+  .seal.sel .ring { outline:2px solid var(--qinghua); outline-offset:2px; }
+  main { flex:1; padding:20px 26px; }
+  h2 { margin:0 0 4px; font-size:19px; }
+  .state-pill { display:inline-block; border-radius:12px; padding:2px 12px; font-size:12px; font-weight:700; background:var(--qinghua-dim); color:var(--qinghua); }
+  .state-pill.needs_you { background:var(--liujin-bg); color:#8a6d10; }
+  .state-pill.done { background:#e7f0e9; color:#3d7a4d; }
+  .state-pill.stopped { background:#eef0f2; color:var(--mut); }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 18px; margin-top:14px; }
+  .panel h3 { margin:0 0 8px; font-size:14px; color:var(--qinghua); }
+  .kv { color:var(--mut); font-size:12px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  td, th { text-align:left; padding:4px 8px; border-bottom:1px solid #eef2f6; }
+  .gold-card { background:var(--liujin-bg); border:1px solid #e6d18a; border-radius:8px; padding:8px 12px; margin:6px 0; font-size:13px; }
+  .tag { font-size:11px; border-radius:8px; padding:0 7px; background:var(--qinghua-dim); color:var(--qinghua); margin-right:6px; }
+  .tag.gold { background:var(--liujin); color:#3a2f05; }
+  .irrev { color:#9a4b2d; }
+  .empty { color:var(--mut); font-size:13px; padding:8px 0; }
+  .err { color:#a33; background:#fdecec; border-radius:8px; padding:10px 14px; margin:14px 0; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">交办台 <span style="font-weight:400;font-size:12px">PoC · 真实数据</span></span>
+  <span class="fact" id="fact-src">未连接</span>
+  <button class="bell" id="bell" title="需要你(全局收件箱)">🔔 0</button>
+</header>
+<div class="layout">
+  <nav class="dock" id="dock"></nav>
+  <main id="main"><div class="empty">载入中…</div></main>
+</div>
+<script src="../../ruyi-workbench/app/public/js/mission-state.js"></script>
+<script>
+'use strict';
+const q = new URLSearchParams(location.search);
+const PORT = q.get('port') || '8765';
+const TOKEN = q.get('token') || '';
+const API = 'http://127.0.0.1:' + PORT;
+const dock = document.getElementById('dock'), main = document.getElementById('main'), bell = document.getElementById('bell');
+let selected = null, inbox = [], cards = [], quickAsks = [];
+
+async function get(p) {
+  const r = await fetch(API + p, { headers: { 'x-wcw-token': TOKEN } });
+  const j = await r.json();
+  if (!r.ok || !j || j.ok === false) throw new Error(p + ' -> ' + r.status + ' ' + ((j && j.error) || ''));
+  return j;
+}
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const escAttr = esc;
+
+async function refresh() {
+  try {
+    const [m, iv, ss] = await Promise.all([
+      get('/api/missions'), get('/api/interventions'), get('/api/sessions'),
+    ]);
+    cards = m.missions || [];
+    inbox = iv.pending || [];
+    const missionIds = new Set(cards.map(c => c.sessionId));
+    quickAsks = (ss.sessions || []).filter(s => s && (s.kind === 'quick_ask') && !missionIds.has(s.id)).slice(0, 20);
+    bell.textContent = '🔔 ' + (iv.counts ? iv.counts.total : inbox.length);
+    bell.className = 'bell' + (inbox.length ? ' gold' : '');
+    document.getElementById('fact-src').textContent = API + ' · 任务 ' + cards.length + ' · 速问 ' + quickAsks.length + ' · 需要你 ' + inbox.length;
+    renderDock();
+    renderMain();
+  } catch (e) {
+    main.innerHTML = '<div class="err">连接失败:' + esc(e.message) + '\n\n用法:vnext-poc.html?port=8765&token=<工作台 token>\n(token 在工作台「设置 → 开发者」或启动日志/runtime.json 可得)</div>';
+  }
+}
+
+function seal(item) {
+  const d = item.derived;
+  const letter = (item.title || '任').trim().slice(0, 1) || '任';
+  return '<div class="seal ' + escAttr(d.state) + (selected === item.id ? ' sel' : '') + '" data-id="' + escAttr(item.id) + '" data-kind="' + escAttr(d.state) + '" title="' + escAttr(item.title) + '&#10;' + escAttr(d.label) + '">'
+    + '<div class="ring">' + esc(letter) + '</div><div class="cap">' + esc(d.label) + '</div></div>';
+}
+function renderDock() {
+  const items = cards.map(c => ({ id: c.sessionId, title: c.title || (c.mission && c.mission.goal) || '任务', derived: MissionState.fromCard(c) }));
+  const qas = quickAsks.map(s => ({ id: s.id, title: s.title || '速问', derived: { state: 'quick_ask', label: '速问' } }));
+  dock.innerHTML = items.map(seal).join('') + (qas.length ? '<div class="kv" style="writing-mode:vertical-lr">速问</div>' + qas.map(seal).join('') : '');
+  dock.querySelectorAll('.seal').forEach(el => el.addEventListener('click', () => { selected = el.dataset.id; renderDock(); renderMain(); }));
+}
+
+async function renderMain() {
+  const qa = quickAsks.find(s => s.id === selected);
+  if (qa) {
+    main.innerHTML = '<h2>' + esc(qa.title) + ' <span class="state-pill">速问</span></h2>'
+      + '<div class="panel"><h3>Quick Ask 逃生舱</h3><div class="kv">纯问答会话,显式 kind=quick_ask —— 不硬套任务五态与收工语义(概念稿风险 #1)。完整聊天体验回经典壳层。</div></div>';
+    return;
+  }
+  const card = cards.find(c => c.sessionId === selected) || cards[0];
+  if (!card) { main.innerHTML = '<div class="empty">还没有任务单。在经典壳层 mission start 一单,或发起一个 until-done 长任务。</div>'; return; }
+  selected = card.sessionId;
+  let snap = null;
+  try { snap = (await get('/api/missions/' + encodeURIComponent(selected))).snapshot; } catch (e) { main.innerHTML = '<div class="err">' + esc(e.message) + '</div>'; return; }
+  const d = MissionState.fromSnapshot(snap);
+  const m = snap.mission || {}, acc = snap.acceptance || {}, res = snap.result || null;
+  const mine = inbox.filter(iv => iv.sessionId === selected);
+  const ch = snap.changes || { filesChanged: [], artifacts: [], commands: 0 };
+  const ivl = snap.irreversible || { total: 0, byKind: {}, items: [], legacyCommands: 0 };
+  const cp = snap.checkpoints || { entries: 0, turnSeqs: [], rollbackAvailable: false };
+  const rows = [];
+  rows.push('<h2>' + esc(snap.title || m.goal || '任务单') + ' <span class="state-pill ' + escAttr(d.state) + '">' + esc(d.label) + '</span></h2>');
+  rows.push('<div class="kv">' + esc(m.goal || '') + ' · 里程碑 ' + (acc.done || 0) + '/' + (acc.total || 0)
+    + ' · 模式 ' + esc(m.autoMode || 'off')
+    + ' · 用量 ' + ((snap.usage && snap.usage.turns) || 0) + ' 回合 / ' + ((snap.usage && snap.usage.inTok) || 0) + '+' + ((snap.usage && snap.usage.outTok) || 0) + ' tok'
+    + (res ? ' · 结果章:' + esc(res.status) + ' @ ' + esc((res.finishedAt || '').slice(0, 19)) : '') + '</div>');
+  // 需要你
+  rows.push('<div class="panel"><h3>需要你(' + mine.length + ')</h3>' + (mine.length ? mine.map(iv =>
+    '<div class="gold-card"><span class="tag gold">' + esc(iv.type) + '</span>' + esc(iv.toolName || iv.task || iv.id)
+    + (iv.tier ? ' <span class="tag">' + esc(iv.tier) + '</span>' : '') + (iv.revertible ? ' <span class="tag">可撤销</span>' : '')
+    + ' <span class="kv">' + esc((iv.requestedAt || '').slice(11, 19)) + (iv.live ? ' · 活回合可即时决策' : ' · 无活回合(重启已安全终态的不会出现)') + ' · 决策回经典壳层</span></div>').join('')
+    : '<div class="empty">没有等你的事。</div>') + '</div>');
+  // 成果
+  rows.push('<div class="panel"><h3>成果(' + ch.artifacts.length + ')</h3>' + (ch.artifacts.length
+    ? '<table>' + ch.artifacts.map(a => '<tr><td>' + esc(a.path) + '</td><td class="kv">' + esc(a.kind) + ' · 回合 ' + a.turnSeq + '</td></tr>').join('') + '</table>'
+    : '<div class="empty">尚无产物。</div>') + '</div>');
+  // 台账(变更 + 不可逆账)
+  rows.push('<div class="panel"><h3>台账(变更 ' + ch.filesChanged.length + ' · 命令 ' + ch.commands + ')</h3>'
+    + (ch.filesChanged.length ? '<table>' + ch.filesChanged.map(f =>
+      '<tr><td>' + esc(f.path) + '</td><td class="kv">' + esc(f.op) + '</td><td>' + (f.revertible ? '<span class="tag">可回退</span>' : '<span class="tag irrev">不可自动撤销</span>') + '</td></tr>').join('') + '</table>' : '<div class="empty">无文件变更。</div>')
+    + '<h3 style="margin-top:10px">不可逆操作账(' + ivl.total + (ivl.legacyCommands ? ' + 旧回合 ' + ivl.legacyCommands + ' 条无明细' : '') + ')</h3>'
+    + (ivl.items.length ? '<table>' + ivl.items.slice(-10).map(x =>
+      '<tr><td class="irrev">' + esc(x.kind) + '</td><td>' + esc(x.name) + '</td><td class="kv">' + esc(x.detail) + '</td><td class="kv">回合 ' + x.turnSeq + (x.ok ? '' : ' · 失败已记账') + '</td></tr>').join('') + '</table>' : '<div class="empty">无记录。</div>') + '</div>');
+  // 反悔柄
+  rows.push('<div class="panel"><h3>反悔柄</h3><div class="kv">检查点 ' + cp.entries + ' 条 · 覆盖回合 ' + esc((cp.turnSeqs || []).join(', ') || '无')
+    + ' · ' + (cp.rollbackAvailable ? '✅ 可回滚(单步/整单走经典壳层 POST /api/checkpoints/rollback)' : '— 无可用检查点') + '</div></div>');
+  main.innerHTML = rows.join('');
+}
+
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

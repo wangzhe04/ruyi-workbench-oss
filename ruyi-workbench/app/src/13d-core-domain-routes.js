@@ -99,6 +99,7 @@ async function buildMissionCard(head, runs) {
     sessionId: head.id, title: head.title || '', cwd: head.cwd || '', kind: 'mission',
     createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
     status: missionCardStatus(m),
+    activeTurn: activeChildren.has(head.id), // 第56波:活回合标志(列表卡片五态派生用)
     mission: {
       goal: m.goal || '', createdAt: m.createdAt || '', updatedAt: m.updatedAt || '',
       autoMode: m.autoMode || 'off',
@@ -200,6 +201,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         sessionId, kind: sessionKind(session), title: session.title || '', summary: session.summary || '',
         cwd: session.cwd || '', createdAt: session.createdAt || '', updatedAt: session.updatedAt || '',
         status: missionCardStatus(session.mission),
+        activeTurn: activeChildren.has(sessionId), // 第56波:活回合标志(五态派生的「进行中」权威信号之一,与 run.live 同型内存叠加)
         mission: session.mission || null,
         acceptance,
         runs: runs.map(missionRunDigest),
@@ -219,13 +221,47 @@ async function handleMissionsApiRoutes(req, res, pathname) {
 }
 
 async function handleInterventionApiRoutes(req, res, pathname) {
+  // 第56波(Pretender 立项门 / EC-E 363):全局「需要你」最小聚合入口 —— 跨会话 pending Intervention 收件箱。
+  // 只读派生:扫 *.interventions.ndjson 折叠取 pending(注册/决策/超时/清理/重启终态化全在旁路账里);
+  // pool 型由 71b 注册 + boot 对账覆盖,append 落盘延迟窗为最终一致(与 13d missionPendingCounts 同立场)。
+  // 按 requestedAt 升序(FIFO 收件箱:最先等你的在最前)。
+  if (req.method === 'GET' && pathname === '/api/interventions') {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const pending = [];
+    const counts = { permission: 0, question: 0, plan: 0, pool: 0, total: 0 };
+    let files = [];
+    try { files = await fsp.readdir(paths.sessions); } catch { files = []; }
+    for (const f of files) {
+      if (!f.endsWith('.interventions.ndjson')) continue;
+      const sessionId = f.slice(0, -'.interventions.ndjson'.length);
+      if (!/^sess_[A-Za-z0-9_-]+$/.test(sessionId)) continue;
+      const ivs = await readInterventions(sessionId).catch(() => []);
+      for (const iv of ivs) {
+        if (!iv || iv.status !== 'pending') continue;
+        pending.push({
+          id: iv.id, type: iv.type || '', sessionId,
+          requestedAt: iv.requestedAt || '',
+          toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
+          runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
+          live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
+        });
+        counts.total++;
+        if (iv.type === 'permission') counts.permission++;
+        else if (iv.type === 'question') counts.question++;
+        else if (iv.type === 'plan') counts.plan++;
+        else if (iv.type === 'pool') counts.pool++;
+      }
+    }
+    pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
+    return send(res, json({ ok: true, pending, counts }));
+  }
   // 第71波:会话的持久化 Intervention 只读派生(注册/决策/超时/清理/重启终态化的旁路记录,02 NDJSON)。
   if (req.method === 'GET' && pathname.startsWith('/api/interventions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const interventions = await readInterventions(sessionId).catch(() => []);
-    const counts = { permission: 0, question: 0, plan: 0, pending: 0, resolved: 0 };
+    const counts = { permission: 0, question: 0, plan: 0, pool: 0, pending: 0, resolved: 0 };
     for (const iv of interventions) {
       if (!iv) continue;
       if (iv.status === 'pending') {
@@ -233,6 +269,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
         if (iv.type === 'permission') counts.permission++;
         else if (iv.type === 'question') counts.question++;
         else if (iv.type === 'plan') counts.plan++;
+        else if (iv.type === 'pool') counts.pool++;
       } else counts.resolved++;
     }
     return send(res, json({ ok: true, sessionId, interventions, counts }));
