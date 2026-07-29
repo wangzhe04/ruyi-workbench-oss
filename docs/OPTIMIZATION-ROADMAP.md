@@ -1223,24 +1223,25 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 剩余发布动作(一次发布提交):①版本三角 bump 2.2.0→2.3.0(package.json / package-lock / 00-boot.js / facts 重生成)+ README 标签跟进 + CHANGELOG 补全改题;②重建 + build --check;③门复跑(冻树串行 + dryrun --pkg);④`v2.3.0` tag + 离线包 + 推送。拍板后执行。
 
 
-## Pretender 规划拍板(2026-07-29,非波次·规划文书)
+## Pretender 规划拍板与四轮修订(2026-07-29–30,非波次·规划文书)
 
-第56波评审 GO(有条件 4 条)后,所有者拍板 Pretender 详细规划,成文 **`docs/PRETENDER-PLAN.md` v2**。三项首轮决策 + 两项评审修订决策定案:
+第56波评审 GO(有条件4条)后,所有者拍板 Pretender 详细规划;后经外部评审、多代理对抗审判与契约/门语义复核修订至 **`docs/PRETENDER-PLAN.md` v4**。当前3.0交付线=P1 第74、75a–75c波 → P2 第76–80波 → P3 第81–85波 → P4 第86–87波,共 **16个切片**;经典壳退出移至 post-3.0 强制评审线。
 
 - **D1 · mission.id 主键 = 方案 B**:引入 `missionId` 稳定主键,session 主键/文件布局不动,新会话 `missionId=sessionId` 派生(1:1),存量只读派生不回写;schema/API 从第一天以 missionId 为对外名。
 - **D2 · 叙事镜头 = 做**:P3-83 交付 v1 规则版(工具动词人话化+时间线,每句可展开原始卡,纯函数双导出;不调模型摘要)。
 - **D3 · 启动顺序 = 先发 2.3.0**:P1(第74波)启动前置门 = v2.3.0 tag 推送完成。
-- **F1 · 目标 1 重述(v2)**:「一单多会话 1:N」正式移 3.1;3.0 目标 1 = 稳定 Mission 身份。外部评审指出目标写 1:N、交付 1:1 两头占,核实属实后拍板重述;missionId 方案使 3.1 扩展零迁移。
+- **F1 · 目标 1 重述**:「一单多会话1:N」正式移3.1;3.0目标1=稳定Mission身份。存量身份无需重映射,但3.1仍需Mission→sessions解析、共享边界与存储升级,不得宣称结构零迁移。
 - **F2 · 降级序冻结(v2)**:先砍本地通知→叙事 v1→班组图;回来摘要/档案/统一契约/规模门/反悔柄/收工卡永不砍。
+- **S1/S2 · 决策契约**:`(missionId,interventionId)`+version CAS是权威状态约束,idempotencyKey只标识同请求重试;状态含applying崩溃中间态;经典四端点与新契约必须调用同一command core。
+- **S3 · Mission changeSeq**:以持久单调变化序列统一回来摘要、ETag、分页revision与索引失效;源cursor只作溯源证据,lastSeenRevision独立存于本机UI-state。
 
-**v2 修订要点**(外部评审,事实指控经主会话亲验代码全部属实):决策语义四类不统一(question 409/permission 404/plan 200+ok:false/pool 另一套 409)→ 第75波新增统一决策契约 `POST /api/interventions/:id/decision`(重复决策全类型统一 409);读模型每请求全量 readdir → 新增**第75b波规模门**(物化索引/分页/NDJSON 压缩/大数据压力门);波次算术 14→**15 波**(74–87 含 75b),原第88波移 post-3.0 退出线;安全/i18n/a11y 改为**每波 DoD**;门语义三分(Data/Product/Release Ready)+ 北极星四指标;新增「回来摘要 lastSeenCursor」与「档案视图」(第79波)、Mission 控制面(74 语义/84 动作)、Intervention 类型全集冻结(conflict/stall/budget 保留位无生产者不暗示可用)、本地通知 flag(83,降级序首砍)。
+**v4 收口要点**:原第75波拆为75a权威存储原语/missionId/C4、75b统一command core、75c索引分页与规模门;Intervention以pending→applying→terminal CAS和失败注入定义崩溃语义;旧端点强制适配到同一core;复合lastSeenCursor改为Mission changeSeq;门细化为Projection/Data&Contract/Preview/Product/Release Ready;安全/i18n/a11y为每波DoD;新增回来摘要、档案、Mission控制面与可降级本地通知。
 
-波次路线 v2:P1 第74/75/75b波 → P2 第76–80波 → P3 第81–85波 → P4 第86–87波(3.0 交付线 15 波)→ post-3.0 退出线。工期区间估 3–5 周,不外推纯后端波次速度。
+工期净估 **4–7周**到87波,从v2.3.0 tag推送完成起算,含每波DoD乘数与约30% dogfood/Preview反馈/缺陷缓冲。post-3.0退出以第2个公开Release和3.0.0后6个月孰早为强制评审日:门绿退出;有P0/P1红项则恢复经典默认或阻断发布整改,不得按日历强删或静默延期。
 
 ### 待续
 
 - 执行 2.3.0 发布动作(第73波 §结论 四步)——下一动作;
-- 其后按 PRETENDER-PLAN v2 进第74波(P1 schema 冻结文书 + threat model)。
-
+- 其后按 PRETENDER-PLAN v4 进第74波(P1 schema/状态协议/威胁模型与75c阈值冻结文书)。
 
 
