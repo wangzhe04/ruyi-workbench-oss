@@ -1117,5 +1117,28 @@ EC-E(Mission Ready,候选 2.3)开工,按三波切片:70=聚合读模型(本波) 
 
 ### 待续
 
-- task-pool proposed 统一进 Intervention(71b):当前 task-pool 已随 run 快照持久化但 paused run 不可操作(13d:488 要求 live runtime),71b 统一四源 + 残留 pending 叙事段清理。
+- ~~task-pool proposed 统一进 Intervention(71b)~~ → 已交付,见下。
 - 第72波:任务结果模型。
+
+## 第71b波 EC-E 切片二补钉 · task-pool 统一进 Intervention + 残留 pending 叙事段清理(2026-07-29)
+
+第71波留下的两条尾巴收口:①池提案(propose_task)是唯一未旁路记账的未决事项,missionPendingCounts 的 pool 仍扫 run 快照,四源读形不统一;②permission/plan/question 叙事段在重启/中断后永远显示「待处理」——内存注册表已空、决策永远到不了,段却无人终态化(71波只治了 Intervention 账,没治展示层残留)。
+
+### 交付
+
+- **池提案旁路记账(第四类 type:'pool')**:09 proposeTaskImpl 对仍待批的提案 registerIntervention(带 runId;auto-capped 当场物化的从未 pending,不注册);13d pool_approve/pool_reject settle approved/rejected;09 收尾与 08 boot 中断两处 expire 循环 settle 'expired'。**不改池执行语义**——审批/物化/宽限窗/链深上限原样不动,Intervention 仍是纯旁路。
+- **pool 的重启语义分流(与前三类不同)**:池提案随 run 快照存活,paused run 恢复后仍可审批——一刀切 cancelled_restart 会与快照里的 proposed 直接矛盾。故 markInterruptedInterventions 对 pool 型按 run 状态分流:paused → 保留 pending;run 终态/不存在 → cancelled_restart(boot 顺序保证 markInterruptedAgentRuns 先跑,中断 run 的提案已先 settle expired)。
+- **存量对账补登记(08 boot)**:71b 前落盘的 paused run 可能有 proposed 提案但无 Intervention 记录——boot 收集后按会话读一次折叠账,缺 id 补登记(backfilled:true,幂等)。
+- **missionPendingCounts 四源统一(13d)**:pool 改从 Intervention NDJSON 现算;run 快照扫描仅作并集兜底(fire-and-forget append 的落盘延迟窗 + 对账前存量),按 id 去重不双计。
+- **残留 pending 叙事段清理者(02 healStalePendingSegments)**:loadSession 全量装载时惰性修复——段的 id 不在活注册表(04 pendingPermissions/pendingQuestions/pendingPlans)→ 决策不可能再到达,诚实标 'cancelled' + note(前端 pill 词汇已有 cancelled,零前端改动)。覆盖 71b 前存量段(无 Intervention 记录)与 71b 后段;permission 的 'paused'(存档暂停)一并终态化。竞态防护:activeChildren(活回合)/ turnSettlers(dying turn 收尾窗,第69波 rewind 同款判据)内绝不清理。惰性而非 boot 全扫:messages 正文是大文件,boot 扫全部会话代价不可控。
+
+### 验证
+
+- 新件 `interventions-pool.e2e.js` 41 断言红绿双证:红跑 26 处失败(特性缺失:注册/结算/对账/清理/静态锁),绿跑 ALL PASS——(a) live 工作流 propose→pending 注册、approve/reject→approved/rejected、宽限窗到期→expired(auto)、pending.pool 3→0;(b) boot 对账补登记、paused 分流保留、中断 expire 结算、孤儿 cancelled_restart、四源统一计数、并集兜底、叙事段清理 + 落盘持久 + 已终态段不动;(s) 静态锁 10 条。
+- 回归族全绿:interventions-persist(71波)/ missions-readmodel(70波)/ team-pool-mailbox(池行为)/ agent-deadlock-watchdog(pause/resume);unit 152/152;facts.static / manifest-ranges.static 全绿;facts.json e2e 171->172;版本保持 2.2.0。
+- 冻树全量门(二跑)**166 pass / 0 fail / 0 flaky / 6 live-skip**;首跑 overlay-update-core 1 红(C1 临时部署启动失败级联,与第67波同型串行干扰,单独跑 ALL PASS,二跑串行亦绿,非本波引入)。
+
+### 待续
+
+- 第72波:任务结果模型(验收状态/成果引用/未完成项/变更摘要/真实回滚引用/不可逆正向账)。
+

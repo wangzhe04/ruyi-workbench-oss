@@ -286,6 +286,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         }
       }
       try { throttledSaveRun(); } catch { /* 记账失败不阻断提案 */ }
+      // 71b: 仍待审批的提案旁路注册 Intervention(type 'pool')——auto-capped 当场物化的从未 pending,不注册。
+      if (item.status === 'proposed') registerIntervention(run.sessionId, 'pool', item.id, { runId: run.id, proposedBy: String(proposerId || ''), task: item.task.slice(0, 500) });
       const note = item.status === 'materialized'
         ? `已自动批准并加入工作流(节点 ${item.resultNodeId})。你无需等待,继续完成自己的任务。`
         : '已提交待审批(poolId=' + item.id + ')。你无需等待,继续完成自己的任务;审批通过后系统会作为新节点自动执行。';
@@ -715,7 +717,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // 团队模式 v2 (A2): 收尾第一步原子置 closing——此后审批/提案入口一律 409(见 pool_approve 与 proposeTaskImpl),
   // 杜绝"物化出永远 queued 的孤儿节点而 run 已记 succeeded"的竞态。同步执行,与下面的 await 之间无缝隙。
   runtime.closing = true;
-  for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = p.decidedBy || 'auto'; p.decidedAt = nowIso(); }
+  for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = p.decidedBy || 'auto'; p.decidedAt = nowIso(); settleIntervention(run.sessionId, p.id, 'expired', { decidedBy: p.decidedBy || 'auto', note: 'run finalized' }); }
   // 收尾时把所有还未投递的邮件标 dropped(目标从未 drain,如被 skip/block 的节点)——诚实标记。
   try { for (const [, q] of runtime.mailQueues) for (const m of q) { if (m && m.entry && !m.entry.deliveredAt && !m.entry.dropped) m.entry.dropped = true; } } catch {}
   // 团队模式 v2 (A3/A5.4): 物化的任务池帮手节点缺省 failurePolicy:'continue'——它失败是"接受的降级"(帮手没帮上),

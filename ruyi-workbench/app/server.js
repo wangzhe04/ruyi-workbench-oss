@@ -1999,8 +1999,10 @@ function sessionBodyPaths(id) {
 // -- 无审计、无终态化,/api/missions 的 missionPendingCounts(13d:59)前三类读空 Map 归零,与前端 stale 卡片
 // 不一致。本波把它们旁路持久化为 Intervention 记录:注册时 append 一行(pending),决策/超时/清理时 append 一行
 // (终态),读时按 id 后写胜折叠。**不参与 promise resolve 链** -- 超时自动拒绝、权限默认不放宽语义完全不动,
-// Intervention 只是审计/读模型/重启终态化的旁路记录(执行权威源仍是内存 Map)。task-pool proposed 已随 run
-// 快照持久化(08:380 标 expired / paused 存活但不可操作),71b 再统一进 Intervention。
+// Intervention 只是审计/读模型/重启终态化的旁路记录(执行权威源仍是内存 Map)。
+// 第71b波:task-pool proposed 统一进来(第四类 type:'pool')——提案注册/审批/拒绝/过期全部旁路记账,
+// missionPendingCounts 四源统一从本店读;pool 与前三类的重启语义不同(提案随 run 快照存活,paused run
+// 恢复后仍可审批),故 markInterruptedInterventions 对 pool 型按 run 状态分流(见下),不一刀切 cancelled_restart。
 //
 // 崩溃语义:同 messages.ndjson -- append 永远「整行 + 尾随 \n」一次写,撕裂尾行(无 \n 终结)读取时 JSON.parse
 // 失败被跳过(append-only,丢一条审计记录不致命:执行语义走内存 Map,读模型少一条不阻断)。后写胜折叠保证
@@ -2022,7 +2024,7 @@ function appendIntervention(sessionId, record) {
   interventionWriteChains.set(sid, next);
   next.then(() => { if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid); });
 }
-// 注册一个 pending Intervention。type: 'permission'|'question'|'plan'。ivId 复用 requestId/questionId/planId(执行权威源的同一 id)。
+// 注册一个 pending Intervention。type: 'permission'|'question'|'plan'|'pool'(71b)。ivId 复用 requestId/questionId/planId/poolId(执行权威源的同一 id)。
 function registerIntervention(sessionId, type, ivId, extra) {
   appendIntervention(sessionId, { id: String(ivId || ''), type, sessionId: String(sessionId || ''), status: 'pending', requestedAt: nowIso(), decidedAt: '', decidedBy: '', ...(extra || {}) });
 }
@@ -2065,7 +2067,17 @@ async function markInterruptedInterventions() {
     const ivs = await readInterventions(sessionId).catch(() => []);
     const pending = ivs.filter(iv => iv && iv.status === 'pending');
     if (!pending.length) continue;
+    // 71b: pool 型 pending 不一刀切 —— 池提案随 run 快照存活,paused run 恢复后仍可审批(13d pool_approve),
+    // 标 cancelled_restart 会与 run 快照里的 proposed 直接矛盾(读模型说已取消、实际仍可决策 = 撒谎)。
+    // interrupted/终态 run 的提案由 markInterruptedAgentRuns(boot 先于本函数,13:961)顺手 settle 'expired';
+    // 这里只需兜「run 非 paused 但 settle 丢失」(崩溃窗口)与「run 已不存在」的孤儿。paused → 保留 pending(诚实)。
+    let poolRuns = null;
     for (const iv of pending) {
+      if (iv.type === 'pool') {
+        if (!poolRuns) poolRuns = await listAgentRuns(sessionId).catch(() => []);
+        const run = poolRuns.find(r => r && r.id === iv.runId);
+        if (run && run.status === 'paused') continue; // 恢复后可决策,保留 pending
+      }
       appendIntervention(sessionId, { id: iv.id, sessionId, type: iv.type || '', status: 'cancelled_restart', decidedAt: stamp, decidedBy: 'restart' });
     }
   }
@@ -3007,6 +3019,40 @@ function repairProviderHistoryPairing(history) {
 // v1.9 存储 v2:头(storageVersion:2)从两个 NDJSON 正文装配 messages/providerHistory;正文缺失/坏 →
 // v1bak 回退(迁移备份),无 v1bak 才按损坏隔离。legacy 单文件首次加载后打非枚举 __v1bakPending 标记,
 // 由 saveSession 完成「先备份 v1bak、再落 v2」的懒迁移(对调用方完全透明)。
+// ── 第71b波:残留 pending 叙事段清理者 ─────────────────────────────────────────────────────────
+// permission/plan/question 叙事段在回合流式期以 status:'pending'(权限另有 'paused' 存档暂停)落盘(上方段构建器)。
+// 进程重启/回合中断后,内存待决注册表(04 pendingPermissions/pendingQuestions/pendingPlans)已清空,决策永远
+// 到不了 —— 段却在每次重进会话时永远显示「待处理」只读 pill(与 Intervention 的 cancelled_restart 同源的残留)。
+// 本清理器在 loadSession 全量装载时惰性修复:段的 id 不在活注册表 → 决策不可能再到达,诚实标终态 'cancelled'
+// + note(前端 pill 词汇已有 cancelled,见 chat-static-renderer narrativeStateLabel)。惰性而非 boot 全扫:
+// messages 正文是大文件,boot 扫全部会话代价不可控;loadSession 时该会话反正要被读,一趟摊销。
+// 覆盖 71b 前存量段(无 Intervention 记录)与 71b 后段(boot 已 cancel_restart 但段未动)——活注册表是唯一判据。
+// 竞态防护(调用方执行):活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款)
+// 内绝不调用 —— 此时磁盘 pending 可能是「决策在内存、未落盘」的活段,误标会与回合收尾 save 互相覆盖。
+function healStalePendingSegments(session) {
+  if (!session || !Array.isArray(session.messages)) return false;
+  let healed = false;
+  const note = '应用重启或回合中断,该请求已失效;如需请重新发起。';
+  for (const msg of session.messages) {
+    const segs = msg && Array.isArray(msg.segments) ? msg.segments : null;
+    if (!segs) continue;
+    for (const seg of segs) {
+      if (!seg || typeof seg !== 'object') continue;
+      if (seg.type === 'permission' && (seg.status === 'pending' || seg.status === 'paused')) {
+        if (seg.requestId && pendingPermissions.has(String(seg.requestId))) continue; // 活待决:决策仍会到达
+        seg.status = 'cancelled'; seg.note = note; healed = true;
+      } else if (seg.type === 'plan' && seg.status === 'pending') {
+        if (seg.planId && pendingPlans.has(String(seg.planId))) continue;
+        seg.status = 'cancelled'; seg.note = note; healed = true;
+      } else if (seg.type === 'question' && seg.status === 'pending') {
+        if (seg.questionId && pendingQuestions.has(String(seg.questionId))) continue;
+        seg.status = 'cancelled'; seg.note = note; healed = true;
+      }
+    }
+  }
+  return healed;
+}
+
 async function loadSession(id) {
   let raw;
   try {
@@ -3080,11 +3126,18 @@ async function loadSession(id) {
   }
   const { session, changed } = normalizeSession(parsed);
   if (session.id == null) session.id = id;
+  // 71b: 惰性清理残留 pending 叙事段(见 healStalePendingSegments 头注)。竞态防护:活回合(activeChildren)
+  // 或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)内跳过 —— 此时磁盘 pending 可能是活段,
+  // 且本会话的收尾 save 会整份重写正文,清理既多余又有互相覆盖风险;下次数 truly idle 的装载再清。
+  let healed = false;
+  if (!activeChildren.has(session.id) && !turnSettlers.has(session.id)) {
+    try { healed = healStalePendingSegments(session); } catch { healed = false; }
+  }
   if (legacy) {
     // 懒迁移:标记后无条件 save —— 老会话首次被真正使用时一次性转 v2,之后读写全走新格式。
     Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
     await saveSession(session).catch(() => {});
-  } else if (changed) await saveSession(session).catch(() => {});
+  } else if (changed || healed) await saveSession(session).catch(() => {});
   return session;
 }
 
@@ -11206,6 +11259,8 @@ async function markInterruptedAgentRuns() {
     const runs = await listAgentRuns(dirent.name).catch(() => []);
     for (const run of runs) if (run) workItems.push(run);
   });
+  // 71b: paused run 的 proposed 池提案在 71b 前没有 Intervention 记录 —— 收集后统一对账补登记(见 mapPool 后)。
+  const legacyPoolProposed = []; // { sessionId, runId, item }
   await mapPool(workItems, 4, async run => {
       // 团队模式 v2: waiting_pool(收尾宽限窗)也是活跃 live 态,进程重启后同样是"未清理的孤儿",一并标中断。
       // 对抗轮 P3: paused run 不标中断(resume 仍可续跑),但内存邮箱同样已随进程消失——未投递消息补标 dropped,
@@ -11213,6 +11268,8 @@ async function markInterruptedAgentRuns() {
       if (run.status === 'paused') {
         let dirty = false;
         for (const m of (Array.isArray(run.messages) ? run.messages : [])) if (m && !m.deliveredAt && !m.dropped) { m.dropped = true; dirty = true; }
+        // 71b: proposed 提案在 paused run 里恢复后仍可审批 —— 收集起来,稍后对账补登记 Intervention(幂等)。
+        for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') legacyPoolProposed.push({ sessionId: run.sessionId, runId: run.id, item: p });
         // 29b 顺手修(测绘发现): boot 期间快照写失败(磁盘满/杀软锁)此前会把整个 startServer 炸掉 ——
         // 诚实标记是 best-effort,boot 必须活着;持久化降级横幅由 saveAgentRun 内部计数兜底。下同。
         if (dirty) await saveAgentRun(run).catch(() => {});
@@ -11220,7 +11277,7 @@ async function markInterruptedAgentRuns() {
       }
       if (run.status !== 'running' && run.status !== 'waiting_pool') return;
       run.status = 'interrupted'; run.interruptedAt = nowIso(); run.poolGraceUntil = 0;
-      for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = 'auto'; p.decidedAt = nowIso(); }
+      for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = 'auto'; p.decidedAt = nowIso(); settleIntervention(run.sessionId, p.id, 'expired', { decidedBy: 'auto', note: 'run interrupted at boot' }); }
       // 团队模式 v2 (P3-1): 与池提案 expire 对称——进程重启中断的 run,把从未投递(deliveredAt:null)且未标记的消息补标
       // dropped(内存邮箱队列已随进程消失,这些消息不可能再投递,诚实标记)。
       for (const m of (Array.isArray(run.messages) ? run.messages : [])) if (m && !m.deliveredAt && !m.dropped) m.dropped = true;
@@ -11240,6 +11297,23 @@ async function markInterruptedAgentRuns() {
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
   });
+  // 71b: 存量对账 —— 71b 前落盘的 paused run 可能有 proposed 池提案但无 Intervention 记录(当时池未接入旁路)。
+  // boot 补登记(append-only,幂等:已有记录的 id 跳过),否则 missionPendingCounts 统一从 Intervention 读池未决后
+  // 会漏掉这些存量提案。登记后由 markInterruptedInterventions 的 pool 分流保留 pending(run paused,恢复后可审批)。
+  const backfillBySession = new Map();
+  for (const e of legacyPoolProposed) {
+    if (!backfillBySession.has(e.sessionId)) backfillBySession.set(e.sessionId, []);
+    backfillBySession.get(e.sessionId).push(e);
+  }
+  for (const [sid, entries] of backfillBySession) {
+    const ivs = await readInterventions(sid).catch(() => []);
+    const known = new Set(ivs.map(iv => String(iv && iv.id || '')));
+    for (const e of entries) {
+      const pid = String(e.item && e.item.id || '');
+      if (!pid || known.has(pid)) continue;
+      registerIntervention(sid, 'pool', pid, { runId: String(e.runId || ''), proposedBy: String(e.item.proposedBy || ''), task: String(e.item.task || '').slice(0, 500), backfilled: true });
+    }
+  }
 }
 
 async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail }) {
@@ -12810,6 +12884,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         }
       }
       try { throttledSaveRun(); } catch { /* 记账失败不阻断提案 */ }
+      // 71b: 仍待审批的提案旁路注册 Intervention(type 'pool')——auto-capped 当场物化的从未 pending,不注册。
+      if (item.status === 'proposed') registerIntervention(run.sessionId, 'pool', item.id, { runId: run.id, proposedBy: String(proposerId || ''), task: item.task.slice(0, 500) });
       const note = item.status === 'materialized'
         ? `已自动批准并加入工作流(节点 ${item.resultNodeId})。你无需等待,继续完成自己的任务。`
         : '已提交待审批(poolId=' + item.id + ')。你无需等待,继续完成自己的任务;审批通过后系统会作为新节点自动执行。';
@@ -13239,7 +13315,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // 团队模式 v2 (A2): 收尾第一步原子置 closing——此后审批/提案入口一律 409(见 pool_approve 与 proposeTaskImpl),
   // 杜绝"物化出永远 queued 的孤儿节点而 run 已记 succeeded"的竞态。同步执行,与下面的 await 之间无缝隙。
   runtime.closing = true;
-  for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = p.decidedBy || 'auto'; p.decidedAt = nowIso(); }
+  for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = p.decidedBy || 'auto'; p.decidedAt = nowIso(); settleIntervention(run.sessionId, p.id, 'expired', { decidedBy: p.decidedBy || 'auto', note: 'run finalized' }); }
   // 收尾时把所有还未投递的邮件标 dropped(目标从未 drain,如被 skip/block 的节点)——诚实标记。
   try { for (const [, q] of runtime.mailQueues) for (const m of q) { if (m && m.entry && !m.entry.deliveredAt && !m.entry.dropped) m.entry.dropped = true; } } catch {}
   // 团队模式 v2 (A3/A5.4): 物化的任务池帮手节点缺省 failurePolicy:'continue'——它失败是"接受的降级"(帮手没帮上),
@@ -20646,21 +20722,25 @@ function missionCardStatus(m) {
   return 'idle';
 }
 
-// 未决事项统一读形(第71波:permission/question/plan 从 session.interventions NDJSON 现算,pool 仍从 run.taskPool)。
-// 前三者此前是纯内存 Map(04-permission-runtime:191/194/199),重启即归零;现旁路持久化为 Intervention(02
-// append-only NDJSON),重启终态化(markInterruptedInterventions)后 pending 标 cancelled_restart -> 计数归零,
-// 与"无活回合=无 pending"一致。pool(task-pool proposed)71b 再统一进 Intervention。
+// 未决事项统一读形(第71b:四源统一 —— permission/question/plan/pool 全部从 session.interventions NDJSON 现算)。
+// 前三者此前是纯内存 Map(04-permission-runtime:191/194/199),重启即归零;71 波旁路持久化为 Intervention(02
+// append-only NDJSON),重启终态化(markInterruptedInterventions)后 pending 标 cancelled_restart -> 计数归零。
+// 71b 池提案统一进来:paused run 的提案恢复后仍可审批,boot 对账补登记 + markInterruptedInterventions 按 run
+// 状态分流保留 pending(见 02/08);run 快照扫描仅作并集兜底(append 落盘延迟 + 对账前存量),按 id 去重不双计。
 async function missionPendingCounts(sessionId, runs) {
   const ivs = await readInterventions(sessionId).catch(() => []);
-  let permissions = 0, questions = 0, plans = 0;
+  let permissions = 0, questions = 0, plans = 0, pool = 0;
+  const poolPendingIds = new Set();
   for (const iv of ivs) {
     if (!iv || iv.status !== 'pending') continue;
     if (iv.type === 'permission') permissions++;
     else if (iv.type === 'question') questions++;
     else if (iv.type === 'plan') plans++;
+    else if (iv.type === 'pool') { pool++; poolPendingIds.add(String(iv.id)); }
   }
-  let pool = 0;
-  for (const r of (runs || [])) for (const item of ((r && r.taskPool) || [])) if (item && item.status === 'proposed') pool++;
+  for (const r of (runs || [])) for (const item of ((r && r.taskPool) || [])) {
+    if (item && item.status === 'proposed' && !poolPendingIds.has(String(item.id))) { pool++; poolPendingIds.add(String(item.id)); }
+  }
   return { permissions, questions, plans, pool };
 }
 
@@ -21113,6 +21193,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       if (item.status !== 'proposed') return send(res, json({ ok: false, error: `该提案已处理(${item.status})` }, 409));
       if (action === 'pool_reject') {
         item.status = 'rejected'; item.decidedBy = 'user'; item.decidedAt = nowIso();
+        settleIntervention(sessionId, poolId, 'rejected', { decidedBy: 'user' }); // 71b: 旁路结算(后写胜)
         bumpRunIntervention(live.run, 'pool_reject'); // 29c
         appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'rejected', poolId, by: 'user' } }); // 29a
         await saveAgentRun(live.run);
@@ -21136,6 +21217,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const mat = materializePoolItem(live.run, item, { roleLibrary: roleLib, cwd, config: cfgRef });
       if (!mat.ok) return send(res, json({ ok: false, error: mat.error || '物化失败' }, 409));
       item.status = 'materialized'; item.decidedBy = 'user'; item.decidedAt = nowIso(); item.resultNodeId = mat.node.id;
+      settleIntervention(sessionId, poolId, 'approved', { decidedBy: 'user', nodeId: mat.node.id }); // 71b: 旁路结算(后写胜)
       bumpRunIntervention(live.run, 'pool_approve'); // 29c
       appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'materialized', poolId, by: 'user', nodeId: mat.node.id } }); // 29a
       // 团队模式 v2 (P2-1 重新武装): 物化成功 → 允许宽限窗再武装一次。窗只在有新节点物化后才能重开,而物化必消耗一条

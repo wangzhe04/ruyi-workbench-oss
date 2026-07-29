@@ -54,21 +54,25 @@ function missionCardStatus(m) {
   return 'idle';
 }
 
-// 未决事项统一读形(第71波:permission/question/plan 从 session.interventions NDJSON 现算,pool 仍从 run.taskPool)。
-// 前三者此前是纯内存 Map(04-permission-runtime:191/194/199),重启即归零;现旁路持久化为 Intervention(02
-// append-only NDJSON),重启终态化(markInterruptedInterventions)后 pending 标 cancelled_restart -> 计数归零,
-// 与"无活回合=无 pending"一致。pool(task-pool proposed)71b 再统一进 Intervention。
+// 未决事项统一读形(第71b:四源统一 —— permission/question/plan/pool 全部从 session.interventions NDJSON 现算)。
+// 前三者此前是纯内存 Map(04-permission-runtime:191/194/199),重启即归零;71 波旁路持久化为 Intervention(02
+// append-only NDJSON),重启终态化(markInterruptedInterventions)后 pending 标 cancelled_restart -> 计数归零。
+// 71b 池提案统一进来:paused run 的提案恢复后仍可审批,boot 对账补登记 + markInterruptedInterventions 按 run
+// 状态分流保留 pending(见 02/08);run 快照扫描仅作并集兜底(append 落盘延迟 + 对账前存量),按 id 去重不双计。
 async function missionPendingCounts(sessionId, runs) {
   const ivs = await readInterventions(sessionId).catch(() => []);
-  let permissions = 0, questions = 0, plans = 0;
+  let permissions = 0, questions = 0, plans = 0, pool = 0;
+  const poolPendingIds = new Set();
   for (const iv of ivs) {
     if (!iv || iv.status !== 'pending') continue;
     if (iv.type === 'permission') permissions++;
     else if (iv.type === 'question') questions++;
     else if (iv.type === 'plan') plans++;
+    else if (iv.type === 'pool') { pool++; poolPendingIds.add(String(iv.id)); }
   }
-  let pool = 0;
-  for (const r of (runs || [])) for (const item of ((r && r.taskPool) || [])) if (item && item.status === 'proposed') pool++;
+  for (const r of (runs || [])) for (const item of ((r && r.taskPool) || [])) {
+    if (item && item.status === 'proposed' && !poolPendingIds.has(String(item.id))) { pool++; poolPendingIds.add(String(item.id)); }
+  }
   return { permissions, questions, plans, pool };
 }
 
@@ -521,6 +525,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       if (item.status !== 'proposed') return send(res, json({ ok: false, error: `该提案已处理(${item.status})` }, 409));
       if (action === 'pool_reject') {
         item.status = 'rejected'; item.decidedBy = 'user'; item.decidedAt = nowIso();
+        settleIntervention(sessionId, poolId, 'rejected', { decidedBy: 'user' }); // 71b: 旁路结算(后写胜)
         bumpRunIntervention(live.run, 'pool_reject'); // 29c
         appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'rejected', poolId, by: 'user' } }); // 29a
         await saveAgentRun(live.run);
@@ -544,6 +549,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const mat = materializePoolItem(live.run, item, { roleLibrary: roleLib, cwd, config: cfgRef });
       if (!mat.ok) return send(res, json({ ok: false, error: mat.error || '物化失败' }, 409));
       item.status = 'materialized'; item.decidedBy = 'user'; item.decidedAt = nowIso(); item.resultNodeId = mat.node.id;
+      settleIntervention(sessionId, poolId, 'approved', { decidedBy: 'user', nodeId: mat.node.id }); // 71b: 旁路结算(后写胜)
       bumpRunIntervention(live.run, 'pool_approve'); // 29c
       appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'materialized', poolId, by: 'user', nodeId: mat.node.id } }); // 29a
       // 团队模式 v2 (P2-1 重新武装): 物化成功 → 允许宽限窗再武装一次。窗只在有新节点物化后才能重开,而物化必消耗一条

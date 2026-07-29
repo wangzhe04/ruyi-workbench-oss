@@ -363,6 +363,8 @@ async function markInterruptedAgentRuns() {
     const runs = await listAgentRuns(dirent.name).catch(() => []);
     for (const run of runs) if (run) workItems.push(run);
   });
+  // 71b: paused run 的 proposed 池提案在 71b 前没有 Intervention 记录 —— 收集后统一对账补登记(见 mapPool 后)。
+  const legacyPoolProposed = []; // { sessionId, runId, item }
   await mapPool(workItems, 4, async run => {
       // 团队模式 v2: waiting_pool(收尾宽限窗)也是活跃 live 态,进程重启后同样是"未清理的孤儿",一并标中断。
       // 对抗轮 P3: paused run 不标中断(resume 仍可续跑),但内存邮箱同样已随进程消失——未投递消息补标 dropped,
@@ -370,6 +372,8 @@ async function markInterruptedAgentRuns() {
       if (run.status === 'paused') {
         let dirty = false;
         for (const m of (Array.isArray(run.messages) ? run.messages : [])) if (m && !m.deliveredAt && !m.dropped) { m.dropped = true; dirty = true; }
+        // 71b: proposed 提案在 paused run 里恢复后仍可审批 —— 收集起来,稍后对账补登记 Intervention(幂等)。
+        for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') legacyPoolProposed.push({ sessionId: run.sessionId, runId: run.id, item: p });
         // 29b 顺手修(测绘发现): boot 期间快照写失败(磁盘满/杀软锁)此前会把整个 startServer 炸掉 ——
         // 诚实标记是 best-effort,boot 必须活着;持久化降级横幅由 saveAgentRun 内部计数兜底。下同。
         if (dirty) await saveAgentRun(run).catch(() => {});
@@ -377,7 +381,7 @@ async function markInterruptedAgentRuns() {
       }
       if (run.status !== 'running' && run.status !== 'waiting_pool') return;
       run.status = 'interrupted'; run.interruptedAt = nowIso(); run.poolGraceUntil = 0;
-      for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = 'auto'; p.decidedAt = nowIso(); }
+      for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = 'auto'; p.decidedAt = nowIso(); settleIntervention(run.sessionId, p.id, 'expired', { decidedBy: 'auto', note: 'run interrupted at boot' }); }
       // 团队模式 v2 (P3-1): 与池提案 expire 对称——进程重启中断的 run,把从未投递(deliveredAt:null)且未标记的消息补标
       // dropped(内存邮箱队列已随进程消失,这些消息不可能再投递,诚实标记)。
       for (const m of (Array.isArray(run.messages) ? run.messages : [])) if (m && !m.deliveredAt && !m.dropped) m.dropped = true;
@@ -397,6 +401,23 @@ async function markInterruptedAgentRuns() {
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
   });
+  // 71b: 存量对账 —— 71b 前落盘的 paused run 可能有 proposed 池提案但无 Intervention 记录(当时池未接入旁路)。
+  // boot 补登记(append-only,幂等:已有记录的 id 跳过),否则 missionPendingCounts 统一从 Intervention 读池未决后
+  // 会漏掉这些存量提案。登记后由 markInterruptedInterventions 的 pool 分流保留 pending(run paused,恢复后可审批)。
+  const backfillBySession = new Map();
+  for (const e of legacyPoolProposed) {
+    if (!backfillBySession.has(e.sessionId)) backfillBySession.set(e.sessionId, []);
+    backfillBySession.get(e.sessionId).push(e);
+  }
+  for (const [sid, entries] of backfillBySession) {
+    const ivs = await readInterventions(sid).catch(() => []);
+    const known = new Set(ivs.map(iv => String(iv && iv.id || '')));
+    for (const e of entries) {
+      const pid = String(e.item && e.item.id || '');
+      if (!pid || known.has(pid)) continue;
+      registerIntervention(sid, 'pool', pid, { runId: String(e.runId || ''), proposedBy: String(e.item.proposedBy || ''), task: String(e.item.task || '').slice(0, 500), backfilled: true });
+    }
+  }
 }
 
 async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail }) {
