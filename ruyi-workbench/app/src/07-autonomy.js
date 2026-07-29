@@ -1774,7 +1774,7 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
 // looked frozen to the polling UI. Every N chars of streamed assistant text we fire a lightweight
 // subagent_progress milestone (recordAgentNodeProgress folds it into node.progressLog as "生成中 · N 字").
 const CLAUDE_PROGRESS_CHAR_STEP = 400;
-async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd }) {
+async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder }) {
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
@@ -1789,7 +1789,10 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const requestedMode = roleMode || permModeOverride || config.permissionMode || 'bypass';
   const effMode = CLAUDE_SUBAGENT_SAFE_MODES.has(requestedMode) ? requestedMode : (tier === 'read' ? 'plan' : 'bypass');
 
-  const args = ['-p', '--output-format', 'stream-json', '--verbose'];
+  // Keep the print-mode process input channel open. Claude's documented stream-json input accepts additional
+  // user envelopes while a turn is running, which lets the workflow orchestrator steer a long Claude node
+  // directly instead of storing a note that only downstream nodes could see after it was already too late.
+  const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose'];
   const pm = claudePermissionMode(effMode); if (pm) args.push('--permission-mode', pm);
   if (subModel && subModel !== 'inherit') args.push('--model', subModel);
   if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
@@ -1835,6 +1838,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
 
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} } : batchSafeSpawn(claude, args);
   const env = effectiveAnthropicEnv(config);
+  if (fakeClaude) env.WCW_FAKE_INTERACTIVE = '1';
 
   onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: role && role.permissionMode || 'inherit', mcpServers: roleMcpServers, engine: 'claude' });
 
@@ -1861,7 +1865,35 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     // Idle watchdog - a wedged CLI must not hang the whole DAG run forever (per-attempt).
     const watchdog = setInterval(() => { if (!killed && Date.now() - lastEventAt > idleLimitMs) onAbort(); }, 5000);
     child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
-    try { child.stdin.write(String(taskForAttempt || ''), 'utf8'); child.stdin.end(); } catch { /* ignore */ }
+    let stdinClosed = false;
+    const closeStdin = () => {
+      if (stdinClosed) return;
+      stdinClosed = true;
+      try { child.stdin.end(); } catch { /* already closed */ }
+    };
+    const drainSteers = () => {
+      if (stdinClosed || killed || typeof getSteer !== 'function') return 0;
+      let steers = [];
+      try { steers = getSteer() || []; } catch { steers = []; }
+      let delivered = 0;
+      for (const raw of steers) {
+        const text = String(raw || '').trim();
+        if (!text) continue;
+        try {
+          child.stdin.write(JSON.stringify(buildUserEnvelope('[编排者插话] ' + text + (steerReminder || ''))) + '\n', 'utf8');
+          delivered += 1;
+          lastEventAt = Date.now();
+          onEvent({ type: 'subagent_steered', subagentId, text });
+        } catch { /* the process may have completed between the queue drain and write */ }
+      }
+      return delivered;
+    };
+    try { child.stdin.write(JSON.stringify(buildUserEnvelope(String(taskForAttempt || ''))) + '\n', 'utf8'); } catch { /* ignore */ }
+    // Polling is intentionally local to this child attempt. It supports both a user steering a live node and
+    // the scheduler's automatic wrap-up instruction; queued messages are consumed in order and acknowledged
+    // through the same subagent_steered event as Provider nodes.
+    const steerTimer = setInterval(drainSteers, 250);
+    if (steerTimer && steerTimer.unref) steerTimer.unref();
     let stderrText = '';
     child.stderr.on('data', chunk => { stderrText += decodeClaudeCliText(chunk); lastEventAt = Date.now(); });
 
@@ -1897,7 +1929,15 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
         }
         else if (ev.kind === 'tool_use') { toolCallCount += 1; onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input, subagentId }); }
         else if (ev.kind === 'tool_result') onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError, subagentId });
-        else if (ev.kind === 'result') { gotResult = true; resultOk = ev.ok !== false; if (ev.result) resultText = ev.result; if (ev.usage && typeof ev.usage === 'object') resultUsage = ev.usage; const c = Number(ev.costUsd); if (Number.isFinite(c)) resultCostUsd = c; }
+        else if (ev.kind === 'result') {
+          gotResult = true; resultOk = ev.ok !== false; if (ev.result) resultText = ev.result;
+          if (ev.usage && typeof ev.usage === 'object') resultUsage = ev.usage;
+          const c = Number(ev.costUsd); if (Number.isFinite(c)) resultCostUsd = c;
+          // Drain a steer that raced the result frame before signalling EOF. Any already-written envelope
+          // remains ahead of EOF and Claude processes it as the final turn; with no steer this closes normally.
+          drainSteers();
+          closeStdin();
+        }
         else if (ev.kind === 'msg_usage' && ev.usage && typeof ev.usage === 'object') { msgBillInMax = Math.max(msgBillInMax, Number(ev.usage.input_tokens) || 0); const mo = Number(ev.usage.output_tokens) || 0; msgBillOutMax = Math.max(msgBillOutMax, mo > 0 ? mo : 0); }
       }
     };
@@ -1908,7 +1948,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       for (const line of lines) consumeLine(line);
     });
     let settled = false;
-    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); if (stdoutRemainder.trim()) consumeLine(stdoutRemainder); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult, resultUsage, resultCostUsd, msgBillInMax, msgBillOutMax }); };
+    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); clearInterval(steerTimer); closeStdin(); if (stdoutRemainder.trim()) consumeLine(stdoutRemainder); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult, resultUsage, resultCostUsd, msgBillInMax, msgBillOutMax }); };
     child.on('error', () => finish(-1));
     child.on('close', code => finish(code == null ? -1 : code));
   });

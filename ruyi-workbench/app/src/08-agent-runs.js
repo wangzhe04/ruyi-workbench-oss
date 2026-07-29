@@ -1546,7 +1546,8 @@ function recordAgentNodeProgress(run, node, evt) {
     else if (evt.state === 'retry') text = `子 Agent 重试 ${evt.attempt || 0}/${evt.maxAttempts || 0}${evt.reason ? ` · ${evt.reason}` : ''}`;
     else if (evt.state === 'end') text = `子 Agent ${evt.ok ? '完成' : '失败'}${evt.resultChars != null ? ` · ${evt.resultChars} 字` : ''}`;
   } else if (evt.type === 'subagent_progress') { kind = 'gen'; text = evt.note || `生成中 · ${Number(evt.chars) || 0} 字`; }
-  else if (evt.type === 'subagent_steered') { text = `插话 · ${String(evt.text || '').slice(0, 80)}`; }
+  else if (evt.type === 'subagent_steered') { text = `${evt.autoWrapUp ? '自动收尾指令' : '插话'} · ${String(evt.text || '').slice(0, 80)}`; }
+  else if (evt.type === 'subagent_wrapup_forced') { text = '自动收尾宽限期已耗尽 · 已中止本节点'; }
   else if (evt.type === 'subagent_pool_proposed') { text = `提案任务 · ${String(evt.task || '').replace(/\s+/g, ' ').trim().slice(0, 50)}`; }
   else if (evt.type === 'subagent_mail_out') { text = `发消息 → ${evt.target || ''} · ${String(evt.text || '').replace(/\s+/g, ' ').trim().slice(0, 50)}`; }
   else if (evt.type === 'subagent_mail_in') { text = `收到 ${evt.sender || ''} 消息 · ${String(evt.text || '').replace(/\s+/g, ' ').trim().slice(0, 50)}`; }
@@ -1590,11 +1591,13 @@ function poolChainDepth(run, proposerId) {
   return depth;
 }
 // 团队模式 v2 (B1): 投递资格判定——steer_node 与 send_to_agent 共用同一套(抽成小函数,两处别复制)。返回
-// { ok, reason, node };reason ∈ not_found|claude_engine|deterministic_gate|terminal|ok。调用方据 reason 各自措辞。
-function nodeDeliveryEligibility(run, nodeId) {
+// { ok, reason, node };reason ∈ not_found|claude_engine|deterministic_gate|terminal|ok。Claude workflow
+// nodes now accept orchestrator/user steers through their stream-json stdin; agent-to-agent mail still opts
+// out because the Claude node runtime does not expose the mailbox tools.
+function nodeDeliveryEligibility(run, nodeId, opts = {}) {
   const node = (Array.isArray(run.nodes) ? run.nodes : []).find(n => n.id === nodeId);
   if (!node) return { ok: false, reason: 'not_found', node: null };
-  if ((node.engine || 'openai') === 'claude') return { ok: false, reason: 'claude_engine', node };
+  if ((node.engine || 'openai') === 'claude' && opts.allowClaude !== true) return { ok: false, reason: 'claude_engine', node };
   if (node.gate && ['vote', 'dedupe'].includes(node.gate.mode)) return { ok: false, reason: 'deterministic_gate', node };
   if (!['running', 'queued', 'waiting_resource'].includes(node.status)) return { ok: false, reason: 'terminal', node };
   return { ok: true, reason: 'ok', node };

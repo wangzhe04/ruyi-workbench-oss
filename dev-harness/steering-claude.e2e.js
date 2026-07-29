@@ -1,6 +1,6 @@
 'use strict';
 /*
- * E2E (第47波47a): Steer Phase A 双引擎 —— 对话(Claude stdin 即时注入)+ 工作台(Claude 节点延迟插话)。
+ * E2E: Steer 双引擎 —— 对话与工作流 Claude 节点都通过 stream-json stdin 即时注入。
  *
  *  A 段 对话·Claude interactive 全路径:fake-claude 'steer' 剧本(慢滴正文留窗口)→ POST /api/steer
  *     → 断言:①响应 injected:true;②fake 捕获的第二条 stdin user envelope 内容恰为 '[用户插话] <text>'
@@ -9,10 +9,9 @@
  *  B 段 分流纪律:AskUser 提问挂起中 steer 被拒('请先回答当前提问',防插话被误收为答案);回答后
  *     该特定拒绝消失(放行或回合已结束均可,唯独不能再是"提问挂起"拒)。
  *  C 段 print 模式拒绝:engineMode=print 的 Claude 回合 steer → 人话错误(无 stdin 通道)。
- *  D 段 工作台·Claude 节点延迟插话:DAG claude 节点 c1 + openai 下游 o2。steer_node c1 → deferred:true;
- *     跑完后 fake-openai 捕获 o2 请求体含 '[用户插话 · 延迟生效]' 与插话文本(buildUpstreamContext 注入);
- *     c1 持久化 deferredSteers + progressLog 里程碑。
- *  S 段 静态锁:reg kind / 路由分派 / 分流函数 / deferred 分支 / 前端去门 / i18n 双键。
+ *  D 段 工作台·Claude 节点实时插话:DAG claude 节点 c1 + openai 下游 o2。steer_node c1 进入实时队列，
+ *     fake Claude 回传插话文本，c1 progressLog 留下投递里程碑。
+ *  S 段 静态锁:reg kind / 路由分派 / 分流函数 / 工作流实时输入 / 前端去门 / i18n 双键。
  *
  * Run: node dev-harness/steering-claude.e2e.js
  */
@@ -87,12 +86,12 @@ async function getToken(port) {
   ok(/kind: 'claude' \}/.test(src) || /kind: 'claude',/.test(src) || /kind: 'claude'$/.test(src.trim()) || src.includes("kind: 'claude'"), 'S1 claude 引擎 reg 带 kind 标记(/api/steer 分派依据)');
   ok(src.includes("reg.kind === 'claude'"), 'S2 /api/steer 按引擎分派 claude 分支在');
   ok(src.includes('hasPendingQuestionForSession'), 'S3 提问挂起分流函数在(防插话误收为答案)');
-  ok(src.includes('deferredSteers') && src.includes('deferred: true'), 'S4 steer_node Claude 节点延迟插话分支在');
-  ok(src.includes('[用户插话 · 延迟生效]'), 'S5 buildUpstreamContext 延迟插话注入小节在');
+  ok(src.includes("'--input-format', 'stream-json'") && src.includes('drainSteers'), 'S4 Claude 工作流节点持续输入与插话 drain 在');
+  ok(src.includes('nodeDeliveryEligibility(live.run, nodeId, { allowClaude: true })'), 'S5 steer_node 为 Claude 工作流节点开启实时投递');
   ok(!app.includes('if (isProviderMode()) return steerPrompt(overrideText); return;'), 'S6 前端 sendPrompt 引擎静默门已去');
   ok(app.includes('r.injected') && app.includes("t('toast.steerInjected')") && app.includes("t('toast.steerQueued')"), 'S7 前端 toast 区分即时/下步生效(50c i18n:toast.steerInjected/Queued)');
-  ok(app.includes("t('workflow.steerDeferred')") && app.includes('steerDeferredAria'), 'S8 工作台 Claude 节点插话按钮延迟文案在');
-  ok(zh.includes('"workflow.steerDeferred"') && en.includes('"workflow.steerDeferred"'), 'S9 i18n 双语键同交(steerDeferred)');
+  ok(!app.includes("isClaudeNode ? t('workflow.steerDeferred')"), 'S8 工作台 Claude 节点不再显示延迟插话');
+  ok(zh.includes('"workflow.steer"') && en.includes('"workflow.steer"'), 'S9 i18n 双语通用 steer 键同交');
   ok(src.indexOf("reg.kind === 'claude'") > 0 && src.indexOf("reg.kind === 'claude'") < src.indexOf('仅 provider 引擎支持插话'), 'S10 claude 分派先于旧口径 fallthrough(不再一刀切)');
   // 50-fix:三态按钮(用户报告"流式中输入后还是停止,不会变成 Steer")
   ok(app.includes('function updateSendBtn()'), 'S11 updateSendBtn 三态函数在(发送/插话/停止)');
@@ -224,14 +223,14 @@ async function getToken(port) {
     await turnC.done.catch(() => {});
     await post(WP, '/api/config', { engineMode: 'interactive' }, hdr); // 还原,D 段不需要但别留脏配置
 
-    // ───────────────── D 段: 工作台 · Claude 节点延迟插话 ─────────────────
-    console.log('── D 段: 工作台 Claude 节点延迟插话 ──');
+    // ───────────────── D 段: 工作台 · Claude 节点实时插话 ─────────────────
+    console.log('── D 段: 工作台 Claude 节点实时插话 ──');
     const createdD = await post(WP, '/api/sessions', { title: 'steer-dag', cwd: HOME }, hdr);
     const sidD = createdD.session.id;
     const launch = await post(WP, '/api/agent-workflow/launch', {
       token, sessionId: sidD, async: true,
       nodes: [
-        { id: 'c1', task: 'thinking hard about the alpha design', engine: 'claude', toolTier: 'read' },
+        { id: 'c1', task: 'analyze the alpha design', engine: 'claude', toolTier: 'read' },
         { id: 'o2', task: 'summarize the upstream findings', engine: 'openai', toolTier: 'read', dependsOn: ['c1'] },
       ],
     }, hdr);
@@ -246,7 +245,7 @@ async function getToken(port) {
     }
     ok(!!liveD, 'D1b 工作流进入 live(注册完成,可插话)');
     const dSteer = await post(WP, `/api/agent-runs/${encodeURIComponent(launch.runId)}`, { token, sessionId: sidD, action: 'steer_node', nodeId: 'c1', text: '别忘了评估成本维度' }, hdr);
-    ok(!!dSteer && dSteer.ok === true && dSteer.deferred === true, 'D2 Claude 节点 steer_node 接受为延迟插话 (got ' + JSON.stringify(dSteer) + ')');
+    ok(!!dSteer && dSteer.ok === true && dSteer.queued === 1 && dSteer.deferred !== true, 'D2 Claude 节点 steer_node 接受为实时插话 (got ' + JSON.stringify(dSteer) + ')');
     // 等终态
     let runD = null;
     for (let i = 0; i < 120 && !runD; i++) {
@@ -258,19 +257,17 @@ async function getToken(port) {
     ok(!!runD, 'D3 工作流到终态 (got ' + (runD && runD.status) + ')');
     if (runD) {
       const c1 = (runD.nodes || []).find(n => n.id === 'c1');
-      ok(!!c1 && Array.isArray(c1.deferredSteers) && c1.deferredSteers.includes('别忘了评估成本维度'), 'D4 c1 持久化 deferredSteers 含插话');
-      ok(!!c1 && (c1.progressLog || []).some(e => /收到延迟插话/.test(e.text || '')), 'D5 c1 progressLog 有延迟插话里程碑');
-      // o2(openai 下游)的请求体被 fake-openai 捕获 —— 上游上下文里必须带着延迟插话小节。
+      ok(!!c1 && String(c1.result || '').includes('别忘了评估成本维度'), 'D4 c1 最终结果证明运行中的 Claude 收到了插话');
+      ok(!!c1 && (c1.progressLog || []).some(e => /插话 · 别忘了评估成本维度/.test(e.text || '')), 'D5 c1 progressLog 有实时插话里程碑');
+      // o2(openai 下游)的请求体被 fake-openai 捕获 —— 正常上游结果中带着 Claude 已处理的插话。
       const caps = fs.existsSync(CAPS) ? fs.readdirSync(CAPS).filter(f => f.endsWith('.json')).sort() : [];
-      let foundSteer = false, foundSection = false;
+      let foundSteer = false;
       for (const f of caps) {
         let body = null; try { body = JSON.parse(fs.readFileSync(path.join(CAPS, f), 'utf8')); } catch { continue; }
         const text = JSON.stringify((body && body.messages) || []);
-        if (text.includes('[用户插话 · 延迟生效]')) foundSection = true;
         if (text.includes('别忘了评估成本维度')) foundSteer = true;
       }
-      ok(foundSection, 'D6 下游 o2 请求体含「用户插话 · 延迟生效」小节(buildUpstreamContext 注入)');
-      ok(foundSteer, 'D7 下游 o2 请求体含插话文本本体');
+      ok(foundSteer, 'D6 下游 o2 请求体含 Claude 已处理的插话结果');
     }
 
     // ───────────────── E 段: 会话标题自动命名(50-fix 标题卡死) ─────────────────

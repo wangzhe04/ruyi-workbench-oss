@@ -1,6 +1,7 @@
 'use strict';
-// Regression: an in-chat multi-agent tool call must keep its parent turn alive while a child provider is
-// actively streaming, while a genuinely silent provider must still be aborted by the idle watchdog.
+// Regression: an in-chat multi-agent tool call keeps its parent turn alive both while a child provider is
+// actively streaming and during a quiet workflow window. Quiet workflow heartbeats must not mask the DAG's
+// own idle watchdog: the wedged node is still aborted and its failed workflow result returns to the parent.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -112,8 +113,11 @@ function kill(proc) { if (proc && proc.pid) try { cp.execFileSync('taskkill', ['
 
     const hungSession = await post(WP, '/api/sessions', { title: 'silent provider', cwd: HOME }, { 'x-wcw-token': token });
     const hungEvents = await streamChat({ sessionId: hungSession.session.id, message: 'hang team', cwd: HOME, agentTeam: true });
+    ok(hungEvents.some(e => e.type === 'agent_workflow' && e.state === 'heartbeat'), 'silent workflow emits parent-visible liveness heartbeats');
+    ok(!hungEvents.some(e => e.type === 'stderr' && /turn idle/.test(e.text || '')), 'workflow heartbeat prevents the parent turn from falsely timing out');
     ok(hungEvents.some(e => e.type === 'stderr' && /idle/.test(e.text || '')), 'genuinely silent child is still stopped by an idle watchdog');
-    ok(hungEvents.some(e => e.type === 'result' && e.ok === false), 'silent turn ends as a failure instead of hanging forever');
+    ok(hungEvents.some(e => e.type === 'agent_workflow' && e.state === 'end' && e.status === 'failed'), 'silent workflow returns a failed terminal result instead of hanging forever');
+    ok(hungEvents.some(e => e.type === 'result'), 'parent receives the workflow result and completes its own turn');
   } finally {
     kill(wb); for (const s of sockets) s.destroy(); await new Promise(resolve => fake.close(resolve));
   }

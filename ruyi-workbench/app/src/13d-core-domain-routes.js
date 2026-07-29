@@ -509,10 +509,8 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const applied = await applyAgentWorktree(run, nodeId).catch(e => ({ ok: false, error: String(e && (e.gitStderr || e.message) || e) }));
       return send(res, json(applied, applied.ok ? 200 : 409));
     }
-    // v1 定向插话（steer 到指定运行中子代理节点）: enqueue a user interjection onto ONE running/queued OpenAI
-    // node's steer queue; runSubAgentCore drains it at its next iteration boundary. Requires a live run (the
-    // queue lives on the in-memory runtime). Claude-engine nodes are -p single-shot processes with no
-    // iteration boundary to inject at, so they are rejected here (symmetric with /api/steer rejecting Claude).
+    // Directional node steering. Provider nodes consume at their next iteration boundary; Claude nodes consume
+    // through the live stream-json stdin channel. Queued nodes keep the message until their model starts.
     if (action === 'steer_node') {
       if (!live) return send(res, json({ ok: false, error: '工作流当前未运行，无法插话' }, 409));
       // 停止收尾窗口：stop 已经请求（或 ctrl 已中止）之后，节点即将被标记 cancelled，不会再有下一次迭代边界来
@@ -521,23 +519,8 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const nodeId = String(body.nodeId || '').trim();
       if (!nodeId) return send(res, json({ ok: false, error: 'nodeId required' }, 400));
       // 团队模式 v2 (B1): 投递资格判定与 send_to_agent 共用同一小函数(不复制两份),reason 各自映射为本处既有措辞。
-      const elig = nodeDeliveryEligibility(live.run, nodeId);
+      const elig = nodeDeliveryEligibility(live.run, nodeId, { allowClaude: true });
       if (elig.reason === 'not_found') return send(res, json({ ok: false, error: '节点不存在' }, 404));
-      if (elig.reason === 'claude_engine') {
-        // 47a Phase C-A(工作台 Claude 节点 steer):-p 单发进程无迭代边界,插话改【延迟生效】——挂到节点
-        // deferredSteers,节点结束后经 buildUpstreamContext 注入下游节点(与父回合汇总)。UI 明示「延迟」,
-        // 不假装即时生效(02 方案 Phase C 选项 A)。仍拒终态节点;队列同 cap 3;干预计数与即时插话一致。
-        if (!['running', 'queued', 'waiting_resource'].includes(elig.node.status)) return send(res, json({ ok: false, error: '节点已结束，无法插话' }, 409));
-        const text2 = String(body.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim();
-        if (!text2) return send(res, json({ ok: false, error: '插话内容不能为空' }, 400));
-        if (!Array.isArray(elig.node.deferredSteers)) elig.node.deferredSteers = [];
-        if (elig.node.deferredSteers.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '该节点延迟插话已达上限(3 条)' }, 409));
-        elig.node.deferredSteers.push(text2);
-        if (Array.isArray(elig.node.progressLog)) elig.node.progressLog.push({ at: nowIso(), text: '收到延迟插话(节点结束后注入下游):' + text2.slice(0, 80), kind: 'steer' });
-        bumpRunIntervention(live.run, 'steer_node'); // 29c
-        await saveAgentRun(live.run).catch(() => {});
-        return send(res, json({ ok: true, deferred: true, queued: elig.node.deferredSteers.length }));
-      }
       if (elig.reason === 'deterministic_gate') return send(res, json({ ok: false, error: '确定性质量门节点不经过模型，无法插话' }, 409));
       if (elig.reason === 'terminal') return send(res, json({ ok: false, error: '节点已结束，无法插话' }, 409));
       const text = String(body.text || '').trim().slice(0, 2000);
@@ -548,7 +531,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       if (q.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '该节点插话队列已满' }, 409));
       q.push(text);
       bumpRunIntervention(live.run, 'steer_node'); // 29c(队列在内存,计数随下一次快照落盘即可,不额外写盘)
-      return send(res, json({ ok: true, queued: q.length }));
+      return send(res, json({ ok: true, queued: q.length, live: elig.node.status === 'running' }));
     }
     // 团队模式 v2 (A2/A4): 任务池审批。归属守卫(live.run.sessionId !== sessionId → 404)已在上方对全 action 生效。
     // 非 live 或 closing(收尾已原子置位)→ 409 带指引;宽限窗内 closing 仍为 false,故窗内可批并物化并继续调度。

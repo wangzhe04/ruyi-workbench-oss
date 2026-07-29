@@ -1765,7 +1765,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'orchestrate_agents',
-    description: "Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (available ids + when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) for complex, multi-step tasks that match a listed template; skip it for simple one-shot requests.",
+    description: "Run a persistent sub-agent DAG. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the bounded grace period. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (available ids + when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) for complex, multi-step tasks that match a listed template; skip it for simple one-shot requests.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -1819,6 +1819,9 @@ function sendMcp(id, result, error) {
     : { jsonrpc: '2.0', id, result };
   process.stdout.write(`${JSON.stringify(payload)}\n`);
 }
+function sendMcpNotification(method, params) {
+  process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', method, params })}\n`);
+}
 
 async function startMcp() {
   await ensureDirs();
@@ -1860,11 +1863,25 @@ async function startMcp() {
         if (msg.method === 'tools/call') {
           const name = msg.params?.name;
           const args = msg.params?.arguments || {};
-          const result = await toolCall(name, args);
-          return sendMcp(msg.id, {
-            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-            isError: result.ok === false,
-          });
+          const progressToken = msg.params?._meta?.progressToken;
+          const progressStartedAt = Date.now();
+          // Claude CLI may attach an MCP progress token to a long tool call. Report elapsed liveness while
+          // orchestrate_agents is waiting on the synchronous DAG result; this is in addition to the app-level
+          // workflow heartbeat and helps MCP clients distinguish "still running" from a dead server.
+          const progressTimer = name === 'orchestrate_agents' && progressToken != null ? setInterval(() => {
+            const elapsedSec = Math.max(1, Math.round((Date.now() - progressStartedAt) / 1000));
+            try { sendMcpNotification('notifications/progress', { progressToken, progress: elapsedSec, message: `Agent 工作流仍在运行 · ${elapsedSec}s` }); } catch {}
+          }, 10000) : null;
+          if (progressTimer && progressTimer.unref) progressTimer.unref();
+          try {
+            const result = await toolCall(name, args);
+            return sendMcp(msg.id, {
+              content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+              isError: result.ok === false,
+            });
+          } finally {
+            if (progressTimer) clearInterval(progressTimer);
+          }
         }
         if (msg.method === 'resources/list') {
           return sendMcp(msg.id, {

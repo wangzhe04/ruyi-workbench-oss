@@ -259,7 +259,8 @@ function fillSettings() {
   { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 8)); }
   { const el0 = $('cfgSubagentMaxPerTurn'); if (el0) el0.value = Math.max(0, Math.min(32, Number.isFinite(Number(c.subagentMaxPerTurn)) ? Number(c.subagentMaxPerTurn) : 32)); }
   populateSubagentPreferenceSelects(c.subagentPreferredProvider, c.subagentPreferredModel);
-  { const el0 = $('cfgAgentWorkflowMaxNodes'); if (el0) el0.value = Math.max(1, Math.min(32, Number(c.agentWorkflowMaxNodes) || 32)); }
+  { const el0 = $('cfgAgentWorkflowMaxNodes'); if (el0) el0.value = Math.max(1, Math.min(64, Number(c.agentWorkflowMaxNodes) || 48)); }
+  { const el0 = $('cfgAgentNodeWrapUpMinutes'); if (el0) el0.value = Math.max(0, Math.min(120, Math.round((Number(c.agentNodeWrapUpMs) || 0) / 60000))); }
   // v0.7d: integrations / MCP tab.
   const dm = c.desktopMcp || {};
   const dmEn = $('cfgDesktopMcpEnabled'); if (dmEn) dmEn.checked = dm.enabled !== false;
@@ -375,7 +376,12 @@ async function saveSettings() {
     agentWorkflowMaxNodes: (() => {
       const el0 = $('cfgAgentWorkflowMaxNodes');
       const n = Math.round(Number(el0 ? el0.value : state.config.agentWorkflowMaxNodes));
-      return Number.isFinite(n) ? Math.max(1, Math.min(32, n)) : 32;
+      return Number.isFinite(n) ? Math.max(1, Math.min(64, n)) : 48;
+    })(),
+    agentNodeWrapUpMs: (() => {
+      const el0 = $('cfgAgentNodeWrapUpMinutes');
+      const n = Math.round(Number(el0 ? el0.value : (Number(state.config.agentNodeWrapUpMs) || 0) / 60000));
+      return Number.isFinite(n) ? Math.max(0, Math.min(120, n)) * 60000 : 480000;
     })(),
     providers: state.providersDraft || [],
     // v0.7d: desktop MCP + bridge switch. autodetect stays on so a blank command keeps auto-discovering.

@@ -534,6 +534,9 @@ function defaultConfig() {
     // (64 is also the hard systemic cap in runAgentWorkflow's own `.slice(0, 64)` and the orchestrate_agents
     // schema's maxItems — 第36波(v1.7) 三方对齐, 此前注释与 schema 仍写 32 是漂移)。
     agentWorkflowMaxNodes: 48,
+    // Long-running model nodes receive one bounded "wrap up now" instruction after this duration. Separate
+    // workflow heartbeats keep the parent turn informed while the node works. 0 disables automatic wrap-up.
+    agentNodeWrapUpMs: 480000,
     // 团队模式 v2 (A2): 共享任务池审批策略。manual=UI 运行卡逐条批准(默认);auto-capped=自动批准直到 poolAutoCap
     // 用尽后转 manual;off=不注册 propose_task 工具。物化仍受 agentWorkflowMaxNodes(上限 64)复检(见 materializePoolItem)。
     agentTaskPoolPolicy: 'manual',
@@ -682,6 +685,8 @@ function normalizeConfig(raw) {
   config.permissionTimeoutMs = Number.isFinite(pt) ? Math.min(600000, Math.max(5000, pt)) : 120000;
   const it = Number(config.turnIdleTimeoutMs);
   config.turnIdleTimeoutMs = Number.isFinite(it) ? Math.min(3600000, Math.max(60000, it)) : 600000;
+  const aw = Number(config.agentNodeWrapUpMs);
+  config.agentNodeWrapUpMs = Number.isFinite(aw) ? (aw <= 0 ? 0 : Math.min(7200000, Math.max(60000, aw))) : 480000;
   // 第27f波:autonomyPauseOnTimeout 布尔(默认 false=安全默认);autonomyPauseTtlMs clamp [5min, 6h] 默认 45min。
   config.autonomyPauseOnTimeout = config.autonomyPauseOnTimeout === true;
   const apt = Number(config.autonomyPauseTtlMs);
@@ -10824,7 +10829,7 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
 // looked frozen to the polling UI. Every N chars of streamed assistant text we fire a lightweight
 // subagent_progress milestone (recordAgentNodeProgress folds it into node.progressLog as "生成中 · N 字").
 const CLAUDE_PROGRESS_CHAR_STEP = 400;
-async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd }) {
+async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder }) {
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
@@ -10839,7 +10844,10 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const requestedMode = roleMode || permModeOverride || config.permissionMode || 'bypass';
   const effMode = CLAUDE_SUBAGENT_SAFE_MODES.has(requestedMode) ? requestedMode : (tier === 'read' ? 'plan' : 'bypass');
 
-  const args = ['-p', '--output-format', 'stream-json', '--verbose'];
+  // Keep the print-mode process input channel open. Claude's documented stream-json input accepts additional
+  // user envelopes while a turn is running, which lets the workflow orchestrator steer a long Claude node
+  // directly instead of storing a note that only downstream nodes could see after it was already too late.
+  const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose'];
   const pm = claudePermissionMode(effMode); if (pm) args.push('--permission-mode', pm);
   if (subModel && subModel !== 'inherit') args.push('--model', subModel);
   if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
@@ -10885,6 +10893,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
 
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} } : batchSafeSpawn(claude, args);
   const env = effectiveAnthropicEnv(config);
+  if (fakeClaude) env.WCW_FAKE_INTERACTIVE = '1';
 
   onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: role && role.permissionMode || 'inherit', mcpServers: roleMcpServers, engine: 'claude' });
 
@@ -10911,7 +10920,35 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     // Idle watchdog - a wedged CLI must not hang the whole DAG run forever (per-attempt).
     const watchdog = setInterval(() => { if (!killed && Date.now() - lastEventAt > idleLimitMs) onAbort(); }, 5000);
     child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
-    try { child.stdin.write(String(taskForAttempt || ''), 'utf8'); child.stdin.end(); } catch { /* ignore */ }
+    let stdinClosed = false;
+    const closeStdin = () => {
+      if (stdinClosed) return;
+      stdinClosed = true;
+      try { child.stdin.end(); } catch { /* already closed */ }
+    };
+    const drainSteers = () => {
+      if (stdinClosed || killed || typeof getSteer !== 'function') return 0;
+      let steers = [];
+      try { steers = getSteer() || []; } catch { steers = []; }
+      let delivered = 0;
+      for (const raw of steers) {
+        const text = String(raw || '').trim();
+        if (!text) continue;
+        try {
+          child.stdin.write(JSON.stringify(buildUserEnvelope('[编排者插话] ' + text + (steerReminder || ''))) + '\n', 'utf8');
+          delivered += 1;
+          lastEventAt = Date.now();
+          onEvent({ type: 'subagent_steered', subagentId, text });
+        } catch { /* the process may have completed between the queue drain and write */ }
+      }
+      return delivered;
+    };
+    try { child.stdin.write(JSON.stringify(buildUserEnvelope(String(taskForAttempt || ''))) + '\n', 'utf8'); } catch { /* ignore */ }
+    // Polling is intentionally local to this child attempt. It supports both a user steering a live node and
+    // the scheduler's automatic wrap-up instruction; queued messages are consumed in order and acknowledged
+    // through the same subagent_steered event as Provider nodes.
+    const steerTimer = setInterval(drainSteers, 250);
+    if (steerTimer && steerTimer.unref) steerTimer.unref();
     let stderrText = '';
     child.stderr.on('data', chunk => { stderrText += decodeClaudeCliText(chunk); lastEventAt = Date.now(); });
 
@@ -10947,7 +10984,15 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
         }
         else if (ev.kind === 'tool_use') { toolCallCount += 1; onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input, subagentId }); }
         else if (ev.kind === 'tool_result') onEvent({ type: 'tool_result', id: ev.id, content: ev.content, isError: ev.isError, subagentId });
-        else if (ev.kind === 'result') { gotResult = true; resultOk = ev.ok !== false; if (ev.result) resultText = ev.result; if (ev.usage && typeof ev.usage === 'object') resultUsage = ev.usage; const c = Number(ev.costUsd); if (Number.isFinite(c)) resultCostUsd = c; }
+        else if (ev.kind === 'result') {
+          gotResult = true; resultOk = ev.ok !== false; if (ev.result) resultText = ev.result;
+          if (ev.usage && typeof ev.usage === 'object') resultUsage = ev.usage;
+          const c = Number(ev.costUsd); if (Number.isFinite(c)) resultCostUsd = c;
+          // Drain a steer that raced the result frame before signalling EOF. Any already-written envelope
+          // remains ahead of EOF and Claude processes it as the final turn; with no steer this closes normally.
+          drainSteers();
+          closeStdin();
+        }
         else if (ev.kind === 'msg_usage' && ev.usage && typeof ev.usage === 'object') { msgBillInMax = Math.max(msgBillInMax, Number(ev.usage.input_tokens) || 0); const mo = Number(ev.usage.output_tokens) || 0; msgBillOutMax = Math.max(msgBillOutMax, mo > 0 ? mo : 0); }
       }
     };
@@ -10958,7 +11003,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       for (const line of lines) consumeLine(line);
     });
     let settled = false;
-    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); if (stdoutRemainder.trim()) consumeLine(stdoutRemainder); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult, resultUsage, resultCostUsd, msgBillInMax, msgBillOutMax }); };
+    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); clearInterval(steerTimer); closeStdin(); if (stdoutRemainder.trim()) consumeLine(stdoutRemainder); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult, resultUsage, resultCostUsd, msgBillInMax, msgBillOutMax }); };
     child.on('error', () => finish(-1));
     child.on('close', code => finish(code == null ? -1 : code));
   });
@@ -12593,7 +12638,8 @@ function recordAgentNodeProgress(run, node, evt) {
     else if (evt.state === 'retry') text = `子 Agent 重试 ${evt.attempt || 0}/${evt.maxAttempts || 0}${evt.reason ? ` · ${evt.reason}` : ''}`;
     else if (evt.state === 'end') text = `子 Agent ${evt.ok ? '完成' : '失败'}${evt.resultChars != null ? ` · ${evt.resultChars} 字` : ''}`;
   } else if (evt.type === 'subagent_progress') { kind = 'gen'; text = evt.note || `生成中 · ${Number(evt.chars) || 0} 字`; }
-  else if (evt.type === 'subagent_steered') { text = `插话 · ${String(evt.text || '').slice(0, 80)}`; }
+  else if (evt.type === 'subagent_steered') { text = `${evt.autoWrapUp ? '自动收尾指令' : '插话'} · ${String(evt.text || '').slice(0, 80)}`; }
+  else if (evt.type === 'subagent_wrapup_forced') { text = '自动收尾宽限期已耗尽 · 已中止本节点'; }
   else if (evt.type === 'subagent_pool_proposed') { text = `提案任务 · ${String(evt.task || '').replace(/\s+/g, ' ').trim().slice(0, 50)}`; }
   else if (evt.type === 'subagent_mail_out') { text = `发消息 → ${evt.target || ''} · ${String(evt.text || '').replace(/\s+/g, ' ').trim().slice(0, 50)}`; }
   else if (evt.type === 'subagent_mail_in') { text = `收到 ${evt.sender || ''} 消息 · ${String(evt.text || '').replace(/\s+/g, ' ').trim().slice(0, 50)}`; }
@@ -12637,11 +12683,13 @@ function poolChainDepth(run, proposerId) {
   return depth;
 }
 // 团队模式 v2 (B1): 投递资格判定——steer_node 与 send_to_agent 共用同一套(抽成小函数,两处别复制)。返回
-// { ok, reason, node };reason ∈ not_found|claude_engine|deterministic_gate|terminal|ok。调用方据 reason 各自措辞。
-function nodeDeliveryEligibility(run, nodeId) {
+// { ok, reason, node };reason ∈ not_found|claude_engine|deterministic_gate|terminal|ok。Claude workflow
+// nodes now accept orchestrator/user steers through their stream-json stdin; agent-to-agent mail still opts
+// out because the Claude node runtime does not expose the mailbox tools.
+function nodeDeliveryEligibility(run, nodeId, opts = {}) {
   const node = (Array.isArray(run.nodes) ? run.nodes : []).find(n => n.id === nodeId);
   if (!node) return { ok: false, reason: 'not_found', node: null };
-  if ((node.engine || 'openai') === 'claude') return { ok: false, reason: 'claude_engine', node };
+  if ((node.engine || 'openai') === 'claude' && opts.allowClaude !== true) return { ok: false, reason: 'claude_engine', node };
   if (node.gate && ['vote', 'dedupe'].includes(node.gate.mode)) return { ok: false, reason: 'deterministic_gate', node };
   if (!['running', 'queued', 'waiting_resource'].includes(node.status)) return { ok: false, reason: 'terminal', node };
   return { ok: true, reason: 'ok', node };
@@ -12854,6 +12902,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // 而 25.4 断点续跑注入正靠这两字段(runNode 8704 读),清了会关掉「断点续跑」(autonomy-durability 回归)。
       n.degradedRetried = false; delete n.degraded; delete n.warning; delete n.toolEvidence; delete n.gateResult; n.summary = ''; n.evidence = []; n.artifacts = [];
       delete n.errorClass; // 29c: 失败类别随重跑清场(与 error 同生命周期),重跑成功不残留旧分类
+      delete n.modelStartedAt; delete n.wrapUpRequestedAt; delete n.wrapUpDeadlineAt; delete n.wrapUpForcedAt;
     }
     run.status = 'running'; run.completedAt = null; run.resumedAt = nowIso();
     run.concurrency = Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || run.concurrency || 2));
@@ -12947,8 +12996,21 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     if (parentCtrl.signal.aborted) localCtrl.abort();
     else parentCtrl.signal.addEventListener('abort', () => localCtrl.abort(), { once: true });
   }
-  // 团队模式 v2: mailQueues 与 steerQueues 分池(用户插话优先);closing/poolGrace* 是收尾竞态防线三件套的状态位。
-  const runtime = { run, ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [], steerQueues: new Map(), mailQueues: new Map(), closing: false, poolGraceUntil: 0, poolGraceArmed: true, inPoolGrace: false };
+  // Manual steers and automatic wrap-up instructions use separate queues: a full user queue must never block
+  // the reliability control message, and the user's messages are always delivered first.
+  const runtime = {
+    run, ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [],
+    steerQueues: new Map(), autoSteerQueues: new Map(), mailQueues: new Map(), nodeControls: new Map(),
+    closing: false, poolGraceUntil: 0, poolGraceArmed: true, inPoolGrace: false,
+  };
+  const drainNodeSteers = nodeId => {
+    const out = [];
+    for (const queues of [runtime.steerQueues, runtime.autoSteerQueues]) {
+      const q = queues.get(nodeId);
+      if (q && q.length) out.push(...q.splice(0, q.length));
+    }
+    return out;
+  };
   activeAgentRuns.set(runId, runtime);
   // 对抗轮 P2: 这次首落盘在下方 try/finally 保护区之外,失败必须同步撤掉 Map 注册再抛——否则 runId 永久悬挂为
   // "live 僵尸"(列表恒 live、删除恒 409、resume 恒"已在运行"),直到进程重启。
@@ -12997,6 +13059,69 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
   }, 5000);
   if (idleWatchdog && idleWatchdog.unref) idleWatchdog.unref();
+
+  // Workflow-level liveness is deliberately independent from node output. Provider streams, Claude thinking,
+  // resource waits and long tools can all have quiet windows; an honest heartbeat keeps the owning chat turn
+  // informed without touching runtime.lastActivityAt, so the workflow's own idle watchdog still catches a
+  // genuinely wedged DAG. The env seams keep the regression test fast.
+  const heartbeatMs = Math.max(250, Number(process.env.WCW_AGENT_WORKFLOW_HEARTBEAT_MS)
+    || Math.min(15000, Math.max(1000, Math.floor(idleLimitMs / 4))));
+  const configuredWrapUpMs = Number(config.agentNodeWrapUpMs);
+  const wrapUpMs = process.env.WCW_AGENT_NODE_WRAPUP_MS != null
+    ? Math.max(0, Number(process.env.WCW_AGENT_NODE_WRAPUP_MS) || 0)
+    : (Number.isFinite(configuredWrapUpMs) ? Math.max(0, configuredWrapUpMs) : 480000);
+  const wrapUpGraceMs = Math.max(250, Number(process.env.WCW_AGENT_NODE_WRAPUP_GRACE_MS)
+    || Math.max(60000, Math.min(120000, Math.floor((wrapUpMs || 480000) / 4))));
+  let lastWorkflowHeartbeatAt = 0;
+  const workflowControlTimer = setInterval(() => {
+    if (!activeAgentRuns.has(runId)) return;
+    const now = Date.now();
+    if (now - lastWorkflowHeartbeatAt >= heartbeatMs) {
+      lastWorkflowHeartbeatAt = now;
+      const active = nodes.filter(n => n && ['running', 'waiting_resource'].includes(n.status));
+      const finished = nodes.filter(terminal).length;
+      try {
+        onEvent({
+          type: 'agent_workflow', state: 'heartbeat', id: runId,
+          elapsedMs: now - Date.parse(run.createdAt || now),
+          activeNodes: active.map(n => ({ id: n.id, status: n.status, elapsedMs: n.modelStartedAt ? Math.max(0, now - Date.parse(n.modelStartedAt)) : 0 })),
+          completedNodes: finished, totalNodes: nodes.length,
+        });
+      } catch { /* a disconnected observer must never crash the workflow */ }
+    }
+    if (!wrapUpMs || runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) return;
+    for (const node of nodes) {
+      if (!node || node.status !== 'running' || !node.modelStartedAt) continue;
+      const modelStarted = Date.parse(node.modelStartedAt);
+      if (!Number.isFinite(modelStarted)) continue;
+      if (!node.wrapUpRequestedAt && now - modelStarted >= wrapUpMs) {
+        const instruction = '你已运行较长时间。现在停止扩展范围，不再启动新的工具或子任务；请基于已经取得的证据立即整理最终结论。若仍有未完成项，明确列出并标注，不要为了补齐它们继续长跑。';
+        let q = runtime.autoSteerQueues.get(node.id);
+        if (!q) { q = []; runtime.autoSteerQueues.set(node.id, q); }
+        q.push(instruction);
+        node.wrapUpRequestedAt = nowIso();
+        node.wrapUpDeadlineAt = new Date(now + wrapUpGraceMs).toISOString();
+        runtime.lastActivityAt = now; // the control message is real workflow activity; the hard deadline stays bounded
+        recordAgentNodeProgress(run, node, { type: 'subagent_steered', text: instruction, autoWrapUp: true });
+        appendAgentRunEvent(run, { type: 'node_wrapup_requested', nodeId: node.id, data: { elapsedMs: now - modelStarted, graceMs: wrapUpGraceMs } });
+        try { onEvent({ type: 'agent_workflow', state: 'node_wrapup_requested', id: runId, nodeId: node.id, elapsedMs: now - modelStarted, graceMs: wrapUpGraceMs }); } catch {}
+        throttledSaveRun();
+        continue;
+      }
+      const deadline = Date.parse(node.wrapUpDeadlineAt || '');
+      if (node.wrapUpRequestedAt && !node.wrapUpForcedAt && Number.isFinite(deadline) && now >= deadline) {
+        node.wrapUpForcedAt = nowIso();
+        const nodeCtrl = runtime.nodeControls.get(node.id);
+        try { if (nodeCtrl && nodeCtrl.signal && !nodeCtrl.signal.aborted) nodeCtrl.abort('node_wrapup_timeout'); } catch {}
+        runtime.lastActivityAt = now;
+        recordAgentNodeProgress(run, node, { type: 'subagent_wrapup_forced', graceMs: wrapUpGraceMs });
+        appendAgentRunEvent(run, { type: 'node_wrapup_forced', nodeId: node.id, data: { graceMs: wrapUpGraceMs } });
+        try { onEvent({ type: 'agent_workflow', state: 'node_wrapup_forced', id: runId, nodeId: node.id, graceMs: wrapUpGraceMs }); } catch {}
+        throttledSaveRun();
+      }
+    }
+  }, Math.min(1000, heartbeatMs));
+  if (workflowControlTimer && workflowControlTimer.unref) workflowControlTimer.unref();
 
   // 团队模式 v2 (A/B): 任务池策略与投递闭包。poolPolicy 随 run 持久化(fresh 已落定,resume 读回)。闭包 close over
   // run/runtime/roleLibrary/throttledSaveRun,按 proposer/sender 节点 id 绑定后经 runSubAgent 注入子回合。全部 try/catch
@@ -13294,34 +13419,51 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             effectiveResources = remapAgentResources(node.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace), node.isolation.path);
             await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命
           }
-          const nodeEvent = evt => { runtime.lastActivityAt = Date.now(); try { onEvent(evt); } finally { if (evt && evt.type === 'subagent_usage') accumulateRunUsage(run, evt); recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); } };
+          const nodeEvent = evt => {
+            runtime.lastActivityAt = Date.now();
+            if (evt && evt.type === 'subagent' && evt.state === 'start' && !node.modelStartedAt) node.modelStartedAt = nowIso();
+            try { onEvent(evt); } finally { if (evt && evt.type === 'subagent_usage') accumulateRunUsage(run, evt); recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); }
+          };
           // Fresh runs persist the preflight-approved route in run.providerId. Reuse that exact endpoint for
           // every default OpenAI node; never re-read a now-known-bad preference from config mid-run.
           const subProvider = (node.engine || 'openai') === 'openai'
             ? (resolveProvider(config, run.providerId) || provider)
             : provider;
-          const sub = await runSubAgent({
-            parentSession: agentSession, provider: subProvider, config, engine: node.engine || 'openai',
-            task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
-            displayTask: node.task, agentKey: node.id,
-            dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
-            onEvent: nodeEvent, subagentId: makeId('sub'), depth: 1, ctrl: localCtrl, permModeOverride,
-            getSteer: () => { const q = runtime.steerQueues.get(node.id); return q && q.length ? q.splice(0, q.length) : []; },
-            // 团队模式 v2 (A/B): 按本节点 id 绑定的投递闭包。propose 仅在池策略非 off 时注入(否则工具不注册);mail 恒注入。
-            getMail: () => { const q = runtime.mailQueues.get(node.id); return q && q.length ? q.splice(0, q.length) : []; },
-            proposeTask: poolPolicy === 'off' ? undefined : (args => proposeTaskImpl(node.id, args)),
-            sendToAgent: args => sendToAgentImpl(node.id, args),
-            // 有 outputSchema 或 gate 需要模型输出结构化裁决（非 vote/dedupe，那两种是确定性短路，见上）时，
-            // effectiveSchema 已经把两种情况合一；插话文本追加一句提醒，防止模型把插话当自由格式对话而忘了收尾仍要出严格 JSON。
-            steerReminder: effectiveSchema ? '\n（注意：最终输出仍必须只有符合原任务 JSON Schema 的严格 JSON）' : '',
-            resources: effectiveResources, resourceGroup: `${runId}:${node.id}`,
-            roleDefinition: node.roleSnapshot || (node.roleId ? roleLibrary.get(node.roleId) : null),
-            onResourceWait: (resources, blockers) => { node.status = 'waiting_resource'; node.waitingForResources = resources.map(r => r.label); node.resourceBlockers = blockers; saveAgentRun(run).catch(() => {}); },
-            onResourceAcquired: resources => { node.status = 'running'; node.waitingForResources = []; node.resourceBlockers = []; node.acquiredResources = resources.map(r => r.label); saveAgentRun(run).catch(() => {}); },
-          });
+          const nodeCtrl = typeof AbortController === 'function' ? new AbortController() : localCtrl;
+          const abortNodeFromRun = () => { try { if (nodeCtrl && nodeCtrl !== localCtrl && !nodeCtrl.signal.aborted) nodeCtrl.abort('workflow_stopped'); } catch {} };
+          if (nodeCtrl && nodeCtrl !== localCtrl && localCtrl && localCtrl.signal) {
+            if (localCtrl.signal.aborted) abortNodeFromRun();
+            else localCtrl.signal.addEventListener('abort', abortNodeFromRun, { once: true });
+          }
+          runtime.nodeControls.set(node.id, nodeCtrl);
+          let sub;
+          try {
+            sub = await runSubAgent({
+              parentSession: agentSession, provider: subProvider, config, engine: node.engine || 'openai',
+              task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
+              displayTask: node.task, agentKey: node.id,
+              dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
+              onEvent: nodeEvent, subagentId: makeId('sub'), depth: 1, ctrl: nodeCtrl, permModeOverride,
+              getSteer: () => drainNodeSteers(node.id),
+              // 团队模式 v2 (A/B): 按本节点 id 绑定的投递闭包。propose 仅在池策略非 off 时注入(否则工具不注册);mail 恒注入。
+              getMail: () => { const q = runtime.mailQueues.get(node.id); return q && q.length ? q.splice(0, q.length) : []; },
+              proposeTask: poolPolicy === 'off' ? undefined : (args => proposeTaskImpl(node.id, args)),
+              sendToAgent: args => sendToAgentImpl(node.id, args),
+              // 有 outputSchema 或 gate 需要模型输出结构化裁决（非 vote/dedupe，那两种是确定性短路，见上）时，
+              // effectiveSchema 已经把两种情况合一；插话文本追加一句提醒，防止模型把插话当自由格式对话而忘了收尾仍要出严格 JSON。
+              steerReminder: effectiveSchema ? '\n（注意：最终输出仍必须只有符合原任务 JSON Schema 的严格 JSON）' : '',
+              resources: effectiveResources, resourceGroup: `${runId}:${node.id}`,
+              roleDefinition: node.roleSnapshot || (node.roleId ? roleLibrary.get(node.roleId) : null),
+              onResourceWait: (resources, blockers) => { node.status = 'waiting_resource'; node.waitingForResources = resources.map(r => r.label); node.resourceBlockers = blockers; saveAgentRun(run).catch(() => {}); },
+              onResourceAcquired: resources => { node.status = 'running'; node.waitingForResources = []; node.resourceBlockers = []; node.acquiredResources = resources.map(r => r.label); saveAgentRun(run).catch(() => {}); },
+            });
+          } finally {
+            if (runtime.nodeControls.get(node.id) === nodeCtrl) runtime.nodeControls.delete(node.id);
+            if (nodeCtrl && nodeCtrl !== localCtrl && localCtrl && localCtrl.signal) localCtrl.signal.removeEventListener('abort', abortNodeFromRun);
+          }
           node.status = sub.ok ? 'succeeded' : 'failed';
           node.result = String(sub.result || '').slice(0, 24000);
-          node.error = sub.ok ? '' : String(sub.error || '子代理失败').slice(0, 4000);
+          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? '节点未在自动收尾宽限期内结束，已中止该节点' : (sub.error || '子代理失败')).slice(0, 4000);
           if (sub.ok) delete node.errorClass; else node.errorClass = classifyNodeErrorText(node.error); // 29c(重试成功即清旧类)
           // 审计 P2: 透传 degraded —— Claude CLI 产出可用输出后异常退出的「降级成功」(runClaudeSubAgentOnce 返回
           // {ok:true,degraded:true,warning})。此前被丢弃 → 前端整套「降级完成」渲染(app.js nodeDisplayStatus:
@@ -13430,7 +13572,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     let dispatched = 0;
     for (const id of step.toDispatch) {
       const node = nodes.find(n => n.id === id); if (!node) continue;
-      node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); delete node.toolEvidence; startedCount += 1; dispatched += 1;
+      node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); delete node.toolEvidence;
+      delete node.modelStartedAt; delete node.wrapUpRequestedAt; delete node.wrapUpDeadlineAt; delete node.wrapUpForcedAt;
+      runtime.autoSteerQueues.delete(node.id);
+      startedCount += 1; dispatched += 1;
       appendAgentRunEvent(run, { type: 'node_start', nodeId: node.id, attemptId: node.attempts }); // 25.3
       let flight;
       flight = runNode(node).catch(e => {
@@ -13493,7 +13638,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命 —— 终稿写失败时结果仍应回给调用方(onComplete/回合),磁盘状态由降级横幅兜底
   onEvent({ type: 'agent_workflow', state: 'end', id: runId, status: run.status, succeeded: nodes.length - failed.length, failed: failed.length });
   if (typeof onComplete === 'function') await onComplete(run).catch(() => {});
-  } finally { clearInterval(idleWatchdog); if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null; } activeAgentRuns.delete(runId); agentRunSaveFailures.delete(runId); }   // 对抗轮修: 失败计数随 run 生命周期清理(防 Map 泄漏)
+  } finally { clearInterval(idleWatchdog); clearInterval(workflowControlTimer); if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null; } activeAgentRuns.delete(runId); agentRunSaveFailures.delete(runId); }   // 对抗轮修: 失败计数随 run 生命周期清理(防 Map 泄漏)
   return {
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
     results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, gateVerdict: n.gateVerdict || '', gateResult: n.gateResult || null, error: n.error, errorClass: n.errorClass || '', dependsOn: n.dependsOn, dependencyPolicy: n.dependencyPolicy || 'all_success', role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, minSuccessfulToolCalls: n.minSuccessfulToolCalls || 0, toolEvidence: n.toolEvidence || null, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '', jsonRepaired: n.jsonRepaired || false })),
@@ -18037,7 +18182,10 @@ const AGENT_TOOL_HANDLERS = {
           // v1.4.4: forward workflowId/context too — the model choosing a saved template BY REFERENCE
           // (instead of always having to author a full inline `nodes` DAG itself) only works if this
           // loopback actually passes those fields through to the one place that resolves them.
-          const resp = await httpRequest({ url: `http://${host}:${port}/api/agent-workflow/launch`, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, sessionId, nodes: args.nodes, workflowId: args.workflowId, context: args.context, providerId: args.providerId }), timeoutMs: 900000, maxBodyChars: 200000 });
+          // A DAG can legitimately outlive the old fixed 15-minute loopback timeout (especially with several
+          // sequential nodes). The workflow runtime now has its own idle watchdog, per-node wrap-up deadline
+          // and parent heartbeats, so this transport timeout is only a last-resort day-long ceiling.
+          const resp = await httpRequest({ url: `http://${host}:${port}/api/agent-workflow/launch`, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, sessionId, nodes: args.nodes, workflowId: args.workflowId, context: args.context, providerId: args.providerId }), timeoutMs: 86400000, maxBodyChars: 200000 });
           return safeJsonParse(resp.body, { ok: false, error: 'invalid agent workflow response' });
         } catch (e) { return { ok: false, error: `Agent DAG loopback error: ${(e && e.message) || String(e)}` }; }
       }
@@ -20146,7 +20294,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'orchestrate_agents',
-    description: "Run a persistent sub-agent DAG. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (available ids + when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) for complex, multi-step tasks that match a listed template; skip it for simple one-shot requests.",
+    description: "Run a persistent sub-agent DAG. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the bounded grace period. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (available ids + when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) for complex, multi-step tasks that match a listed template; skip it for simple one-shot requests.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -20200,6 +20348,9 @@ function sendMcp(id, result, error) {
     : { jsonrpc: '2.0', id, result };
   process.stdout.write(`${JSON.stringify(payload)}\n`);
 }
+function sendMcpNotification(method, params) {
+  process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', method, params })}\n`);
+}
 
 async function startMcp() {
   await ensureDirs();
@@ -20241,11 +20392,25 @@ async function startMcp() {
         if (msg.method === 'tools/call') {
           const name = msg.params?.name;
           const args = msg.params?.arguments || {};
-          const result = await toolCall(name, args);
-          return sendMcp(msg.id, {
-            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-            isError: result.ok === false,
-          });
+          const progressToken = msg.params?._meta?.progressToken;
+          const progressStartedAt = Date.now();
+          // Claude CLI may attach an MCP progress token to a long tool call. Report elapsed liveness while
+          // orchestrate_agents is waiting on the synchronous DAG result; this is in addition to the app-level
+          // workflow heartbeat and helps MCP clients distinguish "still running" from a dead server.
+          const progressTimer = name === 'orchestrate_agents' && progressToken != null ? setInterval(() => {
+            const elapsedSec = Math.max(1, Math.round((Date.now() - progressStartedAt) / 1000));
+            try { sendMcpNotification('notifications/progress', { progressToken, progress: elapsedSec, message: `Agent 工作流仍在运行 · ${elapsedSec}s` }); } catch {}
+          }, 10000) : null;
+          if (progressTimer && progressTimer.unref) progressTimer.unref();
+          try {
+            const result = await toolCall(name, args);
+            return sendMcp(msg.id, {
+              content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+              isError: result.ok === false,
+            });
+          } finally {
+            if (progressTimer) clearInterval(progressTimer);
+          }
         }
         if (msg.method === 'resources/list') {
           return sendMcp(msg.id, {
@@ -21344,10 +21509,8 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const applied = await applyAgentWorktree(run, nodeId).catch(e => ({ ok: false, error: String(e && (e.gitStderr || e.message) || e) }));
       return send(res, json(applied, applied.ok ? 200 : 409));
     }
-    // v1 定向插话（steer 到指定运行中子代理节点）: enqueue a user interjection onto ONE running/queued OpenAI
-    // node's steer queue; runSubAgentCore drains it at its next iteration boundary. Requires a live run (the
-    // queue lives on the in-memory runtime). Claude-engine nodes are -p single-shot processes with no
-    // iteration boundary to inject at, so they are rejected here (symmetric with /api/steer rejecting Claude).
+    // Directional node steering. Provider nodes consume at their next iteration boundary; Claude nodes consume
+    // through the live stream-json stdin channel. Queued nodes keep the message until their model starts.
     if (action === 'steer_node') {
       if (!live) return send(res, json({ ok: false, error: '工作流当前未运行，无法插话' }, 409));
       // 停止收尾窗口：stop 已经请求（或 ctrl 已中止）之后，节点即将被标记 cancelled，不会再有下一次迭代边界来
@@ -21356,23 +21519,8 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const nodeId = String(body.nodeId || '').trim();
       if (!nodeId) return send(res, json({ ok: false, error: 'nodeId required' }, 400));
       // 团队模式 v2 (B1): 投递资格判定与 send_to_agent 共用同一小函数(不复制两份),reason 各自映射为本处既有措辞。
-      const elig = nodeDeliveryEligibility(live.run, nodeId);
+      const elig = nodeDeliveryEligibility(live.run, nodeId, { allowClaude: true });
       if (elig.reason === 'not_found') return send(res, json({ ok: false, error: '节点不存在' }, 404));
-      if (elig.reason === 'claude_engine') {
-        // 47a Phase C-A(工作台 Claude 节点 steer):-p 单发进程无迭代边界,插话改【延迟生效】——挂到节点
-        // deferredSteers,节点结束后经 buildUpstreamContext 注入下游节点(与父回合汇总)。UI 明示「延迟」,
-        // 不假装即时生效(02 方案 Phase C 选项 A)。仍拒终态节点;队列同 cap 3;干预计数与即时插话一致。
-        if (!['running', 'queued', 'waiting_resource'].includes(elig.node.status)) return send(res, json({ ok: false, error: '节点已结束，无法插话' }, 409));
-        const text2 = String(body.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim();
-        if (!text2) return send(res, json({ ok: false, error: '插话内容不能为空' }, 400));
-        if (!Array.isArray(elig.node.deferredSteers)) elig.node.deferredSteers = [];
-        if (elig.node.deferredSteers.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '该节点延迟插话已达上限(3 条)' }, 409));
-        elig.node.deferredSteers.push(text2);
-        if (Array.isArray(elig.node.progressLog)) elig.node.progressLog.push({ at: nowIso(), text: '收到延迟插话(节点结束后注入下游):' + text2.slice(0, 80), kind: 'steer' });
-        bumpRunIntervention(live.run, 'steer_node'); // 29c
-        await saveAgentRun(live.run).catch(() => {});
-        return send(res, json({ ok: true, deferred: true, queued: elig.node.deferredSteers.length }));
-      }
       if (elig.reason === 'deterministic_gate') return send(res, json({ ok: false, error: '确定性质量门节点不经过模型，无法插话' }, 409));
       if (elig.reason === 'terminal') return send(res, json({ ok: false, error: '节点已结束，无法插话' }, 409));
       const text = String(body.text || '').trim().slice(0, 2000);
@@ -21383,7 +21531,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       if (q.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '该节点插话队列已满' }, 409));
       q.push(text);
       bumpRunIntervention(live.run, 'steer_node'); // 29c(队列在内存,计数随下一次快照落盘即可,不额外写盘)
-      return send(res, json({ ok: true, queued: q.length }));
+      return send(res, json({ ok: true, queued: q.length, live: elig.node.status === 'running' }));
     }
     // 团队模式 v2 (A2/A4): 任务池审批。归属守卫(live.run.sessionId !== sessionId → 404)已在上方对全 action 生效。
     // 非 live 或 closing(收尾已原子置位)→ 409 带指引;宽限窗内 closing 仍为 false,故窗内可批并物化并继续调度。

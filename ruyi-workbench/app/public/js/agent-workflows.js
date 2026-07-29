@@ -380,17 +380,14 @@ async function agentRunAction(runId, action, extra) {
     toast(t("toast.wfActionSubmitted"), 'ok'); await loadAgentRuns(true); // 29a: 动作后强制全量(apply_isolation 等冷路径不发事件)
   } catch (e) { toast(t("toast.wfError", { p1: apiErrText(e) }), 'err'); }
 }
-// v1 定向插话（steer 到指定运行中子代理节点）：对某个运行中/排队中的 OpenAI 引擎节点插一句话，服务器在该节点
-// 下一次 API 调用前把它注入为 user 消息。prompt() 取文本（与现有 confirm 风格一致，不引入新组件）；成功后刷新
+// 定向插话（steer 到指定运行中子代理节点）：Provider 在下一次 API 调用前注入，Claude 通过其持续
+// stream-json stdin 通道注入。prompt() 取文本（与现有 confirm 风格一致，不引入新组件）；成功后刷新
 // 运行列表让「插话」里程碑尽快显现。失败用 apiErrText 提示。
 // v3 P3b:presetText 提供时走内联提交（工作台右板段1 的插话框直接传输入值，不弹 prompt）；不提供时保留原
 // prompt() 交互（右栏 agent-runs tab 的「插话」按钮仍是 3 参调用）。两条路径共用同一 steer_node action 与 toast。
 async function steerAgentNode(runId, nodeId, nodeStatus, presetText, engine) {
   const sid = state.currentSession?.id; if (!sid) return;
-  // 47a Phase C-A:Claude 节点(-p 单发)无迭代边界,插话为【延迟生效】(节点结束后注入下游)——
-  // 提示文案与成功 toast 都如实区分,不假装即时生效。
-  const deferred = (engine || 'openai') === 'claude';
-  const hint = deferred ? `对节点 ${nodeId} 延迟插话（节点结束后注入下游节点生效）：` : `对节点 ${nodeId} 插话（下一次调用前生效）：`;
+  const hint = `对节点 ${nodeId} 插话（运行中节点会立即接收，排队节点在启动时接收）：`;
   const text = (presetText != null ? presetText : (prompt(hint) || '')).trim();
   if (!text) return;
   try {
@@ -398,8 +395,7 @@ async function steerAgentNode(runId, nodeId, nodeStatus, presetText, engine) {
     if (!r || !r.ok) throw new Error(r?.error ? apiErrText(r.error) : t('workflow.injectFailed'));
     // running 节点在下一次迭代边界（下一次模型调用前）就会消费队列；queued/waiting_resource 节点要等它真正
     // 开跑才会消费——如果节点在那之前被跳过/阻塞/工作流停止，排队的插话会被直接丢弃，成功提示要如实区分这两种情况。
-    const msg = r.deferred ? t('workflow.injectDelayed')
-      : nodeStatus === 'running' ? t('workflow.injectImmediate') : t('workflow.injectQueued');
+    const msg = nodeStatus === 'running' ? t('workflow.injectImmediate') : t('workflow.injectQueued');
     toast(msg, 'ok');
     await loadAgentRuns(true);
     return true;
@@ -670,16 +666,14 @@ function renderAgentRuns(runs) {
         }
         body.appendChild(actions);
       }
-      // v1 定向插话（steer）+ 47a Phase C-A：对 live run 中运行/排队/等待资源的节点给「插话」按钮。
-      // OpenAI 节点:即时语义(下一次调用前注入);Claude 节点(-p 单发无迭代边界):延迟语义(节点结束后
-      // 注入下游),按钮文案明示差异(不假装即时生效,与后端 steer_node 的 deferred 分支一致)。
+      // 对 live run 中运行/排队/等待资源的模型节点给「插话」按钮。Provider 在下一次调用前注入，
+      // Claude 通过持续 stream-json stdin 注入；排队节点都在启动时消费。
       // vote/dedupe 质量门节点是确定性短路，从不调用模型、没有迭代边界会消费插话队列，同样不提供（与后端一致）。
       const isDeterministicGate = node.gate && ['vote', 'dedupe'].includes(node.gate.mode);
       if (run.live && ['running', 'queued', 'waiting_resource'].includes(node.status) && !isDeterministicGate) {
-        const isClaudeNode = (node.engine || 'openai') === 'claude';
         const steerActions = el('div', 'agent-node-actions');
-        const steer = el('button', 'mini', isClaudeNode ? t('workflow.steerDeferred') : t('workflow.steer'));
-        steer.setAttribute('aria-label', t(isClaudeNode ? 'workflow.steerDeferredAria' : 'workflow.steerAria', { nodeId: node.id }));
+        const steer = el('button', 'mini', t('workflow.steer'));
+        steer.setAttribute('aria-label', t('workflow.steerAria', { nodeId: node.id }));
         steer.onclick = () => steerAgentNode(run.id, node.id, node.status, undefined, node.engine);
         steerActions.appendChild(steer);
         body.appendChild(steerActions);

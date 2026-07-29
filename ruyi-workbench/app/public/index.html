@@ -882,8 +882,13 @@
               </div>
               <div class="field-block">
                 <label for="cfgAgentWorkflowMaxNodes" data-i18n="settings.advanced.workflowMaxNodes">Agent 工作流节点数上限</label>
-                <input id="cfgAgentWorkflowMaxNodes" type="number" min="1" max="32" step="1" placeholder="32" />
-                <p class="field-help muted" data-i18n="settings.advanced.workflowMaxNodes.hint">持久化 DAG 工作流（图形编辑器/模板）单次运行最多多少个节点，范围 1–32（默认 32，上限）。与上面的“每回合总数”是两个独立预算。</p>
+                <input id="cfgAgentWorkflowMaxNodes" type="number" min="1" max="64" step="1" placeholder="48" />
+                <p class="field-help muted" data-i18n="settings.advanced.workflowMaxNodes.hint">持久化 DAG 工作流（图形编辑器/模板）单次运行最多多少个节点，范围 1–64（默认 48）。与上面的“每回合总数”是两个独立预算。</p>
+              </div>
+              <div class="field-block">
+                <label for="cfgAgentNodeWrapUpMinutes" data-i18n="settings.advanced.agentNodeWrapUp">节点自动收尾（分钟）</label>
+                <input id="cfgAgentNodeWrapUpMinutes" type="number" min="0" max="120" step="1" placeholder="8" />
+                <p class="field-help muted" data-i18n="settings.advanced.agentNodeWrapUp.hint">单个模型节点运行超过该时长后，编排器会要求它停止扩展并立即总结；宽限期后仍未结束则只中止该节点。设为 0 可关闭。</p>
               </div>
             </div>
             <div class="field-block">

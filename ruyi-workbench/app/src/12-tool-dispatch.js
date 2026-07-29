@@ -698,7 +698,10 @@ const AGENT_TOOL_HANDLERS = {
           // v1.4.4: forward workflowId/context too — the model choosing a saved template BY REFERENCE
           // (instead of always having to author a full inline `nodes` DAG itself) only works if this
           // loopback actually passes those fields through to the one place that resolves them.
-          const resp = await httpRequest({ url: `http://${host}:${port}/api/agent-workflow/launch`, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, sessionId, nodes: args.nodes, workflowId: args.workflowId, context: args.context, providerId: args.providerId }), timeoutMs: 900000, maxBodyChars: 200000 });
+          // A DAG can legitimately outlive the old fixed 15-minute loopback timeout (especially with several
+          // sequential nodes). The workflow runtime now has its own idle watchdog, per-node wrap-up deadline
+          // and parent heartbeats, so this transport timeout is only a last-resort day-long ceiling.
+          const resp = await httpRequest({ url: `http://${host}:${port}/api/agent-workflow/launch`, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, sessionId, nodes: args.nodes, workflowId: args.workflowId, context: args.context, providerId: args.providerId }), timeoutMs: 86400000, maxBodyChars: 200000 });
           return safeJsonParse(resp.body, { ok: false, error: 'invalid agent workflow response' });
         } catch (e) { return { ok: false, error: `Agent DAG loopback error: ${(e && e.message) || String(e)}` }; }
       }

@@ -9,7 +9,7 @@
  * never drains its steer queue until it starts, so the cap test can never race a consumption). Assertions:
  *   (a) a steer POSTed to the RUNNING `work` node appears as `[编排者插话] STEER_MARK` in a LATER fake request body;
  *   (b) the persisted run's `work` node grows a 「插话 · STEER_MARK」 progressLog milestone (survives refresh/restart);
- *   (c) steer on the (queued) Claude-engine node -> 409「Claude 引擎节点…」 (single-shot -p process, unsupported);
+ *   (c) steer on the queued Claude-engine node is accepted into its live stream-json input queue;
  *   (d) steer on the already-succeeded `work` node while the run is STILL live -> 409「节点已结束」;
  *   (e) per-node queue cap: 3 steers on the queued `later` node succeed (queued 1/2/3), the 4th -> 409「插话队列已满」;
  *   (bonus) those 3 queued pre-steers are delivered to `later`, IN ORDER, in a single fake request body once it starts;
@@ -183,12 +183,11 @@ const steer = (runId, sid, nodeId, text, hdr) => post(WP, `/api/agent-runs/${enc
     });
     ok(!!phase1, 'phase 1 reached: work running, later/claudenext/gate queued, run live');
 
-    // (c) Claude-engine node steer → 第47波47a 起接受为【延迟插话】(deferred:true,节点结束后注入下游),
-    // 不再 409。引擎分支先于状态分支,queued 的 Claude 节点同样走 deferred。延迟插话注入下游上下文的
-    // 全路径见 steering-claude.e2e.js D 段,此处锁 action 层的接受语义与响应字段。
+    // (c) Claude-engine workflow nodes now use stream-json input. A queued node accepts the same steer queue
+    // as Provider nodes and consumes it when its model process starts.
     const cRes = await steer(runId, sid, 'claudenext', 'CLAUDE_DEFERRED_MARK', hdr);
-    ok(cRes.status === 200 && cRes.body && cRes.body.ok === true && cRes.body.deferred === true,
-      '(c) steer on Claude-engine node → 200 deferred:true(47a 延迟插话语义) (got ' + cRes.status + ' / ' + JSON.stringify(cRes.body || {}) + ')');
+    ok(cRes.status === 200 && cRes.body && cRes.body.ok === true && cRes.body.queued === 1 && cRes.body.deferred !== true,
+      '(c) steer on queued Claude-engine node enters the live input queue (got ' + cRes.status + ' / ' + JSON.stringify(cRes.body || {}) + ')');
 
     // (f) vote-gate node steer → 409 (aggregateAgentVote is a deterministic short-circuit in runAgentWorkflow —
     // it never calls runSubAgent, so there is no iteration boundary to ever drain a queued steer). `gate` is

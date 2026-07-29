@@ -287,7 +287,18 @@ function handleAgentWorkflowEvent(evt, live) {
     return;
   }
   const host = live.workflowCards.get(id); if (!host) return;
-  if (evt.state === 'node_retry') {
+  if (evt.state === 'heartbeat') {
+    host.done = Math.max(host.done, Number(evt.completedNodes) || 0);
+    const active = (Array.isArray(evt.activeNodes) ? evt.activeNodes : []).map(node => node && node.id).filter(Boolean).join(', ') || '—';
+    host.status.textContent = t('workflow.run.heartbeat', {
+      done: host.done, total: Number(evt.totalNodes) || host.total,
+      seconds: Math.max(1, Math.round((Number(evt.elapsedMs) || 0) / 1000)), active,
+    });
+  } else if (evt.state === 'node_wrapup_requested') {
+    host.status.textContent = t('workflow.run.wrapUpRequested', { nodeId: evt.nodeId || '' });
+  } else if (evt.state === 'node_wrapup_forced') {
+    host.status.textContent = t('workflow.run.wrapUpForced', { nodeId: evt.nodeId || '' });
+  } else if (evt.state === 'node_retry') {
     host.status.textContent = t('workflow.run.retry', { nodeId: evt.nodeId || '', attempt: evt.attempt || 0, maxRetries: evt.maxRetries || 0 });
   } else if (evt.state === 'node_loop') {
     host.status.textContent = t('workflow.run.loop', { nodeId: evt.nodeId || '', iteration: evt.iteration || 0, maxIterations: evt.maxIterations || 0, count: evt.noProgressCount || 0 });
