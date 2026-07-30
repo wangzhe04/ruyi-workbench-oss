@@ -1244,4 +1244,22 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 - 执行 2.3.0 发布动作(第73波 §结论 四步)——下一动作;
 - 其后按 PRETENDER-PLAN v4 进第74波(P1 schema/状态协议/威胁模型与75c阈值冻结文书)。
 
+## 第74波 · Pretender P1 首切片 -- schema 冻结文书(2026-07-30)
+
+按 PRETENDER-PLAN v4 第74波交付 **`docs/PRETENDER-SCHEMA.md` v1**(冻结;约 200 行):Mission projection / Intervention 全字段级冻结(类型/权威来源/可变性/写入方,均亲验代码引用 file:line)。纯文档波,零代码改动。
+
+- **标识与主键**:missionId(D1 派生 + S5 收紧:只保证身份不重映射,不承诺 3.1 存储零升级);`mission.changeSeq`(S3:统一变化时间线,回来摘要/ETag/projectionRevision/索引失效的权威,源 cursor 降溯源证据);`interventionVersion`(S1:CAS 版本);idempotencyKey 收紧为「只标识同请求重试」。
+- **Intervention 状态协议**:权威键 `(missionId,interventionId)`;`pending → applying → terminal` + 崩溃恢复态 `indeterminate/cancelled_restart`;重启遇 applying 不自动重放,对照执行审计进诚实终态;落盘顺序与失败注入六窗口矩阵成文;决策 payload 按 type/action 联合结构(permission allow/deny+updatedInput / question answer / plan/pool approve/reject)。
+- **统一决策契约**(75b 落码的断言基准):路由带 missionId 段;统一错误码(相同 key 重放 200 返已存响应/不同 key 命中终态 409/版本冲突 409 version_conflict/过期 410/不存在或归属不符 404/不可送达 409+reason);**单一 command core**——经典四端点只是兼容适配器(S2)。
+- **类型与控制面**:四类 3.0 生产语义 + `conflict|stall|budget` 仅保留名字(消费者容忍未知类型、不预冻结未来 payload);Mission 暂停/继续/停止/重试/人工接管逐动作作用域冻结;stall 按 T3 留 P3 显式决策点。
+- **安全与规模前置**:五类威胁(伪造/重放/越权/过期竞态/不可送达)× 现有机制 × 75b/81 对策落点;**75c 压力门阈值冻结**(标准数据集 300 mission/3万 Intervention/10万 usage;列表冷 1500ms 热 300ms、详情冷 800ms 热 200ms、全局收件箱冷 1200ms 热 250ms;低配 ×2;索引常驻 ≤50MB;矩阵剪枝 ~24 格标准)。
+- **权威级别成文**:现状 NDJSON 是 fire-and-forget 旁路账(boot 终态化误判窗口在案);75a 起 Intervention journal 升权威存储(写链串行/完整状态行/撕裂尾行先截断再 append/转换推进 version+changeSeq)。
+- **退出条件自核**:§13 文书 ↔ e2e 对照表——每条目映射既有锚点件(missions-readmodel 41 / interventions-persist 34 / interventions-pool / mission-result / pretender-gate 31 等 10 件,已核实全部存在)或 75a/75b/75c 新件断言基准;每个威胁/崩溃窗口/数据缺口均有落点。
+- 验证:facts.static / meta-guard 等静态锁全绿(纯文档改动零副作用)。
+
+### 待续
+
+- 执行 2.3.0 发布动作(第73波 §结论 四步;包已构建,待提交窗口);
+- 其后按 PRETENDER-PLAN v4 进 **第75a波**(Mission/Intervention 权威存储原语 + missionId + C4 竞态修复)。
+
 
