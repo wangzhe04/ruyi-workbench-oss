@@ -12,7 +12,7 @@
 
 一台 Windows 机器 + 任意一个可用的模型端点(任意 OpenAI 兼容 API 或内网 Claude CLI)= 一个**能真正替你动手**的本地 AI 工作台:读写文件、跑脚本、操控桌面和 Office、派一队子代理协作调研——每一步可审计、可撤销、成本透明,**有网没网都能正常运行**。
 
-> **当前发布线：Ruyi Escapade 2.2**（技术版本 `v2.2.0`）。Escapade 是整个 2.x 系列的产品代号；后续修订仍沿用这个名字，例如 **Ruyi Escapade 2.2.1**、**2.3**。内部的「第 N 波」只用于拆分开发计划，绝不直接充当用户版本号。下一代预留代号为 **Ruyi Pretender 3.0**。
+> **当前发布线：Ruyi Escapade 2.3**（技术版本 `v2.3.0`）。Escapade 是整个 2.x 系列的产品代号；后续修订仍沿用这个名字，例如 **Ruyi Escapade 2.3.1**、**2.4**。内部的「第 N 波」只用于拆分开发计划，绝不直接充当用户版本号。下一代预留代号为 **Ruyi Pretender 3.0**。
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
@@ -21,7 +21,7 @@
 
 <sub>▲ 真实工作流:一句话让 AI 读取工作区里的 CSV → 分析并落一份报告文件 → 对话里给出结构化结论;每个工具调用有卡片、每处文件改动可「撤销」、每轮消耗有账。</sub>
 
-**快速跳转**:[这是什么](#如意是什么) · [与同类软件对比](#与同类软件的对比) · [界面导览](#界面一览) · [核心能力](#核心能力一览v21--escapade) · [功能详解](#功能详解) · [快速开始](#快速开始五分钟跑起来) · [进阶指引](#进阶操作指引) · [English](#english)
+**快速跳转**:[这是什么](#如意是什么) · [与同类软件对比](#与同类软件的对比) · [界面导览](#界面一览) · [核心能力](#核心能力一览v23--escapade) · [功能详解](#功能详解) · [快速开始](#快速开始五分钟跑起来) · [进阶指引](#进阶操作指引) · [English](#english)
 
 ---
 
@@ -89,7 +89,7 @@
 
 </details>
 
-## 核心能力一览(v2.2) · Escapade
+## 核心能力一览(v2.3) · Escapade
 
 | 能力 | 说明 | 详解 |
 |------|------|------|
@@ -409,9 +409,9 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Settings, Provider cards, safety/capability popovers, model menus, artifacts, shortcuts, the command palette, the skill library, and stable API errors are localized. Built-in skills and quick tasks follow the UI language, while user and project-authored content remains in its original language; simple/pro UI is shared by coders and non-coding knowledge workers.
 5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an on-prem Claude CLI, switchable mid-session with cross-engine context continuation.
 
-> **Current release train: Ruyi Escapade 2.2** (technical version `v2.2.0`). *Escapade* names the whole 2.x product family, so follow-up releases remain **Ruyi Escapade 2.2.1** or **2.3**. Internal “waves” are planning slices only, never user-facing version numbers. The next major generation is reserved as **Ruyi Pretender 3.0**.
+> **Current release train: Ruyi Escapade 2.3** (technical version `v2.3.0`). *Escapade* names the whole 2.x product family, so follow-up releases remain **Ruyi Escapade 2.3.1** or **2.4**. Internal “waves” are planning slices only, never user-facing version numbers. The next major generation is reserved as **Ruyi Pretender 3.0**.
 
-### Capabilities (v2.2) · Escapade
+### Capabilities (v2.3) · Escapade
 
 Dual-engine chat with reliable `request_user_input` prompts (delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · **51 native built-in tools** (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.0, 107 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. Each feature ships through an implement → adversarial multi-agent review → fix → regression loop with **158 offline e2e cases** (152 run by default; 6 external-environment probes are opt-in).
 

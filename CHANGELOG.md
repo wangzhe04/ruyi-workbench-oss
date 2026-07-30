@@ -3,17 +3,23 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
-## 如意 Ruyi Escapade 2.2.x(未发布)· 第71波 EC-E 切片二 · Intervention 持久化
+## 如意 Ruyi Escapade 2.3 · v2.3.0 · 2026-07-30
 
 ### 中文
 
 - **未决事项重启不丢失**:权限请求、提问、计划审批三类未决事项此前是纯内存状态,进程重启即消失(用户看到的待决卡片无响应,且无审计痕迹)。现旁路持久化为 Intervention 记录(append-only 日志):注册时落盘 pending,决策/超时/清理时落盘终态,重启后仍 pending 的自动标记为「已取消(重启)」而非永挂。**执行语义完全不变**--超时仍自动拒绝、权限仍默认不放宽,Intervention 只是审计/读模型/重启终态化的旁路记录,不参与决策执行。重复决策不重复执行(第二次返回 409),过期/取消/已处理状态可区分。
 - **`/api/interventions/:sessionId` 只读派生**:列出会话的全部 Intervention 记录与待决计数,鉴权同 `/api/missions`。`/api/missions` 的未决计数改从 Intervention 日志现算(此前读空内存 Map,重启后归零)。
+- **任务池与待决叙事收口**：任务池统一进入 Intervention 读模型，清理残留 pending 叙事段，避免同一待决事项在不同入口重复展示。
+- **任务结果与不可逆正向账**：新增任务结果模型和不可逆操作正向账，为完成态、失败态与可审计的已执行动作提供稳定投影。
+- **全局“需要你”聚合**：新增跨会话只读聚合入口，集中展示待处理事项，不绕过既有决策端点的鉴权、幂等和安全语义。
 
 ### English
 
 - **Pending interventions survive restart**: permission prompts, questions, and plan approvals were previously in-memory only, vanishing on restart (the pending card stopped responding, with no audit trail). They're now mirrored as Intervention records (append-only log): pending on register, terminal state on decision/timeout/clear, and anything still pending at restart is marked "cancelled (restart)" instead of hanging forever. **Execution semantics are unchanged** - timeouts still auto-deny, permissions still default-closed; Intervention is a sidecar for audit/read-model/restart-finalization only, never participating in decision execution. Duplicate decisions don't re-execute (second attempt returns 409); expired/cancelled/resolved states are distinguishable.
 - **`/api/interventions/:sessionId` read projection**: lists a session's Intervention records and pending counts, gated like `/api/missions`. The pending counts in `/api/missions` now derive from the Intervention log (previously read an empty in-memory Map after restart).
+- **Task-pool and pending-narrative closure**: task-pool items now share the Intervention read model and stale pending narrative segments are removed, preventing duplicate presentation across entry points.
+- **Task results and irreversible-action ledger**: adds stable projections for completed/failed task outcomes and an auditable positive ledger of irreversible actions.
+- **Global “needs you” aggregation**: adds a cross-session read-only inbox without bypassing the existing decision endpoints' authorization, idempotency, or safety semantics.
 
 ## 如意 Ruyi Escapade 2.2 · v2.2.0 · 2026-07-28
 
