@@ -1,6 +1,6 @@
-# Pretender Schema 冻结文书 v1(2026-07-30,第74波交付,对齐 PLAN v4)
+# Pretender Schema 冻结文书 v1.1(2026-07-30,第74波交付,对齐 PLAN v4)
 
-状态:**冻结 v1**。本文件是 Pretender 3.0 全部读/写模型的**字段级权威定义**,与 `docs/PRETENDER-PLAN.md` **v4** 配套:
+状态:**冻结 v1.1**。本文件是 Pretender 3.0 全部读/写模型的**字段级权威定义**,与 `docs/PRETENDER-PLAN.md` **v4** 配套。v1.1 为 Escapade 2.4 交互提问协议的只增不改修订:冻结 question typed payload、选项+自填答案和旧 `multiSelect`/`answer[]` 兼容映射,不改变 Intervention 状态机:
 - 文书内每个字段标注**类型 / 权威来源 / 可变性 / 写入方**;P1 出门后,任何 UI 不得引入文书外字段(PLAN §4 P1 出门闸)。
 - 修改程序:新增字段 = 小版本(v1.x),只增不改;改字段语义/枚举值/错误码 = 大版本(v2),必须成文修订理由并经拍板——与 PLAN §6 拍板项同级。
 - 字段形状均亲验自代码现状(引用 file:line);标注 **〔v4 新增〕** 的条目是第74波成文、第75a/75b/75c 波落码的设计冻结,现状代码尚无,红绿双证随对应波次交付。
@@ -92,7 +92,12 @@
 | `decidedAt` / `decidedBy` | ISO / string | 终态转换 | |
 | `interventionVersion` | int ≥0,单调 | 每次状态转换推进 | **〔v4 新增,S1〕**CAS 版本(§1)。 |
 | 完整状态记录 | — | 75a 起每次转换落**完整状态行** | **〔v4 新增〕**现状 settle 整行只写 `{id,status,decidedAt,...}`(02:61),后写胜整行覆盖后 resolved 记录丢 type/requestedAt/toolName,排序还把 resolved 顶前——75a 起 journal 记录完整状态,不再后写整行丢字段(PLAN 75a 交付项);75a 前的存量记录仍按后写胜折叠兼容读取。 |
-| 类型附加字段 | | | permission:`toolName,tier,revertible`;pool:`runId,proposedBy,task`;71b 对账补登记:`backfilled:true`。 |
+| 类型附加字段 | | | permission:`toolName,tier,revertible`;question:`questions[]`(见下);pool:`runId,proposedBy,task`;71b 对账补登记:`backfilled:true`。 |
+
+**question typed payload(v1.1 新增,Escapade 2.4 已落码)**:
+- `questions[]` 最多 3 项:`{id,header,question,answerMode,multiSelect,allowOther,otherLabel,otherPlaceholder,options[]}`;`answerMode = single|multiple|text`,`multiSelect` 仅为旧客户端兼容别名(`answerMode==='multiple'`)。
+- `options[]` 最多 12 项:`{id,label,description}`;服务端为缺失/重复 id 生成本次 Intervention 内稳定 id。`allowOther=true` 仅适用于 single/multiple,允许选项之外再提交一段自填文本。
+- 现状 2.4 注册行已把完整 `questions[]` 写入 pending Intervention,全局 `/api/interventions` pending 投影原样携带;但 75a 前 partial settle 行仍会按后写胜丢掉终态记录的 request payload。**75a 完整状态行必须保留 typed payload**,不得把它退化回 `questionSummary`。
 
 **账本权威级别(v4 收紧成文)**:现状 Intervention NDJSON 是 **append-only 旁路账,fire-and-forget**——落盘失败静默吞掉(02:43/50 注释自认),**执行权威源仍是内存 Map**(02:28);boot 终态化(`markInterruptedInterventions`,02:86)据此判 pending 存在「settle 行丢失+重启 → 已决策事项被误标 cancelled_restart」的漂移窗口。**75a 起 Intervention journal 升级为权威存储**(PLAN 75a):同 Mission 写链串行;每次状态转换同步落盘后再推进内存态;转换同时推进 `interventionVersion` 与 `mission.changeSeq`——契约 409/404/410/版本冲突的判定**只以权威 journal + CAS 为准**(§7),漂移窗随之关闭。pool 型例外保持:paused run 的提案重启后**保留 pending**(02:97,恢复后可审批),不一刀切 cancelled_restart。
 
@@ -108,7 +113,7 @@
 
 **请求体**:信封 `{expectedVersion, idempotencyKey}` + **按 type/action 区分的联合 payload**(禁止一个松散 action 对象吞掉类型差异):
 - permission:`{action:'allow'|'deny', updatedInput?}`(updatedInput = 用户改后放行);
-- question:`{action:'answer', answer}`;
+- question:`{action:'answer',answer:{answers:[{questionId,selectedOptionIds[],otherText}]}}`;`selectedOptionIds` 必须属于该 question,`otherText` 仅在 `answerMode=text` 或 `allowOther=true` 时接受。经典 `answers[].answer[]` 按 option id/label 映射,无法映射的值仅在允许自填时转为 `otherText`;
 - plan:`{action:'approve'|'reject', feedback?}`;
 - pool:`{action:'approve'|'reject'}`(目标 run 由 Intervention 的 runId 锁定)。
 

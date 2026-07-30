@@ -243,6 +243,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
           requestedAt: iv.requestedAt || '',
           toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
           runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
+          questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
           live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
         });
         counts.total++;
@@ -284,7 +285,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     if (!entry || entry.sessionId !== sessionId) {
       return send(res, apiFailure('question.not_pending', {}, 'question is no longer pending', 409));
     }
-    const delivered = entry.deliver(normalizeQuestionAnswer(body));
+    const delivered = entry.deliver(normalizeQuestionAnswer(body, entry.questions));
     if (!delivered) return send(res, apiFailure('question.delivery_failed', {}, 'answer could not be delivered; the question is still pending', 409));
     logEvent({ kind: 'intervention', source: 'question_answer', sessionId, questionId });
     return send(res, json({ ok: true, delivered: true, questionId }));

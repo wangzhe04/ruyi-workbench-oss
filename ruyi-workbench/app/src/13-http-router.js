@@ -1659,7 +1659,7 @@ const MCP_TOOLS = [
   // loopback. It is hidden from sub-agents and standalone MCP sessions because neither owns the chat UI.
   {
     name: 'request_user_input',
-    description: 'Pause and ask the user one to three concise questions in the workbench UI. Use this whenever a missing preference or choice materially affects the result. The tool returns the user answers; continue only after it returns.',
+    description: 'Pause and ask the user one to three concise questions in the workbench UI. Questions may be single choice, multiple choice, free text, or choices plus an optional custom answer. Use this whenever a missing preference or choice materially affects the result. The tool returns structured user answers; continue only after it returns.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1668,17 +1668,26 @@ const MCP_TOOLS = [
           items: {
             type: 'object',
             properties: {
+              id: { type: 'string', description: 'Stable identifier within this request; generated when omitted' },
               header: { type: 'string', description: 'Short label for the question' },
               question: { type: 'string', description: 'The question shown to the user' },
+              answerMode: { type: 'string', enum: ['single', 'multiple', 'text'], description: 'Single choice, multiple choice, or free text. Inferred from options/multiSelect when omitted.' },
               options: {
                 type: 'array',
                 items: {
                   type: 'object',
-                  properties: { label: { type: 'string' }, description: { type: 'string' } },
+                  properties: {
+                    id: { type: 'string', description: 'Stable option identifier; generated when omitted' },
+                    label: { type: 'string' },
+                    description: { type: 'string' },
+                  },
                   required: ['label'],
                 },
               },
-              multiSelect: { type: 'boolean', description: 'Allow more than one option' },
+              multiSelect: { type: 'boolean', description: 'Legacy alias for answerMode=multiple' },
+              allowOther: { type: 'boolean', description: 'With single/multiple choices, also allow a custom typed answer' },
+              otherLabel: { type: 'string', description: 'Optional label for the custom-answer choice' },
+              otherPlaceholder: { type: 'string', description: 'Optional placeholder for the custom-answer input' },
             },
             required: ['question'],
           },

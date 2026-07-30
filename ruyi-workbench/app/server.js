@@ -22,7 +22,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '2.3.0'; // Escapade 2.3:EC-E Intervention/任务结果闭环与 Mission 只读投影
+const VERSION = '2.4.0'; // Escapade 2.4:工具合批指引 + 结构化可自填交互提问
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -4879,27 +4879,91 @@ function clearPendingPermissions(sessionId, message) {
 
 function normalizeUserQuestions(raw) {
   const source = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.questions) ? raw.questions : [raw]);
-  return source.filter(q => q && typeof q === 'object').slice(0, 3).map((q, index) => ({
-    header: String(q.header || '').trim().slice(0, 80),
-    question: String(q.question || q.header || `Question ${index + 1}`).trim().slice(0, 1000),
-    multiSelect: q.multiSelect === true,
-    options: (Array.isArray(q.options) ? q.options : []).slice(0, 12).map(opt => {
-      if (typeof opt === 'string') return { label: opt.slice(0, 200) };
+  const uniqueId = (value, fallback, seen) => {
+    const base = String(value || fallback).trim().slice(0, 80) || fallback;
+    let candidate = base;
+    for (let attempt = 2; seen.has(candidate); attempt++) {
+      const suffix = `_${attempt}`;
+      candidate = `${base.slice(0, 80 - suffix.length)}${suffix}`;
+    }
+    seen.add(candidate);
+    return candidate;
+  };
+  const questionIds = new Set();
+  return source.filter(q => q && typeof q === 'object').slice(0, 3).map((q, index) => {
+    const questionId = uniqueId(q.id, `question_${index + 1}`, questionIds);
+    const optionIds = new Set();
+    const options = (Array.isArray(q.options) ? q.options : []).slice(0, 12).map((opt, optionIndex) => {
+      const row = typeof opt === 'string' ? { label: opt } : (opt || {});
+      const label = String(row.label || row.value || '').trim().slice(0, 200);
+      if (!label) return null;
+      const optionId = uniqueId(row.id, `option_${optionIndex + 1}`, optionIds);
       return {
-        label: String((opt && (opt.label || opt.value)) || '').trim().slice(0, 200),
-        description: String((opt && opt.description) || '').trim().slice(0, 500),
+        id: optionId,
+        label,
+        description: String(row.description || '').trim().slice(0, 500),
       };
-    }).filter(opt => opt.label),
-  })).filter(q => q.question);
+    }).filter(Boolean);
+    const requestedMode = String(q.answerMode || '').trim().toLowerCase();
+    let answerMode = ['single', 'multiple', 'text'].includes(requestedMode)
+      ? requestedMode
+      : (options.length ? (q.multiSelect === true ? 'multiple' : 'single') : 'text');
+    if (!options.length && answerMode !== 'text') answerMode = 'text';
+    return {
+      id: questionId,
+      header: String(q.header || '').trim().slice(0, 80),
+      question: String(q.question || q.header || `Question ${index + 1}`).trim().slice(0, 1000),
+      answerMode,
+      multiSelect: answerMode === 'multiple', // legacy clients keep their existing branch
+      allowOther: answerMode !== 'text' && q.allowOther === true,
+      otherLabel: String(q.otherLabel || '').trim().slice(0, 120),
+      otherPlaceholder: String(q.otherPlaceholder || '').trim().slice(0, 300),
+      options,
+    };
+  }).filter(q => q.question);
 }
 
-function normalizeQuestionAnswer(body) {
-  const answers = (Array.isArray(body && body.answers) ? body.answers : []).slice(0, 3).map(row => ({
-    question: String((row && row.question) || '').slice(0, 1000),
-    answer: (Array.isArray(row && row.answer) ? row.answer : [row && row.answer])
-      .filter(v => v != null && String(v).trim()).slice(0, 12).map(v => String(v).slice(0, 2000)),
-  }));
-  const content = String((body && body.content) ?? answers.map(a => `${a.question}: ${a.answer.join(', ')}`).join('\n')).slice(0, 12000);
+function normalizeQuestionAnswer(body, questions) {
+  const source = (Array.isArray(body && body.answers) ? body.answers : []).slice(0, 3);
+  const knownQuestions = Array.isArray(questions) ? questions : [];
+  const answers = source.map((row, index) => {
+    const input = row && typeof row === 'object' ? row : {};
+    const questionId = String(input.questionId || '').slice(0, 80);
+    const question = knownQuestions.find(q => q && questionId && q.id === questionId) || knownQuestions[index] || null;
+    const options = Array.isArray(question && question.options) ? question.options : [];
+    const optionById = new Map(options.map(opt => [String(opt.id || ''), opt]));
+    const optionByLabel = new Map(options.map(opt => [String(opt.label || ''), opt]));
+    const selected = [];
+    const selectedSeen = new Set();
+    const addSelected = value => {
+      const key = String(value == null ? '' : value).trim();
+      const opt = optionById.get(key) || optionByLabel.get(key);
+      if (!opt || selectedSeen.has(opt.id)) return false;
+      selectedSeen.add(opt.id); selected.push(opt); return true;
+    };
+    const selectedInput = Array.isArray(input.selectedOptionIds) ? input.selectedOptionIds : [];
+    selectedInput.slice(0, 12).forEach(addSelected);
+    const legacyValues = (Array.isArray(input.answer) ? input.answer : [input.answer])
+      .filter(v => v != null && String(v).trim()).slice(0, 12).map(v => String(v).trim().slice(0, 2000));
+    let otherText = String(input.otherText || '').trim().slice(0, 4000);
+    for (const value of legacyValues) {
+      if (addSelected(value)) continue;
+      if (!otherText && (!question || question.answerMode === 'text' || question.allowOther === true)) otherText = value;
+    }
+    const acceptedOther = !!otherText && (!question || question.answerMode === 'text' || question.allowOther === true);
+    const answer = selected.map(opt => opt.label);
+    if (acceptedOther) answer.push(otherText);
+    return {
+      questionId: String((question && question.id) || questionId || `question_${index + 1}`).slice(0, 80),
+      question: String((question && question.question) || input.question || '').slice(0, 1000),
+      answer,
+      selectedOptionIds: selected.map(opt => opt.id),
+      otherText: acceptedOther ? otherText : '',
+    };
+  });
+  const generatedContent = answers.map(a => `${a.question}: ${a.answer.join(', ')}`).join('\n');
+  const fallbackContent = String((body && body.content) || '');
+  const content = String(generatedContent || fallbackContent).slice(0, 12000);
   return { ok: !(body && body.isError), answers, content };
 }
 
@@ -4937,7 +5001,10 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
   }, Math.max(5000, Number(timeoutMs) || 120000));
   pendingQuestions.set(id, entry);
   onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized });
-  registerIntervention(sessionId, 'question', id, { questionSummary: normalized.map(q => String(q.question || '').slice(0, 200)).join(' | ') });
+  registerIntervention(sessionId, 'question', id, {
+    questionSummary: normalized.map(q => String(q.question || '').slice(0, 200)).join(' | '),
+    questions: normalized,
+  });
   return id;
 }
 
@@ -6528,6 +6595,7 @@ async function runClaudeTurn({
   const indexSecs = []; // P2: 稳定索引段收集器(stdin 注入,不进命令行)
   {
     appendSys = String(config.appendSystemPrompt || '');
+    appendSys += `${appendSys ? '\n\n' : ''}${getPromptPack(config && config.locale).toolProtocol.batching}`;
     if (interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
@@ -8680,6 +8748,7 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
     // [工具协议层]
     lines.push(getPromptPack(config && config.locale).toolProtocol.intro);
     lines.push(getPromptPack(config && config.locale).toolProtocol.rules);
+    lines.push(getPromptPack(config && config.locale).toolProtocol.batching);
     if ((tools || []).some(t => t && t.function && t.function.name === 'tool_search')) {
       lines.push(getPromptPack(config && config.locale).toolProtocol.onDemand);
     }
@@ -8915,7 +8984,7 @@ function appendMemorySection(base, memSec, limit) {
 // 设计:文本逐字搬(与原内联一致,prompt-snapshot 断言中文标记不变->护栏绿)。带参数的层用模板函数
 // (params 白名单),无参数的用纯字符串。条件分支(hasTools/identityOnly/deskPresent/visionCap 等)留 JS 层。
 
-const PROMPT_PACK_VERSION = '2026-w51-2';
+const PROMPT_PACK_VERSION = '2026-w74-1';
 
 // 中文提示词包(Phase1 基线,与原内联文本逐字一致)
 const PROMPT_ZH = {
@@ -8927,6 +8996,7 @@ const PROMPT_ZH = {
   toolProtocol: {
     intro: '你有读/列/搜文件、编辑与写文件、运行 PowerShell 与脚本、查看 git 等工具。用它们实际检查与修改工作区，不要凭空猜测。使用绝对 Windows 路径（默认落在工作目录）。',
     rules: '工具协议守则：先读后改（编辑前先读该文件）；最小、精准的改动；工具返回 found:false / 未命中属正常语义，不是错误；重要或多步操作先用 todo_write 列出计划再执行；完成后给一段简洁的变更摘要。',
+    batching: '工具批次：参数已确定且互不依赖的调用，在同一条助手消息中一次发出，结果按所列顺序返回。后一步依赖前一步结果时分阶段调用：先等本批 tool_result 再发下一批。request_user_input、权限决策及有先读后改依赖的写操作必须分批。',
     onDemand: '工具按需装载：当前只提供任务预判所需的工具。不知道有哪些能力时先调用 list_tools；知道目标时直接调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。',
     priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
   },
@@ -8996,6 +9066,7 @@ const PROMPT_EN = {
   toolProtocol: {
     intro: 'You have tools to read/list/search files, edit and write files, run PowerShell and scripts, inspect git, and more. Use them to actually check and modify the workspace; do not guess. Use absolute Windows paths (they default to the working directory).',
     rules: 'Tool protocol: read before edit (read the file before editing it); make minimal, precise changes; a tool returning found:false / no-match is normal semantics, not an error; for important or multi-step operations, list a plan with todo_write first, then execute; after finishing, give a brief change summary.',
+    batching: 'Tool batching: emit calls with fixed arguments and no dependencies together in one assistant message; results return in listed order. If a later call depends on an earlier result, wait for this tool_result batch before sending the next. Keep request_user_input, permission decisions, and writes with read-before-edit dependencies in separate batches.',
     onDemand: 'On-demand tool loading: only the tools the current task likely needs are provided. If you do not know what capabilities exist, call list_tools first; when you know the target, call tool_search, then tool_load with the returned pack or exact tool name. After a successful load, call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.',
     priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
   },
@@ -20188,7 +20259,7 @@ const MCP_TOOLS = [
   // loopback. It is hidden from sub-agents and standalone MCP sessions because neither owns the chat UI.
   {
     name: 'request_user_input',
-    description: 'Pause and ask the user one to three concise questions in the workbench UI. Use this whenever a missing preference or choice materially affects the result. The tool returns the user answers; continue only after it returns.',
+    description: 'Pause and ask the user one to three concise questions in the workbench UI. Questions may be single choice, multiple choice, free text, or choices plus an optional custom answer. Use this whenever a missing preference or choice materially affects the result. The tool returns structured user answers; continue only after it returns.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -20197,17 +20268,26 @@ const MCP_TOOLS = [
           items: {
             type: 'object',
             properties: {
+              id: { type: 'string', description: 'Stable identifier within this request; generated when omitted' },
               header: { type: 'string', description: 'Short label for the question' },
               question: { type: 'string', description: 'The question shown to the user' },
+              answerMode: { type: 'string', enum: ['single', 'multiple', 'text'], description: 'Single choice, multiple choice, or free text. Inferred from options/multiSelect when omitted.' },
               options: {
                 type: 'array',
                 items: {
                   type: 'object',
-                  properties: { label: { type: 'string' }, description: { type: 'string' } },
+                  properties: {
+                    id: { type: 'string', description: 'Stable option identifier; generated when omitted' },
+                    label: { type: 'string' },
+                    description: { type: 'string' },
+                  },
                   required: ['label'],
                 },
               },
-              multiSelect: { type: 'boolean', description: 'Allow more than one option' },
+              multiSelect: { type: 'boolean', description: 'Legacy alias for answerMode=multiple' },
+              allowOther: { type: 'boolean', description: 'With single/multiple choices, also allow a custom typed answer' },
+              otherLabel: { type: 'string', description: 'Optional label for the custom-answer choice' },
+              otherPlaceholder: { type: 'string', description: 'Optional placeholder for the custom-answer input' },
             },
             required: ['question'],
           },
@@ -21243,6 +21323,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
           requestedAt: iv.requestedAt || '',
           toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
           runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
+          questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
           live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
         });
         counts.total++;
@@ -21284,7 +21365,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     if (!entry || entry.sessionId !== sessionId) {
       return send(res, apiFailure('question.not_pending', {}, 'question is no longer pending', 409));
     }
-    const delivered = entry.deliver(normalizeQuestionAnswer(body));
+    const delivered = entry.deliver(normalizeQuestionAnswer(body, entry.questions));
     if (!delivered) return send(res, apiFailure('question.delivery_failed', {}, 'answer could not be delivered; the question is still pending', 409));
     logEvent({ kind: 'intervention', source: 'question_answer', sessionId, questionId });
     return send(res, json({ ok: true, delivered: true, questionId }));

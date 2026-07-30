@@ -3,6 +3,20 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
+## 如意 Ruyi Escapade 2.4 · v2.4.0 · 2026-07-30
+
+### 中文
+
+- **工具合批与依赖分阶段**：Provider 与 Claude CLI 现在都会收到同一份双语工具批次协议。参数已确定且互不依赖的调用会被明确引导在一条助手消息中合批，结果仍按列出顺序进入既有配对链；后一步依赖前一步结果时，模型必须等待当前 `tool_result` 后再进入下一阶段。权限确认、先读后改、检查点、loop guard 与 between-tools 插话边界全部保持原语义，不新增可绕过分发层的通用批处理工具。
+- **结构化交互提问**：`request_user_input` 新增稳定 question/option ID、`single|multiple|text` 模式及 `allowOther` 自填答案，同时兼容旧 `multiSelect`/`answer[]`。新版提问卡显示选项说明，支持单选、多选、自由文本和“选项＋其他回答”，不再默认勾选第一项；全部问题回答完整后才可提交，并保留双引擎送达确认、后台提问即时浮出与重复回答 409 语义。
+- **Pretender 契约前置对齐**：Schema 文书升至 v1.1，冻结 question typed payload 与 75a 完整状态行保留要求，使 Escapade 的提问组件可在 Pretender 全局“需要你”收件箱直接复用。
+
+### English
+
+- **Tool batching with staged dependencies**: Provider and Claude CLI turns now receive the same bilingual batching contract. Calls with fixed arguments and no dependencies are explicitly grouped into one assistant response, while result-dependent work waits for the current `tool_result` before the next stage. Existing permission, read-before-edit, checkpoint, loop-guard, and between-tools steering semantics remain intact; no generic batch tool bypasses the dispatcher.
+- **Structured interactive questions**: `request_user_input` adds stable question/option IDs, `single|multiple|text` modes, and `allowOther` custom responses while preserving legacy `multiSelect`/`answer[]` compatibility. The redesigned question sheet shows option descriptions, supports choices plus typed input, never preselects the first choice, validates every question before submission, and retains delivery acknowledgement, immediate background surfacing, and stale-answer 409 behavior across both engines.
+- **Pretender contract alignment**: the Schema document advances to v1.1, freezing the typed question payload and the Wave 75a full-state retention requirement so the same renderer can later power Pretender's global “needs you” inbox.
+
 ## 如意 Ruyi Escapade 2.3 · v2.3.0 · 2026-07-30
 
 ### 中文

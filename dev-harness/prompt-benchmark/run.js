@@ -60,7 +60,10 @@ async function runSeedFake(seed) {
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${fakePort}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
     activeProvider: 'fake'
   }, null, 2));
-  const fake = cp.spawn(process.execPath, [path.join(DEV, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(fakePort), FAKE_TOOL_SEQUENCE: JSON.stringify(seed.fake_script || []), FAKE_CAPTURE_DIR: CAP }, windowsHide: true });
+  const scriptedEnv = seed.fake_parallel
+    ? { FAKE_PARALLEL_TOOLS: JSON.stringify(seed.fake_script || []) }
+    : { FAKE_TOOL_SEQUENCE: JSON.stringify(seed.fake_script || []) };
+  const fake = cp.spawn(process.execPath, [path.join(DEV, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(fakePort), ...scriptedEnv, FAKE_CAPTURE_DIR: CAP }, windowsHide: true });
   const wb = cp.spawn(process.execPath, [SERVER, 'serve', '--port', String(wbPort)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   try {
     let live = null; for (let i = 0; i < 60 && !live; i++) { await sleep(120); live = await health(wbPort); }
@@ -95,6 +98,15 @@ function judge(seed, events, capDir) {
     return { pass: null, skipped, tools, checks, text: text.slice(-120) };
   }
   if (pc.tool_subset_of) checks.tool_subset_of = tools.every(t => pc.tool_subset_of.includes(t));
+  if (pc.tool_count != null) checks.tool_count = tools.length === Number(pc.tool_count);
+  if (pc.single_tool_batch) {
+    const uses = events.filter(e => e.type === 'tool_use');
+    checks.single_tool_batch = uses.length > 1 && !!uses[0].batchId && uses.every(e => e.batchId === uses[0].batchId);
+  }
+  if (pc.provider_calls_at_most != null) {
+    const usage = events.find(e => e.type === 'usage');
+    checks.provider_calls_at_most = !!usage && Number(usage.calls) <= Number(pc.provider_calls_at_most);
+  }
   if ('must_not_use_terminal_first' in pc) checks.must_not_use_terminal_first = tools.length === 0 || !['script_run', 'shell_send', 'run_command'].includes(tools[0]);
   if (pc.output_contains_regex) skipped.push('output_contains_regex(fake echo 不回真实工具结果,用 --provider 真测)');
   if (pc.tool_sequence_starts_with) checks.tool_sequence_starts_with = tools[0] === pc.tool_sequence_starts_with;

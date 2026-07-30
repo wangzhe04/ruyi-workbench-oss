@@ -101,13 +101,13 @@ v2 补充:**3.0 不交付 1:N 多会话 Mission**(移 3.1,见目标 1);conflict/
 - 交付:
   - **missionId 派生**(方案 B):session 主键与文件布局不动;新会话 `missionId=sessionId` 派生写入;`normalizeSession` 存量只读派生不回写;`/api/missions`、`/api/interventions` 对外标识从第一天以 missionId 命名;
   - **C4 竞态修复**:provider 回合内 mission 写与回合收尾盖回的定序,红绿双证;
-  - **权威 Intervention journal**:同 Mission 写链串行;记录完整状态而非后写整行丢字段;物理截断撕裂尾行后再 append;每次转换推进 `interventionVersion` 与 `mission.changeSeq`;
+  - **权威 Intervention journal**:同 Mission 写链串行;记录完整状态而非后写整行丢字段(含 Escapade 2.4 question typed payload);物理截断撕裂尾行后再 append;每次转换推进 `interventionVersion` 与 `mission.changeSeq`;
   - **原子 CAS 原语**:实现 pending/applying/terminal/indeterminate 转换和服务器侧 canonical key;失败注入覆盖「写 applying 前/后、resolve 前/后、terminal 前/后」。
 - 退出条件:missionId 三处一致;存量只读派生不回写;C4 绿;坏尾自愈、字段保留、seq 单调、并发 CAS、崩溃恢复 e2e 全绿。
 - 风险:中高。触碰存储与 provider 收尾路径,主树串行。
 
 **第75b波 · 统一决策 command core + 四类适配**
-- 交付:`POST /api/missions/:missionId/interventions/:id/decision`;四类 type/action payload、expectedVersion、idempotencyKey、统一错误信封和审计字段。**经典 question/permission/plan/pool 端点只保留为兼容适配器,必须调用同一个 `decideIntervention()`**,不得直写内存 Map 或自行 settle。
+- 交付:`POST /api/missions/:missionId/interventions/:id/decision`;四类 type/action payload、expectedVersion、idempotencyKey、统一错误信封和审计字段。question 分支按 Schema v1.1 接收 `selectedOptionIds[]+otherText`,经典 `answer[]` 只在适配器归一化。**经典 question/permission/plan/pool 端点只保留为兼容适配器,必须调用同一个 `decideIntervention()`**,不得直写内存 Map 或自行 settle。
 - pool paused-pending:恢复前返回不可送达409及稳定 reason,恢复后经同一 core 决策;不把“暂不可送达”误报为不存在或已过期。
 - 退出条件:四类经统一入口全通;同 key 重试返回原结果;不同 key/混合路径并发只发生一次状态转换与一次实际动作;旧端点回归零红;归属伪造、版本冲突、过期、不可送达和 applying 崩溃恢复均有 e2e。
 - 风险:中高。适配四套既有执行路径,71/71b 幂等和安全默认不得回退。

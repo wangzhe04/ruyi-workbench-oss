@@ -1233,6 +1233,7 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
     // [工具协议层]
     lines.push(getPromptPack(config && config.locale).toolProtocol.intro);
     lines.push(getPromptPack(config && config.locale).toolProtocol.rules);
+    lines.push(getPromptPack(config && config.locale).toolProtocol.batching);
     if ((tools || []).some(t => t && t.function && t.function.name === 'tool_search')) {
       lines.push(getPromptPack(config && config.locale).toolProtocol.onDemand);
     }
