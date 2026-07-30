@@ -31,6 +31,21 @@
     "skipped": []
   },
   {
+    "id": "tb-01",
+    "category": "tool-batching",
+    "pass": true,
+    "tools": [
+      "file_read",
+      "file_read"
+    ],
+    "checks": {
+      "tool_count": true,
+      "single_tool_batch": true,
+      "provider_calls_at_most": true
+    },
+    "skipped": []
+  },
+  {
     "id": "ob-01",
     "category": "office-ban",
     "pass": null,

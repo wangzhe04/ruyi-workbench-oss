@@ -37,6 +37,24 @@
       }
     },
     {
+      "id": "tb-01",
+      "category": "tool-batching",
+      "task": "分别读取 a.txt 和 b.txt；两个读取彼此独立，请合批完成后总结",
+      "modelTier": "balanced",
+      "expected_tools": ["file_read", "file_read"],
+      "setup_files": [{"path": "a.txt", "content": "alpha\n"}, {"path": "b.txt", "content": "beta\n"}],
+      "fake_parallel": true,
+      "fake_script": [
+        {"name": "file_read", "args": {"path": "a.txt"}},
+        {"name": "file_read", "args": {"path": "b.txt"}}
+      ],
+      "pass_criteria": {
+        "tool_count": 2,
+        "single_tool_batch": true,
+        "provider_calls_at_most": 2
+      }
+    },
+    {
       "id": "ob-01",
       "category": "office-ban",
       "task": "用 PowerShell 脚本生成一个 Excel 文件",

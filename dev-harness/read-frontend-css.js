@@ -27,8 +27,8 @@ const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArr
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 第66波修复:845bb8c 把 chat.css 拆成 5 个聊天层文件并改了载荷拼接,却漏更新本锁 → D51 自 HEAD 起恒红。
 // 逐行 diff 旧单体载荷(f667405d…) vs 新分层载荷:仅丢 2 行空行(拆文件后组内以 '' 拼接,原段间空行随边界消失),
-// 0 条规则漂移,符合 D51「无 CSS 漂移」本意。重新钉锁为新载荷 SHA。
-const LEGACY_STYLES_SHA256 = '5d16e7915eead5c7a64993f94b40dca88697c9227dab2a339eae7d40f20e8e69';
+// 0 条规则漂移,符合 D51「无 CSS 漂移」本意。Escapade 2.4 的结构化问题卡有意扩展 tool-pane 层后重钉载荷 SHA。
+const LEGACY_STYLES_SHA256 = '32dce415fb1519289d0daf04bd10999e010039940af4b6330cf36317d403d946';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

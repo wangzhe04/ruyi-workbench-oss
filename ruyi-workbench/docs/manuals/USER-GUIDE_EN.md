@@ -59,6 +59,16 @@ separate chats for unrelated work to keep histories clear.
 
 When unsure, use Ask every time. Changing mode takes effect immediately.
 
+### Questions from the AI
+
+When information is missing, Ruyi opens a question card instead of guessing. A question may accept one choice,
+multiple choices, or typed text. Option descriptions explain their effects, and an Other choice can accept a
+custom response when available. Submit answer becomes available only after every question is answered; use
+Ctrl+Enter (or Command+Enter on macOS) as a shortcut.
+
+Ruyi does not preselect an answer. Closing the card cancels the question. After submission, the card stays open
+until delivery is confirmed, so a temporary network failure can be retried without losing the response.
+
 ### Checkpoints, audit, and rollback
 
 Before writing, editing, or deleting a file, Ruyi records a checkpoint. The Audit tab records tool and permission

@@ -174,6 +174,7 @@ async function runClaudeTurn({
   const indexSecs = []; // P2: 稳定索引段收集器(stdin 注入,不进命令行)
   {
     appendSys = String(config.appendSystemPrompt || '');
+    appendSys += `${appendSys ? '\n\n' : ''}${getPromptPack(config && config.locale).toolProtocol.batching}`;
     if (interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
