@@ -3,7 +3,7 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
-## 如意 Ruyi Escapade 2.2.x(未发布)· 第71波 EC-E 切片二 · Intervention 持久化
+## 如意 Ruyi Escapade 2.3 · v2.3.0 · 2026-07-30
 
 ### 中文
 
