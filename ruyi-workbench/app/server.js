@@ -19284,6 +19284,21 @@ async function handleApi(req, res, pathname) {
       await maybeFinalizeMission(session, 'update'); // 第72波:全 done 盖 complete 章 / 再武装清旧章
     }
     await saveSession(session); emitMission();
+    // C4 (75a-3): sync the mission change to the active turn's in-memory session, so the provider round-tail
+    // saveSession (09:1924) doesn't cover back this route mutation. provider engine updates mission in-process
+    // (09:1719) and saves only at round-tail; without sync the turn's stale in-memory mission clobbers the
+    // route mutation. 'update' applies the patch (merge via applyMissionUpdate, preserving in-process
+    // mission_update changes); start/stop/check replace (full-state action). claude engine re-reads at 05:765
+    // instead (its mission_update loops back to disk), so it doesn't need this sync.
+    { const reg = activeChildren.get(sessionId); if (reg && reg.session && reg.session !== session) {
+      if (action === 'update' && reg.session.mission) {
+        reg.session.mission = applyMissionUpdate(reg.session.mission, bodyOrQ.patch || bodyOrQ, trusted);
+        if (bodyOrQ.autoMode != null) reg.session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : reg.session.mission.autoMode;
+      } else {
+        reg.session.mission = session.mission;
+        if (action === 'start') reg.session.kind = 'mission';
+      }
+    } }
     return send(res, json({ ok: true, mission: session.mission }));
   }
   // ── 第27波:自主性授权书 API。全部 header-token 白名单路由(需 needsToken 命中 + 此处再自查 tokenOk,【绝不】带
