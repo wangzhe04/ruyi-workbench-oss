@@ -49,6 +49,32 @@ const interventionWriteChains = new Map();
 // on disk); it is empty on boot and re-populated as interventions register in this lifecycle.
 const interventionRecordCache = new Map();
 function ivCacheKey(sid, ivId) { return String(sid) + '\x00' + String(ivId); }
+// 75a-2b (S3): per-session in-memory high-water mark of mission.changeSeq -- the max value written to disk
+// within this process lifecycle. Lets saveSession preserve disk-side bumps from intervention transitions
+// via max(in-memory, highWater) WITHOUT re-reading the head (prevents the turn's in-memory session object
+// from clobbering an intervention's changeSeq bump). Seeded by loadSession; reset on crash (re-seeded on load).
+const missionChangeSeqHighWater = new Map();
+// 75a-2b: bump mission.changeSeq for a mission-fact change (75a scope: intervention transitions via
+// register/settle/transitionInterventionState). Sync-updates the high-water FIRST (so a concurrent
+// saveSession sees the new value before the disk write resolves), then persists via a head-only
+// load-increment-save serialized on sessionWriteChains (race-free with saveSession). Fire-and-forget:
+// callers don't await. No-op if the session has no mission head on disk.
+function bumpMissionChangeSeq(sessionId) {
+  const sid = String(sessionId || '');
+  if (!sid) return;
+  const next = (missionChangeSeqHighWater.get(sid) || 0) + 1;
+  missionChangeSeqHighWater.set(sid, next); // sync: visible to concurrent saveSession before disk write
+  const prev = sessionWriteChains.get(sid) || Promise.resolve();
+  const w = prev.catch(() => {}).then(async () => {
+    let txt; try { txt = await fsp.readFile(sessionPath(sid), 'utf8'); } catch { return; } // no head -> no bump
+    let head; try { head = JSON.parse(txt); } catch { return; }
+    if (!head || !head.mission || typeof head.mission !== 'object') return;
+    head.mission.changeSeq = next;
+    await atomicWriteJson(sessionPath(sid), JSON.stringify(head, null, 2));
+  }).catch(() => {});
+  sessionWriteChains.set(sid, w);
+  w.then(() => { if (sessionWriteChains.get(sid) === w) sessionWriteChains.delete(sid); }, () => { if (sessionWriteChains.get(sid) === w) sessionWriteChains.delete(sid); });
+}
 // 75a: before appending, ensure the NDJSON file ends with '\n'. A torn tail (a previous append crashed
 // mid-write, leaving bytes with no terminating '\n') would otherwise weld the new line into the partial
 // tail, silently losing both records. Same discipline as readSessionBodyFile for messages.ndjson.
@@ -93,6 +119,7 @@ function registerIntervention(sessionId, type, ivId, extra) {
   const rec = { id, type, sessionId: sid, status: 'pending', requestedAt: nowIso(), decidedAt: '', decidedBy: '', interventionVersion: 0, ...(extra || {}) };
   interventionRecordCache.set(ivCacheKey(sid, id), rec); // 75a: cache complete record for settle's complete-state merge
   appendIntervention(sessionId, rec);
+  bumpMissionChangeSeq(sid); // 75a-2b: new pending Intervention advances mission.changeSeq
 }
 // 结算一个 Intervention(append 一条终态记录,后写胜)。status: allowed/denied/answered/cancelled/approved/rejected/cancelled_restart。
 // 重复结算(竞态)会 append 多条,读时后写胜折叠取最后一条 -- 状态仍可区分,不致命。
@@ -103,6 +130,7 @@ function settleIntervention(sessionId, ivId, status, extra) {
   const rec = { ...(cached || {}), id, sessionId: sid, status, decidedAt: nowIso(), decidedBy: '', interventionVersion: prevVer + 1, ...(extra || {}) };
   interventionRecordCache.set(ivCacheKey(sid, id), rec);
   appendIntervention(sessionId, rec);
+  bumpMissionChangeSeq(sid); // 75a-2b: Intervention settle advances mission.changeSeq
 }
 // 读一个会话的全部 Intervention,按 id 后写胜折叠。返回 Intervention[](按 requestedAt 稳定排序)。
 async function readInterventions(sessionId) {
@@ -227,6 +255,7 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     const termRec = { ...cur, ...applyingRec, id, sessionId: sid, status: toStatus, decidedAt: nowIso(), decidedBy: String(opts.decidedBy || 'user'), interventionVersion: curVer + 2, source: String(opts.source || 'contract'), ...(opts.extra || {}) };
     await appendIntervention(sid, termRec);
     interventionRecordCache.set(ivCacheKey(sid, id), termRec);
+    bumpMissionChangeSeq(sid); // 75a-2b: terminal persisted -> advance mission.changeSeq (one bump per decision)
     if (crashAt === 'after_terminal') throw new Error('__cas_crash:after_terminal');
     return { ok: true, status: toStatus, interventionVersion: curVer + 2, result };
   }
@@ -680,6 +709,10 @@ function normalizeMission(raw, prev, trusted = true) {
     // 必须保住它,否则再耗尽会二次落 mission_budget_exhausted 使超支率 >100%;全新 start(prev=null → p={})自然清空,
     // 新任务的耗尽正常重记。budget 无法经 update 抬高(applyMissionUpdate 不碰 budget),故不需"抬预算才清"的额外逻辑。
     budgetExhaustedAt: String(p.budgetExhaustedAt || ''),
+    // 75a-2b (S3): Mission-level persistent monotone change sequence. turn/run/Intervention/预算/result/
+    // rewind/删除 all advance it (75a-2b wires Intervention transitions; broader wiring lands with each
+    // subsystem). Deep-copy preserved (same as budgetExhaustedAt); legacy sessions derive start value 0.
+    changeSeq: Math.max(0, Number(p.changeSeq) || 0),
     // 第72波:任务结果快照(终态时由 maybeFinalizeMission 盖章;再武装由它清理)。深拷必须携带,
     // 否则每次 applyMissionUpdate(normalizeMission({}, prev))都把已盖章的结果静默抹掉。
     result: (p.result && typeof p.result === 'object') ? p.result : null,
@@ -1447,6 +1480,9 @@ async function loadSession(id) {
     Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
     await saveSession(session).catch(() => {});
   } else if (changed || healed) await saveSession(session).catch(() => {});
+  // 75a-2b (S3): seed the in-memory changeSeq high-water from the loaded mission, so bumpMissionChangeSeq
+  // increments from the correct base and saveSession's max-preserve works. Reset on crash; re-seeded here.
+  if (session.mission && typeof session.mission === 'object') missionChangeSeqHighWater.set(String(session.id), Number(session.mission.changeSeq) || 0);
   return session;
 }
 
@@ -1486,6 +1522,14 @@ async function saveSession(session) {
   head.storageVersion = SESSION_STORAGE_VERSION;
   head.messageCount = messages.length;
   head.providerHistoryCount = providerHistory.length;
+  // 75a-2b (S3): preserve disk-side mission.changeSeq bumps (intervention transitions write the head
+  // directly via bumpMissionChangeSeq). Take max with the in-memory high-water so this save's in-memory
+  // session object doesn't clobber an intervention's bump. No auto-bump here (bumps are explicit).
+  if (head.mission && typeof head.mission === 'object') {
+    const hw = missionChangeSeqHighWater.get(id) || 0;
+    const cur = Number(head.mission.changeSeq) || 0;
+    if (hw > cur) head.mission.changeSeq = hw;
+  }
   // Serialize the payload and snapshot the 7 index fields in the SAME synchronous tick, so the background index
   // write reflects EXACTLY what we persist here (no drift if `session` is mutated during the awaits below).
   const payload = JSON.stringify(head, null, 2);
