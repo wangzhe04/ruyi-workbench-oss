@@ -22,13 +22,15 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   'css/views/workspace.css',
   'css/views/usage.css',
   'css/views/workbench.css',
+  'css/views/preview-shell.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 第66波修复:845bb8c 把 chat.css 拆成 5 个聊天层文件并改了载荷拼接,却漏更新本锁 → D51 自 HEAD 起恒红。
 // 逐行 diff 旧单体载荷(f667405d…) vs 新分层载荷:仅丢 2 行空行(拆文件后组内以 '' 拼接,原段间空行随边界消失),
-// 0 条规则漂移,符合 D51「无 CSS 漂移」本意。Escapade 2.4 的结构化问题卡有意扩展 tool-pane 层后重钉载荷 SHA。
-const LEGACY_STYLES_SHA256 = '32dce415fb1519289d0daf04bd10999e010039940af4b6330cf36317d403d946';
+// 0 条规则漂移,符合 D51「无 CSS 漂移」本意。第76波新增独立 preview-shell 层；第77波在同层
+// 加全宽任务单/原始镜头/只读收活台布局后重钉载荷 SHA，经典样式路由与规则未改。
+const LEGACY_STYLES_SHA256 = '9970f0b3077b196bd2c21e5b65efec7c5ecf2556a1a89c5f39ab376f9c44cbf3';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

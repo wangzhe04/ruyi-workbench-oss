@@ -60,6 +60,8 @@ const PAYLOAD_FILES = [
   'app/public/js/workspace-preferences.js',
   // 第56波:任务单五态派生纯函数(Pretender P0;PoC 与将来新壳层共用,须随离线包发布)
   'app/public/js/mission-state.js',
+  // 第76波:默认关闭的新任务台 Preview 壳层（与经典 app-shell 同级，读同一 Mission API）。
+  'app/public/js/preview-shell.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',
@@ -77,6 +79,7 @@ const PAYLOAD_FILES = [
   'app/public/css/views/workspace.css',
   'app/public/css/views/usage.css',
   'app/public/css/views/workbench.css',
+  'app/public/css/views/preview-shell.css',
   'app/public/styles.css',
   'app/public/vendor/marked.min.js',
   'app/public/vendor/highlight.min.js',

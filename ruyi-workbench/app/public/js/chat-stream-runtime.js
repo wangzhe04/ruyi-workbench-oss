@@ -15,6 +15,7 @@ export function createChatStreamRuntime(deps = {}) {
     el,
     engineLabel,
     errorCard,
+    emitSessionStream = () => {},
     fmtTokens,
     handleAgentWorkflowEvent,
     handlePermissionRequest,
@@ -73,6 +74,9 @@ export function createChatStreamRuntime(deps = {}) {
   // aborts another session's request. Streams for background sessions keep draining so the server connection
   // stays alive, and their final persisted message appears when that session is opened again.
   const activeTurns = new Map(); // sessionId -> { abort, startedAt, eventLines, eventChars, live, main }
+  function notifySessionStream(event) {
+    try { emitSessionStream(event); } catch { /* Preview observer is best-effort and never owns execution */ }
+  }
   // One-shot preference for the next ordinary user message. It is intentionally not persisted in a
   // session or localStorage: sending the message consumes the preference and immediately resets the UI.
   let agentTeamTurnEnabled = false;
@@ -100,7 +104,7 @@ export function createChatStreamRuntime(deps = {}) {
   const ACTIVE_TURN_EVENT_CAP = 2_000_000;
   // Re-parsing an ever-growing Markdown document on every token is O(n^2) and eventually monopolizes the UI
   // thread. Stream as incremental plain text, then perform one bounded Markdown pass when the turn settles.
-  const LIVE_MARKDOWN_MAX_CHARS = 120_000;
+  const MARKDOWN_SYNC_MAX_CHARS = 48_000;
   function attachLiveTextNode(live, bubble) {
     bubble.textContent = '';
     bubble.classList.add('live-plain');
@@ -132,7 +136,7 @@ export function createChatStreamRuntime(deps = {}) {
     const drop = dropIfText != null && text.trim() === String(dropIfText || '').trim();
     bubble.classList.remove('stream-cursor', 'live-plain');
     if (!text || drop) bubble.remove();
-    else if (text.length <= LIVE_MARKDOWN_MAX_CHARS) {
+    else if (text.length <= MARKDOWN_SYNC_MAX_CHARS) {
       bubble.classList.remove('plain'); bubble.innerHTML = renderMarkdown(text); highlightIn(bubble);
     } else { bubble.classList.add('plain'); bubble.textContent = text; }
     live.bubble = null; live.textNode = null; live.bufferText = ''; live.renderedChars = 0;
@@ -216,7 +220,16 @@ export function createChatStreamRuntime(deps = {}) {
     // progress replay only needs normalized events.
     try { if (JSON.parse(line).type === 'raw_line') return; } catch { return; }
     turn.eventLines.push(line); turn.eventChars += line.length;
-    while (turn.eventChars > ACTIVE_TURN_EVENT_CAP && turn.eventLines.length > 1) turn.eventChars -= turn.eventLines.shift().length;
+    turn.eventHead = Number(turn.eventHead) || 0;
+    while (turn.eventChars > ACTIVE_TURN_EVENT_CAP && turn.eventLines.length - turn.eventHead > 1) {
+      turn.eventChars -= turn.eventLines[turn.eventHead++].length;
+    }
+    // Array.shift() moved the entire replay log on every post-cap delta. A logical head makes eviction O(1);
+    // compact only occasionally so a multi-megabyte stream never creates an input/scroll freeze.
+    if (turn.eventHead > 2048 && turn.eventHead * 2 >= turn.eventLines.length) {
+      turn.eventLines = turn.eventLines.slice(turn.eventHead);
+      turn.eventHead = 0;
+    }
   }
   function surfaceBackgroundQuestion(line, sessionId) {
     let evt; try { evt = JSON.parse(line); } catch { return; }
@@ -228,17 +241,18 @@ export function createChatStreamRuntime(deps = {}) {
     const shell = createLiveAssistantShell(); turn.live = shell.live; turn.main = shell.main;
     // Coalesce tiny deltas while preserving tool/workflow boundaries. Keep this shell live: finalizing it here
     // detaches its text node, so subsequent deltas otherwise remain invisible until the terminal full reload.
-    let text = '', thinking = '';
+    let textParts = [], thinkingParts = [];
     const flush = () => {
-      if (thinking) { handleStreamLine(JSON.stringify({ type: 'thinking_delta', text: thinking }), turn.live, turn.main, sessionId); thinking = ''; }
-      if (text) { handleStreamLine(JSON.stringify({ type: 'assistant_delta', text }), turn.live, turn.main, sessionId); text = ''; }
+      if (thinkingParts.length) { handleStreamLine(JSON.stringify({ type: 'thinking_delta', text: thinkingParts.join('') }), turn.live, turn.main, sessionId); thinkingParts = []; }
+      if (textParts.length) { handleStreamLine(JSON.stringify({ type: 'assistant_delta', text: textParts.join('') }), turn.live, turn.main, sessionId); textParts = []; }
     };
-    for (const line of turn.eventLines) {
+    for (let index = Number(turn.eventHead) || 0; index < turn.eventLines.length; index++) {
+      const line = turn.eventLines[index];
       let evt; try { evt = JSON.parse(line); } catch { continue; }
       if (evt.type === 'session') continue;
       if (evt.type === 'ask_user' && turn.answeredQuestions?.has(String(evt.questionId || evt.id || ''))) continue;
-      if (evt.type === 'assistant_delta') { if (thinking) flush(); text += evt.text || ''; continue; }
-      if (evt.type === 'thinking_delta') { if (text) flush(); thinking += evt.text || ''; continue; }
+      if (evt.type === 'assistant_delta') { if (thinkingParts.length) flush(); textParts.push(evt.text || ''); continue; }
+      if (evt.type === 'thinking_delta') { if (textParts.length) flush(); thinkingParts.push(evt.text || ''); continue; }
       flush(); handleStreamLine(line, turn.live, turn.main, sessionId);
     }
     flush();
@@ -412,9 +426,10 @@ export function createChatStreamRuntime(deps = {}) {
 
     const turnAbort = new AbortController();
     const turnEngine = isProviderMode() ? 'openai' : 'claude';
-    const turnState = { abort: turnAbort, startedAt: Date.now(), message, eventLines: [], eventChars: 0, answeredQuestions: new Set(), live, main,
+    const turnState = { abort: turnAbort, startedAt: Date.now(), message, eventLines: [], eventHead: 0, eventChars: 0, answeredQuestions: new Set(), live, main,
       engine: turnEngine, claudeInteractive: turnEngine !== 'claude' || state.config.engineMode === 'interactive' };
     activeTurns.set(turnSessionId, turnState);
+    notifySessionStream({ type: 'start', sessionId: turnSessionId, message, createdAt: new Date().toISOString() });
     syncStreamingUi();
     renderSessions();
     try {
@@ -436,6 +451,7 @@ export function createChatStreamRuntime(deps = {}) {
         // it is still running reconstructs all progress instead of showing only the initial user message.
         for (const line of lines) {
           rememberTurnLine(turnState, line);
+          notifySessionStream({ type: 'event', sessionId: turnSessionId, line });
           if (state.currentSession?.id === turnSessionId) {
             live = turnState.live; main = turnState.main;
             handleStreamLine(line, live, main, turnSessionId);
@@ -444,6 +460,7 @@ export function createChatStreamRuntime(deps = {}) {
       }
       if (buf.trim()) {
         rememberTurnLine(turnState, buf);
+        notifySessionStream({ type: 'event', sessionId: turnSessionId, line: buf });
         if (state.currentSession?.id === turnSessionId) handleStreamLine(buf, turnState.live, turnState.main, turnSessionId);
         else surfaceBackgroundQuestion(buf, turnSessionId);
       }
@@ -472,6 +489,7 @@ export function createChatStreamRuntime(deps = {}) {
       api(`/api/sessions/${turnSessionId}`).then(s => rebindOptimisticUserRow(s && s.session)).catch(() => {});
     } finally {
       activeTurns.delete(turnSessionId);
+      notifySessionStream({ type: 'settled', sessionId: turnSessionId });
       syncStreamingUi();
       renderSessions();
     }

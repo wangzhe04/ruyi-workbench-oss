@@ -20,16 +20,15 @@ export const state = {
   shownUsage: null,       // last usage object reflected in the context meter
   resumable: null,        // v0.8-S0 A6: {dangling,kind} for the current session's resume banner
   playbooks: [],          // v0.9-S2: playbook cards for the empty state (built-in ∪ user, with availability)
-  // v1.0-S7 (perf): message windowing. When a session has > MSG_WINDOW_THRESHOLD messages, renderCurrentSession
-  // paints only the tail MSG_WINDOW_TAIL and shows a「加载更早的 N 条」button. msgWindowStart is the index of
+  // v1.0-S7 / 第77波(perf): message windowing. A high row count or heavy content budget makes renderCurrentSession
+  // paint only a bounded tail (at most MSG_WINDOW_TAIL) and show「加载更早」. msgWindowStart is the index of
   // the FIRST rendered message (0 = fully expanded). Reset to null on session open so each session starts
   // windowed. Small sessions keep it null → zero behavior change.
   msgWindowStart: null,
 };
 
-// v1.0-S7 (perf) windowing constants. Windowing engages ONLY when messages.length > MSG_WINDOW_THRESHOLD
-// (small sessions render identically to before). Initial paint shows the last MSG_WINDOW_TAIL messages;
-// each「加载更早」click reveals MSG_WINDOW_STEP more, repeatable until fully expanded.
+// Count thresholds remain stable; turn-narrative.js adds a bounded content-weight budget so even a few giant
+// tool results/answers cannot synchronously paint an unbounded DOM.「加载更早」still reaches every row.
 export const MSG_WINDOW_THRESHOLD = 150;
 export const MSG_WINDOW_TAIL = 120;
 export const MSG_WINDOW_STEP = 120;

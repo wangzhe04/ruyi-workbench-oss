@@ -113,9 +113,12 @@ async function getToken(port) {
     && /narrative\.appendChild\(seg\)/.test(app) && app.includes('startLiveTextSegment(turn.live)')
     && /turn\.live\.narrative\.isConnected/.test(app), 'S21b EC-D 56 插话内嵌 narrative(seal 当前段 -> append segment -> 开新文本段,有活动 turn 前提)');
   // EC-D 56/56b(防重复):插话已内嵌(活动 live turn 或助手回合 segments 含 steer 段)时,静态渲染跳过其独立行。
-  ok(app.includes('turnsWithSteerSegment') && /turnsWithSteerSegment\.has\(ts\)/.test(app)
-    && /\(liveForSession && Number\.isFinite\(activeTurnSeq\) && ts === activeTurnSeq\)/.test(app)
-    && app.includes('Number(am.turnSeq != null ? am.turnSeq : (am.turnSummary && am.turnSummary.turnSeq))'), 'S21c EC-D 56/56b renderCurrentSession 跳过插话独立行(活动 turn 或助手回合 segments 含 steer 段,防内嵌重复)');
+  ok(app.includes('function visibleSessionMessageEntries')
+    && app.includes('turnsWithSteerSegment.has(turnSeq)')
+    && /\(hasLiveTurn && Number\.isFinite\(activeTurnSeq\) && turnSeq === activeTurnSeq\)/.test(app)
+    && app.includes('visibleSessionMessageEntries(msgs, start, {')
+    && app.includes('hasLiveTurn: Boolean(liveForSession)')
+    && app.includes('Number(message.turnSeq != null ? message.turnSeq : message.turnSummary && message.turnSummary.turnSeq)'), 'S21c EC-D 56/56b 共享消息可见性 helper 跳过插话独立行(活动 turn 或助手回合 segments 含 steer 段,防内嵌重复)');
   // EC-D 56b(持久化):后端 turnSegments.consume 把 steered 事件持久化为 steer segment -> 刷新后静态内嵌(消除 live↔静态差异)。
   ok(src.includes("evt.type === 'steered'") && /segments\.push\(\{ id: nextId\(\), type: 'steer', text:/.test(src), 'S29 EC-D 56b 后端 consume steered->steer segment 持久化');
   ok(app.includes('function buildNarrativeSteerSegment') && /segment\.type === 'steer'/.test(app)

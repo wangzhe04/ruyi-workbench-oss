@@ -4,8 +4,8 @@
 //  ① 400-message fixture → serve up → GET /api/sessions/<id> returns the FULL 400 messages AND server-side
 //     latency < 2000ms (windowing is a pure FRONT-END render-layer behavior; the API never truncates).
 //  ② cold start → /health ready < 5000ms.
-//  ③ STATIC: app.js contains the windowing implementation — renderCurrentSession renders a tail window
-//     (windowStartFor + MSG_WINDOW_TAIL), builds a「加载更早」control, and the >150 threshold gate exists.
+//  ③ STATIC: app.js contains the windowing implementation — renderCurrentSession renders a count/weight
+//     bounded tail, builds a「加载更早」control, and retains explicit full-history reachability.
 //  ④ FUNCTIONAL: the API layer surfaces all 400 (proves windowing didn't leak into the server / load path).
 // Judgement line (exact): PERF E2E: ALL PASS
 'use strict';
@@ -90,11 +90,12 @@ function buildFixture(sessionsDir) {
     // ③ STATIC assertions on the windowing implementation (aggregate: public/app.js + public/js/**/*.js)
     const src = readFrontendSrc();
     ok(/function\s+renderCurrentSession\s*\(/.test(src), '③a renderCurrentSession exists');
-    ok(/function\s+windowStartFor\s*\(/.test(src) && /MSG_WINDOW_TAIL/.test(src), '③b tail-window logic (windowStartFor + MSG_WINDOW_TAIL)');
-    ok(/const\s+MSG_WINDOW_THRESHOLD\s*=\s*150\b/.test(src), '③c windowing threshold = 150 (only > 150 msgs engages windowing)');
-    ok(/n\s*<=\s*MSG_WINDOW_THRESHOLD/.test(src), '③d small-session guard: <= threshold returns full render (start 0)');
+    ok(/function\s+windowStartFor\s*\(/.test(src) && /MSG_WINDOW_TAIL/.test(src) && /weightedMessageTailStart/.test(src), '③b tail-window logic is bounded by row count + content weight');
+    ok(/const\s+MSG_WINDOW_THRESHOLD\s*=\s*150\b/.test(src), '③c count threshold remains 150 alongside the new weight budget');
+    ok(/Math\.max\(countTailStart, weightedTailStart\)/.test(src) && /if \(tailStart === 0\) return 0/.test(src), '③d light sessions stay full; heavy sessions window below the row threshold');
     ok(/加载更早/.test(src) && /function\s+buildLoadEarlierButton\s*\(/.test(src), '③e「加载更早」control build code present');
-    ok(/for\s*\(let\s+i\s*=\s*start;\s*i\s*<\s*msgs\.length;\s*i\+\+\)/.test(src), '③f render loop starts at the window start (tail-only paint)');
+    ok(/visibleSessionMessageEntries\(msgs, start/.test(src), '③f shared visible-message iterator starts at the bounded window cursor');
+    ok(/MESSAGE_WINDOW_RENDER_BUDGET\s*=\s*220_000/.test(src) && !/JSON\.stringify\(message\)/.test(src), '③g render-weight estimate is capped and never serializes giant message payloads');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of procs) killp(c);

@@ -86,17 +86,35 @@ export function createChatRenderPrimitives(deps = {}) {
   }
   function highlightIn(container) {
     if (typeof hljs === 'undefined') return;
-    container.querySelectorAll('pre code').forEach(block => {
+    const blocks = Array.from(container.querySelectorAll('pre code')).filter(block => !block.dataset.hl);
+    const highlightOne = block => {
       if (block.dataset.hl) return;
-      try { hljs.highlightElement(block); } catch { /* ignore */ }
-      block.dataset.hl = '1';
       const pre = block.parentElement;
       if (pre && !pre.querySelector('.copy-code')) {
         const btn = el('button', 'copy-code', t('common.copy'));
         btn.onclick = () => { navigator.clipboard?.writeText(block.textContent).then(() => toast(t("toast.copyCode"), 'ok')); };
         pre.appendChild(btn);
       }
-    });
+      // Highlight.js is synchronous. Very large individual blocks stay readable/copyable plain text;
+      // smaller blocks are processed in idle slices when their combined weight is high.
+      if (block.textContent.length > 16_000) { block.dataset.hl = 'plain'; return; }
+      try { hljs.highlightElement(block); } catch { /* ignore */ }
+      block.dataset.hl = '1';
+    };
+    const totalChars = blocks.reduce((sum, block) => sum + Math.min(16_001, block.textContent.length), 0);
+    if (blocks.length <= 6 && totalChars <= 32_000) { blocks.forEach(highlightOne); return; }
+    let cursor = 0;
+    const scheduleIdle = globalThis.requestIdleCallback
+      ? callback => globalThis.requestIdleCallback(callback, { timeout: 250 })
+      : callback => setTimeout(() => callback({ timeRemaining: () => 8 }), 0);
+    const run = deadline => {
+      let painted = 0;
+      while (cursor < blocks.length && (painted === 0 || deadline.timeRemaining() > 4)) {
+        highlightOne(blocks[cursor++]); painted += 1;
+      }
+      if (cursor < blocks.length) scheduleIdle(run);
+    };
+    scheduleIdle(run);
   }
 
   /* ---------------- theme ---------------- */

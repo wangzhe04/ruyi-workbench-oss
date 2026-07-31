@@ -22,7 +22,9 @@ export function createChatStaticRenderer(deps = {}) {
     usageLine,
     wrapPreWithCopy,
   } = deps;
-  const LIVE_MARKDOWN_MAX_CHARS = Number(deps.liveMarkdownMaxChars) || 120_000;
+  // Formatting is synchronous in marked/sanitizer/highlight.js. Beyond this bounded size, keep the raw
+  // source as selectable plain text so one answer cannot monopolize dragging/scrolling at settle/re-entry.
+  const MARKDOWN_SYNC_MAX_CHARS = Number(deps.markdownSyncMaxChars) || 48_000;
 
   function renderStaticNativeAgent(record) {
     const ok = record && record.ok === true;
@@ -64,7 +66,7 @@ export function createChatStaticRenderer(deps = {}) {
   function narrativeTextBubble(text) {
     const bubble = el('div', 'bubble');
     const value = String(text || '');
-    if (value.length <= LIVE_MARKDOWN_MAX_CHARS) {
+    if (value.length <= MARKDOWN_SYNC_MAX_CHARS) {
       bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(value); highlightIn(bubble);
     } else { bubble.classList.add('plain'); bubble.textContent = value; }
     return bubble;
@@ -75,7 +77,10 @@ export function createChatStaticRenderer(deps = {}) {
     head.append(el('span', '', t('chat.planSegment')), narrativeStatePill(segment.status));
     card.append(head);
     const body = el('div', 'plan-card-body md');
-    body.innerHTML = renderMarkdown(segment.markdown || ''); highlightIn(body);
+    const markdown = String(segment.markdown || '');
+    if (markdown.length <= MARKDOWN_SYNC_MAX_CHARS) {
+      body.innerHTML = renderMarkdown(markdown); highlightIn(body);
+    } else { body.classList.add('plain'); body.textContent = markdown; }
     card.append(body);
     if (segment.note) card.append(el('div', 'narrative-state-note', segment.note));
     return card;
@@ -216,7 +221,7 @@ export function createChatStaticRenderer(deps = {}) {
     }
     flush(block);
   }
-  function renderStaticTurnNarrative(msg, host) {
+  function renderStaticTurnNarrative(msg, host, idScope = '') {
     const segments = validTurnSegments(msg);
     if (!segments.length) return null;
     const tools = new Map((Array.isArray(msg.toolCalls) ? msg.toolCalls : []).filter(Boolean).map(tc => [String(tc.id || ''), tc]));
@@ -233,7 +238,8 @@ export function createChatStaticRenderer(deps = {}) {
           const tc = tools.get(String(toolSegment.toolCallId || '')) || { id: toolSegment.toolCallId, name: toolSegment.name || 'tool' };
           const staticTc = { ...tc, isError: toolSegment.status === 'error' || tc.isError === true };
           const card = toolCard(staticTc).d;
-          const anchorId = narrativeToolAnchor(toolSegment.toolCallId || tc.id, msg.turnSeq || msg.createdAt);
+          const anchorScope = `${idScope ? idScope + '-' : ''}${msg.turnSeq || msg.createdAt || ''}`;
+          const anchorId = narrativeToolAnchor(toolSegment.toolCallId || tc.id, anchorScope);
           if (anchorId !== 'turn-tool-') card.id = anchorId;
           consecutive.push({
             card, batchId: String(toolSegment.batchId || ''),
@@ -331,7 +337,7 @@ export function createChatStaticRenderer(deps = {}) {
     return details;
   }
 
-  function renderStaticMessage(msg, messageKey, renderSignature) {
+  function renderStaticMessage(msg, messageKey, renderSignature, options = {}) {
     const meta = msg.role === 'assistant' ? metaFromMessage(msg) : null;
     const { row, main } = messageShell(msg.role, msg.createdAt, meta);
     const segments = validTurnSegments(msg);
@@ -345,11 +351,11 @@ export function createChatStaticRenderer(deps = {}) {
       ? msg.toolCalls.filter(tc => !nativeAgents.length || !['Agent', 'Task', 'TaskOutput'].includes(tc && tc.name))
       : [];
     let narrativeResult = null;
-    if (msg.role === 'assistant' && segments.length) narrativeResult = renderStaticTurnNarrative(msg, main);
+    if (msg.role === 'assistant' && segments.length) narrativeResult = renderStaticTurnNarrative(msg, main, options.idScope || '');
     else {
       if (msg.thinking) { const { d } = thinkingPanel(msg.thinking); main.appendChild(d); }
       const bubble = el('div', 'bubble');
-      if (msg.role === 'assistant' && String(msg.content || '').length <= LIVE_MARKDOWN_MAX_CHARS) {
+      if (msg.role === 'assistant' && String(msg.content || '').length <= MARKDOWN_SYNC_MAX_CHARS) {
         bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(msg.content || ''); highlightIn(bubble);
       } else { bubble.classList.add('plain'); bubble.textContent = msg.content || ''; }
       main.appendChild(bubble);
@@ -368,12 +374,12 @@ export function createChatStaticRenderer(deps = {}) {
       const record = turnToolIndexCard(narrativeResult.toolIndex, main);
       if (record) main.appendChild(record);
     }
-    if (msg.turnSummary) {
+    if (msg.turnSummary && !options.readonly) {
       main.appendChild(turnSummaryCard(msg.turnSummary)); // v0.8-S3 「本轮变更」
       const chips = turnArtifactChips(msg.turnSummary); if (chips) main.appendChild(chips); // v1.0.2 (G2)
     }
     if (msg.usage) main.appendChild(usageLine(msg.usage, meta));
-    main.appendChild(msgActions(msg));
+    if (!options.readonly) main.appendChild(msgActions(msg));
     if (messageKey) row.dataset.messageKey = messageKey;
     if (renderSignature) row.dataset.renderSignature = renderSignature;
     return row;

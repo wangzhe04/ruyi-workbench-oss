@@ -11,6 +11,8 @@ import {
   messageDomKey,
   messageRenderSignature,
   restoreScrollAnchor,
+  visibleSessionMessageEntries,
+  weightedMessageTailStart,
 } from './turn-narrative.js';
 import { ARTIFACT_KIND_ICON } from './artifact-changes.js';
 
@@ -641,9 +643,8 @@ function renderCurrentSession() {
     renderContextMeter(null);
     return;
   }
-  // v1.0-S7 (perf): message windowing. For a big conversation, render only the tail so opening it doesn't
-  // build thousands of DOM nodes up front. `start` = index of the first message we render. Small sessions
-  // (≤ MSG_WINDOW_THRESHOLD) always render in full (start=0), byte-for-byte the old behavior.
+  // v1.0-S7 / 第77波(perf): render only a count/weight bounded tail so opening a long or payload-heavy
+  // conversation does not build an unbounded DOM. `start` = index of the first message we render.
   const msgs = session.messages;
   const start = windowStartFor(msgs);
   // When windowed (start > 0), prepend a「加载更早的 N 条」button that reveals MSG_WINDOW_STEP more per click
@@ -658,21 +659,11 @@ function renderCurrentSession() {
   //   旧会话(无 steer segment)不命中 ② -> 仍按独立行渲染(向后兼容)。steered 行恒在助手回合之前(push 顺序),
   //   故 steered 行在窗口内(i>=start)时其助手回合必也在窗口内(j>i>=start),跳过不会丢内容。
   const liveForSession = activeTurns.get(session.id);
-  const activeTurnSeq = Number(session.turnSeq);
-  const turnsWithSteerSegment = new Set();
-  for (const am of msgs) {
-    if (am && am.role === 'assistant' && Array.isArray(am.segments) && am.segments.some(s => s && s.type === 'steer')) {
-      const ts = Number(am.turnSeq != null ? am.turnSeq : (am.turnSummary && am.turnSummary.turnSeq));
-      if (Number.isFinite(ts)) turnsWithSteerSegment.add(ts);
-    }
-  }
-  for (let i = start; i < msgs.length; i++) {
-    const m = msgs[i];
-    if (m && m.steered) {
-      const ts = Number(m.turnSeq);
-      if ((liveForSession && Number.isFinite(activeTurnSeq) && ts === activeTurnSeq)
-        || (Number.isFinite(ts) && turnsWithSteerSegment.has(ts))) continue;
-    }
+  const visibleEntries = visibleSessionMessageEntries(msgs, start, {
+    activeTurnSeq: session.turnSeq,
+    hasLiveTurn: Boolean(liveForSession),
+  });
+  for (const { message: m, index: i } of visibleEntries) {
     const key = messageDomKey(m, i, session.id);
     const signature = messageRenderSignature(m, getLocale());
     let row = existing.get(key);
@@ -694,8 +685,10 @@ function renderCurrentSession() {
 // by「加载更早」(clamped so it can never exceed the tail default or go below 0).
 function windowStartFor(msgs) {
   const n = Array.isArray(msgs) ? msgs.length : 0;
-  if (n <= MSG_WINDOW_THRESHOLD) return 0; // small session → full render, zero change
-  const tailStart = Math.max(0, n - MSG_WINDOW_TAIL);
+  const countTailStart = n <= MSG_WINDOW_THRESHOLD ? 0 : Math.max(0, n - MSG_WINDOW_TAIL);
+  const weightedTailStart = weightedMessageTailStart(msgs, { maxMessages: MSG_WINDOW_TAIL });
+  const tailStart = Math.max(countTailStart, weightedTailStart);
+  if (tailStart === 0) return 0; // small/light session → full render, zero change
   if (state.msgWindowStart == null) return tailStart; // fresh open → show the tail window
   return Math.max(0, Math.min(state.msgWindowStart, tailStart));
 }

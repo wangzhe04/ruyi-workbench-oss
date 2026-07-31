@@ -22,7 +22,8 @@ const thinkingCase = src.slice(src.indexOf("case 'thinking_delta':"), src.indexO
 ok(thinkingCase.includes('thinkingNode.appendData'), 'thinking stream also appends deltas instead of replacing all text');
 
 const mount = fnBody('mountActiveTurn');
-ok(mount.includes("evt.type === 'assistant_delta'") && mount.includes('text += evt.text'), 'background turn replay coalesces adjacent text deltas');
+ok(mount.includes("evt.type === 'assistant_delta'") && mount.includes("textParts.push(evt.text || '')")
+  && mount.includes("textParts.join('')"), 'background turn replay coalesces deltas with batched join instead of quadratic concatenation');
 ok(!mount.includes('finalizeLive('), 'mounting an active background turn does not prematurely finalize/detach it');
 
 const deliver = fnBody('deliverAgentRuns');
@@ -34,7 +35,13 @@ const finalize = fnBody('finalizeLive');
 // 锁委托链 + 兜底原位两点,行为契约不变(旧锚点只钉 finalizeLive 本体,重构后假红)。
 ok(finalize.includes('sealLiveTextSegment'), 'finalizeLive settles via sealLiveTextSegment');
 const seal = fnBody('sealLiveTextSegment');
-ok(seal.includes('LIVE_MARKDOWN_MAX_CHARS') && seal.includes("classList.add('plain')"), 'very large settled answers keep a non-blocking plain-text fallback');
+ok(seal.includes('MARKDOWN_SYNC_MAX_CHARS') && seal.includes("classList.add('plain')"), 'large settled answers keep a bounded non-blocking plain-text fallback');
+
+const remember = fnBody('rememberTurnLine');
+ok(remember.includes('turn.eventHead++') && !remember.includes('eventLines.shift('), 'post-cap stream replay eviction uses an O(1) logical head, never Array.shift');
+ok(src.includes('MESSAGE_WINDOW_RENDER_BUDGET') && src.includes('weightedMessageTailStart(msgs'), 'history window is bounded by content weight as well as row count');
+const highlight = fnBody('highlightIn');
+ok(highlight.includes('requestIdleCallback') && highlight.includes('block.textContent.length > 16_000'), 'large code highlighting is skipped/batched through idle slices');
 
 if (fail) { console.log(`\nSTREAMING RESPONSIVENESS STATIC E2E: FAIL (${fail})`); process.exitCode = 1; }
 else console.log('\nSTREAMING RESPONSIVENESS STATIC E2E: ALL PASS');

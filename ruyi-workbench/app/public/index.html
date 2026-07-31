@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="/css/views/workspace.css" />
     <link rel="stylesheet" href="/css/views/usage.css" />
     <link rel="stylesheet" href="/css/views/workbench.css" />
+    <link rel="stylesheet" href="/css/views/preview-shell.css" />
     <link id="hljs-dark" rel="stylesheet" href="/vendor/github-dark.min.css" />
     <link id="hljs-light" rel="stylesheet" href="/vendor/github.min.css" disabled />
     <script>
@@ -56,6 +57,13 @@
           document.documentElement.setAttribute('data-ui-mode', 'simple');
           document.documentElement.setAttribute('data-density', 'comfortable');
         }
+      })();
+      // 第76波：新任务台 Preview 默认关闭；只恢复本机壳层偏好，不触碰 Session/Mission 事实。
+      (function () {
+        try {
+          var shellMode = localStorage.getItem('wcw.shellMode') === 'preview' ? 'preview' : 'classic';
+          document.documentElement.setAttribute('data-shell-mode', shellMode);
+        } catch (e) { document.documentElement.setAttribute('data-shell-mode', 'classic'); }
       })();
     </script>
   </head>
@@ -506,6 +514,47 @@
       <div id="rightResizeHandle" class="right-resize-handle" role="separator" aria-orientation="vertical"
            tabindex="0" aria-label="拖动调整右栏宽度,双击切换档位" title="拖动调整右栏宽度 · 双击切档"></div>
     </div>
+
+    <!-- 第76波：新任务台 Preview 壳层是经典 .app-shell 的同级容器。经典三栏内部 DOM 不迁移；
+         两壳读取同一 Mission projection，切换仅为本机 UI 偏好。Preview 默认关闭。 -->
+    <section id="previewShell" class="preview-shell" aria-label="新任务台预览" data-i18n-attr="aria-label:previewShell.label" data-testid="previewShell">
+      <header class="preview-deskbar">
+        <div class="preview-deskbar-brand">
+          <span class="preview-deskbar-mark" aria-hidden="true">如</span>
+          <span class="preview-deskbar-name"><strong data-i18n="previewShell.brand">如意任务台</strong><span data-i18n="previewShell.previewLabel">预览</span></span>
+        </div>
+        <div class="preview-deskbar-facts" aria-label="案头事实" data-i18n-attr="aria-label:previewShell.factsLabel">
+          <button type="button" id="previewWorkspaceFact" class="preview-fact" title="打开工作圈设置" data-i18n-attr="title:previewShell.workspaceSettings">
+            <span class="preview-fact-label" data-i18n="previewShell.workspace">工作圈</span><span id="previewWorkspaceValue" class="preview-fact-value">—</span>
+          </button>
+          <button type="button" id="previewSafetyFact" class="preview-fact" title="打开安全档设置" data-i18n-attr="title:previewShell.safetySettings">
+            <span class="preview-fact-label" data-i18n="previewShell.safety">安全档</span><span id="previewSafetyValue" class="preview-fact-value">—</span>
+          </button>
+          <button type="button" id="previewEngineFact" class="preview-fact" title="打开引擎设置" data-i18n-attr="title:previewShell.engineSettings">
+            <span class="preview-fact-label" data-i18n="previewShell.engine">引擎</span><span id="previewEngineValue" class="preview-fact-value">—</span>
+          </button>
+          <div id="previewNeedsFact" class="preview-fact preview-fact-needs" role="status" aria-live="polite">
+            <span class="preview-needs-dot" aria-hidden="true"></span><span class="preview-fact-label" data-i18n="previewShell.needsYou">需要你</span><span id="previewNeedsValue" class="preview-fact-value">0</span>
+          </div>
+        </div>
+      </header>
+
+      <nav class="preview-dock" aria-label="任务坞" data-i18n-attr="aria-label:previewShell.dockLabel">
+        <div class="preview-dock-head"><span data-i18n="previewShell.dockTitle">任务坞</span><span id="previewDockCount" class="preview-dock-count">0</span></div>
+        <div id="previewMissionDock" class="preview-mission-dock" role="list"></div>
+        <div class="preview-dock-foot">
+          <button type="button" id="previewRefreshBtn" class="preview-dock-action" data-i18n="previewShell.refresh">刷新</button>
+          <button type="button" id="previewSettingsBtn" class="preview-dock-action" data-i18n="navigation.settings">设置</button>
+          <button type="button" id="previewClassicBtn" class="preview-dock-action" data-i18n="previewShell.openClassic">经典布局</button>
+        </div>
+      </nav>
+
+      <main id="previewMain" class="preview-main" tabindex="-1" aria-label="任务台主视图" data-i18n-attr="aria-label:previewShell.mainLabel">
+        <section class="preview-empty-card"><span class="preview-eyebrow" data-i18n="previewShell.previewLabel">预览</span><h1 data-i18n="previewShell.loading">正在载入任务台…</h1></section>
+      </main>
+      <div id="previewShellStatus" class="preview-shell-status" role="status" aria-live="polite"></div>
+    </section>
+
     <!-- Sibling of .app-shell so the CSS `.app-shell.tools-open ~ .drawer-backdrop` rule can reveal it
          on narrow screens; JS wires the click to close the drawer. Inert on desktop (display:none). -->
     <div id="drawerBackdrop" class="drawer-backdrop"></div>
@@ -558,6 +607,14 @@
                   <option value="concise" data-i18n="settings.outputStyle.concise">简洁（直接给结果）</option>
                 </select>
               </div>
+            </div>
+            <div class="field-block">
+              <label for="cfgShellMode" data-i18n="previewShell.settingLabel">任务台布局</label>
+              <select id="cfgShellMode">
+                <option value="classic" data-i18n="previewShell.settingClassic">经典布局（默认）</option>
+                <option value="preview" data-i18n="previewShell.settingPreview">新任务台预览</option>
+              </select>
+              <p class="field-help muted" data-i18n="previewShell.settingHint">切换只改变本机界面，不迁移或改写任务与会话数据；可随时切回。</p>
             </div>
             <div class="field-row">
               <label class="check"><input type="checkbox" id="cfgKillDisc" /> <span data-i18n="settings.stopTasksOnClose">关闭页面时同时结束正在运行的任务</span></label>

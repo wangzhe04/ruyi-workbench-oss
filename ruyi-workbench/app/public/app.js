@@ -45,6 +45,11 @@ import { createWorkspacePreferencesDomain } from './js/workspace-preferences.js'
 import { createChatRenderPrimitives } from './js/chat-render-primitives.js';
 import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
+import { createPreviewShellDomain } from './js/preview-shell.js';
+
+// Chat streaming is composed before the Preview domain. Keep a narrow late-bound sink so the shared
+// runtime can mirror read-only deltas without importing the second shell or creating a second stream.
+let previewStreamSink = null;
 
 const {
   maybeScrollToBottom,
@@ -299,6 +304,7 @@ const {
   el,
   engineLabel: () => engineLabel(),
   errorCard: (...args) => errorCard(...args),
+  emitSessionStream: event => previewStreamSink?.(event),
   fmtTokens,
   handleAgentWorkflowEvent: (...args) => handleAgentWorkflowEvent(...args),
   handlePermissionRequest: (...args) => handlePermissionRequest(...args),
@@ -572,6 +578,7 @@ window.addEventListener('i18n:change', () => {
   refreshLocalizedObservability();
   if (document.querySelector('.tool-tabs button.active')?.dataset.tab === 'files') void loadFileTree();
   refreshLocalizedArtifactChanges();
+  refreshPreviewShellLabels();
   if (!$('skillModal')?.classList.contains('hidden')) renderSkillList();
   if (!$('paletteModal')?.classList.contains('hidden')) renderPalette();
   if (!state.streaming) {
@@ -794,7 +801,34 @@ const {
   playbookInputLabel,
 });
 
+const {
+  bindPreviewShell,
+  handlePreviewStreamEvent,
+  refreshPreviewShell,
+  refreshPreviewShellLabels,
+} = createPreviewShellDomain({
+  api,
+  state,
+  t,
+  currentWorkspace: () => currentWorkspace(),
+  engineLabel: () => engineLabel(),
+  openSettings: tab => {
+    openModal('settingsModal');
+    switchSettingsTab(tab || 'basic', true);
+  },
+  closeSettings: () => closeModal('settingsModal'),
+  openSession: id => openSession(id),
+  renderStaticMessage: (...args) => renderStaticMessage(...args),
+  getActiveTurnLines: sessionId => {
+    const turn = activeTurns.get(sessionId);
+    if (!turn) return [];
+    return turn.eventLines.slice(Number(turn.eventHead) || 0);
+  },
+});
+previewStreamSink = handlePreviewStreamEvent;
+
 function bindEvents() {
+  bindPreviewShell(); // 第76波：默认关闭的新任务台壳层与本机持久切换
   // sidebar
   $('newSessionBtn').onclick = () => newSession();
   $('sessionSearch').oninput = renderSessions;
@@ -1047,6 +1081,8 @@ async function bootData() {
   // variant appears deterministically (isFirstRun() reads the now-loaded sessions + config, not just the
   // best-effort playbook re-render).
   else renderCurrentSession();
+  await refreshPreviewShell();
+  refreshPreviewShellLabels();
   // v0.8-S2: PowerShell is the default-active tab, so start the shell-session poll now.
   updateShellPolling();
 }

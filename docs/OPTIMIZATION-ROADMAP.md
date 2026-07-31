@@ -1264,4 +1264,50 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 - **第75b波已完成**：落地统一 command core `decideIntervention()` 与契约端点 `POST /api/missions/:missionId/interventions/:id/decision`；permission/question/plan/pool 旧端点全部收敛为兼容适配器，自动超时/清理也经同一 CAS 决策链。相同 key 可跨重启精确重放，key 冲突、version 冲突、过期、归属错误、不可送达及 pool 暂停均按冻结契约返回；混合新旧路径并发只执行一次副作用。补齐四类型契约、持久重放、自动决策与混合路径 e2e，并为两个端口占用型测试增加有界启动重试。冻树门 **172 PASS / 0 FAIL / 0 flaky**，unit 全绿，build freshness 一致。
 - **第75c波已完成**：Mission/Intervention 可重建物化索引以 session head、Intervention journal、run snapshot、usage ledger 为权威源，支持缺失/损坏索引原子重建、按 session 精确失效、journal 有损显式 `degraded`；列表 cursor 携带持久 `projectionRevision`，跨页变化返回 `projection.snapshot_changed`，ETag 另含 live overlay revision，易失态只通过 freshness 叠加。Intervention NDJSON 压缩保留完整终态、version 与幂等响应，损坏账拒绝压缩。标准档 300 Mission / 3万 Intervention / 10万 usage 最终复测：列表冷 859ms、热 P95 4ms；详情冷 P95 536ms；全局收件箱冷 P95 572ms、热 P95 36ms；索引约 7MB，全部低于冻结阈值并保有低配 ×2 余量。冻树门 **173 PASS / 0 FAIL / 0 flaky**，unit 全绿，build freshness 一致；**P1 Data & Contract Ready 出门闸已绿。**
 - **第75d波已完成（Escapade Harness 小迭代）**：对外部 Harness 分析逐项做代码证据核验，确认工具 schema 按需装载/稳定 prompt 前缀与 agentic eval 已存在，不重复建设；落地 `onTurnStart` / `beforeModelCall` / `preToolCall` / `postToolCall` / `onTurnEnd` / `onError` 六阶段只读 Hook Spine（确定顺序、深冻结上下文、25–2000ms 有界超时、异常隔离、返回值无效，不改变权限/工具执行语义）。Provider 原生 loop 覆盖工具阶段，Claude CLI 诚实只接回合/模型边界。新增逻辑回合 trace ID，贯穿 stream events、active turn、持久消息及 turn start/end 审计；resume recovery 复用同一 trace。验证：Hook/trace 专项、Provider/Claude/工具装载关联 8 件、快门 23 件全绿；离线 prompt A/B **4/4 pass、2 skip、baseline 0 diff**；冻树完整串行门 **173 PASS / 0 FAIL / 0 flaky / 6 live-skip**，unit 与 build freshness 全绿。审计与后续建议见 `docs/AGENT-HARNESS-AUDIT.md`。
-- **下一步: 第76波**（Preview 默认关闭的壳层骨架：案头条、任务坞、主台单视图容器与新/经典持久切换；经典 DOM/测试零改动）。
+- **第76波已完成**：Preview 默认关闭的壳层骨架已交付，详见下节。
+- **第77波已完成**：全宽任务单、原始镜头、只读收活台与共享长会话性能修复已交付，详见下节。
+
+## 第76波 · Pretender P2 首切片 -- 新任务台壳层骨架（2026-07-31）
+
+按 `PRETENDER-PLAN v4` P2 起点交付**默认关闭**的新任务台 Preview 骨架；用户界面继续只称“新任务台预览”，未提前出现 Pretender / 3.0 品牌。经典 `.app-shell` 内部 DOM 不搬、不删，新壳以同级 `#previewShell` 接入；两壳互斥显示但共享同一 Mission / Intervention 投影，切壳不冒充数据迁移。
+
+- **新/经典持久切换**：设置 → 基础新增“任务台布局”，本机 `localStorage('wcw.shellMode')` 只接受 `classic|preview`，缺失/损坏一律回经典；预绘在首帧恢复偏好防闪，切换后关闭旧设置面并把焦点交给新壳主视图或经典输入框。经典默认、Preview 轮询仅在可见态运行，经典布局无后台维护税。
+- **案头条四事实**：工作圈、安全档、引擎、全局“需要你”计数；前三者只进既有设置层，待决数只读 `/api/interventions`。不从消息文本猜状态，不新增写端点。
+- **72px 任务坞 + 三态瓷章**：列表只读 `/api/missions?limit=200`；每枚瓷章保留 `mission-state.js` 派生的五态事实值，再只做视觉折算：`running|dispatching → active` 青花、`needs_you → attention` 鎏金、`done|stopped → quiet` 静默；进度环取真实里程碑 done/total。点击瓷章只切换主台单视图容器，选中态以 `aria-pressed` 可达。
+- **主台单视图容器**：本波诚实展示任务标题、目标、五态、工序进度与骨架范围说明；完整原始镜头留第77波。每张任务可一键在经典布局打开，空态与投影失败态均保留回经典/重试出口，绝不因 Preview 失败改写 Mission / Session。
+- **安全 / i18n / a11y DoD**：动态壳零 `innerHTML`、全 `textContent/replaceChildren`；Preview CSS 零硬编码色、双主题 token 化，鎏金动效受全局 `prefers-reduced-motion` 约束；中英新增 47 键完全对称；设置切壳焦点、任务列表语义、状态播报、进度与选择态均有无障碍锚点。JS/CSS 均登记 overlay 载荷。
+
+### 验证
+
+- 新增 `pretender-shell.static.e2e.js` **31 断言**：同级双壳/经典隔离、默认经典、72px、单一五态来源、只读聚合 API、三态折算、零 HTML 注入、可见态轮询、双语/品牌冻结、主题与 overlay 载荷全锁。
+- 新增 `pretender-shell.e2e.js` **13 断言**：真实 Edge + 真服务 + 三份 Mission/一份 pending Intervention，覆盖设置开启、跨刷新持久化、running/needs_you/done 三态投影、四事实计数、主台选择与一键回经典；暗/亮两主题 1440×1000 截图人工复核通过。
+- 专项 8 件（上述两件 + frontend-domains/dom-contract/dom-smoke/theme/uimode/overlay）**8 pass / 0 fail / 0 flaky**；facts.json e2e 179→181，README 中英门面数字同步。
+- 冻树完整串行门 **175 pass / 0 fail / 0 flaky / 6 live-skip**，unit、build freshness 与 24 件快速静态门全绿；经典 DOM、主题、overlay、Mission/Intervention 与既有 173 件回归零退化。
+
+### 待续
+
+- **第77波 · 任务单（原始镜头）已完成**：全宽任务单、共享消息渲染器、只读收活台、四旅程/cursor/SSE 与经典长会话性能门均落地，详见下节。
+- 第76波只完成 P2 骨架，**不代表 Preview Ready**；C1 新壳性能门、四旅程完整走通与回退说明仍按第80波出门闸验收。
+
+## 第77波 · Pretender P2 第二切片 -- 任务单原始镜头与长会话响应性（2026-07-31）
+
+按 `PRETENDER-PLAN v4` 第77波把第76波骨架升级为全宽任务单；不新增业务写入口、不复制消息状态机，也不提前公开内部品牌。任务单以 Mission 详情快照给头部与收活台供事实，以对应 Session 原文给现场；经典壳与 Preview 继续读取同一存储、同一流、同一渲染资产。
+
+- **任务单头部**：五态继续只由 `mission-state.js#fromSnapshot` 派生；工序进度取 `acceptance`，回合/Token/分币种费用/班组运行取 `usage` 与 `runs`，续读点显示 `cursor.turnSeq`。全程不从消息文本猜状态。
+- **现场原始镜头**：Preview 直接调用经典 `chat-static-renderer#renderStaticMessage`，Markdown、思考、工具卡、叙事段和用量行同源；只增加可选 `readonly + idScope` 适配，拿掉可能误绑定经典当前会话的消息操作、回撤摘要与成果快捷动作，并给工具锚点加 `preview-` 作用域避免双壳重复 DOM id。persisted steer 去重也抽成 `visibleSessionMessageEntries()` 供双壳共用。
+- **只读收活台初形**：需要你、成果、台账三块分别只读 `pending`、`result/changes`、`checkpoints/irreversible/runs/cursor`；尚未原生交付的决策、回撤仍明确跳回经典布局，不在 Preview 冒充闭环。
+- **长任务 cursor 与 SSE**：详情轮询先读 Mission cursor，只有首次、turnSeq 变化或强制终态刷新才重取完整 Session；经典 stream runtime 经窄 `emitSessionStream` sink 镜像同一份标准事件，Preview 不另开 SSE/WebSocket。中途切壳从活动流事件游标补播，增量只 append Text node；流末强刷新可升级，不会被较弱 usage/mission 定时刷新吞掉。静态重取与增量 append 都保存用户焦点、滚动锚和“是否跟随底部”的意图。
+- **经典/Preview 共用性能修复**：历史窗口从纯 150 条阈值升级为“条数 + 22 万字符有界重量”，估算递归封顶且不 `JSON.stringify` 巨型工具结果；长流 replay 缓存以逻辑 head O(1) 淘汰，移除 cap 后逐条 `Array.shift()`；后台流重挂载以数组 `join` 合并 delta；Markdown 同步格式化上限收紧为 4.8 万字符，超限保留可选择纯文本；大代码块跳过同步高亮，多代码块用 idle slice 分批。经典 40 条但约 1MB 的会话现在首屏只绘 12 条，仍可逐批/一键展开全部。
+- **安全 / i18n / a11y**：Preview 领域自身继续零 `innerHTML`/写 API；受控 Markdown 仍走既有 sanitizer；原始消息流 `role=log` 且静态历史不重播 aria-live，双语 Preview 目录由 47 增至 74 键并保持四目录完全对称；暗/亮 1600×1100 截图复核通过。
+
+### 验证
+
+- 新增 `pretender-task-sheet.static.e2e.js` **39 断言**：任务单三域、Renderer/steer/窗口复用、只读与 id 作用域、Mission 全快照字段、单流 SSE、焦点/滚动、主题/双语/XSS 全锁。
+- 新增 `pretender-task-sheet.e2e.js` **17 断言**：真实 Edge + 真服务 + 真 provider 流；覆盖单任务结果/变更、多 Agent eventSeq、长任务 170 消息/cursor/usage、Quick Ask 不进坞、经典 40 条约 1MB 历史的重量窗口、约 58KB SSE 中途切壳与终态重取。长流期间事件循环最大采样间隙多轮为 **35–52ms**，上滑后 `scrollTop` 与焦点跨增量/终态均稳定。
+- 专项 14 件（76/77 两轮静态+浏览器、stream/perf/frontend-domains/dom/theme/uimode/i18n/overlay）**14 pass / 0 fail / 0 flaky**；facts.json e2e 181→183，默认门 175→177，README 中英门面数字同步。
+- 冻树完整串行门首跑 **176 pass / 1 fail / 0 flaky / 6 live-skip**：唯一红项为 `steering-claude` 仍匹配重构前局部变量名的陈旧静态锁，其真实插话 A–E 全路径已通过；契约改锁共享 `visibleSessionMessageEntries` helper 后，该件独立复跑 **ALL PASS**。其余 176 件、unit 与 build freshness 一次全绿，生产实现无回归。
+
+### 待续
+
+- **第78波 · 交办台首页 + 交办确认卡**：交办箱→确认卡→开工立单→瓷章落坞，补速问逃生舱、熟活架、续办条、最近收活与首跑引导态；确认卡立单全链路与 Quick Ask 不进 Mission 为退出线。
+- 第77波仍是默认关闭的内部 Preview，**不代表 Preview Ready**；C1 规模下首屏/切壳性能、回退说明与四旅程完整新壳走通仍在第80波统一验收。
