@@ -1943,6 +1943,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/overlay/apply', auth: 'token' },
   { m: 'GET', p: '/api/overlay/status', auth: 'token' },
   { m: 'POST', p: '/api/overlay/rollback', auth: 'token' },
+  // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
+  // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
+  { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },
 ];
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;
@@ -2066,6 +2069,7 @@ function appendIntervention(sessionId, record) {
   }).catch(() => {});
   interventionWriteChains.set(sid, next);
   next.then(() => { if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid); });
+  return next; // 75a-2: expose write promise so transitionInterventionState can await (authoritative write-before-advance)
 }
 // 注册一个 pending Intervention。type: 'permission'|'question'|'plan'|'pool'(71b)。ivId 复用 requestId/questionId/planId/poolId(执行权威源的同一 id)。
 function registerIntervention(sessionId, type, ivId, extra) {
@@ -2126,7 +2130,8 @@ async function markInterruptedInterventions() {
     if (!/^sess_[A-Za-z0-9_-]+$/.test(sessionId)) continue; // 跳过非法名(防穿越/脏文件)
     const ivs = await readInterventions(sessionId).catch(() => []);
     const pending = ivs.filter(iv => iv && iv.status === 'pending');
-    if (!pending.length) continue;
+    const applying = ivs.filter(iv => iv && iv.status === 'applying'); // 75a-2: crash mid-transition (SCHEMA §7)
+    if (!pending.length && !applying.length) continue;
     // 71b: pool 型 pending 不一刀切 —— 池提案随 run 快照存活,paused run 恢复后仍可审批(13d pool_approve),
     // 标 cancelled_restart 会与 run 快照里的 proposed 直接矛盾(读模型说已取消、实际仍可决策 = 撒谎)。
     // interrupted/终态 run 的提案由 markInterruptedAgentRuns(boot 先于本函数,13:961)顺手 settle 'expired';
@@ -2140,6 +2145,74 @@ async function markInterruptedInterventions() {
       }
       appendIntervention(sessionId, { ...iv, id: iv.id, sessionId, type: iv.type || '', status: 'cancelled_restart', decidedAt: stamp, decidedBy: 'restart', interventionVersion: (Number(iv.interventionVersion) || 0) + 1 }); // 75a: complete row (preserve type/requestedAt/toolName) + version bump
     }
+    // 75a-2 (SCHEMA §7 崩溃语义): applying = crash during a transition (写 applying 后/resolve 前|后/terminal 前).
+    // 重启遇到 applying 不自动重放高风险动作 -- 对照执行审计后进入诚实终态 indeterminate(动作副作用是否发生未知)。
+    for (const iv of applying) {
+      appendIntervention(sessionId, { ...iv, id: iv.id, sessionId, type: iv.type || '', status: 'indeterminate', decidedAt: stamp, decidedBy: 'restart', interventionVersion: (Number(iv.interventionVersion) || 0) + 1 });
+    }
+  }
+}
+
+// 75a-2 (Pretender P1, SCHEMA §7 S1/S2): 原子 CAS 原语 -- Intervention 权威状态转换的单一核心。
+// pending -> applying -> terminal,以 interventionVersion 做 CAS(expectedVersion 不匹配 = 版本冲突)。
+// 落盘顺序(74 波冻结):先落 applying -> 执行 action -> 落 terminal + 审计 -> 返回。每步同步落盘后再推进
+// (authoritative write-before-advance,消灭「内存已删/账上 pending」漂移窗)。重启遇到 applying 不自动重放,
+// 由 markInterruptedInterventions 标 indeterminate(诚实终态)。75b 的 decideIntervention() 与统一契约端点
+// POST /api/missions/:missionId/interventions/:id/decision 将调用本原语;经典四端点适配也走同一核心(S2)。
+//
+// crashAt(失败注入,SCHEMA §7 六窗口):'before_applying'|'after_applying'|'before_resolve'|'after_resolve'|
+// 'before_terminal'|'after_terminal' -- 命中即抛 __cas_crash(模拟崩溃,磁盘停在对应状态,供 boot 恢复验证)。
+// per-ivId 串行锁(interventionTransitionLocks)保证同一 Intervention 并发决策只发生一次状态转换(C3/S2)。
+const interventionTransitionLocks = new Map();
+const INTERVENTION_TERMINAL = new Set(['allowed', 'denied', 'answered', 'cancelled', 'approved', 'rejected', 'cancelled_restart', 'indeterminate', 'expired']); // 'expired' = 08/09 pool-expiry 终态(75b 契约路径遇它按 already_terminal)
+async function transitionInterventionState(sessionId, ivId, expectedVersion, toStatus, opts = {}) {
+  const sid = String(sessionId || ''), id = String(ivId || '');
+  if (!sid || !id) return { ok: false, reason: 'bad_args' };
+  // per-ivId 串行:同一 ivId 的并发转换排队,第二个读到第一个的终态 -> already_terminal(version_conflict 不会误判)
+  const key = ivCacheKey(sid, id);
+  const prev = interventionTransitionLocks.get(key) || Promise.resolve();
+  const next = prev.catch(() => {}).then(() => runTransition());
+  interventionTransitionLocks.set(key, next);
+  next.then(() => { if (interventionTransitionLocks.get(key) === next) interventionTransitionLocks.delete(key); }, () => { if (interventionTransitionLocks.get(key) === next) interventionTransitionLocks.delete(key); });
+  return next;
+
+  async function runTransition() {
+    const crashAt = String(opts.crashAt || '');
+    // 1. 读权威当前态(journal 磁盘 + readInterventions 的 rows-1 version,对缓存未命中稳健)
+    const ivs = await readInterventions(sid);
+    const cur = ivs.find(x => String(x.id) === id);
+    if (!cur) return { ok: false, reason: 'not_found', interventionVersion: 0 };
+    const curStatus = String(cur.status || '');
+    const curVer = Number(cur.interventionVersion) || 0;
+    if (INTERVENTION_TERMINAL.has(curStatus)) {
+      return { ok: false, reason: curStatus === 'denied' || curStatus === 'cancelled' ? 'gone' : 'already_terminal', status: curStatus, interventionVersion: curVer };
+    }
+    // pending 之外的非终态(理论上只有 applying,但 applying 在锁内不应并发 -- 防御性拒绝)
+    if (curStatus !== 'pending') {
+      return { ok: false, reason: 'not_pending', status: curStatus, interventionVersion: curVer };
+    }
+    // 2. CAS:expectedVersion 必须等于当前 interventionVersion(未传 expectedVersion = 不检查,仅 75b 契约路径传)
+    if (Number.isFinite(Number(expectedVersion)) && Number(expectedVersion) !== curVer) {
+      return { ok: false, reason: 'version_conflict', expectedVersion: Number(expectedVersion), actualVersion: curVer };
+    }
+    // 3. 落 applying(pending -> applying)。authoritative:await 落盘后再推进。
+    if (crashAt === 'before_applying') throw new Error('__cas_crash:before_applying');
+    const applyingRec = { ...cur, id, sessionId: sid, status: 'applying', decidedAt: '', decidedBy: '', interventionVersion: curVer + 1, source: String(opts.source || 'contract') };
+    await appendIntervention(sid, applyingRec);
+    interventionRecordCache.set(ivCacheKey(sid, id), applyingRec);
+    if (crashAt === 'after_applying') throw new Error('__cas_crash:after_applying');
+    // 4. 执行 action(75b 契约路径在此 resolve promise / 跑工具;75a-2 测试可空)
+    if (crashAt === 'before_resolve') throw new Error('__cas_crash:before_resolve');
+    let result;
+    if (typeof opts.action === 'function') result = await opts.action();
+    if (crashAt === 'after_resolve') throw new Error('__cas_crash:after_resolve');
+    // 5. 落 terminal(applying -> terminal)。authoritative:await。
+    if (crashAt === 'before_terminal') throw new Error('__cas_crash:before_terminal');
+    const termRec = { ...cur, ...applyingRec, id, sessionId: sid, status: toStatus, decidedAt: nowIso(), decidedBy: String(opts.decidedBy || 'user'), interventionVersion: curVer + 2, source: String(opts.source || 'contract'), ...(opts.extra || {}) };
+    await appendIntervention(sid, termRec);
+    interventionRecordCache.set(ivCacheKey(sid, id), termRec);
+    if (crashAt === 'after_terminal') throw new Error('__cas_crash:after_terminal');
+    return { ok: true, status: toStatus, interventionVersion: curVer + 2, result };
   }
 }
 function sessionLineHash(line) {
@@ -21547,6 +21620,26 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     entry.resolve({ decision, note: body.note != null ? String(body.note) : '' });
     settleIntervention(sessionId, planId, decision === 'approve' ? 'approved' : 'rejected', { decidedBy: 'user', note: body.note != null ? String(body.note) : '' });
     return send(res, json({ ok: true }));
+  }
+  // 75a-2: test-only CAS primitive probe (failure-injection matrix, SCHEMA §7 六窗口). Env-gated
+  // (RUYI_TEST_HOOKS=1) + token; production returns 404. Not a user-facing route -- 75b 的统一契约端点
+  // POST /api/missions/:missionId/interventions/:id/decision 才是对外入口。
+  if (req.method === 'POST' && pathname === '/api/_test/intervention-cas') {
+    if (process.env.RUYI_TEST_HOOKS !== '1') return send(res, json({ ok: false, error: 'not found' }, 404));
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const body = await readJsonBody(req);
+    let result;
+    try {
+      result = await transitionInterventionState(body.sessionId, body.ivId, body.expectedVersion, body.toStatus || 'allowed', {
+        crashAt: body.crashAt, decidedBy: body.decidedBy, source: 'test',
+        action: body.actionMs ? () => new Promise(r => setTimeout(r, Number(body.actionMs) || 0)) : undefined,
+      });
+    } catch (e) {
+      const m = String((e && e.message) || '');
+      if (m.startsWith('__cas_crash:')) return send(res, json({ ok: false, reason: 'crash', at: m.slice('__cas_crash:'.length) }));
+      throw e;
+    }
+    return send(res, json(result));
   }
   return false;
 }

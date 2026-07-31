@@ -400,6 +400,26 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     settleIntervention(sessionId, planId, decision === 'approve' ? 'approved' : 'rejected', { decidedBy: 'user', note: body.note != null ? String(body.note) : '' });
     return send(res, json({ ok: true }));
   }
+  // 75a-2: test-only CAS primitive probe (failure-injection matrix, SCHEMA §7 六窗口). Env-gated
+  // (RUYI_TEST_HOOKS=1) + token; production returns 404. Not a user-facing route -- 75b 的统一契约端点
+  // POST /api/missions/:missionId/interventions/:id/decision 才是对外入口。
+  if (req.method === 'POST' && pathname === '/api/_test/intervention-cas') {
+    if (process.env.RUYI_TEST_HOOKS !== '1') return send(res, json({ ok: false, error: 'not found' }, 404));
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const body = await readJsonBody(req);
+    let result;
+    try {
+      result = await transitionInterventionState(body.sessionId, body.ivId, body.expectedVersion, body.toStatus || 'allowed', {
+        crashAt: body.crashAt, decidedBy: body.decidedBy, source: 'test',
+        action: body.actionMs ? () => new Promise(r => setTimeout(r, Number(body.actionMs) || 0)) : undefined,
+      });
+    } catch (e) {
+      const m = String((e && e.message) || '');
+      if (m.startsWith('__cas_crash:')) return send(res, json({ ok: false, reason: 'crash', at: m.slice('__cas_crash:'.length) }));
+      throw e;
+    }
+    return send(res, json(result));
+  }
   return false;
 }
 

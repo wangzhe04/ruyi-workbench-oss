@@ -1546,6 +1546,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/overlay/apply', auth: 'token' },
   { m: 'GET', p: '/api/overlay/status', auth: 'token' },
   { m: 'POST', p: '/api/overlay/rollback', auth: 'token' },
+  // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
+  // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
+  { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },
 ];
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;
