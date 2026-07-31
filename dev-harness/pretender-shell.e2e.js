@@ -277,7 +277,7 @@ try {
 
   const projection = await waitForEval(cdp, `(() => {
     const seals = [...document.querySelectorAll('#previewMissionDock .preview-seal')];
-    if (seals.length !== 3 || document.getElementById('previewMain').dataset.view !== 'task-sheet') return null;
+    if (seals.length !== 3 || document.getElementById('previewMain').dataset.view !== 'home') return null;
     return {
       modes: Object.fromEntries(seals.map(node => [node.dataset.missionId, { state: node.dataset.missionState, tone: node.dataset.dockTone }])),
       needs: document.getElementById('previewNeedsValue').textContent,
@@ -287,7 +287,7 @@ try {
     };
   })()`);
   ok(projection && projection.modes[ids.running]?.state === 'running' && projection.modes[ids.running]?.tone === 'active',
-    'C2 real running projection -> running fact + active porcelain seal');
+    'C2 dispatch home projects the real running fact into an active porcelain seal');
   ok(projection && projection.modes[ids.needs]?.state === 'needs_you' && projection.modes[ids.needs]?.tone === 'attention',
     'C3 real pending Intervention -> needs_you fact + attention porcelain seal');
   ok(projection && projection.modes[ids.done]?.state === 'done' && projection.modes[ids.done]?.tone === 'quiet',

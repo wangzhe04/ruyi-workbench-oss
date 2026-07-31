@@ -1,5 +1,5 @@
 async function runClaudeTurn({
-  session, message, attachments, cwd, onEvent, driverAuto, agentTeam,
+  session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '',
 }) {
   const turnStartedAt = Date.now();
@@ -11,7 +11,7 @@ async function runClaudeTurn({
     turnSegments.consume(normalized);
     downstreamEvent(normalized);
   };
-  const config = await readConfig();
+  const config = turnConfig || await readConfig();
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   const currentClaudeModel = String(config.model || '');
@@ -730,7 +730,7 @@ async function runClaudeTurn({
     logEvent({ kind: 'claude_resume_retry', sessionId: session.id, reason: 'transcript-missing' });
     downstreamEvent({ type: 'resume_recovery', reason: 'transcript-missing', automatic: true, traceId: activeTraceId });
     return runClaudeTurn({
-      session, message, attachments, cwd, onEvent: downstreamEvent, driverAuto, agentTeam,
+      session, message, attachments, cwd, onEvent: downstreamEvent, config, driverAuto, agentTeam,
       _resumeRecoveryAttempt: true, _recoveryHistoryOverride: recoveryHistory, _traceId: activeTraceId,
     });
   }

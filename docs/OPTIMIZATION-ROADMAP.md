@@ -1266,6 +1266,7 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 - **第75d波已完成（Escapade Harness 小迭代）**：对外部 Harness 分析逐项做代码证据核验，确认工具 schema 按需装载/稳定 prompt 前缀与 agentic eval 已存在，不重复建设；落地 `onTurnStart` / `beforeModelCall` / `preToolCall` / `postToolCall` / `onTurnEnd` / `onError` 六阶段只读 Hook Spine（确定顺序、深冻结上下文、25–2000ms 有界超时、异常隔离、返回值无效，不改变权限/工具执行语义）。Provider 原生 loop 覆盖工具阶段，Claude CLI 诚实只接回合/模型边界。新增逻辑回合 trace ID，贯穿 stream events、active turn、持久消息及 turn start/end 审计；resume recovery 复用同一 trace。验证：Hook/trace 专项、Provider/Claude/工具装载关联 8 件、快门 23 件全绿；离线 prompt A/B **4/4 pass、2 skip、baseline 0 diff**；冻树完整串行门 **173 PASS / 0 FAIL / 0 flaky / 6 live-skip**，unit 与 build freshness 全绿。审计与后续建议见 `docs/AGENT-HARNESS-AUDIT.md`。
 - **第76波已完成**：Preview 默认关闭的壳层骨架已交付，详见下节。
 - **第77波已完成**：全宽任务单、原始镜头、只读收活台与共享长会话性能修复已交付，详见下节。
+- **第78波已完成**：交办台首页、交办确认卡、速问逃生舱与首跑/续办/熟活/最近收活入口已交付，详见下节。
 
 ## 第76波 · Pretender P2 首切片 -- 新任务台壳层骨架（2026-07-31）
 
@@ -1309,5 +1310,28 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 
 ### 待续
 
-- **第78波 · 交办台首页 + 交办确认卡**：交办箱→确认卡→开工立单→瓷章落坞，补速问逃生舱、熟活架、续办条、最近收活与首跑引导态；确认卡立单全链路与 Quick Ask 不进 Mission 为退出线。
-- 第77波仍是默认关闭的内部 Preview，**不代表 Preview Ready**；C1 规模下首屏/切壳性能、回退说明与四旅程完整新壳走通仍在第80波统一验收。
+- **第78波 · 交办台首页 + 交办确认卡已完成**：交办箱→确认卡→立单→模型收到账本→完成盖章及 Quick Ask 不进 Mission 的真实浏览器链均已闭环，详见下节。
+- 第78波仍是默认关闭的内部 Preview，**不代表 Preview Ready**；下一波按计划进入第79波“你离开后发生了什么”与档案视图，第80波再统一复跑 C1 性能门和公开放行闸。
+
+## 第78波 · Pretender P2 第三切片 -- 交办台首页与确认开工链（2026-08-01）
+
+按 `PRETENDER-PLAN v4` 第78波把 Preview 首视图从“自动打开第一张任务单”改成真正的交办台首页。首页与任务单继续共享唯一 `#previewMain` 主视图；新入口只编排既有 Session、Mission 与 chat stream，不在 Preview 领域复制写 API 或状态机。
+
+- **交办箱与确认卡**：交办内容先在原位复述目标、真实工作圈和本单安全档，再由用户明确开工；无可靠历史依据时直接说明不显示工期，不用假数字制造确定感。`Ctrl+Enter`、按钮与熟活填充都落到同一确认草稿。
+- **确认到收工的权威链**：组合根先用既有 `newSession()` 建会话，再经 `/api/mission action:start` 创建 `until-done` Mission，并种下一条与目标一致的待验收 `delivery` 里程碑，保证首个模型回合就能收到 `<mission-ledger>`、调用 `mission_update` 并盖完成章；瓷章、任务单和原始现场随后都从同一持久事实刷新。
+- **本单安全档**：确认卡可为本次请求选择安全档，chat request 只携带 turn-local override；服务端复用唯一枚举校验后创建配置副本，并把同一副本贯穿 Provider、Claude 恢复链与 until-done 续跑，绝不回写全局 `config.json`。
+- **速问逃生舱**：按钮与 `?`/`？` 前缀共用 `quick_ask` command，直接回经典对话呈现答案，不创建 Mission、不落任务坞；普通交办与速问仍复用同一 stream runtime。
+- **首页四区与首跑态**：续办条只收 `dispatching/running/needs_you`，最近收活只收 `done/stopped`，状态继续由 `mission-state.js` 唯一派生；熟活架只读既有 Playbook 目录并填回交办箱。没有历史任务时，工作圈/引擎/默认安全档三步引导原位出现，不另造 onboarding 页面。
+- **视觉 / 响应性 / 安全 / i18n**：按 frontend-design skill 重做为“青瓷深色 + 冰川蓝白浅色”的双主题交办台，用连续曲率、无框层级和克制的珊瑚信号替代硬直角面板；首页动态 DOM 继续零 `innerHTML`，CSS 只用主题/语义 token。熟活卡长文本经宽度约束、折叠与断词收敛，Preview 中英键由 74 增至 117，运行时与文档四目录完全对称；首页暗/亮 1600×1100、768×1024、390×844 以及任务单暗/亮桌面截图均复核通过。
+
+### 验证
+
+- 新增 `pretender-dispatch-home.static.e2e.js` **33 组契约断言**：单主视图、五态分组、确认卡诚实估计、速问分流、唯一 command、初始里程碑、turn-local 安全档双引擎贯穿、Playbook/首跑态、XSS/主题/响应式/i18n/品牌冻结全锁。
+- 新增 `pretender-dispatch-home.e2e.js` **17 断言**：真实 Edge + 真服务 + 真 SSE provider；覆盖空数据首跑态、权威 API 注入续办/已收工、熟活填充、确认卡、安全档 override、立单/账本/工具更新/完成盖章，以及 `?` 速问回经典且 Mission 数量不变。
+- 第76/77波浏览器门同步改为“先落交办台、再点瓷章进任务单”，壳层 13 断言与任务单 18 断言独立复跑全绿；facts.json e2e 183→185，默认门 177→179，README 中英门面数字同步。
+- 冻树完整串行门首跑 **178 pass / 1 fail / 0 flaky / 6 live-skip**：唯一红项是 Agent team 前端契约仍以单行源码匹配请求对象；改为跨空白检查真实 `attachments + agentTeam` 字段后，该件 Provider/Claude/UI 全路径独立复跑 **ALL PASS**，快速门再跑 **26 pass / 0 fail**。其余 178 件、unit、build freshness 与本波三条浏览器链一次全绿。
+
+### 待续
+
+- **第79波 · “你离开后发生了什么” + 档案视图**：建立独立本机 UI-state 的 `lastSeenRevision`，按 change records 确定性展示回来摘要，并交付已收工任务的搜索/筛选/置顶/归档视图。
+- Preview 仍默认关闭且不公开内部代号；第80波前不宣称 Preview Ready。

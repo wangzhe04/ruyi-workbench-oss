@@ -23,6 +23,17 @@
   --gold: #dcba75;
   /* v0.8-S8 品牌标(如意 Ruyi)——青花 + 鎏金,随主题切换。暗色版。 */
   --brand-qh: #6b8ff2; --brand-au: #f2c14e;
+  /* Preview task desk: celadon light over deep marine surfaces, with one restrained lacquer accent. */
+  --preview-bg: #0c1719;
+  --preview-surface: #122326;
+  --preview-surface-2: #193034;
+  --preview-ink: #edf8f6;
+  --preview-muted: #91aaa7;
+  --preview-accent: #63cbbd;
+  --preview-accent-strong: #86ded2;
+  --preview-hot: #ef8d72;
+  --preview-line: rgba(116,210,196,.16);
+  --preview-shadow: 0 24px 72px rgba(1,10,11,.42);
   --user-bubble: #1c2740;
   --user-line: #33456e;
   --sys-bubble: #2e2916;
@@ -99,6 +110,17 @@
   --gold: #a8822f;
   /* v0.8-S8 品牌标(如意 Ruyi)——青花 + 鎏金,随主题切换。亮色版。 */
   --brand-qh: #2350a8; --brand-au: #d9a441;
+  /* Preview task desk: glacier white + mist blue, with a restrained warm signal. */
+  --preview-bg: #edf4f8;
+  --preview-surface: #ffffff;
+  --preview-surface-2: #e7f1f7;
+  --preview-ink: #173348;
+  --preview-muted: #526e82;
+  --preview-accent: #217397;
+  --preview-accent-strong: #185d80;
+  --preview-hot: #b24736;
+  --preview-line: rgba(34,112,150,.16);
+  --preview-shadow: 0 22px 60px rgba(31,73,99,.13);
   --user-bubble: #eaf0fc;
   --user-line: #c9d7f1;
   --sys-bubble: #faf3df;

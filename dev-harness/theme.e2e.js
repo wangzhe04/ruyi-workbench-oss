@@ -81,6 +81,11 @@ function parseTokenBlock(css, selector) {
     for (const t of GLASS) {
       ok(t in dark && t in light, '(a) 玻璃令牌 ' + t + ' 两主题均定义(UI-DESIGN-V4)');
     }
+    const PREVIEW = ['--preview-bg', '--preview-surface', '--preview-surface-2', '--preview-ink', '--preview-muted',
+      '--preview-accent', '--preview-accent-strong', '--preview-hot', '--preview-line', '--preview-shadow'];
+    for (const t of PREVIEW) {
+      ok(t in dark && t in light, '(a) Preview theme token ' + t + ' is symmetric');
+    }
   }
 
   // ══════════ (b) 旧赤陶橙只能出现在 --eng-claude 行 ══════════
@@ -102,6 +107,10 @@ function parseTokenBlock(css, selector) {
     { name: 'muted/panel', a: '--muted', b: '--panel', min: 4.5 },
     { name: 'accent-ink/accent', a: '--accent-ink', b: '--accent', min: 4.5 },
     { name: 'link/bg', a: '--link', b: '--bg', min: 4.5 },
+    { name: 'preview-ink/bg', a: '--preview-ink', b: '--preview-bg', min: 7 },
+    { name: 'preview-muted/surface', a: '--preview-muted', b: '--preview-surface', min: 4.5 },
+    { name: 'preview-bg/accent', a: '--preview-bg', b: '--preview-accent', min: 4.5 },
+    { name: 'preview-hot/bg', a: '--preview-hot', b: '--preview-bg', min: 4.5 },
   ];
   for (const [tname, tokens] of [['dark', dark], ['light', light]]) {
     if (!tokens) continue;

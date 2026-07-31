@@ -30,7 +30,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 逐行 diff 旧单体载荷(f667405d…) vs 新分层载荷:仅丢 2 行空行(拆文件后组内以 '' 拼接,原段间空行随边界消失),
 // 0 条规则漂移,符合 D51「无 CSS 漂移」本意。第76波新增独立 preview-shell 层；第77波在同层
 // 加全宽任务单/原始镜头/只读收活台布局后重钉载荷 SHA，经典样式路由与规则未改。
-const LEGACY_STYLES_SHA256 = '9970f0b3077b196bd2c21e5b65efec7c5ecf2556a1a89c5f39ab376f9c44cbf3';
+// Wave 78 extends the same owned layer with the dispatch home, confirmation card, familiar-work shelf,
+// responsive containment, and the verified celadon/glacier dual-theme redesign. Re-pin the intentional payload.
+const LEGACY_STYLES_SHA256 = 'e1fe4d7501a242c88be8c1809ef8242d0264e7f198ce1e62f75c53dedca6fb72';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

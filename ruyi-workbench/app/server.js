@@ -6790,7 +6790,7 @@ function claudeProviderTailSince(messages) {
 }
 
 async function runClaudeTurn({
-  session, message, attachments, cwd, onEvent, driverAuto, agentTeam,
+  session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '',
 }) {
   const turnStartedAt = Date.now();
@@ -6802,7 +6802,7 @@ async function runClaudeTurn({
     turnSegments.consume(normalized);
     downstreamEvent(normalized);
   };
-  const config = await readConfig();
+  const config = turnConfig || await readConfig();
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   const currentClaudeModel = String(config.model || '');
@@ -7521,7 +7521,7 @@ async function runClaudeTurn({
     logEvent({ kind: 'claude_resume_retry', sessionId: session.id, reason: 'transcript-missing' });
     downstreamEvent({ type: 'resume_recovery', reason: 'transcript-missing', automatic: true, traceId: activeTraceId });
     return runClaudeTurn({
-      session, message, attachments, cwd, onEvent: downstreamEvent, driverAuto, agentTeam,
+      session, message, attachments, cwd, onEvent: downstreamEvent, config, driverAuto, agentTeam,
       _resumeRecoveryAttempt: true, _recoveryHistoryOverride: recoveryHistory, _traceId: activeTraceId,
     });
   }
@@ -16209,7 +16209,14 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
 
 async function streamChat(req, res) {
   const body = await readJsonBody(req);
-  const config = await readConfig();
+  const storedConfig = await readConfig();
+  // 第78波：交办确认卡可为【这一单当前执行链】收紧/调整安全档，但绝不回写全局配置。
+  // 值域复用唯一 PERMISSION_MODES；非法/缺失值静默回落持久配置。该局部副本同时传给首回合、
+  // until-done 续跑、Provider 与 Claude，避免 UI 显示一档而后端实际按另一档执行。
+  const requestedPermissionMode = String(body.permissionMode || '');
+  const config = PERMISSION_MODES.includes(requestedPermissionMode)
+    ? { ...storedConfig, permissionMode: requestedPermissionMode }
+    : storedConfig;
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
@@ -16270,7 +16277,7 @@ async function streamChat(req, res) {
       try {
         const turnAgentTeam = !driverAuto && body.agentTeam === true && Number(config.subagentMaxPerTurn) > 0;
         if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam });
-        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, driverAuto, agentTeam: turnAgentTeam });
+        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     await runTurn(String(body.message || ''), false);

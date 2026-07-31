@@ -89,7 +89,7 @@ function capturedUser() {
   const css = require('./read-frontend-css.js').readFrontendCss();
   ok(/id="agentTeamBtn"[^>]*aria-pressed="false"/.test(html), 'composer exposes an accessible Agent team toggle');
   ok((app.match(/let agentTeamTurnEnabled = false/g) || []).length === 1 && /if \(agentTeam\) \{ agentTeamTurnEnabled = false/.test(app), 'toggle is declared once, remains turn-local, and resets when sent');
-  ok(/attachments: sentAttachments, agentTeam/.test(app), 'composer sends a structured agentTeam field without changing user text');
+  ok(/attachments:\s*sentAttachments,\s*agentTeam,/.test(app), 'composer sends a structured agentTeam field without changing user text');
   ok(/agent-team-btn\[aria-pressed="true"\]/.test(css), 'active Agent team state has a visible pressed style');
   const serverModule = require(path.join(WB, 'app', 'server.js'));
   const capped = serverModule.appendResponseLanguagePolicy('x'.repeat(16000), { locale: 'en-US' }, 8000);

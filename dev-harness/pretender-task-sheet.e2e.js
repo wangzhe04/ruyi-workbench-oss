@@ -278,6 +278,15 @@ try {
   })()`);
   ok(Boolean(boot), 'B1 Preview enabled through the persisted shell control');
 
+  const openedSheet = await waitForEval(cdp, `(() => {
+    const main = document.getElementById('previewMain');
+    const seal = document.querySelector('.preview-seal[data-mission-id="${ids.sessionId}"]');
+    if (main?.dataset.view !== 'home' || !seal) return null;
+    seal.click();
+    return true;
+  })()`);
+  ok(Boolean(openedSheet), 'B1 dispatch home opens the requested authoritative Mission through its porcelain seal');
+
   const sheet = await waitForEval(cdp, `(() => {
     const main = document.getElementById('previewMain');
     const raw = document.getElementById('previewRawMessages');

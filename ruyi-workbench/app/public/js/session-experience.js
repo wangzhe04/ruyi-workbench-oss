@@ -546,8 +546,8 @@ function renderResumeBanner() {
 // 50-fix:未命名标题的本地化占位显示(后端占位 'New session' / 历史中文占位 '新会话' 均视为未命名)。
 function isUntitledTitle(tt) { const v = String(tt || '').trim(); return !v || v === 'New session' || v === t('chat.newSession'); }
 function sessionDisplayTitle(s) { return isUntitledTitle(s && s.title) ? t('session.new') : String(s.title).trim(); }
-async function newSession() {
-  const cwd = state.config.defaultWorkspace || '';
+async function newSession(options = {}) {
+  const cwd = options.cwd != null ? String(options.cwd) : (state.config.defaultWorkspace || '');
   // 50-fix(标题不生成):不再把本地化占位名(新会话/New chat)当标题传给后端 —— 后端回合结束的
   // 自动命名以 'New session' 占位判定,中文占位名永不匹配导致所有会话标题卡死。传空串,
   // 后端默认 'New session' → 首轮结束自动命名生效;展示侧经 sessionDisplayTitle 本地化占位。
@@ -559,7 +559,8 @@ async function newSession() {
   renderCurrentSession();
   renderResumeBanner();
   syncStreamingUi();
-  $('promptInput').focus();
+  if (options.focus !== false) $('promptInput').focus();
+  return res.session;
 }
 async function patchSession(id, patch) {
   await api(`/api/sessions/${encodeURIComponent(id)}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-http-method': 'PATCH' }, body: JSON.stringify(patch) });

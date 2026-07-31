@@ -801,6 +801,42 @@ const {
   playbookInputLabel,
 });
 
+// 第78波：Preview 交办台与速问共用一个前端 command 入口。它只编排既有的 Session、Mission、
+// chat/stream 三条权威链；任务态仍由后端 /api/mission action:start 建立，Preview 不写第二套状态。
+async function startPreviewDispatchCommand({ kind = 'mission', prompt = '', cwd = '', permissionMode = '' } = {}) {
+  const message = String(prompt || '').trim();
+  if (!message) throw new Error(t('previewShell.dispatchRequired'));
+  const session = await newSession({ cwd: cwd || currentWorkspace(), focus: false });
+  let mission = null;
+  if (kind === 'mission') {
+    const response = await api('/api/mission', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: session.id,
+        action: 'start',
+        // Mission prompt injection intentionally requires at least one milestone. Seed the dispatch goal as
+        // the first acceptance item so the very first provider turn receives the authoritative ledger and can
+        // close it with mission_update instead of behaving like an ordinary chat turn.
+        mission: {
+          goal: message,
+          autoMode: 'until-done',
+          milestones: [{ id: 'delivery', desc: message, status: 'pending' }],
+        },
+      }),
+    });
+    mission = response && response.mission;
+    if (!mission) throw new Error(t('previewShell.dispatchStartFailed'));
+    if (state.currentSession?.id === session.id) {
+      state.currentSession.kind = 'mission';
+      state.currentSession.mission = mission;
+      renderMissionBar(mission);
+    }
+    await refreshSessions();
+  }
+  const completion = sendPrompt(message, { permissionMode });
+  return { sessionId: session.id, mission, completion };
+}
+
 const {
   bindPreviewShell,
   handlePreviewStreamEvent,
@@ -817,7 +853,12 @@ const {
     switchSettingsTab(tab || 'basic', true);
   },
   closeSettings: () => closeModal('settingsModal'),
+  dispatchCommand: request => startPreviewDispatchCommand(request),
   openSession: id => openSession(id),
+  pickWorkspace: () => pickWorkspaceNative(),
+  playbookName: playbook => playbookDisplayName(playbook),
+  playbookDescription: playbook => playbookDisplayDescription(playbook),
+  playbookUnavailableReason: playbook => playbookDisplayUnavailableReason(playbook),
   renderStaticMessage: (...args) => renderStaticMessage(...args),
   getActiveTurnLines: sessionId => {
     const turn = activeTurns.get(sessionId);

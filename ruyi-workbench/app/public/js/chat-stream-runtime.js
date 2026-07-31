@@ -376,7 +376,7 @@ export function createChatStreamRuntime(deps = {}) {
     finally { endCompactIndicator(); }
   }
 
-  async function sendPrompt(overrideText) {
+  async function sendPrompt(overrideText, options = {}) {
     // v0.8-S7 steering (§4 A3) + 47a 双引擎:任何引擎回合流式中,composer 的发送都变为插话路由到 /api/steer。
     // provider 经队列在下一边界注入;Claude(interactive)经 stdin 即时注入;Claude print 模式由服务器返回
     // 人话错误(print 不支持),toast 呈现——前端不再按引擎静默吞掉输入。
@@ -435,7 +435,14 @@ export function createChatStreamRuntime(deps = {}) {
     try {
       const res = await fetch('/api/chat/stream', {
         method: 'POST', headers: authHeaders(), signal: turnAbort.signal,
-        body: JSON.stringify({ sessionId: turnSessionId, message, cwd: currentWorkspace(), attachments: sentAttachments, agentTeam }),
+        body: JSON.stringify({
+          sessionId: turnSessionId,
+          message,
+          cwd: currentWorkspace(),
+          attachments: sentAttachments,
+          agentTeam,
+          ...(options.permissionMode ? { permissionMode: options.permissionMode } : {}),
+        }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
       const reader = res.body.getReader();
