@@ -1260,6 +1260,7 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 ### 待续
 
 - 执行 2.3.0 发布动作(第73波 §结论 四步;包已构建,待提交窗口);
-- 其后按 PRETENDER-PLAN v4 进 **第75a波**(Mission/Intervention 权威存储原语 + missionId + C4 竞态修复)。
+- 其后按 PRETENDER-PLAN v4 进 **第75a波**(Mission/Intervention 权威存储原语 + missionId + C4 竞态修复)。**✅ 已完成**（4切片: 46e9ee4/14864af/e0503a2/1aba642）。冻树门170 PASS / 0 FAIL / 23 static-lock全绿。deepseek-v4-pro 多智能体对抗审查5发现全为误报或已修复。
+- **下一步: 第75b波**（统一 command core + `decideIntervention()` + 契约端点 `POST /api/missions/:missionId/interventions/:id/decision` + 旧四端点适配器 + 混合路径并发）。
 
 
