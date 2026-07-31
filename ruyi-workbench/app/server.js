@@ -6791,11 +6791,17 @@ function claudeProviderTailSince(messages) {
 
 async function runClaudeTurn({
   session, message, attachments, cwd, onEvent, driverAuto, agentTeam,
-  _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null,
+  _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '',
 }) {
+  const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
-  onEvent = evt => { turnSegments.consume(evt); downstreamEvent(evt); };
+  const activeTraceId = _traceId || makeAgentLoopTraceId(session.id, _resumeRecoveryAttempt ? session.turnSeq : (Number(session.turnSeq) || 0) + 1);
+  onEvent = evt => {
+    const normalized = evt && typeof evt === 'object' && !evt.traceId ? { ...evt, traceId: activeTraceId } : evt;
+    turnSegments.consume(normalized);
+    downstreamEvent(normalized);
+  };
   const config = await readConfig();
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
@@ -6856,10 +6862,15 @@ async function runClaudeTurn({
       content: message,
       attachments: attachments || [],
       turnSeq: session.turnSeq, // v0.8-S4b: stamp turnSeq for rewind (see runOpenAiTurn)
+      traceId: activeTraceId,
       createdAt: nowIso(),
       ...(driverAuto ? { source: 'mission-driver' } : {}), // 第26波b: 标记账本驱动器自动续跑,前端可区分显示
     });
     await saveSession(session);
+    await dispatchAgentLoopHooks('onTurnStart', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
+      engine: 'claude', model: currentClaudeModel || 'default', cwd: workingDir,
+    });
   }
 
   if (!fakeClaude && (!claude || !existsExecutable(claude))) {
@@ -6872,9 +6883,18 @@ async function runClaudeTurn({
       `已保存你的输入到会话 ${session.id}。`,
       `工作目录:${workingDir}`,
     ].join('\n');
-    session.messages.push({ role: 'assistant', content: fallback, segments: [{ id: 'segment-1', type: 'text', text: fallback }], createdAt: nowIso(), source: 'fallback' });
+    session.messages.push({ role: 'assistant', content: fallback, segments: [{ id: 'segment-1', type: 'text', text: fallback }], traceId: activeTraceId, createdAt: nowIso(), source: 'fallback' });
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: fallback });
+    await dispatchAgentLoopHooks('onError', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
+      model: currentClaudeModel || 'default', errorClass: 'cli_missing', error: 'Claude CLI not found',
+    });
+    await dispatchAgentLoopHooks('onTurnEnd', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
+      model: currentClaudeModel || 'default', ok: false, aborted: false, errorClass: 'cli_missing',
+      durationMs: Date.now() - turnStartedAt, toolCalls: 0,
+    });
     onEvent({ type: 'result', ok: false, reason: 'claude_not_found', code: 'cli-missing' });
     return;
   }
@@ -7116,14 +7136,19 @@ async function runClaudeTurn({
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   const metaArgs = args.map((arg, i) => args[i - 1] === '--agents' ? `[${Object.keys(claudeAgentLibrary.definitions).length} agent roles]` : redact(arg));
   onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: config.claudeThinkingEffort || 'default', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
-  logEvent({ kind: 'turn_start', sessionId: session.id, model: config.model || 'default', promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude), resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt) });
+  logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', model: config.model || 'default', promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude), resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
 
+  await dispatchAgentLoopHooks('beforeModelCall', {
+    traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
+    model: currentClaudeModel || 'default', iteration: _resumeRecoveryAttempt ? 1 : 0,
+    resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt),
+  });
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude' }; // 47a: kind 供 /api/steer 按引擎分派
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId }; // 47a: kind 供 /api/steer 按引擎分派
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.
@@ -7494,10 +7519,10 @@ async function runClaudeTurn({
     session.injectedIndexHash = null;
     await saveSession(session);
     logEvent({ kind: 'claude_resume_retry', sessionId: session.id, reason: 'transcript-missing' });
-    downstreamEvent({ type: 'resume_recovery', reason: 'transcript-missing', automatic: true });
+    downstreamEvent({ type: 'resume_recovery', reason: 'transcript-missing', automatic: true, traceId: activeTraceId });
     return runClaudeTurn({
       session, message, attachments, cwd, onEvent: downstreamEvent, driverAuto, agentTeam,
-      _resumeRecoveryAttempt: true, _recoveryHistoryOverride: recoveryHistory,
+      _resumeRecoveryAttempt: true, _recoveryHistoryOverride: recoveryHistory, _traceId: activeTraceId,
     });
   }
   // 第35波 P2: 进程根本没启动(spawn error 或 cmd 拒绝执行)→ prompt 未送达,原生 transcript 不含本轮注入的索引
@@ -7523,6 +7548,7 @@ async function runClaudeTurn({
     nativeAgents: nativeClaudeAgentRecords.length ? nativeClaudeAgentRecords : undefined,
     turnSummary, // v0.8-S3
     usage: usage || undefined,
+    traceId: activeTraceId,
     createdAt: nowIso(),
     source: wasStopped ? 'aborted' : 'claude-cli',
     // Engine identity so the UI can render a per-message source badge (§5.1). The claude engine is
@@ -7578,7 +7604,21 @@ async function runClaudeTurn({
       inTok: billInMax, outTok: billOutMax, cost, currency, costTrusted, estimated: true, turnSeq: session.turnSeq,
     });
   }
-  logEvent({ kind: 'turn_end', sessionId: session.id, ok: exit.code === 0 && !wasStopped, exitCode: exit.code, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped });
+  const claudeTurnOk = exit.code === 0 && !wasStopped;
+  if (!claudeTurnOk && !wasStopped) {
+    await dispatchAgentLoopHooks('onError', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
+      model: currentClaudeModel || 'default', exitCode: exit.code, errorClass: 'claude_cli_error',
+      error: redact(String(exit.error && exit.error.message || stderrTrimmed || 'Claude CLI failed')).slice(0, 1000),
+    });
+  }
+  await dispatchAgentLoopHooks('onTurnEnd', {
+    traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
+    model: currentClaudeModel || 'default', ok: claudeTurnOk, aborted: wasStopped, exitCode: exit.code,
+    durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: toolCalls.length,
+    usage: usage && usage.usage ? { ...usage.usage } : undefined,
+  });
+  logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', ok: claudeTurnOk, exitCode: exit.code, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, durationMs: Date.now() - turnStartedAt });
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
   onEvent({ type: 'result', ok: exit.code === 0 && !wasStopped, exitCode: exit.code, aborted: wasStopped, error: exit.error?.message });
@@ -9493,6 +9533,152 @@ function getPromptPack(locale) {
 }
 // 注:本模块经 build.js 拼入 server.js 共享作用域,PROMPT_PACK_VERSION/PROMPT_ZH 为作用域常量,
 // 06/07/09 直接引用(同 06 的 function 声明模式,非 require)。52a 已加 PROMPT_EN + getPromptPack locale 切换。
+
+// ============================================================================
+// 第75d波（Escapade Harness 小迭代）：Agent Loop 生命周期钩子 + 轻量 trace spine。
+//
+// 钩子是进程内、只读、best-effort 的扩展点：
+//   - 固定注册顺序，便于指标/日志/限额观察保持确定性；
+//   - 每个钩子独立超时与故障隔离，扩展故障不改变主回合结果；
+//   - 上下文先做有界复制再深冻结，返回值一律忽略，不能借钩子绕过权限或改写工具参数；
+//   - 不自动装载磁盘脚本/第三方包，保持气隙部署与信任边界不变。
+//
+// Claude CLI 自己持有内部工具循环，因此适配器只发 turn/model 边界；Provider 原生循环还会发
+// preToolCall/postToolCall。后续若引入可变 middleware，必须另立显式契约并重新过权限安全评审。
+// ============================================================================
+const AGENT_LOOP_HOOK_PHASES = Object.freeze([
+  'onTurnStart',
+  'beforeModelCall',
+  'preToolCall',
+  'postToolCall',
+  'onTurnEnd',
+  'onError',
+]);
+const AGENT_LOOP_HOOK_PHASE_SET = new Set(AGENT_LOOP_HOOK_PHASES);
+const AGENT_LOOP_HOOKS = new Map();
+const AGENT_LOOP_HOOK_TIMEOUT_MS = 250;
+
+function makeAgentLoopTraceId() {
+  return makeId('trace');
+}
+
+function cloneAgentLoopHookValue(value, depth = 0, seen = new WeakSet()) {
+  if (value == null || typeof value === 'boolean' || typeof value === 'number') return value;
+  if (typeof value === 'string') return value.length > 32768 ? value.slice(0, 32768) + '…[truncated]' : value;
+  if (typeof value === 'bigint') return String(value);
+  if (typeof value !== 'object') return undefined;
+  if (depth >= 8) return '[depth-limit]';
+  if (seen.has(value)) return '[circular]';
+  seen.add(value);
+  if (Array.isArray(value)) {
+    const out = value.slice(0, 200).map(item => cloneAgentLoopHookValue(item, depth + 1, seen));
+    if (value.length > 200) out.push(`[+${value.length - 200} items]`);
+    seen.delete(value);
+    return out;
+  }
+  // Null-prototype copy prevents a JSON argument named "__proto__" from mutating the hook snapshot's
+  // prototype while it is being bounded/frozen.
+  const out = Object.create(null);
+  for (const key of Object.keys(value).slice(0, 200)) {
+    const cloned = cloneAgentLoopHookValue(value[key], depth + 1, seen);
+    if (cloned !== undefined) out[key] = cloned;
+  }
+  seen.delete(value);
+  return out;
+}
+
+function deepFreezeAgentLoopHookValue(value, seen = new WeakSet()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return value;
+  seen.add(value);
+  for (const child of Object.values(value)) deepFreezeAgentLoopHookValue(child, seen);
+  return Object.freeze(value);
+}
+
+function immutableAgentLoopHookContext(context) {
+  return deepFreezeAgentLoopHookValue(cloneAgentLoopHookValue(context && typeof context === 'object' ? context : {}));
+}
+
+function normalizeAgentLoopHookTimeout(value) {
+  if (value == null || value === '') return AGENT_LOOP_HOOK_TIMEOUT_MS;
+  return Math.max(25, Math.min(2000, Math.round(Number(value) || AGENT_LOOP_HOOK_TIMEOUT_MS)));
+}
+
+function registerAgentLoopHook(hook) {
+  if (!hook || typeof hook !== 'object' || Array.isArray(hook)) throw new Error('agent loop hook 必须是对象');
+  const id = String(hook.id || '').trim();
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(id)) throw new Error('agent loop hook.id 必须为 1-64 位字母、数字、点、下划线或连字符');
+  if (AGENT_LOOP_HOOKS.has(id)) throw new Error(`agent loop hook 已注册: ${id}`);
+  const handlers = {};
+  for (const phase of AGENT_LOOP_HOOK_PHASES) if (typeof hook[phase] === 'function') handlers[phase] = hook[phase];
+  if (!Object.keys(handlers).length) throw new Error('agent loop hook 至少实现一个生命周期阶段');
+  AGENT_LOOP_HOOKS.set(id, { id, handlers, timeoutMs: normalizeAgentLoopHookTimeout(hook.timeoutMs) });
+  return { id, phases: Object.keys(handlers), timeoutMs: normalizeAgentLoopHookTimeout(hook.timeoutMs) };
+}
+
+function unregisterAgentLoopHook(id) {
+  return AGENT_LOOP_HOOKS.delete(String(id || '').trim());
+}
+
+function listAgentLoopHooks() {
+  return [...AGENT_LOOP_HOOKS.values()].map(hook => ({
+    id: hook.id,
+    phases: Object.keys(hook.handlers),
+    timeoutMs: hook.timeoutMs,
+  }));
+}
+
+function runAgentLoopHookWithTimeout(handler, context, timeoutMs, id, phase) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(`agent loop hook timeout: ${id}.${phase} > ${timeoutMs}ms`);
+      err.code = 'AGENT_LOOP_HOOK_TIMEOUT';
+      reject(err);
+    }, timeoutMs);
+  });
+  return Promise.race([Promise.resolve().then(() => handler(context)), timeout]).finally(() => clearTimeout(timer));
+}
+
+async function dispatchAgentLoopHooks(phase, context) {
+  if (!AGENT_LOOP_HOOK_PHASE_SET.has(phase)) throw new Error(`未知 agent loop hook 阶段: ${phase}`);
+  const snapshot = immutableAgentLoopHookContext({ phase, ...(context || {}) });
+  let invoked = 0, failed = 0;
+  // Snapshot the registry at phase entry: a hook may register/unregister another hook, but that mutation
+  // only affects the next phase dispatch and can never extend/reorder the current iteration.
+  for (const hook of [...AGENT_LOOP_HOOKS.values()]) {
+    const handler = hook.handlers[phase];
+    if (!handler) continue;
+    invoked += 1;
+    try {
+      await runAgentLoopHookWithTimeout(handler, snapshot, hook.timeoutMs, hook.id, phase);
+    } catch (error) {
+      failed += 1;
+      try {
+        logEvent({
+          kind: 'agent_loop_hook_error',
+          hookId: hook.id,
+          phase,
+          traceId: String(snapshot.traceId || ''),
+          code: error && error.code === 'AGENT_LOOP_HOOK_TIMEOUT' ? 'timeout' : 'exception',
+          error: redact(String(error && error.message || error)).slice(0, 500),
+        });
+      } catch { /* hook telemetry must never break the turn */ }
+    }
+  }
+  return { phase, invoked, failed };
+}
+
+function summarizeAgentLoopToolResult(result) {
+  let bytes = 0;
+  try { bytes = Buffer.byteLength(JSON.stringify(result == null ? null : result), 'utf8'); } catch { bytes = 0; }
+  const isObject = result && typeof result === 'object' && !Array.isArray(result);
+  return {
+    ok: !(isObject && result.ok === false),
+    bytes,
+    keys: isObject ? Object.keys(result).slice(0, 40) : [],
+    error: isObject && result.ok === false && result.error ? redact(String(result.error)).slice(0, 500) : undefined,
+  };
+}
 
 // ============================================================================
 // v2 跨会话记忆(团队模式 v2 Phase 3, 设计稿 C0-C5)。文件型记忆库 + 起草-确认写入 + 围栏式渐进注入。
@@ -14204,13 +14390,18 @@ function syncProviderHistoryFromDisplay(session) {
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam }) {
+  const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
   let activeProviderBatchId = '';
+  let activeTraceId = '';
   onEvent = evt => {
-    const normalized = evt && evt.type === 'tool_use' && activeProviderBatchId && !evt.batchId
+    let normalized = evt && evt.type === 'tool_use' && activeProviderBatchId && !evt.batchId
       ? { ...evt, batchId: activeProviderBatchId }
       : evt;
+    if (normalized && typeof normalized === 'object' && activeTraceId && !normalized.traceId) {
+      normalized = { ...normalized, traceId: activeTraceId };
+    }
     turnSegments.consume(normalized);
     downstreamEvent(normalized);
   };
@@ -14220,6 +14411,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const base = providerBaseWithV1(provider.baseUrl);
   const chatUrl = base ? base + '/chat/completions' : '';
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
+  const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
+  activeTraceId = makeAgentLoopTraceId(session.id, plannedTurnSeq);
 
   // v1.0-S6 (B): failover candidate sequence = [main baseUrl, ...extraBaseUrls], each normalized через
   // providerBaseWithV1 (so a bare host gets its /v1 like the primary). Each candidate keeps BOTH its display
@@ -14253,10 +14446,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // v0.8-S0: one turn = one user message → reply-complete. Bump the session-level monotonic counter at
   // turn start and persist it with the existing save (checkpoint/rewind/summary key downstream).
-  session.turnSeq = (Number(session.turnSeq) || 0) + 1;
+  session.turnSeq = plannedTurnSeq;
   // v0.8-S4b: stamp the user message with its turnSeq so rewind can locate a turn's first user message
   // directly (rather than inferring from the following assistant's turnSummary.turnSeq). Additive field.
-  session.messages.push({ role: 'user', content: message, attachments: attachments || [], turnSeq: session.turnSeq, createdAt: nowIso(), ...(driverAuto ? { source: 'mission-driver' } : {}) });
+  session.messages.push({ role: 'user', content: message, attachments: attachments || [], turnSeq: session.turnSeq, traceId: activeTraceId, createdAt: nowIso(), ...(driverAuto ? { source: 'mission-driver' } : {}) });
   session.providerHistoryCursor = session.messages.length;
   // v0.9-S7 视觉回路: when THIS provider has vision开 AND the turn carries an image attachment, the user
   // message's providerHistory content is a PARTS array [{text},{image_url}…] (the estimator is parts-aware
@@ -14272,6 +14465,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   await saveSession(session);
 
+  await dispatchAgentLoopHooks('onTurnStart', {
+    traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
+    engine: 'openai', providerId: provider.id, model, cwd: workingDir,
+  });
+
   if (!chatUrl || !model || typeof fetch !== 'function') {
     const why = !chatUrl ? 'provider base URL is not set' : (!model ? 'no model is selected for this provider' : 'fetch API is unavailable in this Node runtime');
     const msg = `Cannot start a ${provider.label || provider.id} turn: ${why}. Open Settings → Providers to fix it.`;
@@ -14279,6 +14477,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     session.providerHistoryCursor = session.messages.length;
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: msg });
+    await dispatchAgentLoopHooks('onError', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+      providerId: provider.id, model, errorClass: 'provider_misconfigured', error: why,
+    });
+    await dispatchAgentLoopHooks('onTurnEnd', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+      providerId: provider.id, model, ok: false, aborted: false, errorClass: 'provider_misconfigured',
+      durationMs: Date.now() - turnStartedAt, toolCalls: 0,
+    });
     // v0.8-S6: attach errorClass (§C6 seed) so the v0.9 error-humanization UI can render 人话 + 下一步.
     onEvent({ type: 'result', ok: false, reason: 'provider_misconfigured', errorClass: 'provider_misconfigured' });
     return;
@@ -14292,7 +14499,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // P2-3: hold the in-memory session so a mid-turn POST /api/session/skills can update session.skills on the
     // LIVE turn object (belt-and-suspenders with the pre-save disk-merge at the turn's end).
     session,
-    interactive: false, onEvent, kind: 'openai', abort: () => { try { if (ctrl) ctrl.abort(); } catch { /* ignore */ } },
+    interactive: false, onEvent, kind: 'openai', traceId: activeTraceId, abort: () => { try { if (ctrl) ctrl.abort(); } catch { /* ignore */ } },
     // v0.8-S7: steering queue (§4 A3). /api/steer pushes plain user text here (cap 3) while a provider
     // turn is live; the tool loop drains it at the iteration boundary (before each API call), injecting
     // each as a `[用户插话] …` user message into providerHistory (pairing-safe — see drainSteerQueue).
@@ -14400,7 +14607,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   onEvent({ type: 'meta', command: `${provider.label || provider.id} · ${base}`, args: [], cwd: workingDir, model, permissionMode: config.permissionMode, engine: 'openai', providerLabel: provider.label || provider.id, tools: initialTools.length, availableTools: allTools.length, bridgedTools: bridged.tools.length, toolLoadingMode: config.toolLoadingMode, toolPacks: [...toolLoading.activePacks], toolSchemaTokens: estimateToolSchemaTokens(initialTools), cwdWarning: cwdWarn || undefined });
   onEvent({ type: 'process', state: 'running', pid: null, interactive: false, engine: 'openai' });
-  logEvent({ kind: 'turn_start', sessionId: session.id, engine: 'openai', provider: provider.id, model, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
+  logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, model, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
 
   // WCW_TURN_IDLE_MS is a test seam; normalized config remains the production source of truth.
   const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs);
@@ -14419,6 +14626,30 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let usageObj = null;
   let ok = true, errorMsg = '', aborted = false;
   const toolCalls = [];                 // for the display message (session.messages)
+  const toolHookStartedAt = new Map();  // observational hooks only; never changes dispatch/permission semantics
+  const notifyToolHookStart = async (tc, input, iteration, disposition = 'execute') => {
+    if (!tc) return;
+    const key = String(tc.id || `${tc.name}:${iteration}`);
+    if (toolHookStartedAt.has(key)) return;
+    toolHookStartedAt.set(key, Date.now());
+    await dispatchAgentLoopHooks('preToolCall', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+      providerId: provider.id, model, iteration, toolCallId: tc.id, toolName: tc.name,
+      input, disposition,
+    });
+  };
+  const notifyToolHookEnd = async (tc, result, iteration, disposition = 'executed') => {
+    if (!tc) return;
+    const key = String(tc.id || `${tc.name}:${iteration}`);
+    const startedAt = toolHookStartedAt.get(key);
+    toolHookStartedAt.delete(key);
+    await dispatchAgentLoopHooks('postToolCall', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+      providerId: provider.id, model, iteration, toolCallId: tc.id, toolName: tc.name,
+      disposition, durationMs: startedAt ? Date.now() - startedAt : 0,
+      result: summarizeAgentLoopToolResult(result),
+    });
+  };
   let turnTodos = null;                 // v0.8-S3: last todo_write items this turn (null = none written)
   const rawSeqRef = { n: 0 };
   const touch = () => { reg.lastEventAt = Date.now(); };
@@ -14608,6 +14839,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current())) touch();
       lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
+      await dispatchAgentLoopHooks('beforeModelCall', {
+        traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+        providerId: provider.id, model, iteration: iter, withTools: useTools,
+        toolCount: useTools ? toolLoading.current().length : 0, estimatedContextTokens: estBeforeCall,
+      });
       const call = await streamWithFailover(buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
       if (call.httpError) {
         // If the server rejected tools, retry the turn once WITHOUT tools (chat-only) before failing.
@@ -14708,10 +14944,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           for (const tc of call.toolCalls) {
             let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
             const refuse = { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' };
+            await notifyToolHookStart(tc, pargs, iter, 'plan_refused');
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: pargs });
             onEvent({ type: 'tool_result', id: tc.id, content: refuse, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: pargs, result: refuse });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(refuse)) });
+            await notifyToolHookEnd(tc, refuse, iter, 'plan_refused');
           }
           await saveSession(session);
           touch();
@@ -14751,6 +14989,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (projectedLoopAborted) continue;
           if (stc.name !== 'spawn_agent') continue;
           let sargs = {}; try { sargs = JSON.parse(stc.rawArgs || '{}'); } catch { sargs = {}; }
+          // spawn_agent is launched speculatively for real parallelism; its pre hook therefore belongs here,
+          // immediately before any promise/side effect starts. The serial consumer below sees the start map
+          // and does not dispatch the hook twice.
+          await notifyToolHookStart(stc, sargs, iter, 'agent_orchestration');
           subagentBatchCount += 1;
           if (subagentBatchCount > subagentFanoutMax) {
             subagentPromises.set(stc.id, Promise.resolve({ ok: false, error: `子代理并发已达上限(${subagentFanoutMax}),请拆分为后续阶段` }));
@@ -14816,6 +15058,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
         for (const tc of call.toolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
+          await notifyToolHookStart(tc, args, iter);
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we
           // can (a) inject loopWarning on the 3rd hit's result and (b) refuse to run the 5th hit at all.
           const sig = tc.name + ' ' + tc.rawArgs;
@@ -14828,6 +15071,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            await notifyToolHookEnd(tc, resultObj, iter, 'loop_refused');
             // v1.4.1 (audit #1 配对铁律):若这是【并行批】,break 会漏答本批其后的 tool_call —— 严格 provider
             // (DeepSeek/DashScope-qwen)对未配对的 tool_call_id 报 400 并【永久卡死会话】(每回合重发孤儿历史)。
             // 因此 break 前,给本批每个尚未回复的 tool_call 补一条配对 role:'tool'(镜像计划相位拒绝的逐条配对)。
@@ -14836,10 +15080,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
               const skip = { ok: false, error: '本轮已因重复调用停止,该调用未执行' };
+              await notifyToolHookStart(rem, rargs, iter, 'loop_skipped');
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
               toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
               session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
+              await notifyToolHookEnd(rem, skip, iter, 'loop_skipped');
             }
             loopAborted = true;
             break;
@@ -14856,6 +15102,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             markToolProgress(tc, resultObj, iter);
+            await notifyToolHookEnd(tc, resultObj, iter, 'control_plane');
             touch();
             continue;
           }
@@ -14896,6 +15143,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             markToolProgress(tc, resultObj, iter);
+            await notifyToolHookEnd(tc, resultObj, iter, 'agent_orchestration');
             touch();
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
             continue; // agent orchestration done — skip generic tool dispatch
@@ -15042,6 +15290,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const isErr = !!(resultObj && resultObj.ok === false);
           onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });
           toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
+          await notifyToolHookEnd(tc, resultObj, iter);
           // v0.9-S7 视觉回路: if THIS provider has vision开 AND the tool result carries a screenshot
           // (image/image_base64/screenshot.image), STRIP the heavy pixel field(s) out of the role:'tool'
           // message (占位 → keeps the tool JSON精简) and QUEUE a user image message to be flushed after the
@@ -15074,10 +15323,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
               const skip = { ok: false, error: '本轮已因用户插话中断,该调用未执行' };
+              await notifyToolHookStart(rem, rargs, iter, 'steer_skipped');
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
               toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
               session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
+              await notifyToolHookEnd(rem, skip, iter, 'steer_skipped');
             }
             steerAborted = true;
             break;
@@ -15179,7 +15430,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     usage: usageObj || undefined, createdAt: nowIso(), source: wasStopped ? 'aborted' : ('provider:' + provider.id),
     // Engine identity so the UI can render a per-message source badge (§5.1). Keeping providerId +
     // providerLabel + model lets the badge label a message even after the provider list changes.
-    engine: 'openai', providerId: provider.id, providerLabel: provider.label || provider.id, model,
+    engine: 'openai', providerId: provider.id, providerLabel: provider.label || provider.id, model, traceId: activeTraceId,
   });
   session.providerHistoryCursor = session.messages.length;
   // 第72波:回合内 mission_update 推迟的 complete 章在此刻盖 —— 本回合 turnSummary 已入 messages,
@@ -15208,7 +15459,6 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       inTok, outTok, cost, currency, estimated: usageObj.estimated === true, turnSeq: session.turnSeq,
     });
   }
-  logEvent({ kind: 'turn_end', sessionId: session.id, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, aborted: wasStopped });
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
   // v0.8-S6: best-effort errorClass (§C6 seed, additive). idle-timeout abort → idle_timeout; a transport-
@@ -15226,6 +15476,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
     else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
   }
+  if (errorClass || (!ok && !wasStopped)) {
+    await dispatchAgentLoopHooks('onError', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+      providerId: provider.id, model, aborted: wasStopped, errorClass,
+      error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined,
+    });
+  }
+  await dispatchAgentLoopHooks('onTurnEnd', {
+    traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+    providerId: provider.id, model, ok: ok && !wasStopped, aborted: wasStopped, errorClass,
+    durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: toolCalls.length,
+    usage: usageObj && usageObj.usage ? { ...usageObj.usage, calls: usageObj.calls, estimated: usageObj.estimated === true } : undefined,
+  });
+  logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, errorClass, durationMs: Date.now() - turnStartedAt });
   // v1.0 收官安全加固:result 错误经 redact + 剥 URL userinfo 再回显(与显示路径一致);transportError 原文
   // 可能含带 basic-auth 的端点 URL,不加处理会漏进前端与审计。
   onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass });
@@ -23124,6 +23388,13 @@ module.exports = {
   shouldExtendToolIterationBudget,
   TOOL_ITERATION_BUDGETS,
   buildOpenAiTools,
+  AGENT_LOOP_HOOK_PHASES,
+  registerAgentLoopHook,
+  unregisterAgentLoopHook,
+  listAgentLoopHooks,
+  dispatchAgentLoopHooks,
+  makeAgentLoopTraceId,
+  summarizeAgentLoopToolResult,
   // 第41波(41a/41b): 表驱动工具注册表 — exposed for e2e(guard 声明化行为锁内省 + 分发行为直测)。
   TOOL_HANDLERS,
   NATIVE_TOOL_TIER,

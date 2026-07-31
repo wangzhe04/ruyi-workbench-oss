@@ -928,13 +928,18 @@ function syncProviderHistoryFromDisplay(session) {
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam }) {
+  const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
   let activeProviderBatchId = '';
+  let activeTraceId = '';
   onEvent = evt => {
-    const normalized = evt && evt.type === 'tool_use' && activeProviderBatchId && !evt.batchId
+    let normalized = evt && evt.type === 'tool_use' && activeProviderBatchId && !evt.batchId
       ? { ...evt, batchId: activeProviderBatchId }
       : evt;
+    if (normalized && typeof normalized === 'object' && activeTraceId && !normalized.traceId) {
+      normalized = { ...normalized, traceId: activeTraceId };
+    }
     turnSegments.consume(normalized);
     downstreamEvent(normalized);
   };
@@ -944,6 +949,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const base = providerBaseWithV1(provider.baseUrl);
   const chatUrl = base ? base + '/chat/completions' : '';
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
+  const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
+  activeTraceId = makeAgentLoopTraceId(session.id, plannedTurnSeq);
 
   // v1.0-S6 (B): failover candidate sequence = [main baseUrl, ...extraBaseUrls], each normalized через
   // providerBaseWithV1 (so a bare host gets its /v1 like the primary). Each candidate keeps BOTH its display
@@ -977,10 +984,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // v0.8-S0: one turn = one user message → reply-complete. Bump the session-level monotonic counter at
   // turn start and persist it with the existing save (checkpoint/rewind/summary key downstream).
-  session.turnSeq = (Number(session.turnSeq) || 0) + 1;
+  session.turnSeq = plannedTurnSeq;
   // v0.8-S4b: stamp the user message with its turnSeq so rewind can locate a turn's first user message
   // directly (rather than inferring from the following assistant's turnSummary.turnSeq). Additive field.
-  session.messages.push({ role: 'user', content: message, attachments: attachments || [], turnSeq: session.turnSeq, createdAt: nowIso(), ...(driverAuto ? { source: 'mission-driver' } : {}) });
+  session.messages.push({ role: 'user', content: message, attachments: attachments || [], turnSeq: session.turnSeq, traceId: activeTraceId, createdAt: nowIso(), ...(driverAuto ? { source: 'mission-driver' } : {}) });
   session.providerHistoryCursor = session.messages.length;
   // v0.9-S7 视觉回路: when THIS provider has vision开 AND the turn carries an image attachment, the user
   // message's providerHistory content is a PARTS array [{text},{image_url}…] (the estimator is parts-aware
@@ -996,6 +1003,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   await saveSession(session);
 
+  await dispatchAgentLoopHooks('onTurnStart', {
+    traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
+    engine: 'openai', providerId: provider.id, model, cwd: workingDir,
+  });
+
   if (!chatUrl || !model || typeof fetch !== 'function') {
     const why = !chatUrl ? 'provider base URL is not set' : (!model ? 'no model is selected for this provider' : 'fetch API is unavailable in this Node runtime');
     const msg = `Cannot start a ${provider.label || provider.id} turn: ${why}. Open Settings → Providers to fix it.`;
@@ -1003,6 +1015,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     session.providerHistoryCursor = session.messages.length;
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: msg });
+    await dispatchAgentLoopHooks('onError', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+      providerId: provider.id, model, errorClass: 'provider_misconfigured', error: why,
+    });
+    await dispatchAgentLoopHooks('onTurnEnd', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+      providerId: provider.id, model, ok: false, aborted: false, errorClass: 'provider_misconfigured',
+      durationMs: Date.now() - turnStartedAt, toolCalls: 0,
+    });
     // v0.8-S6: attach errorClass (§C6 seed) so the v0.9 error-humanization UI can render 人话 + 下一步.
     onEvent({ type: 'result', ok: false, reason: 'provider_misconfigured', errorClass: 'provider_misconfigured' });
     return;
@@ -1016,7 +1037,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // P2-3: hold the in-memory session so a mid-turn POST /api/session/skills can update session.skills on the
     // LIVE turn object (belt-and-suspenders with the pre-save disk-merge at the turn's end).
     session,
-    interactive: false, onEvent, kind: 'openai', abort: () => { try { if (ctrl) ctrl.abort(); } catch { /* ignore */ } },
+    interactive: false, onEvent, kind: 'openai', traceId: activeTraceId, abort: () => { try { if (ctrl) ctrl.abort(); } catch { /* ignore */ } },
     // v0.8-S7: steering queue (§4 A3). /api/steer pushes plain user text here (cap 3) while a provider
     // turn is live; the tool loop drains it at the iteration boundary (before each API call), injecting
     // each as a `[用户插话] …` user message into providerHistory (pairing-safe — see drainSteerQueue).
@@ -1124,7 +1145,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   onEvent({ type: 'meta', command: `${provider.label || provider.id} · ${base}`, args: [], cwd: workingDir, model, permissionMode: config.permissionMode, engine: 'openai', providerLabel: provider.label || provider.id, tools: initialTools.length, availableTools: allTools.length, bridgedTools: bridged.tools.length, toolLoadingMode: config.toolLoadingMode, toolPacks: [...toolLoading.activePacks], toolSchemaTokens: estimateToolSchemaTokens(initialTools), cwdWarning: cwdWarn || undefined });
   onEvent({ type: 'process', state: 'running', pid: null, interactive: false, engine: 'openai' });
-  logEvent({ kind: 'turn_start', sessionId: session.id, engine: 'openai', provider: provider.id, model, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
+  logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, model, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
 
   // WCW_TURN_IDLE_MS is a test seam; normalized config remains the production source of truth.
   const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs);
@@ -1143,6 +1164,30 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let usageObj = null;
   let ok = true, errorMsg = '', aborted = false;
   const toolCalls = [];                 // for the display message (session.messages)
+  const toolHookStartedAt = new Map();  // observational hooks only; never changes dispatch/permission semantics
+  const notifyToolHookStart = async (tc, input, iteration, disposition = 'execute') => {
+    if (!tc) return;
+    const key = String(tc.id || `${tc.name}:${iteration}`);
+    if (toolHookStartedAt.has(key)) return;
+    toolHookStartedAt.set(key, Date.now());
+    await dispatchAgentLoopHooks('preToolCall', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+      providerId: provider.id, model, iteration, toolCallId: tc.id, toolName: tc.name,
+      input, disposition,
+    });
+  };
+  const notifyToolHookEnd = async (tc, result, iteration, disposition = 'executed') => {
+    if (!tc) return;
+    const key = String(tc.id || `${tc.name}:${iteration}`);
+    const startedAt = toolHookStartedAt.get(key);
+    toolHookStartedAt.delete(key);
+    await dispatchAgentLoopHooks('postToolCall', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+      providerId: provider.id, model, iteration, toolCallId: tc.id, toolName: tc.name,
+      disposition, durationMs: startedAt ? Date.now() - startedAt : 0,
+      result: summarizeAgentLoopToolResult(result),
+    });
+  };
   let turnTodos = null;                 // v0.8-S3: last todo_write items this turn (null = none written)
   const rawSeqRef = { n: 0 };
   const touch = () => { reg.lastEventAt = Date.now(); };
@@ -1332,6 +1377,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current())) touch();
       lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
+      await dispatchAgentLoopHooks('beforeModelCall', {
+        traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+        providerId: provider.id, model, iteration: iter, withTools: useTools,
+        toolCount: useTools ? toolLoading.current().length : 0, estimatedContextTokens: estBeforeCall,
+      });
       const call = await streamWithFailover(buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
       if (call.httpError) {
         // If the server rejected tools, retry the turn once WITHOUT tools (chat-only) before failing.
@@ -1432,10 +1482,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           for (const tc of call.toolCalls) {
             let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
             const refuse = { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' };
+            await notifyToolHookStart(tc, pargs, iter, 'plan_refused');
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: pargs });
             onEvent({ type: 'tool_result', id: tc.id, content: refuse, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: pargs, result: refuse });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(refuse)) });
+            await notifyToolHookEnd(tc, refuse, iter, 'plan_refused');
           }
           await saveSession(session);
           touch();
@@ -1475,6 +1527,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (projectedLoopAborted) continue;
           if (stc.name !== 'spawn_agent') continue;
           let sargs = {}; try { sargs = JSON.parse(stc.rawArgs || '{}'); } catch { sargs = {}; }
+          // spawn_agent is launched speculatively for real parallelism; its pre hook therefore belongs here,
+          // immediately before any promise/side effect starts. The serial consumer below sees the start map
+          // and does not dispatch the hook twice.
+          await notifyToolHookStart(stc, sargs, iter, 'agent_orchestration');
           subagentBatchCount += 1;
           if (subagentBatchCount > subagentFanoutMax) {
             subagentPromises.set(stc.id, Promise.resolve({ ok: false, error: `子代理并发已达上限(${subagentFanoutMax}),请拆分为后续阶段` }));
@@ -1540,6 +1596,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
         for (const tc of call.toolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
+          await notifyToolHookStart(tc, args, iter);
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we
           // can (a) inject loopWarning on the 3rd hit's result and (b) refuse to run the 5th hit at all.
           const sig = tc.name + ' ' + tc.rawArgs;
@@ -1552,6 +1609,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            await notifyToolHookEnd(tc, resultObj, iter, 'loop_refused');
             // v1.4.1 (audit #1 配对铁律):若这是【并行批】,break 会漏答本批其后的 tool_call —— 严格 provider
             // (DeepSeek/DashScope-qwen)对未配对的 tool_call_id 报 400 并【永久卡死会话】(每回合重发孤儿历史)。
             // 因此 break 前,给本批每个尚未回复的 tool_call 补一条配对 role:'tool'(镜像计划相位拒绝的逐条配对)。
@@ -1560,10 +1618,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
               const skip = { ok: false, error: '本轮已因重复调用停止,该调用未执行' };
+              await notifyToolHookStart(rem, rargs, iter, 'loop_skipped');
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
               toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
               session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
+              await notifyToolHookEnd(rem, skip, iter, 'loop_skipped');
             }
             loopAborted = true;
             break;
@@ -1580,6 +1640,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             markToolProgress(tc, resultObj, iter);
+            await notifyToolHookEnd(tc, resultObj, iter, 'control_plane');
             touch();
             continue;
           }
@@ -1620,6 +1681,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             markToolProgress(tc, resultObj, iter);
+            await notifyToolHookEnd(tc, resultObj, iter, 'agent_orchestration');
             touch();
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
             continue; // agent orchestration done — skip generic tool dispatch
@@ -1766,6 +1828,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const isErr = !!(resultObj && resultObj.ok === false);
           onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });
           toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
+          await notifyToolHookEnd(tc, resultObj, iter);
           // v0.9-S7 视觉回路: if THIS provider has vision开 AND the tool result carries a screenshot
           // (image/image_base64/screenshot.image), STRIP the heavy pixel field(s) out of the role:'tool'
           // message (占位 → keeps the tool JSON精简) and QUEUE a user image message to be flushed after the
@@ -1798,10 +1861,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
               const skip = { ok: false, error: '本轮已因用户插话中断,该调用未执行' };
+              await notifyToolHookStart(rem, rargs, iter, 'steer_skipped');
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
               toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
               session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
+              await notifyToolHookEnd(rem, skip, iter, 'steer_skipped');
             }
             steerAborted = true;
             break;
@@ -1903,7 +1968,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     usage: usageObj || undefined, createdAt: nowIso(), source: wasStopped ? 'aborted' : ('provider:' + provider.id),
     // Engine identity so the UI can render a per-message source badge (§5.1). Keeping providerId +
     // providerLabel + model lets the badge label a message even after the provider list changes.
-    engine: 'openai', providerId: provider.id, providerLabel: provider.label || provider.id, model,
+    engine: 'openai', providerId: provider.id, providerLabel: provider.label || provider.id, model, traceId: activeTraceId,
   });
   session.providerHistoryCursor = session.messages.length;
   // 第72波:回合内 mission_update 推迟的 complete 章在此刻盖 —— 本回合 turnSummary 已入 messages,
@@ -1932,7 +1997,6 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       inTok, outTok, cost, currency, estimated: usageObj.estimated === true, turnSeq: session.turnSeq,
     });
   }
-  logEvent({ kind: 'turn_end', sessionId: session.id, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, aborted: wasStopped });
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
   // v0.8-S6: best-effort errorClass (§C6 seed, additive). idle-timeout abort → idle_timeout; a transport-
@@ -1950,6 +2014,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
     else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
   }
+  if (errorClass || (!ok && !wasStopped)) {
+    await dispatchAgentLoopHooks('onError', {
+      traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+      providerId: provider.id, model, aborted: wasStopped, errorClass,
+      error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined,
+    });
+  }
+  await dispatchAgentLoopHooks('onTurnEnd', {
+    traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
+    providerId: provider.id, model, ok: ok && !wasStopped, aborted: wasStopped, errorClass,
+    durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: toolCalls.length,
+    usage: usageObj && usageObj.usage ? { ...usageObj.usage, calls: usageObj.calls, estimated: usageObj.estimated === true } : undefined,
+  });
+  logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, errorClass, durationMs: Date.now() - turnStartedAt });
   // v1.0 收官安全加固:result 错误经 redact + 剥 URL userinfo 再回显(与显示路径一致);transportError 原文
   // 可能含带 basic-auth 的端点 URL,不加处理会漏进前端与审计。
   onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass });

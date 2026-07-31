@@ -146,6 +146,13 @@ module.exports = {
   shouldExtendToolIterationBudget,
   TOOL_ITERATION_BUDGETS,
   buildOpenAiTools,
+  AGENT_LOOP_HOOK_PHASES,
+  registerAgentLoopHook,
+  unregisterAgentLoopHook,
+  listAgentLoopHooks,
+  dispatchAgentLoopHooks,
+  makeAgentLoopTraceId,
+  summarizeAgentLoopToolResult,
   // 第41波(41a/41b): 表驱动工具注册表 — exposed for e2e(guard 声明化行为锁内省 + 分发行为直测)。
   TOOL_HANDLERS,
   NATIVE_TOOL_TIER,
