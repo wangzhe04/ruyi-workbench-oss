@@ -232,13 +232,31 @@ function bridgedToolTimeoutMs(name) {
   return BRIDGED_TOOL_TIMEOUTS[bare] || BRIDGED_TOOL_TIMEOUT_DEFAULT_MS;
 }
 
+// 75b: automatic timeout/teardown decisions participate in the same per-Intervention CAS as user
+// decisions. The fallback is only for storage/core failure and must re-check the registry entry so a
+// concurrently applying user command can never be overwritten by a legacy settle.
+function runAutomaticInterventionDecision(command, fallback) {
+  Promise.resolve()
+    .then(() => decideIntervention({ ...command, contractRequest: false, audit: false }))
+    .then(result => { if (!result || result.status !== 200) fallback(); })
+    .catch(() => fallback());
+}
+
 function clearPendingPermissions(sessionId, message) {
   for (const [rid, p] of pendingPermissions) {
     if (p.sessionId === sessionId) {
+      if (p.commandApplying) continue; // 75b: command core owns resolve -> terminal -> registry cleanup ordering
       clearTimeout(p.timer);
-      pendingPermissions.delete(rid);
-      try { p.resolve({ behavior: 'deny', message: message || 'session ended' }); } catch { /* already settled */ }
-      settleIntervention(sessionId, rid, 'denied', { decidedBy: 'clear', note: String(message || 'session ended').slice(0, 500) });
+      const note = String(message || 'session ended').slice(0, 500);
+      runAutomaticInterventionDecision({
+        missionId: sessionId, interventionId: rid, source: 'clear_permission', decidedBy: 'clear',
+        idempotencyKey: `clear:${rid}`, payload: { action: 'deny', message: note },
+      }, () => {
+        if (pendingPermissions.get(rid) !== p || p.commandApplying) return;
+        pendingPermissions.delete(rid);
+        try { p.resolve({ behavior: 'deny', message: note }); } catch { /* already settled */ }
+        settleIntervention(sessionId, rid, 'denied', { decidedBy: 'clear', note });
+      });
     }
   }
 }
@@ -345,14 +363,19 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
   const normalized = normalizeUserQuestions(questions);
   if (!normalized.length) return null;
   const entry = { sessionId, questions: normalized, timer: null, deliver: null };
-  entry.deliver = answer => {
+  entry.deliver = (answer, opts = {}) => {
     if (pendingQuestions.get(id) !== entry) return false;
     let accepted = false;
     try { accepted = deliver(answer) !== false; } catch { accepted = false; }
     if (!accepted) return false;
     clearTimeout(entry.timer);
-    pendingQuestions.delete(id);
-    settleIntervention(sessionId, id, answer && answer.ok !== false ? 'answered' : 'cancelled', { decidedBy: answer && answer.ok !== false ? 'user' : 'auto', note: answer && answer.content ? String(answer.content).slice(0, 500) : '' });
+    // 75b: decideIntervention owns the authoritative CAS row. It asks delivery to keep the registry entry
+    // until terminal persistence and to skip the legacy side-ledger settle; timeout/teardown callers retain
+    // the original self-contained behavior.
+    if (opts.preserveRegistry !== true) pendingQuestions.delete(id);
+    if (opts.skipInterventionSettle !== true) {
+      settleIntervention(sessionId, id, answer && answer.ok !== false ? 'answered' : 'cancelled', { decidedBy: answer && answer.ok !== false ? 'user' : 'auto', note: answer && answer.content ? String(answer.content).slice(0, 500) : '' });
+    }
     try {
       const summary = answer && answer.ok !== false
         ? String(answer.content || '').replace(/\s+/g, ' ').trim().slice(0, 500)
@@ -363,7 +386,13 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
   };
   entry.timer = setTimeout(() => {
     if (pendingQuestions.get(id) !== entry) return;
-    entry.deliver({ ok: false, answers: [], content: '(question timed out)' });
+    const timeoutAnswer = { ok: false, answers: [], content: '(question timed out)' };
+    runAutomaticInterventionDecision({
+      missionId: sessionId, interventionId: id, source: 'timeout_question', decidedBy: 'timeout',
+      idempotencyKey: `timeout:${id}`, payload: { action: 'answer', normalizedAnswer: timeoutAnswer },
+    }, () => {
+      if (pendingQuestions.get(id) === entry && !entry.commandApplying) entry.deliver(timeoutAnswer);
+    });
   }, Math.max(5000, Number(timeoutMs) || 120000));
   pendingQuestions.set(id, entry);
   onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized });
@@ -384,9 +413,17 @@ function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutM
 function clearPendingQuestions(sessionId, message) {
   for (const [qid, q] of pendingQuestions) {
     if (q.sessionId !== sessionId) continue;
-    try { q.deliver({ ok: false, answers: [], content: message || 'session ended' }); } catch { /* already settled */ }
+    if (q.commandApplying) continue; // 75b: do not race the authoritative command-core terminal commit
     clearTimeout(q.timer);
-    pendingQuestions.delete(qid);
+    const cancelled = { ok: false, answers: [], content: message || 'session ended' };
+    runAutomaticInterventionDecision({
+      missionId: sessionId, interventionId: qid, source: 'clear_question', decidedBy: 'clear',
+      idempotencyKey: `clear:${qid}`, payload: { action: 'answer', normalizedAnswer: cancelled },
+    }, () => {
+      if (pendingQuestions.get(qid) !== q || q.commandApplying) return;
+      try { q.deliver(cancelled); } catch { /* already settled */ }
+      pendingQuestions.delete(qid);
+    });
   }
 }
 
@@ -403,9 +440,17 @@ function hasPendingQuestionForSession(sessionId) {
 function clearPendingPlans(sessionId, message) {
   for (const [pid, p] of pendingPlans) {
     if (p.sessionId === sessionId) {
+      if (p.commandApplying) continue; // 75b: command core clears after terminal persistence
       clearTimeout(p.timer);
-      pendingPlans.delete(pid);
-      try { p.resolve({ decision: 'reject', note: message || 'session ended' }); } catch { /* already settled */ }
+      const note = message || 'session ended';
+      runAutomaticInterventionDecision({
+        missionId: sessionId, interventionId: pid, source: 'clear_plan', decidedBy: 'clear',
+        idempotencyKey: `clear:${pid}`, payload: { action: 'reject', feedback: note },
+      }, () => {
+        if (pendingPlans.get(pid) !== p || p.commandApplying) return;
+        pendingPlans.delete(pid);
+        try { p.resolve({ decision: 'reject', note }); } catch { /* already settled */ }
+      });
     }
   }
 }

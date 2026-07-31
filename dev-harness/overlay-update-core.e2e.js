@@ -275,13 +275,25 @@ function zipOverlayPkg(pkgDir, zipPath) {
   // rollback 后 hello.txt 恢复原值;marker.txt(新增)留在原处(overlay 不删新增,无害)
   ok(fs.readFileSync(path.join(DEPLOY, 'app', 'public', 'hello.txt'), 'utf8') === 'ORIGINAL-USER-DATA', 'C0 rollback 恢复用户数据(hello.txt=ORIGINAL)');
 
-  const WP = await getFreePort();
-  const wb = cp.spawn(process.execPath, [path.join(DEPLOY, 'app', 'server.js'), 'serve', '--port', String(WP)], {
+  let WP = await getFreePort();
+  const spawnWb = () => cp.spawn(process.execPath, [path.join(DEPLOY, 'app', 'server.js'), 'serve', '--port', String(WP)], {
     cwd: DEPLOY, windowsHide: true,
     env: { ...process.env, RUYI_HOME: path.join(HOME, 'data') },
   });
+  let wb = null, started = false;
+  // Bound the known getFreePort check-then-use window. Keep the same deployment/data root so only the
+  // transport port changes; a real startup crash still fails all three attempts.
+  for (let attempt = 0; attempt < 3 && !started; attempt++) {
+    wb = spawnWb();
+    started = await up(WP);
+    if (!started) {
+      kill(wb);
+      await sleep(200);
+      WP = await getFreePort();
+    }
+  }
   try {
-    ok(await up(WP), 'C1 workbench 启动(临时部署 externalRoot=DEPLOY)');
+    ok(started, 'C1 workbench 启动(临时部署 externalRoot=DEPLOY)');
     // 47c(S1):POST /api/bootstrap(open 级)拿 token -- 不依赖 index.html(测试部署无前端资源)。
     const boot = await post(WP, '/api/bootstrap', {});
     const token = (boot && boot.token) || '';

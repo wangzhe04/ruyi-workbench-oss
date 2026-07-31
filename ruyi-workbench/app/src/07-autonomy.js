@@ -710,10 +710,14 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
     onEvent({ type: 'permission_request', requestId, toolName, input, tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
     registerIntervention(sessionId, 'permission', requestId, { toolName: String(toolName || ''), tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
     let settled = false;
-    const settle = decision => {
+    const settle = (decision, opts = {}) => {
       if (settled) return;
       settled = true;
-      settleIntervention(sessionId, requestId, decision && decision.behavior === 'allow' ? 'allowed' : 'denied', { decidedBy: decision && decision.behavior === 'allow' ? 'user' : 'auto', note: decision && decision.message ? String(decision.message).slice(0, 500) : '' });
+      // 75b command-core callers persist the CAS terminal row themselves. Automatic timeout/teardown
+      // callers omit this flag and keep the legacy self-settling behavior.
+      if (opts.skipInterventionSettle !== true) {
+        settleIntervention(sessionId, requestId, decision && decision.behavior === 'allow' ? 'allowed' : 'denied', { decidedBy: decision && decision.behavior === 'allow' ? 'user' : 'auto', note: decision && decision.message ? String(decision.message).slice(0, 500) : '' });
+      }
       try { onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
       resolve(decision);
     };
@@ -723,10 +727,30 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
         try { onEvent({ type: 'permission_paused', requestId, toolName, tier: tier || 'exec', ttlMs: pause.ttlMs }); } catch { /* stream gone */ }
-        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); settle({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); }, Math.max(60000, Number(pause.ttlMs) || 2700000));
+        entry.timer = setTimeout(() => {
+          const message = '权限已存档暂停但在时限内无人决定,已回落拒绝';
+          runAutomaticInterventionDecision({
+            missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
+            idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
+          }, () => {
+            if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
+            pendingPermissions.delete(requestId);
+            settle({ behavior: 'deny', message, pausedTimeout: true });
+          });
+        }, Math.max(60000, Number(pause.ttlMs) || 2700000));
       }, baseMs);
     } else {
-      entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); settle({ behavior: 'deny', message: 'permission prompt timed out' }); }, baseMs);
+      entry.timer = setTimeout(() => {
+        const message = 'permission prompt timed out';
+        runAutomaticInterventionDecision({
+          missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
+          idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
+        }, () => {
+          if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
+          pendingPermissions.delete(requestId);
+          settle({ behavior: 'deny', message });
+        });
+      }, baseMs);
     }
     pendingPermissions.set(requestId, entry);
   });
@@ -749,14 +773,27 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
     onEvent({ type: 'plan', planId, markdown: String(markdown || '') });
     registerIntervention(sessionId, 'plan', planId, { planSummary: String(markdown || '').slice(0, 500) });
     let settled = false;
-    const settle = decision => {
+    const settle = (decision, opts = {}) => {
       if (settled) return;
       settled = true;
-      settleIntervention(sessionId, planId, decision && decision.decision === 'approve' ? 'approved' : 'rejected', { decidedBy: decision && decision.decision === 'approve' ? 'user' : 'auto', note: decision && decision.note ? String(decision.note).slice(0, 500) : '' });
+      if (opts.skipInterventionSettle !== true) {
+        settleIntervention(sessionId, planId, decision && decision.decision === 'approve' ? 'approved' : 'rejected', { decidedBy: decision && decision.decision === 'approve' ? 'user' : 'auto', note: decision && decision.note ? String(decision.note).slice(0, 500) : '' });
+      }
       try { onEvent({ type: 'plan_decision', planId, decision: decision && decision.decision === 'approve' ? 'approve' : 'reject', note: decision && decision.note }); } catch { /* stream gone */ }
       resolve(decision);
     };
-    const timer = setTimeout(() => { pendingPlans.delete(planId); settle({ decision: 'reject', note: 'plan approval timed out' }); }, Math.max(5000, Number(timeoutMs) || 120000));
+    const timer = setTimeout(() => {
+      const note = 'plan approval timed out';
+      const entry = pendingPlans.get(planId);
+      runAutomaticInterventionDecision({
+        missionId: sessionId, interventionId: planId, source: 'timeout_plan', decidedBy: 'timeout',
+        idempotencyKey: `timeout:${planId}`, payload: { action: 'reject', feedback: note },
+      }, () => {
+        if (pendingPlans.get(planId) !== entry || (entry && entry.commandApplying)) return;
+        pendingPlans.delete(planId);
+        settle({ decision: 'reject', note });
+      });
+    }, Math.max(5000, Number(timeoutMs) || 120000));
     pendingPlans.set(planId, { resolve: settle, sessionId, timer });
   });
 }

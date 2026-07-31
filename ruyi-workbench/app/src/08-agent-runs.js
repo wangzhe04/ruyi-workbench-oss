@@ -186,6 +186,7 @@ async function saveAgentRun(run) {
     if (wasDegraded) run.persistenceDegraded = false;
     try {
       await atomicWriteJson(agentRunFile(run.sessionId, run.id), run);
+      markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
       if (agentRunSaveFailures.get(run.id)) agentRunSaveFailures.delete(run.id);
       if (wasDegraded) appendAgentRunEvent(run, { type: 'persistence_recovered' });
     } catch (e) {

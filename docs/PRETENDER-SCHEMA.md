@@ -3,7 +3,7 @@
 状态:**冻结 v1.1**。本文件是 Pretender 3.0 全部读/写模型的**字段级权威定义**,与 `docs/PRETENDER-PLAN.md` **v4** 配套。v1.1 为 Escapade 2.4 交互提问协议的只增不改修订:冻结 question typed payload、选项+自填答案和旧 `multiSelect`/`answer[]` 兼容映射,不改变 Intervention 状态机:
 - 文书内每个字段标注**类型 / 权威来源 / 可变性 / 写入方**;P1 出门后,任何 UI 不得引入文书外字段(PLAN §4 P1 出门闸)。
 - 修改程序:新增字段 = 小版本(v1.x),只增不改;改字段语义/枚举值/错误码 = 大版本(v2),必须成文修订理由并经拍板——与 PLAN §6 拍板项同级。
-- 字段形状均亲验自代码现状(引用 file:line);标注 **〔v4 新增〕** 的条目是第74波成文、第75a/75b/75c 波落码的设计冻结,现状代码尚无,红绿双证随对应波次交付。
+- 字段形状均亲验自代码现状(引用 file:line);标注 **〔v4 新增〕** 的条目是第74波成文、第75a/75b/75c 波落码的设计冻结；第75a–75c波现已完成并由权威存储、统一决策契约与规模门红绿双证覆盖。
 - 决策契约语义以 PLAN v4 第四轮拍板为准:**S1**(权威键 `(missionId,interventionId)`+`interventionVersion` CAS,覆盖 T1 的 idempotencyKey 地基提案)、**S2**(单一 command core)、**S3**(`mission.changeSeq` 取代复合 lastSeenCursor)。
 
 依据:`docs/PRETENDER-PLAN.md` v4 §4 第74波;`docs/PRETENDER-GATE-REVIEW.md`;`docs/UI-VNEXT-CONCEPT.md` §8–§11。

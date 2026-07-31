@@ -99,8 +99,10 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const ev1 = await streamChatLive(WB_PORT, { sessionId: sid1, message: '改个配置', cwd: HOME }, evt => {
       if (evt.type === 'plan' && !planEvt) {
         planEvt = evt;
-        // Approve the moment the plan lands (the turn is paused awaiting this).
-        postJson(WB_PORT, '/api/plan/decision', { sessionId: sid1, planId: evt.planId, decision: 'approve' }, hdr).then(r => { decideResp = r; }).catch(() => {});
+        // 75b: approve through the Mission-scoped contract; later scenarios retain the classic adapter.
+        postJson(WB_PORT, '/api/missions/' + encodeURIComponent(sid1) + '/interventions/' + encodeURIComponent(evt.planId) + '/decision', {
+          expectedVersion: 0, idempotencyKey: 'plan-contract-approve', action: 'approve',
+        }, hdr).then(r => { decideResp = r; }).catch(() => {});
       }
     });
     ok(!!planEvt, '(a) a `plan` event was streamed');

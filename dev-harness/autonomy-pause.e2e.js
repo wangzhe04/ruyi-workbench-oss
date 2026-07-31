@@ -24,7 +24,7 @@ ok(/const cliPause = config\.autonomyPauseOnTimeout && driverAutoSessions\.has\(
 ok(/if \(driverAuto\) driverAutoSessions\.add\(session\.id\);/.test(src) && /if \(driverAuto\) driverAutoSessions\.delete\(session\.id\);/.test(src), 'S runTurn 维护 driverAutoSessions(进出平衡)');
 // fail-closed:两处 pause 分支的 TTL 定时器都 resolve/settle deny(pausedTimeout)。
 // 07-autonomy.js 后经重构用 settle(语义同 resolve);静态锁按行为契约匹配,不绑死 callee 名。
-ok((src.match(/(?:resolve|settle)\(\{ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true \}\)/g) || []).length >= 2, 'S 两引擎路径 TTL 到点均 fail-closed deny(pausedTimeout)');
+ok((src.match(/source: 'timeout_permission'/g) || []).length >= 4 && (src.match(/pausedTimeout: true/g) || []).length >= 2, 'S 两引擎路径 TTL 到点均经 command core fail-closed deny(pausedTimeout)');
 // 对抗轮 P2:两引擎 idle 看门狗都在暂停期间豁免(否则 idle 会在 TTL 内先杀回合/子进程,provider 还会 abort 中毒 ctrl 令窗口内批准失效)。
 ok((src.match(/if \(reg\.exited \|\| reg\.pausePending\) return;/g) || []).length >= 2, 'S 两引擎 idle 看门狗暂停期间豁免(reg.exited||reg.pausePending)');
 ok((src.match(/pausePending: false,/g) || []).length >= 2, 'S 两引擎 reg 都带 pausePending 字段');
@@ -48,8 +48,8 @@ const clearTimeoutF = t => { if (t) t.cleared = true; };
 const fireNext = () => { const live = timers.filter(x => !x.cleared).sort((a, b) => a.ms - b.ms); if (live[0]) { live[0].cleared = true; live[0].cb(); return true; } return false; };
 // 第71波:requestNativePermission 的 settle 内旁路调 settleIntervention(02 持久化),onEvent 后旁路调 registerIntervention。
 // 源抽取注入 noop(本件测定时器行为,不测 Intervention 持久化 -- 后者见 interventions-persist.e2e.js)。
-const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pendingPermissions', 'setTimeout', 'clearTimeout', 'registerIntervention', 'settleIntervention',
-  m[0] + '\nreturn requestNativePermission;')(makeId, toolIsRevertible, pending, setTimeoutF, clearTimeoutF, () => {}, () => {});
+const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pendingPermissions', 'setTimeout', 'clearTimeout', 'registerIntervention', 'settleIntervention', 'runAutomaticInterventionDecision',
+  m[0] + '\nreturn requestNativePermission;')(makeId, toolIsRevertible, pending, setTimeoutF, clearTimeoutF, () => {}, () => {}, (_command, fallback) => fallback());
 
 (async () => {
   const settle = p => Promise.race([p, sleep(0).then(() => '__pending__')]);

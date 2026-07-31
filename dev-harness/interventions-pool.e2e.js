@@ -167,8 +167,10 @@ const mkPoolItem = (id, task) => ({ id, proposedBy: 'n1', task, roleId: '', depe
     ok(poolCnt === 3, '(a2) /api/missions pending.pool=3(统一读形计数)');
 
     // 批准 A / 拒绝 R -> 旁路结算
-    const appr = await requestJson(WB_PORT, '/api/agent-runs/' + encodeURIComponent(runId), { sessionId: sid, action: 'pool_approve', poolId: itemA.id }, token);
-    ok(appr.status === 200 && appr.json && appr.json.ok === true, '(a) pool_approve 200');
+    const appr = await requestJson(WB_PORT, '/api/missions/' + encodeURIComponent(sid) + '/interventions/' + encodeURIComponent(itemA.id) + '/decision', {
+      expectedVersion: 0, idempotencyKey: 'pool-contract-approve', action: 'approve',
+    }, token);
+    ok(appr.status === 200 && appr.json && appr.json.ok === true && appr.json.status === 'approved', '(a) contract pool approve 200');
     const rej = await requestJson(WB_PORT, '/api/agent-runs/' + encodeURIComponent(runId), { sessionId: sid, action: 'pool_reject', poolId: itemR.id }, token);
     ok(rej.status === 200 && rej.json && rej.json.ok === true, '(a) pool_reject 200');
     const ivA2 = await waitForIv(sid, itemA.id, 'approved');
@@ -222,6 +224,11 @@ const mkPoolItem = (id, task) => ({ id, proposedBy: 'n1', task, roleId: '', depe
     await sleep(600); // 给 markInterruptedInterventions 充分时间(若它会误杀,此时已落盘)
     const ivL1b = readIv(sid).get('pool-l1');
     ok(!!ivL1b && ivL1b.status === 'pending', '(b2) paused run 的 pool pending 不被重启一刀切(分流保留)');
+    const pausedDecision = await requestJson(WB_PORT, '/api/missions/' + encodeURIComponent(sid) + '/interventions/pool-l1/decision', {
+      expectedVersion: 0, idempotencyKey: 'pool-paused-contract', action: 'approve',
+    }, token);
+    ok(pausedDecision.status === 409 && pausedDecision.json && pausedDecision.json.reason === 'run_paused', '(b2) paused-pending 契约决策 -> 409 run_paused');
+    ok(readIv(sid).get('pool-l1')?.status === 'pending', '(b2) run_paused 不推进 Intervention 状态');
 
     // b3: 中断 expire + 旁路结算
     const ivL2 = await waitForIv(sid, 'pool-l2', 'expired', 5000);
@@ -271,8 +278,8 @@ const mkPoolItem = (id, task) => ({ id, proposedBy: 'n1', task, roleId: '', depe
     ok(/legacyPoolProposed/.test(src) && /backfilled: true/.test(src), 's 08 存量对账补登记(legacyPoolProposed + backfilled)');
     ok(/registerIntervention\(run\.sessionId, 'pool', item\.id,/.test(src), 's 09 proposeTaskImpl 注册 pool Intervention');
     ok(/settleIntervention\(run\.sessionId, p\.id, 'expired', \{ decidedBy: p\.decidedBy \|\| 'auto', note: 'run finalized' \}\)/.test(src), 's 09 收尾 expire 旁路 settle');
-    ok(/settleIntervention\(sessionId, poolId, 'approved', \{ decidedBy: 'user'/.test(src), 's 13d pool_approve 旁路 settle approved');
-    ok(/settleIntervention\(sessionId, poolId, 'rejected', \{ decidedBy: 'user'/.test(src), 's 13d pool_reject 旁路 settle rejected');
+    ok(/source: 'legacy_pool'/.test(src) && /payload: \{ action: action === 'pool_approve' \? 'approve' : 'reject' \}/.test(src), 's 13d pool_approve/pool_reject 适配到 decideIntervention');
+    ok(/type === 'pool'/.test(src) && /materializePoolItem\(live\.run, item/.test(src), 's 13d pool 实际动作仅在 command core');
     ok(/poolPendingIds/.test(src) && /iv\.type === 'pool'\) \{ pool\+\+;/.test(src), 's 13d missionPendingCounts 四源统一(pool 从 iv + 并集兜底)');
 
   } finally {

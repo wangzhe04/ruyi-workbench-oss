@@ -40,6 +40,7 @@ function interventionFilePath(sessionId) {
 // per-session 写链:串行化同会话的 append,防两条 line 交错(注册在流式期、决策在用户点击,可能并发)。
 // 独立于 sessionWriteChains(saveSession 的链),互不影响;链错误吞掉(下一写自愈)。
 const interventionWriteChains = new Map();
+const interventionAppendCounts = new Map(); // 75c: cheap cadence trigger for bounded journal compaction checks
 // 75a (Pretender P1): in-memory cache of the last COMPLETE Intervention record per (sessionId, ivId).
 // Populated by registerIntervention; refreshed by settleIntervention. Lets settleIntervention write a
 // complete state row (preserving type/requestedAt/toolName/questions from the register row) without a
@@ -107,10 +108,16 @@ function appendIntervention(sessionId, record) {
   const prev = interventionWriteChains.get(sid) || Promise.resolve();
   const next = prev.catch(() => {}).then(async () => {
     await repairInterventionTornTail(file); // 75a: truncate torn tail before append (prevent weld)
-    await fsp.appendFile(file, line, 'utf8').catch(() => {}); // fire-and-forget: dropped audit row does not block execution
+    await fsp.appendFile(file, line, 'utf8');
+    markPretenderIndexDirty(sid, 'source'); // 75c: authority changed; materialized view is disposable
   }).catch(() => {});
   interventionWriteChains.set(sid, next);
-  next.then(() => { if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid); });
+  next.then(() => {
+    if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid);
+    const count = (interventionAppendCounts.get(sid) || 0) + 1;
+    interventionAppendCounts.set(sid, count);
+    if (count % 128 === 0) void compactInterventionJournal(sid).catch(() => {});
+  });
   return next; // 75a-2: expose write promise so transitionInterventionState can await (authoritative write-before-advance)
 }
 // 注册一个 pending Intervention。type: 'permission'|'question'|'plan'|'pool'(71b)。ivId 复用 requestId/questionId/planId/poolId(执行权威源的同一 id)。
@@ -132,19 +139,20 @@ function settleIntervention(sessionId, ivId, status, extra) {
   appendIntervention(sessionId, rec);
   bumpMissionChangeSeq(sid); // 75a-2b: Intervention settle advances mission.changeSeq
 }
-// 读一个会话的全部 Intervention,按 id 后写胜折叠。返回 Intervention[](按 requestedAt 稳定排序)。
-async function readInterventions(sessionId) {
-  let txt;
-  try { txt = await fsp.readFile(interventionFilePath(String(sessionId || '')), 'utf8'); } catch { return []; }
+// 75c: journal fold returns facts plus integrity evidence. Invalid non-empty rows must not disappear behind a
+// successful index rebuild: callers surface `degraded`, while the valid prefix remains readable.
+function foldInterventionJournalText(txt) {
   const byId = new Map();
   const rowCount = new Map(); // 75a: id -> journal row count (authoritative interventionVersion = rows - 1)
   const lines = txt.split('\n');
+  let validRows = 0, corruptLines = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line) continue; // 空行(文件以 \n 结尾的尾元 / 段间空行)
     let rec;
-    try { rec = JSON.parse(line); } catch { continue; } // 撕裂尾行/坏行跳过(append-only,不致命)
-    if (!rec || !rec.id) continue;
+    try { rec = JSON.parse(line); } catch { corruptLines++; continue; }
+    if (!rec || !rec.id) { corruptLines++; continue; }
+    validRows++;
     const idKey = String(rec.id);
     rowCount.set(idKey, (rowCount.get(idKey) || 0) + 1);
     const prev = byId.get(idKey);
@@ -157,7 +165,55 @@ async function readInterventions(sessionId) {
     rec.interventionVersion = Math.max(cnt - 1, Number(rec.interventionVersion) || 0);
   }
   out.sort((a, b) => String(a.requestedAt || '').localeCompare(String(b.requestedAt || '')));
-  return out;
+  return {
+    interventions: out,
+    rowCount: validRows,
+    corruptLines,
+    degraded: corruptLines > 0,
+    bytes: Buffer.byteLength(txt, 'utf8'),
+  };
+}
+
+async function readInterventionsWithMeta(sessionId) {
+  let txt;
+  try { txt = await fsp.readFile(interventionFilePath(String(sessionId || '')), 'utf8'); }
+  catch { return { interventions: [], rowCount: 0, corruptLines: 0, degraded: false, bytes: 0 }; }
+  return foldInterventionJournalText(txt);
+}
+
+// 读一个会话的全部 Intervention,按 id 后写胜折叠。返回 Intervention[](按 requestedAt 稳定排序)。
+async function readInterventions(sessionId) {
+  return (await readInterventionsWithMeta(sessionId)).interventions;
+}
+
+// 75c: NDJSON compaction is an atomic, reconstructible cache-neutral rewrite. One complete latest-state row per
+// intervention preserves terminal responses and explicit interventionVersion; corrupt authority is NEVER
+// compacted (that would hide damage behind a clean-looking file). Interrupted rewrites leave the old journal.
+async function compactInterventionJournal(sessionId, opts = {}) {
+  const sid = String(sessionId || '');
+  if (!sid) return { ok: false, skipped: 'invalid_session' };
+  const file = interventionFilePath(sid);
+  const previous = interventionWriteChains.get(sid) || Promise.resolve();
+  const current = previous.catch(() => {}).then(async () => {
+    let txt = '';
+    try { txt = await fsp.readFile(file, 'utf8'); } catch { return { ok: true, compacted: false, rowsBefore: 0, rowsAfter: 0, bytesBefore: 0, bytesAfter: 0 }; }
+    const folded = foldInterventionJournalText(txt);
+    if (folded.degraded) return { ok: false, compacted: false, degraded: true, corruptLines: folded.corruptLines };
+    const rowsAfter = folded.interventions.length;
+    const worthwhile = folded.bytes >= 65536 && folded.rowCount > Math.max(256, rowsAfter * 3);
+    if (!opts.force && !worthwhile) return { ok: true, compacted: false, rowsBefore: folded.rowCount, rowsAfter, bytesBefore: folded.bytes, bytesAfter: folded.bytes };
+    const payload = folded.interventions.map(rec => JSON.stringify(rec)).join('\n') + (rowsAfter ? '\n' : '');
+    await atomicWriteJson(file, payload);
+    markPretenderIndexDirty(sid, 'source');
+    return {
+      ok: true, compacted: true,
+      rowsBefore: folded.rowCount, rowsAfter,
+      bytesBefore: folded.bytes, bytesAfter: Buffer.byteLength(payload, 'utf8'),
+    };
+  });
+  interventionWriteChains.set(sid, current);
+  try { return await current; }
+  finally { if (interventionWriteChains.get(sid) === current) interventionWriteChains.delete(sid); }
 }
 // boot 终态化:进程重启后,内存 Map 清空,但磁盘上可能留有 pending Intervention(上次生命周期注册后未结算 --
 // 进程被杀时超时 timer/clearPending 来不及跑)。与 markInterruptedAgentRuns(08:357)对称:重启 = 上次生命周期
@@ -229,7 +285,29 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     const curStatus = String(cur.status || '');
     const curVer = Number(cur.interventionVersion) || 0;
     if (INTERVENTION_TERMINAL.has(curStatus)) {
-      return { ok: false, reason: curStatus === 'denied' || curStatus === 'cancelled' ? 'gone' : 'already_terminal', status: curStatus, interventionVersion: curVer };
+      // 75b (S1): the retry key identifies the same request, not the business object. A byte-equivalent
+      // retry returns the response persisted on the terminal row; reusing the key for a different payload
+      // is a conflict. A different key still observes the authoritative terminal state and must not execute.
+      const retryKey = String(opts.idempotencyKey || '');
+      const storedKey = String(cur.idempotencyKey || '');
+      if (retryKey && storedKey && retryKey === storedKey) {
+        const requestedFingerprint = String(opts.decisionFingerprint || '');
+        const storedFingerprint = String(cur.decisionFingerprint || '');
+        if (requestedFingerprint && storedFingerprint && requestedFingerprint !== storedFingerprint) {
+          return { ok: false, reason: 'idempotency_conflict', status: curStatus, interventionVersion: curVer };
+        }
+        if (cur.decisionResponse && typeof cur.decisionResponse === 'object') {
+          return { ok: true, replayed: true, status: curStatus, interventionVersion: curVer, response: cur.decisionResponse };
+        }
+      }
+      const expired = curStatus === 'expired' || String(cur.decidedBy || '') === 'timeout';
+      return {
+        ok: false,
+        reason: expired ? 'expired' : 'already_terminal',
+        status: curStatus,
+        decidedBy: String(cur.decidedBy || ''),
+        interventionVersion: curVer,
+      };
     }
     // pending 之外的非终态(理论上只有 applying,但 applying 在锁内不应并发 -- 防御性拒绝)
     if (curStatus !== 'pending') {
@@ -239,25 +317,75 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     if (Number.isFinite(Number(expectedVersion)) && Number(expectedVersion) !== curVer) {
       return { ok: false, reason: 'version_conflict', expectedVersion: Number(expectedVersion), actualVersion: curVer };
     }
+    // 75b: delivery checks run while holding the same per-Intervention lock as the CAS. This prevents
+    // "preflight said live, another legacy path consumed it, then we wrote applying" split-brain.
+    if (typeof opts.preflight === 'function') {
+      const preflight = await opts.preflight(cur);
+      if (preflight && preflight.ok === false) {
+        return { ...preflight, ok: false, interventionVersion: curVer };
+      }
+    }
     // 3. 落 applying(pending -> applying)。authoritative:await 落盘后再推进。
     if (crashAt === 'before_applying') throw new Error('__cas_crash:before_applying');
-    const applyingRec = { ...cur, id, sessionId: sid, status: 'applying', decidedAt: '', decidedBy: '', interventionVersion: curVer + 1, source: String(opts.source || 'contract') };
+    const applyingRec = {
+      ...cur,
+      id,
+      sessionId: sid,
+      status: 'applying',
+      decidedAt: '',
+      decidedBy: '',
+      interventionVersion: curVer + 1,
+      source: String(opts.source || 'contract'),
+      ...(opts.idempotencyKey ? { idempotencyKey: String(opts.idempotencyKey) } : {}),
+      ...(opts.decisionFingerprint ? { decisionFingerprint: String(opts.decisionFingerprint) } : {}),
+    };
     await appendIntervention(sid, applyingRec);
     interventionRecordCache.set(ivCacheKey(sid, id), applyingRec);
     if (crashAt === 'after_applying') throw new Error('__cas_crash:after_applying');
     // 4. 执行 action(75b 契约路径在此 resolve promise / 跑工具;75a-2 测试可空)
     if (crashAt === 'before_resolve') throw new Error('__cas_crash:before_resolve');
     let result;
-    if (typeof opts.action === 'function') result = await opts.action();
+    if (typeof opts.action === 'function') {
+      const actionResult = opts.action();
+      // Keep synchronous waiter resolution and terminal persistence in the same event-loop turn. Native
+      // permission/question/plan continuations must not run teardown between resolve() and the terminal row.
+      result = actionResult && typeof actionResult.then === 'function' ? await actionResult : actionResult;
+    }
     if (crashAt === 'after_resolve') throw new Error('__cas_crash:after_resolve');
     // 5. 落 terminal(applying -> terminal)。authoritative:await。
     if (crashAt === 'before_terminal') throw new Error('__cas_crash:before_terminal');
-    const termRec = { ...cur, ...applyingRec, id, sessionId: sid, status: toStatus, decidedAt: nowIso(), decidedBy: String(opts.decidedBy || 'user'), interventionVersion: curVer + 2, source: String(opts.source || 'contract'), ...(opts.extra || {}) };
+    const resolvedStatus = typeof opts.resolveStatus === 'function'
+      ? String(opts.resolveStatus(result, toStatus) || toStatus)
+      : toStatus;
+    const dynamicExtra = typeof opts.extra === 'function' ? await opts.extra(result) : (opts.extra || {});
+    const response = typeof opts.buildResponse === 'function'
+      ? opts.buildResponse(result, { status: resolvedStatus, interventionVersion: curVer + 2 })
+      : undefined;
+    const termRec = {
+      ...cur,
+      ...applyingRec,
+      id,
+      sessionId: sid,
+      status: resolvedStatus,
+      decidedAt: nowIso(),
+      decidedBy: String(opts.decidedBy || 'user'),
+      interventionVersion: curVer + 2,
+      source: String(opts.source || 'contract'),
+      ...(dynamicExtra || {}),
+      ...(response && typeof response === 'object' ? { decisionResponse: response } : {}),
+    };
     await appendIntervention(sid, termRec);
     interventionRecordCache.set(ivCacheKey(sid, id), termRec);
     bumpMissionChangeSeq(sid); // 75a-2b: terminal persisted -> advance mission.changeSeq (one bump per decision)
+    // Audit belongs to the terminal commit: never claim a decision before its authoritative row exists.
+    if (typeof opts.audit === 'function') await opts.audit(result, termRec);
+    // Registry cleanup is intentionally after terminal persistence. Delivery may already have resolved a
+    // waiter, but a competing path cannot observe a missing runtime entry while the journal still says pending.
+    if (typeof opts.afterTerminal === 'function') {
+      try { await opts.afterTerminal(result, termRec); } catch { /* terminal state is authoritative; cleanup retries on lifecycle teardown */ }
+    }
     if (crashAt === 'after_terminal') throw new Error('__cas_crash:after_terminal');
-    return { ok: true, status: toStatus, interventionVersion: curVer + 2, result };
+    return { ok: true, status: resolvedStatus, interventionVersion: curVer + 2, result, response };
   }
 }
 function sessionLineHash(line) {
@@ -544,6 +672,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     ]);
   }
   scheduleSessionIndexUpdate(id, SESSION_TOMBSTONE); // PF2: queue removal from the metadata index (debounced; see saveSession)
+  markPretenderIndexDirty(id, 'source'); // 75c: remove from disposable Mission/Intervention projection index
   return { ok: true, id, purgedAssociated: Boolean(purgeAssociated) };
 }
 
@@ -1482,7 +1611,12 @@ async function loadSession(id) {
   } else if (changed || healed) await saveSession(session).catch(() => {});
   // 75a-2b (S3): seed the in-memory changeSeq high-water from the loaded mission, so bumpMissionChangeSeq
   // increments from the correct base and saveSession's max-preserve works. Reset on crash; re-seeded here.
-  if (session.mission && typeof session.mission === 'object') missionChangeSeqHighWater.set(String(session.id), Number(session.mission.changeSeq) || 0);
+  if (session.mission && typeof session.mission === 'object') {
+    const sid = String(session.id);
+    // A load may interleave with an Intervention append already queued in this lifecycle. Seeding must
+    // never lower that in-memory high-water mark to the (briefly older) head-file value.
+    missionChangeSeqHighWater.set(sid, Math.max(missionChangeSeqHighWater.get(sid) || 0, Number(session.mission.changeSeq) || 0));
+  }
   return session;
 }
 
@@ -1601,6 +1735,7 @@ async function saveSession(session) {
   // PF2: queue the sidebar metadata index update (cheap sync Map.set; the write is debounced + coalesced). The
   // index is only a cache and listSessions falls back to a full file scan whenever its id-set drifts from disk.
   scheduleSessionIndexUpdate(id, metaSnapshot);
+  markPretenderIndexDirty(id, 'source'); // 75c: session head/body facts changed; rebuild this Mission slice lazily
   // v1.9 P-B: 引擎转录白名单账本(仅记录本工作台 spawn 过的 claudeSessionId;GC 只清「账本内 + 无活会话
   // 引用 + 超保留期」三者同时成立的转录,绝不碰用户自己 Claude Code 的转录)。fire-and-forget,账本写失败
   // 不影响会话保存(大不了 GC 永远不碰这条转录 —— 保守方向)。

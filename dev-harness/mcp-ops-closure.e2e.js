@@ -198,7 +198,7 @@ function startLegacySseMcp(port, state) {
   const DROPIN_DIR2 = path.join(HOME, 'mcp', 'drop-shadow');
   fs.mkdirSync(DROPIN_DIR2, { recursive: true });
   fs.writeFileSync(path.join(DROPIN_DIR2, 'ruyi-mcp.json'), JSON.stringify({ id: 'drop-shadow', label: 'shadow', command: process.execPath, args: [FAKE_MCP] }));
-  const WP = await getFreePort();
+  let WP = await getFreePort();
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 7, version: '2.0.1', permissionMode: 'bypass', enableMcpDropIn: true, desktopMcp: { enabled: false },
     externalMcpServers: [
@@ -214,9 +214,24 @@ function startLegacySseMcp(port, state) {
     ],
   }));
   const spawnWb = () => cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
-  let wb = spawnWb();
+  // getFreePort is necessarily check-then-use. Under the full suite another short-lived process can claim
+  // that port between the probe and server.listen; retry the boot on a newly probed port while preserving
+  // the same HOME/config. A real startup crash repeats and still fails after the bounded retries.
+  const bootWb = async () => {
+    let child = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      child = spawnWb();
+      if (await up(WP)) return { child, started: true };
+      try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
+      await sleep(200);
+      WP = await getFreePort();
+    }
+    return { child, started: false };
+  };
+  let boot = await bootWb();
+  let wb = boot.child;
   try {
-    ok(await up(WP), 'workbench up');
+    ok(boot.started, 'workbench up');
     const html = await getHtml(WP);
     const token = (html.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1] || '';
     const hdr = { 'x-wcw-token': token };
@@ -382,8 +397,10 @@ function startLegacySseMcp(port, state) {
     console.log('── K 段: 重启一致性 ──');
     try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
     await sleep(500);
-    wb = spawnWb();
-    ok(await up(WP), 'K1 重启后 workbench up');
+    WP = await getFreePort();
+    boot = await bootWb();
+    wb = boot.child;
+    ok(boot.started, 'K1 重启后 workbench up');
     const html2 = await getHtml(WP);
     const hdr2 = { 'x-wcw-token': (html2.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1] || '' };
     const liK = await get(WP, '/api/mcp/connectors', hdr2);

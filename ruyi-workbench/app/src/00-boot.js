@@ -281,6 +281,7 @@ function appendUsageLedger(entry) {
     usageLedgerChain = usageLedgerChain.then(async () => {
       await fsp.mkdir(paths.usage, { recursive: true });
       await fsp.appendFile(file, line, 'utf8');
+      markPretenderIndexDirty(rec.sessionId, 'usage'); // 75c: lazily refresh only this Mission's usage aggregate
     }).catch(() => {}); // fire-and-forget: a ledger failure must never wedge the chain or the turn
   } catch { /* never let accounting break a turn */ }
 }

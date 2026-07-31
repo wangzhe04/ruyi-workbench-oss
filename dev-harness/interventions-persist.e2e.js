@@ -132,11 +132,11 @@ function spawnWb() {
     // 75a 后:settleIntervention 经缓存合并写完整状态行;readInterventions merge-fold 双保险。
     ok(!!answered && answered.type === 'question', '(f) settle 保留 type(完整状态行,不丢字段)');
     ok(!!answered && typeof answered.requestedAt === 'string' && answered.requestedAt.length > 0, '(f) settle 保留 requestedAt');
-    ok(!!answered && Number(answered.interventionVersion) === 1, '(g) interventionVersion 单调(register=0 -> settle=1)');
+    ok(!!answered && Number(answered.interventionVersion) === 2, '(g) interventionVersion 单调(register=0 -> applying=1 -> answered=2)');
     // API 侧 readInterventions merge-fold 同样保留 type(端到端):
     const ivApi = await requestJson(WB_PORT, '/api/interventions/' + turn.sid, null, token);
     const ivApiRow = ivApi.json?.interventions?.find(x => x && x.id === turn.questionId);
-    ok(!!ivApiRow && ivApiRow.type === 'question' && Number(ivApiRow.interventionVersion) === 1, '(f/g) API /api/interventions/:sid 返回完整 type+version(merge-fold)');
+    ok(!!ivApiRow && ivApiRow.type === 'question' && Number(ivApiRow.interventionVersion) === 2, '(f/g) API /api/interventions/:sid 返回完整 type+version(merge-fold)');
     ok(!!answered && answered.status === 'answered' && answered.decidedBy === 'user', '(a) 决策同步:settle answered(decidedBy=user,后写胜折叠)');
 
     // ============ (b) 重复决策不重复执行 ============
@@ -146,6 +146,85 @@ function spawnWb() {
     await sleep(200);
     const afterDup = readIv(turn.sid).get(String(turn.questionId));
     ok(afterDup && afterDup.status === 'answered', '(b) 重复决策不新增条目(后写胜仍 answered)');
+
+    // ============ (j) 75b unified contract: validation + mixed legacy concurrency + persistent retry ============
+    const contractTurn = await streamWithQuestion({ message: 'ask contract question' }, token, async (sid, qid, evt) => {
+      const route = '/api/missions/' + encodeURIComponent(sid) + '/interventions/' + encodeURIComponent(qid) + '/decision';
+      const question = evt.questions && evt.questions[0];
+      const vue = question && question.options && question.options.find(o => o.label === 'Vue');
+      const react = question && question.options && question.options.find(o => o.label === 'React');
+      const validBody = {
+        expectedVersion: 0,
+        idempotencyKey: 'question-contract-retry',
+        action: 'answer',
+        answer: { answers: [{ questionId: question.id, selectedOptionIds: [vue.id], otherText: '' }] },
+      };
+      const noToken = await requestJson(WB_PORT, route, validBody);
+      const wrongVersion = await requestJson(WB_PORT, route, { ...validBody, idempotencyKey: 'question-wrong-version', expectedVersion: 7 }, token);
+      const invalidOption = await requestJson(WB_PORT, route, {
+        ...validBody,
+        idempotencyKey: 'question-invalid-option',
+        answer: { answers: [{ questionId: question.id, selectedOptionIds: ['not-an-option'], otherText: '' }] },
+      }, token);
+      const otherSession = await requestJson(WB_PORT, '/api/sessions', { title: 'wrong mission owner' }, token);
+      const otherSid = otherSession.json && otherSession.json.session && otherSession.json.session.id;
+      const wrongOwner = await requestJson(WB_PORT, '/api/missions/' + encodeURIComponent(otherSid) + '/interventions/' + encodeURIComponent(qid) + '/decision', validBody, token);
+      // Start the contract request first, then race the classic adapter while the same per-IV CAS is active.
+      const contractPromise = requestJson(WB_PORT, route, validBody, token);
+      await new Promise(resolve => setImmediate(resolve));
+      const legacyPromise = requestJson(WB_PORT, '/api/chat/answer', {
+        sessionId: sid, questionId: qid,
+        answers: [{ questionId: question.id, answer: ['Vue'] }],
+      }, token);
+      const [contract, legacy] = await Promise.all([contractPromise, legacyPromise]);
+      const replay = await requestJson(WB_PORT, route, validBody, token);
+      const keyConflict = await requestJson(WB_PORT, route, {
+        ...validBody,
+        answer: { answers: [{ questionId: question.id, selectedOptionIds: [react.id], otherText: '' }] },
+      }, token);
+      return { noToken, wrongVersion, invalidOption, wrongOwner, contract, legacy, replay, keyConflict, validBody };
+    });
+    const cj = contractTurn.answerResp || {};
+    ok(cj.noToken?.status === 403, '(j) contract 无 token -> 403');
+    ok(cj.wrongVersion?.status === 409 && cj.wrongVersion?.json?.reason === 'version_conflict', '(j) expectedVersion 冲突 -> 409 version_conflict');
+    ok(cj.invalidOption?.status === 400 && cj.invalidOption?.json?.reason === 'payload_invalid', '(j) question 越界 option -> 400 payload_invalid');
+    ok(cj.wrongOwner?.status === 404 && cj.wrongOwner?.json?.reason === 'not_found', '(j) missionId 归属伪造 -> 404');
+    ok(cj.contract?.status === 200 && cj.contract?.json?.status === 'answered', '(j) unified question contract -> 200 answered');
+    ok(cj.legacy?.status === 409, '(j) 混合路径并发:经典适配器败方 -> 409');
+    ok(cj.replay?.status === 200 && JSON.stringify(cj.replay.json) === JSON.stringify(cj.contract.json), '(j) 相同 idempotencyKey 重放 -> 原响应');
+    ok(cj.keyConflict?.status === 409 && cj.keyConflict?.json?.reason === 'idempotency_conflict', '(j) 相同 key 不同 payload -> 409 idempotency_conflict');
+    const contractRows = (() => {
+      let txt = ''; try { txt = fs.readFileSync(ivFile(contractTurn.sid), 'utf8'); } catch {}
+      return txt.split('\n').filter(Boolean).map(line => { try { return JSON.parse(line); } catch { return null; } }).filter(row => row && row.id === contractTurn.questionId);
+    })();
+    ok(contractRows.length === 3 && contractRows.map(r => r.status).join(',') === 'pending,applying,answered', '(j) 混合路径只落 pending/applying/terminal 三行');
+    ok(contractTurn.events.filter(e => e.type === 'question_answer' && e.questionId === contractTurn.questionId).length === 1, '(j) 实际 question 动作只执行一次');
+    const schemaQuestion = contractRows[0] && contractRows[0].questions && contractRows[0].questions[0];
+    const schemaOption = schemaQuestion && schemaQuestion.options && schemaQuestion.options[0];
+    const unreachableId = 'question_unreachable_75b';
+    fs.appendFileSync(ivFile(contractTurn.sid), JSON.stringify({
+      id: unreachableId, type: 'question', sessionId: contractTurn.sid, status: 'pending',
+      requestedAt: new Date().toISOString(), decidedAt: '', decidedBy: '', interventionVersion: 0,
+      questions: [schemaQuestion],
+    }) + '\n', 'utf8');
+    const unavailable = await requestJson(WB_PORT, '/api/missions/' + encodeURIComponent(contractTurn.sid) + '/interventions/' + unreachableId + '/decision', {
+      expectedVersion: 0, idempotencyKey: 'question-unreachable', action: 'answer',
+      answer: { answers: [{ questionId: schemaQuestion.id, selectedOptionIds: [schemaOption.id], otherText: '' }] },
+    }, token);
+    ok(unavailable.status === 409 && unavailable.json?.reason === 'delivery_unavailable', '(j) pending 但消费者不在 -> 409 delivery_unavailable');
+    const expiredId = 'permission_expired_75b';
+    const expiredAt = new Date().toISOString();
+    fs.appendFileSync(ivFile(contractTurn.sid), JSON.stringify({
+      id: expiredId, type: 'permission', sessionId: contractTurn.sid, status: 'pending',
+      requestedAt: expiredAt, decidedAt: '', decidedBy: '', interventionVersion: 0,
+    }) + '\n' + JSON.stringify({
+      id: expiredId, type: 'permission', sessionId: contractTurn.sid, status: 'denied',
+      requestedAt: expiredAt, decidedAt: expiredAt, decidedBy: 'timeout', interventionVersion: 1,
+    }) + '\n', 'utf8');
+    const expired = await requestJson(WB_PORT, '/api/missions/' + encodeURIComponent(contractTurn.sid) + '/interventions/' + expiredId + '/decision', {
+      expectedVersion: 0, idempotencyKey: 'permission-expired', action: 'allow',
+    }, token);
+    ok(expired.status === 410 && expired.json?.reason === 'expired', '(j) timeout 终态 -> 410 expired');
 
     // ============ (c) 重启终态化 ============
     // 手动写一个 pending Intervention(模拟:注册后未决策,进程被杀)。
@@ -158,6 +237,13 @@ function spawnWb() {
     wb = spawnWb(); wb.stderr.on('data', d => String(d).trim() && console.error('[wb2!] ' + String(d).trim()));
     ok(await waitHealth(WB_PORT), '(c) workbench 重启 up');
     token = readToken(); ok(!!token, '(c) 重启后重读 token(respawn 重新生成 token)');
+    const restartReplay = await requestJson(
+      WB_PORT,
+      '/api/missions/' + encodeURIComponent(contractTurn.sid) + '/interventions/' + encodeURIComponent(contractTurn.questionId) + '/decision',
+      cj.validBody,
+      token,
+    );
+    ok(restartReplay.status === 200 && JSON.stringify(restartReplay.json) === JSON.stringify(cj.contract.json), '(j) 进程重启后相同 key 仍返回持久化原响应');
     await sleep(300); // 给 markInterruptedInterventions 一点时间扫盘 + append
     const afterRestart = await waitForIv(sidC, 'perm_test_stale_1', 'cancelled_restart', 3000);
     ok(!!afterRestart && afterRestart.status === 'cancelled_restart' && afterRestart.decidedBy === 'restart', '(c) 重启终态化:pending -> cancelled_restart(decidedBy=restart,不永挂)');
@@ -230,7 +316,7 @@ function spawnWb() {
     ok(/function appendIntervention\(sessionId, record\)/.test(src) && /function registerIntervention\(sessionId, type, ivId, extra\)/.test(src), 'e 02 有 appendIntervention/registerIntervention');
     ok(/function settleIntervention\(sessionId, ivId, status, extra\)/.test(src) && /async function readInterventions\(sessionId\)/.test(src), 'e 02 有 settleIntervention/readInterventions');
     ok(/async function markInterruptedInterventions\(\)/.test(src) && /cancelled_restart/.test(src), 'e 02 有 markInterruptedInterventions + cancelled_restart 终态');
-    ok(/async function missionPendingCounts\(sessionId, runs\)/.test(src) && /readInterventions\(sessionId\)/.test(src), 'e 13d missionPendingCounts 改 async 从 readInterventions 现算');
+    ok(/async function missionPendingCounts\(sessionId, runs, interventions\)/.test(src) && /Array\.isArray\(interventions\).*readInterventions\(sessionId\)/.test(src), 'e 13d missionPendingCounts 支持75c索引切片并以 journal 兜底');
     ok(/GET' && pathname\.startsWith\('\/api\/interventions\/'\)/.test(src), 'e 13d GET /api/interventions/:sid 只读路由');
     ok(/\{ m: 'GET', p: '\/api\/interventions\/', auth: 'token-browser', prefix: true \}/.test(src), 'e 01-config ROUTE_AUTH /api/interventions/ token-browser');
     ok(/await markInterruptedInterventions\(\);/.test(src), 'e 13-http-router boot 调 markInterruptedInterventions');
@@ -239,8 +325,12 @@ function spawnWb() {
     ok(/registerIntervention\(sessionId, 'permission', requestId,/.test(src), 'e 07 原生 permission 注册点调 registerIntervention');
     ok(/registerIntervention\(sessionId, 'plan', planId,/.test(src), 'e 07 plan 注册点调 registerIntervention');
     ok(/settleIntervention\(sessionId, requestId, decision && decision\.behavior === 'allow' \? 'allowed' : 'denied'/.test(src), 'e 07 permission settle 调 settleIntervention');
-    ok(/settleIntervention\(entry\.sessionId, String\(body\.requestId \|\| ''\), behavior === 'allow' \? 'allowed' : 'denied'/.test(src), 'e 13d 桥 permission decision 调 settleIntervention');
-    ok(/settleIntervention\(sessionId, planId, decision === 'approve' \? 'approved' : 'rejected'/.test(src), 'e 13d plan decision 调 settleIntervention');
+    ok(/source: 'legacy_permission'/.test(src) && /source: 'legacy_plan'/.test(src), 'e 13d permission/plan 经典端点适配到 decideIntervention');
+    ok(/async function decideIntervention\(command = \{\}\)/.test(src) && /transitionInterventionState\(/.test(src), 'e 13d 单一 command core 调权威 CAS');
+    ok(/\{ m: 'POST', p: '\/api\/missions\/', auth: 'token', prefix: true \}/.test(src), 'e 75b Mission decision 契约 ROUTE_AUTH=token');
+    ok(src.includes("const contractMatch = pathname.match(/^\\/api\\/missions\\/") && /source: 'contract'/.test(src), 'e 75b 契约路由进入 decideIntervention');
+    ok(['legacy_question', 'legacy_permission', 'legacy_plan', 'legacy_pool'].every(source => src.includes(`source: '${source}'`)), 'e 75b 经典四端点全部是 command-core 适配器');
+    ok(/decisionResponse/.test(src) && /idempotency_conflict/.test(src) && /runAutomaticInterventionDecision/.test(src), 'e 75b 持久重放存根 + key 冲突 + 自动超时同 CAS');
     ok(/settleIntervention\(sessionId, requestId, 'denied', \{ decidedBy: 'timeout'/.test(src), 'e 13d 桥 permission 超时 timer 调 settleIntervention(timeout)');
     ok(/settleIntervention\(sessionId, rid, 'denied', \{ decidedBy: 'clear'/.test(src), 'e 04 clearPendingPermissions 调 settleIntervention(clear)');
 

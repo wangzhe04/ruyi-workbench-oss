@@ -14,14 +14,23 @@ const FAKE_MCP = path.join(HERE, 'fake-mcp.js');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
-function postStream(port, payload) {
+function postStream(port, payload, onEvent) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(payload);
     const req = http.request({ host: '127.0.0.1', port, path: '/api/chat/stream', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data) } }, res => {
       let buf = ''; const events = [];
-      res.on('data', c => { buf += c; let nl; while ((nl = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, nl); buf = buf.slice(nl + 1); if (line.trim()) { try { events.push(JSON.parse(line)); } catch { /* ignore */ } } } });
+      res.on('data', c => { buf += c; let nl; while ((nl = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, nl); buf = buf.slice(nl + 1); if (line.trim()) { try { const evt = JSON.parse(line); events.push(evt); if (onEvent) onEvent(evt); } catch { /* ignore */ } } } });
       res.on('end', () => { if (buf.trim()) { try { events.push(JSON.parse(buf)); } catch { /* ignore */ } } resolve(events); });
     });
+    req.on('error', reject); req.write(data); req.end();
+  });
+}
+function postJson(port, pathname, body, token) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body || {});
+    const req = http.request({ host: '127.0.0.1', port, path: pathname, method: 'POST', headers: {
+      'content-type': 'application/json', 'content-length': Buffer.byteLength(data), ...(token ? { 'x-wcw-token': token } : {}),
+    } }, res => { let text = ''; res.on('data', c => text += c); res.on('end', () => { let json = null; try { json = JSON.parse(text); } catch {} resolve({ status: res.statusCode, json }); }); });
     req.on('error', reject); req.write(data); req.end();
   });
 }
@@ -41,7 +50,7 @@ function seedHome(home, fakePort) {
   }, null, 2));
 }
 
-async function runSegment({ label, wbPort, fakePort, home, toolName, toolArgs, procs }) {
+async function runSegment({ label, wbPort, fakePort, home, toolName, toolArgs, procs, contractDecision }) {
   seedHome(home, fakePort);
   const fake = cp.spawn(NODE, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(fakePort), FAKE_TOOL_NAME: toolName, FAKE_TOOL_ARGS: JSON.stringify(toolArgs || {}) }, windowsHide: true });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake:' + label + '] ' + String(d).trim()));
@@ -52,8 +61,18 @@ async function runSegment({ label, wbPort, fakePort, home, toolName, toolArgs, p
   procs.push(fake, wb);
   let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(wbPort); }
   if (!h) return { listening: false };
-  const events = await postStream(wbPort, { message: '请调用工具', cwd: home });
-  return { listening: true, events };
+  const token = (() => { try { return JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } })();
+  let sessionId = '', decisionPromise = null;
+  const events = await postStream(wbPort, { message: '请调用工具', cwd: home }, evt => {
+    if (evt.type === 'session' && evt.session && evt.session.id) sessionId = evt.session.id;
+    if (contractDecision && evt.type === 'permission_request' && sessionId && !decisionPromise) {
+      decisionPromise = postJson(wbPort, '/api/missions/' + encodeURIComponent(sessionId) + '/interventions/' + encodeURIComponent(evt.requestId) + '/decision', {
+        expectedVersion: 0, idempotencyKey: 'permission-contract-allow', action: 'allow',
+      }, token);
+    }
+  });
+  const decision = decisionPromise ? await decisionPromise : null;
+  return { listening: true, events, decision };
 }
 
 (async () => {
@@ -90,11 +109,26 @@ async function runSegment({ label, wbPort, fakePort, home, toolName, toolArgs, p
       ok(deniedMsg, 'B: denial carries a denied/timeout reason: ' + JSON.stringify(toolResult && toolResult.content));
       ok(!!result, 'B: turn finished cleanly (result event present)');
     }
+
+    // --- Segment C: the same exec-tier prompt is allowed through the 75b Mission contract. ---
+    const c = await runSegment({
+      label: 'C', wbPort: await getFreePort(), fakePort: await getFreePort(),
+      home: path.join(os.tmpdir(), 'wcw-bridged-read-c'), toolName: 'fake__echo',
+      toolArgs: { message: 'contract-hi' }, procs, contractDecision: true,
+    });
+    ok(c.listening, 'segment C workbench listening');
+    if (c.events) {
+      const permReq = c.events.find(e => e.type === 'permission_request');
+      const toolResult = c.events.find(e => e.type === 'tool_result');
+      ok(!!permReq, 'C: permission_request emitted');
+      ok(c.decision && c.decision.status === 200 && c.decision.json && c.decision.json.status === 'allowed', 'C: contract permission allow -> 200 allowed');
+      ok(toolResult && toolResult.isError !== true, 'C: allowed bridged tool executes once');
+    }
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of procs) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
     await sleep(400);
-    for (const d of ['wcw-bridged-read-a', 'wcw-bridged-read-b']) fs.rmSync(path.join(os.tmpdir(), d), { recursive: true, force: true });
+    for (const d of ['wcw-bridged-read-a', 'wcw-bridged-read-b', 'wcw-bridged-read-c']) fs.rmSync(path.join(os.tmpdir(), d), { recursive: true, force: true });
     console.log('\nBRIDGED-READ-NOPROMPT E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
     process.exitCode = fail ? 1 : 0;
   }

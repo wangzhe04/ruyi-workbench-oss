@@ -180,7 +180,7 @@ function spawnWb() {
     console.log('\n── [d] 静态锁 ──');
     ok(/\{ m: 'GET', p: '\/api\/interventions', auth: 'token-browser' \}/.test(src), "d 01-config ROUTE_AUTH 裸路径 '/api/interventions' token-browser");
     ok(/if \(req\.method === 'GET' && pathname === '\/api\/interventions'\)/.test(src), 'd 13d 全局聚合 handler 分支');
-    ok(/activeTurn: activeChildren\.has\(sessionId\)/.test(src) && /activeTurn: activeChildren\.has\(head\.id\)/.test(src), 'd 13d activeTurn 投影(快照 + 卡片)');
+    ok(/activeTurn: activeChildren\.has\(sessionId\)/.test(src) && /activeTurn: opts\.persistent \? false : activeChildren\.has\(head\.id\)/.test(src) && /function overlayMissionCard\(slice\)/.test(src), 'd 75c activeTurn 分层(快照 live + 卡片持久事实后叠 overlay)');
     const ms = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'mission-state.js'), 'utf8');
     ok(/module\.exports = api/.test(ms) && /typeof window !== 'undefined'/.test(ms), 'd mission-state.js 双导出(node + window)');
     ok(/'dispatching', 'running', 'needs_you', 'done', 'stopped', 'quick_ask'/.test(ms), 'd 五态 + 速问 状态集完整');

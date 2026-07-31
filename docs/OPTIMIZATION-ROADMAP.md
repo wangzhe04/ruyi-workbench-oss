@@ -1261,6 +1261,6 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 
 - 执行 2.3.0 发布动作(第73波 §结论 四步;包已构建,待提交窗口);
 - 其后按 PRETENDER-PLAN v4 进 **第75a波**(Mission/Intervention 权威存储原语 + missionId + C4 竞态修复)。**✅ 已完成**（4切片: 46e9ee4/14864af/e0503a2/1aba642）。冻树门170 PASS / 0 FAIL / 23 static-lock全绿。deepseek-v4-pro 多智能体对抗审查5发现全为误报或已修复。
-- **下一步: 第75b波**（统一 command core + `decideIntervention()` + 契约端点 `POST /api/missions/:missionId/interventions/:id/decision` + 旧四端点适配器 + 混合路径并发）。
-
-
+- **第75b波已完成**：落地统一 command core `decideIntervention()` 与契约端点 `POST /api/missions/:missionId/interventions/:id/decision`；permission/question/plan/pool 旧端点全部收敛为兼容适配器，自动超时/清理也经同一 CAS 决策链。相同 key 可跨重启精确重放，key 冲突、version 冲突、过期、归属错误、不可送达及 pool 暂停均按冻结契约返回；混合新旧路径并发只执行一次副作用。补齐四类型契约、持久重放、自动决策与混合路径 e2e，并为两个端口占用型测试增加有界启动重试。冻树门 **172 PASS / 0 FAIL / 0 flaky**，unit 全绿，build freshness 一致。
+- **第75c波已完成**：Mission/Intervention 可重建物化索引以 session head、Intervention journal、run snapshot、usage ledger 为权威源，支持缺失/损坏索引原子重建、按 session 精确失效、journal 有损显式 `degraded`；列表 cursor 携带持久 `projectionRevision`，跨页变化返回 `projection.snapshot_changed`，ETag 另含 live overlay revision，易失态只通过 freshness 叠加。Intervention NDJSON 压缩保留完整终态、version 与幂等响应，损坏账拒绝压缩。标准档 300 Mission / 3万 Intervention / 10万 usage 最终复测：列表冷 859ms、热 P95 4ms；详情冷 P95 536ms；全局收件箱冷 P95 572ms、热 P95 36ms；索引约 7MB，全部低于冻结阈值并保有低配 ×2 余量。冻树门 **173 PASS / 0 FAIL / 0 flaky**，unit 全绿，build freshness 一致；**P1 Data & Contract Ready 出门闸已绿。**
+- **下一步: 第76波**（Preview 默认关闭的壳层骨架：案头条、任务坞、主台单视图容器与新/经典持久切换；经典 DOM/测试零改动）。

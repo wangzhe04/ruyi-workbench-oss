@@ -96,6 +96,11 @@ module.exports = {
   saveSession,
   deleteSession,
   listSessions,
+  // 第75c波:可重建 Mission/Intervention 索引与无损 journal 压缩原语。
+  getPretenderProjectionIndex,
+  pretenderIndexPath,
+  compactInterventionJournal,
+  readInterventionsWithMeta,
   sessionBodyPaths,
   recordEngineTranscript,
   claudeProjectsRoot,

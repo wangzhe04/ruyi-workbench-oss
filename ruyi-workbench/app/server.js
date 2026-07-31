@@ -281,6 +281,7 @@ function appendUsageLedger(entry) {
     usageLedgerChain = usageLedgerChain.then(async () => {
       await fsp.mkdir(paths.usage, { recursive: true });
       await fsp.appendFile(file, line, 'utf8');
+      markPretenderIndexDirty(rec.sessionId, 'usage'); // 75c: lazily refresh only this Mission's usage aggregate
     }).catch(() => {}); // fire-and-forget: a ledger failure must never wedge the chain or the turn
   } catch { /* never let accounting break a turn */ }
 }
@@ -1861,6 +1862,9 @@ const ROUTE_AUTH = [
   // 第70波(EC-E):/api/missions 聚合只读投影 —— 内容型 GET,与 /api/sessions 同门(token-browser)。
   { m: 'GET', p: '/api/missions', auth: 'token-browser' },
   { m: 'GET', p: '/api/missions/', auth: 'token-browser', prefix: true },
+  // 第75b波:统一跨会话决策契约。批准/物化可触发高风险动作,始终要求 header token;
+  // handler 再校验 missionId/interventionId 归属与 expectedVersion CAS。
+  { m: 'POST', p: '/api/missions/', auth: 'token', prefix: true },
   // 第71波(EC-E):/api/interventions/:sessionId 只读派生 -- 内容型 GET,同 /api/missions 门(token-browser)。
   { m: 'GET', p: '/api/interventions/', auth: 'token-browser', prefix: true },
   // 第56波(Pretender 立项门):/api/interventions 全局「需要你」聚合 -- 内容型 GET,同门(token-browser)。
@@ -1946,6 +1950,7 @@ const ROUTE_AUTH = [
   // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
   // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
   { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },
+  { m: 'POST', p: '/api/_test/pretender-maintenance', auth: 'token' },
 ];
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;
@@ -2024,6 +2029,7 @@ function interventionFilePath(sessionId) {
 // per-session 写链:串行化同会话的 append,防两条 line 交错(注册在流式期、决策在用户点击,可能并发)。
 // 独立于 sessionWriteChains(saveSession 的链),互不影响;链错误吞掉(下一写自愈)。
 const interventionWriteChains = new Map();
+const interventionAppendCounts = new Map(); // 75c: cheap cadence trigger for bounded journal compaction checks
 // 75a (Pretender P1): in-memory cache of the last COMPLETE Intervention record per (sessionId, ivId).
 // Populated by registerIntervention; refreshed by settleIntervention. Lets settleIntervention write a
 // complete state row (preserving type/requestedAt/toolName/questions from the register row) without a
@@ -2091,10 +2097,16 @@ function appendIntervention(sessionId, record) {
   const prev = interventionWriteChains.get(sid) || Promise.resolve();
   const next = prev.catch(() => {}).then(async () => {
     await repairInterventionTornTail(file); // 75a: truncate torn tail before append (prevent weld)
-    await fsp.appendFile(file, line, 'utf8').catch(() => {}); // fire-and-forget: dropped audit row does not block execution
+    await fsp.appendFile(file, line, 'utf8');
+    markPretenderIndexDirty(sid, 'source'); // 75c: authority changed; materialized view is disposable
   }).catch(() => {});
   interventionWriteChains.set(sid, next);
-  next.then(() => { if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid); });
+  next.then(() => {
+    if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid);
+    const count = (interventionAppendCounts.get(sid) || 0) + 1;
+    interventionAppendCounts.set(sid, count);
+    if (count % 128 === 0) void compactInterventionJournal(sid).catch(() => {});
+  });
   return next; // 75a-2: expose write promise so transitionInterventionState can await (authoritative write-before-advance)
 }
 // 注册一个 pending Intervention。type: 'permission'|'question'|'plan'|'pool'(71b)。ivId 复用 requestId/questionId/planId/poolId(执行权威源的同一 id)。
@@ -2116,19 +2128,20 @@ function settleIntervention(sessionId, ivId, status, extra) {
   appendIntervention(sessionId, rec);
   bumpMissionChangeSeq(sid); // 75a-2b: Intervention settle advances mission.changeSeq
 }
-// 读一个会话的全部 Intervention,按 id 后写胜折叠。返回 Intervention[](按 requestedAt 稳定排序)。
-async function readInterventions(sessionId) {
-  let txt;
-  try { txt = await fsp.readFile(interventionFilePath(String(sessionId || '')), 'utf8'); } catch { return []; }
+// 75c: journal fold returns facts plus integrity evidence. Invalid non-empty rows must not disappear behind a
+// successful index rebuild: callers surface `degraded`, while the valid prefix remains readable.
+function foldInterventionJournalText(txt) {
   const byId = new Map();
   const rowCount = new Map(); // 75a: id -> journal row count (authoritative interventionVersion = rows - 1)
   const lines = txt.split('\n');
+  let validRows = 0, corruptLines = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line) continue; // 空行(文件以 \n 结尾的尾元 / 段间空行)
     let rec;
-    try { rec = JSON.parse(line); } catch { continue; } // 撕裂尾行/坏行跳过(append-only,不致命)
-    if (!rec || !rec.id) continue;
+    try { rec = JSON.parse(line); } catch { corruptLines++; continue; }
+    if (!rec || !rec.id) { corruptLines++; continue; }
+    validRows++;
     const idKey = String(rec.id);
     rowCount.set(idKey, (rowCount.get(idKey) || 0) + 1);
     const prev = byId.get(idKey);
@@ -2141,7 +2154,55 @@ async function readInterventions(sessionId) {
     rec.interventionVersion = Math.max(cnt - 1, Number(rec.interventionVersion) || 0);
   }
   out.sort((a, b) => String(a.requestedAt || '').localeCompare(String(b.requestedAt || '')));
-  return out;
+  return {
+    interventions: out,
+    rowCount: validRows,
+    corruptLines,
+    degraded: corruptLines > 0,
+    bytes: Buffer.byteLength(txt, 'utf8'),
+  };
+}
+
+async function readInterventionsWithMeta(sessionId) {
+  let txt;
+  try { txt = await fsp.readFile(interventionFilePath(String(sessionId || '')), 'utf8'); }
+  catch { return { interventions: [], rowCount: 0, corruptLines: 0, degraded: false, bytes: 0 }; }
+  return foldInterventionJournalText(txt);
+}
+
+// 读一个会话的全部 Intervention,按 id 后写胜折叠。返回 Intervention[](按 requestedAt 稳定排序)。
+async function readInterventions(sessionId) {
+  return (await readInterventionsWithMeta(sessionId)).interventions;
+}
+
+// 75c: NDJSON compaction is an atomic, reconstructible cache-neutral rewrite. One complete latest-state row per
+// intervention preserves terminal responses and explicit interventionVersion; corrupt authority is NEVER
+// compacted (that would hide damage behind a clean-looking file). Interrupted rewrites leave the old journal.
+async function compactInterventionJournal(sessionId, opts = {}) {
+  const sid = String(sessionId || '');
+  if (!sid) return { ok: false, skipped: 'invalid_session' };
+  const file = interventionFilePath(sid);
+  const previous = interventionWriteChains.get(sid) || Promise.resolve();
+  const current = previous.catch(() => {}).then(async () => {
+    let txt = '';
+    try { txt = await fsp.readFile(file, 'utf8'); } catch { return { ok: true, compacted: false, rowsBefore: 0, rowsAfter: 0, bytesBefore: 0, bytesAfter: 0 }; }
+    const folded = foldInterventionJournalText(txt);
+    if (folded.degraded) return { ok: false, compacted: false, degraded: true, corruptLines: folded.corruptLines };
+    const rowsAfter = folded.interventions.length;
+    const worthwhile = folded.bytes >= 65536 && folded.rowCount > Math.max(256, rowsAfter * 3);
+    if (!opts.force && !worthwhile) return { ok: true, compacted: false, rowsBefore: folded.rowCount, rowsAfter, bytesBefore: folded.bytes, bytesAfter: folded.bytes };
+    const payload = folded.interventions.map(rec => JSON.stringify(rec)).join('\n') + (rowsAfter ? '\n' : '');
+    await atomicWriteJson(file, payload);
+    markPretenderIndexDirty(sid, 'source');
+    return {
+      ok: true, compacted: true,
+      rowsBefore: folded.rowCount, rowsAfter,
+      bytesBefore: folded.bytes, bytesAfter: Buffer.byteLength(payload, 'utf8'),
+    };
+  });
+  interventionWriteChains.set(sid, current);
+  try { return await current; }
+  finally { if (interventionWriteChains.get(sid) === current) interventionWriteChains.delete(sid); }
 }
 // boot 终态化:进程重启后,内存 Map 清空,但磁盘上可能留有 pending Intervention(上次生命周期注册后未结算 --
 // 进程被杀时超时 timer/clearPending 来不及跑)。与 markInterruptedAgentRuns(08:357)对称:重启 = 上次生命周期
@@ -2213,7 +2274,29 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     const curStatus = String(cur.status || '');
     const curVer = Number(cur.interventionVersion) || 0;
     if (INTERVENTION_TERMINAL.has(curStatus)) {
-      return { ok: false, reason: curStatus === 'denied' || curStatus === 'cancelled' ? 'gone' : 'already_terminal', status: curStatus, interventionVersion: curVer };
+      // 75b (S1): the retry key identifies the same request, not the business object. A byte-equivalent
+      // retry returns the response persisted on the terminal row; reusing the key for a different payload
+      // is a conflict. A different key still observes the authoritative terminal state and must not execute.
+      const retryKey = String(opts.idempotencyKey || '');
+      const storedKey = String(cur.idempotencyKey || '');
+      if (retryKey && storedKey && retryKey === storedKey) {
+        const requestedFingerprint = String(opts.decisionFingerprint || '');
+        const storedFingerprint = String(cur.decisionFingerprint || '');
+        if (requestedFingerprint && storedFingerprint && requestedFingerprint !== storedFingerprint) {
+          return { ok: false, reason: 'idempotency_conflict', status: curStatus, interventionVersion: curVer };
+        }
+        if (cur.decisionResponse && typeof cur.decisionResponse === 'object') {
+          return { ok: true, replayed: true, status: curStatus, interventionVersion: curVer, response: cur.decisionResponse };
+        }
+      }
+      const expired = curStatus === 'expired' || String(cur.decidedBy || '') === 'timeout';
+      return {
+        ok: false,
+        reason: expired ? 'expired' : 'already_terminal',
+        status: curStatus,
+        decidedBy: String(cur.decidedBy || ''),
+        interventionVersion: curVer,
+      };
     }
     // pending 之外的非终态(理论上只有 applying,但 applying 在锁内不应并发 -- 防御性拒绝)
     if (curStatus !== 'pending') {
@@ -2223,25 +2306,75 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     if (Number.isFinite(Number(expectedVersion)) && Number(expectedVersion) !== curVer) {
       return { ok: false, reason: 'version_conflict', expectedVersion: Number(expectedVersion), actualVersion: curVer };
     }
+    // 75b: delivery checks run while holding the same per-Intervention lock as the CAS. This prevents
+    // "preflight said live, another legacy path consumed it, then we wrote applying" split-brain.
+    if (typeof opts.preflight === 'function') {
+      const preflight = await opts.preflight(cur);
+      if (preflight && preflight.ok === false) {
+        return { ...preflight, ok: false, interventionVersion: curVer };
+      }
+    }
     // 3. 落 applying(pending -> applying)。authoritative:await 落盘后再推进。
     if (crashAt === 'before_applying') throw new Error('__cas_crash:before_applying');
-    const applyingRec = { ...cur, id, sessionId: sid, status: 'applying', decidedAt: '', decidedBy: '', interventionVersion: curVer + 1, source: String(opts.source || 'contract') };
+    const applyingRec = {
+      ...cur,
+      id,
+      sessionId: sid,
+      status: 'applying',
+      decidedAt: '',
+      decidedBy: '',
+      interventionVersion: curVer + 1,
+      source: String(opts.source || 'contract'),
+      ...(opts.idempotencyKey ? { idempotencyKey: String(opts.idempotencyKey) } : {}),
+      ...(opts.decisionFingerprint ? { decisionFingerprint: String(opts.decisionFingerprint) } : {}),
+    };
     await appendIntervention(sid, applyingRec);
     interventionRecordCache.set(ivCacheKey(sid, id), applyingRec);
     if (crashAt === 'after_applying') throw new Error('__cas_crash:after_applying');
     // 4. 执行 action(75b 契约路径在此 resolve promise / 跑工具;75a-2 测试可空)
     if (crashAt === 'before_resolve') throw new Error('__cas_crash:before_resolve');
     let result;
-    if (typeof opts.action === 'function') result = await opts.action();
+    if (typeof opts.action === 'function') {
+      const actionResult = opts.action();
+      // Keep synchronous waiter resolution and terminal persistence in the same event-loop turn. Native
+      // permission/question/plan continuations must not run teardown between resolve() and the terminal row.
+      result = actionResult && typeof actionResult.then === 'function' ? await actionResult : actionResult;
+    }
     if (crashAt === 'after_resolve') throw new Error('__cas_crash:after_resolve');
     // 5. 落 terminal(applying -> terminal)。authoritative:await。
     if (crashAt === 'before_terminal') throw new Error('__cas_crash:before_terminal');
-    const termRec = { ...cur, ...applyingRec, id, sessionId: sid, status: toStatus, decidedAt: nowIso(), decidedBy: String(opts.decidedBy || 'user'), interventionVersion: curVer + 2, source: String(opts.source || 'contract'), ...(opts.extra || {}) };
+    const resolvedStatus = typeof opts.resolveStatus === 'function'
+      ? String(opts.resolveStatus(result, toStatus) || toStatus)
+      : toStatus;
+    const dynamicExtra = typeof opts.extra === 'function' ? await opts.extra(result) : (opts.extra || {});
+    const response = typeof opts.buildResponse === 'function'
+      ? opts.buildResponse(result, { status: resolvedStatus, interventionVersion: curVer + 2 })
+      : undefined;
+    const termRec = {
+      ...cur,
+      ...applyingRec,
+      id,
+      sessionId: sid,
+      status: resolvedStatus,
+      decidedAt: nowIso(),
+      decidedBy: String(opts.decidedBy || 'user'),
+      interventionVersion: curVer + 2,
+      source: String(opts.source || 'contract'),
+      ...(dynamicExtra || {}),
+      ...(response && typeof response === 'object' ? { decisionResponse: response } : {}),
+    };
     await appendIntervention(sid, termRec);
     interventionRecordCache.set(ivCacheKey(sid, id), termRec);
     bumpMissionChangeSeq(sid); // 75a-2b: terminal persisted -> advance mission.changeSeq (one bump per decision)
+    // Audit belongs to the terminal commit: never claim a decision before its authoritative row exists.
+    if (typeof opts.audit === 'function') await opts.audit(result, termRec);
+    // Registry cleanup is intentionally after terminal persistence. Delivery may already have resolved a
+    // waiter, but a competing path cannot observe a missing runtime entry while the journal still says pending.
+    if (typeof opts.afterTerminal === 'function') {
+      try { await opts.afterTerminal(result, termRec); } catch { /* terminal state is authoritative; cleanup retries on lifecycle teardown */ }
+    }
     if (crashAt === 'after_terminal') throw new Error('__cas_crash:after_terminal');
-    return { ok: true, status: toStatus, interventionVersion: curVer + 2, result };
+    return { ok: true, status: resolvedStatus, interventionVersion: curVer + 2, result, response };
   }
 }
 function sessionLineHash(line) {
@@ -2528,6 +2661,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     ]);
   }
   scheduleSessionIndexUpdate(id, SESSION_TOMBSTONE); // PF2: queue removal from the metadata index (debounced; see saveSession)
+  markPretenderIndexDirty(id, 'source'); // 75c: remove from disposable Mission/Intervention projection index
   return { ok: true, id, purgedAssociated: Boolean(purgeAssociated) };
 }
 
@@ -3466,7 +3600,12 @@ async function loadSession(id) {
   } else if (changed || healed) await saveSession(session).catch(() => {});
   // 75a-2b (S3): seed the in-memory changeSeq high-water from the loaded mission, so bumpMissionChangeSeq
   // increments from the correct base and saveSession's max-preserve works. Reset on crash; re-seeded here.
-  if (session.mission && typeof session.mission === 'object') missionChangeSeqHighWater.set(String(session.id), Number(session.mission.changeSeq) || 0);
+  if (session.mission && typeof session.mission === 'object') {
+    const sid = String(session.id);
+    // A load may interleave with an Intervention append already queued in this lifecycle. Seeding must
+    // never lower that in-memory high-water mark to the (briefly older) head-file value.
+    missionChangeSeqHighWater.set(sid, Math.max(missionChangeSeqHighWater.get(sid) || 0, Number(session.mission.changeSeq) || 0));
+  }
   return session;
 }
 
@@ -3585,6 +3724,7 @@ async function saveSession(session) {
   // PF2: queue the sidebar metadata index update (cheap sync Map.set; the write is debounced + coalesced). The
   // index is only a cache and listSessions falls back to a full file scan whenever its id-set drifts from disk.
   scheduleSessionIndexUpdate(id, metaSnapshot);
+  markPretenderIndexDirty(id, 'source'); // 75c: session head/body facts changed; rebuild this Mission slice lazily
   // v1.9 P-B: 引擎转录白名单账本(仅记录本工作台 spawn 过的 claudeSessionId;GC 只清「账本内 + 无活会话
   // 引用 + 超保留期」三者同时成立的转录,绝不碰用户自己 Claude Code 的转录)。fire-and-forget,账本写失败
   // 不影响会话保存(大不了 GC 永远不碰这条转录 —— 保守方向)。
@@ -5051,13 +5191,31 @@ function bridgedToolTimeoutMs(name) {
   return BRIDGED_TOOL_TIMEOUTS[bare] || BRIDGED_TOOL_TIMEOUT_DEFAULT_MS;
 }
 
+// 75b: automatic timeout/teardown decisions participate in the same per-Intervention CAS as user
+// decisions. The fallback is only for storage/core failure and must re-check the registry entry so a
+// concurrently applying user command can never be overwritten by a legacy settle.
+function runAutomaticInterventionDecision(command, fallback) {
+  Promise.resolve()
+    .then(() => decideIntervention({ ...command, contractRequest: false, audit: false }))
+    .then(result => { if (!result || result.status !== 200) fallback(); })
+    .catch(() => fallback());
+}
+
 function clearPendingPermissions(sessionId, message) {
   for (const [rid, p] of pendingPermissions) {
     if (p.sessionId === sessionId) {
+      if (p.commandApplying) continue; // 75b: command core owns resolve -> terminal -> registry cleanup ordering
       clearTimeout(p.timer);
-      pendingPermissions.delete(rid);
-      try { p.resolve({ behavior: 'deny', message: message || 'session ended' }); } catch { /* already settled */ }
-      settleIntervention(sessionId, rid, 'denied', { decidedBy: 'clear', note: String(message || 'session ended').slice(0, 500) });
+      const note = String(message || 'session ended').slice(0, 500);
+      runAutomaticInterventionDecision({
+        missionId: sessionId, interventionId: rid, source: 'clear_permission', decidedBy: 'clear',
+        idempotencyKey: `clear:${rid}`, payload: { action: 'deny', message: note },
+      }, () => {
+        if (pendingPermissions.get(rid) !== p || p.commandApplying) return;
+        pendingPermissions.delete(rid);
+        try { p.resolve({ behavior: 'deny', message: note }); } catch { /* already settled */ }
+        settleIntervention(sessionId, rid, 'denied', { decidedBy: 'clear', note });
+      });
     }
   }
 }
@@ -5164,14 +5322,19 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
   const normalized = normalizeUserQuestions(questions);
   if (!normalized.length) return null;
   const entry = { sessionId, questions: normalized, timer: null, deliver: null };
-  entry.deliver = answer => {
+  entry.deliver = (answer, opts = {}) => {
     if (pendingQuestions.get(id) !== entry) return false;
     let accepted = false;
     try { accepted = deliver(answer) !== false; } catch { accepted = false; }
     if (!accepted) return false;
     clearTimeout(entry.timer);
-    pendingQuestions.delete(id);
-    settleIntervention(sessionId, id, answer && answer.ok !== false ? 'answered' : 'cancelled', { decidedBy: answer && answer.ok !== false ? 'user' : 'auto', note: answer && answer.content ? String(answer.content).slice(0, 500) : '' });
+    // 75b: decideIntervention owns the authoritative CAS row. It asks delivery to keep the registry entry
+    // until terminal persistence and to skip the legacy side-ledger settle; timeout/teardown callers retain
+    // the original self-contained behavior.
+    if (opts.preserveRegistry !== true) pendingQuestions.delete(id);
+    if (opts.skipInterventionSettle !== true) {
+      settleIntervention(sessionId, id, answer && answer.ok !== false ? 'answered' : 'cancelled', { decidedBy: answer && answer.ok !== false ? 'user' : 'auto', note: answer && answer.content ? String(answer.content).slice(0, 500) : '' });
+    }
     try {
       const summary = answer && answer.ok !== false
         ? String(answer.content || '').replace(/\s+/g, ' ').trim().slice(0, 500)
@@ -5182,7 +5345,13 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
   };
   entry.timer = setTimeout(() => {
     if (pendingQuestions.get(id) !== entry) return;
-    entry.deliver({ ok: false, answers: [], content: '(question timed out)' });
+    const timeoutAnswer = { ok: false, answers: [], content: '(question timed out)' };
+    runAutomaticInterventionDecision({
+      missionId: sessionId, interventionId: id, source: 'timeout_question', decidedBy: 'timeout',
+      idempotencyKey: `timeout:${id}`, payload: { action: 'answer', normalizedAnswer: timeoutAnswer },
+    }, () => {
+      if (pendingQuestions.get(id) === entry && !entry.commandApplying) entry.deliver(timeoutAnswer);
+    });
   }, Math.max(5000, Number(timeoutMs) || 120000));
   pendingQuestions.set(id, entry);
   onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized });
@@ -5203,9 +5372,17 @@ function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutM
 function clearPendingQuestions(sessionId, message) {
   for (const [qid, q] of pendingQuestions) {
     if (q.sessionId !== sessionId) continue;
-    try { q.deliver({ ok: false, answers: [], content: message || 'session ended' }); } catch { /* already settled */ }
+    if (q.commandApplying) continue; // 75b: do not race the authoritative command-core terminal commit
     clearTimeout(q.timer);
-    pendingQuestions.delete(qid);
+    const cancelled = { ok: false, answers: [], content: message || 'session ended' };
+    runAutomaticInterventionDecision({
+      missionId: sessionId, interventionId: qid, source: 'clear_question', decidedBy: 'clear',
+      idempotencyKey: `clear:${qid}`, payload: { action: 'answer', normalizedAnswer: cancelled },
+    }, () => {
+      if (pendingQuestions.get(qid) !== q || q.commandApplying) return;
+      try { q.deliver(cancelled); } catch { /* already settled */ }
+      pendingQuestions.delete(qid);
+    });
   }
 }
 
@@ -5222,9 +5399,17 @@ function hasPendingQuestionForSession(sessionId) {
 function clearPendingPlans(sessionId, message) {
   for (const [pid, p] of pendingPlans) {
     if (p.sessionId === sessionId) {
+      if (p.commandApplying) continue; // 75b: command core clears after terminal persistence
       clearTimeout(p.timer);
-      pendingPlans.delete(pid);
-      try { p.resolve({ decision: 'reject', note: message || 'session ended' }); } catch { /* already settled */ }
+      const note = message || 'session ended';
+      runAutomaticInterventionDecision({
+        missionId: sessionId, interventionId: pid, source: 'clear_plan', decidedBy: 'clear',
+        idempotencyKey: `clear:${pid}`, payload: { action: 'reject', feedback: note },
+      }, () => {
+        if (pendingPlans.get(pid) !== p || p.commandApplying) return;
+        pendingPlans.delete(pid);
+        try { p.resolve({ decision: 'reject', note }); } catch { /* already settled */ }
+      });
     }
   }
 }
@@ -10021,10 +10206,14 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
     onEvent({ type: 'permission_request', requestId, toolName, input, tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
     registerIntervention(sessionId, 'permission', requestId, { toolName: String(toolName || ''), tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
     let settled = false;
-    const settle = decision => {
+    const settle = (decision, opts = {}) => {
       if (settled) return;
       settled = true;
-      settleIntervention(sessionId, requestId, decision && decision.behavior === 'allow' ? 'allowed' : 'denied', { decidedBy: decision && decision.behavior === 'allow' ? 'user' : 'auto', note: decision && decision.message ? String(decision.message).slice(0, 500) : '' });
+      // 75b command-core callers persist the CAS terminal row themselves. Automatic timeout/teardown
+      // callers omit this flag and keep the legacy self-settling behavior.
+      if (opts.skipInterventionSettle !== true) {
+        settleIntervention(sessionId, requestId, decision && decision.behavior === 'allow' ? 'allowed' : 'denied', { decidedBy: decision && decision.behavior === 'allow' ? 'user' : 'auto', note: decision && decision.message ? String(decision.message).slice(0, 500) : '' });
+      }
       try { onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
       resolve(decision);
     };
@@ -10034,10 +10223,30 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
         try { onEvent({ type: 'permission_paused', requestId, toolName, tier: tier || 'exec', ttlMs: pause.ttlMs }); } catch { /* stream gone */ }
-        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); settle({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); }, Math.max(60000, Number(pause.ttlMs) || 2700000));
+        entry.timer = setTimeout(() => {
+          const message = '权限已存档暂停但在时限内无人决定,已回落拒绝';
+          runAutomaticInterventionDecision({
+            missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
+            idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
+          }, () => {
+            if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
+            pendingPermissions.delete(requestId);
+            settle({ behavior: 'deny', message, pausedTimeout: true });
+          });
+        }, Math.max(60000, Number(pause.ttlMs) || 2700000));
       }, baseMs);
     } else {
-      entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); settle({ behavior: 'deny', message: 'permission prompt timed out' }); }, baseMs);
+      entry.timer = setTimeout(() => {
+        const message = 'permission prompt timed out';
+        runAutomaticInterventionDecision({
+          missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
+          idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
+        }, () => {
+          if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
+          pendingPermissions.delete(requestId);
+          settle({ behavior: 'deny', message });
+        });
+      }, baseMs);
     }
     pendingPermissions.set(requestId, entry);
   });
@@ -10060,14 +10269,27 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
     onEvent({ type: 'plan', planId, markdown: String(markdown || '') });
     registerIntervention(sessionId, 'plan', planId, { planSummary: String(markdown || '').slice(0, 500) });
     let settled = false;
-    const settle = decision => {
+    const settle = (decision, opts = {}) => {
       if (settled) return;
       settled = true;
-      settleIntervention(sessionId, planId, decision && decision.decision === 'approve' ? 'approved' : 'rejected', { decidedBy: decision && decision.decision === 'approve' ? 'user' : 'auto', note: decision && decision.note ? String(decision.note).slice(0, 500) : '' });
+      if (opts.skipInterventionSettle !== true) {
+        settleIntervention(sessionId, planId, decision && decision.decision === 'approve' ? 'approved' : 'rejected', { decidedBy: decision && decision.decision === 'approve' ? 'user' : 'auto', note: decision && decision.note ? String(decision.note).slice(0, 500) : '' });
+      }
       try { onEvent({ type: 'plan_decision', planId, decision: decision && decision.decision === 'approve' ? 'approve' : 'reject', note: decision && decision.note }); } catch { /* stream gone */ }
       resolve(decision);
     };
-    const timer = setTimeout(() => { pendingPlans.delete(planId); settle({ decision: 'reject', note: 'plan approval timed out' }); }, Math.max(5000, Number(timeoutMs) || 120000));
+    const timer = setTimeout(() => {
+      const note = 'plan approval timed out';
+      const entry = pendingPlans.get(planId);
+      runAutomaticInterventionDecision({
+        missionId: sessionId, interventionId: planId, source: 'timeout_plan', decidedBy: 'timeout',
+        idempotencyKey: `timeout:${planId}`, payload: { action: 'reject', feedback: note },
+      }, () => {
+        if (pendingPlans.get(planId) !== entry || (entry && entry.commandApplying)) return;
+        pendingPlans.delete(planId);
+        settle({ decision: 'reject', note });
+      });
+    }, Math.max(5000, Number(timeoutMs) || 120000));
     pendingPlans.set(planId, { resolve: settle, sessionId, timer });
   });
 }
@@ -11534,6 +11756,7 @@ async function saveAgentRun(run) {
     if (wasDegraded) run.persistenceDegraded = false;
     try {
       await atomicWriteJson(agentRunFile(run.sessionId, run.id), run);
+      markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
       if (agentRunSaveFailures.get(run.id)) agentRunSaveFailures.delete(run.id);
       if (wasDegraded) appendAgentRunEvent(run, { type: 'persistence_recovered' });
     } catch (e) {
@@ -21339,8 +21562,8 @@ function missionCardStatus(m) {
 // append-only NDJSON),重启终态化(markInterruptedInterventions)后 pending 标 cancelled_restart -> 计数归零。
 // 71b 池提案统一进来:paused run 的提案恢复后仍可审批,boot 对账补登记 + markInterruptedInterventions 按 run
 // 状态分流保留 pending(见 02/08);run 快照扫描仅作并集兜底(append 落盘延迟 + 对账前存量),按 id 去重不双计。
-async function missionPendingCounts(sessionId, runs) {
-  const ivs = await readInterventions(sessionId).catch(() => []);
+async function missionPendingCounts(sessionId, runs, interventions) {
+  const ivs = Array.isArray(interventions) ? interventions : await readInterventions(sessionId).catch(() => []);
   let permissions = 0, questions = 0, plans = 0, pool = 0;
   const poolPendingIds = new Set();
   for (const iv of ivs) {
@@ -21357,8 +21580,8 @@ async function missionPendingCounts(sessionId, runs) {
 }
 
 // run 摘要投影(对齐 /api/agent-runs?view=digest 的标量集 + 用量字段;live run 以内存为准)。
-function missionRunDigest(r) {
-  const live = activeAgentRuns.get(r.id);
+function missionRunDigest(r, includeLive = true) {
+  const live = includeLive ? activeAgentRuns.get(r.id) : null;
   const mem = live && live.run ? live.run : null;
   const src = mem || r;
   return {
@@ -21372,14 +21595,14 @@ function missionRunDigest(r) {
 }
 
 // 列表卡片:从会话头文件投影(头含 mission,见 saveSession 头/正文拆分)。
-async function buildMissionCard(head, runs) {
+async function buildMissionCard(head, runs, opts = {}) {
   const m = head.mission;
   const ms = (m && Array.isArray(m.milestones)) ? m.milestones : [];
   return {
     sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: 'mission',
     createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
     status: missionCardStatus(m),
-    activeTurn: activeChildren.has(head.id), // 第56波:活回合标志(列表卡片五态派生用)
+    activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
     mission: {
       goal: m.goal || '', createdAt: m.createdAt || '', updatedAt: m.updatedAt || '',
       autoMode: m.autoMode || 'off',
@@ -21393,35 +21616,42 @@ async function buildMissionCard(head, runs) {
       // 第72波:结果章存根(列表卡片只带状态+时间,明细走详情快照 result)
       result: (m.result && typeof m.result === 'object') ? { status: m.result.status || '', finishedAt: m.result.finishedAt || '' } : null,
     },
-    pending: await missionPendingCounts(head.id, runs),
+    pending: await missionPendingCounts(head.id, runs, opts.interventions),
     runCount: (runs || []).length,
-    lastRun: runs && runs.length ? missionRunDigest(runs[runs.length - 1]) : null,
+    lastRun: runs && runs.length ? missionRunDigest(runs[runs.length - 1], !opts.persistent) : null,
   };
 }
 
 async function handleMissionsApiRoutes(req, res, pathname) {
-  // 列表:扫会话头文件(不用索引缓存 —— 索引是派生物,旧条目缺 mission 字段会漏收存量任务会话;
-  // 头文件是权威源且不含正文,读取代价与索引同量级)。
+  // 75c:列表走可删物化索引。冷读验证/重建权威源，热读只叠加 live overlay；cursor 携带 revision，
+  // 跨页期间事实变化返回 409 snapshot_changed，绝不静默漏项/重复。
   if (req.method === 'GET' && pathname === '/api/missions') {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-    const missions = [];
-    let files = [];
-    try { files = await fsp.readdir(paths.sessions); } catch { files = []; }
-    for (const f of files) {
-      if (!/^sess_[A-Za-z0-9_-]+\.json$/.test(f)) continue; // 跳过 index.json / *.ndjson / 备份
-      const head = safeJsonParse(await fsp.readFile(path.join(paths.sessions, f), 'utf8').catch(() => ''), null);
-      if (!head || !head.id || sessionKind(head) !== 'mission') continue;
-      const runs = await listAgentRuns(head.id).catch(() => []);
-      missions.push(await buildMissionCard(head, runs));
-    }
+    const index = await getPretenderProjectionIndex();
+    const missions = index.sessions.filter(row => row.card).map(overlayMissionCard);
     missions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-    return send(res, json({ ok: true, missions }));
+    const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
+    if (paged.response) return send(res, paged.response);
+    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision(), paged.page);
+    if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
+    return send(res, json({
+      ok: true,
+      missions: paged.items,
+      page: paged.page,
+      nextCursor: paged.page.nextCursor,
+      projectionRevision: index.missionsRevision,
+      index: pretenderIndexMeta(index),
+    }, 200, { etag }));
   }
   // 详情:单会话稳定任务快照(EC-E:mission + Agent Run + 产物 + 变更 + 检查点 + 用量 + 游标)。
   if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const index = await getPretenderProjectionIndex();
+    const indexed = index.sessions.find(row => row.sessionId === sessionId) || null;
+    const etag = indexed ? pretenderEtag('mission', indexed.revision + '-' + pretenderLiveOverlayRevision(sessionId)) : '';
+    if (etag && pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     const session = await loadSession(sessionId);
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     const runs = await listAgentRuns(sessionId).catch(() => []);
@@ -21456,29 +21686,21 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     };
 
     // 用量切片:append-only 月度账本按 sessionId 过滤(权威存储,session 对象上无聚合字段)。
-    const usageRows = (await readUsageRows(0).catch(() => [])).filter(r => r && String(r.sessionId || '') === sessionId);
-    const costsByCurrency = {};
-    const usage = { inTok: 0, outTok: 0, turns: 0, subagentTurns: 0, costsByCurrency };
-    for (const r of usageRows) {
-      usage.inTok += Number(r.inTok) || 0; usage.outTok += Number(r.outTok) || 0; usage.turns += 1;
-      if (r.kind === 'subagent') usage.subagentTurns += 1;
-      const cost = Number(r.cost);
-      if (r.costTrusted !== false && typeof r.currency === 'string' && r.currency && Number.isFinite(cost)) costsByCurrency[r.currency] = (costsByCurrency[r.currency] || 0) + cost;
-    }
-    for (const k of Object.keys(costsByCurrency)) costsByCurrency[k] = Math.round(costsByCurrency[k] * 1e6) / 1e6;
+    const usage = indexed && indexed.usage ? indexed.usage : emptyMissionUsage();
 
     // 游标:增量消费的位置令牌 —— 会话 turnSeq(单调不回绕)+ 各 run 事件流 eventSeq(严格单调,afterSeq 补播)。
     const cursor = {
       turnSeq: Number(session.turnSeq) || 0,
       runs: Object.fromEntries(runs.map(r => [r.id, Number(r && r.eventSeq) || 0])),
+      projectionRevision: indexed ? indexed.revision : '',
       snapshotAt: nowIso(),
     };
-    const pendingCounts = await missionPendingCounts(sessionId, runs);
+    const pendingCounts = await missionPendingCounts(sessionId, runs, indexed && indexed.interventions);
 
     return send(res, json({
       ok: true,
       snapshot: {
-        sessionId, kind: sessionKind(session), title: session.title || '', summary: session.summary || '',
+        sessionId, missionId: sessionMissionId(session), kind: sessionKind(session), title: session.title || '', summary: session.summary || '',
         cwd: session.cwd || '', createdAt: session.createdAt || '', updatedAt: session.updatedAt || '',
         status: missionCardStatus(session.mission),
         activeTurn: activeChildren.has(sessionId), // 第56波:活回合标志(五态派生的「进行中」权威信号之一,与 run.live 同型内存叠加)
@@ -21494,32 +21716,428 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         usage,
         pending: pendingCounts,
         cursor,
+        projectionRevision: indexed ? indexed.revision : '',
+        freshness: {
+          persistentRevision: indexed ? indexed.revision : '',
+          indexedAt: indexed ? indexed.indexedAt : '',
+          liveOverlay: activeChildren.has(sessionId) || runs.some(r => activeAgentRuns.has(r.id)),
+          overlayAt: nowIso(),
+        },
       },
-    }));
+      index: pretenderIndexMeta(index),
+    }, 200, etag ? { etag } : {}));
   }
   return false;
 }
 
+// ============================================================================
+// 第75b波(Pretender P1):Intervention 单一 command core。
+// 新契约与经典四端点都只做参数/响应适配;权威 CAS、可送达检查、实际动作、审计与幂等响应持久化均在这里。
+// ============================================================================
+function canonicalDecisionValue(value, depth = 0) {
+  if (depth > 24 || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(v => canonicalDecisionValue(v, depth + 1));
+  const out = {};
+  for (const key of Object.keys(value).sort()) out[key] = canonicalDecisionValue(value[key], depth + 1);
+  return out;
+}
+
+function interventionDecisionFingerprint(missionId, interventionId, payload) {
+  return crypto.createHash('sha256')
+    .update(JSON.stringify(canonicalDecisionValue({ missionId, interventionId, payload })), 'utf8')
+    .digest('hex');
+}
+
+function interventionCommandFailure(reason, status, params = {}, message = '') {
+  return {
+    status,
+    body: {
+      ok: false,
+      reason,
+      error: {
+        code: `intervention.${reason}`,
+        params: params && typeof params === 'object' && !Array.isArray(params) ? params : {},
+        ...(message ? { message } : {}),
+      },
+    },
+  };
+}
+
+function normalizeContractQuestionDecision(payload, questions) {
+  const rows = payload && payload.answer && Array.isArray(payload.answer.answers)
+    ? payload.answer.answers
+    : null;
+  const known = Array.isArray(questions) ? questions : [];
+  if (!rows || rows.length !== known.length || rows.length < 1 || rows.length > 3) {
+    return { ok: false, message: 'answer.answers must contain exactly one answer for each question' };
+  }
+  const byId = new Map(known.map(q => [String(q && q.id || ''), q]));
+  const seen = new Set();
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') return { ok: false, message: 'each answer must be an object' };
+    if (Object.keys(row).some(key => !['questionId', 'selectedOptionIds', 'otherText'].includes(key))) {
+      return { ok: false, message: 'answer contains fields outside the typed question contract' };
+    }
+    const questionId = String(row.questionId || '');
+    const question = byId.get(questionId);
+    if (!question || seen.has(questionId)) return { ok: false, message: 'questionId is unknown or duplicated' };
+    seen.add(questionId);
+    if (!Array.isArray(row.selectedOptionIds)) return { ok: false, message: 'selectedOptionIds must be an array' };
+    if (row.selectedOptionIds.some(id => typeof id !== 'string')) return { ok: false, message: 'selectedOptionIds must contain strings' };
+    if (row.otherText !== undefined && typeof row.otherText !== 'string') return { ok: false, message: 'otherText must be a string' };
+    const selected = row.selectedOptionIds.map(x => String(x || '')).filter(Boolean);
+    if (selected.length !== new Set(selected).size || selected.length > 12) return { ok: false, message: 'selectedOptionIds contains duplicates or too many values' };
+    const optionIds = new Set((Array.isArray(question.options) ? question.options : []).map(o => String(o && o.id || '')));
+    if (selected.some(id => !optionIds.has(id))) return { ok: false, message: 'selectedOptionIds contains an option outside this question' };
+    const otherText = String(row.otherText || '').trim();
+    const mode = String(question.answerMode || (question.multiSelect ? 'multiple' : 'single'));
+    if (mode === 'single' && selected.length > 1) return { ok: false, message: 'single-choice question accepts at most one option' };
+    if (mode === 'text' && selected.length) return { ok: false, message: 'text question does not accept selectedOptionIds' };
+    if (otherText && mode !== 'text' && question.allowOther !== true) return { ok: false, message: 'otherText is not allowed for this question' };
+    if (!selected.length && !otherText) return { ok: false, message: 'each question requires an answer' };
+  }
+  return { ok: true, answer: normalizeQuestionAnswer({ answers: rows }, known) };
+}
+
+function mapInterventionTransitionFailure(result) {
+  const reason = String(result && result.reason || 'decision_failed');
+  if (reason === 'not_found') return interventionCommandFailure(reason, 404, {}, 'mission or intervention not found');
+  if (reason === 'expired') return interventionCommandFailure(reason, 410, { status: result.status || '' }, 'intervention has expired');
+  if (reason === 'version_conflict') {
+    return interventionCommandFailure(reason, 409, {
+      expectedVersion: result.expectedVersion,
+      actualVersion: result.actualVersion,
+    }, 'intervention version does not match');
+  }
+  if (reason === 'idempotency_conflict') {
+    return interventionCommandFailure(reason, 409, {}, 'idempotencyKey was already used for a different request');
+  }
+  if (reason === 'already_terminal') {
+    return interventionCommandFailure(reason, 409, {
+      status: result.status || '',
+      interventionVersion: Number(result.interventionVersion) || 0,
+    }, 'intervention is already terminal');
+  }
+  if (reason === 'not_pending') {
+    return interventionCommandFailure(reason, 409, { status: result.status || '' }, 'intervention is already being applied');
+  }
+  return interventionCommandFailure(reason, 409, {
+    ...(result && result.runId ? { runId: result.runId } : {}),
+  }, String(result && result.message || 'intervention cannot be delivered'));
+}
+
+async function decideIntervention(command = {}) {
+  const rawMissionId = String(command.missionId || '');
+  const missionId = safeSessionId(rawMissionId);
+  const interventionId = String(command.interventionId || '');
+  const source = String(command.source || 'contract').slice(0, 64);
+  const contractRequest = command.contractRequest !== false;
+  const payload = command.payload && typeof command.payload === 'object' && !Array.isArray(command.payload)
+    ? command.payload
+    : {};
+  if (!missionId || missionId !== rawMissionId || !/^[A-Za-z0-9_-]{1,160}$/.test(interventionId)) {
+    return interventionCommandFailure('invalid_request', 400, {}, 'invalid missionId or interventionId');
+  }
+  let head = null;
+  try { head = safeJsonParse(await fsp.readFile(sessionPath(missionId), 'utf8'), null); } catch { /* 404 below */ }
+  if (!head || sessionMissionId(head) !== missionId) {
+    return interventionCommandFailure('not_found', 404, {}, 'mission or intervention not found');
+  }
+
+  if (contractRequest) {
+    if (!Number.isInteger(command.expectedVersion) || command.expectedVersion < 0) {
+      return interventionCommandFailure('invalid_request', 400, { field: 'expectedVersion' }, 'expectedVersion must be a non-negative integer');
+    }
+    const key = String(command.idempotencyKey || '');
+    if (!key || key.length > 128) {
+      return interventionCommandFailure('invalid_request', 400, { field: 'idempotencyKey' }, 'idempotencyKey must contain 1-128 characters');
+    }
+  }
+
+  const current = (await readInterventions(missionId).catch(() => []))
+    .find(iv => iv && String(iv.id) === interventionId);
+  if (!current || String(current.sessionId || missionId) !== missionId) {
+    return interventionCommandFailure('not_found', 404, {}, 'mission or intervention not found');
+  }
+
+  const type = String(current.type || '');
+  const action = String(payload.action || '');
+  if (contractRequest) {
+    const commonFields = new Set(['expectedVersion', 'idempotencyKey', 'action']);
+    const typeFields = type === 'permission' ? ['updatedInput']
+      : type === 'question' ? ['answer']
+        : type === 'plan' ? ['feedback']
+          : [];
+    const allowed = new Set([...commonFields, ...typeFields]);
+    const unknown = Object.keys(payload).filter(key => !allowed.has(key));
+    if (unknown.length) return interventionCommandFailure('payload_invalid', 400, { fields: unknown }, 'request contains fields outside the type/action contract');
+  }
+  let toStatus = '';
+  let normalizedAnswer = null;
+  if (type === 'permission') {
+    if (action !== 'allow' && action !== 'deny') return interventionCommandFailure('action_invalid', 400, { type }, 'permission action must be allow or deny');
+    if (action === 'allow' && payload.updatedInput !== undefined && (!payload.updatedInput || typeof payload.updatedInput !== 'object' || Array.isArray(payload.updatedInput))) {
+      return interventionCommandFailure('payload_invalid', 400, { field: 'updatedInput' }, 'updatedInput must be an object');
+    }
+    toStatus = action === 'allow' ? 'allowed' : 'denied';
+  } else if (type === 'question') {
+    if (action !== 'answer') return interventionCommandFailure('action_invalid', 400, { type }, 'question action must be answer');
+    if (contractRequest) {
+      const normalized = normalizeContractQuestionDecision(payload, current.questions);
+      if (!normalized.ok) return interventionCommandFailure('payload_invalid', 400, { type }, normalized.message);
+      normalizedAnswer = normalized.answer;
+    } else {
+      normalizedAnswer = payload.normalizedAnswer;
+      if (!normalizedAnswer || typeof normalizedAnswer !== 'object') return interventionCommandFailure('payload_invalid', 400, { type }, 'question answer is required');
+    }
+    toStatus = normalizedAnswer.ok === false ? 'cancelled' : 'answered';
+  } else if (type === 'plan') {
+    if (action !== 'approve' && action !== 'reject') return interventionCommandFailure('action_invalid', 400, { type }, 'plan action must be approve or reject');
+    if (contractRequest && payload.feedback !== undefined && typeof payload.feedback !== 'string') {
+      return interventionCommandFailure('payload_invalid', 400, { field: 'feedback' }, 'feedback must be a string');
+    }
+    toStatus = action === 'approve' ? 'approved' : 'rejected';
+  } else if (type === 'pool') {
+    if (action !== 'approve' && action !== 'reject') return interventionCommandFailure('action_invalid', 400, { type }, 'pool action must be approve or reject');
+    toStatus = action === 'approve' ? 'approved' : 'rejected';
+  } else {
+    return interventionCommandFailure('type_unsupported', 409, { type }, 'intervention type is not supported by this release');
+  }
+
+  const idempotencyKey = String(command.idempotencyKey || makeId('legacy')).slice(0, 128);
+  const decisionPayload = type === 'question'
+    ? { action, answer: normalizedAnswer }
+    : type === 'permission'
+      ? { action, ...(action === 'allow' && payload.updatedInput !== undefined ? { updatedInput: payload.updatedInput } : {}) }
+      : type === 'plan'
+        ? { action, ...(payload.feedback !== undefined ? { feedback: String(payload.feedback) } : {}) }
+        : { action };
+  const decisionFingerprint = interventionDecisionFingerprint(missionId, interventionId, decisionPayload);
+  let runtimeEntry = null;
+  let poolContext = null;
+
+  const preflight = async authoritative => {
+    if (!authoritative || String(authoritative.type || '') !== type) return { ok: false, reason: 'not_found' };
+    if (type === 'permission') {
+      runtimeEntry = pendingPermissions.get(interventionId);
+      if (!runtimeEntry || runtimeEntry.sessionId !== missionId) return { ok: false, reason: 'delivery_unavailable', message: 'permission consumer is not live' };
+      return { ok: true };
+    }
+    if (type === 'question') {
+      runtimeEntry = pendingQuestions.get(interventionId);
+      if (!runtimeEntry || runtimeEntry.sessionId !== missionId) return { ok: false, reason: 'delivery_unavailable', message: 'question consumer is not live' };
+      return { ok: true };
+    }
+    if (type === 'plan') {
+      runtimeEntry = pendingPlans.get(interventionId);
+      if (!runtimeEntry || runtimeEntry.sessionId !== missionId) return { ok: false, reason: 'delivery_unavailable', message: 'plan consumer is not live' };
+      return { ok: true };
+    }
+
+    const runId = String(authoritative.runId || '');
+    if (command.requestRunId && String(command.requestRunId) !== runId) return { ok: false, reason: 'not_found' };
+    const live = activeAgentRuns.get(runId);
+    if (!live || !live.run || live.closing) {
+      let persisted = null;
+      try { persisted = safeJsonParse(await fsp.readFile(agentRunFile(missionId, runId), 'utf8'), null); } catch {}
+      const reason = persisted && persisted.status === 'paused' ? 'run_paused' : 'run_not_live';
+      return { ok: false, reason, runId, message: reason === 'run_paused' ? 'run is paused; resume it before deciding' : 'run is not live' };
+    }
+    if (live.run.sessionId !== missionId) return { ok: false, reason: 'not_found' };
+    if (live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted)) {
+      return { ok: false, reason: 'run_stopping', runId, message: 'run is stopping' };
+    }
+    const item = (Array.isArray(live.run.taskPool) ? live.run.taskPool : []).find(p => p && String(p.id) === interventionId);
+    if (!item || item.status !== 'proposed') return { ok: false, reason: 'pool_item_unavailable', runId, message: 'pool item is no longer proposed' };
+    let config = null, cwd = '', roleLibrary = new Map();
+    if (action === 'approve') {
+      try {
+        config = await readConfig();
+        const session = await loadSession(missionId);
+        cwd = normalizeCwd(session && session.cwd, config.defaultWorkspace);
+        roleLibrary = new Map((await getAgentRoleLibrary(cwd, config)).map(role => [role.id, role]));
+      } catch { /* preserve the existing empty-role-library fallback */ }
+      const dryRun = { ...live.run, nodes: Array.isArray(live.run.nodes) ? [...live.run.nodes] : [] };
+      const dry = materializePoolItem(dryRun, { ...item }, { roleLibrary, cwd, config });
+      if (!dry.ok) return { ok: false, reason: 'pool_materialize_rejected', runId, message: dry.error || 'pool item cannot be materialized' };
+    }
+    poolContext = { runId, live, item, config, cwd, roleLibrary };
+    return { ok: true };
+  };
+
+  const execute = () => {
+    if (type === 'permission') {
+      runtimeEntry.commandApplying = true;
+      clearTimeout(runtimeEntry.timer);
+      const decision = action === 'allow'
+        ? { behavior: 'allow', updatedInput: payload.updatedInput }
+        : { behavior: 'deny', message: String(payload.message || 'denied by user') };
+      runtimeEntry.resolve(decision, { skipInterventionSettle: true });
+      return { ok: true, delivered: true };
+    }
+    if (type === 'question') {
+      runtimeEntry.commandApplying = true;
+      clearTimeout(runtimeEntry.timer);
+      const delivered = runtimeEntry.deliver(normalizedAnswer, { skipInterventionSettle: true, preserveRegistry: true });
+      return { ok: delivered !== false, delivered: delivered !== false, reason: delivered === false ? 'delivery_failed' : '' };
+    }
+    if (type === 'plan') {
+      runtimeEntry.commandApplying = true;
+      clearTimeout(runtimeEntry.timer);
+      runtimeEntry.resolve({
+        decision: action,
+        note: payload.feedback != null ? String(payload.feedback).slice(0, 2000) : '',
+      }, { skipInterventionSettle: true });
+      return { ok: true, delivered: true };
+    }
+    return (async () => {
+      const { runId, live, item, config, cwd, roleLibrary } = poolContext;
+      if (activeAgentRuns.get(runId) !== live || live.closing || live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted) || item.status !== 'proposed') {
+        return { ok: false, reason: 'run_state_changed' };
+      }
+      if (action === 'reject') {
+        item.status = 'rejected'; item.decidedBy = String(command.decidedBy || 'user'); item.decidedAt = nowIso();
+        bumpRunIntervention(live.run, 'pool_reject');
+        appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'rejected', poolId: interventionId, by: String(command.decidedBy || 'user') } });
+        await saveAgentRun(live.run);
+        return { ok: true, poolId: interventionId };
+      }
+      const mat = materializePoolItem(live.run, item, { roleLibrary, cwd, config });
+      if (!mat.ok) return { ok: false, reason: 'pool_materialize_failed', message: mat.error || '' };
+      item.status = 'materialized'; item.decidedBy = String(command.decidedBy || 'user'); item.decidedAt = nowIso(); item.resultNodeId = mat.node.id;
+      bumpRunIntervention(live.run, 'pool_approve');
+      appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'materialized', poolId: interventionId, by: String(command.decidedBy || 'user'), nodeId: mat.node.id } });
+      try { live.poolGraceArmed = true; } catch {}
+      if (live.inPoolGrace && Array.isArray(live.resumeWaiters)) {
+        const waiters = live.resumeWaiters.splice(0);
+        for (const wake of waiters) wake();
+      }
+      await saveAgentRun(live.run);
+      return { ok: true, poolId: interventionId, nodeId: mat.node.id };
+    })();
+  };
+
+  let transition;
+  try {
+    transition = await transitionInterventionState(
+      missionId,
+      interventionId,
+      contractRequest ? command.expectedVersion : undefined,
+      toStatus,
+      {
+        source,
+        decidedBy: String(command.decidedBy || 'user'),
+        idempotencyKey,
+        decisionFingerprint,
+        preflight,
+        action: execute,
+        resolveStatus: result => result && result.ok === false ? 'indeterminate' : toStatus,
+        extra: result => ({
+          action,
+          ...(type === 'question' ? { answer: normalizedAnswer } : {}),
+          ...(type === 'plan' && payload.feedback != null ? { feedback: String(payload.feedback).slice(0, 2000) } : {}),
+          ...(result && result.nodeId ? { nodeId: result.nodeId } : {}),
+        }),
+        buildResponse: (result, meta) => result && result.ok === false
+          ? interventionCommandFailure(result.reason || 'delivery_failed', 409, { type }, result.message || 'decision could not be delivered').body
+          : {
+              ok: true,
+              missionId,
+              interventionId,
+              type,
+              action,
+              status: meta.status,
+              interventionVersion: meta.interventionVersion,
+              ...(result && result.delivered !== undefined ? { delivered: result.delivered } : {}),
+              ...(result && result.nodeId ? { nodeId: result.nodeId } : {}),
+            },
+        audit: command.audit === false ? undefined : (_result, terminal) => {
+          const auditSource = source === 'legacy_question' ? 'question_answer'
+            : source === 'legacy_permission' ? 'permission_decision'
+              : source === 'legacy_plan' ? 'plan_decision'
+                : source === 'legacy_pool' ? `pool_${action}`
+                  : 'intervention_decision';
+          logEvent({ kind: 'intervention', source: auditSource, sessionId: missionId, interventionId, type, action, interventionVersion: terminal.interventionVersion });
+        },
+        afterTerminal: () => {
+          if (!runtimeEntry) return;
+          runtimeEntry.commandApplying = false;
+          if (type === 'permission' && pendingPermissions.get(interventionId) === runtimeEntry) pendingPermissions.delete(interventionId);
+          else if (type === 'question' && pendingQuestions.get(interventionId) === runtimeEntry) pendingQuestions.delete(interventionId);
+          else if (type === 'plan' && pendingPlans.get(interventionId) === runtimeEntry) pendingPlans.delete(interventionId);
+        },
+      },
+    );
+  } catch (error) {
+    const message = String(error && error.message || error);
+    return interventionCommandFailure('execution_failed', 500, {}, message);
+  }
+  if (!transition || !transition.ok) return mapInterventionTransitionFailure(transition);
+  const response = transition.response && typeof transition.response === 'object'
+    ? transition.response
+    : {
+        ok: true,
+        missionId,
+        interventionId,
+        type,
+        action,
+        status: transition.status,
+        interventionVersion: transition.interventionVersion,
+      };
+  return { status: response.ok === false ? 409 : 200, body: response };
+}
+
 async function handleInterventionApiRoutes(req, res, pathname) {
+  if (req.method === 'POST' && pathname === '/api/_test/pretender-maintenance') {
+    if (process.env.RUYI_TEST_HOOKS !== '1') return send(res, json({ ok: false, error: 'not found' }, 404));
+    const body = await readJsonBody(req);
+    if (body.action === 'compact') {
+      const sessionId = safeSessionId(body.sessionId);
+      if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+      return send(res, json(await compactInterventionJournal(sessionId, { force: true })));
+    }
+    if (body.action === 'rebuild') {
+      pretenderIndexRuntime.fullDirty = true;
+      return send(res, json({ ok: true, index: pretenderIndexMeta(await getPretenderProjectionIndex()) }));
+    }
+    return send(res, json({ ok: false, error: 'invalid maintenance action' }, 400));
+  }
+  const contractMatch = pathname.match(/^\/api\/missions\/([^/]+)\/interventions\/([^/]+)\/decision$/);
+  if (req.method === 'POST' && contractMatch) {
+    let missionId = '', interventionId = '';
+    try {
+      missionId = decodeURIComponent(contractMatch[1]);
+      interventionId = decodeURIComponent(contractMatch[2]);
+    } catch {
+      return send(res, json(interventionCommandFailure('invalid_request', 400, {}, 'malformed route encoding').body, 400));
+    }
+    const body = await readJsonBody(req);
+    const result = await decideIntervention({
+      missionId,
+      interventionId,
+      expectedVersion: body.expectedVersion,
+      idempotencyKey: body.idempotencyKey,
+      payload: body,
+      source: 'contract',
+      contractRequest: true,
+    });
+    return send(res, json(result.body, result.status));
+  }
   // 第56波(Pretender 立项门 / EC-E 363):全局「需要你」最小聚合入口 —— 跨会话 pending Intervention 收件箱。
   // 只读派生:扫 *.interventions.ndjson 折叠取 pending(注册/决策/超时/清理/重启终态化全在旁路账里);
   // pool 型由 71b 注册 + boot 对账覆盖,append 落盘延迟窗为最终一致(与 13d missionPendingCounts 同立场)。
   // 按 requestedAt 升序(FIFO 收件箱:最先等你的在最前)。
   if (req.method === 'GET' && pathname === '/api/interventions') {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const index = await getPretenderProjectionIndex();
     const pending = [];
     const counts = { permission: 0, question: 0, plan: 0, pool: 0, total: 0 };
-    let files = [];
-    try { files = await fsp.readdir(paths.sessions); } catch { files = []; }
-    for (const f of files) {
-      if (!f.endsWith('.interventions.ndjson')) continue;
-      const sessionId = f.slice(0, -'.interventions.ndjson'.length);
-      if (!/^sess_[A-Za-z0-9_-]+$/.test(sessionId)) continue;
-      const ivs = await readInterventions(sessionId).catch(() => []);
-      for (const iv of ivs) {
+    for (const slice of index.sessions) {
+      const sessionId = slice.sessionId;
+      for (const iv of slice.interventions || []) {
         if (!iv || iv.status !== 'pending') continue;
         pending.push({
-          id: iv.id, type: iv.type || '', sessionId, missionId: sessionId, // 75a: external name (== sessionId in 3.0)
+          id: iv.id, type: iv.type || '', sessionId, missionId: slice.missionId || sessionId,
           requestedAt: iv.requestedAt || '',
           toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
           runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
@@ -21534,14 +22152,28 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       }
     }
     pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
-    return send(res, json({ ok: true, pending, counts }));
+    const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, pending);
+    if (paged.response) return send(res, paged.response);
+    const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision(), paged.page);
+    if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
+    return send(res, json({
+      ok: true,
+      pending: paged.items,
+      counts,
+      page: paged.page,
+      nextCursor: paged.page.nextCursor,
+      projectionRevision: index.interventionsRevision,
+      index: pretenderIndexMeta(index),
+    }, 200, { etag }));
   }
   // 第71波:会话的持久化 Intervention 只读派生(注册/决策/超时/清理/重启终态化的旁路记录,02 NDJSON)。
   if (req.method === 'GET' && pathname.startsWith('/api/interventions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
-    const interventions = await readInterventions(sessionId).catch(() => []);
+    const index = await getPretenderProjectionIndex();
+    const slice = index.sessions.find(row => row.sessionId === sessionId) || null;
+    const interventions = slice ? slice.interventions : [];
     const counts = { permission: 0, question: 0, plan: 0, pool: 0, pending: 0, resolved: 0 };
     for (const iv of interventions) {
       if (!iv) continue;
@@ -21553,11 +22185,26 @@ async function handleInterventionApiRoutes(req, res, pathname) {
         else if (iv.type === 'pool') counts.pool++;
       } else counts.resolved++;
     }
-    return send(res, json({ ok: true, sessionId, missionId: sessionId, interventions, counts })); // 75a: missionId external name
+    const revision = slice ? slice.interventionRevision : pretenderHash([]);
+    const paged = paginatePretenderProjection(req, 'session-interventions:' + sessionId, revision, interventions);
+    if (paged.response) return send(res, paged.response);
+    const etag = pretenderEtag('session-interventions', revision, paged.page);
+    if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
+    return send(res, json({
+      ok: true,
+      sessionId,
+      missionId: slice ? slice.missionId : sessionId,
+      interventions: paged.items,
+      counts,
+      page: paged.page,
+      nextCursor: paged.page.nextCursor,
+      projectionRevision: revision,
+      integrity: slice ? slice.integrity : { degraded: false, corruptLines: 0, journalRows: 0, journalBytes: 0 },
+    }, 200, { etag }));
   }
   if (req.method === 'POST' && pathname === '/api/chat/answer') {
-    // Settle exactly one live question. A stale/wrong-session answer is a conflict, never a fake success:
-    // the UI must keep the modal open so the user can retry or see that the turn already ended.
+    // 75b compatibility adapter: normalize the classic answer[] shape, then hand the actual decision to
+    // the same command core used by the Mission contract.
     const body = await readJsonBody(req);
     const sessionId = String(body.sessionId || '');
     const questionId = String(body.questionId || body.toolUseId || '');
@@ -21565,9 +22212,14 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     if (!entry || entry.sessionId !== sessionId) {
       return send(res, apiFailure('question.not_pending', {}, 'question is no longer pending', 409));
     }
-    const delivered = entry.deliver(normalizeQuestionAnswer(body, entry.questions));
-    if (!delivered) return send(res, apiFailure('question.delivery_failed', {}, 'answer could not be delivered; the question is still pending', 409));
-    logEvent({ kind: 'intervention', source: 'question_answer', sessionId, questionId });
+    const result = await decideIntervention({
+      missionId: sessionId,
+      interventionId: questionId,
+      payload: { action: 'answer', normalizedAnswer: normalizeQuestionAnswer(body, entry.questions) },
+      source: 'legacy_question',
+      contractRequest: false,
+    });
+    if (result.status !== 200) return send(res, apiFailure('question.delivery_failed', {}, 'answer could not be delivered; the question is still pending', 409));
     return send(res, json({ ok: true, delivered: true, questionId }));
   }
   if (req.method === 'POST' && pathname === '/api/question/request') {
@@ -21628,10 +22280,32 @@ async function handleInterventionApiRoutes(req, res, pathname) {
           try { logEvent({ kind: 'permission_paused', sessionId, tool: String(body.toolName || ''), tier: bridgeTier, requestId, engine: 'claude' }); } catch { /* ignore */ }
           loadSession(sessionId).then(s => s && saveSession(s)).catch(() => {}); // 检查点:会话已在磁盘,重写一遍固化
           try { reg.onEvent({ type: 'permission_paused', requestId, toolName: body.toolName, tier: bridgeTier, ttlMs: config.autonomyPauseTtlMs }); } catch { /* stream gone */ }
-          entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: '权限已存档暂停但在时限内无人决定,已回落拒绝', pausedTimeout: true }); settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: 'paused ttl timeout' }); }, Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000));
+          entry.timer = setTimeout(() => {
+            const message = '权限已存档暂停但在时限内无人决定,已回落拒绝';
+            runAutomaticInterventionDecision({
+              missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
+              idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
+            }, () => {
+              if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
+              pendingPermissions.delete(requestId);
+              resolve({ behavior: 'deny', message, pausedTimeout: true });
+              settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: 'paused ttl timeout' });
+            });
+          }, Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000));
         }, baseMs);
       } else {
-        entry.timer = setTimeout(() => { pendingPermissions.delete(requestId); resolve({ behavior: 'deny', message: 'permission prompt timed out' }); settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: 'permission prompt timed out' }); }, baseMs);
+        entry.timer = setTimeout(() => {
+          const message = 'permission prompt timed out';
+          runAutomaticInterventionDecision({
+            missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
+            idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
+          }, () => {
+            if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
+            pendingPermissions.delete(requestId);
+            resolve({ behavior: 'deny', message });
+            settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: message });
+          });
+        }, baseMs);
       }
       pendingPermissions.set(requestId, entry);
     });
@@ -21647,37 +22321,40 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     return send(res, json(decision));
   }
   if (req.method === 'POST' && pathname === '/api/permission/decision') {
-    // UI's allow/deny for a pending permission request.
+    // 75b compatibility adapter. The entry lookup only recovers the mission partition; execution is core-owned.
     const body = await readJsonBody(req);
-    const entry = pendingPermissions.get(String(body.requestId || ''));
+    const requestId = String(body.requestId || '');
+    const entry = pendingPermissions.get(requestId);
     if (!entry) return send(res, json({ ok: false, error: 'unknown or expired request' }, 404));
-    clearTimeout(entry.timer);
-    pendingPermissions.delete(String(body.requestId));
     const behavior = body.behavior === 'allow' ? 'allow' : 'deny';
-    // 29c: 干预落账 —— 只对真实待决请求计数(过期/重复决定已被上面 404 滤掉);entry 自带 sessionId。
-    // 存档暂停(27f)窗口内的决定与基础窗内的决定走同一 handler,天然同权重。
-    logEvent({ kind: 'intervention', source: 'permission_decision', sessionId: entry.sessionId || '', behavior });
-    entry.resolve(behavior === 'allow' ? { behavior: 'allow', updatedInput: body.updatedInput } : { behavior: 'deny', message: body.message || 'denied by user' });
-    settleIntervention(entry.sessionId, String(body.requestId || ''), behavior === 'allow' ? 'allowed' : 'denied', { decidedBy: 'user', note: behavior === 'deny' ? String(body.message || '') : '' });
+    const result = await decideIntervention({
+      missionId: entry.sessionId,
+      interventionId: requestId,
+      payload: behavior === 'allow'
+        ? { action: 'allow', updatedInput: body.updatedInput }
+        : { action: 'deny', message: body.message || 'denied by user' },
+      source: 'legacy_permission',
+      contractRequest: false,
+    });
+    if (result.status !== 200) return send(res, json({ ok: false, error: 'unknown or expired request' }, 404));
     return send(res, json({ ok: true }));
   }
   if (req.method === 'POST' && pathname === '/api/plan/decision') {
-    // v0.9-S5 (真流程 plan mode): the UI's approve/reject for a paused plan. Token-gated (needsToken whitelist
-    // above; header-token — this decision unlocks mutating tools for the turn, so it is at least as sensitive
-    // as /api/permission). Looks up pendingPlans[planId], verifies the sessionId matches (so a decision can't
-    // resolve another session's plan), settles the promise, and clears the timer. Idempotent: a second
-    // decision for the same (already-settled) planId finds no entry → {ok:false, error:'no pending plan'}.
+    // 75b compatibility adapter for the classic plan-mode pause.
     const body = await readJsonBody(req);
     const planId = String(body.planId || '');
     const sessionId = String(body.sessionId || '');
     const entry = pendingPlans.get(planId);
     if (!entry || entry.sessionId !== sessionId) return send(res, json({ ok: false, error: 'no pending plan' }));
-    clearTimeout(entry.timer);
-    pendingPlans.delete(planId);
     const decision = body.decision === 'approve' ? 'approve' : 'reject';
-    logEvent({ kind: 'intervention', source: 'plan_decision', sessionId, decision }); // 29c
-    entry.resolve({ decision, note: body.note != null ? String(body.note) : '' });
-    settleIntervention(sessionId, planId, decision === 'approve' ? 'approved' : 'rejected', { decidedBy: 'user', note: body.note != null ? String(body.note) : '' });
+    const result = await decideIntervention({
+      missionId: sessionId,
+      interventionId: planId,
+      payload: { action: decision, feedback: body.note != null ? String(body.note) : '' },
+      source: 'legacy_plan',
+      contractRequest: false,
+    });
+    if (result.status !== 200) return send(res, json({ ok: false, error: 'no pending plan' }));
     return send(res, json({ ok: true }));
   }
   // 75a-2: test-only CAS primitive probe (failure-injection matrix, SCHEMA §7 六窗口). Env-gated
@@ -21834,51 +22511,33 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       bumpRunIntervention(live.run, 'steer_node'); // 29c(队列在内存,计数随下一次快照落盘即可,不额外写盘)
       return send(res, json({ ok: true, queued: q.length, live: elig.node.status === 'running' }));
     }
-    // 团队模式 v2 (A2/A4): 任务池审批。归属守卫(live.run.sessionId !== sessionId → 404)已在上方对全 action 生效。
-    // 非 live 或 closing(收尾已原子置位)→ 409 带指引;宽限窗内 closing 仍为 false,故窗内可批并物化并继续调度。
+    // 75b compatibility adapter: pool approval/rejection shares decideIntervention with the Mission contract.
     if (action === 'pool_approve' || action === 'pool_reject') {
-      if (!live || live.closing) return send(res, json({ ok: false, error: '运行已结束;可在新运行中执行该任务' }, 409));
       const poolId = String(body.poolId || '').trim();
       if (!poolId) return send(res, json({ ok: false, error: 'poolId required' }, 400));
-      const item = (Array.isArray(live.run.taskPool) ? live.run.taskPool : []).find(p => p && p.id === poolId);
-      if (!item) return send(res, json({ ok: false, error: '提案不存在' }, 404));
-      if (item.status !== 'proposed') return send(res, json({ ok: false, error: `该提案已处理(${item.status})` }, 409));
-      if (action === 'pool_reject') {
-        item.status = 'rejected'; item.decidedBy = 'user'; item.decidedAt = nowIso();
-        settleIntervention(sessionId, poolId, 'rejected', { decidedBy: 'user' }); // 71b: 旁路结算(后写胜)
-        bumpRunIntervention(live.run, 'pool_reject'); // 29c
-        appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'rejected', poolId, by: 'user' } }); // 29a
-        await saveAgentRun(live.run);
-        return send(res, json({ ok: true, status: 'rejected', poolId }));
+      const result = await decideIntervention({
+        missionId: sessionId,
+        interventionId: poolId,
+        requestRunId: runId,
+        payload: { action: action === 'pool_approve' ? 'approve' : 'reject' },
+        source: 'legacy_pool',
+        contractRequest: false,
+      });
+      if (result.status !== 200) {
+        const reason = String(result.body && result.body.reason || '');
+        if (!live || live.closing) return send(res, json({ ok: false, error: '运行已结束;可在新运行中执行该任务' }, 409));
+        if (reason === 'not_found') return send(res, json({ ok: false, error: '提案不存在' }, 404));
+        const item = (Array.isArray(live.run.taskPool) ? live.run.taskPool : []).find(p => p && String(p.id) === poolId);
+        if (item && item.status !== 'proposed') return send(res, json({ ok: false, error: `该提案已处理(${item.status})` }, 409));
+        const message = result.body && result.body.error && result.body.error.message;
+        return send(res, json({ ok: false, error: message || '运行已结束或提案已处理' }, result.status === 404 ? 404 : 409));
       }
-      // approve → 物化(normalizeAgentWorkflow 同款单节点清洗,见 materializePoolItem)。角色库按会话 cwd 构建以校验 roleId。
-      // 对抗轮 P3: 停止收尾窗(stopRequested/aborted 已置、closing 尚未置位)内拒绝审批——否则返回"已加入工作流",
-      // 节点却在批次落地后立刻被 cancel,语义不诚实。与 steer_node 的停止窗 409 对齐;入口与复检各一道。
-      const stoppingNow = () => live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted);
-      if (stoppingNow()) return send(res, json({ ok: false, error: '工作流正在停止,无法再加入新任务' }, 409));
-      let cwd = '', roleLib = new Map(), cfgRef = null;
-      try { cfgRef = await readConfig(); const sess = await loadSession(sessionId); cwd = normalizeCwd(sess && sess.cwd, cfgRef.defaultWorkspace); roleLib = new Map((await getAgentRoleLibrary(cwd, cfgRef)).map(r => [r.id, r])); } catch { /* 角色库不可用则以空库物化(无角色节点仍可执行) */ }
-      // 团队模式 v2 (P1 TOCTOU): 上面连续 await(readConfig/loadSession/getAgentRoleLibrary)后、物化前同步复检——
-      // 入口校验(!live/closing、item.status==='proposed')与物化之间隔着这些 await,期间调度循环可能已推进:
-      //  (a) 宽限窗到期 → 收尾原子置 closing 并 finalize(run 已记终态),此时物化只会追加一个永远 queued 的孤儿节点;
-      //  (b) 并发的 pool_reject(其检查到落地无 await)已把本 item 置 rejected,恢复后照物化 = 执行已被拒的任务。
-      // 复检 activeAgentRuns.get(runId)/closing/item.status;此复检 → materializePoolItem → 置 materialized 全程无
-      // await,与调度循环收尾段(runtime.closing=true 起同步执行到首个 await)互斥,原子成立。
-      if (activeAgentRuns.get(runId) !== live || live.closing || stoppingNow()) return send(res, json({ ok: false, error: '运行已结束或正在停止;可在新运行中执行该任务' }, 409));
-      if (!item || item.status !== 'proposed') return send(res, json({ ok: false, error: `该提案已处理(${item && item.status || 'unknown'})` }, 409));
-      const mat = materializePoolItem(live.run, item, { roleLibrary: roleLib, cwd, config: cfgRef });
-      if (!mat.ok) return send(res, json({ ok: false, error: mat.error || '物化失败' }, 409));
-      item.status = 'materialized'; item.decidedBy = 'user'; item.decidedAt = nowIso(); item.resultNodeId = mat.node.id;
-      settleIntervention(sessionId, poolId, 'approved', { decidedBy: 'user', nodeId: mat.node.id }); // 71b: 旁路结算(后写胜)
-      bumpRunIntervention(live.run, 'pool_approve'); // 29c
-      appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'materialized', poolId, by: 'user', nodeId: mat.node.id } }); // 29a
-      // 团队模式 v2 (P2-1 重新武装): 物化成功 → 允许宽限窗再武装一次。窗只在有新节点物化后才能重开,而物化必消耗一条
-      // proposed(POOL_MAX_TOTAL=8 天然封顶总提案),故续窗次数 ≤ 物化次数 ≤ 8,不会无限续窗。
-      try { live.poolGraceArmed = true; } catch {}
-      // 若正处宽限窗,唤醒调度循环(其 200ms poll 也会自然发现新 queued 节点;这里加速 paused 情况的唤醒)。
-      if (live.inPoolGrace && Array.isArray(live.resumeWaiters)) { const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake(); }
-      await saveAgentRun(live.run);
-      return send(res, json({ ok: true, status: 'materialized', poolId, nodeId: mat.node.id }));
+      return send(res, json({
+        ok: true,
+        status: action === 'pool_approve' ? 'materialized' : 'rejected',
+        poolId,
+        ...(result.body.nodeId ? { nodeId: result.body.nodeId } : {}),
+      }));
     }
     return send(res, json({ ok: false, error: 'unknown action' }, 400));
   }
@@ -21919,6 +22578,402 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
   }
   return false;
+}
+
+// ============================================================================
+// 第75c波(Pretender P1):Mission / Intervention 可重建物化索引、revision cursor 与 ETag。
+// 权威源始终是 session head、Intervention journal、run snapshot 与 usage ledger；本文件只维护可删缓存。
+// ============================================================================
+const PRETENDER_INDEX_SCHEMA = 2;
+const PRETENDER_INDEX_DIR = '.pretender';
+const PRETENDER_INDEX_FILE = 'projection-index.json';
+const PRETENDER_PAGE_DEFAULT = 100;
+const PRETENDER_PAGE_MAX = 200;
+
+const pretenderIndexRuntime = {
+  value: null,
+  diskStamp: '',
+  persisted: false,
+  building: null,
+  fullDirty: false,
+  dirtySessions: new Set(),
+  usageDirty: new Set(),
+};
+
+function pretenderIndexPath() {
+  return path.join(paths.sessions, PRETENDER_INDEX_DIR, PRETENDER_INDEX_FILE);
+}
+
+// Called by authoritative writers in earlier source modules. A dirty mark never blocks the write; the next
+// read refreshes only that session slice. `usage` is separate because refreshing it requires scanning ledgers.
+function markPretenderIndexDirty(sessionId, reason = 'source') {
+  const sid = safeSessionId(sessionId);
+  if (!sid) { pretenderIndexRuntime.fullDirty = true; return; }
+  pretenderIndexRuntime.dirtySessions.add(sid);
+  if (reason === 'usage') pretenderIndexRuntime.usageDirty.add(sid);
+}
+
+function pretenderHash(value) {
+  return crypto.createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value), 'utf8').digest('hex').slice(0, 24);
+}
+
+async function pretenderFileStamp(file) {
+  try {
+    const st = await fsp.stat(file);
+    return `${st.size}:${Math.trunc(st.mtimeMs)}`;
+  } catch { return '-'; }
+}
+
+async function pretenderSessionSourceStamp(sessionId) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return '-';
+  const parts = [
+    'h=' + await pretenderFileStamp(sessionPath(sid)),
+    'i=' + await pretenderFileStamp(interventionFilePath(sid)),
+  ];
+  const dir = agentRunDir(sid);
+  let files = [];
+  try { files = (await fsp.readdir(dir)).filter(f => /^run_[a-f0-9]+\.json$/i.test(f)).sort(); } catch { files = []; }
+  for (const file of files) parts.push('r=' + file + ':' + await pretenderFileStamp(path.join(dir, file)));
+  return pretenderHash(parts.join('|'));
+}
+
+async function scanPretenderSessionSources() {
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { files = []; }
+  const idSet = new Set();
+  for (const file of files) {
+    if (/^sess_[A-Za-z0-9_-]+\.json$/.test(file)) idSet.add(file.slice(0, -5));
+    else if (/^sess_[A-Za-z0-9_-]+\.interventions\.ndjson$/.test(file)) idSet.add(file.slice(0, -'.interventions.ndjson'.length));
+  }
+  const ids = [...idSet].sort();
+  const sources = {};
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(16, Math.max(1, ids.length)) }, async () => {
+    while (cursor < ids.length) {
+      const sid = ids[cursor++];
+      sources[sid] = await pretenderSessionSourceStamp(sid);
+    }
+  });
+  await Promise.all(workers);
+  return sources;
+}
+
+async function pretenderUsageSourceStamp() {
+  let files = [];
+  try { files = (await fsp.readdir(paths.usage)).filter(f => /^\d{4}-\d{2}\.jsonl$/.test(f)).sort(); } catch { files = []; }
+  const parts = [];
+  for (const file of files) parts.push(file + ':' + await pretenderFileStamp(path.join(paths.usage, file)));
+  return pretenderHash(parts.join('|'));
+}
+
+function emptyMissionUsage() {
+  return { inTok: 0, outTok: 0, turns: 0, subagentTurns: 0, costsByCurrency: {} };
+}
+
+function addMissionUsageRow(usage, row) {
+  usage.inTok += Number(row && row.inTok) || 0;
+  usage.outTok += Number(row && row.outTok) || 0;
+  usage.turns += 1;
+  if (row && row.kind === 'subagent') usage.subagentTurns += 1;
+  const cost = Number(row && row.cost);
+  const currency = row && typeof row.currency === 'string' ? row.currency : '';
+  if (row && row.costTrusted !== false && currency && Number.isFinite(cost)) {
+    usage.costsByCurrency[currency] = (usage.costsByCurrency[currency] || 0) + cost;
+  }
+}
+
+function finishMissionUsage(usage) {
+  for (const key of Object.keys(usage.costsByCurrency)) usage.costsByCurrency[key] = Math.round(usage.costsByCurrency[key] * 1e6) / 1e6;
+  return usage;
+}
+
+async function buildMissionUsageMap() {
+  const map = new Map();
+  const rows = await readUsageRows(0).catch(() => []);
+  for (const row of rows) {
+    const sid = String(row && row.sessionId || '');
+    if (!sid) continue;
+    let usage = map.get(sid);
+    if (!usage) map.set(sid, usage = emptyMissionUsage());
+    addMissionUsageRow(usage, row);
+  }
+  for (const usage of map.values()) finishMissionUsage(usage);
+  return map;
+}
+
+async function buildPretenderSessionSlice(sessionId, sourceStamp, usage) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return null;
+  const head = safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8').catch(() => ''), null);
+  let ivMeta = await readInterventionsWithMeta(sid);
+  if ((!head || !head.id) && ivMeta.bytes === 0) return null;
+  // External/legacy journals also get bounded maintenance on a rebuild. Never compact degraded authority.
+  if (!ivMeta.degraded && ivMeta.bytes >= 65536 && ivMeta.rowCount > Math.max(256, ivMeta.interventions.length * 3)) {
+    await compactInterventionJournal(sid).catch(() => {});
+    ivMeta = await readInterventionsWithMeta(sid);
+    sourceStamp = await pretenderSessionSourceStamp(sid);
+  }
+  const kind = head && head.id ? sessionKind(head) : 'orphan';
+  const runs = kind === 'mission' ? await listAgentRuns(sid).catch(() => []) : [];
+  const card = kind === 'mission'
+    ? await buildMissionCard(head, runs, { interventions: ivMeta.interventions, persistent: true })
+    : null;
+  const missionId = (head && sessionMissionId(head)) || sid;
+  const usageFact = usage || emptyMissionUsage();
+  const changeSeq = Math.max(0, Number(head && head.mission && head.mission.changeSeq) || 0);
+  const cardRevision = pretenderHash({ missionId, changeSeq, card });
+  const missionRevision = pretenderHash({ cardRevision, usage: usageFact });
+  // Health is part of the semantic projection, but physical row/byte counts are not (compaction must keep
+  // revision stable). A newly corrupt authority line therefore invalidates ETags even when valid facts match.
+  const interventionRevision = pretenderHash({ interventions: ivMeta.interventions, degraded: ivMeta.degraded, corruptLines: ivMeta.corruptLines });
+  return {
+    sessionId: sid,
+    missionId,
+    kind,
+    changeSeq,
+    sourceStamp,
+    indexedAt: nowIso(),
+    card,
+    usage: usageFact,
+    interventions: ivMeta.interventions,
+    integrity: { degraded: ivMeta.degraded, corruptLines: ivMeta.corruptLines, journalRows: ivMeta.rowCount, journalBytes: ivMeta.bytes },
+    cardRevision,
+    missionRevision,
+    interventionRevision,
+    revision: pretenderHash([missionRevision, interventionRevision]),
+  };
+}
+
+function validatePretenderIndex(value) {
+  if (!value || value.schemaVersion !== PRETENDER_INDEX_SCHEMA || !Array.isArray(value.sessions)) return false;
+  if (!value.sources || typeof value.sources !== 'object' || typeof value.usageStamp !== 'string') return false;
+  return value.sessions.every(row => row && typeof row.sessionId === 'string' && typeof row.revision === 'string');
+}
+
+async function readPretenderIndexDisk() {
+  try {
+    const value = safeJsonParse(await fsp.readFile(pretenderIndexPath(), 'utf8'), null);
+    return validatePretenderIndex(value) ? value : null;
+  } catch { return null; }
+}
+
+function sameSourceMap(a, b) {
+  const ak = Object.keys(a || {}).sort(), bk = Object.keys(b || {}).sort();
+  return ak.length === bk.length && ak.every((key, i) => key === bk[i] && a[key] === b[key]);
+}
+
+function finalizePretenderIndex(sessions, sources, usageStamp, buildReason) {
+  sessions.sort((a, b) => String(a.sessionId).localeCompare(String(b.sessionId)));
+  const missionRows = sessions.filter(row => row.card);
+  const missionsRevision = pretenderHash(missionRows.map(row => [row.missionId, row.cardRevision || row.missionRevision]));
+  const interventionsRevision = pretenderHash(sessions.map(row => [row.sessionId, row.interventionRevision]));
+  const revision = pretenderHash([missionsRevision, interventionsRevision]);
+  const degradedSessions = sessions.filter(row => row.integrity && row.integrity.degraded).map(row => row.sessionId);
+  const value = {
+    schemaVersion: PRETENDER_INDEX_SCHEMA,
+    revision,
+    missionsRevision,
+    interventionsRevision,
+    builtAt: nowIso(),
+    buildReason,
+    sources,
+    usageStamp,
+    sessions,
+    degraded: { active: degradedSessions.length > 0, sessions: degradedSessions },
+  };
+  value.estimatedBytes = Buffer.byteLength(JSON.stringify(value), 'utf8');
+  return value;
+}
+
+async function persistPretenderIndex(value) {
+  const file = pretenderIndexPath();
+  try {
+    await fsp.mkdir(path.dirname(file), { recursive: true });
+    await atomicWriteJson(file, value);
+    pretenderIndexRuntime.diskStamp = await pretenderFileStamp(file);
+    pretenderIndexRuntime.persisted = true;
+  } catch {
+    // Cache write failure never compromises authority or blocks reads. Keep the current in-memory projection.
+    pretenderIndexRuntime.diskStamp = await pretenderFileStamp(file);
+    pretenderIndexRuntime.persisted = false;
+  }
+}
+
+async function rebuildPretenderIndexFull(reason, knownSources) {
+  const sources = knownSources || await scanPretenderSessionSources();
+  const usageMap = await buildMissionUsageMap();
+  let ids = Object.keys(sources).sort(), cursor = 0;
+  const sessions = [];
+  const workers = Array.from({ length: Math.min(12, Math.max(1, ids.length)) }, async () => {
+    while (cursor < ids.length) {
+      const sid = ids[cursor++];
+      const slice = await buildPretenderSessionSlice(sid, sources[sid], usageMap.get(sid));
+      if (slice) { sources[sid] = slice.sourceStamp; sessions.push(slice); }
+    }
+  });
+  await Promise.all(workers);
+  return finalizePretenderIndex(sessions, sources, await pretenderUsageSourceStamp(), reason);
+}
+
+async function refreshPretenderIndexSlices(base, dirtyIds, usageIds, reason) {
+  const sources = { ...(base.sources || {}) };
+  const rows = new Map(base.sessions.map(row => [row.sessionId, row]));
+  const usageMap = usageIds.size ? await buildMissionUsageMap() : null;
+  for (const sid of dirtyIds) {
+    const stamp = await pretenderSessionSourceStamp(sid);
+    if (!fs.existsSync(sessionPath(sid)) && !fs.existsSync(interventionFilePath(sid))) { delete sources[sid]; rows.delete(sid); continue; }
+    sources[sid] = stamp;
+    const previous = rows.get(sid);
+    const usage = usageIds.has(sid) ? usageMap.get(sid) : (previous && previous.usage);
+    const slice = await buildPretenderSessionSlice(sid, stamp, usage);
+    if (slice) { sources[sid] = slice.sourceStamp; rows.set(sid, slice); } else { delete sources[sid]; rows.delete(sid); }
+  }
+  const usageStamp = usageIds.size ? await pretenderUsageSourceStamp() : base.usageStamp;
+  return finalizePretenderIndex([...rows.values()], sources, usageStamp, reason);
+}
+
+async function buildOrLoadPretenderIndex() {
+  const indexFile = pretenderIndexPath();
+  const currentDiskStamp = await pretenderFileStamp(indexFile);
+  if (pretenderIndexRuntime.value && pretenderIndexRuntime.persisted && currentDiskStamp !== pretenderIndexRuntime.diskStamp) {
+    // User deleted/replaced/corrupted the cache while the process was live: discard memory and prove rebuild.
+    pretenderIndexRuntime.value = null;
+  }
+
+  let value = pretenderIndexRuntime.value;
+  if (!value) {
+    const disk = await readPretenderIndexDisk();
+    const sources = await scanPretenderSessionSources();
+    const usageStamp = await pretenderUsageSourceStamp();
+    if (!disk) {
+      value = await rebuildPretenderIndexFull(currentDiskStamp === '-' ? 'missing_index' : 'corrupt_index', sources);
+    } else if (disk.usageStamp !== usageStamp) {
+      value = await rebuildPretenderIndexFull('usage_source_changed', sources);
+    } else if (!sameSourceMap(disk.sources, sources)) {
+      const ids = new Set([...Object.keys(disk.sources || {}), ...Object.keys(sources)]);
+      const changed = new Set([...ids].filter(id => disk.sources[id] !== sources[id]));
+      value = await refreshPretenderIndexSlices(disk, changed, new Set(), 'source_changed');
+    } else {
+      value = disk;
+      pretenderIndexRuntime.diskStamp = currentDiskStamp;
+      pretenderIndexRuntime.persisted = true;
+    }
+  }
+
+  const forceFull = pretenderIndexRuntime.fullDirty;
+  pretenderIndexRuntime.fullDirty = false;
+  const dirtyIds = new Set(pretenderIndexRuntime.dirtySessions);
+  const usageIds = new Set(pretenderIndexRuntime.usageDirty);
+  pretenderIndexRuntime.dirtySessions.clear();
+  pretenderIndexRuntime.usageDirty.clear();
+  if (forceFull) value = await rebuildPretenderIndexFull('explicit_rebuild');
+  else if (dirtyIds.size) value = await refreshPretenderIndexSlices(value, dirtyIds, usageIds, usageIds.size ? 'usage_dirty' : 'source_dirty');
+
+  if (value !== pretenderIndexRuntime.value || !pretenderIndexRuntime.persisted) await persistPretenderIndex(value);
+  pretenderIndexRuntime.value = value;
+  return value;
+}
+
+async function getPretenderProjectionIndex() {
+  if (pretenderIndexRuntime.building) return pretenderIndexRuntime.building;
+  const current = buildOrLoadPretenderIndex();
+  pretenderIndexRuntime.building = current;
+  try { return await current; }
+  finally { if (pretenderIndexRuntime.building === current) pretenderIndexRuntime.building = null; }
+}
+
+function encodePretenderCursor(kind, revision, offset, limit) {
+  return Buffer.from(JSON.stringify({ v: 1, k: kind, r: revision, o: offset, l: limit }), 'utf8').toString('base64url');
+}
+
+function decodePretenderCursor(raw) {
+  try {
+    const value = JSON.parse(Buffer.from(String(raw || ''), 'base64url').toString('utf8'));
+    if (!value || value.v !== 1 || typeof value.k !== 'string' || typeof value.r !== 'string' || !Number.isInteger(value.o) || value.o < 0) return null;
+    return value;
+  } catch { return null; }
+}
+
+function paginatePretenderProjection(req, kind, revision, items) {
+  const query = new URL(req.url, 'http://127.0.0.1').searchParams;
+  const requestedLimit = Number(query.get('limit'));
+  let limit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.floor(requestedLimit) : PRETENDER_PAGE_DEFAULT;
+  limit = Math.max(1, Math.min(PRETENDER_PAGE_MAX, limit));
+  let offset = 0;
+  const rawCursor = query.get('cursor');
+  if (rawCursor) {
+    const cursor = decodePretenderCursor(rawCursor);
+    if (!cursor || cursor.k !== kind) return { response: apiFailure('projection.invalid_cursor', { kind }, 'invalid pagination cursor', 400) };
+    if (cursor.r !== revision) {
+      return { response: apiFailure('projection.snapshot_changed', { cursorRevision: cursor.r, projectionRevision: revision, restartCursor: null }, 'projection changed; restart pagination', 409) };
+    }
+    offset = cursor.o;
+    if (!query.has('limit') && Number.isInteger(cursor.l)) limit = Math.max(1, Math.min(PRETENDER_PAGE_MAX, cursor.l));
+  }
+  const pageItems = items.slice(offset, offset + limit);
+  const nextOffset = offset + pageItems.length;
+  const nextCursor = nextOffset < items.length ? encodePretenderCursor(kind, revision, nextOffset, limit) : null;
+  return {
+    items: pageItems,
+    page: { limit, offset, count: pageItems.length, total: items.length, nextCursor, projectionRevision: revision },
+  };
+}
+
+function pretenderEtag(kind, revision, page) {
+  const suffix = page ? `-${page.offset}-${page.limit}` : '';
+  return `W/\"${kind}-${revision}${suffix}\"`;
+}
+
+// ETag includes volatile overlay state, while pagination cursors deliberately carry only the persistent
+// projection revision. A run/turn heartbeat therefore refreshes conditional reads without invalidating pages.
+function pretenderLiveOverlayRevision(sessionId = '') {
+  const sid = String(sessionId || '');
+  const rows = [];
+  for (const [id] of activeChildren) if (!sid || id === sid) rows.push(['turn', id]);
+  for (const runtime of activeAgentRuns.values()) {
+    const run = runtime && runtime.run;
+    if (!run || (sid && run.sessionId !== sid)) continue;
+    rows.push(['run', run.sessionId, run.id, run.status, Number(run.eventSeq) || 0, run.updatedAt || '', Boolean(runtime.paused)]);
+  }
+  rows.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return pretenderHash(rows);
+}
+
+function pretenderNotModified(req, etag) {
+  return String(req.headers['if-none-match'] || '').split(',').map(v => v.trim()).includes(etag);
+}
+
+function pretenderIndexMeta(index) {
+  return {
+    projectionRevision: index.revision,
+    builtAt: index.builtAt,
+    estimatedBytes: index.estimatedBytes,
+    persisted: pretenderIndexRuntime.persisted,
+    degraded: index.degraded,
+  };
+}
+
+function overlayMissionCard(slice) {
+  const card = slice && slice.card;
+  if (!card) return null;
+  const liveRuns = [];
+  for (const runtime of activeAgentRuns.values()) if (runtime && runtime.run && runtime.run.sessionId === slice.sessionId) liveRuns.push(runtime.run);
+  liveRuns.sort((a, b) => String(a.updatedAt || '').localeCompare(String(b.updatedAt || '')));
+  const latestLive = liveRuns.length ? liveRuns[liveRuns.length - 1] : null;
+  const activeTurn = activeChildren.has(slice.sessionId);
+  return {
+    ...card,
+    activeTurn,
+    runCount: Math.max(Number(card.runCount) || 0, liveRuns.length),
+    lastRun: latestLive ? missionRunDigest(latestLive, true) : card.lastRun,
+    freshness: {
+      persistentRevision: slice.cardRevision || slice.missionRevision,
+      indexedAt: slice.indexedAt,
+      liveOverlay: activeTurn || liveRuns.length > 0,
+      overlayAt: nowIso(),
+    },
+  };
 }
 
 async function main() {
@@ -22019,6 +23074,11 @@ module.exports = {
   saveSession,
   deleteSession,
   listSessions,
+  // 第75c波:可重建 Mission/Intervention 索引与无损 journal 压缩原语。
+  getPretenderProjectionIndex,
+  pretenderIndexPath,
+  compactInterventionJournal,
+  readInterventionsWithMeta,
   sessionBodyPaths,
   recordEngineTranscript,
   claudeProjectsRoot,

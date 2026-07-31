@@ -1464,6 +1464,9 @@ const ROUTE_AUTH = [
   // 第70波(EC-E):/api/missions 聚合只读投影 —— 内容型 GET,与 /api/sessions 同门(token-browser)。
   { m: 'GET', p: '/api/missions', auth: 'token-browser' },
   { m: 'GET', p: '/api/missions/', auth: 'token-browser', prefix: true },
+  // 第75b波:统一跨会话决策契约。批准/物化可触发高风险动作,始终要求 header token;
+  // handler 再校验 missionId/interventionId 归属与 expectedVersion CAS。
+  { m: 'POST', p: '/api/missions/', auth: 'token', prefix: true },
   // 第71波(EC-E):/api/interventions/:sessionId 只读派生 -- 内容型 GET,同 /api/missions 门(token-browser)。
   { m: 'GET', p: '/api/interventions/', auth: 'token-browser', prefix: true },
   // 第56波(Pretender 立项门):/api/interventions 全局「需要你」聚合 -- 内容型 GET,同门(token-browser)。
@@ -1549,6 +1552,7 @@ const ROUTE_AUTH = [
   // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
   // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
   { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },
+  { m: 'POST', p: '/api/_test/pretender-maintenance', auth: 'token' },
 ];
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;
