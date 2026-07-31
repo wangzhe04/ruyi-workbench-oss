@@ -40,6 +40,38 @@ function interventionFilePath(sessionId) {
 // per-session 写链:串行化同会话的 append,防两条 line 交错(注册在流式期、决策在用户点击,可能并发)。
 // 独立于 sessionWriteChains(saveSession 的链),互不影响;链错误吞掉(下一写自愈)。
 const interventionWriteChains = new Map();
+// 75a (Pretender P1): in-memory cache of the last COMPLETE Intervention record per (sessionId, ivId).
+// Populated by registerIntervention; refreshed by settleIntervention. Lets settleIntervention write a
+// complete state row (preserving type/requestedAt/toolName/questions from the register row) without a
+// disk read. On cache miss (e.g. a pool proposal settled after a process restart where the register
+// happened last lifecycle), settle writes what it has and readInterventions' merge-fold still preserves
+// the register row's fields from disk. The cache is a VIEW of the journal (journal stays authoritative
+// on disk); it is empty on boot and re-populated as interventions register in this lifecycle.
+const interventionRecordCache = new Map();
+function ivCacheKey(sid, ivId) { return String(sid) + '\x00' + String(ivId); }
+// 75a: before appending, ensure the NDJSON file ends with '\n'. A torn tail (a previous append crashed
+// mid-write, leaving bytes with no terminating '\n') would otherwise weld the new line into the partial
+// tail, silently losing both records. Same discipline as readSessionBodyFile for messages.ndjson.
+// Reads only the last 64KB tail (intervention records are small JSON; a single valid record >64KB is
+// impossible for this schema), so cost is constant per append regardless of file size.
+async function repairInterventionTornTail(file) {
+  let st;
+  try { st = await fsp.stat(file); } catch { return; } // file does not exist yet -> nothing to repair
+  if (!st.size) return;
+  const TAIL = 65536;
+  const start = Math.max(0, st.size - TAIL);
+  let fd = null;
+  try {
+    fd = await fsp.open(file, 'r');
+    const len = st.size - start;
+    const buf = Buffer.allocUnsafe(len);
+    await fd.read(buf, 0, len, start);
+    if (len > 0 && buf[len - 1] === 0x0a) return; // ends with '\n' -> clean tail
+    const lastNl = buf.lastIndexOf(0x0a); // drop everything after the last '\n' (the torn tail)
+    await fsp.truncate(file, lastNl === -1 ? start : (start + lastNl + 1));
+  } catch { /* best-effort repair; a failed repair leaves the torn tail for the next append to retry */ }
+  finally { if (fd) { try { await fd.close(); } catch {} } }
+}
 // 追加一条 Intervention 记录(append-only,整行+\n)。fire-and-forget:落盘失败不阻断执行(内存 Map 是执行权威源)。
 function appendIntervention(sessionId, record) {
   const sid = String(sessionId || '');
@@ -47,24 +79,36 @@ function appendIntervention(sessionId, record) {
   const line = JSON.stringify(record) + '\n';
   const file = interventionFilePath(sid);
   const prev = interventionWriteChains.get(sid) || Promise.resolve();
-  const next = prev.catch(() => {}).then(() => fsp.appendFile(file, line, 'utf8').catch(() => { /* 丢一条读模型记录,不阻断执行 */ }));
+  const next = prev.catch(() => {}).then(async () => {
+    await repairInterventionTornTail(file); // 75a: truncate torn tail before append (prevent weld)
+    await fsp.appendFile(file, line, 'utf8').catch(() => {}); // fire-and-forget: dropped audit row does not block execution
+  }).catch(() => {});
   interventionWriteChains.set(sid, next);
   next.then(() => { if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid); });
 }
 // 注册一个 pending Intervention。type: 'permission'|'question'|'plan'|'pool'(71b)。ivId 复用 requestId/questionId/planId/poolId(执行权威源的同一 id)。
 function registerIntervention(sessionId, type, ivId, extra) {
-  appendIntervention(sessionId, { id: String(ivId || ''), type, sessionId: String(sessionId || ''), status: 'pending', requestedAt: nowIso(), decidedAt: '', decidedBy: '', ...(extra || {}) });
+  const sid = String(sessionId || ''), id = String(ivId || '');
+  const rec = { id, type, sessionId: sid, status: 'pending', requestedAt: nowIso(), decidedAt: '', decidedBy: '', interventionVersion: 0, ...(extra || {}) };
+  interventionRecordCache.set(ivCacheKey(sid, id), rec); // 75a: cache complete record for settle's complete-state merge
+  appendIntervention(sessionId, rec);
 }
 // 结算一个 Intervention(append 一条终态记录,后写胜)。status: allowed/denied/answered/cancelled/approved/rejected/cancelled_restart。
 // 重复结算(竞态)会 append 多条,读时后写胜折叠取最后一条 -- 状态仍可区分,不致命。
 function settleIntervention(sessionId, ivId, status, extra) {
-  appendIntervention(sessionId, { id: String(ivId || ''), sessionId: String(sessionId || ''), status, decidedAt: nowIso(), decidedBy: '', ...(extra || {}) });
+  const sid = String(sessionId || ''), id = String(ivId || '');
+  const cached = interventionRecordCache.get(ivCacheKey(sid, id)); // 75a: complete-state merge (preserve type/requestedAt/toolName/...)
+  const prevVer = (cached && Number.isFinite(Number(cached.interventionVersion))) ? Number(cached.interventionVersion) : 0;
+  const rec = { ...(cached || {}), id, sessionId: sid, status, decidedAt: nowIso(), decidedBy: '', interventionVersion: prevVer + 1, ...(extra || {}) };
+  interventionRecordCache.set(ivCacheKey(sid, id), rec);
+  appendIntervention(sessionId, rec);
 }
 // 读一个会话的全部 Intervention,按 id 后写胜折叠。返回 Intervention[](按 requestedAt 稳定排序)。
 async function readInterventions(sessionId) {
   let txt;
   try { txt = await fsp.readFile(interventionFilePath(String(sessionId || '')), 'utf8'); } catch { return []; }
   const byId = new Map();
+  const rowCount = new Map(); // 75a: id -> journal row count (authoritative interventionVersion = rows - 1)
   const lines = txt.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -72,9 +116,17 @@ async function readInterventions(sessionId) {
     let rec;
     try { rec = JSON.parse(line); } catch { continue; } // 撕裂尾行/坏行跳过(append-only,不致命)
     if (!rec || !rec.id) continue;
-    byId.set(String(rec.id), rec); // 后写胜:同 ivId 的后一条覆盖前一条
+    const idKey = String(rec.id);
+    rowCount.set(idKey, (rowCount.get(idKey) || 0) + 1);
+    const prev = byId.get(idKey);
+    byId.set(idKey, prev ? { ...prev, ...rec } : rec); // 75a: merge-fold (prior fields preserved, rec wins) -- fixes settle overwriting register
   }
   const out = Array.from(byId.values());
+  for (const rec of out) {
+    // 75a: authoritative version = rows - 1 (every transition appends one row); robust to cache misses.
+    const cnt = rowCount.get(String(rec.id)) || 1;
+    rec.interventionVersion = Math.max(cnt - 1, Number(rec.interventionVersion) || 0);
+  }
   out.sort((a, b) => String(a.requestedAt || '').localeCompare(String(b.requestedAt || '')));
   return out;
 }
@@ -105,7 +157,7 @@ async function markInterruptedInterventions() {
         const run = poolRuns.find(r => r && r.id === iv.runId);
         if (run && run.status === 'paused') continue; // 恢复后可决策,保留 pending
       }
-      appendIntervention(sessionId, { id: iv.id, sessionId, type: iv.type || '', status: 'cancelled_restart', decidedAt: stamp, decidedBy: 'restart' });
+      appendIntervention(sessionId, { ...iv, id: iv.id, sessionId, type: iv.type || '', status: 'cancelled_restart', decidedAt: stamp, decidedBy: 'restart', interventionVersion: (Number(iv.interventionVersion) || 0) + 1 }); // 75a: complete row (preserve type/requestedAt/toolName) + version bump
     }
   }
 }
@@ -201,11 +253,26 @@ function sessionKind(o) {
   return (o && o.mission) ? 'mission' : 'quick_ask';
 }
 
+// 75a (Pretender P1, D1 plan B): Mission stable identity primary key `missionId`.
+// In 3.0 missionId === sessionId (written explicitly for new sessions at createSession).
+// Legacy (pre-75a) session heads lack this key -> read-only derive at projection/response time,
+// NEVER writeback to disk (same discipline as `kind`: do NOT set it in normalizeSession, or the
+// next saveSession would persist it = destructive batch rewrite). 3.1's 1:N multi-session is the
+// first place missionId may diverge from sessionId; 3.0 only guarantees existing identity needs
+// no remapping (S5). Consumers (sessionMeta / buildMissionCard / interventions list) call this.
+function sessionMissionId(o) {
+  const m = o && o.missionId;
+  if (typeof m === 'string' && m) return m;
+  const id = o && o.id;
+  return (typeof id === 'string' && id) ? id : '';
+}
+
 // The 7 sidebar fields. Accepts a full session (has .messages) OR an index entry (has .messageCount), so the
 // same shaper builds index entries and normalizes them on read.
 function sessionMeta(o) {
   return {
     id: o.id,
+    missionId: sessionMissionId(o), // 75a: stable Mission identity (== sessionId in 3.0; read-only derive for legacy)
     title: o.title,
     summary: o.summary || '',
     cwd: o.cwd,
@@ -1455,6 +1522,7 @@ async function createSession({ title, cwd }) {
     providerHistoryCursor: 0,
     attachments: [],
     mission: null, // 第26波b: 任务账本(见 normalizeMission)
+    missionId: id, // 75a (D1 plan B): stable Mission identity, written for new sessions (== sessionId in 3.0)
     kind: 'quick_ask', // 第70波(EC-E):显式 Quick Ask 标识;mission start 时翻转 'mission'(见 13-http-router /api/mission)
   };
   await saveSession(session);

@@ -127,6 +127,16 @@ function spawnWb() {
     ok(turn.answerResp?.status === 200 && turn.answerResp?.json?.delivered === true, '(a) answer 端点确认 deliver');
     ok(turn.events.some(e => e.type === 'question_answer' && e.ok === true), '(a) question_answer 事件发出');
     const answered = await waitForIv(turn.sid, turn.questionId, 'answered', 3000);
+    // ============ (f/g) 75a: settle 保留完整状态 + interventionVersion 单调 ============
+    // 75a 前:settle 写部分行 {id,status,decidedAt,...} 后写胜覆盖 register -> type/requestedAt 丢失。
+    // 75a 后:settleIntervention 经缓存合并写完整状态行;readInterventions merge-fold 双保险。
+    ok(!!answered && answered.type === 'question', '(f) settle 保留 type(完整状态行,不丢字段)');
+    ok(!!answered && typeof answered.requestedAt === 'string' && answered.requestedAt.length > 0, '(f) settle 保留 requestedAt');
+    ok(!!answered && Number(answered.interventionVersion) === 1, '(g) interventionVersion 单调(register=0 -> settle=1)');
+    // API 侧 readInterventions merge-fold 同样保留 type(端到端):
+    const ivApi = await requestJson(WB_PORT, '/api/interventions/' + turn.sid, null, token);
+    const ivApiRow = ivApi.json?.interventions?.find(x => x && x.id === turn.questionId);
+    ok(!!ivApiRow && ivApiRow.type === 'question' && Number(ivApiRow.interventionVersion) === 1, '(f/g) API /api/interventions/:sid 返回完整 type+version(merge-fold)');
     ok(!!answered && answered.status === 'answered' && answered.decidedBy === 'user', '(a) 决策同步:settle answered(decidedBy=user,后写胜折叠)');
 
     // ============ (b) 重复决策不重复执行 ============
@@ -165,6 +175,55 @@ function spawnWb() {
     ok(withToken.json.counts?.resolved >= 2, '(d) counts.resolved>=2(answered + cancelled_restart)');
     const ndjsonAfter = fs.readFileSync(ivFile(sidC), 'utf8');
     ok(ndjsonBefore === ndjsonAfter, '(d) 只读派生不回写磁盘(读前后 NDJSON 一致)');
+
+    // ============ (h) 75a: 撕裂尾行 append 前物理截断 ============
+    // 写「有效 pending 行 + 撕裂尾行(无 \n)」-> 重启 -> boot markInterruptedInterventions 为 pending append
+    // cancelled_restart 时,appendIntervention 先 repairInterventionTornTail 截断撕裂尾再 append。
+    // 断言:撕裂尾(torn_line_xyz)被截断不在文件;新 append 干净;文件以 \n 结尾。
+    {
+      const sidH = sidC, isoH = new Date().toISOString();
+      const validPending = JSON.stringify({ id: 'torn_perm_1', type: 'permission', sessionId: sidH, status: 'pending', requestedAt: isoH, decidedAt: '', decidedBy: '', interventionVersion: 0 }) + '\n';
+      const tornTail = '{"id":"torn_line_xyz","type":"question","sessionId":"' + sidH + '","status":"pending","requestedAt":"' + isoH + '"'; // 无闭合 } 无 \n = 撕裂尾
+      fs.appendFileSync(ivFile(sidH), validPending + tornTail, 'utf8');
+      const rawBefore = fs.readFileSync(ivFile(sidH), 'utf8');
+      ok(rawBefore.includes('torn_line_xyz') && !rawBefore.endsWith('\n'), '(h) 准备:写入撕裂尾行(无 \\n)');
+      kill(wb); await sleep(400);
+      wb = spawnWb(); wb.stderr.on('data', d => String(d).trim() && console.error('[wb3!] ' + String(d).trim()));
+      ok(await waitHealth(WB_PORT), '(h) workbench 重启 up');
+      token = readToken();
+      const tornAfter = await waitForIv(sidH, 'torn_perm_1', 'cancelled_restart', 3000);
+      ok(!!tornAfter && tornAfter.status === 'cancelled_restart', '(h) boot 为 torn_perm_1 append cancelled_restart(触发 repair)');
+      const rawAfter = fs.readFileSync(ivFile(sidH), 'utf8');
+      ok(!rawAfter.includes('torn_line_xyz'), '(h) 撕裂尾行被物理截断(torn_line_xyz 不在文件,未焊进坏行)');
+      ok(rawAfter.endsWith('\n'), '(h) append 后文件以 \\n 结尾(干净)');
+    }
+
+    // ============ (i) 75a: missionId 派生(方案 B) + 存量不回写 ============
+    // (i1) 新会话:GET /api/missions 卡片带 missionId === sessionId;(i2) 头文件写入 missionId。
+    // (i3) 剥掉头文件 missionId(模拟第75a波前存量)-> POST /api/mission start 触发 loadSession+saveSession
+    //      -> 头文件仍无 missionId(不回写);(i4) GET /api/missions 仍返回 missionId(只读派生)。
+    {
+      const sidI = turn.sid;
+      const headPath = path.join(HOME, 'sessions', sidI + '.json');
+      const head1 = JSON.parse(fs.readFileSync(headPath, 'utf8'));
+      ok(head1.missionId === sidI, '(i2) 新会话头文件写入 missionId(createSession)');
+      // quick_ask 不入 /api/missions 列表(无 mission = 'none' 不入列表),先 start 立单再测卡片
+      const msStart = await requestJson(WB_PORT, '/api/mission', { sessionId: sidI, action: 'start', mission: { goal: 'missionId test' } }, token);
+      ok(msStart.status === 200 && msStart.json?.ok === true, '(i0) POST /api/mission start 立单(quick_ask -> mission)');
+      const mr1 = await requestJson(WB_PORT, '/api/missions', null, token);
+      const card1 = (mr1.json?.missions || []).find(m => m && (m.sessionId === sidI || m.missionId === sidI));
+      ok(!!card1 && card1.missionId === sidI, '(i1) GET /api/missions 卡片 missionId === sessionId');
+      delete head1.missionId; // 模拟第75a波前存量会话(头文件无 missionId)
+      fs.writeFileSync(headPath, JSON.stringify(head1), 'utf8');
+      const ms = await requestJson(WB_PORT, '/api/mission', { sessionId: sidI, action: 'start', mission: { goal: 'no-writeback test' } }, token);
+      ok(ms.status === 200 && ms.json?.ok === true, '(i3) POST /api/mission start 触发 loadSession+saveSession');
+      const head2 = JSON.parse(fs.readFileSync(headPath, 'utf8'));
+      ok(head2.missionId === undefined, '(i3) 存量 missionId 不回写磁盘(saveSession 后头文件仍无 missionId)');
+      const mr2 = await requestJson(WB_PORT, '/api/missions', null, token);
+      const card2 = (mr2.json?.missions || []).find(m => m && (m.sessionId === sidI || m.missionId === sidI));
+      ok(!!card2 && card2.missionId === sidI, '(i4) 剥掉后 GET /api/missions 仍返回 missionId(只读派生 sessionMissionId)');
+    }
+
 
     // ============ (e) 静态锁 ============
     console.log('\n── [e] 静态锁 ──');

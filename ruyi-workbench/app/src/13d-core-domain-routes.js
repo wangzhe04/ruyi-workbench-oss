@@ -96,7 +96,7 @@ async function buildMissionCard(head, runs) {
   const m = head.mission;
   const ms = (m && Array.isArray(m.milestones)) ? m.milestones : [];
   return {
-    sessionId: head.id, title: head.title || '', cwd: head.cwd || '', kind: 'mission',
+    sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: 'mission',
     createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
     status: missionCardStatus(m),
     activeTurn: activeChildren.has(head.id), // 第56波:活回合标志(列表卡片五态派生用)
@@ -239,7 +239,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       for (const iv of ivs) {
         if (!iv || iv.status !== 'pending') continue;
         pending.push({
-          id: iv.id, type: iv.type || '', sessionId,
+          id: iv.id, type: iv.type || '', sessionId, missionId: sessionId, // 75a: external name (== sessionId in 3.0)
           requestedAt: iv.requestedAt || '',
           toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
           runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
@@ -273,7 +273,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
         else if (iv.type === 'pool') counts.pool++;
       } else counts.resolved++;
     }
-    return send(res, json({ ok: true, sessionId, interventions, counts }));
+    return send(res, json({ ok: true, sessionId, missionId: sessionId, interventions, counts })); // 75a: missionId external name
   }
   if (req.method === 'POST' && pathname === '/api/chat/answer') {
     // Settle exactly one live question. A stale/wrong-session answer is a conflict, never a fake success:

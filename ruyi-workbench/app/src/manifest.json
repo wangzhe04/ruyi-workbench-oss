@@ -17,103 +17,103 @@
     {
       "file": "02-session-store.js",
       "startLine": 1982,
-      "endLine": 3940,
+      "endLine": 4008,
       "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志"
     },
     {
       "file": "03-bridge-guard.js",
-      "startLine": 3941,
-      "endLine": 4634,
+      "startLine": 4009,
+      "endLine": 4702,
       "note": "桥接写族覆盖审计/工作区护栏"
     },
     {
       "file": "04-permission-runtime.js",
-      "startLine": 4635,
-      "endLine": 6421,
+      "startLine": 4703,
+      "endLine": 6489,
       "note": "视觉回路/pendingPermissions/plan 批准/原生权限请求"
     },
     {
       "file": "05-claude-engine.js",
-      "startLine": 6422,
-      "endLine": 7515,
+      "startLine": 6490,
+      "endLine": 7583,
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线"
     },
     {
       "file": "06-provider-engine.js",
-      "startLine": 7516,
-      "endLine": 8977,
+      "startLine": 7584,
+      "endLine": 9045,
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks"
     },
     {
       "file": "06b-prompt-registry.js",
-      "startLine": 8978,
-      "endLine": 9126,
+      "startLine": 9046,
+      "endLine": 9194,
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)"
     },
     {
       "file": "07-autonomy.js",
-      "startLine": 9127,
-      "endLine": 11163,
+      "startLine": 9195,
+      "endLine": 11231,
       "note": "授权书/工具 gate/资源归一化"
     },
     {
       "file": "08-agent-runs.js",
-      "startLine": 11164,
-      "endLine": 12868,
+      "startLine": 11232,
+      "endLine": 12936,
       "note": "run 事件日志/恢复分级/runSubAgentCore"
     },
     {
       "file": "09-workflow.js",
-      "startLine": 12869,
-      "endLine": 14899,
+      "startLine": 12937,
+      "endLine": 14967,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 14900,
-      "endLine": 15857,
+      "startLine": 14968,
+      "endLine": 15925,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 15858,
-      "endLine": 17555,
+      "startLine": 15926,
+      "endLine": 17623,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 17556,
-      "endLine": 18600,
+      "startLine": 17624,
+      "endLine": 18668,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 18601,
-      "endLine": 20594,
+      "startLine": 18669,
+      "endLine": 20662,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 20595,
-      "endLine": 20891,
+      "startLine": 20663,
+      "endLine": 20959,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 20892,
-      "endLine": 21080,
+      "startLine": 20960,
+      "endLine": 21148,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 21081,
-      "endLine": 21703,
+      "startLine": 21149,
+      "endLine": 21771,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "14-main.js",
-      "startLine": 21704,
-      "endLine": 21974,
+      "startLine": 21772,
+      "endLine": 22042,
       "note": "main()/module.exports"
     }
   ]
