@@ -839,6 +839,21 @@ async function startPreviewDispatchCommand({ kind = 'mission', prompt = '', cwd 
   return { sessionId: session.id, mission, completion };
 }
 
+// 第82波班组图的“递话”仍走 Agent Run 唯一 steer_node 动作。显式携带任务单 sessionId，避免
+// Preview 正在查看的 Mission 与经典壳当前会话不同时把消息投到错误工作圈；领域层只拿成功/失败结果。
+async function steerPreviewAgentNode({ sessionId = '', runId = '', nodeId = '', text = '' } = {}) {
+  try {
+    const response = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, action: 'steer_node', nodeId, text }),
+    });
+    if (!response || response.ok !== true) throw response || new Error(t('workflow.injectFailed'));
+    return { ok: true, immediate: response.live === true, queued: Number(response.queued) || 0 };
+  } catch (error) {
+    return { ok: false, error: apiErrText(error) || t('workflow.injectFailed') };
+  }
+}
+
 const {
   bindPreviewShell,
   handlePreviewStreamEvent,
@@ -855,6 +870,9 @@ const {
     switchSettingsTab(tab || 'basic', true);
   },
   closeSettings: () => closeModal('settingsModal'),
+  openWorkspaceControl: anchor => pickWorkspace(anchor),
+  openSafetyControl: anchor => openPermPopover(anchor),
+  openEngineControl: anchor => openModelChipPopover(anchor),
   dispatchCommand: request => startPreviewDispatchCommand(request),
   openSession: id => openSession(id),
   setClassicDraft: value => {
@@ -870,6 +888,7 @@ const {
     await refreshSessions();
     if (decision && state.currentSession?.id === decision.sessionId && !state.streaming) await openSession(decision.sessionId);
   },
+  steerAgentNode: request => steerPreviewAgentNode(request),
   apiErrText,
   pickWorkspace: () => pickWorkspaceNative(),
   playbookName: playbook => playbookDisplayName(playbook),

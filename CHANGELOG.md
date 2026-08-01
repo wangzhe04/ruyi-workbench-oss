@@ -7,6 +7,8 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### 中文
 
+- **可追溯现场纪要与可选本机提醒**：任务单新增现场纪要/班组工序/原始记录三镜头。现场纪要按 Mission 变化流水增量追加人话时间线，每句话可展开原始类型、时间、游标与事实；常态只维护 160 行 DOM，长历史可分批向前展开。设置中可显式开启默认关闭的“需要你”本机通知，支持免打扰、同事项去重、终态撤回、拒权/静默不补发和重启不补炸历史。
+- **多 Agent 班组工序图与正确的案头按钮**：新任务台会把队员、依赖工序、实时状态和最新进展放在同一张有界班组图中，工头摘要不额外调用模型；待审批的帮手提案以虚线鎏金工序出现，点击即定位到全局“需要你”，运行中的队员可原位递话并明确显示送达或排队。工作圈、安全档和引擎按钮现在分别打开工作区、安全模式和模型控制，只有设置按钮进入设置页。
 - **新任务台公开预览门通过**：设置中的布局切换只改变本机界面，不迁移任务或会话。投影载入失败时可直接重试或返回完整经典布局；损坏的预览偏好只会重置已读、置顶与归档位置。真实 Edge 在 300 个任务、200 张可见任务卡下通过首屏 <1.5s、视图切换 P95 <200ms 与长输出增量门，并完成 1440/768/390 三档走查。
 - **任务台全局待决闭环**：案头条与任务收活台的“需要你”现在打开同一个跨任务抽屉，可直接处理权限、问题、计划和帮手提案；允许/批准必须二次确认，问题默认不选答案，成功决定会同步关闭经典提示且不触发取消。停止任务会列出未完成项，并可在经典输入框准备未发送的再试/换法子草稿。
 - **任务回来摘要与档案**：Preview 任务单会按持久单调的 Mission 变更流水，确定性列出离开期间的进展、失败、用量、待决变化、结果、回退与运行删除；每条保留原始来源游标，不调用模型二次概括。已读位置、置顶与归档只存本机 UI-state，渲染失败或流水缺号不会误标已读。新增已收工/已停工档案，可搜索、筛选、置顶、归档，并按工作圈或状态分组。
@@ -17,6 +19,8 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### English
 
+- **Traceable worksite log and optional local alerts**: Task sheets add Worksite log, Crew stages, and Raw record lenses. The log incrementally folds the Mission change journal into a plain-language timeline; every sentence expands to its original type, time, cursor, and facts, while a normal 160-row DOM window keeps long histories responsive. An explicit, off-by-default Needs you notification setting adds quiet hours, per-item deduplication, terminal withdrawal, no replay after denial/quiet time, and no historical burst after restart.
+- **Multi-agent crew stage map and correctly routed desk controls**: The new task desk presents members, dependency stages, live status, and latest progress in one bounded crew map without calling another model for the foreman summary. Proposed helper work appears as a dotted gold stage that opens its exact Needs you decision, and a note can be passed directly to a running member with explicit delivered/queued feedback. Workspace, Safety, and Engine now open their respective controls; only Settings opens the full Settings page.
 - **New task desk public-preview gate passed**: The layout setting changes only this device's interface and never migrates tasks or chats. A projection failure now offers Retry and Return to classic layout; damaged preview preferences reset only read, pin, and archive positions. Real Edge passes the <1.5s first-interactive, <200ms view-switch P95, and incremental long-output gates with 300 tasks and 200 visible task cards, plus 1440/768/390 responsive walkthroughs.
 - **Global decisions in the task desk**: Needs you now opens one cross-task drawer for permissions, questions, plans, and helper proposals. Allow/Approve require a second confirmation, questions start with no selected answer, and successful decisions retire matching classic prompts without cancellation. Stopped tasks now explain unfinished work and can prepare an unsent retry/change-approach draft in the classic composer.
 - **Return summaries and task archive**: Preview task sheets now deterministically replay progress, failures, usage, intervention changes, results, rewinds, and run deletion from a persistent monotonic Mission change journal. Every row keeps its raw source cursor and no model is called for summarization. Read position, pinning, and archiving remain device-local; failed rendering or sequence gaps never mark changes as read. A completed/stopped task archive adds search, filters, pin/archive controls, and grouping by workspace or state.

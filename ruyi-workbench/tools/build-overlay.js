@@ -60,6 +60,9 @@ const PAYLOAD_FILES = [
   'app/public/js/workspace-preferences.js',
   // 第56波:任务单五态派生纯函数(Pretender P0;PoC 与将来新壳层共用,须随离线包发布)
   'app/public/js/mission-state.js',
+  // 第83波:现场纪要纯折算 + 本地通知状态策略(均为浏览器/Node 双导出)。
+  'app/public/js/preview-narrative.js',
+  'app/public/js/preview-notifications.js',
   // 第76波:默认关闭的新任务台 Preview 壳层（与经典 app-shell 同级，读同一 Mission API）。
   'app/public/js/preview-shell.js',
   'app/public/locales/zh-CN.json',

@@ -34,8 +34,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // responsive containment, and the verified celadon/glacier dual-theme redesign. Wave 79 adds the deterministic
 // return log and grouped archive ledger in that same isolated Preview layer. Wave 80 adds only recovery-action
 // spacing and narrow-rail containment to the owned Preview layer. Wave 81 adds the global Needs-you drawer,
-// in-place approval confirmation, typed-question, stopped-result, and 390px containment styles. Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = '24dec898138acc7a624eb473cb6b7a1ce3d0e746eae7e3742446fa54debed65e';
+// in-place approval confirmation, typed-question, stopped-result, and 390px containment styles. Wave 82 adds
+// the bounded crew-stage map, asymmetric member badges, inline note composer, and vertical narrow-screen flow.
+// Wave 83 adds the three-lens switch, append-only duty-log timeline, expandable evidence rows, responsive
+// teleprinter flow, and the shell-neutral local-notification settings block.
+// Re-pin the intentional payload.
+const LEGACY_STYLES_SHA256 = '9730b349502c185155b490fd683ed25df7ba4282e499746240442a6026f8b72c';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

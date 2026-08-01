@@ -103,9 +103,19 @@
 
 **撕裂尾行自愈(前移到 75a)**:会话正文文件发现撕裂尾行物理截断自愈(02:144);Intervention NDJSON 此前只在读时跳过坏行——崩溃留无 `\n` 终结尾行后,后续 append 会把新记录**焊进坏行**永久静默丢失。75a 起**先物理截断撕裂尾行再 append**(与正文同纪律);75a 前已在场的焊行记录按坏行跳过处理,不幻想找回。
 
-## 6. Run 摘要投影(13d:80 missionRunDigest,live 以内存为准)
+## 6. Run 摘要与班组图投影(13d missionRunDigest / missionRunGraph,live 以内存为准)
 
-`{id,status,eventSeq,createdAt,updatedAt,completedAt,nodeCount,poolPending,live,paused,resumeTier,totalTokens,costUsd}`。taskPool 提案项:`{id,status:'proposed'|...,proposedBy,task}`;池审批走 run action(13d:553,`!live → 409`)。
+标量摘要为 `{id,status,eventSeq,createdAt,updatedAt,completedAt,nodeCount,poolPending,live,paused,resumeTier,totalTokens,costUsd}`，继续用于 Mission 列表和详情中的全部 Run。
+
+第82波只在 Mission **详情**中为最近六个 Run 附加紧凑图字段：`nodes[] = {id,status,roleId,roleLabel,task,dependsOn,engine,model,progress,startedAt,completedAt,fromPool,proposedBy,deterministic,steerable,steerReason}`；`progress` 只取最新一条进展文本。`proposals[] = {id,status:'proposed',proposedBy,task,reason,roleId,dependsOn}`，来源是同一 Run 的 pending taskPool。投影禁止携带 `result`、`roleSnapshot`、`toolEvidence`、完整 `progressLog` 等大字段；更早 Run 只保留标量摘要，避免长历史拖慢任务单。
+
+图面层级、工头一句话与状态文案均由这些字段确定性折算，不落盘、不调用模型、不请求第二个 Agent Run 接口。池审批仍走 §7 统一 Intervention command；递话仍走既有 Run `steer_node` action，`steerable/steerReason` 与该 action 的送达资格同源。
+
+### 第83波叙事投影与本机通知
+
+`public/js/preview-narrative.js` 是浏览器/Node 双导出的纯折算层。输入仍是 §8 的 9 类原始 change record，输出只增加展示语义 `{id,seq,type,tone,actor,sentenceKey,occurredAt,cursor,detail}`；`cursor/detail` 保留为不可变浅拷贝，句子由本地 i18n 规则生成，不写回 journal、不调用模型。`appendNarrativeEntries(previous,delta)` 只折算未见 seq 并复用旧 entry identity。Preview 为每个已打开 Mission 保存有界内存 feed，以独立 cursor 请求 `changes?after=N`；正常轮询只向 `role=feed` 追加新行，常态 DOM 窗口为最近 160 条，用户动作可每次向前展开 160 条。gap/corrupt 继续显示 degraded，不伪装完整。
+
+本机通知设置只存 `localStorage['wcw.previewNeedsNotifications.v1'] = {version:1,enabled,quietStart,quietEnd}`，默认 `enabled=false`、免打扰 `22:00`（含）至 `08:00`（不含）；起止相同表示关闭免打扰。该偏好不是 Mission/Intervention 事实。浏览器 `Notification` 是 Windows/系统通知适配器：只有用户勾选时才请求权限；策略状态以 Intervention id 维护 `known/active`，初次成功读取只建基线，同 id 不重复，pending 消失即 `close()`，静默或拒权期间出现的事项记为已见且不延迟补发。页面/服务重启后的首读同样只建基线，因此不会补炸历史待决。经典布局只有在 flag 开启时才保留 `/api/interventions` 轻量轮询，默认仍无后台维护税。
 
 ## 7. 统一决策契约(S1+S2+T2 拍板,75b 波落码)
 
@@ -205,7 +215,8 @@
 | §3 结果快照定格/再武装 | `mission-result.e2e.js`(第72波,盖章/清章/幂等/commands NaN 回归) |
 | §4 turnSummary/不可逆账 | `mission-result.e2e.js`、`checkpoint.e2e.js`(revertible/journal)、`artifacts.e2e.js` |
 | §5 Intervention 现状(注册/决策/重启终态化/幂等) | `interventions-persist.e2e.js`(34 断言:注册落盘/重复决策 409/重启 cancelled_restart)、`interventions-pool.e2e.js`(71b:池提案注册/审批/paused 保留) |
-| §6 run 投影/池审批 409 | `interventions-pool.e2e.js`、`team-pool-mailbox.e2e.js`、`agent-deadlock-watchdog.e2e.js` |
+| §6 run/班组图投影、递话资格、池审批 409 | `pretender-crew-lens.static.e2e.js`、`pretender-crew-lens.e2e.js`、`agent-steer-node.e2e.js`、`interventions-pool.e2e.js`、`team-pool-mailbox.e2e.js`、`agent-deadlock-watchdog.e2e.js` |
+| §6 第83波叙事/通知 | `pretender-narrative-notifications.e2e.js`（9 类纯折算、增量 append、160 条窗口、权限拒绝、免打扰边界、同 id 去重、终态撤回、重启不补炸） |
 | §8 投影/五态/全局收件箱/cursor | `missions-readmodel.e2e.js`(41 断言)、`pretender-gate.e2e.js`(31 断言:收件箱/五态/四旅程) |
 | §5/§7〔v4 新增〕权威 journal/CAS/applying 崩溃恢复/changeSeq/单一 command core/混合路径 | **75a/75b 波新件红绿双证**(本文件即其断言基准;红跑 = 现状无 version CAS/权威 journal/applying 态即 FAIL;失败注入矩阵六窗口逐一断言) |
 | §8 changeSeq/lastSeenRevision | 75a 新件(changeSeq 推进/缺口 degraded)+ 79 波新件(摘要覆盖 100%/无误标已读) |

@@ -142,14 +142,31 @@ deleted, and you can switch back at any time.
   ending in `?` returns to the classic conversation without creating a task.
 - The task dock opens the raw message worksite plus Needs you, Results, and Ledger facts. Rollback actions still
   take you to the classic layout while that remains the authoritative control surface.
+- A task opens on the **Worksite log**, which turns starts, turns, failures, usage, decisions, results, and rewinds
+  into one continuous duty log. Every sentence expands to its raw type, time, source cursor, and fact detail. Switch
+  to **Crew stages** or **Raw record** at any time; these are lenses over the same facts, not separate task state.
+  Long logs keep a normal 160-row DOM window and reveal earlier notes in explicit batches.
+- Multi-agent tasks show a **crew stage map** in the Crew stages lens. Every member, dependency, status, and latest
+  progress line comes from the same task record; the foreman sentence is a deterministic summary and does not call
+  a model. A dotted gold member is proposed work awaiting approval and opens its exact Needs you item. Select a
+  running member to pass a note; the UI reports immediate delivery, queued delivery, or honest unavailability and
+  preserves the draft after failure.
 - Needs you in the desk bar or task intake opens the same cross-task drawer. Permissions, questions, plans, and
   helper proposals are decided there; Allow and Approve require a second confirmation, and questions never
   preselect an answer. An offline worksite offers only an honest classic-layout handoff.
+- The desk-bar **Workspace / Safety / Engine** facts open the workspace picker, permission-mode panel, and model
+  menu respectively. Only **Settings** in the task dock opens the full Settings page.
 - A stopped task lists unfinished work and offers Try again, Change approach, or Leave it for now. The first two
   prepare an unsent continuation draft in the classic composer; the last only archives local UI state.
 - While you were away is generated only from persisted change records, and advances its local read position only
   after the task view has rendered successfully.
 - Archive search, filters, pinning, and archiving are local UI preferences. They never rewrite task facts.
+
+To be alerted while away, explicitly enable **Settings → General → Notify me when I am needed**. The browser asks
+for system-notification permission on that click. Quiet hours default to 22:00–08:00 and can be changed locally.
+Each pending decision is notified at most once and its notification is withdrawn when the decision becomes
+terminal. Items seen during quiet hours or denied permission are not replayed later, and restarting the workbench
+does not emit a backlog. The feature is off by default and stores only a local preference.
 
 If the task projection cannot load, the failure view offers both **Retry** and **Return to classic layout**. Classic
 mode remains fully usable, and the failure does not rewrite task or chat data. A damaged local preview-preference

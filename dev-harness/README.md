@@ -19,6 +19,10 @@ node dev-harness\openai-engine.e2e.js
 
 第81波原生决策门由 `pretender-needs-drawer.static.e2e.js` 与 `pretender-needs-drawer.e2e.js` 组成：静态件冻结统一 75b 写入口、CAS 版本/权限作用域投影、批准二次确认、typed question 零预选、同 key 重试、跨壳退场桥与停工卡诚实边界；浏览器件用真实 Provider 权限与提问回合验证经典→Preview 决策→经典续跑、390px 抽屉、停止结果章及未发送恢复草稿。
 
+第82波班组图门由 `pretender-crew-lens.static.e2e.js` 与 `pretender-crew-lens.e2e.js` 组成：静态件冻结最近六个 Run 的紧凑图投影、无第二数据流、确定性工头摘要、池提案复用全局抽屉、递话复用既有 `steer_node`、失败草稿和 390px 纵向流；浏览器件覆盖真实运行中的多 Agent、图内递话送达、拟增工序定位及窄屏无溢出。`pretender-shell.static.e2e.js` 另锁定工作圈、安全档、引擎三个案头按钮各自进入原生控制面，只有设置按钮进入设置页。
+
+第83波由 `pretender-narrative-notifications.e2e.js` 固定现场纪要与本机通知：9 类 change record 纯折算/双导出、增量 entry identity、160 条常态 DOM 窗口和每句原始凭据；通知覆盖默认关闭、权限拒绝、跨午夜免打扰边界、同 Intervention 去重、终态撤回、静默不补发及应用重启首读不补炸。静态接线同时核对三镜头、设置控件、浏览器 Notification tag/close 和 390px 值班簿布局。
+
 **离线件应 ALL PASS**(不含需真端点/真 Python 的 live 件)。每件文件头部注释都列了它断言的边界。
 需外部条件的件:`deepseek-live`/`deepseek-tools`(真 DeepSeek 密钥)、`desktop-bridge-live`(真 python 桌面 MCP)、
 `desktop-mcp-smoke`(`AI_COMPUTER_CONTROL_HOME` 指向 ACC 仓库)。

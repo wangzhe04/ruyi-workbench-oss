@@ -258,8 +258,10 @@ function ctxLenBadge(n) {
   if (v >= 1e3) { const k = v / 1e3; return (Number.isInteger(k) ? String(k) : Math.round(k)) + 'K'; }
   return String(v);
 }
-function openModelChipPopover() {
-  const chip = $('modelChip'); if (!chip) return;
+function openModelChipPopover(anchor) {
+  // The model menu is shared by both shells. Preview supplies its visible engine fact as the
+  // anchor; classic's direct onclick passes a MouseEvent and continues to use #modelChip.
+  const chip = anchor && anchor.nodeType === 1 ? anchor : $('modelChip'); if (!chip) return;
   popover(chip, close => {
     const wrap = el('div', 'mc-pop');
     const rows = []; // flat list of selectable rows for keyboard nav (in visual order)

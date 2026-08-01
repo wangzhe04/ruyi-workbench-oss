@@ -268,6 +268,14 @@ try {
   })()`, 600);
   ok(dispatched && dispatched.seals === 3, 'C3 Start creates a Mission, opens its task sheet, and drops a third porcelain seal');
 
+  const rawLensOpened = await waitForEval(cdp, `(() => {
+    const tab = document.querySelector('.preview-lens-tab.lens-raw');
+    if (!tab || tab.disabled) return null;
+    if (tab.getAttribute('aria-selected') !== 'true') tab.click();
+    return tab.getAttribute('aria-selected') === 'true';
+  })()`);
+  ok(Boolean(rawLensOpened), 'C4 expert raw lens is selected explicitly for provider reconciliation evidence');
+
   const completed = await waitForEval(cdp, `(() => {
     if (window.state?.streaming) return null;
     const main = document.getElementById('previewMain');
@@ -284,7 +292,7 @@ try {
     if (window.state?.streaming || !raw?.textContent.includes('Wave 78 task completed') || state !== 'done') return null;
     return { id: main.dataset.missionId, state, rows: raw.querySelectorAll('[data-message-key]').length };
   })()`, 300);
-  ok(completedAfterRefresh && completedAfterRefresh.id === dispatched.id && completedAfterRefresh.state === 'done' && completedAfterRefresh.rows >= 2, 'C4 provider stream completes the authoritative Mission and reconciles the raw task sheet');
+  ok(completedAfterRefresh && completedAfterRefresh.id === dispatched.id && completedAfterRefresh.state === 'done' && completedAfterRefresh.rows >= 2, 'C5 provider stream completes the authoritative Mission and reconciles the raw task sheet');
 
   const missionList = await request(appPort, '/api/missions?limit=20', { token });
   const dispatchedCard = missionList?.json?.missions?.find(card => card.sessionId === dispatched.id);
@@ -300,10 +308,10 @@ try {
       })),
     }, null, 2));
   }
-  ok(dispatchedCard && dispatchedCard.mission?.goal === missionPrompt && dispatchedCard.mission?.result?.status === 'complete', 'C5 Mission list persists the exact goal and completion record');
+  ok(dispatchedCard && dispatchedCard.mission?.goal === missionPrompt && dispatchedCard.mission?.result?.status === 'complete', 'C6 Mission list persists the exact goal and completion record');
   const persistedConfig = JSON.parse(fs.readFileSync(path.join(dataDir, 'config.json'), 'utf8'));
   const usedMissionTool = captures.some(body => Array.isArray(body.tools) && body.tools.some(tool => tool?.function?.name === 'mission_update'));
-  ok(persistedConfig.permissionMode === 'default' && usedMissionTool, 'C6 selected bypass reaches the turn/tool chain but does not widen persisted global safety');
+  ok(persistedConfig.permissionMode === 'default' && usedMissionTool, 'C7 selected bypass reaches the turn/tool chain but does not widen persisted global safety');
 
   if (process.env.RUYI_PREVIEW_SCREENSHOT_DIR) {
     const taskShotDir = path.resolve(process.env.RUYI_PREVIEW_SCREENSHOT_DIR); fs.mkdirSync(taskShotDir, { recursive: true });

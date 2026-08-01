@@ -1360,3 +1360,18 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 - allow/approve 原位二次确认，typed question 零默认选择；网络失败以同一 idempotencyKey 重试。终态通过显式同步桥关闭经典提示，不触发取消。
 - 停工结果章新增人话卡：再试/换法子带未发送草稿回经典布局，先算了只做本机归档。
 - 新增真实 Edge 跨壳/390px/停止卡门与静态契约门；完整串行门 **185 pass / 0 fail / 0 flaky / 6 live-skip**。第82波继续班组图镜头，当前不标 Product Ready。
+
+## 第82波 · P3 第二切片 -- 班组工序图与原位递话（2026-08-01）
+
+- Mission 详情为最近六个 Run 增加紧凑 `nodes/proposals` 图投影；列表与更早 Run 保持标量摘要，节点不复制 result、roleSnapshot、toolEvidence 或 progressLog 大字段。
+- Preview 任务单把依赖层级画成横向工序长卷：节点是队员名牌，状态、角色、任务、最新进展和依赖均来自同一投影；工头一句话是确定性本地 fold，不调用模型，不建立第二条 Run 数据流。390px 下转换为有界纵向工序。
+- task-pool `proposed` 项以虚线鎏金拟增工序出现，点击复用第81波全局 Intervention 抽屉；运行中队员的“递话”复用现有 `steer_node` command，区分即时送达/排队/不可送达并保留失败草稿。
+- 修正案头事实按钮语义：工作圈打开工作区选择器，安全档打开权限模式面板，引擎打开模型菜单，只有设置打开设置页；三个共享 popover 可锚定当前可见的 Preview 控件，经典布局行为不变。
+- 新增班组图静态与真实浏览器旅程契约；第83波继续叙事镜头与可选本地通知，当前不标 Product Ready。
+
+## 第83波 · P3 第三切片 -- 现场纪要与可选本机通知（2026-08-01）
+
+- 新增浏览器/Node 双导出的 `preview-narrative.js`：9 类 Mission change record 只按规则折算为角色、动词、对象、时间与语义色，不调用模型；每句保留 seq/type/occurredAt/cursor/detail，可原位展开权威原始凭据。
+- 任务单增加现场纪要/班组工序/原始记录三镜头。现场纪要使用独立 change cursor 增量读取并只 append 未见行；普通轮询的 DOM 窗口稳定在最近 160 条，用户可每次向前展开 160 条，长任务不全量重建。
+- 新增默认关闭的本机“需要你”通知：设置中显式开启才请求浏览器权限，经典布局仅在开启后保留轻量 Intervention 轮询；免打扰默认 22:00–08:00，可本机修改。通知以 Intervention id 标记，同 id 只发一次，事项终态撤回；静默/拒权不排队补发，应用重启首个成功读只建历史基线。
+- `pretender-narrative-notifications.e2e.js` 覆盖全 9 类折算、增量 identity、免打扰四边界、拒权、去重、终态撤回和重启不补炸；fast 30/30 与专项门全绿。第84波继续反悔柄、台账时间轴与 Mission 控制面，当前不标 Product Ready。

@@ -287,6 +287,14 @@ try {
   })()`);
   ok(Boolean(openedSheet), 'B1 dispatch home opens the requested authoritative Mission through its porcelain seal');
 
+  const rawLensOpened = await waitForEval(cdp, `(() => {
+    const tab = document.querySelector('.preview-lens-tab.lens-raw');
+    if (!tab || tab.disabled) return null;
+    if (tab.getAttribute('aria-selected') !== 'true') tab.click();
+    return tab.getAttribute('aria-selected') === 'true';
+  })()`);
+  ok(Boolean(rawLensOpened), 'B2 expert raw lens is selected explicitly for renderer and long-history checks');
+
   const sheet = await waitForEval(cdp, `(() => {
     const main = document.getElementById('previewMain');
     const raw = document.getElementById('previewRawMessages');
@@ -308,19 +316,19 @@ try {
     };
   })()`);
   ok(sheet && sheet.renderer === 'chat-static-renderer' && sheet.markdown && sheet.tool && sheet.actions === 0 && sheet.turnActions === 0,
-    'B2 raw worksite reuses classic Markdown/tool cards in readonly mode');
-  ok(sheet && sheet.rows <= 120 && sheet.rows >= 12 && sheet.hasEarlier, 'B3 170-message journey opens inside the weighted tail window with reachable history');
+    'B3 raw worksite reuses classic Markdown/tool cards in readonly mode');
+  ok(sheet && sheet.rows <= 120 && sheet.rows >= 12 && sheet.hasEarlier, 'B4 170-message journey opens inside the weighted tail window with reachable history');
   ok(sheet && sheet.cursor.includes('85') && sheet.metrics.some(value => value.includes('USD 1.25')) && sheet.metrics.includes('1'),
-    'B4 long-task cursor, usage cost/token facts, and one team run reach the header');
+    'B5 long-task cursor, usage cost/token facts, and one team run reach the header');
   ok(sheet && sheet.panels.length === 3 && sheet.panels.some(panel => panel.kind === 'needs' && panel.value === '1')
     && sheet.panels.some(panel => panel.kind === 'results' && /停工|Stop/.test(panel.value))
     && sheet.panels.some(panel => panel.kind === 'ledger' && panel.copy.includes('77')),
-    'B5 single-task result, pending item, changes/irreversible, and multi-Agent event cursor reach the intake desk');
+    'B6 single-task result, pending item, changes/irreversible, and multi-Agent event cursor reach the intake desk');
   if (!(sheet && sheet.panels.length === 3 && sheet.panels.some(panel => panel.kind === 'needs' && panel.value === '1')
     && sheet.panels.some(panel => panel.kind === 'results' && /停工|Stop/.test(panel.value))
     && sheet.panels.some(panel => panel.kind === 'ledger' && panel.copy.includes('77')))) console.log('INFO B5 panels=' + JSON.stringify(sheet && sheet.panels));
-  ok(sheet && sheet.dockIds.includes(ids.sessionId) && !sheet.dockIds.includes(ids.quickId) && !sheet.dockIds.includes(ids.heavyId), 'B6 Quick Ask stays outside the task dock');
-  ok(sheet && sheet.duplicateIds.length === 0, 'B7 scoped raw renderer creates no duplicate DOM ids across the two shells');
+  ok(sheet && sheet.dockIds.includes(ids.sessionId) && !sheet.dockIds.includes(ids.quickId) && !sheet.dockIds.includes(ids.heavyId), 'B7 Quick Ask stays outside the task dock');
+  ok(sheet && sheet.duplicateIds.length === 0, 'B8 scoped raw renderer creates no duplicate DOM ids across the two shells');
 
   if (process.env.RUYI_PREVIEW_SCREENSHOT_DIR) {
     const shotDir = path.resolve(process.env.RUYI_PREVIEW_SCREENSHOT_DIR);
@@ -345,7 +353,12 @@ try {
     document.getElementById('sendBtn').click();
     for (let i = 0; i < 200 && !window.state.streaming; i++) await new Promise(r => setTimeout(r, 10));
     const select = document.getElementById('cfgShellMode'); select.value = 'preview'; select.dispatchEvent(new Event('change', { bubbles: true }));
-    return window.state.streaming;
+    for (let i = 0; i < 400; i++) {
+      const rawTab = document.querySelector('.preview-lens-tab.lens-raw');
+      if (rawTab && !rawTab.disabled) { if (rawTab.getAttribute('aria-selected') !== 'true') rawTab.click(); return window.state.streaming; }
+      await new Promise(r => setTimeout(r, 10));
+    }
+    return false;
   })()`);
   ok(started === true, 'C1 real classic composer starts one provider stream, then switches to Preview without a second stream');
 

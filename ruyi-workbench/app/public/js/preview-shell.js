@@ -4,6 +4,8 @@
 // Mission/Intervention/Session API；五态只调用 mission-state.js，消息正文只调用经典 renderer；
 // 交办写动作经组合根注入的单一 command，Preview 不复制 Session/Mission/stream 业务状态机。
 import './mission-state.js';
+import './preview-narrative.js';
+import './preview-notifications.js';
 import { MSG_WINDOW_STEP, MSG_WINDOW_TAIL, MSG_WINDOW_THRESHOLD } from './state.js';
 import { getLocale } from './i18n.js';
 import {
@@ -80,10 +82,14 @@ export function createPreviewShellDomain({
   engineLabel = () => '',
   openSettings = () => {},
   closeSettings = () => {},
+  openWorkspaceControl = () => {},
+  openSafetyControl = () => {},
+  openEngineControl = () => {},
   dispatchCommand = async () => ({}),
   openSession = async () => {},
   setClassicDraft = () => {},
   syncClassicIntervention = async () => {},
+  steerAgentNode = async () => ({ ok: false }),
   apiErrText = error => String(error && error.message || error || ''),
   pickWorkspace = async () => {},
   playbookName = playbook => String(playbook && playbook.title || ''),
@@ -91,8 +97,12 @@ export function createPreviewShellDomain({
   playbookUnavailableReason = () => '',
   renderStaticMessage = () => null,
   getActiveTurnLines = () => [],
+  notificationApi = globalThis.Notification,
+  now = () => new Date(),
 } = {}) {
   const missionState = globalThis.MissionState;
+  const narrativeRules = globalThis.PreviewNarrative;
+  const notificationRules = globalThis.PreviewNotifications;
   const recoverClassicShell = () => {
     try { document.documentElement.setAttribute('data-shell-mode', 'classic'); } catch { /* pre-DOM failure */ }
     try { localStorage.setItem(SHELL_MODE_STORAGE_KEY, 'classic'); } catch { /* local preference may be unavailable */ }
@@ -150,7 +160,20 @@ export function createPreviewShellDomain({
   let renderedDockSignature = '';
   let dockRenderEpoch = 0;
   let needsDrawerOpen = false;
+  let selectedCrewRunId = '';
+  let selectedCrewNodeId = '';
+  let crewRenderSignature = '';
+  let selectedLens = 'narrative';
+  let narrativeRenderedSession = '';
+  let narrativeRenderedLocale = '';
+  const narrativeFeeds = new Map();
+  let notificationSettings = notificationRules?.readNotificationSettings() || { version: 1, enabled: false, quietStart: '22:00', quietEnd: '08:00' };
+  let notificationCoordinator = notificationRules?.normalizeCoordinatorState() || { primed: false, known: [], active: [] };
+  let notificationRefreshPromise = null;
+  const notificationHandles = new Map();
   const interventionDrafts = new Map();
+  const crewDrafts = new Map();
+  const crewDeliveryState = new Map();
 
   const byId = id => document.getElementById(id);
   const text = (tag, className, value) => {
@@ -183,10 +206,112 @@ export function createPreviewShellDomain({
     if (select) select.value = mode;
   }
 
+  function notificationPermission() {
+    return notificationApi && typeof notificationApi.permission === 'string' ? notificationApi.permission : 'unsupported';
+  }
+
+  function closeNeedsNotification(id) {
+    const key = String(id || '');
+    const handle = notificationHandles.get(key);
+    if (!handle) return;
+    notificationHandles.delete(key);
+    try { handle.close(); } catch { /* Notification close is best-effort */ }
+  }
+
+  function closeAllNeedsNotifications() {
+    for (const id of [...notificationHandles.keys()]) closeNeedsNotification(id);
+  }
+
+  function notificationStatusText() {
+    const permission = notificationPermission();
+    if (permission === 'unsupported') return t('previewShell.notificationUnsupported');
+    if (permission === 'denied') return t('previewShell.notificationDenied');
+    if (!notificationSettings.enabled) return t('previewShell.notificationOff');
+    return t('previewShell.notificationOn', { p1: notificationSettings.quietStart, p2: notificationSettings.quietEnd });
+  }
+
+  function syncNotificationControls() {
+    const enabled = byId('cfgPreviewNotifications');
+    const start = byId('cfgPreviewQuietStart');
+    const end = byId('cfgPreviewQuietEnd');
+    const status = byId('previewNotificationStatus');
+    if (enabled) {
+      enabled.checked = notificationSettings.enabled;
+      enabled.disabled = notificationPermission() === 'unsupported';
+    }
+    if (start) start.value = notificationSettings.quietStart;
+    if (end) end.value = notificationSettings.quietEnd;
+    if (status) status.textContent = notificationStatusText();
+  }
+
+  function saveNotificationSettings(patch) {
+    notificationSettings = notificationRules?.writeNotificationSettings({ ...notificationSettings, ...(patch || {}) })
+      || { ...notificationSettings, ...(patch || {}) };
+    syncNotificationControls();
+    return notificationSettings;
+  }
+
+  function showNeedsNotification(item) {
+    if (!notificationApi || typeof notificationApi !== 'function' || !item || !item.id) return;
+    const id = String(item.id);
+    try {
+      const handle = new notificationApi(t('previewShell.notificationTitle'), {
+        body: t('previewShell.notificationBody', {
+          p1: interventionTitle(item),
+          p2: interventionTypeLabel(item.type),
+          p3: interventionSummary(item),
+        }),
+        tag: `ruyi-intervention-${id}`,
+        renotify: false,
+      });
+      notificationHandles.set(id, handle);
+      handle.onclose = () => notificationHandles.delete(id);
+      handle.onclick = () => {
+        try { handle.close(); } catch { /* best-effort */ }
+        try { globalThis.focus?.(); } catch { /* best-effort */ }
+        applyShellMode('preview', { focus: false });
+        const card = cards.find(row => row && (row.missionId === item.missionId || row.sessionId === item.sessionId));
+        if (card) openMissionCard(card, { focus: false });
+        void refreshPreviewShell({ quiet: true, forceDetail: true }).then(() => setNeedsDrawer(true, { interventionId: id }));
+      };
+    } catch { /* OS/browser notification failure must not disturb the task surface */ }
+  }
+
+  function syncNeedsNotifications(items) {
+    if (!notificationRules) return;
+    const pending = Array.isArray(items) ? items.filter(item => item && item.id) : [];
+    const transition = notificationRules.reconcileNeedsNotifications(
+      notificationCoordinator,
+      pending.map(item => item.id),
+      {
+        enabled: notificationSettings.enabled,
+        permission: notificationPermission(),
+        quiet: notificationRules.isQuietTime(now(), notificationSettings),
+      },
+    );
+    notificationCoordinator = transition.state;
+    for (const id of transition.close) closeNeedsNotification(id);
+    const byIntervention = new Map(pending.map(item => [String(item.id), item]));
+    for (const id of transition.notify) showNeedsNotification(byIntervention.get(String(id)));
+  }
+
+  async function refreshNotificationInbox() {
+    if (!notificationSettings.enabled || notificationRefreshPromise) return notificationRefreshPromise;
+    notificationRefreshPromise = api('/api/interventions?limit=100').then(response => {
+      inboxCounts = response && response.counts || { total: 0 };
+      pendingInterventions = Array.isArray(response && response.pending) ? response.pending : [];
+      syncNeedsNotifications(pendingInterventions);
+      if (isPreviewMode()) { renderFacts(); renderNeedsDrawer(); }
+      return pendingInterventions;
+    }).catch(() => null).finally(() => { notificationRefreshPromise = null; });
+    return notificationRefreshPromise;
+  }
+
   function startPolling() {
     if (pollTimer) return;
     pollTimer = setInterval(() => {
-      if (!document.hidden && isPreviewMode()) void refreshPreviewShell({ quiet: true });
+      if (isPreviewMode() && (!document.hidden || notificationSettings.enabled)) void refreshPreviewShell({ quiet: true });
+      else if (notificationSettings.enabled) void refreshNotificationInbox();
     }, 10000);
   }
 
@@ -196,17 +321,23 @@ export function createPreviewShellDomain({
     pollTimer = null;
   }
 
+  function syncPolling() {
+    if (isPreviewMode() || notificationSettings.enabled) startPolling();
+    else stopPolling();
+  }
+
   function applyShellMode(value, { persist = true, focus = true } = {}) {
     const mode = normalizeShellMode(value);
     document.documentElement.setAttribute('data-shell-mode', mode);
     syncModeControl(mode);
     if (persist) setStoredShellMode(mode);
     if (mode === 'preview') {
-      startPolling();
+      syncPolling();
       void refreshPreviewShell();
       if (focus) requestAnimationFrame(() => byId('previewMain')?.focus());
     } else {
-      stopPolling();
+      syncPolling();
+      if (notificationSettings.enabled) void refreshNotificationInbox();
       if (needsDrawerOpen) setNeedsDrawer(false, { focus: false });
       if (focus) requestAnimationFrame(() => byId('sessionTitle')?.focus?.());
     }
@@ -359,7 +490,7 @@ export function createPreviewShellDomain({
     return `preview:${String(item.id || '').slice(0, 40)}:${String(action || '').slice(0, 16)}:${uuid}`.slice(0, 128);
   }
 
-  function setNeedsDrawer(open, { focus = true } = {}) {
+  function setNeedsDrawer(open, { focus = true, interventionId = '' } = {}) {
     needsDrawerOpen = open === true;
     const shell = byId('previewShell');
     const drawer = byId('previewNeedsDrawer');
@@ -370,7 +501,13 @@ export function createPreviewShellDomain({
     renderFacts();
     if (needsDrawerOpen) {
       renderNeedsDrawer();
-      if (focus) requestAnimationFrame(() => byId('previewNeedsCloseBtn')?.focus());
+      if (focus) requestAnimationFrame(() => {
+        const target = interventionId
+          ? byId('previewNeedsDrawer')?.querySelector(`[data-intervention-id="${CSS.escape(String(interventionId))}"]`)
+          : null;
+        if (target) { target.tabIndex = -1; target.scrollIntoView({ block: 'center' }); target.focus({ preventScroll: true }); }
+        else byId('previewNeedsCloseBtn')?.focus();
+      });
     } else if (focus) requestAnimationFrame(() => byId('previewNeedsFact')?.focus());
   }
 
@@ -622,6 +759,12 @@ export function createPreviewShellDomain({
     rawWindowStart = null;
     renderedSession = null;
     renderedLocale = '';
+    selectedCrewRunId = '';
+    selectedCrewNodeId = '';
+    crewRenderSignature = '';
+    selectedLens = 'narrative';
+    narrativeRenderedSession = '';
+    narrativeRenderedLocale = '';
     clearPreviewLive();
   }
 
@@ -1055,6 +1198,406 @@ export function createPreviewShellDomain({
     return metric;
   }
 
+  function crewStatusGroup(status) {
+    if (status === 'running') return 'running';
+    if (status === 'paused') return 'paused';
+    if (['queued', 'waiting', 'waiting_resource'].includes(status)) return 'waiting';
+    if (['succeeded', 'skipped'].includes(status)) return 'done';
+    if (['failed', 'blocked', 'rejected', 'interrupted', 'cancelled', 'stopped'].includes(status)) return 'issue';
+    return 'unknown';
+  }
+
+  function crewStatusLabel(status) {
+    return t(`previewShell.crewStatus.${crewStatusGroup(String(status || ''))}`);
+  }
+
+  function crewDepths(nodes) {
+    const byNode = new Map(nodes.map(node => [String(node && node.id || ''), node]));
+    const memo = new Map();
+    const visit = (id, visiting = new Set()) => {
+      if (memo.has(id)) return memo.get(id);
+      if (visiting.has(id)) return 0;
+      const node = byNode.get(id);
+      if (!node) return 0;
+      const next = new Set(visiting); next.add(id);
+      const deps = (Array.isArray(node.dependsOn) ? node.dependsOn : []).filter(dep => byNode.has(String(dep)));
+      const depth = deps.length ? 1 + Math.max(...deps.map(dep => visit(String(dep), next))) : 0;
+      memo.set(id, depth); return depth;
+    };
+    for (const id of byNode.keys()) visit(id);
+    return memo;
+  }
+
+  function crewRole(node, index) {
+    return node.roleLabel || node.roleId || t('previewShell.crewMemberFallback', { p1: index + 1 });
+  }
+
+  function foremanBrief(run, nodes) {
+    const groups = nodes.reduce((counts, node) => {
+      const group = crewStatusGroup(node.status); counts[group] = (counts[group] || 0) + 1; return counts;
+    }, {});
+    const current = nodes.find(node => node.status === 'running')
+      || nodes.find(node => ['queued', 'waiting', 'waiting_resource'].includes(node.status))
+      || nodes.find(node => node.progress) || nodes[0];
+    const focus = current ? (current.progress || current.task || crewRole(current, nodes.indexOf(current))) : t('previewShell.crewNoFocus');
+    return t('previewShell.crewForemanBrief', {
+      p1: nodes.length,
+      p2: groups.running || 0,
+      p3: (groups.waiting || 0) + (groups.paused || 0),
+      p4: groups.done || 0,
+      p5: groups.issue || 0,
+      p6: focus,
+    });
+  }
+
+  function crewRunChoice(snapshot) {
+    const runs = Array.isArray(snapshot && snapshot.runs) ? snapshot.runs.filter(Boolean) : [];
+    if (!runs.length) return { runs, run: null };
+    let run = runs.find(item => String(item.id || '') === selectedCrewRunId);
+    if (!run) run = runs.find(item => item.live) || runs[0];
+    selectedCrewRunId = String(run && run.id || '');
+    return { runs, run };
+  }
+
+  function crewProposalNode(item, index, depths) {
+    const dependencies = Array.isArray(item.dependsOn) && item.dependsOn.length
+      ? item.dependsOn : (item.proposedBy ? [item.proposedBy] : []);
+    const baseDepth = dependencies.reduce((max, id) => Math.max(max, depths.get(String(id)) ?? -1), -1);
+    return { ...item, id: String(item.id || `proposal_${index}`), dependsOn: dependencies, proposal: true, depth: baseDepth + 1 };
+  }
+
+  function openCrewProposal(item) {
+    const pending = pendingInterventions.find(row => row && String(row.id || '') === String(item && item.id || ''));
+    if (pending) setNeedsDrawer(true, { interventionId: pending.id });
+    else void refreshPreviewShell({ quiet: true, forceDetail: true }).then(() => setNeedsDrawer(true, { interventionId: item && item.id }));
+  }
+
+  function buildCrewMember(node, index) {
+    const proposal = node.proposal === true;
+    const group = proposal ? 'proposal' : crewStatusGroup(node.status);
+    const button = actionButton('', `preview-crew-member is-${group}`, () => {
+      if (proposal) { openCrewProposal(node); return; }
+      selectedCrewNodeId = String(node.id || ''); crewRenderSignature = '';
+      renderCrewLens(ensureTaskSheet(selectedCard()), selectedSnapshot);
+      requestAnimationFrame(() => document.querySelector('.preview-crew-handoff textarea:not(:disabled)')?.focus());
+    });
+    button.dataset.crewNodeId = String(node.id || '');
+    button.dataset.crewNodeStatus = String(node.status || '');
+    if (proposal) button.dataset.interventionId = String(node.id || '');
+    button.setAttribute('aria-pressed', !proposal && selectedCrewNodeId === String(node.id || '') ? 'true' : 'false');
+    const number = text('span', 'preview-crew-number', String(index + 1).padStart(2, '0'));
+    const copy = text('span', 'preview-crew-member-copy', '');
+    const label = proposal
+      ? t('previewShell.crewProposalRole', { p1: node.roleId || t('previewShell.crewMemberFallback', { p1: index + 1 }) })
+      : crewRole(node, index);
+    copy.append(text('strong', '', label), text('small', '', proposal ? t('previewShell.crewProposalStatus') : crewStatusLabel(node.status)));
+    const pulse = text('span', 'preview-crew-status-dot', ''); pulse.setAttribute('aria-hidden', 'true');
+    const task = text('span', 'preview-crew-task', node.progress || node.task || t('previewShell.crewNoFocus'));
+    button.append(number, copy, pulse, task);
+    if (node.dependsOn && node.dependsOn.length) {
+      button.appendChild(text('span', 'preview-crew-deps', t('previewShell.crewAfter', { p1: node.dependsOn.join(' · ') })));
+    }
+    return button;
+  }
+
+  function crewSteerReason(node, run) {
+    if (!run.live || node.steerReason === 'not_live') return t('previewShell.crewSteerNotLive');
+    if (node.steerReason === 'deterministic_gate' || node.deterministic) return t('previewShell.crewSteerDeterministic');
+    if (node.steerReason === 'terminal') return t('previewShell.crewSteerTerminal');
+    return t('previewShell.crewSteerUnavailable');
+  }
+
+  function buildCrewHandoff(run, node, nodeIndex) {
+    const panel = text('section', 'preview-crew-handoff', '');
+    panel.dataset.crewSelected = String(node.id || '');
+    const copy = text('div', 'preview-crew-handoff-copy', '');
+    copy.append(text('span', 'preview-eyebrow', t('previewShell.crewSelectedEyebrow')),
+      text('h3', '', crewRole(node, nodeIndex)),
+      text('p', '', node.task || t('previewShell.crewNoTask')));
+    const meta = text('div', 'preview-crew-handoff-meta', '');
+    meta.append(text('span', `is-${crewStatusGroup(node.status)}`, crewStatusLabel(node.status)),
+      text('code', '', node.id || ''),
+      text('span', '', [node.engine, node.model].filter(Boolean).join(' · ') || t('previewShell.crewEngineUnknown')));
+    copy.appendChild(meta);
+
+    const key = `${run.id}:${node.id}`;
+    const form = text('div', 'preview-crew-steer', '');
+    const label = text('label', '', t('previewShell.crewSteerLabel', { p1: crewRole(node, nodeIndex) }));
+    const input = document.createElement('textarea'); input.rows = 2;
+    input.value = crewDrafts.get(key) || '';
+    input.placeholder = node.steerable ? t('previewShell.crewSteerPlaceholder') : crewSteerReason(node, run);
+    input.disabled = !node.steerable;
+    input.dataset.crewSteerInput = key;
+    input.addEventListener('input', () => crewDrafts.set(key, input.value));
+    label.appendChild(input);
+    const actions = text('div', 'preview-crew-steer-actions', '');
+    const stateValue = crewDeliveryState.get(key) || null;
+    const send = actionButton(t('previewShell.crewSteerSend'), 'primary', async () => {
+      const value = String(input.value || '').trim();
+      if (!value) { crewDeliveryState.set(key, { type: 'error', text: t('previewShell.crewSteerRequired') }); crewRenderSignature = ''; renderCrewLens(ensureTaskSheet(selectedCard()), selectedSnapshot); return; }
+      crewDrafts.set(key, value); crewDeliveryState.set(key, { type: 'sending', text: t('previewShell.crewSteerSending') });
+      crewRenderSignature = ''; renderCrewLens(ensureTaskSheet(selectedCard()), selectedSnapshot);
+      const result = await steerAgentNode({ sessionId: selectedSessionId(), runId: run.id, nodeId: node.id, nodeStatus: node.status, engine: node.engine, text: value });
+      if (result && result.ok) {
+        crewDrafts.delete(key);
+        crewDeliveryState.set(key, { type: 'success', text: result.immediate ? t('previewShell.crewSteerImmediate') : t('previewShell.crewSteerQueued') });
+        scheduleDetailRefresh(false);
+      } else {
+        crewDeliveryState.set(key, { type: 'error', text: result && result.error || t('previewShell.crewSteerFailed') });
+      }
+      crewRenderSignature = ''; renderCrewLens(ensureTaskSheet(selectedCard()), selectedSnapshot);
+      if (!(result && result.ok)) requestAnimationFrame(() => document.querySelector(`[data-crew-steer-input="${CSS.escape(key)}"]`)?.focus());
+    });
+    send.disabled = !node.steerable || stateValue?.type === 'sending';
+    actions.appendChild(send);
+    if (stateValue) {
+      const status = text('p', `preview-crew-steer-state is-${stateValue.type}`, stateValue.text);
+      status.setAttribute('role', stateValue.type === 'error' ? 'alert' : 'status'); actions.appendChild(status);
+    } else if (!node.steerable) {
+      actions.appendChild(text('p', 'preview-crew-steer-state', crewSteerReason(node, run)));
+    } else {
+      actions.appendChild(text('p', 'preview-crew-steer-state', node.status === 'running' ? t('previewShell.crewSteerLiveHint') : t('previewShell.crewSteerQueueHint')));
+    }
+    form.append(label, actions); panel.append(copy, form);
+    return panel;
+  }
+
+  function renderCrewLens(article, snapshot) {
+    const host = article?.querySelector('[data-slot="crewLens"]');
+    if (!host) return;
+    const { runs, run } = crewRunChoice(snapshot);
+    const nodes = Array.isArray(run && run.nodes) ? run.nodes.filter(node => node && node.id) : [];
+    const proposals = Array.isArray(run && run.proposals) ? run.proposals : [];
+    if (!run || (!nodes.length && !proposals.length)) {
+      host.hidden = true; host.replaceChildren(); crewRenderSignature = ''; return;
+    }
+    host.hidden = false;
+    if (!nodes.some(node => String(node.id) === selectedCrewNodeId)) {
+      selectedCrewNodeId = String((nodes.find(node => node.status === 'running') || nodes[0] || {}).id || '');
+    }
+    const signature = JSON.stringify({
+      locale: getLocale(), runId: run.id, eventSeq: run.eventSeq, selectedCrewNodeId,
+      runs: runs.map(item => [item.id, item.status, item.eventSeq]),
+      nodes: nodes.map(node => [node.id, node.status, node.progress, node.steerable, node.steerReason]),
+      proposals: proposals.map(item => [item.id, item.task, item.proposedBy]),
+      deliveries: [...crewDeliveryState.entries()].filter(([key]) => key.startsWith(`${run.id}:`)),
+    });
+    if (crewRenderSignature === signature && host.childElementCount) return;
+    crewRenderSignature = signature;
+
+    const head = text('header', 'preview-crew-head', '');
+    const heading = text('div', 'preview-crew-heading', '');
+    heading.append(text('span', 'preview-eyebrow', t('previewShell.crewEyebrow')),
+      text('h2', '', t('previewShell.crewTitle')),
+      text('p', 'preview-crew-foreman', foremanBrief(run, nodes)));
+    const runTabs = text('div', 'preview-crew-runs', ''); runTabs.setAttribute('role', 'tablist');
+    for (const [index, item] of runs.slice(0, 6).entries()) {
+      const button = actionButton(t('previewShell.crewRunLabel', { p1: index + 1 }), `preview-crew-run is-${crewStatusGroup(item.status)}`, () => {
+        selectedCrewRunId = String(item.id || ''); selectedCrewNodeId = ''; crewRenderSignature = '';
+        renderCrewLens(article, snapshot);
+      });
+      button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', String(item.id) === String(run.id) ? 'true' : 'false');
+      button.title = String(item.id || ''); runTabs.appendChild(button);
+    }
+    head.append(heading, runTabs);
+
+    const depths = crewDepths(nodes);
+    const graphNodes = [...nodes.map(node => ({ ...node, proposal: false, depth: depths.get(String(node.id)) || 0 })),
+      ...proposals.map((item, index) => crewProposalNode(item, index, depths))];
+    const maxDepth = graphNodes.reduce((max, node) => Math.max(max, node.depth || 0), 0);
+    const stage = text('div', 'preview-crew-stage', ''); stage.setAttribute('role', 'group'); stage.setAttribute('aria-label', t('previewShell.crewGraphAria'));
+    for (let depth = 0; depth <= maxDepth; depth++) {
+      const lane = text('section', 'preview-crew-lane', ''); lane.dataset.crewDepth = String(depth);
+      lane.appendChild(text('span', 'preview-crew-lane-label', t('previewShell.crewStage', { p1: depth + 1 })));
+      const laneMembers = text('div', 'preview-crew-lane-members', '');
+      for (const node of graphNodes.filter(item => item.depth === depth)) laneMembers.appendChild(buildCrewMember(node, graphNodes.indexOf(node)));
+      lane.appendChild(laneMembers); stage.appendChild(lane);
+    }
+    const selected = nodes.find(node => String(node.id) === selectedCrewNodeId) || nodes[0];
+    host.replaceChildren(head, stage);
+    if (selected) host.appendChild(buildCrewHandoff(run, selected, nodes.indexOf(selected)));
+  }
+
+  function narrativeFeed(sessionId) {
+    const id = String(sessionId || '');
+    if (!narrativeFeeds.has(id)) {
+      narrativeFeeds.set(id, { sessionId: id, entries: [], cursor: 0, degraded: false, gap: null, currentRevision: 0, windowStart: null });
+      if (narrativeFeeds.size > 32) narrativeFeeds.delete(narrativeFeeds.keys().next().value);
+    }
+    return narrativeFeeds.get(id);
+  }
+
+  function foldNarrativeResponse(sessionId, response) {
+    const feed = narrativeFeed(sessionId);
+    if (!narrativeRules || !response) return feed;
+    const folded = narrativeRules.appendNarrativeEntries(feed.entries, response.changes);
+    feed.entries = folded.entries;
+    if (feed.windowStart == null) feed.windowStart = Math.max(0, feed.entries.length - 160);
+    else if (feed.windowStart > 0 && folded.added.length) feed.windowStart = Math.min(feed.entries.length, feed.windowStart + folded.added.length);
+    feed.degraded = response.degraded === true;
+    feed.gap = response.gap || null;
+    feed.currentRevision = Math.max(feed.currentRevision, Number(response.currentRevision) || 0);
+    if (!feed.degraded) feed.cursor = Math.max(feed.cursor, Number(response.currentRevision) || folded.lastSeq);
+    else if (response.gap?.prefix && Number(response.baseRevision) > feed.cursor) feed.cursor = Number(response.baseRevision);
+    return feed;
+  }
+
+  function narrativeTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return t('previewShell.narrativeTimeUnknown');
+    try { return new Intl.DateTimeFormat(getLocale(), { hour: '2-digit', minute: '2-digit' }).format(date); }
+    catch { return String(value || '').slice(11, 16) || t('previewShell.narrativeTimeUnknown'); }
+  }
+
+  function narrativeStatus(value) {
+    const status = String(value || 'unknown');
+    const known = new Set(['complete', 'stopped', 'allowed', 'denied', 'answered', 'cancelled', 'approved', 'rejected', 'cancelled_restart', 'unknown']);
+    return t(`previewShell.narrativeStatus.${known.has(status) ? status : 'unknown'}`);
+  }
+
+  function narrativeError(value) {
+    const errorClass = String(value || 'unknown');
+    const known = new Set(['provider_misconfigured', 'network_down', 'tool_error', 'claude_cli_error', 'unknown']);
+    return t(`previewShell.narrativeError.${known.has(errorClass) ? errorClass : 'unknown'}`);
+  }
+
+  function narrativeEngine(value) {
+    if (value === 'openai') return 'OpenAI';
+    if (value === 'claude') return 'Claude';
+    return t('previewShell.narrativeCrew');
+  }
+
+  function narrativeSentence(entry) {
+    const detail = entry.detail || {};
+    const cursor = entry.cursor || {};
+    switch (entry.sentenceKey) {
+      case 'mission_started': return t('previewShell.narrativeSentence.mission_started', { p1: detail.milestonesTotal || 0 });
+      case 'progress_turn': return t('previewShell.narrativeSentence.progress_turn', { p1: narrativeEngine(cursor.engine), p2: cursor.turnSeq || 0, p3: detail.filesChanged || 0, p4: detail.artifacts || 0, p5: detail.commands || 0 });
+      case 'progress_check': return t('previewShell.narrativeSentence.progress_check', { p1: detail.passed || 0, p2: detail.checks || 0 });
+      case 'progress_ledger': return t('previewShell.narrativeSentence.progress_ledger', { p1: detail.milestonesDone || 0, p2: detail.milestonesTotal || 0 });
+      case 'failure': return t('previewShell.narrativeSentence.failure', { p1: narrativeEngine(cursor.engine), p2: narrativeError(detail.errorClass) });
+      case 'budget': return t('previewShell.narrativeSentence.budget', { p1: narrativeEngine(cursor.engine), p2: compactNumber((Number(detail.inTok) || 0) + (Number(detail.outTok) || 0)), p3: detail.cost == null ? t('previewShell.noCost') : `${detail.currency || ''} ${Number(detail.cost).toFixed(2)}`.trim() });
+      case 'intervention_pending': return t('previewShell.narrativeSentence.intervention_pending', { p1: interventionTypeLabel(detail.interventionType) });
+      case 'intervention_resolved': return t('previewShell.narrativeSentence.intervention_resolved', { p1: interventionTypeLabel(detail.interventionType), p2: narrativeStatus(detail.status) });
+      case 'result': return t('previewShell.narrativeSentence.result', { p1: narrativeStatus(detail.status) });
+      case 'rewind': return t('previewShell.narrativeSentence.rewind', { p1: detail.removedTurns || 0, p2: detail.filesReverted || 0 });
+      case 'run_deleted': return t('previewShell.narrativeSentence.run_deleted', { p1: detail.runId || cursor.runId || t('previewShell.unknown') });
+      default: return t('previewShell.narrativeSentence.progress_ledger', { p1: 0, p2: 0 });
+    }
+  }
+
+  function buildNarrativeEntry(entry) {
+    const item = text('details', `preview-narrative-entry tone-${entry.tone || 'progress'}`, '');
+    item.dataset.changeSeq = String(entry.seq || '');
+    item.dataset.changeType = String(entry.type || '');
+    const summary = text('summary', 'preview-narrative-summary', '');
+    const time = text('time', 'preview-narrative-time', narrativeTime(entry.occurredAt));
+    if (entry.occurredAt) time.dateTime = entry.occurredAt;
+    const rail = text('span', 'preview-narrative-rail', ''); rail.setAttribute('aria-hidden', 'true');
+    const copy = text('span', 'preview-narrative-copy', '');
+    copy.append(text('span', 'preview-narrative-actor', t(`previewShell.narrativeActor.${entry.actor}`)),
+      text('strong', '', narrativeSentence(entry)));
+    const seq = text('code', 'preview-narrative-seq', `#${entry.seq}`);
+    summary.append(time, rail, copy, seq);
+    const evidence = text('div', 'preview-narrative-evidence', '');
+    const evidenceHead = text('div', 'preview-narrative-evidence-head', '');
+    evidenceHead.append(text('strong', '', t('previewShell.narrativeEvidence')),
+      text('span', '', t('previewShell.narrativeEvidenceHint')));
+    const facts = text('dl', 'preview-narrative-facts', '');
+    for (const [label, value] of [
+      [t('previewShell.narrativeFactType'), entry.type],
+      [t('previewShell.narrativeFactTime'), entry.occurredAt || '—'],
+      [t('previewShell.narrativeFactCursor'), JSON.stringify(entry.cursor || {})],
+      [t('previewShell.narrativeFactDetail'), JSON.stringify(entry.detail || {})],
+    ]) facts.append(text('dt', '', label), text('dd', '', value));
+    evidence.append(evidenceHead, facts); item.append(summary, evidence);
+    return item;
+  }
+
+  function renderNarrativeLens(article) {
+    const host = article?.querySelector('[data-slot="narrativeLens"]');
+    if (!host) return;
+    const sessionId = selectedSessionId();
+    const feed = narrativeFeed(sessionId);
+    const locale = getLocale();
+    let list = host.querySelector('.preview-narrative-list');
+    if (narrativeRenderedSession !== sessionId || narrativeRenderedLocale !== locale || !list) {
+      const head = text('header', 'preview-narrative-head', '');
+      const heading = text('div', 'preview-narrative-heading', '');
+      heading.append(text('span', 'preview-eyebrow', t('previewShell.narrativeEyebrow')),
+        text('h2', '', t('previewShell.narrativeTitle')),
+        text('p', '', t('previewShell.narrativeBody')));
+      const count = text('strong', 'preview-narrative-count', '00'); count.dataset.slot = 'narrativeCount';
+      head.append(heading, count);
+      const warning = text('p', 'preview-narrative-warning', t('previewShell.narrativeDegraded'));
+      warning.dataset.slot = 'narrativeWarning'; warning.setAttribute('role', 'alert');
+      const earlier = actionButton('', 'preview-narrative-earlier', () => {
+        feed.windowStart = Math.max(0, Number(feed.windowStart) - 160);
+        narrativeRenderedSession = '';
+        renderNarrativeLens(article);
+        requestAnimationFrame(() => article.querySelector('.preview-narrative-earlier')?.focus());
+      });
+      earlier.dataset.slot = 'narrativeEarlier';
+      list = text('div', 'preview-narrative-list', ''); list.setAttribute('role', 'feed');
+      const empty = text('p', 'preview-narrative-empty', t('previewShell.narrativeEmpty')); empty.dataset.slot = 'narrativeEmpty';
+      host.replaceChildren(head, warning, earlier, list, empty);
+      narrativeRenderedSession = sessionId;
+      narrativeRenderedLocale = locale;
+    }
+    const visibleEntries = feed.entries.slice(Math.max(0, Number(feed.windowStart) || 0));
+    const visibleSeqs = new Set(visibleEntries.map(entry => String(entry.seq)));
+    for (const row of list.querySelectorAll('[data-change-seq]')) if (!visibleSeqs.has(String(row.dataset.changeSeq || ''))) row.remove();
+    const existing = new Set(Array.from(list.querySelectorAll('[data-change-seq]')).map(node => String(node.dataset.changeSeq || '')));
+    const fragment = document.createDocumentFragment();
+    for (const entry of visibleEntries) if (!existing.has(String(entry.seq))) fragment.appendChild(buildNarrativeEntry(entry));
+    if (fragment.childNodes.length) list.appendChild(fragment);
+    const count = host.querySelector('[data-slot="narrativeCount"]');
+    if (count) count.textContent = String(feed.entries.length).padStart(2, '0');
+    const warning = host.querySelector('[data-slot="narrativeWarning"]');
+    if (warning) warning.hidden = !feed.degraded;
+    const earlier = host.querySelector('[data-slot="narrativeEarlier"]');
+    if (earlier) {
+      const hiddenCount = Math.max(0, Number(feed.windowStart) || 0);
+      earlier.hidden = hiddenCount === 0;
+      earlier.textContent = t('previewShell.narrativeEarlier', { p1: Math.min(160, hiddenCount), p2: hiddenCount });
+    }
+    const empty = host.querySelector('[data-slot="narrativeEmpty"]');
+    if (empty) empty.hidden = feed.entries.length > 0;
+  }
+
+  function renderLensSwitch(article, snapshot) {
+    const host = article?.querySelector('[data-slot="lensSwitch"]');
+    if (!host) return;
+    const runs = Array.isArray(snapshot && snapshot.runs) ? snapshot.runs : [];
+    const hasCrew = runs.some(run => (Array.isArray(run?.nodes) && run.nodes.length) || (Array.isArray(run?.proposals) && run.proposals.length));
+    if (selectedLens === 'crew' && !hasCrew) selectedLens = 'narrative';
+    const tabs = [
+      { id: 'narrative', label: t('previewShell.lensNarrative'), target: 'narrativeLens', disabled: !narrativeRules },
+      { id: 'crew', label: t('previewShell.lensCrew'), target: 'crewLens', disabled: !hasCrew },
+      { id: 'raw', label: t('previewShell.lensRaw'), target: 'rawLens', disabled: false },
+    ];
+    host.replaceChildren();
+    for (const tab of tabs) {
+      const button = actionButton(tab.label, `preview-lens-tab lens-${tab.id}`, () => {
+        selectedLens = tab.id;
+        renderLensSwitch(article, snapshot);
+        if (tab.id === 'raw') { renderRawMessages(); replayActiveTurn(); }
+        requestAnimationFrame(() => article.querySelector(`[data-slot="${tab.target}"]`)?.focus?.({ preventScroll: true }));
+      });
+      button.setAttribute('role', 'tab');
+      button.setAttribute('aria-selected', selectedLens === tab.id ? 'true' : 'false');
+      button.setAttribute('aria-controls', `preview-${tab.target}`);
+      button.disabled = tab.disabled;
+      host.appendChild(button);
+    }
+    for (const tab of tabs) {
+      const panel = article.querySelector(`[data-slot="${tab.target}"]`);
+      if (!panel) continue;
+      panel.hidden = selectedLens !== tab.id;
+      panel.tabIndex = selectedLens === tab.id ? 0 : -1;
+    }
+  }
+
   function ensureTaskSheet(card) {
     const main = byId('previewMain');
     const sessionId = String(card.sessionId || '');
@@ -1092,7 +1635,22 @@ export function createPreviewShellDomain({
     stopCard.dataset.slot = 'stopCard'; stopCard.hidden = true;
     stopCard.setAttribute('aria-label', t('previewShell.stopCardTitle'));
 
+    const lensSwitch = text('nav', 'preview-lens-switch', '');
+    lensSwitch.dataset.slot = 'lensSwitch'; lensSwitch.setAttribute('role', 'tablist');
+    lensSwitch.setAttribute('aria-label', t('previewShell.lensLabel'));
+
+    const narrativeLens = text('section', 'preview-narrative-lens', '');
+    narrativeLens.id = 'preview-narrativeLens'; narrativeLens.dataset.slot = 'narrativeLens';
+    narrativeLens.setAttribute('role', 'tabpanel'); narrativeLens.setAttribute('aria-label', t('previewShell.narrativeTitle'));
+
+    const crewLens = text('section', 'preview-crew-lens', '');
+    crewLens.id = 'preview-crewLens';
+    crewLens.dataset.slot = 'crewLens'; crewLens.hidden = true;
+    crewLens.setAttribute('role', 'tabpanel');
+    crewLens.setAttribute('aria-label', t('previewShell.crewTitle'));
+
     const body = text('div', 'preview-task-body', '');
+    body.id = 'preview-rawLens'; body.dataset.slot = 'rawLens'; body.setAttribute('role', 'tabpanel');
     const worksite = text('section', 'preview-worksite', '');
     worksite.setAttribute('aria-label', t('previewShell.worksite'));
     const worksiteHead = text('div', 'preview-worksite-head', '');
@@ -1115,7 +1673,7 @@ export function createPreviewShellDomain({
     foot.append(actionButton(t('previewShell.backHome'), '', () => openDispatchHome()),
       actionButton(t('previewShell.openMissionClassic'), 'primary', () => { void openSelectedInClassic(); }),
       actionButton(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }));
-    article.append(head, returnSummary, stopCard, body, foot);
+    article.append(head, returnSummary, stopCard, lensSwitch, narrativeLens, crewLens, body, foot);
     main.replaceChildren(article);
     return article;
   }
@@ -1421,9 +1979,12 @@ export function createPreviewShellDomain({
     renderTaskHeader(article, card, selectedSnapshot);
     renderReturnSummary(article);
     renderStopCard(article, card, selectedSnapshot);
+    renderNarrativeLens(article);
+    renderCrewLens(article, selectedSnapshot);
     renderIntakeDesk(article, selectedSnapshot);
-    renderRawMessages();
-    replayActiveTurn();
+    if (selectedLens === 'raw') renderRawMessages();
+    renderLensSwitch(article, selectedSnapshot);
+    if (selectedLens === 'raw') replayActiveTurn();
   }
 
   function renderMain() {
@@ -1480,9 +2041,15 @@ export function createPreviewShellDomain({
       const nextTurn = Number(snapshot.cursor?.turnSeq);
       let session = selectedSession;
       const needsSession = forceSession || !session || session.id !== sessionId || previousTurn !== nextTurn;
-      const [sessionResponse, changeResponse] = await Promise.all([
+      const feed = narrativeFeed(sessionId);
+      const returnChangesPromise = api(`/api/missions/${sessionId}/changes?after=${detailBaselineRevision}`);
+      const narrativeChangesPromise = feed.cursor === detailBaselineRevision
+        ? returnChangesPromise
+        : api(`/api/missions/${sessionId}/changes?after=${feed.cursor}`);
+      const [sessionResponse, changeResponse, narrativeResponse] = await Promise.all([
         needsSession ? api(`/api/sessions/${sessionId}`) : Promise.resolve(null),
-        api(`/api/missions/${sessionId}/changes?after=${detailBaselineRevision}`),
+        returnChangesPromise,
+        narrativeChangesPromise,
       ]);
       if (epoch !== detailEpoch || sessionId !== selectedSessionId()) return null;
       if (sessionResponse) session = sessionResponse.session;
@@ -1493,6 +2060,7 @@ export function createPreviewShellDomain({
       }
       selectedSnapshot = snapshot;
       selectedChanges = changeResponse;
+      foldNarrativeResponse(sessionId, narrativeResponse);
       if (session) selectedSession = session;
       if (forceSession) clearPreviewLive();
       renderTaskSheet(card);
@@ -1530,6 +2098,7 @@ export function createPreviewShellDomain({
         cards = Array.isArray(missionResponse && missionResponse.missions) ? missionResponse.missions : [];
         inboxCounts = interventionResponse && interventionResponse.counts || { total: 0 };
         pendingInterventions = Array.isArray(interventionResponse && interventionResponse.pending) ? interventionResponse.pending : [];
+        syncNeedsNotifications(pendingInterventions);
         const pendingIds = new Set(pendingInterventions.map(item => String(item && item.id || '')));
         for (const id of interventionDrafts.keys()) if (!pendingIds.has(id)) interventionDrafts.delete(id);
         if (!playbooksLoaded) {
@@ -1573,7 +2142,7 @@ export function createPreviewShellDomain({
   function handlePreviewStreamEvent(envelope) {
     if (!envelope || !isPreviewMode() || String(envelope.sessionId || '') !== selectedSessionId()) return;
     if (envelope.type === 'start') {
-      ensurePreviewLiveRow();
+      if (selectedLens === 'raw') ensurePreviewLiveRow();
       return;
     }
     if (envelope.type === 'settled') {
@@ -1585,15 +2154,17 @@ export function createPreviewShellDomain({
     }
     if (envelope.type !== 'event' || !envelope.line) return;
     let event; try { event = JSON.parse(envelope.line); } catch { return; }
-    if (event.type === 'assistant_delta') appendPreviewLiveText(event.text || '');
+    if (event.type === 'assistant_delta') { if (selectedLens === 'raw') appendPreviewLiveText(event.text || ''); }
     else if (event.type === 'session' && event.session && event.session.id === selectedSessionId()) {
-      selectedSession = event.session; renderedSession = null; renderRawMessages();
+      selectedSession = event.session; renderedSession = null; if (selectedLens === 'raw') renderRawMessages();
     } else if (['mission', 'usage', 'agent_workflow', 'tool_result'].includes(event.type)) scheduleDetailRefresh(false);
   }
 
   function refreshPreviewShellLabels() {
     syncModeControl(isPreviewMode() ? 'preview' : 'classic');
     renderedLocale = '';
+    narrativeRenderedLocale = '';
+    syncNotificationControls();
     renderPreviewShell();
   }
 
@@ -1606,6 +2177,36 @@ export function createPreviewShellDomain({
       closeSettings();
       requestAnimationFrame(() => (mode === 'preview' ? byId('previewMain') : byId('promptInput'))?.focus());
     };
+    syncNotificationControls();
+    const notificationToggle = byId('cfgPreviewNotifications');
+    if (notificationToggle) notificationToggle.onchange = async event => {
+      if (!event.target.checked) {
+        saveNotificationSettings({ enabled: false });
+        syncNeedsNotifications(pendingInterventions);
+        closeAllNeedsNotifications();
+        syncPolling();
+        return;
+      }
+      let permission = notificationPermission();
+      if (permission === 'default' && notificationApi && typeof notificationApi.requestPermission === 'function') {
+        try { permission = await notificationApi.requestPermission(); } catch { permission = 'denied'; }
+      }
+      if (permission !== 'granted') {
+        saveNotificationSettings({ enabled: false });
+        return;
+      }
+      notificationCoordinator = notificationRules?.normalizeCoordinatorState() || { primed: false, known: [], active: [] };
+      saveNotificationSettings({ enabled: true });
+      syncPolling();
+      await refreshNotificationInbox(); // first successful read only primes current items; no historical notification burst
+    };
+    for (const [id, key] of [['cfgPreviewQuietStart', 'quietStart'], ['cfgPreviewQuietEnd', 'quietEnd']]) {
+      const input = byId(id);
+      if (input) input.onchange = event => {
+        saveNotificationSettings({ [key]: event.target.value });
+        syncNeedsNotifications(pendingInterventions);
+      };
+    }
     const classic = byId('previewClassicBtn');
     if (classic) classic.onclick = () => applyShellMode('classic');
     const home = byId('previewHomeBtn');
@@ -1617,11 +2218,11 @@ export function createPreviewShellDomain({
     const settings = byId('previewSettingsBtn');
     if (settings) settings.onclick = () => openSettings('basic');
     const workspace = byId('previewWorkspaceFact');
-    if (workspace) workspace.onclick = () => openSettings('basic');
+    if (workspace) workspace.onclick = () => openWorkspaceControl(workspace);
     const safety = byId('previewSafetyFact');
-    if (safety) safety.onclick = () => openSettings('basic');
+    if (safety) safety.onclick = () => openSafetyControl(safety);
     const engine = byId('previewEngineFact');
-    if (engine) engine.onclick = () => openSettings('providers');
+    if (engine) engine.onclick = () => openEngineControl(engine);
     const needs = byId('previewNeedsFact');
     if (needs) needs.onclick = () => setNeedsDrawer(!needsDrawerOpen);
     const needsScrim = byId('previewNeedsScrim');
@@ -1635,6 +2236,7 @@ export function createPreviewShellDomain({
     };
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && isPreviewMode()) void refreshPreviewShell({ quiet: true });
+      else if (!document.hidden && notificationSettings.enabled) void refreshNotificationInbox();
     });
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape' && needsDrawerOpen) { event.preventDefault(); setNeedsDrawer(false); }

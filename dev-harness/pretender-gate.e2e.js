@@ -165,9 +165,38 @@ function spawnWb() {
     ok(snapDone.cursor && snapDone.cursor.turnSeq >= 1 && snapDone.usage && snapDone.usage.turns >= 1, '(c) 长任务:游标 turnSeq + 用量切片');
     // 多 Agent:播种 run 快照(与 71b 同配方),断言 runs digest 数据面
     fs.mkdirSync(path.join(HOME, 'agent-runs', s1), { recursive: true });
-    fs.writeFileSync(path.join(HOME, 'agent-runs', s1, 'run_abc1.json'), JSON.stringify({ schemaVersion: 4, id: 'run_abc1', sessionId: s1, status: 'succeeded', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), concurrency: 2, taskPool: [], messages: [], poolPolicy: 'manual', poolAutoCap: 3, eventSeq: 7, nodes: [{ id: 'n1', status: 'succeeded' }] }), 'utf8');
+    fs.writeFileSync(path.join(HOME, 'agent-runs', s1, 'run_abc1.json'), JSON.stringify({
+      schemaVersion: 4,
+      id: 'run_abc1',
+      sessionId: s1,
+      status: 'succeeded',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      concurrency: 2,
+      taskPool: [{ id: 'pool_review', status: 'proposed', proposedBy: 'n1', task: 'review the delivery', reason: 'final check', roleId: 'reviewer', dependsOn: ['n1'] }],
+      messages: [],
+      poolPolicy: 'manual',
+      poolAutoCap: 3,
+      eventSeq: 7,
+      nodes: [{
+        id: 'n1',
+        status: 'succeeded',
+        roleId: 'explorer',
+        roleLabel: 'Reader',
+        task: 'read the source',
+        dependsOn: [],
+        engine: 'openai',
+        model: 'fake-model',
+        result: 'x'.repeat(24000),
+        roleSnapshot: { large: true },
+        toolEvidence: [{ tool: 'file_read' }],
+        progressLog: [{ text: 'started' }, { text: 'latest compact progress' }],
+      }],
+    }), 'utf8');
     const snapRuns = (await requestJson(WB_PORT, '/api/missions/' + s1, null, token)).json.snapshot;
     const rd = snapRuns.runs && snapRuns.runs[0];
+    ok(rd && rd.nodes && rd.nodes[0] && rd.nodes[0].roleLabel === 'Reader' && rd.nodes[0].progress === 'latest compact progress' && rd.nodes[0].steerable === false && rd.nodes[0].steerReason === 'not_live' && rd.proposals && rd.proposals[0] && rd.proposals[0].id === 'pool_review', '(c) multi-agent compact graph keeps presentation/steer facts and proposed pool work');
+    ok(rd && !Object.hasOwn(rd.nodes[0], 'result') && !Object.hasOwn(rd.nodes[0], 'roleSnapshot') && !Object.hasOwn(rd.nodes[0], 'toolEvidence') && !Object.hasOwn(rd.nodes[0], 'progressLog'), '(c) multi-agent compact graph omits large node payloads');
     ok(!!rd && rd.status === 'succeeded' && rd.eventSeq === 7 && rd.nodeCount === 1 && typeof rd.poolPending === 'number' && rd.live === false, '(c) 多 Agent:runs digest(状态/eventSeq/节点数/池/活标志)= 班组图数据面');
     ok(typeof snapRuns.cursor.runs.run_abc1 === 'number', '(c) 多 Agent:游标含 run eventSeq(增量消费位置令牌)');
     // Quick Ask:kind 显式 + 不进任务列表

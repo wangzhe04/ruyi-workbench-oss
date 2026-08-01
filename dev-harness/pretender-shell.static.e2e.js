@@ -12,6 +12,9 @@ const read = relative => fs.readFileSync(path.join(PUBLIC, ...relative.split('/'
 const html = read('index.html');
 const app = read('app.js');
 const shell = read('js/preview-shell.js');
+const workspacePreferences = read('js/workspace-preferences.js');
+const providerSettings = read('js/provider-settings.js');
+const navigationControls = read('js/navigation-controls.js');
 const css = read('css/views/preview-shell.css');
 const zh = JSON.parse(read('locales/zh-CN.json'));
 const en = JSON.parse(read('locales/en-US.json'));
@@ -62,8 +65,27 @@ ok(/value === 'needs_you'\) return 'attention'/.test(shell)
   && /return 'quiet'/.test(shell), 'C7 五态事实折算为 attention/active/quiet 三种瓷章表现');
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(shell)
   && /replaceChildren\(/.test(shell) && /textContent\s*=/.test(shell), 'C8 动态壳零 innerHTML，使用 DOM/textContent 构建');
-ok(/setInterval\([\s\S]{0,180}10000\)/.test(shell) && /if \(!document\.hidden && isPreviewMode\(\)\)/.test(shell),
-  'C9 轮询仅在 Preview 可见态运行，经典布局零后台维护税');
+ok(/setInterval\([\s\S]{0,320}10000\)/.test(shell)
+  && /isPreviewMode\(\) && \(!document\.hidden \|\| notificationSettings\.enabled\)/.test(shell)
+  && /else if \(notificationSettings\.enabled\) void refreshNotificationInbox\(\)/.test(shell)
+  && /if \(isPreviewMode\(\) \|\| notificationSettings\.enabled\) startPolling\(\)/.test(shell),
+  'C9 默认关闭时经典布局零后台税；显式开启通知后才保留轻量待决轮询');
+
+ok(shell.includes('workspace.onclick = () => openWorkspaceControl(workspace)')
+  && shell.includes('safety.onclick = () => openSafetyControl(safety)')
+  && shell.includes('engine.onclick = () => openEngineControl(engine)')
+  && shell.includes("settings.onclick = () => openSettings('basic')")
+  && !/workspace\) workspace\.onclick = \(\) => openSettings/.test(shell)
+  && !/safety\) safety\.onclick = \(\) => openSettings/.test(shell)
+  && !/engine\) engine\.onclick = \(\) => openSettings/.test(shell),
+  'C10 Preview facts route to workspace, safety, and engine controls; only Settings opens Settings');
+ok(app.includes('openWorkspaceControl: anchor => pickWorkspace(anchor)')
+  && app.includes('openSafetyControl: anchor => openPermPopover(anchor)')
+  && app.includes('openEngineControl: anchor => openModelChipPopover(anchor)')
+  && /function pickWorkspace\(anchor\)[\s\S]{0,360}anchor\.nodeType === 1/.test(workspacePreferences)
+  && /function openPermPopover\(anchor\)[\s\S]{0,360}anchor\.nodeType === 1/.test(providerSettings)
+  && /function openModelChipPopover\(anchor\)[\s\S]{0,360}anchor\.nodeType === 1/.test(navigationControls),
+  'C11 shared popovers anchor to the visible Preview control without duplicating authority');
 
 const zhKeys = Object.keys(zh).filter(key => key.startsWith('previewShell.')).sort();
 const enKeys = Object.keys(en).filter(key => key.startsWith('previewShell.')).sort();

@@ -524,13 +524,13 @@
           <span class="preview-deskbar-name"><strong data-i18n="previewShell.brand">如意任务台</strong><span data-i18n="previewShell.previewLabel">预览</span></span>
         </div>
         <div class="preview-deskbar-facts" aria-label="案头事实" data-i18n-attr="aria-label:previewShell.factsLabel">
-          <button type="button" id="previewWorkspaceFact" class="preview-fact" title="打开工作圈设置" data-i18n-attr="title:previewShell.workspaceSettings">
+          <button type="button" id="previewWorkspaceFact" class="preview-fact" title="切换工作圈" data-i18n-attr="title:previewShell.workspaceSettings">
             <span class="preview-fact-label" data-i18n="previewShell.workspace">工作圈</span><span id="previewWorkspaceValue" class="preview-fact-value">—</span>
           </button>
-          <button type="button" id="previewSafetyFact" class="preview-fact" title="打开安全档设置" data-i18n-attr="title:previewShell.safetySettings">
+          <button type="button" id="previewSafetyFact" class="preview-fact" title="调整安全档" data-i18n-attr="title:previewShell.safetySettings">
             <span class="preview-fact-label" data-i18n="previewShell.safety">安全档</span><span id="previewSafetyValue" class="preview-fact-value">—</span>
           </button>
-          <button type="button" id="previewEngineFact" class="preview-fact" title="打开引擎设置" data-i18n-attr="title:previewShell.engineSettings">
+          <button type="button" id="previewEngineFact" class="preview-fact" title="切换引擎或模型" data-i18n-attr="title:previewShell.engineSettings">
             <span class="preview-fact-label" data-i18n="previewShell.engine">引擎</span><span id="previewEngineValue" class="preview-fact-value">—</span>
           </button>
           <button type="button" id="previewNeedsFact" class="preview-fact preview-fact-needs" aria-haspopup="dialog" aria-expanded="false">
@@ -620,6 +620,26 @@
               </select>
               <p class="field-help muted" data-i18n="previewShell.settingHint">切换只改变本机界面，不迁移或改写任务与会话数据；可随时切回。</p>
             </div>
+            <section class="preview-notification-settings" aria-labelledby="previewNotificationHeading">
+              <div class="preview-notification-setting-head">
+                <div>
+                  <h4 id="previewNotificationHeading" data-i18n="previewShell.notificationSettingTitle">需要你时提醒我</h4>
+                  <p class="field-help muted" data-i18n="previewShell.notificationSettingHint">使用本机系统通知；默认关闭，只提醒启用后新出现的待决事项。</p>
+                </div>
+                <label class="check preview-notification-toggle"><input type="checkbox" id="cfgPreviewNotifications" aria-describedby="previewNotificationStatus" /> <span data-i18n="previewShell.notificationSettingToggle">开启本机通知</span></label>
+              </div>
+              <div class="field-grid preview-quiet-grid">
+                <div class="field-block">
+                  <label for="cfgPreviewQuietStart" data-i18n="previewShell.notificationQuietStart">免打扰开始</label>
+                  <input id="cfgPreviewQuietStart" type="time" value="22:00" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgPreviewQuietEnd" data-i18n="previewShell.notificationQuietEnd">免打扰结束</label>
+                  <input id="cfgPreviewQuietEnd" type="time" value="08:00" />
+                </div>
+              </div>
+              <p id="previewNotificationStatus" class="field-help preview-notification-status" role="status" aria-live="polite"></p>
+            </section>
             <div class="field-row">
               <label class="check"><input type="checkbox" id="cfgKillDisc" /> <span data-i18n="settings.stopTasksOnClose">关闭页面时同时结束正在运行的任务</span></label>
               <label class="check"><input type="checkbox" id="cfgKillPort" /> <span data-i18n="settings.takeOverPort">启动时接管被旧实例占用的端口</span></label>

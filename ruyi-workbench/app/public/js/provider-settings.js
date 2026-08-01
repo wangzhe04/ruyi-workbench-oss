@@ -183,8 +183,10 @@ function renderPermChip() {
 // 安全弹层：只展示一套单选卡（枚举来自 state.status.permissionModes）。点击卡片 =
 // 设置 permSelect.value + dispatch('change')，完全复用既有 onchange（持久化 / bypass 确认 / toast 全部白拿）。
 // 隐藏的 permSelect 只作为状态/事件载体，不再形成第二套可见选择器。DOM 全 createElement/textContent 构建。
-function openPermPopover() {
-  const chip = $('permChip'); if (!chip) return;
+function openPermPopover(anchor) {
+  // Keep one permission selector, but allow Preview to anchor it to its visible safety fact.
+  // Classic's direct onclick supplies a MouseEvent, which intentionally uses the legacy chip.
+  const chip = anchor && anchor.nodeType === 1 ? anchor : $('permChip'); if (!chip) return;
   const pro = document.documentElement.getAttribute('data-ui-mode') !== 'simple';
   popover(chip, close => {
     const wrap = el('div', 'perm-pop');

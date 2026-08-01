@@ -287,6 +287,79 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
 .preview-intake-needs.is-actionable:focus-visible { border-color: var(--preview-hot); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--preview-hot) 12%, transparent); }
 .preview-task-actions { flex: 0 0 auto; margin: 0; padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--preview-line); background: color-mix(in srgb, var(--preview-surface-2) 58%, transparent); }
 
+/* 第83波：三种镜头是一组表达密度切换，不复制任务事实。叙事镜头采用值班簿/电传纸带，
+   让变化沿一条连续细轴向下生长；原始凭据藏在每句自身的 details 内，不堆第二面卡墙。 */
+.preview-lens-switch {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 7px var(--sp-5) 0;
+  display: flex;
+  align-items: end;
+  gap: 3px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--preview-line);
+  background: color-mix(in srgb, var(--preview-surface-2) 42%, var(--preview-surface));
+}
+.preview-lens-tab { min-height: 36px; padding: 7px 15px 9px; border: 0; border-radius: 16px 16px 0 0; background: transparent; color: var(--preview-muted); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+.preview-lens-tab:hover:not(:disabled) { color: var(--preview-ink); background: color-mix(in srgb, var(--preview-accent) 6%, transparent); }
+.preview-lens-tab[aria-selected="true"] { color: var(--preview-accent); background: var(--preview-surface); box-shadow: inset 0 -2px 0 var(--preview-accent); }
+.preview-lens-tab:disabled { opacity: .38; cursor: not-allowed; }
+.preview-narrative-lens,
+.preview-crew-lens { min-width: 0; min-height: 0; flex: 1 1 auto; overflow: auto; scrollbar-gutter: stable; }
+.preview-narrative-lens[hidden],
+.preview-crew-lens[hidden],
+.preview-task-body[hidden] { display: none; }
+.preview-narrative-lens { background: linear-gradient(90deg, color-mix(in srgb, var(--preview-accent) 5%, transparent), transparent 34%), var(--preview-surface); }
+.preview-narrative-head { position: sticky; z-index: 3; top: 0; min-width: 0; padding: var(--sp-4) var(--sp-5) var(--sp-3); display: flex; align-items: end; justify-content: space-between; gap: var(--sp-4); border-bottom: 1px solid color-mix(in srgb, var(--preview-line) 74%, transparent); background: var(--preview-surface); }
+.preview-narrative-heading h2 { margin: 2px 0; font-size: var(--fs-lg); letter-spacing: -.025em; }
+.preview-narrative-heading p { max-width: 82ch; margin: 0; color: var(--preview-muted); font-size: var(--fs-xs); line-height: 1.5; }
+.preview-narrative-count { flex: 0 0 auto; color: var(--preview-accent); font: 650 var(--fs-lg)/1 "Cascadia Mono", var(--mono); letter-spacing: .08em; }
+.preview-narrative-warning { max-width: 1040px; margin: var(--sp-3) auto 0; padding: 9px 13px; border-left: 3px solid var(--preview-hot); border-radius: 0 15px 15px 0; background: color-mix(in srgb, var(--preview-hot) 8%, transparent); color: var(--preview-ink); font-size: var(--fs-xs); }
+.preview-narrative-earlier { min-height: 32px; margin: var(--sp-3) auto 0; padding: 5px 12px; display: block; border-radius: var(--r-pill); color: var(--preview-muted); background: color-mix(in srgb, var(--preview-surface-2) 68%, transparent); font-size: var(--fs-xs); }
+.preview-narrative-earlier:hover { color: var(--preview-accent); border-color: var(--preview-accent); }
+.preview-narrative-earlier[hidden] { display: none; }
+.preview-narrative-list { width: min(1100px, 100%); margin: 0 auto; padding: var(--sp-2) var(--sp-5) var(--sp-5); }
+.preview-narrative-entry { --narrative-tone: var(--preview-accent); position: relative; margin: 0; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--preview-line) 72%, transparent); background: transparent; }
+.preview-narrative-entry.tone-attention,
+.preview-narrative-entry.tone-issue { --narrative-tone: var(--preview-hot); }
+.preview-narrative-entry.tone-result,
+.preview-narrative-entry.tone-resolved { --narrative-tone: var(--ok-fg); }
+.preview-narrative-entry.tone-meter,
+.preview-narrative-entry.tone-quiet { --narrative-tone: var(--preview-muted); }
+.preview-narrative-summary { min-width: 0; padding: 14px 5px; display: grid; grid-template-columns: 54px 22px minmax(0, 1fr) auto; align-items: start; gap: var(--sp-2); cursor: pointer; list-style: none; }
+.preview-narrative-summary::-webkit-details-marker { display: none; }
+.preview-narrative-summary:hover { background: color-mix(in srgb, var(--narrative-tone) 5%, transparent); }
+.preview-narrative-summary:focus-visible { outline: 2px solid var(--preview-accent); outline-offset: -2px; border-radius: 16px 5px 16px 16px; }
+.preview-narrative-time { padding-top: 2px; color: var(--preview-muted); font: 600 var(--fs-xs)/1.4 "Cascadia Mono", var(--mono); font-variant-numeric: tabular-nums; }
+.preview-narrative-rail { position: relative; width: 22px; min-height: 32px; }
+.preview-narrative-rail::before { content: ""; position: absolute; top: -14px; bottom: -29px; left: 10px; border-left: 1px dashed color-mix(in srgb, var(--narrative-tone) 42%, var(--preview-line)); }
+.preview-narrative-rail::after { content: ""; position: absolute; top: 5px; left: 6px; width: 9px; height: 9px; border: 2px solid var(--preview-surface); border-radius: 50%; background: var(--narrative-tone); box-shadow: 0 0 0 3px color-mix(in srgb, var(--narrative-tone) 12%, transparent); }
+.preview-narrative-entry:first-child .preview-narrative-rail::before { top: 9px; }
+.preview-narrative-entry:last-child .preview-narrative-rail::before { bottom: 16px; }
+.preview-narrative-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.preview-narrative-actor { color: var(--narrative-tone); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .03em; }
+.preview-narrative-copy strong { color: var(--preview-ink); font-size: var(--fs-sm); line-height: 1.55; font-weight: 590; overflow-wrap: anywhere; }
+.preview-narrative-seq { margin-top: 1px; padding: 3px 7px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--preview-surface-2) 70%, transparent); color: var(--preview-muted); font-size: var(--fs-xs); }
+.preview-narrative-entry[open] { background: color-mix(in srgb, var(--narrative-tone) 3%, transparent); }
+.preview-narrative-evidence { margin: -2px 8px var(--sp-3) 86px; padding: var(--sp-3); border: 1px solid var(--preview-line); border-radius: 0 18px 18px 18px; background: color-mix(in srgb, var(--preview-surface-2) 66%, transparent); }
+.preview-narrative-evidence-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.preview-narrative-evidence-head strong { font-size: var(--fs-xs); }
+.preview-narrative-evidence-head span { color: var(--preview-muted); font-size: var(--fs-xs); }
+.preview-narrative-facts { margin: var(--sp-2) 0 0; display: grid; grid-template-columns: minmax(88px, auto) minmax(0, 1fr); gap: 5px var(--sp-3); font: var(--fs-xs)/1.45 "Cascadia Mono", var(--mono); }
+.preview-narrative-facts dt { color: var(--preview-muted); }
+.preview-narrative-facts dd { min-width: 0; margin: 0; color: var(--preview-ink); overflow-wrap: anywhere; }
+.preview-narrative-empty { width: min(780px, calc(100% - var(--sp-6))); margin: var(--sp-5) auto; padding: var(--sp-5); border: 1px dashed var(--preview-line); border-radius: 22px 7px 22px 22px; color: var(--preview-muted); text-align: center; }
+
+/* Local-only notification controls live in the shared settings modal, so use the shell-neutral palette. */
+.preview-notification-settings { margin: 4px 0 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 20px 8px 20px 20px; background: color-mix(in srgb, var(--panel-2) 78%, transparent); }
+.preview-notification-setting-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); }
+.preview-notification-setting-head h4 { margin: 0; font-size: var(--fs-sm); }
+.preview-notification-setting-head p { margin: 4px 0 0; max-width: 62ch; }
+.preview-notification-toggle { flex: 0 0 auto; padding: 7px 10px; border-radius: var(--r-pill); background: var(--panel); }
+.preview-quiet-grid { margin-top: var(--sp-3); }
+.preview-quiet-grid .field-block { margin-bottom: 0; }
+.preview-notification-status { margin: var(--sp-2) 0 0; }
+
 /* Wave 81: stopped Missions explain the hand-off in plain language. Actions either prepare a
    classic-layout draft or archive locally; none pretend to resume an engine from the projection. */
 .preview-stop-card {
@@ -308,6 +381,62 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
 .preview-stop-unfinished { margin: var(--sp-2) 0 0; padding-left: 1.2rem; color: var(--preview-muted); font-size: var(--fs-xs); }
 .preview-stop-actions { flex: 0 0 auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
 .preview-stop-actions button { border-radius: var(--r-pill); }
+
+/* 第82波：班组图是 Agent Run 权威投影的一张现场图，不另存节点状态。视觉采用工序长卷：
+   每一列是一道工序，队员是非方正的名牌，池提案只以虚线鎏金“拟增工序”进入同一长卷。 */
+.preview-crew-lens { border-bottom: 1px solid var(--preview-line); background: color-mix(in srgb, var(--preview-accent) 4%, var(--preview-surface)); }
+.preview-crew-lens[hidden] { display: none; }
+.preview-crew-head { position: sticky; z-index: 3; top: 0; min-width: 0; padding: var(--sp-3) var(--sp-5); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--sp-4); border-bottom: 1px solid color-mix(in srgb, var(--preview-line) 72%, transparent); background: var(--preview-surface); }
+.preview-crew-heading h2 { margin: 2px 0; font-size: var(--fs-lg); letter-spacing: -.025em; }
+.preview-crew-foreman { max-width: 90ch; margin: 0; color: var(--preview-muted); font-size: var(--fs-xs); line-height: 1.5; }
+.preview-crew-foreman::before { content: "⌁"; margin-right: 7px; color: var(--preview-accent); }
+.preview-crew-runs { display: flex; justify-content: flex-end; gap: var(--sp-1); overflow-x: auto; }
+.preview-crew-run { min-height: 30px; padding: 4px 10px; border-radius: var(--r-pill); color: var(--preview-muted); background: transparent; font-size: var(--fs-xs); white-space: nowrap; }
+.preview-crew-run[aria-selected="true"] { border-color: color-mix(in srgb, var(--preview-accent) 45%, var(--preview-line)); background: color-mix(in srgb, var(--preview-accent) 10%, transparent); color: var(--preview-accent); }
+.preview-crew-run.is-issue { color: var(--danger-fg); }
+.preview-crew-stage { min-width: max-content; padding: var(--sp-4) var(--sp-5); display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 270px); align-items: start; gap: 34px; }
+.preview-crew-lane { position: relative; min-width: 0; }
+.preview-crew-lane:not(:first-child)::before { content: ""; position: absolute; top: 38px; right: calc(100% + 6px); width: 22px; border-top: 1px dashed color-mix(in srgb, var(--preview-accent) 50%, var(--preview-line)); }
+.preview-crew-lane:not(:first-child)::after { content: "›"; position: absolute; top: 27px; right: calc(100% - 1px); color: var(--preview-accent); font-size: var(--fs-lg); }
+.preview-crew-lane-label { display: block; margin: 0 0 var(--sp-2) 4px; color: var(--preview-muted); font: 650 var(--fs-xs)/1.2 "Cascadia Mono", var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.preview-crew-lane-members { display: flex; flex-direction: column; gap: var(--sp-2); }
+.preview-crew-member { --crew-tone: var(--preview-muted); position: relative; width: 100%; min-height: 88px; padding: 11px 12px; display: grid; grid-template-columns: 34px minmax(0, 1fr) 10px; grid-template-rows: auto auto auto; align-items: center; gap: 5px 9px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--crew-tone) 34%, var(--preview-line)); border-radius: 24px 10px 24px 24px; background: color-mix(in srgb, var(--preview-surface) 88%, transparent); color: var(--preview-ink); text-align: left; box-shadow: inset 3px 0 0 color-mix(in srgb, var(--crew-tone) 70%, transparent); }
+.preview-crew-member:hover { border-color: color-mix(in srgb, var(--crew-tone) 74%, var(--preview-line)); background: color-mix(in srgb, var(--crew-tone) 7%, var(--preview-surface)); transform: translateY(-1px); }
+.preview-crew-member[aria-pressed="true"] { border-color: var(--crew-tone); background: color-mix(in srgb, var(--crew-tone) 10%, var(--preview-surface)); box-shadow: inset 3px 0 0 var(--crew-tone), 0 10px 24px color-mix(in srgb, var(--crew-tone) 10%, transparent); }
+.preview-crew-member.is-running { --crew-tone: var(--preview-accent); }
+.preview-crew-member.is-waiting,
+.preview-crew-member.is-paused { --crew-tone: var(--preview-muted); }
+.preview-crew-member.is-done { --crew-tone: var(--ok-fg); }
+.preview-crew-member.is-issue { --crew-tone: var(--danger-fg); }
+.preview-crew-member.is-proposal { --crew-tone: var(--preview-hot); border-style: dashed; background: color-mix(in srgb, var(--preview-hot) 6%, var(--preview-surface)); box-shadow: none; }
+.preview-crew-number { grid-row: 1 / span 2; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--crew-tone) 11%, transparent); color: var(--crew-tone); font: 650 var(--fs-xs)/1 "Cascadia Mono", var(--mono); }
+.preview-crew-member-copy { min-width: 0; display: flex; flex-direction: column; }
+.preview-crew-member-copy strong { overflow: hidden; font-size: var(--fs-sm); text-overflow: ellipsis; white-space: nowrap; }
+.preview-crew-member-copy small { color: var(--crew-tone); font-size: var(--fs-xs); }
+.preview-crew-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--crew-tone); box-shadow: 0 0 0 4px color-mix(in srgb, var(--crew-tone) 11%, transparent); }
+.preview-crew-member.is-running .preview-crew-status-dot { animation: preview-gold-pulse 1.8s var(--ease-out) infinite; }
+.preview-crew-task { grid-column: 1 / -1; min-width: 0; overflow: hidden; color: var(--preview-muted); font-size: var(--fs-xs); line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.preview-crew-deps { grid-column: 1 / -1; min-width: 0; overflow: hidden; color: color-mix(in srgb, var(--preview-muted) 82%, transparent); font: var(--fs-xs)/1.3 "Cascadia Mono", var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.preview-crew-handoff { min-width: 0; padding: var(--sp-3) var(--sp-5) var(--sp-4); display: grid; grid-template-columns: minmax(240px, .8fr) minmax(320px, 1.2fr); gap: var(--sp-5); border-top: 1px solid color-mix(in srgb, var(--preview-line) 72%, transparent); background: color-mix(in srgb, var(--preview-surface-2) 52%, transparent); }
+.preview-crew-handoff-copy { min-width: 0; }
+.preview-crew-handoff-copy h3 { margin: 2px 0; font-size: var(--fs-md); }
+.preview-crew-handoff-copy > p { margin: 0; overflow: hidden; color: var(--preview-muted); font-size: var(--fs-xs); line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.preview-crew-handoff-meta { margin-top: var(--sp-2); display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); color: var(--preview-muted); font-size: var(--fs-xs); }
+.preview-crew-handoff-meta span:first-child { padding: 3px 8px; border-radius: var(--r-pill); background: var(--preview-surface); }
+.preview-crew-handoff-meta .is-running { color: var(--preview-accent); }
+.preview-crew-handoff-meta .is-done { color: var(--ok-fg); }
+.preview-crew-handoff-meta .is-issue { color: var(--danger-fg); }
+.preview-crew-handoff-meta code { color: var(--preview-accent); }
+.preview-crew-steer { min-width: 0; }
+.preview-crew-steer label { display: block; color: var(--preview-ink); font-size: var(--fs-xs); font-weight: 650; }
+.preview-crew-steer textarea { width: 100%; min-height: 54px; margin-top: 5px; resize: vertical; border-radius: 16px 8px 16px 16px; background: var(--preview-surface); line-height: 1.45; }
+.preview-crew-steer textarea:disabled { opacity: .68; cursor: not-allowed; }
+.preview-crew-steer-actions { margin-top: var(--sp-2); display: flex; align-items: center; gap: var(--sp-3); }
+.preview-crew-steer-actions button { flex: 0 0 auto; min-height: 32px; padding: 5px 12px; border-radius: var(--r-pill); }
+.preview-crew-steer-state { min-width: 0; margin: 0; color: var(--preview-muted); font-size: var(--fs-xs); line-height: 1.4; }
+.preview-crew-steer-state.is-success { color: var(--ok-fg); }
+.preview-crew-steer-state.is-error { color: var(--danger-fg); }
+.preview-crew-steer-state.is-sending { color: var(--preview-accent); }
 
 /* Wave 81: the global "Needs you" decision desk. It overlays the projection shell while keeping
    the selected task visible as context; on narrow screens the same surface becomes modal. */
@@ -706,6 +835,8 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
   .preview-archive-group { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
   .preview-stop-card { align-items: flex-start; flex-direction: column; gap: var(--sp-3); }
   .preview-stop-actions { justify-content: flex-start; }
+  .preview-crew-handoff { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
+  .preview-narrative-list { padding-inline: var(--sp-4); }
 }
 
 @media (max-width: 620px) {
@@ -732,6 +863,27 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
   .preview-main[data-view="home"] { padding: 0; background-size: auto, 40px 40px, 40px 40px; }
   .preview-task-head { padding: var(--sp-3); }
   .preview-stop-card { max-height: 42vh; padding: var(--sp-3); }
+  .preview-lens-switch { padding-inline: var(--sp-3); }
+  .preview-lens-tab { padding-inline: 12px; }
+  .preview-narrative-head { padding: var(--sp-3); align-items: flex-start; }
+  .preview-narrative-heading p { max-width: 54ch; }
+  .preview-narrative-list { padding: var(--sp-1) var(--sp-3) var(--sp-4); }
+  .preview-narrative-summary { grid-template-columns: 45px 18px minmax(0, 1fr); gap: 6px; }
+  .preview-narrative-seq { grid-column: 3; justify-self: start; }
+  .preview-narrative-rail { width: 18px; }
+  .preview-narrative-rail::before { left: 8px; }
+  .preview-narrative-rail::after { left: 4px; }
+  .preview-narrative-evidence { margin: -2px 0 var(--sp-3) 69px; padding: var(--sp-3); }
+  .preview-narrative-evidence-head { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .preview-narrative-facts { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .preview-narrative-facts dd { margin-bottom: 5px; }
+  .preview-crew-head { padding: var(--sp-3); grid-template-columns: minmax(0, 1fr); align-items: start; gap: var(--sp-2); }
+  .preview-crew-runs { justify-content: flex-start; }
+  .preview-crew-stage { min-width: 0; padding: var(--sp-3); grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .preview-crew-lane:not(:first-child)::before { top: auto; right: auto; bottom: calc(100% + 5px); left: 20px; width: 1px; height: 12px; border-top: 0; border-left: 1px dashed color-mix(in srgb, var(--preview-accent) 50%, var(--preview-line)); }
+  .preview-crew-lane:not(:first-child)::after { top: auto; right: auto; bottom: calc(100% - 3px); left: 15px; transform: rotate(90deg); }
+  .preview-crew-handoff { padding: var(--sp-3); }
+  .preview-crew-steer-actions { align-items: flex-start; flex-direction: column; gap: var(--sp-2); }
   .preview-task-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .preview-intake-panels { grid-template-columns: minmax(0, 1fr); }
   .preview-dispatch-home { padding: var(--sp-4) var(--sp-3) var(--sp-7); }
@@ -776,6 +928,8 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
   .preview-archive-open { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
   .preview-archive-meta { flex-wrap: wrap; }
   .preview-archive-actions { padding: 0 var(--sp-3); }
+  .preview-notification-setting-head { flex-direction: column; gap: var(--sp-2); }
+  .preview-notification-toggle { align-self: stretch; }
   .preview-mission-card,
   .preview-empty-card,
   .preview-loading-card,

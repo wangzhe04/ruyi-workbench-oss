@@ -181,8 +181,11 @@ async function submitPastedWorkspace(input, close) {
   if (close) close();
   await setWorkspace(raw); // 现有链路带 cwd 护栏与人话警告;无效路径后端拒并 toast
 }
-function pickWorkspace() {
-  const btn = $('workspacePicker'); if (!btn) return;
+function pickWorkspace(anchor) {
+  // Preview has its own visible workspace fact. Accept an explicit anchor so the shared picker
+  // opens beside the control the user actually pressed; classic onclick still passes a MouseEvent
+  // and therefore falls back to #workspacePicker.
+  const btn = anchor && anchor.nodeType === 1 ? anchor : $('workspacePicker'); if (!btn) return;
   popover(btn, close => {
     const wrap = el('div', 'wp-pop');
     const browse = el('button', 'wp-pop-browse', `📁 ${t('workspace.browse')}`); browse.type = 'button';

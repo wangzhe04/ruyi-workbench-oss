@@ -113,19 +113,19 @@
     {
       "file": "13d-core-domain-routes.js",
       "startLine": 21969,
-      "endLine": 23092,
+      "endLine": 23143,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 23093,
-      "endLine": 23498,
+      "startLine": 23144,
+      "endLine": 23549,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "14-main.js",
-      "startLine": 23499,
-      "endLine": 23787,
+      "startLine": 23550,
+      "endLine": 23838,
       "note": "main()/module.exports"
     }
   ]

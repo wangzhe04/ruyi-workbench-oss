@@ -22044,12 +22044,60 @@ async function missionPendingCounts(sessionId, runs, interventions) {
   return { permissions, questions, plans, pool };
 }
 
+function clipMissionRunText(value, max = 360) {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function lastMissionRunProgress(node) {
+  const rows = Array.isArray(node && node.progressLog) ? node.progressLog : [];
+  for (let index = rows.length - 1; index >= 0; index--) if (rows[index]) return rows[index];
+  return null;
+}
+
+// 第82波班组图只消费这份精简节点投影。节点结果、角色快照、工具证据等大字段仍留在 Agent Run
+// 权威文件；Mission 详情只带画图和递话资格所需事实，避免复制运行状态机或把 24KB result 带进任务单。
+function missionRunGraph(src, live) {
+  const nodes = Array.isArray(src && src.nodes) ? src.nodes : [];
+  return {
+    nodes: nodes.map(node => {
+      // Read backwards instead of cloning/filtering a potentially long progress history on every Preview poll.
+      const progress = lastMissionRunProgress(node);
+      const eligibility = live
+        ? nodeDeliveryEligibility(src, String(node && node.id || ''), { allowClaude: true })
+        : { ok: false, reason: 'not_live' };
+      return {
+        id: String(node && node.id || ''),
+        status: String(node && node.status || ''),
+        roleId: String(node && (node.roleId || node.role) || ''),
+        roleLabel: clipMissionRunText(node && node.roleLabel, 80),
+        task: clipMissionRunText(node && node.task, 520),
+        dependsOn: Array.isArray(node && node.dependsOn) ? node.dependsOn.map(value => String(value || '')).filter(Boolean).slice(0, 16) : [],
+        engine: String(node && node.engine || ''), model: clipMissionRunText(node && node.model, 100),
+        progress: clipMissionRunText(progress && progress.text, 220),
+        startedAt: String(node && node.startedAt || ''), completedAt: String(node && node.completedAt || ''),
+        fromPool: node && node.fromPool === true, proposedBy: String(node && node.proposedBy || ''),
+        deterministic: Boolean(node && node.gate && ['vote', 'dedupe'].includes(node.gate.mode)),
+        steerable: eligibility.ok === true, steerReason: String(eligibility.reason || ''),
+      };
+    }),
+    proposals: (Array.isArray(src && src.taskPool) ? src.taskPool : [])
+      .filter(item => item && item.status === 'proposed')
+      .map(item => ({
+        id: String(item.id || ''), status: 'proposed', proposedBy: String(item.proposedBy || ''),
+        task: clipMissionRunText(item.task, 520), reason: clipMissionRunText(item.reason, 220),
+        roleId: String(item.roleId || ''),
+        dependsOn: Array.isArray(item.dependsOn) ? item.dependsOn.map(value => String(value || '')).filter(Boolean).slice(0, 16) : [],
+      })),
+  };
+}
+
 // run 摘要投影(对齐 /api/agent-runs?view=digest 的标量集 + 用量字段;live run 以内存为准)。
-function missionRunDigest(r, includeLive = true) {
+// includeGraph 仅供单 Mission 详情使用；300 Mission 列表和 75c 索引继续保持标量热路。
+function missionRunDigest(r, includeLive = true, includeGraph = false) {
   const live = includeLive ? activeAgentRuns.get(r.id) : null;
   const mem = live && live.run ? live.run : null;
   const src = mem || r;
-  return {
+  const digest = {
     id: src.id, status: src.status, eventSeq: Number(src.eventSeq) || 0,
     createdAt: src.createdAt || '', updatedAt: src.updatedAt || '', completedAt: src.completedAt || '',
     nodeCount: Array.isArray(src.nodes) ? src.nodes.length : 0,
@@ -22057,6 +22105,8 @@ function missionRunDigest(r, includeLive = true) {
     live: !!live, paused: !!(live && live.paused), resumeTier: src.resumeTier || '',
     totalTokens: Number(src.totalTokens) || 0, costUsd: Number(src.costUsd) || 0,
   };
+  if (includeGraph) Object.assign(digest, missionRunGraph(src, live));
+  return digest;
 }
 
 // 列表卡片:从会话头文件投影(头含 mission,见 saveSession 头/正文拆分)。
@@ -22202,7 +22252,8 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         activeTurn: activeChildren.has(sessionId), // 第56波:活回合标志(五态派生的「进行中」权威信号之一,与 run.live 同型内存叠加)
         mission: session.mission || null,
         acceptance,
-        runs: runs.map(missionRunDigest),
+        // 班组图只需最近 6 轮；更旧历史仍保留标量 digest，可在经典工作台查看完整节点。
+        runs: runs.map((run, index) => missionRunDigest(run, true, index < 6)),
         changes: { filesChanged: filesChangedList, artifacts: artifactsList, commands },
         // 第72波:不可逆操作正向账(活任务也随快照下发;终态任务以 mission.result 盖章版为准)
         irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands },
