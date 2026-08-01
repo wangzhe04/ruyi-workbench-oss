@@ -316,20 +316,47 @@ try {
   const selected = await waitForEval(cdp, `(() => {
     const selectedSeal = document.querySelector('.preview-seal[data-mission-id="${ids.needs}"]');
     if (document.getElementById('previewMain').dataset.view !== 'task-sheet') return null;
+    const seen = JSON.parse(localStorage.getItem('wcw.previewUiState.v1') || '{"missions":{}}').missions?.['${ids.needs}']?.lastSeenRevision;
+    if (seen !== 3) return null;
     return {
       missionId: document.getElementById('previewMain').dataset.missionId,
       view: document.getElementById('previewMain').dataset.view,
       state: document.querySelector('#previewMain .preview-state-pill').dataset.missionState,
       pressed: selectedSeal.getAttribute('aria-pressed'),
+      seen,
     };
   })()`);
-  ok(selected && selected.missionId === ids.needs && selected.view === 'task-sheet' && selected.state === 'needs_you' && selected.pressed === 'true',
-    'D1 dock click switches the single main-view container with accessible selection state');
+  ok(selected && selected.missionId === ids.needs && selected.view === 'task-sheet' && selected.state === 'needs_you' && selected.pressed === 'true' && selected.seen === 3,
+    'D1 dock click renders the task sheet before advancing its local lastSeen revision');
+
+  await cdp.evaluate("document.getElementById('previewArchiveBtn').click()");
+  const archiveReady = await waitForEval(cdp, `(() => {
+    const main = document.getElementById('previewMain'); const rows = [...document.querySelectorAll('.preview-archive-card')];
+    if (main?.dataset.view !== 'archive' || rows.length !== 1) return null;
+    return { title: rows[0].querySelector('.preview-archive-title')?.textContent, groups: document.querySelectorAll('.preview-archive-group').length };
+  })()`);
+  ok(archiveReady && archiveReady.title === '完成任务' && archiveReady.groups === 1, 'D2 archive view groups only terminal missions');
+  await cdp.evaluate(`(() => { window.__wave79ReachStart = performance.now(); document.querySelector('.preview-seal[data-mission-id="${ids.needs}"]').click(); return true; })()`);
+  const reachedNeeds = await waitForEval(cdp, `(() => {
+    const panel = document.querySelector('.preview-intake-needs.has-attention');
+    if (document.getElementById('previewMain')?.dataset.view !== 'task-sheet' || !panel) return null;
+    return { elapsedMs: performance.now() - window.__wave79ReachStart, pending: panel.querySelector('.preview-intake-value')?.textContent };
+  })()`);
+  ok(reachedNeeds && reachedNeeds.elapsedMs <= 5000 && reachedNeeds.pending === '1', 'D3 archive -> pending task facts is one click and renders within 5s (north-star reachability first measure)');
+  await cdp.evaluate("document.getElementById('previewArchiveBtn').click()");
+  const archived = await cdp.evaluate(`(() => {
+    let row = document.querySelector('.preview-archive-card'); row.querySelectorAll('.preview-archive-action')[0].click();
+    row = document.querySelector('.preview-archive-card'); row.querySelectorAll('.preview-archive-action')[1].click();
+    const ui = JSON.parse(localStorage.getItem('wcw.previewUiState.v1'));
+    const item = ui.missions['${ids.done}'];
+    return { pinned: item.pinned, archived: item.archived, dock: document.querySelectorAll('#previewMissionDock .preview-seal').length };
+  })()`);
+  ok(archived && archived.pinned && archived.archived && archived.dock === 2, 'D4 pin/archive persists locally and removes the archived terminal mission from the dock');
 
   await cdp.send('Page.reload', { ignoreCache: true });
   const restored = await waitForEval(cdp, `(() => {
     const seals = document.querySelectorAll('#previewMissionDock .preview-seal');
-    if (seals.length !== 3) return null;
+    if (seals.length !== 2) return null;
     return {
       mode: document.documentElement.getAttribute('data-shell-mode'),
       stored: localStorage.getItem('wcw.shellMode'),
@@ -340,10 +367,31 @@ try {
   })()`);
   ok(restored && restored.mode === 'preview' && restored.stored === 'preview' && restored.select === 'preview'
     && restored.classicDisplay === 'none' && restored.previewDisplay === 'grid',
-    'D2 Preview preference restores before/through reload and control stays synchronized');
+    'D5 Preview and archive UI-state restore through reload while controls stay synchronized');
+
+  await cdp.evaluate("localStorage.setItem('wcw.previewUiState.v1', '{corrupt'); location.reload()");
+  const corruptRecovered = await waitForEval(cdp, `(() => {
+    const seals = document.querySelectorAll('#previewMissionDock .preview-seal');
+    if (seals.length !== 3) return null;
+    return { count: seals.length, mode: document.documentElement.getAttribute('data-shell-mode') };
+  })()`);
+  ok(corruptRecovered && corruptRecovered.count === 3 && corruptRecovered.mode === 'preview', 'D6 corrupt local UI state only loses read/pin/archive position; Mission projection remains intact');
+
+  await cdp.send('Network.enable');
+  await cdp.send('Network.setBlockedURLs', { urls: ['*api/missions?limit=200*'] });
+  await cdp.evaluate("document.getElementById('previewRefreshBtn').click()");
+  const projectionFailure = await waitForEval(cdp, `(() => {
+    const main = document.getElementById('previewMain');
+    const retry = document.getElementById('previewErrorRetryBtn');
+    const classic = document.getElementById('previewErrorClassicBtn');
+    if (main?.dataset.view !== 'error' || !retry || !classic) return null;
+    return { alert: main.querySelector('[role="alert"]')?.textContent || '', retry: retry.textContent, classic: classic.textContent };
+  })()`);
+  ok(projectionFailure && projectionFailure.alert && projectionFailure.retry && projectionFailure.classic,
+    'D7 projection failure exposes retry and direct classic-layout recovery actions');
 
   const fallback = await cdp.evaluate(`(() => {
-    document.getElementById('previewClassicBtn').click();
+    document.getElementById('previewErrorClassicBtn').click();
     return {
       mode: document.documentElement.getAttribute('data-shell-mode'),
       stored: localStorage.getItem('wcw.shellMode'),
@@ -355,7 +403,7 @@ try {
   })()`);
   ok(fallback && fallback.mode === 'classic' && fallback.stored === 'classic' && fallback.select === 'classic'
     && fallback.classicDisplay !== 'none' && fallback.previewDisplay === 'none' && fallback.classicTitle,
-    'D3 Preview dock returns to the intact classic layout and persists the fallback');
+    'D8 failed Preview returns to the intact classic layout and persists the fallback');
 } catch (error) {
   console.log('ERROR ' + (error && error.stack || error));
   fail += 1;

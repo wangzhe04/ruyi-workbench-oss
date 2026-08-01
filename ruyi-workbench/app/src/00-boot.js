@@ -282,6 +282,11 @@ function appendUsageLedger(entry) {
       await fsp.mkdir(paths.usage, { recursive: true });
       await fsp.appendFile(file, line, 'utf8');
       markPretenderIndexDirty(rec.sessionId, 'usage'); // 75c: lazily refresh only this Mission's usage aggregate
+      if (rec.kind === 'turn') bumpMissionChangeSeq(rec.sessionId, {
+        type: 'budget',
+        cursor: { turnSeq: rec.turnSeq, engine: rec.engine },
+        detail: { inTok: rec.inTok, outTok: rec.outTok, cost: rec.cost, currency: rec.currency || '', estimated: rec.estimated },
+      });
     }).catch(() => {}); // fire-and-forget: a ledger failure must never wedge the chain or the turn
   } catch { /* never let accounting break a turn */ }
 }

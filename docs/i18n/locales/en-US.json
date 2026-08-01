@@ -1709,6 +1709,7 @@
   "previewShell.loadFailed": "The task desk could not load",
   "previewShell.loadFailedBody": "The classic layout and task data were not changed. Retry, or switch back to the classic layout to continue.",
   "previewShell.retry": "Retry",
+  "previewShell.returnClassic": "Return to classic layout",
   "previewShell.settingLabel": "Task desk layout",
   "previewShell.settingClassic": "Classic layout (default)",
   "previewShell.settingPreview": "New task desk preview",
@@ -1782,5 +1783,99 @@
   "previewShell.firstRunSafety": "Confirm the default safety profile: {{p1}}",
   "previewShell.firstRunEngineAction": "Configure engine",
   "previewShell.firstRunEngine": "Connect an available AI engine",
-  "previewShell.firstRunEngineReady": "Engine ready: {{p1}}"
+  "previewShell.firstRunEngineReady": "Engine ready: {{p1}}",
+  "previewShell.archiveNav": "Archive",
+  "previewShell.archiveEyebrow": "Task archive",
+  "previewShell.archiveTitle": "Finished with evidence. Ready to resume.",
+  "previewShell.archiveBody": "Completed and stopped tasks are grouped by workspace or state. Search, pinning, and archiving stay on this device and never rewrite mission facts.",
+  "previewShell.archiveCount": "{{p1}} tasks",
+  "previewShell.archiveSearch": "Search tasks, goals, or workspaces",
+  "previewShell.archiveGroupLabel": "Archive grouping",
+  "previewShell.archiveGroup.workspace": "Group by workspace",
+  "previewShell.archiveGroup.state": "Group by state",
+  "previewShell.archiveFilter.all": "All",
+  "previewShell.archiveFilter.done": "Completed",
+  "previewShell.archiveFilter.stopped": "Stopped",
+  "previewShell.archiveFilter.pinned": "Pinned",
+  "previewShell.archiveFilter.archived": "Archived",
+  "previewShell.archiveUnknownWorkspace": "Unlabelled workspace",
+  "previewShell.archiveOpenAria": "Open task {{p1}}, status {{p2}}",
+  "previewShell.archiveEmpty": "No tasks match the current search and filters.",
+  "previewShell.pin": "Pin",
+  "previewShell.unpin": "Unpin",
+  "previewShell.archiveAction": "Archive",
+  "previewShell.unarchive": "Unarchive",
+  "previewShell.returnEyebrow": "While you were away",
+  "previewShell.returnTitle": "What happened while you were away",
+  "previewShell.returnBody": "Deterministic replay from revision {{p1}} to {{p2}}, with every source cursor intact.",
+  "previewShell.returnCaughtUp": "This task sheet is synchronized with current mission facts. Nothing is unread.",
+  "previewShell.returnDegraded": "The change journal has a gap or corrupt row. Your read position was not advanced; refresh or verify the raw record in Classic layout.",
+  "previewShell.returnCursor": "Raw source cursor",
+  "previewShell.changeType.mission_started": "Started",
+  "previewShell.changeType.progress": "Progress",
+  "previewShell.changeType.failure": "Failure",
+  "previewShell.changeType.budget": "Usage",
+  "previewShell.changeType.intervention_pending": "Decision needed",
+  "previewShell.changeType.intervention_resolved": "Decision handled",
+  "previewShell.changeType.result": "Result",
+  "previewShell.changeType.rewind": "Rewind",
+  "previewShell.changeType.run_deleted": "Run deleted",
+  "previewShell.change.mission_started": "The mission started with {{p1}} milestones.",
+  "previewShell.change.progress": "This update recorded {{p1}} changed files and {{p2}} artifacts.",
+  "previewShell.change.failure": "An advance failed with classification {{p1}}.",
+  "previewShell.change.budget": "Added {{p1}} tokens; usage cost {{p2}}.",
+  "previewShell.change.intervention_pending": "A {{p1}} decision now needs attention.",
+  "previewShell.change.intervention_resolved": "A pending decision was resolved as {{p1}}.",
+  "previewShell.change.result": "The mission result changed to {{p1}}.",
+  "previewShell.change.rewind": "Rewind removed {{p1}} messages and restored {{p2}} files.",
+  "previewShell.change.run_deleted": "Run record {{p1}} was deleted."
+  ,"previewShell.needsPanelBodyGlobal": "This task has {{p1}} pending items. Open the global Needs you drawer to handle them."
+  ,"previewShell.needsClose": "Close decision drawer"
+  ,"previewShell.needsDrawerEyebrow": "Global decisions"
+  ,"previewShell.needsDrawerTitle": "Needs you"
+  ,"previewShell.needsDrawerBody": "{{p1}} decisions across tasks, ordered by arrival."
+  ,"previewShell.interventionType.permission": "Permission"
+  ,"previewShell.interventionType.question": "Question"
+  ,"previewShell.interventionType.plan": "Plan"
+  ,"previewShell.interventionType.pool": "Helper proposal"
+  ,"previewShell.interventionType.unknown": "Decision"
+  ,"previewShell.permissionFallback": "Tool permission request"
+  ,"previewShell.questionFallback": "A question is waiting for an answer"
+  ,"previewShell.planFallback": "A plan is waiting for review"
+  ,"previewShell.poolFallback": "A helper proposal is waiting for review"
+  ,"previewShell.decisionLive": "Ready to deliver"
+  ,"previewShell.decisionAway": "Worksite offline"
+  ,"previewShell.revertible": "Revertible"
+  ,"previewShell.irreversible": "Not revertible"
+  ,"previewShell.questionNumber": "Question {{p1}}"
+  ,"previewShell.questionAnswer": "Your answer"
+  ,"previewShell.questionOther": "Other context"
+  ,"previewShell.questionPlaceholder": "Add the context that is needed"
+  ,"previewShell.questionRequired": "Answer every question explicitly. Nothing is preselected for you."
+  ,"previewShell.questionUnavailable": "The question structure is unavailable. Verify it in the classic layout."
+  ,"previewShell.planFeedback": "Feedback (optional)"
+  ,"previewShell.planFeedbackPlaceholder": "A note delivered with your approval or rejection"
+  ,"previewShell.deny": "Deny"
+  ,"previewShell.allow": "Allow"
+  ,"previewShell.reject": "Reject"
+  ,"previewShell.approve": "Approve"
+  ,"previewShell.sendAnswer": "Send answer"
+  ,"previewShell.cancel": "Cancel"
+  ,"previewShell.confirmApproval": "Confirm approval"
+  ,"previewShell.confirmApprovalTitle": "Confirm the approval scope"
+  ,"previewShell.confirmApprovalBody": "This immediately releases: {{p1}}. The system never approves by default."
+  ,"previewShell.decisionSending": "Delivering this decision with the same request identity…"
+  ,"previewShell.decisionFailed": "The decision could not be delivered. Verify the worksite state and retry."
+  ,"previewShell.retrySameDecision": "Retry the same request"
+  ,"previewShell.needsEmptyTitle": "Nothing needs your decision right now"
+  ,"previewShell.needsEmptyBody": "New permissions, questions, plans, and helper proposals will appear here as tasks continue."
+  ,"previewShell.stopCardEyebrow": "Stop note"
+  ,"previewShell.stopCardTitle": "This task stopped here"
+  ,"previewShell.stopCardUserReason": "You stopped this task with {{p1}} items unfinished. Return to the classic layout with context, or archive it for now."
+  ,"previewShell.stopCardReason": "This task stopped with {{p1}} items unfinished. Choose an honest next step."
+  ,"previewShell.stopRetry": "Try again"
+  ,"previewShell.stopChangeApproach": "Change approach"
+  ,"previewShell.stopGiveUp": "Leave it for now"
+  ,"previewShell.stopRetryDraft": "Continue this task: {{p1}}. Check where it stopped and what remains, then resume from the next verifiable step."
+  ,"previewShell.stopChangeDraft": "Continue this task with a different approach: {{p1}}. Explain why the previous path stopped, propose a different route, and begin with the smallest verifiable step."
 }

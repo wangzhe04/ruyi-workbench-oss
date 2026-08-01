@@ -131,6 +131,30 @@ The Web Search page configures SearXNG, Bing, Brave, Tavily, Bocha, or a custom 
 On the General page, choose Simple or Pro UI, detailed or concise response style, and language: Follow system,
 Simplified Chinese, or English.
 
+### New task desk preview and classic layout
+
+Open **Settings → General → Task desk layout** to switch between **Classic layout (default)** and the **New task
+desk preview**. This changes only the presentation preference on this computer; it is not a data migration. Both
+layouts read the same tasks, chats, messages, pending decisions, and checkpoints. Nothing is copied, moved, or
+deleted, and you can switch back at any time.
+
+- The dispatch desk restates the goal, workspace, and turn-specific permission mode before you start. A Quick Ask
+  ending in `?` returns to the classic conversation without creating a task.
+- The task dock opens the raw message worksite plus Needs you, Results, and Ledger facts. Rollback actions still
+  take you to the classic layout while that remains the authoritative control surface.
+- Needs you in the desk bar or task intake opens the same cross-task drawer. Permissions, questions, plans, and
+  helper proposals are decided there; Allow and Approve require a second confirmation, and questions never
+  preselect an answer. An offline worksite offers only an honest classic-layout handoff.
+- A stopped task lists unfinished work and offers Try again, Change approach, or Leave it for now. The first two
+  prepare an unsent continuation draft in the classic composer; the last only archives local UI state.
+- While you were away is generated only from persisted change records, and advances its local read position only
+  after the task view has rendered successfully.
+- Archive search, filters, pinning, and archiving are local UI preferences. They never rewrite task facts.
+
+If the task projection cannot load, the failure view offers both **Retry** and **Return to classic layout**. Classic
+mode remains fully usable, and the failure does not rewrite task or chat data. A damaged local preview-preference
+record may reset read, pin, and archive positions, but the task remains authoritative and intact.
+
 ## 6. Skills, memories, usage, and workflows
 
 Skills are reusable expert workflows. Use **Enable for chat** for temporary needs or **Keep resident** to make a

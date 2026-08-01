@@ -140,6 +140,37 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       index: pretenderIndexMeta(index),
     }, 200, { etag }));
   }
+  // 第79波:确定性回来摘要数据面。只返回严格位于 (after,currentRevision] 的原始变更记录；
+  // migration prefix、损坏行、内部/尾部缺号都以 degraded+gap 明示，客户端不得推进 lastSeen。
+  if (req.method === 'GET' && /^\/api\/missions\/[^/]+\/changes$/.test(pathname)) {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const sessionId = safeSessionId(pathname.split('/')[3]);
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const query = new URL(req.url, 'http://x').searchParams;
+    const after = Number(query.get('after'));
+    if (!Number.isSafeInteger(after) || after < 0) return send(res, json({ ok: false, error: 'after must be a non-negative integer' }, 400));
+    const session = await loadSession(sessionId);
+    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session.mission) return send(res, json({ ok: false, error: 'mission not found' }, 404));
+    const currentRevision = Math.max(0, Number(session.mission.changeSeq) || 0);
+    const folded = await readMissionChangesWithMeta(sessionId, currentRevision);
+    let gap = folded.gap;
+    if (!gap && after < folded.baseRevision) gap = { expected: after + 1, actual: folded.baseRevision + 1, prefix: true };
+    if (!gap && after > currentRevision) gap = { expected: currentRevision, actual: after, ahead: true };
+    const degraded = folded.degraded || Boolean(gap);
+    return send(res, json({
+      ok: true,
+      missionId: sessionMissionId(session),
+      sessionId,
+      fromRevision: after,
+      currentRevision,
+      baseRevision: folded.baseRevision,
+      changes: folded.records.filter(record => Number(record.seq) > after && Number(record.seq) <= currentRevision),
+      degraded,
+      gap: gap || null,
+      integrity: { corruptLines: folded.corruptLines, lastRevision: folded.lastRevision },
+    }));
+  }
   // 详情:单会话稳定任务快照(EC-E:mission + Agent Run + 产物 + 变更 + 检查点 + 用量 + 游标)。
   if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
@@ -635,10 +666,18 @@ async function handleInterventionApiRoutes(req, res, pathname) {
         if (!iv || iv.status !== 'pending') continue;
         pending.push({
           id: iv.id, type: iv.type || '', sessionId, missionId: slice.missionId || sessionId,
-          requestedAt: iv.requestedAt || '',
+          requestedAt: iv.requestedAt || '', interventionVersion: Math.max(0, Number(iv.interventionVersion) || 0),
           toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
           runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
+          input: iv.type === 'permission' && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : undefined,
+          questionSummary: iv.type === 'question' ? String(iv.questionSummary || '') : '',
           questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
+          planSummary: iv.type === 'plan' ? String(iv.planSummary || '') : '',
+          deliverable: iv.type === 'permission' ? pendingPermissions.has(String(iv.id))
+            : iv.type === 'question' ? pendingQuestions.has(String(iv.id))
+              : iv.type === 'plan' ? pendingPlans.has(String(iv.id))
+                : iv.type === 'pool' ? activeAgentRuns.has(String(iv.runId || ''))
+                  : activeChildren.has(sessionId),
           live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
         });
         counts.total++;
@@ -763,7 +802,10 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       if (grantHit) return send(res, json({ behavior: 'allow', updatedInput: body.input || {} }));
     }
     reg.onEvent({ type: 'permission_request', requestId, toolName: body.toolName, input: body.input, tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
-    registerIntervention(sessionId, 'permission', requestId, { toolName: String(body.toolName || ''), tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
+    registerIntervention(sessionId, 'permission', requestId, {
+      toolName: String(body.toolName || ''), tier: bridgeTier, revertible: toolIsRevertible(body.toolName),
+      input: body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {},
+    });
     // 第27f波:CLI 桥超时→存档暂停(与 provider 路径对称)。仅【opt-in + 本会话处于无人值守 driverAuto 回合】才启用;
     // 否则维持"超时即拒杀"安全默认。两段定时:基础超时→检查点(logEvent+saveSession)+ permission_paused 事件 + 延长到 TTL;
     // TTL 内无决定则回落 deny(fail-closed)。entry.timer 重赋为 TTL 定时器,/api/permission/decision 与 clearPendingPermissions 照常清对。
@@ -1053,6 +1095,9 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       await fsp.unlink(agentRunEventsFile(sessionId, runId)).catch(() => {});
       await fsp.unlink(agentRunEventsFile(sessionId, runId) + '.gz').catch(() => {}); // v1.9 数据管家: 归档压缩变体一并删
     } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
+    await bumpMissionChangeSeq(sessionId, {
+      type: 'run_deleted', cursor: { runId }, detail: { runId },
+    });
     return send(res, json({ ok: true }));
   }
   if (req.method === 'GET' && pathname.startsWith('/api/agent-runs/')) {

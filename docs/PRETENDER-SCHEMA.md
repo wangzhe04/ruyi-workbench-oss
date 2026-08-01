@@ -145,6 +145,8 @@
 - **五态派生**(56 波,`public/js/mission-state.js` `deriveMissionState`,浏览器/node 双导出):交办中/进行中/需要你/已收工/已停工 + quick_ask 逃生舱,全部从权威字段派生,每条带 `sources` 证据,不读模型文本猜。
 - **全局收件箱** `GET /api/interventions`(13d:228):`{pending[{id,type,sessionId,requestedAt,toolName,tier,revertible,runId,proposedBy,task,live}],counts{permission,question,plan,pool,total}}`,FIFO(requestedAt 升序);`live` = 决策可送达性提示。
 - **cursor**(13d:191):现状 `{turnSeq, runs{runId:eventSeq}, snapshotAt}`。〔v4 S3〕**Mission 变化时间线的权威 = `mission.changeSeq`**(§1/§2,持久单调);turn/run/Intervention 源 cursor 降为**溯源证据**;**lastSeenRevision**(79 波)= 用户已读位置,按 missionId 存**本机 UI-state store**,不写回 Mission 事实或 Session——任务视图/回来摘要成功呈现后才推进至当前 changeSeq;拉取失败、页面未完成渲染或 changeSeq 间断**不得误标已读**;changeSeq 缺口显式 degraded/重建而非静默漏项。回来摘要 = changeSeq-diff 投影(change record 播种源),纯事件零模型。
+- **变化流水(79 波已落地)**:`<sessionId>.changes.ndjson` 是 append-only 轻量事实流水；每行 `{schemaVersion,missionId,sessionId,seq,type,occurredAt,cursor,detail}`，`seq` 与提交后的 `mission.changeSeq` 一一对应。生产类型冻结为 `mission_started|progress|failure|budget|intervention_pending|intervention_resolved|result|rewind|run_deleted`；`cursor` 保留 turnSeq / interventionId+version / runId 等原始溯源键。旧任务允许以首条新记录前一位作为 migration baseline，但请求游标落在 baseline 之前、流水内部/尾部缺号或损坏行时必须 degraded。
+- **增量读取** `GET /api/missions/:id/changes?after=N`：返回严格 `(N,currentRevision]` 的 `{changes,fromRevision,currentRevision,baseRevision,degraded,gap,integrity}`；`after` 必须是非负整数。客户端只在任务单与摘要成功插入 DOM 且下一帧仍连接、响应非 degraded 时，把独立 `wcw.previewUiState.v1.missions[missionId].lastSeenRevision` 单调推进到 currentRevision。
 
 ## 9. Mission 控制面语义(74 波冻结;动作落 84 波)
 

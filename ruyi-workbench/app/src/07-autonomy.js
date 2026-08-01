@@ -708,7 +708,12 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
   return new Promise(resolve => {
     const requestId = makeId('perm');
     onEvent({ type: 'permission_request', requestId, toolName, input, tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
-    registerIntervention(sessionId, 'permission', requestId, { toolName: String(toolName || ''), tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
+    registerIntervention(sessionId, 'permission', requestId, {
+      toolName: String(toolName || ''), tier: tier || 'exec', revertible: toolIsRevertible(toolName),
+      // Wave 81: persist the concrete scope shown by the classic prompt so a cross-session
+      // decision never degrades into a context-free approval.
+      input: input && typeof input === 'object' && !Array.isArray(input) ? input : {},
+    });
     let settled = false;
     const settle = (decision, opts = {}) => {
       if (settled) return;

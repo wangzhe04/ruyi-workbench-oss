@@ -1709,6 +1709,7 @@
   "previewShell.loadFailed": "任务台暂时无法载入",
   "previewShell.loadFailedBody": "经典布局与任务数据没有被改动。请重试，或切回经典布局继续工作。",
   "previewShell.retry": "重试",
+  "previewShell.returnClassic": "返回经典布局",
   "previewShell.settingLabel": "任务台布局",
   "previewShell.settingClassic": "经典布局（默认）",
   "previewShell.settingPreview": "新任务台预览",
@@ -1782,5 +1783,99 @@
   "previewShell.firstRunSafety": "确认默认安全档：{{p1}}",
   "previewShell.firstRunEngineAction": "配置引擎",
   "previewShell.firstRunEngine": "连接一个可用的 AI 引擎",
-  "previewShell.firstRunEngineReady": "引擎已就绪：{{p1}}"
+  "previewShell.firstRunEngineReady": "引擎已就绪：{{p1}}",
+  "previewShell.archiveNav": "档案",
+  "previewShell.archiveEyebrow": "任务档案",
+  "previewShell.archiveTitle": "收工有据，随时可续。",
+  "previewShell.archiveBody": "已收工与已停工任务按工作圈或状态编组。搜索、置顶与归档只保存在本机，不改写任务事实。",
+  "previewShell.archiveCount": "{{p1}} 单",
+  "previewShell.archiveSearch": "搜索任务、目标或工作圈",
+  "previewShell.archiveGroupLabel": "档案分组方式",
+  "previewShell.archiveGroup.workspace": "按工作圈分组",
+  "previewShell.archiveGroup.state": "按状态分组",
+  "previewShell.archiveFilter.all": "全部",
+  "previewShell.archiveFilter.done": "已收工",
+  "previewShell.archiveFilter.stopped": "已停工",
+  "previewShell.archiveFilter.pinned": "已置顶",
+  "previewShell.archiveFilter.archived": "已归档",
+  "previewShell.archiveUnknownWorkspace": "未标记工作圈",
+  "previewShell.archiveOpenAria": "打开任务 {{p1}}，状态 {{p2}}",
+  "previewShell.archiveEmpty": "没有符合当前搜索与筛选条件的任务。",
+  "previewShell.pin": "置顶",
+  "previewShell.unpin": "取消置顶",
+  "previewShell.archiveAction": "归档",
+  "previewShell.unarchive": "移出归档",
+  "previewShell.returnEyebrow": "离开期间",
+  "previewShell.returnTitle": "你离开后发生了什么",
+  "previewShell.returnBody": "确定性回放 revision {{p1}} → {{p2}}，每条保留原始来源游标。",
+  "previewShell.returnCaughtUp": "已和当前任务事实同步，没有未读变更。",
+  "previewShell.returnDegraded": "变更流水存在缺号或损坏，本次不推进已读位置；请刷新或在经典布局核对原始记录。",
+  "previewShell.returnCursor": "原始来源游标",
+  "previewShell.changeType.mission_started": "立单",
+  "previewShell.changeType.progress": "进展",
+  "previewShell.changeType.failure": "失败",
+  "previewShell.changeType.budget": "用量",
+  "previewShell.changeType.intervention_pending": "待你决定",
+  "previewShell.changeType.intervention_resolved": "决定已处理",
+  "previewShell.changeType.result": "结果章",
+  "previewShell.changeType.rewind": "回退",
+  "previewShell.changeType.run_deleted": "运行记录删除",
+  "previewShell.change.mission_started": "任务已立单，包含 {{p1}} 个里程碑。",
+  "previewShell.change.progress": "本次记录 {{p1}} 个文件变更、{{p2}} 项成果。",
+  "previewShell.change.failure": "一次推进未成功，分类：{{p1}}。",
+  "previewShell.change.budget": "新增 {{p1}} Token，用量金额 {{p2}}。",
+  "previewShell.change.intervention_pending": "新增一项 {{p1}} 待决事项。",
+  "previewShell.change.intervention_resolved": "待决事项已处理，结果为 {{p1}}。",
+  "previewShell.change.result": "任务结果更新为 {{p1}}。",
+  "previewShell.change.rewind": "回退移除了 {{p1}} 条消息，恢复 {{p2}} 个文件。",
+  "previewShell.change.run_deleted": "运行记录 {{p1}} 已删除。"
+  ,"previewShell.needsPanelBodyGlobal": "本单有 {{p1}} 项待决；打开全局「需要你」抽屉即可处理。"
+  ,"previewShell.needsClose": "关闭待决抽屉"
+  ,"previewShell.needsDrawerEyebrow": "全局待决"
+  ,"previewShell.needsDrawerTitle": "需要你"
+  ,"previewShell.needsDrawerBody": "跨任务汇总 {{p1}} 项待决，按到达顺序处理。"
+  ,"previewShell.interventionType.permission": "权限"
+  ,"previewShell.interventionType.question": "提问"
+  ,"previewShell.interventionType.plan": "计划"
+  ,"previewShell.interventionType.pool": "帮手提案"
+  ,"previewShell.interventionType.unknown": "待决"
+  ,"previewShell.permissionFallback": "工具权限请求"
+  ,"previewShell.questionFallback": "有一个问题等待回答"
+  ,"previewShell.planFallback": "有一份计划等待审阅"
+  ,"previewShell.poolFallback": "有一个帮手提案等待审阅"
+  ,"previewShell.decisionLive": "可立即送达"
+  ,"previewShell.decisionAway": "现场已离线"
+  ,"previewShell.revertible": "可回退"
+  ,"previewShell.irreversible": "不可回退"
+  ,"previewShell.questionNumber": "问题 {{p1}}"
+  ,"previewShell.questionAnswer": "你的回答"
+  ,"previewShell.questionOther": "其他补充"
+  ,"previewShell.questionPlaceholder": "写下必要的上下文"
+  ,"previewShell.questionRequired": "每个问题都需要明确回答；系统不会替你预选。"
+  ,"previewShell.questionUnavailable": "问题结构暂不可用，请在经典布局核对。"
+  ,"previewShell.planFeedback": "补充意见（可选）"
+  ,"previewShell.planFeedbackPlaceholder": "批准或拒绝时一并送回的说明"
+  ,"previewShell.deny": "拒绝"
+  ,"previewShell.allow": "允许"
+  ,"previewShell.reject": "驳回"
+  ,"previewShell.approve": "批准"
+  ,"previewShell.sendAnswer": "送出回答"
+  ,"previewShell.cancel": "取消"
+  ,"previewShell.confirmApproval": "确认批准"
+  ,"previewShell.confirmApprovalTitle": "再确认一次批准范围"
+  ,"previewShell.confirmApprovalBody": "这会立即放行：{{p1}}。系统从不默认批准。"
+  ,"previewShell.decisionSending": "正在按同一请求标识送达决定…"
+  ,"previewShell.decisionFailed": "决定未能送达，请核对现场状态后重试。"
+  ,"previewShell.retrySameDecision": "以同一请求重试"
+  ,"previewShell.needsEmptyTitle": "现在没有事情等你拿主意"
+  ,"previewShell.needsEmptyBody": "任务继续推进时，新的权限、问题、计划或帮手提案会出现在这里。"
+  ,"previewShell.stopCardEyebrow": "停止说明"
+  ,"previewShell.stopCardTitle": "这单活停在这里了"
+  ,"previewShell.stopCardUserReason": "这项任务由你停止，还有 {{p1}} 项未完成。可以带着上下文回到经典布局再试，也可以先收进档案。"
+  ,"previewShell.stopCardReason": "任务已经停止，还有 {{p1}} 项未完成。选择一种诚实的后续处理方式。"
+  ,"previewShell.stopRetry": "继续试试"
+  ,"previewShell.stopChangeApproach": "换个方法"
+  ,"previewShell.stopGiveUp": "先算了"
+  ,"previewShell.stopRetryDraft": "请继续完成这项任务：{{p1}}。先检查上次停止的位置和未完成项，再从可验证的下一步继续。"
+  ,"previewShell.stopChangeDraft": "请换一种方法继续这项任务：{{p1}}。先说明上次为何停住，再提出不同的推进路径并从最小可验证步骤开始。"
 }

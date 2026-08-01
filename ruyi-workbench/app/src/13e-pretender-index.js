@@ -301,6 +301,16 @@ async function getPretenderProjectionIndex() {
   finally { if (pretenderIndexRuntime.building === current) pretenderIndexRuntime.building = null; }
 }
 
+// Wave 80: warm an existing projection as soon as the local service is listening. The empty-directory
+// guard matters for external import/test flows that materialize sessions after boot: in that case the first
+// authoritative read still performs discovery instead of trusting an intentionally empty in-memory cache.
+async function warmPretenderProjectionIndex() {
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { return null; }
+  if (!files.some(file => /^sess_[A-Za-z0-9_-]+(?:\.json|\.interventions\.ndjson)$/.test(file))) return null;
+  return getPretenderProjectionIndex();
+}
+
 function encodePretenderCursor(kind, revision, offset, limit) {
   return Buffer.from(JSON.stringify({ v: 1, k: kind, r: revision, o: offset, l: limit }), 'utf8').toString('base64url');
 }

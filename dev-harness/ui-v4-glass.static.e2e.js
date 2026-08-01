@@ -5,7 +5,8 @@
  *  G1 玻璃令牌族双主题齐(theme.e2e 键集之外的点名锁:blur 三档在 :root);
  *  G2 backdrop-filter 使用点白名单 —— 只允许:token 定义(:root --glass-blur-*)、@supports 回退、
  *     框架族 4 面(.sidebar/.tool-pane/.topbar/.composer)、浮层族 4 面(.modal/.palette/.popover/.toast);
- *     其它选择器出现即红(模糊预算 §3.2-E 的机械约束:同屏 ≤6,列表卡片一律不叠 blur);
+ *     Preview 全局待决抽屉的 scrim/drawer 也是单一互斥浮层；其它选择器出现即红
+ *     (模糊预算 §3.2-E 的机械约束:同屏 ≤6,列表卡片一律不叠 blur);
  *  G3 禁散写 blur 字面量 —— 所有 backdrop-filter 值必须走 var(--glass-blur-*),禁 backdrop-filter: blur(Npx) 直写;
  *  G4 body 背景 = var(--scene-bg)(底层有景)且 background-attachment: fixed;
  *  G5 降级路径在:@supports not (backdrop-filter) 实色回退 + prefers-reduced-transparency 关模糊;
@@ -41,6 +42,7 @@ const offenders = [];
 const WHITE = ['.sidebar, .tool-pane', '.topbar', '.composer', '.modal', '.palette', '.popover', '.toast',
   '.wb-layer-tag', '.wb-cvtools', // 工作台画布轻层(仅 blur-1,画布视图内,不入框架/浮层预算轴)
   '.preview-deskbar', '.preview-dock', '.preview-error-card', // Wave 76: 与经典框架互斥的 Preview 壳层; 主区三态只会出现一张卡
+  '.preview-needs-scrim', '.preview-needs-drawer', // Wave 81: 一个全局、互斥的待决浮层；内部卡片不叠 blur
   '@supports', '@media', ':root'];
 for (let i = 0; i < lines.length; i++) {
   const ln = lines[i];

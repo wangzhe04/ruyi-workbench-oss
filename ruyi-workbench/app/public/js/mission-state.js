@@ -1,6 +1,6 @@
 'use strict';
 // ─────────────────────────────────────────────────────────────────────────────
-// mission-state.js — 任务单五态派生纯函数(第56波 Pretender 立项门 P0)
+// mission-state.js — 任务单五态派生纯函数（任务台立项门 P0）
 //
 // 概念稿(UI-VNEXT-CONCEPT §0)的五态:交办中 dispatching / 进行中 running / 需要你 needs_you /
 // 已收工 done / 已停工 stopped;Quick Ask 是显式逃生舱(纯问答不硬套任务心智,概念稿风险 #1)。

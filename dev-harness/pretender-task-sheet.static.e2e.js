@@ -31,7 +31,9 @@ ok(shell.includes("makeMetric('turns'") && shell.includes("makeMetric('tokens'")
   && shell.includes("makeMetric('cost'") && shell.includes("makeMetric('runs'"), 'A3 头部五态/进度外含回合、Token、费用、班组用量事实');
 ok(shell.includes("readonlyPanel('needs'") && shell.includes("readonlyPanel('results'")
   && shell.includes("readonlyPanel('ledger'"), 'A4 收活台需要你/成果/台账三块均为只读投影');
-ok(!/method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/.test(shell), 'A5 第77波仍未给 Preview 新增写 API');
+ok((shell.match(/method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/g) || []).length === 1
+  && shell.includes('/interventions/${encodeURIComponent(id)}/decision'),
+  'A5 Preview 只新增统一 Intervention 决策写入口');
 
 ok(shell.includes('renderStaticMessage(message, key, signature, { readonly: true, idScope: \'preview\' })'),
   'B1 原始镜头逐条调用经典 chat-static-renderer，不复制消息/工具卡渲染器');

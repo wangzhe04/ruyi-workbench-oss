@@ -471,6 +471,7 @@ const {
   handlePermissionRequest,
   humanizeToolName,
   installFocusTrap,
+  resolveClassicPromptIntervention,
   setComposerHint,
   showAskUserModal,
 } = createInteractionPromptsDomain({
@@ -489,6 +490,7 @@ const {
   newShellSession,
   pushRawEvent,
   renderRawEventSnapshot,
+  resolveClassicPlanIntervention,
   runTool,
   updateShellPolling,
 } = createToolRuntimeDomain({
@@ -855,6 +857,20 @@ const {
   closeSettings: () => closeModal('settingsModal'),
   dispatchCommand: request => startPreviewDispatchCommand(request),
   openSession: id => openSession(id),
+  setClassicDraft: value => {
+    const input = $('promptInput');
+    if (!input) return;
+    input.value = String(value || '');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus();
+  },
+  syncClassicIntervention: async decision => {
+    resolveClassicPromptIntervention(decision);
+    resolveClassicPlanIntervention(decision);
+    await refreshSessions();
+    if (decision && state.currentSession?.id === decision.sessionId && !state.streaming) await openSession(decision.sessionId);
+  },
+  apiErrText,
   pickWorkspace: () => pickWorkspaceNative(),
   playbookName: playbook => playbookDisplayName(playbook),
   playbookDescription: playbook => playbookDisplayDescription(playbook),
@@ -1112,6 +1128,14 @@ async function boot() {
 // (会重复绑 addEventListener)的前提下重试。任何一步抛错都冒泡给调用方(boot().catch / 重试处理)渲染故障卡。
 async function bootData() {
   await refreshStatus();
+  // Wave 80: when Preview was explicitly selected, paint its authoritative projection before doing
+  // hidden classic-shell work (large session-list DOM + opening the last chat). Classic state still
+  // hydrates immediately afterwards, so the recovery action remains complete without taxing first paint.
+  const previewFirst = document.documentElement.getAttribute('data-shell-mode') === 'preview';
+  if (previewFirst) {
+    await refreshPreviewShell();
+    refreshPreviewShellLabels();
+  }
   await refreshSessions();
   loadAgentWorkflows();
   refreshPlaybooks(); // v0.9-S2: load playbook cards for the empty state (best-effort, non-blocking)
@@ -1122,8 +1146,10 @@ async function bootData() {
   // variant appears deterministically (isFirstRun() reads the now-loaded sessions + config, not just the
   // best-effort playbook re-render).
   else renderCurrentSession();
-  await refreshPreviewShell();
-  refreshPreviewShellLabels();
+  if (!previewFirst) {
+    await refreshPreviewShell();
+    refreshPreviewShellLabels();
+  }
   // v0.8-S2: PowerShell is the default-active tab, so start the shell-session poll now.
   updateShellPolling();
 }

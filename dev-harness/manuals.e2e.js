@@ -24,6 +24,7 @@ const ROOT = path.resolve(HERE, '..');                        // repo root
 const WB = path.resolve(ROOT, 'ruyi-workbench');
 const MANUALS_DIR = path.join(WB, 'docs', 'manuals');
 const USER_PATH = path.join(MANUALS_DIR, 'USER-GUIDE_CN.md');
+const USER_EN_PATH = path.join(MANUALS_DIR, 'USER-GUIDE_EN.md');
 const ADMIN_PATH = path.join(MANUALS_DIR, 'ADMIN-GUIDE_CN.md');
 const README_PATH = path.join(WB, 'README.md');
 
@@ -49,12 +50,19 @@ const RESIDUE = ['TODO', '待补'];                             // editorial res
   ok(adminSize >= 4000, '(a) ADMIN-GUIDE_CN.md >= 4000 bytes (got ' + adminSize + ')');
 
   const userText = readIf(USER_PATH) || '';
+  const userEnText = readIf(USER_EN_PATH) || '';
   const adminText = readIf(ADMIN_PATH) || '';
 
   // ============ (b) required keywords ============
   const USER_KW = ['如意', '工作文件夹', '每步都问', '撤销', '任务卡'];
   const ADMIN_KW = ['overlay', 'SSRF', '掩码', '审计', 'e2e'];
   for (const kw of USER_KW) ok(userText.includes(kw), '(b) USER-GUIDE contains keyword: ' + kw);
+  for (const kw of ['Task desk layout', 'not a data migration', 'Return to classic layout']) {
+    ok(userEnText.includes(kw), '(b) USER-GUIDE_EN contains task-desk recovery contract: ' + kw);
+  }
+  for (const kw of ['任务台布局', '不是数据迁移', '返回经典布局']) {
+    ok(userText.includes(kw), '(b) USER-GUIDE_CN contains task-desk recovery contract: ' + kw);
+  }
   for (const kw of ADMIN_KW) ok(adminText.includes(kw), '(b) ADMIN-GUIDE contains keyword: ' + kw);
 
   // ============ (c) forbidden content (per-manual, per-line) ============
@@ -74,8 +82,10 @@ const RESIDUE = ['TODO', '待补'];                             // editorial res
     return hits;
   }
   const userHits = scanForbidden('USER-GUIDE_CN.md', userText);
+  const userEnHits = scanForbidden('USER-GUIDE_EN.md', userEnText);
   const adminHits = scanForbidden('ADMIN-GUIDE_CN.md', adminText);
   ok(userHits.length === 0, '(c) USER-GUIDE has no forbidden content' + (userHits.length ? ' — HITS: ' + userHits.join(', ') : ''));
+  ok(userEnHits.length === 0, '(c) USER-GUIDE_EN has no forbidden content' + (userEnHits.length ? ' — HITS: ' + userEnHits.join(', ') : ''));
   ok(adminHits.length === 0, '(c) ADMIN-GUIDE has no forbidden content' + (adminHits.length ? ' — HITS: ' + adminHits.join(', ') : ''));
 
   // ============ (d) README links both manuals; targets exist ============

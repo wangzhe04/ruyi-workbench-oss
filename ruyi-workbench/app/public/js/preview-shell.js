@@ -17,6 +17,50 @@ import {
 
 export const SHELL_MODE_STORAGE_KEY = 'wcw.shellMode';
 export const SHELL_MODES = Object.freeze(['classic', 'preview']);
+export const PREVIEW_UI_STATE_STORAGE_KEY = 'wcw.previewUiState.v1';
+export const PREVIEW_DOCK_INITIAL_RENDER = 40;
+
+export function normalizePreviewUiState(value) {
+  let input = value;
+  if (typeof input === 'string') {
+    try { input = JSON.parse(input); } catch { input = null; }
+  }
+  const missions = {};
+  const source = input && typeof input === 'object' && !Array.isArray(input) && input.missions && typeof input.missions === 'object'
+    ? input.missions : {};
+  for (const [missionId, raw] of Object.entries(source).slice(-1000)) {
+    if (!missionId || !raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const item = { pinned: raw.pinned === true, archived: raw.archived === true };
+    const revision = Number(raw.lastSeenRevision);
+    if (Number.isSafeInteger(revision) && revision >= 0) item.lastSeenRevision = revision;
+    if (typeof raw.updatedAt === 'string' && raw.updatedAt) item.updatedAt = raw.updatedAt.slice(0, 40);
+    missions[String(missionId).slice(0, 180)] = item;
+  }
+  return { version: 1, missions };
+}
+
+export function readPreviewUiState(storage = globalThis.localStorage) {
+  try { return normalizePreviewUiState(storage?.getItem(PREVIEW_UI_STATE_STORAGE_KEY)); }
+  catch { return normalizePreviewUiState(null); }
+}
+
+export function writePreviewMissionUiState(missionId, patch, storage = globalThis.localStorage) {
+  const id = String(missionId || '').slice(0, 180);
+  if (!id) return normalizePreviewUiState(null);
+  const state = readPreviewUiState(storage);
+  const previous = state.missions[id] || { pinned: false, archived: false };
+  const next = { ...previous };
+  if (patch && typeof patch === 'object') {
+    if (typeof patch.pinned === 'boolean') next.pinned = patch.pinned;
+    if (typeof patch.archived === 'boolean') next.archived = patch.archived;
+    const revision = Number(patch.lastSeenRevision);
+    if (Number.isSafeInteger(revision) && revision >= 0) next.lastSeenRevision = Math.max(Number(previous.lastSeenRevision) || 0, revision);
+  }
+  next.updatedAt = new Date().toISOString();
+  state.missions[id] = next;
+  try { storage?.setItem(PREVIEW_UI_STATE_STORAGE_KEY, JSON.stringify(state)); } catch { /* UI state is best-effort */ }
+  return state;
+}
 
 export function normalizeShellMode(value) {
   return value === 'preview' ? 'preview' : 'classic';
@@ -38,6 +82,9 @@ export function createPreviewShellDomain({
   closeSettings = () => {},
   dispatchCommand = async () => ({}),
   openSession = async () => {},
+  setClassicDraft = () => {},
+  syncClassicIntervention = async () => {},
+  apiErrText = error => String(error && error.message || error || ''),
   pickWorkspace = async () => {},
   playbookName = playbook => String(playbook && playbook.title || ''),
   playbookDescription = playbook => String(playbook && playbook.desc || ''),
@@ -46,14 +93,39 @@ export function createPreviewShellDomain({
   getActiveTurnLines = () => [],
 } = {}) {
   const missionState = globalThis.MissionState;
-  if (!missionState || typeof missionState.fromCard !== 'function') throw new Error('mission-state.js unavailable');
+  const recoverClassicShell = () => {
+    try { document.documentElement.setAttribute('data-shell-mode', 'classic'); } catch { /* pre-DOM failure */ }
+    try { localStorage.setItem(SHELL_MODE_STORAGE_KEY, 'classic'); } catch { /* local preference may be unavailable */ }
+    try {
+      const selector = document.getElementById('cfgShellMode');
+      if (selector) selector.value = 'classic';
+    } catch { /* pre-DOM failure */ }
+    return 'classic';
+  };
+  if (!missionState || typeof missionState.fromCard !== 'function') {
+    recoverClassicShell();
+    const noOp = () => {};
+    const noRefresh = async () => null;
+    return Object.freeze({
+      applyShellMode: recoverClassicShell,
+      bindPreviewShell: recoverClassicShell,
+      handlePreviewStreamEvent: noOp,
+      isPreviewMode: () => false,
+      refreshPreviewShell: noRefresh,
+      refreshPreviewShellLabels: noOp,
+      renderPreviewShell: noOp,
+    });
+  }
 
   let cards = [];
   let inboxCounts = { total: 0 };
+  let pendingInterventions = [];
   let selectedMissionId = '';
   let activeView = 'home';
   let selectedSnapshot = null;
   let selectedSession = null;
+  let selectedChanges = null;
+  let detailBaselineRevision = null;
   let rawWindowStart = null;
   let renderedSession = null;
   let renderedLocale = '';
@@ -71,6 +143,14 @@ export function createPreviewShellDomain({
   let dispatchDraft = null;
   let dispatchBusy = false;
   let dispatchError = '';
+  let archiveQuery = '';
+  let archiveFilter = 'all';
+  let archiveGroup = 'workspace';
+  let previewUiState = readPreviewUiState();
+  let renderedDockSignature = '';
+  let dockRenderEpoch = 0;
+  let needsDrawerOpen = false;
+  const interventionDrafts = new Map();
 
   const byId = id => document.getElementById(id);
   const text = (tag, className, value) => {
@@ -82,6 +162,8 @@ export function createPreviewShellDomain({
   const stateLabel = value => t(`previewShell.state.${value}`);
   const selectedCard = () => cards.find(card => card && card.missionId === selectedMissionId) || cards[0] || null;
   const selectedSessionId = () => activeView === 'mission' ? String(selectedCard()?.sessionId || '') : '';
+  const missionUi = missionId => previewUiState.missions[String(missionId || '')] || { pinned: false, archived: false };
+  const updateMissionUi = (missionId, patch) => { previewUiState = writePreviewMissionUiState(missionId, patch); return missionUi(missionId); };
 
   function storedShellMode() {
     try { return normalizeShellMode(localStorage.getItem(SHELL_MODE_STORAGE_KEY)); }
@@ -125,6 +207,7 @@ export function createPreviewShellDomain({
       if (focus) requestAnimationFrame(() => byId('previewMain')?.focus());
     } else {
       stopPolling();
+      if (needsDrawerOpen) setNeedsDrawer(false, { focus: false });
       if (focus) requestAnimationFrame(() => byId('sessionTitle')?.focus?.());
     }
     return mode;
@@ -160,6 +243,7 @@ export function createPreviewShellDomain({
     if (fact) {
       fact.classList.toggle('has-attention', total > 0);
       fact.setAttribute('aria-label', t('previewShell.needsYouAria', { p1: total }));
+      fact.setAttribute('aria-expanded', needsDrawerOpen ? 'true' : 'false');
     }
   }
 
@@ -186,34 +270,53 @@ export function createPreviewShellDomain({
   function renderDock() {
     const list = byId('previewMissionDock');
     if (!list) return;
-    const fragment = document.createDocumentFragment();
-    for (const card of cards) {
-      if (!card || !card.missionId) continue;
+    const dockCards = cards.filter(card => !missionUi(card && card.missionId).archived);
+    const models = dockCards.filter(card => card && card.missionId).map(card => {
       const derived = missionState.fromCard(card);
-      const titleValue = titleOf(card);
-      const progress = progressOf(card);
-      const item = text('div', 'preview-dock-item', '');
-      item.setAttribute('role', 'listitem');
-      const button = text('button', 'preview-seal', '');
-      button.type = 'button';
-      button.dataset.missionId = String(card.missionId);
-      button.dataset.sessionId = String(card.sessionId || '');
-      button.dataset.missionState = derived.state;
-      button.dataset.dockTone = dockToneForMissionState(derived.state);
-      button.style.setProperty('--mission-progress', String(progress.percent));
-      button.title = `${titleValue}\n${stateLabel(derived.state)}`;
-      button.setAttribute('aria-label', t('previewShell.sealAria', { p1: titleValue, p2: stateLabel(derived.state), p3: progress.percent }));
-      button.setAttribute('aria-pressed', activeView === 'mission' && card.missionId === selectedMissionId ? 'true' : 'false');
-      const ring = text('span', 'preview-seal-ring', '');
-      ring.setAttribute('aria-hidden', 'true');
-      ring.appendChild(text('span', 'preview-seal-glyph', firstGlyph(titleValue)));
-      button.append(ring, text('span', 'preview-seal-caption', stateLabel(derived.state)));
-      item.appendChild(button);
-      fragment.appendChild(item);
+      return { card, derived, titleValue: titleOf(card), progress: progressOf(card) };
+    });
+    const signature = `${getLocale()}\u001e${models.map(({ card, derived, titleValue, progress }) => [
+      card.missionId, card.sessionId || '', derived.state, titleValue, progress.percent,
+    ].join('\u001f')).join('\u001e')}`;
+    if (signature !== renderedDockSignature) {
+      const renderEpoch = ++dockRenderEpoch;
+      const appendChunk = start => {
+        if (renderEpoch !== dockRenderEpoch || signature !== renderedDockSignature) return;
+        const fragment = document.createDocumentFragment();
+        const end = Math.min(models.length, start + PREVIEW_DOCK_INITIAL_RENDER);
+        for (let index = start; index < end; index++) {
+          const { card, derived, titleValue, progress } = models[index];
+          const item = text('div', 'preview-dock-item', '');
+          item.setAttribute('role', 'listitem');
+          const button = text('button', 'preview-seal', '');
+          button.type = 'button';
+          button.dataset.missionId = String(card.missionId);
+          button.dataset.sessionId = String(card.sessionId || '');
+          button.dataset.missionState = derived.state;
+          button.dataset.dockTone = dockToneForMissionState(derived.state);
+          button.style.setProperty('--mission-progress', String(progress.percent));
+          button.title = `${titleValue}\n${stateLabel(derived.state)}`;
+          button.setAttribute('aria-label', t('previewShell.sealAria', { p1: titleValue, p2: stateLabel(derived.state), p3: progress.percent }));
+          button.setAttribute('aria-pressed', activeView === 'mission' && card.missionId === selectedMissionId ? 'true' : 'false');
+          const ring = text('span', 'preview-seal-ring', '');
+          ring.setAttribute('aria-hidden', 'true');
+          ring.appendChild(text('span', 'preview-seal-glyph', firstGlyph(titleValue)));
+          button.append(ring, text('span', 'preview-seal-caption', stateLabel(derived.state)));
+          item.appendChild(button);
+          fragment.appendChild(item);
+        }
+        list.appendChild(fragment);
+        if (end < models.length) requestAnimationFrame(() => appendChunk(end));
+      };
+      list.replaceChildren();
+      renderedDockSignature = signature;
+      appendChunk(0);
     }
-    list.replaceChildren(fragment);
+    for (const button of list.querySelectorAll('.preview-seal')) {
+      button.setAttribute('aria-pressed', activeView === 'mission' && button.dataset.missionId === selectedMissionId ? 'true' : 'false');
+    }
     const count = byId('previewDockCount');
-    if (count) count.textContent = t('previewShell.taskCount', { p1: cards.length });
+    if (count) count.textContent = t('previewShell.taskCount', { p1: models.length });
   }
 
   function actionButton(label, className, handler) {
@@ -223,10 +326,264 @@ export function createPreviewShellDomain({
     return button;
   }
 
-  async function openSelectedInClassic() {
+  async function openSelectedInClassic(draft = '') {
     const card = selectedCard();
     applyShellMode('classic');
-    if (card && card.sessionId) await openSession(card.sessionId);
+    if (card && card.sessionId) {
+      await openSession(card.sessionId);
+      if (draft) setClassicDraft(draft);
+    }
+  }
+
+  function interventionTitle(item) {
+    const card = cards.find(row => row && (row.missionId === item.missionId || row.sessionId === item.sessionId));
+    return card ? titleOf(card) : t('previewShell.missionFallback');
+  }
+
+  function interventionTypeLabel(type) {
+    return t(`previewShell.interventionType.${['permission', 'question', 'plan', 'pool'].includes(type) ? type : 'unknown'}`);
+  }
+
+  function interventionSummary(item) {
+    if (item.type === 'permission') return item.toolName || t('previewShell.permissionFallback');
+    if (item.type === 'question') return item.questionSummary || item.questions?.[0]?.question || t('previewShell.questionFallback');
+    if (item.type === 'plan') return item.planSummary || t('previewShell.planFallback');
+    if (item.type === 'pool') return item.task || t('previewShell.poolFallback');
+    return t('previewShell.unknown');
+  }
+
+  function decisionKey(item, action) {
+    const uuid = globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    return `preview:${String(item.id || '').slice(0, 40)}:${String(action || '').slice(0, 16)}:${uuid}`.slice(0, 128);
+  }
+
+  function setNeedsDrawer(open, { focus = true } = {}) {
+    needsDrawerOpen = open === true;
+    const shell = byId('previewShell');
+    const drawer = byId('previewNeedsDrawer');
+    const scrim = byId('previewNeedsScrim');
+    shell?.classList.toggle('needs-open', needsDrawerOpen);
+    if (drawer) drawer.hidden = !needsDrawerOpen;
+    if (scrim) scrim.hidden = !needsDrawerOpen;
+    renderFacts();
+    if (needsDrawerOpen) {
+      renderNeedsDrawer();
+      if (focus) requestAnimationFrame(() => byId('previewNeedsCloseBtn')?.focus());
+    } else if (focus) requestAnimationFrame(() => byId('previewNeedsFact')?.focus());
+  }
+
+  async function openInterventionInClassic(item) {
+    setNeedsDrawer(false, { focus: false });
+    applyShellMode('classic', { focus: false });
+    if (item && item.sessionId) await openSession(item.sessionId);
+  }
+
+  function appendDecisionError(card, value) {
+    const existing = card.querySelector('.preview-decision-error');
+    if (existing) existing.remove();
+    if (!value) return;
+    const error = text('p', 'preview-decision-error', value);
+    error.setAttribute('role', 'alert');
+    card.appendChild(error);
+  }
+
+  function buildQuestionFields(item) {
+    const form = text('div', 'preview-question-form', '');
+    const questions = Array.isArray(item.questions) ? item.questions : [];
+    for (const [index, question] of questions.entries()) {
+      const field = document.createElement('fieldset');
+      field.className = 'preview-question-field';
+      field.dataset.questionId = String(question.id || `question_${index + 1}`);
+      field.dataset.answerMode = String(question.answerMode || (question.multiSelect ? 'multiple' : 'single'));
+      const legend = text('legend', '', question.header || t('previewShell.questionNumber', { p1: index + 1 }));
+      field.append(legend, text('p', 'preview-question-copy', question.question || question.header || ''));
+      const mode = field.dataset.answerMode;
+      for (const option of Array.isArray(question.options) ? question.options : []) {
+        const label = text('label', 'preview-question-option', '');
+        const input = document.createElement('input');
+        input.type = mode === 'multiple' ? 'checkbox' : 'radio';
+        input.name = `preview-${item.id}-${field.dataset.questionId}`;
+        input.dataset.optionId = String(option.id || '');
+        const optionCopy = text('span', '', '');
+        optionCopy.append(text('strong', '', option.label || option.id || ''), text('small', '', option.description || ''));
+        label.append(input, optionCopy); field.appendChild(label);
+      }
+      if (mode === 'text' || question.allowOther === true) {
+        const otherLabel = text('label', 'preview-question-other', question.otherLabel || (mode === 'text' ? t('previewShell.questionAnswer') : t('previewShell.questionOther')));
+        const input = document.createElement('textarea'); input.rows = mode === 'text' ? 3 : 2;
+        input.dataset.otherText = 'true';
+        input.placeholder = question.otherPlaceholder || t('previewShell.questionPlaceholder');
+        otherLabel.appendChild(input); field.appendChild(otherLabel);
+      }
+      form.appendChild(field);
+    }
+    return form;
+  }
+
+  function collectQuestionDecision(card) {
+    const answers = [];
+    for (const field of card.querySelectorAll('.preview-question-field')) {
+      const selectedOptionIds = [...field.querySelectorAll('[data-option-id]:checked')].map(input => input.dataset.optionId || '');
+      const otherText = String(field.querySelector('[data-other-text]')?.value || '').trim();
+      if (!selectedOptionIds.length && !otherText) return { ok: false, error: t('previewShell.questionRequired') };
+      answers.push({ questionId: field.dataset.questionId || '', selectedOptionIds, otherText });
+    }
+    if (!answers.length) return { ok: false, error: t('previewShell.questionUnavailable') };
+    return { ok: true, payload: { action: 'answer', answer: { answers } } };
+  }
+
+  function stageInterventionDecision(item, payload, { confirm = false } = {}) {
+    const request = {
+      payload,
+      idempotencyKey: decisionKey(item, payload.action),
+    };
+    interventionDrafts.set(String(item.id), { request, confirm, busy: false, error: '' });
+    if (confirm) renderNeedsDrawer();
+    else void submitInterventionDecision(item, request);
+  }
+
+  async function submitInterventionDecision(item, request) {
+    const id = String(item && item.id || '');
+    const draft = interventionDrafts.get(id);
+    if (!id || !request || draft?.busy) return;
+    const next = draft || { request, confirm: false, busy: false, error: '' };
+    next.request = request; next.confirm = false; next.busy = true; next.error = '';
+    interventionDrafts.set(id, next); renderNeedsDrawer();
+    try {
+      const response = await api(`/api/missions/${encodeURIComponent(item.missionId)}/interventions/${encodeURIComponent(id)}/decision`, {
+        method: 'POST',
+        body: JSON.stringify({
+          expectedVersion: Math.max(0, Number(item.interventionVersion) || 0),
+          idempotencyKey: request.idempotencyKey,
+          ...request.payload,
+        }),
+      });
+      if (!response || response.ok !== true) throw response || new Error(t('previewShell.decisionFailed'));
+      interventionDrafts.delete(id);
+      pendingInterventions = pendingInterventions.filter(row => String(row && row.id) !== id);
+      inboxCounts = { ...inboxCounts, total: Math.max(0, (Number(inboxCounts.total) || 0) - 1) };
+      renderPreviewShell();
+      try {
+        await syncClassicIntervention({
+          ...response,
+          sessionId: item.sessionId,
+          interventionId: id,
+          action: request.payload.action,
+          feedback: request.payload.feedback || '',
+        });
+      } catch { /* authoritative decision succeeded; classic refresh is best-effort and safe to repeat */ }
+      await refreshPreviewShell({ quiet: true, forceDetail: activeView === 'mission' && selectedSessionId() === item.sessionId });
+    } catch (error) {
+      next.busy = false;
+      next.error = apiErrText(error) || t('previewShell.decisionFailed');
+      interventionDrafts.set(id, next);
+      renderNeedsDrawer();
+      await refreshPreviewShell({ quiet: true });
+    }
+  }
+
+  function buildInterventionCard(item) {
+    const card = text('article', 'preview-intervention-card', '');
+    card.dataset.interventionId = String(item.id || '');
+    card.dataset.interventionType = String(item.type || '');
+    const head = text('header', 'preview-intervention-head', '');
+    const labels = text('div', 'preview-intervention-labels', '');
+    labels.append(text('span', `preview-intervention-type type-${item.type || 'unknown'}`, interventionTypeLabel(item.type)),
+      text('span', `preview-delivery-state ${item.deliverable ? 'is-live' : 'is-away'}`,
+        item.deliverable ? t('previewShell.decisionLive') : t('previewShell.decisionAway')));
+    head.append(labels, text('time', '', formatTaskTime(item.requestedAt)));
+    const title = text('div', 'preview-intervention-title', '');
+    title.append(text('strong', '', interventionTitle(item)), text('p', '', interventionSummary(item)));
+    card.append(head, title);
+
+    if (item.type === 'permission') {
+      const trust = text('div', 'preview-permission-trust', '');
+      trust.append(text('span', `preview-tier tier-${item.tier || 'exec'}`, item.tier || 'exec'),
+        text('span', item.revertible ? 'is-revertible' : 'is-irreversible', item.revertible ? t('previewShell.revertible') : t('previewShell.irreversible')));
+      const scope = text('pre', 'preview-permission-scope', '');
+      try { scope.textContent = JSON.stringify(item.input || {}, null, 2); } catch { scope.textContent = String(item.input || ''); }
+      card.append(trust, scope);
+    } else if (item.type === 'question') {
+      card.appendChild(buildQuestionFields(item));
+    } else if (item.type === 'plan') {
+      const note = text('label', 'preview-plan-feedback', t('previewShell.planFeedback'));
+      const input = document.createElement('textarea'); input.rows = 2; input.dataset.planFeedback = 'true';
+      input.placeholder = t('previewShell.planFeedbackPlaceholder'); note.appendChild(input); card.appendChild(note);
+    }
+
+    const draft = interventionDrafts.get(String(item.id));
+    if (draft?.confirm) {
+      const confirm = text('section', 'preview-decision-confirm', '');
+      confirm.setAttribute('role', 'alertdialog');
+      confirm.append(text('strong', '', t('previewShell.confirmApprovalTitle')),
+        text('p', '', t('previewShell.confirmApprovalBody', { p1: interventionSummary(item) })));
+      const actions = text('div', 'preview-intervention-actions', '');
+      actions.append(actionButton(t('previewShell.cancel'), '', () => { interventionDrafts.delete(String(item.id)); renderNeedsDrawer(); }),
+        actionButton(t('previewShell.confirmApproval'), 'primary', () => { void submitInterventionDecision(item, draft.request); }));
+      confirm.appendChild(actions); card.appendChild(confirm);
+    } else {
+      const actions = text('div', 'preview-intervention-actions', '');
+      if (!item.deliverable) {
+        actions.appendChild(actionButton(t('previewShell.openMissionClassic'), '', () => { void openInterventionInClassic(item); }));
+      } else if (item.type === 'permission') {
+        actions.append(actionButton(t('previewShell.deny'), 'danger', () => stageInterventionDecision(item, { action: 'deny' })),
+          actionButton(t('previewShell.allow'), 'primary', () => stageInterventionDecision(item, { action: 'allow' }, { confirm: true })));
+      } else if (item.type === 'question') {
+        actions.appendChild(actionButton(t('previewShell.sendAnswer'), 'primary', () => {
+          const collected = collectQuestionDecision(card);
+          if (!collected.ok) { appendDecisionError(card, collected.error); return; }
+          stageInterventionDecision(item, collected.payload);
+        }));
+      } else if (item.type === 'plan') {
+        actions.append(actionButton(t('previewShell.reject'), 'danger', () => {
+          const feedback = String(card.querySelector('[data-plan-feedback]')?.value || '').trim();
+          stageInterventionDecision(item, { action: 'reject', ...(feedback ? { feedback } : {}) });
+        }), actionButton(t('previewShell.approve'), 'primary', () => {
+          const feedback = String(card.querySelector('[data-plan-feedback]')?.value || '').trim();
+          stageInterventionDecision(item, { action: 'approve', ...(feedback ? { feedback } : {}) }, { confirm: true });
+        }));
+      } else if (item.type === 'pool') {
+        actions.append(actionButton(t('previewShell.reject'), 'danger', () => stageInterventionDecision(item, { action: 'reject' })),
+          actionButton(t('previewShell.approve'), 'primary', () => stageInterventionDecision(item, { action: 'approve' }, { confirm: true })));
+      }
+      card.appendChild(actions);
+    }
+    if (draft?.busy) {
+      card.classList.add('is-busy');
+      const busy = text('p', 'preview-decision-busy', t('previewShell.decisionSending')); busy.setAttribute('role', 'status');
+      card.appendChild(busy);
+      for (const control of card.querySelectorAll('button,input,textarea')) control.disabled = true;
+    } else if (draft?.error) {
+      appendDecisionError(card, draft.error);
+      const retry = actionButton(t('previewShell.retrySameDecision'), '', () => { void submitInterventionDecision(item, draft.request); });
+      retry.dataset.retrySameKey = draft.request.idempotencyKey;
+      card.appendChild(retry);
+    }
+    return card;
+  }
+
+  function renderNeedsDrawer() {
+    const drawer = byId('previewNeedsDrawer');
+    if (!drawer || !needsDrawerOpen) return;
+    const head = text('header', 'preview-needs-head', '');
+    const copy = text('div', '', '');
+    copy.append(text('span', 'preview-eyebrow', t('previewShell.needsDrawerEyebrow')),
+      text('h2', '', t('previewShell.needsDrawerTitle')),
+      text('p', '', t('previewShell.needsDrawerBody', { p1: pendingInterventions.length })));
+    const close = actionButton(t('previewShell.needsClose'), 'preview-needs-close', () => setNeedsDrawer(false));
+    close.id = 'previewNeedsCloseBtn'; close.setAttribute('aria-label', t('previewShell.needsClose'));
+    head.append(copy, close);
+    const list = text('div', 'preview-intervention-list', '');
+    if (pendingInterventions.length) {
+      for (const item of pendingInterventions) list.appendChild(buildInterventionCard(item));
+    } else {
+      const empty = text('section', 'preview-needs-empty', '');
+      empty.append(text('strong', '', t('previewShell.needsEmptyTitle')), text('p', '', t('previewShell.needsEmptyBody')));
+      list.appendChild(empty);
+    }
+    drawer.replaceChildren(head, list);
   }
 
   function openDispatchHome({ focus = true } = {}) {
@@ -236,10 +593,18 @@ export function createPreviewShellDomain({
     if (focus) requestAnimationFrame(() => byId('previewDispatchInput')?.focus());
   }
 
+  function openArchive({ focus = true } = {}) {
+    activeView = 'archive';
+    clearPreviewLive();
+    renderPreviewShell();
+    if (focus) requestAnimationFrame(() => byId('previewArchiveSearch')?.focus());
+  }
+
   function openMissionCard(card, { focus = true } = {}) {
     if (!card || !card.missionId) return;
+    const switching = activeView !== 'mission' || card.missionId !== selectedMissionId;
     activeView = 'mission';
-    if (card.missionId !== selectedMissionId) {
+    if (switching) {
       selectedMissionId = card.missionId;
       resetSelectedDetail();
     }
@@ -252,6 +617,8 @@ export function createPreviewShellDomain({
     detailEpoch += 1;
     selectedSnapshot = null;
     selectedSession = null;
+    selectedChanges = null;
+    detailBaselineRevision = null;
     rawWindowStart = null;
     renderedSession = null;
     renderedLocale = '';
@@ -474,7 +841,7 @@ export function createPreviewShellDomain({
 
   function buildContinueSection() {
     const section = text('section', 'preview-home-section preview-continue-section', '');
-    const active = cards.filter(card => ['dispatching', 'running', 'needs_you'].includes(missionState.fromCard(card).state)).slice(0, 4);
+    const active = cards.filter(card => !missionUi(card && card.missionId).archived && ['dispatching', 'running', 'needs_you'].includes(missionState.fromCard(card).state)).slice(0, 4);
     const count = text('span', 'preview-home-section-count', String(active.length));
     const head = homeSectionHeading(2, t('previewShell.continueTitle'), t('previewShell.continueBody'), count);
     const rail = text('div', 'preview-continue-rail', '');
@@ -514,12 +881,115 @@ export function createPreviewShellDomain({
   function buildRecentSection() {
     const section = text('section', 'preview-home-section preview-recent-section', '');
     const head = homeSectionHeading(4, t('previewShell.recentTitle'), t('previewShell.recentBody'));
-    const recent = cards.filter(card => ['done', 'stopped'].includes(missionState.fromCard(card).state)).slice(0, 3);
+    const recent = cards.filter(card => !missionUi(card && card.missionId).archived && ['done', 'stopped'].includes(missionState.fromCard(card).state)).slice(0, 3);
     const grid = text('div', 'preview-recent-grid', '');
     if (recent.length) recent.forEach(card => grid.appendChild(homeMissionButton(card, 'preview-recent-card')));
     else grid.appendChild(text('p', 'preview-home-empty-copy', t('previewShell.recentEmpty')));
     section.append(head, grid);
     return section;
+  }
+
+  function archiveGroupLabel(key) {
+    if (archiveGroup === 'state') return stateLabel(key);
+    return key || t('previewShell.archiveUnknownWorkspace');
+  }
+
+  function archiveCard(card) {
+    const derived = missionState.fromCard(card);
+    const ui = missionUi(card.missionId);
+    const row = text('article', 'preview-archive-card', '');
+    row.dataset.missionState = derived.state;
+    if (ui.pinned) row.dataset.pinned = 'true';
+    if (ui.archived) row.dataset.archived = 'true';
+    const open = text('button', 'preview-archive-open', '');
+    open.type = 'button'; open.onclick = () => openMissionCard(card);
+    const copy = text('span', 'preview-archive-copy', '');
+    copy.append(text('strong', 'preview-archive-title', titleOf(card)),
+      text('span', 'preview-archive-goal', card.mission?.goal || t('previewShell.goalFallback')));
+    const meta = text('span', 'preview-archive-meta', '');
+    meta.append(text('span', `preview-home-task-state state-${derived.state}`, stateLabel(derived.state)),
+      text('span', '', basename(card.cwd) || t('previewShell.archiveUnknownWorkspace')),
+      text('time', '', formatTaskTime(card.updatedAt || card.createdAt)));
+    open.append(copy, meta);
+    open.setAttribute('aria-label', t('previewShell.archiveOpenAria', { p1: titleOf(card), p2: stateLabel(derived.state) }));
+    const actions = text('div', 'preview-archive-actions', '');
+    const pin = actionButton(ui.pinned ? t('previewShell.unpin') : t('previewShell.pin'), 'preview-archive-action', () => {
+      updateMissionUi(card.missionId, { pinned: !ui.pinned }); renderDock(); renderArchive();
+    });
+    pin.setAttribute('aria-pressed', ui.pinned ? 'true' : 'false');
+    const archive = actionButton(ui.archived ? t('previewShell.unarchive') : t('previewShell.archiveAction'), 'preview-archive-action', () => {
+      updateMissionUi(card.missionId, { archived: !ui.archived }); renderDock(); renderArchive();
+    });
+    archive.setAttribute('aria-pressed', ui.archived ? 'true' : 'false');
+    actions.append(pin, archive);
+    row.append(open, actions);
+    return row;
+  }
+
+  function renderArchive() {
+    const main = byId('previewMain');
+    if (!main) return;
+    main.dataset.view = 'archive'; delete main.dataset.missionId;
+    const article = text('article', 'preview-archive', '');
+    const head = text('header', 'preview-archive-head', '');
+    const heading = text('div', 'preview-archive-heading', '');
+    heading.append(text('span', 'preview-eyebrow', t('previewShell.archiveEyebrow')),
+      text('h1', '', t('previewShell.archiveTitle')),
+      text('p', '', t('previewShell.archiveBody')));
+    const terminal = cards.filter(card => ['done', 'stopped'].includes(missionState.fromCard(card).state));
+    head.append(heading, text('strong', 'preview-archive-count', t('previewShell.archiveCount', { p1: terminal.length })));
+
+    const controls = text('div', 'preview-archive-controls', '');
+    const search = document.createElement('input');
+    search.id = 'previewArchiveSearch'; search.type = 'search'; search.value = archiveQuery;
+    search.placeholder = t('previewShell.archiveSearch'); search.setAttribute('aria-label', t('previewShell.archiveSearch'));
+    search.oninput = event => {
+      archiveQuery = event.target.value;
+      renderArchive();
+      requestAnimationFrame(() => { const next = byId('previewArchiveSearch'); next?.focus(); next?.setSelectionRange(archiveQuery.length, archiveQuery.length); });
+    };
+    const filters = text('div', 'preview-archive-filters', '');
+    for (const value of ['all', 'done', 'stopped', 'pinned', 'archived']) {
+      const button = actionButton(t(`previewShell.archiveFilter.${value}`), 'preview-archive-filter', () => { archiveFilter = value; renderArchive(); });
+      button.setAttribute('aria-pressed', archiveFilter === value ? 'true' : 'false');
+      filters.appendChild(button);
+    }
+    const group = document.createElement('select');
+    group.id = 'previewArchiveGroup'; group.setAttribute('aria-label', t('previewShell.archiveGroupLabel'));
+    for (const value of ['workspace', 'state']) {
+      const option = document.createElement('option'); option.value = value; option.textContent = t(`previewShell.archiveGroup.${value}`); group.appendChild(option);
+    }
+    group.value = archiveGroup; group.onchange = event => { archiveGroup = event.target.value === 'state' ? 'state' : 'workspace'; renderArchive(); };
+    controls.append(search, filters, group);
+
+    const query = archiveQuery.trim().toLocaleLowerCase(getLocale());
+    const filtered = terminal.filter(card => {
+      const derived = missionState.fromCard(card); const ui = missionUi(card.missionId);
+      if (archiveFilter === 'done' && derived.state !== 'done') return false;
+      if (archiveFilter === 'stopped' && derived.state !== 'stopped') return false;
+      if (archiveFilter === 'pinned' && !ui.pinned) return false;
+      if (archiveFilter === 'archived' && !ui.archived) return false;
+      if (!query) return true;
+      return [titleOf(card), card.mission?.goal, card.cwd, stateLabel(derived.state)].some(value => String(value || '').toLocaleLowerCase(getLocale()).includes(query));
+    }).sort((a, b) => (Number(missionUi(b.missionId).pinned) - Number(missionUi(a.missionId).pinned)) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    const groups = new Map();
+    for (const card of filtered) {
+      const key = archiveGroup === 'state' ? missionState.fromCard(card).state : (basename(card.cwd) || '');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(card);
+    }
+    const ledger = text('div', 'preview-archive-ledger', '');
+    for (const [key, groupCards] of groups) {
+      const section = text('section', 'preview-archive-group', '');
+      const groupHead = text('div', 'preview-archive-group-head', '');
+      groupHead.append(text('h2', '', archiveGroupLabel(key)), text('span', '', String(groupCards.length).padStart(2, '0')));
+      const rows = text('div', 'preview-archive-rows', '');
+      groupCards.forEach(card => rows.appendChild(archiveCard(card)));
+      section.append(groupHead, rows); ledger.appendChild(section);
+    }
+    if (!filtered.length) ledger.appendChild(text('p', 'preview-home-empty-copy', t('previewShell.archiveEmpty')));
+    article.append(head, controls, ledger);
+    main.replaceChildren(article);
   }
 
   function renderHome() {
@@ -614,6 +1084,14 @@ export function createPreviewShellDomain({
       makeMetric('cost', t('previewShell.cost')), makeMetric('runs', t('previewShell.runs')));
     head.append(kicker, heading, goal, progress, metrics);
 
+    const returnSummary = text('section', 'preview-return-summary', '');
+    returnSummary.dataset.slot = 'returnSummary'; returnSummary.hidden = true;
+    returnSummary.setAttribute('aria-label', t('previewShell.returnTitle'));
+
+    const stopCard = text('section', 'preview-stop-card', '');
+    stopCard.dataset.slot = 'stopCard'; stopCard.hidden = true;
+    stopCard.setAttribute('aria-label', t('previewShell.stopCardTitle'));
+
     const body = text('div', 'preview-task-body', '');
     const worksite = text('section', 'preview-worksite', '');
     worksite.setAttribute('aria-label', t('previewShell.worksite'));
@@ -637,7 +1115,7 @@ export function createPreviewShellDomain({
     foot.append(actionButton(t('previewShell.backHome'), '', () => openDispatchHome()),
       actionButton(t('previewShell.openMissionClassic'), 'primary', () => { void openSelectedInClassic(); }),
       actionButton(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }));
-    article.append(head, body, foot);
+    article.append(head, returnSummary, stopCard, body, foot);
     main.replaceChildren(article);
     return article;
   }
@@ -670,6 +1148,93 @@ export function createPreviewShellDomain({
     setSlot(article, 'cursor', t('previewShell.cursor', { p1: turnSeq }));
   }
 
+  function renderStopCard(article, card, snapshot) {
+    const host = article?.querySelector('[data-slot="stopCard"]');
+    if (!host) return;
+    const result = snapshot && snapshot.result;
+    if (!result || result.status !== 'stopped') {
+      host.hidden = true;
+      host.replaceChildren();
+      return;
+    }
+    host.hidden = false;
+    const unfinished = Array.isArray(result.unfinished) ? result.unfinished.filter(Boolean) : [];
+    const copy = text('div', 'preview-stop-copy', '');
+    copy.append(text('span', 'preview-eyebrow', t('previewShell.stopCardEyebrow')),
+      text('h2', '', t('previewShell.stopCardTitle')),
+      text('p', '', result.how === 'stop'
+        ? t('previewShell.stopCardUserReason', { p1: unfinished.length })
+        : t('previewShell.stopCardReason', { p1: unfinished.length })));
+    if (unfinished.length) {
+      const list = text('ul', 'preview-stop-unfinished', '');
+      for (const item of unfinished.slice(0, 3)) list.appendChild(text('li', '', item.desc || item.id || t('previewShell.unknown')));
+      copy.appendChild(list);
+    }
+    const actions = text('div', 'preview-stop-actions', '');
+    actions.append(
+      actionButton(t('previewShell.stopRetry'), 'primary', () => {
+        void openSelectedInClassic(t('previewShell.stopRetryDraft', { p1: snapshot.mission?.goal || titleOf(card) }));
+      }),
+      actionButton(t('previewShell.stopChangeApproach'), '', () => {
+        void openSelectedInClassic(t('previewShell.stopChangeDraft', { p1: snapshot.mission?.goal || titleOf(card) }));
+      }),
+      actionButton(t('previewShell.stopGiveUp'), 'ghost', () => {
+        updateMissionUi(card.missionId, { archived: true });
+        openDispatchHome();
+      }),
+    );
+    host.replaceChildren(copy, actions);
+  }
+
+  function changeDescription(record) {
+    const detail = record && record.detail || {};
+    switch (record && record.type) {
+      case 'mission_started': return t('previewShell.change.mission_started', { p1: detail.milestonesTotal || 0 });
+      case 'progress': return t('previewShell.change.progress', { p1: detail.filesChanged || 0, p2: detail.artifacts || 0 });
+      case 'failure': return t('previewShell.change.failure', { p1: detail.errorClass || t('previewShell.unknown') });
+      case 'budget': return t('previewShell.change.budget', { p1: compactNumber((Number(detail.inTok) || 0) + (Number(detail.outTok) || 0)), p2: detail.cost == null ? t('previewShell.noCost') : `${detail.currency || ''} ${Number(detail.cost).toFixed(2)}`.trim() });
+      case 'intervention_pending': return t('previewShell.change.intervention_pending', { p1: detail.interventionType || t('previewShell.unknown') });
+      case 'intervention_resolved': return t('previewShell.change.intervention_resolved', { p1: detail.status || t('previewShell.unknown') });
+      case 'result': return t('previewShell.change.result', { p1: detail.status || t('previewShell.unknown') });
+      case 'rewind': return t('previewShell.change.rewind', { p1: detail.removedTurns || 0, p2: detail.filesReverted || 0 });
+      case 'run_deleted': return t('previewShell.change.run_deleted', { p1: detail.runId || record.cursor?.runId || t('previewShell.unknown') });
+      default: return t('previewShell.change.progress', { p1: 0, p2: 0 });
+    }
+  }
+
+  function renderReturnSummary(article) {
+    const host = article?.querySelector('[data-slot="returnSummary"]');
+    if (!host || !selectedChanges) return;
+    host.hidden = false;
+    host.classList.toggle('is-degraded', selectedChanges.degraded === true);
+    const changes = Array.isArray(selectedChanges.changes) ? selectedChanges.changes : [];
+    const head = text('div', 'preview-return-head', '');
+    const heading = text('div', '', '');
+    heading.append(text('span', 'preview-eyebrow', t('previewShell.returnEyebrow')),
+      text('h2', '', t('previewShell.returnTitle')),
+      text('p', '', changes.length ? t('previewShell.returnBody', { p1: selectedChanges.fromRevision, p2: selectedChanges.currentRevision }) : t('previewShell.returnCaughtUp')));
+    head.append(heading, text('strong', 'preview-return-count', String(changes.length).padStart(2, '0')));
+    const body = text('div', 'preview-return-body', '');
+    if (selectedChanges.degraded) {
+      const warning = text('p', 'preview-return-warning', t('previewShell.returnDegraded'));
+      warning.setAttribute('role', 'alert'); body.appendChild(warning);
+    }
+    if (changes.length) {
+      const list = text('ol', 'preview-return-list', '');
+      for (const record of changes) {
+        const item = text('li', 'preview-return-row', ''); item.dataset.changeSeq = String(record.seq || '');
+        const marker = text('span', `preview-return-marker change-${record.type || 'progress'}`, String(record.seq || '').padStart(2, '0'));
+        const copy = text('span', 'preview-return-copy', '');
+        copy.append(text('strong', '', t(`previewShell.changeType.${record.type}`)), text('span', '', changeDescription(record)));
+        const cursor = text('code', 'preview-return-cursor', JSON.stringify(record.cursor || {}));
+        cursor.title = t('previewShell.returnCursor');
+        item.append(marker, copy, cursor); list.appendChild(item);
+      }
+      body.appendChild(list);
+    }
+    host.replaceChildren(head, body);
+  }
+
   function readonlyPanel(kind, titleValue, value, bodyValue) {
     const panel = text('section', `preview-intake-panel preview-intake-${kind}`, '');
     panel.dataset.kind = kind;
@@ -692,8 +1257,13 @@ export function createPreviewShellDomain({
     const liveRuns = runs.filter(run => run && run.live).length;
     const maxRunCursor = runs.reduce((max, run) => Math.max(max, Number(run && run.eventSeq) || 0), 0);
     const needs = readonlyPanel('needs', t('previewShell.needsPanel'), String(pending),
-      pending ? t('previewShell.needsPanelBody', { p1: pending }) : t('previewShell.needsPanelEmpty'));
+      pending ? t('previewShell.needsPanelBodyGlobal', { p1: pending }) : t('previewShell.needsPanelEmpty'));
     needs.classList.toggle('has-attention', pending > 0);
+    if (pending > 0) {
+      needs.classList.add('is-actionable'); needs.tabIndex = 0; needs.setAttribute('role', 'button');
+      needs.onclick = () => setNeedsDrawer(true);
+      needs.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setNeedsDrawer(true); } };
+    }
     const result = readonlyPanel('results', t('previewShell.resultsPanel'), resultLabel(snapshot),
       t('previewShell.resultsPanelBody', { p1: artifacts, p2: files }));
     const ledger = readonlyPanel('ledger', t('previewShell.ledgerPanel'), t('previewShell.ledgerValue', { p1: checkpoints }),
@@ -849,6 +1419,8 @@ export function createPreviewShellDomain({
     const article = ensureTaskSheet(card);
     if (!article) return;
     renderTaskHeader(article, card, selectedSnapshot);
+    renderReturnSummary(article);
+    renderStopCard(article, card, selectedSnapshot);
     renderIntakeDesk(article, selectedSnapshot);
     renderRawMessages();
     replayActiveTurn();
@@ -856,6 +1428,7 @@ export function createPreviewShellDomain({
 
   function renderMain() {
     if (activeView === 'home') { renderHome(); return; }
+    if (activeView === 'archive') { renderArchive(); return; }
     const card = selectedCard();
     if (!card) { activeView = 'home'; renderEmptyMain(); }
     else if (!selectedSnapshot) renderLoadingMain(card);
@@ -868,9 +1441,14 @@ export function createPreviewShellDomain({
     main.dataset.view = 'error';
     const card = text('section', 'preview-error-card', '');
     card.setAttribute('role', 'alert');
+    const actions = text('div', 'preview-main-actions preview-error-actions', '');
+    const retry = actionButton(t('previewShell.retry'), 'primary', () => { void refreshPreviewShell({ forceDetail: true }); });
+    const classic = actionButton(t('previewShell.returnClassic'), '', () => applyShellMode('classic'));
+    retry.id = 'previewErrorRetryBtn';
+    classic.id = 'previewErrorClassicBtn';
+    actions.append(retry, classic);
     card.append(text('h1', '', t('previewShell.loadFailed')), text('p', 'preview-main-copy', t('previewShell.loadFailedBody')),
-      text('p', 'preview-error-detail', String(error && error.message || error || '')),
-      actionButton(t('previewShell.retry'), 'primary', () => { void refreshPreviewShell({ forceDetail: true }); }));
+      text('p', 'preview-error-detail', String(error && error.message || error || '')), actions);
     main.replaceChildren(card);
   }
 
@@ -878,6 +1456,9 @@ export function createPreviewShellDomain({
     renderFacts();
     renderDock();
     renderMain();
+    renderNeedsDrawer();
+    byId('previewHomeBtn')?.setAttribute('aria-pressed', activeView === 'home' ? 'true' : 'false');
+    byId('previewArchiveBtn')?.setAttribute('aria-pressed', activeView === 'archive' ? 'true' : 'false');
   }
 
   async function refreshSelectedMission({ forceSession = false, quiet = false } = {}) {
@@ -887,20 +1468,41 @@ export function createPreviewShellDomain({
     const epoch = ++detailEpoch;
     try {
       const detail = await api(`/api/missions/${sessionId}`);
-      const snapshot = detail && detail.snapshot;
+      let snapshot = detail && detail.snapshot;
       if (!snapshot || epoch !== detailEpoch || sessionId !== selectedSessionId()) return null;
+      const snapshotRevision = Math.max(0, Number(snapshot.mission?.changeSeq) || 0);
+      if (detailBaselineRevision == null) {
+        previewUiState = readPreviewUiState();
+        const storedRevision = Number(missionUi(card.missionId).lastSeenRevision);
+        detailBaselineRevision = Number.isSafeInteger(storedRevision) && storedRevision >= 0 ? storedRevision : snapshotRevision;
+      }
       const previousTurn = Number(selectedSnapshot?.cursor?.turnSeq);
       const nextTurn = Number(snapshot.cursor?.turnSeq);
       let session = selectedSession;
-      if (forceSession || !session || session.id !== sessionId || previousTurn !== nextTurn) {
-        const response = await api(`/api/sessions/${sessionId}`);
+      const needsSession = forceSession || !session || session.id !== sessionId || previousTurn !== nextTurn;
+      const [sessionResponse, changeResponse] = await Promise.all([
+        needsSession ? api(`/api/sessions/${sessionId}`) : Promise.resolve(null),
+        api(`/api/missions/${sessionId}/changes?after=${detailBaselineRevision}`),
+      ]);
+      if (epoch !== detailEpoch || sessionId !== selectedSessionId()) return null;
+      if (sessionResponse) session = sessionResponse.session;
+      if (Number(changeResponse?.currentRevision) !== snapshotRevision) {
+        const refreshed = await api(`/api/missions/${sessionId}`);
         if (epoch !== detailEpoch || sessionId !== selectedSessionId()) return null;
-        session = response && response.session;
+        if (refreshed && refreshed.snapshot) snapshot = refreshed.snapshot;
       }
       selectedSnapshot = snapshot;
+      selectedChanges = changeResponse;
       if (session) selectedSession = session;
       if (forceSession) clearPreviewLive();
       renderTaskSheet(card);
+      const rendered = byId('previewMain')?.querySelector('.preview-task-sheet');
+      if (!changeResponse?.degraded && rendered && rendered.isConnected) {
+        await new Promise(resolve => requestAnimationFrame(() => resolve()));
+        if (epoch === detailEpoch && sessionId === selectedSessionId() && rendered.dataset.sessionId === sessionId && rendered.isConnected) {
+          updateMissionUi(card.missionId, { lastSeenRevision: Math.max(0, Number(changeResponse.currentRevision) || 0) });
+        }
+      }
       return snapshot;
     } catch (error) {
       if (epoch === detailEpoch && (!quiet || !selectedSnapshot)) renderError(error);
@@ -921,12 +1523,15 @@ export function createPreviewShellDomain({
       try {
         const [missionResponse, interventionResponse, playbookResponse] = await Promise.all([
           api('/api/missions?limit=200'),
-          api('/api/interventions?limit=1'),
+          api('/api/interventions?limit=100'),
           playbooksLoaded ? Promise.resolve(null) : api('/api/playbooks').catch(() => null),
         ]);
         if (epoch !== refreshEpoch) return null;
         cards = Array.isArray(missionResponse && missionResponse.missions) ? missionResponse.missions : [];
         inboxCounts = interventionResponse && interventionResponse.counts || { total: 0 };
+        pendingInterventions = Array.isArray(interventionResponse && interventionResponse.pending) ? interventionResponse.pending : [];
+        const pendingIds = new Set(pendingInterventions.map(item => String(item && item.id || '')));
+        for (const id of interventionDrafts.keys()) if (!pendingIds.has(id)) interventionDrafts.delete(id);
         if (!playbooksLoaded) {
           playbooks = Array.isArray(playbookResponse && playbookResponse.playbooks) ? playbookResponse.playbooks : [];
           playbooksLoaded = true;
@@ -1005,6 +1610,8 @@ export function createPreviewShellDomain({
     if (classic) classic.onclick = () => applyShellMode('classic');
     const home = byId('previewHomeBtn');
     if (home) home.onclick = () => openDispatchHome();
+    const archive = byId('previewArchiveBtn');
+    if (archive) archive.onclick = () => openArchive();
     const refresh = byId('previewRefreshBtn');
     if (refresh) refresh.onclick = () => { void refreshPreviewShell({ forceDetail: true }); };
     const settings = byId('previewSettingsBtn');
@@ -1015,6 +1622,10 @@ export function createPreviewShellDomain({
     if (safety) safety.onclick = () => openSettings('basic');
     const engine = byId('previewEngineFact');
     if (engine) engine.onclick = () => openSettings('providers');
+    const needs = byId('previewNeedsFact');
+    if (needs) needs.onclick = () => setNeedsDrawer(!needsDrawerOpen);
+    const needsScrim = byId('previewNeedsScrim');
+    if (needsScrim) needsScrim.onclick = () => setNeedsDrawer(false);
     const dock = byId('previewMissionDock');
     if (dock) dock.onclick = event => {
       const button = event.target.closest('.preview-seal');
@@ -1024,6 +1635,9 @@ export function createPreviewShellDomain({
     };
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && isPreviewMode()) void refreshPreviewShell({ quiet: true });
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && needsDrawerOpen) { event.preventDefault(); setNeedsDrawer(false); }
     });
     applyShellMode(storedShellMode(), { persist: false, focus: false });
   }

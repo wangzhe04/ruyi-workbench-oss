@@ -47,10 +47,12 @@ ok(app.includes("from './js/preview-shell.js'") && app.includes('createPreviewSh
   && app.includes('bindPreviewShell();'), 'C1 app.js 只做 Preview 领域组合与绑定');
 ok(shell.includes("import './mission-state.js'") && shell.includes('missionState.fromCard(card)')
   && !/function\s+deriveMissionState\s*\(/.test(shell), 'C2 五态复用 mission-state.js，未复制状态机');
-ok(shell.includes("api('/api/missions?limit=200')") && shell.includes("api('/api/interventions?limit=1')")
+ok(shell.includes("api('/api/missions?limit=200')") && shell.includes("api('/api/interventions?limit=100')")
   && shell.includes('api(`/api/missions/${sessionId}`)') && shell.includes('api(`/api/sessions/${sessionId}`)')
-  && !/api\([^\n]*(?:agent-runs|usage\/summary)/.test(shell), 'C3 壳层只读 Mission/Session 聚合 API，不拼装 Agent/usage 散装端点');
-ok(!/method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/.test(shell), 'C4 Preview 壳零写 API');
+  && !/api\([^\n]*(?:agent-runs|usage\/summary)/.test(shell), 'C3 壳层只读 Mission/Session/Intervention 聚合 API，不拼装 Agent/usage 散装端点');
+ok((shell.match(/method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/g) || []).length === 1
+  && shell.includes('/interventions/${encodeURIComponent(id)}/decision'),
+  'C4 Preview 壳唯一写 API 为统一 Intervention 决策命令');
 ok(shell.includes("export const SHELL_MODE_STORAGE_KEY = 'wcw.shellMode'")
   && shell.includes("localStorage.setItem(SHELL_MODE_STORAGE_KEY, mode)"), 'C5 新/经典切换持久化为本机 UI 偏好');
 ok(shell.includes("value === 'preview' ? 'preview' : 'classic'")

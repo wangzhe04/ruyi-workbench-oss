@@ -7,15 +7,23 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### 中文
 
+- **新任务台公开预览门通过**：设置中的布局切换只改变本机界面，不迁移任务或会话。投影载入失败时可直接重试或返回完整经典布局；损坏的预览偏好只会重置已读、置顶与归档位置。真实 Edge 在 300 个任务、200 张可见任务卡下通过首屏 <1.5s、视图切换 P95 <200ms 与长输出增量门，并完成 1440/768/390 三档走查。
+- **任务台全局待决闭环**：案头条与任务收活台的“需要你”现在打开同一个跨任务抽屉，可直接处理权限、问题、计划和帮手提案；允许/批准必须二次确认，问题默认不选答案，成功决定会同步关闭经典提示且不触发取消。停止任务会列出未完成项，并可在经典输入框准备未发送的再试/换法子草稿。
+- **任务回来摘要与档案**：Preview 任务单会按持久单调的 Mission 变更流水，确定性列出离开期间的进展、失败、用量、待决变化、结果、回退与运行删除；每条保留原始来源游标，不调用模型二次概括。已读位置、置顶与归档只存本机 UI-state，渲染失败或流水缺号不会误标已读。新增已收工/已停工档案，可搜索、筛选、置顶、归档，并按工作圈或状态分组。
+
 - **工具合批与依赖分阶段**：Provider 与 Claude CLI 现在都会收到同一份双语工具批次协议。参数已确定且互不依赖的调用会被明确引导在一条助手消息中合批，结果仍按列出顺序进入既有配对链；后一步依赖前一步结果时，模型必须等待当前 `tool_result` 后再进入下一阶段。权限确认、先读后改、检查点、loop guard 与 between-tools 插话边界全部保持原语义，不新增可绕过分发层的通用批处理工具。
 - **结构化交互提问**：`request_user_input` 新增稳定 question/option ID、`single|multiple|text` 模式及 `allowOther` 自填答案，同时兼容旧 `multiSelect`/`answer[]`。新版提问卡显示选项说明，支持单选、多选、自由文本和“选项＋其他回答”，不再默认勾选第一项；全部问题回答完整后才可提交，并保留双引擎送达确认、后台提问即时浮出与重复回答 409 语义。
-- **Pretender 契约前置对齐**：Schema 文书升至 v1.1，冻结 question typed payload 与 75a 完整状态行保留要求，使 Escapade 的提问组件可在 Pretender 全局“需要你”收件箱直接复用。
+- **下一代任务台契约前置对齐**：Schema 文书升至 v1.1，冻结 question typed payload 与完整状态行保留要求，使 Escapade 的提问组件可在后续全局“需要你”收件箱直接复用。
 
 ### English
 
+- **New task desk public-preview gate passed**: The layout setting changes only this device's interface and never migrates tasks or chats. A projection failure now offers Retry and Return to classic layout; damaged preview preferences reset only read, pin, and archive positions. Real Edge passes the <1.5s first-interactive, <200ms view-switch P95, and incremental long-output gates with 300 tasks and 200 visible task cards, plus 1440/768/390 responsive walkthroughs.
+- **Global decisions in the task desk**: Needs you now opens one cross-task drawer for permissions, questions, plans, and helper proposals. Allow/Approve require a second confirmation, questions start with no selected answer, and successful decisions retire matching classic prompts without cancellation. Stopped tasks now explain unfinished work and can prepare an unsent retry/change-approach draft in the classic composer.
+- **Return summaries and task archive**: Preview task sheets now deterministically replay progress, failures, usage, intervention changes, results, rewinds, and run deletion from a persistent monotonic Mission change journal. Every row keeps its raw source cursor and no model is called for summarization. Read position, pinning, and archiving remain device-local; failed rendering or sequence gaps never mark changes as read. A completed/stopped task archive adds search, filters, pin/archive controls, and grouping by workspace or state.
+
 - **Tool batching with staged dependencies**: Provider and Claude CLI turns now receive the same bilingual batching contract. Calls with fixed arguments and no dependencies are explicitly grouped into one assistant response, while result-dependent work waits for the current `tool_result` before the next stage. Existing permission, read-before-edit, checkpoint, loop-guard, and between-tools steering semantics remain intact; no generic batch tool bypasses the dispatcher.
 - **Structured interactive questions**: `request_user_input` adds stable question/option IDs, `single|multiple|text` modes, and `allowOther` custom responses while preserving legacy `multiSelect`/`answer[]` compatibility. The redesigned question sheet shows option descriptions, supports choices plus typed input, never preselects the first choice, validates every question before submission, and retains delivery acknowledgement, immediate background surfacing, and stale-answer 409 behavior across both engines.
-- **Pretender contract alignment**: the Schema document advances to v1.1, freezing the typed question payload and the Wave 75a full-state retention requirement so the same renderer can later power Pretender's global “needs you” inbox.
+- **Next task-desk contract alignment**: the Schema document advances to v1.1, freezing the typed question payload and full-state retention requirement so the same renderer can later power a global “needs you” inbox.
 
 ## 如意 Ruyi Escapade 2.3 · v2.3.0 · 2026-07-30
 

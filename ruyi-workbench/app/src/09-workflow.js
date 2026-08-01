@@ -2014,6 +2014,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
     else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
   }
+  if (session.mission) await bumpMissionChangeSeq(session.id, {
+    type: errorClass || (!ok && !wasStopped) ? 'failure' : 'progress',
+    cursor: { turnSeq: session.turnSeq, engine: 'openai' },
+    detail: {
+      ok: Boolean(ok && !wasStopped), aborted: Boolean(wasStopped), errorClass: errorClass || '',
+      filesChanged: Array.isArray(turnSummary.filesChanged) ? turnSummary.filesChanged.length : 0,
+      artifacts: Array.isArray(turnSummary.artifacts) ? turnSummary.artifacts.length : 0,
+      commands: Array.isArray(turnSummary.commands) ? turnSummary.commands.length : (Number(turnSummary.commands) || 0),
+    },
+  });
   if (errorClass || (!ok && !wasStopped)) {
     await dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',

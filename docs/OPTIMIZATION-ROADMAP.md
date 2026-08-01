@@ -1335,3 +1335,28 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 
 - **第79波 · “你离开后发生了什么” + 档案视图**：建立独立本机 UI-state 的 `lastSeenRevision`，按 change records 确定性展示回来摘要，并交付已收工任务的搜索/筛选/置顶/归档视图。
 - Preview 仍默认关闭且不公开内部代号；第80波前不宣称 Preview Ready。
+
+## 第79波 · P2 第四切片 -- 回来摘要与任务档案（2026-08-01）
+
+以 `mission.changeSeq` 为唯一单调轴新增每 Mission 独立的 append-only `changes.ndjson`，覆盖开工、进展、失败、预算、待决变化、结果、回溯与运行删除 9 类事实；`GET /api/missions/:id/changes?after=N` 严格返回 `(after,currentRevision]`，缺号、坏行与撕裂尾均显式 degraded。Preview 的 `lastSeenRevision`、置顶和归档进入独立本机 UI-state，只有任务 DOM 成功呈现后一帧才推进已读，不改写 Mission/Session。
+
+- 回来摘要零模型调用，每条保留 change seq、源类型与原始 cursor；档案只收 `done|stopped`，支持搜索、状态筛选、置顶、归档和工作圈/状态分组。
+- 真实浏览器覆盖档案→待决任务一击可达、UI-state 跨刷新、坏本机状态只丢界面位置；数据面覆盖 9/9 类型、无重复/倒退及服务重启重读。
+- 本波新增两件 e2e，默认门 181，完整 187；完整串行门 **181 pass / 0 fail / 0 flaky / 6 live-skip**，第二次复跑同样全绿。系统基线记入 `docs/PRETENDER-METRICS.md`，没有外部人因受试者，不提前宣称 Preview Ready。
+
+## 第80波 · P2 终审 -- 双壳回退、C1 性能与 Preview Ready（2026-08-01）
+
+双壳恢复契约已收口：布局切换只写本机 `wcw.shellMode`，不迁移或改写任务、会话和检查点；Preview 关键依赖缺失会 fail-closed 到经典布局，Mission 投影请求失败页同时提供重试与直接返回经典布局。坏 `wcw.previewUiState.v1` 仍只重置已读、置顶与归档位置。
+
+- **首屏热路优化**：显式选择 Preview 时先渲染权威投影，再在隐藏路径补齐经典会话；已有 Mission 投影从服务启动起与配置及默认经典布局加载并行预热，空目录不缓存以保留后导入发现，且不阻塞经典服务监听。任务坞对未变化的 200 卡保持 DOM，只更新选中态；冷首屏先同步 40 卡，其余逐帧补齐。
+- **C1 实测**：真实 Edge、禁用网络缓存、300 Mission / 200 可见卡，三次冷导航最近一轮 1245.2 / 274.7 / 256.7ms（最大 <1500ms）；交办台↔200 行档案 30 次切换 P95 66.6ms（<200ms）；真实约 58KB SSE 主线程最大采样间隙 66.8ms（<750ms），焦点和阅读锚稳定。
+- **75c 复测**：300 Mission / 3万 Intervention / 10万 usage 下列表冷 436ms、热 P95 1ms，详情冷 P95 295ms，全局收件箱冷 P95 255ms、热 P95 41ms，索引约 7MB；坏索引、分页 revision、ETag、压缩与 degraded 全绿。
+- **走查与文档**：真实浏览器 1440×1000 / 768×1024 / 390×844 无页面溢出、窄坞动作不裁切；中英文 USER-GUIDE 新增双壳、回来摘要、档案和恢复边界；UI/README/CHANGELOG/手册冻结扫描不出现内部代号或预留大版本。
+- 新增 `pretender-preview-ready.static.e2e.js` 与 `pretender-preview-performance.e2e.js`，门面数升至 **189 件（默认 183 + live-skip 6）**。P2 出门闸标记 **Preview Ready**；第81波起继续原生全局决策与反悔闭环，当前不得宣称 Product Ready。
+
+## 第81波 · P3 第一切片 -- 全局「需要你」原生决策与停工卡（2026-08-01）
+
+- 全局待决抽屉直接处理 permission / typed question / plan / pool，只调用 75b 统一 CAS + idempotency command core；投影补齐版本、权限作用域和真实可送达状态。
+- allow/approve 原位二次确认，typed question 零默认选择；网络失败以同一 idempotencyKey 重试。终态通过显式同步桥关闭经典提示，不触发取消。
+- 停工结果章新增人话卡：再试/换法子带未发送草稿回经典布局，先算了只做本机归档。
+- 新增真实 Edge 跨壳/390px/停止卡门与静态契约门；完整串行门 **185 pass / 0 fail / 0 flaky / 6 live-skip**。第82波继续班组图镜头，当前不标 Product Ready。

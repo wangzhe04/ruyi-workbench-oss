@@ -24,6 +24,7 @@ function buildModal(title, bodyEl, footEl, onCancel) {
     if (trigger && typeof trigger.focus === 'function') { try { trigger.focus(); } catch { /* ignore */ } }
   };
   backdrop.__cancel = () => finish(true);
+  backdrop.__close = () => finish(false);
   const modal = el('div', 'modal small');
   modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-label', title);
   const head = el('div', 'modal-head');
@@ -344,6 +345,9 @@ function handlePermissionRequest(evt) {
   foot.append(deny, allow);
   // Cancel (Escape/✕/backdrop) denies, so the held bridge request is released immediately.
   const modal = buildModal(t('permission.request.title', { engine: engineLabel() }), body, foot, () => decide(evt.requestId, 'deny', { message: t('permission.request.cancelled') }));
+  modal.backdrop.classList.add('permission-modal');
+  modal.backdrop.dataset.sessionId = sid;
+  modal.backdrop.dataset.interventionId = String(evt.requestId || '');
   deny.onclick = () => { decide(evt.requestId, 'deny', { message: t('permission.request.denied') }); modal.close(); };
   allow.onclick = () => {
     if (sessBox.checked) sessionAllowAdd(sid, tool);
@@ -356,6 +360,26 @@ function handlePermissionRequest(evt) {
     }
     decide(evt.requestId, 'allow'); modal.close();
   };
+}
+
+// Wave 81: a decision made in the Preview global inbox must retire an already-open classic prompt
+// without firing that prompt's cancel path (the authoritative command has already been delivered).
+function resolveClassicPromptIntervention({ sessionId, interventionId, type } = {}) {
+  const sid = String(sessionId || ''), id = String(interventionId || '');
+  if (!id) return false;
+  if (type === 'question') {
+    const turn = sid ? activeTurns.get(sid) : null;
+    if (turn?.answeredQuestions) turn.answeredQuestions.add(id);
+  }
+  const selector = type === 'question' ? '.modal-backdrop.ask-modal' : '.modal-backdrop.permission-modal';
+  const backdrop = [...document.querySelectorAll(selector)].find(node => {
+    if (node.dataset.sessionId !== sid) return false;
+    return type === 'question' ? node.dataset.questionId === id : node.dataset.interventionId === id;
+  });
+  if (!backdrop) return false;
+  if (typeof backdrop.__close === 'function') backdrop.__close();
+  else backdrop.remove();
+  return true;
 }
 
 /* ---------------- v0.9-S5 (真流程 plan mode): plan approval card ---------------- */
@@ -432,6 +456,7 @@ function handleAgentWorkflowEvent(evt, live) {
     handlePermissionRequest,
     humanizeToolName,
     installFocusTrap,
+    resolveClassicPromptIntervention,
     setComposerHint,
     showAskUserModal,
   });

@@ -55,26 +55,137 @@ function ivCacheKey(sid, ivId) { return String(sid) + '\x00' + String(ivId); }
 // via max(in-memory, highWater) WITHOUT re-reading the head (prevents the turn's in-memory session object
 // from clobbering an intervention's changeSeq bump). Seeded by loadSession; reset on crash (re-seeded on load).
 const missionChangeSeqHighWater = new Map();
-// 75a-2b: bump mission.changeSeq for a mission-fact change (75a scope: intervention transitions via
-// register/settle/transitionInterventionState). Sync-updates the high-water FIRST (so a concurrent
-// saveSession sees the new value before the disk write resolves), then persists via a head-only
-// load-increment-save serialized on sessionWriteChains (race-free with saveSession). Fire-and-forget:
-// callers don't await. No-op if the session has no mission head on disk.
-function bumpMissionChangeSeq(sessionId) {
+// 第79波:changeSeq 不再只有一个计数器。每次事实推进同时写一条 append-only change record，
+// 让回来摘要可以严格消费 (lastSeenRevision,currentRevision]，并保留可追溯的原始 source cursor。
+// 老任务可能已有 changeSeq、却没有本流水：首条记录的前缀被视为 migration baseline；前端首读
+// 从当前 revision 建基线。若已读游标落在 baseline 之前、或流水内部/尾部缺号，则显式 degraded。
+const MISSION_CHANGE_TYPES = new Set([
+  'mission_started', 'progress', 'failure', 'budget', 'intervention_pending',
+  'intervention_resolved', 'result', 'rewind', 'run_deleted',
+]);
+const missionChangeWriteChains = new Map();
+function missionChangeFilePath(sessionId) {
+  return path.join(paths.sessions, `${sessionId}.changes.ndjson`);
+}
+function boundedChangeText(value, max = 240) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
+}
+function normalizeMissionChangePayload(payload) {
+  const input = payload && typeof payload === 'object' ? payload : {};
+  const type = MISSION_CHANGE_TYPES.has(input.type) ? input.type : 'progress';
+  const cursor = input.cursor && typeof input.cursor === 'object' && !Array.isArray(input.cursor)
+    ? Object.fromEntries(Object.entries(input.cursor).slice(0, 12).map(([key, value]) => [boundedChangeText(key, 40), typeof value === 'number' ? value : boundedChangeText(value, 160)]))
+    : {};
+  const detail = input.detail && typeof input.detail === 'object' && !Array.isArray(input.detail)
+    ? Object.fromEntries(Object.entries(input.detail).slice(0, 20).map(([key, value]) => {
+      if (typeof value === 'number' || typeof value === 'boolean' || value === null) return [boundedChangeText(key, 40), value];
+      if (Array.isArray(value)) return [boundedChangeText(key, 40), value.slice(0, 20).map(item => boundedChangeText(item, 240))];
+      return [boundedChangeText(key, 40), boundedChangeText(value, 480)];
+    }))
+    : {};
+  return { type, cursor, detail };
+}
+async function repairMissionChangeTornTail(file) {
+  let st;
+  try { st = await fsp.stat(file); } catch { return; }
+  if (!st.size) return;
+  const tailSize = Math.min(65536, st.size);
+  let fd;
+  try {
+    fd = await fsp.open(file, 'r');
+    const buf = Buffer.allocUnsafe(tailSize);
+    await fd.read(buf, 0, tailSize, st.size - tailSize);
+    if (buf[tailSize - 1] === 0x0a) return;
+    const lastNl = buf.lastIndexOf(0x0a);
+    await fsp.truncate(file, lastNl === -1 ? st.size - tailSize : st.size - tailSize + lastNl + 1);
+  } finally { if (fd) await fd.close().catch(() => {}); }
+}
+function appendMissionChangeRecord(sessionId, record) {
   const sid = String(sessionId || '');
-  if (!sid) return;
+  if (!sid) return Promise.resolve();
+  const file = missionChangeFilePath(sid);
+  const previous = missionChangeWriteChains.get(sid) || Promise.resolve();
+  const current = previous.catch(() => {}).then(async () => {
+    await repairMissionChangeTornTail(file);
+    await fsp.appendFile(file, JSON.stringify(record) + '\n', 'utf8');
+    markPretenderIndexDirty(sid, 'source');
+  });
+  missionChangeWriteChains.set(sid, current);
+  current.finally(() => { if (missionChangeWriteChains.get(sid) === current) missionChangeWriteChains.delete(sid); }).catch(() => {});
+  return current;
+}
+function foldMissionChangeJournalText(txt, currentRevision = 0) {
+  const records = [];
+  let corruptLines = 0;
+  for (const line of String(txt || '').split('\n')) {
+    if (!line) continue;
+    let record;
+    try { record = JSON.parse(line); } catch { corruptLines++; continue; }
+    const seq = Number(record && record.seq);
+    if (!record || !Number.isSafeInteger(seq) || seq < 1 || !MISSION_CHANGE_TYPES.has(record.type)) { corruptLines++; continue; }
+    records.push(record);
+  }
+  records.sort((a, b) => Number(a.seq) - Number(b.seq));
+  const baseRevision = records.length ? Number(records[0].seq) - 1 : Math.max(0, Number(currentRevision) || 0);
+  let gap = null;
+  for (let i = 1; i < records.length; i++) {
+    const expected = Number(records[i - 1].seq) + 1;
+    const actual = Number(records[i].seq);
+    if (actual !== expected) { gap = { expected, actual }; break; }
+  }
+  const lastRevision = records.length ? Number(records[records.length - 1].seq) : baseRevision;
+  const current = Math.max(0, Number(currentRevision) || 0);
+  if (!gap && lastRevision < current) gap = { expected: lastRevision + 1, actual: current + 1, tail: true };
+  if (!gap && lastRevision > current) gap = { expected: current + 1, actual: lastRevision, ahead: true };
+  return { records, baseRevision, currentRevision: current, lastRevision, corruptLines, gap, degraded: corruptLines > 0 || Boolean(gap) };
+}
+async function readMissionChangesWithMeta(sessionId, currentRevision = null) {
+  const sid = String(sessionId || '');
+  let current = currentRevision == null ? NaN : Number(currentRevision);
+  if (!Number.isSafeInteger(current) || current < 0) {
+    try {
+      const head = JSON.parse(await fsp.readFile(sessionPath(sid), 'utf8'));
+      current = Math.max(0, Number(head && head.mission && head.mission.changeSeq) || 0);
+    } catch { current = 0; }
+  }
+  let txt = '';
+  try { txt = await fsp.readFile(missionChangeFilePath(sid), 'utf8'); } catch { /* missing journal = migration baseline */ }
+  return foldMissionChangeJournalText(txt, current);
+}
+// Persist a head advance and its record in one per-session chain. The head commits first; a crash between
+// head and journal creates a detectable tail gap instead of a silently false summary. Existing callers may
+// keep fire-and-forget semantics; routes that need the returned revision can await the promise.
+function bumpMissionChangeSeq(sessionId, payload = {}) {
+  const sid = String(sessionId || '');
+  if (!sid) return Promise.resolve(null);
   const next = (missionChangeSeqHighWater.get(sid) || 0) + 1;
   missionChangeSeqHighWater.set(sid, next); // sync: visible to concurrent saveSession before disk write
   const prev = sessionWriteChains.get(sid) || Promise.resolve();
   const w = prev.catch(() => {}).then(async () => {
-    let txt; try { txt = await fsp.readFile(sessionPath(sid), 'utf8'); } catch { return; } // no head -> no bump
-    let head; try { head = JSON.parse(txt); } catch { return; }
-    if (!head || !head.mission || typeof head.mission !== 'object') return;
-    head.mission.changeSeq = next;
+    let txt; try { txt = await fsp.readFile(sessionPath(sid), 'utf8'); } catch { if (missionChangeSeqHighWater.get(sid) === next) missionChangeSeqHighWater.delete(sid); return null; }
+    let head; try { head = JSON.parse(txt); } catch { if (missionChangeSeqHighWater.get(sid) === next) missionChangeSeqHighWater.delete(sid); return null; }
+    if (!head || !head.mission || typeof head.mission !== 'object') { if (missionChangeSeqHighWater.get(sid) === next) missionChangeSeqHighWater.delete(sid); return null; }
+    const revision = Math.max(next, Number(head.mission.changeSeq) + 1 || 1);
+    missionChangeSeqHighWater.set(sid, revision);
+    head.mission.changeSeq = revision;
+    head.mission.updatedAt = nowIso();
     await atomicWriteJson(sessionPath(sid), JSON.stringify(head, null, 2));
-  }).catch(() => {});
+    const normalized = normalizeMissionChangePayload(payload);
+    await appendMissionChangeRecord(sid, {
+      schemaVersion: 1,
+      missionId: sessionMissionId(head) || sid,
+      sessionId: sid,
+      seq: revision,
+      type: normalized.type,
+      occurredAt: nowIso(),
+      cursor: normalized.cursor,
+      detail: normalized.detail,
+    });
+    return revision;
+  }).catch(() => null);
   sessionWriteChains.set(sid, w);
   w.then(() => { if (sessionWriteChains.get(sid) === w) sessionWriteChains.delete(sid); }, () => { if (sessionWriteChains.get(sid) === w) sessionWriteChains.delete(sid); });
+  return w;
 }
 // 75a: before appending, ensure the NDJSON file ends with '\n'. A torn tail (a previous append crashed
 // mid-write, leaving bytes with no terminating '\n') would otherwise weld the new line into the partial
@@ -125,8 +236,11 @@ function registerIntervention(sessionId, type, ivId, extra) {
   const sid = String(sessionId || ''), id = String(ivId || '');
   const rec = { id, type, sessionId: sid, status: 'pending', requestedAt: nowIso(), decidedAt: '', decidedBy: '', interventionVersion: 0, ...(extra || {}) };
   interventionRecordCache.set(ivCacheKey(sid, id), rec); // 75a: cache complete record for settle's complete-state merge
-  appendIntervention(sessionId, rec);
-  bumpMissionChangeSeq(sid); // 75a-2b: new pending Intervention advances mission.changeSeq
+  appendIntervention(sessionId, rec).then(() => bumpMissionChangeSeq(sid, {
+    type: 'intervention_pending',
+    cursor: { interventionId: id, interventionVersion: rec.interventionVersion },
+    detail: { interventionType: type },
+  })).catch(() => {});
 }
 // 结算一个 Intervention(append 一条终态记录,后写胜)。status: allowed/denied/answered/cancelled/approved/rejected/cancelled_restart。
 // 重复结算(竞态)会 append 多条,读时后写胜折叠取最后一条 -- 状态仍可区分,不致命。
@@ -136,8 +250,11 @@ function settleIntervention(sessionId, ivId, status, extra) {
   const prevVer = (cached && Number.isFinite(Number(cached.interventionVersion))) ? Number(cached.interventionVersion) : 0;
   const rec = { ...(cached || {}), id, sessionId: sid, status, decidedAt: nowIso(), decidedBy: '', interventionVersion: prevVer + 1, ...(extra || {}) };
   interventionRecordCache.set(ivCacheKey(sid, id), rec);
-  appendIntervention(sessionId, rec);
-  bumpMissionChangeSeq(sid); // 75a-2b: Intervention settle advances mission.changeSeq
+  appendIntervention(sessionId, rec).then(() => bumpMissionChangeSeq(sid, {
+    type: 'intervention_resolved',
+    cursor: { interventionId: id, interventionVersion: rec.interventionVersion },
+    detail: { status, interventionType: rec.type || '' },
+  })).catch(() => {});
 }
 // 75c: journal fold returns facts plus integrity evidence. Invalid non-empty rows must not disappear behind a
 // successful index rebuild: callers surface `degraded`, while the valid prefix remains readable.
@@ -376,7 +493,11 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     };
     await appendIntervention(sid, termRec);
     interventionRecordCache.set(ivCacheKey(sid, id), termRec);
-    bumpMissionChangeSeq(sid); // 75a-2b: terminal persisted -> advance mission.changeSeq (one bump per decision)
+    bumpMissionChangeSeq(sid, {
+      type: 'intervention_resolved',
+      cursor: { interventionId: id, interventionVersion: termRec.interventionVersion },
+      detail: { status: resolvedStatus, interventionType: termRec.type || '' },
+    });
     // Audit belongs to the terminal commit: never claim a decision before its authoritative row exists.
     if (typeof opts.audit === 'function') await opts.audit(result, termRec);
     // Registry cleanup is intentionally after terminal persistence. Delivery may already have resolved a
@@ -663,6 +784,8 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     fsp.unlink(bp.provider + '.corrupt').catch(() => {}),
     fsp.unlink(bp.messages + '.prevbody').catch(() => {}),
     fsp.unlink(bp.provider + '.prevbody').catch(() => {}),
+    fsp.unlink(interventionFilePath(id)).catch(() => {}),
+    fsp.unlink(missionChangeFilePath(id)).catch(() => {}),
   ]);
   sessionBodyState.delete(id);
   if (purgeAssociated) {
@@ -2172,6 +2295,11 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   const lastAssistant = [...session.messages].reverse().find(m => m && m.role === 'assistant');
   session.summary = lastAssistant ? String(lastAssistant.content || '').replace(/\s+/g, ' ').trim().slice(0, 160) : '';
   await saveSession(session);
+  await bumpMissionChangeSeq(sessionId, {
+    type: 'rewind',
+    cursor: { targetTurnSeq: target },
+    detail: { removedTurns, rollbackFiles: Boolean(rollbackFiles), filesReverted: filesReverted.length, filesFailed: filesFailed.length },
+  });
   return { ok: true, removedTurns, lastUserText, filesReverted, filesFailed };
 }
 

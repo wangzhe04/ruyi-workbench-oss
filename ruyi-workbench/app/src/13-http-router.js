@@ -462,7 +462,12 @@ async function handleApi(req, res, pathname) {
         session.mission.autoMode = 'off';
         // 第72波:stop 是终态动作 → 盖 stopped 结果章(验收/未完成项/变更/回滚/不可逆账定格在此刻)。
         session.mission.result = await buildMissionResult(session, { status: 'stopped', how: 'stop' });
-        session.mission.updatedAt = nowIso(); await saveSession(session); emitMission();
+        session.mission.updatedAt = nowIso(); await saveSession(session);
+        const revision = await bumpMissionChangeSeq(sessionId, {
+          type: 'result', cursor: { action: 'stop' }, detail: { status: 'stopped', how: 'stop' },
+        });
+        if (revision) session.mission.changeSeq = revision;
+        emitMission();
       }
       return send(res, json({ ok: true, mission: session.mission || null }));
     }
@@ -477,8 +482,19 @@ async function handleApi(req, res, pathname) {
         if (r && !r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
       }
       if (session.mission) session.mission.updatedAt = nowIso();
+      const resultBefore = String(session.mission && session.mission.result && session.mission.result.status || '');
       await maybeFinalizeMission(session, 'check'); // 第72波:全 done 盖 complete 章
-      await saveSession(session); emitMission();
+      await saveSession(session);
+      if (session.mission) {
+        const resultAfter = String(session.mission.result && session.mission.result.status || '');
+        const revision = await bumpMissionChangeSeq(sessionId, {
+          type: resultAfter && resultAfter !== resultBefore ? 'result' : 'progress',
+          cursor: { action: 'check' },
+          detail: { checks: results.length, passed: results.filter(item => item.result && item.result.pass).length, status: resultAfter },
+        });
+        if (revision) session.mission.changeSeq = revision;
+      }
+      emitMission();
       return send(res, json({ ok: true, mission: session.mission || null, checks: results }));
     }
     // start = 全量新建(normalizeMission,prev=null);update = 按 id 增量合并(applyMissionUpdate,不抹其它里程碑)。
@@ -486,6 +502,7 @@ async function handleApi(req, res, pathname) {
     // 对抗轮 P1: trusted = 【header token】(UI/用户)——只有它能定义机器 check;body-token loopback(模型经 MCP 子进程)
     // 视为不可信,不能设 check.cmd。header token 存在即 UI 直连(浏览器 CORS 拿不到该 token)。
     const trusted = tokenOk(req);
+    const resultBefore = String(session.mission && session.mission.result && session.mission.result.status || '');
     if (action === 'start') {
       const input = { ...(bodyOrQ.mission || bodyOrQ) };
       if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
@@ -498,7 +515,22 @@ async function handleApi(req, res, pathname) {
       if (bodyOrQ.autoMode != null) session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : session.mission.autoMode;
       await maybeFinalizeMission(session, 'update'); // 第72波:全 done 盖 complete 章 / 再武装清旧章
     }
-    await saveSession(session); emitMission();
+    await saveSession(session);
+    if (session.mission) {
+      const resultAfter = String(session.mission.result && session.mission.result.status || '');
+      const revision = await bumpMissionChangeSeq(sessionId, {
+        type: action === 'start' ? 'mission_started' : (resultAfter && resultAfter !== resultBefore ? 'result' : 'progress'),
+        cursor: { action },
+        detail: {
+          status: resultAfter,
+          autoMode: session.mission.autoMode || 'off',
+          milestonesTotal: Array.isArray(session.mission.milestones) ? session.mission.milestones.length : 0,
+          milestonesDone: Array.isArray(session.mission.milestones) ? session.mission.milestones.filter(item => item && item.status === 'done').length : 0,
+        },
+      });
+      if (revision) session.mission.changeSeq = revision;
+    }
+    emitMission();
     // C4 (75a-3): sync the mission change to the active turn's in-memory session, so the provider round-tail
     // saveSession (09:1924) doesn't cover back this route mutation. provider engine updates mission in-process
     // (09:1719) and saves only at round-tail; without sync the turn's stale in-memory mission clobbers the
@@ -982,6 +1014,10 @@ async function startServer(opts) {
   await ensureDirs();
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
+  // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
+  // plus the default classic-shell hydration. It never delays listen; the empty-directory guard keeps later
+  // external-import discovery authoritative.
+  void warmPretenderProjectionIndex().catch(() => {});
   // 第29波(§29b): boot 自动恢复分级(opt-in,默认 false=零行为变化)。放在诚实标死【之后】、fire-and-forget:
   // 恢复失败/慢盘绝不阻塞 boot;真正的续跑在 runAgentWorkflow 内自走调度环。
   void autoResumeInterruptedRuns().catch(() => {});

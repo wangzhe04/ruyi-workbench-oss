@@ -31,8 +31,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 0 条规则漂移,符合 D51「无 CSS 漂移」本意。第76波新增独立 preview-shell 层；第77波在同层
 // 加全宽任务单/原始镜头/只读收活台布局后重钉载荷 SHA，经典样式路由与规则未改。
 // Wave 78 extends the same owned layer with the dispatch home, confirmation card, familiar-work shelf,
-// responsive containment, and the verified celadon/glacier dual-theme redesign. Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = 'e1fe4d7501a242c88be8c1809ef8242d0264e7f198ce1e62f75c53dedca6fb72';
+// responsive containment, and the verified celadon/glacier dual-theme redesign. Wave 79 adds the deterministic
+// return log and grouped archive ledger in that same isolated Preview layer. Wave 80 adds only recovery-action
+// spacing and narrow-rail containment to the owned Preview layer. Wave 81 adds the global Needs-you drawer,
+// in-place approval confirmation, typed-question, stopped-result, and 390px containment styles. Re-pin the intentional payload.
+const LEGACY_STYLES_SHA256 = '24dec898138acc7a624eb473cb6b7a1ce3d0e746eae7e3742446fa54debed65e';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

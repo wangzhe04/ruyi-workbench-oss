@@ -48,7 +48,9 @@ ok(app.includes("const session = await newSession({ cwd: cwd || currentWorkspace
 ok(app.includes("api('/api/mission'") && app.includes("action: 'start'") && app.includes("autoMode: 'until-done'"), 'C3 开工经权威 Mission start 立单并进入可离场驱动');
 ok(app.includes("milestones: [{ id: 'delivery', desc: message, status: 'pending' }]"), 'C3 首单自带待验收里程碑，首回合即可注入任务账本');
 ok(app.includes("if (kind === 'mission')") && app.includes("const completion = sendPrompt(message, { permissionMode })"), 'C4 Mission 才立单，Mission/速问均复用同一 chat stream');
-ok(!/method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/.test(shell), 'C5 Preview 领域不直接写 API，写权限止于注入 command');
+ok((shell.match(/method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/g) || []).length === 1
+  && shell.includes('/interventions/${encodeURIComponent(id)}/decision'),
+  'C5 Preview 领域唯一写权限为统一 Intervention command');
 ok(session.includes('async function newSession(options = {})') && session.includes('return res.session;'), 'C6 经典 newSession 只扩为可组合返回值，默认调用保持兼容');
 
 ok(stream.includes("...(options.permissionMode ? { permissionMode: options.permissionMode } : {})"), 'D1 chat request 显式携带可选 turn-local 安全档');

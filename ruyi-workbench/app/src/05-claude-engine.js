@@ -814,6 +814,16 @@ async function runClaudeTurn({
     });
   }
   const claudeTurnOk = exit.code === 0 && !wasStopped;
+  if (session.mission) await bumpMissionChangeSeq(session.id, {
+    type: claudeTurnOk || wasStopped ? 'progress' : 'failure',
+    cursor: { turnSeq: session.turnSeq, engine: 'claude' },
+    detail: {
+      ok: claudeTurnOk, aborted: Boolean(wasStopped), errorClass: claudeTurnOk || wasStopped ? '' : 'claude_cli_error',
+      filesChanged: Array.isArray(turnSummary.filesChanged) ? turnSummary.filesChanged.length : 0,
+      artifacts: Array.isArray(turnSummary.artifacts) ? turnSummary.artifacts.length : 0,
+      commands: Array.isArray(turnSummary.commands) ? turnSummary.commands.length : (Number(turnSummary.commands) || 0),
+    },
+  });
   if (!claudeTurnOk && !wasStopped) {
     await dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',

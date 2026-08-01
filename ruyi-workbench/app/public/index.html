@@ -533,9 +533,9 @@
           <button type="button" id="previewEngineFact" class="preview-fact" title="打开引擎设置" data-i18n-attr="title:previewShell.engineSettings">
             <span class="preview-fact-label" data-i18n="previewShell.engine">引擎</span><span id="previewEngineValue" class="preview-fact-value">—</span>
           </button>
-          <div id="previewNeedsFact" class="preview-fact preview-fact-needs" role="status" aria-live="polite">
+          <button type="button" id="previewNeedsFact" class="preview-fact preview-fact-needs" aria-haspopup="dialog" aria-expanded="false">
             <span class="preview-needs-dot" aria-hidden="true"></span><span class="preview-fact-label" data-i18n="previewShell.needsYou">需要你</span><span id="previewNeedsValue" class="preview-fact-value">0</span>
-          </div>
+          </button>
         </div>
       </header>
 
@@ -544,6 +544,7 @@
         <div id="previewMissionDock" class="preview-mission-dock" role="list"></div>
         <div class="preview-dock-foot">
           <button type="button" id="previewHomeBtn" class="preview-dock-action preview-home-action" data-i18n="previewShell.backHome">交办台</button>
+          <button type="button" id="previewArchiveBtn" class="preview-dock-action" data-i18n="previewShell.archiveNav">档案</button>
           <button type="button" id="previewRefreshBtn" class="preview-dock-action" data-i18n="previewShell.refresh">刷新</button>
           <button type="button" id="previewSettingsBtn" class="preview-dock-action" data-i18n="navigation.settings">设置</button>
           <button type="button" id="previewClassicBtn" class="preview-dock-action" data-i18n="previewShell.openClassic">经典布局</button>
@@ -553,6 +554,8 @@
       <main id="previewMain" class="preview-main" tabindex="-1" aria-label="任务台主视图" data-i18n-attr="aria-label:previewShell.mainLabel">
         <section class="preview-empty-card"><span class="preview-eyebrow" data-i18n="previewShell.previewLabel">预览</span><h1 data-i18n="previewShell.loading">正在载入任务台…</h1></section>
       </main>
+      <button type="button" id="previewNeedsScrim" class="preview-needs-scrim" aria-label="关闭需要你抽屉" data-i18n-attr="aria-label:previewShell.needsClose" hidden></button>
+      <aside id="previewNeedsDrawer" class="preview-needs-drawer" role="dialog" aria-modal="false" aria-label="需要你" data-i18n-attr="aria-label:previewShell.needsDrawerTitle" tabindex="-1" hidden></aside>
       <div id="previewShellStatus" class="preview-shell-status" role="status" aria-live="polite"></div>
     </section>
 

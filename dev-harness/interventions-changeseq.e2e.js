@@ -98,12 +98,12 @@ function streamWithQuestion(body, token, onAsk) {
     const sess = await requestJson(WB_PORT, '/api/sessions', { title: 'cseq' }, token);
     const sid = sess.json.session.id;
     const ms = await requestJson(WB_PORT, '/api/mission', { sessionId: sid, action: 'start', mission: { goal: 'changeSeq test' } }, token);
-    ok(ms.status === 200 && ms.json?.ok === true, 'start mission (changeSeq=0)');
-    ok(readChangeSeq(sid) === 0, '初始 changeSeq=0');
+    ok(ms.status === 200 && ms.json?.ok === true, 'start mission (change journal initialized)');
+    ok(readChangeSeq(sid) === 1, '立单记录推进初始 changeSeq=1');
 
     // ============ (a) 真实回合 + Intervention:高水位防 clobber ============
-    // 流式发问(续会话 sid)-> ask_user -> register(bump changeSeq 0->1)-> answer -> settle(bump 1->2)
-    // -> 回合收尾 saveSession(内存对象 changeSeq 仍 0/stale,高水位 max(0,2)=2 防 clobber)。
+    // 流式发问(续会话 sid)-> ask_user -> register/answer/settle 分别写变更记录
+    // -> 回合收尾 saveSession(内存对象可能 stale,高水位 max-preserve 防 clobber)。
     const turn = await streamWithQuestion({ sessionId: sid, message: 'ask which framework' }, token, async (s, qid) => {
       // register 的 bumpMissionChangeSeq 是 fire-and-forget 异步落盘,ask_user 事件后可能尚未落盘 -> 不在此刻断言。
       // 改为 answer 后回合收尾时统一验证(register+settle 两次 bump 是否都保留且未被 clobber)。
@@ -112,7 +112,7 @@ function streamWithQuestion(body, token, onAsk) {
     ok(turn.answerResp?.status === 200 && turn.answerResp?.json?.delivered === true, '(a) answer delivered');
     await sleep(300); // 等回合收尾 saveSession 落盘
     const cseqAfterTurn = readChangeSeq(sid);
-    ok(cseqAfterTurn >= 2, `(a) 回合后 changeSeq>=2(settle bump 未被回合 saveSession clobber;实际 ${cseqAfterTurn})`);
+    ok(cseqAfterTurn >= 3, `(a) 回合后 changeSeq>=3(立单+pending+settle 均未被回合 saveSession clobber;实际 ${cseqAfterTurn})`);
 
     // ============ (b) 单调:连续 transition 推进;POST /api/mission update 保留 ============
     const before = readChangeSeq(sid);
@@ -136,7 +136,7 @@ function streamWithQuestion(body, token, onAsk) {
 
     // ============ (c) 静态锁 ============
     console.log('\n── [c] 静态锁 ──');
-    ok(/function bumpMissionChangeSeq\(sessionId\)/.test(src), 'c 02 有 bumpMissionChangeSeq');
+    ok(/function bumpMissionChangeSeq\(sessionId, payload = \{\}\)/.test(src), 'c 02 有携带 change record payload 的 bumpMissionChangeSeq');
     ok(/const missionChangeSeqHighWater = new Map\(\)/.test(src), 'c 02 missionChangeSeqHighWater 高水位 Map');
     ok(/changeSeq: Math\.max\(0, Number\(p\.changeSeq\) \|\| 0\)/.test(src), 'c 02 normalizeMission changeSeq 字段(持久单调)');
     ok(/if \(hw > cur\) head\.mission\.changeSeq = hw/.test(src), 'c 02 saveSession 高水位 max-preserve(防 clobber)');

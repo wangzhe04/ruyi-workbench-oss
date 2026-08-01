@@ -13,6 +13,12 @@ node dev-harness\openai-engine.e2e.js
 
 第54波的回合叙事视觉门禁可单独运行 `node dev-harness\dom-screenshot.e2e.js`；它调用系统 Edge/Chrome 截取明暗主题，并与 `visual-baselines/workbench-shell-v2.json` 的低分辨率感知网格比较。只有确认视觉变更是预期行为时才使用 `--update` 更新基线。
 
+第79波专项门由 `pretender-return-archive.static.e2e.js`、`pretender-return-archive.e2e.js` 与扩展后的 `pretender-shell.e2e.js` 组成：前两件锁定 9 类变更流水、严格区间读取和 gap/corrupt 降级；浏览器件验证渲染后才推进 lastSeen、档案置顶/归档跨刷新、损坏 UI-state 不伤 Mission，以及档案到待决任务事实的一击/5 秒系统指标。
+
+第80波公开预览门新增 `pretender-preview-ready.static.e2e.js` 与 `pretender-preview-performance.e2e.js`：前者冻结双壳故障回退、无数据迁移说明、投影就绪、40→200 卡分帧呈现、双语手册及发布物内部命名；后者用真实 Edge 在 300 Mission / 200 可见卡下测三次冷导航、30 次视图切换，并走查 1440/768/390。增量长输出继续由 `pretender-task-sheet.e2e.js` 的真实 SSE/焦点/滚动/主线程间隙门负责。
+
+第81波原生决策门由 `pretender-needs-drawer.static.e2e.js` 与 `pretender-needs-drawer.e2e.js` 组成：静态件冻结统一 75b 写入口、CAS 版本/权限作用域投影、批准二次确认、typed question 零预选、同 key 重试、跨壳退场桥与停工卡诚实边界；浏览器件用真实 Provider 权限与提问回合验证经典→Preview 决策→经典续跑、390px 抽屉、停止结果章及未发送恢复草稿。
+
 **离线件应 ALL PASS**(不含需真端点/真 Python 的 live 件)。每件文件头部注释都列了它断言的边界。
 需外部条件的件:`deepseek-live`/`deepseek-tools`(真 DeepSeek 密钥)、`desktop-bridge-live`(真 python 桌面 MCP)、
 `desktop-mcp-smoke`(`AI_COMPUTER_CONTROL_HOME` 指向 ACC 仓库)。

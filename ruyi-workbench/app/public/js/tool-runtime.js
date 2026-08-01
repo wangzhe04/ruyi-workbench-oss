@@ -41,6 +41,7 @@ function planResultLabel(decision, note) {
 // 由调用方接线按钮。返回 { card, setDecided } 供 live 路径决策后收起。markdown 走 renderMarkdown(白名单消毒)。
 function buildPlanCard(planId, markdown) {
   const card = el('div', 'plan-card');
+  card.dataset.planId = String(planId || '');
   // 收起态点击展开:头部作为可点区域。展开=切换 .plan-expanded(CSS 收起态下也能重新露出正文)。
   const head = el('div', 'plan-card-head', t('plan.card.heading', { engine: engineLabel() }));
   card.appendChild(head);
@@ -113,6 +114,7 @@ function handlePlanEvent(evt, main, live) {
     setDecided(decision, note);
     savePlanDecision(planId, decision, note); // F1d 持久化
   };
+  card.__resolveIntervention = finish;
 
   approve.onclick = async () => { const r = await decidePlan(planId, 'approve'); if (r && r.ok) finish('approve'); else if (r) toast(r.error || t('plan.expired'), ''); };
   reject.onclick = async () => { const r = await decidePlan(planId, 'reject'); if (r && r.ok) finish('reject'); else if (r) toast(r.error || t('plan.expired'), ''); };
@@ -130,6 +132,15 @@ function handlePlanEvent(evt, main, live) {
   host.appendChild(card);
   setComposerHint(t('plan.awaitingApproval'));
   maybeScrollToBottom();
+}
+
+function resolveClassicPlanIntervention({ interventionId, action, feedback } = {}) {
+  const id = String(interventionId || '');
+  if (!id) return false;
+  const card = [...document.querySelectorAll('.plan-card[data-plan-id]')].find(node => node.dataset.planId === id);
+  if (!card || typeof card.__resolveIntervention !== 'function') return false;
+  card.__resolveIntervention(action === 'reject' ? 'reject' : 'approve', String(feedback || ''));
+  return true;
 }
 
 /* ---------------- debug panel ---------------- */
@@ -327,6 +338,7 @@ function updateShellPolling() {
     newShellSession,
     pushRawEvent,
     renderRawEventSnapshot,
+    resolveClassicPlanIntervention,
     runTool,
     updateShellPolling,
   });
