@@ -199,7 +199,11 @@ function sse(res, obj) {
   }
   res.write('data: ' + JSON.stringify(obj) + '\n\n');
 }
-function usageFrame(res, id) { if (NO_USAGE) return; sse(res, { id, choices: [], usage: { prompt_tokens: 42, completion_tokens: 15, total_tokens: 57 } }); }
+function usageFrame(res, id) {
+  if (NO_USAGE) return;
+  const cached = Math.max(0, Math.min(42, Math.round(Number(process.env.FAKE_CACHED_TOKENS) || 0)));
+  sse(res, { id, choices: [], usage: { prompt_tokens: 42, completion_tokens: 15, total_tokens: 57, ...(cached ? { prompt_tokens_details: { cached_tokens: cached } } : {}) } });
+}
 // E1: emit ONE tool_call as streamed fragments that OMIT `index`. When repeatId is true the id is echoed on
 // every fragment; when false the id appears ONCE (first fragment) and the two argument fragments carry NEITHER
 // id nor index (bare continuations). Arguments are split across two fragments to also exercise accumulation.

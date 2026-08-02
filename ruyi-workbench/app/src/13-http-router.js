@@ -458,18 +458,8 @@ async function handleApi(req, res, pathname) {
     const action = String(bodyOrQ.action || 'update');
     const emitMission = () => { const reg = activeChildren.get(sessionId); if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } } };
     if (action === 'stop') {
-      if (session.mission) {
-        session.mission.autoMode = 'off';
-        // 第72波:stop 是终态动作 → 盖 stopped 结果章(验收/未完成项/变更/回滚/不可逆账定格在此刻)。
-        session.mission.result = await buildMissionResult(session, { status: 'stopped', how: 'stop' });
-        session.mission.updatedAt = nowIso(); await saveSession(session);
-        const revision = await bumpMissionChangeSeq(sessionId, {
-          type: 'result', cursor: { action: 'stop' }, detail: { status: 'stopped', how: 'stop' },
-        });
-        if (revision) session.mission.changeSeq = revision;
-        emitMission();
-      }
-      return send(res, json({ ok: true, mission: session.mission || null }));
+      const result = await missionControlCommand(sessionId, 'stop');
+      return send(res, json(result.body, result.status));
     }
     if (action === 'check') {
       // 跑全部里程碑机器验收;autoMark!==false 时把 pass 的 pending/blocked 里程碑标 done(证据落 detail)。
@@ -507,6 +497,7 @@ async function handleApi(req, res, pathname) {
       const input = { ...(bodyOrQ.mission || bodyOrQ) };
       if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
       session.mission = normalizeMission(input, null, trusted);
+      session.mission.startedTurnSeq = Math.max(1, (Number(session.turnSeq) || 0) + 1);
       session.kind = 'mission'; // 第70波(EC-E):start 是显式任务动作 → Quick Ask 翻转 Mission(非启发式)
       logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
     } else {
@@ -660,7 +651,7 @@ async function handleApi(req, res, pathname) {
       return send(res, json(await buildUsageSummary(range)));
     } catch {
       // Old install with no ledger / any read error -> empty aggregation, never a 500.
-      return send(res, json({ ok: true, range, totals: { inTok: 0, outTok: 0, turns: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} }, byEngine: [], byProvider: [], bySession: [], byDay: [], budget: null }));
+      return send(res, json({ ok: true, range, totals: { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} }, byEngine: [], byProvider: [], bySession: [], byDay: [], budget: null }));
     }
   }
   // 第29波(§29c): 运营指标聚合(read-only GET,同 usage/summary 纪律:handler 自查 tokenOk,失败回空聚合)。
@@ -1710,7 +1701,7 @@ const MCP_TOOLS = [
   // loopback. It is hidden from sub-agents and standalone MCP sessions because neither owns the chat UI.
   {
     name: 'request_user_input',
-    description: 'Pause and ask the user one to three concise questions in the workbench UI. Questions may be single choice, multiple choice, free text, or choices plus an optional custom answer. Use this whenever a missing preference or choice materially affects the result. The tool returns structured user answers; continue only after it returns.',
+    description: 'Pause and ask the user one to three concise questions in the workbench UI. Prefer 2-5 concrete, mutually exclusive options whenever the answer can be enumerated; put the recommended option first and label it (Recommended). Choice questions include an Other typed fallback by default. Use text-only mode only when options genuinely cannot represent the answer. The tool returns structured user answers; continue only after it returns.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1722,9 +1713,9 @@ const MCP_TOOLS = [
               id: { type: 'string', description: 'Stable identifier within this request; generated when omitted' },
               header: { type: 'string', description: 'Short label for the question' },
               question: { type: 'string', description: 'The question shown to the user' },
-              answerMode: { type: 'string', enum: ['single', 'multiple', 'text'], description: 'Single choice, multiple choice, or free text. Inferred from options/multiSelect when omitted.' },
+              answerMode: { type: 'string', enum: ['single', 'multiple', 'text'], description: 'Single or multiple choice is preferred. Use text only when a useful finite option set cannot be offered. Inferred from options/multiSelect when omitted.' },
               options: {
-                type: 'array',
+                type: 'array', description: 'Prefer 2-5 concrete choices. Put the recommended option first and suffix its label with (Recommended). Omit only for genuinely open-ended text answers.',
                 items: {
                   type: 'object',
                   properties: {
@@ -1736,7 +1727,7 @@ const MCP_TOOLS = [
                 },
               },
               multiSelect: { type: 'boolean', description: 'Legacy alias for answerMode=multiple' },
-              allowOther: { type: 'boolean', description: 'With single/multiple choices, also allow a custom typed answer' },
+              allowOther: { type: 'boolean', default: true, description: 'With single/multiple choices, allow a custom typed fallback. Defaults to true; set false only when custom input would be invalid.' },
               otherLabel: { type: 'string', description: 'Optional label for the custom-answer choice' },
               otherPlaceholder: { type: 'string', description: 'Optional placeholder for the custom-answer input' },
             },

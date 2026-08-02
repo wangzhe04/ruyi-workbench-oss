@@ -172,7 +172,7 @@ function spawnWb() {
     ok(/async function buildMissionResult\(session, opts\)/.test(src) && /rollbackAvailable/.test(src), 's 02 buildMissionResult(含真实回滚引用)');
     ok(/async function maybeFinalizeMission\(session, how\)/.test(src), 's 02 maybeFinalizeMission 盖章/清章');
     ok(/result: \(p\.result && typeof p\.result === 'object'\) \? p\.result : null,/.test(src), 's 02 normalizeMission 深拷携带 result');
-    ok(/session\.mission\.result = await buildMissionResult\(session, \{ status: 'stopped', how: 'stop' \}\)/.test(src), 's 13 stop 盖 stopped 章');
+    ok(/const result = await missionControlCommand\(sessionId, 'stop'\)/.test(src) && /mission\.result = await buildMissionResult\(session, \{ status: 'stopped', how: 'stop' \}\)/.test(src), 's 13 stop 复用整单控制核心盖 stopped 章');
     ok(/await maybeFinalizeMission\(session, 'check'\)/.test(src) && /await maybeFinalizeMission\(session, 'update'\)/.test(src), 's 13 check/update 接线盖章');
     ok(/Object\.defineProperty\(session, '__missionFinalizeHow'/.test(src) && /if \(session\.__missionFinalizeHow\) \{/.test(src), 's 09 回合内 mission_update 推迟盖章 + 收尾 finalize(含本回合摘要)');
     ok(/if \(onDisk && onDisk\.mission && typeof onDisk\.mission === 'object'\) session\.mission = onDisk\.mission;/.test(src), 's 05 claude 收尾磁盘回读补 mission(loopback 盖章防盖回)');

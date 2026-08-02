@@ -38,8 +38,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // the bounded crew-stage map, asymmetric member badges, inline note composer, and vertical narrow-screen flow.
 // Wave 83 adds the three-lens switch, append-only duty-log timeline, expandable evidence rows, responsive
 // teleprinter flow, and the shell-neutral local-notification settings block.
+// Wave 84 adds the scoped Mission/Run telegraphs, inline confirmations, and bounded checkpoint flight-recorder
+// tape in the same isolated Preview layer; classic chat/style layers remain unchanged.
+// Wave 85 adds the closeout dossier, aligned option-first question rows and context note, a dock create seal,
+// the classic-to-desk switch, and responsive provider model-pricing rows in their owning layers.
 // Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = '9730b349502c185155b490fd683ed25df7ba4282e499746240442a6026f8b72c';
+const LEGACY_STYLES_SHA256 = '8c29decc5e0d42bf08b97f8978598eeaba222148fe1a30d47b19b5369f6b08e4';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

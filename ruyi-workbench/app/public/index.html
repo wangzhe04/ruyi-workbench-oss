@@ -89,7 +89,10 @@
           <button id="collapseSidebarBtn" class="icon-btn" title="折叠侧栏" aria-label="折叠侧栏" data-i18n-attr="title:navigation.collapseSidebar;aria-label:navigation.collapseSidebar" data-icon="collapse" data-testid="collapseSidebarBtn"></button>
         </div>
 
-        <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus" data-testid="newSessionBtn"><span data-i18n="session.new">新会话</span></button>
+        <div class="classic-sidebar-primary-actions">
+          <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus" data-testid="newSessionBtn"><span data-i18n="session.new">新会话</span></button>
+          <button id="openPreviewBtn" type="button" class="ghost full classic-preview-switch" data-i18n="previewShell.openPreview">交办台</button>
+        </div>
 
         <div class="search-wrap">
           <input id="sessionSearch" type="search" placeholder="搜索会话…" data-i18n-attr="placeholder:session.search" autocomplete="off" />
@@ -540,7 +543,10 @@
       </header>
 
       <nav class="preview-dock" aria-label="任务坞" data-i18n-attr="aria-label:previewShell.dockLabel">
-        <div class="preview-dock-head"><span data-i18n="previewShell.dockTitle">任务坞</span><span id="previewDockCount" class="preview-dock-count">0</span></div>
+        <div class="preview-dock-head">
+          <button type="button" id="previewNewMissionBtn" class="preview-new-mission" aria-label="新建任务单" title="新建任务单" data-i18n-attr="aria-label:previewShell.newMission;title:previewShell.newMission"><span aria-hidden="true">＋</span></button>
+          <span data-i18n="previewShell.dockTitle">任务坞</span><span id="previewDockCount" class="preview-dock-count">0</span>
+        </div>
         <div id="previewMissionDock" class="preview-mission-dock" role="list"></div>
         <div class="preview-dock-foot">
           <button type="button" id="previewHomeBtn" class="preview-dock-action preview-home-action" data-i18n="previewShell.backHome">交办台</button>

@@ -12,6 +12,7 @@ const app = read('ruyi-workbench/app/public/app.js');
 const prompts = read('ruyi-workbench/app/public/js/interaction-prompts.js');
 const tools = read('ruyi-workbench/app/public/js/tool-runtime.js');
 const domain = read('ruyi-workbench/app/src/13d-core-domain-routes.js');
+const permissionRuntime = read('ruyi-workbench/app/src/04-permission-runtime.js');
 const autonomy = read('ruyi-workbench/app/src/07-autonomy.js');
 const html = read('ruyi-workbench/app/public/index.html');
 const css = read('ruyi-workbench/app/public/css/views/preview-shell.css');
@@ -35,16 +36,20 @@ ok(domain.includes('interventionVersion: Math.max(0, Number(iv.interventionVersi
 ok(shell.includes('/api/missions/${encodeURIComponent(item.missionId)}/interventions/${encodeURIComponent(id)}/decision')
   && !shell.includes("'/api/permission/decision'") && !shell.includes("'/api/chat/answer'") && !shell.includes("'/api/plan/decision'"),
   'A3 Preview writes only through the Wave 75b unified command route');
+ok(permissionRuntime.includes('context: questionContext') && domain.includes("context: iv.type === 'question'")
+  && shell.includes("'preview-question-context'") && prompts.includes("'ask-context'"),
+  'A4 question background persists and renders in both shells');
 
 ok(shell.includes("{ action: 'allow' }, { confirm: true }")
   && shell.includes("{ action: 'approve'" ) && shell.includes("{ confirm: true }")
   && shell.includes("confirm.setAttribute('role', 'alertdialog')")
   && shell.includes('system never approves by default') === false,
   'B1 allow/approve actions stage an inline second confirmation without a default approval path');
-ok(!/\.checked\s*=\s*true/.test(shell)
+ok(!/querySelectorAll\('\[data-option-id\]'\)[\s\S]{0,120}\.checked\s*=\s*true/.test(shell)
   && shell.includes("field.querySelectorAll('[data-option-id]:checked')")
+  && shell.includes('otherInput.checked = true')
   && browser.includes("questionCard.checked === 0"),
-  'B2 typed question controls never preselect an option and the browser gate proves it');
+  'B2 listed options never preselect; typed fallback selects only Other after input');
 ok(shell.includes('retry.dataset.retrySameKey = draft.request.idempotencyKey')
   && shell.includes('submitInterventionDecision(item, draft.request)')
   && shell.includes('idempotencyKey: request.idempotencyKey'),
@@ -58,9 +63,9 @@ ok(prompts.includes('function resolveClassicPromptIntervention')
   && app.includes('resolveClassicPlanIntervention(decision)'),
   'C1 a successful Preview decision retires classic question, permission, and plan surfaces without firing cancel');
 ok(shell.includes('function renderStopCard') && shell.includes("result.status !== 'stopped'")
-  && shell.includes('stopRetryDraft') && shell.includes('stopChangeDraft')
+  && shell.includes("controlDraft = { kind: 'mission', action: 'retry' }") && shell.includes('stopChangeDraft')
   && shell.includes("updateMissionUi(card.missionId, { archived: true })"),
-  'C2 stopped Missions expose retry/change/archive hand-offs without inventing a resume state machine');
+  'C2 stopped Missions expose real Retry confirmation plus change-draft/archive hand-offs');
 ok(css.includes('.preview-needs-drawer') && css.includes('.preview-decision-confirm')
   && css.includes('.preview-stop-card') && css.includes('width: calc(100vw - 52px)')
   && browser.includes('Emulation.setDeviceMetricsOverride') && browser.includes('width: 390'),

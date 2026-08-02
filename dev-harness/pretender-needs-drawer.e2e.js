@@ -86,6 +86,7 @@ async function startProvider(port) {
         id: 'framework', header: 'Framework', question: 'Which framework should continue?', answerMode: 'single',
         options: [{ id: 'react', label: 'React', description: 'Use React' }, { id: 'vue', label: 'Vue', description: 'Use Vue' }],
       }] });
+      sse({ choices: [{ index: 0, delta: { role: 'assistant', content: 'React has the larger ecosystem; Vue is the lighter progressive choice. ' }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, id: 'call_wave81_question', type: 'function', function: { name: 'request_user_input', arguments: '' } }] }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: args } }] }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
@@ -249,6 +250,13 @@ try {
   await cdp.evaluate(`document.getElementById('previewClassicBtn').click()`);
   ok(Boolean(await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === 'classic' && !document.querySelector('.permission-modal')`)),
     'B8 returning to classic shows no stale permission prompt');
+  await cdp.evaluate(`document.getElementById('openPreviewBtn').click()`);
+  ok(Boolean(await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === 'preview' && !!document.getElementById('previewNewMissionBtn')`)),
+    'B8b classic sidebar returns directly to the task desk');
+  await cdp.evaluate(`(() => { document.getElementById('previewNewMissionBtn').click(); const input = document.getElementById('previewDispatchInput'); return !!input && input.value === '' && document.activeElement === input; })()`);
+  ok(Boolean(await waitForEval(cdp, `document.getElementById('previewMain')?.dataset.view === 'home' && document.activeElement?.id === 'previewDispatchInput'`)),
+    'B8c dock plus opens a clean, focused task draft');
+  await cdp.evaluate(`document.getElementById('previewClassicBtn').click()`);
   ok(Boolean(await waitForEval(cdp, 'window.state?.streaming === false', 220)), 'B9 permission turn completed');
 
   await cdp.evaluate(`(() => { const input = document.getElementById('promptInput'); input.value = 'ask framework'; input.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('sendBtn').click(); return true; })()`);
@@ -262,13 +270,37 @@ try {
     const card = document.querySelector('.preview-intervention-card[data-intervention-type="question"]');
     if (!card) return null;
     const checked = card.querySelectorAll('[data-option-id]:checked').length;
+    const option = card.querySelector('.preview-question-option');
+    const indicator = option?.querySelector('.preview-question-indicator')?.getBoundingClientRect();
+    const copy = option?.querySelector('.preview-question-option-copy')?.getBoundingClientRect();
     return new Promise(resolve => setTimeout(() => {
       const drawer = document.getElementById('previewNeedsDrawer').getBoundingClientRect();
       resolve({ checked, within: drawer.left >= -1 && drawer.right <= innerWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1,
+        context: card.querySelector('.preview-question-context')?.textContent || '', other: !!card.querySelector('[data-other-choice]'),
+        aligned: !!indicator && !!copy && Math.abs((indicator.top + indicator.height / 2) - (copy.top + copy.height / 2)) < 4,
         left: drawer.left, right: drawer.right, width: innerWidth, scrollWidth: document.documentElement.scrollWidth });
     }, 240));
   })()`);
   ok(questionCard && questionCard.checked === 0, 'C2 question choices are all empty by default');
+  ok(questionCard && questionCard.context.includes('larger ecosystem') && questionCard.other, 'C2b Preview shows preceding context and keeps Other as a fallback');
+  ok(questionCard && questionCard.aligned, 'C2c option indicator and copy are vertically aligned');
+  await cdp.evaluate(`(() => {
+    const card = document.querySelector('.preview-intervention-card[data-intervention-type="question"]');
+    const choice = card.querySelector('[data-other-choice]'); choice.click();
+    const input = card.querySelector('[data-other-text]'); input.value = '需要补充一点背景';
+    input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); input.setSelectionRange(3, 6);
+    window.__wave85OtherText = input; document.dispatchEvent(new Event('visibilitychange')); return true;
+  })()`);
+  await new Promise(resolve => setTimeout(resolve, 800));
+  const uninterruptedAnswer = await cdp.evaluate(`(() => {
+    const input = document.querySelector('.preview-intervention-card[data-intervention-type="question"] [data-other-text]');
+    return { sameNode: input === window.__wave85OtherText, focused: document.activeElement === input,
+      value: input?.value || '', selectionStart: input?.selectionStart, selectionEnd: input?.selectionEnd };
+  })()`);
+  ok(uninterruptedAnswer && uninterruptedAnswer.sameNode && uninterruptedAnswer.focused
+    && uninterruptedAnswer.value === '需要补充一点背景'
+    && uninterruptedAnswer.selectionStart === 3 && uninterruptedAnswer.selectionEnd === 6,
+  'C2d quiet refresh preserves an in-progress fallback answer and caret range');
   ok(questionCard && questionCard.within, 'C3 decision drawer stays inside the 390px viewport');
   if (!(questionCard && questionCard.within)) console.log('INFO C3 drawer=' + JSON.stringify(questionCard));
   await cdp.evaluate(`(() => { const card = document.querySelector('.preview-intervention-card[data-intervention-type="question"]'); card.querySelector('[data-option-id="vue"]').click(); card.querySelector('.preview-intervention-actions button.primary').click(); return true; })()`);
@@ -277,6 +309,7 @@ try {
   await cdp.evaluate(`document.getElementById('previewClassicBtn').click()`);
   ok(Boolean(await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === 'classic' && document.getElementById('messages')?.textContent.includes('Got Vue')`, 260)),
     'C5 classic transcript continues with the selected answer');
+  await waitForEval(cdp, 'window.state?.streaming === false', 220);
 
   const stopped = await request(appPort, '/api/mission', { action: 'stop', sessionId }, token);
   ok(stopped.status === 200 && stopped.json?.mission?.result?.status === 'stopped', 'D1 Mission stopped with an authoritative result record');

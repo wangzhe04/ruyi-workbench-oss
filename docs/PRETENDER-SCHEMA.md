@@ -65,6 +65,8 @@
 | `changes` | `{filesChanged,byOp,irreversibleFiles,commands}` | 变更摘要;`byOp` 按 create/modify/delete/unknown 计数。 |
 | `checkpoints` | `{entries,turnSeqs≤50,rollbackAvailable}` | **真实回滚能力引用**(journal 索引;回滚入口 `POST /api/checkpoints/rollback {sessionId,turnSeq,entrySeq?}`)。 |
 | `irreversible` | `{total,byKind,items≤30,legacyCommands}` | 不可逆正向账(§4);`legacyCommands` = 第72波前旧回合只有计数没有明细,诚实单列(02:600)。 |
+| `usage` | `{autoTurns,tokens}` | 盖章时定格 Mission 已耗自动回合与 token；收工卡不得从当前活动态重算。 |
+| `audit` | `{commands,irreversible,checkpoints,openTodos}` | 收工审计摘要，均由同一结果快照内的变更/checkpoint/todo 事实折算。 |
 
 ## 4. turnSummary(回合级账,挂在 message 上;02:1032 buildTurnSummary)
 
@@ -92,11 +94,12 @@
 | `decidedAt` / `decidedBy` | ISO / string | 终态转换 | |
 | `interventionVersion` | int ≥0,单调 | 每次状态转换推进 | **〔v4 新增,S1〕**CAS 版本(§1)。 |
 | 完整状态记录 | — | 75a 起每次转换落**完整状态行** | **〔v4 新增〕**现状 settle 整行只写 `{id,status,decidedAt,...}`(02:61),后写胜整行覆盖后 resolved 记录丢 type/requestedAt/toolName,排序还把 resolved 顶前——75a 起 journal 记录完整状态,不再后写整行丢字段(PLAN 75a 交付项);75a 前的存量记录仍按后写胜折叠兼容读取。 |
-| 类型附加字段 | | | permission:`toolName,tier,revertible`;question:`questions[]`(见下);pool:`runId,proposedBy,task`;71b 对账补登记:`backfilled:true`。 |
+| 类型附加字段 | | | permission:`toolName,tier,revertible`;question:`questions[]` + `context≤6000`(见下);pool:`runId,proposedBy,task`;71b 对账补登记:`backfilled:true`。 |
 
 **question typed payload(v1.1 新增,Escapade 2.4 已落码)**:
 - `questions[]` 最多 3 项:`{id,header,question,answerMode,multiSelect,allowOther,otherLabel,otherPlaceholder,options[]}`;`answerMode = single|multiple|text`,`multiSelect` 仅为旧客户端兼容别名(`answerMode==='multiple'`)。
 - `options[]` 最多 12 项:`{id,label,description}`;服务端为缺失/重复 id 生成本次 Intervention 内稳定 id。`allowOther=true` 仅适用于 single/multiple,允许选项之外再提交一段自填文本。
+- `context` 是本回合在提问工具调用前已经输出给用户的正文尾部，最多 6000 字符；它随 `ask_user` 事件、权威 Intervention 行和全局 pending 投影同行，供任一壳层在选项上方恢复提问背景。它不是第二份回答或模型摘要。
 - 现状 2.4 注册行已把完整 `questions[]` 写入 pending Intervention,全局 `/api/interventions` pending 投影原样携带;但 75a 前 partial settle 行仍会按后写胜丢掉终态记录的 request payload。**75a 完整状态行必须保留 typed payload**,不得把它退化回 `questionSummary`。
 
 **账本权威级别(v4 收紧成文)**:现状 Intervention NDJSON 是 **append-only 旁路账,fire-and-forget**——落盘失败静默吞掉(02:43/50 注释自认),**执行权威源仍是内存 Map**(02:28);boot 终态化(`markInterruptedInterventions`,02:86)据此判 pending 存在「settle 行丢失+重启 → 已决策事项被误标 cancelled_restart」的漂移窗口。**75a 起 Intervention journal 升级为权威存储**(PLAN 75a):同 Mission 写链串行;每次状态转换同步落盘后再推进内存态;转换同时推进 `interventionVersion` 与 `mission.changeSeq`——契约 409/404/410/版本冲突的判定**只以权威 journal + CAS 为准**(§7),漂移窗随之关闭。pool 型例外保持:paused run 的提案重启后**保留 pending**(02:97,恢复后可审批),不一刀切 cancelled_restart。
@@ -150,7 +153,7 @@
 ## 8. 聚合读模型投影(13d,只读派生,禁止第二状态机)
 
 - **列表卡片** `GET /api/missions`(13d:95 buildMissionCard):`{sessionId(对外名 missionId),title,cwd,kind,createdAt,updatedAt,status,activeTurn,mission{goal,createdAt,updatedAt,autoMode,milestonesTotal,done,blocked,pending,budget,spent,budgetExhausted,result{status,finishedAt}|null},pending{permissions,questions,plans,pool},runCount,lastRun}`。
-- **详情快照** `GET /api/missions/:id`(13d:198):卡片全集 + `acceptance{...,items[]}` + `runs[]`(§6)+ `changes{filesChanged,artifacts,commands}` + `irreversible` + `result` + `checkpoints{entries,turnSeqs,totalBytes,rollbackAvailable}` + `usage{inTok,outTok,turns,subagentTurns,costsByCurrency}` + `pending` + `cursor`。
+- **详情快照** `GET /api/missions/:id`(13d:198):卡片全集 + `acceptance{...,items[]}` + `runs[]`(§6)+ `changes{filesChanged,artifacts,commands}` + `irreversible` + `result` + `checkpoints{entries,turnSeqs,totalBytes,rollbackAvailable}` + `usage{inTok,outTok,cachedInTok,turns,subagentTurns,costsByCurrency}` + `pending` + `cursor`。
 - **卡片状态派生**(13d:48):`complete > active(until-done) > paused(supervised) > idle`;无 mission = `'none'` 不入列表。
 - **五态派生**(56 波,`public/js/mission-state.js` `deriveMissionState`,浏览器/node 双导出):交办中/进行中/需要你/已收工/已停工 + quick_ask 逃生舱,全部从权威字段派生,每条带 `sources` 证据,不读模型文本猜。
 - **全局收件箱** `GET /api/interventions`(13d:228):`{pending[{id,type,sessionId,requestedAt,toolName,tier,revertible,runId,proposedBy,task,live}],counts{permission,question,plan,pool,total}}`,FIFO(requestedAt 升序);`live` = 决策可送达性提示。
@@ -171,6 +174,8 @@
 | **人工接管** | 当前回合 + 驱动 | 停回合 + `autoMode→off` | 用户手动驱动,无自动续跑。 |
 | Run 级 | 单个 Run | 池审批(13d:553)/ run pause-resume-stop(08) | 只作用于该 run,不动 mission 状态。 |
 | 回合级 | 当前回合 | 停回合 | 只中止当前回合,驱动按 autoMode 决策后续。 |
+
+**第84波实现状态(2026-08-02)**:`missionControlCommand()` 是上述 Mission 五动作的唯一 command core，`POST /api/missions/:id/control` 与经典 stop 适配器共用；Mission 快照的 `controls.actions.*` 逐项下发 `enabled/scope/reason`，UI 不自行猜能力。Continue/Retry 只持久再武装并返回 `requiresTurn:true`，随后由用户的同一次明确点击复用经典 `sendPrompt` 开回合；Run 级动作继续走 `/api/agent-runs/:id`，逐条回退继续走 `/api/checkpoints/rollback`。整单回退以起单时持久化的 `startedTurnSeq` 为边界，执行会话 rewind 与 checkpoint 逆序恢复；旧 Mission 仅在真实消息/检查点可推导时提供回退能力。
 
 **stall 类型处置(T3 拍板,2026-07-29)**:3.0 确认**无 stall 生产者**——停滞检测目前只有驱动器内部降级信号(§2 stall 字段),尚无足以投影为「需要你」的权威信号源,造出来的 stall 是猜测不是事实(no-go #3)。枚举保留位不变;「是否立项 stall 检测」作为 **P3 显式决策点**保留,不在 74 波静默关闭。
 

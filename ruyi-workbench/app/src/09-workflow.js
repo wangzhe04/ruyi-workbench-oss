@@ -1042,6 +1042,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // turn is live; the tool loop drains it at the iteration boundary (before each API call), injecting
     // each as a `[用户插话] …` user message into providerHistory (pairing-safe — see drainSteerQueue).
     steerQueue: [],
+    questionContext: '',
   };
   // External bridge/MCP activity can also arrive through the active-turn registry.  Keep that path symmetric
   // with Claude so a live workflow refreshes the parent watchdog no matter which engine launched it.
@@ -1202,7 +1203,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // current window occupancy, not a sum). `calls` counts how many API calls carried usage this turn.
   // The `usage` event/message fields keep their names (input/output_tokens) — this is a correctness fix,
   // not a protocol change; only `calls` is additive.
-  const turnUsage = { input_tokens: 0, output_tokens: 0 };
+  const turnUsage = { input_tokens: 0, output_tokens: 0, cached_input_tokens: 0 };
   let usageCalls = 0;
   const markUsage = u => {
     if (!u || typeof u !== 'object') return;
@@ -1210,12 +1211,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // prompt_tokens/completion_tokens. Some vLLM builds and Anthropic-compat gateways report the former.
     const inTok = Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0;
     const outTok = Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0;
+    const cachedInTok = Math.min(inTok, cachedInputTokensFromUsage(u));
     const total = Number(u.total_tokens || 0) || (inTok + outTok);
     turnUsage.input_tokens += inTok;
     turnUsage.output_tokens += outTok;
+    turnUsage.cached_input_tokens += cachedInTok;
     usageCalls += 1;
     noteEstimateSample(provider.id, model, lastEstBeforeCall, inTok); // 45d(a):真实 usage ÷ 发送前估算 → EMA 校准
-    usageObj = { usage: { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens }, contextTokens: total || undefined, calls: usageCalls };
+    usageObj = { usage: { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens, cached_input_tokens: turnUsage.cached_input_tokens }, contextTokens: total || undefined, calls: usageCalls };
   };
   const toolBudget = resolveToolIterationBudget(config.openaiMaxToolIterations, message, {
     driverAuto,
@@ -1430,7 +1433,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 45f P1-1:窗口学习只在【强压重试成功】后落账 —— 证明确实是超窗,误判不再永久压窗。
       if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, model, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.reasoning) thinkingText += call.reasoning;
-      if (call.text) assistantText += call.text;
+      if (call.text) {
+        assistantText += call.text;
+        reg.questionContext = assistantText;
+      }
       activeProviderBatchId = call.toolCalls && call.toolCalls.length ? turnSegments.createBatchId('openai') : '';
       // Aborted while streaming → discard this (possibly partial) step, keep history valid.
       if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -1761,7 +1767,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // A Provider function call pauses this tool iteration until the matching UI answer arrives.
                 // Its structured result is appended as the normal role:'tool' reply below, so every
                 // OpenAI-compatible backend sees the choice in the protocol shape it already understands.
-                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.permissionTimeoutMs);
+                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.permissionTimeoutMs, assistantText);
                 resultObj = answer && answer.ok
                   ? { ok: true, answers: answer.answers, content: answer.content }
                   : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' };
@@ -1991,10 +1997,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // Cost comes from the provider's optional pricing (null when unpriced); estimated turns are flagged.
   if (usageObj && usageObj.usage) {
     const inTok = usageObj.usage.input_tokens, outTok = usageObj.usage.output_tokens;
-    const { cost, currency } = computeProviderCost(provider, inTok, outTok);
+    const cachedInTok = usageObj.usage.cached_input_tokens || 0;
+    const { cost, currency } = computeProviderCost(provider, inTok, outTok, cachedInTok, model);
     appendUsageLedger({
       sessionId: session.id, engine: 'openai', provider: provider.id, model,
-      inTok, outTok, cost, currency, estimated: usageObj.estimated === true, turnSeq: session.turnSeq,
+      inTok, outTok, cachedInTok, cost, currency, estimated: usageObj.estimated === true, turnSeq: session.turnSeq,
     });
   }
   onEvent({ type: 'turn_summary', ...turnSummary });

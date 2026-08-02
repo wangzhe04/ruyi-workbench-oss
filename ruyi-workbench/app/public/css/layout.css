@@ -39,6 +39,8 @@
   min-width: 0;
 }
 .sidebar { border-right: 1px solid var(--glass-border); gap: 10px; }
+.classic-sidebar-primary-actions { display: grid; gap: 7px; }
+.classic-preview-switch { min-height: 34px; border-style: dashed; color: var(--accent); }
 .tool-pane { border-left: 1px solid var(--glass-border); }
 .app-shell.tools-collapsed .tool-pane,
 .app-shell.sidebar-collapsed .sidebar { display: none; }

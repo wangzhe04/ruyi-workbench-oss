@@ -21,6 +21,9 @@ const path = require('path');
 
 const HARNESS = __dirname;
 const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 ~15s,留 8x 余量
+// Wall-clock performance gates measure the product, not contention from three unrelated Edge/server
+// tests. They still belong to the complete suite, but run alone after parallel functional buckets.
+const PARALLEL_EXCLUSIVE = new Set(['pretender-preview-performance.e2e.js']);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
 // 每条附实测依据 —— 表不是兜底借口,能优化掉的慢件应优化而非加薪。
@@ -222,11 +225,13 @@ async function main() {
     }
   } else {
     // ── 并行模式 ──
-    // 将文件分成 PARALLEL 个桶,桶间并行,桶内串行
+    // 将普通文件分成 PARALLEL 个桶,桶间并行,桶内串行；严格墙钟基准最后独占执行。
+    const exclusiveFiles = files.filter(f => PARALLEL_EXCLUSIVE.has(f));
+    const parallelFiles = files.filter(f => !PARALLEL_EXCLUSIVE.has(f));
     const buckets = Array.from({ length: PARALLEL }, () => []);
-    for (let i = 0; i < files.length; i++) buckets[i % PARALLEL].push(files[i]);
+    for (let i = 0; i < parallelFiles.length; i++) buckets[i % PARALLEL].push(parallelFiles[i]);
 
-    console.log(`# 并行模式: ${PARALLEL} 路,每桶 ~${Math.ceil(files.length / PARALLEL)} 件\n`);
+    console.log(`# 并行模式: ${PARALLEL} 路,每桶 ~${Math.ceil(parallelFiles.length / PARALLEL)} 件；${exclusiveFiles.length} 件性能门独占\n`);
 
     const bucketPromises = buckets.map(async (bucket, bi) => {
       const bucketResults = [];
@@ -235,7 +240,9 @@ async function main() {
         const prefix = `[B${bi}]`;
         process.stdout.write(`${prefix} (${tag}) ${f} ... `);
         const { r, flaky } = await runWithRetry(f);
-        bucketResults.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, ms: r.ms });
+        // Preserve the captured output in parallel mode too. Without it the final failure heading could name
+        // the right file but print an empty/misleading tail, making a load flake needlessly hard to diagnose.
+        bucketResults.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, out: r.out, ms: r.ms });
         const known = KNOWN_FAILURE[f];
         if (r.ok) {
           if (flaky) console.log(`${prefix} PASS [flaky: 重跑通过] (${r.ms}ms)`);
@@ -265,6 +272,26 @@ async function main() {
         } else {
           if (known) knownFail++;
           else { fail++; failed.push(r); }
+        }
+      }
+    }
+    for (const f of exclusiveFiles) {
+      process.stdout.write(`[exclusive] ([performance]) ${f} ... `);
+      const { r, flaky } = await runWithRetry(f);
+      const row = { file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, out: r.out, ms: r.ms };
+      results.push(row);
+      const known = KNOWN_FAILURE[f];
+      if (r.ok) {
+        pass++;
+        if (flaky) { flakyCount++; flakyFiles.push(f); console.log(`PASS [flaky: 重跑通过] (${r.ms}ms)`); }
+        else if (known) { unexpectedPass++; console.log(`PASS [unexpected-pass] (${r.ms}ms)`); }
+        else console.log(`PASS (${r.ms}ms)`);
+      } else {
+        if (known) { knownFail++; console.log(`FAIL [known-fail] (${r.ms}ms) - ${known}`); }
+        else {
+          fail++; failed.push(row);
+          const reason = r.timedOut ? `TIMEOUT(>${timeoutFor(f) / 1000}s)` : `exit=${r.status}`;
+          console.log(`FAIL ${reason} (重跑仍失败, ${r.ms}ms)`);
         }
       }
     }

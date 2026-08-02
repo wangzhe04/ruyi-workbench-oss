@@ -36,15 +36,16 @@ const MONTH = new Date().toISOString().slice(0, 7); // current UTC month = ledge
 const LEDGER = path.join(USAGE_DIR, MONTH + '.jsonl');
 
 // Priced provider (CNY, per-MILLION-token) and derived per-turn cost for the fake's 42/15 usage frame.
-const IN_PER_M = 1000, OUT_PER_M = 2000, CUR = 'CNY';
-const PER_TURN = (42 * IN_PER_M + 15 * OUT_PER_M) / 1e6; // 0.072
+const IN_PER_M = 1000, CACHED_PER_M = 500, OUT_PER_M = 2000, CUR = 'CNY';
+const MODEL_IN_PER_M = 1200, MODEL_CACHED_PER_M = 100, MODEL_OUT_PER_M = 2200, CACHED_TOKENS = 12;
+const PER_TURN = ((42 - CACHED_TOKENS) * MODEL_IN_PER_M + CACHED_TOKENS * MODEL_CACHED_PER_M + 15 * MODEL_OUT_PER_M) / 1e6;
 const round6 = n => Math.round((Number(n) || 0) * 1e6) / 1e6;
 
 function writeConfig(activeProvider) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 7, version: '1.4.0', permissionMode: 'bypass',
     providers: [
-      { id: 'priced', label: 'Priced', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_A, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false, pricing: { inputPerM: IN_PER_M, outputPerM: OUT_PER_M, currency: CUR } },
+      { id: 'priced', label: 'Priced', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_A, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false, pricing: { inputPerM: IN_PER_M, cachedInputPerM: CACHED_PER_M, outputPerM: OUT_PER_M, currency: CUR, models: [{ model: 'fake-model', inputPerM: MODEL_IN_PER_M, cachedInputPerM: MODEL_CACHED_PER_M, outputPerM: MODEL_OUT_PER_M }] } },
       { id: 'noprice', label: 'NoPrice', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_B, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false },
     ],
     activeProvider,
@@ -91,7 +92,7 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
   fs.mkdirSync(HOME, { recursive: true });
   writeConfig('priced');
 
-  const fakeA = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_A) }, windowsHide: true });
+  const fakeA = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_A), FAKE_CACHED_TOKENS: String(CACHED_TOKENS) }, windowsHide: true });
   const fakeB = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_B), FAKE_NO_USAGE: '1' }, windowsHide: true });
   for (const [tag, f] of [['A', fakeA], ['B', fakeB]]) f.stdout.on('data', d => String(d).trim() && console.log('[fake' + tag + '] ' + String(d).trim()));
   // Clear any Anthropic endpoint env the dev machine may carry (claudeLedgerSource consults process.env
@@ -115,7 +116,7 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
     ok(cfg && eq(cfg.usageBudget, { monthly: 100, currency: CUR }), 'config.usageBudget round-trips');
     ok(cfg && eq(cfg.claudePricing, { inputPerM: 4, outputPerM: 12, currency: 'USD' }), 'config.claudePricing round-trips');
     const pcfg = cfg && (cfg.providers || []).find(p => p.id === 'priced');
-    ok(pcfg && eq(pcfg.pricing, { inputPerM: IN_PER_M, outputPerM: OUT_PER_M, currency: CUR }), 'provider.pricing round-trips');
+    ok(pcfg && eq(pcfg.pricing, { inputPerM: IN_PER_M, outputPerM: OUT_PER_M, currency: CUR, cachedInputPerM: CACHED_PER_M, models: [{ model: 'fake-model', inputPerM: MODEL_IN_PER_M, outputPerM: MODEL_OUT_PER_M, cachedInputPerM: MODEL_CACHED_PER_M }] }), 'provider pricing round-trips cache and model overrides');
 
     // ① fresh install: no ledger rows yet -> empty aggregation, never 500.
     const empty = await getJson(WB_PORT, '/api/usage/summary?range=all', hdr);
@@ -148,7 +149,7 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
     const recs = lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
     const priced = recs.filter(r => r.provider === 'priced');
     const est = recs.filter(r => r.provider === 'noprice');
-    ok(priced.length === 2 && priced.every(r => r.inTok === 42 && r.outTok === 15 && r.currency === CUR && near(r.cost, PER_TURN) && r.estimated === false), 'priced rows: 42/15, CNY cost per turn, estimated=false');
+    ok(priced.length === 2 && priced.every(r => r.inTok === 42 && r.cachedInTok === CACHED_TOKENS && r.outTok === 15 && r.currency === CUR && near(r.cost, PER_TURN) && r.estimated === false), 'priced rows use exact-model rates plus cached-input rate');
     ok(est.length === 1 && est[0].estimated === true && est[0].cost === null && est[0].currency === null && est[0].inTok > 0, 'no-usage row: estimated=true, cost null, inTok>0');
 
     // ③④⑤ summary aggregation over the 3 real turns.
@@ -160,7 +161,7 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
     ok(sum && Object.keys(sum.totals.costsByCurrency).length === 1, 'only one currency bucket (CNY)');
     const pProv = sum && sum.byProvider.find(p => p.provider === 'priced');
     const nProv = sum && sum.byProvider.find(p => p.provider === 'noprice');
-    ok(pProv && pProv.turns === 2 && pProv.inTok === 84 && pProv.label === 'Priced' && near(pProv.costsByCurrency[CUR], round6(2 * PER_TURN)), 'byProvider priced: 2 turns, inTok 84, label, CNY cost');
+    ok(pProv && pProv.turns === 2 && pProv.inTok === 84 && pProv.cachedInTok === 2 * CACHED_TOKENS && pProv.label === 'Priced' && near(pProv.costsByCurrency[CUR], round6(2 * PER_TURN)), 'byProvider priced aggregates cache hits and model-specific cost');
     ok(nProv && nProv.turns === 1 && (nProv.costsByCurrency[CUR] === undefined), 'byProvider noprice: 1 turn, no CNY cost');
     const eng = sum && sum.byEngine.find(e => e.engine === 'openai');
     ok(eng && eng.turns === 3, 'byEngine openai turns=3');

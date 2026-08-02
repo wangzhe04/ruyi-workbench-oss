@@ -219,33 +219,81 @@ function claudeCostFields(config, inTok, outTok, costUsd) {
   return { provider, cost, currency, costTrusted };
 }
 
-// Validate an optional pricing object {inputPerM, outputPerM, currency} -> canonical form or null. Shared by
-// providers[].pricing (sanitizeProvider) and config.claudePricing (normalizeConfig). Prices are per MILLION
-// tokens, non-negative; a currency code is required; kept only when at least one price parses.
+// Validate optional per-million-token pricing. Provider pricing may add cachedInputPerM and exact model
+// overrides; legacy {inputPerM,outputPerM,currency} remains byte-stable after normalization.
 function normalizePricing(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const inP = Number(raw.inputPerM), outP = Number(raw.outputPerM);
+  const parseRate = value => {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : null;
+  };
+  const inP = parseRate(raw.inputPerM), outP = parseRate(raw.outputPerM), cachedP = parseRate(raw.cachedInputPerM);
   const cur = (typeof raw.currency === 'string') ? raw.currency.trim().slice(0, 8) : '';
-  const hasIn = Number.isFinite(inP) && inP >= 0, hasOut = Number.isFinite(outP) && outP >= 0;
-  if ((hasIn || hasOut) && cur) return { inputPerM: hasIn ? inP : 0, outputPerM: hasOut ? outP : 0, currency: cur };
-  return null;
+  const modelRows = [];
+  const seen = new Set();
+  for (const row of (Array.isArray(raw.models) ? raw.models : []).slice(0, 100)) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+    const model = typeof row.model === 'string' ? row.model.trim().slice(0, 240) : '';
+    if (!model || seen.has(model)) continue;
+    const modelIn = parseRate(row.inputPerM), modelOut = parseRate(row.outputPerM), modelCached = parseRate(row.cachedInputPerM);
+    if (modelIn == null && modelOut == null && modelCached == null) continue;
+    seen.add(model);
+    modelRows.push({
+      model,
+      ...(modelIn == null ? {} : { inputPerM: modelIn }),
+      ...(modelOut == null ? {} : { outputPerM: modelOut }),
+      ...(modelCached == null ? {} : { cachedInputPerM: modelCached }),
+    });
+  }
+  if (!cur || (inP == null && outP == null && cachedP == null && !modelRows.length)) return null;
+  return {
+    inputPerM: inP == null ? 0 : inP,
+    outputPerM: outP == null ? 0 : outP,
+    currency: cur,
+    ...(cachedP == null ? {} : { cachedInputPerM: cachedP }),
+    ...(modelRows.length ? { models: modelRows } : {}),
+  };
 }
-// Cost from a pricing object + token counts (per MILLION tokens). No/invalid pricing -> {cost:null, currency:null}.
-function computeCostFromPricing(pricing, inTok, outTok) {
+function cachedInputTokensFromUsage(usage) {
+  if (!usage || typeof usage !== 'object') return 0;
+  const details = usage.prompt_tokens_details || usage.input_tokens_details || {};
+  const raw = details.cached_tokens != null ? details.cached_tokens
+    : details.cache_read_input_tokens != null ? details.cache_read_input_tokens
+      : usage.cache_read_input_tokens != null ? usage.cache_read_input_tokens : usage.cached_tokens;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+}
+// Cached input is part of input tokens for OpenAI-compatible usage frames. Charge the non-cached remainder at
+// inputPerM and cached tokens at cachedInputPerM; when the cache price is unset, conservatively use inputPerM.
+function computeCostFromPricing(pricing, inTok, outTok, cachedInTok = 0) {
   const p = normalizePricing(pricing);
   if (!p) return { cost: null, currency: null };
-  const cost = (Number(inTok) || 0) / 1e6 * p.inputPerM + (Number(outTok) || 0) / 1e6 * p.outputPerM;
+  const input = Math.max(0, Number(inTok) || 0);
+  const cached = Math.min(input, Math.max(0, Number(cachedInTok) || 0));
+  const cachedRate = Number.isFinite(Number(p.cachedInputPerM)) ? Number(p.cachedInputPerM) : p.inputPerM;
+  const cost = (input - cached) / 1e6 * p.inputPerM + cached / 1e6 * cachedRate + (Number(outTok) || 0) / 1e6 * p.outputPerM;
   return { cost: Number.isFinite(cost) ? cost : null, currency: p.currency };
 }
-// Cost for a native provider turn from the provider's optional pricing. No pricing -> {cost:null, currency:null}.
-function computeProviderCost(provider, inTok, outTok) {
-  return computeCostFromPricing(provider && provider.pricing, inTok, outTok);
+// Exact model override wins within one provider; missing cached price continues to fall back to that row's input rate.
+function computeProviderCost(provider, inTok, outTok, cachedInTok = 0, model = '') {
+  const pricing = normalizePricing(provider && provider.pricing);
+  if (!pricing) return { cost: null, currency: null };
+  const modelId = String(model || provider && provider.model || '').trim();
+  const override = Array.isArray(pricing.models) ? pricing.models.find(row => row.model === modelId) : null;
+  const resolved = override ? {
+    inputPerM: override.inputPerM == null ? pricing.inputPerM : override.inputPerM,
+    outputPerM: override.outputPerM == null ? pricing.outputPerM : override.outputPerM,
+    cachedInputPerM: override.cachedInputPerM == null ? (pricing.cachedInputPerM == null ? pricing.inputPerM : pricing.cachedInputPerM) : override.cachedInputPerM,
+    currency: pricing.currency,
+  } : pricing;
+  return computeCostFromPricing(resolved, inTok, outTok, cachedInTok);
 }
 
 function appendUsageLedger(entry) {
   try {
     const inTok = Math.max(0, Math.round(Number(entry.inTok) || 0));
     const outTok = Math.max(0, Math.round(Number(entry.outTok) || 0));
+    const cachedInTok = Math.min(inTok, Math.max(0, Math.round(Number(entry.cachedInTok) || 0)));
     // NB: Number(null) === 0, so guard null/undefined explicitly — a tokens-only turn must stay cost:null.
     const costNum = (entry.cost == null) ? NaN : Number(entry.cost);
     // v1.4-OSS 用量看板(补): skip a truly empty row — zero tokens AND no trusted positive cost. A row that reports
@@ -259,7 +307,7 @@ function appendUsageLedger(entry) {
       engine: entry.engine === 'claude' ? 'claude' : 'openai',
       provider: String(entry.provider || ''),
       model: String(entry.model || ''),
-      inTok, outTok,
+      inTok, outTok, cachedInTok,
       cost: Number.isFinite(costNum) ? costNum : null,
       currency: (typeof entry.currency === 'string' && entry.currency) ? entry.currency : null,
       costTrusted: entry.costTrusted !== false, // false = plan-based / notional (kept out of real cost totals)
@@ -285,7 +333,7 @@ function appendUsageLedger(entry) {
       if (rec.kind === 'turn') bumpMissionChangeSeq(rec.sessionId, {
         type: 'budget',
         cursor: { turnSeq: rec.turnSeq, engine: rec.engine },
-        detail: { inTok: rec.inTok, outTok: rec.outTok, cost: rec.cost, currency: rec.currency || '', estimated: rec.estimated },
+        detail: { inTok: rec.inTok, outTok: rec.outTok, cachedInTok: rec.cachedInTok, cost: rec.cost, currency: rec.currency || '', estimated: rec.estimated },
       });
     }).catch(() => {}); // fire-and-forget: a ledger failure must never wedge the chain or the turn
   } catch { /* never let accounting break a turn */ }
@@ -343,32 +391,32 @@ async function buildUsageSummary(range) {
   try { const idx = await readSessionIndex(); if (Array.isArray(idx)) for (const e of idx) if (e && e.id) titles.set(String(e.id), e.title || ''); } catch { /* index optional */ }
 
   const addCost = (bucket, cur, cost) => { bucket[cur] = (bucket[cur] || 0) + cost; };
-  const totals = { inTok: 0, outTok: 0, turns: 0, subagentTurns: 0, auxCalls: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
+  const totals = { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, subagentTurns: 0, auxCalls: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
   const byEngine = new Map(), byProvider = new Map(), bySession = new Map(), byDay = new Map();
 
   for (const r of rows) {
-    const inTok = Number(r.inTok) || 0, outTok = Number(r.outTok) || 0;
+    const inTok = Number(r.inTok) || 0, outTok = Number(r.outTok) || 0, cachedInTok = Math.min(inTok, Number(r.cachedInTok) || 0);
     const cost = Number(r.cost), cur = (typeof r.currency === 'string' && r.currency) ? r.currency : null;
     const trusted = r.costTrusted !== false;
     const hasCost = trusted && cur && Number.isFinite(cost);
-    totals.inTok += inTok; totals.outTok += outTok; totals.turns += 1;
+    totals.inTok += inTok; totals.outTok += outTok; totals.cachedInTok += cachedInTok; totals.turns += 1;
     if (r.kind === 'subagent') totals.subagentTurns += 1; // v1.4-OSS 用量看板(补): DAG/子代理回合独立计数
     if (r.kind === 'aux') totals.auxCalls += 1; // v1.4-OSS 用量看板(补): 辅助调用(压缩/起草等)独立计数
     if (r.estimated === true) totals.estimatedTurns += 1;
     if (!trusted) totals.planBasedTurns += 1;
     if (hasCost) addCost(totals.costsByCurrency, cur, cost);
     const eng = r.engine === 'claude' ? 'claude' : 'openai';
-    let em = byEngine.get(eng); if (!em) byEngine.set(eng, em = { engine: eng, inTok: 0, outTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
-    em.inTok += inTok; em.outTok += outTok; em.turns += 1; if (!trusted) em.planBasedTurns += 1; if (hasCost) addCost(em.costsByCurrency, cur, cost);
+    let em = byEngine.get(eng); if (!em) byEngine.set(eng, em = { engine: eng, inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
+    em.inTok += inTok; em.outTok += outTok; em.cachedInTok += cachedInTok; em.turns += 1; if (!trusted) em.planBasedTurns += 1; if (hasCost) addCost(em.costsByCurrency, cur, cost);
     const pid = String(r.provider || '');
-    let pm = byProvider.get(pid); if (!pm) byProvider.set(pid, pm = { provider: pid, label: labels.get(pid) || pid, inTok: 0, outTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
-    pm.inTok += inTok; pm.outTok += outTok; pm.turns += 1; if (!trusted) pm.planBasedTurns += 1; if (hasCost) addCost(pm.costsByCurrency, cur, cost);
+    let pm = byProvider.get(pid); if (!pm) byProvider.set(pid, pm = { provider: pid, label: labels.get(pid) || pid, inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
+    pm.inTok += inTok; pm.outTok += outTok; pm.cachedInTok += cachedInTok; pm.turns += 1; if (!trusted) pm.planBasedTurns += 1; if (hasCost) addCost(pm.costsByCurrency, cur, cost);
     const sid = String(r.sessionId || '');
-    let sm = bySession.get(sid); if (!sm) bySession.set(sid, sm = { sessionId: sid, title: titles.get(sid) || '', inTok: 0, outTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
-    sm.inTok += inTok; sm.outTok += outTok; sm.turns += 1; if (!trusted) sm.planBasedTurns += 1; if (hasCost) addCost(sm.costsByCurrency, cur, cost);
+    let sm = bySession.get(sid); if (!sm) bySession.set(sid, sm = { sessionId: sid, title: titles.get(sid) || '', inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
+    sm.inTok += inTok; sm.outTok += outTok; sm.cachedInTok += cachedInTok; sm.turns += 1; if (!trusted) sm.planBasedTurns += 1; if (hasCost) addCost(sm.costsByCurrency, cur, cost);
     const dk = usageDayKey(Date.parse(r.ts));
-    let dm = byDay.get(dk); if (!dm) byDay.set(dk, dm = { date: dk, inTok: 0, outTok: 0, costsByCurrency: {} });
-    dm.inTok += inTok; dm.outTok += outTok; if (hasCost) addCost(dm.costsByCurrency, cur, cost);
+    let dm = byDay.get(dk); if (!dm) byDay.set(dk, dm = { date: dk, inTok: 0, outTok: 0, cachedInTok: 0, costsByCurrency: {} });
+    dm.inTok += inTok; dm.outTok += outTok; dm.cachedInTok += cachedInTok; if (hasCost) addCost(dm.costsByCurrency, cur, cost);
   }
   // Round every currency bucket to 6 dp to shed binary-float noise (0.30000000000000004 -> 0.3), and derive a
   // per-entry planBased flag: true ONLY when the entry has plan-based turns AND no trusted cost to show (so a
@@ -1432,24 +1480,53 @@ function commandForSelfMcp(mode = 'auto') {
 
 // --- v0.7d: locate the user's ai-computer-control desktop MCP (Windows control FastMCP). ---
 // A python.exe merely existing is not enough: older offline bundles can contain a raw embedded interpreter
-// without the MCP package. Verify imports once, cache the result, and fall back to a usable system runtime.
+// without the MCP package. Verify imports once, cache the result, and prefer a Full runtime whose WinSDK
+// OCR projections really import. A core-only source environment remains a last-resort degraded fallback.
 const DESKTOP_PYTHON_PROBE_TIMEOUT_MS = 5000;
 const DESKTOP_PYTHON_OK_CACHE_MS = 5 * 60 * 1000;
 const DESKTOP_PYTHON_MISS_CACHE_MS = 15000;
-const DESKTOP_PYTHON_IMPORT_PROBE = 'from mcp.server.fastmcp import FastMCP; import ai_computer_control.server';
+const DESKTOP_PYTHON_IMPORT_PROBE = [
+  'from mcp.server.fastmcp import FastMCP',
+  'import ai_computer_control.server',
+  'full = True',
+  'try:',
+  ' import winsdk.windows.media.ocr',
+  ' import winsdk.windows.graphics.imaging',
+  ' import winsdk.windows.storage.streams',
+  ' import winsdk.windows.globalization',
+  'except Exception:',
+  ' full = False',
+  "print('__RUYI_ACC_FULL__' if full else '__RUYI_ACC_CORE__')",
+].join('\n');
 const desktopPythonCache = new Map(); // repo/root -> { at, value:{command,args,source}|null }
 
 function desktopPythonCandidates(root) {
   const candidates = [];
-  const addPath = (command, source) => candidates.push({ command, args: [], source, requireExisting: true });
+  const seen = new Set();
+  const addPath = (command, source) => {
+    const key = path.resolve(String(command || '')).toLowerCase();
+    if (!command || seen.has(key)) return;
+    seen.add(key);
+    candidates.push({ command, args: [], source, requireExisting: true });
+  };
   if (root) {
-    // A real venv is normally the installer output, so prefer it over a bundled interpreter.
+    // Distribution invariant: a portable Full package must use the CPython 3.12 runtime shipped beside
+    // ACC by default. Machine-local venvs/runtimes are compatibility fallbacks, never prerequisites for
+    // a package copied to a clean target computer.
+    addPath(path.join(root, 'python_embed', 'python.exe'), 'offline-embedded-runtime');
+    addPath(path.join(root, 'runtime', 'python', 'python.exe'), 'bundled-runtime');
     addPath(path.join(root, '.venv', 'Scripts', 'python.exe'), 'repo-venv');
     addPath(path.join(root, 'venv', 'Scripts', 'python.exe'), 'installed-venv');
-    addPath(path.join(root, 'runtime', 'python', 'python.exe'), 'bundled-runtime');
-    addPath(path.join(root, 'python_embed', 'python.exe'), 'offline-embedded-runtime');
     addPath(path.join(root, 'py-embed', 'python.exe'), 'embedded-runtime');
     addPath(path.join(root, 'python', 'python.exe'), 'repo-python');
+  }
+  // Source checkouts normally do not carry a Python runtime. Reuse the verified Full installer runtime
+  // with PYTHONPATH pointed at the checkout, so development still runs current code without silently
+  // dropping OCR just because an unrelated system Python happens to import the core ACC package.
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
+    const installedRoot = path.join(process.env.LOCALAPPDATA, 'ai-computer-control');
+    addPath(path.join(installedRoot, 'runtime', 'python', 'python.exe'), 'installed-full-runtime');
+    addPath(path.join(installedRoot, 'venv', 'Scripts', 'python.exe'), 'installed-full-venv');
   }
   const envPython = String(process.env.PYTHON || '').trim();
   if (envPython) candidates.push({ command: envPython, args: [], source: 'PYTHON', requireExisting: path.isAbsolute(envPython) });
@@ -1478,12 +1555,13 @@ function probeDesktopPython(candidate, cwd, desktopEnv) {
       encoding: 'utf8',
       maxBuffer: 64 * 1024,
     });
-    return !!(result && !result.error && result.status === 0);
-  } catch { return false; }
+    if (!result || result.error || result.status !== 0) return '';
+    return String(result.stdout || '').includes('__RUYI_ACC_FULL__') ? 'full' : 'core';
+  } catch { return ''; }
 }
 
-// Returns the first candidate that can actually import the FastMCP server, or null. `options.probe` is a
-// deterministic test seam; normal callers use a short-lived cache so status polling never repeats probes.
+// Returns the first Full candidate; if none exists, returns the first candidate that can at least import
+// the FastMCP server. `options.probe` is a deterministic test seam and may return true/false or full/core.
 function pickPython(repoRoot, desktopEnv, options = {}) {
   const root = String(repoRoot || '');
   const bypassCache = options.noCache === true || typeof options.probe === 'function';
@@ -1496,17 +1574,21 @@ function pickPython(repoRoot, desktopEnv, options = {}) {
   const candidates = Array.isArray(options.candidates) ? options.candidates : desktopPythonCandidates(root);
   const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPython;
   let selected = null;
+  let coreFallback = null;
   for (const raw of candidates) {
     const candidate = raw && typeof raw === 'object' ? raw : { command: String(raw || ''), args: [], source: 'unknown', requireExisting: true };
     if (!candidate.command) continue;
     if (candidate.requireExisting !== false) {
       try { if (!fs.existsSync(candidate.command)) continue; } catch { continue; }
     }
-    if (probe(candidate, root, desktopEnv)) {
-      selected = { command: candidate.command, args: Array.isArray(candidate.args) ? candidate.args : [], source: candidate.source || 'unknown' };
-      break;
-    }
+    const probed = probe(candidate, root, desktopEnv);
+    const capability = probed === 'core' ? 'core' : (probed ? 'full' : '');
+    if (!capability) continue;
+    const match = { command: candidate.command, args: Array.isArray(candidate.args) ? candidate.args : [], source: candidate.source || 'unknown', capability };
+    if (capability === 'full') { selected = match; break; }
+    if (!coreFallback) coreFallback = match;
   }
+  if (!selected) selected = coreFallback;
   if (!bypassCache) desktopPythonCache.set(cacheKey, { at: now, value: selected });
   return selected;
 }
@@ -1533,6 +1615,7 @@ function desktopMcpFromRepo(repoRoot) {
     env: desktopEnv,
     via: 'python-module',
     pythonSource: python.source,
+    pythonCapability: python.capability || 'core',
   };
 }
 
@@ -1562,6 +1645,7 @@ function desktopMcpFromInstalledRoot(installRoot, options = {}) {
     env: desktopEnv,
     via: 'python-module',
     pythonSource: selected.source,
+    pythonCapability: selected.capability || 'core',
   };
 }
 function detectDesktopMcp() {
@@ -1576,8 +1660,9 @@ function detectDesktopMcp() {
       const installed = desktopMcpFromInstalledRoot(root); if (installed) return installed;
     }
     // (b) common repo locations. Bundled monorepo copies come first (release layout ships the MCP
-    // at <repo>/mcp/ai-computer-control with the app at <repo>/ruyi-workbench/app, or flattened
-    // with app/ at the package root) so a shipped copy beats a stale user checkout.
+    // at <repo>/mcp/ai-computer-control with python_embed beside it and the app at
+    // <repo>/ruyi-workbench/app, or flattened with app/ at the package root), so the portable runtime
+    // beats both a stale user checkout and any machine-local Python on a clean distribution target.
     const repoCandidates = [
       // In a pkg executable __dirname points into the read-only compile snapshot, while the bundled
       // MCP lives beside Ruyi.exe. externalRoot() resolves that real release directory.
@@ -2955,6 +3040,9 @@ function normalizeMission(raw, prev, trusted = true) {
     // 必须保住它,否则再耗尽会二次落 mission_budget_exhausted 使超支率 >100%;全新 start(prev=null → p={})自然清空,
     // 新任务的耗尽正常重记。budget 无法经 update 抬高(applyMissionUpdate 不碰 budget),故不需"抬预算才清"的额外逻辑。
     budgetExhaustedAt: String(p.budgetExhaustedAt || ''),
+    // 第84波:Mission 的第一回合游标。整单回退必须回到「任务开始前」而不是猜整个会话的第 1 回合；
+    // 老会话没有该字段时只在 missionRollbackTarget 中基于真实消息/检查点保守推导，绝不盲回到 1。
+    startedTurnSeq: Math.max(0, Number(p.startedTurnSeq) || Number(o.startedTurnSeq) || 0),
     // 75a-2b (S3): Mission-level persistent monotone change sequence. turn/run/Intervention/预算/result/
     // rewind/删除 all advance it (75a-2b wires Intervention transitions; broader wiring lands with each
     // subsystem). Deep-copy preserved (same as budgetExhaustedAt); legacy sessions derive start value 0.
@@ -3068,12 +3156,17 @@ async function buildMissionResult(session, opts) {
     unfinished: ms.filter(x => !x || x.status !== 'done').map(x => ({ id: x && x.id, desc: String((x && x.desc) || '').slice(0, 200), status: (x && x.status) || 'pending' })),
     todosOpen: ((session.todos) || []).filter(t => t && t.status !== 'done').length,
     artifacts: fold.artifacts.slice(0, 50),
+    usage: {
+      autoTurns: Math.max(0, Number(m && m.spent && m.spent.autoTurns) || 0),
+      tokens: Math.max(0, Number(m && m.spent && m.spent.tokens) || 0),
+    },
     changes: {
       filesChanged: fold.filesChanged.length, byOp,
       irreversibleFiles: fold.filesChanged.filter(f => f.revertible !== true).length,
       commands: fold.commands,
     },
     checkpoints: { entries: cpEntries.length, turnSeqs: cpTurnSeqs.slice(0, 50), rollbackAvailable: cpEntries.length > 0 },
+    audit: { commands: fold.commands, irreversible: fold.irreversible.total, checkpoints: cpEntries.length, openTodos: ((session.todos) || []).filter(t => t && t.status !== 'done').length },
     irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands },
   };
 }
@@ -3092,6 +3185,190 @@ async function maybeFinalizeMission(session, how) {
   }
   if (m.result) { m.result = null; m.updatedAt = nowIso(); return true; } // 再武装:清旧章
   return false;
+}
+
+// ── 第84波:Mission 控制面单一 command core ───────────────────────────────────────────────
+// 74 波冻结语义在这里落成唯一状态机：pause/takeover 只停当前回合+驱动，stop 覆盖整单并请求停止
+// 同 Mission 的所有活 Run；continue/retry 只再武装，真正的新 provider 回合由 UI 在用户点击后显式发起。
+function missionRollbackTarget(session, checkpointEntries) {
+  const mission = session && session.mission;
+  const explicit = Number(mission && mission.startedTurnSeq);
+  if (Number.isSafeInteger(explicit) && explicit > 0) return explicit;
+  const missionStartedAt = Date.parse(String(mission && mission.createdAt || ''));
+  if (!Number.isFinite(missionStartedAt)) return 0; // 旧数据边界不明时宁可不给整单回退，也不越界撤销前一项工作
+  const candidates = [];
+  for (const entry of (checkpointEntries || [])) {
+    const seq = Number(entry && entry.turnSeq);
+    const occurredAt = Date.parse(String(entry && entry.ts || ''));
+    if (Number.isSafeInteger(seq) && seq > 0 && Number.isFinite(occurredAt) && occurredAt >= missionStartedAt - 1000) candidates.push(seq);
+  }
+  for (const message of ((session && session.messages) || [])) {
+    const direct = Number(message && message.turnSeq);
+    const summary = Number(message && message.turnSummary && message.turnSummary.turnSeq);
+    const occurredAt = Date.parse(String(message && (message.createdAt || message.ts) || ''));
+    if (!Number.isFinite(occurredAt) || occurredAt < missionStartedAt - 1000) continue;
+    if (Number.isSafeInteger(direct) && direct > 0) candidates.push(direct);
+    if (Number.isSafeInteger(summary) && summary > 0) candidates.push(summary);
+  }
+  return candidates.length ? Math.min(...candidates) : 0;
+}
+
+function missionBudgetRemaining(mission) {
+  if (!mission) return false;
+  const budget = mission.budget || {};
+  const spent = mission.spent || {};
+  if ((Number(spent.autoTurns) || 0) >= Math.max(1, Number(budget.maxAutoTurns) || MISSION_DEFAULT_MAX_TURNS)) return false;
+  if ((Number(budget.maxTokens) || 0) > 0 && (Number(spent.tokens) || 0) >= Number(budget.maxTokens)) return false;
+  return true;
+}
+
+function missionControlView(session, opts = {}) {
+  const mission = session && session.mission;
+  const checkpointEntries = Array.isArray(opts.checkpointEntries) ? opts.checkpointEntries : [];
+  const runs = Array.isArray(opts.runs) ? opts.runs : [];
+  const activeTurn = Boolean(session && activeChildren.has(session.id));
+  const liveRuns = runs.filter(run => run && (run.live === true || activeAgentRuns.has(run.id)));
+  const terminal = Boolean(mission && mission.result);
+  const milestones = mission && Array.isArray(mission.milestones) ? mission.milestones : [];
+  const unfinished = milestones.some(item => !item || item.status !== 'done');
+  const budgetRemaining = missionBudgetRemaining(mission);
+  const rollbackTargetTurnSeq = missionRollbackTarget(session, checkpointEntries);
+  const action = (enabled, scope, reason = '') => ({ enabled: Boolean(enabled), scope, reason: enabled ? '' : reason });
+  return {
+    activeTurn, liveRuns: liveRuns.length, terminal, unfinished, budgetRemaining,
+    rollbackTargetTurnSeq,
+    actions: {
+      pause: action(Boolean(mission) && !terminal && (activeTurn || mission.autoMode === 'until-done'), 'turn_driver', terminal ? 'terminal' : 'already_paused'),
+      continue: action(Boolean(mission) && !terminal && unfinished && !activeTurn && mission.autoMode !== 'until-done' && budgetRemaining,
+        'turn_driver', terminal ? 'terminal' : (!unfinished ? 'complete' : (activeTurn ? 'turn_active' : (!budgetRemaining ? 'budget_exhausted' : 'already_running')))),
+      stop: action(Boolean(mission) && !terminal, 'mission', terminal ? 'terminal' : 'mission_missing'),
+      retry: action(Boolean(mission) && Boolean(mission.result) && mission.result.status === 'stopped' && unfinished && !activeTurn && budgetRemaining,
+        'mission', !terminal ? 'not_terminal' : (mission.result && mission.result.status !== 'stopped' ? 'complete' : (activeTurn ? 'turn_active' : (!unfinished ? 'complete' : (!budgetRemaining ? 'budget_exhausted' : 'unavailable'))))),
+      takeover: action(Boolean(mission) && !terminal && (activeTurn || mission.autoMode !== 'off'), 'turn_driver', terminal ? 'terminal' : 'already_manual'),
+      rollback: action(Boolean(mission) && rollbackTargetTurnSeq > 0 && checkpointEntries.length > 0 && !activeTurn && liveRuns.length === 0,
+        'mission', activeTurn ? 'turn_active' : (liveRuns.length ? 'run_active' : (!rollbackTargetTurnSeq ? 'target_unknown' : 'no_checkpoints'))),
+    },
+  };
+}
+
+async function waitMissionTurnSettled(sessionId) {
+  const settler = turnSettlers.get(sessionId);
+  if (!settler || !settler.promise) return true;
+  return Promise.race([settler.promise.then(() => true), new Promise(resolve => setTimeout(() => resolve(false), 8000))]);
+}
+
+async function stopMissionAgentRuns(sessionId) {
+  let count = 0;
+  const saves = [];
+  for (const live of activeAgentRuns.values()) {
+    if (!live || !live.run || live.run.sessionId !== sessionId || live.closing || live.stopRequested) continue;
+    count++;
+    live.stopRequested = true;
+    live.paused = false;
+    try { if (live.ctrl) live.ctrl.abort(); } catch { /* best-effort */ }
+    const waiters = Array.isArray(live.resumeWaiters) ? live.resumeWaiters.splice(0) : [];
+    for (const wake of waiters) { try { wake(); } catch { /* best-effort */ } }
+    bumpRunIntervention(live.run, 'mission_stop');
+    appendAgentRunEvent(live.run, { type: 'run_stop_requested', data: { reason: 'mission_stop' } });
+    saves.push(saveAgentRun(live.run).catch(() => {}));
+  }
+  await Promise.all(saves);
+  return count;
+}
+
+function missionControlFailure(reason, status = 409, message = '') {
+  return { status, body: { ok: false, reason, error: message || reason } };
+}
+
+async function missionControlCommand(sessionId, rawAction) {
+  const action = String(rawAction || '').trim();
+  if (!['pause', 'continue', 'stop', 'retry', 'takeover', 'rollback'].includes(action)) {
+    return missionControlFailure('action_invalid', 400, 'unknown mission control action');
+  }
+  // 回合收尾的原子头文件换名窗口里，磁盘读可能短暂看不到头；活回合注册表持有同一权威 session，
+  // 控制动作必须仍可送达，不能让用户在最需要 Pause 时撞瞬态 404。
+  const registered = activeChildren.get(sessionId);
+  let session = await loadSession(sessionId) || (registered && registered.session) || null;
+  if (!session) return missionControlFailure('not_found', 404, 'session not found');
+  if (!session.mission) return missionControlFailure('mission_missing', 404, 'mission not found');
+
+  let cpEntries = await journalReadIndex(sessionId).catch(() => []);
+  let runs = await listAgentRuns(sessionId).catch(() => []);
+  let controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
+  const capability = controls.actions[action];
+  if (!capability || !capability.enabled) return missionControlFailure(capability && capability.reason || 'unavailable');
+
+  const mustStopTurn = ['pause', 'stop', 'takeover'].includes(action) && activeChildren.has(sessionId);
+  if (mustStopTurn) {
+    // 先改活回合持有的同一 Mission 引用，再中止 fetch/子进程。否则 dying turn 的当前轮 settler
+    // resolve 后，until-done driver 可能在控制路由落盘前抢先开启下一轮，Pause 响应仍显示 activeTurn。
+    const liveTurn = activeChildren.get(sessionId);
+    if (liveTurn && liveTurn.session && liveTurn.session.mission) {
+      liveTurn.session.mission.autoMode = action === 'pause' ? 'supervised' : 'off';
+      liveTurn.session.mission.updatedAt = nowIso();
+    }
+    stopSession(sessionId, `mission_${action}`);
+    const settled = await waitMissionTurnSettled(sessionId);
+    if (!settled) logEvent({ kind: 'mission_control_settle_timeout', sessionId, action });
+    session = await loadSession(sessionId) || session;
+  }
+
+  let requiresTurn = false;
+  let rollback = null;
+  let stoppedRuns = 0;
+  const mission = session.mission;
+  if (action === 'pause') {
+    mission.autoMode = 'supervised';
+  } else if (action === 'continue') {
+    mission.autoMode = 'until-done';
+    mission.stall = { lastDigest: '', sameCount: 0 };
+    requiresTurn = true;
+  } else if (action === 'takeover') {
+    mission.autoMode = 'off';
+    try { revokeAllGrants(sessionId, 'mission-takeover'); } catch { /* best-effort */ }
+  } else if (action === 'stop') {
+    stoppedRuns = await stopMissionAgentRuns(sessionId);
+    try { revokeAllGrants(sessionId, 'mission-stop'); } catch { /* best-effort */ }
+    mission.autoMode = 'off';
+    mission.result = await buildMissionResult(session, { status: 'stopped', how: 'stop' });
+  } else if (action === 'retry') {
+    for (const item of mission.milestones || []) {
+      if (item && item.status === 'blocked') { item.status = 'pending'; item.evidence = ''; }
+    }
+    mission.result = null;
+    mission.autoMode = 'until-done';
+    mission.stall = { lastDigest: '', sameCount: 0 };
+    requiresTurn = true;
+  } else if (action === 'rollback') {
+    const targetTurnSeq = controls.rollbackTargetTurnSeq;
+    rollback = await rewindSession(sessionId, targetTurnSeq, true);
+    if (!rollback || !rollback.ok) return missionControlFailure('rollback_failed', 409, rollback && rollback.error || 'mission rollback failed');
+    session = await loadSession(sessionId) || session;
+    for (const item of session.mission.milestones || []) {
+      if (!item) continue;
+      item.status = 'pending';
+      item.evidence = '';
+    }
+    session.mission.result = null;
+    session.mission.autoMode = 'off';
+    session.mission.stall = { lastDigest: '', sameCount: 0 };
+  }
+  session.mission.updatedAt = nowIso();
+  await saveSession(session);
+  const revision = await bumpMissionChangeSeq(sessionId, {
+    type: action === 'stop' ? 'result' : 'progress',
+    cursor: { action, ...(rollback ? { targetTurnSeq: controls.rollbackTargetTurnSeq } : {}) },
+    detail: { status: session.mission.result && session.mission.result.status || '', autoMode: session.mission.autoMode, stoppedRuns, rollback: Boolean(rollback) },
+  });
+  if (revision) session.mission.changeSeq = revision;
+  const reg = activeChildren.get(sessionId);
+  if (reg && reg.session && reg.session !== session) reg.session.mission = session.mission;
+  if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } }
+
+  cpEntries = await journalReadIndex(sessionId).catch(() => []);
+  runs = await listAgentRuns(sessionId).catch(() => []);
+  controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
+  return { status: 200, body: { ok: true, action, mission: session.mission, controls, requiresTurn, stoppedRuns, ...(rollback ? { rollback } : {}) } };
 }
 // 执行一条里程碑的机器验收(command 判退出码+可选输出包含;file_exists 判在)。'none' 返回 null(交模型自报)。
 // 只读判定,不改文件;command 走工作区 cwd,复用 runProcess 基建;绝不用于副作用。
@@ -5324,6 +5601,20 @@ function bridgedToolTimeoutMs(name) {
   return BRIDGED_TOOL_TIMEOUTS[bare] || BRIDGED_TOOL_TIMEOUT_DEFAULT_MS;
 }
 
+// Match the bridge deadline to the concrete ACC run_command request instead of showing a default 60-second
+// command as "running" for the old blanket 650-second ceiling. Keep a small protocol/serialization grace;
+// explicit WCW_BRIDGED_TIMEOUT_OVERRIDE values remain the harder outer cap used by tests/operators.
+function bridgedToolCallTimeoutMs(name, args) {
+  const bare = String(name || '').toLowerCase();
+  const configured = bridgedToolTimeoutMs(name);
+  if (bare !== 'run_command') return configured;
+  const requestedSeconds = Number(args && args.timeout);
+  const commandSeconds = Number.isFinite(requestedSeconds)
+    ? Math.max(1, Math.min(600, requestedSeconds))
+    : 60;
+  return Math.max(1000, Math.min(configured, commandSeconds * 1000 + 10000));
+}
+
 // 75b: automatic timeout/teardown decisions participate in the same per-Intervention CAS as user
 // decisions. The fallback is only for storage/core failure and must re-check the registry entry so a
 // concurrently applying user command can never be overwritten by a legacy settle.
@@ -5391,7 +5682,9 @@ function normalizeUserQuestions(raw) {
       question: String(q.question || q.header || `Question ${index + 1}`).trim().slice(0, 1000),
       answerMode,
       multiSelect: answerMode === 'multiple', // legacy clients keep their existing branch
-      allowOther: answerMode !== 'text' && q.allowOther === true,
+      // Wave 85: finite choices are the primary path; typing stays available behind an explicit Other row.
+      // Callers may set false only when a custom answer would be semantically invalid.
+      allowOther: answerMode !== 'text' && q.allowOther !== false,
       otherLabel: String(q.otherLabel || '').trim().slice(0, 120),
       otherPlaceholder: String(q.otherPlaceholder || '').trim().slice(0, 300),
       options,
@@ -5448,12 +5741,19 @@ function formatQuestionGuidance(answer) {
   return `<workbench_user_answer>\n${text}\n</workbench_user_answer>\nContinue the current task using this answer. Do not ask the same question again.`;
 }
 
-function registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, deliver) {
+function normalizeQuestionContext(value) {
+  const clean = String(value || '').replace(/\r\n/g, '\n').trim();
+  if (clean.length <= 6000) return clean;
+  return `…\n${clean.slice(-5998)}`;
+}
+
+function registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, deliver, context = '') {
   // Provider call ids are often reused as "call_1" across sessions, so never use them as registry keys.
   const sourceId = String(questionId || '');
   const id = makeId('question');
   const normalized = normalizeUserQuestions(questions);
   if (!normalized.length) return null;
+  const questionContext = normalizeQuestionContext(context);
   const entry = { sessionId, questions: normalized, timer: null, deliver: null };
   entry.deliver = (answer, opts = {}) => {
     if (pendingQuestions.get(id) !== entry) return false;
@@ -5487,17 +5787,18 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
     });
   }, Math.max(5000, Number(timeoutMs) || 120000));
   pendingQuestions.set(id, entry);
-  onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized });
+  onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized, context: questionContext || undefined });
   registerIntervention(sessionId, 'question', id, {
     questionSummary: normalized.map(q => String(q.question || '').slice(0, 200)).join(' | '),
     questions: normalized,
+    context: questionContext,
   });
   return id;
 }
 
-function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs) {
+function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, context = '') {
   return new Promise(resolve => {
-    const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; });
+    const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; }, context);
     if (!id) resolve({ ok: false, answers: [], content: '', error: 'no valid questions' });
   });
 }
@@ -5681,7 +5982,7 @@ class McpStdioClient {
   // 47b:超时走契约化处理 —— notifications/cancelled(_rpc 内已发)+ kill 客户端进程树(无僵尸执行),
   // 下次调用由 mcpClients 惰性重 spawn。错误文本如实告知"已杀进程树"。
   async callTool(name, args, timeoutMs) {
-    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolTimeoutMs(name));
+    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit);
       const isError = !!(res && res.isError);
@@ -5965,7 +6266,7 @@ class McpHttpClient {
 
   // Same result normalization as McpStdioClient.callTool — never throws.
   async callTool(name, args, timeoutMs) {
-    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolTimeoutMs(name));
+    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit);
       const isError = !!(res && res.isError);
@@ -7119,6 +7420,7 @@ async function runClaudeTurn({
   {
     appendSys = String(config.appendSystemPrompt || '');
     appendSys += `${appendSys ? '\n\n' : ''}${getPromptPack(config && config.locale).toolProtocol.batching}`;
+    appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.questioning}`;
     if (interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
@@ -7281,7 +7583,7 @@ async function runClaudeTurn({
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId }; // 47a: kind 供 /api/steer 按引擎分派
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '' }; // 47a: kind 供 /api/steer 按引擎分派
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.
@@ -7464,8 +7766,8 @@ async function runClaudeTurn({
         bindNativeClaudeSession(ev.sessionId);
       }
     } else if (ev.kind === 'text') {
-      if (ev.partial) { pendingDeltaText = true; assistantText += ev.text; onEvent({ type: 'assistant_delta', text: ev.text }); }
-      else if (!pendingDeltaText) { assistantText += ev.text; onEvent({ type: 'assistant_delta', text: ev.text }); }
+      if (ev.partial) { pendingDeltaText = true; assistantText += ev.text; reg.questionContext = assistantText; onEvent({ type: 'assistant_delta', text: ev.text }); }
+      else if (!pendingDeltaText) { assistantText += ev.text; reg.questionContext = assistantText; onEvent({ type: 'assistant_delta', text: ev.text }); }
     } else if (ev.kind === 'thinking') {
       if (ev.partial) { pendingDeltaThinking = true; thinkingText += ev.text; onEvent({ type: 'thinking_delta', text: ev.text }); }
       else if (!pendingDeltaThinking) { thinkingText += ev.text; onEvent({ type: 'thinking_delta', text: ev.text }); }
@@ -7489,7 +7791,7 @@ async function runClaudeTurn({
       // Interactive: an AskUserQuestion tool_use is ours to answer — surface a modal instead of a plain card.
       if (interactive && isAskUserTool(ev.name)) {
         registerUserQuestion(session.id, ev.id, (ev.input && ev.input.questions) || ev.input || {}, onEvent, config.permissionTimeoutMs,
-          answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))));
+          answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))), assistantText);
       }
     } else if (ev.kind === 'tool_result') {
       const tc = toolCalls.find(t => t.id === ev.id);
@@ -9012,11 +9314,13 @@ async function draftPlaybookFromSession(sessionId) {
       const u = sc && sc.usage;
       const inTok = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
       const outTok = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+      const cachedInTok = cachedInputTokensFromUsage(u);
       if (inTok > 0 || outTok > 0) {
-        const { cost, currency } = computeProviderCost(provider, inTok, outTok);
+        const ledgerModel = sc.model || provider.model || '';
+        const { cost, currency } = computeProviderCost(provider, inTok, outTok, cachedInTok, ledgerModel);
         appendUsageLedger({
-          sessionId: session.id, engine: 'openai', provider: provider.id, model: sc.model || provider.model || '',
-          inTok, outTok, cost, currency, estimated: false, turnSeq: session.turnSeq, kind: 'aux', note: 'playbook-draft',
+          sessionId: session.id, engine: 'openai', provider: provider.id, model: ledgerModel,
+          inTok, outTok, cachedInTok, cost, currency, estimated: false, turnSeq: session.turnSeq, kind: 'aux', note: 'playbook-draft',
         });
       }
     } catch { /* accounting must never break drafting */ }
@@ -9083,11 +9387,13 @@ async function repairNodeJsonViaProvider(provider, config, session, node, schema
       const u = sc && sc.usage;
       const inTok = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
       const outTok = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+      const cachedInTok = cachedInputTokensFromUsage(u);
       if ((inTok > 0 || outTok > 0) && session && session.id) {
-        const { cost, currency } = computeProviderCost(provider, inTok, outTok);
+        const ledgerModel = sc.model || provider.model || '';
+        const { cost, currency } = computeProviderCost(provider, inTok, outTok, cachedInTok, ledgerModel);
         appendUsageLedger({
-          sessionId: session.id, engine: 'openai', provider: provider.id, model: sc.model || provider.model || '',
-          inTok, outTok, cost, currency, estimated: false, turnSeq: session.turnSeq, kind: 'aux', note: 'json-repair',
+          sessionId: session.id, engine: 'openai', provider: provider.id, model: ledgerModel,
+          inTok, outTok, cachedInTok, cost, currency, estimated: false, turnSeq: session.turnSeq, kind: 'aux', note: 'json-repair',
           agentKey: node && node.id,
         });
       }
@@ -9537,7 +9843,7 @@ function appendMemorySection(base, memSec, limit) {
 // 设计:文本逐字搬(与原内联一致,prompt-snapshot 断言中文标记不变->护栏绿)。带参数的层用模板函数
 // (params 白名单),无参数的用纯字符串。条件分支(hasTools/identityOnly/deskPresent/visionCap 等)留 JS 层。
 
-const PROMPT_PACK_VERSION = '2026-w74-1';
+const PROMPT_PACK_VERSION = '2026-w85-1';
 
 // 中文提示词包(Phase1 基线,与原内联文本逐字一致)
 const PROMPT_ZH = {
@@ -9550,6 +9856,7 @@ const PROMPT_ZH = {
     intro: '你有读/列/搜文件、编辑与写文件、运行 PowerShell 与脚本、查看 git 等工具。用它们实际检查与修改工作区，不要凭空猜测。使用绝对 Windows 路径（默认落在工作目录）。',
     rules: '工具协议守则：先读后改（编辑前先读该文件）；最小、精准的改动；工具返回 found:false / 未命中属正常语义，不是错误；重要或多步操作先用 todo_write 列出计划再执行；完成后给一段简洁的变更摘要。',
     batching: '工具批次：参数已确定且互不依赖的调用，在同一条助手消息中一次发出，结果按所列顺序返回。后一步依赖前一步结果时分阶段调用：先等本批 tool_result 再发下一批。request_user_input、权限决策及有先读后改依赖的写操作必须分批。',
+    questioning: '向用户提问时优先给出 2–5 个具体、互斥且可直接点击的选项；把建议项放在第一位并在标签中标明“（推荐）”，同时保留“其他”输入作为兜底。只有答案确实无法合理枚举时才使用纯文本回答，不能为了省事把本可选择的问题丢给用户手写。',
     onDemand: '工具按需装载：当前只提供任务预判所需的工具。不知道有哪些能力时先调用 list_tools；知道目标时直接调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。',
     priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
   },
@@ -9620,6 +9927,7 @@ const PROMPT_EN = {
     intro: 'You have tools to read/list/search files, edit and write files, run PowerShell and scripts, inspect git, and more. Use them to actually check and modify the workspace; do not guess. Use absolute Windows paths (they default to the working directory).',
     rules: 'Tool protocol: read before edit (read the file before editing it); make minimal, precise changes; a tool returning found:false / no-match is normal semantics, not an error; for important or multi-step operations, list a plan with todo_write first, then execute; after finishing, give a brief change summary.',
     batching: 'Tool batching: emit calls with fixed arguments and no dependencies together in one assistant message; results return in listed order. If a later call depends on an earlier result, wait for this tool_result batch before sending the next. Keep request_user_input, permission decisions, and writes with read-before-edit dependencies in separate batches.',
+    questioning: 'When asking the user, prefer 2–5 concrete, mutually exclusive, directly clickable options. Put the recommended option first and suffix its label with “(Recommended)”, while keeping an Other input as a fallback. Use a text-only answer only when the answer genuinely cannot be enumerated; do not make the user type a choice that could have been offered.',
     onDemand: 'On-demand tool loading: only the tools the current task likely needs are provided. If you do not know what capabilities exist, call list_tools first; when you know the target, call tool_search, then tool_load with the returned pack or exact tool name. After a successful load, call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.',
     priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
   },
@@ -10028,9 +10336,11 @@ async function draftMemoryFromSession(sessionId) {
       const u = sc && sc.usage;
       const inTok = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
       const outTok = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+      const cachedInTok = cachedInputTokensFromUsage(u);
       if (inTok > 0 || outTok > 0) {
-        const { cost, currency } = computeProviderCost(provider, inTok, outTok);
-        appendUsageLedger({ sessionId: session.id, engine: 'openai', provider: provider.id, model: sc.model || provider.model || '', inTok, outTok, cost, currency, estimated: false, turnSeq: session.turnSeq, kind: 'aux', note: 'memory-draft' });
+        const ledgerModel = sc.model || provider.model || '';
+        const { cost, currency } = computeProviderCost(provider, inTok, outTok, cachedInTok, ledgerModel);
+        appendUsageLedger({ sessionId: session.id, engine: 'openai', provider: provider.id, model: ledgerModel, inTok, outTok, cachedInTok, cost, currency, estimated: false, turnSeq: session.turnSeq, kind: 'aux', note: 'memory-draft' });
       }
     } catch { /* 记账绝不可影响起草 */ }
     if (!sc.ok) { if (attempt === 1) return { ok: false, error: sc.error }; continue; }
@@ -12421,12 +12731,12 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // the sub-agent bills as its own independent ledger row, never merged into the父回合, so no double counting).
   // Mirrors the parent markUsage's E4 alias handling (prompt_tokens|input_tokens / completion_tokens|output_tokens)
   // and accumulates across every API call in the sub-turn. `calls` records whether ANY real usage frame arrived.
-  const subUsage = { in: 0, out: 0, calls: 0 };
+  const subUsage = { in: 0, out: 0, cachedIn: 0, calls: 0 };
   const markUsage = u => {
     if (!u || typeof u !== 'object') return;
     const inTok = Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0;
     const outTok = Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0;
-    subUsage.in += inTok; subUsage.out += outTok; subUsage.calls += 1;
+    subUsage.in += inTok; subUsage.out += outTok; subUsage.cachedIn += Math.min(inTok, cachedInputTokensFromUsage(u)); subUsage.calls += 1;
   };
   let resultText = '';
   let iters = 0, toolCallCount = 0;
@@ -12756,10 +13066,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         subIn = Math.max(0, estTotal - estOut); subOut = estOut; estimated = true;
       }
     }
-    const { cost, currency } = computeProviderCost(provider, subIn, subOut);
+    const cachedInTok = estimated ? 0 : subUsage.cachedIn;
+    const { cost, currency } = computeProviderCost(provider, subIn, subOut, cachedInTok, subModel);
     appendUsageLedger({
       sessionId: parentSession && parentSession.id, engine: 'openai', provider: provider.id, model: subModel,
-      inTok: subIn, outTok: subOut, cost, currency, estimated, turnSeq: parentSession && parentSession.turnSeq,
+      inTok: subIn, outTok: subOut, cachedInTok, cost, currency, estimated, turnSeq: parentSession && parentSession.turnSeq,
       kind: 'subagent', agentKey, subagentId,
     });
     onEvent({ type: 'subagent_usage', id: subagentId, agentKey, inTok: subIn, outTok: subOut, cost, currency, estimated }); // 29c: 同 Claude 路径(两引擎对称)
@@ -14652,6 +14963,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // turn is live; the tool loop drains it at the iteration boundary (before each API call), injecting
     // each as a `[用户插话] …` user message into providerHistory (pairing-safe — see drainSteerQueue).
     steerQueue: [],
+    questionContext: '',
   };
   // External bridge/MCP activity can also arrive through the active-turn registry.  Keep that path symmetric
   // with Claude so a live workflow refreshes the parent watchdog no matter which engine launched it.
@@ -14812,7 +15124,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // current window occupancy, not a sum). `calls` counts how many API calls carried usage this turn.
   // The `usage` event/message fields keep their names (input/output_tokens) — this is a correctness fix,
   // not a protocol change; only `calls` is additive.
-  const turnUsage = { input_tokens: 0, output_tokens: 0 };
+  const turnUsage = { input_tokens: 0, output_tokens: 0, cached_input_tokens: 0 };
   let usageCalls = 0;
   const markUsage = u => {
     if (!u || typeof u !== 'object') return;
@@ -14820,12 +15132,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // prompt_tokens/completion_tokens. Some vLLM builds and Anthropic-compat gateways report the former.
     const inTok = Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0;
     const outTok = Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0;
+    const cachedInTok = Math.min(inTok, cachedInputTokensFromUsage(u));
     const total = Number(u.total_tokens || 0) || (inTok + outTok);
     turnUsage.input_tokens += inTok;
     turnUsage.output_tokens += outTok;
+    turnUsage.cached_input_tokens += cachedInTok;
     usageCalls += 1;
     noteEstimateSample(provider.id, model, lastEstBeforeCall, inTok); // 45d(a):真实 usage ÷ 发送前估算 → EMA 校准
-    usageObj = { usage: { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens }, contextTokens: total || undefined, calls: usageCalls };
+    usageObj = { usage: { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens, cached_input_tokens: turnUsage.cached_input_tokens }, contextTokens: total || undefined, calls: usageCalls };
   };
   const toolBudget = resolveToolIterationBudget(config.openaiMaxToolIterations, message, {
     driverAuto,
@@ -15040,7 +15354,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 45f P1-1:窗口学习只在【强压重试成功】后落账 —— 证明确实是超窗,误判不再永久压窗。
       if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, model, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.reasoning) thinkingText += call.reasoning;
-      if (call.text) assistantText += call.text;
+      if (call.text) {
+        assistantText += call.text;
+        reg.questionContext = assistantText;
+      }
       activeProviderBatchId = call.toolCalls && call.toolCalls.length ? turnSegments.createBatchId('openai') : '';
       // Aborted while streaming → discard this (possibly partial) step, keep history valid.
       if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -15371,7 +15688,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // A Provider function call pauses this tool iteration until the matching UI answer arrives.
                 // Its structured result is appended as the normal role:'tool' reply below, so every
                 // OpenAI-compatible backend sees the choice in the protocol shape it already understands.
-                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.permissionTimeoutMs);
+                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.permissionTimeoutMs, assistantText);
                 resultObj = answer && answer.ok
                   ? { ok: true, answers: answer.answers, content: answer.content }
                   : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' };
@@ -15601,10 +15918,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // Cost comes from the provider's optional pricing (null when unpriced); estimated turns are flagged.
   if (usageObj && usageObj.usage) {
     const inTok = usageObj.usage.input_tokens, outTok = usageObj.usage.output_tokens;
-    const { cost, currency } = computeProviderCost(provider, inTok, outTok);
+    const cachedInTok = usageObj.usage.cached_input_tokens || 0;
+    const { cost, currency } = computeProviderCost(provider, inTok, outTok, cachedInTok, model);
     appendUsageLedger({
       sessionId: session.id, engine: 'openai', provider: provider.id, model,
-      inTok, outTok, cost, currency, estimated: usageObj.estimated === true, turnSeq: session.turnSeq,
+      inTok, outTok, cachedInTok, cost, currency, estimated: usageObj.estimated === true, turnSeq: session.turnSeq,
     });
   }
   onEvent({ type: 'turn_summary', ...turnSummary });
@@ -16136,10 +16454,12 @@ function recordCompactUsage(session, provider, sc) {
       outTok = uOut > 0 ? uOut : Math.round(estimateContentTokens(sc.summary || ''));
       estimated = (uIn <= 0 || uOut <= 0);
     } else { inTok = Number(sc.promptTokensEst) || 0; outTok = Math.round(estimateContentTokens(sc.summary || '')); estimated = true; }
-    const { cost, currency } = computeProviderCost(provider, inTok, outTok);
+    const cachedInTok = estimated ? 0 : Math.min(inTok, cachedInputTokensFromUsage(u));
+    const ledgerModel = sc.model || provider.model || '';
+    const { cost, currency } = computeProviderCost(provider, inTok, outTok, cachedInTok, ledgerModel);
     appendUsageLedger({
-      sessionId: session.id, engine: 'openai', provider: provider.id, model: sc.model || provider.model || '',
-      inTok, outTok, cost, currency, estimated, turnSeq: session.turnSeq, kind: 'aux', note: 'compact',
+      sessionId: session.id, engine: 'openai', provider: provider.id, model: ledgerModel,
+      inTok, outTok, cachedInTok, cost, currency, estimated, turnSeq: session.turnSeq, kind: 'aux', note: 'compact',
     });
   } catch { /* accounting must never break compaction */ }
 }
@@ -19895,18 +20215,8 @@ async function handleApi(req, res, pathname) {
     const action = String(bodyOrQ.action || 'update');
     const emitMission = () => { const reg = activeChildren.get(sessionId); if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } } };
     if (action === 'stop') {
-      if (session.mission) {
-        session.mission.autoMode = 'off';
-        // 第72波:stop 是终态动作 → 盖 stopped 结果章(验收/未完成项/变更/回滚/不可逆账定格在此刻)。
-        session.mission.result = await buildMissionResult(session, { status: 'stopped', how: 'stop' });
-        session.mission.updatedAt = nowIso(); await saveSession(session);
-        const revision = await bumpMissionChangeSeq(sessionId, {
-          type: 'result', cursor: { action: 'stop' }, detail: { status: 'stopped', how: 'stop' },
-        });
-        if (revision) session.mission.changeSeq = revision;
-        emitMission();
-      }
-      return send(res, json({ ok: true, mission: session.mission || null }));
+      const result = await missionControlCommand(sessionId, 'stop');
+      return send(res, json(result.body, result.status));
     }
     if (action === 'check') {
       // 跑全部里程碑机器验收;autoMark!==false 时把 pass 的 pending/blocked 里程碑标 done(证据落 detail)。
@@ -19944,6 +20254,7 @@ async function handleApi(req, res, pathname) {
       const input = { ...(bodyOrQ.mission || bodyOrQ) };
       if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
       session.mission = normalizeMission(input, null, trusted);
+      session.mission.startedTurnSeq = Math.max(1, (Number(session.turnSeq) || 0) + 1);
       session.kind = 'mission'; // 第70波(EC-E):start 是显式任务动作 → Quick Ask 翻转 Mission(非启发式)
       logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
     } else {
@@ -20097,7 +20408,7 @@ async function handleApi(req, res, pathname) {
       return send(res, json(await buildUsageSummary(range)));
     } catch {
       // Old install with no ledger / any read error -> empty aggregation, never a 500.
-      return send(res, json({ ok: true, range, totals: { inTok: 0, outTok: 0, turns: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} }, byEngine: [], byProvider: [], bySession: [], byDay: [], budget: null }));
+      return send(res, json({ ok: true, range, totals: { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} }, byEngine: [], byProvider: [], bySession: [], byDay: [], budget: null }));
     }
   }
   // 第29波(§29c): 运营指标聚合(read-only GET,同 usage/summary 纪律:handler 自查 tokenOk,失败回空聚合)。
@@ -21147,7 +21458,7 @@ const MCP_TOOLS = [
   // loopback. It is hidden from sub-agents and standalone MCP sessions because neither owns the chat UI.
   {
     name: 'request_user_input',
-    description: 'Pause and ask the user one to three concise questions in the workbench UI. Questions may be single choice, multiple choice, free text, or choices plus an optional custom answer. Use this whenever a missing preference or choice materially affects the result. The tool returns structured user answers; continue only after it returns.',
+    description: 'Pause and ask the user one to three concise questions in the workbench UI. Prefer 2-5 concrete, mutually exclusive options whenever the answer can be enumerated; put the recommended option first and label it (Recommended). Choice questions include an Other typed fallback by default. Use text-only mode only when options genuinely cannot represent the answer. The tool returns structured user answers; continue only after it returns.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -21159,9 +21470,9 @@ const MCP_TOOLS = [
               id: { type: 'string', description: 'Stable identifier within this request; generated when omitted' },
               header: { type: 'string', description: 'Short label for the question' },
               question: { type: 'string', description: 'The question shown to the user' },
-              answerMode: { type: 'string', enum: ['single', 'multiple', 'text'], description: 'Single choice, multiple choice, or free text. Inferred from options/multiSelect when omitted.' },
+              answerMode: { type: 'string', enum: ['single', 'multiple', 'text'], description: 'Single or multiple choice is preferred. Use text only when a useful finite option set cannot be offered. Inferred from options/multiSelect when omitted.' },
               options: {
-                type: 'array',
+                type: 'array', description: 'Prefer 2-5 concrete choices. Put the recommended option first and suffix its label with (Recommended). Omit only for genuinely open-ended text answers.',
                 items: {
                   type: 'object',
                   properties: {
@@ -21173,7 +21484,7 @@ const MCP_TOOLS = [
                 },
               },
               multiSelect: { type: 'boolean', description: 'Legacy alias for answerMode=multiple' },
-              allowOther: { type: 'boolean', description: 'With single/multiple choices, also allow a custom typed answer' },
+              allowOther: { type: 'boolean', default: true, description: 'With single/multiple choices, allow a custom typed fallback. Defaults to true; set false only when custom input would be invalid.' },
               otherLabel: { type: 'string', description: 'Optional label for the custom-answer choice' },
               otherPlaceholder: { type: 'string', description: 'Optional placeholder for the custom-answer input' },
             },
@@ -21695,7 +22006,22 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
     // an update (lost-write on the shared index). rewindSession has this guard internally; the direct
     // rollback route did not, so add it here BEFORE calling journalRollback.
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中,请先停止' }, 409));
-    return send(res, json(await journalRollback(sessionId, body.turnSeq, body.entrySeq)));
+    if ([...activeAgentRuns.values()].some(live => live && live.run && live.run.sessionId === sessionId && !live.closing)) {
+      return send(res, json({ ok: false, error: '班组 Run 进行中,请先停止' }, 409));
+    }
+    const rollback = await journalRollback(sessionId, body.turnSeq, body.entrySeq);
+    if (rollback && rollback.ok) {
+      await bumpMissionChangeSeq(sessionId, {
+        type: 'rewind',
+        cursor: { turnSeq: Number(body.turnSeq), ...(body.entrySeq == null ? {} : { entrySeq: Number(body.entrySeq) }) },
+        detail: {
+          rollbackScope: body.entrySeq == null ? 'turn' : 'entry',
+          filesReverted: Array.isArray(rollback.reverted) ? rollback.reverted.length : 0,
+          filesFailed: Array.isArray(rollback.failed) ? rollback.failed.length : 0,
+        },
+      });
+    }
+    return send(res, json(rollback));
   }
   // v0.8-S4b: conversation REWIND (mutating; header-token — see needsToken whitelist above). Truncates the
   // session to just before `targetTurnSeq`, clears providerHistory (lazy-reseed rebuilds it), optionally
@@ -22189,6 +22515,16 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       integrity: { corruptLines: folded.corruptLines, lastRevision: folded.lastRevision },
     }));
   }
+  // 第84波:Mission 控制面。动作作用域由 missionControlCommand 单一核心冻结；本路由只做
+  // missionId/sessionId 解析与 HTTP 适配，经典 /api/mission stop 也复用同一核心。
+  if (req.method === 'POST' && /^\/api\/missions\/[^/]+\/control$/.test(pathname)) {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const sessionId = safeSessionId(pathname.split('/')[3]);
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const body = await readJsonBody(req);
+    const result = await missionControlCommand(sessionId, body && body.action);
+    return send(res, json(result.body, result.status));
+  }
   // 详情:单会话稳定任务快照(EC-E:mission + Agent Run + 产物 + 变更 + 检查点 + 用量 + 游标)。
   if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
@@ -22230,6 +22566,39 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       totalBytes: cpEntries.reduce((s, e) => s + (Number(e && e.bytes) || 0), 0),
       rollbackAvailable: cpEntries.length > 0,
     };
+    // 第84波台账时间轴:直接投影 checkpoint journal，不从摘要猜「可回退」。被跳过的大文件与不在
+    // journal 中的变更诚实列入不可回退区；最多下发最近 200 条，长任务的详情响应保持有界。
+    const checkpointKeys = new Set(cpEntries.map(entry => `${Number(entry && entry.turnSeq)}:${Number(entry && entry.entrySeq)}:${String(entry && entry.path || '')}`));
+    // skipped:true 已在 checkpoint row 自身标成不可回退；这里只补「摘要里有、journal 里没有」的变更，
+    // 避免同一大文件既算 skipped row 又算 nonRevertibleFile 而把不可退计数翻倍。
+    const nonRevertibleFiles = filesChangedList.filter(file => file
+      && !checkpointKeys.has(`${Number(file.turnSeq)}:${Number(file.entrySeq)}:${String(file.path || '')}`));
+    const ledgerEntries = cpEntries.slice(-200).map(entry => ({
+      turnSeq: Number(entry && entry.turnSeq) || 0,
+      entrySeq: Number(entry && entry.entrySeq) || 0,
+      path: String(entry && entry.path || ''),
+      op: String(entry && entry.op || ''),
+      tool: String(entry && entry.tool || ''),
+      bytes: Math.max(0, Number(entry && entry.bytes) || 0),
+      ts: String(entry && entry.ts || ''),
+      revertible: !(entry && entry.skipped),
+      reason: entry && entry.skipped ? 'content_too_large' : '',
+    }));
+    const reversibleEntries = ledgerEntries.filter(entry => entry.revertible).length;
+    const recoveryBlockers = ledgerEntries.filter(entry => !entry.revertible).length + nonRevertibleFiles.length
+      + fold.irreversible.total + fold.irreversible.legacyCommands;
+    const controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
+    const ledger = {
+      entries: ledgerEntries,
+      truncated: cpEntries.length > ledgerEntries.length,
+      totalEntries: cpEntries.length,
+      nonRevertibleFiles: nonRevertibleFiles.slice(-80),
+      irreversible: { items: fold.irreversible.items.slice(-80), legacyCommands: fold.irreversible.legacyCommands },
+      rollbackTargetTurnSeq: controls.rollbackTargetTurnSeq,
+      recoverability: reversibleEntries === 0 ? 'none' : (recoveryBlockers > 0 ? 'partial' : 'full'),
+      reversibleEntries,
+      nonRevertibleEntries: recoveryBlockers,
+    };
 
     // 用量切片:append-only 月度账本按 sessionId 过滤(权威存储,session 对象上无聚合字段)。
     const usage = indexed && indexed.usage ? indexed.usage : emptyMissionUsage();
@@ -22260,6 +22629,8 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         // 第72波:任务结果快照(终态盖章;active/paused 为 null,看 acceptance/changes/irreversible 实时投影)
         result: (session.mission && session.mission.result) || null,
         checkpoints,
+        controls,
+        ledger,
         usage,
         pending: pendingCounts,
         cursor,
@@ -22691,6 +23062,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
           input: iv.type === 'permission' && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : undefined,
           questionSummary: iv.type === 'question' ? String(iv.questionSummary || '') : '',
           questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
+          context: iv.type === 'question' ? String(iv.context || '').slice(0, 6000) : '',
           planSummary: iv.type === 'plan' ? String(iv.planSummary || '') : '',
           deliverable: iv.type === 'permission' ? pendingPermissions.has(String(iv.id))
             : iv.type === 'question' ? pendingQuestions.has(String(iv.id))
@@ -22787,7 +23159,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const reg = activeChildren.get(sessionId);
     if (!reg || !reg.onEvent) return send(res, apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
     const config = await readConfig();
-    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.permissionTimeoutMs);
+    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.permissionTimeoutMs, reg.questionContext || '');
     return send(res, json(answer && answer.ok
       ? { ok: true, answers: answer.answers, content: answer.content }
       : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' }));
@@ -23229,12 +23601,13 @@ async function pretenderUsageSourceStamp() {
 }
 
 function emptyMissionUsage() {
-  return { inTok: 0, outTok: 0, turns: 0, subagentTurns: 0, costsByCurrency: {} };
+  return { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, subagentTurns: 0, costsByCurrency: {} };
 }
 
 function addMissionUsageRow(usage, row) {
   usage.inTok += Number(row && row.inTok) || 0;
   usage.outTok += Number(row && row.outTok) || 0;
+  usage.cachedInTok += Number(row && row.cachedInTok) || 0;
   usage.turns += 1;
   if (row && row.kind === 'subagent') usage.subagentTurns += 1;
   const cost = Number(row && row.cost);

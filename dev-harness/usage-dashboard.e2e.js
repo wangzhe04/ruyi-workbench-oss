@@ -124,6 +124,7 @@ ok(/totals\.planBasedTurns/.test(src), '⑧ 聚合诚实脚注由后端 totals.p
 // ───────────── ⑨ provider 单价配置 ─────────────
 ok(/p\.pricing\s*=\s*\{\}/.test(src) || /p\.pricing\s*=\s*\{/.test(src), '⑨ providerCard 写 p.pricing');
 ok(/inputPerM/.test(src) && /outputPerM/.test(src), '⑨ 单价含 inputPerM / outputPerM（每百万 token）');
+ok(/cachedInputPerM/.test(src) && /prov-model-pricing/.test(src) && /models/.test(src), '⑨ Provider 单价支持缓存命中与精确模型覆盖');
 ok(/PRICING_CURRENCIES/.test(src), '⑨ 单价含币种选择(PRICING_CURRENCIES)');
 ok(/t\('provider\.pricing\.help'\)/.test(src), '⑨ 单价说明使用 provider.pricing.help 本地化文案');
 ok(/prov-pricing/.test(src) && /card\.append\([^)]*priceB/.test(src), '⑨ 单价块并入 provider 卡片');

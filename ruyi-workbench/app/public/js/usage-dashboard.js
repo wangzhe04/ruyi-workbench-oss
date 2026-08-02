@@ -121,7 +121,7 @@ function usageBudgetBanner(b) {
 function usageAggHead(totals, mixedEntries) {
   const wrap = el('div', 'usage-agg');
   const stats = el('div', 'usage-agg-stats');
-  stats.appendChild(usageStat(t('usage.inputTokens'), fmtInt(totals.inTok)));
+  stats.appendChild(usageStat(t('usage.inputTokens'), fmtInt(totals.inTok), Number(totals.cachedInTok) > 0 ? t('usage.cachedInputTokens', { count: fmtInt(totals.cachedInTok) }) : ''));
   stats.appendChild(usageStat(t('usage.outputTokens'), fmtInt(totals.outTok)));
   const est = Number(totals.estimatedTurns) || 0;
   // v1.4-OSS 用量看板(补): 工作流子代理回合与辅助调用(压缩/起草)也计入总回合数，附一条小注记说明其构成。

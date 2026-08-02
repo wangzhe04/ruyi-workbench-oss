@@ -70,7 +70,7 @@ function installFocusTrap(backdrop) {
   });
 }
 
-function showAskUserModal(questionId, questions, streamSessionId) {
+function showAskUserModal(questionId, questions, streamSessionId, context = '') {
   const sid = streamSessionId || state.currentSession?.id; // pin the session the question belongs to
   const qid = String(questionId || '');
   const turn = sid ? activeTurns.get(sid) : null;
@@ -91,6 +91,12 @@ function showAskUserModal(questionId, questions, streamSessionId) {
   );
   intro.append(introMark, introCopy);
   body.appendChild(intro);
+  if (String(context || '').trim()) {
+    const contextBox = el('section', 'ask-context');
+    contextBox.append(el('div', 'ask-context-label', t('ask.contextLabel')),
+      el('p', 'ask-context-copy', String(context).trim()));
+    body.appendChild(contextBox);
+  }
   const states = [];
   list.forEach((q, qi) => {
     if (!q) return;
@@ -137,7 +143,7 @@ function showAskUserModal(questionId, questions, streamSessionId) {
         optionList.appendChild(wrap);
         state.options.push({ id: optionId, label, input: inp, wrap });
       });
-      if (q.allowOther === true) {
+      if (q.allowOther !== false) {
         const other = el('div', 'ask-other-card');
         const choice = el('label', 'ask-option-card ask-other-choice');
         const inp = document.createElement('input');

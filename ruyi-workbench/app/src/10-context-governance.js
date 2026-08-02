@@ -407,10 +407,12 @@ function recordCompactUsage(session, provider, sc) {
       outTok = uOut > 0 ? uOut : Math.round(estimateContentTokens(sc.summary || ''));
       estimated = (uIn <= 0 || uOut <= 0);
     } else { inTok = Number(sc.promptTokensEst) || 0; outTok = Math.round(estimateContentTokens(sc.summary || '')); estimated = true; }
-    const { cost, currency } = computeProviderCost(provider, inTok, outTok);
+    const cachedInTok = estimated ? 0 : Math.min(inTok, cachedInputTokensFromUsage(u));
+    const ledgerModel = sc.model || provider.model || '';
+    const { cost, currency } = computeProviderCost(provider, inTok, outTok, cachedInTok, ledgerModel);
     appendUsageLedger({
-      sessionId: session.id, engine: 'openai', provider: provider.id, model: sc.model || provider.model || '',
-      inTok, outTok, cost, currency, estimated, turnSeq: session.turnSeq, kind: 'aux', note: 'compact',
+      sessionId: session.id, engine: 'openai', provider: provider.id, model: ledgerModel,
+      inTok, outTok, cachedInTok, cost, currency, estimated, turnSeq: session.turnSeq, kind: 'aux', note: 'compact',
     });
   } catch { /* accounting must never break compaction */ }
 }

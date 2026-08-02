@@ -120,6 +120,7 @@ function startProvider(captures) {
           answerMode: 'single', // Invalid choice shape on purpose: normalization must keep the UI answerable.
         },
       ] });
+      sse({ choices: [{ index: 0, delta: { role: 'assistant', content: 'The project constraints make the framework choice consequential. ' }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, id: 'call_question_1', type: 'function', function: { name: 'request_user_input', arguments: '' } }] }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: args } }] }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
@@ -172,6 +173,7 @@ function startProvider(captures) {
     });
     const providerAsk = providerTurn.events.find(e => e.type === 'ask_user');
     ok(!!providerAsk, 'Provider request_user_input opens the same UI question channel');
+    ok(String(providerAsk?.context || '').includes('framework choice consequential'), 'question event carries the assistant background that preceded the options');
     ok(providerAsk?.questions?.[0]?.answerMode === 'multiple' && providerAsk.questions[0].multiSelect === true,
       'question normalization exposes canonical multiple mode and the legacy multiSelect alias');
     ok(providerAsk?.questions?.[0]?.allowOther === true && providerAsk.questions[0].options?.[1]?.id === 'vue'
@@ -201,8 +203,9 @@ function startProvider(captures) {
     ok(app.includes("if (!r?.ok || !r.delivered) throw new Error('answer was not delivered')"), 'UI closes the modal only after delivery acknowledgement');
     ok(app.includes("selectedOptionIds: selected.map(option => option.id)") && app.includes("otherText: text"),
       'UI sends stable selected ids and a separate custom-answer field');
-    ok(app.includes("q.allowOther === true") && app.includes("ask-option-description"),
+    ok(app.includes("q.allowOther !== false") && app.includes("ask-option-description"),
       'UI renders an Other input alongside option descriptions');
+    ok(app.includes("el('section', 'ask-context')") && app.includes('evt.context'), 'classic question UI renders the carried background context');
     ok(app.includes("if (!options.length && mode !== 'text') mode = 'text'")
       && app.includes("const otherComplete = !state.otherInput?.checked || otherReady"),
       'UI keeps malformed empty-choice questions answerable and requires selected custom answers to contain text');

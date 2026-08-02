@@ -29,8 +29,38 @@ const { McpStdioClient, detectDesktopMcp, desktopMcpFromInstalledRoot, desktopPy
     probe: () => false,
   });
   ok(none === null, 'pickPython reports no candidate when every runtime fails the ACC import probe');
+  const fullPreferred = pickPython(REPO, { PYTHONPATH: path.join(REPO, 'src'), PYTHONUTF8: '1' }, {
+    noCache: true,
+    candidates: [
+      { command: 'core-only-python', args: [], source: 'repo-venv', requireExisting: false },
+      { command: 'full-ocr-python', args: [], source: 'installed-full-runtime', requireExisting: false },
+    ],
+    probe: candidate => candidate.command === 'core-only-python' ? 'core' : 'full',
+  });
+  ok(fullPreferred && fullPreferred.command === 'full-ocr-python' && fullPreferred.capability === 'full',
+    'pickPython prefers a later Full WinSDK runtime over an earlier core-only Python');
   const offlineCandidate = desktopPythonCandidates(REPO).find(candidate => candidate.source === 'offline-embedded-runtime');
   ok(offlineCandidate && offlineCandidate.command === path.join(REPO, 'python_embed', 'python.exe'), 'repo detection includes the verified offline python_embed runtime');
+  const distributionCandidates = desktopPythonCandidates('C:\\portable-full\\mcp\\ai-computer-control');
+  const bundledIndex = distributionCandidates.findIndex(candidate => candidate.source === 'offline-embedded-runtime');
+  const machineIndex = distributionCandidates.findIndex(candidate => candidate.source === 'installed-full-runtime');
+  ok(bundledIndex >= 0 && (machineIndex < 0 || bundledIndex < machineIndex),
+    'portable Full package Python is ordered before machine-local installed runtimes');
+  const bundledPreferred = pickPython('C:\\portable-full\\mcp\\ai-computer-control', { PYTHONUTF8: '1' }, {
+    noCache: true,
+    candidates: [
+      { command: 'portable-python-embed', args: [], source: 'offline-embedded-runtime', requireExisting: false },
+      { command: 'machine-installed-python', args: [], source: 'installed-full-runtime', requireExisting: false },
+      { command: 'system-python', args: [], source: 'system-path', requireExisting: false },
+    ],
+    probe: () => 'full',
+  });
+  ok(bundledPreferred && bundledPreferred.command === 'portable-python-embed',
+    'portable Full package Python wins when bundled, installed, and system runtimes are all usable');
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
+    ok(desktopPythonCandidates(REPO).some(candidate => candidate.source === 'installed-full-runtime'),
+      'source detection considers the installed Full runtime before system Python fallbacks');
+  }
 
   const installedRuntime = desktopMcpFromInstalledRoot('C:\\fake-acc-install', {
     noCache: true,
@@ -40,7 +70,7 @@ const { McpStdioClient, detectDesktopMcp, desktopMcpFromInstalledRoot, desktopPy
     ],
     probe: candidate => candidate.command === 'installed-runtime-python',
   });
-  ok(installedRuntime && installedRuntime.command === 'installed-runtime-python' && installedRuntime.pythonSource === 'installed-runtime', 'installed ACC detection prefers the new runtime/python layout');
+  ok(installedRuntime && installedRuntime.command === 'installed-runtime-python' && installedRuntime.pythonSource === 'installed-runtime' && installedRuntime.pythonCapability === 'full', 'installed ACC detection prefers the new Full runtime/python layout');
 
   // ---- #6: detectDesktopMcp() ----
   const det = detectDesktopMcp();
@@ -52,6 +82,7 @@ const { McpStdioClient, detectDesktopMcp, desktopMcpFromInstalledRoot, desktopPy
     ok(Array.isArray(det.args), 'detected.args is an array');
     ok(det.via === 'python-module' || det.via === 'console-script', 'detected.via is a known strategy (' + det.via + ')');
     ok(typeof det.pythonSource === 'string' && det.pythonSource.length > 0, 'detected python source is surfaced for diagnosis (' + det.pythonSource + ')');
+    ok(det.pythonCapability === 'full' || det.pythonCapability === 'core', 'detected Python capability is surfaced (' + det.pythonCapability + ')');
   }
   // resolveExternalMcpServers with an autodetect desktopMcp should surface id ai-computer-control.
   const resolved = resolveExternalMcpServers({ desktopMcp: { enabled: true, command: '', args: [], cwd: '', autodetect: true }, externalMcpServers: [] });
@@ -87,6 +118,13 @@ const { McpStdioClient, detectDesktopMcp, desktopMcpFromInstalledRoot, desktopPy
       });
       ok(!/asyncio\.run\(\) cannot be called from a running event loop/.test(String(ocrProbe.error || '')),
          'ocr_find_text executes without a nested asyncio event-loop failure');
+      if (det && det.pythonCapability === 'full') {
+        ok(!/winsdk not installed|No module named ['"]winsdk/i.test(JSON.stringify(ocrProbe)),
+           'autodetected Full desktop MCP executes OCR through its WinSDK-capable runtime');
+      } else {
+        needsTargetVerify = true;
+        console.log('  NOTE: source-only core runtime has no Full WinSDK contract; target-package OCR verification remains required.');
+      }
     } else {
       // Environment gap, not a code defect — flag for target-machine verification, do NOT fail.
       needsTargetVerify = true;

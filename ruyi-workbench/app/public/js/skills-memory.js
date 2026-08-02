@@ -686,8 +686,8 @@ async function migrateGroupToCurrent(p) {
   openMemoryPanel();
 }
 // 从当前会话起草(provider 引擎):draft → 编辑弹窗 → 保存。
-async function saveAsMemory(btn) {
-  const sid = state.currentSession && state.currentSession.id;
+async function saveAsMemory(btn, sessionId = '') {
+  const sid = String(sessionId || (state.currentSession && state.currentSession.id) || '');
   if (!sid) { toast(t("toast.noSessionToSave"), 'err'); return; }
   const orig = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = t('common.drafting'); }

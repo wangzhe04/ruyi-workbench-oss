@@ -1375,3 +1375,22 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 - 任务单增加现场纪要/班组工序/原始记录三镜头。现场纪要使用独立 change cursor 增量读取并只 append 未见行；普通轮询的 DOM 窗口稳定在最近 160 条，用户可每次向前展开 160 条，长任务不全量重建。
 - 新增默认关闭的本机“需要你”通知：设置中显式开启才请求浏览器权限，经典布局仅在开启后保留轻量 Intervention 轮询；免打扰默认 22:00–08:00，可本机修改。通知以 Intervention id 标记，同 id 只发一次，事项终态撤回；静默/拒权不排队补发，应用重启首个成功读只建历史基线。
 - `pretender-narrative-notifications.e2e.js` 覆盖全 9 类折算、增量 identity、免打扰四边界、拒权、去重、终态撤回和重启不补炸；fast 30/30 与专项门全绿。第84波继续反悔柄、台账时间轴与 Mission 控制面，当前不标 Product Ready。
+
+## 第84波 · P3 第四切片 -- 反悔柄、台账时间轴与分层控制面（2026-08-02）
+
+- 新增 Mission 控制单一 command core 与 `POST /api/missions/:id/control`。暂停/继续/人工接管作用于当前回合与驱动，停止/重试作用于整张 Mission；停止会中止活回合、撤销授权并请求停止同单所有活 Run。经典停止入口复用同一核心，不保留第二套状态迁移。
+- Mission 详情新增 `controls` capability 投影，逐动作下发 `enabled/scope/reason`；交办台顶部车钟明确标出“当前回合 + 驱动”和“整张 Mission”。班组镜头的暂停/继续/停止只调用既有 Agent Run command，并逐钮标注“当前班组 Run”，解决三层控制语义混淆。
+- Mission 起单持久化 `startedTurnSeq`。详情新增有界 `ledger`：最近 200 条 checkpoint journal 按回合形成连续时间轴，真实显示 path/op/tool/time/revertible；skipped 大文件、摘要中无 journal 的变更、不可逆命令与迁移前只有计数的命令分别列明。每条回退走 `POST /api/checkpoints/rollback`，整单回退走 conversation rewind + 文件逆序恢复并把里程碑再武装，归档任务仍保留同一反悔柄。
+- 停止、重试、Run 停止、逐条与整单回退均使用原位二次确认；动态 UI 继续零 `innerHTML`，蓝白/深色主题只用既有 token，桌面采用舰桥车钟与飞行记录纸带而非卡片墙，920/620 断点覆盖 768/390。
+- 新增 `pretender-mission-control.e2e.js`，用真实 Workbench + 假 Provider 验证活回合 Pause、Continue/Takeover/Stop/Retry、真实 checkpoint 逐条/整单回退、归档禁用态与鉴权；既有长历史和班组真实 Edge 门继续全绿。第85波继续收工卡、熟活/习惯与专项人因验证，当前不标 Product Ready。
+
+## 第85波 · P3 第五切片 -- 收工档案、上下文提问与成本精算（2026-08-02）
+
+- `mission.result` 盖章时定格 `usage{autoTurns,tokens}` 与 `audit{commands,irreversible,checkpoints,openTodos}`；完成任务在原任务单生成六栏收工档案，成果清单与“存为熟活 / 记住习惯 / 归档”复用既有权威入口，不从聊天正文猜结果。
+- 模型提问强化为 2–5 个互斥选项优先、推荐项在前、Other 仅作保底；choice 问题默认允许 Other，纯文本仅用于不可枚举问题。提问前已输出正文以 `context≤6000` 随 Intervention 持久化并在经典弹窗与全局“需要你”抽屉中展示，选项整行对齐且零默认勾选。
+- 经典侧栏新增“交办台”直达入口；任务坞顶部新增独立 `＋`，点击清理未提交草稿、回交办首页并聚焦输入框，不提前创建 Session/Mission。
+- Provider 默认计价扩为输入/缓存命中/输出三价；同 Provider 可配置精确模型覆盖，未填字段继承 Provider 默认价。OpenAI-compatible usage 的 cached token 进入 ledger `cachedInTok` 和汇总；缓存价未填时按普通输入价保守估算。真实 usage e2e 固定“普通输入 + 缓存输入 + 输出”的模型覆盖算式与配置往返。
+- 交办台 10 秒静默刷新改为编辑区锁定：任务稿、提问 Other 与班组递话获得焦点时保留原 DOM、草稿、选区和 IME 组合态，外围任务坞/事实仍可刷新；真实 Edge 以 visibility refresh 固定输入节点、焦点与 caret 不变。
+- 顺带收口真实反馈中的 ACC `run_command` 长驻“运行中”：执行器用临时文件捕获替代易被后台后代长期持有的 pipe，超时有界杀树，非零退出显式 `ok:false`，输出限 1MiB 头尾；桥截止时间跟随本次 `timeout` 而非固定 650 秒。工具卡每秒显示耗时，回合收尾会把丢失 result 的悬空卡终态化。
+- 修复 Full 包虽含 `winsdk`、运行时却被自动探测绕开的真实路径：分发包把同目录 `python_embed` 固定为默认首选，机器已安装 Full runtime 次之，core-only 系统 Python 最后降级；Python 候选探针区分 `full/core`，源码工作台也可用已安装 Full Python + 当前 `PYTHONPATH` 启动。默认离线打包命令改为 Full，Slim 显式分流，Full 命名无 `-IncludeAcc` 直接拒绝；代码增量更新缺 OCR 时从本地 wheel 自动修复并复验。现有 v2.4 Full ZIP 的 pinned wheel、`_winrt.pyd`、OCR 投影与 manifest 条目均已逐项核对。
+- 系统代理覆盖四条新壳旅程、长历史、失败恢复、人工接管、收工闭环、390px 提问上下文/对齐及双向布局切换。外部受试者的人因理解与回流用时仍未执行，故只完成可自主推进的工程门，不标 Product Ready。

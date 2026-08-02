@@ -80,6 +80,10 @@ function pidAlive(pid) {
   ok(/catch \(e\) \{[\s\S]{0,400}timed out[\s\S]{0,300}this\.kill\(\)/.test(src), 'E3 callTool catch 内超时即 kill 客户端进程树');
   ok(src.includes('WCW_BRIDGED_TIMEOUT_OVERRIDE'), 'E4 env 测试缝在(e2e 打秒级超时)');
   ok(src.includes('bridgedToolTimeoutMs(name)'), 'E5 callTool 缺省超时走声明式表(调用点免费获得)');
+  ok(/function bridgedToolCallTimeoutMs\(name, args\)/.test(src)
+    && /commandSeconds \* 1000 \+ 10000/.test(src)
+    && /bridgedToolCallTimeoutMs\(name, args\)/.test(src),
+  'E6 run_command 桥截止时间跟随本次 timeout 参数,不再一律显示运行中至 650s');
 
   // ── 起服务 ──
   const WP = await getFreePort(), FP = await getFreePort();

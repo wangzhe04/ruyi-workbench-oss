@@ -23,6 +23,10 @@ node dev-harness\openai-engine.e2e.js
 
 第83波由 `pretender-narrative-notifications.e2e.js` 固定现场纪要与本机通知：9 类 change record 纯折算/双导出、增量 entry identity、160 条常态 DOM 窗口和每句原始凭据；通知覆盖默认关闭、权限拒绝、跨午夜免打扰边界、同 Intervention 去重、终态撤回、静默不补发及应用重启首读不补炸。静态接线同时核对三镜头、设置控件、浏览器 Notification tag/close 和 390px 值班簿布局。
 
+第84波由 `pretender-mission-control.e2e.js` 固定反悔柄与分层车钟：真实 Workbench + 假 Provider 生成两个文件 checkpoint，验证 Continue/Pause/Takeover/Stop/Retry 的冻结语义、活回合可停止、逐条与整单文件恢复、Mission 起点 rewind、归档后反悔柄禁用态和 token 鉴权；静态接线同时核对 Mission/Run/回合三层 scope、二次确认、200 行有界飞行记录纸带和 390px 重排。`pretender-task-sheet.e2e.js` 与 `pretender-crew-lens.e2e.js` 继续作为长输出和多 Agent 真实浏览器回归。
+
+第85波在既有门上扩展收工与提问闭环：`mission-result.e2e.js` 固定结果章 usage/audit，`interactive-question.e2e.js` 固定选项优先、Other 保底与提问前正文 context，`pretender-needs-drawer.e2e.js` 用真实 Edge 核对经典→交办台捷径、任务坞 `＋`、390px 上下文可见、选项垂直对齐及 Other 输入跨静默刷新不丢焦点/选区；`pretender-dispatch-home.e2e.js` 同样固定任务稿输入连续性；`usage-ledger.e2e.js` 用真实 usage details 固定同 Provider 精确模型覆盖与缓存命中计价公式。ACC `smoke_v19.py` 另复现后台后代继承输出句柄、超时与超大输出，`bridge-cancel-timeout.e2e.js` 固定参数感知的桥截止时间与杀树后重连，`streaming-responsiveness.static.e2e.js` 防工具卡在回合结束后永驻“运行中”。`acc-offline-installer.static.e2e.js` 追加默认 Full/显式 Slim、Full 命名拒绝和增量 WinSDK 自动修复契约，`desktop-mcp-smoke.e2e.js` 则固定 Full 候选优先级，并在本机真实启动 107 工具及 OCR 探针。
+
 **离线件应 ALL PASS**(不含需真端点/真 Python 的 live 件)。每件文件头部注释都列了它断言的边界。
 需外部条件的件:`deepseek-live`/`deepseek-tools`(真 DeepSeek 密钥)、`desktop-bridge-live`(真 python 桌面 MCP)、
 `desktop-mcp-smoke`(`AI_COMPUTER_CONTROL_HOME` 指向 ACC 仓库)。

@@ -219,33 +219,81 @@ function claudeCostFields(config, inTok, outTok, costUsd) {
   return { provider, cost, currency, costTrusted };
 }
 
-// Validate an optional pricing object {inputPerM, outputPerM, currency} -> canonical form or null. Shared by
-// providers[].pricing (sanitizeProvider) and config.claudePricing (normalizeConfig). Prices are per MILLION
-// tokens, non-negative; a currency code is required; kept only when at least one price parses.
+// Validate optional per-million-token pricing. Provider pricing may add cachedInputPerM and exact model
+// overrides; legacy {inputPerM,outputPerM,currency} remains byte-stable after normalization.
 function normalizePricing(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const inP = Number(raw.inputPerM), outP = Number(raw.outputPerM);
+  const parseRate = value => {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : null;
+  };
+  const inP = parseRate(raw.inputPerM), outP = parseRate(raw.outputPerM), cachedP = parseRate(raw.cachedInputPerM);
   const cur = (typeof raw.currency === 'string') ? raw.currency.trim().slice(0, 8) : '';
-  const hasIn = Number.isFinite(inP) && inP >= 0, hasOut = Number.isFinite(outP) && outP >= 0;
-  if ((hasIn || hasOut) && cur) return { inputPerM: hasIn ? inP : 0, outputPerM: hasOut ? outP : 0, currency: cur };
-  return null;
+  const modelRows = [];
+  const seen = new Set();
+  for (const row of (Array.isArray(raw.models) ? raw.models : []).slice(0, 100)) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+    const model = typeof row.model === 'string' ? row.model.trim().slice(0, 240) : '';
+    if (!model || seen.has(model)) continue;
+    const modelIn = parseRate(row.inputPerM), modelOut = parseRate(row.outputPerM), modelCached = parseRate(row.cachedInputPerM);
+    if (modelIn == null && modelOut == null && modelCached == null) continue;
+    seen.add(model);
+    modelRows.push({
+      model,
+      ...(modelIn == null ? {} : { inputPerM: modelIn }),
+      ...(modelOut == null ? {} : { outputPerM: modelOut }),
+      ...(modelCached == null ? {} : { cachedInputPerM: modelCached }),
+    });
+  }
+  if (!cur || (inP == null && outP == null && cachedP == null && !modelRows.length)) return null;
+  return {
+    inputPerM: inP == null ? 0 : inP,
+    outputPerM: outP == null ? 0 : outP,
+    currency: cur,
+    ...(cachedP == null ? {} : { cachedInputPerM: cachedP }),
+    ...(modelRows.length ? { models: modelRows } : {}),
+  };
 }
-// Cost from a pricing object + token counts (per MILLION tokens). No/invalid pricing -> {cost:null, currency:null}.
-function computeCostFromPricing(pricing, inTok, outTok) {
+function cachedInputTokensFromUsage(usage) {
+  if (!usage || typeof usage !== 'object') return 0;
+  const details = usage.prompt_tokens_details || usage.input_tokens_details || {};
+  const raw = details.cached_tokens != null ? details.cached_tokens
+    : details.cache_read_input_tokens != null ? details.cache_read_input_tokens
+      : usage.cache_read_input_tokens != null ? usage.cache_read_input_tokens : usage.cached_tokens;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+}
+// Cached input is part of input tokens for OpenAI-compatible usage frames. Charge the non-cached remainder at
+// inputPerM and cached tokens at cachedInputPerM; when the cache price is unset, conservatively use inputPerM.
+function computeCostFromPricing(pricing, inTok, outTok, cachedInTok = 0) {
   const p = normalizePricing(pricing);
   if (!p) return { cost: null, currency: null };
-  const cost = (Number(inTok) || 0) / 1e6 * p.inputPerM + (Number(outTok) || 0) / 1e6 * p.outputPerM;
+  const input = Math.max(0, Number(inTok) || 0);
+  const cached = Math.min(input, Math.max(0, Number(cachedInTok) || 0));
+  const cachedRate = Number.isFinite(Number(p.cachedInputPerM)) ? Number(p.cachedInputPerM) : p.inputPerM;
+  const cost = (input - cached) / 1e6 * p.inputPerM + cached / 1e6 * cachedRate + (Number(outTok) || 0) / 1e6 * p.outputPerM;
   return { cost: Number.isFinite(cost) ? cost : null, currency: p.currency };
 }
-// Cost for a native provider turn from the provider's optional pricing. No pricing -> {cost:null, currency:null}.
-function computeProviderCost(provider, inTok, outTok) {
-  return computeCostFromPricing(provider && provider.pricing, inTok, outTok);
+// Exact model override wins within one provider; missing cached price continues to fall back to that row's input rate.
+function computeProviderCost(provider, inTok, outTok, cachedInTok = 0, model = '') {
+  const pricing = normalizePricing(provider && provider.pricing);
+  if (!pricing) return { cost: null, currency: null };
+  const modelId = String(model || provider && provider.model || '').trim();
+  const override = Array.isArray(pricing.models) ? pricing.models.find(row => row.model === modelId) : null;
+  const resolved = override ? {
+    inputPerM: override.inputPerM == null ? pricing.inputPerM : override.inputPerM,
+    outputPerM: override.outputPerM == null ? pricing.outputPerM : override.outputPerM,
+    cachedInputPerM: override.cachedInputPerM == null ? (pricing.cachedInputPerM == null ? pricing.inputPerM : pricing.cachedInputPerM) : override.cachedInputPerM,
+    currency: pricing.currency,
+  } : pricing;
+  return computeCostFromPricing(resolved, inTok, outTok, cachedInTok);
 }
 
 function appendUsageLedger(entry) {
   try {
     const inTok = Math.max(0, Math.round(Number(entry.inTok) || 0));
     const outTok = Math.max(0, Math.round(Number(entry.outTok) || 0));
+    const cachedInTok = Math.min(inTok, Math.max(0, Math.round(Number(entry.cachedInTok) || 0)));
     // NB: Number(null) === 0, so guard null/undefined explicitly — a tokens-only turn must stay cost:null.
     const costNum = (entry.cost == null) ? NaN : Number(entry.cost);
     // v1.4-OSS 用量看板(补): skip a truly empty row — zero tokens AND no trusted positive cost. A row that reports
@@ -259,7 +307,7 @@ function appendUsageLedger(entry) {
       engine: entry.engine === 'claude' ? 'claude' : 'openai',
       provider: String(entry.provider || ''),
       model: String(entry.model || ''),
-      inTok, outTok,
+      inTok, outTok, cachedInTok,
       cost: Number.isFinite(costNum) ? costNum : null,
       currency: (typeof entry.currency === 'string' && entry.currency) ? entry.currency : null,
       costTrusted: entry.costTrusted !== false, // false = plan-based / notional (kept out of real cost totals)
@@ -285,7 +333,7 @@ function appendUsageLedger(entry) {
       if (rec.kind === 'turn') bumpMissionChangeSeq(rec.sessionId, {
         type: 'budget',
         cursor: { turnSeq: rec.turnSeq, engine: rec.engine },
-        detail: { inTok: rec.inTok, outTok: rec.outTok, cost: rec.cost, currency: rec.currency || '', estimated: rec.estimated },
+        detail: { inTok: rec.inTok, outTok: rec.outTok, cachedInTok: rec.cachedInTok, cost: rec.cost, currency: rec.currency || '', estimated: rec.estimated },
       });
     }).catch(() => {}); // fire-and-forget: a ledger failure must never wedge the chain or the turn
   } catch { /* never let accounting break a turn */ }
@@ -343,32 +391,32 @@ async function buildUsageSummary(range) {
   try { const idx = await readSessionIndex(); if (Array.isArray(idx)) for (const e of idx) if (e && e.id) titles.set(String(e.id), e.title || ''); } catch { /* index optional */ }
 
   const addCost = (bucket, cur, cost) => { bucket[cur] = (bucket[cur] || 0) + cost; };
-  const totals = { inTok: 0, outTok: 0, turns: 0, subagentTurns: 0, auxCalls: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
+  const totals = { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, subagentTurns: 0, auxCalls: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
   const byEngine = new Map(), byProvider = new Map(), bySession = new Map(), byDay = new Map();
 
   for (const r of rows) {
-    const inTok = Number(r.inTok) || 0, outTok = Number(r.outTok) || 0;
+    const inTok = Number(r.inTok) || 0, outTok = Number(r.outTok) || 0, cachedInTok = Math.min(inTok, Number(r.cachedInTok) || 0);
     const cost = Number(r.cost), cur = (typeof r.currency === 'string' && r.currency) ? r.currency : null;
     const trusted = r.costTrusted !== false;
     const hasCost = trusted && cur && Number.isFinite(cost);
-    totals.inTok += inTok; totals.outTok += outTok; totals.turns += 1;
+    totals.inTok += inTok; totals.outTok += outTok; totals.cachedInTok += cachedInTok; totals.turns += 1;
     if (r.kind === 'subagent') totals.subagentTurns += 1; // v1.4-OSS 用量看板(补): DAG/子代理回合独立计数
     if (r.kind === 'aux') totals.auxCalls += 1; // v1.4-OSS 用量看板(补): 辅助调用(压缩/起草等)独立计数
     if (r.estimated === true) totals.estimatedTurns += 1;
     if (!trusted) totals.planBasedTurns += 1;
     if (hasCost) addCost(totals.costsByCurrency, cur, cost);
     const eng = r.engine === 'claude' ? 'claude' : 'openai';
-    let em = byEngine.get(eng); if (!em) byEngine.set(eng, em = { engine: eng, inTok: 0, outTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
-    em.inTok += inTok; em.outTok += outTok; em.turns += 1; if (!trusted) em.planBasedTurns += 1; if (hasCost) addCost(em.costsByCurrency, cur, cost);
+    let em = byEngine.get(eng); if (!em) byEngine.set(eng, em = { engine: eng, inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
+    em.inTok += inTok; em.outTok += outTok; em.cachedInTok += cachedInTok; em.turns += 1; if (!trusted) em.planBasedTurns += 1; if (hasCost) addCost(em.costsByCurrency, cur, cost);
     const pid = String(r.provider || '');
-    let pm = byProvider.get(pid); if (!pm) byProvider.set(pid, pm = { provider: pid, label: labels.get(pid) || pid, inTok: 0, outTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
-    pm.inTok += inTok; pm.outTok += outTok; pm.turns += 1; if (!trusted) pm.planBasedTurns += 1; if (hasCost) addCost(pm.costsByCurrency, cur, cost);
+    let pm = byProvider.get(pid); if (!pm) byProvider.set(pid, pm = { provider: pid, label: labels.get(pid) || pid, inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
+    pm.inTok += inTok; pm.outTok += outTok; pm.cachedInTok += cachedInTok; pm.turns += 1; if (!trusted) pm.planBasedTurns += 1; if (hasCost) addCost(pm.costsByCurrency, cur, cost);
     const sid = String(r.sessionId || '');
-    let sm = bySession.get(sid); if (!sm) bySession.set(sid, sm = { sessionId: sid, title: titles.get(sid) || '', inTok: 0, outTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
-    sm.inTok += inTok; sm.outTok += outTok; sm.turns += 1; if (!trusted) sm.planBasedTurns += 1; if (hasCost) addCost(sm.costsByCurrency, cur, cost);
+    let sm = bySession.get(sid); if (!sm) bySession.set(sid, sm = { sessionId: sid, title: titles.get(sid) || '', inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
+    sm.inTok += inTok; sm.outTok += outTok; sm.cachedInTok += cachedInTok; sm.turns += 1; if (!trusted) sm.planBasedTurns += 1; if (hasCost) addCost(sm.costsByCurrency, cur, cost);
     const dk = usageDayKey(Date.parse(r.ts));
-    let dm = byDay.get(dk); if (!dm) byDay.set(dk, dm = { date: dk, inTok: 0, outTok: 0, costsByCurrency: {} });
-    dm.inTok += inTok; dm.outTok += outTok; if (hasCost) addCost(dm.costsByCurrency, cur, cost);
+    let dm = byDay.get(dk); if (!dm) byDay.set(dk, dm = { date: dk, inTok: 0, outTok: 0, cachedInTok: 0, costsByCurrency: {} });
+    dm.inTok += inTok; dm.outTok += outTok; dm.cachedInTok += cachedInTok; if (hasCost) addCost(dm.costsByCurrency, cur, cost);
   }
   // Round every currency bucket to 6 dp to shed binary-float noise (0.30000000000000004 -> 0.3), and derive a
   // per-entry planBased flag: true ONLY when the entry has plan-based turns AND no trusted cost to show (so a

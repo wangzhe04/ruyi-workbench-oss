@@ -1029,24 +1029,53 @@ function commandForSelfMcp(mode = 'auto') {
 
 // --- v0.7d: locate the user's ai-computer-control desktop MCP (Windows control FastMCP). ---
 // A python.exe merely existing is not enough: older offline bundles can contain a raw embedded interpreter
-// without the MCP package. Verify imports once, cache the result, and fall back to a usable system runtime.
+// without the MCP package. Verify imports once, cache the result, and prefer a Full runtime whose WinSDK
+// OCR projections really import. A core-only source environment remains a last-resort degraded fallback.
 const DESKTOP_PYTHON_PROBE_TIMEOUT_MS = 5000;
 const DESKTOP_PYTHON_OK_CACHE_MS = 5 * 60 * 1000;
 const DESKTOP_PYTHON_MISS_CACHE_MS = 15000;
-const DESKTOP_PYTHON_IMPORT_PROBE = 'from mcp.server.fastmcp import FastMCP; import ai_computer_control.server';
+const DESKTOP_PYTHON_IMPORT_PROBE = [
+  'from mcp.server.fastmcp import FastMCP',
+  'import ai_computer_control.server',
+  'full = True',
+  'try:',
+  ' import winsdk.windows.media.ocr',
+  ' import winsdk.windows.graphics.imaging',
+  ' import winsdk.windows.storage.streams',
+  ' import winsdk.windows.globalization',
+  'except Exception:',
+  ' full = False',
+  "print('__RUYI_ACC_FULL__' if full else '__RUYI_ACC_CORE__')",
+].join('\n');
 const desktopPythonCache = new Map(); // repo/root -> { at, value:{command,args,source}|null }
 
 function desktopPythonCandidates(root) {
   const candidates = [];
-  const addPath = (command, source) => candidates.push({ command, args: [], source, requireExisting: true });
+  const seen = new Set();
+  const addPath = (command, source) => {
+    const key = path.resolve(String(command || '')).toLowerCase();
+    if (!command || seen.has(key)) return;
+    seen.add(key);
+    candidates.push({ command, args: [], source, requireExisting: true });
+  };
   if (root) {
-    // A real venv is normally the installer output, so prefer it over a bundled interpreter.
+    // Distribution invariant: a portable Full package must use the CPython 3.12 runtime shipped beside
+    // ACC by default. Machine-local venvs/runtimes are compatibility fallbacks, never prerequisites for
+    // a package copied to a clean target computer.
+    addPath(path.join(root, 'python_embed', 'python.exe'), 'offline-embedded-runtime');
+    addPath(path.join(root, 'runtime', 'python', 'python.exe'), 'bundled-runtime');
     addPath(path.join(root, '.venv', 'Scripts', 'python.exe'), 'repo-venv');
     addPath(path.join(root, 'venv', 'Scripts', 'python.exe'), 'installed-venv');
-    addPath(path.join(root, 'runtime', 'python', 'python.exe'), 'bundled-runtime');
-    addPath(path.join(root, 'python_embed', 'python.exe'), 'offline-embedded-runtime');
     addPath(path.join(root, 'py-embed', 'python.exe'), 'embedded-runtime');
     addPath(path.join(root, 'python', 'python.exe'), 'repo-python');
+  }
+  // Source checkouts normally do not carry a Python runtime. Reuse the verified Full installer runtime
+  // with PYTHONPATH pointed at the checkout, so development still runs current code without silently
+  // dropping OCR just because an unrelated system Python happens to import the core ACC package.
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
+    const installedRoot = path.join(process.env.LOCALAPPDATA, 'ai-computer-control');
+    addPath(path.join(installedRoot, 'runtime', 'python', 'python.exe'), 'installed-full-runtime');
+    addPath(path.join(installedRoot, 'venv', 'Scripts', 'python.exe'), 'installed-full-venv');
   }
   const envPython = String(process.env.PYTHON || '').trim();
   if (envPython) candidates.push({ command: envPython, args: [], source: 'PYTHON', requireExisting: path.isAbsolute(envPython) });
@@ -1075,12 +1104,13 @@ function probeDesktopPython(candidate, cwd, desktopEnv) {
       encoding: 'utf8',
       maxBuffer: 64 * 1024,
     });
-    return !!(result && !result.error && result.status === 0);
-  } catch { return false; }
+    if (!result || result.error || result.status !== 0) return '';
+    return String(result.stdout || '').includes('__RUYI_ACC_FULL__') ? 'full' : 'core';
+  } catch { return ''; }
 }
 
-// Returns the first candidate that can actually import the FastMCP server, or null. `options.probe` is a
-// deterministic test seam; normal callers use a short-lived cache so status polling never repeats probes.
+// Returns the first Full candidate; if none exists, returns the first candidate that can at least import
+// the FastMCP server. `options.probe` is a deterministic test seam and may return true/false or full/core.
 function pickPython(repoRoot, desktopEnv, options = {}) {
   const root = String(repoRoot || '');
   const bypassCache = options.noCache === true || typeof options.probe === 'function';
@@ -1093,17 +1123,21 @@ function pickPython(repoRoot, desktopEnv, options = {}) {
   const candidates = Array.isArray(options.candidates) ? options.candidates : desktopPythonCandidates(root);
   const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPython;
   let selected = null;
+  let coreFallback = null;
   for (const raw of candidates) {
     const candidate = raw && typeof raw === 'object' ? raw : { command: String(raw || ''), args: [], source: 'unknown', requireExisting: true };
     if (!candidate.command) continue;
     if (candidate.requireExisting !== false) {
       try { if (!fs.existsSync(candidate.command)) continue; } catch { continue; }
     }
-    if (probe(candidate, root, desktopEnv)) {
-      selected = { command: candidate.command, args: Array.isArray(candidate.args) ? candidate.args : [], source: candidate.source || 'unknown' };
-      break;
-    }
+    const probed = probe(candidate, root, desktopEnv);
+    const capability = probed === 'core' ? 'core' : (probed ? 'full' : '');
+    if (!capability) continue;
+    const match = { command: candidate.command, args: Array.isArray(candidate.args) ? candidate.args : [], source: candidate.source || 'unknown', capability };
+    if (capability === 'full') { selected = match; break; }
+    if (!coreFallback) coreFallback = match;
   }
+  if (!selected) selected = coreFallback;
   if (!bypassCache) desktopPythonCache.set(cacheKey, { at: now, value: selected });
   return selected;
 }
@@ -1130,6 +1164,7 @@ function desktopMcpFromRepo(repoRoot) {
     env: desktopEnv,
     via: 'python-module',
     pythonSource: python.source,
+    pythonCapability: python.capability || 'core',
   };
 }
 
@@ -1159,6 +1194,7 @@ function desktopMcpFromInstalledRoot(installRoot, options = {}) {
     env: desktopEnv,
     via: 'python-module',
     pythonSource: selected.source,
+    pythonCapability: selected.capability || 'core',
   };
 }
 function detectDesktopMcp() {
@@ -1173,8 +1209,9 @@ function detectDesktopMcp() {
       const installed = desktopMcpFromInstalledRoot(root); if (installed) return installed;
     }
     // (b) common repo locations. Bundled monorepo copies come first (release layout ships the MCP
-    // at <repo>/mcp/ai-computer-control with the app at <repo>/ruyi-workbench/app, or flattened
-    // with app/ at the package root) so a shipped copy beats a stale user checkout.
+    // at <repo>/mcp/ai-computer-control with python_embed beside it and the app at
+    // <repo>/ruyi-workbench/app, or flattened with app/ at the package root), so the portable runtime
+    // beats both a stale user checkout and any machine-local Python on a clean distribution target.
     const repoCandidates = [
       // In a pkg executable __dirname points into the read-only compile snapshot, while the bundled
       // MCP lives beside Ruyi.exe. externalRoot() resolves that real release directory.

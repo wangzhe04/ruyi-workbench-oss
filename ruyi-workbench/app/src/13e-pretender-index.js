@@ -86,12 +86,13 @@ async function pretenderUsageSourceStamp() {
 }
 
 function emptyMissionUsage() {
-  return { inTok: 0, outTok: 0, turns: 0, subagentTurns: 0, costsByCurrency: {} };
+  return { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, subagentTurns: 0, costsByCurrency: {} };
 }
 
 function addMissionUsageRow(usage, row) {
   usage.inTok += Number(row && row.inTok) || 0;
   usage.outTok += Number(row && row.outTok) || 0;
+  usage.cachedInTok += Number(row && row.cachedInTok) || 0;
   usage.turns += 1;
   if (row && row.kind === 'subagent') usage.subagentTurns += 1;
   const cost = Number(row && row.cost);

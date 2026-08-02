@@ -34,6 +34,12 @@ const finalize = fnBody('finalizeLive');
 // 链落在 sealLiveTextSegment(LIVE_MARKDOWN_MAX_CHARS 阈值 + classList.add('plain') 非阻塞纯文本)。
 // 锁委托链 + 兜底原位两点,行为契约不变(旧锚点只钉 finalizeLive 本体,重构后假红)。
 ok(finalize.includes('sealLiveTextSegment'), 'finalizeLive settles via sealLiveTextSegment');
+ok(finalize.includes('clearInterval(card.durationTimer)') && finalize.includes("t('status.stopped')")
+  && finalize.includes("t('chat.toolResultMissing')") && finalize.includes('settleNarrativeTool(live, id, true)'),
+  'turn settlement clears live clocks and terminalizes any tool card whose result event was lost');
+const toolUseCase = src.slice(src.indexOf("case 'tool_use':"), src.indexOf("case 'todo':"));
+ok(toolUseCase.includes('setInterval(updateDuration, 1000)') && toolUseCase.includes('clearInterval(card.durationTimer)'),
+  'live tool cards show elapsed time and stop their timer when the result arrives');
 const seal = fnBody('sealLiveTextSegment');
 ok(seal.includes('MARKDOWN_SYNC_MAX_CHARS') && seal.includes("classList.add('plain')"), 'large settled answers keep a bounded non-blocking plain-text fallback');
 

@@ -25,11 +25,11 @@
    ```cmd
    update.bat --code
    ```
-   它把新 `.py` 热覆盖到已安装包——新布局 `%LOCALAPPDATA%\ai-computer-control\runtime\python\Lib\site-packages\ai_computer_control\`（优先）或旧布局 `...\venv\Lib\site-packages\ai_computer_control\`（自动探测）,并写入 `VERSION.txt`。
+   它会先验证 `winsdk` 的 Windows.Media.Ocr 投影；缺失时自动从更新包的 `wheels\` 或 Full 包的 `offline_packages\` 离线修复并复验，然后再把新 `.py` 热覆盖到已安装包——新布局 `%LOCALAPPDATA%\ai-computer-control\runtime\python\Lib\site-packages\ai_computer_control\`（优先）或旧布局 `...\venv\Lib\site-packages\ai_computer_control\`（自动探测）,并写入 `VERSION.txt`。本地 wheel 缓存不完整时更新会明确失败，不再留下“代码更新成功但 OCR 仍不可用”的半成品。
 4. 让 Claude 重新调用任一工具即可生效（或重启 Claude）。**安全护栏 + batch + 窗口/屏幕/音频等 14 个新工具即刻可用,无需任何新依赖。**
 
-## 启用 UI Automation 与默认离线 OCR（可选）
-`ui_*` 工具需要 `uiautomation`(+`comtypes`)；`ocr_*` 使用 Windows 内置 `Windows.Media.Ocr`，需要 `winsdk`，**不使用 Tesseract，也不需要网络**。二选一:
+## 修复 UI Automation 与默认离线 OCR
+`ui_*` 工具需要 `uiautomation`(+`comtypes`)；`ocr_*` 使用 Windows 内置 `Windows.Media.Ocr`，需要 `winsdk`，**不使用 Tesseract，也不需要网络**。Full 包把这些依赖作为强制能力；`--deps` 仍可用于显式修复：
 - **有 wheels\ 目录，或 Full 包的 offline_packages\ 目录**（内含 uiautomation/comtypes/winsdk 的 .whl）时:
   ```cmd
   update.bat --deps
@@ -38,7 +38,7 @@
   `--deps` 会自动识别本地 `wheels\` 或 Full 包的 `offline_packages\`，离线安装,不联网。
 - **重打完整离线包**(联网机上):`requirements_offline.txt` 已加入 `uiautomation`/`comtypes`/`winsdk`,重跑 `python installer\build_offline_package.py` 即含这些 wheel 与 CPython 3.12,再在内网机重装。`winsdk` 当前提供 cp312 wheel，因此 Full 包与推荐开发环境都固定使用 Python 3.12。
 
-不装也无妨——`ui_*` / `ocr_*` 会返回明确的依赖提示,其余工具照常。已套用旧代码更新包时，务必先执行 `update.bat --deps` 再执行 `update.bat --code`，以避免 OCR 缺少 `winsdk`。
+源码型/Slim 环境仍可不安装这些可选依赖并优雅降级；但 Full 包与其增量更新不得缺失它们。新版 `update.bat --code` 已自动执行依赖修复，旧更新包则仍需先运行 `update.bat --deps`。
 
 ## 验证
 让 Claude 调用几个新工具:

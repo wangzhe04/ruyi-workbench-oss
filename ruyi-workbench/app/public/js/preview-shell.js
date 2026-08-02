@@ -90,6 +90,9 @@ export function createPreviewShellDomain({
   setClassicDraft = () => {},
   syncClassicIntervention = async () => {},
   steerAgentNode = async () => ({ ok: false }),
+  runMissionControlTurn = async () => ({ ok: false }),
+  saveMissionAsPlaybook = async () => {},
+  saveMissionAsMemory = async () => {},
   apiErrText = error => String(error && error.message || error || ''),
   pickWorkspace = async () => {},
   playbookName = playbook => String(playbook && playbook.title || ''),
@@ -163,6 +166,10 @@ export function createPreviewShellDomain({
   let selectedCrewRunId = '';
   let selectedCrewNodeId = '';
   let crewRenderSignature = '';
+  let controlBusy = '';
+  let controlDraft = null;
+  let controlError = '';
+  let runControlBusy = '';
   let selectedLens = 'narrative';
   let narrativeRenderedSession = '';
   let narrativeRenderedLocale = '';
@@ -176,6 +183,12 @@ export function createPreviewShellDomain({
   const crewDeliveryState = new Map();
 
   const byId = id => document.getElementById(id);
+  const hasActiveEditor = root => {
+    const active = document.activeElement;
+    return Boolean(root && active && root.contains(active)
+      && active.matches('input, textarea, select, [contenteditable="true"]')
+      && !active.disabled);
+  };
   const text = (tag, className, value) => {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -301,7 +314,7 @@ export function createPreviewShellDomain({
       inboxCounts = response && response.counts || { total: 0 };
       pendingInterventions = Array.isArray(response && response.pending) ? response.pending : [];
       syncNeedsNotifications(pendingInterventions);
-      if (isPreviewMode()) { renderFacts(); renderNeedsDrawer(); }
+      if (isPreviewMode()) { renderFacts(); renderNeedsDrawer({ preserveEditor: true }); }
       return pendingInterventions;
     }).catch(() => null).finally(() => { notificationRefreshPromise = null; });
     return notificationRefreshPromise;
@@ -530,29 +543,66 @@ export function createPreviewShellDomain({
     const form = text('div', 'preview-question-form', '');
     const questions = Array.isArray(item.questions) ? item.questions : [];
     for (const [index, question] of questions.entries()) {
+      const options = Array.isArray(question.options) ? question.options : [];
+      const requestedMode = String(question.answerMode || '').toLowerCase();
+      let mode = ['single', 'multiple', 'text'].includes(requestedMode)
+        ? requestedMode : (options.length ? (question.multiSelect ? 'multiple' : 'single') : 'text');
+      if (!options.length && mode !== 'text') mode = 'text';
       const field = document.createElement('fieldset');
       field.className = 'preview-question-field';
       field.dataset.questionId = String(question.id || `question_${index + 1}`);
-      field.dataset.answerMode = String(question.answerMode || (question.multiSelect ? 'multiple' : 'single'));
-      const legend = text('legend', '', question.header || t('previewShell.questionNumber', { p1: index + 1 }));
+      field.dataset.answerMode = mode;
+      const legend = text('legend', 'preview-question-legend', '');
+      legend.append(text('span', 'preview-question-kicker', question.header || t('previewShell.questionNumber', { p1: index + 1 })),
+        text('span', 'preview-question-mode', mode === 'multiple' ? t('previewShell.questionChooseMany') : (mode === 'text' ? t('previewShell.questionWrite') : t('previewShell.questionChooseOne'))));
       field.append(legend, text('p', 'preview-question-copy', question.question || question.header || ''));
-      const mode = field.dataset.answerMode;
-      for (const option of Array.isArray(question.options) ? question.options : []) {
-        const label = text('label', 'preview-question-option', '');
-        const input = document.createElement('input');
-        input.type = mode === 'multiple' ? 'checkbox' : 'radio';
-        input.name = `preview-${item.id}-${field.dataset.questionId}`;
-        input.dataset.optionId = String(option.id || '');
-        const optionCopy = text('span', '', '');
-        optionCopy.append(text('strong', '', option.label || option.id || ''), text('small', '', option.description || ''));
-        label.append(input, optionCopy); field.appendChild(label);
-      }
-      if (mode === 'text' || question.allowOther === true) {
-        const otherLabel = text('label', 'preview-question-other', question.otherLabel || (mode === 'text' ? t('previewShell.questionAnswer') : t('previewShell.questionOther')));
-        const input = document.createElement('textarea'); input.rows = mode === 'text' ? 3 : 2;
-        input.dataset.otherText = 'true';
-        input.placeholder = question.otherPlaceholder || t('previewShell.questionPlaceholder');
-        otherLabel.appendChild(input); field.appendChild(otherLabel);
+      if (options.length && mode !== 'text') {
+        const optionList = text('div', 'preview-question-options', '');
+        for (const option of options) {
+          const label = text('label', 'preview-question-option', '');
+          const input = document.createElement('input');
+          input.type = mode === 'multiple' ? 'checkbox' : 'radio';
+          input.name = `preview-${item.id}-${field.dataset.questionId}`;
+          input.dataset.optionId = String(option.id || '');
+          const indicator = text('span', 'preview-question-indicator', ''); indicator.setAttribute('aria-hidden', 'true');
+          const optionCopy = text('span', 'preview-question-option-copy', '');
+          optionCopy.appendChild(text('strong', '', option.label || option.id || ''));
+          if (option.description) optionCopy.appendChild(text('small', '', option.description));
+          label.append(input, indicator, optionCopy); optionList.appendChild(label);
+        }
+        if (question.allowOther !== false) {
+          const otherCard = text('div', 'preview-question-other-card', '');
+          const otherChoice = text('label', 'preview-question-option preview-question-other-choice', '');
+          const otherInput = document.createElement('input');
+          otherInput.type = mode === 'multiple' ? 'checkbox' : 'radio';
+          otherInput.name = `preview-${item.id}-${field.dataset.questionId}`;
+          otherInput.dataset.otherChoice = 'true';
+          const indicator = text('span', 'preview-question-indicator', ''); indicator.setAttribute('aria-hidden', 'true');
+          const otherCopy = text('span', 'preview-question-option-copy', '');
+          otherCopy.append(text('strong', '', question.otherLabel || t('previewShell.questionOther')),
+            text('small', '', t('previewShell.questionOtherHint')));
+          otherChoice.append(otherInput, indicator, otherCopy);
+          const otherText = document.createElement('textarea'); otherText.rows = 2;
+          otherText.dataset.otherText = 'true'; otherText.disabled = true;
+          otherText.placeholder = question.otherPlaceholder || t('previewShell.questionPlaceholder');
+          otherInput.addEventListener('change', () => {
+            otherText.disabled = !otherInput.checked;
+            if (otherInput.checked) requestAnimationFrame(() => otherText.focus());
+          });
+          otherText.addEventListener('input', () => {
+            if (String(otherText.value || '').trim() && !otherInput.checked) {
+              otherInput.checked = true; otherText.disabled = false;
+            }
+          });
+          otherCard.append(otherChoice, otherText); optionList.appendChild(otherCard);
+        }
+        field.appendChild(optionList);
+      } else {
+        const answer = text('label', 'preview-question-text-answer', '');
+        answer.appendChild(text('span', '', t('previewShell.questionAnswer')));
+        const input = document.createElement('textarea'); input.rows = 3;
+        input.dataset.otherText = 'true'; input.placeholder = question.otherPlaceholder || t('previewShell.questionPlaceholder');
+        answer.appendChild(input); field.appendChild(answer);
       }
       form.appendChild(field);
     }
@@ -563,7 +613,10 @@ export function createPreviewShellDomain({
     const answers = [];
     for (const field of card.querySelectorAll('.preview-question-field')) {
       const selectedOptionIds = [...field.querySelectorAll('[data-option-id]:checked')].map(input => input.dataset.optionId || '');
-      const otherText = String(field.querySelector('[data-other-text]')?.value || '').trim();
+      const otherChoice = field.querySelector('[data-other-choice]');
+      const acceptsText = field.dataset.answerMode === 'text' || Boolean(otherChoice?.checked);
+      const otherText = acceptsText ? String(field.querySelector('[data-other-text]')?.value || '').trim() : '';
+      if (otherChoice?.checked && !otherText) return { ok: false, error: t('previewShell.questionRequired') };
       if (!selectedOptionIds.length && !otherText) return { ok: false, error: t('previewShell.questionRequired') };
       answers.push({ questionId: field.dataset.questionId || '', selectedOptionIds, otherText });
     }
@@ -643,6 +696,12 @@ export function createPreviewShellDomain({
       try { scope.textContent = JSON.stringify(item.input || {}, null, 2); } catch { scope.textContent = String(item.input || ''); }
       card.append(trust, scope);
     } else if (item.type === 'question') {
+      if (item.context) {
+        const context = text('section', 'preview-question-context', '');
+        context.append(text('span', 'preview-question-context-label', t('previewShell.questionContext')),
+          text('p', '', String(item.context)));
+        card.appendChild(context);
+      }
       card.appendChild(buildQuestionFields(item));
     } else if (item.type === 'plan') {
       const note = text('label', 'preview-plan-feedback', t('previewShell.planFeedback'));
@@ -701,9 +760,10 @@ export function createPreviewShellDomain({
     return card;
   }
 
-  function renderNeedsDrawer() {
+  function renderNeedsDrawer({ preserveEditor = false } = {}) {
     const drawer = byId('previewNeedsDrawer');
     if (!drawer || !needsDrawerOpen) return;
+    if (preserveEditor && hasActiveEditor(drawer)) return;
     const head = text('header', 'preview-needs-head', '');
     const copy = text('div', '', '');
     copy.append(text('span', 'preview-eyebrow', t('previewShell.needsDrawerEyebrow')),
@@ -728,6 +788,14 @@ export function createPreviewShellDomain({
     clearPreviewLive();
     renderPreviewShell();
     if (focus) requestAnimationFrame(() => byId('previewDispatchInput')?.focus());
+  }
+
+  function startNewDispatch() {
+    if (dispatchBusy) return;
+    dispatchText = '';
+    dispatchDraft = null;
+    dispatchError = '';
+    openDispatchHome();
   }
 
   function openArchive({ focus = true } = {}) {
@@ -1232,6 +1300,122 @@ export function createPreviewShellDomain({
     return node.roleLabel || node.roleId || t('previewShell.crewMemberFallback', { p1: index + 1 });
   }
 
+  function controlReason(reason) {
+    const known = new Set(['terminal', 'already_paused', 'complete', 'turn_active', 'budget_exhausted', 'already_running',
+      'mission_missing', 'not_terminal', 'already_manual', 'run_active', 'target_unknown', 'no_checkpoints', 'unavailable']);
+    return t(`previewShell.controlReason.${known.has(String(reason || '')) ? reason : 'unavailable'}`);
+  }
+
+  function scopeChip(scope) {
+    return text('small', 'preview-control-scope', t(`previewShell.controlScope.${scope || 'mission'}`));
+  }
+
+  function controlButton(label, className, capability, onClick) {
+    const button = actionButton('', className, onClick);
+    button.append(text('span', '', label), scopeChip(capability?.scope));
+    button.disabled = controlBusy !== '' || !capability?.enabled;
+    if (!capability?.enabled) button.title = controlReason(capability?.reason);
+    return button;
+  }
+
+  function confirmationRail(message, confirmLabel, onConfirm, onCancel) {
+    const rail = text('div', 'preview-control-confirm', '');
+    rail.setAttribute('role', 'alert');
+    const copy = text('p', '', message);
+    const actions = text('div', 'preview-control-confirm-actions', '');
+    const confirm = actionButton(confirmLabel, 'danger', onConfirm);
+    const cancel = actionButton(t('previewShell.controlCancel'), 'ghost', onCancel);
+    confirm.disabled = Boolean(controlBusy || runControlBusy);
+    cancel.disabled = Boolean(controlBusy || runControlBusy);
+    actions.append(confirm, cancel); rail.append(copy, actions);
+    return rail;
+  }
+
+  async function performMissionControl(action) {
+    const sessionId = selectedSessionId();
+    if (!sessionId || controlBusy) return;
+    controlBusy = action; controlError = ''; renderTaskSheet(selectedCard());
+    try {
+      const response = await api(`/api/missions/${encodeURIComponent(sessionId)}/control`, {
+        method: 'POST', body: JSON.stringify({ action }),
+      });
+      if (!response || response.ok !== true) throw response || new Error(t('previewShell.controlFailed'));
+      if (selectedSnapshot) {
+        selectedSnapshot.mission = response.mission || selectedSnapshot.mission;
+        selectedSnapshot.result = response.mission?.result || null;
+        selectedSnapshot.controls = response.controls || selectedSnapshot.controls;
+      }
+      controlDraft = null;
+      await refreshPreviewShell({ quiet: true, forceDetail: true });
+      if (response.requiresTurn) {
+        const prompt = action === 'retry' ? t('previewShell.controlRetryPrompt') : t('previewShell.controlContinuePrompt');
+        applyShellMode('classic');
+        const started = await runMissionControlTurn({ sessionId, action, prompt });
+        if (!started || started.ok === false) throw new Error(started && started.error || t('previewShell.controlTurnFailed'));
+      }
+    } catch (error) {
+      controlError = apiErrText(error) || t('previewShell.controlFailed');
+    } finally {
+      controlBusy = ''; renderMain();
+    }
+  }
+
+  async function performCheckpointRollback(entry) {
+    if (!entry || controlBusy) return;
+    controlBusy = `entry:${entry.turnSeq}:${entry.entrySeq}`; controlError = ''; renderTaskSheet(selectedCard());
+    try {
+      const response = await api('/api/checkpoints/rollback', {
+        method: 'POST', body: JSON.stringify({ sessionId: selectedSessionId(), turnSeq: entry.turnSeq, entrySeq: entry.entrySeq }),
+      });
+      if (!response || response.ok !== true) throw response || new Error(t('previewShell.controlFailed'));
+      controlDraft = null;
+      await refreshPreviewShell({ quiet: true, forceDetail: true });
+    } catch (error) {
+      controlError = apiErrText(error) || t('previewShell.controlFailed');
+    } finally {
+      controlBusy = ''; renderMain();
+    }
+  }
+
+  async function performRunControl(run, action) {
+    if (!run || runControlBusy) return;
+    runControlBusy = `${run.id}:${action}`; controlError = ''; crewRenderSignature = ''; renderCrewLens(ensureTaskSheet(selectedCard()), selectedSnapshot);
+    try {
+      const response = await api(`/api/agent-runs/${encodeURIComponent(run.id)}`, {
+        method: 'POST', body: JSON.stringify({ sessionId: selectedSessionId(), action }),
+      });
+      if (!response || response.ok !== true) throw response || new Error(t('previewShell.controlFailed'));
+      controlDraft = null;
+      await refreshPreviewShell({ quiet: true, forceDetail: true });
+    } catch (error) {
+      controlError = apiErrText(error) || t('previewShell.controlFailed');
+    } finally {
+      runControlBusy = ''; crewRenderSignature = ''; renderMain();
+    }
+  }
+
+  function buildCrewRunControls(run) {
+    const panel = text('div', 'preview-run-control', '');
+    panel.setAttribute('aria-label', t('previewShell.runControlTitle'));
+    panel.appendChild(text('span', 'preview-run-control-label', t('previewShell.runControlTitle')));
+    const buttons = text('div', 'preview-run-control-buttons', '');
+    const pause = actionButton(t('previewShell.runPause'), '', () => { void performRunControl(run, 'pause'); });
+    const resume = actionButton(t('previewShell.runContinue'), '', () => { void performRunControl(run, 'resume'); });
+    const stop = actionButton(t('previewShell.runStop'), 'danger-ghost', () => {
+      controlDraft = { kind: 'run', action: 'stop', runId: run.id }; crewRenderSignature = ''; renderCrewLens(ensureTaskSheet(selectedCard()), selectedSnapshot);
+    });
+    pause.disabled = Boolean(runControlBusy) || !run.live || run.paused;
+    resume.disabled = Boolean(runControlBusy) || !(run.live && run.paused);
+    stop.disabled = Boolean(runControlBusy) || !run.live;
+    for (const button of [pause, resume, stop]) button.appendChild(scopeChip('run'));
+    buttons.append(pause, resume, stop); panel.appendChild(buttons);
+    if (controlDraft?.kind === 'run' && controlDraft.runId === run.id) {
+      panel.appendChild(confirmationRail(t('previewShell.runStopConfirm'), t('previewShell.runStopConfirmAction'),
+        () => { void performRunControl(run, 'stop'); }, () => { controlDraft = null; crewRenderSignature = ''; renderCrewLens(ensureTaskSheet(selectedCard()), selectedSnapshot); }));
+    }
+    return panel;
+  }
+
   function foremanBrief(run, nodes) {
     const groups = nodes.reduce((counts, node) => {
       const group = crewStatusGroup(node.status); counts[group] = (counts[group] || 0) + 1; return counts;
@@ -1381,6 +1565,7 @@ export function createPreviewShellDomain({
       nodes: nodes.map(node => [node.id, node.status, node.progress, node.steerable, node.steerReason]),
       proposals: proposals.map(item => [item.id, item.task, item.proposedBy]),
       deliveries: [...crewDeliveryState.entries()].filter(([key]) => key.startsWith(`${run.id}:`)),
+      controlDraft, runControlBusy,
     });
     if (crewRenderSignature === signature && host.childElementCount) return;
     crewRenderSignature = signature;
@@ -1399,7 +1584,9 @@ export function createPreviewShellDomain({
       button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', String(item.id) === String(run.id) ? 'true' : 'false');
       button.title = String(item.id || ''); runTabs.appendChild(button);
     }
-    head.append(heading, runTabs);
+    const runTools = text('div', 'preview-crew-run-tools', '');
+    runTools.append(runTabs, buildCrewRunControls(run));
+    head.append(heading, runTools);
 
     const depths = crewDepths(nodes);
     const graphNodes = [...nodes.map(node => ({ ...node, proposal: false, depth: depths.get(String(node.id)) || 0 })),
@@ -1598,6 +1785,148 @@ export function createPreviewShellDomain({
     }
   }
 
+  function renderMissionControl(article, snapshot) {
+    const host = article?.querySelector('[data-slot="missionControl"]');
+    if (!host) return;
+    const controls = snapshot.controls || { actions: {} };
+    const actions = controls.actions || {};
+    const mission = snapshot.mission || {};
+    const head = text('div', 'preview-mission-control-head', '');
+    const heading = text('div', '', '');
+    heading.append(text('span', 'preview-eyebrow', t('previewShell.controlEyebrow')),
+      text('h2', '', t('previewShell.controlTitle')),
+      text('p', '', t('previewShell.controlBody')));
+    const telemetry = text('div', 'preview-control-telemetry', '');
+    telemetry.append(
+      text('span', mission.autoMode === 'until-done' ? 'is-live' : '', t(`previewShell.autoMode.${mission.autoMode || 'off'}`)),
+      text('span', controls.activeTurn ? 'is-live' : '', controls.activeTurn ? t('previewShell.turnLive') : t('previewShell.turnQuiet')),
+      text('span', controls.liveRuns ? 'is-live' : '', t('previewShell.liveRuns', { p1: controls.liveRuns || 0 })),
+    );
+    head.append(heading, telemetry);
+
+    const board = text('div', 'preview-control-board', '');
+    const driver = text('section', 'preview-control-group is-driver', '');
+    driver.append(text('span', 'preview-control-group-label', t('previewShell.controlDriver')),
+      controlButton(t('previewShell.controlPause'), '', actions.pause, () => { void performMissionControl('pause'); }),
+      controlButton(t('previewShell.controlContinue'), 'primary', actions.continue, () => { void performMissionControl('continue'); }),
+      controlButton(t('previewShell.controlTakeover'), '', actions.takeover, () => { void performMissionControl('takeover'); }));
+    const missionGroup = text('section', 'preview-control-group is-mission', '');
+    missionGroup.append(text('span', 'preview-control-group-label', t('previewShell.controlMission')),
+      controlButton(t('previewShell.controlStop'), 'danger-ghost', actions.stop, () => { controlDraft = { kind: 'mission', action: 'stop' }; renderTaskSheet(selectedCard()); }),
+      controlButton(t('previewShell.controlRetry'), '', actions.retry, () => { controlDraft = { kind: 'mission', action: 'retry' }; renderTaskSheet(selectedCard()); }));
+    board.append(driver, missionGroup);
+
+    host.replaceChildren(head, board);
+    if (controlDraft?.kind === 'mission' && ['stop', 'retry'].includes(controlDraft.action)) {
+      const action = controlDraft.action;
+      host.appendChild(confirmationRail(t(`previewShell.controlConfirm.${action}`), t(`previewShell.controlConfirmAction.${action}`),
+        () => { void performMissionControl(action); }, () => { controlDraft = null; renderTaskSheet(selectedCard()); }));
+    }
+    if (controlBusy) {
+      const busy = text('p', 'preview-control-state is-busy', t('previewShell.controlWorking'));
+      busy.setAttribute('role', 'status'); host.appendChild(busy);
+    } else if (controlError) {
+      const error = text('p', 'preview-control-state is-error', controlError);
+      error.setAttribute('role', 'alert'); host.appendChild(error);
+    }
+  }
+
+  function ledgerOpLabel(value) {
+    const op = ['create', 'modify', 'delete'].includes(String(value || '')) ? String(value) : 'change';
+    return t(`previewShell.ledgerOp.${op}`);
+  }
+
+  function ledgerRecoveryLabel(value) {
+    return t(`previewShell.recoverability.${['full', 'partial', 'none'].includes(value) ? value : 'none'}`);
+  }
+
+  function renderLedger(article, snapshot) {
+    const host = article?.querySelector('[data-slot="ledger"]');
+    if (!host) return;
+    const ledger = snapshot.ledger || { entries: [], nonRevertibleFiles: [], irreversible: {} };
+    const entries = Array.isArray(ledger.entries) ? ledger.entries : [];
+    const controls = snapshot.controls || {};
+    const rollbackCapability = controls.actions?.rollback || { enabled: false, reason: 'no_checkpoints', scope: 'mission' };
+    const head = text('header', 'preview-ledger-tape-head', '');
+    const heading = text('div', '', '');
+    heading.append(text('span', 'preview-eyebrow', t('previewShell.ledgerEyebrow')),
+      text('h2', '', t('previewShell.ledgerTitle')),
+      text('p', '', t('previewShell.ledgerBody')));
+    const stamp = text('div', `preview-recovery-stamp is-${ledger.recoverability || 'none'}`, '');
+    stamp.append(text('small', '', t('previewShell.recoveryLabel')), text('strong', '', ledgerRecoveryLabel(ledger.recoverability)),
+      text('span', '', t('previewShell.recoveryCount', { p1: ledger.reversibleEntries || 0, p2: ledger.nonRevertibleEntries || 0 })));
+    const whole = controlButton(t('previewShell.rollbackMission'), 'danger-ghost preview-ledger-whole-rollback', rollbackCapability, () => {
+      controlDraft = { kind: 'mission', action: 'rollback' }; renderTaskSheet(selectedCard());
+    });
+    const actions = text('div', 'preview-ledger-head-actions', ''); actions.append(stamp, whole);
+    head.append(heading, actions); host.replaceChildren(head);
+
+    if (controlDraft?.kind === 'mission' && controlDraft.action === 'rollback') {
+      host.appendChild(confirmationRail(t('previewShell.controlConfirm.rollback'), t('previewShell.controlConfirmAction.rollback'),
+        () => { void performMissionControl('rollback'); }, () => { controlDraft = null; renderTaskSheet(selectedCard()); }));
+    }
+
+    const tape = text('div', 'preview-ledger-tape', '');
+    if (ledger.truncated) tape.appendChild(text('p', 'preview-ledger-truncated', t('previewShell.ledgerTruncated', { p1: ledger.totalEntries || entries.length })));
+    const byTurn = new Map();
+    for (const entry of entries) {
+      const seq = Number(entry && entry.turnSeq) || 0;
+      if (!byTurn.has(seq)) byTurn.set(seq, []);
+      byTurn.get(seq).push(entry);
+    }
+    for (const [turnSeq, rows] of [...byTurn.entries()].sort((a, b) => b[0] - a[0])) {
+      const group = text('section', 'preview-ledger-turn', ''); group.dataset.turnSeq = String(turnSeq);
+      const groupHead = text('div', 'preview-ledger-turn-head', '');
+      groupHead.append(text('strong', '', t('previewShell.ledgerTurn', { p1: turnSeq })),
+        text('span', '', t('previewShell.ledgerTurnCount', { p1: rows.length })));
+      group.appendChild(groupHead);
+      for (const entry of rows.slice().sort((a, b) => Number(b.entrySeq) - Number(a.entrySeq))) {
+        const row = text('div', `preview-ledger-row${entry.revertible ? '' : ' is-irreversible'}`, '');
+        row.dataset.ledgerEntry = `${entry.turnSeq}:${entry.entrySeq}`;
+        const marker = text('span', 'preview-ledger-marker', String(entry.entrySeq || '').padStart(2, '0'));
+        const copy = text('div', 'preview-ledger-copy', '');
+        const title = text('div', 'preview-ledger-row-title', '');
+        title.append(text('span', `preview-ledger-op op-${entry.op || 'change'}`, ledgerOpLabel(entry.op)),
+          text('strong', '', basename(entry.path) || t('previewShell.unknown')),
+          text('span', `preview-ledger-revertible is-${entry.revertible ? 'yes' : 'no'}`,
+            entry.revertible ? t('previewShell.revertible') : t('previewShell.notRevertible')));
+        const meta = text('div', 'preview-ledger-meta', '');
+        const pathNode = text('code', '', entry.path || ''); pathNode.title = entry.path || '';
+        meta.append(pathNode, text('span', '', [entry.tool || t('previewShell.unknown'), narrativeTime(entry.ts)].join(' · ')));
+        copy.append(title, meta);
+        const canRollback = entry.revertible && !controls.activeTurn && !(controls.liveRuns > 0);
+        const rollback = actionButton(t('previewShell.rollbackEntry'), 'ghost preview-ledger-row-action', () => {
+          controlDraft = { kind: 'entry', action: 'rollback', entry }; renderTaskSheet(selectedCard());
+        });
+        rollback.disabled = Boolean(controlBusy) || !canRollback;
+        if (!canRollback) rollback.title = controlReason(!entry.revertible ? 'unavailable' : (controls.activeTurn ? 'turn_active' : 'run_active'));
+        row.append(marker, copy, rollback); group.appendChild(row);
+        if (controlDraft?.kind === 'entry' && Number(controlDraft.entry?.turnSeq) === Number(entry.turnSeq)
+          && Number(controlDraft.entry?.entrySeq) === Number(entry.entrySeq)) {
+          group.appendChild(confirmationRail(t('previewShell.entryRollbackConfirm', { p1: basename(entry.path) || entry.path }), t('previewShell.rollbackEntry'),
+            () => { void performCheckpointRollback(entry); }, () => { controlDraft = null; renderTaskSheet(selectedCard()); }));
+        }
+      }
+      tape.appendChild(group);
+    }
+    if (!entries.length) tape.appendChild(text('p', 'preview-ledger-empty', t('previewShell.ledgerEmpty')));
+
+    const nonFiles = Array.isArray(ledger.nonRevertibleFiles) ? ledger.nonRevertibleFiles : [];
+    const irreversible = Array.isArray(ledger.irreversible?.items) ? ledger.irreversible.items : [];
+    if (nonFiles.length || irreversible.length || Number(ledger.irreversible?.legacyCommands) > 0) {
+      const section = text('section', 'preview-ledger-irreversible', '');
+      section.append(text('span', 'preview-eyebrow', t('previewShell.irreversibleEyebrow')),
+        text('h3', '', t('previewShell.irreversibleTitle')),
+        text('p', '', t('previewShell.irreversibleBody')));
+      const list = text('ul', '', '');
+      for (const file of nonFiles) list.appendChild(text('li', '', t('previewShell.irreversibleFile', { p1: file.path || t('previewShell.unknown'), p2: ledgerOpLabel(file.op) })));
+      for (const item of irreversible) list.appendChild(text('li', '', t('previewShell.irreversibleCommand', { p1: item.name || item.kind || t('previewShell.unknown'), p2: item.turnSeq || 0 })));
+      if (Number(ledger.irreversible?.legacyCommands) > 0) list.appendChild(text('li', '', t('previewShell.irreversibleLegacy', { p1: ledger.irreversible.legacyCommands })));
+      section.appendChild(list); tape.appendChild(section);
+    }
+    host.appendChild(tape);
+  }
+
   function ensureTaskSheet(card) {
     const main = byId('previewMain');
     const sessionId = String(card.sessionId || '');
@@ -1627,6 +1956,10 @@ export function createPreviewShellDomain({
       makeMetric('cost', t('previewShell.cost')), makeMetric('runs', t('previewShell.runs')));
     head.append(kicker, heading, goal, progress, metrics);
 
+    const missionControl = text('section', 'preview-mission-control', '');
+    missionControl.dataset.slot = 'missionControl';
+    missionControl.setAttribute('aria-label', t('previewShell.controlTitle'));
+
     const returnSummary = text('section', 'preview-return-summary', '');
     returnSummary.dataset.slot = 'returnSummary'; returnSummary.hidden = true;
     returnSummary.setAttribute('aria-label', t('previewShell.returnTitle'));
@@ -1634,6 +1967,10 @@ export function createPreviewShellDomain({
     const stopCard = text('section', 'preview-stop-card', '');
     stopCard.dataset.slot = 'stopCard'; stopCard.hidden = true;
     stopCard.setAttribute('aria-label', t('previewShell.stopCardTitle'));
+
+    const finishCard = text('section', 'preview-finish-card', '');
+    finishCard.dataset.slot = 'finishCard'; finishCard.hidden = true;
+    finishCard.setAttribute('aria-label', t('previewShell.finishTitle'));
 
     const lensSwitch = text('nav', 'preview-lens-switch', '');
     lensSwitch.dataset.slot = 'lensSwitch'; lensSwitch.setAttribute('role', 'tablist');
@@ -1669,11 +2006,15 @@ export function createPreviewShellDomain({
     intake.appendChild(panels);
     body.append(worksite, intake);
 
+    const ledger = text('section', 'preview-ledger-section', '');
+    ledger.id = 'previewMissionLedger'; ledger.dataset.slot = 'ledger';
+    ledger.setAttribute('aria-label', t('previewShell.ledgerTitle'));
+
     const foot = text('footer', 'preview-main-actions preview-task-actions', '');
     foot.append(actionButton(t('previewShell.backHome'), '', () => openDispatchHome()),
       actionButton(t('previewShell.openMissionClassic'), 'primary', () => { void openSelectedInClassic(); }),
       actionButton(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }));
-    article.append(head, returnSummary, stopCard, lensSwitch, narrativeLens, crewLens, body, foot);
+    article.append(head, missionControl, returnSummary, stopCard, finishCard, lensSwitch, narrativeLens, crewLens, body, ledger, foot);
     main.replaceChildren(article);
     return article;
   }
@@ -1731,7 +2072,9 @@ export function createPreviewShellDomain({
     const actions = text('div', 'preview-stop-actions', '');
     actions.append(
       actionButton(t('previewShell.stopRetry'), 'primary', () => {
-        void openSelectedInClassic(t('previewShell.stopRetryDraft', { p1: snapshot.mission?.goal || titleOf(card) }));
+        controlDraft = { kind: 'mission', action: 'retry' };
+        renderTaskSheet(card);
+        requestAnimationFrame(() => article?.querySelector('[data-slot="missionControl"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       }),
       actionButton(t('previewShell.stopChangeApproach'), '', () => {
         void openSelectedInClassic(t('previewShell.stopChangeDraft', { p1: snapshot.mission?.goal || titleOf(card) }));
@@ -1742,6 +2085,75 @@ export function createPreviewShellDomain({
       }),
     );
     host.replaceChildren(copy, actions);
+  }
+
+  function renderFinishCard(article, card, snapshot) {
+    const host = article?.querySelector('[data-slot="finishCard"]');
+    if (!host) return;
+    const result = snapshot && snapshot.result;
+    if (!result || result.status !== 'complete') {
+      host.hidden = true;
+      host.replaceChildren();
+      return;
+    }
+    host.hidden = false;
+    const acceptance = result.acceptance || {};
+    const changes = result.changes || {};
+    const audit = result.audit || {};
+    const usage = snapshot.usage || result.usage || {};
+    const artifacts = Array.isArray(result.artifacts) ? result.artifacts.filter(item => item && item.path) : [];
+    const unfinished = Array.isArray(result.unfinished) ? result.unfinished.filter(Boolean) : [];
+
+    const heading = text('header', 'preview-finish-head', '');
+    const copy = text('div', 'preview-finish-copy', '');
+    copy.append(text('span', 'preview-eyebrow', t('previewShell.finishEyebrow')),
+      text('h2', '', t('previewShell.finishTitle')),
+      text('p', '', t('previewShell.finishBody', { p1: Number(acceptance.done) || 0, p2: Number(acceptance.total) || 0 })));
+    const stamp = text('div', 'preview-finish-stamp', '');
+    stamp.append(text('span', '', t('previewShell.finishStamped')), text('strong', '', formatTaskTime(result.finishedAt)));
+    heading.append(copy, stamp);
+
+    const facts = text('div', 'preview-finish-facts', '');
+    const fact = (key, label, value, detail) => {
+      const node = text('section', 'preview-finish-fact', ''); node.dataset.finishFact = key;
+      node.append(text('span', '', label), text('strong', '', value), text('small', '', detail));
+      return node;
+    };
+    const totalTokens = (Number(usage.inTok) || 0) + (Number(usage.outTok) || 0) || Number(result.usage?.tokens) || 0;
+    const auditTotal = (Number(audit.commands) || Number(changes.commands) || 0) + (Number(audit.irreversible) || Number(result.irreversible?.total) || 0) + (Number(audit.checkpoints) || Number(result.checkpoints?.entries) || 0);
+    facts.append(
+      fact('acceptance', t('previewShell.finishAcceptance'), `${Number(acceptance.done) || 0}/${Number(acceptance.total) || 0}`, t('previewShell.finishAcceptanceHint')),
+      fact('artifacts', t('previewShell.finishArtifacts'), compactNumber(artifacts.length), t('previewShell.finishArtifactsHint')),
+      fact('unfinished', t('previewShell.finishUnfinished'), compactNumber(unfinished.length), unfinished.length ? t('previewShell.finishUnfinishedOpen') : t('previewShell.finishUnfinishedNone')),
+      fact('changes', t('previewShell.finishChanges'), compactNumber(changes.filesChanged), t('previewShell.finishChangesHint', { p1: Number(changes.commands) || 0 })),
+      fact('usage', t('previewShell.finishUsage'), compactNumber(totalTokens), usageCost(usage)),
+      fact('audit', t('previewShell.finishAudit'), compactNumber(auditTotal), t('previewShell.finishAuditHint')),
+    );
+
+    const artifactSection = text('section', 'preview-finish-artifacts', '');
+    artifactSection.appendChild(text('h3', '', t('previewShell.finishArtifactList')));
+    if (artifacts.length) {
+      const list = text('ul', '', '');
+      for (const item of artifacts.slice(0, 8)) {
+        const row = text('li', '', '');
+        row.append(text('strong', '', basename(item.path) || item.path), text('code', '', item.path));
+        list.appendChild(row);
+      }
+      artifactSection.appendChild(list);
+    } else artifactSection.appendChild(text('p', 'preview-finish-empty', t('previewShell.finishNoArtifacts')));
+
+    const actions = text('div', 'preview-finish-actions', '');
+    const playbook = actionButton(t('previewShell.finishSavePlaybook'), 'primary', event => {
+      void saveMissionAsPlaybook(card.sessionId, event.currentTarget);
+    });
+    const memory = actionButton(t('previewShell.finishSaveMemory'), '', event => {
+      void saveMissionAsMemory(card.sessionId, event.currentTarget);
+    });
+    const archive = actionButton(t('previewShell.finishArchive'), 'ghost', () => {
+      updateMissionUi(card.missionId, { archived: true }); openDispatchHome();
+    });
+    actions.append(playbook, memory, archive);
+    host.replaceChildren(heading, facts, artifactSection, actions);
   }
 
   function changeDescription(record) {
@@ -1826,6 +2238,10 @@ export function createPreviewShellDomain({
       t('previewShell.resultsPanelBody', { p1: artifacts, p2: files }));
     const ledger = readonlyPanel('ledger', t('previewShell.ledgerPanel'), t('previewShell.ledgerValue', { p1: checkpoints }),
       t('previewShell.ledgerPanelBody', { p1: commands, p2: irreversible, p3: runs.length, p4: liveRuns, p5: maxRunCursor }));
+    ledger.classList.add('is-actionable'); ledger.tabIndex = 0; ledger.setAttribute('role', 'button');
+    const openLedger = () => article.querySelector('#previewMissionLedger')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    ledger.onclick = openLedger;
+    ledger.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openLedger(); } };
     host.replaceChildren(needs, result, ledger);
   }
 
@@ -1977,11 +2393,14 @@ export function createPreviewShellDomain({
     const article = ensureTaskSheet(card);
     if (!article) return;
     renderTaskHeader(article, card, selectedSnapshot);
+    renderMissionControl(article, selectedSnapshot);
     renderReturnSummary(article);
     renderStopCard(article, card, selectedSnapshot);
+    renderFinishCard(article, card, selectedSnapshot);
     renderNarrativeLens(article);
     renderCrewLens(article, selectedSnapshot);
     renderIntakeDesk(article, selectedSnapshot);
+    renderLedger(article, selectedSnapshot);
     if (selectedLens === 'raw') renderRawMessages();
     renderLensSwitch(article, selectedSnapshot);
     if (selectedLens === 'raw') replayActiveTurn();
@@ -2013,11 +2432,12 @@ export function createPreviewShellDomain({
     main.replaceChildren(card);
   }
 
-  function renderPreviewShell() {
+  function renderPreviewShell({ preserveEditors = false } = {}) {
     renderFacts();
     renderDock();
-    renderMain();
-    renderNeedsDrawer();
+    const main = byId('previewMain');
+    if (!(preserveEditors && hasActiveEditor(main))) renderMain();
+    renderNeedsDrawer({ preserveEditor: preserveEditors });
     byId('previewHomeBtn')?.setAttribute('aria-pressed', activeView === 'home' ? 'true' : 'false');
     byId('previewArchiveBtn')?.setAttribute('aria-pressed', activeView === 'archive' ? 'true' : 'false');
   }
@@ -2063,7 +2483,7 @@ export function createPreviewShellDomain({
       foldNarrativeResponse(sessionId, narrativeResponse);
       if (session) selectedSession = session;
       if (forceSession) clearPreviewLive();
-      renderTaskSheet(card);
+      if (!(quiet && hasActiveEditor(byId('previewMain')))) renderTaskSheet(card);
       const rendered = byId('previewMain')?.querySelector('.preview-task-sheet');
       if (!changeResponse?.degraded && rendered && rendered.isConnected) {
         await new Promise(resolve => requestAnimationFrame(() => resolve()));
@@ -2111,7 +2531,7 @@ export function createPreviewShellDomain({
         } else if (activeView === 'home' && selectedMissionId && !selectedExists) {
           selectedMissionId = '';
         }
-        renderPreviewShell();
+        renderPreviewShell({ preserveEditors: quiet });
         if (activeView === 'mission' && selectedMissionId) await refreshSelectedMission({ forceSession: forceDetail || !selectedSession, quiet });
         if (status) status.textContent = t('previewShell.updated');
         return { cards: cards.length, counts: inboxCounts };
@@ -2209,6 +2629,10 @@ export function createPreviewShellDomain({
     }
     const classic = byId('previewClassicBtn');
     if (classic) classic.onclick = () => applyShellMode('classic');
+    const openPreview = byId('openPreviewBtn');
+    if (openPreview) openPreview.onclick = () => applyShellMode('preview');
+    const newMission = byId('previewNewMissionBtn');
+    if (newMission) newMission.onclick = () => startNewDispatch();
     const home = byId('previewHomeBtn');
     if (home) home.onclick = () => openDispatchHome();
     const archive = byId('previewArchiveBtn');

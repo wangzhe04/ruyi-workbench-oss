@@ -18,6 +18,10 @@ param(
 #   -Variant       : label for the stage dir and zip name.
 
 $ErrorActionPreference = "Stop"
+$variantLooksFull = $Variant -match '(^|[-_])full($|[-_])'
+if ($variantLooksFull -and -not $IncludeAcc) {
+  throw "A package named Full must use -IncludeAcc; refusing to emit a Full ZIP without ACC/winsdk."
+}
 $root = (Resolve-Path (Join-Path (Split-Path -Parent $PSCommandPath) "..")).Path
 $repoRoot = (Resolve-Path (Join-Path $root "..")).Path
 $dist = Join-Path $root $OutputDir

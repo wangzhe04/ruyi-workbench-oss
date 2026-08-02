@@ -14,8 +14,11 @@ Run with UTF-8:  python -X utf8 tests/smoke_v19.py
 
 import json
 import os
+import shlex
+import subprocess
 import sys
 import tempfile
+import time
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _SRC = os.path.join(_ROOT, "src")
@@ -37,6 +40,10 @@ def check(cond: bool, msg: str):
     print(f"  [{'ok  ' if cond else 'FAIL'}] {msg}")
     if not cond:
         _FAILURES.append(msg)
+
+
+def _shell_command(args: list[str]) -> str:
+    return subprocess.list2cmdline(args) if os.name == "nt" else shlex.join(args)
 
 
 def main() -> int:
@@ -207,6 +214,45 @@ def main() -> int:
     check(r.get("ok") is False and "revises_thought" in (r.get("error") or ""), "修订缺 revises_thought 拒")
     r = _FNS["sequential_thinking"](thought="新链", thought_number=1, total_thoughts=1, next_thought_needed=False)
     check(r.get("thought_history_length") == 1, "thought_number=1 重开新链")
+
+    # ============================================================ ⑥ run_command terminal settlement
+    print("\n== ⑥ run_command: 显式终态 / 超时杀树 / 后台句柄不阻塞 / 输出有界 ==")
+    r = _FNS["run_command"](command=_shell_command([sys.executable, "-c", "print('shell-done')"]), timeout=5)
+    check(r.get("ok") is True and r.get("return_code") == 0 and "shell-done" in r.get("stdout", ""),
+          f"成功命令显式 ok:true + return_code=0 (got {r})")
+
+    r = _FNS["run_command"](command=_shell_command([sys.executable, "-c", "import sys; sys.exit(7)"]), timeout=5)
+    check(r.get("ok") is False and r.get("return_code") == 7 and "code 7" in r.get("error", ""),
+          f"非零退出显式失败,不再由 MCP 包装误报 ok:true (got {r})")
+
+    started = time.monotonic()
+    r = _FNS["run_command"](command=_shell_command([sys.executable, "-c", "import time; time.sleep(5)"]), timeout=1)
+    elapsed = time.monotonic() - started
+    check(r.get("ok") is False and r.get("timed_out") is True and elapsed < 4,
+          f"超时后有界杀树并结算 ({elapsed:.2f}s, got {r})")
+
+    # Reproduce the classic inherited-pipe hang: the launcher exits but a grandchild keeps stdout/stderr.
+    # Temporary-file capture must return with the launcher instead of waiting for that grandchild's 8s sleep.
+    launcher = "import subprocess,sys; p=subprocess.Popen([sys.executable,'-c','import time; time.sleep(8)']); print('launcher-done',p.pid)"
+    started = time.monotonic()
+    r = _FNS["run_command"](command=_shell_command([sys.executable, "-c", launcher]), timeout=5)
+    elapsed = time.monotonic() - started
+    check(r.get("ok") is True and "launcher-done" in r.get("stdout", "") and elapsed < 3,
+          f"后台后代继承输出句柄也不拖住工具终态 ({elapsed:.2f}s, got {r})")
+    try:
+        child_pid = int((r.get("stdout", "").strip().split() or ["0"])[-1])
+        if child_pid > 0:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/PID", str(child_pid), "/T", "/F"], capture_output=True, timeout=5, check=False)
+            else:
+                os.kill(child_pid, 9)
+    except Exception:
+        pass
+
+    r = _FNS["run_command"](command=_shell_command([sys.executable, "-c", "print('x' * 1200000)"]), timeout=10)
+    check(r.get("ok") is True and r.get("stdout_truncated") is True
+          and r.get("stdout_bytes", 0) > 1024 * 1024 and len(r.get("stdout", "")) < 1100000,
+          "超大/二进制式输出以 1MiB 头尾有界返回")
 
     # ---------------------------------------------------------------- summary
     print()

@@ -16,6 +16,8 @@ const updater = read('mcp/ai-computer-control/installer/update.bat');
 const packager = read('ruyi-workbench/tools/package-offline.ps1');
 const pyproject = read('mcp/ai-computer-control/pyproject.toml');
 const requirements = read('mcp/ai-computer-control/requirements_offline.txt');
+const packageJson = JSON.parse(read('ruyi-workbench/package.json'));
+const configRuntime = read('ruyi-workbench/app/src/01-config.js');
 
 let failures = 0;
 function ok(condition, label) {
@@ -52,6 +54,9 @@ ok(/-r", REQUIREMENTS_FILE, "ai-computer-control"/.test(installer), 'fallback in
 ok(/python_embed\\python\.exe/.test(installBat), 'one-click launcher prefers bundled Python over system Python');
 ok(/uiautomation comtypes winsdk/.test(updater) && /offline_packages/.test(updater) && /--no-index/.test(updater),
   'incremental offline updater finds Full wheel caches and installs winsdk with UIA dependencies');
+ok(/AUTO_DEPS/.test(updater) && /winsdk-1\.0\.0b10-cp312-cp312-win_amd64\.whl/.test(updater) &&
+   (updater.match(/winsdk\.windows\.media\.ocr/g) || []).length >= 2,
+  'code overlays auto-repair and verify the pinned WinSDK OCR runtime instead of silently succeeding without it');
 
 ok(/\[switch\]\$BuildAccOffline/.test(packager) && /offline-manifest\.json/.test(packager), 'Ruyi full packager requires or builds a verified ACC payload');
 ok(/Refusing to create a source-only package labeled full\/offline/.test(packager), 'Ruyi refuses misleading source-only full packages');
@@ -76,9 +81,19 @@ ok(/Assert-FullAccOcrPayload/.test(packager) &&
   'Ruyi Full packager requires the OCR wheel, live imports, and manifest coverage before emitting a ZIP');
 ok(/Remove-LongTree/.test(packager) && /Refusing to remove path outside package output root/.test(packager), 'long-path cleanup is constrained to the package output root');
 ok(/\.Extension -ne '\.zip'/.test(packager), 'full package excludes nested local ACC zip build artifacts');
+ok(/variantLooksFull/.test(packager) && /named Full must use -IncludeAcc/.test(packager),
+  'a Full-labeled package cannot be emitted without ACC and WinSDK');
 ok(/if \(-not \$SkipExeBuild -and \(Test-Path \$exe\)\)/.test(packager), 'SkipExeBuild cannot package a stale dist/Ruyi.exe');
 ok(/requires-python = ">=3\.12"/.test(pyproject), 'ACC metadata supports the bundled Python 3.12 runtime');
 ok(/^winsdk==1\.0\.0b10$/m.test(requirements), 'Full offline requirements pin the verified winsdk cp312 release exactly');
+ok(/-IncludeAcc\s+-Variant full/.test(packageJson.scripts['package:offline']) &&
+   /-IncludeAcc\s+-Variant full/.test(packageJson.scripts['package:offline:full']) &&
+   /-IncludeAcc\s+-BuildAccOffline\s+-Variant full/.test(packageJson.scripts['package:offline:full:fresh']) &&
+   /-Variant slim/.test(packageJson.scripts['package:offline:slim']),
+  'default offline packaging means Full, with explicit fresh-Full and Slim commands');
+ok(/__RUYI_ACC_FULL__/.test(configRuntime) && /installed-full-runtime/.test(configRuntime) &&
+   /offline-embedded-runtime/.test(configRuntime) && /capability === 'full'/.test(configRuntime),
+  'desktop MCP autodetection prefers bundled then installed WinSDK-capable runtimes over core-only system Python');
 
 console.log('\nACC OFFLINE INSTALLER CONTRACT: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
 process.exit(failures ? 1 : 0);

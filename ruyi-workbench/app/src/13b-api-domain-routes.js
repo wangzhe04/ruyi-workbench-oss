@@ -213,7 +213,22 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
     // an update (lost-write on the shared index). rewindSession has this guard internally; the direct
     // rollback route did not, so add it here BEFORE calling journalRollback.
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中,请先停止' }, 409));
-    return send(res, json(await journalRollback(sessionId, body.turnSeq, body.entrySeq)));
+    if ([...activeAgentRuns.values()].some(live => live && live.run && live.run.sessionId === sessionId && !live.closing)) {
+      return send(res, json({ ok: false, error: '班组 Run 进行中,请先停止' }, 409));
+    }
+    const rollback = await journalRollback(sessionId, body.turnSeq, body.entrySeq);
+    if (rollback && rollback.ok) {
+      await bumpMissionChangeSeq(sessionId, {
+        type: 'rewind',
+        cursor: { turnSeq: Number(body.turnSeq), ...(body.entrySeq == null ? {} : { entrySeq: Number(body.entrySeq) }) },
+        detail: {
+          rollbackScope: body.entrySeq == null ? 'turn' : 'entry',
+          filesReverted: Array.isArray(rollback.reverted) ? rollback.reverted.length : 0,
+          filesFailed: Array.isArray(rollback.failed) ? rollback.failed.length : 0,
+        },
+      });
+    }
+    return send(res, json(rollback));
   }
   // v0.8-S4b: conversation REWIND (mutating; header-token — see needsToken whitelist above). Truncates the
   // session to just before `targetTurnSeq`, clears providerHistory (lazy-reseed rebuilds it), optionally

@@ -221,6 +221,16 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       integrity: { corruptLines: folded.corruptLines, lastRevision: folded.lastRevision },
     }));
   }
+  // 第84波:Mission 控制面。动作作用域由 missionControlCommand 单一核心冻结；本路由只做
+  // missionId/sessionId 解析与 HTTP 适配，经典 /api/mission stop 也复用同一核心。
+  if (req.method === 'POST' && /^\/api\/missions\/[^/]+\/control$/.test(pathname)) {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const sessionId = safeSessionId(pathname.split('/')[3]);
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const body = await readJsonBody(req);
+    const result = await missionControlCommand(sessionId, body && body.action);
+    return send(res, json(result.body, result.status));
+  }
   // 详情:单会话稳定任务快照(EC-E:mission + Agent Run + 产物 + 变更 + 检查点 + 用量 + 游标)。
   if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
@@ -262,6 +272,39 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       totalBytes: cpEntries.reduce((s, e) => s + (Number(e && e.bytes) || 0), 0),
       rollbackAvailable: cpEntries.length > 0,
     };
+    // 第84波台账时间轴:直接投影 checkpoint journal，不从摘要猜「可回退」。被跳过的大文件与不在
+    // journal 中的变更诚实列入不可回退区；最多下发最近 200 条，长任务的详情响应保持有界。
+    const checkpointKeys = new Set(cpEntries.map(entry => `${Number(entry && entry.turnSeq)}:${Number(entry && entry.entrySeq)}:${String(entry && entry.path || '')}`));
+    // skipped:true 已在 checkpoint row 自身标成不可回退；这里只补「摘要里有、journal 里没有」的变更，
+    // 避免同一大文件既算 skipped row 又算 nonRevertibleFile 而把不可退计数翻倍。
+    const nonRevertibleFiles = filesChangedList.filter(file => file
+      && !checkpointKeys.has(`${Number(file.turnSeq)}:${Number(file.entrySeq)}:${String(file.path || '')}`));
+    const ledgerEntries = cpEntries.slice(-200).map(entry => ({
+      turnSeq: Number(entry && entry.turnSeq) || 0,
+      entrySeq: Number(entry && entry.entrySeq) || 0,
+      path: String(entry && entry.path || ''),
+      op: String(entry && entry.op || ''),
+      tool: String(entry && entry.tool || ''),
+      bytes: Math.max(0, Number(entry && entry.bytes) || 0),
+      ts: String(entry && entry.ts || ''),
+      revertible: !(entry && entry.skipped),
+      reason: entry && entry.skipped ? 'content_too_large' : '',
+    }));
+    const reversibleEntries = ledgerEntries.filter(entry => entry.revertible).length;
+    const recoveryBlockers = ledgerEntries.filter(entry => !entry.revertible).length + nonRevertibleFiles.length
+      + fold.irreversible.total + fold.irreversible.legacyCommands;
+    const controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
+    const ledger = {
+      entries: ledgerEntries,
+      truncated: cpEntries.length > ledgerEntries.length,
+      totalEntries: cpEntries.length,
+      nonRevertibleFiles: nonRevertibleFiles.slice(-80),
+      irreversible: { items: fold.irreversible.items.slice(-80), legacyCommands: fold.irreversible.legacyCommands },
+      rollbackTargetTurnSeq: controls.rollbackTargetTurnSeq,
+      recoverability: reversibleEntries === 0 ? 'none' : (recoveryBlockers > 0 ? 'partial' : 'full'),
+      reversibleEntries,
+      nonRevertibleEntries: recoveryBlockers,
+    };
 
     // 用量切片:append-only 月度账本按 sessionId 过滤(权威存储,session 对象上无聚合字段)。
     const usage = indexed && indexed.usage ? indexed.usage : emptyMissionUsage();
@@ -292,6 +335,8 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         // 第72波:任务结果快照(终态盖章;active/paused 为 null,看 acceptance/changes/irreversible 实时投影)
         result: (session.mission && session.mission.result) || null,
         checkpoints,
+        controls,
+        ledger,
         usage,
         pending: pendingCounts,
         cursor,
@@ -723,6 +768,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
           input: iv.type === 'permission' && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : undefined,
           questionSummary: iv.type === 'question' ? String(iv.questionSummary || '') : '',
           questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
+          context: iv.type === 'question' ? String(iv.context || '').slice(0, 6000) : '',
           planSummary: iv.type === 'plan' ? String(iv.planSummary || '') : '',
           deliverable: iv.type === 'permission' ? pendingPermissions.has(String(iv.id))
             : iv.type === 'question' ? pendingQuestions.has(String(iv.id))
@@ -819,7 +865,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const reg = activeChildren.get(sessionId);
     if (!reg || !reg.onEvent) return send(res, apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
     const config = await readConfig();
-    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.permissionTimeoutMs);
+    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.permissionTimeoutMs, reg.questionContext || '');
     return send(res, json(answer && answer.ok
       ? { ok: true, answers: answer.answers, content: answer.content }
       : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' }));

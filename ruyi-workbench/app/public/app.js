@@ -235,6 +235,7 @@ const {
   renderContextMeter,
   renderGitDiffInto,
   renderMarkdown,
+  saveAsPlaybook,
   safeStringify,
   setCtxWindowManual,
   settleLiveThinking,
@@ -854,6 +855,19 @@ async function steerPreviewAgentNode({ sessionId = '', runId = '', nodeId = '', 
   }
 }
 
+// 第84波:Continue/Retry 已由 Mission 控制核心完成再武装；用户的一次明确点击随后复用经典
+// sendPrompt 启动真实 provider 回合，Preview 不复制第二套流状态机。
+async function runPreviewMissionControlTurn({ sessionId = '', prompt = '' } = {}) {
+  try {
+    await openSession(sessionId);
+    if (!state.currentSession || state.currentSession.id !== sessionId) throw new Error(t('previewShell.controlSessionFailed'));
+    sendPrompt(String(prompt || '').trim());
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: apiErrText(error) || t('previewShell.controlTurnFailed') };
+  }
+}
+
 const {
   bindPreviewShell,
   handlePreviewStreamEvent,
@@ -889,6 +903,9 @@ const {
     if (decision && state.currentSession?.id === decision.sessionId && !state.streaming) await openSession(decision.sessionId);
   },
   steerAgentNode: request => steerPreviewAgentNode(request),
+  runMissionControlTurn: request => runPreviewMissionControlTurn(request),
+  saveMissionAsPlaybook: (sessionId, button) => saveAsPlaybook(button, sessionId),
+  saveMissionAsMemory: (sessionId, button) => saveAsMemory(button, sessionId),
   apiErrText,
   pickWorkspace: () => pickWorkspaceNative(),
   playbookName: playbook => playbookDisplayName(playbook),

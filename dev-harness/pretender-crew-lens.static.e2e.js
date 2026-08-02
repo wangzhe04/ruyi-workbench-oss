@@ -34,8 +34,8 @@ ok(backend.includes('missionRunDigest(run, true, index < 6)') && backend.include
 ok(shell.includes('function crewDepths(nodes)') && shell.includes('dependsOn') && shell.includes('dataset.crewDepth'),
   'B1 crew stages are computed from projected dependency facts with a cycle guard');
 ok(shell.includes('function foremanBrief(run, nodes)') && shell.includes("t('previewShell.crewForemanBrief'")
-  && !/fetch\(|\/api\/agent-runs/.test(shell),
-  'B2 the foreman sentence is a deterministic local fold and the lens opens no second Run feed');
+  && !/fetch\(|\/api\/agent-runs\/[^'`]+\/events/.test(shell),
+  'B2 the foreman sentence is a deterministic local fold and the lens opens no second Run event feed');
 ok(shell.includes("proposal: true, depth: baseDepth + 1") && shell.includes("dataset.interventionId")
   && shell.includes('setNeedsDrawer(true, { interventionId: pending.id })'),
   'B3 a proposed pool item is a dotted next-stage node that opens the existing global decision drawer');
@@ -43,9 +43,11 @@ ok(shell.includes('steerAgentNode({ sessionId: selectedSessionId()')
   && app.includes("action: 'steer_node'") && app.includes('sessionId, action: \'steer_node\'')
   && app.includes('steerAgentNode: request => steerPreviewAgentNode(request)'),
   'B4 Pass a note uses the selected Mission session and delegates to the existing steer_node action');
-ok((shell.match(/method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/g) || []).length === 1
-  && shell.includes('/interventions/${encodeURIComponent(id)}/decision'),
-  'B5 Preview still owns only the unified Intervention write; crew steering is injected by the composition root');
+ok(shell.includes('/interventions/${encodeURIComponent(id)}/decision')
+  && shell.includes('async function performRunControl(run, action)')
+  && shell.includes('/api/agent-runs/${encodeURIComponent(run.id)}')
+  && shell.includes("scopeChip('run')"),
+  'B5 crew steering stays injected; Wave 84 Run controls use the existing scoped Run command');
 ok(shell.includes('crewDrafts.set(key, value)') && shell.includes("crewDeliveryState.set(key, { type: 'error'")
   && shell.includes("if (!(result && result.ok))"),
   'B6 a failed note preserves the draft and restores focus instead of claiming delivery');

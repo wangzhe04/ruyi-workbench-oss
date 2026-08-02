@@ -961,6 +961,9 @@ function normalizeMission(raw, prev, trusted = true) {
     // 必须保住它,否则再耗尽会二次落 mission_budget_exhausted 使超支率 >100%;全新 start(prev=null → p={})自然清空,
     // 新任务的耗尽正常重记。budget 无法经 update 抬高(applyMissionUpdate 不碰 budget),故不需"抬预算才清"的额外逻辑。
     budgetExhaustedAt: String(p.budgetExhaustedAt || ''),
+    // 第84波:Mission 的第一回合游标。整单回退必须回到「任务开始前」而不是猜整个会话的第 1 回合；
+    // 老会话没有该字段时只在 missionRollbackTarget 中基于真实消息/检查点保守推导，绝不盲回到 1。
+    startedTurnSeq: Math.max(0, Number(p.startedTurnSeq) || Number(o.startedTurnSeq) || 0),
     // 75a-2b (S3): Mission-level persistent monotone change sequence. turn/run/Intervention/预算/result/
     // rewind/删除 all advance it (75a-2b wires Intervention transitions; broader wiring lands with each
     // subsystem). Deep-copy preserved (same as budgetExhaustedAt); legacy sessions derive start value 0.
@@ -1074,12 +1077,17 @@ async function buildMissionResult(session, opts) {
     unfinished: ms.filter(x => !x || x.status !== 'done').map(x => ({ id: x && x.id, desc: String((x && x.desc) || '').slice(0, 200), status: (x && x.status) || 'pending' })),
     todosOpen: ((session.todos) || []).filter(t => t && t.status !== 'done').length,
     artifacts: fold.artifacts.slice(0, 50),
+    usage: {
+      autoTurns: Math.max(0, Number(m && m.spent && m.spent.autoTurns) || 0),
+      tokens: Math.max(0, Number(m && m.spent && m.spent.tokens) || 0),
+    },
     changes: {
       filesChanged: fold.filesChanged.length, byOp,
       irreversibleFiles: fold.filesChanged.filter(f => f.revertible !== true).length,
       commands: fold.commands,
     },
     checkpoints: { entries: cpEntries.length, turnSeqs: cpTurnSeqs.slice(0, 50), rollbackAvailable: cpEntries.length > 0 },
+    audit: { commands: fold.commands, irreversible: fold.irreversible.total, checkpoints: cpEntries.length, openTodos: ((session.todos) || []).filter(t => t && t.status !== 'done').length },
     irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands },
   };
 }
@@ -1098,6 +1106,190 @@ async function maybeFinalizeMission(session, how) {
   }
   if (m.result) { m.result = null; m.updatedAt = nowIso(); return true; } // 再武装:清旧章
   return false;
+}
+
+// ── 第84波:Mission 控制面单一 command core ───────────────────────────────────────────────
+// 74 波冻结语义在这里落成唯一状态机：pause/takeover 只停当前回合+驱动，stop 覆盖整单并请求停止
+// 同 Mission 的所有活 Run；continue/retry 只再武装，真正的新 provider 回合由 UI 在用户点击后显式发起。
+function missionRollbackTarget(session, checkpointEntries) {
+  const mission = session && session.mission;
+  const explicit = Number(mission && mission.startedTurnSeq);
+  if (Number.isSafeInteger(explicit) && explicit > 0) return explicit;
+  const missionStartedAt = Date.parse(String(mission && mission.createdAt || ''));
+  if (!Number.isFinite(missionStartedAt)) return 0; // 旧数据边界不明时宁可不给整单回退，也不越界撤销前一项工作
+  const candidates = [];
+  for (const entry of (checkpointEntries || [])) {
+    const seq = Number(entry && entry.turnSeq);
+    const occurredAt = Date.parse(String(entry && entry.ts || ''));
+    if (Number.isSafeInteger(seq) && seq > 0 && Number.isFinite(occurredAt) && occurredAt >= missionStartedAt - 1000) candidates.push(seq);
+  }
+  for (const message of ((session && session.messages) || [])) {
+    const direct = Number(message && message.turnSeq);
+    const summary = Number(message && message.turnSummary && message.turnSummary.turnSeq);
+    const occurredAt = Date.parse(String(message && (message.createdAt || message.ts) || ''));
+    if (!Number.isFinite(occurredAt) || occurredAt < missionStartedAt - 1000) continue;
+    if (Number.isSafeInteger(direct) && direct > 0) candidates.push(direct);
+    if (Number.isSafeInteger(summary) && summary > 0) candidates.push(summary);
+  }
+  return candidates.length ? Math.min(...candidates) : 0;
+}
+
+function missionBudgetRemaining(mission) {
+  if (!mission) return false;
+  const budget = mission.budget || {};
+  const spent = mission.spent || {};
+  if ((Number(spent.autoTurns) || 0) >= Math.max(1, Number(budget.maxAutoTurns) || MISSION_DEFAULT_MAX_TURNS)) return false;
+  if ((Number(budget.maxTokens) || 0) > 0 && (Number(spent.tokens) || 0) >= Number(budget.maxTokens)) return false;
+  return true;
+}
+
+function missionControlView(session, opts = {}) {
+  const mission = session && session.mission;
+  const checkpointEntries = Array.isArray(opts.checkpointEntries) ? opts.checkpointEntries : [];
+  const runs = Array.isArray(opts.runs) ? opts.runs : [];
+  const activeTurn = Boolean(session && activeChildren.has(session.id));
+  const liveRuns = runs.filter(run => run && (run.live === true || activeAgentRuns.has(run.id)));
+  const terminal = Boolean(mission && mission.result);
+  const milestones = mission && Array.isArray(mission.milestones) ? mission.milestones : [];
+  const unfinished = milestones.some(item => !item || item.status !== 'done');
+  const budgetRemaining = missionBudgetRemaining(mission);
+  const rollbackTargetTurnSeq = missionRollbackTarget(session, checkpointEntries);
+  const action = (enabled, scope, reason = '') => ({ enabled: Boolean(enabled), scope, reason: enabled ? '' : reason });
+  return {
+    activeTurn, liveRuns: liveRuns.length, terminal, unfinished, budgetRemaining,
+    rollbackTargetTurnSeq,
+    actions: {
+      pause: action(Boolean(mission) && !terminal && (activeTurn || mission.autoMode === 'until-done'), 'turn_driver', terminal ? 'terminal' : 'already_paused'),
+      continue: action(Boolean(mission) && !terminal && unfinished && !activeTurn && mission.autoMode !== 'until-done' && budgetRemaining,
+        'turn_driver', terminal ? 'terminal' : (!unfinished ? 'complete' : (activeTurn ? 'turn_active' : (!budgetRemaining ? 'budget_exhausted' : 'already_running')))),
+      stop: action(Boolean(mission) && !terminal, 'mission', terminal ? 'terminal' : 'mission_missing'),
+      retry: action(Boolean(mission) && Boolean(mission.result) && mission.result.status === 'stopped' && unfinished && !activeTurn && budgetRemaining,
+        'mission', !terminal ? 'not_terminal' : (mission.result && mission.result.status !== 'stopped' ? 'complete' : (activeTurn ? 'turn_active' : (!unfinished ? 'complete' : (!budgetRemaining ? 'budget_exhausted' : 'unavailable'))))),
+      takeover: action(Boolean(mission) && !terminal && (activeTurn || mission.autoMode !== 'off'), 'turn_driver', terminal ? 'terminal' : 'already_manual'),
+      rollback: action(Boolean(mission) && rollbackTargetTurnSeq > 0 && checkpointEntries.length > 0 && !activeTurn && liveRuns.length === 0,
+        'mission', activeTurn ? 'turn_active' : (liveRuns.length ? 'run_active' : (!rollbackTargetTurnSeq ? 'target_unknown' : 'no_checkpoints'))),
+    },
+  };
+}
+
+async function waitMissionTurnSettled(sessionId) {
+  const settler = turnSettlers.get(sessionId);
+  if (!settler || !settler.promise) return true;
+  return Promise.race([settler.promise.then(() => true), new Promise(resolve => setTimeout(() => resolve(false), 8000))]);
+}
+
+async function stopMissionAgentRuns(sessionId) {
+  let count = 0;
+  const saves = [];
+  for (const live of activeAgentRuns.values()) {
+    if (!live || !live.run || live.run.sessionId !== sessionId || live.closing || live.stopRequested) continue;
+    count++;
+    live.stopRequested = true;
+    live.paused = false;
+    try { if (live.ctrl) live.ctrl.abort(); } catch { /* best-effort */ }
+    const waiters = Array.isArray(live.resumeWaiters) ? live.resumeWaiters.splice(0) : [];
+    for (const wake of waiters) { try { wake(); } catch { /* best-effort */ } }
+    bumpRunIntervention(live.run, 'mission_stop');
+    appendAgentRunEvent(live.run, { type: 'run_stop_requested', data: { reason: 'mission_stop' } });
+    saves.push(saveAgentRun(live.run).catch(() => {}));
+  }
+  await Promise.all(saves);
+  return count;
+}
+
+function missionControlFailure(reason, status = 409, message = '') {
+  return { status, body: { ok: false, reason, error: message || reason } };
+}
+
+async function missionControlCommand(sessionId, rawAction) {
+  const action = String(rawAction || '').trim();
+  if (!['pause', 'continue', 'stop', 'retry', 'takeover', 'rollback'].includes(action)) {
+    return missionControlFailure('action_invalid', 400, 'unknown mission control action');
+  }
+  // 回合收尾的原子头文件换名窗口里，磁盘读可能短暂看不到头；活回合注册表持有同一权威 session，
+  // 控制动作必须仍可送达，不能让用户在最需要 Pause 时撞瞬态 404。
+  const registered = activeChildren.get(sessionId);
+  let session = await loadSession(sessionId) || (registered && registered.session) || null;
+  if (!session) return missionControlFailure('not_found', 404, 'session not found');
+  if (!session.mission) return missionControlFailure('mission_missing', 404, 'mission not found');
+
+  let cpEntries = await journalReadIndex(sessionId).catch(() => []);
+  let runs = await listAgentRuns(sessionId).catch(() => []);
+  let controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
+  const capability = controls.actions[action];
+  if (!capability || !capability.enabled) return missionControlFailure(capability && capability.reason || 'unavailable');
+
+  const mustStopTurn = ['pause', 'stop', 'takeover'].includes(action) && activeChildren.has(sessionId);
+  if (mustStopTurn) {
+    // 先改活回合持有的同一 Mission 引用，再中止 fetch/子进程。否则 dying turn 的当前轮 settler
+    // resolve 后，until-done driver 可能在控制路由落盘前抢先开启下一轮，Pause 响应仍显示 activeTurn。
+    const liveTurn = activeChildren.get(sessionId);
+    if (liveTurn && liveTurn.session && liveTurn.session.mission) {
+      liveTurn.session.mission.autoMode = action === 'pause' ? 'supervised' : 'off';
+      liveTurn.session.mission.updatedAt = nowIso();
+    }
+    stopSession(sessionId, `mission_${action}`);
+    const settled = await waitMissionTurnSettled(sessionId);
+    if (!settled) logEvent({ kind: 'mission_control_settle_timeout', sessionId, action });
+    session = await loadSession(sessionId) || session;
+  }
+
+  let requiresTurn = false;
+  let rollback = null;
+  let stoppedRuns = 0;
+  const mission = session.mission;
+  if (action === 'pause') {
+    mission.autoMode = 'supervised';
+  } else if (action === 'continue') {
+    mission.autoMode = 'until-done';
+    mission.stall = { lastDigest: '', sameCount: 0 };
+    requiresTurn = true;
+  } else if (action === 'takeover') {
+    mission.autoMode = 'off';
+    try { revokeAllGrants(sessionId, 'mission-takeover'); } catch { /* best-effort */ }
+  } else if (action === 'stop') {
+    stoppedRuns = await stopMissionAgentRuns(sessionId);
+    try { revokeAllGrants(sessionId, 'mission-stop'); } catch { /* best-effort */ }
+    mission.autoMode = 'off';
+    mission.result = await buildMissionResult(session, { status: 'stopped', how: 'stop' });
+  } else if (action === 'retry') {
+    for (const item of mission.milestones || []) {
+      if (item && item.status === 'blocked') { item.status = 'pending'; item.evidence = ''; }
+    }
+    mission.result = null;
+    mission.autoMode = 'until-done';
+    mission.stall = { lastDigest: '', sameCount: 0 };
+    requiresTurn = true;
+  } else if (action === 'rollback') {
+    const targetTurnSeq = controls.rollbackTargetTurnSeq;
+    rollback = await rewindSession(sessionId, targetTurnSeq, true);
+    if (!rollback || !rollback.ok) return missionControlFailure('rollback_failed', 409, rollback && rollback.error || 'mission rollback failed');
+    session = await loadSession(sessionId) || session;
+    for (const item of session.mission.milestones || []) {
+      if (!item) continue;
+      item.status = 'pending';
+      item.evidence = '';
+    }
+    session.mission.result = null;
+    session.mission.autoMode = 'off';
+    session.mission.stall = { lastDigest: '', sameCount: 0 };
+  }
+  session.mission.updatedAt = nowIso();
+  await saveSession(session);
+  const revision = await bumpMissionChangeSeq(sessionId, {
+    type: action === 'stop' ? 'result' : 'progress',
+    cursor: { action, ...(rollback ? { targetTurnSeq: controls.rollbackTargetTurnSeq } : {}) },
+    detail: { status: session.mission.result && session.mission.result.status || '', autoMode: session.mission.autoMode, stoppedRuns, rollback: Boolean(rollback) },
+  });
+  if (revision) session.mission.changeSeq = revision;
+  const reg = activeChildren.get(sessionId);
+  if (reg && reg.session && reg.session !== session) reg.session.mission = session.mission;
+  if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } }
+
+  cpEntries = await journalReadIndex(sessionId).catch(() => []);
+  runs = await listAgentRuns(sessionId).catch(() => []);
+  controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
+  return { status: 200, body: { ok: true, action, mission: session.mission, controls, requiresTurn, stoppedRuns, ...(rollback ? { rollback } : {}) } };
 }
 // 执行一条里程碑的机器验收(command 判退出码+可选输出包含;file_exists 判在)。'none' 返回 null(交模型自报)。
 // 只读判定,不改文件;command 走工作区 cwd,复用 runProcess 基建;绝不用于副作用。

@@ -75,7 +75,20 @@
 .usage-trend-cap { display: flex; justify-content: space-between; margin-top: 3px; font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* provider 单价配置（设置 › 服务商 › 每卡片）。三列小网格，窄屏单列。 */
-.prov-pricing-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.prov-pricing-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .prov-pricing-cell { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: var(--fs-xs); color: var(--muted); }
 .prov-pricing-cell input, .prov-pricing-cell select { width: 100%; }
-@media (max-width: 600px) { .prov-pricing-grid { grid-template-columns: 1fr; } }
+.prov-model-pricing { margin-top: 10px; padding: 9px 11px 11px; border: 1px solid var(--line); border-radius: var(--r-md); background: color-mix(in srgb, var(--panel-2) 72%, transparent); }
+.prov-model-pricing > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-2); font-size: var(--fs-sm); font-weight: 650; }
+.prov-model-pricing-count { min-width: 20px; padding: 1px 6px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent); text-align: center; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.prov-model-pricing-rows { display: grid; gap: 7px; margin-top: 9px; }
+.prov-model-price-row { display: grid; grid-template-columns: minmax(150px, 1.5fr) repeat(3, minmax(92px, 1fr)) 30px; gap: 6px; align-items: center; }
+.prov-model-price-row input { min-width: 0; width: 100%; }
+.prov-model-price-remove { width: 30px; height: 30px; padding: 0; border-radius: 10px; color: var(--danger-fg); }
+.prov-model-pricing-add { margin-top: 9px; }
+@media (max-width: 760px) {
+  .prov-pricing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .prov-model-price-row { grid-template-columns: 1fr 1fr; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
+  .prov-model-price-remove { grid-column: 2; justify-self: end; }
+}
+@media (max-width: 460px) { .prov-pricing-grid, .prov-model-price-row { grid-template-columns: 1fr; } .prov-model-price-remove { grid-column: 1; } }

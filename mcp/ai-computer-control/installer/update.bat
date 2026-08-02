@@ -4,7 +4,7 @@ title AI Computer Control - Incremental Update
 chcp 65001 >nul 2>&1
 
 REM Incremental updater for an ALREADY-INSTALLED ai-computer-control.
-REM   update.bat            -> hot-copy new .py over the installed package (no deps, instant)
+REM   update.bat            -> verify/repair required Full deps, then hot-copy new .py
 REM   update.bat --code     -> same as above
 REM   update.bat --deps     -> pip-install desktop/OCR wheels from .\wheels (uiautomation, comtypes, winsdk)
 REM Ship this file next to an updated "ai_computer_control\" source tree (and optional "wheels\").
@@ -32,6 +32,15 @@ if not defined PY (
 )
 
 if /I "%MODE%"=="--deps" goto deps
+
+REM A code overlay must not report success while silently leaving OCR unavailable. Full/update
+REM payloads carry the local wheel cache, so repair winsdk automatically before copying code.
+"%PY%" -I -B -X utf8 -c "import winsdk.windows.media.ocr; import winsdk.windows.graphics.imaging; import winsdk.windows.storage.streams; import winsdk.windows.globalization" >nul 2>&1
+if errorlevel 1 (
+  echo [update] Required Windows OCR runtime is missing; repairing from the local wheel cache...
+  set "AUTO_DEPS=1"
+  goto deps
+)
 
 :code
 if not exist "%SRC%" (
@@ -63,10 +72,23 @@ if not exist "%WHEEL_DIR%" (
   echo          or copy uiautomation/comtypes/winsdk wheels into wheels\ .
   exit /b 1
 )
+if not exist "%WHEEL_DIR%\winsdk-1.0.0b10-cp312-cp312-win_amd64.whl" (
+  echo [update] ERROR: required Full OCR wheel is missing:
+  echo          winsdk-1.0.0b10-cp312-cp312-win_amd64.whl
+  echo          Rebuild or re-extract the Full offline package; do not continue with a partial cache.
+  exit /b 1
+)
 echo [update] Installing optional desktop and Windows OCR deps from local wheels (no internet)...
 "%PY%" -m pip install --no-index --find-links "%WHEEL_DIR%" --no-deps --upgrade uiautomation comtypes winsdk
 if errorlevel 1 ( echo [update] pip install failed. & exit /b 1 )
-echo [update] Optional UI-Automation and Windows OCR deps installed. Now run: update.bat --code
+"%PY%" -I -B -X utf8 -c "import winsdk.windows.media.ocr; import winsdk.windows.graphics.imaging; import winsdk.windows.storage.streams; import winsdk.windows.globalization" >nul 2>&1
+if errorlevel 1 (
+  echo [update] ERROR: winsdk installed but Windows.Media.Ocr imports still fail.
+  echo          Full OCR requires the bundled CPython 3.12 runtime; reinstall the complete Full package.
+  exit /b 1
+)
+if defined AUTO_DEPS goto code
+echo [update] UI-Automation and Windows OCR deps installed and verified. Now run: update.bat --code
 goto end
 
 :end

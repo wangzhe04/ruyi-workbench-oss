@@ -242,6 +242,29 @@ try {
   })()`);
   ok(typeof familiar === 'string' && familiar.trim().length > 0, 'B5 familiar-work card fills the dispatch box without starting work');
 
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('previewDispatchInput');
+    input.value = '持续输入时保留焦点与光标'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus(); input.setSelectionRange(4, 8); window.__wave85DispatchInput = input;
+    document.dispatchEvent(new Event('visibilitychange'));
+    return true;
+  })()`);
+  await new Promise(resolve => setTimeout(resolve, 800));
+  const uninterruptedDraft = await cdp.evaluate(`(() => {
+    const input = document.getElementById('previewDispatchInput');
+    return {
+      sameNode: input === window.__wave85DispatchInput,
+      focused: document.activeElement === input,
+      value: input?.value || '',
+      selectionStart: input?.selectionStart,
+      selectionEnd: input?.selectionEnd,
+    };
+  })()`);
+  ok(uninterruptedDraft && uninterruptedDraft.sameNode && uninterruptedDraft.focused
+    && uninterruptedDraft.value === '持续输入时保留焦点与光标'
+    && uninterruptedDraft.selectionStart === 4 && uninterruptedDraft.selectionEnd === 8,
+  'B6 quiet task-desk refresh preserves the active draft node, focus, and caret range');
+
   const missionPrompt = 'Wave 78 browser dispatch: finish the task and record evidence.';
   await cdp.evaluate(`(() => {
     const input = document.getElementById('previewDispatchInput');

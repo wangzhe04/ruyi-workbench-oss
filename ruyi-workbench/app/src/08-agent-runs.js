@@ -517,12 +517,12 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // the sub-agent bills as its own independent ledger row, never merged into the父回合, so no double counting).
   // Mirrors the parent markUsage's E4 alias handling (prompt_tokens|input_tokens / completion_tokens|output_tokens)
   // and accumulates across every API call in the sub-turn. `calls` records whether ANY real usage frame arrived.
-  const subUsage = { in: 0, out: 0, calls: 0 };
+  const subUsage = { in: 0, out: 0, cachedIn: 0, calls: 0 };
   const markUsage = u => {
     if (!u || typeof u !== 'object') return;
     const inTok = Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0;
     const outTok = Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0;
-    subUsage.in += inTok; subUsage.out += outTok; subUsage.calls += 1;
+    subUsage.in += inTok; subUsage.out += outTok; subUsage.cachedIn += Math.min(inTok, cachedInputTokensFromUsage(u)); subUsage.calls += 1;
   };
   let resultText = '';
   let iters = 0, toolCallCount = 0;
@@ -852,10 +852,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         subIn = Math.max(0, estTotal - estOut); subOut = estOut; estimated = true;
       }
     }
-    const { cost, currency } = computeProviderCost(provider, subIn, subOut);
+    const cachedInTok = estimated ? 0 : subUsage.cachedIn;
+    const { cost, currency } = computeProviderCost(provider, subIn, subOut, cachedInTok, subModel);
     appendUsageLedger({
       sessionId: parentSession && parentSession.id, engine: 'openai', provider: provider.id, model: subModel,
-      inTok: subIn, outTok: subOut, cost, currency, estimated, turnSeq: parentSession && parentSession.turnSeq,
+      inTok: subIn, outTok: subOut, cachedInTok, cost, currency, estimated, turnSeq: parentSession && parentSession.turnSeq,
       kind: 'subagent', agentKey, subagentId,
     });
     onEvent({ type: 'subagent_usage', id: subagentId, agentKey, inTok: subIn, outTok: subOut, cost, currency, estimated }); // 29c: 同 Claude 路径(两引擎对称)

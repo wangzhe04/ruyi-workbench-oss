@@ -203,9 +203,11 @@ async function draftMemoryFromSession(sessionId) {
       const u = sc && sc.usage;
       const inTok = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
       const outTok = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+      const cachedInTok = cachedInputTokensFromUsage(u);
       if (inTok > 0 || outTok > 0) {
-        const { cost, currency } = computeProviderCost(provider, inTok, outTok);
-        appendUsageLedger({ sessionId: session.id, engine: 'openai', provider: provider.id, model: sc.model || provider.model || '', inTok, outTok, cost, currency, estimated: false, turnSeq: session.turnSeq, kind: 'aux', note: 'memory-draft' });
+        const ledgerModel = sc.model || provider.model || '';
+        const { cost, currency } = computeProviderCost(provider, inTok, outTok, cachedInTok, ledgerModel);
+        appendUsageLedger({ sessionId: session.id, engine: 'openai', provider: provider.id, model: ledgerModel, inTok, outTok, cachedInTok, cost, currency, estimated: false, turnSeq: session.turnSeq, kind: 'aux', note: 'memory-draft' });
       }
     } catch { /* 记账绝不可影响起草 */ }
     if (!sc.ok) { if (attempt === 1) return { ok: false, error: sc.error }; continue; }

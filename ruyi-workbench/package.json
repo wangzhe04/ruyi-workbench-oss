@@ -12,7 +12,10 @@
     "doctor": "node app/server.js doctor",
     "test": "node ../dev-harness/run-all.js",
     "build:exe": "pkg . --targets node24-win-x64 --output dist/Ruyi.exe",
-    "package:offline": "powershell -ExecutionPolicy Bypass -File tools/package-offline.ps1"
+    "package:offline": "powershell -ExecutionPolicy Bypass -File tools/package-offline.ps1 -IncludeAcc -Variant full",
+    "package:offline:full": "powershell -ExecutionPolicy Bypass -File tools/package-offline.ps1 -IncludeAcc -Variant full",
+    "package:offline:full:fresh": "powershell -ExecutionPolicy Bypass -File tools/package-offline.ps1 -IncludeAcc -BuildAccOffline -Variant full",
+    "package:offline:slim": "powershell -ExecutionPolicy Bypass -File tools/package-offline.ps1 -Variant slim"
   },
   "pkg": {
     "assets": [

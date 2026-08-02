@@ -2,7 +2,7 @@
 'use strict';
 
 // 第77波静态契约：任务单头部/原始镜头/只读收活台，经典渲染器与 steer 去重规则复用，
-// Mission cursor/usage/run/result 数据面齐全，SSE 只镜像既有流且不获得写权限。
+// Mission cursor/usage/run/result 数据面齐全，SSE 只镜像既有流；第84波新增写动作只走权威控制命令。
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
@@ -31,9 +31,11 @@ ok(shell.includes("makeMetric('turns'") && shell.includes("makeMetric('tokens'")
   && shell.includes("makeMetric('cost'") && shell.includes("makeMetric('runs'"), 'A3 头部五态/进度外含回合、Token、费用、班组用量事实');
 ok(shell.includes("readonlyPanel('needs'") && shell.includes("readonlyPanel('results'")
   && shell.includes("readonlyPanel('ledger'"), 'A4 收活台需要你/成果/台账三块均为只读投影');
-ok((shell.match(/method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/g) || []).length === 1
-  && shell.includes('/interventions/${encodeURIComponent(id)}/decision'),
-  'A5 Preview 只新增统一 Intervention 决策写入口');
+ok(shell.includes('/interventions/${encodeURIComponent(id)}/decision')
+  && shell.includes('/api/missions/${encodeURIComponent(sessionId)}/control')
+  && shell.includes("api('/api/checkpoints/rollback'")
+  && shell.includes('/api/agent-runs/${encodeURIComponent(run.id)}'),
+  'A5 Preview 写动作收敛到 Intervention/Mission/checkpoint/Run 权威命令');
 
 ok(shell.includes('renderStaticMessage(message, key, signature, { readonly: true, idScope: \'preview\' })'),
   'B1 原始镜头逐条调用经典 chat-static-renderer，不复制消息/工具卡渲染器');
@@ -49,7 +51,7 @@ ok(shell.includes("host.dataset.renderer = 'chat-static-renderer'") || shell.inc
 
 ok(shell.includes('api(`/api/missions/${sessionId}`)') && shell.includes('api(`/api/sessions/${sessionId}`)'),
   'C1 详情只读读取 Mission 聚合快照 + 对应 Session 原文');
-for (const fact of ['snapshot.acceptance', 'snapshot.usage', 'snapshot.runs', 'snapshot.pending', 'snapshot.result', 'snapshot.changes', 'snapshot.checkpoints', 'snapshot.irreversible', 'snapshot.cursor']) {
+for (const fact of ['snapshot.acceptance', 'snapshot.usage', 'snapshot.runs', 'snapshot.pending', 'snapshot.result', 'snapshot.changes', 'snapshot.checkpoints', 'snapshot.irreversible', 'snapshot.controls', 'snapshot.ledger', 'snapshot.cursor']) {
   ok(shell.includes(fact), `C2 消费 ${fact} 权威投影`);
 }
 ok(shell.includes("event.type === 'assistant_delta'") && shell.includes('appendPreviewLiveText(event.text || \'\')'),

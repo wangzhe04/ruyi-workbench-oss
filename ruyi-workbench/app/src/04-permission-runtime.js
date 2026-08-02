@@ -232,6 +232,20 @@ function bridgedToolTimeoutMs(name) {
   return BRIDGED_TOOL_TIMEOUTS[bare] || BRIDGED_TOOL_TIMEOUT_DEFAULT_MS;
 }
 
+// Match the bridge deadline to the concrete ACC run_command request instead of showing a default 60-second
+// command as "running" for the old blanket 650-second ceiling. Keep a small protocol/serialization grace;
+// explicit WCW_BRIDGED_TIMEOUT_OVERRIDE values remain the harder outer cap used by tests/operators.
+function bridgedToolCallTimeoutMs(name, args) {
+  const bare = String(name || '').toLowerCase();
+  const configured = bridgedToolTimeoutMs(name);
+  if (bare !== 'run_command') return configured;
+  const requestedSeconds = Number(args && args.timeout);
+  const commandSeconds = Number.isFinite(requestedSeconds)
+    ? Math.max(1, Math.min(600, requestedSeconds))
+    : 60;
+  return Math.max(1000, Math.min(configured, commandSeconds * 1000 + 10000));
+}
+
 // 75b: automatic timeout/teardown decisions participate in the same per-Intervention CAS as user
 // decisions. The fallback is only for storage/core failure and must re-check the registry entry so a
 // concurrently applying user command can never be overwritten by a legacy settle.
@@ -299,7 +313,9 @@ function normalizeUserQuestions(raw) {
       question: String(q.question || q.header || `Question ${index + 1}`).trim().slice(0, 1000),
       answerMode,
       multiSelect: answerMode === 'multiple', // legacy clients keep their existing branch
-      allowOther: answerMode !== 'text' && q.allowOther === true,
+      // Wave 85: finite choices are the primary path; typing stays available behind an explicit Other row.
+      // Callers may set false only when a custom answer would be semantically invalid.
+      allowOther: answerMode !== 'text' && q.allowOther !== false,
       otherLabel: String(q.otherLabel || '').trim().slice(0, 120),
       otherPlaceholder: String(q.otherPlaceholder || '').trim().slice(0, 300),
       options,
@@ -356,12 +372,19 @@ function formatQuestionGuidance(answer) {
   return `<workbench_user_answer>\n${text}\n</workbench_user_answer>\nContinue the current task using this answer. Do not ask the same question again.`;
 }
 
-function registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, deliver) {
+function normalizeQuestionContext(value) {
+  const clean = String(value || '').replace(/\r\n/g, '\n').trim();
+  if (clean.length <= 6000) return clean;
+  return `…\n${clean.slice(-5998)}`;
+}
+
+function registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, deliver, context = '') {
   // Provider call ids are often reused as "call_1" across sessions, so never use them as registry keys.
   const sourceId = String(questionId || '');
   const id = makeId('question');
   const normalized = normalizeUserQuestions(questions);
   if (!normalized.length) return null;
+  const questionContext = normalizeQuestionContext(context);
   const entry = { sessionId, questions: normalized, timer: null, deliver: null };
   entry.deliver = (answer, opts = {}) => {
     if (pendingQuestions.get(id) !== entry) return false;
@@ -395,17 +418,18 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
     });
   }, Math.max(5000, Number(timeoutMs) || 120000));
   pendingQuestions.set(id, entry);
-  onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized });
+  onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized, context: questionContext || undefined });
   registerIntervention(sessionId, 'question', id, {
     questionSummary: normalized.map(q => String(q.question || '').slice(0, 200)).join(' | '),
     questions: normalized,
+    context: questionContext,
   });
   return id;
 }
 
-function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs) {
+function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, context = '') {
   return new Promise(resolve => {
-    const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; });
+    const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; }, context);
     if (!id) resolve({ ok: false, answers: [], content: '', error: 'no valid questions' });
   });
 }
@@ -589,7 +613,7 @@ class McpStdioClient {
   // 47b:超时走契约化处理 —— notifications/cancelled(_rpc 内已发)+ kill 客户端进程树(无僵尸执行),
   // 下次调用由 mcpClients 惰性重 spawn。错误文本如实告知"已杀进程树"。
   async callTool(name, args, timeoutMs) {
-    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolTimeoutMs(name));
+    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit);
       const isError = !!(res && res.isError);
@@ -873,7 +897,7 @@ class McpHttpClient {
 
   // Same result normalization as McpStdioClient.callTool — never throws.
   async callTool(name, args, timeoutMs) {
-    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolTimeoutMs(name));
+    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit);
       const isError = !!(res && res.isError);

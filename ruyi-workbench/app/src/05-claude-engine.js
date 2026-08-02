@@ -195,6 +195,7 @@ async function runClaudeTurn({
   {
     appendSys = String(config.appendSystemPrompt || '');
     appendSys += `${appendSys ? '\n\n' : ''}${getPromptPack(config && config.locale).toolProtocol.batching}`;
+    appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.questioning}`;
     if (interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
@@ -357,7 +358,7 @@ async function runClaudeTurn({
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId }; // 47a: kind 供 /api/steer 按引擎分派
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '' }; // 47a: kind 供 /api/steer 按引擎分派
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.
@@ -540,8 +541,8 @@ async function runClaudeTurn({
         bindNativeClaudeSession(ev.sessionId);
       }
     } else if (ev.kind === 'text') {
-      if (ev.partial) { pendingDeltaText = true; assistantText += ev.text; onEvent({ type: 'assistant_delta', text: ev.text }); }
-      else if (!pendingDeltaText) { assistantText += ev.text; onEvent({ type: 'assistant_delta', text: ev.text }); }
+      if (ev.partial) { pendingDeltaText = true; assistantText += ev.text; reg.questionContext = assistantText; onEvent({ type: 'assistant_delta', text: ev.text }); }
+      else if (!pendingDeltaText) { assistantText += ev.text; reg.questionContext = assistantText; onEvent({ type: 'assistant_delta', text: ev.text }); }
     } else if (ev.kind === 'thinking') {
       if (ev.partial) { pendingDeltaThinking = true; thinkingText += ev.text; onEvent({ type: 'thinking_delta', text: ev.text }); }
       else if (!pendingDeltaThinking) { thinkingText += ev.text; onEvent({ type: 'thinking_delta', text: ev.text }); }
@@ -565,7 +566,7 @@ async function runClaudeTurn({
       // Interactive: an AskUserQuestion tool_use is ours to answer — surface a modal instead of a plain card.
       if (interactive && isAskUserTool(ev.name)) {
         registerUserQuestion(session.id, ev.id, (ev.input && ev.input.questions) || ev.input || {}, onEvent, config.permissionTimeoutMs,
-          answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))));
+          answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))), assistantText);
       }
     } else if (ev.kind === 'tool_result') {
       const tc = toolCalls.find(t => t.id === ev.id);

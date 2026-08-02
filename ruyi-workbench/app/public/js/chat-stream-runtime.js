@@ -233,7 +233,7 @@ export function createChatStreamRuntime(deps = {}) {
   }
   function surfaceBackgroundQuestion(line, sessionId) {
     let evt; try { evt = JSON.parse(line); } catch { return; }
-    if (evt?.type === 'ask_user') showAskUserModal(evt.questionId || evt.id, evt.questions, sessionId);
+    if (evt?.type === 'ask_user') showAskUserModal(evt.questionId || evt.id, evt.questions, sessionId, evt.context || '');
   }
   function mountActiveTurn(sessionId) {
     const turn = activeTurns.get(sessionId);
@@ -716,6 +716,18 @@ export function createChatStreamRuntime(deps = {}) {
   function finalizeLive(live) {
     // Every terminal path settles and collapses the active reasoning note unless the user toggled it.
     settleLiveThinking(live);
+    // A transport failure can close the turn after tool_use but before its tool_result line reaches the
+    // browser. Never leave that card claiming it is still running after the owning turn has settled.
+    for (const [id, card] of (live?.toolCards || new Map())) {
+      if (card.durationTimer) { clearInterval(card.durationTimer); card.durationTimer = 0; }
+      if (!card.statusbar?.classList.contains('running')) continue;
+      card.status.textContent = t('status.stopped');
+      card.status.classList.remove('ok', 'err'); card.status.classList.add('err');
+      card.statusbar.classList.remove('running', 'ok', 'err'); card.statusbar.classList.add('err');
+      if (card.dur && card.t0 != null) card.dur.textContent = `· ${((performance.now() - card.t0) / 1000).toFixed(1)}s`;
+      if (card.resPre && !card.resPre.textContent) card.resPre.textContent = t('chat.toolResultMissing');
+      settleNarrativeTool(live, id, true);
+    }
     compactNarrativeProcessRuns(live && live.narrative);
     if (live.bubble && !live.bufferText && (live.errorShown || live.noteShown || live.narrative.childElementCount > 1)) sealLiveTextSegment(live);
     else if (live.bubble) {
@@ -867,6 +879,10 @@ export function createChatStreamRuntime(deps = {}) {
         live.thinkingActive = false;
         const card = toolCard({ name: evt.name, input: evt.input });
         card.t0 = performance.now(); // start the clock; tool_result computes the elapsed seconds
+        const updateDuration = () => {
+          if (card.dur && card.t0 != null) card.dur.textContent = `· ${((performance.now() - card.t0) / 1000).toFixed(0)}s`;
+        };
+        card.durationTimer = setInterval(updateDuration, 1000);
         live.toolCards.set(evt.id, card);
         // v0.9-S6: a sub-turn's tool_use carries subagentId → nest it inside that sub-agent's card body (indented,
         // via toolCard reuse). No subagentId → the normal top-level tools wrap.
@@ -882,6 +898,7 @@ export function createChatStreamRuntime(deps = {}) {
       case 'tool_result': {
         const card = live.toolCards.get(evt.id);
         if (card) {
+          if (card.durationTimer) { clearInterval(card.durationTimer); card.durationTimer = 0; }
           card.resPre.textContent = safeStringify(evt.content);
           // v1.0-S4: if this was git_diff, paint the colorized diff view now that the result is in.
           if (!evt.isError) renderGitDiffInto(card.diffHost, card.name, evt.content);
@@ -995,7 +1012,7 @@ export function createChatStreamRuntime(deps = {}) {
         break;
       case 'ask_user':
         registerLiveSemanticCard(live, { ...evt, type: 'question', status: 'pending' });
-        showAskUserModal(evt.questionId || evt.id, evt.questions, streamSessionId);
+        showAskUserModal(evt.questionId || evt.id, evt.questions, streamSessionId, evt.context || '');
         maybeScrollToBottom(); // EC-D 56: 提问卡入列走粘性跟随(模态浮层不影响消息区滚动)
         break;
       case 'question_answer':

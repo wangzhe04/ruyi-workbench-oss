@@ -159,6 +159,15 @@ def window_screenshot(title_substring: str, output_path: str | None = None,
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": f"PIL not available: {e}"}
 
+    # Validate the write destination before inspecting or manipulating a window. Besides making the safety
+    # decision deterministic in headless/zero-size desktop sessions, this avoids doing unnecessary capture
+    # work for a request that is guaranteed to be refused.
+    if output_path:
+        reason = protected_path_reason(output_path)
+        if reason and not allow_protected:
+            return {"ok": False,
+                    "error": f"refused to write: destination {reason}. Pass allow_protected=true to override."}
+
     hwnd, matched = _find_hwnd(title_substring)
     if not hwnd:
         return {"ok": False, "found": False, "error": f"no visible window matches '{title_substring}'"}
@@ -202,12 +211,6 @@ def window_screenshot(title_substring: str, output_path: str | None = None,
     out = {"ok": True, "matched_title": matched, "width": img.width, "height": img.height,
            "method": method, "scale": 1.0}
     if output_path:
-        # Same protected-destination guard as the write_file family — a screenshot output path is
-        # a file write and must not bypass it just because it arrives via a capture tool.
-        reason = protected_path_reason(output_path)
-        if reason and not allow_protected:
-            return {"ok": False, "matched_title": matched,
-                    "error": f"refused to write: destination {reason}. Pass allow_protected=true to override."}
         try:
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
             img.save(output_path, "PNG")

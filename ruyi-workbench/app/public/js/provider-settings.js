@@ -533,29 +533,74 @@ function providerCard(p, idx) {
   cwB.append(cwi);
   cwB.append(contextResolvedHint(p));
 
-  // 单价 · 成本估算（可选）：inputPerM/outputPerM(每百万 token)+ currency → p.pricing。留空=不估成本，
-  // 「用量」看板只显 token 数。填了后端接纳并据以估算该 provider 的成本（按币种分组，不换算）。
+  // Provider 默认价 + 精确模型覆盖。缓存命中价留空时后端按普通输入价保守估算。
   const priceB = el('div', 'field-block prov-pricing');
   priceB.append(el('label', '', t('provider.pricing.title')));
   const pr = p.pricing || {};
   const pgrid = el('div', 'prov-pricing-grid');
   const inCell = el('label', 'prov-pricing-cell'); inCell.append(el('span', 'prov-pricing-cap', t('provider.pricing.inputPerM')));
   const inI = el('input'); inI.type = 'number'; inI.min = '0'; inI.step = '0.01'; inI.placeholder = t('provider.pricing.inputPlaceholder'); inI.value = (pr.inputPerM === 0 || pr.inputPerM) ? String(pr.inputPerM) : ''; inCell.append(inI);
+  const cachedCell = el('label', 'prov-pricing-cell'); cachedCell.append(el('span', 'prov-pricing-cap', t('provider.pricing.cachedInputPerM')));
+  const cachedI = el('input'); cachedI.type = 'number'; cachedI.min = '0'; cachedI.step = '0.01'; cachedI.placeholder = t('provider.pricing.cachedPlaceholder'); cachedI.value = (pr.cachedInputPerM === 0 || pr.cachedInputPerM) ? String(pr.cachedInputPerM) : ''; cachedCell.append(cachedI);
   const outCell = el('label', 'prov-pricing-cell'); outCell.append(el('span', 'prov-pricing-cap', t('provider.pricing.outputPerM')));
   const outI = el('input'); outI.type = 'number'; outI.min = '0'; outI.step = '0.01'; outI.placeholder = t('provider.pricing.outputPlaceholder'); outI.value = (pr.outputPerM === 0 || pr.outputPerM) ? String(pr.outputPerM) : ''; outCell.append(outI);
   const curCell = el('label', 'prov-pricing-cell'); curCell.append(el('span', 'prov-pricing-cap', t('provider.pricing.currency')));
   const curSel = el('select'); for (const code of PRICING_CURRENCIES) { const o = el('option'); o.value = code; o.textContent = t('settings.currency.' + code); curSel.appendChild(o); } curSel.value = pr.currency || 'CNY'; curCell.append(curSel);
-  pgrid.append(inCell, outCell, curCell); priceB.append(pgrid);
+  pgrid.append(inCell, cachedCell, outCell, curCell); priceB.append(pgrid);
   priceB.append(el('p', 'field-help muted', t('provider.pricing.help')));
-  const syncPricing = () => {
-    const iv = inI.value.trim(), ov = outI.value.trim();
-    if (iv === '' && ov === '') { delete p.pricing; return; }
-    p.pricing = {};
-    if (iv !== '') { const n = Number(iv); if (Number.isFinite(n)) p.pricing.inputPerM = Math.max(0, n); }
-    if (ov !== '') { const n = Number(ov); if (Number.isFinite(n)) p.pricing.outputPerM = Math.max(0, n); }
-    p.pricing.currency = curSel.value || 'CNY';
+
+  const modelPricing = el('details', 'prov-model-pricing');
+  const modelSummary = el('summary', '', '');
+  const modelSummaryLabel = el('span', '', t('provider.pricing.modelOverrides'));
+  const modelSummaryCount = el('span', 'prov-model-pricing-count', '0');
+  modelSummary.append(modelSummaryLabel, modelSummaryCount);
+  const modelHelp = el('p', 'field-help muted', t('provider.pricing.modelHelp'));
+  const modelRows = el('div', 'prov-model-pricing-rows');
+  const addModelPrice = el('button', 'file-label prov-model-pricing-add', t('provider.pricing.addModel')); addModelPrice.type = 'button';
+  modelPricing.append(modelSummary, modelHelp, modelRows, addModelPrice);
+  priceB.append(modelPricing);
+
+  const initialModelPrices = Array.isArray(pr.models) ? pr.models.map(row => ({ ...row })) : [];
+  const rateValue = input => {
+    const value = input.value.trim();
+    const number = Number(value);
+    return value !== '' && Number.isFinite(number) ? Math.max(0, number) : null;
   };
-  inI.oninput = syncPricing; outI.oninput = syncPricing; curSel.onchange = syncPricing;
+  const syncPricing = () => {
+    const inputPrice = rateValue(inI), cachedPrice = rateValue(cachedI), outputPrice = rateValue(outI);
+    const models = [...modelRows.querySelectorAll('.prov-model-price-row')].map(row => {
+      const model = String(row.querySelector('[data-model-price-model]')?.value || '').trim();
+      const inputPerM = rateValue(row.querySelector('[data-model-price-input]'));
+      const cachedInputPerM = rateValue(row.querySelector('[data-model-price-cached]'));
+      const outputPerM = rateValue(row.querySelector('[data-model-price-output]'));
+      if (!model || (inputPerM == null && cachedInputPerM == null && outputPerM == null)) return null;
+      return { model, ...(inputPerM == null ? {} : { inputPerM }), ...(cachedInputPerM == null ? {} : { cachedInputPerM }), ...(outputPerM == null ? {} : { outputPerM }) };
+    }).filter(Boolean);
+    modelSummaryCount.textContent = String(models.length);
+    if (inputPrice == null && cachedPrice == null && outputPrice == null && !models.length) { delete p.pricing; return; }
+    p.pricing = {
+      ...(inputPrice == null ? {} : { inputPerM: inputPrice }),
+      ...(cachedPrice == null ? {} : { cachedInputPerM: cachedPrice }),
+      ...(outputPrice == null ? {} : { outputPerM: outputPrice }),
+      currency: curSel.value || 'CNY',
+      ...(models.length ? { models } : {}),
+    };
+  };
+  const appendModelPriceRow = (value = {}) => {
+    const row = el('div', 'prov-model-price-row');
+    const modelInput = el('input'); modelInput.type = 'text'; modelInput.placeholder = t('provider.pricing.modelPlaceholder'); modelInput.value = value.model || ''; modelInput.setAttribute('list', `provModels_${idx}`); modelInput.dataset.modelPriceModel = 'true';
+    const rowInput = el('input'); rowInput.type = 'number'; rowInput.min = '0'; rowInput.step = '0.01'; rowInput.placeholder = t('provider.pricing.inputShort'); rowInput.value = value.inputPerM === 0 || value.inputPerM ? String(value.inputPerM) : ''; rowInput.dataset.modelPriceInput = 'true';
+    const rowCached = el('input'); rowCached.type = 'number'; rowCached.min = '0'; rowCached.step = '0.01'; rowCached.placeholder = t('provider.pricing.cachedShort'); rowCached.value = value.cachedInputPerM === 0 || value.cachedInputPerM ? String(value.cachedInputPerM) : ''; rowCached.dataset.modelPriceCached = 'true';
+    const rowOutput = el('input'); rowOutput.type = 'number'; rowOutput.min = '0'; rowOutput.step = '0.01'; rowOutput.placeholder = t('provider.pricing.outputShort'); rowOutput.value = value.outputPerM === 0 || value.outputPerM ? String(value.outputPerM) : ''; rowOutput.dataset.modelPriceOutput = 'true';
+    const remove = el('button', 'prov-model-price-remove', '×'); remove.type = 'button'; remove.title = t('provider.pricing.removeModel'); remove.setAttribute('aria-label', remove.title);
+    for (const input of [modelInput, rowInput, rowCached, rowOutput]) input.oninput = syncPricing;
+    remove.onclick = () => { row.remove(); syncPricing(); };
+    row.append(modelInput, rowInput, rowCached, rowOutput, remove); modelRows.appendChild(row);
+  };
+  for (const row of initialModelPrices) appendModelPriceRow(row);
+  addModelPrice.onclick = () => { appendModelPriceRow({ model: p.model || '' }); modelPricing.open = true; modelRows.lastElementChild?.querySelector('input')?.focus(); syncPricing(); };
+  inI.oninput = syncPricing; cachedI.oninput = syncPricing; outI.oninput = syncPricing; curSel.onchange = syncPricing;
+  modelSummaryCount.textContent = String(initialModelPrices.length);
 
   const adv = el('details', 'prov-adv'); adv.append(el('summary', '', t('provider.advanced')));
   const sb = el('div', 'field-block'); sb.append(el('label', '', t('provider.systemPrompt')));

@@ -138,10 +138,12 @@ desk preview**. This changes only the presentation preference on this computer; 
 layouts read the same tasks, chats, messages, pending decisions, and checkpoints. Nothing is copied, moved, or
 deleted, and you can switch back at any time.
 
+- Use **Dispatch desk** in the classic sidebar to return immediately; use **Classic layout** at the bottom of the
+  task dock to go back. They are two interfaces over the same task facts.
 - The dispatch desk restates the goal, workspace, and turn-specific permission mode before you start. A Quick Ask
   ending in `?` returns to the classic conversation without creating a task.
-- The task dock opens the raw message worksite plus Needs you, Results, and Ledger facts. Rollback actions still
-  take you to the classic layout while that remains the authoritative control surface.
+- The task dock opens the raw message worksite plus Needs you, Results, and a real change ledger. Archived tasks
+  retain the same undo handles. Its top `+` opens a clean task draft and focuses the dispatch box.
 - A task opens on the **Worksite log**, which turns starts, turns, failures, usage, decisions, results, and rewinds
   into one continuous duty log. Every sentence expands to its raw type, time, source cursor, and fact detail. Switch
   to **Crew stages** or **Raw record** at any time; these are lenses over the same facts, not separate task state.
@@ -151,16 +153,29 @@ deleted, and you can switch back at any time.
   a model. A dotted gold member is proposed work awaiting approval and opens its exact Needs you item. Select a
   running member to pass a note; the UI reports immediate delivery, queued delivery, or honest unavailability and
   preserves the draft after failure.
+- The **Mission telegraph** below the title separates three scopes. Pause, Continue, and Human takeover affect the
+  current turn and driver; Stop and Retry affect the whole Mission; Pause/Continue/Stop inside Crew stages affect
+  only the selected Run. Every button shows its scope and disabled controls explain why. Stop, Retry, and Run Stop
+  restate their impact in place and require a second confirmation.
+- **Change ledger & undo handles** groups real checkpoint rows by turn with file, operation, tool, and time. A
+  Reversible row can be undone alone; Rollback Mission reverses recoverable files since Mission start and resets
+  that conversation tail and its milestones. Large files without a before-snapshot, commands, and other
+  irreversible actions are listed separately and are never reported as undone. Entry and whole-Mission rollback
+  require confirmation and are disabled while a turn or team Run is still writing.
 - Needs you in the desk bar or task intake opens the same cross-task drawer. Permissions, questions, plans, and
-  helper proposals are decided there; Allow and Approve require a second confirmation, and questions never
-  preselect an answer. An offline worksite offers only an honest classic-layout handoff.
+  helper proposals are decided there; Allow and Approve require a second confirmation. A question first shows the
+  background the model gave immediately before asking, then presents full-row choices with no default selection;
+  Other is only the fallback when no option fits. An offline worksite offers only an honest classic-layout handoff.
 - The desk-bar **Workspace / Safety / Engine** facts open the workspace picker, permission-mode panel, and model
   menu respectively. Only **Settings** in the task dock opens the full Settings page.
-- A stopped task lists unfinished work and offers Try again, Change approach, or Leave it for now. The first two
-  prepare an unsent continuation draft in the classic composer; the last only archives local UI state.
+- A stopped task lists unfinished work and offers Try again, Change approach, or Leave it for now. Try again opens
+  the inline whole-Mission Retry confirmation, then clears the stopped stamp and starts a new turn. Change approach
+  prepares an unsent classic-composer draft; Leave it for now only archives local UI state.
 - While you were away is generated only from persisted change records, and advances its local read position only
   after the task view has rendered successfully.
 - Archive search, filters, pinning, and archiving are local UI preferences. They never rewrite task facts.
+- A completed task gains a **Closeout dossier** with Acceptance, Artifacts, Unfinished, Changes, Usage, and Audit
+  facts from the sealed result. It can be saved as familiar work, remembered as a habit, or archived in place.
 
 To be alerted while away, explicitly enable **Settings → General → Notify me when I am needed**. The browser asks
 for system-notification permission on that click. Quiet hours default to 22:00–08:00 and can be changed locally.
@@ -202,7 +217,9 @@ CLAUDE.md and personal habits in workbench memory.
 
 The Usage page groups tokens and cost by engine, provider, chat, and day. It labels subscription-plan traffic
 honestly rather than inventing a monetary cost, and includes sub-agent and compaction usage. You can set a monthly
-budget warning.
+budget warning. Provider settings support default input, cache-hit, and output rates plus exact per-model overrides
+within the same provider. Blank model fields inherit provider defaults, and a blank cache-hit rate conservatively
+uses the normal input rate. The Usage page also reports cache-hit tokens.
 
 In a multi-agent workflow, open a running node to send a directed instruction that is delivered before its next
 model call. A proposed task card tells you who proposed a new node, what it does, and its estimated budget; you
@@ -215,8 +232,9 @@ choose Add task or No thanks.
 **Why am I seeing a permission prompt?** Ruyi is asking before a sensitive action. Review the action, scope, and
 reversibility, then approve or reject it. An unattended prompt expires as a rejection.
 
-**How do I undo a change?** Open Audit or Changes, inspect the checkpointed change, and roll back the entry or
-whole turn.
+**How do I undo a change?** Open Audit or Changes, or use Change ledger & undo handles at the bottom of a task
+sheet. You can undo one checkpoint row or roll the whole Mission back to its start. Operations without a usable
+before-snapshot remain explicitly listed as irreversible.
 
 **Does Ruyi work offline?** Local files, scripts, desktop control, Office work, PDF export, and OCR are local.
 Only online search needs a configured network service.

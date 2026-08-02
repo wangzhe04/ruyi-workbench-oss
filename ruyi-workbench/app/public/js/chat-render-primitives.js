@@ -547,8 +547,8 @@ export function createChatRenderPrimitives(deps = {}) {
   /* ---------------- v0.9-S2: 存为 playbook ---------------- */
   // Ask the server to draft a playbook from the current session (most-recent user msg + turn_summary), then
   // open an edit modal (title/desc/promptTemplate editable) → confirm → POST /api/playbooks.
-  async function saveAsPlaybook(btn) {
-    const sid = state.currentSession && state.currentSession.id;
+  async function saveAsPlaybook(btn, sessionId = '') {
+    const sid = String(sessionId || (state.currentSession && state.currentSession.id) || '');
     if (!sid) { toast(t('playbook.create.noSession'), 'err'); return; }
     const orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = t('playbook.create.drafting'); }
@@ -696,6 +696,7 @@ export function createChatRenderPrimitives(deps = {}) {
     renderContextMeter,
     renderGitDiffInto,
     renderMarkdown,
+    saveAsPlaybook,
     safeStringify,
     setCtxWindowManual,
     settleLiveThinking,
