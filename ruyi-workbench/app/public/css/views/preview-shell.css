@@ -279,6 +279,20 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
 .preview-task-metric { min-width: 0; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--preview-line); border-radius: 14px; background: color-mix(in srgb, var(--preview-surface) 72%, transparent); }
 .preview-task-metric-label { display: block; color: var(--preview-muted); font-size: var(--fs-xs); }
 .preview-task-metric-value { display: block; margin-top: 2px; overflow: hidden; color: var(--preview-ink); font-size: var(--fs-md); text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* 第86波现场速报：一句话回答「谁在干什么/在等什么」。进行中=青花蓝心跳，待决=鎏金提醒，收工/停工=熄灯。 */
+.preview-activity { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); padding: 6px 12px; border-radius: var(--r-pill); border: 1px solid color-mix(in srgb, var(--preview-accent) 22%, var(--preview-line)); background: color-mix(in srgb, var(--preview-accent) 6%, transparent); color: var(--preview-ink); font-size: var(--fs-sm); line-height: 1.4; }
+.preview-activity-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--preview-muted); }
+.preview-activity-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-activity[data-state="dispatching"] .preview-activity-dot,
+.preview-activity[data-state="running"] .preview-activity-dot { background: var(--preview-accent); animation: preview-blue-pulse 1.6s var(--ease-out) infinite; }
+.preview-activity[data-state="needs_you"] { border-color: color-mix(in srgb, var(--preview-hot) 30%, var(--preview-line)); background: color-mix(in srgb, var(--preview-hot) 8%, transparent); }
+.preview-activity[data-state="needs_you"] .preview-activity-dot { background: var(--preview-hot); animation: preview-gold-pulse 1.8s var(--ease-out) infinite; }
+.preview-activity[data-state="done"] .preview-activity-dot,
+.preview-activity[data-state="stopped"] .preview-activity-dot { background: var(--preview-muted); opacity: .5; }
+@keyframes preview-blue-pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--preview-accent) 14%, transparent); } }
+/* 成果面板：直接列出产物文件名，悬停看全路径，「输出了什么」一眼可见。 */
+.preview-intake-artifacts { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.preview-intake-artifacts li { min-width: 0; padding: 4px 8px; border-radius: 8px; background: color-mix(in srgb, var(--preview-surface-2) 55%, transparent); color: var(--preview-ink); font-family: var(--mono); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
 .preview-task-body { min-width: 0; min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 300px); }
 .preview-worksite { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .preview-worksite-head { flex: 0 0 auto; min-height: 58px; padding: var(--sp-3) var(--sp-4); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); border-bottom: 1px solid var(--preview-line); }

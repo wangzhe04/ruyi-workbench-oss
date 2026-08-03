@@ -1394,3 +1394,14 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 - 顺带收口真实反馈中的 ACC `run_command` 长驻“运行中”：执行器用临时文件捕获替代易被后台后代长期持有的 pipe，超时有界杀树，非零退出显式 `ok:false`，输出限 1MiB 头尾；桥截止时间跟随本次 `timeout` 而非固定 650 秒。工具卡每秒显示耗时，回合收尾会把丢失 result 的悬空卡终态化。
 - 修复 Full 包虽含 `winsdk`、运行时却被自动探测绕开的真实路径：分发包把同目录 `python_embed` 固定为默认首选，机器已安装 Full runtime 次之，core-only 系统 Python 最后降级；Python 候选探针区分 `full/core`，源码工作台也可用已安装 Full Python + 当前 `PYTHONPATH` 启动。默认离线打包命令改为 Full，Slim 显式分流，Full 命名无 `-IncludeAcc` 直接拒绝；代码增量更新缺 OCR 时从本地 wheel 自动修复并复验。现有 v2.4 Full ZIP 的 pinned wheel、`_winrt.pyd`、OCR 投影与 manifest 条目均已逐项核对。
 - 系统代理覆盖四条新壳旅程、长历史、失败恢复、人工接管、收工闭环、390px 提问上下文/对齐及双向布局切换。外部受试者的人因理解与回流用时仍未执行，故只完成可自主推进的工程门，不标 Product Ready。
+
+## 第86波 · P4 第一切片 -- 硬化终审：现场速报、原始镜头新鲜度与青花/鎏金视觉统一（2026-08-03）
+
+P4 出门闸为 Release Ready，本波只做可自主推进的工程硬化，不改 Mission/Session/Intervention 权威面与契约端点。
+
+- **视觉统一**：Preview 任务台令牌从青绿/橙红外挂色改为青花蓝（与 `--brand-qh` 同宗）+ 鎏金（与 `--gold` 同宗），暗/亮两套对称；进行中=青花蓝心跳、待决=鎏金提醒、收工/停工=熄灯，动效沿用既有 `preview-blue/gold-pulse` 并继续受全局 `prefers-reduced-motion` 门约束。Preview 消费层 CSS 仍零硬编码色值（D4 不变）。
+- **现场速报**：任务单头部常驻一句话回答「谁在干什么 / 在等什么」，只从权威快照派生--待决 > 班组当前工序 > 活回合 > 五态兜底，不读 assistant 文本、不二次调模型；`data-state` 跟随五态，随每次快照刷新。
+- **原始镜头新鲜度**：新增 `rawDirty` 脏标记。回合中流事件（`mission`/`usage`/`agent_workflow`/`tool_result`）弄脏会话副本，下一次详情刷新据此连会话一起重取；否则 `renderedSession === session` 恒等短路会让原始镜头停在回合开始时的快照。切入原始镜头也强制重取一次，回合中途从别的镜头切过来即看最新现场。
+- **成果面板列名**：收工成果不再是抽象计数，直接列出产物文件名（前 4，悬停看全路径），「输出了什么」一眼可见。
+- **减负**：首页、档案、纪要、控制面、台账、工房等多处冗长导言段落撤除，只留一句话标题（说明文转 `title` 提示）；未知叙事句式不再硬塞「0/0」假数字，复用 `changeDescription` 折算的人话，输出始终可读。
+- **契约锁**：`pretender-shell.static.e2e.js` 新增 W86-1..W86-6（现场速报派生、`data-state` 与 i18n、`rawDirty` 脏标记、切镜强制重取、成果列名、配色统一与旧色退役）；分层 CSS 载荷 SHA 按 Wave 86 重钉。静态快通道 **30/30 全绿**。第87波继续 3.0.0 默认切换，当前不标 Release Ready。

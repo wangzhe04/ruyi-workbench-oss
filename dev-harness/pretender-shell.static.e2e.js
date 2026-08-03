@@ -107,5 +107,36 @@ ok(overlay.includes("'app/public/js/preview-shell.js'")
 ok(read('styles.css').includes('@import url("/css/views/preview-shell.css");')
   && html.includes('<link rel="stylesheet" href="/css/views/preview-shell.css" />'), 'E2 兼容样式清单与直载 CSS 同步');
 
+// ─── 第86波：现场速报 / 原始镜头新鲜度 / 成果列名 / 配色统一 契约锁 ──────────────
+const schemes = read('css/themes/color-schemes.css');
+ok(shell.includes('function activityBrief(snapshot, derived)')
+  && /pendingTotal\(snapshot && snapshot\.pending\)/.test(shell)
+  && /nodes\.find\(node => node\.status === 'running'\)/.test(shell)
+  && /snapshot\.controls && snapshot\.controls\.activeTurn/.test(shell)
+  && /derived\.state === 'dispatching'/.test(shell),
+  'W86-1 现场速报只从权威快照派生(待决>班组当前工序>活回合>五态兜底),不读 assistant 文本');
+ok(/activity\.dataset\.state = derived\.state/.test(shell)
+  && /setSlot\(article, 'activity', activityBrief\(snapshot, derived\)\)/.test(shell)
+  && zh['previewShell.activity.needsYou'] && en['previewShell.activity.needsYou']
+  && zh['previewShell.activity.quiet'] && en['previewShell.activity.quiet'],
+  'W86-2 现场速报 data-state 跟随五态、文案经 activityBrief 写入、i18n 中英齐备');
+ok(/let rawDirty = false/.test(shell)
+  && /\(rawDirty && selectedLens === 'raw'\)/.test(shell)
+  && /sessionResponse\.session; rawDirty = false/.test(shell)
+  && /rawDirty = true;/.test(shell),
+  'W86-3 原始镜头 rawDirty 脏标记:回合中流事件置脏、刷新重取会话后清脏、needsSession 据此连会话重取');
+ok(/tab\.id === 'raw'[\s\S]{0,240}scheduleDetailRefresh\(true\)/.test(shell),
+  'W86-4 切入原始镜头强制连会话重取一次,回合中途从别的镜头切过来也看最新现场');
+ok(/Array\.isArray\(changes\.artifacts\)[\s\S]{0,400}basename\(item\.path\)/.test(shell)
+  && /preview-intake-artifacts/.test(css)
+  && /\.slice\(0, 4\)/.test(shell)
+  && /row\.title = String\(item\.path\)/.test(shell),
+  'W86-5 成果面板直接列产物文件名(前4,悬停看全路径),不再只给抽象计数');
+ok(!/--preview-accent: #63cbbd/.test(schemes) && !/--preview-hot: #ef8d72/.test(schemes)
+  && !/--preview-accent: #217397/.test(schemes) && !/--preview-hot: #b24736/.test(schemes)
+  && /--preview-accent: #6b8ff2/.test(schemes) && /--preview-hot: #dcba75/.test(schemes)
+  && /--preview-accent: #2050c8/.test(schemes) && /--preview-hot: #a8822f/.test(schemes),
+  'W86-6 preview 配色统一为青花蓝+鎏金,旧青绿(#63cbbd/#217397)与橙红(#ef8d72/#b24736)外挂色退役');
+
 console.log(`\nPRETENDER SHELL STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

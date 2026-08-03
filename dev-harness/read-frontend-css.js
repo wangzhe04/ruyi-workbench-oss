@@ -42,8 +42,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // tape in the same isolated Preview layer; classic chat/style layers remain unchanged.
 // Wave 85 adds the closeout dossier, aligned option-first question rows and context note, a dock create seal,
 // the classic-to-desk switch, and responsive provider model-pricing rows in their owning layers.
+// Wave 86 unifies the Preview palette to brand qinghua-blue + gold (retiring the celadon/orange accents),
+// adds the live activity-brief bar with blue/gold pulse, and lists result artifact filenames in the same
+// isolated Preview layer; classic chat/style layers remain unchanged.
 // Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = '8c29decc5e0d42bf08b97f8978598eeaba222148fe1a30d47b19b5369f6b08e4';
+const LEGACY_STYLES_SHA256 = 'b569ce180101e4314fd6a0f98e562fd036a52982a847576dc7a909b591fa5699';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

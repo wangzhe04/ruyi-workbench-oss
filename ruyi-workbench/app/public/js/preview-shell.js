@@ -140,6 +140,9 @@ export function createPreviewShellDomain({
   let selectedChanges = null;
   let detailBaselineRevision = null;
   let rawWindowStart = null;
+  // 原始镜头跟手性:回合中流事件(工具卡/账本/班组)弄脏会话副本,下一次详情刷新必须重取会话,
+  // 否则 renderedSession === session 的恒等短路会让原始镜头停在回合开始时的快照(第86波修复)。
+  let rawDirty = false;
   let renderedSession = null;
   let renderedLocale = '';
   let bound = false;
@@ -825,6 +828,7 @@ export function createPreviewShellDomain({
     selectedChanges = null;
     detailBaselineRevision = null;
     rawWindowStart = null;
+    rawDirty = false;
     renderedSession = null;
     renderedLocale = '';
     selectedCrewRunId = '';
@@ -981,7 +985,9 @@ export function createPreviewShellDomain({
     const number = text('span', 'preview-section-index', String(index).padStart(2, '0'));
     number.setAttribute('aria-hidden', 'true');
     const copy = text('div', 'preview-home-section-heading-copy', '');
-    copy.append(text('h2', '', title), text('p', 'preview-home-section-copy', body));
+    // 第86波减负:节标题只留一句话标题,说明段落(body)不再渲染 —— 界面不讲道理,直接给动作。
+    copy.append(text('h2', '', title));
+    if (body) head.title = String(body);
     head.append(number, copy);
     if (trailing) head.appendChild(trailing);
     return head;
@@ -1145,8 +1151,7 @@ export function createPreviewShellDomain({
     const head = text('header', 'preview-archive-head', '');
     const heading = text('div', 'preview-archive-heading', '');
     heading.append(text('span', 'preview-eyebrow', t('previewShell.archiveEyebrow')),
-      text('h1', '', t('previewShell.archiveTitle')),
-      text('p', '', t('previewShell.archiveBody')));
+      text('h1', '', t('previewShell.archiveTitle')));
     const terminal = cards.filter(card => ['done', 'stopped'].includes(missionState.fromCard(card).state));
     head.append(heading, text('strong', 'preview-archive-count', t('previewShell.archiveCount', { p1: terminal.length })));
 
@@ -1208,11 +1213,9 @@ export function createPreviewShellDomain({
     if (!main) return;
     main.dataset.view = 'home'; delete main.dataset.missionId;
     const article = text('article', 'preview-dispatch-home', '');
+    // 第86波减负:首页只要一句点题,巨型导言/坐标轴/装饰段落全部撤掉,首屏留给交办箱与任务。
     const intro = text('header', 'preview-home-intro', '');
-    const introMeta = text('div', 'preview-home-intro-meta', '');
-    introMeta.append(text('span', 'preview-eyebrow', t('previewShell.homeEyebrow')), text('span', 'preview-home-coordinate', '01 — 04'));
-    intro.append(introMeta, text('h1', '', t('previewShell.homeTitle')),
-      text('p', 'preview-home-lead', t('previewShell.homeBody')), text('span', 'preview-home-axis', ''));
+    intro.append(text('span', 'preview-eyebrow', t('previewShell.homeEyebrow')), text('h1', '', t('previewShell.homeTitle')));
     article.appendChild(intro);
     const guide = buildFirstRunGuide();
     if (guide) article.appendChild(guide);
@@ -1669,7 +1672,8 @@ export function createPreviewShellDomain({
       case 'result': return t('previewShell.narrativeSentence.result', { p1: narrativeStatus(detail.status) });
       case 'rewind': return t('previewShell.narrativeSentence.rewind', { p1: detail.removedTurns || 0, p2: detail.filesReverted || 0 });
       case 'run_deleted': return t('previewShell.narrativeSentence.run_deleted', { p1: detail.runId || cursor.runId || t('previewShell.unknown') });
-      default: return t('previewShell.narrativeSentence.progress_ledger', { p1: 0, p2: 0 });
+      // 第86波:未知句式不再硬塞「0/0」假数字,复用变更描述(按 type 折算的人话),输出始终可读。
+      default: return changeDescription(entry);
     }
   }
 
@@ -1712,8 +1716,7 @@ export function createPreviewShellDomain({
       const head = text('header', 'preview-narrative-head', '');
       const heading = text('div', 'preview-narrative-heading', '');
       heading.append(text('span', 'preview-eyebrow', t('previewShell.narrativeEyebrow')),
-        text('h2', '', t('previewShell.narrativeTitle')),
-        text('p', '', t('previewShell.narrativeBody')));
+        text('h2', '', t('previewShell.narrativeTitle')));
       const count = text('strong', 'preview-narrative-count', '00'); count.dataset.slot = 'narrativeCount';
       head.append(heading, count);
       const warning = text('p', 'preview-narrative-warning', t('previewShell.narrativeDegraded'));
@@ -1768,7 +1771,11 @@ export function createPreviewShellDomain({
       const button = actionButton(tab.label, `preview-lens-tab lens-${tab.id}`, () => {
         selectedLens = tab.id;
         renderLensSwitch(article, snapshot);
-        if (tab.id === 'raw') { renderRawMessages(); replayActiveTurn(); }
+        if (tab.id === 'raw') {
+          renderRawMessages(); replayActiveTurn();
+          // 切入原始镜头时强制连会话重取一次 —— 回合中途从别的镜头切过来也要看到最新现场。
+          scheduleDetailRefresh(true);
+        }
         requestAnimationFrame(() => article.querySelector(`[data-slot="${tab.target}"]`)?.focus?.({ preventScroll: true }));
       });
       button.setAttribute('role', 'tab');
@@ -1794,8 +1801,7 @@ export function createPreviewShellDomain({
     const head = text('div', 'preview-mission-control-head', '');
     const heading = text('div', '', '');
     heading.append(text('span', 'preview-eyebrow', t('previewShell.controlEyebrow')),
-      text('h2', '', t('previewShell.controlTitle')),
-      text('p', '', t('previewShell.controlBody')));
+      text('h2', '', t('previewShell.controlTitle')));
     const telemetry = text('div', 'preview-control-telemetry', '');
     telemetry.append(
       text('span', mission.autoMode === 'until-done' ? 'is-live' : '', t(`previewShell.autoMode.${mission.autoMode || 'off'}`)),
@@ -1850,8 +1856,7 @@ export function createPreviewShellDomain({
     const head = text('header', 'preview-ledger-tape-head', '');
     const heading = text('div', '', '');
     heading.append(text('span', 'preview-eyebrow', t('previewShell.ledgerEyebrow')),
-      text('h2', '', t('previewShell.ledgerTitle')),
-      text('p', '', t('previewShell.ledgerBody')));
+      text('h2', '', t('previewShell.ledgerTitle')));
     const stamp = text('div', `preview-recovery-stamp is-${ledger.recoverability || 'none'}`, '');
     stamp.append(text('small', '', t('previewShell.recoveryLabel')), text('strong', '', ledgerRecoveryLabel(ledger.recoverability)),
       text('span', '', t('previewShell.recoveryCount', { p1: ledger.reversibleEntries || 0, p2: ledger.nonRevertibleEntries || 0 })));
@@ -1943,6 +1948,12 @@ export function createPreviewShellDomain({
     kicker.append(text('span', 'preview-eyebrow', t('previewShell.rawLens')), statePill);
     const heading = text('h1', 'preview-mission-title', ''); heading.dataset.slot = 'title';
     const goal = text('p', 'preview-mission-goal', ''); goal.dataset.slot = 'goal';
+    // 第86波:现场速报 —— 一句话回答「现在谁在干什么/在等什么」,常驻头部,随每次快照刷新。
+    const activity = text('p', 'preview-activity', '');
+    activity.setAttribute('aria-label', t('previewShell.activityLabel'));
+    const activityDot = text('span', 'preview-activity-dot', ''); activityDot.setAttribute('aria-hidden', 'true');
+    const activityText = text('span', 'preview-activity-text', ''); activityText.dataset.slot = 'activity';
+    activity.append(activityDot, activityText);
     const progress = text('section', 'preview-mission-ledger preview-task-progress', '');
     progress.setAttribute('aria-label', t('previewShell.progressLabel'));
     const progressHead = text('div', 'preview-ledger-head', '');
@@ -1954,7 +1965,7 @@ export function createPreviewShellDomain({
     const metrics = text('div', 'preview-task-metrics', '');
     metrics.append(makeMetric('turns', t('previewShell.turns')), makeMetric('tokens', t('previewShell.tokens')),
       makeMetric('cost', t('previewShell.cost')), makeMetric('runs', t('previewShell.runs')));
-    head.append(kicker, heading, goal, progress, metrics);
+    head.append(kicker, heading, goal, activity, progress, metrics);
 
     const missionControl = text('section', 'preview-mission-control', '');
     missionControl.dataset.slot = 'missionControl';
@@ -1992,7 +2003,7 @@ export function createPreviewShellDomain({
     worksite.setAttribute('aria-label', t('previewShell.worksite'));
     const worksiteHead = text('div', 'preview-worksite-head', '');
     const worksiteTitle = text('div', '', '');
-    worksiteTitle.append(text('h2', '', t('previewShell.worksite')), text('p', '', t('previewShell.worksiteHint')));
+    worksiteTitle.append(text('h2', '', t('previewShell.worksite')));
     const cursor = text('span', 'preview-cursor', ''); cursor.dataset.slot = 'cursor';
     worksiteHead.append(worksiteTitle, cursor);
     const raw = text('div', 'messages preview-raw-messages', '');
@@ -2025,6 +2036,27 @@ export function createPreviewShellDomain({
     return node;
   }
 
+  // 现场速报派生:只看权威快照 —— 待决 > 班组当前工序 > 活回合 > 五态兜底,不猜 assistant 文本。
+  function activityBrief(snapshot, derived) {
+    const pending = pendingTotal(snapshot && snapshot.pending);
+    if (pending > 0) return t('previewShell.activity.needsYou', { p1: pending });
+    const runs = Array.isArray(snapshot && snapshot.runs) ? snapshot.runs : [];
+    const nodes = runs.flatMap(run => (Array.isArray(run && run.nodes) ? run.nodes : []).filter(node => node && node.id));
+    const current = nodes.find(node => node.status === 'running')
+      || nodes.find(node => ['queued', 'waiting', 'waiting_resource'].includes(node.status));
+    if (current) {
+      const focus = current.progress || current.task || '';
+      return focus
+        ? t('previewShell.activity.crew', { p1: crewRole(current, nodes.indexOf(current)), p2: focus })
+        : t('previewShell.activity.crewIdle', { p1: crewRole(current, nodes.indexOf(current)) });
+    }
+    if (snapshot && snapshot.controls && snapshot.controls.activeTurn) return t('previewShell.activity.working');
+    if (derived.state === 'dispatching') return t('previewShell.activity.dispatching');
+    if (derived.state === 'done') return t('previewShell.activity.done');
+    if (derived.state === 'stopped') return t('previewShell.activity.stopped');
+    return t('previewShell.activity.quiet');
+  }
+
   function renderTaskHeader(article, card, snapshot) {
     const derived = missionState.fromSnapshot(snapshot);
     const progress = progressOf(card, snapshot);
@@ -2032,6 +2064,9 @@ export function createPreviewShellDomain({
     setSlot(article, 'goal', snapshot.mission?.goal || card.mission?.goal || t('previewShell.goalFallback'));
     const pill = setSlot(article, 'state', stateLabel(derived.state));
     if (pill) { pill.className = `preview-state-pill state-${derived.state}`; pill.dataset.missionState = derived.state; }
+    const activity = article.querySelector('.preview-activity');
+    if (activity) activity.dataset.state = derived.state;
+    setSlot(article, 'activity', activityBrief(snapshot, derived));
     setSlot(article, 'progressText', t('previewShell.progressValue', { p1: progress.done, p2: progress.total }));
     const bar = article.querySelector('[data-slot="progress"]');
     if (bar) {
@@ -2236,6 +2271,17 @@ export function createPreviewShellDomain({
     }
     const result = readonlyPanel('results', t('previewShell.resultsPanel'), resultLabel(snapshot),
       t('previewShell.resultsPanelBody', { p1: artifacts, p2: files }));
+    // 第86波:成果不再是抽象计数 —— 直接列出产物文件名(悬停看全路径),「输出了什么」一眼可见。
+    const artifactItems = (Array.isArray(changes.artifacts) ? changes.artifacts : []).filter(item => item && item.path).slice(0, 4);
+    if (artifactItems.length) {
+      const artifactList = text('ul', 'preview-intake-artifacts', '');
+      for (const item of artifactItems) {
+        const row = text('li', '', basename(item.path));
+        row.title = String(item.path);
+        artifactList.appendChild(row);
+      }
+      result.appendChild(artifactList);
+    }
     const ledger = readonlyPanel('ledger', t('previewShell.ledgerPanel'), t('previewShell.ledgerValue', { p1: checkpoints }),
       t('previewShell.ledgerPanelBody', { p1: commands, p2: irreversible, p3: runs.length, p4: liveRuns, p5: maxRunCursor }));
     ledger.classList.add('is-actionable'); ledger.tabIndex = 0; ledger.setAttribute('role', 'button');
@@ -2460,7 +2506,9 @@ export function createPreviewShellDomain({
       const previousTurn = Number(selectedSnapshot?.cursor?.turnSeq);
       const nextTurn = Number(snapshot.cursor?.turnSeq);
       let session = selectedSession;
-      const needsSession = forceSession || !session || session.id !== sessionId || previousTurn !== nextTurn;
+      // 原始镜头下回合中流事件已弄脏会话 → 随本次刷新重取,让工具卡/新消息即时上场。
+      const needsSession = forceSession || !session || session.id !== sessionId || previousTurn !== nextTurn
+        || (rawDirty && selectedLens === 'raw');
       const feed = narrativeFeed(sessionId);
       const returnChangesPromise = api(`/api/missions/${sessionId}/changes?after=${detailBaselineRevision}`);
       const narrativeChangesPromise = feed.cursor === detailBaselineRevision
@@ -2472,7 +2520,7 @@ export function createPreviewShellDomain({
         narrativeChangesPromise,
       ]);
       if (epoch !== detailEpoch || sessionId !== selectedSessionId()) return null;
-      if (sessionResponse) session = sessionResponse.session;
+      if (sessionResponse) { session = sessionResponse.session; rawDirty = false; }
       if (Number(changeResponse?.currentRevision) !== snapshotRevision) {
         const refreshed = await api(`/api/missions/${sessionId}`);
         if (epoch !== detailEpoch || sessionId !== selectedSessionId()) return null;
@@ -2577,7 +2625,10 @@ export function createPreviewShellDomain({
     if (event.type === 'assistant_delta') { if (selectedLens === 'raw') appendPreviewLiveText(event.text || ''); }
     else if (event.type === 'session' && event.session && event.session.id === selectedSessionId()) {
       selectedSession = event.session; renderedSession = null; if (selectedLens === 'raw') renderRawMessages();
-    } else if (['mission', 'usage', 'agent_workflow', 'tool_result'].includes(event.type)) scheduleDetailRefresh(false);
+    } else if (['mission', 'usage', 'agent_workflow', 'tool_result'].includes(event.type)) {
+      rawDirty = true; // 回合内产生了新事实;原始镜头下一次刷新连会话一起重取
+      scheduleDetailRefresh(false);
+    }
   }
 
   function refreshPreviewShellLabels() {
