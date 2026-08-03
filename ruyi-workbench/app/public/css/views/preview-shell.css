@@ -1348,3 +1348,71 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
   .preview-task-metric-label { display: none; }
   .preview-dispatch-mark { font-size: 1.6rem; }
 }
+
+/* ============================================================
+   第88波「交办台/任务单 UX 迭代」。基于 5 路 deepseek-v4-flash
+   并行只读审计(信息架构/交互/a11y/视觉状态/生命周期)经主会话逐条
+   核验后落地。只在既有 class 锚点上做修正,不新增/删除结构类。
+   重点:安全(确认栏跨任务串台)、a11y(reduced-motion 覆盖动画、
+   待决入口可达)、状态可辨(done 瓷章绿、进度条 per-state 着色)、
+   生命周期(loading spinner、终态卡信息完整)。全部走主题 token。
+   ============================================================ */
+
+/* --- IA:终态任务收起控制面板(车钟)由 JS 设 [hidden];显式 display:none 防被类规则覆盖 --- */
+.preview-mission-control[hidden] { display: none; }
+
+/* --- 状态可辨:done 瓷章用收工绿环,与 stopped(quiet 蓝灰)区分,一眼可辨 --- */
+.preview-seal[data-mission-state="done"] { --seal-ring: var(--ok-fg); color: var(--ok-fg); }
+
+/* --- 进度可信:头部进度条按任务状态着色(默认青花蓝;stopped 静灰、needs_you 鎏金、done 收工绿) --- */
+.preview-task-sheet[data-mission-state="stopped"] .preview-progress::-webkit-progress-value { background: var(--preview-muted); }
+.preview-task-sheet[data-mission-state="stopped"] .preview-progress::-moz-progress-bar { background: var(--preview-muted); }
+.preview-task-sheet[data-mission-state="needs_you"] .preview-progress::-webkit-progress-value { background: var(--preview-hot); }
+.preview-task-sheet[data-mission-state="needs_you"] .preview-progress::-moz-progress-bar { background: var(--preview-hot); }
+.preview-task-sheet[data-mission-state="done"] .preview-progress::-webkit-progress-value { background: var(--ok-fg); }
+.preview-task-sheet[data-mission-state="done"] .preview-progress::-moz-progress-bar { background: var(--ok-fg); }
+/* 续办卡迷你进度条补 stopped 态(第87波只覆盖 needs_you/done,stopped 仍是进行中蓝) */
+.preview-home-task[data-mission-state="stopped"] .preview-home-task-bar::-webkit-progress-value { background: var(--preview-muted); }
+.preview-home-task[data-mission-state="stopped"] .preview-home-task-bar::-moz-progress-bar { background: var(--preview-muted); }
+
+/* --- 待决可达:现场速报在「需要你」时变为可点击入口,直开 needs 抽屉 --- */
+.preview-activity.is-actionable {
+  cursor: pointer;
+  border-radius: var(--r-pill);
+  transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.preview-activity.is-actionable:hover { background: color-mix(in srgb, var(--preview-hot) 8%, transparent); }
+.preview-activity.is-actionable:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--preview-hot) 30%, transparent); }
+
+/* --- 生命周期:loading 卡补 spinner,任务单切换时可见运转,不再静止 --- */
+.preview-loading-card::after {
+  content: "";
+  display: block;
+  margin: var(--sp-4) auto 0;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--preview-line) 50%, transparent);
+  border-top-color: var(--preview-accent);
+  animation: preview-loading-spin 0.9s linear infinite;
+}
+@keyframes preview-loading-spin { to { transform: rotate(360deg); } }
+
+/* --- 终态卡信息完整:未完成明细/计数尾巴的轻量样式 --- */
+.preview-finish-unfinished { margin-top: var(--sp-4); }
+.preview-finish-unfinished h3 { font-size: var(--fs-xs); color: var(--preview-muted); margin-bottom: var(--sp-2); }
+.preview-finish-unfinished ul,
+.preview-stop-unfinished { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
+.preview-finish-unfinished li,
+.preview-stop-unfinished li { font-size: var(--fs-sm); color: var(--preview-ink); }
+.preview-finish-more, .preview-stop-more { color: var(--preview-muted); font-size: var(--fs-xs); }
+
+/* --- a11y:reduced-motion 覆盖所有无限脉冲与 loading 旋转(原块只收敛 transition) --- */
+@media (prefers-reduced-motion: reduce) {
+  .preview-seal[data-dock-tone="attention"] .preview-seal-ring,
+  .preview-fact-needs.has-attention .preview-needs-dot,
+  .preview-activity[data-state="running"] .preview-activity-dot,
+  .preview-activity[data-state="needs_you"] .preview-activity-dot,
+  .preview-crew-member.is-running .preview-crew-status-dot,
+  .preview-needs-drawer,
+  .preview-loading-card::after { animation: none; }
+}

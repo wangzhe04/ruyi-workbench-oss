@@ -837,6 +837,10 @@ export function createPreviewShellDomain({
     selectedLens = 'narrative';
     narrativeRenderedSession = '';
     narrativeRenderedLocale = '';
+    // 第88波(安全):切任务时丢弃待确认的控制操作与任务级错误,防止「任务A点停止→切到B→确认栏仍挂在B→Enter误停B」的串台。
+    // controlBusy 不在此清——它是异步执行中的态,由 performMissionControl 的 finally 自清;此处只清「待确认草稿」。
+    controlDraft = null;
+    controlError = '';
     clearPreviewLive();
   }
 
@@ -2069,11 +2073,28 @@ export function createPreviewShellDomain({
     const progress = progressOf(card, snapshot);
     setSlot(article, 'title', titleOf(card));
     setSlot(article, 'goal', snapshot.mission?.goal || card.mission?.goal || t('previewShell.goalFallback'));
+    article.dataset.missionState = derived.state;
     const pill = setSlot(article, 'state', stateLabel(derived.state));
     if (pill) { pill.className = `preview-state-pill state-${derived.state}`; pill.dataset.missionState = derived.state; }
-    const activity = article.querySelector('.preview-activity');
-    if (activity) activity.dataset.state = derived.state;
     setSlot(article, 'activity', activityBrief(snapshot, derived));
+    // 第88波(待决可达):现场速报在「需要你」时变成可点击入口,直开 needs 抽屉,不再只是不可交互的文字。
+    const activity = article.querySelector('.preview-activity');
+    if (activity) {
+      activity.dataset.state = derived.state;
+      const pending = pendingTotal(snapshot && snapshot.pending);
+      activity.classList.toggle('is-actionable', pending > 0);
+      if (pending > 0) {
+        activity.setAttribute('role', 'button');
+        activity.tabIndex = 0;
+        activity.onclick = () => setNeedsDrawer(true);
+        activity.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setNeedsDrawer(true); } };
+      } else {
+        activity.removeAttribute('role');
+        activity.tabIndex = -1;
+        activity.onclick = null;
+        activity.onkeydown = null;
+      }
+    }
     setSlot(article, 'progressText', t('previewShell.progressValue', { p1: progress.done, p2: progress.total }));
     const bar = article.querySelector('[data-slot="progress"]');
     if (bar) {
@@ -2109,6 +2130,8 @@ export function createPreviewShellDomain({
     if (unfinished.length) {
       const list = text('ul', 'preview-stop-unfinished', '');
       for (const item of unfinished.slice(0, 3)) list.appendChild(text('li', '', item.desc || item.id || t('previewShell.unknown')));
+      // 第88波:超过 3 项时补一条计数尾巴,让用户知道完整未完成范围,而非被静默截断。
+      if (unfinished.length > 3) list.appendChild(text('li', 'preview-stop-more', t('previewShell.unfinishedMore', { p1: unfinished.length - 3 })));
       copy.appendChild(list);
     }
     const actions = text('div', 'preview-stop-actions', '');
@@ -2172,6 +2195,18 @@ export function createPreviewShellDomain({
       fact('audit', t('previewShell.finishAudit'), compactNumber(auditTotal), t('previewShell.finishAuditHint')),
     );
 
+    // 第88波:未完成项给出明细(最多5条+计数),不再只给一个数字;收工但有未完成项是最该核对「还差哪几件」的场景。
+    const unfinishedSection = (() => {
+      if (!unfinished.length) return null;
+      const section = text('section', 'preview-finish-unfinished', '');
+      section.appendChild(text('h3', '', t('previewShell.finishUnfinishedList')));
+      const list = text('ul', '', '');
+      for (const item of unfinished.slice(0, 5)) list.appendChild(text('li', '', item.desc || item.id || t('previewShell.unknown')));
+      if (unfinished.length > 5) list.appendChild(text('li', 'preview-finish-more', t('previewShell.unfinishedMore', { p1: unfinished.length - 5 })));
+      section.appendChild(list);
+      return section;
+    })();
+
     const artifactSection = text('section', 'preview-finish-artifacts', '');
     artifactSection.appendChild(text('h3', '', t('previewShell.finishArtifactList')));
     if (artifacts.length) {
@@ -2181,6 +2216,8 @@ export function createPreviewShellDomain({
         row.append(text('strong', '', basename(item.path) || item.path), text('code', '', item.path));
         list.appendChild(row);
       }
+      // 第88波:产物超 8 条补计数尾巴,不再静默截断交接清单。
+      if (artifacts.length > 8) list.appendChild(text('li', 'preview-finish-more', t('previewShell.finishArtifactsMore', { p1: artifacts.length - 8 })));
       artifactSection.appendChild(list);
     } else artifactSection.appendChild(text('p', 'preview-finish-empty', t('previewShell.finishNoArtifacts')));
 
@@ -2195,7 +2232,7 @@ export function createPreviewShellDomain({
       updateMissionUi(card.missionId, { archived: true }); openDispatchHome();
     });
     actions.append(playbook, memory, archive);
-    host.replaceChildren(heading, facts, artifactSection, actions);
+    host.replaceChildren(...[heading, facts, unfinishedSection, artifactSection, actions].filter(Boolean));
   }
 
   function changeDescription(record) {
@@ -2447,6 +2484,10 @@ export function createPreviewShellDomain({
     if (!article) return;
     renderTaskHeader(article, card, selectedSnapshot);
     renderMissionControl(article, selectedSnapshot);
+    // 第88波(IA):终态任务把控制面板(车钟)收起,让完成/停止卡成为视觉主角;若用户刚从停止卡点了重试(待确认)或动作执行中,则保留控制面板。
+    const terminalState = missionState.fromSnapshot(selectedSnapshot);
+    const mcHost = article.querySelector('[data-slot="missionControl"]');
+    if (mcHost) mcHost.hidden = (terminalState.state === 'done' || terminalState.state === 'stopped') && !controlDraft && !controlBusy;
     renderReturnSummary(article);
     renderStopCard(article, card, selectedSnapshot);
     renderFinishCard(article, card, selectedSnapshot);
@@ -2721,7 +2762,15 @@ export function createPreviewShellDomain({
       else if (!document.hidden && notificationSettings.enabled) void refreshNotificationInbox();
     });
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape' && needsDrawerOpen) { event.preventDefault(); setNeedsDrawer(false); }
+      if (event.key !== 'Escape') return;
+      // 第88波:Esc 是肌肉记忆的「取消」--先关 needs 抽屉,再撤控制确认栏(动作执行中除外),再撤交办确认卡回输入框。
+      if (needsDrawerOpen) { event.preventDefault(); setNeedsDrawer(false); return; }
+      if (activeView === 'mission' && controlDraft && !controlBusy) {
+        event.preventDefault(); controlDraft = null; renderMain(); return;
+      }
+      if (activeView === 'home' && dispatchDraft) {
+        event.preventDefault(); dispatchDraft = null; dispatchError = ''; renderHome(); byId('previewDispatchInput')?.focus();
+      }
     });
     applyShellMode(storedShellMode(), { persist: false, focus: false });
   }

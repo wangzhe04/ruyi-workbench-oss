@@ -48,8 +48,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // Wave 87 polishes dispatch-home/task-sheet UX in the same owned Preview layer only: auto-growing dispatch
 // box (no more 166px empty block), compact pill metrics, mini progress bars on continue cards, denser
 // shelves, clearer dock-seal focus and lens tabs, reduced-motion containment. No structure class removed.
+// Wave 88 lands the verified findings of a 5-way deepseek-v4-flash read-only UX audit (IA / interaction /
+// a11y / visual-state / lifecycle): fixes confirmation-rail cross-task bleed, extends reduced-motion to all
+// infinite pulses + loading spinner, colors the done seal green and per-state progress bars, makes the
+// activity brief a clickable needs entry, hides the control deck on terminal tasks, adds a loading spinner,
+// Esc-closes confirmations, and completes finish/stop card unfinished details. Same owned Preview layer.
 // Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = '628117ce872159c8fd2b61f0f3b7447aed7f1891943cba055c2632a937fc3d98';
+const LEGACY_STYLES_SHA256 = '9add78335887442b967f3edf3014f8973e4aada8d399751b91902b2b4b760847';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
