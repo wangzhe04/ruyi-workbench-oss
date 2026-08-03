@@ -45,8 +45,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // Wave 86 unifies the Preview palette to brand qinghua-blue + gold (retiring the celadon/orange accents),
 // adds the live activity-brief bar with blue/gold pulse, and lists result artifact filenames in the same
 // isolated Preview layer; classic chat/style layers remain unchanged.
+// Wave 87 polishes dispatch-home/task-sheet UX in the same owned Preview layer only: auto-growing dispatch
+// box (no more 166px empty block), compact pill metrics, mini progress bars on continue cards, denser
+// shelves, clearer dock-seal focus and lens tabs, reduced-motion containment. No structure class removed.
 // Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = 'b569ce180101e4314fd6a0f98e562fd036a52982a847576dc7a909b591fa5699';
+const LEGACY_STYLES_SHA256 = '628117ce872159c8fd2b61f0f3b7447aed7f1891943cba055c2632a937fc3d98';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

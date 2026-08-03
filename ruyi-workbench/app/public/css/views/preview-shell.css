@@ -1166,3 +1166,185 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
   .preview-loading-card,
   .preview-error-card { min-height: calc(100vh - 80px); padding: var(--sp-5); }
 }
+
+/* ============================================================
+   第87波「交办台/任务单 UX 打磨」。只在既有 class 锚点上做密度、
+   层级与微交互优化,不新增/删除任何被静态契约锁定的结构类。
+   设计取向:首屏更紧凑(交办箱 auto-grow,不再 166px 空块)、
+   状态更可读(续办卡迷你进度条、metrics pill 化)、任务坞更明确
+   (瓷章 tooltip/选中描边)、镜头切换更像标签页。全部走主题 token。
+   ============================================================ */
+
+/* --- 交办箱:auto-grow 后收紧垂直节奏,首屏留给续办与熟活 --- */
+.preview-dispatch-input {
+  min-height: 0;          /* 由 JS autosize 控制高度,移除 166px 硬空块 */
+  padding-block: var(--sp-3);
+  line-height: 1.6;
+  transition: height var(--dur-fast) var(--ease-out);
+}
+.preview-dispatch-field { margin-top: var(--sp-4); }
+.preview-dispatch-mark { padding-top: var(--sp-3); font-size: 1.9rem; }
+.preview-dispatch-actions { margin-top: var(--sp-3); }
+
+/* 续办条:四列更紧凑的卡片墙(原两列),信息密度与熟活架对齐 */
+.preview-continue-rail {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sp-2);
+}
+.preview-home-task {
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: 18px;
+  transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+.preview-home-task:hover { transform: translateY(-2px); }
+.preview-home-task-goal { min-height: 0; -webkit-line-clamp: 1; }
+/* 续办卡内嵌迷你进度条:进行中青花、待决鎏金、收工静默 */
+.preview-home-task-bar {
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--preview-line) 60%, transparent);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.preview-home-task-bar::-webkit-progress-bar { background: transparent; }
+.preview-home-task-bar::-webkit-progress-value {
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--preview-accent), var(--preview-accent-strong));
+  transition: width var(--dur-base) var(--ease-out);
+}
+.preview-home-task-bar::-moz-progress-bar {
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--preview-accent), var(--preview-accent-strong));
+}
+.preview-home-task[data-mission-state="needs_you"] .preview-home-task-bar::-webkit-progress-value { background: var(--preview-hot); }
+.preview-home-task[data-mission-state="needs_you"] .preview-home-task-bar::-moz-progress-bar { background: var(--preview-hot); }
+.preview-home-task[data-mission-state="done"] .preview-home-task-bar::-webkit-progress-value { background: var(--ok-fg); }
+.preview-home-task[data-mission-state="done"] .preview-home-task-bar::-moz-progress-bar { background: var(--ok-fg); }
+.preview-home-task-meta { font-size: var(--fs-xs); }
+
+/* 熟活架:四列自适应,卡片更轻 */
+.preview-playbook-shelf {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--sp-2);
+}
+.preview-playbook-card {
+  min-height: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: 18px;
+  transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+
+/* 最近收活:行更紧凑,悬停态克制 */
+.preview-recent-grid { gap: var(--sp-1); }
+.preview-recent-card {
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: 14px;
+  transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+
+/* --- 任务单头部:压成一张紧凑的「案头卡」,把垂直空间还给现场 --- */
+.preview-task-head { padding: var(--sp-4) var(--sp-5) var(--sp-3); }
+.preview-task-head .preview-mission-goal { -webkit-line-clamp: 1; margin-bottom: var(--sp-2); }
+.preview-eyebrow-row { min-height: 0; }
+.preview-task-progress { margin-top: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+/* metrics:从四个等宽大方格变为一排轻量 pill,数字更突出 */
+.preview-task-metrics {
+  margin-top: var(--sp-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.preview-task-metric {
+  flex: 0 1 auto;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  background: color-mix(in srgb, var(--preview-surface-2) 55%, transparent);
+}
+.preview-task-metric-label { font-size: var(--fs-xs); order: 2; }
+.preview-task-metric-value { margin-top: 0; font-size: var(--fs-sm); order: 1; font-weight: 700; }
+/* 现场速报:更醒目的细条,贴在进度下方 */
+.preview-activity {
+  margin-top: var(--sp-2);
+  padding: 5px 12px;
+  font-size: var(--fs-xs);
+}
+
+/* --- 任务坞瓷章:悬停 tooltip 提示、选中描边更确定 --- */
+.preview-seal {
+  position: relative;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.preview-seal:hover { transform: translateY(-1px); }
+.preview-seal[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--preview-accent) 38%, transparent),
+              0 6px 16px color-mix(in srgb, var(--preview-accent) 12%, transparent);
+}
+.preview-seal-caption { max-width: 58px; }
+/* 新建按钮:更明确的主行动召唤 */
+.preview-new-mission {
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.preview-new-mission:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--preview-accent) 35%, transparent), 0 10px 24px color-mix(in srgb, var(--preview-accent) 20%, transparent); }
+
+/* --- 镜头切换:更像真正的标签页,激活态下划线更明确 --- */
+.preview-lens-switch { min-height: 40px; padding-top: 4px; gap: 2px; }
+.preview-lens-tab {
+  position: relative;
+  min-height: 34px;
+  padding: 6px 16px 8px;
+  border-radius: 12px 12px 0 0;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.preview-lens-tab:hover:not(:disabled) { background: color-mix(in srgb, var(--preview-accent) 6%, transparent); }
+.preview-lens-tab[aria-selected="true"] {
+  background: var(--preview-surface);
+  box-shadow: inset 0 -2px 0 var(--preview-accent);
+}
+
+/* --- 收活台:needs 面板更醒目(鎏金描边已在;补一个角标) --- */
+.preview-intake-needs.has-attention {
+  position: relative;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--preview-hot) 10%, transparent);
+}
+.preview-intake-value { font-size: var(--fs-md); }
+
+/* --- 案头条事实 pill:悬停反馈更明确、聚焦可见 --- */
+.preview-fact { transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out); }
+.preview-fact:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* --- 全局:尊重 reduced-motion,收敛本波新增过渡 --- */
+@media (prefers-reduced-motion: reduce) {
+  .preview-home-task,
+  .preview-playbook-card,
+  .preview-recent-card,
+  .preview-seal,
+  .preview-new-mission,
+  .preview-lens-tab,
+  .preview-dispatch-input { transition: none; }
+  .preview-home-task:hover,
+  .preview-seal:hover,
+  .preview-playbook-card:hover { transform: none; }
+}
+
+/* 窄屏收敛:续办/熟活回到单列,metrics 允许换行不溢出 */
+@media (max-width: 920px) {
+  .preview-continue-rail,
+  .preview-playbook-shelf { grid-template-columns: minmax(0, 1fr); }
+  .preview-task-metrics { gap: var(--sp-1); }
+  .preview-task-metric { flex: 1 1 auto; }
+  .preview-dispatch-input { min-height: 0; }
+}
+@media (max-width: 620px) {
+  .preview-task-head { padding: var(--sp-3); }
+  .preview-task-metric { padding: 4px 10px; }
+  .preview-task-metric-label { display: none; }
+  .preview-dispatch-mark { font-size: 1.6rem; }
+}

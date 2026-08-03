@@ -882,11 +882,15 @@ export function createPreviewShellDomain({
     const header = text('span', 'preview-home-task-head', '');
     header.append(text('strong', 'preview-home-task-title', titleOf(card)), text('span', `preview-home-task-state state-${derived.state}`, stateLabel(derived.state)));
     const goal = text('span', 'preview-home-task-goal', card.mission?.goal || t('previewShell.goalFallback'));
+    // 第87波 UX:续办卡内嵌一条细进度条,进行中任务的完成度一眼可见,不必点进去。
+    const bar = document.createElement('progress');
+    bar.className = 'preview-home-task-bar'; bar.max = Math.max(1, progress.total); bar.value = progress.done;
+    bar.setAttribute('aria-label', t('previewShell.progressAria', { p1: progress.percent }));
     const meta = text('span', 'preview-home-task-meta', '');
     meta.append(text('span', '', t('previewShell.progressPercent', { p1: progress.percent })),
       text('span', '', formatTaskTime(card.updatedAt || card.createdAt)),
       text('span', 'preview-home-task-enter', '↗'));
-    button.append(header, goal, meta);
+    button.append(header, goal, bar, meta);
     button.setAttribute('aria-label', t('previewShell.homeTaskAria', { p1: titleOf(card), p2: stateLabel(derived.state), p3: progress.percent }));
     return button;
   }
@@ -1001,13 +1005,16 @@ export function createPreviewShellDomain({
     const field = text('div', 'preview-dispatch-field', '');
     const mark = text('span', 'preview-dispatch-mark', '›'); mark.setAttribute('aria-hidden', 'true');
     const input = document.createElement('textarea');
-    input.id = 'previewDispatchInput'; input.className = 'preview-dispatch-input'; input.rows = 5;
+    input.id = 'previewDispatchInput'; input.className = 'preview-dispatch-input'; input.rows = 2;
     input.value = dispatchText; input.placeholder = t('previewShell.dispatchPlaceholder'); input.disabled = dispatchBusy;
     input.setAttribute('aria-label', t('previewShell.dispatchInputAria'));
-    input.oninput = () => { dispatchText = input.value; dispatchError = ''; };
+    // 第87波 UX:交办箱随内容自增高(单行起手,最多 10 行),不再常驻 166px 空块挤占首屏。
+    const autosize = () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 240) + 'px'; };
+    input.oninput = () => { dispatchText = input.value; dispatchError = ''; autosize(); };
     input.onkeydown = event => {
       if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); prepareDispatch(input.value); }
     };
+    requestAnimationFrame(autosize);
     const actions = text('div', 'preview-dispatch-actions', '');
     const quick = actionButton(t('previewShell.quickAsk'), 'preview-quick-action', () => { void submitDispatch('quick_ask', dispatchText.replace(/^[?？]\s*/, '')); });
     const review = actionButton(t('previewShell.reviewDispatch'), 'primary preview-launch-action', () => prepareDispatch(dispatchText));
