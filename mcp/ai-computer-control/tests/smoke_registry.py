@@ -39,6 +39,8 @@ _EXPECTED = {
     # v1.9 生态工具首批: 局部编辑 / 网页抓取(SSRF) / 持久记忆 x4 / 链式思考
     "edit_file", "fetch", "memory_save", "memory_read", "memory_list", "memory_delete",
     "sequential_thinking",
+    # v1.9.1 CJK OCR 硬化: 列出已装 OCR 语言包(确认 zh-Hans 是否就位)
+    "ocr_available_languages",
 }
 
 
@@ -52,15 +54,16 @@ def main() -> int:
     failures = []
 
     # 1) version bumped
-    if server.VERSION != "1.9.0":
-        failures.append(f"VERSION expected 1.9.0, got {server.VERSION}")
+    if server.VERSION != "1.9.1":
+        failures.append(f"VERSION expected 1.9.1, got {server.VERSION}")
 
     # 2) exact count (v1.5 was 89; +4 v1.6 Office tools = 93; v1.7 upgrades existing, no new = 93;
     #    v1.8 adds 4 read/image tools = 97; v1.8.1 adds browser tab list/switch = 99;
     #    v1.8.2 adds browser_backend_status = 100; v1.8.3 fixes existing, no new = 100;
-    #    v1.9 adds 7 eco tools (edit_file/fetch/memory x4/sequential_thinking) = 107.)
-    if len(names) != 107:
-        failures.append(f"tool count {len(names)} != expected 107 (v1.9 adds 7 eco tools)")
+    #    v1.9 adds 7 eco tools (edit_file/fetch/memory x4/sequential_thinking) = 107;
+    #    v1.9.1 adds ocr_available_languages (CJK OCR hardening) = 108.)
+    if len(names) != 108:
+        failures.append(f"tool count {len(names)} != expected 108 (v1.9.1 adds ocr_available_languages)")
 
     # 3) all expected tools present
     missing = sorted(_EXPECTED - names)

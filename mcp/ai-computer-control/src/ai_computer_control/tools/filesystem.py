@@ -7,19 +7,56 @@ from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
 
 
+def _system_acp() -> str:
+    """The system ANSI code page (cp936 on zh-CN). GBK fallback for non-UTF-8 text files."""
+    try:
+        return f"cp{ctypes.windll.kernel32.GetACP()}"
+    except Exception:
+        return "gbk"
+
+
+def _decode_text(raw: bytes, encoding: str | None) -> tuple[str, str, str | None]:
+    """Decode bytes to text. Returns (content, encoding_used, fallback_from).
+
+    Default/'auto'/'utf-8' tries UTF-8 strict first; on UnicodeDecodeError it falls back to the
+    system ANSI code page (cp936 on zh-CN). Native Chinese apps (Notepad ANSI, legacy editors,
+    exported configs) write GBK/cp936, and the old errors="replace" silently turned every multi-byte
+    GBK char into U+FFFD mojibake. `fallback_from` is set when a fallback was applied.
+    """
+    enc = (encoding or "utf-8").strip().lower() or "utf-8"
+    if enc in ("auto", "utf-8", "utf8"):
+        try:
+            return raw.decode("utf-8"), "utf-8", None
+        except UnicodeDecodeError:
+            acp = _system_acp()
+            try:
+                return raw.decode(acp, errors="replace"), acp, "utf-8"
+            except (LookupError, UnicodeDecodeError):
+                return raw.decode("utf-8", errors="replace"), "utf-8", None
+    try:
+        return raw.decode(enc, errors="replace"), enc, None
+    except LookupError:
+        return raw.decode("utf-8", errors="replace"), "utf-8", enc
+
+
 @mcp.tool()
 def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000) -> dict:
     """Read the text content of a file.
 
     Args:
         path: File path to read.
-        encoding: Text encoding (default utf-8).
+        encoding: Text encoding (default utf-8). Pass "auto" to detect: tries UTF-8 first, then the
+            system ANSI code page (cp936 on zh-CN) for files from native Chinese apps. The default
+            (utf-8) ALSO applies this fallback so a GBK file no longer silently becomes mojibake;
+            the encoding actually used is reported as 'encoding_used' (and 'encoding_fallback' when
+            a fallback occurred).
         max_bytes: Maximum bytes to read (default 1MB). This is a BYTE budget: the file is read
             in binary and decoded, so a UTF-8 Chinese file (1 char ~= 3 bytes) returns at most
             ~max_bytes/3 characters — never max_bytes *characters* (~3x the promised bytes).
 
     Returns:
-        dict with 'content' and 'size'.
+        dict with 'content', 'size', 'truncated', 'encoding_used' (and 'encoding_fallback'
+        if a fallback was applied).
     """
     try:
         size = os.path.getsize(path)
@@ -32,8 +69,11 @@ def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000) ->
         truncated = len(raw) > limit
         if truncated:
             raw = raw[:limit]
-        content = raw.decode(encoding, errors="replace")
-        return {"content": content, "size": size, "truncated": truncated}
+        content, enc_used, fallback_from = _decode_text(raw, encoding)
+        out = {"content": content, "size": size, "truncated": truncated, "encoding_used": enc_used}
+        if fallback_from:
+            out["encoding_fallback"] = {"requested": fallback_from, "used": enc_used}
+        return out
     except Exception as e:
         return {"error": str(e)}
 

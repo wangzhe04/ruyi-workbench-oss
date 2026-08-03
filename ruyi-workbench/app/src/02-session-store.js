@@ -1510,7 +1510,24 @@ function createTurnSegmentBuilder() {
   const snapshot = () => segments
     .filter(segment => segment && (segment.type !== 'text' && segment.type !== 'thinking' && segment.type !== 'note' || String(segment.text || '').length))
     .map(segment => ({ ...segment }));
-  return { consume, snapshot, createBatchId };
+  // 47b/86 修复「工具超时但一直卡在运行中」:回合被 Stop/看门狗/异常中止时,正在执行的 tool/subagent/
+  // workflow 段永远拿不到 tool_result/end 事件,会以 status:'running' 落盘并在刷新后永远显示「运行中」。
+  // finalizeAll 在回合收尾 snapshot() 之前把这类悬空段诚实标终态 'cancelled'(前端 pill 词汇已有 cancelled),
+  // 与 loadSession 的 healStalePendingSegments 同语义 -- 区别是这里在落盘前修,免去重进会话才修复的窗口。
+  const finalizeAll = (reason) => {
+    const note = String(reason || 'turn ended; in-flight tool was interrupted').slice(0, 200);
+    let healed = 0;
+    for (const seg of segments) {
+      if (!seg || typeof seg !== 'object') continue;
+      if ((seg.type === 'tool' || seg.type === 'subagent') && seg.status === 'running') {
+        seg.status = 'cancelled'; seg.note = note; healed += 1;
+      } else if (seg.type === 'workflow' && (seg.status === 'running' || seg.status === 'paused')) {
+        seg.status = 'cancelled'; seg.note = note; healed += 1;
+      }
+    }
+    return healed;
+  };
+  return { consume, snapshot, createBatchId, finalizeAll };
 }
 
 // v0.8-S3/S4a: derive a turn_summary from the turn's tool records + checkpoint journal. Both engines call
@@ -1819,6 +1836,7 @@ function healStalePendingSegments(session) {
   if (!session || !Array.isArray(session.messages)) return false;
   let healed = false;
   const note = '应用重启或回合中断,该请求已失效;如需请重新发起。';
+  const toolNote = '回合中断时该工具仍在运行,已标记为取消;如需请重试。';
   for (const msg of session.messages) {
     const segs = msg && Array.isArray(msg.segments) ? msg.segments : null;
     if (!segs) continue;
@@ -1833,6 +1851,12 @@ function healStalePendingSegments(session) {
       } else if (seg.type === 'question' && seg.status === 'pending') {
         if (seg.questionId && pendingQuestions.has(String(seg.questionId))) continue;
         seg.status = 'cancelled'; seg.note = note; healed = true;
+      } else if ((seg.type === 'tool' || seg.type === 'subagent') && seg.status === 'running') {
+        // 47b/86: 回合被 Stop/看门狗/异常中止时,正在执行的 tool/subagent 段以 'running' 落盘 (finalizeAll
+        // 在新回合会兜底,但此会话是修复前落盘的存量) -> 重进会话时诚实标 'cancelled'。
+        seg.status = 'cancelled'; seg.note = toolNote; healed = true;
+      } else if (seg.type === 'workflow' && (seg.status === 'running' || seg.status === 'paused')) {
+        seg.status = 'cancelled'; seg.note = toolNote; healed = true;
       }
     }
   }

@@ -104,8 +104,12 @@ def _read_xlsx(path: str) -> dict:
     for sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
         rows = []
+        # Bound the iteration: a 500K-row sheet would otherwise be fully materialized before the
+        # 500-row output cap is applied, hanging the tool. Stop reading once we have enough headroom.
         for row in ws.iter_rows(values_only=True):
             rows.append([str(cell) if cell is not None else "" for cell in row])
+            if len(rows) >= 500:
+                break
         sheets[sheet_name] = rows
 
     wb.close()
@@ -127,20 +131,30 @@ def _read_xlsx(path: str) -> dict:
 def _read_pdf(path: str) -> dict:
     import pdfplumber
 
+    # Hard page cap: a huge/complex PDF can make extract_text() take minutes. read_document is a
+    # quick-content probe; deep extraction should use pdf_read_pages (per-page + char budgets).
+    _MAX_PAGES = 80
     text_parts = []
+    truncated = False
     with pdfplumber.open(path) as pdf:
+        page_count = len(pdf.pages)
         for i, page in enumerate(pdf.pages):
+            if i >= _MAX_PAGES:
+                truncated = True
+                break
             text = page.extract_text()
             if text:
                 text_parts.append(f"--- Page {i + 1} ---\n{text}")
 
-        page_count = len(pdf.pages)
-
-    return {
+    out = {
         "content": "\n\n".join(text_parts),
         "type": "pdf",
         "pages": page_count,
     }
+    if truncated:
+        out["truncated"] = True
+        out["note"] = f"only the first {_MAX_PAGES} of {page_count} pages were extracted; use pdf_read_pages for the rest"
+    return out
 
 
 # =============================================================================================

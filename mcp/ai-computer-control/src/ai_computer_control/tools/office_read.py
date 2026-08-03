@@ -13,8 +13,36 @@ read_document (document.py) 的 xlsx/pdf 分支保留不动 —— 那是「把�
 """
 
 import os
+import threading
 
 from ai_computer_control.server import mcp
+
+
+# load_workbook on a huge/corrupt xlsx can take minutes (it parses the whole zip + shared-strings).
+# Run it in a daemon thread with a join deadline so excel_read returns a clean error instead of
+# hanging to the 120s bridge kill (which would also lose warm ACC state for every other tool).
+_WB_TIMEOUT_SENTINEL = object()
+
+
+def _load_workbook_bounded(path, timeout=20, **kwargs):
+    """load_workbook in a daemon thread. Returns (wb, None) or (None, error_str_or_'timeout')."""
+    holder = {}
+
+    def _run():
+        try:
+            from openpyxl import load_workbook
+            holder["wb"] = load_workbook(path, **kwargs)
+        except Exception as e:  # noqa: BLE001
+            holder["e"] = e
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=timeout)
+    if t.is_alive():
+        return None, "timeout"
+    if "e" in holder:
+        return None, f"{type(holder['e']).__name__}: {holder['e']}"
+    return holder.get("wb"), None
+
 
 
 # =============================================================================================
@@ -97,7 +125,11 @@ def excel_read(
 
     try:
         # read_only=True: 流式读，防大文件把内存/时间吃爆 (用户明确要求)。data_only=True: 取算好的值。
-        wb = load_workbook(path, read_only=True, data_only=True)
+        wb, wb_err = _load_workbook_bounded(path, timeout=20, read_only=True, data_only=True)
+        if wb_err == "timeout":
+            return {"error": "打开工作簿超时 (>20s) -- 文件可能过大或损坏；可用 pdf_read_pages 风格按区读取，或减小范围"}
+        if wb is None:
+            return {"error": f"打不开工作簿 (可能损坏或非 xlsx): {wb_err}"}
     except Exception as e:
         return {"error": f"打不开工作簿 (可能损坏或非 xlsx): {e}"}
 
@@ -192,8 +224,9 @@ def _column_number_formats(path, sheet_name, min_row, min_col, max_col, max_row)
     """扫每列首个数据格的 number_format，非 'General' 则记 (列字母→格式串)。read_only 拿不到格式，故普通开。"""
     out = {}
     try:
-        from openpyxl import load_workbook
-        wb = load_workbook(path, read_only=False, data_only=True)
+        wb, _ = _load_workbook_bounded(path, timeout=20, read_only=False, data_only=True)
+        if wb is None:
+            return {}
         ws = wb[sheet_name]
         # 从表头下一行 (若有) 起找首个非空格取格式；单行区域就用该行。
         probe_start = min_row + 1 if max_row > min_row else min_row
@@ -217,8 +250,9 @@ def _read_formulas(path, sheet_name, min_row, min_col, max_row, max_col, mr) -> 
     """回读区域内的公式 (data_only=False → cell.value 是 '=...' 串)。仅收真以 '=' 开头的格。"""
     out = {}
     try:
-        from openpyxl import load_workbook
-        wb = load_workbook(path, read_only=True, data_only=False)
+        wb, _ = _load_workbook_bounded(path, timeout=20, read_only=True, data_only=False)
+        if wb is None:
+            return {}
         ws = wb[sheet_name]
         hard_max_row = min_row + min(max_row - min_row + 1, mr) - 1
         r = min_row - 1

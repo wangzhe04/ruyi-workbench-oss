@@ -34,7 +34,7 @@
 | | |
 |---|---|
 | **1 个运行产物** | 后端运行时产物是单文件 `app/server.js`(1.8 万+ 行;由 `app/build.js` 把 `app/src/` 的 17 个有序源码模块拼接而成,字节级可复现),**零 npm 运行时依赖**,只用 Node 内建模块——`node server.js` 直接跑,无需 `npm install`,政企内网过审成本最低 |
-| **51 个原生工具 · 107 个桌面工具** | 文件/终端/搜索/Git/联网/编排等原生工具按统一派发表计 51 个，外加可选的桌面控制组件 ACC(截图/OCR/UIA/键鼠/窗口/Office/PDF/编辑/抓取/记忆共 107 个工具) |
+| **51 个原生工具 · 108 个桌面工具** | 文件/终端/搜索/Git/联网/编排等原生工具按统一派发表计 51 个，外加可选的桌面控制组件 ACC(截图/OCR/UIA/键鼠/窗口/Office/PDF/编辑/抓取/记忆共 108 个工具) |
 | **8 套模板 · 9 种角色 · 195 项离线 e2e** | 内置 8 套多 Agent 工作流模板与 9 种节点角色;每项功能经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付。默认运行 189 项离线 e2e，另有 6 项需真实外部环境的探针按需启用 |
 
 > 原名 **Win Claude Workbench**,自 v0.8 起更名**如意 Ruyi**——去 "Claude" 化是开源发布的法务考量(商标风险 + 旧提示词曾致 provider 模型自称「我是 Claude」的身份错认)。「如意」取「称心如意、如你所愿」之意,图标为青花如意云纹。
@@ -47,7 +47,7 @@
 |---|---|---|---|---|
 | 运行位置 | 厂商服务器 | 本机终端 | 厂商沙箱 | **本机,数据不出门** |
 | 无外网 / 内网部署 | ✗ | 部分(模型仍需在线) | ✗ | **✓ 端点可指向内网模型** |
-| 操控本机桌面/Office | 基本没有 | 弱(以代码为主) | 在云端虚拟机里 | **✓ 107 工具直接控本机,纯文本模型也能用(OCR+UIA 文字定位,不依赖视觉模型)** |
+| 操控本机桌面/Office | 基本没有 | 弱(以代码为主) | 在云端虚拟机里 | **✓ 108 工具直接控本机,纯文本模型也能用(OCR+UIA 文字定位,不依赖视觉模型)** |
 | 做错了能撤销吗 | 无此概念 | 靠 git | 很难 | **✓ 文件检查点+对话回溯成对交付,权限弹窗上就写着「可撤销」** |
 | 多 Agent 协作 | 无/黑箱 | 有但多为命令行输出 | 黑箱 | **✓ DAG 图形编辑器 + 实时协作监控画布** |
 | 成本透明 | 订阅价 | 部分 | 订阅价 | **✓ 分币种逐笔记账,子代理/压缩全入账,不虚报成本** |
@@ -100,7 +100,7 @@
 | 多 Agent 编排 | DAG 工作流、8 套模板、9 种角色、5 种质量门、图形编辑器、实时监控；Claude CLI 原生子 Agent 也可显示只读父子图、等待进度与回传结果 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 长任务自主推进 | 任务账本 until-done 驱动;零 token 等待;可选的分级崩溃恢复;增量监控(传输量降 ≥80%)与运营指标 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 信任层 | 文件检查点 + 对话回溯成对交付;5 档权限模式 × 工具三级;全量审计时间线 | [§4](#4-信任层检查点--回溯--权限--审计) |
-| 桌面 / Office 操控 | 截图/OCR/UIA/键鼠/窗口/Office/PDF(桌面控制 MCP,ACC v1.9.0,107 工具,可选安装) | [§5](#5-桌面--office-操控acc可选) |
+| 桌面 / Office 操控 | 截图/OCR/UIA/键鼠/窗口/Office/PDF(桌面控制 MCP,ACC v1.9.1,108 工具,可选安装) | [§5](#5-桌面--office-操控acc可选) |
 | 技能 / 记忆 / Playbook | 四源技能注册表 + 跨会话工作台记忆 + 可复用任务剧本,全部渐进注入 | [§6](#6-技能--记忆--playbook) |
 | 联网检索 | 8 种搜索后端,内置后端零配置可用;SSRF 防御;抓取带离线缓存 | [§7](#7-联网检索与网页抓取) |
 | 成本 / 用量看板 | 分币种逐笔记账,区分官方/第三方计划/按量;Provider 支持缓存命中价与逐模型覆盖;子代理与压缩全入账;月度预算告警 | [§8](#8-用量与成本看板诚实计账) |
@@ -198,7 +198,7 @@ Escapade 2.4 会明确引导两种调用方式：参数已确定且互不依赖�
 
 ### 5. 桌面 / Office 操控(ACC,可选)
 
-`mcp/ai-computer-control/` 是随发行包捆绑的**桌面控制 MCP**(v1.9.0,Python ≥3.12,共 **107 个工具**),装好后工作台自动探测,并把工具同时供给两个引擎:
+`mcp/ai-computer-control/` 是随发行包捆绑的**桌面控制 MCP**(v1.9.1,Python ≥3.12,共 **108 个工具**),装好后工作台自动探测,并把工具同时供给两个引擎:
 
 启动时，工作台会先验证候选 Python 能否导入 ACC；完整离线包内的 `python_embed` 和安装器部署到 `%LOCALAPPDATA%\ai-computer-control\runtime\python` 的运行时均可直接识别。发现缺少依赖的旧运行时会自动跳过并回退到旧版安装器的 `venv` 或可用的系统 Python。
 
@@ -334,7 +334,7 @@ node .\app\server.js mcp          # 以 stdio MCP server 方式运行(供 CLI �
 │   ├── docs/                     架构说明 + 手册(USER-GUIDE / ADMIN-GUIDE)
 │   └── tools/                    离线打包 / overlay 升级 / 开发脚手架
 ├── mcp/
-│   ├── ai-computer-control/      内置桌面控制 MCP(107 工具:截图/OCR/UIA/键鼠/窗口/浏览器/Office/PDF)
+│   ├── ai-computer-control/      内置桌面控制 MCP(108 工具:截图/OCR/UIA/键鼠/窗口/浏览器/Office/PDF)
 │   └── README.md                 drop-in 连接器(文件夹即插即用)说明
 ├── dev-harness/                  验证脚手架(100+ 离线 e2e,Node 直跑)
 ├── docs/
@@ -419,7 +419,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 
 ### Capabilities (v2.4) · Escapade
 
-Dual-engine chat with structured `request_user_input` prompts (single choice, multiple choice, free text, and choices plus a custom answer; delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · **tool batching and staged dependencies** (independent fixed-argument calls share one model response; result-dependent work waits for the next stage) · **51 native built-in tools** (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.0, 107 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. The repository contains **195 offline e2e cases** (189 default; 6 external-environment probes are opt-in).
+Dual-engine chat with structured `request_user_input` prompts (single choice, multiple choice, free text, and choices plus a custom answer; delivery-acknowledged across Claude CLI and OpenAI-compatible providers) · **tool batching and staged dependencies** (independent fixed-argument calls share one model response; result-dependent work waits for the next stage) · **51 native built-in tools** (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.1, 108 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. The repository contains **196 offline e2e cases** (190 default; 6 external-environment probes are opt-in).
 
 ### Detailed documentation
 
@@ -448,7 +448,7 @@ First launch walks you through picking a workspace folder and configuring a prov
 
 ### Desktop control (optional)
 
-`mcp/ai-computer-control/` is a bundled **desktop-control MCP** (107 tools, ACC v1.9.0, requires **Python ≥3.12** for source installs). Browser URLs default to the user's system browser; managed, custom-executable, CDP, and explicitly isolated bundled modes are configurable. The verified full offline release includes CPython 3.12, a wheel-only dependency cache, and matching Chromium, so the target needs neither Python nor network access. Optional dependencies degrade gracefully in source installs.
+`mcp/ai-computer-control/` is a bundled **desktop-control MCP** (108 tools, ACC v1.9.1, requires **Python ≥3.12** for source installs). Browser URLs default to the user's system browser; managed, custom-executable, CDP, and explicitly isolated bundled modes are configurable. The verified full offline release includes CPython 3.12, a wheel-only dependency cache, and matching Chromium, so the target needs neither Python nor network access. Optional dependencies degrade gracefully in source installs.
 
 At startup the workbench verifies that a candidate Python can import ACC. It recognizes both the release's `python_embed` runtime and the installer's `%LOCALAPPDATA%\ai-computer-control\runtime\python\python.exe`, while retaining the legacy `venv` fallback. `-IncludeAcc` now requires a checksummed, pre-hydrated payload; add `-BuildAccOffline` to build it on the connected packaging machine.
 

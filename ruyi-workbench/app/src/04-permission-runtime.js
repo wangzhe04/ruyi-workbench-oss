@@ -220,6 +220,9 @@ const BRIDGED_TOOL_TIMEOUTS = {
   run_command: 650000,
   launch_application: 650000,
   macro_run: 300000,
+  // ACC `wait` caps at 300s and time.sleep()s it; the default 120s bridge would kill a legitimate
+  // wait(300) at 120s and tear down the whole ACC process tree for doing exactly what was asked.
+  wait: 310000,
 };
 const BRIDGED_TOOL_TIMEOUT_DEFAULT_MS = 120000;
 function bridgedToolTimeoutMs(name) {

@@ -37,7 +37,17 @@
 | 持久记忆 (v1.9) | 4 | memory_save / memory_read / memory_list / memory_delete（独立存储，腐败隔离） |
 | 推理辅助 (v1.9) | 1 | sequential_thinking（链式思考记录，支持修订/分支） |
 
-**共计 107 个工具**(v1.9.0；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
+**共计 108 个工具**(v1.9.1；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
+
+### v1.9.1 中文 OCR 硬化 + 工具超时/卡死修复（如意工作台第87波）
+
+- **OCR 中文乱码根治**：`lang` 现接受友好别名并归一化到 Windows.Media.Ocr 实际装包的 BCP-47 标签（`zh`/`chinese`/`zh-CN` -> `zh-Hans-CN`，`zh-TW`/`zh-Hant` -> `zh-Hant-TW`），不再因裸 `zh` 静默回退英文引擎把中文识别成乱码；zh-CN 系统在未指定 `lang` 时自动优先中文引擎；新增 `ocr_available_languages` 工具列出已装 OCR 语言包；小图 LANCZOS 放大提质；结果带 `lang_used`/`lang_fallback`/`confidence`/`upscaled` 透明字段。
+- **CJK 跨词短语匹配**：`ocr_find_text` 对中日韩文本按无空格拼接相邻词，`ocr_find_text("系统设置")` 现能命中 OCR 分词 `["系","统","设","置"]`（Windows 把 CJK 切成 2-4 字单元，旧行为按空格拼接永远匹不中）。
+- **工具卡死/超时根治**：`recognize_async`、UIA 树遍历、`PrintWindow`、`page.evaluate`、`load_workbook` 等同步 COM/网络调用各自加内部超时（`asyncio.wait_for`/daemon 线程 join），卡死时返回干净错误而非依赖桥 120s 杀全进程（杀进程会丢 ACC 热状态）。`observe` 的 UIA/OCR 每步独立超时，一步卡不死整张快照。
+- **桥接 `wait` 契约对齐**：ACC `wait` 上限 300s，桥接超时表给它 310s，不再用默认 120s 杀掉合法 `wait(300)`。
+- **回合收尾段清理**：原生工具段（tool/subagent/workflow）在回合被 Stop/看门狗/异常中止时不再以 `running` 落盘永远显示「运行中」--`finalizeAll` 在 `snapshot()` 前把它们标 `cancelled`，`loadSession` 的 `healStalePendingSegments` 兜底修复存量会话。
+- **CJK 编码**：`read_file` 默认 UTF-8 解码失败时回退系统 ANSI 代码页（cp936），原生中文应用写的 GBK 文件不再静默变 U+FFFD 乱码；`launch_application(wait=True)` 用 OEM 代码页而非硬编码 UTF-8 解码子进程输出。
+- 行为锁：`tests/smoke_v191.py`（30+ 断言，含语言归一化/CJK 短语/放大/超时契约/GBK 回退）、`dev-harness/finalize-segments.static.e2e.js`（段清理 + 桥超时表）。
 
 ### v1.9.0 生态工具首批 + 质量战役（如意工作台第49波）
 
@@ -45,7 +55,7 @@
 - **ACC_TOOLSETS 子集注册**：环境变量按能力族裁剪注册（如 `ACC_TOOLSETS=filesystem,shell`），独立部署可裁剪首 token 成本；未设置=全开（向后兼容）。
 - **读取栈收敛**：`read_document` 的 .pdf/.xlsx 分支标记弃用（响应带 `deprecated`/`successor`），分别指向 `pdf_read_pages`/`excel_read`；.docx 分支保留。
 - **pyproject 修正**：playwright/uiautomation/python-pptx/matplotlib 等可选依赖移入 extras（`browser`/`uia`/`pptx`/`charts`），硬依赖只剩真必需 9 件——依赖声明与「可选优雅降级」的实际行为对齐；`requirements_offline.txt` 保持全量不受影响。
-- **description 规范**：新工具全部遵守「何时用 + 何时别用 + 参数约定」；`tests/smoke_descriptions.py` 审计 107 件并硬锁新约定。
+- **description 规范**：新工具全部遵守「何时用 + 何时别用 + 参数约定」；`tests/smoke_descriptions.py` 审计 108 件并硬锁新约定。
 - 行为锁：`tests/smoke_v19.py`（53 断言）、`tests/smoke_toolsets.py`、`tests/smoke_descriptions.py`。
 
 ### v1.8.3 评审修复批（如意工作台 v1.7）

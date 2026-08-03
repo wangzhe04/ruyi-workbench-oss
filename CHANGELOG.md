@@ -3,6 +3,28 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
+## 如意 Ruyi Escapade 2.4.1 · v2.4.1 · 2026-08-03
+
+### 中文
+
+- **ACC 中文 OCR 乱码根治**：`ocr_screen`/`ocr_image`/`ocr_find_text` 的 `lang` 现接受友好别名并归一化到 Windows.Media.Ocr 实际装包的 BCP-47 标签（`zh`/`chinese`/`zh-CN` -> `zh-Hans-CN`，`zh-TW`/`zh-Hant` -> `zh-Hant-TW`）。此前裸 `zh` 让 `try_create_from_language` 静默返回 `None`、回退英文引擎，中文整屏识别成乱码；现在在 en-US 系统上也能正确识别中文。未指定 `lang` 时 zh-CN 系统自动优先中文引擎；新增 `ocr_available_languages` 工具列出已装 OCR 语言包；小图 LANCZOS 放大提质；结果带 `lang_used`/`lang_fallback`/`confidence`/`upscaled` 透明字段。
+- **CJK 跨词短语匹配**：`ocr_find_text("系统设置")` 现能命中 OCR 分词 `["系","统","设","置"]`。Windows 把 CJK 切成 2-4 字单元，旧行为按空格拼接相邻词永远匹不中；现对中日韩文本按无空格拼接。
+- **工具卡死/超时根治**：`recognize_async`、UIA 树遍历、`PrintWindow`、`page.evaluate`、`load_workbook` 等同步 COM/网络调用各自加内部超时（`asyncio.wait_for`/daemon 线程 join），卡死时返回干净错误而非依赖桥 120s 杀全 ACC 进程（杀进程会丢热状态）。`observe` 的 UIA/OCR 每步独立超时，一步卡不死整张快照。
+- **「工具一直卡在运行中」修复**：回合被 Stop/看门狗/异常中止时，正在执行的 tool/subagent/workflow 段不再以 `running` 落盘并在刷新后永远显示「运行中」--`finalizeAll` 在 `snapshot()` 前把它们标 `cancelled`，`loadSession` 的 `healStalePendingSegments` 兜底修复存量会话。
+- **桥接 `wait` 契约对齐**：ACC `wait` 上限 300s，桥接超时表给它 310s，不再用默认 120s 杀掉合法 `wait(300)` 并连带整棵 ACC 进程树。
+- **CJK 文件编码**：`read_file` 默认 UTF-8 解码失败时回退系统 ANSI 代码页（cp936），原生中文应用写的 GBK 文件不再静默变 U+FFFD 乱码，并回报 `encoding_used`/`encoding_fallback`；`launch_application(wait=True)` 用 OEM 代码页而非硬编码 UTF-8 解码子进程输出。
+- **行为锁**：`tests/smoke_v191.py`（30+ 断言）、`dev-harness/finalize-segments.static.e2e.js`（段清理 + 桥超时表）。ACC v1.9.0 -> v1.9.1（108 工具）。
+
+### English
+
+- **ACC Chinese OCR mojibake fixed**: `lang` is now normalized to the BCP-47 tags Windows.Media.Ocr actually ships packs for (`zh`/`chinese`/`zh-CN` -> `zh-Hans-CN`, `zh-TW`/`zh-Hant` -> `zh-Hant-TW`). A bare `zh` previously made `try_create_from_language` return `None` and fall back to the English engine, garbling all Chinese text; Chinese now recognizes correctly even on an en-US system. A zh-CN system auto-prefers a Chinese engine when `lang` is omitted. New `ocr_available_languages` tool lists installed packs; small images are LANCZOS-upscaled; results carry `lang_used`/`lang_fallback`/`confidence`/`upscaled`.
+- **CJK phrase matching**: `ocr_find_text("系统设置")` now matches OCR words `["系","统","设","置"]` -- Windows segments CJK into 2-4 char units and the old space-joined phrase match could never hit them; CJK runs are now joined without spaces.
+- **Tool hang/timeout fixed**: blocking COM/network calls (`recognize_async`, UIA tree walks, `PrintWindow`, `page.evaluate`, `load_workbook`) each get an internal timeout (`asyncio.wait_for`/daemon-thread join), returning a clean error instead of relying on the 120s bridge to kill the whole ACC process (which loses warm state). `observe`'s UIA/OCR steps each have independent timeouts.
+- **"Tool stuck running" fixed**: when a turn is stopped/watchdog-killed/aborted, in-flight tool/subagent/workflow segments are no longer persisted as `running` (showing "running" forever after refresh) -- `finalizeAll` marks them `cancelled` before `snapshot()`, and `healStalePendingSegments` backfills legacy sessions on load.
+- **Bridge `wait` contract**: ACC `wait` caps at 300s; the bridge timeout table now gives it 310s instead of killing a legitimate `wait(300)` at the 120s default (which also tore down the whole ACC process tree).
+- **CJK file encoding**: `read_file` falls back to the system ANSI code page (cp936) when UTF-8 decode fails, so GBK files from native Chinese apps no longer silently become U+FFFD; reports `encoding_used`/`encoding_fallback`. `launch_application(wait=True)` decodes child output with the OEM code page instead of hard-coded UTF-8.
+- **Test gates**: `tests/smoke_v191.py` (30+ assertions), `dev-harness/finalize-segments.static.e2e.js`. ACC v1.9.0 -> v1.9.1 (108 tools).
+
 ## 如意 Ruyi Escapade 2.4 · v2.4.0 · 2026-07-30
 
 ### 中文

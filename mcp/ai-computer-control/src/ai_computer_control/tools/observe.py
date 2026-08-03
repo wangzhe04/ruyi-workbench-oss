@@ -12,6 +12,8 @@ Coordinate contract (IMPORTANT):
     tokens). To map a point you eyeball IN the image back to the screen: x_screen = x_image / scale.
 """
 
+import asyncio
+
 from ai_computer_control.server import mcp
 
 
@@ -91,15 +93,24 @@ def _uia_elements(window_title: str | None, cap: int):
     return {"items": items[:cap], "limitation": limitation}
 
 
-async def _ocr_words(cap: int) -> list | None:
-    """Full-screen OCR words as [{text,rect,center}] in screen coords. None if OCR backend absent."""
+async def _ocr_words(cap: int, lang: str | None = None) -> list | None:
+    """Full-screen OCR words as [{text,rect,center}] in screen coords. None if OCR backend absent.
+
+    `lang` is forwarded to ocr_screen so Chinese screen text is recognized with a Chinese engine
+    even on a developer machine whose display language is English (ocr.py auto-prefers zh-Hans on a
+    zh-CN system when lang is None, but an explicit lang wins). Bounded by a 40s timeout so a stuck
+    recognize_async degrades gracefully instead of hanging the whole observe() call.
+    """
     try:
         from ai_computer_control.tools import ocr
     except Exception:
         return None
     if not getattr(ocr, "_AVAILABLE", False):
         return None
-    res = await ocr.ocr_screen()
+    try:
+        res = await asyncio.wait_for(ocr.ocr_screen(lang=lang), timeout=40)
+    except asyncio.TimeoutError:
+        return None
     if not res.get("success"):
         return None
     words = []
@@ -114,7 +125,8 @@ async def _ocr_words(cap: int) -> list | None:
 @mcp.tool()
 async def observe(max_width: int = 1280, window_title: str | None = None,
                   include_uia: bool = True, include_ocr: bool = True,
-                  format: str = "png", quality: int = 80) -> dict:
+                  format: str = "png", quality: int = 80,
+                  lang: str | None = None) -> dict:
     """One-shot situational snapshot: screenshot + focused window + UIA elements + OCR words.
 
     Everything you need to pick a next action in a single round-trip. UIA/OCR are included only when
@@ -130,11 +142,14 @@ async def observe(max_width: int = 1280, window_title: str | None = None,
         include_ocr: Collect OCR words (<=200) when the OCR backend is available.
         format: Screenshot encoding 'png' (default) or 'jpeg'.
         quality: JPEG quality 1-100 (ignored for PNG).
+        lang: Optional OCR language hint (zh/chinese/zh-CN -> zh-Hans, ja, ko, en). Omit to let
+            ocr.py auto-detect from the system locale (prefers Chinese on a zh-CN box).
 
     Returns:
         dict with ok, screenshot:{image,width,height,scale,format}, focused_window:{...},
         uia_elements:[{name,type,rect,center}] (when available), ocr_words:[{text,rect,center}]
-        (when available), and 'degraded' listing any backend that was requested but unavailable.
+        (when available), and 'degraded' listing any backend that was requested but unavailable or
+        that timed out.
         NOTE: uia_elements/ocr_words rects & centers are UNSCALED physical screen coords (clickable);
         only screenshot bytes are affected by 'scale'.
     """
@@ -152,11 +167,37 @@ async def observe(max_width: int = 1280, window_title: str | None = None,
     out["focused_window"] = _focused_window()
 
     if include_uia:
-        uia_items = _uia_elements(window_title, cap=80)
+        # The UIA tree walk is synchronous COM (ctrl.GetChildren per node); a single unresponsive
+        # window can hang it. Run it off the event loop with a 15s cap so observe() still returns the
+        # screenshot + OCR even when one window is stuck. COM must be initialized on the worker thread
+        # (uiautomation/comtypes need it); _uia_elements_com wraps _uia_elements with CoInitialize.
+        def _uia_elements_com():
+            co_inited = False
+            try:
+                try:
+                    import pythoncom
+                    pythoncom.CoInitialize()
+                    co_inited = True
+                except Exception:
+                    pass
+                return _uia_elements(window_title, 80)
+            finally:
+                if co_inited:
+                    try:
+                        import pythoncom
+                        pythoncom.CoUninitialize()
+                    except Exception:
+                        pass
+        try:
+            uia_items = await asyncio.wait_for(
+                asyncio.to_thread(_uia_elements_com), timeout=15)
+        except asyncio.TimeoutError:
+            uia_items = None
+            degraded.append("uia_timeout")
         if uia_items == "no_window":
             out["uia_note"] = (f"window_title {window_title!r} did not match any open window; "
                                f"adjust the substring or omit it to use the foreground window.")
-        elif uia_items is None:
+        elif uia_items is None and "uia_timeout" not in degraded:
             degraded.append("uia")
         else:
             out["uia_elements"] = uia_items["items"]
@@ -168,7 +209,7 @@ async def observe(max_width: int = 1280, window_title: str | None = None,
                     "screenshot coordinates and verify the result."
                 )
     if include_ocr:
-        ocr_items = await _ocr_words(cap=200)
+        ocr_items = await _ocr_words(cap=200, lang=lang)
         if ocr_items is None:
             degraded.append("ocr")
         else:

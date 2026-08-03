@@ -7,6 +7,7 @@ import time
 import psutil
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import is_critical_process
+from ai_computer_control.tools.shell import _default_console_encoding
 
 
 def _split_args(args: str) -> list[str]:
@@ -168,7 +169,10 @@ def launch_application(
             stdout=subprocess.PIPE if wait else subprocess.DEVNULL,
             stderr=subprocess.PIPE if wait else subprocess.DEVNULL,
             text=True,
-            encoding="utf-8",
+            # Console programs on zh-CN write cp936/GBK, NOT UTF-8 (OEM code page). Hard-coding
+            # utf-8 here turned every Chinese line into U+FFFD mojibake (e.g. ipconfig/systeminfo
+            # with Chinese adapter/OS names). Match the OEM code page like run_command does.
+            encoding=_default_console_encoding(),
             errors="replace",
         )
     except Exception as e:  # noqa: BLE001 — bad path / permission / bad args

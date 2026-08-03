@@ -189,8 +189,26 @@ def window_screenshot(title_substring: str, output_path: str | None = None,
 
     img = None
     method = "printwindow"
+    # PrintWindow sends a render message to the target window's message pump; a hung/crashed app or a
+    # suspended UWP never answers, blocking the (sync) call indefinitely and hanging the whole ACC
+    # event loop. Run it in a bounded daemon thread and fall through to the screen-crop fallback on
+    # timeout instead of waiting for the 120s bridge kill.
     try:
-        img = _printwindow_to_pil(hwnd, width, height)
+        import threading
+        holder: dict = {}
+        def _cap():
+            try:
+                holder["img"] = _printwindow_to_pil(hwnd, width, height)
+            except Exception as e:  # noqa: BLE001
+                holder["err"] = e
+        t = threading.Thread(target=_cap, daemon=True)
+        t.start()
+        t.join(timeout=5)
+        if t.is_alive() or "img" not in holder:
+            img = None
+            method = "screen_crop"
+        else:
+            img = holder["img"]
     except Exception:
         img = None
 

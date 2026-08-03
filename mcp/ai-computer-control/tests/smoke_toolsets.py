@@ -1,7 +1,7 @@
 """ACC_TOOLSETS subset-registration smoke — v1.9 (49d, 03 Phase B #3).
 
 子进程隔离验证:
-  ① 默认(不设 env)注册全部 107 件;
+  ① 默认(不设 env)注册全部 108 件;
   ② ACC_TOOLSETS="filesystem,shell" 只注册该两族 + 常驻(audit/diagnostics)= 15 件;
   ③ 未知 toolset 名忽略并 stderr 提醒,不炸;
   ④ 单族 "office" 含 write_document/excel_read 等且无 desktop 族工具。
@@ -53,7 +53,7 @@ def main() -> int:
     print("== ACC_TOOLSETS 子集注册 ==")
 
     rc, count, names, _ = run_child()
-    check(rc == 0 and count == 107, f"默认全开 107 件 (got rc={rc} count={count})")
+    check(rc == 0 and count == 108, f"默认全开 108 件 (got rc={rc} count={count})")
 
     rc, count, names, _ = run_child({"ACC_TOOLSETS": "filesystem,shell"})
     check(rc == 0 and count == 15, f"filesystem+shell = 15 件(含 audit/diagnostics 常驻) (got {count})")

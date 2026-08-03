@@ -748,6 +748,8 @@ async function runClaudeTurn({
   // child looped back to /api/todo, which already persisted session.todos + emitted the `todo` event.
   const turnJournal = (await journalReadIndex(session.id)).filter(e => e && Number(e.turnSeq) === Number(session.turnSeq));
   const turnSummary = buildTurnSummary(session.turnSeq, toolCalls, 'claude', turnJournal);
+  // 47b/86: 回合收尾前把仍在 'running' 的 tool/subagent/workflow 段标终态,防「卡在运行中」落盘。
+  turnSegments.finalizeAll(wasStopped ? '回合被停止,进行中的工具已中断' : '回合结束,进行中的工具未完成');
   session.messages.push({
     role: 'assistant',
     content: finalText,

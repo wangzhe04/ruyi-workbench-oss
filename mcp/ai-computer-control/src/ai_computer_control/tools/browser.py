@@ -19,6 +19,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 from ai_computer_control.server import mcp
 
@@ -372,7 +373,13 @@ async def browser_execute_js(script: str) -> dict:
     async with _lock:
         try:
             page = await _ensure_browser()
-            result = await page.evaluate(script)
+            # page.evaluate has NO built-in timeout -- an infinite loop or a never-resolving Promise
+            # in the injected JS would hang until the 120s bridge kills the whole ACC process. Bound it
+            # here so a runaway script returns a clean error instead of taking down every other tool.
+            try:
+                result = await asyncio.wait_for(page.evaluate(script), timeout=30)
+            except asyncio.TimeoutError:
+                return {"error": "javascript evaluation timed out (>30s); check for infinite loops or unresolved Promises"}
             return {"result": result}
         except Exception as e:
             return {"error": str(e)}
@@ -423,8 +430,16 @@ async def browser_get_elements(selector: str) -> dict:
             page = await _ensure_browser()
             elements = await page.query_selector_all(selector)
             results = []
+            # Overall deadline: 50 elements x 7 await calls each, with Playwright's default 30s per
+            # call, could otherwise run for hours on a slow/stale page. Cap the whole scan so a
+            # degraded page returns a partial result instead of hanging to the bridge timeout.
+            deadline = time.monotonic() + 20
+            truncated = False
             for el in elements[:50]:
-                # One detached/stale element must not abort the whole scan — skip it instead.
+                if time.monotonic() >= deadline:
+                    truncated = True
+                    break
+                # One detached/stale element must not abort the whole scan - skip it instead.
                 try:
                     txt = (await el.inner_text()) or ""
                     results.append({
@@ -438,7 +453,11 @@ async def browser_get_elements(selector: str) -> dict:
                     })
                 except Exception:
                     continue
-            return {"elements": results, "count": len(results)}
+            out = {"elements": results, "count": len(results)}
+            if truncated and len(results) < len(elements[:50]):
+                out["truncated"] = True
+                out["note"] = "scan stopped at the 20s deadline; refine the selector for the rest"
+            return out
         except Exception as e:
             return {"error": str(e)}
 

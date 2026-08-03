@@ -1,6 +1,6 @@
 """Description-convention audit + lock — v1.9 (49d, 03 Phase B #2).
 
-工具 description 就是提示词面:审 107 件的 docstring 是否具备
+工具 description 就是提示词面:审 108 件的 docstring 是否具备
   (a) 非空首行(一句话干嘛);
   (b) Args: 段(有参数的件);
   (c) 新约定标记「何时用 / 何时别用」(v1.9 起新工具必须遵守)。

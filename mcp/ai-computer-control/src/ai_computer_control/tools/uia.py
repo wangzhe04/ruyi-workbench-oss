@@ -26,6 +26,53 @@ def _unavailable() -> dict:
             "package (requirements_offline.txt) and reinstall, or run update.bat --deps.",
             "detail": _IMPORT_ERROR}
 
+import threading
+
+# A single ctrl.GetChildren() (or Invoke/SetValue/SendKeys) on an unresponsive window is a
+# synchronous COM call with no per-call timeout. SetGlobalSearchTimeout only bounds search ops, not
+# tree walks or pattern actions. Run such calls in a daemon thread with a join deadline so a hung
+# window degrades to a clean error instead of blocking the whole ACC event loop to the 120s bridge.
+_TIMEOUT_SENTINEL = object()
+
+
+def _run_bounded(fn, timeout, *args, **kwargs):
+    """Run fn in a daemon thread, join with `timeout` seconds.
+
+    Returns the fn result, raises any exception fn raised, or returns _TIMEOUT_SENTINEL on timeout.
+    COM safety: uiautomation/comtypes need CoInitialize on each worker thread; we do it here so
+    tree walks and pattern actions work off the event loop (pywin32 is a hard dependency).
+    """
+    holder = {}
+
+    def _run():
+        co_inited = False
+        try:
+            try:
+                import pythoncom
+                pythoncom.CoInitialize()
+                co_inited = True
+            except Exception:
+                pass
+            holder["r"] = fn(*args, **kwargs)
+        except Exception as e:  # noqa: BLE001
+            holder["e"] = e
+        finally:
+            if co_inited:
+                try:
+                    import pythoncom
+                    pythoncom.CoUninitialize()
+                except Exception:
+                    pass
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=timeout)
+    if t.is_alive():
+        return _TIMEOUT_SENTINEL
+    if "e" in holder:
+        raise holder["e"]
+    return holder.get("r")
+
+
 
 def _center(control) -> list[int] | None:
     try:
@@ -170,9 +217,12 @@ def ui_inspect(window_title: str | None = None, max_depth: int = 4, max_nodes: i
         return node
 
     try:
-        tree = walk(root, 0)
+        tree = _run_bounded(lambda: walk(root, 0), 15)
     except Exception as e:  # noqa: BLE001
         return {"error": f"{type(e).__name__}: {e}"}
+    if tree is _TIMEOUT_SENTINEL:
+        return {"error": "UIA tree walk timed out (>15s); the window may be unresponsive",
+                "window": _window_identity(root)}
     out = {"success": True, "nodes": count[0], "truncated": count[0] >= max_nodes, "tree": tree,
            "window": _window_identity(root)}
     # A deliberately shallow/truncated request has not inspected enough of the tree to diagnose
@@ -233,9 +283,12 @@ def ui_find(name: str | None = None, control_type: str | None = None, automation
             pass
 
     try:
-        walk(root, 0)
+        walk_res = _run_bounded(lambda: walk(root, 0), 15)
     except Exception as e:  # noqa: BLE001
         return {"error": f"{type(e).__name__}: {e}"}
+    if walk_res is _TIMEOUT_SENTINEL:
+        return {"error": "UIA tree walk timed out (>15s); the window may be unresponsive",
+                "window": _window_identity(root)}
     out = {"success": True, "count": len(matches), "matches": matches,
            "window": _window_identity(root)}
     if not matches:
@@ -296,7 +349,9 @@ def ui_invoke(action: str = "invoke", name: str | None = None, control_type: str
             return None
         return None
 
-    ctrl = first(root)
+    ctrl = _run_bounded(lambda: first(root), 15)
+    if ctrl is _TIMEOUT_SENTINEL:
+        return {"error": "UIA tree walk timed out (>15s) locating the control; the window may be unresponsive"}
     if ctrl is None:
         return {"error": "control disappeared before action", "target": found["matches"][0]}
     info = _node(ctrl)
@@ -304,7 +359,10 @@ def ui_invoke(action: str = "invoke", name: str | None = None, control_type: str
         act = action.lower()
         if act in ("invoke", "click"):
             try:
-                ctrl.GetInvokePattern().Invoke()
+                inv = _run_bounded(lambda: ctrl.GetInvokePattern().Invoke(), 10)
+                if inv is _TIMEOUT_SENTINEL:
+                    return {"error": "Invoke() timed out (>10s); the control may be unresponsive",
+                            "control": info}
                 # 'verified' means the event was SENT, not that the effect is confirmed.
                 return {"success": True, "action": act, "control": info,
                         "method": "invoke_pattern", "verified": False}
