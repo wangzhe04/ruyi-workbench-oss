@@ -425,8 +425,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const started = Date.now();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself run spawn_agent.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes spawn_agent */ }
-  const base = providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + '/chat/completions' : '';
+  // v1.7: protocol preference — mirror the parent turn (apiStyle:'responses' → /responses + Responses body).
+  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
+  const subApiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
+  const base = subApiStyle === 'responses' ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
+  const chatUrl = base ? base + (subApiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
   const role = roleDefinition || null;
   const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
@@ -491,6 +494,14 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // toolsRejected flag and died on the 400). Mutated by the transient-retry loop below.
   let useTools = tools.length > 0, toolsRetried = false;
   const buildBody = () => {
+    // v1.7 (Responses): sub-agent body follows the parent's protocol choice — instructions + input items,
+    // flat function tools; system folded into instructions (buildResponsesInputItems skips system roles).
+    if (subApiStyle === 'responses') {
+      const b = { model: subModel, instructions: sys, input: buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), stream: true };
+      if (temp !== undefined) b.temperature = temp;
+      if (useTools) { b.tools = toResponsesTools(tools); b.tool_choice = 'auto'; }
+      return b;
+    }
     const b = { model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
     if (useTools) { b.tools = tools; b.tool_choice = 'auto'; }

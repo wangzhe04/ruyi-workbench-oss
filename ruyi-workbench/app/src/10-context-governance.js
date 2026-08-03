@@ -319,9 +319,12 @@ function chunkHistoryByBudget(history, budgetTokens) {
 }
 
 // 单次摘要调用(原内核体,45a 拆出以便 map-reduce 复用)。messages 为历史,prompt 追加于尾。
+// v1.7: follows provider.apiStyle — Responses protocol uses instructions+input, reads output_text.
 async function singleSummaryCall(provider, messages, model) {
-  const base = providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + '/chat/completions' : '';
+  const respStyle = provider && provider.apiStyle === 'responses';
+  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
+  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
+  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
   const headers = { 'content-type': 'application/json' };
   const key = String(provider.apiKey || '').trim();
   if (key) headers['authorization'] = 'Bearer ' + key;
@@ -329,7 +332,9 @@ async function singleSummaryCall(provider, messages, model) {
   // v0.8-S6: prepend the IDENTITY-ONLY layer so the summary call keeps the pinned identity (product name
   // never enters). identityOnly skips the capability/project layers — a摘要 call needs the pin, not the矩阵.
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  const bodyObj = { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }], stream: false };
+  const bodyObj = respStyle
+    ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }]), stream: false }
+    : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }], stream: false };
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -341,11 +346,21 @@ async function singleSummaryCall(provider, messages, model) {
       return { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
     }
     const j = await res.json().catch(() => null);
-    const msg = j && j.choices && j.choices[0] && j.choices[0].message;
-    const summary = String((msg && msg.content) || '').trim();
+    let summary = '';
+    if (respStyle) {
+      for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
+        if (item && item.type === 'message' && Array.isArray(item.content)) {
+          for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') summary += part.text; }
+        }
+      }
+    } else {
+      const msg = j && j.choices && j.choices[0] && j.choices[0].message;
+      summary = String((msg && msg.content) || '');
+    }
+    summary = summary.trim();
     if (!summary) return { ok: false, error: 'provider returned an empty summary' };
     // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model + 对发送 payload 的输入估算,让压缩调用方记入 aux 台账。
-    return { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages) };
+    return { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
   } catch (e) {
     return { ok: false, error: (e && e.name === 'AbortError') ? 'summary request timed out (60s)' : ((e && e.message) || 'summary request failed') };
   } finally { if (timer) clearTimeout(timer); }

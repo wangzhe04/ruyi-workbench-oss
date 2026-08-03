@@ -963,9 +963,12 @@ async function draftPlaybookFromSession(sessionId) {
 
 // Non-stream provider completion with the identity-only system layer (reuses the same headers/timeout
 // shape as providerSummaryCall). Returns { ok, content } | { ok:false, error }. Used by the draft feature.
+// v1.7: follows the provider's apiStyle — Responses protocol uses instructions+input and reads output_text.
 async function providerRawCompletion(provider, history) {
-  const base = providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + '/chat/completions' : '';
+  const respStyle = provider && provider.apiStyle === 'responses';
+  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
+  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
+  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !model || typeof fetch !== 'function') {
     return { ok: false, error: !chatUrl ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable') };
@@ -975,7 +978,9 @@ async function providerRawCompletion(provider, history) {
   if (key) headers['authorization'] = 'Bearer ' + key;
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  const bodyObj = { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false };
+  const bodyObj = respStyle
+    ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...history]), stream: false }
+    : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false };
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -987,8 +992,19 @@ async function providerRawCompletion(provider, history) {
       return { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
     }
     const j = await res.json().catch(() => null);
-    const msg = j && j.choices && j.choices[0] && j.choices[0].message;
-    const content = String((msg && msg.content) || '').trim();
+    let content = '';
+    if (respStyle) {
+      // Responses non-stream body: { output:[{type:'message', content:[{type:'output_text', text}]}, …], usage }
+      for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
+        if (item && item.type === 'message' && Array.isArray(item.content)) {
+          for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') content += part.text; }
+        }
+      }
+    } else {
+      const msg = j && j.choices && j.choices[0] && j.choices[0].message;
+      content = String((msg && msg.content) || '');
+    }
+    content = content.trim();
     if (!content) return { ok: false, error: 'provider returned an empty completion' };
     // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
     return { ok: true, content, usage: (j && j.usage) || null, model };

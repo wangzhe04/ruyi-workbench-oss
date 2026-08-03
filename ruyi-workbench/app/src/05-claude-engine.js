@@ -857,10 +857,27 @@ async function runClaudeTurn({
 const PROVIDER_PRESETS = [
   {
     id: 'deepseek', label: 'DeepSeek', type: 'openai-compat',
-    baseUrl: 'https://api.deepseek.com', reasoning: true, defaultModel: 'deepseek-v4-pro', contextWindow: 131072, // v0.8-S5
+    // v1.7: baseUrl 保持官方 Responses API 文档给的根地址(api.deepseek.com,无 /v1 段——chat 走 providerBaseWithV1
+    // 补 /v1;responses 走 providerResponsesBase 不加 /v1,与官方 OpenAI SDK 示例逐字节一致)。
+    // contextWindow 不再写死 131072:deepseek-v4 实际 1M(此前预设值会以 manual 最高优先级误限 v4 为 128K,
+    // 见 10-context-governance MODEL_CONTEXT_TABLE)。留空 = 按模型名自动解析(deepseek-v4→1M, 其余 deepseek→128K)。
+    // v1.7-对抗轮(P1-1):defaultModel 用 deepseek-v4-flash —— 官方 Responses API 目前【仅支持 v4-flash】,
+    // v4-pro 将于 2026-08 初上线(官方文档明示)。预设默认组合必须可用:flash + responses ✓。v4-pro 上线后
+    // 用户在设置里切模型即可(不预设 pro,避免用户开箱即命中官方暂不支持的组合)。
+    baseUrl: 'https://api.deepseek.com', reasoning: true, defaultModel: 'deepseek-v4-flash',
+    // v1.7: apiStyle 供本预设模板声明协议偏好(默认 chat;可切 'responses' 走 DeepSeek 新增的 Responses API,
+    // 专为 Codex/agent 工具循环设计)。addProviderFromPreset 会把它带入草稿。
+    apiStyle: 'responses',
     // v1.4-OSS 用量看板: a reasonable DEFAULT price prefill (元/百万 token, CNY) — user-editable in 设置.
-    // Deliberately just this one preset (prices drift; config is the source of truth, not hardcoded tables).
-    pricing: { inputPerM: 2, outputPerM: 8, currency: 'CNY' },
+    // v1.7 更新为官方现行价:v4-flash 1/2、v4-pro 3/6,缓存命中输入 0.02/0.025(元/百万 token)。
+    // 用模型级覆盖区分 flash/pro;默认行只兜底 deepseek-chat/reasoner 等别名。价格会漂移,配置是事实源。
+    pricing: {
+      inputPerM: 2, outputPerM: 8, currency: 'CNY',
+      models: [
+        { model: 'deepseek-v4-flash', inputPerM: 1, outputPerM: 2, cachedInputPerM: 0.02 },
+        { model: 'deepseek-v4-pro', inputPerM: 3, outputPerM: 6, cachedInputPerM: 0.025 },
+      ],
+    },
 
     models: [
       { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
@@ -983,6 +1000,11 @@ function sanitizeProvider(raw) {
     model: str(raw.model, 120).trim(),
     models,
     reasoning: raw.reasoning === true,
+    // v1.7: apiStyle — protocol preference for this provider: 'chat' (default, OpenAI Chat Completions) or
+    // 'responses' (OpenAI Responses API; DeepSeek added it for Codex/agent loops, v4-flash now + v4-pro from
+    // 2026-08). Unknown/absent → 'chat' (向后兼容:任何既有配置零行为变化)。UI 设置里可逐 provider 切换,
+    // 引擎在 buildBody/openAiStreamOnce 按此分支。其它 openai-compat 服务商(未提供 /responses 端点)保持 chat。
+    apiStyle: raw.apiStyle === 'responses' ? 'responses' : 'chat',
     // v0.8-S6: vision (boolean, default false) — the gate for the v0.9 vision回路 (image parts to the model).
     // Passed through untouched by sanitizeProvider; surfaced in the capability matrix (provider.vision).
     vision: raw.vision === true,
@@ -1125,6 +1147,14 @@ function providerBaseWithV1(baseUrl) {
   if (!b) return '';
   if (/\/v\d+$/i.test(b)) return b;
   return b + '/v1';
+}
+// v1.7-对抗轮(open-risk):Responses API 端点 URL —— 官方 OpenAI SDK 示例 base_url 就是
+// `https://api.deepseek.com`(无 /v1),SDK 直接拼 `/responses`。为与官方逐字节一致(且不依赖
+// "/v1/responses 是否被接受"这一无官方明文的事实),responses 走【原样 baseUrl + /responses】,
+// 只有 chat 走 providerBaseWithV1。若用户 baseUrl 自带 /vN 段则原样保留(拼出 /vN/responses,
+// 与 chat 的保留策略对称)。
+function providerResponsesBase(baseUrl) {
+  return String(baseUrl || '').trim().replace(/\/+$/, '');
 }
 // v1.0 收官安全加固(对抗复核 PLAUSIBLE·minor):从 URL 剥掉 basic-auth userinfo(https://user:pass@host)。
 // failover 事件的 from/to 与审计会回显端点 base;若管理员把凭据塞进 baseUrl,明文会漏进前端与 NDJSON 审计。

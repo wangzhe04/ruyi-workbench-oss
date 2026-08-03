@@ -946,8 +946,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   config = config || await readConfig();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
-  const base = providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + '/chat/completions' : '';
+  // v1.7: protocol preference — 'chat' (Chat Completions) vs 'responses' (OpenAI Responses API, DeepSeek
+  // /responses for Codex/agent loops; v4-flash now, v4-pro from 2026-08). Default chat keeps every
+  // existing config byte-compatible; DeepSeek preset ships apiStyle:'responses' (switchable in Settings).
+  // 对抗轮(open-risk):responses 端点用 providerResponsesBase(原样 baseUrl,不加 /v1,与官方 SDK 示例一致)。
+  const apiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
+  const base = apiStyle === 'responses' ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
+  const chatUrl = base ? base + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
   activeTraceId = makeAgentLoopTraceId(session.id, plannedTurnSeq);
@@ -961,8 +966,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   {
     const seenUrls = new Set();
     for (const raw of [provider.baseUrl, ...(Array.isArray(provider.extraBaseUrls) ? provider.extraBaseUrls : [])]) {
-      const b = providerBaseWithV1(raw);
-      const u = b ? b + '/chat/completions' : '';
+      const b = apiStyle === 'responses' ? providerResponsesBase(raw) : providerBaseWithV1(raw);
+      const u = b ? b + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
       if (!u || seenUrls.has(u)) continue;
       seenUrls.add(u);
       // base(显示/日志/粘住键)剥 userinfo 防明文凭据外泄;chatUrl 保留原样以完成 basic-auth 请求。
@@ -1119,6 +1124,30 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const buildBody = withTools => {
+    // v1.7: Responses API body — `instructions` + `input` items (no `messages`/`stream_options`). The volatile
+    // prefix still lands on the FIRST user message for prefix-cache stability (same placement rule as chat).
+    if (apiStyle === 'responses') {
+      const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];
+      const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
+      if (turnVolatile && firstUserIndex > 0) {
+        const firstUser = msgs[firstUserIndex];
+        if (typeof firstUser.content === 'string') {
+          msgs[firstUserIndex] = { ...firstUser, content: turnVolatile + '\n\n' + firstUser.content };
+        } else if (Array.isArray(firstUser.content)) {
+          const textPartIndex = firstUser.content.findIndex(part => part && part.type === 'text');
+          if (textPartIndex >= 0) {
+            const content = firstUser.content.slice();
+            content[textPartIndex] = { ...content[textPartIndex], text: turnVolatile + '\n\n' + String(content[textPartIndex].text || '') };
+            msgs[firstUserIndex] = { ...firstUser, content };
+          }
+        }
+      }
+      const b = { model, instructions: sys, input: buildResponsesInputItems(msgs), stream: true };
+      if (temp !== undefined) b.temperature = temp;
+      const loadedTools = toolLoading.current();
+      if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools); b.tool_choice = 'auto'; }
+      return b;
+    }
     const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];
     // 51d C1b: volatile 前缀注入到第一条 user,不持久化(每回合动态)。Do not assume messages[1]
     // or parts[0] is text: compacted/imported histories and multimodal providers may use another shape.
@@ -2114,6 +2143,12 @@ function estimateHistoryTokens(history, systemPrompt, tools) {
         if (fn && typeof fn.name === 'string') t += estimateTextTokens(fn.name);
       }
     }
+    // 对抗轮(P2-4):Responses-API input items 在 content 之外还携带 function_call.arguments 与
+    // function_call_output.output(工具参数/工具结果是真实发送给模型的载荷,必须计入估算;
+    // 此前 responses 分支的 promptTokensEst 低估了这些 token)。
+    if (typeof m.arguments === 'string' && m.arguments) t += estimateTextTokens(m.arguments);
+    if (typeof m.output === 'string' && m.output) t += estimateTextTokens(m.output);
+    if (typeof m.name === 'string' && m.name && m.type === 'function_call') t += estimateTextTokens(m.name);
   }
   if (typeof systemPrompt === 'string' && systemPrompt) t += estimateTextTokens(systemPrompt);
   if (Array.isArray(tools) && tools.length) t += estimateToolSchemaTokens(tools);

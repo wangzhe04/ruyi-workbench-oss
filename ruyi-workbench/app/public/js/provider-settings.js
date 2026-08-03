@@ -480,6 +480,9 @@ function addProviderFromPreset() {
     model: preset.defaultModel || (preset.models && preset.models[0] && preset.models[0].id) || '',
     models: (preset.models || []).map(m => ({ id: m.id, label: m.label || m.id })),
     reasoning: !!preset.reasoning, systemPrompt: '', temperature: '',
+    // v1.7: DeepSeek 预设模板带 apiStyle:'responses'(走官方新增的 Responses API, Codex/agent 工具循环)。
+    // 其它预设不带 → providerCard 里默认 chat, 行为与旧版完全一致。
+    ...(preset.apiStyle ? { apiStyle: preset.apiStyle } : {}),
   });
   renderProviders();
 }
@@ -500,6 +503,20 @@ function providerCard(p, idx) {
   const modChip = el('span', 'prov-modct', tCount('provider.modelCount', (p.models || []).length));
   const reason = el('label', 'check prov-reason'); const rc = el('input'); rc.type = 'checkbox'; rc.checked = !!p.reasoning; rc.onchange = () => { p.reasoning = rc.checked; };
   reason.appendChild(rc); reason.appendChild(document.createTextNode(' ' + t('provider.reasoning')));
+  // v1.7: protocol 选择 — chat (Chat Completions, 默认) / responses (OpenAI Responses API, DeepSeek
+  // Codex/agent 场景官方新增端点)。存 p.apiStyle;后端 sanitizeProvider 归一为 'chat'|'responses'。
+  const styleLbl = el('label', 'check prov-style'); styleLbl.appendChild(document.createTextNode(' ' + t('provider.apiStyle') + ' '));
+  const sc = el('select'); sc.className = 'prov-style-select';
+  for (const [val, key] of [['chat', 'provider.apiStyle.chat'], ['responses', 'provider.apiStyle.responses']]) {
+    const o = el('option'); o.value = val; o.textContent = t(key); sc.appendChild(o);
+  }
+  sc.value = p.apiStyle === 'responses' ? 'responses' : 'chat';
+  sc.onchange = () => { if (sc.value === 'responses') p.apiStyle = 'responses'; else delete p.apiStyle; };
+  styleLbl.appendChild(sc);
+  // 对抗轮(P2-2):协议选择下的帮助文字(解释 Responses API 适用场景 + 其它服务商无 /v1/responses 的警告),
+  // 由双 locale 的 provider.apiStyle.hint 提供;此前该键定义了但 UI 从不渲染(死键)。
+  const styleHint = el('p', 'field-help muted prov-style-hint'); styleHint.textContent = t('provider.apiStyle.hint');
+  styleLbl.appendChild(styleHint);
   // v1.0-S3 (B2): per-provider vision 开关（能力矩阵/视觉回路读 provider.vision）。同 reasoning 开关的模式。
   const visionLbl = el('label', 'check prov-reason'); const vc = el('input'); vc.type = 'checkbox'; vc.checked = !!p.vision; vc.onchange = () => { p.vision = vc.checked; };
   visionLbl.appendChild(vc); visionLbl.appendChild(document.createTextNode(' ' + t('provider.vision')));
@@ -507,7 +524,7 @@ function providerCard(p, idx) {
   const delBtn = el('button', 'file-label prov-del', t('common.delete')); delBtn.type = 'button';
   // A6: deleting a provider also drops its API key — confirm so a misclick can't silently lose it.
   delBtn.onclick = () => { if (!confirm(t('provider.deleteConfirm', { name: p.label || p.id }))) return; state.providersDraft.splice(idx, 1); renderProviders(); };
-  head.append(labelIn, idTag, modChip, reason, visionLbl, testBtn, delBtn);
+  head.append(labelIn, idTag, modChip, reason, visionLbl, styleLbl, testBtn, delBtn);
 
   const b2 = el('div', 'field-block'); b2.append(el('label', '', 'Base URL'));
   const bi = el('input'); bi.type = 'text'; bi.value = p.baseUrl || ''; bi.placeholder = 'https://api.deepseek.com'; bi.oninput = () => { p.baseUrl = bi.value.trim(); }; b2.append(bi);

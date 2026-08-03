@@ -8109,10 +8109,27 @@ async function runClaudeTurn({
 const PROVIDER_PRESETS = [
   {
     id: 'deepseek', label: 'DeepSeek', type: 'openai-compat',
-    baseUrl: 'https://api.deepseek.com', reasoning: true, defaultModel: 'deepseek-v4-pro', contextWindow: 131072, // v0.8-S5
+    // v1.7: baseUrl 保持官方 Responses API 文档给的根地址(api.deepseek.com,无 /v1 段——chat 走 providerBaseWithV1
+    // 补 /v1;responses 走 providerResponsesBase 不加 /v1,与官方 OpenAI SDK 示例逐字节一致)。
+    // contextWindow 不再写死 131072:deepseek-v4 实际 1M(此前预设值会以 manual 最高优先级误限 v4 为 128K,
+    // 见 10-context-governance MODEL_CONTEXT_TABLE)。留空 = 按模型名自动解析(deepseek-v4→1M, 其余 deepseek→128K)。
+    // v1.7-对抗轮(P1-1):defaultModel 用 deepseek-v4-flash —— 官方 Responses API 目前【仅支持 v4-flash】,
+    // v4-pro 将于 2026-08 初上线(官方文档明示)。预设默认组合必须可用:flash + responses ✓。v4-pro 上线后
+    // 用户在设置里切模型即可(不预设 pro,避免用户开箱即命中官方暂不支持的组合)。
+    baseUrl: 'https://api.deepseek.com', reasoning: true, defaultModel: 'deepseek-v4-flash',
+    // v1.7: apiStyle 供本预设模板声明协议偏好(默认 chat;可切 'responses' 走 DeepSeek 新增的 Responses API,
+    // 专为 Codex/agent 工具循环设计)。addProviderFromPreset 会把它带入草稿。
+    apiStyle: 'responses',
     // v1.4-OSS 用量看板: a reasonable DEFAULT price prefill (元/百万 token, CNY) — user-editable in 设置.
-    // Deliberately just this one preset (prices drift; config is the source of truth, not hardcoded tables).
-    pricing: { inputPerM: 2, outputPerM: 8, currency: 'CNY' },
+    // v1.7 更新为官方现行价:v4-flash 1/2、v4-pro 3/6,缓存命中输入 0.02/0.025(元/百万 token)。
+    // 用模型级覆盖区分 flash/pro;默认行只兜底 deepseek-chat/reasoner 等别名。价格会漂移,配置是事实源。
+    pricing: {
+      inputPerM: 2, outputPerM: 8, currency: 'CNY',
+      models: [
+        { model: 'deepseek-v4-flash', inputPerM: 1, outputPerM: 2, cachedInputPerM: 0.02 },
+        { model: 'deepseek-v4-pro', inputPerM: 3, outputPerM: 6, cachedInputPerM: 0.025 },
+      ],
+    },
 
     models: [
       { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
@@ -8235,6 +8252,11 @@ function sanitizeProvider(raw) {
     model: str(raw.model, 120).trim(),
     models,
     reasoning: raw.reasoning === true,
+    // v1.7: apiStyle — protocol preference for this provider: 'chat' (default, OpenAI Chat Completions) or
+    // 'responses' (OpenAI Responses API; DeepSeek added it for Codex/agent loops, v4-flash now + v4-pro from
+    // 2026-08). Unknown/absent → 'chat' (向后兼容:任何既有配置零行为变化)。UI 设置里可逐 provider 切换,
+    // 引擎在 buildBody/openAiStreamOnce 按此分支。其它 openai-compat 服务商(未提供 /responses 端点)保持 chat。
+    apiStyle: raw.apiStyle === 'responses' ? 'responses' : 'chat',
     // v0.8-S6: vision (boolean, default false) — the gate for the v0.9 vision回路 (image parts to the model).
     // Passed through untouched by sanitizeProvider; surfaced in the capability matrix (provider.vision).
     vision: raw.vision === true,
@@ -8377,6 +8399,14 @@ function providerBaseWithV1(baseUrl) {
   if (!b) return '';
   if (/\/v\d+$/i.test(b)) return b;
   return b + '/v1';
+}
+// v1.7-对抗轮(open-risk):Responses API 端点 URL —— 官方 OpenAI SDK 示例 base_url 就是
+// `https://api.deepseek.com`(无 /v1),SDK 直接拼 `/responses`。为与官方逐字节一致(且不依赖
+// "/v1/responses 是否被接受"这一无官方明文的事实),responses 走【原样 baseUrl + /responses】,
+// 只有 chat 走 providerBaseWithV1。若用户 baseUrl 自带 /vN 段则原样保留(拼出 /vN/responses,
+// 与 chat 的保留策略对称)。
+function providerResponsesBase(baseUrl) {
+  return String(baseUrl || '').trim().replace(/\/+$/, '');
 }
 // v1.0 收官安全加固(对抗复核 PLAUSIBLE·minor):从 URL 剥掉 basic-auth userinfo(https://user:pass@host)。
 // failover 事件的 from/to 与审计会回显端点 base;若管理员把凭据塞进 baseUrl,明文会漏进前端与 NDJSON 审计。
@@ -9362,9 +9392,12 @@ async function draftPlaybookFromSession(sessionId) {
 
 // Non-stream provider completion with the identity-only system layer (reuses the same headers/timeout
 // shape as providerSummaryCall). Returns { ok, content } | { ok:false, error }. Used by the draft feature.
+// v1.7: follows the provider's apiStyle — Responses protocol uses instructions+input and reads output_text.
 async function providerRawCompletion(provider, history) {
-  const base = providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + '/chat/completions' : '';
+  const respStyle = provider && provider.apiStyle === 'responses';
+  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
+  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
+  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !model || typeof fetch !== 'function') {
     return { ok: false, error: !chatUrl ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable') };
@@ -9374,7 +9407,9 @@ async function providerRawCompletion(provider, history) {
   if (key) headers['authorization'] = 'Bearer ' + key;
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  const bodyObj = { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false };
+  const bodyObj = respStyle
+    ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...history]), stream: false }
+    : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false };
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -9386,8 +9421,19 @@ async function providerRawCompletion(provider, history) {
       return { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
     }
     const j = await res.json().catch(() => null);
-    const msg = j && j.choices && j.choices[0] && j.choices[0].message;
-    const content = String((msg && msg.content) || '').trim();
+    let content = '';
+    if (respStyle) {
+      // Responses non-stream body: { output:[{type:'message', content:[{type:'output_text', text}]}, …], usage }
+      for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
+        if (item && item.type === 'message' && Array.isArray(item.content)) {
+          for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') content += part.text; }
+        }
+      }
+    } else {
+      const msg = j && j.choices && j.choices[0] && j.choices[0].message;
+      content = String((msg && msg.content) || '');
+    }
+    content = content.trim();
     if (!content) return { ok: false, error: 'provider returned an empty completion' };
     // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
     return { ok: true, content, usage: (j && j.usage) || null, model };
@@ -11284,6 +11330,77 @@ function failoverConnectReason(err) {
 // process. Not persisted (in-memory only, per spec). Cleared implicitly on process exit.
 const failoverStickyBase = new Map();
 
+// v1.7 — OpenAI Responses API request shaping (DeepSeek /v1/responses, Codex/agent oriented).
+// Ruyi's provider engine keeps ONE normalized chat-shaped providerHistory (roles user/assistant/tool +
+// assistant.tool_calls). The Responses protocol wants `input` ITEMS instead of `messages`, so we translate
+// at request time (never mutating the stored history — multi-round tool loops keep working identically):
+//   user        → { type:'message', role:'user', content:[{type:'input_text', text}] }
+//   assistant   → { type:'message', role:'assistant', content:[{type:'output_text', text}] } (+ function_call items)
+//   tool        → { type:'function_call_output', call_id, output }
+//   system      → folded into `instructions` (the Responses equivalent of a leading system message)
+// function tools are ALSO flattened: Responses uses { type:'function', name, description, parameters }
+// (chat's nested { type:'function', function:{...} } shape is NOT accepted there).
+function toResponsesContent(content) {
+  // String → single input_text block. Parts array (vision) → text parts only (Responses/DeepSeek has no image
+  // input; image_url parts degrade to a visible placeholder instead of erroring the request).
+  if (typeof content === 'string') return [{ type: 'input_text', text: content }];
+  if (Array.isArray(content)) {
+    const parts = [];
+    for (const part of content) {
+      if (!part || typeof part !== 'object') continue;
+      if (part.type === 'text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
+      else if (part.type === 'input_text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
+      else if (part.type === 'image_url' || part.type === 'input_image') parts.push({ type: 'input_text', text: '[图片输入：Responses API 不支持图像，已替换为占位文本]' });
+    }
+    return parts.length ? parts : [{ type: 'input_text', text: '' }];
+  }
+  return [{ type: 'input_text', text: String(content || '') }];
+}
+// Translate a chat-shaped providerHistory into Responses `input` items (see header note).
+function buildResponsesInputItems(history) {
+  const items = [];
+  for (const m of (Array.isArray(history) ? history : [])) {
+    if (!m || typeof m !== 'object') continue;
+    if (m.role === 'system' || m.role === 'developer') continue; // folded into instructions by the caller
+    if (m.role === 'user') { items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); continue; }
+    if (m.role === 'assistant') {
+      const text = typeof m.content === 'string' ? m.content : '';
+      if (text) items.push({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text }] });
+      if (Array.isArray(m.tool_calls)) {
+        for (const tc of m.tool_calls) {
+          if (!tc || tc.id == null) continue;
+          items.push({ type: 'function_call', call_id: String(tc.id), name: (tc.function && tc.function.name) || '', arguments: (tc.function && tc.function.arguments) || '' });
+        }
+      }
+      continue;
+    }
+    if (m.role === 'tool') {
+      if (m.tool_call_id != null) {
+        items.push({ type: 'function_call_output', call_id: String(m.tool_call_id), output: typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '') });
+      }
+      continue;
+    }
+    items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); // unknown role → user
+  }
+  return items;
+}
+// Flatten chat-shaped function tools ({type:'function', function:{...}}) into Responses' flat shape.
+function toResponsesTools(tools) {
+  if (!Array.isArray(tools)) return [];
+  const out = [];
+  for (const t of tools) {
+    if (!t || typeof t !== 'object') continue;
+    if (t.type === 'function' && t.function && typeof t.function === 'object') {
+      out.push({ type: 'function', name: t.function.name || '', description: t.function.description || '', parameters: t.function.parameters || { type: 'object', properties: {} } });
+    } else if (t.type === 'function') {
+      out.push({ type: 'function', name: t.name || '', description: t.description || '', parameters: t.parameters || { type: 'object', properties: {} } });
+    } else {
+      out.push(t); // web_search etc. pass through verbatim
+    }
+  }
+  return out;
+}
+
 // One streaming chat/completions call. Emits assistant_delta / thinking_delta / raw_line live; returns
 // { text, reasoning, toolCalls:[{id,name,rawArgs}], finishReason, httpError, toolsRejected }.
 // v1.0-S6 (B): pre-first-byte failures are surfaced structurally so the caller can decide failover:
@@ -11292,7 +11409,14 @@ const failoverStickyBase = new Map();
 //   • a non-ok response whose status is 502/503/504 → the returned httpError object also carries
 //     { failoverStatus:<502|503|504> } so the caller can advance. A throw that happens AFTER streaming has
 //     started still propagates normally (caller's error path; no failover — 防重放).
+// v1.7: ALSO speaks the OpenAI Responses API protocol when the request body carries `input` (not `messages`).
+// DeepSeek added /v1/responses for Codex/agent loops (v4-flash now, v4-pro from 2026-08). The two protocols
+// differ end-to-end (request shape, SSE event types, terminal condition), so `isResponses` selects a parallel
+// parser inside — chat keeps its battle-tested path byte-for-byte; responses handles
+// response.output_text.delta / response.reasoning_text.delta / response.function_call_arguments.delta /
+// response.output_item.added / response.completed|incomplete|failed (NO `data: [DONE]` terminator).
 async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch }) {
+  const isResponses = !!(body && Array.isArray(body.input)); // Responses body uses `input` items, chat uses `messages`
   const doFetch = b => fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(b), signal: ctrl ? ctrl.signal : undefined });
   let res;
   try {
@@ -11351,6 +11475,35 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   // Non-streaming fallback: single JSON body.
   if (!res.body || typeof res.body.getReader !== 'function') {
     const j = await res.json().catch(() => null);
+    // v1.7 (Responses API): a non-streamed response body is a `response` object with an `output` item list
+    // (message / function_call / reasoning…), NOT chat's {choices:[{message}]}. Normalize it to the same
+    // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
+    if (isResponses) {
+      const out = Array.isArray(j && j.output) ? j.output : [];
+      let respText = '', respReasoning = '';
+      const tcs = [];
+      for (const item of out) {
+        if (!item || typeof item !== 'object') continue;
+        if (item.type === 'function_call') {
+          tcs.push({ id: item.call_id || makeId('call'), name: item.name, rawArgs: (typeof item.arguments === 'string' && item.arguments) ? item.arguments : '{}' });
+          continue;
+        }
+        if (item.type === 'reasoning') {
+          const parts = Array.isArray(item.content) ? item.content : [];
+          for (const part of parts) { if (part && part.type === 'reasoning_text' && typeof part.text === 'string') respReasoning += part.text; }
+          continue;
+        }
+        if (item.type === 'message') {
+          const parts = Array.isArray(item.content) ? item.content : [];
+          for (const part of parts) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') respText += part.text; }
+        }
+      }
+      // E6 parity: surface reasoning before content, matching the streaming order.
+      if (respReasoning) onEvent({ type: 'thinking_delta', text: respReasoning });
+      if (respText) onEvent({ type: 'assistant_delta', text: respText });
+      if (j && j.usage) markUsage(j.usage);
+      return { text: respText, reasoning: respReasoning, toolCalls: tcs.filter(t => t.name), finishReason: (j && j.status === 'incomplete') ? 'length' : ((j && j.status === 'failed') ? 'error' : 'stop') };
+    }
     const ch = j && j.choices && j.choices[0];
     const msg = ch && ch.message;
     // E6: this branch previously returned reasoning_content but never surfaced it as a thinking_delta, so a
@@ -11365,7 +11518,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder('utf-8');
-  let buf = '', text = '', reasoning = '', finishReason = null, done = false;
+  let buf = '', text = '', reasoning = '', finishReason = null, done = false, responsesFailedError = '';
   // E1: accumulate streamed tool_calls into SLOTS keyed primarily by tool_call id. A delta carrying a
   // non-empty id opens (or re-selects) that call's slot; a delta with only an index selects/creates the slot
   // for that index; a delta with neither keeps writing to the CURRENT slot. This "non-empty id => open/select
@@ -11401,14 +11554,78 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     return curSlot;
   };
   // Process ONE decoded SSE event object (already JSON-parsed). Mutates text/reasoning/finishReason/slots.
+  // Returns true when this event terminates the stream (responses' completed/incomplete/failed; chat keeps
+  // relying on the `[DONE]` sentinel inside handleEventBlock). v1.7: `isResponses` selects the Responses-API
+  // event grammar — the two protocols share nothing structurally, so they get separate handlers.
   const processEvt = (evt, rawStr) => {
     onEvent({ type: 'raw_line', line: rawStr, seq: rawSeqRef.n++ });
+    if (isResponses) {
+      // ── OpenAI Responses API stream (DeepSeek /v1/responses) ────────────────────────────────────────
+      // Events: response.created | response.in_progress | response.output_item.added/done |
+      // response.content_part.added/done | response.reasoning_text.delta/done | response.output_text.delta/done |
+      // response.function_call_arguments.delta/done | response.completed | response.incomplete | response.failed.
+      // No `data: [DONE]` — the stream ends on response.completed/incomplete/failed.
+      if (evt && evt.usage) markUsage(evt.usage); // some events carry usage directly
+      const t = evt && evt.type;
+      if (t === 'response.output_item.added' && evt.item && evt.item.type === 'function_call') {
+        // A function_call output item opens/selects its slot (call_id + name), arguments stream separately.
+        // 对抗轮(P1-2):以 call_id 为主键选槽 —— 并行 function_call 是常态(官方文档 parallel_tool_calls 忽略
+        // = 始终开启),delta 事件自带 item_id,必须按 item_id 路由参数,不能依赖"最后 added 的槽"(交错事件序会错配)。
+        const fc = evt.item;
+        const id = fc.call_id || makeId('call');
+        let s = slots.find(x => x.id === id);
+        if (!s) { s = { id, index: null, name: fc.name || '', args: '', itemId: evt.item && evt.item.id || '' }; slots.push(s); }
+        else if (fc.name) s.name += fc.name;
+        curSlot = s;
+        return false;
+      }
+      if (t === 'response.function_call_arguments.delta' && typeof evt.delta === 'string' && evt.delta) {
+        // 对抗轮(P1-2):优先按事件的 item_id 精确定位槽(并行时 arguments delta 按 item_id 路由,绝不串写);
+        // item_id 缺失/未命中才回退到"最近 added 的槽"(串行单调用场景,与旧行为一致)。
+        let target = null;
+        const itemId = evt && evt.item_id;
+        if (typeof itemId === 'string' && itemId) target = slots.find(x => x.itemId === itemId);
+        if (!target) target = curSlot;
+        if (!target) { target = { id: makeId('call'), index: null, name: '', args: '', itemId: '' }; slots.push(target); }
+        target.args += evt.delta;
+        curSlot = target;
+        return false;
+      }
+      if (t === 'response.reasoning_text.delta' && typeof evt.delta === 'string' && evt.delta) {
+        reasoning += evt.delta; onEvent({ type: 'thinking_delta', text: evt.delta }); return false;
+      }
+      if (t === 'response.output_text.delta' && typeof evt.delta === 'string' && evt.delta) {
+        text += evt.delta; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
+      }
+      if (t === 'response.completed') {
+        // Final event: the full response object (with usage) rides on the event.
+        if (evt.response && evt.response.usage) markUsage(evt.response.usage);
+        finishReason = 'stop';
+        return true;
+      }
+      if (t === 'response.incomplete') { finishReason = 'length'; return true; } // truncated (e.g. max_output_tokens)
+      if (t === 'response.failed') {
+        // Terminal failure — surface the error detail to the caller's existing httpError path.
+        // 对抗轮(P1-3/P2-1/P2-3):
+        //  • 无 error 详情也置错误(否则 finishReason 无人消费 → 静默空转,见 P2-1);
+        //  • 文本过 redact() 防恶意服务商在 error 里回显密钥(P2-3);
+        //  • 错误含 context/length 语义时置 contextOverflow,让 45b 强压重试能识别(P1-3)。
+        const err = evt.response && (evt.response.error || evt.response.last_error);
+        const em = (err && (err.message || err.code)) || (err && typeof err === 'object' ? JSON.stringify(err) : String(err || ''));
+        responsesFailedError = 'Responses failed' + (em ? ': ' + redact(String(em).slice(0, 400)) : ' (no error detail)');
+        if (/context|length|token/i.test(responsesFailedError)) responsesFailedError = 'HTTP 400: ' + responsesFailedError;
+        finishReason = 'error';
+        return true;
+      }
+      return false; // created / in_progress / content_part.* / output_item.done / reasoning_text.done / output_text.done / … — non-terminal
+    }
+    // ── Chat Completions stream (classic path) ─────────────────────────────────────────────────────────
     if (evt.usage) markUsage(evt.usage);
     const ch = evt.choices && evt.choices[0];
-    if (!ch) return;
+    if (!ch) return false;
     if (ch.finish_reason) finishReason = ch.finish_reason;
     const delta = ch.delta;
-    if (!delta) return;
+    if (!delta) return false;
     const reason = (typeof delta.reasoning_content === 'string' && delta.reasoning_content) || (typeof delta.reasoning === 'string' && delta.reasoning) || '';
     if (reason) { reasoning += reason; onEvent({ type: 'thinking_delta', text: reason }); }
     if (typeof delta.content === 'string' && delta.content) { text += delta.content; onEvent({ type: 'assistant_delta', text: delta.content }); }
@@ -11418,6 +11635,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
         if (tc.function) { if (tc.function.name) slot.name += tc.function.name; if (typeof tc.function.arguments === 'string') slot.args += tc.function.arguments; }
       }
     }
+    return false;
   };
   // E5: standard SSE framing. Events are separated by a BLANK line; within one event, multiple `data:` field
   // lines concatenate (joined by '\n') into a single payload before parsing (per the WHATWG SSE spec). The
@@ -11438,14 +11656,14 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     if (joined === '') return false;
     if (joined === '[DONE]') return true;
     const combined = safeJsonParse(joined);
-    if (combined) { processEvt(combined, joined); return false; }
+    if (combined) return processEvt(combined, joined); // true = terminal event (responses completed/incomplete/failed)
     // Combined payload did not parse -> treat each data line as its own complete JSON (classic shape).
     for (const dl of dataLines) {
       const d = dl.trim();
       if (!d) continue;
       if (d === '[DONE]') return true;
       const evt = safeJsonParse(d);
-      if (evt) processEvt(evt, d);
+      if (evt && processEvt(evt, d)) return true;
     }
     return false;
   };
@@ -11465,6 +11683,9 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   // Flush a trailing event that arrived without a terminating blank line (some servers omit the final one).
   if (!done && buf.trim()) handleEventBlock(buf);
   const toolCalls = slots.filter(t => t.name).map(t => ({ id: t.id || makeId('call'), name: t.name, rawArgs: t.args || '{}' }));
+  // v1.7 (Responses): a `response.failed` terminal event is a protocol-level failure with no HTTP error
+  // status — surface it through the caller's existing httpError path so attribution/retry behaves uniformly.
+  if (responsesFailedError) return { text, reasoning, finishReason, toolCalls, httpError: responsesFailedError };
   return { text, reasoning, finishReason, toolCalls };
 }
 
@@ -12668,8 +12889,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const started = Date.now();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself run spawn_agent.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes spawn_agent */ }
-  const base = providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + '/chat/completions' : '';
+  // v1.7: protocol preference — mirror the parent turn (apiStyle:'responses' → /responses + Responses body).
+  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
+  const subApiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
+  const base = subApiStyle === 'responses' ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
+  const chatUrl = base ? base + (subApiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
   const role = roleDefinition || null;
   const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
@@ -12734,6 +12958,14 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // toolsRejected flag and died on the 400). Mutated by the transient-retry loop below.
   let useTools = tools.length > 0, toolsRetried = false;
   const buildBody = () => {
+    // v1.7 (Responses): sub-agent body follows the parent's protocol choice — instructions + input items,
+    // flat function tools; system folded into instructions (buildResponsesInputItems skips system roles).
+    if (subApiStyle === 'responses') {
+      const b = { model: subModel, instructions: sys, input: buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), stream: true };
+      if (temp !== undefined) b.temperature = temp;
+      if (useTools) { b.tools = toResponsesTools(tools); b.tool_choice = 'auto'; }
+      return b;
+    }
     const b = { model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
     if (useTools) { b.tools = tools; b.tool_choice = 'auto'; }
@@ -14896,8 +15128,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   config = config || await readConfig();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
-  const base = providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + '/chat/completions' : '';
+  // v1.7: protocol preference — 'chat' (Chat Completions) vs 'responses' (OpenAI Responses API, DeepSeek
+  // /responses for Codex/agent loops; v4-flash now, v4-pro from 2026-08). Default chat keeps every
+  // existing config byte-compatible; DeepSeek preset ships apiStyle:'responses' (switchable in Settings).
+  // 对抗轮(open-risk):responses 端点用 providerResponsesBase(原样 baseUrl,不加 /v1,与官方 SDK 示例一致)。
+  const apiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
+  const base = apiStyle === 'responses' ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
+  const chatUrl = base ? base + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
   activeTraceId = makeAgentLoopTraceId(session.id, plannedTurnSeq);
@@ -14911,8 +15148,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   {
     const seenUrls = new Set();
     for (const raw of [provider.baseUrl, ...(Array.isArray(provider.extraBaseUrls) ? provider.extraBaseUrls : [])]) {
-      const b = providerBaseWithV1(raw);
-      const u = b ? b + '/chat/completions' : '';
+      const b = apiStyle === 'responses' ? providerResponsesBase(raw) : providerBaseWithV1(raw);
+      const u = b ? b + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
       if (!u || seenUrls.has(u)) continue;
       seenUrls.add(u);
       // base(显示/日志/粘住键)剥 userinfo 防明文凭据外泄;chatUrl 保留原样以完成 basic-auth 请求。
@@ -15069,6 +15306,30 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const buildBody = withTools => {
+    // v1.7: Responses API body — `instructions` + `input` items (no `messages`/`stream_options`). The volatile
+    // prefix still lands on the FIRST user message for prefix-cache stability (same placement rule as chat).
+    if (apiStyle === 'responses') {
+      const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];
+      const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
+      if (turnVolatile && firstUserIndex > 0) {
+        const firstUser = msgs[firstUserIndex];
+        if (typeof firstUser.content === 'string') {
+          msgs[firstUserIndex] = { ...firstUser, content: turnVolatile + '\n\n' + firstUser.content };
+        } else if (Array.isArray(firstUser.content)) {
+          const textPartIndex = firstUser.content.findIndex(part => part && part.type === 'text');
+          if (textPartIndex >= 0) {
+            const content = firstUser.content.slice();
+            content[textPartIndex] = { ...content[textPartIndex], text: turnVolatile + '\n\n' + String(content[textPartIndex].text || '') };
+            msgs[firstUserIndex] = { ...firstUser, content };
+          }
+        }
+      }
+      const b = { model, instructions: sys, input: buildResponsesInputItems(msgs), stream: true };
+      if (temp !== undefined) b.temperature = temp;
+      const loadedTools = toolLoading.current();
+      if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools); b.tool_choice = 'auto'; }
+      return b;
+    }
     const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];
     // 51d C1b: volatile 前缀注入到第一条 user,不持久化(每回合动态)。Do not assume messages[1]
     // or parts[0] is text: compacted/imported histories and multimodal providers may use another shape.
@@ -16064,6 +16325,12 @@ function estimateHistoryTokens(history, systemPrompt, tools) {
         if (fn && typeof fn.name === 'string') t += estimateTextTokens(fn.name);
       }
     }
+    // 对抗轮(P2-4):Responses-API input items 在 content 之外还携带 function_call.arguments 与
+    // function_call_output.output(工具参数/工具结果是真实发送给模型的载荷,必须计入估算;
+    // 此前 responses 分支的 promptTokensEst 低估了这些 token)。
+    if (typeof m.arguments === 'string' && m.arguments) t += estimateTextTokens(m.arguments);
+    if (typeof m.output === 'string' && m.output) t += estimateTextTokens(m.output);
+    if (typeof m.name === 'string' && m.name && m.type === 'function_call') t += estimateTextTokens(m.name);
   }
   if (typeof systemPrompt === 'string' && systemPrompt) t += estimateTextTokens(systemPrompt);
   if (Array.isArray(tools) && tools.length) t += estimateToolSchemaTokens(tools);
@@ -16397,9 +16664,12 @@ function chunkHistoryByBudget(history, budgetTokens) {
 }
 
 // 单次摘要调用(原内核体,45a 拆出以便 map-reduce 复用)。messages 为历史,prompt 追加于尾。
+// v1.7: follows provider.apiStyle — Responses protocol uses instructions+input, reads output_text.
 async function singleSummaryCall(provider, messages, model) {
-  const base = providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + '/chat/completions' : '';
+  const respStyle = provider && provider.apiStyle === 'responses';
+  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
+  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
+  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
   const headers = { 'content-type': 'application/json' };
   const key = String(provider.apiKey || '').trim();
   if (key) headers['authorization'] = 'Bearer ' + key;
@@ -16407,7 +16677,9 @@ async function singleSummaryCall(provider, messages, model) {
   // v0.8-S6: prepend the IDENTITY-ONLY layer so the summary call keeps the pinned identity (product name
   // never enters). identityOnly skips the capability/project layers — a摘要 call needs the pin, not the矩阵.
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  const bodyObj = { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }], stream: false };
+  const bodyObj = respStyle
+    ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }]), stream: false }
+    : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }], stream: false };
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -16419,11 +16691,21 @@ async function singleSummaryCall(provider, messages, model) {
       return { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
     }
     const j = await res.json().catch(() => null);
-    const msg = j && j.choices && j.choices[0] && j.choices[0].message;
-    const summary = String((msg && msg.content) || '').trim();
+    let summary = '';
+    if (respStyle) {
+      for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
+        if (item && item.type === 'message' && Array.isArray(item.content)) {
+          for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') summary += part.text; }
+        }
+      }
+    } else {
+      const msg = j && j.choices && j.choices[0] && j.choices[0].message;
+      summary = String((msg && msg.content) || '');
+    }
+    summary = summary.trim();
     if (!summary) return { ok: false, error: 'provider returned an empty summary' };
     // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model + 对发送 payload 的输入估算,让压缩调用方记入 aux 台账。
-    return { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages) };
+    return { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
   } catch (e) {
     return { ok: false, error: (e && e.name === 'AbortError') ? 'summary request timed out (60s)' : ((e && e.message) || 'summary request failed') };
   } finally { if (timer) clearTimeout(timer); }
