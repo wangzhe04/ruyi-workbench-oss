@@ -22,6 +22,12 @@ operational commitments.
 Historical roadmaps, acceptance notes, design explorations, and generated mockups are retained in their original
 language. They are engineering records rather than normative user or deployment guides.
 
+## Future product concepts / 未来产品概念
+
+| Concept | Status | Scope |
+|---|---|---|
+| [Traveler 4.0](TRAVELER-CONCEPT.md) | **Concept v0.1 / 概念稿 v0.1** | Portable Missions：Task Capsule、安全续办、跨设备/接手者移交、执行权与证据回程；不是范围、版本或发布时间承诺 |
+
 ## UI 设计稿生命周期(第50波 D3 标注)
 
 | 设计稿 | 状态 | 说明 |
