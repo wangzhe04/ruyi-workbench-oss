@@ -1729,6 +1729,7 @@
   "previewShell.settingPreview": "新任务台预览",
   "previewShell.settingHint": "切换只改变本机界面，不迁移或改写任务与会话数据；可随时切回。",
   "previewShell.rawLens": "原始镜头",
+  "previewShell.taskEyebrow": "任务单",
   "previewShell.loadingTaskSheet": "正在展开任务单与现场记录…",
   "previewShell.turns": "回合数",
   "previewShell.tokens": "Token",

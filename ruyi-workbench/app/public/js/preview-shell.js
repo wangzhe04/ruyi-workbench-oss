@@ -467,10 +467,15 @@ export function createPreviewShellDomain({
     if (count) count.textContent = t('previewShell.taskCount', { p1: models.length });
   }
 
-  function actionButton(label, className, handler) {
+  function actionButton(label, className, handler, iconName) {
     const button = text('button', className, label);
     button.type = 'button';
     button.onclick = handler;
+    // 第90波:可选图标 -- 在文本节点前 prepend SVG,由按钮类 CSS 的 inline-flex+gap 负责对齐。
+    if (iconName) {
+      const svg = icon(iconName, 15);
+      if (svg) { svg.style.flexShrink = '0'; button.insertBefore(svg, button.firstChild); }
+    }
     return button;
   }
 
@@ -1020,7 +1025,7 @@ export function createPreviewShellDomain({
     const mode = text('span', 'preview-dispatch-mode', t('previewShell.quickAskHint'));
     const heading = homeSectionHeading(1, t('previewShell.dispatchBox'), t('previewShell.dispatchBoxBody'), mode);
     const field = text('div', 'preview-dispatch-field', '');
-    const mark = text('span', 'preview-dispatch-mark', '›'); mark.setAttribute('aria-hidden', 'true');
+    const mark = text('span', 'preview-dispatch-mark', ''); mark.setAttribute('aria-hidden', 'true'); mark.appendChild(icon('send', 15));
     const input = document.createElement('textarea');
     input.id = 'previewDispatchInput'; input.className = 'preview-dispatch-input'; input.rows = 2;
     input.value = dispatchText; input.placeholder = t('previewShell.dispatchPlaceholder'); input.disabled = dispatchBusy;
@@ -1033,8 +1038,8 @@ export function createPreviewShellDomain({
     };
     requestAnimationFrame(autosize);
     const actions = text('div', 'preview-dispatch-actions', '');
-    const quick = actionButton(t('previewShell.quickAsk'), 'preview-quick-action', () => { void submitDispatch('quick_ask', dispatchText.replace(/^[?？]\s*/, '')); });
-    const review = actionButton(t('previewShell.reviewDispatch'), 'primary preview-launch-action', () => prepareDispatch(dispatchText));
+    const quick = actionButton(t('previewShell.quickAsk'), 'preview-quick-action', () => { void submitDispatch('quick_ask', dispatchText.replace(/^[?？]\s*/, '')); }, 'quickask');
+    const review = actionButton(t('previewShell.reviewDispatch'), 'primary preview-launch-action', () => prepareDispatch(dispatchText), 'dispatch');
     quick.id = 'previewQuickAskBtn'; review.id = 'previewDispatchReviewBtn';
     quick.disabled = dispatchBusy; review.disabled = dispatchBusy;
     actions.append(text('span', 'preview-dispatch-keyhint', t('previewShell.dispatchKeyHint')), quick, review);
@@ -1263,7 +1268,7 @@ export function createPreviewShellDomain({
     main.dataset.missionId = String(card.missionId || '');
     const loading = text('section', 'preview-loading-card', '');
     loading.setAttribute('aria-busy', 'true');
-    loading.append(text('span', 'preview-eyebrow', t('previewShell.rawLens')),
+    loading.append(text('span', 'preview-eyebrow', t('previewShell.taskEyebrow')),
       text('h1', '', titleOf(card)), text('p', 'preview-main-copy', t('previewShell.loadingTaskSheet')));
     main.replaceChildren(loading);
   }
@@ -1431,11 +1436,11 @@ export function createPreviewShellDomain({
     panel.setAttribute('aria-label', t('previewShell.runControlTitle'));
     panel.appendChild(text('span', 'preview-run-control-label', t('previewShell.runControlTitle')));
     const buttons = text('div', 'preview-run-control-buttons', '');
-    const pause = actionButton(t('previewShell.runPause'), '', () => { void performRunControl(run, 'pause'); });
-    const resume = actionButton(t('previewShell.runContinue'), '', () => { void performRunControl(run, 'resume'); });
+    const pause = actionButton(t('previewShell.runPause'), '', () => { void performRunControl(run, 'pause'); }, 'pause');
+    const resume = actionButton(t('previewShell.runContinue'), '', () => { void performRunControl(run, 'resume'); }, 'resume');
     const stop = actionButton(t('previewShell.runStop'), 'danger-ghost', () => {
       controlDraft = { kind: 'run', action: 'stop', runId: run.id }; crewRenderSignature = ''; renderCrewLens(ensureTaskSheet(selectedCard()), selectedSnapshot);
-    });
+    }, 'stop');
     pause.disabled = Boolean(runControlBusy) || !run.live || run.paused;
     resume.disabled = Boolean(runControlBusy) || !(run.live && run.paused);
     stop.disabled = Boolean(runControlBusy) || !run.live;
@@ -1791,9 +1796,9 @@ export function createPreviewShellDomain({
     const hasCrew = runs.some(run => (Array.isArray(run?.nodes) && run.nodes.length) || (Array.isArray(run?.proposals) && run.proposals.length));
     if (selectedLens === 'crew' && !hasCrew) selectedLens = 'narrative';
     const tabs = [
-      { id: 'narrative', label: t('previewShell.lensNarrative'), target: 'narrativeLens', disabled: !narrativeRules },
-      { id: 'crew', label: t('previewShell.lensCrew'), target: 'crewLens', disabled: !hasCrew },
-      { id: 'raw', label: t('previewShell.lensRaw'), target: 'rawLens', disabled: false },
+      { id: 'narrative', label: t('previewShell.lensNarrative'), target: 'narrativeLens', disabled: !narrativeRules, icon: 'narrative' },
+      { id: 'crew', label: t('previewShell.lensCrew'), target: 'crewLens', disabled: !hasCrew, icon: 'agents' },
+      { id: 'raw', label: t('previewShell.lensRaw'), target: 'rawLens', disabled: false, icon: 'raw' },
     ];
     host.replaceChildren();
     for (const tab of tabs) {
@@ -1806,7 +1811,7 @@ export function createPreviewShellDomain({
           scheduleDetailRefresh(true);
         }
         requestAnimationFrame(() => article.querySelector(`[data-slot="${tab.target}"]`)?.focus?.({ preventScroll: true }));
-      });
+      }, tab.icon);
       button.setAttribute('role', 'tab');
       button.setAttribute('aria-selected', selectedLens === tab.id ? 'true' : 'false');
       button.setAttribute('aria-controls', `preview-${tab.target}`);
@@ -1974,7 +1979,8 @@ export function createPreviewShellDomain({
     const kicker = text('div', 'preview-eyebrow-row', '');
     const statePill = text('span', 'preview-state-pill', '');
     statePill.dataset.slot = 'state';
-    kicker.append(text('span', 'preview-eyebrow', t('previewShell.rawLens')), statePill);
+    // 第90波(误标修复):任务单头部 eyebrow 原误用 rawLens(原始镜头),实为任务单主头 -> 专属键。
+    kicker.append(text('span', 'preview-eyebrow', t('previewShell.taskEyebrow')), statePill);
     const heading = text('h1', 'preview-mission-title', ''); heading.dataset.slot = 'title';
     const goal = text('p', 'preview-mission-goal', ''); goal.dataset.slot = 'goal';
     // 第86波:现场速报 —— 一句话回答「现在谁在干什么/在等什么」,常驻头部,随每次快照刷新。
@@ -2051,9 +2057,9 @@ export function createPreviewShellDomain({
     ledger.setAttribute('aria-label', t('previewShell.ledgerTitle'));
 
     const foot = text('footer', 'preview-main-actions preview-task-actions', '');
-    foot.append(actionButton(t('previewShell.backHome'), '', () => openDispatchHome()),
-      actionButton(t('previewShell.openMissionClassic'), 'primary', () => { void openSelectedInClassic(); }),
-      actionButton(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }));
+    foot.append(actionButton(t('previewShell.backHome'), '', () => openDispatchHome(), 'back'),
+      actionButton(t('previewShell.openMissionClassic'), 'primary', () => { void openSelectedInClassic(); }, 'open'),
+      actionButton(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }, 'refresh'));
     article.append(head, missionControl, returnSummary, stopCard, finishCard, lensSwitch, narrativeLens, crewLens, body, ledger, foot);
     main.replaceChildren(article);
     return article;

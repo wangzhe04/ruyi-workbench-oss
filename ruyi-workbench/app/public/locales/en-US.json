@@ -1729,6 +1729,7 @@
   "previewShell.settingPreview": "New task desk preview",
   "previewShell.settingHint": "This local preference only changes the interface. It does not migrate or rewrite tasks or sessions, and you can switch back at any time.",
   "previewShell.rawLens": "Raw lens",
+  "previewShell.taskEyebrow": "Task sheet",
   "previewShell.loadingTaskSheet": "Opening the task sheet and worksite record…",
   "previewShell.turns": "Turns",
   "previewShell.tokens": "Tokens",

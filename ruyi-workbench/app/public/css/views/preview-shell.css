@@ -321,6 +321,8 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
 .preview-intake-ledger.is-actionable:hover,
 .preview-intake-ledger.is-actionable:focus-visible { border-color: var(--preview-accent); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--preview-accent) 12%, transparent); }
 .preview-task-actions { flex: 0 0 auto; margin: 0; padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--preview-line); background: color-mix(in srgb, var(--preview-surface-2) 58%, transparent); }
+.preview-task-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.preview-task-actions button .ic { width: 15px; height: 15px; flex-shrink: 0; }
 
 /* 第83波：三种镜头是一组表达密度切换，不复制任务事实。叙事镜头采用值班簿/电传纸带，
    让变化沿一条连续细轴向下生长；原始凭据藏在每句自身的 details 内，不堆第二面卡墙。 */
@@ -335,7 +337,8 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
   border-bottom: 1px solid var(--preview-line);
   background: color-mix(in srgb, var(--preview-surface-2) 42%, var(--preview-surface));
 }
-.preview-lens-tab { min-height: 36px; padding: 7px 15px 9px; border: 0; border-radius: 16px 16px 0 0; background: transparent; color: var(--preview-muted); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+.preview-lens-tab { min-height: 36px; padding: 7px 15px 9px; border: 0; border-radius: 16px 16px 0 0; background: transparent; color: var(--preview-muted); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.preview-lens-tab .ic { width: 13px; height: 13px; flex-shrink: 0; }
 .preview-lens-tab:hover:not(:disabled) { color: var(--preview-ink); background: color-mix(in srgb, var(--preview-accent) 6%, transparent); }
 .preview-lens-tab[aria-selected="true"] { color: var(--preview-accent); background: var(--preview-surface); box-shadow: inset 0 -2px 0 var(--preview-accent); }
 .preview-lens-tab:disabled { opacity: .38; cursor: not-allowed; }
@@ -830,7 +833,7 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
   border-radius: 22px;
   background: var(--preview-surface-2);
 }
-.preview-dispatch-mark { padding-top: var(--sp-4); color: var(--preview-hot); font: 300 2.4rem/1 "Cascadia Mono", monospace; text-align: center; }
+.preview-dispatch-mark { padding-top: var(--sp-4); color: var(--preview-hot); display: flex; align-items: flex-start; justify-content: center; }
 .preview-dispatch-input {
   width: 100%;
   min-height: 166px;
@@ -848,7 +851,8 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
 .preview-dispatch-field:focus-within { border-color: color-mix(in srgb, var(--preview-accent) 72%, var(--preview-line)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--preview-accent) 11%, transparent); }
 .preview-dispatch-input::placeholder { color: color-mix(in srgb, var(--preview-muted) 72%, transparent); }
 .preview-dispatch-actions { margin-top: var(--sp-4); display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--sp-3); }
-.preview-dispatch-actions button { min-height: 42px; border-radius: var(--r-pill); }
+.preview-dispatch-actions button { min-height: 42px; border-radius: var(--r-pill); display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.preview-dispatch-actions button .ic { width: 15px; height: 15px; flex-shrink: 0; }
 .preview-dispatch-keyhint { margin-right: auto; color: var(--preview-muted); font: var(--fs-xs)/1.4 "Cascadia Mono", "SFMono-Regular", monospace; }
 .preview-quick-action { border-color: var(--preview-line); background: color-mix(in srgb, var(--preview-surface-2) 70%, transparent); }
 .preview-launch-action.primary {
