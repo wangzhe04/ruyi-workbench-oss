@@ -1794,6 +1794,7 @@
   "previewShell.firstRunBody": "这里不会弹出一套用完即丢的向导；准备完成后，同一个位置就是日常交办台。",
   "previewShell.firstRunWorkspaceAction": "选择工作圈",
   "previewShell.firstRunWorkspace": "圈定一个工作文件夹",
+  "previewShell.firstRunWorkspaceReady": "工作圈已就绪：{{p1}}",
   "previewShell.firstRunSafety": "确认默认安全档：{{p1}}",
   "previewShell.firstRunEngineAction": "配置引擎",
   "previewShell.firstRunEngine": "连接一个可用的 AI 引擎",

@@ -1794,6 +1794,7 @@
   "previewShell.firstRunBody": "This is not a disposable onboarding overlay. Once setup is complete, the same space remains your everyday dispatch desk.",
   "previewShell.firstRunWorkspaceAction": "Choose workspace",
   "previewShell.firstRunWorkspace": "Choose a folder to work in",
+  "previewShell.firstRunWorkspaceReady": "Workspace ready: {{p1}}",
   "previewShell.firstRunSafety": "Confirm the default safety profile: {{p1}}",
   "previewShell.firstRunEngineAction": "Configure engine",
   "previewShell.firstRunEngine": "Connect an available AI engine",

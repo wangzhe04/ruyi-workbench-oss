@@ -6,6 +6,7 @@
 import './mission-state.js';
 import './preview-narrative.js';
 import './preview-notifications.js';
+import { icon } from './icons.js';
 import { MSG_WINDOW_STEP, MSG_WINDOW_TAIL, MSG_WINDOW_THRESHOLD } from './state.js';
 import { getLocale } from './i18n.js';
 import {
@@ -869,7 +870,9 @@ export function createPreviewShellDomain({
   }
 
   function formatTaskTime(value) {
-    const date = new Date(value || 0);
+    // 第89波:无时间戳不再回退 epoch(1970-01-01 假日期),直接留空由渲染侧省略。
+    if (!value) return '';
+    const date = new Date(value);
     if (!Number.isFinite(date.getTime())) return '';
     try { return new Intl.DateTimeFormat(getLocale(), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date); }
     catch { return date.toISOString().slice(0, 16).replace('T', ' '); }
@@ -887,13 +890,15 @@ export function createPreviewShellDomain({
     header.append(text('strong', 'preview-home-task-title', titleOf(card)), text('span', `preview-home-task-state state-${derived.state}`, stateLabel(derived.state)));
     const goal = text('span', 'preview-home-task-goal', card.mission?.goal || t('previewShell.goalFallback'));
     // 第87波 UX:续办卡内嵌一条细进度条,进行中任务的完成度一眼可见,不必点进去。
+    // 第89波(a11y):进度值已在按钮 aria-label 内播报,bar 本体 aria-hidden 防读屏双播报。
     const bar = document.createElement('progress');
     bar.className = 'preview-home-task-bar'; bar.max = Math.max(1, progress.total); bar.value = progress.done;
-    bar.setAttribute('aria-label', t('previewShell.progressAria', { p1: progress.percent }));
+    bar.setAttribute('aria-hidden', 'true');
     const meta = text('span', 'preview-home-task-meta', '');
+    const enter = text('span', 'preview-home-task-enter', ''); enter.appendChild(icon('open', 13));
     meta.append(text('span', '', t('previewShell.progressPercent', { p1: progress.percent })),
       text('span', '', formatTaskTime(card.updatedAt || card.createdAt)),
-      text('span', 'preview-home-task-enter', '↗'));
+      enter);
     button.append(header, goal, bar, meta);
     button.setAttribute('aria-label', t('previewShell.homeTaskAria', { p1: titleOf(card), p2: stateLabel(derived.state), p3: progress.percent }));
     return button;
@@ -962,21 +967,29 @@ export function createPreviewShellDomain({
 
   function buildFirstRunGuide() {
     const recent = Array.isArray(state?.config?.recentWorkspaces) ? state.config.recentWorkspaces : [];
-    if (cards.length || recent.length) return null;
+    const ready = engineReadiness();
+    // 第89波(首跑修复):完成判定从「有无 recentWorkspaces」改为显式设置完成度 —— 选了工作圈第1步一勾,
+    // recentWorkspaces 就有值,旧条件会让第2/3步引导永不被看到。现在引导一直驻留到 工作圈+引擎 都就绪。
+    const workspaceReady = recent.length > 0 || Boolean(state?.config?.defaultWorkspace);
+    if (cards.length || (workspaceReady && ready.ready)) return null;
     const guide = text('section', 'preview-first-run', '');
     guide.setAttribute('aria-label', t('previewShell.firstRunTitle'));
     guide.append(text('span', 'preview-eyebrow', t('previewShell.firstRunEyebrow')),
       text('h2', '', t('previewShell.firstRunTitle')),
       text('p', 'preview-home-section-copy', t('previewShell.firstRunBody')));
     const steps = text('div', 'preview-first-run-steps', '');
-    const workspace = actionButton(t('previewShell.firstRunWorkspaceAction'), 'preview-first-run-step preview-first-run-workspace', async () => {
-      await pickWorkspace();
-      renderFacts(); renderHome();
-    });
-    workspace.replaceChildren(text('span', 'preview-first-run-number', '1'), text('span', 'preview-first-run-step-copy', t('previewShell.firstRunWorkspace')));
-    const safety = text('div', 'preview-first-run-step', '');
-    safety.append(text('span', 'preview-first-run-number', '2'), text('span', 'preview-first-run-step-copy', t('previewShell.firstRunSafety', { p1: permissionLabel() })));
-    const ready = engineReadiness();
+    const workspaceStep = workspaceReady
+      ? text('div', 'preview-first-run-step is-ready', '')
+      : actionButton(t('previewShell.firstRunWorkspaceAction'), 'preview-first-run-step preview-first-run-workspace', async () => {
+        await pickWorkspace();
+        renderFacts(); renderHome();
+      });
+    workspaceStep.replaceChildren(text('span', 'preview-first-run-number', '1'), text('span', 'preview-first-run-step-copy', workspaceReady
+      ? t('previewShell.firstRunWorkspaceReady', { p1: basename(currentWorkspace() || state?.config?.defaultWorkspace || '') || t('previewShell.unknown') })
+      : t('previewShell.firstRunWorkspace')));
+    // 第89波:第2步从「看起来可点的假控件」改为真按钮 —— 点击打开安全档弹层(与 deskbar 安全档 fact 同链路)。
+    const safety = actionButton(t('previewShell.safetySettings'), 'preview-first-run-step', function () { openSafetyControl(this); });
+    safety.replaceChildren(text('span', 'preview-first-run-number', '2'), text('span', 'preview-first-run-step-copy', t('previewShell.firstRunSafety', { p1: permissionLabel() })));
     const engine = ready.ready
       ? text('div', 'preview-first-run-step is-ready', '')
       : actionButton(t('previewShell.firstRunEngineAction'), 'preview-first-run-step', () => openSettings('providers'));
@@ -1094,7 +1107,12 @@ export function createPreviewShellDomain({
       const body = text('span', 'preview-playbook-body', '');
       body.append(text('strong', '', playbookName(pb)),
         text('span', 'preview-playbook-copy', available ? playbookDescription(pb) : playbookUnavailableReason(pb)));
-      item.append(serial, text('span', 'preview-playbook-icon', pb.icon || '◆'), body, text('span', 'preview-playbook-enter', '↗'));
+      // 第89波:剧本图标回退从 ◆ 改为 playbook SVG(与 trace 线条语言同构);enter 箭头与续办卡一致用 open。
+      const pbIcon = text('span', 'preview-playbook-icon', '');
+      if (pb.icon) pbIcon.textContent = String(pb.icon);
+      else pbIcon.appendChild(icon('playbook', 15));
+      const enter = text('span', 'preview-playbook-enter', ''); enter.appendChild(icon('open', 13));
+      item.append(serial, pbIcon, body, enter);
       item.onclick = () => {
         dispatchText = String(pb.promptTemplate || playbookName(pb) || '').trim();
         dispatchDraft = null; dispatchError = '';

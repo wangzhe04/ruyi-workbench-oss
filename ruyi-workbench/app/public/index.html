@@ -72,14 +72,12 @@
       <!-- ============ SIDEBAR ============ -->
       <aside class="sidebar" id="sidebar" data-testid="sidebar">
         <div class="brand">
-          <!-- v0.8-S8 品牌主标(如意 Ruyi 简化标,~22px)。颜色走 CSS 变量 --brand-qh/--brand-au 随主题切换。 -->
+          <!-- 第89波品牌主标(如意云标,~22px):24×24 单线云头 + 鎏金点,与 icons.js trace 线条语言同构;
+               颜色走 CSS 变量 --brand-qh/--brand-au 随主题切换。原 120 viewBox 旋转实心标在 22px 下糊成一团,退役。 -->
           <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 120 120" width="22" height="22" role="img" aria-label="如意 Ruyi" data-i18n-attr="aria-label:brand.name">
-              <g transform="rotate(42 60 60)">
-                <path fill="var(--brand-qh)" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/>
-                <path fill="none" stroke="var(--brand-qh)" stroke-width="11" stroke-linecap="round" d="M60 57 C53.5 73.7 66.5 90.3 57.7 107"/>
-              </g>
-              <circle fill="var(--brand-au)" cx="27" cy="21" r="7.5"/>
+            <svg viewBox="0 0 24 24" width="22" height="22" role="img" aria-label="如意 Ruyi" data-i18n-attr="aria-label:brand.name">
+              <path fill="none" stroke="var(--brand-qh)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+              <circle fill="var(--brand-au)" cx="19.4" cy="3.4" r="1.5"/>
             </svg>
           </div>
           <div class="brand-text">
@@ -153,9 +151,9 @@
             </button>
             <!-- v0.9-S1 (C1): uiMode toggle. simple(🧸)=人人可用精简界面 / pro(🔧)=完整开发者界面. Dual title.
                  v1.0-S2 (IA): 移出顶栏 → 「⋯」菜单「界面」项(display:none，toggleUiMode 逻辑复用)。 -->
-            <button id="uiModeToggle" class="icon-btn" title="切换到精简界面" aria-label="切换界面模式" data-i18n-attr="title:navigation.switchToSimple;aria-label:navigation.toggleUiMode">🔧</button>
+            <button id="uiModeToggle" class="icon-btn" title="切换到精简界面" aria-label="切换界面模式" data-i18n-attr="title:navigation.switchToSimple;aria-label:navigation.toggleUiMode" data-icon="toolbox"></button>
             <!-- v1.0-S2 (IA): 移出顶栏 → 「⋯」菜单「主题」项(display:none，toggleTheme 逻辑复用)。 -->
-            <button id="themeToggle" class="icon-btn" title="切换深/浅色" aria-label="切换深/浅色" data-i18n-attr="title:navigation.switchTheme;aria-label:navigation.switchTheme">🌙</button>
+            <button id="themeToggle" class="icon-btn" title="切换深/浅色" aria-label="切换深/浅色" data-i18n-attr="title:navigation.switchTheme;aria-label:navigation.switchTheme" data-icon="theme"></button>
             <!-- v1.0-S2 (IA): 顶栏「⋯」更多菜单。轻量 popover：主题 / 界面 / 能力矩阵 / 快捷键。 -->
             <button id="moreMenuBtn" class="icon-btn" title="更多" aria-label="更多" aria-haspopup="menu" data-i18n-attr="title:common.more;aria-label:common.more" data-icon="more"></button>
             <button id="toggleToolsBtn" class="icon-btn" title="工具面板" aria-label="工具面板" data-i18n-attr="title:navigation.toggleTools;aria-label:navigation.toggleTools" data-icon="toolbox"></button>
@@ -173,7 +171,7 @@
         <!-- 第26波b: 任务账本进度条。仅当会话有活动 Mission 时显示;里程碑进度 + autoMode 状态。 -->
         <div id="missionBar" class="mission-bar hidden" role="status" aria-live="polite">
           <div class="mission-bar-head">
-            <span class="mission-bar-icon" aria-hidden="true">🎯</span>
+            <span class="mission-bar-icon" aria-hidden="true" data-icon="target" data-icon-size="15"></span>
             <span id="missionBarSummary" class="mission-bar-summary"></span>
             <span id="missionBarMode" class="mission-bar-mode"></span>
             <button id="missionStopBtn" class="mini mission-bar-stop hidden" title="停止自动推进">停止</button>
@@ -185,7 +183,7 @@
              只把范围内的 ask 弹窗就地降为 allow;签发唯 header token,exec 纯内存进程重启即清。 -->
         <div id="autonomyBar" class="autonomy-bar hidden" role="region" aria-label="自主性授权书" data-testid="autonomyBar">
           <div class="autonomy-bar-head">
-            <span class="autonomy-bar-icon" aria-hidden="true">🎟️</span>
+            <span class="autonomy-bar-icon" aria-hidden="true" data-icon="ticket" data-icon-size="15"></span>
             <span class="autonomy-bar-title">自主性授权书</span>
             <span id="autonomyBarCount" class="autonomy-bar-count"></span>
             <button id="autonomyIssueToggle" class="mini" title="签发新授权(仅本机 UI 可签)">+ 新建</button>
@@ -256,14 +254,11 @@
 
         <section id="messages" class="messages" data-testid="messages" role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false" aria-label="对话" data-i18n-attr="aria-label:chat.conversationAria">
           <div class="empty-state" id="emptyState">
-            <!-- v1.0-S1: 如意 Ruyi 主标(48px),复用 .brand-mark 的路径/填色/viewBox,随主题走 --brand-* 变量。 -->
+            <!-- 第89波:如意云标(48px),与侧栏 .brand-mark 同一 24×24 几何,随主题走 --brand-* 变量。 -->
             <div class="empty-logo" aria-hidden="true">
-              <svg viewBox="0 0 120 120" width="48" height="48" role="img" aria-label="如意 Ruyi" data-i18n-attr="aria-label:brand.name">
-                <g transform="rotate(42 60 60)">
-                  <path fill="var(--brand-qh)" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/>
-                  <path fill="none" stroke="var(--brand-qh)" stroke-width="11" stroke-linecap="round" d="M60 57 C53.5 73.7 66.5 90.3 57.7 107"/>
-                </g>
-                <circle fill="var(--brand-au)" cx="27" cy="21" r="7.5"/>
+              <svg viewBox="0 0 24 24" width="48" height="48" role="img" aria-label="如意 Ruyi" data-i18n-attr="aria-label:brand.name">
+                <path fill="none" stroke="var(--brand-qh)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+                <circle fill="var(--brand-au)" cx="19.4" cy="3.4" r="1.5"/>
               </svg>
             </div>
             <h2>直接开始工作</h2>
@@ -272,7 +267,7 @@
           </div>
         </section>
 
-        <button id="jumpLatest" class="jump-latest hidden" title="回到最新" aria-label="回到最新">↓</button>
+        <button id="jumpLatest" class="jump-latest hidden" title="回到最新" aria-label="回到最新" data-icon="down"></button>
 
         <section class="composer">
           <div id="dropHint" class="drop-hint hidden" data-i18n="onboarding.drop.title">松开：文件→附件，文件夹→设为工作目录</div>
@@ -295,7 +290,7 @@
           <!-- v1.0-S2 (IA): #compactBtn 移出 .composer-actions（composer 减负）→ 入上下文用量弹层的「立即压缩」。
                保留 id + handler，openContextPopover 打开时把该按钮挪进弹层、关闭时挪回此 host（平时 hidden）。 -->
           <div id="compactBtnHost" class="hidden">
-            <button id="compactBtn" class="file-label" title="压缩上下文：让 Claude 概括并压缩对话历史（/compact），释放上下文空间">🗜 压缩</button>
+            <button id="compactBtn" class="file-label btn-ic" title="压缩上下文：让 Claude 概括并压缩对话历史（/compact），释放上下文空间" data-icon="compress" data-icon-size="14"><span>压缩</span></button>
           </div>
         </section>
 
@@ -523,7 +518,7 @@
     <section id="previewShell" class="preview-shell" aria-label="新任务台预览" data-i18n-attr="aria-label:previewShell.label" data-testid="previewShell">
       <header class="preview-deskbar">
         <div class="preview-deskbar-brand">
-          <span class="preview-deskbar-mark" aria-hidden="true">如</span>
+          <span class="preview-deskbar-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="var(--brand-qh)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><circle fill="var(--brand-au)" cx="19.4" cy="3.4" r="1.5"/></svg></span>
           <span class="preview-deskbar-name"><strong data-i18n="previewShell.brand">如意任务台</strong><span data-i18n="previewShell.previewLabel">预览</span></span>
         </div>
         <div class="preview-deskbar-facts" aria-label="案头事实" data-i18n-attr="aria-label:previewShell.factsLabel">
@@ -544,16 +539,16 @@
 
       <nav class="preview-dock" aria-label="任务坞" data-i18n-attr="aria-label:previewShell.dockLabel">
         <div class="preview-dock-head">
-          <button type="button" id="previewNewMissionBtn" class="preview-new-mission" aria-label="新建任务单" title="新建任务单" data-i18n-attr="aria-label:previewShell.newMission;title:previewShell.newMission"><span aria-hidden="true">＋</span></button>
+          <button type="button" id="previewNewMissionBtn" class="preview-new-mission" aria-label="新建任务单" title="新建任务单" data-i18n-attr="aria-label:previewShell.newMission;title:previewShell.newMission" data-icon="plus" data-icon-size="17"></button>
           <span data-i18n="previewShell.dockTitle">任务坞</span><span id="previewDockCount" class="preview-dock-count">0</span>
         </div>
         <div id="previewMissionDock" class="preview-mission-dock" role="list"></div>
         <div class="preview-dock-foot">
-          <button type="button" id="previewHomeBtn" class="preview-dock-action preview-home-action" data-i18n="previewShell.backHome">交办台</button>
-          <button type="button" id="previewArchiveBtn" class="preview-dock-action" data-i18n="previewShell.archiveNav">档案</button>
-          <button type="button" id="previewRefreshBtn" class="preview-dock-action" data-i18n="previewShell.refresh">刷新</button>
-          <button type="button" id="previewSettingsBtn" class="preview-dock-action" data-i18n="navigation.settings">设置</button>
-          <button type="button" id="previewClassicBtn" class="preview-dock-action" data-i18n="previewShell.openClassic">经典布局</button>
+          <button type="button" id="previewHomeBtn" class="preview-dock-action preview-home-action" data-icon="cloud" data-icon-size="14" data-i18n="previewShell.backHome">交办台</button>
+          <button type="button" id="previewArchiveBtn" class="preview-dock-action" data-icon="archive" data-icon-size="14" data-i18n="previewShell.archiveNav">档案</button>
+          <button type="button" id="previewRefreshBtn" class="preview-dock-action" data-icon="refresh" data-icon-size="14" data-i18n="previewShell.refresh">刷新</button>
+          <button type="button" id="previewSettingsBtn" class="preview-dock-action" data-icon="settings" data-icon-size="14" data-i18n="navigation.settings">设置</button>
+          <button type="button" id="previewClassicBtn" class="preview-dock-action" data-icon="monitor" data-icon-size="14" data-i18n="previewShell.openClassic">经典布局</button>
         </div>
       </nav>
 
@@ -867,7 +862,7 @@
             <div class="field-block">
               <label data-i18n="settings.externalMcpServer">外部 MCP 服务</label>
               <p class="field-help muted" data-i18n="settings.externalMcpServer.hint">从含 ruyi-mcp.json 清单的文件夹一键导入一个外部 MCP 服务。</p>
-              <button type="button" id="importMcpFolderBtn" class="file-label" data-i18n="settings.externalMcpServer.import">📁 从文件夹添加 MCP…</button>
+              <button type="button" id="importMcpFolderBtn" class="file-label btn-ic" data-icon="folder" data-icon-size="14" data-i18n="settings.externalMcpServer.import">从文件夹添加 MCP…</button>
             </div>
           </div>
 
@@ -880,8 +875,8 @@
               </div>
             </div>
             <div class="adv-row">
-              <button type="button" id="mcpRefreshBtn" class="file-label" data-i18n="settings.mcp.refreshAll">🔄 全部重测</button>
-              <button type="button" id="mcpImportBtn" class="file-label" data-i18n="settings.mcp.import">📁 从文件夹导入 MCP…</button>
+              <button type="button" id="mcpRefreshBtn" class="file-label btn-ic" data-icon="refresh" data-icon-size="14" data-i18n="settings.mcp.refreshAll">全部重测</button>
+              <button type="button" id="mcpImportBtn" class="file-label btn-ic" data-icon="folder" data-icon-size="14" data-i18n="settings.mcp.import">从文件夹导入 MCP…</button>
             </div>
             <p class="field-help muted" id="mcpListHint"> </p>
             <div class="mcp-conn-list" id="mcpConnList"></div>

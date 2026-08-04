@@ -11,7 +11,7 @@
 .workspace-picker.wp-flash { animation: wp-ring 0.8s ease-in-out 3; border-color: var(--accent); }
 /* v1.0.2 (G6): 工作文件夹选择器 popover — 浏览按钮(主力) + 粘贴路径兜底(视觉次要) */
 .wp-pop { display: flex; flex-direction: column; gap: 8px; min-width: 260px; }
-.wp-pop-browse { padding: 8px 10px; font-size: var(--fs-md); font-weight: 600; text-align: left;
+.wp-pop-browse { padding: 8px 10px; font-size: var(--fs-md); font-weight: 600; display: flex; align-items: center; gap: 6px; justify-content: flex-start; text-align: left;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); }
 .wp-pop-browse:hover { background: var(--panel-3); border-color: var(--line-2); }
 .wp-pop-or { font-size: var(--fs-xs); color: var(--muted); text-align: center; }

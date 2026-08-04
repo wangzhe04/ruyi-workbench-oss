@@ -82,7 +82,8 @@ function applyUiMode(mode) {
   { const tab = document.querySelector('.tool-pane .tool-tabs button[data-tab="agent-runs"]'); if (tab) tab.textContent = (m === 'simple' ? t('workflow.simpleTitle') : t('workflow.title')); }
   const btn = $('uiModeToggle');
   if (btn) {
-    btn.textContent = m === 'simple' ? '🧸' : '🔧';
+    // 第89波 emoji 清零:界面模式切换与 themeToggle 同走 icons.js(精简=sparkles / 专家=toolbox)。
+    iconTextBtn(btn, m === 'simple' ? 'sparkles' : 'toolbox', '');
     btn.title = t(m === 'simple' ? 'navigation.switchToExpert' : 'navigation.switchToSimple');
     btn.setAttribute('aria-label', t('navigation.toggleUiMode'));
   }
@@ -188,7 +189,8 @@ function pickWorkspace(anchor) {
   const btn = anchor && anchor.nodeType === 1 ? anchor : $('workspacePicker'); if (!btn) return;
   popover(btn, close => {
     const wrap = el('div', 'wp-pop');
-    const browse = el('button', 'wp-pop-browse', `📁 ${t('workspace.browse')}`); browse.type = 'button';
+    const browse = el('button', 'wp-pop-browse', ''); browse.type = 'button';
+    iconTextBtn(browse, 'folder', t('workspace.browse'));
     browse.onclick = () => { close(); pickWorkspaceNative(); };
     wrap.append(browse);
     wrap.append(el('div', 'wp-pop-or', t('workspace.pastePath')));

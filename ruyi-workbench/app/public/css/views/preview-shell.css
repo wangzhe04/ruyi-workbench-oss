@@ -895,7 +895,7 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
 .preview-home-task-state.state-stopped { color: var(--preview-muted); background: color-mix(in srgb, var(--preview-muted) 8%, transparent); }
 .preview-home-task-goal { min-height: 2.8em; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--preview-muted); font-size: var(--fs-sm); line-height: 1.5; }
 .preview-home-task-meta { display: grid; grid-template-columns: 1fr auto 20px; align-items: center; gap: var(--sp-3); color: var(--preview-muted); font: var(--fs-xs)/1.3 "Cascadia Mono", monospace; font-variant-numeric: tabular-nums; }
-.preview-home-task-enter { color: var(--preview-hot); font-size: var(--fs-md); text-align: right; transition: transform var(--dur-fast) var(--ease-out); }
+.preview-home-task-enter { color: var(--preview-hot); display: inline-flex; align-items: center; justify-content: flex-end; transition: transform var(--dur-fast) var(--ease-out); }
 .preview-home-task:hover .preview-home-task-enter { transform: translate(2px, -2px); }
 
 .preview-playbook-shelf { margin-top: var(--sp-4); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
@@ -904,9 +904,9 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
 .preview-playbook-card.unavailable { opacity: .55; }
 .preview-playbook-body { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
 .preview-playbook-body > strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.preview-playbook-icon { color: var(--preview-hot); font-size: var(--fs-md); }
+.preview-playbook-icon { color: var(--preview-hot); display: inline-flex; align-items: center; justify-content: center; }
 .preview-playbook-copy { width: 100%; max-width: 100%; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--preview-muted); font-size: var(--fs-xs); line-height: 1.5; }
-.preview-playbook-enter { color: var(--preview-muted); font-size: var(--fs-md); transition: color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.preview-playbook-enter { color: var(--preview-muted); display: inline-flex; align-items: center; justify-content: center; transition: color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
 .preview-playbook-card:hover .preview-playbook-enter { color: var(--preview-accent); transform: translate(2px, -2px); }
 
 .preview-recent-grid { margin-top: var(--sp-4); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
