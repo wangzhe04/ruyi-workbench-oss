@@ -1347,9 +1347,16 @@ export function createPreviewShellDomain({
     return text('small', 'preview-control-scope', t(`previewShell.controlScope.${scope || 'mission'}`));
   }
 
-  function controlButton(label, className, capability, onClick) {
+  function controlButton(label, className, capability, onClick, iconName) {
     const button = actionButton('', className, onClick);
-    button.append(text('span', '', label), scopeChip(capability?.scope));
+    // 第91波:可选图标 -- icon+label 包成一行(车钟按钮 column-flex,行内图标+标签,scope chip 在下行)。
+    const labelRow = text('span', 'preview-control-btn-label', '');
+    if (iconName) {
+      const svg = icon(iconName, 14);
+      if (svg) { svg.style.flexShrink = '0'; labelRow.appendChild(svg); }
+    }
+    labelRow.appendChild(text('span', '', label));
+    button.append(labelRow, scopeChip(capability?.scope));
     button.disabled = controlBusy !== '' || !capability?.enabled;
     if (!capability?.enabled) button.title = controlReason(capability?.reason);
     return button;
@@ -1847,13 +1854,13 @@ export function createPreviewShellDomain({
     const board = text('div', 'preview-control-board', '');
     const driver = text('section', 'preview-control-group is-driver', '');
     driver.append(text('span', 'preview-control-group-label', t('previewShell.controlDriver')),
-      controlButton(t('previewShell.controlPause'), '', actions.pause, () => { void performMissionControl('pause'); }),
-      controlButton(t('previewShell.controlContinue'), 'primary', actions.continue, () => { void performMissionControl('continue'); }),
-      controlButton(t('previewShell.controlTakeover'), '', actions.takeover, () => { void performMissionControl('takeover'); }));
+      controlButton(t('previewShell.controlPause'), '', actions.pause, () => { void performMissionControl('pause'); }, 'pause'),
+      controlButton(t('previewShell.controlContinue'), 'primary', actions.continue, () => { void performMissionControl('continue'); }, 'resume'),
+      controlButton(t('previewShell.controlTakeover'), '', actions.takeover, () => { void performMissionControl('takeover'); }, 'takeover'));
     const missionGroup = text('section', 'preview-control-group is-mission', '');
     missionGroup.append(text('span', 'preview-control-group-label', t('previewShell.controlMission')),
-      controlButton(t('previewShell.controlStop'), 'danger-ghost', actions.stop, () => { controlDraft = { kind: 'mission', action: 'stop' }; renderTaskSheet(selectedCard()); }),
-      controlButton(t('previewShell.controlRetry'), '', actions.retry, () => { controlDraft = { kind: 'mission', action: 'retry' }; renderTaskSheet(selectedCard()); }));
+      controlButton(t('previewShell.controlStop'), 'danger-ghost', actions.stop, () => { controlDraft = { kind: 'mission', action: 'stop' }; renderTaskSheet(selectedCard()); }, 'stop'),
+      controlButton(t('previewShell.controlRetry'), '', actions.retry, () => { controlDraft = { kind: 'mission', action: 'retry' }; renderTaskSheet(selectedCard()); }, 'refresh'));
     board.append(driver, missionGroup);
 
     host.replaceChildren(head, board);
