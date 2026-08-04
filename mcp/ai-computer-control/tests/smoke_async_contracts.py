@@ -23,6 +23,28 @@ def check(condition: bool, message: str) -> None:
     print(f"  [ok] {message}")
 
 
+def check_windows_com_apartment() -> None:
+    if sys.platform != "win32":
+        return
+
+    from ctypes import byref, windll
+    from ctypes.wintypes import DWORD
+
+    source = inspect.getsource(server)
+    flag_index = source.index("sys.coinit_flags = 0x0")
+    fastmcp_index = source.index("from mcp.server.fastmcp import FastMCP")
+    check(flag_index < fastmcp_index,
+          "the server declares MTA before FastMCP or tool imports can load comtypes")
+    check(getattr(sys, "coinit_flags", None) == 0,
+          "the server publishes the MTA policy used by comtypes")
+
+    apartment = DWORD()
+    qualifier = DWORD()
+    result = windll.ole32.CoGetApartmentType(byref(apartment), byref(qualifier))
+    check(result == 0 and apartment.value == 1,
+          "the live server thread is initialized as a multithreaded COM apartment")
+
+
 async def check_async_tools(tools: dict) -> None:
     # The browser backend need not be installed for this dispatch check. The important contract is
     # that FastMCP sees and awaits an async callable instead of trying to serialize a coroutine.
@@ -169,6 +191,7 @@ def check_binary_and_uia_fallbacks() -> None:
 
 
 def main() -> int:
+    check_windows_com_apartment()
     tools = {tool.name: tool for tool in server.mcp._tool_manager.list_tools()}
 
     async_names = {

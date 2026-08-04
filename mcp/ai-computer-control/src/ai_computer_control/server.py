@@ -10,6 +10,16 @@ envelope and a safety net:
   * mutating tools opt into the audit log via ``@mcp.tool(audit=True)``.
 """
 
+import sys
+
+# ``uiautomation`` imports comtypes while tools are registered.  comtypes defaults the importing
+# thread to STA, but this process runs WinRT OCR awaits on asyncio's Windows Proactor event-loop
+# thread, which has no Win32 message pump.  On affected Windows/WinSDK combinations that leaves
+# BitmapDecoder/OCR completion callbacks undelivered.  Declare the server thread as MTA before any
+# dependency can import comtypes; UIA worker threads initialize COM for themselves where needed.
+if sys.platform == "win32":
+    sys.coinit_flags = 0x0  # COINIT_MULTITHREADED
+
 import functools
 import inspect
 
