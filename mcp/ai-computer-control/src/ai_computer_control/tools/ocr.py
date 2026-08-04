@@ -23,6 +23,7 @@ Chinese (CJK) hardening (v1.9.1):
 import asyncio
 import io
 import os
+import threading
 
 from ai_computer_control.server import mcp
 
@@ -63,10 +64,53 @@ _LANG_ALIASES = {
     "en-us": "en-US",
 }
 
-# Per-call internal timeout (seconds). A stuck recognize_async returns a clean error here instead of
-# hanging until the bridge kills the whole ACC process at 120s (which loses warm state for every tool).
+# Per-call internal timeouts (seconds).  The complete capture/read + decode + recognize path must
+# finish comfortably before Ruyi's outer MCP bridge deadline.  Windows.Media.Ocr is also serialized:
+# concurrent WinRT recognizers can starve one another on slower/offline desktops and used to make every
+# caller wait until the bridge killed the warm ACC process.
 _OCR_RECOGNIZE_TIMEOUT_S = 45
 _OCR_DECODE_TIMEOUT_S = 20
+_OCR_INPUT_TIMEOUT_S = 10
+_OCR_PIPELINE_TIMEOUT_S = 60
+_OCR_QUEUE_TIMEOUT_S = 5
+_OCR_GATE = asyncio.Lock()
+
+
+async def _run_blocking_bounded(fn, timeout: float):
+    """Run a potentially blocking image operation in a daemon thread with a hard async deadline.
+
+    ``asyncio.to_thread`` uses the loop's non-daemon executor.  A wedged network-file read or
+    ``ImageGrab.grab`` would therefore keep the ACC child alive even after the MCP bridge timed out.
+    This narrow helper lets the caller return a useful timeout while an irrecoverably stuck worker can
+    no longer block process teardown.
+    """
+    loop = asyncio.get_running_loop()
+    done = loop.create_future()
+
+    def settle(value=None, error=None):
+        if done.done():
+            return
+        if error is not None:
+            done.set_exception(error)
+        else:
+            done.set_result(value)
+
+    def worker():
+        try:
+            value = fn()
+        except BaseException as exc:  # noqa: BLE001 - forward the original loader/preprocessor error
+            try:
+                loop.call_soon_threadsafe(settle, None, exc)
+            except RuntimeError:
+                pass  # event loop already closed after cancellation/process shutdown
+        else:
+            try:
+                loop.call_soon_threadsafe(settle, value, None)
+            except RuntimeError:
+                pass
+
+    threading.Thread(target=worker, daemon=True, name="acc-ocr-input").start()
+    return await asyncio.wait_for(done, timeout=max(0.01, float(timeout)))
 
 
 def _unavailable() -> dict:
@@ -275,7 +319,9 @@ async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
 
     # Upscale small captures for better Chinese recognition. Coordinates are scaled back below so
     # every caller still sees the original image coordinate space.
-    payload, scale = _maybe_upscale(payload)
+    payload, scale = await _run_blocking_bounded(
+        lambda: _maybe_upscale(payload), _OCR_INPUT_TIMEOUT_S
+    )
 
     stream = _streams.InMemoryRandomAccessStream()
     writer = _streams.DataWriter(stream.get_output_stream_at(0))
@@ -336,13 +382,43 @@ async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
     return out
 
 
-async def _run_ocr(png_bytes: bytes, lang: str | None) -> dict:
+async def _run_ocr_loader(loader, lang: str | None, input_stage: str) -> dict:
+    acquired = False
     try:
-        return await _recognize(_coerce_bytes(png_bytes), lang)
-    except asyncio.TimeoutError:
-        return {"ok": False, "error": "ocr pipeline timed out (decode/recognize stage)"}
+        try:
+            await asyncio.wait_for(_OCR_GATE.acquire(), timeout=_OCR_QUEUE_TIMEOUT_S)
+            acquired = True
+        except asyncio.TimeoutError:
+            return {
+                "ok": False,
+                "error": f"ocr busy (waited >{_OCR_QUEUE_TIMEOUT_S}s); retry shortly",
+                "stage": "queue",
+                "retryable": True,
+            }
+
+        try:
+            payload = await _run_blocking_bounded(loader, _OCR_INPUT_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            return {
+                "ok": False,
+                "error": f"ocr {input_stage} timed out (>{_OCR_INPUT_TIMEOUT_S}s)",
+                "stage": input_stage,
+                "retryable": True,
+            }
+
+        try:
+            return await asyncio.wait_for(
+                _recognize(_coerce_bytes(payload), lang), timeout=_OCR_PIPELINE_TIMEOUT_S
+            )
+        except asyncio.TimeoutError:
+            return {
+                "ok": False,
+                "error": f"ocr pipeline timed out (>{_OCR_PIPELINE_TIMEOUT_S}s)",
+                "stage": "pipeline",
+                "retryable": True,
+            }
     except Exception as e:  # noqa: BLE001
-        out = {"error": f"{type(e).__name__}: {e}"}
+        out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
         message = str(e).lower()
         if "bytes-like" in message or "write_bytes" in message:
             out["hint"] = (
@@ -354,6 +430,13 @@ async def _run_ocr(png_bytes: bytes, lang: str | None) -> dict:
             out["hint"] = ("Add a language including its optional OCR feature via Settings > Language "
                            "(e.g. en-US or zh-Hans), then retry. Call ocr_available_languages to list packs.")
         return out
+    finally:
+        if acquired:
+            _OCR_GATE.release()
+
+
+async def _run_ocr(png_bytes: bytes, lang: str | None) -> dict:
+    return await _run_ocr_loader(lambda: _coerce_bytes(png_bytes), lang, "input")
 
 
 def _png_bytes_from_path(path: str) -> bytes:
@@ -382,7 +465,7 @@ async def ocr_image(path: str, lang: str | None = None) -> dict:
         return _unavailable()
     if not os.path.exists(path):
         return {"error": f"file not found: {path}"}
-    return await _run_ocr(_png_bytes_from_path(path), lang)
+    return await _run_ocr_loader(lambda: _png_bytes_from_path(path), lang, "image read")
 
 
 @mcp.tool()
@@ -407,7 +490,7 @@ async def ocr_screen(region: str | None = None, lang: str | None = None) -> dict
             ox, oy = x, y
         except Exception:
             return {"error": "region must be 'x,y,width,height'"}
-    res = await _run_ocr(_screenshot_png(bbox), lang)
+    res = await _run_ocr_loader(lambda: _screenshot_png(bbox), lang, "screen capture")
     if res.get("success") and (ox or oy):
         for w in res.get("words", []):
             w["left"] += ox

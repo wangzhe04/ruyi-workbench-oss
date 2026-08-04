@@ -8,6 +8,7 @@ import io
 import inspect
 import os
 import sys
+import time
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_ROOT, "src"))
@@ -58,6 +59,9 @@ async def check_async_tools(tools: dict) -> None:
     old_ocr_available = ocr._AVAILABLE
     old_screenshot = ocr._screenshot_png
     old_recognize = ocr._recognize
+    old_input_timeout = ocr._OCR_INPUT_TIMEOUT_S
+    old_pipeline_timeout = ocr._OCR_PIPELINE_TIMEOUT_S
+    old_queue_timeout = ocr._OCR_QUEUE_TIMEOUT_S
 
     async def fake_recognize(_png: bytes, _lang: str | None) -> dict:
         await asyncio.sleep(0)
@@ -82,10 +86,54 @@ async def check_async_tools(tools: dict) -> None:
               "OCR runs on FastMCP's existing event loop without nested asyncio.run")
         check(result.get("center") == {"x": 25, "y": 25},
               "ocr_find_text preserves screen coordinates")
+
+        async def never_finishes(_png: bytes, _lang: str | None) -> dict:
+            await asyncio.Event().wait()
+            return {"success": True}  # pragma: no cover - the deadline must win
+
+        ocr._recognize = never_finishes
+        ocr._OCR_PIPELINE_TIMEOUT_S = 0.05
+        started = time.monotonic()
+        timed = await ocr._run_ocr(b"fake-png", None)
+        check(timed.get("ok") is False and timed.get("stage") == "pipeline" and
+              time.monotonic() - started < 1,
+              "OCR whole-pipeline deadline returns a structured error before the MCP bridge timeout")
+
+        ocr._screenshot_png = lambda _region=None: (time.sleep(0.2), b"late-png")[1]
+        ocr._OCR_INPUT_TIMEOUT_S = 0.05
+        started = time.monotonic()
+        capture_timed = await tools["ocr_screen"].fn(lang=None)
+        check(capture_timed.get("ok") is False and capture_timed.get("stage") == "screen capture" and
+              time.monotonic() - started < 1,
+              "a blocked screen capture is abandoned by a daemon worker before the bridge timeout")
+        ocr._screenshot_png = lambda _region=None: b"fake-png"
+        ocr._OCR_INPUT_TIMEOUT_S = old_input_timeout
+
+        entered = asyncio.Event()
+        release = asyncio.Event()
+
+        async def held_recognizer(_png: bytes, _lang: str | None) -> dict:
+            entered.set()
+            await release.wait()
+            return {"success": True, "words": [], "text": "", "lines": []}
+
+        ocr._recognize = held_recognizer
+        ocr._OCR_PIPELINE_TIMEOUT_S = old_pipeline_timeout
+        ocr._OCR_QUEUE_TIMEOUT_S = 0.05
+        first = asyncio.create_task(ocr._run_ocr(b"first", None))
+        await entered.wait()
+        busy = await ocr._run_ocr(b"second", None)
+        check(busy.get("ok") is False and busy.get("stage") == "queue" and busy.get("retryable") is True,
+              "concurrent OCR returns busy quickly instead of starving WinRT until bridge timeout")
+        release.set()
+        check((await first).get("success") is True, "serialized OCR owner completes and releases the gate")
     finally:
         ocr._AVAILABLE = old_ocr_available
         ocr._screenshot_png = old_screenshot
         ocr._recognize = old_recognize
+        ocr._OCR_INPUT_TIMEOUT_S = old_input_timeout
+        ocr._OCR_PIPELINE_TIMEOUT_S = old_pipeline_timeout
+        ocr._OCR_QUEUE_TIMEOUT_S = old_queue_timeout
 
 
 def check_binary_and_uia_fallbacks() -> None:
