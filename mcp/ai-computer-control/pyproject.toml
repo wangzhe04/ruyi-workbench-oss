@@ -12,7 +12,7 @@ requires-python = ">=3.12"
 # graceful-degrade,此前硬依赖声明与文档矛盾,且白白拉大最小安装体积)。
 # requirements_offline.txt 仍是【全量】离线安装(不受此裁剪影响)。
 dependencies = [
-    "mcp[cli]>=1.0.0",
+    "mcp[cli]>=1.0.0,<2.0.0",
     "pyautogui>=0.9.54",
     "Pillow>=10.0.0",
     "pywin32>=306",

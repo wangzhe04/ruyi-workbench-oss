@@ -93,11 +93,18 @@ ok(/variantLooksFull/.test(packager) && /named Full must use -IncludeAcc/.test(p
   'a Full-labeled package cannot be emitted without ACC and WinSDK');
 ok(/if \(-not \$SkipExeBuild -and \(Test-Path \$exe\)\)/.test(packager), 'SkipExeBuild cannot package a stale dist/Ruyi.exe');
 ok(/requires-python = ">=3\.12"/.test(pyproject), 'ACC metadata supports the bundled Python 3.12 runtime');
+ok(/mcp\[cli\]>=1\.0\.0,<2\.0\.0/.test(pyproject) && /^mcp\[cli\]>=1\.0\.0,<2\.0\.0$/m.test(requirements),
+  'ACC pins the compatible MCP 1.x API instead of accepting the breaking MCP 2.x surface');
 ok(/^winsdk==1\.0\.0b10$/m.test(requirements), 'Full offline requirements pin the verified winsdk cp312 release exactly');
 ok(/"openpyxl"/.test(builder) && /"xlsxwriter"/.test(builder) && /"docx"/.test(builder) &&
    /"pptx"/.test(builder) && /"pdfplumber"/.test(builder) && /"openpyxl"/.test(installer) &&
-   /"xlsxwriter"/.test(installer) && /"pptx"/.test(installer),
+   /"xlsxwriter"/.test(installer) && /"pptx"/.test(installer) && /"pandas"/.test(builder) &&
+   /"pypdf"/.test(builder) && /"PyPDF2"/.test(installer) && /"requests"/.test(installer) && /"bs4"/.test(installer),
   'builder and target installer agree that Full covers the common document runtime, not only ACC core');
+ok(/^pandas>=2\.2\.0$/m.test(requirements) && /^pypdf>=5\.0\.0$/m.test(requirements) &&
+   /^PyPDF2>=3\.0\.1$/m.test(requirements) && /^requests>=2\.31\.0$/m.test(requirements) &&
+   /^beautifulsoup4>=4\.12\.0$/m.test(requirements),
+  'Full offline requirements include common data, PDF, HTTP, and HTML parsing libraries');
 ok(/-IncludeAcc\s+-Variant full/.test(packageJson.scripts['package:offline']) &&
    /-IncludeAcc\s+-Variant full/.test(packageJson.scripts['package:offline:full']) &&
    /-IncludeAcc\s+-BuildAccOffline\s+-Variant full/.test(packageJson.scripts['package:offline:full:fresh']) &&

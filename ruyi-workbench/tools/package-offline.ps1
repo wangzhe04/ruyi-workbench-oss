@@ -152,6 +152,11 @@ function Write-AccReleaseManifest([string]$AccDestination, [string]$SourcePackag
       'reportlab',
       'numpy',
       'PIL',
+      'pandas',
+      'pypdf',
+      'PyPDF2',
+      'requests',
+      'bs4',
       'winsdk.windows.media.ocr',
       'winsdk.windows.graphics.imaging',
       'winsdk.windows.storage.streams',
@@ -173,7 +178,7 @@ function Assert-FullAccOcrPayload([string]$PayloadRoot, [string]$PythonExe, [swi
   if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
     throw "Full package embedded Python is missing: $PythonExe"
   }
-  & $PythonExe -I -B -X utf8 -c "import ai_computer_control.server; import openpyxl; import xlsxwriter; import docx; import pptx; import pdfplumber; import reportlab; import numpy; import PIL; import winsdk.windows.media.ocr; import winsdk.windows.graphics.imaging; import winsdk.windows.storage.streams; import winsdk.windows.globalization"
+  & $PythonExe -I -B -X utf8 -c "import ai_computer_control.server; import openpyxl; import xlsxwriter; import docx; import pptx; import pdfplumber; import reportlab; import numpy; import PIL; import pandas; import pypdf; import PyPDF2; import requests; import bs4; import winsdk.windows.media.ocr; import winsdk.windows.graphics.imaging; import winsdk.windows.storage.streams; import winsdk.windows.globalization"
   if ($LASTEXITCODE -ne 0) {
     throw "Full package embedded runtime cannot import winsdk Windows.Media.Ocr and its required WinRT projections."
   }

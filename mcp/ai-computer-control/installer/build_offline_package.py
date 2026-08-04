@@ -56,6 +56,11 @@ REQUIRED_FULL_IMPORTS = (
     "reportlab",
     "numpy",
     "PIL",
+    "pandas",
+    "pypdf",
+    "PyPDF2",
+    "requests",
+    "bs4",
     "winsdk.windows.media.ocr",
     "winsdk.windows.graphics.imaging",
     "winsdk.windows.storage.streams",
@@ -97,7 +102,7 @@ def _download_verified(url, dest, expected_sha256):
             )
         print(f"  -> SHA-256 verified: {actual[:16]}...")
     else:
-        print(f"  ⚠ SHA-256 check skipped (no expected hash set). "
+        print(f"  [WARN] SHA-256 check skipped (no expected hash set). "
               f"Actual: {actual}")
 
 
