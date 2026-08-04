@@ -17,6 +17,7 @@ const packager = read('ruyi-workbench/tools/package-offline.ps1');
 const pyproject = read('mcp/ai-computer-control/pyproject.toml');
 const requirements = read('mcp/ai-computer-control/requirements_offline.txt');
 const packageJson = JSON.parse(read('ruyi-workbench/package.json'));
+const boot = read('ruyi-workbench/app/src/00-boot.js');
 const configRuntime = read('ruyi-workbench/app/src/01-config.js');
 
 let failures = 0;
@@ -62,6 +63,12 @@ ok(/\[switch\]\$BuildAccOffline/.test(packager) && /offline-manifest\.json/.test
 ok(/Refusing to create a source-only package labeled full\/offline/.test(packager), 'Ruyi refuses misleading source-only full packages');
 ok(/python\.exe" -u -B -X utf8 .*install\.py" --ensure/.test(packager) && /Desktop-control setup failed/.test(packager),
   'full-package launcher keeps the signed payload immutable while installing and registering ACC');
+ok(/RUYI_BUNDLED_PYTHON/.test(packager) && /PATH=%ACC_ROOT%\\python_embed;%PATH%/.test(packager) &&
+   /PYTHONDONTWRITEBYTECODE=1/.test(packager),
+  'Full launcher exposes the verified embedded Python to ordinary offline task commands');
+ok(/function exposeBundledPythonRuntime\(\)/.test(boot) && /process\.env\.PYTHON = pythonExe/.test(boot) &&
+   /process\.env\.PATH = \[pythonDir/.test(boot) && /RUYI_BUNDLED_PYTHON/.test(boot),
+  'server boot exposes bundled Python for direct Ruyi.exe and bundled-Node startup paths');
 ok(/PACKAGE INCOMPLETE/.test(packager) && /Do not run Start-Workbench\.cmd from inside the ZIP preview/.test(packager),
   'Full and Slim launchers preflight missing extraction files with a clear recovery path');
 ok(/Desktop-control setup failed[\s\S]+base Workbench will still start/.test(packager) &&
@@ -76,6 +83,7 @@ ok(/explorerDefaultPathBudget\s*=\s*200/.test(packager) && /projectedExplorerPat
 ok(/verify_offline_payload/.test(packager) && /ACC staged manifest verification failed/.test(packager), 'full-package assembly verifies the signed ACC manifest before release');
 ok(/Assert-FullAccOcrPayload/.test(packager) &&
    /winsdk-\$requiredVersion-cp312-cp312-win_amd64\.whl/.test(packager) &&
+   /import openpyxl; import xlsxwriter; import docx; import pptx/.test(packager) &&
    /winsdk\.windows\.media\.ocr/.test(packager) &&
    /manifest does not integrity-cover required OCR payload/.test(packager),
   'Ruyi Full packager requires the OCR wheel, live imports, and manifest coverage before emitting a ZIP');
@@ -86,6 +94,10 @@ ok(/variantLooksFull/.test(packager) && /named Full must use -IncludeAcc/.test(p
 ok(/if \(-not \$SkipExeBuild -and \(Test-Path \$exe\)\)/.test(packager), 'SkipExeBuild cannot package a stale dist/Ruyi.exe');
 ok(/requires-python = ">=3\.12"/.test(pyproject), 'ACC metadata supports the bundled Python 3.12 runtime');
 ok(/^winsdk==1\.0\.0b10$/m.test(requirements), 'Full offline requirements pin the verified winsdk cp312 release exactly');
+ok(/"openpyxl"/.test(builder) && /"xlsxwriter"/.test(builder) && /"docx"/.test(builder) &&
+   /"pptx"/.test(builder) && /"pdfplumber"/.test(builder) && /"openpyxl"/.test(installer) &&
+   /"xlsxwriter"/.test(installer) && /"pptx"/.test(installer),
+  'builder and target installer agree that Full covers the common document runtime, not only ACC core');
 ok(/-IncludeAcc\s+-Variant full/.test(packageJson.scripts['package:offline']) &&
    /-IncludeAcc\s+-Variant full/.test(packageJson.scripts['package:offline:full']) &&
    /-IncludeAcc\s+-BuildAccOffline\s+-Variant full/.test(packageJson.scripts['package:offline:full:fresh']) &&

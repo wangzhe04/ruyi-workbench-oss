@@ -144,6 +144,14 @@ function Write-AccReleaseManifest([string]$AccDestination, [string]$SourcePackag
       'ai_computer_control.server',
       'pyautogui',
       'playwright',
+      'openpyxl',
+      'xlsxwriter',
+      'docx',
+      'pptx',
+      'pdfplumber',
+      'reportlab',
+      'numpy',
+      'PIL',
       'winsdk.windows.media.ocr',
       'winsdk.windows.graphics.imaging',
       'winsdk.windows.storage.streams',
@@ -165,7 +173,7 @@ function Assert-FullAccOcrPayload([string]$PayloadRoot, [string]$PythonExe, [swi
   if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
     throw "Full package embedded Python is missing: $PythonExe"
   }
-  & $PythonExe -I -B -X utf8 -c "import ai_computer_control.server; import winsdk.windows.media.ocr; import winsdk.windows.graphics.imaging; import winsdk.windows.storage.streams; import winsdk.windows.globalization"
+  & $PythonExe -I -B -X utf8 -c "import ai_computer_control.server; import openpyxl; import xlsxwriter; import docx; import pptx; import pdfplumber; import reportlab; import numpy; import PIL; import winsdk.windows.media.ocr; import winsdk.windows.graphics.imaging; import winsdk.windows.storage.streams; import winsdk.windows.globalization"
   if ($LASTEXITCODE -ne 0) {
     throw "Full package embedded runtime cannot import winsdk Windows.Media.Ocr and its required WinRT projections."
   }
@@ -321,8 +329,13 @@ if not exist "%RUYI_ROOT%mcp\ai-computer-control\python_embed\python.exe" (
   goto :package_incomplete
 )
 "@
-  $accBootstrap = @"
+$accBootstrap = @"
 set "ACC_ROOT=%RUYI_ROOT%mcp\ai-computer-control"
+set "RUYI_BUNDLED_PYTHON=%ACC_ROOT%\python_embed\python.exe"
+set "PYTHON=%RUYI_BUNDLED_PYTHON%"
+set "PYTHONUTF8=1"
+set "PYTHONDONTWRITEBYTECODE=1"
+set "PATH=%ACC_ROOT%\python_embed;%PATH%"
 echo [Ruyi] Ensuring AI Computer Control is installed and registered...
 "%ACC_ROOT%\python_embed\python.exe" -u -B -X utf8 "%ACC_ROOT%\install.py" --ensure
 if errorlevel 1 (

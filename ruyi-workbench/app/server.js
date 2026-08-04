@@ -58,6 +58,31 @@ function externalRoot() {
   return isPkg() ? path.dirname(process.execPath) : appRoot();
 }
 
+// A Full offline release ships one verified CPython beside ACC. ACC already starts that interpreter
+// by absolute path, but ordinary task commands (`python ...`) inherit the server PATH. Without this
+// bridge a clean intranet machine either reports Python missing or falls through to an unrelated
+// system Python that cannot import openpyxl/winsdk. Expose the bundled interpreter process-wide so
+// native provider tools, Claude CLI children, PowerShell tasks, and direct Ruyi.exe launches agree.
+function exposeBundledPythonRuntime() {
+  if (process.platform !== 'win32') return '';
+  const pythonDir = path.join(externalRoot(), 'mcp', 'ai-computer-control', 'python_embed');
+  const pythonExe = path.join(pythonDir, 'python.exe');
+  try { if (!fs.existsSync(pythonExe)) return ''; } catch { return ''; }
+  const currentPath = String(process.env.PATH || process.env.Path || '');
+  const pathDirs = currentPath.split(path.delimiter).filter(Boolean);
+  if (!pathDirs.some(dir => path.resolve(dir).toLowerCase() === path.resolve(pythonDir).toLowerCase())) {
+    process.env.PATH = [pythonDir, ...pathDirs].join(path.delimiter);
+  }
+  process.env.PYTHON = pythonExe;
+  process.env.PYTHONUTF8 = '1';
+  // Keep the signed release runtime immutable when user scripts import source-only packages.
+  process.env.PYTHONDONTWRITEBYTECODE = '1';
+  process.env.RUYI_BUNDLED_PYTHON = pythonExe;
+  return pythonExe;
+}
+
+const BUNDLED_PYTHON_RUNTIME = exposeBundledPythonRuntime();
+
 const paths = {
   data: dataRoot(),
   config: path.join(dataRoot(), 'config.json'),
