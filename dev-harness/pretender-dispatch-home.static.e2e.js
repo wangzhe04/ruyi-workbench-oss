@@ -34,6 +34,11 @@ ok(shell.includes("main.dataset.view = 'home'") && shell.includes("if (activeVie
 ok(shell.includes('openMissionCard(card)') && shell.includes("activeView = 'mission'"), 'A4 续办/最近收活/瓷章统一打开任务单');
 ok(shell.includes("['dispatching', 'running', 'needs_you']") && shell.includes("['done', 'stopped']"), 'A5 续办条与最近收活严格按五态派生分组');
 ok(shell.includes("missionState.fromCard(card)"), 'A6 首页任务状态继续复用唯一 mission-state 派生层');
+ok(zh['previewShell.homeTitle'] === '交办台' && en['previewShell.homeTitle'] === 'Dispatch desk'
+  && zh['previewShell.dispatchPlaceholder'] === '写下今天要做的事…', 'A7 首页标题与输入提示保持简洁自然');
+ok(!shell.includes("t('previewShell.homeEyebrow')") && !shell.includes("t('previewShell.quickAskHint')")
+  && !shell.includes("t('previewShell.dispatchKeyHint')") && !shell.includes("t('previewShell.firstRunBody')")
+  && !shell.includes("'preview-playbook-copy'"), 'A8 首页不再渲染说明性眉题、提示条、快捷键文案和熟活描述');
 
 ok(shell.includes("text('section', 'preview-dispatch-confirm'") && shell.includes("card.dataset.estimateVisible = 'false'"), 'B1 确认卡存在且无依据时不伪造估计');
 for (const fact of ['confirmPurpose', 'confirmWorkspace', 'confirmSafety', 'confirmNoEstimate']) {
@@ -41,7 +46,9 @@ for (const fact of ['confirmPurpose', 'confirmWorkspace', 'confirmSafety', 'conf
 }
 ok(shell.includes("select.id = 'previewDispatchSafety'") && shell.includes('dispatchPermissionModes()'), 'B3 确认卡可选择本次执行链安全档');
 ok(shell.includes("/^[?？]/.test(prompt)") && shell.includes("submitDispatch('quick_ask'"), 'B4 ?/？ 前缀与速问按钮共用逃生舱');
-ok(shell.includes("if (kind === 'quick_ask')") && shell.includes("applyShellMode('classic')") && shell.includes('await openSession(result.sessionId)'), 'B5 速问直接回经典对话呈现结果，不硬套任务单');
+ok(shell.includes("if (kind === 'quick_ask')") && shell.includes("applyShellMode('classic')")
+  && shell.includes("state?.currentSession?.id !== result.sessionId") && shell.includes('await openSession(result.sessionId)'),
+  'B5 速问直接回经典对话，且不重复打开已在流式输出的当前会话');
 
 ok(app.includes('async function startPreviewDispatchCommand(') && app.includes('dispatchCommand: request => startPreviewDispatchCommand(request)'), 'C1 两种交办入口只调用组合根单一 command');
 ok(app.includes("const session = await newSession({ cwd: cwd || currentWorkspace(), focus: false })"), 'C2 command 复用既有 Session 创建链');
@@ -67,6 +74,8 @@ ok(!context.includes('writeConfig') && !context.includes('saveConfig'), 'D6 turn
 
 ok(shell.includes("api('/api/playbooks')") && shell.includes('playbookName(pb)') && shell.includes('pb.promptTemplate'), 'E1 熟活架复用既有 Playbook 只读目录并填回交办箱');
 ok(shell.includes('buildFirstRunGuide()') && shell.includes('pickWorkspace()') && shell.includes("openSettings('providers')"), 'E2 首跑态原位覆盖工作圈与引擎准备');
+ok(shell.includes('const workspaceStep = workspaceReady') && shell.includes('steps.append(workspaceStep, safety, engine)')
+  && !shell.includes('steps.append(workspace, safety, engine)'), 'E2b 首跑步骤组只引用已声明的 workspaceStep');
 ok(shell.includes('firstRunSafety') && shell.includes('permissionLabel()'), 'E3 首跑态原位展示默认安全档');
 ok(shell.includes("playbooksLoaded ? Promise.resolve(null)") && shell.includes("api('/api/playbooks').catch(() => null)"), 'E4 10秒任务轮询不重复拉熟活目录且目录失败不拖垮任务台');
 

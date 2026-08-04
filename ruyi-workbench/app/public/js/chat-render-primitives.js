@@ -84,6 +84,14 @@ export function createChatRenderPrimitives(deps = {}) {
       return tpl.innerHTML;
     } catch { return `<div class="plain">${escapeHtml(text)}</div>`; }
   }
+  function renderMarkdownInto(container, text) {
+    if (!container) return container;
+    // renderMarkdown has already parsed and sanitized the markup. Keeping the
+    // trusted HTML assignment inside this shared renderer prevents consumers
+    // from growing their own, less consistent Markdown/XSS paths.
+    container.innerHTML = renderMarkdown(text);
+    return container;
+  }
   function highlightIn(container) {
     if (typeof hljs === 'undefined') return;
     const blocks = Array.from(container.querySelectorAll('pre code')).filter(block => !block.dataset.hl);
@@ -696,6 +704,7 @@ export function createChatRenderPrimitives(deps = {}) {
     renderContextMeter,
     renderGitDiffInto,
     renderMarkdown,
+    renderMarkdownInto,
     saveAsPlaybook,
     safeStringify,
     setCtxWindowManual,

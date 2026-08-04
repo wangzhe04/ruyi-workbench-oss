@@ -638,7 +638,8 @@ function renderCurrentSession() {
     box.setAttribute('aria-busy', 'false');
     queueMicrotask(() => box.setAttribute('aria-live', previousLive === 'off' ? 'polite' : previousLive));
   };
-  if (!session || !session.messages?.length) {
+  const liveForSession = session ? activeTurns.get(session.id) : null;
+  if (!session || (!session.messages?.length && !liveForSession)) {
     box.replaceChildren(buildEmptyState());
     settleLog();
     renderContextMeter(null);
@@ -646,7 +647,7 @@ function renderCurrentSession() {
   }
   // v1.0-S7 / 第77波(perf): render only a count/weight bounded tail so opening a long or payload-heavy
   // conversation does not build an unbounded DOM. `start` = index of the first message we render.
-  const msgs = session.messages;
+  const msgs = Array.isArray(session.messages) ? session.messages : [];
   const start = windowStartFor(msgs);
   // When windowed (start > 0), prepend a「加载更早的 N 条」button that reveals MSG_WINDOW_STEP more per click
   // (repeatable to full). It sits above the first rendered message so earlier turns become reachable — this
@@ -659,7 +660,6 @@ function renderCurrentSession() {
   //   ② 助手回合 segments 已含 steer 段(刷新后静态内嵌,56b)-> 跳过独立行。
   //   旧会话(无 steer segment)不命中 ② -> 仍按独立行渲染(向后兼容)。steered 行恒在助手回合之前(push 顺序),
   //   故 steered 行在窗口内(i>=start)时其助手回合必也在窗口内(j>i>=start),跳过不会丢内容。
-  const liveForSession = activeTurns.get(session.id);
   const visibleEntries = visibleSessionMessageEntries(msgs, start, {
     activeTurnSeq: session.turnSeq,
     hasLiveTurn: Boolean(liveForSession),
@@ -671,6 +671,9 @@ function renderCurrentSession() {
     if (!row || row.dataset.renderSignature !== signature) row = renderStaticMessage(m, key, signature);
     fragment.appendChild(row);
   }
+  const optimisticPersisted = liveForSession && msgs.some(message => message && message.role === 'user'
+    && !message.steered && String(message.content || '') === String(liveForSession.message || ''));
+  if (liveForSession?.optimisticUserRow && !optimisticPersisted) fragment.appendChild(liveForSession.optimisticUserRow);
   // Locale/config refreshes may legitimately call this while the current turn is streaming. Keep its live
   // keyed shell attached instead of reproducing the old "innerHTML clears the answer in progress" failure.
   const activeRow = activeTurns.get(session.id)?.live?.narrative?.closest('.message');
@@ -839,18 +842,6 @@ function buildEmptyState() {
   // [data-ui-mode]); pro mode keeps both. Unavailable cards render greyed + a one-line reason (never hidden).
   const pbSection = buildPlaybookSection();
   if (pbSection) wrap.appendChild(pbSection);
-  const starters = el('div', 'starters');
-  [
-    'emptyState.starter.projectSummary',
-    'emptyState.starter.windowsStartup',
-    'emptyState.starter.unitTests',
-    'emptyState.starter.reviewChanges',
-  ].map(key => t(key)).forEach(txt => {
-    const chip = el('button', 'starter-chip', txt);
-    chip.onclick = () => { $('promptInput').value = txt; autoGrow($('promptInput')); $('promptInput').focus(); };
-    starters.appendChild(chip);
-  });
-  wrap.appendChild(starters);
   return wrap;
 }
 // v1.0-S3 (A): 首跑引导变体。自上而下：如意标（buildRuyiLogo，与 index.html 静态版同参）；大拖放引导区；

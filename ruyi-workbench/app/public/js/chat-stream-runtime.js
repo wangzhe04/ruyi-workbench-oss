@@ -238,6 +238,9 @@ export function createChatStreamRuntime(deps = {}) {
   function mountActiveTurn(sessionId) {
     const turn = activeTurns.get(sessionId);
     if (!turn || state.currentSession?.id !== sessionId) return;
+    const box = $('messages');
+    box.querySelector('.empty-state')?.remove();
+    if (turn.optimisticUserRow && !turn.optimisticUserRow.isConnected) box.appendChild(turn.optimisticUserRow);
     const shell = createLiveAssistantShell(); turn.live = shell.live; turn.main = shell.main;
     // Coalesce tiny deltas while preserving tool/workflow boundaries. Keep this shell live: finalizing it here
     // detaches its text node, so subsequent deltas otherwise remain invisible until the terminal full reload.
@@ -426,7 +429,7 @@ export function createChatStreamRuntime(deps = {}) {
 
     const turnAbort = new AbortController();
     const turnEngine = isProviderMode() ? 'openai' : 'claude';
-    const turnState = { abort: turnAbort, startedAt: Date.now(), message, eventLines: [], eventHead: 0, eventChars: 0, answeredQuestions: new Set(), live, main,
+    const turnState = { abort: turnAbort, startedAt: Date.now(), message, optimisticUserRow, eventLines: [], eventHead: 0, eventChars: 0, answeredQuestions: new Set(), live, main,
       engine: turnEngine, claudeInteractive: turnEngine !== 'claude' || state.config.engineMode === 'interactive' };
     activeTurns.set(turnSessionId, turnState);
     notifySessionStream({ type: 'start', sessionId: turnSessionId, message, createdAt: new Date().toISOString() });

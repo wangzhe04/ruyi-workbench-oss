@@ -1729,6 +1729,7 @@
   "previewShell.settingPreview": "New task desk preview",
   "previewShell.settingHint": "This local preference only changes the interface. It does not migrate or rewrite tasks or sessions, and you can switch back at any time.",
   "previewShell.rawLens": "Raw lens",
+  "previewShell.taskEyebrow": "Task sheet",
   "previewShell.loadingTaskSheet": "Opening the task sheet and worksite record…",
   "previewShell.turns": "Turns",
   "previewShell.tokens": "Tokens",
@@ -1757,11 +1758,11 @@
   "previewShell.noMessages": "The task exists, but its worksite has no messages yet.",
   "previewShell.backHome": "Dispatch desk",
   "previewShell.homeEyebrow": "Dispatch home",
-  "previewShell.homeTitle": "What should Ruyi take on today?",
+  "previewShell.homeTitle": "Dispatch desk",
   "previewShell.homeBody": "Describe the job, confirm its workspace and turn-local safety profile, then start it. The task lands in the dock so you can leave and return to its progress.",
   "previewShell.dispatchBox": "Dispatch box",
   "previewShell.dispatchBoxBody": "Describe the result, boundaries, and acceptance criteria. A confirmation card appears before any work starts.",
-  "previewShell.dispatchPlaceholder": "Example: review this project’s release flow, fix blockers, run the tests, and prepare a delivery note.",
+  "previewShell.dispatchPlaceholder": "Describe what needs doing…",
   "previewShell.dispatchInputAria": "Describe the task to dispatch",
   "previewShell.dispatchKeyHint": "Ctrl + Enter to review",
   "previewShell.reviewDispatch": "Review dispatch",
@@ -1794,6 +1795,7 @@
   "previewShell.firstRunBody": "This is not a disposable onboarding overlay. Once setup is complete, the same space remains your everyday dispatch desk.",
   "previewShell.firstRunWorkspaceAction": "Choose workspace",
   "previewShell.firstRunWorkspace": "Choose a folder to work in",
+  "previewShell.firstRunWorkspaceReady": "Workspace ready: {{p1}}",
   "previewShell.firstRunSafety": "Confirm the default safety profile: {{p1}}",
   "previewShell.firstRunEngineAction": "Configure engine",
   "previewShell.firstRunEngine": "Connect an available AI engine",
@@ -1933,6 +1935,11 @@
   ,"previewShell.narrativeEyebrow": "Duty log"
   ,"previewShell.narrativeTitle": "How this task moved forward"
   ,"previewShell.narrativeBody": "Folded line by line from the task journal. Expand any sentence to verify its raw type, time, cursor, and facts."
+  ,"previewShell.narrativeAcceptance": "Acceptance {{p1}}/{{p2}}"
+  ,"previewShell.narrativeChanges": "{{p1}} files changed"
+  ,"previewShell.narrativeArtifacts": "{{p1}} outputs"
+  ,"previewShell.narrativeOutcome": "Turn outcome: {{p1}}"
+  ,"previewShell.narrativeDeliveries": "Delivered: {{p1}} ({{p2}} changed · {{p3}} outputs)"
   ,"previewShell.narrativeTimeUnknown": "Pending"
   ,"previewShell.narrativeActor.dispatcher": "Dispatcher"
   ,"previewShell.narrativeActor.crew": "Crew"
@@ -2040,6 +2047,7 @@
   ,"previewShell.ledgerEyebrow": "FLIGHT RECORDER"
   ,"previewShell.ledgerTitle": "Change ledger & undo handles"
   ,"previewShell.ledgerBody": "Every row comes from the real checkpoint journal. Actions without a before-snapshot are listed separately and never pretend to be reversible."
+  ,"previewShell.ledgerDetailsSummary": "{{p1}} file checkpoints · {{p2}} irreversible operations"
   ,"previewShell.recoveryLabel": "Recoverability"
   ,"previewShell.recoveryCount": "{{p1}} reversible · {{p2}} not"
   ,"previewShell.recoverability.full": "Full"
@@ -2060,6 +2068,7 @@
   ,"previewShell.notRevertible": "Not reversible"
   ,"previewShell.irreversibleEyebrow": "NO REVERSE"
   ,"previewShell.irreversibleTitle": "Irreversible operations"
+  ,"previewShell.irreversibleCount": "{{p1}} items"
   ,"previewShell.irreversibleBody": "These actions have no recoverable before-snapshot. Whole-Mission rollback will not erase them."
   ,"previewShell.irreversibleFile": "{{p2}} · {{p1}} (no usable snapshot)"
   ,"previewShell.irreversibleCommand": "Turn T{{p2}} · {{p1}}"
@@ -2068,10 +2077,23 @@
   ,"previewShell.questionChooseMany": "Choose any that apply"
   ,"previewShell.questionWrite": "Open response required"
   ,"previewShell.questionOtherHint": "Type only when none of the choices fit"
-  ,"previewShell.finishEyebrow": "CLOSEOUT DOSSIER"
-  ,"previewShell.finishTitle": "This Mission is closed out"
-  ,"previewShell.finishBody": "{{p1}}/{{p2}} acceptance checks passed; outputs, changes, and undo evidence are sealed into the same result record."
-  ,"previewShell.finishStamped": "Accepted & closed"
+  ,"previewShell.processDetails": "Execution details and ledger"
+  ,"previewShell.finishEyebrow": "ACCEPTED & CLOSED"
+  ,"previewShell.finishTitle": "Closeout report"
+  ,"previewShell.finishBody": "{{p1}}/{{p2}} acceptance checks passed. The final delivery is below."
+  ,"previewShell.finishStamped": "Completed"
+  ,"previewShell.finishReportTitle.text": "Delivered answer"
+  ,"previewShell.finishReportTitle.engineering": "Change summary"
+  ,"previewShell.finishReportTitle.artifact": "Output summary"
+  ,"previewShell.finishReportKind.text": "Text delivery"
+  ,"previewShell.finishReportKind.engineering": "Engineering changes"
+  ,"previewShell.finishReportKind.artifact": "Output delivery"
+  ,"previewShell.finishReportEmpty": "No written report is available. Acceptance facts and execution evidence are still preserved."
+  ,"previewShell.finishReportExpand": "View full report"
+  ,"previewShell.finishReportFiles": "Changed files"
+  ,"previewShell.finishReportFilesMore": "{{p1}} more files"
+  ,"previewShell.finishDelivery": "Delivery"
+  ,"previewShell.finishDeliveryHint": "The final outcome is summarized above"
   ,"previewShell.finishAcceptance": "Acceptance"
   ,"previewShell.finishAcceptanceHint": "From the result record, never inferred from chat"
   ,"previewShell.finishArtifacts": "Outputs"
@@ -2089,8 +2111,10 @@
   ,"previewShell.finishAuditHint": "Commands, irreversible items, and checkpoints"
   ,"previewShell.finishArtifactList": "Output manifest"
   ,"previewShell.finishNoArtifacts": "No standalone output file was registered; acceptance and the operation ledger remain available."
-  ,"previewShell.finishSavePlaybook": "Save as routine"
-  ,"previewShell.finishSaveMemory": "Remember the habit"
+  ,"previewShell.finishSavePlaybook": "Save as task template"
+  ,"previewShell.finishSavePlaybookHint": "Reuse this kind of task directly from the dispatch desk"
+  ,"previewShell.finishSaveMemory": "Remember these preferences"
+  ,"previewShell.finishSaveMemoryHint": "Apply these preferences to similar tasks in the future"
   ,"previewShell.finishArchive": "Archive to dispatch desk"
   ,"previewShell.openPreview": "Dispatch desk"
   ,"previewShell.newMission": "New task sheet"

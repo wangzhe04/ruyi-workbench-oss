@@ -1758,11 +1758,11 @@
   "previewShell.noMessages": "任务已立单，现场还没有消息记录。",
   "previewShell.backHome": "交办台",
   "previewShell.homeEyebrow": "交办首页",
-  "previewShell.homeTitle": "今天交办什么？",
+  "previewShell.homeTitle": "交办台",
   "previewShell.homeBody": "把一单活说清楚，确认工作圈与本次安全档后开工。任务会落进左侧任务坞，你可以离开，回来继续看进展。",
   "previewShell.dispatchBox": "交办箱",
   "previewShell.dispatchBoxBody": "描述要完成的结果、边界和验收标准。先生成确认卡，不会一按就开工。",
-  "previewShell.dispatchPlaceholder": "例如：检查这个项目的发布流程，修复阻塞问题，跑完测试并整理交付说明。",
+  "previewShell.dispatchPlaceholder": "写下今天要做的事…",
   "previewShell.dispatchInputAria": "输入要交办的任务",
   "previewShell.dispatchKeyHint": "Ctrl + Enter 生成确认卡",
   "previewShell.reviewDispatch": "生成确认卡",
@@ -1935,6 +1935,11 @@
   ,"previewShell.narrativeEyebrow": "值班簿"
   ,"previewShell.narrativeTitle": "这单活是怎么推进的"
   ,"previewShell.narrativeBody": "按任务流水逐条折算；展开任一句即可核对原始类型、时间、游标与事实。"
+  ,"previewShell.narrativeAcceptance": "验收 {{p1}}/{{p2}}"
+  ,"previewShell.narrativeChanges": "改动 {{p1}} 个文件"
+  ,"previewShell.narrativeArtifacts": "成果 {{p1}} 项"
+  ,"previewShell.narrativeOutcome": "本轮结论：{{p1}}"
+  ,"previewShell.narrativeDeliveries": "交付：{{p1}}（改动 {{p2}} · 成果 {{p3}}）"
   ,"previewShell.narrativeTimeUnknown": "待定"
   ,"previewShell.narrativeActor.dispatcher": "交办员"
   ,"previewShell.narrativeActor.crew": "班组"
@@ -2042,6 +2047,7 @@
   ,"previewShell.ledgerEyebrow": "FLIGHT RECORDER"
   ,"previewShell.ledgerTitle": "改动台账与反悔柄"
   ,"previewShell.ledgerBody": "每一行来自真实 checkpoint journal；没有快照的动作单独列出，不假装可以撤销。"
+  ,"previewShell.ledgerDetailsSummary": "{{p1}} 条文件检查点 · {{p2}} 条不可逆操作"
   ,"previewShell.recoveryLabel": "可恢复度"
   ,"previewShell.recoveryCount": "可退 {{p1}} · 不可退 {{p2}}"
   ,"previewShell.recoverability.full": "完整"
@@ -2062,6 +2068,7 @@
   ,"previewShell.notRevertible": "不可回退"
   ,"previewShell.irreversibleEyebrow": "NO REVERSE"
   ,"previewShell.irreversibleTitle": "不可逆操作明细"
+  ,"previewShell.irreversibleCount": "{{p1}} 条"
   ,"previewShell.irreversibleBody": "这些动作没有可恢复的 before 快照，整单回退也不会抹去它们。"
   ,"previewShell.irreversibleFile": "{{p2}} · {{p1}}（无可用快照）"
   ,"previewShell.irreversibleCommand": "回合 T{{p2}} · {{p1}}"
@@ -2070,10 +2077,23 @@
   ,"previewShell.questionChooseMany": "可选择多项"
   ,"previewShell.questionWrite": "确需手写"
   ,"previewShell.questionOtherHint": "选项都不合适时再填写"
-  ,"previewShell.finishEyebrow": "CLOSEOUT DOSSIER"
-  ,"previewShell.finishTitle": "这单活已经收好"
-  ,"previewShell.finishBody": "{{p1}}/{{p2}} 项验收已通过；成果、改动和反悔依据封存在同一张结果章里。"
-  ,"previewShell.finishStamped": "已验收收工"
+  ,"previewShell.processDetails": "执行过程与台账"
+  ,"previewShell.finishEyebrow": "已验收收工"
+  ,"previewShell.finishTitle": "收工汇报"
+  ,"previewShell.finishBody": "{{p1}}/{{p2}} 项验收通过，最终交付如下。"
+  ,"previewShell.finishStamped": "完成于"
+  ,"previewShell.finishReportTitle.text": "交付内容"
+  ,"previewShell.finishReportTitle.engineering": "改动总结"
+  ,"previewShell.finishReportTitle.artifact": "成果说明"
+  ,"previewShell.finishReportKind.text": "文字交付"
+  ,"previewShell.finishReportKind.engineering": "工程改动"
+  ,"previewShell.finishReportKind.artifact": "成果交付"
+  ,"previewShell.finishReportEmpty": "本单没有可展示的文字汇报；验收事实与执行凭据仍已保留。"
+  ,"previewShell.finishReportExpand": "查看完整汇报"
+  ,"previewShell.finishReportFiles": "改动文件"
+  ,"previewShell.finishReportFilesMore": "另有 {{p1}} 个文件未列出"
+  ,"previewShell.finishDelivery": "交付"
+  ,"previewShell.finishDeliveryHint": "最终结论已整理在上方"
   ,"previewShell.finishAcceptance": "验收"
   ,"previewShell.finishAcceptanceHint": "来自结果章，不靠对话猜测"
   ,"previewShell.finishArtifacts": "成果"
@@ -2091,8 +2111,10 @@
   ,"previewShell.finishAuditHint": "命令、不可逆项与检查点"
   ,"previewShell.finishArtifactList": "成果清单"
   ,"previewShell.finishNoArtifacts": "本单没有登记独立成果文件；验收与操作台账仍完整保留。"
-  ,"previewShell.finishSavePlaybook": "存为熟活"
-  ,"previewShell.finishSaveMemory": "记住习惯"
+  ,"previewShell.finishSavePlaybook": "保存为任务模板"
+  ,"previewShell.finishSavePlaybookHint": "以后可以从交办台直接重复这类任务"
+  ,"previewShell.finishSaveMemory": "记住本次偏好"
+  ,"previewShell.finishSaveMemoryHint": "以后执行类似任务时沿用这次偏好"
   ,"previewShell.finishArchive": "归档回交办台"
   ,"previewShell.openPreview": "交办台"
   ,"previewShell.newMission": "新建任务单"

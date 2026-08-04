@@ -135,7 +135,7 @@ ok(/Array\.isArray\(changes\.artifacts\)[\s\S]{0,400}basename\(item\.path\)/.tes
 ok(!/--preview-accent: #63cbbd/.test(schemes) && !/--preview-hot: #ef8d72/.test(schemes)
   && !/--preview-accent: #217397/.test(schemes) && !/--preview-hot: #b24736/.test(schemes)
   && /--preview-accent: #6b8ff2/.test(schemes) && /--preview-hot: #dcba75/.test(schemes)
-  && /--preview-accent: #2050c8/.test(schemes) && /--preview-hot: #a8822f/.test(schemes),
+  && /--preview-accent: #2050c8/.test(schemes) && /--preview-hot: #82631b/.test(schemes),
   'W86-6 preview 配色统一为青花蓝+鎏金,旧青绿(#63cbbd/#217397)与橙红(#ef8d72/#b24736)外挂色退役');
 
 console.log(`\nPRETENDER SHELL STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

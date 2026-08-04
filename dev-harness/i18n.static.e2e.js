@@ -185,7 +185,7 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   assert.ok(app.includes("t('skills.playbook.pickerUnavailable'"), 'quick-task folder picker feedback must use the catalog');
   assert.ok(app.includes("t('playbook.create.modalTitle'"), 'the save-as-playbook editor must use the catalog');
   assert.ok(app.includes("t('onboarding.title'"), 'first-run onboarding must use the catalog');
-  assert.ok(app.includes("'emptyState.starter.projectSummary'"), 'starter prompts must use the catalog');
+  assert.ok(!app.includes("'emptyState.starter.projectSummary'"), 'default empty state must not render starter prompts');
   assert.ok(app.includes("t('navigation.toggleUiMode'"), 'dynamic UI-mode labels must use the catalog');
   assert.ok(app.includes("t('palette.newSession'"), 'command palette actions must use the catalog');
   assert.ok(app.includes('renderProviders();'), 'locale changes must redraw provider cards');

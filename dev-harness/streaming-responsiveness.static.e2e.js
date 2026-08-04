@@ -25,6 +25,8 @@ const mount = fnBody('mountActiveTurn');
 ok(mount.includes("evt.type === 'assistant_delta'") && mount.includes("textParts.push(evt.text || '')")
   && mount.includes("textParts.join('')"), 'background turn replay coalesces deltas with batched join instead of quadratic concatenation');
 ok(!mount.includes('finalizeLive('), 'mounting an active background turn does not prematurely finalize/detach it');
+ok(mount.includes("box.querySelector('.empty-state')?.remove()") && mount.includes('turn.optimisticUserRow'),
+  'mounting the first live turn removes the empty state and restores its optimistic user row');
 
 const deliver = fnBody('deliverAgentRuns');
 ok(deliver.includes('if (activeTurns.has(sid)) return;'), 'workflow polling never replaces a live chat message tree');

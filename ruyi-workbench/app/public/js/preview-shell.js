@@ -99,6 +99,11 @@ export function createPreviewShellDomain({
   playbookName = playbook => String(playbook && playbook.title || ''),
   playbookDescription = playbook => String(playbook && playbook.desc || ''),
   playbookUnavailableReason = () => '',
+  renderMarkdownInto = (container, value) => {
+    if (container) container.textContent = String(value || '');
+    return container;
+  },
+  highlightIn = () => {},
   renderStaticMessage = () => null,
   getActiveTurnLines = () => [],
   notificationApi = globalThis.Notification,
@@ -953,7 +958,9 @@ export function createPreviewShellDomain({
       dispatchText = ''; dispatchDraft = null;
       if (kind === 'quick_ask') {
         applyShellMode('classic');
-        await openSession(result.sessionId);
+        // dispatchCommand 已创建并选中该会话，sendPrompt 也已挂上乐观消息与实时回答。
+        // 此时再次 openSession 会在首条消息落盘前把经典消息区重绘为空状态。
+        if (state?.currentSession?.id !== result.sessionId) await openSession(result.sessionId);
         return;
       }
       selectedMissionId = result.sessionId;
@@ -979,9 +986,7 @@ export function createPreviewShellDomain({
     if (cards.length || (workspaceReady && ready.ready)) return null;
     const guide = text('section', 'preview-first-run', '');
     guide.setAttribute('aria-label', t('previewShell.firstRunTitle'));
-    guide.append(text('span', 'preview-eyebrow', t('previewShell.firstRunEyebrow')),
-      text('h2', '', t('previewShell.firstRunTitle')),
-      text('p', 'preview-home-section-copy', t('previewShell.firstRunBody')));
+    guide.appendChild(text('h2', '', t('previewShell.firstRunTitle')));
     const steps = text('div', 'preview-first-run-steps', '');
     const workspaceStep = workspaceReady
       ? text('div', 'preview-first-run-step is-ready', '')
@@ -1001,19 +1006,18 @@ export function createPreviewShellDomain({
     engine.replaceChildren(text('span', 'preview-first-run-number', '3'), text('span', 'preview-first-run-step-copy', ready.ready
       ? t('previewShell.firstRunEngineReady', { p1: ready.label || t('previewShell.unknown') })
       : t('previewShell.firstRunEngine')));
-    steps.append(workspace, safety, engine);
+    steps.append(workspaceStep, safety, engine);
     guide.appendChild(steps);
     return guide;
   }
 
-  function homeSectionHeading(index, title, body, trailing) {
+  function homeSectionHeading(index, title, trailing) {
     const head = text('div', 'preview-home-section-head', '');
     const number = text('span', 'preview-section-index', String(index).padStart(2, '0'));
     number.setAttribute('aria-hidden', 'true');
     const copy = text('div', 'preview-home-section-heading-copy', '');
     // 第86波减负:节标题只留一句话标题,说明段落(body)不再渲染 —— 界面不讲道理,直接给动作。
     copy.append(text('h2', '', title));
-    if (body) head.title = String(body);
     head.append(number, copy);
     if (trailing) head.appendChild(trailing);
     return head;
@@ -1022,8 +1026,7 @@ export function createPreviewShellDomain({
   function buildDispatchComposer() {
     const section = text('section', 'preview-dispatch-box', '');
     section.setAttribute('aria-label', t('previewShell.dispatchBox'));
-    const mode = text('span', 'preview-dispatch-mode', t('previewShell.quickAskHint'));
-    const heading = homeSectionHeading(1, t('previewShell.dispatchBox'), t('previewShell.dispatchBoxBody'), mode);
+    const heading = homeSectionHeading(1, t('previewShell.dispatchBox'));
     const field = text('div', 'preview-dispatch-field', '');
     const mark = text('span', 'preview-dispatch-mark', ''); mark.setAttribute('aria-hidden', 'true'); mark.appendChild(icon('send', 15));
     const input = document.createElement('textarea');
@@ -1042,7 +1045,7 @@ export function createPreviewShellDomain({
     const review = actionButton(t('previewShell.reviewDispatch'), 'primary preview-launch-action', () => prepareDispatch(dispatchText), 'dispatch');
     quick.id = 'previewQuickAskBtn'; review.id = 'previewDispatchReviewBtn';
     quick.disabled = dispatchBusy; review.disabled = dispatchBusy;
-    actions.append(text('span', 'preview-dispatch-keyhint', t('previewShell.dispatchKeyHint')), quick, review);
+    actions.append(quick, review);
     field.append(mark, input);
     section.append(heading, field, actions);
     if (dispatchError) {
@@ -1088,11 +1091,11 @@ export function createPreviewShellDomain({
   function buildContinueSection() {
     const section = text('section', 'preview-home-section preview-continue-section', '');
     const active = cards.filter(card => !missionUi(card && card.missionId).archived && ['dispatching', 'running', 'needs_you'].includes(missionState.fromCard(card).state)).slice(0, 4);
+    if (!active.length) return null;
     const count = text('span', 'preview-home-section-count', String(active.length));
-    const head = homeSectionHeading(2, t('previewShell.continueTitle'), t('previewShell.continueBody'), count);
+    const head = homeSectionHeading(2, t('previewShell.continueTitle'), count);
     const rail = text('div', 'preview-continue-rail', '');
-    if (active.length) active.forEach(card => rail.appendChild(homeMissionButton(card, 'preview-continue-card')));
-    else rail.appendChild(text('p', 'preview-home-empty-copy', t('previewShell.continueEmpty')));
+    active.forEach(card => rail.appendChild(homeMissionButton(card, 'preview-continue-card')));
     section.append(head, rail);
     return section;
   }
@@ -1100,18 +1103,18 @@ export function createPreviewShellDomain({
   function buildPlaybookShelf() {
     const mode = document.documentElement.getAttribute('data-ui-mode') === 'simple' ? 'simple' : 'pro';
     const visible = playbooks.filter(pb => pb && (!pb.uiMode || pb.uiMode === 'both' || pb.uiMode === mode)).slice(0, 4);
+    if (!visible.length) return null;
     const section = text('section', 'preview-home-section preview-playbook-section', '');
-    const head = homeSectionHeading(3, t('previewShell.playbookTitle'), t('previewShell.playbookBody'));
+    const head = homeSectionHeading(3, t('previewShell.playbookTitle'));
     const shelf = text('div', 'preview-playbook-shelf', '');
-    if (!visible.length) shelf.appendChild(text('p', 'preview-home-empty-copy', t('previewShell.playbookEmpty')));
     for (const [index, pb] of visible.entries()) {
       const available = pb.available !== false;
       const item = text('button', `preview-playbook-card${available ? '' : ' unavailable'}`, '');
       item.type = 'button'; item.disabled = !available;
+      item.title = available ? playbookDescription(pb) : playbookUnavailableReason(pb);
       const serial = text('span', 'preview-playbook-serial', String(index + 1).padStart(2, '0'));
       const body = text('span', 'preview-playbook-body', '');
-      body.append(text('strong', '', playbookName(pb)),
-        text('span', 'preview-playbook-copy', available ? playbookDescription(pb) : playbookUnavailableReason(pb)));
+      body.appendChild(text('strong', '', playbookName(pb)));
       // 第89波:剧本图标回退从 ◆ 改为 playbook SVG(与 trace 线条语言同构);enter 箭头与续办卡一致用 open。
       const pbIcon = text('span', 'preview-playbook-icon', '');
       if (pb.icon) pbIcon.textContent = String(pb.icon);
@@ -1131,11 +1134,11 @@ export function createPreviewShellDomain({
 
   function buildRecentSection() {
     const section = text('section', 'preview-home-section preview-recent-section', '');
-    const head = homeSectionHeading(4, t('previewShell.recentTitle'), t('previewShell.recentBody'));
     const recent = cards.filter(card => !missionUi(card && card.missionId).archived && ['done', 'stopped'].includes(missionState.fromCard(card).state)).slice(0, 3);
+    if (!recent.length) return null;
+    const head = homeSectionHeading(4, t('previewShell.recentTitle'));
     const grid = text('div', 'preview-recent-grid', '');
-    if (recent.length) recent.forEach(card => grid.appendChild(homeMissionButton(card, 'preview-recent-card')));
-    else grid.appendChild(text('p', 'preview-home-empty-copy', t('previewShell.recentEmpty')));
+    recent.forEach(card => grid.appendChild(homeMissionButton(card, 'preview-recent-card')));
     section.append(head, grid);
     return section;
   }
@@ -1247,13 +1250,13 @@ export function createPreviewShellDomain({
     if (!main) return;
     main.dataset.view = 'home'; delete main.dataset.missionId;
     const article = text('article', 'preview-dispatch-home', '');
-    // 第86波减负:首页只要一句点题,巨型导言/坐标轴/装饰段落全部撤掉,首屏留给交办箱与任务。
+    // 首页只保留一句人话标题；说明性眉题和导言退场，首屏直接进入操作。
     const intro = text('header', 'preview-home-intro', '');
-    intro.append(text('span', 'preview-eyebrow', t('previewShell.homeEyebrow')), text('h1', '', t('previewShell.homeTitle')));
+    intro.appendChild(text('h1', '', t('previewShell.homeTitle')));
     article.appendChild(intro);
     const guide = buildFirstRunGuide();
-    if (guide) article.appendChild(guide);
-    article.append(buildDispatchComposer(), buildContinueSection(), buildPlaybookShelf(), buildRecentSection());
+    const sections = [guide, buildDispatchComposer(), buildContinueSection(), buildPlaybookShelf(), buildRecentSection()].filter(Boolean);
+    article.append(...sections);
     main.replaceChildren(article);
   }
 
@@ -1698,6 +1701,81 @@ export function createPreviewShellDomain({
     return t('previewShell.narrativeCrew');
   }
 
+  function reportPlainText(value) {
+    return String(value || '').trim()
+      .replace(/^#{1,6}[ \t]+/gm, '')
+      .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+      .replace(/__([^_\n]+)__/g, '$1')
+      .replace(/`([^`\n]+)`/g, '$1');
+  }
+
+  function reportConclusionExcerpt(value, limit = 1200) {
+    const full = reportPlainText(value);
+    if (!full) return '';
+    const markers = ['已汇总完毕', '任务标记完成', '提交摘要', '确认最终状态', '已完成', '最终总结', '结论', 'Completed', 'Final summary', 'Conclusion'];
+    let markerAt = -1;
+    for (const marker of markers) markerAt = Math.max(markerAt, full.lastIndexOf(marker));
+    if (markerAt > 0 && full.length - markerAt >= 80) return full.slice(markerAt).trim();
+    if (full.length <= limit) return full;
+    const tail = full.slice(-limit);
+    const paragraphAt = tail.indexOf('\n\n');
+    return `${paragraphAt >= 0 ? tail.slice(paragraphAt + 2) : tail}`.trim();
+  }
+
+  function narrativePlainText(value) {
+    return reportPlainText(value).replace(/\s+/g, ' ');
+  }
+
+  function reportDeliveryText(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    // The finish report is the actual delivery, not a compact label. Preserve
+    // its Markdown source. A streamed assistant message may also contain the
+    // pre-report search/tool narration, so begin at the first real Markdown
+    // heading while retaining an immediately preceding source-note quote.
+    // Some providers concatenate the final heading directly after a streamed
+    // narration sentence without inserting a newline, so the marker cannot be
+    // required to start a physical line here.
+    const headingAt = raw.search(/#{1,6}[ \t]+\S/);
+    if (headingAt < 0) return raw;
+    const beforeHeading = raw.slice(0, headingAt);
+    const sourceNote = beforeHeading.match(/(?:^|\n\s*\n)((?:>[ \t]?.*(?:\n|$))+)[ \t\n]*$/);
+    return `${sourceNote ? `${sourceNote[1].trim()}\n\n` : ''}${raw.slice(headingAt).trim()}`;
+  }
+
+  function reportPreviewText(value, limit = 260) {
+    const markdown = reportDeliveryText(value);
+    if (!markdown) return '';
+    const heading = markdown.match(/^#{1,6}[ \t]+(.+)$/m)?.[1] || '';
+    const prose = markdown.split(/\n\s*\n/)
+      .map(block => block.trim())
+      .filter(block => block
+        && !/^#{1,6}[ \t]+/.test(block)
+        && !/^```/.test(block)
+        && !block.split('\n').some(line => /^\s*\|?.*\|\s*:?-{3,}/.test(line)))
+      .map(block => reportPlainText(block)
+        .replace(/^\s*>[ \t]?/gm, '')
+        .replace(/^\s*[-*+][ \t]+/gm, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim())
+      .find(Boolean) || '';
+    return [reportPlainText(heading), prose].filter(Boolean).join(' · ').slice(0, limit);
+  }
+
+  function narrativeTurnContext(entry) {
+    if (!entry || entry.sentenceKey !== 'progress_turn') return null;
+    const turnSeq = Number(entry.cursor && entry.cursor.turnSeq) || 0;
+    const messages = Array.isArray(selectedSession?.messages) ? selectedSession.messages : [];
+    const message = [...messages].reverse().find(item => item && item.role === 'assistant'
+      && Number(item.turnSummary && item.turnSummary.turnSeq) === turnSeq);
+    if (!message) return null;
+    const summary = narrativePlainText(reportConclusionExcerpt(message.content, 520)).slice(0, 520);
+    const files = Array.isArray(message.turnSummary?.filesChanged) ? message.turnSummary.filesChanged.filter(item => item && item.path) : [];
+    const artifacts = Array.isArray(message.turnSummary?.artifacts) ? message.turnSummary.artifacts.filter(item => item && item.path) : [];
+    return { summary, files, artifacts };
+  }
+
   function narrativeSentence(entry) {
     const detail = entry.detail || {};
     const cursor = entry.cursor || {};
@@ -1729,6 +1807,12 @@ export function createPreviewShellDomain({
     const copy = text('span', 'preview-narrative-copy', '');
     copy.append(text('span', 'preview-narrative-actor', t(`previewShell.narrativeActor.${entry.actor}`)),
       text('strong', '', narrativeSentence(entry)));
+    const turnContext = narrativeTurnContext(entry);
+    if (turnContext && turnContext.summary) copy.appendChild(text('span', 'preview-narrative-outcome', t('previewShell.narrativeOutcome', { p1: turnContext.summary })));
+    if (turnContext && (turnContext.files.length || turnContext.artifacts.length)) {
+      const names = [...turnContext.files, ...turnContext.artifacts].map(item => basename(item.path)).filter(Boolean).slice(0, 4);
+      copy.appendChild(text('span', 'preview-narrative-deliveries', t('previewShell.narrativeDeliveries', { p1: names.join('、'), p2: turnContext.files.length, p3: turnContext.artifacts.length })));
+    }
     const seq = text('code', 'preview-narrative-seq', `#${entry.seq}`);
     summary.append(time, rail, copy, seq);
     const evidence = text('div', 'preview-narrative-evidence', '');
@@ -1758,6 +1842,9 @@ export function createPreviewShellDomain({
       const heading = text('div', 'preview-narrative-heading', '');
       heading.append(text('span', 'preview-eyebrow', t('previewShell.narrativeEyebrow')),
         text('h2', '', t('previewShell.narrativeTitle')));
+      const goal = text('p', 'preview-narrative-goal', ''); goal.dataset.slot = 'narrativeGoal';
+      const meta = text('div', 'preview-narrative-meta', ''); meta.dataset.slot = 'narrativeMeta';
+      heading.append(goal, meta);
       const count = text('strong', 'preview-narrative-count', '00'); count.dataset.slot = 'narrativeCount';
       head.append(heading, count);
       const warning = text('p', 'preview-narrative-warning', t('previewShell.narrativeDegraded'));
@@ -1774,6 +1861,20 @@ export function createPreviewShellDomain({
       host.replaceChildren(head, warning, earlier, list, empty);
       narrativeRenderedSession = sessionId;
       narrativeRenderedLocale = locale;
+    }
+    const acceptance = selectedSnapshot?.acceptance || {};
+    const changes = selectedSnapshot?.changes || {};
+    const goal = host.querySelector('[data-slot="narrativeGoal"]');
+    if (goal) goal.textContent = selectedSnapshot?.mission?.goal || selectedSnapshot?.title || t('previewShell.goalFallback');
+    const meta = host.querySelector('[data-slot="narrativeMeta"]');
+    if (meta) {
+      const files = Array.isArray(changes.filesChanged) ? changes.filesChanged.length : 0;
+      const artifacts = Array.isArray(changes.artifacts) ? changes.artifacts.length : 0;
+      meta.replaceChildren(
+        text('span', '', t('previewShell.narrativeAcceptance', { p1: Number(acceptance.done) || 0, p2: Number(acceptance.total) || 0 })),
+        text('span', '', t('previewShell.narrativeChanges', { p1: files })),
+        text('span', '', t('previewShell.narrativeArtifacts', { p1: artifacts })),
+      );
     }
     const visibleEntries = feed.entries.slice(Math.max(0, Number(feed.windowStart) || 0));
     const visibleSeqs = new Set(visibleEntries.map(entry => String(entry.seq)));
@@ -1890,6 +1991,8 @@ export function createPreviewShellDomain({
   function renderLedger(article, snapshot) {
     const host = article?.querySelector('[data-slot="ledger"]');
     if (!host) return;
+    const ledgerWasOpen = host.querySelector('.preview-ledger-details')?.open === true;
+    const irreversibleWasOpen = host.querySelector('.preview-ledger-irreversible')?.open === true;
     const ledger = snapshot.ledger || { entries: [], nonRevertibleFiles: [], irreversible: {} };
     const entries = Array.isArray(ledger.entries) ? ledger.entries : [];
     const controls = snapshot.controls || {};
@@ -1959,18 +2062,30 @@ export function createPreviewShellDomain({
 
     const nonFiles = Array.isArray(ledger.nonRevertibleFiles) ? ledger.nonRevertibleFiles : [];
     const irreversible = Array.isArray(ledger.irreversible?.items) ? ledger.irreversible.items : [];
+    const legacyCommands = Number(ledger.irreversible?.legacyCommands) || 0;
+    const irreversibleCount = nonFiles.length + irreversible.length + legacyCommands;
     if (nonFiles.length || irreversible.length || Number(ledger.irreversible?.legacyCommands) > 0) {
-      const section = text('section', 'preview-ledger-irreversible', '');
-      section.append(text('span', 'preview-eyebrow', t('previewShell.irreversibleEyebrow')),
-        text('h3', '', t('previewShell.irreversibleTitle')),
-        text('p', '', t('previewShell.irreversibleBody')));
+      const section = document.createElement('details'); section.className = 'preview-ledger-irreversible';
+      section.open = irreversibleWasOpen;
+      const summary = text('summary', 'preview-ledger-irreversible-summary', '');
+      summary.append(text('span', 'preview-eyebrow', t('previewShell.irreversibleEyebrow')),
+        text('strong', '', t('previewShell.irreversibleTitle')),
+        text('span', 'preview-ledger-irreversible-count', t('previewShell.irreversibleCount', { p1: irreversibleCount })));
+      const body = text('div', 'preview-ledger-irreversible-body', '');
+      body.appendChild(text('p', '', t('previewShell.irreversibleBody')));
       const list = text('ul', '', '');
       for (const file of nonFiles) list.appendChild(text('li', '', t('previewShell.irreversibleFile', { p1: file.path || t('previewShell.unknown'), p2: ledgerOpLabel(file.op) })));
       for (const item of irreversible) list.appendChild(text('li', '', t('previewShell.irreversibleCommand', { p1: item.name || item.kind || t('previewShell.unknown'), p2: item.turnSeq || 0 })));
-      if (Number(ledger.irreversible?.legacyCommands) > 0) list.appendChild(text('li', '', t('previewShell.irreversibleLegacy', { p1: ledger.irreversible.legacyCommands })));
-      section.appendChild(list); tape.appendChild(section);
+      if (legacyCommands > 0) list.appendChild(text('li', '', t('previewShell.irreversibleLegacy', { p1: legacyCommands })));
+      body.appendChild(list); section.append(summary, body); tape.appendChild(section);
     }
-    host.appendChild(tape);
+    const details = document.createElement('details'); details.className = 'preview-ledger-details';
+    details.open = ledgerWasOpen || Boolean(controlDraft);
+    details.append(text('summary', 'preview-ledger-details-summary', t('previewShell.ledgerDetailsSummary', {
+      p1: entries.length,
+      p2: irreversibleCount,
+    })), tape);
+    host.appendChild(details);
   }
 
   function ensureTaskSheet(card) {
@@ -2063,11 +2178,17 @@ export function createPreviewShellDomain({
     ledger.id = 'previewMissionLedger'; ledger.dataset.slot = 'ledger';
     ledger.setAttribute('aria-label', t('previewShell.ledgerTitle'));
 
+    const processDetails = document.createElement('details');
+    processDetails.className = 'preview-process-details'; processDetails.dataset.slot = 'processDetails';
+    processDetails.open = true;
+    const processSummary = text('summary', 'preview-process-summary', t('previewShell.processDetails'));
+    processDetails.append(processSummary, lensSwitch, narrativeLens, crewLens, body, ledger);
+
     const foot = text('footer', 'preview-main-actions preview-task-actions', '');
     foot.append(actionButton(t('previewShell.backHome'), '', () => openDispatchHome(), 'back'),
       actionButton(t('previewShell.openMissionClassic'), 'primary', () => { void openSelectedInClassic(); }, 'open'),
       actionButton(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }, 'refresh'));
-    article.append(head, missionControl, returnSummary, stopCard, finishCard, lensSwitch, narrativeLens, crewLens, body, ledger, foot);
+    article.append(head, missionControl, returnSummary, stopCard, finishCard, processDetails, foot);
     main.replaceChildren(article);
     return article;
   }
@@ -2186,19 +2307,37 @@ export function createPreviewShellDomain({
   function renderFinishCard(article, card, snapshot) {
     const host = article?.querySelector('[data-slot="finishCard"]');
     if (!host) return;
+    const missionId = String(card?.missionId || '');
+    const reportWasOpen = host.dataset.finishMissionId === missionId
+      && host.querySelector('.preview-finish-report')?.open === true;
     const result = snapshot && snapshot.result;
     if (!result || result.status !== 'complete') {
       host.hidden = true;
+      delete host.dataset.finishMissionId;
       host.replaceChildren();
       return;
     }
     host.hidden = false;
+    host.dataset.finishMissionId = missionId;
     const acceptance = result.acceptance || {};
     const changes = result.changes || {};
-    const audit = result.audit || {};
     const usage = snapshot.usage || result.usage || {};
     const artifacts = Array.isArray(result.artifacts) ? result.artifacts.filter(item => item && item.path) : [];
     const unfinished = Array.isArray(result.unfinished) ? result.unfinished.filter(Boolean) : [];
+    const files = Array.isArray(snapshot.changes?.filesChanged) ? snapshot.changes.filesChanged.filter(item => item && item.path) : [];
+    const reportKind = files.length ? 'engineering' : (artifacts.length ? 'artifact' : 'text');
+
+    const messages = Array.isArray(selectedSession?.messages) ? selectedSession.messages : [];
+    let reportSource = '';
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message && message.role === 'assistant' && typeof message.content === 'string' && message.content.trim()) {
+        reportSource = message.content;
+        break;
+      }
+    }
+    if (!reportSource) reportSource = snapshot.summary;
+    const reportText = reportDeliveryText(reportSource);
 
     const heading = text('header', 'preview-finish-head', '');
     const copy = text('div', 'preview-finish-copy', '');
@@ -2209,6 +2348,41 @@ export function createPreviewShellDomain({
     stamp.append(text('span', '', t('previewShell.finishStamped')), text('strong', '', formatTaskTime(result.finishedAt)));
     heading.append(copy, stamp);
 
+    const report = document.createElement('details');
+    report.className = 'preview-finish-report';
+    report.dataset.reportKind = reportKind;
+    report.open = reportWasOpen;
+    const reportHead = text('summary', 'preview-finish-report-head', '');
+    const reportPreview = reportPreviewText(reportSource);
+    reportHead.append(text('strong', '', t(`previewShell.finishReportTitle.${reportKind}`)),
+      text('span', 'preview-finish-report-preview', reportPreview || t('previewShell.finishReportEmpty')),
+      text('span', 'preview-finish-report-kind', t(`previewShell.finishReportKind.${reportKind}`)));
+    report.appendChild(reportHead);
+    if (reportText) {
+      const reportCopy = text('div', 'preview-finish-report-copy md', '');
+      const hydrateReport = () => {
+        if (!report.open || reportCopy.dataset.markdownReady === 'true') return;
+        renderMarkdownInto(reportCopy, reportText);
+        highlightIn(reportCopy);
+        reportCopy.dataset.markdownReady = 'true';
+      };
+      report.appendChild(reportCopy);
+      report.addEventListener('toggle', hydrateReport);
+      hydrateReport();
+    } else report.appendChild(text('p', 'preview-finish-report-empty', t('previewShell.finishReportEmpty')));
+    if (files.length) {
+      const fileSection = text('section', 'preview-finish-files', '');
+      fileSection.appendChild(text('h4', '', t('previewShell.finishReportFiles')));
+      const list = text('ul', '', '');
+      for (const file of files.slice(0, 8)) {
+        const row = text('li', '', ''); row.title = String(file.path);
+        row.append(text('strong', '', basename(file.path) || file.path), text('span', '', ledgerOpLabel(file.op)));
+        list.appendChild(row);
+      }
+      if (files.length > 8) list.appendChild(text('li', 'preview-finish-more', t('previewShell.finishReportFilesMore', { p1: files.length - 8 })));
+      fileSection.appendChild(list); report.appendChild(fileSection);
+    }
+
     const facts = text('div', 'preview-finish-facts', '');
     const fact = (key, label, value, detail) => {
       const node = text('section', 'preview-finish-fact', ''); node.dataset.finishFact = key;
@@ -2216,15 +2390,15 @@ export function createPreviewShellDomain({
       return node;
     };
     const totalTokens = (Number(usage.inTok) || 0) + (Number(usage.outTok) || 0) || Number(result.usage?.tokens) || 0;
-    const auditTotal = (Number(audit.commands) || Number(changes.commands) || 0) + (Number(audit.irreversible) || Number(result.irreversible?.total) || 0) + (Number(audit.checkpoints) || Number(result.checkpoints?.entries) || 0);
-    facts.append(
+    const factNodes = [
       fact('acceptance', t('previewShell.finishAcceptance'), `${Number(acceptance.done) || 0}/${Number(acceptance.total) || 0}`, t('previewShell.finishAcceptanceHint')),
-      fact('artifacts', t('previewShell.finishArtifacts'), compactNumber(artifacts.length), t('previewShell.finishArtifactsHint')),
-      fact('unfinished', t('previewShell.finishUnfinished'), compactNumber(unfinished.length), unfinished.length ? t('previewShell.finishUnfinishedOpen') : t('previewShell.finishUnfinishedNone')),
-      fact('changes', t('previewShell.finishChanges'), compactNumber(changes.filesChanged), t('previewShell.finishChangesHint', { p1: Number(changes.commands) || 0 })),
-      fact('usage', t('previewShell.finishUsage'), compactNumber(totalTokens), usageCost(usage)),
-      fact('audit', t('previewShell.finishAudit'), compactNumber(auditTotal), t('previewShell.finishAuditHint')),
-    );
+      fact('delivery', t('previewShell.finishDelivery'), t(`previewShell.finishReportKind.${reportKind}`), t('previewShell.finishDeliveryHint')),
+    ];
+    if (files.length) factNodes.push(fact('changes', t('previewShell.finishChanges'), compactNumber(files.length), t('previewShell.finishChangesHint', { p1: Number(changes.commands) || 0 })));
+    if (artifacts.length) factNodes.push(fact('artifacts', t('previewShell.finishArtifacts'), compactNumber(artifacts.length), t('previewShell.finishArtifactsHint')));
+    if (unfinished.length) factNodes.push(fact('unfinished', t('previewShell.finishUnfinished'), compactNumber(unfinished.length), t('previewShell.finishUnfinishedOpen')));
+    factNodes.push(fact('usage', t('previewShell.finishUsage'), `${compactNumber(totalTokens)} ${t('previewShell.tokens')}`, usageCost(usage)));
+    facts.append(...factNodes);
 
     // 第88波:未完成项给出明细(最多5条+计数),不再只给一个数字;收工但有未完成项是最该核对「还差哪几件」的场景。
     const unfinishedSection = (() => {
@@ -2238,9 +2412,10 @@ export function createPreviewShellDomain({
       return section;
     })();
 
-    const artifactSection = text('section', 'preview-finish-artifacts', '');
-    artifactSection.appendChild(text('h3', '', t('previewShell.finishArtifactList')));
-    if (artifacts.length) {
+    const artifactSection = (() => {
+      if (!artifacts.length) return null;
+      const section = text('section', 'preview-finish-artifacts', '');
+      section.appendChild(text('h3', '', t('previewShell.finishArtifactList')));
       const list = text('ul', '', '');
       for (const item of artifacts.slice(0, 8)) {
         const row = text('li', '', '');
@@ -2249,21 +2424,24 @@ export function createPreviewShellDomain({
       }
       // 第88波:产物超 8 条补计数尾巴,不再静默截断交接清单。
       if (artifacts.length > 8) list.appendChild(text('li', 'preview-finish-more', t('previewShell.finishArtifactsMore', { p1: artifacts.length - 8 })));
-      artifactSection.appendChild(list);
-    } else artifactSection.appendChild(text('p', 'preview-finish-empty', t('previewShell.finishNoArtifacts')));
+      section.appendChild(list);
+      return section;
+    })();
 
     const actions = text('div', 'preview-finish-actions', '');
     const playbook = actionButton(t('previewShell.finishSavePlaybook'), 'primary', event => {
       void saveMissionAsPlaybook(card.sessionId, event.currentTarget);
     });
+    playbook.title = t('previewShell.finishSavePlaybookHint');
     const memory = actionButton(t('previewShell.finishSaveMemory'), '', event => {
       void saveMissionAsMemory(card.sessionId, event.currentTarget);
     });
+    memory.title = t('previewShell.finishSaveMemoryHint');
     const archive = actionButton(t('previewShell.finishArchive'), 'ghost', () => {
       updateMissionUi(card.missionId, { archived: true }); openDispatchHome();
     });
     actions.append(playbook, memory, archive);
-    host.replaceChildren(...[heading, facts, unfinishedSection, artifactSection, actions].filter(Boolean));
+    host.replaceChildren(...[heading, report, facts, unfinishedSection, artifactSection, actions].filter(Boolean));
   }
 
   function changeDescription(record) {
@@ -2284,10 +2462,21 @@ export function createPreviewShellDomain({
 
   function renderReturnSummary(article) {
     const host = article?.querySelector('[data-slot="returnSummary"]');
-    if (!host || !selectedChanges) return;
+    if (!host) return;
+    if (!selectedChanges) {
+      host.hidden = true;
+      host.replaceChildren();
+      return;
+    }
+    const changes = Array.isArray(selectedChanges.changes) ? selectedChanges.changes : [];
+    const state = missionState.fromSnapshot(selectedSnapshot).state;
+    if (state === 'done' || (!changes.length && selectedChanges.degraded !== true)) {
+      host.hidden = true;
+      host.replaceChildren();
+      return;
+    }
     host.hidden = false;
     host.classList.toggle('is-degraded', selectedChanges.degraded === true);
-    const changes = Array.isArray(selectedChanges.changes) ? selectedChanges.changes : [];
     const head = text('div', 'preview-return-head', '');
     const heading = text('div', '', '');
     heading.append(text('span', 'preview-eyebrow', t('previewShell.returnEyebrow')),
@@ -2519,6 +2708,14 @@ export function createPreviewShellDomain({
     const terminalState = missionState.fromSnapshot(selectedSnapshot);
     const mcHost = article.querySelector('[data-slot="missionControl"]');
     if (mcHost) mcHost.hidden = (terminalState.state === 'done' || terminalState.state === 'stopped') && !controlDraft && !controlBusy;
+    const processDetails = article.querySelector('[data-slot="processDetails"]');
+    if (processDetails) {
+      const processMode = terminalState.state === 'done' || terminalState.state === 'stopped' ? 'terminal' : 'active';
+      if (processDetails.dataset.mode !== processMode) {
+        processDetails.dataset.mode = processMode;
+        processDetails.open = processMode === 'active';
+      }
+    }
     renderReturnSummary(article);
     renderStopCard(article, card, selectedSnapshot);
     renderFinishCard(article, card, selectedSnapshot);

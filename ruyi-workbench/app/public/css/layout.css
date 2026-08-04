@@ -39,8 +39,24 @@
   min-width: 0;
 }
 .sidebar { border-right: 1px solid var(--glass-border); gap: 10px; }
-.classic-sidebar-primary-actions { display: grid; gap: 7px; }
-.classic-preview-switch { min-height: 34px; border-style: dashed; color: var(--accent); }
+.classic-sidebar-primary-actions { display: grid; gap: 8px; }
+.sidebar button.classic-preview-switch {
+  min-height: 38px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line));
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--panel));
+  color: var(--accent);
+  font-weight: 650;
+  letter-spacing: .01em;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.sidebar button.classic-preview-switch:hover {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--line));
+  background: color-mix(in srgb, var(--accent) 11%, var(--panel));
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+.classic-preview-switch .ic { width: 15px; height: 15px; }
 .tool-pane { border-left: 1px solid var(--glass-border); }
 .app-shell.tools-collapsed .tool-pane,
 .app-shell.sidebar-collapsed .sidebar { display: none; }

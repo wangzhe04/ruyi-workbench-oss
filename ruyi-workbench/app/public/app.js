@@ -235,6 +235,7 @@ const {
   renderContextMeter,
   renderGitDiffInto,
   renderMarkdown,
+  renderMarkdownInto,
   saveAsPlaybook,
   safeStringify,
   setCtxWindowManual,
@@ -911,6 +912,8 @@ const {
   playbookName: playbook => playbookDisplayName(playbook),
   playbookDescription: playbook => playbookDisplayDescription(playbook),
   playbookUnavailableReason: playbook => playbookDisplayUnavailableReason(playbook),
+  renderMarkdownInto: (container, value) => renderMarkdownInto(container, value),
+  highlightIn: container => highlightIn(container),
   renderStaticMessage: (...args) => renderStaticMessage(...args),
   getActiveTurnLines: sessionId => {
     const turn = activeTurns.get(sessionId);

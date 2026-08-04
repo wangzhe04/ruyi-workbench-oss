@@ -29,6 +29,27 @@ for (const className of ['preview-task-head', 'preview-task-progress', 'preview-
 }
 ok(shell.includes("makeMetric('turns'") && shell.includes("makeMetric('tokens'")
   && shell.includes("makeMetric('cost'") && shell.includes("makeMetric('runs'"), 'A3 头部五态/进度外含回合、Token、费用、班组用量事实');
+ok(shell.includes("processDetails.dataset.mode = processMode") && shell.includes("processDetails.open = processMode === 'active'")
+  && css.includes('.preview-process-details') && css.includes(':has(> .preview-process-details:not([open])) { height: auto; max-height: 100%; }')
+  && css.includes('display: flex; align-items: center; justify-content: center;'),
+  'A3b 执行过程与台账在活任务展开、终态任务默认折叠且收起时任务单紧凑居中');
+ok(shell.includes("reportKind = files.length ? 'engineering'") && shell.includes("message.role === 'assistant'")
+  && shell.includes("report.className = 'preview-finish-report'") && shell.includes('report.open = reportWasOpen')
+  && shell.includes('reportDeliveryText(reportSource)') && shell.includes("text('div', 'preview-finish-report-copy md', '')")
+  && shell.includes('renderMarkdownInto(reportCopy, reportText)') && shell.includes('highlightIn(reportCopy)')
+  && shell.includes("reportCopy.dataset.markdownReady === 'true'")
+  && shell.includes('reportPreviewText(reportSource)') && !shell.includes("full.className = 'preview-finish-report-full'"),
+  'A3c 收工汇报默认折叠，以正文标题预览，展开显示完整交付正文并保留用户展开状态');
+ok(css.includes('--preview-terminal-gutter') && css.includes('align-items: flex-start;')
+  && css.includes('grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));'),
+  'A3c2 wide terminal sheets share a centered content rail and balanced fact columns');
+ok(shell.includes('narrativeTurnContext(entry)') && shell.includes('preview-narrative-outcome')
+  && shell.includes('preview-narrative-goal'), 'A3d 现场纪要补任务目标、验收概况与逐回合结论');
+ok(zh['previewShell.finishSavePlaybook'] === '保存为任务模板' && zh['previewShell.finishSaveMemory'] === '记住本次偏好',
+  'A3e 完成态学习动作直接说明模板与偏好差别');
+ok(shell.includes("details.className = 'preview-ledger-details'") && shell.includes('details.open = ledgerWasOpen || Boolean(controlDraft)')
+  && shell.includes("section.className = 'preview-ledger-irreversible'") && shell.includes('section.open = irreversibleWasOpen'),
+  'A3f 台账明细与不可逆操作分层折叠并保留用户展开状态');
 ok(shell.includes("readonlyPanel('needs'") && shell.includes("readonlyPanel('results'")
   && shell.includes("readonlyPanel('ledger'"), 'A4 收活台需要你/成果/台账三块均为只读投影');
 ok(shell.includes('/interventions/${encodeURIComponent(id)}/decision')

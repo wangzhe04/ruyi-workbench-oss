@@ -54,7 +54,7 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // activity brief a clickable needs entry, hides the control deck on terminal tasks, adds a loading spinner,
 // Esc-closes confirmations, and completes finish/stop card unfinished details. Same owned Preview layer.
 // Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = '9add78335887442b967f3edf3014f8973e4aada8d399751b91902b2b4b760847';
+const LEGACY_STYLES_SHA256 = '5ad6c18a88114ffe14bdde6f3a51a858ded39b4f6a5dd29701a007c35215db7f';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
