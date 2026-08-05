@@ -1687,7 +1687,7 @@
   "previewShell.dockTitle": "任务坞",
   "previewShell.mainLabel": "任务台主视图",
   "previewShell.refresh": "刷新",
-  "previewShell.openClassic": "经典布局",
+  "previewShell.openClassic": "经典模式",
   "previewShell.unknown": "未设置",
   "previewShell.state.dispatching": "交办中",
   "previewShell.state.running": "进行中",
@@ -1809,7 +1809,9 @@
   "previewShell.firstRunEngineAction": "配置引擎",
   "previewShell.firstRunEngine": "连接一个可用的 AI 引擎",
   "previewShell.firstRunEngineReady": "引擎已就绪：{{p1}}",
-  "previewShell.archiveNav": "档案",
+  "previewShell.archiveNav": "任务档案",
+  "previewShell.refreshNav": "刷新状态",
+  "previewShell.settingsNav": "偏好设置",
   "previewShell.archiveEyebrow": "任务档案",
   "previewShell.archiveTitle": "收工有据，随时可续。",
   "previewShell.archiveBody": "已收工与已停工任务按工作圈或状态编组。搜索、置顶与归档只保存在本机，不改写任务事实。",
@@ -1948,6 +1950,16 @@
   ,"previewShell.continueTurnAction": "继续推进"
   ,"previewShell.continueTurnHint": "回车发送后将在当前任务上开启新一回合，进度与账本继续累计。"
   ,"previewShell.continueTurnActiveHint": "当前回合仍在进行，回合结束后即可继续推进。"
+  ,"previewShell.continueTurnEyebrow": "NEXT TURN"
+  ,"previewShell.continueTurnTitle": "继续这个任务"
+  ,"previewShell.continueTurnDescription": "补充目标、修正方向或追加验收要求，继续沿用当前任务的上下文与账本。"
+  ,"previewShell.continueTurnShortcut": "Ctrl + Enter"
+  ,"previewShell.continueTurnState.active": "当前回合"
+  ,"previewShell.continueTurnState.ready": "可续办"
+  ,"previewShell.continueTurnState.restart": "可重启"
+  ,"previewShell.continueTurnState.unavailable": "暂不可用"
+  ,"previewShell.taskActionsTitle": "任务操作"
+  ,"previewShell.taskActionsHint": "返回任务台、切换完整会话或刷新当前状态"
   ,"previewShell.controlReason.already_running": "任务正在运行中"
   ,"previewShell.controlReason.not_terminal": "任务尚未收尾"
   ,"previewShell.controlReason.milestone_limit": "验收项已达上限，请新建立一项任务"
@@ -2133,6 +2145,9 @@
   ,"previewShell.finishAudit": "审计"
   ,"previewShell.finishAuditHint": "命令、不可逆项与检查点"
   ,"previewShell.finishArtifactList": "成果清单"
+  ,"previewShell.finishArtifactCount": "{{p1}} 项"
+  ,"previewShell.finishArtifactExpand": "展开后可打开文件或在资源管理器中定位"
+  ,"previewShell.finishArtifactLocate": "定位"
   ,"previewShell.finishNoArtifacts": "本单没有登记独立成果文件；验收与操作台账仍完整保留。"
   ,"previewShell.finishSavePlaybook": "保存为任务模板"
   ,"previewShell.finishSavePlaybookHint": "以后可以从交办台直接重复这类任务"

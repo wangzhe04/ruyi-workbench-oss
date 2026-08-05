@@ -46,6 +46,7 @@ for (const token of ['previewArchiveSearch', "['all', 'done', 'stopped', 'pinned
   ok(shell.includes(token), `C2 档案操作 ${token} 已接线`);
 }
 ok(shell.includes('renderDock(); renderHome();') && shell.includes('ui.pinned ? 1 : 0')
+  && shell.includes("'preview-dock-quick-action is-pin'") && css.includes('.preview-dock-foot .preview-dock-action')
   && !shell.includes("dockActions.setAttribute('aria-hidden', 'true')")
   && !shell.includes("quick.setAttribute('aria-hidden', 'true')"),
   'C2b 快捷归档/置顶同步任务坞缓存，且不会把可聚焦按钮藏出无障碍树');

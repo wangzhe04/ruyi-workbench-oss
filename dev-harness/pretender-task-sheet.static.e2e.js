@@ -43,6 +43,13 @@ ok(shell.includes("reportKind = files.length ? 'engineering'") && shell.includes
 ok(css.includes('--preview-terminal-gutter') && css.includes('align-items: flex-start;')
   && css.includes('grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));'),
   'A3c2 wide terminal sheets share a centered content rail and balanced fact columns');
+ok(shell.includes("section.className = 'preview-finish-artifacts'") && shell.includes('section.open = artifactsWereOpen')
+  && shell.includes("api('/api/file/reveal'") && shell.includes("reveal(path, 'open')") && shell.includes("reveal(path, 'select')"),
+  'A3c3 成果清单默认折叠并保留展开状态，每项复用安全文件接口提供打开与定位');
+ok(shell.includes("text('section', 'preview-task-bottom'") && shell.includes("text('div', 'preview-continue-turn-head'")
+  && shell.includes("continueState.dataset.slot = 'continueState'") && css.includes('.preview-task-bottom')
+  && css.includes('.preview-task-actions-copy') && css.includes('.preview-continue-turn-state[data-tone="ready"]'),
+  'A3c4 底部续办与普通任务操作分组，具备用途标题、状态徽记和差异化配色');
 ok(shell.includes('narrativeTurnContext(entry)') && shell.includes('preview-narrative-outcome')
   && shell.includes('preview-narrative-goal'), 'A3d 现场纪要补任务目标、验收概况与逐回合结论');
 ok(zh['previewShell.finishSavePlaybook'] === '保存为任务模板' && zh['previewShell.finishSaveMemory'] === '记住本次偏好',

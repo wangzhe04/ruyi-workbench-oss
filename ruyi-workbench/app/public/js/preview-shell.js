@@ -462,7 +462,7 @@ export function createPreviewShellDomain({
           item.appendChild(button);
           // 第95波:悬停快速操作 —— 右上角 ✕ 归档 / 📌 置顶,鼠标移过去即现即点,不必进归档页。
           const dockActions = text('div', 'preview-dock-actions', '');
-          const dockArchive = actionButton('', 'preview-dock-action is-archive', () => {
+          const dockArchive = actionButton('', 'preview-dock-quick-action is-archive', () => {
             updateMissionUi(card.missionId, { archived: true });
             renderDock();
             if (activeView === 'mission' && selectedMissionId === card.missionId) openDispatchHome();
@@ -470,7 +470,7 @@ export function createPreviewShellDomain({
           }, 'archive');
           dockArchive.title = t('previewShell.archiveAction');
           dockArchive.setAttribute('aria-label', t('previewShell.archiveAction'));
-          const dockPin = actionButton('', 'preview-dock-action is-pin', () => {
+          const dockPin = actionButton('', 'preview-dock-quick-action is-pin', () => {
             updateMissionUi(card.missionId, { pinned: !missionUi(card.missionId).pinned });
             renderDock();
           }, 'pin');
@@ -2369,14 +2369,26 @@ export function createPreviewShellDomain({
     const processSummary = text('summary', 'preview-process-summary', t('previewShell.processDetails'));
     processDetails.append(processSummary, lensSwitch, narrativeLens, crewLens, body, ledger);
 
-    const foot = text('footer', 'preview-main-actions preview-task-actions', '');
-    foot.append(actionButton(t('previewShell.backHome'), '', () => openDispatchHome(), 'back'),
+    const foot = text('footer', 'preview-task-actions', '');
+    const footCopy = text('div', 'preview-task-actions-copy', '');
+    footCopy.append(text('strong', '', t('previewShell.taskActionsTitle')), text('span', '', t('previewShell.taskActionsHint')));
+    const footButtons = text('div', 'preview-main-actions preview-task-action-buttons', '');
+    footButtons.append(actionButton(t('previewShell.backHome'), '', () => openDispatchHome(), 'back'),
       actionButton(t('previewShell.openMissionClassic'), 'primary', () => { void openSelectedInClassic(); }, 'open'),
       actionButton(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }, 'refresh'));
-    // 第95波:任务单内"继续推进下一回合"输入条 —— 完成/停工/暂停后都可在此追加新提示再开一回合,
-    // 不再被迫跳回经典模式。状态(完成/停工/暂停/进行中)决定占位文案与按钮可用性。
+    foot.append(footCopy, footButtons);
+    // 底部续办工作区：把“追加指令”与普通页面导航分组，状态、用途和快捷键一眼可见。
     const continueTurn = text('section', 'preview-continue-turn', '');
     continueTurn.setAttribute('aria-label', t('previewShell.continueTurnAria'));
+    const continueHead = text('div', 'preview-continue-turn-head', '');
+    const continueMark = text('span', 'preview-continue-turn-mark', '');
+    continueMark.setAttribute('aria-hidden', 'true'); continueMark.appendChild(icon('resume', 17));
+    const continueCopy = text('div', 'preview-continue-turn-copy', '');
+    continueCopy.append(text('span', 'preview-eyebrow', t('previewShell.continueTurnEyebrow')),
+      text('h2', '', t('previewShell.continueTurnTitle')),
+      text('p', '', t('previewShell.continueTurnDescription')));
+    const continueState = text('span', 'preview-continue-turn-state', ''); continueState.dataset.slot = 'continueState';
+    continueHead.append(continueMark, continueCopy, continueState);
     const continueField = text('div', 'preview-continue-turn-field', '');
     const continueInput = document.createElement('textarea');
     continueInput.id = 'previewContinueInput'; continueInput.rows = 2;
@@ -2399,9 +2411,14 @@ export function createPreviewShellDomain({
     }, 'resume');
     continueSubmit.disabled = Boolean(controlBusy);
     continueField.append(continueInput, continueSubmit);
-    const continueHint = text('p', 'preview-continue-turn-hint', t('previewShell.continueTurnHint'));
-    continueTurn.append(continueField, continueHint);
-    article.append(head, missionControl, returnSummary, stopCard, finishCard, processDetails, continueTurn, foot);
+    const continueHint = text('div', 'preview-continue-turn-hint', '');
+    continueHint.append(text('kbd', '', t('previewShell.continueTurnShortcut')),
+      text('span', '', t('previewShell.continueTurnHint')));
+    continueHint.lastChild.dataset.slot = 'continueHint';
+    continueTurn.append(continueHead, continueField, continueHint);
+    const bottom = text('section', 'preview-task-bottom', '');
+    bottom.append(continueTurn, foot);
+    article.append(head, missionControl, returnSummary, stopCard, finishCard, processDetails, bottom);
     main.replaceChildren(article);
     return article;
   }
@@ -2478,7 +2495,8 @@ export function createPreviewShellDomain({
     if (continueTurn) {
       const input = continueTurn.querySelector('.preview-continue-turn-input');
       const submit = continueTurn.querySelector('.preview-continue-turn-submit');
-      const hint = continueTurn.querySelector('.preview-continue-turn-hint');
+      const hint = continueTurn.querySelector('[data-slot="continueHint"]');
+      const stateBadge = continueTurn.querySelector('[data-slot="continueState"]');
       const nextTurn = (snapshot.controls?.actions || {}).next_turn || { enabled: false, reason: 'unavailable' };
       const active = Boolean(snapshot.controls?.activeTurn) || (Number(snapshot.controls?.liveRuns) || 0) > 0;
       continueTurn.dataset.state = derived.state;
@@ -2498,6 +2516,14 @@ export function createPreviewShellDomain({
         hint.textContent = active
           ? t('previewShell.continueTurnActiveHint')
           : (nextTurn.enabled ? t('previewShell.continueTurnHint') : controlReason(nextTurn.reason));
+      }
+      if (stateBadge) {
+        stateBadge.textContent = active
+          ? t('previewShell.continueTurnState.active')
+          : (nextTurn.enabled
+            ? t(derived.state === 'stopped' ? 'previewShell.continueTurnState.restart' : 'previewShell.continueTurnState.ready')
+            : t('previewShell.continueTurnState.unavailable'));
+        stateBadge.dataset.tone = active ? 'active' : (nextTurn.enabled ? 'ready' : 'quiet');
       }
     }
   }
@@ -2550,6 +2576,8 @@ export function createPreviewShellDomain({
     const missionId = String(card?.missionId || '');
     const reportWasOpen = host.dataset.finishMissionId === missionId
       && host.querySelector('.preview-finish-report')?.open === true;
+    const artifactsWereOpen = host.dataset.finishMissionId === missionId
+      && host.querySelector('.preview-finish-artifacts')?.open === true;
     const result = snapshot && snapshot.result;
     if (!result || result.status !== 'complete') {
       host.hidden = true;
@@ -2654,17 +2682,49 @@ export function createPreviewShellDomain({
 
     const artifactSection = (() => {
       if (!artifacts.length) return null;
-      const section = text('section', 'preview-finish-artifacts', '');
-      section.appendChild(text('h3', '', t('previewShell.finishArtifactList')));
+      const section = document.createElement('details');
+      section.className = 'preview-finish-artifacts';
+      section.open = artifactsWereOpen;
+      const summary = text('summary', 'preview-finish-artifacts-head', '');
+      summary.append(text('strong', '', t('previewShell.finishArtifactList')),
+        text('span', 'preview-finish-artifacts-count', t('previewShell.finishArtifactCount', { p1: artifacts.length })),
+        text('span', 'preview-finish-artifacts-hint', t('previewShell.finishArtifactExpand')));
+      section.appendChild(summary);
       const list = text('ul', '', '');
+      const status = text('p', 'preview-finish-artifact-status', '');
+      status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+      const reveal = async (path, mode) => {
+        status.classList.remove('is-error'); status.textContent = '';
+        try {
+          const response = await api('/api/file/reveal', {
+            method: 'POST', body: JSON.stringify({ sessionId: card.sessionId, path, mode }),
+          });
+          if (!response || response.ok !== true) throw response || new Error(t('file.open.unavailable'));
+          if (response.degradedTo && response.note) status.textContent = response.note;
+        } catch (error) {
+          status.classList.add('is-error');
+          status.textContent = t('file.open.failed', { reason: apiErrText(error) || t('file.open.unavailable') });
+        }
+      };
       for (const item of artifacts.slice(0, 8)) {
-        const row = text('li', '', '');
-        row.append(text('strong', '', basename(item.path) || item.path), text('code', '', item.path));
+        const path = String(item.path);
+        const row = text('li', 'preview-finish-artifact-row', ''); row.title = path;
+        const identity = text('div', 'preview-finish-artifact-identity', '');
+        const fileMark = text('span', 'preview-finish-artifact-icon', ''); fileMark.setAttribute('aria-hidden', 'true'); fileMark.appendChild(icon('sheet', 15));
+        const fileCopy = text('span', 'preview-finish-artifact-copy', '');
+        fileCopy.append(text('strong', '', basename(path) || path), text('code', '', path));
+        identity.append(fileMark, fileCopy);
+        const rowActions = text('span', 'preview-finish-artifact-actions', '');
+        const open = actionButton(t('file.open'), '', () => { void reveal(path, 'open'); }, 'open');
+        const locate = actionButton(t('previewShell.finishArtifactLocate'), '', () => { void reveal(path, 'select'); }, 'folder');
+        open.title = t('file.open'); locate.title = t('file.reveal');
+        rowActions.append(open, locate);
+        row.append(identity, rowActions);
         list.appendChild(row);
       }
       // 第88波:产物超 8 条补计数尾巴,不再静默截断交接清单。
       if (artifacts.length > 8) list.appendChild(text('li', 'preview-finish-more', t('previewShell.finishArtifactsMore', { p1: artifacts.length - 8 })));
-      section.appendChild(list);
+      section.append(list, status);
       return section;
     })();
 

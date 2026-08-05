@@ -45,7 +45,7 @@ ok(/const previewFirst[\s\S]{0,420}if \(previewFirst\) \{[\s\S]{0,220}await refr
   && app.includes('if (!previewFirst) {'),
   'A4 Preview paints before hidden classic hydration while classic keeps its original boot path');
 ok(/@media \(max-width: 620px\)[\s\S]*\.preview-seal \{ width: 48px/.test(css)
-  && /\.preview-dock-action \{ width: 46px/.test(css),
+  && /\.preview-dock-foot \.preview-dock-action \{ width: 46px/.test(css),
   'A5 narrow task dock keeps seals and recovery controls inside the 52px rail');
 
 ok(perf.includes('SESSION_COUNT = 300') && perf.includes('VISIBLE_CARD_COUNT = 200'),

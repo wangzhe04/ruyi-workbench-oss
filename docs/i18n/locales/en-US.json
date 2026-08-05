@@ -1687,7 +1687,7 @@
   "previewShell.dockTitle": "Task dock",
   "previewShell.mainLabel": "Task desk main view",
   "previewShell.refresh": "Refresh",
-  "previewShell.openClassic": "Classic layout",
+  "previewShell.openClassic": "Classic mode",
   "previewShell.unknown": "Not set",
   "previewShell.state.dispatching": "Dispatching",
   "previewShell.state.running": "Running",
@@ -1809,7 +1809,9 @@
   "previewShell.firstRunEngineAction": "Configure engine",
   "previewShell.firstRunEngine": "Connect an available AI engine",
   "previewShell.firstRunEngineReady": "Engine ready: {{p1}}",
-  "previewShell.archiveNav": "Archive",
+  "previewShell.archiveNav": "Task archive",
+  "previewShell.refreshNav": "Refresh status",
+  "previewShell.settingsNav": "Preferences",
   "previewShell.archiveEyebrow": "Task archive",
   "previewShell.archiveTitle": "Finished with evidence. Ready to resume.",
   "previewShell.archiveBody": "Completed and stopped tasks are grouped by workspace or state. Search, pinning, and archiving stay on this device and never rewrite mission facts.",
@@ -1948,6 +1950,16 @@
   ,"previewShell.continueTurnAction": "Continue"
   ,"previewShell.continueTurnHint": "Sending opens a new turn on this task; progress and ledger keep accumulating."
   ,"previewShell.continueTurnActiveHint": "A turn is still running; continue once it settles."
+  ,"previewShell.continueTurnEyebrow": "NEXT TURN"
+  ,"previewShell.continueTurnTitle": "Continue this task"
+  ,"previewShell.continueTurnDescription": "Add a goal, adjust direction, or extend acceptance while keeping this task's context and ledger."
+  ,"previewShell.continueTurnShortcut": "Ctrl + Enter"
+  ,"previewShell.continueTurnState.active": "Turn active"
+  ,"previewShell.continueTurnState.ready": "Ready to continue"
+  ,"previewShell.continueTurnState.restart": "Ready to restart"
+  ,"previewShell.continueTurnState.unavailable": "Unavailable"
+  ,"previewShell.taskActionsTitle": "Task actions"
+  ,"previewShell.taskActionsHint": "Return to the desk, open the full conversation, or refresh this status"
   ,"previewShell.controlReason.already_running": "Task is running"
   ,"previewShell.controlReason.not_terminal": "Task is not finished"
   ,"previewShell.controlReason.milestone_limit": "The acceptance-item limit is reached; start a new task"
@@ -2133,6 +2145,9 @@
   ,"previewShell.finishAudit": "Audit"
   ,"previewShell.finishAuditHint": "Commands, irreversible items, and checkpoints"
   ,"previewShell.finishArtifactList": "Output manifest"
+  ,"previewShell.finishArtifactCount": "{{p1}} items"
+  ,"previewShell.finishArtifactExpand": "Expand to open files or show them in File Explorer"
+  ,"previewShell.finishArtifactLocate": "Locate"
   ,"previewShell.finishNoArtifacts": "No standalone output file was registered; acceptance and the operation ledger remain available."
   ,"previewShell.finishSavePlaybook": "Save as task template"
   ,"previewShell.finishSavePlaybookHint": "Reuse this kind of task directly from the dispatch desk"

@@ -55,8 +55,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // Esc-closes confirmations, and completes finish/stop card unfinished details. Same owned Preview layer.
 // Waves 95-98 add Preview-only quick actions, follow-up and attachment controls, task-sheet polish, and
 // live narrative motion. Re-pin the intentional payload while keeping every classic style layer unchanged.
+// Wave 99 separates dock navigation from hover actions, folds the artifact explorer, and gives the task
+// continuation footer its own responsive visual hierarchy. Classic layers remain unchanged.
 // Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = '5a278048961309df9a342d0574a573d2bd095f08c97e7de8abc5c4035ab1557a';
+const LEGACY_STYLES_SHA256 = 'c81c878dc8345cfaae057eeba8cf0260fa3c8803b78b5cd1f336bfba0326e6e1';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
