@@ -11664,9 +11664,19 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
         const id = ws.id || '';
         let s = id ? slots.find(x => x.id === id) : curSlot;
         if (s) {
-          s.item = ws; // keep the FULL item (with output) so it can be echoed back verbatim
-          const q = (ws.output && (ws.output.query || (Array.isArray(ws.output.search_terms) ? ws.output.search_terms.join(' ') : ''))) || '';
-          s.args = JSON.stringify({ status: ws.status || '', query: q });
+          s.item = ws; // keep the FULL item so it can be echoed back verbatim (server restores the results)
+          // v1.8.1: DeepSeek's web_search_call carries the query under `action` (NOT the OpenAI-doc shape
+          // `output.query`/`output.search_terms` — the real item has NO `output` field at all):
+          //   { type:'web_search_call', id, status, action:{ type:'search', queries:[...] } }
+          //   { type:'web_search_call', id, status, action:{ type:'open_page', url } }
+          // Parse both so the UI shows the REAL search terms / opened URL instead of an empty placeholder.
+          const action = ws.action && typeof ws.action === 'object' ? ws.action : null;
+          let q = '';
+          if (action) {
+            if (Array.isArray(action.queries)) q = action.queries.filter(Boolean).join(' | ');
+            else if (typeof action.url === 'string') q = action.url;
+          }
+          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q });
         }
         return false;
       }
@@ -13265,7 +13275,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         for (const stc of serverToolCalls) {
           let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
           const item = stc.item || { type: 'web_search_call', id: stc.id };
+          // v1.8.1: surface the parsed action type too (search / open_page) for an accurate tool card.
           const display = { query: wsArgs.query || '服务端搜索' };
+          if (wsArgs.actionType) display.actionType = wsArgs.actionType;
+          if (wsArgs.status) display.status = wsArgs.status;
           onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display, subagentId });
           const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
           onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
@@ -15882,7 +15895,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         for (const stc of serverToolCalls) {
           let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
           const item = stc.item || { type: 'web_search_call', id: stc.id };
+          // v1.8.1: surface the parsed action type too (search / open_page) so the UI can render the tool card accurately.
           const display = { query: wsArgs.query || '服务端搜索' };
+          if (wsArgs.actionType) display.actionType = wsArgs.actionType;
+          if (wsArgs.status) display.status = wsArgs.status;
           await notifyToolHookStart(stc, display, iter, 'server_tool');
           onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display });
           const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };

@@ -1397,9 +1397,19 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
         const id = ws.id || '';
         let s = id ? slots.find(x => x.id === id) : curSlot;
         if (s) {
-          s.item = ws; // keep the FULL item (with output) so it can be echoed back verbatim
-          const q = (ws.output && (ws.output.query || (Array.isArray(ws.output.search_terms) ? ws.output.search_terms.join(' ') : ''))) || '';
-          s.args = JSON.stringify({ status: ws.status || '', query: q });
+          s.item = ws; // keep the FULL item so it can be echoed back verbatim (server restores the results)
+          // v1.8.1: DeepSeek's web_search_call carries the query under `action` (NOT the OpenAI-doc shape
+          // `output.query`/`output.search_terms` — the real item has NO `output` field at all):
+          //   { type:'web_search_call', id, status, action:{ type:'search', queries:[...] } }
+          //   { type:'web_search_call', id, status, action:{ type:'open_page', url } }
+          // Parse both so the UI shows the REAL search terms / opened URL instead of an empty placeholder.
+          const action = ws.action && typeof ws.action === 'object' ? ws.action : null;
+          let q = '';
+          if (action) {
+            if (Array.isArray(action.queries)) q = action.queries.filter(Boolean).join(' | ');
+            else if (typeof action.url === 'string') q = action.url;
+          }
+          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q });
         }
         return false;
       }

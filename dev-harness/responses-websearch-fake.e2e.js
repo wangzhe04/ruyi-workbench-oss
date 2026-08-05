@@ -69,9 +69,11 @@ const server = http.createServer((req, res) => {
     sse({ type: 'response.created', sequence_number: seq++, response: { id: 'resp_ws', status: 'in_progress', output: [] } });
     if (!hasWsCall) {
       // First call: model decides to search — emits a web_search_call output item (id ws_1).
+      // v1.8.1: item shaped like the REAL DeepSeek payload (query under `action.queries`, NO `output`
+      // field, no `call_id`) — the old fake used the OpenAI-doc shape and masked the display bug.
       sse({ type: 'response.reasoning_text.delta', sequence_number: seq++, output_index: 0, item_id: 'rsn_1', delta: '我需要联网搜索。' });
-      sse({ type: 'response.output_item.added', sequence_number: seq++, output_index: 0, item: { id: 'ws_1', type: 'web_search_call', status: 'in_progress', call_id: 'call_ws_1' } });
-      sse({ type: 'response.output_item.done', sequence_number: seq++, output_index: 0, item: { id: 'ws_1', type: 'web_search_call', status: 'completed', call_id: 'call_ws_1', output: { query: 'DeepSeek V4', search_terms: ['DeepSeek V4'], results: [{ title: 'T', url: 'https://x', content: '搜索密标 ' + WS_SECRET }] } } });
+      sse({ type: 'response.output_item.added', sequence_number: seq++, output_index: 0, item: { id: 'ws_1', type: 'web_search_call', status: 'in_progress' } });
+      sse({ type: 'response.output_item.done', sequence_number: seq++, output_index: 0, item: { id: 'ws_1', type: 'web_search_call', status: 'completed', action: { type: 'search', queries: ['DeepSeek V4', 'DeepSeek V4 发布'] } } });
       sse({ type: 'response.completed', sequence_number: seq++, response: {
         id: 'resp_ws', status: 'completed', output: [],
         usage: { input_tokens: 120, output_tokens: 30, input_tokens_details: { cached_tokens: 40 } },
@@ -120,6 +122,10 @@ try {
   // Server-side surfacing: tool_use(web_search) + serverSide tool_result, NO local execution error.
   ok(toolUses.some(t => t.name === 'web_search'), 'web_search_call surfaced as tool_use (web_search)');
   const wsUse = toolUses.find(t => t.name === 'web_search');
+  // v1.8.1: the display must carry the REAL search terms parsed from action.queries (this is the bug
+  // regression guard — the old code read item.output.query which DeepSeek never sends → empty query).
+  ok(!!wsUse && wsUse.input && typeof wsUse.input.query === 'string' && wsUse.input.query.includes('DeepSeek V4') && wsUse.input.actionType === 'search',
+    'tool_use input carries real search terms from action.queries (query=' + JSON.stringify(wsUse && wsUse.input && wsUse.input.query) + ')');
   const wsResult = wsUse ? toolResults.find(r => r.id === wsUse.id) : null;
   ok(!!wsResult && wsResult.content && wsResult.content.serverSide === true && wsResult.isError !== true, 'web_search tool_result is serverSide & not an error (no local execution)');
   // Echo back: the next request's `input` carries the web_search_call item verbatim (same id), no function_call_output.

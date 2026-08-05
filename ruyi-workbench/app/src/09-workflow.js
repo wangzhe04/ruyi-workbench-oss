@@ -1553,7 +1553,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         for (const stc of serverToolCalls) {
           let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
           const item = stc.item || { type: 'web_search_call', id: stc.id };
+          // v1.8.1: surface the parsed action type too (search / open_page) so the UI can render the tool card accurately.
           const display = { query: wsArgs.query || '服务端搜索' };
+          if (wsArgs.actionType) display.actionType = wsArgs.actionType;
+          if (wsArgs.status) display.status = wsArgs.status;
           await notifyToolHookStart(stc, display, iter, 'server_tool');
           onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display });
           const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };

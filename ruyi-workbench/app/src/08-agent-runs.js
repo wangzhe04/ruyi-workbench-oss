@@ -704,7 +704,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         for (const stc of serverToolCalls) {
           let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
           const item = stc.item || { type: 'web_search_call', id: stc.id };
+          // v1.8.1: surface the parsed action type too (search / open_page) for an accurate tool card.
           const display = { query: wsArgs.query || '服务端搜索' };
+          if (wsArgs.actionType) display.actionType = wsArgs.actionType;
+          if (wsArgs.status) display.status = wsArgs.status;
           onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display, subagentId });
           const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
           onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
