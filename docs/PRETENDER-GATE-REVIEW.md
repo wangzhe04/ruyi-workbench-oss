@@ -1,6 +1,6 @@
 # Pretender 立项门评审(第56波,2026-07-29)
 
-状态:**P0 立项评审材料 + 建议**。依据 `docs/OPTIMIZATION-ROADMAP.md` 第56波(评审输入 5 项)与 `docs/UI-VNEXT-CONCEPT.md` §11(go/no-go 门)。评审通过只代表 **Projection Ready、允许冻结范围**,不代表 Data & Contract / Preview / Product / Release Ready；后续五层门与3.0范围解释以 `docs/PRETENDER-PLAN.md` v4 为准。
+状态:**P0 立项评审材料 + 建议**。依据 `docs/archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md` 第56波(评审输入 5 项)与 `docs/UI-VNEXT-CONCEPT.md` §11(go/no-go 门)。评审通过只代表 **Projection Ready、允许冻结范围**,不代表 Data & Contract / Preview / Product / Release Ready；后续五层门与3.0范围解释以 `docs/PRETENDER-PLAN.md` v4 为准。
 
 本评审的全部数据面断言可重复执行:`node dev-harness/pretender-gate.e2e.js`(31 断言)+ EC-E 各波 e2e(70/71/71b/72,合计 168 断言)。PoC:`docs/mockups/vnext-poc.html?port=<port>&token=<token>`(纯 GET,不写状态)。
 

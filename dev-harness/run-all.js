@@ -13,7 +13,7 @@
 //   node dev-harness/run-all.js --fast           # 仅快通道(.static 纯静态锁,秒级)
 //   node dev-harness/run-all.js foo.e2e.js       # 仅指定件(可多个,空格分隔)
 //
-// 设计依据见 docs/OPTIMIZATION-ROADMAP.md 第34波(CI 基建) + 第38波(V1.8-A 并行化)。
+// 设计依据见 docs/archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md 第34波(CI 基建) + 第38波(V1.8-A 并行化)。
 'use strict';
 const cp = require('child_process');
 const fs = require('fs');

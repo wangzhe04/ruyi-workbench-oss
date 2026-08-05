@@ -26,6 +26,7 @@ language. They are engineering records rather than normative user or deployment 
 
 | Concept | Status | Scope |
 |---|---|---|
+| [Pretender 3.0](PRETENDER-PLAN.md) | **已立项 · 交付中（2026-08-05）** | 交办台新壳层；五层门 P1✅ / P2✅ / P3 工程✅（正式外部受试者人因验证待办），P4 第87波 3.0.0 默认切换与发布待办。规划见 [`PRETENDER-PLAN.md`](PRETENDER-PLAN.md) v4、门评审见 [`PRETENDER-GATE-REVIEW.md`](PRETENDER-GATE-REVIEW.md)、本机指标见 [`PRETENDER-METRICS.md`](PRETENDER-METRICS.md) |
 | [Traveler 4.0](TRAVELER-CONCEPT.md) | **Concept v0.1 / 概念稿 v0.1** | Portable Missions：Task Capsule、安全续办、跨设备/接手者移交、执行权与证据回程；不是范围、版本或发布时间承诺 |
 
 ## UI 设计稿生命周期(第50波 D3 标注)
@@ -34,7 +35,7 @@ language. They are engineering records rather than normative user or deployment 
 |---|---|---|
 | [UI-DESIGN-V4.md](UI-DESIGN-V4.md) | **定稿(现行基线)** | 现代毛玻璃质感；token 值与 `css/tokens.css`、`css/themes/color-schemes.css` 一致，`styles.css` 为兼容清单；mockup: `mockups/v4-glass-*.html` |
 | [UI-ESCAPADE-TURN-NARRATIVE.md](UI-ESCAPADE-TURN-NARRATIVE.md) | **Escapade 提案(P1，建议前置)** | 一轮一个大框，文字/工具按真实顺序穿插；末尾保留完整工具、变更与产物复盘；Claude CLI/OpenAI 兼容共用协议与渲染器 |
-| [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | 概念待立项 | 唯一未落地概念稿(「交办台」);vNext 立项决策列第52波+,双壳并存死线 ≤2 release |
+| [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | **已立项（Pretender 3.0 概念依据）** | 「交办台」概念稿；已按 `PRETENDER-PLAN.md` v4 立项推进（P1–P3 完成，P4 第87波 3.0.0 待办） |
 
 ## 归档区(`archive/`)
 
@@ -42,6 +43,7 @@ language. They are engineering records rather than normative user or deployment 
 
 | 文档 | 对应波次 | 状态 |
 |---|---|---|
+| [OPTIMIZATION-ROADMAP-HISTORY-46-86.md](archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md) | 第46–86波 | 已归档（V2.0 封版、Escapade 2.x 交付详情、EC-A..EC-E 候选桶计划、第56波立项门计划与逐波交付记录） |
 | [OPTIMIZATION-ROADMAP-HISTORY-V1-2.md](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md) | 第1–45波 | 已归档（早期审计、v1.x 与 V2.0 立项/交付） |
 | [AUTONOMY-PLAN.md](archive/AUTONOMY-PLAN.md) | 第25-26波 | 已落地(耐久基座 + 调度监督) |
 | [TEAM-MODE-V2-DESIGN.md](archive/TEAM-MODE-V2-DESIGN.md) | 第8/9波后 | 已落地(团队模式 v2) |
