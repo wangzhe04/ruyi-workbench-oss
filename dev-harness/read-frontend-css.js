@@ -57,8 +57,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // live narrative motion. Re-pin the intentional payload while keeping every classic style layer unchanged.
 // Wave 99 separates dock navigation from hover actions, folds the artifact explorer, and gives the task
 // continuation footer its own responsive visual hierarchy. Classic layers remain unchanged.
-// Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = 'c81c878dc8345cfaae057eeba8cf0260fa3c8803b78b5cd1f336bfba0326e6e1';
+// v1.8.2 adds the provider "协议与能力" collapsed group (.prov-cap) styles next to its sibling .prov-adv
+// in the classic chat-shell layer (provider settings UI lives there). Re-pin the intentional payload.
+const LEGACY_STYLES_SHA256 = 'd611e4879bb26c78f9fcebe85b5b1b89332900d5eb9ad62ddffcbd6f2ec7fa82';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

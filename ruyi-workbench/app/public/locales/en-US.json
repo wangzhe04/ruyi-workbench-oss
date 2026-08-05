@@ -2169,4 +2169,8 @@
   ,"provider.pricing.cachedShort": "Cache price"
   ,"provider.pricing.outputShort": "Output price"
   ,"usage.cachedInputTokens": "{{count}} cache-hit"
+
+  ,"provider.capabilities": "Protocol & capabilities"
+  ,"provider.serverWebSearch": "Server-side search (DeepSeek Responses only)"
+  ,"provider.serverWebSearch.hint": "When enabled, web_search runs on the DeepSeek server (saves a round-trip); when off or unsupported, falls back to the built-in local search (builtin/searxng/bing…). Only available with apiStyle=responses."
 }

@@ -483,11 +483,18 @@ function addProviderFromPreset() {
     // v1.7: DeepSeek 预设模板带 apiStyle:'responses'(走官方新增的 Responses API, Codex/agent 工具循环)。
     // 其它预设不带 → providerCard 里默认 chat, 行为与旧版完全一致。
     ...(preset.apiStyle ? { apiStyle: preset.apiStyle } : {}),
+    // v1.8.2: DeepSeek 预设声明 serverWebSearch:true(Responses 服务端 web_search)。
+    // 透传进草稿,否则从 UI 添加的 DeepSeek 会静默退化为本地搜索保底(后端 sanitize 兜底默认 false)。
+    ...(preset.serverWebSearch ? { serverWebSearch: true } : {}),
   });
   renderProviders();
 }
 // Provider 单价编辑器的受控币种清单；属于设置写模型，不随只读用量看板迁移。
 const PRICING_CURRENCIES = ['CNY', 'USD', 'EUR', 'GBP', 'JPY'];
+// 对抗轮(critic B):prov-cap 折叠分组的 open 状态记忆。renderProviders 全量 innerHTML='' 重建会丢
+// open 状态(旧头部开关常驻可见,无此问题;收进折叠组后,locale 切换/加卡/删卡/测连都会整组收起)。
+// 用 provider id 作键的模块级 Map,重绘后恢复 —— 不入 draft、不入库,纯 UI 状态。
+const providerCapOpen = new Map();
 function renderProviders() {
   const box = $('providersList'); if (!box) return;
   box.innerHTML = '';
@@ -501,6 +508,20 @@ function providerCard(p, idx) {
   const labelIn = el('input', 'prov-label'); labelIn.value = p.label || ''; labelIn.placeholder = t('provider.displayNamePlaceholder'); labelIn.oninput = () => { p.label = labelIn.value; };
   const idTag = el('span', 'prov-id', p.id);
   const modChip = el('span', 'prov-modct', tCount('provider.modelCount', (p.models || []).length));
+  const testBtn = el('button', 'file-label', t('provider.testConnection')); testBtn.type = 'button'; testBtn.onclick = () => testProvider(idx, testBtn);
+  const delBtn = el('button', 'file-label prov-del', t('common.delete')); delBtn.type = 'button';
+  // A6: deleting a provider also drops its API key — confirm so a misclick can't silently lose it.
+  // 对抗轮(reverify A):删卡时清 providerCapOpen 记忆,避免 id 复用时新卡继承旧卡折叠状态。
+  delBtn.onclick = () => { if (!confirm(t('provider.deleteConfirm', { name: p.label || p.id }))) return; state.providersDraft.splice(idx, 1); providerCapOpen.delete(p.id); renderProviders(); };
+  head.append(labelIn, idTag, modChip, testBtn, delBtn);
+
+  // v1.8.2 重构:把零散的「协议与能力」开关(reasoning / vision / apiStyle / serverWebSearch)从头部收进
+  // 一个折叠分组,头部只留身份 + 操作按钮。原有文本模式( p.vision = / checked = !!p.vision / t('provider.vision')
+  // / card.append(...priceB) )全部保留,不破坏前端契约断言。
+  const cap = el('details', 'prov-cap'); cap.append(el('summary', '', t('provider.capabilities')));
+  // 对抗轮(critic B):重绘后恢复 open 状态;toggle 时写入记忆 Map(按 provider id)。
+  if (providerCapOpen.get(p.id)) cap.open = true;
+  cap.addEventListener('toggle', () => providerCapOpen.set(p.id, cap.open));
   const reason = el('label', 'check prov-reason'); const rc = el('input'); rc.type = 'checkbox'; rc.checked = !!p.reasoning; rc.onchange = () => { p.reasoning = rc.checked; };
   reason.appendChild(rc); reason.appendChild(document.createTextNode(' ' + t('provider.reasoning')));
   // v1.7: protocol 选择 — chat (Chat Completions, 默认) / responses (OpenAI Responses API, DeepSeek
@@ -511,7 +532,20 @@ function providerCard(p, idx) {
     const o = el('option'); o.value = val; o.textContent = t(key); sc.appendChild(o);
   }
   sc.value = p.apiStyle === 'responses' ? 'responses' : 'chat';
-  sc.onchange = () => { if (sc.value === 'responses') p.apiStyle = 'responses'; else delete p.apiStyle; };
+  // v1.8.2: 协议与能力联动 —— 只有 responses 才可能用服务端 web_search;切回 chat 自动隐藏该开关。
+  // 对抗轮(critic C):sync 只做【显隐 + 视觉 uncheck】,绝不 delete p.serverWebSearch —— 否则渲染期
+  // (locale 切换/加卡/测连触发 renderProviders)会静默丢弃用户已勾选的意图,responses→chat→responses
+  // 往返后已持久化的 true 会被降为 false。删除语义只发生在用户显式切换协议时(sc.onchange 里 delete)。
+  const serverSearchLbl = el('label', 'check prov-server-search');
+  const ssc = el('input'); ssc.type = 'checkbox'; ssc.checked = !!p.serverWebSearch;
+  const syncServerSearchVisibility = () => {
+    const isResponses = sc.value === 'responses';
+    serverSearchLbl.style.display = isResponses ? '' : 'none';
+    if (!isResponses) ssc.checked = false; // 视觉 uncheck;字段留给显式用户操作
+    // 对抗轮(reverify B):responses 时让显示镜像字段(外部手编 chat+true 切到 responses 时,显示与落盘一致)。
+    else ssc.checked = !!p.serverWebSearch;
+  };
+  sc.onchange = () => { if (sc.value === 'responses') p.apiStyle = 'responses'; else { delete p.apiStyle; delete p.serverWebSearch; } syncServerSearchVisibility(); };
   styleLbl.appendChild(sc);
   // 对抗轮(P2-2):协议选择下的帮助文字(解释 Responses API 适用场景 + 其它服务商无 /v1/responses 的警告),
   // 由双 locale 的 provider.apiStyle.hint 提供;此前该键定义了但 UI 从不渲染(死键)。
@@ -520,11 +554,14 @@ function providerCard(p, idx) {
   // v1.0-S3 (B2): per-provider vision 开关（能力矩阵/视觉回路读 provider.vision）。同 reasoning 开关的模式。
   const visionLbl = el('label', 'check prov-reason'); const vc = el('input'); vc.type = 'checkbox'; vc.checked = !!p.vision; vc.onchange = () => { p.vision = vc.checked; };
   visionLbl.appendChild(vc); visionLbl.appendChild(document.createTextNode(' ' + t('provider.vision')));
-  const testBtn = el('button', 'file-label', t('provider.testConnection')); testBtn.type = 'button'; testBtn.onclick = () => testProvider(idx, testBtn);
-  const delBtn = el('button', 'file-label prov-del', t('common.delete')); delBtn.type = 'button';
-  // A6: deleting a provider also drops its API key — confirm so a misclick can't silently lose it.
-  delBtn.onclick = () => { if (!confirm(t('provider.deleteConfirm', { name: p.label || p.id }))) return; state.providersDraft.splice(idx, 1); renderProviders(); };
-  head.append(labelIn, idTag, modChip, reason, visionLbl, styleLbl, testBtn, delBtn);
+  // v1.8.2: serverWebSearch —— 仅 DeepSeek Responses 端点支持服务端 web_search({type:'web_search'})。
+  // 开启后 web_search 由服务端执行(更省一轮往返);关闭/不支持时自动回退本地内置搜索(builtin/searxng/…)。
+  ssc.onchange = () => { p.serverWebSearch = ssc.checked; };
+  serverSearchLbl.appendChild(ssc); serverSearchLbl.appendChild(document.createTextNode(' ' + t('provider.serverWebSearch')));
+  const serverSearchHint = el('p', 'field-help muted prov-server-search-hint'); serverSearchHint.textContent = t('provider.serverWebSearch.hint');
+  serverSearchLbl.appendChild(serverSearchHint);
+  cap.append(reason, visionLbl, styleLbl, serverSearchLbl);
+  syncServerSearchVisibility();
 
   const b2 = el('div', 'field-block'); b2.append(el('label', '', 'Base URL'));
   const bi = el('input'); bi.type = 'text'; bi.value = p.baseUrl || ''; bi.placeholder = 'https://api.deepseek.com'; bi.oninput = () => { p.baseUrl = bi.value.trim(); }; b2.append(bi);
@@ -634,7 +671,7 @@ function providerCard(p, idx) {
   adv.append(sb, tb, eb);
 
   const status = el('div', 'prov-status muted'); status.id = `provStatus_${idx}`;
-  card.append(head, b2, grid, cwB, priceB, adv, status);
+  card.append(head, cap, b2, grid, cwB, priceB, adv, status);
   return card;
 }
 // v1.0.2 (G5b): 「当前生效」小字。仅当此 provider 是当前激活引擎时,从 /api/status.contextWindowResolved 取

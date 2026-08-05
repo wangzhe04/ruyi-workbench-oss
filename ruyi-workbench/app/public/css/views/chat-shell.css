@@ -301,6 +301,13 @@
 .prov-adv { font-size: var(--fs-sm); }
 .prov-adv > summary { cursor: pointer; color: var(--muted); padding: 2px 0; }
 .prov-adv[open] > summary { margin-bottom: 6px; }
+/* v1.8.2: 「协议与能力」折叠分组 —— 与 .prov-adv 同款外观;cap 内开关横向排列 */
+.prov-cap { font-size: var(--fs-sm); }
+.prov-cap > summary { cursor: pointer; color: var(--muted); padding: 2px 0; }
+.prov-cap[open] > summary { margin-bottom: 6px; }
+.prov-cap .prov-style, .prov-cap .prov-server-search { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; margin-right: 10px; color: var(--muted); flex-wrap: wrap; }
+.prov-cap .prov-style-select { max-width: 180px; }
+.prov-cap .prov-style-hint, .prov-cap .prov-server-search-hint { flex-basis: 100%; margin: 2px 0 4px; }
 /* v1.0.2 (G5b): provider 上下文窗口「当前生效」小字 */
 .prov-ctx-hint { font-size: var(--fs-xs); margin-top: 4px; line-height: 1.5; }
 .prov-status { font-size: var(--fs-sm); }
