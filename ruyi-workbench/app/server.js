@@ -19115,6 +19115,25 @@ async function adaptiveCatalogForMcp(config) {
   return { bridged, catalog: buildToolCatalog(native.concat(bridged.tools), bridged.route, config) };
 }
 
+// 文件族只读工具默认根(修复:旧实现统一回退 process.cwd()=服务器启动目录,与系统 workspace
+// 概念脱节 —— MCP/API 调用不带 root 时永远列到 dist/Ruyi-full 这类产物目录)。
+// 回退链:显式 args.root > 回合注入 ctx.workingDir > 会话 cwd ctx.session.cwd > MCP 子进程会话(env WCW_SESSION_ID)> 配置 defaultWorkspace > 用户主目录(末位兜底)。
+async function resolveFileToolRoot(args, ctx) {
+  if (args && args.root) return path.resolve(String(args.root));
+  const session = ctx && ctx.session;
+  const fromCtx = (ctx && ctx.workingDir) || (session && session.cwd);
+  if (fromCtx) return path.resolve(String(fromCtx));
+  const sid = process.env.WCW_SESSION_ID || '';
+  if (sid) {
+    try {
+      const s = await loadSession(sid);
+      if (s && s.cwd) return path.resolve(String(s.cwd));
+    } catch { /* fall through */ }
+  }
+  const cfg = (ctx && ctx.config) || await readConfig().catch(() => null);
+  return normalizeCwd(null, cfg && cfg.defaultWorkspace);
+}
+
 async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   const config = await readConfig();
   const { bridged, catalog } = await adaptiveCatalogForMcp(config);
@@ -19456,13 +19475,13 @@ const FILE_TOOL_HANDLERS = {
       return { ok: true, from, to, op: 'copy', overwritten: toExists };
   } },
   file_list: { paths: "read", guardNote: '', handler: async (args, ctx) => {
-      const root = path.resolve(args.root || process.cwd());
+      const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'file_list', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       return { ok: true, root, files: await walkFiles(root, args) };
   } },
   file_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
-      const root = path.resolve(args.root || process.cwd());
+      const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'file_search', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       let matches = await searchFileContent(root, String(args.pattern || ''), args);
@@ -19478,7 +19497,7 @@ const FILE_TOOL_HANDLERS = {
       // v0.8-S1: glob file matcher. Self-written `**`/`*`/`?` → RegExp; reuses walkFiles for traversal
       // (its default ignoreDirs: node_modules/.git/.venv). Returns files sorted by mtime DESC, capped
       // at maxResults (default 500) with a `truncated` flag.
-      const root = path.resolve(args.root || process.cwd());
+      const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'glob', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const pattern = String(args.pattern || '');
@@ -19499,7 +19518,7 @@ const FILE_TOOL_HANDLERS = {
       return { ok: true, root, files: matched.slice(0, maxResults).map(m => ({ path: m.path, relativePath: m.relativePath, mtime: m.mtime })), truncated };
   } },
   project_snapshot: { paths: "read", guardNote: '', handler: async (args, ctx) => {
-      const root = path.resolve(args.root || process.cwd());
+      const root = await resolveFileToolRoot(args, ctx);
       // 第41波(41a 表驱动首擒):file_list/file_search/glob 都有读闸,唯独本工具没有 —— 远端模型可越界列目录。
       // 注册表声明让这条不对称现形,补上同族读闸(本地模型越界读仍放行,与 file_list 完全同闸,行为只收不松)。
       const g = await guardFileToolPath(root, ctx, { tool: 'project_snapshot', write: false });
@@ -19782,19 +19801,19 @@ const CODE_TOOL_HANDLERS = {
       return gitCommit(args);
   } },
   dependency_inventory: { paths: null, guardNote: "只读盘点,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return dependencyInventory(args.root || process.cwd());
+      return dependencyInventory(await resolveFileToolRoot(args, ctx));
   } },
   code_review_scan: { paths: null, guardNote: "只读扫描,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return codeReviewScan(args.root || process.cwd(), args);
+      return codeReviewScan(await resolveFileToolRoot(args, ctx), args);
   } },
   frontend_audit: { paths: null, guardNote: "只读扫描,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return frontendAudit(args.root || process.cwd(), args);
+      return frontendAudit(await resolveFileToolRoot(args, ctx), args);
   } },
   claude_md_audit: { paths: null, guardNote: "只读扫描,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return claudeMdAudit(args.root || process.cwd());
+      return claudeMdAudit(await resolveFileToolRoot(args, ctx));
   } },
   docs_search: { paths: null, guardNote: "只读搜索,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return docsSearch(args.root || process.cwd(), String(args.query || ''), args);
+      return docsSearch(await resolveFileToolRoot(args, ctx), String(args.query || ''), args);
   } },
 };
 
