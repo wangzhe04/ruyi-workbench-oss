@@ -1147,7 +1147,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
       const loadedTools = toolLoading.current();
-      if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools); b.tool_choice = 'auto'; }
+      // v1.8.2: server-side web_search mapping only when the provider opts in (serverWebSearch:true) —
+      // otherwise web_search stays a LOCAL function tool (builtin backend fallback, works on any provider).
+      if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
       return b;
     }
     const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];

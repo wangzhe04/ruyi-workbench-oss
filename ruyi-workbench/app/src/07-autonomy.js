@@ -1178,16 +1178,20 @@ function buildResponsesInputItems(history) {
 }
 // Flatten chat-shaped function tools ({type:'function', function:{...}}) into Responses' flat shape.
 // v1.8: Ruyi's local `web_search` function tool is MAPPED to the Responses SERVER-SIDE tool
-// {type:'web_search'} (DeepSeek executes it; events web_search_call.* + output_item web_search_call).
-// DeepSeek ignores unknown builtin tool types, so only web_search is mapped here — everything else
-// keeps its historical flatten/passthrough behavior.
-function toResponsesTools(tools) {
+// {type:'web_search'} (DeepSeek executes it; events web_search_call.* + output_item web_search_call) —
+// but ONLY when the provider opts in via serverWebSearch:true (the DeepSeek preset ships it). This keeps
+// the built-in LOCAL web_search (builtin/searxng/bing/brave/tavily/bocha/custom backends) as the FALLBACK
+// for every other provider and for Responses endpoints that ignore server-side tool types (DeepSeek
+// silently drops unsupported tools — an unconditional mapping would silently remove web_search there).
+// DeepSeek ignores unknown builtin tool types, so only web_search is ever mapped; everything else keeps
+// its historical flatten/passthrough behavior.
+function toResponsesTools(tools, serverWebSearch) {
   if (!Array.isArray(tools)) return [];
   const out = [];
   for (const t of tools) {
     if (!t || typeof t !== 'object') continue;
     const flatName = t.type === 'function' ? (t.name || (t.function && t.function.name) || '') : '';
-    if (flatName === 'web_search') {
+    if (serverWebSearch === true && flatName === 'web_search') {
       out.push({ type: 'web_search' });
       continue;
     }

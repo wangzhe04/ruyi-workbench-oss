@@ -8179,6 +8179,10 @@ const PROVIDER_PRESETS = [
     // v1.7: apiStyle 供本预设模板声明协议偏好(默认 chat;可切 'responses' 走 DeepSeek 新增的 Responses API,
     // 专为 Codex/agent 工具循环设计)。addProviderFromPreset 会把它带入草稿。
     apiStyle: 'responses',
+    // v1.8.2: serverWebSearch —— 本预设声明支持 DeepSeek Responses 的【服务端 web_search 工具】
+    // ({type:'web_search'},服务端执行)。开启后工作台把本地 web_search function 工具映射为服务端工具;
+    // 关闭(=其它 provider/端点默认)则保持本地 builtin/searxng/bing… 保底搜索(开箱即用,不依赖供应商)。
+    serverWebSearch: true,
     // v1.4-OSS 用量看板: a reasonable DEFAULT price prefill (元/百万 token, CNY) — user-editable in 设置.
     // v1.7 更新为官方现行价:v4-flash 1/2、v4-pro 3/6,缓存命中输入 0.02/0.025(元/百万 token)。
     // 用模型级覆盖区分 flash/pro;默认行只兜底 deepseek-chat/reasoner 等别名。价格会漂移,配置是事实源。
@@ -8316,6 +8320,10 @@ function sanitizeProvider(raw) {
     // 2026-08). Unknown/absent → 'chat' (向后兼容:任何既有配置零行为变化)。UI 设置里可逐 provider 切换,
     // 引擎在 buildBody/openAiStreamOnce 按此分支。其它 openai-compat 服务商(未提供 /responses 端点)保持 chat。
     apiStyle: raw.apiStyle === 'responses' ? 'responses' : 'chat',
+    // v1.8.2: serverWebSearch (boolean, default false) — opt-in for the Responses SERVER-SIDE web_search tool
+    // ({type:'web_search'}). Default false keeps the built-in LOCAL web_search function tool as the fallback
+    // for every provider / endpoint that doesn't support server-side search (DeepSeek preset sets true).
+    serverWebSearch: raw.serverWebSearch === true,
     // v0.8-S6: vision (boolean, default false) — the gate for the v0.9 vision回路 (image parts to the model).
     // Passed through untouched by sanitizeProvider; surfaced in the capability matrix (provider.vision).
     vision: raw.vision === true,
@@ -11445,16 +11453,20 @@ function buildResponsesInputItems(history) {
 }
 // Flatten chat-shaped function tools ({type:'function', function:{...}}) into Responses' flat shape.
 // v1.8: Ruyi's local `web_search` function tool is MAPPED to the Responses SERVER-SIDE tool
-// {type:'web_search'} (DeepSeek executes it; events web_search_call.* + output_item web_search_call).
-// DeepSeek ignores unknown builtin tool types, so only web_search is mapped here — everything else
-// keeps its historical flatten/passthrough behavior.
-function toResponsesTools(tools) {
+// {type:'web_search'} (DeepSeek executes it; events web_search_call.* + output_item web_search_call) —
+// but ONLY when the provider opts in via serverWebSearch:true (the DeepSeek preset ships it). This keeps
+// the built-in LOCAL web_search (builtin/searxng/bing/brave/tavily/bocha/custom backends) as the FALLBACK
+// for every other provider and for Responses endpoints that ignore server-side tool types (DeepSeek
+// silently drops unsupported tools — an unconditional mapping would silently remove web_search there).
+// DeepSeek ignores unknown builtin tool types, so only web_search is ever mapped; everything else keeps
+// its historical flatten/passthrough behavior.
+function toResponsesTools(tools, serverWebSearch) {
   if (!Array.isArray(tools)) return [];
   const out = [];
   for (const t of tools) {
     if (!t || typeof t !== 'object') continue;
     const flatName = t.type === 'function' ? (t.name || (t.function && t.function.name) || '') : '';
-    if (flatName === 'web_search') {
+    if (serverWebSearch === true && flatName === 'web_search') {
       out.push({ type: 'web_search' });
       continue;
     }
@@ -13071,7 +13083,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       // v1.8: server-side tool items appended after the translated history (DeepSeek restores search results).
       const b = { model: subModel, instructions: sys, input: [...buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), ...subServerToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
-      if (useTools) { b.tools = toResponsesTools(tools); b.tool_choice = 'auto'; }
+      // v1.8.2: mirror the parent — server-side web_search only when the provider opts in (serverWebSearch:true);
+      // otherwise web_search stays a LOCAL function tool (builtin fallback).
+      if (useTools) { b.tools = toResponsesTools(tools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
       return b;
     }
     const b = { model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, stream_options: { include_usage: true } };
@@ -15489,7 +15503,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
       const loadedTools = toolLoading.current();
-      if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools); b.tool_choice = 'auto'; }
+      // v1.8.2: server-side web_search mapping only when the provider opts in (serverWebSearch:true) —
+      // otherwise web_search stays a LOCAL function tool (builtin backend fallback, works on any provider).
+      if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
       return b;
     }
     const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];

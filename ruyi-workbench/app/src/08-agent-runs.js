@@ -500,7 +500,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       // v1.8: server-side tool items appended after the translated history (DeepSeek restores search results).
       const b = { model: subModel, instructions: sys, input: [...buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), ...subServerToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
-      if (useTools) { b.tools = toResponsesTools(tools); b.tool_choice = 'auto'; }
+      // v1.8.2: mirror the parent — server-side web_search only when the provider opts in (serverWebSearch:true);
+      // otherwise web_search stays a LOCAL function tool (builtin fallback).
+      if (useTools) { b.tools = toResponsesTools(tools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
       return b;
     }
     const b = { model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, stream_options: { include_usage: true } };

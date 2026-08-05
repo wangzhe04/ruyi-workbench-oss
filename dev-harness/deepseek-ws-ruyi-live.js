@@ -21,6 +21,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
     configSchema: 4, version: '0.6.0', permissionMode: 'bypass', defaultWorkspace: home,
     providers: [{ id: 'deepseek', label: 'DeepSeek', type: 'openai-compat', apiStyle: 'responses',
+      serverWebSearch: true, // v1.8.2: DeepSeek 预设声明支持服务端 web_search
       baseUrl: 'https://api.deepseek.com', apiKey: KEY, model: MODEL, models: [{ id: MODEL, label: MODEL }], reasoning: true }],
     activeProvider: 'deepseek',
     searchBackend: { type: 'builtin', baseUrl: '', apiKey: '' },
