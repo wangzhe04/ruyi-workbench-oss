@@ -1177,11 +1177,20 @@ function buildResponsesInputItems(history) {
   return items;
 }
 // Flatten chat-shaped function tools ({type:'function', function:{...}}) into Responses' flat shape.
+// v1.8: Ruyi's local `web_search` function tool is MAPPED to the Responses SERVER-SIDE tool
+// {type:'web_search'} (DeepSeek executes it; events web_search_call.* + output_item web_search_call).
+// DeepSeek ignores unknown builtin tool types, so only web_search is mapped here — everything else
+// keeps its historical flatten/passthrough behavior.
 function toResponsesTools(tools) {
   if (!Array.isArray(tools)) return [];
   const out = [];
   for (const t of tools) {
     if (!t || typeof t !== 'object') continue;
+    const flatName = t.type === 'function' ? (t.name || (t.function && t.function.name) || '') : '';
+    if (flatName === 'web_search') {
+      out.push({ type: 'web_search' });
+      continue;
+    }
     if (t.type === 'function' && t.function && typeof t.function === 'object') {
       out.push({ type: 'function', name: t.function.name || '', description: t.function.description || '', parameters: t.function.parameters || { type: 'object', properties: {} } });
     } else if (t.type === 'function') {
@@ -1371,6 +1380,29 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
         curSlot = s;
         return false;
       }
+      // v1.8: a web_search_call output item is a SERVER-SIDE tool invocation (DeepSeek /responses executes
+      // the search itself). Surface it as a toolCall named 'web_search' with serverSide:true so the tool
+      // loop knows NOT to execute it locally; the raw item is carried back to the next request's `input`
+      // (DeepSeek restores the search results server-side). status/output arrive on the .done event.
+      if (t === 'response.output_item.added' && evt.item && evt.item.type === 'web_search_call') {
+        const ws = evt.item;
+        const id = ws.id || makeId('call');
+        let s = slots.find(x => x.id === id);
+        if (!s) { s = { id, index: null, name: 'web_search', args: '', itemId: id, serverSide: true, item: ws }; slots.push(s); }
+        curSlot = s;
+        return false;
+      }
+      if (t === 'response.output_item.done' && evt.item && evt.item.type === 'web_search_call') {
+        const ws = evt.item;
+        const id = ws.id || '';
+        let s = id ? slots.find(x => x.id === id) : curSlot;
+        if (s) {
+          s.item = ws; // keep the FULL item (with output) so it can be echoed back verbatim
+          const q = (ws.output && (ws.output.query || (Array.isArray(ws.output.search_terms) ? ws.output.search_terms.join(' ') : ''))) || '';
+          s.args = JSON.stringify({ status: ws.status || '', query: q });
+        }
+        return false;
+      }
       if (t === 'response.function_call_arguments.delta' && typeof evt.delta === 'string' && evt.delta) {
         // 对抗轮(P1-2):优先按事件的 item_id 精确定位槽(并行时 arguments delta 按 item_id 路由,绝不串写);
         // item_id 缺失/未命中才回退到"最近 added 的槽"(串行单调用场景,与旧行为一致)。
@@ -1474,7 +1506,13 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   }
   // Flush a trailing event that arrived without a terminating blank line (some servers omit the final one).
   if (!done && buf.trim()) handleEventBlock(buf);
-  const toolCalls = slots.filter(t => t.name).map(t => ({ id: t.id || makeId('call'), name: t.name, rawArgs: t.args || '{}' }));
+  // v1.8: serverSide toolCalls (web_search_call items) carry the raw item so the tool loop can echo it
+  // back into the next request's `input` without executing anything locally.
+  const toolCalls = slots.filter(t => t.name).map(t => {
+    const base = { id: t.id || makeId('call'), name: t.name, rawArgs: t.args || '{}' };
+    if (t.serverSide) { base.serverSide = true; if (t.item) base.item = t.item; }
+    return base;
+  });
   // v1.7 (Responses): a `response.failed` terminal event is a protocol-level failure with no HTTP error
   // status — surface it through the caller's existing httpError path so attribution/retry behaves uniformly.
   if (responsesFailedError) return { text, reasoning, finishReason, toolCalls, httpError: responsesFailedError };

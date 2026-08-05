@@ -1142,7 +1142,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
         }
       }
-      const b = { model, instructions: sys, input: buildResponsesInputItems(msgs), stream: true };
+      // v1.8: server-side tool items (web_search_call) are appended to `input` AFTER the translated history —
+      // DeepSeek restores the search results server-side and the model continues on the next call.
+      const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
       const loadedTools = toolLoading.current();
       if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools); b.tool_choice = 'auto'; }
@@ -1192,6 +1194,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let assistantText = '';
   let thinkingText = '';
   let usageObj = null;
+  // v1.8: server-side tool items (web_search_call) to echo verbatim into the NEXT request's `input`.
+  // Kept OUT of providerHistory on purpose — Responses wants web_search_call echoed as-is (server restores
+  // the results), NOT paired as function_call_output. Accumulated across tool-loop iterations this turn.
+  const serverToolItems = [];
   let ok = true, errorMsg = '', aborted = false;
   const toolCalls = [];                 // for the display message (session.messages)
   const toolHookStartedAt = new Map();  // observational hooks only; never changes dispatch/permission semantics
@@ -1538,8 +1544,26 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // Not a plan-shaped first message and no tool_calls → fall through to normal handling.
       }
       if (call.toolCalls && call.toolCalls.length) {
-        // Push the assistant turn (with its tool_calls), then run each tool and push its result.
-        session.providerHistory.push({ role: 'assistant', content: call.text || '', tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        // v1.8: split server-side tool calls (web_search_call — DeepSeek already executed the search) from
+        // local function calls. Server-side calls NEVER enter providerHistory (they are not function_calls
+        // and must not be paired as function_call_output); their raw item is echoed back into the next
+        // request's `input` via serverToolItems (buildBody appends them), and the server restores the results.
+        const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
+        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
+        for (const stc of serverToolCalls) {
+          let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
+          const item = stc.item || { type: 'web_search_call', id: stc.id };
+          const display = { query: wsArgs.query || '服务端搜索' };
+          await notifyToolHookStart(stc, display, iter, 'server_tool');
+          onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display });
+          const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
+          onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false });
+          toolCalls.push({ id: stc.id, name: 'web_search', input: display, result: resultObj });
+          serverToolItems.push(item); // echo back verbatim → next request's `input`
+          await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
+        }
+        // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
+        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
         subagentBatchCount = 0; // v0.9-S6: reset the per-assistant-batch spawn_agent fan-out counter
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
@@ -1551,7 +1575,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // order, preserving one contiguous assistant.tool_calls → role:'tool' block for strict providers.
         const subagentPromises = new Map();
         let projectedLoopSig = loopSig, projectedLoopCount = loopCount, projectedLoopAborted = false;
-        for (const stc of call.toolCalls) {
+        for (const stc of localToolCalls) {
           if (!stc) continue;
           const projectedSig = stc.name + ' ' + stc.rawArgs;
           if (projectedSig === projectedLoopSig) projectedLoopCount += 1;
@@ -1629,7 +1653,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             });
           subagentPromises.set(stc.id, promise);
         }
-        for (const tc of call.toolCalls) {
+        for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we
@@ -1649,7 +1673,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // (DeepSeek/DashScope-qwen)对未配对的 tool_call_id 报 400 并【永久卡死会话】(每回合重发孤儿历史)。
             // 因此 break 前,给本批每个尚未回复的 tool_call 补一条配对 role:'tool'(镜像计划相位拒绝的逐条配对)。
             const answeredIds = new Set(toolCalls.map(t => t && t.id));
-            for (const rem of call.toolCalls) {
+            for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
               const skip = { ok: false, error: '本轮已因重复调用停止,该调用未执行' };
@@ -1892,7 +1916,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // flush 跳过(部分批次纪律,同 aborted),reset 后走 saveSession+continue 回 drainSteerQueue。
           if (!steerAborted && reg.steerQueue && reg.steerQueue.length > 0) {
             const answeredIds = new Set(toolCalls.map(t => t && t.id));
-            for (const rem of call.toolCalls) {
+            for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
               const skip = { ok: false, error: '本轮已因用户插话中断,该调用未执行' };

@@ -11444,11 +11444,20 @@ function buildResponsesInputItems(history) {
   return items;
 }
 // Flatten chat-shaped function tools ({type:'function', function:{...}}) into Responses' flat shape.
+// v1.8: Ruyi's local `web_search` function tool is MAPPED to the Responses SERVER-SIDE tool
+// {type:'web_search'} (DeepSeek executes it; events web_search_call.* + output_item web_search_call).
+// DeepSeek ignores unknown builtin tool types, so only web_search is mapped here — everything else
+// keeps its historical flatten/passthrough behavior.
 function toResponsesTools(tools) {
   if (!Array.isArray(tools)) return [];
   const out = [];
   for (const t of tools) {
     if (!t || typeof t !== 'object') continue;
+    const flatName = t.type === 'function' ? (t.name || (t.function && t.function.name) || '') : '';
+    if (flatName === 'web_search') {
+      out.push({ type: 'web_search' });
+      continue;
+    }
     if (t.type === 'function' && t.function && typeof t.function === 'object') {
       out.push({ type: 'function', name: t.function.name || '', description: t.function.description || '', parameters: t.function.parameters || { type: 'object', properties: {} } });
     } else if (t.type === 'function') {
@@ -11638,6 +11647,29 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
         curSlot = s;
         return false;
       }
+      // v1.8: a web_search_call output item is a SERVER-SIDE tool invocation (DeepSeek /responses executes
+      // the search itself). Surface it as a toolCall named 'web_search' with serverSide:true so the tool
+      // loop knows NOT to execute it locally; the raw item is carried back to the next request's `input`
+      // (DeepSeek restores the search results server-side). status/output arrive on the .done event.
+      if (t === 'response.output_item.added' && evt.item && evt.item.type === 'web_search_call') {
+        const ws = evt.item;
+        const id = ws.id || makeId('call');
+        let s = slots.find(x => x.id === id);
+        if (!s) { s = { id, index: null, name: 'web_search', args: '', itemId: id, serverSide: true, item: ws }; slots.push(s); }
+        curSlot = s;
+        return false;
+      }
+      if (t === 'response.output_item.done' && evt.item && evt.item.type === 'web_search_call') {
+        const ws = evt.item;
+        const id = ws.id || '';
+        let s = id ? slots.find(x => x.id === id) : curSlot;
+        if (s) {
+          s.item = ws; // keep the FULL item (with output) so it can be echoed back verbatim
+          const q = (ws.output && (ws.output.query || (Array.isArray(ws.output.search_terms) ? ws.output.search_terms.join(' ') : ''))) || '';
+          s.args = JSON.stringify({ status: ws.status || '', query: q });
+        }
+        return false;
+      }
       if (t === 'response.function_call_arguments.delta' && typeof evt.delta === 'string' && evt.delta) {
         // 对抗轮(P1-2):优先按事件的 item_id 精确定位槽(并行时 arguments delta 按 item_id 路由,绝不串写);
         // item_id 缺失/未命中才回退到"最近 added 的槽"(串行单调用场景,与旧行为一致)。
@@ -11741,7 +11773,13 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   }
   // Flush a trailing event that arrived without a terminating blank line (some servers omit the final one).
   if (!done && buf.trim()) handleEventBlock(buf);
-  const toolCalls = slots.filter(t => t.name).map(t => ({ id: t.id || makeId('call'), name: t.name, rawArgs: t.args || '{}' }));
+  // v1.8: serverSide toolCalls (web_search_call items) carry the raw item so the tool loop can echo it
+  // back into the next request's `input` without executing anything locally.
+  const toolCalls = slots.filter(t => t.name).map(t => {
+    const base = { id: t.id || makeId('call'), name: t.name, rawArgs: t.args || '{}' };
+    if (t.serverSide) { base.serverSide = true; if (t.item) base.item = t.item; }
+    return base;
+  });
   // v1.7 (Responses): a `response.failed` terminal event is a protocol-level failure with no HTTP error
   // status — surface it through the caller's existing httpError path so attribution/retry behaves uniformly.
   if (responsesFailedError) return { text, reasoning, finishReason, toolCalls, httpError: responsesFailedError };
@@ -13020,7 +13058,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     // v1.7 (Responses): sub-agent body follows the parent's protocol choice — instructions + input items,
     // flat function tools; system folded into instructions (buildResponsesInputItems skips system roles).
     if (subApiStyle === 'responses') {
-      const b = { model: subModel, instructions: sys, input: buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), stream: true };
+      // v1.8: server-side tool items appended after the translated history (DeepSeek restores search results).
+      const b = { model: subModel, instructions: sys, input: [...buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), ...subServerToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
       if (useTools) { b.tools = toResponsesTools(tools); b.tool_choice = 'auto'; }
       return b;
@@ -13059,6 +13098,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     subUsage.in += inTok; subUsage.out += outTok; subUsage.cachedIn += Math.min(inTok, cachedInputTokensFromUsage(u)); subUsage.calls += 1;
   };
   let resultText = '';
+  // v1.8: server-side tool items (web_search_call) echoed verbatim into the sub-turn's next request `input`
+  // (mirrors the parent turn's serverToolItems; kept out of subHistory — they are not function_call_outputs).
+  const subServerToolItems = [];
   let iters = 0, toolCallCount = 0;
   let subOk = true, subErr = '';
   let subOverWindow = false;
@@ -13216,8 +13258,21 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       if (call.text) resultText += call.text;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
       if (call.toolCalls && call.toolCalls.length) {
-        subHistory.push({ role: 'assistant', content: call.text || '', tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
-        for (const tc of call.toolCalls) {
+        // v1.8: server-side tool calls (web_search_call) — DeepSeek already executed them; echo back verbatim
+        // into the next request via subServerToolItems (buildBody appends). Never paired as function_call_output.
+        const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
+        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
+        for (const stc of serverToolCalls) {
+          let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
+          const item = stc.item || { type: 'web_search_call', id: stc.id };
+          const display = { query: wsArgs.query || '服务端搜索' };
+          onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display, subagentId });
+          const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
+          onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
+          subServerToolItems.push(item);
+        }
+        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
           // threshold, refuse to execute, emit a self-contained refusal, PAIR every remaining tool_call in this
@@ -13235,7 +13290,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // abort mid-batch would re-emit tool_use/tool_result + re-push role:'tool' for calls that ALREADY
             // executed earlier in the SAME batch, falsely reporting them "not executed" and double-pairing them.
             const answered = new Set(subHistory.filter(m => m && m.role === 'tool').map(m => m.tool_call_id));
-            for (const rem of call.toolCalls) {
+            for (const rem of localToolCalls) {
               if (!rem || answered.has(rem.id)) continue; answered.add(rem.id);
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
               const skip = { ok: false, error: '子任务已因重复调用停止，该调用未执行' };
@@ -15416,7 +15471,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
         }
       }
-      const b = { model, instructions: sys, input: buildResponsesInputItems(msgs), stream: true };
+      // v1.8: server-side tool items (web_search_call) are appended to `input` AFTER the translated history —
+      // DeepSeek restores the search results server-side and the model continues on the next call.
+      const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
       const loadedTools = toolLoading.current();
       if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools); b.tool_choice = 'auto'; }
@@ -15466,6 +15523,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let assistantText = '';
   let thinkingText = '';
   let usageObj = null;
+  // v1.8: server-side tool items (web_search_call) to echo verbatim into the NEXT request's `input`.
+  // Kept OUT of providerHistory on purpose — Responses wants web_search_call echoed as-is (server restores
+  // the results), NOT paired as function_call_output. Accumulated across tool-loop iterations this turn.
+  const serverToolItems = [];
   let ok = true, errorMsg = '', aborted = false;
   const toolCalls = [];                 // for the display message (session.messages)
   const toolHookStartedAt = new Map();  // observational hooks only; never changes dispatch/permission semantics
@@ -15812,8 +15873,26 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // Not a plan-shaped first message and no tool_calls → fall through to normal handling.
       }
       if (call.toolCalls && call.toolCalls.length) {
-        // Push the assistant turn (with its tool_calls), then run each tool and push its result.
-        session.providerHistory.push({ role: 'assistant', content: call.text || '', tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        // v1.8: split server-side tool calls (web_search_call — DeepSeek already executed the search) from
+        // local function calls. Server-side calls NEVER enter providerHistory (they are not function_calls
+        // and must not be paired as function_call_output); their raw item is echoed back into the next
+        // request's `input` via serverToolItems (buildBody appends them), and the server restores the results.
+        const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
+        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
+        for (const stc of serverToolCalls) {
+          let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
+          const item = stc.item || { type: 'web_search_call', id: stc.id };
+          const display = { query: wsArgs.query || '服务端搜索' };
+          await notifyToolHookStart(stc, display, iter, 'server_tool');
+          onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display });
+          const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
+          onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false });
+          toolCalls.push({ id: stc.id, name: 'web_search', input: display, result: resultObj });
+          serverToolItems.push(item); // echo back verbatim → next request's `input`
+          await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
+        }
+        // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
+        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
         subagentBatchCount = 0; // v0.9-S6: reset the per-assistant-batch spawn_agent fan-out counter
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
@@ -15825,7 +15904,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // order, preserving one contiguous assistant.tool_calls → role:'tool' block for strict providers.
         const subagentPromises = new Map();
         let projectedLoopSig = loopSig, projectedLoopCount = loopCount, projectedLoopAborted = false;
-        for (const stc of call.toolCalls) {
+        for (const stc of localToolCalls) {
           if (!stc) continue;
           const projectedSig = stc.name + ' ' + stc.rawArgs;
           if (projectedSig === projectedLoopSig) projectedLoopCount += 1;
@@ -15903,7 +15982,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             });
           subagentPromises.set(stc.id, promise);
         }
-        for (const tc of call.toolCalls) {
+        for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we
@@ -15923,7 +16002,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // (DeepSeek/DashScope-qwen)对未配对的 tool_call_id 报 400 并【永久卡死会话】(每回合重发孤儿历史)。
             // 因此 break 前,给本批每个尚未回复的 tool_call 补一条配对 role:'tool'(镜像计划相位拒绝的逐条配对)。
             const answeredIds = new Set(toolCalls.map(t => t && t.id));
-            for (const rem of call.toolCalls) {
+            for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
               const skip = { ok: false, error: '本轮已因重复调用停止,该调用未执行' };
@@ -16166,7 +16245,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // flush 跳过(部分批次纪律,同 aborted),reset 后走 saveSession+continue 回 drainSteerQueue。
           if (!steerAborted && reg.steerQueue && reg.steerQueue.length > 0) {
             const answeredIds = new Set(toolCalls.map(t => t && t.id));
-            for (const rem of call.toolCalls) {
+            for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
               const skip = { ok: false, error: '本轮已因用户插话中断,该调用未执行' };

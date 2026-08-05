@@ -497,7 +497,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     // v1.7 (Responses): sub-agent body follows the parent's protocol choice — instructions + input items,
     // flat function tools; system folded into instructions (buildResponsesInputItems skips system roles).
     if (subApiStyle === 'responses') {
-      const b = { model: subModel, instructions: sys, input: buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), stream: true };
+      // v1.8: server-side tool items appended after the translated history (DeepSeek restores search results).
+      const b = { model: subModel, instructions: sys, input: [...buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), ...subServerToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
       if (useTools) { b.tools = toResponsesTools(tools); b.tool_choice = 'auto'; }
       return b;
@@ -536,6 +537,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     subUsage.in += inTok; subUsage.out += outTok; subUsage.cachedIn += Math.min(inTok, cachedInputTokensFromUsage(u)); subUsage.calls += 1;
   };
   let resultText = '';
+  // v1.8: server-side tool items (web_search_call) echoed verbatim into the sub-turn's next request `input`
+  // (mirrors the parent turn's serverToolItems; kept out of subHistory — they are not function_call_outputs).
+  const subServerToolItems = [];
   let iters = 0, toolCallCount = 0;
   let subOk = true, subErr = '';
   let subOverWindow = false;
@@ -693,8 +697,21 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       if (call.text) resultText += call.text;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
       if (call.toolCalls && call.toolCalls.length) {
-        subHistory.push({ role: 'assistant', content: call.text || '', tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
-        for (const tc of call.toolCalls) {
+        // v1.8: server-side tool calls (web_search_call) — DeepSeek already executed them; echo back verbatim
+        // into the next request via subServerToolItems (buildBody appends). Never paired as function_call_output.
+        const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
+        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
+        for (const stc of serverToolCalls) {
+          let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
+          const item = stc.item || { type: 'web_search_call', id: stc.id };
+          const display = { query: wsArgs.query || '服务端搜索' };
+          onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display, subagentId });
+          const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
+          onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
+          subServerToolItems.push(item);
+        }
+        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
           // threshold, refuse to execute, emit a self-contained refusal, PAIR every remaining tool_call in this
@@ -712,7 +729,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // abort mid-batch would re-emit tool_use/tool_result + re-push role:'tool' for calls that ALREADY
             // executed earlier in the SAME batch, falsely reporting them "not executed" and double-pairing them.
             const answered = new Set(subHistory.filter(m => m && m.role === 'tool').map(m => m.tool_call_id));
-            for (const rem of call.toolCalls) {
+            for (const rem of localToolCalls) {
               if (!rem || answered.has(rem.id)) continue; answered.add(rem.id);
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
               const skip = { ok: false, error: '子任务已因重复调用停止，该调用未执行' };

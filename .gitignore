@@ -35,3 +35,5 @@ Thumbs.db
 
 # 第29波监控冒烟测试隔离工作区(不入库)
 /.wave29-livetest/
+# A/B probe run artifacts (local benchmark outputs, may contain provider responses)
+/dev-harness/ab-results/
