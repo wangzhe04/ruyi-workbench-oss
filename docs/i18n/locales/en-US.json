@@ -1764,6 +1764,11 @@
   "previewShell.dispatchBoxBody": "Describe the result, boundaries, and acceptance criteria. A confirmation card appears before any work starts.",
   "previewShell.dispatchPlaceholder": "Describe what needs doing…",
   "previewShell.dispatchInputAria": "Describe the task to dispatch",
+  "previewShell.dispatchAttach": "Attach",
+  "previewShell.dispatchAttachAria": "Attach files or images",
+  "previewShell.dispatchAttachmentsAria": "Attached files",
+  "previewShell.dispatchDropHint": "Drop files or images to attach",
+  "previewShell.confirmAttachments": "Attachments",
   "previewShell.dispatchKeyHint": "Ctrl + Enter to review",
   "previewShell.reviewDispatch": "Review dispatch",
   "previewShell.quickAsk": "Quick Ask",
@@ -1777,6 +1782,10 @@
   "previewShell.confirmPurpose": "What to accomplish",
   "previewShell.confirmWorkspace": "Where to work",
   "previewShell.confirmSafety": "Safety for this run",
+  "previewShell.confirmAutoMode": "Run mode",
+  "previewShell.dispatchAutoMode.off": "Manual step",
+  "previewShell.dispatchAutoMode.until-done": "Auto until done",
+  "previewShell.dispatchAutoMode.supervised": "Start paused",
   "previewShell.confirmNoEstimate": "No duration or cost estimate is shown because there is no verifiable history or plan evidence yet.",
   "previewShell.confirmBack": "Edit request",
   "previewShell.progressPercent": "{{p1}}% complete",
@@ -1927,7 +1936,21 @@
   ,"previewShell.crewSteerQueueHint": "A waiting crew member reads this when work actually starts."
   ,"previewShell.crewRunLabel": "Run {{p1}}"
   ,"previewShell.crewGraphAria": "Crew stages and dependency graph"
-  ,"previewShell.crewStage": "Stage {{p1}}"
+  ,"previewShell.crewWave": "Wave {{p1}}"
+  ,"previewShell.crewProposalsAria": "Pending proposals"
+  ,"previewShell.crewProposalsEyebrow": "PROPOSALS"
+  ,"previewShell.crewProposalsTitle": "Pending proposals"
+  ,"previewShell.continueTurnAria": "Continue with a new turn"
+  ,"previewShell.continueTurnInputAria": "New goal or instruction"
+  ,"previewShell.continueTurnPlaceholder": "Add a new goal or instruction, Ctrl+Enter to send…"
+  ,"previewShell.continueTurnPlaceholderDone": "Task complete — add a new goal to start another turn…"
+  ,"previewShell.continueTurnPlaceholderStopped": "Task stopped — adjust the approach or add an instruction to continue…"
+  ,"previewShell.continueTurnAction": "Continue"
+  ,"previewShell.continueTurnHint": "Sending opens a new turn on this task; progress and ledger keep accumulating."
+  ,"previewShell.continueTurnActiveHint": "A turn is still running; continue once it settles."
+  ,"previewShell.controlReason.already_running": "Task is running"
+  ,"previewShell.controlReason.not_terminal": "Task is not finished"
+  ,"previewShell.controlReason.milestone_limit": "The acceptance-item limit is reached; start a new task"
   ,"previewShell.lensLabel": "Task worksite lenses"
   ,"previewShell.lensNarrative": "Worksite log"
   ,"previewShell.lensCrew": "Crew stages"

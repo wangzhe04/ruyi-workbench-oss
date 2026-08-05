@@ -399,8 +399,10 @@ export function createChatStreamRuntime(deps = {}) {
     const box = $('messages');
     box.querySelector('.empty-state')?.remove();
     // Capture & clear attachments now so a failed/aborted turn doesn't silently re-send them.
-    const sentAttachments = state.attachments;
-    state.attachments = []; renderAttachments();
+    // 第96波(P4):交办台(Pretender)经 options.attachments 显式注入附件 —— 不经经典托盘,
+    // 也不清空/重绘经典托盘(预览壳下它根本未挂载)。
+    const sentAttachments = Array.isArray(options.attachments) ? options.attachments.slice() : state.attachments;
+    if (!Array.isArray(options.attachments)) { state.attachments = []; renderAttachments(); }
     // 第69波:留住乐观 user 行的引用 —— 它是合成对象(无 turnSeq、不在 session.messages),其操作条里的
     // 「回溯到此处」必然 toast「无法定位该消息的回合」;回合拿到持久化真身后必须重绑(见下方 finally 前)。
     const optimisticUserRow = renderStaticMessage({ role: 'user', content: message, createdAt: new Date().toISOString(), attachments: sentAttachments });

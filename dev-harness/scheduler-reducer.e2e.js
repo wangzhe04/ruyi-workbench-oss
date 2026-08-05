@@ -232,6 +232,29 @@ const W = (id, status, deps, extra = {}) => N(id, status, deps, { wait: { mode: 
   ok(s.allTerminal === true && s.cycleDead === false, '16 wait 节点终态后 → allTerminal 无环');
 }
 
+// 17) Crew graph dispatch waves share the scheduler's ordering, concurrency and wait-slot semantics.
+const waveMatch = src.match(/function computeWaveSeq\(nodes, opts\) \{[\s\S]*?\n\}/);
+ok(!!waveMatch, '17 extract computeWaveSeq');
+if (waveMatch) {
+  const computeWaves = new Function(waveMatch[0] + '\nreturn computeWaveSeq;')();
+  const roots = [N('a', 'queued', []), N('b', 'queued', []), N('c', 'queued', [])];
+  const rootWaves = computeWaves(roots, { concurrency: 2 });
+  ok(rootWaves.get('a') === 0 && rootWaves.get('b') === 0 && rootWaves.get('c') === 1,
+    '17 concurrency splits same-layer nodes into stable dispatch waves');
+
+  const waitGraph = [W('wait', 'queued', []), N('work', 'queued', []), N('after', 'queued', ['wait'])];
+  const waitWaves = computeWaves(waitGraph, { concurrency: 1, isWaitNode: n => !!n.wait });
+  ok(waitWaves.get('wait') === 0 && waitWaves.get('work') === 0 && waitWaves.get('after') === 1,
+    '17 wait arms in the same wave without consuming a worker slot');
+
+  const invalidConcurrency = computeWaves(roots, { concurrency: -3 });
+  ok(invalidConcurrency.get('a') === 0 && invalidConcurrency.get('b') === 1 && invalidConcurrency.get('c') === 2,
+    '17 invalid concurrency clamps to one without empty waves');
+  const snapshot = JSON.stringify(waitGraph);
+  computeWaves(waitGraph, { concurrency: 2, isWaitNode: n => !!n.wait });
+  ok(JSON.stringify(waitGraph) === snapshot, '17 computeWaveSeq remains pure');
+}
+
 console.log('');
 if (fail) { console.log('SCHEDULER-REDUCER E2E: FAIL (' + fail + ')'); process.exit(1); }
 console.log('SCHEDULER-REDUCER E2E: ALL PASS');

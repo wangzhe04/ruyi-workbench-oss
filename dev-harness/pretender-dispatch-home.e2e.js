@@ -214,10 +214,11 @@ try {
     const main = document.getElementById('previewMain');
     const guide = document.querySelector('.preview-first-run');
     const shelf = document.querySelectorAll('.preview-playbook-card');
-    if (main?.dataset.view !== 'home' || !guide || !document.getElementById('previewDispatchInput') || !shelf.length) return null;
-    return { steps: guide.querySelectorAll('.preview-first-run-step').length, shelf: shelf.length, seals: document.querySelectorAll('.preview-seal').length };
+    if (main?.dataset.view !== 'home' || !document.getElementById('previewDispatchInput') || !shelf.length) return null;
+    return { guide: Boolean(guide), steps: guide?.querySelectorAll('.preview-first-run-step').length || 0, shelf: shelf.length, seals: document.querySelectorAll('.preview-seal').length };
   })()`);
-  ok(firstRun && firstRun.steps === 3 && firstRun.shelf > 0 && firstRun.seals === 0, 'B2 empty dataset renders the original three-step first-run state inside the normal home');
+  ok(firstRun && !firstRun.guide && firstRun.shelf > 0 && firstRun.seals === 0,
+    'B2 configured workspace and engine skip first-run guidance while the empty dispatch home remains usable');
 
   const runningId = await createMission(appPort, token, 'Wave 78 running seed', 'until-done', false);
   const doneId = await createMission(appPort, token, 'Wave 78 completed seed', 'off', true);

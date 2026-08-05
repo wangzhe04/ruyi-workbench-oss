@@ -53,8 +53,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // infinite pulses + loading spinner, colors the done seal green and per-state progress bars, makes the
 // activity brief a clickable needs entry, hides the control deck on terminal tasks, adds a loading spinner,
 // Esc-closes confirmations, and completes finish/stop card unfinished details. Same owned Preview layer.
+// Waves 95-98 add Preview-only quick actions, follow-up and attachment controls, task-sheet polish, and
+// live narrative motion. Re-pin the intentional payload while keeping every classic style layer unchanged.
 // Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = '5ad6c18a88114ffe14bdde6f3a51a858ded39b4f6a5dd29701a007c35215db7f';
+const LEGACY_STYLES_SHA256 = '5a278048961309df9a342d0574a573d2bd095f08c97e7de8abc5c4035ab1557a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

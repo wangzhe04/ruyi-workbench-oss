@@ -3256,6 +3256,12 @@ function missionControlView(session, opts = {}) {
   const terminal = Boolean(mission && mission.result);
   const milestones = mission && Array.isArray(mission.milestones) ? mission.milestones : [];
   const unfinished = milestones.some(item => !item || item.status !== 'done');
+  const completed = milestones.length > 0 && !unfinished;
+  // A completed autonomous Mission keeps its historical autoMode value. Treat
+  // it as an armed driver only while the Mission is still unsettled; otherwise
+  // an auto-completed task could never accept a user follow-up.
+  const driverArmed = Boolean(mission && mission.autoMode === 'until-done' && !terminal && !completed);
+  const followupCapacity = unfinished || milestones.length < MISSION_MAX_MILESTONES;
   const budgetRemaining = missionBudgetRemaining(mission);
   const rollbackTargetTurnSeq = missionRollbackTarget(session, checkpointEntries);
   const action = (enabled, scope, reason = '') => ({ enabled: Boolean(enabled), scope, reason: enabled ? '' : reason });
@@ -3269,6 +3275,10 @@ function missionControlView(session, opts = {}) {
       stop: action(Boolean(mission) && !terminal, 'mission', terminal ? 'terminal' : 'mission_missing'),
       retry: action(Boolean(mission) && Boolean(mission.result) && mission.result.status === 'stopped' && unfinished && !activeTurn && budgetRemaining,
         'mission', !terminal ? 'not_terminal' : (mission.result && mission.result.status !== 'stopped' ? 'complete' : (activeTurn ? 'turn_active' : (!unfinished ? 'complete' : (!budgetRemaining ? 'budget_exhausted' : 'unavailable'))))),
+      // 第95波:再开一回合 —— 任务已收工/已停工/预算内暂停后,用户追加新提示继续推进。
+      // 与 retry 的区别:next_turn 不依赖 result.status===stopped,complete 也可用,且携带用户新提示。
+      next_turn: action(Boolean(mission) && !activeTurn && liveRuns.length === 0 && !driverArmed && budgetRemaining && followupCapacity,
+        'mission', activeTurn ? 'turn_active' : (liveRuns.length ? 'run_active' : (driverArmed ? 'already_running' : (!budgetRemaining ? 'budget_exhausted' : (!followupCapacity ? 'milestone_limit' : 'unavailable'))))),
       takeover: action(Boolean(mission) && !terminal && (activeTurn || mission.autoMode !== 'off'), 'turn_driver', terminal ? 'terminal' : 'already_manual'),
       rollback: action(Boolean(mission) && rollbackTargetTurnSeq > 0 && checkpointEntries.length > 0 && !activeTurn && liveRuns.length === 0,
         'mission', activeTurn ? 'turn_active' : (liveRuns.length ? 'run_active' : (!rollbackTargetTurnSeq ? 'target_unknown' : 'no_checkpoints'))),
@@ -3305,10 +3315,14 @@ function missionControlFailure(reason, status = 409, message = '') {
   return { status, body: { ok: false, reason, error: message || reason } };
 }
 
-async function missionControlCommand(sessionId, rawAction) {
+async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
   const action = String(rawAction || '').trim();
-  if (!['pause', 'continue', 'stop', 'retry', 'takeover', 'rollback'].includes(action)) {
+  const prompt = String(rawPrompt || '').trim();
+  if (!['pause', 'continue', 'stop', 'retry', 'takeover', 'rollback', 'next_turn'].includes(action)) {
     return missionControlFailure('action_invalid', 400, 'unknown mission control action');
+  }
+  if (action === 'next_turn' && !prompt) {
+    return missionControlFailure('prompt_required', 400, 'next_turn requires a prompt');
   }
   // 回合收尾的原子头文件换名窗口里，磁盘读可能短暂看不到头；活回合注册表持有同一权威 session，
   // 控制动作必须仍可送达，不能让用户在最需要 Pause 时撞瞬态 404。
@@ -3359,6 +3373,26 @@ async function missionControlCommand(sessionId, rawAction) {
   } else if (action === 'retry') {
     for (const item of mission.milestones || []) {
       if (item && item.status === 'blocked') { item.status = 'pending'; item.evidence = ''; }
+    }
+    mission.result = null;
+    mission.autoMode = 'until-done';
+    mission.stall = { lastDigest: '', sameCount: 0 };
+    requiresTurn = true;
+  } else if (action === 'next_turn') {
+    // 第95波:再开一回合 —— 完成/停工/暂停后,用户追加新提示继续推进。
+    // 用户消息和 turnSeq 仍只由随后唯一的 /api/chat/stream 写入；控制面若也预写会产生重复提示与跳号。
+    // 已收工任务的旧里程碑全为 done，必须为追加目标建立新的 pending 验收项，否则下一次回合收尾会
+    // 被 maybeFinalizeMission 立即重新盖 complete 章。停工/暂停任务已有未完项，只需用新提示继续推进。
+    const milestones = Array.isArray(mission.milestones) ? mission.milestones : [];
+    const allDone = milestones.length > 0 && milestones.every(item => item && item.status === 'done');
+    if (allDone) {
+      if (milestones.length >= MISSION_MAX_MILESTONES) {
+        return missionControlFailure('milestone_limit', 409, 'mission milestone limit reached');
+      }
+      mission.milestones.push({
+        id: makeId('followup'), desc: prompt.slice(0, MISSION_MAX_TEXT), status: 'pending',
+        check: normalizeMissionCheck(null, true), evidence: '',
+      });
     }
     mission.result = null;
     mission.autoMode = 'until-done';
@@ -14205,6 +14239,39 @@ function computeSchedulerStep(nodes, opts) {
   return { toBlock, toSkip, toDispatch, toArm, allTerminal, cycleDead };
 }
 
+// 第98波(P5-A):真实调度波次 -- 静态模拟 computeSchedulerStep 的派发过程,给每个节点标注【首次被派发的波次号】。
+// 与前端 crewDepths(纯依赖拓扑层)的区别:纳入并发上限(同层节点多于并发数时拆成多波)与 wait 节点(不占并发槽,同波武装)。
+// 静态预估:假设无条件跳过/失败(条件分支的跳过依赖运行时求值结果,无法静态预知),故为"乐观调度波次",供班组图分列。
+function computeWaveSeq(nodes, opts) {
+  const { concurrency = 1, isWaitNode } = opts || {};
+  const list = Array.isArray(nodes) ? nodes.filter(n => n && n.id) : [];
+  const byId = id => list.find(n => String(n.id) === String(id));
+  const isWait = n => (typeof isWaitNode === 'function') ? !!isWaitNode(n) : false;
+  const wave = new Map();
+  const remaining = new Set(list.map(n => String(n.id)));
+  const maxConcurrent = Math.max(1, Math.floor(Number(concurrency) || 1));
+  let currentWave = 0;
+  let guard = 0;
+  while (remaining.size && guard++ < list.length + 4) {
+    const ready = [...remaining].filter(id => {
+      const n = byId(id);
+      const deps = (Array.isArray(n && n.dependsOn) ? n.dependsOn : []).map(String);
+      return deps.every(d => wave.has(d));
+    });
+    if (!ready.length) break; // 依赖环/死锁:剩余节点无法就绪,停止(保留未分配)
+    let slots = maxConcurrent;
+    for (const id of ready) {
+      const n = byId(id);
+      if (isWait(n)) { wave.set(id, currentWave); continue; } // wait 节点不占并发槽,同波武装
+      if (slots <= 0) continue;                                // 并发满位:留待下一波
+      wave.set(id, currentWave); slots--;
+    }
+    for (const id of ready) if (wave.has(id)) remaining.delete(id);
+    currentWave++;
+  }
+  return wave;
+}
+
 // ============================================================================
 // 第25波 25.4(AUTONOMY-PLAN §4 Node Runtime):节点续点 —— 把本次 attempt 已完成的工具步骤折叠为轻量
 // continuation(name+参数摘要 → 结果摘要),挂在 node 上随既有 1.5s 节流 flush 落盘。进程崩溃后,恢复重跑
@@ -22722,6 +22789,11 @@ function lastMissionRunProgress(node) {
 // 权威文件；Mission 详情只带画图和递话资格所需事实，避免复制运行状态机或把 24KB result 带进任务单。
 function missionRunGraph(src, live) {
   const nodes = Array.isArray(src && src.nodes) ? src.nodes : [];
+  // 第98波(P5-A):真实调度波次 -- 按并发上限+wait 模拟派发,下发给前端班组图分列(替代纯拓扑层)。
+  const waveSeq = computeWaveSeq(nodes, {
+    concurrency: Number(src && src.concurrency) || 1,
+    isWaitNode: n => !!(n && n.wait),
+  });
   return {
     nodes: nodes.map(node => {
       // Read backwards instead of cloning/filtering a potentially long progress history on every Preview poll.
@@ -22742,6 +22814,7 @@ function missionRunGraph(src, live) {
         fromPool: node && node.fromPool === true, proposedBy: String(node && node.proposedBy || ''),
         deterministic: Boolean(node && node.gate && ['vote', 'dedupe'].includes(node.gate.mode)),
         steerable: eligibility.ok === true, steerReason: String(eligibility.reason || ''),
+        ...(waveSeq.has(String(node && node.id || '')) ? { wave: waveSeq.get(String(node && node.id || '')) } : {}),
       };
     }),
     proposals: (Array.isArray(src && src.taskPool) ? src.taskPool : [])
@@ -22860,7 +22933,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     const sessionId = safeSessionId(pathname.split('/')[3]);
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const body = await readJsonBody(req);
-    const result = await missionControlCommand(sessionId, body && body.action);
+    const result = await missionControlCommand(sessionId, body && body.action, body && body.prompt);
     return send(res, json(result.body, result.status));
   }
   // 详情:单会话稳定任务快照(EC-E:mission + Agent Run + 产物 + 变更 + 检查点 + 用量 + 游标)。

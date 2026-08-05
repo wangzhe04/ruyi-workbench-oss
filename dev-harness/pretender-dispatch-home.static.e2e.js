@@ -45,6 +45,7 @@ for (const fact of ['confirmPurpose', 'confirmWorkspace', 'confirmSafety', 'conf
   ok(shell.includes(`previewShell.${fact}`), `B2 确认卡字段 ${fact} 在`);
 }
 ok(shell.includes("select.id = 'previewDispatchSafety'") && shell.includes('dispatchPermissionModes()'), 'B3 确认卡可选择本次执行链安全档');
+ok(shell.includes("autoSelect.id = 'previewDispatchAutoMode'") && shell.includes("['off', 'until-done', 'supervised']"), 'B3b 确认卡可显式选择手动、自动或暂停执行');
 ok(shell.includes("/^[?？]/.test(prompt)") && shell.includes("submitDispatch('quick_ask'"), 'B4 ?/？ 前缀与速问按钮共用逃生舱');
 ok(shell.includes("if (kind === 'quick_ask')") && shell.includes("applyShellMode('classic')")
   && shell.includes("state?.currentSession?.id !== result.sessionId") && shell.includes('await openSession(result.sessionId)'),
@@ -52,9 +53,12 @@ ok(shell.includes("if (kind === 'quick_ask')") && shell.includes("applyShellMode
 
 ok(app.includes('async function startPreviewDispatchCommand(') && app.includes('dispatchCommand: request => startPreviewDispatchCommand(request)'), 'C1 两种交办入口只调用组合根单一 command');
 ok(app.includes("const session = await newSession({ cwd: cwd || currentWorkspace(), focus: false })"), 'C2 command 复用既有 Session 创建链');
-ok(app.includes("api('/api/mission'") && app.includes("action: 'start'") && app.includes("autoMode: 'until-done'"), 'C3 开工经权威 Mission start 立单并进入可离场驱动');
+ok(app.includes("api('/api/mission'") && app.includes("action: 'start'") && app.includes('autoMode,'), 'C3 开工经权威 Mission start 立单并透传所选执行模式');
 ok(app.includes("milestones: [{ id: 'delivery', desc: message, status: 'pending' }]"), 'C3 首单自带待验收里程碑，首回合即可注入任务账本');
-ok(app.includes("if (kind === 'mission')") && app.includes("const completion = sendPrompt(message, { permissionMode })"), 'C4 Mission 才立单，Mission/速问均复用同一 chat stream');
+ok(app.includes("if (kind === 'mission')") && app.includes("sendPrompt(message, { permissionMode, attachments })")
+  && app.includes("kind === 'mission' && autoMode === 'supervised'"), 'C4 Mission 才立单，速问/可执行任务复用同一 chat stream，暂停模式不暗启首回合');
+ok(shell.includes("api('/api/upload'") && shell.includes('dispatchDraft.attachments = dispatchAttachments.slice()')
+  && stream.includes('options.attachments.slice()'), 'C4b 附件经统一上传链下发且确认草稿与托盘保持同步');
 ok(shell.includes('/interventions/${encodeURIComponent(id)}/decision')
   && shell.includes('/api/missions/${encodeURIComponent(sessionId)}/control')
   && shell.includes("api('/api/checkpoints/rollback'")

@@ -165,6 +165,9 @@ export function createPreviewShellDomain({
   let dispatchDraft = null;
   let dispatchBusy = false;
   let dispatchError = '';
+  // 第96波(P4 交办台附件):与经典壳同一条 /api/upload 链路,上传后的服务端附件记录暂存于此,
+  // 随 dispatchCommand → sendPrompt 落到 /api/chat/stream(后端早已支持 attachments 字段)。
+  let dispatchAttachments = [];
   let archiveQuery = '';
   let archiveFilter = 'all';
   let archiveGroup = 'workspace';
@@ -178,6 +181,7 @@ export function createPreviewShellDomain({
   let controlBusy = '';
   let controlDraft = null;
   let controlError = '';
+  let continueDraft = '';
   let runControlBusy = '';
   let selectedLens = 'narrative';
   let narrativeRenderedSession = '';
@@ -426,10 +430,10 @@ export function createPreviewShellDomain({
     const dockCards = cards.filter(card => !missionUi(card && card.missionId).archived);
     const models = dockCards.filter(card => card && card.missionId).map(card => {
       const derived = missionState.fromCard(card);
-      return { card, derived, titleValue: titleOf(card), progress: progressOf(card) };
+      return { card, derived, titleValue: titleOf(card), progress: progressOf(card), ui: missionUi(card.missionId) };
     });
-    const signature = `${getLocale()}\u001e${models.map(({ card, derived, titleValue, progress }) => [
-      card.missionId, card.sessionId || '', derived.state, titleValue, progress.percent,
+    const signature = `${getLocale()}\u001e${models.map(({ card, derived, titleValue, progress, ui }) => [
+      card.missionId, card.sessionId || '', derived.state, titleValue, progress.percent, ui.pinned ? 1 : 0,
     ].join('\u001f')).join('\u001e')}`;
     if (signature !== renderedDockSignature) {
       const renderEpoch = ++dockRenderEpoch;
@@ -438,7 +442,7 @@ export function createPreviewShellDomain({
         const fragment = document.createDocumentFragment();
         const end = Math.min(models.length, start + PREVIEW_DOCK_INITIAL_RENDER);
         for (let index = start; index < end; index++) {
-          const { card, derived, titleValue, progress } = models[index];
+          const { card, derived, titleValue, progress, ui } = models[index];
           const item = text('div', 'preview-dock-item', '');
           item.setAttribute('role', 'listitem');
           const button = text('button', 'preview-seal', '');
@@ -456,6 +460,25 @@ export function createPreviewShellDomain({
           ring.appendChild(text('span', 'preview-seal-glyph', firstGlyph(titleValue)));
           button.append(ring, text('span', 'preview-seal-caption', stateLabel(derived.state)));
           item.appendChild(button);
+          // 第95波:悬停快速操作 —— 右上角 ✕ 归档 / 📌 置顶,鼠标移过去即现即点,不必进归档页。
+          const dockActions = text('div', 'preview-dock-actions', '');
+          const dockArchive = actionButton('', 'preview-dock-action is-archive', () => {
+            updateMissionUi(card.missionId, { archived: true });
+            renderDock();
+            if (activeView === 'mission' && selectedMissionId === card.missionId) openDispatchHome();
+            else if (isPreviewMode()) renderHome();
+          }, 'archive');
+          dockArchive.title = t('previewShell.archiveAction');
+          dockArchive.setAttribute('aria-label', t('previewShell.archiveAction'));
+          const dockPin = actionButton('', 'preview-dock-action is-pin', () => {
+            updateMissionUi(card.missionId, { pinned: !missionUi(card.missionId).pinned });
+            renderDock();
+          }, 'pin');
+          dockPin.title = ui.pinned ? t('previewShell.unpin') : t('previewShell.pin');
+          dockPin.setAttribute('aria-label', dockPin.title);
+          dockPin.setAttribute('aria-pressed', ui.pinned ? 'true' : 'false');
+          dockActions.append(dockArchive, dockPin);
+          item.appendChild(dockActions);
           fragment.appendChild(item);
         }
         list.appendChild(fragment);
@@ -852,6 +875,7 @@ export function createPreviewShellDomain({
     // controlBusy 不在此清——它是异步执行中的态,由 performMissionControl 的 finally 自清;此处只清「待确认草稿」。
     controlDraft = null;
     controlError = '';
+    continueDraft = '';
     clearPreviewLive();
   }
 
@@ -911,7 +935,26 @@ export function createPreviewShellDomain({
       enter);
     button.append(header, goal, bar, meta);
     button.setAttribute('aria-label', t('previewShell.homeTaskAria', { p1: titleOf(card), p2: stateLabel(derived.state), p3: progress.percent }));
-    return button;
+    // 第95波:首页卡(续办/最近收获)悬停右上角冒出 ✕ 归档 / 📌 置顶,点击即归档,不打断浏览。
+    const wrap = text('div', 'preview-home-task-wrap', '');
+    const quick = text('div', 'preview-home-quick-actions', '');
+    const ui = missionUi(card.missionId);
+    const pin = actionButton('', 'preview-home-quick-action is-pin', () => {
+      updateMissionUi(card.missionId, { pinned: !missionUi(card.missionId).pinned });
+      renderDock(); renderHome();
+    }, 'pin');
+    pin.title = ui.pinned ? t('previewShell.unpin') : t('previewShell.pin');
+    pin.setAttribute('aria-label', pin.title);
+    pin.setAttribute('aria-pressed', ui.pinned ? 'true' : 'false');
+    const archive = actionButton('', 'preview-home-quick-action is-archive', () => {
+      updateMissionUi(card.missionId, { archived: true });
+      renderDock(); renderHome();
+    }, 'archive');
+    archive.title = t('previewShell.archiveAction');
+    archive.setAttribute('aria-label', archive.title);
+    quick.append(pin, archive);
+    wrap.append(button, quick);
+    return wrap;
   }
 
   function prepareDispatch(raw) {
@@ -931,6 +974,10 @@ export function createPreviewShellDomain({
       prompt,
       cwd: dispatchWorkspace(),
       permissionMode: dispatchPermissionModes().includes(state?.config?.permissionMode) ? state.config.permissionMode : 'default',
+      // 第98波(P2c):执行模式显式选择 -- off 手动逐步 / until-done 全自动 / supervised 先暂停。默认全自动(沿用原硬编码)。
+      autoMode: 'until-done',
+      // 第96波(P4):附件随草稿进入审阅确认卡,确认后一并下发。
+      attachments: dispatchAttachments.slice(),
     };
     renderHome();
     requestAnimationFrame(() => byId('previewDispatchStartBtn')?.focus());
@@ -952,10 +999,13 @@ export function createPreviewShellDomain({
         prompt,
         cwd: dispatchDraft?.cwd || dispatchWorkspace(),
         permissionMode: dispatchDraft?.permissionMode || state?.config?.permissionMode || 'default',
+        autoMode: dispatchDraft?.autoMode || 'until-done', // 第98波(P2c):执行模式透传到 /api/mission action:start
+        // 第96波(P4):附件记录透传到 startPreviewDispatchCommand → sendPrompt。
+        attachments: (dispatchDraft?.attachments || dispatchAttachments).slice(),
       };
       const result = await dispatchCommand(request);
       if (!result || !result.sessionId) throw new Error(t('previewShell.dispatchStartFailed'));
-      dispatchText = ''; dispatchDraft = null;
+      dispatchText = ''; dispatchDraft = null; dispatchAttachments = [];
       if (kind === 'quick_ask') {
         applyShellMode('classic');
         // dispatchCommand 已创建并选中该会话，sendPrompt 也已挂上乐观消息与实时回答。
@@ -1023,6 +1073,60 @@ export function createPreviewShellDomain({
     return head;
   }
 
+  // 第96波(P4):交办箱附件 —— 与经典壳同一 /api/upload 通道;添加即上传,托盘只保存服务端记录。
+  function dispatchFmtBytes(value) {
+    const size = Number(value) || 0;
+    if (size < 1024) return `${size}B`;
+    if (size < 1048576) return `${(size / 1024).toFixed(1)}KB`;
+    return `${(size / 1048576).toFixed(1)}MB`;
+  }
+
+  function dispatchFileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error('file read failed'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function addDispatchFiles(files) {
+    const list = [...(files || [])].filter(Boolean);
+    if (!list.length) return;
+    let uploadError = '';
+    for (const file of list) {
+      if (file.size > 90 * 1048576) { uploadError = t('toast.fileTooLarge', { p1: file.name }); continue; }
+      try {
+        const data = await dispatchFileToBase64(file);
+        const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
+        if (res && res.file) dispatchAttachments.push(res.file);
+      } catch (error) {
+        uploadError = t('toast.uploadFail', { p1: String(error && error.message || error || '') });
+      }
+    }
+    dispatchError = uploadError;
+    if (dispatchDraft) dispatchDraft.attachments = dispatchAttachments.slice();
+    renderHome();
+  }
+
+  function buildDispatchAttachmentTray() {
+    const tray = text('div', 'preview-dispatch-attachments', '');
+    tray.setAttribute('aria-label', t('previewShell.dispatchAttachmentsAria'));
+    dispatchAttachments.forEach((file, index) => {
+      const pill = text('span', 'preview-dispatch-attachment', '');
+      pill.append(text('span', 'preview-dispatch-attachment-name', `${file.name} · ${dispatchFmtBytes(file.size)}`));
+      const remove = actionButton(t('common.remove'), 'preview-dispatch-attachment-x', () => {
+        dispatchAttachments.splice(index, 1);
+        if (dispatchDraft) dispatchDraft.attachments = dispatchAttachments.slice();
+        renderHome();
+      }, 'close');
+      remove.setAttribute('aria-label', t('chat.attachRemoveAria'));
+      pill.appendChild(remove);
+      tray.appendChild(pill);
+    });
+    return tray;
+  }
+
   function buildDispatchComposer() {
     const section = text('section', 'preview-dispatch-box', '');
     section.setAttribute('aria-label', t('previewShell.dispatchBox'));
@@ -1039,15 +1143,50 @@ export function createPreviewShellDomain({
     input.onkeydown = event => {
       if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); prepareDispatch(input.value); }
     };
+    // 第96波(P4):粘贴图片/文件直接进入附件托盘(截图 → Ctrl+V 一步到位)。
+    input.onpaste = event => {
+      const files = event.clipboardData && event.clipboardData.files ? [...event.clipboardData.files] : [];
+      if (!files.length) return;
+      event.preventDefault();
+      void addDispatchFiles(files);
+    };
     requestAnimationFrame(autosize);
+    // 第96波(P4):📎 按钮 + 隐藏 file input;整个交办箱都是拖拽目标,拖入时高亮。
+    const attachInput = document.createElement('input');
+    attachInput.type = 'file'; attachInput.multiple = true; attachInput.hidden = true;
+    attachInput.id = 'previewDispatchAttachInput';
+    attachInput.onchange = () => { void addDispatchFiles(attachInput.files); attachInput.value = ''; };
+    const attach = actionButton(t('previewShell.dispatchAttach'), 'preview-attach-action', () => attachInput.click(), 'paperclip');
+    attach.id = 'previewDispatchAttachBtn'; attach.disabled = dispatchBusy;
+    attach.setAttribute('aria-label', t('previewShell.dispatchAttachAria'));
+    section.addEventListener('dragover', event => {
+      if (!event.dataTransfer || ![...(event.dataTransfer.types || [])].includes('Files')) return;
+      event.preventDefault();
+      section.classList.add('is-dragover');
+    });
+    section.addEventListener('dragleave', event => {
+      if (event.relatedTarget && section.contains(event.relatedTarget)) return;
+      section.classList.remove('is-dragover');
+    });
+    section.addEventListener('drop', event => {
+      section.classList.remove('is-dragover');
+      const files = event.dataTransfer && event.dataTransfer.files ? [...event.dataTransfer.files] : [];
+      if (!files.length) return;
+      event.preventDefault();
+      void addDispatchFiles(files);
+    });
     const actions = text('div', 'preview-dispatch-actions', '');
     const quick = actionButton(t('previewShell.quickAsk'), 'preview-quick-action', () => { void submitDispatch('quick_ask', dispatchText.replace(/^[?？]\s*/, '')); }, 'quickask');
     const review = actionButton(t('previewShell.reviewDispatch'), 'primary preview-launch-action', () => prepareDispatch(dispatchText), 'dispatch');
     quick.id = 'previewQuickAskBtn'; review.id = 'previewDispatchReviewBtn';
     quick.disabled = dispatchBusy; review.disabled = dispatchBusy;
-    actions.append(quick, review);
+    actions.append(attach, quick, review);
     field.append(mark, input);
-    section.append(heading, field, actions);
+    section.append(heading, field);
+    if (dispatchAttachments.length) section.appendChild(buildDispatchAttachmentTray());
+    // 第97波(P4):一行轻提示告诉用户拖拽/粘贴也能进附件,不占视觉权重。
+    const attachHint = text('p', 'preview-dispatch-hint', t('previewShell.dispatchDropHint'));
+    section.append(actions, attachHint, attachInput);
     if (dispatchError) {
       const error = text('p', 'preview-dispatch-error', dispatchError); error.setAttribute('role', 'alert'); section.appendChild(error);
     }
@@ -1077,7 +1216,25 @@ export function createPreviewShellDomain({
     }
     select.onchange = () => { dispatchDraft.permissionMode = select.value; };
     safety.appendChild(select);
-    facts.append(purpose, workspace, safety);
+    // 第98波(P2c):执行模式显式选择 -- off 手动逐步 / until-done 全自动 / supervised 建完先暂停。原硬编码 until-done,用户无法改。
+    const autoMode = text('label', 'preview-confirm-fact', '');
+    autoMode.appendChild(text('span', '', t('previewShell.confirmAutoMode')));
+    const autoSelect = document.createElement('select'); autoSelect.id = 'previewDispatchAutoMode'; autoSelect.disabled = dispatchBusy;
+    for (const mode of ['off', 'until-done', 'supervised']) {
+      const option = document.createElement('option'); option.value = mode; option.textContent = t(`previewShell.dispatchAutoMode.${mode}`);
+      option.selected = mode === dispatchDraft.autoMode; autoSelect.appendChild(option);
+    }
+    autoSelect.onchange = () => { dispatchDraft.autoMode = autoSelect.value; };
+    autoMode.appendChild(autoSelect);
+    facts.append(purpose, workspace, safety, autoMode);
+    // 第96波(P4):确认卡列出随任务下发的附件,避免"以为带上了其实没带上"。
+    const draftAttachments = Array.isArray(dispatchDraft.attachments) ? dispatchDraft.attachments : [];
+    if (draftAttachments.length) {
+      const files = text('div', 'preview-confirm-fact preview-confirm-attachments', '');
+      files.append(text('span', '', t('previewShell.confirmAttachments')),
+        text('strong', '', draftAttachments.map(file => file.name).join('、')));
+      facts.appendChild(files);
+    }
     const note = text('p', 'preview-confirm-note', t('previewShell.confirmNoEstimate'));
     const actions = text('div', 'preview-confirm-actions', '');
     const back = actionButton(t('previewShell.confirmBack'), '', () => { dispatchDraft = null; renderHome(); byId('previewDispatchInput')?.focus(); });
@@ -1299,8 +1456,9 @@ export function createPreviewShellDomain({
     return t('previewShell.resultPending');
   }
 
+  // 第96波(Layout 精简):指标从四张边框卡改为一行内联文本(标签 muted + 数值同行),保留 data-slot 供表头刷新。
   function makeMetric(slot, label) {
-    const metric = text('div', 'preview-task-metric', '');
+    const metric = text('span', 'preview-task-metric', '');
     metric.append(text('span', 'preview-task-metric-label', label), text('strong', 'preview-task-metric-value', '—'));
     metric.querySelector('strong').dataset.slot = slot;
     return metric;
@@ -1336,13 +1494,29 @@ export function createPreviewShellDomain({
     return memo;
   }
 
+  // 第98波(P5-A):班组图分列用【真实调度波次】(后端 computeWaveSeq 下发),回退拓扑层(老快照/无 wave 时)。
+  function crewWaves(nodes) {
+    const list = Array.isArray(nodes) ? nodes : [];
+    if (list.some(node => node && typeof node.wave === 'number')) {
+      const fallback = crewDepths(list);
+      const waves = new Map();
+      for (const node of list) {
+        const id = String(node && node.id || '');
+        const projected = Number(node && node.wave);
+        waves.set(id, Number.isSafeInteger(projected) && projected >= 0 ? projected : (fallback.get(id) || 0));
+      }
+      return waves;
+    }
+    return crewDepths(nodes); // 回退:老快照无 wave,用依赖拓扑层
+  }
+
   function crewRole(node, index) {
     return node.roleLabel || node.roleId || t('previewShell.crewMemberFallback', { p1: index + 1 });
   }
 
   function controlReason(reason) {
     const known = new Set(['terminal', 'already_paused', 'complete', 'turn_active', 'budget_exhausted', 'already_running',
-      'mission_missing', 'not_terminal', 'already_manual', 'run_active', 'target_unknown', 'no_checkpoints', 'unavailable']);
+      'mission_missing', 'not_terminal', 'already_manual', 'run_active', 'target_unknown', 'no_checkpoints', 'milestone_limit', 'unavailable']);
     return t(`previewShell.controlReason.${known.has(String(reason || '')) ? reason : 'unavailable'}`);
   }
 
@@ -1378,13 +1552,13 @@ export function createPreviewShellDomain({
     return rail;
   }
 
-  async function performMissionControl(action) {
+  async function performMissionControl(action, extraPrompt = '') {
     const sessionId = selectedSessionId();
     if (!sessionId || controlBusy) return;
     controlBusy = action; controlError = ''; renderTaskSheet(selectedCard());
     try {
       const response = await api(`/api/missions/${encodeURIComponent(sessionId)}/control`, {
-        method: 'POST', body: JSON.stringify({ action }),
+        method: 'POST', body: JSON.stringify({ action, ...(extraPrompt ? { prompt: extraPrompt } : {}) }),
       });
       if (!response || response.ok !== true) throw response || new Error(t('previewShell.controlFailed'));
       if (selectedSnapshot) {
@@ -1395,7 +1569,7 @@ export function createPreviewShellDomain({
       controlDraft = null;
       await refreshPreviewShell({ quiet: true, forceDetail: true });
       if (response.requiresTurn) {
-        const prompt = action === 'retry' ? t('previewShell.controlRetryPrompt') : t('previewShell.controlContinuePrompt');
+        const prompt = action === 'retry' ? t('previewShell.controlRetryPrompt') : action === 'next_turn' ? (extraPrompt || t('previewShell.controlContinuePrompt')) : t('previewShell.controlContinuePrompt');
         applyShellMode('classic');
         const started = await runMissionControlTurn({ sessionId, action, prompt });
         if (!started || started.ok === false) throw new Error(started && started.error || t('previewShell.controlTurnFailed'));
@@ -1636,16 +1810,31 @@ export function createPreviewShellDomain({
     head.append(heading, runTools);
 
     const depths = crewDepths(nodes);
-    const graphNodes = [...nodes.map(node => ({ ...node, proposal: false, depth: depths.get(String(node.id)) || 0 })),
-      ...proposals.map((item, index) => crewProposalNode(item, index, depths))];
-    const maxDepth = graphNodes.reduce((max, node) => Math.max(max, node.depth || 0), 0);
+    const waves = crewWaves(nodes);
+    const graphNodes = nodes.map(node => ({ ...node, proposal: false, wave: waves.get(String(node.id)) ?? 0 }));
+    const maxWave = graphNodes.reduce((max, node) => Math.max(max, node.wave || 0), 0);
     const stage = text('div', 'preview-crew-stage', ''); stage.setAttribute('role', 'group'); stage.setAttribute('aria-label', t('previewShell.crewGraphAria'));
-    for (let depth = 0; depth <= maxDepth; depth++) {
-      const lane = text('section', 'preview-crew-lane', ''); lane.dataset.crewDepth = String(depth);
-      lane.appendChild(text('span', 'preview-crew-lane-label', t('previewShell.crewStage', { p1: depth + 1 })));
+    for (let wave = 0; wave <= maxWave; wave++) {
+      const lane = text('section', 'preview-crew-lane', ''); lane.dataset.crewDepth = String(wave);
+      // 第98波(P5-A):分列改用后端真实调度波次(computeWaveSeq,纳入并发上限+wait),标签回到"第N波"。
+      lane.appendChild(text('span', 'preview-crew-lane-label', t('previewShell.crewWave', { p1: wave + 1 })));
       const laneMembers = text('div', 'preview-crew-lane-members', '');
-      for (const node of graphNodes.filter(item => item.depth === depth)) laneMembers.appendChild(buildCrewMember(node, graphNodes.indexOf(node)));
+      for (const node of graphNodes.filter(item => item.wave === wave)) laneMembers.appendChild(buildCrewMember(node, graphNodes.indexOf(node)));
       lane.appendChild(laneMembers); stage.appendChild(lane);
+    }
+    // 第95波:提议中的子代理(proposal)不占执行层 —— 它们还没被批准,真实调度里也还没进 DAG;
+    // 单独渲染在 stage 下方的"待批准提议"区,与已执行的层明确区分,消除"多出一列"的错位感。
+    if (proposals.length) {
+      const proposalsPanel = text('section', 'preview-crew-proposals', '');
+      proposalsPanel.setAttribute('aria-label', t('previewShell.crewProposalsAria'));
+      const proposalsHead = text('div', 'preview-crew-proposals-head', '');
+      proposalsHead.append(text('span', 'preview-eyebrow', t('previewShell.crewProposalsEyebrow')),
+        text('h3', '', t('previewShell.crewProposalsTitle')),
+        text('span', 'preview-crew-proposals-count', String(proposals.length).padStart(2, '0')));
+      const proposalsList = text('div', 'preview-crew-proposals-list', '');
+      proposals.forEach((item, index) => proposalsList.appendChild(buildCrewMember(crewProposalNode(item, index, depths), nodes.length + index)));
+      proposalsPanel.append(proposalsHead, proposalsList);
+      stage.appendChild(proposalsPanel);
     }
     const selected = nodes.find(node => String(node.id) === selectedCrewNodeId) || nodes[0];
     host.replaceChildren(head, stage);
@@ -1940,17 +2129,14 @@ export function createPreviewShellDomain({
     const controls = snapshot.controls || { actions: {} };
     const actions = controls.actions || {};
     const mission = snapshot.mission || {};
-    const head = text('div', 'preview-mission-control-head', '');
-    const heading = text('div', '', '');
-    heading.append(text('span', 'preview-eyebrow', t('previewShell.controlEyebrow')),
-      text('h2', '', t('previewShell.controlTitle')));
+    // 第96波(Layout 精简):控制台从「独立大标题区块」收敛为一行紧凑工具栏 ——
+    // 驾驶组 + 任务组按钮居左,遥测 chips 居右;确认轨与忙/错提示仍在下方原位置。
     const telemetry = text('div', 'preview-control-telemetry', '');
     telemetry.append(
       text('span', mission.autoMode === 'until-done' ? 'is-live' : '', t(`previewShell.autoMode.${mission.autoMode || 'off'}`)),
       text('span', controls.activeTurn ? 'is-live' : '', controls.activeTurn ? t('previewShell.turnLive') : t('previewShell.turnQuiet')),
       text('span', controls.liveRuns ? 'is-live' : '', t('previewShell.liveRuns', { p1: controls.liveRuns || 0 })),
     );
-    head.append(heading, telemetry);
 
     const board = text('div', 'preview-control-board', '');
     const driver = text('section', 'preview-control-group is-driver', '');
@@ -1962,9 +2148,9 @@ export function createPreviewShellDomain({
     missionGroup.append(text('span', 'preview-control-group-label', t('previewShell.controlMission')),
       controlButton(t('previewShell.controlStop'), 'danger-ghost', actions.stop, () => { controlDraft = { kind: 'mission', action: 'stop' }; renderTaskSheet(selectedCard()); }, 'stop'),
       controlButton(t('previewShell.controlRetry'), '', actions.retry, () => { controlDraft = { kind: 'mission', action: 'retry' }; renderTaskSheet(selectedCard()); }, 'refresh'));
-    board.append(driver, missionGroup);
+    board.append(driver, missionGroup, telemetry);
 
-    host.replaceChildren(head, board);
+    host.replaceChildren(board);
     if (controlDraft?.kind === 'mission' && ['stop', 'retry'].includes(controlDraft.action)) {
       const action = controlDraft.action;
       host.appendChild(confirmationRail(t(`previewShell.controlConfirm.${action}`), t(`previewShell.controlConfirmAction.${action}`),
@@ -2111,14 +2297,13 @@ export function createPreviewShellDomain({
     const activityDot = text('span', 'preview-activity-dot', ''); activityDot.setAttribute('aria-hidden', 'true');
     const activityText = text('span', 'preview-activity-text', ''); activityText.dataset.slot = 'activity';
     activity.append(activityDot, activityText);
-    const progress = text('section', 'preview-mission-ledger preview-task-progress', '');
+    // 第96波(Layout 精简):进度从「盒装账本区」改为一条细行 —— 细条 + 计数同行,不再占一个卡片位。
+    const progress = text('div', 'preview-task-progress', '');
     progress.setAttribute('aria-label', t('previewShell.progressLabel'));
-    const progressHead = text('div', 'preview-ledger-head', '');
-    progressHead.append(text('strong', '', t('previewShell.progressLabel')), text('span', '', '—'));
-    progressHead.lastChild.dataset.slot = 'progressText';
     const bar = document.createElement('progress');
     bar.className = 'preview-progress'; bar.max = 1; bar.value = 0; bar.dataset.slot = 'progress';
-    progress.append(progressHead, bar);
+    const progressText = text('span', 'preview-task-progress-text', '—'); progressText.dataset.slot = 'progressText';
+    progress.append(bar, progressText);
     const metrics = text('div', 'preview-task-metrics', '');
     metrics.append(makeMetric('turns', t('previewShell.turns')), makeMetric('tokens', t('previewShell.tokens')),
       makeMetric('cost', t('previewShell.cost')), makeMetric('runs', t('previewShell.runs')));
@@ -2188,7 +2373,35 @@ export function createPreviewShellDomain({
     foot.append(actionButton(t('previewShell.backHome'), '', () => openDispatchHome(), 'back'),
       actionButton(t('previewShell.openMissionClassic'), 'primary', () => { void openSelectedInClassic(); }, 'open'),
       actionButton(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }, 'refresh'));
-    article.append(head, missionControl, returnSummary, stopCard, finishCard, processDetails, foot);
+    // 第95波:任务单内"继续推进下一回合"输入条 —— 完成/停工/暂停后都可在此追加新提示再开一回合,
+    // 不再被迫跳回经典模式。状态(完成/停工/暂停/进行中)决定占位文案与按钮可用性。
+    const continueTurn = text('section', 'preview-continue-turn', '');
+    continueTurn.setAttribute('aria-label', t('previewShell.continueTurnAria'));
+    const continueField = text('div', 'preview-continue-turn-field', '');
+    const continueInput = document.createElement('textarea');
+    continueInput.id = 'previewContinueInput'; continueInput.rows = 2;
+    continueInput.className = 'preview-continue-turn-input';
+    continueInput.value = continueDraft;
+    continueInput.placeholder = t('previewShell.continueTurnPlaceholder');
+    continueInput.setAttribute('aria-label', t('previewShell.continueTurnInputAria'));
+    const autosizeContinue = () => { continueInput.style.height = 'auto'; continueInput.style.height = Math.min(continueInput.scrollHeight, 160) + 'px'; };
+    continueInput.oninput = () => { continueDraft = continueInput.value; autosizeContinue(); };
+    continueInput.onkeydown = event => {
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); const button = continueTurn.querySelector('.preview-continue-turn-submit'); if (button && !button.disabled) button.click(); }
+    };
+    const continueSubmit = actionButton(t('previewShell.continueTurnAction'), 'primary preview-continue-turn-submit', async () => {
+      const value = String(continueDraft || '').trim();
+      if (!value) { continueInput.focus(); return; }
+      continueDraft = value;
+      await performMissionControl('next_turn', value);
+      // 发送成功后清空输入,下次进入任务单是干净起点;失败保留草稿方便重试。
+      if (!controlError) { continueDraft = ''; }
+    }, 'resume');
+    continueSubmit.disabled = Boolean(controlBusy);
+    continueField.append(continueInput, continueSubmit);
+    const continueHint = text('p', 'preview-continue-turn-hint', t('previewShell.continueTurnHint'));
+    continueTurn.append(continueField, continueHint);
+    article.append(head, missionControl, returnSummary, stopCard, finishCard, processDetails, continueTurn, foot);
     main.replaceChildren(article);
     return article;
   }
@@ -2260,6 +2473,33 @@ export function createPreviewShellDomain({
     setSlot(article, 'runs', compactNumber(Array.isArray(snapshot.runs) ? snapshot.runs.length : 0));
     const turnSeq = Math.max(0, Number(snapshot.cursor?.turnSeq) || 0);
     setSlot(article, 'cursor', t('previewShell.cursor', { p1: turnSeq }));
+    // 第95波:继续推进条状态同步 —— 依任务状态切换占位文案与可用性。
+    const continueTurn = article.querySelector('.preview-continue-turn');
+    if (continueTurn) {
+      const input = continueTurn.querySelector('.preview-continue-turn-input');
+      const submit = continueTurn.querySelector('.preview-continue-turn-submit');
+      const hint = continueTurn.querySelector('.preview-continue-turn-hint');
+      const nextTurn = (snapshot.controls?.actions || {}).next_turn || { enabled: false, reason: 'unavailable' };
+      const active = Boolean(snapshot.controls?.activeTurn) || (Number(snapshot.controls?.liveRuns) || 0) > 0;
+      continueTurn.dataset.state = derived.state;
+      if (input) {
+        input.placeholder = derived.state === 'done'
+          ? t('previewShell.continueTurnPlaceholderDone')
+          : derived.state === 'stopped'
+            ? t('previewShell.continueTurnPlaceholderStopped')
+            : t('previewShell.continueTurnPlaceholder');
+      }
+      if (submit) {
+        submit.disabled = Boolean(controlBusy) || !nextTurn.enabled || active;
+        if (!nextTurn.enabled && !active) submit.title = controlReason(nextTurn.reason);
+        else submit.title = '';
+      }
+      if (hint) {
+        hint.textContent = active
+          ? t('previewShell.continueTurnActiveHint')
+          : (nextTurn.enabled ? t('previewShell.continueTurnHint') : controlReason(nextTurn.reason));
+      }
+    }
   }
 
   function renderStopCard(article, card, snapshot) {

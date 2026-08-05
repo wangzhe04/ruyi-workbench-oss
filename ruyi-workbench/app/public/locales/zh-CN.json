@@ -1764,6 +1764,11 @@
   "previewShell.dispatchBoxBody": "描述要完成的结果、边界和验收标准。先生成确认卡，不会一按就开工。",
   "previewShell.dispatchPlaceholder": "写下今天要做的事…",
   "previewShell.dispatchInputAria": "输入要交办的任务",
+  "previewShell.dispatchAttach": "附件",
+  "previewShell.dispatchAttachAria": "添加文件或图片附件",
+  "previewShell.dispatchAttachmentsAria": "已添加的附件",
+  "previewShell.dispatchDropHint": "拖入文件或图片即可附带",
+  "previewShell.confirmAttachments": "附件",
   "previewShell.dispatchKeyHint": "Ctrl + Enter 生成确认卡",
   "previewShell.reviewDispatch": "生成确认卡",
   "previewShell.quickAsk": "速问",
@@ -1777,6 +1782,10 @@
   "previewShell.confirmPurpose": "要完成什么",
   "previewShell.confirmWorkspace": "在哪工作",
   "previewShell.confirmSafety": "本次安全档",
+  "previewShell.confirmAutoMode": "执行模式",
+  "previewShell.dispatchAutoMode.off": "手动逐步",
+  "previewShell.dispatchAutoMode.until-done": "全自动推进",
+  "previewShell.dispatchAutoMode.supervised": "建完先暂停",
   "previewShell.confirmNoEstimate": "暂无可核验的历史或计划依据，因此不显示工期与费用估计。",
   "previewShell.confirmBack": "返回修改",
   "previewShell.progressPercent": "进度 {{p1}}%",
@@ -1927,7 +1936,21 @@
   ,"previewShell.crewSteerQueueHint": "等候中的队员会在真正开工时读到。"
   ,"previewShell.crewRunLabel": "第 {{p1}} 轮"
   ,"previewShell.crewGraphAria": "班组工序与队员依赖图"
-  ,"previewShell.crewStage": "工序 {{p1}}"
+  ,"previewShell.crewWave": "第 {{p1}} 波"
+  ,"previewShell.crewProposalsAria": "待批准提议"
+  ,"previewShell.crewProposalsEyebrow": "PROPOSALS"
+  ,"previewShell.crewProposalsTitle": "待批准提议"
+  ,"previewShell.continueTurnAria": "继续推进下一回合"
+  ,"previewShell.continueTurnInputAria": "追加的新目标或指示"
+  ,"previewShell.continueTurnPlaceholder": "追加新目标或指示，Ctrl+Enter 发送…"
+  ,"previewShell.continueTurnPlaceholderDone": "任务已收工——追加新目标即可再开一回合…"
+  ,"previewShell.continueTurnPlaceholderStopped": "任务已停工——换条思路或补一句指示继续…"
+  ,"previewShell.continueTurnAction": "继续推进"
+  ,"previewShell.continueTurnHint": "回车发送后将在当前任务上开启新一回合，进度与账本继续累计。"
+  ,"previewShell.continueTurnActiveHint": "当前回合仍在进行，回合结束后即可继续推进。"
+  ,"previewShell.controlReason.already_running": "任务正在运行中"
+  ,"previewShell.controlReason.not_terminal": "任务尚未收尾"
+  ,"previewShell.controlReason.milestone_limit": "验收项已达上限，请新建立一项任务"
   ,"previewShell.lensLabel": "任务现场镜头"
   ,"previewShell.lensNarrative": "现场纪要"
   ,"previewShell.lensCrew": "班组工序"

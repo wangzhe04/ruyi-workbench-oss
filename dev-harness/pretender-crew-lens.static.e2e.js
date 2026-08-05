@@ -23,7 +23,7 @@ const graphProjection = (backend.match(/function missionRunGraph\([\s\S]*?\n}\n\
 ok(graphProjection.includes('nodeDeliveryEligibility(src') && graphProjection.includes("steerReason: String(eligibility.reason")
   && graphProjection.includes(".filter(item => item && item.status === 'proposed')"),
   'A1 Mission detail derives node steering eligibility and proposed pool ghosts from the live authoritative Run');
-for (const field of ['roleLabel', 'task', 'dependsOn', 'engine', 'progress', 'fromPool', 'proposedBy']) {
+for (const field of ['roleLabel', 'task', 'dependsOn', 'engine', 'progress', 'fromPool', 'proposedBy', 'wave']) {
   ok(graphProjection.includes(field + ':'), `A2 compact crew node projection carries ${field}`);
 }
 ok(!/result\s*:|roleSnapshot\s*:|toolEvidence\s*:|progressLog\s*:/.test(graphProjection),
@@ -31,14 +31,14 @@ ok(!/result\s*:|roleSnapshot\s*:|toolEvidence\s*:|progressLog\s*:/.test(graphPro
 ok(backend.includes('missionRunDigest(run, true, index < 6)') && backend.includes('runs.map((run, index)'),
   'A4 only the six newest Run digests carry graph detail; mission list/index remain scalar');
 
-ok(shell.includes('function crewDepths(nodes)') && shell.includes('dependsOn') && shell.includes('dataset.crewDepth'),
-  'B1 crew stages are computed from projected dependency facts with a cycle guard');
+ok(backend.includes('computeWaveSeq(nodes') && shell.includes('function crewWaves(nodes)') && shell.includes('previewShell.crewWave'),
+  'B1 crew lanes consume backend scheduling waves and retain a legacy topology fallback');
 ok(shell.includes('function foremanBrief(run, nodes)') && shell.includes("t('previewShell.crewForemanBrief'")
   && !/fetch\(|\/api\/agent-runs\/[^'`]+\/events/.test(shell),
   'B2 the foreman sentence is a deterministic local fold and the lens opens no second Run event feed');
-ok(shell.includes("proposal: true, depth: baseDepth + 1") && shell.includes("dataset.interventionId")
+ok(shell.includes("proposal: true, depth: baseDepth + 1") && shell.includes('preview-crew-proposals') && shell.includes("dataset.interventionId")
   && shell.includes('setNeedsDrawer(true, { interventionId: pending.id })'),
-  'B3 a proposed pool item is a dotted next-stage node that opens the existing global decision drawer');
+  'B3 a proposed pool item stays outside execution waves and opens the existing global decision drawer');
 ok(shell.includes('steerAgentNode({ sessionId: selectedSessionId()')
   && app.includes("action: 'steer_node'") && app.includes('sessionId, action: \'steer_node\'')
   && app.includes('steerAgentNode: request => steerPreviewAgentNode(request)'),

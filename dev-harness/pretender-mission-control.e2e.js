@@ -168,6 +168,29 @@ try {
   const finalSnap = (await request('/api/missions/' + sessionId, null, token)).json.snapshot;
   ok(finalSnap.ledger.entries.length === 0 && finalSnap.controls.actions.rollback.enabled === false, 'archive snapshot keeps ledger but disables exhausted rollback handle truthfully');
 
+  const missingFollowup = await request('/api/missions/' + sessionId + '/control', { action: 'next_turn' }, token);
+  ok(missingFollowup.status === 400 && missingFollowup.json?.reason === 'prompt_required', 'next_turn rejects an empty follow-up instead of starting a context-free turn');
+
+  const completedCreated = await request('/api/sessions', { title: 'wave95 completed follow-up', cwd: WORKSPACE }, token);
+  const completedId = completedCreated.json?.session?.id;
+  await request('/api/mission', { sessionId: completedId, action: 'start', mission: {
+    goal: 'completed task', autoMode: 'until-done', budget: { maxAutoTurns: 8, maxTokens: 50000 },
+    milestones: [{ id: 'done', desc: 'original delivery', status: 'pending' }],
+  } }, token);
+  const finalized = await request('/api/mission', { sessionId: completedId, action: 'update', patch: {
+    milestones: [{ id: 'done', status: 'done', evidence: 'accepted' }],
+  } }, token);
+  ok(finalized.status === 200 && finalized.json?.mission?.result?.status === 'complete' && finalized.json?.mission?.autoMode === 'until-done',
+    'automatic completion keeps its historical driver mode and stamps a result');
+  const beforeFollowup = (await request('/api/sessions/' + completedId, null, token)).json?.session;
+  const followup = await request('/api/missions/' + completedId + '/control', { action: 'next_turn', prompt: 'add a second delivery' }, token);
+  const afterFollowup = (await request('/api/sessions/' + completedId, null, token)).json?.session;
+  const pendingFollowup = afterFollowup?.mission?.milestones?.find(item => item.status === 'pending' && item.desc === 'add a second delivery');
+  ok(followup.status === 200 && followup.json?.requiresTurn === true && followup.json?.mission?.result == null && Boolean(pendingFollowup),
+    'next_turn reopens a completed Mission with a new pending acceptance item');
+  ok(afterFollowup?.turnSeq === beforeFollowup?.turnSeq && afterFollowup?.messages?.length === beforeFollowup?.messages?.length,
+    'next_turn control does not prewrite the user prompt or consume a turn before the single chat stream');
+
   const invalid = await request('/api/missions/' + sessionId + '/control', { action: 'teleport' }, token);
   const unauth = await request('/api/missions/' + sessionId + '/control', { action: 'pause' });
   ok(invalid.status === 400 && invalid.json?.reason === 'action_invalid', 'unknown Mission action is rejected deterministically');

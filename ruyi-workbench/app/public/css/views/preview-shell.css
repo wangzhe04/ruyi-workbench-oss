@@ -1574,3 +1574,134 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
   .preview-needs-drawer,
   .preview-loading-card::after { animation: none; }
 }
+
+/* -- 第95波:悬停快速归档/置顶(dock 印章 + 首页续办/最近收获卡) -- */
+.preview-dock-item { position: relative; }
+.preview-dock-actions {
+  position: absolute; top: -6px; right: -6px; z-index: 5;
+  display: flex; gap: 3px; opacity: 0; pointer-events: none;
+  transform: translateY(-2px); transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.preview-dock-item:hover .preview-dock-actions,
+.preview-dock-item:focus-within .preview-dock-actions { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.preview-dock-action {
+  width: 22px; height: 22px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--preview-line) 90%, transparent);
+  border-radius: 50%; background: color-mix(in srgb, var(--preview-surface) 96%, var(--preview-accent) 4%);
+  color: var(--preview-muted); cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.preview-dock-action:hover { color: var(--preview-ink); border-color: var(--preview-accent); transform: scale(1.08); }
+.preview-dock-action.is-pin[aria-pressed="true"] { color: var(--preview-accent); border-color: var(--preview-accent); }
+.preview-dock-action.is-archive:hover { color: var(--preview-hot); border-color: var(--preview-hot); }
+.preview-home-task-wrap { position: relative; min-width: 0; }
+.preview-home-quick-actions {
+  position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 4;
+  display: flex; gap: 4px; opacity: 0; pointer-events: none;
+  transform: translateY(-2px); transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.preview-home-task-wrap:hover .preview-home-quick-actions,
+.preview-home-task-wrap:focus-within .preview-home-quick-actions { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.preview-home-quick-action {
+  width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--preview-line) 80%, transparent);
+  border-radius: 50%; background: color-mix(in srgb, var(--preview-surface) 92%, var(--preview-accent) 8%);
+  color: var(--preview-muted); cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.preview-home-quick-action:hover { color: var(--preview-ink); border-color: var(--preview-accent); transform: scale(1.1); }
+.preview-home-quick-action.is-pin[aria-pressed="true"] { color: var(--preview-accent); border-color: var(--preview-accent); }
+.preview-home-quick-action.is-archive:hover { color: var(--preview-hot); border-color: var(--preview-hot); }
+@media (prefers-reduced-motion: reduce) {
+  .preview-dock-actions, .preview-home-quick-actions { transition: none; transform: none; }
+}
+
+/* -- 第95波:待批准提议区(独立于执行层,消除波次错位感) -- */
+.preview-crew-proposals {
+  margin-top: var(--sp-5); padding-top: var(--sp-4);
+  border-top: 1px dashed color-mix(in srgb, var(--preview-line) 80%, transparent);
+}
+.preview-crew-proposals-head { display: flex; align-items: baseline; gap: var(--sp-2); }
+.preview-crew-proposals-head .preview-eyebrow { margin: 0; }
+.preview-crew-proposals-head h3 { margin: 0; font-size: var(--fs-sm); font-weight: 650; color: var(--preview-ink); }
+.preview-crew-proposals-count { margin-left: auto; color: var(--preview-muted); font: 650 var(--fs-xs)/1.2 "Cascadia Mono", var(--mono); letter-spacing: .06em; }
+.preview-crew-proposals-list { margin-top: var(--sp-2); display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-2); }
+.preview-crew-proposals-list .preview-crew-member { background: color-mix(in srgb, var(--preview-surface) 70%, transparent); }
+.preview-crew-proposals-list .preview-crew-member.is-proposal { --crew-tone: var(--preview-muted); opacity: .9; }
+.preview-crew-proposals-list .preview-crew-number { color: var(--preview-muted); }
+
+/* -- 第95波:任务单"继续推进下一回合"输入条 -- */
+.preview-continue-turn {
+  margin: var(--sp-5) var(--sp-5) 0; padding: var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  border: 1px solid color-mix(in srgb, var(--preview-accent) 24%, var(--preview-line));
+  border-radius: 20px; background: color-mix(in srgb, var(--preview-surface) 92%, var(--preview-accent) 4%);
+}
+.preview-continue-turn-field { display: flex; align-items: flex-end; gap: var(--sp-3); }
+.preview-continue-turn-input {
+  flex: 1 1 auto; min-width: 0; resize: none; overflow: hidden;
+  padding: var(--sp-3) var(--sp-3); border: 1px solid var(--preview-line); border-radius: 12px;
+  background: var(--preview-surface); color: var(--preview-ink); font: var(--fs-sm)/1.5 var(--font);
+}
+.preview-continue-turn-input:focus { outline: none; border-color: var(--preview-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--preview-accent) 18%, transparent); }
+.preview-continue-turn-submit { flex: 0 0 auto; }
+.preview-continue-turn-hint { margin: 0; color: var(--preview-muted); font-size: var(--fs-xs); line-height: 1.5; }
+.preview-continue-turn[data-state="running"] .preview-continue-turn-submit,
+.preview-continue-turn[data-state="dispatching"] .preview-continue-turn-submit,
+.preview-continue-turn[data-state="needs_you"] .preview-continue-turn-submit { opacity: .55; }
+
+/* -- 第97波(P4):交办台文件/图片输入 —— 📎按钮、附件托盘、拖拽高亮、确认卡附件行 -- */
+.preview-dispatch-box.is-dragover { border-color: var(--preview-accent); background: color-mix(in srgb, var(--preview-accent) 7%, var(--preview-surface)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--preview-accent) 18%, transparent); }
+.preview-attach-action { border-style: dashed; color: var(--preview-muted); }
+.preview-attach-action:hover:not(:disabled) { border-color: var(--preview-accent); color: var(--preview-accent); }
+.preview-dispatch-attachments { margin-top: var(--sp-3); display: flex; flex-wrap: wrap; gap: 6px; }
+.preview-dispatch-attachment { max-width: 100%; padding: 5px 6px 5px 11px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--preview-line); border-radius: var(--r-pill); background: color-mix(in srgb, var(--preview-surface-2) 60%, transparent); }
+.preview-dispatch-attachment-name { min-width: 0; max-width: 32ch; overflow: hidden; color: var(--preview-ink); font-size: var(--fs-xs); text-overflow: ellipsis; white-space: nowrap; }
+.preview-dispatch-attachment-x { width: 22px; height: 22px; flex: 0 0 auto; padding: 0; display: inline-grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--preview-muted); }
+.preview-dispatch-attachment-x:hover { background: color-mix(in srgb, var(--danger-fg) 12%, transparent); color: var(--danger-fg); }
+.preview-dispatch-attachment-x .ic { width: 12px; height: 12px; }
+.preview-dispatch-hint { margin: var(--sp-2) 0 0; color: color-mix(in srgb, var(--preview-muted) 78%, transparent); font-size: var(--fs-xs); line-height: 1.4; }
+.preview-confirm-attachments { grid-column: 1 / -1; }
+.preview-confirm-attachments > strong { font-family: var(--mono); font-size: var(--fs-sm); }
+
+/* -- 第97波(P3):任务单 Layout 收尾 —— 进度细行计数、问题单自填项 -- */
+.preview-task-progress { display: flex; align-items: center; gap: var(--sp-3); }
+.preview-task-progress .preview-progress { flex: 1 1 auto; height: 6px; }
+.preview-task-progress-text { flex: 0 0 auto; color: var(--preview-muted); font: 600 var(--fs-xs)/1.2 "Cascadia Mono", var(--mono); font-variant-numeric: tabular-nums; }
+.preview-question-other-choice { border: 0; border-radius: 0; background: transparent; }
+.preview-question-other-card textarea { width: 100%; margin-top: 6px; resize: vertical; border-radius: 14px 6px 14px 14px; }
+.preview-question-other-card textarea:disabled { opacity: .5; }
+
+/* -- 第98波(P2a 现场记录动效):叙事条目入场 + 现场速报 live strip -- */
+@keyframes preview-narrative-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* 新追加的叙事条目淡入上移;已存在条目未被重新插入,浏览器不重播 animation,故只对"新现场"动一次。*/
+.preview-narrative-entry { animation: preview-narrative-in .32s var(--ease-out) both; }
+/* 现场速报底部一道流动光带(live strip):进行中=青花蓝横扫,待决=鎏金横扫,收工/停工不亮。比单纯 dot 脉冲更有"在跑"的临场感。*/
+.preview-activity { position: relative; }
+.preview-activity::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 0 0 var(--r-pill) var(--r-pill);
+  background: linear-gradient(90deg, transparent 0%, var(--preview-accent) 50%, transparent 100%);
+  background-size: 50% 100%; background-repeat: no-repeat; background-position: -50% 0;
+  opacity: 0; pointer-events: none;
+}
+.preview-activity[data-state="running"]::after,
+.preview-activity[data-state="dispatching"]::after { opacity: .9; animation: preview-live-strip 1.8s linear infinite; }
+.preview-activity[data-state="needs_you"]::after {
+  background: linear-gradient(90deg, transparent 0%, var(--preview-hot) 50%, transparent 100%);
+  background-size: 50% 100%; background-repeat: no-repeat;
+  opacity: .85; animation: preview-live-strip 2.1s linear infinite;
+}
+@keyframes preview-live-strip {
+  from { background-position: -50% 0; }
+  to { background-position: 150% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-narrative-entry,
+  .preview-activity::after { animation: none; }
+  .preview-activity[data-state="running"]::after,
+  .preview-activity[data-state="dispatching"]::after,
+  .preview-activity[data-state="needs_you"]::after { background-position: 50% 0; }
+}

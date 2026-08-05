@@ -1152,6 +1152,12 @@ function missionControlView(session, opts = {}) {
   const terminal = Boolean(mission && mission.result);
   const milestones = mission && Array.isArray(mission.milestones) ? mission.milestones : [];
   const unfinished = milestones.some(item => !item || item.status !== 'done');
+  const completed = milestones.length > 0 && !unfinished;
+  // A completed autonomous Mission keeps its historical autoMode value. Treat
+  // it as an armed driver only while the Mission is still unsettled; otherwise
+  // an auto-completed task could never accept a user follow-up.
+  const driverArmed = Boolean(mission && mission.autoMode === 'until-done' && !terminal && !completed);
+  const followupCapacity = unfinished || milestones.length < MISSION_MAX_MILESTONES;
   const budgetRemaining = missionBudgetRemaining(mission);
   const rollbackTargetTurnSeq = missionRollbackTarget(session, checkpointEntries);
   const action = (enabled, scope, reason = '') => ({ enabled: Boolean(enabled), scope, reason: enabled ? '' : reason });
@@ -1165,6 +1171,10 @@ function missionControlView(session, opts = {}) {
       stop: action(Boolean(mission) && !terminal, 'mission', terminal ? 'terminal' : 'mission_missing'),
       retry: action(Boolean(mission) && Boolean(mission.result) && mission.result.status === 'stopped' && unfinished && !activeTurn && budgetRemaining,
         'mission', !terminal ? 'not_terminal' : (mission.result && mission.result.status !== 'stopped' ? 'complete' : (activeTurn ? 'turn_active' : (!unfinished ? 'complete' : (!budgetRemaining ? 'budget_exhausted' : 'unavailable'))))),
+      // 第95波:再开一回合 —— 任务已收工/已停工/预算内暂停后,用户追加新提示继续推进。
+      // 与 retry 的区别:next_turn 不依赖 result.status===stopped,complete 也可用,且携带用户新提示。
+      next_turn: action(Boolean(mission) && !activeTurn && liveRuns.length === 0 && !driverArmed && budgetRemaining && followupCapacity,
+        'mission', activeTurn ? 'turn_active' : (liveRuns.length ? 'run_active' : (driverArmed ? 'already_running' : (!budgetRemaining ? 'budget_exhausted' : (!followupCapacity ? 'milestone_limit' : 'unavailable'))))),
       takeover: action(Boolean(mission) && !terminal && (activeTurn || mission.autoMode !== 'off'), 'turn_driver', terminal ? 'terminal' : 'already_manual'),
       rollback: action(Boolean(mission) && rollbackTargetTurnSeq > 0 && checkpointEntries.length > 0 && !activeTurn && liveRuns.length === 0,
         'mission', activeTurn ? 'turn_active' : (liveRuns.length ? 'run_active' : (!rollbackTargetTurnSeq ? 'target_unknown' : 'no_checkpoints'))),
@@ -1201,10 +1211,14 @@ function missionControlFailure(reason, status = 409, message = '') {
   return { status, body: { ok: false, reason, error: message || reason } };
 }
 
-async function missionControlCommand(sessionId, rawAction) {
+async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
   const action = String(rawAction || '').trim();
-  if (!['pause', 'continue', 'stop', 'retry', 'takeover', 'rollback'].includes(action)) {
+  const prompt = String(rawPrompt || '').trim();
+  if (!['pause', 'continue', 'stop', 'retry', 'takeover', 'rollback', 'next_turn'].includes(action)) {
     return missionControlFailure('action_invalid', 400, 'unknown mission control action');
+  }
+  if (action === 'next_turn' && !prompt) {
+    return missionControlFailure('prompt_required', 400, 'next_turn requires a prompt');
   }
   // 回合收尾的原子头文件换名窗口里，磁盘读可能短暂看不到头；活回合注册表持有同一权威 session，
   // 控制动作必须仍可送达，不能让用户在最需要 Pause 时撞瞬态 404。
@@ -1255,6 +1269,26 @@ async function missionControlCommand(sessionId, rawAction) {
   } else if (action === 'retry') {
     for (const item of mission.milestones || []) {
       if (item && item.status === 'blocked') { item.status = 'pending'; item.evidence = ''; }
+    }
+    mission.result = null;
+    mission.autoMode = 'until-done';
+    mission.stall = { lastDigest: '', sameCount: 0 };
+    requiresTurn = true;
+  } else if (action === 'next_turn') {
+    // 第95波:再开一回合 —— 完成/停工/暂停后,用户追加新提示继续推进。
+    // 用户消息和 turnSeq 仍只由随后唯一的 /api/chat/stream 写入；控制面若也预写会产生重复提示与跳号。
+    // 已收工任务的旧里程碑全为 done，必须为追加目标建立新的 pending 验收项，否则下一次回合收尾会
+    // 被 maybeFinalizeMission 立即重新盖 complete 章。停工/暂停任务已有未完项，只需用新提示继续推进。
+    const milestones = Array.isArray(mission.milestones) ? mission.milestones : [];
+    const allDone = milestones.length > 0 && milestones.every(item => item && item.status === 'done');
+    if (allDone) {
+      if (milestones.length >= MISSION_MAX_MILESTONES) {
+        return missionControlFailure('milestone_limit', 409, 'mission milestone limit reached');
+      }
+      mission.milestones.push({
+        id: makeId('followup'), desc: prompt.slice(0, MISSION_MAX_TEXT), status: 'pending',
+        check: normalizeMissionCheck(null, true), evidence: '',
+      });
     }
     mission.result = null;
     mission.autoMode = 'until-done';

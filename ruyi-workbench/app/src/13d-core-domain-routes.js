@@ -90,6 +90,11 @@ function lastMissionRunProgress(node) {
 // 权威文件；Mission 详情只带画图和递话资格所需事实，避免复制运行状态机或把 24KB result 带进任务单。
 function missionRunGraph(src, live) {
   const nodes = Array.isArray(src && src.nodes) ? src.nodes : [];
+  // 第98波(P5-A):真实调度波次 -- 按并发上限+wait 模拟派发,下发给前端班组图分列(替代纯拓扑层)。
+  const waveSeq = computeWaveSeq(nodes, {
+    concurrency: Number(src && src.concurrency) || 1,
+    isWaitNode: n => !!(n && n.wait),
+  });
   return {
     nodes: nodes.map(node => {
       // Read backwards instead of cloning/filtering a potentially long progress history on every Preview poll.
@@ -110,6 +115,7 @@ function missionRunGraph(src, live) {
         fromPool: node && node.fromPool === true, proposedBy: String(node && node.proposedBy || ''),
         deterministic: Boolean(node && node.gate && ['vote', 'dedupe'].includes(node.gate.mode)),
         steerable: eligibility.ok === true, steerReason: String(eligibility.reason || ''),
+        ...(waveSeq.has(String(node && node.id || '')) ? { wave: waveSeq.get(String(node && node.id || '')) } : {}),
       };
     }),
     proposals: (Array.isArray(src && src.taskPool) ? src.taskPool : [])
@@ -228,7 +234,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     const sessionId = safeSessionId(pathname.split('/')[3]);
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const body = await readJsonBody(req);
-    const result = await missionControlCommand(sessionId, body && body.action);
+    const result = await missionControlCommand(sessionId, body && body.action, body && body.prompt);
     return send(res, json(result.body, result.status));
   }
   // 详情:单会话稳定任务快照(EC-E:mission + Agent Run + 产物 + 变更 + 检查点 + 用量 + 游标)。

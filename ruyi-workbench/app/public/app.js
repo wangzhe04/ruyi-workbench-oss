@@ -807,7 +807,7 @@ const {
 
 // 第78波：Preview 交办台与速问共用一个前端 command 入口。它只编排既有的 Session、Mission、
 // chat/stream 三条权威链；任务态仍由后端 /api/mission action:start 建立，Preview 不写第二套状态。
-async function startPreviewDispatchCommand({ kind = 'mission', prompt = '', cwd = '', permissionMode = '' } = {}) {
+async function startPreviewDispatchCommand({ kind = 'mission', prompt = '', cwd = '', permissionMode = '', autoMode = 'until-done', attachments = [] } = {}) {
   const message = String(prompt || '').trim();
   if (!message) throw new Error(t('previewShell.dispatchRequired'));
   const session = await newSession({ cwd: cwd || currentWorkspace(), focus: false });
@@ -823,7 +823,7 @@ async function startPreviewDispatchCommand({ kind = 'mission', prompt = '', cwd 
         // close it with mission_update instead of behaving like an ordinary chat turn.
         mission: {
           goal: message,
-          autoMode: 'until-done',
+          autoMode,
           milestones: [{ id: 'delivery', desc: message, status: 'pending' }],
         },
       }),
@@ -837,7 +837,8 @@ async function startPreviewDispatchCommand({ kind = 'mission', prompt = '', cwd 
     }
     await refreshSessions();
   }
-  const completion = sendPrompt(message, { permissionMode });
+  // 附件随首回合下发；supervised 表示“建完先暂停”，只立 Mission、不暗中启动首回合。
+  const completion = kind === 'mission' && autoMode === 'supervised' ? null : sendPrompt(message, { permissionMode, attachments });
   return { sessionId: session.id, mission, completion };
 }
 

@@ -1715,3 +1715,36 @@ function computeSchedulerStep(nodes, opts) {
   const cycleDead = stateTransitions === 0 && toDispatch.length === 0 && toArm.length === 0 && inFlight.size === 0 && !anyWaiting && !allTerminal;
   return { toBlock, toSkip, toDispatch, toArm, allTerminal, cycleDead };
 }
+
+// 第98波(P5-A):真实调度波次 -- 静态模拟 computeSchedulerStep 的派发过程,给每个节点标注【首次被派发的波次号】。
+// 与前端 crewDepths(纯依赖拓扑层)的区别:纳入并发上限(同层节点多于并发数时拆成多波)与 wait 节点(不占并发槽,同波武装)。
+// 静态预估:假设无条件跳过/失败(条件分支的跳过依赖运行时求值结果,无法静态预知),故为"乐观调度波次",供班组图分列。
+function computeWaveSeq(nodes, opts) {
+  const { concurrency = 1, isWaitNode } = opts || {};
+  const list = Array.isArray(nodes) ? nodes.filter(n => n && n.id) : [];
+  const byId = id => list.find(n => String(n.id) === String(id));
+  const isWait = n => (typeof isWaitNode === 'function') ? !!isWaitNode(n) : false;
+  const wave = new Map();
+  const remaining = new Set(list.map(n => String(n.id)));
+  const maxConcurrent = Math.max(1, Math.floor(Number(concurrency) || 1));
+  let currentWave = 0;
+  let guard = 0;
+  while (remaining.size && guard++ < list.length + 4) {
+    const ready = [...remaining].filter(id => {
+      const n = byId(id);
+      const deps = (Array.isArray(n && n.dependsOn) ? n.dependsOn : []).map(String);
+      return deps.every(d => wave.has(d));
+    });
+    if (!ready.length) break; // 依赖环/死锁:剩余节点无法就绪,停止(保留未分配)
+    let slots = maxConcurrent;
+    for (const id of ready) {
+      const n = byId(id);
+      if (isWait(n)) { wave.set(id, currentWave); continue; } // wait 节点不占并发槽,同波武装
+      if (slots <= 0) continue;                                // 并发满位:留待下一波
+      wave.set(id, currentWave); slots--;
+    }
+    for (const id of ready) if (wave.has(id)) remaining.delete(id);
+    currentWave++;
+  }
+  return wave;
+}

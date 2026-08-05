@@ -45,6 +45,10 @@ ok(html.includes('id="previewArchiveBtn"') && shell.includes("activeView = 'arch
 for (const token of ['previewArchiveSearch', "['all', 'done', 'stopped', 'pinned', 'archived']", "['workspace', 'state']", 'updateMissionUi']) {
   ok(shell.includes(token), `C2 档案操作 ${token} 已接线`);
 }
+ok(shell.includes('renderDock(); renderHome();') && shell.includes('ui.pinned ? 1 : 0')
+  && !shell.includes("dockActions.setAttribute('aria-hidden', 'true')")
+  && !shell.includes("quick.setAttribute('aria-hidden', 'true')"),
+  'C2b 快捷归档/置顶同步任务坞缓存，且不会把可聚焦按钮藏出无障碍树');
 ok(shell.includes("['done', 'stopped'].includes") && shell.includes('preview-archive-group'), 'C3 档案只消费终态任务并稳定分组');
 ok(css.includes('.preview-return-summary') && css.includes('.preview-archive-ledger') && css.includes('@media (max-width: 620px)'), 'C4 摘要/档案/手机响应式样式齐备');
 ok(zh['previewShell.returnTitle'] && en['previewShell.returnTitle'] && zh['previewShell.archiveTitle'] && en['previewShell.archiveTitle'], 'C5 中英文摘要与档案文案齐备');
