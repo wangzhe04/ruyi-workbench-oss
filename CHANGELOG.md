@@ -19,6 +19,7 @@ This file records user-facing release highlights; it does not replace the comple
 - **历史轮次验收报告全文可读**:历史轮次归档时保留完整交付正文(不再截断),每条记录提供「在新窗口打开全文」,完整报告在新标签页渲染。
 - **任务单内继续推进**:在交办台推进下一回合不再跳转到经典模式——回合流直接回流任务单(原始镜头实时文本 + 自动刷新);推进按钮仅在忙碌/活回合时禁用,不可用原因明确显示,不再「按不动」无响应。
 - **对抗复审修复(多 agent 审查)**:①新窗口打开全文直接渲染归档原文,不再二次裁剪(首个标题前的导语不再丢失);②推进回合 `await sendPrompt`,回合启动失败进入明确错误反馈而非静默;③推进期间控制忙碌态覆盖整个回合,消除双击窗口;④任务路由 update 把磁盘权威的验收章与历史归档同步回活回合,防止回合收尾覆盖丢失;⑤驱动器机器验收完成时补盖验收章,收工卡不再缺报告;⑥无正文的历史轮次不渲染无效按钮。
+- **推进输入框清空**:回合继续推进完成后,输入框中的旧文字一并清空(清空草稿后重渲染),不再残留上一轮输入;失败时仍保留草稿便于重试。
 
 ### English
 
@@ -31,6 +32,7 @@ This file records user-facing release highlights; it does not replace the comple
 - **Historical round reports fully readable**: archived rounds keep their full delivery text (no longer truncated), and each entry gains an "Open full report in new window" action rendering the complete report in a new tab.
 - **Continue within the task sheet**: advancing to the next round from the task desk no longer jumps to the classic shell - the round stream flows back into the task sheet (live text in the raw lens + auto-refresh); the advance button is only disabled while busy/active, with unavailable reasons shown explicitly instead of a silent dead button.
 - **Adversarial review fixes (multi-agent audit)**: 1) the new-window full report now renders the archived original text without a second truncation (intro before the first heading is no longer dropped); 2) advancing a round now awaits the prompt send, so a failed turn start surfaces a clear error instead of failing silently; 3) the control busy state covers the whole round, closing the double-click window; 4) mission route updates sync the disk-authoritative result stamp and history archive back into the live turn so the round-tail save can no longer clobber them; 5) the driver now stamps the acceptance result when machine checks complete the mission, so the finish card is never left without a report; 6) historical rounds without delivery text no longer render a dead button.
+- **Advance input cleared**: after a round finishes advancing, the previously typed text in the input is cleared too (draft reset plus re-render) instead of lingering; failed attempts still keep the draft for retry.
 
 ## 如意 Ruyi Escapade 2.4.1 · v2.4.1 · 2026-08-03
 

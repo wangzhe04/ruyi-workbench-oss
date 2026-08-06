@@ -209,6 +209,7 @@ function spawnWb() {
     ok(/reg\.session\.mission\.result = session\.mission && session\.mission\.result \|\| null;/.test(src), 's 13 update 分支把磁盘权威 result 同步回活回合(防回合收尾覆盖丢失新章)');
     ok(/reg\.session\.mission\.resultHistory = Array\.isArray\(session\.mission && session\.mission\.resultHistory\) \? session\.mission\.resultHistory\.slice\(-10\) : \[\]\;/.test(src), 's 13 update 分支把磁盘权威 resultHistory 同步回活回合');
     ok(/if \(await maybeFinalizeMission\(session, 'driver'\)\)/.test(src), 's 10 驱动器机器验收全 done 补盖 complete 章(收工卡有验收报告)');
+    ok(/if \(!controlError\) \{ continueDraft = ''; renderMain\(\); \}/.test(shell), 's preview 回合继续完成后清空草稿并重渲染(输入框不残留旧文字)');
 
   } finally {
     kill(wb); await new Promise(r => provider.close(r));

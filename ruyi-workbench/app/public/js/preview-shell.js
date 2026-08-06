@@ -2407,8 +2407,10 @@ export function createPreviewShellDomain({
       if (!value) { continueInput.focus(); return; }
       continueDraft = value;
       await performMissionControl('next_turn', value);
-      // 发送成功后清空输入,下次进入任务单是干净起点;失败保留草稿方便重试。
-      if (!controlError) { continueDraft = ''; }
+      // 发送成功后清空输入并重渲染,让输入框同步回空值:performMissionControl 在回合结束后
+      // 已 renderMain 过一次,但那一刻草稿仍是旧值;这里清空后必须再渲染一次,否则 DOM 残留旧文字。
+      // 失败保留草稿方便重试(controlError 显示在控制面板)。
+      if (!controlError) { continueDraft = ''; renderMain(); }
     }, 'resume');
     continueSubmit.disabled = Boolean(controlBusy);
     continueField.append(continueInput, continueSubmit);
