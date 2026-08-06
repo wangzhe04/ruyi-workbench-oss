@@ -14,9 +14,24 @@ export function createChatScrollController({
   threshold = 120,
 } = {}) {
   let stickToBottom = true;
+  // 程序化 scrollTop 赋值会触发浏览器 scroll 事件。若让 syncStickToBottom 把这些"自身滚动回声"
+  // 当成用户上滑来读布局，流式跟随时 stickToBottom 会被自己的滚动误置为 false（"跟随被杀、页面
+  // 停在半途"）。写入后开一小段时间窗口：窗口内的回声事件跳过判定；但用户明显偏离程序化目标
+  // （主动上滑 >40px）仍放行，保证连续流式期间真实上滑始终可逃逸。
+  let progScrollGuard = false;
+  let progScrollTimer = 0;
+  let lastProgTop = 0;
 
   const messagesBox = () => (typeof getMessages === 'function' ? getMessages() : null);
   const jumpButton = () => (typeof getJumpLatest === 'function' ? getJumpLatest() : null);
+
+  function markProgrammaticScroll() {
+    progScrollGuard = true;
+    const box = messagesBox();
+    if (box) lastProgTop = box.scrollTop; // 赋值后 scrollTop 已同步反映目标位置
+    if (progScrollTimer) clearTimeout(progScrollTimer);
+    progScrollTimer = setTimeout(() => { progScrollTimer = 0; progScrollGuard = false; }, 120);
+  }
 
   function messagesAtBottom() {
     const box = messagesBox();
@@ -34,12 +49,18 @@ export function createChatScrollController({
   // 内容增长的唯一入口：用户保持粘性时跟随；上滑阅读后只更新提示按钮。
   function maybeScrollToBottom() {
     const box = messagesBox();
-    if (stickToBottom && box) box.scrollTop = box.scrollHeight;
+    if (stickToBottom && box) { box.scrollTop = box.scrollHeight; markProgrammaticScroll(); }
     updateJumpLatest();
   }
 
-  // 只由 #messages 的真实 scroll 事件调用。DOM 增长本身不应误判为用户上滑。
+  // 只由 #messages 的真实 scroll 事件调用。DOM 增长本身不应误判为用户上滑；
+  // 程序化滚动窗口内的回声事件同样跳过（避免把自己的滚动误判成上滑），
+  // 但用户主动偏离程序化目标（上滑）时立即放行，走正常粘性判定。
   function syncStickToBottom() {
+    if (progScrollGuard) {
+      const box = messagesBox();
+      if (box && Math.abs(box.scrollTop - lastProgTop) < 40) { updateJumpLatest(); return stickToBottom; }
+    }
     stickToBottom = messagesAtBottom();
     updateJumpLatest();
     return stickToBottom;
@@ -55,7 +76,7 @@ export function createChatScrollController({
   function scrollMessagesToBottom() {
     stickToBottom = true;
     const box = messagesBox();
-    if (box) box.scrollTop = box.scrollHeight;
+    if (box) { box.scrollTop = box.scrollHeight; markProgrammaticScroll(); }
     updateJumpLatest();
   }
 

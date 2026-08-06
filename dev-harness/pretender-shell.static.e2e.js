@@ -70,7 +70,9 @@ ok(/value === 'needs_you'\) return 'attention'/.test(shell)
   && /return 'quiet'/.test(shell), 'C7 五态事实折算为 attention/active/quiet 三种瓷章表现');
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(shell)
   && /replaceChildren\(/.test(shell) && /textContent\s*=/.test(shell), 'C8 动态壳零 innerHTML，使用 DOM/textContent 构建');
-ok(/setInterval\([\s\S]{0,320}10000\)/.test(shell)
+// 性能波：交办台全量轮询从 10s 降频到 30s（多历史任务时每轮数百 KB 载荷 + 首页/码头全量重建，
+// 10s 是进入卡顿的主放大器）；C9 其余契约（默认零后台税、显式通知才保留待决轮询）不变。
+ok(/setInterval\([\s\S]{0,320}30000\)/.test(shell)
   && /isPreviewMode\(\) && \(!document\.hidden \|\| notificationSettings\.enabled\)/.test(shell)
   && /else if \(notificationSettings\.enabled\) void refreshNotificationInbox\(\)/.test(shell)
   && /if \(isPreviewMode\(\) \|\| notificationSettings\.enabled\) startPolling\(\)/.test(shell),

@@ -1,6 +1,9 @@
 /* Message list, empty and failure states, message shells, avatars, and bubbles. */
 /* ============================ messages ============================ */
-.messages { flex: 1 1 auto; padding: 24px 20px 8px; min-height: 0; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; }
+.messages { flex: 1 1 auto; padding: 24px 20px 8px; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+/* scroll-behavior 不设 smooth：流式跟随时程序化 scrollTop=scrollHeight 若走平滑动画，会派发跨多帧
+   的 scroll 事件风暴并把"跟随最新"误判成用户上滑（stickToBottom 被自己的滚动杀死），长链输出时
+   表现为追不上最新、滚不动。回到最新按钮仍即时生效，体验与多数聊天应用一致。 */
 .empty-state { max-width: 640px; margin: 8vh auto 0; text-align: center; }
 /* v1.0-S1: 如意 Ruyi 内联主标(青花/鎏金,走 --brand-* 随主题),取代旧 Claude 遗留字母 "C" tile。
    极淡青花底衬托品牌色,与 .brand-mark 同一处理。 */

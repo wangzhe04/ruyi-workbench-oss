@@ -137,6 +137,7 @@ export function createPreviewShellDomain({
   }
 
   let cards = [];
+  let lastHomeSignature = null; // renderHome 数据签名：数据未变时跳过整树重建（第77波同款思路）
   let inboxCounts = { total: 0 };
   let pendingInterventions = [];
   let selectedMissionId = '';
@@ -335,10 +336,13 @@ export function createPreviewShellDomain({
 
   function startPolling() {
     if (pollTimer) return;
+    // 轮询周期 10s → 30s：多历史任务时每轮全量拉取 200 条 mission（数百 KB JSON）+ 全量重建
+    // 首页/码头 DOM，10s 频率是"进入交办台很卡、久久加载不完"的主要放大器；30s 对首页准实时
+    // 场景无感，通知仍走独立收件箱通道。
     pollTimer = setInterval(() => {
       if (isPreviewMode() && (!document.hidden || notificationSettings.enabled)) void refreshPreviewShell({ quiet: true });
       else if (notificationSettings.enabled) void refreshNotificationInbox();
-    }, 10000);
+    }, 30000);
   }
 
   function stopPolling() {
@@ -1405,7 +1409,14 @@ export function createPreviewShellDomain({
   function renderHome() {
     const main = byId('previewMain');
     if (!main) return;
+    // 第77波(perf)同款签名短路：数据无实质变化时跳过整树 replaceChildren 重建 —— 多历史任务 +
+    // 30s 轮询下，每轮都重建首页是"进入交办台很卡"的典型浪费，且会打断交办箱输入焦点。
+    // 只有从其它视图切回（main.dataset.view 非 home）才强制重建。
+    const alreadyHome = main.dataset.view === 'home';
+    const signature = homeDataSignature();
+    if (alreadyHome && signature === lastHomeSignature) { syncHomeEditor(); return; }
     main.dataset.view = 'home'; delete main.dataset.missionId;
+    lastHomeSignature = signature;
     const article = text('article', 'preview-dispatch-home', '');
     // 首页只保留一句人话标题；说明性眉题和导言退场，首屏直接进入操作。
     const intro = text('header', 'preview-home-intro', '');
@@ -1415,6 +1426,45 @@ export function createPreviewShellDomain({
     const sections = [guide, buildDispatchComposer(), buildContinueSection(), buildPlaybookShelf(), buildRecentSection()].filter(Boolean);
     article.append(...sections);
     main.replaceChildren(article);
+  }
+
+  // 首页渲染签名：覆盖 buildFirstRunGuide / buildDispatchComposer / buildContinueSection /
+  // buildPlaybookShelf / buildRecentSection 的全部数据输入。dispatchText 不在签名内（打字态由
+  // syncHomeEditor 就地同步，避免输入一半被整树重建打断）；程序性改 dispatchText 的调用点都会
+  // 显式 renderHome()，签名不变时仍会经 syncHomeEditor 把值写回输入框。
+  function homeDataSignature() {
+    const locale = getLocale();
+    const recent = Array.isArray(state?.config?.recentWorkspaces) ? state.config.recentWorkspaces : [];
+    const workspaceReady = recent.length > 0 || Boolean(state?.config?.defaultWorkspace);
+    const engineReady = engineReadiness().ready;
+    const uiMode = document.documentElement.getAttribute('data-ui-mode') || 'pro';
+    const workspaceLabel = currentWorkspace() || state?.config?.defaultWorkspace || '';
+    const permissionMode = state?.config?.permissionMode || '';
+    const cardSig = cards.map(card => {
+      const ui = missionUi(card && card.missionId);
+      const pending = card && card.pending;
+      return [
+        card && card.missionId, card && card.updatedAt, (card && card.runCount) || 0,
+        card && card.activeTurn || '', !!(card && card.mission && card.mission.done),
+        pending ? (pending.permissions || 0) + ':' + (pending.questions || 0) + ':' + (pending.plans || 0) + ':' + (pending.pool || 0) : '',
+        ui.pinned ? 1 : 0, ui.archived ? 1 : 0,
+      ].join('|');
+    }).join(';');
+    return [locale, uiMode, workspaceReady ? 1 : 0, workspaceLabel, permissionMode, engineReady ? 1 : 0,
+      playbooksLoaded ? playbooks.length : -1,
+      dispatchBusy ? 1 : 0, dispatchDraft ? 1 : 0, dispatchError ? 1 : 0, dispatchAttachments.length, cardSig].join('\u001e');
+  }
+
+  // 签名未变时的就地同步：把程序性设置的 dispatchText/禁用态写回已存在的交办箱，不重建 DOM。
+  function syncHomeEditor() {
+    const input = byId('previewDispatchInput');
+    if (input) {
+      if (document.activeElement !== input && input.value !== dispatchText) input.value = dispatchText;
+      input.disabled = dispatchBusy;
+    }
+    const attachBtn = byId('previewDispatchAttachBtn'); if (attachBtn) attachBtn.disabled = dispatchBusy;
+    const quick = byId('previewQuickAskBtn'); if (quick) quick.disabled = dispatchBusy;
+    const review = byId('previewDispatchReviewBtn'); if (review) review.disabled = dispatchBusy;
   }
 
   function renderEmptyMain() {

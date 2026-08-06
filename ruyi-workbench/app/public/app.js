@@ -16,14 +16,8 @@ import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, s
 import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken } from './js/net.js';
 import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
-import {
-  captureScrollAnchor,
-  messageDomKey,
-  messageRenderSignature,
-  normalizeTurnSegments,
-  restoreScrollAnchor,
-  turnToolAnchorId,
-} from './js/turn-narrative.js';
+import { captureScrollAnchor, messageDomKey, messageRenderSignature, normalizeTurnSegments, restoreScrollAnchor, turnToolAnchorId }
+  from './js/turn-narrative.js';
 import { createChatScrollController } from './js/chat-scroll.js';
 import { createSettingsOperationsDomain } from './js/settings-operations.js';
 import { createFileBrowserDomain } from './js/file-browser.js';
@@ -52,7 +46,7 @@ import { createPreviewShellDomain } from './js/preview-shell.js';
 let previewStreamSink = null;
 
 const {
-  maybeScrollToBottom,
+  maybeScrollToBottom, isStickyScroll,
   resetStickyScroll,
   scrollMessagesToBottom,
   syncStickToBottom,
@@ -384,7 +378,7 @@ const {
   openToolPane: () => openToolPane(),
   scheduleRender: live => scheduleRender(live),
   renderCurrentSession: () => renderCurrentSession(),
-  renderSessions: () => renderSessions(),
+  renderSessions: () => renderSessions(), scrollIsSticky: () => isStickyScroll(),
 });
 
 const {

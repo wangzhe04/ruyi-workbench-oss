@@ -19,7 +19,10 @@ ok(schedule.includes('textNode.appendData(pending)'), 'live answer rendering app
 ok(!schedule.includes('renderMarkdown(') && !schedule.includes('.innerHTML'), 'animation-frame hot path does not reparse full Markdown');
 
 const thinkingCase = src.slice(src.indexOf("case 'thinking_delta':"), src.indexOf("case 'subagent':"));
-ok(thinkingCase.includes('thinkingNode.appendData'), 'thinking stream also appends deltas instead of replacing all text');
+ok(thinkingCase.includes('live.thinkingBuffer') && thinkingCase.includes('scheduleLiveThinkingFollow(live)'),
+  'thinking stream coalesces deltas into a per-frame buffer instead of per-event DOM writes');
+const thinkingFlush = fnBody('flushThinkingBuffer');
+ok(thinkingFlush.includes('thinkingNode.appendData'), 'batched thinking deltas are appended (not replaced) when flushed');
 
 const mount = fnBody('mountActiveTurn');
 ok(mount.includes("evt.type === 'assistant_delta'") && mount.includes("textParts.push(evt.text || '')")

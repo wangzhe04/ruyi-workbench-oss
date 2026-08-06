@@ -720,6 +720,7 @@ export function createChatStreamRuntime(deps = {}) {
   }
   function finalizeLive(live) {
     // Every terminal path settles and collapses the active reasoning note unless the user toggled it.
+    flushThinkingBuffer(live); // rAF 合批未写出的思维链增量先落盘，摘要字数才准确
     settleLiveThinking(live);
     // A transport failure can close the turn after tool_use but before its tool_result line reaches the
     // browser. Never leave that card claiming it is still running after the owning turn has settled.
@@ -759,22 +760,30 @@ export function createChatStreamRuntime(deps = {}) {
   }
 
   /* ---------------- ↓ 回到最新 (§4.4 / EC-D 57 chat-scroll domain) ---------------- */
-  function scheduleLiveThinkingFollow(live, followPanel) {
-    if (!live) return;
-    live.followThinkingPanel = live.followThinkingPanel || followPanel;
-    if (live.thinkingFollowTimer) return;
-    // A zero-delay task still coalesces token bursts, but unlike requestAnimationFrame it is not suspended
-    // just because the app window is backgrounded during a long model turn.
-    live.thinkingFollowTimer = setTimeout(() => {
-      live.thinkingFollowTimer = 0;
-      if (live.followThinkingPanel && live.thinkingPanelObj?.d.open && live.thinkingEl) {
+  // 思维链流式渲染的 rAF 合批入口：thinking_delta 事件只累加 buffer，渲染收敛到每帧一次。
+  // 后台标签页 rAF 会暂停，但回合结束时 flush 会把全部 buffer 落盘、切回前台后 rAF 恢复继续，
+  // 内容不丢（原 setTimeout 方案的"后台也逐事件渲染"对不可见的页面没有价值）。
+  function scheduleLiveThinkingFollow(live) {
+    if (!live || live.thinkingRafId) return;
+    live.thinkingRafId = requestAnimationFrame(() => {
+      live.thinkingRafId = 0;
+      flushThinkingBuffer(live);
+      // 内层 think-body 跟随：每帧读一次布局；用户已上滑（距底 ≥36px）则不打扰。
+      if (live.thinkingEl && live.thinkingPanelObj?.d.open
+          && live.thinkingEl.scrollHeight - live.thinkingEl.scrollTop - live.thinkingEl.clientHeight < 36) {
         live.thinkingEl.scrollTop = live.thinkingEl.scrollHeight;
       }
-      live.followThinkingPanel = false;
-      // 不再使用事件到达时捕获的 messagesAtBottom()。timer 执行时只读取控制器中的用户粘性意图：
-      // DOM 增长不会把 sticky 误改为 false，真实上滑 scroll 则会可靠阻止跟随。
+      // 外层消息区跟随同样收敛到每帧一次（原实现在每个 thinking_delta 事件上各起一个
+      // setTimeout(0)，事件风暴下产生大量定时器与重复布局读）。
       maybeScrollToBottom();
-    }, 0);
+    });
+  }
+  // 把累积的思维链文本一次性写入 DOM 文本节点。所有 settle/flush 路径之前必须调用，
+  // 确保折叠摘要字数（读 body.textContent）与面板正文一致。
+  function flushThinkingBuffer(live) {
+    if (!live || !live.thinkingBuffer) return;
+    if (live.thinkingNode) live.thinkingNode.appendData(live.thinkingBuffer);
+    live.thinkingBuffer = '';
   }
 
   function registerLiveSemanticCard(live, segment) {
@@ -807,6 +816,7 @@ export function createChatStreamRuntime(deps = {}) {
     // Any real event after a reasoning delta closes that phase. This covers thinking → tool/plan/question,
     // not only thinking → assistant text, so interleaved turns never leave completed reasoning panels open.
     if (live?.thinkingActive && evt.type !== 'thinking_delta' && evt.type !== 'raw_line') {
+      flushThinkingBuffer(live); // 面板收拢前把合批中的思维链增量写进 DOM
       settleLiveThinking(live);
       compactNarrativeProcessRuns(live.narrative);
     }
@@ -854,12 +864,14 @@ export function createChatStreamRuntime(deps = {}) {
           (live.narrative || main).appendChild(tp.d); tp.d.open = true;
           live.thinkingActive = true;
         }
-        const followPanel = live.thinkingEl
-          ? live.thinkingEl.scrollHeight - live.thinkingEl.scrollTop - live.thinkingEl.clientHeight < 36
-          : true;
         live.thinkingText += evt.text || '';
-        if (live.thinkingNode) live.thinkingNode.appendData(evt.text || '');
-        scheduleLiveThinkingFollow(live, followPanel);
+        // 超长超快思维链合批：事件只入 buffer，DOM 写与滚动跟随收敛到每帧最多一次。
+        // 正文 assistant_delta 已有 scheduleRender 合批；思维链此前每事件同步 appendData +
+        // 读一次布局 + 起一个 setTimeout(0)（内部再读布局写两个容器），事件风暴下形成
+        // "读-写-读"布局抖动（单 textNode 全文换行重排 O(n·L)），是长链卡死的根源。
+        if (live.thinkingBuffer == null) live.thinkingBuffer = '';
+        live.thinkingBuffer += evt.text || '';
+        scheduleLiveThinkingFollow(live);
         break;
         }
       case 'subagent':
@@ -1025,6 +1037,8 @@ export function createChatStreamRuntime(deps = {}) {
           ...evt, type: 'question', status: evt.ok === false ? 'cancelled' : 'answered',
           answerSummary: evt.summary || '',
         });
+        // 回答落定后仍保持跟随最新：回答卡替换成已答状态，视口停在提问/最新位置。
+        maybeScrollToBottom();
         break;
       case 'permission_request':
         registerLiveSemanticCard(live, { ...evt, type: 'permission', status: 'pending' });

@@ -121,7 +121,7 @@ export function captureScrollAnchor(container) {
   const rows = container.querySelectorAll('[data-message-key]');
   for (const row of rows) {
     const rect = row.getBoundingClientRect();
-    if (rect.bottom >= top) return { atBottom: false, key: row.dataset.messageKey || '', offset: rect.top - top };
+    if (rect.bottom >= top) return { atBottom: false, key: row.dataset.messageKey || '', offset: rect.top - top, scrollTop: container.scrollTop };
   }
   return { atBottom: false, scrollTop: container.scrollTop };
 }
@@ -137,6 +137,14 @@ export function restoreScrollAnchor(container, anchor) {
       container.scrollTop += row.getBoundingClientRect().top - top - Number(anchor.offset || 0);
       return;
     }
+    // keyed 锚点行被窗口化渲染丢弃（长会话重渲染窗口前移）时不再静默 no-op —— 那会让视口
+    // 停在 replaceChildren 后的残留位置（常被 clamp 到窗口顶部，即"回退到历史约一半"）。
+    // 用捕获时记录的数值 scrollTop 兜底，至少保持原阅读位置附近。
+    if (Number.isFinite(anchor.scrollTop)) {
+      container.scrollTop = Math.min(anchor.scrollTop, Math.max(0, container.scrollHeight - container.clientHeight));
+      return;
+    }
+    return;
   }
   if (Number.isFinite(anchor.scrollTop)) container.scrollTop = anchor.scrollTop;
 }

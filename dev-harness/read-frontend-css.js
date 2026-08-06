@@ -59,7 +59,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // continuation footer its own responsive visual hierarchy. Classic layers remain unchanged.
 // v1.8.2 adds the provider "协议与能力" collapsed group (.prov-cap) styles next to its sibling .prov-adv
 // in the classic chat-shell layer (provider settings UI lives there). Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = 'd611e4879bb26c78f9fcebe85b5b1b89332900d5eb9ad62ddffcbd6f2ec7fa82';
+// Perf 波（聊天卡顿/滚动修复）：chat-primitives.css 的 .messages 移除 scroll-behavior:smooth
+// （流式跟随时程序化滚动的 smooth 动画会派发跨帧 scroll 事件风暴、误杀"跟随最新"粘性），
+// chat-live.css 的 .think-body 增加 contain: layout style（超长思维链重排不再冒泡整条消息树）。
+// 两条均为有意样式变更，重钉载荷锁。classic 层规则无漂移。
+const LEGACY_STYLES_SHA256 = '3363326c5b03345cb426104602f74cdcde07f3d7808948aa8966f6950bd42d8d';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

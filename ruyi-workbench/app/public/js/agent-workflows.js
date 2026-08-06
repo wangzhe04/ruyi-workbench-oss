@@ -19,6 +19,7 @@ export function createAgentWorkflowsDomain({
   scheduleRender = () => {},
   renderCurrentSession = () => {},
   renderSessions = () => {},
+  scrollIsSticky = () => true,
 } = {}) {
 let agentWorkflowLibrary = [];
 function cloneWorkflow(value) { return JSON.parse(JSON.stringify(value || {})); }
@@ -725,7 +726,14 @@ async function deliverAgentRuns(sid, runs) {
     if (activeTurns.has(sid)) return;
     agentRunSummarySeen.add(`${sid}:${finishedWithSummary.id}`);
     const fresh = await api(`/api/sessions/${encodeURIComponent(sid)}`).catch(() => null);
-    if (fresh && fresh.session && state.currentSession?.id === sid) { state.currentSession = fresh.session; renderCurrentSession(); renderSessions(); }
+    if (fresh && fresh.session && state.currentSession?.id === sid) {
+      state.currentSession = fresh.session;
+      // 用户粘在底部时全量重渲染会 restoreScrollAnchor 回底部、无感知；若已上滑阅读（sticky=false），
+      // 窗口化重渲染会把视口跳到别处（锚点行可能被新窗口丢弃）——只刷新侧栏，不打扰阅读位置。
+      // 新回合开启时 mountActiveTurn 会按需重建消息区，静态内容不因此过期。
+      if (scrollIsSticky()) { renderCurrentSession(); renderSessions(); }
+      else renderSessions();
+    }
   }
 }
 async function loadAgentRuns(force) {

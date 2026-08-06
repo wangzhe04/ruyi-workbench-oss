@@ -124,12 +124,13 @@ async function getToken(port) {
   ok(app.includes('function buildNarrativeSteerSegment') && /segment\.type === 'steer'/.test(app)
     && /narrative\.append\(buildNarrativeSteerSegment\(segment\.text\)\)/.test(app), 'S30 EC-D 56b 静态叙事渲染 steer 段(buildNarrativeSteerSegment live/静态共享)');
   // EC-D 56(粘性自动滚动):上滑阅读不拽回,接近底部恢复跟随。
-  ok(app.includes("from './js/chat-scroll.js'") && app.includes('createChatScrollController') && app.includes('function scheduleLiveThinkingFollow(live, followPanel)'),
+  ok(app.includes("from './js/chat-scroll.js'") && app.includes('createChatScrollController') && app.includes('function scheduleLiveThinkingFollow(live)'),
     'S26 EC-D 57 粘性滚动状态已收敛到 chat-scroll 领域模块');
   ok(app.includes("mb.addEventListener('scroll', syncStickToBottom") && app.includes('maybeScrollToBottom();')
     && app.includes('box.appendChild(row); scrollMessagesToBottom();'), 'S27 EC-D 57 scroll 监听、正文增长与新 turn 统一走滚动控制器');
   ok(!app.includes('followThinkingMessages') && !/scheduleLiveThinkingFollow\(live,\s*followPanel,\s*followMessages\)/.test(app)
-    && /scheduleLiveThinkingFollow\(live,\s*followPanel\)/.test(app), 'S27b 思考跟随不再捕获事件期 messagesAtBottom 快照');
+    && /scheduleLiveThinkingFollow\(live\)/.test(app) && app.includes('flushThinkingBuffer(live)'),
+    'S27b 思考跟随走 rAF 合批(每帧一次 flush+跟随),不再捕获事件期 messagesAtBottom 快照');
   ok(/if \(live\) live\.errorShown = true;\s*maybeScrollToBottom\(\);/.test(app)
     && /if \(live\) live\.noteShown = true;\s*maybeScrollToBottom\(\);/.test(app),
   'S28 EC-D 56 错误/备注流式增长路径改粘性滚动(maybeScrollToBottom,不无条件拽回底部)');
