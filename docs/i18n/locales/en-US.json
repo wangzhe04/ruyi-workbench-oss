@@ -2150,6 +2150,8 @@
   ,"previewShell.finishHistoryTitle": "Previous acceptance reports"
   ,"previewShell.finishHistoryCount": "{{p1}} rounds"
   ,"previewShell.finishHistoryMeta": "Accepted {{p1}}/{{p2}}"
+  ,"previewShell.finishHistoryOpenFull": "Open full report in new window"
+  ,"previewShell.finishHistoryOpenFullHint": "Open this round's full acceptance report in a new tab"
   ,"previewShell.finishArtifactLocate": "Locate"
   ,"previewShell.finishNoArtifacts": "No standalone output file was registered; acceptance and the operation ledger remain available."
   ,"previewShell.finishSavePlaybook": "Save as task template"

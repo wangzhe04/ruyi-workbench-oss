@@ -1,4 +1,4 @@
-(async () => {
+﻿(async () => {
 'use strict';
 // E2E(第72波 EC-E 切片三):任务结果模型 + 不可逆操作正向账。
 // 覆盖:
@@ -154,7 +154,7 @@ function spawnWb() {
     ok(Array.isArray(histB) && histB.length === 2, '(b) resultHistory 留存 2 条旧轮次(complete@2/2 + stopped)');
     ok(histB && histB[0] && histB[0].status === 'complete' && histB[0].acceptance && histB[0].acceptance.done === 2, '(b) 历史首条 = 旧 complete@2/2');
     ok(histB && histB[1] && histB[1].status === 'stopped', '(b) 历史第二条 = stopped 章');
-    ok(histB && typeof histB[0].deliverableText === 'string', '(b) 历史轮次带 deliverableText(归档时裁成摘要)');
+    ok(histB && typeof histB[0].deliverableText === 'string', '(b) 历史轮次带 deliverableText(第97波归档保留完整正文,支持新窗口全文)');
     ok(fres && typeof fres.deliverableText === 'string' && fres.deliverableText.includes('全部完成'), '(b) 新 complete 章带 deliverableText(本轮完整)');
 
     // ============ (c) 旧会话诚实标注(legacyCommands)============
@@ -194,6 +194,13 @@ function spawnWb() {
     ok(/deliverableText = msg\.content\.slice\(0, 16000\)/.test(src), 's 02 buildMissionResult 取最后 assistant content 作 deliverableText');
     ok(/resultHistory: Array\.isArray\(session\.mission && session\.mission\.resultHistory\) \? session\.mission\.resultHistory : \[\],/.test(src), 's 13d 快照带 resultHistory');
     ok(/archiveMissionResult\(mission\);/.test(src) && /archiveMissionResult\(m\);/.test(src), 's 02 stop/retry/next_turn/rollback + 再武装 前归档旧 result');
+    // 第97波:历史轮次验收报告全文 —— 归档不再裁 deliverableText(slice(0, 2000) 移除),preview 壳
+    // requiresTurn 分支不再跳经典壳、历史行提供新窗口全文、推进按钮不再因 next_turn 不可用静默禁用。
+    ok(!/deliverableText\.length > 2000\) \{\s*archived\.deliverableText = archived\.deliverableText\.slice\(0, 2000\)/.test(src), 's 02 archiveMissionResult 不再裁 2000(保留完整正文)');
+    const shell = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'preview-shell.js'), 'utf8');
+    ok(shell.includes('runMissionControlTurn({ sessionId, action, prompt })') && !shell.includes("applyShellMode('classic');\n        const started = await runMissionControlTurn"), 's preview requiresTurn 分支不再跳经典壳(任务单内推进)');
+    ok(shell.includes("const openHistoryFullText = (item) =>") && shell.includes("window.open('', '_blank')") && shell.includes('finishHistoryOpenFull'), 's preview 历史轮次「在新窗口打开全文」');
+    ok(/submit\.disabled = Boolean\(controlBusy\) \|\| active;/.test(shell), 's preview 推进按钮仅在忙碌/活回合禁用(可点,服务端权威校验)');
 
   } finally {
     kill(wb); await new Promise(r => provider.close(r));

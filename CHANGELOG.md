@@ -16,6 +16,8 @@ This file records user-facing release highlights; it does not replace the comple
 - **交办台任务流与产出 UX**:任务输出与续办交互细化(任务单控件、续办卡、现场纪要镜头的若干打磨)。
 - **收工卡交付成果立即可见**:验收完成时,交付成果正文随结果章持久化下发,不再依赖流式输出到达时序;点开即可见,刷新也不会截断当前输出。
 - **多轮验收报告历史留存**:任务完成后继续推进下一轮,旧轮次的验收报告归档保留,可在收工卡「历史轮次验收报告」展开回看,不再只保留最新一轮。
+- **历史轮次验收报告全文可读**:历史轮次归档时保留完整交付正文(不再截断),每条记录提供「在新窗口打开全文」,完整报告在新标签页渲染。
+- **任务单内继续推进**:在交办台推进下一回合不再跳转到经典模式——回合流直接回流任务单(原始镜头实时文本 + 自动刷新);推进按钮仅在忙碌/活回合时禁用,不可用原因明确显示,不再「按不动」无响应。
 
 ### English
 
@@ -25,6 +27,8 @@ This file records user-facing release highlights; it does not replace the comple
 - **Task-desk workflow and output UX**: refinements to task output and continuation interactions (task-sheet controls, continuation cards, the worksite-log lens).
 - **Finish-card delivery text shown immediately**: the delivery text is persisted with the result record when acceptance completes, so it no longer depends on streaming arrival timing; it is visible on open and survives refresh without truncating the in-flight output.
 - **Multi-round acceptance reports retained**: when a finished task continues into the next round, prior acceptance reports are archived and can be expanded back in the finish card's "Previous acceptance reports" section, instead of keeping only the latest.
+- **Historical round reports fully readable**: archived rounds keep their full delivery text (no longer truncated), and each entry gains an "Open full report in new window" action rendering the complete report in a new tab.
+- **Continue within the task sheet**: advancing to the next round from the task desk no longer jumps to the classic shell - the round stream flows back into the task sheet (live text in the raw lens + auto-refresh); the advance button is only disabled while busy/active, with unavailable reasons shown explicitly instead of a silent dead button.
 
 ## 如意 Ruyi Escapade 2.4.1 · v2.4.1 · 2026-08-03
 

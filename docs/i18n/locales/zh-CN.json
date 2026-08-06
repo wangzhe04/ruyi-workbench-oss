@@ -2150,6 +2150,8 @@
   ,"previewShell.finishHistoryTitle": "历史轮次验收报告"
   ,"previewShell.finishHistoryCount": "{{p1}} 轮"
   ,"previewShell.finishHistoryMeta": "验收 {{p1}}/{{p2}}"
+  ,"previewShell.finishHistoryOpenFull": "在新窗口打开全文"
+  ,"previewShell.finishHistoryOpenFullHint": "在新标签页查看本轮完整验收报告"
   ,"previewShell.finishArtifactLocate": "定位"
   ,"previewShell.finishNoArtifacts": "本单没有登记独立成果文件；验收与操作台账仍完整保留。"
   ,"previewShell.finishSavePlaybook": "保存为任务模板"

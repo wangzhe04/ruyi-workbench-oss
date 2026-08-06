@@ -1113,9 +1113,7 @@ function archiveMissionResult(mission) {
   if (!mission || !mission.result) return;
   const history = Array.isArray(mission.resultHistory) ? mission.resultHistory.slice() : [];
   const archived = { ...mission.result };
-  if (typeof archived.deliverableText === 'string' && archived.deliverableText.length > 2000) {
-    archived.deliverableText = archived.deliverableText.slice(0, 2000);
-  }
+  // 第97波:历史轮次保留完整 deliverableText,支持收工卡「在新窗口打开全文」;条数由 last 10 有界防膨胀。
   history.push(archived);
   if (history.length > 10) history.splice(0, history.length - 10);
   mission.resultHistory = history;

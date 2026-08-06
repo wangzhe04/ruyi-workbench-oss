@@ -1570,7 +1570,8 @@ export function createPreviewShellDomain({
       await refreshPreviewShell({ quiet: true, forceDetail: true });
       if (response.requiresTurn) {
         const prompt = action === 'retry' ? t('previewShell.controlRetryPrompt') : action === 'next_turn' ? (extraPrompt || t('previewShell.controlContinuePrompt')) : t('previewShell.controlContinuePrompt');
-        applyShellMode('classic');
+        // 第97波:保持在任务单内推进 —— preview 壳经 previewStreamSink 承接回合流(raw 镜头 live 文本)+
+        // 240ms 详情轮询刷新,不再 applyShellMode('classic') 跳经典壳。
         const started = await runMissionControlTurn({ sessionId, action, prompt });
         if (!started || started.ok === false) throw new Error(started && started.error || t('previewShell.controlTurnFailed'));
       }
@@ -2508,7 +2509,9 @@ export function createPreviewShellDomain({
             : t('previewShell.continueTurnPlaceholder');
       }
       if (submit) {
-        submit.disabled = Boolean(controlBusy) || !nextTurn.enabled || active;
+        // 第97波:推进按钮只在忙碌/活回合时禁用;next_turn 不可用(如里程碑上限/预算耗尽)时仍可点,
+        // 由服务端权威校验并拒绝,错误经 controlError 明确反馈 —— 不再「按不动」无响应。
+        submit.disabled = Boolean(controlBusy) || active;
         if (!nextTurn.enabled && !active) submit.title = controlReason(nextTurn.reason);
         else submit.title = '';
       }
@@ -2746,6 +2749,24 @@ export function createPreviewShellDomain({
     actions.append(playbook, memory, archive);
 
     // 历史轮次验收报告:next_turn/retry/rollback/再武装前归档的旧 result,可展开回看(不丢旧轮次)。
+    // 第97波:每条历史轮提供「在新窗口打开全文」—— 历史轮归档保留完整 deliverableText,新窗口用 DOM
+    // clone + renderMarkdownInto 渲染(纯 DOM 构建,不碰字符串注入,过 C8 静态锁)。
+    const openHistoryFullText = (item) => {
+      const full = String(item && item.deliverableText || '').trim();
+      if (!full) return;
+      const win = window.open('', '_blank');
+      if (!win) return; // 弹窗被拦截时静默放弃,按钮仍在可重试
+      const doc = win.document;
+      doc.title = t('previewShell.finishHistoryTitle');
+      const style = doc.createElement('style');
+      style.textContent = 'body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:880px;margin:28px auto;padding:0 24px;line-height:1.7;color:#1f2328}pre{background:#f6f8fa;padding:14px;border-radius:6px;overflow:auto}code{font-family:ui-monospace,Consolas,monospace;font-size:.92em}blockquote{border-left:3px solid #d0d7de;margin:0;padding-left:14px;color:#57606a}table{border-collapse:collapse}th,td{border:1px solid #d0d7de;padding:6px 10px}img{max-width:100%}h1,h2,h3{margin-top:1.4em}';
+      doc.head.appendChild(style);
+      const host = doc.createElement('article');
+      host.className = 'md';
+      renderMarkdownInto(host, reportDeliveryText(full));
+      doc.body.appendChild(host);
+    };
+
     const historySection = (() => {
       const history = Array.isArray(snapshot.resultHistory) ? snapshot.resultHistory : [];
       if (!history.length) return null;
@@ -2770,6 +2791,10 @@ export function createPreviewShellDomain({
         row.append(head);
         const excerpt = reportPreviewText(String(item.deliverableText || ''), 200);
         if (excerpt) row.append(text('p', 'preview-finish-history-excerpt', excerpt));
+        const fullButton = actionButton(t('previewShell.finishHistoryOpenFull'), 'preview-finish-history-open', () => openHistoryFullText(item), 'open');
+        fullButton.title = t('previewShell.finishHistoryOpenFullHint');
+        fullButton.type = 'button';
+        row.append(fullButton);
         list.appendChild(row);
       }
       section.append(list);
