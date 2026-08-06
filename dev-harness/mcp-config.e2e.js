@@ -16,7 +16,7 @@ async function runCase(label, desktopMcp, wantPresent, port) {
   const HOME = path.join(os.tmpdir(), 'wcw-mcpcfg-e2e-' + label);
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
-  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 4, version: '1.0.0', permissionMode: 'bypass', desktopMcp }, null, 2));
+  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 4, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, desktopMcp }, null, 2));
   const wb = cp.spawn(NODE, ['app/server.js', 'serve', '--port', String(port)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   const out = { pass: 0, fail: 0 };
   const ok = (c, l) => { if (c) { out.pass++; console.log('PASS [' + label + '] ' + l); } else { out.fail++; console.log('FAIL [' + label + '] ' + l); } };
@@ -69,7 +69,7 @@ async function runImportFolder(port) {
   const HOME = path.join(os.tmpdir(), 'wcw-mcpimport-e2e');
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
-  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, version: '1.0.0', permissionMode: 'bypass', externalMcpServers: [] }, null, 2));
+  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, externalMcpServers: [] }, null, 2));
   // 一个带合法清单的文件夹。
   const FOLDER = path.join(HOME, 'my-mcp');
   fs.mkdirSync(FOLDER, { recursive: true });

@@ -132,6 +132,8 @@ module.exports = {
   cwdWarning,
   defaultConfig,
   sanitizeExternalMcpServer,
+  // 启动时把本机 Claude Code(~/.claude.json)的 MCP 自动映射进 Ruyi(e2e 直测:幂等/上限/dismissed 跳过)。
+  autoImportClaudeCodeMcp,
   // 48c: MCP 配置导入器解析器(e2e 直测 TOML/JSON 边角)。
   parseMcpConfigFile,
   scanMcpSources,

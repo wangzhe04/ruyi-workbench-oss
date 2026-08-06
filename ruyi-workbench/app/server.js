@@ -546,6 +546,11 @@ function defaultConfig() {
     browserAutomation: { mode: 'system', executable: '', cdpUrl: 'http://127.0.0.1:9222' },
     // Extra user-defined stdio MCP servers: [{ id,label,command,args:[],cwd,env:{},enabled }]. Capped at 10.
     externalMcpServers: [],
+    // 启动时自动把本机 Claude Code(~/.claude.json 的 mcpServers)中 Ruyi 还没有的 stdio/远程条目映射进
+    // externalMcpServers。默认开;关掉则完全不扫。dismissedMcpIds 记录用户已从 Ruyi 删除的 id,自动导入跳过
+    // 它们(避免「删了又自动回来」的循环);用户经 import-config/apply 显式再导入会从 dismissed 移除。
+    autoImportClaudeCodeMcp: true,
+    dismissedMcpIds: [],
     // Master switch for line 2: also expose external/desktop MCP tools to the NATIVE provider tool loop
     // (bridged via an in-process MCP stdio client). Off => providers see only the workbench's own tools.
     bridgeExternalToolsToProvider: true,
@@ -852,6 +857,19 @@ function normalizeConfig(raw) {
     }
     config.externalMcpServers = clean.slice(0, 10);
     if (!Array.isArray(raw && raw.externalMcpServers) || JSON.stringify(config.externalMcpServers) !== JSON.stringify(raw.externalMcpServers)) changed = true;
+  }
+  // autoImportClaudeCodeMcp: 布尔,默认 true(显式 !== false 才为 true)。dismissedMcpIds: 字符串数组,去重 + 截 50。
+  {
+    const b = config.autoImportClaudeCodeMcp !== false;
+    if (b !== config.autoImportClaudeCodeMcp) { config.autoImportClaudeCodeMcp = b; changed = true; }
+    const rawArr = Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : [];
+    const seen = new Set(); const cleanIds = [];
+    for (const x of rawArr) {
+      const s = String(typeof x === 'string' ? x : (x && x.id) || '').trim().slice(0, 64);
+      if (s && !seen.has(s)) { seen.add(s); cleanIds.push(s); }
+    }
+    config.dismissedMcpIds = cleanIds.slice(0, 50);
+    if (!Array.isArray(raw && raw.dismissedMcpIds) || JSON.stringify(config.dismissedMcpIds) !== JSON.stringify(raw.dismissedMcpIds)) changed = true;
   }
   if (config.bridgeExternalToolsToProvider !== false) config.bridgeExternalToolsToProvider = true;
   else config.bridgeExternalToolsToProvider = false;
@@ -1215,6 +1233,55 @@ async function syncMcpServersToClaude(config) {
       try { await runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: 10000 }); } catch {}
     }
   } catch { /* non-fatal */ }
+}
+
+// 启动时自动映射本机 Claude Code 的 MCP(读 ~/.claude.json 的 mcpServers)进 Ruyi 的 externalMcpServers。
+// 与 syncMcpServersToClaude(把 Ruyi 的同步到 Claude)互为逆方向:这里是把 Claude 原生注册的拉回 Ruyi。
+// 安全约束:① 只加 missing(已存在 id 跳过,不覆盖用户在 Ruyi 里的显式配置);② dismissedMcpIds 里的 id 跳过
+// (用户已从 Ruyi 删除,不自动回来);③ unsupported 条目跳过;④ 尊重 ≤10 上限;⑤ 全程 try/catch,失败仅审计不阻断 boot。
+// 幂等:第二次启动时已导入的 id 都成 conflict -> 跳过,零写入。
+async function autoImportClaudeCodeMcp(config) {
+  try {
+    if (!config || config.autoImportClaudeCodeMcp === false) return { added: 0, config };
+    // Ruyi 保留 id:绝不能作为外部服务器导入(否则与内部桥/桌面内置连接器同 id 冲突)。
+    //   win-claude-workbench = 工作台自有权限桥(generateMcpConfig 永远单独注入,不在 externalMcpServers);
+    //   ai-computer-control   = 桌面控制内置连接器(detectDesktopMcp 单独探测,mcpConnectorMutateError 视为 builtin)。
+    const RESERVED_IDS = new Set(['win-claude-workbench', 'ai-computer-control']);
+    const claudeJson = path.join(os.homedir(), '.claude.json');
+    const { servers, errors } = await scanMcpSources([claudeJson], config);
+    // scanMcpSources 把"文件不存在/无 mcpServers 字段"也作为 error 返回 -- 这两者是预期情况
+    // (用户没装 Claude Code 或没配 MCP),静默合理。但"文件过大(>256KB)/JSON 解析失败"是真问题,
+    // 静默吞掉会让自动导入不工作且零诊断(重度用户的 ~/.claude.json projects 字段可超 256KB)。
+    // 故:非预期 error 走审计,让用户/开发者能定位"为什么没自动导入"。
+    if (Array.isArray(errors)) {
+      for (const e of errors) {
+        const msg = String((e && e.error) || '');
+        if (!msg || msg.includes('文件不存在') || msg.includes('未找到 mcpServers')) continue; // 预期,跳过
+        try { logEvent({ kind: 'mcp_auto_import_scan_error', path: String((e && e.path) || claudeJson), error: msg }); } catch { /* logging must never re-throw */ }
+      }
+    }
+    const dismissed = new Set(Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : []);
+    const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
+    const added = [];
+    for (const raw of servers) {
+      if (!raw || raw.unsupported) continue; // 远程缺 url 等无效条目
+      if (raw.conflict) continue; // 已在 config -> 不覆盖
+      if (RESERVED_IDS.has(raw.id)) continue; // Ruyi 保留 id -> 跳过
+      if (dismissed.has(raw.id)) continue; // 用户已删 -> 不自动回来
+      if (list.length >= 10) break; // 上限:list 已含 existing+added(归一化也 cap 10,这里先停避免白加后被丢)
+      const srv = sanitizeExternalMcpServer(raw);
+      if (!srv) continue;
+      list.push(srv); added.push(srv.id);
+    }
+    if (!added.length) return { added: 0, config };
+    const next = await writeConfig({ ...config, externalMcpServers: list });
+    await generateMcpConfig(next.mcpCommandMode).catch(() => {});
+    logEvent({ kind: 'mcp_auto_import', source: claudeJson, added: added.length, ids: added });
+    return { added: added.length, ids: added, config: next };
+  } catch (e) {
+    try { logEvent({ kind: 'mcp_auto_import_error', error: (e && e.message) || String(e) }); } catch { /* logging must never re-throw */ }
+    return { added: 0, error: (e && e.message) || String(e), config };
+  }
 }
 
 // Node >=18.20/20.12/22/24 refuse to spawn a .cmd/.bat with shell:false and throw "spawn EINVAL"
@@ -2000,6 +2067,8 @@ const ROUTE_AUTH = [
   { m: 'PATCH', p: '/api/sessions/', auth: 'token-browser', prefix: true },
   { m: 'DELETE', p: '/api/sessions/', auth: 'token-browser', prefix: true },
   { m: 'POST', p: '/api/session/skills', auth: 'token-browser' },
+  // v2.5: 删除用户技能(写盘 paths.skills/<id>)。token 级同 /api/mcp/connectors DELETE(配置变更)。
+  { m: 'DELETE', p: '/api/skills', auth: 'token' },
   { m: 'POST', p: '/api/session/memories', auth: 'token-browser' },
   { m: 'POST', p: '/api/memory', auth: 'token-browser' },
   { m: 'POST', p: '/api/memory/', auth: 'token-browser', prefix: true },
@@ -20231,8 +20300,9 @@ async function readSkillDir(baseDir, source, caps) {
 //   { id, name, description, kind:'skill'|'command'|'playbook', source:'builtin'|'user'|'project',
 //     dir(kind=skill: SKILL.md 所在目录绝对路径,否则 ''), insert(kind=command: '/'+name),
 //     requires:[], available:bool, unavailableReason:string }
-// 技能同 id 优先级 project > user > builtin;命令/Playbook 各自命名空间(Playbook id 加 'pb:' 前缀防撞)。
+// 技能同 id 优先级 project > user > claude-code > builtin;命令/Playbook 各自命名空间(Playbook id 加 'pb:' 前缀防撞)。
 // requires 门控复用 evalPlaybookAvailability 的能力矩阵逻辑(getCapabilities 60s 缓存)。caps 可预传避免重复探测。
+// claude-code 源只读直连 ~/.claude/skills(本机 Claude Code 个人技能),不复制;删除仅允许 user 源(见 DELETE /api/skills)。
 async function loadSkillRegistry(cwd, config, caps) {
   if (caps === undefined) caps = await getCapabilities(config).catch(() => null);
   const out = [];
@@ -20255,6 +20325,10 @@ async function loadSkillRegistry(cwd, config, caps) {
       });
     }
   }
+  // 本机 Claude Code 个人技能(~/.claude/skills/<id>/SKILL.md)作为第 4 源映射进来(只读直连,不复制)。
+  // 优先级:builtin < claude-code < user < project -- 放在 user 之前,让 Ruyi 自己的 user 技能可覆盖同名 Claude Code 技能。
+  // 目录缺失时 readSkillDir 返回空 Map(优雅 no-op),与 ~/.claude/commands 的读取同精神。
+  for (const [id, e] of await readSkillDir(path.join(os.homedir(), '.claude', 'skills'), 'claude-code', caps)) skillMap.set(id, e);
   for (const [id, e] of await readSkillDir(paths.skills, 'user', caps)) skillMap.set(id, e);
   if (cwd) for (const [id, e] of await readSkillDir(path.join(path.resolve(String(cwd)), '.ruyi', 'skills'), 'project', caps)) skillMap.set(id, e);
   for (const e of skillMap.values()) out.push(e);
@@ -20642,6 +20716,29 @@ async function handleApi(req, res, pathname) {
     // saveSession 覆盖本次变更(与两个 turn 函数收尾前的磁盘合并互为兜底)。
     { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) reg.session.skills = cleaned; }
     return send(res, json({ ok: true, skills: cleaned }));
+  }
+  // v2.5: 删除用户技能。DELETE /api/skills {id, confirm}。「不要太简单」的摩擦:confirm 必须等于 id
+  // (前端弹确认窗要求输入 id 才解锁确认键)。仅 source==='user' 可删(对应 paths.skills/<id>/ 目录);
+  // builtin/project/claude-code 拒绝并给原因(builtin 是内置、project 在用户项目里、claude-code 是 Claude Code
+  // 的文件 -- 都不该由 Ruyi 删)。路径双保险:entry.dir 必须解析为 paths.skills/id,防穿越/调包。
+  if (req.method === 'DELETE' && pathname === '/api/skills') {
+    const body = await readJsonBody(req);
+    const id = String((body && body.id) || '').trim();
+    const confirm = String((body && body.confirm) || '').trim();
+    if (!id || !SKILL_ID_RE.test(id)) return send(res, json({ ok: false, error: '无效的技能 id' }, 400));
+    if (confirm !== id) return send(res, json({ ok: false, error: '确认不匹配:请输入该技能的 id 以确认删除' }, 400));
+    const config = await readConfig();
+    const registry = await loadSkillRegistry('', config).catch(() => []);
+    const entry = registry.find(e => e && e.id === id && e.kind === 'skill');
+    if (!entry) return send(res, json({ ok: false, error: '未找到该技能: ' + id }, 404));
+    if (entry.source !== 'user') return send(res, json({ ok: false, error: `仅可删除用户技能(当前来源: ${entry.source || '未知'})。内置/项目/Claude Code 技能请到对应位置管理。` }, 403));
+    const expected = path.resolve(paths.skills, id);
+    const actual = path.resolve(entry.dir || '');
+    if (actual !== expected) return send(res, json({ ok: false, error: '路径校验失败:技能目录不在用户技能目录下' }, 400));
+    try { await fsp.rm(actual, { recursive: true, force: true }); }
+    catch (e) { return send(res, json({ ok: false, error: '删除失败: ' + ((e && e.message) || String(e)) })); }
+    logEvent({ kind: 'skill_delete', id });
+    return send(res, json({ ok: true, id, removed: true }));
   }
   // ── v2 跨会话记忆(团队模式 v2 Phase 3, 设计稿 C) ─────────────────────────────────────────────
   // POST /api/session/memories {sessionId, memories:[{id,scope}]} —— 显式覆盖会话启用记忆(校验存在性)。走 uiMutatingRoute。
@@ -21354,11 +21451,19 @@ async function startServer(opts) {
   // files. One full scan, boot-only (the pre-PF2 behavior); every read after that uses the incremental index.
   await invalidateSessionIndex();
   LAUNCH_MODE = isPkg() ? 'exe' : 'node';
-  const config = await readConfig();
+  let config = await readConfig(); // let: autoImportClaudeCodeMcp 写回后需重绑到最新引用
   // v1.4.3: sync settings, agent roles, and MCP servers to Claude CLI's own config on startup
   await syncClaudeCliSettings(config);
   await syncAgentRolesToClaude(config.defaultWorkspace || os.homedir(), config);
   await syncMcpServersToClaude(config);
+  // 把本机 Claude Code 注册的 MCP(~/.claude.json mcpServers)自动映射进 Ruyi(逆向于上面的 sync)。
+  // 在 syncMcpServersToClaude 之后跑:Claude 的 user-scope 配置已是最新全量,只导入 Ruyi 还没有的 id。
+  // 失败仅审计不阻断 boot;返回的 config 是写回后的最新引用,避免后续 generateMcpConfig 用陈旧 config。
+  {
+    const imp = await autoImportClaudeCodeMcp(config).catch(() => null);
+    if (imp && imp.config) config = imp.config;
+    if (imp && imp.added) console.log(`Auto-imported ${imp.added} MCP server(s) from Claude Code: ${(imp.ids || []).join(', ')}`);
+  }
   // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
   void storageSweep(config.storagePolicy).catch(() => {});
   const port = Number(opts.port || process.env.PORT || DEFAULT_PORT);
@@ -22409,7 +22514,9 @@ async function handleMcpApiRoutes(req, res, pathname) {
       if (list.length >= 10) return send(res, json({ ok: false, error: '外部 MCP 数量已达上限(最多 10 个),请先移除一个再导入' }));
       list.push(cleaned);
     }
-    const next = await writeConfig({ ...config, externalMcpServers: list });
+    // 显式再导入覆盖撤销:把该 id 从 dismissedMcpIds 移除(与 import-config/apply 同语义)。
+    const dismissed = (Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : []).filter(x => x !== cleaned.id);
+    const next = await writeConfig({ ...config, externalMcpServers: list, dismissedMcpIds: dismissed });
     await generateMcpConfig(next.mcpCommandMode).catch(() => {}); // 再生成 .mcp.json(缺失时不阻断导入)
     logEvent({ kind: 'mcp_import', id: cleaned.id, updated, source: folder });
     // 响应附清洗后的条目, env 值掩码(参考 apiKey 掩码模式, 防泄漏 token 类环境变量)。
@@ -22453,7 +22560,10 @@ async function handleMcpApiRoutes(req, res, pathname) {
       }
     }
     if (!added.length && !updated.length) return send(res, json({ ok: false, error: '没有可导入的条目', skipped }));
-    const next = await writeConfig({ ...config, externalMcpServers: list });
+    // 显式再导入覆盖撤销:把本次导入的 id 从 dismissedMcpIds 移除(用户改变主意,要它回来了)。
+    const reImported = new Set([...added, ...updated]);
+    const dismissed = (Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : []).filter(x => !reImported.has(x));
+    const next = await writeConfig({ ...config, externalMcpServers: list, dismissedMcpIds: dismissed });
     await generateMcpConfig(next.mcpCommandMode).catch(() => {});
     logEvent({ kind: 'mcp_import', ids: [...added, ...updated], added: added.length, updated: updated.length, source: 'import-config' });
     return send(res, json({ ok: true, added, updated, skipped }));
@@ -22522,7 +22632,11 @@ async function handleMcpApiRoutes(req, res, pathname) {
     const guard = mcpConnectorMutateError(id, config);
     if (guard) return send(res, json({ ok: false, error: guard.error }, guard.status));
     const list = config.externalMcpServers.filter(s => !(s && s.id === id));
-    const next = await writeConfig({ ...config, externalMcpServers: list });
+    // 记入 dismissedMcpIds:启动时 autoImportClaudeCodeMcp 会跳过它,避免「删了又自动回来」。
+    // (normalizeConfig 去重;用户经 import-folder/import-config 显式再导入会从 dismissed 移除。)
+    const dismissed = Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds.slice() : [];
+    if (!dismissed.includes(id)) dismissed.push(id);
+    const next = await writeConfig({ ...config, externalMcpServers: list, dismissedMcpIds: dismissed });
     invalidateMcpRuntime(id);
     await generateMcpConfig(next.mcpCommandMode).catch(() => {});
     // 与 toggle 对称(55b 对抗审查):删除遮蔽同 id drop-in 的 config 条目后,drop-in 版本将静默接管
@@ -24640,6 +24754,8 @@ module.exports = {
   cwdWarning,
   defaultConfig,
   sanitizeExternalMcpServer,
+  // 启动时把本机 Claude Code(~/.claude.json)的 MCP 自动映射进 Ruyi(e2e 直测:幂等/上限/dismissed 跳过)。
+  autoImportClaudeCodeMcp,
   // 48c: MCP 配置导入器解析器(e2e 直测 TOML/JSON 边角)。
   parseMcpConfigFile,
   scanMcpSources,

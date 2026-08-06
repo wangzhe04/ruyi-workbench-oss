@@ -38,7 +38,9 @@ async function handleMcpApiRoutes(req, res, pathname) {
       if (list.length >= 10) return send(res, json({ ok: false, error: '外部 MCP 数量已达上限(最多 10 个),请先移除一个再导入' }));
       list.push(cleaned);
     }
-    const next = await writeConfig({ ...config, externalMcpServers: list });
+    // 显式再导入覆盖撤销:把该 id 从 dismissedMcpIds 移除(与 import-config/apply 同语义)。
+    const dismissed = (Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : []).filter(x => x !== cleaned.id);
+    const next = await writeConfig({ ...config, externalMcpServers: list, dismissedMcpIds: dismissed });
     await generateMcpConfig(next.mcpCommandMode).catch(() => {}); // 再生成 .mcp.json(缺失时不阻断导入)
     logEvent({ kind: 'mcp_import', id: cleaned.id, updated, source: folder });
     // 响应附清洗后的条目, env 值掩码(参考 apiKey 掩码模式, 防泄漏 token 类环境变量)。
@@ -82,7 +84,10 @@ async function handleMcpApiRoutes(req, res, pathname) {
       }
     }
     if (!added.length && !updated.length) return send(res, json({ ok: false, error: '没有可导入的条目', skipped }));
-    const next = await writeConfig({ ...config, externalMcpServers: list });
+    // 显式再导入覆盖撤销:把本次导入的 id 从 dismissedMcpIds 移除(用户改变主意,要它回来了)。
+    const reImported = new Set([...added, ...updated]);
+    const dismissed = (Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : []).filter(x => !reImported.has(x));
+    const next = await writeConfig({ ...config, externalMcpServers: list, dismissedMcpIds: dismissed });
     await generateMcpConfig(next.mcpCommandMode).catch(() => {});
     logEvent({ kind: 'mcp_import', ids: [...added, ...updated], added: added.length, updated: updated.length, source: 'import-config' });
     return send(res, json({ ok: true, added, updated, skipped }));
@@ -151,7 +156,11 @@ async function handleMcpApiRoutes(req, res, pathname) {
     const guard = mcpConnectorMutateError(id, config);
     if (guard) return send(res, json({ ok: false, error: guard.error }, guard.status));
     const list = config.externalMcpServers.filter(s => !(s && s.id === id));
-    const next = await writeConfig({ ...config, externalMcpServers: list });
+    // 记入 dismissedMcpIds:启动时 autoImportClaudeCodeMcp 会跳过它,避免「删了又自动回来」。
+    // (normalizeConfig 去重;用户经 import-folder/import-config 显式再导入会从 dismissed 移除。)
+    const dismissed = Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds.slice() : [];
+    if (!dismissed.includes(id)) dismissed.push(id);
+    const next = await writeConfig({ ...config, externalMcpServers: list, dismissedMcpIds: dismissed });
     invalidateMcpRuntime(id);
     await generateMcpConfig(next.mcpCommandMode).catch(() => {});
     // 与 toggle 对称(55b 对抗审查):删除遮蔽同 id drop-in 的 config 条目后,drop-in 版本将静默接管

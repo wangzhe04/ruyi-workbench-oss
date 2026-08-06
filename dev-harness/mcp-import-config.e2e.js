@@ -116,7 +116,7 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
   // ── H 段: HTTP 全路径 ──
   console.log('── H 段: HTTP scan/apply ──');
   const WP = await getFreePort();
-  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, version: '2.0.0', permissionMode: 'bypass', externalMcpServers: [{ id: 'existing', label: '已有', command: 'old.exe', args: [], env: {}, cwd: '', enabled: true }] }));
+  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, version: '2.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, externalMcpServers: [{ id: 'existing', label: '已有', command: 'old.exe', args: [], env: {}, cwd: '', enabled: true }] }));
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   try {
     ok(await up(WP), 'workbench up');

@@ -131,7 +131,7 @@ function skillDisplayDescription(entry) {
   return skillDisplayText(entry, 'description');
 }
 function skillDisplaySource(entry) {
-  const key = ({ project: 'skills.source.project', user: 'skills.source.user', builtin: 'skills.source.builtin' })[entry?.source];
+  const key = ({ project: 'skills.source.project', user: 'skills.source.user', builtin: 'skills.source.builtin', 'claude-code': 'skills.source.claude-code' })[entry?.source];
   return key ? t(key) : t('common.unknown');
 }
 function skillDisplayUnavailableReason(entry) {
@@ -332,6 +332,14 @@ function buildSkillRow(s, i, enabled, resident) {
   if (unavailable) keep.disabled = true;
   keep.onclick = e => { e.stopPropagation(); toggleResidentSkill(s); };
   foot.appendChild(keep);
+  // v2.5: 用户技能可删(快速删除 + 确认摩擦)。仅 source==='user' 显示;builtin/project/claude-code 不显示删除键。
+  if (s.source === 'user') {
+    const del = el('button', 'skill-toggle danger', t('skills.delete'));
+    del.title = t('skills.delete');
+    del.setAttribute('aria-label', t('skills.delete'));
+    del.onclick = e => { e.stopPropagation(); confirmDeleteSkill(s); };
+    foot.appendChild(del);
+  }
   it.appendChild(foot);
   it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
   it.onclick = () => { if (!unavailable && !pending) toggleSkill(s); };
@@ -344,6 +352,63 @@ function openSkillDetail(entry) {
   const close = el('button', 'primary', t('common.close'));
   const modal = buildModal(skillDisplayName(entry), body, close);
   close.onclick = () => modal.close();
+}
+
+// v2.5: 删除用户技能的确认弹窗。「不要太简单」的摩擦:二次点击确认 --
+// 第一次点「确认删除」只 arm(按钮文案变为「再次点击确认删除」,3 秒内不点自动收回),第二次点击才真删。
+// 仅 source==='user' 可达此入口(buildSkillRow 只为 user 源渲染删除键);服务端仍独立校验 confirm===id。
+let skillDeletePending = false;
+async function confirmDeleteSkill(entry) {
+  if (skillDeletePending || !entry || entry.source !== 'user') return;
+  const id = String(entry.id || '');
+  const name = skillDisplayName(entry);
+  const body = el('div', 'skill-delete-confirm');
+  body.appendChild(el('p', '', t('skills.deleteConfirm.body', { name })));
+  body.appendChild(el('div', 'sk-del-id', t('skills.deleteConfirm.idLabel') + ': ' + id));
+  body.appendChild(el('p', 'muted sm', t('skills.deleteConfirm.warning')));
+  const foot = el('div', 'modal-foot-row');
+  const cancel = el('button', 'mini', t('common.cancel'));
+  const confirm = el('button', 'mini danger', t('skills.deleteConfirm.confirm'));
+  foot.append(cancel, confirm);
+  let armed = false;
+  let disarmTimer = null;
+  const initialText = t('skills.deleteConfirm.confirm');
+  const clearDisarm = () => { if (disarmTimer) { clearTimeout(disarmTimer); disarmTimer = null; } };
+  const disarm = () => { armed = false; confirm.classList.remove('armed'); confirm.textContent = initialText; clearDisarm(); };
+  const modal = buildModal(t('skills.deleteConfirm.title'), body, foot, clearDisarm); // ESC/点背景关闭时也清计时器
+  cancel.onclick = () => { clearDisarm(); modal.close(); };
+  confirm.onclick = () => {
+    if (skillDeletePending) return;
+    if (!armed) { // 第一次点击:arm,等第二次
+      armed = true;
+      confirm.classList.add('armed');
+      confirm.textContent = t('skills.deleteConfirm.armed');
+      disarmTimer = setTimeout(disarm, 3000); // 3 秒内不点第二次 -> 自动收回,防误删
+      return;
+    }
+    clearDisarm();
+    doDelete();
+  };
+  setTimeout(() => { try { confirm.focus(); } catch { /* ignore */ } }, 0);
+  async function doDelete() {
+    if (skillDeletePending) return;
+    skillDeletePending = true;
+    confirm.disabled = true;
+    confirm.textContent = '…';
+    try {
+      await api('/api/skills', { method: 'DELETE', body: JSON.stringify({ id, confirm: id }) });
+      toast(t('skills.toast.deleted', { name }));
+      modal.close();
+      await openSkillPanel(); // 重拉 /api/skills 刷新注册表(被删技能自然消失)
+      updateSkillBadge();
+    } catch (e) {
+      toast(t('skills.toast.deleteFailed', { reason: apiErrText(e) }), 'err');
+      confirm.disabled = false;
+      disarm(); // 失败 -> 回到初始态,允许重试
+    } finally {
+      skillDeletePending = false;
+    }
+  }
 }
 
 let residentSkillTogglePending = false;

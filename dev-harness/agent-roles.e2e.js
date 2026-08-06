@@ -76,7 +76,7 @@ function stream(port, body) { return new Promise((resolve, reject) => { const ra
   const DATA = path.join(HOME, 'live-data'); fs.mkdirSync(DATA, { recursive: true });
   const capture = path.join(HOME, 'claude-argv.json');
   fs.writeFileSync(path.join(DATA, 'config.json'), JSON.stringify({
-    configSchema: 7, permissionMode: 'bypass', activeProvider: '', engineMode: 'interactive', includePartialMessages: false,
+    configSchema: 7, permissionMode: 'bypass', activeProvider: '', engineMode: 'interactive', includePartialMessages: false, autoImportClaudeCodeMcp: false,
     agentRoleOverrides: [{ id: 'security-checker', label: 'Security Checker', description: 'Checks security', prompt: 'SECRET_ROLE_PROMPT', claudeModel: 'sonnet', claudeTools: ['Read', 'Grep'], mcpServers: ['win-claude-workbench'], permissionMode: 'dontAsk', maxTurns: 7 }],
   }, null, 2));
   const port = await getFreePort();

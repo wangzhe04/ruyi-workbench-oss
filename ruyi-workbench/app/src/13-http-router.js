@@ -314,6 +314,29 @@ async function handleApi(req, res, pathname) {
     { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) reg.session.skills = cleaned; }
     return send(res, json({ ok: true, skills: cleaned }));
   }
+  // v2.5: 删除用户技能。DELETE /api/skills {id, confirm}。「不要太简单」的摩擦:confirm 必须等于 id
+  // (前端弹确认窗要求输入 id 才解锁确认键)。仅 source==='user' 可删(对应 paths.skills/<id>/ 目录);
+  // builtin/project/claude-code 拒绝并给原因(builtin 是内置、project 在用户项目里、claude-code 是 Claude Code
+  // 的文件 -- 都不该由 Ruyi 删)。路径双保险:entry.dir 必须解析为 paths.skills/id,防穿越/调包。
+  if (req.method === 'DELETE' && pathname === '/api/skills') {
+    const body = await readJsonBody(req);
+    const id = String((body && body.id) || '').trim();
+    const confirm = String((body && body.confirm) || '').trim();
+    if (!id || !SKILL_ID_RE.test(id)) return send(res, json({ ok: false, error: '无效的技能 id' }, 400));
+    if (confirm !== id) return send(res, json({ ok: false, error: '确认不匹配:请输入该技能的 id 以确认删除' }, 400));
+    const config = await readConfig();
+    const registry = await loadSkillRegistry('', config).catch(() => []);
+    const entry = registry.find(e => e && e.id === id && e.kind === 'skill');
+    if (!entry) return send(res, json({ ok: false, error: '未找到该技能: ' + id }, 404));
+    if (entry.source !== 'user') return send(res, json({ ok: false, error: `仅可删除用户技能(当前来源: ${entry.source || '未知'})。内置/项目/Claude Code 技能请到对应位置管理。` }, 403));
+    const expected = path.resolve(paths.skills, id);
+    const actual = path.resolve(entry.dir || '');
+    if (actual !== expected) return send(res, json({ ok: false, error: '路径校验失败:技能目录不在用户技能目录下' }, 400));
+    try { await fsp.rm(actual, { recursive: true, force: true }); }
+    catch (e) { return send(res, json({ ok: false, error: '删除失败: ' + ((e && e.message) || String(e)) })); }
+    logEvent({ kind: 'skill_delete', id });
+    return send(res, json({ ok: true, id, removed: true }));
+  }
   // ── v2 跨会话记忆(团队模式 v2 Phase 3, 设计稿 C) ─────────────────────────────────────────────
   // POST /api/session/memories {sessionId, memories:[{id,scope}]} —— 显式覆盖会话启用记忆(校验存在性)。走 uiMutatingRoute。
   if (req.method === 'POST' && pathname === '/api/session/memories') {
@@ -1025,11 +1048,19 @@ async function startServer(opts) {
   // files. One full scan, boot-only (the pre-PF2 behavior); every read after that uses the incremental index.
   await invalidateSessionIndex();
   LAUNCH_MODE = isPkg() ? 'exe' : 'node';
-  const config = await readConfig();
+  let config = await readConfig(); // let: autoImportClaudeCodeMcp 写回后需重绑到最新引用
   // v1.4.3: sync settings, agent roles, and MCP servers to Claude CLI's own config on startup
   await syncClaudeCliSettings(config);
   await syncAgentRolesToClaude(config.defaultWorkspace || os.homedir(), config);
   await syncMcpServersToClaude(config);
+  // 把本机 Claude Code 注册的 MCP(~/.claude.json mcpServers)自动映射进 Ruyi(逆向于上面的 sync)。
+  // 在 syncMcpServersToClaude 之后跑:Claude 的 user-scope 配置已是最新全量,只导入 Ruyi 还没有的 id。
+  // 失败仅审计不阻断 boot;返回的 config 是写回后的最新引用,避免后续 generateMcpConfig 用陈旧 config。
+  {
+    const imp = await autoImportClaudeCodeMcp(config).catch(() => null);
+    if (imp && imp.config) config = imp.config;
+    if (imp && imp.added) console.log(`Auto-imported ${imp.added} MCP server(s) from Claude Code: ${(imp.ids || []).join(', ')}`);
+  }
   // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
   void storageSweep(config.storagePolicy).catch(() => {});
   const port = Number(opts.port || process.env.PORT || DEFAULT_PORT);

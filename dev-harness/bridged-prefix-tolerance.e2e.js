@@ -72,7 +72,7 @@ function postStream(port, payload) {
   const HOME = path.join(os.tmpdir(), 'wcw-prefix-tol-e2e');
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
-    configSchema: 5, version: '1.0.0', permissionMode: 'bypass',
+    configSchema: 5, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false,
     providers: [{ id: 'fakeprov', label: 'FakeProv', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
     activeProvider: 'fakeprov',
     desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },

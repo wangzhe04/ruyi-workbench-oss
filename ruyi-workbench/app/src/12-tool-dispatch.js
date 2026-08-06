@@ -966,8 +966,9 @@ async function readSkillDir(baseDir, source, caps) {
 //   { id, name, description, kind:'skill'|'command'|'playbook', source:'builtin'|'user'|'project',
 //     dir(kind=skill: SKILL.md 所在目录绝对路径,否则 ''), insert(kind=command: '/'+name),
 //     requires:[], available:bool, unavailableReason:string }
-// 技能同 id 优先级 project > user > builtin;命令/Playbook 各自命名空间(Playbook id 加 'pb:' 前缀防撞)。
+// 技能同 id 优先级 project > user > claude-code > builtin;命令/Playbook 各自命名空间(Playbook id 加 'pb:' 前缀防撞)。
 // requires 门控复用 evalPlaybookAvailability 的能力矩阵逻辑(getCapabilities 60s 缓存)。caps 可预传避免重复探测。
+// claude-code 源只读直连 ~/.claude/skills(本机 Claude Code 个人技能),不复制;删除仅允许 user 源(见 DELETE /api/skills)。
 async function loadSkillRegistry(cwd, config, caps) {
   if (caps === undefined) caps = await getCapabilities(config).catch(() => null);
   const out = [];
@@ -990,6 +991,10 @@ async function loadSkillRegistry(cwd, config, caps) {
       });
     }
   }
+  // 本机 Claude Code 个人技能(~/.claude/skills/<id>/SKILL.md)作为第 4 源映射进来(只读直连,不复制)。
+  // 优先级:builtin < claude-code < user < project -- 放在 user 之前,让 Ruyi 自己的 user 技能可覆盖同名 Claude Code 技能。
+  // 目录缺失时 readSkillDir 返回空 Map(优雅 no-op),与 ~/.claude/commands 的读取同精神。
+  for (const [id, e] of await readSkillDir(path.join(os.homedir(), '.claude', 'skills'), 'claude-code', caps)) skillMap.set(id, e);
   for (const [id, e] of await readSkillDir(paths.skills, 'user', caps)) skillMap.set(id, e);
   if (cwd) for (const [id, e] of await readSkillDir(path.join(path.resolve(String(cwd)), '.ruyi', 'skills'), 'project', caps)) skillMap.set(id, e);
   for (const e of skillMap.values()) out.push(e);
