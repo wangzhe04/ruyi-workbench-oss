@@ -77,55 +77,55 @@
     {
       "file": "10-context-governance.js",
       "startLine": 16579,
-      "endLine": 17560,
+      "endLine": 17567,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 17561,
-      "endLine": 19258,
+      "startLine": 17568,
+      "endLine": 19265,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 19259,
-      "endLine": 20322,
+      "startLine": 19266,
+      "endLine": 20329,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 20323,
-      "endLine": 22358,
+      "startLine": 20330,
+      "endLine": 22371,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 22359,
-      "endLine": 22670,
+      "startLine": 22372,
+      "endLine": 22683,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 22671,
-      "endLine": 22859,
+      "startLine": 22684,
+      "endLine": 22872,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 22860,
-      "endLine": 24088,
+      "startLine": 22873,
+      "endLine": 24101,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 24089,
-      "endLine": 24495,
+      "startLine": 24102,
+      "endLine": 24508,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "14-main.js",
-      "startLine": 24496,
-      "endLine": 24784,
+      "startLine": 24509,
+      "endLine": 24797,
       "note": "main()/module.exports"
     }
   ]

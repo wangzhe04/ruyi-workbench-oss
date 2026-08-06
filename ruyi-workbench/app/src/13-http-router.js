@@ -532,6 +532,12 @@ async function handleApi(req, res, pathname) {
       if (action === 'update' && reg.session.mission) {
         reg.session.mission = applyMissionUpdate(reg.session.mission, bodyOrQ.patch || bodyOrQ, trusted);
         if (bodyOrQ.autoMode != null) reg.session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : reg.session.mission.autoMode;
+        // 第97波对抗复审(B2):本路由已把磁盘权威侧落盘(含 maybeFinalizeMission 盖的 complete/stopped 章
+        // 与归档的 resultHistory);reg 内存侧只是 applyMissionUpdate 深拷旧值,result/resultHistory 仍是旧的。
+        // 若不同步,09/provider 回合收尾 saveSession(reg.session)会用陈旧内存覆盖磁盘,新章与归档整条丢失。
+        // 同步磁盘权威的 result 与 resultHistory(归档历史是追加语义,以磁盘为准)。
+        reg.session.mission.result = session.mission && session.mission.result || null;
+        reg.session.mission.resultHistory = Array.isArray(session.mission && session.mission.resultHistory) ? session.mission.resultHistory.slice(-10) : [];
       } else {
         reg.session.mission = session.mission;
         if (action === 'start') reg.session.kind = 'mission';

@@ -17190,7 +17190,14 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
     if (checkedAny) { m.updatedAt = nowIso(); await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m }); }
 
     // ② 全部完成 → 收尾。
-    if (allDone()) { m.autoMode = 'off'; m.updatedAt = nowIso(); await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m, state: 'complete' }); return; }
+    if (allDone()) {
+      m.autoMode = 'off'; m.updatedAt = nowIso();
+      // 第97波对抗复审(B3):机器验收把最后一个里程碑标 done 的路径,模型本轮可能没调 mission_update
+      // (无 __missionFinalizeHow),09 回合收尾不会盖 complete 章 → 这里补盖,收工卡才有验收报告。
+      // 若 09 已盖(result 存在)maybeFinalizeMission 会直接返回 false,不重复。
+      try { if (await maybeFinalizeMission(session, 'driver')) { /* 章已盖,emit 由下方统一发 */ } } catch { /* 盖章失败不阻断收尾 */ }
+      await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m, state: 'complete' }); return;
+    }
 
     // ③ 预算:自动续跑回合数 / token 上限。达上限 → 存档暂停(autoMode→supervised,保留进度,非报错)。
     if (m.spent.autoTurns >= m.budget.maxAutoTurns || (m.budget.maxTokens > 0 && m.spent.tokens >= m.budget.maxTokens)) {
@@ -20854,6 +20861,12 @@ async function handleApi(req, res, pathname) {
       if (action === 'update' && reg.session.mission) {
         reg.session.mission = applyMissionUpdate(reg.session.mission, bodyOrQ.patch || bodyOrQ, trusted);
         if (bodyOrQ.autoMode != null) reg.session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : reg.session.mission.autoMode;
+        // 第97波对抗复审(B2):本路由已把磁盘权威侧落盘(含 maybeFinalizeMission 盖的 complete/stopped 章
+        // 与归档的 resultHistory);reg 内存侧只是 applyMissionUpdate 深拷旧值,result/resultHistory 仍是旧的。
+        // 若不同步,09/provider 回合收尾 saveSession(reg.session)会用陈旧内存覆盖磁盘,新章与归档整条丢失。
+        // 同步磁盘权威的 result 与 resultHistory(归档历史是追加语义,以磁盘为准)。
+        reg.session.mission.result = session.mission && session.mission.result || null;
+        reg.session.mission.resultHistory = Array.isArray(session.mission && session.mission.resultHistory) ? session.mission.resultHistory.slice(-10) : [];
       } else {
         reg.session.mission = session.mission;
         if (action === 'start') reg.session.kind = 'mission';

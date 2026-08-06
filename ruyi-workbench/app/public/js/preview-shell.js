@@ -2763,7 +2763,9 @@ export function createPreviewShellDomain({
       doc.head.appendChild(style);
       const host = doc.createElement('article');
       host.className = 'md';
-      renderMarkdownInto(host, reportDeliveryText(full));
+      // 第97波对抗复审(F1):直接渲染归档的完整 deliverableText 原文 —— 不经 reportDeliveryText 二次
+      // 裁剪(那个会把首个标题前的导语/叙述丢掉),「打开全文」必须是全文。
+      renderMarkdownInto(host, full);
       doc.body.appendChild(host);
     };
 
@@ -2791,10 +2793,14 @@ export function createPreviewShellDomain({
         row.append(head);
         const excerpt = reportPreviewText(String(item.deliverableText || ''), 200);
         if (excerpt) row.append(text('p', 'preview-finish-history-excerpt', excerpt));
-        const fullButton = actionButton(t('previewShell.finishHistoryOpenFull'), 'preview-finish-history-open', () => openHistoryFullText(item), 'open');
-        fullButton.title = t('previewShell.finishHistoryOpenFullHint');
-        fullButton.type = 'button';
-        row.append(fullButton);
+        // 第97波对抗复审(F9):deliverableText 为空的轮次(8a03cff 之前的旧归档)不渲染「打开全文」按钮,
+        // 避免出现点了没反应的死按钮。
+        if (String(item && item.deliverableText || '').trim()) {
+          const fullButton = actionButton(t('previewShell.finishHistoryOpenFull'), 'preview-finish-history-open', () => openHistoryFullText(item), 'open');
+          fullButton.title = t('previewShell.finishHistoryOpenFullHint');
+          fullButton.type = 'button';
+          row.append(fullButton);
+        }
         list.appendChild(row);
       }
       section.append(list);

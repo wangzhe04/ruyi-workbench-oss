@@ -859,11 +859,14 @@ async function steerPreviewAgentNode({ sessionId = '', runId = '', nodeId = '', 
 
 // 第84波:Continue/Retry 已由 Mission 控制核心完成再武装；用户的一次明确点击随后复用经典
 // sendPrompt 启动真实 provider 回合，Preview 不复制第二套流状态机。
+// 第97波对抗复审(F2/F3):await sendPrompt —— 回合真正启动前(同步前缀)抛错会 reject 进 catch →
+// {ok:false} → 前端 controlError 可达(不再静默);且 controlBusy 保持到回合结束,流式期间按钮
+// 持续禁用(不再有双击窗口)。
 async function runPreviewMissionControlTurn({ sessionId = '', prompt = '' } = {}) {
   try {
     await openSession(sessionId);
     if (!state.currentSession || state.currentSession.id !== sessionId) throw new Error(t('previewShell.controlSessionFailed'));
-    sendPrompt(String(prompt || '').trim());
+    await sendPrompt(String(prompt || '').trim());
     return { ok: true };
   } catch (error) {
     return { ok: false, error: apiErrText(error) || t('previewShell.controlTurnFailed') };

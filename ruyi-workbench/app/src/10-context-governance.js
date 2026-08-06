@@ -612,7 +612,14 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
     if (checkedAny) { m.updatedAt = nowIso(); await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m }); }
 
     // ② 全部完成 → 收尾。
-    if (allDone()) { m.autoMode = 'off'; m.updatedAt = nowIso(); await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m, state: 'complete' }); return; }
+    if (allDone()) {
+      m.autoMode = 'off'; m.updatedAt = nowIso();
+      // 第97波对抗复审(B3):机器验收把最后一个里程碑标 done 的路径,模型本轮可能没调 mission_update
+      // (无 __missionFinalizeHow),09 回合收尾不会盖 complete 章 → 这里补盖,收工卡才有验收报告。
+      // 若 09 已盖(result 存在)maybeFinalizeMission 会直接返回 false,不重复。
+      try { if (await maybeFinalizeMission(session, 'driver')) { /* 章已盖,emit 由下方统一发 */ } } catch { /* 盖章失败不阻断收尾 */ }
+      await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m, state: 'complete' }); return;
+    }
 
     // ③ 预算:自动续跑回合数 / token 上限。达上限 → 存档暂停(autoMode→supervised,保留进度,非报错)。
     if (m.spent.autoTurns >= m.budget.maxAutoTurns || (m.budget.maxTokens > 0 && m.spent.tokens >= m.budget.maxTokens)) {

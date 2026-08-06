@@ -201,6 +201,14 @@ function spawnWb() {
     ok(shell.includes('runMissionControlTurn({ sessionId, action, prompt })') && !shell.includes("applyShellMode('classic');\n        const started = await runMissionControlTurn"), 's preview requiresTurn 分支不再跳经典壳(任务单内推进)');
     ok(shell.includes("const openHistoryFullText = (item) =>") && shell.includes("window.open('', '_blank')") && shell.includes('finishHistoryOpenFull'), 's preview 历史轮次「在新窗口打开全文」');
     ok(/submit\.disabled = Boolean\(controlBusy\) \|\| active;/.test(shell), 's preview 推进按钮仅在忙碌/活回合禁用(可点,服务端权威校验)');
+    // ── 第97波对抗复审(多 agent 审查 573daf7 的修复锁)──
+    ok(/renderMarkdownInto\(host, full\);/.test(shell) && !/renderMarkdownInto\(host, reportDeliveryText\(full\)\)/.test(shell), 's preview 新窗口全文直接渲染原文(不经 reportDeliveryText 二次裁剪)');
+    ok(/if \(String\(item && item\.deliverableText \|\| ''\)\.trim\(\)\) \{\s*const fullButton/.test(shell), 's preview 空 deliverableText 轮次不渲染「打开全文」按钮(无死按钮)');
+    const app = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
+    ok(/await sendPrompt\(String\(prompt \|\| ''\)\.trim\(\)\);/.test(app), 's app.js runPreviewMissionControlTurn await sendPrompt(回合启动错误进 controlError,非静默)');
+    ok(/reg\.session\.mission\.result = session\.mission && session\.mission\.result \|\| null;/.test(src), 's 13 update 分支把磁盘权威 result 同步回活回合(防回合收尾覆盖丢失新章)');
+    ok(/reg\.session\.mission\.resultHistory = Array\.isArray\(session\.mission && session\.mission\.resultHistory\) \? session\.mission\.resultHistory\.slice\(-10\) : \[\]\;/.test(src), 's 13 update 分支把磁盘权威 resultHistory 同步回活回合');
+    ok(/if \(await maybeFinalizeMission\(session, 'driver'\)\)/.test(src), 's 10 驱动器机器验收全 done 补盖 complete 章(收工卡有验收报告)');
 
   } finally {
     kill(wb); await new Promise(r => provider.close(r));
