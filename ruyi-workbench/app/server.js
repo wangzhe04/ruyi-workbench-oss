@@ -3075,6 +3075,9 @@ function normalizeMission(raw, prev, trusted = true) {
     // 第72波:任务结果快照(终态时由 maybeFinalizeMission 盖章;再武装由它清理)。深拷必须携带,
     // 否则每次 applyMissionUpdate(normalizeMission({}, prev))都把已盖章的结果静默抹掉。
     result: (p.result && typeof p.result === 'object') ? p.result : null,
+    // 历史轮次验收报告归档:next_turn/retry/rollback/再武装/盖新章前把旧 result 推入,有界 last 10。
+    // 深拷同样必须携带,否则 applyMissionUpdate 会把历史轮次静默抹掉(同 result 的再武装坑)。
+    resultHistory: Array.isArray(p.resultHistory) ? p.resultHistory.slice(-10) : [],
     createdAt: p.createdAt || nowIso(),
     updatedAt: nowIso(),
   };
@@ -3168,10 +3171,22 @@ async function buildMissionResult(session, opts) {
   const cpTurnSeqs = [...new Set(cpEntries.map(e => e && e.turnSeq).filter(Number.isFinite))].sort((a, b) => a - b);
   const byOp = {};
   for (const f of fold.filesChanged) byOp[f.op || 'unknown'] = (byOp[f.op || 'unknown'] || 0) + 1;
+  // 交付成果正文:取本会话最后一条 assistant content(盖章时该消息已在 session.messages 内存)。
+  // 随 result 持久化 + 下发,收工卡不再依赖 SSE 流到达时序;刷新读磁盘 result 已落盘,不截断当前输出。
+  let deliverableText = '';
+  const msgs = Array.isArray(session.messages) ? session.messages : [];
+  for (let i = msgs.length - 1; i >= 0; i -= 1) {
+    const msg = msgs[i];
+    if (msg && msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.trim()) {
+      deliverableText = msg.content.slice(0, 16000);
+      break;
+    }
+  }
   return {
     status: o.status === 'stopped' ? 'stopped' : 'complete',
     how: String(o.how || '').slice(0, 32),
     finishedAt: nowIso(),
+    deliverableText,
     acceptance: {
       total: ms.length,
       done: ms.filter(x => x && x.status === 'done').length,
@@ -3198,17 +3213,30 @@ async function buildMissionResult(session, opts) {
 // 终态盖章/再武装清理。在【任何 mission 突变点】调用(/api/mission check/update、09 回合内 mission_update):
 // 全部里程碑 done 且尚无 complete 章 → 盖章;否则有旧章 → 清理(再武装 = 结果不再是终态,章会撒谎)。
 // 返回是否改变了 mission(调用方负责 saveSession)。stop 不走这里 —— 它直接盖 stopped 章(13-http-router)。
+function archiveMissionResult(mission) {
+  if (!mission || !mission.result) return;
+  const history = Array.isArray(mission.resultHistory) ? mission.resultHistory.slice() : [];
+  const archived = { ...mission.result };
+  if (typeof archived.deliverableText === 'string' && archived.deliverableText.length > 2000) {
+    archived.deliverableText = archived.deliverableText.slice(0, 2000);
+  }
+  history.push(archived);
+  if (history.length > 10) history.splice(0, history.length - 10);
+  mission.resultHistory = history;
+}
+
 async function maybeFinalizeMission(session, how) {
   const m = session && session.mission;
   if (!m || !Array.isArray(m.milestones)) return false;
   const allDone = m.milestones.length > 0 && m.milestones.every(x => x && x.status === 'done');
   if (allDone) {
     if (m.result && m.result.status === 'complete') return false; // 已盖章,不重复
+    archiveMissionResult(m); // 旧 stopped 章归档,再盖 complete
     m.result = await buildMissionResult(session, { status: 'complete', how });
     m.updatedAt = nowIso();
     return true;
   }
-  if (m.result) { m.result = null; m.updatedAt = nowIso(); return true; } // 再武装:清旧章
+  if (m.result) { archiveMissionResult(m); m.result = null; m.updatedAt = nowIso(); return true; } // 再武装:归档旧章再清
   return false;
 }
 
@@ -3369,11 +3397,13 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
     stoppedRuns = await stopMissionAgentRuns(sessionId);
     try { revokeAllGrants(sessionId, 'mission-stop'); } catch { /* best-effort */ }
     mission.autoMode = 'off';
+    archiveMissionResult(mission); // 旧 complete 章归档,再盖 stopped
     mission.result = await buildMissionResult(session, { status: 'stopped', how: 'stop' });
   } else if (action === 'retry') {
     for (const item of mission.milestones || []) {
       if (item && item.status === 'blocked') { item.status = 'pending'; item.evidence = ''; }
     }
+    archiveMissionResult(mission); // 旧 stopped 章归档
     mission.result = null;
     mission.autoMode = 'until-done';
     mission.stall = { lastDigest: '', sameCount: 0 };
@@ -3394,6 +3424,7 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
         check: normalizeMissionCheck(null, true), evidence: '',
       });
     }
+    archiveMissionResult(mission); // 旧 complete 章归档,新轮再盖
     mission.result = null;
     mission.autoMode = 'until-done';
     mission.stall = { lastDigest: '', sameCount: 0 };
@@ -3408,6 +3439,7 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
       item.status = 'pending';
       item.evidence = '';
     }
+    archiveMissionResult(session.mission); // 归档回退前的终态章(rewindSession 不触碰 mission.result)
     session.mission.result = null;
     session.mission.autoMode = 'off';
     session.mission.stall = { lastDigest: '', sameCount: 0 };
@@ -23169,6 +23201,8 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands },
         // 第72波:任务结果快照(终态盖章;active/paused 为 null,看 acceptance/changes/irreversible 实时投影)
         result: (session.mission && session.mission.result) || null,
+        // 历史轮次验收报告(next_turn/retry/rollback/再武装前归档的旧 result,有界 last 10)
+        resultHistory: Array.isArray(session.mission && session.mission.resultHistory) ? session.mission.resultHistory : [],
         checkpoints,
         controls,
         ledger,

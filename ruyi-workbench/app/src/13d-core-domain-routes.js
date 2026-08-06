@@ -340,6 +340,8 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands },
         // 第72波:任务结果快照(终态盖章;active/paused 为 null,看 acceptance/changes/irreversible 实时投影)
         result: (session.mission && session.mission.result) || null,
+        // 历史轮次验收报告(next_turn/retry/rollback/再武装前归档的旧 result,有界 last 10)
+        resultHistory: Array.isArray(session.mission && session.mission.resultHistory) ? session.mission.resultHistory : [],
         checkpoints,
         controls,
         ledger,

@@ -2595,13 +2595,16 @@ export function createPreviewShellDomain({
     const files = Array.isArray(snapshot.changes?.filesChanged) ? snapshot.changes.filesChanged.filter(item => item && item.path) : [];
     const reportKind = files.length ? 'engineering' : (artifacts.length ? 'artifact' : 'text');
 
-    const messages = Array.isArray(selectedSession?.messages) ? selectedSession.messages : [];
-    let reportSource = '';
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index];
-      if (message && message.role === 'assistant' && typeof message.content === 'string' && message.content.trim()) {
-        reportSource = message.content;
-        break;
+    // 优先 result.deliverableText(随 result 持久化+下发,不依赖 SSE 流到达时序;刷新也不丢当前输出)。
+    let reportSource = String(result.deliverableText || '').trim();
+    if (!reportSource) {
+      const messages = Array.isArray(selectedSession?.messages) ? selectedSession.messages : [];
+      for (let index = messages.length - 1; index >= 0; index -= 1) {
+        const message = messages[index];
+        if (message && message.role === 'assistant' && typeof message.content === 'string' && message.content.trim()) {
+          reportSource = message.content;
+          break;
+        }
       }
     }
     if (!reportSource) reportSource = snapshot.summary;
@@ -2741,7 +2744,39 @@ export function createPreviewShellDomain({
       updateMissionUi(card.missionId, { archived: true }); openDispatchHome();
     });
     actions.append(playbook, memory, archive);
-    host.replaceChildren(...[heading, report, facts, unfinishedSection, artifactSection, actions].filter(Boolean));
+
+    // 历史轮次验收报告:next_turn/retry/rollback/再武装前归档的旧 result,可展开回看(不丢旧轮次)。
+    const historySection = (() => {
+      const history = Array.isArray(snapshot.resultHistory) ? snapshot.resultHistory : [];
+      if (!history.length) return null;
+      const section = document.createElement('details');
+      section.className = 'preview-finish-history';
+      const summary = text('summary', 'preview-finish-history-head', '');
+      summary.append(text('strong', '', t('previewShell.finishHistoryTitle')),
+        text('span', 'preview-finish-history-count', t('previewShell.finishHistoryCount', { p1: history.length })));
+      section.appendChild(summary);
+      const list = text('ol', 'preview-finish-history-list', '');
+      for (const item of history) {
+        if (!item) continue;
+        const status = String(item.status || '');
+        const row = text('li', 'preview-finish-history-row', ''); row.dataset.historyStatus = status;
+        const head = text('div', 'preview-finish-history-row-head', '');
+        const label = status === 'complete' ? t('previewShell.resultComplete')
+          : (status === 'stopped' ? t('previewShell.resultStopped') : t('previewShell.resultPending'));
+        const acc = item.acceptance || {};
+        head.append(text('span', 'preview-finish-history-status', label),
+          text('span', 'preview-finish-history-meta', t('previewShell.finishHistoryMeta', { p1: Number(acc.done) || 0, p2: Number(acc.total) || 0 })),
+          text('time', 'preview-finish-history-time', formatTaskTime(item.finishedAt)));
+        row.append(head);
+        const excerpt = reportPreviewText(String(item.deliverableText || ''), 200);
+        if (excerpt) row.append(text('p', 'preview-finish-history-excerpt', excerpt));
+        list.appendChild(row);
+      }
+      section.append(list);
+      return section;
+    })();
+
+    host.replaceChildren(...[heading, report, facts, unfinishedSection, artifactSection, historySection, actions].filter(Boolean));
   }
 
   function changeDescription(record) {

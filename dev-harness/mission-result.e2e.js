@@ -127,6 +127,8 @@ function spawnWb() {
     ok(res && res.checkpoints && typeof res.checkpoints.rollbackAvailable === 'boolean', '(a) 真实回滚能力引用(checkpoints)');
     ok(snap && typeof snap.changes.commands === 'number' && snap.changes.commands === 1, '(a) changes.commands 是数字=1(第70波 NaN bug 修复回归)');
     ok(snap && snap.irreversible && snap.irreversible.total === 1 && snap.irreversible.legacyCommands === 0, '(a) 快照级不可逆账(活投影)total=1 legacy=0');
+    ok(res && typeof res.deliverableText === 'string' && res.deliverableText.includes('全部完成'), '(a) result.deliverableText 含最后 assistant 正文(不依赖 SSE 流时序)');
+    ok(snap && Array.isArray(snap.resultHistory) && snap.resultHistory.length === 0, '(a) 首次盖章 resultHistory 为空');
 
     // ============ (b) 再武装清章 + stop 盖章 + 路由路径 complete + 不重复盖章 ============
     const rearm = await requestJson(WB_PORT, '/api/mission', { action: 'update', sessionId: sid, token, patch: { milestones: [{ id: 'm3', desc: '追加第三步', status: 'pending' }] } }, token);
@@ -145,6 +147,15 @@ function spawnWb() {
     const stamp1 = fres && fres.finishedAt;
     const again = await requestJson(WB_PORT, '/api/mission', { action: 'update', sessionId: sid, token, patch: { milestones: [{ id: 'm3', status: 'done', evidence: '重复更新' }] } }, token);
     ok(again.json && again.json.mission && again.json.mission.result && again.json.mission.result.finishedAt === stamp1, '(b) 重复 update 不重复盖章(finishedAt 稳定)');
+
+    // 历史轮次验收报告留存:resultHistory 不丢旧轮次(rearm 归档 complete@2/2,盖新 complete 前归档 stopped)。
+    const detB = await requestJson(WB_PORT, '/api/missions/' + sid, null, token);
+    const histB = detB.json && detB.json.snapshot && detB.json.snapshot.resultHistory;
+    ok(Array.isArray(histB) && histB.length === 2, '(b) resultHistory 留存 2 条旧轮次(complete@2/2 + stopped)');
+    ok(histB && histB[0] && histB[0].status === 'complete' && histB[0].acceptance && histB[0].acceptance.done === 2, '(b) 历史首条 = 旧 complete@2/2');
+    ok(histB && histB[1] && histB[1].status === 'stopped', '(b) 历史第二条 = stopped 章');
+    ok(histB && typeof histB[0].deliverableText === 'string', '(b) 历史轮次带 deliverableText(归档时裁成摘要)');
+    ok(fres && typeof fres.deliverableText === 'string' && fres.deliverableText.includes('全部完成'), '(b) 新 complete 章带 deliverableText(本轮完整)');
 
     // ============ (c) 旧会话诚实标注(legacyCommands)============
     kill(wb); await sleep(500);
@@ -178,6 +189,11 @@ function spawnWb() {
     ok(/if \(onDisk && onDisk\.mission && typeof onDisk\.mission === 'object'\) session\.mission = onDisk\.mission;/.test(src), 's 05 claude 收尾磁盘回读补 mission(loopback 盖章防盖回)');
     ok(/result: \(session\.mission && session\.mission\.result\) \|\| null,/.test(src), 's 13d 快照带 result');
     ok(/const fold = foldTurnSummaries\(session\);/.test(src), 's 13d 折叠走 foldTurnSummaries(NaN bug 修复)');
+    ok(/function archiveMissionResult\(mission\)/.test(src), 's 02 archiveMissionResult 归档旧 result');
+    ok(/resultHistory: Array\.isArray\(p\.resultHistory\) \? p\.resultHistory\.slice\(-10\) : \[\],/.test(src), 's 02 normalizeMission 深拷携带 resultHistory');
+    ok(/deliverableText = msg\.content\.slice\(0, 16000\)/.test(src), 's 02 buildMissionResult 取最后 assistant content 作 deliverableText');
+    ok(/resultHistory: Array\.isArray\(session\.mission && session\.mission\.resultHistory\) \? session\.mission\.resultHistory : \[\],/.test(src), 's 13d 快照带 resultHistory');
+    ok(/archiveMissionResult\(mission\);/.test(src) && /archiveMissionResult\(m\);/.test(src), 's 02 stop/retry/next_turn/rollback + 再武装 前归档旧 result');
 
   } finally {
     kill(wb); await new Promise(r => provider.close(r));

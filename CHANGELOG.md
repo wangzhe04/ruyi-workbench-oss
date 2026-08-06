@@ -14,6 +14,8 @@ This file records user-facing release highlights; it does not replace the comple
 - **Provider 设置卡重构**:头部「协议与能力」折叠分组(reasoning / vision / apiStyle / serverWebSearch),`serverWebSearch` 仅在 `apiStyle=responses` 时显示,切回 chat 自动隐藏;折叠状态跨重绘记忆。
 - **只读工具默认根解绑**:`file_list` / `file_search` / `glob` 等只读工具的默认根不再固定到启动目录,避免误把启动路径当工作区根。
 - **交办台任务流与产出 UX**:任务输出与续办交互细化(任务单控件、续办卡、现场纪要镜头的若干打磨)。
+- **收工卡交付成果立即可见**:验收完成时,交付成果正文随结果章持久化下发,不再依赖流式输出到达时序;点开即可见,刷新也不会截断当前输出。
+- **多轮验收报告历史留存**:任务完成后继续推进下一轮,旧轮次的验收报告归档保留,可在收工卡「历史轮次验收报告」展开回看,不再只保留最新一轮。
 
 ### English
 
@@ -21,6 +23,8 @@ This file records user-facing release highlights; it does not replace the comple
 - **Provider settings card regroup**: the header gains a collapsible "Protocol & capabilities" group (reasoning / vision / apiStyle / serverWebSearch); `serverWebSearch` only appears when `apiStyle=responses` and auto-hides on switching back to chat, with the collapse state remembered across redraws.
 - **Read-only tool default root unbound**: `file_list` / `file_search` / `glob` and other read-only tools no longer pin their default root to the launch directory, avoiding mistaking the launch path for the workspace root.
 - **Task-desk workflow and output UX**: refinements to task output and continuation interactions (task-sheet controls, continuation cards, the worksite-log lens).
+- **Finish-card delivery text shown immediately**: the delivery text is persisted with the result record when acceptance completes, so it no longer depends on streaming arrival timing; it is visible on open and survives refresh without truncating the in-flight output.
+- **Multi-round acceptance reports retained**: when a finished task continues into the next round, prior acceptance reports are archived and can be expanded back in the finish card's "Previous acceptance reports" section, instead of keeping only the latest.
 
 ## 如意 Ruyi Escapade 2.4.1 · v2.4.1 · 2026-08-03
 
