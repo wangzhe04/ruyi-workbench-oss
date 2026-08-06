@@ -4,7 +4,7 @@ This is the English companion to [架构说明](ARCHITECTURE_CN.md).
 
 ## Components
 
-> Version baseline: workbench **v2.1.0** · native tools **51** · ACC **107** (v1.9.0).
+> Version baseline: workbench **v2.1.0** · native tools **51** · ACC **108** (v1.9.1).
 
 Ruyi has a framework-less browser frontend and a Node.js local server. The browser handles chats, workspace
 selection, settings, permission cards, file and audit views, workflow monitoring, and language resources. The

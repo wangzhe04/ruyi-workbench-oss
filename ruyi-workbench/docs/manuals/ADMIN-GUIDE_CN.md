@@ -291,7 +291,7 @@ foreach ($v in $vars) {
 
 ### 2.3 桌面 MCP（ai-computer-control，ACC v1.9.1）
 
-把本机的桌面控制 MCP（截图 / 控窗 / OCR / UIA / 键鼠 / 浏览器 / 读写 Office / **write_pdf 中文字体链导出 PDF** 等，共 107 个工具）接进工作台，两条线：
+把本机的桌面控制 MCP（截图 / 控窗 / OCR / UIA / 键鼠 / 浏览器 / 读写 Office / **write_pdf 中文字体链导出 PDF** 等，共 108 个工具）接进工作台，两条线：
 
 - **供给 Claude CLI**：生成 `.mcp.json` 时把 `ai-computer-control` 与启用的 `externalMcpServers` 一并写入，CLI 原生调用。
 - **供给 Provider 引擎**：开关 `bridgeExternalToolsToProvider` 打开时，同一批工具经**进程内 MCP stdio 客户端**桥接进原生工具循环。
@@ -430,7 +430,7 @@ node dev-harness\<name>.e2e.js      # 判定行形如 "<NAME> E2E: ALL PASS"
 ```powershell
 cd ai-computer-control
 pip install -e .                        # 或用 requirements_offline.txt 离线装
-python -X utf8 tests\smoke_registry.py  # 工具注册（107 工具）
+python -X utf8 tests\smoke_registry.py  # 工具注册（108 工具）
 python -X utf8 tests\smoke_stdio.py     # stdio 两种启动各全量（关键回归）
 python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 ```

@@ -26,7 +26,7 @@ language. They are engineering records rather than normative user or deployment 
 
 | Concept | Status | Scope |
 |---|---|---|
-| [Pretender 3.0](PRETENDER-PLAN.md) | **已立项 · 交付中（2026-08-05）** | 交办台新壳层；五层门 P1✅ / P2✅ / P3 工程✅（正式外部受试者人因验证待办），P4 第87波 3.0.0 默认切换与发布待办。规划见 [`PRETENDER-PLAN.md`](PRETENDER-PLAN.md) v4、门评审见 [`PRETENDER-GATE-REVIEW.md`](PRETENDER-GATE-REVIEW.md)、本机指标见 [`PRETENDER-METRICS.md`](PRETENDER-METRICS.md) |
+| [Pretender 3.0](PRETENDER-PLAN.md) | **已立项 · 交付中（2026-08-06）** | 交办台新壳层；五层门 P1✅ / P2✅ / P3 工程✅（正式外部受试者人因验证待办）；P4 第87–91波已用于交办台/任务单 UX 打磨并随 2.4.1 发布，3.0.0 默认切换与发布因人因验证未做而暂缓。规划见 [`PRETENDER-PLAN.md`](PRETENDER-PLAN.md) v4、门评审见 [`PRETENDER-GATE-REVIEW.md`](PRETENDER-GATE-REVIEW.md)、本机指标见 [`PRETENDER-METRICS.md`](PRETENDER-METRICS.md) |
 | [Traveler 4.0](TRAVELER-CONCEPT.md) | **Concept v0.1 / 概念稿 v0.1** | Portable Missions：Task Capsule、安全续办、跨设备/接手者移交、执行权与证据回程；不是范围、版本或发布时间承诺 |
 
 ## UI 设计稿生命周期(第50波 D3 标注)
@@ -35,7 +35,7 @@ language. They are engineering records rather than normative user or deployment 
 |---|---|---|
 | [UI-DESIGN-V4.md](UI-DESIGN-V4.md) | **定稿(现行基线)** | 现代毛玻璃质感；token 值与 `css/tokens.css`、`css/themes/color-schemes.css` 一致，`styles.css` 为兼容清单；mockup: `mockups/v4-glass-*.html` |
 | [UI-ESCAPADE-TURN-NARRATIVE.md](UI-ESCAPADE-TURN-NARRATIVE.md) | **Escapade 提案(P1，建议前置)** | 一轮一个大框，文字/工具按真实顺序穿插；末尾保留完整工具、变更与产物复盘；Claude CLI/OpenAI 兼容共用协议与渲染器 |
-| [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | **已立项（Pretender 3.0 概念依据）** | 「交办台」概念稿；已按 `PRETENDER-PLAN.md` v4 立项推进（P1–P3 完成，P4 第87波 3.0.0 待办） |
+| [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | **已立项（Pretender 3.0 概念依据）** | 「交办台」概念稿；已按 `PRETENDER-PLAN.md` v4 立项推进（P1–P3 完成，P4 3.0.0 默认切换暂缓，第87–91波已用于 UX 打磨） |
 
 ## 归档区(`archive/`)
 

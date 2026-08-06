@@ -85,7 +85,7 @@ flowchart LR
 
 ## Workbench 自身 MCP 工具
 
-`... mcp` 子命令暴露的 stdio server(`serverInfo.name = win-claude-workbench`)以 **50 个原生工具**(`TOOL_HANDLERS` 派发注册表轴)为当前工具数。**历史口径**:向 Claude CLI 曾列 37 个工具(不计内部的 `permission_prompt`;CLI 面 `tools/list` 过滤掉 provider-only 的 `spawn_agent`——它需 serve 进程回合闭包,CLI 侧调只会拒;含 `permission_prompt` = 38),`MCP_TOOLS` 数组本身曾含 39 条(含 `permission_prompt` + `spawn_agent`;不计 `permission_prompt` = 38);**provider 引擎**经 `buildOpenAiTools` offer 的工具数在 `subagentMaxPerTurn>0` 时含 `spawn_agent`(比 CLI 面多一),且 `web_search`/`web_fetch` 受**能力矩阵**门控(离线/无搜索后端时不 offer;见「能力矩阵」)。**S9 增量**:`web_search`+`web_fetch`(+2);**v1.0-S4 增量**:git 工具族新增 `git_diff`/`git_log`/`git_commit`(+3,`git_status` 早已在列);**v1.1+ 增量**:`file_move`+`file_copy`+`archive_zip`+`archive_unzip`+`http_download`(+5)→ `MCP_TOOLS` 数组由 34 增至 39,CLI 面不计 permission_prompt 由 32 增至 37(均为历史口径):
+`... mcp` 子命令暴露的 stdio server(`serverInfo.name = win-claude-workbench`)以 **51 个原生工具**(`TOOL_HANDLERS` 派发注册表轴)为当前工具数。**历史口径**:向 Claude CLI 曾列 37 个工具(不计内部的 `permission_prompt`;CLI 面 `tools/list` 过滤掉 provider-only 的 `spawn_agent`——它需 serve 进程回合闭包,CLI 侧调只会拒;含 `permission_prompt` = 38),`MCP_TOOLS` 数组本身曾含 39 条(含 `permission_prompt` + `spawn_agent`;不计 `permission_prompt` = 38);**provider 引擎**经 `buildOpenAiTools` offer 的工具数在 `subagentMaxPerTurn>0` 时含 `spawn_agent`(比 CLI 面多一),且 `web_search`/`web_fetch` 受**能力矩阵**门控(离线/无搜索后端时不 offer;见「能力矩阵」)。**S9 增量**:`web_search`+`web_fetch`(+2);**v1.0-S4 增量**:git 工具族新增 `git_diff`/`git_log`/`git_commit`(+3,`git_status` 早已在列);**v1.1+ 增量**:`file_move`+`file_copy`+`archive_zip`+`archive_unzip`+`http_download`(+5)→ `MCP_TOOLS` 数组由 34 增至 39,CLI 面不计 permission_prompt 由 32 增至 37(均为历史口径):
 
 - 权限桥接:`permission_prompt`(interactive + 权限桥接时把权限询问路由回 UI)。
 - 执行:`powershell_run`(一次性)、`script_run`。

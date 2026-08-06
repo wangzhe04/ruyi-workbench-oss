@@ -39,7 +39,7 @@
 
 **共计 108 个工具**(v1.9.1；总数与分组由注册表实测导出，`tests/smoke_registry.py` 钉死）
 
-### v1.9.1 中文 OCR 硬化 + 工具超时/卡死修复（如意工作台第87波）
+### v1.9.1 中文 OCR 硬化 + 工具超时/卡死修复（如意工作台第86波，随 Escapade 2.4.1 发布）
 
 - **OCR 中文乱码根治**：`lang` 现接受友好别名并归一化到 Windows.Media.Ocr 实际装包的 BCP-47 标签（`zh`/`chinese`/`zh-CN` -> `zh-Hans-CN`，`zh-TW`/`zh-Hant` -> `zh-Hant-TW`），不再因裸 `zh` 静默回退英文引擎把中文识别成乱码；zh-CN 系统在未指定 `lang` 时自动优先中文引擎；新增 `ocr_available_languages` 工具列出已装 OCR 语言包；小图 LANCZOS 放大提质；结果带 `lang_used`/`lang_fallback`/`confidence`/`upscaled` 透明字段。
 - **CJK 跨词短语匹配**：`ocr_find_text` 对中日韩文本按无空格拼接相邻词，`ocr_find_text("系统设置")` 现能命中 OCR 分词 `["系","统","设","置"]`（Windows 把 CJK 切成 2-4 字单元，旧行为按空格拼接永远匹不中）。

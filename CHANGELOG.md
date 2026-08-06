@@ -3,6 +3,25 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
+## 未发布 · Unreleased
+
+> 以下为 `v2.4.1` 标签之后、`master` 上的进行中工作；尚未计入正式版本号。
+> Work on `master` after the `v2.4.1` tag; not yet assigned a release version.
+
+### 中文
+
+- **服务端 web_search(DeepSeek Responses)**:新增 per-provider `serverWebSearch` 开关。开启后,Ruyi 的本地 `web_search` 函数工具映射为 DeepSeek 服务端 `{type:'web_search'}` 工具--由模型侧执行搜索并回带结果,工作台不再本地执行、不配对 `function_call_output`,原样透传进下一请求;关闭或不支持时自动回退本地 8 种后端。DeepSeek 预设默认声明该能力,从 UI 添加的预设不再静默丢失。
+- **Provider 设置卡重构**:头部「协议与能力」折叠分组(reasoning / vision / apiStyle / serverWebSearch),`serverWebSearch` 仅在 `apiStyle=responses` 时显示,切回 chat 自动隐藏;折叠状态跨重绘记忆。
+- **只读工具默认根解绑**:`file_list` / `file_search` / `glob` 等只读工具的默认根不再固定到启动目录,避免误把启动路径当工作区根。
+- **交办台任务流与产出 UX**:任务输出与续办交互细化(任务单控件、续办卡、现场纪要镜头的若干打磨)。
+
+### English
+
+- **Server-side web_search (DeepSeek Responses)**: adds a per-provider `serverWebSearch` toggle. When on, Ruyi's local `web_search` function tool is mapped to DeepSeek's server-side `{type:'web_search'}` tool - the model runs the search and returns results, so the workbench no longer executes it locally, pairs no `function_call_output`, and echoes the item into the next request; turning it off or using an unsupported provider falls back to the 8 local backends. The DeepSeek preset declares this capability by default, so adding it from the UI no longer silently drops it.
+- **Provider settings card regroup**: the header gains a collapsible "Protocol & capabilities" group (reasoning / vision / apiStyle / serverWebSearch); `serverWebSearch` only appears when `apiStyle=responses` and auto-hides on switching back to chat, with the collapse state remembered across redraws.
+- **Read-only tool default root unbound**: `file_list` / `file_search` / `glob` and other read-only tools no longer pin their default root to the launch directory, avoiding mistaking the launch path for the workspace root.
+- **Task-desk workflow and output UX**: refinements to task output and continuation interactions (task-sheet controls, continuation cards, the worksite-log lens).
+
 ## 如意 Ruyi Escapade 2.4.1 · v2.4.1 · 2026-08-03
 
 ### 中文
@@ -14,6 +33,9 @@ This file records user-facing release highlights; it does not replace the comple
 - **桥接 `wait` 契约对齐**：ACC `wait` 上限 300s，桥接超时表给它 310s，不再用默认 120s 杀掉合法 `wait(300)` 并连带整棵 ACC 进程树。
 - **CJK 文件编码**：`read_file` 默认 UTF-8 解码失败时回退系统 ANSI 代码页（cp936），原生中文应用写的 GBK 文件不再静默变 U+FFFD 乱码，并回报 `encoding_used`/`encoding_fallback`；`launch_application(wait=True)` 用 OEM 代码页而非硬编码 UTF-8 解码子进程输出。
 - **行为锁**：`tests/smoke_v191.py`（30+ 断言）、`dev-harness/finalize-segments.static.e2e.js`（段清理 + 桥超时表）。ACC v1.9.0 -> v1.9.1（108 工具）。
+- **DeepSeek Responses API 协议**：Provider 新增 `apiStyle` 字段（`chat`/`responses`），DeepSeek 预设默认走官方 Responses API（服务端工具循环）。主回合/子代理/摘要/Playbook/JSON 修复全链路跟随协议（URL + body 形态切换），并行 function_call 按 `item_id` 精确路由参数；DeepSeek 预设默认模型改 `deepseek-v4-flash`，定价改模型级覆盖。
+- **交办台/任务单 UX 打磨（第87–91波）**：图标系统重设计、车钟与任务单控件图标化、交办箱 auto-grow、续办卡迷你进度条、metrics pill 化、`--sp-7` 间距令牌修复；首跑引导与 a11y 修复。
+- **离线运行时扩展**：完整包暴露内置 `python_embed`、扩充纯离线 Python 运行时，目标机无需预装 Python 即可用桌面控制；OCR 服务 COM 初始化改为 MTA，`recognize_async` 等同步调用加内部超时（与上文工具卡死根治同批硬化）。
 
 ### English
 
@@ -24,6 +46,9 @@ This file records user-facing release highlights; it does not replace the comple
 - **Bridge `wait` contract**: ACC `wait` caps at 300s; the bridge timeout table now gives it 310s instead of killing a legitimate `wait(300)` at the 120s default (which also tore down the whole ACC process tree).
 - **CJK file encoding**: `read_file` falls back to the system ANSI code page (cp936) when UTF-8 decode fails, so GBK files from native Chinese apps no longer silently become U+FFFD; reports `encoding_used`/`encoding_fallback`. `launch_application(wait=True)` decodes child output with the OEM code page instead of hard-coded UTF-8.
 - **Test gates**: `tests/smoke_v191.py` (30+ assertions), `dev-harness/finalize-segments.static.e2e.js`. ACC v1.9.0 -> v1.9.1 (108 tools).
+- **DeepSeek Responses API protocol**: providers gain an `apiStyle` field (`chat`/`responses`); the DeepSeek preset defaults to the official Responses API (server-side tool loop). The main turn, sub-agents, summaries, Playbooks, and JSON repair all follow the chosen protocol (URL + body shape switch), and parallel function calls route arguments by `item_id`; the DeepSeek preset's default model is now `deepseek-v4-flash` with per-model pricing overrides.
+- **Task-desk / task-sheet UX polish (waves 87–91)**: icon system redesign, telegraph and task-sheet control iconification, dispatch-box auto-grow, mini progress bars on continuation cards, metrics pill-ification, `--sp-7` spacing-token fix; first-run guidance and a11y fixes.
+- **Offline runtime expansion**: full packages expose their bundled `python_embed` and ship an expanded pure-offline Python runtime, so target machines need no preinstalled Python for desktop control; the OCR server COM is initialized as MTA and blocking calls like `recognize_async` get internal timeouts (same hardening batch as the tool-hang fix above).
 
 ## 如意 Ruyi Escapade 2.4 · v2.4.0 · 2026-07-30
 
