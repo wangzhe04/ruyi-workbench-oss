@@ -760,7 +760,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             try { resultObj = (typeof sendToAgent === 'function') ? await sendToAgent(args) : { ok: false, error: 'Agent 邮箱在当前上下文不可用' }; }
             catch (e) { resultObj = { ok: false, error: (e && e.message) || String(e) }; }
             if (resultObj && resultObj.ok) onEvent({ type: 'subagent_mail_out', subagentId, target: String(args && (args.targetNodeKey != null ? args.targetNodeKey : args.target) || ''), text: String(args && (args.message != null ? args.message : args.text) || '') });
-          } else if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents') {
+          } else if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents') {
             // 禁嵌套 double-guard: even though spawn_agent is not offered here, refuse it defensively.
             resultObj = { ok: false, error: '子代理不可再派生子代理' };
           } else {

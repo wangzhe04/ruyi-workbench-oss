@@ -3996,14 +3996,17 @@ function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
 //     (turn was arrested mid tool-loop). Returns { dangling, kind } — kind: 'user'|'tool_calls'|null.
 function detectDanglingTurn(session) {
   const h = (session && Array.isArray(session.providerHistory)) ? session.providerHistory : [];
-  if (!h.length) return { dangling: false, kind: null };
+  // turnSeq + historyLength form a stable UI-dismiss fingerprint: reopening the same interrupted turn stays
+  // dismissed, while a later interruption automatically gets a fresh banner instead of inheriting the old ×.
+  const meta = { turnSeq: Math.max(0, Number(session && session.turnSeq) || 0), historyLength: h.length };
+  if (!h.length) return { dangling: false, kind: null, ...meta };
   const last = h[h.length - 1];
-  if (last && last.role === 'user') return { dangling: true, kind: 'user' };
+  if (last && last.role === 'user') return { dangling: true, kind: 'user', ...meta };
   // A tail of role:'tool' is the persisted shape of Stop-mid-loop (the MOST common interruption): the
   // abort lands after the tool results were pushed but before the next model call (the `if (aborted)
   // break` right after the per-tool-result push in runOpenAiTurn), and the closing assistant text is
   // only pushed on normal completion. Every tool_call_id is answered, yet the turn never concluded.
-  if (last && last.role === 'tool') return { dangling: true, kind: 'tool_calls' };
+  if (last && last.role === 'tool') return { dangling: true, kind: 'tool_calls', ...meta };
   // Walk back to the most recent assistant message that requested tools; verify each id was answered.
   for (let i = h.length - 1; i >= 0; i--) {
     const m = h[i];
@@ -4014,9 +4017,9 @@ function detectDanglingTurn(session) {
       if (h[j] && h[j].role === 'tool' && h[j].tool_call_id != null) answered.add(String(h[j].tool_call_id));
     }
     const unanswered = m.tool_calls.some(tc => tc && !answered.has(String(tc.id)));
-    return unanswered ? { dangling: true, kind: 'tool_calls' } : { dangling: false, kind: null };
+    return unanswered ? { dangling: true, kind: 'tool_calls', ...meta } : { dangling: false, kind: null, ...meta };
   }
-  return { dangling: false, kind: null };
+  return { dangling: false, kind: null, ...meta };
 }
 
 // 配对铁律自愈(strict provider 400 永久卡死会话的修复面):detectDanglingTurn 只【检测】悬挂,而
@@ -10810,6 +10813,20 @@ function buildOpenAiTools(config, caps, opts) {
     if (caps && !toolRequirementsMet(t.name, caps, toolRequiresEnabled, config).met) continue; // requirement unmet → drop
     out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
   }
+  // Provider-turn control plane for background spawn_agent runs. It is intentionally not part of MCP_TOOLS:
+  // the one-shot MCP child has no parent-turn closure, while persisted orchestrate_agents already owns its
+  // separate synchronous/async launch route. Top-level Provider turns can collect by explicit runId or, more
+  // conveniently, omit runIds to wait for the background agents launched earlier in the same turn.
+  if (spawnAgentEnabled) {
+    out.push({ type: 'function', function: {
+      name: 'wait_agents',
+      description: 'Collect results from background spawn_agent runs. Omit runIds to wait for every background Agent launched in the current chat turn, or pass launch-receipt runIds (including from an earlier turn). Waits at most timeoutMs and returns current persisted DAG state if work is still running.',
+      parameters: { type: 'object', properties: {
+        runIds: { type: 'array', items: { type: 'string' }, description: 'Optional spawn_agent runIds returned by background launch receipts (up to 16).' },
+        timeoutMs: { type: 'number', description: 'Maximum wait in milliseconds, 0..60000 (default 30000).' },
+      } },
+    } });
+  }
   // v1 技能体系: skill_read(provider 引擎, read tier)—— 仅在本会话有启用技能时注册(offer 条件由调用方传
   // opts.skillsEnabled 决定,仿 spawn_agent 的 enable 门)。不入 MCP_TOOLS(否则会泄漏给 Claude CLI 且恒开)。
   // 子代理不传 skillsEnabled → 不注册。dispatch 在 toolCall 的 'skill_read' 分支;tier 在 NATIVE_TOOL_TIER。
@@ -10880,6 +10897,7 @@ const NATIVE_TOOL_TIER = {
   desktop_screenshot: 'exec', http_request: 'exec',
   spawn_agent: 'exec', // v0.9-S6: delegating a sub-turn is the highest-privilege native act → exec tier
   orchestrate_agents: 'exec',
+  wait_agents: 'read',
   // v0.8-S2 shell session族: listing is read-only; start/send/poll/kill mutate state → exec.
   shell_list: 'read', shell_start: 'exec', shell_send: 'exec', shell_poll: 'exec', shell_kill: 'exec',
 };
@@ -10940,7 +10958,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
-  archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', skill_read: 'skills',
+  archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', skill_read: 'skills',
   mcp_list: 'integrations', mcp_configure: 'integrations',
 });
 
@@ -13442,7 +13460,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             try { resultObj = (typeof sendToAgent === 'function') ? await sendToAgent(args) : { ok: false, error: 'Agent 邮箱在当前上下文不可用' }; }
             catch (e) { resultObj = { ok: false, error: (e && e.message) || String(e) }; }
             if (resultObj && resultObj.ok) onEvent({ type: 'subagent_mail_out', subagentId, target: String(args && (args.targetNodeKey != null ? args.targetNodeKey : args.target) || ''), text: String(args && (args.message != null ? args.message : args.text) || '') });
-          } else if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents') {
+          } else if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents') {
             // 禁嵌套 double-guard: even though spawn_agent is not offered here, refuse it defensively.
             resultObj = { ok: false, error: '子代理不可再派生子代理' };
           } else {
@@ -14492,7 +14510,7 @@ function recordNodeContinuation(node, evt) {
   c.updatedAt = nowIso();
 }
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle }) {
   let run, nodes, runId;
   const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
   let defaultRoute = {
@@ -14625,7 +14643,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
       // 52x: openai 节点用子 agent 优先端点(跨 provider)挑模型,与运行时 subProvider 一致,防 tier 用主 provider 池挑模型送 subProvider 跑 404
       const matProvider = engine === 'openai' ? (defaultRoute.provider || provider) : provider;
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider), maxIters: Math.min(300, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -14644,6 +14662,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     const resolvedAutoCap = Number.isFinite(Number(config.agentTaskPoolAutoCap)) ? Math.min(16, Math.max(0, Math.round(Number(config.agentTaskPoolAutoCap)))) : 3;
     const runProvider = defaultRoute.engine === 'openai' ? defaultRoute.provider : provider;
     run = { schemaVersion: 4, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: runProvider && runProvider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), taskPool: [], messages: [], poolPolicy: resolvedPoolPolicy, poolAutoCap: resolvedAutoCap,
+      kind: String(runKind || 'orchestrate_agents'), title: String(runTitle || ''),
       // 29b/29c: 首跑权限面存档(boot 自动恢复分级用 —— 恢复时 config.permissionMode 若比首跑更宽,自动续跑
       // 等于权限静默升级,必须降人工)+ 运营指标(interventions 干预计数 / failuresByClass 收尾聚合)。
       permissionModeAtLaunch: String(permModeOverride || config.permissionMode || ''), metrics: { interventions: {} }, nodes };
@@ -15100,7 +15119,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
               parentSession: agentSession, provider: subProvider, config, engine: node.engine || 'openai',
               task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
               displayTask: node.task, agentKey: node.id,
-              dependsOn: node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
+              dependsOn: (Array.isArray(node.reportedDependsOn) && node.reportedDependsOn.length) ? node.reportedDependsOn : node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
               onEvent: nodeEvent, subagentId: makeId('sub'), depth: 1, ctrl: nodeCtrl, permModeOverride,
               getSteer: () => drainNodeSteers(node.id),
               // 团队模式 v2 (A/B): 按本节点 id 绑定的投递闭包。propose 仅在池策略非 off 时注入(否则工具不注册);mail 恒注入。
@@ -15301,6 +15320,63 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     ok: run.status === 'succeeded', runId, status: run.status, startedCount,
     results: nodes.map(n => ({ id: n.id, status: n.status, result: n.result, structuredResult: n.structuredResult, confidence: n.confidence, gateVerdict: n.gateVerdict || '', gateResult: n.gateResult || null, error: n.error, errorClass: n.errorClass || '', dependsOn: n.dependsOn, dependencyPolicy: n.dependencyPolicy || 'all_success', role: n.roleId || '', engine: n.engine || 'openai', attempts: n.attempts, minSuccessfulToolCalls: n.minSuccessfulToolCalls || 0, toolEvidence: n.toolEvidence || null, condition: n.condition, skipReason: n.skipReason || '', loopIteration: n.loopIteration, noProgressCount: n.noProgressCount, loopStopReason: n.loopStopReason || '', jsonRepaired: n.jsonRepaired || false })),
   };
+}
+
+// `spawn_agent{background:true}` returns a launch receipt immediately so the parent model can keep doing
+// useful work. The delegated node still runs through the persisted workflow runtime, therefore its result can
+// be collected in this turn or a later turn without relying on an in-memory promise. This reader always prefers
+// the live object (the disk snapshot is intentionally throttled while a node is running) and confines every id
+// to the current session's run directory.
+async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
+  const runIds = [...new Set((Array.isArray(rawRunIds) ? rawRunIds : [])
+    .map(id => safeSessionId(String(id || ''))).filter(Boolean))].slice(0, 16);
+  if (!runIds.length) return { ok: false, error: '没有可等待的后台 Agent runId', settled: true, timedOut: false, runs: [] };
+  const waitMs = Math.min(60000, Math.max(0, Number(timeoutMs) || 0));
+  const deadline = Date.now() + waitMs;
+  const readOne = async runId => {
+    const live = activeAgentRuns.get(runId);
+    if (live && live.run) {
+      if (live.run.sessionId !== sessionId) return null;
+      return { run: live.run, live: true };
+    }
+    try {
+      const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null);
+      return run && run.sessionId === sessionId ? { run, live: false } : null;
+    } catch { return null; }
+  };
+  let rows = [];
+  for (;;) {
+    rows = await Promise.all(runIds.map(readOne));
+    const settled = rows.every(row => row && !row.live);
+    if (settled || Date.now() >= deadline || (signal && signal.aborted)) break;
+    await new Promise(resolve => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (signal) signal.removeEventListener('abort', finish);
+        resolve();
+      };
+      const timer = setTimeout(finish, Math.min(250, Math.max(1, deadline - Date.now())));
+      if (timer && timer.unref) timer.unref();
+      if (signal) signal.addEventListener('abort', finish, { once: true });
+    });
+  }
+  const runs = runIds.map((runId, index) => {
+    const row = rows[index];
+    if (!row) return { runId, status: 'not_found', live: false, nodes: [] };
+    const run = row.run;
+    return {
+      runId, status: run.status || (row.live ? 'running' : 'unknown'), live: row.live,
+      nodes: (Array.isArray(run.nodes) ? run.nodes : []).map(node => ({
+        id: node.id, agentKey: node.agentKey || node.id, role: node.roleId || '', status: node.status,
+        result: String(node.result || '').slice(0, 24000), error: String(node.error || '').slice(0, 4000),
+      })),
+    };
+  });
+  const settled = runs.every(run => run.status !== 'not_found' && run.live !== true);
+  return { ok: true, settled, timedOut: !settled, runs };
 }
 
 async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
@@ -15556,6 +15632,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (initialTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
     volatileExtras += buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
   }
+  if (initialTools.some(t => t.function && t.function.name === 'spawn_agent')) {
+    volatileExtras += '\n\n子 Agent 并行规则：当主会话还有不依赖子任务结果的工作可做时，调用 spawn_agent 时设置 background:true，立即继续主线；需要汇总时再调用 wait_agents（可省略 runIds 以等待本回合启动的后台 Agent）。只有必须立刻取得结果时才同步等待。';
+  }
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
   // instruction (not baked into buildProviderSystemPrompt — kept here so it never leaks into summary/identity
   // calls or the Claude engine). The model must first emit a PLAN: message and stop; approval unlocks tools
@@ -15789,6 +15868,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const subagentTurnCap = Math.max(0, Number(config.subagentMaxPerTurn) || 0);
   const subagentResults = new Map(); // agentKey -> completed result, available to later dependency stages
   const reservedSubagentKeys = new Set();
+  // Background spawn runs survive the parent model's next iterations (and even the end of this chat turn)
+  // because their source of truth is the persisted Agent workflow. This turn-local index only supplies the
+  // convenient wait_agents{} default when the model omits explicit runIds.
+  const backgroundAgentRunIds = new Set();
 
   // v1.0-S6 (B): failover-aware wrapper around openAiStreamOnce. For ONE logical API call it walks the
   // candidate endpoint sequence, advancing to the next candidate ONLY on a pre-first-byte failure
@@ -16033,7 +16116,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // Start the accepted spawn_agent calls before awaiting any one of them. Only spawn_agent participates:
         // ordinary tools keep their historical serial ordering. Results are consumed below in original call
         // order, preserving one contiguous assistant.tool_calls → role:'tool' block for strict providers.
-        const subagentPromises = new Map();
+        const spawnDispatches = new Map();
+        const acceptedSpawns = [];
         let projectedLoopSig = loopSig, projectedLoopCount = loopCount, projectedLoopAborted = false;
         for (const stc of localToolCalls) {
           if (!stc) continue;
@@ -16052,36 +16136,38 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           await notifyToolHookStart(stc, sargs, iter, 'agent_orchestration');
           subagentBatchCount += 1;
           if (subagentBatchCount > subagentFanoutMax) {
-            subagentPromises.set(stc.id, Promise.resolve({ ok: false, error: `子代理并发已达上限(${subagentFanoutMax}),请拆分为后续阶段` }));
+            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, error: `子代理并发已达上限(${subagentFanoutMax}),请拆分为后续阶段` }), background: false });
             continue;
           }
           if (subagentTotal >= subagentTurnCap) {
-            subagentPromises.set(stc.id, Promise.resolve({ ok: false, error: `本回合子代理数已达上限(${subagentTurnCap})` }));
+            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, error: `本回合子代理数已达上限(${subagentTurnCap})` }), background: false });
             continue;
           }
           const requestedKey = String(sargs.agentKey || '').trim().slice(0, 64);
           const agentKey = requestedKey || `agent-${subagentTotal + 1}`;
           const dependsOn = [...new Set((Array.isArray(sargs.dependsOn) ? sargs.dependsOn : [])
             .map(v => String(v || '').trim().slice(0, 64)).filter(Boolean))].slice(0, 8);
+          if (!/^[A-Za-z0-9_-]{1,64}$/.test(agentKey)) {
+            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, agentKey, error: `子代理标识无效: ${agentKey}` }), background: false });
+            continue;
+          }
           if (reservedSubagentKeys.has(agentKey)) {
-            subagentPromises.set(stc.id, Promise.resolve({ ok: false, agentKey, error: `子代理标识重复: ${agentKey}` }));
+            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, agentKey, error: `子代理标识重复: ${agentKey}` }), background: false });
             continue;
           }
           const missingDeps = dependsOn.filter(key => !subagentResults.has(key));
           if (missingDeps.length) {
-            subagentPromises.set(stc.id, Promise.resolve({ ok: false, agentKey, dependsOn, error: `依赖尚未完成: ${missingDeps.join(', ')}。请等待前序阶段返回后再派发` }));
+            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, agentKey, dependsOn, error: `依赖尚未完成: ${missingDeps.join(', ')}。请等待前序阶段返回后再派发` }), background: false });
             continue;
           }
           const roleId = String(sargs.role || '').trim().toLowerCase();
           const roleDefinition = roleId ? agentRoleMap.get(roleId) : null;
           if (roleId && !roleDefinition) {
-            subagentPromises.set(stc.id, Promise.resolve({ ok: false, agentKey, role: roleId, error: `Agent 角色不存在: ${roleId}` }));
+            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, agentKey, role: roleId, error: `Agent 角色不存在: ${roleId}` }), background: false });
             continue;
           }
           reservedSubagentKeys.add(agentKey);
           subagentTotal += 1;
-          const subId = makeId('sub');
-          const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
           const originalTask = String(sargs.task || '');
           // 第28波(§28c):预算化上游上下文(与 DAG runNode 同一构建器),取代旧 12000/dep + 32000 定长截断。回合内 spawn 扇出
           // 的前序结果无派生 summary,rung 从全文降级截断。预算=下游子代理模型窗口的 35%。
@@ -16093,25 +16179,57 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const effectiveTask = dependencyText
             ? `${originalTask}\n\n以下是已完成的前序子代理结果，请基于它们继续，不要重新执行前序任务：\n\n${dependencyText}`
             : originalTask;
-          // 52x: 子 agent 优先端点(config.subagentPreferredProvider,跨 provider)--设了用它,否则主 provider
+          // 52x: 子 agent 优先端点(config.subagentPreferredProvider,跨 provider)--设了用它,否则主 provider。
+          // 每批 spawn 现在交给同一个持久化工作流运行时：同步调用仍等待节点结果；background:true
+          // 只返回 run/node 收据，让父模型继续推进，稍后由 wait_agents 收件。两种模式因此共享工作台 DAG、
+          // 资源锁、重试/停止与崩溃恢复语义，不再维护一套仅聊天可见的旁路子回合。
           const subProvider = (config.subagentPreferredProvider && (config.providers || []).find(p => p.id === config.subagentPreferredProvider)) || provider;
-          const promise = runSubAgent({
-            parentSession: session, provider: subProvider, config,
-            task: effectiveTask, displayTask: originalTask, agentKey, dependsOn,
-            toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier), maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai), model: resolveNodeModel(sargs.model, roleDefinition && roleDefinition.models && roleDefinition.models.openai, sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read', 'openai', config, subProvider),
-            onEvent: onNestedEvent, subagentId: subId, depth: 1, ctrl, permModeOverride: subPermMode,
-            resources: sargs.resources, resourceGroup: `turn:${session.id}:${session.turnSeq}:${agentKey}`,
-            roleDefinition,
-          }).then(sub => sub.ok
-            ? { ok: true, result: sub.result, iters: sub.iters, toolCalls: sub.toolCalls }
-            : { ok: false, error: sub.error || '子代理失败', result: sub.result || undefined, iters: sub.iters, toolCalls: sub.toolCalls }
-          ).catch(e => ({ ok: false, error: (e && e.message) ? e.message : String(e) }))
-            .then(result => {
-              const completed = { ...result, agentKey, dependsOn, role: roleId || '' };
-              subagentResults.set(agentKey, completed);
+          acceptedSpawns.push({
+            stc, sargs, agentKey, dependsOn, roleId, roleDefinition, subProvider, originalTask, effectiveTask,
+            background: sargs.background === true,
+            node: {
+              id: agentKey, task: effectiveTask, role: roleId || undefined, engine: 'openai', dependsOn: [], reportedDependsOn: dependsOn,
+              toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read',
+              maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai),
+              model: resolveNodeModel(sargs.model, roleDefinition && roleDefinition.models && roleDefinition.models.openai, sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read', 'openai', config, subProvider),
+              resources: sargs.resources, failurePolicy: 'continue',
+            },
+          });
+        }
+        if (acceptedSpawns.length) {
+          const spawnRunId = makeId('run');
+          const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
+          const spawnProvider = acceptedSpawns[0].subProvider || provider;
+          const spawnOnEvent = evt => {
+            // Once the parent response closes, the persisted run keeps progressing but must not write into a
+            // dead SSE stream. The workbench's Agent-run polling remains the authoritative live display.
+            if (activeChildren.get(session.id) === reg) onNestedEvent(evt);
+          };
+          const workflowPromise = runAgentWorkflow({
+            parentSession: session, provider: spawnProvider, config, nodes: acceptedSpawns.map(item => item.node),
+            onEvent: spawnOnEvent, ctrl, parentEngine: 'openai', parentModel: model,
+            permModeOverride: subPermMode, maxNodes: Math.max(acceptedSpawns.length, Number(config.agentWorkflowMaxNodes) || 0),
+            runIdOverride: spawnRunId, poolPolicy: 'off', runKind: 'spawn_agent', runTitle: '',
+          }).catch(async e => {
+            const error = (e && e.message) ? e.message : String(e);
+            activeAgentRuns.delete(spawnRunId);
+            const failedRun = { schemaVersion: 4, id: spawnRunId, sessionId: session.id, turnSeq: session.turnSeq, kind: 'spawn_agent', status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error, nodes: [] };
+            await saveAgentRun(failedRun).catch(() => {});
+            return { ok: false, runId: spawnRunId, status: 'failed', startedCount: 0, results: [], error };
+          });
+          if (acceptedSpawns.some(item => item.background)) backgroundAgentRunIds.add(spawnRunId);
+          for (const item of acceptedSpawns) {
+            const promise = workflowPromise.then(workflow => {
+              const node = Array.isArray(workflow && workflow.results) ? workflow.results.find(row => row.id === item.agentKey) : null;
+              const result = node && node.status === 'succeeded'
+                ? { ok: true, result: node.result, iters: node.attempts, toolCalls: [], runId: spawnRunId, nodeId: item.agentKey }
+                : { ok: false, error: (node && node.error) || (workflow && workflow.error) || '子代理失败', result: node && node.result || undefined, iters: node && node.attempts, toolCalls: [], runId: spawnRunId, nodeId: item.agentKey };
+              const completed = { ...result, agentKey: item.agentKey, dependsOn: item.dependsOn, role: item.roleId || '' };
+              subagentResults.set(item.agentKey, completed);
               return completed;
             });
-          subagentPromises.set(stc.id, promise);
+            spawnDispatches.set(item.stc.id, { promise, background: item.background, runId: spawnRunId, nodeId: item.agentKey, agentKey: item.agentKey, dependsOn: item.dependsOn, role: item.roleId || '' });
+          }
         }
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
@@ -16171,9 +16289,21 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           //  (2) per-turn total cap — config.subagentMaxPerTurn (already ≥1 here, else the tool wasn't offered).
           // A refused spawn still emits a tool_result (keeps assistant.tool_calls pairing valid) and continues.
           let resultObj; // v0.9-S6: declared here so the spawn_agent branch and the normal dispatch share it
-          if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents') {
+          if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents') {
             if (tc.name === 'spawn_agent') {
-              resultObj = await (subagentPromises.get(tc.id) || Promise.resolve({ ok: false, error: '子代理调度失败' }));
+              const dispatch = spawnDispatches.get(tc.id);
+              if (!dispatch) resultObj = { ok: false, error: '子代理调度失败' };
+              else if (dispatch.background) {
+                resultObj = {
+                  ok: true, accepted: true, background: true, status: 'running',
+                  runId: dispatch.runId, nodeId: dispatch.nodeId, agentKey: dispatch.agentKey,
+                  dependsOn: dispatch.dependsOn || [], role: dispatch.role || '',
+                  note: '子 Agent 已在工作台后台运行；主会话可继续推进，需结果时调用 wait_agents。',
+                };
+              } else resultObj = await dispatch.promise;
+            } else if (tc.name === 'wait_agents') {
+              const requestedRunIds = Array.isArray(args.runIds) && args.runIds.length ? args.runIds : [...backgroundAgentRunIds];
+              resultObj = await waitForAgentRunResults(session.id, requestedRunIds, args.timeoutMs == null ? 30000 : args.timeoutMs, ctrl && ctrl.signal);
             } else {
               const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
               const resolved = await resolveOrchestrateNodes(args, normalizeCwd(session.cwd, config.defaultWorkspace));
@@ -22238,7 +22368,7 @@ const MCP_TOOLS = [
   // schema is shared; buildOpenAiTools decides whether to offer it.
   {
     name: 'spawn_agent',
-    description: 'Delegate a self-contained subtask to an isolated sub-agent. Independent calls in the same assistant message run concurrently up to the configured stage limit. For dependent orchestration, first assign stable agentKey values (for example pro/con), wait for all tool results, then call a later reviewer/summary agent with dependsOn:["pro","con"]; their completed conclusions are injected automatically. Dependencies in the same batch are refused because that stage has not completed. toolTier: read (default) | edit | exec. Sub-agents cannot spawn further sub-agents.',
+    description: 'Delegate a self-contained subtask to an isolated sub-agent. Every accepted spawn is projected into the persistent Workbench DAG. Set background:true when the parent can continue useful independent work: the call returns a runId/nodeId receipt immediately, and wait_agents collects the result later. Omit background (or set false) only when the result is required before the parent can proceed. Independent calls in the same assistant message run concurrently up to the configured stage limit. For dependent orchestration, assign stable agentKey values and use completed earlier-stage keys in dependsOn; their conclusions are injected automatically. Dependencies in the same batch are refused. toolTier: read (default) | edit | exec. Sub-agents cannot spawn further sub-agents.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -22250,6 +22380,7 @@ const MCP_TOOLS = [
         maxIters: { type: 'number', description: 'sub-loop iteration budget (default 100, clamped 1..300)' },
         model: { type: 'string', description: 'optional model id for the sub-turn (engine is openai), chosen by task difficulty (fast model for simple/bulk work, strong model for hard reasoning). Pick from the OpenAI models listed in the system prompt; a wrong/unknown id makes the sub-agent fail. Omit to use the default.' },
         resources: { type: 'array', items: { type: 'string' }, description: 'resources held for the whole subtask. Examples: desktop, browser:default, file:C:\\project\\a.js, workspace:C:\\project. Prefix with read: for shared access.' },
+        background: { type: 'boolean', description: 'true = launch into the Workbench DAG and return immediately so the parent can continue in parallel; later call wait_agents. false/default = wait for this result synchronously.' },
       },
       required: ['task'],
     },

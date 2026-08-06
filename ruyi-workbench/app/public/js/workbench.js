@@ -290,7 +290,10 @@ function wbIsNarrow() { try { return window.matchMedia('(max-width: 1180px)').ma
 const WB_SVGNS = 'http://www.w3.org/2000/svg';
 function wbSvg(tag, attrs) { const e = document.createElementNS(WB_SVGNS, tag); if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
 // run 友好名:runs 目前不持久化 title(见 server.js run 对象),回退占位 + 由 id chip 承载唯一标识。
-function wbRunName(run) { return (run && (run.title || run.workflowTitle || run.label)) || t('workflow.tabTitle'); }
+function wbRunName(run) {
+  if (run && run.kind === 'spawn_agent') return t('workflow.spawnAgent.runTitle');
+  return (run && (run.title || run.workflowTitle || run.label)) || t('workflow.tabTitle');
+}
 // 首个活动 run(无则首个)作为默认选中。
 function wbPickDefaultRun(runs) {
   const arr = Array.isArray(runs) ? runs : [];

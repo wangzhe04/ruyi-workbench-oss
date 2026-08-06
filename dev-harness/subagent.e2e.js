@@ -462,7 +462,9 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     fs.writeFileSync(recoveryFile, JSON.stringify(recoveryRun, null, 2));
     const wbR = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
     procs.push(wbR);
-    let hR = null; for (let i = 0; i < 40 && !hR; i++) { await sleep(150); hR = await health(WB_PORT); }
+    // spawn_agent runs are now persisted too, so this boot reconciles more run snapshots than the legacy test.
+    // Keep the health window aligned with the suite's other restart-heavy cases instead of assuming a 6s disk.
+    let hR = null; for (let i = 0; i < 100 && !hR; i++) { await sleep(150); hR = await health(WB_PORT); }
     const tokenR = await getToken(WB_PORT); const hdrR = { 'x-wcw-token': tokenR };
     const recovered = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdrR);
     const recoveredRun = recovered.runs && recovered.runs.find(r => r.id === wfStart.id);

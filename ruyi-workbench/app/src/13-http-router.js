@@ -1835,7 +1835,7 @@ const MCP_TOOLS = [
   // schema is shared; buildOpenAiTools decides whether to offer it.
   {
     name: 'spawn_agent',
-    description: 'Delegate a self-contained subtask to an isolated sub-agent. Independent calls in the same assistant message run concurrently up to the configured stage limit. For dependent orchestration, first assign stable agentKey values (for example pro/con), wait for all tool results, then call a later reviewer/summary agent with dependsOn:["pro","con"]; their completed conclusions are injected automatically. Dependencies in the same batch are refused because that stage has not completed. toolTier: read (default) | edit | exec. Sub-agents cannot spawn further sub-agents.',
+    description: 'Delegate a self-contained subtask to an isolated sub-agent. Every accepted spawn is projected into the persistent Workbench DAG. Set background:true when the parent can continue useful independent work: the call returns a runId/nodeId receipt immediately, and wait_agents collects the result later. Omit background (or set false) only when the result is required before the parent can proceed. Independent calls in the same assistant message run concurrently up to the configured stage limit. For dependent orchestration, assign stable agentKey values and use completed earlier-stage keys in dependsOn; their conclusions are injected automatically. Dependencies in the same batch are refused. toolTier: read (default) | edit | exec. Sub-agents cannot spawn further sub-agents.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1847,6 +1847,7 @@ const MCP_TOOLS = [
         maxIters: { type: 'number', description: 'sub-loop iteration budget (default 100, clamped 1..300)' },
         model: { type: 'string', description: 'optional model id for the sub-turn (engine is openai), chosen by task difficulty (fast model for simple/bulk work, strong model for hard reasoning). Pick from the OpenAI models listed in the system prompt; a wrong/unknown id makes the sub-agent fail. Omit to use the default.' },
         resources: { type: 'array', items: { type: 'string' }, description: 'resources held for the whole subtask. Examples: desktop, browser:default, file:C:\\project\\a.js, workspace:C:\\project. Prefix with read: for shared access.' },
+        background: { type: 'boolean', description: 'true = launch into the Workbench DAG and return immediately so the parent can continue in parallel; later call wait_agents. false/default = wait for this result synchronously.' },
       },
       required: ['task'],
     },

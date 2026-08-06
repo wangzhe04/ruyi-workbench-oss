@@ -1823,14 +1823,17 @@ function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
 //     (turn was arrested mid tool-loop). Returns { dangling, kind } — kind: 'user'|'tool_calls'|null.
 function detectDanglingTurn(session) {
   const h = (session && Array.isArray(session.providerHistory)) ? session.providerHistory : [];
-  if (!h.length) return { dangling: false, kind: null };
+  // turnSeq + historyLength form a stable UI-dismiss fingerprint: reopening the same interrupted turn stays
+  // dismissed, while a later interruption automatically gets a fresh banner instead of inheriting the old ×.
+  const meta = { turnSeq: Math.max(0, Number(session && session.turnSeq) || 0), historyLength: h.length };
+  if (!h.length) return { dangling: false, kind: null, ...meta };
   const last = h[h.length - 1];
-  if (last && last.role === 'user') return { dangling: true, kind: 'user' };
+  if (last && last.role === 'user') return { dangling: true, kind: 'user', ...meta };
   // A tail of role:'tool' is the persisted shape of Stop-mid-loop (the MOST common interruption): the
   // abort lands after the tool results were pushed but before the next model call (the `if (aborted)
   // break` right after the per-tool-result push in runOpenAiTurn), and the closing assistant text is
   // only pushed on normal completion. Every tool_call_id is answered, yet the turn never concluded.
-  if (last && last.role === 'tool') return { dangling: true, kind: 'tool_calls' };
+  if (last && last.role === 'tool') return { dangling: true, kind: 'tool_calls', ...meta };
   // Walk back to the most recent assistant message that requested tools; verify each id was answered.
   for (let i = h.length - 1; i >= 0; i--) {
     const m = h[i];
@@ -1841,9 +1844,9 @@ function detectDanglingTurn(session) {
       if (h[j] && h[j].role === 'tool' && h[j].tool_call_id != null) answered.add(String(h[j].tool_call_id));
     }
     const unanswered = m.tool_calls.some(tc => tc && !answered.has(String(tc.id)));
-    return unanswered ? { dangling: true, kind: 'tool_calls' } : { dangling: false, kind: null };
+    return unanswered ? { dangling: true, kind: 'tool_calls', ...meta } : { dangling: false, kind: null, ...meta };
   }
-  return { dangling: false, kind: null };
+  return { dangling: false, kind: null, ...meta };
 }
 
 // 配对铁律自愈(strict provider 400 永久卡死会话的修复面):detectDanglingTurn 只【检测】悬挂,而

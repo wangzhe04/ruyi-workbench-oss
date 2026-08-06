@@ -436,6 +436,20 @@ function buildOpenAiTools(config, caps, opts) {
     if (caps && !toolRequirementsMet(t.name, caps, toolRequiresEnabled, config).met) continue; // requirement unmet → drop
     out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
   }
+  // Provider-turn control plane for background spawn_agent runs. It is intentionally not part of MCP_TOOLS:
+  // the one-shot MCP child has no parent-turn closure, while persisted orchestrate_agents already owns its
+  // separate synchronous/async launch route. Top-level Provider turns can collect by explicit runId or, more
+  // conveniently, omit runIds to wait for the background agents launched earlier in the same turn.
+  if (spawnAgentEnabled) {
+    out.push({ type: 'function', function: {
+      name: 'wait_agents',
+      description: 'Collect results from background spawn_agent runs. Omit runIds to wait for every background Agent launched in the current chat turn, or pass launch-receipt runIds (including from an earlier turn). Waits at most timeoutMs and returns current persisted DAG state if work is still running.',
+      parameters: { type: 'object', properties: {
+        runIds: { type: 'array', items: { type: 'string' }, description: 'Optional spawn_agent runIds returned by background launch receipts (up to 16).' },
+        timeoutMs: { type: 'number', description: 'Maximum wait in milliseconds, 0..60000 (default 30000).' },
+      } },
+    } });
+  }
   // v1 技能体系: skill_read(provider 引擎, read tier)—— 仅在本会话有启用技能时注册(offer 条件由调用方传
   // opts.skillsEnabled 决定,仿 spawn_agent 的 enable 门)。不入 MCP_TOOLS(否则会泄漏给 Claude CLI 且恒开)。
   // 子代理不传 skillsEnabled → 不注册。dispatch 在 toolCall 的 'skill_read' 分支;tier 在 NATIVE_TOOL_TIER。
@@ -506,6 +520,7 @@ const NATIVE_TOOL_TIER = {
   desktop_screenshot: 'exec', http_request: 'exec',
   spawn_agent: 'exec', // v0.9-S6: delegating a sub-turn is the highest-privilege native act → exec tier
   orchestrate_agents: 'exec',
+  wait_agents: 'read',
   // v0.8-S2 shell session族: listing is read-only; start/send/poll/kill mutate state → exec.
   shell_list: 'read', shell_start: 'exec', shell_send: 'exec', shell_poll: 'exec', shell_kill: 'exec',
 };
@@ -566,7 +581,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
-  archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', skill_read: 'skills',
+  archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', skill_read: 'skills',
   mcp_list: 'integrations', mcp_configure: 'integrations',
 });
 

@@ -531,16 +531,33 @@ function renderResumeBanner() {
   box.innerHTML = '';
   const info = state.resumable;
   if (!info || !info.dangling) { box.classList.add('hidden'); return; }
+  const sessionId = state.currentSession && state.currentSession.id;
+  const dismissKey = sessionId ? `wcw.resumeDismissed.${sessionId}` : '';
+  const fingerprint = `${Number(info.turnSeq) || 0}:${Number(info.historyLength) || 0}:${String(info.kind || '')}`;
+  let dismissed = info.dismissed === true;
+  try { if (!dismissed && dismissKey) dismissed = localStorage.getItem(dismissKey) === fingerprint; } catch { /* storage unavailable */ }
+  if (dismissed) { box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
   const label = el('span', 'resume-banner-text', t('chat.resume.title'));
   const btn = el('button', 'resume-banner-btn', t('chat.resume.action'));
   btn.onclick = () => {
+    try { if (dismissKey) localStorage.removeItem(dismissKey); } catch { /* ignore */ }
     state.resumable = null;
     box.classList.add('hidden');
     box.innerHTML = '';
     sendPrompt(t('chat.resume.prompt'));
   };
-  box.append(label, btn);
+  const dismiss = el('button', 'resume-banner-dismiss', '×');
+  dismiss.type = 'button';
+  dismiss.title = t('chat.resume.dismiss');
+  dismiss.setAttribute('aria-label', dismiss.title);
+  dismiss.onclick = () => {
+    info.dismissed = true;
+    try { if (dismissKey) localStorage.setItem(dismissKey, fingerprint); } catch { /* ignore */ }
+    box.classList.add('hidden');
+    box.innerHTML = '';
+  };
+  box.append(label, btn, dismiss);
 }
 
 // 50-fix:未命名标题的本地化占位显示(后端占位 'New session' / 历史中文占位 '新会话' 均视为未命名)。

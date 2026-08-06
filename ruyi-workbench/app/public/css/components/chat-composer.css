@@ -11,6 +11,9 @@
 .resume-banner-text { flex: 1; }
 .resume-banner-btn { border: 1px solid var(--accent); border-radius: var(--radius-sm); padding: 4px 12px; cursor: pointer; background: var(--accent); color: var(--accent-ink); font-size: var(--fs-md); }
 .resume-banner-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.resume-banner-dismiss { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-sm); cursor: pointer; background: transparent; color: var(--muted); font-size: var(--fs-lg); line-height: 1; }
+.resume-banner-dismiss:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
+.resume-banner-dismiss:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* v1.0.2 (F3): 压缩进行中的持续指示条 —— composer 顶部,复用 accent 令牌 + 旋转 spinner。 */
 .compact-indicator { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 8px 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line-2)); border-left: 3px solid var(--accent);
