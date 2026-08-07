@@ -13,6 +13,7 @@ Design notes:
 
 import json
 import os
+import threading
 import time
 
 from ai_computer_control.paths import data_dir
@@ -43,6 +44,12 @@ def _load() -> dict:
         except Exception:
             pass
     return {"entries": {}}
+
+
+# b3-P2: 读-改-写串行锁 —— ACC 的同步工具由 FastMCP 放进线程池执行,两个并发 memory_save/delete
+# 会同时 _load() 同一份 store 再各自写回,后写者覆盖先写者(丢更新)。一把模块级锁把 [load→修改→save]
+# 包成临界区;memory 是低频操作,锁竞争可忽略,收益是 memory_save 不再静默丢条目。
+_MEMORY_LOCK = threading.Lock()
 
 
 def _save(store: dict) -> None:
@@ -78,20 +85,21 @@ def memory_save(key: str, content: str, tags: str = "") -> dict:
     if len(content) > _MAX_CONTENT_CHARS:
         content = content[:_MAX_CONTENT_CHARS]
         truncated = True
-    store = _load()
-    entries = store["entries"]
-    if key not in entries and len(entries) >= _MAX_ENTRIES:
-        return {"error": f"记忆库已满({_MAX_ENTRIES} 条)—— 先 memory_delete 清理不再需要的条目。"}
-    overwritten = key in entries
-    entries[key] = {
-        "content": content,
-        "tags": [t.strip() for t in (tags or "").split(",") if t.strip()],
-        "updated": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-    }
-    try:
-        _save(store)
-    except Exception as e:
-        return {"error": f"写入记忆库失败: {e}"}
+    with _MEMORY_LOCK:
+        store = _load()
+        entries = store["entries"]
+        if key not in entries and len(entries) >= _MAX_ENTRIES:
+            return {"error": f"记忆库已满({_MAX_ENTRIES} 条)—— 先 memory_delete 清理不再需要的条目。"}
+        overwritten = key in entries
+        entries[key] = {
+            "content": content,
+            "tags": [t.strip() for t in (tags or "").split(",") if t.strip()],
+            "updated": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        }
+        try:
+            _save(store)
+        except Exception as e:
+            return {"error": f"写入记忆库失败: {e}"}
     out = {"success": True, "key": key, "updated": entries[key]["updated"], "overwritten": overwritten}
     if truncated:
         out["truncated"] = True
@@ -163,12 +171,13 @@ def memory_delete(key: str) -> dict:
     Returns:
         dict with 'success', 'deleted' (bool — False when the key did not exist).
     """
-    store = _load()
     key = (key or "").strip()
-    deleted = store["entries"].pop(key, None) is not None
-    if deleted:
-        try:
-            _save(store)
-        except Exception as e:
-            return {"error": f"写入记忆库失败: {e}"}
+    with _MEMORY_LOCK:
+        store = _load()
+        deleted = store["entries"].pop(key, None) is not None
+        if deleted:
+            try:
+                _save(store)
+            except Exception as e:
+                return {"error": f"写入记忆库失败: {e}"}
     return {"success": True, "deleted": deleted, "key": key}

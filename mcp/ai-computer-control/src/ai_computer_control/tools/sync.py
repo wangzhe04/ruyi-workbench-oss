@@ -44,6 +44,8 @@ def wait_for_pixel(x: int, y: int, color_hex: str, timeout_ms: int = 10000,
 
     tr, tg, tb = target
     tol = max(0, int(tolerance))
+    # b3-P2: poll_ms 钳制到 [10, 5000] —— 0/负值会导致忙轮询空转 CPU,过大则错过瞬时状态。
+    poll = max(10, min(5000, int(poll_ms)))
     deadline = time.monotonic() + max(0, int(timeout_ms)) / 1000.0
     start = time.monotonic()
     last = None
@@ -64,4 +66,4 @@ def wait_for_pixel(x: int, y: int, color_hex: str, timeout_ms: int = 10000,
                 res["rgb"] = [last[0], last[1], last[2]]
                 res["hex"] = f"#{last[0]:02x}{last[1]:02x}{last[2]:02x}"
             return res
-        time.sleep(max(0.0, poll_ms / 1000.0))
+        time.sleep(poll / 1000.0)

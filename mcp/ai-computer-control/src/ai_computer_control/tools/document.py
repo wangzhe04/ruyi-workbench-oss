@@ -1019,6 +1019,7 @@ def write_pdf(
         table_headers: Optional header row for the trailing table.
         table_data: Optional 2D list of rows for the trailing table.
         page_size: 'A4' or 'letter' (anything else falls back to A4).
+        allow_protected: Override the protected-system-root guard on the destination (default off).
 
     Returns:
         dict with 'success', 'path' (abs), 'pages', 'font'. On the Helvetica fallback

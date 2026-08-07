@@ -135,6 +135,9 @@ def chart_image(
         return {"error": "data.labels 不能为空（类别/横轴标签列表）"}
     if not isinstance(series, list) or not series:
         return {"error": "data.series 不能为空（至少一个 {'name','values'} 系列）"}
+    # b3-P2: 不就地改写调用方传入的 data dict —— 归一化结果存局部副本,入参保持原样
+    # (原实现 s["values"]=coerced 会污染调用方的 data,同一 dict 复用/重试时会带出副作用)。
+    norm_series = []
     for i, s in enumerate(series):
         if not isinstance(s, dict) or "values" not in s:
             return {"error": f"第 {i + 1} 个系列格式错误，应为 {{'name':..., 'values':[...]}}"}
@@ -155,7 +158,8 @@ def chart_image(
                 coerced.append(fv)
             except (TypeError, ValueError):
                 return {"error": f"series '{s.get('name', i + 1)}' 的第 {j + 1} 个值 {v!r} 不是数值，无法绘图"}
-        s["values"] = coerced
+        norm_series.append({**s, "values": coerced})
+    series = norm_series
     if ctype == "pie" and len(series) != 1:
         return {"error": "饼图只能有一个系列（single series），当前有 " + str(len(series)) + " 个"}
 

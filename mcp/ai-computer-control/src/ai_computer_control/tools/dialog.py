@@ -14,6 +14,8 @@ _TOAST_PS = (
     "$n.Item(0).AppendChild($t.CreateTextNode($env:WCW_TOAST_TITLE)) | Out-Null; "
     "$n.Item(1).AppendChild($t.CreateTextNode($env:WCW_TOAST_MSG)) | Out-Null; "
     "$toast=[Windows.UI.Notifications.ToastNotification]::new($t); "
+    "if ($env:WCW_TOAST_DURATION_MS -match '^[0-9]+$') { "
+    "$toast.ExpirationTime=(Get-Date).AddMilliseconds([int]$env:WCW_TOAST_DURATION_MS) }; "
     "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("
     "'AI Computer Control').Show($toast)"
 )
@@ -42,17 +44,20 @@ def show_notification(title: str, message: str, duration: int = 5) -> dict:
         return {"ok": False, "error": str(e)}
 
     # Fallback: PowerShell toast (text passed out-of-band via env to avoid injection).
+    # b3-P2: duration 经环境变量传给 PS 设置 toast ExpirationTime —— 兜底路径不再忽略该参数
+    # (Windows toast 的 ExpirationTime 是近似值,系统仍可因专注助手/通知设置缩短/延长显示)。
     try:
         import os
         import subprocess
-        env = dict(os.environ, WCW_TOAST_TITLE=str(title), WCW_TOAST_MSG=str(message))
+        env = dict(os.environ, WCW_TOAST_TITLE=str(title), WCW_TOAST_MSG=str(message),
+                   WCW_TOAST_DURATION_MS=str(max(1000, int(float(duration) * 1000))))
         subprocess.Popen(
             ["powershell", "-NoProfile", "-Command", _TOAST_PS],
             env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        return {"ok": True, "method": "powershell"}
+        return {"ok": True, "method": "powershell", "duration_seconds": duration}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
 

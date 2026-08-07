@@ -517,6 +517,29 @@ def excel_chart(
         chart.height = 8   # cm
         chart.width = 15   # cm
 
+        # b3-P2: 同 sheet + 同 anchor 重复插表会静默叠加多个图表 —— 先查已有图表锚点,重叠即明确提示
+        # (openpyxl 的 chart.anchor 是 'H2' 字符串或 Anchor 对象;Anchor 对象取其 ._from.col/row 反推单元格)。
+        try:
+            _anchor_cell = str(target_cell).upper()
+            _anchors = set()
+            for _c in getattr(ws, "_charts", []) or []:
+                _a = getattr(_c, "anchor", None)
+                if isinstance(_a, str):
+                    _anchors.add(_a.upper())
+                elif _a is not None:
+                    try:
+                        _col = int(_a._from.col) + 1
+                        _row = int(_a._from.row) + 1
+                        from openpyxl.utils import get_column_letter as _gcl
+                        _anchors.add(f"{_gcl(_col)}{_row}")
+                    except Exception:
+                        pass
+            if _anchor_cell in _anchors:
+                wb.close()
+                return {"error": f"锚点 {target_cell!r} 已有图表。重复调用会在同一位置叠加,请换一个 target_cell(或先删除旧图)。"}
+        except Exception:
+            pass  # 检测尽力而为,绝不让它阻断正常插表
+
         try:
             ws.add_chart(chart, str(target_cell))
         except Exception as e:  # noqa: BLE001

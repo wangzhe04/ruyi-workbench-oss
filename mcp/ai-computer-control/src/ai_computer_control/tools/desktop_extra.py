@@ -145,7 +145,18 @@ def get_clipboard_image(save_path: str | None = None, allow_protected: bool = Fa
 
 @mcp.tool(audit=True)
 def set_clipboard_image(path: str) -> dict:
-    """Put an image file onto the clipboard (so it can be pasted into other apps)."""
+    """Put an image file onto the clipboard, so it can be pasted into other apps (Ctrl+V).
+
+    何时用: 生成/截图了一张图,想直接粘贴到聊天窗口、文档或设计工具里。
+    何时别用: 剪贴板里是文本时用 set_clipboard;只是要看图用 image_info/screenshot。
+
+    Args:
+        path: 源图片文件路径 (PNG/JPG 等 Pillow 可读格式;写剪贴板前会用 Pillow 预验,坏文件直接报错)。
+
+    Returns:
+        dict with 'success' and 'path' (绝对路径); 文件不存在 / 非图片 / PowerShell 失败 →
+        {'error': 人话说明}。注意: 写入会覆盖用户当前剪贴板里的图片/文本。
+    """
     import subprocess
     if not os.path.exists(path):
         return {"error": f"file not found: {path}"}

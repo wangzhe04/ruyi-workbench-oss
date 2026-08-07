@@ -281,10 +281,11 @@ def write_pptx(
                         level = 0
                     norm.append((btext, max(0, min(level, 4))))
 
-                # >10: truncate to 10 and append a 拆页 hint as the last item.
+                # >10: 保留前 9 条真实内容 + 追加一条拆页提示作为第 10 条(共 10 条,不丢真实内容;
+                # 原实现 norm[:10] 后 norm[-1]=hint 会把第 10 条内容覆盖掉 —— b3-P2 修正)。
                 if len(norm) > 10:
-                    norm = norm[:10]
-                    norm[-1] = ("…（内容过多，建议拆页）", 0)
+                    norm = norm[:9]
+                    norm.append(("…（内容过多，建议拆页）", 0))
 
                 n = len(norm)
                 # Body area with wider left/right margins (0.8in) and clear of the title bar.

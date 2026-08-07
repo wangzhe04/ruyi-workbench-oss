@@ -2330,6 +2330,47 @@ async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, bef
   }
 }
 
+// b3-P2: Drop the journal entries recorded for (turnSeq, tool, path∈paths) — used to roll back
+// PHANTOM checkpoints when a multi-step operation (file_move/file_copy) fails AFTER recording
+// before-snapshots but BEFORE the actual mutation lands. Without this, a failed move would leave
+// rollback entries describing an operation that never happened (a phantom journal), and a later
+// rollback would act on files that were never touched. All failures are silent (rollback of the
+// phantom is best-effort; the caller already reported the real operation failure to the model).
+async function journalDropEntries(sessionId, turnSeq, tool, paths) {
+  return withJournalWriteLock(sessionId, () => journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths));
+}
+
+async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths) {
+  try {
+    if (!sessionId || !Number.isFinite(turnSeq)) return { ok: false, reason: 'no_session_context' };
+    const dir = journalDir(sessionId);
+    const index = await journalReadIndex(sessionId);
+    if (!index.length) return { ok: true, dropped: 0 };
+    const pathSet = new Set((paths || []).map(p => String(p)));
+    const kept = [];
+    let dropped = 0;
+    for (const e of index) {
+      const hit = e && Number(e.turnSeq) === Number(turnSeq)
+        && e.tool === String(tool || '') && pathSet.has(String(e.path || ''));
+      if (hit) {
+        dropped += 1;
+        if (!e.skipped && e.op !== 'create') {
+          const gzp = path.join(dir, `${e.turnSeq}-${e.entrySeq}.gz`);
+          const st = await fsp.stat(gzp).catch(() => null);
+          await fsp.unlink(gzp).catch(() => {});
+          if (st) journalBytesAdjust(-st.size);
+        }
+        continue;
+      }
+      kept.push(e);
+    }
+    if (dropped) await journalWriteIndex(sessionId, kept);
+    return { ok: true, dropped };
+  } catch {
+    return { ok: false, reason: 'journal_drop_error' };
+  }
+}
+
 // GC. (1) Per-session: keep only the most recent JOURNAL_KEEP_TURNS turnSeqs; drop older entries + their
 // .gz files. (2) Global: if the whole checkpoints/ tree exceeds JOURNAL_GLOBAL_MAX_BYTES, remove entire
 // oldest sessions (by dir mtime) until under budget. All failures are silent.

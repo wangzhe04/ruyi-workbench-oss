@@ -349,13 +349,21 @@ const FILE_TOOL_HANDLERS = {
       try {
         await fsp.rename(from, to);
       } catch (e) {
-        // 跨盘（EXDEV）退化：copy + delete。fs.rename 不能跨卷。
+        // b3-P2: 移动失败时刚写的两条检查点尚未对应任何真实变更 —— 回滚它们,避免 phantom journal
+        // (回滚作用于未发生的移动)。drop 失败只影响撤销精度,不影响本条错误本身。
+        const dropped = await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_move', [from, to]).catch(() => ({ ok: false }));
         if (e && e.code === 'EXDEV') {
-          await fsp.copyFile(from, to);
-          await fsp.unlink(from);
+          // 跨盘（EXDEV）退化：copy + delete。fs.rename 不能跨卷。
+          try {
+            await fsp.copyFile(from, to);
+            await fsp.unlink(from);
+          } catch (e2) {
+            // copy+delete 也失败：from 未动、to 可能半写 —— 检查点已回滚,如实披露部分状态。
+            return { ok: false, error: `跨盘移动失败: ${(e2 && e2.message) || String(e2)}。from 未移动;to 可能不完整。`, from, to, partial: true, checkpointRolledBack: !!(dropped && dropped.ok) };
+          }
         } else {
-          // b2-P2: rename 失败时两条检查点已写入 —— 如实告知,避免模型以为「未发生任何事」
-          return { ok: false, error: `移动失败: ${(e && e.message) || String(e)}。注意:回滚检查点已记录(from 侧 delete/to 侧 create-or-modify),回滚会按记录逆操作(可能作用于未发生的移动)。`, from, to, phantomJournal: true };
+          // b2-P2→b3: rename 失败,检查点已回滚 —— 不再留下作用于「未发生的移动」的 phantom 条目。
+          return { ok: false, error: `移动失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
         }
       }
       return { ok: true, from, to, op: 'move', overwritten: toExists };
@@ -378,7 +386,13 @@ const FILE_TOOL_HANDLERS = {
       const jctx = await journalSessionCtx(ctx);
       await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_copy', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
       await fsp.mkdir(path.dirname(to), { recursive: true });
-      await fsp.copyFile(from, to);
+      try {
+        await fsp.copyFile(from, to);
+      } catch (e) {
+        // b3-P2: 复制失败(写满/权限等)时 to 未产生(或半写),检查点尚未对应真实变更 —— 回滚 phantom 条目。
+        const dropped = await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_copy', [to]).catch(() => ({ ok: false }));
+        return { ok: false, error: `复制失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
+      }
       return { ok: true, from, to, op: 'copy', overwritten: toExists };
   } },
   file_list: { paths: "read", guardNote: '', handler: async (args, ctx) => {

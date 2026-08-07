@@ -172,6 +172,26 @@ async function waitFakeDown() { for (let i = 0; i < 50; i++) { if (!await fakeRe
     const noTok = await postJson(WB_PORT, '/api/checkpoints/rollback', { sessionId: sid, turnSeq: 1 });
     ok(noTok.status === 403, '(e) rollback without UI token → 403 (got ' + noTok.status + ')');
     ok(noTok.body && noTok.body.ok === false, '(e) 403 body ok:false');
+
+    // ============ (f) file_move FAILS → phantom journal rolled back (b3-P2) ============
+    // A move that records its two before-snapshots but then fails (rename throws) must NOT leave phantom
+    // checkpoint entries describing an operation that never happened. Trigger a guaranteed failure with
+    // a NUL byte in the destination path (fs.rename throws; dirname mkdir still succeeds), then assert:
+    //   * the tool returns ok:false + checkpointRolledBack:true (no phantomJournal);
+    //   * the journal has NO file_move entries left for that turn;
+    //   * the source file is untouched.
+    const mvFrom = path.join(HOME, 'mv-src.txt');
+    fs.writeFileSync(mvFrom, 'move-me-content');
+    const mvTo = path.join(HOME, 'nonexistent-sub', 'b.txt\u0000x'); // NUL => rename always throws
+    const mvTurn = (await getJson(WB_PORT, '/api/sessions/' + sid)).body.session.turnSeq;
+    const mvRes = (await tool(WB_PORT, token, 'file_move', { from: mvFrom, to: mvTo, sessionId: sid })).result;
+    ok(mvRes && mvRes.ok === false, '(f) failing file_move returned ok:false (got ' + JSON.stringify(mvRes && mvRes.error) + ')');
+    ok(mvRes && mvRes.checkpointRolledBack === true, '(f) failing file_move reports checkpointRolledBack:true (got ' + JSON.stringify(mvRes && mvRes.checkpointRolledBack) + ')');
+    ok(!(mvRes && mvRes.phantomJournal), '(f) failing file_move does NOT set phantomJournal');
+    const cpF = (await getJson(WB_PORT, '/api/checkpoints?sessionId=' + sid, { 'x-wcw-token': token })).body;
+    const leftover = cpF.entries.filter(e => e.turnSeq === mvTurn && e.tool === 'file_move');
+    ok(leftover.length === 0, '(f) journal has NO file_move entries for the failed turn (got ' + leftover.length + ')');
+    ok(fs.existsSync(mvFrom) && fs.readFileSync(mvFrom, 'utf8') === 'move-me-content', '(f) source file untouched after failed move');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of procs) killp(c);

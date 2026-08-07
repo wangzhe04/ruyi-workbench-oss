@@ -118,6 +118,7 @@ def image_resize(
             ow, oh = im.width, im.height
             if ow <= 0 or oh <= 0:
                 return {"error": f"源图尺寸异常 ({ow}x{oh})，无法缩放。"}
+            # b3-P2: 保留源图 DPI(和可用的 EXIF) —— 原实现缩放后 DPI 丢失,打印/排版时按 72dpi 出图会变大
 
             if scale is not None:
                 try:
@@ -141,6 +142,22 @@ def image_resize(
                 return {"error": f"输出尺寸过大({nw}x{nh} = {nw*nh} 像素,超过 1 亿像素上限);请缩小 scale / width / height"}
 
             resized = im.resize((nw, nh), Image.LANCZOS)
+            # 源图 DPI 透传(有则带,无则不加),避免缩放产物丢失打印/排版元数据。
+            dpi = im.info.get("dpi")
+            save_kwargs = {}
+            if isinstance(dpi, (tuple, list)) and len(dpi) == 2:
+                try:
+                    save_kwargs["dpi"] = (int(round(float(dpi[0]))), int(round(float(dpi[1]))))
+                except Exception:
+                    pass
+            # EXIF: JPEG 输出时把源图 EXIF 一并带上(orientation 等),避免缩放后图片旋转/元数据丢失。
+            exif = None
+            try:
+                exif = im.getexif()
+                if not exif:
+                    exif = None
+            except Exception:
+                exif = None
 
             os.makedirs(os.path.dirname(os.path.abspath(output_path)) or ".", exist_ok=True)
             ext = os.path.splitext(output_path)[1].lower()
@@ -148,10 +165,15 @@ def image_resize(
                 # JPEG 不支持 alpha —— RGBA/P 先转 RGB，否则 save 会炸。
                 if resized.mode in ("RGBA", "P", "LA"):
                     resized = resized.convert("RGB")
-                resized.save(output_path, "JPEG", quality=max(1, min(100, int(quality))))
+                save_kwargs["quality"] = max(1, min(100, int(quality)))
+                if exif is not None:
+                    save_kwargs["exif"] = exif
+                resized.save(output_path, "JPEG", **save_kwargs)
                 fmt = "JPEG"
             else:
-                resized.save(output_path)  # 让 Pillow 按扩展名推格式 (PNG/BMP/WEBP/…)
+                if exif is not None:
+                    save_kwargs["exif"] = exif
+                resized.save(output_path, **save_kwargs)  # 让 Pillow 按扩展名推格式 (PNG/BMP/WEBP/…)
                 fmt = (resized.format or ext.lstrip(".").upper() or "PNG")
 
         return {
