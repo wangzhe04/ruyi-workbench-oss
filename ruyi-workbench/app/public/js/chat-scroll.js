@@ -16,22 +16,25 @@ export function createChatScrollController({
   let stickToBottom = true;
   // 程序化 scrollTop 赋值会触发浏览器 scroll 事件。若让 syncStickToBottom 把这些"自身滚动回声"
   // 当成用户上滑来读布局，流式跟随时 stickToBottom 会被自己的滚动误置为 false（"跟随被杀、页面
-  // 停在半途"）。写入后开一小段时间窗口：窗口内的回声事件跳过判定；但用户明显偏离程序化目标
-  // （主动上滑 >40px）仍放行，保证连续流式期间真实上滑始终可逃逸。
+  // 停在半途"）。写入后开一小段时间窗口：窗口内只跳过「scrollTop 恰等于程序化目标」的回声；
+  // 任何偏离（哪怕 1px）都是用户滚动，立即放行走正常粘性判定 —— 这样小幅上滑永远不会被吞。
   let progScrollGuard = false;
   let progScrollTimer = 0;
   let lastProgTop = 0;
 
   const messagesBox = () => (typeof getMessages === 'function' ? getMessages() : null);
   const jumpButton = () => (typeof getJumpLatest === 'function' ? getJumpLatest() : null);
+  let lastJumpShow = null; // P3: jump-latest 显隐去抖，状态未变时跳过 classList 操作（流式每帧不再抖动）
 
   function markProgrammaticScroll() {
     progScrollGuard = true;
     const box = messagesBox();
-    if (box) lastProgTop = box.scrollTop; // 赋值后 scrollTop 已同步反映目标位置
+    if (box) lastProgTop = box.scrollTop; // 赋值后 scrollTop 已同步反映目标位置（含 clamp）
     if (progScrollTimer) clearTimeout(progScrollTimer);
     progScrollTimer = setTimeout(() => { progScrollTimer = 0; progScrollGuard = false; }, 120);
   }
+  // 守卫依赖「程序化滚动无平滑中间帧」：.messages 不设 scroll-behavior:smooth（chat-primitives.css）。
+  // 若未来为消息区启用 smooth，回声事件的 scrollTop 会在动画中间帧偏离目标值，需把本判定改回容忍带。
 
   function messagesAtBottom() {
     const box = messagesBox();
@@ -43,7 +46,7 @@ export function createChatScrollController({
     const btn = jumpButton();
     if (!btn || !btn.classList) return;
     const show = Boolean(typeof isStreaming === 'function' && isStreaming()) && !messagesAtBottom();
-    btn.classList.toggle('hidden', !show);
+    if (show !== lastJumpShow) { lastJumpShow = show; btn.classList.toggle('hidden', !show); }
   }
 
   // 内容增长的唯一入口：用户保持粘性时跟随；上滑阅读后只更新提示按钮。
@@ -54,12 +57,13 @@ export function createChatScrollController({
   }
 
   // 只由 #messages 的真实 scroll 事件调用。DOM 增长本身不应误判为用户上滑；
-  // 程序化滚动窗口内的回声事件同样跳过（避免把自己的滚动误判成上滑），
-  // 但用户主动偏离程序化目标（上滑）时立即放行，走正常粘性判定。
+  // 程序化滚动窗口内的回声事件同样跳过（避免把自己的滚动误判成上滑）——
+  // 但判定改为「scrollTop 恰等于程序化目标」才跳过：程序化回声必然停在目标值，
+  // 而任何偏离都来自用户输入，立即放行。40px 容忍带会吞掉小幅上滑（已被对抗验证发现）。
   function syncStickToBottom() {
     if (progScrollGuard) {
       const box = messagesBox();
-      if (box && Math.abs(box.scrollTop - lastProgTop) < 40) { updateJumpLatest(); return stickToBottom; }
+      if (box && box.scrollTop === lastProgTop) { updateJumpLatest(); return stickToBottom; }
     }
     stickToBottom = messagesAtBottom();
     updateJumpLatest();

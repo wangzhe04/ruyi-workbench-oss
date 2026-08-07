@@ -3215,7 +3215,14 @@ export function createPreviewShellDomain({
       ]);
       if (epoch !== detailEpoch || sessionId !== selectedSessionId()) return null;
       if (sessionResponse) { session = sessionResponse.session; rawDirty = false; }
-      if (Number(changeResponse?.currentRevision) !== snapshotRevision) {
+      // P1-perf: 基线推进 —— 非降级时把 changes 游标推进到当前版本，下一轮 /changes?after= 只拉增量，
+      // 不再每次从头重传（原实现基线只初始化不前进，回合越长重传量越大，活跃回合下可达 ~12-16 req/s）。
+      if (!changeResponse?.degraded && Number(changeResponse?.currentRevision) >= Number(detailBaselineRevision || 0)) {
+        detailBaselineRevision = Math.max(0, Number(changeResponse.currentRevision) || 0);
+      }
+      // 仅在 changes 显示有更新的内容（currentRevision 领先快照）时才补拉完整快照；
+      // 原 `!==` 判定在时序竞态下（changes 略旧于快照）也会触发一次无意义的二次全量请求。
+      if (Number(changeResponse?.currentRevision) > snapshotRevision) {
         const refreshed = await api(`/api/missions/${sessionId}`);
         if (epoch !== detailEpoch || sessionId !== selectedSessionId()) return null;
         if (refreshed && refreshed.snapshot) snapshot = refreshed.snapshot;

@@ -74,15 +74,41 @@ export function createChatRenderPrimitives(deps = {}) {
     }
     for (const n of toRemove) { while (n.firstChild) n.parentNode.insertBefore(n.firstChild, n); n.remove(); }
   }
+  // P1-perf: renderMarkdown 结果 LRU 缓存。每次 marked.parse 都是全量解析 + sanitizeNode 树遍历；
+  // 回合终态重取会话会使消息对象身份全变，renderCurrentSession 对窗口内全部消息（≤120 条）重渲染时
+  // 会重复解析同一批文本。marked 输出只依赖原文（不含 locale 文案），按 text 键控缓存最近 128 项。
+  // 超长文本（>64KB）跳过缓存：流式封段的累加前缀会产生大量近重复长键，缓存 128 条会把内存推到
+  // 数百 MB；超长单条解析成本本就接近线性上限，不做缓存反而省内存。
+  const MD_CACHE_MAX = 128;
+  const MD_CACHE_MAX_CHARS = 64 * 1024;
+  const mdCache = new Map();
   function renderMarkdown(text) {
+    const key = String(text || '');
+    const cacheable = key.length > 0 && key.length <= MD_CACHE_MAX_CHARS;
+    if (cacheable) {
+      const hit = mdCache.get(key);
+      if (hit !== undefined) {
+        // Map 迭代序即插入序：命中后重插到末尾保持 LRU。
+        mdCache.delete(key); mdCache.set(key, hit);
+        return hit;
+      }
+    }
+    let out;
     try {
-      if (typeof marked === 'undefined') return `<div class="plain">${escapeHtml(text)}</div>`;
-      const html = marked.parse(String(text || ''), { gfm: true, breaks: true });
-      const tpl = document.createElement('template');
-      tpl.innerHTML = html;
-      sanitizeNode(tpl.content);
-      return tpl.innerHTML;
-    } catch { return `<div class="plain">${escapeHtml(text)}</div>`; }
+      if (typeof marked === 'undefined') out = `<div class="plain">${escapeHtml(key)}</div>`;
+      else {
+        const html = marked.parse(key, { gfm: true, breaks: true });
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html;
+        sanitizeNode(tpl.content);
+        out = tpl.innerHTML;
+      }
+    } catch { out = `<div class="plain">${escapeHtml(key)}</div>`; }
+    if (cacheable) {
+      mdCache.set(key, out);
+      if (mdCache.size > MD_CACHE_MAX) mdCache.delete(mdCache.keys().next().value); // 淘汰最久未用
+    }
+    return out;
   }
   function renderMarkdownInto(container, text) {
     if (!container) return container;
@@ -304,7 +330,7 @@ export function createChatRenderPrimitives(deps = {}) {
     };
     appendLines(0, collapsed ? DIFF_COLLAPSE_LINES : total);
     if (collapsed) {
-      const btn = el('button', 'diff-expand', `t('chat.expandAll', { total })`); btn.type = 'button';
+      const btn = el('button', 'diff-expand', t('chat.expandAll', { total })); btn.type = 'button';
       btn.onclick = e => {
         e.preventDefault(); e.stopPropagation();
         appendLines(DIFF_COLLAPSE_LINES, total);
