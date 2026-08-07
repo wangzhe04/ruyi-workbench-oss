@@ -3,6 +3,7 @@
 import os
 import shutil
 import datetime
+import ctypes
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
 
@@ -99,8 +100,26 @@ def write_file(path: str, content: str, encoding: str = "utf-8", append: bool = 
     try:
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         mode = "a" if append else "w"
-        with open(path, mode, encoding=encoding) as f:
-            f.write(content)
+        if not append and os.path.exists(path):
+            return {"error": f"refused: '{path}' already exists. write_file would overwrite it. Delete it first, use append=true, or pass the merged content."}
+        import tempfile
+        encoded = content.encode(encoding)
+        dirn = os.path.dirname(os.path.abspath(path)) or "."
+        fd, tmp = tempfile.mkstemp(dir=dirn, prefix=".write-", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(encoded)
+            if append:
+                with open(path, "ab") as f:
+                    f.write(encoded)
+                try: os.unlink(tmp)
+                except Exception: pass
+            else:
+                os.replace(tmp, path)
+        except Exception:
+            try: os.unlink(tmp)
+            except Exception: pass
+            raise
         # v1.5.1: echo output_path so the workbench 产物收割 (ARTIFACT_OUTPUT_PATH_KEYS) picks this
         # file up. 此前只回 bytes_written / success, 产出的文件从不进产物页签。
         return {"success": True, "bytes_written": len(content.encode(encoding)), "output_path": os.path.abspath(path)}
@@ -217,6 +236,8 @@ def copy_file(source: str, destination: str, allow_protected: bool = False) -> d
             shutil.copytree(source, destination)
         else:
             os.makedirs(os.path.dirname(os.path.abspath(destination)), exist_ok=True)
+            if os.path.exists(destination):
+                return {"error": f"refused: destination '{destination}' already exists. Delete it first or pick a different destination."}
             shutil.copy2(source, destination)
         return {"success": True, "source": source, "destination": destination}
     except Exception as e:
@@ -240,6 +261,8 @@ def move_file(source: str, destination: str, allow_protected: bool = False) -> d
         return {"error": f"refused: {reason}. Pass allow_protected=true to override."}
     try:
         os.makedirs(os.path.dirname(os.path.abspath(destination)), exist_ok=True)
+        if os.path.exists(destination) and os.path.abspath(source) != os.path.abspath(destination):
+            return {"error": f"refused: destination '{destination}' already exists. Delete it first or pick a different destination."}
         shutil.move(source, destination)
         return {"success": True, "source": source, "destination": destination}
     except Exception as e:
@@ -247,7 +270,7 @@ def move_file(source: str, destination: str, allow_protected: bool = False) -> d
 
 
 @mcp.tool(audit=True)
-def delete_file(path: str, allow_protected: bool = False) -> dict:
+def delete_file(path: str, allow_protected: bool = False, confirm: bool = False) -> dict:
     """Delete a file or directory.
 
     Args:
@@ -262,7 +285,14 @@ def delete_file(path: str, allow_protected: bool = False) -> dict:
         return {"error": f"refused to delete: {reason}. Pass allow_protected=true to override."}
     try:
         if os.path.isdir(path):
-            shutil.rmtree(path)
+            if not confirm:
+                return {"error": f"refused: '{path}' is a directory; recursive delete is irreversible and has no recycle bin. Pass confirm=true to proceed, or delete files individually."}
+            failed = []
+            def _onerror(fn, p, exc):
+                failed.append(str(p))
+            shutil.rmtree(path, onerror=_onerror)
+            if failed:
+                return {"success": False, "path": path, "error": f"partial delete: {len(failed)} path(s) could not be removed (read-only/locked), e.g. {failed[:5]}"}
         else:
             os.remove(path)
         return {"success": True, "path": path}

@@ -4470,7 +4470,8 @@ async function journalRecord(sessionId, turnSeq, tool, filePath, op, beforeConte
 
 async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, beforeContent) {
   try {
-    if (!sessionId || !Number.isFinite(turnSeq)) return; // no session context → nothing to anchor to
+    // b2-P0: 不再静默 no-op —— 返回 { ok:false, reason } 让调用方(file_delete 等不可逆操作)能中止并披露。
+    if (!sessionId || !Number.isFinite(turnSeq)) return { ok: false, reason: 'no_session_context' };
     const dir = journalDir(sessionId);
     await fsp.mkdir(dir, { recursive: true });
     const index = await journalReadIndex(sessionId);
@@ -4494,9 +4495,11 @@ async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, bef
     // 修剪写回时可覆盖刚追加的条目(lost-write → 该文件变更不可撤销)。await 让 GC 在下一条 record 前完成,
     // 消除并发。GC 内部全 try/catch 静默,不抛。
     await journalGc(sessionId).catch(() => {});
+    return skipped ? { ok: true, skipped: true } : { ok: true };
   } catch {
     // Safety-net discipline: a failed journal write must NOT abort the tool. Swallow and continue — the
     // index entry simply isn't written, and the file operation runs as if the journal weren't there.
+    return { ok: false, reason: 'journal_write_error' };
   }
 }
 
@@ -19996,10 +19999,14 @@ const FILE_TOOL_HANDLERS = {
         return { ok: true, path: p, op: 'skip', unchanged: true, bytes: _payload.length, note: '目标内容已与要写入的内容一致,幂等跳过(未产生新检查点)' };
       }
       const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_write', p, exists ? 'modify' : 'create', exists ? before : null);
+      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_write', p, exists ? 'modify' : 'create', exists ? before : null);
       if (args.createDirs !== false) await fsp.mkdir(path.dirname(p), { recursive: true });
       await fsp.writeFile(p, String(args.content || ''), args.encoding || 'utf8');
-      return { ok: true, path: p, op: exists ? 'modify' : 'create', bytes: Buffer.byteLength(String(args.content || '')) };
+      // b2-P1: 检查点失败/超限时警告式披露(写操作可重放,不中止,但模型应向用户说明不可一键撤销)。
+      const ret = { ok: true, path: p, op: exists ? 'modify' : 'create', bytes: Buffer.byteLength(String(args.content || '')) };
+      if (jr && jr.ok === false) ret.checkpointWarn = `回滚检查点未写入(${jr.reason});本写入不可一键撤销`;
+      else if (jr && jr.skipped) ret.checkpointWarn = '文件超过检查点快照上限;本写入不可一键撤销';
+      return ret;
   } },
   file_edit: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
@@ -20069,7 +20076,15 @@ const FILE_TOOL_HANDLERS = {
       if (st.isDirectory()) return { ok: false, error: 'is a directory', hint: '仅支持删除文件' };
       const before = await fsp.readFile(p);
       const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_delete', p, 'delete', before);
+      // b2-P0: 检查点记录失败(无 session 上下文/写盘失败)或 >5MB 被标 skipped 时,删除不可回滚 → 中止。
+      // file_delete 是唯一"永久不可逆"操作,安全网不能静默失效;宁可拒绝也不零记录删除。
+      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_delete', p, 'delete', before);
+      if (!jr || jr.ok === false) {
+        return { ok: false, error: `无法写入回滚检查点(${jr ? jr.reason : 'unknown'}),已中止删除以保证可回滚。请检查会话上下文或先手动备份。`, path: p, checkpointWarn: true };
+      }
+      if (jr.skipped) {
+        return { ok: false, error: '文件超过检查点快照上限,删除不可回滚,已中止。请先手动备份或分块处理。', path: p, checkpointWarn: true };
+      }
       await fsp.unlink(p);
       return { ok: true, path: p, op: 'delete' };
   } },
@@ -20377,7 +20392,8 @@ Write-Output '${outPath.replace(/'/g, "''")}'
   keyboard_send_keys: { paths: null, guardNote: "键盘注入,不触文件路径", handler: async (args, ctx) => {
       const keys = String(args.keys || '');
       if (!keys) throw new Error('keys is required');
-      const ps = `$wshell = New-Object -ComObject wscript.shell; Start-Sleep -Milliseconds ${Number(args.delayMs || 200)}; $wshell.SendKeys('${keys.replace(/'/g, "''")}')`;
+      const delayMs = Number.isFinite(Number(args.delayMs)) ? Math.max(0, Number(args.delayMs)) : 200; // b2-P1: 非法值回退默认,不再 NaN 进 PS 脚本
+      const ps = `$wshell = New-Object -ComObject wscript.shell; Start-Sleep -Milliseconds ${delayMs}; $wshell.SendKeys('${keys.replace(/'/g, "''")}')`;
       return runPowerShell(ps, os.homedir(), args.timeoutMs || 10000);
   } },
   office_open: { paths: null, guardNote: "第36波录在案:不加读闸(打开不回流模型;exec tier 权限门);v1.4.6-S2 无 shell spawn", handler: async (args, ctx) => {
@@ -22363,6 +22379,7 @@ const MCP_TOOLS = [
         url: { type: 'string', description: '要下载的 http(s) 网址' },
         dest: { type: 'string', description: '保存到的绝对路径（须在工作区内）' },
         maxBytes: { type: 'number', description: '最大字节数，默认 100MB' },
+        timeoutMs: { type: 'number', description: '单请求超时（毫秒），默认 30s' },
       },
       required: ['url', 'dest'],
     },
@@ -22448,7 +22465,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'keyboard_send_keys',
-    description: 'Send keystrokes to the active Windows application',
+    description: 'Send keystrokes to the active Windows application. CAUTION: keys go to whatever window currently has focus; SendKeys meta characters + ^ % ~ ( ) { } [ ] are live modifiers (e.g. ^s = Ctrl+S, %{F4} = Alt+F4). Confirm the focus target before sending, and prefer explicit app control over raw keys when possible.',
     inputSchema: {
       type: 'object',
       properties: { keys: { type: 'string' }, delayMs: { type: 'number' }, timeoutMs: { type: 'number' } },

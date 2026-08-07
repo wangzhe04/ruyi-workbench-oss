@@ -25,6 +25,13 @@ async def _invoke(tool, args: dict):
 
 async def _run_batch(actions: list[dict], on_error: str, delay_ms: int) -> dict:
     tools = _tool_map()
+    # b2-P1: on_error 白名单 + delay_ms 钳制
+    if on_error not in ("stop", "continue"):
+        return {"error": f"on_error must be 'stop' or 'continue', got {on_error!r}; refusing to guess (a typo would silently become continue and run all steps)", "success": False}
+    try:
+        delay_ms = max(0, int(delay_ms))
+    except (TypeError, ValueError):
+        delay_ms = 0
     results, completed, failed = [], 0, 0
     for i, step in enumerate(actions or []):
         step = step or {}

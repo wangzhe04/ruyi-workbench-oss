@@ -7,6 +7,8 @@ re-emitting the entire file (token-expensive, and dangerous when the model trunc
 """
 
 import os
+import tempfile
+import codecs
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
 
@@ -70,10 +72,31 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
 
     replaced = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
     n = occurrences if replace_all else 1
+    # b2-P0: 原子写 —— 先写同目录临时文件再 os.replace,任何写失败(编码/磁盘满)都不会截断原文。
+    # 同时保留原 UTF-8 BOM(文本读取剥 BOM,写回恢复),避免旧文件 BOM 被无声丢弃。
     try:
-        with open(path, "w", encoding=encoding) as f:
-            f.write(replaced)
+        has_bom = False
+        try:
+            with open(path, "rb") as _rb:
+                has_bom = _rb.read(3) == codecs.BOM_UTF8
+        except Exception:
+            has_bom = False
+        encoded = replaced.encode(encoding)
+        if has_bom and encoding.lower() in ("utf-8", "utf8"):
+            encoded = codecs.BOM_UTF8 + encoded
+        dirn = os.path.dirname(os.path.abspath(path)) or "."
+        fd, tmp = tempfile.mkstemp(dir=dirn, prefix=".edit-", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(encoded)
+            os.replace(tmp, path)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+            raise
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": f"写入失败: {e}(原文件未被修改 —— 本工具采用原子写,不会留下截断文件)。"}
     # Echo output_path so the workbench 产物收割 (ARTIFACT_OUTPUT_PATH_KEYS) picks the edit up.
     return {"success": True, "replacements": n, "output_path": os.path.abspath(path)}

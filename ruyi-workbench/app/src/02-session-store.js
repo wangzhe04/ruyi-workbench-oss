@@ -2297,7 +2297,8 @@ async function journalRecord(sessionId, turnSeq, tool, filePath, op, beforeConte
 
 async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, beforeContent) {
   try {
-    if (!sessionId || !Number.isFinite(turnSeq)) return; // no session context → nothing to anchor to
+    // b2-P0: 不再静默 no-op —— 返回 { ok:false, reason } 让调用方(file_delete 等不可逆操作)能中止并披露。
+    if (!sessionId || !Number.isFinite(turnSeq)) return { ok: false, reason: 'no_session_context' };
     const dir = journalDir(sessionId);
     await fsp.mkdir(dir, { recursive: true });
     const index = await journalReadIndex(sessionId);
@@ -2321,9 +2322,11 @@ async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, bef
     // 修剪写回时可覆盖刚追加的条目(lost-write → 该文件变更不可撤销)。await 让 GC 在下一条 record 前完成,
     // 消除并发。GC 内部全 try/catch 静默,不抛。
     await journalGc(sessionId).catch(() => {});
+    return skipped ? { ok: true, skipped: true } : { ok: true };
   } catch {
     // Safety-net discipline: a failed journal write must NOT abort the tool. Swallow and continue — the
     // index entry simply isn't written, and the file operation runs as if the journal weren't there.
+    return { ok: false, reason: 'journal_write_error' };
   }
 }
 

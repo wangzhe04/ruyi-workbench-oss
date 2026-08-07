@@ -1509,6 +1509,7 @@ const MCP_TOOLS = [
         url: { type: 'string', description: '要下载的 http(s) 网址' },
         dest: { type: 'string', description: '保存到的绝对路径（须在工作区内）' },
         maxBytes: { type: 'number', description: '最大字节数，默认 100MB' },
+        timeoutMs: { type: 'number', description: '单请求超时（毫秒），默认 30s' },
       },
       required: ['url', 'dest'],
     },
@@ -1594,7 +1595,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'keyboard_send_keys',
-    description: 'Send keystrokes to the active Windows application',
+    description: 'Send keystrokes to the active Windows application. CAUTION: keys go to whatever window currently has focus; SendKeys meta characters + ^ % ~ ( ) { } [ ] are live modifiers (e.g. ^s = Ctrl+S, %{F4} = Alt+F4). Confirm the focus target before sending, and prefer explicit app control over raw keys when possible.',
     inputSchema: {
       type: 'object',
       properties: { keys: { type: 'string' }, delayMs: { type: 'number' }, timeoutMs: { type: 'number' } },

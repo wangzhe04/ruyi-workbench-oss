@@ -327,7 +327,7 @@ def maximize_window(title: str | None = None, handle: int | None = None) -> dict
 
 
 @mcp.tool(audit=True)
-def close_window(title: str | None = None, handle: int | None = None) -> dict:
+def close_window(title: str | None = None, handle: int | None = None, confirm: bool = False) -> dict:
     """Ask a window to close, then confirm whether it actually closed.
 
     A modal 'save changes?' prompt can keep the window open — this reports closed:false and
@@ -341,6 +341,11 @@ def close_window(title: str | None = None, handle: int | None = None) -> dict:
         hwnd, matches = _resolve(title, handle)
         if not hwnd:
             return {"ok": False, "error": f"Window not found: {title or handle}"}
+        # b2-P1: 模糊标题匹配到多个窗口时,默认不擅动 —— 需 confirm=true 或更精确的 title
+        if len(matches) > 1 and not confirm:
+            return {"ok": False, "needs_confirm": True,
+                    "matches": [{"title": m.get("title") if isinstance(m, dict) else m, "handle": m.get("handle") if isinstance(m, dict) else None} for m in matches[:10]],
+                    "message": f"{len(matches)} windows match '{title}'. Pass confirm=true to close the first match, or use a more specific title."}
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
         win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
         closed = False

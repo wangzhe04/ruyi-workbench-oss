@@ -45,6 +45,10 @@ def mouse_click(
         'reached') so an off-screen/clamped target does not read as a success.
     """
     try:
+        # b2-P1: 越界预校验 —— 先于点击拦截,避免「先点后报」在屏边缘真实误点
+        _w, _h = pyautogui.size()
+        if not (0 <= int(x) < _w and 0 <= int(y) < _h):
+            return {"ok": False, "error": f"click target ({x},{y}) is outside the primary screen ({_w}x{_h}); refusing to click off-screen. Check the coordinates (multi-monitor offsets can be negative on a secondary display)."}
         pyautogui.click(x=x, y=y, button=button, clicks=clicks, interval=interval)
         out = {"ok": True, "x": x, "y": y, "button": button, "clicks": clicks, **_reached(x, y)}
         if not out["reached"]:

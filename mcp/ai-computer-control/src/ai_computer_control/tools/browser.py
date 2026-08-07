@@ -358,7 +358,7 @@ async def browser_get_text(selector: str | None = None) -> dict:
             return {"error": str(e)}
 
 
-@mcp.tool()
+@mcp.tool(audit=True)  # b2-P1: 任意 JS 可在页面 origin 读凭据/cookie 并发起网络请求 —— 必须留审计
 async def browser_execute_js(script: str) -> dict:
     """Execute JavaScript code in the browser page context.
 
@@ -373,6 +373,8 @@ async def browser_execute_js(script: str) -> dict:
     async with _lock:
         try:
             page = await _ensure_browser()
+            if await _is_workbench_page(page):
+                return {"error": "refused: refusing to execute JS on the Ruyi Workbench tab (would expose workbench credentials/data). Open a non-workbench page first."}
             # page.evaluate has NO built-in timeout -- an infinite loop or a never-resolving Promise
             # in the injected JS would hang until the 120s bridge kills the whole ACC process. Bound it
             # here so a runaway script returns a clean error instead of taking down every other tool.
@@ -514,6 +516,25 @@ async def browser_close() -> dict:
     if (_backend or _configured_mode()) == "system":
         return {"success": True, "mode": "system", "closed": False,
                 "hint": "The user's browser is not owned by this tool and was left open."}
+    if (_backend or _configured_mode()) == "cdp":
+        # b2-P0: CDP 连接的是用户真实浏览器 —— Playwright 对 connectOverCDP 的 close() 会连带关闭用户
+        # 整个浏览器(全部标签、未保存表单)。绝不 close();仅关闭本工具打开的标签并断开连接。
+        if not _AVAILABLE:
+            return _unavailable()
+        async with _lock:
+            try:
+                if _page and not _page.is_closed():
+                    await _page.close()
+                if _playwright:
+                    await _playwright.stop()
+                _browser = None
+                _page = None
+                _playwright = None
+                _backend = ""
+                return {"success": True, "mode": "cdp", "closed": False,
+                        "hint": "The user's browser (CDP-attached) was left open; only the tool's page/tab was closed and the connection detached."}
+            except Exception as e:
+                return {"error": str(e)}
     if not _AVAILABLE:
         return _unavailable()
     async with _lock:

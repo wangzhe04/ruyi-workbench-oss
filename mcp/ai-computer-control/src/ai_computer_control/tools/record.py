@@ -165,7 +165,7 @@ def _key_name(key) -> str:
 _RECORDER = _Recorder()
 
 
-@mcp.tool()
+@mcp.tool(audit=True)  # b2-P1: 全局键盘/鼠标监听是最敏感动作,必须留审计(与 record_stop 对齐)
 def record_start() -> dict:
     """Begin recording live mouse/keyboard input into a replayable macro.
 

@@ -327,6 +327,9 @@ def kill_process(
                 killed.append({"pid": p.info["pid"], "name": p.info["name"]})
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
+        if not killed and not skipped:
+            return {"success": False, "killed": [], "skipped": skipped,
+                    "error": "all matching processes failed to terminate (AccessDenied/NoSuchProcess); nothing was killed"}
         return {"success": True, "killed": killed, "skipped": skipped}
 
     return {"error": "Provide either pid or name."}

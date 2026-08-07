@@ -139,6 +139,12 @@ def vision_click(template_path: str | None = None, template_b64: str | None = No
     templ, err = _load_template_gray(template_path, template_b64)
     if err:
         return {"ok": False, **err}
+    # b2-P1: threshold 钳制到 [0.05, 1.0] —— 传 0.0 会几乎全命中导致随机误点
+    try:
+        threshold = float(threshold)
+    except (TypeError, ValueError):
+        threshold = 0.8
+    threshold = max(0.05, min(1.0, threshold))
     scales = [1.0, 0.9, 1.1, 0.8, 1.25, 0.75, 1.5] if multiscale else [1.0]
     hits = _match(_screen_gray(), templ, threshold, scales, find_all=False)
     if not hits:

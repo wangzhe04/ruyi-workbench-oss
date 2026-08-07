@@ -111,7 +111,7 @@ def message_box(
         message: Message text.
         buttons: Button style - "ok", "okcancel", "yesno", "yesnocancel".
         icon: Icon type - "info", "warning", "error", "question".
-        timeout_ms: Auto-dismiss after this many ms if no one responds (default 30s).
+        timeout_ms: Auto-dismiss after this many ms if no one responds (default 30s; clamped to [1s, 60s]).
 
     Returns:
         dict with 'ok' and 'result' ("ok"/"cancel"/"yes"/"no", or "timeout" if auto-dismissed).
