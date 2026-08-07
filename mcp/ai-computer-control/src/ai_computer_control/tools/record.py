@@ -158,7 +158,22 @@ def _key_name(key) -> str:
     name = getattr(key, "name", None)
     if name:
         # pynput names line up with pyautogui/press_key for the common set (enter/tab/esc/f1..).
-        return {"esc": "escape", "return": "enter"}.get(name, name)
+        # b2-P2: pynput 命名与 pyautogui KEYBOARD_KEYS 不兼容(alt_l vs altleft 等)—— 录制宏回放时 press_key 校验会失败
+        _MAP = {"esc": "escape", "return": "enter",
+                "alt_l": "altleft", "alt_r": "altright",
+                "ctrl_l": "ctrlleft", "ctrl_r": "ctrlright",
+                "shift_l": "shiftleft", "shift_r": "shiftright",
+                "cmd": "winleft", "cmd_l": "winleft", "cmd_r": "winright",
+                "caps_lock": "capslock", "print_screen": "printscreen",
+                "page_up": "pageup", "page_down": "pagedown",
+                "num_lock": "numlock", "scroll_lock": "scrolllock",
+                "backspace": "backspace", "delete": "delete", "insert": "insert",
+                "home": "home", "end": "end",
+                "up": "up", "down": "down", "left": "left", "right": "right",
+                "space": "space", "tab": "tab",
+                "f1": "f1", "f2": "f2", "f3": "f3", "f4": "f4", "f5": "f5", "f6": "f6",
+                "f7": "f7", "f8": "f8", "f9": "f9", "f10": "f10", "f11": "f11", "f12": "f12"}
+        return _MAP.get(name, name)
     return str(key)
 
 

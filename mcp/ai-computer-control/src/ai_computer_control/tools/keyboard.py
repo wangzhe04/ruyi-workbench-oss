@@ -57,7 +57,10 @@ def type_text(text: str, interval: float = 0.02, use_clipboard: bool | None = No
         non-ASCII text, a 'warning' flags the characters that could not be typed.
     """
     try:
-        route_clipboard = (not text.isascii()) if use_clipboard is None else bool(use_clipboard)
+        # b2-P2: 超长文本禁止逐键 typewrite(百万字符可阻塞数分钟)—— 强制走剪贴板路由
+        if len(text) > 20000 and use_clipboard is False:
+            return {"ok": False, "error": "text exceeds 20000 chars and use_clipboard=false would block for minutes; call with use_clipboard=true instead"}
+        route_clipboard = ((not text.isascii()) or len(text) > 20000) if use_clipboard is None else bool(use_clipboard)
         if route_clipboard:
             displaced = _type_via_clipboard(text)
             out = {"ok": True, "length": len(text), "method": "clipboard"}
@@ -82,7 +85,8 @@ def _validate_keys(parts: list[str]) -> list[str]:
     try:
         valid = set(pyautogui.KEYBOARD_KEYS)
     except Exception:
-        return []
+        # b2-P2: 校验器异常时保守返回全部键名(调用方会全部拒绝),不再静默放行未知键
+        return list(parts)
     return [k for k in parts if k not in valid]
 
 

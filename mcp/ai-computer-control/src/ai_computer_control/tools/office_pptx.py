@@ -339,8 +339,12 @@ def write_pptx(
                 rows = spec.get("rows", []) or []
                 if not headers:
                     return {"error": f"第 {page_no} 页 table 缺少 headers"}
+                if not isinstance(rows, list):
+                    return {"error": "第 " + str(page_no) + " 页 table 的 rows 必须是二维数组(list of lists)"}
                 n_cols = len(headers)
                 n_rows = len(rows) + 1  # + header
+                if n_rows > 16:
+                    return {"error": "第 " + str(page_no) + " 页 table 行数过多(" + str(n_rows) + ")—— 大表会溢出画布,请拆成多页或精简行数"}
                 tbl_shape = slide.shapes.add_table(
                     n_rows, n_cols, Inches(0.9), Inches(1.8), Inches(11.5), Inches(0.4 * n_rows))
                 table = tbl_shape.table

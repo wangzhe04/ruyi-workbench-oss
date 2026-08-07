@@ -195,7 +195,7 @@ def get_active_window() -> dict:
 
 
 @mcp.tool(audit=True)
-def focus_window(title: str | None = None, handle: int | None = None) -> dict:
+def focus_window(title: str | None = None, handle: int | None = None, confirm: bool = False) -> dict:
     """Bring a window to the foreground by title or handle, and confirm it actually took focus.
 
     Args:
@@ -210,6 +210,11 @@ def focus_window(title: str | None = None, handle: int | None = None) -> dict:
         hwnd, matches = _resolve(title, handle)
         if not hwnd:
             return {"ok": False, "error": f"Window not found: {title or handle}"}
+        # b2-P2: 模糊标题多匹配时默认不擅动 —— 与 close_window 同款护栏
+        if len(matches) > 1 and not confirm:
+            return {"ok": False, "needs_confirm": True,
+                    "matches": [{"title": m.get("title") if isinstance(m, dict) else m, "handle": m.get("handle") if isinstance(m, dict) else None} for m in matches[:10]],
+                    "message": str(len(matches)) + " windows match '" + str(title) + "'. Pass confirm=true to focus the first match, or use a more specific title."}
 
         focused, fg = _activate(hwnd)
         out = {"ok": True, "focused": focused, "foreground_verified": focused, **(_get_window_info(hwnd, require_title=False) or {})}

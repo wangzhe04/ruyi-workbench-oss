@@ -668,7 +668,7 @@ async function gitCommit(args = {}) {
   const message = String(args.message != null ? args.message : '').trim();
   if (!message) return { ok: false, error: 'message 不能为空', hint: '请给这次提交写一句说明(例如「修好登录按钮」)。', cwd };
   const paths = Array.isArray(args.paths) ? args.paths.filter(p => typeof p === 'string' && p.trim() !== '') : [];
-  const addAll = args.addAll !== false && paths.length === 0; // explicit paths override addAll
+  const addAll = args.addAll === true && paths.length === 0; // b2-P1: addAll 默认 false —— 一次 git add -A + commit 会全量暂存(密钥/大文件/临时产物),必须显式 opt-in
   // Stage. addAll → `git add -A`; else `git add -- <paths...>` (paths strictly after `--`).
   if (addAll) {
     const addRes = await runGit(['-C', cwd, 'add', '-A'], cwd, args.timeoutMs || 30000);

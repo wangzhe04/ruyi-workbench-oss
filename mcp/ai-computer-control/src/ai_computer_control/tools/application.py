@@ -41,7 +41,7 @@ def _resolve_app_path(name: str) -> str | None:
     except Exception:
         return None
     key = name if name.lower().endswith(".exe") else name + ".exe"
-    sub = r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\\" + key
+    sub = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\" + key
     for root in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
         try:
             with winreg.OpenKey(root, sub) as k:
@@ -154,6 +154,11 @@ def launch_application(
             return {"error": f"could not resolve executable '{path}' (not a file, not on PATH, not a registered app). "
                              f"Provide a full path, or drop args if you meant to open a document/URL."}
         try:
+            # b2-P2: 仅放行已知安全协议 —— 任意 URL 协议会触发系统处理程序(如 javascript: 或自定义协议)
+            import urllib.parse as _up
+            _scheme = _up.urlparse(path).scheme.lower()
+            if _scheme and _scheme not in ("http", "https", "file"):
+                return {"error": "refused to open scheme " + repr(_scheme) + " via shell association; only http(s)/file and plain paths are allowed"}
             os.startfile(path)  # raises FileNotFoundError on a bad path -> real error, not false success
         except Exception as e:  # noqa: BLE001
             return {"error": f"could not open '{path}': {type(e).__name__}: {e}"}

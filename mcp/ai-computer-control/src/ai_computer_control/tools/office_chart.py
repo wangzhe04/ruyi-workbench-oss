@@ -11,6 +11,7 @@ Chart styling: light-grey grid, no top/right spines, legend, value labels on bar
 """
 
 import os
+import math
 
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
@@ -148,7 +149,10 @@ def chart_image(
             if isinstance(v, bool) or v is None:
                 return {"error": f"series '{s.get('name', i + 1)}' 的第 {j + 1} 个值 {v!r} 不是数值，无法绘图"}
             try:
-                coerced.append(float(v))
+                fv = float(v)
+                if not math.isfinite(fv):
+                    return {"error": "series 第 " + str(j + 1) + " 个值 " + repr(v) + " 不是有限数值(NaN/inf),无法绘图"}
+                coerced.append(fv)
             except (TypeError, ValueError):
                 return {"error": f"series '{s.get('name', i + 1)}' 的第 {j + 1} 个值 {v!r} 不是数值，无法绘图"}
         s["values"] = coerced
@@ -247,7 +251,20 @@ def chart_image(
 
         fig.tight_layout()
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-        fig.savefig(path, dpi=150, bbox_inches="tight")
+        # b2-P1: 原子写 — 先存临时文件再 os.replace,失败不留下半写 PNG
+        import tempfile
+        dirn = os.path.dirname(os.path.abspath(path)) or "."
+        fd, tmp = tempfile.mkstemp(dir=dirn, prefix=".chart-", suffix=".png")
+        os.close(fd)
+        try:
+            fig.savefig(tmp, format="png", dpi=150, bbox_inches="tight")
+            os.replace(tmp, path)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+            raise
         plt.close(fig)
         fig = None
 

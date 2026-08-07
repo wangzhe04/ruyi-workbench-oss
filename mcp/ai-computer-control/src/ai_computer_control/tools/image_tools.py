@@ -136,6 +136,9 @@ def image_resize(
             else:  # 只给 height
                 nh = max(1, int(height))
                 nw = max(1, int(round(ow * (nh / float(oh)))))  # 等比算宽
+            # b2-P2: 输出像素上限(防超大 scale 撑爆服务器内存)
+            if nw * nh > 100_000_000:  # 1 亿像素 ≈ 400MB RGBA
+                return {"error": f"输出尺寸过大({nw}x{nh} = {nw*nh} 像素,超过 1 亿像素上限);请缩小 scale / width / height"}
 
             resized = im.resize((nw, nh), Image.LANCZOS)
 

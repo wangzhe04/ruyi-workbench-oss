@@ -1381,7 +1381,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'shell_kill',
-    description: 'Terminate a shell session and its process tree.',
+    description: 'Terminate a shell session and its process tree. CAUTION: any un-consumed buffered output of that session is lost, and any long-running command inside it is killed.',
     inputSchema: {
       type: 'object',
       properties: { shellId: { type: 'string' } },

@@ -186,6 +186,11 @@ async def browser_open(url: str, new_tab: bool = True, mode: str | None = None) 
     Returns:
         dict with 'success', 'url', 'title'.
     """
+    # b2-P2: url 必须以合法 scheme 开头 —— 以 `-` 开头会被浏览器当命令行参数(参数注入边缘),file:/javascript: 等 scheme 会触发系统处理程序
+    import urllib.parse as _up
+    _scheme = _up.urlparse(url).scheme.lower()
+    if not _scheme or _scheme not in ("http", "https", "file"):
+        return {"error": "browser_open only accepts http(s)/file URLs; got scheme " + repr(_scheme or "") + " (a URL starting with '-' would be parsed as a browser CLI flag)"}
     chosen = str(mode or _configured_mode()).strip().lower()
     if chosen not in _MODES:
         return {"error": f"unknown browser mode: {chosen}", "modes": sorted(_MODES)}
@@ -382,6 +387,13 @@ async def browser_execute_js(script: str) -> dict:
                 result = await asyncio.wait_for(page.evaluate(script), timeout=30)
             except asyncio.TimeoutError:
                 return {"error": "javascript evaluation timed out (>30s); check for infinite loops or unresolved Promises"}
+            # b2-P2: 巨大返回会撑爆响应 —— 序列化后截断
+            try:
+                _js = json.dumps(result, ensure_ascii=False, default=str)
+            except Exception:
+                _js = str(result)
+            if len(_js) > 1_000_000:
+                return {"result": _js[:1_000_000], "truncated": True, "note": "result was larger than 1MB and was truncated"}
             return {"result": result}
         except Exception as e:
             return {"error": str(e)}

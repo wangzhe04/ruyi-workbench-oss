@@ -127,7 +127,9 @@ def vision_click(template_path: str | None = None, template_b64: str | None = No
     Args:
         template_path: Path to the template image (or pass template_b64).
         template_b64: Base64-encoded template image (alternative to template_path).
-        threshold: Match confidence threshold (0.0-1.0).
+        threshold: Match confidence threshold (0.0-1.0; clamped to [0.05, 1.0]).
+        NOTE: the template is searched on the PRIMARY monitor only (PIL ImageGrab); a template on a
+        secondary display will not be found — move it to the primary or use ocr_find_text instead.
         click: If True (default), click the match center.
         multiscale: Try several scales for robustness to DPI/zoom differences.
 

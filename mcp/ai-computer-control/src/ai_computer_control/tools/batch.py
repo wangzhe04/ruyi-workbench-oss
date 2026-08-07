@@ -26,6 +26,9 @@ async def _invoke(tool, args: dict):
 async def _run_batch(actions: list[dict], on_error: str, delay_ms: int) -> dict:
     tools = _tool_map()
     # b2-P1: on_error 白名单 + delay_ms 钳制
+    # b2-P2: 批量上限(防一次性提交数千条副作用步骤)
+    if len(actions or []) > 200:
+        return {"error": "actions 超过 200 条上限;请拆成多次 batch_actions 调用", "success": False}
     if on_error not in ("stop", "continue"):
         return {"error": f"on_error must be 'stop' or 'continue', got {on_error!r}; refusing to guess (a typo would silently become continue and run all steps)", "success": False}
     try:

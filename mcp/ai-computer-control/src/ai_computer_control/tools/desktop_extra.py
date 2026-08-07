@@ -149,6 +149,13 @@ def set_clipboard_image(path: str) -> dict:
     import subprocess
     if not os.path.exists(path):
         return {"error": f"file not found: {path}"}
+    # b2-P2: 用 Pillow 预验图片格式,坏文件在交给 PowerShell 前就报错(而不是透传 PS 的晦涩错误)
+    try:
+        from PIL import Image as _PILImage
+        with _PILImage.open(path) as _im:
+            _im.verify()
+    except Exception as _e:
+        return {"error": f"not a valid image file: {_e}"}
     # Pass the path out-of-band via env (no string interpolation) to avoid PowerShell injection and
     # to handle paths containing quotes/apostrophes.
     ps = (

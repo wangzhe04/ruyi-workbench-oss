@@ -217,8 +217,22 @@ def excel_beautify(
         last = f"{get_column_letter(max_col)}{max_row}"
         ws.auto_filter.ref = f"{first}:{last}"
 
-        wb.save(path)
-        wb.close()
+        # b2-P1: 原子写 — 先存同目录临时文件再 os.replace,失败不破坏原文件;finally 保证 wb.close()
+        import tempfile
+        dirn = os.path.dirname(os.path.abspath(path)) or "."
+        fd, tmp = tempfile.mkstemp(dir=dirn, prefix=".xlsx-", suffix=".tmp")
+        os.close(fd)
+        try:
+            wb.save(tmp)
+            os.replace(tmp, path)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+            raise
+        finally:
+            wb.close()
         return {
             "success": True,
             "path": os.path.abspath(path),
@@ -448,6 +462,9 @@ def excel_chart(
 
         # Categories = first column (excluding the header cell). Data = remaining columns incl. header
         # row so series pick up their names.
+        # b2-P1: 单列无法画图(Reference 抛崩溃式错误)—— 前置校验
+        if max_col <= min_col:
+            return {"error": "data_range 至少需要 2 列(1 列类别 + >=1 列数据),当前仅 1 列。请扩大 data_range。"}
         cats = Reference(ws, min_col=min_col, min_row=min_row + 1, max_row=max_row)
         data = Reference(ws, min_col=min_col + 1, min_row=min_row, max_col=max_col, max_row=max_row)
         chart.add_data(data, titles_from_data=True)
@@ -506,8 +523,22 @@ def excel_chart(
             wb.close()
             return {"error": f"target_cell 非法：{target_cell!r}（{e}），应形如 'H2'"}
 
-        wb.save(path)
-        wb.close()
+        # b2-P1: 原子写 — 先存同目录临时文件再 os.replace,失败不破坏原文件;finally 保证 wb.close()
+        import tempfile
+        dirn = os.path.dirname(os.path.abspath(path)) or "."
+        fd, tmp = tempfile.mkstemp(dir=dirn, prefix=".xlsx-", suffix=".tmp")
+        os.close(fd)
+        try:
+            wb.save(tmp)
+            os.replace(tmp, path)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+            raise
+        finally:
+            wb.close()
         return {
             "success": True,
             "path": os.path.abspath(path),

@@ -249,6 +249,10 @@ const FILE_TOOL_HANDLERS = {
       const oldText = String(args.oldText || '');
       const newText = String(args.newText || '');
       if (!oldText) throw new Error('oldText is required');
+      // b2-P1: 超大文件编辑需整文件进内存 + 双份快照 —— 拒绝并提示改用人话行定位/分段处理
+      if (raw.length > 50 * 1024 * 1024) {
+        return { ok: false, error: '文件超过 50MB,编辑需整文件进内存,请改用 read_file + file_write 分段处理', path: p, hint: '大文件建议先 read_file 定位,再 file_write 整段重写' };
+      }
       const count = raw.split(oldText).length - 1;
       if (count === 0) {
         // v0.8-S1: not found → offer the closest line as an editing aid (no automatic fuzzy replace).
@@ -349,7 +353,10 @@ const FILE_TOOL_HANDLERS = {
         if (e && e.code === 'EXDEV') {
           await fsp.copyFile(from, to);
           await fsp.unlink(from);
-        } else throw e;
+        } else {
+          // b2-P2: rename 失败时两条检查点已写入 —— 如实告知,避免模型以为「未发生任何事」
+          return { ok: false, error: `移动失败: ${(e && e.message) || String(e)}。注意:回滚检查点已记录(from 侧 delete/to 侧 create-or-modify),回滚会按记录逆操作(可能作用于未发生的移动)。`, from, to, phantomJournal: true };
+        }
       }
       return { ok: true, from, to, op: 'move', overwritten: toExists };
   } },
@@ -503,15 +510,21 @@ const ARCHIVE_TOOL_HANDLERS = {
       const jctx = await journalSessionCtx(ctx);
       const written = [];
       let extractedBytes = 0;
+      const failWithWritten = (msg, extra) => {
+        // b2-P1: 部分解压失败必须带 written 计数 —— 模型/用户需要知道已落盘多少文件才能准确回滚/清理
+        const o = { ok: false, error: msg, filesExtracted: written.length, bytesExtracted: extractedBytes, ...(extra || {}) };
+        if (written.length) o.partial = true;
+        return o;
+      };
       for (const { rec, absPath } of plan) {
         if (rec.isDir || rec.name.endsWith('/')) { await fsp.mkdir(absPath, { recursive: true }); continue; }
         let data;
         try { data = zipReadEntryData(buf, rec); }
-        catch (e) { return { ok: false, error: (e && e.message) || String(e), entry: rec.name }; }
+        catch (e) { return failWithWritten((e && e.message) || String(e), { entry: rec.name }); }
         extractedBytes += data.length;
-        if (extractedBytes > ZIP_MAX_TOTAL) return { ok: false, error: `解压总大小超过上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB）`, hint: '疑似 zip 炸弹，已中止' };
+        if (extractedBytes > ZIP_MAX_TOTAL) return failWithWritten(`解压总大小超过上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB）`, { hint: '疑似 zip 炸弹，已中止' });
         const exists = await fsp.stat(absPath).then(() => true).catch(() => false);
-        if (exists && !args.overwrite) return { ok: false, error: '目标文件已存在', path: absPath, hint: '若要覆盖请设置 overwrite=true' };
+        if (exists && !args.overwrite) return failWithWritten('目标文件已存在', { path: absPath, hint: '若要覆盖请设置 overwrite=true' });
         const before = exists ? await fsp.readFile(absPath) : null;
         await journalRecord(jctx.sessionId, jctx.turnSeq, 'archive_unzip', absPath, exists ? 'modify' : 'create', exists ? before : null);
         await fsp.mkdir(path.dirname(absPath), { recursive: true });
@@ -682,7 +695,14 @@ const NETWORK_TOOL_HANDLERS = {
       await fsp.mkdir(path.dirname(dest), { recursive: true });
       await fsp.writeFile(dest, got.body);
       markNetworkOnline(); // 成功下载 = 在线证据，顺手刷新能力缓存
-      return { ok: true, path: dest, bytes: got.body.length, contentType: (got.contentType || null), op: exists ? 'modify' : 'create' };
+      const ret = { ok: true, path: dest, bytes: got.body.length, contentType: (got.contentType || null), op: exists ? 'modify' : 'create' };
+      // b2-P2: 200 但返回 HTML(常见于「错误页伪装成 200」/登录页/验证页)且目标非 .html/.htm 时提示 —— 防止模型误把网页当二进制文件
+      const ct = String(got.contentType || '');
+      const destExt = path.extname(dest).toLowerCase();
+      if (/text\/html/i.test(ct) && !['.html', '.htm'].includes(destExt)) {
+        ret.note = `服务器返回 text/html 且目标扩展名不是 .html —— 可能下载到了错误页/登录页/验证页,请核对内容。`;
+      }
+      return ret;
   } },
   browser_open: { paths: null, guardNote: "spawn 默认浏览器(buildBrowserOpenSpawn 无 shell);exec tier 门,不触文件路径", handler: async (args, ctx) => {
       const target = String(args.url || '');

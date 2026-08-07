@@ -312,6 +312,9 @@ def ui_invoke(action: str = "invoke", name: str | None = None, control_type: str
     """
     if not _AVAILABLE:
         return _unavailable()
+    # b2-P2: selector 全空会静默匹配一切 —— 显式要求至少一个定位条件
+    if not any([name, control_type, automation_id, window_title]):
+        return {"error": "至少提供 name / control_type / automation_id / window_title 之一作为定位条件"}
     found = ui_find(name=name, control_type=control_type, automation_id=automation_id,
                     window_title=window_title, max_results=1)
     if found.get("error"):
