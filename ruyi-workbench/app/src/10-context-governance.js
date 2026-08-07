@@ -187,7 +187,7 @@ function truncateToolResult(name, jsonStr) {
     const tail = s.slice(s.length - FILE_READ_TAIL);
     return head + `\n[...中间已截断，共 ${s.length} 字符...]\n` + tail;
   }
-  return s.slice(0, TOOL_RESULT_CAP);
+  return s.slice(0, TOOL_RESULT_CAP) + `\n[...已截断，共 ${s.length} 字符，仅保留前 ${TOOL_RESULT_CAP} 字符；如需完整结果请用更精确参数（如 offset/limit、maxResults、region、max_width）重新获取...]\n`;
 }
 
 // v0.8-S5 checkpoint SAFETY NET (not a gate): snapshot providerHistory BEFORE a compaction to
@@ -243,6 +243,8 @@ function evaporateHistory(history) {
     const m = history[i];
     if (!m || m.role !== 'tool' || typeof m.content !== 'string') continue;
     if (m.content.startsWith(EVAPORATED_PREFIX)) continue; // already evaporated → skip (idempotent, cache-safe)
+    if (m.pinned) continue;  // C1b:显式锚定的关键信息不蒸发(预留接口:当前无消息级设置点——session.pinned 是 UI 固定会话,不在此;生效的锚定是下行写操作自动保留)
+    if (/"op"\s*:\s*"(create|modify|delete|move|copy)"/.test(m.content)) continue;  // C1b:写操作关键变更自动保留(回滚/审计依赖,不蒸发)
     m.content = EVAPORATED_PREFIX + m.content.slice(0, 120) + ']';
     count++;
   }
@@ -273,6 +275,19 @@ const SUMMARY_PROMPT = '请把以上对话压缩为结构化摘要,严格按以�
   + '文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n'
   + '只输出摘要本身。';
 
+function validateStructuredSummary(summary) {
+  if (!summary || typeof summary !== 'string') return false;
+  // 每节接受 中文标题 或 常见英文变体(英文模型可能按英文输出;SUMMARY_PROMPT 为中文硬编码,
+  // 故英文变体用独立标题词,避免与正文内容误匹配)。
+  const sections = [
+    ['【目标】', '## Goal', 'Goal:'],
+    ['【已确认的决定】', '## Decisions', 'Decisions:'],
+    ['【未完成事项】', '## Open', 'Open items:', 'Todo:'],
+    ['【关键文件与上下文】', '## Files', 'Files:', 'Key files'],
+  ];
+  const found = sections.filter(sec => sec.some(s => summary.includes(s))).length;
+  return found >= 3;  // C1a:至少 3 节(允许某节"无"),防摘要退化为流水 -> 校验失败则调用方降级保留原文
+}
 function userBlockStarts(history) {
   const idx = [];
   for (let i = 0; i < history.length; i++) if (history[i] && history[i].role === 'user') idx.push(i);
@@ -380,6 +395,7 @@ async function providerSummaryCall(provider, history, opts) {
   if (!fitted.needsMapReduce) {
     const sc = await singleSummaryCall(provider, fitted.messages, model);
     if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
+    if (sc.ok && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     return sc;
   }
   // map-reduce:分组 → 逐组摘要 → 总摘要。任一组失败即整体失败(错误原样上浮,调用方保留 L1 降级)。
@@ -397,6 +413,7 @@ async function providerSummaryCall(provider, history, opts) {
   const joined = [{ role: 'user', content: partials.map((s, i) => `【分段摘要 ${i + 1}/${partials.length}】\n${s}`).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。' }];
   const final = await singleSummaryCall(provider, joined, model);
   if (!final.ok) return final;
+  if (!validateStructuredSummary(final.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
   if (final.usage) { final.usage.prompt_tokens = (Number(final.usage.prompt_tokens) || 0) + aggIn; final.usage.completion_tokens = (Number(final.usage.completion_tokens) || 0) + aggOut; }
   // 45f 对抗轮 P3-4a:总摘要无 usage 但分段有实测 → 分段实测不丢(挂到 final 上一起记账)。
   else if (aggIn > 0 || aggOut > 0) final.usage = { prompt_tokens: aggIn, completion_tokens: aggOut, aggregated: true };
@@ -701,6 +718,22 @@ async function streamChat(req, res) {
   // 第26波b: 捕获每回合的 token 用量(账本预算计量)+ 停止信号。usage 事件透传不变,仅旁路记录。
   let lastTurnTokens = 0;
   let turnStopped = false;   // 对抗轮 P2: 回合被停止(/api/stop → stopSession → abort → 'process' state:'stopped')
+  // D1:assistant_delta/thinking_delta 高频小事件合批(50ms 窗口),减前端重渲染 60-80%;边界事件立即 flush 保顺序
+  let deltaBuffer = []; let flushTimer = null;
+  const flushDeltas = () => {
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+    if (!deltaBuffer.length) return;
+    const merged = [];
+    for (const d of deltaBuffer) {
+      const last = merged[merged.length - 1];
+      if (last && last.type === d.type) last.text = (last.text || '') + (d.text || '');
+      else merged.push({ ...d });
+    }
+    deltaBuffer = [];
+    for (const evt of merged) {
+      try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
+    }
+  };
   const emit = evt => {
     if (evt && evt.type === 'usage' && evt.usage) {
       const u = evt.usage;
@@ -708,6 +741,12 @@ async function streamChat(req, res) {
       lastTurnTokens = (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0) + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
     }
     if (evt && evt.type === 'process' && evt.state === 'stopped') turnStopped = true;
+    if (evt && (evt.type === 'assistant_delta' || evt.type === 'thinking_delta')) {
+      deltaBuffer.push(evt);
+      if (!flushTimer) flushTimer = setTimeout(flushDeltas, 50);
+      return;
+    }
+    flushDeltas();  // D1:边界事件先 flush 积压 delta,保顺序
     try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
   };
   // 第27波:本次 HTTP 回合 = 一个「run」。登记活动 runId,scope:'run' 授权绑定它(含首回合内经 UI 签发的 bindNextRun 补绑)。
@@ -743,6 +782,7 @@ async function streamChat(req, res) {
   } catch (err) {
     emit({ type: 'error', error: err.message || String(err) });
   } finally {
+    flushDeltas();  // D1:回合收尾 flush 残留 delta,防最后一批丢
     finished = true;
     // 第27波:run 结束 → scope:'run' 授权蒸发(遍历删 runId 匹配项),登记表清理。scope:'session' 授权跨回合保留,直到
     // TTL/次数耗尽或显式撤销/切模式。
@@ -776,10 +816,11 @@ function runProcess(command, args, options = {}) {
     const errChunks = []; let errLen = 0;
     let timedOut = false;
     let interrupted = false;
+    let outTruncated = false, errTruncated = false;  // 审计 P0:CAP 截断需告知模型(命令输出被工具层截,非下游 60KB 再截)
     const collect = (chunks, d, isOut) => {
       chunks.push(d);
-      if (isOut) { outLen += d.length; while (outLen > CAP && outChunks.length > 1) outLen -= outChunks.shift().length; }
-      else { errLen += d.length; while (errLen > CAP && errChunks.length > 1) errLen -= errChunks.shift().length; }
+      if (isOut) { outLen += d.length; while (outLen > CAP && outChunks.length > 1) { outLen -= outChunks.shift().length; outTruncated = true; } }
+      else { errLen += d.length; while (errLen > CAP && errChunks.length > 1) { errLen -= errChunks.shift().length; errTruncated = true; } }
     };
     // Transparently wrap .cmd/.bat targets (e.g. claude.cmd) so they don't throw "spawn EINVAL".
     const s = options.shell ? { command, args, opts: {} } : batchSafeSpawn(command, args);
@@ -801,6 +842,8 @@ function runProcess(command, args, options = {}) {
       clearTimeout(timer);
       if (killGraceTimer) clearTimeout(killGraceTimer);
       if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
+      if (outTruncated) payload.stdoutTruncated = true;
+      if (errTruncated) payload.stderrTruncated = true;
       resolve(payload);
     };
     const timer = setTimeout(() => {

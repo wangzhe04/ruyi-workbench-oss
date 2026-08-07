@@ -366,7 +366,15 @@ async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
             words.append({"text": w.text, "left": left, "top": top,
                           "width": width, "height": height,
                           "center": [left + width // 2, top + height // 2]})
+    _WORDS_CAP = 500
+    words_total = len(words)
+    if words_total > _WORDS_CAP:
+        words = words[:_WORDS_CAP]
     out = {"success": True, "text": result.text, "lines": [ln.text for ln in result.lines], "words": words}
+    if words_total > _WORDS_CAP:
+        out["truncated"] = True
+        out["words_total"] = words_total
+        out["hint"] = f"仅返回前 {_WORDS_CAP} 个词(共 {words_total} 个);缩小 region 或用 ocr_find_text 定位特定文本"
     if lang_used:
         out["lang_used"] = lang_used
     if fallback_from:
@@ -440,6 +448,13 @@ async def _run_ocr(png_bytes: bytes, lang: str | None) -> dict:
 
 
 def _png_bytes_from_path(path: str) -> bytes:
+    _IMG_READ_CAP = 50_000_000  # 50MB:防超大图整文件读 OOM;OCR pipeline 超时再兜底
+    try:
+        sz = os.path.getsize(path)
+    except OSError:
+        sz = 0
+    if sz > _IMG_READ_CAP:
+        raise ValueError(f"image too large ({sz} bytes > {_IMG_READ_CAP}); OCR 不支持超大图,请先用 image_resize 缩小")
     with open(path, "rb") as f:
         return f.read()
 

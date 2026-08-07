@@ -41,6 +41,7 @@ ok(/先读后改/.test(full), 'L2 工具协议:先读后改');
 ok(/工具批次/.test(full) && /同一条助手消息/.test(full) && /分阶段调用/.test(full), 'L2 工具协议:独立调用合批、依赖调用分阶段');
 ok(/tool_search/.test(full) && /按需装载/.test(full), 'L2 工具协议:tool_search 按需装载');
 ok(/工具选用优先级/.test(full), 'L2 工具协议:选用优先级(现成工具优先,终端兜底)');
+ok(/上下文节流守则/.test(full) && /600 行/.test(full) && /线性通读/.test(full), 'L2 工具协议:上下文节流守则(分段读+读取预算,防撑爆上下文)');
 ok(/todo_write/.test(full), 'L2 工具协议:todo_write 计划');
 // L3 能力层
 ok(/当前能力/.test(full) && /在线/.test(full) && /有 git/.test(full) && /有 ripgrep/.test(full), 'L3 能力层:网络+git+ripgrep');
@@ -60,6 +61,7 @@ ok(/先读后改/.test(idOnly), 'B2b identityOnly=true 保留工具协议层(has
 const noTools = srv.buildProviderSystemPrompt(provider, model, cwd, [], caps, config, '', false, [], [], null);
 ok(/无工具的纯对话模式/.test(noTools), 'B3 hasTools=false:纯对话模式提示');
 ok(!/先读后改/.test(noTools), 'B4 hasTools=false:不注入工具协议守则');
+ok(!/上下文节流守则/.test(noTools), 'B4b hasTools=false:不注入上下文节流守则');
 const baseNoMis = srv.buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, '', false, [], [], null);
 const fullMission = srv.buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, '', false, [], [], { goal: '完成 X', milestones: [{ id: 'm1', desc: '第一步', status: 'pending' }] });
 ok(/完成 X/.test(fullMission) && /任务账本/.test(fullMission), 'B5 mission 注入(任务账本层:goal 文本 + 账本标识出现)');
@@ -80,7 +82,7 @@ console.log('── D 段: 51d C1a 稳定/易变层拆分(prefix-cache 分层基
 const stable = srv.buildStableSystemPrompt(provider, model, cwd, tools, false);
 ok(/本地 AI 工作台/.test(stable) && /先读后改/.test(stable) && /工具批次/.test(stable), 'D1 stable 含身份+工具协议及合批规则(稳定层)');
 ok(!/当前能力/.test(stable) && !/桌面操控/.test(stable) && !/<skill-index>/.test(stable) && !/任务账本/.test(stable), 'D2 stable 不含 volatile 标记(能力/桌面/技能/账本)');
-ok(stable.length < 800, 'D3 stable 长度 < 800(稳定层轻量,身份+工具协议+provider,got ' + stable.length + ')');
+ok(stable.length < 1200, 'D3 stable 长度 < 1200(稳定层轻量:身份+工具协议+provider;51d 基线 800,本轮 toolProtocol 加第 8 条 contextBudget 守则后按 intentional snapshot 上调,got ' + stable.length + ')');
 // buildVolatileParts 含 volatile 标记
 const volatile = srv.buildVolatileParts(provider, tools, caps, config, '', skillEntries, [], null);
 ok(/当前能力/.test(volatile) && /在线/.test(volatile), 'D4 volatile 含能力层');
@@ -93,6 +95,10 @@ ok(src.includes("turnVolatile + '\\n\\n'") && !src.includes("turnVolatile + '\\\
 ok(typeof srv.PROMPT_PACK_VERSION === 'string' && /^20\d\d-w\d+-\d+$/.test(srv.PROMPT_PACK_VERSION), 'D9 PROMPT_PACK_VERSION 语义化版本(52d, got ' + srv.PROMPT_PACK_VERSION + ')');
 ok(/const budgetPrompt = turnVolatile \? sys \+ '\\n\\n' \+ turnVolatile : sys;/.test(src), 'D9 上下文预算提示包含 stable+volatile');
 ok(/maybeAutoCompact\(session, provider, budgetPrompt,/.test(src) && /estimateHistoryTokens\(session\.providerHistory, budgetPrompt\)/.test(src), 'D10 自动压缩与 fallback 估算均使用完整预算提示');
+
+console.log('── E 段: 子代理任务漏斗上下文节流注入(2.2,唯一漏斗 09-workflow effectiveTask) ──');
+ok(/【上下文节流守则】/.test(src), 'E1 子代理任务漏斗含上下文节流守则(09 effectiveTask 注入,spawn/orchestrate 全路径)');
+ok(/reliabilityInstruction \+ throttlingInstruction \+ toolEvidenceInstruction/.test(src), 'E2 拼接顺序:可靠性约束 → 节流守则 → 工具证据(指令层级正确,节流紧随可靠性)');
 
 console.log('\nPROMPT SNAPSHOT STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

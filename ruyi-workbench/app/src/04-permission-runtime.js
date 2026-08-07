@@ -1410,6 +1410,8 @@ function classifyMcpError(err, entry) {
   if (/spawn failed|enoent|exited|not running|child error/.test(msg)) return { category: 'startup', message: raw };
   // network:连接层(ECONNREFUSED/ENOTFOUND/ETIMEDOUT/ECONNRESET/bad url/EPIPE/socket hang up)
   if (/econnrefused|enotfound|etimedout|econnreset|eai_again|bad url|epipe|connect econn|socket hang up/.test(msg)) return { category: 'network', message: raw };
+  // cancelled:用户 steer 中断/显式取消(优先于 timeout,防误归超时)
+  if (/cancelled|canceled|aborted by user steer/.test(msg)) return { category: 'cancelled', message: raw };
   // timeout:rpc/请求/探针超时
   if (/timed out|timeout/.test(msg)) return { category: 'timeout', message: raw };
   // security:SSRF / sanitize 拒绝 / 非 http(s) url

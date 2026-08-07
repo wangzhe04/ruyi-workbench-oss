@@ -11,7 +11,7 @@ from ai_computer_control.utils.image import encode_with_budget
 def screenshot(
     region: str | None = None,
     window_title: str | None = None,
-    max_width: int = 0,
+    max_width: int = 1280,
     format: str = "png",
     quality: int = 80,
 ) -> dict:
@@ -62,7 +62,7 @@ def screenshot(
 
 @mcp.tool()
 def screenshot_region(x: int, y: int, width: int, height: int,
-                      max_width: int = 0, format: str = "png", quality: int = 80) -> dict:
+                      max_width: int = 1280, format: str = "png", quality: int = 80) -> dict:
     """Take a screenshot of a specific rectangular region.
 
     Args:

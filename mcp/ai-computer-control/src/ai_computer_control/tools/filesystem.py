@@ -63,7 +63,7 @@ def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000) ->
         # Read max_bytes+1 raw bytes so truncation is detected from the read itself (a getsize
         # race or a grow-while-reading file can't fool a size comparison). Decode afterwards:
         # a multi-byte char split at the cut boundary becomes U+FFFD via errors="replace".
-        limit = max(0, int(max_bytes))
+        limit = min(max(0, int(max_bytes)), 10_000_000)  # 10MB 硬顶:防 max_bytes 传超大值导致 OOM(下游 truncateToolResult 60KB 再截)
         with open(path, "rb") as f:
             raw = f.read(limit + 1)
         truncated = len(raw) > limit

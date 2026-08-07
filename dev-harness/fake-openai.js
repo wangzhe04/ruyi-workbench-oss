@@ -323,7 +323,7 @@ const server = http.createServer((req, res) => {
       if (parsed.stream === false) {
         res.writeHead(200, { 'content-type': 'application/json' });
         // v0.9-S2 FAKE_DRAFT_JSON: return the injected JSON string as the message content (drafter role).
-        const content = DRAFT_JSON || 'Hello from fake (non-stream).';
+        const content = DRAFT_JSON || '【目标】测试目标与关键约束\n【已确认的决定】已拍板的事项\n【未完成事项】待办与悬而未决\n【关键文件与上下文】涉及文件与要点';
         res.end(JSON.stringify({ id, choices: [{ message: { role: 'assistant', content }, finish_reason: 'stop' }], usage: { prompt_tokens: 11, completion_tokens: 7, total_tokens: 18 } }));
         return;
       }

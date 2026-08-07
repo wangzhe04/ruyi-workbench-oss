@@ -25,6 +25,10 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   if (item.name === 'permission_prompt' || item.name === 'list_tools' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   if (item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   const bridge = resolveBridge(bridged.route, targetName);
+  if (bridge) {  // B1:resolveBridge 后强制重校 tier(不依赖 catalog 单一来源,防 drop-in/override 声明与实际不符)
+    const actualTier = bridgedToolTier(bridge.toolName, config);
+    if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}', not '${proxyTier}'` };
+  }
   if (!bridge) return toolCall(targetName, targetArgs || {});
   const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
   if (!client) return { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
@@ -195,17 +199,18 @@ const FILE_TOOL_HANDLERS = {
       if (hasLineParams) {
         const lines = raw.split(/\r?\n/);
         const totalLines = lines.length;
-        const lineOffset = Math.max(1, Number(args.lineOffset || 1) || 1);
-        const lineLimit = Math.max(0, Number(args.lineLimit != null ? args.lineLimit : totalLines) || 0);
+        const lineOffset = Math.max(1, Number(args.lineOffset != null ? args.lineOffset : 1) || 1);
+        const lineLimit = Math.max(0, Number(args.lineLimit != null ? args.lineLimit : Math.min(totalLines, 2000)) || 0);
         const startIdx = lineOffset - 1;
         const slice = startIdx >= totalLines ? [] : lines.slice(startIdx, startIdx + lineLimit);
         const width = String(startIdx + slice.length).length;
         const content = slice.map((t, k) => String(startIdx + k + 1).padStart(width, ' ') + '\t' + t).join('\n');
-        return { ok: true, path: p, mode: 'lines', content, size, totalLines, lineOffset, lineLimit };
+        return { ok: true, path: p, mode: 'lines', content, size, totalLines, lineOffset, lineLimit, truncated: lineOffset - 1 + slice.length < totalLines };
       }
-      const start = Math.max(0, Number(args.offset || 0));
-      const limit = Number(args.limit || 100000);
-      return { ok: true, path: p, content: raw.slice(start, start + limit), size };
+      const start = Math.max(0, Number(args.offset != null ? args.offset : 0));
+      const limit = args.limit != null ? Math.max(0, Number(args.limit) || 0) : 100000;
+      const content = raw.slice(start, start + limit);
+      return { ok: true, path: p, content, size, totalChars: raw.length, truncated: start + limit < raw.length };
   } },
   file_write: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
@@ -361,7 +366,10 @@ const FILE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'file_list', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
-      return { ok: true, root, files: await walkFiles(root, args) };
+      const files = await walkFiles(root, args);
+      const resp = { ok: true, root, files };
+      if (files && files.truncated) resp.truncated = true;
+      return resp;
   } },
   file_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -371,7 +379,9 @@ const FILE_TOOL_HANDLERS = {
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
       if (Array.isArray(matches)) { const pn = matches.patternNote; matches = matches.filter(m => !isSensitiveDataPath(m && m.path)); if (pn) matches.patternNote = pn; }
+      const maxResults = Number(args.maxResults != null ? args.maxResults : 200);
       const resp = { ok: true, root, matches };
+      if (Array.isArray(matches) && matches.length >= maxResults) resp.truncated = true;
       // F2: literal-fallback marker (invalid regex was searched as escaped literal text) — additive field.
       if (matches && matches.patternNote) resp.patternNote = matches.patternNote;
       return resp;
@@ -388,7 +398,7 @@ const FILE_TOOL_HANDLERS = {
       const maxResults = Math.max(1, Number(args.maxResults || 500) || 500);
       const globRe = globToRegExp(pattern);
       // Walk generously (no relative-path pre-filter), then match rel path against the glob.
-      const all = await walkFiles(root, { recursive: true, maxFiles: Math.max(maxResults * 4, 4000), maxDepth: Number(args.maxDepth || 12) });
+      const all = await walkFiles(root, { recursive: true, maxFiles: Math.max(maxResults * 4, 4000), maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 12 });
       const matched = [];
       for (const f of all) {
         if (f.type !== 'file') continue;
@@ -397,7 +407,7 @@ const FILE_TOOL_HANDLERS = {
         matched.push({ path: f.path, relativePath: f.relativePath, mtime: stat ? stat.mtimeMs : 0 });
       }
       matched.sort((a, b) => b.mtime - a.mtime);
-      const truncated = matched.length > maxResults;
+      const truncated = matched.length > maxResults || (all && all.truncated === true);
       return { ok: true, root, files: matched.slice(0, maxResults).map(m => ({ path: m.path, relativePath: m.relativePath, mtime: m.mtime })), truncated };
   } },
   project_snapshot: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -406,8 +416,10 @@ const FILE_TOOL_HANDLERS = {
       // 注册表声明让这条不对称现形,补上同族读闸(本地模型越界读仍放行,与 file_list 完全同闸,行为只收不松)。
       const g = await guardFileToolPath(root, ctx, { tool: 'project_snapshot', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
-      const files = await walkFiles(root, { recursive: true, maxFiles: args.maxFiles || 300, maxDepth: args.maxDepth || 4 });
-      return { ok: true, root, files };
+      const files = await walkFiles(root, { recursive: true, maxFiles: args.maxFiles != null ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4 });
+      const resp = { ok: true, root, files };
+      if (files && files.truncated) resp.truncated = true;
+      return resp;
   } },
 };
 
@@ -726,6 +738,9 @@ const AGENT_TOOL_HANDLERS = {
         } catch (e) { return { ok: false, error: `Agent DAG loopback error: ${(e && e.message) || String(e)}` }; }
       }
       return { ok: false, error: 'orchestrate_agents 需要在 OpenAI 对话回合或 Claude CLI 工作台会话中调用' };
+  } },
+  wait_agents: { paths: null, guardNote: "无回合上下文一律拒绝(特例闭包在 runOpenAiTurn,同 spawn_agent)", handler: async (args, ctx) => {
+      return { ok: false, error: 'wait_agents 仅在 provider 引擎的对话回合内可用(收集后台子代理结果)' };
   } },
 };
 

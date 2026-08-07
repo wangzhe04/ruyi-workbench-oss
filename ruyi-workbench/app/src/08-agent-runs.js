@@ -553,6 +553,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // (runOpenAiTurn loopSig/loopCount, same threshold). Without it a wedged sub-agent repeating one failing
   // tool burns its whole iteration budget (now up to 100 provider calls). Signature = tool name + raw args.
   let subLoopSig = null, subLoopCount = 0;
+  // A1:子回合语义指纹(结果无进展判定,与主回合 09:1411-1420 对齐)-- 抓"换参数但结果内容不变"的语义死循环,同签名连击覆盖不到的盲区
+  let subFingerprint = null, subNoProgressCount = 0;
+  const SUB_SEMANTIC_WARN_AT = 4;
   const SUB_LOOP_WARN_AT = 3, SUB_LOOP_ABORT_AT = 5;
   const runFinalizerWithoutTools = async () => {
     const hadTools = useTools;
@@ -835,6 +838,15 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           // hard abort. Injected into the (successful-but-repeating) tool result the model reads next turn.
           if (subLoopCount >= SUB_LOOP_WARN_AT && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
             try { resultObj.loopWarning = `第 ${subLoopCount} 次连续相同调用；再重复将停止子任务`; } catch { /* frozen result — skip */ }
+          }
+          // A1:子回合语义指纹 -- 换参数但结果内容摘要不变(语义死循环),warn nudge(不 abort);同签名已 warn 时跳过避免双 warn
+          if (resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj) && subLoopCount < SUB_LOOP_WARN_AT) {
+            const _r = String(resultObj.content || resultObj.error || '');
+            const fp = (resultObj.ok ? 'ok:' : 'err:') + tc.name + ':' + _r.slice(0, 200) + ':' + _r.length;
+            if (fp === subFingerprint) subNoProgressCount += 1; else { subFingerprint = fp; subNoProgressCount = 0; }
+            if (subNoProgressCount >= SUB_SEMANTIC_WARN_AT) {
+              try { resultObj.loopWarning = `连续 ${subNoProgressCount} 次工具结果无新进展(语义死循环嫌疑);请换思路或缩小范围`; } catch { /* frozen */ }
+            }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
           onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr, subagentId });

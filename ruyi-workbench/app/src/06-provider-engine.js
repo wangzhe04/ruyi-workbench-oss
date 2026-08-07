@@ -1258,6 +1258,7 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
       lines.push(getPromptPack(config && config.locale).toolProtocol.onDemand);
     }
     lines.push(getPromptPack(config && config.locale).toolProtocol.priority);
+    lines.push(getPromptPack(config && config.locale).toolProtocol.contextBudget);
   } else if (!identityOnly) {
     lines.push(getPromptPack(config && config.locale).noTools);
   }

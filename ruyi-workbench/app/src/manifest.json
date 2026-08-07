@@ -29,103 +29,103 @@
     {
       "file": "04-permission-runtime.js",
       "startLine": 5555,
-      "endLine": 7477,
+      "endLine": 7479,
       "note": "视觉回路/pendingPermissions/plan 批准/原生权限请求"
     },
     {
       "file": "05-claude-engine.js",
-      "startLine": 7478,
-      "endLine": 8663,
+      "startLine": 7480,
+      "endLine": 8666,
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线"
     },
     {
       "file": "06-provider-engine.js",
-      "startLine": 8664,
-      "endLine": 10148,
+      "startLine": 8667,
+      "endLine": 10152,
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks"
     },
     {
       "file": "06b-prompt-registry.js",
-      "startLine": 10149,
-      "endLine": 10301,
+      "startLine": 10153,
+      "endLine": 10307,
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)"
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "startLine": 10302,
-      "endLine": 10447,
+      "startLine": 10308,
+      "endLine": 10453,
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine"
     },
     {
       "file": "07-autonomy.js",
-      "startLine": 10448,
-      "endLine": 12770,
+      "startLine": 10454,
+      "endLine": 12776,
       "note": "授权书/工具 gate/资源归一化"
     },
     {
       "file": "08-agent-runs.js",
-      "startLine": 12771,
-      "endLine": 14543,
+      "startLine": 12777,
+      "endLine": 14561,
       "note": "run 事件日志/恢复分级/runSubAgentCore"
     },
     {
       "file": "09-workflow.js",
-      "startLine": 14544,
-      "endLine": 16906,
+      "startLine": 14562,
+      "endLine": 16929,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 16907,
-      "endLine": 17912,
+      "startLine": 16930,
+      "endLine": 17978,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 17913,
-      "endLine": 19610,
+      "startLine": 17979,
+      "endLine": 19678,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 19611,
-      "endLine": 20680,
+      "startLine": 19679,
+      "endLine": 20763,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 20681,
-      "endLine": 22754,
+      "startLine": 20764,
+      "endLine": 22840,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 22755,
-      "endLine": 23078,
+      "startLine": 22841,
+      "endLine": 23164,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 23079,
-      "endLine": 23267,
+      "startLine": 23165,
+      "endLine": 23353,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 23268,
-      "endLine": 24496,
+      "startLine": 23354,
+      "endLine": 24582,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 24497,
-      "endLine": 24903,
+      "startLine": 24583,
+      "endLine": 24989,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "14-main.js",
-      "startLine": 24904,
-      "endLine": 25194,
+      "startLine": 24990,
+      "endLine": 25280,
       "note": "main()/module.exports"
     }
   ]

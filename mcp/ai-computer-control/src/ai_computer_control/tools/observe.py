@@ -197,8 +197,9 @@ async def observe(max_width: int = 1280, window_title: str | None = None,
         if uia_items == "no_window":
             out["uia_note"] = (f"window_title {window_title!r} did not match any open window; "
                                f"adjust the substring or omit it to use the foreground window.")
-        elif uia_items is None and "uia_timeout" not in degraded:
-            degraded.append("uia")
+        elif uia_items is None:
+            if "uia_timeout" not in degraded:
+                degraded.append("uia")
         else:
             out["uia_elements"] = uia_items["items"]
             limitation = uia_items.get("limitation")

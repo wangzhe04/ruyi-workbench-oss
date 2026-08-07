@@ -41,7 +41,7 @@ for (const n of names) {
     if (!/guardFileToolPath\(|guardDownloadDest\(/.test(src)) l3Bad.push(n);
   }
 }
-ok(names.length === 51, `L1 注册表 51 个工具(got ${names.length})`);
+ok(names.length === 52, `L1 注册表 52 个工具(got ${names.length})`);
 ok(l1Bad.length === 0, 'L1 每条目 handler/paths 声明齐整' + (l1Bad.length ? ' → ' + l1Bad.join(',') : ''));
 ok(l2Bad.length === 0, 'L2 paths:null 条目全部带 guardNote(录在案豁免)' + (l2Bad.length ? ' → ' + l2Bad.join(',') : ''));
 ok(l3Bad.length === 0, 'L3 paths 非 null 条目 handler 内全部含 guard 调用' + (l3Bad.length ? ' → ' + l3Bad.join(',') : ''));

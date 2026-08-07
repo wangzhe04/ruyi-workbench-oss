@@ -570,6 +570,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。`
         : '';
       const reliabilityInstruction = `\n\n【可靠性约束】可由工具核验的事实必须先实际调用工具再下结论。不得在未尝试工具时声称“工具不可用”或输出 TOOL-UNAVAILABLE；工具失败时应写明实际调用的工具和错误，不得猜测事实。`;
+      const throttlingInstruction = `\n\n【上下文节流守则】本回合上下文有读取与 token 预算：
+1. 读取大文件前先用搜索/Grep 定位关键行，禁止整文件线性通读；
+2. 按需分段读取，单文件单次读取控制在 600 行以内；
+3. 大工具返回先截断/摘要再引用，不把超长原文塞进上下文；
+4. 聚焦本节点职责，不重复读取或执行前序已完成的结论与工作。`;
       const toolEvidenceInstruction = node.minSuccessfulToolCalls > 0
         ? `\n本节点要求至少 ${node.minSuccessfulToolCalls} 次成功工具调用作为执行证据；没有达到时，即使文字答案看似正确，系统也会判定节点失败。`
         : '';
@@ -591,7 +596,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // launch-time context string (from the quick-run prompt, or from the model's own orchestrate_agents
       // call) gives every node the same concrete subject to work from, without having to rewrite the DAG.
       const contextPrefix = contextText ? `任务背景（本次运行时提供）：\n${String(contextText).slice(0, 4000)}\n\n` : '';
-      const effectiveTask = contextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + toolEvidenceInstruction + qualityInstruction + schemaInstruction;
+      const effectiveTask = contextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + schemaInstruction;
       let agentSession = parentSession;
       let isolated = false;
       let effectiveResources = node.resources;

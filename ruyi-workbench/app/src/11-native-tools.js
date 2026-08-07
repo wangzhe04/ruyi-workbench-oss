@@ -122,7 +122,7 @@ async function shellSend(args) {
   }
   sess.lastUsedAt = Date.now();
   const slice = shellSliceFrom(sess, startCursor);
-  return { ok: true, output: slice.output, cursor: slice.cursor, running: sess.running, exitCode: sess.running ? undefined : sess.exitCode };
+  return { ok: true, output: slice.output, cursor: slice.cursor, truncated: slice.truncated || false, running: sess.running, exitCode: sess.running ? undefined : sess.exitCode };
 }
 
 function shellPoll(args) {
@@ -262,7 +262,7 @@ function hasRg() { return !!probeRg(); }
 
 async function walkFiles(root, opts = {}) {
   const base = path.resolve(root || process.cwd());
-  const maxFiles = Number(opts.maxFiles || 500);
+  const maxFiles = Math.max(1, Number(opts.maxFiles != null ? opts.maxFiles : 500));  // Math.max(1,...) 防 0 导致空结果+误判 truncated
   const recursive = opts.recursive !== false;
   const pattern = opts.pattern ? new RegExp(opts.pattern, opts.ignoreCase === false ? '' : 'i') : null;
   const ignoredDirs = new Set(opts.ignoreDirs || ['node_modules', '.git', '.venv']);
@@ -272,11 +272,12 @@ async function walkFiles(root, opts = {}) {
   // home/.win-claude-workbench)时,config.json/sessions/token 配置的内容仍被搜出返回。这里在遍历处逐项跳过敏感子树
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
+  let hitCap = false;  // 审计 P2 对抗修正:用 hitCap 标志而非 out.length>=maxFiles 事后判断,避免"正好 maxFiles 个文件"误判 truncated
   async function walk(dir, depth) {
-    if (out.length >= maxFiles) return;
+    if (out.length >= maxFiles) { hitCap = true; return; }
     const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
-      if (out.length >= maxFiles) break;
+      if (out.length >= maxFiles) { hitCap = true; break; }
       if (entry.isDirectory() && ignoredDirs.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
       if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
@@ -285,12 +286,13 @@ async function walkFiles(root, opts = {}) {
         const stat = await fsp.stat(full).catch(() => null);
         out.push({ path: full, relativePath: rel, type: entry.isDirectory() ? 'directory' : 'file', size: stat?.size || 0 });
       }
-      if (recursive && entry.isDirectory() && depth < Number(opts.maxDepth || 8)) {
+      if (recursive && entry.isDirectory() && depth < Number(opts.maxDepth != null ? opts.maxDepth : 8)) {
         await walk(full, depth + 1);
       }
     }
   }
   await walk(base, 0);
+  if (hitCap) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
   return out;
 }
 
@@ -1439,7 +1441,7 @@ async function httpRequest(args = {}) {
   const method = String(args.method || 'GET').toUpperCase();
   const body = args.body === undefined ? null : String(args.body);
   const timeoutMs = Number(args.timeoutMs || 20000);
-  const maxChars = Number(args.maxBodyChars || 200000);
+  const maxChars = Number(args.maxBodyChars != null ? args.maxBodyChars : 200000);
   // v1.4.1 (audit #11):此前把整个响应体缓冲进内存再截断 —— 恶意/失控端点可无上限撑爆内存。加【字节硬顶】,
   // 超顶即返回已收的截断体并 destroy 连接停止下载。done 守护防双 resolve / 防 destroy 后的 error 事件误触。
   const hardCap = Math.max(1, maxChars) * 4 + 65536; // utf8 每字符 ≤4 字节 + 余量
@@ -1452,11 +1454,11 @@ async function httpRequest(args = {}) {
         if (done) return;
         chunks.push(d); total += d.length;
         if (total >= hardCap) {
-          finish({ ok: res.statusCode >= 200 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: true });
+          finish({ ok: res.statusCode >= 200 && res.statusCode < 400, redirected: res.statusCode >= 300 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: true });
           try { req.destroy(); } catch { /* ignore */ }
         }
       });
-      res.on('end', () => finish({ ok: res.statusCode >= 200 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: false }));
+      res.on('end', () => finish({ ok: res.statusCode >= 200 && res.statusCode < 400, redirected: res.statusCode >= 300 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: false }));
     });
     req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
     req.on('error', error => finish({ ok: false, error: error.message }));

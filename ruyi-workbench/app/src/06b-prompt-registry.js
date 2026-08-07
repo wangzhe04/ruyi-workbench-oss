@@ -24,6 +24,7 @@ const PROMPT_ZH = {
     questioning: '向用户提问时优先给出 2–5 个具体、互斥且可直接点击的选项；把建议项放在第一位并在标签中标明“（推荐）”，同时保留“其他”输入作为兜底。只有答案确实无法合理枚举时才使用纯文本回答，不能为了省事把本可选择的问题丢给用户手写。',
     onDemand: '工具按需装载：当前只提供任务预判所需的工具。不知道有哪些能力时先调用 list_tools；知道目标时直接调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。',
     priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
+    contextBudget: '上下文节流守则：先搜索定位再分段读（单次 ≤600 行），禁止整文件线性通读；列表/搜索大结果先缩小范围再引用；大返回先截断/摘要；长任务交子代理并取结论，不把原始大数据灌进主线上下文。',
   },
   // [无工具兜底] - !hasTools && !identityOnly
   noTools: '当前为无工具的纯对话模式；若被要求读写文件，基于用户粘贴的内容推理，或给出确切步骤。',
@@ -96,6 +97,7 @@ const PROMPT_EN = {
     questioning: 'When asking the user, prefer 2–5 concrete, mutually exclusive, directly clickable options. Put the recommended option first and suffix its label with “(Recommended)”, while keeping an Other input as a fallback. Use a text-only answer only when the answer genuinely cannot be enumerated; do not make the user type a choice that could have been offered.',
     onDemand: 'On-demand tool loading: only the tools the current task likely needs are provided. If you do not know what capabilities exist, call list_tools first; when you know the target, call tool_search, then tool_load with the returned pack or exact tool name. After a successful load, call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.',
     priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
+    contextBudget: 'Context throttling: locate via search first, then read in slices (≤600 lines per read); never linearly read whole files. Narrow large list/search results before quoting. Truncate/summarize big returns. Delegate long tasks to a sub-agent and consume its conclusion; do not pour raw big data into the main context.',
   },
 
   noTools: 'Currently in a no-tool, pure-conversation mode; if asked to read/write files, reason from content the user pasted, or give exact steps.',

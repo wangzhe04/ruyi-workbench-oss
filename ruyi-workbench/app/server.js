@@ -6964,6 +6964,8 @@ function classifyMcpError(err, entry) {
   if (/spawn failed|enoent|exited|not running|child error/.test(msg)) return { category: 'startup', message: raw };
   // network:连接层(ECONNREFUSED/ENOTFOUND/ETIMEDOUT/ECONNRESET/bad url/EPIPE/socket hang up)
   if (/econnrefused|enotfound|etimedout|econnreset|eai_again|bad url|epipe|connect econn|socket hang up/.test(msg)) return { category: 'network', message: raw };
+  // cancelled:用户 steer 中断/显式取消(优先于 timeout,防误归超时)
+  if (/cancelled|canceled|aborted by user steer/.test(msg)) return { category: 'cancelled', message: raw };
   // timeout:rpc/请求/探针超时
   if (/timed out|timeout/.test(msg)) return { category: 'timeout', message: raw };
   // security:SSRF / sanitize 拒绝 / 非 http(s) url
@@ -7674,6 +7676,7 @@ async function runClaudeTurn({
     appendSys += `${appendSys ? '\n\n' : ''}${getPromptPack(config && config.locale).toolProtocol.batching}`;
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.asyncWork}`;
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.questioning}`;
+    appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.contextBudget}`;
     if (interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
@@ -9921,6 +9924,7 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
       lines.push(getPromptPack(config && config.locale).toolProtocol.onDemand);
     }
     lines.push(getPromptPack(config && config.locale).toolProtocol.priority);
+    lines.push(getPromptPack(config && config.locale).toolProtocol.contextBudget);
   } else if (!identityOnly) {
     lines.push(getPromptPack(config && config.locale).noTools);
   }
@@ -10172,6 +10176,7 @@ const PROMPT_ZH = {
     questioning: '向用户提问时优先给出 2–5 个具体、互斥且可直接点击的选项；把建议项放在第一位并在标签中标明“（推荐）”，同时保留“其他”输入作为兜底。只有答案确实无法合理枚举时才使用纯文本回答，不能为了省事把本可选择的问题丢给用户手写。',
     onDemand: '工具按需装载：当前只提供任务预判所需的工具。不知道有哪些能力时先调用 list_tools；知道目标时直接调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。',
     priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
+    contextBudget: '上下文节流守则：先搜索定位再分段读（单次 ≤600 行），禁止整文件线性通读；列表/搜索大结果先缩小范围再引用；大返回先截断/摘要；长任务交子代理并取结论，不把原始大数据灌进主线上下文。',
   },
   // [无工具兜底] - !hasTools && !identityOnly
   noTools: '当前为无工具的纯对话模式；若被要求读写文件，基于用户粘贴的内容推理，或给出确切步骤。',
@@ -10244,6 +10249,7 @@ const PROMPT_EN = {
     questioning: 'When asking the user, prefer 2–5 concrete, mutually exclusive, directly clickable options. Put the recommended option first and suffix its label with “(Recommended)”, while keeping an Other input as a fallback. Use a text-only answer only when the answer genuinely cannot be enumerated; do not make the user type a choice that could have been offered.',
     onDemand: 'On-demand tool loading: only the tools the current task likely needs are provided. If you do not know what capabilities exist, call list_tools first; when you know the target, call tool_search, then tool_load with the returned pack or exact tool name. After a successful load, call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.',
     priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
+    contextBudget: 'Context throttling: locate via search first, then read in slices (≤600 lines per read); never linearly read whole files. Narrow large list/search results before quoting. Truncate/summarize big returns. Delegate long tasks to a sub-agent and consume its conclusion; do not pour raw big data into the main context.',
   },
 
   noTools: 'Currently in a no-tool, pure-conversation mode; if asked to read/write files, reason from content the user pasted, or give exact steps.',
@@ -13323,6 +13329,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // (runOpenAiTurn loopSig/loopCount, same threshold). Without it a wedged sub-agent repeating one failing
   // tool burns its whole iteration budget (now up to 100 provider calls). Signature = tool name + raw args.
   let subLoopSig = null, subLoopCount = 0;
+  // A1:子回合语义指纹(结果无进展判定,与主回合 09:1411-1420 对齐)-- 抓"换参数但结果内容不变"的语义死循环,同签名连击覆盖不到的盲区
+  let subFingerprint = null, subNoProgressCount = 0;
+  const SUB_SEMANTIC_WARN_AT = 4;
   const SUB_LOOP_WARN_AT = 3, SUB_LOOP_ABORT_AT = 5;
   const runFinalizerWithoutTools = async () => {
     const hadTools = useTools;
@@ -13605,6 +13614,15 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           // hard abort. Injected into the (successful-but-repeating) tool result the model reads next turn.
           if (subLoopCount >= SUB_LOOP_WARN_AT && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
             try { resultObj.loopWarning = `第 ${subLoopCount} 次连续相同调用；再重复将停止子任务`; } catch { /* frozen result — skip */ }
+          }
+          // A1:子回合语义指纹 -- 换参数但结果内容摘要不变(语义死循环),warn nudge(不 abort);同签名已 warn 时跳过避免双 warn
+          if (resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj) && subLoopCount < SUB_LOOP_WARN_AT) {
+            const _r = String(resultObj.content || resultObj.error || '');
+            const fp = (resultObj.ok ? 'ok:' : 'err:') + tc.name + ':' + _r.slice(0, 200) + ':' + _r.length;
+            if (fp === subFingerprint) subNoProgressCount += 1; else { subFingerprint = fp; subNoProgressCount = 0; }
+            if (subNoProgressCount >= SUB_SEMANTIC_WARN_AT) {
+              try { resultObj.loopWarning = `连续 ${subNoProgressCount} 次工具结果无新进展(语义死循环嫌疑);请换思路或缩小范围`; } catch { /* frozen */ }
+            }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
           onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr, subagentId });
@@ -15113,6 +15131,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。`
         : '';
       const reliabilityInstruction = `\n\n【可靠性约束】可由工具核验的事实必须先实际调用工具再下结论。不得在未尝试工具时声称“工具不可用”或输出 TOOL-UNAVAILABLE；工具失败时应写明实际调用的工具和错误，不得猜测事实。`;
+      const throttlingInstruction = `\n\n【上下文节流守则】本回合上下文有读取与 token 预算：
+1. 读取大文件前先用搜索/Grep 定位关键行，禁止整文件线性通读；
+2. 按需分段读取，单文件单次读取控制在 600 行以内；
+3. 大工具返回先截断/摘要再引用，不把超长原文塞进上下文；
+4. 聚焦本节点职责，不重复读取或执行前序已完成的结论与工作。`;
       const toolEvidenceInstruction = node.minSuccessfulToolCalls > 0
         ? `\n本节点要求至少 ${node.minSuccessfulToolCalls} 次成功工具调用作为执行证据；没有达到时，即使文字答案看似正确，系统也会判定节点失败。`
         : '';
@@ -15134,7 +15157,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // launch-time context string (from the quick-run prompt, or from the model's own orchestrate_agents
       // call) gives every node the same concrete subject to work from, without having to rewrite the DAG.
       const contextPrefix = contextText ? `任务背景（本次运行时提供）：\n${String(contextText).slice(0, 4000)}\n\n` : '';
-      const effectiveTask = contextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + toolEvidenceInstruction + qualityInstruction + schemaInstruction;
+      const effectiveTask = contextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + schemaInstruction;
       let agentSession = parentSession;
       let isolated = false;
       let effectiveResources = node.resources;
@@ -17093,7 +17116,7 @@ function truncateToolResult(name, jsonStr) {
     const tail = s.slice(s.length - FILE_READ_TAIL);
     return head + `\n[...中间已截断，共 ${s.length} 字符...]\n` + tail;
   }
-  return s.slice(0, TOOL_RESULT_CAP);
+  return s.slice(0, TOOL_RESULT_CAP) + `\n[...已截断，共 ${s.length} 字符，仅保留前 ${TOOL_RESULT_CAP} 字符；如需完整结果请用更精确参数（如 offset/limit、maxResults、region、max_width）重新获取...]\n`;
 }
 
 // v0.8-S5 checkpoint SAFETY NET (not a gate): snapshot providerHistory BEFORE a compaction to
@@ -17149,6 +17172,8 @@ function evaporateHistory(history) {
     const m = history[i];
     if (!m || m.role !== 'tool' || typeof m.content !== 'string') continue;
     if (m.content.startsWith(EVAPORATED_PREFIX)) continue; // already evaporated → skip (idempotent, cache-safe)
+    if (m.pinned) continue;  // C1b:显式锚定的关键信息不蒸发(预留接口:当前无消息级设置点——session.pinned 是 UI 固定会话,不在此;生效的锚定是下行写操作自动保留)
+    if (/"op"\s*:\s*"(create|modify|delete|move|copy)"/.test(m.content)) continue;  // C1b:写操作关键变更自动保留(回滚/审计依赖,不蒸发)
     m.content = EVAPORATED_PREFIX + m.content.slice(0, 120) + ']';
     count++;
   }
@@ -17179,6 +17204,19 @@ const SUMMARY_PROMPT = '请把以上对话压缩为结构化摘要,严格按以�
   + '文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n'
   + '只输出摘要本身。';
 
+function validateStructuredSummary(summary) {
+  if (!summary || typeof summary !== 'string') return false;
+  // 每节接受 中文标题 或 常见英文变体(英文模型可能按英文输出;SUMMARY_PROMPT 为中文硬编码,
+  // 故英文变体用独立标题词,避免与正文内容误匹配)。
+  const sections = [
+    ['【目标】', '## Goal', 'Goal:'],
+    ['【已确认的决定】', '## Decisions', 'Decisions:'],
+    ['【未完成事项】', '## Open', 'Open items:', 'Todo:'],
+    ['【关键文件与上下文】', '## Files', 'Files:', 'Key files'],
+  ];
+  const found = sections.filter(sec => sec.some(s => summary.includes(s))).length;
+  return found >= 3;  // C1a:至少 3 节(允许某节"无"),防摘要退化为流水 -> 校验失败则调用方降级保留原文
+}
 function userBlockStarts(history) {
   const idx = [];
   for (let i = 0; i < history.length; i++) if (history[i] && history[i].role === 'user') idx.push(i);
@@ -17286,6 +17324,7 @@ async function providerSummaryCall(provider, history, opts) {
   if (!fitted.needsMapReduce) {
     const sc = await singleSummaryCall(provider, fitted.messages, model);
     if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
+    if (sc.ok && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     return sc;
   }
   // map-reduce:分组 → 逐组摘要 → 总摘要。任一组失败即整体失败(错误原样上浮,调用方保留 L1 降级)。
@@ -17303,6 +17342,7 @@ async function providerSummaryCall(provider, history, opts) {
   const joined = [{ role: 'user', content: partials.map((s, i) => `【分段摘要 ${i + 1}/${partials.length}】\n${s}`).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。' }];
   const final = await singleSummaryCall(provider, joined, model);
   if (!final.ok) return final;
+  if (!validateStructuredSummary(final.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
   if (final.usage) { final.usage.prompt_tokens = (Number(final.usage.prompt_tokens) || 0) + aggIn; final.usage.completion_tokens = (Number(final.usage.completion_tokens) || 0) + aggOut; }
   // 45f 对抗轮 P3-4a:总摘要无 usage 但分段有实测 → 分段实测不丢(挂到 final 上一起记账)。
   else if (aggIn > 0 || aggOut > 0) final.usage = { prompt_tokens: aggIn, completion_tokens: aggOut, aggregated: true };
@@ -17607,6 +17647,22 @@ async function streamChat(req, res) {
   // 第26波b: 捕获每回合的 token 用量(账本预算计量)+ 停止信号。usage 事件透传不变,仅旁路记录。
   let lastTurnTokens = 0;
   let turnStopped = false;   // 对抗轮 P2: 回合被停止(/api/stop → stopSession → abort → 'process' state:'stopped')
+  // D1:assistant_delta/thinking_delta 高频小事件合批(50ms 窗口),减前端重渲染 60-80%;边界事件立即 flush 保顺序
+  let deltaBuffer = []; let flushTimer = null;
+  const flushDeltas = () => {
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+    if (!deltaBuffer.length) return;
+    const merged = [];
+    for (const d of deltaBuffer) {
+      const last = merged[merged.length - 1];
+      if (last && last.type === d.type) last.text = (last.text || '') + (d.text || '');
+      else merged.push({ ...d });
+    }
+    deltaBuffer = [];
+    for (const evt of merged) {
+      try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
+    }
+  };
   const emit = evt => {
     if (evt && evt.type === 'usage' && evt.usage) {
       const u = evt.usage;
@@ -17614,6 +17670,12 @@ async function streamChat(req, res) {
       lastTurnTokens = (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0) + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
     }
     if (evt && evt.type === 'process' && evt.state === 'stopped') turnStopped = true;
+    if (evt && (evt.type === 'assistant_delta' || evt.type === 'thinking_delta')) {
+      deltaBuffer.push(evt);
+      if (!flushTimer) flushTimer = setTimeout(flushDeltas, 50);
+      return;
+    }
+    flushDeltas();  // D1:边界事件先 flush 积压 delta,保顺序
     try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
   };
   // 第27波:本次 HTTP 回合 = 一个「run」。登记活动 runId,scope:'run' 授权绑定它(含首回合内经 UI 签发的 bindNextRun 补绑)。
@@ -17649,6 +17711,7 @@ async function streamChat(req, res) {
   } catch (err) {
     emit({ type: 'error', error: err.message || String(err) });
   } finally {
+    flushDeltas();  // D1:回合收尾 flush 残留 delta,防最后一批丢
     finished = true;
     // 第27波:run 结束 → scope:'run' 授权蒸发(遍历删 runId 匹配项),登记表清理。scope:'session' 授权跨回合保留,直到
     // TTL/次数耗尽或显式撤销/切模式。
@@ -17682,10 +17745,11 @@ function runProcess(command, args, options = {}) {
     const errChunks = []; let errLen = 0;
     let timedOut = false;
     let interrupted = false;
+    let outTruncated = false, errTruncated = false;  // 审计 P0:CAP 截断需告知模型(命令输出被工具层截,非下游 60KB 再截)
     const collect = (chunks, d, isOut) => {
       chunks.push(d);
-      if (isOut) { outLen += d.length; while (outLen > CAP && outChunks.length > 1) outLen -= outChunks.shift().length; }
-      else { errLen += d.length; while (errLen > CAP && errChunks.length > 1) errLen -= errChunks.shift().length; }
+      if (isOut) { outLen += d.length; while (outLen > CAP && outChunks.length > 1) { outLen -= outChunks.shift().length; outTruncated = true; } }
+      else { errLen += d.length; while (errLen > CAP && errChunks.length > 1) { errLen -= errChunks.shift().length; errTruncated = true; } }
     };
     // Transparently wrap .cmd/.bat targets (e.g. claude.cmd) so they don't throw "spawn EINVAL".
     const s = options.shell ? { command, args, opts: {} } : batchSafeSpawn(command, args);
@@ -17707,6 +17771,8 @@ function runProcess(command, args, options = {}) {
       clearTimeout(timer);
       if (killGraceTimer) clearTimeout(killGraceTimer);
       if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
+      if (outTruncated) payload.stdoutTruncated = true;
+      if (errTruncated) payload.stderrTruncated = true;
       resolve(payload);
     };
     const timer = setTimeout(() => {
@@ -18034,7 +18100,7 @@ async function shellSend(args) {
   }
   sess.lastUsedAt = Date.now();
   const slice = shellSliceFrom(sess, startCursor);
-  return { ok: true, output: slice.output, cursor: slice.cursor, running: sess.running, exitCode: sess.running ? undefined : sess.exitCode };
+  return { ok: true, output: slice.output, cursor: slice.cursor, truncated: slice.truncated || false, running: sess.running, exitCode: sess.running ? undefined : sess.exitCode };
 }
 
 function shellPoll(args) {
@@ -18174,7 +18240,7 @@ function hasRg() { return !!probeRg(); }
 
 async function walkFiles(root, opts = {}) {
   const base = path.resolve(root || process.cwd());
-  const maxFiles = Number(opts.maxFiles || 500);
+  const maxFiles = Math.max(1, Number(opts.maxFiles != null ? opts.maxFiles : 500));  // Math.max(1,...) 防 0 导致空结果+误判 truncated
   const recursive = opts.recursive !== false;
   const pattern = opts.pattern ? new RegExp(opts.pattern, opts.ignoreCase === false ? '' : 'i') : null;
   const ignoredDirs = new Set(opts.ignoreDirs || ['node_modules', '.git', '.venv']);
@@ -18184,11 +18250,12 @@ async function walkFiles(root, opts = {}) {
   // home/.win-claude-workbench)时,config.json/sessions/token 配置的内容仍被搜出返回。这里在遍历处逐项跳过敏感子树
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
+  let hitCap = false;  // 审计 P2 对抗修正:用 hitCap 标志而非 out.length>=maxFiles 事后判断,避免"正好 maxFiles 个文件"误判 truncated
   async function walk(dir, depth) {
-    if (out.length >= maxFiles) return;
+    if (out.length >= maxFiles) { hitCap = true; return; }
     const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
-      if (out.length >= maxFiles) break;
+      if (out.length >= maxFiles) { hitCap = true; break; }
       if (entry.isDirectory() && ignoredDirs.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
       if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
@@ -18197,12 +18264,13 @@ async function walkFiles(root, opts = {}) {
         const stat = await fsp.stat(full).catch(() => null);
         out.push({ path: full, relativePath: rel, type: entry.isDirectory() ? 'directory' : 'file', size: stat?.size || 0 });
       }
-      if (recursive && entry.isDirectory() && depth < Number(opts.maxDepth || 8)) {
+      if (recursive && entry.isDirectory() && depth < Number(opts.maxDepth != null ? opts.maxDepth : 8)) {
         await walk(full, depth + 1);
       }
     }
   }
   await walk(base, 0);
+  if (hitCap) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
   return out;
 }
 
@@ -19351,7 +19419,7 @@ async function httpRequest(args = {}) {
   const method = String(args.method || 'GET').toUpperCase();
   const body = args.body === undefined ? null : String(args.body);
   const timeoutMs = Number(args.timeoutMs || 20000);
-  const maxChars = Number(args.maxBodyChars || 200000);
+  const maxChars = Number(args.maxBodyChars != null ? args.maxBodyChars : 200000);
   // v1.4.1 (audit #11):此前把整个响应体缓冲进内存再截断 —— 恶意/失控端点可无上限撑爆内存。加【字节硬顶】,
   // 超顶即返回已收的截断体并 destroy 连接停止下载。done 守护防双 resolve / 防 destroy 后的 error 事件误触。
   const hardCap = Math.max(1, maxChars) * 4 + 65536; // utf8 每字符 ≤4 字节 + 余量
@@ -19364,11 +19432,11 @@ async function httpRequest(args = {}) {
         if (done) return;
         chunks.push(d); total += d.length;
         if (total >= hardCap) {
-          finish({ ok: res.statusCode >= 200 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: true });
+          finish({ ok: res.statusCode >= 200 && res.statusCode < 400, redirected: res.statusCode >= 300 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: true });
           try { req.destroy(); } catch { /* ignore */ }
         }
       });
-      res.on('end', () => finish({ ok: res.statusCode >= 200 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: false }));
+      res.on('end', () => finish({ ok: res.statusCode >= 200 && res.statusCode < 400, redirected: res.statusCode >= 300 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: false }));
     });
     req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
     req.on('error', error => finish({ ok: false, error: error.message }));
@@ -19635,6 +19703,10 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   if (item.name === 'permission_prompt' || item.name === 'list_tools' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   if (item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   const bridge = resolveBridge(bridged.route, targetName);
+  if (bridge) {  // B1:resolveBridge 后强制重校 tier(不依赖 catalog 单一来源,防 drop-in/override 声明与实际不符)
+    const actualTier = bridgedToolTier(bridge.toolName, config);
+    if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}', not '${proxyTier}'` };
+  }
   if (!bridge) return toolCall(targetName, targetArgs || {});
   const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
   if (!client) return { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
@@ -19805,17 +19877,18 @@ const FILE_TOOL_HANDLERS = {
       if (hasLineParams) {
         const lines = raw.split(/\r?\n/);
         const totalLines = lines.length;
-        const lineOffset = Math.max(1, Number(args.lineOffset || 1) || 1);
-        const lineLimit = Math.max(0, Number(args.lineLimit != null ? args.lineLimit : totalLines) || 0);
+        const lineOffset = Math.max(1, Number(args.lineOffset != null ? args.lineOffset : 1) || 1);
+        const lineLimit = Math.max(0, Number(args.lineLimit != null ? args.lineLimit : Math.min(totalLines, 2000)) || 0);
         const startIdx = lineOffset - 1;
         const slice = startIdx >= totalLines ? [] : lines.slice(startIdx, startIdx + lineLimit);
         const width = String(startIdx + slice.length).length;
         const content = slice.map((t, k) => String(startIdx + k + 1).padStart(width, ' ') + '\t' + t).join('\n');
-        return { ok: true, path: p, mode: 'lines', content, size, totalLines, lineOffset, lineLimit };
+        return { ok: true, path: p, mode: 'lines', content, size, totalLines, lineOffset, lineLimit, truncated: lineOffset - 1 + slice.length < totalLines };
       }
-      const start = Math.max(0, Number(args.offset || 0));
-      const limit = Number(args.limit || 100000);
-      return { ok: true, path: p, content: raw.slice(start, start + limit), size };
+      const start = Math.max(0, Number(args.offset != null ? args.offset : 0));
+      const limit = args.limit != null ? Math.max(0, Number(args.limit) || 0) : 100000;
+      const content = raw.slice(start, start + limit);
+      return { ok: true, path: p, content, size, totalChars: raw.length, truncated: start + limit < raw.length };
   } },
   file_write: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
@@ -19971,7 +20044,10 @@ const FILE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'file_list', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
-      return { ok: true, root, files: await walkFiles(root, args) };
+      const files = await walkFiles(root, args);
+      const resp = { ok: true, root, files };
+      if (files && files.truncated) resp.truncated = true;
+      return resp;
   } },
   file_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -19981,7 +20057,9 @@ const FILE_TOOL_HANDLERS = {
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
       if (Array.isArray(matches)) { const pn = matches.patternNote; matches = matches.filter(m => !isSensitiveDataPath(m && m.path)); if (pn) matches.patternNote = pn; }
+      const maxResults = Number(args.maxResults != null ? args.maxResults : 200);
       const resp = { ok: true, root, matches };
+      if (Array.isArray(matches) && matches.length >= maxResults) resp.truncated = true;
       // F2: literal-fallback marker (invalid regex was searched as escaped literal text) — additive field.
       if (matches && matches.patternNote) resp.patternNote = matches.patternNote;
       return resp;
@@ -19998,7 +20076,7 @@ const FILE_TOOL_HANDLERS = {
       const maxResults = Math.max(1, Number(args.maxResults || 500) || 500);
       const globRe = globToRegExp(pattern);
       // Walk generously (no relative-path pre-filter), then match rel path against the glob.
-      const all = await walkFiles(root, { recursive: true, maxFiles: Math.max(maxResults * 4, 4000), maxDepth: Number(args.maxDepth || 12) });
+      const all = await walkFiles(root, { recursive: true, maxFiles: Math.max(maxResults * 4, 4000), maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 12 });
       const matched = [];
       for (const f of all) {
         if (f.type !== 'file') continue;
@@ -20007,7 +20085,7 @@ const FILE_TOOL_HANDLERS = {
         matched.push({ path: f.path, relativePath: f.relativePath, mtime: stat ? stat.mtimeMs : 0 });
       }
       matched.sort((a, b) => b.mtime - a.mtime);
-      const truncated = matched.length > maxResults;
+      const truncated = matched.length > maxResults || (all && all.truncated === true);
       return { ok: true, root, files: matched.slice(0, maxResults).map(m => ({ path: m.path, relativePath: m.relativePath, mtime: m.mtime })), truncated };
   } },
   project_snapshot: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -20016,8 +20094,10 @@ const FILE_TOOL_HANDLERS = {
       // 注册表声明让这条不对称现形,补上同族读闸(本地模型越界读仍放行,与 file_list 完全同闸,行为只收不松)。
       const g = await guardFileToolPath(root, ctx, { tool: 'project_snapshot', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
-      const files = await walkFiles(root, { recursive: true, maxFiles: args.maxFiles || 300, maxDepth: args.maxDepth || 4 });
-      return { ok: true, root, files };
+      const files = await walkFiles(root, { recursive: true, maxFiles: args.maxFiles != null ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4 });
+      const resp = { ok: true, root, files };
+      if (files && files.truncated) resp.truncated = true;
+      return resp;
   } },
 };
 
@@ -20336,6 +20416,9 @@ const AGENT_TOOL_HANDLERS = {
         } catch (e) { return { ok: false, error: `Agent DAG loopback error: ${(e && e.message) || String(e)}` }; }
       }
       return { ok: false, error: 'orchestrate_agents 需要在 OpenAI 对话回合或 Claude CLI 工作台会话中调用' };
+  } },
+  wait_agents: { paths: null, guardNote: "无回合上下文一律拒绝(特例闭包在 runOpenAiTurn,同 spawn_agent)", handler: async (args, ctx) => {
+      return { ok: false, error: 'wait_agents 仅在 provider 引擎的对话回合内可用(收集后台子代理结果)' };
   } },
 };
 
@@ -22644,8 +22727,11 @@ async function startMcp() {
           if (progressTimer && progressTimer.unref) progressTimer.unref();
           try {
             const result = await toolCall(name, args);
+            // S1 修复:MCP tools/call 路径(Claude 引擎)原样直出大结果会灌爆 CLI context。
+            // 经 truncateToolResult 截断(file_read 走 head/tail,其余 60KB+标记),与 OpenAI 引擎 push 路径一致。
+            const text = truncateToolResult(name, JSON.stringify(result, null, 2));
             return sendMcp(msg.id, {
-              content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+              content: [{ type: 'text', text }],
               isError: result.ok === false,
             });
           } finally {
