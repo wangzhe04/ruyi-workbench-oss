@@ -1063,6 +1063,9 @@ async function startServer(opts) {
   }
   // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
   void storageSweep(config.storagePolicy).catch(() => {});
+  // G1: 预热能力矩阵(网络探测/桌面 MCP 探测/二进制探测,首次可达 10s+)。fire-and-forget —— 探测慢/失败绝不
+  // 阻塞 listen;首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
+  void getCapabilities(config).catch(() => {});
   const port = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {

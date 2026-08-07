@@ -82,6 +82,7 @@ const ERROR_CLASSES = {
 // bridged-tool cache; optional{ocr,uia,cv2,playwright} via ONE bridged `diagnostics` call when an
 // ai-computer-control bridge exists (failure/absence → all false). Never throws. ──────────────────────────
 let _capCache = null; // { at, value }
+let _capInflight = null; // G1: in-flight 共享 —— 并发 getCapabilities(多节点同时启动)复用同一个进行中的探测,避免 N 个调用各自全量探测(10s+×N 串行)。探测完成后清空,下次冷调用重新探测。
 const CAP_CACHE_MS = 60000;
 const CAP_PROBE_TIMEOUT_MS = 3000;
 
@@ -194,7 +195,10 @@ async function getCapabilities(config, force) {
   config = config || await readConfig();
   const now = Date.now();
   if (!force && _capCache && (now - _capCache.at) < CAP_CACHE_MS) return _capCache.value;
-
+  // G1: in-flight 去重 —— 冷调用并发时(多子代理节点同时启动)共享同一个探测 Promise,避免各自全量探测。
+  // 缓存有效期内直接命中;探测中则复用;探测完成后清空(下次冷调用重新探测,不跨周期复用 stale Promise)。
+  if (!force && _capInflight) return _capInflight;
+  _capInflight = (async () => {
   const provider = activeOpenAiProvider(config);
   const engine = provider ? 'openai' : 'claude';
   // v1.1-W1a (T2): probe a MULTI-target list — [capabilityProbeUrl?]+[provider baseUrl?]+固定国内锚点
@@ -217,6 +221,8 @@ async function getCapabilities(config, force) {
   };
   _capCache = { at: now, value };
   return value;
+  })().finally(() => { _capInflight = null; }); // G1: 探测完成(成功/失败)清空 in-flight,下次冷调用重新探测
+  return _capInflight;
 }
 // Test/维护 aid: drop the capability cache so the next getCapabilities re-probes immediately.
 function invalidateCapabilityCache() { _capCache = null; }

@@ -320,6 +320,26 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         }
       }
     }
+    // G2: 节点级语义死循环兜底 —— 子代理持续产出工具结果但内容指纹不变(subagent_no_progress 上报计数),
+    // warn 注入 tool_result 后模型仍不自救(有事件、非 idle,idle watchdog 抓不到)时,abort 该节点。
+    // 阈值 = warn 阈值的倍数(warn 在 SUB_SEMANTIC_WARN_AT=4,此处 3 倍=12 次无进展),给足自救机会后兜底。
+    // 归因 node.noProgressAborted → 失败归类 semantic_stall(区别于 idle_timeout / 常规失败)。
+    const NODE_NO_PROGRESS_ABORT_AT = 12;
+    if (!runtime.paused && !runtime.inPoolGrace && !(runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted))) {
+      for (const node of nodes) {
+        if (!node || node.status !== 'running' || node.noProgressAborted) continue;
+        const nctrl = runtime.nodeControls.get(node.id);
+        if (!nctrl || nctrl.signal.aborted) continue;
+        if ((Number(node.noProgressCount) || 0) >= NODE_NO_PROGRESS_ABORT_AT) {
+          node.noProgressAborted = true;
+          try { nctrl.abort('node_no_progress'); } catch { /* already aborted — treat as aborted */ }
+          recordAgentNodeProgress(run, node, { type: 'subagent_no_progress_aborted', text: `节点连续 ${node.noProgressCount} 次工具结果无新进展(语义死循环),已中止该节点` });
+          appendAgentRunEvent(run, { type: 'node_no_progress_aborted', nodeId: node.id, data: { noProgressCount: node.noProgressCount } });
+          try { onEvent({ type: 'stderr', text: `[watchdog] node ${node.id} no-progress ×${node.noProgressCount} — aborting node` }); } catch { /* observer gone */ }
+          throttledSaveRun();
+        }
+      }
+    }
     if (!wrapUpMs || runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) return;
     for (const node of nodes) {
       if (!node || node.status !== 'running' || !node.modelStartedAt) continue;
@@ -660,6 +680,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           const nodeEvent = evt => {
             runtime.lastActivityAt = Date.now();
             node.lastActivityAt = Date.now(); // A3: 节点级看门狗时钟 —— 子代理任何事件(含工具心跳 subagent_progress)都算该节点活跃
+            if (evt && evt.type === 'subagent_no_progress') node.noProgressCount = Math.max(Number(node.noProgressCount) || 0, Number(evt.count) || 0); // G2: 语义死循环计数上报 → 节点级 watchdog 兜底 abort
             if (evt && evt.type === 'subagent' && evt.state === 'start' && !node.modelStartedAt) node.modelStartedAt = nowIso();
             try { onEvent(evt); } finally { if (evt && evt.type === 'subagent_usage') accumulateRunUsage(run, evt); recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); }
           };
@@ -703,9 +724,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           }
           node.status = sub.ok ? 'succeeded' : 'failed';
           node.result = String(sub.result || '').slice(0, 24000);
-          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? '节点未在自动收尾宽限期内结束，已中止该节点' : (node.idleAborted ? `节点空闲超时（>${Math.round(nodeIdleLimitMs / 1000)}秒无进展），已中止该节点` : (sub.error || '子代理失败'))).slice(0, 4000);
+          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? '节点未在自动收尾宽限期内结束，已中止该节点' : (node.idleAborted ? `节点空闲超时（>${Math.round(nodeIdleLimitMs / 1000)}秒无进展），已中止该节点` : (node.noProgressAborted ? `节点连续 ${node.noProgressCount} 次工具结果无新进展（语义死循环），已中止该节点` : (sub.error || '子代理失败')))).slice(0, 4000);
           if (sub.ok) delete node.errorClass;
           else if (node.idleAborted) node.errorClass = 'idle_timeout'; // A3: 节点级卡死归因(区别于 workflow 级 idleAborted / 常规失败)
+          else if (node.noProgressAborted) node.errorClass = 'semantic_stall'; // G2: 语义死循环归因(有事件但结果无进展)
           else node.errorClass = classifyNodeErrorText(node.error); // 29c(重试成功即清旧类)
           // 审计 P2: 透传 degraded —— Claude CLI 产出可用输出后异常退出的「降级成功」(runClaudeSubAgentOnce 返回
           // {ok:true,degraded:true,warning})。此前被丢弃 → 前端整套「降级完成」渲染(app.js nodeDisplayStatus:

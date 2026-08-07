@@ -871,6 +871,12 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             if (subNoProgressCount >= SUB_SEMANTIC_WARN_AT) {
               try { resultObj.loopWarning = `连续 ${subNoProgressCount} 次工具结果无新进展(语义死循环嫌疑);请换思路或缩小范围`; } catch { /* frozen */ }
             }
+            // G2: 语义死循环计数上报节点级看门狗 —— warn 只注入 tool_result 让模型自救,若模型忽略、继续
+            // 产出无进展结果(有事件但无新信息),节点级 watchdog 靠这个计数 abort 该节点(不拖死 DAG)。
+            // 只报整数倍阈值一次,避免每轮刷屏;节点级在达到 abort 阈值时兜底。
+            if (subNoProgressCount > 0 && subNoProgressCount % SUB_SEMANTIC_WARN_AT === 0) {
+              onEvent({ type: 'subagent_no_progress', subagentId, count: subNoProgressCount });
+            }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
           onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr, subagentId });

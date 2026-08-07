@@ -8748,6 +8748,7 @@ const ERROR_CLASSES = {
 // bridged-tool cache; optional{ocr,uia,cv2,playwright} via ONE bridged `diagnostics` call when an
 // ai-computer-control bridge exists (failure/absence → all false). Never throws. ──────────────────────────
 let _capCache = null; // { at, value }
+let _capInflight = null; // G1: in-flight 共享 —— 并发 getCapabilities(多节点同时启动)复用同一个进行中的探测,避免 N 个调用各自全量探测(10s+×N 串行)。探测完成后清空,下次冷调用重新探测。
 const CAP_CACHE_MS = 60000;
 const CAP_PROBE_TIMEOUT_MS = 3000;
 
@@ -8860,7 +8861,10 @@ async function getCapabilities(config, force) {
   config = config || await readConfig();
   const now = Date.now();
   if (!force && _capCache && (now - _capCache.at) < CAP_CACHE_MS) return _capCache.value;
-
+  // G1: in-flight 去重 —— 冷调用并发时(多子代理节点同时启动)共享同一个探测 Promise,避免各自全量探测。
+  // 缓存有效期内直接命中;探测中则复用;探测完成后清空(下次冷调用重新探测,不跨周期复用 stale Promise)。
+  if (!force && _capInflight) return _capInflight;
+  _capInflight = (async () => {
   const provider = activeOpenAiProvider(config);
   const engine = provider ? 'openai' : 'claude';
   // v1.1-W1a (T2): probe a MULTI-target list — [capabilityProbeUrl?]+[provider baseUrl?]+固定国内锚点
@@ -8883,6 +8887,8 @@ async function getCapabilities(config, force) {
   };
   _capCache = { at: now, value };
   return value;
+  })().finally(() => { _capInflight = null; }); // G1: 探测完成(成功/失败)清空 in-flight,下次冷调用重新探测
+  return _capInflight;
 }
 // Test/维护 aid: drop the capability cache so the next getCapabilities re-probes immediately.
 function invalidateCapabilityCache() { _capCache = null; }
@@ -13647,6 +13653,12 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             if (subNoProgressCount >= SUB_SEMANTIC_WARN_AT) {
               try { resultObj.loopWarning = `连续 ${subNoProgressCount} 次工具结果无新进展(语义死循环嫌疑);请换思路或缩小范围`; } catch { /* frozen */ }
             }
+            // G2: 语义死循环计数上报节点级看门狗 —— warn 只注入 tool_result 让模型自救,若模型忽略、继续
+            // 产出无进展结果(有事件但无新信息),节点级 watchdog 靠这个计数 abort 该节点(不拖死 DAG)。
+            // 只报整数倍阈值一次,避免每轮刷屏;节点级在达到 abort 阈值时兜底。
+            if (subNoProgressCount > 0 && subNoProgressCount % SUB_SEMANTIC_WARN_AT === 0) {
+              onEvent({ type: 'subagent_no_progress', subagentId, count: subNoProgressCount });
+            }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
           onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr, subagentId });
@@ -14905,6 +14917,26 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         }
       }
     }
+    // G2: 节点级语义死循环兜底 —— 子代理持续产出工具结果但内容指纹不变(subagent_no_progress 上报计数),
+    // warn 注入 tool_result 后模型仍不自救(有事件、非 idle,idle watchdog 抓不到)时,abort 该节点。
+    // 阈值 = warn 阈值的倍数(warn 在 SUB_SEMANTIC_WARN_AT=4,此处 3 倍=12 次无进展),给足自救机会后兜底。
+    // 归因 node.noProgressAborted → 失败归类 semantic_stall(区别于 idle_timeout / 常规失败)。
+    const NODE_NO_PROGRESS_ABORT_AT = 12;
+    if (!runtime.paused && !runtime.inPoolGrace && !(runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted))) {
+      for (const node of nodes) {
+        if (!node || node.status !== 'running' || node.noProgressAborted) continue;
+        const nctrl = runtime.nodeControls.get(node.id);
+        if (!nctrl || nctrl.signal.aborted) continue;
+        if ((Number(node.noProgressCount) || 0) >= NODE_NO_PROGRESS_ABORT_AT) {
+          node.noProgressAborted = true;
+          try { nctrl.abort('node_no_progress'); } catch { /* already aborted — treat as aborted */ }
+          recordAgentNodeProgress(run, node, { type: 'subagent_no_progress_aborted', text: `节点连续 ${node.noProgressCount} 次工具结果无新进展(语义死循环),已中止该节点` });
+          appendAgentRunEvent(run, { type: 'node_no_progress_aborted', nodeId: node.id, data: { noProgressCount: node.noProgressCount } });
+          try { onEvent({ type: 'stderr', text: `[watchdog] node ${node.id} no-progress ×${node.noProgressCount} — aborting node` }); } catch { /* observer gone */ }
+          throttledSaveRun();
+        }
+      }
+    }
     if (!wrapUpMs || runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) return;
     for (const node of nodes) {
       if (!node || node.status !== 'running' || !node.modelStartedAt) continue;
@@ -15245,6 +15277,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           const nodeEvent = evt => {
             runtime.lastActivityAt = Date.now();
             node.lastActivityAt = Date.now(); // A3: 节点级看门狗时钟 —— 子代理任何事件(含工具心跳 subagent_progress)都算该节点活跃
+            if (evt && evt.type === 'subagent_no_progress') node.noProgressCount = Math.max(Number(node.noProgressCount) || 0, Number(evt.count) || 0); // G2: 语义死循环计数上报 → 节点级 watchdog 兜底 abort
             if (evt && evt.type === 'subagent' && evt.state === 'start' && !node.modelStartedAt) node.modelStartedAt = nowIso();
             try { onEvent(evt); } finally { if (evt && evt.type === 'subagent_usage') accumulateRunUsage(run, evt); recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); }
           };
@@ -15288,9 +15321,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           }
           node.status = sub.ok ? 'succeeded' : 'failed';
           node.result = String(sub.result || '').slice(0, 24000);
-          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? '节点未在自动收尾宽限期内结束，已中止该节点' : (node.idleAborted ? `节点空闲超时（>${Math.round(nodeIdleLimitMs / 1000)}秒无进展），已中止该节点` : (sub.error || '子代理失败'))).slice(0, 4000);
+          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? '节点未在自动收尾宽限期内结束，已中止该节点' : (node.idleAborted ? `节点空闲超时（>${Math.round(nodeIdleLimitMs / 1000)}秒无进展），已中止该节点` : (node.noProgressAborted ? `节点连续 ${node.noProgressCount} 次工具结果无新进展（语义死循环），已中止该节点` : (sub.error || '子代理失败')))).slice(0, 4000);
           if (sub.ok) delete node.errorClass;
           else if (node.idleAborted) node.errorClass = 'idle_timeout'; // A3: 节点级卡死归因(区别于 workflow 级 idleAborted / 常规失败)
+          else if (node.noProgressAborted) node.errorClass = 'semantic_stall'; // G2: 语义死循环归因(有事件但结果无进展)
           else node.errorClass = classifyNodeErrorText(node.error); // 29c(重试成功即清旧类)
           // 审计 P2: 透传 degraded —— Claude CLI 产出可用输出后异常退出的「降级成功」(runClaudeSubAgentOnce 返回
           // {ok:true,degraded:true,warning})。此前被丢弃 → 前端整套「降级完成」渲染(app.js nodeDisplayStatus:
@@ -21883,6 +21917,9 @@ async function startServer(opts) {
   }
   // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
   void storageSweep(config.storagePolicy).catch(() => {});
+  // G1: 预热能力矩阵(网络探测/桌面 MCP 探测/二进制探测,首次可达 10s+)。fire-and-forget —— 探测慢/失败绝不
+  // 阻塞 listen;首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
+  void getCapabilities(config).catch(() => {});
   const port = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {
