@@ -200,7 +200,7 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
 
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], {
     cwd: WB, windowsHide: true,
-    env: { ...process.env, RUYI_HOME: HOME, WCW_RESOURCE_LEASE_TIMEOUT_MS: String(LEASE_TIMEOUT_MS), WCW_AGENT_WORKFLOW_IDLE_MS: String(IDLE_MS) },
+    env: { ...process.env, RUYI_HOME: HOME, WCW_RESOURCE_LEASE_TIMEOUT_MS: String(LEASE_TIMEOUT_MS), WCW_AGENT_WORKFLOW_IDLE_MS: String(IDLE_MS), WCW_AGENT_NODE_IDLE_MS: String(IDLE_MS) },
   });
   try {
     ok(await up(WP), 'workbench starts');
@@ -243,12 +243,12 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
     }, hdr);
     ok(wd && wd.ok === true && /^run_/.test(wd.runId || ''), 'watchdog workflow launches async with a run id');
 
-    const wdRun = await waitFor('wedged run is aborted by the idle watchdog', async () => {
+    const wdRun = await waitFor('wedged node is aborted by the node-level idle watchdog', async () => {
       const r = await get(WP, `/api/agent-runs?sessionId=${encodeURIComponent(sid)}`, hdr);
       const run = runOf(r, wd.runId);
-      return run && run.idleAborted === true && run;
+      return run && isTerminal(run.status) && run;
     });
-    ok(!!wdRun && wdRun.idleAborted === true, 'run.idleAborted is set — the idle watchdog fired on the async path');
+    ok(!!wdRun && wdRun.idleAborted !== true, 'run.idleAborted NOT set (node-level watchdog fired, not whole-run)');
     if (wdRun) {
       // 第42波修竞态:idleAborted 置位与 status 转终态不是同一步(置位后还要一个 tick 收尾)——
       // 高负载下会读到「已置位但尚未终态」的中间快照。轮询到终态再断言,而非只看置位时的快照。
@@ -257,7 +257,7 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
         const run = runOf(r, wd.runId);
         return run && isTerminal(run.status) && run;
       });
-      ok(!!termRun, 'wedged run reaches a terminal state after the watchdog abort');
+      const wnode = (wdRun.nodes || []).find(n => n.id === 'wedged'); ok(!!wnode && wnode.status === 'failed' && wnode.errorClass === 'idle_timeout', 'wedged node itself failed with errorClass idle_timeout (only that node aborted)');
       console.log('  watchdog run status:', termRun && termRun.status, '| idleAborted:', termRun && termRun.idleAborted);
     }
 

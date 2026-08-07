@@ -527,6 +527,16 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     lastStreamActivityEventAt = now;
     onEvent({ type: 'subagent_progress', subagentId, note: '模型流式响应中' });
   };
+  // A3: 工具执行心跳 —— 子代理 await 长工具(>watchdog idle 上限的 powershell_run/script_run 等)期间,
+  // 除 tool_use/tool_result 外不发任何事件,会被节点级/工作流级看门狗误判卡死而 abort。
+  // 工具执行(含资源租约等待)期间以 streamActivityEventMs 节流发 progress 事件刷新看门狗时钟;一执行完立即停。
+  let toolBeat = null;
+  const startToolBeat = () => {
+    if (toolBeat) return;
+    toolBeat = setInterval(() => { try { touchSubagentStream(); } catch { /* 心跳失败不阻断 */ } }, Math.max(1000, streamActivityEventMs));
+    if (toolBeat && toolBeat.unref) toolBeat.unref();
+  };
+  const stopToolBeat = () => { if (toolBeat) { clearInterval(toolBeat); toolBeat = null; } };
   // v1.4-OSS 用量看板(补): accumulate the sub-turn's OWN token usage (kept OUT of the parent's usage event —
   // the sub-agent bills as its own independent ledger row, never merged into the父回合, so no double counting).
   // Mirrors the parent markUsage's E4 alias handling (prompt_tokens|input_tokens / completion_tokens|output_tokens)
@@ -813,12 +823,13 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
                   // 锚定 parent turnSeq(与下方 sub-agent 内建文件工具 checkpoint 同一 turn),失败静默不阻断。
                   let toolLease = '';
                   try {
+                    startToolBeat();
                     const toolResources = inferToolResources(tc.name, args, bridge, workingDir, ntier);
                     toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
                     await journalBridgedWrite(tc.name, args, parentSession, config, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq });
                     resultObj = await client.callTool(bridge.toolName, args);
                   } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
-                  finally { releaseResourceLease(toolLease); }
+                  finally { stopToolBeat(); releaseResourceLease(toolLease); }
                 }
               }
             } else {
@@ -826,12 +837,13 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
               // v1.1-W2 (T1): thread parentSession+config so a sub-agent's http_download guards its dest too.
               let toolLease = '';
               try {
+                startToolBeat();
                 const toolResources = inferToolResources(tc.name, args, null, workingDir, ntier);
                 toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
                 resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir }); // P3-4: workingDir 单一真源
               }
               catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
-              finally { releaseResourceLease(toolLease); }
+              finally { stopToolBeat(); releaseResourceLease(toolLease); }
             }
           }
           // v1.x (B3): soft warning at the parent-parity threshold so the sub-agent can self-correct before the

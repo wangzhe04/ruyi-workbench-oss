@@ -13303,6 +13303,16 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     lastStreamActivityEventAt = now;
     onEvent({ type: 'subagent_progress', subagentId, note: '模型流式响应中' });
   };
+  // A3: 工具执行心跳 —— 子代理 await 长工具(>watchdog idle 上限的 powershell_run/script_run 等)期间,
+  // 除 tool_use/tool_result 外不发任何事件,会被节点级/工作流级看门狗误判卡死而 abort。
+  // 工具执行(含资源租约等待)期间以 streamActivityEventMs 节流发 progress 事件刷新看门狗时钟;一执行完立即停。
+  let toolBeat = null;
+  const startToolBeat = () => {
+    if (toolBeat) return;
+    toolBeat = setInterval(() => { try { touchSubagentStream(); } catch { /* 心跳失败不阻断 */ } }, Math.max(1000, streamActivityEventMs));
+    if (toolBeat && toolBeat.unref) toolBeat.unref();
+  };
+  const stopToolBeat = () => { if (toolBeat) { clearInterval(toolBeat); toolBeat = null; } };
   // v1.4-OSS 用量看板(补): accumulate the sub-turn's OWN token usage (kept OUT of the parent's usage event —
   // the sub-agent bills as its own independent ledger row, never merged into the父回合, so no double counting).
   // Mirrors the parent markUsage's E4 alias handling (prompt_tokens|input_tokens / completion_tokens|output_tokens)
@@ -13589,12 +13599,13 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
                   // 锚定 parent turnSeq(与下方 sub-agent 内建文件工具 checkpoint 同一 turn),失败静默不阻断。
                   let toolLease = '';
                   try {
+                    startToolBeat();
                     const toolResources = inferToolResources(tc.name, args, bridge, workingDir, ntier);
                     toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
                     await journalBridgedWrite(tc.name, args, parentSession, config, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq });
                     resultObj = await client.callTool(bridge.toolName, args);
                   } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
-                  finally { releaseResourceLease(toolLease); }
+                  finally { stopToolBeat(); releaseResourceLease(toolLease); }
                 }
               }
             } else {
@@ -13602,12 +13613,13 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
               // v1.1-W2 (T1): thread parentSession+config so a sub-agent's http_download guards its dest too.
               let toolLease = '';
               try {
+                startToolBeat();
                 const toolResources = inferToolResources(tc.name, args, null, workingDir, ntier);
                 toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
                 resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir }); // P3-4: workingDir 单一真源
               }
               catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
-              finally { releaseResourceLease(toolLease); }
+              finally { stopToolBeat(); releaseResourceLease(toolLease); }
             }
           }
           // v1.x (B3): soft warning at the parent-parity threshold so the sub-agent can self-correct before the
@@ -14810,6 +14822,12 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // we abort it via localCtrl (the same path a user Stop / parent abort takes). Cleared in the finally below;
   // .unref() so it never keeps the event loop alive. WCW_AGENT_WORKFLOW_IDLE_MS is a test seam.
   const idleLimitMs = Math.max(1000, Number(process.env.WCW_AGENT_WORKFLOW_IDLE_MS) || config.turnIdleTimeoutMs || 600000);
+  // A3: 节点级 idle 上限 —— 子代理节点卡死只失败该节点,不拖死整个 DAG。默认 = max(workflow 上限, 60s):
+  // 子代理活跃信号(流式/工具心跳 subagent_progress)节流间隔最多 15s,默认下限 60s 保证「活跃节点绝不
+  // 被误杀」(beat 至少 4 次才够到阈值);env seam WCW_AGENT_NODE_IDLE_MS 显式设置时尊重(≥1s,测试用)。
+  const nodeIdleLimitMs = process.env.WCW_AGENT_NODE_IDLE_MS != null
+    ? Math.max(1000, Number(process.env.WCW_AGENT_NODE_IDLE_MS) || idleLimitMs)
+    : Math.max(60000, idleLimitMs);
   runtime.lastActivityAt = Date.now(); // on the SHARED runtime so the resume handler can reset it atomically with clearing paused (closes the race where the watchdog fires after paused=false but before the loop resets the clock)
   let idleAborted = false;
   const idleWatchdog = setInterval(() => {
@@ -14854,6 +14872,26 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         });
       } catch { /* a disconnected observer must never crash the workflow */ }
     }
+    // A3: 节点级 idle watchdog —— 子代理节点卡死(无事件/流式/工具心跳超过 nodeIdleLimitMs)只 abort
+    // 该节点的 nodeCtrl,让 runSubAgent 返回失败、节点转 failed;其他节点继续。workflow 级(runtime.
+    // lastActivityAt)仍是整个 run 无进展的最终兜底。paused/inPoolGrace 期间不计空闲(同 workflow 级)。
+    // 只盯 running 节点:waiting_resource(等资源)与 wait 节点由 485 轮询即进展,不在此列。
+    if (!runtime.paused && !runtime.inPoolGrace && !(runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted))) {
+      for (const node of nodes) {
+        if (!node || node.status !== 'running' || node.idleAborted) continue;
+        const nctrl = runtime.nodeControls.get(node.id);
+        if (!nctrl || nctrl.signal.aborted) continue;
+        const lastAct = Number(node.lastActivityAt) || 0;
+        if (now - lastAct > nodeIdleLimitMs) {
+          node.idleAborted = true;
+          try { nctrl.abort('node_idle_timeout'); } catch { /* already aborted — treat as aborted */ }
+          recordAgentNodeProgress(run, node, { type: 'subagent_idle_aborted', text: `节点空闲超时(>${Math.round(nodeIdleLimitMs / 1000)}s 无进展),已中止该节点` });
+          appendAgentRunEvent(run, { type: 'node_idle_aborted', nodeId: node.id, data: { idleMs: now - lastAct, idleLimitMs: nodeIdleLimitMs } });
+          try { onEvent({ type: 'stderr', text: `[watchdog] node ${node.id} idle >${Math.round(nodeIdleLimitMs / 1000)}s — aborting node` }); } catch { /* observer gone */ }
+          throttledSaveRun();
+        }
+      }
+    }
     if (!wrapUpMs || runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) return;
     for (const node of nodes) {
       if (!node || node.status !== 'running' || !node.modelStartedAt) continue;
@@ -14867,6 +14905,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         node.wrapUpRequestedAt = nowIso();
         node.wrapUpDeadlineAt = new Date(now + wrapUpGraceMs).toISOString();
         runtime.lastActivityAt = now; // the control message is real workflow activity; the hard deadline stays bounded
+        node.lastActivityAt = now; // A3: steer 也是该节点活跃
         recordAgentNodeProgress(run, node, { type: 'subagent_steered', text: instruction, autoWrapUp: true });
         appendAgentRunEvent(run, { type: 'node_wrapup_requested', nodeId: node.id, data: { elapsedMs: now - modelStarted, graceMs: wrapUpGraceMs } });
         try { onEvent({ type: 'agent_workflow', state: 'node_wrapup_requested', id: runId, nodeId: node.id, elapsedMs: now - modelStarted, graceMs: wrapUpGraceMs }); } catch {}
@@ -14879,6 +14918,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         const nodeCtrl = runtime.nodeControls.get(node.id);
         try { if (nodeCtrl && nodeCtrl.signal && !nodeCtrl.signal.aborted) nodeCtrl.abort('node_wrapup_timeout'); } catch {}
         runtime.lastActivityAt = now;
+        node.lastActivityAt = now; // A3: wrapup 强制收尾也是该节点活跃(收尾后节点即将终态)
         recordAgentNodeProgress(run, node, { type: 'subagent_wrapup_forced', graceMs: wrapUpGraceMs });
         appendAgentRunEvent(run, { type: 'node_wrapup_forced', nodeId: node.id, data: { graceMs: wrapUpGraceMs } });
         try { onEvent({ type: 'agent_workflow', state: 'node_wrapup_forced', id: runId, nodeId: node.id, graceMs: wrapUpGraceMs }); } catch {}
@@ -15191,6 +15231,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           }
           const nodeEvent = evt => {
             runtime.lastActivityAt = Date.now();
+            node.lastActivityAt = Date.now(); // A3: 节点级看门狗时钟 —— 子代理任何事件(含工具心跳 subagent_progress)都算该节点活跃
             if (evt && evt.type === 'subagent' && evt.state === 'start' && !node.modelStartedAt) node.modelStartedAt = nowIso();
             try { onEvent(evt); } finally { if (evt && evt.type === 'subagent_usage') accumulateRunUsage(run, evt); recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); }
           };
@@ -15205,6 +15246,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             if (localCtrl.signal.aborted) abortNodeFromRun();
             else localCtrl.signal.addEventListener('abort', abortNodeFromRun, { once: true });
           }
+          node.lastActivityAt = Date.now(); // A3: 节点级看门狗时钟起点(派发即活跃)
           runtime.nodeControls.set(node.id, nodeCtrl);
           let sub;
           try {
@@ -15233,8 +15275,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           }
           node.status = sub.ok ? 'succeeded' : 'failed';
           node.result = String(sub.result || '').slice(0, 24000);
-          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? '节点未在自动收尾宽限期内结束，已中止该节点' : (sub.error || '子代理失败')).slice(0, 4000);
-          if (sub.ok) delete node.errorClass; else node.errorClass = classifyNodeErrorText(node.error); // 29c(重试成功即清旧类)
+          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? '节点未在自动收尾宽限期内结束，已中止该节点' : (node.idleAborted ? `节点空闲超时（>${Math.round(nodeIdleLimitMs / 1000)}秒无进展），已中止该节点` : (sub.error || '子代理失败'))).slice(0, 4000);
+          if (sub.ok) delete node.errorClass;
+          else if (node.idleAborted) node.errorClass = 'idle_timeout'; // A3: 节点级卡死归因(区别于 workflow 级 idleAborted / 常规失败)
+          else node.errorClass = classifyNodeErrorText(node.error); // 29c(重试成功即清旧类)
           // 审计 P2: 透传 degraded —— Claude CLI 产出可用输出后异常退出的「降级成功」(runClaudeSubAgentOnce 返回
           // {ok:true,degraded:true,warning})。此前被丢弃 → 前端整套「降级完成」渲染(app.js nodeDisplayStatus:
           // succeeded+node.degraded→'degraded')成死代码,残缺结果被当干净成功。status 维持 succeeded(确是成功),
