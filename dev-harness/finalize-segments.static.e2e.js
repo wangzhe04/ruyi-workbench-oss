@@ -124,7 +124,7 @@ ok(typeof tctx.bridgedToolTimeoutMs === 'function', 'F7 bridgedToolTimeoutMs 可
 if (typeof tctx.bridgedToolTimeoutMs === 'function') {
   ok(tctx.bridgedToolTimeoutMs('wait') === 310000, `F7a wait -> 310000ms (got ${tctx.bridgedToolTimeoutMs('wait')})`);
   ok(tctx.bridgedToolTimeoutMs('run_command') === 650000, 'F7b run_command -> 650000ms');
-  ok(tctx.bridgedToolTimeoutMs('file_read') === 120000, 'F7c 默认 -> 120000ms');
+  ok(tctx.bridgedToolTimeoutMs('file_read') === 900000, 'F7c 未知长工具默认 -> 900000ms');
   // override env path
   tctx.process.env.WCW_BRIDGED_TIMEOUT_OVERRIDE = 'wait:5000';
   ok(tctx.bridgedToolTimeoutMs('wait') === 5000, 'F7d WCW_BRIDGED_TIMEOUT_OVERRIDE 覆盖 wait -> 5000ms');

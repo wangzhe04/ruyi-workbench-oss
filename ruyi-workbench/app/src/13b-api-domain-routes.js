@@ -294,6 +294,9 @@ async function handleSteerApiRoute(req, res, pathname) {
     if (!Array.isArray(reg.steerQueue)) reg.steerQueue = [];
     if (reg.steerQueue.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '插话队列已满' }));
     reg.steerQueue.push(text);
+    // Wake an interruptible long-running tool immediately. This is event-driven (no model polling and no
+    // extra tokens); the provider loop preserves tool-call pairing, then drains the queued steer next.
+    try { if (typeof reg.interruptToolWait === 'function') reg.interruptToolWait(); } catch { /* best-effort */ }
     logEvent({ kind: 'intervention', source: 'steer', sessionId }); // 29c
     return send(res, json({ ok: true, queued: reg.steerQueue.length }));
   }

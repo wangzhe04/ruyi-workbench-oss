@@ -195,6 +195,7 @@ async function runClaudeTurn({
   {
     appendSys = String(config.appendSystemPrompt || '');
     appendSys += `${appendSys ? '\n\n' : ''}${getPromptPack(config && config.locale).toolProtocol.batching}`;
+    appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.asyncWork}`;
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.questioning}`;
     if (interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;

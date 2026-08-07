@@ -1280,6 +1280,9 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   lines.push(getPromptPack(config && config.locale).capability.line({ netStr, deskN, gitStr, rgStr }));
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   const offeredNames = new Set((tools || []).map(t => t && t.function && t.function.name).filter(Boolean));
+  if (offeredNames.has('spawn_agent') || offeredNames.has('shell_start')) {
+    lines.push(getPromptPack(config && config.locale).toolProtocol.asyncWork);
+  }
   if (offeredNames.has('spawn_agent')) {
     const concurrent = Math.max(1, Number(config && config.subagentMaxConcurrent) || 2);
     const total = Math.max(0, Number(config && config.subagentMaxPerTurn) || 0);

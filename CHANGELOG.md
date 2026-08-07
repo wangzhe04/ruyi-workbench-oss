@@ -10,6 +10,7 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### 中文
 
+- **长工具保活与即时插话**：Provider 工具等待期间按低频发送仅含耗时的 `tool_progress` 保活事件，不触发额外模型调用、不会消耗额外 token；未知第三方 MCP 工具的有界默认上限由 120 秒放宽到 15 分钟。用户插话会事件驱动地取消当前可中断 MCP/PowerShell/脚本工具，发送 `notifications/cancelled`、回收本地进程树并补齐合法 `tool_result`，随后立即把插话交给下一次模型迭代，不再等原工具自然返回。
 - **子 Agent 真并行 + 工作台 DAG**:`spawn_agent` 现统一进入持久化 Agent Run，普通临时委托也会映射到工作台 DAG；设置 `background:true` 可立即把 `runId/nodeId` 回执交还主会话，让主 Agent 继续独立工作，之后用 `wait_agents` 汇总（也可跨回合按 runId 收件）。未设置 background 时保留同步等待语义。
 - **未完成任务提示可关闭**:「上次任务未完成」横幅新增可访问的关闭按钮；关闭状态按会话与中断回合指纹保存，同一次中断不再反复出现，后续新的中断仍会正常提醒。
 - **服务端 web_search(DeepSeek Responses)**:新增 per-provider `serverWebSearch` 开关。开启后,Ruyi 的本地 `web_search` 函数工具映射为 DeepSeek 服务端 `{type:'web_search'}` 工具--由模型侧执行搜索并回带结果,工作台不再本地执行、不配对 `function_call_output`,原样透传进下一请求;关闭或不支持时自动回退本地 8 种后端。DeepSeek 预设默认声明该能力,从 UI 添加的预设不再静默丢失。
@@ -28,6 +29,7 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### English
 
+- **Long-tool liveness and immediate steering**: provider tool waits now emit low-frequency elapsed-only `tool_progress` events, keeping the stream alive without another model call or extra tokens; the bounded default for unknown third-party MCP tools rises from 120 seconds to 15 minutes. A user steer event-drives cancellation of the active interruptible MCP/PowerShell/script tool, sends `notifications/cancelled`, reaps local process trees, writes a valid paired `tool_result`, and immediately carries the steer into the next model iteration.
 - **True parent/child parallelism + Workbench DAG**: `spawn_agent` now always runs through a persisted Agent Run, so ad-hoc delegation is visible in the Workbench DAG. With `background:true`, it immediately returns a `runId/nodeId` receipt and the parent Agent can continue independent work, then collect via `wait_agents` (including by runId in a later turn). Omitting background preserves synchronous waiting.
 - **Dismissible unfinished-task banner**: the “previous task is unfinished” banner gains an accessible dismiss action. Dismissal is stored against the chat and interrupted-turn fingerprint, so the same interruption stays hidden while a later interruption still appears.
 - **Server-side web_search (DeepSeek Responses)**: adds a per-provider `serverWebSearch` toggle. When on, Ruyi's local `web_search` function tool is mapped to DeepSeek's server-side `{type:'web_search'}` tool - the model runs the search and returns results, so the workbench no longer executes it locally, pairs no `function_call_output`, and echoes the item into the next request; turning it off or using an unsupported provider falls back to the 8 local backends. The DeepSeek preset declares this capability by default, so adding it from the UI no longer silently drops it.

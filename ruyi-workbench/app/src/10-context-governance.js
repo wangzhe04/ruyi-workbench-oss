@@ -775,6 +775,7 @@ function runProcess(command, args, options = {}) {
     const outChunks = []; let outLen = 0;
     const errChunks = []; let errLen = 0;
     let timedOut = false;
+    let interrupted = false;
     const collect = (chunks, d, isOut) => {
       chunks.push(d);
       if (isOut) { outLen += d.length; while (outLen > CAP && outChunks.length > 1) outLen -= outChunks.shift().length; }
@@ -792,11 +793,14 @@ function runProcess(command, args, options = {}) {
     // 审计 P2: 单次结算门 —— close/error/超时兜底三条路径共用,防重复 resolve。
     let settled = false;
     let killGraceTimer = null;
+    const signal = options.signal;
+    let abortHandler = null;
     const finish = payload => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       if (killGraceTimer) clearTimeout(killGraceTimer);
+      if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
       resolve(payload);
     };
     const timer = setTimeout(() => {
@@ -809,10 +813,23 @@ function runProcess(command, args, options = {}) {
       killGraceTimer = setTimeout(() => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + '\n[timed out; process tree killed]', elapsedMs: Date.now() - start, timedOut: true }), 3000);
       if (killGraceTimer.unref) killGraceTimer.unref();
     }, timeoutMs);
+    abortHandler = () => {
+      if (settled) return;
+      interrupted = true;
+      killChildTree(child.pid);
+      // Keep the normal close event as the primary settlement path, but never make steering wait on a
+      // descendant that retained stdio handles after the tree kill.
+      killGraceTimer = setTimeout(() => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + '\n[interrupted by user steer; process tree killed]', elapsedMs: Date.now() - start, interrupted: true }), 1000);
+      if (killGraceTimer.unref) killGraceTimer.unref();
+    };
+    if (signal) {
+      signal.addEventListener('abort', abortHandler, { once: true });
+      if (signal.aborted) abortHandler();
+    }
     child.stdout?.on('data', d => collect(outChunks, d, true));
     child.stderr?.on('data', d => collect(errChunks, d, false));
     child.on('error', error => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + error.message, elapsedMs: Date.now() - start, timedOut }));
-    child.on('close', code => finish({ ok: code === 0 && !timedOut, code, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)), elapsedMs: Date.now() - start, timedOut }));
+    child.on('close', code => finish({ ok: code === 0 && !timedOut && !interrupted, code, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + (interrupted ? '\n[interrupted by user steer; process tree killed]' : ''), elapsedMs: Date.now() - start, timedOut, interrupted }));
   });
 }
 
@@ -820,13 +837,13 @@ function runProcess(command, args, options = {}) {
 // 参数里的中文会损坏(实测「娄山关」→「|???」——输入阶段就丢字,非输出解码问题)。改用带 BOM 的 UTF-8
 // 临时 .ps1 + `-File`:BOM 让 PS 无视控制台代码页、权威按 UTF-8 读脚本,中文 100% 正确进入。输出侧的 GBK
 // 乱码由 runProcess 的 decodeBestEffort 兜底(先 UTF-8、有替换符退 GBK)。两侧合起来彻底解决中文乱码。
-async function runPowerShell(command, cwd, timeoutMs) {
+async function runPowerShell(command, cwd, timeoutMs, signal) {
   const tmpFile = path.join(os.tmpdir(), `ruyi-ps-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.ps1`);
   await fsp.writeFile(tmpFile, '﻿' + command, 'utf8'); // UTF-8 BOM(﻿)+ 命令 → PS -File 权威按 UTF-8 读
   try {
     return await runProcess('powershell.exe', [
       '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tmpFile,
-    ], { cwd: cwd || os.homedir(), timeoutMs });
+    ], { cwd: cwd || os.homedir(), timeoutMs, signal });
   } finally {
     fsp.unlink(tmpFile).catch(() => {});
   }

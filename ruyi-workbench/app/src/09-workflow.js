@@ -1105,6 +1105,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // turn is live; the tool loop drains it at the iteration boundary (before each API call), injecting
     // each as a `[用户插话] …` user message into providerHistory (pairing-safe — see drainSteerQueue).
     steerQueue: [],
+    // Installed only while an interruptible tool is running. /api/steer invokes it after enqueueing the
+    // instruction, allowing the current tool reply to settle as an explicit interruption and the next model
+    // iteration to consume the steer immediately. Quiet/non-interruptible tools still get liveness heartbeats.
+    interruptToolWait: null,
     questionContext: '',
   };
   // External bridge/MCP activity can also arrive through the active-turn registry.  Keep that path symmetric
@@ -1290,6 +1294,53 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let turnTodos = null;                 // v0.8-S3: last todo_write items this turn (null = none written)
   const rawSeqRef = { n: 0 };
   const touch = () => { reg.lastEventAt = Date.now(); };
+  // Long tool calls used to look completely idle to both the HTTP stream and the turn watchdog. Keep their
+  // wait alive with a small elapsed-time event; this is transport/UI activity only and never starts another
+  // model iteration, so a ten-minute tool consumes zero additional model tokens. Interruptible runners also
+  // install an event-driven steer hook: /api/steer aborts the tool, its paired tool_result is written, and the
+  // already-queued user instruction is consumed at the next normal iteration boundary.
+  const toolHeartbeatMs = Math.max(250, Number(process.env.WCW_TOOL_HEARTBEAT_MS)
+    || Math.min(15000, Math.max(1000, Math.floor(idleLimitMs / 3))));
+  const INTERRUPTIBLE_NATIVE_TOOLS = new Set(['powershell_run', 'script_run']);
+  const awaitProviderTool = async (tc, runner, interruptible = false) => {
+    const startedAt = Date.now();
+    const toolAbort = interruptible ? new AbortController() : null;
+    const turnSignal = ctrl && ctrl.signal;
+    let turnAbortHandler = null;
+    let interrupted = false;
+    const interrupt = () => {
+      if (!toolAbort || toolAbort.signal.aborted) return;
+      interrupted = true;
+      toolAbort.abort('user_steer');
+    };
+    if (interruptible) reg.interruptToolWait = interrupt;
+    if (toolAbort && turnSignal) {
+      turnAbortHandler = () => toolAbort.abort('turn_stopped');
+      turnSignal.addEventListener('abort', turnAbortHandler, { once: true });
+      if (turnSignal.aborted) turnAbortHandler();
+    }
+    const heartbeat = setInterval(() => {
+      if (reg.exited || reg.state !== 'running') return;
+      touch();
+      onEvent({ type: 'tool_progress', id: tc.id, name: tc.name, state: 'waiting', elapsedMs: Date.now() - startedAt });
+    }, toolHeartbeatMs);
+    if (heartbeat && heartbeat.unref) heartbeat.unref();
+    // A steer can land after the provider emitted tool_calls but before execution reaches this item.
+    if (interruptible && reg.steerQueue && reg.steerQueue.length) interrupt();
+    try {
+      const result = await runner(toolAbort && toolAbort.signal);
+      if (interrupted && result && typeof result === 'object' && result.ok === false && !result.steerInterrupted) {
+        result.steerInterrupted = true;
+        if (!result.error) result.error = '工具已因用户插话中断，模型将立即处理新指令';
+      }
+      return result;
+    } finally {
+      clearInterval(heartbeat);
+      if (reg.interruptToolWait === interrupt) reg.interruptToolWait = null;
+      if (turnSignal && turnAbortHandler) turnSignal.removeEventListener('abort', turnAbortHandler);
+      touch();
+    }
+  };
   // Nested agents emit their own progress stream while the parent tool call is awaiting completion.  Forwarding
   // through this wrapper makes every genuine child/workflow event count as parent-turn activity.  A child that
   // emits nothing is still stopped by the existing watchdog, so this does not turn the timeout into an unlimited
@@ -1928,7 +1979,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                       const toolResources = inferToolResources(tc.name, args, bridge, workingDir, tier);
                       toolLease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
                       await journalBridgedWrite(tc.name, args, session, config, { sessionId: session.id, turnSeq: session.turnSeq });
-                      resultObj = await client.callTool(bridge.toolName, args);
+                      resultObj = await awaitProviderTool(
+                        tc,
+                        signal => client.callTool(bridge.toolName, args, undefined, { signal }),
+                        true,
+                      );
                     } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                     finally { releaseResourceLease(toolLease); }
                   }
@@ -1972,7 +2027,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 try {
                   const toolResources = inferToolResources(tc.name, args, null, workingDir, tier);
                   toolLease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
-                  resultObj = await toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir }); // P3-4: workingDir 单一真源(skill_read 优先用它)
+                  resultObj = await awaitProviderTool(
+                    tc,
+                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
+                    INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
+                  ); // P3-4: workingDir 单一真源(skill_read 优先用它)
                 }
                 catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                 finally { releaseResourceLease(toolLease); }

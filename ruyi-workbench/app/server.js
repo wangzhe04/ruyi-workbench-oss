@@ -5766,7 +5766,8 @@ function killChildTree(pid) {
   }
 }
 
-// 47b 桥超时契约:按工具声明式超时表(裸名小写)。默认 120s;长时工具按其自身参数上限放宽 ——
+// 47b/长工具保活:按工具声明式超时表(裸名小写)。未知工具默认 15min 有界上限;
+// 已知工具仍按其自身参数上限收紧 ——
 // ACC run_command timeout cap 600s / launch_application wait_timeout cap 600s,桥给 650s(含网络缓冲),
 // 消灭"桥先 120s 死、ACC 侧 600s 任务变僵尸"的契约错位(03 方案 Phase A 核心项)。
 // WCW_BRIDGED_TIMEOUT_OVERRIDE='name:ms,name:ms' 是测试缝(e2e 把秒级超时打进 fake 工具)。
@@ -5774,11 +5775,14 @@ const BRIDGED_TOOL_TIMEOUTS = {
   run_command: 650000,
   launch_application: 650000,
   macro_run: 300000,
-  // ACC `wait` caps at 300s and time.sleep()s it; the default 120s bridge would kill a legitimate
+  // ACC `wait` caps at 300s and time.sleep()s it; the old 120s bridge would kill a legitimate
   // wait(300) at 120s and tear down the whole ACC process tree for doing exactly what was asked.
   wait: 310000,
 };
-const BRIDGED_TOOL_TIMEOUT_DEFAULT_MS = 120000;
+// Unknown third-party tools may legitimately render/export/index for several minutes without emitting MCP
+// progress. Give them a bounded long-task ceiling; the provider stream now emits token-free liveness events,
+// and Stop/steer can cancel the active request immediately, so this no longer creates an unresponsive wait.
+const BRIDGED_TOOL_TIMEOUT_DEFAULT_MS = 900000;
 function bridgedToolTimeoutMs(name) {
   const bare = String(name || '').toLowerCase();
   const ov = String(process.env.WCW_BRIDGED_TIMEOUT_OVERRIDE || '');
@@ -6061,24 +6065,42 @@ class McpStdioClient {
   }
 
   // Send one JSON-RPC request and await its result (by id). Rejects on timeout/child death.
-  _rpc(method, params, timeoutMs = 8000) {
+  _rpc(method, params, timeoutMs = 8000, options = {}) {
     return new Promise((resolve, reject) => {
       if (this.dead || !this.child || !this.child.stdin || !this.child.stdin.writable) {
         return reject(new Error('mcp client not running'));
       }
       const id = this._nextId++;
+      const signal = options && options.signal;
+      let abortHandler = null;
+      const cleanup = () => {
+        clearTimeout(timer);
+        if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
+      };
       const timer = setTimeout(() => {
         this._pending.delete(id);
         // 47b 桥 cancel 契约:tools/call 超时先按 MCP 标准发 notifications/cancelled(对端若实现协作式取消
         // 可收手);真正的兜底是 callTool catch 里的 kill 进程树(ACC 侧不响应取消也不留僵尸执行)。
         if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
+        cleanup();
         reject(new Error(`mcp ${method} timed out`));
       }, Math.max(1000, timeoutMs));
-      this._pending.set(id, { resolve, reject, timer });
+      abortHandler = () => {
+        if (!this._pending.has(id)) return;
+        this._pending.delete(id);
+        if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'user_steer' }); } catch { /* best-effort */ } }
+        cleanup();
+        reject(new Error(`mcp ${method} aborted by user steer`));
+      };
+      this._pending.set(id, { resolve, reject, timer, cleanup });
+      if (signal) {
+        signal.addEventListener('abort', abortHandler, { once: true });
+        if (signal.aborted) { abortHandler(); return; }
+      }
       try {
         this.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params: params || {} }) + '\n', 'utf8');
       } catch (e) {
-        clearTimeout(timer); this._pending.delete(id); reject(e);
+        cleanup(); this._pending.delete(id); reject(e);
       }
     });
   }
@@ -6094,13 +6116,13 @@ class McpStdioClient {
     if (!msg || msg.id == null) return;          // notifications/logs from the server: ignore
     const p = this._pending.get(msg.id);
     if (!p) return;
-    clearTimeout(p.timer);
+    if (p.cleanup) p.cleanup(); else clearTimeout(p.timer);
     this._pending.delete(msg.id);
     if (msg.error) p.reject(new Error(msg.error.message || 'mcp error'));
     else p.resolve(msg.result);
   }
   _failAllPending(err) {
-    for (const [, p] of this._pending) { clearTimeout(p.timer); try { p.reject(err); } catch { /* settled */ } }
+    for (const [, p] of this._pending) { if (p.cleanup) p.cleanup(); else clearTimeout(p.timer); try { p.reject(err); } catch { /* settled */ } }
     this._pending.clear();
   }
 
@@ -6169,10 +6191,10 @@ class McpStdioClient {
   // Call a tool and normalize the MCP result into a workbench result object. Never throws.
   // 47b:超时走契约化处理 —— notifications/cancelled(_rpc 内已发)+ kill 客户端进程树(无僵尸执行),
   // 下次调用由 mcpClients 惰性重 spawn。错误文本如实告知"已杀进程树"。
-  async callTool(name, args, timeoutMs) {
+  async callTool(name, args, timeoutMs, options = {}) {
     const limit = Math.max(1000, Number(timeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
-      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit);
+      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
       const isError = !!(res && res.isError);
       // Prefer the first text content block; parse it as JSON when it is JSON (desktop MCP returns {ok,...}).
       let textOut = '';
@@ -6192,6 +6214,12 @@ class McpStdioClient {
       return { ok: !isError, content: (res && res.content) || [] };
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
+      if (/aborted by user steer/.test(m)) {
+        // A cooperative notification is not enough for an arbitrary local MCP server: terminate the
+        // process tree as the safety backstop so an interrupted write cannot continue as a zombie.
+        try { this.kill(); } catch { /* already dead */ }
+        return { ok: false, error: '工具已因用户插话中断；桥接进程树已终止，模型将立即处理新指令', steerInterrupted: true };
+      }
       if (/timed out/.test(m)) {
         // 47b:超时即杀桥进程树 —— 旧行为是桥先超时、ACC 继续僵尸执行(用户"纠偏"后旧命令仍在后台写文件,
         // 比不能打断更危险)。cancelled 通知已在 _rpc 超时点发出;此处保证无论对端是否协作取消都不留活口。
@@ -6242,7 +6270,7 @@ class McpHttpClient {
   }
 
   _failAllPending(err) {
-    for (const [, p] of this._pending) { clearTimeout(p.timer); try { p.reject(err); } catch { /* settled */ } }
+    for (const [, p] of this._pending) { if (p.cleanup) p.cleanup(); else clearTimeout(p.timer); try { p.reject(err); } catch { /* settled */ } }
     this._pending.clear();
   }
 
@@ -6257,11 +6285,20 @@ class McpHttpClient {
   }
 
   // One HTTP request. Returns { status, headers, body } (body = Buffer, capped at 8MB). Never throws.
-  _request(method, urlStr, payload, timeoutMs, extraHeaders) {
+  _request(method, urlStr, payload, timeoutMs, extraHeaders, options = {}) {
     return new Promise(resolve => {
       let u; try { u = new URL(urlStr); } catch { return resolve({ error: 'bad url: ' + urlStr }); }
       const lib = u.protocol === 'https:' ? require('https') : http;
       const bodyBuf = payload ? Buffer.from(JSON.stringify(payload), 'utf8') : null;
+      const signal = options && options.signal;
+      let settled = false;
+      let abortHandler = null;
+      const finish = value => {
+        if (settled) return;
+        settled = true;
+        if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
+        resolve(value);
+      };
       const req = lib.request(u, {
         method,
         headers: { ...this._baseHeaders(extraHeaders), ...(bodyBuf ? { 'Content-Length': bodyBuf.length } : {}) },
@@ -6273,11 +6310,16 @@ class McpHttpClient {
           size += c.length;
           if (size <= 8 * 1024 * 1024) chunks.push(c); // cap runaway bodies
         });
-        res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
-        res.on('error', e => resolve({ error: (e && e.message) || String(e) }));
+        res.on('end', () => finish({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+        res.on('error', e => finish({ error: (e && e.message) || String(e) }));
       });
       req.on('timeout', () => { req.destroy(new Error('request timed out')); });
-      req.on('error', e => resolve({ error: (e && e.message) || String(e) }));
+      req.on('error', e => finish({ error: (e && e.message) || String(e) }));
+      abortHandler = () => req.destroy(new Error('request aborted by user steer'));
+      if (signal) {
+        signal.addEventListener('abort', abortHandler, { once: true });
+        if (signal.aborted) abortHandler();
+      }
       if (bodyBuf) req.write(bodyBuf);
       req.end();
     });
@@ -6306,14 +6348,14 @@ class McpHttpClient {
   }
 
   // streamable-HTTP round trip: POST one JSON-RPC message, resolve with the matching-id result.
-  async _rpcHttp(method, params, timeoutMs) {
+  async _rpcHttp(method, params, timeoutMs, options = {}) {
     if (this.dead) throw new Error('mcp client not running');
     const id = this._nextId++;
-    const resp = await this._request('POST', this.url, { jsonrpc: '2.0', id, method, params: params || {} }, timeoutMs);
+    const resp = await this._request('POST', this.url, { jsonrpc: '2.0', id, method, params: params || {} }, timeoutMs, null, options);
     if (resp.error) {
       // 49c 对抗验证修(第50波):_rpcHttp 超时也发 notifications/cancelled(与 _rpcSse/stdio _rpc 一致--
       //   对端若实现协作式取消可收手,不留无主处理)。连接可能已断,_notify 静默失败 best-effort。
-      if (method === 'tools/call' && /timed out/i.test(resp.error)) { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
+      if (method === 'tools/call' && /timed out|aborted by user steer/i.test(resp.error)) { try { this._notify('notifications/cancelled', { requestId: id, reason: /aborted/i.test(resp.error) ? 'user_steer' : 'timeout' }); } catch { /* best-effort */ } }
       throw new Error('mcp http: ' + resp.error);
     }
     const sid = resp.headers && (resp.headers['mcp-session-id'] || resp.headers['Mcp-Session-Id']);
@@ -6329,28 +6371,46 @@ class McpHttpClient {
   }
 
   // legacy-SSE round trip: POST to the endpoint uri (202 ack), the result arrives on the GET stream.
-  _rpcSse(method, params, timeoutMs) {
+  _rpcSse(method, params, timeoutMs, options = {}) {
     return new Promise((resolve, reject) => {
       if (this.dead || !this._ssePostUrl) return reject(new Error('mcp sse: 事件流未就绪'));
       const id = this._nextId++;
+      const signal = options && options.signal;
+      let abortHandler = null;
+      const cleanup = () => {
+        clearTimeout(timer);
+        if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
+      };
       const timer = setTimeout(() => {
         this._pending.delete(id);
         if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
+        cleanup();
         reject(new Error(`mcp ${method} timed out`));
       }, Math.max(1000, timeoutMs));
-      this._pending.set(id, { resolve, reject, timer });
-      this._request('POST', this._ssePostUrl, { jsonrpc: '2.0', id, method, params: params || {} }, timeoutMs)
+      abortHandler = () => {
+        if (!this._pending.has(id)) return;
+        this._pending.delete(id);
+        if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'user_steer' }); } catch { /* best-effort */ } }
+        cleanup();
+        reject(new Error(`mcp ${method} aborted by user steer`));
+      };
+      this._pending.set(id, { resolve, reject, timer, cleanup });
+      if (signal) {
+        signal.addEventListener('abort', abortHandler, { once: true });
+        if (signal.aborted) { abortHandler(); return; }
+      }
+      this._request('POST', this._ssePostUrl, { jsonrpc: '2.0', id, method, params: params || {} }, timeoutMs, null, options)
         .then(resp => {
           if (resp.error || (resp.status && resp.status >= 400)) {
-            clearTimeout(timer); this._pending.delete(id);
+            cleanup(); this._pending.delete(id);
             reject(new Error('mcp sse post: ' + (resp.error || ('HTTP ' + resp.status))));
           }
         });
     });
   }
 
-  _rpc(method, params, timeoutMs = 8000) {
-    return this.transport === 'sse' ? this._rpcSse(method, params, timeoutMs) : this._rpcHttp(method, params, timeoutMs);
+  _rpc(method, params, timeoutMs = 8000, options = {}) {
+    return this.transport === 'sse' ? this._rpcSse(method, params, timeoutMs, options) : this._rpcHttp(method, params, timeoutMs, options);
   }
 
   _notify(method, params) {
@@ -6390,7 +6450,7 @@ class McpHttpClient {
           if (msgObj.id != null) {
             const p = this._pending.get(msgObj.id);
             if (p) {
-              clearTimeout(p.timer); this._pending.delete(msgObj.id);
+              if (p.cleanup) p.cleanup(); else clearTimeout(p.timer); this._pending.delete(msgObj.id);
               if (msgObj.error) p.reject(new Error(msgObj.error.message || 'mcp error'));
               else p.resolve(msgObj.result);
             }
@@ -6453,10 +6513,10 @@ class McpHttpClient {
   }
 
   // Same result normalization as McpStdioClient.callTool — never throws.
-  async callTool(name, args, timeoutMs) {
+  async callTool(name, args, timeoutMs, options = {}) {
     const limit = Math.max(1000, Number(timeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
-      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit);
+      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
       const isError = !!(res && res.isError);
       let textOut = '';
       if (res && Array.isArray(res.content)) {
@@ -6474,6 +6534,10 @@ class McpHttpClient {
       return { ok: !isError, content: (res && res.content) || [] };
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
+      if (/aborted by user steer/.test(m)) {
+        try { this.kill(); } catch { /* already dead */ }
+        return { ok: false, error: '工具已因用户插话中断；远程 MCP 连接已重置，模型将立即处理新指令', steerInterrupted: true };
+      }
       if (/timed out/.test(m)) {
         // 远程无进程树可杀 —— 断连接 + 下次调用惰性重建(sse 流 / session 重新握手)。
         try { this.kill(); } catch { /* already dead */ }
@@ -7608,6 +7672,7 @@ async function runClaudeTurn({
   {
     appendSys = String(config.appendSystemPrompt || '');
     appendSys += `${appendSys ? '\n\n' : ''}${getPromptPack(config && config.locale).toolProtocol.batching}`;
+    appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.asyncWork}`;
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.questioning}`;
     if (interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
@@ -9878,6 +9943,9 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   lines.push(getPromptPack(config && config.locale).capability.line({ netStr, deskN, gitStr, rgStr }));
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   const offeredNames = new Set((tools || []).map(t => t && t.function && t.function.name).filter(Boolean));
+  if (offeredNames.has('spawn_agent') || offeredNames.has('shell_start')) {
+    lines.push(getPromptPack(config && config.locale).toolProtocol.asyncWork);
+  }
   if (offeredNames.has('spawn_agent')) {
     const concurrent = Math.max(1, Number(config && config.subagentMaxConcurrent) || 2);
     const total = Math.max(0, Number(config && config.subagentMaxPerTurn) || 0);
@@ -10087,7 +10155,7 @@ function appendMemorySection(base, memSec, limit) {
 // 设计:文本逐字搬(与原内联一致,prompt-snapshot 断言中文标记不变->护栏绿)。带参数的层用模板函数
 // (params 白名单),无参数的用纯字符串。条件分支(hasTools/identityOnly/deskPresent/visionCap 等)留 JS 层。
 
-const PROMPT_PACK_VERSION = '2026-w85-1';
+const PROMPT_PACK_VERSION = '2026-w86-1';
 
 // 中文提示词包(Phase1 基线,与原内联文本逐字一致)
 const PROMPT_ZH = {
@@ -10100,6 +10168,7 @@ const PROMPT_ZH = {
     intro: '你有读/列/搜文件、编辑与写文件、运行 PowerShell 与脚本、查看 git 等工具。用它们实际检查与修改工作区，不要凭空猜测。使用绝对 Windows 路径（默认落在工作目录）。',
     rules: '工具协议守则：先读后改（编辑前先读该文件）；最小、精准的改动；工具返回 found:false / 未命中属正常语义，不是错误；重要或多步操作先用 todo_write 列出计划再执行；完成后给一段简洁的变更摘要。',
     batching: '工具批次：参数已确定且互不依赖的调用，在同一条助手消息中一次发出，结果按所列顺序返回。后一步依赖前一步结果时分阶段调用：先等本批 tool_result 再发下一批。request_user_input、权限决策及有先读后改依赖的写操作必须分批。',
+    asyncWork: '长任务并行：预计耗时较长且与主线独立的工作，优先用 background:true 的子代理或持久 shell 启动后继续推进其他事项，真正需要结果时再 wait/poll；不要高频空轮询。没有可并行事项时使用一次较长等待，不要用多个短等待消耗 token。',
     questioning: '向用户提问时优先给出 2–5 个具体、互斥且可直接点击的选项；把建议项放在第一位并在标签中标明“（推荐）”，同时保留“其他”输入作为兜底。只有答案确实无法合理枚举时才使用纯文本回答，不能为了省事把本可选择的问题丢给用户手写。',
     onDemand: '工具按需装载：当前只提供任务预判所需的工具。不知道有哪些能力时先调用 list_tools；知道目标时直接调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。',
     priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
@@ -10171,6 +10240,7 @@ const PROMPT_EN = {
     intro: 'You have tools to read/list/search files, edit and write files, run PowerShell and scripts, inspect git, and more. Use them to actually check and modify the workspace; do not guess. Use absolute Windows paths (they default to the working directory).',
     rules: 'Tool protocol: read before edit (read the file before editing it); make minimal, precise changes; a tool returning found:false / no-match is normal semantics, not an error; for important or multi-step operations, list a plan with todo_write first, then execute; after finishing, give a brief change summary.',
     batching: 'Tool batching: emit calls with fixed arguments and no dependencies together in one assistant message; results return in listed order. If a later call depends on an earlier result, wait for this tool_result batch before sending the next. Keep request_user_input, permission decisions, and writes with read-before-edit dependencies in separate batches.',
+    asyncWork: 'Long-task concurrency: when slow work is independent of the main line, prefer a background:true sub-agent or persistent shell, continue other work, and wait/poll only when its result is actually needed. Do not busy-poll. If nothing else can proceed, use one longer wait instead of many short waits that waste tokens.',
     questioning: 'When asking the user, prefer 2–5 concrete, mutually exclusive, directly clickable options. Put the recommended option first and suffix its label with “(Recommended)”, while keeping an Other input as a fallback. Use a text-only answer only when the answer genuinely cannot be enumerated; do not make the user type a choice that could have been offered.',
     onDemand: 'On-demand tool loading: only the tools the current task likely needs are provided. If you do not know what capabilities exist, call list_tools first; when you know the target, call tool_search, then tool_load with the returned pack or exact tool name. After a successful load, call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.',
     priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
@@ -15578,6 +15648,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // turn is live; the tool loop drains it at the iteration boundary (before each API call), injecting
     // each as a `[用户插话] …` user message into providerHistory (pairing-safe — see drainSteerQueue).
     steerQueue: [],
+    // Installed only while an interruptible tool is running. /api/steer invokes it after enqueueing the
+    // instruction, allowing the current tool reply to settle as an explicit interruption and the next model
+    // iteration to consume the steer immediately. Quiet/non-interruptible tools still get liveness heartbeats.
+    interruptToolWait: null,
     questionContext: '',
   };
   // External bridge/MCP activity can also arrive through the active-turn registry.  Keep that path symmetric
@@ -15763,6 +15837,53 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let turnTodos = null;                 // v0.8-S3: last todo_write items this turn (null = none written)
   const rawSeqRef = { n: 0 };
   const touch = () => { reg.lastEventAt = Date.now(); };
+  // Long tool calls used to look completely idle to both the HTTP stream and the turn watchdog. Keep their
+  // wait alive with a small elapsed-time event; this is transport/UI activity only and never starts another
+  // model iteration, so a ten-minute tool consumes zero additional model tokens. Interruptible runners also
+  // install an event-driven steer hook: /api/steer aborts the tool, its paired tool_result is written, and the
+  // already-queued user instruction is consumed at the next normal iteration boundary.
+  const toolHeartbeatMs = Math.max(250, Number(process.env.WCW_TOOL_HEARTBEAT_MS)
+    || Math.min(15000, Math.max(1000, Math.floor(idleLimitMs / 3))));
+  const INTERRUPTIBLE_NATIVE_TOOLS = new Set(['powershell_run', 'script_run']);
+  const awaitProviderTool = async (tc, runner, interruptible = false) => {
+    const startedAt = Date.now();
+    const toolAbort = interruptible ? new AbortController() : null;
+    const turnSignal = ctrl && ctrl.signal;
+    let turnAbortHandler = null;
+    let interrupted = false;
+    const interrupt = () => {
+      if (!toolAbort || toolAbort.signal.aborted) return;
+      interrupted = true;
+      toolAbort.abort('user_steer');
+    };
+    if (interruptible) reg.interruptToolWait = interrupt;
+    if (toolAbort && turnSignal) {
+      turnAbortHandler = () => toolAbort.abort('turn_stopped');
+      turnSignal.addEventListener('abort', turnAbortHandler, { once: true });
+      if (turnSignal.aborted) turnAbortHandler();
+    }
+    const heartbeat = setInterval(() => {
+      if (reg.exited || reg.state !== 'running') return;
+      touch();
+      onEvent({ type: 'tool_progress', id: tc.id, name: tc.name, state: 'waiting', elapsedMs: Date.now() - startedAt });
+    }, toolHeartbeatMs);
+    if (heartbeat && heartbeat.unref) heartbeat.unref();
+    // A steer can land after the provider emitted tool_calls but before execution reaches this item.
+    if (interruptible && reg.steerQueue && reg.steerQueue.length) interrupt();
+    try {
+      const result = await runner(toolAbort && toolAbort.signal);
+      if (interrupted && result && typeof result === 'object' && result.ok === false && !result.steerInterrupted) {
+        result.steerInterrupted = true;
+        if (!result.error) result.error = '工具已因用户插话中断，模型将立即处理新指令';
+      }
+      return result;
+    } finally {
+      clearInterval(heartbeat);
+      if (reg.interruptToolWait === interrupt) reg.interruptToolWait = null;
+      if (turnSignal && turnAbortHandler) turnSignal.removeEventListener('abort', turnAbortHandler);
+      touch();
+    }
+  };
   // Nested agents emit their own progress stream while the parent tool call is awaiting completion.  Forwarding
   // through this wrapper makes every genuine child/workflow event count as parent-turn activity.  A child that
   // emits nothing is still stopped by the existing watchdog, so this does not turn the timeout into an unlimited
@@ -16401,7 +16522,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                       const toolResources = inferToolResources(tc.name, args, bridge, workingDir, tier);
                       toolLease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
                       await journalBridgedWrite(tc.name, args, session, config, { sessionId: session.id, turnSeq: session.turnSeq });
-                      resultObj = await client.callTool(bridge.toolName, args);
+                      resultObj = await awaitProviderTool(
+                        tc,
+                        signal => client.callTool(bridge.toolName, args, undefined, { signal }),
+                        true,
+                      );
                     } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                     finally { releaseResourceLease(toolLease); }
                   }
@@ -16445,7 +16570,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 try {
                   const toolResources = inferToolResources(tc.name, args, null, workingDir, tier);
                   toolLease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
-                  resultObj = await toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir }); // P3-4: workingDir 单一真源(skill_read 优先用它)
+                  resultObj = await awaitProviderTool(
+                    tc,
+                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
+                    INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
+                  ); // P3-4: workingDir 单一真源(skill_read 优先用它)
                 }
                 catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                 finally { releaseResourceLease(toolLease); }
@@ -17552,6 +17681,7 @@ function runProcess(command, args, options = {}) {
     const outChunks = []; let outLen = 0;
     const errChunks = []; let errLen = 0;
     let timedOut = false;
+    let interrupted = false;
     const collect = (chunks, d, isOut) => {
       chunks.push(d);
       if (isOut) { outLen += d.length; while (outLen > CAP && outChunks.length > 1) outLen -= outChunks.shift().length; }
@@ -17569,11 +17699,14 @@ function runProcess(command, args, options = {}) {
     // 审计 P2: 单次结算门 —— close/error/超时兜底三条路径共用,防重复 resolve。
     let settled = false;
     let killGraceTimer = null;
+    const signal = options.signal;
+    let abortHandler = null;
     const finish = payload => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       if (killGraceTimer) clearTimeout(killGraceTimer);
+      if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
       resolve(payload);
     };
     const timer = setTimeout(() => {
@@ -17586,10 +17719,23 @@ function runProcess(command, args, options = {}) {
       killGraceTimer = setTimeout(() => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + '\n[timed out; process tree killed]', elapsedMs: Date.now() - start, timedOut: true }), 3000);
       if (killGraceTimer.unref) killGraceTimer.unref();
     }, timeoutMs);
+    abortHandler = () => {
+      if (settled) return;
+      interrupted = true;
+      killChildTree(child.pid);
+      // Keep the normal close event as the primary settlement path, but never make steering wait on a
+      // descendant that retained stdio handles after the tree kill.
+      killGraceTimer = setTimeout(() => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + '\n[interrupted by user steer; process tree killed]', elapsedMs: Date.now() - start, interrupted: true }), 1000);
+      if (killGraceTimer.unref) killGraceTimer.unref();
+    };
+    if (signal) {
+      signal.addEventListener('abort', abortHandler, { once: true });
+      if (signal.aborted) abortHandler();
+    }
     child.stdout?.on('data', d => collect(outChunks, d, true));
     child.stderr?.on('data', d => collect(errChunks, d, false));
     child.on('error', error => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + error.message, elapsedMs: Date.now() - start, timedOut }));
-    child.on('close', code => finish({ ok: code === 0 && !timedOut, code, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)), elapsedMs: Date.now() - start, timedOut }));
+    child.on('close', code => finish({ ok: code === 0 && !timedOut && !interrupted, code, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + (interrupted ? '\n[interrupted by user steer; process tree killed]' : ''), elapsedMs: Date.now() - start, timedOut, interrupted }));
   });
 }
 
@@ -17597,13 +17743,13 @@ function runProcess(command, args, options = {}) {
 // 参数里的中文会损坏(实测「娄山关」→「|???」——输入阶段就丢字,非输出解码问题)。改用带 BOM 的 UTF-8
 // 临时 .ps1 + `-File`:BOM 让 PS 无视控制台代码页、权威按 UTF-8 读脚本,中文 100% 正确进入。输出侧的 GBK
 // 乱码由 runProcess 的 decodeBestEffort 兜底(先 UTF-8、有替换符退 GBK)。两侧合起来彻底解决中文乱码。
-async function runPowerShell(command, cwd, timeoutMs) {
+async function runPowerShell(command, cwd, timeoutMs, signal) {
   const tmpFile = path.join(os.tmpdir(), `ruyi-ps-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.ps1`);
   await fsp.writeFile(tmpFile, '﻿' + command, 'utf8'); // UTF-8 BOM(﻿)+ 命令 → PS -File 权威按 UTF-8 读
   try {
     return await runProcess('powershell.exe', [
       '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tmpFile,
-    ], { cwd: cwd || os.homedir(), timeoutMs });
+    ], { cwd: cwd || os.homedir(), timeoutMs, signal });
   } finally {
     fsp.unlink(tmpFile).catch(() => {});
   }
@@ -19964,7 +20110,7 @@ const ARCHIVE_TOOL_HANDLERS = {
 
 const SHELL_TOOL_HANDLERS = {
   powershell_run: { paths: null, guardNote: "任意 shell 命令,exec tier+权限弹窗/授权书把守;路径闸对自由命令不可施", handler: async (args, ctx) => {
-      return runPowerShell(String(args.command || ''), args.cwd, args.timeoutMs);
+      return runPowerShell(String(args.command || ''), args.cwd, args.timeoutMs, ctx && ctx.signal);
   } },
   script_run: { paths: null, guardNote: "任意脚本执行(落 generated/scripts 应用自选目录),exec tier+权限链把守;Office 手写软闸内置", handler: async (args, ctx) => {
       // v1.2 返修(用户实测证明:Office 产出规程提示词在续聊/惯性场景拦不住)——脚本手写 Office 的
@@ -19990,18 +20136,19 @@ const SHELL_TOOL_HANDLERS = {
       if (language === 'python') {
         const p = path.join(dir, `${id}.py`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return runProcess('python', [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000 });
+        return runProcess('python', [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       if (language === 'node' || language === 'javascript') {
         const p = path.join(dir, `${id}.js`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return runProcess(process.execPath, [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000 });
+        return runProcess(process.execPath, [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       const p = path.join(dir, `${id}.ps1`);
       await fsp.writeFile(p, String(args.code || ''), 'utf8');
       return runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', p], {
         cwd: args.cwd || os.homedir(),
         timeoutMs: args.timeoutMs || 60000,
+        signal: ctx && ctx.signal,
       });
   } },
   shell_start: { paths: null, guardNote: "持久 shell 会话状态面,exec tier 门+MCP 子进程拒;不直接触文件路径", handler: async (args, ctx) => {
@@ -22901,6 +23048,9 @@ async function handleSteerApiRoute(req, res, pathname) {
     if (!Array.isArray(reg.steerQueue)) reg.steerQueue = [];
     if (reg.steerQueue.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '插话队列已满' }));
     reg.steerQueue.push(text);
+    // Wake an interruptible long-running tool immediately. This is event-driven (no model polling and no
+    // extra tokens); the provider loop preserves tool-call pairing, then drains the queued steer next.
+    try { if (typeof reg.interruptToolWait === 'function') reg.interruptToolWait(); } catch { /* best-effort */ }
     logEvent({ kind: 'intervention', source: 'steer', sessionId }); // 29c
     return send(res, json({ ok: true, queued: reg.steerQueue.length }));
   }
