@@ -260,8 +260,7 @@ export function createChatRenderPrimitives(deps = {}) {
       panel.setLive(false);
       if (!panel.userToggled) panel.d.open = false;
     }
-    if (live.thinkingFollowTimer) clearTimeout(live.thinkingFollowTimer);
-    live.thinkingFollowTimer = 0;
+    if (live.thinkingRafId) { cancelAnimationFrame(live.thinkingRafId); live.thinkingRafId = 0; }
     live.followThinkingPanel = false;
     live.thinkingActive = false;
     live.thinkingEl = null;

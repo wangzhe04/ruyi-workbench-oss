@@ -64,7 +64,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // chat-live.css 的 .think-body 增加 contain: layout style（超长思维链重排不再冒泡整条消息树）。
 // 两条均为有意样式变更，重钉载荷锁。classic 层规则无漂移。
 // 未完成任务横幅新增可关闭按钮；规则留在 chat-composer 所有权层，并保持 token 化字号/颜色。
-const LEGACY_STYLES_SHA256 = '7aff7b932eee1aa84444e1cb3e354e7d73e32ebb0ba68475b36d0210c2d22c89';
+// P2 波（归档页/原始镜头性能）：preview-shell.css 的 .preview-archive-card 加 content-visibility:auto
+// （无界归档列表跳过离屏卡片渲染，contain-intrinsic-size:auto 记忆实际尺寸减少滚动漂移）+ .preview-seal-ring
+// 加 contain: layout style paint（隔离 conic-gradient 重绘到 46x46 自身边界）。两条均为 Preview 层有意样式
+// 变更，重钉载荷锁。classic 层规则无漂移。
+const LEGACY_STYLES_SHA256 = 'a4475051aa868eb07ea12867edffbdb60c1533e9a842a7f20e44cca4a1b8c65a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

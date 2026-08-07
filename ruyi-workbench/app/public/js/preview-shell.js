@@ -17,6 +17,7 @@ import {
   visibleSessionMessageEntries,
   weightedMessageTailStart,
 } from './turn-narrative.js';
+import { createChatScrollController } from './chat-scroll.js';
 
 export const SHELL_MODE_STORAGE_KEY = 'wcw.shellMode';
 export const SHELL_MODES = Object.freeze(['classic', 'preview']);
@@ -160,6 +161,10 @@ export function createPreviewShellDomain({
   let detailRefreshTimer = null;
   let detailRefreshForce = false;
   let previewLive = null;
+  // P2-4: raw 镜头粘性滚动状态机（复用 chat-scroll 的 createChatScrollController）。
+  // 旧实现每帧强设 scrollTop，用户上滑时与滚轮对抗；改为跟踪 stickToBottom，仅粘性时跟随。
+  let rawScrollController = null;
+  let rawScrollBoundHost = null;
   let playbooks = [];
   let playbooksLoaded = false;
   let dispatchText = '';
@@ -172,6 +177,7 @@ export function createPreviewShellDomain({
   let archiveQuery = '';
   let archiveFilter = 'all';
   let archiveGroup = 'workspace';
+  let archiveInputTimer = 0; // P2-3: 归档搜索防抖，避免每击键全量重建
   let previewUiState = readPreviewUiState();
   let renderedDockSignature = '';
   let dockRenderEpoch = 0;
@@ -1345,6 +1351,7 @@ export function createPreviewShellDomain({
     const main = byId('previewMain');
     if (!main) return;
     main.dataset.view = 'archive'; delete main.dataset.missionId;
+    if (archiveInputTimer) { clearTimeout(archiveInputTimer); archiveInputTimer = 0; }
     const article = text('article', 'preview-archive', '');
     const head = text('header', 'preview-archive-head', '');
     const heading = text('div', 'preview-archive-heading', '');
@@ -1357,14 +1364,16 @@ export function createPreviewShellDomain({
     const search = document.createElement('input');
     search.id = 'previewArchiveSearch'; search.type = 'search'; search.value = archiveQuery;
     search.placeholder = t('previewShell.archiveSearch'); search.setAttribute('aria-label', t('previewShell.archiveSearch'));
+    // P2-3: 搜索输入防抖 + 仅重建 ledger（不重建控件/搜索框），避免每击键整树 replaceChildren 打断焦点。
     search.oninput = event => {
       archiveQuery = event.target.value;
-      renderArchive();
-      requestAnimationFrame(() => { const next = byId('previewArchiveSearch'); next?.focus(); next?.setSelectionRange(archiveQuery.length, archiveQuery.length); });
+      if (archiveInputTimer) clearTimeout(archiveInputTimer);
+      archiveInputTimer = setTimeout(() => { archiveInputTimer = 0; replaceArchiveLedger(); }, 120);
     };
     const filters = text('div', 'preview-archive-filters', '');
     for (const value of ['all', 'done', 'stopped', 'pinned', 'archived']) {
-      const button = actionButton(t(`previewShell.archiveFilter.${value}`), 'preview-archive-filter', () => { archiveFilter = value; renderArchive(); });
+      const button = actionButton(t(`previewShell.archiveFilter.${value}`), 'preview-archive-filter', () => { archiveFilter = value; syncArchiveFilterPressed(filters); replaceArchiveLedger(); });
+      button.dataset.archiveFilter = value;
       button.setAttribute('aria-pressed', archiveFilter === value ? 'true' : 'false');
       filters.appendChild(button);
     }
@@ -1373,9 +1382,16 @@ export function createPreviewShellDomain({
     for (const value of ['workspace', 'state']) {
       const option = document.createElement('option'); option.value = value; option.textContent = t(`previewShell.archiveGroup.${value}`); group.appendChild(option);
     }
-    group.value = archiveGroup; group.onchange = event => { archiveGroup = event.target.value === 'state' ? 'state' : 'workspace'; renderArchive(); };
+    group.value = archiveGroup; group.onchange = event => { archiveGroup = event.target.value === 'state' ? 'state' : 'workspace'; replaceArchiveLedger(); };
     controls.append(search, filters, group);
 
+    article.append(head, controls, buildArchiveLedger());
+    main.replaceChildren(article);
+  }
+
+  // P2-3: 仅重建归档列表主体（含过滤/排序/分组），保留控件与搜索框不动 -> 输入焦点不丢、开销 O(可见)。
+  function buildArchiveLedger() {
+    const terminal = cards.filter(card => ['done', 'stopped'].includes(missionState.fromCard(card).state));
     const query = archiveQuery.trim().toLocaleLowerCase(getLocale());
     const filtered = terminal.filter(card => {
       const derived = missionState.fromCard(card); const ui = missionUi(card.missionId);
@@ -1402,8 +1418,28 @@ export function createPreviewShellDomain({
       section.append(groupHead, rows); ledger.appendChild(section);
     }
     if (!filtered.length) ledger.appendChild(text('p', 'preview-home-empty-copy', t('previewShell.archiveEmpty')));
-    article.append(head, controls, ledger);
-    main.replaceChildren(article);
+    return ledger;
+  }
+
+  function replaceArchiveLedger() {
+    const main = byId('previewMain');
+    if (!main || main.dataset.view !== 'archive') return;
+    const host = main.querySelector('.preview-archive-ledger');
+    if (!host) { renderArchive(); return; }
+    host.replaceWith(buildArchiveLedger());
+    // P2-3: 计数徽章随列表同步--静默刷新更新 cards 时若用户正输入触发 ledger 重建,徽章不滞后于列表。
+    const badge = main.querySelector('.preview-archive-count');
+    if (badge) {
+      const terminal = cards.filter(card => ['done', 'stopped'].includes(missionState.fromCard(card).state));
+      badge.textContent = t('previewShell.archiveCount', { p1: terminal.length });
+    }
+  }
+
+  function syncArchiveFilterPressed(filters) {
+    for (const button of filters.children) {
+      const value = button.dataset.archiveFilter;
+      if (value) button.setAttribute('aria-pressed', archiveFilter === value ? 'true' : 'false');
+    }
   }
 
   function renderHome() {
@@ -3052,6 +3088,9 @@ export function createPreviewShellDomain({
     if (scrollTop) host.scrollTop = 0;
     else restoreScrollAnchor(host, anchor || { atBottom: true });
     restoreRawFocus(host, focus);
+    // P2-4: 渲染后同步粘性状态到实际滚动位置（底部->粘性跟随；顶部/中部->不打扰）。
+    const rawCtrl = getRawScrollController();
+    if (rawCtrl) rawCtrl.syncStickToBottom();
   }
 
   function clearPreviewLive({ remove = true } = {}) {
@@ -3084,20 +3123,34 @@ export function createPreviewShellDomain({
     return previewLive;
   }
 
+  // P2-4: 懒创建 raw 镜头滚动控制器并绑定 scroll 事件。host 一次性创建，但若被重建则重绑。
+  function getRawScrollController() {
+    const host = byId('previewRawMessages');
+    if (!host) return null;
+    if (rawScrollController && rawScrollBoundHost === host) return rawScrollController;
+    rawScrollController = createChatScrollController({
+      getMessages: () => byId('previewRawMessages'),
+      getJumpLatest: () => null,
+      isStreaming: () => Boolean(previewLive),
+    });
+    host.addEventListener('scroll', rawScrollController.syncStickToBottom, { passive: true });
+    rawScrollBoundHost = host;
+    return rawScrollController;
+  }
+
   function appendPreviewLiveText(value) {
     const live = ensurePreviewLiveRow();
     if (!live || !value) return;
     live.pending.push(String(value));
     if (live.rafId) return;
-    const host = byId('previewRawMessages');
-    const follow = host ? host.scrollHeight - host.scrollTop - host.clientHeight < 120 : true;
-    const savedTop = host?.scrollTop || 0;
     live.rafId = requestAnimationFrame(() => {
       live.rafId = 0;
       if (!previewLive || previewLive !== live) return;
       const delta = live.pending.join(''); live.pending.length = 0;
       if (delta) live.node.appendData(delta);
-      if (host) host.scrollTop = follow ? host.scrollHeight : savedTop;
+      // P2-4: 仅在用户保持粘性（位于底部）时跟随；上滑阅读时不再强设 scrollTop 与滚轮对抗。
+      const ctrl = getRawScrollController();
+      if (ctrl) ctrl.maybeScrollToBottom();
     });
   }
 
@@ -3215,11 +3268,10 @@ export function createPreviewShellDomain({
       ]);
       if (epoch !== detailEpoch || sessionId !== selectedSessionId()) return null;
       if (sessionResponse) { session = sessionResponse.session; rawDirty = false; }
-      // P1-perf: 基线推进 —— 非降级时把 changes 游标推进到当前版本，下一轮 /changes?after= 只拉增量，
-      // 不再每次从头重传（原实现基线只初始化不前进，回合越长重传量越大，活跃回合下可达 ~12-16 req/s）。
-      if (!changeResponse?.degraded && Number(changeResponse?.currentRevision) >= Number(detailBaselineRevision || 0)) {
-        detailBaselineRevision = Math.max(0, Number(changeResponse.currentRevision) || 0);
-      }
+      // 返回摘要展示“自离开后的累计变更”窗口(fromRevision 固定=打开任务时的 lastSeenRevision)。
+      // 不推进 detailBaselineRevision:推进后 selectedChanges 变增量,无新变更时 renderReturnSummary
+      // 整段隐藏、有变更时 fromRevision 跳到新基线 -> 每 240ms 刷新在显/隐间闪烁(对抗审查发现回归)。
+      // 本地工具载荷重传可忽略,正确性优先。`>` 补拉判定(下方)仍保留。
       // 仅在 changes 显示有更新的内容（currentRevision 领先快照）时才补拉完整快照；
       // 原 `!==` 判定在时序竞态下（changes 略旧于快照）也会触发一次无意义的二次全量请求。
       if (Number(changeResponse?.currentRevision) > snapshotRevision) {

@@ -88,7 +88,8 @@ ok(stream.includes('emitSessionStream = () => {}') && stream.includes("notifySes
   && app.includes('emitSessionStream: event => previewStreamSink?.(event)'), 'C4 经典 stream runtime 经窄只读 sink 镜像事件');
 ok(!/fetch\(['"]\/api\/chat\/stream/.test(shell) && !/new EventSource|new WebSocket/.test(shell), 'C5 Preview 不另连 chat SSE/WebSocket');
 ok(shell.includes('captureRawFocus(host)') && shell.includes('restoreRawFocus(host, focus)')
-  && shell.includes('follow ? host.scrollHeight : savedTop'), 'C6 静态重取和增量 append 均保存焦点/用户滚动意图');
+  && shell.includes('createChatScrollController') && shell.includes('getRawScrollController()')
+  && shell.includes('ctrl.maybeScrollToBottom()'), 'C6 静态重取和增量 append 均保存焦点/用户滚动意图（raw 镜头复用 stickToBottom 状态机，上滑不打扰）');
 ok(shell.includes('getActiveTurnLines(sessionId)') && shell.includes("parts.join('')"), 'C7 中途切入 Preview 可从既有活动流游标补播文本');
 
 ok(css.includes('.preview-raw-messages .message') && css.includes('.preview-raw-messages .msg-actions { display: none; }'),

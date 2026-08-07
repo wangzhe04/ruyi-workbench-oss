@@ -161,6 +161,8 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
   place-items: center;
   border-radius: 50%;
   background: conic-gradient(var(--seal-ring) calc(var(--mission-progress) * 1%), color-mix(in srgb, var(--preview-line) 72%, transparent) 0);
+  /* P2-5: 隔离 conic-gradient 重绘到自身 46x46 边界，滚动时不再波及兄弟 seal/父容器。 */
+  contain: layout style paint;
 }
 .preview-seal-ring::before {
   content: "";
@@ -1125,7 +1127,7 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
 .preview-archive-group-head h2 { margin: 0; overflow-wrap: anywhere; font-size: var(--fs-md); }
 .preview-archive-group-head span { color: var(--preview-accent); font: 600 var(--fs-xs)/1 "Cascadia Mono", var(--mono); }
 .preview-archive-rows { min-width: 0; }
-.preview-archive-card { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); border-top: 1px solid color-mix(in srgb, var(--preview-line) 66%, transparent); }
+.preview-archive-card { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); border-top: 1px solid color-mix(in srgb, var(--preview-line) 66%, transparent); content-visibility: auto; contain-intrinsic-size: auto 64px; }
 .preview-archive-card:first-child { border-top: 0; }
 .preview-archive-card[data-pinned="true"] { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--preview-accent) 72%, transparent); }
 .preview-archive-card[data-archived="true"] { opacity: .68; }
