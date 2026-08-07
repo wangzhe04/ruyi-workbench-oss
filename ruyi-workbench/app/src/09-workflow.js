@@ -309,6 +309,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         const nctrl = runtime.nodeControls.get(node.id);
         if (!nctrl || nctrl.signal.aborted) continue;
         const lastAct = Number(node.lastActivityAt) || 0;
+        if (lastAct <= 0) continue; // A3-fix: 节点时钟尚未设置(节点 running 后、runNode 内初始化完成前的 await 间隙),跳过不判 idle —— 避免 now-0(epoch)巨大误杀新派发节点
         if (now - lastAct > nodeIdleLimitMs) {
           node.idleAborted = true;
           try { nctrl.abort('node_idle_timeout'); } catch { /* already aborted — treat as aborted */ }

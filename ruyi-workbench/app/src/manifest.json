@@ -65,67 +65,67 @@
     {
       "file": "08-agent-runs.js",
       "startLine": 12777,
-      "endLine": 14573,
+      "endLine": 14585,
       "note": "run 事件日志/恢复分级/runSubAgentCore"
     },
     {
       "file": "09-workflow.js",
-      "startLine": 14574,
-      "endLine": 16973,
+      "startLine": 14586,
+      "endLine": 16986,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 16974,
-      "endLine": 18022,
+      "startLine": 16987,
+      "endLine": 18035,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 18023,
-      "endLine": 19722,
+      "startLine": 18036,
+      "endLine": 19735,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 19723,
-      "endLine": 20807,
+      "startLine": 19736,
+      "endLine": 20820,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 20808,
-      "endLine": 22884,
+      "startLine": 20821,
+      "endLine": 22897,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 22885,
-      "endLine": 23208,
+      "startLine": 22898,
+      "endLine": 23221,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 23209,
-      "endLine": 23397,
+      "startLine": 23222,
+      "endLine": 23410,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 23398,
-      "endLine": 24626,
+      "startLine": 23411,
+      "endLine": 24639,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 24627,
-      "endLine": 25033,
+      "startLine": 24640,
+      "endLine": 25046,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "14-main.js",
-      "startLine": 25034,
-      "endLine": 25324,
+      "startLine": 25047,
+      "endLine": 25337,
       "note": "main()/module.exports"
     }
   ]

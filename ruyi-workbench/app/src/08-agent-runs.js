@@ -423,6 +423,17 @@ async function markInterruptedAgentRuns() {
 
 async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail }) {
   const started = Date.now();
+  // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
+  // 事件,workflow/node idle watchdog 会把「初始化中」误判为空闲而 abort(启动即「已中止」)。初始化期间用
+  // 节流心跳刷新看门狗时钟 —— 初始化不是空闲;第一个 openAiStreamOnce 发出前停止(之后由流式 touch / 工具心跳接管)。
+  let initBeat = null;
+  const stopInitBeat = () => { if (initBeat) { clearInterval(initBeat); initBeat = null; } };
+  const startInitBeat = () => {
+    if (initBeat) return;
+    initBeat = setInterval(() => { try { onEvent({ type: 'subagent_progress', subagentId, note: '子代理初始化中' }); } catch { /* 心跳失败不阻断 */ } }, 1000);
+    if (initBeat && initBeat.unref) initBeat.unref();
+  };
+  startInitBeat();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself run spawn_agent.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes spawn_agent */ }
   // v1.7: protocol preference — mirror the parent turn (apiStyle:'responses' → /responses + Responses body).
@@ -632,6 +643,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       // retrying once without tools. Mid-stream errors are NOT retried (防重放, matching the parent turn -
       // openAiStreamOnce lets those propagate to the catch below).
       let call = null, giveUp = false, transientAttempts = 0;
+      stopInitBeat(); // A3-fix: 首个模型调用即将发出,initBeat 让位给 openAiStreamOnce 的流式 touch / 工具心跳
       while (true) {
         if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; giveUp = true; break; }
         call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream });
