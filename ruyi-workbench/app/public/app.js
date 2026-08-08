@@ -18,7 +18,7 @@ import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
 import { captureScrollAnchor, messageDomKey, messageRenderSignature, normalizeTurnSegments, restoreScrollAnchor, turnToolAnchorId }
   from './js/turn-narrative.js';
-import { createChatScrollController } from './js/chat-scroll.js';
+import { createChatScrollController, enableSmoothWheelScroll } from './js/chat-scroll.js';
 import { createSettingsOperationsDomain } from './js/settings-operations.js';
 import { createFileBrowserDomain } from './js/file-browser.js';
 import {
@@ -45,17 +45,21 @@ import { createPreviewShellDomain } from './js/preview-shell.js';
 // runtime can mirror read-only deltas without importing the second shell or creating a second stream.
 let previewStreamSink = null;
 
+const chatScrollController = createChatScrollController({
+  getMessages: () => $('messages'),
+  getJumpLatest: () => $('jumpLatest'),
+  isStreaming: () => Boolean(state.streaming),
+});
 const {
   maybeScrollToBottom, isStickyScroll,
   resetStickyScroll,
   scrollMessagesToBottom,
   syncStickToBottom,
   updateJumpLatest,
-} = createChatScrollController({
-  getMessages: () => $('messages'),
-  getJumpLatest: () => $('jumpLatest'),
-  isStreaming: () => Boolean(state.streaming),
-});
+} = chatScrollController;
+// 丝滑滚轮：rAF 插值替代原生每格 ~100px 阶跃；上滑显式解除粘性（含宽限窗），
+// 不再被流式跟随拉回底部（“弹回去滑不动”）。
+const messagesSmoothWheel = enableSmoothWheelScroll(() => $('messages'), chatScrollController);
 
 const API_ERROR_I18N = {
   'auth.token_invalid': 'error.api.authToken',
@@ -967,7 +971,8 @@ function bindEvents() {
   { const cx = $('agCancel'); if (cx) cx.onclick = () => { $('autonomyIssueForm').classList.add('hidden'); loadAutonomyGrants(); }; }
   { const fm = $('autonomyIssueForm'); if (fm) fm.onsubmit = submitGrant; }
   // ↓ 回到最新: click snaps to bottom 并恢复跟随;the messages scroll listener toggles its visibility + 粘性状态。
-  { const jl = $('jumpLatest'); if (jl) jl.onclick = scrollMessagesToBottom; }
+  // 先打断在途的平滑滚轮动画，避免旧目标把跳转拉回半途。
+  { const jl = $('jumpLatest'); if (jl) jl.onclick = () => { messagesSmoothWheel.stop(); scrollMessagesToBottom(); }; }
   { const mb = $('messages'); if (mb) mb.addEventListener('scroll', syncStickToBottom, { passive: true }); }
   // A5: clicking the dimmed backdrop closes the narrow-screen drawer.
   { const bd = $('drawerBackdrop'); if (bd) bd.onclick = closeToolDrawer; }

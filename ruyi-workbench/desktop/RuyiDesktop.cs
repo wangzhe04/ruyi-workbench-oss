@@ -26,10 +26,14 @@ namespace RuyiDesktop
 
     internal static class Native
     {
+        public const int WM_GETMINMAXINFO = 0x0024;
         public const int WM_NCHITTEST = 0x0084;
         public const int WM_NCLBUTTONDOWN = 0x00A1;
+        public const int WM_MOUSEWHEEL = 0x020A;
+        public const int WM_MOUSEHWHEEL = 0x020E;
         public const int WM_DPICHANGED = 0x02E0;
         public const int HTCAPTION = 2;
+        public const uint MONITOR_DEFAULTTONEAREST = 2;
         public const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000;
 
         [StructLayout(LayoutKind.Sequential)]
@@ -37,6 +41,26 @@ namespace RuyiDesktop
 
         [StructLayout(LayoutKind.Sequential)]
         public struct POINT { public int x, y; }
+
+        // 无边框最大化钳到显示器工作区（任务栏可见→排除之；任务栏自动隐藏→工作区即全屏）。
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MINMAXINFO
+        {
+            public POINT ptReserved;
+            public POINT ptMaxSize;
+            public POINT ptMaxPosition;
+            public POINT ptMinTrackSize;
+            public POINT ptMaxTrackSize;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        public struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public uint dwFlags;
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         public struct JOBOBJECT_BASIC_LIMIT_INFORMATION
@@ -79,6 +103,11 @@ namespace RuyiDesktop
         public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
         [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hWnd);
         [DllImport("user32.dll")] public static extern bool DestroyIcon(IntPtr hIcon);
+        [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint dwFlags);
+        [DllImport("user32.dll", CharSet = CharSet.Auto)] public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO info);
+        [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT pt);
+        [DllImport("user32.dll")] public static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
+        [DllImport("user32.dll")] public static extern IntPtr GetFocus();
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern IntPtr CreateJobObject(IntPtr securityAttributes, string name);
@@ -944,7 +973,9 @@ namespace RuyiDesktop
 
         // DPI 变化经 WndProc 的 WM_DPICHANGED 处理（兼容旧版 WinForms 引用）。
 
-        // 无边框窗口的可缩放边缘：WM_NCHITTEST 命中 6px 边带 → 系统原生缩放体验。
+        // 无边框窗口的可缩放边角：WM_NCHITTEST 命中 6px 边带 → 系统原生缩放体验。
+        // 边带判定必须前置自行返回：WebView 子窗口覆盖全客户区时 DefWindowProc 返回
+        // HTTRANSPARENT 而非 HTCLIENT，依赖其结果会让边带判定永远走不到。
         protected override void WndProc(ref Message m)
         {
             if (m.Msg == Native.WM_DPICHANGED)
@@ -953,28 +984,65 @@ namespace RuyiDesktop
                 SyncWebViewBounds(); // 换屏/改缩放后 WebView 重新贴合
                 return;
             }
-            if (m.Msg == Native.WM_NCHITTEST && WindowState != FormWindowState.Maximized)
+            if (m.Msg == Native.WM_GETMINMAXINFO)
             {
                 base.WndProc(ref m);
-                int hit = m.Result.ToInt32();
-                if (hit == 1 /* HTCLIENT */)
+                // 无边框最大化默认铺满整个显示器（连任务栏一起挡住）：钳到所在屏工作区。
+                // 任务栏可见→工作区排除之；任务栏自动隐藏→工作区即全屏，两种用户都正确。
+                var mmi = (Native.MINMAXINFO)Marshal.PtrToStructure(m.LParam, typeof(Native.MINMAXINFO));
+                IntPtr mon = Native.MonitorFromWindow(m.HWnd, Native.MONITOR_DEFAULTTONEAREST);
+                var mi = new Native.MONITORINFO();
+                mi.cbSize = Marshal.SizeOf(typeof(Native.MONITORINFO));
+                if (Native.GetMonitorInfo(mon, ref mi))
                 {
-                    int lp = m.LParam.ToInt32();
-                    short sx = (short)(lp & 0xFFFF);
-                    short sy = (short)((lp >> 16) & 0xFFFF);
-                    Point p = PointToClient(new Point(sx, sy));
-                    int w = ClientSize.Width, h = ClientSize.Height;
-                    bool left = p.X < ResizeBorder, right = p.X >= w - ResizeBorder;
-                    bool top = p.Y < ResizeBorder, bottom = p.Y >= h - ResizeBorder;
-                    if (top && left) m.Result = (IntPtr)13;
-                    else if (top && right) m.Result = (IntPtr)14;
-                    else if (bottom && left) m.Result = (IntPtr)16;
-                    else if (bottom && right) m.Result = (IntPtr)17;
-                    else if (left) m.Result = (IntPtr)10;
-                    else if (right) m.Result = (IntPtr)11;
-                    else if (top) m.Result = (IntPtr)12;
-                    else if (bottom) m.Result = (IntPtr)15;
+                    mmi.ptMaxPosition.x = mi.rcWork.left;
+                    mmi.ptMaxPosition.y = mi.rcWork.top;
+                    mmi.ptMaxSize.x = mi.rcWork.right - mi.rcWork.left;
+                    mmi.ptMaxSize.y = mi.rcWork.bottom - mi.rcWork.top;
+                    mmi.ptMinTrackSize.x = MinimumSize.Width;
+                    mmi.ptMinTrackSize.y = MinimumSize.Height;
+                    Marshal.StructureToPtr(mmi, m.LParam, true);
                 }
+                m.Result = IntPtr.Zero;
+                return;
+            }
+            if (m.Msg == Native.WM_MOUSEWHEEL || m.Msg == Native.WM_MOUSEHWHEEL)
+            {
+                // Win32 滚轮消息发给【焦点窗口】：点过标题栏/三键后焦点留在原生控件，
+                // 在页面上滚滚轮就不动（“滑不动”）。转发到光标下最深的子窗口（WebView 宿主）。
+                int wlp = m.LParam.ToInt32();
+                var pt = new Native.POINT();
+                pt.x = (short)(wlp & 0xFFFF);
+                pt.y = (short)((wlp >> 16) & 0xFFFF);
+                IntPtr target = Native.WindowFromPoint(pt);
+                if (target != IntPtr.Zero && target != Handle
+                    && webPanel.IsHandleCreated && Native.IsChild(webPanel.Handle, target))
+                {
+                    Native.SendMessage(target, m.Msg, m.WParam, m.LParam);
+                    m.Result = IntPtr.Zero;
+                    return;
+                }
+                base.WndProc(ref m);
+                return;
+            }
+            if (m.Msg == Native.WM_NCHITTEST && WindowState != FormWindowState.Maximized)
+            {
+                int lp = m.LParam.ToInt32();
+                short sx = (short)(lp & 0xFFFF);
+                short sy = (short)((lp >> 16) & 0xFFFF);
+                Point p = PointToClient(new Point(sx, sy));
+                int w = ClientSize.Width, h = ClientSize.Height;
+                bool left = p.X < ResizeBorder, right = p.X >= w - ResizeBorder;
+                bool top = p.Y < ResizeBorder, bottom = p.Y >= h - ResizeBorder;
+                if (top && left) { m.Result = (IntPtr)13; return; }
+                if (top && right) { m.Result = (IntPtr)14; return; }
+                if (bottom && left) { m.Result = (IntPtr)16; return; }
+                if (bottom && right) { m.Result = (IntPtr)17; return; }
+                if (left) { m.Result = (IntPtr)10; return; }
+                if (right) { m.Result = (IntPtr)11; return; }
+                if (top) { m.Result = (IntPtr)12; return; }
+                if (bottom) { m.Result = (IntPtr)15; return; }
+                base.WndProc(ref m);
                 return;
             }
             base.WndProc(ref m);
