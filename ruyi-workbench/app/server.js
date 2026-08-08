@@ -10255,7 +10255,7 @@ const PROMPT_ZH = {
     batching: '工具批次：参数已确定且互不依赖的调用，在同一条助手消息中一次发出，结果按所列顺序返回。后一步依赖前一步结果时分阶段调用：先等本批 tool_result 再发下一批。request_user_input、权限决策及有先读后改依赖的写操作必须分批。',
     asyncWork: '长任务并行：预计耗时较长且与主线独立的工作，优先用 background:true 的子代理或持久 shell 启动后继续推进其他事项，真正需要结果时再 wait/poll；不要高频空轮询。没有可并行事项时使用一次较长等待，不要用多个短等待消耗 token。',
     questioning: '向用户提问时优先给出 2–5 个具体、互斥且可直接点击的选项；把建议项放在第一位并在标签中标明“（推荐）”，同时保留“其他”输入作为兜底。只有答案确实无法合理枚举时才使用纯文本回答，不能为了省事把本可选择的问题丢给用户手写。',
-    onDemand: '工具按需装载：当前只提供任务预判所需的工具。不知道有哪些能力时先调用 list_tools；知道目标时直接调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名；装载成功后再调用具体工具。不要用终端重造一个可按需装载的现成工具。',
+    onDemand: '工具按需装载：当前只注入任务预判所需的原生工具与元工具；桥接工具（ACC 桌面/Office/MCP 等）的 schema 不再按包自动注入，以避免上下文膨胀。不知道有哪些能力时先调用 list_tools；知道目标时调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名，装载成功后即可直接调用该工具（带完整参数 schema）。若只想快速调用单个桥接工具而不装载整包，可用 tool_invoke_read / tool_invoke_edit / tool_invoke_exec 代理（按 tool_search 返回的 tier 选择，不要用低层代理调高层目标）。不要用终端重造一个可按需装载的现成工具。',
     priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
     contextBudget: '上下文节流守则：先搜索定位再分段读（单次 ≤600 行），禁止整文件线性通读；列表/搜索大结果先缩小范围再引用；大返回先截断/摘要；长任务交子代理并取结论，不把原始大数据灌进主线上下文。',
   },
@@ -10328,7 +10328,7 @@ const PROMPT_EN = {
     batching: 'Tool batching: emit calls with fixed arguments and no dependencies together in one assistant message; results return in listed order. If a later call depends on an earlier result, wait for this tool_result batch before sending the next. Keep request_user_input, permission decisions, and writes with read-before-edit dependencies in separate batches.',
     asyncWork: 'Long-task concurrency: when slow work is independent of the main line, prefer a background:true sub-agent or persistent shell, continue other work, and wait/poll only when its result is actually needed. Do not busy-poll. If nothing else can proceed, use one longer wait instead of many short waits that waste tokens.',
     questioning: 'When asking the user, prefer 2–5 concrete, mutually exclusive, directly clickable options. Put the recommended option first and suffix its label with “(Recommended)”, while keeping an Other input as a fallback. Use a text-only answer only when the answer genuinely cannot be enumerated; do not make the user type a choice that could have been offered.',
-    onDemand: 'On-demand tool loading: only the tools the current task likely needs are provided. If you do not know what capabilities exist, call list_tools first; when you know the target, call tool_search, then tool_load with the returned pack or exact tool name. After a successful load, call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.',
+    onDemand: 'On-demand tool loading: only the native and meta tools the current task likely needs are injected; schemas of bridged tools (ACC desktop/Office/MCP) are no longer auto-injected by pack, to avoid context bloat. Call list_tools to discover capabilities; call tool_search to find a target, then tool_load its pack or exact tool name and call it directly (with full parameter schema). To invoke a single bridged tool without loading a whole pack, use the tool_invoke_read / tool_invoke_edit / tool_invoke_exec proxy (choose by the tier returned by tool_search; never use a lower-tier proxy for a higher-tier target). Do not reinvent an on-demand-loadable tool via the terminal.',
     priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
     contextBudget: 'Context throttling: locate via search first, then read in slices (≤600 lines per read); never linearly read whole files. Narrow large list/search results before quoting. Truncate/summarize big returns. Delegate long tasks to a sub-agent and consume its conclusion; do not pour raw big data into the main context.',
   },
@@ -11028,7 +11028,10 @@ function buildOpenAiTools(config, caps, opts) {
     } });
   }
   if ((!opts || !opts.noAdaptiveMeta) && config && config.toolLoadingMode === 'auto') {
-    for (const t of adaptiveMetaToolSchemas(false)) out.push({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } });
+    // O1 (hb360): 注入含 tool_invoke_* 的完整 adaptive 元工具集 -- bridged 工具不自动注入 schema 后,
+    // 模型需 tool_invoke_read/edit/exec 代理调用(按 tool_search 返回的 tier 选),否则 onDemand 引导的
+    // 代理路径无工具可用。原 false 仅注入 list/search/load,OpenAI 引擎主回合缺 tool_invoke_*。
+    for (const t of adaptiveMetaToolSchemas(true)) out.push({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } });
   }
   return out;
 }
@@ -11162,6 +11165,7 @@ function buildToolCatalog(tools, bridgedRoute, config) {
     return {
       name: fn.name || '', pack: toolPackForName(fn.name, bridgedRoute),
       tier: bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(fn.name),
+      bridged: !!bridge,
       description: String(fn.description || '').replace(/\s+/g, ' ').slice(0, 220), tool: t,
     };
   }).filter(x => x.name);
@@ -11193,7 +11197,12 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
   const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
   const activeNames = new Set();
   const metaNames = new Set(['list_tools', 'tool_search', 'tool_load']);
-  const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || activePacks.has(x.pack)).map(x => x.tool);
+  // O1 (hb360): auto 模式下桥接工具不按包自动注入 schema（走 tool_invoke_* 代理或 tool_load 显式拉入），
+  // 避免单任务注入 100-280 个桥接 schema 导致 input 膨胀（实测均值 303K tokens）。full 模式与元工具/显式拉入不受影响。
+  // O4 (hb360) 对抗验证回退: 高频白名单(file_read 始终注入)破坏 adaptive loading 的"按需注入"语义
+  // (tool-loading e2e 断言 file_read 在 tool_load 前不注入);且真实任务 classifyToolPacks 已激活 files_read,
+  // 白名单仅对纯闲聊任务有用(而闲聊不需要 file_read),收益不抵语义破坏,故回退。
+  const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack))).map(x => x.tool);
   const search = (query, limit) => {
     const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
     const max = Math.min(20, Math.max(1, Number(limit) || 8));
@@ -13339,7 +13348,12 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   }
   bridged.tools = bridged.tools.filter(t => allows(t.function && t.function.name, bridged.route[t.function && t.function.name]));
   const bridgedRoute = bridged.route;
-  const tools = ownTools.concat(bridged.tools);
+  // O6 (hb360): 子代理 bridged 按 classifyToolPacks(task) 激活包过滤,减少注入(full 模式不过滤)。
+  // 子代理无 adaptive 元工具(noAdaptiveMeta),bridged 仍直接注入让模型直接调,仅按任务相关性裁剪 --
+  // 避免 read 级研究子代理带上一堆与任务无关的桥接 schema。
+  const subActivePacks = (config && config.toolLoadingMode === 'full') ? null : new Set(classifyToolPacks(String(task || ''), null));
+  const filteredBridged = subActivePacks ? bridged.tools.filter(t => subActivePacks.has(toolPackForName(t.function && t.function.name, bridgedRoute))) : bridged.tools;
+  const tools = ownTools.concat(filteredBridged);
 
   const workingDir = normalizeCwd(parentSession.cwd, config.defaultWorkspace);
   const projectMemory = await readProjectMemory(workingDir).catch(() => null);
@@ -16119,7 +16133,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const fingerprint = crypto.createHash('sha1').update(String(tc.name || '') + '\0' + String(tc.rawArgs || '')).digest('hex');
     if (progressSignatures.has(fingerprint)) return;
     progressSignatures.add(fingerprint);
-    progressEvents += 1;
+    // O2 (hb360): 探索类工具(读/搜/grep)成功只更新 lastProgressIter(防同签名连击误报),不计入 progressEvents
+    // -- 避免换参数换文件的探索性打转被判为"有进展"而无限扩展工具预算(087 烧 27 calls 的症结)
+    if (!EXPLORATORY_TOOLS.has(String(tc.name || ''))) progressEvents += 1;
     lastProgressIter = iter;
   };
   let useTools = initialTools.length > 0;
@@ -16134,6 +16150,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // SELF-CONTAINED message (distinct from the 「已达工具调用上限」 iteration-cap message above). Lives with
   // the turn (declared here, not module-level) so counters never leak across turns.
   let loopSig = null, loopCount = 0, loopAborted = false, steerAborted = false;
+  let selfCheckDone = false; // O3 (hb360): 产物完成前自检只跑一次,防无限循环
   const LOOP_WARN_AT = 3, LOOP_ABORT_AT = 5;
   // 04 Phase D 语义 loop-guard(§04-D1): 结果指纹无进展判定 -- 与"同签名连击"(loopSig/loopCount)互补。
   // 同签名连击抓"完全相同调用(name+rawArgs)";结果指纹抓"换参数但结果无新信息"(如换路径反复读同类文件,
@@ -16860,6 +16877,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       }
       // No tool calls → final answer for this turn.
       if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text });
+      // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
+      // 标 073(漏 gap 类别)/077(大小写当重复)/091(金额归位)/092(drift 标识错) 类「框架对、细节失守」。
+      if (!selfCheckDone && toolCalls.length > 0 && /生成|输出|创建|写出|列出|csv|报告|清单|manifest|核对|修复|审计|对账|reconciliation|report|list|generate/i.test(fullPrompt)) {
+        const wroteProduct = toolCalls.some(tc => {
+          const n = String((tc && tc.name) || '');
+          return /^(file_write|file_edit|archive_zip|archive_unzip|http_download)/.test(n)
+            || n.startsWith('tool_invoke_edit') || n.startsWith('tool_invoke_exec')
+            || /write|edit|save|create|docx|xlsx|pdf|pptx/i.test(n);
+        });
+        if (wroteProduct) {
+          selfCheckDone = true;
+          const selfCheckPrompt = '【产物自检】请对照原任务的每一项显式要求，逐项核对你已生成的产物：(1) 是否覆盖所有要求项（清单/字段/类别/行）？(2) 数值与格式是否自洽（CSV 列与摘要一致、金额归位正确、大小写不同的文件名未误判重复）？若发现漏项或不一致，用最小步骤补全；若全部满足，简短确认完成即可。不要重复已完成的步骤。';
+          session.providerHistory.push({ role: 'user', content: selfCheckPrompt });
+          onEvent({ type: 'self_check', state: 'invoked', turnSeq: session.turnSeq });
+          continue;
+        }
+      }
       break;
     }
   } catch (e) {

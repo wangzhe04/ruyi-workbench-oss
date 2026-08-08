@@ -494,7 +494,10 @@ function buildOpenAiTools(config, caps, opts) {
     } });
   }
   if ((!opts || !opts.noAdaptiveMeta) && config && config.toolLoadingMode === 'auto') {
-    for (const t of adaptiveMetaToolSchemas(false)) out.push({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } });
+    // O1 (hb360): 注入含 tool_invoke_* 的完整 adaptive 元工具集 -- bridged 工具不自动注入 schema 后,
+    // 模型需 tool_invoke_read/edit/exec 代理调用(按 tool_search 返回的 tier 选),否则 onDemand 引导的
+    // 代理路径无工具可用。原 false 仅注入 list/search/load,OpenAI 引擎主回合缺 tool_invoke_*。
+    for (const t of adaptiveMetaToolSchemas(true)) out.push({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } });
   }
   return out;
 }
@@ -628,6 +631,7 @@ function buildToolCatalog(tools, bridgedRoute, config) {
     return {
       name: fn.name || '', pack: toolPackForName(fn.name, bridgedRoute),
       tier: bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(fn.name),
+      bridged: !!bridge,
       description: String(fn.description || '').replace(/\s+/g, ' ').slice(0, 220), tool: t,
     };
   }).filter(x => x.name);
@@ -659,7 +663,12 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
   const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
   const activeNames = new Set();
   const metaNames = new Set(['list_tools', 'tool_search', 'tool_load']);
-  const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || activePacks.has(x.pack)).map(x => x.tool);
+  // O1 (hb360): auto 模式下桥接工具不按包自动注入 schema（走 tool_invoke_* 代理或 tool_load 显式拉入），
+  // 避免单任务注入 100-280 个桥接 schema 导致 input 膨胀（实测均值 303K tokens）。full 模式与元工具/显式拉入不受影响。
+  // O4 (hb360) 对抗验证回退: 高频白名单(file_read 始终注入)破坏 adaptive loading 的"按需注入"语义
+  // (tool-loading e2e 断言 file_read 在 tool_load 前不注入);且真实任务 classifyToolPacks 已激活 files_read,
+  // 白名单仅对纯闲聊任务有用(而闲聊不需要 file_read),收益不抵语义破坏,故回退。
+  const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack))).map(x => x.tool);
   const search = (query, limit) => {
     const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
     const max = Math.min(20, Math.max(1, Number(limit) || 8));

@@ -1447,7 +1447,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const fingerprint = crypto.createHash('sha1').update(String(tc.name || '') + '\0' + String(tc.rawArgs || '')).digest('hex');
     if (progressSignatures.has(fingerprint)) return;
     progressSignatures.add(fingerprint);
-    progressEvents += 1;
+    // O2 (hb360): 探索类工具(读/搜/grep)成功只更新 lastProgressIter(防同签名连击误报),不计入 progressEvents
+    // -- 避免换参数换文件的探索性打转被判为"有进展"而无限扩展工具预算(087 烧 27 calls 的症结)
+    if (!EXPLORATORY_TOOLS.has(String(tc.name || ''))) progressEvents += 1;
     lastProgressIter = iter;
   };
   let useTools = initialTools.length > 0;
@@ -1462,6 +1464,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // SELF-CONTAINED message (distinct from the 「已达工具调用上限」 iteration-cap message above). Lives with
   // the turn (declared here, not module-level) so counters never leak across turns.
   let loopSig = null, loopCount = 0, loopAborted = false, steerAborted = false;
+  let selfCheckDone = false; // O3 (hb360): 产物完成前自检只跑一次,防无限循环
   const LOOP_WARN_AT = 3, LOOP_ABORT_AT = 5;
   // 04 Phase D 语义 loop-guard(§04-D1): 结果指纹无进展判定 -- 与"同签名连击"(loopSig/loopCount)互补。
   // 同签名连击抓"完全相同调用(name+rawArgs)";结果指纹抓"换参数但结果无新信息"(如换路径反复读同类文件,
@@ -2188,6 +2191,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       }
       // No tool calls → final answer for this turn.
       if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text });
+      // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
+      // 标 073(漏 gap 类别)/077(大小写当重复)/091(金额归位)/092(drift 标识错) 类「框架对、细节失守」。
+      if (!selfCheckDone && toolCalls.length > 0 && /生成|输出|创建|写出|列出|csv|报告|清单|manifest|核对|修复|审计|对账|reconciliation|report|list|generate/i.test(fullPrompt)) {
+        const wroteProduct = toolCalls.some(tc => {
+          const n = String((tc && tc.name) || '');
+          return /^(file_write|file_edit|archive_zip|archive_unzip|http_download)/.test(n)
+            || n.startsWith('tool_invoke_edit') || n.startsWith('tool_invoke_exec')
+            || /write|edit|save|create|docx|xlsx|pdf|pptx/i.test(n);
+        });
+        if (wroteProduct) {
+          selfCheckDone = true;
+          const selfCheckPrompt = '【产物自检】请对照原任务的每一项显式要求，逐项核对你已生成的产物：(1) 是否覆盖所有要求项（清单/字段/类别/行）？(2) 数值与格式是否自洽（CSV 列与摘要一致、金额归位正确、大小写不同的文件名未误判重复）？若发现漏项或不一致，用最小步骤补全；若全部满足，简短确认完成即可。不要重复已完成的步骤。';
+          session.providerHistory.push({ role: 'user', content: selfCheckPrompt });
+          onEvent({ type: 'self_check', state: 'invoked', turnSeq: session.turnSeq });
+          continue;
+        }
+      }
       break;
     }
   } catch (e) {

@@ -482,7 +482,12 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   }
   bridged.tools = bridged.tools.filter(t => allows(t.function && t.function.name, bridged.route[t.function && t.function.name]));
   const bridgedRoute = bridged.route;
-  const tools = ownTools.concat(bridged.tools);
+  // O6 (hb360): 子代理 bridged 按 classifyToolPacks(task) 激活包过滤,减少注入(full 模式不过滤)。
+  // 子代理无 adaptive 元工具(noAdaptiveMeta),bridged 仍直接注入让模型直接调,仅按任务相关性裁剪 --
+  // 避免 read 级研究子代理带上一堆与任务无关的桥接 schema。
+  const subActivePacks = (config && config.toolLoadingMode === 'full') ? null : new Set(classifyToolPacks(String(task || ''), null));
+  const filteredBridged = subActivePacks ? bridged.tools.filter(t => subActivePacks.has(toolPackForName(t.function && t.function.name, bridgedRoute))) : bridged.tools;
+  const tools = ownTools.concat(filteredBridged);
 
   const workingDir = normalizeCwd(parentSession.cwd, config.defaultWorkspace);
   const projectMemory = await readProjectMemory(workingDir).catch(() => null);

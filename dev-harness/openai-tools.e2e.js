@@ -12,6 +12,7 @@ const TOOLFILE = path.join(HOME, 'read-me.txt');
 const MARKER = 'HELLO_FROM_TOOL_LOOP_42';
 fs.rmSync(HOME, { recursive: true, force: true });
 fs.mkdirSync(HOME, { recursive: true });
+fs.mkdirSync(path.join(HOME, 'capture'), { recursive: true });
 fs.writeFileSync(TOOLFILE, MARKER + ' (workbench native tool loop works)');
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
   configSchema: 4, version: '1.0.0', permissionMode: 'bypass',
@@ -36,7 +37,7 @@ function postStream(port, payload) {
 (async () => {
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-  const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_TOOL_PATH: TOOLFILE }, windowsHide: true });
+  const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_TOOL_PATH: TOOLFILE, FAKE_CAPTURE_DIR: path.join(HOME, 'capture') }, windowsHide: true });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
@@ -54,6 +55,17 @@ function postStream(port, payload) {
     ok(toolResult && toolResult.isError !== true, 'tool_result ok (not error)');
     ok(text.includes(MARKER), 'final answer echoes real file content: ' + JSON.stringify(text.slice(0, 70)));
     ok(result && result.ok === true, 'result ok=true');
+    // O1 (hb360): auto 模式下桥接工具 schema 不自动注入，仅原生工具按包注入（防 100-280 个桥接 schema 膨胀 input）
+    const capDir = path.join(HOME, 'capture');
+    const reqs = fs.existsSync(capDir) ? fs.readdirSync(capDir).filter(f => f.endsWith('.json')).sort().map(f => JSON.parse(fs.readFileSync(path.join(capDir, f), 'utf8'))) : [];
+    if (reqs.length) {
+      const firstTools = (reqs[0].tools || []).map(t => t && t.function && t.function.name).filter(Boolean);
+      const bridged = firstTools.filter(n => String(n).startsWith('mcp__'));
+      ok(bridged.length === 0, 'O1: bridged schemas not auto-injected in auto mode (bridged=' + bridged.length + (bridged.length ? ' e.g. ' + bridged.slice(0, 2).join(',') : '') + ')');
+      ok(firstTools.includes('file_read'), 'O1: native file_read still injected by pack');
+    } else {
+      ok(false, 'O1: capture dir empty - fake-openai did not record requests');
+    }
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
     for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
