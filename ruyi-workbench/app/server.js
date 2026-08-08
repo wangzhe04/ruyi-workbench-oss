@@ -6924,6 +6924,17 @@ function sanitizeServerId(id) { return String(id || '').replace(/[^A-Za-z0-9_]/g
 // route maps bridgedName -> { serverId, toolName }. Any server that fails to start/list is skipped;
 // never throws, never blocks the main flow.
 let bridgedCatalogCache = { key: '', expiresAt: 0, value: null };
+// 整体扫描时限:getCapabilities 冷启动(网络探测 + 全量 MCP 扫描)不能无限期阻塞 —— 本机 ~/.claude.json
+// 可能导入 10+ 个 MCP(含挂起桩 stdio-hang),串行 listTools 实测可达 18.9s,远超 /api/capabilities 的
+// HTTP 超时(e2e 8s)。到点返回已收集的部分结果,不因单个慢/挂 MCP 拖死整次探测。
+// 单个 MCP 的握手预算:start() 内部 initialize + tools/list 各 8s 上限,挂起桩(stdio-hang)串行可吃满 16s。
+// 扫描期对每个 entry 用该预算 race,超时即跳过该 MCP —— 扫描不被单桩拖死,慢 MCP 的下次调用再补(有 60s 冷却)。
+const BRIDGED_ENTRY_START_TIMEOUT_MS = 3500;
+// 整体扫描时限:getCapabilities 冷启动(网络探测 + 全量 MCP 扫描)不能无限期阻塞 —— 本机 ~/.claude.json
+// 可能导入 10+ 个 MCP,串行扫描实测可达 18.9s,远超 /api/capabilities 的 HTTP 超时(e2e 8s)。
+// 到点返回已收集的部分结果,不因单个慢/挂 MCP 拖死整次探测。
+const BRIDGED_CATALOG_SCAN_TIMEOUT_MS = 8000;
+
 async function collectBridgedTools(config, force = false) {
   if (!config || config.bridgeExternalToolsToProvider === false) return { tools: [], route: {} };
   const entries = resolveExternalMcpServers(config);
@@ -6933,27 +6944,47 @@ async function collectBridgedTools(config, force = false) {
   }
   const tools = [];
   const route = {};
-  for (const entry of entries) {
-    let client;
-    try { client = await getMcpClient(entry); } catch { client = null; }
-    if (!client) continue;
-    const prefix = sanitizeServerId(entry.id);
-    for (const t of await client.listTools()) {
-      if (!t || typeof t.name !== 'string' || !t.name) continue;
-      const bridgedName = `${prefix}__${t.name}`;
-      // Never overwrite an already-claimed name (defensive; prefixes make collisions unlikely).
-      if (route[bridgedName]) continue;
-      route[bridgedName] = { serverId: entry.id, toolName: t.name };
-      tools.push({
-        type: 'function',
-        function: {
-          name: bridgedName,
-          description: t.description || t.name,
-          parameters: (t.inputSchema && typeof t.inputSchema === 'object') ? t.inputSchema : { type: 'object', properties: {} },
-        },
-      });
+  const scan = (async () => {
+    // 并行收集每个 entry 的 client + tools —— N 个 MCP 同时启动,单个慢/挂不再拖慢其它(每 entry 有独立握手预算)。
+    const collected = await Promise.all(entries.map(async (entry) => {
+      let client = null;
+      try {
+        // 每 entry 的 getMcpClient(内含 start 握手)跑在独立 race 里:挂起桩最多占自身预算,不影响并行中的其余 MCP。
+        client = await Promise.race([
+          getMcpClient(entry),
+          new Promise(res => setTimeout(() => res('__timeout__'), BRIDGED_ENTRY_START_TIMEOUT_MS)),
+        ]);
+      } catch { client = null; }
+      if (!client || client === '__timeout__') return null;
+      let list;
+      try { list = client.listTools(); } catch { list = []; }
+      return { entry, list: Array.isArray(list) ? list : [] };
+    }));
+    for (const item of collected) {
+      if (!item) continue;
+      const { entry, list } = item;
+      const prefix = sanitizeServerId(entry.id);
+      for (const t of list) {
+        if (!t || typeof t.name !== 'string' || !t.name) continue;
+        const bridgedName = `${prefix}__${t.name}`;
+        // Never overwrite an already-claimed name (defensive; prefixes make collisions unlikely).
+        if (route[bridgedName]) continue;
+        route[bridgedName] = { serverId: entry.id, toolName: t.name };
+        tools.push({
+          type: 'function',
+          function: {
+            name: bridgedName,
+            description: t.description || t.name,
+            parameters: (t.inputSchema && typeof t.inputSchema === 'object') ? t.inputSchema : { type: 'object', properties: {} },
+          },
+        });
+      }
     }
-  }
+  })();
+  // 整体时限兜底:超时后返回当前已收集的部分(可能缺慢 MCP 的工具,但探测本身不再被拖死)。
+  try {
+    await Promise.race([scan, new Promise(res => setTimeout(res, BRIDGED_CATALOG_SCAN_TIMEOUT_MS))]);
+  } catch { /* 并行收集失败不阻断 —— 返回已收集部分 */ }
   const value = { tools, route };
   bridgedCatalogCache = {
     key: cacheKey,
