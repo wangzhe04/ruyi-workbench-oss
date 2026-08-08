@@ -17243,6 +17243,13 @@ function isContextOverflowError(httpError) {
 const TOOL_RESULT_CAP = 60000;   // flat cap for non-file-read tools
 const FILE_READ_HEAD = 40000;    // head window for file_read-class results
 const FILE_READ_TAIL = 8000;     // tail window for file_read-class results
+// A2: base64 图片字段专用处理 —— 60KB 平切会把 base64 从【中间】切断,返回给模型的是无法解码的坏图。
+// 识别 JSON 里的图片 base64 字段(字段名含 image/base64/screenshot/thumbnail/b64,值 ≥8000 个 base64 字符,
+// 或带 data:image/ 前缀),把超长 base64 值【整体】替换为短占位 —— 要么完整图,要么明确「图被裁」,
+// 绝不产生半截坏图。替换后仍超限才回退平切(此时 base64 已缩为占位,平切不再切到图)。
+// 字段名白名单覆盖 ACC 截图族(image / image_base64)与常见 MCP 图片约定,值长度门槛防误伤非图大字段。
+const IMG_B64_TRIM_RE = /("(?:[A-Za-z0-9_]*?(?:image|base64|screenshot|thumbnail|b64)[A-Za-z0-9_]*?)"\s*:\s*")((?:data:[a-z0-9+.-]+\/[a-z0-9+.-]+;base64,)?[A-Za-z0-9+/=]{8000,})/g;
+
 function truncateToolResult(name, jsonStr) {
   const s = String(jsonStr == null ? '' : jsonStr);
   if (s.length <= TOOL_RESULT_CAP) return s;
@@ -17251,7 +17258,14 @@ function truncateToolResult(name, jsonStr) {
     const tail = s.slice(s.length - FILE_READ_TAIL);
     return head + `\n[...中间已截断，共 ${s.length} 字符...]\n` + tail;
   }
-  return s.slice(0, TOOL_RESULT_CAP) + `\n[...已截断，共 ${s.length} 字符，仅保留前 ${TOOL_RESULT_CAP} 字符；如需完整结果请用更精确参数（如 offset/limit、maxResults、region、max_width）重新获取...]\n`;
+  // A2: 先试图片字段压缩(整体替换,不切中间)。
+  const trimmed = s.replace(IMG_B64_TRIM_RE, (match, pre, b64) => {
+    const n = b64.length;
+    return `${pre}[base64 image: ${n} chars trimmed to keep tool-result within the ${TOOL_RESULT_CAP}-char budget; image is intact upstream — re-fetch with a smaller max_width / region if the visual is needed]`;
+  });
+  if (trimmed.length <= TOOL_RESULT_CAP) return trimmed;
+  // 回退平切:用 trimmed 而非原始 s —— 图片字段已缩为占位,平切不再切到任何 base64 中间(只切文本)。
+  return trimmed.slice(0, TOOL_RESULT_CAP) + `\n[...已截断，共 ${s.length} 字符，仅保留前 ${TOOL_RESULT_CAP} 字符；如需完整结果请用更精确参数（如 offset/limit、maxResults、region、max_width）重新获取...]\n`;
 }
 
 // v0.8-S5 checkpoint SAFETY NET (not a gate): snapshot providerHistory BEFORE a compaction to

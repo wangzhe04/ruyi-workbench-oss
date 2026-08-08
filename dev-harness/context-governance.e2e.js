@@ -113,6 +113,17 @@ const maybeCompactSubHistory = new Function(
   mm[0] + '\nreturn maybeCompactSubHistory;'
 )(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage);
 
+// ============ A2: truncateToolResult 的 base64 图片字段专用处理(防 60KB 平切切坏图) ============
+// 抽真 truncateToolResult + IMG_B64_TRIM_RE(保真);TOOL_RESULT_CAP / FILE_READ_* 注入常量。
+const trm = src.match(/const IMG_B64_TRIM_RE = ([^\n]+);/);
+const tm = src.match(/function truncateToolResult\(name, jsonStr\) \{\n[\s\S]*?\n\}/);
+ok(!!trm && !!tm, 'A2 源抽取 truncateToolResult + IMG_B64_TRIM_RE');
+const IMG_B64_TRIM_RE = trm ? eval('(' + trm[1] + ')') : null;
+const truncateToolResult = new Function(
+  'TOOL_RESULT_CAP', 'FILE_READ_HEAD', 'FILE_READ_TAIL', 'IMG_B64_TRIM_RE',
+  tm[0] + '\nreturn truncateToolResult;'
+)(60000, 2000, 8000, IMG_B64_TRIM_RE);
+
 const cfg = { autoCompactThreshold: 0.8 }; // budget = 0.8 × 1000 = 800 token
 const prov = { model: 'm' };
 (async () => {
@@ -179,6 +190,36 @@ const prov = { model: 'm' };
     const changed = await maybeCompactSubHistory({ subHistory: sub, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: () => {} });
     ok(changed === true && sub[2].content.startsWith('[已省略:'), 'A(4) L2 内核失败→保留 L1 蒸发结果,不抛');
     summaryOk = true;
+  }
+
+  // ============ A2: base64 图片字段专用处理 ============
+  {
+    // (1) 超大 base64 图片字段 → 整体替换为占位;替换后 JSON 仍合法(可 parse,无坏切)。
+    const big = 'A'.repeat(100000);
+    const out = truncateToolResult('screenshot', JSON.stringify({ ok: true, width: 1280, height: 720, image_base64: big }));
+    ok(out.length <= 60000, 'A2(1) 图片压缩后结果 ≤ 60KB 预算 (got ' + out.length + ')');
+    ok(/\[base64 image: 100000 chars trimmed/.test(out), 'A2(1) 大 base64 整体替换为占位(含原长度报告)');
+    let parsed = null; try { parsed = JSON.parse(out); } catch { /* ignore */ }
+    ok(!!parsed && typeof parsed.image_base64 === 'string' && parsed.width === 1280, 'A2(1) 压缩后 JSON 仍合法且元信息保留(平切必坏 JSON,整体替换不坏)');
+    // (2) 小 base64(不超阈值)不动。
+    const small = 'B'.repeat(1000);
+    const out2 = truncateToolResult('screenshot', JSON.stringify({ ok: true, image_base64: small }));
+    ok(out2.includes(small) && !/\[base64 image:/.test(out2), 'A2(2) 小 base64 不受影响(原样保留)');
+    // (3) 非图片大字段(如超长正文)→ 无图片匹配 → 回退平切(不产生 base64 占位)。
+    const out3 = truncateToolResult('http_request', JSON.stringify({ ok: true, body: 'X'.repeat(100000) }));
+    ok(out3.length <= 60000 + 200 && !/\[base64 image:/.test(out3) && /已截断/.test(out3), 'A2(3) 非图片大字段回退平切(带截断标记)');
+    // (4) 大图片 + 更大正文(替换后仍超限)→ 回退平切 trimmed:平切只切文本,不切到任何 base64 中间。
+    // (5) data:image/ URI 前缀的大图(>预算)→ 同样整体替换,前缀后的 base64 不被半切。
+    const out5 = truncateToolResult('observe', JSON.stringify({ ok: true, image: 'data:image/jpeg;base64,' + 'C'.repeat(100000) }));
+    ok(out5.length <= 60000 && /\[base64 image: \d+ chars trimmed/.test(out5), 'A2(5) data: 前缀大图整体替换(不半切)');
+    let p5 = null; try { p5 = JSON.parse(out5); } catch { /* ignore */ }
+    ok(!!p5 && p5.image.startsWith('[base64 image:'), 'A2(5) data: 前缀图压缩后 JSON 仍合法');
+    // (4) 大图片 + 更大正文(替换后仍超限)→ 回退平切 trimmed:平切只切文本,不切到任何 base64 中间。
+    const out4 = truncateToolResult('screenshot', JSON.stringify({ ok: true, body: 'Y'.repeat(100000), image_base64: 'A'.repeat(90000) }));
+    ok(out4.length <= 60000 + 200, 'A2(4) 图+文双超 → 回退平切仍 ≤ 预算');
+    // 回退平切切的是 trimmed(图片已占位化):image_base64 字段要么【整段裁掉】、要么以【完整占位】保留 —— 绝不半切。
+    ok(!out4.includes('image_base64') || /\[base64 image:/.test(out4), 'A2(4) 图片字段整段裁掉或完整占位保留,绝不半切');
+    ok(/已截断/.test(out4), 'A2(4) 回退平切带截断标记');
   }
 
   console.log('');
