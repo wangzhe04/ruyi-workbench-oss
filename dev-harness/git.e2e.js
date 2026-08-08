@@ -145,7 +145,7 @@ function gitAvailable() {
 
     // ② git_commit → hash;git_log maxCount:5 → 含该 message。
     const MSG = 'e2e: first commit';
-    const cm = await callTool(WB_PORT, token, 'git_commit', { cwd: REPO, message: MSG });
+    const cm = await callTool(WB_PORT, token, 'git_commit', { cwd: REPO, message: MSG, addAll: true });  // 批2起 addAll 默认 false(防误入库);e2e 临时 repo 首次 commit 显式 opt-in
     ok(cm && cm.ok === true, '② git_commit ok (' + (cm && (cm.error || cm.summary)) + ')');
     ok(cm && typeof cm.hash === 'string' && /^[0-9a-f]{4,40}$/.test(cm.hash), '② git_commit 返回 hash (got "' + (cm && cm.hash) + '")');
     const lg = await callTool(WB_PORT, token, 'git_log', { cwd: REPO, maxCount: 5 });
