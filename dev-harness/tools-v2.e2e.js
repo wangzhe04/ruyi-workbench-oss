@@ -139,12 +139,13 @@ function writeConfig(home, fakePort) {
         ok(hit && hit.context.some(l => l.line === 1 && l.match === false) && hit.context.some(l => l.line === 5), '(d) context spans +/-2 lines with line numbers');
         killPair(pair);
       }
-      // group:true
+      // group:true(用 8963/8964 避开 context 8962 的 TIME_WAIT -- Windows 端口复用不可靠,context killPair 后 8962 仍占)
       {
+        writeConfig(home, 9190);
         const seq = JSON.stringify([{ name: 'file_search', args: { pattern: 'TARGET', root: proj, group: true } }]);
-        const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
-        const h = await waitHealthy(8962); ok(!!h, '(d) workbench up (group)');
-        const events = await postStream(8962, { message: 'grep-group', cwd: home });
+        const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 9190, 9191, home);
+        const h = await waitHealthy(9191); ok(!!h, '(d) workbench up (group)');
+        const events = await postStream(9191, { message: 'grep-group', cwd: home });
         const tr = events.find(e => e.type === 'tool_result');
         const g = tr && tr.content && tr.content.matches;
         ok(Array.isArray(g) && g.length === 2, '(d) grouped into 2 files (got ' + (g && g.length) + ')');

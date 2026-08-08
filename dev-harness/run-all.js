@@ -30,6 +30,9 @@ const PARALLEL_EXCLUSIVE = new Set(['pretender-preview-performance.e2e.js']);
 const TIMEOUT_OVERRIDES = {
   // scheduler-ready-queue: 时序敏感(等调度器 tick),慢机器上偶发贴边
   'scheduler-ready-queue.e2e.js': 180000,
+  // tools-v2: 8 子测试各自 spawn workbench,(d) group 改用独立端口(9190/9191 避 8962 TIME_WAIT),
+  // 本机多轮 e2e 后资源紧张时整体 >120s(实测 240s,逻辑全 PASS)。豁免到 300s 防误杀。
+  'tools-v2.e2e.js': 300000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 

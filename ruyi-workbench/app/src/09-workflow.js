@@ -324,7 +324,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     // warn 注入 tool_result 后模型仍不自救(有事件、非 idle,idle watchdog 抓不到)时,abort 该节点。
     // 阈值 = warn 阈值的倍数(warn 在 SUB_SEMANTIC_WARN_AT=4,此处 3 倍=12 次无进展),给足自救机会后兜底。
     // 归因 node.noProgressAborted → 失败归类 semantic_stall(区别于 idle_timeout / 常规失败)。
-    const NODE_NO_PROGRESS_ABORT_AT = 12;
+    const NODE_NO_PROGRESS_ABORT_AT = 40;  // 10 倍 warn(非 3 倍):合法长跑(轮询/保活)结果可能固定,阈值需 > 典型长跑轮数(如 keeper 30 轮)避免误杀;warn 后真实模型自救,fake/固执节点 40 兜底
     if (!runtime.paused && !runtime.inPoolGrace && !(runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted))) {
       for (const node of nodes) {
         if (!node || node.status !== 'running' || node.noProgressAborted) continue;
