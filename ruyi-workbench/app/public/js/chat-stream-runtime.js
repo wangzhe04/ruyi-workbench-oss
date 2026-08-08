@@ -740,6 +740,9 @@ export function createChatStreamRuntime(deps = {}) {
       if (!live.bufferText) live.bufferText = t('chat.noTextOutput');
       sealLiveTextSegment(live);
     }
+    // 回合收尾连做折叠(思考面板/过程组)+ markdown 定版，高度变化集中在这一步；
+    // 同任务内补一次粘性跟随，避免回合结束时视口先塌后跳。
+    maybeScrollToBottom();
   }
   // C6: insert an independent .msg-error block (red) into the live container. Text via textContent so
   // it is never markdown-parsed. Placed after the tools wrap so it reads as the turn's terminal state.
@@ -819,6 +822,9 @@ export function createChatStreamRuntime(deps = {}) {
       flushThinkingBuffer(live); // 面板收拢前把合批中的思维链增量写进 DOM
       settleLiveThinking(live);
       compactNarrativeProcessRuns(live.narrative);
+      // 思考面板折叠是一次大幅高度塌陷：同任务内立即重新跟随，否则塌陷帧先画出、
+      // 下一个事件才把视口拽回底部，表现为页面先跳上去再跳下来（上下抖动）。
+      maybeScrollToBottom();
     }
     switch (evt.type) {
       case 'session':
@@ -927,6 +933,9 @@ export function createChatStreamRuntime(deps = {}) {
           if (card.dur && card.t0 != null) card.dur.textContent = `· ${((performance.now() - card.t0) / 1000).toFixed(1)}s`;
           settleNarrativeTool(live, evt.id, evt.isError);
           compactNarrativeProcessRuns(live.narrative);
+          // 工具完成收组/过程段压实会塌陷高度（用户报告的「新工具展开→成功后快速收起」抽动源）：
+          // 与 DOM 变更同帧重新跟随，浏览器只画一次终态，不再先陷后拽。
+          maybeScrollToBottom();
         }
         break;
       }

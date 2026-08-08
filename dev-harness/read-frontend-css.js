@@ -68,7 +68,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // （无界归档列表跳过离屏卡片渲染，contain-intrinsic-size:auto 记忆实际尺寸减少滚动漂移）+ .preview-seal-ring
 // 加 contain: layout style paint（隔离 conic-gradient 重绘到 46x46 自身边界）。两条均为 Preview 层有意样式
 // 变更，重钉载荷锁。classic 层规则无漂移。
-const LEGACY_STYLES_SHA256 = 'a4475051aa868eb07ea12867edffbdb60c1533e9a842a7f20e44cca4a1b8c65a';
+// 滚动抖动修复波：.messages 加 overflow-anchor:none（滚动完全由 chat-scroll 粘性控制器接管，关掉浏览器
+// 原生 scroll anchoring 与程序化跟随互相拉扯导致的流式上下抖动）+ scrollbar-gutter:stable（滚动条出现/
+// 消失不再改内容宽度）；.think-body 与 .preview-raw-messages 同加 overflow-anchor:none（内层/原始镜头跟随
+// 同理独占滚动写入）。三条均为有意样式变更，重钉载荷锁。
+const LEGACY_STYLES_SHA256 = '0db0cea842cdb06885ae91c8f7ed7e14b8244c0600252f9728e0ceec99480238';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

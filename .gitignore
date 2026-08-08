@@ -37,3 +37,8 @@ Thumbs.db
 /.wave29-livetest/
 # A/B probe run artifacts (local benchmark outputs, may contain provider responses)
 /dev-harness/ab-results/
+
+# Desktop shell build outputs (source in ruyi-workbench/desktop/)
+/.tmp-csc-probe/
+/ruyi-workbench/RuyiDesktop.exe
+/ruyi-workbench/WebView2Loader.dll

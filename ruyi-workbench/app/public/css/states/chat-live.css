@@ -10,7 +10,9 @@
 .thinking-icon { width: 14px; height: 14px; display: inline-grid; place-items: center; flex: none; color: color-mix(in srgb, var(--accent) 58%, var(--muted)); }
 .thinking-caret { width: 5px; height: 5px; margin-left: 1px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg) translateY(-1px); transition: transform var(--transition); opacity: .7; }
 .thinking[open] .thinking-caret { transform: rotate(225deg) translate(-1px, -1px); }
-.thinking .think-body { margin: 1px 8px 5px 27px; padding: 7px 10px; border-left: 1px solid var(--line); border-radius: 0 6px 6px 0; background: color-mix(in srgb, var(--panel-2) 48%, transparent); color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.55; white-space: pre-wrap; max-height: 240px; overflow: auto; contain: layout style; }
+.thinking .think-body { margin: 1px 8px 5px 27px; padding: 7px 10px; border-left: 1px solid var(--line); border-radius: 0 6px 6px 0; background: color-mix(in srgb, var(--panel-2) 48%, transparent); color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.55; white-space: pre-wrap; max-height: 240px; overflow: auto; overflow-anchor: none; contain: layout style; }
+/* overflow-anchor:none —— 内层跟随(scheduleLiveThinkingFollow 每帧写 scrollTop)与原生锚定同理互斥，
+   思维链高速增长时否则会在面板内上下抽动。 */
 /* contain: layout style —— 超长思维链重排不再冒泡到整条 #messages 树；面板高度已被 max-height 固定，
    内容自滚动，对外部度量无影响。 */
 /* Keep active reasoning visible but quiet: the label gets a cool light sweep and the trace softly pulses. */

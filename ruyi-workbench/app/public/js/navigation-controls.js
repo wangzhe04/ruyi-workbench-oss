@@ -706,7 +706,21 @@ function restoreSidebarCollapsed() {
 function toggleToolPane() {
   const shell = document.querySelector('.app-shell');
   if (isNarrow()) shell.classList.toggle('tools-open');
-  else shell.classList.toggle('tools-collapsed');
+  else {
+    shell.classList.toggle('tools-collapsed');
+    // 桌面栅格档持久化开合偏好（同 sidebarCollapsed 口径）；窄屏抽屉不记忆。
+    try { localStorage.setItem('wcw.toolsCollapsed', shell.classList.contains('tools-collapsed') ? '1' : '0'); } catch { /* ignore */ }
+  }
+}
+// 恢复工具面板开合：用户偏好优先；无偏好时桌面外壳（__ruyiDesktop 注入标记）首启默认收起，浏览器保持展开默认。
+function restoreToolsCollapsed() {
+  if (isNarrow()) return;
+  const shell = document.querySelector('.app-shell'); if (!shell) return;
+  let v = null;
+  try { v = localStorage.getItem('wcw.toolsCollapsed'); } catch { /* ignore */ }
+  if (v === '1') { shell.classList.add('tools-collapsed'); return; }
+  if (v === '0') return;
+  if (window.__ruyiDesktop) shell.classList.add('tools-collapsed');
 }
 // Ensure the tool pane is visible (used by "open MCP inspector" / "体检" entry points), respecting
 // which mechanism applies at the current width.
@@ -826,6 +840,7 @@ function initRightResize() {
     renderPalette,
     restoreRightWidth,
     restoreSidebarCollapsed,
+    restoreToolsCollapsed,
     setSidebarCollapsed,
     switchSettingsTab,
     switchTab,

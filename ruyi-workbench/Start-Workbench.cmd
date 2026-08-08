@@ -23,6 +23,13 @@ if not exist "%RUYI_ROOT%runtime\node\node.exe" (
   goto :package_incomplete
 )
 
+REM 独立桌面外壳优先：自有窗口 + 三键 + 关闭即收进程树（无 terminal 黑窗）。
+REM 缺 exe/dll 时（如仅源码环境未构建）回落到 node + 浏览器路径。
+if exist "%RUYI_ROOT%RuyiDesktop.exe" if exist "%RUYI_ROOT%WebView2Loader.dll" (
+  start "" "%RUYI_ROOT%RuyiDesktop.exe"
+  exit /b 0
+)
+
 "%RUYI_ROOT%runtime\node\node.exe" "%RUYI_ROOT%app\server.js" serve --open
 set "RUYI_EXIT=%ERRORLEVEL%"
 if not "%RUYI_EXIT%"=="0" (

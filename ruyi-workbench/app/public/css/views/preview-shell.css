@@ -317,7 +317,9 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
 .preview-worksite-head h2 { margin: 0; font-size: var(--fs-lg); }
 .preview-worksite-head p { margin: 2px 0 0; color: var(--preview-muted); font-size: var(--fs-xs); }
 .preview-cursor { flex: 0 0 auto; padding: 4px 9px; border-radius: var(--r-pill); color: var(--preview-muted); background: var(--preview-surface-2); font-family: var(--mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
-.preview-raw-messages { min-height: 0; padding: var(--sp-4) var(--sp-3); scroll-behavior: auto; contain: layout paint; }
+.preview-raw-messages { min-height: 0; padding: var(--sp-4) var(--sp-3); scroll-behavior: auto; overflow-anchor: none; contain: layout paint; }
+/* 与经典壳 .messages 同理：raw 镜头的粘性跟随(createChatScrollController)独占滚动写入，
+   关掉浏览器原生 scroll anchoring，避免流式增长/塌陷时两套锚定互相拉扯抽动。 */
 .preview-raw-messages .message { width: min(1180px, 100%); }
 .preview-raw-messages .msg-actions { display: none; }
 .preview-raw-messages:focus-visible { outline: 2px solid var(--preview-accent); outline-offset: -2px; }

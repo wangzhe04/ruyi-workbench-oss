@@ -23605,7 +23605,19 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const session = await loadSession(id);
       if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
       // v0.8-S0 A6: surface whether the last turn dangles (arrested mid-flight) so the UI can offer resume.
-      return send(res, json({ ok: true, session, resumable: detectDanglingTurn(session) }));
+      // 运行中豁免:活回合/活 agent run 在跑时,providerHistory 尾部恰好就是 detectDanglingTurn
+      // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」
+      // 横幅,故 live 会话直接返回不悬挂。
+      let live = activeChildren.has(id);
+      if (!live) {
+        for (const runtime of activeAgentRuns.values()) {
+          if (runtime && runtime.run && runtime.run.sessionId === id) { live = true; break; }
+        }
+      }
+      const resumable = live
+        ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: Array.isArray(session.providerHistory) ? session.providerHistory.length : 0 }
+        : detectDanglingTurn(session);
+      return send(res, json({ ok: true, session, resumable }));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);

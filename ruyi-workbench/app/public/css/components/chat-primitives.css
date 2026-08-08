@@ -1,6 +1,13 @@
 /* Message list, empty and failure states, message shells, avatars, and bubbles. */
 /* ============================ messages ============================ */
-.messages { flex: 1 1 auto; padding: 24px 20px 8px; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.messages { flex: 1 1 auto; padding: 24px 20px 8px; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  /* 滚动完全由 JS 粘性控制器(chat-scroll.js)接管：浏览器原生 scroll anchoring 会在内容塌陷(工具卡收组/
+     思考面板折叠)时自作主张回调 scrollTop，与程序化跟随互相拉扯，表现为流式输出时页面上下抖动。
+     overflow-anchor:none 关掉原生锚定，单一写点不再打架。 */
+  overflow-anchor: none;
+  /* 流式增长跨过溢出阈值时滚动条突然出现/消失会改变内容宽度，整列重排抖一下；
+     预留稳定 gutter 后宽度恒定（预览壳 previewMain 同款处理）。 */
+  scrollbar-gutter: stable; }
 /* scroll-behavior 不设 smooth：流式跟随时程序化 scrollTop=scrollHeight 若走平滑动画，会派发跨多帧
    的 scroll 事件风暴并把"跟随最新"误判成用户上滑（stickToBottom 被自己的滚动杀死），长链输出时
    表现为追不上最新、滚不动。回到最新按钮仍即时生效，体验与多数聊天应用一致。 */

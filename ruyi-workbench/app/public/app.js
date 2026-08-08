@@ -403,6 +403,7 @@ const {
   renderPalette,
   restoreRightWidth,
   restoreSidebarCollapsed,
+  restoreToolsCollapsed,
   setSidebarCollapsed,
   switchSettingsTab,
   switchTab,
@@ -1150,6 +1151,7 @@ async function boot() {
   applyTheme((() => { try { return localStorage.getItem('wcw.theme') || 'dark'; } catch { return 'dark'; } })());
   applyUiMode((() => { try { return localStorage.getItem('wcw.uiMode') || 'simple'; } catch { return 'simple'; } })()); // v0.9-S1 (C1) / v1.0.2 (F5): 默认 simple 对齐 server
   restoreSidebarCollapsed(); // v1.0.2 (F2): 恢复上次的折叠侧栏状态
+  restoreToolsCollapsed(); // 桌面外壳首启默认收起工具面板；用户偏好优先
   restoreRightWidth(); initRightResize(); // v3 (§2.7 P2): 恢复右栏三档宽 + 绑定拖拽手柄
   restoreMainView(); // v3 P3a: 恢复中栏主视图(对话/工作台)记忆
   try { const d = localStorage.getItem('wcw.draft'); if (d) { $('promptInput').value = d; autoGrow($('promptInput')); } } catch { /* ignore */ }

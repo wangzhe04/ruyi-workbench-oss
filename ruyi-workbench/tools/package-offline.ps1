@@ -242,6 +242,21 @@ if (-not $SkipExeBuild -and (Test-Path $exe)) {
   Write-Warning "EXE build skipped or unavailable. Packaging source-runner + bundled node.exe (zero-install offline)."
 }
 
+# 桌面外壳：自有窗口 + 右上三键、关闭即回收进程树；缺失时启动器自动回落 node + 浏览器路径。
+$desktopBuilder = Join-Path $root "desktop\build-desktop.ps1"
+if (Test-Path $desktopBuilder) {
+  try {
+    & powershell -ExecutionPolicy Bypass -File $desktopBuilder
+    if ($LASTEXITCODE -ne 0) { Write-Warning "Desktop shell build returned non-zero; packaging without it." }
+  } catch {
+    Write-Warning "Desktop shell build failed: $_"
+  }
+}
+foreach ($desktopFile in @("RuyiDesktop.exe", "WebView2Loader.dll")) {
+  $desktopSrc = Join-Path $root $desktopFile
+  if (Test-Path $desktopSrc) { Copy-Item $desktopSrc (Join-Path $stage $desktopFile) -Force }
+}
+
 Copy-Item (Join-Path $root "app") (Join-Path $stage "app") -Recurse
 Copy-Item (Join-Path $root "resources") (Join-Path $stage "resources") -Recurse
 Copy-Item (Join-Path $root "config") (Join-Path $stage "config") -Recurse
@@ -376,6 +391,10 @@ if not exist "%RUYI_ROOT%runtime\node\node.exe" (
 )
 $accPreflight
 $accBootstrap
+if exist "%RUYI_ROOT%RuyiDesktop.exe" if exist "%RUYI_ROOT%WebView2Loader.dll" (
+  start "" "%RUYI_ROOT%RuyiDesktop.exe"
+  exit /b 0
+)
 "%RUYI_ROOT%runtime\node\node.exe" "%RUYI_ROOT%app\server.js" serve --open
 set "RUYI_EXIT=%ERRORLEVEL%"
 if not "%RUYI_EXIT%"=="0" (
