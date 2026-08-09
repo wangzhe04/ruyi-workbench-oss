@@ -43,16 +43,16 @@
 
 我们在开源 [HarnessBench](https://github.com/Qihoo360/harness-bench) 的文件系统任务、程序化 Oracle、过程轨迹与安全评估方法上做了 **Harness-Bench-360（HB360）扩展**，用同一 `deepseek-v4-flash` 模型对 106 个真实任务、4 种 harness 进行了一次受控横评。以下是 **2026-08-09 的本地测试快照**：
 
-| Harness | Outcome | Process | Security | Efficiency | HB360 Combined | 估算成本 | 平均耗时 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| **Ruyi** | 77.2 | 98.1 | 100.0 | 65.1 | **49.6** | **$0.60** | 97s |
-| Hermes Agent | **80.6** | **98.8** | 100.0 | 51.3 | 41.9 | $0.92 | 159s |
-| Codex (WSL2) | 76.9 | 78.2 | 100.0 | 63.6 | 36.6 | $1.58 | **90s** |
-| OpenClaw | 63.2 | 74.4 | 100.0 | 50.1 | 23.0 | $1.18 | 156s |
+| Harness | Outcome | Process | Security | Efficiency | HarnessBench Combined<br>O×P×S | HB360 Combined+E<br>O×P×S×E | 估算成本 | 平均耗时 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **Ruyi** | 77.2 | 98.1 | 100.0 | **65.1** | **75.7** | **49.6** | **$0.60** | 97s |
+| Hermes Agent | **80.6** | **98.8** | 100.0 | 51.3 | **79.6** | 41.9 | $0.92 | 159s |
+| Codex (WSL2) | 76.9 | 78.2 | 100.0 | 63.6 | 60.1 | 36.6 | $1.58 | **90s** |
+| OpenClaw | 63.2 | 74.4 | 100.0 | 50.1 | 47.0 | 23.0 | $1.18 | 156s |
 
-这组结果显示的不是“每个单项都第一”，而是 Ruyi 在质量、过程可靠性、成本和时延之间取得了更均衡的折中：综合分第一、估算成本最低，单项 Outcome 与速度则分别由 Hermes 和 Codex 领先。Ruyi 的 106 项中有 101 项有效结果；4 个 harness 共有 5 项预期失败，便于把环境/任务问题与框架差异分开看。
+这组结果显示的不是“每个单项都第一”，而是 Ruyi 在质量、过程可靠性、成本和时延之间取得了更均衡的折中：上游原生 Combined（O×P×S）由 Hermes 以 79.6 领先，Ruyi 为 75.7；加入工程效率后，Ruyi 凭 **Efficiency 65.1（四家最高）**，在 HB360 Combined+E 中以 **49.6** 排名第一，同时取得最低估算成本 **$0.60**。单项 Outcome 与速度则分别由 Hermes 和 Codex 领先。Ruyi 的 106 项中有 101 项有效结果；4 个 harness 共有 5 项预期失败，便于把环境/任务问题与框架差异分开看。
 
-> **口径与边界：**上游 HarnessBench 的默认 Combined 为 Outcome × Process × Security；HB360 为了比较 harness 工程效率，额外加入 Efficiency，因此两种 Combined **不能直接横比**。成本按统一基准价和修正后的缓存记账归一化，是测试估算而非供应商账单；本表是单机、单模型、单次测试快照，不是官方排行榜。原始逐任务结果保留在独立 benchmark 工程中，未随本仓库发布。
+> **口径与边界：**表中同时列出两种分数：HarnessBench Combined = Outcome × Process × Security；HB360 Combined+E = Outcome × Process × Security × Efficiency。前者侧重结果、过程与安全，后者额外衡量 harness 工程效率，两种 Combined **不能直接横比**。上游 Combined 由表内展示值计算并四舍五入到 1 位小数；HB360 Combined+E 来自 benchmark 汇总结果。成本按统一基准价和修正后的缓存记账归一化，是测试估算而非供应商账单；本表是单机、单模型、单次测试快照，不是官方排行榜。原始逐任务结果保留在独立 benchmark 工程中，未随本仓库发布。
 
 ### Escapade 2.5.0 重点更新
 
@@ -444,9 +444,9 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 
 ### Harness-Bench-360 snapshot
 
-Ruyi was evaluated in a local extension of [HarnessBench](https://github.com/Qihoo360/harness-bench): 106 real filesystem tasks, the same `deepseek-v4-flash` model, and four harnesses. In the 2026-08-09 snapshot, Ruyi scored **49.6 HB360 Combined**, ahead of Hermes Agent (41.9), Codex on WSL2 (36.6), and OpenClaw (23.0), while recording the lowest normalized estimated cost (**$0.60**) and a 97-second average runtime. Hermes led Outcome; Codex was fastest.
+Ruyi was evaluated in a local extension of [HarnessBench](https://github.com/Qihoo360/harness-bench): 106 real filesystem tasks, the same `deepseek-v4-flash` model, and four harnesses. In the 2026-08-09 snapshot, the upstream HarnessBench Combined (Outcome × Process × Security) ranked Hermes first at 79.6 and Ruyi second at **75.7**. With engineering efficiency included, Ruyi's **Efficiency score of 65.1—the highest of the four—** lifted it to first place at **49.6 HB360 Combined+E**, ahead of Hermes Agent (41.9), Codex on WSL2 (36.6), and OpenClaw (23.0). Ruyi also recorded the lowest normalized estimated cost (**$0.60**) and a 97-second average runtime. Hermes led Outcome; Codex was fastest.
 
-HB360 adds an Efficiency dimension to upstream HarnessBench's Outcome × Process × Security formula, so its Combined score is not directly comparable with the upstream default. Costs are normalized benchmark estimates, not invoices. This is a single-machine, single-model test snapshot—not an official leaderboard—and five tasks were common expected failures across all four harnesses.
+Both scores are reported: HarnessBench Combined = Outcome × Process × Security, while HB360 Combined+E additionally multiplies by Efficiency. They answer different questions and are not directly comparable. The upstream values above are calculated from the displayed component scores and rounded to one decimal; Combined+E uses the benchmark aggregate. Costs are normalized benchmark estimates, not invoices. This is a single-machine, single-model test snapshot—not an official leaderboard—and five tasks were common expected failures across all four harnesses.
 
 ### Capabilities (current master) · Escapade
 
