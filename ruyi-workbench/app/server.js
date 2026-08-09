@@ -16287,7 +16287,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         providerId: provider.id, model, iteration: iter, withTools: useTools,
         toolCount: useTools ? toolLoading.current().length : 0, estimatedContextTokens: estBeforeCall,
       });
+      const tLlm0 = Date.now(); // hb360 C2: 每轮耗时分解(LLM 流式 vs 工具执行),效率观测点
       const call = await streamWithFailover(buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
+      const llmMs = Date.now() - tLlm0;
+      const tTools0 = Date.now();
       if (call.httpError) {
         // If the server rejected tools, retry the turn once WITHOUT tools (chat-only) before failing.
         if (useTools && call.toolsRejected && !toolsRetried) { toolsRetried = true; useTools = false; onEvent({ type: 'stderr', text: '[provider] tools rejected — retrying without tools' }); iter--; continue; }
@@ -16558,6 +16561,42 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             spawnDispatches.set(item.stc.id, { promise, background: item.background, runId: spawnRunId, nodeId: item.agentKey, agentKey: item.agentKey, dependsOn: item.dependsOn, role: item.roleId || '' });
           }
         }
+        // hb360 C1: read-tier 并行批 —— 整批全部是【原生只读工具】(无桥接/控制面/spawn/todo/mission/
+        // 交互类)且 ≤8 个时,入口并发预执行(单线程事件循环下的 I/O 并发),结果按 id 存表;下方串行
+        // 循环走到通用分发时直接取预执行结果,事件/历史/hook/配对顺序与串行路径【逐字节一致】。
+        // 安全约束:① 预扫描 loop-guard 签名序列,命中 LOOP_ABORT_AT 不并行(让串行路径照常拒绝,
+        //    不白跑将被拒的调用);② read tier 恒 auto-allow(无权限弹窗/grant 消耗时序问题);
+        //    ③ loopWarning/语义指纹在下方取结果后按原顺序照常应用。任一条件不满足 → null → 走原串行。
+        let parallelReadResults = null;
+        if (localToolCalls.length > 1 && localToolCalls.length <= 8) {
+          const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
+          const allSafeRead = localToolCalls.every(tc => tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
+            && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read');
+          let simSig = loopSig, simCount = loopCount, loopTrip = false;
+          for (const tc0 of localToolCalls) {
+            const s0 = tc0.name + ' ' + tc0.rawArgs;
+            if (s0 === simSig) simCount += 1; else { simSig = s0; simCount = 1; }
+            if (simCount >= LOOP_ABORT_AT) { loopTrip = true; break; }
+          }
+          if (allSafeRead && !loopTrip) {
+            parallelReadResults = new Map();
+            await Promise.all(localToolCalls.map(async tc => {
+              let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+              let res, lease = '';
+              try {
+                const toolResources = inferToolResources(tc.name, pargs, null, workingDir, 'read');
+                lease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
+                res = await awaitProviderTool(
+                  tc,
+                  signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
+                  INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
+                );
+              } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+              finally { releaseResourceLease(lease); }
+              parallelReadResults.set(tc.id, res);
+            }));
+          }
+        }
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
@@ -16768,6 +16807,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   resultObj = { ok: false, error: '当前会话没有活动任务账本(Mission);简单任务无需 mission_update' };
                 }
               } else {
+                // hb360 C1: read-tier 并行批命中 → 直接取预执行结果(等价于原 toolCall 路径,见上方并行块)
+                if (parallelReadResults && parallelReadResults.has(tc.id)) {
+                  resultObj = parallelReadResults.get(tc.id);
+                } else {
                 // v0.8-S4a: pass the live checkpoint-journal context so file_write/file_edit/file_delete
                 // record a `before` snapshot under this session's current turnSeq (serve process path).
                 // v1.1-W2 (T1): also thread session+config so http_download can guard its落盘 dest against the
@@ -16784,6 +16827,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 }
                 catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                 finally { releaseResourceLease(toolLease); }
+                }
               }
             }
           }
@@ -16872,6 +16916,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (aborted) break;
         if (loopAborted) break;       // v0.8-S7: repeated-call guard tripped → end the turn (self-contained note below)
         if (steerAborted) steerAborted = false;  // 51b 02 Phase B: 插话中断 reset(不结束回合,走 saveSession+continue 回 drainSteerQueue 注入插话)
+        // hb360 C2: 每轮耗时分解埋点(LLM 流式/工具执行/并行批规模),定位回合延迟去向
+        try { logEvent({ kind: 'iter_timing', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, iter, llmMs, toolsMs: Date.now() - tTools0, nTools: localToolCalls.length, parallelBatch: !!(parallelReadResults && parallelReadResults.size) }); } catch { /* ignore */ }
         await saveSession(session);   // persist the growing tool trace
         continue;                     // loop: let the model react to the tool results
       }
