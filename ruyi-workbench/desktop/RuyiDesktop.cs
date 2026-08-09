@@ -33,6 +33,8 @@ namespace RuyiDesktop
         public const int WM_MOUSEHWHEEL = 0x020E;
         public const int WM_DPICHANGED = 0x02E0;
         public const int HTCAPTION = 2;
+        public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+        public const int DWMWCP_ROUND = 2;
         public const uint MONITOR_DEFAULTTONEAREST = 2;
         public const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000;
 
@@ -108,6 +110,7 @@ namespace RuyiDesktop
         [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT pt);
         [DllImport("user32.dll")] public static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
         [DllImport("user32.dll")] public static extern IntPtr GetFocus();
+        [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern IntPtr CreateJobObject(IntPtr securityAttributes, string name);
@@ -654,6 +657,7 @@ namespace RuyiDesktop
         private bool themeLight;    // 当前宿主主题（默认暗）
         private bool themeApplied;
         private Icon themeIcon;
+        private bool nativeRoundedCorners;
 
         public ShellForm(ServerHost serverHost)
         {
@@ -689,6 +693,7 @@ namespace RuyiDesktop
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
+            ApplyWindowCorners();
             InitWebView();
         }
 
@@ -902,8 +907,14 @@ namespace RuyiDesktop
         {
             if (titlePanel == null) return; // 构造期设 MinimumSize/Size 会提前触发 OnSizeChanged
             int w = ClientSize.Width, h = ClientSize.Height;
-            titlePanel.SetBounds(0, 0, w, TitlebarHeight);
-            webPanel.SetBounds(0, TitlebarHeight, w, Math.Max(0, h - TitlebarHeight));
+            // WebView2 is a child HWND. If it covers the outermost pixels it receives hit-testing before
+            // the form, so WM_NCHITTEST on the shell never sees the pointer. Reserve one native resize
+            // band around the content in restored mode; that makes all four edges/corners reliably
+            // draggable and also gives the rounded shell a quiet visual frame.
+            int inset = WindowState == FormWindowState.Maximized ? 0 : ResizeBorder;
+            int innerW = Math.Max(0, w - inset * 2);
+            titlePanel.SetBounds(inset, inset, innerW, TitlebarHeight);
+            webPanel.SetBounds(inset, inset + TitlebarHeight, innerW, Math.Max(0, h - TitlebarHeight - inset * 2));
         }
 
         private void SyncWebViewBounds()
@@ -923,10 +934,55 @@ namespace RuyiDesktop
         protected override void OnSizeChanged(EventArgs e)
         {
             base.OnSizeChanged(e);
+            UpdateFallbackWindowRegion();
             LayoutPanels();
             SyncWebViewBounds();
             if (titlePanel != null)
                 titlePanel.MaxButton.ShowRestore = WindowState == FormWindowState.Maximized;
+        }
+
+        // Windows 11 supplies smooth antialiased corners through DWM. Windows 10 does not understand
+        // attribute 33, so keep a small GraphicsPath region fallback there. Maximized windows remain
+        // square and fill the monitor work area as users expect.
+        private void ApplyWindowCorners()
+        {
+            int preference = Native.DWMWCP_ROUND;
+            try
+            {
+                nativeRoundedCorners = Native.DwmSetWindowAttribute(Handle,
+                    Native.DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int)) == 0;
+            }
+            catch (DllNotFoundException) { nativeRoundedCorners = false; }
+            catch (EntryPointNotFoundException) { nativeRoundedCorners = false; }
+            UpdateFallbackWindowRegion();
+        }
+
+        private void UpdateFallbackWindowRegion()
+        {
+            if (!IsHandleCreated) return;
+            if (nativeRoundedCorners || WindowState == FormWindowState.Maximized)
+            {
+                Region old = Region;
+                Region = null;
+                if (old != null) old.Dispose();
+                return;
+            }
+            int radius = 12;
+            try { radius = Math.Max(10, (int)Math.Round(12.0 * Native.GetDpiForWindow(Handle) / 96.0)); }
+            catch { /* 96-DPI fallback */ }
+            var rect = new Rectangle(0, 0, Math.Max(1, ClientSize.Width), Math.Max(1, ClientSize.Height));
+            int d = Math.Min(radius * 2, Math.Min(rect.Width, rect.Height));
+            using (var path = new System.Drawing.Drawing2D.GraphicsPath())
+            {
+                path.AddArc(rect.Left, rect.Top, d, d, 180, 90);
+                path.AddArc(rect.Right - d, rect.Top, d, d, 270, 90);
+                path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+                path.AddArc(rect.Left, rect.Bottom - d, d, d, 90, 90);
+                path.CloseFigure();
+                Region old = Region;
+                Region = new Region(path);
+                if (old != null) old.Dispose();
+            }
         }
 
         /* ---------- 主题：页面上报 light/dark → 标题栏/背景/窗口图标同步 ---------- */

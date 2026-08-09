@@ -6,7 +6,7 @@
 //
 // Asserts:
 //   a) GET /api/capabilities: fields complete; fake provider online → network.online===true;
-//      binaries.rg===false (no vendor-bin on this box); engine==='openai'.
+//      binaries.rg is boolean (vendor override / vendor-bin / system PATH); engine==='openai'.
 //   b) capabilityProbeUrl pointed at a DEAD port + a fresh instance (cache-cold) → network.online===false.
 //   c) IDENTITY PINNING (hard acceptance): captured request body's system message contains 「由 Fake…的
 //      fake-model 模型驱动」 AND contains NEITHER "Claude" NOR "Workbench".
@@ -118,6 +118,8 @@ function systemOf(body) {
     defaultWorkspace: WS,
     // Bridge fake-mcp as ai-computer-control so probeDesktopMcp calls its diagnostics tool.
     desktopMcp: { enabled: true, command: process.execPath, args: [path.join(HERE, 'fake-mcp.js')], cwd: '', autodetect: false },
+    // A second, unrelated MCP proves desktopMcp.toolCount is scoped to ACC rather than all bridges.
+    externalMcpServers: [{ id: 'unrelated-tools', command: process.execPath, args: [path.join(HERE, 'fake-mcp.js')], cwd: '', enabled: true }],
   }, null, 2));
 
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], {
@@ -132,16 +134,20 @@ function systemOf(body) {
     let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(WB_PORT); }
     ok(!!h, 'workbench listening on :' + WB_PORT);
 
-    // (a) capabilities: fields complete + online + rg false + engine openai.
+    // (a) capabilities: fields complete + online + rg probe + engine openai.
     const caps = await getJson(WB_PORT, '/api/capabilities?force=1');
     ok(caps && caps.ok === true, 'GET /api/capabilities ok:true');
     ok(caps && caps.network && typeof caps.network.checkedAt === 'string', 'network.checkedAt present');
     ok(caps && caps.network && caps.network.online === true, 'fake provider reachable → network.online===true (' + JSON.stringify(caps && caps.network) + ')');
-    ok(caps && caps.binaries && caps.binaries.rg === false, 'binaries.rg===false (no vendor-bin) (' + JSON.stringify(caps && caps.binaries) + ')');
+    ok(caps && caps.binaries && typeof caps.binaries.rg === 'boolean', 'binaries.rg is boolean (vendor/PATH probe) (' + JSON.stringify(caps && caps.binaries) + ')');
     ok(caps && typeof caps.binaries.git === 'boolean', 'binaries.git is a boolean');
     ok(caps && caps.engine === 'openai', 'engine==="openai"');
     ok(caps && caps.provider && caps.provider.id === 'fake' && caps.provider.vision === false, 'provider {id:fake, vision:false} (default vision gate)');
-    ok(caps && caps.desktopMcp && caps.desktopMcp.present === true && caps.desktopMcp.toolCount >= 3, 'desktopMcp present + toolCount≥3 (' + JSON.stringify(caps && caps.desktopMcp) + ')');
+    const fakeMcpSource = fs.readFileSync(path.join(HERE, 'fake-mcp.js'), 'utf8');
+    const fakeToolsBlock = (fakeMcpSource.match(/const TOOLS = \[([\s\S]*?)\n\];/) || [])[1] || '';
+    const fakeToolCount = (fakeToolsBlock.match(/\{ name:/g) || []).length;
+    ok(caps && caps.desktopMcp && caps.desktopMcp.present === true && caps.desktopMcp.toolCount === fakeToolCount,
+      'desktopMcp count is ACC-only, excluding unrelated MCP (' + JSON.stringify(caps && caps.desktopMcp) + ', expected ' + fakeToolCount + ')');
     ok(caps && caps.desktopMcp.optional && caps.desktopMcp.optional.ocr === true && caps.desktopMcp.optional.cv2 === false, 'desktopMcp.optional probed via diagnostics (ocr:true, cv2:false)');
     // /api/status still carries the legacy binaries field (backward compat).
     const status = await getJson(WB_PORT, '/api/status');

@@ -164,12 +164,18 @@ async function probeDesktopMcp(config) {
   try {
     const bridged = await collectBridgedTools(config);
     const accEntry = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control');
-    // toolCount = ALL bridged tools; present = any bridged tool at all (the desktop bridge being live).
-    out.toolCount = (bridged.tools || []).length;
-    out.present = out.toolCount > 0;
+    // Count only ACC. The old implementation counted every imported MCP (for example the user's
+    // Claude Code connectors), which made a 108-tool desktop component appear as "328 tools" and
+    // even reported desktop control as connected when only an unrelated MCP was live.
     if (!accEntry) return out; // no desktop bridge configured → optional stays all-false
-    // Find the bridged diagnostics tool name (serverId__diagnostics) for the ACC server, if listed.
     const prefix = sanitizeServerId(accEntry.id);
+    const prefixWithSep = `${prefix}__`;
+    out.toolCount = (bridged.tools || []).filter(tool => {
+      const name = tool && tool.function && tool.function.name;
+      return typeof name === 'string' && name.startsWith(prefixWithSep);
+    }).length;
+    out.present = out.toolCount > 0;
+    // Find the bridged diagnostics tool name (serverId__diagnostics) for the ACC server, if listed.
     const diagName = `${prefix}__diagnostics`;
     if (!bridged.route[diagName]) return out; // ACC present but no diagnostics tool → leave optional false
     const client = mcpClients.get(accEntry.id);

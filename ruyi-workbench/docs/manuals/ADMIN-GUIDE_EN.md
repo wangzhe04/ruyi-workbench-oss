@@ -69,11 +69,15 @@ request and the normal permission confirmation; it cannot replace the built-in A
 
 See the repository [Security Policy](../../../SECURITY.md) for reporting and threat-model details.
 
-## 4. Pro-mode panels
+## 4. Pro mode and diagnostics
 
-Pro mode exposes Files, Artifacts, Changes, Agent workflows, Usage, Audit, Terminal, Desktop, MCP, Debug, and
-Storage panels. Health/diagnostics checks have moved into Settings. Simple mode deliberately hides developer-focused controls without disabling their underlying safety
-checks.
+The right-hand workspace keeps six task-facing entries in both simple and pro mode: Files, Artifacts, Changes,
+Agent workflows, Usage, and Activity. Terminal, desktop, MCP, search, and file-read capabilities remain available
+to the model through the normal read/edit/exec permission, checkpoint, and audit paths; they are no longer exposed
+as context-free manual runners.
+
+Connector operations remain under **Settings → Integrations / MCP**. Deployment checks, storage management,
+performance metrics, and raw event logs are grouped into collapsible sections under **Settings → Doctor**.
 
 ## 5. Acceptance and regression
 

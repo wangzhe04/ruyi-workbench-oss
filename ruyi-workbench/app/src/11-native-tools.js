@@ -248,14 +248,19 @@ function isBinaryReadPath(p) {
   return ext !== '' && BINARY_READ_SUFFIXES.has(ext);
 }
 
-// v0.8-S1: ripgrep fast-path probe. Looks for a vendored rg.exe at <appRoot>/vendor-bin/rg.exe and
-// confirms it is executable. Cached for the process lifetime (path is static per install). Absent
-// binary → false + JS scan path (normal on machines without the optional vendor-bin).
+// v0.8-S1: ripgrep fast-path probe. Prefer an explicit override / vendored binary, then accept a
+// normal system `rg` on PATH. Earlier builds only checked vendor-bin, so a perfectly usable ripgrep
+// installation was incorrectly shown as "missing". Cached for the process lifetime; absence still
+// falls back to the built-in JS scanner, so project search never becomes unavailable.
 let _rgProbe;
 function probeRg() {
   if (_rgProbe !== undefined) return _rgProbe;
-  const candidate = path.join(appRoot(), 'vendor-bin', process.platform === 'win32' ? 'rg.exe' : 'rg');
-  _rgProbe = fs.existsSync(candidate) && existsExecutable(candidate) ? candidate : null;
+  const vendored = path.join(appRoot(), 'vendor-bin', process.platform === 'win32' ? 'rg.exe' : 'rg');
+  const candidates = [String(process.env.RUYI_RG_PATH || '').trim(), vendored, 'rg'].filter(Boolean);
+  _rgProbe = candidates.find(candidate => {
+    if (candidate !== 'rg' && !fs.existsSync(candidate)) return false;
+    try { return existsExecutable(candidate); } catch { return false; }
+  }) || null;
   return _rgProbe;
 }
 function hasRg() { return !!probeRg(); }

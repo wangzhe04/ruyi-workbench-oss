@@ -76,9 +76,9 @@ const CRITICAL_IDS = [
   'cfgSearchType', 'cfgSearchBaseUrl', 'cfgSearchApiKey', 'cfgSearchApiKeyRow', 'cfgSearchBaseUrlRow',
   'cfgEngineMode', 'cfgThinkingEffort', 'cfgUiMode', 'addProviderBtn', 'providersList', 'providerPresetSelect',
   'cfgSubagentMaxConcurrent', 'cfgSubagentMaxPerTurn', 'cfgSubagentPreferredProvider', 'cfgSubagentPreferredModel', 'doctorPanel', 'refreshDoctorBtn',
-  // 右侧工具页签(switchTab;ia.e2e 依赖 tab 结构 + 简易模式隐开发者组)。
-  'toolPane', 'tab-files', 'tab-changes', 'tab-powershell', 'tab-mcp', 'tab-artifacts',
-  'tab-audit', 'tab-agent-runs', 'agentRunsList', 'agentRunsRefreshBtn', 'tab-debug', 'tab-desktop', 'toggleToolsBtn',
+  // 右侧用户工作区（底层执行工具不暴露为页签）。
+  'toolPane', 'tab-files', 'tab-changes', 'tab-artifacts', 'tab-audit', 'tab-agent-runs',
+  'agentRunsList', 'agentRunsRefreshBtn', 'toggleToolsBtn',
   // 成本/用量看板(usage-dashboard.e2e 依赖):用量页签面板 + 刷新 + 预算/Claude单价配置字段。
   'tab-usage', 'usagePanel', 'usageRefreshBtn', 'cfgUsageBudgetMonthly', 'cfgUsageBudgetCurrency', 'cfgClaudePriceIn', 'cfgClaudePriceOut',
   // 命令面板 / 技能库 / 帮助 / 更多菜单。

@@ -5,15 +5,15 @@
 // fake 契约 (S0/S7 已加):
 //   FAKE_VISION=1        → 当任一请求消息 content 是数组且含 image_url part 时,最终答文本回显 SEEN_IMAGE:<hash>。
 //   FAKE_CAPTURE_DIR     → 每个请求体落盘 req-NNN.json(用于断言 user content 形状 / system 规程文案)。
-//   FAKE_TOOL_SEQUENCE   → 逐个吐 tool_call(此处用 fake-mcp 桥接的 fake__screenshot_full,返回 {image:...})。
+//   FAKE_TOOL_SEQUENCE   → 逐个吐 tool_call(此处用 ACC 身份的 fake-mcp 桥接 ai_computer_control__screenshot_full,返回 {image:...})。
 //   FAKE_SEQUENCE_PRIORITY=1 → 让未耗尽的 TOOL_SEQUENCE 优先于 image-echo 分支(保图≤2 需连开 3 张截图)。
-// fake-mcp 作为 external MCP 桥入 → 既提供 screenshot_full(返回 image 字段),又令 caps.desktopMcp.present=true
-//   (probeDesktopMcp: 任何桥接工具存在即 present),从而 buildProviderSystemPrompt 注入「操控规程」两路径之一。
+// fake-mcp 以 ai-computer-control 连接器身份桥入 → 既提供 screenshot_full(返回 image 字段),又令
+// caps.desktopMcp.present=true；无关 MCP 不再冒充桌面能力。
 //
 // Scenarios:
 //  (a) VISION 路径 · 图片附件:vision:true + FAKE_VISION + 上传一张 png 附件 → 请求体 user content 是数组含
 //      image_url part;回复含 SEEN_IMAGE: 证明图到达模型;系统提示词含「桌面操控(视觉路径)」规程。
-//  (b) 工具截图入回路:FAKE_TOOL_SEQUENCE=[fake__screenshot_full] + vision:true → tool 消息 content 图字段被剥离
+//  (b) 工具截图入回路:FAKE_TOOL_SEQUENCE=[ai_computer_control__screenshot_full] + vision:true → tool 消息 content 图字段被剥离
 //      为占位、其后紧跟一条 user 图片消息(位置在完整 tool 块之后,连续性校验)、tool_image 事件、SEEN_IMAGE 回显。
 //  (c) 保图≤2:连开 3 张截图 → providerHistory 里 image_url part ≤2,最老的被替换为文本占位「[截图已淘汰:…]」。
 //  (d) 无 VISION 路径:vision:false + 同样 png 附件 → 请求体 user content 是字符串(纯文本);系统提示词含
@@ -65,7 +65,7 @@ function writeConfig(vision, bridgeMcp) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 8, version: '1.0.0', permissionMode: 'bypass', toolLoadingMode: 'full',
     defaultWorkspace: HOME, recentWorkspaces: [],
-    externalMcpServers: bridgeMcp ? [{ id: 'fake', label: 'Fake MCP', command: NODE, args: [FAKE_MCP], enabled: true }] : [],
+    externalMcpServers: bridgeMcp ? [{ id: 'ai-computer-control', label: 'Fake ACC', command: NODE, args: [FAKE_MCP], enabled: true }] : [],
     desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], vision: !!vision }],
     activeProvider: 'fake',
@@ -157,7 +157,7 @@ function hasEvictedPlaceholder(ph) {
 
     // ── (b) tool screenshot into the loop ─────────────────────────────────────────────────────────────────
     writeConfig(true, true); clearCapture();
-    fake = spawnFake({ FAKE_VISION: '1', FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'fake__screenshot_full', args: {} }]) }); procs.push(fake);
+    fake = spawnFake({ FAKE_VISION: '1', FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'ai_computer_control__screenshot_full', args: {} }]) }); procs.push(fake);
     for (let i = 0; i < 30 && !(await fakeUp(FAKE_PORT)); i++) await sleep(120);
 
     const cB = await postJson(WB_PORT, '/api/sessions', { title: 'tool screenshot', cwd: HOME }, hdr);
@@ -187,7 +187,7 @@ function hasEvictedPlaceholder(ph) {
 
     // ── (c) 保图≤2: three screenshots ─────────────────────────────────────────────────────────────────────
     writeConfig(true, true); clearCapture();
-    const threeShots = JSON.stringify([{ name: 'fake__screenshot_full', args: {} }, { name: 'fake__screenshot_full', args: {} }, { name: 'fake__screenshot_full', args: {} }]);
+    const threeShots = JSON.stringify([{ name: 'ai_computer_control__screenshot_full', args: {} }, { name: 'ai_computer_control__screenshot_full', args: {} }, { name: 'ai_computer_control__screenshot_full', args: {} }]);
     fake = spawnFake({ FAKE_VISION: '1', FAKE_TOOL_SEQUENCE: threeShots, FAKE_SEQUENCE_PRIORITY: '1' }); procs.push(fake);
     for (let i = 0; i < 30 && !(await fakeUp(FAKE_PORT)); i++) await sleep(120);
 
@@ -207,7 +207,7 @@ function hasEvictedPlaceholder(ph) {
 
     // ── (d) NO-vision path ────────────────────────────────────────────────────────────────────────────────
     writeConfig(false, true); clearCapture();
-    fake = spawnFake({ FAKE_VISION: '1', FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'fake__screenshot_full', args: {} }]) }); procs.push(fake);
+    fake = spawnFake({ FAKE_VISION: '1', FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'ai_computer_control__screenshot_full', args: {} }]) }); procs.push(fake);
     for (let i = 0; i < 30 && !(await fakeUp(FAKE_PORT)); i++) await sleep(120);
 
     // (d1) image attachment on a no-vision provider → user content stays a STRING (pure-text injection).

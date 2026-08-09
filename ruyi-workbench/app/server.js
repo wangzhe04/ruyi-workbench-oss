@@ -22,7 +22,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '2.4.1'; // Escapade 2.4.1:ACC 中文 OCR 硬化 + 工具超时/卡死修复 + 回合收尾段清理
+const VERSION = '2.5.0'; // Escapade 2.5.0:原生桌面壳 + 任务型工具箱 + 长工具/子 Agent 可靠性
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -8905,12 +8905,18 @@ async function probeDesktopMcp(config) {
   try {
     const bridged = await collectBridgedTools(config);
     const accEntry = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control');
-    // toolCount = ALL bridged tools; present = any bridged tool at all (the desktop bridge being live).
-    out.toolCount = (bridged.tools || []).length;
-    out.present = out.toolCount > 0;
+    // Count only ACC. The old implementation counted every imported MCP (for example the user's
+    // Claude Code connectors), which made a 108-tool desktop component appear as "328 tools" and
+    // even reported desktop control as connected when only an unrelated MCP was live.
     if (!accEntry) return out; // no desktop bridge configured → optional stays all-false
-    // Find the bridged diagnostics tool name (serverId__diagnostics) for the ACC server, if listed.
     const prefix = sanitizeServerId(accEntry.id);
+    const prefixWithSep = `${prefix}__`;
+    out.toolCount = (bridged.tools || []).filter(tool => {
+      const name = tool && tool.function && tool.function.name;
+      return typeof name === 'string' && name.startsWith(prefixWithSep);
+    }).length;
+    out.present = out.toolCount > 0;
+    // Find the bridged diagnostics tool name (serverId__diagnostics) for the ACC server, if listed.
     const diagName = `${prefix}__diagnostics`;
     if (!bridged.route[diagName]) return out; // ACC present but no diagnostics tool → leave optional false
     const client = mcpClients.get(accEntry.id);
@@ -18486,14 +18492,19 @@ function isBinaryReadPath(p) {
   return ext !== '' && BINARY_READ_SUFFIXES.has(ext);
 }
 
-// v0.8-S1: ripgrep fast-path probe. Looks for a vendored rg.exe at <appRoot>/vendor-bin/rg.exe and
-// confirms it is executable. Cached for the process lifetime (path is static per install). Absent
-// binary → false + JS scan path (normal on machines without the optional vendor-bin).
+// v0.8-S1: ripgrep fast-path probe. Prefer an explicit override / vendored binary, then accept a
+// normal system `rg` on PATH. Earlier builds only checked vendor-bin, so a perfectly usable ripgrep
+// installation was incorrectly shown as "missing". Cached for the process lifetime; absence still
+// falls back to the built-in JS scanner, so project search never becomes unavailable.
 let _rgProbe;
 function probeRg() {
   if (_rgProbe !== undefined) return _rgProbe;
-  const candidate = path.join(appRoot(), 'vendor-bin', process.platform === 'win32' ? 'rg.exe' : 'rg');
-  _rgProbe = fs.existsSync(candidate) && existsExecutable(candidate) ? candidate : null;
+  const vendored = path.join(appRoot(), 'vendor-bin', process.platform === 'win32' ? 'rg.exe' : 'rg');
+  const candidates = [String(process.env.RUYI_RG_PATH || '').trim(), vendored, 'rg'].filter(Boolean);
+  _rgProbe = candidates.find(candidate => {
+    if (candidate !== 'rg' && !fs.existsSync(candidate)) return false;
+    try { return existsExecutable(candidate); } catch { return false; }
+  }) || null;
   return _rgProbe;
 }
 function hasRg() { return !!probeRg(); }

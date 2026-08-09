@@ -1,15 +1,27 @@
 /* Tool pane, modals, overlays, toasts, and responsive shell rules. */
 /* ============================ tool pane ============================ */
-.tool-tabs { display: flex; gap: 3px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-.tool-tabs button { padding: 4px 7px; font-size: var(--fs-sm); background: transparent; border-color: transparent; color: var(--muted); }
-.tool-tabs button:hover { color: var(--ink); background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
-.tool-tabs button.active { background: color-mix(in srgb, var(--accent) 14%, var(--panel-2)); border-color: color-mix(in srgb, var(--accent) 38%, var(--line)); color: var(--accent); font-weight: 600; }
-/* v1.0-S2 (IA): 页签分组 — 常驻组 / 开发者组内联成组，组间以「开发者」小组标 .tool-tabs-sep 分隔。 */
-.tool-tabs .tool-tabs-group { display: inline-flex; flex-wrap: wrap; gap: 3px; align-items: center; }
-.tool-tabs .tool-tabs-sep { display: inline-flex; align-items: center; padding: 0 4px 0 8px; margin-left: 2px;
-  border-left: 1px solid var(--line); color: var(--muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .5px; }
-.tool-section { display: none; }
-.tool-section.active { display: block; }
+.tool-pane-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; margin: 2px 2px 14px; }
+.tool-pane-head > div { display: flex; align-items: baseline; gap: 9px; }
+.tool-pane-kicker { color: var(--accent); font-size: var(--fs-xs); font-weight: 750; letter-spacing: .12em; }
+.tool-pane-head h2 { margin: 0; color: var(--ink); font-size: var(--fs-lg); letter-spacing: -.015em; }
+.tool-pane-head p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: var(--fs-xs); line-height: 1.45; }
+.tool-pane-close { display: none; width: 28px; height: 28px; padding: 0; border-color: transparent; border-radius: 8px; background: transparent; color: var(--muted); font-size: var(--fs-xl); line-height: 1; }
+.tool-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-bottom: 16px; padding: 4px; border: 1px solid var(--line); border-radius: var(--r-md); background: color-mix(in srgb, var(--panel-2) 78%, transparent); }
+.tool-tabs button { min-width: 0; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 5px 7px; font-size: var(--fs-sm); background: transparent; border-color: transparent; border-radius: var(--r-sm); color: var(--muted); white-space: nowrap; }
+.tool-tabs button:hover { color: var(--ink); background: color-mix(in srgb, var(--panel) 78%, transparent); }
+.tool-tabs button.active { background: var(--panel); border-color: color-mix(in srgb, var(--accent) 34%, var(--line)); color: var(--accent); font-weight: 650; box-shadow: var(--elev-1); }
+.tool-tab-mark { width: 15px; color: currentColor; font-size: var(--fs-xs); opacity: .82; text-align: center; }
+:root[data-ui-mode="simple"] .tool-pane .tool-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tool-section { display: none; min-width: 0; }
+.tool-section.active { display: block; animation: tool-section-in var(--dur-fast) var(--ease-out); }
+@keyframes tool-section-in { from { opacity: 0; transform: translateY(2px); } }
+.pane-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 1px 0 10px; }
+.pane-section-head h3 { margin: 0; color: var(--ink); font-size: var(--fs-base); }
+.pane-section-head p { margin: 3px 0 0; color: var(--muted); font-size: var(--fs-xs); line-height: 1.4; }
+.pane-icon-button { flex: none; margin: 0 !important; }
+.workspace-assist { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 9px; align-items: start; margin-top: 13px; padding: 10px 11px; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line)); border-radius: var(--r-md); background: color-mix(in srgb, var(--accent-soft) 34%, var(--panel-2)); }
+.workspace-assist-mark { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-weight: 750; font-size: var(--fs-xs); box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 25%, transparent); }
+.workspace-assist p { margin: 1px 0 0; color: var(--ink-2); font-size: var(--fs-xs); line-height: 1.55; }
 .tool-section label { display: block; color: var(--muted); font-size: var(--fs-sm); margin: 10px 0 5px; }
 .tool-section > label:first-child { margin-top: 0; }
 .tool-section button, .tool-section input, .tool-section textarea { margin-bottom: 6px; }
@@ -50,6 +62,14 @@
 .health-row .h-body { min-width: 0; }
 .health-row .h-id { font-weight: 600; font-size: var(--fs-md); }
 .health-row .h-detail { color: var(--muted); font-size: var(--fs-sm); word-break: break-word; }
+.diagnostic-details { margin-top: 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: color-mix(in srgb, var(--panel-2) 72%, transparent); overflow: clip; }
+.diagnostic-details > summary { list-style: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; color: var(--ink); font-size: var(--fs-md); font-weight: 650; cursor: pointer; }
+.diagnostic-details > summary::-webkit-details-marker { display: none; }
+.diagnostic-details > summary::after { content: "+"; grid-column: 2; grid-row: 1 / span 2; color: var(--muted); font-size: var(--fs-lg); font-weight: 400; }
+.diagnostic-details[open] > summary::after { content: "−"; }
+.diagnostic-details > summary .muted { font-size: var(--fs-xs); font-weight: 400; }
+.diagnostic-details-body { padding: 14px; border-top: 1px solid var(--line); }
+.diagnostic-details .raw-events { height: min(44vh, 420px); }
 
 /* ============================ modals ============================ */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 50; padding: 20px; animation: backdrop-in var(--dur-2) var(--ease); }
@@ -260,6 +280,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
     z-index: 45; box-shadow: var(--shadow); border-left: 1px solid var(--line);
   }
   .app-shell.tools-open .tool-pane { transform: none; }
+  .tool-pane-close { display: grid; place-items: center; }
   /* Backdrop: only present while the drawer is open on narrow screens. Clicking it closes the drawer
      (JS wires the click). Pure-CSS element keeps this cheap — no JS node bookkeeping. */
   .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 44; display: none; }

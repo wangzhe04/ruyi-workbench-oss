@@ -1,6 +1,6 @@
 # 如意 Ruyi 架构(原 Win Claude Workbench)
 
-> 版本基线:`app/server.js` `VERSION 2.1.0` / `configSchema 9` / 会话 `schemaVersion 1`。v2.1.0 落地 EC-B 安全更新中心（预检/审计/幂等/GUI/故障注入）与 EC-C MCP 运维闭环（统一读模型/健康探针/启停删除持久化/设置面板运维页签）；v2.0.1 延续 v2.0.0 的 OpenAI 兼容引擎与 Claude CLI 共用工具目录、任务预路由、按需装载、目录缓存与 schema token 计量，并修复 Full/Slim 首次解压与启动链；`toolLoadingMode:'full'` 保留旧的全部常驻行为。其余架构延续 v1.5 团队模式、Skills、用量看板及 v0.7d–v2.0 的多引擎、检查点、Agent 工作流、桌面/Office MCP 桥接能力。
+> 版本基线:`app/server.js` `VERSION 2.5.0` / `configSchema 9` / 会话 `schemaVersion 1`。v2.5.0 加入 WinForms + WebView2 原生桌面壳、面向任务的六入口工具箱、长工具插话与后台子 Agent DAG，并修正 ripgrep 降级与 ACC 工具计数口径；`toolLoadingMode:'full'` 保留全部常驻行为。其余架构延续 v2.4 的任务台、v2.1 的安全更新中心与 MCP 运维闭环，以及 v1.5–v2.0 的多引擎、检查点、Agent 工作流、Skills、用量看板和桌面/Office MCP 桥接能力。
 >
 > **品牌与兼容(v1.0-S9 发布工程)**:产品名为**如意 Ruyi**(`APP_NAME`,/api/status.app 与启动横幅随之)。目录名已改 `ruyi-workbench/`、可执行文件名已改 `Ruyi.exe`(启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`)。**数据目录解析**:`RUYI_HOME` 优先,旧变量 `WIN_CLAUDE_WORKBENCH_HOME` 继续识别(至少保留一个大版本);默认目录仍 `~/.win-claude-workbench`。**以下存量兼容标识有意保持不变(v2.0 仍保持不变(存量兼容))**:MCP server id `win-claude-workbench`、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`(存量 `.mcp.json` 兼容)。子进程 MCP 配置注入的是旧变量名(值=已解析 dataRoot),故老 `.mcp.json` 照常工作。
 
@@ -18,10 +18,10 @@ flowchart LR
   BRIDGE --> MCPself
   BRIDGE --> MCPext
   MCPself --> Tools["PowerShell / 文件 / 脚本 / 浏览器 / Office / 截图 / 审计工具"]
-  MCPext --> ACC["ai-computer-control(107 桌面工具, v1.9.0)等外部 MCP"]
+  MCPext --> ACC["ai-computer-control(108 桌面工具, v1.9.1)等外部 MCP"]
 ```
 
-> **界面(历史引入:v1.0 已重构;当前 v2.0.0)**:上图 UI 节点标「原生 JS 三栏」为后端视角的历史称谓;**截至 v2.0.0 的当前界面**——青花主题重铸(配色去 Claude 化,青花/鎏金/藏蓝墨/月白令牌双主题 + WCAG 对比度红线;引擎身份色保留赤陶)、信息架构减负(顶栏 5 项 +⋯菜单、右侧常驻页签 [文件|产物|变更|Agent 工作流|用量|审计] + 开发者组 5 个 终端|桌面|MCP|调试|存储[专家模式 only]、权限「安全」chip 四档人话弹层)、简易(默认)/专家双模(**新装默认 `uiMode simple`**)、新手起步引导(首跑空状态大拖放区 + 引擎就绪判断 + 任务卡)。界面细节与操作以 `docs/manuals/{USER-GUIDE_CN,ADMIN-GUIDE_CN}.md` 双手册为准。
+> **界面**:上图 UI 节点标「原生 JS 三栏」为后端视角称谓；当前右侧工作区固定为 6 个任务入口 [文件|产物|变更|Agent 工作流|用量|活动]。终端、桌面、MCP、搜索与读取保留为模型能力，不提供手动运行器；连接器运维在设置的「集成 / MCP」，诊断、存储、性能和原始日志集中到「体检」。界面延续青花主题、简易(默认)/专家双模(**新装默认 `uiMode simple`**)与新手起步引导。细节以 `docs/manuals/{USER-GUIDE_CN,ADMIN-GUIDE_CN}.md` 为准。
 
 ## 引擎(v0.5+ 多引擎)
 
@@ -85,7 +85,7 @@ flowchart LR
 
 ## Workbench 自身 MCP 工具
 
-`... mcp` 子命令暴露的 stdio server(`serverInfo.name = win-claude-workbench`)以 **51 个原生工具**(`TOOL_HANDLERS` 派发注册表轴)为当前工具数。**历史口径**:向 Claude CLI 曾列 37 个工具(不计内部的 `permission_prompt`;CLI 面 `tools/list` 过滤掉 provider-only 的 `spawn_agent`——它需 serve 进程回合闭包,CLI 侧调只会拒;含 `permission_prompt` = 38),`MCP_TOOLS` 数组本身曾含 39 条(含 `permission_prompt` + `spawn_agent`;不计 `permission_prompt` = 38);**provider 引擎**经 `buildOpenAiTools` offer 的工具数在 `subagentMaxPerTurn>0` 时含 `spawn_agent`(比 CLI 面多一),且 `web_search`/`web_fetch` 受**能力矩阵**门控(离线/无搜索后端时不 offer;见「能力矩阵」)。**S9 增量**:`web_search`+`web_fetch`(+2);**v1.0-S4 增量**:git 工具族新增 `git_diff`/`git_log`/`git_commit`(+3,`git_status` 早已在列);**v1.1+ 增量**:`file_move`+`file_copy`+`archive_zip`+`archive_unzip`+`http_download`(+5)→ `MCP_TOOLS` 数组由 34 增至 39,CLI 面不计 permission_prompt 由 32 增至 37(均为历史口径):
+`... mcp` 子命令暴露的 stdio server(`serverInfo.name = win-claude-workbench`)以 **52 个原生工具**(`TOOL_HANDLERS` 派发注册表轴)为当前工具数。**历史口径**:向 Claude CLI 曾列 37 个工具(不计内部的 `permission_prompt`;CLI 面 `tools/list` 过滤掉 provider-only 的 `spawn_agent`——它需 serve 进程回合闭包,CLI 侧调只会拒;含 `permission_prompt` = 38),`MCP_TOOLS` 数组本身曾含 39 条(含 `permission_prompt` + `spawn_agent`;不计 `permission_prompt` = 38);**provider 引擎**经 `buildOpenAiTools` offer 的工具数在 `subagentMaxPerTurn>0` 时含 `spawn_agent`(比 CLI 面多一),且 `web_search`/`web_fetch` 受**能力矩阵**门控(离线/无搜索后端时不 offer;见「能力矩阵」)。**S9 增量**:`web_search`+`web_fetch`(+2);**v1.0-S4 增量**:git 工具族新增 `git_diff`/`git_log`/`git_commit`(+3,`git_status` 早已在列);**v1.1+ 增量**:`file_move`+`file_copy`+`archive_zip`+`archive_unzip`+`http_download`(+5)→ `MCP_TOOLS` 数组由 34 增至 39,CLI 面不计 permission_prompt 由 32 增至 37(均为历史口径):
 
 - 权限桥接:`permission_prompt`(interactive + 权限桥接时把权限询问路由回 UI)。
 - 执行:`powershell_run`(一次性)、`script_run`。

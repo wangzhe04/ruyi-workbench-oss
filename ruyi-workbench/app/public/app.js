@@ -186,7 +186,6 @@ const {
   importSession,
   insertTemplate,
   isProviderMode,
-  openMcpInspector,
   openPermPopover,
   populatePermSelect,
   refreshModels,
@@ -421,7 +420,6 @@ const {
   exportSession: format => exportSession(format),
   importSession: () => importSession(),
   addTemplateFromPrompt: () => addTemplateFromPrompt(),
-  openMcpInspector: () => openMcpInspector(),
   openMemoryPanel: () => openMemoryPanel(),
   getTemplates: () => getTemplates(),
   insertTemplate: text => insertTemplate(text),
@@ -1013,11 +1011,9 @@ function bindEvents() {
   shell.addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; $('dropHint').classList.add('hidden'); handleDrop(e); });
 
   // tool pane
-  document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => { b.onclick = () => { switchTab(b.dataset.tab); if (b.dataset.tab === 'mcp') openMcpInspector(); }; });
+  document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => { b.onclick = () => switchTab(b.dataset.tab); });
+  { const closePane = $('closeToolPaneBtn'); if (closePane) closePane.onclick = closeToolDrawer; }
   bindWorkbench(); // 第60波:主视图 Tab 与窄屏右板 backdrop 由 Workbench 域自持
-  const rm = $('refreshMcpBtn'); if (rm) rm.onclick = openMcpInspector;
-  $('runPsBtn').onclick = () => runTool('powershell_run', { command: $('psCommand').value, cwd: state.config.defaultWorkspace || '', timeoutMs: 60000 });
-  { const sn = $('shellNewBtn'); if (sn) sn.onclick = newShellSession; }
   bindFileBrowser(); // 第59波:文件树刷新按钮由领域模块自持
   bindArtifactChanges(); // 第59波:产物与变更中心按钮接线由领域模块自持
   // 29a 对抗轮 P2(#14): 手动刷新必须【强制全量】。旧写法 `ar.onclick = loadAgentRuns` 把 MouseEvent 当首参传入,
@@ -1028,10 +1024,6 @@ function bindEvents() {
   { const we = $('workflowEditorBtn'); if (we) we.onclick = () => openWorkflowEditor(); }
   { const wr = $('workflowQuickRunBtn'); if (wr) wr.onclick = launchAgentWorkflowFromQuickSelect; }
   bindOperationsObservability(); // 第59波:审计、存储与性能面板按钮接线由领域模块自持
-  $('searchBtn').onclick = () => runTool('file_search', { root: currentWorkspace(), pattern: $('searchPattern').value || 'TODO|FIXME', maxResults: 200 });
-  $('readFileBtn').onclick = () => runTool('file_read', { path: $('readPath').value.trim(), limit: 200000 });
-  $('browserOpenBtn').onclick = () => runTool('browser_open', { url: $('browserUrl').value.trim() });
-  $('screenshotBtn').onclick = () => runTool('desktop_screenshot', {});
   $('refreshDoctorBtn').onclick = () => refreshStatus();
   $('debugClearBtn').onclick = () => { state.rawEvents = []; $('rawEvents').innerHTML = ''; };
   $('debugDownloadBtn').onclick = downloadRawEvents;

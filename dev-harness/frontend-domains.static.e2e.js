@@ -104,7 +104,8 @@ ok(/auditRefreshBtn[\s\S]{0,180}auditState\.loaded = false/.test(observability)
   && /storageRefreshBtn[\s\S]{0,180}storageState\.loaded = false/.test(observability)
   && /metricsRefreshBtn[\s\S]{0,180}metricsState\.loaded = false/.test(observability), 'D9 三个刷新入口保持强制重拉语义');
 ok(navigation.includes("if (tab === 'audit') openAuditTab();")
-  && navigation.includes("if (tab === 'storage') openStorageTab();"), 'D10 导航域只保留审计/存储页签入口');
+  && !navigation.includes("if (tab === 'storage') openStorageTab();"),
+  'D10 导航域保留活动页入口，存储已迁入设置体检');
 
 ok(!/function (collectSessionArtifacts|renderArtifactsGallery|loadChanges|renderChanges|loadAudit|renderAuditList|loadStorage|renderStorage|loadMetrics|renderMetrics)\(/.test(app),
   'D11 领域实现已从 app.js 清空');

@@ -19,21 +19,23 @@ const pkg = require(path.join(WB, 'package.json'));
 const readme = fs.readFileSync(README, 'utf8');
 const src = readServerSource();
 
-// ── A) README 门面版本号 === package.json 主次版本(存量:README 曾停在 v1.5,实际已 1.6.0) ──
+// ── A) README 门面版本号 === package.json 主次版本，或中英两处都明确标为当前 master ──
 {
   const minor = pkg.version.split('.').slice(0, 2).join('.'); // '1.6.0' -> '1.6'
   const labels = readme.match(/核心能力一览\(v([\d.]+)\)|Capabilities \(v([\d.]+)\)/g) || [];
-  ok(labels.length >= 2, 'A README 含中英两处能力版本标签(找到 ' + labels.length + ')');
+  const currentMaster = /核心能力一览（当前 master）/.test(readme)
+    && /Capabilities \(current master\)/.test(readme);
+  ok(labels.length >= 2 || currentMaster, 'A README 中英能力标题使用同一版本轴（version 或 current master）');
   const bad = labels.filter(l => { const m = l.match(/v([\d.]+)/); return !m || m[1] !== minor; });
   ok(bad.length === 0, 'A README 能力版本标签 === package.json 主次版本 v' + minor + (bad.length ? '(不符: ' + bad.join(', ') + ')' : ''));
   ok(!/版本升至|version bump/.test(readme) || true, 'A (info) README 版本一致'); // 占位,保持段落可扩展
 }
 
-// ── B) README 声明的「NNN+ 离线 e2e」不得超过实际件数(声明可保守,不可虚高) ──
+// ── B) README 声明的 e2e 数不得超过实际件数(支持精确值与旧式 NNN+) ──
 {
   const actual = fs.readdirSync(HERE).filter(f => f.endsWith('.e2e.js')).length;
-  const claims = [...readme.matchAll(/(\d+)\+\s*(?:离线\s*e2e|offline e2e)/gi)].map(m => Number(m[1]));
-  ok(claims.length >= 1, 'B README 含「NNN+ 离线 e2e」声明(找到 ' + claims.length + ' 处)');
+  const claims = [...readme.matchAll(/(?<![%\d])(\d+)\+?\s*(?:项\s*)?(?:离线\s*)?e2e(?:\s+cases)?/gi)].map(m => Number(m[1]));
+  ok(claims.length >= 1, 'B README 含可机器核对的 e2e 声明(找到 ' + claims.length + ' 处)');
   const inflated = claims.filter(n => n > actual);
   ok(inflated.length === 0, 'B README e2e 声明数 ≤ 实际 ' + actual + ' 件(虚高: ' + JSON.stringify(inflated) + ')');
   // 反向:声明也不该离谱地低(<50% 实际),否则说明忘了随增长上调

@@ -812,35 +812,6 @@ function addTemplateFromPrompt() {
 }
 function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; autoGrow(ta); ta.focus(); }
 
-async function openMcpInspector() {
-  switchTab('mcp'); openToolPane();
-  const box = $('mcpToolList'); if (!box) return;
-  box.innerHTML = t('status.running');
-  const tools = state.status?.tools || [];
-  box.innerHTML = '';
-  for (const t of tools) {
-    const card = el('details', 'tool-card');
-    const sum = el('summary'); sum.append(el('span', 'tc-name', t.name)); card.appendChild(sum);
-    const bodyEl = el('div', 'tc-body');
-    bodyEl.appendChild(el('div', 'muted', t.description || ''));
-    const props = t.inputSchema?.properties || {};
-    const inputs = {};
-    for (const key of Object.keys(props)) {
-      bodyEl.appendChild(el('div', 'tc-label', key + (props[key].type ? ` (${props[key].type})` : '')));
-      const inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = key; inputs[key] = inp; bodyEl.appendChild(inp);
-    }
-    const run = el('button', 'mini', t('common.run'));
-    run.onclick = () => {
-      const args = {};
-      for (const [k, inp] of Object.entries(inputs)) { if (inp.value !== '') { const t2 = props[k]?.type; args[k] = t2 === 'number' ? Number(inp.value) : t2 === 'boolean' ? inp.value === 'true' : inp.value; } }
-      runTool(t.name, args);
-    };
-    bodyEl.appendChild(run);
-    card.appendChild(bodyEl);
-    box.appendChild(card);
-  }
-}
-
 /* ---------------- skill library panel (v1 技能体系) ---------------- */
 // 「技能库」三分组:技能支持本会话启用 + 全局常驻;命令在 Claude 下插入 /name,Provider 下插入同一
 // 命令正文作为可编辑任务模板;一键任务走 Playbook 表单。skillFiltered 供键盘上下 + Enter。
@@ -859,7 +830,6 @@ async function openMcpInspector() {
     importSession,
     insertTemplate,
     isProviderMode,
-    openMcpInspector,
     openPermPopover,
     populatePermSelect,
     refreshModels,

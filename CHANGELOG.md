@@ -5,8 +5,11 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 · Unreleased
 
-> 以下为 `v2.4.1` 标签之后、`master` 上的进行中工作；尚未计入正式版本号。
-> Work on `master` after the `v2.4.1` tag; not yet assigned a release version.
+暂无。
+
+None yet.
+
+## 如意 Ruyi Escapade 2.5.0 · v2.5.0 · 2026-08-09
 
 ### 中文
 
@@ -26,6 +29,10 @@ This file records user-facing release highlights; it does not replace the comple
 - **启动时自动映射本机 Claude Code 的 MCP**:新增 `autoImportClaudeCodeMcp` 开关(默认开)。Ruyi 启动时读取 `~/.claude.json` 的 `mcpServers`,把 Ruyi 还没有的 stdio/远程条目自动导入 `externalMcpServers`(出现在「MCP 连接器」面板,可启停/删除)。只加 missing、不覆盖现有配置;跳过 Ruyi 保留 id(`win-claude-workbench`/`ai-computer-control`);尊重 ≤10 上限;全程 try/catch 不阻断 boot。用户删除的 id 记入 `dismissedMcpIds`,不会被下次启动自动找回;经导入面板显式再导入则从 dismissed 移除。
 - **启动时自动映射本机 Claude Code 的技能**:`loadSkillRegistry` 新增第 4 源 `~/.claude/skills/`(只读直连,不复制),来源标记 `claude-code`,优先级 builtin < claude-code < user < project。`~/.claude/skills/` 不存在时优雅 no-op。
 - **技能库快速删除(带确认摩擦)**:技能面板对「用户」技能(`paths.skills/<id>/`)新增删除按钮,点击弹确认窗,采用二次点击确认(第一次点「确认删除」进入待执行态、文案变「再次点击确认删除」,3 秒内不点自动收回;第二次点击才真删)。`DELETE /api/skills {id, confirm}` 服务端独立校验 `confirm===id` + `SKILL_ID_RE` + 路径双保险(`path.resolve` 精确等值),仅 `source==='user'` 可删;内置/项目/Claude Code 技能拒绝并给原因。
+- **原生 Windows 桌面壳**：新增 WinForms + WebView2 桌面入口；窗口在 Windows 11 使用 DWM 圆角偏好、旧系统使用圆角 Region 回退，小窗口不再出现生硬直角；恢复态为 WebView 保留原生命中区，四边与四角均可自由缩放。
+- **面向任务的六入口工具箱**：右侧工作区收敛为文件、产物、改动、Agent 工作流、用量和活动/审计。搜索文本、读取文件、终端、桌面与 MCP 等低层执行器不再作为用户可手动运行的表单暴露；原始日志、存储和诊断集中到「设置 → 体检」。
+- **ripgrep 与工具计数纠偏**：快搜依次发现 `RUYI_RG_PATH`、随包 `rg` 和系统 PATH，缺失时自动回退 Node 扫描；能力弹层只统计 Ruyi 内置 ACC 连接器的可达工具，不再把外部 MCP 工具混入，标准 ACC 为 108 个。
+- **Harness-Bench-360 文档快照**：README 新增同模型、同 106 任务的四框架横评，完整说明 Outcome、Process、Security、Efficiency、Combined、成本与时延口径及可比性边界。
 
 ### English
 
@@ -45,6 +52,10 @@ This file records user-facing release highlights; it does not replace the comple
 - **Auto-map local Claude Code MCP at startup**: adds an `autoImportClaudeCodeMcp` toggle (default on). At startup Ruyi reads `~/.claude.json`'s `mcpServers` and imports stdio/remote entries Ruyi doesn't yet have into `externalMcpServers` (they appear in the MCP connectors panel, toggleable/deletable). Only adds missing entries, never overwrites existing config; skips Ruyi-reserved ids (`win-claude-workbench`/`ai-computer-control`); respects the ≤10 cap; fully try/caught so it never blocks boot. Ids the user deletes are recorded in `dismissedMcpIds` so they won't be auto-refound next boot; explicitly re-importing via the import panel clears the dismissal.
 - **Auto-map local Claude Code skills at startup**: `loadSkillRegistry` gains a 4th source `~/.claude/skills/` (read-only direct mapping, no copy), tagged `source: 'claude-code'`, priority builtin < claude-code < user < project. Graceful no-op when `~/.claude/skills/` doesn't exist.
 - **Skill library quick-delete with confirmation friction**: the skill panel adds a delete button for user skills (`paths.skills/<id>/`); clicking opens a confirm modal using a two-click confirm (the first click on "Delete permanently" arms it and relabels the button to "Click again to confirm", auto-reverting after 3s; only the second click executes the delete). `DELETE /api/skills {id, confirm}` independently validates `confirm===id` + `SKILL_ID_RE` + a path double-check (`path.resolve` exact equality); only `source==='user'` is deletable - builtin/project/Claude Code skills are refused with a reason.
+- **Native Windows desktop shell**: adds a WinForms + WebView2 entry point. Windows 11 uses the DWM rounded-corner preference, older systems receive a rounded-region fallback, and restored windows reserve native hit-test bands so every edge and corner can resize freely.
+- **Task-oriented six-entry toolbox**: the right workspace pane now exposes Files, Artifacts, Changes, Agent Runs, Usage, and Activity/Audit. Low-level search/read forms and manual Terminal, Desktop, and MCP runners leave the user surface; raw logs, storage, and diagnostics move to Settings → Doctor.
+- **ripgrep and tool-count corrections**: fast search resolves `RUYI_RG_PATH`, bundled `rg`, then PATH, with a Node scanner fallback. The capability popover counts only tools reachable through Ruyi's built-in ACC connector instead of mixing in unrelated external MCP servers; the standard ACC catalog is 108 tools.
+- **Harness-Bench-360 documentation snapshot**: README now reports a controlled four-harness comparison over the same model and 106 tasks, with explicit Outcome, Process, Security, Efficiency, Combined, cost, latency, and comparability caveats.
 
 ## 如意 Ruyi Escapade 2.4.1 · v2.4.1 · 2026-08-03
 

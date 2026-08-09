@@ -1,4 +1,4 @@
-# 如意 Ruyi Escapade 2.0 · 本地 AI 全能工作台
+# 如意 Ruyi Escapade · 本地 AI 全能工作台
 
 <img src="docs/branding/ruyi-mark.svg" alt="如意 Ruyi" width="72" align="right" />
 
@@ -7,12 +7,12 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Windows e2e](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml/badge.svg?branch=master)](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml)
 [![Third-Party Notices](https://img.shields.io/badge/third--party-notices-informational.svg)](./THIRD-PARTY-NOTICES.md)
-[![Offline e2e](https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF%20e2e-100%2B-success.svg)](./dev-harness)
+[![Offline e2e](https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF%20e2e-203-success.svg)](./dev-harness)
 [![Zero npm deps](https://img.shields.io/badge/npm%20%E8%BF%90%E8%A1%8C%E6%97%B6%E4%BE%9D%E8%B5%96-0-orange.svg)](./ruyi-workbench/app/server.js)
 
 一台 Windows 机器 + 任意一个可用的模型端点(任意 OpenAI 兼容 API 或内网 Claude CLI)= 一个**能真正替你动手**的本地 AI 工作台:读写文件、跑脚本、操控桌面和 Office、派一队子代理协作调研——每一步可审计、可撤销、成本透明,**有网没网都能正常运行**。
 
-> **当前发布线：Ruyi Escapade 2.4.1**（技术版本 `v2.4.1`）。Escapade 是整个 2.x 系列的产品代号；后续修订仍沿用这个名字。内部的「第 N 波」只用于拆分开发计划，绝不直接充当用户版本号。
+> **当前稳定技术版本：`v2.5.0`。** 这是 Escapade 2.5 的正式版本；早期 `v2.5` 标签仅标记原生桌面壳开发快照，正式发布与资产统一使用 `v2.5.0`。
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
@@ -21,7 +21,7 @@
 
 <sub>▲ 真实工作流:一句话让 AI 读取工作区里的 CSV → 分析并落一份报告文件 → 对话里给出结构化结论;每个工具调用有卡片、每处文件改动可「撤销」、每轮消耗有账。</sub>
 
-**快速跳转**:[这是什么](#如意是什么) · [与同类软件对比](#与同类软件的对比) · [界面导览](#界面一览) · [核心能力](#核心能力一览v24--escapade) · [功能详解](#功能详解) · [快速开始](#快速开始五分钟跑起来) · [进阶指引](#进阶操作指引) · [English](#english)
+**快速跳转**:[这是什么](#如意是什么) · [Harness-Bench-360 横评](#harness-bench-360-横评快照) · [与同类软件对比](#与同类软件的对比) · [界面导览](#界面一览) · [核心能力](#核心能力一览当前-master) · [快速开始](#快速开始五分钟跑起来) · [English](#english)
 
 ---
 
@@ -34,10 +34,32 @@
 | | |
 |---|---|
 | **1 个运行产物** | 后端运行时产物是单文件 `app/server.js`(1.8 万+ 行;由 `app/build.js` 把 `app/src/` 的 17 个有序源码模块拼接而成,字节级可复现),**零 npm 运行时依赖**,只用 Node 内建模块——`node server.js` 直接跑,无需 `npm install`,政企内网过审成本最低 |
-| **51 个原生工具 · 108 个桌面工具** | 文件/终端/搜索/Git/联网/编排等原生工具按统一派发表计 51 个，外加可选的桌面控制组件 ACC(截图/OCR/UIA/键鼠/窗口/Office/PDF/编辑/抓取/记忆共 108 个工具) |
-| **8 套模板 · 9 种角色 · 197 项离线 e2e** | 内置 8 套多 Agent 工作流模板与 9 种节点角色;每项功能经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付。默认运行 191 项离线 e2e，另有 6 项需真实外部环境的探针按需启用 |
+| **52 个原生工具 · 108 个 ACC 工具** | 文件/终端/搜索/Git/联网/编排等原生工具按实际 `TOOL_HANDLERS` 可达全集计 52 个；可选 ACC 提供截图/OCR/UIA/键鼠/窗口/Office/PDF/编辑/抓取/记忆等 108 个工具。外部 MCP 另行按连接器计数，不再混入 ACC 数字 |
+| **8 套模板 · 9 种角色 · 203 项 e2e** | 内置 8 套多 Agent 工作流模板与 9 种节点角色。当前默认回归 197 项，另有 6 项需真实 API/桌面环境的 live probe 按需启用；另含 6 组 unit suite 与 15 组 ACC smoke |
 
 > 原名 **Win Claude Workbench**,自 v0.8 起更名**如意 Ruyi**——去 "Claude" 化是开源发布的法务考量(商标风险 + 旧提示词曾致 provider 模型自称「我是 Claude」的身份错认)。「如意」取「称心如意、如你所愿」之意,图标为青花如意云纹。
+
+## Harness-Bench-360 横评快照
+
+我们在开源 [HarnessBench](https://github.com/Qihoo360/harness-bench) 的文件系统任务、程序化 Oracle、过程轨迹与安全评估方法上做了 **Harness-Bench-360（HB360）扩展**，用同一 `deepseek-v4-flash` 模型对 106 个真实任务、4 种 harness 进行了一次受控横评。以下是 **2026-08-09 的本地测试快照**：
+
+| Harness | Outcome | Process | Security | Efficiency | HB360 Combined | 估算成本 | 平均耗时 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **Ruyi** | 77.2 | 98.1 | 100.0 | 65.1 | **49.6** | **$0.60** | 97s |
+| Hermes Agent | **80.6** | **98.8** | 100.0 | 51.3 | 41.9 | $0.92 | 159s |
+| Codex (WSL2) | 76.9 | 78.2 | 100.0 | 63.6 | 36.6 | $1.58 | **90s** |
+| OpenClaw | 63.2 | 74.4 | 100.0 | 50.1 | 23.0 | $1.18 | 156s |
+
+这组结果显示的不是“每个单项都第一”，而是 Ruyi 在质量、过程可靠性、成本和时延之间取得了更均衡的折中：综合分第一、估算成本最低，单项 Outcome 与速度则分别由 Hermes 和 Codex 领先。Ruyi 的 106 项中有 101 项有效结果；4 个 harness 共有 5 项预期失败，便于把环境/任务问题与框架差异分开看。
+
+> **口径与边界：**上游 HarnessBench 的默认 Combined 为 Outcome × Process × Security；HB360 为了比较 harness 工程效率，额外加入 Efficiency，因此两种 Combined **不能直接横比**。成本按统一基准价和修正后的缓存记账归一化，是测试估算而非供应商账单；本表是单机、单模型、单次测试快照，不是官方排行榜。原始逐任务结果保留在独立 benchmark 工程中，未随本仓库发布。
+
+### Escapade 2.5.0 重点更新
+
+- 新增 WinForms + WebView2 原生桌面壳，补齐圆角、任务栏语义、边缘/四角自由缩放与平滑滚动。
+- Claude Code MCP/Skills 自动映射；后台子 Agent 进入可持续追踪的 DAG，支持长工具存活检测、插话与语义防卡。
+- 工具安全与可靠性继续加固；HB360 场景下采用按需工具目录、自检、只读批量并行和耗时遥测，减少无效提示词与等待。
+- 右侧工作区改为面向任务的 6 个入口；底层搜索、读文件、终端、桌面和 MCP 工具不再作为“手动运行器”暴露，诊断信息集中到“设置 → 体检”。
 
 ## 与同类软件的对比
 
@@ -89,13 +111,13 @@
 
 </details>
 
-## 核心能力一览(v2.4) · Escapade
+## 核心能力一览（当前 master）
 
 | 能力 | 说明 | 详解 |
 |------|------|------|
 | 双引擎对话 | 任意 OpenAI 兼容端点与 Claude CLI 随时切换,跨引擎上下文续接;DeepSeek 预设可选 Responses API 协议 | [§1](#1-双引擎任意模型端点都能开工) |
-| 原生工具环 | 51 个内置工具:文件/终端/搜索/Git/联网/编排,按 read/edit/exec 三级分档 | [§2](#2-原生工具环51-个内置工具) |
-| 工具合批与分阶段 | 参数确定且互不依赖的工具在一次模型响应中合批；存在结果依赖时按阶段等待再继续，减少无效模型往返 | [§2](#2-原生工具环51-个内置工具) |
+| 原生工具环 | 52 个内置工具:文件/终端/搜索/Git/联网/编排,按 read/edit/exec 三级分档 | [§2](#2-原生工具环52-个内置工具) |
+| 工具合批与分阶段 | 参数确定且互不依赖的工具在一次模型响应中合批；存在结果依赖时按阶段等待再继续，减少无效模型往返 | [§2](#2-原生工具环52-个内置工具) |
 | 结构化交互提问 | 单选、多选、自由输入及“选项＋其他回答”；稳定选项 ID、说明卡与送达确认，双引擎共用 | [§1](#1-双引擎任意模型端点都能开工) |
 | 多 Agent 编排 | DAG 工作流、8 套模板、9 种角色、5 种质量门、图形编辑器、实时监控；Claude CLI 原生子 Agent 也可显示只读父子图、等待进度与回传结果 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 长任务自主推进 | 任务账本 until-done 驱动;零 token 等待;可选的分级崩溃恢复;增量监控(传输量降 ≥80%)与运营指标 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
@@ -111,7 +133,7 @@
 | 提示词分层注入与 i18n | system prompt 拆为逐字节稳定的锚点层 + volatile 层注入第一条 user 消息（prefix-cache 友好）；中英双语提示词按 UI 语言加载 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 分级 UI | 简易/专业双模式、深/浅/跟随系统三主题、V4 毛玻璃视觉系统 | [§9](#9-分级-ui简易专业双模式) |
 
-> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付。当前共 197 项离线 e2e（默认运行 191 项），迭代与发布规则见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)；面向用户的发行摘要见 [`CHANGELOG.md`](./CHANGELOG.md)。
+> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付。当前共 203 项 e2e：默认运行 197 项，另有 6 项真实 API/桌面环境 probe 按需启用。迭代与发布规则见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)；面向用户的发行摘要见 [`CHANGELOG.md`](./CHANGELOG.md)。
 
 ## 功能详解
 
@@ -126,13 +148,13 @@
 - **能力矩阵**:视觉(看图)、推理链、工具调用等能力按端点探测/标注,缺什么 UI 直接告诉你,不让你对着黑箱猜。
 - **计划模式**:提问先出 `PLAN:`,你批准了才动手(provider 引擎真流程,不是提示词装饰)。
 
-### 2. 原生工具环:51 个内置工具
+### 2. 原生工具环:52 个内置工具
 
 全部用 Node 内建模块实现(零依赖),按风险三级分档:**read**(只读,自动放行)/ **edit**(写入,先记检查点,可撤销)/ **exec**(执行,最高危,默认逐次确认):
 
 Escapade 2.4 会明确引导两种调用方式：参数已确定且互不依赖的工具在同一条助手消息中合批，省去重复模型往返；若后一步参数或执行条件依赖前一步结果，则先等待当前批次的 `tool_result` 再进入下一阶段。普通工具保持既有顺序、权限、检查点和插话边界，不用一个绕过安全层的“大批处理工具”取代原分发链。
 
-| 类别 | 工具 |
+| 类别 | 代表工具 |
 |---|---|
 | 终端 / 执行(7) | `powershell_run` · 持久终端会话 `shell_start/send/poll/kill/list` · `script_run`(PS/Python/Node 临时脚本) |
 | 文件(12) | `file_read/write/edit/delete/move/copy` · `file_list/search/glob` · `archive_zip/unzip`(防 Zip-Slip) · `http_download` |
@@ -233,7 +255,7 @@ Escapade 2.4 会明确引导两种调用方式：参数已确定且互不依赖�
 ### 9. 分级 UI:简易/专业双模式
 
 - **简易模式**(默认):一键任务卡(按内容归档/批量重命名/清理下载/合并 Excel/OCR/PDF 汇总/网页填表/写周报…)、开发者页签隐藏、术语全部人话。
-- **专业模式**:右栏 11 页签全开——文件/产物/变更/Agent 工作流/用量/审计 + 终端/桌面/MCP/调试/体检;设置 7 页签(基础/Claude CLI/服务商/Agent 角色/集成 MCP/联网搜索/高级)。
+- **专业模式**:右栏保持 6 个任务入口——工作区文件/产物/变更/Agent 工作流/用量/活动；底层搜索、读取、终端、桌面与 MCP 调用由 AI 按权限执行，不作为手动运行器暴露。连接器配置仍在设置中，状态、存储、性能与原始日志统一收进「设置 → 体检」。
 - **V4 毛玻璃视觉系统**:深/浅/跟随系统三主题、scene-bg 微渐变 + 噪点、三档玻璃(框架/浮层/卡片)、黛紫·香槟点色、SVG 图标体系;`Ctrl+K` 命令面板直达所有功能(第50波定稿,设计稿见 [UI-DESIGN-V4](docs/UI-DESIGN-V4.md))。
 - **语言**:设置中可选跟随系统、简体中文或英文。运行时语言包与审校基准、错误码契约见[多语言兼容方案](docs/i18n/README.md)。
 
@@ -321,6 +343,8 @@ node .\app\server.js install      # 把工作台 MCP 注册进本机 Claude CLI
 node .\app\server.js mcp          # 以 stdio MCP server 方式运行(供 CLI 调用)
 ```
 
+项目文本搜索始终可用：运行时依次检查 `RUYI_RG_PATH`、发行包 `vendor-bin/rg.exe` 和系统 `PATH` 中的 `rg`；都没有时自动使用内置 Node 扫描器，只是大型仓库速度会慢一些。能力面板会显示当前使用的是「ripgrep 加速」还是「内置搜索」。
+
 手册:[用户手册(任务导向)](ruyi-workbench/docs/manuals/USER-GUIDE_CN.md) · [管理员手册(部署/安全边界/计费)](ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md) · [架构说明](ruyi-workbench/docs/ARCHITECTURE_CN.md)
 </details>
 
@@ -337,7 +361,7 @@ node .\app\server.js mcp          # 以 stdio MCP server 方式运行(供 CLI �
 ├── mcp/
 │   ├── ai-computer-control/      内置桌面控制 MCP(108 工具:截图/OCR/UIA/键鼠/窗口/浏览器/Office/PDF)
 │   └── README.md                 drop-in 连接器(文件夹即插即用)说明
-├── dev-harness/                  验证脚手架(100+ 离线 e2e,Node 直跑)
+├── dev-harness/                  验证脚手架(203 项 e2e,默认 197 项,Node 直跑)
 ├── docs/
 │   ├── screenshots/              本 README 的界面截图(演示实例拍摄)
 │   ├── branding/                 品牌图标(青花如意云纹 SVG)
@@ -416,11 +440,17 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Settings, Provider cards, safety/capability popovers, model menus, artifacts, shortcuts, the command palette, the skill library, and stable API errors are localized. Built-in skills and quick tasks follow the UI language, while user and project-authored content remains in its original language; simple/pro UI is shared by coders and non-coding knowledge workers.
 5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an on-prem Claude CLI, switchable mid-session with cross-engine context continuation.
 
-> **Current release train: Ruyi Escapade 2.4.1** (technical version `v2.4.1`). *Escapade* names the whole 2.x product family. Internal “waves” are planning slices only, never user-facing version numbers.
+> **Current stable technical release: `v2.5.0`.** This is the formal Escapade 2.5 release. The earlier `v2.5` tag marks a native-desktop-shell development snapshot; release assets use `v2.5.0`.
 
-### Capabilities (v2.4) · Escapade
+### Harness-Bench-360 snapshot
 
-Dual-engine chat with structured `request_user_input` prompts (single choice, multiple choice, free text, and choices plus a custom answer; delivery-acknowledged across Claude CLI and OpenAI-compatible providers; the DeepSeek preset defaults to the **Responses API** protocol with server-side tool loops, other presets use Chat Completions) · **tool batching and staged dependencies** (independent fixed-argument calls share one model response; result-dependent work waits for the next stage) · **51 native built-in tools** (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.1, 108 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in; DeepSeek Responses can run search server-side via a per-provider toggle) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · tiered simple/pro UI with dark/light themes · localization runtime and dual catalogs for Simplified Chinese and English. The repository contains **197 offline e2e cases** (191 default; 6 external-environment probes are opt-in).
+Ruyi was evaluated in a local extension of [HarnessBench](https://github.com/Qihoo360/harness-bench): 106 real filesystem tasks, the same `deepseek-v4-flash` model, and four harnesses. In the 2026-08-09 snapshot, Ruyi scored **49.6 HB360 Combined**, ahead of Hermes Agent (41.9), Codex on WSL2 (36.6), and OpenClaw (23.0), while recording the lowest normalized estimated cost (**$0.60**) and a 97-second average runtime. Hermes led Outcome; Codex was fastest.
+
+HB360 adds an Efficiency dimension to upstream HarnessBench's Outcome × Process × Security formula, so its Combined score is not directly comparable with the upstream default. Costs are normalized benchmark estimates, not invoices. This is a single-machine, single-model test snapshot—not an official leaderboard—and five tasks were common expected failures across all four harnesses.
+
+### Capabilities (current master) · Escapade
+
+Dual-engine chat with structured `request_user_input` prompts (single choice, multiple choice, free text, and choices plus a custom answer; delivery-acknowledged across Claude CLI and OpenAI-compatible providers; the DeepSeek preset defaults to the **Responses API** protocol with server-side tool loops, other presets use Chat Completions) · **tool batching and staged dependencies** (independent fixed-argument calls share one model response; result-dependent work waits for the next stage) · **52 native built-in tools** (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.1, 108 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in; DeepSeek Responses can run search server-side via a per-provider toggle) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · a user-facing six-tab workspace pane with low-level runners moved out of the primary UI · localization runtime and dual catalogs for Simplified Chinese and English. The repository contains **203 e2e cases** (197 default; 6 live API/desktop probes are opt-in), plus 6 unit suites and 15 ACC smoke groups.
 
 ### Detailed documentation
 

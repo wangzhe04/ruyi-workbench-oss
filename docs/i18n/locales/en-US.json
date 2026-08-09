@@ -53,8 +53,11 @@
   "capability.none": "(none)",
   "capability.notConnected": "Not connected",
   "capability.optionalModules": "Optional modules",
+  "capability.projectSearch": "Project search",
   "capability.reasoningModel": "Reasoning model",
   "capability.ripgrep": "ripgrep search",
+  "capability.ripgrepAccelerated": "ripgrep accelerated",
+  "capability.builtinSearch": "Built-in search",
   "capability.supported": "Supported",
   "capability.unsupported": "Unsupported",
   "capability.view": "View capability matrix",
@@ -183,6 +186,7 @@
   "common.no": "No",
   "common.open": "Open",
   "common.preview": "Preview",
+  "common.clear": "Clear",
   "common.refresh": "Refresh",
   "common.remove": "Remove",
   "common.retry": "Retry",
@@ -648,7 +652,25 @@
   "settings.detectionStatus": "Detection status",
   "settings.discoverModels": "Fetch available models from the endpoint automatically (GET /v1/models; fall back to the built-in list on failure)",
   "settings.doctor.hint": "Check the service, Claude CLI, Node.js, Git, search, and desktop capabilities.",
+  "settings.doctor.cleanNow": "Clean now",
+  "settings.doctor.compressDays": "Compress event logs after days (0 = off)",
+  "settings.doctor.downloadLog": "Download .ndjson",
+  "settings.doctor.followLog": "Follow",
+  "settings.doctor.logsDays": "Keep logs for days",
+  "settings.doctor.performance": "Performance",
+  "settings.doctor.performanceHint": "Inspect memory, request latency, and slow requests. Request statistics reset after restart.",
+  "settings.doctor.rawEvents": "Debug logs",
+  "settings.doctor.rawEventsHint": "Needed only when troubleshooting or filing a bug",
+  "settings.doctor.rawEventStream": "Raw event stream",
   "settings.doctor.refresh": "Run diagnostics again",
+  "settings.doctor.retentionPolicy": "Retention policy",
+  "settings.doctor.savePolicy": "Save policy",
+  "settings.doctor.storageDescription": "Clean expired logs, completed workflow archives, and unreferenced engine transcripts according to the retention policy. Checkpoints use a separate automatic limit.",
+  "settings.doctor.storageHint": "Disk usage, retention, and runtime metrics",
+  "settings.doctor.storageTitle": "Storage and performance",
+  "settings.doctor.storageUsage": "Storage usage",
+  "settings.doctor.transcriptDays": "Keep engine transcripts for days (0 = keep)",
+  "settings.doctor.webcacheMax": "Web cache item limit (0 = unlimited)",
   "settings.doctor.title": "Environment diagnostics",
   "settings.enableDesktopMcp": "Enable desktop MCP (ai-computer-control)",
   "settings.endpointApiKey": "Endpoint API key (leave blank to use the system environment variable)",
@@ -815,14 +837,6 @@
   "skills.builtin.windowsControl.description": "Control a Windows workstation through Workbench MCP (screenshots and window operations).",
   "skills.builtin.windowsControl.name": "Windows Desktop Control",
   "skills.button.title": "Skills library: enable skills / commands / playbooks (/)",
-  "skills.delete": "Delete",
-  "skills.delete.onlyUser": "Only user skills can be deleted",
-  "skills.deleteConfirm.title": "Delete skill",
-  "skills.deleteConfirm.body": "This permanently deletes the skill \"{{name}}\" and its directory. This cannot be undone. Click \"Delete permanently\", then click again to execute.",
-  "skills.deleteConfirm.idLabel": "Skill id",
-  "skills.deleteConfirm.armed": "Click again to confirm",
-  "skills.deleteConfirm.confirm": "Delete permanently",
-  "skills.deleteConfirm.warning": "This cannot be undone. If the skill is enabled in any session, it will become an unavailable entry.",
   "skills.details": "View guide",
   "skills.empty": "No skills or commands found. Place SKILL.md files in the data-directory skills/ folder or project .ruyi/skills/ folder.",
   "skills.enable": "Enable",
@@ -887,13 +901,11 @@
   "skills.resident": "Resident",
   "skills.searchPlaceholder": "Search skills, commands, and playbooks…",
   "skills.source.builtin": "Built-in",
-  "skills.source.claude-code": "Claude Code",
   "skills.source.project": "Project",
   "skills.source.user": "User",
+  "skills.source.claude-code": "Claude Code",
   "skills.title": "Skills library",
   "skills.toast.disabled": "Disabled skill: {{name}}",
-  "skills.toast.deleted": "Deleted skill: {{name}}",
-  "skills.toast.deleteFailed": "Could not delete skill: {{reason}}",
   "skills.toast.enabled": "Enabled skill: {{name}}",
   "skills.toast.maxEnabled": "You can enable at most {{count}} skills at once",
   "skills.toast.maxResident": "You can keep at most {{count}} resident skills",
@@ -905,6 +917,16 @@
   "skills.toast.selectSession": "Create or select a chat first",
   "skills.toast.unavailable": "This skill is currently unavailable",
   "skills.toast.updateFailed": "Could not update skills: {{reason}}",
+  "skills.toast.deleted": "Deleted skill: {{name}}",
+  "skills.toast.deleteFailed": "Could not delete skill: {{reason}}",
+  "skills.delete": "Delete",
+  "skills.delete.onlyUser": "Only user skills can be deleted",
+  "skills.deleteConfirm.title": "Delete skill",
+  "skills.deleteConfirm.body": "This permanently deletes the skill \"{{name}}\" and its directory. This cannot be undone. Click \"Delete permanently\", then click again to execute.",
+  "skills.deleteConfirm.idLabel": "Skill id",
+  "skills.deleteConfirm.armed": "Click again to confirm",
+  "skills.deleteConfirm.confirm": "Delete permanently",
+  "skills.deleteConfirm.warning": "This cannot be undone. If the skill is enabled in any session, it will become an unavailable entry.",
   "skills.unavailable": "Unavailable",
   "skills.unavailableReason": "This skill is no longer in the registry (it may have been deleted or become hidden after the workspace changed).",
   "skills.viewTemplate": "View template",
@@ -1035,6 +1057,9 @@
   "tool.artifacts": "Artifacts",
   "tool.artifacts.empty": "No artifacts yet — files generated by AI will appear here.",
   "tool.artifacts.turn": "Turn {{turn}}",
+  "tool.activity": "Activity",
+  "tool.askRuyiForFiles": "Need to find content or read a file? Ask Ruyi in chat and it will choose the right tool automatically.",
+  "tool.closePanel": "Close workspace",
   "tool.debug": "Debug",
   "tool.desktop": "Desktop",
   "tool.developer": "Developer",
@@ -1051,7 +1076,13 @@
   "tool.searchText": "Search text",
   "tool.sessionArtifacts": "Artifacts from this chat",
   "tool.terminal": "Terminal",
+  "tool.workspace": "Workspace",
   "tool.workspaceFolder": "Workspace folder",
+  "tool.workspaceFolder.hint": "Select a file for a safe preview",
+  "tool.workspaceOverview": "Project and progress",
+  "tool.workspaceOverview.hint": "Files, deliverables, and Ruyi's work history",
+  "tool.workspaceViews": "Workspace views",
+  "workflow.shortTitle": "Workflows",
   "tools.verb.archive_unzip": "Unzip archive",
   "tools.verb.archive_zip": "Zip archive",
   "tools.verb.desktop": "Desktop: {{name}}",
@@ -1952,30 +1983,30 @@
   ,"previewShell.crewRunLabel": "Run {{p1}}"
   ,"previewShell.crewGraphAria": "Crew stages and dependency graph"
   ,"previewShell.crewWave": "Wave {{p1}}"
-  ,"previewShell.crewProposalsAria": "Pending proposals"
-  ,"previewShell.crewProposalsEyebrow": "PROPOSALS"
-  ,"previewShell.crewProposalsTitle": "Pending proposals"
-  ,"previewShell.continueTurnAria": "Continue with a new turn"
-  ,"previewShell.continueTurnInputAria": "New goal or instruction"
-  ,"previewShell.continueTurnPlaceholder": "Add a new goal or instruction, Ctrl+Enter to send…"
-  ,"previewShell.continueTurnPlaceholderDone": "Task complete — add a new goal to start another turn…"
-  ,"previewShell.continueTurnPlaceholderStopped": "Task stopped — adjust the approach or add an instruction to continue…"
-  ,"previewShell.continueTurnAction": "Continue"
-  ,"previewShell.continueTurnHint": "Sending opens a new turn on this task; progress and ledger keep accumulating."
-  ,"previewShell.continueTurnActiveHint": "A turn is still running; continue once it settles."
-  ,"previewShell.continueTurnEyebrow": "NEXT TURN"
-  ,"previewShell.continueTurnTitle": "Continue this task"
-  ,"previewShell.continueTurnDescription": "Add a goal, adjust direction, or extend acceptance while keeping this task's context and ledger."
-  ,"previewShell.continueTurnShortcut": "Ctrl + Enter"
-  ,"previewShell.continueTurnState.active": "Turn active"
-  ,"previewShell.continueTurnState.ready": "Ready to continue"
-  ,"previewShell.continueTurnState.restart": "Ready to restart"
-  ,"previewShell.continueTurnState.unavailable": "Unavailable"
-  ,"previewShell.taskActionsTitle": "Task actions"
-  ,"previewShell.taskActionsHint": "Return to the desk, open the full conversation, or refresh this status"
-  ,"previewShell.controlReason.already_running": "Task is running"
-  ,"previewShell.controlReason.not_terminal": "Task is not finished"
-  ,"previewShell.controlReason.milestone_limit": "The acceptance-item limit is reached; start a new task"
+,"previewShell.crewProposalsAria": "Pending proposals"
+,"previewShell.crewProposalsEyebrow": "PROPOSALS"
+,"previewShell.crewProposalsTitle": "Pending proposals"
+,"previewShell.continueTurnAria": "Continue with a new turn"
+,"previewShell.continueTurnInputAria": "New goal or instruction"
+,"previewShell.continueTurnPlaceholder": "Add a new goal or instruction, Ctrl+Enter to send…"
+,"previewShell.continueTurnPlaceholderDone": "Task complete — add a new goal to start another turn…"
+,"previewShell.continueTurnPlaceholderStopped": "Task stopped — adjust the approach or add an instruction to continue…"
+,"previewShell.continueTurnAction": "Continue"
+,"previewShell.continueTurnHint": "Sending opens a new turn on this task; progress and ledger keep accumulating."
+,"previewShell.continueTurnActiveHint": "A turn is still running; continue once it settles."
+,"previewShell.continueTurnEyebrow": "NEXT TURN"
+,"previewShell.continueTurnTitle": "Continue this task"
+,"previewShell.continueTurnDescription": "Add a goal, adjust direction, or extend acceptance while keeping this task's context and ledger."
+,"previewShell.continueTurnShortcut": "Ctrl + Enter"
+,"previewShell.continueTurnState.active": "Turn active"
+,"previewShell.continueTurnState.ready": "Ready to continue"
+,"previewShell.continueTurnState.restart": "Ready to restart"
+,"previewShell.continueTurnState.unavailable": "Unavailable"
+,"previewShell.taskActionsTitle": "Task actions"
+,"previewShell.taskActionsHint": "Return to the desk, open the full conversation, or refresh this status"
+,"previewShell.controlReason.already_running": "Task is running"
+,"previewShell.controlReason.not_terminal": "Task is not finished"
+,"previewShell.controlReason.milestone_limit": "The acceptance-item limit is reached; start a new task"
   ,"previewShell.lensLabel": "Task worksite lenses"
   ,"previewShell.lensNarrative": "Worksite log"
   ,"previewShell.lensCrew": "Crew stages"
@@ -2187,6 +2218,7 @@
   ,"provider.pricing.cachedShort": "Cache price"
   ,"provider.pricing.outputShort": "Output price"
   ,"usage.cachedInputTokens": "{{count}} cache-hit"
+
   ,"provider.capabilities": "Protocol & capabilities"
   ,"provider.serverWebSearch": "Server-side search (DeepSeek Responses only)"
   ,"provider.serverWebSearch.hint": "When enabled, web_search runs on the DeepSeek server (saves a round-trip); when off or unsupported, falls back to the built-in local search (builtin/searxng/bing…). Only available with apiStyle=responses."

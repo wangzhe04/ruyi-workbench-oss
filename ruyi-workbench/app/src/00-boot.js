@@ -22,7 +22,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '2.4.1'; // Escapade 2.4.1:ACC 中文 OCR 硬化 + 工具超时/卡死修复 + 回合收尾段清理
+const VERSION = '2.5.0'; // Escapade 2.5.0:原生桌面壳 + 任务型工具箱 + 长工具/子 Agent 可靠性
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');

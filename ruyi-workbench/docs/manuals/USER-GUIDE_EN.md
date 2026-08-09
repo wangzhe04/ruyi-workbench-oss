@@ -113,13 +113,16 @@ The layout has a chat sidebar, the central conversation, and a right-hand tool p
 
 - The top bar selects the workspace, permission mode, engine, theme, UI mode, and language. It also shows context
   usage when relevant.
-- Files shows the workspace tree and previews text files. Artifacts lists files generated in the current chat.
+- Files shows the workspace tree and previews text files. Ask Ruyi in chat when you need to search content or read
+  a specific path. Artifacts lists files generated in the current chat.
   Changes shows reversible file edits grouped by turn. Audit shows a filterable timeline of actions and decisions.
   Agent Workflows is the monitoring canvas for multi-agent orchestrations. Usage displays token consumption
   and cost for the current turn.
 - The composer supports attachments, task cards, slash commands, and ordinary natural-language requests.
-- Simple mode hides developer-oriented panels and uses plain-language labels. Pro mode exposes terminal, desktop,
-  MCP, debugging, and storage panels.
+- Simple mode emphasizes files, artifacts, changes, and progress with plain-language labels. Pro mode adds richer
+  status and configuration, while low-level terminal, desktop, MCP, search, and read operations remain model tools
+  governed by permissions rather than manual runners. Connector management lives in Settings → Integrations / MCP;
+  diagnostics, storage, metrics, and raw logs live in Settings → Doctor.
 
 ## 5. Settings
 

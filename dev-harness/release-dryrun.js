@@ -19,6 +19,10 @@ const VERSION = '0.0.0-dryrun';
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 const run = (cmd, args, cwd, opts = {}) => cp.execFileSync(cmd, args, { cwd, stdio: opts.quiet ? 'pipe' : 'inherit', timeout: opts.timeout || 300000 });
+const cleanupStage = (dir, label) => {
+  try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 500 }); }
+  catch (e) { console.log('WARN ' + label + ' 临时目录清理延后（不影响已完成的发行校验）: ' + (e.code || e.message || e)); }
+};
 // Windows 上 npm 是 npm.cmd,execFile 不带 shell 找不到(ENOENT)/拒执行(EINVAL, Node 批处理防护)
 // —— 与 batchSafeSpawn 同教训:经 cmd.exe /c 调。POSIX 直调 npm 带分词参数。
 const NPM_RUN = process.platform === 'win32'
@@ -99,14 +103,14 @@ const NPM_RUN = process.platform === 'win32'
   // EC-A A1: Slim 离线包文件清单可复验(stage 关键文件存在;ZIP 打包是 env 独立 concern,CI 原生 Windows 正常)
   try {
     const stageDir = path.join(WB, 'dist', 'Ruyi-slim-dryrun');
-    fs.rmSync(stageDir, { recursive: true, force: true });
+    cleanupStage(stageDir, 'Slim');
     let pkgErr = null;
     try { cp.execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(WB, 'tools', 'package-offline.ps1'), '-SkipExeBuild', '-Variant', 'slim-dryrun'], { cwd: WB, stdio: 'pipe', timeout: 120000, windowsHide: true }); }
     catch (e) { pkgErr = e; }
     const keyFiles = ['app/server.js', 'app/public/app.js', 'package.json', 'Start-Workbench.cmd', 'docs'];
     const missing = keyFiles.filter(f => !fs.existsSync(path.join(stageDir, f)));
     ok(missing.length === 0, 'A1 Slim 离线包文件清单可复验(' + keyFiles.length + ' 关键路径;missing=' + missing.join(',') + (pkgErr ? '; ZIP/stage 警告已忽略(env tar)' : '') + ')');
-    fs.rmSync(stageDir, { recursive: true, force: true });
+    cleanupStage(stageDir, 'Slim');
   } catch (e) { ok(false, 'A1 Slim 离线包清单检查失败: ' + (e.message || e)); }
   // EC-A A1 Full: 若 ACC 离线运行时已 hydrate(build_offline 存在)则跑 Full 包校验;否则 SKIP(未配置,不算 pass)
   try {
@@ -115,13 +119,13 @@ const NPM_RUN = process.platform === 'win32'
       console.log('  A1 Full: SKIP (build_offline 未 hydrate;跑 package-offline.ps1 -BuildAccOffline 联网生成后再验;不算 pass)');
     } else {
       const fullStage = path.join(WB, 'dist', 'Ruyi-full-dryrun');
-      fs.rmSync(fullStage, { recursive: true, force: true });
+      cleanupStage(fullStage, 'Full');
       try { cp.execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(WB, 'tools', 'package-offline.ps1'), '-SkipExeBuild', '-IncludeAcc', '-AccOfflineSource', accOffline, '-Variant', 'full-dryrun'], { cwd: WB, stdio: 'pipe', timeout: 180000, windowsHide: true }); }
       catch (e) { /* ZIP 可能失败,按 stage 校验 */ }
       const fullKeys = ['app/server.js', 'app/public/app.js', 'package.json', 'mcp/ai-computer-control'];
       const fullMissing = fullKeys.filter(f => !fs.existsSync(path.join(fullStage, f)));
       ok(fullMissing.length === 0, 'A1 Full 离线包文件清单可复验(' + fullKeys.length + ' 关键路径;missing=' + fullMissing.join(',') + ')');
-      fs.rmSync(fullStage, { recursive: true, force: true });
+      cleanupStage(fullStage, 'Full');
     }
   } catch (e) { ok(false, 'A1 Full 离线包清单检查失败: ' + (e.message || e)); }
   // EC-A A5: live probe 四态报告(配置探针,不实际调用 API;skip 不算 pass)

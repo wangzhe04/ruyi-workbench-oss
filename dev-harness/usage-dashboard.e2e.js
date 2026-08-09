@@ -44,15 +44,15 @@ function between(hay, startNeedle, endNeedle) {
 }
 
 // ───────────── ① 用量页签注册 + 面板容器 ─────────────
-const toolTabs = between(html, '<div class="tool-tabs">', '</div>');
+const toolTabs = between(html, '<div class="tool-tabs"', '</div>');
 ok(!!toolTabs, '① 找到 .tool-tabs 块');
-ok(/data-tab="usage"[^>]*>\s*用量\s*</.test(toolTabs), '① 存在 data-tab="usage" 且文案为「用量」');
+ok(/data-tab="usage"[^>]*>[\s\S]*?data-i18n="usage\.title"[^>]*>用量</.test(toolTabs),
+  '① 存在 data-tab="usage" 且使用本地化文案「用量」');
 {
-  const residentIdx = toolTabs.indexOf('data-tt-group="resident"');
-  const devIdx = toolTabs.indexOf('data-tt-group="dev"');
+  const tabs = [...toolTabs.matchAll(/data-tab="([a-z-]+)"/g)].map(match => match[1]);
   const usageIdx = toolTabs.indexOf('data-tab="usage"');
-  ok(residentIdx >= 0 && usageIdx > residentIdx, '① 用量页签在常驻组内');
-  ok(devIdx >= 0 && usageIdx < devIdx, '① 用量页签在开发者组之前（常驻）');
+  ok(tabs.length === 6 && tabs.includes('usage'), '① 用量页签属于 6 个用户工作区入口');
+  ok(usageIdx >= 0 && usageIdx < toolTabs.indexOf('data-tab="audit"'), '① 用量位于活动记录之前');
 }
 ok(/<section class="tool-section" id="tab-usage">/.test(html), '① 存在面板 section#tab-usage');
 const usageSection = between(html, 'id="tab-usage"', '</section>');

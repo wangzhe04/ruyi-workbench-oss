@@ -312,60 +312,40 @@
 
       <!-- ============ TOOL / SIDE PANE ============ -->
       <aside class="tool-pane" id="toolPane">
-        <!-- v1.0-S2 (IA): 页签分组 — 常驻组[文件|产物|审计]在前，开发者组[终端|桌面|MCP|调试|存储]在后，
-             组间以 .tool-tabs-sep 小组标分隔（PowerShell 仅显示文案改「终端」）。
-             默认激活页签由 powershell 迁到 files（按钮 + section 双处 active）。 -->
-        <div class="tool-tabs">
-          <span class="tool-tabs-group" data-tt-group="resident">
-            <button data-tab="files" class="active" data-i18n="tool.files">文件</button>
-            <button data-tab="artifacts" data-i18n="tool.artifacts">产物</button>
-            <button data-tab="changes" data-i18n="changes.title">变更</button>
-            <button data-tab="agent-runs" data-i18n="workflow.title">Agent 工作流</button>
-            <button data-tab="usage" data-i18n="usage.title">用量</button>
-            <button data-tab="audit">审计</button>
-          </span>
-          <span class="tool-tabs-sep" aria-hidden="true" data-i18n="tool.developer">开发者</span>
-          <span class="tool-tabs-group" data-tt-group="dev">
-            <button data-tab="powershell" data-i18n="tool.terminal">终端</button>
-            <button data-tab="desktop" data-i18n="tool.desktop">桌面</button>
-            <button data-tab="mcp">MCP</button>
-            <button data-tab="debug" data-i18n="tool.debug">调试</button>
-            <button data-tab="storage">存储</button>
-          </span>
-        </div>
-
-        <section class="tool-section" id="tab-powershell">
-          <label for="psCommand">一次性运行</label>
-          <textarea id="psCommand" rows="5">Get-Location; Get-ChildItem</textarea>
-          <button id="runPsBtn" class="full">运行</button>
-
-          <!-- v0.8-S2: persistent shell sessions (provider engine only) -->
-          <div class="shell-sessions">
-            <div class="debug-head">
-              <label>shell 会话</label>
-              <button id="shellNewBtn" class="mini">新建会话</button>
-            </div>
-            <div id="shellSessionList" class="shell-list"></div>
+        <header class="tool-pane-head">
+          <div>
+            <span class="tool-pane-kicker" data-i18n="tool.workspace">工作区</span>
+            <h2 data-i18n="tool.workspaceOverview">项目与进度</h2>
           </div>
-        </section>
+          <button type="button" id="closeToolPaneBtn" class="tool-pane-close" aria-label="关闭工作区" data-i18n-attr="aria-label:tool.closePanel">×</button>
+          <p data-i18n="tool.workspaceOverview.hint">查看文件、交付物和 Ruyi 的工作记录</p>
+        </header>
+        <div class="tool-tabs" role="tablist" aria-label="工作区视图" data-i18n-attr="aria-label:tool.workspaceViews">
+          <button type="button" role="tab" aria-selected="true" data-tab="files" class="active"><span class="tool-tab-mark" aria-hidden="true">▤</span><span data-i18n="tool.files">文件</span></button>
+          <button type="button" role="tab" aria-selected="false" data-tab="artifacts"><span class="tool-tab-mark" aria-hidden="true">◇</span><span data-i18n="tool.artifacts">产物</span></button>
+          <button type="button" role="tab" aria-selected="false" data-tab="changes"><span class="tool-tab-mark" aria-hidden="true">±</span><span data-i18n="changes.title">改动</span></button>
+          <button type="button" role="tab" aria-selected="false" data-tab="agent-runs"><span class="tool-tab-mark" aria-hidden="true">⊙</span><span data-i18n="workflow.shortTitle">工作流</span></button>
+          <button type="button" role="tab" aria-selected="false" data-tab="usage"><span class="tool-tab-mark" aria-hidden="true">∿</span><span data-i18n="usage.title">用量</span></button>
+          <button type="button" role="tab" aria-selected="false" data-tab="audit"><span class="tool-tab-mark" aria-hidden="true">◷</span><span data-i18n="tool.activity">记录</span></button>
+        </div>
 
         <section class="tool-section active" id="tab-files">
           <!-- v0.9-S3 (C3): file tree of the current session's working folder. Lazy-expand; click a text
                file to preview (≤200KB); 「@」inserts the file's relative path into the composer. -->
-          <div class="debug-head">
-            <label data-i18n="tool.workspaceFolder">工作文件夹</label>
-            <button id="fileTreeRefreshBtn" class="mini">刷新</button>
+          <div class="pane-section-head">
+            <div>
+              <h3 data-i18n="tool.workspaceFolder">工作文件夹</h3>
+              <p data-i18n="tool.workspaceFolder.hint">单击文件即可安全预览</p>
+            </div>
+            <button id="fileTreeRefreshBtn" class="mini pane-icon-button" data-i18n="common.refresh">刷新</button>
           </div>
           <div id="fileTreeRoot" class="file-tree-root" title=""></div>
           <div id="fileTree" class="file-tree"></div>
           <div id="filePreview" class="file-preview hidden"></div>
-          <hr class="settings-sep" />
-          <label for="searchPattern" data-i18n="tool.searchText">搜索文本</label>
-          <input id="searchPattern" type="text" placeholder="TODO|FIXME" />
-          <button id="searchBtn" class="full" data-i18n="tool.searchProject">搜索项目</button>
-          <label for="readPath" data-i18n="tool.readFile">读取文件</label>
-          <input id="readPath" type="text" placeholder="C:\path\file.txt" />
-          <button id="readFileBtn" class="full" data-i18n="tool.read">读取</button>
+          <div class="workspace-assist">
+            <span class="workspace-assist-mark" aria-hidden="true">R</span>
+            <p data-i18n="tool.askRuyiForFiles">需要找内容或读取文件？直接在对话里告诉 Ruyi，它会自动选择合适的工具。</p>
+          </div>
         </section>
 
         <section class="tool-section" id="tab-artifacts">
@@ -451,61 +431,9 @@
           <div id="usagePanel" class="usage-panel" aria-live="polite"></div>
         </section>
 
-        <section class="tool-section" id="tab-desktop">
-          <label for="browserUrl">URL 或本地 HTML</label>
-          <input id="browserUrl" type="text" placeholder="http://localhost:3000" />
-          <button id="browserOpenBtn" class="full">在浏览器打开</button>
-          <button id="screenshotBtn" class="full">桌面截图</button>
-        </section>
-
-        <section class="tool-section" id="tab-mcp">
-          <div class="debug-head">
-            <label>本机 MCP 工具（点开填参数运行）</label>
-            <button id="refreshMcpBtn" class="mini">刷新</button>
-          </div>
-          <div id="mcpToolList" class="doctor-panel"></div>
-        </section>
-
-        <section class="tool-section" id="tab-debug">
-          <div class="debug-head">
-            <label>原始事件流 (stream-json)</label>
-            <div class="debug-actions">
-              <button id="debugClearBtn" class="mini">清空</button>
-              <button id="debugDownloadBtn" class="mini">下载 .ndjson</button>
-              <label class="mini-check"><input type="checkbox" id="debugAutoscroll" checked /> 跟随</label>
-            </div>
-          </div>
-          <pre id="rawEvents" class="raw-events"></pre>
-        </section>
-
-        <section class="tool-section" id="tab-storage">
-          <!-- v1.9 数据管家: 各仓占用一览 + 保留策略 + 手动清理。仅专家页签(DEV_TABS 成员,简易模式
-               switchTab 兜底回 files)。打开页签时懒加载一次(不轮询 —— 与审计页签同款安静纪律);
-               DOM 全 createElement/textContent(app.js renderStorage),XSS 安全。 -->
-          <div class="debug-head">
-            <label>存储管理</label>
-            <div class="row-actions"><button id="storageRefreshBtn" class="mini">刷新</button><button id="storageCleanBtn" class="mini">立即清理</button></div>
-          </div>
-          <p class="changes-hint muted">数据目录各仓占用。「立即清理」按下方策略执行:过期日志删除、终态工作流事件日志压缩归档(仍可读)、无人引用的引擎转录到期清除(只限本工作台发起过的)。检查点有独立的 200MB 自动上限,不在此列。</p>
-          <div id="storageSummary" class="storage-panel" aria-live="polite"></div>
-          <div class="debug-head"><label>保留策略</label></div>
-          <div class="storage-policy">
-            <label class="storage-policy-row">日志保留天数<input id="storagePolicyLogsDays" type="number" min="7" max="365" step="1" /></label>
-            <label class="storage-policy-row">事件日志压缩天数(0=关)<input id="storagePolicyCompressDays" type="number" min="0" max="365" step="1" /></label>
-            <label class="storage-policy-row">网页缓存条目上限(0=不限)<input id="storagePolicyWebcacheMax" type="number" min="0" max="100000" step="100" /></label>
-            <label class="storage-policy-row">引擎转录保留天数(0=不清)<input id="storagePolicyTranscriptDays" type="number" min="0" max="365" step="1" /></label>
-            <button id="storagePolicySaveBtn" class="mini primary">保存策略</button>
-          </div>
-          <!-- 第40波: 性能观测面(GET /api/metrics)。与存储页签同款纪律:打开懒加载一次,不轮询,全 textContent。 -->
-          <div class="debug-head">
-            <label>性能观测</label>
-            <div class="row-actions"><button id="metricsRefreshBtn" class="mini">刷新</button></div>
-          </div>
-          <p class="changes-hint muted">进程内存、请求耗时分布与最慢请求、存储占用趋势。请求分布只统计本进程运行期,重启清零。</p>
-          <div id="metricsPanel" class="storage-panel" aria-live="polite"></div>
-        </section>
-
-        <pre id="toolOutput" class="tool-output"></pre>
+        <!-- Model-facing tools remain available internally; the right pane intentionally exposes no
+             raw file_read/file_search/terminal/desktop/MCP execution forms. -->
+        <pre id="toolOutput" class="tool-output hidden" aria-hidden="true"></pre>
       </aside>
       <!-- v3 (§2.7 P2): 右栏三档宽拖拽手柄。贴 tool-pane 左缘(CSS right:var(--right-w)),pointer 拖到阈值吸附
            340/480/全屏,双击循环切档;桌面栅格档专属(窄屏由 CSS 隐藏)。JS 绑定见 initRightResize()。 -->
@@ -923,6 +851,53 @@
               <button type="button" id="refreshDoctorBtn" class="mini" data-i18n="settings.doctor.refresh">重新体检</button>
             </div>
             <div id="doctorPanel" class="doctor-panel settings-doctor-panel"></div>
+
+            <details class="diagnostic-details">
+              <summary>
+                <span data-i18n="settings.doctor.storageTitle">存储与性能</span>
+                <span class="muted" data-i18n="settings.doctor.storageHint">空间占用、保留策略和运行指标</span>
+              </summary>
+              <div class="diagnostic-details-body">
+                <div class="debug-head">
+                  <label data-i18n="settings.doctor.storageUsage">存储占用</label>
+                  <div class="row-actions"><button id="storageRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button><button id="storageCleanBtn" class="mini" data-i18n="settings.doctor.cleanNow">立即清理</button></div>
+                </div>
+                <p class="changes-hint muted" data-i18n="settings.doctor.storageDescription">按保留策略清理过期日志、已结束工作流的归档和无人引用的引擎转录。检查点使用独立的自动上限。</p>
+                <div id="storageSummary" class="storage-panel" aria-live="polite"></div>
+                <div class="debug-head"><label data-i18n="settings.doctor.retentionPolicy">保留策略</label></div>
+                <div class="storage-policy">
+                  <label class="storage-policy-row"><span data-i18n="settings.doctor.logsDays">日志保留天数</span><input id="storagePolicyLogsDays" type="number" min="7" max="365" step="1" /></label>
+                  <label class="storage-policy-row"><span data-i18n="settings.doctor.compressDays">事件日志压缩天数(0=关)</span><input id="storagePolicyCompressDays" type="number" min="0" max="365" step="1" /></label>
+                  <label class="storage-policy-row"><span data-i18n="settings.doctor.webcacheMax">网页缓存条目上限(0=不限)</span><input id="storagePolicyWebcacheMax" type="number" min="0" max="100000" step="100" /></label>
+                  <label class="storage-policy-row"><span data-i18n="settings.doctor.transcriptDays">引擎转录保留天数(0=不清)</span><input id="storagePolicyTranscriptDays" type="number" min="0" max="365" step="1" /></label>
+                  <button id="storagePolicySaveBtn" class="mini primary" data-i18n="settings.doctor.savePolicy">保存策略</button>
+                </div>
+                <div class="debug-head">
+                  <label data-i18n="settings.doctor.performance">性能观测</label>
+                  <button id="metricsRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button>
+                </div>
+                <p class="changes-hint muted" data-i18n="settings.doctor.performanceHint">查看内存、请求耗时和最慢请求；请求统计在重启后重置。</p>
+                <div id="metricsPanel" class="storage-panel" aria-live="polite"></div>
+              </div>
+            </details>
+
+            <details class="diagnostic-details">
+              <summary>
+                <span data-i18n="settings.doctor.rawEvents">调试记录</span>
+                <span class="muted" data-i18n="settings.doctor.rawEventsHint">仅在排查问题或提交 bug 时需要</span>
+              </summary>
+              <div class="diagnostic-details-body">
+                <div class="debug-head">
+                  <label data-i18n="settings.doctor.rawEventStream">原始事件流</label>
+                  <div class="debug-actions">
+                    <button id="debugClearBtn" class="mini" data-i18n="common.clear">清空</button>
+                    <button id="debugDownloadBtn" class="mini" data-i18n="settings.doctor.downloadLog">下载 .ndjson</button>
+                    <label class="mini-check"><input type="checkbox" id="debugAutoscroll" checked /> <span data-i18n="settings.doctor.followLog">跟随</span></label>
+                  </div>
+                </div>
+                <pre id="rawEvents" class="raw-events"></pre>
+              </div>
+            </details>
           </div>
 
           <!-- ===== 高级 ===== -->

@@ -72,7 +72,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 原生 scroll anchoring 与程序化跟随互相拉扯导致的流式上下抖动）+ scrollbar-gutter:stable（滚动条出现/
 // 消失不再改内容宽度）；.think-body 与 .preview-raw-messages 同加 overflow-anchor:none（内层/原始镜头跟随
 // 同理独占滚动写入）。三条均为有意样式变更，重钉载荷锁。
-const LEGACY_STYLES_SHA256 = '0db0cea842cdb06885ae91c8f7ed7e14b8244c0600252f9728e0ceec99480238';
+// 工作区信息架构刷新：tool-pane.css 将 6 个用户入口收束为稳定三列，补充面板标题、自然语言提示、
+// 设置体检折叠区和移动端关闭按钮样式；均为工具面板所有权层的有意变更，重钉载荷锁。
+const LEGACY_STYLES_SHA256 = 'ec52628543f9968e7357d4be43a43042ac0f30e6265490a539073d693d8a5a52';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

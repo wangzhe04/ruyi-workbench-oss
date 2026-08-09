@@ -71,7 +71,6 @@ function paletteActions() {
     { label: t('palette.exportHtml'), hint: 'export', run: () => exportSession('html') },
     { label: t('palette.importJson'), hint: 'import', run: importSession },
     { label: t('palette.saveInputAsTemplate'), hint: 'template', run: addTemplateFromPrompt },
-    { label: t('palette.mcpInspector'), hint: 'tools', run: openMcpInspector },
     { label: t('palette.skills'), hint: '/', run: openSkillPanel },
     { label: t('palette.memories'), hint: 'memory', run: openMemoryPanel },
   ];
@@ -505,7 +504,7 @@ function openCapPopover(anchorOverride) {
     }
     wrap.appendChild(el('h4', null, t('capability.localTools')));
     wrap.appendChild(item('git', caps.binaries && caps.binaries.git ? t('capability.available') : t('capability.missing'), caps.binaries && caps.binaries.git ? 'ok' : 'muted'));
-    wrap.appendChild(item(t('capability.ripgrep'), caps.binaries && caps.binaries.rg ? t('capability.available') : t('capability.missingBuiltinSearch'), caps.binaries && caps.binaries.rg ? 'ok' : 'muted'));
+    wrap.appendChild(item(t('capability.projectSearch'), caps.binaries && caps.binaries.rg ? t('capability.ripgrepAccelerated') : t('capability.builtinSearch'), 'ok'));
     wrap.appendChild(el('h4', null, t('capability.desktopControl')));
     const dm = caps.desktopMcp || {};
     wrap.appendChild(item(t('capability.desktopMcp'), dm.present ? tCount('capability.connected', dm.toolCount || 0) : t('capability.notConnected'), dm.present ? 'ok' : 'muted'));
@@ -639,7 +638,11 @@ function switchSettingsTab(name, force) {
   document.querySelectorAll('#settingsTabs button').forEach(b => b.classList.toggle('active', b.dataset.stab === name));
   document.querySelectorAll('.settings-tab').forEach(s => s.classList.toggle('active', s.id === `stab-${name}`));
   if (name === 'agents') loadAgentRoles();
-  if (name === 'doctor') refreshStatus();
+  if (name === 'doctor') {
+    refreshStatus();
+    openStorageTab();
+    renderRawEventSnapshot();
+  }
   if (name === 'update') refreshOverlayStatus();
   if (name === 'mcp') refreshMcpOps(false); // 55c:打开页签先取清单(不 probe);「全部重测」按钮才 probe=1
 }
@@ -649,19 +652,22 @@ function switchSettingsTab(name, force) {
 /* ---------------- composer helpers ---------------- */
 // v1.3-FE1:autoGrow 已搬入 ./js/util.js(纯 DOM 尺寸计算,顶部 import 取回);调用点(sendPrompt/boot 等)不变。
 
-// v1.0-S2 (IA): 开发者组页签集合（简易模式全部隐藏；JS 兜底切回 files）。
-const DEV_TABS = new Set(['powershell', 'desktop', 'mcp', 'debug', 'storage']);
-// v1.0-S2 (IA): #toolOutput 全局原始输出槽只在这些页签下可见——常驻组(文件/产物/审计)有各自的预览区，
-// 不该冒无关原始输出；文件/终端/桌面/MCP 的搜索/读取/运行确实写入此槽。简易模式一律隐藏（CSS 兜底）。
-const TOOLOUT_TABS = new Set(['powershell', 'files', 'desktop', 'mcp']);
+// The right pane is a user-facing workspace surface. Model-only execution tools have no tabs here;
+// raw output remains a hidden compatibility sink for internal actions such as "open data directory".
+const DEV_TABS = new Set([]);
+const TOOLOUT_TABS = new Set([]);
 function switchTab(tab) {
-  // v1.0-S2 (IA): 简易模式兜底 — 若目标页签属开发者组（如旧 localStorage 恢复的激活态），切回 files。
+  // Old saved developer-tab ids are normalized to the safe workspace default.
   if (DEV_TABS.has(tab) && document.documentElement.getAttribute('data-ui-mode') === 'simple') tab = 'files';
   // Scope to the tool pane's tab bar: the settings modal now also uses .tool-tabs (with data-stab),
   // so an unscoped selector would wrongly clear the active settings tab. Match by data-tab only.
-  document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => {
+    const active = b.dataset.tab === tab;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
   document.querySelectorAll('.tool-section').forEach(s => s.classList.toggle('active', s.id === `tab-${tab}`));
-  // v1.0-S2 (IA): 原始输出槽显隐随激活页签（常驻组不显示无关原始输出）。
+  // Raw tool output is intentionally never exposed in the workspace pane.
   { const to = $('toolOutput'); if (to) to.classList.toggle('toolout-hidden', !TOOLOUT_TABS.has(tab)); }
   // v0.8-S2: only poll the shell-session list while its tab is showing.
   updateShellPolling();
@@ -675,10 +681,7 @@ function switchTab(tab) {
   if (tab === 'audit') openAuditTab();
   // 用量看板：打开时才拉取（懒加载，同审计）。已加载则用缓存重绘，避免重复请求；刷新/切范围会强制重拉。
   if (tab === 'usage') openUsageDashboard();
-  // v1.9 数据管家: 存储页签同款懒加载(不轮询,打开时一次性统计;手动「刷新」重拉)。
-  if (tab === 'storage') openStorageTab();
   if (tab === 'agent-runs') loadAgentWorkflows();
-  if (tab === 'debug') renderRawEventSnapshot();
   updateAgentRunsPolling(tab);
   maybeSuggestWideRight(tab); // v3 (§2.7/§2.8): 监控/用量页签在 340px 下一次性软提示切 480
 }
