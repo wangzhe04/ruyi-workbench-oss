@@ -1155,7 +1155,10 @@ function normalizeAgentGate(raw, roleId) {
   const obj = raw === true || !raw ? {} : (typeof raw === 'object' ? raw : { mode: raw });
   const allowed = ['review', 'verify', 'vote', 'cross_review', 'dedupe'];
   const mode = allowed.includes(obj.mode) ? obj.mode : (autoMode || 'review');
-  return { mode, threshold: Math.min(1, Math.max(0, Number(obj.threshold != null ? obj.threshold : 0.5))), minApprovals: Math.max(1, Math.min(32, Math.round(Number(obj.minApprovals) || 1))), minConfidence: Math.min(1, Math.max(0, Number(obj.minConfidence != null ? obj.minConfidence : 0.5))) };
+  // R1(13-r1-evidence-graph.md) + M3(09-m3-coverage-gate.md): 透传 requireEvidence / allowPartialCoverage 布尔开关。
+  // 此前本函数只返回四元组,把这两个门级开关丢了 -- M3 的 allowPartialCoverage=true 降级路径实际从未生效
+  // (e2e 只覆盖默认收紧),R1 的 requireEvidence 也会被丢导致门永不触发。显式布尔化,未传时 false(存量行为不变)。
+  return { mode, threshold: Math.min(1, Math.max(0, Number(obj.threshold != null ? obj.threshold : 0.5))), minApprovals: Math.max(1, Math.min(32, Math.round(Number(obj.minApprovals) || 1))), minConfidence: Math.min(1, Math.max(0, Number(obj.minConfidence != null ? obj.minConfidence : 0.5))), requireEvidence: obj.requireEvidence === true, allowPartialCoverage: obj.allowPartialCoverage === true };
 }
 function verdictPasses(value, gate) {
   const verdict = String(value && value.verdict || '').toLowerCase();
@@ -1575,6 +1578,69 @@ function deriveNodeOutputs(node) {
   node.artifacts = (cont && Array.isArray(cont.steps))
     ? cont.steps.filter(s => s && NODE_WRITE_FAMILY.has(s.tool)).map(s => ({ tool: s.tool, ref: String(s.argsPreview || s.argsHash || '').slice(0, 120) })).slice(0, 20)
     : [];
+}
+// R1(13-r1-evidence-graph.md): evidence 索引与 claim 引用校验。把节点 continuation.steps 升级为可校验证据
+// (每条 tool_result -> 一条 evidence),供 structuredResult.findings 的 evidenceRefs 引用。不复制原文,只存脱敏
+// digest + 引用;按 run/workspace 隔离,不建全局索引(防项目记忆泄漏,与 R4 同纪律)。eventId 用 runId+nodeId+stepIdx
+// 复合(稳定唯一;设计文档 §2.1 的全局 seq 留待后续),幂等去重。
+function runWorkspaceHash(run) {
+  if (run && run._wsHash) return run._wsHash;
+  const cwd = (run && run.cwd) || (typeof process !== 'undefined' && process.cwd ? process.cwd() : '');
+  const h = crypto.createHash('sha1').update(String(cwd)).digest('hex').slice(0, 16);
+  if (run) run._wsHash = h;
+  return h;
+}
+function indexNodeEvidence(run, node) {
+  if (!run || !node) return;
+  if (!Array.isArray(run.evidence)) run.evidence = [];
+  if (!run._evidenceSet) run._evidenceSet = new Set();
+  const cont = node.continuation;
+  const steps = (cont && Array.isArray(cont.steps)) ? cont.steps : [];
+  const ws = runWorkspaceHash(run);
+  const runId = String(run.id || 'run');
+  const nodeId = String(node.id || '');
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    if (!s || !s.tool) continue;
+    const eventId = `evt_${runId}_${nodeId}_${i}`;
+    if (run._evidenceSet.has(eventId)) continue;
+    const content = String(s.tool || '') + '|' + String(s.argsHash || '') + '|' + String(s.resultDigest || '');
+    run.evidence.push({
+      eventId, kind: 'tool_result',
+      digest: 'sha256:' + crypto.createHash('sha256').update(redact(content)).digest('hex').slice(0, 32),
+      ref: { nodeId, stepIdx: i, tool: String(s.tool).slice(0, 80), argsHash: String(s.argsHash || '').slice(0, 12) },
+      workspace: ws, ts: nowIso(), redaction: 'masked',
+    });
+    run._evidenceSet.add(eventId);
+  }
+}
+// 校验 structuredResult.findings 的 evidenceRefs:引用须存在且同工作区,否则标 unverified(文本保留不删)。
+// 返回 { verified, unverified, rejects[] }。status 由机器校验决定,非模型自填(防自评可信,红线威胁5)。
+function verifyNodeClaims(run, node) {
+  const out = { verified: 0, unverified: 0, rejects: [] };
+  if (!run || !node) return out;
+  const sr = node.structuredResult;
+  if (!sr || typeof sr !== 'object') return out;
+  const claims = Array.isArray(sr.findings) ? sr.findings : (Array.isArray(sr.claims) ? sr.claims : []);
+  if (!claims.length) return out;
+  const index = {};
+  if (Array.isArray(run.evidence)) for (const e of run.evidence) { if (e && e.eventId) index[e.eventId] = e; }
+  const ws = runWorkspaceHash(run);
+  for (let i = 0; i < claims.length && i < 200; i++) {
+    const c = claims[i];
+    if (!c || typeof c !== 'object') continue;
+    const refs = Array.isArray(c.evidenceRefs) ? c.evidenceRefs : null;
+    if (!refs || !refs.length) { c.status = 'unverified'; out.unverified++; continue; }
+    let ok = true, reason = '';
+    for (const r of refs.slice(0, 20)) {
+      const ev = index[String(r)];
+      if (!ev) { ok = false; reason = `evidenceRef 不存在: ${String(r).slice(0, 60)}`; break; }
+      if (ev.workspace && ev.workspace !== ws) { ok = false; reason = `跨工作区引用被拒: ${String(r).slice(0, 60)}`; break; }
+    }
+    if (ok) { c.status = 'verified'; out.verified++; }
+    else { c.status = 'unverified'; out.unverified++; out.rejects.push({ claim: String(c.text || '').slice(0, 80), reason }); }
+  }
+  return out;
 }
 // 按 token 预算构建上游依赖上下文,取代旧的定长 12000/dep + 32000 总截断(§28c)。预算按依赖数均分;每条【逐级降级】:
 // ①全文放得下本条份额 → 用全文(无损,judge/synthesize 类下游不丢证据);②否则用精简 summary(§28b);③summary 仍超 →

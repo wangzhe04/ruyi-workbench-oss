@@ -37,7 +37,7 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
   ];
   const good=JSON.stringify({verdict:'pass',confidence:.9,summary:'verified',findings:[{title:'duplicate issue',file:'x.js',line:4,confidence:.8}]});
   const reviewFail=JSON.stringify({verdict:'fail',confidence:.9,summary:'found real bugs',findings:[{title:'bug',file:'a.js',line:1,confidence:.9}]});
-  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail,M3_UNCOVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'checked most',findings:[],coverage:{total:3,handled:2,unhandled:['b.js','c.js']}}),M3_COVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'all checked',findings:[],coverage:{total:2,handled:2,unhandled:[]}})}};
+  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail,M3_UNCOVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'checked most',findings:[],coverage:{total:3,handled:2,unhandled:['b.js','c.js']}}),M3_COVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'all checked',findings:[],coverage:{total:2,handled:2,unhandled:[]}}),R1_UNVERIFIED:JSON.stringify({verdict:'pass',confidence:.9,summary:'claims made',findings:[{text:'断言A',evidenceRefs:['evt_fake_99']}]})}};
   fs.writeFileSync(path.join(HOME,'config.json'),JSON.stringify({configSchema:7,permissionMode:'bypass',defaultWorkspace:HOME,subagentMaxPerTurn:12,subagentMaxConcurrent:6,providers:[{id:'fake',label:'Fake',type:'openai-compat',baseUrl:`http://127.0.0.1:${FP}`,apiKey:'k',model:'fake-model'}],activeProvider:'fake'}));
   const fake=cp.spawn(process.execPath,[path.join(__dirname,'fake-openai.js')],{env:{...process.env,FAKE_OPENAI_PORT:String(FP),FAKE_SUBAGENT_SCRIPT:JSON.stringify(script)},windowsHide:true});
   const wb=cp.spawn(process.execPath,['app/server.js','serve','--port',String(WP)],{cwd:WB,env:{...process.env,RUYI_HOME:HOME},windowsHide:true});
@@ -109,6 +109,30 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
     ]});
     const m3C=id=>m3c.results.find(n=>n.id===id);
     ok(m3C('review').status==='succeeded' && m3C('review').gateVerdict==='pass','M3: empty unhandled passes the coverage gate (full coverage)');
+    // ── R1(13-r1-evidence-graph.md): 高风险门 requireEvidence。claim.evidenceRefs 指向不存在的证据
+    //    (fake-openai 不产 tool 事件 -> evidence 索引空) -> unverified -> gate_unverified rejected。
+    //    非高风险模板同样 unverified 但仅标记不阻断(兼容存量,零回归)。normalizeAgentGate 修复后 requireEvidence 才透传到 node.gate。
+    const r1=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'probe',task:'R1_PROBE'},
+      {id:'audit',task:'R1_UNVERIFIED',role:'reviewer',dependsOn:['probe'],gate:{mode:'review',requireEvidence:true}},
+    ]});
+    const r1By=id=>r1.results.find(n=>n.id===id);
+    ok(r1.ok===true && r1By('audit').status==='rejected' && r1By('audit').errorClass==='gate_unverified' && r1By('audit').gateVerdict==='fail','R1: high-stakes gate (requireEvidence) rejects a pass verdict whose claims lack verifiable evidence (gate_unverified)');
+    ok(String(r1By('audit').error).includes('无证据断言'),'R1: rejection error reports the unverifiable claims');
+    const r1c=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'probe',task:'R1_PROBE'},
+      {id:'soft',task:'R1_UNVERIFIED',role:'reviewer',dependsOn:['probe']},
+    ]});
+    const r1C=id=>r1c.results.find(n=>n.id===id);
+    ok(r1C('soft').status==='succeeded','R1: non-high-stakes gate marks unverified claims but does NOT block (backwards-compatible)');
+    ok(r1C('soft').structuredResult.findings[0].status==='unverified','R1: unverified claim status still recorded (marked, not deleted)');
+    // M3 bonus: allowPartialCoverage=true 降级路径此前因 normalizeAgentGate 丢字段从未生效,修复后验证。
+    const m3p=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'probe',task:'M3_PROBE'},
+      {id:'partial',task:'M3_UNCOVERED',role:'reviewer',dependsOn:['probe'],gate:{mode:'review',allowPartialCoverage:true}},
+    ]});
+    const m3P=id=>m3p.results.find(n=>n.id===id);
+    ok(m3P('partial').status==='succeeded' && m3P('partial').gateVerdict==='pass','M3 bonus: allowPartialCoverage=true downgrades uncovered from rejection to warning (was broken before normalizeAgentGate fix)');
   }finally{kill(wb);kill(fake);await sleep(200);fs.rmSync(HOME,{recursive:true,force:true});}
   console.log('\nAGENT QUALITY WORKFLOW E2E: '+(failures?`FAIL (${failures})`:'ALL PASS'));process.exitCode=failures?1:0;
 })().catch(e=>{console.error(e.stack||e);process.exitCode=1;});

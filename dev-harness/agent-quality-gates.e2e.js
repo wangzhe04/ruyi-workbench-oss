@@ -3,6 +3,7 @@ const {
   parseStructuredAgentOutput, validateAgentJsonSchema, normalizeAgentGate,
   aggregateAgentVote, dedupeAgentFindings, QUALITY_GATE_OUTPUT_SCHEMA,
   normalizeWorkflowLoop, workflowProgressFingerprint, evaluateNodeToolEvidence,
+  indexNodeEvidence, verifyNodeClaims, runWorkspaceHash,
 } = require('../ruyi-workbench/app/server.js');
 
 let failures = 0;
@@ -42,5 +43,26 @@ const fpOrderB = workflowProgressFingerprint({ structuredResult: { a: 1, b: 2 } 
 ok(fpOrderA === fpOrderB, 'structured loop fingerprint is stable across JSON key order');
 const evidence = evaluateNodeToolEvidence({ attempts: 1, minSuccessfulToolCalls: 2, continuation: { attemptId: 1, steps: [{ tool: 'powershell_run', ok: true }, { tool: 'file_read', ok: false }] } });
 ok(evidence.ok === false && evidence.successful === 1 && evidence.required === 2, 'tool evidence counts only successful calls from the current attempt');
+// R1(13-r1-evidence-graph.md): evidence 索引 + claim 引用校验四态。normalizeAgentGate 现透传 requireEvidence/
+// allowPartialCoverage(此前被丢 -- M3 allowPartialCoverage=true 降级路径从未生效,R1 requireEvidence 门永不触发;已修)。
+ok(normalizeAgentGate({ mode: 'review', requireEvidence: true, allowPartialCoverage: true }, 'reviewer').requireEvidence === true && normalizeAgentGate({ mode: 'review', requireEvidence: true, allowPartialCoverage: true }, 'reviewer').allowPartialCoverage === true, 'R1: normalizeAgentGate preserves requireEvidence/allowPartialCoverage (were dropped before fix)');
+ok(normalizeAgentGate({ mode: 'review' }, 'reviewer').requireEvidence === false && normalizeAgentGate(null, 'reviewer').allowPartialCoverage === false, 'R1: gate switches default false (legacy nodes unchanged)');
+const r1Run = { id: 'r1run', evidence: [], _evidenceSet: new Set() };
+const r1Node = { id: 'r1n', continuation: { steps: [{ tool: 'file_read', argsHash: 'abc123', resultDigest: 'rd1' }, { tool: 'file_read', argsHash: 'def456', resultDigest: 'rd2' }] } };
+indexNodeEvidence(r1Run, r1Node);
+ok(r1Run.evidence.length === 2 && r1Run.evidence[0].eventId === 'evt_r1run_r1n_0' && r1Run.evidence[1].eventId === 'evt_r1run_r1n_1', 'R1: indexNodeEvidence mints stable eventIds (runId+nodeId+stepIdx)');
+ok(r1Run.evidence[0].digest.startsWith('sha256:') && r1Run.evidence[0].workspace === r1Run.evidence[1].workspace, 'R1: evidence carries a redacted sha256 digest and a workspace tag');
+indexNodeEvidence(r1Run, r1Node);
+ok(r1Run.evidence.length === 2, 'R1: indexNodeEvidence is idempotent (re-indexing a node does not duplicate evidence)');
+const r1Claim = { structuredResult: { findings: [
+  { text: '由工具结果支撑', evidenceRefs: ['evt_r1run_r1n_0'] },
+  { text: '引用不存在', evidenceRefs: ['evt_r1run_r1n_99'] },
+  { text: '无证据断言' },
+] } };
+const r1v = verifyNodeClaims(r1Run, r1Claim);
+ok(r1v.verified === 1 && r1v.unverified === 2, 'R1: verifyNodeClaims classifies verified (existing ref) vs unverified (missing ref / no refs)');
+ok(r1Claim.structuredResult.findings[0].status === 'verified' && r1Claim.structuredResult.findings[2].status === 'unverified', 'R1: claim status set by machine verification, not model self-report');
+const r1xB = verifyNodeClaims({ id: 'r1run', evidence: r1Run.evidence, _wsHash: 'DIFFERENT_WS' }, { structuredResult: { findings: [{ text: '跨工作区', evidenceRefs: ['evt_r1run_r1n_1'] }] } });
+ok(r1xB.verified === 0 && r1xB.unverified === 1 && r1xB.rejects[0].reason.includes('跨工作区'), 'R1: cross-workspace evidenceRef rejected as unverified (prevents project-memory leakage)');
 console.log('\nAGENT QUALITY GATES E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
 process.exitCode = failures ? 1 : 0;

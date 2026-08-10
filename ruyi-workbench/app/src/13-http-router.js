@@ -1888,6 +1888,7 @@ const MCP_TOOLS = [
                   mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe'], description: 'vote/dedupe are deterministic aggregator nodes and do not execute task; vote dependencies must each return explicit verdict+confidence' },
                   threshold: { type: 'number', description: 'vote pass ratio, 0..1' },
                   minApprovals: { type: 'number' },
+                  requireEvidence: { type: 'boolean', description: 'R1 high-stakes gate (audit/research). When true, structuredResult.findings claims whose evidenceRefs are missing/invalid/cross-workspace are marked unverified, and if any unverified claim exists the node is rejected (gate_unverified). Default false: unverified claims are merely marked, not blocking (backwards-compatible).' },
                 },
               },
               failurePolicy: { type: 'string', enum: ['block', 'continue', 'retry'], description: 'block downstream (default), continue in degraded mode, or retry automatically' },

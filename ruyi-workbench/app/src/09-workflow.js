@@ -790,6 +790,20 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       }
       // 第28波(§28b):节点完成即派生 summary/evidence/artifacts(下游默认吃 summary,rawTranscript 留 node.result 存档)。
       deriveNodeOutputs(node);
+      // R1(13-r1-evidence-graph.md): 节点收尾后将工具调用纳入 run 级证据索引(幂等),并校验 claim.evidenceRefs。
+      // 高风险门(gate.requireEvidence)unverified 非空 -> rejected(gate_unverified,与 M3 gate_uncovered 同级);
+      // 非高风险仅标记 status=unverified 不阻断(兼容存量,零回归)。status 由机器校验决定,非模型自填。
+      indexNodeEvidence(run, node);
+      // R1: 所有 gate 节点都校验 claim.evidenceRefs 并标记 status(verified/unverified);仅高风险门
+      // (requireEvidence)unverified 非空时才 reject(gate_uncovered 同级)。非高风险仅标记不阻断(兼容存量)。
+      if (node.status === 'succeeded' && node.gate) {
+        const evVerdict = verifyNodeClaims(run, node);
+        if (evVerdict.unverified > 0 && node.gate.requireEvidence) {
+          node.status = 'rejected'; node.gateVerdict = 'fail';
+          node.error = `质量门未通过: 存在 ${evVerdict.unverified} 条无证据断言（${evVerdict.rejects.slice(0, 5).map(r => r.claim).join('、')}）`;
+          node.errorClass = 'gate_unverified';
+        }
+      }
       // 第28波(§28d):降级下游策略。degraded=true(目前仅 Claude CLI 出可用输出但异常退出)的成功节点,按 node.degradedPolicy
       // 处置——置于 gate/schema 判定之后、loop/failurePolicy/settle 之前;置 failed/queued 后由既有块靠 status 守卫自动接管,
       // 不重复逻辑。accept(默认)= 保持今天行为(零回归)。
