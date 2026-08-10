@@ -271,6 +271,8 @@ module.exports = {
   normalizeAgentGate,
   aggregateAgentVote,
   dedupeAgentFindings,
+  aggregateCoverage,
+  propagateAssignments,
   QUALITY_GATE_OUTPUT_SCHEMA,
   BUILTIN_AGENT_WORKFLOWS,
   normalizeWorkflowCondition,

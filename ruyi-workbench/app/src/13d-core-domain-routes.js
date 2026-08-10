@@ -125,7 +125,7 @@ function missionRunGraph(src, live) {
         progress: clipMissionRunText(progress && progress.text, 220),
         startedAt: String(node && node.startedAt || ''), completedAt: String(node && node.completedAt || ''),
         fromPool: node && node.fromPool === true, proposedBy: String(node && node.proposedBy || ''),
-        deterministic: Boolean(node && node.gate && ['vote', 'dedupe'].includes(node.gate.mode)),
+        deterministic: Boolean(node && node.gate && ['vote', 'dedupe', 'coverage', 'propagate'].includes(node.gate.mode)),
         steerable: eligibility.ok === true, steerReason: String(eligibility.reason || ''),
         ...(waveSeq.has(String(node && node.id || '')) ? { wave: waveSeq.get(String(node && node.id || '')) } : {}),
       };

@@ -1884,9 +1884,15 @@ const MCP_TOOLS = [
               gate: {
                 type: 'object', description: 'quality gate; reviewer/verifier roles get one automatically',
                 properties: {
-                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe'], description: 'vote/dedupe are deterministic aggregator nodes and do not execute task; vote dependencies must each return explicit verdict+confidence' },
+                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe', 'coverage', 'propagate'], description: 'vote/dedupe/coverage/propagate are deterministic aggregator nodes and do not execute task' },
                   threshold: { type: 'number', description: 'vote pass ratio, 0..1' },
                   minApprovals: { type: 'number' },
+                  minConfidence: { type: 'number', description: 'minimum aggregate vote confidence, 0..1' },
+                  abstainThreshold: { type: 'number', description: 'negative votes below this confidence become abstentions; 0..1, default 0' },
+                  inputSet: { type: 'array', items: { type: 'string' }, description: 'coverage items that must appear in upstream handledItems or findings/claims evidenceRefs' },
+                  propagateKey: { type: 'string', description: 'item record key used to inherit assignments among equal-key items' },
+                  allowPartialCoverage: { type: 'boolean', description: 'allow coverage nodes or model gates with uncovered items to succeed with a warning' },
+                  allowPartial: { type: 'boolean', description: 'allow propagate nodes with unpropagated items to succeed' },
                   requireEvidence: { type: 'boolean', description: 'R1 high-stakes gate (audit/research). When true, structuredResult.findings claims whose evidenceRefs are missing/invalid/cross-workspace are marked unverified, and if any unverified claim exists the node is rejected (gate_unverified). Default false: unverified claims are merely marked, not blocking (backwards-compatible).' },
                 },
               },

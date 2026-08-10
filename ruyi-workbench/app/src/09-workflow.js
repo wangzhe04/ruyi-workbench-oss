@@ -617,8 +617,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const dsWindow = (node.engine === 'claude') ? (contextWindowFromTable(node.model) || 200000) : providerContextWindow(provider, node.model);
       const upstreamBudgetTokens = Math.max(2000, Math.floor(dsWindow * 0.35));
       const priorText = buildUpstreamContext(depNodes, upstreamBudgetTokens);
-      const effectiveSchema = node.outputSchema || (node.gate && !['vote', 'dedupe'].includes(node.gate.mode) ? QUALITY_GATE_OUTPUT_SCHEMA : null);
-      const qualityInstruction = node.gate && !['vote', 'dedupe'].includes(node.gate.mode)
+      const deterministicGateModes = ['vote', 'dedupe', 'coverage', 'propagate'];
+      const effectiveSchema = node.outputSchema || (node.gate && !deterministicGateModes.includes(node.gate.mode) ? QUALITY_GATE_OUTPUT_SCHEMA : null);
+      const qualityInstruction = node.gate && !deterministicGateModes.includes(node.gate.mode)
         ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。
 质量门必须覆盖到每个输入项，不能只看产物整体好坏。请额外输出 coverage 字段：total=输入项总数，handled=已核验项数，unhandled=未核验/未覆盖项清单（某个文件、数据行或子任务未处理时明确列出）。若存在未覆盖项，verdict 应为 fail（或按模板要求说明例外）。`
         : '';
@@ -655,8 +656,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       let isolated = false;
       let effectiveResources = node.resources;
       try {
-        // vote/dedupe are deterministic quality nodes: no extra model call, making their decision
-        // reproducible and preventing a summarizer from changing the actual vote arithmetic.
+        // Deterministic quality nodes never call a model, so their results are reproducible.
         if (node.gate && node.gate.mode === 'vote') {
           node.gateInputIds = depNodes.map(n => n.id);
           node.gateResult = aggregateAgentVote(depNodes, node.gate);
@@ -674,6 +674,22 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           node.result = JSON.stringify(node.structuredResult);
           node.confidence = node.structuredResult.confidence;
           node.status = 'succeeded'; node.error = '';
+        } else if (node.gate && node.gate.mode === 'coverage') {
+          node.gateInputIds = depNodes.map(n => n.id);
+          node.gateResult = aggregateCoverage(depNodes, node.gate);
+          node.structuredResult = node.gateResult; node.result = JSON.stringify(node.structuredResult); node.confidence = 1;
+          node.status = node.structuredResult.unhandled.length && !node.gate.allowPartialCoverage ? 'rejected' : 'succeeded';
+          node.gateVerdict = node.status === 'succeeded' ? 'pass' : 'fail';
+          node.error = node.status === 'rejected' ? `覆盖质量门未通过: ${node.structuredResult.unhandled.join(', ')}` : '';
+          if (node.status === 'rejected') node.errorClass = 'gate_uncovered'; else delete node.errorClass;
+        } else if (node.gate && node.gate.mode === 'propagate') {
+          node.gateInputIds = depNodes.map(n => n.id);
+          node.gateResult = propagateAssignments(depNodes, node.gate);
+          node.structuredResult = node.gateResult; node.result = JSON.stringify(node.structuredResult); node.confidence = 1;
+          node.status = node.structuredResult.cycle ? 'failed' : (node.structuredResult.unpropagated.length && !node.gate.allowPartial ? 'rejected' : 'succeeded');
+          node.gateVerdict = node.structuredResult.cycle ? 'invalid' : (node.status === 'succeeded' ? 'pass' : 'fail');
+          node.error = node.structuredResult.cycle ? '传播依赖边存在环' : (node.status === 'rejected' ? `传播质量门未通过: ${node.structuredResult.unpropagated.join(', ')}` : '');
+          if (node.structuredResult.cycle) node.errorClass = 'propagate_cycle'; else if (node.status === 'rejected') node.errorClass = 'gate_unpropagated'; else delete node.errorClass;
         } else {
           if (node.isolationMode === 'worktree') {
             node.isolation = await createAgentWorktree(normalizeCwd(parentSession.cwd, config.defaultWorkspace), runId, node.id, node.attempts);

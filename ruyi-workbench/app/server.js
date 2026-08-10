@@ -13212,7 +13212,7 @@ function classifyNodeResumeRisk(node) {
   if (!node || typeof node !== 'object') return { safe: true, reason: '' };
   if (node.wait) return { safe: true, reason: 'wait' };
   const gateMode = node.gate && node.gate.mode;
-  if (gateMode === 'vote' || gateMode === 'dedupe') return { safe: true, reason: 'gate' };
+  if (gateMode && ['vote', 'dedupe', 'coverage', 'propagate'].includes(gateMode)) return { safe: true, reason: 'gate' };
   const tier = node.toolTier === 'exec' ? 'exec' : (node.toolTier === 'edit' ? 'edit' : 'read');
   if (tier === 'exec') return { safe: false, reason: 'exec_tier' };
   // Claude 引擎:按真实 allowedTools 判(role.claudeTools 优先,空则 tier 默认;exec tier 默认=[] 即不限制)。
@@ -14122,12 +14122,23 @@ function normalizeAgentGate(raw, roleId) {
   const autoMode = roleId === 'reviewer' ? 'review' : (roleId === 'verifier' ? 'verify' : '');
   if (!raw && !autoMode) return null;
   const obj = raw === true || !raw ? {} : (typeof raw === 'object' ? raw : { mode: raw });
-  const allowed = ['review', 'verify', 'vote', 'cross_review', 'dedupe'];
+  const allowed = ['review', 'verify', 'vote', 'cross_review', 'dedupe', 'coverage', 'propagate'];
   const mode = allowed.includes(obj.mode) ? obj.mode : (autoMode || 'review');
-  // R1(13-r1-evidence-graph.md) + M3(09-m3-coverage-gate.md): 透传 requireEvidence / allowPartialCoverage 布尔开关。
-  // 此前本函数只返回四元组,把这两个门级开关丢了 -- M3 的 allowPartialCoverage=true 降级路径实际从未生效
-  // (e2e 只覆盖默认收紧),R1 的 requireEvidence 也会被丢导致门永不触发。显式布尔化,未传时 false(存量行为不变)。
-  return { mode, threshold: Math.min(1, Math.max(0, Number(obj.threshold != null ? obj.threshold : 0.5))), minApprovals: Math.max(1, Math.min(32, Math.round(Number(obj.minApprovals) || 1))), minConfidence: Math.min(1, Math.max(0, Number(obj.minConfidence != null ? obj.minConfidence : 0.5))), requireEvidence: obj.requireEvidence === true, allowPartialCoverage: obj.allowPartialCoverage === true };
+  // R1/M3/M2: preserve machine-gate configuration while clamping all numeric thresholds.
+  const clamp01 = (value, fallback) => { const n = Number(value); return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : fallback; };
+  const inputSet = Array.isArray(obj.inputSet) ? [...new Set(obj.inputSet.map(x => String(x == null ? '' : x).trim()).filter(Boolean))].slice(0, 10000) : [];
+  return {
+    mode,
+    threshold: clamp01(obj.threshold != null ? obj.threshold : 0.5, 0.5),
+    minApprovals: Math.max(1, Math.min(32, Math.round(Number(obj.minApprovals) || 1))),
+    minConfidence: clamp01(obj.minConfidence != null ? obj.minConfidence : 0.5, 0.5),
+    abstainThreshold: clamp01(obj.abstainThreshold != null ? obj.abstainThreshold : 0, 0),
+    requireEvidence: obj.requireEvidence === true,
+    allowPartialCoverage: obj.allowPartialCoverage === true,
+    allowPartial: obj.allowPartial === true,
+    inputSet,
+    propagateKey: String(obj.propagateKey || '').trim().slice(0, 200),
+  };
 }
 function verdictPasses(value, gate) {
   const verdict = String(value && value.verdict || '').toLowerCase();
@@ -14142,6 +14153,7 @@ function aggregateAgentVote(dependencies, gate) {
   const positive = new Set(['pass', 'passed', 'approve', 'approved', 'accept', 'accepted', 'verified', 'yes']);
   const negative = new Set(['fail', 'failed', 'reject', 'rejected', 'no']);
   const abstain = new Set(['uncertain', 'abstain', 'unknown']);
+  const abstainThreshold = Math.min(1, Math.max(0, Number(gate && gate.abstainThreshold) || 0));
   const votes = dependencies.map(n => {
     const v = structuredOfNode(n);
     const verdict = String(v && v.verdict || '').toLowerCase();
@@ -14150,7 +14162,9 @@ function aggregateAgentVote(dependencies, gate) {
     const verdictValid = positive.has(verdict) || negative.has(verdict) || abstain.has(verdict);
     const confidenceValid = typeof rawConfidence === 'number' && Number.isFinite(confidence) && confidence >= 0 && confidence <= 1;
     const valid = verdictValid && confidenceValid;
-    return { id: n.id, verdict: verdict || 'missing', confidence: confidenceValid ? confidence : null, approve: valid && positive.has(verdict), reject: valid && negative.has(verdict), valid, reason: !verdictValid ? 'missing_or_invalid_verdict' : (!confidenceValid ? 'missing_or_invalid_confidence' : '') };
+    const demoted = valid && negative.has(verdict) && confidence < abstainThreshold;
+    const abstained = valid && (abstain.has(verdict) || demoted);
+    return { id: n.id, verdict: verdict || 'missing', confidence: confidenceValid ? confidence : null, approve: valid && positive.has(verdict), reject: valid && negative.has(verdict) && !demoted, abstained, valid, reason: !verdictValid ? 'missing_or_invalid_verdict' : (!confidenceValid ? 'missing_or_invalid_confidence' : (demoted ? 'low_confidence_demoted' : '')) };
   });
   const approvals = votes.filter(v => v.approve).length; const rejections = votes.filter(v => v.reject).length;
   const invalidVotes = votes.filter(v => !v.valid).map(v => ({ id: v.id, reason: v.reason }));
@@ -14161,7 +14175,66 @@ function aggregateAgentVote(dependencies, gate) {
   const summary = !contractValid
     ? `投票输入契约无效: ${invalidVotes.length ? invalidVotes.map(v => v.id).join(', ') + ' 缺少有效 verdict/confidence' : `仅 ${dependencies.length} 个投票节点，少于 minApprovals=${gate.minApprovals}`}`
     : `${approvals}/${votes.length} 票赞成，得分 ${score.toFixed(2)}`;
-  return { verdict: contractValid ? (pass ? 'pass' : 'fail') : 'invalid', confidence, summary, score, approvals, rejections, contractValid, invalidVotes, votes };
+  return { verdict: contractValid ? (pass ? 'pass' : 'fail') : 'invalid', confidence, summary, score, approvals, rejections, abstentions: votes.filter(v => v.abstained).length, contractValid, invalidVotes, votes };
+}
+function findingHandledItems(data) {
+  const out = [];
+  if (Array.isArray(data && data.handledItems)) out.push(...data.handledItems);
+  for (const field of ['findings', 'claims']) {
+    for (const item of (Array.isArray(data && data[field]) ? data[field] : [])) {
+      if (Array.isArray(item && item.evidenceRefs)) out.push(...item.evidenceRefs);
+      if (Array.isArray(item && item.handledItems)) out.push(...item.handledItems);
+    }
+  }
+  return out.map(x => String(x == null ? '' : x).trim()).filter(Boolean);
+}
+function aggregateCoverage(dependencies, gate) {
+  const inputSet = [...new Set((Array.isArray(gate && gate.inputSet) ? gate.inputSet : []).map(x => String(x == null ? '' : x).trim()).filter(Boolean))];
+  const handledSet = new Set();
+  for (const dep of dependencies) for (const item of findingHandledItems(structuredOfNode(dep))) handledSet.add(item);
+  const handledItems = inputSet.filter(item => handledSet.has(item));
+  const unhandled = inputSet.filter(item => !handledSet.has(item));
+  const total = inputSet.length; const handled = handledItems.length; const coverageRatio = total ? handled / total : 1;
+  return { verdict: unhandled.length ? 'fail' : 'pass', confidence: 1, summary: unhandled.length ? `仍有 ${unhandled.length} 项未覆盖` : `已覆盖全部 ${total} 项`, total, handled, handledItems, unhandled, coverageRatio };
+}
+function propagateAssignments(dependencies, gate) {
+  const propagateKey = String(gate && gate.propagateKey || '').trim();
+  const assignments = {}; const itemKeys = new Map(); const keyValues = new Map(); const edges = new Map();
+  for (const dep of dependencies) {
+    const data = structuredOfNode(dep);
+    if (!data || typeof data !== 'object') continue;
+    const source = data.assignments && typeof data.assignments === 'object' && !Array.isArray(data.assignments) ? data.assignments : {};
+    for (const [item, value] of Object.entries(source)) if (value !== undefined && value !== null && value !== '') assignments[item] = value;
+    const records = Array.isArray(data.items) ? data.items : [];
+    for (const record of records) {
+      if (!record || typeof record !== 'object') continue;
+      const id = String(record.id != null ? record.id : (record.item != null ? record.item : '')).trim();
+      if (!id) continue;
+      const key = propagateKey ? record[propagateKey] : undefined;
+      if (key !== undefined && key !== null && key !== '') itemKeys.set(id, String(key));
+      const value = record.assignment !== undefined ? record.assignment : record.value;
+      if (value !== undefined && value !== null && value !== '') assignments[id] = value;
+    }
+    const rawEdges = Array.isArray(data.propagationEdges) ? data.propagationEdges : (Array.isArray(data.edges) ? data.edges : []);
+    for (const edge of rawEdges) {
+      const from = String(edge && (edge.from != null ? edge.from : edge.source) || '').trim();
+      const to = String(edge && (edge.to != null ? edge.to : edge.target) || '').trim();
+      if (!from || !to) continue;
+      if (!edges.has(from)) edges.set(from, new Set()); edges.get(from).add(to);
+    }
+  }
+  for (const [item, key] of itemKeys) if (Object.prototype.hasOwnProperty.call(assignments, item) && !keyValues.has(key)) keyValues.set(key, assignments[item]);
+  for (const [item, key] of itemKeys) if (!Object.prototype.hasOwnProperty.call(assignments, item) && keyValues.has(key)) assignments[item] = keyValues.get(key);
+  const visiting = new Set(); const visited = new Set(); let cycle = false;
+  const visit = id => { if (visiting.has(id)) { cycle = true; return; } if (visited.has(id)) return; visiting.add(id); for (const to of (edges.get(id) || [])) visit(to); visiting.delete(id); visited.add(id); };
+  for (const id of edges.keys()) visit(id);
+  if (!cycle) {
+    let changed = true;
+    while (changed) { changed = false; for (const [from, targets] of edges) if (Object.prototype.hasOwnProperty.call(assignments, from)) for (const to of targets) if (!Object.prototype.hasOwnProperty.call(assignments, to)) { assignments[to] = assignments[from]; changed = true; } }
+  }
+  const expected = new Set([...itemKeys.keys(), ...edges.keys(), ...[...edges.values()].flatMap(x => [...x])]);
+  const unpropagated = [...expected].filter(item => !Object.prototype.hasOwnProperty.call(assignments, item));
+  return { verdict: cycle ? 'invalid' : (unpropagated.length ? 'fail' : 'pass'), confidence: 1, summary: cycle ? '传播依赖边存在环' : (unpropagated.length ? `仍有 ${unpropagated.length} 项未传播` : `已传播 ${Object.keys(assignments).length} 项`), assignments, unpropagated, propagateKey, cycle };
 }
 function dedupeAgentFindings(dependencies) {
   const map = new Map();
@@ -14753,7 +14826,7 @@ function nodeDeliveryEligibility(run, nodeId, opts = {}) {
   const node = (Array.isArray(run.nodes) ? run.nodes : []).find(n => n.id === nodeId);
   if (!node) return { ok: false, reason: 'not_found', node: null };
   if ((node.engine || 'openai') === 'claude' && opts.allowClaude !== true) return { ok: false, reason: 'claude_engine', node };
-  if (node.gate && ['vote', 'dedupe'].includes(node.gate.mode)) return { ok: false, reason: 'deterministic_gate', node };
+  if (node.gate && ['vote', 'dedupe', 'coverage', 'propagate'].includes(node.gate.mode)) return { ok: false, reason: 'deterministic_gate', node };
   if (!['running', 'queued', 'waiting_resource'].includes(node.status)) return { ok: false, reason: 'terminal', node };
   return { ok: true, reason: 'ok', node };
 }
@@ -15510,8 +15583,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const dsWindow = (node.engine === 'claude') ? (contextWindowFromTable(node.model) || 200000) : providerContextWindow(provider, node.model);
       const upstreamBudgetTokens = Math.max(2000, Math.floor(dsWindow * 0.35));
       const priorText = buildUpstreamContext(depNodes, upstreamBudgetTokens);
-      const effectiveSchema = node.outputSchema || (node.gate && !['vote', 'dedupe'].includes(node.gate.mode) ? QUALITY_GATE_OUTPUT_SCHEMA : null);
-      const qualityInstruction = node.gate && !['vote', 'dedupe'].includes(node.gate.mode)
+      const deterministicGateModes = ['vote', 'dedupe', 'coverage', 'propagate'];
+      const effectiveSchema = node.outputSchema || (node.gate && !deterministicGateModes.includes(node.gate.mode) ? QUALITY_GATE_OUTPUT_SCHEMA : null);
+      const qualityInstruction = node.gate && !deterministicGateModes.includes(node.gate.mode)
         ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。
 质量门必须覆盖到每个输入项，不能只看产物整体好坏。请额外输出 coverage 字段：total=输入项总数，handled=已核验项数，unhandled=未核验/未覆盖项清单（某个文件、数据行或子任务未处理时明确列出）。若存在未覆盖项，verdict 应为 fail（或按模板要求说明例外）。`
         : '';
@@ -15548,8 +15622,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       let isolated = false;
       let effectiveResources = node.resources;
       try {
-        // vote/dedupe are deterministic quality nodes: no extra model call, making their decision
-        // reproducible and preventing a summarizer from changing the actual vote arithmetic.
+        // Deterministic quality nodes never call a model, so their results are reproducible.
         if (node.gate && node.gate.mode === 'vote') {
           node.gateInputIds = depNodes.map(n => n.id);
           node.gateResult = aggregateAgentVote(depNodes, node.gate);
@@ -15567,6 +15640,22 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           node.result = JSON.stringify(node.structuredResult);
           node.confidence = node.structuredResult.confidence;
           node.status = 'succeeded'; node.error = '';
+        } else if (node.gate && node.gate.mode === 'coverage') {
+          node.gateInputIds = depNodes.map(n => n.id);
+          node.gateResult = aggregateCoverage(depNodes, node.gate);
+          node.structuredResult = node.gateResult; node.result = JSON.stringify(node.structuredResult); node.confidence = 1;
+          node.status = node.structuredResult.unhandled.length && !node.gate.allowPartialCoverage ? 'rejected' : 'succeeded';
+          node.gateVerdict = node.status === 'succeeded' ? 'pass' : 'fail';
+          node.error = node.status === 'rejected' ? `覆盖质量门未通过: ${node.structuredResult.unhandled.join(', ')}` : '';
+          if (node.status === 'rejected') node.errorClass = 'gate_uncovered'; else delete node.errorClass;
+        } else if (node.gate && node.gate.mode === 'propagate') {
+          node.gateInputIds = depNodes.map(n => n.id);
+          node.gateResult = propagateAssignments(depNodes, node.gate);
+          node.structuredResult = node.gateResult; node.result = JSON.stringify(node.structuredResult); node.confidence = 1;
+          node.status = node.structuredResult.cycle ? 'failed' : (node.structuredResult.unpropagated.length && !node.gate.allowPartial ? 'rejected' : 'succeeded');
+          node.gateVerdict = node.structuredResult.cycle ? 'invalid' : (node.status === 'succeeded' ? 'pass' : 'fail');
+          node.error = node.structuredResult.cycle ? '传播依赖边存在环' : (node.status === 'rejected' ? `传播质量门未通过: ${node.structuredResult.unpropagated.join(', ')}` : '');
+          if (node.structuredResult.cycle) node.errorClass = 'propagate_cycle'; else if (node.status === 'rejected') node.errorClass = 'gate_unpropagated'; else delete node.errorClass;
         } else {
           if (node.isolationMode === 'worktree') {
             node.isolation = await createAgentWorktree(normalizeCwd(parentSession.cwd, config.defaultWorkspace), runId, node.id, node.attempts);
@@ -23204,9 +23293,15 @@ const MCP_TOOLS = [
               gate: {
                 type: 'object', description: 'quality gate; reviewer/verifier roles get one automatically',
                 properties: {
-                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe'], description: 'vote/dedupe are deterministic aggregator nodes and do not execute task; vote dependencies must each return explicit verdict+confidence' },
+                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe', 'coverage', 'propagate'], description: 'vote/dedupe/coverage/propagate are deterministic aggregator nodes and do not execute task' },
                   threshold: { type: 'number', description: 'vote pass ratio, 0..1' },
                   minApprovals: { type: 'number' },
+                  minConfidence: { type: 'number', description: 'minimum aggregate vote confidence, 0..1' },
+                  abstainThreshold: { type: 'number', description: 'negative votes below this confidence become abstentions; 0..1, default 0' },
+                  inputSet: { type: 'array', items: { type: 'string' }, description: 'coverage items that must appear in upstream handledItems or findings/claims evidenceRefs' },
+                  propagateKey: { type: 'string', description: 'item record key used to inherit assignments among equal-key items' },
+                  allowPartialCoverage: { type: 'boolean', description: 'allow coverage nodes or model gates with uncovered items to succeed with a warning' },
+                  allowPartial: { type: 'boolean', description: 'allow propagate nodes with unpropagated items to succeed' },
                   requireEvidence: { type: 'boolean', description: 'R1 high-stakes gate (audit/research). When true, structuredResult.findings claims whose evidenceRefs are missing/invalid/cross-workspace are marked unverified, and if any unverified claim exists the node is rejected (gate_unverified). Default false: unverified claims are merely marked, not blocking (backwards-compatible).' },
                 },
               },
@@ -24043,7 +24138,7 @@ function missionRunGraph(src, live) {
         progress: clipMissionRunText(progress && progress.text, 220),
         startedAt: String(node && node.startedAt || ''), completedAt: String(node && node.completedAt || ''),
         fromPool: node && node.fromPool === true, proposedBy: String(node && node.proposedBy || ''),
-        deterministic: Boolean(node && node.gate && ['vote', 'dedupe'].includes(node.gate.mode)),
+        deterministic: Boolean(node && node.gate && ['vote', 'dedupe', 'coverage', 'propagate'].includes(node.gate.mode)),
         steerable: eligibility.ok === true, steerReason: String(eligibility.reason || ''),
         ...(waveSeq.has(String(node && node.id || '')) ? { wave: waveSeq.get(String(node && node.id || '')) } : {}),
       };
@@ -25837,6 +25932,8 @@ module.exports = {
   normalizeAgentGate,
   aggregateAgentVote,
   dedupeAgentFindings,
+  aggregateCoverage,
+  propagateAssignments,
   QUALITY_GATE_OUTPUT_SCHEMA,
   BUILTIN_AGENT_WORKFLOWS,
   normalizeWorkflowCondition,

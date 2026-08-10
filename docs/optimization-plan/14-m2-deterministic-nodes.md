@@ -1,7 +1,7 @@
 # 14 · M2 实施文档 - 确定性节点扩展 + vote 门防误杀（阶段 C 后半）
 
 > 关联：`12-agent-architecture-research-roadmap.md` §1（阶段 C = M2 + R1）、`07-microagent-lessons.md` §4 M2、`09-m3-coverage-gate.md`（M3 coverage 是模型自报先行版，M2 coverage 是机器版）、`13-r1-evidence-graph.md`（M2 coverage 产出的未覆盖清单落入 R1 evidence）。
-> 立项：2026-08-10。性质：**设计文档，不动代码**--遵循 12 文档 §2 纪律。基线：M1/M3/M4 已交付。
+> 立项：2026-08-10。状态：**已实现（2026-08-10）**。基线：M1/M3/M4 已交付。
 
 ---
 
@@ -117,10 +117,10 @@ const abstain = new Set(['uncertain', 'abstain', 'unknown']);  // L1172
 
 ---
 
-## 7. 本文档未做项（诚实性）
+## 7. 实现状态
 
-- **未动代码**：按 12 文档 §2 纪律，先设计 + 威胁建模 + fake e2e，实现待设计确认后独立 commit。
-- **未定 coverage inputSet 的模板回填**：M2 只定节点能力；各模板（audit/insight）如何提供 inputSet 是后续模板回填工作。
-- **未定 propagate 的具体传播语义细节**：通用化设计，具体语义由模板 `gate.propagateKey` 驱动；初版只做「按 key 继承上游赋值」最小集。
-- **未实现 R1**：R1 是 M2 的证据契约依赖，13 文档已设计，实现另排。
-- **vote 高阶聚合（相关性校准）**：12 文档 §3 明确暂缓，M2 只做 abstainThreshold 防误杀，不做加权/相关性惩罚。
+- **已完成**：vote `abstainThreshold`、确定性 `coverage` / `propagate`、Schema/短路/插话与恢复风险标记同步。
+- **已验证**：直接聚合测试、fake workflow e2e、M3/R1 相关回归均通过；`coverage` / `propagate` 不调用模型。
+- **后续模板工作**：各模板（audit/insight）如何提供完整 `inputSet`，仍按具体模板单独回填。
+- **传播语义边界**：初版实现按 `propagateKey` 继承上游赋值，并支持显式传播边与环检测；不硬编码业务阶段。
+- **vote 高阶聚合（相关性校准）**：12 文档 §3 明确暂缓，M2 只做 `abstainThreshold` 防误杀，不做加权/相关性惩罚。

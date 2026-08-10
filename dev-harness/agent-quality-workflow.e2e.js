@@ -37,7 +37,7 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
   ];
   const good=JSON.stringify({verdict:'pass',confidence:.9,summary:'verified',findings:[{title:'duplicate issue',file:'x.js',line:4,confidence:.8}]});
   const reviewFail=JSON.stringify({verdict:'fail',confidence:.9,summary:'found real bugs',findings:[{title:'bug',file:'a.js',line:1,confidence:.9}]});
-  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail,M3_UNCOVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'checked most',findings:[],coverage:{total:3,handled:2,unhandled:['b.js','c.js']}}),M3_COVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'all checked',findings:[],coverage:{total:2,handled:2,unhandled:[]}}),R1_UNVERIFIED:JSON.stringify({verdict:'pass',confidence:.9,summary:'claims made',findings:[{text:'断言A',evidenceRefs:['evt_fake_99']}]})}};
+  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail,M3_UNCOVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'checked most',findings:[],coverage:{total:3,handled:2,unhandled:['b.js','c.js']}}),M3_COVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'all checked',findings:[],coverage:{total:2,handled:2,unhandled:[]}}),R1_UNVERIFIED:JSON.stringify({verdict:'pass',confidence:.9,summary:'claims made',findings:[{text:'断言A',evidenceRefs:['evt_fake_99']}]}),M2_HANDLED:JSON.stringify({handledItems:['a','b']}),M2_PROPAGATE:JSON.stringify({items:[{id:'root',group:'g',assignment:'blue'},{id:'peer',group:'g'}],propagationEdges:[{from:'peer',to:'leaf'}]}),M2_CYCLE:JSON.stringify({assignments:{a:'x'},propagationEdges:[{from:'a',to:'b'},{from:'b',to:'a'}]})}};
   fs.writeFileSync(path.join(HOME,'config.json'),JSON.stringify({configSchema:7,permissionMode:'bypass',defaultWorkspace:HOME,subagentMaxPerTurn:12,subagentMaxConcurrent:6,providers:[{id:'fake',label:'Fake',type:'openai-compat',baseUrl:`http://127.0.0.1:${FP}`,apiKey:'k',model:'fake-model'}],activeProvider:'fake'}));
   const fake=cp.spawn(process.execPath,[path.join(__dirname,'fake-openai.js')],{env:{...process.env,FAKE_OPENAI_PORT:String(FP),FAKE_SUBAGENT_SCRIPT:JSON.stringify(script)},windowsHide:true});
   const wb=cp.spawn(process.execPath,['app/server.js','serve','--port',String(WP)],{cwd:WB,env:{...process.env,RUYI_HOME:HOME},windowsHide:true});
@@ -133,6 +133,20 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
     ]});
     const m3P=id=>m3p.results.find(n=>n.id===id);
     ok(m3P('partial').status==='succeeded' && m3P('partial').gateVerdict==='pass','M3 bonus: allowPartialCoverage=true downgrades uncovered from rejection to warning (was broken before normalizeAgentGate fix)');
+    const m2=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'handled',task:'M2_HANDLED'},
+      {id:'coverage',task:'MUST_NOT_CALL_MODEL',dependsOn:['handled'],gate:{mode:'coverage',inputSet:['a','b','c']}},
+      {id:'coverage_partial',task:'MUST_NOT_CALL_MODEL',dependsOn:['handled'],gate:{mode:'coverage',inputSet:['a','b','c'],allowPartialCoverage:true}},
+      {id:'prop_source',task:'M2_PROPAGATE'},
+      {id:'propagate',task:'MUST_NOT_CALL_MODEL',dependsOn:['prop_source'],gate:{mode:'propagate',propagateKey:'group'}},
+      {id:'cycle_source',task:'M2_CYCLE'},
+      {id:'cycle',task:'MUST_NOT_CALL_MODEL',dependsOn:['cycle_source'],gate:{mode:'propagate'}},
+    ]});
+    const m2By=id=>m2.results.find(n=>n.id===id);
+    ok(m2By('coverage').status==='rejected' && m2By('coverage').errorClass==='gate_uncovered' && m2By('coverage').structuredResult.unhandled.join(',')==='c','M2: deterministic coverage rejects an uncovered item without a model call');
+    ok(m2By('coverage_partial').status==='succeeded' && m2By('coverage_partial').structuredResult.unhandled[0]==='c','M2: deterministic coverage supports allowPartialCoverage');
+    ok(m2By('propagate').status==='succeeded' && m2By('propagate').structuredResult.assignments.leaf==='blue','M2: deterministic propagate inherits assignments without a model call');
+    ok(m2By('cycle').status==='failed' && m2By('cycle').errorClass==='propagate_cycle','M2: propagate cycle fails deterministically');
   }finally{kill(wb);kill(fake);await sleep(200);fs.rmSync(HOME,{recursive:true,force:true});}
   console.log('\nAGENT QUALITY WORKFLOW E2E: '+(failures?`FAIL (${failures})`:'ALL PASS'));process.exitCode=failures?1:0;
 })().catch(e=>{console.error(e.stack||e);process.exitCode=1;});

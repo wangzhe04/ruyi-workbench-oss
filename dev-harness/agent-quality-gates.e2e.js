@@ -1,7 +1,7 @@
 'use strict';
 const {
   parseStructuredAgentOutput, validateAgentJsonSchema, normalizeAgentGate,
-  aggregateAgentVote, dedupeAgentFindings, QUALITY_GATE_OUTPUT_SCHEMA,
+  aggregateAgentVote, dedupeAgentFindings, aggregateCoverage, propagateAssignments, QUALITY_GATE_OUTPUT_SCHEMA,
   normalizeWorkflowLoop, workflowProgressFingerprint, evaluateNodeToolEvidence,
   indexNodeEvidence, verifyNodeClaims, purgeNodeEvidence, runWorkspaceHash,
 } = require('../ruyi-workbench/app/server.js');
@@ -31,6 +31,20 @@ const vote = aggregateAgentVote(deps, { threshold: 0.6, minApprovals: 2, minConf
 ok(vote.verdict === 'pass' && vote.approvals === 2 && vote.confidence > 0.8, 'vote gate applies approval and confidence thresholds');
 const invalidVote = aggregateAgentVote([{ id: 'summary', structuredResult: { answer: 'correct but not a vote' } }], { threshold: 0.5, minApprovals: 1, minConfidence: 0.5 });
 ok(invalidVote.verdict === 'invalid' && invalidVote.contractValid === false && invalidVote.invalidVotes[0].id === 'summary', 'vote gate rejects a malformed vote contract instead of reporting a false quality rejection');
+const unchangedLowReject = aggregateAgentVote([{ id: 'yes', structuredResult: { verdict: 'pass', confidence: 0.9 } }, { id: 'no', structuredResult: { verdict: 'fail', confidence: 0.5 } }], { threshold: 0.6, minApprovals: 1, minConfidence: 0, abstainThreshold: 0 });
+ok(unchangedLowReject.rejections === 1 && unchangedLowReject.score === 0.5 && unchangedLowReject.verdict === 'fail', 'M2: abstainThreshold=0 preserves low-confidence rejection behavior');
+const demotedReject = aggregateAgentVote([{ id: 'yes', structuredResult: { verdict: 'pass', confidence: 0.9 } }, { id: 'no', structuredResult: { verdict: 'fail', confidence: 0.5 } }], { threshold: 0.6, minApprovals: 1, minConfidence: 0, abstainThreshold: 0.6 });
+ok(demotedReject.verdict === 'pass' && demotedReject.rejections === 0 && demotedReject.abstentions === 1 && demotedReject.votes[1].abstained === true && demotedReject.votes[1].reason === 'low_confidence_demoted', 'M2: low-confidence rejection becomes an auditable abstention');
+const normalizedM2 = normalizeAgentGate({ mode: 'coverage', abstainThreshold: 2, inputSet: ['a', 'a', '', 'b'], propagateKey: ' group ' });
+ok(normalizedM2.mode === 'coverage' && normalizedM2.abstainThreshold === 1 && normalizedM2.inputSet.join(',') === 'a,b' && normalizedM2.propagateKey === 'group', 'M2: normalizeAgentGate preserves and bounds deterministic gate configuration');
+const covered = aggregateCoverage([{ id: 'a', structuredResult: { handledItems: ['one'], findings: [{ evidenceRefs: ['two', 'two'] }] } }], { inputSet: ['one', 'two', 'three'] });
+ok(covered.total === 3 && covered.handled === 2 && covered.unhandled.join(',') === 'three' && covered.coverageRatio === 2 / 3, 'M2: coverage computes deterministic unique handled and unhandled sets');
+const emptyCoverage = aggregateCoverage([], { inputSet: [] });
+ok(emptyCoverage.verdict === 'pass' && emptyCoverage.coverageRatio === 1, 'M2: empty coverage universe is vacuously complete');
+const propagated = propagateAssignments([{ id: 'a', structuredResult: { items: [{ id: 'a', group: 'g', assignment: 'cat' }, { id: 'b', group: 'g' }], propagationEdges: [{ from: 'b', to: 'c' }] } }], { propagateKey: 'group' });
+ok(propagated.verdict === 'pass' && propagated.assignments.a === 'cat' && propagated.assignments.b === 'cat' && propagated.assignments.c === 'cat', 'M2: propagate inherits by key then follows dependency edges');
+const cyclic = propagateAssignments([{ id: 'a', structuredResult: { assignments: { a: 'x' }, propagationEdges: [{ from: 'a', to: 'b' }, { from: 'b', to: 'a' }] } }], {});
+ok(cyclic.verdict === 'invalid' && cyclic.cycle === true, 'M2: propagate detects dependency cycles');
 const deduped = dedupeAgentFindings(deps);
 ok(deduped.findings.length === 1 && deduped.findings[0].confidence === 0.95 && deduped.findings[0].sources.length === 2, 'finding dedupe keeps strongest confidence and source provenance');
 const loop = normalizeWorkflowLoop({ maxIterations: 5, progressPath: 'state.remaining', noProgressLimit: 2 });
