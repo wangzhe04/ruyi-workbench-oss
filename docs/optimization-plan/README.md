@@ -117,3 +117,6 @@
 - [03-tools-mcp.md](03-tools-mcp.md) — ACC 工具库优化 + MCP 生态兼容详细方案
 - [04-prompts-workflow.md](04-prompts-workflow.md) — 提示词与模型工作流规范化详细方案
 - [05-other-directions.md](05-other-directions.md) — 安全 / 稳定性 / 性能 / 架构 / 测试 / 文档 / 发布等附加方向
+- [06-hb360-cost-convergence.md](06-hb360-cost-convergence.md) — HB360 成本与收敛优化规划（2026-08-08 实测基线，O1–O6）
+- [07-microagent-lessons.md](07-microagent-lessons.md) — MicroAgent 论文对照与编排方法论升级规划（2026-08-10，M1–M6，06 的姊妹篇）
+- [08-task-sheet-ux-audit.md](08-task-sheet-ux-audit.md) — 交办台任务单 UX 走查与诊断（第99波产出，2026-08-10，A1–A7/B1–B7 问题清单 + 第100波方案 B 已拍板）
