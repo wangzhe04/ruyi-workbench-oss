@@ -1583,36 +1583,62 @@ function deriveNodeOutputs(node) {
 // (每条 tool_result -> 一条 evidence),供 structuredResult.findings 的 evidenceRefs 引用。不复制原文,只存脱敏
 // digest + 引用;按 run/workspace 隔离,不建全局索引(防项目记忆泄漏,与 R4 同纪律)。eventId 用 runId+nodeId+stepIdx
 // 复合(稳定唯一;设计文档 §2.1 的全局 seq 留待后续),幂等去重。
+// R1 对抗轮修:去重集挂在【模块级 WeakMap】而非 run 上 —— run 会被 JSON.stringify 落盘,Set 经序列化变 {}
+// (resume 后 if(!set) 对 {} 判 truthy 不重建、.has() 抛 TypeError 把已成功节点翻成 scheduler_error)。WeakMap
+// 以 run 对象为键,不进快照;resume 载入的是全新 run 对象,WeakMap 未命中时按 run.evidence 重建,去重与幂等都正确。
+const evidenceDedup = new WeakMap();
+function getEvidenceSet(run) {
+  let set = evidenceDedup.get(run);
+  if (set) return set;
+  set = new Set();
+  if (Array.isArray(run.evidence)) for (const e of run.evidence) { if (e && e.eventId) set.add(e.eventId); }
+  evidenceDedup.set(run, set);
+  return set;
+}
 function runWorkspaceHash(run) {
-  if (run && run._wsHash) return run._wsHash;
-  const cwd = (run && run.cwd) || (typeof process !== 'undefined' && process.cwd ? process.cwd() : '');
-  const h = crypto.createHash('sha1').update(String(cwd)).digest('hex').slice(0, 16);
-  if (run) run._wsHash = h;
-  return h;
+  // run.cwd 由 09-workflow run 创建时写入(=工作流真实工作目录);历史/异常缺失才回退 process.cwd()。
+  // 对抗轮修:此前 run 从不写 cwd,hash 恒等于服务器进程启动目录,跨工作区隔离 fail-open。
+  const cwd = (run && typeof run.cwd === 'string' && run.cwd) || (typeof process !== 'undefined' && process.cwd ? process.cwd() : '');
+  return crypto.createHash('sha1').update(String(cwd)).digest('hex').slice(0, 16);
 }
 function indexNodeEvidence(run, node) {
   if (!run || !node) return;
   if (!Array.isArray(run.evidence)) run.evidence = [];
-  if (!run._evidenceSet) run._evidenceSet = new Set();
+  const set = getEvidenceSet(run);
   const cont = node.continuation;
   const steps = (cont && Array.isArray(cont.steps)) ? cont.steps : [];
   const ws = runWorkspaceHash(run);
   const runId = String(run.id || 'run');
   const nodeId = String(node.id || '');
+  // R1 对抗轮修:eventId 纳入 attemptId —— retry 时 recordNodeContinuation 重建 steps:[] 从 0 重编号,
+  // 旧 attempt 同 stepIdx 会与新 attempt 撞 id、命中去重导致新结果永不入索引(证据与当前执行脱钩)。
+  const attemptId = (cont && Number.isFinite(Number(cont.attemptId))) ? Number(cont.attemptId) : (Number.isFinite(Number(node.attempts)) ? Number(node.attempts) : 0);
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i];
     if (!s || !s.tool) continue;
-    const eventId = `evt_${runId}_${nodeId}_${i}`;
-    if (run._evidenceSet.has(eventId)) continue;
+    const eventId = `evt_${runId}_${nodeId}_a${attemptId}_${i}`;
+    if (set.has(eventId)) continue;
     const content = String(s.tool || '') + '|' + String(s.argsHash || '') + '|' + String(s.resultDigest || '');
     run.evidence.push({
       eventId, kind: 'tool_result',
       digest: 'sha256:' + crypto.createHash('sha256').update(redact(content)).digest('hex').slice(0, 32),
-      ref: { nodeId, stepIdx: i, tool: String(s.tool).slice(0, 80), argsHash: String(s.argsHash || '').slice(0, 12) },
+      ref: { nodeId, attemptId, stepIdx: i, tool: String(s.tool).slice(0, 80), argsHash: String(s.argsHash || '').slice(0, 12) },
       workspace: ws, ts: nowIso(), redaction: 'masked',
     });
-    run._evidenceSet.add(eventId);
+    set.add(eventId);
   }
+}
+// R1 对抗轮修:retry 新 attempt 前清掉该节点【旧 attempt】的证据 —— 旧 attempt 可能已失败/被中止,
+// 其残留 evidence 既污染校验(verifyNodeClaims 会查到失败 attempt 的 digest)也占体积;新 attempt 重 index。
+function purgeNodeEvidence(run, nodeId) {
+  if (!run || !nodeId) return;
+  if (!Array.isArray(run.evidence)) return;
+  const prefix = `evt_${String(run.id || 'run')}_${String(nodeId)}_`;
+  const set = getEvidenceSet(run);
+  run.evidence = run.evidence.filter(e => {
+    if (e && typeof e.eventId === 'string' && e.eventId.startsWith(prefix)) { set.delete(e.eventId); return false; }
+    return true;
+  });
 }
 // 校验 structuredResult.findings 的 evidenceRefs:引用须存在且同工作区,否则标 unverified(文本保留不删)。
 // 返回 { verified, unverified, rejects[] }。status 由机器校验决定,非模型自填(防自评可信,红线威胁5)。

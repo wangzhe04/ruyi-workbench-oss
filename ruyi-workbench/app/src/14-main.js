@@ -278,6 +278,7 @@ module.exports = {
   // R1(13-r1-evidence-graph.md): evidence 索引 + claim 引用校验 - exposed for e2e 直测(四态:verified/unverified/跨工作区/无refs)。
   indexNodeEvidence,
   verifyNodeClaims,
+  purgeNodeEvidence,
   runWorkspaceHash,
   normalizeAgentWorkflow,
   resolveAgentTeamRoute,

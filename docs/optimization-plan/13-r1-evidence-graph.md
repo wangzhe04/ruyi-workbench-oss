@@ -132,8 +132,18 @@ R1 落地后按 M4 纪律单轴回测：
 
 ## 9. 本文档未做项（诚实性）
 
-- **未动代码**：按 12 文档 §2 纪律，先设计 + 威胁建模 + fake e2e 设计，实现待设计确认后独立 commit。
 - **未设计 M2**：M2 确定性节点另立文档，本波只定 R1 证据契约。
 - **未设计 R2–R5**：依赖 R1 契约，阶段 D–F 各自先设计文档。
-- **eventId 稳定性**：当前 progressLog 无稳定 eventId，R1 实现需先给事件加稳定 id（这是 R1 实现的前置工作，非独立项）。
+- **eventId 稳定性**：实现采用 `evt_<runId>_<nodeId>_a<attemptId>_<stepIdx>`（对抗轮加 attemptId，避免 retry 撞 id）。
+- **证据清单未注入 prompt（已知功能限制）**：当前 `evidenceRefs` 引用校验的数据契约与门控已通，但**没有把本轮可用证据清单（eventId 列表）注入子代理任务 prompt**，schema 的 findings items 也未约束 evidenceRefs。因此生产中真实模型若被要求出 evidenceRefs，要么编造（命中「不存在」→ unverified），要么缺失；高风险门（`requireEvidence`，默认关闭）在补 prompt 注入前实际不可用，仅作为机器判定（M2 coverage/propagate 产出）的消费端。这是 R1 落地的后续小步，触及 prompt-snapshot 锁定的 effectiveTask 区，需独立设计 + 快照更新。
+- **workspace 粒度 = run 工作目录**：workspace hash 按工作流 cwd（`run.cwd`）隔离，同一 run 内的 worktree 隔离节点共享同一 workspace tag，不做 worktree 级细分（主威胁「跨项目/跨 run 记忆泄漏」由 run 级 + cwd 挡住；同 run 内 worktree 互信）。
 - **外部论文引用**：12 文档已列 arXiv 依据，本文档不重复引用，只落地 Ruyi 版本契约。
+
+### 9.1 对抗验证修复记录（实现后）
+
+首版实现经双 agent 对抗审查 + 主会话亲验，修复 4 项硬伤（均有回归断言）：
+
+1. `_evidenceSet` 原挂 run 对象上，`JSON.stringify` 把 Set 变 `{}`，resume 后 `.has()` 抛 TypeError 把已成功节点翻成 `scheduler_error` → 改模块级 `WeakMap`，resume 按 `run.evidence` 重建。
+2. `run.cwd` 从不赋值，workspace hash 恒等于服务器进程启动目录，跨工作区隔离 fail-open → run 创建时写入 `run.cwd`。
+3. eventId 不含 attemptId，retry 新 attempt 从 step 0 重编号与旧 attempt 撞 id，旧失败证据占位 → eventId 加 `a<attemptId>`，retry 前 `purgeNodeEvidence` 清旧证据。
+4. `indexNodeEvidence`/`verifyNodeClaims` 在 runNode 的 try/catch 之外，异常可跳过 completedAt/save/node_end → 包防御式 catch，降级为 `evidenceWarning` 不翻转已成功节点。

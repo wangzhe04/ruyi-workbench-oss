@@ -3,7 +3,7 @@ const {
   parseStructuredAgentOutput, validateAgentJsonSchema, normalizeAgentGate,
   aggregateAgentVote, dedupeAgentFindings, QUALITY_GATE_OUTPUT_SCHEMA,
   normalizeWorkflowLoop, workflowProgressFingerprint, evaluateNodeToolEvidence,
-  indexNodeEvidence, verifyNodeClaims, runWorkspaceHash,
+  indexNodeEvidence, verifyNodeClaims, purgeNodeEvidence, runWorkspaceHash,
 } = require('../ruyi-workbench/app/server.js');
 
 let failures = 0;
@@ -47,22 +47,37 @@ ok(evidence.ok === false && evidence.successful === 1 && evidence.required === 2
 // allowPartialCoverage(此前被丢 -- M3 allowPartialCoverage=true 降级路径从未生效,R1 requireEvidence 门永不触发;已修)。
 ok(normalizeAgentGate({ mode: 'review', requireEvidence: true, allowPartialCoverage: true }, 'reviewer').requireEvidence === true && normalizeAgentGate({ mode: 'review', requireEvidence: true, allowPartialCoverage: true }, 'reviewer').allowPartialCoverage === true, 'R1: normalizeAgentGate preserves requireEvidence/allowPartialCoverage (were dropped before fix)');
 ok(normalizeAgentGate({ mode: 'review' }, 'reviewer').requireEvidence === false && normalizeAgentGate(null, 'reviewer').allowPartialCoverage === false, 'R1: gate switches default false (legacy nodes unchanged)');
-const r1Run = { id: 'r1run', evidence: [], _evidenceSet: new Set() };
-const r1Node = { id: 'r1n', continuation: { steps: [{ tool: 'file_read', argsHash: 'abc123', resultDigest: 'rd1' }, { tool: 'file_read', argsHash: 'def456', resultDigest: 'rd2' }] } };
+const r1Run = { id: 'r1run', cwd: '/workspace/proj-a', evidence: [] };
+const r1Node = { id: 'r1n', attempts: 0, continuation: { attemptId: 0, steps: [{ tool: 'file_read', argsHash: 'abc123', resultDigest: 'rd1' }, { tool: 'file_read', argsHash: 'def456', resultDigest: 'rd2' }] } };
 indexNodeEvidence(r1Run, r1Node);
-ok(r1Run.evidence.length === 2 && r1Run.evidence[0].eventId === 'evt_r1run_r1n_0' && r1Run.evidence[1].eventId === 'evt_r1run_r1n_1', 'R1: indexNodeEvidence mints stable eventIds (runId+nodeId+stepIdx)');
+ok(r1Run.evidence.length === 2 && r1Run.evidence[0].eventId === 'evt_r1run_r1n_a0_0' && r1Run.evidence[1].eventId === 'evt_r1run_r1n_a0_1', 'R1: indexNodeEvidence mints stable eventIds (runId+nodeId+attemptId+stepIdx)');
 ok(r1Run.evidence[0].digest.startsWith('sha256:') && r1Run.evidence[0].workspace === r1Run.evidence[1].workspace, 'R1: evidence carries a redacted sha256 digest and a workspace tag');
 indexNodeEvidence(r1Run, r1Node);
 ok(r1Run.evidence.length === 2, 'R1: indexNodeEvidence is idempotent (re-indexing a node does not duplicate evidence)');
 const r1Claim = { structuredResult: { findings: [
-  { text: '由工具结果支撑', evidenceRefs: ['evt_r1run_r1n_0'] },
-  { text: '引用不存在', evidenceRefs: ['evt_r1run_r1n_99'] },
+  { text: '由工具结果支撑', evidenceRefs: ['evt_r1run_r1n_a0_0'] },
+  { text: '引用不存在', evidenceRefs: ['evt_r1run_r1n_a0_99'] },
   { text: '无证据断言' },
 ] } };
 const r1v = verifyNodeClaims(r1Run, r1Claim);
 ok(r1v.verified === 1 && r1v.unverified === 2, 'R1: verifyNodeClaims classifies verified (existing ref) vs unverified (missing ref / no refs)');
 ok(r1Claim.structuredResult.findings[0].status === 'verified' && r1Claim.structuredResult.findings[2].status === 'unverified', 'R1: claim status set by machine verification, not model self-report');
-const r1xB = verifyNodeClaims({ id: 'r1run', evidence: r1Run.evidence, _wsHash: 'DIFFERENT_WS' }, { structuredResult: { findings: [{ text: '跨工作区', evidenceRefs: ['evt_r1run_r1n_1'] }] } });
+const r1xB = verifyNodeClaims({ id: 'r1run', cwd: '/workspace/proj-b', evidence: r1Run.evidence }, { structuredResult: { findings: [{ text: '跨工作区', evidenceRefs: ['evt_r1run_r1n_a0_1'] }] } });
 ok(r1xB.verified === 0 && r1xB.unverified === 1 && r1xB.rejects[0].reason.includes('跨工作区'), 'R1: cross-workspace evidenceRef rejected as unverified (prevents project-memory leakage)');
+// R1 对抗轮修复回归:去重集在模块级 WeakMap,不挂 run 上 —— 经 JSON 往返(resume 快照)后不再是 Set 也不崩,
+// 且按 run.evidence 重建去重集,重 index 不重复。
+const resumed = JSON.parse(JSON.stringify(r1Run));
+ok(resumed._evidenceSet === undefined && Array.isArray(resumed.evidence) && resumed.evidence.length === 2, 'R1 hardening: dedup set is NOT serialized onto run (was a Set -> {} crash on resume)');
+let crashed = false;
+try { indexNodeEvidence(resumed, r1Node); } catch { crashed = true; }
+ok(!crashed && resumed.evidence.length === 2, 'R1 hardening: indexNodeEvidence survives a JSON round-trip (resume) without crash or duplicate');
+// R1 对抗轮修复:eventId 含 attemptId —— retry 新 attempt 从 step 0 重编号,旧 attempt 同 stepIdx 不撞 id。
+const retryNode = { id: 'r1n', attempts: 1, continuation: { attemptId: 1, steps: [{ tool: 'file_write', argsHash: 'aaa', resultDigest: 'new' }] } };
+indexNodeEvidence(r1Run, retryNode);
+const retryEv = r1Run.evidence.find(e => e.eventId === 'evt_r1run_r1n_a1_0');
+ok(retryEv && retryEv.ref.attemptId === 1, 'R1 hardening: eventId includes attemptId (retry step 0 does not collide with attempt 0)');
+// R1 对抗轮修复:purgeNodeEvidence 清掉指定节点【所有 attempt】的旧证据。
+purgeNodeEvidence(r1Run, 'r1n');
+ok(r1Run.evidence.length === 0, 'R1 hardening: purgeNodeEvidence removes all attempts of a node evidence before retry');
 console.log('\nAGENT QUALITY GATES E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
 process.exitCode = failures ? 1 : 0;

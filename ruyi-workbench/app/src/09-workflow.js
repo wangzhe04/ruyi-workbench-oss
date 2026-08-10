@@ -189,6 +189,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     const resolvedAutoCap = Number.isFinite(Number(config.agentTaskPoolAutoCap)) ? Math.min(16, Math.max(0, Math.round(Number(config.agentTaskPoolAutoCap)))) : 3;
     const runProvider = defaultRoute.engine === 'openai' ? defaultRoute.provider : provider;
     run = { schemaVersion: 4, id: runId, sessionId: parentSession.id, turnSeq: parentSession.turnSeq, providerId: runProvider && runProvider.id || '', status: 'running', createdAt: nowIso(), updatedAt: nowIso(), concurrency: Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2)), taskPool: [], messages: [], poolPolicy: resolvedPoolPolicy, poolAutoCap: resolvedAutoCap,
+      // R1 对抗轮修:工作流真实工作目录写入 run,供 runWorkspaceHash 做按工作区隔离(此前 run 无 cwd,
+      // hash 恒等于服务器进程启动目录,跨工作区引用不拒,fail-open)。与 wfCwd 同源(normalizeCwd)。
+      cwd: normalizeCwd(parentSession.cwd, config.defaultWorkspace),
       kind: String(runKind || 'orchestrate_agents'), title: String(runTitle || ''),
       // 29b/29c: 首跑权限面存档(boot 自动恢复分级用 —— 恢复时 config.permissionMode 若比首跑更宽,自动续跑
       // 等于权限静默升级,必须降人工)+ 运营指标(interventions 干预计数 / failuresByClass 收尾聚合)。
@@ -772,7 +775,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             else if (!node.gate.allowPartialCoverage && Array.isArray(node.structuredResult && node.structuredResult.coverage && node.structuredResult.coverage.unhandled) && node.structuredResult.coverage.unhandled.length > 0) {
               const unhandled = node.structuredResult.coverage.unhandled.slice(0, 20);
               node.status = 'rejected'; node.gateVerdict = 'fail';
-              node.error = `质量门未通过: 存在未覆盖输入项 ${unhandled.length}/all（${unhandled.map(String).join('、')}）` + (node.gate.allowPartialCoverage ? '（已按配置降级为警告）' : '');
+              node.error = `质量门未通过: 存在未覆盖输入项 ${unhandled.length}/all（${unhandled.map(String).join('、')}）`;
               node.errorClass = 'gate_uncovered';
             }
           } else if (node.structuredResult && Number.isFinite(Number(node.structuredResult.confidence))) node.confidence = Math.min(1, Math.max(0, Number(node.structuredResult.confidence)));
@@ -793,16 +796,23 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // R1(13-r1-evidence-graph.md): 节点收尾后将工具调用纳入 run 级证据索引(幂等),并校验 claim.evidenceRefs。
       // 高风险门(gate.requireEvidence)unverified 非空 -> rejected(gate_unverified,与 M3 gate_uncovered 同级);
       // 非高风险仅标记 status=unverified 不阻断(兼容存量,零回归)。status 由机器校验决定,非模型自填。
-      indexNodeEvidence(run, node);
-      // R1: 所有 gate 节点都校验 claim.evidenceRefs 并标记 status(verified/unverified);仅高风险门
-      // (requireEvidence)unverified 非空时才 reject(gate_uncovered 同级)。非高风险仅标记不阻断(兼容存量)。
-      if (node.status === 'succeeded' && node.gate) {
-        const evVerdict = verifyNodeClaims(run, node);
-        if (evVerdict.unverified > 0 && node.gate.requireEvidence) {
-          node.status = 'rejected'; node.gateVerdict = 'fail';
-          node.error = `质量门未通过: 存在 ${evVerdict.unverified} 条无证据断言（${evVerdict.rejects.slice(0, 5).map(r => r.claim).join('、')}）`;
-          node.errorClass = 'gate_unverified';
+      // R1 对抗轮修:这两个调用此前在 runNode 的 try/catch 之外,一旦抛异常(脏快照/打包缺失)会跳过
+      // completedAt/save/node_end/loop/failurePolicy,节点可能无终态。包防御式 catch,降级为 warning 不翻转已
+      // 成功节点(证据索引是质量增强,不该因自身异常把已执行成功的节点判死)。
+      try {
+        indexNodeEvidence(run, node);
+        // R1: 所有 gate 节点都校验 claim.evidenceRefs 并标记 status(verified/unverified);仅高风险门
+        // (requireEvidence)unverified 非空时才 reject(gate_uncovered 同级)。非高风险仅标记不阻断(兼容存量)。
+        if (node.status === 'succeeded' && node.gate) {
+          const evVerdict = verifyNodeClaims(run, node);
+          if (evVerdict.unverified > 0 && node.gate.requireEvidence) {
+            node.status = 'rejected'; node.gateVerdict = 'fail';
+            node.error = `质量门未通过: 存在 ${evVerdict.unverified} 条无证据断言（${evVerdict.rejects.slice(0, 5).map(r => r.claim).join('、')}）`;
+            node.errorClass = 'gate_unverified';
+          }
         }
+      } catch (e) {
+        node.evidenceWarning = 'R1 证据索引/校验异常(已降级,不影响节点结果): ' + String((e && e.message) || e).slice(0, 300);
       }
       // 第28波(§28d):降级下游策略。degraded=true(目前仅 Claude CLI 出可用输出但异常退出)的成功节点,按 node.degradedPolicy
       // 处置——置于 gate/schema 判定之后、loop/failurePolicy/settle 之前;置 failed/queued 后由既有块靠 status 守卫自动接管,
@@ -837,6 +847,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         } else node.loopStopReason = 'max_iterations';
       }
       if (node.status === 'failed' && node.failurePolicy === 'retry' && node.attempts <= node.maxRetries) {
+        // R1 对抗轮修:清掉本节点【旧 attempt】的证据再重试(旧 attempt 可能已失败/中止,残留 digest 污染校验)。
+        purgeNodeEvidence(run, node.id);
         node.retryErrors = [...(Array.isArray(node.retryErrors) ? node.retryErrors : []), node.error].slice(-5);
         if (node.isolation && node.isolation.path) await cleanupAgentWorktree(node.isolation).catch(() => {});
         node.isolation = null; node.status = 'queued'; node.completedAt = null;
