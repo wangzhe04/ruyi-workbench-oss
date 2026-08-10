@@ -124,3 +124,4 @@
 - [10-m4-ablation.md](10-m4-ablation.md) — M4 实施文档：HB360 单轴消融评测纪律（07 候选 A 波后半，2026-08-10，三轴归因 + 独立开关约定 + 消融记账模板）
 - [11-m1-context-tiering.md](11-m1-context-tiering.md) — M1 实施文档：编排上下文分级注入（07 候选 B 波前半，2026-08-10，全局层 + per-node context 覆盖，唯一 P0）
 - [12-agent-architecture-research-roadmap.md](12-agent-architecture-research-roadmap.md) — Agent 架构研究补充路线（2026-08-10：Evidence Graph → 工作流候选 → 离线 Champion–Challenger → 关系化记忆 / Replan Patch；含隐私、人类审批与暂缓项）
+- [13-r1-evidence-graph.md](13-r1-evidence-graph.md) - R1 实施文档：Evidence Graph（阶段 C，P0，2026-08-10，证据契约 + 引用校验 + 脱敏 + 威胁建模 + fake e2e，M6 工程化落点）
