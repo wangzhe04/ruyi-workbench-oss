@@ -2273,7 +2273,7 @@ export function createPreviewShellDomain({
     const statePill = text('span', 'preview-state-pill', '');
     statePill.dataset.slot = 'state';
     // 第90波(误标修复):任务单头部 eyebrow 原误用 rawLens(原始镜头),实为任务单主头 -> 专属键。
-    kicker.append(text('span', 'preview-eyebrow', t('previewShell.taskEyebrow')), statePill);
+    kicker.append(text('span', 'preview-eyebrow', t('previewShell.taskEyebrow')));
     const heading = text('h1', 'preview-mission-title', ''); heading.dataset.slot = 'title';
     const goal = text('p', 'preview-mission-goal', ''); goal.dataset.slot = 'goal';
     // 第86波:现场速报 —— 一句话回答「现在谁在干什么/在等什么」,常驻头部,随每次快照刷新。
@@ -2297,7 +2297,16 @@ export function createPreviewShellDomain({
     const metrics = text('div', 'preview-task-metrics', '');
     metrics.append(makeMetric('turns', t('previewShell.turns')), makeMetric('tokens', t('previewShell.tokens')),
       makeMetric('cost', t('previewShell.cost')), makeMetric('runs', t('previewShell.runs')));
-    head.append(kicker, heading, goal, activity, progress, metrics);
+    const identity = text('div', 'preview-task-identity', '');
+    identity.append(kicker, heading, goal);
+    const nowPanel = text('aside', 'preview-task-now', '');
+    nowPanel.setAttribute('aria-label', t('previewShell.activityLabel'));
+    nowPanel.append(statePill, activity);
+    const overview = text('div', 'preview-task-overview', '');
+    overview.append(identity, nowPanel);
+    const progressRow = text('div', 'preview-task-progress-row', '');
+    progressRow.append(progress, metrics);
+    head.append(overview, progressRow);
 
     const missionControl = text('section', 'preview-mission-control', '');
     missionControl.dataset.slot = 'missionControl';

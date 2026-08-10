@@ -75,7 +75,7 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 工作区信息架构刷新：tool-pane.css 将 6 个用户入口收束为稳定三列，补充面板标题、自然语言提示、
 // 设置体检折叠区和移动端关闭按钮样式；均为工具面板所有权层的有意变更，重钉载荷锁。
 // 第100波任务单三段式重构只改 Preview 所有权层，并把浅色任务台收敛为暖月白纸面；经典层未改。
-const LEGACY_STYLES_SHA256 = 'e6f9ee31dc89919b6acaa0071cacea27d9c8e69462cc2cbbd6a8f7b14449f089';
+const LEGACY_STYLES_SHA256 = 'bb8304c925f00dca249e3b23b303db694bfbf4c7a19cb7df0ca4891f05af72af';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

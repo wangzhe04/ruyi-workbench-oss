@@ -49,6 +49,10 @@ ok(css.includes('第100波：任务单三段式') && css.includes('@media (max-w
 ok(/--preview-bg:\s*#f7f9fc/.test(schemes) && /--preview-surface:\s*#ffffff/.test(schemes)
   && /--preview-secondary:\s*#ffffff/.test(schemes) && !/#f7f3eb|#fff7e9|#f5ecde/.test(schemes),
   'W100-7 浅色任务台使用清透白层级，不回退到大面积米色或灰块');
+ok(shell.includes("text('div', 'preview-task-overview'") && shell.includes("text('aside', 'preview-task-now'")
+  && shell.includes("text('div', 'preview-task-progress-row'") && css.includes('.preview-control-board { margin: 0; display: flex;')
+  && css.includes('@media (max-width: 700px)'),
+  'W100-8 现状头桌面双栏连续排布、进度指标同行、控制台单行，窄屏再收为单列');
 
 ok(shell.includes('className = \'preview-task-sheet\'') || shell.includes("text('article', 'preview-task-sheet'"), 'A1 全宽任务单为独立单视图 article');
 for (const className of ['preview-task-head', 'preview-task-progress', 'preview-task-metrics', 'preview-worksite', 'preview-raw-messages', 'preview-intake']) {

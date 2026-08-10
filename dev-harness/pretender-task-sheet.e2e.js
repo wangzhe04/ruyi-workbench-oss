@@ -346,6 +346,12 @@ try {
       const capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
       fs.writeFileSync(path.join(shotDir, `preview-task-sheet-${theme}.png`), Buffer.from(capture.data, 'base64'));
     }
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 960, height: 720, deviceScaleFactor: 1, mobile: false });
+    for (const theme of ['dark', 'light']) {
+      await cdp.evaluate(`new Promise(resolve => { document.documentElement.setAttribute('data-theme', '${theme}'); requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 240))); })`);
+      const capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+      fs.writeFileSync(path.join(shotDir, `preview-task-sheet-${theme}-960.png`), Buffer.from(capture.data, 'base64'));
+    }
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false });
     for (const theme of ['dark', 'light']) {
       await cdp.evaluate(`new Promise(resolve => { document.documentElement.setAttribute('data-theme', '${theme}'); requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 240))); })`);
