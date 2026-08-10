@@ -1749,11 +1749,24 @@
   "previewShell.progressLabel": "工序进度",
   "previewShell.progressValue": "{{p1}} / {{p2}}",
   "previewShell.progressAria": "任务完成进度 {{p1}}%",
+  "previewShell.progressExpand": "展开验收项",
+  "previewShell.progressEmpty": "这单没有拆分验收项；进度以任务状态为准。",
+  "previewShell.progressUnnamed": "验收项 {{p1}}",
+  "previewShell.progressStatus.done": "已完成",
+  "previewShell.progressStatus.pending": "待推进",
+  "previewShell.progressStatus.blocked": "受阻",
   "previewShell.activityLabel": "现场速报",
   "previewShell.activity.needsYou": "等你拍板 · 待决 {{p1}} 项",
   "previewShell.activity.crew": "{{p1}} 正在 · {{p2}}",
   "previewShell.activity.crewIdle": "{{p1}} 就位 · 待派活",
   "previewShell.activity.working": "工头正在推进本回合",
+  "previewShell.activity.workingAction": "正在组织下一步",
+  "previewShell.activity.liveAction": "{{p1}} · 本回合 {{p2}}",
+  "previewShell.activity.actionResearch": "正在检索资料",
+  "previewShell.activity.actionInspect": "正在核对现场",
+  "previewShell.activity.actionEdit": "正在修改内容",
+  "previewShell.activity.actionRun": "正在运行命令",
+  "previewShell.activity.actionTool": "正在使用 {{p1}}",
   "previewShell.activity.dispatching": "正在派发任务",
   "previewShell.activity.done": "本单已收工",
   "previewShell.activity.stopped": "本单已停工",
@@ -1801,6 +1814,8 @@
   "previewShell.loadingMessages": "正在载入现场记录…",
   "previewShell.noMessages": "任务已立单，现场还没有消息记录。",
   "previewShell.backHome": "交办台",
+  "previewShell.focusContinue": "继续推进",
+  "previewShell.openPending": "处理待决",
   "previewShell.homeEyebrow": "交办首页",
   "previewShell.homeTitle": "交办台",
   "previewShell.homeBody": "把一单活说清楚，确认工作圈与本次安全档后开工。任务会落进左侧任务坞，你可以离开，回来继续看进展。",
@@ -1943,6 +1958,8 @@
   ,"previewShell.stopCardEyebrow": "停止说明"
   ,"previewShell.stopCardTitle": "这单活停在这里了"
   ,"previewShell.stopCardUserReason": "这项任务由你停止，还有 {{p1}} 项未完成。可以带着上下文回到经典布局再试，也可以先收进档案。"
+  ,"previewShell.stopCardBudgetReason": "本单因预算用尽停下，还有 {{p1}} 项未完成。补充预算或缩小范围后可以继续。"
+  ,"previewShell.stopCardSupervisedReason": "本单正在待命，还有 {{p1}} 项未完成。确认下一步后即可继续推进。"
   ,"previewShell.stopCardReason": "任务已经停止，还有 {{p1}} 项未完成。选择一种诚实的后续处理方式。"
   ,"previewShell.stopRetry": "继续试试"
   ,"previewShell.stopChangeApproach": "换个方法"
@@ -2009,6 +2026,7 @@
   ,"previewShell.controlReason.milestone_limit": "验收项已达上限，请新建立一项任务"
   ,"previewShell.lensLabel": "任务现场镜头"
   ,"previewShell.lensNarrative": "现场纪要"
+  ,"previewShell.lensScene": "现场"
   ,"previewShell.lensCrew": "班组工序"
   ,"previewShell.lensRaw": "原始记录"
   ,"previewShell.narrativeEyebrow": "值班簿"

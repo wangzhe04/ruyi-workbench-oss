@@ -32,7 +32,7 @@ import {
   readPreviewUiState,
   writePreviewMissionUiState,
 } from './preview-store.js';
-import { pendingCount, taskProgress } from './preview-task-sheet.js';
+import { acceptanceItems, activeAcceptanceIndex, elapsedLabel, pendingCount, taskProgress } from './preview-task-sheet.js';
 
 export const SHELL_MODE_STORAGE_KEY = 'wcw.shellMode';
 export const SHELL_MODES = Object.freeze(['classic', 'preview']);
@@ -163,7 +163,9 @@ export function createPreviewShellDomain({
   let controlError = '';
   let continueDraft = '';
   let runControlBusy = '';
-  let selectedLens = 'narrative';
+  let selectedLens = 'scene';
+  let liveActivity = null;
+  let activityClockTimer = 0;
   let narrativeRenderedSession = '';
   let narrativeRenderedLocale = '';
   const narrativeFeeds = new Map();
@@ -843,7 +845,9 @@ export function createPreviewShellDomain({
     selectedCrewRunId = '';
     selectedCrewNodeId = '';
     crewRenderSignature = '';
-    selectedLens = 'narrative';
+    selectedLens = 'scene';
+    liveActivity = null;
+    if (activityClockTimer) { clearInterval(activityClockTimer); activityClockTimer = 0; }
     narrativeRenderedSession = '';
     narrativeRenderedLocale = '';
     // 第88波(安全):切任务时丢弃待确认的控制操作与任务级错误,防止「任务A点停止→切到B→确认栏仍挂在B→Enter误停B」的串台。
@@ -2071,10 +2075,9 @@ export function createPreviewShellDomain({
     const host = article?.querySelector('[data-slot="lensSwitch"]');
     if (!host) return;
     const hasCrew = hasCrewActivity(snapshot);
-    if (selectedLens === 'crew' && !hasCrew) selectedLens = 'narrative';
+    if (!['scene', 'raw'].includes(selectedLens)) selectedLens = 'scene';
     const tabs = [
-      { id: 'narrative', label: t('previewShell.lensNarrative'), target: 'narrativeLens', disabled: !narrativeRules, icon: 'narrative' },
-      { id: 'crew', label: t('previewShell.lensCrew'), target: 'crewLens', disabled: !hasCrew, icon: 'agents' },
+      { id: 'scene', label: t('previewShell.lensScene'), target: 'sceneLens', disabled: !narrativeRules && !hasCrew, icon: 'narrative' },
       { id: 'raw', label: t('previewShell.lensRaw'), target: 'rawLens', disabled: false, icon: 'raw' },
     ];
     host.replaceChildren();
@@ -2101,6 +2104,8 @@ export function createPreviewShellDomain({
       panel.hidden = selectedLens !== tab.id;
       panel.tabIndex = selectedLens === tab.id ? 0 : -1;
     }
+    const crew = article.querySelector('[data-slot="crewLens"]');
+    if (crew) crew.hidden = !hasCrew;
   }
 
   function renderMissionControl(article, snapshot) {
@@ -2278,12 +2283,17 @@ export function createPreviewShellDomain({
     const activityText = text('span', 'preview-activity-text', ''); activityText.dataset.slot = 'activity';
     activity.append(activityDot, activityText);
     // 第96波(Layout 精简):进度从「盒装账本区」改为一条细行 —— 细条 + 计数同行,不再占一个卡片位。
-    const progress = text('div', 'preview-task-progress', '');
+    const progress = document.createElement('details');
+    progress.className = 'preview-task-progress preview-progress-details';
     progress.setAttribute('aria-label', t('previewShell.progressLabel'));
+    const progressSummary = text('summary', 'preview-progress-summary', '');
     const bar = document.createElement('progress');
     bar.className = 'preview-progress'; bar.max = 1; bar.value = 0; bar.dataset.slot = 'progress';
     const progressText = text('span', 'preview-task-progress-text', '—'); progressText.dataset.slot = 'progressText';
-    progress.append(bar, progressText);
+    const progressHint = text('span', 'preview-progress-hint', t('previewShell.progressExpand'));
+    const progressList = text('ol', 'preview-progress-list', ''); progressList.dataset.slot = 'progressItems';
+    progressSummary.append(bar, progressText, progressHint);
+    progress.append(progressSummary, progressList);
     const metrics = text('div', 'preview-task-metrics', '');
     metrics.append(makeMetric('turns', t('previewShell.turns')), makeMetric('tokens', t('previewShell.tokens')),
       makeMetric('cost', t('previewShell.cost')), makeMetric('runs', t('previewShell.runs')));
@@ -2309,15 +2319,18 @@ export function createPreviewShellDomain({
     lensSwitch.dataset.slot = 'lensSwitch'; lensSwitch.setAttribute('role', 'tablist');
     lensSwitch.setAttribute('aria-label', t('previewShell.lensLabel'));
 
+    const sceneLens = text('section', 'preview-scene-lens', '');
+    sceneLens.id = 'preview-sceneLens'; sceneLens.dataset.slot = 'sceneLens';
+    sceneLens.setAttribute('role', 'tabpanel'); sceneLens.setAttribute('aria-label', t('previewShell.lensScene'));
     const narrativeLens = text('section', 'preview-narrative-lens', '');
     narrativeLens.id = 'preview-narrativeLens'; narrativeLens.dataset.slot = 'narrativeLens';
-    narrativeLens.setAttribute('role', 'tabpanel'); narrativeLens.setAttribute('aria-label', t('previewShell.narrativeTitle'));
+    narrativeLens.setAttribute('aria-label', t('previewShell.narrativeTitle'));
 
     const crewLens = text('section', 'preview-crew-lens', '');
     crewLens.id = 'preview-crewLens';
     crewLens.dataset.slot = 'crewLens'; crewLens.hidden = true;
-    crewLens.setAttribute('role', 'tabpanel');
     crewLens.setAttribute('aria-label', t('previewShell.crewTitle'));
+    sceneLens.append(narrativeLens, crewLens);
 
     const body = text('div', 'preview-task-body', '');
     body.id = 'preview-rawLens'; body.dataset.slot = 'rawLens'; body.setAttribute('role', 'tabpanel');
@@ -2337,7 +2350,7 @@ export function createPreviewShellDomain({
     intake.appendChild(text('h2', 'preview-intake-title', t('previewShell.intakeDesk')));
     const panels = text('div', 'preview-intake-panels', ''); panels.dataset.slot = 'intake';
     intake.appendChild(panels);
-    body.append(worksite, intake);
+    body.append(worksite);
 
     const ledger = text('section', 'preview-ledger-section', '');
     ledger.id = 'previewMissionLedger'; ledger.dataset.slot = 'ledger';
@@ -2347,14 +2360,15 @@ export function createPreviewShellDomain({
     processDetails.className = 'preview-process-details'; processDetails.dataset.slot = 'processDetails';
     processDetails.open = true;
     const processSummary = text('summary', 'preview-process-summary', t('previewShell.processDetails'));
-    processDetails.append(processSummary, lensSwitch, narrativeLens, crewLens, body, ledger);
+    body.appendChild(ledger);
+    processDetails.append(processSummary, lensSwitch, sceneLens, body);
 
     const foot = text('footer', 'preview-task-actions', '');
     const footCopy = text('div', 'preview-task-actions-copy', '');
     footCopy.append(text('strong', '', t('previewShell.taskActionsTitle')), text('span', '', t('previewShell.taskActionsHint')));
     const footButtons = text('div', 'preview-main-actions preview-task-action-buttons', '');
-    footButtons.append(actionButton(t('previewShell.backHome'), '', () => openDispatchHome(), 'back'),
-      actionButton(t('previewShell.openMissionClassic'), 'primary', () => { void openSelectedInClassic(); }, 'open'),
+    footButtons.append(actionButton(t('previewShell.backHome'), 'primary preview-state-primary', () => openDispatchHome(), 'back'),
+      actionButton(t('previewShell.openMissionClassic'), 'ghost', () => { void openSelectedInClassic(); }, 'open'),
       actionButton(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }, 'refresh'));
     foot.append(footCopy, footButtons);
     // 底部续办工作区：把“追加指令”与普通页面导航分组，状态、用途和快捷键一眼可见。
@@ -2398,9 +2412,13 @@ export function createPreviewShellDomain({
       text('span', '', t('previewShell.continueTurnHint')));
     continueHint.lastChild.dataset.slot = 'continueHint';
     continueTurn.append(continueHead, continueField, continueHint);
+    const statusSection = text('section', 'preview-task-status', '');
+    statusSection.dataset.section = 'status'; statusSection.append(head, missionControl);
+    const outcomeSection = text('section', 'preview-task-outcome', '');
+    outcomeSection.dataset.section = 'outcome'; outcomeSection.append(returnSummary, stopCard, finishCard, intake, continueTurn);
     const bottom = text('section', 'preview-task-bottom', '');
-    bottom.append(continueTurn, foot);
-    article.append(head, missionControl, returnSummary, stopCard, finishCard, processDetails, bottom);
+    bottom.append(foot);
+    article.append(statusSection, outcomeSection, processDetails, bottom);
     main.replaceChildren(article);
     return article;
   }
@@ -2425,11 +2443,70 @@ export function createPreviewShellDomain({
         ? t('previewShell.activity.crew', { p1: crewRole(current, nodes.indexOf(current)), p2: focus })
         : t('previewShell.activity.crewIdle', { p1: crewRole(current, nodes.indexOf(current)) });
     }
-    if (snapshot && snapshot.controls && snapshot.controls.activeTurn) return t('previewShell.activity.working');
+    if (snapshot && snapshot.controls && snapshot.controls.activeTurn) {
+      const action = liveActivity && liveActivity.action ? liveActivity.action : t('previewShell.activity.workingAction');
+      const startedAt = liveActivity && liveActivity.startedAt ? liveActivity.startedAt : activeTurnStartedAt(snapshot);
+      const elapsed = elapsedLabel(startedAt, now());
+      return elapsed ? t('previewShell.activity.liveAction', { p1: action, p2: elapsed }) : action;
+    }
     if (derived.state === 'dispatching') return t('previewShell.activity.dispatching');
     if (derived.state === 'done') return t('previewShell.activity.done');
     if (derived.state === 'stopped') return t('previewShell.activity.stopped');
     return t('previewShell.activity.quiet');
+  }
+
+  function toolActivityLabel(name) {
+    const raw = String(name || '').trim();
+    const lower = raw.toLowerCase();
+    if (/search|find|query|browse|web/.test(lower)) return t('previewShell.activity.actionResearch');
+    if (/read|list|get|inspect|view|status/.test(lower)) return t('previewShell.activity.actionInspect');
+    if (/write|edit|patch|create|save|update/.test(lower)) return t('previewShell.activity.actionEdit');
+    if (/exec|command|shell|bash|powershell|terminal|test/.test(lower)) return t('previewShell.activity.actionRun');
+    return raw ? t('previewShell.activity.actionTool', { p1: raw.replace(/[_-]+/g, ' ') }) : t('previewShell.activity.workingAction');
+  }
+
+  function activeTurnStartedAt(snapshot) {
+    const turnSeq = Math.max(0, Number(snapshot && snapshot.cursor && snapshot.cursor.turnSeq) || 0);
+    const messages = Array.isArray(selectedSession && selectedSession.messages) ? selectedSession.messages : [];
+    const current = [...messages].reverse().find(message => message && message.role === 'user'
+      && (!turnSeq || Number(message.turnSeq) === turnSeq));
+    return current && current.createdAt || snapshot && snapshot.mission && snapshot.mission.updatedAt || '';
+  }
+
+  function ensureActivityClock(active) {
+    if (!active) {
+      if (activityClockTimer) clearInterval(activityClockTimer);
+      activityClockTimer = 0;
+      return;
+    }
+    if (activityClockTimer) return;
+    activityClockTimer = setInterval(() => {
+      const article = byId('previewMain')?.querySelector('.preview-task-sheet');
+      const card = selectedCard();
+      if (!article || !selectedSnapshot || !card || !isPreviewMode()) return;
+      renderTaskHeader(article, card, selectedSnapshot);
+    }, 1000);
+  }
+
+  function renderProgressItems(article, snapshot) {
+    const host = article.querySelector('[data-slot="progressItems"]');
+    if (!host) return;
+    const items = acceptanceItems(snapshot);
+    const activeIndex = activeAcceptanceIndex(items);
+    if (!items.length) {
+      host.replaceChildren(text('li', 'preview-progress-empty', t('previewShell.progressEmpty')));
+      return;
+    }
+    host.replaceChildren(...items.map((item, index) => {
+      const row = text('li', `preview-progress-item is-${item.status}${index === activeIndex ? ' is-current' : ''}`, '');
+      row.dataset.progressId = item.id;
+      const marker = text('span', 'preview-progress-marker', item.status === 'done' ? '✓' : item.status === 'blocked' ? '!' : String(index + 1));
+      const copy = text('span', 'preview-progress-copy', '');
+      copy.append(text('strong', '', item.desc || t('previewShell.progressUnnamed', { p1: index + 1 })),
+        text('small', '', item.evidence || t(`previewShell.progressStatus.${item.status}`)));
+      row.append(marker, copy);
+      return row;
+    }));
   }
 
   function renderTaskHeader(article, card, snapshot) {
@@ -2460,6 +2537,7 @@ export function createPreviewShellDomain({
       }
     }
     setSlot(article, 'progressText', t('previewShell.progressValue', { p1: progress.done, p2: progress.total }));
+    renderProgressItems(article, snapshot);
     const bar = article.querySelector('[data-slot="progress"]');
     if (bar) {
       bar.max = Math.max(1, progress.total); bar.value = progress.done;
@@ -2472,6 +2550,20 @@ export function createPreviewShellDomain({
     setSlot(article, 'runs', compactNumber(Array.isArray(snapshot.runs) ? snapshot.runs.length : 0));
     const turnSeq = Math.max(0, Number(snapshot.cursor?.turnSeq) || 0);
     setSlot(article, 'cursor', t('previewShell.cursor', { p1: turnSeq }));
+    ensureActivityClock(Boolean(snapshot.controls?.activeTurn));
+    const statePrimary = article.querySelector('.preview-state-primary');
+    if (statePrimary) {
+      if (derived.state === 'needs_you') {
+        statePrimary.textContent = t('previewShell.openPending');
+        statePrimary.onclick = () => setNeedsDrawer(true);
+      } else if (derived.state === 'running' || derived.state === 'dispatching') {
+        statePrimary.textContent = t('previewShell.focusContinue');
+        statePrimary.onclick = () => article.querySelector('.preview-continue-turn-input')?.focus();
+      } else {
+        statePrimary.textContent = t('previewShell.backHome');
+        statePrimary.onclick = () => openDispatchHome();
+      }
+    }
     // 第95波:继续推进条状态同步 —— 依任务状态切换占位文案与可用性。
     const continueTurn = article.querySelector('.preview-continue-turn');
     if (continueTurn) {
@@ -2526,9 +2618,13 @@ export function createPreviewShellDomain({
     const copy = text('div', 'preview-stop-copy', '');
     copy.append(text('span', 'preview-eyebrow', t('previewShell.stopCardEyebrow')),
       text('h2', '', t('previewShell.stopCardTitle')),
-      text('p', '', result.how === 'stop'
-        ? t('previewShell.stopCardUserReason', { p1: unfinished.length })
-        : t('previewShell.stopCardReason', { p1: unfinished.length })));
+      text('p', '', snapshot.mission?.budgetExhaustedAt
+        ? t('previewShell.stopCardBudgetReason', { p1: unfinished.length })
+        : result.how === 'stop'
+          ? t('previewShell.stopCardUserReason', { p1: unfinished.length })
+          : ['supervised', 'manual', 'fixture'].includes(String(result.how || ''))
+            ? t('previewShell.stopCardSupervisedReason', { p1: unfinished.length })
+            : t('previewShell.stopCardReason', { p1: unfinished.length })));
     if (unfinished.length) {
       const list = text('ul', 'preview-stop-unfinished', '');
       for (const item of unfinished.slice(0, 3)) list.appendChild(text('li', '', item.desc || item.id || t('previewShell.unknown')));
@@ -3074,7 +3170,7 @@ export function createPreviewShellDomain({
     if (mcHost) mcHost.hidden = (terminalState.state === 'done' || terminalState.state === 'stopped') && !controlDraft && !controlBusy;
     const processDetails = article.querySelector('[data-slot="processDetails"]');
     if (processDetails) {
-      const processMode = terminalState.state === 'done' || terminalState.state === 'stopped' ? 'terminal' : 'active';
+      const processMode = terminalState.state === 'running' ? 'active' : 'collapsed';
       if (processDetails.dataset.mode !== processMode) {
         processDetails.dataset.mode = processMode;
         processDetails.open = processMode === 'active';
@@ -3256,10 +3352,14 @@ export function createPreviewShellDomain({
   function handlePreviewStreamEvent(envelope) {
     if (!envelope || !isPreviewMode() || String(envelope.sessionId || '') !== selectedSessionId()) return;
     if (envelope.type === 'start') {
+      liveActivity = { action: t('previewShell.activity.workingAction'), startedAt: now().toISOString() };
+      ensureActivityClock(true);
       if (selectedLens === 'raw') ensurePreviewLiveRow();
       return;
     }
     if (envelope.type === 'settled') {
+      liveActivity = null;
+      ensureActivityClock(false);
       if (previewLive?.rafId) cancelAnimationFrame(previewLive.rafId);
       if (previewLive?.pending.length) previewLive.node.appendData(previewLive.pending.join(''));
       if (previewLive) { previewLive.pending.length = 0; previewLive.rafId = 0; previewLive.bubble.classList.remove('stream-cursor'); }
@@ -3269,9 +3369,17 @@ export function createPreviewShellDomain({
     if (envelope.type !== 'event' || !envelope.line) return;
     let event; try { event = JSON.parse(envelope.line); } catch { return; }
     if (event.type === 'assistant_delta') { if (selectedLens === 'raw') appendPreviewLiveText(event.text || ''); }
-    else if (event.type === 'session' && event.session && event.session.id === selectedSessionId()) {
+    else if (event.type === 'tool_use' && !event.subagentId) {
+      liveActivity = { action: toolActivityLabel(event.name), startedAt: liveActivity?.startedAt || now().toISOString() };
+      const article = byId('previewMain')?.querySelector('.preview-task-sheet');
+      if (article && selectedSnapshot) renderTaskHeader(article, selectedCard(), selectedSnapshot);
+    } else if (event.type === 'tool_result' && !event.subagentId) {
+      if (liveActivity) liveActivity.action = t('previewShell.activity.workingAction');
+      rawDirty = true;
+      scheduleDetailRefresh(false);
+    } else if (event.type === 'session' && event.session && event.session.id === selectedSessionId()) {
       selectedSession = event.session; renderedSession = null; if (selectedLens === 'raw') renderRawMessages();
-    } else if (['mission', 'usage', 'agent_workflow', 'tool_result'].includes(event.type)) {
+    } else if (['mission', 'usage', 'agent_workflow'].includes(event.type)) {
       rawDirty = true; // 回合内产生了新事实;原始镜头下一次刷新连会话一起重取
       scheduleDetailRefresh(false);
     }

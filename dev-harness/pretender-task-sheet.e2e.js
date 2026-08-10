@@ -313,6 +313,10 @@ try {
       panels: panels.map(node => ({ kind: node.dataset.kind, value: node.querySelector('strong')?.textContent || '', copy: node.textContent })),
       dockIds: [...document.querySelectorAll('.preview-seal')].map(node => node.dataset.sessionId),
       duplicateIds: [...document.querySelectorAll('[id]')].map(node => node.id).filter((id, index, all) => all.indexOf(id) !== index),
+      sections: [...document.querySelectorAll('.preview-task-sheet > [data-section]')].map(node => node.dataset.section),
+      processOpen: document.querySelector('.preview-process-details')?.open === true,
+      lensCount: document.querySelectorAll('.preview-lens-tab').length,
+      progressItems: document.querySelectorAll('.preview-progress-item').length,
     };
   })()`);
   ok(sheet && sheet.renderer === 'chat-static-renderer' && sheet.markdown && sheet.tool && sheet.actions === 0 && sheet.turnActions === 0,
@@ -329,20 +333,35 @@ try {
     && sheet.panels.some(panel => panel.kind === 'ledger' && panel.copy.includes('77')))) console.log('INFO B5 panels=' + JSON.stringify(sheet && sheet.panels));
   ok(sheet && sheet.dockIds.includes(ids.sessionId) && !sheet.dockIds.includes(ids.quickId) && !sheet.dockIds.includes(ids.heavyId), 'B7 Quick Ask stays outside the task dock');
   ok(sheet && sheet.duplicateIds.length === 0, 'B8 scoped raw renderer creates no duplicate DOM ids across the two shells');
+  ok(sheet && JSON.stringify(sheet.sections) === JSON.stringify(['status', 'outcome']) && sheet.processOpen === false,
+    'B9 Wave 100 task sheet exposes status/outcome/process hierarchy and keeps stopped process collapsed');
+  ok(sheet && sheet.lensCount === 2 && sheet.progressItems === 2,
+    'B10 merged worksite/raw lenses and explainable acceptance rows replace the old three-lens counter');
 
   if (process.env.RUYI_PREVIEW_SCREENSHOT_DIR) {
     const shotDir = path.resolve(process.env.RUYI_PREVIEW_SCREENSHOT_DIR);
     fs.mkdirSync(shotDir, { recursive: true });
     for (const theme of ['dark', 'light']) {
-      await cdp.evaluate(`new Promise(resolve => { document.documentElement.setAttribute('data-theme', '${theme}'); requestAnimationFrame(() => requestAnimationFrame(resolve)); })`);
+      await cdp.evaluate(`new Promise(resolve => { document.documentElement.setAttribute('data-theme', '${theme}'); requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 240))); })`);
       const capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
       fs.writeFileSync(path.join(shotDir, `preview-task-sheet-${theme}.png`), Buffer.from(capture.data, 'base64'));
     }
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false });
+    for (const theme of ['dark', 'light']) {
+      await cdp.evaluate(`new Promise(resolve => { document.documentElement.setAttribute('data-theme', '${theme}'); requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 240))); })`);
+      const capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+      fs.writeFileSync(path.join(shotDir, `preview-task-sheet-${theme}-390.png`), Buffer.from(capture.data, 'base64'));
+    }
+    await cdp.send('Emulation.clearDeviceMetricsOverride');
     await cdp.evaluate("document.documentElement.setAttribute('data-theme', 'dark')");
+    if (Number(process.env.RUYI_PREVIEW_VISUAL_HOLD_MS) > 0) {
+      console.log(`VISUAL_URL ${appUrl}`);
+      await sleep(Math.min(300000, Number(process.env.RUYI_PREVIEW_VISUAL_HOLD_MS)));
+    }
   }
 
   const started = await cdp.evaluate(`(async () => {
-    document.querySelector('.preview-task-actions .primary').click();
+    document.querySelector('.preview-task-actions .ghost').click();
     for (let i = 0; i < 400 && (document.documentElement.getAttribute('data-shell-mode') !== 'classic'
       || window.state?.currentSession?.id !== '${ids.sessionId}'); i++) await new Promise(r => setTimeout(r, 10));
     const input = document.getElementById('promptInput');
@@ -355,7 +374,12 @@ try {
     const select = document.getElementById('cfgShellMode'); select.value = 'preview'; select.dispatchEvent(new Event('change', { bubbles: true }));
     for (let i = 0; i < 400; i++) {
       const rawTab = document.querySelector('.preview-lens-tab.lens-raw');
-      if (rawTab && !rawTab.disabled) { if (rawTab.getAttribute('aria-selected') !== 'true') rawTab.click(); return window.state.streaming; }
+      if (rawTab && !rawTab.disabled) {
+        const process = document.querySelector('.preview-process-details');
+        if (process) process.open = true;
+        if (rawTab.getAttribute('aria-selected') !== 'true') rawTab.click();
+        return window.state.streaming;
+      }
       await new Promise(r => setTimeout(r, 10));
     }
     return false;

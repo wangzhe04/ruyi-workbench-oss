@@ -10,11 +10,15 @@ const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
 const read = relative => fs.readFileSync(path.join(PUBLIC, ...relative.split('/')), 'utf8');
 const app = read('app.js');
 const shell = read('js/preview-shell.js');
-const taskSheetDomain = shell + read('js/preview-task-sheet.js') + read('js/preview-lenses.js') + read('js/preview-finish.js');
+const taskSheetModule = read('js/preview-task-sheet.js');
+const lensesModule = read('js/preview-lenses.js');
+const finishModule = read('js/preview-finish.js');
+const taskSheetDomain = shell + taskSheetModule + lensesModule + finishModule;
 const renderer = read('js/chat-static-renderer.js');
 const stream = read('js/chat-stream-runtime.js');
 const narrative = read('js/turn-narrative.js');
 const css = read('css/views/preview-shell.css');
+const schemes = read('css/themes/color-schemes.css');
 const zh = JSON.parse(read('locales/zh-CN.json'));
 const en = JSON.parse(read('locales/en-US.json'));
 
@@ -23,6 +27,28 @@ const ok = (condition, label) => {
   if (condition) console.log('PASS ' + label);
   else { fail += 1; console.log('FAIL ' + label); }
 };
+
+for (const domain of ['preview-store.js', 'preview-dock-home.js', 'preview-task-sheet.js', 'preview-lenses.js', 'preview-finish.js']) {
+  ok(shell.includes(`from './${domain}'`) || (domain === 'preview-store.js' && shell.includes("from './preview-store.js'")), `W100-0 ${domain} 已从单体壳分域`);
+}
+ok(shell.includes("statusSection.dataset.section = 'status'") && shell.includes("outcomeSection.dataset.section = 'outcome'")
+  && shell.includes('article.append(statusSection, outcomeSection, processDetails, bottom)'),
+  'W100-1 任务单按现状/结果与行动/过程三段组织');
+ok(shell.includes("{ id: 'scene'") && shell.includes("{ id: 'raw'")
+  && !shell.includes("{ id: 'crew', label") && shell.includes('sceneLens.append(narrativeLens, crewLens)'),
+  'W100-2 现场纪要与班组工序合并，原始记录保持专家入口');
+ok(shell.includes('renderProgressItems(article, snapshot)') && taskSheetModule.includes('snapshot.acceptance.items')
+  && taskSheetModule.includes('activeAcceptanceIndex'), 'W100-3 x/y 进度可展开为权威验收项并标出当前项');
+ok(shell.includes("event.type === 'tool_use'") && shell.includes('toolActivityLabel(event.name)')
+  && shell.includes('elapsedLabel(startedAt, now())'), 'W100-4 单 Agent 速报使用工具事件与回合耗时，不猜正文');
+ok(shell.includes("snapshot.mission?.budgetExhaustedAt") && shell.includes('stopCardSupervisedReason'),
+  'W100-5 停工区分用户停止、预算用尽与监督待命');
+ok(css.includes('第100波：任务单三段式') && css.includes('@media (max-width: 480px)')
+  && css.includes('.preview-progress-list') && css.includes('.preview-scene-lens'),
+  'W100-6 v4-glass 双主题 token 与 390px 响应式样式已落地');
+ok(/--preview-bg:\s*#f7f9fc/.test(schemes) && /--preview-surface:\s*#ffffff/.test(schemes)
+  && /--preview-secondary:\s*#ffffff/.test(schemes) && !/#f7f3eb|#fff7e9|#f5ecde/.test(schemes),
+  'W100-7 浅色任务台使用清透白层级，不回退到大面积米色或灰块');
 
 ok(shell.includes('className = \'preview-task-sheet\'') || shell.includes("text('article', 'preview-task-sheet'"), 'A1 全宽任务单为独立单视图 article');
 for (const className of ['preview-task-head', 'preview-task-progress', 'preview-task-metrics', 'preview-worksite', 'preview-raw-messages', 'preview-intake']) {

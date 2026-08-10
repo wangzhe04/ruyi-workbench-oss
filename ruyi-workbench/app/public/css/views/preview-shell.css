@@ -280,6 +280,28 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
 .preview-main[data-view="task-sheet"] { background: var(--preview-bg); }
 .preview-task-sheet button.primary { border-color: var(--preview-accent); background: var(--preview-accent); color: var(--preview-bg); box-shadow: 0 8px 22px color-mix(in srgb, var(--preview-accent) 16%, transparent); }
 .preview-task-sheet button.primary:hover { border-color: var(--preview-accent-strong); background: var(--preview-accent-strong); color: var(--preview-bg); }
+:root[data-theme="light"] .preview-task-sheet button:not(.primary):not(.ghost):not(.danger):not(.danger-ghost) {
+  border-color: var(--preview-line);
+  background: var(--preview-secondary);
+  color: var(--preview-ink);
+}
+:root[data-theme="light"] .preview-task-sheet button:not(.primary):not(.ghost):not(.danger):not(.danger-ghost):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--preview-accent) 36%, var(--preview-line));
+  background: var(--preview-secondary-hover);
+}
+:root[data-theme="light"] .preview-task-sheet button:disabled,
+:root[data-theme="light"] .preview-task-sheet button.primary:disabled {
+  opacity: 1;
+  border-color: var(--preview-disabled-line);
+  background: var(--preview-disabled-bg);
+  color: var(--preview-disabled-ink);
+  box-shadow: none;
+}
+:root[data-theme="light"] .preview-task-sheet button.ghost { color: var(--preview-muted); }
+:root[data-theme="light"] .preview-task-sheet button.ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--preview-accent) 6%, var(--preview-surface));
+  color: var(--preview-ink);
+}
 .preview-task-sheet .message.user .avatar { background: var(--preview-accent); color: var(--preview-bg); }
 .preview-task-sheet .message.user .bubble { border-color: color-mix(in srgb, var(--preview-accent) 38%, var(--preview-line)); background: color-mix(in srgb, var(--preview-accent) 12%, var(--preview-surface)); box-shadow: 0 8px 22px color-mix(in srgb, var(--preview-accent) 9%, transparent); }
 .preview-task-head { flex: 0 0 auto; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--preview-line); background: color-mix(in srgb, var(--preview-surface-2) 58%, transparent); }
@@ -1725,6 +1747,188 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
 .preview-task-progress { display: flex; align-items: center; gap: var(--sp-3); }
 .preview-task-progress .preview-progress { flex: 1 1 auto; height: 6px; }
 .preview-task-progress-text { flex: 0 0 auto; color: var(--preview-muted); font: 600 var(--fs-xs)/1.2 "Cascadia Mono", var(--mono); font-variant-numeric: tabular-nums; }
+
+/* 第100波：任务单三段式——现状、结果与行动、过程。沿用 v4-glass token，
+   不引入主题专属色值；结构层级同时承担双主题对比度与 390px 收敛。 */
+.preview-task-sheet {
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.preview-task-status,
+.preview-task-outcome,
+.preview-process-details,
+.preview-task-bottom {
+  flex: 0 0 auto;
+  width: min(1180px, 100%);
+  margin-inline: auto;
+  border: 1px solid var(--preview-line);
+  border-radius: 24px 8px 24px 24px;
+  background: color-mix(in srgb, var(--preview-surface) 92%, transparent);
+  box-shadow: var(--glass-highlight), var(--glass-shadow-soft);
+}
+.preview-task-status { overflow: hidden; }
+.preview-task-head {
+  padding: var(--sp-4) var(--sp-5) var(--sp-3);
+  border: 0;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--preview-accent) 8%, var(--preview-surface)), var(--preview-surface) 58%);
+}
+.preview-task-head .preview-mission-title { max-width: 30ch; margin-block: 7px 2px; }
+.preview-task-head .preview-mission-goal { margin-block: 0; color: var(--preview-muted); }
+.preview-activity { width: fit-content; max-width: 100%; margin-top: var(--sp-3); }
+.preview-task-progress { margin-top: var(--sp-3); padding: 0; border: 1px solid var(--preview-line); border-radius: 16px; overflow: hidden; background: color-mix(in srgb, var(--preview-surface-2) 52%, transparent); }
+.preview-progress-summary { min-height: 42px; padding: 8px var(--sp-3); display: grid; grid-template-columns: minmax(120px, 1fr) auto auto; align-items: center; gap: var(--sp-3); list-style: none; cursor: pointer; }
+.preview-progress-summary::-webkit-details-marker { display: none; }
+.preview-progress-summary:focus-visible { outline: 2px solid var(--preview-accent); outline-offset: -2px; }
+.preview-progress-hint { color: var(--preview-muted); font-size: var(--fs-xs); }
+.preview-progress-hint::after { margin-left: 7px; content: "+"; color: var(--preview-accent); font: 700 var(--fs-sm)/1 var(--mono); }
+.preview-progress-details[open] .preview-progress-hint::after { content: "−"; }
+.preview-progress-list { margin: 0; padding: 6px var(--sp-3) var(--sp-3); display: grid; gap: 5px; border-top: 1px dashed var(--preview-line); list-style: none; }
+.preview-progress-item { min-width: 0; padding: 7px 9px; display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: var(--sp-2); border-radius: 11px; color: var(--preview-muted); }
+.preview-progress-item.is-current { color: var(--preview-ink); background: color-mix(in srgb, var(--preview-accent) 8%, transparent); box-shadow: inset 3px 0 var(--preview-accent); }
+.preview-progress-item.is-done { color: var(--ok-fg); }
+.preview-progress-item.is-blocked { color: var(--danger-fg); }
+.preview-progress-marker { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 50%; font: 700 var(--fs-xs)/1 var(--mono); }
+.preview-progress-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.preview-progress-copy strong { color: currentColor; font-size: var(--fs-sm); font-weight: 620; }
+.preview-progress-copy small,
+.preview-progress-empty { color: var(--preview-muted); font-size: var(--fs-xs); line-height: 1.45; }
+.preview-progress-empty { padding: var(--sp-2); }
+.preview-task-metrics { display: flex; flex-wrap: wrap; gap: 6px var(--sp-4); }
+.preview-task-metric { padding: 0; display: inline-flex; gap: 5px; border: 0; border-radius: 0; background: transparent; }
+.preview-task-metric-label,
+.preview-task-metric-value { display: inline; margin: 0; font-size: var(--fs-xs); }
+.preview-mission-control { padding: 8px var(--sp-5); border: 0; border-top: 1px solid var(--preview-line); background: color-mix(in srgb, var(--preview-surface-2) 38%, transparent); }
+.preview-control-board { gap: var(--sp-2); }
+.preview-control-group { gap: 5px; }
+.preview-control-group-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.preview-control-btn-label + .preview-control-scope { display: none; }
+.preview-control-group button { min-height: 32px; padding: 5px 9px; border-radius: 10px; }
+.preview-control-telemetry { margin-left: auto; }
+
+.preview-task-outcome { padding: var(--sp-4); display: grid; gap: var(--sp-3); }
+.preview-task-outcome > [hidden] { display: none; }
+.preview-task-outcome .preview-return-summary,
+.preview-task-outcome .preview-stop-card,
+.preview-task-outcome .preview-finish-card,
+.preview-task-outcome .preview-intake,
+.preview-task-outcome .preview-continue-turn { margin: 0; }
+.preview-intake { padding: 0; overflow: visible; border: 0; background: transparent; }
+.preview-intake-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.preview-intake-panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.preview-intake-panel { border-color: var(--preview-line); background: color-mix(in srgb, var(--preview-surface-2) 46%, transparent); }
+.preview-continue-turn { border-radius: 18px; }
+.preview-task-sheet[data-mission-state="done"] .preview-continue-turn { order: 3; }
+.preview-task-sheet[data-mission-state="needs_you"] .preview-intake-needs { order: -1; }
+.preview-task-sheet[data-mission-state="needs_you"] .preview-task-outcome { border-color: color-mix(in srgb, var(--preview-hot) 36%, var(--preview-line)); }
+
+.preview-process-details { flex: 0 0 auto; overflow: hidden; border-bottom: 1px solid var(--preview-line); }
+.preview-process-details > .preview-process-summary { border-radius: inherit; }
+.preview-process-details[open] { max-height: none; }
+.preview-scene-lens { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+.preview-scene-lens[hidden] { display: none; }
+.preview-scene-lens > .preview-crew-lens:not([hidden]) { border-top: 1px solid var(--preview-line); }
+.preview-task-body { display: block; }
+.preview-worksite { min-height: 460px; }
+.preview-raw-messages { min-height: 380px; max-height: 72vh; overflow-y: auto; }
+.preview-task-body > .preview-ledger-section { border-top: 1px solid var(--preview-line); }
+.preview-lens-switch { padding-inline: var(--sp-4); }
+.preview-task-bottom { overflow: hidden; }
+.preview-task-actions { padding: 9px var(--sp-3); border: 0; background: transparent; }
+.preview-task-actions-copy { display: none; }
+.preview-task-action-buttons { width: 100%; justify-content: flex-end; }
+.preview-task-action-buttons .ghost { margin-left: auto; }
+
+.preview-task-sheet[data-mission-state="done"] .preview-task-progress,
+.preview-task-sheet[data-mission-state="done"] .preview-task-metrics { display: none; }
+.preview-task-sheet[data-mission-state="done"] .preview-activity { display: flex; }
+.preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]) .preview-task-status,
+.preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]) .preview-task-outcome,
+.preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]) .preview-process-details,
+.preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]) .preview-task-bottom { width: min(1040px, 100%); }
+
+@media (max-width: 920px) {
+  .preview-task-sheet { padding: var(--sp-2); gap: var(--sp-2); }
+  .preview-task-status,
+  .preview-task-outcome,
+  .preview-process-details,
+  .preview-task-bottom { border-radius: 18px 6px 18px 18px; }
+  .preview-task-head { padding: var(--sp-3); }
+  .preview-mission-control { padding-inline: var(--sp-3); overflow-x: auto; }
+  .preview-control-board { min-width: max-content; }
+  .preview-control-telemetry { display: none; }
+  .preview-task-outcome { padding: var(--sp-3); }
+  .preview-intake-panels { grid-template-columns: minmax(0, 1fr); }
+  .preview-progress-summary { grid-template-columns: minmax(92px, 1fr) auto; }
+  .preview-progress-hint { display: none; }
+  .preview-task-action-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .preview-task-action-buttons button { width: 100%; }
+  .preview-task-action-buttons .ghost { margin-left: 0; }
+  .preview-task-action-buttons button:last-child { grid-column: 1 / -1; }
+  .preview-worksite { min-height: 390px; }
+  .preview-raw-messages { min-height: 320px; }
+}
+
+@media (max-width: 480px) {
+  .preview-task-sheet { padding: 6px; }
+  .preview-task-head .preview-mission-title { font-size: var(--fs-xl); }
+  .preview-activity { width: 100%; border-radius: 12px; }
+  .preview-activity-text { white-space: normal; }
+  .preview-task-metrics { gap: 4px var(--sp-3); }
+  .preview-lens-switch { padding-inline: var(--sp-2); }
+  .preview-lens-tab { flex: 1 1 0; justify-content: center; }
+}
+
+/* 浅色清透白：大面积只用白/极浅蓝白层级，蓝色留给主操作与当前进度。 */
+:root[data-theme="light"] .preview-task-status,
+:root[data-theme="light"] .preview-task-outcome,
+:root[data-theme="light"] .preview-process-details,
+:root[data-theme="light"] .preview-task-bottom { background: var(--preview-surface); }
+:root[data-theme="light"] .preview-task-head {
+  background: linear-gradient(135deg, var(--preview-surface), color-mix(in srgb, var(--preview-secondary) 72%, var(--preview-surface)));
+}
+:root[data-theme="light"] .preview-mission-control {
+  background: color-mix(in srgb, var(--preview-secondary) 58%, var(--preview-surface));
+}
+:root[data-theme="light"] .preview-task-outcome .preview-stop-card {
+  background: linear-gradient(110deg, color-mix(in srgb, var(--preview-hot) 6%, var(--preview-surface)), var(--preview-surface) 72%);
+}
+:root[data-theme="light"] .preview-task-outcome .preview-intake-panel {
+  background: color-mix(in srgb, var(--preview-secondary) 62%, var(--preview-surface));
+}
+
+/* 浅色按钮最后收口：次操作白底描边，禁用态去掉灰色实心块。 */
+:root[data-theme="light"] .preview-task-sheet .preview-control-group button:not(.primary):not(.danger):not(.danger-ghost),
+:root[data-theme="light"] .preview-task-sheet .preview-stop-actions button:not(.primary):not(.ghost),
+:root[data-theme="light"] .preview-task-sheet .preview-task-action-buttons button:not(.primary):not(.ghost) {
+  border-color: var(--preview-line);
+  background: var(--preview-secondary);
+  color: var(--preview-ink);
+  box-shadow: none;
+}
+:root[data-theme="light"] .preview-task-sheet .preview-control-group button:disabled,
+:root[data-theme="light"] .preview-task-sheet .preview-control-group button.primary:disabled,
+:root[data-theme="light"] .preview-task-sheet button:disabled {
+  opacity: 1;
+  border-color: var(--preview-disabled-line);
+  border-style: dashed;
+  background: transparent;
+  color: var(--preview-disabled-ink);
+  box-shadow: none;
+}
+:root[data-theme="light"] .preview-task-sheet .preview-control-group button:hover:not(:disabled),
+:root[data-theme="light"] .preview-task-sheet .preview-stop-actions button:not(.primary):not(.ghost):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--preview-accent) 42%, var(--preview-line));
+  background: var(--preview-secondary-hover);
+}
+:root[data-theme="light"] .preview-shell button.preview-fact {
+  border-color: var(--preview-line);
+  background: color-mix(in srgb, var(--preview-secondary) 86%, transparent);
+  color: var(--preview-ink);
+}
 .preview-question-other-choice { border: 0; border-radius: 0; background: transparent; }
 .preview-question-other-card textarea { width: 100%; margin-top: 6px; resize: vertical; border-radius: 14px 6px 14px 14px; }
 .preview-question-other-card textarea:disabled { opacity: .5; }

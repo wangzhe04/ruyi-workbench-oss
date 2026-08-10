@@ -65,6 +65,12 @@ const PAYLOAD_FILES = [
   'app/public/js/preview-notifications.js',
   // 第76波:默认关闭的新任务台 Preview 壳层（与经典 app-shell 同级，读同一 Mission API）。
   'app/public/js/preview-shell.js',
+  // 第100波:Preview 壳按 store / 坞与首页 / 任务单 / 镜头 / 收工域拆分，均为运行时依赖。
+  'app/public/js/preview-store.js',
+  'app/public/js/preview-dock-home.js',
+  'app/public/js/preview-task-sheet.js',
+  'app/public/js/preview-lenses.js',
+  'app/public/js/preview-finish.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',

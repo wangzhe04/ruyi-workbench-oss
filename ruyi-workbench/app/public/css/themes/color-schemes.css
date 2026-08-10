@@ -35,6 +35,11 @@
   --preview-hot: #dcba75;
   --preview-line: rgba(107,143,242,.18);
   --preview-shadow: 0 24px 72px rgba(2,6,16,.5);
+  --preview-secondary: #18243a;
+  --preview-secondary-hover: #21304b;
+  --preview-disabled-bg: #182133;
+  --preview-disabled-ink: #6f7f9a;
+  --preview-disabled-line: rgba(143,160,189,.15);
   --user-bubble: #1c2740;
   --user-line: #33456e;
   --sys-bubble: #2e2916;
@@ -111,17 +116,23 @@
   --gold: #a8822f;
   /* v0.8-S8 品牌标(如意 Ruyi)——青花 + 鎏金,随主题切换。亮色版。 */
   --brand-qh: #2350a8; --brand-au: #d9a441;
-  /* Preview 任务台:月白 + 青花蓝,鎏金专义「等你拿主意」(与暗色键集对称)。 */
-  --preview-bg: #f2f5fa;
+  /* 第100波:浅色任务台回到现有青花体系的清透白。纯白卡面 + 极浅蓝白只负责分层，
+     青花蓝负责主行动/当前进度，鎏金只负责待决；不再铺大面积米色或灰色。 */
+  --preview-bg: #f7f9fc;
   --preview-surface: #ffffff;
-  --preview-surface-2: #ecf1f9;
+  --preview-surface-2: #f3f6fb;
   --preview-ink: #1b2436;
   --preview-muted: #5f6c85;
   --preview-accent: #2050c8;
   --preview-accent-strong: #1a43ab;
-  --preview-hot: #82631b; /* 第88波(a11y):浅色下 #a8822f 对比度仅 3.26<4.5,needs_you 文字不可读;加深至 ≈5.1:1 过 AA,仍属鎏金/青铜色系 */
-  --preview-line: rgba(32,80,200,.16);
-  --preview-shadow: 0 22px 60px rgba(20,28,48,.14);
+  --preview-hot: #82631b;
+  --preview-line: rgba(32,80,200,.13);
+  --preview-shadow: 0 22px 60px rgba(20,28,48,.1);
+  --preview-secondary: #ffffff;
+  --preview-secondary-hover: #f3f6fb;
+  --preview-disabled-bg: #fbfcfe;
+  --preview-disabled-ink: #98a2b3;
+  --preview-disabled-line: rgba(32,80,200,.11);
   --user-bubble: #eaf0fc;
   --user-line: #c9d7f1;
   --sys-bubble: #faf3df;

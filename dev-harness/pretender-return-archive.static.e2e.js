@@ -10,6 +10,7 @@ const store = read(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '02-session-s
 const routes = read(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '13d-core-domain-routes.js'));
 const missionRoutes = read(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '13-http-router.js'));
 const shell = read(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'js', 'preview-shell.js'));
+const previewStore = read(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'js', 'preview-store.js'));
 const css = read(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'css', 'views', 'preview-shell.css'));
 const html = read(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'index.html'));
 const zh = JSON.parse(read(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'locales', 'zh-CN.json')));
@@ -31,7 +32,9 @@ ok(routes.includes("pathname) {") && routes.includes("/changes$/.test(pathname)"
   && routes.includes('records.filter(record => Number(record.seq) > after'), 'A5 changes API 严格返回 (after,currentRevision]');
 ok(routes.includes('degraded,') && routes.includes('gap: gap || null') && routes.includes('corruptLines'), 'A6 API 携带 degraded/gap/integrity 证据');
 
-ok(shell.includes("PREVIEW_UI_STATE_STORAGE_KEY = 'wcw.previewUiState.v1'") && shell.includes('lastSeenRevision'), 'B1 lastSeen 位于独立本机 UI-state store');
+ok(previewStore.includes("PREVIEW_UI_STATE_STORAGE_KEY = 'wcw.previewUiState.v1'")
+  && previewStore.includes('lastSeenRevision') && shell.includes('readPreviewUiState'),
+  'B1 lastSeen 位于独立本机 UI-state store');
 ok(!/session\.(?:lastSeenRevision|pinnedArchive)|mission\.(?:lastSeenRevision|archived)/.test(shell), 'B2 Preview 不把已读/归档写回 Session 或 Mission');
 const renderAt = shell.indexOf('renderTaskSheet(card);', shell.indexOf('async function refreshSelectedMission'));
 const frameAt = shell.indexOf('requestAnimationFrame(() => resolve())', renderAt);

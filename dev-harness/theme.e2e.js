@@ -82,7 +82,9 @@ function parseTokenBlock(css, selector) {
       ok(t in dark && t in light, '(a) 玻璃令牌 ' + t + ' 两主题均定义(UI-DESIGN-V4)');
     }
     const PREVIEW = ['--preview-bg', '--preview-surface', '--preview-surface-2', '--preview-ink', '--preview-muted',
-      '--preview-accent', '--preview-accent-strong', '--preview-hot', '--preview-line', '--preview-shadow'];
+      '--preview-accent', '--preview-accent-strong', '--preview-hot', '--preview-line', '--preview-shadow',
+      '--preview-secondary', '--preview-secondary-hover', '--preview-disabled-bg', '--preview-disabled-ink',
+      '--preview-disabled-line'];
     for (const t of PREVIEW) {
       ok(t in dark && t in light, '(a) Preview theme token ' + t + ' is symmetric');
     }
