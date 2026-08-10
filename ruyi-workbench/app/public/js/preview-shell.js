@@ -18,53 +18,26 @@ import {
   weightedMessageTailStart,
 } from './turn-narrative.js';
 import { createChatScrollController } from './chat-scroll.js';
+import { missionCardSignature } from './preview-dock-home.js';
+import {
+  narrativePlainText,
+  reportConclusionExcerpt,
+  reportDeliveryText,
+  reportPreviewText,
+} from './preview-finish.js';
+import { hasCrewActivity } from './preview-lenses.js';
+import {
+  PREVIEW_UI_STATE_STORAGE_KEY,
+  normalizePreviewUiState,
+  readPreviewUiState,
+  writePreviewMissionUiState,
+} from './preview-store.js';
+import { pendingCount, taskProgress } from './preview-task-sheet.js';
 
 export const SHELL_MODE_STORAGE_KEY = 'wcw.shellMode';
 export const SHELL_MODES = Object.freeze(['classic', 'preview']);
-export const PREVIEW_UI_STATE_STORAGE_KEY = 'wcw.previewUiState.v1';
+export { PREVIEW_UI_STATE_STORAGE_KEY, normalizePreviewUiState, readPreviewUiState, writePreviewMissionUiState };
 export const PREVIEW_DOCK_INITIAL_RENDER = 40;
-
-export function normalizePreviewUiState(value) {
-  let input = value;
-  if (typeof input === 'string') {
-    try { input = JSON.parse(input); } catch { input = null; }
-  }
-  const missions = {};
-  const source = input && typeof input === 'object' && !Array.isArray(input) && input.missions && typeof input.missions === 'object'
-    ? input.missions : {};
-  for (const [missionId, raw] of Object.entries(source).slice(-1000)) {
-    if (!missionId || !raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
-    const item = { pinned: raw.pinned === true, archived: raw.archived === true };
-    const revision = Number(raw.lastSeenRevision);
-    if (Number.isSafeInteger(revision) && revision >= 0) item.lastSeenRevision = revision;
-    if (typeof raw.updatedAt === 'string' && raw.updatedAt) item.updatedAt = raw.updatedAt.slice(0, 40);
-    missions[String(missionId).slice(0, 180)] = item;
-  }
-  return { version: 1, missions };
-}
-
-export function readPreviewUiState(storage = globalThis.localStorage) {
-  try { return normalizePreviewUiState(storage?.getItem(PREVIEW_UI_STATE_STORAGE_KEY)); }
-  catch { return normalizePreviewUiState(null); }
-}
-
-export function writePreviewMissionUiState(missionId, patch, storage = globalThis.localStorage) {
-  const id = String(missionId || '').slice(0, 180);
-  if (!id) return normalizePreviewUiState(null);
-  const state = readPreviewUiState(storage);
-  const previous = state.missions[id] || { pinned: false, archived: false };
-  const next = { ...previous };
-  if (patch && typeof patch === 'object') {
-    if (typeof patch.pinned === 'boolean') next.pinned = patch.pinned;
-    if (typeof patch.archived === 'boolean') next.archived = patch.archived;
-    const revision = Number(patch.lastSeenRevision);
-    if (Number.isSafeInteger(revision) && revision >= 0) next.lastSeenRevision = Math.max(Number(previous.lastSeenRevision) || 0, revision);
-  }
-  next.updatedAt = new Date().toISOString();
-  state.missions[id] = next;
-  try { storage?.setItem(PREVIEW_UI_STATE_STORAGE_KEY, JSON.stringify(state)); } catch { /* UI state is best-effort */ }
-  return state;
-}
 
 export function normalizeShellMode(value) {
   return value === 'preview' ? 'preview' : 'classic';
@@ -415,15 +388,7 @@ export function createPreviewShellDomain({
   }
 
   function progressOf(card, snapshot = null) {
-    if (snapshot && snapshot.acceptance) {
-      const total = Math.max(0, Number(snapshot.acceptance.total) || 0);
-      const done = Math.min(total, Math.max(0, Number(snapshot.acceptance.done) || 0));
-      return { total, done, percent: total ? Math.round(done * 100 / total) : 0 };
-    }
-    const mission = card && card.mission || {};
-    const total = Math.max(0, Number(mission.milestonesTotal) || 0);
-    const done = Math.min(total, Math.max(0, Number(mission.done) || 0));
-    return { total, done, percent: total ? Math.round(done * 100 / total) : 0 };
+    return taskProgress(card, snapshot);
   }
 
   function titleOf(card) {
@@ -1476,16 +1441,7 @@ export function createPreviewShellDomain({
     const uiMode = document.documentElement.getAttribute('data-ui-mode') || 'pro';
     const workspaceLabel = currentWorkspace() || state?.config?.defaultWorkspace || '';
     const permissionMode = state?.config?.permissionMode || '';
-    const cardSig = cards.map(card => {
-      const ui = missionUi(card && card.missionId);
-      const pending = card && card.pending;
-      return [
-        card && card.missionId, card && card.updatedAt, (card && card.runCount) || 0,
-        card && card.activeTurn || '', !!(card && card.mission && card.mission.done),
-        pending ? (pending.permissions || 0) + ':' + (pending.questions || 0) + ':' + (pending.plans || 0) + ':' + (pending.pool || 0) : '',
-        ui.pinned ? 1 : 0, ui.archived ? 1 : 0,
-      ].join('|');
-    }).join(';');
+    const cardSig = cards.map(card => missionCardSignature(card, missionUi(card && card.missionId))).join(';');
     return [locale, uiMode, workspaceReady ? 1 : 0, workspaceLabel, permissionMode, engineReady ? 1 : 0,
       playbooksLoaded ? playbooks.length : -1,
       dispatchBusy ? 1 : 0, dispatchDraft ? 1 : 0, dispatchError ? 1 : 0, dispatchAttachments.length, cardSig].join('\u001e');
@@ -1532,7 +1488,7 @@ export function createPreviewShellDomain({
   }
 
   function pendingTotal(pending) {
-    return ['permissions', 'questions', 'plans', 'pool'].reduce((sum, key) => sum + Math.max(0, Number(pending && pending[key]) || 0), 0);
+    return pendingCount(pending);
   }
 
   function resultLabel(snapshot) {
@@ -1977,68 +1933,6 @@ export function createPreviewShellDomain({
     return t('previewShell.narrativeCrew');
   }
 
-  function reportPlainText(value) {
-    return String(value || '').trim()
-      .replace(/^#{1,6}[ \t]+/gm, '')
-      .replace(/\*\*([^*\n]+)\*\*/g, '$1')
-      .replace(/__([^_\n]+)__/g, '$1')
-      .replace(/`([^`\n]+)`/g, '$1');
-  }
-
-  function reportConclusionExcerpt(value, limit = 1200) {
-    const full = reportPlainText(value);
-    if (!full) return '';
-    const markers = ['已汇总完毕', '任务标记完成', '提交摘要', '确认最终状态', '已完成', '最终总结', '结论', 'Completed', 'Final summary', 'Conclusion'];
-    let markerAt = -1;
-    for (const marker of markers) markerAt = Math.max(markerAt, full.lastIndexOf(marker));
-    if (markerAt > 0 && full.length - markerAt >= 80) return full.slice(markerAt).trim();
-    if (full.length <= limit) return full;
-    const tail = full.slice(-limit);
-    const paragraphAt = tail.indexOf('\n\n');
-    return `${paragraphAt >= 0 ? tail.slice(paragraphAt + 2) : tail}`.trim();
-  }
-
-  function narrativePlainText(value) {
-    return reportPlainText(value).replace(/\s+/g, ' ');
-  }
-
-  function reportDeliveryText(value) {
-    const raw = String(value || '').trim();
-    if (!raw) return '';
-    // The finish report is the actual delivery, not a compact label. Preserve
-    // its Markdown source. A streamed assistant message may also contain the
-    // pre-report search/tool narration, so begin at the first real Markdown
-    // heading while retaining an immediately preceding source-note quote.
-    // Some providers concatenate the final heading directly after a streamed
-    // narration sentence without inserting a newline, so the marker cannot be
-    // required to start a physical line here.
-    const headingAt = raw.search(/#{1,6}[ \t]+\S/);
-    if (headingAt < 0) return raw;
-    const beforeHeading = raw.slice(0, headingAt);
-    const sourceNote = beforeHeading.match(/(?:^|\n\s*\n)((?:>[ \t]?.*(?:\n|$))+)[ \t\n]*$/);
-    return `${sourceNote ? `${sourceNote[1].trim()}\n\n` : ''}${raw.slice(headingAt).trim()}`;
-  }
-
-  function reportPreviewText(value, limit = 260) {
-    const markdown = reportDeliveryText(value);
-    if (!markdown) return '';
-    const heading = markdown.match(/^#{1,6}[ \t]+(.+)$/m)?.[1] || '';
-    const prose = markdown.split(/\n\s*\n/)
-      .map(block => block.trim())
-      .filter(block => block
-        && !/^#{1,6}[ \t]+/.test(block)
-        && !/^```/.test(block)
-        && !block.split('\n').some(line => /^\s*\|?.*\|\s*:?-{3,}/.test(line)))
-      .map(block => reportPlainText(block)
-        .replace(/^\s*>[ \t]?/gm, '')
-        .replace(/^\s*[-*+][ \t]+/gm, '')
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-        .replace(/\s+/g, ' ')
-        .trim())
-      .find(Boolean) || '';
-    return [reportPlainText(heading), prose].filter(Boolean).join(' · ').slice(0, limit);
-  }
-
   function narrativeTurnContext(entry) {
     if (!entry || entry.sentenceKey !== 'progress_turn') return null;
     const turnSeq = Number(entry.cursor && entry.cursor.turnSeq) || 0;
@@ -2176,8 +2070,7 @@ export function createPreviewShellDomain({
   function renderLensSwitch(article, snapshot) {
     const host = article?.querySelector('[data-slot="lensSwitch"]');
     if (!host) return;
-    const runs = Array.isArray(snapshot && snapshot.runs) ? snapshot.runs : [];
-    const hasCrew = runs.some(run => (Array.isArray(run?.nodes) && run.nodes.length) || (Array.isArray(run?.proposals) && run.proposals.length));
+    const hasCrew = hasCrewActivity(snapshot);
     if (selectedLens === 'crew' && !hasCrew) selectedLens = 'narrative';
     const tabs = [
       { id: 'narrative', label: t('previewShell.lensNarrative'), target: 'narrativeLens', disabled: !narrativeRules, icon: 'narrative' },

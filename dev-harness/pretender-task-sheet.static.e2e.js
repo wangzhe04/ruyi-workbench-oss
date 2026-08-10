@@ -10,6 +10,7 @@ const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
 const read = relative => fs.readFileSync(path.join(PUBLIC, ...relative.split('/')), 'utf8');
 const app = read('app.js');
 const shell = read('js/preview-shell.js');
+const taskSheetDomain = shell + read('js/preview-task-sheet.js') + read('js/preview-lenses.js') + read('js/preview-finish.js');
 const renderer = read('js/chat-static-renderer.js');
 const stream = read('js/chat-stream-runtime.js');
 const narrative = read('js/turn-narrative.js');
@@ -80,7 +81,7 @@ ok(shell.includes("host.dataset.renderer = 'chat-static-renderer'") || shell.inc
 ok(shell.includes('api(`/api/missions/${sessionId}`)') && shell.includes('api(`/api/sessions/${sessionId}`)'),
   'C1 详情只读读取 Mission 聚合快照 + 对应 Session 原文');
 for (const fact of ['snapshot.acceptance', 'snapshot.usage', 'snapshot.runs', 'snapshot.pending', 'snapshot.result', 'snapshot.changes', 'snapshot.checkpoints', 'snapshot.irreversible', 'snapshot.controls', 'snapshot.ledger', 'snapshot.cursor']) {
-  ok(shell.includes(fact), `C2 消费 ${fact} 权威投影`);
+  ok(taskSheetDomain.includes(fact), `C2 消费 ${fact} 权威投影`);
 }
 ok(shell.includes("event.type === 'assistant_delta'") && shell.includes('appendPreviewLiveText(event.text || \'\')'),
   'C3 新容器消费同一 SSE assistant_delta，未建立第二条网络流');
