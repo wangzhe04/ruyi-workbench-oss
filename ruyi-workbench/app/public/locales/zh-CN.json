@@ -517,6 +517,8 @@
   "provider.apiKey": "API 密钥",
   "provider.autoDetect": "自动检测",
   "provider.backupEndpoints": "备用端点（每行一个，最多 3；主端点连不上时按序切换）",
+  "provider.customHeaders": "自定义请求头（每行一个，名称: 值；每次请求此服务商都会带上；同名会覆盖内置头）",
+  "provider.customHeadersPlaceholder": "X-Organization: org-123",
   "provider.configureApiKey": "配置 API 密钥",
   "provider.contextAutoHint": "留空自动检测。把此引擎切为当前引擎后，这里会显示实际生效值与来源。",
   "provider.contextResolved": "当前生效：{{value}}（来源：{{source}}）",

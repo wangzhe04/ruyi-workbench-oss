@@ -8636,6 +8636,19 @@ function maskKey(key) {
   const k = typeof key === 'string' ? key : '';
   return k.length > 0 ? (KEY_MASK_PREFIX + k.slice(-4)) : '';
 }
+// 自定义请求头(providers[].extraHeaders)可能携带认证令牌(Authorization / X-API-Key / token / cookie …)。
+// 与 apiKey 同款掩码:下发给浏览器时把敏感头的值替换为 ••••<末4>,保存时若值未被改动(仍是掩码)则从磁盘配置还原。
+// 非敏感头(如 X-Organization)明文往返,方便用户在 UI 里看到并编辑。
+const SENSITIVE_HEADER_RE = /(authorization|api[-_]?key|token|secret|cookie|password|passwd|auth)/i;
+function isSensitiveHeaderName(name) { return typeof name === 'string' && SENSITIVE_HEADER_RE.test(name); }
+function maskExtraHeaders(headers) {
+  if (!headers || typeof headers !== 'object') return headers;
+  const out = {};
+  for (const [k, v] of Object.entries(headers)) {
+    out[k] = isSensitiveHeaderName(k) ? maskKey(typeof v === 'string' ? v : String(v)) : v;
+  }
+  return out;
+}
 // v0.9-S9: single mask helper covering ALL config secrets that leave the process in an API response:
 // every providers[].apiKey AND searchBackend.apiKey. Returns a shallow-enough copy so mutating the mask
 // never touches the on-disk config. providers[] additionally gets a `hasKey` boolean (UI "key present"
@@ -8647,7 +8660,7 @@ function maskSecrets(config) {
     out.providers = config.providers.map(p => {
       if (!p || typeof p !== 'object') return p;
       const key = typeof p.apiKey === 'string' ? p.apiKey : '';
-      return { ...p, apiKey: maskKey(key), hasKey: key.length > 0 };
+      return { ...p, apiKey: maskKey(key), hasKey: key.length > 0, ...(p.extraHeaders ? { extraHeaders: maskExtraHeaders(p.extraHeaders) } : {}) };
     });
   }
   if (config.searchBackend && typeof config.searchBackend === 'object') {
@@ -8668,12 +8681,26 @@ function unmaskSecrets(incoming, current) {
     const byId = new Map(currentProviders.map(p => [String(p && p.id || ''), p]));
     out.providers = incoming.providers.map(p => {
       if (!p || typeof p !== 'object') return p;
+      const prev = byId.get(String(p.id || ''));
+      let r = p;
       const key = typeof p.apiKey === 'string' ? p.apiKey : '';
       if (key.startsWith(KEY_MASK_PREFIX)) {
-        const prev = byId.get(String(p.id || ''));
-        return { ...p, apiKey: (prev && typeof prev.apiKey === 'string') ? prev.apiKey : '' };
+        r = { ...r, apiKey: (prev && typeof prev.apiKey === 'string') ? prev.apiKey : '' };
       }
-      return p;
+      // 还原仍为掩码的敏感自定义头(用户没改它,原样回显 -> 取磁盘上的真实值);非掩码值(用户新填/改的)直通。
+      if (r.extraHeaders && typeof r.extraHeaders === 'object') {
+        const prevHeaders = (prev && prev.extraHeaders && typeof prev.extraHeaders === 'object') ? prev.extraHeaders : {};
+        const restored = {};
+        let changed = false;
+        for (const [hk, hv] of Object.entries(r.extraHeaders)) {
+          if (isSensitiveHeaderName(hk) && typeof hv === 'string' && hv.startsWith(KEY_MASK_PREFIX)) {
+            restored[hk] = Object.prototype.hasOwnProperty.call(prevHeaders, hk) ? prevHeaders[hk] : '';
+            changed = true;
+          } else restored[hk] = hv;
+        }
+        if (changed) r = { ...r, extraHeaders: restored };
+      }
+      return r;
     });
   }
   if (incoming.searchBackend && typeof incoming.searchBackend === 'object') {
@@ -8694,12 +8721,24 @@ function unmaskProviders(incoming, currentProviders) {
   const byId = new Map((Array.isArray(currentProviders) ? currentProviders : []).map(p => [String(p && p.id || ''), p]));
   return incoming.map(p => {
     if (!p || typeof p !== 'object') return p;
+    const prev = byId.get(String(p.id || ''));
+    let r = p;
     const key = typeof p.apiKey === 'string' ? p.apiKey : '';
     if (key.startsWith(KEY_MASK_PREFIX)) {
-      const prev = byId.get(String(p.id || ''));
-      return { ...p, apiKey: (prev && typeof prev.apiKey === 'string') ? prev.apiKey : '' };
+      r = { ...r, apiKey: (prev && typeof prev.apiKey === 'string') ? prev.apiKey : '' };
     }
-    return p;
+    if (r.extraHeaders && typeof r.extraHeaders === 'object') {
+      const prevHeaders = (prev && prev.extraHeaders && typeof prev.extraHeaders === 'object') ? prev.extraHeaders : {};
+      const restored = {}; let changed = false;
+      for (const [hk, hv] of Object.entries(r.extraHeaders)) {
+        if (isSensitiveHeaderName(hk) && typeof hv === 'string' && hv.startsWith(KEY_MASK_PREFIX)) {
+          restored[hk] = Object.prototype.hasOwnProperty.call(prevHeaders, hk) ? prevHeaders[hk] : '';
+          changed = true;
+        } else restored[hk] = hv;
+      }
+      if (changed) r = { ...r, extraHeaders: restored };
+    }
+    return r;
   });
 }
 

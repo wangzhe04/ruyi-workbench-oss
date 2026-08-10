@@ -517,6 +517,8 @@
   "provider.apiKey": "API key",
   "provider.autoDetect": "Auto-detect",
   "provider.backupEndpoints": "Backup endpoints (one per line, up to 3; used in order if the primary endpoint is unavailable)",
+  "provider.customHeaders": "Custom HTTP headers (one per line, Name: value; sent on every request to this provider; overrides built-in headers if names collide)",
+  "provider.customHeadersPlaceholder": "X-Organization: org-123",
   "provider.configureApiKey": "Configure API key",
   "provider.contextAutoHint": "Leave blank to auto-detect. Switch this engine to the current engine to see the active value and source here.",
   "provider.contextResolved": "Active: {{value}} (source: {{source}})",

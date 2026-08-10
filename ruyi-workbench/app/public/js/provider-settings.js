@@ -668,7 +668,31 @@ function providerCard(p, idx) {
   const eti = el('textarea'); eti.rows = 2; eti.placeholder = 'https://backup1.example.com\nhttps://backup2.example.com';
   eti.value = Array.isArray(p.extraBaseUrls) ? p.extraBaseUrls.join('\n') : '';
   eti.oninput = () => { p.extraBaseUrls = eti.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 3); }; eb.append(eti);
-  adv.append(sb, tb, eb);
+  // 自定义请求头(后端 sanitizeProvider 已支持 extraHeaders: key<=80/value<=2048,
+  // 06/07/08/09/10 五处发请求都 Object.assign 到 headers)。每行 "Name: value",与备用端点同款 textarea。
+  const hb = el('div', 'field-block'); hb.append(el('label', '', t('provider.customHeaders')));
+  const headersToText = obj => {
+    if (!obj || typeof obj !== 'object') return '';
+    return Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join('\n');
+  };
+  const hi = el('textarea'); hi.rows = 2; hi.placeholder = t('provider.customHeadersPlaceholder');
+  hi.value = headersToText(p.extraHeaders);
+  hi.oninput = () => {
+    const out = {};
+    for (const line of hi.value.split('\n')) {
+      const s = line.trim();
+      if (!s) continue;
+      const ci = s.indexOf(':');
+      if (ci <= 0) continue;                 // 没有冒号或冒号在首位 -> 忽略畸形行
+      const k = s.slice(0, ci).trim();
+      const v = s.slice(ci + 1).trim();
+      if (!k) continue;
+      out[k.slice(0, 80)] = v.slice(0, 2048); // 与后端 sanitizeProvider 同口径,避免保存时被裁
+    }
+    if (Object.keys(out).length) p.extraHeaders = out; else delete p.extraHeaders;
+  };
+  hb.append(hi);
+  adv.append(sb, tb, eb, hb);
 
   const status = el('div', 'prov-status muted'); status.id = `provStatus_${idx}`;
   card.append(head, cap, b2, grid, cwB, priceB, adv, status);
