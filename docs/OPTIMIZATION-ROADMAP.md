@@ -94,6 +94,10 @@
 - **M3 已交付（`9696483`）**：`QUALITY_GATE_OUTPUT_SCHEMA` 加可选 coverage 字段（不破坏存量 verify）+ 质量门 prompt 引导逐项核验 + 后端 unhandled 收紧（`gate_uncovered`）；e2e（quality-gates + quality-workflow + prompt-snapshot）+ build --check 全绿。实施文档 [`optimization-plan/09-m3-coverage-gate.md`](optimization-plan/09-m3-coverage-gate.md)。
 - **M4（流程项，不涉代码）**：实施文档已落 [`optimization-plan/10-m4-ablation.md`](optimization-plan/10-m4-ablation.md)——06 各优化项按「波次打包」上开关无法单轴归因，改为「每项独立开关 + 单轴回测 + 全量累进」，归因轴对齐工作流/工具/上下文三轴，含消融记账模板。**下一步：阶段 A 把纪律并入 06 文档 §5 + 建记账表；阶段 B 按需补 O1–O6 评测开关（下次回测前做开关盘点）**。
 
+**候选 B 波（进行中）**：M1（编排上下文分级注入，**唯一 P0**）+ M6（O3 证据回溯）。
+- **M1 实施文档已落** [`optimization-plan/11-m1-context-tiering.md`](optimization-plan/11-m1-context-tiering.md)：把 `09-workflow.js:647` 单一 `contextText`（所有节点同一份）升级为「全局层 + per-node 覆盖」--节点对象（L173）加 `context` 字段、contextPrefix（L647）追加节点层、节点 schema（L1883）补描述；节点无 context 时行为逐字节不变（存量模板零迁移）。**下一步：确认方案后实施 commit + agent 对抗验证 code review/debug**。
+- **M6**：O3 自检升级为证据回溯，并入 06-O3，候选 B 波后半。
+
 ### Traveler 4.0（概念稿）
 
 `docs/TRAVELER-CONCEPT.md` v0.1 已立（可迁移的任务旅程 / Portable Missions），非范围、版本或发布时间承诺；其实施不得抢占或稀释 Pretender 3.0 收口。
