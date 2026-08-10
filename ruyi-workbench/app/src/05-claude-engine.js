@@ -947,6 +947,21 @@ const CLAUDE_ENDPOINT_PRESETS = [
   },
 ];
 
+// Keep this allowlist shared by config normalization and request construction. Omission means "use the
+// endpoint/model default"; selected values use the OpenAI-compatible fields for their respective APIs.
+const PROVIDER_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+function providerReasoningEffort(provider) {
+  const effort = String(provider && (provider.reasoningEffort || provider.reasoning_effort) || '').trim().toLowerCase();
+  return PROVIDER_REASONING_EFFORTS.has(effort) ? effort : '';
+}
+function applyProviderReasoningEffort(body, provider, apiStyle) {
+  const effort = providerReasoningEffort(provider);
+  if (!effort || !body || typeof body !== 'object') return body;
+  if (apiStyle === 'responses') body.reasoning = { effort };
+  else body.reasoning_effort = effort;
+  return body;
+}
+
 // Fold one raw provider entry onto a safe, fully-populated shape. Returns null if unusable (no id).
 function sanitizeProvider(raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -1010,6 +1025,7 @@ function sanitizeProvider(raw) {
     model: str(raw.model, 120).trim(),
     models,
     reasoning: raw.reasoning === true,
+    reasoningEffort: providerReasoningEffort(raw),
     // v1.7: apiStyle — protocol preference for this provider: 'chat' (default, OpenAI Chat Completions) or
     // 'responses' (OpenAI Responses API; DeepSeek added it for Codex/agent loops, v4-flash now + v4-pro from
     // 2026-08). Unknown/absent → 'chat' (向后兼容:任何既有配置零行为变化)。UI 设置里可逐 provider 切换,

@@ -33,6 +33,7 @@ namespace RuyiDesktop
         public const int WM_NCLBUTTONDOWN = 0x00A1;
         public const int WM_MOUSEWHEEL = 0x020A;
         public const int WM_MOUSEHWHEEL = 0x020E;
+        public const int WM_DISPLAYCHANGE = 0x007E;
         public const int WM_DPICHANGED = 0x02E0;
         public const int HTCAPTION = 2;
         public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
@@ -834,6 +835,7 @@ namespace RuyiDesktop
             ShowInTaskbar = true;
             Show();
             if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+            EnsureWindowVisible();
             Activate();
             BringToFront();
         }
@@ -925,6 +927,51 @@ namespace RuyiDesktop
         }
 
         /* ---------- 布局：手动 SetBounds（无边框窗口缩放 + WebView 贴合） ---------- */
+
+        // WM_DPICHANGED supplies a suggested physical-pixel rectangle in lParam. WinForms does not
+        // reliably apply it for a borderless PerMonitorV2 form, so consume it ourselves and clamp it to
+        // the monitor's current working area. This also recovers a window left on a disconnected screen.
+        private Rectangle SuggestedDpiBounds(IntPtr lParam)
+        {
+            if (lParam == IntPtr.Zero) return Rectangle.Empty;
+            try
+            {
+                var r = (Native.RECT)Marshal.PtrToStructure(lParam, typeof(Native.RECT));
+                int width = r.right - r.left;
+                int height = r.bottom - r.top;
+                return width > 0 && height > 0 ? new Rectangle(r.left, r.top, width, height) : Rectangle.Empty;
+            }
+            catch { return Rectangle.Empty; }
+        }
+
+        private Rectangle ClampWindowBoundsToWorkingArea(Rectangle wanted)
+        {
+            Rectangle candidate = wanted;
+            if (candidate.Width <= 0 || candidate.Height <= 0) candidate = Bounds;
+            Rectangle area = Screen.FromRectangle(candidate).WorkingArea;
+            int maxWidth = Math.Max(1, area.Width);
+            int maxHeight = Math.Max(1, area.Height);
+            int minWidth = Math.Min(Math.Max(1, MinimumSize.Width), maxWidth);
+            int minHeight = Math.Min(Math.Max(1, MinimumSize.Height), maxHeight);
+            int width = Math.Max(minWidth, Math.Min(candidate.Width, maxWidth));
+            int height = Math.Max(minHeight, Math.Min(candidate.Height, maxHeight));
+
+            // Keep a grab area and title bar reachable even if the old position was mostly off-screen.
+            int visibleWidth = Math.Min(160, width);
+            int visibleHeight = Math.Min(TitlebarHeight, height);
+            int x = Math.Max(area.Left - width + visibleWidth, Math.Min(candidate.Left, area.Right - visibleWidth));
+            int y = Math.Max(area.Top, Math.Min(candidate.Top, area.Bottom - visibleHeight));
+            return new Rectangle(x, y, width, height);
+        }
+
+        private void EnsureWindowVisible()
+        {
+            if (IsDisposed || WindowState == FormWindowState.Maximized) return;
+            Rectangle safe = ClampWindowBoundsToWorkingArea(Bounds);
+            Rectangle current = Bounds;
+            if (safe.X != current.X || safe.Y != current.Y || safe.Width != current.Width || safe.Height != current.Height)
+                SetBounds(safe.X, safe.Y, safe.Width, safe.Height);
+        }
 
         private void LayoutPanels()
         {
@@ -1073,8 +1120,34 @@ namespace RuyiDesktop
         {
             if (m.Msg == Native.WM_DPICHANGED)
             {
+                Rectangle suggested = SuggestedDpiBounds(m.LParam);
                 base.WndProc(ref m);
+                if (WindowState != FormWindowState.Maximized)
+                {
+                    if (suggested.Width > 0 && suggested.Height > 0)
+                    {
+                        Rectangle safe = ClampWindowBoundsToWorkingArea(suggested);
+                        SetBounds(safe.X, safe.Y, safe.Width, safe.Height);
+                    }
+                    else EnsureWindowVisible();
+                }
+                LayoutPanels();
                 SyncWebViewBounds(); // 换屏/改缩放后 WebView 重新贴合
+                return;
+            }
+            if (m.Msg == Native.WM_DISPLAYCHANGE)
+            {
+                base.WndProc(ref m);
+                if (!IsDisposed && IsHandleCreated)
+                {
+                    BeginInvoke((Action)delegate
+                    {
+                        if (IsDisposed) return;
+                        EnsureWindowVisible();
+                        LayoutPanels();
+                        SyncWebViewBounds();
+                    });
+                }
                 return;
             }
             if (m.Msg == Native.WM_GETMINMAXINFO)

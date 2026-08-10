@@ -239,10 +239,9 @@ async function handleApi(req, res, pathname) {
     let rawProvider = (body && body.provider) || body;
     // F2 (安全): the UI may send back a masked apiKey (`••••…`) from GET /api/status — restore the real
     // key from the same-id provider in config before firing the test, else the test would use the mask.
-    if (rawProvider && typeof rawProvider === 'object' && typeof rawProvider.apiKey === 'string' && rawProvider.apiKey.startsWith(KEY_MASK_PREFIX)) {
+    if (rawProvider && typeof rawProvider === 'object') {
       const cfg = await readConfig();
-      const prev = (Array.isArray(cfg.providers) ? cfg.providers : []).find(p => String(p && p.id || '') === String(rawProvider.id || ''));
-      rawProvider = { ...rawProvider, apiKey: (prev && typeof prev.apiKey === 'string') ? prev.apiKey : '' };
+      rawProvider = unmaskProviders([rawProvider], cfg.providers)[0];
     }
     const sp = sanitizeProvider(rawProvider);
     if (!sp) return send(res, json({ ok: false, error: 'invalid provider (need at least an id + baseUrl)' }));

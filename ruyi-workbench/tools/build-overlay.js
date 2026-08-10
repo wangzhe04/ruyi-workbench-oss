@@ -95,6 +95,10 @@ const PAYLOAD_FILES = [
   'app/public/vendor/github-dark.min.css',
   'app/public/vendor/github.min.css',
   'Start-Workbench.cmd',
+  // The launcher prefers the native shell. Overlay releases must ship both files together so a native
+  // hotfix (for example per-monitor DPI recovery) reaches existing offline installations as well.
+  'RuyiDesktop.exe',
+  'WebView2Loader.dll',
   'resources/scripts/install-workbench.ps1',
   'tools/fake-claude.js',
   'tools/dev-serve.cmd',

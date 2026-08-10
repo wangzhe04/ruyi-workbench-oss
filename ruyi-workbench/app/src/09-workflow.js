@@ -1307,6 +1307,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // DeepSeek restores the search results server-side and the model continues on the next call.
       const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
+      applyProviderReasoningEffort(b, provider, 'responses');
       const loadedTools = toolLoading.current();
       // v1.8.2: server-side web_search mapping only when the provider opts in (serverWebSearch:true) —
       // otherwise web_search stays a LOCAL function tool (builtin backend fallback, works on any provider).
@@ -1332,6 +1333,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     const b = { model, messages: msgs, stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
+    applyProviderReasoningEffort(b, provider, 'chat');
     const loadedTools = toolLoading.current();
     if (withTools && loadedTools.length) { b.tools = loadedTools; b.tool_choice = 'auto'; }
     return b;

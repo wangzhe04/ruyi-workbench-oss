@@ -8537,6 +8537,21 @@ const CLAUDE_ENDPOINT_PRESETS = [
   },
 ];
 
+// Keep this allowlist shared by config normalization and request construction. Omission means "use the
+// endpoint/model default"; selected values use the OpenAI-compatible fields for their respective APIs.
+const PROVIDER_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+function providerReasoningEffort(provider) {
+  const effort = String(provider && (provider.reasoningEffort || provider.reasoning_effort) || '').trim().toLowerCase();
+  return PROVIDER_REASONING_EFFORTS.has(effort) ? effort : '';
+}
+function applyProviderReasoningEffort(body, provider, apiStyle) {
+  const effort = providerReasoningEffort(provider);
+  if (!effort || !body || typeof body !== 'object') return body;
+  if (apiStyle === 'responses') body.reasoning = { effort };
+  else body.reasoning_effort = effort;
+  return body;
+}
+
 // Fold one raw provider entry onto a safe, fully-populated shape. Returns null if unusable (no id).
 function sanitizeProvider(raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -8600,6 +8615,7 @@ function sanitizeProvider(raw) {
     model: str(raw.model, 120).trim(),
     models,
     reasoning: raw.reasoning === true,
+    reasoningEffort: providerReasoningEffort(raw),
     // v1.7: apiStyle — protocol preference for this provider: 'chat' (default, OpenAI Chat Completions) or
     // 'responses' (OpenAI Responses API; DeepSeek added it for Codex/agent loops, v4-flash now + v4-pro from
     // 2026-08). Unknown/absent → 'chat' (向后兼容:任何既有配置零行为变化)。UI 设置里可逐 provider 切换,
@@ -9810,9 +9826,9 @@ async function providerRawCompletion(provider, history) {
   if (key) headers['authorization'] = 'Bearer ' + key;
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  const bodyObj = respStyle
+  const bodyObj = applyProviderReasoningEffort(respStyle
     ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...history]), stream: false }
-    : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false };
+    : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false }, provider, respStyle ? 'responses' : 'chat');
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -13467,6 +13483,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       // v1.8: server-side tool items appended after the translated history (DeepSeek restores search results).
       const b = { model: subModel, instructions: sys, input: [...buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), ...subServerToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
+      applyProviderReasoningEffort(b, provider, 'responses');
       // v1.8.2: mirror the parent — server-side web_search only when the provider opts in (serverWebSearch:true);
       // otherwise web_search stays a LOCAL function tool (builtin fallback).
       if (useTools) { b.tools = toResponsesTools(tools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
@@ -13474,6 +13491,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     }
     const b = { model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
+    applyProviderReasoningEffort(b, provider, 'chat');
     if (useTools) { b.tools = tools; b.tool_choice = 'auto'; }
     return b;
   };
@@ -16182,6 +16200,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // DeepSeek restores the search results server-side and the model continues on the next call.
       const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
       if (temp !== undefined) b.temperature = temp;
+      applyProviderReasoningEffort(b, provider, 'responses');
       const loadedTools = toolLoading.current();
       // v1.8.2: server-side web_search mapping only when the provider opts in (serverWebSearch:true) —
       // otherwise web_search stays a LOCAL function tool (builtin backend fallback, works on any provider).
@@ -16207,6 +16226,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     const b = { model, messages: msgs, stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
+    applyProviderReasoningEffort(b, provider, 'chat');
     const loadedTools = toolLoading.current();
     if (withTools && loadedTools.length) { b.tools = loadedTools; b.tool_choice = 'auto'; }
     return b;
@@ -17761,9 +17781,9 @@ async function singleSummaryCall(provider, messages, model) {
   // v0.8-S6: prepend the IDENTITY-ONLY layer so the summary call keeps the pinned identity (product name
   // never enters). identityOnly skips the capability/project layers — a摘要 call needs the pin, not the矩阵.
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  const bodyObj = respStyle
+  const bodyObj = applyProviderReasoningEffort(respStyle
     ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }]), stream: false }
-    : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }], stream: false };
+    : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }], stream: false }, provider, respStyle ? 'responses' : 'chat');
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -21539,10 +21559,9 @@ async function handleApi(req, res, pathname) {
     let rawProvider = (body && body.provider) || body;
     // F2 (安全): the UI may send back a masked apiKey (`••••…`) from GET /api/status — restore the real
     // key from the same-id provider in config before firing the test, else the test would use the mask.
-    if (rawProvider && typeof rawProvider === 'object' && typeof rawProvider.apiKey === 'string' && rawProvider.apiKey.startsWith(KEY_MASK_PREFIX)) {
+    if (rawProvider && typeof rawProvider === 'object') {
       const cfg = await readConfig();
-      const prev = (Array.isArray(cfg.providers) ? cfg.providers : []).find(p => String(p && p.id || '') === String(rawProvider.id || ''));
-      rawProvider = { ...rawProvider, apiKey: (prev && typeof prev.apiKey === 'string') ? prev.apiKey : '' };
+      rawProvider = unmaskProviders([rawProvider], cfg.providers)[0];
     }
     const sp = sanitizeProvider(rawProvider);
     if (!sp) return send(res, json({ ok: false, error: 'invalid provider (need at least an id + baseUrl)' }));
@@ -25614,6 +25633,8 @@ module.exports = {
   safeUrlForDisplay, // 55a:远程 URL 展示脱敏 - exposed for e2e 直测
   killAllMcpClients, // 55a:e2e 直测探针后清理 spawn 的 fake-mcp 子进程(避免 unref 子进程泄漏)
   normalizeConfig,
+  providerReasoningEffort,
+  applyProviderReasoningEffort,
   buildClaudeCliEnv,
   decodeClaudeCliText,
   // cmd8191 防线 — exposed for e2e unit assertions (长度核算与 batchSafeSpawn 同构性、围栏安全截断、降级阶梯)。
@@ -25838,5 +25859,6 @@ module.exports = {
   applyAgentWorktree,
   maskSecrets,
   unmaskSecrets,
+  unmaskProviders,
   invalidateClaudePathCache, // v1.0-S7 (perf): force a fresh claude-CLI probe after an install/settings save
 };

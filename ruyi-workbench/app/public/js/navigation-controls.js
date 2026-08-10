@@ -173,20 +173,26 @@ function renderModelChip() {
   const engEl = chip.querySelector('.mc-engine');
   const modEl = chip.querySelector('.mc-model');
   if (engEl) { engEl.textContent = isProviderMode() ? vis.label : 'Claude CLI'; engEl.style.color = vis.colorVar; }
+  const provider = activeProvider();
+  const providerMode = isProviderMode();
   const model = currentModelId() || t('provider.defaultModel');
-  const effort = state.config?.claudeThinkingEffort || '';
-  const effortLabel = effort ? t(`thinkingEffort.${effort}`) : '';
+  const effort = providerMode ? String(provider?.reasoningEffort || '') : (state.config?.claudeThinkingEffort || '');
+  const effortLabel = effort ? t(providerMode ? `provider.reasoningEffort.${effort}` : `thinkingEffort.${effort}`) : '';
   if (modEl) {
     const m = currentModelId();
-    modEl.textContent = isProviderMode()
-      ? (m || `(${t('modelMenu.unselected')})`)
-      : (effort ? t('modelMenu.modelWithEffort', { model, effort: effortLabel }) : model);
+    const displayedModel = providerMode ? (m || `(${t('modelMenu.unselected')})`) : model;
+    modEl.textContent = effort ? t('modelMenu.modelWithEffort', { model: displayedModel, effort: effortLabel }) : displayedModel;
   }
-  chip.title = (!isProviderMode() && effort)
+  chip.title = effort
     ? t('modelMenu.chipTitleWithEffort', { engine: engineLabel(), model, effort: effortLabel })
     : t('modelMenu.chipTitle', { engine: engineLabel(), model });
 }
 const CLAUDE_THINKING_EFFORTS_UI = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
+const PROVIDER_REASONING_EFFORTS_UI = ['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+function activeProvider() {
+  const id = state.config?.activeProvider;
+  return id && id !== 'claude-cli' ? (state.config?.providers || []).find(p => p.id === id) || null : null;
+}
 async function setClaudeThinkingEffort(value) {
   const effort = CLAUDE_THINKING_EFFORTS_UI.includes(value) ? value : '';
   const previous = state.config?.claudeThinkingEffort || '';
@@ -203,6 +209,25 @@ async function setClaudeThinkingEffort(value) {
   toast(state.streaming
     ? t('modelMenu.effortChangedNextTurn', { effort: t(`thinkingEffort.${effort || 'default'}`) })
     : t('modelMenu.effortChanged', { effort: t(`thinkingEffort.${effort || 'default'}`) }), 'ok');
+  return true;
+}
+async function setProviderReasoningEffort(providerId, value) {
+  const effort = PROVIDER_REASONING_EFFORTS_UI.includes(value) ? value : '';
+  const previousProviders = state.config?.providers || [];
+  const current = previousProviders.find(p => p.id === providerId);
+  if (!current || String(current.reasoningEffort || '') === effort) return true;
+  const providers = previousProviders.map(p => p.id === providerId ? { ...p, reasoningEffort: effort } : p);
+  state.config.providers = providers;
+  renderModelChip();
+  const saved = await saveConfigPartial({ providers });
+  if (!saved) {
+    state.config.providers = previousProviders;
+    renderModelChip();
+    return false;
+  }
+  toast(state.streaming
+    ? t('modelMenu.effortChangedNextTurn', { effort: t(`provider.reasoningEffort.${effort || 'default'}`) })
+    : t('modelMenu.effortChanged', { effort: t(`provider.reasoningEffort.${effort || 'default'}`) }), 'ok');
   return true;
 }
 // Write activeProvider + model in ONE POST /api/config, then refresh chip + dependent UI + meter +
@@ -343,10 +368,30 @@ function openModelChipPopover(anchor) {
       container.appendChild(control);
     };
     addGroup('', 'Claude CLI', 'var(--eng-claude)', claudeModels, '', customModelIds, appendClaudeEffort);
+    const appendProviderEffort = provider => container => {
+      const control = el('label', 'mc-effort-control');
+      control.appendChild(el('span', 'mc-effort-label', t('provider.reasoningEffort')));
+      const select = el('select', 'mc-effort-select');
+      for (const value of PROVIDER_REASONING_EFFORTS_UI) {
+        const option = el('option');
+        option.value = value;
+        option.textContent = t(`provider.reasoningEffort.${value || 'default'}`);
+        select.appendChild(option);
+      }
+      select.value = PROVIDER_REASONING_EFFORTS_UI.includes(provider.reasoningEffort) ? provider.reasoningEffort : '';
+      select.onchange = async () => {
+        select.disabled = true;
+        const saved = await setProviderReasoningEffort(provider.id, select.value);
+        if (saved) close();
+        else select.disabled = false;
+      };
+      control.appendChild(select);
+      container.appendChild(control);
+    };
     // One group per configured provider.
     for (const p of (state.config.providers || [])) {
       const vis = engineVisual({ engine: 'openai', providerId: p.id, providerLabel: p.label || p.id });
-      addGroup(p.id, p.label || p.id, vis.colorVar, (p.models || []), t('modelMenu.noModelsHint'));
+      addGroup(p.id, p.label || p.id, vis.colorVar, (p.models || []), t('modelMenu.noModelsHint'), null, appendProviderEffort(p));
     }
     // Footer actions.
     wrap.appendChild(el('div', 'mc-sep'));

@@ -990,9 +990,9 @@ async function providerRawCompletion(provider, history) {
   if (key) headers['authorization'] = 'Bearer ' + key;
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  const bodyObj = respStyle
+  const bodyObj = applyProviderReasoningEffort(respStyle
     ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...history]), stream: false }
-    : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false };
+    : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false }, provider, respStyle ? 'responses' : 'chat');
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;

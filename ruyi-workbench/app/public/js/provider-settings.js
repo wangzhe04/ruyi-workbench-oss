@@ -578,6 +578,25 @@ function providerCard(p, idx) {
   const dl = el('datalist'); dl.id = `provModels_${idx}`; for (const m of (p.models || [])) { const o = el('option'); o.value = m.id; o.textContent = m.label || m.id; dl.appendChild(o); }
   mb.append(mi, dl); grid.append(kb, mb);
 
+  // A provider can be used even when its /models endpoint is unavailable or incomplete. Keep a manual list
+  // of model IDs alongside the single active-model input; the same list also supplies its datalist suggestions.
+  const modelListB = el('div', 'field-block'); modelListB.append(el('label', '', t('provider.manualModels')));
+  const modelListI = el('textarea'); modelListI.rows = 3; modelListI.placeholder = t('provider.manualModelsPlaceholder');
+  modelListI.value = Array.isArray(p.models) ? p.models.map(m => String((m && m.id) || '').trim()).filter(Boolean).join('\n') : '';
+  modelListI.oninput = () => {
+    const seen = new Set();
+    const models = [];
+    for (const line of modelListI.value.split('\n')) {
+      const id = line.trim().slice(0, 120);
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      models.push({ id, label: id });
+    }
+    p.models = models;
+    if (!p.model && models.length) p.model = models[0].id;
+  };
+  modelListB.append(modelListI, el('p', 'field-help muted', t('provider.manualModelsHint')));
+
   // v1.0.2 (G5b): 上下文窗口手动覆盖(留空=自动检测)。其下小字显示当前生效值(仅当前激活 provider 有,取
   // /api/status.contextWindowResolved),source 人话映射。空串保存时删该字段(providerCard 写 p.contextWindow)。
   const cwB = el('div', 'field-block'); cwB.append(el('label', '', t('provider.contextWindow')));
@@ -695,7 +714,7 @@ function providerCard(p, idx) {
   adv.append(sb, tb, eb, hb);
 
   const status = el('div', 'prov-status muted'); status.id = `provStatus_${idx}`;
-  card.append(head, cap, b2, grid, cwB, priceB, adv, status);
+  card.append(head, cap, b2, grid, modelListB, cwB, priceB, adv, status);
   return card;
 }
 // v1.0.2 (G5b): 「当前生效」小字。仅当此 provider 是当前激活引擎时,从 /api/status.contextWindowResolved 取
@@ -720,7 +739,15 @@ async function testProvider(idx, btn) {
   try {
     const r = await api('/api/provider/test', { method: 'POST', body: JSON.stringify({ provider: p }) });
     if (r && r.ok) {
-      if (Array.isArray(r.models) && r.models.length) p.models = r.models;
+      if (Array.isArray(r.models) && r.models.length) {
+        const existing = new Set((Array.isArray(p.models) ? p.models : []).map(m => String((m && m.id) || '').trim()).filter(Boolean));
+        p.models = [...(Array.isArray(p.models) ? p.models : []), ...r.models.filter(m => {
+          const id = String((m && m.id) || '').trim();
+          if (!id || existing.has(id)) return false;
+          existing.add(id);
+          return true;
+        })];
+      }
       if (status) { status.textContent = tCount('provider.testSuccess', r.models ? r.models.length : 0); status.classList.remove('bad'); status.classList.add('good'); }
       renderProviders();
     } else if (status) { status.textContent = `✗ ${(r && r.error) || t('provider.testFailure')}`; status.classList.remove('good'); status.classList.add('bad'); }
