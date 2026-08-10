@@ -125,3 +125,4 @@
 - [11-m1-context-tiering.md](11-m1-context-tiering.md) — M1 实施文档：编排上下文分级注入（07 候选 B 波前半，2026-08-10，全局层 + per-node context 覆盖，唯一 P0）
 - [12-agent-architecture-research-roadmap.md](12-agent-architecture-research-roadmap.md) — Agent 架构研究补充路线（2026-08-10：Evidence Graph → 工作流候选 → 离线 Champion–Challenger → 关系化记忆 / Replan Patch；含隐私、人类审批与暂缓项）
 - [13-r1-evidence-graph.md](13-r1-evidence-graph.md) - R1 实施文档：Evidence Graph（阶段 C，P0，2026-08-10，证据契约 + 引用校验 + 脱敏 + 威胁建模 + fake e2e，M6 工程化落点）
+- [14-m2-deterministic-nodes.md](14-m2-deterministic-nodes.md) - M2 实施文档：确定性节点扩展 + vote 防误杀（阶段 C 后半，2026-08-10，abstainThreshold 低置信弃权 + coverage/propagate 确定性节点，M3 机器版 + R1 数据源）

@@ -100,7 +100,7 @@
 
 **后续候选 C–F · Agent 架构研究补充（2026-08-10 纳入；不代表自动实现）**：在 MicroAgent M1–M6 之上，新增五段受控闭环：R1 claim-level Evidence Graph（P0，M6 的工程化落点）→ R2 从已验收轨迹归纳、人工发布的 Workflow Candidate Factory（P1）→ R3 基于 M4/HB360 的离线 Champion–Challenger Lab（P1）→ R4 Local Memory Graph（P2）与 R5 Replan Patch Ledger（P2）。所有能力都止于候选/提案，禁止自动发布模板、篡改记忆、扩大权限或在线学习。详细的架构、分期、验收和暂缓项见 [`optimization-plan/12-agent-architecture-research-roadmap.md`](optimization-plan/12-agent-architecture-research-roadmap.md)。
 
-- **候选 C**：M2 确定性结构节点 + R1 Evidence Graph；先将“断言/结论 → 工具结果/文件片段/来源/人工确认”变成可校验关系。**R1 设计文档已落** [`optimization-plan/13-r1-evidence-graph.md`](optimization-plan/13-r1-evidence-graph.md)（P0，证据契约 + 引用校验 + 脱敏 + 威胁建模 + fake e2e，M6 工程化落点）；M2 设计文档待立（阶段 C 后半）。
+- **候选 C**：M2 确定性结构节点 + R1 Evidence Graph；先将“断言/结论 → 工具结果/文件片段/来源/人工确认”变成可校验关系。**R1 设计文档已落** [`optimization-plan/13-r1-evidence-graph.md`](optimization-plan/13-r1-evidence-graph.md)（P0，证据契约 + 引用校验 + 脱敏 + 威胁建模 + fake e2e，M6 工程化落点）；M2 设计文档待立（阶段 C 后半）。**M2 设计文档已落** [`optimization-plan/14-m2-deterministic-nodes.md`](optimization-plan/14-m2-deterministic-nodes.md)：vote 防误杀（abstainThreshold 低置信弃权，默认 0 存量零迁移）+ coverage/propagate 确定性节点（机器版 coverage 是 M3 校验源 + R1 evidence 数据源）。**阶段 C 设计齐备（R1+M2），下一步进实现**。
 - **候选 D**：R2 Workflow Candidate Factory；只使用充分验收、脱敏且证据完整的轨迹，候选经隔离回放和用户确认后才可成为项目模板。
 - **候选 E**：R3 Champion–Challenger Lab；不做线上 MCTS，先对受限变体在固定基准和 holdout 上做可重放的单轴/全量对比。
 - **候选 F**：R4/R5；项目内的关系化记忆与可审查重规划 patch。它们依赖 C 的来源契约，沿用现有权限、任务池与恢复防重放边界。
