@@ -97,6 +97,8 @@ context: { type: 'string', description: 'optional node-level context injected ON
 | **prompt 快照门** | `prompt-snapshot.static.e2e.js` E 段锁 effectiveTask 的节流/证据注入。若 M1 改动被快照门捕捉，需按 intentional 流程更新快照（改动可见、review 确认） |
 | **模板作者滥用** | 节点层 context 与全局层重复 → 文档强调「节点层放该节点独有信息」，避免把全局背景重复塞进每个节点（那正是要消除的浪费） |
 
+| **恢复不对称性（对抗验证发现，非阻断）** | 全局 `contextText` 原本就未持久化进 run 记录（原有问题）；M1 后 `node.context` 会持久化 -> 续跑时节点有节点上下文、缺全局上下文。不比改前更差（改前两者都丢），但 M1 让该限制可见。处置：本波文档记录，后续单独修（持久化 `run.contextText` 并在 resume 路径回传 `runAgentWorkflow`）；当前不阻塞 |
+
 ---
 
 ## 7. 验收（文档层面先行）

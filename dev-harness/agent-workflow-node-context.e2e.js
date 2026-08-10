@@ -66,6 +66,7 @@ function nodeRequestUserTexts() {
     const reqs = nodeRequestUserTexts();
     const aReq = reqs.find(r => r.includes('TASK_A')) || '';
     const bReq = reqs.find(r => r.includes('TASK_B')) || '';
+    ok(aReq.length > 0 && bReq.length > 0, 'M1: both node requests captured (guard against empty-string false positives)');
     ok(aReq.includes('NODE_A_ONLY_MARKER'), 'M1: node A receives its node-level context');
     ok(aReq.includes('GLOBAL_CTX_MARKER'), 'M1: node A also receives the global context');
     ok(!bReq.includes('NODE_A_ONLY_MARKER'), 'M1: node B does NOT receive node A context (per-node isolation)');
