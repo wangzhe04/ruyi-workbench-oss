@@ -103,12 +103,12 @@ function seedJourneys(home) {
     mission: {
       goal: '验证原始消息、结果、台账和班组游标', createdAt, updatedAt, autoMode: 'off', changeSeq: 91,
       milestones: [
-        { id: 'm1', desc: '读取历史', status: 'done', evidence: '170 rows', check: null },
-        { id: 'm2', desc: '等待确认', status: 'pending', evidence: '', check: null },
+        { id: 'm1', desc: '原始消息在内容窗口内保持顺序且可继续加载', status: 'done', evidence: '已核验 170 条记录', check: null },
+        { id: 'm2', desc: '结果、台账与班组游标均来自同一权威快照', status: 'pending', evidence: '', check: null },
       ],
       budget: { maxAutoTurns: 100, maxTokens: 500000 }, spent: { autoTurns: 85, tokens: 15000 },
       stall: { lastSignature: '', sameCount: 0 },
-      result: { status: 'stopped', how: 'fixture', finishedAt: updatedAt, unfinished: [{ id: 'm2', desc: '等待确认', status: 'pending' }] },
+      result: { status: 'stopped', how: 'fixture', finishedAt: updatedAt, unfinished: [{ id: 'm2', desc: '结果、台账与班组游标均来自同一权威快照', status: 'pending' }] },
     },
   }, messages);
   writeSession(home, {
@@ -317,6 +317,9 @@ try {
       processOpen: document.querySelector('.preview-process-details')?.open === true,
       lensCount: document.querySelectorAll('.preview-lens-tab').length,
       progressItems: document.querySelectorAll('.preview-progress-item').length,
+      processActions: document.querySelectorAll('.preview-process-actions button').length,
+      bottomBars: document.querySelectorAll('.preview-task-bottom').length,
+      railLefts: ['.preview-task-status', '.preview-task-outcome', '.preview-process-details'].map(selector => Math.round(document.querySelector(selector)?.getBoundingClientRect().left || -1)),
     };
   })()`);
   ok(sheet && sheet.renderer === 'chat-static-renderer' && sheet.markdown && sheet.tool && sheet.actions === 0 && sheet.turnActions === 0,
@@ -337,6 +340,8 @@ try {
     'B9 Wave 100 task sheet exposes status/outcome/process hierarchy and keeps stopped process collapsed');
   ok(sheet && sheet.lensCount === 2 && sheet.progressItems === 2,
     'B10 merged worksite/raw lenses and explainable acceptance rows replace the old three-lens counter');
+  ok(sheet && sheet.processActions === 2 && sheet.bottomBars === 0 && Math.max(...sheet.railLefts) - Math.min(...sheet.railLefts) <= 1,
+    'B11 terminal status, outcome, and process share one rail; classic/refresh actions live in the process header without a bottom bar');
 
   if (process.env.RUYI_PREVIEW_SCREENSHOT_DIR) {
     const shotDir = path.resolve(process.env.RUYI_PREVIEW_SCREENSHOT_DIR);
@@ -367,7 +372,7 @@ try {
   }
 
   const started = await cdp.evaluate(`(async () => {
-    document.querySelector('.preview-task-actions .ghost').click();
+    document.querySelector('.preview-process-actions .ghost').click();
     for (let i = 0; i < 400 && (document.documentElement.getAttribute('data-shell-mode') !== 'classic'
       || window.state?.currentSession?.id !== '${ids.sessionId}'); i++) await new Promise(r => setTimeout(r, 10));
     const input = document.getElementById('promptInput');

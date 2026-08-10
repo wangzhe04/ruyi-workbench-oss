@@ -32,6 +32,7 @@ if (Test-Path -LiteralPath $iconSrc) { $iconArgs += "/win32icon:$iconSrc" }
 else { Write-Host "[Ruyi] ruyi.ico not found, building without embedded icon (run desktop\build-icon.ps1 first)" }
 & $csc @('/nologo','/target:winexe','/platform:x64','/optimize+','/codepage:65001',
   '/r:System.dll','/r:System.Core.dll','/r:System.Windows.Forms.dll','/r:System.Drawing.dll',
+  '/r:System.Web.Extensions.dll',
   "/win32manifest:$manifest","/out:$outExe") @iconArgs $src
 if ($LASTEXITCODE -ne 0) { throw "csc build failed (exit $LASTEXITCODE)" }
 

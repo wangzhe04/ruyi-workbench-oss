@@ -60,7 +60,13 @@ function startProvider() {
     const id = 'chatcmpl-mr';
     const msgs = Array.isArray(parsed.messages) ? parsed.messages : [];
     const done = msgs.filter(m => m && m.role === 'tool').length;
+    const userTurns = msgs.filter(m => m && m.role === 'user').length;
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+    if (userTurns > 1) {
+      const followup = raw.match(/\[(accept_followup_[a-f0-9]+)\]/i);
+      if (done === 4 && followup) return emitToolCall(res, id, 'call_followup', 'mission_update', { milestones: [{ id: followup[1], status: 'done', evidence: '第二回合验收通过' }] });
+      return emitText(res, id, '第二回合最新交付');
+    }
     if (done === 0) return emitToolCall(res, id, 'call_m1', 'mission_update', { milestones: [{ id: 'm1', status: 'done', evidence: '第一步完成' }] });
     if (done === 1) return emitToolCall(res, id, 'call_m2', 'mission_update', { milestones: [{ id: 'm2', status: 'done', evidence: '第二步完成' }] });
     if (done === 2) return emitToolCall(res, id, 'call_cmd', 'powershell_run', { command: 'echo seventy-two' });
@@ -97,6 +103,19 @@ function spawnWb() {
     ok(await waitHealth(WB_PORT), 'workbench up');
     let token = readToken(); ok(!!token, 'runtime token available');
 
+    const legacyCreated = await requestJson(WB_PORT, '/api/sessions', { title: 'legacy-acceptance-copy' }, token);
+    const legacySid = legacyCreated.json && legacyCreated.json.session && legacyCreated.json.session.id;
+    await requestJson(WB_PORT, '/api/mission', { action: 'start', sessionId: legacySid, token, mission: {
+      goal: '帮我分析一下这周美股的走势',
+      milestones: [
+        { id: 'delivery', desc: '帮我分析一下这周美股的走势', status: 'pending' },
+        { id: 'followup_deadbeef', desc: '再帮我看看A股的呢', status: 'pending' },
+      ],
+    } }, token);
+    const legacyDetail = await requestJson(WB_PORT, '/api/missions/' + legacySid, null, token);
+    const legacyItems = legacyDetail.json && legacyDetail.json.snapshot && legacyDetail.json.snapshot.acceptance.items;
+    ok(Array.isArray(legacyItems) && legacyItems.every(item => !/帮我.*股/.test(String(item.desc || ''))), 'legacy delivery/followup 摘要加载时迁移为验收标准');
+
     // ============ (a) 回合内全 done -> complete 章 + 不可逆账 ============
     const created = await requestJson(WB_PORT, '/api/sessions', { title: 'mission-result-a' }, token);
     const sid = created.json && created.json.session && created.json.session.id;
@@ -130,6 +149,20 @@ function spawnWb() {
     ok(res && typeof res.deliverableText === 'string' && res.deliverableText.includes('全部完成'), '(a) result.deliverableText 含最后 assistant 正文(不依赖 SSE 流时序)');
     ok(snap && Array.isArray(snap.resultHistory) && snap.resultHistory.length === 0, '(a) 首次盖章 resultHistory 为空');
 
+    // 追加回合必须用本轮 assistant 正文重建主 result；第一轮只进入 resultHistory。
+    const next = await requestJson(WB_PORT, '/api/missions/' + sid + '/control', { action: 'next_turn', prompt: '追加第二回合验证' }, token);
+    ok(next.status === 200 && next.json && next.json.requiresTurn === true, '(a2) complete 任务可追加第二回合');
+    await streamChat({ sessionId: sid, message: '追加第二回合验证' }, token);
+    let second = null;
+    for (let i = 0; i < 60 && !second; i++) {
+      const det = await requestJson(WB_PORT, '/api/missions/' + sid, null, token);
+      const candidate = det.json && det.json.snapshot;
+      if (candidate && candidate.result && String(candidate.result.deliverableText || '').includes('第二回合最新交付')) second = candidate;
+      else await sleep(150);
+    }
+    ok(second && second.result.deliverableText.includes('第二回合最新交付'), '(a2) 第二回合完成后主交付正文来自第二回合');
+    ok(second && second.resultHistory.some(item => String(item && item.deliverableText || '').includes('全部完成')), '(a2) 第一回合交付仅保留在历史验收记录');
+
     // ============ (b) 再武装清章 + stop 盖章 + 路由路径 complete + 不重复盖章 ============
     const rearm = await requestJson(WB_PORT, '/api/mission', { action: 'update', sessionId: sid, token, patch: { milestones: [{ id: 'm3', desc: '追加第三步', status: 'pending' }] } }, token);
     ok(rearm.status === 200 && rearm.json && rearm.json.mission && rearm.json.mission.result == null, '(b) 再武装(加 pending 里程碑)-> 旧 complete 章清理');
@@ -138,12 +171,12 @@ function spawnWb() {
     const sres = stopped.json && stopped.json.mission && stopped.json.mission.result;
     ok(!!sres && sres.status === 'stopped' && sres.how === 'stop', '(b) stop -> 盖 stopped 章');
     ok(!!sres && sres.unfinished.some(u => u.id === 'm3' && u.status === 'pending'), '(b) stopped 章列出未完成项(m3 pending)');
-    ok(!!sres && sres.acceptance.done === 2 && sres.acceptance.total === 3, '(b) stopped 章验收 2/3');
+    ok(!!sres && sres.acceptance.done === 3 && sres.acceptance.total === 4, '(b) stopped 章验收 3/4');
 
     const fin = await requestJson(WB_PORT, '/api/mission', { action: 'update', sessionId: sid, token, patch: { milestones: [{ id: 'm3', status: 'done', evidence: '补完' }] } }, token);
     const fres = fin.json && fin.json.mission && fin.json.mission.result;
     ok(!!fres && fres.status === 'complete' && fres.how === 'update', '(b) 剩余标 done -> 路由路径盖 complete 章');
-    ok(!!fres && fres.acceptance.done === 3, '(b) complete 章验收 3/3');
+    ok(!!fres && fres.acceptance.done === 4, '(b) complete 章验收 4/4');
     const stamp1 = fres && fres.finishedAt;
     const again = await requestJson(WB_PORT, '/api/mission', { action: 'update', sessionId: sid, token, patch: { milestones: [{ id: 'm3', status: 'done', evidence: '重复更新' }] } }, token);
     ok(again.json && again.json.mission && again.json.mission.result && again.json.mission.result.finishedAt === stamp1, '(b) 重复 update 不重复盖章(finishedAt 稳定)');
@@ -151,11 +184,11 @@ function spawnWb() {
     // 历史轮次验收报告留存:resultHistory 不丢旧轮次(rearm 归档 complete@2/2,盖新 complete 前归档 stopped)。
     const detB = await requestJson(WB_PORT, '/api/missions/' + sid, null, token);
     const histB = detB.json && detB.json.snapshot && detB.json.snapshot.resultHistory;
-    ok(Array.isArray(histB) && histB.length === 2, '(b) resultHistory 留存 2 条旧轮次(complete@2/2 + stopped)');
+    ok(Array.isArray(histB) && histB.length === 3, '(b) resultHistory 留存追加回合前后与 stopped 旧章');
     ok(histB && histB[0] && histB[0].status === 'complete' && histB[0].acceptance && histB[0].acceptance.done === 2, '(b) 历史首条 = 旧 complete@2/2');
-    ok(histB && histB[1] && histB[1].status === 'stopped', '(b) 历史第二条 = stopped 章');
+    ok(histB && histB[histB.length - 1] && histB[histB.length - 1].status === 'stopped', '(b) 历史末条 = stopped 章');
     ok(histB && typeof histB[0].deliverableText === 'string', '(b) 历史轮次带 deliverableText(第97波归档保留完整正文,支持新窗口全文)');
-    ok(fres && typeof fres.deliverableText === 'string' && fres.deliverableText.includes('全部完成'), '(b) 新 complete 章带 deliverableText(本轮完整)');
+    ok(fres && typeof fres.deliverableText === 'string' && fres.deliverableText.includes('第二回合最新交付'), '(b) 新 complete 章保持最新回合 deliverableText');
 
     // ============ (c) 旧会话诚实标注(legacyCommands)============
     kill(wb); await sleep(500);
@@ -172,7 +205,7 @@ function spawnWb() {
     const iv2 = det2.json && det2.json.snapshot && det2.json.snapshot.irreversible;
     ok(!!iv2 && iv2.legacyCommands === 2, '(c) 旧回合 commands=2 单列 legacyCommands(不混入新账)');
     ok(!!iv2 && iv2.total === 1, '(c) 新账 total 仍为 1(旧计数不污染明细)');
-    ok(!!(det2.json.snapshot.result) && det2.json.snapshot.result.status === 'complete' && det2.json.snapshot.result.acceptance.done === 3, '(c) 重启后 complete 章仍在(持久化)');
+    ok(!!(det2.json.snapshot.result) && det2.json.snapshot.result.status === 'complete' && det2.json.snapshot.result.acceptance.done === 4, '(c) 重启后 complete 章仍在(持久化)');
 
     // ============ (s) 静态锁 ============
     console.log('\n── [s] 静态锁 ──');
@@ -185,13 +218,16 @@ function spawnWb() {
     ok(/result: \(p\.result && typeof p\.result === 'object'\) \? p\.result : null,/.test(src), 's 02 normalizeMission 深拷携带 result');
     ok(/const result = await missionControlCommand\(sessionId, 'stop'\)/.test(src) && /mission\.result = await buildMissionResult\(session, \{ status: 'stopped', how: 'stop' \}\)/.test(src), 's 13 stop 复用整单控制核心盖 stopped 章');
     ok(/await maybeFinalizeMission\(session, 'check'\)/.test(src) && /await maybeFinalizeMission\(session, 'update'\)/.test(src), 's 13 check/update 接线盖章');
-    ok(/Object\.defineProperty\(session, '__missionFinalizeHow'/.test(src) && /if \(session\.__missionFinalizeHow\) \{/.test(src), 's 09 回合内 mission_update 推迟盖章 + 收尾 finalize(含本回合摘要)');
-    ok(/if \(onDisk && onDisk\.mission && typeof onDisk\.mission === 'object'\) session\.mission = onDisk\.mission;/.test(src), 's 05 claude 收尾磁盘回读补 mission(loopback 盖章防盖回)');
+    ok(/Object\.defineProperty\(session, '__missionFinalizeHow'/.test(src) && /finalizeMissionAfterTurn\(session, how\)/.test(src), 's 09 回合内 mission_update 推迟盖章 + 收尾 finalize(含本回合交付)');
+    ok(/if \(onDisk && onDisk\.mission && typeof onDisk\.mission === 'object'\) session\.mission = onDisk\.mission;/.test(src)
+      && /async function finalizeMissionAfterTurn\(session, how\)/.test(src), 's 05 claude 收尾回读后重建当前轮 result，不再沿用上一轮交付');
     ok(/result: \(session\.mission && session\.mission\.result\) \|\| null,/.test(src), 's 13d 快照带 result');
     ok(/const fold = foldTurnSummaries\(session\);/.test(src), 's 13d 折叠走 foldTurnSummaries(NaN bug 修复)');
     ok(/function archiveMissionResult\(mission\)/.test(src), 's 02 archiveMissionResult 归档旧 result');
     ok(/resultHistory: Array\.isArray\(p\.resultHistory\) \? p\.resultHistory\.slice\(-10\) : \[\],/.test(src), 's 02 normalizeMission 深拷携带 resultHistory');
     ok(/deliverableText = msg\.content\.slice\(0, 16000\)/.test(src), 's 02 buildMissionResult 取最后 assistant content 作 deliverableText');
+    ok(/function followupAcceptanceCriterion\(prompt, followup = true\)/.test(src) && !/desc: prompt\.slice\(0, MISSION_MAX_TEXT\)/.test(src), 's 02 追加回合建立验收标准，不把用户提示原文重复为验收项');
+    ok(/id === 'delivery' && rawDesc\.trim\(\) === goal\.trim\(\)/.test(src) && /\^followup_/.test(src), 's 02 旧 delivery/followup 摘要项加载时迁移为验收式表述');
     ok(/resultHistory: Array\.isArray\(session\.mission && session\.mission\.resultHistory\) \? session\.mission\.resultHistory : \[\],/.test(src), 's 13d 快照带 resultHistory');
     ok(/archiveMissionResult\(mission\);/.test(src) && /archiveMissionResult\(m\);/.test(src), 's 02 stop/retry/next_turn/rollback + 再武装 前归档旧 result');
     // 第97波:历史轮次验收报告全文 —— 归档不再裁 deliverableText(slice(0, 2000) 移除),preview 壳

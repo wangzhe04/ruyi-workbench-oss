@@ -32,13 +32,14 @@ for (const domain of ['preview-store.js', 'preview-dock-home.js', 'preview-task-
   ok(shell.includes(`from './${domain}'`) || (domain === 'preview-store.js' && shell.includes("from './preview-store.js'")), `W100-0 ${domain} 已从单体壳分域`);
 }
 ok(shell.includes("statusSection.dataset.section = 'status'") && shell.includes("outcomeSection.dataset.section = 'outcome'")
-  && shell.includes('article.append(statusSection, outcomeSection, processDetails, bottom)'),
+  && shell.includes('article.append(statusSection, outcomeSection, processDetails)') && !shell.includes("text('section', 'preview-task-bottom'"),
   'W100-1 任务单按现状/结果与行动/过程三段组织');
 ok(shell.includes("{ id: 'scene'") && shell.includes("{ id: 'raw'")
   && !shell.includes("{ id: 'crew', label") && shell.includes('sceneLens.append(narrativeLens, crewLens)'),
   'W100-2 现场纪要与班组工序合并，原始记录保持专家入口');
 ok(shell.includes('renderProgressItems(article, snapshot)') && taskSheetModule.includes('snapshot.acceptance.items')
-  && taskSheetModule.includes('activeAcceptanceIndex'), 'W100-3 x/y 进度可展开为权威验收项并标出当前项');
+  && taskSheetModule.includes('activeAcceptanceIndex') && taskSheetModule.includes('dispatchAcceptanceMilestones')
+  && shell.includes("t('previewShell.progressEvidence'"), 'W100-3 x/y 进度展开为独立验收标准，并将验收证据分行标注');
 ok(shell.includes("event.type === 'tool_use'") && shell.includes('toolActivityLabel(event.name)')
   && shell.includes('elapsedLabel(startedAt, now())'), 'W100-4 单 Agent 速报使用工具事件与回合耗时，不猜正文');
 ok(shell.includes("snapshot.mission?.budgetExhaustedAt") && shell.includes('stopCardSupervisedReason'),
@@ -71,16 +72,16 @@ ok(shell.includes("reportKind = files.length ? 'engineering'") && shell.includes
   && shell.includes("reportCopy.dataset.markdownReady === 'true'")
   && shell.includes('reportPreviewText(reportSource)') && !shell.includes("full.className = 'preview-finish-report-full'"),
   'A3c 收工汇报默认折叠，以正文标题预览，展开显示完整交付正文并保留用户展开状态');
-ok(css.includes('--preview-terminal-gutter') && css.includes('align-items: flex-start;')
+ok(css.includes('width: min(1040px, 100%); margin: 0 auto;') && css.includes('align-items: flex-start;')
   && css.includes('grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));'),
   'A3c2 wide terminal sheets share a centered content rail and balanced fact columns');
 ok(shell.includes("section.className = 'preview-finish-artifacts'") && shell.includes('section.open = artifactsWereOpen')
   && shell.includes("api('/api/file/reveal'") && shell.includes("reveal(path, 'open')") && shell.includes("reveal(path, 'select')"),
   'A3c3 成果清单默认折叠并保留展开状态，每项复用安全文件接口提供打开与定位');
-ok(shell.includes("text('section', 'preview-task-bottom'") && shell.includes("text('div', 'preview-continue-turn-head'")
-  && shell.includes("continueState.dataset.slot = 'continueState'") && css.includes('.preview-task-bottom')
-  && css.includes('.preview-task-actions-copy') && css.includes('.preview-continue-turn-state[data-tone="ready"]'),
-  'A3c4 底部续办与普通任务操作分组，具备用途标题、状态徽记和差异化配色');
+ok(shell.includes("text('div', 'preview-continue-turn-head'") && shell.includes("continueState.dataset.slot = 'continueState'")
+  && shell.includes("text('span', 'preview-process-actions'") && !css.includes('.preview-task-bottom')
+  && css.includes('.preview-process-actions') && css.includes('.preview-continue-turn-state[data-tone="ready"]'),
+  'A3c4 续办留在结果区，经典布局与刷新动作并入过程栏且不再渲染独立底栏');
 ok(shell.includes('narrativeTurnContext(entry)') && shell.includes('preview-narrative-outcome')
   && shell.includes('preview-narrative-goal'), 'A3d 现场纪要补任务目标、验收概况与逐回合结论');
 ok(zh['previewShell.finishSavePlaybook'] === '保存为任务模板' && zh['previewShell.finishSaveMemory'] === '记住本次偏好',

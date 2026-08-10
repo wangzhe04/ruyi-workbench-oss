@@ -3106,6 +3106,7 @@ function normalizeMission(raw, prev, trusted = true) {
   if (raw === null) return null; // 显式清空
   const o = (raw && typeof raw === 'object') ? raw : {};
   const p = (prev && typeof prev === 'object') ? prev : {};
+  const goal = String(o.goal != null ? o.goal : (p.goal || '')).slice(0, 2000);
   const fromRaw = Array.isArray(o.milestones);
   const rawMs = fromRaw ? o.milestones : (Array.isArray(p.milestones) ? p.milestones : []);
   const seen = new Set();
@@ -3114,15 +3115,19 @@ function normalizeMission(raw, prev, trusted = true) {
     let id = (mo.id != null && String(mo.id).trim()) ? String(mo.id).trim().slice(0, 64) : `m${i + 1}`;
     while (seen.has(id)) id = id + '_'; seen.add(id);
     const status = (mo.status === 'done' || mo.status === 'blocked') ? mo.status : 'pending';
+    const rawDesc = String(mo.desc == null ? '' : mo.desc).slice(0, MISSION_MAX_TEXT);
+    const desc = (id === 'delivery' && rawDesc.trim() === goal.trim())
+      ? followupAcceptanceCriterion(rawDesc, false)
+      : (/^followup_/.test(id) ? followupAcceptanceCriterion(rawDesc, true) : rawDesc);
     // 新输入的 check 按 trusted 门控;prev 深拷的 check 视为已可信(原样保留)。
-    return { id, desc: String(mo.desc == null ? '' : mo.desc).slice(0, MISSION_MAX_TEXT), status, check: normalizeMissionCheck(mo.check, fromRaw ? trusted : true), evidence: mo.evidence ? String(mo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
+    return { id, desc, status, check: normalizeMissionCheck(mo.check, fromRaw ? trusted : true), evidence: mo.evidence ? String(mo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
   });
   const budgetIn = (o.budget && typeof o.budget === 'object') ? o.budget : (p.budget || {});
   const maxAutoTurns = Math.max(1, Math.min(50, Math.round(Number(budgetIn.maxAutoTurns) || MISSION_DEFAULT_MAX_TURNS)));
   const spentIn = (p.spent && typeof p.spent === 'object') ? p.spent : {};
   const autoMode = ['off', 'until-done', 'supervised'].includes(o.autoMode) ? o.autoMode : (['off', 'until-done', 'supervised'].includes(p.autoMode) ? p.autoMode : 'off');
   return {
-    goal: String(o.goal != null ? o.goal : (p.goal || '')).slice(0, 2000),
+    goal,
     milestones,
     constraints: (Array.isArray(o.constraints) ? o.constraints : (Array.isArray(p.constraints) ? p.constraints : [])).slice(0, MISSION_MAX_CONSTRAINTS).map(c => String(c || '').slice(0, MISSION_MAX_TEXT)).filter(Boolean),
     budget: { maxAutoTurns, maxTokens: Number.isFinite(Number(budgetIn.maxTokens)) ? Math.max(0, Math.round(Number(budgetIn.maxTokens))) : 0 },
@@ -3307,6 +3312,19 @@ async function maybeFinalizeMission(session, how) {
   return false;
 }
 
+// A model can mark the last acceptance item done before it emits the final assistant text. In that case the
+// route has already produced a complete result from the previous assistant message. Rebuild that provisional
+// result once the current turn has appended its assistant message; do not archive it as a real prior round.
+async function finalizeMissionAfterTurn(session, how) {
+  const mission = session && session.mission;
+  if (mission && mission.result && mission.result.status === 'complete') {
+    mission.result = await buildMissionResult(session, { status: 'complete', how: how || mission.result.how || 'update' });
+    mission.updatedAt = nowIso();
+    return true;
+  }
+  return maybeFinalizeMission(session, how);
+}
+
 // ── 第84波:Mission 控制面单一 command core ───────────────────────────────────────────────
 // 74 波冻结语义在这里落成唯一状态机：pause/takeover 只停当前回合+驱动，stop 覆盖整单并请求停止
 // 同 Mission 的所有活 Run；continue/retry 只再武装，真正的新 provider 回合由 UI 在用户点击后显式发起。
@@ -3410,6 +3428,24 @@ function missionControlFailure(reason, status = 409, message = '') {
   return { status, body: { ok: false, reason, error: message || reason } };
 }
 
+function followupAcceptanceCriterion(prompt, followup = true) {
+  const source = String(prompt || '');
+  const chinese = /[\u3400-\u9fff]/.test(source);
+  if (/(?:分析|研究|调研|趋势|走势|比较|对比|报告|数据|市场|股票|美股|A股|research|analy[sz]e|trend|compare|market|stock)/i.test(source)) {
+    return chinese
+      ? (followup ? '追加结论覆盖新问题点名的对象与范围，并附有可核验的数据、事实或来源' : '结论直接回答目标问题、覆盖点名范围，并附有可核验的数据、事实或来源')
+      : (followup ? 'The follow-up conclusions cover the newly named subjects and scope with verifiable data, facts, or sources' : 'The conclusions directly answer the goal, cover its named scope, and include verifiable data, facts, or sources');
+  }
+  if (/(?:实现|开发|修复|重构|代码|接口|页面|组件|测试|bug|fix|implement|refactor|code|api|ui|test)/i.test(source)) {
+    return chinese
+      ? (followup ? '追加改动符合新要求，并通过相关检查或测试且未引入无关行为变化' : '请求的改动按约定范围落地，通过相关检查或测试且未引入无关行为变化')
+      : (followup ? 'The follow-up change meets the new requirements, passes relevant checks, and introduces no unrelated behavior changes' : 'The requested change is implemented within scope, passes relevant checks, and introduces no unrelated behavior changes');
+  }
+  return chinese
+    ? (followup ? '追加结果完整回应新要求，并提供可核验的交付、事实或检查结果' : '最终结果完整回应任务目标，并提供可核验的交付、事实或检查结果')
+    : (followup ? 'The follow-up result fully addresses the new request with a verifiable deliverable, fact, or check result' : 'The final result fully addresses the task goal with a verifiable deliverable, fact, or check result');
+}
+
 async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
   const action = String(rawAction || '').trim();
   const prompt = String(rawPrompt || '').trim();
@@ -3487,7 +3523,7 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
         return missionControlFailure('milestone_limit', 409, 'mission milestone limit reached');
       }
       mission.milestones.push({
-        id: makeId('followup'), desc: prompt.slice(0, MISSION_MAX_TEXT), status: 'pending',
+        id: makeId('accept_followup'), desc: followupAcceptanceCriterion(prompt).slice(0, MISSION_MAX_TEXT), status: 'pending',
         check: normalizeMissionCheck(null, true), evidence: '',
       });
     }
@@ -8348,6 +8384,10 @@ async function runClaudeTurn({
   // (12-tool-dispatch),本回合内存副本是旧的;不回读则收尾 save 把 loopback 的里程碑更新与结果章整份盖回
   // (与 todos 完全同型,此前 mission 不在回读清单是漏项)。provider 引擎是 in-process 更新,不在此列(09 不回读)。
   try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos; if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && onDisk.mission && typeof onDisk.mission === 'object') session.mission = onDisk.mission; } catch { /* keep in-memory */ }
+  if (session.__missionFinalizeHow) {
+    const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
+    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
+  }
   await saveSession(session);
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
   // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for
@@ -17030,7 +17070,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 结果快照的不可逆账/变更/验收才能包含完成它的这个回合;盖章随下方 saveSession 一并落盘。
   if (session.__missionFinalizeHow) {
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
-    try { if (await maybeFinalizeMission(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
+    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
@@ -21642,6 +21682,9 @@ async function handleApi(req, res, pathname) {
         // 同步磁盘权威的 result 与 resultHistory(归档历史是追加语义,以磁盘为准)。
         reg.session.mission.result = session.mission && session.mission.result || null;
         reg.session.mission.resultHistory = Array.isArray(session.mission && session.mission.resultHistory) ? session.mission.resultHistory.slice(-10) : [];
+        if (session.mission && session.mission.result && session.mission.result.status === 'complete' && resultBefore !== 'complete') {
+          Object.defineProperty(reg.session, '__missionFinalizeHow', { value: 'update', writable: true, configurable: true, enumerable: false });
+        }
       } else {
         reg.session.mission = session.mission;
         if (action === 'start') reg.session.kind = 'mission';

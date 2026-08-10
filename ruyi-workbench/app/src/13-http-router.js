@@ -561,6 +561,9 @@ async function handleApi(req, res, pathname) {
         // 同步磁盘权威的 result 与 resultHistory(归档历史是追加语义,以磁盘为准)。
         reg.session.mission.result = session.mission && session.mission.result || null;
         reg.session.mission.resultHistory = Array.isArray(session.mission && session.mission.resultHistory) ? session.mission.resultHistory.slice(-10) : [];
+        if (session.mission && session.mission.result && session.mission.result.status === 'complete' && resultBefore !== 'complete') {
+          Object.defineProperty(reg.session, '__missionFinalizeHow', { value: 'update', writable: true, configurable: true, enumerable: false });
+        }
       } else {
         reg.session.mission = session.mission;
         if (action === 'start') reg.session.kind = 'mission';

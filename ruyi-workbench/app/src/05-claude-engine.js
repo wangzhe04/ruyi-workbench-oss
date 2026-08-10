@@ -794,6 +794,10 @@ async function runClaudeTurn({
   // (12-tool-dispatch),本回合内存副本是旧的;不回读则收尾 save 把 loopback 的里程碑更新与结果章整份盖回
   // (与 todos 完全同型,此前 mission 不在回读清单是漏项)。provider 引擎是 in-process 更新,不在此列(09 不回读)。
   try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos; if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && onDisk.mission && typeof onDisk.mission === 'object') session.mission = onDisk.mission; } catch { /* keep in-memory */ }
+  if (session.__missionFinalizeHow) {
+    const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
+    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
+  }
   await saveSession(session);
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
   // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for

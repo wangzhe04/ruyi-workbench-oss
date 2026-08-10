@@ -36,6 +36,49 @@ export function activeAcceptanceIndex(items) {
   return list.findIndex(item => item && item.status === 'blocked');
 }
 
+export function dispatchAcceptanceMilestones(prompt) {
+  const source = String(prompt || '').trim();
+  const chinese = /[\u3400-\u9fff]/.test(source);
+  const research = /(?:分析|研究|调研|趋势|走势|比较|对比|报告|数据|市场|股票|美股|A股|research|analy[sz]e|trend|compare|market|stock)/i.test(source);
+  const engineering = /(?:实现|开发|修复|重构|代码|接口|页面|组件|测试|bug|fix|implement|refactor|code|api|ui|test)/i.test(source);
+  const artifact = /(?:文档|方案|表格|幻灯片|文件|交付|导出|生成|document|spreadsheet|slides?|file|deliver|export|create)/i.test(source);
+  let outcome;
+  let evidence;
+  if (research) {
+    outcome = chinese
+      ? '结论直接回答目标问题，并覆盖点名的对象、范围与时间口径'
+      : 'The conclusions directly answer the question and cover the named subjects, scope, and time frame';
+    evidence = chinese
+      ? '关键判断附有可核验的数据、事实或来源，并说明必要的限制与不确定性'
+      : 'Key judgments include verifiable data, facts, or sources and state material limitations and uncertainty';
+  } else if (engineering) {
+    outcome = chinese
+      ? '请求的功能或改动已按约定范围落地，且不引入无关行为变化'
+      : 'The requested behavior or change is implemented within scope without unrelated behavior changes';
+    evidence = chinese
+      ? '相关检查或测试通过，关键交互、边界情况与回归风险均有可核验结果'
+      : 'Relevant checks pass with verifiable coverage of key interactions, edge cases, and regression risk';
+  } else if (artifact) {
+    outcome = chinese
+      ? '请求的交付物已生成并可正常打开或使用，内容覆盖明确要求'
+      : 'The requested deliverable is produced, usable, and covers the explicit requirements';
+    evidence = chinese
+      ? '交付物的格式、完整性与关键内容已经过核验，并提供可定位的产出'
+      : 'The deliverable format, completeness, and key content are verified with a locatable output';
+  } else {
+    outcome = chinese
+      ? '最终结果完整回应任务目标及其中明确提出的约束'
+      : 'The final result fully addresses the task goal and its explicit constraints';
+    evidence = chinese
+      ? '关键结论或交付附有可核验的事实、产出或检查结果'
+      : 'Key conclusions or deliverables include verifiable facts, outputs, or check results';
+  }
+  return [
+    { id: 'accept-outcome', desc: outcome, status: 'pending' },
+    { id: 'accept-evidence', desc: evidence, status: 'pending' },
+  ];
+}
+
 export function elapsedLabel(startedAt, current = new Date()) {
   const start = startedAt instanceof Date ? startedAt.getTime() : Date.parse(String(startedAt || ''));
   const end = current instanceof Date ? current.getTime() : Date.parse(String(current || ''));

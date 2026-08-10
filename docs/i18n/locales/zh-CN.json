@@ -1755,6 +1755,7 @@
   "previewShell.progressStatus.done": "已完成",
   "previewShell.progressStatus.pending": "待推进",
   "previewShell.progressStatus.blocked": "受阻",
+  "previewShell.progressEvidence": "验收证据：{{p1}}",
   "previewShell.activityLabel": "现场速报",
   "previewShell.activity.needsYou": "等你拍板 · 待决 {{p1}} 项",
   "previewShell.activity.crew": "{{p1}} 正在 · {{p2}}",

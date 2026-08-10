@@ -54,7 +54,8 @@ ok(shell.includes("if (kind === 'quick_ask')") && shell.includes("applyShellMode
 ok(app.includes('async function startPreviewDispatchCommand(') && app.includes('dispatchCommand: request => startPreviewDispatchCommand(request)'), 'C1 两种交办入口只调用组合根单一 command');
 ok(app.includes("const session = await newSession({ cwd: cwd || currentWorkspace(), focus: false })"), 'C2 command 复用既有 Session 创建链');
 ok(app.includes("api('/api/mission'") && app.includes("action: 'start'") && app.includes('autoMode,'), 'C3 开工经权威 Mission start 立单并透传所选执行模式');
-ok(app.includes("milestones: [{ id: 'delivery', desc: message, status: 'pending' }]"), 'C3 首单自带待验收里程碑，首回合即可注入任务账本');
+ok(app.includes('milestones: dispatchAcceptanceMilestones(message)')
+  && app.includes("from './js/preview-task-sheet.js'"), 'C3 首单自带独立验收标准，不再把任务原话重复成验收项');
 ok(app.includes("if (kind === 'mission')") && app.includes("sendPrompt(message, { permissionMode, attachments })")
   && app.includes("kind === 'mission' && autoMode === 'supervised'"), 'C4 Mission 才立单，速问/可执行任务复用同一 chat stream，暂停模式不暗启首回合');
 ok(shell.includes("api('/api/upload'") && shell.includes('dispatchDraft.attachments = dispatchAttachments.slice()')

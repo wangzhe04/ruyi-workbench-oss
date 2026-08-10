@@ -40,6 +40,7 @@ import { createChatRenderPrimitives } from './js/chat-render-primitives.js';
 import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
 import { createPreviewShellDomain } from './js/preview-shell.js';
+import { dispatchAcceptanceMilestones } from './js/preview-task-sheet.js';
 
 // Chat streaming is composed before the Preview domain. Keep a narrow late-bound sink so the shared
 // runtime can mirror read-only deltas without importing the second shell or creating a second stream.
@@ -815,13 +816,12 @@ async function startPreviewDispatchCommand({ kind = 'mission', prompt = '', cwd 
       body: JSON.stringify({
         sessionId: session.id,
         action: 'start',
-        // Mission prompt injection intentionally requires at least one milestone. Seed the dispatch goal as
-        // the first acceptance item so the very first provider turn receives the authoritative ledger and can
-        // close it with mission_update instead of behaving like an ordinary chat turn.
+        // Mission prompt injection requires at least one milestone. Keep the goal as the user's request and
+        // seed separately worded acceptance criteria so the ledger describes what "done" means, not the task again.
         mission: {
           goal: message,
           autoMode,
-          milestones: [{ id: 'delivery', desc: message, status: 'pending' }],
+          milestones: dispatchAcceptanceMilestones(message),
         },
       }),
     });

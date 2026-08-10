@@ -1755,6 +1755,7 @@
   "previewShell.progressStatus.done": "Complete",
   "previewShell.progressStatus.pending": "Pending",
   "previewShell.progressStatus.blocked": "Blocked",
+  "previewShell.progressEvidence": "Evidence: {{p1}}",
   "previewShell.activityLabel": "Live activity",
   "previewShell.activity.needsYou": "Needs you · {{p1}} pending",
   "previewShell.activity.crew": "{{p1}} working · {{p2}}",

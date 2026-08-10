@@ -93,8 +93,8 @@ ok(/if \(selectedLens === 'raw'\) renderRawMessages\(\)/.test(shell)
   'D3 raw message DOM is lazy outside the expert lens instead of scaling with hidden history');
 ok(/new notificationApi/.test(shell) && /tag: `ruyi-intervention-\$\{id\}`/.test(shell)
   && /requestPermission\(\)/.test(shell) && /permission !== 'granted'/.test(shell)
-  && /closeNeedsNotification/.test(shell),
-  'D4 browser/Windows adapter requests permission explicitly, tags by Intervention, and closes terminal notices');
+  && /desktopNotificationBridge\(\)/.test(shell) && /ruyiNotification/.test(shell) && /closeNeedsNotification/.test(shell),
+  'D4 browser adapter requests permission while the desktop shell uses its native notification bridge');
 ok(/cfgPreviewNotifications/.test(html) && /cfgPreviewQuietStart/.test(html) && /cfgPreviewQuietEnd/.test(html)
   && /type="time"/.test(html), 'D5 settings expose an off-by-default toggle and explicit quiet-hour controls');
 ok(/\.preview-lens-switch/.test(css) && /\.preview-narrative-rail/.test(css)

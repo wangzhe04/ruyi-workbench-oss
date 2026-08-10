@@ -12,12 +12,14 @@
 
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 namespace RuyiDesktop
@@ -821,8 +823,29 @@ namespace RuyiDesktop
             menu.Items.Add(open);
             menu.Items.Add(exit);
             trayIcon.ContextMenuStrip = menu;
-            trayIcon.DoubleClick += delegate { OpenInDefaultBrowser(); };
+            trayIcon.DoubleClick += delegate { if (browserFallback) OpenInDefaultBrowser(); else ActivateShellWindow(); };
+            trayIcon.BalloonTipClicked += delegate { ActivateShellWindow(); };
             trayIcon.Visible = true;
+        }
+
+        private void ActivateShellWindow()
+        {
+            if (IsDisposed || browserFallback) { OpenInDefaultBrowser(); return; }
+            ShowInTaskbar = true;
+            Show();
+            if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+            Activate();
+            BringToFront();
+        }
+
+        private void ShowDesktopNotification(string title, string body)
+        {
+            if (IsDisposed) return;
+            EnsureTrayIcon();
+            trayIcon.BalloonTipTitle = string.IsNullOrWhiteSpace(title) ? "如意工作台" : title;
+            trayIcon.BalloonTipText = string.IsNullOrWhiteSpace(body) ? "任务正在等待你的处理。" : body;
+            trayIcon.BalloonTipIcon = ToolTipIcon.Info;
+            trayIcon.ShowBalloonTip(10000);
         }
 
         /* ---------- 服务地址就绪 → 导航 ---------- */
@@ -992,6 +1015,20 @@ namespace RuyiDesktop
             if (IsDisposed || string.IsNullOrEmpty(json)) return;
             if (json.IndexOf("\"ruyiTheme\":\"light\"", StringComparison.Ordinal) >= 0) ApplyTheme(true);
             else if (json.IndexOf("\"ruyiTheme\":\"dark\"", StringComparison.Ordinal) >= 0) ApplyTheme(false);
+            try
+            {
+                var root = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(json);
+                object value;
+                if (root != null && root.TryGetValue("ruyiNotification", out value))
+                {
+                    var notice = value as Dictionary<string, object>;
+                    object title, body;
+                    string titleText = notice != null && notice.TryGetValue("title", out title) ? Convert.ToString(title) : "";
+                    string bodyText = notice != null && notice.TryGetValue("body", out body) ? Convert.ToString(body) : "";
+                    ShowDesktopNotification(titleText, bodyText);
+                }
+            }
+            catch { /* malformed or unrelated page message */ }
         }
 
         private void ApplyTheme(bool light)

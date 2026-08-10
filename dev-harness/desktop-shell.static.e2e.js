@@ -16,6 +16,10 @@ ok(/WindowState\s*==\s*FormWindowState\.Maximized\s*\?\s*0\s*:\s*ResizeBorder/.t
 ok(/titlePanel\.SetBounds\(inset, inset/.test(source) && /webPanel\.SetBounds\(inset, inset \+ TitlebarHeight/.test(source), 'WebView/title children stay inside resize band');
 for (const hit of [13, 14, 16, 17, 10, 11, 12, 15])
   ok(new RegExp(`m\\.Result = \\(IntPtr\\)${hit}`).test(source), `native hit-test result ${hit} present`);
+ok(/ruyiNotification/.test(source) && /ShowDesktopNotification/.test(source) && /ShowBalloonTip\(10000\)/.test(source),
+  'WebView messages bridge task notifications to the native Windows tray');
+ok(/BalloonTipClicked/.test(source) && /ActivateShellWindow\(\)/.test(source),
+  'clicking a native notification restores and focuses the desktop window');
 
 console.log('\nDESKTOP SHELL STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

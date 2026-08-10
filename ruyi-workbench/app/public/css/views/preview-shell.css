@@ -362,16 +362,12 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
 .preview-intake-ledger.is-actionable { cursor: pointer; }
 .preview-intake-ledger.is-actionable:hover,
 .preview-intake-ledger.is-actionable:focus-visible { border-color: var(--preview-accent); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--preview-accent) 12%, transparent); }
-.preview-task-actions { padding: 12px var(--sp-4); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); border-top: 1px solid color-mix(in srgb, var(--preview-accent) 20%, var(--preview-line)); background: color-mix(in srgb, var(--preview-surface-2) 46%, transparent); }
-.preview-task-actions-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.preview-task-actions-copy strong { color: var(--preview-ink); font-size: var(--fs-xs); }
-.preview-task-actions-copy span { color: var(--preview-muted); font-size: var(--fs-xs); }
-.preview-task-action-buttons { flex: 0 0 auto; margin: 0; display: flex; align-items: center; gap: var(--sp-2); }
-.preview-task-actions button { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 10px; }
-.preview-task-actions button .ic { width: 15px; height: 15px; flex-shrink: 0; }
-
 .preview-process-details { flex: 0 0 auto; min-width: 0; border-bottom: 1px solid var(--preview-line); background: var(--preview-surface); }
 .preview-process-summary { min-height: 46px; padding: 12px var(--sp-5); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); color: var(--preview-ink); font-size: var(--fs-sm); font-weight: 700; cursor: pointer; list-style: none; }
+.preview-process-summary-label { min-width: 0; }
+.preview-process-actions { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.preview-process-actions button { min-height: 32px; padding: 6px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 9px; font-size: var(--fs-xs); font-weight: 600; }
+.preview-process-actions button .ic { width: 14px; height: 14px; flex: 0 0 auto; }
 .preview-process-summary::-webkit-details-marker { display: none; }
 .preview-process-summary::after { width: 22px; height: 22px; display: grid; flex: 0 0 auto; place-items: center; border: 1px solid var(--preview-line-strong); border-radius: 50%; content: "+"; color: var(--preview-accent); font: 700 var(--fs-md)/1 var(--mono); }
 .preview-process-details[open] > .preview-process-summary { border-bottom: 1px solid var(--preview-line); }
@@ -577,9 +573,8 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
 .preview-finish-actions button.primary { border-color: color-mix(in srgb, var(--preview-accent) 34%, var(--preview-line)); background: color-mix(in srgb, var(--preview-accent) 9%, var(--preview-surface)); color: var(--preview-accent); box-shadow: none; }
 .preview-finish-actions button.primary:hover { border-color: color-mix(in srgb, var(--preview-accent) 52%, var(--preview-line)); background: color-mix(in srgb, var(--preview-accent) 15%, var(--preview-surface)); color: var(--preview-accent-strong); }
 
-.preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) > .preview-process-details { margin: var(--sp-2) var(--sp-4) 0; overflow: hidden; border: 1px solid var(--preview-line); border-radius: 14px; background: color-mix(in srgb, var(--preview-surface-2) 48%, var(--preview-surface)); }
+.preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) > .preview-process-details { width: min(1040px, 100%); margin: 0 auto; overflow: hidden; border: 1px solid var(--preview-line); border-radius: 14px; background: color-mix(in srgb, var(--preview-surface-2) 48%, var(--preview-surface)); }
 .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) > .preview-process-details > .preview-process-summary { min-height: 42px; padding: 9px var(--sp-3); }
-.preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) > .preview-task-bottom { margin: var(--sp-3) var(--sp-4) var(--sp-4); }
 
 /* 终态任务单使用同一条居中内容轨：外框仍占满工作区，标题、汇报、台账与操作不再各自横向漂移。
    收起过程时顶对齐，避免宽屏上整张任务单悬在页面正中形成上下两块无意义留白。 */
@@ -587,16 +582,6 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
   .preview-main[data-view="task-sheet"]:has(> .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]) > .preview-process-details:not([open])) {
     align-items: flex-start;
     padding-block: clamp(var(--sp-4), 3.2vh, var(--sp-6));
-  }
-  .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) {
-    --preview-terminal-gutter: max(var(--sp-5), calc((100% - 1440px) / 2));
-  }
-  .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) > .preview-task-head,
-  .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) > .preview-finish-card {
-    padding-inline: var(--preview-terminal-gutter);
-  }
-  .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) > .preview-finish-card {
-    padding-block: clamp(22px, 2.3vw, 32px) var(--sp-5);
   }
   .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) .preview-finish-head {
     align-items: end;
@@ -607,12 +592,6 @@ button.preview-fact:hover { border-color: var(--preview-accent); background: col
   .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) .preview-finish-fact {
     min-height: 94px;
     padding: var(--sp-3) var(--sp-4);
-  }
-  .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) > .preview-process-details {
-    margin-inline: var(--preview-terminal-gutter);
-  }
-  .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]):has(> .preview-process-details:not([open])) > .preview-task-bottom {
-    margin-inline: var(--preview-terminal-gutter);
   }
 }
 
@@ -1688,15 +1667,6 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
 .preview-crew-proposals-list .preview-crew-number { color: var(--preview-muted); }
 
 /* -- 任务单底部续办工作区：与任务正文略分色，明确“追加下一回合”而非普通聊天输入。 -- */
-.preview-task-bottom {
-  flex: 0 0 auto; margin: var(--sp-4); overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--preview-accent) 34%, var(--preview-line));
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 92% 0, color-mix(in srgb, var(--preview-hot) 10%, transparent), transparent 32%),
-    linear-gradient(125deg, color-mix(in srgb, var(--preview-accent) 9%, var(--preview-surface)), color-mix(in srgb, var(--preview-surface-2) 80%, var(--preview-surface)));
-  box-shadow: 0 16px 38px color-mix(in srgb, var(--preview-accent) 9%, transparent), inset 0 1px color-mix(in srgb, white 5%, transparent);
-}
 .preview-continue-turn { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
 .preview-continue-turn-head { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); }
 .preview-continue-turn-mark { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--preview-accent) 46%, var(--preview-line)); border-radius: 12px; color: var(--preview-accent); background: color-mix(in srgb, var(--preview-accent) 11%, transparent); box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--preview-hot) 54%, transparent); }
@@ -1718,15 +1688,11 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
 .preview-continue-turn[data-state="needs_you"] .preview-continue-turn-submit { opacity: .55; }
 
 @media (max-width: 720px) {
-  .preview-task-bottom { margin: var(--sp-3); border-radius: 18px; }
   .preview-continue-turn-head { grid-template-columns: 34px minmax(0, 1fr); }
   .preview-continue-turn-mark { width: 34px; height: 34px; }
   .preview-continue-turn-state { grid-column: 2; justify-self: start; }
   .preview-continue-turn-field { flex-direction: column; }
   .preview-continue-turn-submit { width: 100%; min-height: 40px; }
-  .preview-task-actions { align-items: stretch; flex-direction: column; }
-  .preview-task-action-buttons { width: 100%; flex-wrap: wrap; }
-  .preview-task-action-buttons button { flex: 1 1 130px; }
 }
 
 /* -- 第97波(P4):交办台文件/图片输入 —— 📎按钮、附件托盘、拖拽高亮、确认卡附件行 -- */
@@ -1760,8 +1726,7 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
 }
 .preview-task-status,
 .preview-task-outcome,
-.preview-process-details,
-.preview-task-bottom {
+.preview-process-details {
   flex: 0 0 auto;
   width: min(1180px, 100%);
   margin-inline: auto;
@@ -1801,6 +1766,7 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
 .preview-progress-copy strong { color: currentColor; font-size: var(--fs-sm); font-weight: 620; }
 .preview-progress-copy small,
 .preview-progress-empty { color: var(--preview-muted); font-size: var(--fs-xs); line-height: 1.45; }
+.preview-progress-copy small { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .preview-progress-empty { padding: var(--sp-2); }
 .preview-task-metrics { margin: 0; display: grid; grid-template-columns: repeat(4, auto); align-items: center; gap: var(--sp-3); }
 .preview-task-metric { padding: 0; display: inline-flex; gap: 5px; border: 0; border-radius: 0; background: transparent; }
@@ -1842,26 +1808,18 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
 .preview-raw-messages { min-height: 380px; max-height: 72vh; overflow-y: auto; }
 .preview-task-body > .preview-ledger-section { border-top: 1px solid var(--preview-line); }
 .preview-lens-switch { padding-inline: var(--sp-4); }
-.preview-task-bottom { overflow: hidden; }
-.preview-task-actions { padding: 9px var(--sp-3); border: 0; background: transparent; }
-.preview-task-actions-copy { display: none; }
-.preview-task-action-buttons { width: 100%; justify-content: flex-end; }
-.preview-task-action-buttons .ghost { margin-left: auto; }
-
 .preview-task-sheet[data-mission-state="done"] .preview-task-progress,
 .preview-task-sheet[data-mission-state="done"] .preview-task-metrics { display: none; }
 .preview-task-sheet[data-mission-state="done"] .preview-activity { display: flex; }
 .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]) .preview-task-status,
 .preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]) .preview-task-outcome,
-.preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]) .preview-process-details,
-.preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]) .preview-task-bottom { width: min(1040px, 100%); }
+.preview-task-sheet:is([data-mission-state="done"], [data-mission-state="stopped"]) .preview-process-details { width: min(1040px, 100%); }
 
 @media (max-width: 920px) {
   .preview-task-sheet { padding: var(--sp-2); gap: var(--sp-2); }
   .preview-task-status,
   .preview-task-outcome,
-  .preview-process-details,
-  .preview-task-bottom { border-radius: 18px 6px 18px 18px; }
+  .preview-process-details { border-radius: 18px 6px 18px 18px; }
   .preview-task-head { padding: var(--sp-3); }
   .preview-task-overview { gap: var(--sp-3); }
   .preview-task-progress-row { gap: var(--sp-3); }
@@ -1873,10 +1831,6 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
   .preview-intake-panels { grid-template-columns: minmax(0, 1fr); }
   .preview-progress-summary { grid-template-columns: minmax(92px, 1fr) auto; }
   .preview-progress-hint { display: none; }
-  .preview-task-action-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .preview-task-action-buttons button { width: 100%; }
-  .preview-task-action-buttons .ghost { margin-left: 0; }
-  .preview-task-action-buttons button:last-child { grid-column: 1 / -1; }
   .preview-worksite { min-height: 390px; }
   .preview-raw-messages { min-height: 320px; }
 }
@@ -1899,13 +1853,15 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
   .preview-task-metrics { gap: 4px var(--sp-3); }
   .preview-lens-switch { padding-inline: var(--sp-2); }
   .preview-lens-tab { flex: 1 1 0; justify-content: center; }
+  .preview-process-summary { padding-inline: var(--sp-2); gap: 6px; }
+  .preview-process-actions { gap: 4px; }
+  .preview-process-actions button { padding-inline: 7px; }
 }
 
 /* 浅色清透白：大面积只用白/极浅蓝白层级，蓝色留给主操作与当前进度。 */
 :root[data-theme="light"] .preview-task-status,
 :root[data-theme="light"] .preview-task-outcome,
-:root[data-theme="light"] .preview-process-details,
-:root[data-theme="light"] .preview-task-bottom { background: var(--preview-surface); }
+:root[data-theme="light"] .preview-process-details { background: var(--preview-surface); }
 :root[data-theme="light"] .preview-task-head {
   background: linear-gradient(135deg, var(--preview-surface), color-mix(in srgb, var(--preview-secondary) 72%, var(--preview-surface)));
 }
@@ -1922,7 +1878,7 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
 /* 浅色按钮最后收口：次操作白底描边，禁用态去掉灰色实心块。 */
 :root[data-theme="light"] .preview-task-sheet .preview-control-group button:not(.primary):not(.danger):not(.danger-ghost),
 :root[data-theme="light"] .preview-task-sheet .preview-stop-actions button:not(.primary):not(.ghost),
-:root[data-theme="light"] .preview-task-sheet .preview-task-action-buttons button:not(.primary):not(.ghost) {
+:root[data-theme="light"] .preview-task-sheet .preview-process-actions button:not(.primary):not(.ghost) {
   border-color: var(--preview-line);
   background: var(--preview-secondary);
   color: var(--preview-ink);

@@ -214,7 +214,14 @@ export function createPreviewShellDomain({
     if (select) select.value = mode;
   }
 
+  function desktopNotificationBridge() {
+    return globalThis.__ruyiDesktop === 1
+      && globalThis.chrome?.webview
+      && typeof globalThis.chrome.webview.postMessage === 'function';
+  }
+
   function notificationPermission() {
+    if (desktopNotificationBridge()) return 'granted';
     return notificationApi && typeof notificationApi.permission === 'string' ? notificationApi.permission : 'unsupported';
   }
 
@@ -260,15 +267,22 @@ export function createPreviewShellDomain({
   }
 
   function showNeedsNotification(item) {
-    if (!notificationApi || typeof notificationApi !== 'function' || !item || !item.id) return;
+    if (!item || !item.id) return;
     const id = String(item.id);
+    const title = t('previewShell.notificationTitle');
+    const body = t('previewShell.notificationBody', {
+      p1: interventionTitle(item),
+      p2: interventionTypeLabel(item.type),
+      p3: interventionSummary(item),
+    });
+    if (desktopNotificationBridge()) {
+      try { globalThis.chrome.webview.postMessage({ ruyiNotification: { id, title, body } }); } catch { /* native bridge is best-effort */ }
+      return;
+    }
+    if (!notificationApi || typeof notificationApi !== 'function') return;
     try {
-      const handle = new notificationApi(t('previewShell.notificationTitle'), {
-        body: t('previewShell.notificationBody', {
-          p1: interventionTitle(item),
-          p2: interventionTypeLabel(item.type),
-          p3: interventionSummary(item),
-        }),
+      const handle = new notificationApi(title, {
+        body,
         tag: `ruyi-intervention-${id}`,
         renotify: false,
       });
@@ -2368,18 +2382,19 @@ export function createPreviewShellDomain({
     const processDetails = document.createElement('details');
     processDetails.className = 'preview-process-details'; processDetails.dataset.slot = 'processDetails';
     processDetails.open = true;
-    const processSummary = text('summary', 'preview-process-summary', t('previewShell.processDetails'));
+    const processSummary = text('summary', 'preview-process-summary', '');
+    const processLabel = text('span', 'preview-process-summary-label', t('previewShell.processDetails'));
+    const processActions = text('span', 'preview-process-actions', '');
+    const processAction = (label, className, handler, iconName) => actionButton(label, className, event => {
+      event.preventDefault(); event.stopPropagation(); handler();
+    }, iconName);
+    processActions.append(
+      processAction(t('previewShell.openMissionClassic'), 'ghost', () => { void openSelectedInClassic(); }, 'open'),
+      processAction(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }, 'refresh'),
+    );
+    processSummary.append(processLabel, processActions);
     body.appendChild(ledger);
     processDetails.append(processSummary, lensSwitch, sceneLens, body);
-
-    const foot = text('footer', 'preview-task-actions', '');
-    const footCopy = text('div', 'preview-task-actions-copy', '');
-    footCopy.append(text('strong', '', t('previewShell.taskActionsTitle')), text('span', '', t('previewShell.taskActionsHint')));
-    const footButtons = text('div', 'preview-main-actions preview-task-action-buttons', '');
-    footButtons.append(actionButton(t('previewShell.backHome'), 'primary preview-state-primary', () => openDispatchHome(), 'back'),
-      actionButton(t('previewShell.openMissionClassic'), 'ghost', () => { void openSelectedInClassic(); }, 'open'),
-      actionButton(t('previewShell.refresh'), '', () => { void refreshPreviewShell({ forceDetail: true }); }, 'refresh'));
-    foot.append(footCopy, footButtons);
     // 底部续办工作区：把“追加指令”与普通页面导航分组，状态、用途和快捷键一眼可见。
     const continueTurn = text('section', 'preview-continue-turn', '');
     continueTurn.setAttribute('aria-label', t('previewShell.continueTurnAria'));
@@ -2425,9 +2440,7 @@ export function createPreviewShellDomain({
     statusSection.dataset.section = 'status'; statusSection.append(head, missionControl);
     const outcomeSection = text('section', 'preview-task-outcome', '');
     outcomeSection.dataset.section = 'outcome'; outcomeSection.append(returnSummary, stopCard, finishCard, intake, continueTurn);
-    const bottom = text('section', 'preview-task-bottom', '');
-    bottom.append(foot);
-    article.append(statusSection, outcomeSection, processDetails, bottom);
+    article.append(statusSection, outcomeSection, processDetails);
     main.replaceChildren(article);
     return article;
   }
@@ -2512,7 +2525,9 @@ export function createPreviewShellDomain({
       const marker = text('span', 'preview-progress-marker', item.status === 'done' ? '✓' : item.status === 'blocked' ? '!' : String(index + 1));
       const copy = text('span', 'preview-progress-copy', '');
       copy.append(text('strong', '', item.desc || t('previewShell.progressUnnamed', { p1: index + 1 })),
-        text('small', '', item.evidence || t(`previewShell.progressStatus.${item.status}`)));
+        text('small', '', item.evidence
+          ? t('previewShell.progressEvidence', { p1: item.evidence })
+          : t(`previewShell.progressStatus.${item.status}`)));
       row.append(marker, copy);
       return row;
     }));
@@ -2560,19 +2575,6 @@ export function createPreviewShellDomain({
     const turnSeq = Math.max(0, Number(snapshot.cursor?.turnSeq) || 0);
     setSlot(article, 'cursor', t('previewShell.cursor', { p1: turnSeq }));
     ensureActivityClock(Boolean(snapshot.controls?.activeTurn));
-    const statePrimary = article.querySelector('.preview-state-primary');
-    if (statePrimary) {
-      if (derived.state === 'needs_you') {
-        statePrimary.textContent = t('previewShell.openPending');
-        statePrimary.onclick = () => setNeedsDrawer(true);
-      } else if (derived.state === 'running' || derived.state === 'dispatching') {
-        statePrimary.textContent = t('previewShell.focusContinue');
-        statePrimary.onclick = () => article.querySelector('.preview-continue-turn-input')?.focus();
-      } else {
-        statePrimary.textContent = t('previewShell.backHome');
-        statePrimary.onclick = () => openDispatchHome();
-      }
-    }
     // 第95波:继续推进条状态同步 —— 依任务状态切换占位文案与可用性。
     const continueTurn = article.querySelector('.preview-continue-turn');
     if (continueTurn) {
