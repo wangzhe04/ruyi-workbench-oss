@@ -98,6 +98,14 @@
 - **M1 实施文档已落** [`optimization-plan/11-m1-context-tiering.md`](optimization-plan/11-m1-context-tiering.md)：把 `09-workflow.js:647` 单一 `contextText`（所有节点同一份）升级为「全局层 + per-node 覆盖」--节点对象（L173）加 `context` 字段、contextPrefix（L647）追加节点层、节点 schema（L1883）补描述；节点无 context 时行为逐字节不变（存量模板零迁移）。**下一步：确认方案后实施 commit + agent 对抗验证 code review/debug**。
 - **M6**：O3 自检升级为证据回溯，并入 06-O3，候选 B 波后半。
 
+**后续候选 C–F · Agent 架构研究补充（2026-08-10 纳入；不代表自动实现）**：在 MicroAgent M1–M6 之上，新增五段受控闭环：R1 claim-level Evidence Graph（P0，M6 的工程化落点）→ R2 从已验收轨迹归纳、人工发布的 Workflow Candidate Factory（P1）→ R3 基于 M4/HB360 的离线 Champion–Challenger Lab（P1）→ R4 Local Memory Graph（P2）与 R5 Replan Patch Ledger（P2）。所有能力都止于候选/提案，禁止自动发布模板、篡改记忆、扩大权限或在线学习。详细的架构、分期、验收和暂缓项见 [`optimization-plan/12-agent-architecture-research-roadmap.md`](optimization-plan/12-agent-architecture-research-roadmap.md)。
+
+- **候选 C**：M2 确定性结构节点 + R1 Evidence Graph；先将“断言/结论 → 工具结果/文件片段/来源/人工确认”变成可校验关系。
+- **候选 D**：R2 Workflow Candidate Factory；只使用充分验收、脱敏且证据完整的轨迹，候选经隔离回放和用户确认后才可成为项目模板。
+- **候选 E**：R3 Champion–Challenger Lab；不做线上 MCTS，先对受限变体在固定基准和 holdout 上做可重放的单轴/全量对比。
+- **候选 F**：R4/R5；项目内的关系化记忆与可审查重规划 patch。它们依赖 C 的来源契约，沿用现有权限、任务池与恢复防重放边界。
+- **明确暂缓**：基于相关性校准的高阶 vote，及任何在线 RL/自动训练；前者需 R1/R3 产生的 holdout 可靠性数据，后者最多作为独立、脱敏、离线的远期导出能力。
+
 ### Traveler 4.0（概念稿）
 
 `docs/TRAVELER-CONCEPT.md` v0.1 已立（可迁移的任务旅程 / Portable Missions），非范围、版本或发布时间承诺；其实施不得抢占或稀释 Pretender 3.0 收口。
