@@ -90,7 +90,9 @@
 
 `docs/optimization-plan/07-microagent-lessons.md`（2026-08-10 立）：MicroAgent 论文 × Ruyi 逐项对照（主会话核实），产出 M1–M6——编排上下文分级注入（P0）、确定性节点扩展 + vote 门防误杀、verify 节点输入覆盖率职责、HB360 单轴消融纪律、模板方法论工具、O3 证据回溯升级。与 06（HB360 成本收敛）互为姊妹篇，分 A–D 四个候选波次。原计划排在 3.0 之后；**2026-08-10 用户决定跳过第101波、3.0 收口搁置，本线提前推进**（在 Escapade 2.5.0 线上）。
 
-**候选 A 波（进行中）**：M3（verify 输入覆盖率）+ M4（单轴消融纪律）。M3 实施文档已落 [`optimization-plan/09-m3-coverage-gate.md`](optimization-plan/09-m3-coverage-gate.md)（schema 可选 coverage 字段 + 质量门 prompt 引导 + 后端 unhandled 判定，含验收 e2e 与护栏）；M4 为流程项不涉代码。**下一步：确认 M3 方案后实施 commit（src 双改 + build 重建 + e2e）**。
+**候选 A 波（✅ M3 已交付，M4 文档就绪）**：M3（verify 输入覆盖率）+ M4（单轴消融纪律）。
+- **M3 已交付（`9696483`）**：`QUALITY_GATE_OUTPUT_SCHEMA` 加可选 coverage 字段（不破坏存量 verify）+ 质量门 prompt 引导逐项核验 + 后端 unhandled 收紧（`gate_uncovered`）；e2e（quality-gates + quality-workflow + prompt-snapshot）+ build --check 全绿。实施文档 [`optimization-plan/09-m3-coverage-gate.md`](optimization-plan/09-m3-coverage-gate.md)。
+- **M4（流程项，不涉代码）**：实施文档已落 [`optimization-plan/10-m4-ablation.md`](optimization-plan/10-m4-ablation.md)——06 各优化项按「波次打包」上开关无法单轴归因，改为「每项独立开关 + 单轴回测 + 全量累进」，归因轴对齐工作流/工具/上下文三轴，含消融记账模板。**下一步：阶段 A 把纪律并入 06 文档 §5 + 建记账表；阶段 B 按需补 O1–O6 评测开关（下次回测前做开关盘点）**。
 
 ### Traveler 4.0（概念稿）
 
