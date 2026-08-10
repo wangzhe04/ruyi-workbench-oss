@@ -120,3 +120,4 @@
 - [06-hb360-cost-convergence.md](06-hb360-cost-convergence.md) — HB360 成本与收敛优化规划（2026-08-08 实测基线，O1–O6）
 - [07-microagent-lessons.md](07-microagent-lessons.md) — MicroAgent 论文对照与编排方法论升级规划（2026-08-10，M1–M6，06 的姊妹篇）
 - [08-task-sheet-ux-audit.md](08-task-sheet-ux-audit.md) — 交办台任务单 UX 走查与诊断（第99波产出，2026-08-10，A1–A7/B1–B7 问题清单 + 第100波方案 B 已拍板）
+- [09-m3-coverage-gate.md](09-m3-coverage-gate.md) — M3 实施文档：verify 节点「输入覆盖率」职责（07 候选 A 波前半，2026-08-10，schema+prompt+后端判定 diff 与验收）
