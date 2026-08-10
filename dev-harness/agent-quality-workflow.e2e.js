@@ -37,7 +37,7 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
   ];
   const good=JSON.stringify({verdict:'pass',confidence:.9,summary:'verified',findings:[{title:'duplicate issue',file:'x.js',line:4,confidence:.8}]});
   const reviewFail=JSON.stringify({verdict:'fail',confidence:.9,summary:'found real bugs',findings:[{title:'bug',file:'a.js',line:1,confidence:.9}]});
-  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail}};
+  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail,M3_UNCOVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'checked most',findings:[],coverage:{total:3,handled:2,unhandled:['b.js','c.js']}}),M3_COVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'all checked',findings:[],coverage:{total:2,handled:2,unhandled:[]}})}};
   fs.writeFileSync(path.join(HOME,'config.json'),JSON.stringify({configSchema:7,permissionMode:'bypass',defaultWorkspace:HOME,subagentMaxPerTurn:12,subagentMaxConcurrent:6,providers:[{id:'fake',label:'Fake',type:'openai-compat',baseUrl:`http://127.0.0.1:${FP}`,apiKey:'k',model:'fake-model'}],activeProvider:'fake'}));
   const fake=cp.spawn(process.execPath,[path.join(__dirname,'fake-openai.js')],{env:{...process.env,FAKE_OPENAI_PORT:String(FP),FAKE_SUBAGENT_SCRIPT:JSON.stringify(script)},windowsHide:true});
   const wb=cp.spawn(process.execPath,['app/server.js','serve','--port',String(WP)],{cwd:WB,env:{...process.env,RUYI_HOME:HOME},windowsHide:true});
@@ -94,6 +94,21 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
     ok(b8By('fix').status==='succeeded','B8: conditional downstream of a rejected gate RUNS (condition review.verdict==fail fires; not blocked)');
     ok(b8By('verify').status==='succeeded','B8: a pure dependsOn downstream treats a rejected predecessor as completed and runs');
     ok(b8.status==='succeeded' && b8.results.every(n=>n.status!=='failed'&&n.status!=='blocked'),'B8: a quality rejection is not reported as a run failure (run succeeded; no failed/blocked nodes)');
+    // ── M3(09-m3-coverage-gate.md): 质量门除 verdict 外还对照 coverage.unhandled 机器数据。verdict 虽 pass，
+    //    但存在未覆盖输入项时默认收紧为 rejected(gate_uncovered)；空 unhandled 则正常通过。
+    const m3=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'probe',task:'M3_PROBE'},
+      {id:'review',task:'M3_UNCOVERED',role:'reviewer',dependsOn:['probe']},
+    ]});
+    const m3U=id=>m3.results.find(n=>n.id===id);
+    ok(m3.ok===true && m3U('review').status==='rejected' && m3U('review').errorClass==='gate_uncovered' && m3U('review').gateVerdict==='fail','M3: a pass verdict with non-empty coverage.unhandled is rejected as gate_uncovered');
+    ok(String(m3U('review').error).includes('b.js') && String(m3U('review').error).includes('c.js'),'M3: rejection error lists the uncovered input items');
+    const m3c=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'probe',task:'M3_PROBE_FULL'},
+      {id:'review',task:'M3_COVERED',role:'reviewer',dependsOn:['probe']},
+    ]});
+    const m3C=id=>m3c.results.find(n=>n.id===id);
+    ok(m3C('review').status==='succeeded' && m3C('review').gateVerdict==='pass','M3: empty unhandled passes the coverage gate (full coverage)');
   }finally{kill(wb);kill(fake);await sleep(200);fs.rmSync(HOME,{recursive:true,force:true});}
   console.log('\nAGENT QUALITY WORKFLOW E2E: '+(failures?`FAIL (${failures})`:'ALL PASS'));process.exitCode=failures?1:0;
 })().catch(e=>{console.error(e.stack||e);process.exitCode=1;});

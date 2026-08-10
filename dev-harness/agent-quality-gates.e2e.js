@@ -14,6 +14,13 @@ ok(primitive.ok && primitive.value === 127 && validateAgentJsonSchema(primitive.
 ok(validateAgentJsonSchema(parsed.value, QUALITY_GATE_OUTPUT_SCHEMA).ok, 'quality output validates against JSON Schema');
 const invalid = validateAgentJsonSchema({ verdict: 'maybe', confidence: 2 }, QUALITY_GATE_OUTPUT_SCHEMA);
 ok(!invalid.ok && invalid.errors.length >= 2, 'schema validator reports enum/range/required failures');
+// M3(09-m3-coverage-gate.md): coverage 可选字段 —— 不破坏存量 verify 节点,但带 coverage 时子字段必须齐全
+const withCoverage = validateAgentJsonSchema({ verdict: 'pass', confidence: 0.9, summary: 'ok', coverage: { total: 2, handled: 1, unhandled: ['b.js'] } }, QUALITY_GATE_OUTPUT_SCHEMA);
+ok(withCoverage.ok, 'quality output with optional coverage field validates');
+const noCoverage = validateAgentJsonSchema({ verdict: 'pass', confidence: 0.9, summary: 'ok' }, QUALITY_GATE_OUTPUT_SCHEMA);
+ok(noCoverage.ok, 'quality output without coverage still validates (legacy verify compat)');
+const badCoverage = validateAgentJsonSchema({ verdict: 'pass', confidence: 0.9, summary: 'ok', coverage: { total: 2 } }, QUALITY_GATE_OUTPUT_SCHEMA);
+ok(!badCoverage.ok, 'coverage without required subfields (total/handled/unhandled) is rejected');
 ok(normalizeAgentGate(null, 'reviewer').mode === 'review' && normalizeAgentGate(null, 'verifier').mode === 'verify', 'Reviewer and Verifier automatically become quality gates');
 const deps = [
   { id: 'a', structuredResult: { verdict: 'pass', confidence: 0.9, findings: [{ title: 'same bug', file: 'a.js', line: 3, confidence: 0.7 }] } },

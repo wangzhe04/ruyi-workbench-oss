@@ -989,6 +989,18 @@ const QUALITY_GATE_OUTPUT_SCHEMA = Object.freeze({
     confidence: { type: 'number', minimum: 0, maximum: 1 },
     summary: { type: 'string' },
     findings: { type: 'array', items: { type: 'object' } },
+    // M3(09-m3-coverage-gate.md): verify 节点「输入覆盖率」职责。可选字段——该 schema 被所有
+    // gate 节点共享,做成 required 会破坏不输出 coverage 的存量 verify 节点。未处理项判定由
+    // 后端(09-workflow.js)看机器数据 unhandled[] 做,不依赖模型自报。
+    coverage: {
+      type: 'object',
+      required: ['total', 'handled', 'unhandled'],
+      properties: {
+        total: { type: 'integer', minimum: 0 },
+        handled: { type: 'integer', minimum: 0 },
+        unhandled: { type: 'array', items: { type: 'string' } },
+      },
+    },
   },
 });
 function sanitizeAgentOutputSchema(raw) {

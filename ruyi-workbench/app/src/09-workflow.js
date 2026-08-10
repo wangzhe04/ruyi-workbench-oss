@@ -616,7 +616,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const priorText = buildUpstreamContext(depNodes, upstreamBudgetTokens);
       const effectiveSchema = node.outputSchema || (node.gate && !['vote', 'dedupe'].includes(node.gate.mode) ? QUALITY_GATE_OUTPUT_SCHEMA : null);
       const qualityInstruction = node.gate && !['vote', 'dedupe'].includes(node.gate.mode)
-        ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。`
+        ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。
+质量门必须覆盖到每个输入项，不能只看产物整体好坏。请额外输出 coverage 字段：total=输入项总数，handled=已核验项数，unhandled=未核验/未覆盖项清单（某个文件、数据行或子任务未处理时明确列出）。若存在未覆盖项，verdict 应为 fail（或按模板要求说明例外）。`
         : '';
       const reliabilityInstruction = `\n\n【可靠性约束】可由工具核验的事实必须先实际调用工具再下结论。不得在未尝试工具时声称“工具不可用”或输出 TOOL-UNAVAILABLE；工具失败时应写明实际调用的工具和错误，不得猜测事实。`;
       const throttlingInstruction = `\n\n【上下文节流守则】本回合上下文有读取与 token 预算：
@@ -765,6 +766,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             const verdict = verdictPasses(node.structuredResult, node.gate);
             node.confidence = verdict.confidence; node.gateVerdict = verdict.verdict;
             if (!verdict.pass) { node.status = 'rejected'; node.error = `质量门未通过: verdict=${verdict.verdict || 'missing'}, confidence=${verdict.confidence.toFixed(2)}`; node.errorClass = 'gate_rejected'; }
+            // M3(09-m3-coverage-gate.md): 输入覆盖率职责。质量门除 verdict 外，还对照 coverage.unhandled 机器数据——
+            // 存在未覆盖项时按默认收紧语义降为 rejected(与 verdict 判据并列的补充门)。allowPartialCoverage 可选降级为警告。
+            else if (!node.gate.allowPartialCoverage && Array.isArray(node.structuredResult && node.structuredResult.coverage && node.structuredResult.coverage.unhandled) && node.structuredResult.coverage.unhandled.length > 0) {
+              const unhandled = node.structuredResult.coverage.unhandled.slice(0, 20);
+              node.status = 'rejected'; node.gateVerdict = 'fail';
+              node.error = `质量门未通过: 存在未覆盖输入项 ${unhandled.length}/all（${unhandled.map(String).join('、')}）` + (node.gate.allowPartialCoverage ? '（已按配置降级为警告）' : '');
+              node.errorClass = 'gate_uncovered';
+            }
           } else if (node.structuredResult && Number.isFinite(Number(node.structuredResult.confidence))) node.confidence = Math.min(1, Math.max(0, Number(node.structuredResult.confidence)));
         }
       } catch (e) {
