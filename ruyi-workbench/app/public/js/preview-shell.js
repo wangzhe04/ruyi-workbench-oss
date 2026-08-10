@@ -458,13 +458,13 @@ export function createPreviewShellDomain({
             renderDock();
             if (activeView === 'mission' && selectedMissionId === card.missionId) openDispatchHome();
             else if (isPreviewMode()) renderHome();
-          }, 'archive');
+          }, 'dockArchive');
           dockArchive.title = t('previewShell.archiveAction');
           dockArchive.setAttribute('aria-label', t('previewShell.archiveAction'));
           const dockPin = actionButton('', 'preview-dock-quick-action is-pin', () => {
             updateMissionUi(card.missionId, { pinned: !missionUi(card.missionId).pinned });
             renderDock();
-          }, 'pin');
+          }, 'dockPin');
           dockPin.title = ui.pinned ? t('previewShell.unpin') : t('previewShell.pin');
           dockPin.setAttribute('aria-label', dockPin.title);
           dockPin.setAttribute('aria-pressed', ui.pinned ? 'true' : 'false');
@@ -2669,6 +2669,8 @@ export function createPreviewShellDomain({
       && host.querySelector('.preview-finish-report')?.open === true;
     const artifactsWereOpen = host.dataset.finishMissionId === missionId
       && host.querySelector('.preview-finish-artifacts')?.open === true;
+    const historyWasOpen = host.dataset.finishMissionId === missionId
+      && host.querySelector('.preview-finish-history')?.open === true;
     const result = snapshot && snapshot.result;
     if (!result || result.status !== 'complete') {
       host.hidden = true;
@@ -2837,24 +2839,43 @@ export function createPreviewShellDomain({
     actions.append(playbook, memory, archive);
 
     // 历史轮次验收报告:next_turn/retry/rollback/再武装前归档的旧 result,可展开回看(不丢旧轮次)。
-    // 第97波:每条历史轮提供「在新窗口打开全文」—— 历史轮归档保留完整 deliverableText,新窗口用 DOM
-    // clone + renderMarkdownInto 渲染(纯 DOM 构建,不碰字符串注入,过 C8 静态锁)。
+    // 历史轮全文在任务台内的阅读层打开，避免桌面 WebView 把 about:blank 当作外链交给系统。
+    // 归档保留完整 deliverableText，阅读层继续用纯 DOM + renderMarkdownInto 安全渲染。
     const openHistoryFullText = (item) => {
       const full = String(item && item.deliverableText || '').trim();
       if (!full) return;
-      const win = window.open('', '_blank');
-      if (!win) return; // 弹窗被拦截时静默放弃,按钮仍在可重试
-      const doc = win.document;
-      doc.title = t('previewShell.finishHistoryTitle');
-      const style = doc.createElement('style');
-      style.textContent = 'body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:880px;margin:28px auto;padding:0 24px;line-height:1.7;color:#1f2328}pre{background:#f6f8fa;padding:14px;border-radius:6px;overflow:auto}code{font-family:ui-monospace,Consolas,monospace;font-size:.92em}blockquote{border-left:3px solid #d0d7de;margin:0;padding-left:14px;color:#57606a}table{border-collapse:collapse}th,td{border:1px solid #d0d7de;padding:6px 10px}img{max-width:100%}h1,h2,h3{margin-top:1.4em}';
-      doc.head.appendChild(style);
-      const host = doc.createElement('article');
-      host.className = 'md';
+      document.querySelector('.preview-history-report-backdrop')?.remove();
+      const previousFocus = document.activeElement;
+      const backdrop = text('div', 'modal-backdrop preview-history-report-backdrop', '');
+      const modal = text('section', 'modal preview-history-report-modal', '');
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      const titleId = `previewHistoryReportTitle-${Date.now()}`;
+      modal.setAttribute('aria-labelledby', titleId);
+      const head = text('header', 'modal-head preview-history-report-head', '');
+      const title = text('h3', '', t('previewShell.finishHistoryTitle'));
+      title.id = titleId;
+      const closeReport = () => {
+        backdrop.remove();
+        if (previousFocus && typeof previousFocus.focus === 'function' && previousFocus.isConnected) previousFocus.focus();
+      };
+      const close = actionButton('', 'icon-btn preview-history-report-close', closeReport, 'close');
+      close.title = t('common.close');
+      close.setAttribute('aria-label', close.title);
+      head.append(title, close);
+      const body = text('div', 'modal-body preview-history-report-body', '');
+      const reportHost = text('article', 'preview-history-report-copy preview-finish-report-copy md', '');
       // 第97波对抗复审(F1):直接渲染归档的完整 deliverableText 原文 —— 不经 reportDeliveryText 二次
       // 裁剪(那个会把首个标题前的导语/叙述丢掉),「打开全文」必须是全文。
-      renderMarkdownInto(host, full);
-      doc.body.appendChild(host);
+      renderMarkdownInto(reportHost, full);
+      highlightIn(reportHost);
+      body.appendChild(reportHost);
+      modal.append(head, body);
+      backdrop.appendChild(modal);
+      backdrop.onclick = event => { if (event.target === backdrop) closeReport(); };
+      backdrop.onkeydown = event => { if (event.key === 'Escape') { event.preventDefault(); closeReport(); } };
+      document.body.appendChild(backdrop);
+      close.focus();
     };
 
     const historySection = (() => {
@@ -2862,6 +2883,7 @@ export function createPreviewShellDomain({
       if (!history.length) return null;
       const section = document.createElement('details');
       section.className = 'preview-finish-history';
+      section.open = historyWasOpen;
       const summary = text('summary', 'preview-finish-history-head', '');
       summary.append(text('strong', '', t('previewShell.finishHistoryTitle')),
         text('span', 'preview-finish-history-count', t('previewShell.finishHistoryCount', { p1: history.length })));

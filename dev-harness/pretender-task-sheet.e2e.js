@@ -73,6 +73,7 @@ function seedJourneys(home) {
   const sessionId = 'sess_wave77_sheet';
   const quickId = 'sess_wave77_quick';
   const heavyId = 'sess_wave77_heavy';
+  const doneId = 'sess_wave100_done';
   const createdAt = '2026-07-31T08:00:00.000Z';
   const updatedAt = '2026-07-31T12:00:00.000Z';
   const messages = [];
@@ -125,6 +126,27 @@ function seedJourneys(home) {
     title: '经典长历史性能夹具', summary: '', cwd: ROOT, pinned: false, createdAt,
     updatedAt: '2026-07-31T14:00:00.000Z', turnSeq: 40, messageCount: heavyMessages.length, providerHistoryCount: 0,
   }, heavyMessages);
+  writeSession(home, {
+    schemaVersion: 4, storageVersion: 2, id: doneId, missionId: doneId, kind: 'mission',
+    title: '两轮完成任务', summary: '验证历史验收报告', cwd: ROOT, pinned: false,
+    createdAt, updatedAt: '2026-07-31T13:00:00.000Z', turnSeq: 2, messageCount: 0, providerHistoryCount: 0,
+    mission: {
+      goal: '交付两轮可复核结果', createdAt, updatedAt: '2026-07-31T13:00:00.000Z', autoMode: 'off', changeSeq: 2,
+      milestones: [{ id: 'm1', desc: '历史报告可稳定查看', status: 'done', evidence: '浏览器回归通过', check: null }],
+      budget: { maxAutoTurns: 10, maxTokens: 10000 }, spent: { autoTurns: 2, tokens: 1200 },
+      stall: { lastSignature: '', sameCount: 0 },
+      resultHistory: [{
+        status: 'complete', how: 'fixture', finishedAt: '2026-07-31T12:30:00.000Z',
+        acceptance: { done: 1, total: 1 }, changes: { commands: 1 }, artifacts: [], unfinished: [],
+        deliverableText: '# 第一轮验收\n\n历史轮次正文完整可读。',
+      }],
+      result: {
+        status: 'complete', how: 'fixture', finishedAt: '2026-07-31T13:00:00.000Z',
+        acceptance: { done: 1, total: 1 }, changes: { commands: 1 }, artifacts: [], unfinished: [],
+        deliverableText: '# 第二轮交付\n\n当前轮次交付保持最新。',
+      },
+    },
+  });
 
   const intervention = {
     id: 'iv_wave77_question', missionId: sessionId, sessionId, type: 'question', status: 'pending',
@@ -146,7 +168,7 @@ function seedJourneys(home) {
   fs.writeFileSync(path.join(usageDir, '2026-07.jsonl'), JSON.stringify({
     ts: updatedAt, sessionId, kind: 'main', inTok: 10000, outTok: 5000, cost: 1.25, currency: 'USD', estimated: false,
   }) + '\n', 'utf8');
-  return { sessionId, quickId, heavyId, messageCount: messages.length };
+  return { sessionId, quickId, heavyId, doneId, messageCount: messages.length };
 }
 
 async function startProvider(port) {
@@ -342,6 +364,43 @@ try {
     'B10 merged worksite/raw lenses and explainable acceptance rows replace the old three-lens counter');
   ok(sheet && sheet.processActions === 2 && sheet.bottomBars === 0 && Math.max(...sheet.railLefts) - Math.min(...sheet.railLefts) <= 1,
     'B11 terminal status, outcome, and process share one rail; classic/refresh actions live in the process header without a bottom bar');
+
+  const historyReport = await waitForEval(cdp, `(async () => {
+    const seal = document.querySelector('.preview-seal[data-mission-id="${ids.doneId}"]');
+    if (!seal) return null;
+    seal.click();
+    for (let i = 0; i < 200 && document.getElementById('previewMain')?.dataset.missionId !== '${ids.doneId}'; i++) await new Promise(r => setTimeout(r, 10));
+    let history = document.querySelector('.preview-finish-history');
+    if (!history) return null;
+    history.open = true;
+    const refresh = document.querySelectorAll('.preview-process-actions button')[1];
+    refresh?.click();
+    for (let i = 0; i < 200; i++) {
+      await new Promise(r => setTimeout(r, 10));
+      history = document.querySelector('.preview-finish-history');
+      if (history?.open && !document.querySelector('.preview-process-actions button:disabled')) break;
+    }
+    document.querySelector('.preview-finish-history-open')?.click();
+    const modal = document.querySelector('.preview-history-report-modal');
+    const dockButton = document.querySelector('.preview-dock-item .preview-dock-quick-action');
+    const rect = dockButton?.getBoundingClientRect();
+    const result = {
+      historyOpen: history?.open === true,
+      modal: modal?.getAttribute('aria-modal'),
+      fullText: modal?.querySelector('.preview-history-report-copy')?.textContent || '',
+      dockButton: rect ? { width: Math.round(rect.width), height: Math.round(rect.height) } : null,
+      dockIcons: document.querySelectorAll('.preview-dock-actions .ic').length,
+    };
+    modal?.querySelector('.preview-history-report-close')?.click();
+    document.querySelector('.preview-seal[data-mission-id="${ids.sessionId}"]')?.click();
+    for (let i = 0; i < 200 && (document.getElementById('previewMain')?.dataset.missionId !== '${ids.sessionId}'
+      || !document.querySelector('.preview-process-actions .ghost')); i++) await new Promise(r => setTimeout(r, 10));
+    return result;
+  })()`);
+  ok(historyReport && historyReport.historyOpen && historyReport.modal === 'true' && historyReport.fullText.includes('第一轮验收'),
+    'B12 historical acceptance stays expanded across refresh and opens full text inside an accessible app modal');
+  ok(historyReport && historyReport.dockButton?.width === 18 && historyReport.dockButton?.height === 18 && historyReport.dockIcons >= 2,
+    'B13 dock archive/pin controls render as dedicated compact 18px icon buttons');
 
   if (process.env.RUYI_PREVIEW_SCREENSHOT_DIR) {
     const shotDir = path.resolve(process.env.RUYI_PREVIEW_SCREENSHOT_DIR);

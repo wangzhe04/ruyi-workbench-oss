@@ -78,6 +78,13 @@ ok(css.includes('width: min(1040px, 100%); margin: 0 auto;') && css.includes('al
 ok(shell.includes("section.className = 'preview-finish-artifacts'") && shell.includes('section.open = artifactsWereOpen')
   && shell.includes("api('/api/file/reveal'") && shell.includes("reveal(path, 'open')") && shell.includes("reveal(path, 'select')"),
   'A3c3 成果清单默认折叠并保留展开状态，每项复用安全文件接口提供打开与定位');
+ok(shell.includes("host.querySelector('.preview-finish-history')?.open === true") && shell.includes('section.open = historyWasOpen')
+  && shell.includes('preview-history-report-backdrop') && shell.includes('renderMarkdownInto(reportHost, full)')
+  && !shell.includes("window.open('', '_blank')"),
+  'A3c3b 历史验收报告保留展开状态，全文在应用内安全阅读层打开');
+ok(shell.includes("'preview-dock-quick-action is-archive'") && shell.includes("'dockArchive'") && shell.includes("'dockPin'")
+  && css.includes('.preview-dock-quick-action .ic') && css.includes('width: 18px; height: 18px; min-height: 0;'),
+  'A3c3c 任务坞归档/置顶使用小型专用图标与紧凑操作轨');
 ok(shell.includes("text('div', 'preview-continue-turn-head'") && shell.includes("continueState.dataset.slot = 'continueState'")
   && shell.includes("text('span', 'preview-process-actions'") && !css.includes('.preview-task-bottom')
   && css.includes('.preview-process-actions') && css.includes('.preview-continue-turn-state[data-tone="ready"]'),
