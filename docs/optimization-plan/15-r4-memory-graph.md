@@ -99,6 +99,12 @@
 6. 换工作区（cwd）不泄漏他项目边；
 7. propose/confirm/delete 均有审计记录。
 
+**R4-S2 追加验收**：
+
+8. gate 节点结构化输出含 `memoryRelations` 时，自动落盘 pending 边（`confirmed:false`，用户确认前不生效）；
+9. 自动提议的 `evidenceRef` 命中 `run.evidence` 时置 `evidenceRefVerified:true`，未命中或无 catalog 为 `false`；
+10. from/to 不存在或提取异常仅跳过该提议，不翻转节点结果。
+
 ## 8. 测试计划
 
 - `dev-harness/memory-graph-relations.e2e.js`：纯函数驱动（对齐 m4-benchmark 模式），覆盖验收 1-7 + 对抗边界。
