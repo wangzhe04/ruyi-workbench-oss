@@ -990,8 +990,15 @@ async function providerRawCompletion(provider, history) {
   if (key) headers['authorization'] = 'Bearer ' + key;
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
+  // Responses 没有 chat/completions 的多 system-message 通道；把调用方追加的 system/developer
+  // 规则折进 instructions，否则 JSON 修复器/记忆审稿人的严格协议会被 buildResponsesInputItems 丢弃。
+  const extraInstructions = (Array.isArray(history) ? history : [])
+    .filter(m => m && (m.role === 'system' || m.role === 'developer') && String(m.content || '').trim())
+    .map(m => String(m.content).trim())
+    .filter(text => text !== sysIdentity);
+  const responseInstructions = [sysIdentity, ...extraInstructions].join('\n\n');
   const bodyObj = applyProviderReasoningEffort(respStyle
-    ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...history]), stream: false }
+    ? { model, instructions: responseInstructions, input: buildResponsesInputItems(history), stream: false }
     : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false }, provider, respStyle ? 'responses' : 'chat');
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;

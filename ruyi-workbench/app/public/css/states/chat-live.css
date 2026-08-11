@@ -92,6 +92,16 @@
 .msg-error, .msg-note { margin-top: 8px; border-radius: var(--radius-sm); padding: 9px 12px; font-size: var(--fs-md); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; border-left: 3px solid var(--danger); }
 .msg-error { color: var(--danger-fg); background: var(--danger-bg); }
 .msg-note { color: var(--muted); background: color-mix(in srgb, var(--muted) 8%, transparent); border-left-color: var(--muted); }
+.memory-proposal-card { margin-top: 10px; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 7%, var(--panel-2)); transition: opacity .16s ease, transform .16s ease; }
+.memory-proposal-card.settled { opacity: 0; transform: translateY(-3px); }
+.memory-proposal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.memory-proposal-kicker { color: var(--accent); font-size: var(--fs-xs); font-weight: 650; letter-spacing: .2px; }
+.memory-proposal-tags { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.memory-proposal-tag { padding: 1px 6px; border-radius: 999px; color: var(--muted); background: color-mix(in srgb, var(--muted) 10%, transparent); font-size: var(--fs-xs); }
+.memory-proposal-title { color: var(--ink); font-size: var(--fs-md); font-weight: 650; line-height: 1.45; overflow-wrap: anywhere; }
+.memory-proposal-desc, .memory-proposal-reason { margin-top: 3px; color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.5; overflow-wrap: anywhere; }
+.memory-proposal-reason { color: var(--muted); }
+.memory-proposal-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 9px; }
 
 /* v0.9-S5 (真流程 plan mode): the in-flow plan approval card. Assistant-bubble variant tinted with --accent
    so it reads as a decision point, not ordinary chat. Greys out once decided. */

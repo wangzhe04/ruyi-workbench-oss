@@ -77,7 +77,8 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 第100波任务单三段式重构只改 Preview 所有权层，并把浅色任务台收敛为暖月白纸面；经典层未改。
 // 2026-08-10 af028e7 只在 Preview 所有权层稳定历史报告与 dock 操作；补钉当时遗漏的载荷锁。
 // 2026-08-11 变更中心增加本机 Diff 的整轮操作组布局；仅 workspace 所有权层变化。
-const LEGACY_STYLES_SHA256 = '5cb439d532995b36999e49aa740b0b42a0fb0af21a4e809faf8fc768895570f6';
+// R4-S3 增加低打扰记忆候选卡；规则只进入 chat-live 所有权层，未改变既有选择器语义。
+const LEGACY_STYLES_SHA256 = 'c39db54ef627a6953702302a557d28f1b4a26969ae3edd0126926963fe8fb6b8';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

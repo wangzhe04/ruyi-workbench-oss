@@ -412,6 +412,22 @@ async function handleApi(req, res, pathname) {
     const item = await readMemoryItem(String(sp.get('id') || ''), scope, cwd);
     return send(res, json(item, item.ok ? 200 : 404));
   }
+  // POST /api/memory/proposal {sessionId} —— 高门槛自动候选：确定性预筛后才让同一 provider 模型裁决；
+  // 只返回候选，不写记忆。模型否决、冷却、重复、敏感或不可用都静默返回 proposal:null。
+  if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal') {
+    const body = await readJsonBody(req);
+    const sessionId = safeSessionId(body && body.sessionId);
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    return send(res, json(await proposeMemoryFromSession(sessionId)));
+  }
+  // POST /api/memory/proposal/decision —— 只有用户在卡片上保存/忽略时落候选状态；仍不替用户写记忆。
+  if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal/decision') {
+    const body = await readJsonBody(req);
+    const sessionId = safeSessionId(body && body.sessionId);
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const r = await decideMemoryProposal(sessionId, String(body && body.proposalId || ''), String(body && body.decision || ''));
+    return send(res, json(r, r.ok ? 200 : 404));
+  }
   // POST /api/memory/draft {sessionId} —— provider 起草(镜像 playbook/draft)。必须在通配 /api/memory/<id> 之前。
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/draft') {   // 对抗轮 P3: 放行删除约定穿透
     const body = await readJsonBody(req);
@@ -436,7 +452,17 @@ async function handleApi(req, res, pathname) {
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
     const memIn = (body && body.memory) || {};
     if (memIn.scope === 'project' && !pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
+    const proposalSourceSessionId = body && body.proposalId ? String(body.sourceSessionId || '') : '';
+    const proposalId = body && body.proposalId ? String(body.proposalId || '') : '';
+    if (proposalId) {
+      const sourceCheck = await validateMemoryProposalSave(proposalSourceSessionId, proposalId, cwd);
+      if (!sourceCheck.ok) return send(res, json(sourceCheck, sourceCheck.conflict ? 409 : 404));
+    }
     const r = await saveMemory(memIn, cwd);
+    // The memory write and proposal acknowledgement belong to the same server-side
+    // operation from the UI's perspective. Settle here so a dropped browser response
+    // does not normally leave a successfully saved candidate pending.
+    if (r.ok && proposalId) await decideMemoryProposal(proposalSourceSessionId, proposalId, 'saved').catch(() => {});
     return send(res, json(r, r.ok ? 200 : 400));
   }
   // R4 Local Memory Graph(设计稿 15-r4-memory-graph.md)。relations 路由须在通配 /api/memory/<id>(下文 DELETE)之前,

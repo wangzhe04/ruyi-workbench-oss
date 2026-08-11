@@ -52,6 +52,7 @@ export function createChatStreamRuntime(deps = {}) {
     settleLiveThinking,
     showAskUserModal,
     state,
+    suggestMemoryFromTurn = async () => {},
     switchSettingsTab,
     t,
     thinkingPanel,
@@ -490,6 +491,10 @@ export function createChatStreamRuntime(deps = {}) {
         renderMissionBar(r.session && r.session.mission);
         renderContextMeter(latestUsage(r.session));
         renderResumeBanner();
+      }
+      // 不阻塞回合解锁：服务端通常会静默返回 proposal:null；只有成功回合且严格模型裁决通过时才追加卡片。
+      if (turnState.engine === 'openai' && turnState.live && turnState.live.resultOk === true && state.currentSession?.id === turnSessionId) {
+        Promise.resolve().then(() => suggestMemoryFromTurn(turnSessionId, turnState.live.narrative || turnState.main)).catch(() => {});
       }
     } catch (err) {
       // C6: aborts read as a neutral note (.msg-note), real failures as a red .msg-error block — not
@@ -1021,6 +1026,7 @@ export function createChatStreamRuntime(deps = {}) {
         maybeScrollToBottom();
         break;
       case 'result':
+        if (live) live.resultOk = evt.ok === true && !evt.errorClass && !evt.aborted;
         wbNativeClaudeFinalize(streamSessionId, evt);
         // v0.9-S1 (C6): error human-card. On a failed turn (or any turn carrying an errorClass) render a plain-
         // language card with the zh copy + one 「下一步」 action (from ERROR_CLASSES). A clean turn has no

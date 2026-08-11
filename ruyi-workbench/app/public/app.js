@@ -158,6 +158,7 @@ const {
   playbookInputLabel,
   renderSkillList,
   saveAsMemory,
+  suggestMemoryFromTurn,
   updateSkillBadge,
 } = createSkillsMemoryDomain({
   apiErrText,
@@ -341,6 +342,7 @@ const {
   settleLiveThinking,
   showAskUserModal: (...args) => showAskUserModal(...args),
   state,
+  suggestMemoryFromTurn: (...args) => suggestMemoryFromTurn(...args),
   switchSettingsTab: (...args) => switchSettingsTab(...args),
   t,
   thinkingPanel,

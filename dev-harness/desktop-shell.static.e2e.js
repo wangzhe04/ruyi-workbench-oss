@@ -20,6 +20,16 @@ ok(/ruyiNotification/.test(source) && /ShowDesktopNotification/.test(source) && 
   'WebView messages bridge task notifications to the native Windows tray');
 ok(/BalloonTipClicked/.test(source) && /ActivateShellWindow\(\)/.test(source),
   'clicking a native notification restores and focuses the desktop window');
+ok(/new NewWinHandler\(this\)/.test(source) && /owner\.OpenExternalUri\(uri\)/.test(source),
+  'new-window links are delegated to the owning desktop shell');
+ok(/new ProcessStartInfo\(uri\)/.test(source) && /UseShellExecute\s*=\s*true/.test(source),
+  'external links use the Windows default URI handler');
+ok(/UriSchemeHttp/.test(source) && /UriSchemeHttps/.test(source) && /UriSchemeMailto/.test(source),
+  'desktop shell allowlists external URI schemes');
+ok(/无法打开外部链接/.test(source) && /复制链接/.test(source) && /用默认程序重试/.test(source),
+  'failed external launches expose a closeable native retry/copy fallback');
+ok(/关闭网页，返回工作台/.test(source) && /ruyiReturnHome/.test(source),
+  'escaped embedded pages receive an explicit return-to-workbench escape hatch');
 
 console.log('\nDESKTOP SHELL STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

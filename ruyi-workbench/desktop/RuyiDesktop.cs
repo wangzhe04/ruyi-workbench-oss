@@ -757,7 +757,7 @@ namespace RuyiDesktop
                 settings.put_IsStatusBarEnabled(0);
 
             EventRegistrationToken token;
-            newWinHandler = new NewWinHandler();
+            newWinHandler = new NewWinHandler(this);
             core.add_NewWindowRequested(newWinHandler, out token);
 
             // 主题桥：每个文档创建前注入监听脚本，页面上报 light/dark → 宿主标题栏/背景/图标同步。
@@ -914,16 +914,95 @@ namespace RuyiDesktop
         private void OpenInDefaultBrowser()
         {
             if (string.IsNullOrEmpty(serverUrl)) return;
+            OpenExternalUri(serverUrl);
+        }
+
+        private static bool TryNormalizeExternalUri(string raw, out string safeUri)
+        {
+            safeUri = null;
+            Uri parsed;
+            if (string.IsNullOrWhiteSpace(raw) || !Uri.TryCreate(raw, UriKind.Absolute, out parsed)) return false;
+            string scheme = parsed.Scheme.ToLowerInvariant();
+            if (scheme != Uri.UriSchemeHttp && scheme != Uri.UriSchemeHttps && scheme != Uri.UriSchemeMailto) return false;
+            safeUri = parsed.AbsoluteUri;
+            return true;
+        }
+
+        private static bool TryLaunchSystemUri(string uri)
+        {
             try
             {
-                // explorer.exe 直传 URL → 交给默认浏览器；无 shell 解释，与服务端 buildOpenSpawn 同一安全口径。
-                var p = new Process();
-                p.StartInfo.FileName = "explorer.exe";
-                p.StartInfo.Arguments = serverUrl;
-                p.StartInfo.UseShellExecute = false;
-                p.Start();
+                // Windows Shell 按 URI 的系统关联打开：http(s) 使用当前默认浏览器，mailto 使用默认邮件程序。
+                var startInfo = new ProcessStartInfo(uri);
+                startInfo.UseShellExecute = true;
+                Process.Start(startInfo);
+                return true;
             }
-            catch { /* 浏览器打开失败不致命 */ }
+            catch { return false; }
+        }
+
+        internal void OpenExternalUri(string raw)
+        {
+            string safeUri;
+            if (!TryNormalizeExternalUri(raw, out safeUri)) return;
+            if (TryLaunchSystemUri(safeUri)) return;
+            ShowExternalLinkFallback(safeUri);
+        }
+
+        private void ShowExternalLinkFallback(string uri)
+        {
+            using (var dialog = new Form())
+            using (var message = new Label())
+            using (var urlBox = new TextBox())
+            using (var retry = new Button())
+            using (var copy = new Button())
+            using (var close = new Button())
+            {
+                dialog.Text = "无法打开外部链接";
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.ClientSize = new Size(560, 150);
+                dialog.MinimizeBox = false;
+                dialog.MaximizeBox = false;
+                dialog.ShowInTaskbar = false;
+
+                message.Text = "系统默认程序未能打开此链接。你可以重试、复制链接，或直接关闭此窗口。";
+                message.AutoSize = false;
+                message.SetBounds(16, 14, 528, 36);
+
+                urlBox.ReadOnly = true;
+                urlBox.Text = uri;
+                urlBox.SetBounds(16, 52, 528, 24);
+
+                retry.Text = "用默认程序重试";
+                retry.SetBounds(274, 100, 126, 30);
+                retry.Click += delegate
+                {
+                    if (TryLaunchSystemUri(uri)) dialog.Close();
+                    else System.Media.SystemSounds.Exclamation.Play();
+                };
+
+                copy.Text = "复制链接";
+                copy.SetBounds(166, 100, 96, 30);
+                copy.Click += delegate
+                {
+                    try { Clipboard.SetText(uri); }
+                    catch { System.Media.SystemSounds.Exclamation.Play(); }
+                };
+
+                close.Text = "关闭";
+                close.DialogResult = DialogResult.Cancel;
+                close.SetBounds(412, 100, 132, 30);
+
+                dialog.Controls.Add(message);
+                dialog.Controls.Add(urlBox);
+                dialog.Controls.Add(retry);
+                dialog.Controls.Add(copy);
+                dialog.Controls.Add(close);
+                dialog.AcceptButton = retry;
+                dialog.CancelButton = close;
+                dialog.ShowDialog(this);
+            }
         }
 
         /* ---------- 布局：手动 SetBounds（无边框窗口缩放 + WebView 贴合） ---------- */
@@ -1073,6 +1152,11 @@ namespace RuyiDesktop
                     string titleText = notice != null && notice.TryGetValue("title", out title) ? Convert.ToString(title) : "";
                     string bodyText = notice != null && notice.TryGetValue("body", out body) ? Convert.ToString(body) : "";
                     ShowDesktopNotification(titleText, bodyText);
+                }
+                if (root != null && root.TryGetValue("ruyiReturnHome", out value)
+                    && Convert.ToBoolean(value) && webView != null && !string.IsNullOrEmpty(serverUrl))
+                {
+                    webView.Navigate(serverUrl);
                 }
             }
             catch { /* malformed or unrelated page message */ }
@@ -1252,21 +1336,17 @@ namespace RuyiDesktop
         // target=_blank / window.open → 交回系统默认浏览器，不被 WebView2 静默吞掉。
         private sealed class NewWinHandler : ICoreWebView2NewWindowRequestedEventHandler
         {
+            private readonly ShellForm owner;
+            public NewWinHandler(ShellForm owner) { this.owner = owner; }
+
             public int Invoke(ICoreWebView2 sender, ICoreWebView2NewWindowRequestedEventArgs args)
             {
                 string uri;
                 if (args != null && args.get_Uri(out uri) == 0 && !string.IsNullOrEmpty(uri))
                 {
-                    try
-                    {
-                        var p = new Process();
-                        p.StartInfo.FileName = "explorer.exe";
-                        p.StartInfo.Arguments = uri;
-                        p.StartInfo.UseShellExecute = false;
-                        p.Start();
-                    }
-                    catch { /* ignore */ }
                     args.put_Handled(1);
+                    try { owner.BeginInvoke((Action)delegate { owner.OpenExternalUri(uri); }); }
+                    catch { /* shell is already closing */ }
                 }
                 return 0;
             }
@@ -1301,6 +1381,7 @@ namespace RuyiDesktop
     {
         public const string Install = @"(function () {
   window.__ruyiDesktop = 1; // 桌面外壳标记：前端据此做壳专属默认（如工具面板首启收起）
+  if (window.top !== window) return; // 只处理顶层文档，避免外部 iframe 出现宿主控制按钮。
   var last = '';
   function eff() {
     var attr = null;
@@ -1328,6 +1409,47 @@ namespace RuyiDesktop
         var mq = window.matchMedia('(prefers-color-scheme: light)');
         if (mq.addEventListener) mq.addEventListener('change', send);
         else if (mq.addListener) mq.addListener(send);
+      }
+    } catch (e) { }
+    try {
+      var host = String(location.hostname || '').toLowerCase();
+      var isWorkbench = host === '127.0.0.1' || host === 'localhost' || host === '::1';
+      if (isWorkbench) {
+        // Make every external anchor a new-window request before WebView2 performs its default
+        // same-document navigation. The host catches that request and delegates it to Windows.
+        document.addEventListener('click', function (event) {
+          if (event.defaultPrevented || event.button !== 0) return;
+          var node = event.target;
+          while (node && node.nodeType === 1 && node.tagName !== 'A') node = node.parentElement;
+          if (!node || !node.href) return;
+          try {
+            var url = new URL(node.href, location.href);
+            var external = url.protocol === 'mailto:'
+              || ((url.protocol === 'http:' || url.protocol === 'https:') && url.origin !== location.origin);
+            if (external) {
+              node.setAttribute('target', '_blank');
+              node.setAttribute('rel', 'noopener noreferrer');
+            }
+          } catch (e) { }
+        }, true);
+      } else if (location.protocol === 'http:' || location.protocol === 'https:') {
+        // Safety net: if a non-anchor navigation ever escapes interception, the embedded page
+        // remains dismissible instead of replacing the workbench with no obvious way back.
+        var addReturnButton = function () {
+          if (!document.body || document.getElementById('__ruyi_return_home')) return;
+          var button = document.createElement('button');
+          button.id = '__ruyi_return_home';
+          button.type = 'button';
+          button.textContent = '关闭网页，返回工作台';
+          button.title = '关闭当前内嵌网页并返回如意工作台';
+          button.setAttribute('style', 'position:fixed;top:12px;right:12px;z-index:2147483647;padding:9px 14px;border:1px solid #d4a72c;border-radius:8px;background:#17213a;color:#fff;font:14px Microsoft YaHei UI,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer');
+          button.addEventListener('click', function () {
+            try { window.chrome.webview.postMessage({ ruyiReturnHome: true }); } catch (e) { }
+          });
+          document.body.appendChild(button);
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addReturnButton);
+        else addReturnButton();
       }
     } catch (e) { }
     send();

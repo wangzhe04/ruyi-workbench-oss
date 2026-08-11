@@ -52,6 +52,9 @@ let rejectedOnce = false;
 // assert the round-trip (model output → parsePlaybookDraft → normalizePlaybook → draft) deterministically,
 // offline. Precedence: this takes over the stream:false branch below (which otherwise echoes a fixed line).
 const DRAFT_JSON = process.env.FAKE_DRAFT_JSON || '';
+// Optional deterministic plain-chat reply used by focused integration tests. Default remains the historical
+// segmented “Hello, world” response so existing harness behavior is byte-for-byte unchanged.
+const REPLY_TEXT = process.env.FAKE_REPLY_TEXT || '';
 // v0.9-S0 FAKE_REJECT_TOOLS_WORDING: override the 400 error message used by FAKE_REJECT_TOOLS. This lets an
 // e2e inject the OLD-misjudged shape — wording that contains BOTH tool/function semantics AND a
 // "not supported" fragment (which used to trip the workbench's stream_options sniff and cause a wrong
@@ -614,7 +617,7 @@ const server = http.createServer((req, res) => {
 
       // Plain chat (no tools): reasoning + content + usage.
       const reason = ['Let me ', 'think about ', 'this. '];
-      const content = ['Hello', ', ', 'world', '! ', 'This is ', 'a fake ', 'streamed ', 'reply.'];
+      const content = REPLY_TEXT ? [REPLY_TEXT] : ['Hello', ', ', 'world', '! ', 'This is ', 'a fake ', 'streamed ', 'reply.'];
       let i = 0;
       sse(res, { id, choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] });
       const timer = setInterval(() => {

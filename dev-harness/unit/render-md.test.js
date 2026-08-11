@@ -119,6 +119,16 @@ describe('Safe content preservation', () => {
   }
 });
 
+describe('External link navigation', () => {
+  it('adds safe new-window attributes only after Markdown sanitization', () => {
+    const sanitizeAt = appSrc.indexOf('sanitizeNode(tpl.content)');
+    const prepareAt = appSrc.indexOf('prepareExternalLinks(tpl.content)');
+    assert.ok(sanitizeAt >= 0 && prepareAt > sanitizeAt, 'external-link decoration must run after sanitization');
+    assert.match(appSrc, /setAttribute\('target', '_blank'\)/);
+    assert.match(appSrc, /setAttribute\('rel', 'noopener noreferrer'\)/);
+  });
+});
+
 // ── marked.parse() tests (only if marked is available) ──
 let marked;
 try { marked = require('marked'); } catch { /* not available */ }

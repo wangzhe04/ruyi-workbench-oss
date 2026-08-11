@@ -775,6 +775,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   await fsp.unlink(sessionPath(id)).catch(() => {}); // idempotent
   // v1.9 存储 v2:正文/迁移备份/损坏隔离副本一并清(用户删会话 = 删除其全部数据载体)。
   const bp = sessionBodyPaths(id);
+  const proposalSessionId = safeSessionId(id);
   await Promise.all([
     fsp.unlink(bp.messages).catch(() => {}),
     fsp.unlink(bp.provider).catch(() => {}),
@@ -786,6 +787,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     fsp.unlink(bp.provider + '.prevbody').catch(() => {}),
     fsp.unlink(interventionFilePath(id)).catch(() => {}),
     fsp.unlink(missionChangeFilePath(id)).catch(() => {}),
+    proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
   sessionBodyState.delete(id);
   if (purgeAssociated) {

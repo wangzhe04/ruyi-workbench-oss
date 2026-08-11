@@ -2444,6 +2444,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   turnSegments.finalizeAll(wasStopped ? '回合被停止,进行中的工具已中断' : '回合结束,进行中的工具未完成');
   session.messages.push({
     role: 'assistant', content: finalText, thinking: thinkingText.trim() || undefined,
+    turnSeq: session.turnSeq,
     toolCalls: toolCalls.length ? toolCalls : undefined,
     segments: turnSegments.snapshot(),
     turnSummary, // v0.8-S3

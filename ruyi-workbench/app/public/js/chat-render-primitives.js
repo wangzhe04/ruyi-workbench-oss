@@ -82,6 +82,20 @@ export function createChatRenderPrimitives(deps = {}) {
   const MD_CACHE_MAX = 128;
   const MD_CACHE_MAX_CHARS = 64 * 1024;
   const mdCache = new Map();
+  function prepareExternalLinks(root) {
+    for (const link of root.querySelectorAll('a[href]')) {
+      try {
+        const url = new URL(link.getAttribute('href'), location.href);
+        const isWebLink = url.protocol === 'http:' || url.protocol === 'https:';
+        const isExternal = url.protocol === 'mailto:' || (isWebLink && url.origin !== location.origin);
+        if (!isExternal) continue;
+        // These attributes are added only after sanitization, so untrusted Markdown cannot
+        // smuggle its own target/rel values through the attribute allowlist.
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener noreferrer');
+      } catch { /* sanitizeNode already removed malformed/unsafe href values */ }
+    }
+  }
   function renderMarkdown(text) {
     const key = String(text || '');
     const cacheable = key.length > 0 && key.length <= MD_CACHE_MAX_CHARS;
@@ -101,6 +115,7 @@ export function createChatRenderPrimitives(deps = {}) {
         const tpl = document.createElement('template');
         tpl.innerHTML = html;
         sanitizeNode(tpl.content);
+        prepareExternalLinks(tpl.content);
         out = tpl.innerHTML;
       }
     } catch { out = `<div class="plain">${escapeHtml(key)}</div>`; }

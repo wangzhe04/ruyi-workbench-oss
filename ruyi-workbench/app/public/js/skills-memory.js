@@ -811,6 +811,55 @@ async function saveAsMemory(btn, sessionId = '') {
   } catch (e) { toast(t("toast.draftFail", { p1: apiErrText(e) }), 'err'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
 }
+async function settleMemoryProposal(sessionId, proposalId, decision) {
+  if (!sessionId || !proposalId) return;
+  try {
+    await api('/api/memory/proposal/decision', { method: 'POST', body: JSON.stringify({ sessionId, proposalId, decision }) });
+  } catch { /* 候选状态是降噪元数据；失败不能阻断保存或把安静提示升级成报错 */ }
+}
+
+// 回合结束后的低打扰入口。服务端已经完成“信号预筛 → 同模型严格裁决 → 冷却/去重/敏感过滤”；
+// proposal:null 是最常见且完全安静的结果。卡片只提供审阅入口，绝不自动写入记忆库。
+async function suggestMemoryFromTurn(sessionId, host) {
+  if (!sessionId || !host || !host.isConnected || state.currentSession?.id !== sessionId) return;
+  let result;
+  try { result = await api('/api/memory/proposal', { method: 'POST', body: JSON.stringify({ sessionId }) }); }
+  catch { return; }
+  if (!result || !result.ok || !result.proposal || !result.proposalId) return;
+  if (!host.isConnected || state.currentSession?.id !== sessionId) return;
+  // 同一会话界面最多保留一张候选卡；跨多轮未处理的旧卡不会和新卡堆叠。
+  const messages = host.closest && host.closest('#messages');
+  for (const old of (messages ? messages.querySelectorAll('.memory-proposal-card') : [])) old.remove();
+  const proposal = result.proposal;
+  const card = el('section', 'memory-proposal-card');
+  card.setAttribute('aria-label', t('memory.proposal.aria'));
+  const head = el('div', 'memory-proposal-head');
+  head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kicker')));
+  const tags = el('span', 'memory-proposal-tags');
+  tags.append(
+    el('span', 'memory-proposal-tag', proposal.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')),
+    el('span', 'memory-proposal-tag', proposal.type === 'convention' ? t('memory.type.convention') : (proposal.type === 'lesson' ? t('memory.type.lesson') : t('memory.type.reference'))),
+  );
+  head.appendChild(tags);
+  card.append(head, el('div', 'memory-proposal-title', proposal.name || ''), el('div', 'memory-proposal-desc', proposal.description || ''));
+  if (proposal.reason) card.appendChild(el('div', 'memory-proposal-reason', t('memory.proposal.reason', { reason: proposal.reason })));
+  const actions = el('div', 'memory-proposal-actions');
+  const dismiss = el('button', 'mini', t('memory.proposal.dismiss'));
+  const review = el('button', 'mini primary', t('memory.proposal.review'));
+  actions.append(dismiss, review); card.appendChild(actions);
+  const removeCard = () => { card.classList.add('settled'); setTimeout(() => card.remove(), 160); };
+  dismiss.onclick = () => {
+    dismiss.disabled = true; review.disabled = true;
+    settleMemoryProposal(sessionId, result.proposalId, 'dismissed');
+    removeCard();
+  };
+  review.onclick = () => {
+    if (review.disabled) return;
+    review.disabled = true;
+    openMemoryEditModal({ ...proposal, scope: proposal.scope || 'project', _isDraft: true, _proposalId: result.proposalId, _onProposalSaved: removeCard, _onProposalEditCancelled: () => { if (card.isConnected) review.disabled = false; } });
+  };
+  host.appendChild(card);
+}
 // 编辑/新建弹窗。编辑现有项时先拉全文回填正文(注册表不带 body)。
 async function openMemoryEditModal(m) {
   let full = m;
@@ -847,8 +896,14 @@ async function openMemoryEditModal(m) {
   const cancel = el('button', '', t('common.cancel'));
   const save = el('button', 'primary', t('common.save'));
   foot.append(cancel, save);
-  const modal = buildModal(editing ? t('memory.edit.title') : t('memory.edit.create.title'), body, foot);
-  cancel.onclick = () => modal.close();
+  let editSettled = false;
+  const settleEditCancel = () => {
+    if (editSettled) return;
+    editSettled = true;
+    if (full && typeof full._onProposalEditCancelled === 'function') full._onProposalEditCancelled();
+  };
+  const modal = buildModal(editing ? t('memory.edit.title') : t('memory.edit.create.title'), body, foot, settleEditCancel);
+  cancel.onclick = () => { settleEditCancel(); modal.close(); };
   save.onclick = async () => {
     const memory = { name: nameEl.value.trim(), description: descEl.value.trim(), type: typeSel.value, body: bodyTa.value, scope: scopeSel.value };
     if (editing) memory.id = m.id;
@@ -856,10 +911,19 @@ async function openMemoryEditModal(m) {
     if (!memory.name || !memory.body.trim()) { toast(t("toast.memoryFieldsRequired"), 'err'); return; }
     save.disabled = true; save.textContent = t('common.saving');
     try {
-      const r = await api('/api/memory', { method: 'POST', body: JSON.stringify({ memory, cwd: currentWorkspace() || '' }) });
+      const payload = { memory, cwd: currentWorkspace() || '' };
+      if (full && full._proposalId && full.sourceSessionId) { payload.proposalId = full._proposalId; payload.sourceSessionId = full.sourceSessionId; }
+      const r = await api('/api/memory', { method: 'POST', body: JSON.stringify(payload) });
       modal.close();
       if (!r || !r.ok) { toast(t("toast.saveFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
       toast(t("toast.memorySaved"), 'ok');
+      editSettled = true;
+      if (full && full._proposalId && full.sourceSessionId) {
+        // The save route settles this server-side; this idempotent best-effort call is
+        // a fallback for metadata write failures and older backends.
+        settleMemoryProposal(full.sourceSessionId, full._proposalId, 'saved');
+        if (typeof full._onProposalSaved === 'function') full._onProposalSaved();
+      }
       if (!$('memoryModal').classList.contains('hidden')) openMemoryPanel();
     } catch (e) { modal.close(); toast(t("toast.saveFail", { p1: apiErrText(e) }), 'err'); }
   };
@@ -893,6 +957,7 @@ async function openMemoryEditModal(m) {
     playbookInputLabel,
     renderSkillList,
     saveAsMemory,
+    suggestMemoryFromTurn,
     updateSkillBadge,
   });
 }
