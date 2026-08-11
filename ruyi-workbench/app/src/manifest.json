@@ -17,115 +17,115 @@
     {
       "file": "02-session-store.js",
       "startLine": 2177,
-      "endLine": 5218,
+      "endLine": 5222,
       "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志"
     },
     {
       "file": "03-bridge-guard.js",
-      "startLine": 5219,
-      "endLine": 6074,
+      "startLine": 5223,
+      "endLine": 6078,
       "note": "桥接写族覆盖审计/工作区护栏"
     },
     {
       "file": "04-permission-runtime.js",
-      "startLine": 6075,
-      "endLine": 8030,
+      "startLine": 6079,
+      "endLine": 8051,
       "note": "视觉回路/pendingPermissions/plan 批准/原生权限请求"
     },
     {
       "file": "05-claude-engine.js",
-      "startLine": 8031,
-      "endLine": 9294,
+      "startLine": 8052,
+      "endLine": 9315,
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线"
     },
     {
       "file": "06-provider-engine.js",
-      "startLine": 9295,
-      "endLine": 10885,
+      "startLine": 9316,
+      "endLine": 10906,
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks"
     },
     {
       "file": "06b-prompt-registry.js",
-      "startLine": 10886,
-      "endLine": 11077,
+      "startLine": 10907,
+      "endLine": 11098,
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)"
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "startLine": 11078,
-      "endLine": 11223,
+      "startLine": 11099,
+      "endLine": 11244,
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine"
     },
     {
       "file": "07-autonomy.js",
-      "startLine": 11224,
-      "endLine": 14177,
+      "startLine": 11245,
+      "endLine": 14198,
       "note": "授权书/工具 gate/资源归一化"
     },
     {
       "file": "08-agent-runs.js",
-      "startLine": 14178,
-      "endLine": 16373,
+      "startLine": 14199,
+      "endLine": 16394,
       "note": "run 事件日志/恢复分级/runSubAgentCore"
     },
     {
       "file": "09-workflow.js",
-      "startLine": 16374,
-      "endLine": 18982,
+      "startLine": 16395,
+      "endLine": 19003,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 18983,
-      "endLine": 20045,
+      "startLine": 19004,
+      "endLine": 20066,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 20046,
-      "endLine": 21750,
+      "startLine": 20067,
+      "endLine": 21771,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 21751,
-      "endLine": 22882,
+      "startLine": 21772,
+      "endLine": 22903,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 22883,
-      "endLine": 25144,
+      "startLine": 22904,
+      "endLine": 25165,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 25145,
-      "endLine": 25468,
+      "startLine": 25166,
+      "endLine": 25489,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 25469,
-      "endLine": 25657,
+      "startLine": 25490,
+      "endLine": 25678,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 25658,
-      "endLine": 26898,
+      "startLine": 25679,
+      "endLine": 26919,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 26899,
-      "endLine": 27305,
+      "startLine": 26920,
+      "endLine": 27326,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "14-main.js",
-      "startLine": 27306,
-      "endLine": 27640,
+      "startLine": 27327,
+      "endLine": 27661,
       "note": "main()/module.exports"
     }
   ]

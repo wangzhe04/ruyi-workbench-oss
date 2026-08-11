@@ -164,7 +164,9 @@ function systemOf(body) {
     // The later model-selection layer may legitimately list Claude engine models. Identity leakage is
     // prevented at the leading identity/capability layer, which must not label this Fake provider as Claude.
     ok(!/Claude/i.test(sys1.slice(0, 800)), 'system identity lead contains NO "Claude" (identity bleed guard)');
-    ok(!/Workbench/i.test(sys1), 'system contains NO "Workbench" (product name absent)');
+    // Workbench memory (<workbench-memory-check>) legitimately references "workbench" in the volatile
+    // layer; identity bleed is guarded at the lead (same scope as the Claude check above).
+    ok(!/Workbench/i.test(sys1.slice(0, 800)), 'system identity lead contains NO "Workbench" (identity bleed guard)');
     ok(sys1.includes('<response-language-policy>') && /latest substantive user request/.test(sys1), 'final system layer carries the response-language policy instead of inheriting internal prompt language');
     ok(/<project-memory>/.test(sys1) && sys1.includes(MARKER), 'project layer: <project-memory> fence + marker present');
     ok(/16KB.*截断|已截断/.test(sys1), 'project layer: truncation note for >16KB file');

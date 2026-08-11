@@ -315,6 +315,11 @@ function startLegacySseMcp(port, state) {
     // ── G2 段: 并发互斥(55a P2 修复)── 两个并发探针同一 id,应复用同一 start Promise,
     //    只 spawn 一个 fake-mcp 子进程(PID 文件恰好 1 行);无互斥则 2 行(孤儿)。
     console.log('── G2 段: 并发探针互斥 ──');
+    // 清除启动预热(getCapabilities)在 stdio-conc 上留下的 60s 失败冷却:否则 getMcpClient 直接
+    // 返回 null 不 spawn 子进程 -> G2c pidCount=0(toggle 调 invalidateMcpRuntime 清 mcpClientFailures)。
+    await post(WP, '/api/mcp/connectors/toggle', { id: 'stdio-conc', enabled: false }, hdr);
+    await post(WP, '/api/mcp/connectors/toggle', { id: 'stdio-conc', enabled: true }, hdr);
+    await sleep(50);
     const pidFile = path.join(HOME, 'conc-pids.txt');
     try { fs.rmSync(pidFile, { force: true }); } catch { /* ignore */ }
     const [c1, c2] = await Promise.all([

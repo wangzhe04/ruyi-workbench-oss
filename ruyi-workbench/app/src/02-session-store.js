@@ -2484,6 +2484,10 @@ async function workspaceBaselineGitNames(repoRoot, head, deadline = Date.now() +
 async function captureGitWorkspaceBaseline(scopeRoot, deadline) {
   let remaining = workspaceBaselineRemainingMs(deadline, 5000);
   if (!remaining) return null;
+  // Canonicalize the scope root once: CI runners may address the temp workspace via an 8.3 short name
+  // (RUNNER~1) or a junction, while Git's rev-parse --show-toplevel always returns the long/real spelling.
+  // Comparing those two spellings would silently downgrade the git fast path to a full tree scan.
+  scopeRoot = await realpathForContainment(scopeRoot);
   const repoProbe = await runGit(['-C', scopeRoot, 'rev-parse', '--show-toplevel'], scopeRoot, remaining);
   if (!repoProbe.ok) return null;
   const repoRoot = path.resolve(String(repoProbe.stdout || '').trim());

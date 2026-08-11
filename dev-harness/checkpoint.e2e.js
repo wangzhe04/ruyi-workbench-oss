@@ -176,13 +176,17 @@ async function waitFakeDown() { for (let i = 0; i < 50; i++) { if (!await fakeRe
     // ============ (f) file_move FAILS → phantom journal rolled back (b3-P2) ============
     // A move that records its two before-snapshots but then fails (rename throws) must NOT leave phantom
     // checkpoint entries describing an operation that never happened. Trigger a guaranteed failure with
-    // a NUL byte in the destination path (fs.rename throws; dirname mkdir still succeeds), then assert:
+    // a Windows-invalid '*' in the destination filename (fs.rename throws ENOENT; dirname mkdir still
+    // succeeds; realpath resolves the existing parent so the guard accepts the path). A NUL byte is NOT
+    // usable here: realpathForContainment bails out with the lexical spelling on ERR_INVALID_ARG_VALUE,
+    // which on CI (os.tmpdir() = RUNNER~1 short name) mismatches the realpath long-name roots and makes
+    // the workspace-boundary check reject the path before rename is ever attempted. Then assert:
     //   * the tool returns ok:false + checkpointRolledBack:true (no phantomJournal);
     //   * the journal has NO file_move entries left for that turn;
     //   * the source file is untouched.
     const mvFrom = path.join(HOME, 'mv-src.txt');
     fs.writeFileSync(mvFrom, 'move-me-content');
-    const mvTo = path.join(HOME, 'nonexistent-sub', 'b.txt\u0000x'); // NUL => rename always throws
+    const mvTo = path.join(HOME, 'nonexistent-sub', 'b*.txt'); // '*' => rename always throws (ENOENT)
     const mvTurn = (await getJson(WB_PORT, '/api/sessions/' + sid)).body.session.turnSeq;
     const mvRes = (await tool(WB_PORT, token, 'file_move', { from: mvFrom, to: mvTo, sessionId: sid })).result;
     ok(mvRes && mvRes.ok === false, '(f) failing file_move returned ok:false (got ' + JSON.stringify(mvRes && mvRes.error) + ')');

@@ -75,7 +75,10 @@ function emitText(response, text) {
   response.write('data: [DONE]\n\n'); response.end();
 }
 function emitMissionDone(response) {
-  const id = 'chatcmpl-wave78', args = JSON.stringify({ milestones: [{ id: 'delivery', status: 'done', evidence: 'Wave 78 fake provider verified completion' }] });
+  const id = 'chatcmpl-wave78', args = JSON.stringify({ milestones: [
+    { id: 'accept-outcome', status: 'done', evidence: 'Wave 78 fake provider verified completion' },
+    { id: 'accept-evidence', status: 'done', evidence: 'Wave 78 fake provider verified completion' },
+  ] });
   sse(response, { id, choices: [{ index: 0, delta: { role: 'assistant', content: null, tool_calls: [{ index: 0, id: 'call_mission_done', type: 'function', function: { name: 'mission_update', arguments: '' } }] }, finish_reason: null }] });
   sse(response, { id, choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: args } }] }, finish_reason: null }] });
   sse(response, { id, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });

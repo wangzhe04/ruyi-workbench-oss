@@ -185,7 +185,7 @@ try {
   const beforeFollowup = (await request('/api/sessions/' + completedId, null, token)).json?.session;
   const followup = await request('/api/missions/' + completedId + '/control', { action: 'next_turn', prompt: 'add a second delivery' }, token);
   const afterFollowup = (await request('/api/sessions/' + completedId, null, token)).json?.session;
-  const pendingFollowup = afterFollowup?.mission?.milestones?.find(item => item.status === 'pending' && item.desc === 'add a second delivery');
+  const pendingFollowup = afterFollowup?.mission?.milestones?.find(item => item.status === 'pending' && String(item.id || '').startsWith('accept_followup'));
   ok(followup.status === 200 && followup.json?.requiresTurn === true && followup.json?.mission?.result == null && Boolean(pendingFollowup),
     'next_turn reopens a completed Mission with a new pending acceptance item');
   ok(afterFollowup?.turnSeq === beforeFollowup?.turnSeq && afterFollowup?.messages?.length === beforeFollowup?.messages?.length,

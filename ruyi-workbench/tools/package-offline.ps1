@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$OutputDir = "dist",
   [switch]$SkipExeBuild,
   [switch]$IncludeAcc,
@@ -18,6 +18,20 @@ param(
 #   -Variant       : label for the stage dir and zip name.
 
 $ErrorActionPreference = "Stop"
+
+# 依赖无关的 SHA256(治 Get-FileHash 漂移):Get-FileHash 是 PS5.1 Microsoft.PowerShell.Utility 里靠
+# PSModulePath 自动加载的【脚本定义】函数——在 PSModulePath 被污染的机器(如 pwsh7 模块路径混入 CI
+# runner)上它会消失,而同一模块的编译型 cmdlet 仍正常。.NET SHA256 是 BCL 内置、与 PSModulePath 无关。
+function Get-Sha256Hex {
+  param([string]$Path)
+  $stream = [System.IO.File]::OpenRead($Path)
+  try {
+    $algo = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([System.BitConverter]::ToString($algo.ComputeHash($stream))).Replace('-', '').ToLowerInvariant() }
+    finally { $algo.Dispose() }
+  } finally { $stream.Dispose() }
+}
+
 $variantLooksFull = $Variant -match '(^|[-_])full($|[-_])'
 if ($variantLooksFull -and -not $IncludeAcc) {
   throw "A package named Full must use -IncludeAcc; refusing to emit a Full ZIP without ACC/winsdk."
@@ -130,7 +144,7 @@ function Write-AccReleaseManifest([string]$AccDestination, [string]$SourcePackag
     $files.Add([ordered]@{
       path = $relative
       bytes = [int64]$item.Length
-      sha256 = (Get-FileHash -LiteralPath $full -Algorithm SHA256).Hash.ToLowerInvariant()
+      sha256 = (Get-Sha256Hex -Path $full)
     })
   }
   $sortedFiles = @($files | Sort-Object { [string]$_.path })

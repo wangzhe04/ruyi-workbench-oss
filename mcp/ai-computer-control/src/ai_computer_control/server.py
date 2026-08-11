@@ -18,7 +18,24 @@ import sys
 # BitmapDecoder/OCR completion callbacks undelivered.  Declare the server thread as MTA before any
 # dependency can import comtypes; UIA worker threads initialize COM for themselves where needed.
 if sys.platform == "win32":
-    sys.coinit_flags = 0x0  # COINIT_MULTITHREADED
+    sys.coinit_flags = 0x0  # COINIT_MULTITHREADED — hint read by comtypes when IT later inits COM
+    # ``sys.coinit_flags`` is only a *hint* to comtypes; it does not initialize COM itself.  A
+    # transitive dependency (winsdk WinRT OCR, a comtypes auto-init path, etc.) can implicitly
+    # CoInitialize the main thread as STA before comtypes reads the flag, and an apartment mode is
+    # immutable once chosen for the thread.  That silently left the live thread as STA on clean
+    # Windows Server images (CI: CoGetApartmentType != MTA) and starved WinRT OCR callbacks.  Make
+    # the MTA choice authoritative by explicitly calling CoInitializeEx(MTA) here, before any
+    # FastMCP/tool/winsdk import runs.  ctypes/ole32 only — no pywin32 import (which would itself
+    # touch COM and reintroduce the ordering problem).
+    import ctypes as _ctypes
+    _ole32 = _ctypes.windll.ole32
+    # COINIT_MULTITHREADED = 0x0; ignore RPC_E_CHANGED_MODE (0x80010106) — already inited, and the
+    # coinit_flags hint above keeps comtypes' own re-init consistent wherever possible.
+    _hr = _ole32.CoInitializeEx(None, 0x0)
+    if _hr < 0 and _hr & 0xFFFFFFFF != 0x80010106 and _hr & 0xFFFFFFFF != 0x00000001:
+        # 0x00000001 (S_FALSE) = already MTA-inited on this thread; that's fine.
+        import warnings as _warnings
+        _warnings.warn(f"CoInitializeEx(MTA) returned 0x{_hr & 0xFFFFFFFF:08X}; COM apartment may not be MTA")
 
 import functools
 import inspect

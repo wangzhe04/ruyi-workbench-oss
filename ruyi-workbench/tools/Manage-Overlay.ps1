@@ -142,6 +142,20 @@ function Write-Audit($t, $entry) {
   try { Add-Content -LiteralPath $logPath -Value ($rec | ConvertTo-Json -Compress) -Encoding UTF8 } catch {}
 }
 
+# 依赖无关的 SHA256(治 Get-FileHash 漂移):Get-FileHash 是 PS5.1 Microsoft.PowerShell.Utility 里靠
+# PSModulePath 自动加载的【脚本定义】函数——在 PSModulePath 被污染的机器(如 pwsh7 模块路径混入 CI
+# runner)上它会消失,而同一模块的编译型 cmdlet 仍正常,极难排查。.NET SHA256 是 BCL 内置、与
+# PSModulePath/版本无关,所有 Windows PowerShell 5.1 / pwsh 都可用。签名与 Get-FileHash 语义一致。
+function Get-Sha256Hex {
+  param([string]$Path)
+  $stream = [System.IO.File]::OpenRead($Path)
+  try {
+    $algo = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([System.BitConverter]::ToString($algo.ComputeHash($stream))).Replace('-', '').ToLower() }
+    finally { $algo.Dispose() }
+  } finally { $stream.Dispose() }
+}
+
 # 静默 helper:返回 verify 结果对象(不向 pipeline 输出;供 Do-Verify action 与 Do-Apply 内部复用)。
 function Get-VerifyResult($t) {
   if (-not (Test-Path $script:manifestPath)) { return @{ ok = $false; error = 'manifest missing'; version = $null; fileCount = 0; mismatches = @() } }
@@ -150,7 +164,7 @@ function Get-VerifyResult($t) {
   foreach ($f in $m.files) {
     $dst = Join-Path $t $f.path
     if (-not (Test-Path $dst)) { $bad += "$($f.path) [missing]"; continue }
-    $sha = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash.ToLower()
+    $sha = Get-Sha256Hex $dst
     if ($sha -ne $f.sha256.ToLower()) { $bad += "$($f.path) [hash mismatch]" }
   }
   return @{ ok = ($bad.Count -eq 0); error = ''; version = [string]$m.version; fileCount = [int]$m.fileCount; mismatches = $bad }
@@ -173,7 +187,7 @@ function Get-PrecheckCore($t) {
   foreach ($f in $m.files) {
     $src = Join-Path $script:payload $f.path
     if (-not (Test-Path $src)) { $missing += $f.path; continue }
-    $sha = (Get-FileHash -LiteralPath $src -Algorithm SHA256).Hash.ToLower()
+    $sha = Get-Sha256Hex $src
     if ($sha -ne [string]$f.sha256.ToLower()) { $mismatched += $f.path }
   }
   if ($missing.Count) { $errors += "missing files: $($missing -join ', ')" }
@@ -213,7 +227,7 @@ function Invoke-Precheck($t) {
     foreach ($f in $m.files) {
       $dst = Join-Path $t $f.path
       if (-not (Test-Path $dst)) { $newFiles += $f.path; continue }
-      $dstSha = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash.ToLower()
+      $dstSha = Get-Sha256Hex $dst
       if ($dstSha -eq [string]$f.sha256.ToLower()) { $unchanged += $f.path } else { $overwritten += $f.path }
     }
     $deleted = @()

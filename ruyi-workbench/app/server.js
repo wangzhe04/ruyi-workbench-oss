@@ -4660,6 +4660,10 @@ async function workspaceBaselineGitNames(repoRoot, head, deadline = Date.now() +
 async function captureGitWorkspaceBaseline(scopeRoot, deadline) {
   let remaining = workspaceBaselineRemainingMs(deadline, 5000);
   if (!remaining) return null;
+  // Canonicalize the scope root once: CI runners may address the temp workspace via an 8.3 short name
+  // (RUNNER~1) or a junction, while Git's rev-parse --show-toplevel always returns the long/real spelling.
+  // Comparing those two spellings would silently downgrade the git fast path to a full tree scan.
+  scopeRoot = await realpathForContainment(scopeRoot);
   const repoProbe = await runGit(['-C', scopeRoot, 'rev-parse', '--show-toplevel'], scopeRoot, remaining);
   if (!repoProbe.ok) return null;
   const repoRoot = path.resolve(String(repoProbe.stdout || '').trim());
@@ -7081,6 +7085,8 @@ const mcpClients = new Map();       // serverId -> McpStdioClient
 const mcpClientFailures = new Map(); // serverId -> { at, error }
 const MCP_FAILURE_COOLDOWN_MS = 60000;
 const mcpClientPending = new Map();  // 55a: serverId -> 进行中的 start Promise(并发互斥,防孤儿子进程)
+const mcpStartingClients = new Map(); // 55a: serverId -> 正在握手(尚未入 mcpClients)的客户端,invalidate 时需 kill
+const mcpClientGen = new Map();     // 55a: serverId -> 代数;invalidate 自增以让在途 start 结果作废、不写冷却
 
 // ============================================================================
 // v1.1-W2 (T2) — MCP drop-in 自动扫描。
@@ -7305,7 +7311,14 @@ function invalidateMcpRuntime(id) {
   if (id) {
     const client = mcpClients.get(id);
     if (client) { try { client.kill(); } catch { /* ignore */ } mcpClients.delete(id); }
+    // 55a: kill 正在握手(尚未入 mcpClients)的子进程 -- 否则一个 HANG 初始化的进程会活到 8s rpc 超时,
+    // 既成孤儿(toggle 应立即停),又会让后续并发 probe 复用其永挂的 pending Promise 而不重新 spawn。
+    const starting = mcpStartingClients.get(id);
+    if (starting) { try { starting.kill(); } catch { /* ignore */ } mcpStartingClients.delete(id); }
     mcpClientFailures.delete(id);
+    // 自增代数:在途 start(其 Promise 仍可能被并发 probe await)settle 后据此作废结果——
+    // 已 killed 的失败不写冷却(否则 toggle-on 后立刻又命中 60s 冷却不重连)。
+    mcpClientGen.set(id, (mcpClientGen.get(id) || 0) + 1);
   }
 }
 
@@ -7358,17 +7371,25 @@ async function getMcpClient(entry) {
   // start race-timeout(可低至 2s)先于 getMcpClient 的 8s rpc 超时返回,若无互斥,第二次 probe 会 spawn
   // 第二个子进程;两个都成功时第一个子进程成孤儿(child.unref 只防阻止退出不杀进程,持有句柄/端口/锁)。
   if (mcpClientPending.has(entry.id)) return mcpClientPending.get(entry.id);
+  const gen = (mcpClientGen.get(entry.id) || 0);
   const p = (async () => {
     const client = (entry.transport === 'sse' || entry.transport === 'http') ? new McpHttpClient(entry) : new McpStdioClient(entry);
+    mcpStartingClients.set(entry.id, client);
     try {
       await client.start();
+      // 启动期间被 invalidateMcpRuntime 作废(配置变更/toggle):丢弃结果,不登记为活客户端,也不写失败冷却。
+      if ((mcpClientGen.get(entry.id) || 0) !== gen) { try { client.kill(); } catch { /* ignore */ } return null; }
       mcpClients.set(entry.id, client);
       mcpClientFailures.delete(entry.id);
       return client;
     } catch (e) {
+      // 被 invalidate kill 的在途启动:不写冷却(用户期望 toggle-on 后可立即重连)。
+      if ((mcpClientGen.get(entry.id) || 0) !== gen) return null;
       mcpClientFailures.set(entry.id, { at: Date.now(), error: (e && e.message) || String(e) });
       logEvent({ kind: 'mcp_bridge_start_failed', serverId: entry.id, error: (e && e.message) || String(e) });
       return null;
+    } finally {
+      if (mcpStartingClients.get(entry.id) === client) mcpStartingClients.delete(entry.id);
     }
   })();
   mcpClientPending.set(entry.id, p);
@@ -7433,7 +7454,7 @@ async function collectBridgedTools(config, force = false) {
       } catch { client = null; }
       if (!client || client === '__timeout__') return null;
       let list;
-      try { list = client.listTools(); } catch { list = []; }
+      try { list = await client.listTools(); } catch { list = []; }
       return { entry, list: Array.isArray(list) ? list : [] };
     }));
     for (const item of collected) {

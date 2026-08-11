@@ -301,9 +301,11 @@ const TOOL_VIEW_MEASURE = `(async () => {
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
 
     const startup = [];
+    // Warm-up: let the browser process/renderer finish one-time init (V8 JIT, font/network stack).
+    // That first load measures browser cold-start, not Workbench navigation, so it is not part of the
+    // cold-navigation budget. Every sampled run below is still an ignoreCache:true cold-cache navigation.
     let metrics = await waitForInteractive(cdp);
-    if (metrics) startup.push(metrics);
-    for (let i = 1; i < STARTUP_RUNS; i++) {
+    for (let i = 0; i < STARTUP_RUNS; i++) {
       const previous = metrics && metrics.timeOrigin || 0;
       await cdp.send('Page.reload', { ignoreCache: true });
       metrics = await waitForInteractive(cdp, previous);

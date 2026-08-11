@@ -177,6 +177,12 @@ try {
     const sid = created.json && created.json.session && created.json.session.id;
     ok(created.status === 200 && !!sid, 'fixture session created');
 
+    // The server deliberately hands the realpath (canonical long form) of the checkpoint path to the editor
+    // (guardWorkspacePath resolves 8.3 short names / junctions). Compare canonical spellings, not raw strings.
+    const samePath = (a, b) => {
+      try { return fs.realpathSync(a).toLowerCase() === fs.realpathSync(b).toLowerCase(); }
+      catch { return false; }
+    };
     const source = path.join(routeWs, 'sample.py');
     const before = 'answer = 41\n';
     const after = 'answer = 42\n';
@@ -194,12 +200,12 @@ try {
     const captured = JSON.parse(fs.readFileSync(capturePath, 'utf8'));
     ok(opened.status === 200 && opened.json && opened.json.opened[0].mode === 'diff', 'external diff route succeeds');
     ok(captured.command === process.execPath && captured.args[0] === '--reuse-window' && captured.args[1] === '--diff'
-      && captured.args[3] === source, 'route hands current source path to native editor');
+      && samePath(captured.args[3], source), 'route hands current source path to native editor');
     ok(fs.readFileSync(captured.args[2], 'utf8') === before, 'route materializes exact before snapshot for native diff');
 
     const openCurrent = await request(port, 'POST', '/api/checkpoints/open-external', { sessionId: sid, turnSeq: 2, entrySeq: 0, action: 'open' }, auth);
     const capturedOpen = JSON.parse(fs.readFileSync(capturePath, 'utf8'));
-    ok(openCurrent.status === 200 && capturedOpen.mode === 'open' && capturedOpen.args.length === 1 && capturedOpen.args[0] === source,
+    ok(openCurrent.status === 200 && capturedOpen.mode === 'open' && capturedOpen.args.length === 1 && samePath(capturedOpen.args[0], source),
       'open action uses the current code file in the preferred editor');
   } finally {
     if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }

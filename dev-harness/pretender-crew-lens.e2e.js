@@ -192,7 +192,7 @@ try {
 
   const executable = browserPath(); ok(Boolean(executable), 'A3 Edge/Chrome found'); if (!executable) throw new Error('browser unavailable');
   const appUrl = `http://127.0.0.1:${appPort}/`;
-  browser = cp.spawn(executable, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--disable-sync', '--disable-background-networking', '--force-device-scale-factor=1', '--window-size=1440,1000', '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl], { windowsHide: true, stdio: 'ignore' });
+  browser = cp.spawn(executable, ['--headless=new', '--disable-gpu', '--lang=zh-CN', '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--disable-sync', '--disable-background-networking', '--force-device-scale-factor=1', '--window-size=1440,1000', '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl], { windowsHide: true, stdio: 'ignore' });
   const target = await waitForTarget(debugPort, appUrl); ok(Boolean(target), 'A4 browser target available'); if (!target) throw new Error('CDP target unavailable');
   cdp = new CdpClient(target.webSocketDebuggerUrl); await cdp.connect(); await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
   ok(Boolean(await waitForEval(cdp, `window.state?.currentSession?.id === '${sessionId}' && typeof document.getElementById('cfgShellMode')?.onchange === 'function'`)), 'A5 classic shell hydrated the Mission session');

@@ -45,6 +45,19 @@ const NPM_RUN = process.platform === 'win32'
     ok(facts.workbenchVersion === pkgV.version, 'A3 facts.workbenchVersion(' + facts.workbenchVersion + ') == package.json(' + pkgV.version + ')');
     const builtV = (built.match(/const VERSION = '([^']+)'/) || [])[1]; ok(builtV === pkgV.version, 'A3 产物 server.js 版本一致(package=' + pkgV.version + ', 产物=' + builtV + ')');
   } catch (e) { ok(false, 'A3 版本三角: ' + (e.message || e)); }
+  // ①.5 桌面壳编译(Windows): build-overlay 的 payload 含 RuyiDesktop.exe / WebView2Loader.dll,
+  // 二者在仓库根(被 .gitignore,不入库);exe 由 desktop/RuyiDesktop.cs 经系统 csc.exe(.NET Framework 4.x,
+  // Windows runner 自带,零 npm 依赖)编译,dll 从 desktop/ 拷出。CI 干净 checkout 里没有根目录二进制,
+  // 必须先编译再装配,否则 build-overlay 报 MISSING payload。非 Windows 跳过(无 csc,overlay 该步也不适用)。
+  if (process.platform === 'win32') {
+    try {
+      run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(WB, 'desktop', 'build-desktop.ps1')], WB, { quiet: true, timeout: 120000 });
+      ok(fs.existsSync(path.join(WB, 'RuyiDesktop.exe')) && fs.existsSync(path.join(WB, 'WebView2Loader.dll')),
+        '①.5 桌面壳编译(RuyiDesktop.exe + WebView2Loader.dll)');
+    } catch (e) { ok(false, '①.5 桌面壳编译失败: ' + ((e.stdout || '') + (e.stderr || '') || e.message).slice(0, 300)); }
+  } else {
+    console.log('SKIP ①.5 桌面壳编译(非 Windows;无 csc,overlay 装配不适用)');
+  }
   // ② build-overlay 全装配
   try {
     run(process.execPath, [path.join(WB, 'tools', 'build-overlay.js'), VERSION], WB, { quiet: true });
