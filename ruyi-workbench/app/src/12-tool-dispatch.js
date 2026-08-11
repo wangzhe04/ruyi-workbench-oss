@@ -55,6 +55,15 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
 // 调用;paths:null 必须有非空 guardNote;注册表键集 === NATIVE_TOOL_PACKS 键集(目录漂移=锁红)。
 // 新工具忘了声明 = 锁红 —— archive 漏 guard(第27波)、desktop_screenshot 越界写(第36波)这类漏审整类收口。
 const CORE_TOOL_HANDLERS = {
+  workbench_memory_list: { paths: null, guardNote: "工作台自有记忆元数据检索,范围固定在 dataRoot/memory", handler: async (args, ctx) => {
+      return listWorkbenchMemories(args, ctx);
+  } },
+  workbench_memory_read: { paths: null, guardNote: "按受校验 id 读取 dataRoot/memory 内工作台记忆,不接受任意路径", handler: async (args, ctx) => {
+      return readWorkbenchMemory(args, ctx);
+  } },
+  workbench_memory_propose: { paths: null, guardNote: "仅写待用户确认的候选元数据,不直接写入记忆库", handler: async (args, ctx) => {
+      return proposeWorkbenchMemory(args, ctx);
+  } },
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config);

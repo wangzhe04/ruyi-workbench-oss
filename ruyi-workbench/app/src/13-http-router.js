@@ -376,7 +376,7 @@ async function handleApi(req, res, pathname) {
       seen.add(key);
       // P3-3: project 条目落盘 projectKey(锁定「启用当时的项目组」);global 无此概念。前端如传 projectKey 一律以服务端权威值覆盖。
       cleaned.push(scope === 'project' ? { id, scope, projectKey: projKey } : { id, scope });
-      if (cleaned.length >= 8) break;
+      if (cleaned.length >= MEMORY_MAX) break;
     }
     session.memories = cleaned;
     session.memoriesExplicit = true; // 用户显式设置过 → 关闭默认自动启用
@@ -394,10 +394,11 @@ async function handleApi(req, res, pathname) {
     const cwdQ = new URL(req.url, 'http://x').searchParams.get('cwd') || '';
     let cwd = normalizeCwd(config.defaultWorkspace, config.defaultWorkspace);
     if (cwdQ) { const resolved = normalizeCwd(cwdQ, config.defaultWorkspace); if (pathWithinAnyRoot(path.resolve(resolved), fileAllowedRoots(null, config))) cwd = resolved; }
-    const memories = await loadMemoryRegistry(cwd).catch(() => []);
+    const registry = await loadMemoryRegistry(cwd).catch(() => []);
+    const coreState = await resolveCoreMemoryState(cwd, registry).catch(() => ({ all: registry, active: [], standby: [], expired: [], stats: { total: registry.length, coreRequested: 0, active: 0, standby: 0, expired: 0, reviewDue: 0, charsUsed: 0, charLimit: CORE_MEMORY_CHAR_CAP, itemLimit: CORE_MEMORY_MAX } }));
     const projectKey = projectKeyForCwd(cwd);
     const otherProjects = await listMemoryProjectGroups(projectKey).catch(() => []);
-    return send(res, json({ ok: true, memories, projectKey, cwd, otherProjects }));
+    return send(res, json({ ok: true, memories: coreState.all, core: coreState.stats, projectKey, cwd, otherProjects }));
   }
   // GET /api/memory/item?id=&scope=&cwd= —— 读单条记忆全文(编辑回填)。返回文件正文 → 只读内容型 GET,须 tokenOk
   // 自校验(同 /api/memory 与 /api/file/preview 的 DNS-rebinding 加固模式)。
@@ -444,6 +445,25 @@ async function handleApi(req, res, pathname) {
     const r = await migrateMemory(String(body && body.id || ''), String(body && body.fromKey || ''), cwd);
     // P2-4: 同名冲突返回 409(Conflict),与一般失败 400 区分,供前端汇总「N 条冲突跳过」。
     return send(res, json(r, r.ok ? 200 : (r.conflict ? 409 : 400)));
+  }
+  // POST /api/memory/metadata —— 工具箱里的核心/重要性快捷操作。先读原条目再完整保存，正文不丢失；
+  // LRU 只据这些元数据调整核心席位，不会在此路由删除或替换任何记忆。
+  if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/metadata') {
+    const body = await readJsonBody(req);
+    const config = await readConfig();
+    const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
+    const scope = body && body.scope === 'global' ? 'global' : 'project';
+    if (scope === 'project' && !pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
+    const item = await readMemoryItem(String(body && body.id || ''), scope, cwd);
+    if (!item.ok) return send(res, json(item, 404));
+    const patch = body && body.patch && typeof body.patch === 'object' ? body.patch : {};
+    const memory = { ...item.memory };
+    if (Object.prototype.hasOwnProperty.call(patch, 'core')) memory.core = patch.core === true;
+    if (Object.prototype.hasOwnProperty.call(patch, 'importance')) memory.importance = patch.importance === 'important' ? 'important' : 'normal';
+    if (Object.prototype.hasOwnProperty.call(patch, 'reviewAfter')) memory.reviewAfter = patch.reviewAfter;
+    if (Object.prototype.hasOwnProperty.call(patch, 'expiresAt')) memory.expiresAt = patch.expiresAt;
+    const r = await saveMemory(memory, cwd);
+    return send(res, json(r, r.ok ? 200 : 400));
   }
   // POST /api/memory {memory:{id?,scope,name,description,type,body}, cwd} —— 保存(id 缺省合成,原子写)。
   if (req.method === 'POST' && pathname === '/api/memory') {
@@ -1222,6 +1242,10 @@ async function startServer(opts) {
   await invalidateSessionIndex();
   LAUNCH_MODE = isPkg() ? 'exe' : 'node';
   let config = await readConfig(); // let: autoImportClaudeCodeMcp 写回后需重绑到最新引用
+  // v2 工作台记忆接管 ACC Memory：启动期一次性、幂等导入。失败只记审计且保留 ACC memory 工具，
+  // 不阻断工作台；成功标记会让后续生成/桥接的 ACC 进程隐藏旧工具面。
+  const accMemoryMigration = await migrateLegacyAccMemory().catch(e => ({ ok: false, error: (e && e.message) || String(e) }));
+  if (!accMemoryMigration.ok) logEvent({ kind: 'acc_memory_import_failed', error: accMemoryMigration.error || 'unknown error' });
   // v1.4.3: sync settings, agent roles, and MCP servers to Claude CLI's own config on startup
   await syncClaudeCliSettings(config);
   await syncAgentRolesToClaude(config.defaultWorkspace || os.homedir(), config);
@@ -1487,6 +1511,44 @@ async function discoverModels(config) {
 
 const MCP_TOOLS = [
   ...adaptiveMetaToolSchemas(true),
+  {
+    name: 'workbench_memory_list',
+    description: 'List/search confirmed Workbench Memory metadata for the current project and global scope. Use when the user asks what is remembered or the injected memory preflight/index is insufficient. This does not read full bodies.',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        query: { type: 'string', description: 'Optional relevance query. Omit to list newest entries.' },
+        scope: { type: 'string', enum: ['all', 'project', 'global'], default: 'all' },
+        limit: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
+      },
+    },
+  },
+  {
+    name: 'workbench_memory_read',
+    description: 'Read one confirmed Workbench Memory entry by id. Read only entries relevant to the current request and verify stale facts against the workspace before relying on them.',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['id'],
+      properties: {
+        id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' },
+        scope: { type: 'string', enum: ['project', 'global'], description: 'Optional unless the same id exists in both scopes.' },
+      },
+    },
+  },
+  {
+    name: 'workbench_memory_propose',
+    description: 'Submit one durable memory candidate for user review. It never saves directly: the user must confirm the card shown after the turn. Use when the user explicitly asks to remember something, or for a stable preference, confirmed project convention/decision, or verified recurring lesson that is not already in repository files. Never include secrets, transient status, guesses, or ordinary task output.',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['name', 'description', 'type', 'scope', 'body', 'reason'],
+      properties: {
+        name: { type: 'string', minLength: 1, maxLength: 120 },
+        description: { type: 'string', minLength: 1, maxLength: 400, description: 'When this memory is useful.' },
+        type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'] },
+        scope: { type: 'string', enum: ['project', 'global'], description: 'Use global only for an explicitly cross-project personal preference.' },
+        body: { type: 'string', minLength: 1, maxLength: 4000, description: 'Concise Markdown with conclusion, applicability and concrete practice.' },
+        reason: { type: 'string', minLength: 1, maxLength: 240, description: 'Why this will remain useful across future sessions.' },
+      },
+    },
+  },
   {
     name: 'permission_prompt',
     description: 'Internal: handles --permission-prompt-tool requests by asking the workbench UI to allow/deny a tool call.',

@@ -153,7 +153,7 @@ async function runClaudeTurn({
   if (config.maxTurns) args.push('--max-turns', String(config.maxTurns));
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
-  ).catch(() => ({ entries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0 } }));
+  ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
   const memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
   // cmd8191 防线: 先把与 append/agents 无关的尾部参数(tailArgs)全部定下来,才能精确核算整行剩余预算。
   // (就是原来跟在 append 块后面的 --resume / --add-dir / extraClaudeArgs,内容不变,仅提前收集、最后统一 push。)
@@ -167,7 +167,7 @@ async function runClaudeTurn({
   // P2-2 最小授权: 不再 push 整个 paths.memory(会暴露其它项目组 + meta.json),按已启用条目的 scope 分组授权——
   // 启用了 global 条目 → 加 memory/global;启用了 project 条目 → 加当前项目组 memory/project/<key>。各自去重、跳过 == cwd。
   try {
-    const memDirEntries = memoryPreflight.entries;
+    const memDirEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
     const memDirs = new Set();
     if (memDirEntries.some(e => e && e.scope === 'global')) memDirs.add(memoryGlobalDir());
     if (memDirEntries.some(e => e && e.scope === 'project')) memDirs.add(memoryProjectDir(workingDir));
@@ -216,6 +216,14 @@ async function runClaudeTurn({
     if (config.includeWorkbenchMcp && config.toolLoadingMode === 'auto') {
       appendSys += `${appendSys ? '\n\n' : ''}Ruyi uses adaptive tool loading. Only likely tools are listed for this turn. If a Ruyi/desktop/Office capability is missing, call mcp__win-claude-workbench__tool_search, then invoke the exact result with mcp__win-claude-workbench__tool_invoke_read, _edit, or _exec according to its returned tier. Never use a lower-tier proxy for a higher-tier target.`;
     }
+    if (config.includeWorkbenchMcp) {
+      // 核心记忆协议是稳定上下文，和技能/记忆索引一样走 stdin，避免占用 Windows 命令行预算。
+      indexSecs.push(getPromptPack(config && config.locale).memoryCoreGuide({
+        list: 'mcp__win-claude-workbench__workbench_memory_list',
+        read: 'mcp__win-claude-workbench__workbench_memory_read',
+        propose: 'mcp__win-claude-workbench__workbench_memory_propose',
+      }));
+    }
     if (config.desktopMcp && config.desktopMcp.enabled) {
       appendSys += `${appendSys ? '\n\n' : ''}${buildBrowserAutomationHint(config)}`;
     }
@@ -241,7 +249,7 @@ async function runClaudeTurn({
     // v2 跨会话记忆: 已启用记忆的紧凑索引。第35波 P2 起与技能索引同走 stdin 一次性注入(原文,不中和);
     // P3-2 的 fits-or-drop 契约由段内构建自带截断(MEMORY_INDEX_CAP)替代,不再有命令行预算丢弃面。
     try {
-      const memEntries = memoryPreflight.entries;
+      const memEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
       // R4-S1:真实主回合必须把 confirmed contradicts 传进索引构建；此前只有纯函数 e2e 显式传 map，
       // 线上 Claude 注入漏传，导致关系已确认但提示里看不到冲突标记。
       const memoryConflicts = memEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;

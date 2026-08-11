@@ -17,6 +17,7 @@ export function createNavigationControlsDomain({
   addTemplateFromPrompt = () => {},
   openMcpInspector = async () => {},
   openMemoryPanel = async () => {},
+  openMemoryToolbox = async () => {},
   getTemplates = () => [],
   insertTemplate = () => {},
   openSession = async () => {},
@@ -722,6 +723,7 @@ function switchTab(tab) {
   if (tab === 'artifacts') renderArtifactsGallery();
   // v1.0.2 (G1): (re)load the checkpoint change list when the 变更 tab opens.
   if (tab === 'changes') loadChanges();
+  if (tab === 'memory') openMemoryToolbox();
   // v0.9-S8 (§4 B4): load the audit timeline once when its tab opens (no polling — the audit view is quiet).
   if (tab === 'audit') openAuditTab();
   // 用量看板：打开时才拉取（懒加载，同审计）。已加载则用缓存重绘，避免重复请求；刷新/切范围会强制重拉。

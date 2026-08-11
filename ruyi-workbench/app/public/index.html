@@ -324,6 +324,7 @@
           <button type="button" role="tab" aria-selected="true" data-tab="files" class="active"><span class="tool-tab-mark" aria-hidden="true">▤</span><span data-i18n="tool.files">文件</span></button>
           <button type="button" role="tab" aria-selected="false" data-tab="artifacts"><span class="tool-tab-mark" aria-hidden="true">◇</span><span data-i18n="tool.artifacts">产物</span></button>
           <button type="button" role="tab" aria-selected="false" data-tab="changes"><span class="tool-tab-mark" aria-hidden="true">±</span><span data-i18n="changes.title">改动</span></button>
+          <button type="button" role="tab" aria-selected="false" data-tab="memory"><span class="tool-tab-mark" aria-hidden="true">◉</span><span data-i18n="memory.toolbox.tab">记忆</span></button>
           <button type="button" role="tab" aria-selected="false" data-tab="agent-runs"><span class="tool-tab-mark" aria-hidden="true">⊙</span><span data-i18n="workflow.shortTitle">工作流</span></button>
           <button type="button" role="tab" aria-selected="false" data-tab="usage"><span class="tool-tab-mark" aria-hidden="true">∿</span><span data-i18n="usage.title">用量</span></button>
           <button type="button" role="tab" aria-selected="false" data-tab="audit"><span class="tool-tab-mark" aria-hidden="true">◷</span><span data-i18n="tool.activity">记录</span></button>
@@ -372,6 +373,32 @@
           <div id="changesList" class="changes-list"></div>
           <!-- 仅在浏览器阻止新窗口时作为就地降级预览；正常“查看改动”会打开独立窗口。 -->
           <div id="changesPreview" class="changes-preview hidden"></div>
+        </section>
+
+        <section class="tool-section memory-toolbox" id="tab-memory">
+          <div class="pane-section-head memory-toolbox-head">
+            <div>
+              <h3 data-i18n="memory.toolbox.title">记忆库</h3>
+              <p data-i18n="memory.toolbox.hint">核心摘要每轮自动加载，其余记忆按需检索</p>
+            </div>
+            <div class="memory-head-actions">
+              <button id="memoryToolboxAddBtn" class="mini primary" data-i18n="memory.toolbox.add">新建</button>
+              <button id="memoryToolboxRefreshBtn" class="mini pane-icon-button" data-i18n="common.refresh">刷新</button>
+            </div>
+          </div>
+          <div id="memoryToolboxOverview" class="memory-overview" aria-live="polite"></div>
+          <div class="memory-toolbar">
+            <label class="memory-search" aria-label="搜索记忆" data-i18n-attr="aria-label:memory.toolbox.searchAria">
+              <span aria-hidden="true">⌕</span>
+              <input id="memoryToolboxSearch" type="search" placeholder="搜索名称、说明或类型" data-i18n-attr="placeholder:memory.toolbox.search" />
+            </label>
+            <div class="memory-filter" role="tablist" aria-label="记忆筛选" data-i18n-attr="aria-label:memory.toolbox.filterAria">
+              <button type="button" class="active" data-memory-filter="all" role="tab" aria-selected="true" data-i18n="memory.toolbox.all">全部</button>
+              <button type="button" data-memory-filter="core" role="tab" aria-selected="false" data-i18n="memory.toolbox.core">核心</button>
+              <button type="button" data-memory-filter="review" role="tab" aria-selected="false" data-i18n="memory.toolbox.review">待复核</button>
+            </div>
+          </div>
+          <div id="memoryToolboxList" class="memory-toolbox-list"></div>
         </section>
 
         <section class="tool-section" id="tab-agent-runs">

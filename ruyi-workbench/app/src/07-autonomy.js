@@ -3,12 +3,17 @@
 // 与 <project-memory>(CLAUDE.md,作者=仓库)分工(C0):本库作者=用户+AI 经确认,随工作台走。注入标签
 // <workbench-memory>、UI 一律称「工作台记忆」。存储:dataRoot()/memory/{global,project/<projectKey>}/<id>.md。
 // ============================================================================
-const MEMORY_TYPES = new Set(['convention', 'lesson', 'reference']);
-const MEMORY_INDEX_CAP = 2000; // 注入索引整段字符上限(C3)
-const MEMORY_MAX = 8;          // 会话启用上限(C3)
+const MEMORY_TYPES = new Set(['preference', 'convention', 'lesson', 'reference']);
+const MEMORY_INDEX_CAP = 2600; // 相关记忆索引整段字符上限；只含元数据，正文仍按需读取
+const MEMORY_MAX = 12;         // 会话固定选择上限；默认检索不受此数量限制
 const MEMORY_RELEVANCE_MAX = 3; // 默认检索每轮最多注入 3 条，避免记忆库增长后线性抬高输入 token
 const MEMORY_EXCLUSION_MAX = 256; // 默认检索模式下的会话级排除项上限
 const MEMORY_METADATA_READ_CAP = 16 * 1024; // 注册表只读文件头；命中后才由模型按需读取完整正文
+const CORE_MEMORY_MAX = 24;    // 核心提示词席位上限；超出只进入候补，不删除原记忆
+const CORE_MEMORY_CHAR_CAP = 4200; // 核心摘要正文字符预算（约千余 token），比旧索引预算稍宽
+const CORE_MEMORY_SUMMARY_CAP = 520;
+const MEMORY_USAGE_TOUCH_MS = 60 * 60 * 1000; // 主动检索/读取最多每小时记一次 use
+const MEMORY_RULE_TOUCH_MS = 24 * 60 * 60 * 1000; // 核心偏好/惯例被基础提示词采用时每天记一次隐式 use
 const MEMORY_PROPOSAL_MIN_TURN_GAP = 3; // 非显式请求至少间隔 3 轮，避免候选卡片形成固定回合噪音
 const MEMORY_PROPOSAL_MIN_JUDGE_GAP = 2; // 模型否决后也至少隔一轮再判断，控制辅助 token 与重复审稿
 const MEMORY_PROPOSAL_HISTORY_MAX = 32;
@@ -26,6 +31,80 @@ function projectKeyForCwd(cwd) {
   return crypto.createHash('sha256').update(p, 'utf8').digest('hex').slice(0, 16);
 }
 function memoryProjectDir(cwd) { return path.join(paths.memory, 'project', projectKeyForCwd(cwd)); }
+function memoryUsageFile() { return path.join(paths.memory, '_usage-v1.json'); }
+function memoryUsageKey(entry, cwd) {
+  return entry.scope === 'global' ? 'global:' + entry.id : 'project:' + projectKeyForCwd(cwd) + ':' + entry.id;
+}
+function fmBool(value, fallback = false) {
+  if (value === true || String(value).toLowerCase() === 'true' || String(value) === '1') return true;
+  if (value === false || String(value).toLowerCase() === 'false' || String(value) === '0') return false;
+  return fallback;
+}
+function cleanMemoryDate(value) {
+  const s = fmVal(value).slice(0, 32);
+  if (!s) return '';
+  const ms = Date.parse(s);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : '';
+}
+function memoryIsExpired(entry, nowMs = Date.now()) {
+  const ms = Date.parse(String(entry && entry.expiresAt || ''));
+  return Number.isFinite(ms) && ms <= nowMs;
+}
+function memoryReviewDue(entry, nowMs = Date.now()) {
+  const ms = Date.parse(String(entry && entry.reviewAfter || ''));
+  return Number.isFinite(ms) && ms <= nowMs;
+}
+
+async function readMemoryUsageState() {
+  try {
+    const file = memoryUsageFile();
+    const st = await fsp.stat(file);
+    if (!st.isFile() || st.size > 2 * 1024 * 1024) return { schema: 1, entries: {} };
+    const raw = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
+    if (!raw || typeof raw !== 'object' || !raw.entries || typeof raw.entries !== 'object' || Array.isArray(raw.entries)) return { schema: 1, entries: {} };
+    return { schema: 1, entries: raw.entries };
+  } catch { return { schema: 1, entries: {} }; }
+}
+
+let memoryUsageWriteChain = Promise.resolve();
+async function touchMemoryUsage(entries, cwd, reason = 'relevant') {
+  const items = (Array.isArray(entries) ? entries : []).filter(e => e && e.id);
+  if (!items.length) return;
+  const job = memoryUsageWriteChain.then(async () => {
+    const state = await readMemoryUsageState();
+    const nowMs = Date.now(), now = new Date(nowMs).toISOString();
+    let changed = false;
+    for (const entry of items) {
+      const key = memoryUsageKey(entry, cwd);
+      const prev = state.entries[key] && typeof state.entries[key] === 'object' ? state.entries[key] : {};
+      const stampField = reason === 'core-rule' ? 'lastImplicitUseAt' : 'lastUsedAt';
+      const interval = reason === 'core-rule' ? MEMORY_RULE_TOUCH_MS : MEMORY_USAGE_TOUCH_MS;
+      const lastMs = Date.parse(String(prev[stampField] || ''));
+      if (Number.isFinite(lastMs) && nowMs - lastMs < interval) continue;
+      state.entries[key] = {
+        useCount: Math.max(0, Math.floor(Number(prev.useCount) || 0)) + 1,
+        lastUsedAt: reason === 'core-rule' ? (prev.lastUsedAt || now) : now,
+        lastImplicitUseAt: reason === 'core-rule' ? now : (prev.lastImplicitUseAt || ''),
+      };
+      changed = true;
+    }
+    if (!changed) return;
+    await fsp.mkdir(paths.memory, { recursive: true });
+    await atomicWriteJson(memoryUsageFile(), { schema: 1, updatedAt: now, entries: state.entries });
+  }).catch(() => {});
+  memoryUsageWriteChain = job;
+  await job;
+}
+async function mutateMemoryUsageState(mutator) {
+  const job = memoryUsageWriteChain.then(async () => {
+    const state = await readMemoryUsageState();
+    if (mutator(state.entries) === false) return;
+    await fsp.mkdir(paths.memory, { recursive: true });
+    await atomicWriteJson(memoryUsageFile(), { schema: 1, updatedAt: nowIso(), entries: state.entries });
+  }).catch(() => {});
+  memoryUsageWriteChain = job;
+  await job;
+}
 
 // 组目录内写 meta.json(明文 path+label+createdAt),面板反查不依赖 recentWorkspaces(LRU 会逐出)。原子写。
 async function writeMemoryMeta(dir, cwd) {
@@ -65,12 +144,19 @@ async function readMemoryDir(dir, scope) {
     } catch { continue; }
     const fm = parseFrontmatter(raw);
     const type = MEMORY_TYPES.has(fm.type) ? fm.type : 'reference';
+    const core = fmBool(fm.core, false); // 旧记忆不静默升格；由用户/新建表单明确加入核心
     out.set(id, {
       id, scope,
       name: (fm.name || id).slice(0, 120),
       description: (fm.description || firstParaDesc(raw)).slice(0, 400),
       type, file,
       createdAt: fm.createdat || '',
+      updatedAt: fm.updatedat || fm.createdat || '',
+      core,
+      coreSummary: (fm.coresummary || fm.description || firstParaDesc(raw)).slice(0, CORE_MEMORY_SUMMARY_CAP),
+      importance: fm.importance === 'important' ? 'important' : 'normal',
+      reviewAfter: cleanMemoryDate(fm.reviewafter),
+      expiresAt: cleanMemoryDate(fm.expiresat),
       sourceSessionId: fm.sourcesessionid || '',
       sourceRunId: fm.sourcerunid || '',
     });
@@ -115,7 +201,12 @@ async function readMemoryItem(id, scope, cwd) {
   const fm = parseFrontmatter(raw);
   const body = raw.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '');
   const type = MEMORY_TYPES.has(fm.type) ? fm.type : 'reference';
-  return { ok: true, memory: { id: safe, scope, name: fm.name || safe, description: fm.description || '', type, body, createdAt: fm.createdat || '', file } };
+  return { ok: true, memory: { id: safe, scope, name: fm.name || safe, description: fm.description || '', type, body,
+    createdAt: fm.createdat || '', updatedAt: fm.updatedat || fm.createdat || '',
+    core: fmBool(fm.core, false),
+    coreSummary: (fm.coresummary || fm.description || '').slice(0, CORE_MEMORY_SUMMARY_CAP),
+    importance: fm.importance === 'important' ? 'important' : 'normal',
+    reviewAfter: cleanMemoryDate(fm.reviewafter), expiresAt: cleanMemoryDate(fm.expiresat), file } };
 }
 
 // 保存一条记忆(原子写 tmp+rename)。id 缺省合成;scope=global|project;正文 + frontmatter。返回 {ok, memory}。
@@ -137,8 +228,19 @@ async function saveMemory(mem, cwd) {
   if (scope === 'project') await writeMemoryMeta(dir, cwd);
   const dest = path.join(dir, id + '.md');
   let createdAt = nowIso();
-  try { const prev = await fsp.readFile(dest, 'utf8'); const pfm = parseFrontmatter(prev); if (pfm.createdat) createdAt = pfm.createdat; } catch { /* 新建 */ }
-  const fmLines = ['---', 'name: ' + name, 'description: ' + description, 'type: ' + type, 'createdAt: ' + createdAt];
+  let prevFm = {};
+  try { const prev = await fsp.readFile(dest, 'utf8'); prevFm = parseFrontmatter(prev); if (prevFm.createdat) createdAt = prevFm.createdat; } catch { /* 新建 */ }
+  const updatedAt = nowIso();
+  const has = key => Object.prototype.hasOwnProperty.call(m, key);
+  const core = has('core') ? fmBool(m.core) : fmBool(prevFm.core, false);
+  const importance = (has('importance') ? m.importance : prevFm.importance) === 'important' ? 'important' : 'normal';
+  const coreSummary = fmVal(has('coreSummary') ? m.coreSummary : (prevFm.coresummary || description)).slice(0, CORE_MEMORY_SUMMARY_CAP);
+  const reviewAfter = cleanMemoryDate(has('reviewAfter') ? m.reviewAfter : prevFm.reviewafter);
+  const expiresAt = cleanMemoryDate(has('expiresAt') ? m.expiresAt : prevFm.expiresat);
+  const fmLines = ['---', 'name: ' + name, 'description: ' + description, 'type: ' + type, 'createdAt: ' + createdAt,
+    'updatedAt: ' + updatedAt, 'core: ' + String(core), 'importance: ' + importance, 'coreSummary: ' + coreSummary];
+  if (reviewAfter) fmLines.push('reviewAfter: ' + reviewAfter);
+  if (expiresAt) fmLines.push('expiresAt: ' + expiresAt);
   if (m.sourceSessionId) fmLines.push('sourceSessionId: ' + fmVal(String(m.sourceSessionId)).slice(0, 120));
   if (m.sourceRunId) fmLines.push('sourceRunId: ' + fmVal(String(m.sourceRunId)).slice(0, 120));
   fmLines.push('---', '', bodyText, '');
@@ -148,7 +250,7 @@ async function saveMemory(mem, cwd) {
   if (Buffer.byteLength(content, 'utf8') > 260 * 1024) return { ok: false, error: '记忆正文超过 256KB 上限(按 UTF-8 字节计,中文约 8 万字)' };   // 260KB=正文上限+frontmatter 余量,与读侧一致
   // 第25波 25.1: 收编 atomicWriteJson(载荷是 markdown 字符串,直接透传;获得 rename 重试 + 失败清 tmp)。
   await atomicWriteJson(dest, content);
-  return { ok: true, memory: { id, scope, name, description, type, file: dest, createdAt } };
+  return { ok: true, memory: { id, scope, name, description, type, file: dest, createdAt, updatedAt, core, coreSummary, importance, reviewAfter, expiresAt } };
 }
 
 async function deleteMemory(id, scope, cwd) {
@@ -158,7 +260,155 @@ async function deleteMemory(id, scope, cwd) {
   const file = path.join(dir, safe + '.md');
   try { await fsp.access(file); } catch { return { ok: false, error: 'memory not found' }; }
   await fsp.unlink(file).catch(() => {});
+  await mutateMemoryUsageState(entries => { const key = scope === 'global' ? 'global:' + safe : 'project:' + projectKeyForCwd(cwd) + ':' + safe; if (!entries[key]) return false; delete entries[key]; });
   return { ok: true, deleted: safe, scope };
+}
+
+// ACC 曾自带一套直接写 memory.json 的跨会话记忆。工作台记忆成为唯一入口后，在首次启动时把
+// 标准 ACC 数据目录中的旧条目幂等导入 global；只有迁移完成标记存在时才隐藏 ACC 的 memory 工具。
+// 稳定 hash id + 不覆盖已有文件使中途失败可安全重试，原 ACC 文件始终保留不改。
+const ACC_MEMORY_IMPORT_SCHEMA = 1;
+function accMemoryImportMarker() { return path.join(paths.memory, '.acc-memory-import-v1.json'); }
+function legacyAccMemoryMigrationComplete() {
+  try {
+    const marker = safeJsonParse(fs.readFileSync(accMemoryImportMarker(), 'utf8'), null);
+    return !!(marker && marker.schema === ACC_MEMORY_IMPORT_SCHEMA && marker.status === 'complete');
+  } catch { return false; }
+}
+function legacyAccMemoryCandidates() {
+  const candidates = [];
+  const add = p => { if (p && !candidates.includes(path.resolve(p))) candidates.push(path.resolve(p)); };
+  // ACC 的 paths.py 把 WCW_DATA_DIR 视为绝对覆盖而非第一候选；迁移必须同形，否则测试/便携部署
+  // 明明把 ACC 指到隔离目录，工作台却会继续误扫宿主机 LOCALAPPDATA。
+  if (process.env.WCW_DATA_DIR) { add(path.join(process.env.WCW_DATA_DIR, 'memory.json')); return candidates; }
+  if (process.env.LOCALAPPDATA) add(path.join(process.env.LOCALAPPDATA, 'ai-computer-control', 'data', 'memory.json'));
+  add(path.join(os.homedir(), '.ai-computer-control', 'memory.json'));
+  return candidates;
+}
+async function migrateLegacyAccMemory() {
+  if (legacyAccMemoryMigrationComplete()) return { ok: true, alreadyDone: true };
+  let source = '';
+  for (const candidate of legacyAccMemoryCandidates()) {
+    try { const st = await fsp.stat(candidate); if (st.isFile()) { source = candidate; break; } } catch { /* try next standard location */ }
+  }
+  if (!source) {
+    await fsp.mkdir(paths.memory, { recursive: true });
+    await atomicWriteJson(accMemoryImportMarker(), { schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'no-source', imported: 0, skipped: 0, completedAt: nowIso() });
+    return { ok: true, imported: 0, skipped: 0, noSource: true };
+  }
+  let store;
+  try {
+    const st = await fsp.stat(source);
+    if (!st.isFile() || st.size > 8 * 1024 * 1024) throw new Error('legacy ACC memory file is too large');
+    store = safeJsonParse(await fsp.readFile(source, 'utf8'), null);
+    if (!store || typeof store !== 'object' || !store.entries || typeof store.entries !== 'object' || Array.isArray(store.entries)) throw new Error('legacy ACC memory file has an invalid schema');
+  } catch (e) {
+    logEvent({ kind: 'acc_memory_import_failed', source, error: (e && e.message) || String(e) });
+    return { ok: false, error: (e && e.message) || String(e), source };
+  }
+  let imported = 0, skipped = 0;
+  for (const [key, raw] of Object.entries(store.entries)) {
+    const entry = raw && typeof raw === 'object' ? raw : {};
+    const content = String(entry.content || '').trim();
+    if (!String(key).trim() || !content) { skipped++; continue; }
+    const id = 'acc-' + crypto.createHash('sha256').update(String(key), 'utf8').digest('hex').slice(0, 20);
+    const dest = path.join(memoryGlobalDir(), id + '.md');
+    try { await fsp.access(dest); skipped++; continue; } catch { /* not imported yet */ }
+    const tags = String(entry.tags || '').replace(/[\r\n]+/g, ' ').trim();
+    const updated = String(entry.updated || '').replace(/[\r\n]+/g, ' ').trim();
+    const provenance = ['---', '导入来源: ACC Memory', '原键: ' + String(key).replace(/[\r\n]+/g, ' ').trim()];
+    if (tags) provenance.push('原标签: ' + tags);
+    if (updated) provenance.push('原更新时间: ' + updated);
+    const saved = await saveMemory({
+      id, scope: 'global', type: 'reference', name: String(key).trim().slice(0, 120),
+      description: ('从旧 ACC Memory 自动导入' + (tags ? '；标签：' + tags : '')).slice(0, 400),
+      body: content + '\n\n' + provenance.join('\n'), sourceRunId: 'acc-memory-import-v1',
+    }, '');
+    if (!saved.ok) return { ok: false, error: saved.error || 'failed to import legacy ACC memory', source, imported, skipped };
+    imported++;
+  }
+  await fsp.mkdir(paths.memory, { recursive: true });
+  await atomicWriteJson(accMemoryImportMarker(), { schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'imported', source, imported, skipped, completedAt: nowIso() });
+  logEvent({ kind: 'acc_memory_import_complete', source, imported, skipped });
+  return { ok: true, source, imported, skipped };
+}
+
+async function resolveWorkbenchMemoryToolContext(ctx) {
+  const sid = safeSessionId((ctx && ctx.sessionId) || process.env.WCW_SESSION_ID || '');
+  let session = ctx && ctx.session;
+  if (!session && sid) session = await loadSession(sid).catch(() => null);
+  const config = (ctx && ctx.config) || await readConfig();
+  const cwd = normalizeCwd((ctx && ctx.workingDir) || (session && session.cwd), config.defaultWorkspace);
+  return { sid, session, config, cwd };
+}
+
+async function listWorkbenchMemories(args, ctx) {
+  const { cwd } = await resolveWorkbenchMemoryToolContext(ctx);
+  const scope = args && args.scope === 'global' ? 'global' : (args && args.scope === 'project' ? 'project' : 'all');
+  const query = String(args && args.query || '').trim();
+  const limit = Math.min(50, Math.max(1, Math.floor(Number(args && args.limit) || 20)));
+  const coreState = await resolveCoreMemoryState(cwd, await loadMemoryRegistry(cwd));
+  let registry = coreState.all;
+  if (scope !== 'all') registry = registry.filter(m => m.scope === scope);
+  if (query) registry = rankRelevantMemories(registry, query, limit);
+  else registry = registry.slice(0, limit);
+  if (query) await touchMemoryUsage(registry, cwd, 'relevant');
+  return { ok: true, query, scope, count: registry.length, core: coreState.stats,
+    memories: registry.map(m => ({ id: m.id, scope: m.scope, name: m.name, description: m.description, type: m.type,
+      createdAt: m.createdAt, updatedAt: m.updatedAt, core: m.core, coreStatus: m.coreStatus, importance: m.importance,
+      reviewAfter: m.reviewAfter, expiresAt: m.expiresAt, lastUsedAt: m.lastUsedAt, useCount: m.useCount })) };
+}
+
+async function readWorkbenchMemory(args, ctx) {
+  const { cwd } = await resolveWorkbenchMemoryToolContext(ctx);
+  const id = String(args && args.id || '').trim();
+  if (!SKILL_ID_RE.test(id)) return { ok: false, error: 'invalid memory id' };
+  if (args && (args.scope === 'global' || args.scope === 'project')) {
+    const item = await readMemoryItem(id, args.scope, cwd);
+    if (item.ok) await touchMemoryUsage([item.memory], cwd, 'read');
+    return item;
+  }
+  const [projectItem, globalItem] = await Promise.all([readMemoryItem(id, 'project', cwd), readMemoryItem(id, 'global', cwd)]);
+  if (projectItem.ok && globalItem.ok) return { ok: false, error: 'memory id exists in both scopes; specify scope' };
+  const item = projectItem.ok ? projectItem : globalItem;
+  if (item.ok) await touchMemoryUsage([item.memory], cwd, 'read');
+  return item;
+}
+
+async function proposeWorkbenchMemory(args, ctx) {
+  const { sid, session, cwd } = await resolveWorkbenchMemoryToolContext(ctx);
+  if (!sid || !session) return { ok: false, error: 'workbench_memory_propose requires a live workbench session' };
+  const turnSeq = Math.max(0, Math.floor(Number((ctx && ctx.turnSeq) != null ? ctx.turnSeq : session.turnSeq) || 0));
+  const state = await readMemoryProposalState(sid);
+  // 同一回合只有一个候选槽，先到者胜：模型工具先提交时，回合后自动规则只回放；若自动规则已先
+  // 生成（重试/直接调用等边界路径），模型工具也不得覆盖。跨回合才允许新候选替代旧 pending。
+  if (state.current && state.current.status === 'pending'
+    && Number(state.current.proposal && state.current.proposal.sourceTurnSeq) === turnSeq) {
+    return { ok: true, proposalId: state.current.id, proposal: state.current.proposal, pendingUserConfirmation: true,
+      alreadyPending: true, source: state.current.source || 'automatic', note: '本回合已有记忆候选；保持先到候选，不重复生成或覆盖。' };
+  }
+  const parsed = parseMemoryDraft(JSON.stringify(args || {}));
+  if (!parsed) return { ok: false, error: 'name and body are required' };
+  if (!parsed.description || parsed.body.length > 4000 || !fmVal(args && args.reason)) return { ok: false, error: 'description/reason are required and body must be at most 4000 characters' };
+  const proposal = { ...parsed, scope: args && args.scope === 'global' ? 'global' : 'project', reason: fmVal(args && args.reason).slice(0, 240) };
+  const lastUser = [...(Array.isArray(session.messages) ? session.messages : [])].reverse().find(m => m && m.role === 'user' && !m.steered);
+  const userText = String(lastUser && lastUser.content || '');
+  if (proposal.scope === 'global' && !/(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(userText)) proposal.scope = 'project';
+  if (memoryProposalLooksSensitive(proposal)) return { ok: false, error: 'candidate looks sensitive and was not proposed' };
+  const registry = await loadMemoryRegistry(cwd).catch(() => []);
+  if (memoryProposalIsDuplicate(proposal, registry, state)) return { ok: false, duplicate: true, error: 'same or very similar memory already exists or was already reviewed' };
+  const id = 'proposal-' + crypto.randomBytes(8).toString('hex');
+  const safeProposal = { ...proposal, sourceSessionId: sid, sourceTurnSeq: turnSeq };
+  if (state.current && state.current.status === 'pending') {
+    state.current.status = 'superseded';
+    state.history.push({ semanticKey: state.current.semanticKey, summary: state.current.summary, status: 'superseded', turnSeq: state.current.proposal && state.current.proposal.sourceTurnSeq, decidedAt: nowIso() });
+  }
+  state.lastEvaluatedTurn = turnSeq;
+  state.lastShownTurn = turnSeq;
+  state.current = { id, status: 'pending', source: 'tool', semanticKey: memoryProposalSemanticKey(safeProposal), summary: [safeProposal.name, safeProposal.description].join(' '), proposal: safeProposal, createdAt: nowIso(), projectKey: projectKeyForCwd(cwd) };
+  state.history = state.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX);
+  await writeMemoryProposalState(sid, state);
+  return { ok: true, proposalId: id, pendingUserConfirmation: true, proposal: safeProposal, note: '候选已提交；只有用户在回合后的记忆卡片中确认后才会写入工作台记忆。' };
 }
 
 // 迁移一条项目记忆到当前 cwd 的项目组(C1:项目移动/改名后 projectKey 变,旧组记忆搬到新组)。移动文件。
@@ -180,6 +430,12 @@ async function migrateMemory(id, fromKey, targetCwd) {
   await writeMemoryMeta(destDir, targetCwd);
   await atomicWriteJson(dest, content);   // 第25波 25.1: 收编(同 saveMemory)
   await fsp.unlink(srcFile).catch(() => {});
+  await mutateMemoryUsageState(entries => {
+    const from = 'project:' + fromKey + ':' + safe, to = 'project:' + targetKey + ':' + safe;
+    if (!entries[from]) return false;
+    if (!entries[to]) entries[to] = entries[from];
+    delete entries[from];
+  });
   return { ok: true, id: safe, scope: 'project' };
 }
 
@@ -202,10 +458,10 @@ async function draftMemoryFromSession(sessionId) {
   const instruction = [
     '你是一个把「一次会话里沉淀出来的、值得长期记住的经验/项目惯例/教训」抽象成一条可复用记忆的助手。',
     '根据下面这次会话的近况,产出一条「工作台记忆」的 JSON。要求:',
-    '1. 只提炼真正值得跨会话复用的内容(项目惯例、踩过的坑与规避办法、稳定的参考事实);琐碎与一次性内容不要。',
+    '1. 只提炼真正值得跨会话复用的内容(长期偏好、项目惯例、踩过的坑与规避办法、稳定的参考事实);琐碎与一次性内容不要。',
     '2. 输出 JSON 字段:{ "name","description","type","body" }。',
     '   - name: 简短标题(不超过 40 字);description: 一句话说明何时有用(不超过 120 字);',
-    '   - type 从 ["convention"(项目惯例),"lesson"(教训),"reference"(参考资料)] 里选一个;',
+    '   - type 从 ["preference"(长期偏好),"convention"(项目惯例),"lesson"(教训),"reference"(参考资料)] 里选一个;',
     '   - body: markdown 正文,写清「结论 + 适用场景 + 具体做法」,给未来的 AI 助手看。',
     '3. 只输出 JSON,不要任何解释、不要 markdown 代码围栏。',
     '',
@@ -268,26 +524,26 @@ function memoryProposalPrefilter(session) {
   const userText = String(user.content || '').replace(/\s+/g, ' ').trim();
   const assistantText = String(assistant.content || '').replace(/\s+/g, ' ').trim();
   const turnSeq = Math.max(0, Math.floor(Number(assistant.turnSeq != null ? assistant.turnSeq : session && session.turnSeq) || 0));
-  if (!userText || assistantText.length < 100) return { eligible: false, reason: 'too_little_substance', turnSeq };
+  const explicit = /(记住|记到记忆|保存.{0,8}记忆|以后别忘|remember this|save (?:this )?(?:to|as) memory|memorize)/i.test(userText);
+  if (!userText || assistantText.length < (explicit ? 24 : 80)) return { eligible: false, reason: 'too_little_substance', turnSeq };
   if (assistant.source === 'aborted' || (Number.isFinite(Number(assistant.exitCode)) && Number(assistant.exitCode) !== 0)) return { eligible: false, reason: 'failed_turn', turnSeq };
   if (/^\s*PLAN\s*:/i.test(assistantText)) return { eligible: false, reason: 'plan_only', turnSeq };
 
-  const explicit = /(记住|记到记忆|保存.{0,8}记忆|以后别忘|remember this|save (?:this )?(?:to|as) memory|memorize)/i.test(userText);
   const durablePreference = /(以后|后续|今后|默认|始终|每次|一律|不要再|优先|偏好|习惯|希望.{0,18}(默认|以后|后续)|from now on|going forward|by default|always|every time|never again|prefer)/i.test(userText);
   const convention = /(约定|规范|标准|统一|原则|架构决策|决定采用|固定流程|工作流|convention|standard|policy|architectural decision|workflow)/i.test(userText + ' ' + assistantText.slice(0, 1200));
   const lesson = /(回归|踩坑|根因|教训|避免再次|复现|兼容性|regression|root cause|lesson learned|pitfall|avoid recurrence)/i.test(userText + ' ' + assistantText.slice(0, 1200));
   const summary = assistant.turnSummary && typeof assistant.turnSummary === 'object' ? assistant.turnSummary : {};
   const touched = (Array.isArray(summary.filesChanged) && summary.filesChanged.length > 0) || Number(summary.commands) > 0;
   let score = explicit ? 6 : 0;
-  if (durablePreference) score += 3;
+  if (durablePreference) score += 4;
   if (convention) score += 3;
   if (lesson) score += 3;
-  if (assistantText.length >= 280) score += 1;
+  if (assistantText.length >= 180) score += 1;
   if (touched) score += 1;
   const hasDurableSignal = explicit || durablePreference || convention || lesson;
   return {
-    eligible: hasDurableSignal && score >= 5,
-    reason: hasDurableSignal ? (score >= 5 ? 'candidate' : 'weak_signal') : 'no_durable_signal',
+    eligible: hasDurableSignal && score >= 4,
+    reason: hasDurableSignal ? (score >= 4 ? 'candidate' : 'weak_signal') : 'no_durable_signal',
     score, explicit, durablePreference, convention, lesson, touched, turnSeq,
     userText, assistantText,
   };
@@ -302,7 +558,7 @@ function parseMemoryProposalDecision(text) {
   const raw = safeJsonParse(s, null);
   if (!raw || typeof raw !== 'object' || raw.decision !== 'propose') return null;
   const confidence = Number(raw.confidence);
-  if (!Number.isFinite(confidence) || confidence < 0.86) return null;
+  if (!Number.isFinite(confidence) || confidence < 0.82) return null;
   if (raw.durability !== 'durable') return null;
   const name = fmVal(raw.name).slice(0, 120);
   const description = fmVal(raw.description).slice(0, 400);
@@ -392,9 +648,15 @@ async function proposeMemoryFromSessionUnlocked(sessionId) {
   let session;
   try { session = await loadSession(String(sessionId || '')); } catch { return { ok: true, proposal: null, reason: 'session_unavailable' }; }
   if (!session) return { ok: true, proposal: null, reason: 'session_unavailable' };
+  const state = await readMemoryProposalState(session.id);
+  // workbench_memory_propose 在主回合内已经完成候选结构化；回合结束这里只负责把同轮 pending
+  // 交给 UI，不再要求最终回复长度/关键词或另走 provider 审稿。
+  if (state.current && state.current.status === 'pending' && state.current.source === 'tool'
+    && Number(state.current.proposal && state.current.proposal.sourceTurnSeq) === Number(session.turnSeq)) {
+    return { ok: true, proposal: state.current.proposal, proposalId: state.current.id, replayed: true, reason: 'tool_proposal' };
+  }
   const gate = memoryProposalPrefilter(session);
   if (!gate.eligible) return { ok: true, proposal: null, reason: gate.reason };
-  const state = await readMemoryProposalState(session.id);
   if (state.lastEvaluatedTurn === gate.turnSeq) {
     return { ok: true, proposal: state.current && state.current.status === 'pending' ? state.current.proposal : null, proposalId: state.current && state.current.status === 'pending' ? state.current.id : undefined, replayed: true, reason: 'already_evaluated' };
   }
@@ -420,7 +682,7 @@ async function proposeMemoryFromSessionUnlocked(sessionId) {
     '必须判定 none 的情况：普通问答；一次性任务状态或提交结果；可随时从代码/文档重新读取的事实；通用常识；临时计划；未验证推断；凭据、密钥、隐私；与已有记忆重复；只是复述本轮做了什么。',
     '可以 propose 的典型情况：用户明确且稳定的长期偏好；已确认的项目级约定/架构决策；有明确根因与规避办法、未来容易复发的教训。',
     '拿不准就输出 {"decision":"none","reason":"简短原因"}。不要为了显得有帮助而提议。',
-    '若确实值得保存，只输出一个 JSON：{"decision":"propose","confidence":0.86到1之间,"durability":"durable","name":"...","description":"何时有用","type":"convention|lesson|reference","scope":"project|global","body":"Markdown，写结论、适用场景和做法","reason":"为什么值得跨会话保存"}。',
+    '若确实值得保存，只输出一个 JSON：{"decision":"propose","confidence":0.82到1之间,"durability":"durable","name":"...","description":"何时有用","type":"preference|convention|lesson|reference","scope":"project|global","body":"Markdown，写结论、适用场景和做法","reason":"为什么值得跨会话保存"}。',
     'scope 默认 project；只有明确跨项目都成立的个人长期偏好才用 global。禁止输出 Markdown 围栏或其它文字。',
   ].join('\n');
   // 不把无关记忆索引发给模型：重复检查在本地完成。JSON 封装避免候选文本伪造围栏/角色边界。
@@ -446,8 +708,8 @@ async function proposeMemoryFromSessionUnlocked(sessionId) {
   state.current = null;
   const sourceText = gate.userText + ' ' + gate.assistantText;
   const grounded = proposal
-    && memoryProposalSimilarity([proposal.name, proposal.description].join(' '), sourceText) >= 0.32
-    && memoryProposalSimilarity(proposal.body, sourceText) >= 0.18;
+    && memoryProposalSimilarity([proposal.name, proposal.description].join(' '), sourceText) >= 0.24
+    && memoryProposalSimilarity(proposal.body, sourceText) >= 0.12;
   if (!proposal || !grounded || memoryProposalLooksSensitive(proposal) || memoryProposalIsDuplicate(proposal, registry, state)) {
     await writeMemoryProposalState(session.id, state).catch(() => {});
     return { ok: true, proposal: null, reason: !proposal ? 'model_declined' : (!grounded ? 'ungrounded' : (memoryProposalLooksSensitive(proposal) ? 'sensitive' : 'duplicate')) };
@@ -457,7 +719,7 @@ async function proposeMemoryFromSessionUnlocked(sessionId) {
   const id = 'proposal-' + crypto.randomBytes(8).toString('hex');
   const safeProposal = { ...proposal, sourceSessionId: session.id, sourceTurnSeq: gate.turnSeq };
   state.lastShownTurn = gate.turnSeq;
-  state.current = { id, status: 'pending', semanticKey: memoryProposalSemanticKey(safeProposal), summary: [safeProposal.name, safeProposal.description].join(' '), proposal: safeProposal, createdAt: nowIso(), projectKey: projectKeyForCwd(cwd) };
+  state.current = { id, status: 'pending', source: 'automatic', semanticKey: memoryProposalSemanticKey(safeProposal), summary: [safeProposal.name, safeProposal.description].join(' '), proposal: safeProposal, createdAt: nowIso(), projectKey: projectKeyForCwd(cwd) };
   await writeMemoryProposalState(session.id, state).catch(() => {});
   return { ok: true, proposalId: id, proposal: safeProposal };
 }
@@ -499,8 +761,11 @@ async function validateMemoryProposalSave(sessionId, proposalId, cwd) {
 // 每行 name/描述/文件绝对路径(两引擎都给路径:provider 用 file_read、Claude 用 Read;dataRoot 在允许根内,
 // Claude 侧靠 --add-dir 可达)。伪造围栏标记中和(尖括号→方括号,同 skill/project-memory fence)。整段 ≤2000 截断保闭合。
 function buildMemoryPromptSection(entries, engine, config, conflicts) {
-  const mems = (Array.isArray(entries) ? entries : []).filter(m => m && m.file);
-  if (!mems.length) return '';
+  const all = (Array.isArray(entries) ? entries : []).filter(m => m && m.file);
+  const core = all.filter(m => m.coreStatus === 'active');
+  const mems = all.filter(m => m.coreStatus !== 'active');
+  const coreSection = buildCoreMemoryPromptSection(core, config);
+  if (!mems.length) return coreSection;
   const fence = t => String(t).replace(/<(\/?)workbench-memory/gi, '[$1workbench-memory');
   const tool = engine === 'claude' ? 'Read' : 'file_read';
   const header = getPromptPack(config && config.locale).memoryHeader(tool);
@@ -522,7 +787,77 @@ function buildMemoryPromptSection(entries, engine, config, conflicts) {
   let text = body.join('\n');
   const budget = MEMORY_INDEX_CAP - header.length - OPEN.length - CLOSE.length;
   if (text.length > budget) text = text.slice(0, Math.max(0, budget - TRUNC.length)) + TRUNC;
-  return header + OPEN + text + CLOSE;
+  const relatedSection = header + OPEN + text + CLOSE;
+  return [coreSection, relatedSection].filter(Boolean).join('\n');
+}
+
+function memoryCoreLine(entry) {
+  const clean = value => String(value || '').replace(/<(\/?)workbench-memory-core/gi, '[$1workbench-memory-core').replace(/\s+/g, ' ').trim();
+  const summary = clean(entry.coreSummary || entry.description).slice(0, CORE_MEMORY_SUMMARY_CAP);
+  return `- [${entry.scope}/${entry.type}] ${clean(entry.name || entry.id)} [${entry.id}]: ${summary}`;
+}
+
+// 受保护 LRU：只决定哪些 core=true 条目进入本轮基础胶囊，绝不删除或改写原记忆。重要标记提供近似
+// “不可误逐出”的百年 recency 加成；偏好/惯例提供 90 天保护，且实际进入提示词后每天计一次 use；
+// 项目记忆与被频繁使用的条目获得小幅加成。这样规则不会因纯时间轻易掉出，但近期真正被读取的教训仍可流动晋级。
+function memoryCoreScore(entry) {
+  const last = Date.parse(String(entry.lastUsedAt || entry.updatedAt || entry.createdAt || ''));
+  let score = Number.isFinite(last) ? last : 0;
+  if (entry.importance === 'important') score += 36500 * 86400000;
+  if (entry.type === 'preference' || entry.type === 'convention') score += 90 * 86400000;
+  else if (entry.type === 'lesson') score += 21 * 86400000;
+  if (entry.scope === 'project') score += 7 * 86400000;
+  score += Math.min(30, Math.log2(1 + Math.max(0, Number(entry.useCount) || 0)) * 4) * 86400000;
+  if (entry.reviewDue) score -= 7 * 86400000; // 到期复核不等于失效，只降低一点自动常驻优先级
+  return score;
+}
+
+async function resolveCoreMemoryState(cwd, registry) {
+  const memories = Array.isArray(registry) ? registry : await loadMemoryRegistry(cwd);
+  const usage = await readMemoryUsageState();
+  const nowMs = Date.now();
+  const enriched = memories.map(entry => {
+    const used = usage.entries[memoryUsageKey(entry, cwd)] || {};
+    return { ...entry, useCount: Math.max(0, Math.floor(Number(used.useCount) || 0)), lastUsedAt: used.lastUsedAt || '',
+      reviewDue: memoryReviewDue(entry, nowMs), expired: memoryIsExpired(entry, nowMs) };
+  });
+  const candidates = enriched.filter(entry => entry.core && !entry.expired).sort((a, b) => memoryCoreScore(b) - memoryCoreScore(a)
+    || String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''))
+    || String(a.id).localeCompare(String(b.id)));
+  const active = [], standby = [];
+  let charsUsed = 0;
+  for (const entry of candidates) {
+    const chars = memoryCoreLine(entry).length + (active.length ? 1 : 0);
+    if (active.length < CORE_MEMORY_MAX && charsUsed + chars <= CORE_MEMORY_CHAR_CAP) {
+      active.push(entry); charsUsed += chars;
+    } else standby.push(entry);
+  }
+  const activeKeys = new Set(active.map(e => e.scope + ':' + e.id));
+  const standbyKeys = new Set(standby.map(e => e.scope + ':' + e.id));
+  const all = enriched.map(entry => ({ ...entry,
+    coreStatus: entry.expired && entry.core ? 'expired' : (activeKeys.has(entry.scope + ':' + entry.id) ? 'active' : (standbyKeys.has(entry.scope + ':' + entry.id) ? 'standby' : 'library')),
+  }));
+  return {
+    all,
+    active: all.filter(entry => entry.coreStatus === 'active'),
+    standby: all.filter(entry => entry.coreStatus === 'standby'),
+    expired: all.filter(entry => entry.coreStatus === 'expired'),
+    stats: {
+      total: all.length, coreRequested: all.filter(entry => entry.core).length, active: active.length, standby: standby.length,
+      expired: all.filter(entry => entry.expired).length, reviewDue: all.filter(entry => entry.reviewDue).length,
+      charsUsed, charLimit: CORE_MEMORY_CHAR_CAP, itemLimit: CORE_MEMORY_MAX,
+    },
+  };
+}
+
+// 核心胶囊是每轮直接加载的基础记忆摘要，不要求模型先调用 read；需要细节、证据或核对旧事实时仍按 id 读全文。
+function buildCoreMemoryPromptSection(entries, config) {
+  const items = (Array.isArray(entries) ? entries : []).filter(entry => entry && entry.id).slice(0, CORE_MEMORY_MAX);
+  if (!items.length) return '';
+  const lines = items.map(memoryCoreLine);
+  const pack = getPromptPack(config && config.locale);
+  return pack.memoryCoreHeader({ used: lines.join('\n').length, limit: CORE_MEMORY_CHAR_CAP, count: items.length })
+    + '\n<workbench-memory-core>\n' + lines.join('\n') + '\n</workbench-memory-core>';
 }
 
 // 每轮都注入一个很小的机器可读检索回执。即使零命中也存在，避免模型把“本轮无匹配”误说成
@@ -541,6 +876,7 @@ function buildMemoryCheckPrompt(status, config) {
     projectMatches: safe(status.projectMatches),
     globalMatches: safe(status.globalMatches),
     excluded: safe(status.excludedCount),
+    coreActive: safe(status.coreActiveCount),
   });
 }
 
@@ -857,9 +1193,9 @@ function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
     const hay = [entry.id, entry.name, entry.description, entry.type].filter(Boolean).join(' ').normalize('NFKC').toLowerCase();
     let shared = 0;
     for (const term of queryTerms) if (hay.includes(term)) shared += Math.min(12, Math.max(2, term.length));
-    // convention 是默认应遵守的稳定约定，即使用户没复述关键词也参与候选；lesson/reference 必须有词项命中。
-    if (!shared && entry.type !== 'convention') continue;
-    const score = shared * 10 + (entry.scope === 'project' ? 4 : 0) + (entry.type === 'convention' ? 2 : 0);
+    // preference/convention 是默认应遵守的稳定规则，即使用户没复述关键词也参与候选；lesson/reference 必须命中。
+    if (!shared && entry.type !== 'convention' && entry.type !== 'preference') continue;
+    const score = shared * 10 + (entry.scope === 'project' ? 4 : 0) + ((entry.type === 'convention' || entry.type === 'preference') ? 2 : 0);
     ranked.push({ entry, score });
   }
   ranked.sort((a, b) => b.score - a.score
@@ -909,13 +1245,13 @@ function effectiveMemorySelection(session, registry, cwd) {
 async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch) {
   let registry = [];
   try { registry = await loadMemoryRegistry(cwd); } catch {
-    return { entries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0 } };
+    return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
   }
   const explicit = !!(session && session.memoriesExplicit === true);
   const exclusions = explicit ? new Set() : memoryExclusionSet(session, cwd);
   const sel = effectiveMemorySelection(session, registry, cwd);
   if (explicit && !sel.length) {
-    return { entries: [], status: { mode: 'disabled', enabled: false, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0 } };
+    return { entries: [], coreEntries: [], status: { mode: 'disabled', enabled: false, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
   }
   const curKey = projectKeyForCwd(cwd);
   const byKey = new Map(registry.map(e => [e.scope + ':' + e.id, e]));
@@ -934,18 +1270,27 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch) {
     const e = byKey.get(key);
     if (!e) continue; // 幽灵 / scope 不匹配 → 跳过注入
     seen.add(key);
-    eligible.push(e);
+    if (!memoryIsExpired(e)) eligible.push(e);
     if (explicit && eligible.length >= MEMORY_MAX) break;
   }
-  const entries = explicit ? eligible : rankRelevantMemories(eligible, query, MEMORY_RELEVANCE_MAX);
+  const coreState = await resolveCoreMemoryState(cwd, eligible);
+  const coreEntries = coreState.active;
+  const coreKeys = new Set(coreEntries.map(e => e.scope + ':' + e.id));
+  const ranked = explicit ? eligible : rankRelevantMemories(eligible, query, MEMORY_RELEVANCE_MAX);
+  const entries = ranked.filter(e => !coreKeys.has(e.scope + ':' + e.id));
+  await Promise.all([
+    touchMemoryUsage(entries, cwd, 'relevant'),
+    touchMemoryUsage(coreEntries.filter(e => e.type === 'preference' || e.type === 'convention'), cwd, 'core-rule'),
+  ]).catch(() => {});
   return {
-    entries,
+    entries, coreEntries,
     status: {
       mode: explicit ? 'fixed' : 'default', enabled: true, checked: true,
       candidateCount: eligible.length, matchCount: entries.length,
       projectMatches: entries.filter(e => e.scope === 'project').length,
       globalMatches: entries.filter(e => e.scope === 'global').length,
       excludedCount: exclusions.size,
+      coreActiveCount: coreEntries.length,
     },
   };
 }
@@ -953,7 +1298,7 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch) {
 // 兼容旧调用方/测试：未提供 query 时仍走默认元数据检索，返回条目数组。
 async function resolveEnabledMemoryEntries(session, cwd, onSourceMismatch, query) {
   const result = await resolveMemoryPreflight(session, cwd, query || '', onSourceMismatch);
-  return result.entries;
+  return [...(result.coreEntries || []), ...(result.entries || [])];
 }
 
 // Best-effort model list from a provider's OpenAI-style GET /models. Never throws.
@@ -1126,6 +1471,7 @@ function buildOpenAiTools(config, caps, opts) {
 // Risk tier per tool → drives permission gating in the native loop (read = auto-allow).
 const NATIVE_TOOL_TIER = {
   permission_prompt: 'exec', // CLI 权限桥(由 --permission-prompt-tool 触达);原靠 unknown→exec 兜底,第41波显式化
+  workbench_memory_list: 'read', workbench_memory_read: 'read', workbench_memory_propose: 'read',
   list_tools: 'read', tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
@@ -1181,7 +1527,7 @@ function bridgedToolTier(unprefixedName, config) {
 }
 
 const TOOL_PACK_DESCRIPTIONS = Object.freeze({
-  core: 'planning, user questions, mission metadata and tool discovery',
+  core: 'planning, user questions, Workbench Memory, mission metadata and tool discovery',
   files_read: 'read, list, search and inspect workspace files',
   files_write: 'write, edit, delete, copy and move files',
   code: 'project inspection, code review and git operations',
@@ -1198,6 +1544,7 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
 });
 const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
+  workbench_memory_list: 'core', workbench_memory_read: 'core', workbench_memory_propose: 'core',
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',

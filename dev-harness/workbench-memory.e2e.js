@@ -6,7 +6,7 @@
 //
 // Covers C5's five acceptance criteria (each with e2e assertions) + review extras:
 //   (1) 起草-确认-落盘全链 + aux 台账 (note:'memory-draft').
-//   (2) 双引擎索引注入(<workbench-memory> 围栏 + 「不得覆盖」声明 + 文件绝对路径)且整段 ≤ 2000;--add-dir 含记忆目录.
+//   (2) 双引擎索引注入(<workbench-memory> 围栏 + 「不得覆盖」声明 + 文件绝对路径)且整段 ≤ 2600;--add-dir 含记忆目录.
 //   (3) {id,scope} 来源锁定(scope=global 启用,同 id 的 project 记忆不顶替);文件消失 → 幽灵项可清.
 //   (4) 项目记忆随 cwd 切换正确换组(两个临时项目各自 projectKey 隔离).
 //   (5) 默认项目+全局轻量检索、零命中回执、会话排除/关闭/恢复默认。
@@ -123,7 +123,7 @@ async function saveMem(id, scope, name, description, body, cwd, type = 'conventi
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   await startFake({});
-  const env = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, USERPROFILE: HOME, HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: ARGV_CAP, WCW_FAKE_STDIN_CAPTURE: STDIN_CAP };
+  const env = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, WCW_DATA_DIR: path.join(HOME, 'isolated-acc-data'), USERPROFILE: HOME, HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: ARGV_CAP, WCW_FAKE_STDIN_CAPTURE: STDIN_CAP };
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env, windowsHide: true });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
@@ -192,8 +192,9 @@ async function saveMem(id, scope, name, description, body, cwd, type = 'conventi
     ok(sysA.includes(MARKER_A) && sysA.includes(aConv.file), '(2) memory line carries the marker + the file ABSOLUTE path (progressive expand)');
     ok(sysA.includes('[冲突:见 ' + aConflict.id + ']') && sysA.includes('[冲突:见 ' + aConv.id + ']'), 'R4-S1 provider real path: confirmed contradiction marks BOTH injected memories');
     ok(/用 file_read 工具/.test(sysA), '(2) provider index tells the model to use file_read on the path');
+    ok(/核心能力：工作台记忆/.test(sysA) && /workbench_memory_propose/.test(sysA) && !/ACC 跨会话记忆库指引/.test(sysA), '(2) provider built-in prompt exposes Workbench Memory as the sole user-confirmed memory capability');
     const secA = memorySection(sysA);
-    ok(secA && secA.length <= 2000, '(2) memory section length ≤ 2000 (got ' + secA.length + ')');
+    ok(secA && secA.length <= 2600, '(2) memory section length ≤ 2600 (got ' + secA.length + ')');
 
     // ---------- (5) 默认项目+全局检索：零命中仍有回执，相关全局记忆自动命中 ----------
     const S_C = await mkSession(PROJ_C);
@@ -209,7 +210,7 @@ async function saveMem(id, scope, name, description, body, cwd, type = 'conventi
     const sysGlobal = sysOfLastStreamBody();
     ok(sysGlobal.includes(MARKER_G) && /global-matches="1"/.test(sysGlobal), '(5) relevant GLOBAL memory participates by default and is auto-retrieved');
     const excluded = await postJson(WB_PORT, '/api/session/memories', { sessionId: S_C.id, useDefault: true, memoryExclusions: [{ id: gNote.id, scope: 'global' }] });
-    ok(excluded.body && excluded.body.memoriesExplicit === false && excluded.body.memoryExclusions.length === 1, '(5) default mode supports a per-session exclusion without switching to the 8-item fixed list');
+    ok(excluded.body && excluded.body.memoriesExplicit === false && excluded.body.memoryExclusions.length === 1, '(5) default mode supports a per-session exclusion without switching to the 12-item fixed list');
     clearCap();
     await postStream(WB_PORT, { sessionId: S_C.id, message: '再次查看 ' + MARKER_G, cwd: PROJ_C });
     const sysExcluded = sysOfLastStreamBody();
@@ -230,17 +231,17 @@ async function saveMem(id, scope, name, description, body, cwd, type = 'conventi
     ok(/\[\/workbench-memory/.test(sysD), 'fence: a literal </workbench-memory> in a description is neutralized to [/workbench-memory');
     ok((sysD.split('</workbench-memory>').length - 1) === 1, 'fence: exactly ONE real closing fence survives (spoofed one neutralized)');
 
-    // ---------- P3-4(b): 8 条长描述记忆(索引 >2000)→ 截断后仍以 </workbench-memory> 收尾 + 含省略行 ----------
+    // ---------- P3-4(b): 12 条长描述记忆(索引 >2600)→ 截断后仍以 </workbench-memory> 收尾 + 含省略行 ----------
     const longDesc = 'D'.repeat(160);
     const truncMems = [];
-    for (let i = 1; i <= 8; i++) truncMems.push(await saveMem('trunc-note-' + i, 'project', 'Truncation Note ' + i, longDesc + ' #' + i, 'trunc body ' + i, PROJ_TRUNC));
+    for (let i = 1; i <= 12; i++) truncMems.push(await saveMem('trunc-note-' + i, 'project', 'Truncation Note ' + i, longDesc + ' #' + i, 'trunc body ' + i, PROJ_TRUNC));
     const S_trunc = await mkSession(PROJ_TRUNC);
     await postJson(WB_PORT, '/api/session/memories', { sessionId: S_trunc.id, memories: truncMems.map(m => ({ id: m.id, scope: 'project' })) });
     clearCap();
     await postStream(WB_PORT, { sessionId: S_trunc.id, message: 'hello trunc', cwd: PROJ_TRUNC });
     const sysT = sysOfLastStreamBody();
     const secT = memorySection(sysT);
-    ok(secT && secT.length <= 2000, 'P3-4(b): oversized memory index is clamped to ≤ 2000 (got ' + secT.length + ')');
+    ok(secT && secT.length <= 2600, 'P3-4(b): oversized memory index is clamped to ≤ 2600 (got ' + secT.length + ')');
     ok(secT && secT.endsWith('</workbench-memory>'), 'P3-4(b): truncated index still closes with </workbench-memory> (no dangling open fence)');
     ok(secT && secT.includes('…（记忆索引已截断）'), 'P3-4(b): truncated index carries the ellipsis marker');
 
@@ -349,6 +350,7 @@ async function saveMem(id, scope, name, description, body, cwd, type = 'conventi
     ok(ai >= 0 && appendVal.includes(USER_APPEND_MARKER), '(2b) Claude --append-system-prompt 保留用户 append(政策信道)');
     ok(!/<workbench-memory>/.test(appendVal) && !/<skill-index>/.test(appendVal), '(2b) 记忆/技能索引不再走 --append-system-prompt(P2 改道 stdin)');
     ok(/<workbench-context>/.test(stdinTxt) && /<workbench-memory>/.test(stdinTxt), '(2b) 记忆索引经 stdin <workbench-context> 注入');
+    ok(/核心能力：工作台记忆/.test(stdinTxt) && /mcp__win-claude-workbench__workbench_memory_propose/.test(stdinTxt), '(2b) Claude stdin context carries the built-in Workbench Memory call protocol');
     ok(stdinTxt.includes(aConv.file) && /用 Read 工具/.test(stdinTxt), '(2b) Claude memory index gives the file path + tells the model to use Read');
     ok(/每次收到新的用户消息,先检查本索引/.test(stdinTxt), '(2b) Claude memory prompt requires a relevance check on every user message');
     ok(stdinTxt.includes('[冲突:见 ' + aConflict.id + ']') && stdinTxt.includes('[冲突:见 ' + aConv.id + ']'), 'R4-S1 Claude real path: confirmed contradiction marks BOTH injected memories');

@@ -151,6 +151,7 @@ const {
 const {
   bindSkillsMemory,
   openMemoryPanel,
+  openMemoryToolbox,
   openSkillPanel,
   playbookDisplayDescription,
   playbookDisplayName,
@@ -424,6 +425,7 @@ const {
   importSession: () => importSession(),
   addTemplateFromPrompt: () => addTemplateFromPrompt(),
   openMemoryPanel: () => openMemoryPanel(),
+  openMemoryToolbox: () => openMemoryToolbox(),
   getTemplates: () => getTemplates(),
   insertTemplate: text => insertTemplate(text),
   openSession: id => openSession(id),

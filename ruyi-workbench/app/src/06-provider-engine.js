@@ -1453,15 +1453,11 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config, memoryConflicts);
     if (memSec) lines.push(memSec);
   }
-  // [ACC 记忆工具引导] — 当 ACC memory_save/read/list/delete 在工具列表中时，注入使用指引
-  if (Array.isArray(tools) && tools.some(t => t && t.function && t.function.name === 'memory_save')) {
-    lines.push('[ACC 跨会话记忆库指引]');
-    lines.push('你有四个跨会话记忆工具（memory_save / memory_read / memory_list / memory_delete）：');
-    lines.push('- 每次收到新的用户消息时，用 memory_list 做轻量相关性检索；只读取会实质改变回答或行动的匹配项');
-    lines.push('- 记忆可能过时；采用前先核对其中提到的文件、函数、开关与环境在当前工作区仍成立');
-    lines.push('- 保存前先 list/read 避免重复；只保存长期有效、无法从仓库或 git 直接推导的偏好、约定与环境事实');
-    lines.push('- 用户说"记住/以后/偏好"等关键词时，优先考虑 memory_save');
-    lines.push('- 不要保存大段文档/代码或仓库已记录的事实（4000 字上限），只存必要摘要、来源和相关路径');
+  // [工作台记忆核心能力] — 内置工具是唯一入口；写入永远经过候选卡片与用户确认。
+  if (Array.isArray(tools) && tools.some(t => t && t.function && t.function.name === 'workbench_memory_propose')) {
+    lines.push(getPromptPack(config && config.locale).memoryCoreGuide({
+      list: 'workbench_memory_list', read: 'workbench_memory_read', propose: 'workbench_memory_propose',
+    }));
   }
   // [ACC 序列思维工具引导] — 当 sequential_thinking 在工具列表中时，注入使用指引
   if (Array.isArray(tools) && tools.some(t => t && t.function && t.function.name === 'sequential_thinking')) {

@@ -35,6 +35,7 @@ def check(cond, msg):
 def run_child(env_extra=None):
     env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
     env.pop("ACC_TOOLSETS", None)
+    env.pop("ACC_HIDE_MEMORY", None)
     if env_extra:
         env.update(env_extra)
     r = subprocess.run([sys.executable, "-X", "utf8", "-c", _CHILD_CODE],
@@ -68,6 +69,11 @@ def main() -> int:
     rc, count, names, _ = run_child({"ACC_TOOLSETS": "memory,web,thinking"})
     check(rc == 0 and {"memory_save", "fetch", "sequential_thinking"}.issubset(set(names)),
           f"v1.9 新工具族独立可裁 (got {count})")
+
+    rc, count, names, _ = run_child({"ACC_TOOLSETS": "memory,web,thinking", "ACC_HIDE_MEMORY": "1"})
+    check(rc == 0 and "memory_save" not in names and "memory_read" not in names
+          and {"fetch", "sequential_thinking"}.issubset(set(names)),
+          f"Workbench can hide only the legacy ACC memory family after migration (got {count})")
 
     print()
     if _FAILURES:

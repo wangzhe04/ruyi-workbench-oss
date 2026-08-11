@@ -1098,6 +1098,9 @@ function resolveExternalMcpServers(config) {
         ACC_BROWSER_EXECUTABLE: String(browser.executable || ''),
         ACC_BROWSER_CDP_URL: String(browser.cdpUrl || 'http://127.0.0.1:9222'),
       };
+      // 工作台记忆迁移成功（或确认标准位置没有旧库）后，ACC 不再注册同名 memory 工具；若旧库
+      // 损坏/迁移失败则标记不存在，工具继续可见，避免数据尚未接管就把唯一入口藏掉。
+      if (legacyAccMemoryMigrationComplete()) env.ACC_HIDE_MEMORY = '1';
       out.push({ id: 'ai-computer-control', label: '桌面控制 (ai-computer-control)', command, args, cwd, env,
       pythonSource });
     }

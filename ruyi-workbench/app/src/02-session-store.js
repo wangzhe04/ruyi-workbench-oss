@@ -862,7 +862,7 @@ function normalizeSession(raw) {
     }
     if (JSON.stringify(cleaned) !== JSON.stringify(session.skills)) { session.skills = cleaned; changed = true; }
   }
-  // 工作台记忆:memoriesExplicit=true 时 session.memories 是固定选择(上限 8)；false 时项目+全局均进入
+  // 工作台记忆:memoriesExplicit=true 时 session.memories 是固定选择(上限 12)；false 时项目+全局均进入
   // 默认相关性检索，session.memoryExclusions 保存当前会话在默认模式下明确排除的条目。
   {
     const cleaned = [];
@@ -879,7 +879,7 @@ function normalizeSession(raw) {
       const entry = { id, scope };
       if (scope === 'project') { const pk = String((raw && raw.projectKey) || '').trim(); if (/^[a-f0-9]{16}$/.test(pk)) entry.projectKey = pk; }
       cleaned.push(entry);
-      if (cleaned.length >= 8) break;
+      if (cleaned.length >= 12) break;
     }
     if (JSON.stringify(cleaned) !== JSON.stringify(session.memories)) { session.memories = cleaned; changed = true; }
     if (typeof session.memoriesExplicit !== 'boolean') { session.memoriesExplicit = false; changed = true; }

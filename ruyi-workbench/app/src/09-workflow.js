@@ -658,12 +658,13 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
       const nodeMemoryQuery = [contextText, node.context, node.task].filter(Boolean).join('\n');
       const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery).catch(() => ({
-        entries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0 },
+        entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, coreActiveCount: 0 },
       }));
-      const nodeMemoryConflicts = nodeMemory.entries.length ? await buildMemoryConflictMap(wfCwd).catch(() => new Map()) : null;
+      const nodeMemoryEntries = [...(nodeMemory.coreEntries || []), ...(nodeMemory.entries || [])];
+      const nodeMemoryConflicts = nodeMemoryEntries.length ? await buildMemoryConflictMap(wfCwd).catch(() => new Map()) : null;
       const memoryInstruction = [
         buildMemoryCheckPrompt(nodeMemory.status, config),
-        buildMemoryPromptSection(nodeMemory.entries, node.engine === 'claude' ? 'claude' : 'openai', config, nodeMemoryConflicts),
+        buildMemoryPromptSection(nodeMemoryEntries, node.engine === 'claude' ? 'claude' : 'openai', config, nodeMemoryConflicts),
       ].filter(Boolean).join('\n');
       const effectiveTask = contextPrefix + nodeContextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + evidenceInstruction + (memoryInstruction ? '\n\n' + memoryInstruction : '') + schemaInstruction;
       let agentSession = parentSession;
@@ -1318,8 +1319,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // P3-3: 传 onSourceMismatch —— project 记忆的锁定 projectKey 与当前 cwd 不符(换了项目目录)→ 跳过注入 + 通知一次。
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
-  ).catch(() => ({ entries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0 } }));
-  const enabledMemoryEntries = memoryPreflight.entries;
+  ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
+  const enabledMemoryEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
   // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
   const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
   let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false, config); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile

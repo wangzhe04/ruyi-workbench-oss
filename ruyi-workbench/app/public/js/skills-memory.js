@@ -543,6 +543,8 @@ function insertSkill(cmd) {
 let memoryRegistry = [];
 let memoryOtherProjects = [];
 let memoryCurrentProjectKey = '';
+let memoryCoreStats = null;
+let memoryToolboxFilter = 'all';
 let memoryToggleChain = Promise.resolve();
 const memoryTogglePending = new Set();
 // 会话有效候选集:显式设置过 → 固定选择；否则项目 + 全局全部参与元数据检索，再扣除会话排除项。
@@ -557,16 +559,32 @@ function enabledMemoryKeySet() {
     .map(m => ((m.scope === 'global') ? 'global' : 'project') + ':' + m.id));
   return new Set((memoryRegistry || []).filter(e => e && e.id && !excluded.has(e.scope + ':' + e.id)).map(e => e.scope + ':' + e.id));
 }
-async function openMemoryPanel() {
-  openModal('memoryModal');
-  $('memoryList').innerHTML = '<div class="muted">' + t('common.loading') + '</div>';
+async function loadMemoryData() {
   try {
     const r = await api('/api/memory?cwd=' + encodeURIComponent(currentWorkspace() || ''));
     memoryRegistry = (r && r.memories) || [];
     memoryOtherProjects = (r && r.otherProjects) || [];
     memoryCurrentProjectKey = (r && r.projectKey) || '';
-  } catch { memoryRegistry = []; memoryOtherProjects = []; memoryCurrentProjectKey = ''; }
+    memoryCoreStats = (r && r.core) || null;
+  } catch { memoryRegistry = []; memoryOtherProjects = []; memoryCurrentProjectKey = ''; memoryCoreStats = null; }
+}
+function renderMemoryViews() {
   renderMemoryList();
+  renderMemoryToolbox();
+}
+async function refreshMemoryViews() {
+  await loadMemoryData();
+  renderMemoryViews();
+}
+async function openMemoryPanel() {
+  openModal('memoryModal');
+  $('memoryList').innerHTML = '<div class="muted">' + t('common.loading') + '</div>';
+  await refreshMemoryViews();
+}
+async function openMemoryToolbox() {
+  const list = $('memoryToolboxList');
+  if (list) list.innerHTML = '<div class="memory-empty"><span class="memory-empty-mark">◌</span>' + t('common.loading') + '</div>';
+  await refreshMemoryViews();
 }
 function renderMemoryList() {
   const list = $('memoryList'); if (!list) return; list.innerHTML = '';
@@ -623,6 +641,107 @@ function renderMemoryList() {
     for (const p of memoryOtherProjects) list.appendChild(buildOtherProjectRow(p));
   }
 }
+function memoryTypeLabel(type) {
+  if (type === 'preference') return t('memory.type.preference');
+  if (type === 'convention') return t('memory.type.convention');
+  if (type === 'lesson') return t('memory.type.lesson');
+  return t('memory.type.reference');
+}
+function memoryStatusLabel(status) {
+  if (status === 'active') return t('memory.toolbox.status.active');
+  if (status === 'standby') return t('memory.toolbox.status.standby');
+  if (status === 'expired') return t('memory.toolbox.status.expired');
+  return t('memory.toolbox.status.library');
+}
+function memoryShortDate(value) {
+  const ms = Date.parse(String(value || ''));
+  if (!Number.isFinite(ms)) return '';
+  try { return new Intl.DateTimeFormat(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(ms)); }
+  catch { return String(value).slice(0, 10); }
+}
+function renderMemoryToolbox() {
+  const host = $('memoryToolboxList'), overview = $('memoryToolboxOverview');
+  if (!host || !overview) return;
+  const stats = memoryCoreStats || { total: memoryRegistry.length, active: 0, standby: 0, reviewDue: 0, charsUsed: 0, charLimit: 4200, itemLimit: 24 };
+  const pct = Math.min(100, Math.round((Number(stats.charsUsed) || 0) / Math.max(1, Number(stats.charLimit) || 4200) * 100));
+  overview.innerHTML = '';
+  const overviewTop = el('div', 'memory-overview-top');
+  for (const [value, label, cls] of [
+    [stats.total || 0, t('memory.toolbox.metric.total'), ''],
+    [stats.active || 0, t('memory.toolbox.metric.active'), 'is-core'],
+    [stats.standby || 0, t('memory.toolbox.metric.standby'), ''],
+    [stats.reviewDue || 0, t('memory.toolbox.metric.review'), Number(stats.reviewDue) ? 'is-review' : ''],
+  ]) {
+    const metric = el('div', 'memory-metric ' + cls);
+    metric.append(el('strong', '', String(value)), el('span', '', label));
+    overviewTop.appendChild(metric);
+  }
+  const budget = el('div', 'memory-budget');
+  const budgetLine = el('div', 'memory-budget-line');
+  budgetLine.append(el('span', '', t('memory.toolbox.budget')), el('span', '', `${stats.charsUsed || 0} / ${stats.charLimit || 4200}`));
+  const track = el('div', 'memory-budget-track');
+  const fill = el('span', 'memory-budget-fill'); fill.style.width = pct + '%'; track.appendChild(fill);
+  budget.append(budgetLine, track, el('p', '', t('memory.toolbox.lruHint', { count: stats.itemLimit || 24 })));
+  overview.append(overviewTop, budget);
+
+  const query = String($('memoryToolboxSearch')?.value || '').normalize('NFKC').toLowerCase().trim();
+  let items = (memoryRegistry || []).filter(m => {
+    if (memoryToolboxFilter === 'core' && !m.core) return false;
+    if (memoryToolboxFilter === 'review' && !m.reviewDue && !m.expired) return false;
+    if (!query) return true;
+    return [m.name, m.description, m.id, m.type, m.scope].filter(Boolean).join(' ').normalize('NFKC').toLowerCase().includes(query);
+  });
+  const statusOrder = { active: 0, standby: 1, expired: 2, library: 3 };
+  items.sort((a, b) => (statusOrder[a.coreStatus] ?? 4) - (statusOrder[b.coreStatus] ?? 4)
+    || String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+  host.innerHTML = '';
+  if (!items.length) {
+    const empty = el('div', 'memory-empty');
+    empty.append(el('span', 'memory-empty-mark', '◌'), el('strong', '', t('memory.toolbox.empty')), el('p', '', t('memory.toolbox.emptyHint')));
+    host.appendChild(empty); return;
+  }
+  for (const m of items) host.appendChild(buildMemoryToolboxCard(m));
+}
+function buildMemoryToolboxCard(m) {
+  const card = el('article', `memory-card status-${m.coreStatus || 'library'}${m.importance === 'important' ? ' important' : ''}`);
+  const head = el('div', 'memory-card-head');
+  const titleWrap = el('div', 'memory-card-title');
+  titleWrap.append(el('span', 'memory-card-scope', m.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')), el('h4', '', m.name || m.id));
+  const badges = el('div', 'memory-card-badges');
+  badges.append(el('span', 'memory-badge type', memoryTypeLabel(m.type)));
+  if (m.core) badges.append(el('span', 'memory-badge status', memoryStatusLabel(m.coreStatus)));
+  if (m.importance === 'important') badges.append(el('span', 'memory-badge important', t('memory.toolbox.important')));
+  if (m.reviewDue && !m.expired) badges.append(el('span', 'memory-badge review', t('memory.toolbox.reviewDue')));
+  head.append(titleWrap, badges); card.appendChild(head);
+  const summary = m.core && m.coreSummary ? m.coreSummary : m.description;
+  if (summary) card.appendChild(el('p', 'memory-card-summary', summary));
+  const meta = el('div', 'memory-card-meta');
+  const updated = memoryShortDate(m.updatedAt || m.createdAt);
+  const used = memoryShortDate(m.lastUsedAt);
+  if (updated) meta.appendChild(el('span', '', t('memory.toolbox.updated', { date: updated })));
+  if (used) meta.appendChild(el('span', '', t('memory.toolbox.used', { date: used })));
+  if (m.expiresAt) meta.appendChild(el('span', m.expired ? 'expired' : '', t('memory.toolbox.expires', { date: memoryShortDate(m.expiresAt) })));
+  card.appendChild(meta);
+  const actions = el('div', 'memory-card-actions');
+  const coreBtn = el('button', 'mini memory-core-toggle' + (m.core ? ' on' : ''), m.core ? t('memory.toolbox.removeCore') : t('memory.toolbox.makeCore'));
+  coreBtn.onclick = () => updateMemoryMetadata(m, { core: !m.core }, coreBtn);
+  const importantBtn = el('button', 'mini memory-important-toggle' + (m.importance === 'important' ? ' on' : ''), m.importance === 'important' ? '★' : '☆');
+  importantBtn.title = m.importance === 'important' ? t('memory.toolbox.unmarkImportant') : t('memory.toolbox.markImportant');
+  importantBtn.setAttribute('aria-label', importantBtn.title);
+  importantBtn.onclick = () => updateMemoryMetadata(m, { importance: m.importance === 'important' ? 'normal' : 'important' }, importantBtn);
+  const editBtn = el('button', 'mini', t('common.edit')); editBtn.onclick = () => openMemoryEditModal(m);
+  const deleteBtn = el('button', 'mini danger', t('common.delete')); deleteBtn.onclick = () => deleteMemoryRow(m);
+  actions.append(coreBtn, importantBtn, editBtn, deleteBtn); card.appendChild(actions);
+  return card;
+}
+async function updateMemoryMetadata(memory, patch, button) {
+  if (button) button.disabled = true;
+  try {
+    const result = await api('/api/memory/metadata', { method: 'POST', body: JSON.stringify({ id: memory.id, scope: memory.scope, patch, cwd: currentWorkspace() || '' }) });
+    if (!result || !result.ok) throw new Error((result && result.error) || t('common.unknownError'));
+    await refreshMemoryViews();
+  } catch (error) { toast(t('memory.toolbox.updateFailed', { err: apiErrText(error) }), 'err'); if (button) button.disabled = false; }
+}
 function buildMemoryRow(m, enabled) {
   const key = m.scope + ':' + m.id;
   const on = enabled.has(key);
@@ -639,7 +758,7 @@ function buildMemoryRow(m, enabled) {
   const head = el('div', 'sk-card-h');
   head.appendChild(skillCardIco('skill', null));
   head.appendChild(el('span', 'sk-name', m.name || m.id));
-  const typeLabel = m.type === 'convention' ? t('memory.type.convention') : (m.type === 'lesson' ? t('memory.type.lesson') : t('memory.type.reference'));
+  const typeLabel = memoryTypeLabel(m.type);
   head.appendChild(el('span', 'sk-src', typeLabel));
   it.appendChild(head);
   if (m.description) it.appendChild(el('div', 'sk-desc', m.description));
@@ -691,10 +810,10 @@ function toggleMemory(m) {
   const key = m.scope + ':' + m.id;
   if (memoryTogglePending.has(key)) return;
   memoryTogglePending.add(key);
-  renderMemoryList();
+  renderMemoryViews();
   memoryToggleChain = memoryToggleChain.then(() => doToggleMemory(m)).catch(() => {}).then(() => {
     memoryTogglePending.delete(key);
-    renderMemoryList();
+    renderMemoryViews();
   });
 }
 async function doToggleMemory(m) {
@@ -721,7 +840,7 @@ async function doToggleMemory(m) {
   const cur = [...enabled].map(k => { const i = k.indexOf(':'); const scope = k.slice(0, i), id = k.slice(i + 1); const o = { scope, id }; if (scope === 'project' && pkByKey.get(k)) o.projectKey = pkByKey.get(k); return o; });
   let next;
   if (enabled.has(key)) next = cur.filter(x => (x.scope + ':' + x.id) !== key);
-  else { if (cur.length >= 8) { toast(t("toast.memoryMax8"), 'err'); return; } next = cur.concat({ scope: m.scope, id: m.id }); }
+  else { if (cur.length >= 12) { toast(t("toast.memoryMax8"), 'err'); return; } next = cur.concat({ scope: m.scope, id: m.id }); }
   try {
     const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, memories: next }) });
     session.memories = (r && Array.isArray(r.memories)) ? r.memories : next;
@@ -739,7 +858,7 @@ async function disableMemoryForSession(btn) {
     session.memoriesExplicit = true;
     session.memoryExclusions = [];
     toast(t('memory.toast.sessionDisabled'));
-    renderMemoryList();
+    renderMemoryViews();
   } catch (e) { toast(t('toast.memorySetFail', { err: apiErrText(e) }), 'err'); if (btn) btn.disabled = false; }
 }
 async function restoreDefaultMemoryPolicy(btn) {
@@ -751,7 +870,7 @@ async function restoreDefaultMemoryPolicy(btn) {
     session.memoriesExplicit = false;
     session.memoryExclusions = (r && Array.isArray(r.memoryExclusions)) ? r.memoryExclusions : [];
     toast(t('memory.toast.defaultsRestored'));
-    renderMemoryList();
+    renderMemoryViews();
   } catch (e) { toast(t('toast.memorySetFail', { err: apiErrText(e) }), 'err'); if (btn) btn.disabled = false; }
 }
 async function removeGhostMemory(m) {
@@ -765,7 +884,7 @@ async function removeGhostMemory(m) {
     session.memoriesExplicit = true;
     toast(t("toast.memoryPruned", { p1: m.id }));
   } catch (e) { toast(t('toast.removeFail', { err: apiErrText(e) }), 'err'); return; }
-  renderMemoryList();
+  renderMemoryViews();
 }
 async function deleteMemoryRow(m) {
   if (!confirm(t('memory.deleteConfirm', { name: m.name || m.id }))) return;
@@ -774,7 +893,7 @@ async function deleteMemoryRow(m) {
     if (!r || !r.ok) { toast(t("toast.deleteFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
     toast(t("toast.memoryDeleted"), 'ok');
   } catch (e) { toast(t("toast.deleteFail", { p1: apiErrText(e) }), 'err'); return; }
-  openMemoryPanel();
+  await refreshMemoryViews();
 }
 async function migrateGroupToCurrent(p) {
   if (!(p.items || []).length) return;
@@ -796,7 +915,7 @@ async function migrateGroupToCurrent(p) {
   if (conflictCount) parts.push(`${conflictCount} 条冲突跳过`);
   if (errCount) parts.push(`${errCount} 条失败`);
   toast(parts.length ? parts.join('，') : t('memory.noMigratable'), okCount ? 'ok' : 'err');
-  openMemoryPanel();
+  await refreshMemoryViews();
 }
 // 从当前会话起草(provider 引擎):draft → 编辑弹窗 → 保存。
 async function saveAsMemory(btn, sessionId = '') {
@@ -838,7 +957,7 @@ async function suggestMemoryFromTurn(sessionId, host) {
   const tags = el('span', 'memory-proposal-tags');
   tags.append(
     el('span', 'memory-proposal-tag', proposal.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')),
-    el('span', 'memory-proposal-tag', proposal.type === 'convention' ? t('memory.type.convention') : (proposal.type === 'lesson' ? t('memory.type.lesson') : t('memory.type.reference'))),
+    el('span', 'memory-proposal-tag', memoryTypeLabel(proposal.type)),
   );
   head.appendChild(tags);
   card.append(head, el('div', 'memory-proposal-title', proposal.name || ''), el('div', 'memory-proposal-desc', proposal.description || ''));
@@ -884,13 +1003,35 @@ async function openMemoryEditModal(m) {
   const descEl = mkField(t('memory.edit.description'), full ? full.description : '', 2);
   const typeField = el('div', 'pb-field'); typeField.appendChild(el('label', 'pb-field-label', t('memory.edit.type')));
   const typeSel = el('select', 'pb-field-input');
-  for (const [v, t] of [['convention', t('memory.edit.typeConvention')], ['lesson', t('memory.edit.typeLesson')], ['reference', t('memory.edit.typeReference')]]) { const o = el('option', '', t); o.value = v; if (full && full.type === v) o.selected = true; typeSel.appendChild(o); }
+  for (const [v, label] of [['preference', t('memory.edit.typePreference')], ['convention', t('memory.edit.typeConvention')], ['lesson', t('memory.edit.typeLesson')], ['reference', t('memory.edit.typeReference')]]) { const o = el('option', '', label); o.value = v; if (full && full.type === v) o.selected = true; typeSel.appendChild(o); }
   typeField.appendChild(typeSel); body.appendChild(typeField);
   const scopeField = el('div', 'pb-field'); scopeField.appendChild(el('label', 'pb-field-label', t('memory.edit.scope')));
   const scopeSel = el('select', 'pb-field-input');
-  for (const [v, t] of [['project', t('memory.edit.scopeProject')], ['global', t('memory.edit.scopeGlobal')]]) { const o = el('option', '', t); o.value = v; if (((full && full.scope) || 'project') === v) o.selected = true; scopeSel.appendChild(o); }
+  for (const [v, label] of [['project', t('memory.edit.scopeProject')], ['global', t('memory.edit.scopeGlobal')]]) { const o = el('option', '', label); o.value = v; if (((full && full.scope) || 'project') === v) o.selected = true; scopeSel.appendChild(o); }
   if (editing) scopeSel.disabled = true; // 编辑不改范围(改范围=另存,请新建)
   scopeField.appendChild(scopeSel); body.appendChild(scopeField);
+  const corePanel = el('div', 'memory-edit-core');
+  const coreLabel = el('label', 'check memory-core-check');
+  const coreCheck = el('input'); coreCheck.type = 'checkbox';
+  const hasCoreChoice = !!(full && Object.prototype.hasOwnProperty.call(full, 'core'));
+  coreCheck.checked = hasCoreChoice ? full.core === true : ['preference', 'convention'].includes(typeSel.value);
+  coreLabel.append(coreCheck, el('span', '', t('memory.edit.core')));
+  corePanel.append(coreLabel, el('p', 'field-help muted', t('memory.edit.coreHint')));
+  body.appendChild(corePanel);
+  let coreTouched = hasCoreChoice;
+  coreCheck.onchange = () => { coreTouched = true; };
+  typeSel.onchange = () => { if (!coreTouched) coreCheck.checked = ['preference', 'convention'].includes(typeSel.value); };
+  const coreSummaryEl = mkField(t('memory.edit.coreSummary'), full ? full.coreSummary : '', 3);
+  coreSummaryEl.maxLength = 520;
+  const importanceField = el('div', 'pb-field'); importanceField.appendChild(el('label', 'pb-field-label', t('memory.edit.importance')));
+  const importanceSel = el('select', 'pb-field-input');
+  for (const [v, label] of [['normal', t('memory.edit.importanceNormal')], ['important', t('memory.edit.importanceImportant')]]) { const o = el('option', '', label); o.value = v; if (((full && full.importance) || 'normal') === v) o.selected = true; importanceSel.appendChild(o); }
+  importanceField.appendChild(importanceSel); body.appendChild(importanceField);
+  const dates = el('div', 'memory-edit-dates');
+  const dateField = (label, value) => { const field = el('div', 'pb-field'); field.appendChild(el('label', 'pb-field-label', label)); const input = el('input', 'pb-field-input'); input.type = 'date'; input.value = String(value || '').slice(0, 10); field.appendChild(input); dates.appendChild(field); return input; };
+  const reviewEl = dateField(t('memory.edit.reviewAfter'), full ? full.reviewAfter : '');
+  const expiresEl = dateField(t('memory.edit.expiresAt'), full ? full.expiresAt : '');
+  body.appendChild(dates);
   const bodyTa = mkField(t('memory.edit.body'), full ? full.body : '', 8);
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
   const cancel = el('button', '', t('common.cancel'));
@@ -905,7 +1046,9 @@ async function openMemoryEditModal(m) {
   const modal = buildModal(editing ? t('memory.edit.title') : t('memory.edit.create.title'), body, foot, settleEditCancel);
   cancel.onclick = () => { settleEditCancel(); modal.close(); };
   save.onclick = async () => {
-    const memory = { name: nameEl.value.trim(), description: descEl.value.trim(), type: typeSel.value, body: bodyTa.value, scope: scopeSel.value };
+    const memory = { name: nameEl.value.trim(), description: descEl.value.trim(), type: typeSel.value, body: bodyTa.value, scope: scopeSel.value,
+      core: coreCheck.checked, coreSummary: coreSummaryEl.value.trim(), importance: importanceSel.value,
+      reviewAfter: reviewEl.value || '', expiresAt: expiresEl.value || '' };
     if (editing) memory.id = m.id;
     if (full && full.sourceSessionId) memory.sourceSessionId = full.sourceSessionId;
     if (!memory.name || !memory.body.trim()) { toast(t("toast.memoryFieldsRequired"), 'err'); return; }
@@ -924,7 +1067,7 @@ async function openMemoryEditModal(m) {
         settleMemoryProposal(full.sourceSessionId, full._proposalId, 'saved');
         if (typeof full._onProposalSaved === 'function') full._onProposalSaved();
       }
-      if (!$('memoryModal').classList.contains('hidden')) openMemoryPanel();
+      await refreshMemoryViews();
     } catch (e) { modal.close(); toast(t("toast.saveFail", { p1: apiErrText(e) }), 'err'); }
   };
 }
@@ -943,12 +1086,28 @@ async function openMemoryEditModal(m) {
         else if (event.key === 'Enter') { event.preventDefault(); pickSkill(skillIndex); }
       });
     }
+    const memoryAdd = $('memoryToolboxAddBtn');
+    if (memoryAdd) memoryAdd.onclick = () => openMemoryEditModal(null);
+    const memoryRefresh = $('memoryToolboxRefreshBtn');
+    if (memoryRefresh) memoryRefresh.onclick = () => openMemoryToolbox();
+    const memorySearch = $('memoryToolboxSearch');
+    if (memorySearch) memorySearch.addEventListener('input', renderMemoryToolbox);
+    document.querySelectorAll('[data-memory-filter]').forEach(button => {
+      button.onclick = () => {
+        memoryToolboxFilter = button.dataset.memoryFilter || 'all';
+        document.querySelectorAll('[data-memory-filter]').forEach(item => {
+          const active = item === button; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        renderMemoryToolbox();
+      };
+    });
   }
 
   return Object.freeze({
     bindSkillsMemory,
     builtinPlaybookTextKey,
     openMemoryPanel,
+    openMemoryToolbox,
     openSkillPanel,
     pickSkill,
     playbookDisplayDescription,

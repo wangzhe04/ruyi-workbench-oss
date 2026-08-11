@@ -492,8 +492,9 @@ export function createChatStreamRuntime(deps = {}) {
         renderContextMeter(latestUsage(r.session));
         renderResumeBanner();
       }
-      // 不阻塞回合解锁：服务端通常会静默返回 proposal:null；只有成功回合且严格模型裁决通过时才追加卡片。
-      if (turnState.engine === 'openai' && turnState.live && turnState.live.resultOk === true && state.currentSession?.id === turnSessionId) {
+      // 不阻塞回合解锁：两引擎都可能通过 workbench_memory_propose 提交待确认候选；provider 还会
+      // 运行自动审稿。服务端通常静默返回 proposal:null，只有真正的 pending 才追加卡片。
+      if (turnState.live && turnState.live.resultOk === true && state.currentSession?.id === turnSessionId) {
         Promise.resolve().then(() => suggestMemoryFromTurn(turnSessionId, turnState.live.narrative || turnState.main)).catch(() => {});
       }
     } catch (err) {

@@ -186,12 +186,13 @@ _ALWAYS_MODULES = ["audit", "diagnostics"]
 
 
 def _active_modules() -> list[str]:
+    hide_memory = _os.environ.get("ACC_HIDE_MEMORY", "").strip().lower() in {"1", "true", "yes", "on"}
     raw = _os.environ.get("ACC_TOOLSETS", "").strip()
     if not raw:
         mods = []
         for group in _TOOLSET_MODULES.values():
             mods.extend(group)
-        return _ALWAYS_MODULES + mods
+        return _ALWAYS_MODULES + [m for m in mods if not (hide_memory and m == "memory")]
     mods = list(_ALWAYS_MODULES)
     unknown = []
     for name in (p.strip().lower() for p in raw.split(",")):
@@ -210,7 +211,7 @@ def _active_modules() -> list[str]:
         if m not in seen:
             seen.add(m)
             out.append(m)
-    return out
+    return [m for m in out if not (hide_memory and m == "memory")]
 
 
 import importlib as _importlib  # noqa: E402
