@@ -836,7 +836,11 @@ export function createChatStreamRuntime(deps = {}) {
       case 'meta': {
         // Engine-aware prefix: provider turns show the provider label, claude turns show 'claude'.
         const engTag = evt.engine === 'openai' ? (evt.providerLabel || 'provider') : 'claude';
-        appendToolOutput(`[${engTag}] ${evt.command} ${(evt.args || []).join(' ')}\ncwd=${evt.cwd}\n模型=${evt.model} 权限=${evt.permissionMode}`);
+        const mc = evt.memoryCheck;
+        const memoryLine = !mc ? '' : (!mc.enabled
+          ? '\n' + t('memory.check.disabled')
+          : (!mc.checked ? '\n' + t('memory.check.unavailable') : '\n' + t('memory.check.done', { candidates: mc.candidateCount || 0, matches: mc.matchCount || 0, project: mc.projectMatches || 0, global: mc.globalMatches || 0 })));
+        appendToolOutput(`[${engTag}] ${evt.command} ${(evt.args || []).join(' ')}\ncwd=${evt.cwd}\n模型=${evt.model} 权限=${evt.permissionMode}${memoryLine}`);
         // v0.8-S0 cwd guardrail: warn once per turn when the working dir is the user's home/Desktop/
         // Documents/Downloads root (acting on everything the user owns is the highest-risk misfire).
         if (evt.cwdWarning && live && !live.cwdWarned) {

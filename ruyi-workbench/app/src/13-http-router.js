@@ -337,7 +337,7 @@ async function handleApi(req, res, pathname) {
     return send(res, json({ ok: true, id, removed: true }));
   }
   // ── v2 跨会话记忆(团队模式 v2 Phase 3, 设计稿 C) ─────────────────────────────────────────────
-  // POST /api/session/memories {sessionId, memories:[{id,scope}]} —— 显式覆盖会话启用记忆(校验存在性)。走 uiMutatingRoute。
+  // POST /api/session/memories:memories=固定选择；useDefault=true 恢复项目+全局默认检索，并可携带会话排除项。
   if (req.method === 'POST' && pathname === '/api/session/memories') {
     const body = await readJsonBody(req);
     const session = await loadSession(String(body && body.sessionId || '')).catch(() => null);
@@ -347,6 +347,25 @@ async function handleApi(req, res, pathname) {
     const registry = await loadMemoryRegistry(cwd).catch(() => []);
     const byKey = new Map(registry.map(e => [e.scope + ':' + e.id, e]));
     const projKey = projectKeyForCwd(cwd); // P3-3: 权威 projectKey(取自 session.cwd),给 project 条目落盘锁定来源
+    if (body && body.useDefault === true) {
+      const excluded = [];
+      const excludedSeen = new Set();
+      for (const raw of (Array.isArray(body.memoryExclusions) ? body.memoryExclusions : [])) {
+        const id = String((raw && raw.id) || '').trim();
+        const scope = raw && raw.scope === 'global' ? 'global' : 'project';
+        const key = scope + ':' + id;
+        if (!byKey.has(key) || excludedSeen.has(key)) continue;
+        excludedSeen.add(key);
+        excluded.push(scope === 'project' ? { id, scope, projectKey: projKey } : { id, scope });
+        if (excluded.length >= MEMORY_EXCLUSION_MAX) break;
+      }
+      session.memories = [];
+      session.memoriesExplicit = false;
+      session.memoryExclusions = excluded;
+      await saveSession(session);
+      { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) { reg.session.memories = []; reg.session.memoriesExplicit = false; reg.session.memoryExclusions = excluded; } }
+      return send(res, json({ ok: true, memories: [], memoriesExplicit: false, memoryExclusions: excluded }));
+    }
     const cleaned = [];
     const seen = new Set();
     for (const raw of (Array.isArray(body && body.memories) ? body.memories : [])) {
@@ -361,9 +380,10 @@ async function handleApi(req, res, pathname) {
     }
     session.memories = cleaned;
     session.memoriesExplicit = true; // 用户显式设置过 → 关闭默认自动启用
+    session.memoryExclusions = [];
     await saveSession(session);
-    { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) { reg.session.memories = cleaned; reg.session.memoriesExplicit = true; } }
-    return send(res, json({ ok: true, memories: cleaned }));
+    { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) { reg.session.memories = cleaned; reg.session.memoriesExplicit = true; reg.session.memoryExclusions = []; } }
+    return send(res, json({ ok: true, memories: cleaned, memoriesExplicit: true, memoryExclusions: [] }));
   }
   // GET /api/memory?cwd= —— 列表(global + 当前项目组 + 其它组供迁移)。返回记忆条目含绝对文件路径 → 属只读内容型
   // GET,须 tokenOk 自校验(v1.4.6-S1 DNS-rebinding 加固既定模式,同 /api/file/preview;GET 不过 mutating 鉴权块)。

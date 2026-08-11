@@ -387,14 +387,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // 包裹并降级为拒绝结果——池/邮箱任何失败绝不冒泡到调度循环。
   const poolPolicy = ['manual', 'auto-capped', 'off'].includes(run.poolPolicy) ? run.poolPolicy : 'manual';
   const wfCwd = normalizeCwd(parentSession.cwd, config.defaultWorkspace);
-  // R4-S1/S2真实接线：工作流 gate 才是 memoryRelations 的产出者，因此它们必须看到与主回合相同的
-  // 已启用记忆 id；同时 confirmed contradicts 要在真实提示里双向标记。按 run 只解析一次，避免每节点扫盘。
-  const workflowMemoryEntries = await resolveEnabledMemoryEntries(parentSession, wfCwd).catch(() => []);
-  const workflowMemoryConflicts = workflowMemoryEntries.length ? await buildMemoryConflictMap(wfCwd).catch(() => new Map()) : null;
-  const workflowMemorySections = {
-    openai: buildMemoryPromptSection(workflowMemoryEntries, 'openai', config, workflowMemoryConflicts),
-    claude: buildMemoryPromptSection(workflowMemoryEntries, 'claude', config, workflowMemoryConflicts),
-  };
+  // 工作流节点按各自 task 做轻量记忆预检；不再把整次 run 的同一份索引无差别塞给所有节点。
   const proposeTaskImpl = (proposerId, args) => {
     try {
       if (poolPolicy === 'off') return { ok: false, error: '任务池未启用' };
@@ -663,7 +656,15 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const contextPrefix = contextText ? `任务背景（本次运行时提供）：\n${String(contextText).slice(0, 4000)}\n\n` : '';
       const nodeContextPrefix = node.context ? `本节点专属资料（仅本节点可见）：\n${node.context}\n\n` : '';
       const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
-      const memoryInstruction = workflowMemorySections[node.engine === 'claude' ? 'claude' : 'openai'] || '';
+      const nodeMemoryQuery = [contextText, node.context, node.task].filter(Boolean).join('\n');
+      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery).catch(() => ({
+        entries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0 },
+      }));
+      const nodeMemoryConflicts = nodeMemory.entries.length ? await buildMemoryConflictMap(wfCwd).catch(() => new Map()) : null;
+      const memoryInstruction = [
+        buildMemoryCheckPrompt(nodeMemory.status, config),
+        buildMemoryPromptSection(nodeMemory.entries, node.engine === 'claude' ? 'claude' : 'openai', config, nodeMemoryConflicts),
+      ].filter(Boolean).join('\n');
       const effectiveTask = contextPrefix + nodeContextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + evidenceInstruction + (memoryInstruction ? '\n\n' + memoryInstruction : '') + schemaInstruction;
       let agentSession = parentSession;
       let isolated = false;
@@ -1313,11 +1314,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // whole default — now it is one layer among four, so the identity pin + capability block always ship).
   const projectMemory = await readProjectMemory(workingDir).catch(() => null);
   // v1 技能体系: 主回合传入 identityOnly=false + 已启用技能条目 → 技能层注入(能力层与操控规程层之间)。
-  // v2 跨会话记忆: 解析本会话启用的记忆条目(默认策略:项目记忆自动启用;未启用→[] 零开销短路)。
+  // 工作台记忆:每条消息用 name/description/id 做轻量元数据检索；默认扫描当前项目 + 全局并只注入 Top-3。
   // P3-3: 传 onSourceMismatch —— project 记忆的锁定 projectKey 与当前 cwd 不符(换了项目目录)→ 跳过注入 + 通知一次。
-  const enabledMemoryEntries = await resolveEnabledMemoryEntries(session, workingDir,
+  const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
-  ).catch(() => []);
+  ).catch(() => ({ entries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0 } }));
+  const enabledMemoryEntries = memoryPreflight.entries;
   // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
   const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
   let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false, config); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
@@ -1352,7 +1354,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // the language of an English (or otherwise non-Chinese) user conversation.
   volatileExtras = appendTurnPolicies(volatileExtras, config, agentTeam, 0, false, promptTaskContext);
   // 51d C1b: 易变层前缀(每回合动态,buildBody 注入第一条 user 消息[经 findIndex 动态定位],不持久化避 854 参数未初始化)
-  const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts) + (volatileExtras ? '\n\n' + volatileExtras : '');
+  const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
@@ -1418,9 +1420,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
 
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
-  onEvent({ type: 'meta', command: `${provider.label || provider.id} · ${base}`, args: [], cwd: workingDir, model, permissionMode: config.permissionMode, engine: 'openai', providerLabel: provider.label || provider.id, tools: initialTools.length, availableTools: allTools.length, bridgedTools: bridged.tools.length, toolLoadingMode: config.toolLoadingMode, toolPacks: [...toolLoading.activePacks], toolSchemaTokens: estimateToolSchemaTokens(initialTools), cwdWarning: cwdWarn || undefined });
+  onEvent({ type: 'meta', command: `${provider.label || provider.id} · ${base}`, args: [], cwd: workingDir, model, permissionMode: config.permissionMode, engine: 'openai', providerLabel: provider.label || provider.id, tools: initialTools.length, availableTools: allTools.length, bridgedTools: bridged.tools.length, toolLoadingMode: config.toolLoadingMode, toolPacks: [...toolLoading.activePacks], toolSchemaTokens: estimateToolSchemaTokens(initialTools), memoryCheck: memoryPreflight.status, cwdWarning: cwdWarn || undefined });
   onEvent({ type: 'process', state: 'running', pid: null, interactive: false, engine: 'openai' });
-  logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, model, promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
+  logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, model, promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, memoryCheck: memoryPreflight.status, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
 
   // WCW_TURN_IDLE_MS is a test seam; normalized config remains the production source of truth.
   const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs);
@@ -2465,7 +2467,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // re-read it before the final save so the turn's stale in-memory copy can't clobber a mid-turn skill toggle.
   // P2-3(记忆): 同款回读 session.memories + memoriesExplicit —— 免得回合边缘窗口用户「全部停用」被陈旧内存副本回滚,
   // 下一回合默认策略又自动全启。memoriesExplicit 仅当磁盘为 boolean 才覆盖。
-  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; } catch { /* keep in-memory */ }
+  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; } catch { /* keep in-memory */ }
   await saveSession(session);
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
   // Cost comes from the provider's optional pricing (null when unpriced); estimated turns are flagged.

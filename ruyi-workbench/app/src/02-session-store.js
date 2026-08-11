@@ -860,8 +860,8 @@ function normalizeSession(raw) {
     }
     if (JSON.stringify(cleaned) !== JSON.stringify(session.skills)) { session.skills = cleaned; changed = true; }
   }
-  // v2 跨会话记忆: session.memories = [{id, scope:'global'|'project'}] (上限 8),{id,scope} 锁定来源(同技能 P2-2);
-  // session.memoriesExplicit = 用户是否显式设置过(false=默认策略:项目记忆自动启用、global 手动)。
+  // 工作台记忆:memoriesExplicit=true 时 session.memories 是固定选择(上限 8)；false 时项目+全局均进入
+  // 默认相关性检索，session.memoryExclusions 保存当前会话在默认模式下明确排除的条目。
   {
     const cleaned = [];
     const seen = new Set();
@@ -881,6 +881,21 @@ function normalizeSession(raw) {
     }
     if (JSON.stringify(cleaned) !== JSON.stringify(session.memories)) { session.memories = cleaned; changed = true; }
     if (typeof session.memoriesExplicit !== 'boolean') { session.memoriesExplicit = false; changed = true; }
+    const excluded = [];
+    const excludedSeen = new Set();
+    for (const raw of (Array.isArray(session.memoryExclusions) ? session.memoryExclusions : [])) {
+      const id = String((raw && typeof raw === 'object' && raw.id) || '').trim();
+      if (!SKILL_ID_RE.test(id)) continue;
+      const scope = raw && raw.scope === 'global' ? 'global' : 'project';
+      const key = scope + ':' + id;
+      if (excludedSeen.has(key)) continue;
+      excludedSeen.add(key);
+      const entry = { id, scope };
+      if (scope === 'project') { const pk = String((raw && raw.projectKey) || '').trim(); if (/^[a-f0-9]{16}$/.test(pk)) entry.projectKey = pk; }
+      excluded.push(entry);
+      if (excluded.length >= 256) break;
+    }
+    if (JSON.stringify(excluded) !== JSON.stringify(session.memoryExclusions)) { session.memoryExclusions = excluded; changed = true; }
   }
   return { session, changed };
 }

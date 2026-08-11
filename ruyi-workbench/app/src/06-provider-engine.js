@@ -1362,7 +1362,7 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
 }
 // 易变层:能力/桌面规程/搜索/风格/项目/技能/记忆/账本(每回合可能变化,自破 prefix cache)。
 // C1b 时移 user 侧;C1a 仍由 buildProviderSystemPrompt 包装进 system(行为零漂移)。
-function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts) {
+function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck) {
   const lines = [];
   // [能力层]
   const netStr = caps && caps.network
@@ -1438,6 +1438,10 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     if (skillSec) lines.push(skillSec);
   }
   // [记忆层]
+  if (memoryCheck) {
+    const checkSec = buildMemoryCheckPrompt(memoryCheck, config);
+    if (checkSec) lines.push(checkSec);
+  }
   if (Array.isArray(memoryEntries) && memoryEntries.length) {
     const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config, memoryConflicts);
     if (memSec) lines.push(memSec);
@@ -1468,10 +1472,10 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   return lines.join('\n');
 }
 // 向后兼容包装(行为零漂移):identityOnly 时只 stable,否则 stable+volatile。
-function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission, memoryConflicts) {
+function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck) {
   const stable = buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config);
   if (identityOnly) return stable;
-  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts);
+  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck);
   return volatile ? stable + '\n' + volatile : stable;
 }
 

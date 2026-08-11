@@ -62,6 +62,15 @@ const memory = srv.buildMemoryPromptSection([
 ], 'openai', { locale: 'zh-CN' });
 ok(/每次收到新的用户消息/.test(memory) && /相关的记忆/.test(memory) && /file_read/.test(memory), 'memory index requires a lightweight relevance check on every user message');
 ok(/可能过时/.test(memory) && /当前工作区仍成立/.test(memory) && /实质改变/.test(memory), 'matching memory is verified against current workspace state before use');
+const zeroMemoryCheck = srv.buildMemoryCheckPrompt({ mode: 'default', enabled: true, checked: true, candidateCount: 12, matchCount: 0, projectMatches: 0, globalMatches: 0 }, { locale: 'zh-CN' });
+ok(/<workbench-memory-check[^>]*candidates="12"[^>]*matches="0"/.test(zeroMemoryCheck), 'zero-match memory preflight remains machine-readable');
+ok(/不要把零命中表述为工作台没有记忆/.test(zeroMemoryCheck) && /不构成用户授权/.test(zeroMemoryCheck), 'zero-match receipt prevents capability denial and preserves the authorization boundary');
+const rankedMemory = srv.rankRelevantMemories([
+  { id: 'global-release', scope: 'global', name: 'Release checklist', description: 'deployment rollback steps', type: 'reference', createdAt: '2026-01-01' },
+  { id: 'project-style', scope: 'project', name: 'Project style', description: 'format conventions', type: 'convention', createdAt: '2026-01-02' },
+  { id: 'irrelevant', scope: 'global', name: 'Meeting notes', description: 'customer agenda', type: 'reference', createdAt: '2026-01-03' },
+], 'Please verify the deployment rollback checklist', 3);
+ok(rankedMemory.some(m => m.id === 'global-release') && rankedMemory.some(m => m.id === 'project-style') && !rankedMemory.some(m => m.id === 'irrelevant'), 'default retrieval considers relevant global memory plus project conventions without injecting unrelated references');
 
 ok(srv.planDiscoveryToolBatchAllowed([{ name: 'file_read' }, { name: 'git_diff' }], {}, {}) === true, 'plan discovery allows native read-only inspection batches');
 ok(srv.planDiscoveryToolBatchAllowed([{ name: 'request_user_input' }], {}, {}) === true, 'plan discovery allows a material user clarification');

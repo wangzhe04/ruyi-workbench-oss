@@ -545,14 +545,17 @@ let memoryOtherProjects = [];
 let memoryCurrentProjectKey = '';
 let memoryToggleChain = Promise.resolve();
 const memoryTogglePending = new Set();
-// 会话有效启用集(effectiveMemorySelection 的前端镜像):显式设置过 → session.memories;否则默认——当前项目记忆全启用。
+// 会话有效候选集:显式设置过 → 固定选择；否则项目 + 全局全部参与元数据检索，再扣除会话排除项。
 function enabledMemoryKeySet() {
   const session = state.currentSession;
   if (session && session.memoriesExplicit === true) {
     const arr = Array.isArray(session.memories) ? session.memories : [];
     return new Set(arr.map(m => ((m && m.scope === 'global') ? 'global' : 'project') + ':' + (m && m.id)).filter(k => !k.endsWith(':')));
   }
-  return new Set((memoryRegistry || []).filter(e => e.scope === 'project').slice(0, 8).map(e => 'project:' + e.id));
+  const excluded = new Set((Array.isArray(session && session.memoryExclusions) ? session.memoryExclusions : [])
+    .filter(m => m && m.id && (m.scope === 'global' || !m.projectKey || !memoryCurrentProjectKey || m.projectKey === memoryCurrentProjectKey))
+    .map(m => ((m.scope === 'global') ? 'global' : 'project') + ':' + m.id));
+  return new Set((memoryRegistry || []).filter(e => e && e.id && !excluded.has(e.scope + ':' + e.id)).map(e => e.scope + ':' + e.id));
 }
 async function openMemoryPanel() {
   openModal('memoryModal');
@@ -578,10 +581,16 @@ function renderMemoryList() {
     draftBtn.onclick = () => saveAsMemory(draftBtn);
     actions.appendChild(draftBtn);
   }
+  if (session) {
+    const policyBtn = el('button', 'mini', session.memoriesExplicit === true ? t('memory.restoreDefaults') : t('memory.disableForSession'));
+    policyBtn.onclick = () => session.memoriesExplicit === true ? restoreDefaultMemoryPolicy(policyBtn) : disableMemoryForSession(policyBtn);
+    actions.appendChild(policyBtn);
+  }
   list.appendChild(actions);
   if (!session) list.appendChild(el('div', 'muted', t('memory.needSessionHint')));
   const explicit = session && session.memoriesExplicit === true;
   if (session && !explicit) list.appendChild(el('div', 'memory-hint muted', t('memory.defaultPolicyHint')));
+  if (session && explicit) list.appendChild(el('div', 'memory-hint muted', (session.memories || []).length ? t('memory.fixedPolicyHint') : t('memory.sessionDisabledHint')));
   const enabled = enabledMemoryKeySet();
   const globals = (memoryRegistry || []).filter(e => e.scope === 'global');
   const projects = (memoryRegistry || []).filter(e => e.scope === 'project');
@@ -693,6 +702,20 @@ async function doToggleMemory(m) {
   if (!session) return;
   const enabled = enabledMemoryKeySet();
   const key = m.scope + ':' + m.id;
+  if (session.memoriesExplicit !== true) {
+    const current = (Array.isArray(session.memoryExclusions) ? session.memoryExclusions : []).filter(x => x && x.id);
+    const nextExcluded = enabled.has(key)
+      ? current.concat(m.scope === 'project' ? { scope: 'project', id: m.id, projectKey: memoryCurrentProjectKey } : { scope: 'global', id: m.id })
+      : current.filter(x => ((x.scope === 'global') ? 'global' : 'project') + ':' + x.id !== key);
+    try {
+      const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, useDefault: true, memoryExclusions: nextExcluded }) });
+      session.memories = [];
+      session.memoriesExplicit = false;
+      session.memoryExclusions = (r && Array.isArray(r.memoryExclusions)) ? r.memoryExclusions : nextExcluded;
+      toast(enabled.has(key) ? t('memory.toast.excluded', { name: m.name || m.id }) : t('memory.toast.included', { name: m.name || m.id }));
+    } catch (e) { toast(t('toast.memorySetFail', { err: apiErrText(e) }), 'err'); }
+    return;
+  }
   // P3-3: 重建启用集时保留各 project 条目锁定的 projectKey(服务端会以 session.cwd 权威重盖,前端如实回传避免丢字段)。
   const pkByKey = new Map((Array.isArray(session.memories) ? session.memories : []).filter(x => x && x.id).map(x => [((x.scope === 'global') ? 'global' : 'project') + ':' + x.id, x.projectKey]));
   const cur = [...enabled].map(k => { const i = k.indexOf(':'); const scope = k.slice(0, i), id = k.slice(i + 1); const o = { scope, id }; if (scope === 'project' && pkByKey.get(k)) o.projectKey = pkByKey.get(k); return o; });
@@ -703,8 +726,33 @@ async function doToggleMemory(m) {
     const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, memories: next }) });
     session.memories = (r && Array.isArray(r.memories)) ? r.memories : next;
     session.memoriesExplicit = true;
+    session.memoryExclusions = [];
     toast(enabled.has(key) ? t('memory.toast.disabled', { name: m.name || m.id }) : t('memory.toast.enabled', { name: m.name || m.id }));
   } catch (e) { toast(t('toast.memorySetFail', { err: apiErrText(e) }), 'err'); }
+}
+async function disableMemoryForSession(btn) {
+  const session = state.currentSession; if (!session) return;
+  if (btn) btn.disabled = true;
+  try {
+    const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, memories: [] }) });
+    session.memories = (r && Array.isArray(r.memories)) ? r.memories : [];
+    session.memoriesExplicit = true;
+    session.memoryExclusions = [];
+    toast(t('memory.toast.sessionDisabled'));
+    renderMemoryList();
+  } catch (e) { toast(t('toast.memorySetFail', { err: apiErrText(e) }), 'err'); if (btn) btn.disabled = false; }
+}
+async function restoreDefaultMemoryPolicy(btn) {
+  const session = state.currentSession; if (!session) return;
+  if (btn) btn.disabled = true;
+  try {
+    const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, useDefault: true, memoryExclusions: [] }) });
+    session.memories = [];
+    session.memoriesExplicit = false;
+    session.memoryExclusions = (r && Array.isArray(r.memoryExclusions)) ? r.memoryExclusions : [];
+    toast(t('memory.toast.defaultsRestored'));
+    renderMemoryList();
+  } catch (e) { toast(t('toast.memorySetFail', { err: apiErrText(e) }), 'err'); if (btn) btn.disabled = false; }
 }
 async function removeGhostMemory(m) {
   const session = state.currentSession;

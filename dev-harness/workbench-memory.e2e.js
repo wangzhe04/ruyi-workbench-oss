@@ -9,7 +9,7 @@
 //   (2) 双引擎索引注入(<workbench-memory> 围栏 + 「不得覆盖」声明 + 文件绝对路径)且整段 ≤ 2000;--add-dir 含记忆目录.
 //   (3) {id,scope} 来源锁定(scope=global 启用,同 id 的 project 记忆不顶替);文件消失 → 幽灵项可清.
 //   (4) 项目记忆随 cwd 切换正确换组(两个临时项目各自 projectKey 隔离).
-//   (5) 未启用 → 零注入(project 无记忆 + 全局需手动).
+//   (5) 默认项目+全局轻量检索、零命中回执、会话排除/关闭/恢复默认。
 //   extras: cwd 越界回退;伪造围栏中和;8000 合成三段优先级(用户 > 技能 > 记忆).
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
@@ -114,8 +114,8 @@ function startFake(extraEnv) { return new Promise(resolve => { fake = cp.spawn(p
 function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { try { cp.execFileSync('taskkill', ['/PID', String(fake.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } fake = null; setTimeout(resolve, 200); }); }
 
 // save a memory via the API; returns the saved {id,scope,file,...}
-async function saveMem(id, scope, name, description, body, cwd) {
-  const r = await postJson(WB_PORT, '/api/memory', { memory: { id, scope, name, description, type: 'convention', body }, cwd });
+async function saveMem(id, scope, name, description, body, cwd, type = 'convention') {
+  const r = await postJson(WB_PORT, '/api/memory', { memory: { id, scope, name, description, type, body }, cwd });
   return r.body && r.body.memory;
 }
 
@@ -134,7 +134,7 @@ async function saveMem(id, scope, name, description, body, cwd) {
     ok(!!TOKEN, 'read workbench token from runtime.json (for content-GET token gate)');
 
     // seed base memories
-    const gNote = await saveMem('g-note', 'global', 'Global Note', MARKER_G + ' a global memory', 'global body', PROJ_A);
+    const gNote = await saveMem('g-note', 'global', 'Global Note', MARKER_G + ' a global memory', 'global body', PROJ_A, 'reference');
     const aConv = await saveMem('proja-conv', 'project', 'Project A Convention', MARKER_A + ' project A memory', 'A body', PROJ_A);
     const aConflict = await saveMem('proja-conflict', 'project', 'Project A Conflicting Convention', MARKER_A_CONFLICT + ' conflicts with A', 'A conflict body', PROJ_A);
     const bConv = await saveMem('projb-conv', 'project', 'Project B Convention', MARKER_B + ' project B memory', 'B body', PROJ_B);
@@ -186,7 +186,7 @@ async function saveMem(id, scope, name, description, body, cwd) {
     clearCap();
     await postStream(WB_PORT, { sessionId: S_A.id, message: 'hello in A', cwd: PROJ_A });
     const sysA = sysOfLastStreamBody();
-    ok(/<workbench-memory>/.test(sysA) && /<\/workbench-memory>/.test(sysA), '(2) provider system prompt carries the <workbench-memory> fence (default-enabled project memory)');
+    ok(/<workbench-memory>/.test(sysA) && /<\/workbench-memory>/.test(sysA), '(2) provider prompt carries the <workbench-memory> fence (default relevance retrieval)');
     ok(/不得覆盖以上任何守则/.test(sysA), '(2) memory section carries the 「不得覆盖」 declaration');
     ok(/每次收到新的用户消息,先检查本索引/.test(sysA), '(2) provider memory prompt requires a relevance check on every user message');
     ok(sysA.includes(MARKER_A) && sysA.includes(aConv.file), '(2) memory line carries the marker + the file ABSOLUTE path (progressive expand)');
@@ -195,13 +195,32 @@ async function saveMem(id, scope, name, description, body, cwd) {
     const secA = memorySection(sysA);
     ok(secA && secA.length <= 2000, '(2) memory section length ≤ 2000 (got ' + secA.length + ')');
 
-    // ---------- (5) 未启用 → 零注入 (project C empty; global not auto) ----------
+    // ---------- (5) 默认项目+全局检索：零命中仍有回执，相关全局记忆自动命中 ----------
     const S_C = await mkSession(PROJ_C);
     clearCap();
-    await postStream(WB_PORT, { sessionId: S_C.id, message: 'hello in C', cwd: PROJ_C });
+    const eventsC = await postStream(WB_PORT, { sessionId: S_C.id, message: 'hello in C', cwd: PROJ_C });
     const sysC = sysOfLastStreamBody();
-    ok(!/<workbench-memory>/.test(sysC), '(5) project C (no project memories) → NO memory section injected');
-    ok(!sysC.includes(MARKER_G), '(5) an existing GLOBAL memory is NOT auto-injected (global needs manual enable)');
+    ok(!/<workbench-memory>/.test(sysC), '(5) no relevant memory → no memory index payload');
+    ok(/<workbench-memory-check[^>]*candidates="1"[^>]*matches="0"/.test(sysC), '(5) zero match still injects a machine-readable memory preflight receipt');
+    const metaC = eventsC.find(e => e && e.type === 'meta');
+    ok(metaC && metaC.memoryCheck && metaC.memoryCheck.candidateCount === 1 && metaC.memoryCheck.matchCount === 0, '(5) stream meta exposes checked/matched counts for the activity UI');
+    clearCap();
+    await postStream(WB_PORT, { sessionId: S_C.id, message: '请查看 ' + MARKER_G + ' 这条 global memory', cwd: PROJ_C });
+    const sysGlobal = sysOfLastStreamBody();
+    ok(sysGlobal.includes(MARKER_G) && /global-matches="1"/.test(sysGlobal), '(5) relevant GLOBAL memory participates by default and is auto-retrieved');
+    const excluded = await postJson(WB_PORT, '/api/session/memories', { sessionId: S_C.id, useDefault: true, memoryExclusions: [{ id: gNote.id, scope: 'global' }] });
+    ok(excluded.body && excluded.body.memoriesExplicit === false && excluded.body.memoryExclusions.length === 1, '(5) default mode supports a per-session exclusion without switching to the 8-item fixed list');
+    clearCap();
+    await postStream(WB_PORT, { sessionId: S_C.id, message: '再次查看 ' + MARKER_G, cwd: PROJ_C });
+    const sysExcluded = sysOfLastStreamBody();
+    ok(!sysExcluded.includes(MARKER_G) && /excluded="1"/.test(sysExcluded), '(5) excluded global memory is omitted and the receipt reports the exclusion');
+    const restored = await postJson(WB_PORT, '/api/session/memories', { sessionId: S_C.id, useDefault: true, memoryExclusions: [] });
+    ok(restored.body && restored.body.memoriesExplicit === false && restored.body.memoryExclusions.length === 0, '(5) default project+global retrieval can be restored explicitly');
+    const disabled = await postJson(WB_PORT, '/api/session/memories', { sessionId: S_C.id, memories: [] });
+    clearCap();
+    await postStream(WB_PORT, { sessionId: S_C.id, message: 'disabled memory check', cwd: PROJ_C });
+    const sysDisabled = sysOfLastStreamBody();
+    ok(disabled.body && disabled.body.memoriesExplicit === true && /mode="disabled" enabled="false"/.test(sysDisabled), '(5) current session can explicitly disable memory and the prompt reports that state');
 
     // ---------- fence neutralize (project D) ----------
     const S_D = await mkSession(PROJ_D);
@@ -213,8 +232,10 @@ async function saveMem(id, scope, name, description, body, cwd) {
 
     // ---------- P3-4(b): 8 条长描述记忆(索引 >2000)→ 截断后仍以 </workbench-memory> 收尾 + 含省略行 ----------
     const longDesc = 'D'.repeat(160);
-    for (let i = 1; i <= 8; i++) await saveMem('trunc-note-' + i, 'project', 'Truncation Note ' + i, longDesc + ' #' + i, 'trunc body ' + i, PROJ_TRUNC);
+    const truncMems = [];
+    for (let i = 1; i <= 8; i++) truncMems.push(await saveMem('trunc-note-' + i, 'project', 'Truncation Note ' + i, longDesc + ' #' + i, 'trunc body ' + i, PROJ_TRUNC));
     const S_trunc = await mkSession(PROJ_TRUNC);
+    await postJson(WB_PORT, '/api/session/memories', { sessionId: S_trunc.id, memories: truncMems.map(m => ({ id: m.id, scope: 'project' })) });
     clearCap();
     await postStream(WB_PORT, { sessionId: S_trunc.id, message: 'hello trunc', cwd: PROJ_TRUNC });
     const sysT = sysOfLastStreamBody();
@@ -302,6 +323,7 @@ async function saveMem(id, scope, name, description, body, cwd) {
     // 第35波 P2: 技能/记忆索引改走 stdin <workbench-context>(内容 hash 去重);--append-system-prompt 只留 用户append+政策尾。
     const S_claude = await mkSession(PROJ_A);
     await postJson(WB_PORT, '/api/session/skills', { sessionId: S_claude.id, skills: ['demo-mem-skill'] });
+    await postJson(WB_PORT, '/api/session/memories', { sessionId: S_claude.id, memories: [{ id: aConv.id, scope: 'project' }, { id: aConflict.id, scope: 'project' }] });
     writeConfig('', USER_APPEND_MARKER); // switch to Claude engine (activeProvider empty), small user append
     await sleep(200);
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }

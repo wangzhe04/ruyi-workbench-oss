@@ -6,6 +6,9 @@
 const MEMORY_TYPES = new Set(['convention', 'lesson', 'reference']);
 const MEMORY_INDEX_CAP = 2000; // 注入索引整段字符上限(C3)
 const MEMORY_MAX = 8;          // 会话启用上限(C3)
+const MEMORY_RELEVANCE_MAX = 3; // 默认检索每轮最多注入 3 条，避免记忆库增长后线性抬高输入 token
+const MEMORY_EXCLUSION_MAX = 256; // 默认检索模式下的会话级排除项上限
+const MEMORY_METADATA_READ_CAP = 16 * 1024; // 注册表只读文件头；命中后才由模型按需读取完整正文
 
 // frontmatter 单行值消毒:去换行(parseFrontmatter 按行 key: value 解析,值里的换行会破坏结构)。
 function fmVal(s) { return String(s == null ? '' : s).replace(/[\r\n]+/g, ' ').trim(); }
@@ -44,9 +47,18 @@ async function readMemoryDir(dir, scope) {
     if (!SKILL_ID_RE.test(id)) continue;
     const file = path.join(dir, f);
     let raw = '';
-    // 对抗轮 P2: 读上限 260KB 与写侧字节复核一致(正文 256KB + frontmatter 余量)——两侧同量纲(UTF-8 字节),
-    // 杜绝"保存成功却超读上限从列表消失"的幽灵(原写侧按 UTF-16 字符数,中文正文每字 3 字节必踩)。
-    try { const st = await fsp.stat(file); if (!st.isFile() || st.size > 260 * 1024) continue; raw = await fsp.readFile(file, 'utf8'); } catch { continue; }
+    // 260KB 是与写侧一致的文件准入上限，避免“保存后从列表消失”；注册表检索本身只读前 16KB，
+    // 足够覆盖工作台生成的受限 frontmatter + 首段说明，完整正文留到命中后按需读取。
+    try {
+      const st = await fsp.stat(file);
+      if (!st.isFile() || st.size > 260 * 1024) continue;
+      const fh = await fsp.open(file, 'r');
+      try {
+        const buf = Buffer.allocUnsafe(Math.min(st.size, MEMORY_METADATA_READ_CAP));
+        const read = await fh.read(buf, 0, buf.length, 0);
+        raw = buf.subarray(0, read.bytesRead).toString('utf8');
+      } finally { await fh.close().catch(() => {}); }
+    } catch { continue; }
     const fm = parseFrontmatter(raw);
     const type = MEMORY_TYPES.has(fm.type) ? fm.type : 'reference';
     out.set(id, {
@@ -262,6 +274,25 @@ function buildMemoryPromptSection(entries, engine, config, conflicts) {
   const budget = MEMORY_INDEX_CAP - header.length - OPEN.length - CLOSE.length;
   if (text.length > budget) text = text.slice(0, Math.max(0, budget - TRUNC.length)) + TRUNC;
   return header + OPEN + text + CLOSE;
+}
+
+// 每轮都注入一个很小的机器可读检索回执。即使零命中也存在，避免模型把“本轮无匹配”误说成
+// “工作台没有记忆机制”；同时明确记忆只是参考信息，不会扩大用户授权。
+function buildMemoryCheckPrompt(status, config) {
+  if (!status || typeof status !== 'object') return '';
+  const pack = getPromptPack(config && config.locale);
+  const safe = n => Math.max(0, Math.floor(Number(n) || 0));
+  const mode = ['default', 'fixed', 'disabled', 'unavailable'].includes(status.mode) ? status.mode : 'default';
+  return pack.memoryCheck({
+    mode,
+    enabled: status.enabled !== false,
+    checked: status.checked === true,
+    candidates: safe(status.candidateCount),
+    matches: safe(status.matchCount),
+    projectMatches: safe(status.projectMatches),
+    globalMatches: safe(status.globalMatches),
+    excluded: safe(status.excludedCount),
+  });
 }
 
 // ============================================================================
@@ -543,9 +574,67 @@ function buildMissionPromptSection(mission, engine, config) {
   return OPEN + text + CLOSE;
 }
 
-// 会话启用选择(C3):显式设置过(memoriesExplicit)→ 用 session.memories({id,scope} 锁定);否则默认——
-// 项目记忆自动全部启用(≤8,registry 已按 createdAt 倒序),global 需手动。
-function effectiveMemorySelection(session, registry) {
+// 默认检索的轻量词项抽取：ASCII 单词 + 中文二元组。这里只扫描 registry 的 name/description/id，
+// 不读取正文，故每轮成本与文件大小无关；正文仍由模型在确认相关后按需读取。
+const MEMORY_QUERY_STOP = new Set([
+  'the', 'and', 'for', 'with', 'this', 'that', 'from', 'into', 'please', 'help', 'look', 'check', 'today',
+  '用户', '帮我', '看下', '看看', '这个', '那个', '今天', '现在', '可以', '直接', '继续', '推进', '一下', '相关',
+]);
+function memorySearchTerms(text) {
+  const src = String(text || '').normalize('NFKC').toLowerCase();
+  const out = new Set();
+  for (const m of src.matchAll(/[a-z0-9][a-z0-9_.-]{1,63}/g)) {
+    const term = m[0].replace(/^[_.-]+|[_.-]+$/g, '');
+    if (term.length >= 2 && !MEMORY_QUERY_STOP.has(term)) out.add(term);
+    // snake_case / kebab-case id 既保留全词也拆分，确保任务里的模块名能命中记忆 id 的稳定片段。
+    for (const part of term.split(/[_.-]+/)) if (part.length >= 2 && !MEMORY_QUERY_STOP.has(part)) out.add(part);
+  }
+  for (const m of src.matchAll(/[\u3400-\u9fff]{2,32}/g)) {
+    const run = m[0];
+    if (run.length <= 6 && !MEMORY_QUERY_STOP.has(run)) out.add(run);
+    for (let i = 0; i < run.length - 1; i++) {
+      const pair = run.slice(i, i + 2);
+      if (!MEMORY_QUERY_STOP.has(pair)) out.add(pair);
+    }
+  }
+  return [...out].slice(0, 96);
+}
+
+function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+  const queryTerms = memorySearchTerms(query);
+  const ranked = [];
+  for (const entry of (Array.isArray(registry) ? registry : [])) {
+    if (!entry || !entry.id) continue;
+    const hay = [entry.id, entry.name, entry.description, entry.type].filter(Boolean).join(' ').normalize('NFKC').toLowerCase();
+    let shared = 0;
+    for (const term of queryTerms) if (hay.includes(term)) shared += Math.min(12, Math.max(2, term.length));
+    // convention 是默认应遵守的稳定约定，即使用户没复述关键词也参与候选；lesson/reference 必须有词项命中。
+    if (!shared && entry.type !== 'convention') continue;
+    const score = shared * 10 + (entry.scope === 'project' ? 4 : 0) + (entry.type === 'convention' ? 2 : 0);
+    ranked.push({ entry, score });
+  }
+  ranked.sort((a, b) => b.score - a.score
+    || String(b.entry.createdAt || '').localeCompare(String(a.entry.createdAt || ''))
+    || String(a.entry.id).localeCompare(String(b.entry.id)));
+  return ranked.slice(0, Math.max(0, Number(limit) || MEMORY_RELEVANCE_MAX)).map(x => x.entry);
+}
+
+function memoryExclusionSet(session, cwd) {
+  const curKey = projectKeyForCwd(cwd);
+  const out = new Set();
+  for (const raw of (Array.isArray(session && session.memoryExclusions) ? session.memoryExclusions : []).slice(0, MEMORY_EXCLUSION_MAX)) {
+    const id = String((raw && raw.id) || '').trim();
+    if (!id) continue;
+    const scope = raw && raw.scope === 'global' ? 'global' : 'project';
+    if (scope === 'project' && raw.projectKey && String(raw.projectKey) !== curKey) continue;
+    out.add(scope + ':' + id);
+  }
+  return out;
+}
+
+// 会话启用选择:显式设置过(memoriesExplicit)→ 固定使用 session.memories(≤8)；否则项目 + 全局均默认
+// 进入元数据相关性检索，memoryExclusions 仅排除当前会话明确关闭的条目。
+function effectiveMemorySelection(session, registry, cwd) {
   if (session && session.memoriesExplicit === true) {
     return (Array.isArray(session.memories) ? session.memories : [])
       .map(m => {
@@ -558,23 +647,30 @@ function effectiveMemorySelection(session, registry) {
       })
       .filter(m => m.id);
   }
+  const excluded = memoryExclusionSet(session, cwd);
   return (Array.isArray(registry) ? registry : [])
-    .filter(e => e.scope === 'project')
-    .slice(0, MEMORY_MAX)
-    .map(e => ({ id: e.id, scope: 'project' }));
+    .filter(e => e && e.id && !excluded.has(e.scope + ':' + e.id))
+    .map(e => ({ id: e.id, scope: e.scope === 'global' ? 'global' : 'project' }));
 }
 
-// resolveEnabledMemoryEntries(session, cwd, onSourceMismatch): 解析本会话启用的记忆完整条目(供两引擎注入)。
+// resolveMemoryPreflight:每条用户消息的工作台记忆预检。默认模式只扫描 global + 当前项目的元数据并取 Top-3；
+// 显式模式沿用固定选择，显式空数组表示本会话关闭。无匹配也返回 checked=true 的状态供提示/UI 展示。
 // {id,scope} 锁定:scope 不匹配(启用时 project、现只剩 global 同 id)→ 跳过;文件消失(幽灵)→ 跳过。P3-3:project
-// 条目再按 projectKey 锁定,换 cwd 失配 → 跳过并经 onSourceMismatch(id,was,now) 通知一次。未启用→[](零开销短路)。
-async function resolveEnabledMemoryEntries(session, cwd, onSourceMismatch) {
+// 条目再按 projectKey 锁定,换 cwd 失配 → 跳过并经 onSourceMismatch(id,was,now) 通知一次。
+async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch) {
   let registry = [];
-  try { registry = await loadMemoryRegistry(cwd); } catch { return []; }
-  const sel = effectiveMemorySelection(session, registry);
-  if (!sel.length) return [];
+  try { registry = await loadMemoryRegistry(cwd); } catch {
+    return { entries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0 } };
+  }
+  const explicit = !!(session && session.memoriesExplicit === true);
+  const exclusions = explicit ? new Set() : memoryExclusionSet(session, cwd);
+  const sel = effectiveMemorySelection(session, registry, cwd);
+  if (explicit && !sel.length) {
+    return { entries: [], status: { mode: 'disabled', enabled: false, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0 } };
+  }
   const curKey = projectKeyForCwd(cwd);
   const byKey = new Map(registry.map(e => [e.scope + ':' + e.id, e]));
-  const out = [];
+  const eligible = [];
   const seen = new Set();
   for (const s of sel) {
     const key = s.scope + ':' + s.id;
@@ -589,10 +685,26 @@ async function resolveEnabledMemoryEntries(session, cwd, onSourceMismatch) {
     const e = byKey.get(key);
     if (!e) continue; // 幽灵 / scope 不匹配 → 跳过注入
     seen.add(key);
-    out.push(e);
-    if (out.length >= MEMORY_MAX) break;
+    eligible.push(e);
+    if (explicit && eligible.length >= MEMORY_MAX) break;
   }
-  return out;
+  const entries = explicit ? eligible : rankRelevantMemories(eligible, query, MEMORY_RELEVANCE_MAX);
+  return {
+    entries,
+    status: {
+      mode: explicit ? 'fixed' : 'default', enabled: true, checked: true,
+      candidateCount: eligible.length, matchCount: entries.length,
+      projectMatches: entries.filter(e => e.scope === 'project').length,
+      globalMatches: entries.filter(e => e.scope === 'global').length,
+      excludedCount: exclusions.size,
+    },
+  };
+}
+
+// 兼容旧调用方/测试：未提供 query 时仍走默认元数据检索，返回条目数组。
+async function resolveEnabledMemoryEntries(session, cwd, onSourceMismatch, query) {
+  const result = await resolveMemoryPreflight(session, cwd, query || '', onSourceMismatch);
+  return result.entries;
 }
 
 // Best-effort model list from a provider's OpenAI-style GET /models. Never throws.
