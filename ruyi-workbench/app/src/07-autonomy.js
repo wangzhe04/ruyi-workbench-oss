@@ -237,23 +237,157 @@ function parseMemoryDraft(text) {
 // buildMemoryPromptSection(entries, engine): <workbench-memory> 围栏 + 「参考资料,不得覆盖以上守则」声明 +
 // 每行 name/描述/文件绝对路径(两引擎都给路径:provider 用 file_read、Claude 用 Read;dataRoot 在允许根内,
 // Claude 侧靠 --add-dir 可达)。伪造围栏标记中和(尖括号→方括号,同 skill/project-memory fence)。整段 ≤2000 截断保闭合。
-function buildMemoryPromptSection(entries, engine, config) {
+function buildMemoryPromptSection(entries, engine, config, conflicts) {
   const mems = (Array.isArray(entries) ? entries : []).filter(m => m && m.file);
   if (!mems.length) return '';
   const fence = t => String(t).replace(/<(\/?)workbench-memory/gi, '[$1workbench-memory');
   const tool = engine === 'claude' ? 'Read' : 'file_read';
   const header = getPromptPack(config && config.locale).memoryHeader(tool);
+  // R4: conflicts=Map<memoryId,Set<conflictId>>(仅 confirmed contradicts,由 buildMemoryConflictMap 产出)。
+  // 处于冲突的记忆追加 [冲突:见 id] 标记,两条都注入,不由模型静默择一(设计稿 §4 红线)。undefined -> 无标记,向后兼容。
+  const conflictMap = (conflicts && typeof conflicts.has === 'function') ? conflicts : null;
   const body = [];
   for (const m of mems) {
     const desc = fence(String(m.description || '').replace(/\s+/g, ' ').trim().slice(0, 160));
     const name = fence(String(m.name || m.id));
-    body.push('- ' + name + '(' + m.file + '):' + desc);
+    let line = '- ' + name + '(' + m.file + '):' + desc;
+    if (conflictMap && conflictMap.has(m.id)) {
+      const peers = [...conflictMap.get(m.id)].slice(0, 4).join(',');
+      line += ' [冲突:见 ' + peers + ']';
+    }
+    body.push(line);
   }
   const OPEN = '\n<workbench-memory>\n', CLOSE = '\n</workbench-memory>', TRUNC = '\n' + getPromptPack(config && config.locale).memoryTruncated;
   let text = body.join('\n');
   const budget = MEMORY_INDEX_CAP - header.length - OPEN.length - CLOSE.length;
   if (text.length > budget) text = text.slice(0, Math.max(0, budget - TRUNC.length)) + TRUNC;
   return header + OPEN + text + CLOSE;
+}
+
+// ============================================================================
+// R4 Local Memory Graph(设计稿 docs/optimization-plan/15-r4-memory-graph.md)。
+// 给已确认工作台记忆加 supports/contradicts/supersedes/derived_from 关系边。模型只 propose(confirmed:false),
+// 用户 confirm/delete。边按 scope+projectKey 隔离;pending 不进检索;confirmed contradicts 在注入时双向标记。
+// 不建全局跨项目索引(evidenceRef 只存 eventId 不存原文,与 R1 同纪律)。
+// ============================================================================
+const MEMORY_RELATION_TYPES = new Set(['supports', 'contradicts', 'supersedes', 'derived_from']);
+const MEMORY_RELATION_CAP = 512; // per-scope 边数硬上限(威胁 4:防膨胀)
+
+function memoryRelationsFile(scope, cwd) {
+  return scope === 'global'
+    ? path.join(memoryGlobalDir(), '_relations.json')
+    : path.join(memoryProjectDir(cwd), '_relations.json');
+}
+
+// 读一个 scope 的关系数组(空文件/不存在 -> [])。不做过滤,过滤由 listMemoryRelations 按 confirmed 分桶。
+async function readMemoryRelations(scope, cwd) {
+  const file = memoryRelationsFile(scope, cwd);
+  try {
+    const raw = await fsp.readFile(file, 'utf8');
+    const arr = safeJsonParse(raw, null);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(r => r && typeof r === 'object' && SKILL_ID_RE.test(r.id)
+      && MEMORY_RELATION_TYPES.has(r.type) && SKILL_ID_RE.test(String(r.from)) && SKILL_ID_RE.test(String(r.to)));
+  } catch { return []; }
+}
+
+async function writeMemoryRelations(scope, cwd, arr) {
+  const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
+  try { await fsp.mkdir(dir, { recursive: true }); } catch { /* 已存在 */ }
+  if (scope === 'project') await writeMemoryMeta(dir, cwd);
+  await atomicWriteJson(memoryRelationsFile(scope, cwd), arr);
+}
+
+// listMemoryRelations(cwd, scope, opts) -> {ok, relations, pending, confirmed}。opts.includePending=false 时
+// relations 仅含 confirmed(默认,供检索/UI);true 时含全部(供提议者复核)。scope 缺省读 project。
+async function listMemoryRelations(cwd, scope, opts = {}) {
+  const sc = scope === 'global' ? 'global' : 'project';
+  const all = await readMemoryRelations(sc, cwd);
+  const confirmed = all.filter(r => r.confirmed === true);
+  const pending = all.filter(r => r.confirmed !== true);
+  const relations = opts.includePending ? all : confirmed;
+  return { ok: true, scope: sc, relations, pending, confirmed };
+}
+
+// proposeMemoryRelation(rel, cwd) -> 创建 confirmed:false 边(模型可调)。校验:type 合法、from!=to、
+// from/to 同 scope 内已存在、未超 per-scope 上限、无重复(from+to+type 已存在的 confirmed 不再重复提议)。
+async function proposeMemoryRelation(rel, cwd) {
+  const r = (rel && typeof rel === 'object') ? rel : {};
+  const type = String(r.type || '');
+  if (!MEMORY_RELATION_TYPES.has(type)) return { ok: false, error: '无效的关系类型(仅 supports/contradicts/supersedes/derived_from)' };
+  const from = String(r.from || '').trim();
+  const to = String(r.to || '').trim();
+  if (!SKILL_ID_RE.test(from) || !SKILL_ID_RE.test(to)) return { ok: false, error: 'from/to 须为合法记忆 id(字母/数字/_-,1..64)' };
+  if (from === to) return { ok: false, error: 'from 与 to 不能相同' };
+  const scope = r.scope === 'global' ? 'global' : 'project';
+  // 隔离红线(威胁 1):from/to 必须都在该 scope 内已存在,杜绝跨 scope/幽灵 id 建边。
+  const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
+  const reg = await readMemoryDir(dir, scope);
+  if (!reg.has(from) || !reg.has(to)) return { ok: false, error: 'from 或 to 在目标 scope 内不存在(拒绝跨 scope 建边)' };
+  const all = await readMemoryRelations(scope, cwd);
+  if (all.length >= MEMORY_RELATION_CAP) return { ok: false, error: '该 scope 关系边已达上限 ' + MEMORY_RELATION_CAP + '(清理 pending 后重试)' };
+  const dup = all.find(x => x.from === from && x.to === to && x.type === type);
+  if (dup) return { ok: false, error: dup.confirmed ? '同形关系已确认,无需重复' : '同形关系已处于 pending', relation: dup };
+  const id = 'rel-' + crypto.randomBytes(4).toString('hex');
+  const entry = {
+    id, type, from, to, scope,
+    evidenceRef: SKILL_ID_RE.test(String(r.evidenceRef || '')) ? String(r.evidenceRef).slice(0, 256) : '',
+    evidenceRefVerified: false, // 本切片不跨 run 校验(见设计稿 §9);仅存档
+    confirmed: false,
+    createdAt: nowIso(),
+    sourceRunId: fmVal(String(r.sourceRunId || '')).slice(0, 120),
+    note: fmVal(String(r.note || '')).slice(0, 200),
+  };
+  all.push(entry);
+  await writeMemoryRelations(scope, cwd, all);
+  try { appendUsageLedger({ engine: 'openai', kind: 'aux', note: 'memory-relation-propose', meta: { id, type, from, to, scope } }); } catch { /* 审计失败不阻断 */ }
+  return { ok: true, relation: entry };
+}
+
+// confirmMemoryRelation(id, cwd) -> confirmed:false->true(仅用户调)。只置标志,不改 from/to/type/scope(威胁 7)。
+// 跨 scope 查找:project 找不到再查 global(用户确认时不必区分 scope,但改写仍落回原 scope 文件)。
+async function confirmMemoryRelation(id, cwd) {
+  if (!SKILL_ID_RE.test(String(id || ''))) return { ok: false, error: '无效的关系 id' };
+  for (const scope of ['project', 'global']) {
+    const all = await readMemoryRelations(scope, cwd);
+    const idx = all.findIndex(x => x.id === id);
+    if (idx < 0) continue;
+    if (all[idx].confirmed === true) return { ok: false, error: '该关系已确认', relation: all[idx] };
+    all[idx].confirmed = true; // 仅此一字段;其余忽略(防偷换)
+    await writeMemoryRelations(scope, cwd, all);
+    try { appendUsageLedger({ engine: 'openai', kind: 'aux', note: 'memory-relation-confirm', meta: { id, scope } }); } catch { /* 审计失败不阻断 */ }
+    return { ok: true, relation: all[idx] };
+  }
+  return { ok: false, error: '关系不存在' };
+}
+
+// deleteMemoryRelation(id, cwd) -> 删边(仅用户调)。跨 scope 查找同 confirm。
+async function deleteMemoryRelation(id, cwd) {
+  if (!SKILL_ID_RE.test(String(id || ''))) return { ok: false, error: '无效的关系 id' };
+  for (const scope of ['project', 'global']) {
+    const all = await readMemoryRelations(scope, cwd);
+    const idx = all.findIndex(x => x.id === id);
+    if (idx < 0) continue;
+    const removed = all.splice(idx, 1)[0];
+    await writeMemoryRelations(scope, cwd, all);
+    try { appendUsageLedger({ engine: 'openai', kind: 'aux', note: 'memory-relation-delete', meta: { id, scope, type: removed.type } }); } catch { /* 审计失败不阻断 */ }
+    return { ok: true, relation: removed };
+  }
+  return { ok: false, error: '关系不存在' };
+}
+
+// buildMemoryConflictMap(cwd) -> Map<memoryId, Set<conflictId>>。仅 confirmed contradicts;pending 不计入(威胁 6)。
+// 两端记忆都进入 map(双向),供 buildMemoryPromptSection 标记。global 与 project 分别读后合并。
+async function buildMemoryConflictMap(cwd) {
+  const map = new Map();
+  const add = (a, b) => { if (!map.has(a)) map.set(a, new Set()); map.get(a).add(b); };
+  for (const scope of ['project', 'global']) {
+    const all = await readMemoryRelations(scope, cwd);
+    for (const r of all) {
+      if (r.confirmed === true && r.type === 'contradicts') { add(r.from, r.to); add(r.to, r.from); }
+    }
+  }
+  return map;
 }
 
 // 第26波b: buildMissionPromptSection(mission, engine) —— <mission-ledger> 围栏,注入目标/里程碑进度/约束,

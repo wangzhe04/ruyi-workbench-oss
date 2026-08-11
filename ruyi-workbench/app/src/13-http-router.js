@@ -419,6 +419,46 @@ async function handleApi(req, res, pathname) {
     const r = await saveMemory(memIn, cwd);
     return send(res, json(r, r.ok ? 200 : 400));
   }
+  // R4 Local Memory Graph(设计稿 15-r4-memory-graph.md)。relations 路由须在通配 /api/memory/<id>(下文 DELETE)之前,
+  // 否则 path.basename('/api/memory/relations/rel-x')='rel-x' 会误删记忆。模型只 propose;confirm/delete 仅用户。
+  // GET /api/memory/relations?cwd=&scope=&includePending= -- 列边(默认仅 confirmed;includePending=true 含 pending)。
+  if (req.method === 'GET' && pathname === '/api/memory/relations') {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const config = await readConfig();
+    const sp = new URL(req.url, 'http://x').searchParams;
+    const scope = sp.get('scope') === 'global' ? 'global' : 'project';
+    const cwdQ = sp.get('cwd') || '';
+    let cwd = normalizeCwd(config.defaultWorkspace, config.defaultWorkspace);
+    if (cwdQ) { const resolved = normalizeCwd(cwdQ, config.defaultWorkspace); if (pathWithinAnyRoot(path.resolve(resolved), fileAllowedRoots(null, config))) cwd = resolved; }
+    const r = await listMemoryRelations(cwd, scope, { includePending: sp.get('includePending') === 'true' });
+    return send(res, json(r));
+  }
+  // POST /api/memory/relations/propose {type,from,to,scope?,evidenceRef?,sourceRunId?,note?,cwd} -- 提议(confirmed:false)。
+  if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/relations/propose') {
+    const body = await readJsonBody(req);
+    const config = await readConfig();
+    const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
+    if (body && body.scope === 'project' && !pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
+    const r = await proposeMemoryRelation(body || {}, cwd);
+    return send(res, json(r, r.ok ? 200 : 400));
+  }
+  // POST /api/memory/relations/confirm {id,cwd} -- 确认(confirmed:true,仅用户)。
+  if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/relations/confirm') {
+    const body = await readJsonBody(req);
+    const config = await readConfig();
+    const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
+    const r = await confirmMemoryRelation(String(body && body.id || ''), cwd);
+    return send(res, json(r, r.ok ? 200 : 404));
+  }
+  // DELETE /api/memory/relations/<id> {cwd} -- 删边(仅用户)。须在通配 /api/memory/<id> 之前匹配。
+  if (pathname.startsWith('/api/memory/relations/') && (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))) {
+    const id = path.basename(pathname); // guards traversal(relations/ 前缀已匹配,id 须过 SKILL_ID_RE)
+    const body = await readJsonBody(req);
+    const config = await readConfig();
+    const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
+    const r = await deleteMemoryRelation(id, cwd);
+    return send(res, json(r, r.ok ? 200 : 404));
+  }
   // DELETE 经 POST /api/memory/<id> + x-http-method:DELETE {scope, cwd}(sessions/playbooks 同款约定)。
   if (pathname.startsWith('/api/memory/') && (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))) {
     const id = path.basename(pathname); // guards traversal
