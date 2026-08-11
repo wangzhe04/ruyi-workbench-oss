@@ -80,7 +80,18 @@ const SEQUENCE_PRIORITY = process.env.FAKE_SEQUENCE_PRIORITY === '1';
 // FAKE_PLAN_TEXT overrides the default plan body.
 const PLAN_FIRST = process.env.FAKE_PLAN_FIRST === '1';
 const PLAN_TEXT = process.env.FAKE_PLAN_TEXT || 'PLAN:\n1. 读取文件\n2. 修改配置';
+// When enabled, a post-plan tool sequence advances only after the request history contains the workbench's
+// explicit approval continuation. This models real providers, which cannot observe the UI decision or the
+// server-side closure flag unless the workbench writes that decision back into model-visible context.
+const PLAN_REQUIRE_APPROVAL_CONTEXT = process.env.FAKE_PLAN_REQUIRE_APPROVAL_CONTEXT === '1';
 function hasAssistantMsg(msgs) { return (msgs || []).some(m => m && m.role === 'assistant'); }
+function hasPlanApprovalContext(msgs) {
+  return (msgs || []).some(m => {
+    const content = String(m && m.content || '');
+    return m && m.role === 'user' && content.includes('<workbench-plan-approved>') &&
+      content.includes('current_mode: execution') && content.includes('execution_authorized: true');
+  });
+}
 // v1.0.2 (F1c 防回潮) FAKE_PLAN_WHEN_REFUSED: model "complies" AFTER the workbench refused its first tool
 // batch with «计划模式:请先提交 PLAN:» — the NEXT request streams a PLAN: text (no tool_call). Emits only while
 // history has the refusal tool message but NO assistant PLAN message yet (post-approval requests fall through
@@ -90,6 +101,15 @@ const PLAN_WHEN_REFUSED = process.env.FAKE_PLAN_WHEN_REFUSED === '1';
 function planRefusalPending(msgs) {
   const m = msgs || [];
   return m.some(x => x && x.role === 'tool' && /请先提交 PLAN/.test(String(x.content || '')))
+    && !m.some(x => x && x.role === 'assistant' && /^\s*PLAN\s*[:：]/i.test(String(x.content || '')));
+}
+// FAKE_PLAN_AFTER_READ: after one successful discovery tool result, submit PLAN: before advancing the tool
+// sequence. Combined with [file_read, file_write], this exercises plan-mode read-only investigation → final
+// plan → approval → mutation in one deterministic turn.
+const PLAN_AFTER_READ = process.env.FAKE_PLAN_AFTER_READ === '1';
+function discoveryResultNeedsPlan(msgs) {
+  const m = msgs || [];
+  return m.some(x => x && x.role === 'tool')
     && !m.some(x => x && x.role === 'assistant' && /^\s*PLAN\s*[:：]/i.test(String(x.content || '')));
 }
 
@@ -365,6 +385,18 @@ const server = http.createServer((req, res) => {
         return;
       }
 
+      if (PLAN_AFTER_READ && discoveryResultNeedsPlan(msgs) && !(SUBAGENT_SCRIPT && isSubRequest(msgs))) {
+        const out = PLAN_TEXT;
+        (async () => {
+          sse(res, { id, choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] });
+          for (const piece of out.match(/[\s\S]{1,8}/g) || [out]) { if (STREAM_DELAY_MS) await sleep(STREAM_DELAY_MS); sse(res, { id, choices: [{ index: 0, delta: { content: piece }, finish_reason: null }] }); }
+          sse(res, { id, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
+          usageFrame(res, id);
+          res.write('data: [DONE]\n\n'); res.end();
+        })();
+        return;
+      }
+
       // v0.9-S6 FAKE_SUBAGENT_SCRIPT: route by the sub-agent identity marker in `system`. Takes priority over
       // the generic tool/echo branches so a parent request deterministically yields its spawn_agent tool_call
       // and a sub request its own steps. Each branch steps its list by the request's role:'tool' count.
@@ -405,6 +437,19 @@ const server = http.createServer((req, res) => {
             const ids = userText.match(/evt_[A-Za-z0-9_.:-]+_a\d+_(?:\d+|gap_[A-Za-z0-9_.:-]+_\d+)/g) || [];
             const ref = String(mode) === 'forged' ? 'evt_forged_outside_catalog_a0_0' : (ids[0] || 'evt_missing_catalog_a0_0');
             fallbackText = JSON.stringify({ verdict: 'pass', confidence: 0.9, summary: 'C1 fake evidence gate', findings: [{ id: 'c1-finding', severity: 'high', message: 'evidence-backed issue', target: 'sample.txt', evidenceRefs: [ref] }] });
+            break;
+          }
+        }
+        // R4 fake e2e:only emit a memory relation when the workflow-node prompt actually exposes BOTH
+        // configured workbench-memory ids. This catches dead wiring where the schema supports memoryRelations
+        // but gate sub-turns never receive the memory index.
+        if (sub && SUBAGENT_SCRIPT.memoryRelationByTask && typeof SUBAGENT_SCRIPT.memoryRelationByTask === 'object') {
+          for (const [needle, pair] of Object.entries(SUBAGENT_SCRIPT.memoryRelationByTask)) if (subUserText.includes(needle)) {
+            const from = String(pair && pair.from || '');
+            const to = String(pair && pair.to || '');
+            if (from && to && subUserText.includes('[' + from + ']') && subUserText.includes('[' + to + ']')) {
+              fallbackText = JSON.stringify({ verdict: 'pass', confidence: 0.9, summary: 'R4 fake relation gate', findings: [], memoryRelations: [{ type: 'contradicts', from, to, note: 'runtime prompt exposed both ids' }] });
+            }
             break;
           }
         }
@@ -453,6 +498,14 @@ const server = http.createServer((req, res) => {
       if (hasTools && TOOL_SEQUENCE) {
         const done = countToolMsgs(msgs);
         if (done < TOOL_SEQUENCE.length) {
+          if (PLAN_REQUIRE_APPROVAL_CONTEXT && hasAssistantMsg(msgs) && !hasPlanApprovalContext(msgs)) {
+            const out = 'WAITING_FOR_EXPLICIT_PLAN_APPROVAL';
+            sse(res, { id, choices: [{ index: 0, delta: { role: 'assistant', content: out }, finish_reason: null }] });
+            sse(res, { id, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
+            usageFrame(res, id);
+            res.write('data: [DONE]\n\n'); res.end();
+            return;
+          }
           const step = TOOL_SEQUENCE[done];
           // v0.8-S7: when a stream delay is configured, space the tool_call's frames out so a steering
           // POST can arrive mid-stream. emitOneToolCall writes 3 frames; insert a sleep before the

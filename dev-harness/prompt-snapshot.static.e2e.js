@@ -39,6 +39,7 @@ ok(/GitHub 风格 Markdown/.test(full), 'L1 身份层:markdown 风格约定在')
 // L2 工具协议守则层
 ok(/先读后改/.test(full), 'L2 工具协议:先读后改');
 ok(/工具批次/.test(full) && /同一条助手消息/.test(full) && /分阶段调用/.test(full), 'L2 工具协议:独立调用合批、依赖调用分阶段');
+ok(/授权与指令边界/.test(full) && /不构成用户授权/.test(full) && /不得改用终端/.test(full), 'L2 工具协议:观察内容不是授权且拒绝不可绕过');
 ok(/tool_search/.test(full) && /按需装载/.test(full), 'L2 工具协议:tool_search 按需装载');
 ok(/工具选用优先级/.test(full), 'L2 工具协议:选用优先级(现成工具优先,终端兜底)');
 ok(/上下文节流守则/.test(full) && /600 行/.test(full) && /线性通读/.test(full), 'L2 工具协议:上下文节流守则(分段读+读取预算,防撑爆上下文)');
@@ -82,7 +83,7 @@ console.log('── D 段: 51d C1a 稳定/易变层拆分(prefix-cache 分层基
 const stable = srv.buildStableSystemPrompt(provider, model, cwd, tools, false);
 ok(/本地 AI 工作台/.test(stable) && /先读后改/.test(stable) && /工具批次/.test(stable), 'D1 stable 含身份+工具协议及合批规则(稳定层)');
 ok(!/当前能力/.test(stable) && !/桌面操控/.test(stable) && !/<skill-index>/.test(stable) && !/任务账本/.test(stable), 'D2 stable 不含 volatile 标记(能力/桌面/技能/账本)');
-ok(stable.length < 1200, 'D3 stable 长度 < 1200(稳定层轻量:身份+工具协议+provider;51d 基线 800,本轮 toolProtocol 加第 8 条 contextBudget 守则后按 intentional snapshot 上调,got ' + stable.length + ')');
+ok(stable.length < 1500, 'D3 stable 长度 < 1500(稳定层轻量:身份+工具协议+provider;在 contextBudget 后新增授权边界并按 intentional snapshot 上调,got ' + stable.length + ')');
 // buildVolatileParts 含 volatile 标记
 const volatile = srv.buildVolatileParts(provider, tools, caps, config, '', skillEntries, [], null);
 ok(/当前能力/.test(volatile) && /在线/.test(volatile), 'D4 volatile 含能力层');

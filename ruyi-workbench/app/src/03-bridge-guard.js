@@ -567,6 +567,168 @@ function buildOpenSpawn(target) {
   return { command: 'explorer.exe', args: [String(target || '')] };
 }
 
+// User-clicked code handoff is intentionally separate from office_open / file reveal. A source file may be
+// associated with an executable script host on Windows (`.js` -> WScript.exe is still a common default), so
+// blindly asking ShellExecute to "open" model-written code can execute it. Resolve the file association, but
+// only accept a known editor/IDE executable; otherwise fall back to another editor already chosen as the
+// default for a common code/text extension, then to a conservative installed-editor probe.
+const CODE_EDITOR_ASSOCIATION_EXTS = ['.py', '.md', '.json', '.html', '.css', '.ts', '.tsx', '.jsx', '.java', '.cpp'];
+const CODE_EDITOR_KINDS = Object.freeze({
+  vscode: new Set(['code.exe', 'code - insiders.exe', 'code-insiders.exe', 'cursor.exe', 'windsurf.exe', 'vscodium.exe', 'codium.exe']),
+  visualStudio: new Set(['devenv.exe']),
+  jetbrains: new Set([
+    'idea.exe', 'idea64.exe', 'webstorm.exe', 'webstorm64.exe', 'pycharm.exe', 'pycharm64.exe',
+    'clion.exe', 'clion64.exe', 'rider.exe', 'rider64.exe', 'goland.exe', 'goland64.exe',
+    'rubymine.exe', 'rubymine64.exe', 'phpstorm.exe', 'phpstorm64.exe', 'datagrip.exe', 'datagrip64.exe',
+    'studio.exe', 'studio64.exe',
+  ]),
+  editor: new Set(['notepad++.exe', 'sublime_text.exe', 'notepad.exe']),
+});
+
+function executableFromAssociationCommand(command) {
+  const value = String(command || '').trim();
+  const match = value.match(/^\s*"([^"]+\.exe)"|^\s*([^\s]+\.exe)/i);
+  const executable = match ? String(match[1] || match[2] || '') : '';
+  return executable.replace(/%([^%]+)%/g, (_, name) => process.env[name] || process.env[String(name).toUpperCase()] || `%${name}%`);
+}
+
+function classifyCodeEditorExecutable(executable) {
+  const command = String(executable || '').trim();
+  const base = path.basename(command).toLowerCase();
+  if (!command || !base) return null;
+  for (const [kind, names] of Object.entries(CODE_EDITOR_KINDS)) {
+    if (names.has(base)) return { command, kind, label: codeEditorLabel(base) };
+  }
+  return null;
+}
+
+function codeEditorLabel(baseName) {
+  const base = String(baseName || '').toLowerCase();
+  if (base === 'cursor.exe') return 'Cursor';
+  if (base === 'windsurf.exe') return 'Windsurf';
+  if (base === 'vscodium.exe' || base === 'codium.exe') return 'VSCodium';
+  if (base === 'code.exe' || base === 'code - insiders.exe' || base === 'code-insiders.exe') return 'Visual Studio Code';
+  if (base === 'devenv.exe') return 'Visual Studio';
+  if (base === 'notepad++.exe') return 'Notepad++';
+  if (base === 'sublime_text.exe') return 'Sublime Text';
+  if (base === 'notepad.exe') return 'Notepad';
+  if (CODE_EDITOR_KINDS.jetbrains.has(base)) return 'JetBrains IDE';
+  return path.basename(String(baseName || '')) || '本机编辑器';
+}
+
+function windowsFileAssociationExecutable(filePath) {
+  if (process.platform !== 'win32') return '';
+  const ext = path.extname(String(filePath || '')).toLowerCase();
+  if (!ext) return '';
+  const userChoice = windowsRegistryString(`HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\${ext}\\UserChoice`, 'ProgId');
+  const classId = userChoice || windowsRegistryString(`HKCR\\${ext}`, null);
+  if (!classId) return '';
+  return executableFromAssociationCommand(windowsRegistryString(`HKCR\\${classId}\\shell\\open\\command`, null));
+}
+
+function installedCodeEditorCandidates() {
+  const local = process.env.LOCALAPPDATA || '';
+  const programFiles = process.env.ProgramFiles || '';
+  const programFilesX86 = process.env['ProgramFiles(x86)'] || '';
+  return [
+    local && path.join(local, 'Programs', 'Microsoft VS Code', 'Code.exe'),
+    local && path.join(local, 'Programs', 'Microsoft VS Code Insiders', 'Code - Insiders.exe'),
+    local && path.join(local, 'Programs', 'Cursor', 'Cursor.exe'),
+    local && path.join(local, 'Programs', 'Windsurf', 'Windsurf.exe'),
+    programFiles && path.join(programFiles, 'Microsoft VS Code', 'Code.exe'),
+    programFilesX86 && path.join(programFilesX86, 'Microsoft VS Code', 'Code.exe'),
+  ].filter(Boolean);
+}
+
+function resolvePreferredCodeEditor(filePath) {
+  // Test-only seam: route e2e can assert argv/materialized snapshots without opening a real desktop app.
+  if (process.env.RUYI_TEST_HOOKS === '1' && process.env.RUYI_TEST_CODE_EDITOR) {
+    return { command: String(process.env.RUYI_TEST_CODE_EDITOR), kind: 'vscode', label: 'Test Editor', source: 'test' };
+  }
+  const direct = classifyCodeEditorExecutable(windowsFileAssociationExecutable(filePath));
+  if (direct && fs.existsSync(direct.command)) return { ...direct, source: 'file-association' };
+  const targetExt = path.extname(String(filePath || '')).toLowerCase();
+  for (const ext of CODE_EDITOR_ASSOCIATION_EXTS) {
+    if (ext === targetExt) continue;
+    const associated = classifyCodeEditorExecutable(windowsFileAssociationExecutable(`code${ext}`));
+    if (associated && fs.existsSync(associated.command)) return { ...associated, source: 'preferred-association' };
+  }
+  for (const candidate of installedCodeEditorCandidates()) {
+    const editor = classifyCodeEditorExecutable(candidate);
+    if (editor && fs.existsSync(editor.command)) return { ...editor, source: 'installed-fallback' };
+  }
+  return null;
+}
+
+function buildCodeEditorSpawn(editor, action, beforePath, afterPath) {
+  if (!editor || !editor.command) return { ok: false, error: '未检测到可安全打开代码的本机编辑器' };
+  const current = String(afterPath || beforePath || '');
+  if (action !== 'diff') return { ok: true, command: editor.command, args: [current], mode: 'open', editor: editor.label, source: editor.source };
+  const before = String(beforePath || ''), after = String(afterPath || '');
+  if (!before || !after) return { ok: false, error: 'Diff 两侧文件路径不完整' };
+  if (editor.kind === 'vscode') return { ok: true, command: editor.command, args: ['--reuse-window', '--diff', before, after], mode: 'diff', editor: editor.label, source: editor.source };
+  if (editor.kind === 'visualStudio') return { ok: true, command: editor.command, args: ['/Diff', before, after], mode: 'diff', editor: editor.label, source: editor.source };
+  if (editor.kind === 'jetbrains') return { ok: true, command: editor.command, args: ['diff', before, after], mode: 'diff', editor: editor.label, source: editor.source };
+  return { ok: true, command: editor.command, args: [current], mode: 'open', editor: editor.label, source: editor.source, diffUnsupported: true };
+}
+
+async function launchCodeEditor(spawnSpec) {
+  if (!spawnSpec || !spawnSpec.ok || !spawnSpec.command) return false;
+  if (process.env.RUYI_TEST_HOOKS === '1' && process.env.RUYI_TEST_EXTERNAL_EDITOR_CAPTURE) {
+    await fsp.writeFile(process.env.RUYI_TEST_EXTERNAL_EDITOR_CAPTURE, JSON.stringify(spawnSpec, null, 2), 'utf8');
+    return true;
+  }
+  try {
+    cp.spawn(spawnSpec.command, spawnSpec.args || [], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+    return true;
+  } catch { return false; }
+}
+
+const EXTERNAL_DIFF_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function cleanupExternalDiffCache(sessionId) {
+  const root = path.join(journalDir(sessionId), 'external-diff');
+  const rows = await fsp.readdir(root, { withFileTypes: true }).catch(() => []);
+  const cutoff = Date.now() - EXTERNAL_DIFF_CACHE_TTL_MS;
+  for (const row of rows) {
+    if (!row.isDirectory()) continue;
+    const target = path.join(root, row.name);
+    const st = await fsp.stat(target).catch(() => null);
+    if (st && st.mtimeMs < cutoff) await fsp.rm(target, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function materializeCheckpointEditorDiff(sessionId, entry, currentPath) {
+  if (!entry || entry.skipped) return { ok: false, error: '改动前快照过大或缺失，无法交给本机程序比较' };
+  const turnSeq = Number(entry.turnSeq), entrySeq = Number(entry.entrySeq);
+  if (!Number.isInteger(turnSeq) || !Number.isInteger(entrySeq)) return { ok: false, error: '检查点引用无效' };
+  const fileName = path.basename(String(entry.path || '')) || 'changed-file.txt';
+  const root = path.join(journalDir(sessionId), 'external-diff');
+  const dir = path.join(root, `${turnSeq}-${entrySeq}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`);
+  const beforeDir = path.join(dir, 'before'), afterDir = path.join(dir, 'after');
+  await fsp.mkdir(beforeDir, { recursive: true });
+  await fsp.mkdir(afterDir, { recursive: true });
+  const beforePath = path.join(beforeDir, fileName);
+  const afterTempPath = path.join(afterDir, fileName);
+  let before = Buffer.alloc(0);
+  if (entry.op !== 'create') {
+    try {
+      const gz = await fsp.readFile(path.join(journalDir(sessionId), `${turnSeq}-${entrySeq}.gz`));
+      before = zlib.gunzipSync(gz);
+    } catch { return { ok: false, error: '无法读取改动前快照' }; }
+  }
+  await fsp.writeFile(beforePath, before);
+  await fsp.chmod(beforePath, 0o444).catch(() => {});
+  let afterPath = String(currentPath || '');
+  if (entry.op === 'delete') {
+    await fsp.writeFile(afterTempPath, Buffer.alloc(0));
+    await fsp.chmod(afterTempPath, 0o444).catch(() => {});
+    afterPath = afterTempPath;
+  }
+  cleanupExternalDiffCache(sessionId).catch(() => {});
+  return { ok: true, beforePath, afterPath, cacheDir: dir };
+}
+
 // Browser navigation has an extra invariant beyond shell-safety: never reuse the current Workbench tab.
 // For web pages, resolve the user's default HTTP handler and pass its documented new-tab switch. Local folders
 // intentionally retain the Explorer behavior used by the "open data directory" UI action.
@@ -577,8 +739,8 @@ function windowsRegistryString(key, valueName) {
     const args = ['query', key, valueName == null ? '/ve' : '/v', ...(valueName == null ? [] : [valueName])];
     const result = cp.spawnSync('reg.exe', args, { encoding: 'utf8', windowsHide: true, timeout: 1500 });
     if (result.status !== 0) return '';
-    const line = String(result.stdout || '').split(/\r?\n/).find(s => /\sREG_SZ\s/.test(s));
-    return line ? String(line).replace(/^.*?\sREG_SZ\s+/, '').trim() : '';
+    const line = String(result.stdout || '').split(/\r?\n/).find(s => /\sREG_(?:EXPAND_)?SZ\s/.test(s));
+    return line ? String(line).replace(/^.*?\sREG_(?:EXPAND_)?SZ\s+/, '').trim() : '';
   } catch { return ''; }
 }
 function defaultBrowserExecutable() {

@@ -387,6 +387,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // 包裹并降级为拒绝结果——池/邮箱任何失败绝不冒泡到调度循环。
   const poolPolicy = ['manual', 'auto-capped', 'off'].includes(run.poolPolicy) ? run.poolPolicy : 'manual';
   const wfCwd = normalizeCwd(parentSession.cwd, config.defaultWorkspace);
+  // R4-S1/S2真实接线：工作流 gate 才是 memoryRelations 的产出者，因此它们必须看到与主回合相同的
+  // 已启用记忆 id；同时 confirmed contradicts 要在真实提示里双向标记。按 run 只解析一次，避免每节点扫盘。
+  const workflowMemoryEntries = await resolveEnabledMemoryEntries(parentSession, wfCwd).catch(() => []);
+  const workflowMemoryConflicts = workflowMemoryEntries.length ? await buildMemoryConflictMap(wfCwd).catch(() => new Map()) : null;
+  const workflowMemorySections = {
+    openai: buildMemoryPromptSection(workflowMemoryEntries, 'openai', config, workflowMemoryConflicts),
+    claude: buildMemoryPromptSection(workflowMemoryEntries, 'claude', config, workflowMemoryConflicts),
+  };
   const proposeTaskImpl = (proposerId, args) => {
     try {
       if (poolPolicy === 'off') return { ok: false, error: '任务池未启用' };
@@ -655,7 +663,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const contextPrefix = contextText ? `任务背景（本次运行时提供）：\n${String(contextText).slice(0, 4000)}\n\n` : '';
       const nodeContextPrefix = node.context ? `本节点专属资料（仅本节点可见）：\n${node.context}\n\n` : '';
       const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
-      const effectiveTask = contextPrefix + nodeContextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + evidenceInstruction + schemaInstruction;
+      const memoryInstruction = workflowMemorySections[node.engine === 'claude' ? 'claude' : 'openai'] || '';
+      const effectiveTask = contextPrefix + nodeContextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + evidenceInstruction + (memoryInstruction ? '\n\n' + memoryInstruction : '') + schemaInstruction;
       let agentSession = parentSession;
       let isolated = false;
       let effectiveResources = node.resources;
@@ -1118,6 +1127,26 @@ function syncProviderHistoryFromDisplay(session) {
   appendDisplayMessagesToProviderHistory(session, cursor);
 }
 
+// Plan mode may investigate before proposing a plan, but it must stay observational. The normal permission
+// tier is the source of truth for file/web/bridge reads; planning metadata and agent coordination are excluded
+// even though some are classified as read-tier for the regular autonomous loop. Unknown tools fail closed via
+// nativeToolTier(...)=exec. Pure and exported so regressions can be tested without starting a provider turn.
+const PLAN_DISCOVERY_BLOCKED_TOOLS = new Set([
+  'permission_prompt', 'todo_write', 'mission_update',
+  'propose_task', 'send_to_agent', 'spawn_agent', 'orchestrate_agents', 'wait_agents',
+]);
+function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
+  const calls = Array.isArray(toolCalls) ? toolCalls.filter(Boolean) : [];
+  if (!calls.length) return false;
+  return calls.every(tc => {
+    if (tc.serverSide) return true; // Provider-executed search/open calls are observational.
+    const name = String(tc.name || '').trim();
+    if (!name || PLAN_DISCOVERY_BLOCKED_TOOLS.has(name)) return false;
+    const bridge = resolveBridge(bridgedRoute || {}, name);
+    return (bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(name)) === 'read';
+  });
+}
+
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam }) {
@@ -1138,6 +1167,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   config = config || await readConfig();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
+  let workspaceTurnBaseline = null;
+  const promptTaskContext = buildPromptTaskContext(message, session);
   const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
   // v1.7: protocol preference — 'chat' (Chat Completions) vs 'responses' (OpenAI Responses API, DeepSeek
   // /responses for Codex/agent loops; v4-flash now, v4-pro from 2026-08). Default chat keeps every
@@ -1227,6 +1258,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     return;
   }
 
+  // The in-process file tools already checkpoint themselves. This baseline is the symmetric backstop for
+  // shell commands, bridged tools, or external helpers that edit source files outside TOOL_DISPATCH.
+  if (softwareEngineeringTaskProfile(promptTaskContext).relevant) {
+    workspaceTurnBaseline = await captureWorkspaceTurnBaseline(workingDir).catch(() => null);
+  }
+
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
 
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -1281,6 +1318,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const enabledMemoryEntries = await resolveEnabledMemoryEntries(session, workingDir,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
   ).catch(() => []);
+  // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
+  const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
   let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false, config); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
   let volatileExtras = ''; // 52c(51d C2): 920-945 附加提示移 user 侧(与 turnVolatile 合并),sys 纯稳定(prefix-cache 完整命中)
   if (agentRoleMap.size && initialTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
@@ -1311,9 +1350,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // Keep this final: dynamic role/workflow/model/plan layers may be in Chinese, but must not decide
   // the language of an English (or otherwise non-Chinese) user conversation.
-  volatileExtras = appendTurnPolicies(volatileExtras, config, agentTeam);
+  volatileExtras = appendTurnPolicies(volatileExtras, config, agentTeam, 0, false, promptTaskContext);
   // 51d C1b: 易变层前缀(每回合动态,buildBody 注入第一条 user 消息[经 findIndex 动态定位],不持久化避 854 参数未初始化)
-  const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission) + (volatileExtras ? '\n\n' + volatileExtras : '');
+  const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
@@ -1381,7 +1420,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   onEvent({ type: 'meta', command: `${provider.label || provider.id} · ${base}`, args: [], cwd: workingDir, model, permissionMode: config.permissionMode, engine: 'openai', providerLabel: provider.label || provider.id, tools: initialTools.length, availableTools: allTools.length, bridgedTools: bridged.tools.length, toolLoadingMode: config.toolLoadingMode, toolPacks: [...toolLoading.activePacks], toolSchemaTokens: estimateToolSchemaTokens(initialTools), cwdWarning: cwdWarn || undefined });
   onEvent({ type: 'process', state: 'running', pid: null, interactive: false, engine: 'openai' });
-  logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, model, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
+  logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, model, promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
 
   // WCW_TURN_IDLE_MS is a test seam; normalized config remains the production source of truth.
   const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs);
@@ -1736,13 +1775,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       activeProviderBatchId = call.toolCalls && call.toolCalls.length ? turnSegments.createBatchId('openai') : '';
       // Aborted while streaming → discard this (possibly partial) step, keep history valid.
       if (reg.state !== 'running') { aborted = true; ok = false; break; }
-      // v0.9-S5 (真流程 plan mode): the FIRST assistant message decides the plan flow. When it opens with
-      // PLAN: (looksLikePlan) and carries NO tool_call, we PAUSE the turn: push the plan text to history,
+      // v0.9-S5 (真流程 plan mode): a final PLAN: message with NO tool_call pauses the turn for approval.
+      // Before that final plan, observational tool batches may run and re-arm this phase for the next iteration.
+      // Any modifying/execution/delegation batch is refused with paired tool results. When the final plan arrives,
+      // we push the plan text to history,
       // emit a `plan` event, and await the UI decision. Approve → unlock tools for THIS turn (closure flag)
-      // and continue; reject → finish the turn with a 「计划已被拒绝」 note (errorClass:'plan_rejected'). If
-      // the model IGNORES the format (no PLAN:, or it went straight to a tool_call), we drop out of plan
-      // phase and fall through to the normal loop — which, still in permissionMode:'plan', hard-blocks any
-      // mutating tool (legacy behavior, backward compatible). planPhase is one-shot: consumed here.
+      // and continue; reject → finish the turn with a 「计划已被拒绝」 note (errorClass:'plan_rejected').
       if (planPhase) {
         planPhase = false;
         if (looksLikePlan(call.text) && !(call.toolCalls && call.toolCalls.length)) {
@@ -1758,13 +1796,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (decision && decision.decision === 'approve') {
             planApproved = true;
             const note = String((decision.note || '')).trim();
-            if (note) {
-              // 修改意见 = approve carrying a note: inject it as a user message so the model incorporates it
-              // in the execution phase. Pairing-safe (the last history entry is the assistant plan text).
-              const injected = `[计划批准] ${note}`;
-              session.providerHistory.push({ role: 'user', content: injected });
-              onEvent({ type: 'plan_note', text: note });
-            }
+            // Approval must be visible to the model, not only to the server-side permission gate. Without a
+            // user continuation on the common no-note path, a real model sees its own "wait for approval"
+            // plan as the final history item and can keep waiting/re-plan even though planApproved unlocked
+            // tools in this closure. Pairing-safe: the last history entry is the assistant plan text.
+            const safeNote = note.replace(/<(\/?)(?:workbench-plan-approved)/gi, '[$1workbench-plan-approved');
+            session.providerHistory.push({ role: 'user', content: getPromptPack(config && config.locale).planApproved({ note: safeNote }) });
+            if (note) onEvent({ type: 'plan_note', text: note });
             await saveSession(session);
             continue; // resume the loop; the gate now allows edit/exec tools this turn (planApproved)
           } else {
@@ -1773,13 +1811,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             break; // reject → fall out to turn finish (assistant note + plan_rejected below)
           }
         }
-        // v0.9 F5: plan-phase first message that jumps STRAIGHT to tool_calls (no PLAN: text) must NOT slip
-        // through to the tool loop — the legacy gate only hard-blocks edit/exec, so a read-tier tool would run
-        // BEFORE any plan approval, silently consuming the plan phase. Instead, refuse the whole batch with a
-        // paired refusal result (one role:'tool' per tool_call keeps the assistant.tool_calls pairing valid)
-        // and continue the loop so the model is nudged to submit a real PLAN: first. Minimal impl — we do not
-        // execute these tool_calls at all.
-        if (call.toolCalls && call.toolCalls.length) {
+        const discoveryBatch = planDiscoveryToolBatchAllowed(call.toolCalls, bridgedRoute, config);
+        if (call.toolCalls && call.toolCalls.length && discoveryBatch) {
+          // Let the ordinary dispatch path execute the reads, then require a final PLAN: on the next model step.
+          // Its normal read-tier gate, path guards, SSRF checks, and tool-result pairing remain authoritative.
+          planPhase = true;
+        } else if (call.toolCalls && call.toolCalls.length) {
+          // A mixed batch is refused as a unit: executing its reads could leak partial evidence into a request
+          // whose modifying half was never authorized, and one paired result per call keeps history valid.
           session.providerHistory.push({ role: 'assistant', content: call.text || '', tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
           for (const tc of call.toolCalls) {
             let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
@@ -1802,7 +1841,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           planPhase = true;
           continue; // wait for the model's real plan on the next iteration
         }
-        // Not a plan-shaped first message and no tool_calls → fall through to normal handling.
+        // Not a plan-shaped message and no tool_calls → fall through to normal handling.
       }
       if (call.toolCalls && call.toolCalls.length) {
         // v1.8: split server-side tool calls (web_search_call — DeepSeek already executed the search) from
@@ -2396,6 +2435,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // entries (journal supplies the accurate op + revertible:true). Emitted before `result`, and stashed on
   // the assistant message so a reload can re-render the card. Journal entries are read from the on-disk
   // index filtered by turnSeq (the same journal the tool loop wrote; no in-memory duplication needed).
+  await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(e => e && Number(e.turnSeq) === Number(session.turnSeq));
   const turnSummary = buildTurnSummary(session.turnSeq, toolCalls, 'openai', turnJournal);
   // 47b/86: 回合收尾前把仍在 'running' 的 tool/subagent/workflow 段标终态,防「卡在运行中」落盘。

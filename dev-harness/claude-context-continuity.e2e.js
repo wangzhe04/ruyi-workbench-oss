@@ -69,7 +69,9 @@ function start(capture) {
 (async () => {
   PORT = await PORT_P;
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
-  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, activeProvider: '', permissionMode: 'bypass', engineMode: 'interactive', includePartialMessages: false }), 'utf8');
+  // Keep this restart contract isolated from the developer machine's ~/.claude.json. Importing real MCP
+  // entries can make the second boot synchronize/probe unrelated connectors and exceed this test's 6s gate.
+  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, activeProvider: '', permissionMode: 'bypass', engineMode: 'interactive', includePartialMessages: false, autoImportClaudeCodeMcp: false }), 'utf8');
   const cap1 = path.join(HOME, 'stdin-1.txt');
   let wb = start(cap1);
   try {

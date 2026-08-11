@@ -450,8 +450,15 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
   const requestedBudget = Math.min(1000, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 100));
   const budgetPolicy = resolveToolIterationBudget(requestedBudget, String(task || ''), config);
-  let budget = Math.min(300, Math.max(requestedBudget, Number(budgetPolicy.initial || requestedBudget)));
-  const adaptiveBudgetLimit = requestedBudget > 300 ? requestedBudget : Number(budgetPolicy.hardLimit || 300);
+  // Tiny node budgets are intentional control-plane limits (for example, a two-turn verifier).
+  // Keep those exact instead of silently expanding them to the global adaptive floor/hard limit.
+  const exactNodeBudget = requestedBudget < TOOL_ITERATION_BUDGETS.standard;
+  let budget = exactNodeBudget
+    ? requestedBudget
+    : Math.min(300, Math.max(requestedBudget, Number(budgetPolicy.initial || requestedBudget)));
+  const adaptiveBudgetLimit = exactNodeBudget
+    ? requestedBudget
+    : (requestedBudget > 300 ? requestedBudget : Number(budgetPolicy.hardLimit || 300));
 
   // Tool set: same capability gating as the parent, filtered to the requested tier, WITHOUT spawn_agent.
   const caps = await getCapabilities(config).catch(() => null);
@@ -500,6 +507,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const sys = appendResponseLanguagePolicy(
     '你是子任务执行体。目标:完成被交办的具体任务后,用简洁文本输出最终结论(不要反问,不要请求进一步指示)。\n\n' + rolePrompt + baseSys,
     config,
+    0,
+    task,
   );
 
   const subHistory = [{ role: 'user', content: String(task || '') }];

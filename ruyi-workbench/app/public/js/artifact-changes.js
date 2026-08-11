@@ -223,11 +223,18 @@ export function createArtifactChangesDomain({
       const head = el('div', 'change-card-head');
       head.append(el('span', 'change-round-title', t('changes.roundTitle', { n: turnSeq })));
       head.append(el('span', 'change-round-count muted', t('changes.roundCount', { n: items.length })));
+      const roundActions = el('span', 'change-round-actions');
       if (items.some(entry => !entry.skipped)) {
         const undoAll = el('button', 'mini change-undo-all', t('changes.revertTurn'));
         undoAll.onclick = () => rollbackTurn(turnSeq, undefined, undoAll, t('changes.turnLabel'));
-        head.append(undoAll);
+        roundActions.append(undoAll);
       }
+      if (items.some(entry => !entry.skipped && isTextishPath(entry.path))) {
+        const nativeDiff = el('button', 'mini change-open-turn', t('changes.openTurnExternalDiff'));
+        nativeDiff.onclick = () => openExternalChange({ turnSeq }, nativeDiff);
+        roundActions.append(nativeDiff);
+      }
+      if (roundActions.childNodes.length) head.append(roundActions);
       card.append(head);
       const body = el('div', 'change-card-body');
       for (const entry of items) {
@@ -254,12 +261,14 @@ export function createArtifactChangesDomain({
         if (tool) meta.append(el('span', 'change-tool', tool));
         const size = changeSizeTransition(entry);
         if (size) meta.append(el('span', 'change-size', size));
-        if (!entry.skipped && entry.op !== 'delete') {
+        if (!entry.skipped) {
           if (isTextishPath(pathValue)) {
             const view = el('button', 'link-mini change-view', t('changes.viewDiff'));
             view.onclick = () => openChangeDiff(entry);
-            meta.append(view);
-          } else {
+            const nativeDiff = el('button', 'link-mini change-native-diff', t('changes.openExternalDiff'));
+            nativeDiff.onclick = () => openExternalChange(entry, nativeDiff);
+            meta.append(view, nativeDiff);
+          } else if (entry.op !== 'delete') {
             const open = el('button', 'link-mini change-view', t('common.open'));
             open.onclick = () => runTool('office_open', { path: pathValue });
             meta.append(open);
@@ -270,6 +279,33 @@ export function createArtifactChangesDomain({
       }
       card.append(body);
       list.append(card);
+    }
+  }
+
+  async function openExternalChange(entry, button) {
+    const sessionId = state.currentSession?.id;
+    if (!sessionId) return toast(t('toast.noSession'), 'err');
+    const original = button && button.textContent;
+    if (button) { button.disabled = true; button.textContent = t('changes.openingExternal'); }
+    try {
+      const body = { sessionId, turnSeq: Number(entry.turnSeq), action: entry.action === 'open' ? 'open' : 'diff' };
+      if (entry.entrySeq !== undefined && entry.entrySeq !== null) body.entrySeq = Number(entry.entrySeq);
+      const result = await api('/api/checkpoints/open-external', { method: 'POST', body: JSON.stringify(body) });
+      const first = result && Array.isArray(result.opened) ? result.opened[0] : null;
+      const app = first && first.editor || t('changes.localEditor');
+      const count = result && Array.isArray(result.opened) ? result.opened.length : 1;
+      if (first && first.mode === 'diff' && first.diffSupported !== false) {
+        toast(t('toast.externalDiffOpened', { app, count }));
+      } else {
+        toast(t('toast.externalDiffFallback', { app }));
+      }
+      if (result && Array.isArray(result.failed) && result.failed.length) {
+        toast(t('toast.externalDiffPartial', { count: result.failed.length }), 'err');
+      }
+    } catch (error) {
+      toast(t('toast.externalDiffFailed', { err: apiErrText(error) }), 'err');
+    } finally {
+      if (button) { button.disabled = false; button.textContent = original; }
     }
   }
 
@@ -339,7 +375,7 @@ export function createArtifactChangesDomain({
     head.append(el('span', 'cdiff-name', fileBasename(entry.path)));
     if (entry.op !== 'delete') {
       const open = el('button', 'link-mini', t('changes.openCurrentFile'));
-      open.onclick = () => runTool('office_open', { path: entry.path });
+      open.onclick = () => openExternalChange({ ...entry, action: 'open' }, open);
       head.append(open);
     }
     const close = el('button', 'link-mini', standalone ? t('common.close') : t('changes.collapse'));

@@ -9,7 +9,8 @@
 
 **R4-S1（已完成）**：边存储 + 4 种关系 + scope 隔离 + 提议/确认分离 + 冲突感知检索 + 审计。
 **R4-S2（已完成）**：模型自动提议接线（gate 节点结构化输出 `memoryRelations` → pending 边）+ evidenceRef 内存内校验（`run.evidence` 作 catalog，命中 → `evidenceRefVerified:true`）+ prompt section 暴露记忆 id。
-**不在本切片**：记忆聚类/过期建议（R4-S3）、R5 重规划。
+**R4-S3（已完成）**：按 confirmed 图做确定性连通分量聚类 + `supersedes` / 长期孤立记忆的复核建议 + 孤儿边清理提示；所有建议均 `action:'review'`、`autoApplied:false`，不自动删除或禁用记忆。
+**不在 R4**：R5 重规划。
 
 ## 2. 数据模型
 
@@ -48,14 +49,16 @@
 | `confirmMemoryRelation(id, cwd)` | `confirmed:false→true` | **仅用户** |
 | `deleteMemoryRelation(id, cwd)` | 删边 | 用户 |
 | `buildMemoryConflictMap(cwd)` | → `Map<memoryId, Set<conflictId>>`（仅 confirmed contradicts） | 检索 |
+| `analyzeMemoryMaintenance(cwd, scope, opts)` | → `{clusters, expirySuggestions, orphanedRelations, stats}` | 只读维护分析 |
 
-`buildMemoryPromptSection` 增强：注入时查 conflict map，对处于 confirmed `contradicts` 关系的记忆追加 `[冲突:见 <id>]` 标记，**两条都注入，不静默择一**。
+`buildMemoryPromptSection` 增强：注入时查 conflict map，对处于 confirmed `contradicts` 关系的记忆追加 `[冲突:见 <id>]` 标记，**两条都注入，不静默择一**。索引头同时要求模型在每个新用户消息到达时先做相关性检查，命中后才读取对应记忆全文，无命中则直接继续，避免无差别读盘。
 
 ### HTTP 路由（13-http-router.js）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/memory/relations?cwd=&scope=&includePending=` | 列边 |
+| GET | `/api/memory/maintenance?cwd=&scope=&staleDays=` | R4-S3 聚类与过期复核建议（只读） |
 | POST | `/api/memory/relations/propose` | 提议（confirmed:false） |
 | POST | `/api/memory/relations/confirm` | 确认（confirmed:true） |
 | DELETE | `/api/memory/relations/<id>` | 删边（POST+x-http-method:DELETE 约定） |
@@ -66,7 +69,7 @@
 
 1. 边的 `from`/`to` 必须**同 scope** 且**同 projectKey**；跨 scope 边直接拒绝（防项目记忆经全局边泄漏）。
 2. `confirm` 只改 `confirmed` 标志，不改 `from`/`to`/`scope`/`type`（防确认时偷换语义）。
-3. `supersedes` 即便 confirmed 也**不删除**被超越的记忆，只在检索时标记 `[被超越:见 <id>]`；物理删除仍走 `deleteMemory` 人工路径。
+3. `supersedes` 即便 confirmed 也**不删除**被超越的记忆；R4-S3 只返回高优先级 `review` 建议及替代记忆 id，物理删除仍走 `deleteMemory` 人工路径。
 4. `pending` 边（confirmed:false）**不进入** `buildMemoryPromptSection` 与 conflict map（防模型自提议矛盾来压制记忆）。
 
 ## 5. 威胁建模
@@ -81,6 +84,9 @@
 | 6 | pending 注入 | 未确认边影响检索/压制记忆 | pending 不进 prompt section 与 conflict map |
 | 7 | 确认时偷换 | confirm 调用改 type/from/to | confirm 只置 confirmed=true，其余字段忽略 |
 | 8 | 跨工作区读 | A 项目的边出现在 B 项目 | 按 projectKey 隔离的独立文件；list 带 cwd |
+| 9 | pending 污染聚类 | 模型自提议边把无关记忆拉入簇或改变过期判断 | 聚类、度数与 supersedes 建议只读 confirmed 边 |
+| 10 | 年龄误判过期 | createdAt 很旧但记忆仍频繁使用 | 年龄仅给低优先级 `stale_isolated` 复核；不声称“未使用”，不自动应用 |
+| 11 | 悬空边误导 | 记忆已删除但关系仍引用它 | 分析时排除悬空边并单列 `orphanedRelations` 供人工清理 |
 
 ## 6. 红线对齐（路线 §4）
 
@@ -105,14 +111,25 @@
 9. 自动提议的 `evidenceRef` 命中 `run.evidence` 时置 `evidenceRefVerified:true`，未命中或无 catalog 为 `false`；
 10. from/to 不存在或提取异常仅跳过该提议，不翻转节点结果。
 
+**R4-S3 追加验收**：
+
+11. confirmed 四类边形成确定性、同 scope 的连通分量；pending 不改变聚类；
+12. confirmed `A supersedes B` 只给 B 高优先级复核建议，不删除/禁用 B；
+13. 超过阈值且无 confirmed 链接的记忆只给低优先级复核，已链接旧记忆不因年龄单独误报；
+14. 换 cwd / scope 不泄漏簇；缺失端点的边被排除并列入清理提示；
+15. 相同图、阈值与时钟得到字节稳定输出，分析前后记忆和边均不变。
+
 ## 8. 测试计划
 
 - `dev-harness/memory-graph-relations.e2e.js`：纯函数驱动（对齐 m4-benchmark 模式），覆盖验收 1-7 + 对抗边界。
 - `dev-harness/memory-graph-auto-proposal.e2e.js`（R4-S2）：`extractMemoryRelationProposals` 提取与对抗过滤、`proposeMemoryRelation` 的 catalog 校验、端到端自动提议落盘 pending、向后兼容。
-- 既有 `workbench-memory.e2e.js` 须保持绿（检索增强向后兼容：无边时行为不变）。
+- `dev-harness/memory-graph-maintenance.e2e.js`（R4-S3）：确定性聚类、pending 隔离、supersedes/孤立复核、跨项目/全局隔离、孤儿边、只读不变性。
+- `dev-harness/workbench-memory.e2e.js`：真实 Provider/Claude 提示均收到冲突 map；maintenance HTTP 通过 token 门并返回项目簇。
+- `dev-harness/agent-quality-workflow.e2e.js`：真实 gate 子回合看到两条记忆 id 后才输出关系，工作流 hook 落盘 pending。
 
 ## 9. 已知限制（M4 记录）
 
 - ~~evidenceRef 不跨 run 校验~~：R4-S2 已实现内存内校验——自动提议路径传 `run.evidence` 作 catalog，命中真实 eventId 才置 `evidenceRefVerified:true`；API 手动提议仍为 `false`（仅存档，提示用户手动核验）。
 - ~~模型自动提议未接线~~：R4-S2 已在 `09-workflow.js` 节点收尾（R1 证据索引之后）接线——gate 节点结构化输出含 `memoryRelations` 时自动提取并 `proposeMemoryRelation(confirmed:false)`；from/to 不存在或异常仅跳过该提议，不翻转节点结果。
-- 剩余限制：API 手动提议的 evidenceRef 不校验（无 catalog 上下文）；边确认仍须用户操作（模型只提议，符合红线）。
+- ~~真实提示链路未带图~~：R4-S3 推进前审查发现并修复——Provider/Claude 主回合现在传 confirmed conflict map，工作流 gate 节点也收到已启用记忆索引；真实 e2e 锁定，不再只测函数直调。
+- 剩余限制：API 手动提议的 evidenceRef 不校验（无 catalog 上下文）；边确认仍须用户操作；`stale_isolated` 依据是创建年龄而非使用频率，故只作低优先级复核建议。

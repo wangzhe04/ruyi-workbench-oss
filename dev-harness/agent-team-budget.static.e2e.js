@@ -56,8 +56,8 @@ assert.ok(app.includes('let agentTeamTurnEnabled = false'));
 assert.ok(app.includes('const agentTeam = overrideText == null && agentTeamTurnEnabled && agentTeamAvailable()'));
 assert.ok(app.includes('agentTeamTurnEnabled = false;'), 'sending consumes one-shot preference');
 assert.match(app, /attachments:\s*sentAttachments,\s*agentTeam,/);
-assert.ok(source.includes('appendTurnPolicies(appendSys, config, agentTeam, appendLimit, true)'), 'Claude CLI receives Agent team + native lifecycle policy (cmd8191: limit 由整行预算动态给出, ≤8000)');
-assert.ok(source.includes('appendTurnPolicies(volatileExtras, config, agentTeam)'), 'OpenAI-compatible engine places Agent team policy in the volatile user prefix');
+assert.ok(source.includes('appendTurnPolicies(appendSys, config, agentTeam, appendLimit, true, promptTaskContext)'), 'Claude CLI receives Agent team + native lifecycle + task-routed policy (cmd8191: limit 由整行预算动态给出, ≤8000)');
+assert.ok(source.includes('appendTurnPolicies(volatileExtras, config, agentTeam, 0, false, promptTaskContext)'), 'OpenAI-compatible engine places Agent team and task-routed policy in the volatile user prefix');
 assert.strictEqual((source.match(/reg\.onEvent = evt => \{ reg\.lastEventAt = Date\.now\(\); onEvent\(evt\); \};/g) || []).length, 2, 'Claude and OpenAI active-turn registries both count external workflow events as activity');
 assert.ok(source.includes("type: 'tool_budget', state: 'extended'"));
 

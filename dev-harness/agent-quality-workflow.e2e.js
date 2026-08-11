@@ -38,7 +38,7 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
   ];
   const good=JSON.stringify({verdict:'pass',confidence:.9,summary:'verified',findings:[{title:'duplicate issue',file:'x.js',line:4,confidence:.8}]});
   const reviewFail=JSON.stringify({verdict:'fail',confidence:.9,summary:'found real bugs',findings:[{title:'bug',file:'a.js',line:1,confidence:.9}]});
-  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],sub:[],subStepsByTask:{C1_TOOL_SOURCE:[{name:'file_read',args:{path:SOURCE_FILE}}]},parentText:'workflow done',subText:good,evidenceRefByTask:{C1_VALID_REF:'catalog',C1_FORGED_REF:'forged'},subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail,M3_UNCOVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'checked most',findings:[],coverage:{total:3,handled:2,unhandled:['b.js','c.js']}}),M3_COVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'all checked',findings:[],coverage:{total:2,handled:2,unhandled:[]}}),R1_UNVERIFIED:JSON.stringify({verdict:'pass',confidence:.9,summary:'claims made',findings:[{text:'断言A',evidenceRefs:['evt_fake_99']}]}),M2_HANDLED:JSON.stringify({handledItems:['a','b']}),M2_PROPAGATE:JSON.stringify({items:[{id:'root',group:'g',assignment:'blue'},{id:'peer',group:'g'}],propagationEdges:[{from:'peer',to:'leaf'}]}),M2_CYCLE:JSON.stringify({assignments:{a:'x'},propagationEdges:[{from:'a',to:'b'},{from:'b',to:'a'}]})}};
+  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],sub:[],subStepsByTask:{C1_TOOL_SOURCE:[{name:'file_read',args:{path:SOURCE_FILE}}]},parentText:'workflow done',subText:good,evidenceRefByTask:{C1_VALID_REF:'catalog',C1_FORGED_REF:'forged'},memoryRelationByTask:{R4_MEMORY_RELATIONS:{from:'r4-live-a',to:'r4-live-b'}},subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail,M3_UNCOVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'checked most',findings:[],coverage:{total:3,handled:2,unhandled:['b.js','c.js']}}),M3_COVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'all checked',findings:[],coverage:{total:2,handled:2,unhandled:[]}}),R1_UNVERIFIED:JSON.stringify({verdict:'pass',confidence:.9,summary:'claims made',findings:[{text:'断言A',evidenceRefs:['evt_fake_99']}]}),M2_HANDLED:JSON.stringify({handledItems:['a','b']}),M2_PROPAGATE:JSON.stringify({items:[{id:'root',group:'g',assignment:'blue'},{id:'peer',group:'g'}],propagationEdges:[{from:'peer',to:'leaf'}]}),M2_CYCLE:JSON.stringify({assignments:{a:'x'},propagationEdges:[{from:'a',to:'b'},{from:'b',to:'a'}]})}};
   fs.writeFileSync(path.join(HOME,'config.json'),JSON.stringify({configSchema:7,permissionMode:'bypass',defaultWorkspace:HOME,subagentMaxPerTurn:12,subagentMaxConcurrent:6,providers:[{id:'fake',label:'Fake',type:'openai-compat',baseUrl:`http://127.0.0.1:${FP}`,apiKey:'k',model:'fake-model'}],activeProvider:'fake'}));
   const fake=cp.spawn(process.execPath,[path.join(__dirname,'fake-openai.js')],{env:{...process.env,FAKE_OPENAI_PORT:String(FP),FAKE_SUBAGENT_SCRIPT:JSON.stringify(script)},windowsHide:true});
   const wb=cp.spawn(process.execPath,['app/server.js','serve','--port',String(WP)],{cwd:WB,env:{...process.env,RUYI_HOME:HOME},windowsHide:true});
@@ -47,6 +47,8 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
     const html=await new Promise(resolve=>http.get({host:'127.0.0.1',port:WP,path:'/'},res=>{let b='';res.on('data',c=>b+=c);res.on('end',()=>resolve(b));}));
     const token=(html.match(/name="wcw-token"\s+content="([a-f0-9]+)"/)||[])[1];const hdr={'x-wcw-token':token};
     const created=await post(WP,'/api/sessions',{title:'quality',cwd:HOME},hdr);const sid=created.session.id;
+    await post(WP,'/api/memory',{memory:{id:'r4-live-a',scope:'project',name:'R4 Live A',description:'first live memory',type:'reference',body:'A'},cwd:HOME},hdr);
+    await post(WP,'/api/memory',{memory:{id:'r4-live-b',scope:'project',name:'R4 Live B',description:'second live memory',type:'reference',body:'B'},cwd:HOME},hdr);
     const events=await stream({sessionId:sid,message:'run quality workflow',cwd:HOME},hdr);
     const start=events.find(e=>e.type==='agent_workflow'&&e.state==='start');
     ok(start && start.nodeCount===12, 'quality workflow starts with all nodes');
@@ -149,6 +151,14 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
     ]});
     const c1F=id=>c1f.results.find(n=>n.id===id);
     ok(c1F('forged_gate').status==='rejected' && c1F('forged_gate').errorClass==='gate_unverified' && c1F('forged_gate').structuredResult.findings[0].status==='unverified','C1 e2e adversarial: a forged out-of-catalog eventId is unverified and rejected');
+    const r4=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'source',task:'R4_MEMORY_SOURCE'},
+      {id:'relation_gate',task:'R4_MEMORY_RELATIONS',role:'reviewer',dependsOn:['source']},
+    ]});
+    const r4Relations=await get(WP,'/api/memory/relations?cwd='+encodeURIComponent(HOME)+'&scope=project&includePending=true',hdr);
+    const r4Pending=Array.isArray(r4Relations&&r4Relations.pending)?r4Relations.pending:[];
+    ok(r4.ok===true && r4.results.find(n=>n.id==='relation_gate').structuredResult.memoryRelations.length===1,'R4-S2 e2e: gate model emitted memoryRelations only after seeing both indexed ids');
+    ok(r4Pending.some(rel=>rel.from==='r4-live-a'&&rel.to==='r4-live-b'&&rel.type==='contradicts'&&rel.confirmed===false),'R4-S2 e2e: real workflow hook persisted the gate proposal as pending'+(r4Pending.length?'':' (response '+JSON.stringify(r4Relations)+')'));
     const c2Gap=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
       {id:'handled',task:'M2_HANDLED'},
       {id:'coverage',task:'MUST_NOT_CALL_MODEL',dependsOn:['handled'],gate:{mode:'coverage',inputSet:['a','b','c'],allowPartialCoverage:true}},

@@ -149,6 +149,10 @@ module.exports = {
   buildResponseLanguagePolicy,
   buildAgentTeamHint,
   buildClaudeNativeAgentPolicy,
+  softwareEngineeringTaskProfile,
+  buildPromptTaskContext,
+  buildSoftwareEngineeringPolicy,
+  planDiscoveryToolBatchAllowed,
   appendTurnPolicies,
   appendResponseLanguagePolicy,
   isLongToolTask,
@@ -216,6 +220,14 @@ module.exports = {
   // v1.0.2-S3: reveal-in-explorer path guard + spawn-argv builder — exposed for e2e 单测护栏逻辑。
   guardWorkspacePath,
   buildRevealSpawn,
+  // Native code-editor handoff + exact turn baselines — exposed for offline regression tests.
+  executableFromAssociationCommand,
+  classifyCodeEditorExecutable,
+  resolvePreferredCodeEditor,
+  buildCodeEditorSpawn,
+  workspaceBaselineIsCodePath,
+  captureWorkspaceTurnBaseline,
+  reconcileWorkspaceTurnBaseline,
   // v1.4.6-S2/S3: shell-free open-spawn argv builders + native file-tool workspace boundary guard + local
   // provider detection — exposed for e2e (pure argv / containment assertions).
   buildOpenSpawn,
@@ -296,6 +308,7 @@ module.exports = {
   deleteMemoryRelation,
   buildMemoryConflictMap,
   extractMemoryRelationProposals,
+  analyzeMemoryMaintenance,
   normalizeAgentWorkflow,
   resolveAgentTeamRoute,
   getAgentWorkflows,

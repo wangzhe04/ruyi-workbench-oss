@@ -14,6 +14,8 @@
 //  (c) no-token decision → 403; unknown planId → {ok:false, error:'no pending plan'}; idempotent re-decide.
 //  (d) FAKE_PLAN_FIRST OFF (normal plan mode) + FAKE_TOOL_SEQUENCE=[file_write z.txt]: no `plan` event; the
 //        mutating tool is still HARD-BLOCKED (legacy plan behavior) → z.txt absent, tool_result is an error.
+//  (f) FAKE_PLAN_AFTER_READ=1 + FAKE_TOOL_SEQUENCE=[file_read, file_write]: the read executes before the
+//        final PLAN:, approval then unlocks the write, and no plan-refused result appears.
 'use strict';
 const cp = require('child_process');
 const http = require('http');
@@ -77,7 +79,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
   // via FAKE_TOOL_SEQUENCE below — but the sequence path is fixed at fake spawn, so we spawn per-scenario).
   const xTxt = path.join(HOME, 'x.txt');   // approve scenario target
   const seqX = JSON.stringify([{ name: 'file_write', args: { path: xTxt, content: 'approved-write' } }]);
-  let fake = spawnFake({ FAKE_PLAN_FIRST: '1', FAKE_TOOL_SEQUENCE: seqX });
+  let fake = spawnFake({ FAKE_PLAN_FIRST: '1', FAKE_PLAN_REQUIRE_APPROVAL_CONTEXT: '1', FAKE_TOOL_SEQUENCE: seqX });
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
   procs.push(fake, wb);
@@ -110,6 +112,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(planEvt && typeof planEvt.markdown === 'string' && /PLAN/i.test(planEvt.markdown), '(a) plan event carries the PLAN markdown');
     for (let i = 0; i < 20 && !decideResp; i++) await sleep(50);
     ok(decideResp && decideResp.body && decideResp.body.ok === true, '(a) approve decision {ok:true} (got ' + JSON.stringify(decideResp && decideResp.body) + ')');
+    ok(!ev1.some(e => e.type === 'assistant_delta' && /WAITING_FOR_EXPLICIT_PLAN_APPROVAL/.test(String(e.text || e.delta || ''))), '(a) model-visible approval context prevents a post-confirmation wait loop');
     // The file_write must have run AFTER approval.
     ok(fs.existsSync(xTxt), '(a) file_write EXECUTED post-approval (x.txt exists)');
     const tuse1 = ev1.find(e => e.type === 'tool_use' && e.name === 'file_write');
@@ -214,6 +217,39 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(fs.existsSync(wTxt), '(e) file_write EXECUTED post-approval (w.txt exists)');
     const res4 = ev4.find(e => e.type === 'result');
     ok(res4 && res4.ok === true && !res4.errorClass, '(e) turn result ok');
+
+    // ── (f) read-only discovery → final PLAN: → approve → mutation ──────────────────────────────────────
+    killp(fake); await sleep(300);
+    const inspectTxt = path.join(HOME, 'inspect.txt');
+    const fTxt = path.join(HOME, 'after-discovery.txt');
+    fs.writeFileSync(inspectTxt, 'current-setting=true');
+    const seqF = JSON.stringify([
+      { name: 'file_read', args: { path: inspectTxt } },
+      { name: 'file_write', args: { path: fTxt, content: 'planned-after-reading' } },
+    ]);
+    fake = spawnFake({ FAKE_TOOL_SEQUENCE: seqF, FAKE_PLAN_AFTER_READ: '1', FAKE_PLAN_REQUIRE_APPROVAL_CONTEXT: '1' });
+    procs.push(fake);
+    up = false; for (let i = 0; i < 30 && !up; i++) { await sleep(150); up = await fakeUp(FAKE_PORT); }
+    ok(up, '(f) read-before-plan fake respawned');
+    const c5 = await postJson(WB_PORT, '/api/sessions', { title: 'plan read-only discovery', cwd: HOME }, hdr);
+    const sid5 = c5.body && c5.body.session && c5.body.session.id;
+    let planEvt5 = null, decideResp5 = null;
+    const ev5 = await streamChatLive(WB_PORT, { sessionId: sid5, message: '先检查现状再制定修改计划', cwd: HOME }, evt => {
+      if (evt.type === 'plan' && !planEvt5) {
+        planEvt5 = evt;
+        postJson(WB_PORT, '/api/plan/decision', { sessionId: sid5, planId: evt.planId, decision: 'approve' }, hdr).then(r => { decideResp5 = r; }).catch(() => {});
+      }
+    });
+    const readUse5 = ev5.findIndex(e => e.type === 'tool_use' && e.name === 'file_read');
+    const planIndex5 = ev5.findIndex(e => e.type === 'plan');
+    ok(readUse5 >= 0 && planIndex5 > readUse5, '(f) file_read executes before the final plan is submitted');
+    ok(!ev5.some(e => e.type === 'tool_result' && e.isError === true && /请先提交 PLAN/.test((e.content && e.content.error) || '')), '(f) read-only discovery is not refused by plan mode');
+    ok(!!planEvt5, '(f) read-only discovery re-arms plan phase and emits a `plan` event');
+    for (let i = 0; i < 20 && !decideResp5; i++) await sleep(50);
+    ok(decideResp5 && decideResp5.body && decideResp5.body.ok === true, '(f) discovery plan approve decision {ok:true}');
+    ok(fs.existsSync(fTxt), '(f) file_write executes only after discovery plan approval');
+    const res5 = ev5.find(e => e.type === 'result');
+    ok(res5 && res5.ok === true && !res5.errorClass, '(f) read → plan → approve → write turn completes');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of procs) killp(c);

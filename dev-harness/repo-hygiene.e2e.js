@@ -47,6 +47,10 @@ async function statusWith(port, envOverrides) {
   const env = { ...process.env };
   delete env.RUYI_HOME; delete env.WIN_CLAUDE_WORKBENCH_HOME;
   Object.assign(env, envOverrides);
+  // This test owns only the Ruyi data-root precedence contract. Isolate Claude Code discovery too, otherwise
+  // real ~/.claude.json MCP entries can be imported on the first boot and make a later restart exceed 6s.
+  const isolatedUserHome = envOverrides.RUYI_HOME || envOverrides.WIN_CLAUDE_WORKBENCH_HOME;
+  if (isolatedUserHome) { env.HOME = isolatedUserHome; env.USERPROFILE = isolatedUserHome; }
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(port)], { cwd: WB, env, windowsHide: true });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
   try {
@@ -172,7 +176,7 @@ function walk(dir, acc, skip) {
     const cfgPath = path.join(F2_HOME, 'config.json');
     const REAL_KEY = 'sk-test-1234abcd';
     fs.writeFileSync(cfgPath, JSON.stringify({
-      configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
+      configSchema: 6, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false,
       providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:1', apiKey: REAL_KEY, model: 'm', models: [{ id: 'm', label: 'M' }] }],
       activeProvider: 'fake',
     }, null, 2));

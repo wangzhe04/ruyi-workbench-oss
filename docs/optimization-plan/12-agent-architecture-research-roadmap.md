@@ -1,6 +1,6 @@
 # 12 · Agent 架构研究补充路线 — 从证据到学习闭环
 
-> **当前进度（2026-08-11）**：阶段 C 全部完成——C1（Evidence Graph 证据目录 prompt 注入与 `evidenceRefs` 输出契约）、C2（M2/R1 确定性 gap 证据衔接）、C3（内置模板高风险门回填 `requireEvidence` + M4 固定 benchmark/holdout 回测，漏项率 0、伪造检出率 100%）。R2/R3 按当前产品优先级暂缓，主线进入 R4/R5。R4-S1（记忆关系边 `supports/contradicts/supersedes/derived_from` + 提议/确认分离 + 冲突感知检索）与 R4-S2（gate 节点自动提议接线 + evidenceRef 内存内校验 + prompt 暴露记忆 id）均已落地，设计稿 `15-r4-memory-graph.md`，e2e 全绿；R4-S3（记忆聚类/过期建议）/R5 待推进。
+> **当前进度（2026-08-11）**：阶段 C 全部完成——C1（Evidence Graph 证据目录 prompt 注入与 `evidenceRefs` 输出契约）、C2（M2/R1 确定性 gap 证据衔接）、C3（内置模板高风险门回填 `requireEvidence` + M4 固定 benchmark/holdout 回测，漏项率 0、伪造检出率 100%）。R2/R3 按当前产品优先级暂缓。R4-S1/S2 已完成关系存储、冲突检索、gate 自动提议与 evidenceRef 校验；本轮审查补齐真实 Provider/Claude/gate 提示链路与 GET 路由授权，并完成 R4-S3（confirmed 图确定性聚类 + review-only 过期建议 + 孤儿边提示）。R4 已收口，主线下一项为 R5。
 
 > 关联：`06-hb360-cost-convergence.md`、`07-microagent-lessons.md`（M1–M6）、`09-m3-coverage-gate.md`、`10-m4-ablation.md`。立项日期：2026-08-10。性质：**路线规划，不代表已实现或自动启用**。
 
@@ -29,7 +29,7 @@ Ruyi 已具备多 Agent DAG、角色/工具分级、可恢复的运行记录、�
 | R1 | claim-level evidence provenance | 有审计、findings、artifact 摘要，但没有“最终断言 → 具体工具结果/文件/来源”的机器关系 | Evidence Graph + 引用契约 | **P0** |
 | R2 | execution-to-workflow induction | 有静态模板/Playbook 和运行历史，但不会从已验收轨迹归纳候选流程 | Workflow Candidate Factory | **暂缓** |
 | R3 | offline workflow evolution | M4 能测单轴收益，但没有系统地产生、筛选和保留候选变体 | Champion–Challenger Lab | **暂缓** |
-| R4 | linked, conflict-aware memory | 有按项目隔离且需确认的记忆，但没有 supports/contradicts/supersedes 关系与冲突检索 | Local Memory Graph | **P1（S1/S2 已落地，S3 待推进）** |
+| R4 | linked, conflict-aware memory | 有按项目隔离且需确认的记忆，但没有 supports/contradicts/supersedes 关系与冲突检索 | Local Memory Graph | **P1（S1–S3 已完成）** |
 | R5 | task ledger + progress ledger + replan | 有 Mission、DAG、重试和任务池，但没有把偏离计划归并为可审的重规划 diff | Replan Patch Ledger | **P1（C3 后）** |
 
 ### R1 · Evidence Graph（P0，M6 的工程化落点）
@@ -73,7 +73,7 @@ Ruyi 已具备多 Agent DAG、角色/工具分级、可恢复的运行记录、�
 
 **验收**：候选、基准版本、模型版本、配置和结果可重放；不存在训练集泄漏到 holdout；收益未达到预先阈值或安全退化时不推荐发布；全量与单轴结果不得混报。
 
-### R4 · Local Memory Graph（P1 · C3 后主线 · S1/S2 已完成）
+### R4 · Local Memory Graph（P1 · C3 后主线 · S1–S3 已完成）
 
 外部依据：A-MEM 主张将记忆组织为带上下文、关键词和链接的网络，并随新记忆产生关联；价值在于找到关联与冲突，而不只是扩大召回。[A-MEM](https://arxiv.org/abs/2502.12110)
 
@@ -86,7 +86,7 @@ Ruyi 已具备多 Agent DAG、角色/工具分级、可恢复的运行记录、�
 
 **验收**：换工作区不泄漏项目记忆；冲突项同时展示而不由模型静默裁决；拒绝的建议不再注入上下文；记忆链接和检索命中均有审计记录。
 
-**实现状态（2026-08-11）**：R4-S1（边存储 + 4 种关系 + scope 隔离 + 提议/确认分离 + 冲突感知检索，`8effffc`）与 R4-S2（gate 节点自动提议接线 + evidenceRef 内存内校验 + prompt 暴露记忆 id，`0b69856`）已完成并推送；设计稿见 `15-r4-memory-graph.md`（§1/§5/§8/§9 已同步）。剩余：R4-S3（记忆聚类/过期建议）。
+**实现状态（2026-08-11）**：R4-S1（边存储 + 4 种关系 + scope 隔离 + 提议/确认分离 + 冲突感知检索，`8effffc`）、R4-S2（gate 自动提议 + evidenceRef 内存内校验，`0b69856`）与 R4-S3（confirmed 图确定性聚类 + superseded / stale-isolated 的 review-only 建议 + 孤儿边提示）均已完成。S3 前置审查同时修复三条漏接：真实双引擎提示 conflict map、gate 子回合记忆索引、`GET /api/memory/relations` 声明式授权。设计与真实链路 e2e 见 `15-r4-memory-graph.md`。
 
 ### R5 · Replan Patch Ledger（P1 · C3 后主线）
 
@@ -108,7 +108,7 @@ Ruyi 已有 Mission、持久 DAG、loop/stall guard、retry、任务池与人工
 | C | M2 确定性结构节点 + R1 Evidence Graph | M1、M3 | Evidence refs 可校验；coverage/propagate 等结构判断不额外调用 LLM；旧模板零迁移 |
 | D（暂缓） | R2 Workflow Candidate Factory | C、已验收的可代表性 runs | 仅生成候选；来源、脱敏、回放与人工发布全链路可审计 |
 | E（暂缓） | R3 Champion–Challenger Lab | D、M4、固定 benchmark/holdout | 单轴与全量结果独立；变体、模型、配置、结果可重放 |
-| F（主线） | R4 Memory Graph（S1/S2 已完成）+ R5 Replan Patch Ledger | C；R3 可作为效果回流但非阻塞 | 关系/冲突/patch 都有来源、权限边界与拒绝路径 |
+| F（主线） | R4 Memory Graph（S1–S3 已完成）+ R5 Replan Patch Ledger | C；R3 可作为效果回流但非阻塞 | 关系/冲突/patch 都有来源、权限边界与拒绝路径 |
 
 阶段 C 的 M2 只引入通用、确定性的集合/传播计算；不把 MicroAgent 的 Java 依赖分析或 DDD 阶段硬编码进 Ruyi。阶段 D–F 每阶段都必须先有设计文档、威胁建模、fake e2e 和 M4 记录，再进入实现。
 

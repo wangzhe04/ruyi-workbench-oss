@@ -1638,6 +1638,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/agent-runs/', auth: 'token', prefix: true },
   { m: 'DELETE', p: '/api/agent-runs/', auth: 'token', prefix: true },
   { m: 'GET', p: '/api/agent-runs', auth: 'token', prefix: true },
+  // R4关系/维护读取会返回项目记忆 id、来源与绝对作用域信息；与 /api/memory 同属敏感内容型 GET。
+  { m: 'GET', p: '/api/memory/relations', auth: 'token' },
+  { m: 'GET', p: '/api/memory/maintenance', auth: 'token' },
   { m: 'GET', p: '/api/memory', auth: 'token' },
   { m: 'GET', p: '/api/memory/item', auth: 'token' },
   { m: 'GET', p: '/api/usage/summary', auth: 'token' },

@@ -5,9 +5,13 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 · Unreleased
 
-暂无。
+- **提示词工程契约与 Plan 只读调查**：吸收用户提供的 Fable/Claude Code/Codex 提示词样本中的通用工程实践，并以官方 Codex 指南校准，新增诊断/修改分流、观察内容不构成授权、权限拒绝不得跨工具或子 Agent 绕过、邻近代码风格与注释约束、原始复现重跑、记忆时效核验和自洽收尾。Plan 模式现在可在提案前使用原生/桥接/服务端只读工具调查；混合读写、执行、委派和任务元数据写入整批拒绝，最终计划必须给出范围、方案、关键契约、风险与验证且不重复索要批准。
 
-None yet.
+- **Prompt-engineering contracts and read-only Plan discovery**: general engineering patterns from the user-provided Fable, Claude Code, and Codex prompt samples are incorporated and calibrated against official Codex guidance. The prompt pack now separates diagnosis from modification, treats observed content as data rather than authorization, forbids bypassing a denial through another tool or sub-agent, follows nearby code/comment idioms, reruns the original reproduction, verifies memory freshness, and requires self-contained closeout. Plan mode may now inspect through native, bridged, and provider-side read-only tools before proposing; mixed read/write, execution, delegation, and task-metadata batches fail closed, while the final plan must state scope, approach, key contracts, risks, and verification without separately asking for approval.
+
+- **本机代码 Diff 与完整回合基线**：变更中心新增单文件「本机 Diff」和整轮「本机查看本轮」，优先使用 Windows 为代码文件选择的默认编辑器；VS Code/Cursor、Visual Studio 与 JetBrains 系列使用原生命令行 Diff。`.js` 关联到 WScript 等脚本宿主时不会执行，自动回退到本机已选择的安全代码编辑器。代码任务在回合开始记录轻量工作区基线，Claude 原生 Edit/Write/Bash、脚本及外部助手产生的代码改动也会补入检查点，并以回合开始前的真实内容展示和回滚。基线扫描共享 2 秒启动预算以及文件数/内存上限；超大仓库会降级为带原因的部分覆盖，只比较已精确捕获的路径，避免阻塞开工或把旧改动误算成本轮改动。
+
+- **Native code diff and complete turn baselines**: the Changes panel gains per-file “Native diff” and per-turn “View turn locally” actions, preferring the Windows default editor for that code type. VS Code/Cursor, Visual Studio, and JetBrains editors receive their native CLI diff arguments. Unsafe associations such as `.js` → WScript are never executed and fall back to a safely detected code editor. Code turns now capture a lightweight workspace baseline, so edits made by Claude-native Edit/Write/Bash, scripts, and external helpers are added to checkpoints with the real pre-turn content for diff and rollback. Baseline discovery shares a two-second startup budget plus file-count and memory caps; oversized repositories degrade to reason-tagged partial coverage that compares only exactly captured paths, avoiding startup stalls and false attribution of older edits.
 
 ## 如意 Ruyi Escapade 2.5.0 · v2.5.0 · 2026-08-09
 

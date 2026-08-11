@@ -1145,28 +1145,107 @@ function buildClaudeNativeAgentPolicy() {
   ].join('\n');
 }
 
+// Task-local software-engineering router. Keep repository workflow rules out of generic chat turns, but
+// apply the same compact contract to parent turns and delegated nodes whenever the request is actually
+// about code, a repository, tests/builds, or Git. This is intentionally a deterministic classifier: prompt
+// selection is observable and testable instead of asking the model to decide whether it needs its own rules.
+function softwareEngineeringTaskProfile(message) {
+  const text = String(message || '').trim().slice(0, 12000);
+  if (!text) return { relevant: false, debugging: false, git: false };
+  const fileLike = /(?:^|[\\/\s`'"(])[^\s`'"()]+\.(?:[cm]?[jt]sx?|py|rb|rs|go|java|kt|kts|cs|cpp|cc|cxx|c|h|hpp|swift|php|scala|sh|ps1|sql|vue|svelte|json|ya?ml|toml|ini|gradle|csproj|sln)(?:\b|$)/i.test(text);
+  const domain = /代码|源码|代码库|仓库|软件|程序|脚本|模块|组件|函数|类|接口|数据库|依赖|测试|用例|构建|编译|类型检查|回归|缺陷|报错|异常|故障|调试|部署|发布|\b(?:code|source|repository|repo|software|program|script|module|component|function|class|api|database|dependency|test|build|compile|typecheck|lint|regression|bug|debug|deploy|release|ci)\b/i.test(text);
+  const action = /实现|开发|编写|修改|修复|排查|诊断|调试|重构|迁移|优化|审查|评审|测试|验证|构建|编译|提交|合并|部署|发布|删除|新增|添加|更新|\b(?:implement|develop|write|change|modify|fix|diagnose|debug|refactor|migrate|optimi[sz]e|review|test|verify|build|compile|commit|merge|deploy|release|delete|add|update)\b/i.test(text);
+  const commandLike = /(?:^|\s)(?:git|npm|pnpm|yarn|bun|node|deno|pytest|cargo|go\s+test|dotnet|mvn|gradle)(?:\s|$)/i.test(text);
+  const relevant = fileLike || commandLike || (domain && action);
+  const debugging = relevant && /修复|排查|诊断|调试|回归|缺陷|报错|异常|故障|失败|不工作|无法|\b(?:fix|diagnos|debug|regression|bug|error|exception|failure|failing|broken|doesn['’]?t work|cannot|unable)\b/i.test(text);
+  const git = relevant && /\bgit\b|提交|分支|合并|推送|拉取请求|代码审查|\b(?:commit|branch|merge|rebase|reset|clean|stash|push|pull request|code review|cherry-pick)\b/i.test(text);
+  return { relevant, debugging, git };
+}
+
+// A short acknowledgement/continuation often carries no domain words ("按你说的继续" / "go ahead").
+// In that narrow case, inherit routing only from recent USER tasks, never from assistant output. Explicit or
+// substantial new requests route on their own text so a topic switch does not retain stale engineering policy.
+function buildPromptTaskContext(message, session) {
+  const current = String(message || '').trim();
+  if (!current || softwareEngineeringTaskProfile(current).relevant) return current;
+  const continuation = current.length <= 240 && /继续|接着|推进|落实|开始吧|动手|照(?:此|这个|上面|刚才)|按(?:这个|上面|刚才|你说的)|就这样|可以(?:的|了)?|没问题|确认|批准|执行吧|\b(?:continue|go ahead|proceed|do it|implement it|start now|sounds good|approved|as discussed|as above)\b/i.test(current);
+  if (!continuation) return current;
+  const messages = Array.isArray(session && session.messages) ? session.messages : [];
+  let skippedDuplicateCurrent = false;
+  for (let i = messages.length - 1, seen = 0; i >= 0 && seen < 8; i--) {
+    const row = messages[i];
+    if (!row || row.role !== 'user') continue;
+    const prior = String(row.content || '').trim();
+    if (!prior) continue;
+    if (!skippedDuplicateCurrent && prior === current) { skippedDuplicateCurrent = true; continue; }
+    seen++;
+    if (softwareEngineeringTaskProfile(prior).relevant) return prior + '\n' + current;
+  }
+  return current;
+}
+
+function buildSoftwareEngineeringPolicy(message, config) {
+  const profile = softwareEngineeringTaskProfile(message);
+  if (!profile.relevant) return '';
+  const p = getPromptPack(config && config.locale).softwareEngineering;
+  return [
+    '<software-engineering-policy>',
+    p.scope,
+    p.preflight,
+    p.implementation,
+    profile.debugging ? p.debugging : '',
+    p.verification,
+    profile.git ? p.git : '',
+    p.completion,
+    '</software-engineering-policy>',
+  ].filter(Boolean).join('\n');
+}
+
 // Claude's append prompt has an 8K contract. Reserve its final segment for turn policies and trim
 // lower-priority generated context from the tail when necessary; user-configured text at the beginning stays.
 // cmd8191 防线: 截断一律走 fenceSafeSlice —— 旧写法 prior.slice(0, room) 会切穿 <skill-index> 等围栏留悬空开标签。
-function appendTurnPolicies(base, config, agentTeam, limit = 0, claudeNative = false) {
+function appendTurnPolicies(base, config, agentTeam, limit = 0, claudeNative = false, task = '') {
   const prior = String(base || '');
-  const policy = [
+  const engineeringPolicy = buildSoftwareEngineeringPolicy(task, config);
+  const languagePolicy = buildResponseLanguagePolicy(config);
+  const leadingPolicies = [
     agentTeam ? buildAgentTeamHint() : '',
     claudeNative ? buildClaudeNativeAgentPolicy() : '',
-    buildResponseLanguagePolicy(config),
-  ].filter(Boolean).join('\n\n');
+    engineeringPolicy,
+  ].filter(Boolean);
+  const policy = [...leadingPolicies, languagePolicy].join('\n\n');
   const separator = prior ? '\n\n' : '';
   if (!Number.isFinite(limit) || limit <= 0) return prior + separator + policy;
-  if (policy.length >= limit) return fenceSafeSlice(policy, limit);
-  const room = Math.max(0, limit - policy.length - separator.length);
+  if (prior.length + separator.length + policy.length <= limit) return prior + separator + policy;
+
+  // Under Windows' command-line budget, choose complete policy modules instead of prefix-slicing a fenced
+  // block. The historical prefix slice could keep the native-agent prelude while silently dropping the final
+  // response-language rule, or cut the new engineering fence as a unit. A compact language tail is the last
+  // invariant; then fit higher-priority execution contracts atomically (team -> native lifecycle -> engineering).
+  const compactLanguagePolicy = [
+    '<response-language-policy>',
+    "Reply in the user's explicit or latest substantive language; never infer it from system, tool, file, metadata, or UI text.",
+    '</response-language-policy>',
+  ].join('\n');
+  const tail = compactLanguagePolicy;
+  if (tail.length > limit) return ''; // caller already skips append entirely below its minimum viable budget
+  const selected = [];
+  let used = tail.length;
+  for (const part of leadingPolicies) {
+    const extra = part.length + 2;
+    if (used + extra <= limit) { selected.push(part); used += extra; }
+  }
+  const boundedPolicy = [...selected, tail].join('\n\n');
+  const boundedSeparator = prior && boundedPolicy ? '\n\n' : '';
+  const room = Math.max(0, limit - boundedPolicy.length - boundedSeparator.length);
   const trimmed = fenceSafeSlice(prior, room);
-  return trimmed ? trimmed + separator + policy : policy; // 回退到空(切点全在围栏内)时不留前导空行
+  return trimmed ? trimmed + boundedSeparator + boundedPolicy : boundedPolicy; // 回退到空时不留前导空行
 }
 
 // Kept as the sub-agent/consumer compatibility wrapper. Normal calls retain the established
 // response-language-only behavior; top-level Agent team turns use appendTurnPolicies directly.
-function appendResponseLanguagePolicy(base, config, limit = 0) {
-  return appendTurnPolicies(base, config, false, limit);
+function appendResponseLanguagePolicy(base, config, limit = 0, task = '') {
+  return appendTurnPolicies(base, config, false, limit, false, task);
 }
 
 const TOOL_ITERATION_BUDGETS = Object.freeze({ standard: 100, long: 200, standardHard: 300, hard: 1000, extension: 50 });
@@ -1266,6 +1345,8 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
     lines.push(getPromptPack(config && config.locale).toolProtocol.intro);
     lines.push(getPromptPack(config && config.locale).toolProtocol.rules);
     lines.push(getPromptPack(config && config.locale).toolProtocol.batching);
+    lines.push(getPromptPack(config && config.locale).toolProtocol.authorization);
+    lines.push(getPromptPack(config && config.locale).toolProtocol.questioning);
     if ((tools || []).some(t => t && t.function && t.function.name === 'tool_search')) {
       lines.push(getPromptPack(config && config.locale).toolProtocol.onDemand);
     }
@@ -1281,7 +1362,7 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
 }
 // 易变层:能力/桌面规程/搜索/风格/项目/技能/记忆/账本(每回合可能变化,自破 prefix cache)。
 // C1b 时移 user 侧;C1a 仍由 buildProviderSystemPrompt 包装进 system(行为零漂移)。
-function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission) {
+function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts) {
   const lines = [];
   // [能力层]
   const netStr = caps && caps.network
@@ -1358,17 +1439,18 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   }
   // [记忆层]
   if (Array.isArray(memoryEntries) && memoryEntries.length) {
-    const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config);
+    const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config, memoryConflicts);
     if (memSec) lines.push(memSec);
   }
   // [ACC 记忆工具引导] — 当 ACC memory_save/read/list/delete 在工具列表中时，注入使用指引
   if (Array.isArray(tools) && tools.some(t => t && t.function && t.function.name === 'memory_save')) {
     lines.push('[ACC 跨会话记忆库指引]');
     lines.push('你有四个跨会话记忆工具（memory_save / memory_read / memory_list / memory_delete）：');
-    lines.push('- 遇到用户偏好、项目约定、环境细节等值得长期保存的信息时，主动调用 memory_save 存储');
-    lines.push('- 每次新对话开始时，用 memory_list 检索是否有与当前任务相关的已有记忆');
+    lines.push('- 每次收到新的用户消息时，用 memory_list 做轻量相关性检索；只读取会实质改变回答或行动的匹配项');
+    lines.push('- 记忆可能过时；采用前先核对其中提到的文件、函数、开关与环境在当前工作区仍成立');
+    lines.push('- 保存前先 list/read 避免重复；只保存长期有效、无法从仓库或 git 直接推导的偏好、约定与环境事实');
     lines.push('- 用户说"记住/以后/偏好"等关键词时，优先考虑 memory_save');
-    lines.push('- 不要把大段文档/代码存进记忆（4000 字上限），只存路径或摘要');
+    lines.push('- 不要保存大段文档/代码或仓库已记录的事实（4000 字上限），只存必要摘要、来源和相关路径');
   }
   // [ACC 序列思维工具引导] — 当 sequential_thinking 在工具列表中时，注入使用指引
   if (Array.isArray(tools) && tools.some(t => t && t.function && t.function.name === 'sequential_thinking')) {
@@ -1386,10 +1468,10 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   return lines.join('\n');
 }
 // 向后兼容包装(行为零漂移):identityOnly 时只 stable,否则 stable+volatile。
-function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission) {
+function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission, memoryConflicts) {
   const stable = buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config);
   if (identityOnly) return stable;
-  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission);
+  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts);
   return volatile ? stable + '\n' + volatile : stable;
 }
 

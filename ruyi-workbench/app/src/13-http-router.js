@@ -433,6 +433,20 @@ async function handleApi(req, res, pathname) {
     const r = await listMemoryRelations(cwd, scope, { includePending: sp.get('includePending') === 'true' });
     return send(res, json(r));
   }
+  // R4-S3 GET /api/memory/maintenance?cwd=&scope=&staleDays= -- 确定性聚类 + 过期复核建议。
+  // 只读且永不自动删/禁用；内容含项目记忆 id，ROUTE_AUTH + handler 双 token 门。
+  if (req.method === 'GET' && pathname === '/api/memory/maintenance') {
+    if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    const config = await readConfig();
+    const sp = new URL(req.url, 'http://x').searchParams;
+    const scope = sp.get('scope') === 'global' ? 'global' : 'project';
+    const cwdQ = sp.get('cwd') || '';
+    let cwd = normalizeCwd(config.defaultWorkspace, config.defaultWorkspace);
+    if (cwdQ) { const resolved = normalizeCwd(cwdQ, config.defaultWorkspace); if (pathWithinAnyRoot(path.resolve(resolved), fileAllowedRoots(null, config))) cwd = resolved; }
+    const r = await analyzeMemoryMaintenance(cwd, scope, { staleDays: sp.get('staleDays') });
+    try { appendUsageLedger({ engine: 'openai', kind: 'aux', note: 'memory-maintenance-scan', meta: { scope, clusters: r.stats.clusters, suggestions: r.stats.expirySuggestions } }); } catch { /* 审计失败不阻断只读分析 */ }
+    return send(res, json(r));
+  }
   // POST /api/memory/relations/propose {type,from,to,scope?,evidenceRef?,sourceRunId?,note?,cwd} -- 提议(confirmed:false)。
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/relations/propose') {
     const body = await readJsonBody(req);
@@ -751,6 +765,77 @@ async function handleApi(req, res, pathname) {
     }));
     const totalBytes = entries.reduce((s, e) => s + (Number(e.bytes) || 0), 0);
     return send(res, json({ ok: true, entries: enriched, totalBytes }));
+  }
+  // User-clicked handoff to the native editor selected by Windows for code files. POST body:
+  // {sessionId,turnSeq,entrySeq?,action:'diff'|'open'}. Omit entrySeq to open every distinct code-file diff
+  // in the turn (bounded to 12). Unlike office_open this never hands source files to an arbitrary association:
+  // resolvePreferredCodeEditor accepts only known editors/IDEs, preventing `.js` -> WScript execution.
+  if (req.method === 'POST' && pathname === '/api/checkpoints/open-external') {
+    if (process.platform !== 'win32') return send(res, apiFailure('editor.platform_unsupported', {}, '仅支持 Windows', 400));
+    const body = await readJsonBody(req);
+    const sessionId = safeSessionId(body && body.sessionId);
+    const turnSeq = Number(body && body.turnSeq);
+    const hasEntrySeq = body && body.entrySeq !== undefined && body.entrySeq !== null && body.entrySeq !== '';
+    const entrySeq = hasEntrySeq ? Number(body.entrySeq) : null;
+    const action = body && body.action === 'open' ? 'open' : 'diff';
+    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!Number.isInteger(turnSeq) || turnSeq < 0 || (hasEntrySeq && (!Number.isInteger(entrySeq) || entrySeq < 0))) {
+      return send(res, apiFailure('checkpoint.reference_invalid', {}, 'invalid turnSeq or entrySeq', 400));
+    }
+    if (action === 'open' && !hasEntrySeq) return send(res, apiFailure('checkpoint.reference_invalid', {}, 'entrySeq is required for open', 400));
+    const session = await loadSession(sessionId);
+    if (!session) return send(res, apiFailure('session.not_found', {}, 'session not found', 404));
+    const config = await readConfig();
+    const turnEntries = (await journalReadIndex(sessionId))
+      .filter(e => e && Number(e.turnSeq) === turnSeq)
+      .sort((a, b) => Number(a.entrySeq) - Number(b.entrySeq));
+    let targets = hasEntrySeq ? turnEntries.filter(e => Number(e.entrySeq) === entrySeq) : turnEntries;
+    if (!targets.length) return send(res, apiFailure('checkpoint.not_found', {}, 'entry not found', 404));
+    if (!hasEntrySeq) {
+      const earliestByPath = new Map();
+      for (const entry of targets) {
+        const key = workspaceBaselinePathKey(entry.path);
+        if (!earliestByPath.has(key)) earliestByPath.set(key, entry);
+      }
+      targets = [...earliestByPath.values()].slice(0, 12);
+    }
+    const opened = [], failed = [];
+    for (const entry of targets) {
+      const sourcePath = String(entry.path || '');
+      if (!workspaceBaselineIsCodePath(sourcePath)) { failed.push({ entrySeq: entry.entrySeq, reason: '不是支持的代码/文本文件' }); continue; }
+      const guard = await guardWorkspacePath(sourcePath, session, config);
+      if (!guard.ok) { failed.push({ entrySeq: entry.entrySeq, reason: guard.error }); continue; }
+      let exists = false;
+      try { exists = (await fsp.stat(guard.absPath)).isFile(); } catch { exists = false; }
+      if (entry.op !== 'delete' && !exists) { failed.push({ entrySeq: entry.entrySeq, reason: '当前文件不存在' }); continue; }
+      const editor = resolvePreferredCodeEditor(sourcePath);
+      if (!editor) { failed.push({ entrySeq: entry.entrySeq, reason: '未检测到安全的本机代码编辑器；请先为任一代码文件选择默认编辑器' }); continue; }
+      let spawnSpec;
+      if (action === 'open') {
+        if (entry.op === 'delete') { failed.push({ entrySeq: entry.entrySeq, reason: '文件已删除，请使用 Diff 查看删除前内容' }); continue; }
+        spawnSpec = buildCodeEditorSpawn(editor, 'open', '', guard.absPath);
+      } else {
+        const materialized = await materializeCheckpointEditorDiff(sessionId, entry, exists ? guard.absPath : '');
+        if (!materialized.ok) { failed.push({ entrySeq: entry.entrySeq, reason: materialized.error }); continue; }
+        spawnSpec = buildCodeEditorSpawn(editor, 'diff', materialized.beforePath, materialized.afterPath);
+        // Generic safe editors have no command-line diff contract. Keep the browser's internal diff as the
+        // comparison view and open the meaningful side in the native editor (before for a deletion).
+        if (spawnSpec.diffUnsupported) spawnSpec.args = [entry.op === 'delete' ? materialized.beforePath : materialized.afterPath];
+      }
+      if (!spawnSpec.ok || !await launchCodeEditor(spawnSpec)) {
+        failed.push({ entrySeq: entry.entrySeq, reason: spawnSpec.error || '无法启动本机编辑器' });
+        continue;
+      }
+      opened.push({ entrySeq: Number(entry.entrySeq), editor: spawnSpec.editor, mode: spawnSpec.mode,
+        source: spawnSpec.source, diffSupported: !spawnSpec.diffUnsupported });
+    }
+    if (!opened.length) {
+      const reason = failed[0] && failed[0].reason || '没有可打开的代码改动';
+      return send(res, apiFailure('editor.open_failed', { failed: failed.length }, reason, 409));
+    }
+    logEvent({ kind: 'checkpoint_external_open', sessionId, turnSeq, action, opened: opened.length,
+      failed: failed.length, editor: opened[0].editor, mode: opened[0].mode });
+    return send(res, json({ ok: true, action, opened, failed, limited: !hasEntrySeq && turnEntries.length > targets.length }));
   }
   // v1.4.1: 单条变更的「改动前↔现在」对比。GET /api/checkpoints/diff?sessionId=&turnSeq=&entrySeq=
   // before = 本地 .gz 快照(create 无);after = 当前磁盘文件(delete 无)。文本文件返回内容(前端渲染 diff),

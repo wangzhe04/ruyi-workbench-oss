@@ -302,6 +302,7 @@ button.ghost-danger:hover { background: var(--danger-veil); border-color: transp
 .change-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); overflow: hidden; }
 .change-card-head { display: flex; align-items: center; gap: 6px; padding: 6px 9px; background: var(--panel-2);
   border-bottom: 1px solid var(--line); }
+.change-round-actions { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
 .change-icon { flex: none; font-size: var(--fs-md); }
 .change-name { font-family: var(--mono); font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
@@ -327,7 +328,7 @@ button.ghost-danger:hover { background: var(--danger-veil); border-color: transp
 .change-skip { flex: none; margin-left: auto; font-size: var(--fs-xs); color: var(--muted); font-style: italic; }
 .change-round-title { font-weight: 700; font-size: var(--fs-md); color: var(--ink-2); }
 .change-round-count { font-size: var(--fs-xs); }
-.change-undo-all { margin-left: auto; }
+.change-undo-all { flex: none; }
 .ctx-pop-hint { font-size: var(--fs-xs); line-height: 1.55; margin: 2px 0 4px; }
 /* v1.4.1:「查看改动」链接式小按钮 + 改动前后 diff 预览 */
 .link-mini { background: none; border: 0; padding: 0; color: var(--accent); font-size: var(--fs-xs); cursor: pointer; text-decoration: underline; font-family: inherit; }

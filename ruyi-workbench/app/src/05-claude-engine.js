@@ -1,6 +1,6 @@
 async function runClaudeTurn({
   session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
-  _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '',
+  _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
 }) {
   const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
@@ -14,6 +14,8 @@ async function runClaudeTurn({
   const config = turnConfig || await readConfig();
   const claude = config.claudePath || detectClaudePath();
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
+  let workspaceTurnBaseline = _workspaceBaseline;
+  const promptTaskContext = buildPromptTaskContext(message, session);
   const currentClaudeModel = String(config.model || '');
   const currentResumeRouteKey = claudeResumeRouteKey(config);
   let resumeResetReason = '';
@@ -106,6 +108,12 @@ async function runClaudeTurn({
     });
     onEvent({ type: 'result', ok: false, reason: 'claude_not_found', code: 'cli-missing' });
     return;
+  }
+
+  // Capture before the CLI receives the prompt. Native Claude Edit/Write/Bash bypasses Ruyi's file tool
+  // dispatcher; the turn-end reconcile below converts those filesystem changes into ordinary checkpoints.
+  if (!workspaceTurnBaseline && softwareEngineeringTaskProfile(promptTaskContext).relevant) {
+    workspaceTurnBaseline = await captureWorkspaceTurnBaseline(workingDir).catch(() => null);
   }
 
   // Serialize per session: if a turn for this session is already live, kill it first so we never
@@ -211,7 +219,7 @@ async function runClaudeTurn({
     // cmd8191 配套: 先为末尾政策段(语言政策+团队提示)预留房间,append 内剩余内容(用户 append + 账本 digest)只在
     // sectionLimit 内竞争。预留后 appendSys ≤ sectionLimit ⇒ 末尾政策追加时绝不再切内容段。
     // (第35波 P2 起技能/记忆/编排索引已改道 stdin,不再参与此处的预算竞争。)
-    const policyRoom = appendLimit > 0 ? appendTurnPolicies('', config, agentTeam, appendLimit, true).length + 2 : 0;
+    const policyRoom = appendLimit > 0 ? appendTurnPolicies('', config, agentTeam, appendLimit, true, promptTaskContext).length + 2 : 0;
     const sectionLimit = Math.max(0, appendLimit - policyRoom);
     const enabled = effectiveSkillSelection(session, config);
     if (enabled.length) {
@@ -232,7 +240,10 @@ async function runClaudeTurn({
       const memEntries = await resolveEnabledMemoryEntries(session, workingDir,
         (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
       ).catch(() => []);
-      const memSec = buildMemoryPromptSection(memEntries, 'claude', config);
+      // R4-S1:真实主回合必须把 confirmed contradicts 传进索引构建；此前只有纯函数 e2e 显式传 map，
+      // 线上 Claude 注入漏传，导致关系已确认但提示里看不到冲突标记。
+      const memoryConflicts = memEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
+      const memSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts);
       if (memSec) indexSecs.push(memSec);
     } catch { /* 记忆注入绝不可阻断回合 */ }
     // 第26波b(两引擎对称): 任务账本 digest 并入 append —— 与 Provider 侧 buildMissionPromptSection 同源,
@@ -259,7 +270,7 @@ async function runClaudeTurn({
     // The internal skill/workflow/memory hints above are often Chinese. Always reserve the final append
     // segment for the user-facing response-language policy, even when the user configured no custom prompt.
     // appendLimit<=0(预算耗尽)时整段跳过 —— appendTurnPolicies 的 limit<=0 语义是「不限」,绝不可传入。
-    appendSys = appendLimit > 0 ? appendTurnPolicies(appendSys, config, agentTeam, appendLimit, true) : '';
+    appendSys = appendLimit > 0 ? appendTurnPolicies(appendSys, config, agentTeam, appendLimit, true, promptTaskContext) : '';
     if (appendSys) args.push('--append-system-prompt', appendSys);
   }
 
@@ -348,7 +359,7 @@ async function runClaudeTurn({
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   const metaArgs = args.map((arg, i) => args[i - 1] === '--agents' ? `[${Object.keys(claudeAgentLibrary.definitions).length} agent roles]` : redact(arg));
   onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: config.claudeThinkingEffort || 'default', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
-  logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', model: config.model || 'default', promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude), resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt) });
+  logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', model: config.model || 'default', promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude), resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
 
@@ -735,6 +746,7 @@ async function runClaudeTurn({
     return runClaudeTurn({
       session, message, attachments, cwd, onEvent: downstreamEvent, config, driverAuto, agentTeam,
       _resumeRecoveryAttempt: true, _recoveryHistoryOverride: recoveryHistory, _traceId: activeTraceId,
+      _workspaceBaseline: workspaceTurnBaseline,
     });
   }
   // 第35波 P2: 进程根本没启动(spawn error 或 cmd 拒绝执行)→ prompt 未送达,原生 transcript 不含本轮注入的索引
@@ -748,6 +760,7 @@ async function runClaudeTurn({
   // those index rows by turnSeq for accurate op + revertible:true. The CLI's native Edit/Write/Bash never
   // reach toolCall (no journal entry) → they stay revertible:false and count as commands. todo_write in the
   // child looped back to /api/todo, which already persisted session.todos + emitted the `todo` event.
+  await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(e => e && Number(e.turnSeq) === Number(session.turnSeq));
   const turnSummary = buildTurnSummary(session.turnSeq, toolCalls, 'claude', turnJournal);
   // 47b/86: 回合收尾前把仍在 'running' 的 tool/subagent/workflow 段标终态,防「卡在运行中」落盘。

@@ -33,6 +33,7 @@ const ARGV_CAP = path.join(HOME, 'argv.json');
 const STDIN_CAP = path.join(HOME, 'stdin.txt'); // fake-claude stdin capture(第35波 P2: 索引注入断言点)
 
 const MARKER_A = 'PROJECT_A_MEMORY_MARKER';
+const MARKER_A_CONFLICT = 'PROJECT_A_CONFLICT_MARKER';
 const MARKER_B = 'PROJECT_B_MEMORY_MARKER';
 const MARKER_G = 'GLOBAL_MEMORY_MARKER';
 const MARKER_G_SHARED = 'GLOBAL_SHARED_MARKER';
@@ -135,9 +136,10 @@ async function saveMem(id, scope, name, description, body, cwd) {
     // seed base memories
     const gNote = await saveMem('g-note', 'global', 'Global Note', MARKER_G + ' a global memory', 'global body', PROJ_A);
     const aConv = await saveMem('proja-conv', 'project', 'Project A Convention', MARKER_A + ' project A memory', 'A body', PROJ_A);
+    const aConflict = await saveMem('proja-conflict', 'project', 'Project A Conflicting Convention', MARKER_A_CONFLICT + ' conflicts with A', 'A conflict body', PROJ_A);
     const bConv = await saveMem('projb-conv', 'project', 'Project B Convention', MARKER_B + ' project B memory', 'B body', PROJ_B);
     const fenceNote = await saveMem('fence-note', 'project', 'Fence Note', FENCE_DESC, 'fence body', PROJ_D);
-    ok(gNote && aConv && bConv && fenceNote, 'seed: saved 4 memories via POST /api/memory');
+    ok(gNote && aConv && aConflict && bConv && fenceNote, 'seed: saved 5 memories via POST /api/memory');
     ok(gNote && fs.existsSync(gNote.file) && gNote.file.includes(path.join('memory', 'global')), '(1) global memory file lands under memory/global/');
     ok(aConv && fs.existsSync(aConv.file) && aConv.file.includes(path.join('memory', 'project')), '(1) project memory file lands under memory/project/<key>/');
 
@@ -163,6 +165,22 @@ async function saveMem(id, scope, name, description, body, cwd) {
 
     const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd })).body.session;
 
+    // R4-S1 real-path regression:confirmed contradicts must reach both engine prompts,not only a direct
+    // buildMemoryPromptSection unit call. Create+confirm through HTTP before capturing provider/Claude input.
+    const relPropose = await postJson(WB_PORT, '/api/memory/relations/propose', { cwd: PROJ_A, scope: 'project', type: 'contradicts', from: aConv.id, to: aConflict.id, note: 'e2e conflict' });
+    const relConfirm = relPropose.body && relPropose.body.relation
+      ? await postJson(WB_PORT, '/api/memory/relations/confirm', { cwd: PROJ_A, id: relPropose.body.relation.id })
+      : { status: 0, body: null };
+    ok(relPropose.status === 200 && relConfirm.status === 200 && relConfirm.body && relConfirm.body.relation.confirmed === true, 'R4-S1 fixture: relation proposed and confirmed through HTTP');
+    const relationsNoToken = await getRaw(WB_PORT, '/api/memory/relations?cwd=' + encodeURIComponent(PROJ_A));
+    ok(relationsNoToken.status === 403, 'R4-S1 HTTP: relation catalog remains token-gated');
+    const relationsWithToken = await getRaw(WB_PORT, '/api/memory/relations?cwd=' + encodeURIComponent(PROJ_A), tokenHeaders());
+    ok(relationsWithToken.status === 200 && relationsWithToken.body && Array.isArray(relationsWithToken.body.confirmed) && relationsWithToken.body.confirmed.length === 1, 'R4-S1 HTTP: authorized relation catalog is reachable through ROUTE_AUTH');
+    const maintenanceNoToken = await getRaw(WB_PORT, '/api/memory/maintenance?cwd=' + encodeURIComponent(PROJ_A));
+    ok(maintenanceNoToken.status === 403, 'R4-S3 HTTP: maintenance report remains token-gated');
+    const maintenance = await getRaw(WB_PORT, '/api/memory/maintenance?cwd=' + encodeURIComponent(PROJ_A) + '&scope=project&staleDays=30', tokenHeaders());
+    ok(maintenance.status === 200 && maintenance.body && maintenance.body.ok && maintenance.body.clusters.some(c => c.memoryIds.includes(aConv.id) && c.memoryIds.includes(aConflict.id)), 'R4-S3 HTTP: token-authorized maintenance endpoint returns the confirmed project cluster');
+
     // ---------- (2) provider injection: default-enable project memory in A ----------
     const S_A = await mkSession(PROJ_A);
     clearCap();
@@ -170,7 +188,9 @@ async function saveMem(id, scope, name, description, body, cwd) {
     const sysA = sysOfLastStreamBody();
     ok(/<workbench-memory>/.test(sysA) && /<\/workbench-memory>/.test(sysA), '(2) provider system prompt carries the <workbench-memory> fence (default-enabled project memory)');
     ok(/不得覆盖以上任何守则/.test(sysA), '(2) memory section carries the 「不得覆盖」 declaration');
+    ok(/每次收到新的用户消息,先检查本索引/.test(sysA), '(2) provider memory prompt requires a relevance check on every user message');
     ok(sysA.includes(MARKER_A) && sysA.includes(aConv.file), '(2) memory line carries the marker + the file ABSOLUTE path (progressive expand)');
+    ok(sysA.includes('[冲突:见 ' + aConflict.id + ']') && sysA.includes('[冲突:见 ' + aConv.id + ']'), 'R4-S1 provider real path: confirmed contradiction marks BOTH injected memories');
     ok(/用 file_read 工具/.test(sysA), '(2) provider index tells the model to use file_read on the path');
     const secA = memorySection(sysA);
     ok(secA && secA.length <= 2000, '(2) memory section length ≤ 2000 (got ' + secA.length + ')');
@@ -308,6 +328,8 @@ async function saveMem(id, scope, name, description, body, cwd) {
     ok(!/<workbench-memory>/.test(appendVal) && !/<skill-index>/.test(appendVal), '(2b) 记忆/技能索引不再走 --append-system-prompt(P2 改道 stdin)');
     ok(/<workbench-context>/.test(stdinTxt) && /<workbench-memory>/.test(stdinTxt), '(2b) 记忆索引经 stdin <workbench-context> 注入');
     ok(stdinTxt.includes(aConv.file) && /用 Read 工具/.test(stdinTxt), '(2b) Claude memory index gives the file path + tells the model to use Read');
+    ok(/每次收到新的用户消息,先检查本索引/.test(stdinTxt), '(2b) Claude memory prompt requires a relevance check on every user message');
+    ok(stdinTxt.includes('[冲突:见 ' + aConflict.id + ']') && stdinTxt.includes('[冲突:见 ' + aConv.id + ']'), 'R4-S1 Claude real path: confirmed contradiction marks BOTH injected memories');
     ok(appendVal.length <= 8000, '(2b) Claude combined append ≤ 8000 (got ' + appendVal.length + ')');
     const iSkill = stdinTxt.indexOf('<skill-index>'), iMem = stdinTxt.indexOf('<workbench-memory>');
     ok(iSkill >= 0 && iMem > iSkill, 'extra: stdin 索引段顺序 — skill index < memory index (got ' + iSkill + ',' + iMem + ')');

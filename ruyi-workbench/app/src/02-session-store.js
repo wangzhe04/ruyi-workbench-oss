@@ -2341,9 +2341,14 @@ async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, bef
     const entrySeq = index.filter(e => e && Number(e.turnSeq) === Number(turnSeq)).length; // per-turn autoincrement
     let bytes = 0, skipped = false;
     if (op !== 'create' && beforeContent != null) {
-      const buf = Buffer.isBuffer(beforeContent) ? beforeContent : Buffer.from(String(beforeContent), 'utf8');
-      bytes = buf.length;
-      if (bytes > JOURNAL_MAX_BEFORE_BYTES) {
+      // Workspace turn baselines may discover an oversized pre-change file without loading its bytes into
+      // memory. Preserve the real size and the honest non-revertible marker instead of fabricating a partial
+      // snapshot (ordinary tool callers continue to pass Buffer|string exactly as before).
+      const knownOversize = !Buffer.isBuffer(beforeContent) && typeof beforeContent === 'object'
+        && Number.isFinite(Number(beforeContent.skippedBytes)) && Number(beforeContent.skippedBytes) > JOURNAL_MAX_BEFORE_BYTES;
+      const buf = knownOversize ? null : (Buffer.isBuffer(beforeContent) ? beforeContent : Buffer.from(String(beforeContent), 'utf8'));
+      bytes = knownOversize ? Number(beforeContent.skippedBytes) : buf.length;
+      if (knownOversize || bytes > JOURNAL_MAX_BEFORE_BYTES) {
         // Too large to snapshot — record the entry as skipped (rollback of this entry will fail loudly).
         skipped = true;
       } else {
@@ -2364,6 +2369,259 @@ async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, bef
     // index entry simply isn't written, and the file operation runs as if the journal weren't there.
     return { ok: false, reason: 'journal_write_error' };
   }
+}
+
+// Turn-level workspace baseline. Ruyi native file tools checkpoint before every mutation, but Claude CLI's
+// own Edit/Write/Bash tools run in a separate process and do not pass through TOOL_DISPATCH. Capture the
+// workspace before a turn and reconcile it before turn_summary so those edits receive the same exact
+// before/current diff and rollback entry. Git workspaces avoid an O(repository bytes) snapshot: only paths
+// already dirty at turn start are copied; clean tracked files are reconstructed from the captured HEAD blob.
+// Non-Git folders fall back to a bounded source/text snapshot. This remains a safety net, never a turn gate.
+const WORKSPACE_BASELINE_EXTS = new Set([
+  'txt', 'log', 'md', 'markdown', 'rst', 'adoc', 'csv', 'tsv', 'json', 'jsonc', 'xml', 'yaml', 'yml',
+  'toml', 'ini', 'cfg', 'conf', 'editorconfig', 'js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx',
+  'py', 'pyi', 'rb', 'php', 'java', 'kt', 'kts', 'scala', 'groovy', 'go', 'rs', 'swift', 'dart', 'lua',
+  'c', 'h', 'cc', 'cpp', 'cxx', 'hpp', 'hxx', 'cs', 'fs', 'fsx', 'vb', 'sql', 'graphql', 'gql',
+  'css', 'scss', 'sass', 'less', 'html', 'htm', 'vue', 'svelte', 'astro', 'sh', 'bash', 'zsh', 'fish',
+  'ps1', 'psm1', 'bat', 'cmd', 'gradle', 'properties', 'tex', 'proto', 'cmake', 'dockerfile',
+]);
+const WORKSPACE_BASELINE_NAMES = new Set(['dockerfile', 'makefile', 'gnumakefile', 'rakefile', 'gemfile', 'procfile']);
+const WORKSPACE_BASELINE_SKIP_DIRS = new Set([
+  '.git', '.hg', '.svn', 'node_modules', 'vendor', 'dist', 'build', 'out', 'target', '.next', '.nuxt',
+  '.cache', '.turbo', 'coverage', '__pycache__', '.venv', 'venv', '.idea', '.vs', '.gradle',
+]);
+const WORKSPACE_BASELINE_MAX_FILES = 8000;
+const WORKSPACE_BASELINE_MAX_MEMORY = 40 * 1024 * 1024;
+// Turn startup must stay responsive even in very large monorepos. Git index scans and the non-Git tree
+// fallback share this wall-clock budget; once it expires, reconciliation is deliberately restricted to
+// paths whose "before" state was captured exactly (partial coverage is safer than false attribution).
+const WORKSPACE_BASELINE_DEFAULT_BUDGET_MS = 2000;
+
+function workspaceBaselineBudgetMs() {
+  const configured = Number(process.env.RUYI_WORKSPACE_BASELINE_BUDGET_MS);
+  return Number.isFinite(configured) && configured > 0
+    ? Math.max(250, Math.min(15000, Math.floor(configured)))
+    : WORKSPACE_BASELINE_DEFAULT_BUDGET_MS;
+}
+
+function workspaceBaselineRemainingMs(deadline, cap = 10000) {
+  return Math.max(0, Math.min(cap, Math.ceil(Number(deadline) - Date.now())));
+}
+
+function workspaceBaselineBudgetOnly(root, budgetMs, startedAt) {
+  return { kind: 'budget', root, truncated: true, truncatedReason: 'time_budget', capturedBytes: 0,
+    budgetMs, elapsedMs: Math.max(0, Date.now() - startedAt), capturedAt: nowIso() };
+}
+
+function workspaceBaselinePathKey(filePath) {
+  const resolved = path.resolve(String(filePath || ''));
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function workspaceBaselineIsCodePath(filePath) {
+  const base = path.basename(String(filePath || '')).toLowerCase();
+  if (WORKSPACE_BASELINE_NAMES.has(base)) return true;
+  const ext = path.extname(base).replace(/^\./, '');
+  return WORKSPACE_BASELINE_EXTS.has(ext);
+}
+
+async function workspaceBaselineFileSnapshot(filePath, memoryState) {
+  try {
+    const st = await fsp.lstat(filePath);
+    if (!st.isFile() || st.isSymbolicLink()) return { exists: false };
+    const row = { exists: true, size: st.size, mtimeMs: st.mtimeMs };
+    if (st.size > JOURNAL_MAX_BEFORE_BYTES || memoryState.bytes + st.size > WORKSPACE_BASELINE_MAX_MEMORY) {
+      return { ...row, skippedBytes: st.size };
+    }
+    const content = await fsp.readFile(filePath);
+    memoryState.bytes += content.length;
+    return { ...row, content };
+  } catch { return { exists: false }; }
+}
+
+function workspaceBaselineNulPaths(raw) {
+  return String(raw || '').split('\0').filter(Boolean);
+}
+
+function workspaceBaselineGitAbs(repoRoot, relativePath, scopeRoot) {
+  const abs = path.resolve(repoRoot, String(relativePath || '').replace(/\//g, path.sep));
+  return pathWithinRoot(abs, scopeRoot) && workspaceBaselineIsCodePath(abs) ? abs : '';
+}
+
+async function workspaceBaselineGitNames(repoRoot, head, deadline = Date.now() + 20000) {
+  const paths = [];
+  let truncated = false;
+  const collect = async args => {
+    const remaining = workspaceBaselineRemainingMs(deadline);
+    if (!remaining) { truncated = true; return; }
+    const result = await runGit(args, repoRoot, remaining);
+    if (!result.ok) { truncated = true; return; }
+    paths.push(...workspaceBaselineNulPaths(result.stdout));
+  };
+  await collect(['-C', repoRoot, 'diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--name-only', '-z', head, '--']);
+  await collect(['-C', repoRoot, 'ls-files', '--others', '--exclude-standard', '-z', '--']);
+  if (Date.now() >= deadline) truncated = true;
+  return { paths: [...new Set(paths)], truncated };
+}
+
+async function captureGitWorkspaceBaseline(scopeRoot, deadline) {
+  let remaining = workspaceBaselineRemainingMs(deadline, 5000);
+  if (!remaining) return null;
+  const repoProbe = await runGit(['-C', scopeRoot, 'rev-parse', '--show-toplevel'], scopeRoot, remaining);
+  if (!repoProbe.ok) return null;
+  const repoRoot = path.resolve(String(repoProbe.stdout || '').trim());
+  if (!repoRoot || !pathWithinRoot(scopeRoot, repoRoot)) return null;
+  remaining = workspaceBaselineRemainingMs(deadline, 5000);
+  if (!remaining) return null;
+  const headProbe = await runGit(['-C', repoRoot, 'rev-parse', 'HEAD'], repoRoot, remaining);
+  if (!headProbe.ok) return null; // unborn repository -> bounded tree fallback
+  const head = String(headProbe.stdout || '').trim();
+  if (!/^[a-f0-9]{40,64}$/i.test(head)) return null;
+  const dirty = new Map();
+  const memoryState = { bytes: 0 };
+  const names = await workspaceBaselineGitNames(repoRoot, head, deadline);
+  let truncated = names.truncated;
+  for (const rel of names.paths) {
+    if (Date.now() >= deadline) { truncated = true; break; }
+    const abs = workspaceBaselineGitAbs(repoRoot, rel, scopeRoot);
+    if (!abs) continue;
+    dirty.set(workspaceBaselinePathKey(abs), { path: abs, rel: String(rel).replace(/\\/g, '/'), snapshot: await workspaceBaselineFileSnapshot(abs, memoryState) });
+  }
+  return { kind: 'git', root: scopeRoot, repoRoot, head, dirty, truncated,
+    truncatedReason: truncated ? 'time_budget_or_git_scan' : '', capturedBytes: memoryState.bytes, capturedAt: nowIso() };
+}
+
+async function captureTreeWorkspaceBaseline(scopeRoot, deadline = Number.POSITIVE_INFINITY) {
+  const files = new Map();
+  const memoryState = { bytes: 0 };
+  const queue = [scopeRoot];
+  let visited = 0, truncated = false, truncatedReason = '';
+  while (queue.length && visited < WORKSPACE_BASELINE_MAX_FILES) {
+    if (Date.now() >= deadline) { truncated = true; truncatedReason = 'time_budget'; break; }
+    const dir = queue.shift();
+    const rows = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const row of rows) {
+      if (Date.now() >= deadline) { truncated = true; truncatedReason = 'time_budget'; break; }
+      if (visited >= WORKSPACE_BASELINE_MAX_FILES) { truncated = true; truncatedReason = 'file_limit'; break; }
+      const filePath = path.join(dir, row.name);
+      if (row.isSymbolicLink()) continue;
+      if (row.isDirectory()) {
+        if (!WORKSPACE_BASELINE_SKIP_DIRS.has(row.name.toLowerCase())) queue.push(filePath);
+        continue;
+      }
+      if (!row.isFile() || !workspaceBaselineIsCodePath(filePath)) continue;
+      visited += 1;
+      files.set(workspaceBaselinePathKey(filePath), { path: filePath, snapshot: await workspaceBaselineFileSnapshot(filePath, memoryState) });
+    }
+  }
+  if (queue.length && !truncated) { truncated = true; truncatedReason = 'file_limit'; }
+  return { kind: 'tree', root: scopeRoot, files, truncated, truncatedReason,
+    capturedBytes: memoryState.bytes, capturedAt: nowIso() };
+}
+
+async function captureWorkspaceTurnBaseline(cwd) {
+  const startedAt = Date.now();
+  const budgetMs = workspaceBaselineBudgetMs();
+  const deadline = startedAt + budgetMs;
+  try {
+    const root = path.resolve(String(cwd || ''));
+    const st = await fsp.stat(root);
+    if (!st.isDirectory()) return null;
+    if (Date.now() >= deadline) return workspaceBaselineBudgetOnly(root, budgetMs, startedAt);
+    const gitBaseline = await captureGitWorkspaceBaseline(root, deadline);
+    if (gitBaseline) return { ...gitBaseline, budgetMs, elapsedMs: Math.max(0, Date.now() - startedAt) };
+    if (Date.now() >= deadline) return workspaceBaselineBudgetOnly(root, budgetMs, startedAt);
+    // A session accidentally rooted at the drive or user-home level must not scan thousands of unrelated
+    // personal files. Git repositories are handled above; the bounded tree fallback is for actual projects.
+    const home = path.resolve(os.homedir());
+    if (root === path.parse(root).root || workspaceBaselinePathKey(root) === workspaceBaselinePathKey(home)) return null;
+    const treeBaseline = await captureTreeWorkspaceBaseline(root, deadline);
+    return { ...treeBaseline, budgetMs, elapsedMs: Math.max(0, Date.now() - startedAt) };
+  } catch { return null; }
+}
+
+async function workspaceBaselineGitBefore(baseline, absPath) {
+  const key = workspaceBaselinePathKey(absPath);
+  if (baseline.dirty.has(key)) return baseline.dirty.get(key).snapshot;
+  const rel = path.relative(baseline.repoRoot, absPath).replace(/\\/g, '/');
+  if (!rel || rel.startsWith('../') || path.isAbsolute(rel)) return { exists: false };
+  const blob = await runGit(['-C', baseline.repoRoot, 'show', `${baseline.head}:${rel}`], baseline.repoRoot, 10000);
+  if (!blob.ok) return { exists: false };
+  const content = Buffer.from(blob.stdout || '', 'utf8');
+  return content.length > JOURNAL_MAX_BEFORE_BYTES
+    ? { exists: true, size: content.length, skippedBytes: content.length }
+    : { exists: true, size: content.length, content };
+}
+
+function workspaceBaselineSnapshotsEqual(before, after) {
+  if (!!(before && before.exists) !== !!(after && after.exists)) return false;
+  if (!before || !before.exists) return true;
+  if (Buffer.isBuffer(before.content) && Buffer.isBuffer(after.content)) return before.content.equals(after.content);
+  return Number(before.size) === Number(after.size) && Number(before.mtimeMs) === Number(after.mtimeMs);
+}
+
+async function reconcileWorkspaceTurnBaseline(baseline, sessionId, turnSeq) {
+  if (!baseline || !sessionId || !Number.isFinite(Number(turnSeq))) return { recorded: 0, skipped: true };
+  try {
+    if (baseline.kind === 'budget') {
+      logEvent({ kind: 'turn_workspace_reconcile', sessionId, turnSeq: Number(turnSeq), baseline: baseline.kind,
+        recorded: 0, truncated: true, truncatedReason: baseline.truncatedReason, budgetMs: baseline.budgetMs,
+        elapsedMs: baseline.elapsedMs, capturedBytes: 0 });
+      return { recorded: 0, skipped: false, truncated: true, truncatedReason: baseline.truncatedReason };
+    }
+    const existing = (await journalReadIndex(sessionId))
+      .filter(e => e && Number(e.turnSeq) === Number(turnSeq) && e.path)
+      .map(e => workspaceBaselinePathKey(e.path));
+    const existingPaths = new Set(existing);
+    const candidates = new Map();
+    let reconcileTruncated = !!baseline.truncated;
+    let truncatedReason = baseline.truncatedReason || '';
+    if (baseline.kind === 'git') {
+      for (const row of baseline.dirty.values()) candidates.set(workspaceBaselinePathKey(row.path), row.path);
+      // A partial start scan cannot prove that an unseen path was clean before the turn. Only expand the
+      // candidate set when coverage was complete; otherwise keep the exact dirty snapshots already captured.
+      if (!baseline.truncated) {
+        const names = await workspaceBaselineGitNames(baseline.repoRoot, baseline.head);
+        if (names.truncated) { reconcileTruncated = true; truncatedReason = 'git_reconcile_scan'; }
+        for (const rel of names.paths) {
+          const abs = workspaceBaselineGitAbs(baseline.repoRoot, rel, baseline.root);
+          if (abs) candidates.set(workspaceBaselinePathKey(abs), abs);
+        }
+      }
+    } else {
+      for (const row of baseline.files.values()) candidates.set(workspaceBaselinePathKey(row.path), row.path);
+      const afterTree = await captureTreeWorkspaceBaseline(baseline.root);
+      baseline.afterTree = afterTree;
+      if (afterTree.truncated) { reconcileTruncated = true; truncatedReason = afterTree.truncatedReason || 'tree_reconcile_scan'; }
+      // As above, paths absent from a truncated start baseline have an unknown "before" state. Do not label
+      // them as creates. Captured paths remain safe to compare and retain useful partial coverage.
+      if (!baseline.truncated) {
+        for (const row of afterTree.files.values()) candidates.set(workspaceBaselinePathKey(row.path), row.path);
+      }
+    }
+    let recorded = 0;
+    for (const [key, filePath] of candidates) {
+      if (existingPaths.has(key) || !workspaceBaselineIsCodePath(filePath)) continue;
+      const before = baseline.kind === 'git'
+        ? await workspaceBaselineGitBefore(baseline, filePath)
+        : (baseline.files.get(key) || { snapshot: { exists: false } }).snapshot;
+      const after = baseline.kind === 'tree' && baseline.afterTree.files.has(key)
+        ? baseline.afterTree.files.get(key).snapshot
+        : await workspaceBaselineFileSnapshot(filePath, { bytes: 0 });
+      if (workspaceBaselineSnapshotsEqual(before, after)) continue;
+      const op = before.exists ? (after.exists ? 'modify' : 'delete') : 'create';
+      const beforeContent = op === 'create' ? null
+        : (Buffer.isBuffer(before.content) ? before.content : { skippedBytes: Number(before.skippedBytes || before.size || (JOURNAL_MAX_BEFORE_BYTES + 1)) });
+      const result = await journalRecord(sessionId, Number(turnSeq), 'turn_baseline', filePath, op, beforeContent);
+      if (result && result.ok) { recorded += 1; existingPaths.add(key); }
+    }
+    if (recorded || reconcileTruncated) {
+      logEvent({ kind: 'turn_workspace_reconcile', sessionId, turnSeq: Number(turnSeq), baseline: baseline.kind,
+        recorded, truncated: reconcileTruncated, truncatedReason, budgetMs: Number(baseline.budgetMs) || undefined,
+        elapsedMs: Number(baseline.elapsedMs) || undefined, capturedBytes: Number(baseline.capturedBytes) || 0 });
+    }
+    return { recorded, skipped: false, truncated: reconcileTruncated, truncatedReason };
+  } catch { return { recorded: 0, skipped: true }; }
 }
 
 // b3-P2: Drop the journal entries recorded for (turnSeq, tool, path∈paths) — used to roll back

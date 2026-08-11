@@ -423,6 +423,100 @@ function extractMemoryRelationProposals(structuredResult, run) {
   return out.slice(0, 20); // schema maxItems=20 兜底
 }
 
+// R4-S3:按单一 scope 的 confirmed 关系做确定性连通分量聚类，并给出「复核建议」而非自动过期。
+// 高优先级：confirmed `A supersedes B` -> 建议复核 B；低优先级：创建已久且没有任何 confirmed
+// 关系的孤立记忆 -> 建议复核。createdAt 年龄不等价于“未使用”，故绝不据此自动删/禁用。
+// opts.now 仅供确定性测试；staleDays 默认 180，边界 30..3650。
+async function analyzeMemoryMaintenance(cwd, scope, opts = {}) {
+  const sc = scope === 'global' ? 'global' : 'project';
+  const staleDays = Math.min(3650, Math.max(30, Math.round(Number(opts.staleDays) || 180)));
+  const parsedNow = opts.now instanceof Date ? opts.now.getTime() : Date.parse(String(opts.now || ''));
+  const nowMs = Number.isFinite(parsedNow) ? parsedNow : Date.now();
+  const dir = sc === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
+  const memories = await readMemoryDir(dir, sc);
+  const allRelations = await readMemoryRelations(sc, cwd);
+  const confirmed = allRelations.filter(r => r.confirmed === true);
+  const valid = confirmed.filter(r => memories.has(r.from) && memories.has(r.to));
+  const orphanedRelations = allRelations
+    .filter(r => !memories.has(r.from) || !memories.has(r.to))
+    .map(r => ({ id: r.id, type: r.type, from: r.from, to: r.to, confirmed: r.confirmed === true,
+      missing: [!memories.has(r.from) ? r.from : '', !memories.has(r.to) ? r.to : ''].filter(Boolean) }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  // 聚类把 4 种 confirmed 关系都视为“相关”无向边；方向与语义仍保留在 relationTypes/关系存储中。
+  // pending 不参与，防模型自提议边改变聚类/过期判断。
+  const adjacency = new Map();
+  const edgeIdsByMemory = new Map();
+  const add = (map, key, value) => { if (!map.has(key)) map.set(key, new Set()); map.get(key).add(value); };
+  for (const r of valid) {
+    add(adjacency, r.from, r.to); add(adjacency, r.to, r.from);
+    add(edgeIdsByMemory, r.from, r.id); add(edgeIdsByMemory, r.to, r.id);
+  }
+  const visited = new Set();
+  const clusters = [];
+  for (const start of [...adjacency.keys()].sort()) {
+    if (visited.has(start)) continue;
+    const stack = [start], ids = [], relationIds = new Set();
+    while (stack.length) {
+      const id = stack.pop();
+      if (visited.has(id)) continue;
+      visited.add(id); ids.push(id);
+      for (const relId of (edgeIdsByMemory.get(id) || [])) relationIds.add(relId);
+      for (const peer of (adjacency.get(id) || [])) if (!visited.has(peer)) stack.push(peer);
+    }
+    ids.sort();
+    if (ids.length < 2) continue;
+    const rels = valid.filter(r => relationIds.has(r.id));
+    const dates = ids.map(id => Date.parse(String(memories.get(id).createdAt || ''))).filter(Number.isFinite).sort((a, b) => a - b);
+    clusters.push({
+      id: 'cluster-' + crypto.createHash('sha256').update(sc + '\0' + ids.join('\0')).digest('hex').slice(0, 12),
+      memoryIds: ids,
+      relationIds: [...relationIds].sort(),
+      relationTypes: [...new Set(rels.map(r => r.type))].sort(),
+      size: ids.length,
+      conflictCount: rels.filter(r => r.type === 'contradicts').length,
+      oldestAt: dates.length ? new Date(dates[0]).toISOString() : '',
+      newestAt: dates.length ? new Date(dates[dates.length - 1]).toISOString() : '',
+    });
+  }
+  clusters.sort((a, b) => b.size - a.size || a.id.localeCompare(b.id));
+
+  const replacementByTarget = new Map();
+  const supersedeRelationsByTarget = new Map();
+  for (const r of valid) if (r.type === 'supersedes') {
+    add(replacementByTarget, r.to, r.from);
+    add(supersedeRelationsByTarget, r.to, r.id);
+  }
+  const ageDaysOf = memory => {
+    const created = Date.parse(String(memory && memory.createdAt || ''));
+    return Number.isFinite(created) ? Math.max(0, Math.floor((nowMs - created) / 86400000)) : null;
+  };
+  const expirySuggestions = [];
+  for (const [id, memory] of [...memories.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const ageDays = ageDaysOf(memory);
+    let reason = '', priority = '', replacements = [], relationIds = [];
+    if (replacementByTarget.has(id)) {
+      reason = 'superseded'; priority = 'high';
+      replacements = [...replacementByTarget.get(id)].sort();
+      relationIds = [...supersedeRelationsByTarget.get(id)].sort();
+    } else if (ageDays != null && ageDays >= staleDays && !adjacency.has(id)) {
+      reason = 'stale_isolated'; priority = 'low';
+    } else continue;
+    expirySuggestions.push({
+      id: 'suggestion-' + crypto.createHash('sha256').update(sc + '\0' + id + '\0' + reason + '\0' + replacements.join('\0')).digest('hex').slice(0, 12),
+      memoryId: id, name: memory.name, reason, priority, action: 'review', ageDays,
+      replacementMemoryIds: replacements, relationIds, autoApplied: false,
+    });
+  }
+  expirySuggestions.sort((a, b) => (a.priority === b.priority ? a.memoryId.localeCompare(b.memoryId) : (a.priority === 'high' ? -1 : 1)));
+  return {
+    ok: true, scope: sc, staleDays, generatedAt: new Date(nowMs).toISOString(),
+    stats: { memories: memories.size, confirmedRelations: confirmed.length, pendingRelations: allRelations.length - confirmed.length,
+      clusters: clusters.length, expirySuggestions: expirySuggestions.length, orphanedRelations: orphanedRelations.length },
+    clusters, expirySuggestions, orphanedRelations,
+  };
+}
+
 // 第26波b: buildMissionPromptSection(mission, engine) —— <mission-ledger> 围栏,注入目标/里程碑进度/约束,
 // 让模型每回合都知道「整体目标是什么、还差哪几步」。fits-or-drop 语义(≤1200,超则整段丢,防截断毁闭合围栏);
 // 伪造围栏中和(同 memory/skill fence);内容为「当前任务状态」参考,不得覆盖守则。两引擎共用(对称)。
@@ -2263,7 +2357,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
   if (turnBudget > 0) args.push('--max-turns', String(Math.min(300, Math.round(turnBudget))));
   // DAG subagents do not inherit the main turn's append prompt, so give them the same final language rule.
-  args.push('--append-system-prompt', buildResponseLanguagePolicy(config));
+  args.push('--append-system-prompt', appendResponseLanguagePolicy('', config, 0, task));
   if (cwd) args.push('--add-dir', cwd);
   // 第28波(§28a):Claude 引擎【不适用】服务端子代理压缩(maybeCompactSubHistory)—— claude CLI 自管上下文窗口与压缩,
   // 服务端一次性 spawn 后只累积 assistantText/resultText 求聚合结果,不持有可压缩的 history 数组。与上文桥接分级不对称同源

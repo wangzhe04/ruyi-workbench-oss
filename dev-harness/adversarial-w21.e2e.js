@@ -25,7 +25,7 @@ function cutBlock(src, startAnchor, endAnchor, what) {
 
 // ---- 抽取 server.js 纯函数 ----
 const serverSrc = readServerSource();
-const blockA = cutBlock(serverSrc, 'const QUALITY_GATE_OUTPUT_SCHEMA', 'const BUILTIN_AGENT_WORKFLOWS', 'judge fns');
+const blockA = cutBlock(serverSrc, 'const EVIDENCE_REFS_MAX_ITEMS', 'const BUILTIN_AGENT_WORKFLOWS', 'judge fns');
 const blockB = cutBlock(serverSrc, 'function normalizeWorkflowCondition(', 'function projectAgentWorkflowsFile(', 'normalize fns');
 const S = {};
 new Function('exports', blockA + '\n' + blockB + '\nexports.parseStructuredAgentOutput=parseStructuredAgentOutput;exports.repairJson=repairJson;exports.structuredJsonCandidates=structuredJsonCandidates;exports.balancedJsonSpan=balancedJsonSpan;exports.normalizeAgentGate=normalizeAgentGate;exports.normalizeAgentWorkflow=normalizeAgentWorkflow;exports.verdictPasses=verdictPasses;')(S);
