@@ -834,6 +834,20 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       } catch (e) {
         node.evidenceWarning = 'R1 证据索引/校验异常(已降级,不影响节点结果): ' + String((e && e.message) || e).slice(0, 300);
       }
+      // R4-S2(15-r4-memory-graph.md §9): gate 节点结构化输出里的 memoryRelations 提议 -> 落盘为 pending 边。
+      // 在 R1 证据索引之后(run.evidence 已就绪),把 run.evidence 作为 catalog 传给 proposeMemoryRelation 做
+      // 内存内 evidenceRef 校验(命中 -> evidenceRefVerified:true)。模型只提议(confirmed:false),用户确认。
+      // 防御式:from/to 不存在或异常都不翻转节点结果,仅跳过该提议。
+      try {
+        if (node.structuredResult && node.gate && Array.isArray(node.structuredResult.memoryRelations) && node.structuredResult.memoryRelations.length) {
+          const props = extractMemoryRelationProposals(node.structuredResult, run);
+          for (const p of props) {
+            try { await proposeMemoryRelation(p, run.cwd, { evidenceCatalog: run.evidence }); } catch { /* 提议失败不阻断节点 */ }
+          }
+        }
+      } catch (e) {
+        node.memoryRelationWarning = 'R4 记忆关系提议异常(已降级): ' + String((e && e.message) || e).slice(0, 300);
+      }
       // 第28波(§28d):降级下游策略。degraded=true(目前仅 Claude CLI 出可用输出但异常退出)的成功节点,按 node.degradedPolicy
       // 处置——置于 gate/schema 判定之后、loop/failurePolicy/settle 之前;置 failed/queued 后由既有块靠 status 守卫自动接管,
       // 不重复逻辑。accept(默认)= 保持今天行为(零回归)。

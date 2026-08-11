@@ -295,6 +295,7 @@ module.exports = {
   confirmMemoryRelation,
   deleteMemoryRelation,
   buildMemoryConflictMap,
+  extractMemoryRelationProposals,
   normalizeAgentWorkflow,
   resolveAgentTeamRoute,
   getAgentWorkflows,

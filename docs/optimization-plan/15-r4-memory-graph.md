@@ -7,8 +7,9 @@
 
 给已确认的工作台记忆加一层**关系边**，使检索能呈现冲突与来源，而不是把整库平铺注入。
 
-**R4-S1（本切片，可提交）**：边存储 + 4 种关系 + scope 隔离 + 提议/确认分离 + 冲突感知检索 + 审计。
-**不在本切片**：模型自动提议边的运行时接线（R4-S2）、记忆聚类/过期建议（R4-S3）、R5 重规划。
+**R4-S1（已完成）**：边存储 + 4 种关系 + scope 隔离 + 提议/确认分离 + 冲突感知检索 + 审计。
+**R4-S2（已完成）**：模型自动提议接线（gate 节点结构化输出 `memoryRelations` → pending 边）+ evidenceRef 内存内校验（`run.evidence` 作 catalog，命中 → `evidenceRefVerified:true`）+ prompt section 暴露记忆 id。
+**不在本切片**：记忆聚类/过期建议（R4-S3）、R5 重规划。
 
 ## 2. 数据模型
 
@@ -76,7 +77,7 @@
 | 2 | silent supersedes | 模型标 `A supersedes B` 让 B 静默失效 | confirmed:false 默认；confirmed 也不删 B，仅标记；删除走人工 |
 | 3 | id 路径穿越 | relation id 含 `../` 用于文件路径 | id 过 SKILL_ID_RE（`[A-Za-z0-9_-]{1,64}`）；from/to 同样过 |
 | 4 | 边膨胀 | 模型 spam 提议耗尽存储 | per-scope 512 上限；超限拒绝新提议并返回现有 pending 数 |
-| 5 | evidenceRef 伪造 | 模型 cite 不存在的 eventId 装饰边 | evidenceRef 可选；提供时记 `evidenceRefVerified:false`（本切片不跨 run 校验，仅存档）；M4 记录此限制 |
+| 5 | evidenceRef 伪造 | 模型 cite 不存在的 eventId 装饰边 | evidenceRef 可选；自动提议路径传 `run.evidence` 作 catalog，命中真实 eventId 才置 `evidenceRefVerified:true`（R4-S2）；API 手动提议仍记 `false` 仅存档 |
 | 6 | pending 注入 | 未确认边影响检索/压制记忆 | pending 不进 prompt section 与 conflict map |
 | 7 | 确认时偷换 | confirm 调用改 type/from/to | confirm 只置 confirmed=true，其余字段忽略 |
 | 8 | 跨工作区读 | A 项目的边出现在 B 项目 | 按 projectKey 隔离的独立文件；list 带 cwd |
@@ -101,9 +102,11 @@
 ## 8. 测试计划
 
 - `dev-harness/memory-graph-relations.e2e.js`：纯函数驱动（对齐 m4-benchmark 模式），覆盖验收 1-7 + 对抗边界。
+- `dev-harness/memory-graph-auto-proposal.e2e.js`（R4-S2）：`extractMemoryRelationProposals` 提取与对抗过滤、`proposeMemoryRelation` 的 catalog 校验、端到端自动提议落盘 pending、向后兼容。
 - 既有 `workbench-memory.e2e.js` 须保持绿（检索增强向后兼容：无边时行为不变）。
 
 ## 9. 已知限制（M4 记录）
 
-- evidenceRef 不跨 run 校验：本切片只存储不验证 eventId 真实性（验证需读对应 run 的 evidence catalog，跨 run 耦合大，留 R4-S2）。
-- 模型自动提议未接线：当前 propose 仅 API 可调，运行时未在节点输出中自动提取关系（R4-S2）。
+- ~~evidenceRef 不跨 run 校验~~：R4-S2 已实现内存内校验——自动提议路径传 `run.evidence` 作 catalog，命中真实 eventId 才置 `evidenceRefVerified:true`；API 手动提议仍为 `false`（仅存档，提示用户手动核验）。
+- ~~模型自动提议未接线~~：R4-S2 已在 `09-workflow.js` 节点收尾（R1 证据索引之后）接线——gate 节点结构化输出含 `memoryRelations` 时自动提取并 `proposeMemoryRelation(confirmed:false)`；from/to 不存在或异常仅跳过该提议，不翻转节点结果。
+- 剩余限制：API 手动提议的 evidenceRef 不校验（无 catalog 上下文）；边确认仍须用户操作（模型只提议，符合红线）。

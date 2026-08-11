@@ -250,7 +250,7 @@ function buildMemoryPromptSection(entries, engine, config, conflicts) {
   for (const m of mems) {
     const desc = fence(String(m.description || '').replace(/\s+/g, ' ').trim().slice(0, 160));
     const name = fence(String(m.name || m.id));
-    let line = '- ' + name + '(' + m.file + '):' + desc;
+    let line = '- ' + name + ' [' + m.id + '](' + m.file + '):' + desc;
     if (conflictMap && conflictMap.has(m.id)) {
       const peers = [...conflictMap.get(m.id)].slice(0, 4).join(',');
       line += ' [冲突:见 ' + peers + ']';
@@ -311,7 +311,7 @@ async function listMemoryRelations(cwd, scope, opts = {}) {
 
 // proposeMemoryRelation(rel, cwd) -> 创建 confirmed:false 边(模型可调)。校验:type 合法、from!=to、
 // from/to 同 scope 内已存在、未超 per-scope 上限、无重复(from+to+type 已存在的 confirmed 不再重复提议)。
-async function proposeMemoryRelation(rel, cwd) {
+async function proposeMemoryRelation(rel, cwd, opts = {}) {
   const r = (rel && typeof rel === 'object') ? rel : {};
   const type = String(r.type || '');
   if (!MEMORY_RELATION_TYPES.has(type)) return { ok: false, error: '无效的关系类型(仅 supports/contradicts/supersedes/derived_from)' };
@@ -329,10 +329,16 @@ async function proposeMemoryRelation(rel, cwd) {
   const dup = all.find(x => x.from === from && x.to === to && x.type === type);
   if (dup) return { ok: false, error: dup.confirmed ? '同形关系已确认,无需重复' : '同形关系已处于 pending', relation: dup };
   const id = 'rel-' + crypto.randomBytes(4).toString('hex');
+  const evidenceRefRaw = SKILL_ID_RE.test(String(r.evidenceRef || '')) ? String(r.evidenceRef).slice(0, 256) : '';
+  // R4-S2: 自动提议路径传 opts.evidenceCatalog(= run.evidence)时,校验 evidenceRef 是否为该 run 真实 eventId。
+  // API 手动提议无 catalog -> evidenceRefVerified=false(仅存档,见设计稿 §9)。
+  const evidenceRefVerified = evidenceRefRaw && Array.isArray(opts && opts.evidenceCatalog)
+    ? opts.evidenceCatalog.some(e => e && e.eventId === evidenceRefRaw)
+    : false;
   const entry = {
     id, type, from, to, scope,
-    evidenceRef: SKILL_ID_RE.test(String(r.evidenceRef || '')) ? String(r.evidenceRef).slice(0, 256) : '',
-    evidenceRefVerified: false, // 本切片不跨 run 校验(见设计稿 §9);仅存档
+    evidenceRef: evidenceRefRaw,
+    evidenceRefVerified,
     confirmed: false,
     createdAt: nowIso(),
     sourceRunId: fmVal(String(r.sourceRunId || '')).slice(0, 120),
@@ -388,6 +394,33 @@ async function buildMemoryConflictMap(cwd) {
     }
   }
   return map;
+}
+
+// extractMemoryRelationProposals(structuredResult, run) -> 纯函数:从 gate 节点结构化输出提取记忆关系提议。
+// 只做提取+基础过滤(type 合法、from/to 合法 id、from!=to);不落盘、不校验记忆是否存在(由 proposeMemoryRelation 负责)。
+// 返回 [{type, from, to, evidenceRef, note, sourceRunId, scope}](scope 默认 project;sourceRunId 取 run.id)。
+// 09-workflow 节点收尾时调用,逐项 proposeMemoryRelation(confirmed:false),用户后续确认。
+function extractMemoryRelationProposals(structuredResult, run) {
+  const sr = (structuredResult && typeof structuredResult === 'object') ? structuredResult : null;
+  const raw = Array.isArray(sr && sr.memoryRelations) ? sr.memoryRelations : [];
+  const runId = (run && typeof run.id === 'string') ? run.id : '';
+  const out = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const type = String(item.type || '');
+    if (!MEMORY_RELATION_TYPES.has(type)) continue;
+    const from = String(item.from || '').trim();
+    const to = String(item.to || '').trim();
+    if (!SKILL_ID_RE.test(from) || !SKILL_ID_RE.test(to) || from === to) continue;
+    const evidenceRef = SKILL_ID_RE.test(String(item.evidenceRef || '')) ? String(item.evidenceRef).slice(0, 256) : '';
+    out.push({
+      type, from, to, evidenceRef,
+      note: fmVal(String(item.note || '')).slice(0, 200),
+      sourceRunId: runId,
+      scope: 'project',
+    });
+  }
+  return out.slice(0, 20); // schema maxItems=20 兜底
 }
 
 // 第26波b: buildMissionPromptSection(mission, engine) —— <mission-ledger> 围栏,注入目标/里程碑进度/约束,

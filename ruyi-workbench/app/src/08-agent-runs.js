@@ -1038,6 +1038,24 @@ const QUALITY_GATE_OUTPUT_SCHEMA = Object.freeze({
         unhandled: { type: 'array', items: { type: 'string' } },
       },
     },
+    // R4-S2(15-r4-memory-graph.md §9): gate 节点可在结构化输出里提议记忆关系(写入时 confirmed:false,
+    // 用户确认)。可选字段--不输出 memoryRelations 的存量 gate 节点不受影响。模型只提议,不写确认。
+    memoryRelations: {
+      type: 'array',
+      maxItems: 20,
+      description: '可选:提议本会话工作台记忆索引中已存在记忆之间的关系(supports/contradicts/supersedes/derived_from)。from/to 须为索引中出现的记忆 id;evidenceRef 引用本节点可见 Evidence Catalog 的 eventId。仅提议,用户确认后生效。',
+      items: {
+        type: 'object',
+        required: ['type', 'from', 'to'],
+        properties: {
+          type: { type: 'string', enum: ['supports', 'contradicts', 'supersedes', 'derived_from'] },
+          from: { type: 'string', minLength: 1, maxLength: 64 },
+          to: { type: 'string', minLength: 1, maxLength: 64 },
+          evidenceRef: { type: 'string', minLength: 1, maxLength: 256 },
+          note: { type: 'string', maxLength: 200 },
+        },
+      },
+    },
   },
 });
 function sanitizeAgentOutputSchema(raw) {

@@ -1,6 +1,6 @@
 # 12 · Agent 架构研究补充路线 — 从证据到学习闭环
 
-> **当前进度（2026-08-11）**：阶段 C 全部完成——C1（Evidence Graph 证据目录 prompt 注入与 `evidenceRefs` 输出契约）、C2（M2/R1 确定性 gap 证据衔接）、C3（内置模板高风险门回填 `requireEvidence` + M4 固定 benchmark/holdout 回测，漏项率 0、伪造检出率 100%）。R2/R3 按当前产品优先级暂缓，主线进入 R4/R5。R4-S1 已落地（记忆关系边 `supports/contradicts/supersedes/derived_from` + 提议/确认分离 + 冲突感知检索，设计稿 `15-r4-memory-graph.md`，27 断言 e2e 全绿）；R4-S2（模型自动提议接线）/R5 待推进。
+> **当前进度（2026-08-11）**：阶段 C 全部完成——C1（Evidence Graph 证据目录 prompt 注入与 `evidenceRefs` 输出契约）、C2（M2/R1 确定性 gap 证据衔接）、C3（内置模板高风险门回填 `requireEvidence` + M4 固定 benchmark/holdout 回测，漏项率 0、伪造检出率 100%）。R2/R3 按当前产品优先级暂缓，主线进入 R4/R5。R4-S1（记忆关系边 `supports/contradicts/supersedes/derived_from` + 提议/确认分离 + 冲突感知检索）与 R4-S2（gate 节点自动提议接线 + evidenceRef 内存内校验 + prompt 暴露记忆 id）均已落地，设计稿 `15-r4-memory-graph.md`，e2e 全绿；R4-S3（记忆聚类/过期建议）/R5 待推进。
 
 > 关联：`06-hb360-cost-convergence.md`、`07-microagent-lessons.md`（M1–M6）、`09-m3-coverage-gate.md`、`10-m4-ablation.md`。立项日期：2026-08-10。性质：**路线规划，不代表已实现或自动启用**。
 

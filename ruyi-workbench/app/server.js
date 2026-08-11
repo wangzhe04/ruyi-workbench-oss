@@ -10885,7 +10885,7 @@ function buildMemoryPromptSection(entries, engine, config, conflicts) {
   for (const m of mems) {
     const desc = fence(String(m.description || '').replace(/\s+/g, ' ').trim().slice(0, 160));
     const name = fence(String(m.name || m.id));
-    let line = '- ' + name + '(' + m.file + '):' + desc;
+    let line = '- ' + name + ' [' + m.id + '](' + m.file + '):' + desc;
     if (conflictMap && conflictMap.has(m.id)) {
       const peers = [...conflictMap.get(m.id)].slice(0, 4).join(',');
       line += ' [冲突:见 ' + peers + ']';
@@ -10946,7 +10946,7 @@ async function listMemoryRelations(cwd, scope, opts = {}) {
 
 // proposeMemoryRelation(rel, cwd) -> 创建 confirmed:false 边(模型可调)。校验:type 合法、from!=to、
 // from/to 同 scope 内已存在、未超 per-scope 上限、无重复(from+to+type 已存在的 confirmed 不再重复提议)。
-async function proposeMemoryRelation(rel, cwd) {
+async function proposeMemoryRelation(rel, cwd, opts = {}) {
   const r = (rel && typeof rel === 'object') ? rel : {};
   const type = String(r.type || '');
   if (!MEMORY_RELATION_TYPES.has(type)) return { ok: false, error: '无效的关系类型(仅 supports/contradicts/supersedes/derived_from)' };
@@ -10964,10 +10964,16 @@ async function proposeMemoryRelation(rel, cwd) {
   const dup = all.find(x => x.from === from && x.to === to && x.type === type);
   if (dup) return { ok: false, error: dup.confirmed ? '同形关系已确认,无需重复' : '同形关系已处于 pending', relation: dup };
   const id = 'rel-' + crypto.randomBytes(4).toString('hex');
+  const evidenceRefRaw = SKILL_ID_RE.test(String(r.evidenceRef || '')) ? String(r.evidenceRef).slice(0, 256) : '';
+  // R4-S2: 自动提议路径传 opts.evidenceCatalog(= run.evidence)时,校验 evidenceRef 是否为该 run 真实 eventId。
+  // API 手动提议无 catalog -> evidenceRefVerified=false(仅存档,见设计稿 §9)。
+  const evidenceRefVerified = evidenceRefRaw && Array.isArray(opts && opts.evidenceCatalog)
+    ? opts.evidenceCatalog.some(e => e && e.eventId === evidenceRefRaw)
+    : false;
   const entry = {
     id, type, from, to, scope,
-    evidenceRef: SKILL_ID_RE.test(String(r.evidenceRef || '')) ? String(r.evidenceRef).slice(0, 256) : '',
-    evidenceRefVerified: false, // 本切片不跨 run 校验(见设计稿 §9);仅存档
+    evidenceRef: evidenceRefRaw,
+    evidenceRefVerified,
     confirmed: false,
     createdAt: nowIso(),
     sourceRunId: fmVal(String(r.sourceRunId || '')).slice(0, 120),
@@ -11023,6 +11029,33 @@ async function buildMemoryConflictMap(cwd) {
     }
   }
   return map;
+}
+
+// extractMemoryRelationProposals(structuredResult, run) -> 纯函数:从 gate 节点结构化输出提取记忆关系提议。
+// 只做提取+基础过滤(type 合法、from/to 合法 id、from!=to);不落盘、不校验记忆是否存在(由 proposeMemoryRelation 负责)。
+// 返回 [{type, from, to, evidenceRef, note, sourceRunId, scope}](scope 默认 project;sourceRunId 取 run.id)。
+// 09-workflow 节点收尾时调用,逐项 proposeMemoryRelation(confirmed:false),用户后续确认。
+function extractMemoryRelationProposals(structuredResult, run) {
+  const sr = (structuredResult && typeof structuredResult === 'object') ? structuredResult : null;
+  const raw = Array.isArray(sr && sr.memoryRelations) ? sr.memoryRelations : [];
+  const runId = (run && typeof run.id === 'string') ? run.id : '';
+  const out = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const type = String(item.type || '');
+    if (!MEMORY_RELATION_TYPES.has(type)) continue;
+    const from = String(item.from || '').trim();
+    const to = String(item.to || '').trim();
+    if (!SKILL_ID_RE.test(from) || !SKILL_ID_RE.test(to) || from === to) continue;
+    const evidenceRef = SKILL_ID_RE.test(String(item.evidenceRef || '')) ? String(item.evidenceRef).slice(0, 256) : '';
+    out.push({
+      type, from, to, evidenceRef,
+      note: fmVal(String(item.note || '')).slice(0, 200),
+      sourceRunId: runId,
+      scope: 'project',
+    });
+  }
+  return out.slice(0, 20); // schema maxItems=20 兜底
 }
 
 // 第26波b: buildMissionPromptSection(mission, engine) —— <mission-ledger> 围栏,注入目标/里程碑进度/约束,
@@ -14139,6 +14172,24 @@ const QUALITY_GATE_OUTPUT_SCHEMA = Object.freeze({
         unhandled: { type: 'array', items: { type: 'string' } },
       },
     },
+    // R4-S2(15-r4-memory-graph.md §9): gate 节点可在结构化输出里提议记忆关系(写入时 confirmed:false,
+    // 用户确认)。可选字段--不输出 memoryRelations 的存量 gate 节点不受影响。模型只提议,不写确认。
+    memoryRelations: {
+      type: 'array',
+      maxItems: 20,
+      description: '可选:提议本会话工作台记忆索引中已存在记忆之间的关系(supports/contradicts/supersedes/derived_from)。from/to 须为索引中出现的记忆 id;evidenceRef 引用本节点可见 Evidence Catalog 的 eventId。仅提议,用户确认后生效。',
+      items: {
+        type: 'object',
+        required: ['type', 'from', 'to'],
+        properties: {
+          type: { type: 'string', enum: ['supports', 'contradicts', 'supersedes', 'derived_from'] },
+          from: { type: 'string', minLength: 1, maxLength: 64 },
+          to: { type: 'string', minLength: 1, maxLength: 64 },
+          evidenceRef: { type: 'string', minLength: 1, maxLength: 256 },
+          note: { type: 'string', maxLength: 200 },
+        },
+      },
+    },
   },
 });
 function sanitizeAgentOutputSchema(raw) {
@@ -16103,6 +16154,20 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         }
       } catch (e) {
         node.evidenceWarning = 'R1 证据索引/校验异常(已降级,不影响节点结果): ' + String((e && e.message) || e).slice(0, 300);
+      }
+      // R4-S2(15-r4-memory-graph.md §9): gate 节点结构化输出里的 memoryRelations 提议 -> 落盘为 pending 边。
+      // 在 R1 证据索引之后(run.evidence 已就绪),把 run.evidence 作为 catalog 传给 proposeMemoryRelation 做
+      // 内存内 evidenceRef 校验(命中 -> evidenceRefVerified:true)。模型只提议(confirmed:false),用户确认。
+      // 防御式:from/to 不存在或异常都不翻转节点结果,仅跳过该提议。
+      try {
+        if (node.structuredResult && node.gate && Array.isArray(node.structuredResult.memoryRelations) && node.structuredResult.memoryRelations.length) {
+          const props = extractMemoryRelationProposals(node.structuredResult, run);
+          for (const p of props) {
+            try { await proposeMemoryRelation(p, run.cwd, { evidenceCatalog: run.evidence }); } catch { /* 提议失败不阻断节点 */ }
+          }
+        }
+      } catch (e) {
+        node.memoryRelationWarning = 'R4 记忆关系提议异常(已降级): ' + String((e && e.message) || e).slice(0, 300);
       }
       // 第28波(§28d):降级下游策略。degraded=true(目前仅 Claude CLI 出可用输出但异常退出)的成功节点,按 node.degradedPolicy
       // 处置——置于 gate/schema 判定之后、loop/failurePolicy/settle 之前;置 failed/queued 后由既有块靠 status 守卫自动接管,
@@ -26309,6 +26374,7 @@ module.exports = {
   confirmMemoryRelation,
   deleteMemoryRelation,
   buildMemoryConflictMap,
+  extractMemoryRelationProposals,
   normalizeAgentWorkflow,
   resolveAgentTeamRoute,
   getAgentWorkflows,
