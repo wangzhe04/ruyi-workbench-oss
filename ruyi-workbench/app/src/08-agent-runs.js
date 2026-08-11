@@ -448,7 +448,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   }
   const requestedTier = toolTier || (role && role.toolTier);
   const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
-  const budget = Math.min(300, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 100));
+  const requestedBudget = Math.min(1000, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 100));
+  const budgetPolicy = resolveToolIterationBudget(requestedBudget, String(task || ''), config);
+  let budget = Math.min(300, Math.max(requestedBudget, Number(budgetPolicy.initial || requestedBudget)));
+  const adaptiveBudgetLimit = requestedBudget > 300 ? requestedBudget : Number(budgetPolicy.hardLimit || 300);
 
   // Tool set: same capability gating as the parent, filtered to the requested tier, WITHOUT spawn_agent.
   const caps = await getCapabilities(config).catch(() => null);
@@ -891,6 +894,18 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
         }
         if (!subOk) break;
+        if (iter + 1 >= budget && budget < adaptiveBudgetLimit && shouldExtendToolIterationBudget({
+          currentLimit: budget,
+          hardLimit: adaptiveBudgetLimit,
+          iter,
+          lastProgressIter: subNoProgressCount < SUB_SEMANTIC_WARN_AT ? iter : -Infinity,
+          progressEvents: toolCallCount,
+          progressAtLastExtension: Math.max(0, toolCallCount - 1),
+        })) {
+          const previousLimit = budget;
+          budget = Math.min(adaptiveBudgetLimit, budget + TOOL_ITERATION_BUDGETS.extension);
+          onEvent({ type: 'adaptive_tool_budget', subagentId, previousLimit, nextLimit: budget, hardLimit: adaptiveBudgetLimit });
+        }
         // 第32波: 每次成功工具调用后存检查点(供传输/超时失败时自动断点续跑)
         savepoint = {
           subHistory: subHistory.map(m => {
@@ -1491,7 +1506,7 @@ function normalizeAgentWorkflow(raw, opts = {}) {
       // value would silently override the role library's larger Reviewer/Verifier budgets and recreate the
       // "子代理已达迭代上限 6 轮" failure on every template launch.
       maxIters: (item.maxIters != null && item.maxIters !== '' && Math.round(Number(item.maxIters)) !== 6)
-        ? Math.max(1, Math.min(300, Math.round(Number(item.maxIters) || 100)))
+        ? Math.max(1, Math.min(1000, Math.round(Number(item.maxIters) || 100)))
         : undefined,
       model: String(item.model || '').trim().slice(0, 160),
       resources: (Array.isArray(item.resources) ? item.resources : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 32),
@@ -1731,7 +1746,7 @@ function buildNodeEvidenceCatalog(run, node, opts = {}) {
   const ws = runWorkspaceHash(run); const runId = String(run.id || 'run');
   const candidates = []; const seen = new Set();
   for (const e of run.evidence) {
-    if (!e || typeof e !== 'object' || e.workspace !== ws || String(e.kind || '') !== 'tool_result') continue;
+    if (!e || typeof e !== 'object' || e.workspace !== ws || !['tool_result', 'deterministic_gap'].includes(String(e.kind || ''))) continue;
     if (typeof e.eventId !== 'string' || e.eventId.length < 1 || e.eventId.length > 256) continue;
     const eventId = e.eventId; const ref = e.ref;
     if (seen.has(eventId) || !ref || typeof ref !== 'object') continue;
@@ -1785,19 +1800,41 @@ function indexNodeEvidence(run, node) {
   // R1 对抗轮修:eventId 纳入 attemptId —— retry 时 recordNodeContinuation 重建 steps:[] 从 0 重编号,
   // 旧 attempt 同 stepIdx 会与新 attempt 撞 id、命中去重导致新结果永不入索引(证据与当前执行脱钩)。
   const attemptId = (cont && Number.isFinite(Number(cont.attemptId))) ? Number(cont.attemptId) : (Number.isFinite(Number(node.attempts)) ? Number(node.attempts) : 0);
+  const append = (eventId, kind, content, ref) => {
+    if (set.has(eventId)) return;
+    run.evidence.push({
+      eventId, kind,
+      digest: 'sha256:' + crypto.createHash('sha256').update(redact(String(content || ''))).digest('hex').slice(0, 32),
+      ref, workspace: ws, ts: nowIso(), redaction: 'masked',
+    });
+    set.add(eventId);
+  };
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i];
     if (!s || !s.tool) continue;
-    const eventId = `evt_${runId}_${nodeId}_a${attemptId}_${i}`;
-    if (set.has(eventId)) continue;
-    const content = String(s.tool || '') + '|' + String(s.argsHash || '') + '|' + String(s.resultDigest || '');
-    run.evidence.push({
-      eventId, kind: 'tool_result',
-      digest: 'sha256:' + crypto.createHash('sha256').update(redact(content)).digest('hex').slice(0, 32),
-      ref: { nodeId, attemptId, stepIdx: i, tool: String(s.tool).slice(0, 80), argsHash: String(s.argsHash || '').slice(0, 12) },
-      workspace: ws, ts: nowIso(), redaction: 'masked',
-    });
-    set.add(eventId);
+    append(
+      `evt_${runId}_${nodeId}_a${attemptId}_${i}`,
+      'tool_result',
+      String(s.tool || '') + '|' + String(s.argsHash || '') + '|' + String(s.resultDigest || ''),
+      { nodeId, attemptId, stepIdx: i, tool: String(s.tool).slice(0, 80), argsHash: String(s.argsHash || '').slice(0, 12) },
+    );
+  }
+  // C2: deterministic M2 gaps enter R1 as digest-only events. Raw input items never enter the graph.
+  const gapSpec = node.gate && node.gate.mode === 'coverage'
+    ? { check: 'coverage_unhandled', values: node.structuredResult && node.structuredResult.unhandled }
+    : (node.gate && node.gate.mode === 'propagate'
+      ? { check: 'propagate_unpropagated', values: node.structuredResult && node.structuredResult.unpropagated }
+      : null);
+  if (gapSpec && Array.isArray(gapSpec.values)) {
+    for (let i = 0; i < gapSpec.values.length; i++) {
+      const valueDigest = crypto.createHash('sha256').update(redact(String(gapSpec.values[i]))).digest('hex').slice(0, 32);
+      append(
+        `evt_${runId}_${nodeId}_a${attemptId}_gap_${gapSpec.check}_${i}`,
+        'deterministic_gap',
+        `${gapSpec.check}|${i}|${valueDigest}`,
+        { nodeId, attemptId, stepIdx: i, check: gapSpec.check, valueDigest: `sha256:${valueDigest}` },
+      );
+    }
   }
 }
 // R1 对抗轮修:retry 新 attempt 前清掉该节点【旧 attempt】的证据 —— 旧 attempt 可能已失败/被中止,
@@ -1828,7 +1865,7 @@ function verifyNodeClaims(run, node) {
   if (Array.isArray(run.evidence)) for (const e of run.evidence) {
     if (!e || typeof e !== 'object' || typeof e.eventId !== 'string' || !e.ref || typeof e.ref !== 'object') continue;
     const eventId = e.eventId; const owner = typeof e.ref.nodeId === 'string' ? e.ref.nodeId : '';
-    if (e.workspace !== ws || e.kind !== 'tool_result' || !visible.has(owner) || !eventId.startsWith(`evt_${runId}_${owner}_`)) {
+    if (e.workspace !== ws || !['tool_result', 'deterministic_gap'].includes(String(e.kind || '')) || !visible.has(owner) || !eventId.startsWith(`evt_${runId}_${owner}_`)) {
       if (e.workspace !== ws && eventId.startsWith(`evt_${runId}_`)) { if (!hiddenIds) hiddenIds = new Set(); hiddenIds.add(eventId); }
       continue;
     }
@@ -2015,7 +2052,7 @@ function materializePoolItem(run, item, opts = {}) {
     let toolTier = ['read', 'edit', 'exec'].includes(item.toolTier) ? item.toolTier : propTier;
     if ((tierRank[toolTier] || 0) > (tierRank[propTier] || 0)) toolTier = propTier; // 不得超过提案者
     const resourceSpecs = normalizeAgentResources(item.resources, opts.cwd || '');
-    const maxIters = Math.min(300, Math.max(1, Number(item.maxIters || (proposer && proposer.maxIters)) || 100));
+    const maxIters = Math.min(1000, Math.max(1, Number(item.maxIters || (proposer && proposer.maxIters)) || 100));
     // 第30波:池提案节点 model 解析 —— 提案 item.model(校验后)> 角色按引擎默认 > 提案者节点 model(继承);
     // 无 provider 句柄(物化在调度器内,opts 不带 provider)则校验退回 offlineModelList(含 config.model/knownModels)。
     const poolRoleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);

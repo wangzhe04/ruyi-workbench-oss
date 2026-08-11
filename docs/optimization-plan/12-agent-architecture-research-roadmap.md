@@ -1,6 +1,6 @@
 # 12 · Agent 架构研究补充路线 — 从证据到学习闭环
 
-> **当前进度（2026-07-27）**：阶段 C 的 C1（Evidence Graph 证据目录 prompt 注入与 `evidenceRefs` 输出契约）已完成；下一步依次为 C2（M2/R1 衔接）、C3（模板回填 + M4 回测），再进入 R2/R3/R4/R5。
+> **当前进度（2026-07-27）**：阶段 C 的 C1（Evidence Graph 证据目录 prompt 注入与 `evidenceRefs` 输出契约）和 C2（M2/R1 确定性 gap 证据衔接）已完成；下一步为 C3（模板回填 + M4 回测），再进入 R2/R3/R4/R5。
 
 > 关联：`06-hb360-cost-convergence.md`、`07-microagent-lessons.md`（M1–M6）、`09-m3-coverage-gate.md`、`10-m4-ablation.md`。立项日期：2026-08-10。性质：**路线规划，不代表已实现或自动启用**。
 

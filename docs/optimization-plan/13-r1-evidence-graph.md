@@ -1,6 +1,6 @@
 # 13 · R1 实施文档 - Evidence Graph（阶段 C，P0）
 
-> **交付状态（2026-07-27）**：R1 基础能力与阶段 C1 已完成。C1 已落地依赖闭包证据目录注入、`findings[].evidenceRefs` Schema、机器校验加固、fake workflow e2e 与对抗验证；下一步为 C2（M2 未处理/未传播结果写入证据图）。
+> **交付状态（2026-07-27）**：R1 基础能力、阶段 C1 与 C2 已完成。C1 已落地依赖闭包证据目录注入、`findings[].evidenceRefs` Schema、机器校验加固、fake workflow e2e 与对抗验证；C2 已将 M2 未处理/未传播结果以 digest-only 确定性事件写入证据图。下一步为 C3（模板回填 + M4 回测）。
 
 > 关联：`12-agent-architecture-research-roadmap.md` §1 R1、`07-microagent-lessons.md` M6（R1 是 M6 的工程化落点）、`09-m3-coverage-gate.md`（M3 coverage 是先行提示，R1 把它落入证据图）。
 > 立项：2026-08-10。性质：**设计文档，不动代码**--遵循 12 文档 §2 纪律（先设计 + 威胁建模 + fake e2e + M4 记录再实现）。
@@ -138,6 +138,7 @@ R1 落地后按 M4 纪律单轴回测：
 - **未设计 R2–R5**：依赖 R1 契约，阶段 D–F 各自先设计文档。
 - **eventId 稳定性**：实现采用 `evt_<runId>_<nodeId>_a<attemptId>_<stepIdx>`（对抗轮加 attemptId，避免 retry 撞 id）。
 - **C1 证据清单注入已完成**：所有模型节点在 effectiveTask 中收到仅含依赖闭包、当前 run/workspace 的只读证据目录（确定性节点仍不调用模型）；目录有稳定排序、数量/字节上限和显式防伪规则，不包含工具参数、结果原文或 digest 输入。`findings[].evidenceRefs` 已纳入质量门 Schema（兼容旧输出而保持可选），`requireEvidence` 仍由机器在节点收尾时强制执行。
+- **C2 M2/R1 衔接已完成**：`coverage.unhandled[]` 与 `propagate.unpropagated[]` 会生成类型化 `deterministic_gap` 事件；事件沿用 run/workspace 隔离、依赖闭包可见性、retry purge 与机器校验，只保存 check、位置和脱敏 digest，不复制原始 input item。
 - **C1 可见范围**：只允许当前节点的直接/传递依赖证据，兄弟节点、当前节点和目录外 ID 均不可验证；retry、degraded retry、loop、手动 resume 重跑前清理旧 attempt 证据。
 - **workspace 粒度 = run 工作目录**：workspace hash 按工作流 cwd（`run.cwd`）隔离，同一 run 内的 worktree 隔离节点共享同一 workspace tag，不做 worktree 级细分（主威胁「跨项目/跨 run 记忆泄漏」由 run 级 + cwd 挡住；同 run 内 worktree 互信）。
 - **外部论文引用**：12 文档已列 arXiv 依据，本文档不重复引用，只落地 Ruyi 版本契约。

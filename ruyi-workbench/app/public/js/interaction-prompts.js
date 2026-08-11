@@ -416,6 +416,19 @@ function workflowStatusLabel(status) {
 }
 
 function handleAgentWorkflowEvent(evt, live) {
+  var shouldAutoFocus = evt.action === 'start' || evt.action === 'resume';
+  if (evt && evt.runId && typeof syncAgentRunsPolling === 'function') {
+    // OpenAI spawn_agent uses a separate persisted run; focus it as soon as the stream announces it.
+    if (shouldAutoFocus) {
+      if (typeof wbState !== 'undefined' && wbState) {
+        wbState.selectedRunId = String(evt.runId);
+        wbState.selectedNodeId = null;
+      }
+    }
+    syncAgentRunsPolling().then(function () {
+      if (shouldAutoFocus && typeof wbSelectRun === 'function') wbSelectRun(String(evt.runId));
+    }).catch(function () {});
+  }
   const id = evt.id || '';
   if (evt.state === 'start') {
     const d = el('details', 'subagent-card'); d.open = true;

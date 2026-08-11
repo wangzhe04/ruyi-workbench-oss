@@ -1169,7 +1169,7 @@ function appendResponseLanguagePolicy(base, config, limit = 0) {
   return appendTurnPolicies(base, config, false, limit);
 }
 
-const TOOL_ITERATION_BUDGETS = Object.freeze({ standard: 100, long: 200, hard: 300, extension: 50 });
+const TOOL_ITERATION_BUDGETS = Object.freeze({ standard: 100, long: 200, standardHard: 300, hard: 1000, extension: 50 });
 
 // Long-task detection is deliberately independent from Agent team mode. A single-agent migration, audit,
 // investigation, or end-to-end implementation can be long; conversely, the explicit team switch is an
@@ -1194,7 +1194,7 @@ function resolveToolIterationBudget(configured, message, context = {}) {
   return {
     base,
     initial: elevated ? Math.max(base, TOOL_ITERATION_BUDGETS.long) : base,
-    hardLimit: TOOL_ITERATION_BUDGETS.hard,
+    hardLimit: elevated ? TOOL_ITERATION_BUDGETS.hard : TOOL_ITERATION_BUDGETS.standardHard,
     extension: TOOL_ITERATION_BUDGETS.extension,
     mode: agentTeam ? 'agent-team' : (longTask ? 'long' : 'standard'),
     longTask,
