@@ -20,6 +20,18 @@ const ok = (value, label) => { if (value) console.log('PASS ' + label); else { f
     ok(debugFlow && debugFlow.nodes.some(n => n.id === 'fix' && n.role === 'coder'), 'root-cause workflow delegates the confirmed fix to Coder');
     const builtInJudge = initial.find(x => x.id === 'debate-and-judge').nodes.find(x => x.id === 'judge');
     ok(builtInJudge.maxIters === undefined, 'built-in workflow nodes inherit role budgets instead of pinning the old maxIters=6 default');
+    const builtInNodes = initial.filter(x => x.source === 'builtin').flatMap(x => x.nodes);
+    const hasEvidenceRefsSchema = n => n.outputSchema && n.outputSchema.properties && n.outputSchema.properties.findings && n.outputSchema.properties.findings.items.properties && n.outputSchema.properties.findings.items.properties.evidenceRefs;
+    // C3: 只有高风险裁决门(requireEvidence)显式声明 verdict/findings/evidenceRefs 结构化契约;
+    // 非门源节点(pro/con/implement/draft/research…)保持自由文本输出 —— 给它们强制 required verdict schema
+    // 会让真实模型的自由分析产出 schema_failed(已实证)。
+    ok(builtInNodes.filter(n => n.gate && n.gate.requireEvidence).every(hasEvidenceRefsSchema), 'every high-risk evidence gate declares findings[].evidenceRefs output contract');
+    ok(builtInNodes.filter(n => !(n.gate && n.gate.requireEvidence)).every(n => !n.outputSchema), 'non-gate source nodes stay free-text without a forced verdict schema');
+    const highRiskIds = new Set(['judge', 'review', 'decide', 'verify', 'factcheck', 'test']);
+    const highRiskNodes = builtInNodes.filter(n => n.gate && n.gate.requireEvidence);
+    ok(highRiskNodes.length === 9 && highRiskNodes.every(n => highRiskIds.has(n.id) && n.dependsOn.length > 0), 'only nine upstream-dependent reviewer/verifier nodes enable the evidence-blocking gate');
+    ok(codeFlow.nodes.find(n => n.id === 'review').gate.requireEvidence === true && codeFlow.nodes.find(n => n.id === 'review').outputSchema.properties.verdict, 'conditional review preserves verdict while requiring machine-verifiable evidence');
+    ok(codeFlow.nodes.find(n => n.id === 'fix').condition.path === 'verdict' && codeFlow.nodes.find(n => n.id === 'fix').condition.value === 'fail', 'conditional fix still branches on review.verdict=fail');
     const personal = await server.saveAgentWorkflow('personal', PROJECT, { id: 'shared-flow', title: 'Personal flow', nodes: [{ id: 'one', task: 'personal', position: { x: 12, y: 34 } }] });
     ok(personal && personal.source === 'personal' && personal.nodes[0].position.x === 12, 'personal workflow and graph position are persisted');
     const migrated = await server.saveAgentWorkflow('personal', PROJECT, { id: 'legacy-budget-flow', title: 'Legacy budget flow', nodes: [{ id: 'review', task: 'legacy default', role: 'reviewer', maxIters: 6 }] });
@@ -32,6 +44,7 @@ const ok = (value, label) => { if (value) console.log('PASS ' + label); else { f
     const merged = await server.getAgentWorkflows(PROJECT); const shared = merged.find(x => x.id === 'shared-flow');
     ok(project && shared.source === 'project' && shared.title === 'Project flow', 'project workflow overrides a personal workflow with the same id');
     ok(shared.nodes[1].condition.operator === 'equals' && shared.nodes[1].loop.maxIterations === 4, 'conditions and loop policy survive normalization and storage');
+    ok(shared.nodes.every(n => !n.outputSchema && !n.gate), 'legacy personal/project workflows remain compatible without evidence output contracts');
     ok(server.evaluateWorkflowCondition(shared.nodes[1].condition, [{ id: 'one', structuredResult: { verdict: 'pass' } }], shared.nodes[1]), 'stored condition evaluates against structured predecessor output');
     await server.deleteAgentWorkflow('project', PROJECT, 'shared-flow');
     const fallback = (await server.getAgentWorkflows(PROJECT)).find(x => x.id === 'shared-flow');

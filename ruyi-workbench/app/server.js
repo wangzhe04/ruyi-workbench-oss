@@ -14294,22 +14294,24 @@ function dedupeAgentFindings(dependencies) {
   return { verdict: 'pass', confidence, summary: `去重后 ${findings.length} 项`, findings };
 }
 
+const C3_HIGH_RISK_GATE = Object.freeze({ mode: 'cross_review', requireEvidence: true });
+
 const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
   {
     id: 'debate-and-judge', title: '正反辩论 → 裁决', description: '正反双方并行分析，由 Reviewer 交叉审查并给出可核验的裁决。',
     nodes: [
       { id: 'pro', task: '从支持方立场分析议题，给出证据、收益、适用条件和主要风险。', role: 'explorer', failurePolicy: 'continue', position: { x: 80, y: 80 } },
       { id: 'con', task: '从反对方立场分析议题，主动寻找反例、成本、失败条件和替代方案。', role: 'explorer', failurePolicy: 'continue', position: { x: 80, y: 260 } },
-      { id: 'judge', task: '交叉审查正反双方：核验依据、去除重复和无证据主张，给出最终裁决。', role: 'reviewer', dependsOn: ['pro', 'con'], gate: { mode: 'cross_review' }, position: { x: 420, y: 170 } },
+      { id: 'judge', task: '交叉审查正反双方：核验依据、去除重复和无证据主张，给出最终裁决。', role: 'reviewer', dependsOn: ['pro', 'con'], gate: C3_HIGH_RISK_GATE, position: { x: 420, y: 170 } },
     ],
   },
   {
     id: 'implement-review-fix-test', title: '编码实现 → 独立审查 → 定向修复 → 验收', description: 'Coder 完成代码与针对性自测，Reviewer 独立审查；仅对确认的问题定向修复，最后由 Verifier 按验收标准复核。适合可拆成实现与独立复核的代码任务；单一、不可分的长改动不必使用团队。',
     nodes: [
       { id: 'implement', task: '阅读相关实现、测试和项目约束，按需求完成最小且完整的代码改动；补充能证明行为的针对性测试并运行基础检查，报告改动、验证和风险。', role: 'coder', failurePolicy: 'block', position: { x: 40, y: 160 } },
-      { id: 'review', task: '独立审查实现与测试：核对需求覆盖、正确性、安全性、并发/边界条件、回归风险和测试缺口。只报告有具体触发路径或证据的问题；输出明确 verdict(pass/fail)、置信度和逐项发现。', role: 'reviewer', dependsOn: ['implement'], gate: { mode: 'cross_review' }, failurePolicy: 'continue', position: { x: 310, y: 160 } },
+      { id: 'review', task: '独立审查实现与测试：核对需求覆盖、正确性、安全性、并发/边界条件、回归风险和测试缺口。只报告有具体触发路径或证据的问题；输出明确 verdict(pass/fail)、置信度和逐项发现。', role: 'reviewer', dependsOn: ['implement'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 310, y: 160 } },
       { id: 'fix', task: '逐项核对 review 的成立问题，只修复已确认的根因；补充对应回归测试并运行相关检查，说明每项采纳或不采纳的证据。', role: 'coder', dependsOn: ['review'], condition: { node: 'review', path: 'verdict', operator: 'equals', value: 'fail' }, failurePolicy: 'continue', position: { x: 580, y: 80 } },
-      { id: 'test', task: '从用户验收标准出发运行独立验证，并覆盖实现者容易遗漏的失败路径；核验最终工作区（含条件修复）是否满足需求，给出实际结果、预期结果和残余风险，不擅自修改产品代码。', role: 'verifier', dependsOn: ['implement', 'fix'], failurePolicy: 'retry', maxRetries: 1, position: { x: 850, y: 160 } },
+      { id: 'test', task: '从用户验收标准出发运行独立验证，并覆盖实现者容易遗漏的失败路径；核验最终工作区（含条件修复）是否满足需求。输出 verdict、confidence、summary 与 findings；每条验收判断必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。不擅自修改产品代码。', role: 'verifier', dependsOn: ['implement', 'fix'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'retry', maxRetries: 1, position: { x: 850, y: 160 } },
     ],
   },
   {
@@ -14319,7 +14321,7 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
       { id: 'plan', task: '把研究问题拆成 3–4 个关键子问题。每个子问题注明:①要回答什么(具体到可判定);②优先检索方向与关键词;③适合的权威来源类型。若问题本身含歧义,先列出你对范围/定义的假设。输出:编号子问题清单 + 检索要点。', role: 'explorer', position: { x: 40, y: 200 } },
       { id: 'research_facts', task: '认领 plan 的全部子问题,联网检索并阅读来源,重点抓【事实与现状】:定义、关键数据/数字、时间线、权威来源的明确表述。对每条发现给出:结论一句话 + 支撑来源(标题与 URL)+ 置信度(高/中/低)。只记录有来源支撑的内容;查不到就写"未找到可靠来源",不要编。', role: 'researcher', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 340, y: 90 } },
       { id: 'research_context', task: '认领 plan 的全部子问题,联网检索并阅读来源,重点抓【分析与观点】:不同立场与权衡、争议点、行业/专家观点、反面证据。格式同 research_facts(结论 + 来源 + 置信度)。刻意寻找与主流叙述相悖的证据,避免只找支持性材料。', role: 'researcher', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 340, y: 310 } },
-      { id: 'verify', task: '对 research_facts 与 research_context 的所有发现做对抗式核验:逐条检查是否真有来源支撑、来源是否可靠、彼此有无矛盾;剔除无据或夸大的主张、合并重复项、标注仍存疑的点。输出两份清单:①已核验发现(每条附来源与置信度);②被剔除/存疑清单及原因。默认怀疑,证据不足即降级或剔除。', role: 'critic', dependsOn: ['research_facts', 'research_context'], failurePolicy: 'continue', position: { x: 660, y: 200 } },
+      { id: 'verify', task: '对 research_facts 与 research_context 的所有发现做对抗式核验:逐条检查是否真有来源支撑、来源是否可靠、彼此有无矛盾;剔除无据或夸大的主张、合并重复项、标注仍存疑的点。输出 verdict、confidence、summary 与 findings；每条事实性 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,证据不足即降级或剔除。', role: 'critic', dependsOn: ['research_facts', 'research_context'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 660, y: 200 } },
       { id: 'synthesize', task: '仅依据 verify 节点【已核验】的发现,写一篇结构化综述:①一段摘要给出总体结论;②按主题分节的结论(每条关键判断标注来源);③已知的不确定性与分歧;④针对原始问题的建议或下一步。绝不引入未经核验的新主张;证据不足处如实说明。', role: 'synthesizer', dependsOn: ['verify'], position: { x: 980, y: 200 } },
     ],
   },
@@ -14331,7 +14333,7 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
       { id: 'option_a', task: '在 clarify 的约束下产出一个【稳妥成熟】取向的候选方案:方案概述、核心取舍、如何逐条满足硬约束、优点、主要风险与缓解、粗略成本/工期。只出一个方案,把它论证扎实。', role: 'explorer', dependsOn: ['clarify'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
       { id: 'option_b', task: '同 option_a 的格式,但取【性能/能力优先或创新】取向,给出与 option_a 明显不同的方案(不同技术栈/架构/思路),并诚实标注其代价。', role: 'explorer', dependsOn: ['clarify'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
       { id: 'option_c', task: '同 option_a 的格式,取【最简/最低成本或最快落地】取向,给出投入最小、能先跑起来的方案,并说明其局限与后续演进路径。', role: 'explorer', dependsOn: ['clarify'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
-      { id: 'decide', task: '按 clarify 的评价维度与权重,对 option_a/b/c 逐维打分并给出理由(不只给分),做一张横向对比表。选出推荐方案,说明它为何优于其余、以及采用它最需警惕的风险。若某方案的局部优点值得吸收,可提出一个融合改良版。', role: 'reviewer', dependsOn: ['option_a', 'option_b', 'option_c'], gate: { mode: 'cross_review' }, failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'decide', task: '按 clarify 的评价维度与权重,对 option_a/b/c 逐维打分并给出理由(不只给分),做一张横向对比表。选出推荐方案,说明它为何优于其余、以及采用它最需警惕的风险。若某方案的局部优点值得吸收,可提出一个融合改良版。', role: 'reviewer', dependsOn: ['option_a', 'option_b', 'option_c'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
       { id: 'rollout', task: '把 decide 选定(或改良)的方案落成可执行清单:分阶段任务及其依赖顺序、每步交付物与验收点、所需资源与前置条件、主要风险的应对与回滚点、以及最早可验证价值的里程碑。', role: 'planner', dependsOn: ['decide'], position: { x: 1000, y: 220 } },
     ],
   },
@@ -14343,7 +14345,7 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
       { id: 'audit_correctness', task: '在 map 指出的重点区域找【正确性缺陷】:边界条件、错误处理缺失、并发/竞态、空值/未初始化、类型或接口契约不一致、资源泄漏。每条给:文件:行、具体触发条件、影响、建议修法。只报你能写出触发路径的,拿不准不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
       { id: 'audit_security', task: '找【安全缺陷】:注入(命令/SQL/路径)、路径穿越、鉴权/越权、敏感信息泄露、SSRF、不安全默认值、反序列化。每条给:文件:行、具体利用路径、影响、修法。只报可利用的,理论风险不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
       { id: 'audit_quality', task: '找【性能与可维护性】问题:热路径/循环内的低效、随数据量或时长恶化的结构、重复三次以上的逻辑、超长函数、死代码、易错的命名/边界。每条给文件:行与可度量的改进点。只报改了确有收益的。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
-      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。输出:①成立发现清单(每条含严重度 P1/P2/P3 与一句根因);②被否证清单及理由。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。输出 verdict、confidence、summary 与 findings；每条成立或否证 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
       { id: 'backlog', task: '把 verify 的成立发现排成可执行修复清单:按(严重度 × 影响 ÷ 改动成本)分三档——立即修 / 下一轮 / 可选打磨;标注依赖顺序、建议测试与验收点；识别可在同一次改动里安全带走的同类项，但不要直接修改代码。', role: 'planner', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
@@ -14354,7 +14356,7 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
       { id: 'reproduce', task: '确认并最小化复现:写出精确复现步骤、观察到的实际现象(日志/报错/异常状态)、预期现象、以及能稳定触发的最小条件集。若当前信息不足以复现,明确列出还需要哪些信息或环境。输出复现报告。', role: 'verifier', position: { x: 40, y: 220 } },
       { id: 'hypo_a', task: '基于 reproduce 提出 2–3 个【最可能】的根因假设。每个假设说明:机制解释(为什么会导致该现象)、若成立应能观察到什么证据、以及最快的验证手段。按可能性排序。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 110 } },
       { id: 'hypo_b', task: '从 hypo_a 未覆盖的方向提出 2–3 个根因假设:环境/依赖版本、并发时序、数据/边界输入、配置/部署差异、上游变更等。同样给机制、预期证据、验证手段。目标是补齐盲区,而非重复 hypo_a。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 300 } },
-      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪,给出判定(成立/否证/存疑)及证据。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪。输出 verdict、confidence、summary 与 findings；每条判定必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
       { id: 'fix', task: '针对 verify 锁定且有证据支持的根因实施最小、聚焦的代码修复；先补能稳定复现的回归测试，再修改并运行相关测试，说明为什么修的是根因而非症状、潜在副作用与残余风险。若根因仍存疑，不要猜改。', role: 'coder', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
@@ -14365,7 +14367,7 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
       { id: 'outline', task: '明确文档的目标、目标受众与使用场景;产出详细提纲:章节结构、每节的要点与预期篇幅、需要引用的事实/数据来源、关键术语的统一口径。并给出写作约定(风格、人称、格式规范),供各撰写节点共同遵循。', role: 'planner', position: { x: 40, y: 200 } },
       { id: 'draft_front', task: '按 outline 撰写【前半部分章节】:严格遵循提纲要点与写作约定,内容具体、有必要的例子,不编造事实——不确定的数据/事实标注"[待核]"而非杜撰。只输出你负责章节的正文。', role: 'explorer', dependsOn: ['outline'], failurePolicy: 'continue', position: { x: 340, y: 90 } },
       { id: 'draft_back', task: '按 outline 撰写【后半部分章节】,方法与格式同 draft_front(遵循写作约定、具体有例、不编造、"[待核]"标注)。只输出你负责章节的正文。', role: 'explorer', dependsOn: ['outline'], failurePolicy: 'continue', position: { x: 340, y: 310 } },
-      { id: 'factcheck', task: '核验 draft_front 与 draft_back:事实/数据是否准确且前后一致、有无自相矛盾、是否偏离提纲与受众、"[待核]"项是否仍未解决。输出问题清单(每条定位到章节/句子 + 修改建议)。此节点不改写正文,只出清单。', role: 'critic', dependsOn: ['draft_front', 'draft_back'], failurePolicy: 'continue', position: { x: 680, y: 200 } },
+      { id: 'factcheck', task: '核验 draft_front 与 draft_back:事实/数据是否准确且前后一致、有无自相矛盾、是否偏离提纲与受众、"[待核]"项是否仍未解决。输出 verdict、confidence、summary 与 findings；每条事实性 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。此节点不改写正文。', role: 'critic', dependsOn: ['draft_front', 'draft_back'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 200 } },
       { id: 'finalize', task: '整合 draft_front 与 draft_back,按 factcheck 的问题清单逐条修正;统一术语、风格与章节过渡,润色成一篇连贯完整的文档,补齐目录与小结。将成稿写入工作区文件(用户未指定文件名时取一个合理默认,如 <主题>.md)。输出成稿路径与一段变更摘要。', role: 'worker', toolTier: 'edit', dependsOn: ['factcheck', 'draft_front', 'draft_back'], position: { x: 1000, y: 200 } },
     ],
   },
@@ -14377,11 +14379,23 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
       { id: 'plan', task: '基于 profile 定分析方案:要回答的关键问题(可判定)、清洗与口径规则(如何处理缺失/异常/去重、指标如何定义)、每个问题用什么切法与指标、结果如何交叉验证。输出结构化分析方案。', role: 'planner', dependsOn: ['profile'], position: { x: 340, y: 200 } },
       { id: 'analyze_main', task: '按 plan 执行【主线分析】:运行必要的只读查询/脚本,产出关键指标、趋势、分组对比等,每条结论标注口径(样本/时间范围/指标定义)与证据。不修改源数据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 90 } },
       { id: 'analyze_cross', task: '按 plan 执行【交叉与异常分析】:换维度切分、寻找异常点与反直觉现象、验证主线结论在不同切法下是否稳健。同样标注口径与证据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 310 } },
-      { id: 'verify', task: '对 analyze_main 与 analyze_cross 的结论做对抗核验:口径是否一致、样本/时间范围是否可比、有无以偏概全或把相关当因果、异常是否被解释。剔除不稳健或口径不清的结论,标注存疑项。输出:①稳健结论清单;②被剔除/存疑清单及理由。', role: 'critic', dependsOn: ['analyze_main', 'analyze_cross'], failurePolicy: 'continue', position: { x: 960, y: 200 } },
+      { id: 'verify', task: '对 analyze_main 与 analyze_cross 的结论做对抗核验:口径是否一致、样本/时间范围是否可比、有无以偏概全或把相关当因果、异常是否被解释。输出 verdict、confidence、summary 与 findings；每条稳健、剔除或存疑 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。', role: 'critic', dependsOn: ['analyze_main', 'analyze_cross'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 960, y: 200 } },
       { id: 'insights', task: '仅依据 verify 通过的稳健结论,综合成一份洞察报告:①核心发现(按重要性排序,每条附口径与证据);②值得注意的异常或反直觉点;③局限与不确定性;④建议的下一步或可行动项。不引入未经核验的新结论。', role: 'synthesizer', dependsOn: ['verify'], position: { x: 1280, y: 200 } },
     ],
   },
-]);
+].map(workflow => ({
+  ...workflow,
+  nodes: workflow.nodes.map(node => (
+    // C3: 仅高风险裁决门(requireEvidence)显式声明结构化 verdict/findings/evidenceRefs 输出契约,
+    // 使其在编辑器/存储中可见且持久化。源节点(pro/con/implement/draft/research…)保持自由文本输出 ——
+    // 它们的证据来自本轮工具调用,由 indexNodeEvidence 统一入图,不需要模型自报 verdict。给源节点强制
+    // required verdict schema 会让真实模型的自由文本产出 schema_failed(已实证)。运行时 09:624 本就会
+    // 给模型 gate 自动套 QUALITY_GATE_OUTPUT_SCHEMA,这里只是把该契约显式落到 C3 的高风险门节点上。
+    node.gate && node.gate.requireEvidence && !node.outputSchema
+      ? { ...node, outputSchema: QUALITY_GATE_OUTPUT_SCHEMA }
+      : node
+  )),
+})));
 function normalizeWorkflowCondition(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const operators = ['equals', 'not_equals', 'truthy', 'falsy', 'contains', 'greater', 'greater_equal', 'less', 'less_equal', 'status_is'];
@@ -14473,7 +14487,7 @@ function normalizeAgentWorkflow(raw, opts = {}) {
       // value would silently override the role library's larger Reviewer/Verifier budgets and recreate the
       // "子代理已达迭代上限 6 轮" failure on every template launch.
       maxIters: (item.maxIters != null && item.maxIters !== '' && Math.round(Number(item.maxIters)) !== 6)
-        ? Math.max(1, Math.min(1000, Math.round(Number(item.maxIters) || 100)))
+        ? Math.max(1, Math.min(300, Math.round(Number(item.maxIters) || 100)))
         : undefined,
       model: String(item.model || '').trim().slice(0, 160),
       resources: (Array.isArray(item.resources) ? item.resources : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 32),

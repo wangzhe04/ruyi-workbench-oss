@@ -402,7 +402,7 @@ const server = http.createServer((req, res) => {
         if (sub && SUBAGENT_SCRIPT.evidenceRefByTask && typeof SUBAGENT_SCRIPT.evidenceRefByTask === 'object') {
           const userText = subUserText;
           for (const [needle, mode] of Object.entries(SUBAGENT_SCRIPT.evidenceRefByTask)) if (userText.includes(needle)) {
-            const ids = userText.match(/evt_[A-Za-z0-9_.:-]+_a\d+_\d+/g) || [];
+            const ids = userText.match(/evt_[A-Za-z0-9_.:-]+_a\d+_(?:\d+|gap_[A-Za-z0-9_.:-]+_\d+)/g) || [];
             const ref = String(mode) === 'forged' ? 'evt_forged_outside_catalog_a0_0' : (ids[0] || 'evt_missing_catalog_a0_0');
             fallbackText = JSON.stringify({ verdict: 'pass', confidence: 0.9, summary: 'C1 fake evidence gate', findings: [{ id: 'c1-finding', severity: 'high', message: 'evidence-backed issue', target: 'sample.txt', evidenceRefs: [ref] }] });
             break;

@@ -149,6 +149,15 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
     ]});
     const c1F=id=>c1f.results.find(n=>n.id===id);
     ok(c1F('forged_gate').status==='rejected' && c1F('forged_gate').errorClass==='gate_unverified' && c1F('forged_gate').structuredResult.findings[0].status==='unverified','C1 e2e adversarial: a forged out-of-catalog eventId is unverified and rejected');
+    const c2Gap=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'handled',task:'M2_HANDLED'},
+      {id:'coverage',task:'MUST_NOT_CALL_MODEL',dependsOn:['handled'],gate:{mode:'coverage',inputSet:['a','b','c'],allowPartialCoverage:true}},
+      {id:'gap_gate',task:'C1_VALID_REF',role:'reviewer',dependsOn:['coverage'],gate:{mode:'review',requireEvidence:true}},
+    ]});
+    const gapBy=id=>c2Gap.results.find(n=>n.id===id);
+    const gapRef=gapBy('gap_gate').structuredResult.findings[0].evidenceRefs[0];
+    ok(/^evt_.+_coverage_a\d+_gap_coverage_unhandled_0$/.test(gapRef) && gapBy('gap_gate').structuredResult.findings[0].status==='verified','C3 e2e: downstream gate can cite a digest-only deterministic_gap event');
+    ok(gapBy('gap_gate').status==='succeeded' && !JSON.stringify(c2Gap).includes('"value":"c"'),'C3 e2e: deterministic gap traceability passes without exposing the raw gap value');
     // M3 bonus: allowPartialCoverage=true 降级路径此前因 normalizeAgentGate 丢字段从未生效,修复后验证。
     const m3p=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
       {id:'probe',task:'M3_PROBE'},

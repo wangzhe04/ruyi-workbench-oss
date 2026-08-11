@@ -1,6 +1,6 @@
 # 12 · Agent 架构研究补充路线 — 从证据到学习闭环
 
-> **当前进度（2026-07-27）**：阶段 C 的 C1（Evidence Graph 证据目录 prompt 注入与 `evidenceRefs` 输出契约）和 C2（M2/R1 确定性 gap 证据衔接）已完成；下一步为 C3（模板回填 + M4 回测），再进入 R2/R3/R4/R5。
+> **当前进度（2026-08-11）**：阶段 C 全部完成——C1（Evidence Graph 证据目录 prompt 注入与 `evidenceRefs` 输出契约）、C2（M2/R1 确定性 gap 证据衔接）、C3（内置模板高风险门回填 `requireEvidence` + M4 固定 benchmark/holdout 回测，漏项率 0、伪造检出率 100%）。R2/R3 按当前产品优先级暂缓，主线进入 R4/R5。
 
 > 关联：`06-hb360-cost-convergence.md`、`07-microagent-lessons.md`（M1–M6）、`09-m3-coverage-gate.md`、`10-m4-ablation.md`。立项日期：2026-08-10。性质：**路线规划，不代表已实现或自动启用**。
 
@@ -27,10 +27,10 @@ Ruyi 已具备多 Agent DAG、角色/工具分级、可恢复的运行记录、�
 | 编号 | 外部架构 | Ruyi 当前缺口 | 建议落点 | 优先级 |
 |---|---|---|---|---|
 | R1 | claim-level evidence provenance | 有审计、findings、artifact 摘要，但没有“最终断言 → 具体工具结果/文件/来源”的机器关系 | Evidence Graph + 引用契约 | **P0** |
-| R2 | execution-to-workflow induction | 有静态模板/Playbook 和运行历史，但不会从已验收轨迹归纳候选流程 | Workflow Candidate Factory | P1 |
-| R3 | offline workflow evolution | M4 能测单轴收益，但没有系统地产生、筛选和保留候选变体 | Champion–Challenger Lab | P1 |
-| R4 | linked, conflict-aware memory | 有按项目隔离且需确认的记忆，但没有 supports/contradicts/supersedes 关系与冲突检索 | Local Memory Graph | P2 |
-| R5 | task ledger + progress ledger + replan | 有 Mission、DAG、重试和任务池，但没有把偏离计划归并为可审的重规划 diff | Replan Patch Ledger | P2 |
+| R2 | execution-to-workflow induction | 有静态模板/Playbook 和运行历史，但不会从已验收轨迹归纳候选流程 | Workflow Candidate Factory | **暂缓** |
+| R3 | offline workflow evolution | M4 能测单轴收益，但没有系统地产生、筛选和保留候选变体 | Champion–Challenger Lab | **暂缓** |
+| R4 | linked, conflict-aware memory | 有按项目隔离且需确认的记忆，但没有 supports/contradicts/supersedes 关系与冲突检索 | Local Memory Graph | **P1（C3 后）** |
+| R5 | task ledger + progress ledger + replan | 有 Mission、DAG、重试和任务池，但没有把偏离计划归并为可审的重规划 diff | Replan Patch Ledger | **P1（C3 后）** |
 
 ### R1 · Evidence Graph（P0，M6 的工程化落点）
 
@@ -104,9 +104,9 @@ Ruyi 已有 Mission、持久 DAG、loop/stall guard、retry、任务池与人工
 | 候选阶段 | 范围 | 前置 | 出门标准 |
 |---|---|---|---|
 | C | M2 确定性结构节点 + R1 Evidence Graph | M1、M3 | Evidence refs 可校验；coverage/propagate 等结构判断不额外调用 LLM；旧模板零迁移 |
-| D | R2 Workflow Candidate Factory | C、已验收的可代表性 runs | 仅生成候选；来源、脱敏、回放与人工发布全链路可审计 |
-| E | R3 Champion–Challenger Lab | D、M4、固定 benchmark/holdout | 单轴与全量结果独立；变体、模型、配置、结果可重放 |
-| F | R4 Memory Graph + R5 Replan Patch Ledger | C；R3 可作为效果回流但非阻塞 | 关系/冲突/patch 都有来源、权限边界与拒绝路径 |
+| D（暂缓） | R2 Workflow Candidate Factory | C、已验收的可代表性 runs | 仅生成候选；来源、脱敏、回放与人工发布全链路可审计 |
+| E（暂缓） | R3 Champion–Challenger Lab | D、M4、固定 benchmark/holdout | 单轴与全量结果独立；变体、模型、配置、结果可重放 |
+| F（C3 后主线） | R4 Memory Graph + R5 Replan Patch Ledger | C；R3 可作为效果回流但非阻塞 | 关系/冲突/patch 都有来源、权限边界与拒绝路径 |
 
 阶段 C 的 M2 只引入通用、确定性的集合/传播计算；不把 MicroAgent 的 Java 依赖分析或 DDD 阶段硬编码进 Ruyi。阶段 D–F 每阶段都必须先有设计文档、威胁建模、fake e2e 和 M4 记录，再进入实现。
 
