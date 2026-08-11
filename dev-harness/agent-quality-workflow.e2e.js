@@ -9,6 +9,7 @@ const { getFreePort } = require('./free-port.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-quality-workflow');
+const SOURCE_FILE = path.join(HOME, 'c1-source.txt');
 const FP = await getFreePort(), WP = await getFreePort();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
@@ -20,7 +21,7 @@ function stream(body, headers={}) { return new Promise((resolve,reject)=>{const 
 async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(port,path0))return true;await sleep(120);}return false; }
 
 (async()=>{
-  fs.rmSync(HOME,{recursive:true,force:true});fs.mkdirSync(HOME,{recursive:true});
+  fs.rmSync(HOME,{recursive:true,force:true});fs.mkdirSync(HOME,{recursive:true});fs.writeFileSync(SOURCE_FILE,'C1 evidence source');
   const qualitySchema={type:'object',required:['verdict','confidence','summary','findings'],properties:{verdict:{type:'string',enum:['pass','fail','uncertain']},confidence:{type:'number',minimum:0,maximum:1},summary:{type:'string'},findings:{type:'array',items:{type:'object'}}}};
   const nodes=[
     {id:'finder_a',task:'VALID_A',outputSchema:qualitySchema},{id:'finder_b',task:'VALID_B',outputSchema:qualitySchema},
@@ -37,7 +38,7 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
   ];
   const good=JSON.stringify({verdict:'pass',confidence:.9,summary:'verified',findings:[{title:'duplicate issue',file:'x.js',line:4,confidence:.8}]});
   const reviewFail=JSON.stringify({verdict:'fail',confidence:.9,summary:'found real bugs',findings:[{title:'bug',file:'a.js',line:1,confidence:.9}]});
-  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],parentText:'workflow done',subText:good,subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail,M3_UNCOVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'checked most',findings:[],coverage:{total:3,handled:2,unhandled:['b.js','c.js']}}),M3_COVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'all checked',findings:[],coverage:{total:2,handled:2,unhandled:[]}}),R1_UNVERIFIED:JSON.stringify({verdict:'pass',confidence:.9,summary:'claims made',findings:[{text:'断言A',evidenceRefs:['evt_fake_99']}]}),M2_HANDLED:JSON.stringify({handledItems:['a','b']}),M2_PROPAGATE:JSON.stringify({items:[{id:'root',group:'g',assignment:'blue'},{id:'peer',group:'g'}],propagationEdges:[{from:'peer',to:'leaf'}]}),M2_CYCLE:JSON.stringify({assignments:{a:'x'},propagationEdges:[{from:'a',to:'b'},{from:'b',to:'a'}]})}};
+  const script={parent:[{name:'orchestrate_agents',args:{nodes}}],sub:[],subStepsByTask:{C1_TOOL_SOURCE:[{name:'file_read',args:{path:SOURCE_FILE}}]},parentText:'workflow done',subText:good,evidenceRefByTask:{C1_VALID_REF:'catalog',C1_FORGED_REF:'forged'},subTextByTask:{BAD_BLOCK:'not json',BAD_CONTINUE:'not json',BAD_RETRY:'not json',BAD_SETTLED:'not json',PLAIN_NON_VOTE:'{"answer":"correct but not a vote"}',B8_REVIEW_FAIL:reviewFail,M3_UNCOVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'checked most',findings:[],coverage:{total:3,handled:2,unhandled:['b.js','c.js']}}),M3_COVERED:JSON.stringify({verdict:'pass',confidence:.9,summary:'all checked',findings:[],coverage:{total:2,handled:2,unhandled:[]}}),R1_UNVERIFIED:JSON.stringify({verdict:'pass',confidence:.9,summary:'claims made',findings:[{text:'断言A',evidenceRefs:['evt_fake_99']}]}),M2_HANDLED:JSON.stringify({handledItems:['a','b']}),M2_PROPAGATE:JSON.stringify({items:[{id:'root',group:'g',assignment:'blue'},{id:'peer',group:'g'}],propagationEdges:[{from:'peer',to:'leaf'}]}),M2_CYCLE:JSON.stringify({assignments:{a:'x'},propagationEdges:[{from:'a',to:'b'},{from:'b',to:'a'}]})}};
   fs.writeFileSync(path.join(HOME,'config.json'),JSON.stringify({configSchema:7,permissionMode:'bypass',defaultWorkspace:HOME,subagentMaxPerTurn:12,subagentMaxConcurrent:6,providers:[{id:'fake',label:'Fake',type:'openai-compat',baseUrl:`http://127.0.0.1:${FP}`,apiKey:'k',model:'fake-model'}],activeProvider:'fake'}));
   const fake=cp.spawn(process.execPath,[path.join(__dirname,'fake-openai.js')],{env:{...process.env,FAKE_OPENAI_PORT:String(FP),FAKE_SUBAGENT_SCRIPT:JSON.stringify(script)},windowsHide:true});
   const wb=cp.spawn(process.execPath,['app/server.js','serve','--port',String(WP)],{cwd:WB,env:{...process.env,RUYI_HOME:HOME},windowsHide:true});
@@ -126,6 +127,28 @@ async function up(port, path0='/health') { for(let i=0;i<50;i++){if(await get(po
     const r1C=id=>r1c.results.find(n=>n.id===id);
     ok(r1C('soft').status==='succeeded','R1: non-high-stakes gate marks unverified claims but does NOT block (backwards-compatible)');
     ok(r1C('soft').structuredResult.findings[0].status==='unverified','R1: unverified claim status still recorded (marked, not deleted)');
+    // C1 fake workflow e2e: an upstream model tool call is indexed before the dependent gate starts;
+    // fake model extracts the prompt catalog eventId. Forged IDs remain machine-unverified.
+    const c1=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'source',task:'C1_TOOL_SOURCE',allowedTools:['file_read']},
+      {id:'valid_gate',task:'C1_VALID_REF',role:'reviewer',dependsOn:['source'],gate:{mode:'review',requireEvidence:true}},
+    ]});
+    const c1By=id=>c1.results.find(n=>n.id===id);
+    const c1Ref=c1By('valid_gate').structuredResult.findings[0].evidenceRefs[0];
+    ok(c1By('source').attempts===1 && c1Ref.startsWith(`evt_${c1.runId}_source_a1_`) && c1By('valid_gate').structuredResult.findings[0].status==='verified','C1 e2e: downstream gate prompt exposes the upstream tool eventId and a legal reference verifies');
+    ok(c1By('valid_gate').status==='succeeded' && c1By('valid_gate').errorClass!=='gate_unverified','C1 e2e: verified evidence does not trigger gate_unverified');
+    const workerCatalog=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'source',task:'C1_TOOL_SOURCE_WORKER',allowedTools:['file_read']},
+      {id:'worker',task:'C1_VALID_REF',dependsOn:['source'],outputSchema:{type:'object',required:['findings'],properties:{findings:{type:'array',items:{type:'object',required:['evidenceRefs'],properties:{evidenceRefs:{type:'array',items:{type:'string'}}}}}}}},
+    ]});
+    const wcBy=id=>workerCatalog.results.find(n=>n.id===id);
+    ok(wcBy('worker').structuredResult.findings[0].evidenceRefs[0].startsWith(`evt_${workerCatalog.runId}_source_a1_`),'C1 e2e: evidence catalog is injected into a non-gate model node too');
+    const c1f=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
+      {id:'source',task:'C1_TOOL_SOURCE_FORGED',allowedTools:['file_read']},
+      {id:'forged_gate',task:'C1_FORGED_REF',role:'reviewer',dependsOn:['source'],gate:{mode:'review',requireEvidence:true}},
+    ]});
+    const c1F=id=>c1f.results.find(n=>n.id===id);
+    ok(c1F('forged_gate').status==='rejected' && c1F('forged_gate').errorClass==='gate_unverified' && c1F('forged_gate').structuredResult.findings[0].status==='unverified','C1 e2e adversarial: a forged out-of-catalog eventId is unverified and rejected');
     // M3 bonus: allowPartialCoverage=true 降级路径此前因 normalizeAgentGate 丢字段从未生效,修复后验证。
     const m3p=await post(WP,'/api/agent-workflow/launch',{token,sessionId:sid,nodes:[
       {id:'probe',task:'M3_PROBE'},

@@ -104,6 +104,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // 注意:【绝不】在此清 continuation/interruptedAttempt —— 崩溃恢复的 interrupted 节点也进 reset(8442),
       // 而 25.4 断点续跑注入正靠这两字段(runNode 8704 读),清了会关掉「断点续跑」(autonomy-durability 回归)。
       n.degradedRetried = false; delete n.degraded; delete n.warning; delete n.toolEvidence; delete n.gateResult; n.summary = ''; n.evidence = []; n.artifacts = [];
+      // R1/C1: a resumed/manual retry creates a new attempt. Old eventIds must not remain
+      // prompt-visible or verify claims after that attempt has been invalidated.
+      purgeNodeEvidence(run, n.id);
       delete n.errorClass; // 29c: 失败类别随重跑清场(与 error 同生命周期),重跑成功不残留旧分类
       delete n.modelStartedAt; delete n.wrapUpRequestedAt; delete n.wrapUpDeadlineAt; delete n.wrapUpForcedAt;
     }
@@ -620,7 +623,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const deterministicGateModes = ['vote', 'dedupe', 'coverage', 'propagate'];
       const effectiveSchema = node.outputSchema || (node.gate && !deterministicGateModes.includes(node.gate.mode) ? QUALITY_GATE_OUTPUT_SCHEMA : null);
       const qualityInstruction = node.gate && !deterministicGateModes.includes(node.gate.mode)
-        ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。
+        ? `\n\n你是质量门节点(${node.gate.mode})。必须逐项核验所有前序结果；只输出 JSON，字段 verdict 只能是 pass/fail/uncertain，confidence 为 0..1，summary 为结论，findings 为证据数组。每条 finding 如引用工具证据，必须把下方目录中的 eventId 原样写入 evidenceRefs 数组。
 质量门必须覆盖到每个输入项，不能只看产物整体好坏。请额外输出 coverage 字段：total=输入项总数，handled=已核验项数，unhandled=未核验/未覆盖项清单（某个文件、数据行或子任务未处理时明确列出）。若存在未覆盖项，verdict 应为 fail（或按模板要求说明例外）。`
         : '';
       const reliabilityInstruction = `\n\n【可靠性约束】可由工具核验的事实必须先实际调用工具再下结论。不得在未尝试工具时声称“工具不可用”或输出 TOOL-UNAVAILABLE；工具失败时应写明实际调用的工具和错误，不得猜测事实。`;
@@ -651,7 +654,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // call) gives every node the same concrete subject to work from, without having to rewrite the DAG.
       const contextPrefix = contextText ? `任务背景（本次运行时提供）：\n${String(contextText).slice(0, 4000)}\n\n` : '';
       const nodeContextPrefix = node.context ? `本节点专属资料（仅本节点可见）：\n${node.context}\n\n` : '';
-      const effectiveTask = contextPrefix + nodeContextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + schemaInstruction;
+      const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
+      const effectiveTask = contextPrefix + nodeContextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + evidenceInstruction + schemaInstruction;
       let agentSession = parentSession;
       let isolated = false;
       let effectiveResources = node.resources;
@@ -838,6 +842,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         if (pol === 'fail') {
           node.status = 'failed'; node.error = node.warning || '降级输出按策略(fail)判失败'; node.errorClass = 'degraded_fail'; node.degraded = false;
         } else if (pol === 'retry' && !node.degradedRetried) {
+          // The degraded attempt was already indexed above; invalidate it before re-queueing.
+          purgeNodeEvidence(run, node.id);
           node.degradedRetried = true; node.degraded = false; node.warning = ''; node.status = 'queued'; node.completedAt = null;
           if (node.isolation && node.isolation.path) await cleanupAgentWorktree(node.isolation).catch(() => {});
           if (node.isolation) node.isolation = null;
@@ -858,6 +864,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         else if (node.noProgressCount >= node.loop.noProgressLimit) {
           node.loopStopReason = 'no_progress'; if (node.loop.onNoProgress === 'fail') { node.status = 'failed'; node.error = `连续 ${node.noProgressCount} 轮无进展，已停止`; node.errorClass = 'no_progress'; }
         } else if (node.loopIteration < node.loop.maxIterations) {
+          // A new loop iteration supersedes the previous attempt's tool evidence for this node.
+          // Dependants cannot run while it is queued, so clearing now closes the stale-ID window.
+          purgeNodeEvidence(run, node.id);
           node.status = 'queued'; node.completedAt = null;
           onEvent({ type: 'agent_workflow', state: 'node_loop', id: runId, nodeId: node.id, iteration: node.loopIteration + 1, maxIterations: node.loop.maxIterations, noProgressCount: node.noProgressCount });
         } else node.loopStopReason = 'max_iterations';

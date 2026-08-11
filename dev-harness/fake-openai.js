@@ -385,13 +385,28 @@ const server = http.createServer((req, res) => {
           })();
           return;
         }
-        const script = Array.isArray(sub ? SUBAGENT_SCRIPT.sub : SUBAGENT_SCRIPT.parent) ? (sub ? SUBAGENT_SCRIPT.sub : SUBAGENT_SCRIPT.parent) : [];
+        let script = Array.isArray(sub ? SUBAGENT_SCRIPT.sub : SUBAGENT_SCRIPT.parent) ? (sub ? SUBAGENT_SCRIPT.sub : SUBAGENT_SCRIPT.parent) : [];
+        const subUserText = sub ? (msgs || []).filter(m => m && m.role === 'user').map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')).join('\n') : '';
+        if (sub && SUBAGENT_SCRIPT.subStepsByTask && typeof SUBAGENT_SCRIPT.subStepsByTask === 'object') {
+          for (const [needle, value] of Object.entries(SUBAGENT_SCRIPT.subStepsByTask)) if (subUserText.includes(needle) && Array.isArray(value)) { script = value; break; }
+        }
         let fallbackText = sub
           ? (SUBAGENT_SCRIPT.subText || '子任务已完成:结论文本。')
           : (SUBAGENT_SCRIPT.parentText || '父回合完成。');
         if (sub && SUBAGENT_SCRIPT.subTextByTask && typeof SUBAGENT_SCRIPT.subTextByTask === 'object') {
-          const userText = (msgs || []).filter(m => m && m.role === 'user').map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')).join('\n');
+          const userText = subUserText;
           for (const [needle, value] of Object.entries(SUBAGENT_SCRIPT.subTextByTask)) if (userText.includes(needle)) { fallbackText = String(value); break; }
+        }
+        // C1 fake e2e: echo a visible catalog eventId into a structured finding. This proves
+        // the downstream model prompt can consume the machine-owned evidence contract.
+        if (sub && SUBAGENT_SCRIPT.evidenceRefByTask && typeof SUBAGENT_SCRIPT.evidenceRefByTask === 'object') {
+          const userText = subUserText;
+          for (const [needle, mode] of Object.entries(SUBAGENT_SCRIPT.evidenceRefByTask)) if (userText.includes(needle)) {
+            const ids = userText.match(/evt_[A-Za-z0-9_.:-]+_a\d+_\d+/g) || [];
+            const ref = String(mode) === 'forged' ? 'evt_forged_outside_catalog_a0_0' : (ids[0] || 'evt_missing_catalog_a0_0');
+            fallbackText = JSON.stringify({ verdict: 'pass', confidence: 0.9, summary: 'C1 fake evidence gate', findings: [{ id: 'c1-finding', severity: 'high', message: 'evidence-backed issue', target: 'sample.txt', evidenceRefs: [ref] }] });
+            break;
+          }
         }
         const step = done < script.length ? script[done] : null;
         (async () => {

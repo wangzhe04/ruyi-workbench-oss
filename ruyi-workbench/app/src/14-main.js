@@ -284,6 +284,8 @@ module.exports = {
   verifyNodeClaims,
   purgeNodeEvidence,
   runWorkspaceHash,
+  buildNodeEvidenceCatalog,
+  formatNodeEvidencePrompt,
   normalizeAgentWorkflow,
   resolveAgentTeamRoute,
   getAgentWorkflows,

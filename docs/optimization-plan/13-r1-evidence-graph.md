@@ -1,5 +1,7 @@
 # 13 · R1 实施文档 - Evidence Graph（阶段 C，P0）
 
+> **交付状态（2026-07-27）**：R1 基础能力与阶段 C1 已完成。C1 已落地依赖闭包证据目录注入、`findings[].evidenceRefs` Schema、机器校验加固、fake workflow e2e 与对抗验证；下一步为 C2（M2 未处理/未传播结果写入证据图）。
+
 > 关联：`12-agent-architecture-research-roadmap.md` §1 R1、`07-microagent-lessons.md` M6（R1 是 M6 的工程化落点）、`09-m3-coverage-gate.md`（M3 coverage 是先行提示，R1 把它落入证据图）。
 > 立项：2026-08-10。性质：**设计文档，不动代码**--遵循 12 文档 §2 纪律（先设计 + 威胁建模 + fake e2e + M4 记录再实现）。
 > 基线：M1（`0b3100d`）、M3（`9696483`）已交付。代码锚点为 `app/src/*.js`。
@@ -48,7 +50,7 @@
   status: 'verified' | 'unverified' | 'contradicted',
 }
 ```
-节点 `structuredResult.findings` 与最终交付的断言都带 `evidenceRefs`。**无 evidenceRefs 的断言 status='unverified'**，文本保留但标记。
+节点 `structuredResult.findings` 与最终交付的断言可带 `evidenceRefs`。当前 Schema 限制 findings 最多 200 条、每条最多 32 个唯一 eventId；为兼容旧工作流该字段保持可选，**无 evidenceRefs 的断言 status='unverified'**，文本保留但标记。
 
 ### 2.3 relation（关系，初版最小集）
 `supports` / `contradicts` / `derived_from` / `verified_by`。运行时校验：引用的 eventId 必须存在、同工作区、未过期；跨工作区或不存在 -> 拒绝并标 `unverified`。
@@ -135,7 +137,8 @@ R1 落地后按 M4 纪律单轴回测：
 - **未设计 M2**：M2 确定性节点另立文档，本波只定 R1 证据契约。
 - **未设计 R2–R5**：依赖 R1 契约，阶段 D–F 各自先设计文档。
 - **eventId 稳定性**：实现采用 `evt_<runId>_<nodeId>_a<attemptId>_<stepIdx>`（对抗轮加 attemptId，避免 retry 撞 id）。
-- **证据清单未注入 prompt（已知功能限制）**：当前 `evidenceRefs` 引用校验的数据契约与门控已通，但**没有把本轮可用证据清单（eventId 列表）注入子代理任务 prompt**，schema 的 findings items 也未约束 evidenceRefs。因此生产中真实模型若被要求出 evidenceRefs，要么编造（命中「不存在」→ unverified），要么缺失；高风险门（`requireEvidence`，默认关闭）在补 prompt 注入前实际不可用，仅作为机器判定（M2 coverage/propagate 产出）的消费端。这是 R1 落地的后续小步，触及 prompt-snapshot 锁定的 effectiveTask 区，需独立设计 + 快照更新。
+- **C1 证据清单注入已完成**：所有模型节点在 effectiveTask 中收到仅含依赖闭包、当前 run/workspace 的只读证据目录（确定性节点仍不调用模型）；目录有稳定排序、数量/字节上限和显式防伪规则，不包含工具参数、结果原文或 digest 输入。`findings[].evidenceRefs` 已纳入质量门 Schema（兼容旧输出而保持可选），`requireEvidence` 仍由机器在节点收尾时强制执行。
+- **C1 可见范围**：只允许当前节点的直接/传递依赖证据，兄弟节点、当前节点和目录外 ID 均不可验证；retry、degraded retry、loop、手动 resume 重跑前清理旧 attempt 证据。
 - **workspace 粒度 = run 工作目录**：workspace hash 按工作流 cwd（`run.cwd`）隔离，同一 run 内的 worktree 隔离节点共享同一 workspace tag，不做 worktree 级细分（主威胁「跨项目/跨 run 记忆泄漏」由 run 级 + cwd 挡住；同 run 内 worktree 互信）。
 - **外部论文引用**：12 文档已列 arXiv 依据，本文档不重复引用，只落地 Ruyi 版本契约。
 
@@ -147,3 +150,5 @@ R1 落地后按 M4 纪律单轴回测：
 2. `run.cwd` 从不赋值，workspace hash 恒等于服务器进程启动目录，跨工作区隔离 fail-open → run 创建时写入 `run.cwd`。
 3. eventId 不含 attemptId，retry 新 attempt 从 step 0 重编号与旧 attempt 撞 id，旧失败证据占位 → eventId 加 `a<attemptId>`，retry 前 `purgeNodeEvidence` 清旧证据。
 4. `indexNodeEvidence`/`verifyNodeClaims` 在 runNode 的 try/catch 之外，异常可跳过 completedAt/save/node_end → 包防御式 catch，降级为 `evidenceWarning` 不翻转已成功节点。
+5. C1 对抗验证发现旧 attempt 只在普通 retry 清理，degraded retry、loop 和手动 resume 重跑仍可能保留 stale eventId → 所有重排队入口统一 `purgeNodeEvidence`。
+6. C1 对抗验证发现脏快照的重复 eventId 会产生 last-write-wins 歧义、非数组/重复/超限 refs 可绕过宽松校验 → 重复 eventId fail-closed，引用逐项验证并限制 32 条。
