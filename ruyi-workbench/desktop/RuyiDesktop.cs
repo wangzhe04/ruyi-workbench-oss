@@ -789,7 +789,9 @@ namespace RuyiDesktop
                 + "<path stroke='var(--qh)' d='M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z'/>"
                 + "<circle fill='var(--au)' stroke='none' cx='19.4' cy='3.4' r='1.5'/></svg>"
                 + "</div></body></html>");
+            webPanelHandle = webPanel.Handle; // 记下 controller 绑定的父句柄，供 SyncWebViewBounds 检测 RecreateHandle
             SyncWebViewBounds();
+            controller.put_IsVisible(1); // 显式可见：某些状态变化（最大化/DPI）路径会令 controller 隐藏
             webViewReady = true;
             MaybeNavigate();
         }
@@ -1066,15 +1068,26 @@ namespace RuyiDesktop
             webPanel.SetBounds(inset, inset + TitlebarHeight, innerW, Math.Max(0, h - TitlebarHeight - inset * 2));
         }
 
+        private IntPtr webPanelHandle; // controller 绑定的父句柄；RecreateHandle 会换走它
+
         private void SyncWebViewBounds()
         {
             if (controller == null) return;
+            // 兜底：若 webPanel 句柄被 RecreateHandle 换掉（DPI 变化等其他路径），把 controller
+            // 重新父到新句柄，否则 controller 孤立、页面消失。WM_DPICHANGED 已避免触发 RecreateHandle，
+            // 此处仅防御其余路径（如 WM_DISPLAYCHANGE 后的内部重建）。
+            if (webPanelHandle != IntPtr.Zero && webPanelHandle != webPanel.Handle)
+            {
+                try { controller.put_ParentWindow(webPanel.Handle); }
+                catch { /* 接口失败时忽略，保留旧绑定，避免抛出中断布局 */ }
+            }
+            webPanelHandle = webPanel.Handle;
             // manifest 声明 DPI 感知（PerMonitorV2/PMv1）→ ClientSize 即物理像素，put_Bounds 直接用。
             var r = new Native.RECT();
             r.left = 0;
             r.top = 0; // bounds 相对 webPanel 客户区（原生标题栏之下）
-            r.right = webPanel.ClientSize.Width;
-            r.bottom = webPanel.ClientSize.Height;
+            r.right = Math.Max(0, webPanel.ClientSize.Width);
+            r.bottom = Math.Max(0, webPanel.ClientSize.Height);
             controller.put_Bounds(ref r);
             controller.NotifyParentWindowPositionChanged();
         }
@@ -1204,8 +1217,13 @@ namespace RuyiDesktop
         {
             if (m.Msg == Native.WM_DPICHANGED)
             {
+                // 不调 base.WndProc：PerMonitorV2 下 base 会触发 OnDpiChanged -> RecreateHandle，
+                // 销毁并重建 webPanel.Handle；而 WebView2 controller 创建时（见 OnControllerReady）
+                // 绑定的是旧 Handle，RecreateHandle 后 controller 孤立 -> 多屏跨 DPI
+                // （如笔记本 100% 接外显 150%）时页面永久消失（两个屏都看不到内容）。
+                // 本壳手动布局（AutoScaleMode.None + LayoutPanels SetBounds），不依赖 WinForms
+                // 自动 DPI 缩放，故自行应用建议边界 + 重排 WebView 即可。
                 Rectangle suggested = SuggestedDpiBounds(m.LParam);
-                base.WndProc(ref m);
                 if (WindowState != FormWindowState.Maximized)
                 {
                     if (suggested.Width > 0 && suggested.Height > 0)

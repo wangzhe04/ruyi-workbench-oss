@@ -660,7 +660,7 @@ function openModal(id) {
   const bd = $(id);
   _modalTriggers.set(bd, document.activeElement);
   bd.classList.remove('hidden');
-  if (id === 'settingsModal') switchSettingsTab(state._settingsTab || 'basic');
+  if (id === 'settingsModal') { fillSettings(); switchSettingsTab(state._settingsTab || 'basic'); }
   const panel = bd.querySelector('.modal, .palette');
   setTimeout(() => { focusFirstInteractive(panel)?.focus?.(); }, 0);
 }

@@ -138,7 +138,14 @@ async function setWorkspace(dir, { alsoDefault = false } = {}) {
     await patchSession(state.currentSession.id, { cwd: dir });
   } catch (e) { toast(t('workspace.switch.failed', { reason: apiErrText(e) }), 'err'); return; }
   pushRecentWorkspace(dir);
-  if (alsoDefault) { state.config.defaultWorkspace = dir; saveConfigPartial({ defaultWorkspace: dir }); }
+  if (alsoDefault) {
+    state.config.defaultWorkspace = dir;
+    saveConfigPartial({ defaultWorkspace: dir });
+    // 同步设置面板的默认工作区输入框：fillSettings 仅在 boot 与 doctor tab 时被调，
+    // 不在此刷新则用户打开设置看到旧值，点保存还会把后端 defaultWorkspace 回写成旧值（数据丢失）。
+    const wi = document.getElementById('workspaceInput');
+    if (wi && document.activeElement !== wi) wi.value = dir;
+  }
   renderWorkspacePicker();
   const treeTabActive = document.querySelector('.tool-pane .tool-tabs button[data-tab="files"]')?.classList.contains('active');
   if (treeTabActive) loadFileTree();
