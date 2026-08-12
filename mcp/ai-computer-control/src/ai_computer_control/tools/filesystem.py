@@ -4,6 +4,7 @@ import os
 import shutil
 import datetime
 import ctypes
+import unicodedata
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
 
@@ -40,8 +41,46 @@ def _decode_text(raw: bytes, encoding: str | None) -> tuple[str, str, str | None
         return raw.decode("utf-8", errors="replace"), "utf-8", enc
 
 
+def _non_ascii_priority(cp: int) -> int:
+    """0 = most likely to be mistaken for ASCII (fullwidth / nbsp / dashes / arrows / operators)."""
+    if 0xFF01 <= cp <= 0xFF5E or cp in (0x00A0, 0x2009, 0x202F):
+        return 0
+    if 0x2010 <= cp <= 0x2027 or 0x2190 <= cp <= 0x21FF or 0x00B7 <= cp <= 0x00F7:
+        return 1
+    return 2
+
+
+def _non_ascii_report(content: str, max_samples: int = 20) -> dict:
+    """List non-ASCII characters (line/column/codepoint/name/context), highest-risk first.
+
+    The JSON payload stays small: at most max_samples samples + a total count, sorted so
+    characters that render nearly identically to ASCII (fullwidth, en/em dashes, arrows,
+    non-breaking space) come first — those are the ones an exact-match edit silently misses.
+    """
+    hits = []
+    total = 0
+    for i, ch in enumerate(content):
+        cp = ord(ch)
+        if cp <= 127:
+            continue
+        total += 1
+        if len(hits) < max_samples:
+            line_start = content.rfind("\n", 0, i) + 1
+            line = content.count("\n", 0, i) + 1
+            col = i - line_start + 1
+            try:
+                name = unicodedata.name(ch)
+            except ValueError:
+                name = "<unnamed>"
+            hits.append({"line": line, "column": col, "char": ch, "codepoint": "U+%04X" % cp,
+                         "name": name, "context": content[max(0, i - 8):i + 9]})
+    hits.sort(key=lambda h: _non_ascii_priority(ord(h["char"][0])))
+    return {"total": total, "samples": hits[:max_samples]}
+
+
 @mcp.tool()
-def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000) -> dict:
+def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000,
+              annotate_non_ascii: bool = False) -> dict:
     """Read the text content of a file.
 
     Args:
@@ -71,7 +110,12 @@ def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000) ->
         if truncated:
             raw = raw[:limit]
         content, enc_used, fallback_from = _decode_text(raw, encoding)
+        if annotate_non_ascii:
+            content = "".join("⟨U+%04X⟩" % ord(c) if ord(c) > 127 else c for c in content)
+        non_ascii = _non_ascii_report(content)
         out = {"content": content, "size": size, "truncated": truncated, "encoding_used": enc_used}
+        if non_ascii["total"]:
+            out["non_ascii"] = non_ascii
         if fallback_from:
             out["encoding_fallback"] = {"requested": fallback_from, "used": enc_used}
         return out

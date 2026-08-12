@@ -1,6 +1,54 @@
 // 文件族只读工具默认根(修复:旧实现统一回退 process.cwd()=服务器启动目录,与系统 workspace
 // 概念脱节 —— MCP/API 调用不带 root 时永远列到 dist/Ruyi-full 这类产物目录)。
 // 回退链:显式 args.root > 回合注入 ctx.workingDir > 会话 cwd ctx.session.cwd > MCP 子进程会话(env WCW_SESSION_ID)> 配置 defaultWorkspace > 用户主目录(末位兜底)。
+// v2.6: non-ASCII visibility helpers (mirror ACC read_file/edit_file diagnostics).
+// JS has no unicodedata.name; a compact category label is enough to make lookalike chars visible.
+function accCpCategory(cp) {
+  if (cp >= 0xFF01 && cp <= 0xFF5E) return 'FULLWIDTH';
+  if (cp >= 0x2190 && cp <= 0x21FF) return 'ARROW';
+  if (cp >= 0x2010 && cp <= 0x2027) return 'DASH/PUNCT';
+  if (cp === 0x00A0 || cp === 0x2009 || cp === 0x202F) return 'SPACE';
+  if (cp >= 0x0300 && cp <= 0x036F) return 'COMBINING';
+  return 'non-ASCII';
+}
+function accCpName(ch) {
+  if (ch == null) return '<EOF>';
+  const cp = ch.codePointAt(0);
+  const hex = 'U+' + cp.toString(16).toUpperCase().padStart(4, '0');
+  if (cp <= 0x7F) return hex + " '" + ch + "'";
+  return hex + " '" + ch + "' (" + accCpCategory(cp) + ')';
+}
+function buildNonAsciiReport(text, maxSamples = 20) {
+  const hits = [];
+  let total = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const cp = text.codePointAt(i);
+    if (cp > 0x7F) {
+      total += 1;
+      if (hits.length < maxSamples) {
+        const ch = String.fromCodePoint(cp);
+        const lineStart = text.lastIndexOf('\n', i - 1) + 1;
+        const line = (text.slice(0, i).match(/\n/g) || []).length + 1;
+        const col = i - lineStart + 1;
+        const pri = (cp >= 0xFF01 && cp <= 0xFF5E) || cp === 0x00A0 || cp === 0x2009 || cp === 0x202F ? 0
+          : (cp >= 0x2010 && cp <= 0x2027) || (cp >= 0x2190 && cp <= 0x21FF) || (cp >= 0x00B7 && cp <= 0x00F7) ? 1 : 2;
+        hits.push({ line, column: col, char: ch, codepoint: 'U+' + cp.toString(16).toUpperCase().padStart(4, '0'),
+                    name: accCpCategory(cp), context: text.slice(Math.max(0, i - 8), i + 9), _pri: pri });
+      }
+      if (cp > 0xFFFF) i += 1;
+    }
+  }
+  hits.sort((a, b) => a._pri - b._pri);
+  const samples = hits.map(({ _pri, ...rest }) => rest);
+  return { total, samples };
+}
+function accAnnotateNonAscii(s) {
+  return s.replace(/[^\x00-\x7F]/gu, (c) => {
+    const cp = c.codePointAt(0);
+    return '\u27e8U+' + cp.toString(16).toUpperCase().padStart(4, '0') + '\u27e9';
+  });
+}
+
 async function resolveFileToolRoot(args, ctx) {
   if (args && args.root) return path.resolve(String(args.root));
   const session = ctx && ctx.session;
@@ -200,6 +248,10 @@ const FILE_TOOL_HANDLERS = {
         throw e;
       }
       const size = Buffer.byteLength(raw);
+      const nonAsciiReport = buildNonAsciiReport(raw);
+      const annotateFlag = args.annotate_non_ascii === true || args.annotate_non_ascii === 'true';
+      const finalContent = (c) => annotateFlag ? accAnnotateNonAscii(c) : c;
+      const nonAsciiField = nonAsciiReport.total ? { non_ascii: nonAsciiReport } : {};
       // v0.8-S1: line mode — triggered by lineOffset (1-based) or lineLimit. Returns cat -n style content
       // (right-aligned line number + tab + text) plus totalLines and the effective lineOffset/lineLimit.
       // Out-of-range → empty content + totalLines (NOT an error). Takes priority over the char slice
@@ -214,12 +266,12 @@ const FILE_TOOL_HANDLERS = {
         const slice = startIdx >= totalLines ? [] : lines.slice(startIdx, startIdx + lineLimit);
         const width = String(startIdx + slice.length).length;
         const content = slice.map((t, k) => String(startIdx + k + 1).padStart(width, ' ') + '\t' + t).join('\n');
-        return { ok: true, path: p, mode: 'lines', content, size, totalLines, lineOffset, lineLimit, truncated: lineOffset - 1 + slice.length < totalLines };
+        return { ok: true, path: p, mode: 'lines', content: finalContent(content), size, totalLines, lineOffset, lineLimit, truncated: lineOffset - 1 + slice.length < totalLines, ...nonAsciiField };
       }
       const start = Math.max(0, Number(args.offset != null ? args.offset : 0));
       const limit = args.limit != null ? Math.max(0, Number(args.limit) || 0) : 100000;
       const content = raw.slice(start, start + limit);
-      return { ok: true, path: p, content, size, totalChars: raw.length, truncated: start + limit < raw.length };
+      return { ok: true, path: p, content: finalContent(content), size, totalChars: raw.length, truncated: start + limit < raw.length, ...nonAsciiField };
   } },
   file_write: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
@@ -294,7 +346,63 @@ const FILE_TOOL_HANDLERS = {
             .join('\n'),
           scannedLines: scanLimit,
         };
-        return { ok: false, error: 'oldText was not found', closest };
+        // v2.6: explicit diagnostics — lookalike traps + first differing character (mirrors ACC edit_file).
+        const hints = [];
+        const rawHasCrlf = raw.includes('\r\n');
+        const oldHasCrlf = oldText.includes('\r\n');
+        if (oldHasCrlf && !rawHasCrlf) hints.push('oldText 用 CRLF 换行,文件是 LF(文本模式读取会归一化换行;请用 LF 版 oldText 或先 file_read 复制原文)');
+        else if (!oldHasCrlf && rawHasCrlf && !oldText.includes('\r')) hints.push('文件在磁盘上是 CRLF 换行——oldText 用 LF 无法命中,请从 file_read 复制含 \\r\\n 的原文');
+        if (oldText.normalize('NFC') !== oldText) hints.push('oldText 含组合字符(NFD 形式),文件可能是预组合 NFC');
+        for (const ch of oldText) {
+          const cp = ch.codePointAt(0);
+          if (cp >= 0xFF01 && cp <= 0xFF5E) { hints.push('oldText 含全角字符 ' + accCpName(ch) + ',文件里可能是半角'); break; }
+        }
+        const nonAsciiOld = [...oldText].filter(c => c.codePointAt(0) > 0x7F);
+        if (nonAsciiOld.length) hints.push('oldText 含非 ASCII 字符: ' + nonAsciiOld.slice(0, 8).map(accCpName).join(', ') + '——文件对应位置可能是 ASCII 形近字符(或反之),逐字节必然不匹配');
+        // firstDiff: independent two-phase scan (long tokens, then single alnum chars) with per-line
+        // sliding-window alignment. NOT derived from closest.best — whole-line Levenshtein distance
+        // favours short unrelated lines over the real lookalike line (e.g. 'return x' beats 'x = a → b'
+        // when the arrow char is the only diff). Token filter keeps the sweep cheap (line <= 500 chars).
+        let firstDiff = null;
+        {
+          const ned = needle.slice(0, 500);
+          const longToks = [...new Set(needle.match(/S+/g) || [])].filter(t => t.length >= 2);
+          const singleToks = [...new Set([...needle].filter(c => /[A-Za-z0-9]/.test(c)))];
+          const scanLimit2 = Math.min(fileLines.length, MAX_CLOSEST_SCAN_LINES);
+          let bestLine = -1, bestOff = -1, bestScore = -1;
+          const scan = (toks) => {
+            if (!toks.length) return;
+            for (let i = 0; i < scanLimit2; i += 1) {
+              const line = fileLines[i].slice(0, 500);
+              if (!line.trim() || line.length < 2) continue;
+              if (!toks.some(t => line.includes(t))) continue;
+              if (line.length > 1000) continue;
+              const step = Math.max(1, Math.floor(line.length / 200));
+              for (let off = 0; off <= Math.max(0, line.length - ned.length); off += step) {
+                const seg = line.slice(off, off + ned.length);
+                let same = 0;
+                for (let k = 0; k < seg.length && k < ned.length; k += 1) if (seg[k] === ned[k]) same += 1;
+                const score = same / Math.max(seg.length, ned.length, 1);
+                if (score > bestScore) { bestScore = score; bestOff = off; bestLine = i; }
+              }
+            }
+          };
+          scan(longToks);
+          if (bestLine < 0) scan(singleToks);
+          if (bestLine >= 0 && bestScore >= 0.5) {
+            const lineText = fileLines[bestLine].slice(0, 500);
+            const span = Math.max(ned.length, lineText.length - bestOff);
+            for (let k = 0; k < span; k += 1) {
+              const a = lineText[bestOff + k];
+              const b = ned[k];
+              if (a === undefined || b === undefined || a !== b) {
+                firstDiff = { line: bestLine + 1, column: bestOff + k + 1, fileChar: accCpName(a === undefined ? null : a), wantChar: accCpName(b === undefined ? null : b) };
+                break;
+              }
+            }
+          }
+        }
+        return { ok: false, error: 'oldText was not found', closest, ...(hints.length ? { hints } : {}), ...(firstDiff ? { firstDiff } : {}) };
       }
       if (count > 1 && !args.replaceAll) throw new Error(`oldText appears ${count} times; set replaceAll=true`);
       const updated = args.replaceAll ? raw.split(oldText).join(newText) : raw.replace(oldText, newText);

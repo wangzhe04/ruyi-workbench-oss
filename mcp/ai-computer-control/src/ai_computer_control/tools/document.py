@@ -15,6 +15,7 @@ left 裸奔 — every paragraph inherits a fully-specified style. write_excel ge
 import os
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
+from ai_computer_control.tools.filesystem import _non_ascii_report
 from ai_computer_control.tools import office_style as style_tokens
 
 
@@ -51,19 +52,22 @@ def read_document(path: str) -> dict:
 
     try:
         if ext == ".docx":
-            return _read_docx(path)
+            out = _read_docx(path)
         elif ext == ".xlsx":
             out = _read_xlsx(path)
             out["deprecated"] = True
             out["successor"] = "excel_read"
-            return out
         elif ext == ".pdf":
             out = _read_pdf(path)
             out["deprecated"] = True
             out["successor"] = "pdf_read_pages"
-            return out
         else:
             return {"error": f"Unsupported format: {ext}. Supported: .docx, .xlsx, .pdf"}
+        content = out.get("content") or ""
+        non_ascii = _non_ascii_report(content)
+        if non_ascii["total"]:
+            out["non_ascii"] = non_ascii
+        return out
     except Exception as e:
         return {"error": str(e)}
 
