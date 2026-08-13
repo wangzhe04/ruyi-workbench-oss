@@ -537,10 +537,10 @@ function isOsCriticalPath(absPath) {
 }
 // v2.7.1 (opt#1): 宽写模式判定。bypass/bypassPermissions/auto 三种模式下 guardFileToolPath 把工作区写边界视为放开
 // (等同 allowOutsideWorkspace=on,但不改配置);三层硬地板(应用数据/autoexec/OS 关键目录)仍始终拦截。ctx.effectivePermissionMode
-// (主回合/子代理派发时注入)优先于 config.permissionMode;都缺时回落 'bypass'(工作台默认)。传入已解析的 config 以覆盖 ctx=null
+// (主回合/子代理派发时注入)优先于 config.permissionMode;都缺时回落 'default'(fail-closed,配置真实默认)。传入已解析的 config 以覆盖 ctx=null
 // (一次性 MCP 子进程)的情况 -- 此时 config 由 readConfig() 从盘读出。
 function wideWriteModeEnabled(ctx, config) {
-  const m = String((ctx && ctx.effectivePermissionMode) || (config && config.permissionMode) || 'bypass');
+  const m = String((ctx && ctx.effectivePermissionMode) || (config && config.permissionMode) || 'default');
   return m === 'bypass' || m === 'bypassPermissions' || m === 'auto';
 }
 // v2.7.1 (对抗轮): 归一 Windows 扩展/UNC 路径形态供护栏判定(不改变实际 I/O 路径——handler 仍用调用方原路径)。
@@ -552,8 +552,8 @@ function wideWriteModeEnabled(ctx, config) {
 function normalizeGuardPath(p) {
   let s = String(p || '');
   const unc = s.match(/^\\\\\?\\UNC\\(.+)$/i);
-  if (unc) {
-    s = '\\\\' + unc[1];
+  if (unc || /^\\[^\/]/.test(s)) {
+    if (unc) s = '\\\\' + unc[1];
     const parts = s.slice(2).split(/[\\/]/);
     const host = String(parts[0] || '').toLowerCase();
     const shareM = String(parts[1] || '').match(/^([A-Za-z])\$/);

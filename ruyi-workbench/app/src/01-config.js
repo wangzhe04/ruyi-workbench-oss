@@ -263,7 +263,7 @@ function normalizeConfig(raw) {
     changed = true;
   }
   if (!PERMISSION_MODES.includes(config.permissionMode)) {
-    config.permissionMode = 'bypass';
+    config.permissionMode = 'default';
     changed = true;
   }
   if (!['auto', 'zh-CN', 'en-US'].includes(config.locale)) {

@@ -106,6 +106,19 @@ function post(port, p, payload, headers) {
   // 远程 UNC 非回环主机: 不在盘符地板(非本地系统目录) -> 宽写放行属设计意图。
   const gr = await S.guardFileToolPath('\\\\?\\UNC\\remote-host\\C$\\x\\y.txt', wide(), { write: true });
   ok(gr.ok === true, 'S3 v2.7.1 adversarial [unc-remote] wide-write allowed (non-local share, by design)');
+  // v2.7.1 对抗轮 G-01: 无前缀原生 UNC 管理共享(localhost/127.0.0.1/本机名)同样必须映射回盘符地板拦截。
+  const nativeUncForms = [
+    ['\\\\localhost\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'unc-native-localhost'],
+    ['\\\\127.0.0.1\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'unc-native-loopback'],
+    ['\\\\' + (os.hostname() || '') + '\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'unc-native-hostname'],
+  ];
+  for (const [np, tag] of nativeUncForms) {
+    const gN = await S.guardFileToolPath(np, wide(), { write: true });
+    ok(gN.ok === false && gN.code === 'os-critical-denied', 'S3 v2.7.1 adversarial [' + tag + '] denied (' + gN.code + ')');
+  }
+  // v2.7.1 对抗轮 G-02: 无 permissionMode 的 ctx 缺省回落 default(fail-closed)——越界写必须拒绝。
+  const gNm = await S.guardFileToolPath(OUTSIDE, ctx('https://api.deepseek.com', { permissionMode: undefined }), { write: true });
+  ok(gNm.ok === false && gNm.code === 'not-allowed', 'S3 v2.7.1 G-02 no-mode fallback -> out-of-bounds write DENY (fail-closed)');
 
   // Windows hosted runners expose TEMP through an 8.3 short path (RUNNER~1). A missing destination cannot
   // itself be realpath'd, so the guard must canonicalize its existing parent before comparing allowed roots.

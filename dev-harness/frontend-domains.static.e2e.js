@@ -315,6 +315,10 @@ ok(layeredCss.includes(':root[data-theme="dark"]')
   'D50 tokens/themes/chat/tooling/modes/usage/workbench 关键层事实齐全');
 ok(crypto.createHash('sha256').update(readLayerPayload()).digest('hex') === LEGACY_STYLES_SHA256,
   'D51 分层 CSS 重组后与原单体样式字节等价（仅新增层说明注释）');
+// v2.7.2 防回归(对抗轮修复): 组合根 navigation 解构必须包含 refreshToolPane,且已注入 chat 流 ——
+// 否则 L338 的箭头函数引用未声明标识符,result 事件触发即 ReferenceError: refreshToolPane is not defined。
+ok(app.includes('  refreshToolPane,') && app.includes('refreshToolPane: () => refreshToolPane()'),
+  'D53 组合根 navigation 解构含 refreshToolPane 并注入 chat 流(每轮结束自动刷新接线完整)');
 const chatOwnedRoutes = CSS_ROUTES.filter(route => /(?:chat|composer)/.test(route));
 const chatCompatRoutes = [...chatStyleManifest.matchAll(/@import url\("\/(css\/[^"]+\.css)"\);/g)].map(match => match[1]);
 ok(JSON.stringify(chatCompatRoutes) === JSON.stringify(chatOwnedRoutes),

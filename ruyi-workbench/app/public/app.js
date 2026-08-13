@@ -398,6 +398,7 @@ const {
   initRightResize,
   normalizeTabsForUiMode,
   noteToolTabOpened,
+  refreshToolPane,
   openCapPopover,
   openComposerMorePopover,
   openContextPopover,
