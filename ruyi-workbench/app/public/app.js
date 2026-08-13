@@ -132,6 +132,7 @@ const {
 
 const {
   bindUsageDashboard,
+  loadUsage,
   openUsageDashboard,
   refreshLocalizedUsage,
 } = createUsageDashboardDomain({
@@ -334,6 +335,7 @@ const {
   renderGitDiffInto,
   renderMarkdown,
   renderMissionBar: (...args) => renderMissionBar(...args),
+  refreshToolPane: () => refreshToolPane(),
   renderResumeBanner: (...args) => renderResumeBanner(...args),
   renderSessions: (...args) => renderSessions(...args),
   renderStaticMessage: (...args) => renderStaticMessage(...args),
@@ -395,6 +397,7 @@ const {
   fetchCapabilities,
   initRightResize,
   normalizeTabsForUiMode,
+  noteToolTabOpened,
   openCapPopover,
   openComposerMorePopover,
   openContextPopover,
@@ -458,10 +461,12 @@ const {
   loadFileTree: () => loadFileTree(),
   renderArtifactsGallery: () => renderArtifactsGallery(),
   loadChanges: () => loadChanges(),
-  openAuditTab: () => openAuditTab(),
+  openAuditTab: force => openAuditTab(force),
   openUsageDashboard: () => openUsageDashboard(),
   openStorageTab: () => openStorageTab(),
   loadAgentWorkflows: () => loadAgentWorkflows(),
+  loadUsage: force => loadUsage(force),
+  loadAgentRuns: force => loadAgentRuns(force),
   renderRawEventSnapshot: () => renderRawEventSnapshot(),
   updateAgentRunsPolling: tab => updateAgentRunsPolling(tab),
 });
@@ -1015,7 +1020,7 @@ function bindEvents() {
   shell.addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; $('dropHint').classList.add('hidden'); handleDrop(e); });
 
   // tool pane
-  document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => { b.onclick = () => switchTab(b.dataset.tab); });
+  document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => { b.onclick = () => { noteToolTabOpened(b.dataset.tab); switchTab(b.dataset.tab); }; });
   { const closePane = $('closeToolPaneBtn'); if (closePane) closePane.onclick = closeToolDrawer; }
   bindWorkbench(); // 第60波:主视图 Tab 与窄屏右板 backdrop 由 Workbench 域自持
   bindFileBrowser(); // 第59波:文件树刷新按钮由领域模块自持

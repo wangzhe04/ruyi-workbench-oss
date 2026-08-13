@@ -54,6 +54,8 @@ export function createNavigationControlsDomain({
   openUsageDashboard = () => {},
   openStorageTab = () => {},
   loadAgentWorkflows = async () => {},
+  loadUsage = async () => {},
+  loadAgentRuns = async () => {},
   renderRawEventSnapshot = () => {},
   updateAgentRunsPolling = () => {},
 } = {}) {
@@ -702,6 +704,22 @@ function switchSettingsTab(name, force) {
 // raw output remains a hidden compatibility sink for internal actions such as "open data directory".
 const DEV_TABS = new Set([]);
 const TOOLOUT_TABS = new Set([]);
+// v2.7.2: 每轮对话结束自动刷新工具面板——只刷新「打开过」的页签,未打开过的保持懒加载;memory 为跨会话
+// 内容不随单轮结果刷新;files 为默认激活页签恒在集合。主动点击页签由 noteToolTabOpened 纳入集合。
+const toolTabsOpened = new Set(['files']);
+function refreshToolPane() {
+  const active = document.querySelector('.tool-pane .tool-tabs button.active')?.dataset.tab;
+  if (active) toolTabsOpened.add(active);
+  for (const tab of toolTabsOpened) {
+    if (tab === 'files') loadFileTree();
+    else if (tab === 'artifacts') renderArtifactsGallery();
+    else if (tab === 'changes') loadChanges();
+    else if (tab === 'audit') openAuditTab(true);
+    else if (tab === 'usage') loadUsage(true);
+    else if (tab === 'agent-runs') loadAgentRuns(true);
+  }
+}
+function noteToolTabOpened(tab) { if (tab) toolTabsOpened.add(tab); }
 function switchTab(tab) {
   // Old saved developer-tab ids are normalized to the safe workspace default.
   if (DEV_TABS.has(tab) && document.documentElement.getAttribute('data-ui-mode') === 'simple') tab = 'files';
@@ -875,6 +893,7 @@ function initRightResize() {
     fetchCapabilities,
     initRightResize,
     normalizeTabsForUiMode,
+    noteToolTabOpened,
     openCapPopover,
     openComposerMorePopover,
     openContextPopover,
@@ -888,6 +907,7 @@ function initRightResize() {
     renderCapBadge,
     renderModelChip,
     renderPalette,
+    refreshToolPane,
     restoreRightWidth,
     restoreSidebarCollapsed,
     restoreToolsCollapsed,

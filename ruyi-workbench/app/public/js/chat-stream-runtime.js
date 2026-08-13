@@ -36,6 +36,7 @@ export function createChatStreamRuntime(deps = {}) {
     openModal,
     pushRawEvent,
     refreshSessions,
+    refreshToolPane = () => {},
     renderAttachments,
     renderAutonomyBar,
     renderContextMeter,
@@ -1039,6 +1040,8 @@ export function createChatStreamRuntime(deps = {}) {
           (live && live.narrative ? live.narrative : main).appendChild(evt.code === 'cli-missing' ? cliMissingCard() : errorCard(evt.errorClass, evt.error, noFiles));
           maybeScrollToBottom();
         }
+        // v2.7.2: 每轮对话结束自动刷新工具面板(已打开页签;files/artifacts/changes/audit/usage/agent-runs)。
+        refreshToolPane();
         break;
       case 'usage':
         if (live) live.pendingUsage = evt; else main.appendChild(usageLine(evt));

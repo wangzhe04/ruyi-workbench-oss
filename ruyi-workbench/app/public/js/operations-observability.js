@@ -343,7 +343,9 @@ export function createOperationsObservabilityDomain({
     }
   }
 
-  function openAuditTab() {
+  function openAuditTab(force) {
+    // v2.7.2: force=每轮对话结束自动刷新——先置未加载再重拉(与刷新按钮同语义),否则保持「打开时懒加载/缓存重绘」。
+    if (force) { auditState.loaded = false; loadAudit(); return; }
     if (!auditState.loaded) loadAudit();
     else renderAuditList();
   }
