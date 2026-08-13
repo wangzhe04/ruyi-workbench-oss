@@ -151,7 +151,7 @@ run.replanPatches = [{
 
 ---
 
-## 7. 验收标准（文档层面先行）
+## 7. 验收标准（✅ 已实现 2026-08-13）
 
 实现 commit 的验收标准：
 1. `node app/build.js --check` 无 manifest 过期红；
@@ -162,8 +162,20 @@ run.replanPatches = [{
 
 ---
 
-## 8. 本文档未做项（诚实性）
+## 8. 实现状态与诚实性（2026-08-13 收口）
 
-- **未动代码**：按「先落文档再动代码」约定，代码改动待确认后独立 commit。
+**已完整实现**（端到端闭环：触发→提案→review 生成 changes→审批→apply/rollback）：
+
+- 数据契约 + 机器校验 + 触发点 `111723c`
+- apply/rollback 引擎（change_tier 仅降级 + add_node）`6922e48`
+- 审批路由 + UI 卡片 + i18n `26e1186`
+- review 子代理自动生成 changes `40d0113`
+- 越权对抗修复（add_node 强制 read tier + review 子代理工具面收紧）`292cf29`
+
+**诚实性说明（已知限制，非缺陷）**：
+
+- **apply 改图后重跑依赖 resume**：审批发生在节点终态后，run 通常已收尾离开调度器。apply 把失败节点置 `queued`/新增 `queued` 节点，但**不会自动执行**——需用户 resume run 才会重跑受影响节点。改图即时生效，重跑是显式续跑动作。
+- **add_node 固定 read tier**：补节点强制 `toolTier='read'`、不继承失败节点的 role/tier（防 review 只读建议越权生成 exec 节点）；未来需更高 tier 的补节点走 `change_tier`（仅降级，无法抬级）另议。
+- **其余图操作暂缓**：remove_node / rewire / change_engine / change_role / inherit_evidence / drop_evidence 涉及下游一致性、角色引擎解析、证据图变更，未实现（apply 时诚实拒绝）。
 - **未接 R3 效果回流**：R3 暂缓，本波只落 run 记录，不写回离线评测数据。
-- **未回填模板的重规划策略**：R5 只补引擎能力；8 个模板按需声明触发/生成策略是后续单独立项，避免「能力 + 模板填充」混在一起难回归。
+- **未回填模板的重规划策略**：8 个内置模板未声明 `replan`（零迁移），按需声明触发/生成策略是后续单独立项。

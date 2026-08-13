@@ -103,7 +103,7 @@
 - **候选 C（✅ 已交付）**：M2 确定性结构节点 + R1 Evidence Graph；先将“断言/结论 → 工具结果/文件片段/来源/人工确认”变成可校验关系。**R1 设计文档已落** [`optimization-plan/13-r1-evidence-graph.md`](optimization-plan/13-r1-evidence-graph.md)（P0，证据契约 + 引用校验 + 脱敏 + 威胁建模 + fake e2e，M6 工程化落点）；**M2 设计文档已落** [`optimization-plan/14-m2-deterministic-nodes.md`](optimization-plan/14-m2-deterministic-nodes.md)：vote 防误杀（abstainThreshold 低置信弃权，默认 0 存量零迁移）+ coverage/propagate 确定性节点（机器版 coverage 是 M3 校验源 + R1 evidence 数据源）。**阶段 C 全完成（R1 `935ad73` + M2 `caf7e57` + C1/C2/C3 均已交付）**。
 - **候选 D（⏸️ 暂缓）**：R2 Workflow Candidate Factory；只使用充分验收、脱敏且证据完整的轨迹，候选经隔离回放和用户确认后才可成为项目模板。
 - **候选 E（⏸️ 暂缓）**：R3 Champion–Challenger Lab；不做线上 MCTS，先对受限变体在固定基准和 holdout 上做可重放的单轴/全量对比。
-- **候选 F（R4 已收口，R5 进行中）**：R4 Local Memory Graph 已完成 S1/S2/S3（关系存储 + 冲突检索 + gate 自动提议 + confirmed 图确定性聚类 + review-only 过期建议 + 孤儿边提示，`8effffc`/`0b69856`/`3b8bdf7`）；R5 Replan Patch Ledger 设计文档已落（`16-r5-replan-ledger.md`），下一步实施。R2/R3 暂缓。
+- **候选 F（✅ 已收口）**：R4 Local Memory Graph 已完成 S1/S2/S3（关系存储 + 冲突检索 + gate 自动提议 + confirmed 图确定性聚类 + review-only 过期建议 + 孤儿边提示，`8effffc`/`0b69856`/`3b8bdf7`）；R5 Replan Patch Ledger 已完整实现（触发→提案→review 生成 changes→审批→apply/rollback 端到端闭环，`111723c`/`6922e48`/`26e1186`/`40d0113`/`292cf29`）。R2/R3 暂缓。
 - **明确暂缓**：基于相关性校准的高阶 vote，及任何在线 RL/自动训练；前者需 R1/R3 产生的 holdout 可靠性数据，后者最多作为独立、脱敏、离线的远期导出能力。
 
 ### Traveler 4.0（概念稿）
