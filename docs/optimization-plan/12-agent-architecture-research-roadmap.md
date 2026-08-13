@@ -1,6 +1,6 @@
 # 12 · Agent 架构研究补充路线 — 从证据到学习闭环
 
-> **当前进度（2026-08-11）**：阶段 C 全部完成——C1（Evidence Graph 证据目录 prompt 注入与 `evidenceRefs` 输出契约）、C2（M2/R1 确定性 gap 证据衔接）、C3（内置模板高风险门回填 `requireEvidence` + M4 固定 benchmark/holdout 回测，漏项率 0、伪造检出率 100%）。R2/R3 按当前产品优先级暂缓。R4-S1/S2 已完成关系存储、冲突检索、gate 自动提议与 evidenceRef 校验；本轮审查补齐真实 Provider/Claude/gate 提示链路与 GET 路由授权，并完成 R4-S3（confirmed 图确定性聚类 + review-only 过期建议 + 孤儿边提示）。R4 已收口，主线下一项为 R5。
+> **当前进度（2026-08-11）**：阶段 C 全部完成——C1（Evidence Graph 证据目录 prompt 注入与 `evidenceRefs` 输出契约）、C2（M2/R1 确定性 gap 证据衔接）、C3（内置模板高风险门回填 `requireEvidence` + M4 固定 benchmark/holdout 回测，漏项率 0、伪造检出率 100%）。R2/R3 按当前产品优先级暂缓。R4-S1/S2 已完成关系存储、冲突检索、gate 自动提议与 evidenceRef 校验；本轮审查补齐真实 Provider/Claude/gate 提示链路与 GET 路由授权，并完成 R4-S3（confirmed 图确定性聚类 + review-only 过期建议 + 孤儿边提示）。R4 已收口，主线下一项为 R5；**R5 设计文档已落（2026-08-12，`16-r5-replan-ledger.md`），下一步按「先落文档再动代码」确认后实施 commit**。
 
 > 关联：`06-hb360-cost-convergence.md`、`07-microagent-lessons.md`（M1–M6）、`09-m3-coverage-gate.md`、`10-m4-ablation.md`。立项日期：2026-08-10。性质：**路线规划，不代表已实现或自动启用**。
 

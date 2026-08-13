@@ -90,20 +90,20 @@
 
 `docs/optimization-plan/07-microagent-lessons.md`（2026-08-10 立）：MicroAgent 论文 × Ruyi 逐项对照（主会话核实），产出 M1–M6——编排上下文分级注入（P0）、确定性节点扩展 + vote 门防误杀、verify 节点输入覆盖率职责、HB360 单轴消融纪律、模板方法论工具、O3 证据回溯升级。与 06（HB360 成本收敛）互为姊妹篇，分 A–D 四个候选波次。原计划排在 3.0 之后；**2026-08-10 用户决定跳过第101波、3.0 收口搁置，本线提前推进**（在 Escapade 2.5.0 线上）。
 
-**候选 A 波（✅ M3 已交付，M4 文档就绪）**：M3（verify 输入覆盖率）+ M4（单轴消融纪律）。
+**候选 A 波（✅ 已交付）**：M3（verify 输入覆盖率）+ M4（单轴消融纪律）。
 - **M3 已交付（`9696483`）**：`QUALITY_GATE_OUTPUT_SCHEMA` 加可选 coverage 字段（不破坏存量 verify）+ 质量门 prompt 引导逐项核验 + 后端 unhandled 收紧（`gate_uncovered`）；e2e（quality-gates + quality-workflow + prompt-snapshot）+ build --check 全绿。实施文档 [`optimization-plan/09-m3-coverage-gate.md`](optimization-plan/09-m3-coverage-gate.md)。
-- **M4（流程项，不涉代码）**：实施文档已落 [`optimization-plan/10-m4-ablation.md`](optimization-plan/10-m4-ablation.md)——06 各优化项按「波次打包」上开关无法单轴归因，改为「每项独立开关 + 单轴回测 + 全量累进」，归因轴对齐工作流/工具/上下文三轴，含消融记账模板。**下一步：阶段 A 把纪律并入 06 文档 §5 + 建记账表；阶段 B 按需补 O1–O6 评测开关（下次回测前做开关盘点）**。
+- **M4（流程项，不涉代码）**：实施文档已落 [`optimization-plan/10-m4-ablation.md`](optimization-plan/10-m4-ablation.md)——06 各优化项按「波次打包」上开关无法单轴归因，改为「每项独立开关 + 单轴回测 + 全量累进」，归因轴对齐工作流/工具/上下文三轴，含消融记账模板。**已交付（`bcd8fa7`）**：消融记账模板 + 三轴归因（工作流/工具/上下文）已成文。
 
-**候选 B 波（进行中）**：M1（编排上下文分级注入，**唯一 P0**）+ M6（O3 证据回溯）。
-- **M1 实施文档已落** [`optimization-plan/11-m1-context-tiering.md`](optimization-plan/11-m1-context-tiering.md)：把 `09-workflow.js:647` 单一 `contextText`（所有节点同一份）升级为「全局层 + per-node 覆盖」--节点对象（L173）加 `context` 字段、contextPrefix（L647）追加节点层、节点 schema（L1883）补描述；节点无 context 时行为逐字节不变（存量模板零迁移）。**下一步：确认方案后实施 commit + agent 对抗验证 code review/debug**。
-- **M6**：O3 自检升级为证据回溯，并入 06-O3，候选 B 波后半。
+**候选 B 波（✅ 已交付）**：M1（编排上下文分级注入，**唯一 P0**）+ M6（O3 证据回溯）。
+- **M1 实施文档已落** [`optimization-plan/11-m1-context-tiering.md`](optimization-plan/11-m1-context-tiering.md)：把 `09-workflow.js:647` 单一 `contextText`（所有节点同一份）升级为「全局层 + per-node 覆盖」--节点对象（L173）加 `context` 字段、contextPrefix（L647）追加节点层、节点 schema（L1883）补描述；节点无 context 时行为逐字节不变（存量模板零迁移）。**已交付（`0b3100d`，含节点级 context 注入 + 对抗加固 + e2e）**。
+- **M6**：O3 自检升级为证据回溯，并入 06-O3，已随 R1 Evidence Graph 完成（R1 即 M6 的工程化落点）。
 
 **后续候选 C–F · Agent 架构研究补充（2026-08-10 纳入；不代表自动实现）**：在 MicroAgent M1–M6 之上，新增五段受控闭环：R1 claim-level Evidence Graph（P0，M6 的工程化落点）→ R2 从已验收轨迹归纳、人工发布的 Workflow Candidate Factory（P1）→ R3 基于 M4/HB360 的离线 Champion–Challenger Lab（P1）→ R4 Local Memory Graph（P2）与 R5 Replan Patch Ledger（P2）。所有能力都止于候选/提案，禁止自动发布模板、篡改记忆、扩大权限或在线学习。详细的架构、分期、验收和暂缓项见 [`optimization-plan/12-agent-architecture-research-roadmap.md`](optimization-plan/12-agent-architecture-research-roadmap.md)。
 
-- **候选 C**：M2 确定性结构节点 + R1 Evidence Graph；先将“断言/结论 → 工具结果/文件片段/来源/人工确认”变成可校验关系。**R1 设计文档已落** [`optimization-plan/13-r1-evidence-graph.md`](optimization-plan/13-r1-evidence-graph.md)（P0，证据契约 + 引用校验 + 脱敏 + 威胁建模 + fake e2e，M6 工程化落点）；M2 设计文档待立（阶段 C 后半）。**M2 设计文档已落** [`optimization-plan/14-m2-deterministic-nodes.md`](optimization-plan/14-m2-deterministic-nodes.md)：vote 防误杀（abstainThreshold 低置信弃权，默认 0 存量零迁移）+ coverage/propagate 确定性节点（机器版 coverage 是 M3 校验源 + R1 evidence 数据源）。**阶段 C 设计齐备（R1+M2），下一步进实现**。
-- **候选 D**：R2 Workflow Candidate Factory；只使用充分验收、脱敏且证据完整的轨迹，候选经隔离回放和用户确认后才可成为项目模板。
-- **候选 E**：R3 Champion–Challenger Lab；不做线上 MCTS，先对受限变体在固定基准和 holdout 上做可重放的单轴/全量对比。
-- **候选 F**：R4/R5；项目内的关系化记忆与可审查重规划 patch。它们依赖 C 的来源契约，沿用现有权限、任务池与恢复防重放边界。
+- **候选 C（✅ 已交付）**：M2 确定性结构节点 + R1 Evidence Graph；先将“断言/结论 → 工具结果/文件片段/来源/人工确认”变成可校验关系。**R1 设计文档已落** [`optimization-plan/13-r1-evidence-graph.md`](optimization-plan/13-r1-evidence-graph.md)（P0，证据契约 + 引用校验 + 脱敏 + 威胁建模 + fake e2e，M6 工程化落点）；**M2 设计文档已落** [`optimization-plan/14-m2-deterministic-nodes.md`](optimization-plan/14-m2-deterministic-nodes.md)：vote 防误杀（abstainThreshold 低置信弃权，默认 0 存量零迁移）+ coverage/propagate 确定性节点（机器版 coverage 是 M3 校验源 + R1 evidence 数据源）。**阶段 C 全完成（R1 `935ad73` + M2 `caf7e57` + C1/C2/C3 均已交付）**。
+- **候选 D（⏸️ 暂缓）**：R2 Workflow Candidate Factory；只使用充分验收、脱敏且证据完整的轨迹，候选经隔离回放和用户确认后才可成为项目模板。
+- **候选 E（⏸️ 暂缓）**：R3 Champion–Challenger Lab；不做线上 MCTS，先对受限变体在固定基准和 holdout 上做可重放的单轴/全量对比。
+- **候选 F（R4 已收口，R5 进行中）**：R4 Local Memory Graph 已完成 S1/S2/S3（关系存储 + 冲突检索 + gate 自动提议 + confirmed 图确定性聚类 + review-only 过期建议 + 孤儿边提示，`8effffc`/`0b69856`/`3b8bdf7`）；R5 Replan Patch Ledger 设计文档已落（`16-r5-replan-ledger.md`），下一步实施。R2/R3 暂缓。
 - **明确暂缓**：基于相关性校准的高阶 vote，及任何在线 RL/自动训练；前者需 R1/R3 产生的 holdout 可靠性数据，后者最多作为独立、脱敏、离线的远期导出能力。
 
 ### Traveler 4.0（概念稿）
