@@ -81,7 +81,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 2026-08-12 工具箱新增核心记忆管理模块；全部规则限定在 tool-pane 所有权层并保持 token 化与窄屏约束。
 // 第101波 (workspace permissions): tool-pane.css 新增工作区权限管理列表样式(.workspace-perm-*)，
 // 均为 tool-pane 所有权层的有意变更，重钉载荷锁。classic/Preview 其它层未改。
-const LEGACY_STYLES_SHA256 = '1e241c3152bec40a5957b66dd5bb20d4fc90baf2e010b709df65040fc9ae9000';
+// v2.7.2 (常用工作区优先级): workspace.css 新增 .wp-fav-* popover 列表与 .ws-fav-* 文件面板 chips 样式，
+// 均为 workspace 所有权层的有意变更，重钉载荷锁。
+const LEGACY_STYLES_SHA256 = '12cc07593cdeb704e88afd97911702ded481410cb2a2af693dc2bc227175319b';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

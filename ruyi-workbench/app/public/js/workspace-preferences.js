@@ -117,6 +117,8 @@ function renderWorkspacePicker() {
   const short = full ? (full.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || full) : t('navigation.workbench');
   if (nameEl) nameEl.textContent = short;         // textContent → XSS-safe (paths are attacker-influenced)
   btn.title = full || t('workspace.select');
+  // v2.7.2: 文件面板常用工作区 chips 与顶栏选择器同步刷新(boot/会话切换/工作区变更均经此)。
+  renderWorkspaceFavChips();
 }
 // LRU-insert a path at the front of config.recentWorkspaces (≤10, de-duped case-insensitively) and persist.
 // Kept in sync with the server's normalizeConfig cleansing (which also truncates to 10).
@@ -140,7 +142,14 @@ async function setWorkspace(dir, { alsoDefault = false } = {}) {
   pushRecentWorkspace(dir);
   if (alsoDefault) {
     state.config.defaultWorkspace = dir;
-    saveConfigPartial({ defaultWorkspace: dir });
+    // v2.7.2: defaultWorkspace 由后端 normalize 强制与 workspaces[0] 同步——「设为默认」必须同时把该目录
+    // 置为常用工作区首位（加入常用并置顶），否则保存后会被后端覆盖回旧值（现存问题）。权限保留原条目/默认全开。
+    const ws = Array.isArray(state.config.workspaces) ? state.config.workspaces : [];
+    const idx = ws.findIndex(w => String(w.path).toLowerCase() === String(dir).toLowerCase());
+    if (idx > 0) { const [x] = ws.splice(idx, 1); ws.unshift(x); }
+    else if (idx < 0) ws.unshift({ path: dir, read: true, write: true, execute: true });
+    state.config.workspaces = ws;
+    saveConfigPartial({ defaultWorkspace: dir, workspaces: ws.map(w => ({ path: w.path, read: w.read !== false, write: w.write !== false, execute: w.execute !== false })) });
     // 同步设置面板的默认工作区输入框：fillSettings 仅在 boot 与 doctor tab 时被调，
     // 不在此刷新则用户打开设置看到旧值，点保存还会把后端 defaultWorkspace 回写成旧值（数据丢失）。
     const wi = document.getElementById('workspaceInput');
@@ -189,6 +198,88 @@ async function submitPastedWorkspace(input, close) {
   if (close) close();
   await setWorkspace(raw); // 现有链路带 cwd 护栏与人话警告;无效路径后端拒并 toast
 }
+/* ---------------- v2.7.2: 常用工作区优先级(对话页快速调整) ---------------- */
+// 「常用工作区」= config.workspaces(priority-ordered,index 0 = 默认/最高优先级,由后端 normalize 与
+// defaultWorkspace 同步)。这里提供对话页快速切换 + ↑↓/★ 调整优先级,与设置页「工作区权限」同一数据源。
+function favoriteList() {
+  return Array.isArray(state.config.workspaces) ? state.config.workspaces : [];
+}
+function workspaceShortName(p) {
+  const s = String(p || '');
+  return s ? (s.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || s) : '';
+}
+function persistWorkspaces(ws, defaultPath) {
+  state.config.workspaces = ws;
+  state.config.defaultWorkspace = defaultPath || (ws.length ? ws[0].path : state.config.defaultWorkspace);
+  saveConfigPartial({
+    workspaces: ws.map(w => ({ path: w.path, read: w.read !== false, write: w.write !== false, execute: w.execute !== false })),
+    defaultWorkspace: state.config.defaultWorkspace,
+  });
+  renderWorkspacePicker();
+}
+// 上移/下移(调整优先级顺序);from/to 触碰 0 时 defaultWorkspace 同步(后端 normalize 同样兜底)。
+function reorderFavorite(from, to) {
+  const ws = favoriteList();
+  if (!ws.length || from < 0 || from >= ws.length || to < 0 || to >= ws.length || from === to) return;
+  const [x] = ws.splice(from, 1); ws.splice(to, 0, x);
+  persistWorkspaces(ws, ws[0].path);
+}
+// 置顶 = 设为最高优先级(同时也是默认工作区)。
+function promoteFavorite(dir) {
+  const ws = favoriteList();
+  const idx = ws.findIndex(w => String(w.path).toLowerCase() === String(dir || '').toLowerCase());
+  if (idx <= 0) return; // 已在首位或不存在
+  const [x] = ws.splice(idx, 1); ws.unshift(x);
+  persistWorkspaces(ws, x.path);
+}
+// popover 内的常用工作区列表。行点击=切换会话 cwd;↑↓/★ 就地调整优先级(不关闭 popover,实时刷新)。
+function renderFavoritesInto() {
+  const list = el('div', 'wp-fav-list');
+  const refresh = () => {
+    const ws = favoriteList();
+    const cur = currentWorkspace();
+    list.textContent = '';
+    if (!ws.length) { list.append(el('div', 'wp-fav-empty', t('workspace.favorites.empty'))); return; }
+    ws.forEach((w, i) => {
+      const p = String(w.path || ''); if (!p) return;
+      const row = el('div', 'wp-fav-item' + (p.toLowerCase() === String(cur || '').toLowerCase() ? ' current' : ''));
+      row.title = p;
+      const rank = el('span', 'wp-fav-rank', String(i + 1));
+      const name = el('span', 'wp-fav-name', workspaceShortName(p));
+      const btns = el('span', 'wp-fav-btns');
+      const mk = (glyph, title, fn) => {
+        const b = el('button', 'wp-fav-btn', glyph); b.type = 'button'; b.title = title;
+        b.onclick = e => { e.stopPropagation(); fn(); refresh(); };
+        return b;
+      };
+      btns.append(
+        mk('↑', t('workspace.favorites.up'), () => reorderFavorite(i, i - 1)),
+        mk('↓', t('workspace.favorites.down'), () => reorderFavorite(i, i + 1)),
+        mk('★', t('workspace.favorites.promote'), () => promoteFavorite(p)),
+      );
+      row.append(rank, name, btns);
+      row.onclick = () => setWorkspace(p);
+      list.append(row);
+    });
+  };
+  refresh();
+  return list;
+}
+// 工具面板「文件」tab 的常用工作区快速切换条(chips)。点击切换会话 cwd + 刷新文件树;当前高亮。
+function renderWorkspaceFavChips() {
+  const box = $('workspaceFavChips'); if (!box) return;
+  const ws = favoriteList();
+  const cur = currentWorkspace();
+  box.textContent = '';
+  if (!ws.length) return;
+  ws.forEach(w => {
+    const p = String(w.path || ''); if (!p) return;
+    const chip = el('button', 'ws-fav-chip' + (p.toLowerCase() === String(cur || '').toLowerCase() ? ' current' : ''), workspaceShortName(p));
+    chip.type = 'button'; chip.title = p;
+    chip.onclick = () => setWorkspace(p);
+    box.append(chip);
+  });
+}
 function pickWorkspace(anchor) {
   // Preview has its own visible workspace fact. Accept an explicit anchor so the shared picker
   // opens beside the control the user actually pressed; classic onclick still passes a MouseEvent
@@ -196,6 +287,11 @@ function pickWorkspace(anchor) {
   const btn = anchor && anchor.nodeType === 1 ? anchor : $('workspacePicker'); if (!btn) return;
   popover(btn, close => {
     const wrap = el('div', 'wp-pop');
+    // v2.7.2: 常用工作区(按优先级)— 快速切换 + ↑↓/★ 调整优先级。
+    const favTitle = el('div', 'wp-fav-title', t('workspace.favorites'));
+    favTitle.title = t('workspace.favorites.hint');
+    wrap.append(favTitle);
+    wrap.append(renderFavoritesInto());
     const browse = el('button', 'wp-pop-browse', ''); browse.type = 'button';
     iconTextBtn(browse, 'folder', t('workspace.browse'));
     browse.onclick = () => { close(); pickWorkspaceNative(); };
@@ -220,6 +316,7 @@ function pickWorkspace(anchor) {
     currentWorkspace,
     pickWorkspace,
     pickWorkspaceNative,
+    renderWorkspaceFavChips,
     renderWorkspacePicker,
     setWorkspace,
     toggleTheme,

@@ -22,6 +22,29 @@
   border: 1px solid var(--accent); border-radius: var(--radius-sm); cursor: pointer; }
 .wp-pop-go:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
+/* v2.7.2: 常用工作区优先级(popover 列表 + 文件面板 chips) */
+.wp-fav-title { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); letter-spacing: .04em; }
+.wp-fav-list { display: flex; flex-direction: column; gap: 3px; max-height: 34vh; overflow: auto; }
+.wp-fav-empty { padding: 6px 4px; font-size: var(--fs-xs); color: var(--muted); line-height: 1.5; }
+.wp-fav-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: var(--radius-sm);
+  background: var(--panel-2); border: 1px solid var(--line); cursor: pointer; }
+.wp-fav-item:hover { border-color: var(--line-2); background: var(--panel-3); }
+.wp-fav-item.current { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--accent) 10%, var(--panel-2)); }
+.wp-fav-rank { flex: none; font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 16px; text-align: center; }
+.wp-fav-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); color: var(--ink-2); }
+.wp-fav-item.current .wp-fav-name { color: var(--accent); }
+.wp-fav-btns { flex: none; display: flex; gap: 2px; opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+.wp-fav-item:hover .wp-fav-btns { opacity: 1; }
+.wp-fav-btn { flex: none; min-width: 20px; height: 20px; padding: 0; border: 1px solid transparent; border-radius: 4px;
+  background: transparent; color: var(--muted); font-size: var(--fs-xs); line-height: 1; cursor: pointer; }
+.wp-fav-btn:hover { background: var(--panel-3); border-color: var(--line-2); color: var(--ink); }
+.ws-fav-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 6px 6px; }
+.ws-fav-chip { max-width: 160px; padding: 2px 9px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel-2); color: var(--ink-2); font-size: var(--fs-xs); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.ws-fav-chip:hover { border-color: var(--line-2); background: var(--panel-3); }
+.ws-fav-chip.current { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel-2)); }
+
 /* file tree (files tab) */
 .file-tree-root { font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); padding: 4px 6px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; }
