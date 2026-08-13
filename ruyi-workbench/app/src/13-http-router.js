@@ -1955,6 +1955,36 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'debug_hypothesis',
+    description: 'Advisory hypothesis/experiment/refutation ledger for structured debugging (bisect/elimination method). Tracks which hypotheses are pending/refuted/supported/confirmed so you can see how many remain unrefuted, catch repeated experiments, and avoid locking a root cause before excluding alternatives. It is a STATELESS helper (the ledger is carried in the conversation, not persisted server-side): pass the ledger returned by the previous call back on every subsequent call. Actions: init(hypotheses[]) to create the ledger, test(hypothesisId,result,evidence) to record a refuting/supporting experiment (refutation is sticky; a refuted hypothesis cannot be revived), conclude(hypothesisId) to lock the root cause (only a supported hypothesis may be concluded; warns if alternatives remain unexcluded), status to see stats + duplicate/contradiction warnings. Do not use when the bug is already obvious or there is nothing to disambiguate.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['init', 'test', 'conclude', 'status'], description: 'State-machine action.' },
+        hypotheses: { type: 'array', items: { type: 'object' }, description: 'init: array of {id?, description, mechanism?, expectedEvidence?, verification?}.' },
+        ledger: { type: 'object', description: 'Current ledger snapshot (previous call\'s returned ledger); required for test/conclude/status, ignored by init.' },
+        hypothesisId: { type: 'string', description: 'test/conclude: target hypothesis id.' },
+        result: { type: 'string', enum: ['supports', 'refutes', 'inconclusive'], description: 'test: experiment result.' },
+        evidence: { type: 'string', description: 'test: what you did and what you observed.' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'data_profile',
+    description: 'Profile a data file (CSV/TSV/JSON/JSONL/text log) into a machine-computed summary: row/column counts, per-column type, null/unique counts, numeric min/max/mean/median/std + IQR outlier count, and sample values. Use to replace eyeballing a large file with file_read when you need its structure, scale and data-quality issues (missing/outliers/format) before planning an analysis. Do not use for small files where reading directly is cheaper, or for cleaning/transforming the data (this tool is read-only). Column type and outlier detection are statistical heuristics, not data lineage.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute path to the data file to profile.' },
+        maxRows: { type: 'number', description: 'Max rows to sample (default 2000).' },
+        delimiter: { type: 'string', description: 'CSV/TSV delimiter; auto-detected when omitted.' },
+        maxSampleValues: { type: 'number', description: 'Sample values shown per column (default 5).' },
+      },
+      required: ['path'],
+    },
+  },
+  {
     name: 'http_request',
     description: 'Make an HTTP request to a local or intranet endpoint for API debugging',
     inputSchema: {

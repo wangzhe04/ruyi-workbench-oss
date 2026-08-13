@@ -904,6 +904,15 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       return codebaseSymbolSearch(root, args);
   } },
+  debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
+      return debugHypothesis(args);
+  } },
+  data_profile: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const p = path.resolve(String(args.path || ''));
+      const g = await guardFileToolPath(p, ctx, { tool: 'data_profile', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
+      return dataProfile(p, args);
+  } },
 };
 
 const AGENT_TOOL_HANDLERS = {
