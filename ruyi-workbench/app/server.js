@@ -16992,10 +16992,9 @@ function applyReplanPatch(run, patchId) {
         if (missing.length) return { ok: false, error: `add_node 依赖不存在: ${missing.join(', ')}` };
         const node = {
           id, task: String(c.reason ? ('（重规划补节点：' + String(c.reason).slice(0, 120) + '）\n') : '') + task,
-          roleId: triggerNode ? triggerNode.roleId : '', roleLabel: triggerNode ? triggerNode.roleLabel : '',
-          roleSnapshot: triggerNode ? triggerNode.roleSnapshot : null,
+          roleId: '', roleLabel: '', roleSnapshot: null,
           dependsOn, resources: [], isolationMode: 'none',
-          toolTier: triggerNode ? triggerNode.toolTier : 'read',
+          toolTier: 'read',
           engine: triggerNode && (triggerNode.engine === 'claude' || triggerNode.engine === 'openai') ? triggerNode.engine : 'openai',
           model: triggerNode ? triggerNode.model : '',
           maxIters: 100, outputSchema: null, gate: null, failurePolicy: 'continue', dependencyPolicy: 'all_success',
@@ -17632,7 +17631,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           parentSession, provider: subProvider, config, engine: failedNode.engine || 'openai',
           task: reviewTask, displayTask: '重规划审查 ' + failedNode.id, agentKey: failedNode.id + '-replan-review',
           toolTier: 'read', maxIters: 12, model: failedNode.model, onEvent: () => {}, subagentId: makeId('sub'), depth: 1,
-          ctrl: rctrl || undefined, roleDefinition: roleLibrary.get('reviewer') || null,
+          ctrl: rctrl || undefined, roleDefinition: (() => { const r = roleLibrary.get('reviewer'); return r ? { ...r, claudeTools: [], openaiTools: [] } : null; })(),
           outputSchema: reviewSchema,
         });
         if (timer) clearTimeout(timer);

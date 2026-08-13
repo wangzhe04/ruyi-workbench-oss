@@ -71,61 +71,61 @@
     {
       "file": "09-workflow.js",
       "startLine": 16858,
-      "endLine": 19664,
+      "endLine": 19663,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 19665,
-      "endLine": 20727,
+      "startLine": 19664,
+      "endLine": 20726,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 20728,
-      "endLine": 22432,
+      "startLine": 20727,
+      "endLine": 22431,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 22433,
-      "endLine": 23687,
+      "startLine": 22432,
+      "endLine": 23686,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 23688,
-      "endLine": 26012,
+      "startLine": 23687,
+      "endLine": 26011,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 26013,
-      "endLine": 26336,
+      "startLine": 26012,
+      "endLine": 26335,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 26337,
-      "endLine": 26525,
+      "startLine": 26336,
+      "endLine": 26524,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 26526,
-      "endLine": 27815,
+      "startLine": 26525,
+      "endLine": 27814,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 27816,
-      "endLine": 28222,
+      "startLine": 27815,
+      "endLine": 28221,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "14-main.js",
-      "startLine": 28223,
-      "endLine": 28572,
+      "startLine": 28222,
+      "endLine": 28571,
       "note": "main()/module.exports"
     }
   ]
