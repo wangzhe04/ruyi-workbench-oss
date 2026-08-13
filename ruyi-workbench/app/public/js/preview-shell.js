@@ -513,7 +513,7 @@ export function createPreviewShellDomain({
   }
 
   function interventionTypeLabel(type) {
-    return t(`previewShell.interventionType.${['permission', 'question', 'plan', 'pool'].includes(type) ? type : 'unknown'}`);
+    return t(`previewShell.interventionType.${['permission', 'question', 'plan', 'pool', 'replan'].includes(type) ? type : 'unknown'}`);
   }
 
   function interventionSummary(item) {
@@ -521,6 +521,7 @@ export function createPreviewShellDomain({
     if (item.type === 'question') return item.questionSummary || item.questions?.[0]?.question || t('previewShell.questionFallback');
     if (item.type === 'plan') return item.planSummary || t('previewShell.planFallback');
     if (item.type === 'pool') return item.task || t('previewShell.poolFallback');
+    if (item.type === 'replan') return item.replanSummary || t('previewShell.replanFallback');
     return t('previewShell.unknown');
   }
 
@@ -769,6 +770,9 @@ export function createPreviewShellDomain({
           stageInterventionDecision(item, { action: 'approve', ...(feedback ? { feedback } : {}) }, { confirm: true });
         }));
       } else if (item.type === 'pool') {
+        actions.append(actionButton(t('previewShell.reject'), 'danger', () => stageInterventionDecision(item, { action: 'reject' })),
+          actionButton(t('previewShell.approve'), 'primary', () => stageInterventionDecision(item, { action: 'approve' }, { confirm: true })));
+      } else if (item.type === 'replan') {
         actions.append(actionButton(t('previewShell.reject'), 'danger', () => stageInterventionDecision(item, { action: 'reject' })),
           actionButton(t('previewShell.approve'), 'primary', () => stageInterventionDecision(item, { action: 'approve' }, { confirm: true })));
       }

@@ -544,6 +544,9 @@ async function decideIntervention(command = {}) {
   } else if (type === 'pool') {
     if (action !== 'approve' && action !== 'reject') return interventionCommandFailure('action_invalid', 400, { type }, 'pool action must be approve or reject');
     toStatus = action === 'approve' ? 'approved' : 'rejected';
+  } else if (type === 'replan') {
+    if (action !== 'approve' && action !== 'reject') return interventionCommandFailure('action_invalid', 400, { type }, 'replan action must be approve or reject');
+    toStatus = action === 'approve' ? 'approved' : 'rejected';
   } else {
     return interventionCommandFailure('type_unsupported', 409, { type }, 'intervention type is not supported by this release');
   }
@@ -559,6 +562,7 @@ async function decideIntervention(command = {}) {
   const decisionFingerprint = interventionDecisionFingerprint(missionId, interventionId, decisionPayload);
   let runtimeEntry = null;
   let poolContext = null;
+  let replanContext = null;
 
   const preflight = async authoritative => {
     if (!authoritative || String(authoritative.type || '') !== type) return { ok: false, reason: 'not_found' };
@@ -575,6 +579,25 @@ async function decideIntervention(command = {}) {
     if (type === 'plan') {
       runtimeEntry = pendingPlans.get(interventionId);
       if (!runtimeEntry || runtimeEntry.sessionId !== missionId) return { ok: false, reason: 'delivery_unavailable', message: 'plan consumer is not live' };
+      return { ok: true };
+    }
+    if (type === 'replan') {
+      const runId = String(authoritative.runId || '');
+      if (command.requestRunId && String(command.requestRunId) !== runId) return { ok: false, reason: 'not_found' };
+      // R5: patch 审批不要求 run live —— 节点终态后 run 通常已收尾离开 activeAgentRuns。
+      // 优先用 live 内存态(最新),否则读 persisted run JSON(已收尾仍可审批)。
+      const live = activeAgentRuns.get(runId);
+      let runObj = null;
+      if (live && live.run && !live.closing) {
+        if (live.run.sessionId !== missionId) return { ok: false, reason: 'not_found' };
+        runObj = live.run;
+      } else {
+        try { runObj = safeJsonParse(await fsp.readFile(agentRunFile(missionId, runId), 'utf8'), null); } catch {}
+        if (!runObj || runObj.sessionId !== missionId) return { ok: false, reason: 'run_not_found', runId, message: 'run is not found' };
+      }
+      const patch = (Array.isArray(runObj.replanPatches) ? runObj.replanPatches : []).find(p => p && String(p.id) === interventionId);
+      if (!patch || patch.status !== 'pending') return { ok: false, reason: 'replan_patch_unavailable', runId, message: 'replan patch is no longer pending' };
+      replanContext = { runId, runObj, patch };
       return { ok: true };
     }
 
@@ -633,6 +656,27 @@ async function decideIntervention(command = {}) {
         note: payload.feedback != null ? String(payload.feedback).slice(0, 2000) : '',
       }, { skipInterventionSettle: true });
       return { ok: true, delivered: true };
+    }
+    if (type === 'replan') {
+      return (async () => {
+        const { runObj, patch } = replanContext;
+        if (patch.status !== 'pending') return { ok: false, reason: 'run_state_changed' };
+        if (action === 'reject') {
+          patch.status = 'rejected'; patch.decidedAt = nowIso();
+          bumpRunIntervention(runObj, 'replan_reject');
+          appendAgentRunEvent(runObj, { type: 'run_replan', data: { action: 'rejected', patchId: interventionId, by: String(command.decidedBy || 'user') } });
+          await saveAgentRun(runObj);
+          return { ok: true, patchId: interventionId };
+        }
+        if (!Array.isArray(patch.changes) || patch.changes.length === 0) return { ok: false, reason: 'replan_changes_pending', message: '重规划提案尚未补充 changes，暂不能应用；请先由 review 角色填充变更项，或拒绝该提案' };
+        const ap = applyReplanPatch(runObj, interventionId);
+        if (!ap.ok) return { ok: false, reason: 'replan_apply_failed', message: ap.error || '' };
+        patch.decidedAt = nowIso();
+        bumpRunIntervention(runObj, 'replan_approve');
+        appendAgentRunEvent(runObj, { type: 'run_replan', data: { action: 'applied', patchId: interventionId, by: String(command.decidedBy || 'user'), applied: ap.applied } });
+        await saveAgentRun(runObj);
+        return { ok: true, patchId: interventionId, applied: ap.applied };
+      })();
     }
     return (async () => {
       const { runId, live, item, config, cwd, roleLibrary } = poolContext;
@@ -775,7 +819,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const index = await getPretenderProjectionIndex();
     const pending = [];
-    const counts = { permission: 0, question: 0, plan: 0, pool: 0, total: 0 };
+    const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, total: 0 };
     for (const slice of index.sessions) {
       const sessionId = slice.sessionId;
       for (const iv of slice.interventions || []) {
@@ -790,6 +834,9 @@ async function handleInterventionApiRoutes(req, res, pathname) {
           questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
           context: iv.type === 'question' ? String(iv.context || '').slice(0, 6000) : '',
           planSummary: iv.type === 'plan' ? String(iv.planSummary || '') : '',
+          replanSummary: iv.type === 'replan' ? String(iv.summary || '') : '',
+          replanTriggerType: iv.type === 'replan' ? String(iv.triggerType || '') : '',
+          replanNodeId: iv.type === 'replan' ? String(iv.nodeId || '') : '',
           deliverable: iv.type === 'permission' ? pendingPermissions.has(String(iv.id))
             : iv.type === 'question' ? pendingQuestions.has(String(iv.id))
               : iv.type === 'plan' ? pendingPlans.has(String(iv.id))
@@ -802,6 +849,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
         else if (iv.type === 'question') counts.question++;
         else if (iv.type === 'plan') counts.plan++;
         else if (iv.type === 'pool') counts.pool++;
+        else if (iv.type === 'replan') counts.replan++;
       }
     }
     pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
@@ -827,7 +875,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const index = await getPretenderProjectionIndex();
     const slice = index.sessions.find(row => row.sessionId === sessionId) || null;
     const interventions = slice ? slice.interventions : [];
-    const counts = { permission: 0, question: 0, plan: 0, pool: 0, pending: 0, resolved: 0 };
+    const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, pending: 0, resolved: 0 };
     for (const iv of interventions) {
       if (!iv) continue;
       if (iv.status === 'pending') {
@@ -836,6 +884,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
         else if (iv.type === 'question') counts.question++;
         else if (iv.type === 'plan') counts.plan++;
         else if (iv.type === 'pool') counts.pool++;
+        else if (iv.type === 'replan') counts.replan++;
       } else counts.resolved++;
     }
     const revision = slice ? slice.interventionRevision : pretenderHash([]);

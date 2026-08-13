@@ -1056,7 +1056,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         if (node.replan === true && terminal(node) && (node.status === 'failed' || node.status === 'rejected')) {
           const rpType = node.status === 'rejected' ? 'gate_rejected' : ((node.errorClass === 'no_progress' || node.errorClass === 'idle_timeout' || node.errorClass === 'semantic_stall') ? 'stall' : 'node_failed');
           const rp = proposeReplanPatch(run, { type: rpType, nodeId: node.id, errorClass: node.errorClass || '', detail: String(node.error || '').slice(0, 300) }, []);
-          if (rp.ok) onEvent({ type: 'agent_workflow', state: 'replan_proposed', id: runId, nodeId: node.id, patchId: rp.patch.id });
+          if (rp.ok) {
+            onEvent({ type: 'agent_workflow', state: 'replan_proposed', id: runId, nodeId: node.id, patchId: rp.patch.id });
+            // R5 第三步: pending patch 旁路注册 Intervention(type 'replan') 进入审批队列。approve→apply / reject→标 rejected。
+            registerIntervention(run.sessionId, 'replan', rp.patch.id, { runId: run.id, nodeId: node.id, triggerType: rpType, summary: '节点 ' + node.id + ' ' + (rpType === 'gate_rejected' ? '质量门未通过' : '执行失败') + ',生成重规划提案待审' });
+          }
         }
       }
       // 25.3: 每个 attempt 的落定入事件日志(queued = retry/loop 重排)。
