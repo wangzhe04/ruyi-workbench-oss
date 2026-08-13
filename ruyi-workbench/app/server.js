@@ -17610,6 +17610,50 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     if ((step.toArm || []).length) await saveAgentRun(run).catch(() => {});
     // 第26波: per-node 执行体(原批次 Promise.all 的 map 回调,逐字未动)—— 由下方连续派发器调用。
+    // R5(16-r5-replan-ledger.md §3.3): 模型 review 角色生成 changes —— 异步 fire-and-forget,绝不阻塞节点收尾。
+    // spawn 只读(toolTier='read')reviewer 子代理分析失败原因,输出 changes JSON;逐条过 validateReplanPatch 机器校验,
+    // 只保留合法项回填 patch.changes。失败/超时/非法输出静默降级为空 changes(approve 时仍会 replan_changes_pending 诚实拒绝)。
+    const fillReplanChanges = async (failedNode, patch) => {
+      try {
+        const subProvider = (failedNode.engine || 'openai') === 'openai' ? (resolveProvider(config, run.providerId) || provider) : provider;
+        const graph = nodes.map(n => n.id + '[' + n.status + (n.roleId ? '/' + n.roleId : '') + ']').join(', ');
+        const reviewTask = '你是重规划审查员。工作流节点执行失败,请分析失败原因并给出可执行的重规划变更建议。\n' +
+          '失败节点 id=' + failedNode.id + ' task=' + String(failedNode.task || '').slice(0, 800) + '\n' +
+          '失败类别=' + (failedNode.errorClass || '') + ' 错误=' + String(failedNode.error || '').slice(0, 500) + '\n' +
+          '工作流节点图(id[状态/角色]): ' + graph + '\n' +
+          '只允许两种 op(必须遵守机器校验约束):\n' +
+          '  change_tier: 把某节点 toolTier 降级(只能降不能升),字段 {op:"change_tier", target:<节点id>, to:"read"|"edit"|"exec", reason:<为什么>}\n' +
+          '  add_node: 补一个节点(继承触发节点引擎/只读 tier),字段 {op:"add_node", target:<新节点id>, to:<任务描述>, from:[依赖节点id], reason:<为什么>}\n' +
+          '输出必须是严格 JSON(无 Markdown 围栏): {"changes":[ ... ]}。没有可行建议时输出 {"changes":[]}。';
+        const reviewSchema = { type: 'object', required: ['changes'], properties: { changes: { type: 'array', maxItems: 8, items: { type: 'object', required: ['op'], properties: { op: { type: 'string', enum: ['change_tier', 'add_node'] }, target: { type: 'string' }, to: { type: 'string' }, from: { type: 'array', items: { type: 'string' } }, reason: { type: 'string' } } } } } };
+        const rctrl = typeof AbortController === 'function' ? new AbortController() : null;
+        const timer = rctrl ? setTimeout(() => { try { rctrl.abort('replan_review_timeout'); } catch {} }, 60000) : null;
+        const sub = await runSubAgent({
+          parentSession, provider: subProvider, config, engine: failedNode.engine || 'openai',
+          task: reviewTask, displayTask: '重规划审查 ' + failedNode.id, agentKey: failedNode.id + '-replan-review',
+          toolTier: 'read', maxIters: 12, model: failedNode.model, onEvent: () => {}, subagentId: makeId('sub'), depth: 1,
+          ctrl: rctrl || undefined, roleDefinition: roleLibrary.get('reviewer') || null,
+          outputSchema: reviewSchema,
+        });
+        if (timer) clearTimeout(timer);
+        if (!sub || !sub.ok) return; // 失败/超时 -> 静默降级
+        const parsed = parseStructuredAgentOutput(sub.result);
+        if (!parsed.ok || !parsed.value || !Array.isArray(parsed.value.changes)) return;
+        const valid = [];
+        for (const c of parsed.value.changes.slice(0, 8)) {
+          if (!c || typeof c !== 'object') continue;
+          const probe = { ...patch, changes: [c] };
+          if (validateReplanPatch(run, probe).ok) valid.push(c);
+        }
+        if (valid.length) {
+          patch.changes = valid;
+          patch.changesGeneratedAt = nowIso();
+          patch.changesSource = 'review';
+          await saveAgentRun(run).catch(() => {});
+          onEvent({ type: 'agent_workflow', state: 'replan_changes_filled', id: runId, nodeId: failedNode.id, patchId: patch.id, count: valid.length });
+        }
+      } catch { /* 静默降级:生成失败不阻断,approve 仍诚实拒绝空 changes */ }
+    };
     const runNode = async node => {
       const depNodes = node.dependsOn.map(dep => nodes.find(n => n.id === dep)).filter(Boolean);
       // 第28波(§28c):预算化上游上下文,取代旧 12000/dep + 32000 定长截断。预算=下游模型窗口的 35%(上游份额);
@@ -17917,6 +17961,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             onEvent({ type: 'agent_workflow', state: 'replan_proposed', id: runId, nodeId: node.id, patchId: rp.patch.id });
             // R5 第三步: pending patch 旁路注册 Intervention(type 'replan') 进入审批队列。approve→apply / reject→标 rejected。
             registerIntervention(run.sessionId, 'replan', rp.patch.id, { runId: run.id, nodeId: node.id, triggerType: rpType, summary: '节点 ' + node.id + ' ' + (rpType === 'gate_rejected' ? '质量门未通过' : '执行失败') + ',生成重规划提案待审' });
+            // R5 第四步: 异步 spawn 只读 review 子代理填充 changes(fire-and-forget,失败静默降级为空)。
+            void fillReplanChanges(node, rp.patch).catch(() => {});
           }
         }
       }
