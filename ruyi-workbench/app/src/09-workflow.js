@@ -89,6 +89,91 @@ function proposeReplanPatch(run, trigger, changes) {
   return { ok: true, patch };
 }
 
+// R5(16-r5-replan-ledger.md §3.3): 应用/回滚引擎 —— 纯确定性图操作,不含审批(审批路由接 UI 是后续切片)。
+// 本切片支持两个安全 op:change_tier(仅降级)与 add_node(补节点)。remove_node/rewire/change_engine/
+// change_role/inherit_evidence/drop_evidence 涉及下游一致性/角色引擎解析/证据图变更,留后续切片。
+// 应用前 snapshot run.nodes 到 replanBaseline(仅首次),回滚即恢复基线。机器校验复用 validateReplanPatch。
+function applyReplanPatch(run, patchId) {
+  try {
+    if (!run || typeof run !== 'object') return { ok: false, error: 'run 无效' };
+    const patches = Array.isArray(run.replanPatches) ? run.replanPatches : [];
+    const patch = patches.find(p => p && String(p.id) === String(patchId || ''));
+    if (!patch) return { ok: false, error: 'replan patch 不存在' };
+    if (patch.status !== 'pending') return { ok: false, error: `patch 状态不是 pending(${patch.status})` };
+    const v = validateReplanPatch(run, patch);
+    if (!v.ok) return { ok: false, error: v.error };
+    const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+    // 应用前基线快照:仅首次(多次 patch 共用同一 baseline,回滚回到最初图)。
+    if (run.replanBaseline === null || run.replanBaseline === undefined) {
+      run.replanBaseline = JSON.parse(JSON.stringify(nodes));
+    }
+    let applied = 0;
+    for (const c of patch.changes) {
+      if (c.op === 'change_tier') {
+        const node = nodes.find(n => n.id === c.target);
+        if (!node) return { ok: false, error: `change_tier target 不存在: ${c.target}` };
+        const tierRank = { read: 0, edit: 1, exec: 2 };
+        if (tierRank[c.to] == null) return { ok: false, error: 'change_tier 目标 tier 非法' };
+        if (tierRank[c.to] > (tierRank[node.toolTier] || 0)) return { ok: false, error: 'change_tier 不得抬高权限层级' };
+        node.toolTier = c.to;
+        // 重跑该节点:回 queued 并清终态脏数据(与 25.4 重排语义一致)。仅当节点已终态时才重跑。
+        if (node.status === 'failed' || node.status === 'rejected' || node.status === 'blocked') {
+          node.status = 'queued'; node.error = ''; delete node.errorClass; node.completedAt = null;
+        }
+        applied += 1;
+      } else if (c.op === 'add_node') {
+        const id = String(c.target || '');
+        if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, error: 'add_node 的 target 必须是合法 id' };
+        if (nodes.some(n => n.id === id)) return { ok: false, error: `add_node 的 target 已存在: ${id}` };
+        const triggerNode = nodes.find(n => n.id === (patch.trigger && patch.trigger.nodeId)) || null;
+        const task = String(c.to || '').trim();
+        if (!task) return { ok: false, error: 'add_node 缺少 task(to 字段)' };
+        let dependsOn = Array.isArray(c.from) ? c.from.map(String).filter(Boolean).slice(0, 16) : [];
+        if (!dependsOn.length && triggerNode) dependsOn = [triggerNode.id];
+        const ids = new Set(nodes.map(n => n.id));
+        const missing = dependsOn.filter(d => !ids.has(d));
+        if (missing.length) return { ok: false, error: `add_node 依赖不存在: ${missing.join(', ')}` };
+        const node = {
+          id, task: String(c.reason ? ('（重规划补节点：' + String(c.reason).slice(0, 120) + '）\n') : '') + task,
+          roleId: triggerNode ? triggerNode.roleId : '', roleLabel: triggerNode ? triggerNode.roleLabel : '',
+          roleSnapshot: triggerNode ? triggerNode.roleSnapshot : null,
+          dependsOn, resources: [], isolationMode: 'none',
+          toolTier: triggerNode ? triggerNode.toolTier : 'read',
+          engine: triggerNode && (triggerNode.engine === 'claude' || triggerNode.engine === 'openai') ? triggerNode.engine : 'openai',
+          model: triggerNode ? triggerNode.model : '',
+          maxIters: 100, outputSchema: null, gate: null, failurePolicy: 'continue', dependencyPolicy: 'all_success',
+          degradedPolicy: 'accept', maxRetries: 0, retryFallback: 'block', minSuccessfulToolCalls: 0,
+          condition: null, loop: null, position: null, status: 'queued', attempts: 0, loopIteration: 0,
+          noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [],
+          confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [],
+          fromReplan: true, replanSourcePatch: String(patch.id),
+        };
+        nodes.push(node);
+        applied += 1;
+      } else {
+        return { ok: false, error: `本切片不支持 op: ${c.op}(后续切片实现)` };
+      }
+    }
+    run.nodes = nodes;
+    patch.status = 'applied'; patch.appliedAt = nowIso();
+    return { ok: true, applied, patchId: patch.id };
+  } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
+}
+
+function rollbackReplanPatch(run, patchId) {
+  try {
+    if (!run || typeof run !== 'object') return { ok: false, error: 'run 无效' };
+    const patches = Array.isArray(run.replanPatches) ? run.replanPatches : [];
+    const patch = patches.find(p => p && String(p.id) === String(patchId || ''));
+    if (!patch) return { ok: false, error: 'replan patch 不存在' };
+    if (patch.status !== 'applied') return { ok: false, error: `patch 状态不是 applied(${patch.status})` };
+    if (run.replanBaseline === null || run.replanBaseline === undefined) return { ok: false, error: '无基线快照,无法回滚(基线缺失时禁止再回滚)' };
+    run.nodes = JSON.parse(JSON.stringify(run.replanBaseline));
+    patch.status = 'rolled_back'; patch.appliedAt = null;
+    return { ok: true, patchId: patch.id };
+  } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
+}
+
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle }) {
   let run, nodes, runId;
   const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
