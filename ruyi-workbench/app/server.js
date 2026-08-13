@@ -12838,7 +12838,7 @@ const NATIVE_TOOL_TIER = {
   file_read: 'read', file_list: 'read', file_search: 'read', glob: 'read', project_snapshot: 'read', git_status: 'read',
   git_diff: 'read', git_log: 'read', // v1.0-S4: read-only git inspection → auto-allow
   git_commit: 'exec', // v1.0-S4: commit triggers .git/hooks (arbitrary code) → must be exec (never lower)
-  dependency_inventory: 'read', code_review_scan: 'read', frontend_audit: 'read', claude_md_audit: 'read', docs_search: 'read', codebase_symbol_search: 'read',
+  dependency_inventory: 'read', code_review_scan: 'read', frontend_audit: 'read', claude_md_audit: 'read', docs_search: 'read', codebase_symbol_search: 'read', debug_hypothesis: 'read', data_profile: 'read',
   mcp_list: 'read', mcp_configure: 'exec',
   todo_write: 'read', // v0.8-S3: writing the task list is a planning act, not a filesystem/exec mutation → auto-allow
   mission_update: 'read', // 第26波b: 更新任务账本是规划/元数据写,非文件/exec 变更 → auto-allow
@@ -12856,6 +12856,13 @@ const NATIVE_TOOL_TIER = {
   shell_list: 'read', shell_start: 'exec', shell_send: 'exec', shell_poll: 'exec', shell_kill: 'exec',
 };
 function nativeToolTier(name) { return NATIVE_TOOL_TIER[name] || 'exec'; } // unknown → safest (treat as exec)
+// v2.6 (loop guard 分层): 同签名连击(连续相同 name+rawArgs)对「无副作用」工具不应 abort ——
+// 轮询/等待原语(相同参数反复调用是其设计语义: wait_agents 等后台 run 结束、shell_poll 读增量输出)
+// 完全豁免同签名连击(不累计/不 warn/不 abort),无进展由语义指纹判定;只读工具(重复读无害)只 warn
+// 不 abort;有副作用工具(edit/exec)保持 5 次 abort(重复执行=重复破坏)。
+const LOOP_POLLING_TOOLS = new Set(['wait_agents', 'shell_poll']);
+function loopAbortExempt(name) { return LOOP_POLLING_TOOLS.has(String(name || '').replace(/^.+?__/, '')); } // 轮询原语: 完全豁免
+function loopWarnOnly(name) { return nativeToolTier(String(name || '').replace(/^.+?__/, '')) === 'read'; } // 无副作用只读: 只 warn 不 abort
 
 // v0.8-S0: risk tiers for BRIDGED (external/desktop MCP) tools, keyed by the UNPREFIXED tool name
 // (the bridged name is `serverId__tool`; look up bridge.toolName). Replaces the old flat 'exec' so ACC's
@@ -12908,7 +12915,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
-  dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code', codebase_symbol_search: 'code',
+  dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code', codebase_symbol_search: 'code', debug_hypothesis: 'code', data_profile: 'code',
   git_status: 'code', git_diff: 'code', git_log: 'code', git_commit: 'code',
   powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
@@ -15427,8 +15434,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           // threshold, refuse to execute, emit a self-contained refusal, PAIR every remaining tool_call in this
           // batch (配对铁律: strict providers 400 on an orphan tool_call_id), then fail the sub-turn.
           const loopSig = tc.name + ' ' + tc.rawArgs;
-          if (loopSig === subLoopSig) subLoopCount += 1; else { subLoopSig = loopSig; subLoopCount = 1; }
-          if (subLoopCount >= SUB_LOOP_ABORT_AT) {
+          const loopBare = String(tc.name || '').replace(/^.+?__/, '');
+          if (loopAbortExempt(loopBare)) { /* 轮询原语: 豁免同签名连击,不累计不重置 */ }
+          else if (loopSig === subLoopSig) subLoopCount += 1; else { subLoopSig = loopSig; subLoopCount = 1; }
+          if (subLoopCount >= SUB_LOOP_ABORT_AT && !loopAbortExempt(loopBare) && !loopWarnOnly(loopBare)) {
             const resultObj = { ok: false, error: `连续 ${SUB_LOOP_ABORT_AT} 次相同工具调用，已停止子任务以避免死循环`, loopAborted: true };
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
@@ -15540,7 +15549,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           }
           // v1.x (B3): soft warning at the parent-parity threshold so the sub-agent can self-correct before the
           // hard abort. Injected into the (successful-but-repeating) tool result the model reads next turn.
-          if (subLoopCount >= SUB_LOOP_WARN_AT && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
+          if (subLoopCount >= SUB_LOOP_WARN_AT && !loopAbortExempt(String(tc.name || '').replace(/^.+?__/, '')) && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
             try { resultObj.loopWarning = `第 ${subLoopCount} 次连续相同调用；再重复将停止子任务`; } catch { /* frozen result — skip */ }
           }
           // A1:子回合语义指纹 -- 换参数但结果内容摘要不变(语义死循环),warn nudge(不 abort);同签名已 warn 时跳过避免双 warn
@@ -16072,13 +16081,13 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
   },
   {
     id: 'debug-root-cause', title: 'Bug 定位:复现 → 假设 → 验证 → 根因修复',
-    description: '系统化定位难缠 Bug:确认最小复现 → 双方向并行提根因假设 → 逐一实验证伪 → 锁定根因并给最小修复。模型建议:复现(reproduce)与假设(hypo_*)可用快模型;验证(verify)与修复(fix)建议指派更强模型,因为根因判定与"修根因而非症状"最吃推理。',
+    description: '系统化定位难缠 Bug:确认最小复现 → 双方向并行提根因假设 → 逐一实验证伪(排除法) → 锁定根因并给最小修复。模型建议:复现(reproduce)与假设(hypo_*)可用快模型;验证(verify)与修复(fix)建议指派更强模型,因为根因判定与"修根因而非症状"最吃推理。verify 用 debug_hypothesis 追踪假设证伪状态,确保每个假设都被排除或证实,勿只验证一条就下结论。',
     nodes: [
       { id: 'reproduce', task: '确认并最小化复现:写出精确复现步骤、观察到的实际现象(日志/报错/异常状态)、预期现象、以及能稳定触发的最小条件集。若当前信息不足以复现,明确列出还需要哪些信息或环境。输出复现报告。', role: 'verifier', position: { x: 40, y: 220 } },
       { id: 'hypo_a', task: '基于 reproduce 提出 2–3 个【最可能】的根因假设。每个假设说明:机制解释(为什么会导致该现象)、若成立应能观察到什么证据、以及最快的验证手段。按可能性排序。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 110 } },
       { id: 'hypo_b', task: '从 hypo_a 未覆盖的方向提出 2–3 个根因假设:环境/依赖版本、并发时序、数据/边界输入、配置/部署差异、上游变更等。同样给机制、预期证据、验证手段。目标是补齐盲区,而非重复 hypo_a。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 300 } },
-      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪。输出 verdict、confidence、summary 与 findings；每条判定必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
-      { id: 'fix', task: '针对 verify 锁定且有证据支持的根因实施最小、聚焦的代码修复；先补能稳定复现的回归测试，再修改并运行相关测试，说明为什么修的是根因而非症状、潜在副作用与残余风险。若根因仍存疑，不要猜改。', role: 'coder', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
+      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪。先用 debug_hypothesis(action=init)把两个方向的假设登记成台账,每做一次实验就用 debug_hypothesis(action=test)记录其结果(证伪 refutes / 支持 supports / 无结论 inconclusive),锁定根因前用 action=conclude 并留意 earlyStopWarning(是否还有假设未排除)。输出 verdict、confidence、summary 与 findings；每条判定必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'fix', task: '针对 verify 锁定且有证据支持的根因实施最小、聚焦的代码修复；先补能稳定复现的回归测试，再修改并运行相关测试，说明为什么修的是根因而非症状、潜在副作用与残余风险。动手前确认 verify 已用 debug_hypothesis 排除其余主要假设(而非只验证了一条);若根因仍存疑，不要猜改。', role: 'coder', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
   {
@@ -16094,9 +16103,9 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
   },
   {
     id: 'data-insights', title: '数据洞察:探查 → 方案 → 多角度分析 → 核验 → 洞察',
-    description: '对数据/日志/指标做系统化分析:数据画像 → 定分析方案与口径 → 双线并行分析(主线 + 交叉/异常) → 对抗核验剔除不稳健结论 → 综合成洞察报告。模型建议:探查/分析(analyst)可用中等模型;方案(planner)、核验(critic)、洞察综述(synthesizer)建议指派更强模型。分析节点要读数据/跑只读脚本,请给足工具权限(analyst 为 exec 级)。',
+    description: '对数据/日志/指标做系统化分析:数据画像 → 定分析方案与口径 → 双线并行分析(主线 + 交叉/异常) → 对抗核验剔除不稳健结论 → 综合成洞察报告。模型建议:探查/分析(analyst)可用中等模型;方案(planner)、核验(critic)、洞察综述(synthesizer)建议指派更强模型。分析节点要读数据/跑只读脚本,请给足工具权限(analyst 为 exec 级)。探查用 data_profile 做机器级数据画像(规模/列类型/缺失/离群),不要靠目测。',
     nodes: [
-      { id: 'profile', task: '对目标数据/日志做初步探查:字段与结构、规模、数据质量问题(缺失/异常/重复/格式)、时间与口径范围,以及据此可回答哪些问题方向。只读不改。输出数据画像 + 待澄清项。', role: 'analyst', position: { x: 40, y: 200 } },
+      { id: 'profile', task: '对目标数据/日志做初步探查:先用 data_profile 对每个数据文件做机器级画像(行列规模、每列类型、缺失率、唯一值数、数值列的 min/max/mean/median/std 与离群点、样本值),据此确认字段与结构、数据质量问题(缺失/异常/重复/格式)、时间与口径范围。不要靠 file_read 目测几行就下结论。只读不改。输出数据画像 + 待澄清项。', role: 'analyst', position: { x: 40, y: 200 } },
       { id: 'plan', task: '基于 profile 定分析方案:要回答的关键问题(可判定)、清洗与口径规则(如何处理缺失/异常/去重、指标如何定义)、每个问题用什么切法与指标、结果如何交叉验证。输出结构化分析方案。', role: 'planner', dependsOn: ['profile'], position: { x: 340, y: 200 } },
       { id: 'analyze_main', task: '按 plan 执行【主线分析】:运行必要的只读查询/脚本,产出关键指标、趋势、分组对比等,每条结论标注口径(样本/时间范围/指标定义)与证据。不修改源数据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 90 } },
       { id: 'analyze_cross', task: '按 plan 执行【交叉与异常分析】:换维度切分、寻找异常点与反直觉现象、验证主线结论在不同切法下是否稳健。同样标注口径与证据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 310 } },
@@ -18938,9 +18947,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         for (const stc of localToolCalls) {
           if (!stc) continue;
           const projectedSig = stc.name + ' ' + stc.rawArgs;
-          if (projectedSig === projectedLoopSig) projectedLoopCount += 1;
+          const projectedBare = String(stc.name || '').replace(/^.+?__/, '');
+          if (loopAbortExempt(projectedBare)) { /* 轮询原语: 不参与连击 */ }
+          else if (projectedSig === projectedLoopSig) projectedLoopCount += 1;
           else { projectedLoopSig = projectedSig; projectedLoopCount = 1; }
-          if (projectedLoopCount >= LOOP_ABORT_AT) projectedLoopAborted = true;
+          if (projectedLoopCount >= LOOP_ABORT_AT && !loopAbortExempt(projectedBare) && !loopWarnOnly(projectedBare)) projectedLoopAborted = true;
           // Do not speculatively launch work that the serial loop guard will refuse, or work positioned
           // after the call that aborts the batch. This preserves the guard's no-side-effects guarantee.
           if (projectedLoopAborted) continue;
@@ -19061,8 +19072,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           let simSig = loopSig, simCount = loopCount, loopTrip = false;
           for (const tc0 of localToolCalls) {
             const s0 = tc0.name + ' ' + tc0.rawArgs;
-            if (s0 === simSig) simCount += 1; else { simSig = s0; simCount = 1; }
-            if (simCount >= LOOP_ABORT_AT) { loopTrip = true; break; }
+            const b0 = String(tc0.name || '').replace(/^.+?__/, '');
+            if (loopAbortExempt(b0)) { /* 轮询原语: 不参与连击 */ }
+            else if (s0 === simSig) simCount += 1; else { simSig = s0; simCount = 1; }
+            if (simCount >= LOOP_ABORT_AT && !loopAbortExempt(b0) && !loopWarnOnly(b0)) { loopTrip = true; break; }
           }
           if (allSafeRead && !loopTrip) {
             parallelReadResults = new Map();
@@ -19089,8 +19102,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we
           // can (a) inject loopWarning on the 3rd hit's result and (b) refuse to run the 5th hit at all.
           const sig = tc.name + ' ' + tc.rawArgs;
-          if (sig === loopSig) loopCount += 1; else { loopSig = sig; loopCount = 1; }
-          if (loopCount >= LOOP_ABORT_AT) {
+          const loopBare = String(tc.name || '').replace(/^.+?__/, '');
+          if (loopAbortExempt(loopBare)) { /* 轮询原语: 豁免同签名连击,不累计不重置 */ }
+          else if (sig === loopSig) loopCount += 1; else { loopSig = sig; loopCount = 1; }
+          if (loopCount >= LOOP_ABORT_AT && !loopAbortExempt(loopBare) && !loopWarnOnly(loopBare)) {
             // 5th consecutive identical call: DON'T execute. Emit a self-contained aborted tool_result,
             // push it (keeps the assistant.tool_calls pairing valid), then break out of the whole turn.
             const resultObj = { ok: false, error: '连续 5 次相同工具调用，已停止本轮以避免死循环', loopAborted: true };
@@ -19320,7 +19335,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // v0.8-S7: 3rd consecutive identical call → nudge the model to change tack (additive field on
           // the resultObj; the 5th-hit refusal is handled above before execution, so loopCount is 3 or 4
           // here). Applied whether the call succeeded or failed — a succeeding-but-repeating loop is still a loop.
-          if (loopCount >= LOOP_WARN_AT && resultObj && typeof resultObj === 'object') {
+          if (loopCount >= LOOP_WARN_AT && !loopAbortExempt(String(tc.name || '').replace(/^.+?__/, '')) && resultObj && typeof resultObj === 'object') {
             resultObj.loopWarning = '检测到连续第 3 次相同调用;若结果不符合预期,请改变参数或换用其它工具,不要原样重试。';
           }
           // 04 Phase D 语义 loop-guard: 结果指纹无进展判定(同签名连击未覆盖的盲区)。与上面 loopWarning 互补--
@@ -21703,6 +21718,275 @@ async function codebaseSymbolSearch(root, opts = {}) {
 }
 
 // ============================================================================
+// v2.6 (M5 候选 D 波 #2): debug_hypothesis — 假设/实验/证伪确定性状态机(二分复现记录器)。
+// 对症 07 §6「loop 早停」前科:调试的排除法需要机器追踪「哪些假设已验证/证伪/未碰」,否则模型易
+// 反复验证同一假设(loop)或只验证第一条看似合理的就下结论(早停)。纯函数、无内部持久化:台账
+// (ledger)快照由模型在对话中自持,每轮把上一轮返回的 ledger 原样传回(对话历史即 run 持久化)。
+// ============================================================================
+function debugHypStats(ledger) {
+  const hyps = Array.isArray(ledger && ledger.hypotheses) ? ledger.hypotheses : [];
+  const stats = { total: hyps.length, pending: 0, refuted: 0, supported: 0, confirmed: 0 };
+  for (const h of hyps) if (stats[h.status] !== undefined) stats[h.status] += 1;
+  return stats;
+}
+// 机器警示(非 LLM 判断):重复实验(同 supports/refutes 结论 >=2 次)+ 矛盾证据(supports 与 refutes 并存)。
+// inconclusive 不算重复(重试后仍无结论是正常调试,不是 loop)。
+function debugHypWarnings(ledger) {
+  const hyps = Array.isArray(ledger && ledger.hypotheses) ? ledger.hypotheses : [];
+  const dup = [];
+  const contra = [];
+  for (const h of hyps) {
+    const counts = { supports: 0, refutes: 0, inconclusive: 0 };
+    for (const t of (h.tests || [])) if (counts[t.result] !== undefined) counts[t.result] += 1;
+    if (counts.supports >= 2) dup.push(h.id + '(supports x' + counts.supports + ')');
+    if (counts.refutes >= 2) dup.push(h.id + '(refutes x' + counts.refutes + ')');
+    if (counts.supports >= 1 && counts.refutes >= 1) contra.push(h.id);
+  }
+  const out = {};
+  if (dup.length) out.duplicateWarning = '重复实验: ' + dup.join(', ') + '——同一结论已验证多次,请换策略';
+  if (contra.length) out.contradictionWarning = '矛盾证据: ' + contra.join(', ') + '——同一假设既有支持又有证伪,请复核实验或拆分假设';
+  return out;
+}
+function debugHypothesis(args = {}) {
+  const action = String(args.action || '');
+  if (!['init', 'test', 'conclude', 'status'].includes(action)) {
+    return { ok: false, error: 'action 非法: ' + action + '(仅 init|test|conclude|status)' };
+  }
+  const normHyp = (h, i) => {
+    const hh = h && typeof h === 'object' ? h : {};
+    const id = String(hh.id || ('H' + (i + 1))).trim().slice(0, 64);
+    const description = String(hh.description || '').trim().slice(0, 500);
+    if (!description) return null;
+    return {
+      id, description,
+      mechanism: String(hh.mechanism || '').trim().slice(0, 500),
+      expectedEvidence: String(hh.expectedEvidence || '').trim().slice(0, 500),
+      verification: String(hh.verification || '').trim().slice(0, 500),
+      status: 'pending', tests: [],
+    };
+  };
+  if (action === 'init') {
+    const hyps = (Array.isArray(args.hypotheses) ? args.hypotheses : []).slice(0, 50);
+    const hypotheses = hyps.map(normHyp).filter(Boolean);
+    if (!hypotheses.length) return { ok: false, error: 'init 需要至少一个假设(hypotheses 数组,每项至少含 description)' };
+    const ledger = { hypotheses, concluded: null };
+    return { ok: true, ledger, stats: debugHypStats(ledger) };
+  }
+  const ledger = args.ledger && typeof args.ledger === 'object' ? args.ledger : null;
+  if (!ledger || !Array.isArray(ledger.hypotheses)) {
+    return { ok: false, error: '缺少台账(ledger);请先用 action=init 创建,并在后续每轮把上一轮返回的 ledger 原样传回' };
+  }
+  // 重入 ledger 归一化 + 上限(对抗加固):浅拷贝(不原地改入参)+ hypotheses<=50 + 每条 tests<=50 + 非法 status 回落 pending。
+  const ledger2 = {
+    hypotheses: ledger.hypotheses.slice(0, 50).map(h => ({
+      id: String(h && h.id || '').trim().slice(0, 64),
+      description: String(h && h.description || '').trim().slice(0, 500),
+      status: ['pending', 'supported', 'refuted', 'confirmed'].includes(h && h.status) ? h.status : 'pending',
+      tests: Array.isArray(h && h.tests) ? h.tests.slice(0, 50).map(t => ({ result: ['supports', 'refutes', 'inconclusive'].includes(t && t.result) ? t.result : 'inconclusive', evidence: String(t && t.evidence || '').trim().slice(0, 2000) })) : [],
+    })).filter(h => h.id && h.description),
+    concluded: ledger.concluded || null,
+  };
+  if (action === 'status') {
+    return { ok: true, ledger: ledger2, stats: debugHypStats(ledger2), ...debugHypWarnings(ledger2) };
+  }
+  const hid = String(args.hypothesisId || '').trim();
+  if (!hid) return { ok: false, error: 'hypothesisId 不能为空' };
+  const hyp = ledger2.hypotheses.find(h => h.id === hid);
+  if (!hyp) return { ok: false, error: '假设不存在: ' + hid + '(ledger 里的 id: ' + ledger2.hypotheses.map(h => h.id).join(', ') + ')' };
+  if (action === 'test') {
+    const result = ['supports', 'refutes', 'inconclusive'].includes(args.result) ? args.result : null;
+    if (!result) return { ok: false, error: 'result 非法: ' + String(args.result) + '(仅 supports|refutes|inconclusive)' };
+    if (hyp.status === 'confirmed') return { ok: false, error: '假设 ' + hid + ' 已锁定为根因(confirmed),不能再实验' };
+    if (result === 'supports' && hyp.status === 'refuted') {
+      return { ok: false, error: '假设 ' + hid + ' 已被证伪(refuted),支持证据不能使其复活;如结论变化请拆分为新假设' };
+    }
+    hyp.tests.push({ result, evidence: String(args.evidence || '').trim().slice(0, 2000) });
+    if (result === 'refutes') hyp.status = 'refuted';
+    else if (result === 'supports') hyp.status = 'supported';
+    // inconclusive 保持原状态(pending/supported 不变)
+    return { ok: true, ledger: ledger2, hypothesis: { id: hyp.id, status: hyp.status }, stats: debugHypStats(ledger2), ...debugHypWarnings(ledger2) };
+  }
+  if (action === 'conclude') {
+    if (ledger2.concluded) return { ok: false, error: '已锁定根因 ' + ledger2.concluded + ',不能重复 conclude' };
+    if (hyp.status !== 'supported') {
+      return { ok: false, error: '假设 ' + hid + ' 状态为 ' + hyp.status + ',不能 conclude(仅 supported 且未被证伪的假设可锁定为根因)' };
+    }
+    const hasSupport = (hyp.tests || []).some(t => t.result === 'supports');
+    if (!hasSupport) return { ok: false, error: '假设 ' + hid + ' 无支持证据,不能 conclude' };
+    hyp.status = 'confirmed';
+    ledger2.concluded = hid;
+    // 未排除 = 既未证伪也未确认的假设(pending + supported 竞争项)。
+    const unexcluded = ledger2.hypotheses.filter(h => h.status !== 'refuted' && h.status !== 'confirmed');
+    const resp = { ok: true, ledger: ledger2, rootCause: hid, stats: debugHypStats(ledger2) };
+    if (unexcluded.length) {
+      resp.earlyStopWarning = '仍有 ' + unexcluded.length + ' 个假设未排除: ' + unexcluded.map(h => h.id).join(', ');
+      resp.pendingHypotheses = unexcluded.map(h => h.id);
+    }
+    return resp;
+  }
+  return { ok: false, error: 'unreachable action' };
+}
+
+// ============================================================================
+// v2.6 (M5 候选 D 波 #3): data_profile — 数据画像摘要(行数/分布/缺失/异常值机器统计,替代 LLM 目测)。
+// 对症 07 §1「方法论只写在 prompt 里」:数据画像的结构性统计(规模/类型/缺失率/唯一值/离群点)交给
+// 确定性算法,LLM 只做语义判断。纯 JS、零依赖;CSV 用简单状态机解析(处理引号内分隔符/换行/"" 转义),
+// 不承诺兼容所有方言(诚实标注 note)。采样 maxRows 行(默认 2000),大文件不整读。
+// ============================================================================
+function parseCsv(text, delimiter, maxRows) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length && rows.length < maxRows; i += 1) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 1; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === delimiter) {
+      row.push(field); field = '';
+    } else if (c === '\n') {
+      row.push(field); rows.push(row); row = []; field = '';
+    } else if (c === '\r') {
+      // skip (CRLF 的 \r 由随后的 \n 结束行;引号内的 \r 不在此分支)
+    } else {
+      field += c;
+    }
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+function inferColumnType(values) {
+  const nonNull = values.filter(v => v !== '' && v !== null && v !== undefined);
+  if (!nonNull.length) return 'text';
+  let num = 0, bool = 0, dt = 0;
+  for (const v of nonNull) {
+    const s = String(v).trim();
+    if (s === 'true' || s === 'false') bool += 1;
+    else if (s !== '' && Number.isFinite(Number(s))) num += 1;
+    else if (/^\d{4}-\d{2}-\d{2}([T ].*)?$/.test(s)) dt += 1;
+  }
+  if (bool === nonNull.length) return 'boolean';
+  if (dt === nonNull.length) return 'datetime';
+  if (num / nonNull.length >= 0.9) return 'numeric';
+  return 'text';
+}
+function numericStats(values) {
+  const nums = values.filter(v => v !== '' && v !== null && v !== undefined && Number.isFinite(Number(v))).map(Number).sort((a, b) => a - b);
+  if (!nums.length) return null;
+  const min = nums[0], max = nums[nums.length - 1];
+  const mean = nums.reduce((a, b) => a + b, 0) / nums.length;
+  const mid = Math.floor(nums.length / 2);
+  const median = nums.length % 2 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+  const variance = nums.length > 1 ? nums.reduce((a, b) => a + (b - mean) ** 2, 0) / (nums.length - 1) : 0;
+  const std = Math.sqrt(variance);
+  // IQR 离群点: Q1/Q3 分位数,超出 [Q1-1.5*IQR, Q3+1.5*IQR] 计数。
+  const q = idx => { const pos = (nums.length - 1) * idx; const lo = Math.floor(pos); const hi = Math.ceil(pos); return nums[lo] + (nums[hi] - nums[lo]) * (pos - lo); };
+  const q1 = q(0.25), q3 = q(0.75), iqr = q3 - q1;
+  const lo = q1 - 1.5 * iqr, hi = q3 + 1.5 * iqr;
+  const outlierCount = nums.filter(v => v < lo || v > hi).length;
+  // 对抗验证(LOW): 极值列(如 [1e308, -1e308])可使 mean/std 变 Infinity —— JSON 序列化时 Infinity -> null,
+  // 显式置 null 避免失真(JSON.stringify(Infinity) 返回 null 会静默丢失语义)。
+  const fin = x => Number.isFinite(x) ? Math.round(x * 1000) / 1000 : null;
+  return { min, max, mean: fin(mean), median: fin(median), std: fin(std), outlierCount };
+}
+function columnProfile(name, values, maxSampleValues) {
+  const nonNull = values.filter(v => v !== '' && v !== null && v !== undefined);
+  const type = inferColumnType(values);
+  const seen = [];
+  for (const v of values) { const s = String(v); if (!seen.includes(s) && seen.length < maxSampleValues) seen.push(s); }
+  const prof = {
+    name, type, nonNullCount: nonNull.length, nullCount: values.length - nonNull.length,
+    uniqueCount: new Set(values.map(v => String(v))).size, sampleValues: seen,
+  };
+  if (type === 'numeric') { const ns = numericStats(values); if (ns) Object.assign(prof, ns); }
+  return prof;
+}
+async function dataProfile(filePath, args = {}) {
+  const p = String(filePath || '');
+  const raw = await readIfExists(p, 1024 * 1024); // 1MB 上限(大文件截断)
+  if (!raw) return { ok: false, error: '文件不存在、为空或无法读取', path: p };
+  const maxRows = Math.max(1, Math.min(50000, Math.round(Number(args.maxRows) || 2000)));
+  const maxSampleValues = Math.max(1, Math.min(50, Math.round(Number(args.maxSampleValues) || 5)));
+  const ext = (p.match(/\.([^./\\]+)$/) || [])[1] || '';
+  let format = 'text';
+  const lc = ext.toLowerCase();
+  if (lc === 'csv') format = 'csv';
+  else if (lc === 'tsv') format = 'tsv';
+  else if (lc === 'json') format = 'json';
+  else if (lc === 'jsonl' || lc === 'ndjson') format = 'jsonl';
+  else {
+    const head = raw.trimStart().slice(0, 1);
+    if (head === '[' || head === '{') format = 'json';
+    else if (args.delimiter) format = 'csv';
+    else if (/[,\t|]/.test(raw.slice(0, 200))) format = 'csv';
+  }
+
+  if (format === 'json') {
+    const parsed = safeJsonParse(raw, null);
+    // 对抗验证(MEDIUM): 首字符 {/[ 的多行 JSONL(无扩展名)会被 sniff 成 json 而整体解析失败 —— 回落逐行解析。
+    if (parsed == null) {
+      const lines = raw.split(/\r?\n/).filter(l => l.trim());
+      const rows = [];
+      for (const l of lines) { if (rows.length >= maxRows) break; const o = safeJsonParse(l, null); if (o != null && typeof o === 'object') rows.push(o); }
+      if (rows.length) {
+        const keys = [];
+        for (const it of rows) for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
+        const columns = keys.map(k => columnProfile(k, rows.map(it => it[k]), maxSampleValues));
+        return { ok: true, path: p, format: 'jsonl', rowCount: rows.length, colCount: keys.length, sampled: lines.length > maxRows, columns, note: '采样画像(grep 级启发式)。' };
+      }
+      return { ok: false, error: 'JSON 解析失败,不是合法 JSON', path: p };
+    }
+    const arr = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
+    const keys = [];
+    for (const it of arr.slice(0, maxRows)) for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
+    const columns = keys.map(k => columnProfile(k, arr.slice(0, maxRows).map(it => (it && typeof it === 'object' ? it[k] : '')), maxSampleValues));
+    return { ok: true, path: p, format: 'json', rowCount: Math.min(arr.length, maxRows), colCount: keys.length, sampled: arr.length > maxRows, columns, note: '采样画像(grep 级启发式): 列类型/离群点是统计启发式,非数据血缘。' };
+  }
+  if (format === 'jsonl') {
+    const lines = raw.split(/\r?\n/).filter(l => l.trim());
+    const rows = [];
+    for (const l of lines) { if (rows.length >= maxRows) break; const o = safeJsonParse(l, null); if (o != null && typeof o === 'object') rows.push(o); }
+    const keys = [];
+    for (const it of rows) for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
+    const columns = keys.map(k => columnProfile(k, rows.map(it => it[k]), maxSampleValues));
+    return { ok: true, path: p, format: 'jsonl', rowCount: rows.length, colCount: keys.length, sampled: lines.length > maxRows, columns, note: '采样画像(grep 级启发式)。' };
+  }
+  if (format === 'csv' || format === 'tsv') {
+    let delim = String(args.delimiter || '');
+    if (!delim) {
+      const sample = raw.slice(0, 1000);
+      const counts = { ',': (sample.match(/,/g) || []).length, '\t': (sample.match(/\t/g) || []).length, '|': (sample.match(/\|/g) || []).length };
+      delim = counts[','] >= counts['\t'] && counts[','] >= counts['|'] ? ',' : (counts['\t'] >= counts['|'] ? '\t' : '|');
+    }
+    const allRows = parseCsv(raw, delim, maxRows + 1);
+    let header, dataRows;
+    if (allRows.length) { header = allRows[0]; dataRows = allRows.slice(1); }
+    if (!header || !header.length) return { ok: false, error: 'CSV/TSV 无法解析出表头', path: p };
+    const colCount = header.length;
+    const columns = [];
+    for (let c = 0; c < colCount; c += 1) {
+      const name = String(header[c] || '').trim() || ('col' + (c + 1));
+      const values = dataRows.map(r => (r[c] !== undefined ? r[c] : ''));
+      columns.push(columnProfile(name, values, maxSampleValues));
+    }
+    return { ok: true, path: p, format: format === 'tsv' && delim === '\t' ? 'tsv' : 'csv', delimiter: delim, rowCount: dataRows.length, colCount, sampled: allRows.length > maxRows, columns, note: '采样画像(grep 级启发式): CSV 简单状态机解析,不保证兼容所有方言(BOM/多字符分隔符/嵌入引号边缘)。' };
+  }
+  // text/log: 逐行为一行,无结构化列 → 行数 + 行长度统计 + 常见行首。
+  const lines = raw.split(/\r?\n/).filter(l => l.length);
+  const lengths = lines.slice(0, maxRows).map(l => l.length);
+  const lineStats = lengths.length ? { min: Math.min(...lengths), max: Math.max(...lengths), avg: Math.round(lengths.reduce((a, b) => a + b, 0) / lengths.length) } : null;
+  const prefixes = {};
+  for (const l of lines.slice(0, maxRows)) { const pre = l.slice(0, 12); prefixes[pre] = (prefixes[pre] || 0) + 1; }
+  const topPrefixes = Object.entries(prefixes).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => ({ prefix: k, count: v }));
+  return { ok: true, path: p, format: 'text', rowCount: Math.min(lines.length, maxRows), colCount: 0, sampled: lines.length > maxRows, lineStats, topPrefixes, note: '文本/日志按行画像(无结构化列);行首模式统计可帮助识别日志格式。' };
+}
+
+// ============================================================================
 // v0.9-S9 — web_search / web_fetch (§0.9-S9, D6). SSRF防御 is the security核心 of this slice.
 // ============================================================================
 //
@@ -23416,6 +23700,15 @@ const CODE_TOOL_HANDLERS = {
       const g = await guardFileToolPath(root, ctx, { tool: 'codebase_symbol_search', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       return codebaseSymbolSearch(root, args);
+  } },
+  debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
+      return debugHypothesis(args);
+  } },
+  data_profile: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const p = path.resolve(String(args.path || ''));
+      const g = await guardFileToolPath(p, ctx, { tool: 'data_profile', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
+      return dataProfile(p, args);
   } },
 };
 
@@ -25743,6 +26036,36 @@ const MCP_TOOLS = [
         ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'Extra dirs to skip (node_modules/.git/.venv always skipped).' },
       },
       required: ['symbol'],
+    },
+  },
+  {
+    name: 'debug_hypothesis',
+    description: 'Advisory hypothesis/experiment/refutation ledger for structured debugging (bisect/elimination method). Tracks which hypotheses are pending/refuted/supported/confirmed so you can see how many remain unrefuted, catch repeated experiments, and avoid locking a root cause before excluding alternatives. It is a STATELESS helper (the ledger is carried in the conversation, not persisted server-side): pass the ledger returned by the previous call back on every subsequent call. Actions: init(hypotheses[]) to create the ledger, test(hypothesisId,result,evidence) to record a refuting/supporting experiment (refutation is sticky; a refuted hypothesis cannot be revived), conclude(hypothesisId) to lock the root cause (only a supported hypothesis may be concluded; warns if alternatives remain unexcluded), status to see stats + duplicate/contradiction warnings. Do not use when the bug is already obvious or there is nothing to disambiguate.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['init', 'test', 'conclude', 'status'], description: 'State-machine action.' },
+        hypotheses: { type: 'array', items: { type: 'object' }, description: 'init: array of {id?, description, mechanism?, expectedEvidence?, verification?}.' },
+        ledger: { type: 'object', description: 'Current ledger snapshot (previous call\'s returned ledger); required for test/conclude/status, ignored by init.' },
+        hypothesisId: { type: 'string', description: 'test/conclude: target hypothesis id.' },
+        result: { type: 'string', enum: ['supports', 'refutes', 'inconclusive'], description: 'test: experiment result.' },
+        evidence: { type: 'string', description: 'test: what you did and what you observed.' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'data_profile',
+    description: 'Profile a data file (CSV/TSV/JSON/JSONL/text log) into a machine-computed summary: row/column counts, per-column type, null/unique counts, numeric min/max/mean/median/std + IQR outlier count, and sample values. Use to replace eyeballing a large file with file_read when you need its structure, scale and data-quality issues (missing/outliers/format) before planning an analysis. Do not use for small files where reading directly is cheaper, or for cleaning/transforming the data (this tool is read-only). Column type and outlier detection are statistical heuristics, not data lineage.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute path to the data file to profile.' },
+        maxRows: { type: 'number', description: 'Max rows to sample (default 2000).' },
+        delimiter: { type: 'string', description: 'CSV/TSV delimiter; auto-detected when omitted.' },
+        maxSampleValues: { type: 'number', description: 'Sample values shown per column (default 5).' },
+      },
+      required: ['path'],
     },
   },
   {

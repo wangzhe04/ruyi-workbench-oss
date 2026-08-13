@@ -1,6 +1,8 @@
 (async () => {
 // E2E (v0.8-S7): loop detection on the provider engine (fake-openai, offline). §4 A3 / §6 0.8-S7.
-// FAKE_TOOL_SEQUENCE = the SAME file_read{path: <same file>} repeated 6×. The workbench's loop guard:
+// v2.6: 同签名连击 abort 现只对有副作用工具生效(file_write=edit tier)。read tier 只 warn 不 abort,
+// 轮询原语(wait_agents/shell_poll)完全豁免 —— 故本件用 file_write 测 abort 机制(见 loop-guard-read-exempt.e2e.js)。
+// FAKE_TOOL_SEQUENCE = the SAME file_write{path: <same file>, content: <same>} repeated 6×. The workbench's loop guard:
 //   ① the 3rd consecutive identical tool_result carries `loopWarning`;
 //   ② tool_use total ≤ 5 (the 5th call is refused-before-execution and the turn aborts, so the fake's
 //      6th sequence entry is never consumed);
@@ -49,12 +51,13 @@ function writeConfig(home, fakePort) {
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   const procs = [];
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
-  // A real file so file_read SUCCEEDS — the loop guard must warn/abort even on a succeeding-but-repeating call.
-  const target = path.join(HOME, 'read-me.txt');
+  // A writable target so file_write SUCCEEDS — the loop guard must warn/abort even on a succeeding-but-repeating call.
+  // (file_write 幂等: 第 2 次起 unchanged:true 仍 ok:true,但签名连击在【执行前】判定,不受结果影响。)
+  const target = path.join(HOME, 'write-me.txt');
   fs.writeFileSync(target, 'loop guard fixture content');
   writeConfig(HOME, FAKE_PORT);
-  // Same file_read call SIX times in a row.
-  const step = { name: 'file_read', args: { path: target } };
+  // Same file_write call SIX times in a row (edit tier → 5 次 abort 仍生效).
+  const step = { name: 'file_write', args: { path: target, content: 'loop guard fixture content' } };
   const seq = JSON.stringify([step, step, step, step, step, step]);
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_TOOL_SEQUENCE: seq }, windowsHide: true });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));

@@ -3,7 +3,8 @@
  * E2E (B3): sub-turn loop guard. The PARENT turn (runOpenAiTurn) has long had a consecutive-identical-tool
  * signature guard (loop-guard.e2e.js); the SUB-turn (runSubAgentCore) had NONE, so a wedged sub-agent that
  * repeats one tool would burn its whole iteration budget (raised to 100) making 100 provider calls before
- * failing. This repro drives a DAG OpenAI node whose fake provider emits the SAME file_read call every round.
+ * failing. This repro drives a DAG OpenAI node whose fake provider emits the SAME file_write(edit tier) call
+ * every round. (v2.6: abort 只对有副作用工具生效;read 子代理拿不到 file_write,故 node toolTier 用 'edit'。)
  *
  * Scenario 1 asserts the sub-turn aborts at the parent-parity threshold (5 consecutive) instead of running to
  * budget:
@@ -81,16 +82,16 @@ const fake = http.createServer((req, res) => {
       // Every sub-turn round: emit the EXACT SAME file_read call (a succeeding-but-repeating tool, the hardest
       // case — the guard must fire even when the call keeps succeeding). Without the guard this repeats until
       // the 100-iteration budget. call id is stable so the signature stays identical round to round.
-      // B3-fix pairing scenario: a SINGLE batch of 6 identical-signature file_read calls with DISTINCT ids.
+      // B3-fix pairing scenario: a SINGLE batch of 6 identical-signature file_write calls with DISTINCT ids.
       // The sub-turn executes 1..4, aborts at the 5th (SUB_LOOP_ABORT_AT), then must PAIR the remaining ones
       // without re-reporting the already-executed 1..4. One request only — the sub-turn aborts within it.
       if (isSubRequest(msgs) && hasTools && userTextOf(msgs).includes('PARALLEL_BATCH')) {
         parallelBatchRequests += 1;
-        return emitParallel(res, id, Array.from({ length: 6 }, (_, i) => ({ callId: 'call_' + (i + 1), name: 'file_read', args: { path: EVIDENCE() } })));
+        return emitParallel(res, id, Array.from({ length: 6 }, (_, i) => ({ callId: 'call_' + (i + 1), name: 'file_write', args: { path: EVIDENCE(), content: 'x' } })));
       }
       if (isSubRequest(msgs) && hasTools) {
         subToolRequests += 1;
-        return emitToolCall(res, id, 'call_loop', 'file_read', { path: EVIDENCE() });
+        return emitToolCall(res, id, 'call_loop', 'file_write', { path: EVIDENCE(), content: 'x' });
       }
       // Only reached if the guard did NOT stop the loop and the budget finalizer kicked in (no-tool request).
       return emitText(res, id, 'unexpected non-tool sub response');
@@ -146,7 +147,7 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
     // serve ~100 identical tool requests; with it, the run aborts the sub at the 5th consecutive signature.
     const result = await post(WP, '/api/agent-workflow/launch', {
       token, sessionId: sid,
-      nodes: [{ id: 'loop', task: 'REPEAT_SAME_TOOL', toolTier: 'read' }],
+      nodes: [{ id: 'loop', task: 'REPEAT_SAME_TOOL', toolTier: 'edit' }],
     }, hdr);
     const node = result && result.results && result.results[0];
     console.log('  status:', node && node.status, '| subToolRequests:', subToolRequests, '| iters:', node && node.iters, '| toolCalls:', node && node.toolCalls, '| error:', node && node.error);
@@ -172,7 +173,7 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
     // "工具返回 … · <id>" milestone per tool_result) and assert each id appears at most once.
     const batch = await post(WP, '/api/agent-workflow/launch', {
       token, sessionId: sid,
-      nodes: [{ id: 'pbatch', task: 'PARALLEL_BATCH: emit one batch of identical calls', toolTier: 'read' }],
+      nodes: [{ id: 'pbatch', task: 'PARALLEL_BATCH: emit one batch of identical calls', toolTier: 'edit' }],
     }, hdr);
     const bnode = batch && batch.results && batch.results[0];
     console.log('  [batch] status:', bnode && bnode.status, '| parallelBatchRequests:', parallelBatchRequests, '| error:', bnode && bnode.error);

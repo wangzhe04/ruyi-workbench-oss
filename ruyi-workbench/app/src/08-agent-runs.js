@@ -766,8 +766,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           // threshold, refuse to execute, emit a self-contained refusal, PAIR every remaining tool_call in this
           // batch (配对铁律: strict providers 400 on an orphan tool_call_id), then fail the sub-turn.
           const loopSig = tc.name + ' ' + tc.rawArgs;
-          if (loopSig === subLoopSig) subLoopCount += 1; else { subLoopSig = loopSig; subLoopCount = 1; }
-          if (subLoopCount >= SUB_LOOP_ABORT_AT) {
+          const loopBare = String(tc.name || '').replace(/^.+?__/, '');
+          if (loopAbortExempt(loopBare)) { /* 轮询原语: 豁免同签名连击,不累计不重置 */ }
+          else if (loopSig === subLoopSig) subLoopCount += 1; else { subLoopSig = loopSig; subLoopCount = 1; }
+          if (subLoopCount >= SUB_LOOP_ABORT_AT && !loopAbortExempt(loopBare) && !loopWarnOnly(loopBare)) {
             const resultObj = { ok: false, error: `连续 ${SUB_LOOP_ABORT_AT} 次相同工具调用，已停止子任务以避免死循环`, loopAborted: true };
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
@@ -879,7 +881,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           }
           // v1.x (B3): soft warning at the parent-parity threshold so the sub-agent can self-correct before the
           // hard abort. Injected into the (successful-but-repeating) tool result the model reads next turn.
-          if (subLoopCount >= SUB_LOOP_WARN_AT && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
+          if (subLoopCount >= SUB_LOOP_WARN_AT && !loopAbortExempt(String(tc.name || '').replace(/^.+?__/, '')) && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
             try { resultObj.loopWarning = `第 ${subLoopCount} 次连续相同调用；再重复将停止子任务`; } catch { /* frozen result — skip */ }
           }
           // A1:子回合语义指纹 -- 换参数但结果内容摘要不变(语义死循环),warn nudge(不 abort);同签名已 warn 时跳过避免双 warn
@@ -1411,13 +1413,13 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
   },
   {
     id: 'debug-root-cause', title: 'Bug 定位:复现 → 假设 → 验证 → 根因修复',
-    description: '系统化定位难缠 Bug:确认最小复现 → 双方向并行提根因假设 → 逐一实验证伪 → 锁定根因并给最小修复。模型建议:复现(reproduce)与假设(hypo_*)可用快模型;验证(verify)与修复(fix)建议指派更强模型,因为根因判定与"修根因而非症状"最吃推理。',
+    description: '系统化定位难缠 Bug:确认最小复现 → 双方向并行提根因假设 → 逐一实验证伪(排除法) → 锁定根因并给最小修复。模型建议:复现(reproduce)与假设(hypo_*)可用快模型;验证(verify)与修复(fix)建议指派更强模型,因为根因判定与"修根因而非症状"最吃推理。verify 用 debug_hypothesis 追踪假设证伪状态,确保每个假设都被排除或证实,勿只验证一条就下结论。',
     nodes: [
       { id: 'reproduce', task: '确认并最小化复现:写出精确复现步骤、观察到的实际现象(日志/报错/异常状态)、预期现象、以及能稳定触发的最小条件集。若当前信息不足以复现,明确列出还需要哪些信息或环境。输出复现报告。', role: 'verifier', position: { x: 40, y: 220 } },
       { id: 'hypo_a', task: '基于 reproduce 提出 2–3 个【最可能】的根因假设。每个假设说明:机制解释(为什么会导致该现象)、若成立应能观察到什么证据、以及最快的验证手段。按可能性排序。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 110 } },
       { id: 'hypo_b', task: '从 hypo_a 未覆盖的方向提出 2–3 个根因假设:环境/依赖版本、并发时序、数据/边界输入、配置/部署差异、上游变更等。同样给机制、预期证据、验证手段。目标是补齐盲区,而非重复 hypo_a。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 300 } },
-      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪。输出 verdict、confidence、summary 与 findings；每条判定必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
-      { id: 'fix', task: '针对 verify 锁定且有证据支持的根因实施最小、聚焦的代码修复；先补能稳定复现的回归测试，再修改并运行相关测试，说明为什么修的是根因而非症状、潜在副作用与残余风险。若根因仍存疑，不要猜改。', role: 'coder', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
+      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪。先用 debug_hypothesis(action=init)把两个方向的假设登记成台账,每做一次实验就用 debug_hypothesis(action=test)记录其结果(证伪 refutes / 支持 supports / 无结论 inconclusive),锁定根因前用 action=conclude 并留意 earlyStopWarning(是否还有假设未排除)。输出 verdict、confidence、summary 与 findings；每条判定必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'fix', task: '针对 verify 锁定且有证据支持的根因实施最小、聚焦的代码修复；先补能稳定复现的回归测试，再修改并运行相关测试，说明为什么修的是根因而非症状、潜在副作用与残余风险。动手前确认 verify 已用 debug_hypothesis 排除其余主要假设(而非只验证了一条);若根因仍存疑，不要猜改。', role: 'coder', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
   {
@@ -1433,9 +1435,9 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
   },
   {
     id: 'data-insights', title: '数据洞察:探查 → 方案 → 多角度分析 → 核验 → 洞察',
-    description: '对数据/日志/指标做系统化分析:数据画像 → 定分析方案与口径 → 双线并行分析(主线 + 交叉/异常) → 对抗核验剔除不稳健结论 → 综合成洞察报告。模型建议:探查/分析(analyst)可用中等模型;方案(planner)、核验(critic)、洞察综述(synthesizer)建议指派更强模型。分析节点要读数据/跑只读脚本,请给足工具权限(analyst 为 exec 级)。',
+    description: '对数据/日志/指标做系统化分析:数据画像 → 定分析方案与口径 → 双线并行分析(主线 + 交叉/异常) → 对抗核验剔除不稳健结论 → 综合成洞察报告。模型建议:探查/分析(analyst)可用中等模型;方案(planner)、核验(critic)、洞察综述(synthesizer)建议指派更强模型。分析节点要读数据/跑只读脚本,请给足工具权限(analyst 为 exec 级)。探查用 data_profile 做机器级数据画像(规模/列类型/缺失/离群),不要靠目测。',
     nodes: [
-      { id: 'profile', task: '对目标数据/日志做初步探查:字段与结构、规模、数据质量问题(缺失/异常/重复/格式)、时间与口径范围,以及据此可回答哪些问题方向。只读不改。输出数据画像 + 待澄清项。', role: 'analyst', position: { x: 40, y: 200 } },
+      { id: 'profile', task: '对目标数据/日志做初步探查:先用 data_profile 对每个数据文件做机器级画像(行列规模、每列类型、缺失率、唯一值数、数值列的 min/max/mean/median/std 与离群点、样本值),据此确认字段与结构、数据质量问题(缺失/异常/重复/格式)、时间与口径范围。不要靠 file_read 目测几行就下结论。只读不改。输出数据画像 + 待澄清项。', role: 'analyst', position: { x: 40, y: 200 } },
       { id: 'plan', task: '基于 profile 定分析方案:要回答的关键问题(可判定)、清洗与口径规则(如何处理缺失/异常/去重、指标如何定义)、每个问题用什么切法与指标、结果如何交叉验证。输出结构化分析方案。', role: 'planner', dependsOn: ['profile'], position: { x: 340, y: 200 } },
       { id: 'analyze_main', task: '按 plan 执行【主线分析】:运行必要的只读查询/脚本,产出关键指标、趋势、分组对比等,每条结论标注口径(样本/时间范围/指标定义)与证据。不修改源数据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 90 } },
       { id: 'analyze_cross', task: '按 plan 执行【交叉与异常分析】:换维度切分、寻找异常点与反直觉现象、验证主线结论在不同切法下是否稳健。同样标注口径与证据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 310 } },

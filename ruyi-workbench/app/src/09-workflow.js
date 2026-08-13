@@ -2081,9 +2081,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         for (const stc of localToolCalls) {
           if (!stc) continue;
           const projectedSig = stc.name + ' ' + stc.rawArgs;
-          if (projectedSig === projectedLoopSig) projectedLoopCount += 1;
+          const projectedBare = String(stc.name || '').replace(/^.+?__/, '');
+          if (loopAbortExempt(projectedBare)) { /* 轮询原语: 不参与连击 */ }
+          else if (projectedSig === projectedLoopSig) projectedLoopCount += 1;
           else { projectedLoopSig = projectedSig; projectedLoopCount = 1; }
-          if (projectedLoopCount >= LOOP_ABORT_AT) projectedLoopAborted = true;
+          if (projectedLoopCount >= LOOP_ABORT_AT && !loopAbortExempt(projectedBare) && !loopWarnOnly(projectedBare)) projectedLoopAborted = true;
           // Do not speculatively launch work that the serial loop guard will refuse, or work positioned
           // after the call that aborts the batch. This preserves the guard's no-side-effects guarantee.
           if (projectedLoopAborted) continue;
@@ -2204,8 +2206,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           let simSig = loopSig, simCount = loopCount, loopTrip = false;
           for (const tc0 of localToolCalls) {
             const s0 = tc0.name + ' ' + tc0.rawArgs;
-            if (s0 === simSig) simCount += 1; else { simSig = s0; simCount = 1; }
-            if (simCount >= LOOP_ABORT_AT) { loopTrip = true; break; }
+            const b0 = String(tc0.name || '').replace(/^.+?__/, '');
+            if (loopAbortExempt(b0)) { /* 轮询原语: 不参与连击 */ }
+            else if (s0 === simSig) simCount += 1; else { simSig = s0; simCount = 1; }
+            if (simCount >= LOOP_ABORT_AT && !loopAbortExempt(b0) && !loopWarnOnly(b0)) { loopTrip = true; break; }
           }
           if (allSafeRead && !loopTrip) {
             parallelReadResults = new Map();
@@ -2232,8 +2236,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we
           // can (a) inject loopWarning on the 3rd hit's result and (b) refuse to run the 5th hit at all.
           const sig = tc.name + ' ' + tc.rawArgs;
-          if (sig === loopSig) loopCount += 1; else { loopSig = sig; loopCount = 1; }
-          if (loopCount >= LOOP_ABORT_AT) {
+          const loopBare = String(tc.name || '').replace(/^.+?__/, '');
+          if (loopAbortExempt(loopBare)) { /* 轮询原语: 豁免同签名连击,不累计不重置 */ }
+          else if (sig === loopSig) loopCount += 1; else { loopSig = sig; loopCount = 1; }
+          if (loopCount >= LOOP_ABORT_AT && !loopAbortExempt(loopBare) && !loopWarnOnly(loopBare)) {
             // 5th consecutive identical call: DON'T execute. Emit a self-contained aborted tool_result,
             // push it (keeps the assistant.tool_calls pairing valid), then break out of the whole turn.
             const resultObj = { ok: false, error: '连续 5 次相同工具调用，已停止本轮以避免死循环', loopAborted: true };
@@ -2463,7 +2469,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // v0.8-S7: 3rd consecutive identical call → nudge the model to change tack (additive field on
           // the resultObj; the 5th-hit refusal is handled above before execution, so loopCount is 3 or 4
           // here). Applied whether the call succeeded or failed — a succeeding-but-repeating loop is still a loop.
-          if (loopCount >= LOOP_WARN_AT && resultObj && typeof resultObj === 'object') {
+          if (loopCount >= LOOP_WARN_AT && !loopAbortExempt(String(tc.name || '').replace(/^.+?__/, '')) && resultObj && typeof resultObj === 'object') {
             resultObj.loopWarning = '检测到连续第 3 次相同调用;若结果不符合预期,请改变参数或换用其它工具,不要原样重试。';
           }
           // 04 Phase D 语义 loop-guard: 结果指纹无进展判定(同签名连击未覆盖的盲区)。与上面 loopWarning 互补--

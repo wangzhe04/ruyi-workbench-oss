@@ -144,7 +144,7 @@ MicroAgent 把「单体应用拆微服务」拆成 5 个子任务（领域识别
 | **候选 A 波** | M3（覆盖率职责，纯 prompt 层）+ M4（消融纪律落地） | 快照门绿；06-O1 起回测带单轴归因 |
 | **候选 B 波** | M1（分级上下文）+ M6（O3 证据回溯口径） | HB360 编排子集 token ↓、outcome 不退；行为锁 e2e |
 | **候选 C 波** | M2（vote 防误杀 + coverage/propagate 节点） | 弃权语义 e2e；vote 误杀用例回归通过 |
-| **候选 D 波（✅ 首个工具已交付 2026-08-13）** | M5 首个方法论工具（codebase-audit 符号检索 `codebase_symbol_search`） | 入库全部门 ✅（见 [`17-m5-methodology-tools.md`](17-m5-methodology-tools.md)）+ 消融验证独立收益（⏸️ 待跑） |
+| **候选 D 波（✅ 两工具已交付 2026-08-13）** | M5 方法论工具：① codebase-audit 符号检索 `codebase_symbol_search`（见 [`17-m5-methodology-tools.md`](17-m5-methodology-tools.md)）② debug-root-cause 二分复现记录器 `debug_hypothesis`（见 [`18-m5-debug-recorder.md`](18-m5-debug-recorder.md)） | 入库全部门 ✅ + 消融验证独立收益（⏸️ 待跑） |
 
 每波沿用既有纪律：对抗轮 + 行为锁 e2e + KNOWN_FAILURE 空表 + 双语键同交 + 主会话亲自验收。
 

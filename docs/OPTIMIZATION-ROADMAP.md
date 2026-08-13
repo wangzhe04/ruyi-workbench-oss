@@ -98,7 +98,7 @@
 - **M1 实施文档已落** [`optimization-plan/11-m1-context-tiering.md`](optimization-plan/11-m1-context-tiering.md)：把 `09-workflow.js:647` 单一 `contextText`（所有节点同一份）升级为「全局层 + per-node 覆盖」--节点对象（L173）加 `context` 字段、contextPrefix（L647）追加节点层、节点 schema（L1883）补描述；节点无 context 时行为逐字节不变（存量模板零迁移）。**已交付（`0b3100d`，含节点级 context 注入 + 对抗加固 + e2e）**。
 - **M6**：O3 自检升级为证据回溯，并入 06-O3，已随 R1 Evidence Graph 完成（R1 即 M6 的工程化落点）。
 
-**候选 D 波（07 §5 · ✅ 首个工具已交付 2026-08-13）**：M5 高频模板方法论工具首个落地——`codebase_symbol_search`（codebase-audit 符号定义/引用检索，grep/ctags 级，`code` pack / `read` tier）。过第 49 波新工具入库全部门（契约 + fake 回归 + description 审计 + tool-dispatch 行为锁 55→56 + facts 门面数字），见 [`optimization-plan/17-m5-methodology-tools.md`](optimization-plan/17-m5-methodology-tools.md)。debug-root-cause / data-insights 两个候选及 M4 消融收益验证待后续逐个启动。
+**候选 D 波（07 §5 · ✅ 两工具已交付 2026-08-13）**：M5 高频模板方法论工具已落地两个——① `codebase_symbol_search`（codebase-audit 符号定义/引用检索）② `debug_hypothesis`（debug-root-cause 假设/实验/证伪状态机）。均过第 49 波新工具入库全部门（契约 + fake 回归 + description 审计 + tool-dispatch 行为锁 + facts 门面数字），见 [`17-m5-methodology-tools.md`](optimization-plan/17-m5-methodology-tools.md) 与 [`18-m5-debug-recorder.md`](optimization-plan/18-m5-debug-recorder.md)。data-insights 候选及 M4 消融收益验证待后续逐个启动。
 
 **后续候选 C–F · Agent 架构研究补充（2026-08-10 纳入；不代表自动实现）**：在 MicroAgent M1–M6 之上，新增五段受控闭环：R1 claim-level Evidence Graph（P0，M6 的工程化落点）→ R2 从已验收轨迹归纳、人工发布的 Workflow Candidate Factory（P1）→ R3 基于 M4/HB360 的离线 Champion–Challenger Lab（P1）→ R4 Local Memory Graph（P2）与 R5 Replan Patch Ledger（P2）。所有能力都止于候选/提案，禁止自动发布模板、篡改记忆、扩大权限或在线学习。详细的架构、分期、验收和暂缓项见 [`optimization-plan/12-agent-architecture-research-roadmap.md`](optimization-plan/12-agent-architecture-research-roadmap.md)。
 
