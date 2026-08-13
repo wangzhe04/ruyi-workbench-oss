@@ -1249,7 +1249,10 @@ async function startServer(opts) {
   // v1.4.3: sync settings, agent roles, and MCP servers to Claude CLI's own config on startup
   await syncClaudeCliSettings(config);
   await syncAgentRolesToClaude(config.defaultWorkspace || os.homedir(), config);
-  await syncMcpServersToClaude(config);
+  // v2.7.1 (boot fix): claude add-json 串行慢,await 拖死 boot(10 MCP x <=10s)。fire-and-forget:
+  // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐);与下方 autoImport 的竞态只影响
+  // "本次是否拉到 Claude 新增 MCP",最坏下次 boot 补齐,可接受。
+  void syncMcpServersToClaude(config).catch(() => {});
   // 把本机 Claude Code 注册的 MCP(~/.claude.json mcpServers)自动映射进 Ruyi(逆向于上面的 sync)。
   // 在 syncMcpServersToClaude 之后跑:Claude 的 user-scope 配置已是最新全量,只导入 Ruyi 还没有的 id。
   // 失败仅审计不阻断 boot;返回的 config 是写回后的最新引用,避免后续 generateMcpConfig 用陈旧 config。

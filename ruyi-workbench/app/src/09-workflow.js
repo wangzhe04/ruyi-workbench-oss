@@ -1778,9 +1778,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // annotate that tool_result with `loopWarning`; at the 5th we DON'T execute — we abort the turn with a
   // SELF-CONTAINED message (distinct from the 「已达工具调用上限」 iteration-cap message above). Lives with
   // the turn (declared here, not module-level) so counters never leak across turns.
-  let loopSig = null, loopCount = 0, loopAborted = false, steerAborted = false;
+  let loopSig = null, loopCount = 0, loopAborted = false, steerAborted = false, loopRecoveryAttempts = 0;
   let selfCheckDone = false; // O3 (hb360): 产物完成前自检只跑一次,防无限循环
-  const LOOP_WARN_AT = 3, LOOP_ABORT_AT = 5;
+  const LOOP_WARN_AT = 3, LOOP_ABORT_AT = 5, LOOP_RECOVERY_MAX = 2; // v2.7.1 opt#2: 5x 中止后自主恢复预算(注入恢复指令+重置签名计数,最多 N 轮,仍死循环才硬停)
   // 04 Phase D 语义 loop-guard(§04-D1): 结果指纹无进展判定 -- 与"同签名连击"(loopSig/loopCount)互补。
   // 同签名连击抓"完全相同调用(name+rawArgs)";结果指纹抓"换参数但结果无新信息"(如换路径反复读同类文件,
   // 或 grep 不同 pattern 都返回空 -- sig 每次不同但结果内容摘要不变)。连续 N 次结果指纹相同 -> loopWarning
@@ -2262,6 +2262,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
               session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
               await notifyToolHookEnd(rem, skip, iter, 'loop_skipped');
+            }
+            // v2.7.1 (opt#2): 5x 中止后自主恢复 -- 还有恢复预算时,不硬停:注入恢复指令(user 角色)要求模型换策略,
+            // 重置签名连击计数,仅 break 内层 for 循环(不设 loopAborted)-> 外层迭代循环带着恢复指令重新请求模型。
+            // 预算耗尽(LOOP_RECOVERY_MAX 轮后仍死循环)才硬停。与 3x loopWarning(轻推)互补:3x 提示、5x 拒绝+恢复、耗尽硬停。
+            if (loopRecoveryAttempts < LOOP_RECOVERY_MAX) {
+              loopRecoveryAttempts += 1;
+              const remaining = LOOP_RECOVERY_MAX - loopRecoveryAttempts;
+              const recoveryMsg = `⚠ 你已连续 ${LOOP_ABORT_AT} 次以相同参数调用同一工具(${loopBare}),本轮已拒绝执行该调用。这通常是死循环信号。请改变策略:换用其它工具、调整参数、或说明为何需要重复执行。继续原样重试将被终止(剩余 ${remaining} 次恢复机会)。`;
+              session.providerHistory.push({ role: 'user', content: recoveryMsg });
+              loopSig = null; loopCount = 0; // 重置签名连击,给模型一个干净的恢复窗口(下一次同签名从 1 重新计)
+              onEvent({ type: 'loop_recovery', state: 'injected', attempt: loopRecoveryAttempts, max: LOOP_RECOVERY_MAX, tool: loopBare, remaining });
+              const note = `\n\n[已注入恢复指令并重置重复计数,剩余 ${remaining} 次恢复机会]`;
+              assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+              break; // 仅 break 内层 for;不设 loopAborted -> 外层 continue 带恢复指令续跑
             }
             loopAborted = true;
             break;

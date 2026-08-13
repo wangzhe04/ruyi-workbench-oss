@@ -790,11 +790,18 @@ async function syncMcpServersToClaude(config) {
   try {
     if (!config.claudePath || !existsExecutable(config.claudePath)) return;
     var servers = resolveExternalMcpServers(config);
+    // v2.7.1 (boot fix): claude mcp add-json 每次最多 10s,10 个串行可达 100s,await 会拖死 boot。
+    // 加总预算(15s):超预算的余量丢弃 -- add-json 幂等,下次 boot 自动补齐。boot 调用点已改 fire-and-forget,
+    // API/CLI 路径仍 await 也被预算兜底(最多 15s 而非 100s)。
+    const SYNC_BUDGET_MS = 15000;
+    const t0 = Date.now();
     for (var s of servers) {
       if (!s.id || !s.command) continue;
+      const remain = SYNC_BUDGET_MS - (Date.now() - t0);
+      if (remain <= 0) break;
       var sc = { type: 'stdio', command: s.command, args: s.args || [], env: s.env || {} };
       if (s.cwd) sc.cwd = s.cwd;
-      try { await runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: 10000 }); } catch {}
+      try { await runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: Math.min(remain, 10000) }); } catch {}
     }
   } catch { /* non-fatal */ }
 }

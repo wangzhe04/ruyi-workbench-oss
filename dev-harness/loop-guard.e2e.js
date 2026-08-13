@@ -56,9 +56,10 @@ function writeConfig(home, fakePort) {
   const target = path.join(HOME, 'write-me.txt');
   fs.writeFileSync(target, 'loop guard fixture content');
   writeConfig(HOME, FAKE_PORT);
-  // Same file_write call SIX times in a row (edit tier → 5 次 abort 仍生效).
+  // Same file_write call 16 times (edit tier). v2.7.1 opt#2: 5x 不再立即硬停 -- 先注入恢复指令+重置计数,最多 2 轮恢复
+  // (LOOP_RECOVERY_MAX=2),第 3 次 5x 命中才硬停。故 4+1+4+1+4+1 = 15 次调用后 hard abort,第 16 条留给 turn2。
   const step = { name: 'file_write', args: { path: target, content: 'loop guard fixture content' } };
-  const seq = JSON.stringify([step, step, step, step, step, step]);
+  const seq = JSON.stringify(Array.from({ length: 16 }, () => step));
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_TOOL_SEQUENCE: seq }, windowsHide: true });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
@@ -83,21 +84,26 @@ function writeConfig(home, fakePort) {
     ok(third && third.content && typeof third.content.loopWarning === 'string' && /第 3 次/.test(third.content.loopWarning),
       'turn1: 3rd tool_result carries loopWarning (got ' + (third && third.content && third.content.loopWarning) + ')');
 
-    // ② tool_use total ≤ 5 (5th refused-before-execution, turn aborts; the 6th seq entry is never consumed).
-    ok(toolUses.length <= 5, 'turn1: tool_use count ≤ 5 (got ' + toolUses.length + ')');
-    // The 5th tool_result should be the self-contained loopAborted refusal.
+    // v2.7.1 opt#2: 5x 命中先恢复 -- 5th/10th 注入 loop_recovery(2 次),15th 耗尽预算才 hard abort。
+    const recoveries = ev1.filter(e => e.type === 'loop_recovery' && e.state === 'injected');
+    ok(recoveries.length === 2, 'turn1: 2 loop_recovery events injected (got ' + recoveries.length + ')');
+    ok(recoveries[0] && recoveries[0].attempt === 1 && recoveries[1] && recoveries[1].attempt === 2, 'turn1: recovery attempts 1 then 2');
+    // tool_use total = 15 (12 executed + 3 refused at 5th/10th/15th); the 16th seq entry is never consumed.
+    ok(toolUses.length === 15, 'turn1: tool_use count === 15 (got ' + toolUses.length + ')');
+    // The 5th tool_result is the self-contained loopAborted refusal (first 5x hit -> recovery, not hard stop).
     const fifth = toolResults[4];
     ok(fifth && fifth.content && fifth.content.loopAborted === true && /连续 5 次/.test(fifth.content.error || ''),
       'turn1: 5th tool_result is the loopAborted refusal (got ' + JSON.stringify(fifth && fifth.content) + ')');
 
-    // ③ terminal result event → errorClass === 'tool_loop'.
+    // terminal result event -> errorClass === 'tool_loop' (hard abort only after 2 recoveries exhausted).
     const result1 = [...ev1].reverse().find(e => e.type === 'result');
     ok(result1 && result1.errorClass === 'tool_loop', 'turn1: result errorClass === tool_loop (got ' + (result1 && result1.errorClass) + ')');
 
-    // ④ final assistant text contains 「已停止本轮」 and NOT 「已达工具调用上限」.
+    // final assistant text: 2 recovery notes AND the final hard-stop note, NOT the iteration-cap message.
     const text1 = ev1.filter(e => e.type === 'assistant_delta').map(e => e.text || '').join('');
-    ok(/已停止本轮/.test(text1), 'turn1: assistant text contains 「已停止本轮」');
-    ok(!/已达工具调用上限/.test(text1), 'turn1: assistant text does NOT contain 「已达工具调用上限」 (distinct message)');
+    ok((text1.match(/已注入恢复指令/g) || []).length === 2, 'turn1: 2 recovery notes in assistant text (got ' + (text1.match(/已注入恢复指令/g) || []).length + ')');
+    ok(/已停止本轮/.test(text1), 'turn1: assistant text contains hard-stop note (已停止本轮)');
+    ok(!/已达工具调用上限/.test(text1), 'turn1: assistant text does NOT contain iteration-cap message');
 
     // ⑤ turn_summary still emitted.
     const ts1 = ev1.find(e => e.type === 'turn_summary');

@@ -59,7 +59,7 @@ function post(port, p, payload, headers) {
   const WS = path.join(UNIT_DATA, 'ws'); fs.mkdirSync(WS, { recursive: true });
   const inside = path.join(WS, 'in.txt'); fs.writeFileSync(inside, 'hi');
   fs.writeFileSync(OUTSIDE, 'secret');
-  const ctx = (base, extra) => ({ config: { ...P(base), defaultWorkspace: WS, ...(extra || {}) }, session: { cwd: WS } });
+  const ctx = (base, extra) => ({ config: { ...P(base), permissionMode: 'default', defaultWorkspace: WS, ...(extra || {}) }, session: { cwd: WS } });
   const g = async (p, c, write) => (await S.guardFileToolPath(p, c, { write })).ok;
   ok(await g(inside, ctx('https://api.deepseek.com'), false) === true, 'S3 in-bounds read → allow');
   ok(await g(inside, ctx('https://api.deepseek.com'), true) === true, 'S3 in-bounds write → allow');
@@ -72,6 +72,41 @@ function post(port, p, payload, headers) {
   const gv = await S.guardFileToolPath(OUTSIDE, ctx('https://api.deepseek.com'), { write: true });
   ok(gv.ok === false && gv.code === 'not-allowed' && typeof gv.error === 'string', 'S3 denial carries {ok:false, code:not-allowed, error}');
 
+  // v2.7.1 (opt#1): bypass/auto = 宽【写】-- 越界写放行(等同 allowOutsideWorkspace=on,不改配置);读不受影响,
+  // 仍维持原 exfil 防护(远端 provider 越界读拒、本地放行)。三层硬地板(应用数据/autoexec/OS 关键目录)始终拦截。
+  const wide = extra => ctx('https://api.deepseek.com', { permissionMode: 'bypass', ...(extra || {}) });
+  ok(await g(OUTSIDE, wide(), true) === true, 'S3 v2.7.1 bypass -> out-of-bounds write ALLOWED (wide write)');
+  ok(await g(OUTSIDE, ctx('http://127.0.0.1:11434', { permissionMode: 'auto' }), true) === true, 'S3 v2.7.1 auto -> out-of-bounds write ALLOWED (wide write)');
+  ok(await g(OUTSIDE, wide(), false) === false, 'S3 v2.7.1 wide write does NOT open read (remote out-of-bounds read still DENY)');
+  ok(await g(OUTSIDE, ctx('http://127.0.0.1:11434', { permissionMode: 'auto' }), false) === true, 'S3 v2.7.1 auto + local provider -> out-of-bounds read still allow (unchanged)');
+  const osP = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wcw-guard-e2e-nope.txt');
+  const go = await S.guardFileToolPath(osP, wide(), { write: true });
+  ok(go.ok === false && go.code === 'os-critical-denied', 'S3 v2.7.1 bypass wide write still DENIES OS-critical path (3rd floor)');
+  const gs = await S.guardFileToolPath(path.join(UNIT_DATA, 'sessions', 'x.json'), wide(), { write: true });
+  ok(gs.ok === false && gs.code === 'not-allowed', 'S3 v2.7.1 bypass wide write still DENIES app-data path (1st floor)');
+  // v2.7.1 对抗轮: Windows 扩展/UNC 路径形态不得绕过三层地板(本地回环 C$ 管理共享映射回盘符再判)。
+  const winTemp2 = path.join(process.env.SystemRoot || 'C:\\Windows', 'Temp');
+  const osProbe = path.join(winTemp2, 'wcw-guard-ext-' + Date.now() + '.txt');
+  fs.writeFileSync(osProbe, 'probe');
+  const extForms = [
+    ['\\\\?\\' + osProbe, 'os-critical-denied', 'ext-prefix'],
+    ['\\\\.\\' + osProbe, 'os-critical-denied', 'device-prefix'],
+    ['\\\\?\\UNC\\localhost\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'os-critical-denied', 'unc-localhost'],
+    ['\\\\?\\UNC\\127.0.0.1\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'os-critical-denied', 'unc-loopback'],
+    ['\\\\?\\UNC\\' + (os.hostname() || '') + '\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'os-critical-denied', 'unc-hostname'],
+  ];
+  for (const [ep, expectCode, tag] of extForms) {
+    const ge = await S.guardFileToolPath(ep, wide(), { write: true });
+    ok(ge.ok === false && ge.code === expectCode, 'S3 v2.7.1 adversarial [' + tag + '] denied (' + ge.code + ')');
+  }
+  const uncCfg = '\\\\?\\UNC\\localhost\\C$' + path.join(UNIT_DATA, 'sessions', 'x.json').replace(/^[A-Za-z]:/, '');
+  const gu = await S.guardFileToolPath(uncCfg, wide(), { write: true });
+  ok(gu.ok === false && gu.code === 'not-allowed', 'S3 v2.7.1 adversarial [unc-sessions] app-data denied');
+  fs.unlinkSync(osProbe);
+  // 远程 UNC 非回环主机: 不在盘符地板(非本地系统目录) -> 宽写放行属设计意图。
+  const gr = await S.guardFileToolPath('\\\\?\\UNC\\remote-host\\C$\\x\\y.txt', wide(), { write: true });
+  ok(gr.ok === true, 'S3 v2.7.1 adversarial [unc-remote] wide-write allowed (non-local share, by design)');
+
   // Windows hosted runners expose TEMP through an 8.3 short path (RUNNER~1). A missing destination cannot
   // itself be realpath'd, so the guard must canonicalize its existing parent before comparing allowed roots.
   const REAL_WS = path.join(UNIT_DATA, 'real-ws');
@@ -80,11 +115,11 @@ function post(port, p, payload, headers) {
   try {
     fs.symlinkSync(REAL_WS, ALIAS_WS, process.platform === 'win32' ? 'junction' : 'dir');
     const missingViaAlias = path.join(ALIAS_WS, 'new-dir', 'new-file.txt');
-    const aliasCtx = { config: { ...P('https://api.deepseek.com'), defaultWorkspace: ALIAS_WS }, session: { cwd: ALIAS_WS } };
+    const aliasCtx = { config: { ...P('https://api.deepseek.com'), permissionMode: 'default', defaultWorkspace: ALIAS_WS }, session: { cwd: ALIAS_WS } };
     const ga = await S.guardFileToolPath(missingViaAlias, aliasCtx, { write: true });
     ok(ga.ok === true, 'S3 missing write target through short-name/junction alias remains in-bounds');
     const missingRootViaAlias = path.join(ALIAS_WS, 'not-created-workspace');
-    const missingRootCtx = { config: { ...P('https://api.deepseek.com'), defaultWorkspace: missingRootViaAlias }, session: { cwd: missingRootViaAlias } };
+    const missingRootCtx = { config: { ...P('https://api.deepseek.com'), permissionMode: 'default', defaultWorkspace: missingRootViaAlias }, session: { cwd: missingRootViaAlias } };
     const gm = await S.guardFileToolPath(path.join(missingRootViaAlias, 'new-file.txt'), missingRootCtx, { write: true });
     ok(gm.ok === true, 'S3 missing workspace root and target share the same canonical existing parent');
 
@@ -93,7 +128,7 @@ function post(port, p, payload, headers) {
     fs.rmSync(ESCAPE_WS, { recursive: true, force: true });
     fs.mkdirSync(ESCAPE_WS, { recursive: true });
     fs.symlinkSync(ESCAPE_WS, ESCAPE_LINK, process.platform === 'win32' ? 'junction' : 'dir');
-    const escapeCtx = { config: { ...P('https://api.deepseek.com'), defaultWorkspace: REAL_WS }, session: { cwd: REAL_WS } };
+    const escapeCtx = { config: { ...P('https://api.deepseek.com'), permissionMode: 'default', defaultWorkspace: REAL_WS }, session: { cwd: REAL_WS } };
     const ge = await S.guardFileToolPath(path.join(ESCAPE_LINK, 'missing.txt'), escapeCtx, { write: true });
     ok(ge.ok === false && ge.code === 'not-allowed', 'S3 missing write target through escaping junction remains denied');
     fs.unlinkSync(ESCAPE_LINK);
@@ -129,11 +164,19 @@ function post(port, p, payload, headers) {
     ok(rout.json && rout.json.result && rout.json.result.ok === false && rout.json.result.code === 'not-allowed', 'B: out-of-bounds file_read DENIED (remote)');
     ok(!(rout.json && rout.json.result && /OUTSIDE-SECRET/.test(rout.json.result.content || '')), 'B: denied read leaks NO content');
 
+    // v2.7.1 (opt#1): config 为 bypass(工作台默认) -> 宽写:越界 file_write 放行;但 OS 关键目录与应用数据地板仍拒。
     const woutPath = path.join(os.tmpdir(), 'wcw-file-guard-EVIL-WRITE.txt');
     fs.rmSync(woutPath, { force: true });
-    const wout = await tool('file_write', { path: woutPath, content: 'should-not-write' });
-    ok(wout.json && wout.json.result && wout.json.result.ok === false && wout.json.result.code === 'not-allowed', 'B: out-of-bounds file_write DENIED');
-    ok(!fs.existsSync(woutPath), 'B: out-of-bounds file_write left NO file on disk');
+    const wout = await tool('file_write', { path: woutPath, content: 'should-write-wide' });
+    ok(wout.json && wout.json.result && wout.json.result.ok === true, 'B: out-of-bounds file_write ALLOWED under bypass (wide write)');
+    ok(fs.existsSync(woutPath), 'B: out-of-bounds file_write created the file (wide write)');
+    fs.rmSync(woutPath, { force: true }); // wide write cleanup
+    const osP = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wcw-guard-e2e-' + Date.now() + '.tmp');
+    const wos = await tool('file_write', { path: osP, content: 'nope' });
+    ok(wos.json && wos.json.result && wos.json.result.ok === false && wos.json.result.code === 'os-critical-denied', 'B: OS-critical path write DENIED even under bypass');
+    ok(!fs.existsSync(osP), 'B: OS-critical write left NO file on disk');
+    const wsen = await tool('file_write', { path: path.join(HOME, 'config.json'), content: '{}' });
+    ok(wsen.json && wsen.json.result && wsen.json.result.ok === false && wsen.json.result.code === 'not-allowed', 'B: app-data path (config.json) write DENIED even under bypass');
     const winPath = path.join(WS2, 'new-inside.txt');
     const win = await tool('file_write', { path: winPath, content: 'ok-inside' });
     ok(win.json && win.json.result && win.json.result.ok === true && fs.existsSync(winPath), 'B: in-bounds file_write allowed + file created');

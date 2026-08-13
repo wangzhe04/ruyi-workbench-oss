@@ -155,14 +155,14 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
     ok(result && result.ok === false && result.status === 'failed', 'run terminates (failed) — did not hang');
     ok(!!node && node.status === 'failed', 'the looping node fails');
     ok(!!node && /连续 5 次相同工具调用/.test(node.error || ''), 'node fails with the sub-turn loop-guard abort reason (got: ' + (node && node.error) + ')');
-    ok(subToolRequests === 5, 'fake served exactly 5 tool requests — guard aborted at the 5th, NOT the 100 budget (got ' + subToolRequests + ')');
+    ok(subToolRequests === 15, 'fake served exactly 15 tool requests (2 recoveries then hard abort at 15th) — guard aborted at the 5th, NOT the 100 budget (got ' + subToolRequests + ')');
     // The 5-request count IS the anti-budget proof (without the guard the fake would serve ~100). node.iters /
     // node.toolCalls are not exposed on the sync results array; read the persisted run to confirm them too.
     const runsAfter = await get(WP, `/api/agent-runs?sessionId=${encodeURIComponent(sid)}`, hdr);
     const persisted = runsAfter && Array.isArray(runsAfter.runs) && runsAfter.runs.find(r => r.id === result.runId);
     const pnode = persisted && Array.isArray(persisted.nodes) && persisted.nodes.find(n => n.id === 'loop');
-    ok(!!pnode && Number(pnode.iters) <= 6, 'persisted node.iters stays far below the 100 budget (got ' + (pnode && pnode.iters) + ')');
-    ok(!!pnode && Number(pnode.toolCalls) <= 5, 'persisted node.toolCalls stays far below the 100 budget (got ' + (pnode && pnode.toolCalls) + ')');
+    ok(!!pnode && Number(pnode.iters) <= 20, 'persisted node.iters stays far below the 100 budget (got ' + (pnode && pnode.iters) + ')');
+    ok(!!pnode && Number(pnode.toolCalls) <= 15, 'persisted node.toolCalls stays far below the 100 budget (got ' + (pnode && pnode.toolCalls) + ')');
 
     // -------- Scenario 2 (B3-fix): same-batch abort must NOT re-report already-executed calls --------
     // A single assistant message with 6 identical-signature file_read calls (distinct ids call_1..call_6). The
@@ -179,7 +179,7 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
     console.log('  [batch] status:', bnode && bnode.status, '| parallelBatchRequests:', parallelBatchRequests, '| error:', bnode && bnode.error);
     ok(!!bnode && bnode.status === 'failed', 'the parallel-batch node fails (loop-guard tripped within the batch)');
     ok(!!bnode && /连续 5 次相同工具调用/.test(bnode.error || ''), 'parallel-batch node aborts with the sub-turn loop-guard reason');
-    ok(parallelBatchRequests === 1, 'fake served the parallel batch exactly once — the sub-turn aborted within the first batch (got ' + parallelBatchRequests + ')');
+    ok(parallelBatchRequests === 3, 'fake served the parallel batch 3 times (2 recoveries then hard abort) — the sub-turn aborted within the first batch (got ' + parallelBatchRequests + ')');
 
     const runsB = await get(WP, `/api/agent-runs?sessionId=${encodeURIComponent(sid)}`, hdr);
     const persistedB = runsB && Array.isArray(runsB.runs) && runsB.runs.find(r => r.id === batch.runId);
@@ -190,8 +190,11 @@ async function up(port) { for (let i = 0; i < 50; i++) { if (await get(port, '/h
     const uniqueIds = Object.keys(idCounts);
     const anyDouble = uniqueIds.some(k => idCounts[k] > 1);
     console.log('  [batch] tool_result milestones:', toolResultMilestones.length, '| id counts:', JSON.stringify(idCounts));
-    ok(!anyDouble, 'no tool_call id is reported twice — already-executed calls are NOT re-reported as "未执行" (got ' + JSON.stringify(idCounts) + ')');
-    ok(uniqueIds.length === 6 && toolResultMilestones.length === 6, 'all 6 tool_calls are paired EXACTLY once (配对铁律), no duplicate/orphan pairing (got ' + toolResultMilestones.length + ' milestones over ' + uniqueIds.length + ' ids)');
+    // v2.7.1 opt#2: recovery re-serves the batch (3x); ids reused across batches -> each id up to 3x (once per batch).
+    // A within-batch double-pair (B3-fix violation) would push an id to 4x. Assert bounded + no 4x + far below 100 budget.
+    const maxIdCount = uniqueIds.reduce((m, k) => Math.max(m, idCounts[k] || 0), 0);
+    ok(maxIdCount <= 3, 'no tool_call id paired more than 3x (recovery-bounded, B3-fix holds per batch) (got max ' + maxIdCount + ', ' + JSON.stringify(idCounts) + ')');
+    ok(toolResultMilestones.length <= 24, 'milestones recovery-bounded, far below 100 budget (got ' + toolResultMilestones.length + ')');
   } catch (e) { console.error('ERROR ' + (e && e.stack || e)); failures++; }
   finally {
     kill(wb);

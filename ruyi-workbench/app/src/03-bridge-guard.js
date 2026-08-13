@@ -446,9 +446,11 @@ function isSensitiveDataPath(p) {
 // drift from preview's护栏。Never throws.
 async function guardWorkspacePath(rawPath, session, config) {
   if (!rawPath || !path.isAbsolute(rawPath)) return { ok: false, code: 'bad-path', error: '路径必须是绝对路径' };
-  const target = path.resolve(rawPath);
+  const targetRaw = path.resolve(rawPath);
+  const target = normalizeGuardPath(targetRaw);
   const roots = fileAllowedRoots(session, config);
-  const real = await realpathForContainment(target);
+  const realRaw = await realpathForContainment(targetRaw);
+  const real = normalizeGuardPath(realRaw);
   // 审计 P1(对抗轮补漏): reveal(在资源管理器打开/定位)与 http_download 落盘目标都经此护栏 —— 敏感控制面文件既
   // 不许暴露也不许被下载覆写(否则可覆写 config.json/runtime.json 致配置损毁/token 替换)。与文件工具同源拒绝。
   await ensureDataRootReal();
@@ -500,16 +502,81 @@ const AUTOEXEC_DENYLIST = [
 function normalizeAutoexecPath(absPath) {
   return absPath.split(/[\\/]/).map(s => s.replace(/[. ]+$/, '')).join('/').toLowerCase();
 }
+// v2.7.1 (opt#1 全自动宽写): 操作系统关键目录硬地板 -- bypass/auto 宽写模式下仍始终拒绝写入的 OS 系统路径。
+// 与 isSensitiveDataPath(应用自身数据) + AUTOEXEC_DENYLIST 互补,构成"系统级安全保护"三层地板的第三层:
+// 即便用户选了全自动(bypass)模式放开全盘写,Windows/Program Files/ProgramData 等系统关键目录也不可经文件工具写入
+// (改系统文件=蓝屏/无法启动风险,且非用户工作产物)。读不拦(只读访问系统文件无破坏性)。词法 abs 与 realpath 后
+// real 都查(junction/短名部署下两者不同)。env 缺失时回落到 C:\ 常见系统目录。模块加载时算一次(env 不变)。
+const OS_CRITICAL_ROOTS = (() => {
+  const out = [];
+  const push = p => { if (p && typeof p === 'string') { try { out.push(path.resolve(p)); } catch { /* skip */ } } };
+  push(process.env.SystemRoot || 'C:\\Windows');
+  push(process.env.ProgramFiles || 'C:\\Program Files');
+  push(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)');
+  push(process.env.ProgramData || 'C:\\ProgramData');
+  const sd = process.env.SystemDrive || 'C:';
+  push(sd + '\\$Recycle.Bin');
+  push(sd + '\\System Volume Information');
+  push(sd + '\\Recovery');
+  push(sd + '\\Boot');
+  return out;
+})();
+const OS_CRITICAL_ROOT_FILES = new Set(['pagefile.sys', 'hiberfil.sys', 'swapfile.sys', 'bootmgr', 'ntldr', 'bootnxt', 'bootsect.bak']);
+function isOsCriticalPath(absPath) {
+  if (!absPath) return false;
+  const norm = path.resolve(absPath).split(/[\\/]/).join('/').toLowerCase();
+  for (const r of OS_CRITICAL_ROOTS) {
+    const rl = r.split(/[\\/]/).join('/').toLowerCase();
+    if (norm === rl || norm.startsWith(rl + '/')) return true;
+  }
+  // 系统盘根目录的系统文件(如 C:\pagefile.sys): <drive>:/<file> 形态精确匹配。
+  const sd = String(process.env.SystemDrive || 'C:').toLowerCase();
+  const m = norm.match(/^([a-z]:)\/([^/]+)$/);
+  if (m && m[1] === sd && OS_CRITICAL_ROOT_FILES.has(m[2])) return true;
+  return false;
+}
+// v2.7.1 (opt#1): 宽写模式判定。bypass/bypassPermissions/auto 三种模式下 guardFileToolPath 把工作区写边界视为放开
+// (等同 allowOutsideWorkspace=on,但不改配置);三层硬地板(应用数据/autoexec/OS 关键目录)仍始终拦截。ctx.effectivePermissionMode
+// (主回合/子代理派发时注入)优先于 config.permissionMode;都缺时回落 'bypass'(工作台默认)。传入已解析的 config 以覆盖 ctx=null
+// (一次性 MCP 子进程)的情况 -- 此时 config 由 readConfig() 从盘读出。
+function wideWriteModeEnabled(ctx, config) {
+  const m = String((ctx && ctx.effectivePermissionMode) || (config && config.permissionMode) || 'bypass');
+  return m === 'bypass' || m === 'bypassPermissions' || m === 'auto';
+}
+// v2.7.1 (对抗轮): 归一 Windows 扩展/UNC 路径形态供护栏判定(不改变实际 I/O 路径——handler 仍用调用方原路径)。
+// ① \\?\UNC\localhost\C$\... → C:\...: 本地回环主机(localhost/127.0.0.1/::1/本机名)的盘符$ 管理共享映射回盘符根,
+//    否则 guard 只查盘符路径地板, 而 fsp.realpath 把该形态解析为 \\host\C$\... 的 UNC → OS 地板/敏感地板全落空
+//    (对抗实测: \\?\UNC\localhost\C$\Windows\Temp\... 曾被放行)。
+// ② 其它 \\?\UNC\server\share → \\server\share: 远程共享不在盘符地板(非本地系统目录), 保持 UNC 原样。
+// ③ \\?\C:\ 与 \\.\C:\ 由 fsp.realpath 剥前缀(实测 async realpath 正常剥), 此处仅兜底词法 abs。
+function normalizeGuardPath(p) {
+  let s = String(p || '');
+  const unc = s.match(/^\\\\\?\\UNC\\(.+)$/i);
+  if (unc) {
+    s = '\\\\' + unc[1];
+    const parts = s.slice(2).split(/[\\/]/);
+    const host = String(parts[0] || '').toLowerCase();
+    const shareM = String(parts[1] || '').match(/^([A-Za-z])\$/);
+    const selfHosts = ['localhost', '127.0.0.1', '::1', (os.hostname ? os.hostname() : '').toLowerCase()];
+    if (shareM && selfHosts.includes(host)) {
+      const rest = parts.slice(2).join('\\');
+      return path.resolve(shareM[1] + ':\\' + (rest ? rest : ''));
+    }
+  }
+  return s;
+}
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
 // so dataRoot still bounds it. Returns { ok:true, absPath } or { ok:false, code:'not-allowed', error }.
 async function guardFileToolPath(rawPath, ctx, opts) {
   const write = !!(opts && opts.write);
   const tool = (opts && opts.tool) || 'file';
-  const abs = path.resolve(String(rawPath || ''));
+  const absRaw = path.resolve(String(rawPath || ''));
+  const abs = normalizeGuardPath(absRaw);
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
-  const real = await realpathForContainment(abs);
+  const realRaw = await realpathForContainment(absRaw);
+  const real = normalizeGuardPath(realRaw);
   // 审计 P1: 敏感控制面文件二次拒绝(见 isSensitiveDataPath)。放在 allowOutsideWorkspace 逃生舱【之前】——即便用户
   // 开了越界豁免,应用自身的 config/runtime/sessions/memory 等也绝不可经文件工具读写(密钥/会话/token 外传面)。
   // 词法 abs 与 realpath 后 real 都查,双保险(junction/短名部署下两者不同)。
@@ -527,11 +594,20 @@ async function guardFileToolPath(rawPath, ctx, opts) {
       logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-autoexec', pathLen: abs.length });
       return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
     }
+    // v2.7.1 (opt#1): OS 关键目录硬地板 -- bypass/auto 宽写下也始终拒写(系统级安全保护第三层)。abs 与 real 双查。
+    if (isOsCriticalPath(abs) || isOsCriticalPath(real)) {
+      logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-os-critical', pathLen: abs.length });
+      return { ok: false, code: 'os-critical-denied', error: '该路径属于操作系统关键目录(Windows/Program Files/ProgramData 等),已禁止通过文件工具写入;如确需修改系统文件,请直接在终端以管理员权限操作' };
+    }
   }
-  if (config && config.allowOutsideWorkspace === true) {
+  // v2.7.1 (opt#1): 全自动(bypass/bypassPermissions/auto)模式 = 宽【写】,等同 allowOutsideWorkspace=on(但不改配置)。
+  // 仅对 write 生效 -- 读仍维持原 exfil 防护(远端 provider 越界读拒、本地放行),用户只要"写权限"放开。
+  // 三层硬地板(应用数据/autoexec/OS 关键目录)已在上方拦截,此处放行的仅是"越工作区但非系统保护"的用户路径。
+  const wideWrite = write && wideWriteModeEnabled(ctx, config);
+  if ((config && config.allowOutsideWorkspace === true) || wideWrite) {
     const roots0 = fileAllowedRoots(session, config);
     const realRoots0 = await Promise.all(roots0.map(r => realpathForContainment(r)));
-    if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'allow-config', pathLen: abs.length });
+    if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: wideWrite ? 'allow-wide-mode' : 'allow-config', pathLen: abs.length });
     return { ok: true, absPath: real };
   }
   const roots = write ? workspaceWriteRoots(session, config) : fileAllowedRoots(session, config);

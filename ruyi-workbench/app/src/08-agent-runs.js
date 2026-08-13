@@ -592,11 +592,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // v1.x (B3): sub-turn loop guard state. Mirrors the parent turn's consecutive-identical-signature guard
   // (runOpenAiTurn loopSig/loopCount, same threshold). Without it a wedged sub-agent repeating one failing
   // tool burns its whole iteration budget (now up to 100 provider calls). Signature = tool name + raw args.
-  let subLoopSig = null, subLoopCount = 0;
+  let subLoopSig = null, subLoopCount = 0, subLoopRecoveryAttempts = 0;
   // A1:子回合语义指纹(结果无进展判定,与主回合 09:1411-1420 对齐)-- 抓"换参数但结果内容不变"的语义死循环,同签名连击覆盖不到的盲区
   let subFingerprint = null, subNoProgressCount = 0;
   const SUB_SEMANTIC_WARN_AT = 4;
-  const SUB_LOOP_WARN_AT = 3, SUB_LOOP_ABORT_AT = 5;
+  const SUB_LOOP_WARN_AT = 3, SUB_LOOP_ABORT_AT = 5, SUB_LOOP_RECOVERY_MAX = 2; // v2.7.1 opt#2: 5x 中止后自主恢复预算(与主回合 LOOP_RECOVERY_MAX 对称)
   const runFinalizerWithoutTools = async () => {
     const hadTools = useTools;
     useTools = false;
@@ -788,6 +788,17 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true, subagentId });
               subHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
             }
+            // v2.7.1 (opt#2): 5x 中止后自主恢复(与主回合对称) -- 还有恢复预算时,不硬停:注入恢复指令(user 角色)
+            // 到 subHistory,重置签名连击,仅 break 内层 for(不设 subOk=false)-> 907 行 if(!subOk) 不触发 -> 930 continue 续跑。
+            if (subLoopRecoveryAttempts < SUB_LOOP_RECOVERY_MAX) {
+              subLoopRecoveryAttempts += 1;
+              const remaining = SUB_LOOP_RECOVERY_MAX - subLoopRecoveryAttempts;
+              const recoveryMsg = `⚠ 你已连续 ${SUB_LOOP_ABORT_AT} 次以相同参数调用同一工具(${loopBare}),已拒绝执行。这通常是死循环信号。请改变策略:换用其它工具、调整参数、或说明为何需要重复。继续原样重试将被终止(剩余 ${remaining} 次恢复机会)。`;
+              subHistory.push({ role: 'user', content: recoveryMsg });
+              subLoopSig = null; subLoopCount = 0;
+              onEvent({ type: 'loop_recovery', state: 'injected', scope: 'subagent', attempt: subLoopRecoveryAttempts, max: SUB_LOOP_RECOVERY_MAX, tool: loopBare, remaining, subagentId });
+              break; // 仅 break 内层 for;不设 subOk=false -> 外层 while 续跑
+            }
             subOk = false; subErr = `子任务因连续 ${SUB_LOOP_ABORT_AT} 次相同工具调用被中止`;
             break;
           }
@@ -873,7 +884,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
                 startToolBeat();
                 const toolResources = inferToolResources(tc.name, args, null, workingDir, ntier);
                 toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
-                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir }); // P3-4: workingDir 单一真源
+                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir, effectivePermissionMode: effMode }); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
               }
               catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
               finally { stopToolBeat(); releaseResourceLease(toolLease); }

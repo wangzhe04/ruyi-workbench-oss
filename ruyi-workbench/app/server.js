@@ -1266,11 +1266,18 @@ async function syncMcpServersToClaude(config) {
   try {
     if (!config.claudePath || !existsExecutable(config.claudePath)) return;
     var servers = resolveExternalMcpServers(config);
+    // v2.7.1 (boot fix): claude mcp add-json 每次最多 10s,10 个串行可达 100s,await 会拖死 boot。
+    // 加总预算(15s):超预算的余量丢弃 -- add-json 幂等,下次 boot 自动补齐。boot 调用点已改 fire-and-forget,
+    // API/CLI 路径仍 await 也被预算兜底(最多 15s 而非 100s)。
+    const SYNC_BUDGET_MS = 15000;
+    const t0 = Date.now();
     for (var s of servers) {
       if (!s.id || !s.command) continue;
+      const remain = SYNC_BUDGET_MS - (Date.now() - t0);
+      if (remain <= 0) break;
       var sc = { type: 'stdio', command: s.command, args: s.args || [], env: s.env || {} };
       if (s.cwd) sc.cwd = s.cwd;
-      try { await runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: 10000 }); } catch {}
+      try { await runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: Math.min(remain, 10000) }); } catch {}
     }
   } catch { /* non-fatal */ }
 }
@@ -5708,9 +5715,11 @@ function isSensitiveDataPath(p) {
 // drift from preview's护栏。Never throws.
 async function guardWorkspacePath(rawPath, session, config) {
   if (!rawPath || !path.isAbsolute(rawPath)) return { ok: false, code: 'bad-path', error: '路径必须是绝对路径' };
-  const target = path.resolve(rawPath);
+  const targetRaw = path.resolve(rawPath);
+  const target = normalizeGuardPath(targetRaw);
   const roots = fileAllowedRoots(session, config);
-  const real = await realpathForContainment(target);
+  const realRaw = await realpathForContainment(targetRaw);
+  const real = normalizeGuardPath(realRaw);
   // 审计 P1(对抗轮补漏): reveal(在资源管理器打开/定位)与 http_download 落盘目标都经此护栏 —— 敏感控制面文件既
   // 不许暴露也不许被下载覆写(否则可覆写 config.json/runtime.json 致配置损毁/token 替换)。与文件工具同源拒绝。
   await ensureDataRootReal();
@@ -5762,16 +5771,81 @@ const AUTOEXEC_DENYLIST = [
 function normalizeAutoexecPath(absPath) {
   return absPath.split(/[\\/]/).map(s => s.replace(/[. ]+$/, '')).join('/').toLowerCase();
 }
+// v2.7.1 (opt#1 全自动宽写): 操作系统关键目录硬地板 -- bypass/auto 宽写模式下仍始终拒绝写入的 OS 系统路径。
+// 与 isSensitiveDataPath(应用自身数据) + AUTOEXEC_DENYLIST 互补,构成"系统级安全保护"三层地板的第三层:
+// 即便用户选了全自动(bypass)模式放开全盘写,Windows/Program Files/ProgramData 等系统关键目录也不可经文件工具写入
+// (改系统文件=蓝屏/无法启动风险,且非用户工作产物)。读不拦(只读访问系统文件无破坏性)。词法 abs 与 realpath 后
+// real 都查(junction/短名部署下两者不同)。env 缺失时回落到 C:\ 常见系统目录。模块加载时算一次(env 不变)。
+const OS_CRITICAL_ROOTS = (() => {
+  const out = [];
+  const push = p => { if (p && typeof p === 'string') { try { out.push(path.resolve(p)); } catch { /* skip */ } } };
+  push(process.env.SystemRoot || 'C:\\Windows');
+  push(process.env.ProgramFiles || 'C:\\Program Files');
+  push(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)');
+  push(process.env.ProgramData || 'C:\\ProgramData');
+  const sd = process.env.SystemDrive || 'C:';
+  push(sd + '\\$Recycle.Bin');
+  push(sd + '\\System Volume Information');
+  push(sd + '\\Recovery');
+  push(sd + '\\Boot');
+  return out;
+})();
+const OS_CRITICAL_ROOT_FILES = new Set(['pagefile.sys', 'hiberfil.sys', 'swapfile.sys', 'bootmgr', 'ntldr', 'bootnxt', 'bootsect.bak']);
+function isOsCriticalPath(absPath) {
+  if (!absPath) return false;
+  const norm = path.resolve(absPath).split(/[\\/]/).join('/').toLowerCase();
+  for (const r of OS_CRITICAL_ROOTS) {
+    const rl = r.split(/[\\/]/).join('/').toLowerCase();
+    if (norm === rl || norm.startsWith(rl + '/')) return true;
+  }
+  // 系统盘根目录的系统文件(如 C:\pagefile.sys): <drive>:/<file> 形态精确匹配。
+  const sd = String(process.env.SystemDrive || 'C:').toLowerCase();
+  const m = norm.match(/^([a-z]:)\/([^/]+)$/);
+  if (m && m[1] === sd && OS_CRITICAL_ROOT_FILES.has(m[2])) return true;
+  return false;
+}
+// v2.7.1 (opt#1): 宽写模式判定。bypass/bypassPermissions/auto 三种模式下 guardFileToolPath 把工作区写边界视为放开
+// (等同 allowOutsideWorkspace=on,但不改配置);三层硬地板(应用数据/autoexec/OS 关键目录)仍始终拦截。ctx.effectivePermissionMode
+// (主回合/子代理派发时注入)优先于 config.permissionMode;都缺时回落 'bypass'(工作台默认)。传入已解析的 config 以覆盖 ctx=null
+// (一次性 MCP 子进程)的情况 -- 此时 config 由 readConfig() 从盘读出。
+function wideWriteModeEnabled(ctx, config) {
+  const m = String((ctx && ctx.effectivePermissionMode) || (config && config.permissionMode) || 'bypass');
+  return m === 'bypass' || m === 'bypassPermissions' || m === 'auto';
+}
+// v2.7.1 (对抗轮): 归一 Windows 扩展/UNC 路径形态供护栏判定(不改变实际 I/O 路径——handler 仍用调用方原路径)。
+// ① \\?\UNC\localhost\C$\... → C:\...: 本地回环主机(localhost/127.0.0.1/::1/本机名)的盘符$ 管理共享映射回盘符根,
+//    否则 guard 只查盘符路径地板, 而 fsp.realpath 把该形态解析为 \\host\C$\... 的 UNC → OS 地板/敏感地板全落空
+//    (对抗实测: \\?\UNC\localhost\C$\Windows\Temp\... 曾被放行)。
+// ② 其它 \\?\UNC\server\share → \\server\share: 远程共享不在盘符地板(非本地系统目录), 保持 UNC 原样。
+// ③ \\?\C:\ 与 \\.\C:\ 由 fsp.realpath 剥前缀(实测 async realpath 正常剥), 此处仅兜底词法 abs。
+function normalizeGuardPath(p) {
+  let s = String(p || '');
+  const unc = s.match(/^\\\\\?\\UNC\\(.+)$/i);
+  if (unc) {
+    s = '\\\\' + unc[1];
+    const parts = s.slice(2).split(/[\\/]/);
+    const host = String(parts[0] || '').toLowerCase();
+    const shareM = String(parts[1] || '').match(/^([A-Za-z])\$/);
+    const selfHosts = ['localhost', '127.0.0.1', '::1', (os.hostname ? os.hostname() : '').toLowerCase()];
+    if (shareM && selfHosts.includes(host)) {
+      const rest = parts.slice(2).join('\\');
+      return path.resolve(shareM[1] + ':\\' + (rest ? rest : ''));
+    }
+  }
+  return s;
+}
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
 // so dataRoot still bounds it. Returns { ok:true, absPath } or { ok:false, code:'not-allowed', error }.
 async function guardFileToolPath(rawPath, ctx, opts) {
   const write = !!(opts && opts.write);
   const tool = (opts && opts.tool) || 'file';
-  const abs = path.resolve(String(rawPath || ''));
+  const absRaw = path.resolve(String(rawPath || ''));
+  const abs = normalizeGuardPath(absRaw);
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
-  const real = await realpathForContainment(abs);
+  const realRaw = await realpathForContainment(absRaw);
+  const real = normalizeGuardPath(realRaw);
   // 审计 P1: 敏感控制面文件二次拒绝(见 isSensitiveDataPath)。放在 allowOutsideWorkspace 逃生舱【之前】——即便用户
   // 开了越界豁免,应用自身的 config/runtime/sessions/memory 等也绝不可经文件工具读写(密钥/会话/token 外传面)。
   // 词法 abs 与 realpath 后 real 都查,双保险(junction/短名部署下两者不同)。
@@ -5789,11 +5863,20 @@ async function guardFileToolPath(rawPath, ctx, opts) {
       logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-autoexec', pathLen: abs.length });
       return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
     }
+    // v2.7.1 (opt#1): OS 关键目录硬地板 -- bypass/auto 宽写下也始终拒写(系统级安全保护第三层)。abs 与 real 双查。
+    if (isOsCriticalPath(abs) || isOsCriticalPath(real)) {
+      logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-os-critical', pathLen: abs.length });
+      return { ok: false, code: 'os-critical-denied', error: '该路径属于操作系统关键目录(Windows/Program Files/ProgramData 等),已禁止通过文件工具写入;如确需修改系统文件,请直接在终端以管理员权限操作' };
+    }
   }
-  if (config && config.allowOutsideWorkspace === true) {
+  // v2.7.1 (opt#1): 全自动(bypass/bypassPermissions/auto)模式 = 宽【写】,等同 allowOutsideWorkspace=on(但不改配置)。
+  // 仅对 write 生效 -- 读仍维持原 exfil 防护(远端 provider 越界读拒、本地放行),用户只要"写权限"放开。
+  // 三层硬地板(应用数据/autoexec/OS 关键目录)已在上方拦截,此处放行的仅是"越工作区但非系统保护"的用户路径。
+  const wideWrite = write && wideWriteModeEnabled(ctx, config);
+  if ((config && config.allowOutsideWorkspace === true) || wideWrite) {
     const roots0 = fileAllowedRoots(session, config);
     const realRoots0 = await Promise.all(roots0.map(r => realpathForContainment(r)));
-    if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'allow-config', pathLen: abs.length });
+    if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: wideWrite ? 'allow-wide-mode' : 'allow-config', pathLen: abs.length });
     return { ok: true, absPath: real };
   }
   const roots = write ? workspaceWriteRoots(session, config) : fileAllowedRoots(session, config);
@@ -15260,11 +15343,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // v1.x (B3): sub-turn loop guard state. Mirrors the parent turn's consecutive-identical-signature guard
   // (runOpenAiTurn loopSig/loopCount, same threshold). Without it a wedged sub-agent repeating one failing
   // tool burns its whole iteration budget (now up to 100 provider calls). Signature = tool name + raw args.
-  let subLoopSig = null, subLoopCount = 0;
+  let subLoopSig = null, subLoopCount = 0, subLoopRecoveryAttempts = 0;
   // A1:子回合语义指纹(结果无进展判定,与主回合 09:1411-1420 对齐)-- 抓"换参数但结果内容不变"的语义死循环,同签名连击覆盖不到的盲区
   let subFingerprint = null, subNoProgressCount = 0;
   const SUB_SEMANTIC_WARN_AT = 4;
-  const SUB_LOOP_WARN_AT = 3, SUB_LOOP_ABORT_AT = 5;
+  const SUB_LOOP_WARN_AT = 3, SUB_LOOP_ABORT_AT = 5, SUB_LOOP_RECOVERY_MAX = 2; // v2.7.1 opt#2: 5x 中止后自主恢复预算(与主回合 LOOP_RECOVERY_MAX 对称)
   const runFinalizerWithoutTools = async () => {
     const hadTools = useTools;
     useTools = false;
@@ -15456,6 +15539,17 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true, subagentId });
               subHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
             }
+            // v2.7.1 (opt#2): 5x 中止后自主恢复(与主回合对称) -- 还有恢复预算时,不硬停:注入恢复指令(user 角色)
+            // 到 subHistory,重置签名连击,仅 break 内层 for(不设 subOk=false)-> 907 行 if(!subOk) 不触发 -> 930 continue 续跑。
+            if (subLoopRecoveryAttempts < SUB_LOOP_RECOVERY_MAX) {
+              subLoopRecoveryAttempts += 1;
+              const remaining = SUB_LOOP_RECOVERY_MAX - subLoopRecoveryAttempts;
+              const recoveryMsg = `⚠ 你已连续 ${SUB_LOOP_ABORT_AT} 次以相同参数调用同一工具(${loopBare}),已拒绝执行。这通常是死循环信号。请改变策略:换用其它工具、调整参数、或说明为何需要重复。继续原样重试将被终止(剩余 ${remaining} 次恢复机会)。`;
+              subHistory.push({ role: 'user', content: recoveryMsg });
+              subLoopSig = null; subLoopCount = 0;
+              onEvent({ type: 'loop_recovery', state: 'injected', scope: 'subagent', attempt: subLoopRecoveryAttempts, max: SUB_LOOP_RECOVERY_MAX, tool: loopBare, remaining, subagentId });
+              break; // 仅 break 内层 for;不设 subOk=false -> 外层 while 续跑
+            }
             subOk = false; subErr = `子任务因连续 ${SUB_LOOP_ABORT_AT} 次相同工具调用被中止`;
             break;
           }
@@ -15541,7 +15635,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
                 startToolBeat();
                 const toolResources = inferToolResources(tc.name, args, null, workingDir, ntier);
                 toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
-                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir }); // P3-4: workingDir 单一真源
+                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir, effectivePermissionMode: effMode }); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
               }
               catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
               finally { stopToolBeat(); releaseResourceLease(toolLease); }
@@ -18644,9 +18738,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // annotate that tool_result with `loopWarning`; at the 5th we DON'T execute — we abort the turn with a
   // SELF-CONTAINED message (distinct from the 「已达工具调用上限」 iteration-cap message above). Lives with
   // the turn (declared here, not module-level) so counters never leak across turns.
-  let loopSig = null, loopCount = 0, loopAborted = false, steerAborted = false;
+  let loopSig = null, loopCount = 0, loopAborted = false, steerAborted = false, loopRecoveryAttempts = 0;
   let selfCheckDone = false; // O3 (hb360): 产物完成前自检只跑一次,防无限循环
-  const LOOP_WARN_AT = 3, LOOP_ABORT_AT = 5;
+  const LOOP_WARN_AT = 3, LOOP_ABORT_AT = 5, LOOP_RECOVERY_MAX = 2; // v2.7.1 opt#2: 5x 中止后自主恢复预算(注入恢复指令+重置签名计数,最多 N 轮,仍死循环才硬停)
   // 04 Phase D 语义 loop-guard(§04-D1): 结果指纹无进展判定 -- 与"同签名连击"(loopSig/loopCount)互补。
   // 同签名连击抓"完全相同调用(name+rawArgs)";结果指纹抓"换参数但结果无新信息"(如换路径反复读同类文件,
   // 或 grep 不同 pattern 都返回空 -- sig 每次不同但结果内容摘要不变)。连续 N 次结果指纹相同 -> loopWarning
@@ -19128,6 +19222,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
               session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
               await notifyToolHookEnd(rem, skip, iter, 'loop_skipped');
+            }
+            // v2.7.1 (opt#2): 5x 中止后自主恢复 -- 还有恢复预算时,不硬停:注入恢复指令(user 角色)要求模型换策略,
+            // 重置签名连击计数,仅 break 内层 for 循环(不设 loopAborted)-> 外层迭代循环带着恢复指令重新请求模型。
+            // 预算耗尽(LOOP_RECOVERY_MAX 轮后仍死循环)才硬停。与 3x loopWarning(轻推)互补:3x 提示、5x 拒绝+恢复、耗尽硬停。
+            if (loopRecoveryAttempts < LOOP_RECOVERY_MAX) {
+              loopRecoveryAttempts += 1;
+              const remaining = LOOP_RECOVERY_MAX - loopRecoveryAttempts;
+              const recoveryMsg = `⚠ 你已连续 ${LOOP_ABORT_AT} 次以相同参数调用同一工具(${loopBare}),本轮已拒绝执行该调用。这通常是死循环信号。请改变策略:换用其它工具、调整参数、或说明为何需要重复执行。继续原样重试将被终止(剩余 ${remaining} 次恢复机会)。`;
+              session.providerHistory.push({ role: 'user', content: recoveryMsg });
+              loopSig = null; loopCount = 0; // 重置签名连击,给模型一个干净的恢复窗口(下一次同签名从 1 重新计)
+              onEvent({ type: 'loop_recovery', state: 'injected', attempt: loopRecoveryAttempts, max: LOOP_RECOVERY_MAX, tool: loopBare, remaining });
+              const note = `\n\n[已注入恢复指令并重置重复计数,剩余 ${remaining} 次恢复机会]`;
+              assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+              break; // 仅 break 内层 for;不设 loopAborted -> 外层 continue 带恢复指令续跑
             }
             loopAborted = true;
             break;
@@ -25333,7 +25441,10 @@ async function startServer(opts) {
   // v1.4.3: sync settings, agent roles, and MCP servers to Claude CLI's own config on startup
   await syncClaudeCliSettings(config);
   await syncAgentRolesToClaude(config.defaultWorkspace || os.homedir(), config);
-  await syncMcpServersToClaude(config);
+  // v2.7.1 (boot fix): claude add-json 串行慢,await 拖死 boot(10 MCP x <=10s)。fire-and-forget:
+  // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐);与下方 autoImport 的竞态只影响
+  // "本次是否拉到 Claude 新增 MCP",最坏下次 boot 补齐,可接受。
+  void syncMcpServersToClaude(config).catch(() => {});
   // 把本机 Claude Code 注册的 MCP(~/.claude.json mcpServers)自动映射进 Ruyi(逆向于上面的 sync)。
   // 在 syncMcpServersToClaude 之后跑:Claude 的 user-scope 配置已是最新全量,只导入 Ruyi 还没有的 id。
   // 失败仅审计不阻断 boot;返回的 config 是写回后的最新引用,避免后续 generateMcpConfig 用陈旧 config。
