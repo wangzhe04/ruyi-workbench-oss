@@ -341,4 +341,7 @@ module.exports = {
   unmaskSecrets,
   unmaskProviders,
   invalidateClaudePathCache, // v1.0-S7 (perf): force a fresh claude-CLI probe after an install/settings save
+  // R5(16-r5-replan-ledger.md): 可审查重规划提案 - exposed for e2e 直测(机器校验/生成)。
+  validateReplanPatch,
+  proposeReplanPatch,
 };

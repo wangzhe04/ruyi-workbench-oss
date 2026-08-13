@@ -2137,6 +2137,7 @@ const MCP_TOOLS = [
               minSuccessfulToolCalls: { type: 'number', description: '0..20; fail the node unless this attempt records at least this many successful tool calls. Use >=1 for independently checkable factual probes.' },
               condition: { type: 'object', description: 'optional branch condition: {node,path,operator,value}; operators include equals/not_equals/truthy/falsy/contains/comparisons/status_is' },
               loop: { type: 'object', description: 'bounded loop: {maxIterations,until,progressPath,noProgressLimit,onNoProgress}. progressPath selects a stable field from structured output (for example status or remainingCount), so prose/verbosity changes do not fake progress.' },
+              replan: { type: 'boolean', description: 'R5: when true, a failed/rejected node generates a reviewable replanPatch proposal (status pending, never auto-applied). Default false = zero-migration.' },
             },
             required: ['id', 'task'],
           },

@@ -16894,6 +16894,58 @@ function recordNodeContinuation(node, evt) {
   c.updatedAt = nowIso();
 }
 
+// R5(16-r5-replan-ledger.md): 可审查重规划提案层 —— 数据契约 + 机器校验 + 生成助手。
+// 所有自动化止于候选/提案:只生成 status='pending' 的 patch,绝不自动应用/改写图/越权。零迁移:
+// 节点未声明 replan=true 时不生成;run.replanPatches 默认 []。审批/应用/回滚是后续切片。
+const REPLAN_TRIGGER_TYPES = new Set(['node_failed', 'gate_rejected', 'evidence_gap', 'stall', 'resource_conflict']);
+const REPLAN_CHANGE_OPS = new Set(['add_node', 'remove_node', 'rewire', 'change_tier', 'change_engine', 'change_role', 'inherit_evidence', 'drop_evidence']);
+const REPLAN_PATCH_MAX = 8; // 每 run 提案上限(对齐 taskPool POOL_MAX_TOTAL,防提案洪水)
+
+function validateReplanPatch(run, patch) {
+  if (!patch || typeof patch !== 'object') return { ok: false, error: 'patch 必须是对象' };
+  const trig = patch.trigger;
+  if (!trig || !REPLAN_TRIGGER_TYPES.has(trig.type)) return { ok: false, error: '非法或缺失触发类型' };
+  const changes = Array.isArray(patch.changes) ? patch.changes : null;
+  if (!changes) return { ok: false, error: 'changes 必须是数组(可为空,表示待补充)' };
+  const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
+  const nodeIds = new Set(nodes.map(n => n.id));
+  const tierRank = { read: 0, edit: 1, exec: 2 };
+  for (const c of changes) {
+    if (!c || !REPLAN_CHANGE_OPS.has(c.op)) return { ok: false, error: `非法 op: ${c && c.op}` };
+    const tgt = String(c.target || '');
+    if (c.op === 'add_node') {
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(tgt)) return { ok: false, error: 'add_node 的 target 必须是合法 id' };
+      if (nodeIds.has(tgt)) return { ok: false, error: `add_node 的 target 已存在: ${tgt}` };
+    } else {
+      if (!tgt || !nodeIds.has(tgt)) return { ok: false, error: `change target 不存在: ${tgt}` };
+      if (c.op === 'change_tier') {
+        const curNode = nodes.find(n => n.id === tgt);
+        const cur = tierRank[curNode && curNode.toolTier] != null ? tierRank[curNode.toolTier] : 0;
+        const next = tierRank[c.to];
+        if (next == null || next > cur) return { ok: false, error: 'change_tier 不得抬高权限层级' };
+      }
+    }
+  }
+  return { ok: true };
+}
+
+function proposeReplanPatch(run, trigger, changes) {
+  const patch = {
+    id: makeId('replan'), runId: run && run.id, sessionId: run && run.sessionId,
+    trigger: trigger && typeof trigger === 'object' ? trigger : { type: 'node_failed', nodeId: '', errorClass: '', detail: '' },
+    changes: Array.isArray(changes) ? changes : [],
+    expected: { costDelta: 0, riskLevel: 'low', rollbackPoint: '' },
+    status: 'pending', createdAt: nowIso(), decidedAt: null, appliedAt: null,
+  };
+  const v = validateReplanPatch(run, patch);
+  if (!v.ok) return { ok: false, error: v.error, patch };
+  if (patch.changes.some(c => c.op === 'remove_node' || c.op === 'rewire' || c.op === 'change_tier')) patch.expected.riskLevel = 'medium';
+  if (!Array.isArray(run.replanPatches)) run.replanPatches = [];
+  if (run.replanPatches.length >= REPLAN_PATCH_MAX) return { ok: false, error: `重规划提案已达上限(${REPLAN_PATCH_MAX})`, patch };
+  run.replanPatches.push(patch);
+  return { ok: true, patch };
+}
+
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle }) {
   let run, nodes, runId;
   const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
@@ -16972,6 +17024,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     // 团队模式 v2: resume 时补齐任务池/邮箱字段(旧 run JSON 无这些键)。poolPolicy 保留持久值,缺失才回退 config。
     if (!Array.isArray(run.taskPool)) run.taskPool = [];
     if (!Array.isArray(run.messages)) run.messages = [];
+    if (!Array.isArray(run.replanPatches)) run.replanPatches = [];
+    if (run.replanBaseline === undefined) run.replanBaseline = null;
     if (!['manual', 'auto-capped', 'off'].includes(run.poolPolicy)) run.poolPolicy = (['manual', 'auto-capped', 'off'].includes(config.agentTaskPoolPolicy) ? config.agentTaskPoolPolicy : 'manual');
     if (!Number.isFinite(Number(run.poolAutoCap))) run.poolAutoCap = Number.isFinite(Number(config.agentTaskPoolAutoCap)) ? Number(config.agentTaskPoolAutoCap) : 3;
     // 29c: 老 run JSON 无 metrics 字段,缺失才补(同上 taskPool/messages 惯例);干预计数跨 resume 累计不清零。
@@ -17030,7 +17084,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
       // 52x: openai 节点用子 agent 优先端点(跨 provider)挑模型,与运行时 subProvider 一致,防 tier 用主 provider 池挑模型送 subProvider 跑 404
       const matProvider = engine === 'openai' ? (defaultRoute.provider || provider) : provider;
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider), maxIters: Math.min(1000, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, context: (raw && raw.context) ? String(raw.context).trim().slice(0, 4000) : '', status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider), maxIters: Math.min(1000, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, context: (raw && raw.context) ? String(raw.context).trim().slice(0, 4000) : '', replan: raw.replan === true, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -17055,7 +17109,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       kind: String(runKind || 'orchestrate_agents'), title: String(runTitle || ''),
       // 29b/29c: 首跑权限面存档(boot 自动恢复分级用 —— 恢复时 config.permissionMode 若比首跑更宽,自动续跑
       // 等于权限静默升级,必须降人工)+ 运营指标(interventions 干预计数 / failuresByClass 收尾聚合)。
-      permissionModeAtLaunch: String(permModeOverride || config.permissionMode || ''), metrics: { interventions: {} }, nodes };
+      permissionModeAtLaunch: String(permModeOverride || config.permissionMode || ''), metrics: { interventions: {} }, replanPatches: [], replanBaseline: null, nodes };
   }
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行', startedCount: 0, runId };
   const localCtrl = typeof AbortController === 'function' ? new AbortController() : parentCtrl;
@@ -17768,6 +17822,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         // 25.4: 干净成功后清理续点与中断标记(它们只服务于中断恢复;保留白占 run JSON 体积)。失败保留以备续跑。
         if (node.status === 'succeeded') { delete node.continuation; delete node.interruptedAttempt; }
         onEvent({ type: 'agent_workflow', state: 'node_end', id: runId, nodeId: node.id, status: node.status, confidence: node.confidence });
+        // R5(16-r5-replan-ledger.md §3.2): 节点终态失败/拒绝且声明 replan 时,生成可审查的 pending 重规划提案。
+        // 仅记录触发上下文(trigger)与待补充的空 changes,不自动应用(审批/应用/回滚是后续 §3.3)。零迁移:
+        // 未声明 replan 的节点不生成,行为与现状逐字节一致。
+        if (node.replan === true && terminal(node) && (node.status === 'failed' || node.status === 'rejected')) {
+          const rpType = node.status === 'rejected' ? 'gate_rejected' : ((node.errorClass === 'no_progress' || node.errorClass === 'idle_timeout' || node.errorClass === 'semantic_stall') ? 'stall' : 'node_failed');
+          const rp = proposeReplanPatch(run, { type: rpType, nodeId: node.id, errorClass: node.errorClass || '', detail: String(node.error || '').slice(0, 300) }, []);
+          if (rp.ok) onEvent({ type: 'agent_workflow', state: 'replan_proposed', id: runId, nodeId: node.id, patchId: rp.patch.id });
+        }
       }
       // 25.3: 每个 attempt 的落定入事件日志(queued = retry/loop 重排)。
       appendAgentRunEvent(run, { type: node.status === 'queued' ? 'node_requeued' : 'node_settled', nodeId: node.id, attemptId: node.attempts, data: { status: node.status, degraded: !!node.degraded, errorClass: node.errorClass || '' } });
@@ -25627,6 +25689,7 @@ const MCP_TOOLS = [
               minSuccessfulToolCalls: { type: 'number', description: '0..20; fail the node unless this attempt records at least this many successful tool calls. Use >=1 for independently checkable factual probes.' },
               condition: { type: 'object', description: 'optional branch condition: {node,path,operator,value}; operators include equals/not_equals/truthy/falsy/contains/comparisons/status_is' },
               loop: { type: 'object', description: 'bounded loop: {maxIterations,until,progressPath,noProgressLimit,onNoProgress}. progressPath selects a stable field from structured output (for example status or remainingCount), so prose/verbosity changes do not fake progress.' },
+              replan: { type: 'boolean', description: 'R5: when true, a failed/rejected node generates a reviewable replanPatch proposal (status pending, never auto-applied). Default false = zero-migration.' },
             },
             required: ['id', 'task'],
           },
@@ -28316,4 +28379,7 @@ module.exports = {
   unmaskSecrets,
   unmaskProviders,
   invalidateClaudePathCache, // v1.0-S7 (perf): force a fresh claude-CLI probe after an install/settings save
+  // R5(16-r5-replan-ledger.md): 可审查重规划提案 - exposed for e2e 直测(机器校验/生成)。
+  validateReplanPatch,
+  proposeReplanPatch,
 };
