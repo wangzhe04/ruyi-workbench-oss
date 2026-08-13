@@ -1707,7 +1707,7 @@ const TURN_SUMMARY_KNOWN_TOOLS = new Set([
   ...TURN_SUMMARY_FILE_TOOLS, ...TURN_SUMMARY_COMMAND_TOOLS,
   'todo_write', 'file_read', 'file_list', 'file_search', 'glob', 'project_snapshot', 'git_status',
   'git_diff', 'git_log', 'git_commit', // v1.0-S4 git 工具族
-  'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit', 'docs_search',
+  'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit', 'docs_search', 'codebase_symbol_search',
   'shell_start', 'shell_poll', 'shell_kill', 'shell_list', 'http_request', 'browser_open', 'office_open',
   'desktop_screenshot', 'keyboard_send_keys', 'permission_prompt',
   // v1.1-W2 (T1): 新五工具是内建可撤销工具(journal 驱动) —— 归入 KNOWN 集合,故 claude 引擎不会把它们误计为「命令」。

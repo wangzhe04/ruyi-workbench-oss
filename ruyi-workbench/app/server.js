@@ -3923,7 +3923,7 @@ const TURN_SUMMARY_KNOWN_TOOLS = new Set([
   ...TURN_SUMMARY_FILE_TOOLS, ...TURN_SUMMARY_COMMAND_TOOLS,
   'todo_write', 'file_read', 'file_list', 'file_search', 'glob', 'project_snapshot', 'git_status',
   'git_diff', 'git_log', 'git_commit', // v1.0-S4 git 工具族
-  'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit', 'docs_search',
+  'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit', 'docs_search', 'codebase_symbol_search',
   'shell_start', 'shell_poll', 'shell_kill', 'shell_list', 'http_request', 'browser_open', 'office_open',
   'desktop_screenshot', 'keyboard_send_keys', 'permission_prompt',
   // v1.1-W2 (T1): 新五工具是内建可撤销工具(journal 驱动) —— 归入 KNOWN 集合,故 claude 引擎不会把它们误计为「命令」。
@@ -12838,7 +12838,7 @@ const NATIVE_TOOL_TIER = {
   file_read: 'read', file_list: 'read', file_search: 'read', glob: 'read', project_snapshot: 'read', git_status: 'read',
   git_diff: 'read', git_log: 'read', // v1.0-S4: read-only git inspection → auto-allow
   git_commit: 'exec', // v1.0-S4: commit triggers .git/hooks (arbitrary code) → must be exec (never lower)
-  dependency_inventory: 'read', code_review_scan: 'read', frontend_audit: 'read', claude_md_audit: 'read', docs_search: 'read',
+  dependency_inventory: 'read', code_review_scan: 'read', frontend_audit: 'read', claude_md_audit: 'read', docs_search: 'read', codebase_symbol_search: 'read',
   mcp_list: 'read', mcp_configure: 'exec',
   todo_write: 'read', // v0.8-S3: writing the task list is a planning act, not a filesystem/exec mutation → auto-allow
   mission_update: 'read', // 第26波b: 更新任务账本是规划/元数据写,非文件/exec 变更 → auto-allow
@@ -12908,7 +12908,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
-  dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code',
+  dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code', codebase_symbol_search: 'code',
   git_status: 'code', git_diff: 'code', git_log: 'code', git_commit: 'code',
   powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
@@ -14150,7 +14150,7 @@ function inferToolResources(name, args, bridge, cwd, tier) {
   const specs = [];
   const add = (raw, mode) => { const s = normalizeAgentResource((mode === 'read' ? 'read:' : '') + raw, cwd); if (s) specs.push(s); };
   const exactReadNames = new Set(['file_read', 'docs_search']);
-  const treeReadNames = new Set(['file_list', 'file_search', 'glob', 'project_snapshot', 'git_status', 'git_diff', 'git_log', 'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit']);
+  const treeReadNames = new Set(['file_list', 'file_search', 'glob', 'project_snapshot', 'git_status', 'git_diff', 'git_log', 'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit', 'codebase_symbol_search']);
   const writeNames = new Set(['file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download']);
   if (exactReadNames.has(name)) add(`file:${input.path || input.root || input.cwd || cwd}`, 'read');
   if (treeReadNames.has(name)) add(`workspace:${input.path || input.root || input.cwd || cwd}`, 'read');
@@ -16060,13 +16060,13 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
   },
   {
     id: 'codebase-audit', title: '代码审计:多维并行 → 核验 → 修复排期',
-    description: '建库地图 → 三维度并行审计(正确性/安全/性能与可维护性) → 亲读核验剔除误报 → 按严重度×价值排优先级出修复清单。审计只读、不改代码。模型建议:并行审计(audit_*)可用中等模型;核验(verify)与排期(backlog)建议指派更强模型,以压住误报、抓准优先级。',
+    description: '建库地图 → 三维度并行审计(正确性/安全/性能与可维护性) → 亲读核验剔除误报 → 按严重度×价值排优先级出修复清单。审计只读、不改代码。模型建议:并行审计(audit_*)可用中等模型;核验(verify)与排期(backlog)建议指派更强模型,以压住误报、抓准优先级。审计全程优先用 codebase_symbol_search 检索符号的真实定义/引用,以文件:行证据为准,勿凭名称相似下结论。',
     nodes: [
-      { id: 'map', task: '快速建立目标代码库地图:核心模块与职责、关键数据流与入口点、外部依赖与信任边界、以及凭经验判断的高风险区域。输出简明地图 + 一份"建议重点审计的文件/区域"清单,供后续各维度聚焦。只读不改。', role: 'explorer', position: { x: 40, y: 220 } },
+      { id: 'map', task: '快速建立目标代码库地图:核心模块与职责、关键数据流与入口点、外部依赖与信任边界、以及凭经验判断的高风险区域。用 codebase_symbol_search 抽查关键符号/函数/类的定义与引用,确认模块、入口点与依赖真实存在、命名与文件对应,不要凭名称猜测。输出简明地图 + 一份"建议重点审计的文件/区域"清单,供后续各维度聚焦。只读不改。', role: 'explorer', position: { x: 40, y: 220 } },
       { id: 'audit_correctness', task: '在 map 指出的重点区域找【正确性缺陷】:边界条件、错误处理缺失、并发/竞态、空值/未初始化、类型或接口契约不一致、资源泄漏。每条给:文件:行、具体触发条件、影响、建议修法。只报你能写出触发路径的,拿不准不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
       { id: 'audit_security', task: '找【安全缺陷】:注入(命令/SQL/路径)、路径穿越、鉴权/越权、敏感信息泄露、SSRF、不安全默认值、反序列化。每条给:文件:行、具体利用路径、影响、修法。只报可利用的,理论风险不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
       { id: 'audit_quality', task: '找【性能与可维护性】问题:热路径/循环内的低效、随数据量或时长恶化的结构、重复三次以上的逻辑、超长函数、死代码、易错的命名/边界。每条给文件:行与可度量的改进点。只报改了确有收益的。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
-      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。输出 verdict、confidence、summary 与 findings；每条成立或否证 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。对发现中引用的符号/函数/类,用 codebase_symbol_search 反查其定义与调用是否真实存在、文件:行是否对得上,否证幻觉与名称相近的误判。输出 verdict、confidence、summary 与 findings；每条成立或否证 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
       { id: 'backlog', task: '把 verify 的成立发现排成可执行修复清单:按(严重度 × 影响 ÷ 改动成本)分三档——立即修 / 下一轮 / 可选打磨;标注依赖顺序、建议测试与验收点；识别可在同一次改动里安全带走的同类项，但不要直接修改代码。', role: 'planner', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
@@ -21621,6 +21621,88 @@ async function docsSearch(root, query, opts = {}) {
 }
 
 // ============================================================================
+// v2.6 (M5 候选 D 波): codebase_symbol_search — 符号定义/引用检索(grep/ctags 级)。
+// 论文教训(07 §5):裸 LLM 会幻觉不存在的类名、按名称相似而非代码级使用证据分配。本工具把「符号 → 文件级证据」
+// 落成确定性检索:给定符号名,返回它在代码库中真实存在的定义/引用位置(文件:行号),让 codebase-audit 用证据而非名称说话。
+// 诚实边界:定义分类是关键词启发式(非 AST),方法定义与调用在 grep 级不可靠区分,靠返回的 note 显式声明。
+// ============================================================================
+function escapeRegexLiteral(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, c => '\\' + c);
+}
+
+const CODE_SYMBOL_SUFFIXES = /\.(js|mjs|cjs|jsx|ts|tsx|py|go|rs|java|cs|rb|php|c|h|cc|cpp|hpp|sh|ps1|sql|vue|svelte)$/i;
+
+async function codebaseSymbolSearch(root, opts = {}) {
+  const cwd = path.resolve(root || process.cwd());
+  const symbol = String(opts.symbol || '').trim();
+  if (!symbol) return { ok: false, error: 'symbol 必填(要检索的符号名)' };
+  if (symbol.length > 120) return { ok: false, error: 'symbol 过长(≤120 字符)' };
+  const kind = String(opts.kind || 'any');
+  if (kind !== 'any' && kind !== 'definition' && kind !== 'reference') return { ok: false, error: `kind 非法: ${kind}(仅 any|definition|reference)` };
+  const wantDef = kind !== 'reference';
+  const wantRef = kind !== 'definition';
+
+  const esc = escapeRegexLiteral(symbol);
+  // 词边界只在 symbol 首尾都是 \w([A-Za-z0-9_])时可靠:$foo/-bar 等含非 \w 的符号用字面匹配(诚实降级)。
+  const b = (/^[A-Za-z0-9_]/.test(symbol) && /[A-Za-z0-9_]$/.test(symbol)) ? '\\b' : '';
+  const wordRe = new RegExp(b + esc + b, 'i');
+  const defPatterns = [
+    { kind: 'function', re: new RegExp('\\b(?:function|func|fn|def|sub)\\s+' + esc + b, 'i') },
+    { kind: 'class', re: new RegExp('\\b(?:class|interface|struct|enum|trait)\\s+' + esc + b, 'i') },
+    { kind: 'type', re: new RegExp('\\btype\\s+' + esc + b, 'i') },
+    { kind: 'variable', re: new RegExp('\\b(?:const|let|var|val)\\s+' + esc + b, 'i') },
+  ];
+
+  const files = await walkFiles(cwd, {
+    recursive: true,
+    maxFiles: opts.maxFiles || 1500,
+    maxDepth: opts.maxDepth || 8,
+    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv', 'dist', 'build', 'coverage', '.next', 'out', 'target'],
+  });
+  const maxResults = Math.max(1, Number(opts.maxResults || 200));
+  const definitions = [];
+  const references = [];
+  const fileMap = new Map();
+  let truncated = false;
+
+  outer: for (const file of files.filter(f => f.type === 'file' && CODE_SYMBOL_SUFFIXES.test(f.path))) {
+    if (file.size > 1024 * 1024) continue;
+    const raw = await readIfExists(file.path, 1024 * 1024);
+    const lines = raw.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      let defKind = null;
+      for (const p of defPatterns) {
+        if (p.re.test(line)) { defKind = p.kind; break; }
+      }
+      if (!defKind && !wordRe.test(line)) continue;
+      const isDef = !!defKind;
+      // kind 过滤:与 definitions/references 数组一致 —— 被过滤的命中不计数、也不进 files[],
+      // 否则 kind='definition' 时顶层 referenceCount=0 而 files[].references>0,自相矛盾。
+      if (isDef ? !wantDef : !wantRef) continue;
+      // 已满 maxResults → 这是第 maxResults+1 条未过滤命中,截断(hitCap 语义,恰好满时不误报 truncated)。
+      if (definitions.length + references.length >= maxResults) { truncated = true; break outer; }
+      let rec = fileMap.get(file.relativePath);
+      if (!rec) { rec = { relativePath: file.relativePath, path: file.path, definitions: 0, references: 0 }; fileMap.set(file.relativePath, rec); }
+      if (isDef) {
+        definitions.push({ path: file.path, relativePath: file.relativePath, line: i + 1, text: line.trim().slice(0, 500), kind: defKind });
+        rec.definitions += 1;
+      } else {
+        references.push({ path: file.path, relativePath: file.relativePath, line: i + 1, text: line.trim().slice(0, 500) });
+        rec.references += 1;
+      }
+    }
+  }
+
+  return {
+    ok: true, root: cwd, symbol, kind,
+    definitionCount: definitions.length, referenceCount: references.length, fileCount: fileMap.size, truncated,
+    definitions, references, files: Array.from(fileMap.values()),
+    note: 'grep-level lexical identifier scan; definition classification is keyword-pattern heuristic, not AST-accurate. Method definitions vs calls are not reliably distinguished.',
+  };
+}
+
+// ============================================================================
 // v0.9-S9 — web_search / web_fetch (§0.9-S9, D6). SSRF防御 is the security核心 of this slice.
 // ============================================================================
 //
@@ -22836,7 +22918,7 @@ const FILE_TOOL_HANDLERS = {
         return { ok: false, error: 'oldText was not found', closest, ...(hints.length ? { hints } : {}), ...(firstDiff ? { firstDiff } : {}) };
       }
       if (count > 1 && !args.replaceAll) throw new Error(`oldText appears ${count} times; set replaceAll=true`);
-      const updated = args.replaceAll ? raw.split(oldText).join(newText) : raw.replace(oldText, newText);
+      const updated = raw.split(oldText).join(newText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
       // v0.8-S4a: checkpoint the original bytes (op modify) BEFORE overwriting. `raw` is the pre-edit
       // content already read above; only reached once we know the edit will apply (not the not-found path).
       const jctx = await journalSessionCtx(ctx);
@@ -23297,20 +23379,43 @@ const CODE_TOOL_HANDLERS = {
   git_commit: { paths: null, guardNote: "git 子进程 execFile 无 shell;exec tier(commit 触发 hooks)录在案;cwd 经 resolveGitCwd", handler: async (args, ctx) => {
       return gitCommit(args);
   } },
-  dependency_inventory: { paths: null, guardNote: "只读盘点,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return dependencyInventory(await resolveFileToolRoot(args, ctx));
+  dependency_inventory: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'dependency_inventory', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return dependencyInventory(root);
   } },
-  code_review_scan: { paths: null, guardNote: "只读扫描,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return codeReviewScan(await resolveFileToolRoot(args, ctx), args);
+  code_review_scan: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'code_review_scan', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return codeReviewScan(root, args);
   } },
-  frontend_audit: { paths: null, guardNote: "只读扫描,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return frontendAudit(await resolveFileToolRoot(args, ctx), args);
+  frontend_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'frontend_audit', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return frontendAudit(root, args);
   } },
-  claude_md_audit: { paths: null, guardNote: "只读扫描,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return claudeMdAudit(await resolveFileToolRoot(args, ctx));
+  claude_md_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'claude_md_audit', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return claudeMdAudit(root);
   } },
-  docs_search: { paths: null, guardNote: "只读搜索,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return docsSearch(await resolveFileToolRoot(args, ctx), String(args.query || ''), args);
+  docs_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'docs_search', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return docsSearch(root, String(args.query || ''), args);
+  } },
+  codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      // v2.6 (对抗验证 HIGH 收口): 与 file_search/file_list/glob/project_snapshot 同款读闸 —— 仅靠 walkFiles
+      // 敏感子树跳过不覆盖工作区外任意路径,远端模型可传越界 root 把符号匹配行(代码内容)确定性外传。
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'codebase_symbol_search', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return codebaseSymbolSearch(root, args);
   } },
 };
 
@@ -25621,6 +25726,23 @@ const MCP_TOOLS = [
       type: 'object',
       properties: { root: { type: 'string' }, query: { type: 'string' }, maxResults: { type: 'number' }, maxDepth: { type: 'number' }, ignoreDirs: { type: 'array', items: { type: 'string' } } },
       required: ['query'],
+    },
+  },
+  {
+    name: 'codebase_symbol_search',
+    description: 'Search a codebase for where a symbol (function/class/method/variable name) is defined and referenced, returning file-level definition/reference evidence grouped by file. Grep-level lexical scan (not AST/type-aware): it matches identifier occurrences by word boundary. Use when auditing or tracing where a symbol is defined and called, so claims are grounded in real file:line evidence instead of name-similarity guesses. Do not use for semantic/type-aware queries, cross-language resolution, or when an exact definition-vs-reference distinction matters (use a language server). The symbol argument is treated as a literal (regex metacharacters are escaped).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        symbol: { type: 'string', description: 'The symbol name to search (function/class/method/variable).' },
+        root: { type: 'string', description: 'Codebase root directory (defaults to workspace).' },
+        kind: { type: 'string', enum: ['any', 'definition', 'reference'], description: 'Only return definitions, references, or both (default any).' },
+        maxResults: { type: 'number', description: 'Max total matches (default 200).' },
+        maxFiles: { type: 'number', description: 'Max files scanned (default 1500).' },
+        maxDepth: { type: 'number', description: 'Max directory depth (default 8).' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'Extra dirs to skip (node_modules/.git/.venv always skipped).' },
+      },
+      required: ['symbol'],
     },
   },
   {

@@ -895,6 +895,88 @@ async function docsSearch(root, query, opts = {}) {
 }
 
 // ============================================================================
+// v2.6 (M5 候选 D 波): codebase_symbol_search — 符号定义/引用检索(grep/ctags 级)。
+// 论文教训(07 §5):裸 LLM 会幻觉不存在的类名、按名称相似而非代码级使用证据分配。本工具把「符号 → 文件级证据」
+// 落成确定性检索:给定符号名,返回它在代码库中真实存在的定义/引用位置(文件:行号),让 codebase-audit 用证据而非名称说话。
+// 诚实边界:定义分类是关键词启发式(非 AST),方法定义与调用在 grep 级不可靠区分,靠返回的 note 显式声明。
+// ============================================================================
+function escapeRegexLiteral(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, c => '\\' + c);
+}
+
+const CODE_SYMBOL_SUFFIXES = /\.(js|mjs|cjs|jsx|ts|tsx|py|go|rs|java|cs|rb|php|c|h|cc|cpp|hpp|sh|ps1|sql|vue|svelte)$/i;
+
+async function codebaseSymbolSearch(root, opts = {}) {
+  const cwd = path.resolve(root || process.cwd());
+  const symbol = String(opts.symbol || '').trim();
+  if (!symbol) return { ok: false, error: 'symbol 必填(要检索的符号名)' };
+  if (symbol.length > 120) return { ok: false, error: 'symbol 过长(≤120 字符)' };
+  const kind = String(opts.kind || 'any');
+  if (kind !== 'any' && kind !== 'definition' && kind !== 'reference') return { ok: false, error: `kind 非法: ${kind}(仅 any|definition|reference)` };
+  const wantDef = kind !== 'reference';
+  const wantRef = kind !== 'definition';
+
+  const esc = escapeRegexLiteral(symbol);
+  // 词边界只在 symbol 首尾都是 \w([A-Za-z0-9_])时可靠:$foo/-bar 等含非 \w 的符号用字面匹配(诚实降级)。
+  const b = (/^[A-Za-z0-9_]/.test(symbol) && /[A-Za-z0-9_]$/.test(symbol)) ? '\\b' : '';
+  const wordRe = new RegExp(b + esc + b, 'i');
+  const defPatterns = [
+    { kind: 'function', re: new RegExp('\\b(?:function|func|fn|def|sub)\\s+' + esc + b, 'i') },
+    { kind: 'class', re: new RegExp('\\b(?:class|interface|struct|enum|trait)\\s+' + esc + b, 'i') },
+    { kind: 'type', re: new RegExp('\\btype\\s+' + esc + b, 'i') },
+    { kind: 'variable', re: new RegExp('\\b(?:const|let|var|val)\\s+' + esc + b, 'i') },
+  ];
+
+  const files = await walkFiles(cwd, {
+    recursive: true,
+    maxFiles: opts.maxFiles || 1500,
+    maxDepth: opts.maxDepth || 8,
+    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv', 'dist', 'build', 'coverage', '.next', 'out', 'target'],
+  });
+  const maxResults = Math.max(1, Number(opts.maxResults || 200));
+  const definitions = [];
+  const references = [];
+  const fileMap = new Map();
+  let truncated = false;
+
+  outer: for (const file of files.filter(f => f.type === 'file' && CODE_SYMBOL_SUFFIXES.test(f.path))) {
+    if (file.size > 1024 * 1024) continue;
+    const raw = await readIfExists(file.path, 1024 * 1024);
+    const lines = raw.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      let defKind = null;
+      for (const p of defPatterns) {
+        if (p.re.test(line)) { defKind = p.kind; break; }
+      }
+      if (!defKind && !wordRe.test(line)) continue;
+      const isDef = !!defKind;
+      // kind 过滤:与 definitions/references 数组一致 —— 被过滤的命中不计数、也不进 files[],
+      // 否则 kind='definition' 时顶层 referenceCount=0 而 files[].references>0,自相矛盾。
+      if (isDef ? !wantDef : !wantRef) continue;
+      // 已满 maxResults → 这是第 maxResults+1 条未过滤命中,截断(hitCap 语义,恰好满时不误报 truncated)。
+      if (definitions.length + references.length >= maxResults) { truncated = true; break outer; }
+      let rec = fileMap.get(file.relativePath);
+      if (!rec) { rec = { relativePath: file.relativePath, path: file.path, definitions: 0, references: 0 }; fileMap.set(file.relativePath, rec); }
+      if (isDef) {
+        definitions.push({ path: file.path, relativePath: file.relativePath, line: i + 1, text: line.trim().slice(0, 500), kind: defKind });
+        rec.definitions += 1;
+      } else {
+        references.push({ path: file.path, relativePath: file.relativePath, line: i + 1, text: line.trim().slice(0, 500) });
+        rec.references += 1;
+      }
+    }
+  }
+
+  return {
+    ok: true, root: cwd, symbol, kind,
+    definitionCount: definitions.length, referenceCount: references.length, fileCount: fileMap.size, truncated,
+    definitions, references, files: Array.from(fileMap.values()),
+    note: 'grep-level lexical identifier scan; definition classification is keyword-pattern heuristic, not AST-accurate. Method definitions vs calls are not reliably distinguished.',
+  };
+}
+
+// ============================================================================
 // v0.9-S9 — web_search / web_fetch (§0.9-S9, D6). SSRF防御 is the security核心 of this slice.
 // ============================================================================
 //

@@ -1399,13 +1399,13 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
   },
   {
     id: 'codebase-audit', title: '代码审计:多维并行 → 核验 → 修复排期',
-    description: '建库地图 → 三维度并行审计(正确性/安全/性能与可维护性) → 亲读核验剔除误报 → 按严重度×价值排优先级出修复清单。审计只读、不改代码。模型建议:并行审计(audit_*)可用中等模型;核验(verify)与排期(backlog)建议指派更强模型,以压住误报、抓准优先级。',
+    description: '建库地图 → 三维度并行审计(正确性/安全/性能与可维护性) → 亲读核验剔除误报 → 按严重度×价值排优先级出修复清单。审计只读、不改代码。模型建议:并行审计(audit_*)可用中等模型;核验(verify)与排期(backlog)建议指派更强模型,以压住误报、抓准优先级。审计全程优先用 codebase_symbol_search 检索符号的真实定义/引用,以文件:行证据为准,勿凭名称相似下结论。',
     nodes: [
-      { id: 'map', task: '快速建立目标代码库地图:核心模块与职责、关键数据流与入口点、外部依赖与信任边界、以及凭经验判断的高风险区域。输出简明地图 + 一份"建议重点审计的文件/区域"清单,供后续各维度聚焦。只读不改。', role: 'explorer', position: { x: 40, y: 220 } },
+      { id: 'map', task: '快速建立目标代码库地图:核心模块与职责、关键数据流与入口点、外部依赖与信任边界、以及凭经验判断的高风险区域。用 codebase_symbol_search 抽查关键符号/函数/类的定义与引用,确认模块、入口点与依赖真实存在、命名与文件对应,不要凭名称猜测。输出简明地图 + 一份"建议重点审计的文件/区域"清单,供后续各维度聚焦。只读不改。', role: 'explorer', position: { x: 40, y: 220 } },
       { id: 'audit_correctness', task: '在 map 指出的重点区域找【正确性缺陷】:边界条件、错误处理缺失、并发/竞态、空值/未初始化、类型或接口契约不一致、资源泄漏。每条给:文件:行、具体触发条件、影响、建议修法。只报你能写出触发路径的,拿不准不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
       { id: 'audit_security', task: '找【安全缺陷】:注入(命令/SQL/路径)、路径穿越、鉴权/越权、敏感信息泄露、SSRF、不安全默认值、反序列化。每条给:文件:行、具体利用路径、影响、修法。只报可利用的,理论风险不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
       { id: 'audit_quality', task: '找【性能与可维护性】问题:热路径/循环内的低效、随数据量或时长恶化的结构、重复三次以上的逻辑、超长函数、死代码、易错的命名/边界。每条给文件:行与可度量的改进点。只报改了确有收益的。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
-      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。输出 verdict、confidence、summary 与 findings；每条成立或否证 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。对发现中引用的符号/函数/类,用 codebase_symbol_search 反查其定义与调用是否真实存在、文件:行是否对得上,否证幻觉与名称相近的误判。输出 verdict、confidence、summary 与 findings；每条成立或否证 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
       { id: 'backlog', task: '把 verify 的成立发现排成可执行修复清单:按(严重度 × 影响 ÷ 改动成本)分三档——立即修 / 下一轮 / 可选打磨;标注依赖顺序、建议测试与验收点；识别可在同一次改动里安全带走的同类项，但不要直接修改代码。', role: 'planner', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },

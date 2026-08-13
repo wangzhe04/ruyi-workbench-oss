@@ -405,7 +405,7 @@ const FILE_TOOL_HANDLERS = {
         return { ok: false, error: 'oldText was not found', closest, ...(hints.length ? { hints } : {}), ...(firstDiff ? { firstDiff } : {}) };
       }
       if (count > 1 && !args.replaceAll) throw new Error(`oldText appears ${count} times; set replaceAll=true`);
-      const updated = args.replaceAll ? raw.split(oldText).join(newText) : raw.replace(oldText, newText);
+      const updated = raw.split(oldText).join(newText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
       // v0.8-S4a: checkpoint the original bytes (op modify) BEFORE overwriting. `raw` is the pre-edit
       // content already read above; only reached once we know the edit will apply (not the not-found path).
       const jctx = await journalSessionCtx(ctx);
@@ -866,20 +866,43 @@ const CODE_TOOL_HANDLERS = {
   git_commit: { paths: null, guardNote: "git 子进程 execFile 无 shell;exec tier(commit 触发 hooks)录在案;cwd 经 resolveGitCwd", handler: async (args, ctx) => {
       return gitCommit(args);
   } },
-  dependency_inventory: { paths: null, guardNote: "只读盘点,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return dependencyInventory(await resolveFileToolRoot(args, ctx));
+  dependency_inventory: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'dependency_inventory', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return dependencyInventory(root);
   } },
-  code_review_scan: { paths: null, guardNote: "只读扫描,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return codeReviewScan(await resolveFileToolRoot(args, ctx), args);
+  code_review_scan: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'code_review_scan', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return codeReviewScan(root, args);
   } },
-  frontend_audit: { paths: null, guardNote: "只读扫描,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return frontendAudit(await resolveFileToolRoot(args, ctx), args);
+  frontend_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'frontend_audit', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return frontendAudit(root, args);
   } },
-  claude_md_audit: { paths: null, guardNote: "只读扫描,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return claudeMdAudit(await resolveFileToolRoot(args, ctx));
+  claude_md_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'claude_md_audit', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return claudeMdAudit(root);
   } },
-  docs_search: { paths: null, guardNote: "只读搜索,walkFiles 自带敏感子树跳过", handler: async (args, ctx) => {
-      return docsSearch(await resolveFileToolRoot(args, ctx), String(args.query || ''), args);
+  docs_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'docs_search', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return docsSearch(root, String(args.query || ''), args);
+  } },
+  codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      // v2.6 (对抗验证 HIGH 收口): 与 file_search/file_list/glob/project_snapshot 同款读闸 —— 仅靠 walkFiles
+      // 敏感子树跳过不覆盖工作区外任意路径,远端模型可传越界 root 把符号匹配行(代码内容)确定性外传。
+      const root = await resolveFileToolRoot(args, ctx);
+      const g = await guardFileToolPath(root, ctx, { tool: 'codebase_symbol_search', write: false });
+      if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      return codebaseSymbolSearch(root, args);
   } },
 };
 

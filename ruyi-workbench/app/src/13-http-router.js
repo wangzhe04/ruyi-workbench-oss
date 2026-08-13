@@ -1938,6 +1938,23 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'codebase_symbol_search',
+    description: 'Search a codebase for where a symbol (function/class/method/variable name) is defined and referenced, returning file-level definition/reference evidence grouped by file. Grep-level lexical scan (not AST/type-aware): it matches identifier occurrences by word boundary. Use when auditing or tracing where a symbol is defined and called, so claims are grounded in real file:line evidence instead of name-similarity guesses. Do not use for semantic/type-aware queries, cross-language resolution, or when an exact definition-vs-reference distinction matters (use a language server). The symbol argument is treated as a literal (regex metacharacters are escaped).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        symbol: { type: 'string', description: 'The symbol name to search (function/class/method/variable).' },
+        root: { type: 'string', description: 'Codebase root directory (defaults to workspace).' },
+        kind: { type: 'string', enum: ['any', 'definition', 'reference'], description: 'Only return definitions, references, or both (default any).' },
+        maxResults: { type: 'number', description: 'Max total matches (default 200).' },
+        maxFiles: { type: 'number', description: 'Max files scanned (default 1500).' },
+        maxDepth: { type: 'number', description: 'Max directory depth (default 8).' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'Extra dirs to skip (node_modules/.git/.venv always skipped).' },
+      },
+      required: ['symbol'],
+    },
+  },
+  {
     name: 'http_request',
     description: 'Make an HTTP request to a local or intranet endpoint for API debugging',
     inputSchema: {

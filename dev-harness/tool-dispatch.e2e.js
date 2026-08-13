@@ -41,7 +41,7 @@ for (const n of names) {
     if (!/guardFileToolPath\(|guardDownloadDest\(/.test(src)) l3Bad.push(n);
   }
 }
-ok(names.length === 55, `L1 注册表 55 个工具(got ${names.length})`);
+ok(names.length === 56, `L1 注册表 56 个工具(got ${names.length})`);
 ok(l1Bad.length === 0, 'L1 每条目 handler/paths 声明齐整' + (l1Bad.length ? ' → ' + l1Bad.join(',') : ''));
 ok(l2Bad.length === 0, 'L2 paths:null 条目全部带 guardNote(录在案豁免)' + (l2Bad.length ? ' → ' + l2Bad.join(',') : ''));
 ok(l3Bad.length === 0, 'L3 paths 非 null 条目 handler 内全部含 guard 调用' + (l3Bad.length ? ' → ' + l3Bad.join(',') : ''));
@@ -80,6 +80,15 @@ const g3 = await S.toolCall('project_snapshot', { root: OUTSIDE }, ctxRemote);
 ok(g3 && g3.ok === false && g3.code === 'not-allowed', 'B3 第41波首擒:project_snapshot 越界列目录(远端)与 file_list 同闸拒');
 const g4 = await S.toolCall('project_snapshot', { root: WS }, ctxRemote);
 ok(g4 && g4.ok === true && Array.isArray(g4.files), 'B3 project_snapshot 工作区内照常可用');
+
+// B4 (M5 对抗验证 HIGH 收口): code 工具族越界读(远端 provider)与 file 族同闸拒 —— 此前 paths:null 漏接 guardFileToolPath,
+// 远端模型可越界读任意代码文件内容外传。逐一断言 6 个工具(含本轮新增 codebase_symbol_search)同闸拒绝。
+for (const tn of ['codebase_symbol_search', 'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit', 'docs_search']) {
+  const body = tn === 'docs_search' ? { root: OUTSIDE, query: 'x' }
+    : (tn === 'codebase_symbol_search' ? { root: OUTSIDE, symbol: 'secret' } : { root: OUTSIDE });
+  const r = await S.toolCall(tn, body, ctxRemote);
+  ok(r && r.ok === false && r.code === 'not-allowed', 'B4 ' + tn + ' 越界读(远端 provider)被 guard 拒');
+}
 
 console.log(fail ? `\nTOOL-DISPATCH E2E: ${fail} FAIL` : '\nTOOL-DISPATCH E2E: ALL PASS');
 process.exit(fail ? 1 : 0);
