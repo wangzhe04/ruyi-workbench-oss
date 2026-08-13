@@ -1263,8 +1263,8 @@ namespace RuyiDesktop
                 mi.cbSize = Marshal.SizeOf(typeof(Native.MONITORINFO));
                 if (Native.GetMonitorInfo(mon, ref mi))
                 {
-                    mmi.ptMaxPosition.x = mi.rcWork.left;
-                    mmi.ptMaxPosition.y = mi.rcWork.top;
+                    mmi.ptMaxPosition.x = 0; // system adds monitor work-area origin itself (secondary-screen fix)
+                    mmi.ptMaxPosition.y = 0;
                     mmi.ptMaxSize.x = mi.rcWork.right - mi.rcWork.left;
                     mmi.ptMaxSize.y = mi.rcWork.bottom - mi.rcWork.top;
                     mmi.ptMinTrackSize.x = MinimumSize.Width;
