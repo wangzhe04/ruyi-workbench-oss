@@ -233,6 +233,7 @@ function fillSettings() {
   const c = state.config;
   updateAgentTeamButton();
   $('workspaceInput').value = c.defaultWorkspace || '';
+  renderWorkspacePerms(); // v2.7 workspace permissions
   { const el0 = $('cfgLocale'); if (el0) el0.value = ['auto', 'zh-CN', 'en-US'].includes(c.locale) ? c.locale : 'auto'; }
   { const el0 = $('cfgUiMode'); if (el0) el0.value = (c.uiMode === 'simple' ? 'simple' : 'pro'); } // v0.9-S1
   { const el0 = $('cfgOutputStyle'); if (el0) el0.value = (c.outputStyle === 'concise' ? 'concise' : 'detailed'); } // v0.9-S1
@@ -328,11 +329,92 @@ function updateSearchBackendVisibility() {
   }
   if (keyRow) keyRow.classList.toggle('hidden', !showKey);
 }
+/* ---------------- v2.7 workspace permissions ---------------- */
+let _wsPermsWired = false;
+function wireWorkspacePerms() {
+  if (_wsPermsWired) return; _wsPermsWired = true;
+  const addBtn = $('workspaceAddBtn');
+  const addInput = $('workspaceAddInput');
+  if (addBtn) addBtn.addEventListener('click', () => addWorkspace());
+  if (addInput) addInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addWorkspace(); } });
+  const outside = $('cfgAllowOutsideWorkspace');
+  if (outside) outside.addEventListener('change', () => { if (state.config) state.config.allowOutsideWorkspace = outside.checked; });
+}
+function syncPrimaryInput() {
+  const ws = Array.isArray(state.config.workspaces) ? state.config.workspaces : [];
+  const wi = $('workspaceInput');
+  if (wi && ws.length && wi !== document.activeElement) wi.value = ws[0].path || '';
+}
+function renderWorkspacePerms() {
+  wireWorkspacePerms();
+  const list = $('workspacePermList'); if (!list) return;
+  const ws = Array.isArray(state.config.workspaces) ? state.config.workspaces : [];
+  list.innerHTML = '';
+  if (!ws.length) { list.append(el('p', 'muted', t('settings.workspacePerm.empty'))); }
+  ws.forEach((w, i) => {
+    const row = el('div', 'ws-perm-row');
+    row.append(el('span', 'ws-perm-idx', String(i + 1)));
+    const pathEl = el('span', 'ws-perm-path', String(w.path || ''));
+    pathEl.title = String(w.path || '');
+    row.append(pathEl);
+    for (const k of ['read', 'write', 'execute']) {
+      const lab = el('label', 'check ws-perm-check');
+      const cb = el('input'); cb.type = 'checkbox'; cb.checked = w[k] !== false;
+      cb.addEventListener('change', () => { const cur = state.config.workspaces[i]; if (cur) cur[k] = cb.checked; });
+      lab.append(cb, el('span', '', t('settings.workspacePerm.' + k)));
+      row.append(lab);
+    }
+    const up = el('button', 'icon-btn ws-perm-btn', '↑'); up.type = 'button'; up.title = t('settings.workspacePerm.up'); up.disabled = i === 0;
+    up.addEventListener('click', () => moveWorkspace(i, i - 1));
+    const down = el('button', 'icon-btn ws-perm-btn', '↓'); down.type = 'button'; down.title = t('settings.workspacePerm.down'); down.disabled = i === ws.length - 1;
+    down.addEventListener('click', () => moveWorkspace(i, i + 1));
+    const rm = el('button', 'icon-btn ws-perm-btn ws-perm-rm', '×'); rm.type = 'button'; rm.title = t('settings.workspacePerm.remove');
+    rm.addEventListener('click', () => { state.config.workspaces.splice(i, 1); syncPrimaryInput(); renderWorkspacePerms(); });
+    row.append(up, down, rm);
+    list.append(row);
+  });
+  const outside = $('cfgAllowOutsideWorkspace'); if (outside) outside.checked = state.config.allowOutsideWorkspace === true;
+}
+function moveWorkspace(from, to) {
+  const ws = state.config.workspaces; if (!Array.isArray(ws) || to < 0 || to >= ws.length) return;
+  const [x] = ws.splice(from, 1); ws.splice(to, 0, x);
+  if (from === 0 || to === 0) syncPrimaryInput();
+  renderWorkspacePerms();
+}
+async function addWorkspace() {
+  const input = $('workspaceAddInput');
+  let dir = input ? String(input.value).trim() : '';
+  if (!dir) {
+    try { const r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); if (r && r.ok && r.path) dir = r.path; } catch { /* ignore */ }
+  }
+  if (!dir) { toast(t('settings.workspacePerm.pathRequired'), 'err'); return; }
+  if (!Array.isArray(state.config.workspaces)) state.config.workspaces = [];
+  if (!state.config.workspaces.some(w => String(w.path).toLowerCase() === dir.toLowerCase())) {
+    state.config.workspaces.push({ path: dir, read: true, write: true, execute: true });
+  }
+  if (input) input.value = '';
+  syncPrimaryInput();
+  renderWorkspacePerms();
+}
 async function saveSettings() {
   const requestedLocale = $('cfgLocale')?.value || state.config.locale || 'auto';
   const resolvedLocale = await setLocale(requestedLocale);
+  // v2.7: sync the primary workspace input into the workspace list (the input edits the highest-priority path).
+  {
+    const primaryPath = $('workspaceInput').value.trim();
+    let ws = Array.isArray(state.config.workspaces) ? state.config.workspaces.map(w => ({ path: String(w.path || ''), read: w.read !== false, write: w.write !== false, execute: w.execute !== false })) : [];
+    if (primaryPath) {
+      const idx = ws.findIndex(w => w.path.toLowerCase() === primaryPath.toLowerCase());
+      if (idx === 0) ws[0].path = primaryPath;
+      else if (idx > 0) { const [x] = ws.splice(idx, 1); ws.unshift(x); }
+      else ws.unshift({ path: primaryPath, read: true, write: true, execute: true });
+    }
+    state.config.workspaces = ws;
+  }
   const patch = {
     defaultWorkspace: $('workspaceInput').value.trim(),
+    workspaces: (state.config.workspaces || []).map(w => ({ path: w.path, read: w.read !== false, write: w.write !== false, execute: w.execute !== false })),
+    allowOutsideWorkspace: $('cfgAllowOutsideWorkspace') ? $('cfgAllowOutsideWorkspace').checked : (state.config.allowOutsideWorkspace === true),
     locale: resolvedLocale,
     uiMode: $('cfgUiMode') ? $('cfgUiMode').value : (state.config.uiMode || 'pro'),           // v0.9-S1 (C1)
     outputStyle: $('cfgOutputStyle') ? $('cfgOutputStyle').value : (state.config.outputStyle || 'detailed'), // v0.9-S1 (C1)

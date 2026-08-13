@@ -28,7 +28,7 @@ const VERSION = '2.5.0'; // Escapade 2.5.0:原生桌面壳 + 任务型工具箱 
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
-const CONFIG_SCHEMA = 9; // v2.0.1: one-time legacy/print -> interactive Claude engine migration
+const CONFIG_SCHEMA = 10; // v2.7: one-time seed of workspaces[] from defaultWorkspace + recentWorkspaces
 // v0.8-S0: session file schema. Bumped independently of CONFIG_SCHEMA; normalizeSession backfills.
 const SESSION_SCHEMA = 1;
 
@@ -600,6 +600,14 @@ function defaultConfig() {
     // resolve candidate roots so a folder the user has worked in before is found even if it lives off the
     // drive-root/home fingerprint set. normalizeConfig cleanses to a de-duped string array truncated to 10.
     recentWorkspaces: [],
+    // v2.7 (workspace permissions): trusted workspaces with per-workspace read/write/execute flags.
+    // Priority = array order (index 0 = primary/current default). Each entry { path, read, write, execute },
+    // all defaulting to true. Seeded from defaultWorkspace + recentWorkspaces on first load so existing
+    // users keep full access. defaultWorkspace stays in sync with workspaces[0].path (backward compat).
+    workspaces: [],
+    // v2.7: escape hatch for the file-tool workspace boundary. true = the native file tools may read AND
+    // write outside any configured workspace (still audit-logged; sensitive control-plane paths stay denied).
+    allowOutsideWorkspace: false,
     // Sub-agent orchestration limits. maxConcurrent controls one parallel stage; maxPerTurn controls all
     // stages combined (an ad hoc spawn_agent/orchestrate_agents fan-out WITHIN one chat turn — NOT the
     // same budget as a persisted Agent 工作流 DAG's node count, see agentWorkflowMaxNodes below).
@@ -970,6 +978,38 @@ function normalizeConfig(raw) {
     }
     if (JSON.stringify(clean) !== JSON.stringify(config.recentWorkspaces)) { config.recentWorkspaces = clean; changed = true; }
     else config.recentWorkspaces = clean;
+  }
+  // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
+  // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
+  // from defaultWorkspace + recentWorkspaces so an existing install keeps read/write/execute on every folder
+  // it already trusts. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe, cap 20.
+  // defaultWorkspace is kept in sync with the highest-priority (first) workspace for backward compat.
+  {
+    const rawArr = Array.isArray(config.workspaces) ? config.workspaces : [];
+    const seen = new Set();
+    const clean = [];
+    const pushWs = (raw) => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+      const p = String(raw.path || '').trim().slice(0, 1000);
+      if (!p) return;
+      const key = p.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      clean.push({ path: p, read: raw.read !== false, write: raw.write !== false, execute: raw.execute !== false });
+    };
+    for (const e of rawArr) { pushWs(e); if (clean.length >= 20) break; }
+    if (!clean.length && incomingConfigSchema < 10) {
+      const seed = [];
+      if (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim()) seed.push(config.defaultWorkspace);
+      for (const w of (Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) if (typeof w === 'string') seed.push(w);
+      for (const s of seed) { pushWs({ path: s }); if (clean.length >= 20) break; }
+    }
+    if (JSON.stringify(clean) !== JSON.stringify(config.workspaces)) { config.workspaces = clean; changed = true; }
+    else config.workspaces = clean;
+    const primary = clean.length ? clean[0].path : (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim() ? config.defaultWorkspace : os.homedir());
+    if (config.defaultWorkspace !== primary) { config.defaultWorkspace = primary; changed = true; }
+    const ab = config.allowOutsideWorkspace === true;
+    if (ab !== config.allowOutsideWorkspace) { config.allowOutsideWorkspace = ab; changed = true; }
   }
   // Sub-agent limits: concurrency is configurable but bounded; total 0 disables the feature.
   // v1.4.4: fallback defaults raised to the top of each range (8 / 32) — see defaultConfig() note.
@@ -5567,7 +5607,31 @@ function fileAllowedRoots(session, config) {
   if (session && typeof session.cwd === 'string') push(session.cwd);
   if (config && typeof config.defaultWorkspace === 'string') push(config.defaultWorkspace);
   for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) push(w);
+  // v2.7 (workspace permissions): trusted workspaces with read access also join the read-root set.
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) {
+    if (w && typeof w === 'object' && w.read !== false) push(w.path);
+  }
   push(dataRoot()); // generated artifacts, uploads, checkpoints all live here
+  // De-dupe (case-insensitive on Windows).
+  const seen = new Set();
+  return roots.filter(r => { const k = r.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+// v2.7 (workspace permissions): roots where the native file tools may WRITE. session.cwd (current working
+// folder) and dataRoot (app artifacts) are always writable; every configured workspace with write !== false
+// is also writable — this is what lets a non-current but explicitly-trusted workspace be written to.
+// recentWorkspaces are intentionally read-only here (LRU history, not an explicit grant). allowOutsideWorkspace
+// bypasses this entire set.
+function workspaceWriteRoots(session, config) {
+  const roots = [];
+  const push = p => {
+    if (typeof p !== 'string' || !p.trim()) return;
+    try { roots.push(path.resolve(p.trim())); } catch { /* skip unresolvable */ }
+  };
+  if (session && typeof session.cwd === 'string') push(session.cwd);
+  push(dataRoot());
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) {
+    if (w && typeof w === 'object' && w.write !== false) push(w.path);
+  }
   // De-dupe (case-insensitive on Windows).
   const seen = new Set();
   return roots.filter(r => { const k = r.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
@@ -5732,7 +5796,7 @@ async function guardFileToolPath(rawPath, ctx, opts) {
     if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'allow-config', pathLen: abs.length });
     return { ok: true, absPath: real };
   }
-  const roots = fileAllowedRoots(session, config);
+  const roots = write ? workspaceWriteRoots(session, config) : fileAllowedRoots(session, config);
   const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
@@ -5745,6 +5809,33 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   }
   logEvent({ kind: 'workspace_boundary', tool, op: 'read', decision: 'deny-remote', pathLen: abs.length });
   return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内(越界读在非本地模型下已拒绝);如确需跨工作区,请在设置中开启 allowOutsideWorkspace' };
+}
+// v2.7 (workspace permissions): exec gate. A configured workspace with execute === false denies the exec-tier
+// command/shell tools (powershell_run / script_run / shell_*) when their effective cwd resolves inside it.
+// Backward compatible: no workspace entries, or every entry execute:true, leaves behavior unchanged (exec
+// tools are NOT otherwise contained by the workspace boundary). Only consults the per-workspace execute flag;
+// sensitive/autoexec path checks remain the file guard's responsibility.
+async function guardWorkspaceExecute(cwd, ctx) {
+  let config = ctx && ctx.config ? ctx.config : null;
+  if (!config) { try { config = await readConfig(); } catch { config = {}; } }
+  const list = (config && Array.isArray(config.workspaces)) ? config.workspaces : [];
+  const deny = [];
+  for (const w of list) {
+    if (w && typeof w === 'object' && w.execute === false && typeof w.path === 'string' && w.path.trim()) {
+      try { deny.push(path.resolve(w.path.trim())); } catch { /* skip unresolvable */ }
+    }
+  }
+  if (!deny.length) return { ok: true };
+  const session = ctx && ctx.session ? ctx.session : null;
+  const effective = cwd || (session && session.cwd) || (config && config.defaultWorkspace) || os.homedir();
+  const abs = path.resolve(String(effective || ''));
+  const real = await realpathForContainment(abs);
+  const realDeny = await Promise.all(deny.map(r => realpathForContainment(r)));
+  if (pathWithinAnyRoot(real, realDeny)) {
+    logEvent({ kind: 'workspace_boundary', tool: 'exec', op: 'execute', decision: 'deny-workspace-exec', pathLen: abs.length });
+    return { ok: false, code: 'not-allowed', error: '该工作区未授权执行命令(execute=false),已拒绝;如需执行请在工作区权限中开启' };
+  }
+  return { ok: true };
 }
 // v1.0.2-S3: build the explorer.exe argv for /api/file/reveal WITHOUT touching a shell (路径含用户可控字符,
 // shell 拼接 = 命令注入)。绝不走 cmd.exe:调用方用 cp.spawn('explorer.exe', args, {detached,stdio:'ignore'}).unref()。
@@ -22812,9 +22903,13 @@ const ARCHIVE_TOOL_HANDLERS = {
 
 const SHELL_TOOL_HANDLERS = {
   powershell_run: { paths: null, guardNote: "任意 shell 命令,exec tier+权限弹窗/授权书把守;路径闸对自由命令不可施", handler: async (args, ctx) => {
+      const g = await guardWorkspaceExecute(args.cwd, ctx);
+      if (!g.ok) return { ok: false, error: g.error, code: g.code };
       return runPowerShell(String(args.command || ''), args.cwd, args.timeoutMs, ctx && ctx.signal);
   } },
   script_run: { paths: null, guardNote: "任意脚本执行(落 generated/scripts 应用自选目录),exec tier+权限链把守;Office 手写软闸内置", handler: async (args, ctx) => {
+      const g = await guardWorkspaceExecute(args.cwd, ctx);
+      if (!g.ok) return { ok: false, error: g.error, code: g.code };
       // v1.2 返修(用户实测证明:Office 产出规程提示词在续聊/惯性场景拦不住)——脚本手写 Office 的
       // 【工具层】软闸。现成 Office 工具走统一模板且进检查点可撤销;脚本现场发挥二者皆失。检测到
       // Office 写意图 → 拒绝并给配方;确有现成工具覆盖不了的特殊需求时,模型加 force:true 重调即放行
@@ -22856,6 +22951,8 @@ const SHELL_TOOL_HANDLERS = {
   shell_start: { paths: null, guardNote: "持久 shell 会话状态面,exec tier 门+MCP 子进程拒;不直接触文件路径", handler: async (args, ctx) => {
     // v0.8-S2 shell session族 — provider-engine only. In the one-shot MCP child (Claude CLI engine) the
     // session Map cannot persist across turns, so return a guiding error rather than fake a session.
+      const g = await guardWorkspaceExecute(args.cwd, ctx);
+      if (!g.ok) return { ok: false, error: g.error, code: g.code };
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();
       const cfg = await readConfig().catch(() => ({ shellSessionMax: 3 }));
       return shellStart(args, cfg);
@@ -28092,6 +28189,7 @@ module.exports = {
   bridgedOfficeScriptGate,
   BRIDGED_WRITE_AUDIT_EXEMPT,
   fileAllowedRoots,
+  workspaceWriteRoots,
   pathWithinRoot,
   pathWithinAnyRoot,
   readFilePreview,
@@ -28111,6 +28209,7 @@ module.exports = {
   buildOpenSpawn,
   buildBrowserOpenSpawn,
   guardFileToolPath,
+  guardWorkspaceExecute,
   providerIsLocal,
   // 第31波B(L1): autoexec denylist + 路径归一 — exposed for shell-sandbox e2e 直接单测。
   AUTOEXEC_DENYLIST,

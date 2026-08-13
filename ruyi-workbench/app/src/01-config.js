@@ -124,6 +124,14 @@ function defaultConfig() {
     // resolve candidate roots so a folder the user has worked in before is found even if it lives off the
     // drive-root/home fingerprint set. normalizeConfig cleanses to a de-duped string array truncated to 10.
     recentWorkspaces: [],
+    // v2.7 (workspace permissions): trusted workspaces with per-workspace read/write/execute flags.
+    // Priority = array order (index 0 = primary/current default). Each entry { path, read, write, execute },
+    // all defaulting to true. Seeded from defaultWorkspace + recentWorkspaces on first load so existing
+    // users keep full access. defaultWorkspace stays in sync with workspaces[0].path (backward compat).
+    workspaces: [],
+    // v2.7: escape hatch for the file-tool workspace boundary. true = the native file tools may read AND
+    // write outside any configured workspace (still audit-logged; sensitive control-plane paths stay denied).
+    allowOutsideWorkspace: false,
     // Sub-agent orchestration limits. maxConcurrent controls one parallel stage; maxPerTurn controls all
     // stages combined (an ad hoc spawn_agent/orchestrate_agents fan-out WITHIN one chat turn — NOT the
     // same budget as a persisted Agent 工作流 DAG's node count, see agentWorkflowMaxNodes below).
@@ -494,6 +502,38 @@ function normalizeConfig(raw) {
     }
     if (JSON.stringify(clean) !== JSON.stringify(config.recentWorkspaces)) { config.recentWorkspaces = clean; changed = true; }
     else config.recentWorkspaces = clean;
+  }
+  // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
+  // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
+  // from defaultWorkspace + recentWorkspaces so an existing install keeps read/write/execute on every folder
+  // it already trusts. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe, cap 20.
+  // defaultWorkspace is kept in sync with the highest-priority (first) workspace for backward compat.
+  {
+    const rawArr = Array.isArray(config.workspaces) ? config.workspaces : [];
+    const seen = new Set();
+    const clean = [];
+    const pushWs = (raw) => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+      const p = String(raw.path || '').trim().slice(0, 1000);
+      if (!p) return;
+      const key = p.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      clean.push({ path: p, read: raw.read !== false, write: raw.write !== false, execute: raw.execute !== false });
+    };
+    for (const e of rawArr) { pushWs(e); if (clean.length >= 20) break; }
+    if (!clean.length && incomingConfigSchema < 10) {
+      const seed = [];
+      if (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim()) seed.push(config.defaultWorkspace);
+      for (const w of (Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) if (typeof w === 'string') seed.push(w);
+      for (const s of seed) { pushWs({ path: s }); if (clean.length >= 20) break; }
+    }
+    if (JSON.stringify(clean) !== JSON.stringify(config.workspaces)) { config.workspaces = clean; changed = true; }
+    else config.workspaces = clean;
+    const primary = clean.length ? clean[0].path : (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim() ? config.defaultWorkspace : os.homedir());
+    if (config.defaultWorkspace !== primary) { config.defaultWorkspace = primary; changed = true; }
+    const ab = config.allowOutsideWorkspace === true;
+    if (ab !== config.allowOutsideWorkspace) { config.allowOutsideWorkspace = ab; changed = true; }
   }
   // Sub-agent limits: concurrency is configurable but bounded; total 0 disables the feature.
   // v1.4.4: fallback defaults raised to the top of each range (8 / 32) — see defaultConfig() note.

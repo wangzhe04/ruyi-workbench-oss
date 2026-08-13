@@ -544,6 +544,18 @@
               <input id="workspaceInput" type="text" placeholder="C:\path\to\project" />
             </div>
             <div class="field-block">
+              <label data-i18n="settings.workspacePerm.title">工作区权限</label>
+              <div class="workspace-perm-add">
+                <input id="workspaceAddInput" type="text" placeholder="C:\path\to\another\project" />
+                <button type="button" id="workspaceAddBtn" class="btn btn-sm" data-i18n="settings.workspacePerm.add">添加工作区</button>
+              </div>
+              <div id="workspacePermList" class="workspace-perm-list"></div>
+              <div class="workspace-perm-actions">
+                <label class="check"><input type="checkbox" id="cfgAllowOutsideWorkspace" /> <span data-i18n="settings.workspacePerm.allowOutside">允许工作区外读写</span></label>
+              </div>
+              <p class="field-help muted" data-i18n="settings.workspacePerm.hint">工作区按优先级排序（首项为默认工作区）；每个工作区可单独开关读/写/执行权限。</p>
+            </div>
+            <div class="field-block">
               <label for="cfgLocale" data-i18n="settings.language">语言</label>
               <select id="cfgLocale">
                 <option value="auto" data-i18n="settings.language.auto">跟随系统</option>

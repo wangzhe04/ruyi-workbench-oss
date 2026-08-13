@@ -214,6 +214,7 @@ module.exports = {
   bridgedOfficeScriptGate,
   BRIDGED_WRITE_AUDIT_EXEMPT,
   fileAllowedRoots,
+  workspaceWriteRoots,
   pathWithinRoot,
   pathWithinAnyRoot,
   readFilePreview,
@@ -233,6 +234,7 @@ module.exports = {
   buildOpenSpawn,
   buildBrowserOpenSpawn,
   guardFileToolPath,
+  guardWorkspaceExecute,
   providerIsLocal,
   // 第31波B(L1): autoexec denylist + 路径归一 — exposed for shell-sandbox e2e 直接单测。
   AUTOEXEC_DENYLIST,

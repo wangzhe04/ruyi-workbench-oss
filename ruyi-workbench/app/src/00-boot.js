@@ -28,7 +28,7 @@ const VERSION = '2.5.0'; // Escapade 2.5.0:原生桌面壳 + 任务型工具箱 
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
-const CONFIG_SCHEMA = 9; // v2.0.1: one-time legacy/print -> interactive Claude engine migration
+const CONFIG_SCHEMA = 10; // v2.7: one-time seed of workspaces[] from defaultWorkspace + recentWorkspaces
 // v0.8-S0: session file schema. Bumped independently of CONFIG_SCHEMA; normalizeSession backfills.
 const SESSION_SCHEMA = 1;
 

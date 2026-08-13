@@ -94,6 +94,17 @@
 .field-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
 .check { display: flex; align-items: center; gap: 7px; font-size: var(--fs-md); color: var(--ink-2); cursor: pointer; }
 .check input { width: auto; }
+/* v2.7 workspace permissions */
+.workspace-perm-list { display: grid; gap: 6px; margin-bottom: 8px; }
+.ws-perm-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); }
+.ws-perm-idx { flex: none; width: 20px; text-align: center; color: var(--muted); font-size: var(--fs-sm); }
+.ws-perm-path { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-size: var(--fs-sm); }
+.ws-perm-check { flex: none; font-size: var(--fs-xs); }
+.ws-perm-btn { flex: none; }
+.ws-perm-rm { color: var(--danger); }
+.workspace-perm-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+.workspace-perm-add { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.workspace-perm-add input { flex: 1 1 auto; min-width: 0; }
 
 /* Escapade 2.4: structured model-question sheet. The same renderer is intended for Pretender's
    global Intervention inbox, so presentation is scoped to semantic ask-* classes rather than chat layout. */

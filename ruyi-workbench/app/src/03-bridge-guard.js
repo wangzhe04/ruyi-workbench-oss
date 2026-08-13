@@ -345,7 +345,31 @@ function fileAllowedRoots(session, config) {
   if (session && typeof session.cwd === 'string') push(session.cwd);
   if (config && typeof config.defaultWorkspace === 'string') push(config.defaultWorkspace);
   for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) push(w);
+  // v2.7 (workspace permissions): trusted workspaces with read access also join the read-root set.
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) {
+    if (w && typeof w === 'object' && w.read !== false) push(w.path);
+  }
   push(dataRoot()); // generated artifacts, uploads, checkpoints all live here
+  // De-dupe (case-insensitive on Windows).
+  const seen = new Set();
+  return roots.filter(r => { const k = r.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+// v2.7 (workspace permissions): roots where the native file tools may WRITE. session.cwd (current working
+// folder) and dataRoot (app artifacts) are always writable; every configured workspace with write !== false
+// is also writable — this is what lets a non-current but explicitly-trusted workspace be written to.
+// recentWorkspaces are intentionally read-only here (LRU history, not an explicit grant). allowOutsideWorkspace
+// bypasses this entire set.
+function workspaceWriteRoots(session, config) {
+  const roots = [];
+  const push = p => {
+    if (typeof p !== 'string' || !p.trim()) return;
+    try { roots.push(path.resolve(p.trim())); } catch { /* skip unresolvable */ }
+  };
+  if (session && typeof session.cwd === 'string') push(session.cwd);
+  push(dataRoot());
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) {
+    if (w && typeof w === 'object' && w.write !== false) push(w.path);
+  }
   // De-dupe (case-insensitive on Windows).
   const seen = new Set();
   return roots.filter(r => { const k = r.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
@@ -510,7 +534,7 @@ async function guardFileToolPath(rawPath, ctx, opts) {
     if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'allow-config', pathLen: abs.length });
     return { ok: true, absPath: real };
   }
-  const roots = fileAllowedRoots(session, config);
+  const roots = write ? workspaceWriteRoots(session, config) : fileAllowedRoots(session, config);
   const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
@@ -523,6 +547,33 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   }
   logEvent({ kind: 'workspace_boundary', tool, op: 'read', decision: 'deny-remote', pathLen: abs.length });
   return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内(越界读在非本地模型下已拒绝);如确需跨工作区,请在设置中开启 allowOutsideWorkspace' };
+}
+// v2.7 (workspace permissions): exec gate. A configured workspace with execute === false denies the exec-tier
+// command/shell tools (powershell_run / script_run / shell_*) when their effective cwd resolves inside it.
+// Backward compatible: no workspace entries, or every entry execute:true, leaves behavior unchanged (exec
+// tools are NOT otherwise contained by the workspace boundary). Only consults the per-workspace execute flag;
+// sensitive/autoexec path checks remain the file guard's responsibility.
+async function guardWorkspaceExecute(cwd, ctx) {
+  let config = ctx && ctx.config ? ctx.config : null;
+  if (!config) { try { config = await readConfig(); } catch { config = {}; } }
+  const list = (config && Array.isArray(config.workspaces)) ? config.workspaces : [];
+  const deny = [];
+  for (const w of list) {
+    if (w && typeof w === 'object' && w.execute === false && typeof w.path === 'string' && w.path.trim()) {
+      try { deny.push(path.resolve(w.path.trim())); } catch { /* skip unresolvable */ }
+    }
+  }
+  if (!deny.length) return { ok: true };
+  const session = ctx && ctx.session ? ctx.session : null;
+  const effective = cwd || (session && session.cwd) || (config && config.defaultWorkspace) || os.homedir();
+  const abs = path.resolve(String(effective || ''));
+  const real = await realpathForContainment(abs);
+  const realDeny = await Promise.all(deny.map(r => realpathForContainment(r)));
+  if (pathWithinAnyRoot(real, realDeny)) {
+    logEvent({ kind: 'workspace_boundary', tool: 'exec', op: 'execute', decision: 'deny-workspace-exec', pathLen: abs.length });
+    return { ok: false, code: 'not-allowed', error: '该工作区未授权执行命令(execute=false),已拒绝;如需执行请在工作区权限中开启' };
+  }
+  return { ok: true };
 }
 // v1.0.2-S3: build the explorer.exe argv for /api/file/reveal WITHOUT touching a shell (路径含用户可控字符,
 // shell 拼接 = 命令注入)。绝不走 cmd.exe:调用方用 cp.spawn('explorer.exe', args, {detached,stdio:'ignore'}).unref()。

@@ -668,9 +668,13 @@ const ARCHIVE_TOOL_HANDLERS = {
 
 const SHELL_TOOL_HANDLERS = {
   powershell_run: { paths: null, guardNote: "任意 shell 命令,exec tier+权限弹窗/授权书把守;路径闸对自由命令不可施", handler: async (args, ctx) => {
+      const g = await guardWorkspaceExecute(args.cwd, ctx);
+      if (!g.ok) return { ok: false, error: g.error, code: g.code };
       return runPowerShell(String(args.command || ''), args.cwd, args.timeoutMs, ctx && ctx.signal);
   } },
   script_run: { paths: null, guardNote: "任意脚本执行(落 generated/scripts 应用自选目录),exec tier+权限链把守;Office 手写软闸内置", handler: async (args, ctx) => {
+      const g = await guardWorkspaceExecute(args.cwd, ctx);
+      if (!g.ok) return { ok: false, error: g.error, code: g.code };
       // v1.2 返修(用户实测证明:Office 产出规程提示词在续聊/惯性场景拦不住)——脚本手写 Office 的
       // 【工具层】软闸。现成 Office 工具走统一模板且进检查点可撤销;脚本现场发挥二者皆失。检测到
       // Office 写意图 → 拒绝并给配方;确有现成工具覆盖不了的特殊需求时,模型加 force:true 重调即放行
@@ -712,6 +716,8 @@ const SHELL_TOOL_HANDLERS = {
   shell_start: { paths: null, guardNote: "持久 shell 会话状态面,exec tier 门+MCP 子进程拒;不直接触文件路径", handler: async (args, ctx) => {
     // v0.8-S2 shell session族 — provider-engine only. In the one-shot MCP child (Claude CLI engine) the
     // session Map cannot persist across turns, so return a guiding error rather than fake a session.
+      const g = await guardWorkspaceExecute(args.cwd, ctx);
+      if (!g.ok) return { ok: false, error: g.error, code: g.code };
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();
       const cfg = await readConfig().catch(() => ({ shellSessionMax: 3 }));
       return shellStart(args, cfg);
