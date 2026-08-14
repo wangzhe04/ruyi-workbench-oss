@@ -429,6 +429,18 @@ async function handleApi(req, res, pathname) {
     const r = await decideMemoryProposal(sessionId, String(body && body.proposalId || ''), String(body && body.decision || ''));
     return send(res, json(r, r.ok ? 200 : 404));
   }
+  // POST /api/memory/proposal/apply —— 用户在维护卡片上确认后,按候选 kind 落盘(memory_revise 覆盖 /
+  // relation_propose 写 confirmed 边 / relation_revoke 删边)。模型只 propose,此路由只由 UI 调用(用户批准)。
+  if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal/apply') {
+    const body = await readJsonBody(req);
+    const sessionId = safeSessionId(body && body.sessionId);
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const config = await readConfig();
+    const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
+    if (!pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
+    const r = await applyMemoryRelationProposal(sessionId, String(body && body.proposalId || ''), cwd);
+    return send(res, json(r, r.ok ? 200 : (r.conflict ? 409 : 404)));
+  }
   // POST /api/memory/draft {sessionId} —— provider 起草(镜像 playbook/draft)。必须在通配 /api/memory/<id> 之前。
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/draft') {   // 对抗轮 P3: 放行删除约定穿透
     const body = await readJsonBody(req);
@@ -1549,6 +1561,49 @@ const MCP_TOOLS = [
         scope: { type: 'string', enum: ['project', 'global'], description: 'Use global only for an explicitly cross-project personal preference.' },
         body: { type: 'string', minLength: 1, maxLength: 4000, description: 'Concise Markdown with conclusion, applicability and concrete practice.' },
         reason: { type: 'string', minLength: 1, maxLength: 240, description: 'Why this will remain useful across future sessions.' },
+      },
+    },
+  },
+  {
+    name: 'workbench_memory_relation_propose',
+    description: 'Propose a relation edge between two existing confirmed Workbench Memory entries (supports/contradicts/supersedes/derived_from). It never saves directly: the user must confirm the card after the turn. from/to must be memory ids that already exist in the same scope.',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['type', 'from', 'to'],
+      properties: {
+        type: { type: 'string', enum: ['supports', 'contradicts', 'supersedes', 'derived_from'], description: 'How from relates to to.' },
+        from: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$', description: 'Source memory id (must exist in the target scope).' },
+        to: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$', description: 'Target memory id (must exist in the target scope).' },
+        scope: { type: 'string', enum: ['project', 'global'], default: 'project', description: 'Scope of both from/to.' },
+        note: { type: 'string', maxLength: 200, description: 'Optional short rationale for the relation.' },
+        reason: { type: 'string', maxLength: 240, description: 'Why this relation is worth confirming.' },
+      },
+    },
+  },
+  {
+    name: 'workbench_memory_revise',
+    description: 'Propose a revision to an existing confirmed Workbench Memory entry (name/description/type/body). It never saves directly: the user must confirm the card after the turn. Provide the suggested replacement values; unchanged fields may be omitted.',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['id', 'reason'],
+      properties: {
+        id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$', description: 'Memory id to revise.' },
+        scope: { type: 'string', enum: ['project', 'global'], description: 'Scope of the target memory.' },
+        name: { type: 'string', minLength: 1, maxLength: 120, description: 'Suggested replacement name (omit to keep).' },
+        description: { type: 'string', minLength: 1, maxLength: 400, description: 'Suggested replacement description (omit to keep).' },
+        type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'], description: 'Suggested replacement type (omit to keep).' },
+        body: { type: 'string', minLength: 1, maxLength: 4000, description: 'Suggested replacement Markdown body (omit to keep).' },
+        reason: { type: 'string', minLength: 1, maxLength: 240, description: 'Why the entry is stale/wrong and should be revised.' },
+      },
+    },
+  },
+  {
+    name: 'workbench_memory_relation_revoke',
+    description: 'Propose revoking (deleting) an existing memory relation edge. It never deletes directly: the user must confirm the card after the turn. Use relationId from listMemoryRelations or a prior confirmed relation.',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['relationId'],
+      properties: {
+        relationId: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$', description: 'Relation edge id to revoke.' },
+        note: { type: 'string', maxLength: 200, description: 'Optional short rationale for revoking.' },
+        reason: { type: 'string', maxLength: 240, description: 'Why this edge should be removed.' },
       },
     },
   },

@@ -222,6 +222,9 @@ async function runClaudeTurn({
         list: 'mcp__win-claude-workbench__workbench_memory_list',
         read: 'mcp__win-claude-workbench__workbench_memory_read',
         propose: 'mcp__win-claude-workbench__workbench_memory_propose',
+        relationPropose: 'mcp__win-claude-workbench__workbench_memory_relation_propose',
+        revise: 'mcp__win-claude-workbench__workbench_memory_revise',
+        relationRevoke: 'mcp__win-claude-workbench__workbench_memory_relation_revoke',
       }));
     }
     if (config.desktopMcp && config.desktopMcp.enabled) {

@@ -950,21 +950,38 @@ async function suggestMemoryFromTurn(sessionId, host) {
   const messages = host.closest && host.closest('#messages');
   for (const old of (messages ? messages.querySelectorAll('.memory-proposal-card') : [])) old.remove();
   const proposal = result.proposal;
+  const kind = proposal.kind || 'memory';
   const card = el('section', 'memory-proposal-card');
   card.setAttribute('aria-label', t('memory.proposal.aria'));
   const head = el('div', 'memory-proposal-head');
-  head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kicker')));
+  if (kind === 'relation_propose') head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kickerRelation')));
+  else if (kind === 'relation_revoke') head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kickerRevoke')));
+  else if (kind === 'memory_revise') head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kickerRevise')));
+  else head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kicker')));
   const tags = el('span', 'memory-proposal-tags');
-  tags.append(
-    el('span', 'memory-proposal-tag', proposal.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')),
-    el('span', 'memory-proposal-tag', memoryTypeLabel(proposal.type)),
-  );
+  if (kind === 'relation_propose') {
+    tags.append(
+      el('span', 'memory-proposal-tag', proposal.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')),
+      el('span', 'memory-proposal-tag', proposal.relationType || ''),
+    );
+  } else if (kind === 'relation_revoke') {
+    tags.append(el('span', 'memory-proposal-tag', proposal.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')));
+  } else {
+    tags.append(
+      el('span', 'memory-proposal-tag', proposal.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')),
+      el('span', 'memory-proposal-tag', memoryTypeLabel(proposal.type)),
+    );
+  }
   head.appendChild(tags);
-  card.append(head, el('div', 'memory-proposal-title', proposal.name || ''), el('div', 'memory-proposal-desc', proposal.description || ''));
+  let title = proposal.name || '';
+  let desc = proposal.description || '';
+  if (kind === 'relation_propose') { title = (proposal.from || '') + ' ' + (proposal.relationType || '') + ' ' + (proposal.to || ''); desc = proposal.note || proposal.description || ''; }
+  else if (kind === 'relation_revoke') { title = proposal.relation ? (proposal.relation.type + ' ' + proposal.relation.from + ' → ' + proposal.relation.to) : (proposal.relationId || ''); desc = proposal.note || ''; }
+  card.append(head, el('div', 'memory-proposal-title', title), el('div', 'memory-proposal-desc', desc));
   if (proposal.reason) card.appendChild(el('div', 'memory-proposal-reason', t('memory.proposal.reason', { reason: proposal.reason })));
   const actions = el('div', 'memory-proposal-actions');
   const dismiss = el('button', 'mini', t('memory.proposal.dismiss'));
-  const review = el('button', 'mini primary', t('memory.proposal.review'));
+  const review = el('button', 'mini primary', kind === 'memory' ? t('memory.proposal.review') : t('memory.proposal.apply'));
   actions.append(dismiss, review); card.appendChild(actions);
   const removeCard = () => { card.classList.add('settled'); setTimeout(() => card.remove(), 160); };
   dismiss.onclick = () => {
@@ -972,10 +989,23 @@ async function suggestMemoryFromTurn(sessionId, host) {
     settleMemoryProposal(sessionId, result.proposalId, 'dismissed');
     removeCard();
   };
-  review.onclick = () => {
+  review.onclick = async () => {
     if (review.disabled) return;
     review.disabled = true;
-    openMemoryEditModal({ ...proposal, scope: proposal.scope || 'project', _isDraft: true, _proposalId: result.proposalId, _onProposalSaved: removeCard, _onProposalEditCancelled: () => { if (card.isConnected) review.disabled = false; } });
+    if (kind === 'memory') {
+      openMemoryEditModal({ ...proposal, scope: proposal.scope || 'project', _isDraft: true, _proposalId: result.proposalId, _onProposalSaved: removeCard, _onProposalEditCancelled: () => { if (card.isConnected) review.disabled = false; } });
+      return;
+    }
+    // 维护提议(改记忆/建边/撤边)：确认后由后端 apply 落盘，模型不直接写。
+    try {
+      const r = await api('/api/memory/proposal/apply', { method: 'POST', body: JSON.stringify({ sessionId, proposalId: result.proposalId, cwd: currentWorkspace() || '' }) });
+      if (!r || !r.ok) throw new Error((r && r.error) || t('common.unknownError'));
+      toast(t('memory.proposal.applied'), 'ok');
+      removeCard();
+    } catch (error) {
+      toast(t('memory.proposal.applyFailed', { err: apiErrText(error) }), 'err');
+      if (card.isConnected) review.disabled = false;
+    }
   };
   host.appendChild(card);
 }

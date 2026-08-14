@@ -411,6 +411,140 @@ async function proposeWorkbenchMemory(args, ctx) {
   return { ok: true, proposalId: id, pendingUserConfirmation: true, proposal: safeProposal, note: '候选已提交；只有用户在回合后的记忆卡片中确认后才会写入工作台记忆。' };
 }
 
+// R4 主回合记忆维护工具(建边/改记忆/撤边)。三者与 workbench_memory_propose 共用同一个候选单槽
+// (source:'tool')：同回合先到者胜,跨回合新提议 supersede 旧 pending(与 proposeWorkbenchMemory 同纪律)。
+// 记忆新增走编辑弹窗保存;关系维护(memory_revise/relation_propose/relation_revoke)在卡片上确认后由
+// applyMemoryRelationProposal 落盘。模型只 propose,最终批准始终由用户决定。
+
+// 同回合已有 pending 候选时返回 true(先到者胜)。
+function toolMemoryProposalAlreadyPending(state, turnSeq) {
+  return !!(state && state.current && state.current.status === 'pending'
+    && Number(state.current.proposal && state.current.proposal.sourceTurnSeq) === turnSeq);
+}
+
+// 把一条模型工具提议写进候选单槽(source:'tool')。返回 {proposalId, proposal, alreadyPending}。
+async function commitToolMemoryProposal(sid, turnSeq, cwd, proposal, semanticKey, summary) {
+  const state = await readMemoryProposalState(sid);
+  // 同回合并发窗口 re-check:入口检查之后、写槽之前,另一工具可能已写入本回合 pending(provider 引擎可并行
+  // 派发 function_call)。保持先到者胜,不覆盖,与 proposeWorkbenchMemory 的幂等语义一致。
+  if (toolMemoryProposalAlreadyPending(state, turnSeq)) {
+    return { proposalId: state.current.id, proposal: state.current.proposal, alreadyPending: true };
+  }
+  const id = 'proposal-' + crypto.randomBytes(8).toString('hex');
+  const safeProposal = { ...proposal, sourceSessionId: sid, sourceTurnSeq: turnSeq };
+  if (state.current && state.current.status === 'pending') {
+    state.current.status = 'superseded';
+    state.history.push({ semanticKey: state.current.semanticKey, summary: state.current.summary, status: 'superseded', turnSeq: state.current.proposal && state.current.proposal.sourceTurnSeq, decidedAt: nowIso() });
+  }
+  state.lastEvaluatedTurn = turnSeq;
+  state.lastShownTurn = turnSeq;
+  state.current = { id, status: 'pending', source: 'tool', semanticKey, summary, proposal: safeProposal, createdAt: nowIso(), projectKey: projectKeyForCwd(cwd) };
+  state.history = state.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX);
+  await writeMemoryProposalState(sid, state);
+  return { proposalId: id, proposal: safeProposal, alreadyPending: false };
+}
+
+// workbench_memory_relation_propose：主回合模型提议一条记忆关系边(supports/contradicts/supersedes/derived_from)。
+// 只写候选单槽(kind:'relation_propose'),用户确认后落 confirmed 边。与 gate 节点自动提议(走 _relations.json
+// pending 边)是两条独立通道,语义等价但承载不同。
+async function proposeMemoryRelationTool(args, ctx) {
+  const { sid, session, cwd } = await resolveWorkbenchMemoryToolContext(ctx);
+  if (!sid || !session) return { ok: false, error: 'workbench_memory_relation_propose requires a live workbench session' };
+  const turnSeq = Math.max(0, Math.floor(Number((ctx && ctx.turnSeq) != null ? ctx.turnSeq : session.turnSeq) || 0));
+  const state = await readMemoryProposalState(sid);
+  if (toolMemoryProposalAlreadyPending(state, turnSeq)) {
+    return { ok: true, proposalId: state.current.id, proposal: state.current.proposal, pendingUserConfirmation: true, alreadyPending: true, source: 'tool', note: '本回合已有记忆维护候选；保持先到候选，不重复生成或覆盖。' };
+  }
+  const type = String(args && args.type || '');
+  const from = String(args && args.from || '').trim();
+  const to = String(args && args.to || '').trim();
+  const scope = (args && args.scope) === 'global' ? 'global' : 'project';
+  if (!MEMORY_RELATION_TYPES.has(type)) return { ok: false, error: 'relation type 须为 supports/contradicts/supersedes/derived_from' };
+  if (!SKILL_ID_RE.test(from) || !SKILL_ID_RE.test(to) || from === to) return { ok: false, error: 'from/to 须为合法记忆 id 且互不相同' };
+  // from/to 须在目标 scope 内已存在(与 proposeMemoryRelation 同红线,防跨 scope/幽灵 id)。
+  const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
+  const reg = await readMemoryDir(dir, scope);
+  if (!reg.has(from) || !reg.has(to)) return { ok: false, error: 'from 或 to 在目标 scope 内不存在(拒绝跨 scope 或幽灵 id 建边)' };
+  const note = fmVal(String((args && args.note) || '')).slice(0, 200);
+  const reason = fmVal(String((args && args.reason) || '')).slice(0, 240) || note;
+  if (memoryProposalLooksSensitive({ name: note, description: reason, body: '' })) return { ok: false, error: '候选看起来敏感，未提交' };
+  const proposal = { kind: 'relation_propose', relationType: type, from, to, scope, note, reason };
+  const committed = await commitToolMemoryProposal(sid, turnSeq, cwd, proposal, 'rel:' + type + ':' + from + ':' + to, '关系提议 ' + type + ' ' + from + '→' + to);
+  if (committed.alreadyPending) {
+    return { ok: true, proposalId: committed.proposalId, proposal: committed.proposal, pendingUserConfirmation: true, alreadyPending: true, source: 'tool', note: '本回合已有记忆维护候选；保持先到候选，不重复生成或覆盖。' };
+  }
+  return { ok: true, proposalId: committed.proposalId, pendingUserConfirmation: true, proposal: committed.proposal, note: '关系候选已提交；只有用户在回合后的卡片中确认后才会写入关系边。' };
+}
+
+// workbench_memory_revise：主回合模型提议修改一条已确认记忆(name/description/type/body)。
+// 只写候选单槽(kind:'memory_revise'),用户确认后 saveMemory 覆盖(保留原 id/createdAt)。
+async function proposeMemoryRevision(args, ctx) {
+  const { sid, session, cwd } = await resolveWorkbenchMemoryToolContext(ctx);
+  if (!sid || !session) return { ok: false, error: 'workbench_memory_revise requires a live workbench session' };
+  const turnSeq = Math.max(0, Math.floor(Number((ctx && ctx.turnSeq) != null ? ctx.turnSeq : session.turnSeq) || 0));
+  const state = await readMemoryProposalState(sid);
+  if (toolMemoryProposalAlreadyPending(state, turnSeq)) {
+    return { ok: true, proposalId: state.current.id, proposal: state.current.proposal, pendingUserConfirmation: true, alreadyPending: true, source: 'tool', note: '本回合已有记忆维护候选；保持先到候选，不重复生成或覆盖。' };
+  }
+  const targetId = String(args && args.id || '').trim();
+  const targetScope = (args && args.scope) === 'global' ? 'global' : 'project';
+  if (!SKILL_ID_RE.test(targetId)) return { ok: false, error: 'invalid memory id' };
+  const target = await readMemoryItem(targetId, targetScope, cwd);
+  if (!target.ok) return { ok: false, error: '目标记忆不存在' };
+  // 敏感过滤用【原始输入】(未 fmVal 抹换行),避免跨行敏感串(如 PEM key/多行凭据)被换行粘连后逃过正则。
+  const rawName = String((args && args.name) || '');
+  const rawDescription = String((args && args.description) || '');
+  const rawBody = String((args && args.body) || '').trim();
+  const rawReason = String((args && args.reason) || '');
+  if (memoryProposalLooksSensitive({ name: rawName, description: rawDescription, body: rawBody + '\n' + rawReason })) return { ok: false, error: '候选看起来敏感，未提交' };
+  const name = fmVal(rawName).slice(0, 120);
+  const description = fmVal(rawDescription).slice(0, 400);
+  const type = MEMORY_TYPES.has(args && args.type) ? args.type : target.memory.type;
+  const body = rawBody;
+  const hasChange = !!(name || description || body || (args && args.type && args.type !== target.memory.type));
+  if (!hasChange) return { ok: false, error: '至少提供一个建议修改字段(name/description/type/body)' };
+  if (body.length > 4000) return { ok: false, error: 'body 不能超过 4000 字符' };
+  const reason = fmVal(rawReason).slice(0, 240);
+  if (!reason) return { ok: false, error: 'reason 是必填(说明为什么建议修改)' };
+  const proposal = { kind: 'memory_revise', targetId, targetScope, name: name || target.memory.name, description: description || target.memory.description, type, body: body || target.memory.body, reason };
+  const committed = await commitToolMemoryProposal(sid, turnSeq, cwd, proposal, 'revise:' + targetId, '修改记忆 ' + target.memory.name);
+  if (committed.alreadyPending) {
+    return { ok: true, proposalId: committed.proposalId, proposal: committed.proposal, pendingUserConfirmation: true, alreadyPending: true, source: 'tool', note: '本回合已有记忆维护候选；保持先到候选，不重复生成或覆盖。' };
+  }
+  return { ok: true, proposalId: committed.proposalId, pendingUserConfirmation: true, proposal: committed.proposal, note: '修改建议已提交；用户确认后才会覆盖原记忆。' };
+}
+
+// workbench_memory_relation_revoke：主回合模型提议撤销一条关系边。只写候选单槽(kind:'relation_revoke'),
+// 用户确认后 deleteMemoryRelation 删除。
+async function proposeMemoryRelationRevoke(args, ctx) {
+  const { sid, session, cwd } = await resolveWorkbenchMemoryToolContext(ctx);
+  if (!sid || !session) return { ok: false, error: 'workbench_memory_relation_revoke requires a live workbench session' };
+  const turnSeq = Math.max(0, Math.floor(Number((ctx && ctx.turnSeq) != null ? ctx.turnSeq : session.turnSeq) || 0));
+  const state = await readMemoryProposalState(sid);
+  if (toolMemoryProposalAlreadyPending(state, turnSeq)) {
+    return { ok: true, proposalId: state.current.id, proposal: state.current.proposal, pendingUserConfirmation: true, alreadyPending: true, source: 'tool', note: '本回合已有记忆维护候选；保持先到候选，不重复生成或覆盖。' };
+  }
+  const relationId = String(args && args.relationId || '').trim();
+  if (!SKILL_ID_RE.test(relationId)) return { ok: false, error: 'invalid relation id' };
+  // 确认关系存在(跨 scope 查找,与 confirm/delete 同型)。
+  let found = null, foundScope = 'project';
+  for (const scope of ['project', 'global']) {
+    const all = await readMemoryRelations(scope, cwd);
+    const idx = all.findIndex(x => x.id === relationId);
+    if (idx >= 0) { found = all[idx]; foundScope = scope; break; }
+  }
+  if (!found) return { ok: false, error: '关系不存在' };
+  const note = fmVal(String((args && args.note) || '')).slice(0, 200);
+  const reason = fmVal(String((args && args.reason) || '')).slice(0, 240) || note;
+  if (memoryProposalLooksSensitive({ name: note, description: reason, body: '' })) return { ok: false, error: '候选看起来敏感，未提交' };
+  const proposal = { kind: 'relation_revoke', relationId, scope: foundScope, note, reason, relation: { type: found.type, from: found.from, to: found.to } };
+  const committed = await commitToolMemoryProposal(sid, turnSeq, cwd, proposal, 'revoke:' + relationId, '撤销关系 ' + relationId);
+  if (committed.alreadyPending) {
+    return { ok: true, proposalId: committed.proposalId, proposal: committed.proposal, pendingUserConfirmation: true, alreadyPending: true, source: 'tool', note: '本回合已有记忆维护候选；保持先到候选，不重复生成或覆盖。' };
+  }
+  return { ok: true, proposalId: committed.proposalId, pendingUserConfirmation: true, proposal: committed.proposal, note: '撤销建议已提交；用户确认后才会删除该关系边。' };
+}
+
 // 迁移一条项目记忆到当前 cwd 的项目组(C1:项目移动/改名后 projectKey 变,旧组记忆搬到新组)。移动文件。
 async function migrateMemory(id, fromKey, targetCwd) {
   const safe = String(id || '');
@@ -746,6 +880,44 @@ async function decideMemoryProposal(sessionId, proposalId, decision) {
   state.history = state.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX);
   await writeMemoryProposalState(sid, state);
   return { ok: true, proposalId: state.current.id, status: decided };
+}
+
+// 应用一条已确认的维护提议(memory_revise → saveMemory 覆盖；relation_propose → 写 confirmed 边；
+// relation_revoke → 删边)。memory(新增)仍走前端编辑弹窗保存,不经此函数。校验候选仍 pending + 项目一致后按 kind 分发并 settle。
+async function applyMemoryRelationProposal(sessionId, proposalId, cwd) {
+  const sid = safeSessionId(sessionId);
+  if (!sid || !proposalId) return { ok: false, error: 'invalid proposal source' };
+  const state = await readMemoryProposalState(sid);
+  if (!state.current || state.current.id !== String(proposalId) || state.current.status !== 'pending') return { ok: false, error: 'proposal not found' };
+  if (state.current.projectKey && state.current.projectKey !== projectKeyForCwd(cwd)) return { ok: false, conflict: true, error: '候选来源项目已变化，请回到原项目后再操作' };
+  const p = state.current.proposal || {};
+  const kind = p.kind || 'memory';
+  if (kind !== 'memory_revise' && kind !== 'relation_propose' && kind !== 'relation_revoke') return { ok: false, error: '该候选不是记忆维护提议，请用编辑弹窗保存' };
+  let applied;
+  if (kind === 'memory_revise') {
+    const target = await readMemoryItem(String(p.targetId || ''), p.targetScope === 'global' ? 'global' : 'project', cwd);
+    if (!target.ok) return { ok: false, error: '目标记忆已不存在' };
+    applied = await saveMemory({ id: p.targetId, scope: p.targetScope === 'global' ? 'global' : 'project', name: p.name, description: p.description, type: p.type, body: p.body }, cwd);
+  } else if (kind === 'relation_propose') {
+    const rel = { type: p.relationType, from: p.from, to: p.to, scope: p.scope === 'global' ? 'global' : 'project', note: p.note };
+    const r = await proposeMemoryRelation(rel, cwd);
+    if (r.ok) {
+      applied = await confirmMemoryRelation(r.relation.id, cwd);
+    } else if (r.relation && r.relation.confirmed === true) {
+      // 同形边已 confirmed(如 gate 节点抢先建边或用户此前已确认)→ 幂等成功,不再报错。
+      applied = { ok: true, relation: r.relation, alreadyConfirmed: true };
+    } else if (r.relation) {
+      // 同形边处于 pending → 直接 confirm 成 confirmed。
+      applied = await confirmMemoryRelation(r.relation.id, cwd);
+    } else {
+      applied = r;
+    }
+  } else { // relation_revoke
+    applied = await deleteMemoryRelation(String(p.relationId || ''), cwd);
+  }
+  if (!applied || !applied.ok) return { ok: false, error: (applied && applied.error) || 'apply failed' };
+  await decideMemoryProposal(sid, proposalId, 'saved');
+  return { ok: true, proposalId, kind, applied };
 }
 
 async function validateMemoryProposalSave(sessionId, proposalId, cwd) {
@@ -1472,6 +1644,7 @@ function buildOpenAiTools(config, caps, opts) {
 const NATIVE_TOOL_TIER = {
   permission_prompt: 'exec', // CLI 权限桥(由 --permission-prompt-tool 触达);原靠 unknown→exec 兜底,第41波显式化
   workbench_memory_list: 'read', workbench_memory_read: 'read', workbench_memory_propose: 'read',
+  workbench_memory_relation_propose: 'read', workbench_memory_revise: 'read', workbench_memory_relation_revoke: 'read',
   list_tools: 'read', tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
@@ -1552,6 +1725,7 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
 const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
   workbench_memory_list: 'core', workbench_memory_read: 'core', workbench_memory_propose: 'core',
+  workbench_memory_relation_propose: 'core', workbench_memory_revise: 'core', workbench_memory_relation_revoke: 'core',
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',

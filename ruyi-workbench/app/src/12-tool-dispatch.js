@@ -112,6 +112,15 @@ const CORE_TOOL_HANDLERS = {
   workbench_memory_propose: { paths: null, guardNote: "仅写待用户确认的候选元数据,不直接写入记忆库", handler: async (args, ctx) => {
       return proposeWorkbenchMemory(args, ctx);
   } },
+  workbench_memory_relation_propose: { paths: null, guardNote: "仅写待用户确认的关系候选,不直接写入关系边", handler: async (args, ctx) => {
+      return proposeMemoryRelationTool(args, ctx);
+  } },
+  workbench_memory_revise: { paths: null, guardNote: "仅写待用户确认的修改建议,不直接覆盖记忆", handler: async (args, ctx) => {
+      return proposeMemoryRevision(args, ctx);
+  } },
+  workbench_memory_relation_revoke: { paths: null, guardNote: "仅写待用户确认的撤销建议,不直接删除关系边", handler: async (args, ctx) => {
+      return proposeMemoryRelationRevoke(args, ctx);
+  } },
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config);
