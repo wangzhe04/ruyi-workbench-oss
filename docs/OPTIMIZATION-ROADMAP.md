@@ -25,7 +25,7 @@
 | 线 | 状态 | 依据 |
 |---|---|---|
 | **Escapade 发布线** | `v2.5.0` 已发布（2026-08-09，含第95–98波：再开一回合、交办台附件、Layout 精简、真实调度波次、桌面壳、HB360 快照等） | `CHANGELOG.md`、git tag `v2.5.0` |
-| **Pretender 3.0 交付线（⏸️ 搁置）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）** | `docs/PRETENDER-PLAN.md` v4、`docs/PRETENDER-METRICS.md`、第99/100波记录 `docs/optimization-plan/08-task-sheet-ux-audit.md` |
+| **Pretender 3.0 交付线（⏸️ 搁置）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）** | `docs/PRETENDER-PLAN.md` v4、`docs/PRETENDER-METRICS.md`、第99/100波记录 `docs/archive/optimization-plan/08-task-sheet-ux-audit.md` |
 | **Traveler 4.0** | 概念稿 v0.1（非承诺） | `docs/TRAVELER-CONCEPT.md` |
 
 ---
@@ -63,14 +63,14 @@
 - 用户日常 dogfood 不爽点随时收录（主渠道，不等正式访谈）
 - **`preview-shell.js` 架构摸底**：该文件已 192KB / 5000+ 行，承载立单、任务单、档案、决策抽屉全部逻辑；评估按域拆分方案（只出方案与风险清单，本波不动手）
 - 产出与出门：UX 问题清单（每条含复现路径、P0/P1/P2 分级、建议修法、验收标准），冻结为第100波范围；本波不改变任何交互
-- **走查已交付（2026-08-10）**：[`optimization-plan/08-task-sheet-ux-audit.md`](optimization-plan/08-task-sheet-ux-audit.md)——代码级事实走查，任务单 IA（A1–A7）+ 进度/状态反馈（B1–B7）共 14 条分级清单、preview-shell.js 拆分方案、第100波方案 A（渐进）/方案 B（三段式重构）分叉；**方案 B 已拍板（2026-08-10，用户选定，见第100波）**
+- **走查已交付（2026-08-10）**：[`archive/optimization-plan/08-task-sheet-ux-audit.md`](archive/optimization-plan/08-task-sheet-ux-audit.md)——代码级事实走查，任务单 IA（A1–A7）+ 进度/状态反馈（B1–B7）共 14 条分级清单、preview-shell.js 拆分方案、第100波方案 A（渐进）/方案 B（三段式重构）分叉；**方案 B 已拍板（2026-08-10，用户选定，见第100波）**
 
 **第100波 · 交办台任务单三段式重构（✅ 2026-08-10 已交付）**
-- 拍板范围（`optimization-plan/08-task-sheet-ux-audit.md` §6 方案 B）：任务单重排为「**现状头**（五态+速报 v2+可展开进度清单）/ **结果与行动**（收工·停工·待决前置 + 控制台收敛为头部内联行，页脚去经典 primary）/ **过程**（默认折叠，现场镜头=纪要+班组合一 + 原始记录+台账）」；A1–A7、B1–B7 全量覆盖，P2 记档可顺移
+- 拍板范围（`archive/optimization-plan/08-task-sheet-ux-audit.md` §6 方案 B）：任务单重排为「**现状头**（五态+速报 v2+可展开进度清单）/ **结果与行动**（收工·停工·待决前置 + 控制台收敛为头部内联行，页脚去经典 primary）/ **过程**（默认折叠，现场镜头=纪要+班组合一 + 原始记录+台账）」；A1–A7、B1–B7 全量覆盖，P2 记档可顺移
 - 实施次序（硬约束）：① `preview-shell.js` 按域拆分**先行**（纯搬家、零视觉变化，独立 commit）→ ② B1 速报 v2 + B2 可解释进度（与结构无关的 P0，可单独发布）→ ③ 三段式重构主体（先出视觉稿，走 v4-glass token 体系）
 - 每项改动过既有门：双主题截图回归、390px、a11y、输入不中断回归、经典零回归闸、五态首屏结构快照断言
 - 出门：清单逐项销号 + 全量回归绿；随 Escapade 修订版发布，走既有发布门
-- **交付记录**：先以独立 commit 完成 `preview-shell.js` 五域拆分，再落地现状头 / 结果与行动 / 可折叠过程、现场+班组合镜、速报 v2 与可解释验收项；浅色主题经 dogfood 复核改为与现有青花体系一致的清透白，移除大面积灰/米色与禁用态灰块。A1–A7、B1–B7 销号及自动化证据见 `optimization-plan/08-task-sheet-ux-audit.md` §8。
+- **交付记录**：先以独立 commit 完成 `preview-shell.js` 五域拆分，再落地现状头 / 结果与行动 / 可折叠过程、现场+班组合镜、速报 v2 与可解释验收项；浅色主题经 dogfood 复核改为与现有青花体系一致的清透白，移除大面积灰/米色与禁用态灰块。A1–A7、B1–B7 销号及自动化证据见 `archive/optimization-plan/08-task-sheet-ux-audit.md` §8。
 
 **第101波 · 正式人因验证 + 收口准备（⏭️ 2026-08-10 用户决定跳过，3.0 收口就此搁置）**
 - 原计划：按 `docs/PRETENDER-PLAN.md` §3 规程执行**外部受试者**人因验证（在优化后形态上）：打开任务到正确复述「离开后发生了什么」≤10s；可回滚/部分恢复/不可逆判断正确率 ≥90%；北极星四指标全测；验证发现分级（阻断项当场修复复测、非阻断项入 post-3.0 清单）；收口准备（Release Brief / 发布物正名预案 / 回滚预案）；出门 = **P3 Product Ready 正式宣告**
@@ -91,18 +91,18 @@
 `docs/optimization-plan/07-microagent-lessons.md`（2026-08-10 立）：MicroAgent 论文 × Ruyi 逐项对照（主会话核实），产出 M1–M6——编排上下文分级注入（P0）、确定性节点扩展 + vote 门防误杀、verify 节点输入覆盖率职责、HB360 单轴消融纪律、模板方法论工具、O3 证据回溯升级。与 06（HB360 成本收敛）互为姊妹篇，分 A–D 四个候选波次。原计划排在 3.0 之后；**2026-08-10 用户决定跳过第101波、3.0 收口搁置，本线提前推进**（在 Escapade 2.5.0 线上）。
 
 **候选 A 波（✅ 已交付）**：M3（verify 输入覆盖率）+ M4（单轴消融纪律）。
-- **M3 已交付（`9696483`）**：`QUALITY_GATE_OUTPUT_SCHEMA` 加可选 coverage 字段（不破坏存量 verify）+ 质量门 prompt 引导逐项核验 + 后端 unhandled 收紧（`gate_uncovered`）；e2e（quality-gates + quality-workflow + prompt-snapshot）+ build --check 全绿。实施文档 [`optimization-plan/09-m3-coverage-gate.md`](optimization-plan/09-m3-coverage-gate.md)。
-- **M4（流程项，不涉代码）**：实施文档已落 [`optimization-plan/10-m4-ablation.md`](optimization-plan/10-m4-ablation.md)——06 各优化项按「波次打包」上开关无法单轴归因，改为「每项独立开关 + 单轴回测 + 全量累进」，归因轴对齐工作流/工具/上下文三轴，含消融记账模板。**已交付（`bcd8fa7`）**：消融记账模板 + 三轴归因（工作流/工具/上下文）已成文。
+- **M3 已交付（`9696483`）**：`QUALITY_GATE_OUTPUT_SCHEMA` 加可选 coverage 字段（不破坏存量 verify）+ 质量门 prompt 引导逐项核验 + 后端 unhandled 收紧（`gate_uncovered`）；e2e（quality-gates + quality-workflow + prompt-snapshot）+ build --check 全绿。实施文档 [`archive/optimization-plan/09-m3-coverage-gate.md`](archive/optimization-plan/09-m3-coverage-gate.md)。
+- **M4（流程项，不涉代码）**：实施文档已落 [`archive/optimization-plan/10-m4-ablation.md`](archive/optimization-plan/10-m4-ablation.md)——06 各优化项按「波次打包」上开关无法单轴归因，改为「每项独立开关 + 单轴回测 + 全量累进」，归因轴对齐工作流/工具/上下文三轴，含消融记账模板。**已交付（`bcd8fa7`）**：消融记账模板 + 三轴归因（工作流/工具/上下文）已成文。
 
 **候选 B 波（✅ 已交付）**：M1（编排上下文分级注入，**唯一 P0**）+ M6（O3 证据回溯）。
-- **M1 实施文档已落** [`optimization-plan/11-m1-context-tiering.md`](optimization-plan/11-m1-context-tiering.md)：把 `09-workflow.js:647` 单一 `contextText`（所有节点同一份）升级为「全局层 + per-node 覆盖」--节点对象（L173）加 `context` 字段、contextPrefix（L647）追加节点层、节点 schema（L1883）补描述；节点无 context 时行为逐字节不变（存量模板零迁移）。**已交付（`0b3100d`，含节点级 context 注入 + 对抗加固 + e2e）**。
+- **M1 实施文档已落** [`archive/optimization-plan/11-m1-context-tiering.md`](archive/optimization-plan/11-m1-context-tiering.md)：把 `09-workflow.js:647` 单一 `contextText`（所有节点同一份）升级为「全局层 + per-node 覆盖」--节点对象（L173）加 `context` 字段、contextPrefix（L647）追加节点层、节点 schema（L1883）补描述；节点无 context 时行为逐字节不变（存量模板零迁移）。**已交付（`0b3100d`，含节点级 context 注入 + 对抗加固 + e2e）**。
 - **M6**：O3 自检升级为证据回溯，并入 06-O3，已随 R1 Evidence Graph 完成（R1 即 M6 的工程化落点）。
 
-**候选 D 波（07 §5 · ✅ 两工具已交付 2026-08-13）**：M5 高频模板方法论工具已落地两个——① `codebase_symbol_search`（codebase-audit 符号定义/引用检索）② `debug_hypothesis`（debug-root-cause 假设/实验/证伪状态机）。均过第 49 波新工具入库全部门（契约 + fake 回归 + description 审计 + tool-dispatch 行为锁 + facts 门面数字），见 [`17-m5-methodology-tools.md`](optimization-plan/17-m5-methodology-tools.md) 与 [`18-m5-debug-recorder.md`](optimization-plan/18-m5-debug-recorder.md)。data-insights 候选及 M4 消融收益验证待后续逐个启动。
+**候选 D 波（07 §5 · ✅ 两工具已交付 2026-08-13）**：M5 高频模板方法论工具已落地两个——① `codebase_symbol_search`（codebase-audit 符号定义/引用检索）② `debug_hypothesis`（debug-root-cause 假设/实验/证伪状态机）。均过第 49 波新工具入库全部门（契约 + fake 回归 + description 审计 + tool-dispatch 行为锁 + facts 门面数字），见 [`archive/optimization-plan/17-m5-methodology-tools.md`](archive/optimization-plan/17-m5-methodology-tools.md) 与 [`archive/optimization-plan/18-m5-debug-recorder.md`](archive/optimization-plan/18-m5-debug-recorder.md)。data-insights 候选及 M4 消融收益验证待后续逐个启动。
 
 **后续候选 C–F · Agent 架构研究补充（2026-08-10 纳入；不代表自动实现）**：在 MicroAgent M1–M6 之上，新增五段受控闭环：R1 claim-level Evidence Graph（P0，M6 的工程化落点）→ R2 从已验收轨迹归纳、人工发布的 Workflow Candidate Factory（P1）→ R3 基于 M4/HB360 的离线 Champion–Challenger Lab（P1）→ R4 Local Memory Graph（P2）与 R5 Replan Patch Ledger（P2）。所有能力都止于候选/提案，禁止自动发布模板、篡改记忆、扩大权限或在线学习。详细的架构、分期、验收和暂缓项见 [`optimization-plan/12-agent-architecture-research-roadmap.md`](optimization-plan/12-agent-architecture-research-roadmap.md)。
 
-- **候选 C（✅ 已交付）**：M2 确定性结构节点 + R1 Evidence Graph；先将“断言/结论 → 工具结果/文件片段/来源/人工确认”变成可校验关系。**R1 设计文档已落** [`optimization-plan/13-r1-evidence-graph.md`](optimization-plan/13-r1-evidence-graph.md)（P0，证据契约 + 引用校验 + 脱敏 + 威胁建模 + fake e2e，M6 工程化落点）；**M2 设计文档已落** [`optimization-plan/14-m2-deterministic-nodes.md`](optimization-plan/14-m2-deterministic-nodes.md)：vote 防误杀（abstainThreshold 低置信弃权，默认 0 存量零迁移）+ coverage/propagate 确定性节点（机器版 coverage 是 M3 校验源 + R1 evidence 数据源）。**阶段 C 全完成（R1 `935ad73` + M2 `caf7e57` + C1/C2/C3 均已交付）**。
+- **候选 C（✅ 已交付）**：M2 确定性结构节点 + R1 Evidence Graph；先将“断言/结论 → 工具结果/文件片段/来源/人工确认”变成可校验关系。**R1 设计文档已落** [`archive/optimization-plan/13-r1-evidence-graph.md`](archive/optimization-plan/13-r1-evidence-graph.md)（P0，证据契约 + 引用校验 + 脱敏 + 威胁建模 + fake e2e，M6 工程化落点）；**M2 设计文档已落** [`archive/optimization-plan/14-m2-deterministic-nodes.md`](archive/optimization-plan/14-m2-deterministic-nodes.md)：vote 防误杀（abstainThreshold 低置信弃权，默认 0 存量零迁移）+ coverage/propagate 确定性节点（机器版 coverage 是 M3 校验源 + R1 evidence 数据源）。**阶段 C 全完成（R1 `935ad73` + M2 `caf7e57` + C1/C2/C3 均已交付）**。
 - **候选 D（⏸️ 暂缓）**：R2 Workflow Candidate Factory；只使用充分验收、脱敏且证据完整的轨迹，候选经隔离回放和用户确认后才可成为项目模板。
 - **候选 E（⏸️ 暂缓）**：R3 Champion–Challenger Lab；不做线上 MCTS，先对受限变体在固定基准和 holdout 上做可重放的单轴/全量对比。
 - **候选 F（✅ 已收口）**：R4 Local Memory Graph 已完成 S1/S2/S3（关系存储 + 冲突检索 + gate 自动提议 + confirmed 图确定性聚类 + review-only 过期建议 + 孤儿边提示，`8effffc`/`0b69856`/`3b8bdf7`）；R5 Replan Patch Ledger 已完整实现（触发→提案→review 生成 changes→审批→apply/rollback 端到端闭环，`111723c`/`6922e48`/`26e1186`/`40d0113`/`292cf29`）。R2/R3 暂缓。

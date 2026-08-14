@@ -6,8 +6,8 @@
 - **第三轮(多代理对抗审判修订)**:四路只读代理(架构/工程/范围攻击 + steelman 辩护)+ 独立裁决,17 条发现裁决 **13 confirmed / 3 plausible / 1 refuted**,总裁决 **revise-major**。主会话对全部 confirmed 证据逐条亲验属实后修订:**契约幂等持久地基**(T1 拍板)、**决策路由改形带 missionId 段**(T2 拍板)、Intervention seq/settle 字段/撕裂尾行焊行/双壳跨路径四处数据缺口入 74–75 波交付清单、75b 阈值门前置成文、北极星指标可测化并删除「成文豁免」后门、C2 死线加日历兜底、stall 类型补拍板程序、工期加 DoD 乘数与时钟锚点(§6)。
 - **第四轮(契约与门语义复核)**:补齐 Intervention 状态 CAS 与崩溃中间态、规定旧端点必须收敛到同一 command core、以 Mission 级 `changeSeq` 取代脆弱的复合 lastSeenCursor、把三层门细化为五层、拆分第75波、收紧 1:N「零迁移」表述,并把双壳日历死线改为强制决策日而非无条件删除日(§6)。
 
-依据:`docs/UI-VNEXT-CONCEPT.md` §8–§11、`docs/PRETENDER-GATE-REVIEW.md`(第56波评审,GO 有条件 4 条)、路线图 EC-E 三切片(70/71/71b/72)已交付事实。
-配套:`docs/PRETENDER-GATE-REVIEW.md`、`docs/OPTIMIZATION-ROADMAP.md`。
+依据:`docs/UI-VNEXT-CONCEPT.md` §8–§11、`docs/archive/PRETENDER-GATE-REVIEW.md`(第56波评审,GO 有条件 4 条)、路线图 EC-E 三切片(70/71/71b/72)已交付事实。
+配套:`docs/archive/PRETENDER-GATE-REVIEW.md`、`docs/OPTIMIZATION-ROADMAP.md`。
 本文书是「规划」不是「承诺」:波次划分可随实施反馈重切,但**范围冻结项、四条附加条件、非目标、双壳退出死线、§6 四轮拍板项、§8 降级序**不得静默修改,改动必须成文。
 
 ---

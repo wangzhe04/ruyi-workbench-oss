@@ -26,7 +26,7 @@ language. They are engineering records rather than normative user or deployment 
 
 | Concept | Status | Scope |
 |---|---|---|
-| [Pretender 3.0](PRETENDER-PLAN.md) | **已立项 · 交付中（2026-08-06）** | 交办台新壳层；五层门 P1✅ / P2✅ / P3 工程✅（正式外部受试者人因验证待办）；P4 第87–91波已用于交办台/任务单 UX 打磨并随 2.4.1 发布，3.0.0 默认切换与发布因人因验证未做而暂缓。规划见 [`PRETENDER-PLAN.md`](PRETENDER-PLAN.md) v4、门评审见 [`PRETENDER-GATE-REVIEW.md`](PRETENDER-GATE-REVIEW.md)、本机指标见 [`PRETENDER-METRICS.md`](PRETENDER-METRICS.md) |
+| [Pretender 3.0](PRETENDER-PLAN.md) | **⏸️ 已搁置（2026-08-10 决定跳过人因验证，3.0 收口线整体搁置）** | 交办台新壳层；五层门 P1✅ / P2✅ / P3 工程✅（正式外部受试者人因验证待办，2026-08-10 决定跳过、3.0 收口线整体搁置）；P4 第87–91波已用于交办台/任务单 UX 打磨并随 2.4.1 发布，3.0.0 默认切换与发布因人因验证未做而暂缓。规划见 [`PRETENDER-PLAN.md`](PRETENDER-PLAN.md) v4、门评审见 [`archive/PRETENDER-GATE-REVIEW.md`](archive/PRETENDER-GATE-REVIEW.md)、本机指标见 [`PRETENDER-METRICS.md`](PRETENDER-METRICS.md) |
 | [Traveler 4.0](TRAVELER-CONCEPT.md) | **Concept v0.1 / 概念稿 v0.1** | Portable Missions：Task Capsule、安全续办、跨设备/接手者移交、执行权与证据回程；不是范围、版本或发布时间承诺 |
 
 ## UI 设计稿生命周期(第50波 D3 标注)
@@ -34,12 +34,11 @@ language. They are engineering records rather than normative user or deployment 
 | 设计稿 | 状态 | 说明 |
 |---|---|---|
 | [UI-DESIGN-V4.md](UI-DESIGN-V4.md) | **定稿(现行基线)** | 现代毛玻璃质感；token 值与 `css/tokens.css`、`css/themes/color-schemes.css` 一致，`styles.css` 为兼容清单；mockup: `mockups/v4-glass-*.html` |
-| [UI-ESCAPADE-TURN-NARRATIVE.md](UI-ESCAPADE-TURN-NARRATIVE.md) | **Escapade 提案(P1，建议前置)** | 一轮一个大框，文字/工具按真实顺序穿插；末尾保留完整工具、变更与产物复盘；Claude CLI/OpenAI 兼容共用协议与渲染器 |
-| [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | **已立项（Pretender 3.0 概念依据）** | 「交办台」概念稿；已按 `PRETENDER-PLAN.md` v4 立项推进（P1–P3 完成，P4 3.0.0 默认切换暂缓，第87–91波已用于 UX 打磨） |
+| [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | **概念稿（Pretender 3.0 依据，3.0 已搁置）** | 「交办台」概念稿；已按 `PRETENDER-PLAN.md` v4 立项推进（P1–P3 完成，P4 3.0.0 默认切换暂缓；2026-08-10 用户决定跳过人因验证、3.0 收口线整体搁置，第87–91波成果已随 2.4.1/2.5.0 交付） |
 
 ## 归档区(`archive/`)
 
-以下文档已竣工/已落地/已交付，移入 [`archive/`](archive/) 作为工程溯源档案。roadmap/ARCHITECTURE 仍按波次引用。
+以下文档已竣工/已落地/已交付，移入 [`archive/`](archive/) 作为工程溯源档案。roadmap/ARCHITECTURE 仍按波次引用。`optimization-plan/` 子目录索引已收窄：已交付的 01/02/03/08–19 号方案已归档至 [`archive/optimization-plan/`](archive/optimization-plan/)，当前活跃方案仅 04/05/06/07/12（活跃索引见 [`optimization-plan/README.md`](optimization-plan/README.md)，归档明细见 [`archive/optimization-plan/README.md`](archive/optimization-plan/README.md)）。
 
 | 文档 | 对应波次 | 状态 |
 |---|---|---|
@@ -55,5 +54,9 @@ language. They are engineering records rather than normative user or deployment 
 | [UI-DESIGN-P3-WORKBENCH.md](archive/UI-DESIGN-P3-WORKBENCH.md) | — | 已竣工(P3 工作台) |
 | [UI-DESIGN-R2-NOTES.md](archive/UI-DESIGN-R2-NOTES.md) | — | 已竣工(R2 视觉跃升) |
 | [UI-ORCHESTRATION-REDESIGN.md](archive/UI-ORCHESTRATION-REDESIGN.md) | — | 已竣工(编排 redesign) |
-| `archive/mockups/p2-refinements.html` | — | 旧版 mockup(R2 版在 `mockups/`) |
-| `archive/mockups/p3-workbench.html` | — | 旧版 mockup(R2 版在 `mockups/`) |
+| `archive/mockups-v1/p2-refinements.html` | — | 旧版 mockup(R2 版在 `mockups/`) |
+| `archive/mockups-v1/p3-workbench.html` | — | 旧版 mockup(R2 版在 `mockups/`) |
+| [AGENT-HARNESS-AUDIT.md](archive/AGENT-HARNESS-AUDIT.md) | — | 已归档(2026-07-31 差距审计) |
+| [UI-ESCAPADE-TURN-NARRATIVE.md](archive/UI-ESCAPADE-TURN-NARRATIVE.md) | 第54波 | 已落地(回合叙事化) |
+| [PRETENDER-GATE-REVIEW.md](archive/PRETENDER-GATE-REVIEW.md) | 第56波 | 已归档(立项门评审) |
+| [optimization-plan 已交付 14 份](archive/optimization-plan/README.md) | — | 已归档(01/02/03/08–19 已交付方案；见 archive/optimization-plan/README.md) |
