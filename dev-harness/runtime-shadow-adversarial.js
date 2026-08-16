@@ -337,14 +337,24 @@ function contextAudit(c1) {
 function failureAudit() {
   const fixtures = [];
   const add = (failureClass, tier, variants, allowedRepair, disposition = 'executed') => variants.forEach((error, index) => fixtures.push({ id: `${failureClass}_${tier}_${index}`, expected: failureClass, tier, error, allowedRepair, disposition }));
+  const addResult = (id, expected, tier, result, allowedRepair, safetyProbe = false) => fixtures.push({ id, expected, tier, result, allowedRepair, disposition: 'executed', safetyProbe, rawMarker: String(result.error || result.stderr || result.hint || '') });
   add('permission_denied', 'edit', ['permission denied', 'blocked by permission mode', 'not allowed by policy', '用户拒绝授权', '无权限执行', 'Access is denied'], 'request_authority');
-  add('invalid_arguments', 'read', ['invalid argument path', 'schema validation failed', 'required property root', '参数错误', '缺少字段 query', 'unexpected field foo'], 'modify_arguments');
+  add('policy_blocked', 'read', ['应用内部数据，已禁止文件工具访问', '检测到脚本在手写 Office 文件，请改用现成工具'], 'use_supported_tool');
+  add('invalid_arguments', 'read', ['invalid argument path', 'schema validation failed', 'required property root', 'query is required', '参数错误', '缺少字段 query', 'unexpected field foo'], 'modify_arguments');
+  add('edit_conflict', 'edit', ['oldText was not found', 'old_text missing', '找不到 oldText'], 'refresh_then_modify');
+  add('resource_not_found', 'exec', ['unknown shellId x', 'shell session not found', '未知会话'], 'reacquire_resource');
   add('tool_unavailable', 'read', ['unknown tool xyz', 'tool not found', 'connector offline', 'MCP server alpha not available', '工具不可用', '工具不存在'], 'retrieve_alternative_tool');
   add('no_progress', 'read', ['no progress', 'semantic stall', '死循环', '无新信息', '相同工具调用'], 'replan');
   add('verification_failed', 'read', ['verification failed', 'quality gate rejected', 'coverage gate_unverified', '验证失败', '校验失败'], 'repair_then_verify');
   add('transient_read', 'read', ['timeout', 'ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN', 'HTTP 429', 'HTTP 502', 'HTTP 503', 'HTTP 504', 'temporary unavailable', '连接超时', '连接重置'], 'retry_once');
   add('side_effect_unknown', 'edit', ['timeout after dispatch', 'ETIMEDOUT after write', 'ECONNRESET', 'network error', 'socket hang up', '连接超时', 'operation aborted', 'effect unknown'], 'stop_for_effect_check');
+  add('execution_failed', 'exec', ['Traceback (most recent call last)', 'ParserError', 'CommandNotFoundException'], 'inspect_error_then_modify');
   add('unknown', 'read', ['opaque Z-19', 'unexpected condition Q', 'failed for unspecified reason'], 'diagnose_only');
+
+  addResult('real_shape_exec_timeout', 'side_effect_unknown', 'exec', { ok: false, code: -1, timedOut: true, stderr: '[timed out; process tree killed]' }, 'stop_for_effect_check', true);
+  addResult('real_shape_exec_interrupted', 'side_effect_unknown', 'exec', { ok: false, code: 1, interrupted: true, steerInterrupted: true, error: '工具已因用户插话中断' }, 'stop_for_effect_check', true);
+  addResult('real_shape_nonzero_stderr', 'execution_failed', 'exec', { ok: false, code: 1, timedOut: false, stderr: 'Traceback (most recent call last)' }, 'inspect_error_then_modify');
+  addResult('real_shape_policy_code', 'policy_blocked', 'read', { ok: false, code: 'not-allowed', error: 'internal data access blocked' }, 'use_supported_tool');
   // Mutating transport ambiguity must be side_effect_unknown even when wording is only a status/temporary code.
   const mutatingAmbiguous = ['HTTP 429', 'HTTP 502', 'HTTP 503 Service Unavailable', 'HTTP 504', 'temporary unavailable', 'EAI_AGAIN', 'connection reset by peer', 'remote host closed connection'];
   mutatingAmbiguous.forEach((error, index) => fixtures.push({ id: `mutating_transport_${index}`, expected: 'side_effect_unknown', tier: index % 2 ? 'exec' : 'edit', error, allowedRepair: 'stop_for_effect_check', safetyProbe: true, disposition: 'executed' }));
@@ -353,11 +363,13 @@ function failureAudit() {
   const rows = []; const telemetryBytes = []; let crashes = 0;
   for (const fixture of fixtures) {
     let result = null;
-    try { result = ruyi.classifyRuntimeToolFailure('audit_tool', { ok: false, error: fixture.error }, { tier: fixture.tier, disposition: fixture.disposition }); }
+    const toolResult = fixture.result || { ok: false, error: fixture.error };
+    try { result = ruyi.classifyRuntimeToolFailure('audit_tool', toolResult, { tier: fixture.tier, disposition: fixture.disposition }); }
     catch (error) { crashes++; result = { failureClass: 'crash', allowedRepair: '', evidenceHash: '', error: error.message }; }
-    const repeat = ruyi.classifyRuntimeToolFailure('audit_tool', { ok: false, error: fixture.error }, { tier: fixture.tier, disposition: fixture.disposition });
+    const repeat = ruyi.classifyRuntimeToolFailure('audit_tool', toolResult, { tier: fixture.tier, disposition: fixture.disposition });
+    const rawMarker = String(fixture.rawMarker || fixture.error || '');
     telemetryBytes.push(Buffer.byteLength(JSON.stringify(result || {}), 'utf8'));
-    rows.push({ id: fixture.id, expected: fixture.expected, actual: result && result.failureClass, classCorrect: result && result.failureClass === fixture.expected, repairCorrect: result && result.allowedRepair === fixture.allowedRepair, deterministic: result && repeat && JSON.stringify(result) === JSON.stringify(repeat), hashShape: !!(result && /^[a-f0-9]{16}$/.test(result.evidenceHash || '')), rawErrorLeaked: !!(result && JSON.stringify(result).includes(fixture.error)), safetyProbe: !!fixture.safetyProbe, tier: fixture.tier, recoverableHint: !!(result && result.recoverableHint), allowedRepair: result && result.allowedRepair });
+    rows.push({ id: fixture.id, expected: fixture.expected, actual: result && result.failureClass, classCorrect: result && result.failureClass === fixture.expected, repairCorrect: result && result.allowedRepair === fixture.allowedRepair, deterministic: result && repeat && JSON.stringify(result) === JSON.stringify(repeat), hashShape: !!(result && /^[a-f0-9]{16}$/.test(result.evidenceHash || '')), rawErrorLeaked: !!(rawMarker && result && JSON.stringify(result).includes(rawMarker)), safetyProbe: !!fixture.safetyProbe, tier: fixture.tier, recoverableHint: !!(result && result.recoverableHint), allowedRepair: result && result.allowedRepair });
   }
   const successful = [
     { ok: true, content: 'done' }, { ok: true, status: 500, content: 'status in data only' }, {}, null,

@@ -34,3 +34,18 @@ test('20-F1 report excludes unrelated log records and surfaces unsafe side effec
   assert.equal(report.sideEffectUnknownCount, 1);
   assert.equal(report.byTool[0].name, 'powershell_run');
 });
+
+test('20-F1 report gates only the newest classifier cohort', () => {
+  const events = [
+    ...Array.from({ length: 31 }, () => row('unknown', false)),
+    ...Array.from({ length: 4 }, () => row('execution_failed', true, { classifierVersion: 'deterministic-v2', toolName: 'script_run', tier: 'exec' })),
+  ];
+  const report = summarizeFailureEvents(events);
+  assert.equal(report.schema, 2);
+  assert.equal(report.totalSampleSize, 35);
+  assert.equal(report.classifierVersion, 'deterministic-v2');
+  assert.equal(report.sampleSize, 4);
+  assert.equal(report.excludedOlderSampleSize, 31);
+  assert.equal(report.gate.recommendation, 'collect_more');
+  assert.deepEqual(report.byClass, [{ name: 'execution_failed', count: 4 }]);
+});

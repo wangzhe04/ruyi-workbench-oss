@@ -11,8 +11,26 @@ function sortedCounts(map) {
   return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name, count]) => ({ name, count }));
 }
 
+function failureClassifierVersion(row) {
+  const explicit = String(row && row.classifierVersion || '').trim();
+  return explicit || 'deterministic-v1-legacy';
+}
+
+function failureClassifierVersionRank(version) {
+  const match = /(?:^|-)v(\d+)(?:-|$)/i.exec(String(version || ''));
+  return match ? Number(match[1]) : 0;
+}
+
 function summarizeFailureEvents(events) {
-  const rows = (Array.isArray(events) ? events : []).filter(e => e && e.kind === 'runtime_failure_classified');
+  const allRows = (Array.isArray(events) ? events : []).filter(e => e && e.kind === 'runtime_failure_classified');
+  const byVersion = new Map();
+  for (const row of allRows) increment(byVersion, failureClassifierVersion(row));
+  const versions = [...byVersion.keys()].sort((a, b) => failureClassifierVersionRank(b) - failureClassifierVersionRank(a) || b.localeCompare(a));
+  const classifierVersion = versions[0] || 'deterministic-v1-legacy';
+  // A classifier change starts a fresh evidence cohort. Mixing the 29 known-v1 unknowns into v2 would make a
+  // repaired taxonomy look permanently bad and could approve/deny recovery using behavior the current runtime
+  // no longer has. Keep totalSampleSize for audit, but all gates and distributions describe only latest vN.
+  const rows = allRows.filter(row => failureClassifierVersion(row) === classifierVersion);
   const byClass = new Map(), byTool = new Map(), byTier = new Map();
   let recoverableCount = 0, deterministicCount = 0, sideEffectUnknownCount = 0;
   for (const row of rows) {
@@ -36,7 +54,9 @@ function summarizeFailureEvents(events) {
   let recommendation = 'collect_more';
   if (checks.enoughSamples) recommendation = pass ? 'implement_bounded_recovery' : 'do_not_implement_recovery';
   return {
-    schema: 1, generatedAt: new Date().toISOString(), sampleSize, recoverableCount,
+    schema: 2, generatedAt: new Date().toISOString(), classifierVersion,
+    totalSampleSize: allRows.length, excludedOlderSampleSize: allRows.length - rows.length,
+    byClassifierVersion: sortedCounts(byVersion), sampleSize, recoverableCount,
     recoverableRate: Number(recoverableRate.toFixed(4)), deterministicCount,
     deterministicRate: Number(deterministicRate.toFixed(4)), sideEffectUnknownCount,
     gate: { pass, checks, recommendation },
@@ -74,4 +94,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { summarizeFailureEvents, resolveLogDir, readFailureEvents };
+module.exports = { summarizeFailureEvents, resolveLogDir, readFailureEvents, failureClassifierVersion, failureClassifierVersionRank };

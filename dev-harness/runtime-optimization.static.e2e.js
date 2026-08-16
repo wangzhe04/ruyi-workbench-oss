@@ -84,6 +84,16 @@ ok(t1.classifyRuntimeToolFailure('file_edit', { ok: false, error: 'timeout after
 ok(t1.classifyRuntimeToolFailure('file_read', { ok: false, error: 'required property path is missing' }, { tier: 'read' }).failureClass === 'invalid_arguments', 'F1 schema error → invalid_arguments');
 ok(t1.classifyRuntimeToolFailure('file_write', { ok: false, error: 'denied by user' }, { tier: 'edit' }).recoverableHint === false, 'F1 permission denial is not auto-recoverable');
 ok(t1.classifyRuntimeToolFailure('file_read', { ok: true, content: 'ok' }, { tier: 'read' }) === null, 'F1 successful calls produce no failure record');
+const timedExec = t1.classifyRuntimeToolFailure('powershell_run', { ok: false, code: -1, timedOut: true, stderr: '[timed out; process tree killed]' }, { tier: 'exec' });
+ok(timedExec.failureClass === 'side_effect_unknown' && timedExec.allowedRepair === 'stop_for_effect_check', 'F1 structured exec timeout stays side-effect-safe');
+ok(t1.classifyRuntimeToolFailure('script_run', { ok: false, code: 1, stderr: 'Traceback (most recent call last)' }, { tier: 'exec' }).failureClass === 'execution_failed', 'F1 non-zero process result → execution_failed');
+ok(t1.classifyRuntimeToolFailure('file_edit', { ok: false, error: 'oldText was not found' }, { tier: 'edit' }).failureClass === 'edit_conflict', 'F1 stale edit anchor → edit_conflict');
+ok(t1.classifyRuntimeToolFailure('web_search', { ok: false, error: 'query is required' }, { tier: 'read' }).failureClass === 'invalid_arguments', 'F1 required named input → invalid_arguments');
+ok(t1.classifyRuntimeToolFailure('file_read', { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据，已禁止文件工具访问' }, { tier: 'read' }).failureClass === 'policy_blocked', 'F1 product guard → policy_blocked');
+ok(t1.classifyRuntimeToolFailure('shell_send', { ok: false, error: "未知 shellId 'gone'" }, { tier: 'exec' }).failureClass === 'resource_not_found', 'F1 expired runtime handle → resource_not_found');
+ok(t1.classifyRuntimeToolFailure('file_edit', { ok: false, error: 'HTTP 503 Service Unavailable' }, { tier: 'edit' }).failureClass === 'side_effect_unknown', 'F1 mutating transport ambiguity never becomes retry_once');
+ok(t1.classifyRuntimeToolFailure('file_read', { ok: true, error: 'warning field present' }, { tier: 'read' }) === null, 'F1 ok:true warning does not become a failure');
+ok(timedExec.classifierVersion === 'deterministic-v2' && !JSON.stringify(timedExec).includes('process tree killed'), 'F1 v2 telemetry exposes version but not raw stderr');
 
 console.log('');
 if (fail) { console.log(`RUNTIME-OPTIMIZATION E2E: FAIL (${fail})`); process.exit(1); }

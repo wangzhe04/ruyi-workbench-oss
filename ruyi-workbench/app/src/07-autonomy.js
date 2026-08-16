@@ -1966,28 +1966,54 @@ function compareToolRetrievalShadow(baseline, candidate) {
 // 20-F1 data gate: deterministic, read-only failure taxonomy. The caller may emit/log this result, but this
 // function intentionally contains no retry or repair path. That keeps telemetry deployable before the local
 // sample proves a bounded recovery loop is worth building.
+//
+// v2 is driven by real shadow shapes, not synthetic wording alone. Native process tools report failures through
+// structured fields (`timedOut`, `interrupted`, `code`, `stderr`) while guards often use `hint`; v1 only read
+// error/message/detail, which collapsed almost every real process failure into `unknown`. These fields are used
+// in-memory for deterministic classification and the HMAC evidence fingerprint only. Raw stderr/hints are never
+// returned or logged by this function.
+const RUNTIME_FAILURE_CLASSIFIER_VERSION = 'deterministic-v2';
 function classifyRuntimeToolFailure(toolName, result, meta) {
-  if (!result || typeof result !== 'object' || (result.ok !== false && !result.error)) return null;
+  if (!result || typeof result !== 'object' || result.ok === true || (result.ok !== false && !result.error)) return null;
   const disposition = String(meta && meta.disposition || 'executed');
   const tier = String(meta && meta.tier || 'read');
-  const text = `${result.errorClass || ''} ${result.error || ''} ${result.message || ''} ${result.detail || ''}`.slice(0, 4000);
+  const code = String(result.code == null ? '' : result.code).trim();
+  const text = [result.errorClass, code, result.statusCode, result.error, result.message, result.detail, result.hint, result.stderr]
+    .map(value => String(value == null ? '' : value).slice(0, 4000)).join(' ').slice(0, 12000);
+  const mutating = tier !== 'read';
+  const timedOut = result.timedOut === true || /timeout|timed out|etimedout|连接.{0,6}超时|超时/i.test(text);
+  const interrupted = result.interrupted === true || result.steerInterrupted === true || /interrupted by user steer|用户插话中断|因用户.{0,8}中断/i.test(text);
+  const transientTransport = timedOut || /econnreset|eai_again|econnrefused|enotfound|socket hang up|network error|connection (?:error|reset|refused|timeout)|remote host closed|\b429\b|\b50[234]\b|temporar|连接.{0,6}(重置|断开)|临时.{0,6}(错误|不可用)/i.test(text);
+  const mutatingAmbiguity = transientTransport || interrupted || /operation aborted|effect unknown|outcome unknown|执行结果未知|副作用未知/i.test(text);
+  const nonzeroExit = /^-?\d+$/.test(code) && Number(code) !== 0;
   let failureClass = 'unknown', recoverableHint = false, allowedRepair = 'diagnose_only';
-  if (/permission|denied|拒绝|拒绝授权|无权限|not allowed|blocked by permission/i.test(text)) {
+  // A mutating call that timed out/lost transport/was interrupted may already have changed state. This safety
+  // branch intentionally precedes every "repairable" text rule: never turn an ambiguous edit/exec into retry_once.
+  if (mutating && (mutatingAmbiguity || disposition === 'steer_skipped')) {
+    failureClass = 'side_effect_unknown'; allowedRepair = 'stop_for_effect_check';
+  } else if (!mutating && transientTransport) {
+    failureClass = 'transient_read'; recoverableHint = true; allowedRepair = 'retry_once';
+  } else if (code === 'not-allowed' || /应用内部数据|已禁止文件工具访问|检测到脚本.{0,50}office|office.{0,40}工具层强制|请改用现成工具|use (?:a )?supported tool/i.test(text)) {
+    failureClass = 'policy_blocked'; recoverableHint = true; allowedRepair = 'use_supported_tool';
+  } else if (/permission|denied|拒绝|拒绝授权|无权限|not allowed|blocked by permission/i.test(text)) {
     failureClass = 'permission_denied'; allowedRepair = 'request_authority';
-  } else if (/invalid.{0,20}(argument|parameter|input)|schema.{0,20}(fail|invalid)|required.{0,20}(property|field)|参数.{0,12}(错误|无效|缺少)|缺少.{0,8}(参数|字段)|unexpected.{0,8}(argument|field)/i.test(text)) {
+  } else if (/old[_ ]?text.{0,24}(not found|missing|匹配.{0,8}(?:0|不到)|未找到)|找不到.{0,16}old[_ ]?text|expected text.{0,16}not found/i.test(text)) {
+    failureClass = 'edit_conflict'; recoverableHint = true; allowedRepair = 'refresh_then_modify';
+  } else if (/invalid.{0,20}(argument|parameter|input)|schema.{0,20}(fail|invalid)|required.{0,20}(property|field)|\b[a-z_][\w.-]*\s+is\s+required\b|参数.{0,12}(错误|无效|缺少)|缺少.{0,8}(参数|字段)|unexpected.{0,8}(argument|field)/i.test(text)) {
     failureClass = 'invalid_arguments'; recoverableHint = true; allowedRepair = 'modify_arguments';
+  } else if (/unknown\s+(?:shell|session|resource)(?:id)?|(?:shell|session|resource).{0,20}(?:not found|missing|不存在|已结束)|未知\s*(?:shellid|会话|资源)/i.test(text)) {
+    failureClass = 'resource_not_found'; recoverableHint = true; allowedRepair = 'reacquire_resource';
   } else if (/unknown tool|tool not found|connector.{0,16}(offline|unavailable)|mcp server.{0,20}not available|工具.{0,8}(不存在|不可用)/i.test(text)) {
     failureClass = 'tool_unavailable'; recoverableHint = true; allowedRepair = 'retrieve_alternative_tool';
   } else if (result.loopAborted || disposition === 'loop_refused' || /no.?progress|semantic.?stall|死循环|无新(信息|进展)|相同工具调用/i.test(text)) {
     failureClass = 'no_progress'; recoverableHint = true; allowedRepair = 'replan';
   } else if (/verification|quality gate|coverage|evidence_missing|gate_(rejected|uncovered|unverified)|校验失败|验证失败|质量门/i.test(text)) {
     failureClass = 'verification_failed'; recoverableHint = true; allowedRepair = 'repair_then_verify';
-  } else if (/timeout|timed out|etimedout|econnreset|eai_again|\b429\b|\b50[234]\b|temporar|连接.{0,6}(重置|超时)|临时.{0,6}(错误|不可用)/i.test(text) && tier === 'read') {
-    failureClass = 'transient_read'; recoverableHint = true; allowedRepair = 'retry_once';
-  } else if (tier !== 'read' && (/timeout|timed out|aborted|interrupt|unknown|连接|network|socket/i.test(text) || disposition === 'steer_skipped')) {
-    failureClass = 'side_effect_unknown'; allowedRepair = 'stop_for_effect_check';
+  } else if (nonzeroExit || /traceback \(most recent call last\)|syntaxerror|parsererror|commandnotfoundexception|referenceerror|typeerror|uncaught exception/i.test(text)) {
+    failureClass = 'execution_failed'; recoverableHint = true; allowedRepair = 'inspect_error_then_modify';
   }
   return {
+    classifierVersion: RUNTIME_FAILURE_CLASSIFIER_VERSION,
     failureClass, recoverableHint, allowedRepair, deterministic: true,
     tier, disposition,
     evidenceHash: crypto.createHmac('sha256', RUNTIME_TELEMETRY_KEY).update(String(toolName || '') + '\0' + text).digest('hex').slice(0, 16),

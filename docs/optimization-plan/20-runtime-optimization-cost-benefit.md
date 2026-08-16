@@ -1,7 +1,8 @@
 # 20 · 运行时优化性价比收敛方案——工具检索、上下文与失败恢复
 
-> 状态：**shadow 总开关已默认启用；基础 60/20/30 门通过，但 283/89/59 对抗审计判定“非纯收益”：shadow 可继续，C1 主动启用被阻断，F1 仍仅 telemetry**
+> 状态：**shadow 总开关已默认启用；283/89/75 对抗审计仍判定“非纯收益”：shadow 可继续，C1 主动启用被阻断；F1 分类器已升至 deterministic-v2，但仍仅 telemetry**
 > 决策日期：2026-08-15
+> 最近修订：2026-08-17（F1 deterministic-v2）
 > 目标：不扩张产品边界，以最少的新机制提升 Ruyi 在真实任务中的工具命中率、长程执行成本与失败后恢复能力。
 > 约束：沿用 M4 单轴消融纪律；每项独立开关、独立回测、可随时回退。
 
@@ -36,10 +37,11 @@
 
 - **20-T1 已实现**：共享的确定性检索器覆盖 Provider 与 Claude/MCP；支持中英文词元、中文 2/3-gram、能力/别名/参数 schema/描述/pack 多字段 IDF 加权、精确名 boost、权限阻断解释、`matchedOn` 与进程级 HMAC 查询指纹。关闭开关时保留原两条路径各自的 legacy 计分行为。
 - **20-C1 已实现**：只在现有压缩阈值触发后处理旧 observation；结构化采样或首尾保留，错误/验证/写操作证据受保护；压缩前快照改为内容哈希稳定文件，model view 携带 rawRef，内部还原原语会同时校验快照哈希和 observation 哈希。关闭时仍是原 `[已省略:前120字]` 行为。
-- **20-F1 数据门已实现**：Provider post-tool 路径可选择性输出确定性 failure taxonomy；日志只含类别、tier、repair hint 和进程级 HMAC 证据指纹，不保存原错误/参数/路径。已提供离线汇总脚本，**没有**实现 retry、Recovery Brief 执行器或记忆写入。
+- **20-F1 数据门已实现**：Provider post-tool 路径可选择性输出确定性 failure taxonomy；日志只含分类器版本、类别、tier、repair hint 和进程级 HMAC 证据指纹，不保存原错误/参数/路径。已提供离线汇总与只读历史重放脚本，**没有**实现 retry、Recovery Brief 执行器或记忆写入。
 - 总开关 `runtimeOptimizationShadowV1` 默认 `true`：T1 同时计算 legacy/candidate 并只记脱敏 Top-K 差异；C1 只在原压缩阈值触发时复制 history 评估两种策略；F1 只分类失败。shadow 不改变工具返回、model context、retry、权限或记忆。
 - 三项主动行为开关仍严格独立且默认 `false`：`runtimeToolRetrievalV1`、`runtimeObservationReducerV1`、`runtimeFailureTelemetryV1`。其中 F1 当前即使主动 flag 打开也仍只有 telemetry，没有恢复执行器。
-- 数据门报表：`node dev-harness/runtime-failure-report.js <RUYI_HOME 或 logs 目录>`。至少 30 条 shadow 失败、可恢复占比 ≥15%、确定性分类占比 ≥50% 且可恢复样本 ≥5 才会建议进入 F1 有界恢复实现。
+- 数据门报表：`node dev-harness/runtime-failure-report.js <RUYI_HOME 或 logs 目录>`。至少 30 条 shadow 失败、可恢复占比 ≥15%、确定性分类占比 ≥50% 且可恢复样本 ≥5 才会建议进入 F1 有界恢复实现。报表只用最新分类器 cohort 过门，旧版本样本保留为 `totalSampleSize/excludedOlderSampleSize`，不与新行为混算。
+- 分类器升级验证：`node dev-harness/runtime-failure-replay.js <RUYI_HOME>`。它按 `sessionId/toolCallId` 关联本地工具结果，只输出新旧类别、修复策略和安全计数，不输出原错误/参数/路径，也不写用户状态。
 - 已增加纯逻辑/static、真实 Provider/MCP 工具加载、自动压缩/rawRef、checkpoint GC、pairing、上下文 v2 与 failure-report 单元回归。当前结论只是“代码/机制可运行”，不替代第 4–6 节的真实数据验收门。
 
 ### 0.3 2026-08-15 shadow 模拟结果
@@ -54,7 +56,7 @@
 
 合成数据用于验证机制、门槛计算和安全不变量，不能代替真实 holdout。当前决策是 `keep_shadow_collect_real_runtime_data`：保留 shadow 默认开启，主动 T1/C1 与任何 retry/记忆闭环继续关闭。
 
-### 0.4 更广对抗审计：不是纯收益（后续结论，以本节为准）
+### 0.4 更广对抗审计：不是纯收益（2026-08-15 v1 历史基线）
 
 在基础 happy-path 门之后，新增 `node dev-harness/runtime-shadow-adversarial.js`，覆盖 283 条检索、89 条 observation、59 条失败分类、1,000 次失败指纹碰撞探针，并把 catalog 放大到 1,000 项。完整结果写入 `dev-harness/ab-results/runtime-shadow-adversarial-latest.json`。连续三轮的逻辑结果一致：**3 high / 4 medium / 1 low，shadow 安全门全绿，但不能把候选解释为纯收益。**
 
@@ -70,6 +72,23 @@
 - query/error 原文均未进入 shadow 事件；权限解释、loaded 标记、排序确定性和 catalog 顺序不变量全部通过。
 - 当前 shadow 可以保留，因为上述问题只发生在候选评估或分类口径，不会改变真实执行。
 - **不得开启 `runtimeObservationReducerV1`，不得据此实现自动 retry/记忆闭环。** T1 也先收真实 negative-query 与大 catalog 数据，不把总体准确率提升当作无条件默认开启依据。
+
+### 0.5 2026-08-17 F1 deterministic-v2：真实样本驱动修订
+
+首批真实日志达到 32 条后，v1 有 30 条落入 `unknown`。离线关联确认并非真实错误不可判，而是 v1 漏读了工具结果的结构化字段：进程工具主要使用 `timedOut/interrupted/code/stderr`，策略守卫使用 `hint/code`；v1 只读取 `error/message/detail`。v2 改为“结构字段优先、错误文本兜底”，原文仅参与进程内规则与 HMAC 指纹，不进入事件。
+
+新增/修正类别：
+
+- `side_effect_unknown`：edit/exec 的结构化超时、连接不明或执行中断，必须先检查副作用，绝不映射 `retry_once`。
+- `execution_failed`：非零进程退出、Traceback/ParserError 等确定性执行失败，只允许看错误后修改命令/脚本。
+- `edit_conflict`：`oldText` 锚点过期，先刷新文件再修改。
+- `policy_blocked`：内部数据边界、Office 专用工具规程等产品策略阻断，改走受支持工具。
+- `resource_not_found`：shell/session 等短生命周期句柄已失效，先重新获取资源。
+- `invalid_arguments` 补齐 `query is required` 等具名必填参数形态；`ok:true + error` 不再产生假失败。
+
+对32条历史事件只读重放：`unknown 30 → 0`；重分类为 `side_effect_unknown 11`、`execution_failed 8`、`edit_conflict 6`、`invalid_arguments 2`、`policy_blocked 2`、`permission_denied 1`、`resource_not_found 1`、`tool_unavailable 1`，关联率 `32/32`，edit/exec 被映射为 `retry_once` 的数量为 `0`。扩展对抗集增至75条，分类与 repair policy 准确率均为 `100%`，原错误泄漏 `0`，1,000 指纹碰撞 `0`，全部 Shadow 安全门通过。
+
+这次结果证明分类口径已显著改善，但**不批准自动恢复**：部署后 `deterministic-v2` 从零开始积累独立 cohort；达到30条新版真实样本后，再按第6.5节的数据门决定 Recovery Brief/有界修复是否值得实现。
 
 ---
 
@@ -278,6 +297,10 @@ model view（模型下一轮看到的紧凑结果 + rawRef + omission metadata�
 | failureClass | 确定性信号 | 默认动作 |
 |---|---|---|
 | `invalid_arguments` | schema/参数校验失败 | 不同参重试；生成 Recovery Brief 让模型改参数，最多 1 次 |
+| `edit_conflict` | `oldText`/编辑锚点与当前文件不一致 | 重新读取目标并生成新 patch；禁止原参数盲重试 |
+| `execution_failed` | 非零退出码、Traceback、ParserError 等 | 读取脱敏错误摘要后修改命令/脚本；不原样重放 |
+| `policy_blocked` | 内部数据边界、专用工具规程等产品硬规则 | 改走受支持工具或允许的作用域；不请求无效的权限升级 |
+| `resource_not_found` | shell/session 等短生命周期句柄失效 | 重新列举或创建资源后再构造调用 |
 | `tool_unavailable` | unknown tool、connector/offline | 触发一次 T1 再检索；不重复原调用 |
 | `permission_denied` | permission gate/user deny | 不重试，不把拒绝写成“暂时错误” |
 | `transient_read` | timeout、429/5xx、明确的临时连接错误，且工具为 read/idempotent | 指数退避后同参重试 1 次 |

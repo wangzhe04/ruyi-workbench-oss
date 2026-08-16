@@ -13,7 +13,7 @@ node dev-harness\openai-engine.e2e.js
 
 第54波的回合叙事视觉门禁可单独运行 `node dev-harness\dom-screenshot.e2e.js`；它调用系统 Edge/Chrome 截取明暗主题，并与 `visual-baselines/workbench-shell-v2.json` 的低分辨率感知网格比较。只有确认视觉变更是预期行为时才使用 `--update` 更新基线。
 
-运行时优化 shadow 有两层无外部依赖测试：`node dev-harness\runtime-shadow-benchmark.js` 用真实 native catalog 跑基础 60 条工具查询、20 条长 observation 与 30 条失败分类样本；`node dev-harness\runtime-shadow-adversarial.js` 再扩为检索误召回/歧义/typo/顺序确定性/1,000 项 catalog 压测、observation 保护误判/非法 JSON/幂等/5 MiB 载荷，以及写操作 transport ambiguity/指纹碰撞。结果分别写到被 git 忽略的 `dev-harness/ab-results/runtime-shadow-latest.json` 与 `runtime-shadow-adversarial-latest.json`。两件都不代表批准主动检索、主动 observation reducer 或自动重试；后者发现产品阻断项时仍可 exit 0，只有 shadow 行为等价、隐私或 fail-safe 不变量破坏才 exit 非零。
+运行时优化 shadow 有两层无外部依赖测试：`node dev-harness\runtime-shadow-benchmark.js` 用真实 native catalog 跑基础 60 条工具查询、20 条长 observation 与 30 条失败分类样本；`node dev-harness\runtime-shadow-adversarial.js` 再扩为检索误召回/歧义/typo/顺序确定性/1,000 项 catalog 压测、observation 保护误判/非法 JSON/幂等/5 MiB 载荷，以及写操作 transport ambiguity/指纹碰撞。结果分别写到被 git 忽略的 `dev-harness/ab-results/runtime-shadow-latest.json` 与 `runtime-shadow-adversarial-latest.json`。两件都不代表批准主动检索、主动 observation reducer 或自动重试；后者发现产品阻断项时仍可 exit 0，只有 shadow 行为等价、隐私或 fail-safe 不变量破坏才 exit 非零。F1 真实数据用 `node dev-harness\runtime-failure-report.js <RUYI_HOME>` 按最新分类器版本单独过门；分类器升级时可先运行 `node dev-harness\runtime-failure-replay.js <RUYI_HOME>`，它只输出新旧类别聚合和安全计数，不输出或改写原始工具结果。
 
 第79波专项门由 `pretender-return-archive.static.e2e.js`、`pretender-return-archive.e2e.js` 与扩展后的 `pretender-shell.e2e.js` 组成：前两件锁定 9 类变更流水、严格区间读取和 gap/corrupt 降级；浏览器件验证渲染后才推进 lastSeen、档案置顶/归档跨刷新、损坏 UI-state 不伤 Mission，以及档案到待决任务事实的一击/5 秒系统指标。
 
