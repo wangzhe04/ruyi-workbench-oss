@@ -96,7 +96,7 @@ console.log('\n── [A] §28a maybeCompactSubHistory ──');
 const mm = src.match(/async function maybeCompactSubHistory\(opts\) \{[\s\S]*?\n\}/);
 ok(!!mm, 'A 源抽取 maybeCompactSubHistory');
 // 抽真 evaporateHistory + recentTurnsBoundary(保真);其余注入桩。
-const em = src.match(/function evaporateHistory\(history\) \{[\s\S]*?\n\}/);
+const em = src.match(/function evaporateHistory\(history(?:, opts)?\) \{[\s\S]*?\n\}/);
 const evaporateHistory = new Function('EVAPORATED_PREFIX', em[0] + '\nreturn evaporateHistory;')('[已省略:'); // 注入模块级常量
 const rm = src.match(/function recentTurnsBoundary\(history\) \{[\s\S]*?\n\}/);
 const recentTurnsBoundary = new Function(rm[0] + '\nreturn recentTurnsBoundary;')();

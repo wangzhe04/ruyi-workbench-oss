@@ -108,6 +108,8 @@
 - **候选 F（✅ 已收口）**：R4 Local Memory Graph 已完成 S1/S2/S3（关系存储 + 冲突检索 + gate 自动提议 + confirmed 图确定性聚类 + review-only 过期建议 + 孤儿边提示，`8effffc`/`0b69856`/`3b8bdf7`）；R5 Replan Patch Ledger 已完整实现（触发→提案→review 生成 changes→审批→apply/rollback 端到端闭环，`111723c`/`6922e48`/`26e1186`/`40d0113`/`292cf29`）。R2/R3 暂缓。
 - **明确暂缓**：基于相关性校准的高阶 vote，及任何在线 RL/自动训练；前者需 R1/R3 产生的 holdout 可靠性数据，后者最多作为独立、脱敏、离线的远期导出能力。
 
+**运行时优化性价比候选线（2026-08-15，shadow 已启用、非纯收益）**：完成 AgentRx、AgentDiet、工具检索、上下文治理、模型/预算路由、DAG 调度、推测执行、语义事务、Windows 感知与 KV cache 等方向的去重和成本收益评审。`runtimeOptimizationShadowV1` 默认开启，只旁路计算/脱敏记录，不改变工具结果、上下文、权限、retry 或记忆。基础 60/20/30 合成门虽通过，但后续 283 条检索、89 条 observation、59 条失败分类与 1,000 指纹探针的对抗审计给出 `mixed_benefit_with_identified_costs_and_blockers`：T1 正例收益显著且无样本内退化，但攻击/无关 query 有误召回和大 catalog 线性成本；C1 发现纯文本错误漏保护、超宽结构化结果非法 JSON、重复压缩非幂等三个 High，**主动启用阻断**；F1 对部分写操作 transport ambiguity 分类不足，但仍 fail-safe、只保留 telemetry。Recovery Brief/自动恢复未准入；完整 AgentRx/AgentDiet、学习型路由/调度及新运行时服务继续暂缓。详细证据与修复前置门见 [`optimization-plan/20-runtime-optimization-cost-benefit.md`](optimization-plan/20-runtime-optimization-cost-benefit.md) §0.4。
+
 ### Traveler 4.0（概念稿）
 
 `docs/TRAVELER-CONCEPT.md` v0.1 已立（可迁移的任务旅程 / Portable Missions），非范围、版本或发布时间承诺；其实施不得抢占或稀释 Pretender 3.0 收口。

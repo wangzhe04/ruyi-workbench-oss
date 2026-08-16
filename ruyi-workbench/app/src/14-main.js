@@ -30,6 +30,14 @@ module.exports = {
   providerSummaryCall,
   fitHistoryForSummary,
   chunkHistoryByBudget,
+  // 20-T1/20-C1/20-F1 runtime optimization pure primitives. Exported for offline replay/e2e; the master
+  // shadow switch only measures candidates, while production behavior remains behind strict active flags.
+  searchToolCatalog,
+  compareToolRetrievalShadow,
+  reduceObservationContent,
+  measureObservationReductionShadow,
+  rehydrateObservation,
+  classifyRuntimeToolFailure,
   // 第45波 45b/45d:context-400 判定 + 估算自校准/窗口学习 — exposed for e2e(校准 EMA/只降不升/超窗重试)。
   isContextOverflowError,
   noteEstimateSample,

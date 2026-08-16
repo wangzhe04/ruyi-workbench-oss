@@ -1665,6 +1665,22 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       disposition, durationMs: startedAt ? Date.now() - startedAt : 0,
       result: summarizeAgentLoopToolResult(result),
     });
+    if (config.runtimeFailureTelemetryV1 === true || config.runtimeOptimizationShadowV1 === true) {
+      try {
+        const bridge = resolveBridge(bridgedRoute, tc.name);
+        const tier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
+        const classified = classifyRuntimeToolFailure(tc.name, result, { tier, disposition });
+        if (classified) {
+          const evt = {
+            type: 'failure_classified', source: 'runtime-shadow', traceId: activeTraceId,
+            toolCallId: tc.id, toolName: tc.name, iteration,
+            ...classified,
+          };
+          onEvent(evt);
+          logEvent({ kind: 'runtime_failure_classified', sessionId: session.id, turnSeq: session.turnSeq, providerId: provider.id, model, ...evt });
+        }
+      } catch { /* shadow telemetry must never affect dispatch */ }
+    }
   };
   let turnTodos = null;                 // v0.8-S3: last todo_write items this turn (null = none written)
   const rawSeqRef = { n: 0 };
@@ -1933,8 +1949,21 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (!contextRetried && isContextOverflowError(call.httpError)) {
           contextRetried = true;
           logEvent({ kind: 'auto_compact', mode: 'forced_400', sessionId: session.id, beforeTokens: estBeforeCall, error: String(call.httpError).slice(0, 200) });
-          await writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory).catch(() => {});
-          const ev = evaporateHistory(session.providerHistory);
+          if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
+            try {
+              const shadow = measureObservationReductionShadow(session.providerHistory);
+              onEvent({ type: 'observation_reduction_shadow', source: 'runtime-shadow', mode: 'forced_400', ...shadow });
+              logEvent({ kind: 'observation_reduction_shadow', mode: 'forced_400', sessionId: session.id, turnSeq: session.turnSeq, ...shadow });
+            } catch { /* shadow evaluation must never block forced compaction */ }
+          }
+          const rawRefPrefix = await writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory, config.runtimeObservationReducerV1 === true).catch(() => '');
+          const ev = evaporateHistory(session.providerHistory, {
+            config, rawRefPrefix,
+            onReduced: meta => {
+              onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...meta });
+              logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
+            },
+          });
           const sc = await providerSummaryCall(provider, session.providerHistory);
           if (sc.ok) {
             const boundary = recentTurnsBoundary(session.providerHistory);
@@ -2289,6 +2318,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               : (tc.name === 'tool_search' ? toolLoading.search(args.query, args.limit) : toolLoading.load(args));
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: false });
             if (tc.name === 'tool_load') onEvent({ type: 'tool_catalog', state: 'loaded', ...resultObj, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) });
+            if (tc.name === 'tool_search' && resultObj.retrievalVersion) {
+              const retrievalEvent = { type: 'tool_catalog', state: 'searched', retrievalVersion: resultObj.retrievalVersion, queryHash: resultObj.queryHash, resultCount: resultObj.matches.length, topTools: resultObj.matches.slice(0, 5).map(m => m.name), elapsedMs: resultObj.elapsedMs };
+              onEvent(retrievalEvent);
+              logEvent({ kind: 'tool_retrieval_ranked', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, ...retrievalEvent });
+            }
+            if (tc.name === 'tool_search' && config.runtimeOptimizationShadowV1 === true && config.runtimeToolRetrievalV1 !== true) {
+              try {
+                const candidate = toolLoading.shadowSearch(args.query, args.limit);
+                const comparison = compareToolRetrievalShadow(resultObj, candidate);
+                const shadowEvent = { type: 'tool_catalog', state: 'shadow_compared', source: 'runtime-shadow', ...comparison };
+                onEvent(shadowEvent);
+                logEvent({ kind: 'tool_retrieval_shadow', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, ...comparison });
+              } catch { /* shadow comparison must never affect the legacy tool result */ }
+            }
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             markToolProgress(tc, resultObj, iter);

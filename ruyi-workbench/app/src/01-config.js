@@ -82,6 +82,13 @@ function defaultConfig() {
     // compatibility escape hatch; `auto` pre-routes common packs and exposes compact discovery tools.
     toolLoadingMode: 'auto',       // auto | full
     toolCatalogCacheTtlMs: 60000,  // bridged catalog reuse; clamp 5s..10min
+    // 20-T1/20-C1/20-F1 runtime-optimization slices. The master shadow flag is on by default: it evaluates
+    // candidates and emits redacted comparison metrics, but never changes a tool result, history content,
+    // retry, permission, or memory decision. The three independent active flags remain strict opt-ins.
+    runtimeOptimizationShadowV1: true,
+    runtimeToolRetrievalV1: false,
+    runtimeObservationReducerV1: false,
+    runtimeFailureTelemetryV1: false,
     // v1.1-W2 (T2): auto-scan drop-in MCP connectors from <repo>/mcp/*/ruyi-mcp.json and
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
@@ -406,6 +413,12 @@ function normalizeConfig(raw) {
   if (config.bridgeExternalToolsToProvider !== false) config.bridgeExternalToolsToProvider = true;
   else config.bridgeExternalToolsToProvider = false;
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
+  // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
+  // enable either shadow telemetry or active behavior in a hand-edited config file.
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1']) {
+    const b = config[key] === true;
+    if (b !== config[key]) { config[key] = b; changed = true; }
+  }
   {
     const ttl = Number(config.toolCatalogCacheTtlMs);
     const clamped = Number.isFinite(ttl) ? Math.min(600000, Math.max(5000, Math.round(ttl))) : 60000;

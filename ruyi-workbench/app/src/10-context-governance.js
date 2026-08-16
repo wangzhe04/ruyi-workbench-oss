@@ -205,27 +205,136 @@ function truncateToolResult(name, jsonStr) {
 }
 
 // v0.8-S5 checkpoint SAFETY NET (not a gate): snapshot providerHistory BEFORE a compaction to
-// dataRoot/checkpoints/<sessionId>/history-<turnSeq>.json.gz (built-in zlib; S4a dir convention). A
+// dataRoot/checkpoints/<sessionId>/history-<turnSeq>[<-contentHash>].json.gz (built-in zlib; S4a dir
+// convention). The hash suffix is used only by 20-C1 so repeated compactions in one turn cannot overwrite
+// a raw observation referenced by an earlier compacted model view. A
 // failure here MUST NOT block the compaction or the turn — it is a recovery aid, not a precondition.
-async function writeHistorySnapshot(sessionId, turnSeq, history) {
+async function writeHistorySnapshot(sessionId, turnSeq, history, stableRef = false) {
   try {
-    if (!sessionId || !Array.isArray(history)) return;
+    if (!sessionId || !Array.isArray(history)) return '';
     const dir = journalDir(sessionId);
     await fsp.mkdir(dir, { recursive: true });
-    const gz = zlib.gzipSync(Buffer.from(JSON.stringify(history), 'utf8'));
-    await fsp.writeFile(path.join(dir, `history-${Number(turnSeq) || 0}.json.gz`), gz);
+    const raw = JSON.stringify(history);
+    const snapshotHash = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16);
+    const gz = zlib.gzipSync(Buffer.from(raw, 'utf8'));
+    const turn = Number(turnSeq) || 0;
+    const file = stableRef ? `history-${turn}-${snapshotHash}.json.gz` : `history-${turn}.json.gz`;
+    const target = path.join(dir, file);
+    const previousSize = await fsp.stat(target).then(st => st.size).catch(() => 0);
+    await fsp.writeFile(target, gz);
     // PF1 fix: these history snapshots land in the SAME checkpoints/<id>/ tree the global size cap governs, but
     // only journalRecord used to keep the byte cache current. A compaction-heavy / edit-light session (each
     // auto-compact can write several MB here, and per-session GC never prunes these files) grew the real tree
     // WITHOUT moving the cache, so needSweep stayed false and the hard cap silently became a soft one.
-    // (a) account the snapshot bytes (over-count on a same-turnSeq overwrite is the SAFE direction);
+    // (a) account the net snapshot-byte delta (content-hashed C1 snapshots are often reused across repeated
+    //     threshold checks; counting every overwrite as a new file would trigger needless global sweeps);
     // (b) give the sweep a chance to run: journalGc is otherwise only called on file writes, which are rare in a
     //     compaction-heavy load. Run it UNDER the per-session write lock so its index read-modify-write can't
     //     race a concurrent journalRecord (the v1.4.1 audit #8 lost-write hazard). Fire-and-forget: a recovery
     //     aid must never block or fail the compaction.
-    journalBytesAdjust(gz.length);
+    journalBytesAdjust(gz.length - previousSize);
     withJournalWriteLock(sessionId, () => journalGc(sessionId)).catch(() => {});
-  } catch { /* safety net, never fatal */ }
+    return stableRef ? `history:${turn}:${snapshotHash}` : `history:${turn}`;
+  } catch { return ''; /* safety net, never fatal */ }
+}
+
+const OBSERVATION_REDUCE_MIN = 1200;
+const OBSERVATION_TEXT_HEAD = 900;
+const OBSERVATION_TEXT_TAIL = 500;
+const OBSERVATION_ARRAY_SAMPLE = 8;
+const OBSERVATION_OBJECT_KEYS = 32;
+const OBSERVATION_CRITICAL_KEYS = new Set(['ok', 'error', 'errors', 'message', 'detail', 'status', 'statusCode', 'code', 'exitCode', 'stderr', 'query', 'path', 'url', 'finalUrl', 'count', 'total', 'totalLines', 'matches', 'findings', 'results']);
+
+function observationToolNames(history) {
+  const out = new Map();
+  for (const message of Array.isArray(history) ? history : []) {
+    if (!message || message.role !== 'assistant' || !Array.isArray(message.tool_calls)) continue;
+    for (const call of message.tool_calls) {
+      const id = call && call.id; const name = call && call.function && call.function.name;
+      if (id && name) out.set(String(id), String(name));
+    }
+  }
+  return out;
+}
+
+function protectedObservation(toolName, message) {
+  const content = String(message && message.content || '');
+  if (message && (message.pinned || message.evidenceRef || message.protected)) return 'explicit';
+  if (/"ok"\s*:\s*false|"error"\s*:\s*"[^"\r\n]+|"errors"\s*:\s*\[(?!\s*\])|verification.{0,20}fail|quality.{0,12}gate|验证失败|校验失败/i.test(content)) return 'failure_evidence';
+  if (/"op"\s*:\s*"(create|modify|delete|move|copy)"|checkpoint|journal/i.test(content)) return 'change_evidence';
+  if (/(^|__)(file_(write|edit|delete|move|copy)|git_commit|http_download|archive_(zip|unzip))$/i.test(String(toolName || ''))) return 'mutating_tool';
+  return '';
+}
+
+function compactObservationValue(value, key, depth) {
+  if (value == null || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const cap = /stderr|error|message|detail/i.test(String(key || '')) ? 4000 : 1800;
+    if (value.length <= cap) return value;
+    const head = Math.min(1200, Math.floor(cap * 0.65)); const tail = Math.min(700, cap - head);
+    return value.slice(0, head) + `\n[...${value.length - head - tail} chars omitted...]\n` + value.slice(-tail);
+  }
+  if (depth >= 5) return `[nested value omitted at depth ${depth}]`;
+  if (Array.isArray(value)) {
+    const sample = value.slice(0, OBSERVATION_ARRAY_SAMPLE).map(v => compactObservationValue(v, key, depth + 1));
+    if (value.length > sample.length) sample.push({ _ruyiOmittedItems: value.length - sample.length, _ruyiTotalItems: value.length });
+    return sample;
+  }
+  if (typeof value === 'object') {
+    const keys = Object.keys(value);
+    const ordered = [...keys.filter(k => OBSERVATION_CRITICAL_KEYS.has(k)), ...keys.filter(k => !OBSERVATION_CRITICAL_KEYS.has(k))];
+    const selected = ordered.slice(0, OBSERVATION_OBJECT_KEYS); const out = {};
+    for (const childKey of selected) out[childKey] = compactObservationValue(value[childKey], childKey, depth + 1);
+    if (keys.length > selected.length) out._ruyiOmittedKeys = keys.length - selected.length;
+    return out;
+  }
+  return String(value);
+}
+
+function reduceObservationContent(toolName, content, rawRef) {
+  const original = String(content == null ? '' : content);
+  if (original.length < OBSERVATION_REDUCE_MIN) return { reduced: false, content: original, policy: 'below_minimum', originalChars: original.length, visibleChars: original.length, rawRef };
+  const baseName = String(toolName || '').replace(/^.+?__/, '');
+  let parsed = null; try { parsed = JSON.parse(original); } catch { /* text result */ }
+  let visible, policy;
+  if (parsed && typeof parsed === 'object') {
+    const reduced = compactObservationValue(parsed, '', 0);
+    policy = /shell|powershell|script/i.test(baseName) ? 'shell_structured' : (/search|find|glob|list/i.test(baseName) ? 'search_structured' : (/web|http|fetch|download/i.test(baseName) ? 'network_structured' : 'json_structured'));
+    const meta = { reduced: true, policy, originalChars: original.length, rawRef };
+    if (Array.isArray(reduced)) visible = JSON.stringify({ items: reduced, _ruyiObservation: meta });
+    else {
+      if (reduced && typeof reduced === 'object') reduced._ruyiObservation = meta;
+      visible = JSON.stringify(reduced);
+    }
+  } else {
+    policy = 'text_head_tail';
+    visible = `[Ruyi observation reduced · policy=${policy} · originalChars=${original.length} · rawRef=${rawRef}]\n`
+      + original.slice(0, OBSERVATION_TEXT_HEAD)
+      + `\n[...${Math.max(0, original.length - OBSERVATION_TEXT_HEAD - OBSERVATION_TEXT_TAIL)} chars omitted...]\n`
+      + original.slice(-OBSERVATION_TEXT_TAIL);
+  }
+  // Deep/wide JSON can still remain large after structural sampling. Apply a deterministic final envelope;
+  // canonical bytes remain in the pre-compaction snapshot referenced by rawRef.
+  if (visible.length > 6000) visible = visible.slice(0, 4000) + `\n[...reduced view trimmed from ${visible.length} chars...]\n` + visible.slice(-1500);
+  if (visible.length >= original.length) return { reduced: false, content: original, policy: 'no_gain', originalChars: original.length, visibleChars: original.length, rawRef };
+  return { reduced: true, content: visible, policy, originalChars: original.length, visibleChars: visible.length, rawRef };
+}
+
+// Internal recovery primitive for diagnostics/tests and a future reviewed Recovery Brief. It never exposes a
+// filesystem path and validates both the stable snapshot hash and the observation content hash before return.
+async function rehydrateObservation(sessionId, rawRef) {
+  try {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(String(sessionId || ''))) return { ok: false, error: 'invalid session id' };
+    const m = /^history:(\d+):([a-f0-9]{16}):(\d+):([a-f0-9]{16})$/.exec(String(rawRef || ''));
+    if (!m) return { ok: false, error: 'invalid rawRef' };
+    const file = path.join(journalDir(sessionId), `history-${m[1]}-${m[2]}.json.gz`);
+    const history = JSON.parse(zlib.gunzipSync(await fsp.readFile(file)).toString('utf8'));
+    const item = Array.isArray(history) ? history[Number(m[3])] : null;
+    if (!item || item.role !== 'tool' || typeof item.content !== 'string') return { ok: false, error: 'observation not found' };
+    const actual = crypto.createHash('sha256').update(item.content).digest('hex').slice(0, 16);
+    if (actual !== m[4]) return { ok: false, error: 'observation hash mismatch' };
+    return { ok: true, content: item.content, toolCallId: item.tool_call_id || '', rawRef: String(rawRef) };
+  } catch (e) { return { ok: false, error: (e && e.code) || 'rehydrate failed' }; }
 }
 
 // v0.8-S5 LEVEL 1 · EVAPORATE. Replace the CONTENT TEXT of `role:'tool'` messages that sit BEFORE the last
@@ -243,7 +352,7 @@ async function writeHistorySnapshot(sessionId, turnSeq, history) {
 // stays warm. Already-evaporated messages (content starts with EVAPORATED_PREFIX) are skipped so a repeat
 // pass is a no-op (idempotent) and doesn't re-smash an already-cold prefix.
 // Returns the number of tool messages evaporated on this pass (0 = nothing to do).
-function evaporateHistory(history) {
+function evaporateHistory(history, opts) {
   if (!Array.isArray(history) || !history.length) return 0;
   // Find the index of the 2nd-most-recent assistant message. Tool messages at or after it are within the
   // "recent 2 assistant turns" window and are preserved verbatim.
@@ -252,17 +361,82 @@ function evaporateHistory(history) {
     const m = history[i];
     if (m && m.role === 'assistant') { assistantsSeen++; if (assistantsSeen === 2) { boundary = i; break; } }
   }
+  const useReducer = !!(opts && opts.config && opts.config.runtimeObservationReducerV1 === true && opts.rawRefPrefix);
+  const toolNames = useReducer ? observationToolNames(history) : null;
   let count = 0;
   for (let i = 0; i < boundary; i++) {
     const m = history[i];
     if (!m || m.role !== 'tool' || typeof m.content !== 'string') continue;
     if (m.content.startsWith(EVAPORATED_PREFIX)) continue; // already evaporated → skip (idempotent, cache-safe)
+    const toolName = toolNames ? (toolNames.get(String(m.tool_call_id || '')) || '') : '';
+    const protectedReason = useReducer ? protectedObservation(toolName, m) : '';
+    if (protectedReason) continue;
+    if (useReducer) {
+      const contentHash = crypto.createHash('sha256').update(m.content).digest('hex').slice(0, 16);
+      const reduced = reduceObservationContent(toolName, m.content, `${opts.rawRefPrefix}:${i}:${contentHash}`);
+      if (!reduced.reduced) continue;
+      m.content = reduced.content; count++;
+      if (typeof opts.onReduced === 'function') {
+        try { opts.onReduced({ toolName, toolCallId: m.tool_call_id || '', index: i, policy: reduced.policy, originalChars: reduced.originalChars, visibleChars: reduced.visibleChars, rawRef: reduced.rawRef }); } catch { /* observer only */ }
+      }
+      continue;
+    }
     if (m.pinned) continue;  // C1b:显式锚定的关键信息不蒸发(预留接口:当前无消息级设置点——session.pinned 是 UI 固定会话,不在此;生效的锚定是下行写操作自动保留)
     if (/"op"\s*:\s*"(create|modify|delete|move|copy)"/.test(m.content)) continue;  // C1b:写操作关键变更自动保留(回滚/审计依赖,不蒸发)
     m.content = EVAPORATED_PREFIX + m.content.slice(0, 120) + ']';
     count++;
   }
   return count;
+}
+
+// True shadow evaluation for 20-C1. Both policies run on shallow message copies; the live providerHistory
+// and its cache-friendly prefix remain untouched. Only aggregate sizes/counts leave this function: candidate
+// rawRefs and observation bytes are deliberately excluded from telemetry.
+function measureObservationReductionShadow(history) {
+  const startedAt = process.hrtime.bigint();
+  if (!Array.isArray(history) || !history.length) {
+    return { observationCount: 0, baselineReducedCount: 0, candidateReducedCount: 0, originalChars: 0, baselineVisibleChars: 0, candidateVisibleChars: 0, baselineReductionRate: 0, candidateReductionRate: 0, protectedCount: 0, elapsedMs: 0 };
+  }
+  let assistantsSeen = 0, boundary = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i] && history[i].role === 'assistant') { assistantsSeen++; if (assistantsSeen === 2) { boundary = i; break; } }
+  }
+  const coldIndexes = [];
+  for (let i = 0; i < boundary; i++) {
+    const message = history[i];
+    if (message && message.role === 'tool' && typeof message.content === 'string' && !message.content.startsWith(EVAPORATED_PREFIX)) coldIndexes.push(i);
+  }
+  const copy = () => history.map(message => message && message.role === 'tool' ? { ...message } : message);
+  const baselineHistory = copy();
+  const candidateHistory = copy();
+  const baselineReducedCount = evaporateHistory(baselineHistory);
+  const candidateReducedCount = evaporateHistory(candidateHistory, {
+    config: { runtimeObservationReducerV1: true },
+    rawRefPrefix: 'history:0:0000000000000000',
+  });
+  const toolNames = observationToolNames(history);
+  let originalChars = 0, baselineVisibleChars = 0, candidateVisibleChars = 0, protectedCount = 0;
+  for (const index of coldIndexes) {
+    const original = history[index];
+    originalChars += original.content.length;
+    baselineVisibleChars += String(baselineHistory[index].content || '').length;
+    candidateVisibleChars += String(candidateHistory[index].content || '').length;
+    const toolName = toolNames.get(String(original.tool_call_id || '')) || '';
+    if (protectedObservation(toolName, original)) protectedCount++;
+  }
+  const rate = visible => originalChars > 0 ? Number(((originalChars - visible) / originalChars).toFixed(4)) : 0;
+  return {
+    observationCount: coldIndexes.length,
+    baselineReducedCount,
+    candidateReducedCount,
+    originalChars,
+    baselineVisibleChars,
+    candidateVisibleChars,
+    baselineReductionRate: rate(baselineVisibleChars),
+    candidateReductionRate: rate(candidateVisibleChars),
+    protectedCount,
+    elapsedMs: Number((Number(process.hrtime.bigint() - startedAt) / 1e6).toFixed(3)),
+  };
 }
 
 // v0.8-S5 SHARED SUMMARY KERNEL. One non-streaming summary call over `messages` (history + a summary
@@ -574,12 +748,26 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     const before = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a):校准后估算判预算
     if (before <= budget) return false; // under budget → nothing to do (append-only until next crossing)
 
+    if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
+      try {
+        const shadow = measureObservationReductionShadow(history);
+        onEvent({ type: 'observation_reduction_shadow', source: 'runtime-shadow', ...shadow });
+        logEvent({ kind: 'observation_reduction_shadow', sessionId: session.id, turnSeq: session.turnSeq, ...shadow });
+      } catch { /* shadow evaluation must never change the compaction path */ }
+    }
+
     // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
-    await writeHistorySnapshot(session.id, session.turnSeq, history);
+    const rawRefPrefix = await writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true);
 
     let compacted = false;
     // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
-    const evaporated = evaporateHistory(history);
+    const evaporated = evaporateHistory(history, {
+      config, rawRefPrefix,
+      onReduced: meta => {
+        onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...meta });
+        logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
+      },
+    });
     if (evaporated > 0) {
       const after1 = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a)
       onEvent({ type: 'compact', mode: 'evaporate', beforeTokens: before, afterTokens: after1 });

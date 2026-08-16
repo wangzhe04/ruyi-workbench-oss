@@ -558,6 +558,13 @@ function defaultConfig() {
     // compatibility escape hatch; `auto` pre-routes common packs and exposes compact discovery tools.
     toolLoadingMode: 'auto',       // auto | full
     toolCatalogCacheTtlMs: 60000,  // bridged catalog reuse; clamp 5s..10min
+    // 20-T1/20-C1/20-F1 runtime-optimization slices. The master shadow flag is on by default: it evaluates
+    // candidates and emits redacted comparison metrics, but never changes a tool result, history content,
+    // retry, permission, or memory decision. The three independent active flags remain strict opt-ins.
+    runtimeOptimizationShadowV1: true,
+    runtimeToolRetrievalV1: false,
+    runtimeObservationReducerV1: false,
+    runtimeFailureTelemetryV1: false,
     // v1.1-W2 (T2): auto-scan drop-in MCP connectors from <repo>/mcp/*/ruyi-mcp.json and
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
@@ -882,6 +889,12 @@ function normalizeConfig(raw) {
   if (config.bridgeExternalToolsToProvider !== false) config.bridgeExternalToolsToProvider = true;
   else config.bridgeExternalToolsToProvider = false;
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
+  // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
+  // enable either shadow telemetry or active behavior in a hand-edited config file.
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1']) {
+    const b = config[key] === true;
+    if (b !== config[key]) { config[key] = b; changed = true; }
+  }
   {
     const ttl = Number(config.toolCatalogCacheTtlMs);
     const clamped = Number.isFinite(ttl) ? Math.min(600000, Math.max(5000, Math.round(ttl))) : 60000;
@@ -13200,6 +13213,79 @@ function toolPackForName(name, bridgedRoute) {
   return 'desktop'; // unknown external tools are conservative opt-in, never part of simple chat
 }
 
+// 20-T1: small, reviewable retrieval vocabulary for high-value native capabilities. This is deliberately
+// not a second tool registry: tier/pack/schema remain sourced from their existing tables; these hints only
+// bridge user language (especially Chinese) to a capability name. Unknown/bridged tools still receive
+// deterministic fields derived from name, description and JSON Schema parameters.
+const TOOL_RETRIEVAL_HINTS = Object.freeze({
+  file_read: { capabilities: ['workspace.file.read'], aliases: ['读取文件', '查看文件', 'read workspace file'] },
+  file_list: { capabilities: ['workspace.file.list'], aliases: ['列出目录', '查看目录', 'list directory'] },
+  file_search: { capabilities: ['workspace.text.search'], aliases: ['搜索文件内容', '全文检索', 'search files'] },
+  glob: { capabilities: ['workspace.path.glob'], aliases: ['按模式找文件', '文件通配符', 'find files by pattern'] },
+  file_write: { capabilities: ['workspace.file.write'], aliases: ['写入文件', '创建文件', 'write file'] },
+  file_edit: { capabilities: ['workspace.file.edit'], aliases: ['修改文件', '替换文本', 'edit file'] },
+  codebase_symbol_search: { capabilities: ['code.symbol.definition', 'code.symbol.references'], aliases: ['查找符号定义', '查找代码引用', 'find definition references'] },
+  docs_search: { capabilities: ['documentation.search'], aliases: ['搜索项目文档', '查文档', 'search documentation'] },
+  git_status: { capabilities: ['git.status'], aliases: ['查看代码变更', '仓库状态', 'working tree status'] },
+  git_diff: { capabilities: ['git.diff'], aliases: ['查看差异', '代码改动', 'show changes diff'] },
+  powershell_run: { capabilities: ['shell.powershell.execute'], aliases: ['运行命令', '执行 powershell', 'run command'] },
+  script_run: { capabilities: ['shell.script.execute'], aliases: ['运行脚本', '执行脚本', 'run script'] },
+  web_search: { capabilities: ['web.search'], aliases: ['搜索互联网', '联网搜索', 'search the web'] },
+  web_fetch: { capabilities: ['web.page.fetch'], aliases: ['抓取网页', '读取网页', 'fetch web page'] },
+  http_request: { capabilities: ['network.http.request'], aliases: ['发送 http 请求', '调用接口', 'http api request'] },
+  http_download: { capabilities: ['network.http.download', 'workspace.file.write'], aliases: ['下载文件', '从网址下载', 'download url to file'] },
+  desktop_screenshot: { capabilities: ['desktop.screen.capture'], aliases: ['桌面截图', '屏幕截图', 'take screenshot'] },
+  office_open: { capabilities: ['office.document.open'], aliases: ['打开办公文档', '打开 excel word ppt pdf', 'open office document'] },
+  orchestrate_agents: { capabilities: ['agent.workflow.orchestrate'], aliases: ['编排多个代理', '多代理工作流', 'orchestrate agents'] },
+  spawn_agent: { capabilities: ['agent.delegate'], aliases: ['派生子代理', '委派任务', 'delegate subagent'] },
+  skill_read: { capabilities: ['skill.instructions.read'], aliases: ['读取技能说明', '加载技能', 'read skill instructions'] },
+  workbench_memory_read: { capabilities: ['memory.read'], aliases: ['读取工作台记忆', '回忆信息', 'read memory'] },
+  workbench_memory_propose: { capabilities: ['memory.propose'], aliases: ['提议保存记忆', '记住经验', 'propose memory'] },
+});
+const RUNTIME_TELEMETRY_KEY = crypto.randomBytes(32); // process-scoped HMAC key; raw queries/errors are never logged
+
+function normalizeToolSearchText(value) {
+  return String(value == null ? '' : value).normalize('NFKC')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().replace(/[_./\\:-]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function tokenizeToolSearchText(value) {
+  const normalized = normalizeToolSearchText(value);
+  const out = new Set(normalized.split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+  // Chinese has no whitespace boundaries in most queries/descriptions. Add bounded 2/3-grams while keeping
+  // Latin words intact; this makes 「查找符号引用」 match 「查找代码引用」 without an embedding runtime.
+  for (const segment of normalized.match(/[\p{Script=Han}]{2,}/gu) || []) {
+    out.add(segment);
+    for (const n of [2, 3]) for (let i = 0; i + n <= segment.length; i++) out.add(segment.slice(i, i + n));
+  }
+  return [...out].filter(t => t.length > 1 || /^\d+$/.test(t));
+}
+
+function toolSchemaSearchText(schema) {
+  const out = []; const seen = new Set();
+  const walk = (node, depth) => {
+    if (!node || typeof node !== 'object' || depth > 4 || seen.has(node)) return;
+    seen.add(node);
+    if (typeof node.title === 'string') out.push(node.title);
+    if (typeof node.description === 'string') out.push(node.description.slice(0, 160));
+    if (node.properties && typeof node.properties === 'object') {
+      for (const [key, child] of Object.entries(node.properties)) { out.push(key); walk(child, depth + 1); }
+    }
+    if (node.items) walk(node.items, depth + 1);
+  };
+  walk(schema, 0);
+  return out.join(' ').slice(0, 1200);
+}
+
+function retrievalHintForTool(name, pack) {
+  const exact = TOOL_RETRIEVAL_HINTS[name] || {};
+  const nameWords = normalizeToolSearchText(name).split(' ').filter(Boolean);
+  return {
+    capabilities: [...new Set([...(exact.capabilities || []), `${pack}.${nameWords.join('.')}`])],
+    aliases: [...new Set(exact.aliases || [])],
+  };
+}
+
 function classifyToolPacks(message, attachments) {
   const s = String(message || '').toLowerCase();
   const packs = new Set(['core']);
@@ -13225,13 +13311,147 @@ function buildToolCatalog(tools, bridgedRoute, config) {
   return (tools || []).map(t => {
     const fn = t && t.function || {};
     const bridge = resolveBridge(bridgedRoute || {}, fn.name);
+    const pack = toolPackForName(fn.name, bridgedRoute);
+    const hint = retrievalHintForTool(fn.name, pack);
     return {
-      name: fn.name || '', pack: toolPackForName(fn.name, bridgedRoute),
+      name: fn.name || '', pack,
       tier: bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(fn.name),
       bridged: !!bridge,
       description: String(fn.description || '').replace(/\s+/g, ' ').slice(0, 220), tool: t,
+      capabilities: hint.capabilities, aliases: hint.aliases,
+      parameterText: toolSchemaSearchText(fn.parameters),
     };
   }).filter(x => x.name);
+}
+
+function legacyToolCatalogSearch(catalog, query, limit, nameBoost) {
+  const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
+  const scored = (catalog || []).map(x => {
+    const hay = `${x.name} ${x.pack} ${x.description}`.toLowerCase();
+    const score = words.reduce((n, w) => n + (hay.includes(w) ? (x.name.toLowerCase().includes(w) ? nameBoost : 1) : 0), 0);
+    return { x, score };
+  }).filter(r => !words.length || r.score > 0).sort((a, b) => b.score - a.score || a.x.name.localeCompare(b.x.name)).slice(0, limit);
+  return { ok: true, query: String(query || ''), matches: scored.map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description })), packs: TOOL_PACK_DESCRIPTIONS };
+}
+
+function runtimeToolBlockedReason(item, config) {
+  const mode = config && config.permissionMode;
+  if ((mode === 'plan' || mode === 'dontAsk') && item && item.tier !== 'read') return `permission mode '${mode}' blocks ${item.tier}-tier execution`;
+  return '';
+}
+
+function searchToolCatalog(catalog, args, config, opts) {
+  const query = String(args && args.query || '');
+  const limit = Math.min(20, Math.max(1, Number(args && args.limit) || 8));
+  const forceV1 = !!(opts && opts.forceV1);
+  if ((!config || config.runtimeToolRetrievalV1 !== true) && !forceV1) {
+    return legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
+  }
+  const startedAt = Date.now();
+  const qNorm = normalizeToolSearchText(query);
+  const qTokens = [...new Set(tokenizeToolSearchText(query))];
+  const docs = (catalog || []).map(item => {
+    const fields = {
+      name: tokenizeToolSearchText(item.name),
+      aliases: tokenizeToolSearchText((item.aliases || []).join(' ')),
+      capabilities: tokenizeToolSearchText((item.capabilities || []).join(' ')),
+      parameters: tokenizeToolSearchText(item.parameterText || ''),
+      description: tokenizeToolSearchText(item.description || ''),
+      pack: tokenizeToolSearchText(item.pack || ''),
+    };
+    const all = new Set(Object.values(fields).flat());
+    return { item, fields, all };
+  });
+  const df = new Map();
+  for (const token of qTokens) df.set(token, docs.reduce((n, d) => n + (d.all.has(token) ? 1 : 0), 0));
+  const weights = { name: 9, aliases: 7, capabilities: 6, parameters: 3, description: 2, pack: 2 };
+  const ranked = docs.map(doc => {
+    const components = {}; const matchedOn = new Set(); let score = 0;
+    const itemNameNorm = normalizeToolSearchText(doc.item.name);
+    if (qNorm && (qNorm === itemNameNorm || qNorm === String(doc.item.name || '').toLowerCase())) { components.exactName = 100; score += 100; matchedOn.add('exact_name'); }
+    for (const alias of doc.item.aliases || []) {
+      const a = normalizeToolSearchText(alias);
+      if (qNorm && a && (qNorm.includes(a) || a.includes(qNorm))) { components.aliasPhrase = (components.aliasPhrase || 0) + 14; score += 14; matchedOn.add('alias'); break; }
+    }
+    for (const [field, tokens] of Object.entries(doc.fields)) {
+      const set = new Set(tokens); let subtotal = 0;
+      for (const token of qTokens) {
+        if (!set.has(token)) continue;
+        const freq = Math.max(1, df.get(token) || 1);
+        const idf = Math.log(1 + (docs.length + 1) / freq);
+        subtotal += weights[field] * idf;
+      }
+      if (subtotal > 0) { components[field] = Number(subtotal.toFixed(3)); score += subtotal; matchedOn.add(field); }
+    }
+    return { doc, score, components, matchedOn: [...matchedOn] };
+  }).filter(r => !qTokens.length || r.score > 0)
+    .sort((a, b) => b.score - a.score || a.doc.item.name.localeCompare(b.doc.item.name)).slice(0, limit);
+  const loadedNames = opts && opts.loadedNames instanceof Set ? opts.loadedNames : null;
+  return {
+    ok: true, query, retrievalVersion: 'deterministic-v1',
+    queryHash: crypto.createHmac('sha256', RUNTIME_TELEMETRY_KEY).update(qNorm).digest('hex').slice(0, 16),
+    elapsedMs: Date.now() - startedAt,
+    matches: ranked.map(r => {
+      const x = r.doc.item; const blockedReason = runtimeToolBlockedReason(x, config);
+      return {
+        name: x.name, pack: x.pack, tier: x.tier, description: x.description,
+        score: Number(r.score.toFixed(3)), matchedOn: r.matchedOn,
+        loaded: loadedNames ? loadedNames.has(x.name) : undefined,
+        blockedReason: blockedReason || undefined,
+      };
+    }),
+    packs: TOOL_PACK_DESCRIPTIONS,
+  };
+}
+
+function compareToolRetrievalShadow(baseline, candidate) {
+  const baselineNames = Array.isArray(baseline && baseline.matches) ? baseline.matches.slice(0, 5).map(x => x.name) : [];
+  const candidateNames = Array.isArray(candidate && candidate.matches) ? candidate.matches.slice(0, 5).map(x => x.name) : [];
+  const candidateSet = new Set(candidateNames);
+  const overlap = baselineNames.filter(name => candidateSet.has(name)).length;
+  const denominator = Math.max(1, Math.min(5, Math.max(baselineNames.length, candidateNames.length)));
+  return {
+    retrievalVersion: candidate && candidate.retrievalVersion || 'deterministic-v1',
+    queryHash: candidate && candidate.queryHash || '',
+    baselineResultCount: Array.isArray(baseline && baseline.matches) ? baseline.matches.length : 0,
+    candidateResultCount: Array.isArray(candidate && candidate.matches) ? candidate.matches.length : 0,
+    baselineTopTools: baselineNames,
+    candidateTopTools: candidateNames,
+    top1Changed: (baselineNames[0] || '') !== (candidateNames[0] || ''),
+    overlapAt5: Number((overlap / denominator).toFixed(3)),
+    elapsedMs: Number(candidate && candidate.elapsedMs) || 0,
+  };
+}
+
+// 20-F1 data gate: deterministic, read-only failure taxonomy. The caller may emit/log this result, but this
+// function intentionally contains no retry or repair path. That keeps telemetry deployable before the local
+// sample proves a bounded recovery loop is worth building.
+function classifyRuntimeToolFailure(toolName, result, meta) {
+  if (!result || typeof result !== 'object' || (result.ok !== false && !result.error)) return null;
+  const disposition = String(meta && meta.disposition || 'executed');
+  const tier = String(meta && meta.tier || 'read');
+  const text = `${result.errorClass || ''} ${result.error || ''} ${result.message || ''} ${result.detail || ''}`.slice(0, 4000);
+  let failureClass = 'unknown', recoverableHint = false, allowedRepair = 'diagnose_only';
+  if (/permission|denied|拒绝|拒绝授权|无权限|not allowed|blocked by permission/i.test(text)) {
+    failureClass = 'permission_denied'; allowedRepair = 'request_authority';
+  } else if (/invalid.{0,20}(argument|parameter|input)|schema.{0,20}(fail|invalid)|required.{0,20}(property|field)|参数.{0,12}(错误|无效|缺少)|缺少.{0,8}(参数|字段)|unexpected.{0,8}(argument|field)/i.test(text)) {
+    failureClass = 'invalid_arguments'; recoverableHint = true; allowedRepair = 'modify_arguments';
+  } else if (/unknown tool|tool not found|connector.{0,16}(offline|unavailable)|mcp server.{0,20}not available|工具.{0,8}(不存在|不可用)/i.test(text)) {
+    failureClass = 'tool_unavailable'; recoverableHint = true; allowedRepair = 'retrieve_alternative_tool';
+  } else if (result.loopAborted || disposition === 'loop_refused' || /no.?progress|semantic.?stall|死循环|无新(信息|进展)|相同工具调用/i.test(text)) {
+    failureClass = 'no_progress'; recoverableHint = true; allowedRepair = 'replan';
+  } else if (/verification|quality gate|coverage|evidence_missing|gate_(rejected|uncovered|unverified)|校验失败|验证失败|质量门/i.test(text)) {
+    failureClass = 'verification_failed'; recoverableHint = true; allowedRepair = 'repair_then_verify';
+  } else if (/timeout|timed out|etimedout|econnreset|eai_again|\b429\b|\b50[234]\b|temporar|连接.{0,6}(重置|超时)|临时.{0,6}(错误|不可用)/i.test(text) && tier === 'read') {
+    failureClass = 'transient_read'; recoverableHint = true; allowedRepair = 'retry_once';
+  } else if (tier !== 'read' && (/timeout|timed out|aborted|interrupt|unknown|连接|network|socket/i.test(text) || disposition === 'steer_skipped')) {
+    failureClass = 'side_effect_unknown'; allowedRepair = 'stop_for_effect_check';
+  }
+  return {
+    failureClass, recoverableHint, allowedRepair, deterministic: true,
+    tier, disposition,
+    evidenceHash: crypto.createHmac('sha256', RUNTIME_TELEMETRY_KEY).update(String(toolName || '') + '\0' + text).digest('hex').slice(0, 16),
+  };
 }
 
 function listCompactTools(catalog, args) {
@@ -13267,14 +13487,12 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
   // 白名单仅对纯闲聊任务有用(而闲聊不需要 file_read),收益不抵语义破坏,故回退。
   const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack))).map(x => x.tool);
   const search = (query, limit) => {
-    const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
-    const max = Math.min(20, Math.max(1, Number(limit) || 8));
-    const scored = catalog.map(x => {
-      const hay = `${x.name} ${x.pack} ${x.description}`.toLowerCase();
-      const score = words.reduce((n, w) => n + (hay.includes(w) ? (x.name.toLowerCase().includes(w) ? 3 : 1) : 0), 0);
-      return { x, score };
-    }).filter(r => !words.length || r.score > 0).sort((a, b) => b.score - a.score || a.x.name.localeCompare(b.x.name)).slice(0, max);
-    return { ok: true, query: String(query || ''), matches: scored.map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description })), packs: TOOL_PACK_DESCRIPTIONS };
+    const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));
+    return searchToolCatalog(catalog, { query, limit }, config, { legacyNameBoost: 3, loadedNames });
+  };
+  const shadowSearch = (query, limit) => {
+    const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));
+    return searchToolCatalog(catalog, { query, limit }, config, { forceV1: true, legacyNameBoost: 3, loadedNames });
   };
   const load = args => {
     const before = new Set(current().map(t => t.function.name));
@@ -13284,7 +13502,7 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
     return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length };
   };
   const list = args => listCompactTools(catalog, args);
-  return { catalog, activePacks, current, list, search, load, fullCount: catalog.length };
+  return { catalog, activePacks, current, list, search, shadowSearch, load, fullCount: catalog.length };
 }
 
 function estimateToolSchemaTokens(tools) {
@@ -18803,6 +19021,22 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       disposition, durationMs: startedAt ? Date.now() - startedAt : 0,
       result: summarizeAgentLoopToolResult(result),
     });
+    if (config.runtimeFailureTelemetryV1 === true || config.runtimeOptimizationShadowV1 === true) {
+      try {
+        const bridge = resolveBridge(bridgedRoute, tc.name);
+        const tier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
+        const classified = classifyRuntimeToolFailure(tc.name, result, { tier, disposition });
+        if (classified) {
+          const evt = {
+            type: 'failure_classified', source: 'runtime-shadow', traceId: activeTraceId,
+            toolCallId: tc.id, toolName: tc.name, iteration,
+            ...classified,
+          };
+          onEvent(evt);
+          logEvent({ kind: 'runtime_failure_classified', sessionId: session.id, turnSeq: session.turnSeq, providerId: provider.id, model, ...evt });
+        }
+      } catch { /* shadow telemetry must never affect dispatch */ }
+    }
   };
   let turnTodos = null;                 // v0.8-S3: last todo_write items this turn (null = none written)
   const rawSeqRef = { n: 0 };
@@ -19071,8 +19305,21 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (!contextRetried && isContextOverflowError(call.httpError)) {
           contextRetried = true;
           logEvent({ kind: 'auto_compact', mode: 'forced_400', sessionId: session.id, beforeTokens: estBeforeCall, error: String(call.httpError).slice(0, 200) });
-          await writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory).catch(() => {});
-          const ev = evaporateHistory(session.providerHistory);
+          if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
+            try {
+              const shadow = measureObservationReductionShadow(session.providerHistory);
+              onEvent({ type: 'observation_reduction_shadow', source: 'runtime-shadow', mode: 'forced_400', ...shadow });
+              logEvent({ kind: 'observation_reduction_shadow', mode: 'forced_400', sessionId: session.id, turnSeq: session.turnSeq, ...shadow });
+            } catch { /* shadow evaluation must never block forced compaction */ }
+          }
+          const rawRefPrefix = await writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory, config.runtimeObservationReducerV1 === true).catch(() => '');
+          const ev = evaporateHistory(session.providerHistory, {
+            config, rawRefPrefix,
+            onReduced: meta => {
+              onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...meta });
+              logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
+            },
+          });
           const sc = await providerSummaryCall(provider, session.providerHistory);
           if (sc.ok) {
             const boundary = recentTurnsBoundary(session.providerHistory);
@@ -19427,6 +19674,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               : (tc.name === 'tool_search' ? toolLoading.search(args.query, args.limit) : toolLoading.load(args));
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: false });
             if (tc.name === 'tool_load') onEvent({ type: 'tool_catalog', state: 'loaded', ...resultObj, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) });
+            if (tc.name === 'tool_search' && resultObj.retrievalVersion) {
+              const retrievalEvent = { type: 'tool_catalog', state: 'searched', retrievalVersion: resultObj.retrievalVersion, queryHash: resultObj.queryHash, resultCount: resultObj.matches.length, topTools: resultObj.matches.slice(0, 5).map(m => m.name), elapsedMs: resultObj.elapsedMs };
+              onEvent(retrievalEvent);
+              logEvent({ kind: 'tool_retrieval_ranked', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, ...retrievalEvent });
+            }
+            if (tc.name === 'tool_search' && config.runtimeOptimizationShadowV1 === true && config.runtimeToolRetrievalV1 !== true) {
+              try {
+                const candidate = toolLoading.shadowSearch(args.query, args.limit);
+                const comparison = compareToolRetrievalShadow(resultObj, candidate);
+                const shadowEvent = { type: 'tool_catalog', state: 'shadow_compared', source: 'runtime-shadow', ...comparison };
+                onEvent(shadowEvent);
+                logEvent({ kind: 'tool_retrieval_shadow', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, ...comparison });
+              } catch { /* shadow comparison must never affect the legacy tool result */ }
+            }
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             markToolProgress(tc, resultObj, iter);
@@ -20169,27 +20430,136 @@ function truncateToolResult(name, jsonStr) {
 }
 
 // v0.8-S5 checkpoint SAFETY NET (not a gate): snapshot providerHistory BEFORE a compaction to
-// dataRoot/checkpoints/<sessionId>/history-<turnSeq>.json.gz (built-in zlib; S4a dir convention). A
+// dataRoot/checkpoints/<sessionId>/history-<turnSeq>[<-contentHash>].json.gz (built-in zlib; S4a dir
+// convention). The hash suffix is used only by 20-C1 so repeated compactions in one turn cannot overwrite
+// a raw observation referenced by an earlier compacted model view. A
 // failure here MUST NOT block the compaction or the turn — it is a recovery aid, not a precondition.
-async function writeHistorySnapshot(sessionId, turnSeq, history) {
+async function writeHistorySnapshot(sessionId, turnSeq, history, stableRef = false) {
   try {
-    if (!sessionId || !Array.isArray(history)) return;
+    if (!sessionId || !Array.isArray(history)) return '';
     const dir = journalDir(sessionId);
     await fsp.mkdir(dir, { recursive: true });
-    const gz = zlib.gzipSync(Buffer.from(JSON.stringify(history), 'utf8'));
-    await fsp.writeFile(path.join(dir, `history-${Number(turnSeq) || 0}.json.gz`), gz);
+    const raw = JSON.stringify(history);
+    const snapshotHash = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16);
+    const gz = zlib.gzipSync(Buffer.from(raw, 'utf8'));
+    const turn = Number(turnSeq) || 0;
+    const file = stableRef ? `history-${turn}-${snapshotHash}.json.gz` : `history-${turn}.json.gz`;
+    const target = path.join(dir, file);
+    const previousSize = await fsp.stat(target).then(st => st.size).catch(() => 0);
+    await fsp.writeFile(target, gz);
     // PF1 fix: these history snapshots land in the SAME checkpoints/<id>/ tree the global size cap governs, but
     // only journalRecord used to keep the byte cache current. A compaction-heavy / edit-light session (each
     // auto-compact can write several MB here, and per-session GC never prunes these files) grew the real tree
     // WITHOUT moving the cache, so needSweep stayed false and the hard cap silently became a soft one.
-    // (a) account the snapshot bytes (over-count on a same-turnSeq overwrite is the SAFE direction);
+    // (a) account the net snapshot-byte delta (content-hashed C1 snapshots are often reused across repeated
+    //     threshold checks; counting every overwrite as a new file would trigger needless global sweeps);
     // (b) give the sweep a chance to run: journalGc is otherwise only called on file writes, which are rare in a
     //     compaction-heavy load. Run it UNDER the per-session write lock so its index read-modify-write can't
     //     race a concurrent journalRecord (the v1.4.1 audit #8 lost-write hazard). Fire-and-forget: a recovery
     //     aid must never block or fail the compaction.
-    journalBytesAdjust(gz.length);
+    journalBytesAdjust(gz.length - previousSize);
     withJournalWriteLock(sessionId, () => journalGc(sessionId)).catch(() => {});
-  } catch { /* safety net, never fatal */ }
+    return stableRef ? `history:${turn}:${snapshotHash}` : `history:${turn}`;
+  } catch { return ''; /* safety net, never fatal */ }
+}
+
+const OBSERVATION_REDUCE_MIN = 1200;
+const OBSERVATION_TEXT_HEAD = 900;
+const OBSERVATION_TEXT_TAIL = 500;
+const OBSERVATION_ARRAY_SAMPLE = 8;
+const OBSERVATION_OBJECT_KEYS = 32;
+const OBSERVATION_CRITICAL_KEYS = new Set(['ok', 'error', 'errors', 'message', 'detail', 'status', 'statusCode', 'code', 'exitCode', 'stderr', 'query', 'path', 'url', 'finalUrl', 'count', 'total', 'totalLines', 'matches', 'findings', 'results']);
+
+function observationToolNames(history) {
+  const out = new Map();
+  for (const message of Array.isArray(history) ? history : []) {
+    if (!message || message.role !== 'assistant' || !Array.isArray(message.tool_calls)) continue;
+    for (const call of message.tool_calls) {
+      const id = call && call.id; const name = call && call.function && call.function.name;
+      if (id && name) out.set(String(id), String(name));
+    }
+  }
+  return out;
+}
+
+function protectedObservation(toolName, message) {
+  const content = String(message && message.content || '');
+  if (message && (message.pinned || message.evidenceRef || message.protected)) return 'explicit';
+  if (/"ok"\s*:\s*false|"error"\s*:\s*"[^"\r\n]+|"errors"\s*:\s*\[(?!\s*\])|verification.{0,20}fail|quality.{0,12}gate|验证失败|校验失败/i.test(content)) return 'failure_evidence';
+  if (/"op"\s*:\s*"(create|modify|delete|move|copy)"|checkpoint|journal/i.test(content)) return 'change_evidence';
+  if (/(^|__)(file_(write|edit|delete|move|copy)|git_commit|http_download|archive_(zip|unzip))$/i.test(String(toolName || ''))) return 'mutating_tool';
+  return '';
+}
+
+function compactObservationValue(value, key, depth) {
+  if (value == null || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const cap = /stderr|error|message|detail/i.test(String(key || '')) ? 4000 : 1800;
+    if (value.length <= cap) return value;
+    const head = Math.min(1200, Math.floor(cap * 0.65)); const tail = Math.min(700, cap - head);
+    return value.slice(0, head) + `\n[...${value.length - head - tail} chars omitted...]\n` + value.slice(-tail);
+  }
+  if (depth >= 5) return `[nested value omitted at depth ${depth}]`;
+  if (Array.isArray(value)) {
+    const sample = value.slice(0, OBSERVATION_ARRAY_SAMPLE).map(v => compactObservationValue(v, key, depth + 1));
+    if (value.length > sample.length) sample.push({ _ruyiOmittedItems: value.length - sample.length, _ruyiTotalItems: value.length });
+    return sample;
+  }
+  if (typeof value === 'object') {
+    const keys = Object.keys(value);
+    const ordered = [...keys.filter(k => OBSERVATION_CRITICAL_KEYS.has(k)), ...keys.filter(k => !OBSERVATION_CRITICAL_KEYS.has(k))];
+    const selected = ordered.slice(0, OBSERVATION_OBJECT_KEYS); const out = {};
+    for (const childKey of selected) out[childKey] = compactObservationValue(value[childKey], childKey, depth + 1);
+    if (keys.length > selected.length) out._ruyiOmittedKeys = keys.length - selected.length;
+    return out;
+  }
+  return String(value);
+}
+
+function reduceObservationContent(toolName, content, rawRef) {
+  const original = String(content == null ? '' : content);
+  if (original.length < OBSERVATION_REDUCE_MIN) return { reduced: false, content: original, policy: 'below_minimum', originalChars: original.length, visibleChars: original.length, rawRef };
+  const baseName = String(toolName || '').replace(/^.+?__/, '');
+  let parsed = null; try { parsed = JSON.parse(original); } catch { /* text result */ }
+  let visible, policy;
+  if (parsed && typeof parsed === 'object') {
+    const reduced = compactObservationValue(parsed, '', 0);
+    policy = /shell|powershell|script/i.test(baseName) ? 'shell_structured' : (/search|find|glob|list/i.test(baseName) ? 'search_structured' : (/web|http|fetch|download/i.test(baseName) ? 'network_structured' : 'json_structured'));
+    const meta = { reduced: true, policy, originalChars: original.length, rawRef };
+    if (Array.isArray(reduced)) visible = JSON.stringify({ items: reduced, _ruyiObservation: meta });
+    else {
+      if (reduced && typeof reduced === 'object') reduced._ruyiObservation = meta;
+      visible = JSON.stringify(reduced);
+    }
+  } else {
+    policy = 'text_head_tail';
+    visible = `[Ruyi observation reduced · policy=${policy} · originalChars=${original.length} · rawRef=${rawRef}]\n`
+      + original.slice(0, OBSERVATION_TEXT_HEAD)
+      + `\n[...${Math.max(0, original.length - OBSERVATION_TEXT_HEAD - OBSERVATION_TEXT_TAIL)} chars omitted...]\n`
+      + original.slice(-OBSERVATION_TEXT_TAIL);
+  }
+  // Deep/wide JSON can still remain large after structural sampling. Apply a deterministic final envelope;
+  // canonical bytes remain in the pre-compaction snapshot referenced by rawRef.
+  if (visible.length > 6000) visible = visible.slice(0, 4000) + `\n[...reduced view trimmed from ${visible.length} chars...]\n` + visible.slice(-1500);
+  if (visible.length >= original.length) return { reduced: false, content: original, policy: 'no_gain', originalChars: original.length, visibleChars: original.length, rawRef };
+  return { reduced: true, content: visible, policy, originalChars: original.length, visibleChars: visible.length, rawRef };
+}
+
+// Internal recovery primitive for diagnostics/tests and a future reviewed Recovery Brief. It never exposes a
+// filesystem path and validates both the stable snapshot hash and the observation content hash before return.
+async function rehydrateObservation(sessionId, rawRef) {
+  try {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(String(sessionId || ''))) return { ok: false, error: 'invalid session id' };
+    const m = /^history:(\d+):([a-f0-9]{16}):(\d+):([a-f0-9]{16})$/.exec(String(rawRef || ''));
+    if (!m) return { ok: false, error: 'invalid rawRef' };
+    const file = path.join(journalDir(sessionId), `history-${m[1]}-${m[2]}.json.gz`);
+    const history = JSON.parse(zlib.gunzipSync(await fsp.readFile(file)).toString('utf8'));
+    const item = Array.isArray(history) ? history[Number(m[3])] : null;
+    if (!item || item.role !== 'tool' || typeof item.content !== 'string') return { ok: false, error: 'observation not found' };
+    const actual = crypto.createHash('sha256').update(item.content).digest('hex').slice(0, 16);
+    if (actual !== m[4]) return { ok: false, error: 'observation hash mismatch' };
+    return { ok: true, content: item.content, toolCallId: item.tool_call_id || '', rawRef: String(rawRef) };
+  } catch (e) { return { ok: false, error: (e && e.code) || 'rehydrate failed' }; }
 }
 
 // v0.8-S5 LEVEL 1 · EVAPORATE. Replace the CONTENT TEXT of `role:'tool'` messages that sit BEFORE the last
@@ -20207,7 +20577,7 @@ async function writeHistorySnapshot(sessionId, turnSeq, history) {
 // stays warm. Already-evaporated messages (content starts with EVAPORATED_PREFIX) are skipped so a repeat
 // pass is a no-op (idempotent) and doesn't re-smash an already-cold prefix.
 // Returns the number of tool messages evaporated on this pass (0 = nothing to do).
-function evaporateHistory(history) {
+function evaporateHistory(history, opts) {
   if (!Array.isArray(history) || !history.length) return 0;
   // Find the index of the 2nd-most-recent assistant message. Tool messages at or after it are within the
   // "recent 2 assistant turns" window and are preserved verbatim.
@@ -20216,17 +20586,82 @@ function evaporateHistory(history) {
     const m = history[i];
     if (m && m.role === 'assistant') { assistantsSeen++; if (assistantsSeen === 2) { boundary = i; break; } }
   }
+  const useReducer = !!(opts && opts.config && opts.config.runtimeObservationReducerV1 === true && opts.rawRefPrefix);
+  const toolNames = useReducer ? observationToolNames(history) : null;
   let count = 0;
   for (let i = 0; i < boundary; i++) {
     const m = history[i];
     if (!m || m.role !== 'tool' || typeof m.content !== 'string') continue;
     if (m.content.startsWith(EVAPORATED_PREFIX)) continue; // already evaporated → skip (idempotent, cache-safe)
+    const toolName = toolNames ? (toolNames.get(String(m.tool_call_id || '')) || '') : '';
+    const protectedReason = useReducer ? protectedObservation(toolName, m) : '';
+    if (protectedReason) continue;
+    if (useReducer) {
+      const contentHash = crypto.createHash('sha256').update(m.content).digest('hex').slice(0, 16);
+      const reduced = reduceObservationContent(toolName, m.content, `${opts.rawRefPrefix}:${i}:${contentHash}`);
+      if (!reduced.reduced) continue;
+      m.content = reduced.content; count++;
+      if (typeof opts.onReduced === 'function') {
+        try { opts.onReduced({ toolName, toolCallId: m.tool_call_id || '', index: i, policy: reduced.policy, originalChars: reduced.originalChars, visibleChars: reduced.visibleChars, rawRef: reduced.rawRef }); } catch { /* observer only */ }
+      }
+      continue;
+    }
     if (m.pinned) continue;  // C1b:显式锚定的关键信息不蒸发(预留接口:当前无消息级设置点——session.pinned 是 UI 固定会话,不在此;生效的锚定是下行写操作自动保留)
     if (/"op"\s*:\s*"(create|modify|delete|move|copy)"/.test(m.content)) continue;  // C1b:写操作关键变更自动保留(回滚/审计依赖,不蒸发)
     m.content = EVAPORATED_PREFIX + m.content.slice(0, 120) + ']';
     count++;
   }
   return count;
+}
+
+// True shadow evaluation for 20-C1. Both policies run on shallow message copies; the live providerHistory
+// and its cache-friendly prefix remain untouched. Only aggregate sizes/counts leave this function: candidate
+// rawRefs and observation bytes are deliberately excluded from telemetry.
+function measureObservationReductionShadow(history) {
+  const startedAt = process.hrtime.bigint();
+  if (!Array.isArray(history) || !history.length) {
+    return { observationCount: 0, baselineReducedCount: 0, candidateReducedCount: 0, originalChars: 0, baselineVisibleChars: 0, candidateVisibleChars: 0, baselineReductionRate: 0, candidateReductionRate: 0, protectedCount: 0, elapsedMs: 0 };
+  }
+  let assistantsSeen = 0, boundary = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i] && history[i].role === 'assistant') { assistantsSeen++; if (assistantsSeen === 2) { boundary = i; break; } }
+  }
+  const coldIndexes = [];
+  for (let i = 0; i < boundary; i++) {
+    const message = history[i];
+    if (message && message.role === 'tool' && typeof message.content === 'string' && !message.content.startsWith(EVAPORATED_PREFIX)) coldIndexes.push(i);
+  }
+  const copy = () => history.map(message => message && message.role === 'tool' ? { ...message } : message);
+  const baselineHistory = copy();
+  const candidateHistory = copy();
+  const baselineReducedCount = evaporateHistory(baselineHistory);
+  const candidateReducedCount = evaporateHistory(candidateHistory, {
+    config: { runtimeObservationReducerV1: true },
+    rawRefPrefix: 'history:0:0000000000000000',
+  });
+  const toolNames = observationToolNames(history);
+  let originalChars = 0, baselineVisibleChars = 0, candidateVisibleChars = 0, protectedCount = 0;
+  for (const index of coldIndexes) {
+    const original = history[index];
+    originalChars += original.content.length;
+    baselineVisibleChars += String(baselineHistory[index].content || '').length;
+    candidateVisibleChars += String(candidateHistory[index].content || '').length;
+    const toolName = toolNames.get(String(original.tool_call_id || '')) || '';
+    if (protectedObservation(toolName, original)) protectedCount++;
+  }
+  const rate = visible => originalChars > 0 ? Number(((originalChars - visible) / originalChars).toFixed(4)) : 0;
+  return {
+    observationCount: coldIndexes.length,
+    baselineReducedCount,
+    candidateReducedCount,
+    originalChars,
+    baselineVisibleChars,
+    candidateVisibleChars,
+    baselineReductionRate: rate(baselineVisibleChars),
+    candidateReductionRate: rate(candidateVisibleChars),
+    protectedCount,
+    elapsedMs: Number((Number(process.hrtime.bigint() - startedAt) / 1e6).toFixed(3)),
+  };
 }
 
 // v0.8-S5 SHARED SUMMARY KERNEL. One non-streaming summary call over `messages` (history + a summary
@@ -20538,12 +20973,26 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     const before = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a):校准后估算判预算
     if (before <= budget) return false; // under budget → nothing to do (append-only until next crossing)
 
+    if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
+      try {
+        const shadow = measureObservationReductionShadow(history);
+        onEvent({ type: 'observation_reduction_shadow', source: 'runtime-shadow', ...shadow });
+        logEvent({ kind: 'observation_reduction_shadow', sessionId: session.id, turnSeq: session.turnSeq, ...shadow });
+      } catch { /* shadow evaluation must never change the compaction path */ }
+    }
+
     // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
-    await writeHistorySnapshot(session.id, session.turnSeq, history);
+    const rawRefPrefix = await writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true);
 
     let compacted = false;
     // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
-    const evaporated = evaporateHistory(history);
+    const evaporated = evaporateHistory(history, {
+      config, rawRefPrefix,
+      onReduced: meta => {
+        onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...meta });
+        logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
+      },
+    });
     if (evaporated > 0) {
       const after1 = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a)
       onEvent({ type: 'compact', mode: 'evaporate', beforeTokens: before, afterTokens: after1 });
@@ -23212,12 +23661,16 @@ const CORE_TOOL_HANDLERS = {
   tool_search: { paths: null, guardNote: "目录检索控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config);
-      const words = String(args.query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
-      const limit = Math.min(20, Math.max(1, Number(args.limit) || 8));
-      const matches = catalog.map(x => ({ x, score: words.reduce((n, w) => n + (`${x.name} ${x.pack} ${x.description}`.toLowerCase().includes(w) ? 1 : 0), 0) }))
-        .filter(r => !words.length || r.score > 0).sort((a, b) => b.score - a.score || a.x.name.localeCompare(b.x.name)).slice(0, limit)
-        .map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description }));
-      return { ok: true, query: String(args.query || ''), matches, packs: TOOL_PACK_DESCRIPTIONS, next: 'Call the concrete tool if visible; otherwise use tool_invoke_read/edit/exec with the matching tier.' };
+      const result = searchToolCatalog(catalog, args, config, { legacyNameBoost: 1 });
+      if (config.runtimeOptimizationShadowV1 === true && config.runtimeToolRetrievalV1 !== true) {
+        try {
+          const candidate = searchToolCatalog(catalog, args, config, { forceV1: true, legacyNameBoost: 1 });
+          const comparison = compareToolRetrievalShadow(result, candidate);
+          const sessionId = (ctx && ctx.session && ctx.session.id) || process.env.WCW_SESSION_ID || '';
+          logEvent({ kind: 'tool_retrieval_shadow', engine: 'mcp', sessionId, ...comparison });
+        } catch { /* shadow comparison must never affect the MCP result */ }
+      }
+      return { ...result, next: 'Call the concrete tool if visible; otherwise use tool_invoke_read/edit/exec with the matching tier.' };
   } },
   tool_load: { paths: null, guardNote: "元工具提示,不触文件路径", handler: async (args, ctx) => {
       return { ok: true, note: 'Claude CLI schemas are fixed for this process. Use tool_search then tool_invoke_read/edit/exec. OpenAI-compatible turns load concrete schemas on the next iteration.' };
@@ -29049,6 +29502,14 @@ module.exports = {
   providerSummaryCall,
   fitHistoryForSummary,
   chunkHistoryByBudget,
+  // 20-T1/20-C1/20-F1 runtime optimization pure primitives. Exported for offline replay/e2e; the master
+  // shadow switch only measures candidates, while production behavior remains behind strict active flags.
+  searchToolCatalog,
+  compareToolRetrievalShadow,
+  reduceObservationContent,
+  measureObservationReductionShadow,
+  rehydrateObservation,
+  classifyRuntimeToolFailure,
   // 第45波 45b/45d:context-400 判定 + 估算自校准/窗口学习 — exposed for e2e(校准 EMA/只降不升/超窗重试)。
   isContextOverflowError,
   noteEstimateSample,

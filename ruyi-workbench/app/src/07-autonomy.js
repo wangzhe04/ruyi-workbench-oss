@@ -1753,6 +1753,79 @@ function toolPackForName(name, bridgedRoute) {
   return 'desktop'; // unknown external tools are conservative opt-in, never part of simple chat
 }
 
+// 20-T1: small, reviewable retrieval vocabulary for high-value native capabilities. This is deliberately
+// not a second tool registry: tier/pack/schema remain sourced from their existing tables; these hints only
+// bridge user language (especially Chinese) to a capability name. Unknown/bridged tools still receive
+// deterministic fields derived from name, description and JSON Schema parameters.
+const TOOL_RETRIEVAL_HINTS = Object.freeze({
+  file_read: { capabilities: ['workspace.file.read'], aliases: ['读取文件', '查看文件', 'read workspace file'] },
+  file_list: { capabilities: ['workspace.file.list'], aliases: ['列出目录', '查看目录', 'list directory'] },
+  file_search: { capabilities: ['workspace.text.search'], aliases: ['搜索文件内容', '全文检索', 'search files'] },
+  glob: { capabilities: ['workspace.path.glob'], aliases: ['按模式找文件', '文件通配符', 'find files by pattern'] },
+  file_write: { capabilities: ['workspace.file.write'], aliases: ['写入文件', '创建文件', 'write file'] },
+  file_edit: { capabilities: ['workspace.file.edit'], aliases: ['修改文件', '替换文本', 'edit file'] },
+  codebase_symbol_search: { capabilities: ['code.symbol.definition', 'code.symbol.references'], aliases: ['查找符号定义', '查找代码引用', 'find definition references'] },
+  docs_search: { capabilities: ['documentation.search'], aliases: ['搜索项目文档', '查文档', 'search documentation'] },
+  git_status: { capabilities: ['git.status'], aliases: ['查看代码变更', '仓库状态', 'working tree status'] },
+  git_diff: { capabilities: ['git.diff'], aliases: ['查看差异', '代码改动', 'show changes diff'] },
+  powershell_run: { capabilities: ['shell.powershell.execute'], aliases: ['运行命令', '执行 powershell', 'run command'] },
+  script_run: { capabilities: ['shell.script.execute'], aliases: ['运行脚本', '执行脚本', 'run script'] },
+  web_search: { capabilities: ['web.search'], aliases: ['搜索互联网', '联网搜索', 'search the web'] },
+  web_fetch: { capabilities: ['web.page.fetch'], aliases: ['抓取网页', '读取网页', 'fetch web page'] },
+  http_request: { capabilities: ['network.http.request'], aliases: ['发送 http 请求', '调用接口', 'http api request'] },
+  http_download: { capabilities: ['network.http.download', 'workspace.file.write'], aliases: ['下载文件', '从网址下载', 'download url to file'] },
+  desktop_screenshot: { capabilities: ['desktop.screen.capture'], aliases: ['桌面截图', '屏幕截图', 'take screenshot'] },
+  office_open: { capabilities: ['office.document.open'], aliases: ['打开办公文档', '打开 excel word ppt pdf', 'open office document'] },
+  orchestrate_agents: { capabilities: ['agent.workflow.orchestrate'], aliases: ['编排多个代理', '多代理工作流', 'orchestrate agents'] },
+  spawn_agent: { capabilities: ['agent.delegate'], aliases: ['派生子代理', '委派任务', 'delegate subagent'] },
+  skill_read: { capabilities: ['skill.instructions.read'], aliases: ['读取技能说明', '加载技能', 'read skill instructions'] },
+  workbench_memory_read: { capabilities: ['memory.read'], aliases: ['读取工作台记忆', '回忆信息', 'read memory'] },
+  workbench_memory_propose: { capabilities: ['memory.propose'], aliases: ['提议保存记忆', '记住经验', 'propose memory'] },
+});
+const RUNTIME_TELEMETRY_KEY = crypto.randomBytes(32); // process-scoped HMAC key; raw queries/errors are never logged
+
+function normalizeToolSearchText(value) {
+  return String(value == null ? '' : value).normalize('NFKC')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().replace(/[_./\\:-]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function tokenizeToolSearchText(value) {
+  const normalized = normalizeToolSearchText(value);
+  const out = new Set(normalized.split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+  // Chinese has no whitespace boundaries in most queries/descriptions. Add bounded 2/3-grams while keeping
+  // Latin words intact; this makes 「查找符号引用」 match 「查找代码引用」 without an embedding runtime.
+  for (const segment of normalized.match(/[\p{Script=Han}]{2,}/gu) || []) {
+    out.add(segment);
+    for (const n of [2, 3]) for (let i = 0; i + n <= segment.length; i++) out.add(segment.slice(i, i + n));
+  }
+  return [...out].filter(t => t.length > 1 || /^\d+$/.test(t));
+}
+
+function toolSchemaSearchText(schema) {
+  const out = []; const seen = new Set();
+  const walk = (node, depth) => {
+    if (!node || typeof node !== 'object' || depth > 4 || seen.has(node)) return;
+    seen.add(node);
+    if (typeof node.title === 'string') out.push(node.title);
+    if (typeof node.description === 'string') out.push(node.description.slice(0, 160));
+    if (node.properties && typeof node.properties === 'object') {
+      for (const [key, child] of Object.entries(node.properties)) { out.push(key); walk(child, depth + 1); }
+    }
+    if (node.items) walk(node.items, depth + 1);
+  };
+  walk(schema, 0);
+  return out.join(' ').slice(0, 1200);
+}
+
+function retrievalHintForTool(name, pack) {
+  const exact = TOOL_RETRIEVAL_HINTS[name] || {};
+  const nameWords = normalizeToolSearchText(name).split(' ').filter(Boolean);
+  return {
+    capabilities: [...new Set([...(exact.capabilities || []), `${pack}.${nameWords.join('.')}`])],
+    aliases: [...new Set(exact.aliases || [])],
+  };
+}
+
 function classifyToolPacks(message, attachments) {
   const s = String(message || '').toLowerCase();
   const packs = new Set(['core']);
@@ -1778,13 +1851,147 @@ function buildToolCatalog(tools, bridgedRoute, config) {
   return (tools || []).map(t => {
     const fn = t && t.function || {};
     const bridge = resolveBridge(bridgedRoute || {}, fn.name);
+    const pack = toolPackForName(fn.name, bridgedRoute);
+    const hint = retrievalHintForTool(fn.name, pack);
     return {
-      name: fn.name || '', pack: toolPackForName(fn.name, bridgedRoute),
+      name: fn.name || '', pack,
       tier: bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(fn.name),
       bridged: !!bridge,
       description: String(fn.description || '').replace(/\s+/g, ' ').slice(0, 220), tool: t,
+      capabilities: hint.capabilities, aliases: hint.aliases,
+      parameterText: toolSchemaSearchText(fn.parameters),
     };
   }).filter(x => x.name);
+}
+
+function legacyToolCatalogSearch(catalog, query, limit, nameBoost) {
+  const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
+  const scored = (catalog || []).map(x => {
+    const hay = `${x.name} ${x.pack} ${x.description}`.toLowerCase();
+    const score = words.reduce((n, w) => n + (hay.includes(w) ? (x.name.toLowerCase().includes(w) ? nameBoost : 1) : 0), 0);
+    return { x, score };
+  }).filter(r => !words.length || r.score > 0).sort((a, b) => b.score - a.score || a.x.name.localeCompare(b.x.name)).slice(0, limit);
+  return { ok: true, query: String(query || ''), matches: scored.map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description })), packs: TOOL_PACK_DESCRIPTIONS };
+}
+
+function runtimeToolBlockedReason(item, config) {
+  const mode = config && config.permissionMode;
+  if ((mode === 'plan' || mode === 'dontAsk') && item && item.tier !== 'read') return `permission mode '${mode}' blocks ${item.tier}-tier execution`;
+  return '';
+}
+
+function searchToolCatalog(catalog, args, config, opts) {
+  const query = String(args && args.query || '');
+  const limit = Math.min(20, Math.max(1, Number(args && args.limit) || 8));
+  const forceV1 = !!(opts && opts.forceV1);
+  if ((!config || config.runtimeToolRetrievalV1 !== true) && !forceV1) {
+    return legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
+  }
+  const startedAt = Date.now();
+  const qNorm = normalizeToolSearchText(query);
+  const qTokens = [...new Set(tokenizeToolSearchText(query))];
+  const docs = (catalog || []).map(item => {
+    const fields = {
+      name: tokenizeToolSearchText(item.name),
+      aliases: tokenizeToolSearchText((item.aliases || []).join(' ')),
+      capabilities: tokenizeToolSearchText((item.capabilities || []).join(' ')),
+      parameters: tokenizeToolSearchText(item.parameterText || ''),
+      description: tokenizeToolSearchText(item.description || ''),
+      pack: tokenizeToolSearchText(item.pack || ''),
+    };
+    const all = new Set(Object.values(fields).flat());
+    return { item, fields, all };
+  });
+  const df = new Map();
+  for (const token of qTokens) df.set(token, docs.reduce((n, d) => n + (d.all.has(token) ? 1 : 0), 0));
+  const weights = { name: 9, aliases: 7, capabilities: 6, parameters: 3, description: 2, pack: 2 };
+  const ranked = docs.map(doc => {
+    const components = {}; const matchedOn = new Set(); let score = 0;
+    const itemNameNorm = normalizeToolSearchText(doc.item.name);
+    if (qNorm && (qNorm === itemNameNorm || qNorm === String(doc.item.name || '').toLowerCase())) { components.exactName = 100; score += 100; matchedOn.add('exact_name'); }
+    for (const alias of doc.item.aliases || []) {
+      const a = normalizeToolSearchText(alias);
+      if (qNorm && a && (qNorm.includes(a) || a.includes(qNorm))) { components.aliasPhrase = (components.aliasPhrase || 0) + 14; score += 14; matchedOn.add('alias'); break; }
+    }
+    for (const [field, tokens] of Object.entries(doc.fields)) {
+      const set = new Set(tokens); let subtotal = 0;
+      for (const token of qTokens) {
+        if (!set.has(token)) continue;
+        const freq = Math.max(1, df.get(token) || 1);
+        const idf = Math.log(1 + (docs.length + 1) / freq);
+        subtotal += weights[field] * idf;
+      }
+      if (subtotal > 0) { components[field] = Number(subtotal.toFixed(3)); score += subtotal; matchedOn.add(field); }
+    }
+    return { doc, score, components, matchedOn: [...matchedOn] };
+  }).filter(r => !qTokens.length || r.score > 0)
+    .sort((a, b) => b.score - a.score || a.doc.item.name.localeCompare(b.doc.item.name)).slice(0, limit);
+  const loadedNames = opts && opts.loadedNames instanceof Set ? opts.loadedNames : null;
+  return {
+    ok: true, query, retrievalVersion: 'deterministic-v1',
+    queryHash: crypto.createHmac('sha256', RUNTIME_TELEMETRY_KEY).update(qNorm).digest('hex').slice(0, 16),
+    elapsedMs: Date.now() - startedAt,
+    matches: ranked.map(r => {
+      const x = r.doc.item; const blockedReason = runtimeToolBlockedReason(x, config);
+      return {
+        name: x.name, pack: x.pack, tier: x.tier, description: x.description,
+        score: Number(r.score.toFixed(3)), matchedOn: r.matchedOn,
+        loaded: loadedNames ? loadedNames.has(x.name) : undefined,
+        blockedReason: blockedReason || undefined,
+      };
+    }),
+    packs: TOOL_PACK_DESCRIPTIONS,
+  };
+}
+
+function compareToolRetrievalShadow(baseline, candidate) {
+  const baselineNames = Array.isArray(baseline && baseline.matches) ? baseline.matches.slice(0, 5).map(x => x.name) : [];
+  const candidateNames = Array.isArray(candidate && candidate.matches) ? candidate.matches.slice(0, 5).map(x => x.name) : [];
+  const candidateSet = new Set(candidateNames);
+  const overlap = baselineNames.filter(name => candidateSet.has(name)).length;
+  const denominator = Math.max(1, Math.min(5, Math.max(baselineNames.length, candidateNames.length)));
+  return {
+    retrievalVersion: candidate && candidate.retrievalVersion || 'deterministic-v1',
+    queryHash: candidate && candidate.queryHash || '',
+    baselineResultCount: Array.isArray(baseline && baseline.matches) ? baseline.matches.length : 0,
+    candidateResultCount: Array.isArray(candidate && candidate.matches) ? candidate.matches.length : 0,
+    baselineTopTools: baselineNames,
+    candidateTopTools: candidateNames,
+    top1Changed: (baselineNames[0] || '') !== (candidateNames[0] || ''),
+    overlapAt5: Number((overlap / denominator).toFixed(3)),
+    elapsedMs: Number(candidate && candidate.elapsedMs) || 0,
+  };
+}
+
+// 20-F1 data gate: deterministic, read-only failure taxonomy. The caller may emit/log this result, but this
+// function intentionally contains no retry or repair path. That keeps telemetry deployable before the local
+// sample proves a bounded recovery loop is worth building.
+function classifyRuntimeToolFailure(toolName, result, meta) {
+  if (!result || typeof result !== 'object' || (result.ok !== false && !result.error)) return null;
+  const disposition = String(meta && meta.disposition || 'executed');
+  const tier = String(meta && meta.tier || 'read');
+  const text = `${result.errorClass || ''} ${result.error || ''} ${result.message || ''} ${result.detail || ''}`.slice(0, 4000);
+  let failureClass = 'unknown', recoverableHint = false, allowedRepair = 'diagnose_only';
+  if (/permission|denied|拒绝|拒绝授权|无权限|not allowed|blocked by permission/i.test(text)) {
+    failureClass = 'permission_denied'; allowedRepair = 'request_authority';
+  } else if (/invalid.{0,20}(argument|parameter|input)|schema.{0,20}(fail|invalid)|required.{0,20}(property|field)|参数.{0,12}(错误|无效|缺少)|缺少.{0,8}(参数|字段)|unexpected.{0,8}(argument|field)/i.test(text)) {
+    failureClass = 'invalid_arguments'; recoverableHint = true; allowedRepair = 'modify_arguments';
+  } else if (/unknown tool|tool not found|connector.{0,16}(offline|unavailable)|mcp server.{0,20}not available|工具.{0,8}(不存在|不可用)/i.test(text)) {
+    failureClass = 'tool_unavailable'; recoverableHint = true; allowedRepair = 'retrieve_alternative_tool';
+  } else if (result.loopAborted || disposition === 'loop_refused' || /no.?progress|semantic.?stall|死循环|无新(信息|进展)|相同工具调用/i.test(text)) {
+    failureClass = 'no_progress'; recoverableHint = true; allowedRepair = 'replan';
+  } else if (/verification|quality gate|coverage|evidence_missing|gate_(rejected|uncovered|unverified)|校验失败|验证失败|质量门/i.test(text)) {
+    failureClass = 'verification_failed'; recoverableHint = true; allowedRepair = 'repair_then_verify';
+  } else if (/timeout|timed out|etimedout|econnreset|eai_again|\b429\b|\b50[234]\b|temporar|连接.{0,6}(重置|超时)|临时.{0,6}(错误|不可用)/i.test(text) && tier === 'read') {
+    failureClass = 'transient_read'; recoverableHint = true; allowedRepair = 'retry_once';
+  } else if (tier !== 'read' && (/timeout|timed out|aborted|interrupt|unknown|连接|network|socket/i.test(text) || disposition === 'steer_skipped')) {
+    failureClass = 'side_effect_unknown'; allowedRepair = 'stop_for_effect_check';
+  }
+  return {
+    failureClass, recoverableHint, allowedRepair, deterministic: true,
+    tier, disposition,
+    evidenceHash: crypto.createHmac('sha256', RUNTIME_TELEMETRY_KEY).update(String(toolName || '') + '\0' + text).digest('hex').slice(0, 16),
+  };
 }
 
 function listCompactTools(catalog, args) {
@@ -1820,14 +2027,12 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
   // 白名单仅对纯闲聊任务有用(而闲聊不需要 file_read),收益不抵语义破坏,故回退。
   const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack))).map(x => x.tool);
   const search = (query, limit) => {
-    const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
-    const max = Math.min(20, Math.max(1, Number(limit) || 8));
-    const scored = catalog.map(x => {
-      const hay = `${x.name} ${x.pack} ${x.description}`.toLowerCase();
-      const score = words.reduce((n, w) => n + (hay.includes(w) ? (x.name.toLowerCase().includes(w) ? 3 : 1) : 0), 0);
-      return { x, score };
-    }).filter(r => !words.length || r.score > 0).sort((a, b) => b.score - a.score || a.x.name.localeCompare(b.x.name)).slice(0, max);
-    return { ok: true, query: String(query || ''), matches: scored.map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description })), packs: TOOL_PACK_DESCRIPTIONS };
+    const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));
+    return searchToolCatalog(catalog, { query, limit }, config, { legacyNameBoost: 3, loadedNames });
+  };
+  const shadowSearch = (query, limit) => {
+    const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));
+    return searchToolCatalog(catalog, { query, limit }, config, { forceV1: true, legacyNameBoost: 3, loadedNames });
   };
   const load = args => {
     const before = new Set(current().map(t => t.function.name));
@@ -1837,7 +2042,7 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
     return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length };
   };
   const list = args => listCompactTools(catalog, args);
-  return { catalog, activePacks, current, list, search, load, fullCount: catalog.length };
+  return { catalog, activePacks, current, list, search, shadowSearch, load, fullCount: catalog.length };
 }
 
 function estimateToolSchemaTokens(tools) {

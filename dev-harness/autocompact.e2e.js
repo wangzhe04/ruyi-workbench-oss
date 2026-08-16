@@ -1,6 +1,6 @@
 (async () => {
-﻿// E2E for v0.8-S5 上下文管理 (§7.7): estimate v2 (parts-aware) + two-level auto-compaction + pairing
-// iron law + append-only cache discipline + history snapshot + tiered truncation.
+﻿// E2E for v0.8-S5 上下文管理 + 20-C1 deterministic observation reduction: estimate v2
+// (parts-aware) + two-level auto-compaction + pairing iron law + stable rawRef snapshot + tiered truncation.
 //
 // Strategy (no fake changes needed — real big file heaps the window): a provider with a SMALL
 // contextWindow + autoCompactThreshold 0.8, a 200KB seed file, and FAKE_TOOL_SEQUENCE = three full
@@ -20,9 +20,8 @@
 // Asserts:
 //   a) stream carries a `compact` event with mode 'evaporate'
 //   b) turn completes with result ok:true
-//   c) providerHistory pairing intact: every assistant.tool_calls id has a matching role:'tool' msg;
-//      an evaporated tool msg content starts with '[已省略:'
-//   d) checkpoints/<sid>/history-*.json.gz exists and gunzips to a valid JSON array
+//   c) providerHistory pairing intact and an old tool result becomes a structured/head-tail model view
+//   d) stable checkpoints/<sid>/history-<turn>-<hash>.json.gz exists and rawRef resolves to canonical bytes
 //   e) session.messages contains a 🗜 system message
 //   f) a follow-up ordinary turn still answers (compaction didn't break the engine)
 //   g) module.exports estimateHistoryTokens direct unit: pure-CJK ≈ len/1.5 (±10%); a tool_calls
@@ -41,6 +40,7 @@ const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const HOME = path.join(os.tmpdir(), 'wcw-autocompact-e2e');
 const BIGFILE = path.join(HOME, 'big.txt');
+process.env.RUYI_HOME = HOME; // direct exported rehydrateObservation must resolve the child server's data root
 
 fs.rmSync(HOME, { recursive: true, force: true });
 fs.mkdirSync(HOME, { recursive: true });
@@ -57,6 +57,7 @@ fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
   }],
   activeProvider: 'fake',
   autoCompactThreshold: 0.8, // budget = 32000 est-tokens
+  runtimeObservationReducerV1: true,
 }, null, 2));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -168,22 +169,30 @@ function postStream(port, payload) {
       }
     }
     ok(tcCount > 0 && allPaired, `pairing intact: all ${tcCount} tool_call ids have a role:'tool' answer`);
-    const evaporatedMsgs = ph.filter(m => m && m.role === 'tool' && typeof m.content === 'string' && m.content.startsWith('[已省略:'));
-    ok(evaporatedMsgs.length > 0, 'at least one tool message content starts with "[已省略:" (' + evaporatedMsgs.length + ')');
+    const reducedEvents = events.filter(e => e.type === 'observation_reduced');
+    ok(reducedEvents.length > 0 && reducedEvents.every(e => e.visibleChars < e.originalChars && /^history:/.test(e.rawRef)), '20-C1 emits reduction telemetry with smaller visible size and rawRef');
 
-    // (d) history snapshot exists + gunzips to a JSON array.
+    // (d) stable history snapshot exists + rawRef identifies canonical observation bytes.
     const ckDir = path.join(HOME, 'checkpoints', sid);
-    const snaps = fs.existsSync(ckDir) ? fs.readdirSync(ckDir).filter(f => /^history-\d+\.json\.gz$/.test(f)) : [];
+    const snaps = fs.existsSync(ckDir) ? fs.readdirSync(ckDir).filter(f => /^history-\d+-[a-f0-9]{16}\.json\.gz$/.test(f)) : [];
     ok(snaps.length > 0, 'checkpoints/<sid>/history-*.json.gz snapshot exists (' + snaps.join(',') + ')');
-    let snapOk = false;
-    if (snaps.length) {
+    let snapOk = false, rawRefOk = false;
+    const ref = reducedEvents[0] && /^history:(\d+):([a-f0-9]{16}):(\d+):([a-f0-9]{16})$/.exec(reducedEvents[0].rawRef || '');
+    const refFile = ref ? `history-${ref[1]}-${ref[2]}.json.gz` : '';
+    if (ref && snaps.includes(refFile)) {
       try {
-        const raw = zlib.gunzipSync(fs.readFileSync(path.join(ckDir, snaps[0])));
+        const raw = zlib.gunzipSync(fs.readFileSync(path.join(ckDir, refFile)));
         const parsed = JSON.parse(raw.toString('utf8'));
         snapOk = Array.isArray(parsed);
+        const item = parsed[Number(ref[3])];
+        const actual = item && typeof item.content === 'string' ? require('crypto').createHash('sha256').update(item.content).digest('hex').slice(0, 16) : '';
+        rawRefOk = actual === ref[4];
       } catch { snapOk = false; }
     }
     ok(snapOk, 'snapshot gunzips to a valid JSON array');
+    ok(rawRefOk, '20-C1 rawRef resolves to canonical snapshot observation with matching hash');
+    const rehydrated = ref ? await mod.rehydrateObservation(sid, reducedEvents[0].rawRef) : null;
+    ok(rehydrated && rehydrated.ok && typeof rehydrated.content === 'string' && rehydrated.content.length === reducedEvents[0].originalChars, '20-C1 exported internal rehydrate primitive returns the canonical bytes');
 
     // (e) 🗜 system message present.
     const msgs = (s1 && s1.session && s1.session.messages) || [];

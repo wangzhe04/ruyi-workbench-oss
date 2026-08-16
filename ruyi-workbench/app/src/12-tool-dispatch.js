@@ -129,12 +129,16 @@ const CORE_TOOL_HANDLERS = {
   tool_search: { paths: null, guardNote: "目录检索控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config);
-      const words = String(args.query || '').toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter(Boolean);
-      const limit = Math.min(20, Math.max(1, Number(args.limit) || 8));
-      const matches = catalog.map(x => ({ x, score: words.reduce((n, w) => n + (`${x.name} ${x.pack} ${x.description}`.toLowerCase().includes(w) ? 1 : 0), 0) }))
-        .filter(r => !words.length || r.score > 0).sort((a, b) => b.score - a.score || a.x.name.localeCompare(b.x.name)).slice(0, limit)
-        .map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description }));
-      return { ok: true, query: String(args.query || ''), matches, packs: TOOL_PACK_DESCRIPTIONS, next: 'Call the concrete tool if visible; otherwise use tool_invoke_read/edit/exec with the matching tier.' };
+      const result = searchToolCatalog(catalog, args, config, { legacyNameBoost: 1 });
+      if (config.runtimeOptimizationShadowV1 === true && config.runtimeToolRetrievalV1 !== true) {
+        try {
+          const candidate = searchToolCatalog(catalog, args, config, { forceV1: true, legacyNameBoost: 1 });
+          const comparison = compareToolRetrievalShadow(result, candidate);
+          const sessionId = (ctx && ctx.session && ctx.session.id) || process.env.WCW_SESSION_ID || '';
+          logEvent({ kind: 'tool_retrieval_shadow', engine: 'mcp', sessionId, ...comparison });
+        } catch { /* shadow comparison must never affect the MCP result */ }
+      }
+      return { ...result, next: 'Call the concrete tool if visible; otherwise use tool_invoke_read/edit/exec with the matching tier.' };
   } },
   tool_load: { paths: null, guardNote: "元工具提示,不触文件路径", handler: async (args, ctx) => {
       return { ok: true, note: 'Claude CLI schemas are fixed for this process. Use tool_search then tool_invoke_read/edit/exec. OpenAI-compatible turns load concrete schemas on the next iteration.' };

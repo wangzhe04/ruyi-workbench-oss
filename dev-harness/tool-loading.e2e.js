@@ -80,7 +80,7 @@ function mcpSession(extraEnv) {
   fs.writeFileSync(TOOL_FILE, 'ADAPTIVE_TOOL_LOADING_OK');
   const [fakePort, wbPort] = await getFreePorts(2);
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
-    configSchema: 8, version: '1.6.1', permissionMode: 'bypass', toolLoadingMode: 'auto',
+    configSchema: 10, version: '2.5.0', permissionMode: 'bypass', toolLoadingMode: 'auto', runtimeOptimizationShadowV1: true, runtimeToolRetrievalV1: false, runtimeFailureTelemetryV1: false,
     defaultWorkspace: HOME, desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
     externalMcpServers: [], bridgeExternalToolsToProvider: false,
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${fakePort}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
@@ -93,6 +93,7 @@ function mcpSession(extraEnv) {
       { name: 'tool_search', args: { query: 'read workspace file' } },
       { name: 'tool_load', args: { packs: ['files_read'] } },
       { name: 'file_read', args: { path: TOOL_FILE } },
+      { name: 'file_read', args: { path: path.join(HOME, 'does-not-exist.txt') } },
     ];
     const fake = cp.spawn(process.execPath, [path.join(__dirname, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(fakePort), FAKE_TOOL_SEQUENCE: JSON.stringify(sequence), FAKE_CAPTURE_DIR: CAPTURE }, windowsHide: true });
     const wb = cp.spawn(process.execPath, [SERVER, 'serve', '--port', String(wbPort)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
@@ -102,15 +103,24 @@ function mcpSession(extraEnv) {
     const events = await postStream(wbPort, { message: 'Hello. Please answer briefly.' });
     const requests = fs.readdirSync(CAPTURE).filter(f => f.endsWith('.json')).sort().map(f => JSON.parse(fs.readFileSync(path.join(CAPTURE, f), 'utf8')));
     const names = body => new Set((body.tools || []).map(t => t.function && t.function.name));
-    ok(requests.length >= 5, 'five provider calls captured (list -> search -> load -> concrete tool -> answer)');
+    ok(requests.length >= 6, 'six provider calls captured (list -> search -> load -> success -> failure -> answer)');
     ok(names(requests[0]).has('list_tools') && names(requests[0]).has('tool_search') && names(requests[0]).has('tool_load'), 'simple request exposes compact discovery controls');
     ok(!names(requests[0]).has('file_read') && !names(requests[1]).has('file_read') && !names(requests[2]).has('file_read'), 'unrelated file schema absent before tool_load');
-    ok(names(requests[3]).has('file_read') && names(requests[4]).has('file_read'), 'loaded file schema appears next iteration and remains stable');
+    ok(names(requests[3]).has('file_read') && names(requests[4]).has('file_read') && names(requests[5]).has('file_read'), 'loaded file schema appears next iteration and remains stable');
     const meta = events.find(e => e.type === 'meta');
     ok(meta && meta.toolLoadingMode === 'auto' && meta.tools < meta.availableTools, 'meta reports reduced initial tool surface');
     ok(events.some(e => e.type === 'tool_catalog' && e.state === 'loaded'), 'tool_catalog loaded telemetry emitted');
+    const ranked = events.find(e => e.type === 'tool_catalog' && e.state === 'shadow_compared');
+    ok(ranked && ranked.retrievalVersion === 'deterministic-v1' && ranked.queryHash && ranked.candidateTopTools.includes('file_read') && !('query' in ranked), '20-T1 provider path emits a redacted shadow comparison');
+    const providerSearchResult = events.find(e => e.type === 'tool_result' && e.content && e.content.query === 'read workspace file');
+    ok(providerSearchResult && !providerSearchResult.content.retrievalVersion, '20-T1 shadow leaves the provider-visible legacy search result unchanged');
     ok(events.some(e => e.type === 'tool_result' && e.content && e.content.groups && Array.isArray(e.content.groups.core) && e.content.groups.core.includes('list_tools')), 'Provider compact directory lists names without loading schemas');
     ok(events.some(e => e.type === 'tool_result' && JSON.stringify(e.content).includes('ADAPTIVE_TOOL_LOADING_OK')), 'concrete tool executes after loading');
+    const failure = events.find(e => e.type === 'failure_classified');
+    ok(failure && failure.source === 'runtime-shadow' && failure.toolName === 'file_read' && failure.evidenceHash && !('error' in failure), '20-F1 master shadow emits a redacted deterministic failure record');
+    const logFiles = fs.readdirSync(path.join(HOME, 'logs')).filter(f => /^workbench-.*\.ndjson$/.test(f));
+    const failureLogs = logFiles.flatMap(f => fs.readFileSync(path.join(HOME, 'logs', f), 'utf8').split(/\r?\n/).filter(Boolean).map(line => { try { return JSON.parse(line); } catch { return null; } })).filter(row => row && row.kind === 'runtime_failure_classified');
+    ok(failureLogs.length > 0 && !JSON.stringify(failureLogs).includes('does-not-exist.txt'), '20-F1 persisted shadow log contains classification metadata but no raw error/path');
 
     const compact = mcpSession({ WCW_TOOL_LOADING_MODE: 'auto', WCW_TOOL_PACKS: 'core', WCW_SESSION_ID: 'test' }); children.push(compact.child);
     await compact.call('initialize', { protocolVersion: '2024-11-05' });
@@ -123,6 +133,10 @@ function mcpSession(extraEnv) {
     const search = await compact.call('tools/call', { name: 'tool_search', arguments: { query: 'file_write' } });
     const searchText = JSON.parse(search.result.content[0].text);
     ok(searchText.matches.some(m => m.name === 'file_write' && m.tier === 'edit'), 'Claude discovery returns hidden tool and exact risk tier');
+    ok(!searchText.retrievalVersion && searchText.matches[0].name === 'file_write', '20-T1 Claude/MCP shadow leaves the client-visible legacy result unchanged');
+    const allShadowLogs = fs.readdirSync(path.join(HOME, 'logs')).filter(f => /^workbench-.*\.ndjson$/.test(f)).flatMap(f => fs.readFileSync(path.join(HOME, 'logs', f), 'utf8').split(/\r?\n/).filter(Boolean).map(line => { try { return JSON.parse(line); } catch { return null; } })).filter(Boolean);
+    const mcpShadow = allShadowLogs.find(row => row.kind === 'tool_retrieval_shadow' && row.engine === 'mcp');
+    ok(mcpShadow && mcpShadow.queryHash && mcpShadow.candidateTopTools.includes('file_write') && !JSON.stringify(mcpShadow).includes('"query"'), '20-T1 Claude/MCP path persists only redacted shadow comparison metadata');
     const mismatch = await compact.call('tools/call', { name: 'tool_invoke_read', arguments: { name: 'file_write', arguments: { path: TOOL_FILE, content: 'bad' } } });
     const mismatchText = JSON.parse(mismatch.result.content[0].text);
     ok(mismatchText.ok === false && /tier mismatch/.test(mismatchText.error), 'Claude proxy rejects tier downgrade');
