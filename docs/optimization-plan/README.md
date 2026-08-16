@@ -1,11 +1,11 @@
 # 如意 Ruyi 工作台 · 优化方案索引（当前活跃）
 
-`docs/optimization-plan/` 子目录的活跃方案索引。编号 04–07、12、20 为当前仍活跃的方案；其余编号（01–03、08–19）的方案已交付并归档。
+`docs/optimization-plan/` 子目录的活跃方案索引。编号 04–07、12、20–21 为当前仍活跃的方案；其余编号（01–03、08–19）的方案已交付并归档。
 
 ## 状态说明
 
 - 已交付/已归档的 01/02/03/08–19 号方案文档已移入 [`../archive/optimization-plan/`](../archive/optimization-plan/)（归档明细见其 [`README.md`](../archive/optimization-plan/README.md)），本文档不再收录其正文。
-- 本文档只列出当前仍活跃的方案（04/05/06/07/12/20）。
+- 本文档只列出当前仍活跃的方案（04/05/06/07/12/20/21）。
 - 全局路线图与后续计划以 [`../OPTIMIZATION-ROADMAP.md`](../OPTIMIZATION-ROADMAP.md) 为准。
 
 ## 当前活跃方案
@@ -18,6 +18,7 @@
 | 07 | [MicroAgent 方法论](07-microagent-lessons.md) | M1–M6 多数已交付；data-insights 候选待启动 |
 | 12 | [Agent 架构研究路线](12-agent-architecture-research-roadmap.md) | R2/R3 暂缓；R4/R5 已收口 |
 | 20 | [运行时优化性价比收敛](20-runtime-optimization-cost-benefit.md) | shadow 安全门通过，但 283/89/59 对抗审计确认非纯收益：T1 继续 shadow，C1 主动启用阻断，F1 仅 telemetry |
+| 21 | [工具调用经济性校准与收敛](21-tool-call-economics-convergence.md) | 规划冻结、尚未实施：先校准真实模型调用，再依次验证批次调度、大参数历史、缓存布局与元工具链 |
 
 ## 编号空缺说明
 

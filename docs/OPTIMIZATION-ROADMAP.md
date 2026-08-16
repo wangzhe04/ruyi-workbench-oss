@@ -110,6 +110,8 @@
 
 **运行时优化性价比候选线（2026-08-15，shadow 已启用、非纯收益）**：完成 AgentRx、AgentDiet、工具检索、上下文治理、模型/预算路由、DAG 调度、推测执行、语义事务、Windows 感知与 KV cache 等方向的去重和成本收益评审。`runtimeOptimizationShadowV1` 默认开启，只旁路计算/脱敏记录，不改变工具结果、上下文、权限、retry 或记忆。基础 60/20/30 合成门虽通过，但后续 283 条检索、89 条 observation、59 条失败分类与 1,000 指纹探针的对抗审计给出 `mixed_benefit_with_identified_costs_and_blockers`：T1 正例收益显著且无样本内退化，但攻击/无关 query 有误召回和大 catalog 线性成本；C1 发现纯文本错误漏保护、超宽结构化结果非法 JSON、重复压缩非幂等三个 High，**主动启用阻断**；F1 对部分写操作 transport ambiguity 分类不足，但仍 fail-safe、只保留 telemetry。Recovery Brief/自动恢复未准入；完整 AgentRx/AgentDiet、学习型路由/调度及新运行时服务继续暂缓。详细证据与修复前置门见 [`optimization-plan/20-runtime-optimization-cost-benefit.md`](optimization-plan/20-runtime-optimization-cost-benefit.md) §0.4。
 
+**工具调用经济性校准与收敛候选线（2026-08-17，规划冻结、未实施）**：HB360 适配器会把同一 assistant batch 的多个 tool result 展平为合成轮次，`1,739` 合成轮次不能继续视为真实 API 调用；adapter metadata 与原始 SSE 给出的真实模型调用基线约为 `10.1–10.4/任务`，且原始 SSE 中约 `40%` 的带工具响应已经包含多工具调用。后续按 E0–E5 单轴推进：E0 建立 `modelCallId → assistantBatchId → toolCallId` 事实账本；E1 补工具阶段、参数历史、元工具链与缓存 shadow；E2 将现有 `2–8` 个纯原生 read 的全有或全无并发升级为有界 worker pool/安全只读岛；E3 在完整执行与审计参数之外增加紧凑 provider model view；E4 验证易变层后置和 schema append-only 的缓存收益；E5 收敛孤立 todo 与 search/load/invoke 链。第一收益门为真实模型调用 `8.5–9.2/任务`、大参数历史 `-70%`、read-heavy 工具阶段 p95 `-20%`、孤立元工具批次 `-30%`，总成本先以 `-15–25%` 为目标而非承诺减半；任务结果 overall 退化须 `≤1pp`，配对/权限/checkpoint/审计回归为零。20-T1 仍需至少 200 条真实 search（含 50 条负例）和拒绝/性能门，20-C1 仍受证据保护与幂等 High 阻断，不因本线立项而联带启用。详见 [`optimization-plan/21-tool-call-economics-convergence.md`](optimization-plan/21-tool-call-economics-convergence.md)。
+
 ### Traveler 4.0（概念稿）
 
 `docs/TRAVELER-CONCEPT.md` v0.1 已立（可迁移的任务旅程 / Portable Missions），非范围、版本或发布时间承诺；其实施不得抢占或稀释 Pretender 3.0 收口。
