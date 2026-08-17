@@ -93,6 +93,10 @@ function defaultConfig() {
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
     // tool_phase_completed),不改 prompt/调度/history。默认开但带采样与每回合事件上限;false 则零事件。
     toolEconomicsShadowV1: true,
+    // 21-E2: 有界只读批次调度器 —— >8 纯 read 批用 worker pool 限流并发,混合批提取只读并行岛。
+    // 主动开关默认 false;并发 clamp 1..8(决策点 B: 并发 = min(8, max(4, batchWidth)),≤8 保留现状全量)。
+    boundedReadSchedulerV1: false,
+    boundedReadConcurrencyV1: 4,
     // v1.1-W2 (T2): auto-scan drop-in MCP connectors from <repo>/mcp/*/ruyi-mcp.json and
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
@@ -419,9 +423,14 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
+  }
+  { // 21-E2: bounded read concurrency — JSON number, clamp 1..8.
+    const n = Number(config.boundedReadConcurrencyV1);
+    const clamped = Number.isFinite(n) ? Math.min(8, Math.max(1, Math.round(n))) : 4;
+    if (clamped !== config.boundedReadConcurrencyV1) { config.boundedReadConcurrencyV1 = clamped; changed = true; }
   }
   {
     const ttl = Number(config.toolCatalogCacheTtlMs);

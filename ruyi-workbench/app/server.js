@@ -569,6 +569,10 @@ function defaultConfig() {
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
     // tool_phase_completed),不改 prompt/调度/history。默认开但带采样与每回合事件上限;false 则零事件。
     toolEconomicsShadowV1: true,
+    // 21-E2: 有界只读批次调度器 —— >8 纯 read 批用 worker pool 限流并发,混合批提取只读并行岛。
+    // 主动开关默认 false;并发 clamp 1..8(决策点 B: 并发 = min(8, max(4, batchWidth)),≤8 保留现状全量)。
+    boundedReadSchedulerV1: false,
+    boundedReadConcurrencyV1: 4,
     // v1.1-W2 (T2): auto-scan drop-in MCP connectors from <repo>/mcp/*/ruyi-mcp.json and
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
@@ -895,9 +899,14 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
+  }
+  { // 21-E2: bounded read concurrency — JSON number, clamp 1..8.
+    const n = Number(config.boundedReadConcurrencyV1);
+    const clamped = Number.isFinite(n) ? Math.min(8, Math.max(1, Math.round(n))) : 4;
+    if (clamped !== config.boundedReadConcurrencyV1) { config.boundedReadConcurrencyV1 = clamped; changed = true; }
   }
   {
     const ttl = Number(config.toolCatalogCacheTtlMs);
@@ -19693,13 +19702,17 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
         }
         // hb360 C1: read-tier 并行批 —— 整批全部是【原生只读工具】(无桥接/控制面/spawn/todo/mission/
-        // 交互类)且 ≤8 个时,入口并发预执行(单线程事件循环下的 I/O 并发),结果按 id 存表;下方串行
-        // 循环走到通用分发时直接取预执行结果,事件/历史/hook/配对顺序与串行路径【逐字节一致】。
+        // 交互类)时入口并发预执行(单线程事件循环下的 I/O 并发),结果按 id 存表;下方串行循环走到通用
+        // 分发时直接取预执行结果,事件/历史/hook/配对顺序与串行路径【逐字节一致】。
+        // 21-E2 (boundedReadSchedulerV1): 宽度 ≤8 保持现状全量并发(决策 B 逐字节等价);开关开启时
+        //   >8 纯 read 批升级为有界 worker pool(并发 = min(8, max(4, width))),不再整体回退串行。
         // 安全约束:① 预扫描 loop-guard 签名序列,命中 LOOP_ABORT_AT 不并行(让串行路径照常拒绝,
         //    不白跑将被拒的调用);② read tier 恒 auto-allow(无权限弹窗/grant 消耗时序问题);
         //    ③ loopWarning/语义指纹在下方取结果后按原顺序照常应用。任一条件不满足 → null → 走原串行。
         let parallelReadResults = null;
-        if (localToolCalls.length > 1 && localToolCalls.length <= 8) {
+        let poolStrategy = null;   // 21-E2: 'parallel'(≤8 全量) | 'pool_read'(>8 有界并发) | null
+        let poolQueueWaitMs = 0;   // 21-E2: pool 内资源锁排队总时长(串行/全量路径恒 0)
+        if (localToolCalls.length > 1) {
           const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
           const allSafeRead = localToolCalls.every(tc => tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
             && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read');
@@ -19711,24 +19724,55 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             else if (s0 === simSig) simCount += 1; else { simSig = s0; simCount = 1; }
             if (simCount >= LOOP_ABORT_AT && !loopAbortExempt(b0) && !loopWarnOnly(b0)) { loopTrip = true; break; }
           }
-          if (allSafeRead && !loopTrip) {
+          const withinLegacyWidth = localToolCalls.length <= 8;
+          const usePool = config.boundedReadSchedulerV1 === true; // 21-E2: 主动开关,>8 才触发 pool 分支
+          if (allSafeRead && !loopTrip && (withinLegacyWidth || usePool)) {
             parallelReadResults = new Map();
-            await Promise.all(localToolCalls.map(async tc => {
-              let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
-              let res, lease = '';
-              if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 并行预执行真实起点
-              try {
-                const toolResources = inferToolResources(tc.name, pargs, null, workingDir, 'read');
-                lease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
-                res = await awaitProviderTool(
-                  tc,
-                  signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
-                  INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
-                );
-              } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
-              finally { releaseResourceLease(lease); }
-              parallelReadResults.set(tc.id, res);
-            }));
+            poolStrategy = withinLegacyWidth ? 'parallel' : 'pool_read';
+            if (withinLegacyWidth) {
+              // 现状全量并发路径(逐字节等价,仅供 E1 埋点延续)
+              await Promise.all(localToolCalls.map(async tc => {
+                let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+                let res, lease = '';
+                if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 并行预执行真实起点
+                try {
+                  const toolResources = inferToolResources(tc.name, pargs, null, workingDir, 'read');
+                  lease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
+                  res = await awaitProviderTool(
+                    tc,
+                    signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
+                    INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
+                  );
+                } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+                finally { releaseResourceLease(lease); }
+                parallelReadResults.set(tc.id, res);
+              }));
+            } else {
+              // 21-E2: >8 纯 read —— 有界 worker pool。worker 数 = min(width, min(8, max(4, width))),
+              // 提交顺序推进(完成顺序可乱),结果仍按 id 存表,下方按原顺序消费 → 配对/历史顺序不变。
+              const poolWorkers = Math.min(localToolCalls.length, Math.min(8, Math.max(4, localToolCalls.length)));
+              let poolNext = 0;
+              await Promise.all(Array.from({ length: poolWorkers }, async () => {
+                while (poolNext < localToolCalls.length) {
+                  const tc = localToolCalls[poolNext++];
+                  let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+                  let res, lease = '', tWait0 = Date.now();
+                  if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 预执行真实起点
+                  try {
+                    const toolResources = inferToolResources(tc.name, pargs, null, workingDir, 'read');
+                    lease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
+                    poolQueueWaitMs += Date.now() - tWait0; // 21-E2: 资源锁排队时长计量
+                    res = await awaitProviderTool(
+                      tc,
+                      signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
+                      INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
+                    );
+                  } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+                  finally { releaseResourceLease(lease); }
+                  parallelReadResults.set(tc.id, res);
+                }
+              }));
+            }
           }
         }
         for (const tc of localToolCalls) {
@@ -20091,11 +20135,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const econSum = econBatchToolMs.reduce((s, v) => s + v, 0);
           econLog('tool_phase_completed', {
             assistantBatchId: activeProviderBatchId,
-            strategy: (parallelReadResults && parallelReadResults.size) ? 'parallel' : 'serial',
-            maxConcurrency: (parallelReadResults && parallelReadResults.size) ? localToolCalls.length : 1,
+            // 21-E2: strategy 扩展 pool_read(>8 有界并发)/pool_island(混合批岛, E2b); 旧并行批保持 'parallel'。
+            strategy: poolStrategy || ((parallelReadResults && parallelReadResults.size) ? 'parallel' : 'serial'),
+            maxConcurrency: poolStrategy === 'pool_read'
+              ? Math.min(localToolCalls.length, Math.min(8, Math.max(4, localToolCalls.length)))
+              : ((parallelReadResults && parallelReadResults.size) ? localToolCalls.length : 1),
             toolsMs: econToolsMs,
             criticalPathMs: econMax,
             serialEstimateMs: econSum,
+            queueWaitMs: poolQueueWaitMs || 0, // 21-E2: pool 内资源锁排队总时长
           });
         }
         await saveSession(session);   // persist the growing tool trace

@@ -106,6 +106,15 @@ ok(/usageSource: usageCalls > usageSnapshot\.calls \? 'provider' : 'estimated'/.
 ok(/assistantBatchId: activeProviderBatchId, toolCallId: tc\.id/.test(src), 'E0 tool_call_completed carries the three-layer link');
 ok(!/toolEconomicsShadowV1: false/.test(src), 'E0 economics shadow is not an opt-in-only flag');
 
+console.log('\n── [E2] bounded read scheduler wiring (21) ──');
+ok(/boundedReadSchedulerV1: false/.test(src), 'E2 active scheduler defaults false');
+ok(/boundedReadConcurrencyV1: 4/.test(src), 'E2 default concurrency 4');
+ok(/config\.boundedReadSchedulerV1 === true/.test(src), 'E2 strict boolean gate in the tool loop');
+ok(/Math\.min\(8, Math\.max\(4, localToolCalls\.length\)\)/.test(src), 'E2 concurrency formula = min(8, max(4, width)) (decision B)');
+ok(/strategy: poolStrategy/.test(src) && /'pool_read'/.test(src), 'E2 phase event exposes pool_read strategy');
+ok(/queueWaitMs/.test(src), 'E2 resource-queue wait measured');
+ok(!/boundedReadSchedulerV1: true/.test(src), 'E2 active flag is not defaulted on');
+
 console.log('');
 if (fail) { console.log(`RUNTIME-OPTIMIZATION E2E: FAIL (${fail})`); process.exit(1); }
 console.log('RUNTIME-OPTIMIZATION E2E: ALL PASS');
