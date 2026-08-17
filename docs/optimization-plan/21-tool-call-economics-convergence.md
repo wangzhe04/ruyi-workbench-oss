@@ -1,8 +1,11 @@
 # 21 · 工具调用经济性校准与收敛——真实轮次、批次调度、参数历史与元工具链
 
-> 状态：**E0 已落地首切片（三层调用账本 shadow），E1–E5 规划冻结待实施；本方案尚未改变运行时行为，也未启用任何主动开关**
+> 状态：**E0 已落地首切片（三层调用账本 shadow），E1 基线报表已上线（六类指标聚合），E2–E5 规划冻结待实施；本方案尚未改变运行时行为，也未启用任何主动开关**
 > 决策日期：2026-08-17
-> 实施记录（2026-08-17）：E0 三层账本 shadow 已上线 —— `toolEconomicsShadowV1` 默认 `true`（带采样与每回合 400 条事件上限），在 provider 工具循环落地 `model_call_started/completed`、`assistant_tool_batch`、`tool_call_completed`、`tool_phase_completed` 五类脱敏事件，`modelCallId → assistantBatchId → toolCallId` 三层关联可对账；`openAiStreamOnce` 增补 `providerResponseId` 辅助字段；`dev-harness/economics-shadow.e2e.js` 离线假 provider 全链路验证通过（含并行 read 批 strategy/criticalPath 断言）。HB360 101 条对账门因本机无 HB360 数据标记为 **blocked/deferred**，出门改用本地脱敏日志重放（见 §3.3）。
+> 实施记录（2026-08-17）：
+> - **E0**：三层账本 shadow 已上线 —— `toolEconomicsShadowV1` 默认 `true`（带采样与每回合 400 条事件上限），在 provider 工具循环落地 `model_call_started/completed`、`assistant_tool_batch`、`tool_call_completed`、`tool_phase_completed` 五类脱敏事件，`modelCallId → assistantBatchId → toolCallId` 三层关联可对账；`openAiStreamOnce` 增补 `providerResponseId` 辅助字段；`dev-harness/economics-shadow.e2e.js` 离线假 provider 全链路验证通过（含并行 read 批 strategy/criticalPath 断言）。
+> - **E1**：`dev-harness/economics-report.js` 基线报表上线 —— 只读脱敏账本事件，输出六类报表：模型调用（calls/task、tool-bearing ratio、usage source、cached share、pairing 对账）、批次形态（width 分布、并行/只读/混合占比、>8 纯 read 候选岛）、工具阶段（toolsMs/criticalPath/serialEstimate/speedup）、参数历史（argsBytes/resultBytes 分布与 Top-N 工具）、元工具链（孤立 meta 批、search→load→invoke 三跳链、重复 search）、缓存稳定性（schema fingerprint 翻转、historyBytes 趋势）。参数"后续重复携带次数"标注待 E3 双视图、"stable prefix bytes"标注待 E4 shadow。CLI：`node dev-harness/economics-report.js [logDir]`；单元测试 `dev-harness/unit/economics-report.test.js` 与 e2e 集成断言全部通过。
+> - **HB360 对账门**：因本机无 HB360 数据标记为 **blocked/deferred**，出门改用本地脱敏日志重放（见 §3.3）。
 > 证据范围：当前 Ruyi Provider 工具循环、本机脱敏聚合日志、HB360 101 条任务结果及原始 SSE。外部分析附件只作为问题清单和待验证假设，不作为实现指令或事实源。
 > 目标：先把“真实模型调用、一次响应内工具批次、工具执行耗时、历史参数成本”拆开计量，再以单轴实验收敛成本和时延，同时守住权限、配对、checkpoint 与任务结果。
 

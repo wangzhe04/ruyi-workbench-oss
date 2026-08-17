@@ -9,6 +9,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { getFreePorts } = require('./free-port');
+const { summarizeEconomicsEvents } = require('./economics-report');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -101,6 +102,14 @@ function killTree(child) {
     // usage 增量语义: 若 provider 报 usage,completed 的 input/output ≥ 0 且与整回合累计一致。
     const usageRows = completed.filter(r => r.usageSource === 'provider');
     if (usageRows.length) ok(usageRows.every(r => r.inputTokens >= 0 && r.outputTokens >= 0), 'provider usage deltas are non-negative');
+    // 21-E1: 同一批真实账本事件应能直接聚合出基线报告(读报告模块, 不复制日志)。
+    const report = summarizeEconomicsEvents(econ);
+    ok(report.windows.modelCalls > 0 && report.windows.toolCalls >= 2, 'E1 report aggregates the real e2e events');
+    ok(report.pairing.unpairedStarted === 0 && report.pairing.unpairedCompleted === 0, 'E1 report pairing closed on real events');
+    ok(report.batchShape.parallelPhaseShare === 1, 'E1 report sees the parallel read phase');
+    ok(report.metaChain.soloMetaBatches.length === 0, 'E1 report finds no solo meta batch in this fixture');
+    const serializedReport = JSON.stringify(report);
+    ok(!serializedReport.includes('AAA') && !serializedReport.includes(HOME), 'E1 report leaks no raw args or paths');
   } catch (e) {
     fail++; console.log('ERROR ' + (e && e.stack || e));
   } finally {

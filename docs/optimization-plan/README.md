@@ -18,7 +18,7 @@
 | 07 | [MicroAgent 方法论](07-microagent-lessons.md) | M1–M6 多数已交付；data-insights 候选待启动 |
 | 12 | [Agent 架构研究路线](12-agent-architecture-research-roadmap.md) | R2/R3 暂缓；R4/R5 已收口 |
 | 20 | [运行时优化性价比收敛](20-runtime-optimization-cost-benefit.md) | shadow 安全门通过，但 283/89/59 对抗审计确认非纯收益：T1 继续 shadow，C1 主动启用阻断，F1 仅 telemetry |
-| 21 | [工具调用经济性校准与收敛](21-tool-call-economics-convergence.md) | E0 三层调用账本 shadow 已落地（五类脱敏事件 + 三层 ID 对账，`toolEconomicsShadowV1` 默认开/带采样）；E1–E5 规划冻结待实施；HB360 对账门 blocked/deferred |
+| 21 | [工具调用经济性校准与收敛](21-tool-call-economics-convergence.md) | E0 三层调用账本 shadow 已落地（五类脱敏事件 + 三层 ID 对账，`toolEconomicsShadowV1` 默认开/带采样）；E1 基线报表已上线（`dev-harness/economics-report.js` 六类指标聚合）；E2–E5 规划冻结；HB360 对账门 blocked/deferred |
 
 ## 编号空缺说明
 
