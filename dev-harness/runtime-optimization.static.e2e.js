@@ -115,6 +115,16 @@ ok(/strategy: poolStrategy/.test(src) && /'pool_read'/.test(src), 'E2 phase even
 ok(/queueWaitMs/.test(src), 'E2 resource-queue wait measured');
 ok(!/boundedReadSchedulerV1: true/.test(src), 'E2 active flag is not defaulted on');
 
+console.log('\n── [E5] meta-tool convergence wiring (21) ──');
+ok(/metaToolHintsV1: false/.test(src), 'E5 meta hints default false');
+ok(/function buildCallHint/.test(src) && /callHint/.test(src) && /requiredArgs/.test(src) && /'blocked'/.test(src), 'E5 search hint builder present (requiredArgs/callHint/state/blockedReason)');
+ok(/config\.metaToolHintsV1 === true/.test(src), 'E5 hints gated on strict boolean');
+ok(/discoveryState = \{ seq: 0, openedAt: 0, awaitingOutcome: false \}/.test(src), 'E5 discoverySeq chain state present');
+ok(/searchSeq: discoveryState\.seq/.test(src) && /discoverySeq: discoveryState\.seq/.test(src), 'E5 searchSeq/discoverySeq emitted into the ledger');
+ok(/unchanged: true, note: '任务清单与当前状态一致/.test(src), 'E5 todo dedupe returns unchanged on identical content');
+ok(/deduped: true/.test(src), 'E5 deduped flag lands in tool_call_completed');
+ok(!/metaToolHintsV1: true/.test(src), 'E5 meta hints are not defaulted on');
+
 console.log('');
 if (fail) { console.log(`RUNTIME-OPTIMIZATION E2E: FAIL (${fail})`); process.exit(1); }
 console.log('RUNTIME-OPTIMIZATION E2E: ALL PASS');

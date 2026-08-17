@@ -1668,6 +1668,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   const econResultBytes = result => { try { return Buffer.byteLength(JSON.stringify(result), 'utf8'); } catch { return 0; } };
   const econToolStartAt = new Map();       // toolCallId -> 真实执行开始时间(并行 read 批在预执行处记录)
+  // 21-E5 (discoverySeq): 元工具发现链关联 —— tool_search 开新链,后续 tool_load/tool_invoke_*/load 后的
+  // 具体工具调用在 60s 内继承同一 discoverySeq(awaitingOutcome 标记链终点),让 E1 报表能按链聚合
+  // search→load→invoke/direct_call→outcome 而无需纯时序猜测。纯观测,不影响分发。
+  const discoveryState = { seq: 0, openedAt: 0, awaitingOutcome: false };
   const notifyToolHookStart = async (tc, input, iteration, disposition = 'execute') => {
     if (!tc) return;
     const key = String(tc.id || `${tc.name}:${iteration}`);
@@ -1720,11 +1724,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const status = (result && result.ok === false) ? 'failed'
           : (disposition && disposition !== 'execute' && disposition !== 'executed' && disposition !== 'completed') ? disposition
           : 'completed';
+        // 21-E5 (discoverySeq): tool_search 开新链并携带 searchSeq;60s 内链条上的 tool_load / tool_invoke_*
+        // / load 后直调的具体工具继承 discoverySeq(awaitingOutcome 标记链终点,消费后关闭)。
+        // deduped 标记 E5c todo 去重命中的重复写入。
+        let discoveryFields = {};
+        const discoveryFresh = discoveryState.seq > 0 && (Date.now() - discoveryState.openedAt) < 60000;
+        if (tc.name === 'tool_search') {
+          discoveryFields = { searchSeq: discoveryState.seq };
+        } else if (discoveryFresh && (/^tool_(load|invoke_)/.test(tc.name || '') || discoveryState.awaitingOutcome)) {
+          discoveryFields = { discoverySeq: discoveryState.seq };
+          if (!/^tool_(load|invoke_)/.test(tc.name || '')) discoveryState.awaitingOutcome = false; // 具体工具调用 = 链终点(outcome)
+        }
         econLog('tool_call_completed', {
           assistantBatchId: activeProviderBatchId, toolCallId: tc.id, name: tc.name,
           tier: econTier, status, toolMs,
           argsBytes: econArgsBytes(tc.rawArgs),
           resultBytes: econResultBytes(result),
+          ...discoveryFields,
+          ...(result && result.unchanged === true ? { deduped: true } : {}),
         });
       } catch { /* economics shadow must never affect dispatch */ }
     }
@@ -2428,6 +2445,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // Adaptive discovery tools are turn-local control-plane operations. They never cross the
           // filesystem/permission dispatcher; tool_load only changes the schemas attached to NEXT call.
           if (tc.name === 'list_tools' || tc.name === 'tool_search' || tc.name === 'tool_load') {
+            if (tc.name === 'tool_search') { discoveryState.seq += 1; discoveryState.openedAt = Date.now(); discoveryState.awaitingOutcome = true; } // 21-E5: 每次 search 开一条新发现链,期待后续 load/invoke/直调为链终点
             const resultObj = tc.name === 'list_tools'
               ? toolLoading.list(args)
               : (tc.name === 'tool_search' ? toolLoading.search(args.query, args.limit) : toolLoading.load(args));
@@ -2595,11 +2613,19 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // v0.8-S3 provider-engine special-case: unlike other tools, todo_write must persist to the
                 // session (session.todos) and drive the UI step-bar. This closure holds the session + onEvent,
                 // so handle it here (mirrors the bridge special-case) rather than in the context-free toolCall().
+                // 21-E5 (metaToolHintsV1): 内容哈希去重 —— 相同 normalize 结果且无状态变化的重复写入拒绝
+                // 落盘并返回 unchanged,省掉孤立 meta 往返;配对铁律不变(每个调用仍返回一个 result)。
                 const items = normalizeTodoItems(args.items);
-                session.todos = items;
-                turnTodos = items; // remembered for the turn_summary / persisted assistant message
-                onEvent({ type: 'todo', items });
-                resultObj = { ok: true, count: items.length };
+                const sameAsCurrent = items.length > 0 && JSON.stringify(items) === JSON.stringify(session.todos || []);
+                const dedupe = config.metaToolHintsV1 === true && sameAsCurrent;
+                if (!dedupe) {
+                  session.todos = items;
+                  turnTodos = items; // remembered for the turn_summary / persisted assistant message
+                  onEvent({ type: 'todo', items });
+                }
+                resultObj = dedupe
+                  ? { ok: true, count: items.length, unchanged: true, note: '任务清单与当前状态一致,跳过重复写入' }
+                  : { ok: true, count: items.length };
               } else if (tc.name === 'mission_update') {
                 // 第26波b provider-engine 特例:in-process 合并进 session.mission(闭包持 session + onEvent)。
                 if (session.mission) {

@@ -1880,6 +1880,32 @@ function runtimeToolBlockedReason(item, config) {
   return '';
 }
 
+// 21-E5 (metaToolHintsV1): 紧凑调用提示 —— 只加字段,不改排序/内容。requiredArgs 只取必填参数名与基础
+// 类型(有界 ≤4,不回传完整 schema);callHint 告诉模型「direct 直调 / tool_invoke_* 代理 / tool_load 先加载」;
+// state=blocked 携带不泄漏敏感信息的原因码(复用 searchToolCatalog 的 blockedReason 文本)。
+function buildCallHint(item, loadedNames, config, blockedReason) {
+  if (!item) return {};
+  const name = String(item.name || '');
+  const loaded = !!(loadedNames && loadedNames.has(name));
+  const fn = item.tool && item.tool.function;
+  const params = fn && fn.parameters;
+  const props = (params && params.properties && typeof params.properties === 'object') ? params.properties : {};
+  const required = Array.isArray(params && params.required) ? params.required.filter(k => props[k]).slice(0, 4) : [];
+  const argTypes = {};
+  for (const k of required) {
+    const p = props[k] || {};
+    if (typeof p.type === 'string') argTypes[k] = p.type;
+    else if (Array.isArray(p.enum) && p.enum.length) argTypes[k] = 'enum';
+    else argTypes[k] = 'any';
+  }
+  let callHint;
+  if (loaded) callHint = 'direct';
+  else if (item.bridged) callHint = 'tool_invoke_' + (item.tier || 'read');
+  else callHint = 'tool_load';
+  const state = loaded ? 'loaded' : (blockedReason ? 'blocked' : 'callable');
+  return { requiredArgs: required, argTypes, callHint, state, ...(blockedReason ? { blockedReason } : {}) };
+}
+
 function searchToolCatalog(catalog, args, config, opts) {
   const query = String(args && args.query || '');
   const limit = Math.min(20, Math.max(1, Number(args && args.limit) || 8));
@@ -2054,7 +2080,16 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
   const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack))).map(x => x.tool);
   const search = (query, limit) => {
     const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));
-    return searchToolCatalog(catalog, { query, limit }, config, { legacyNameBoost: 3, loadedNames });
+    const result = searchToolCatalog(catalog, { query, limit }, config, { legacyNameBoost: 3, loadedNames });
+    // 21-E5 (metaToolHintsV1): 每个 Top-K 候选追加紧凑调用提示(requiredArgs/callHint/state/blockedReason)。
+    // 只加字段,不改 legacy 排序、匹配、数量或 description —— 开关关时返回结构与现状逐字节一致。
+    if (config && config.metaToolHintsV1 === true) {
+      result.matches = (result.matches || []).map(m => {
+        const item = catalog.find(c => c.name === m.name);
+        return { ...m, ...buildCallHint(item, loadedNames, config, m.blockedReason) };
+      });
+    }
+    return result;
   };
   const shadowSearch = (query, limit) => {
     const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));

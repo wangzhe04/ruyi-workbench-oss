@@ -573,6 +573,10 @@ function defaultConfig() {
     // 主动开关默认 false;并发 clamp 1..8(决策点 B: 并发 = min(8, max(4, batchWidth)),≤8 保留现状全量)。
     boundedReadSchedulerV1: false,
     boundedReadConcurrencyV1: 4,
+    // 21-E5: 元工具链收敛 —— tool_search 紧凑调用提示(requiredArgs/callHint/state)、todo_write 内容
+    // 去重(unchanged 语义)、discoverySeq 链路关联。默认 false(行为零变化);false 时只有 E0 账本照常,
+    // 不加 hint 字段、todo 重复写入照常。discoverySeq 观测字段跟随 toolEconomicsShadowV1。
+    metaToolHintsV1: false,
     // v1.1-W2 (T2): auto-scan drop-in MCP connectors from <repo>/mcp/*/ruyi-mcp.json and
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
@@ -899,7 +903,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -13353,6 +13357,32 @@ function runtimeToolBlockedReason(item, config) {
   return '';
 }
 
+// 21-E5 (metaToolHintsV1): 紧凑调用提示 —— 只加字段,不改排序/内容。requiredArgs 只取必填参数名与基础
+// 类型(有界 ≤4,不回传完整 schema);callHint 告诉模型「direct 直调 / tool_invoke_* 代理 / tool_load 先加载」;
+// state=blocked 携带不泄漏敏感信息的原因码(复用 searchToolCatalog 的 blockedReason 文本)。
+function buildCallHint(item, loadedNames, config, blockedReason) {
+  if (!item) return {};
+  const name = String(item.name || '');
+  const loaded = !!(loadedNames && loadedNames.has(name));
+  const fn = item.tool && item.tool.function;
+  const params = fn && fn.parameters;
+  const props = (params && params.properties && typeof params.properties === 'object') ? params.properties : {};
+  const required = Array.isArray(params && params.required) ? params.required.filter(k => props[k]).slice(0, 4) : [];
+  const argTypes = {};
+  for (const k of required) {
+    const p = props[k] || {};
+    if (typeof p.type === 'string') argTypes[k] = p.type;
+    else if (Array.isArray(p.enum) && p.enum.length) argTypes[k] = 'enum';
+    else argTypes[k] = 'any';
+  }
+  let callHint;
+  if (loaded) callHint = 'direct';
+  else if (item.bridged) callHint = 'tool_invoke_' + (item.tier || 'read');
+  else callHint = 'tool_load';
+  const state = loaded ? 'loaded' : (blockedReason ? 'blocked' : 'callable');
+  return { requiredArgs: required, argTypes, callHint, state, ...(blockedReason ? { blockedReason } : {}) };
+}
+
 function searchToolCatalog(catalog, args, config, opts) {
   const query = String(args && args.query || '');
   const limit = Math.min(20, Math.max(1, Number(args && args.limit) || 8));
@@ -13527,7 +13557,16 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
   const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack))).map(x => x.tool);
   const search = (query, limit) => {
     const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));
-    return searchToolCatalog(catalog, { query, limit }, config, { legacyNameBoost: 3, loadedNames });
+    const result = searchToolCatalog(catalog, { query, limit }, config, { legacyNameBoost: 3, loadedNames });
+    // 21-E5 (metaToolHintsV1): 每个 Top-K 候选追加紧凑调用提示(requiredArgs/callHint/state/blockedReason)。
+    // 只加字段,不改 legacy 排序、匹配、数量或 description —— 开关关时返回结构与现状逐字节一致。
+    if (config && config.metaToolHintsV1 === true) {
+      result.matches = (result.matches || []).map(m => {
+        const item = catalog.find(c => c.name === m.name);
+        return { ...m, ...buildCallHint(item, loadedNames, config, m.blockedReason) };
+      });
+    }
+    return result;
   };
   const shadowSearch = (query, limit) => {
     const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));
@@ -19069,6 +19108,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   const econResultBytes = result => { try { return Buffer.byteLength(JSON.stringify(result), 'utf8'); } catch { return 0; } };
   const econToolStartAt = new Map();       // toolCallId -> 真实执行开始时间(并行 read 批在预执行处记录)
+  // 21-E5 (discoverySeq): 元工具发现链关联 —— tool_search 开新链,后续 tool_load/tool_invoke_*/load 后的
+  // 具体工具调用在 60s 内继承同一 discoverySeq(awaitingOutcome 标记链终点),让 E1 报表能按链聚合
+  // search→load→invoke/direct_call→outcome 而无需纯时序猜测。纯观测,不影响分发。
+  const discoveryState = { seq: 0, openedAt: 0, awaitingOutcome: false };
   const notifyToolHookStart = async (tc, input, iteration, disposition = 'execute') => {
     if (!tc) return;
     const key = String(tc.id || `${tc.name}:${iteration}`);
@@ -19121,11 +19164,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const status = (result && result.ok === false) ? 'failed'
           : (disposition && disposition !== 'execute' && disposition !== 'executed' && disposition !== 'completed') ? disposition
           : 'completed';
+        // 21-E5 (discoverySeq): tool_search 开新链并携带 searchSeq;60s 内链条上的 tool_load / tool_invoke_*
+        // / load 后直调的具体工具继承 discoverySeq(awaitingOutcome 标记链终点,消费后关闭)。
+        // deduped 标记 E5c todo 去重命中的重复写入。
+        let discoveryFields = {};
+        const discoveryFresh = discoveryState.seq > 0 && (Date.now() - discoveryState.openedAt) < 60000;
+        if (tc.name === 'tool_search') {
+          discoveryFields = { searchSeq: discoveryState.seq };
+        } else if (discoveryFresh && (/^tool_(load|invoke_)/.test(tc.name || '') || discoveryState.awaitingOutcome)) {
+          discoveryFields = { discoverySeq: discoveryState.seq };
+          if (!/^tool_(load|invoke_)/.test(tc.name || '')) discoveryState.awaitingOutcome = false; // 具体工具调用 = 链终点(outcome)
+        }
         econLog('tool_call_completed', {
           assistantBatchId: activeProviderBatchId, toolCallId: tc.id, name: tc.name,
           tier: econTier, status, toolMs,
           argsBytes: econArgsBytes(tc.rawArgs),
           resultBytes: econResultBytes(result),
+          ...discoveryFields,
+          ...(result && result.unchanged === true ? { deduped: true } : {}),
         });
       } catch { /* economics shadow must never affect dispatch */ }
     }
@@ -19829,6 +19885,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // Adaptive discovery tools are turn-local control-plane operations. They never cross the
           // filesystem/permission dispatcher; tool_load only changes the schemas attached to NEXT call.
           if (tc.name === 'list_tools' || tc.name === 'tool_search' || tc.name === 'tool_load') {
+            if (tc.name === 'tool_search') { discoveryState.seq += 1; discoveryState.openedAt = Date.now(); discoveryState.awaitingOutcome = true; } // 21-E5: 每次 search 开一条新发现链,期待后续 load/invoke/直调为链终点
             const resultObj = tc.name === 'list_tools'
               ? toolLoading.list(args)
               : (tc.name === 'tool_search' ? toolLoading.search(args.query, args.limit) : toolLoading.load(args));
@@ -19996,11 +20053,19 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // v0.8-S3 provider-engine special-case: unlike other tools, todo_write must persist to the
                 // session (session.todos) and drive the UI step-bar. This closure holds the session + onEvent,
                 // so handle it here (mirrors the bridge special-case) rather than in the context-free toolCall().
+                // 21-E5 (metaToolHintsV1): 内容哈希去重 —— 相同 normalize 结果且无状态变化的重复写入拒绝
+                // 落盘并返回 unchanged,省掉孤立 meta 往返;配对铁律不变(每个调用仍返回一个 result)。
                 const items = normalizeTodoItems(args.items);
-                session.todos = items;
-                turnTodos = items; // remembered for the turn_summary / persisted assistant message
-                onEvent({ type: 'todo', items });
-                resultObj = { ok: true, count: items.length };
+                const sameAsCurrent = items.length > 0 && JSON.stringify(items) === JSON.stringify(session.todos || []);
+                const dedupe = config.metaToolHintsV1 === true && sameAsCurrent;
+                if (!dedupe) {
+                  session.todos = items;
+                  turnTodos = items; // remembered for the turn_summary / persisted assistant message
+                  onEvent({ type: 'todo', items });
+                }
+                resultObj = dedupe
+                  ? { ok: true, count: items.length, unchanged: true, note: '任务清单与当前状态一致,跳过重复写入' }
+                  : { ok: true, count: items.length };
               } else if (tc.name === 'mission_update') {
                 // 第26波b provider-engine 特例:in-process 合并进 session.mission(闭包持 session + onEvent)。
                 if (session.mission) {

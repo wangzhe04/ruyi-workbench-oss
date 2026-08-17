@@ -97,6 +97,10 @@ function defaultConfig() {
     // 主动开关默认 false;并发 clamp 1..8(决策点 B: 并发 = min(8, max(4, batchWidth)),≤8 保留现状全量)。
     boundedReadSchedulerV1: false,
     boundedReadConcurrencyV1: 4,
+    // 21-E5: 元工具链收敛 —— tool_search 紧凑调用提示(requiredArgs/callHint/state)、todo_write 内容
+    // 去重(unchanged 语义)、discoverySeq 链路关联。默认 false(行为零变化);false 时只有 E0 账本照常,
+    // 不加 hint 字段、todo 重复写入照常。discoverySeq 观测字段跟随 toolEconomicsShadowV1。
+    metaToolHintsV1: false,
     // v1.1-W2 (T2): auto-scan drop-in MCP connectors from <repo>/mcp/*/ruyi-mcp.json and
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
@@ -423,7 +427,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
