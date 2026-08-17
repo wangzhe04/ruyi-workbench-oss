@@ -1,7 +1,8 @@
 # 21 · 工具调用经济性校准与收敛——真实轮次、批次调度、参数历史与元工具链
 
-> 状态：**规划冻结，待 E0 事实源校准；本方案尚未改变运行时行为，也未启用任何主动开关**
+> 状态：**E0 已落地首切片（三层调用账本 shadow），E1–E5 规划冻结待实施；本方案尚未改变运行时行为，也未启用任何主动开关**
 > 决策日期：2026-08-17
+> 实施记录（2026-08-17）：E0 三层账本 shadow 已上线 —— `toolEconomicsShadowV1` 默认 `true`（带采样与每回合 400 条事件上限），在 provider 工具循环落地 `model_call_started/completed`、`assistant_tool_batch`、`tool_call_completed`、`tool_phase_completed` 五类脱敏事件，`modelCallId → assistantBatchId → toolCallId` 三层关联可对账；`openAiStreamOnce` 增补 `providerResponseId` 辅助字段；`dev-harness/economics-shadow.e2e.js` 离线假 provider 全链路验证通过（含并行 read 批 strategy/criticalPath 断言）。HB360 101 条对账门因本机无 HB360 数据标记为 **blocked/deferred**，出门改用本地脱敏日志重放（见 §3.3）。
 > 证据范围：当前 Ruyi Provider 工具循环、本机脱敏聚合日志、HB360 101 条任务结果及原始 SSE。外部分析附件只作为问题清单和待验证假设，不作为实现指令或事实源。
 > 目标：先把“真实模型调用、一次响应内工具批次、工具执行耗时、历史参数成本”拆开计量，再以单轴实验收敛成本和时延，同时守住权限、配对、checkpoint 与任务结果。
 
@@ -144,10 +145,10 @@ traceId
 
 ### 3.3 E0 出门门槛
 
-- HB360 101 条任务中，请求侧 model-call 数与 SSE 响应起始数差异可解释；无静默漏记。
-- 任取 20 条多工具任务，`assistantBatchId`、tool-call 顺序和 provider pairing 人工抽查一致。
-- 报表同时输出 `model calls / assistant batches / tool calls / tool phases`，禁止只显示一个模糊的 rounds。
-- 给 06-HB360 历史报表增加口径版本；旧结果不删除，但明确标为 `synthetic_round_v0`。
+- HB360 101 条任务中，请求侧 model-call 数与 SSE 响应起始数差异可解释；无静默漏记。**【blocked/deferred —— 本机无 HB360 数据；改由本地脱敏日志重放对账（`model_call_started` 与 `model_call_completed` 必须一一配对），门槛验收随真实使用积累推进】**
+- 任取 20 条多工具任务，`assistantBatchId`、tool-call 顺序和 provider pairing 人工抽查一致。**【blocked —— 待本地真实多工具会话积累后抽查；离线 e2e 已覆盖并行 read 批的批次/顺序/配对一致性】**
+- 报表同时输出 `model calls / assistant batches / tool calls / tool phases`，禁止只显示一个模糊的 rounds。**【部分满足 —— 事件层已落账；报表生成器随 E1 上线】**
+- 给 06-HB360 历史报表增加口径版本；旧结果不删除，但明确标为 `synthetic_round_v0`。**【blocked —— 依赖 HB360 报表数据源】**
 
 ---
 

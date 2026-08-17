@@ -89,6 +89,10 @@ function defaultConfig() {
     runtimeToolRetrievalV1: false,
     runtimeObservationReducerV1: false,
     runtimeFailureTelemetryV1: false,
+    // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
+    // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
+    // tool_phase_completed),不改 prompt/调度/history。默认开但带采样与每回合事件上限;false 则零事件。
+    toolEconomicsShadowV1: true,
     // v1.1-W2 (T2): auto-scan drop-in MCP connectors from <repo>/mcp/*/ruyi-mcp.json and
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.

@@ -1643,6 +1643,31 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let ok = true, errorMsg = '', aborted = false;
   const toolCalls = [];                 // for the display message (session.messages)
   const toolHookStartedAt = new Map();  // observational hooks only; never changes dispatch/permission semantics
+  // 21-E0/E1: 三层调用账本 shadow(默认开、带采样与每回合事件上限)。只追加脱敏观测事件,不改
+  // prompt/调度/history;任何异常都不影响工具分发。modelCallId 每 iter 生成,贯穿 started/completed
+  // 与 batch/tool/phase 事件;usage 以"本次调用前后快照差值"取 per-call 值,不用整回合累计值。
+  const econOn = config.toolEconomicsShadowV1 === true;
+  const ECON_EVENT_CAP = 400;              // 每回合 economics 事件上限,防极端大批打爆日志
+  const ECON_SAMPLE_FULL_ITERS = 12;       // 前 12 个 model call 全采,之后每 4 采 1
+  let econTurnEvents = 0;
+  let activeModelCallId = '';
+  let econBatchToolMs = [];                // 本批各工具真实耗时(串行批=各工具执行耗时,并行批=预执行耗时)
+  const econSampledIter = iter => iter < ECON_SAMPLE_FULL_ITERS || iter % 4 === 0;
+  const econLog = (kind, fields) => {
+    if (!econOn) return;
+    if (econTurnEvents >= ECON_EVENT_CAP) return;
+    econTurnEvents += 1;
+    try { logEvent({ kind, traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, ...fields }); } catch { /* economics shadow must never break a turn */ }
+  };
+  const econSchemaFingerprint = () => {
+    try { return crypto.createHash('sha1').update(JSON.stringify(toolLoading.current() || [])).digest('hex').slice(0, 16); } catch { return ''; }
+  };
+  const econArgsBytes = raw => { try { return Buffer.byteLength(String(raw || ''), 'utf8'); } catch { return 0; } };
+  const econToolNamesHash = names => {
+    try { return crypto.createHash('sha1').update([...(names || [])].sort().join('|')).digest('hex').slice(0, 12); } catch { return ''; }
+  };
+  const econResultBytes = result => { try { return Buffer.byteLength(JSON.stringify(result), 'utf8'); } catch { return 0; } };
+  const econToolStartAt = new Map();       // toolCallId -> 真实执行开始时间(并行 read 批在预执行处记录)
   const notifyToolHookStart = async (tc, input, iteration, disposition = 'execute') => {
     if (!tc) return;
     const key = String(tc.id || `${tc.name}:${iteration}`);
@@ -1680,6 +1705,28 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           logEvent({ kind: 'runtime_failure_classified', sessionId: session.id, turnSeq: session.turnSeq, providerId: provider.id, model, ...evt });
         }
       } catch { /* shadow telemetry must never affect dispatch */ }
+    }
+    // 21-E0: tool_call_completed —— 每个本地工具动作的独立账目(所有路径统一出口:server/control/并行
+    // read/串行/refused/skipped)。toolMs 优先取真实执行开始点(并行 read 批在预执行处记录),否则用
+    // hook 起点差值。status 用 disposition 表达拒绝/跳过语义,result.ok 决定失败。
+    if (econOn && econSampledIter(iteration) && tc && tc.id) {
+      try {
+        const econStart = econToolStartAt.get(String(tc.id));
+        econToolStartAt.delete(String(tc.id));
+        const toolMs = (econStart != null) ? (Date.now() - econStart)
+          : (startedAt ? (Date.now() - startedAt) : 0);
+        econBatchToolMs.push(toolMs);
+        const econTier = (() => { try { const b = resolveBridge(bridgedRoute, tc.name); return b ? bridgedToolTier(b.toolName, config) : nativeToolTier(tc.name); } catch { return ''; } })();
+        const status = (result && result.ok === false) ? 'failed'
+          : (disposition && disposition !== 'execute' && disposition !== 'executed' && disposition !== 'completed') ? disposition
+          : 'completed';
+        econLog('tool_call_completed', {
+          assistantBatchId: activeProviderBatchId, toolCallId: tc.id, name: tc.name,
+          tier: econTier, status, toolMs,
+          argsBytes: econArgsBytes(tc.rawArgs),
+          resultBytes: econResultBytes(result),
+        });
+      } catch { /* economics shadow must never affect dispatch */ }
     }
   };
   let turnTodos = null;                 // v0.8-S3: last todo_write items this turn (null = none written)
@@ -1932,9 +1979,32 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         providerId: provider.id, model, iteration: iter, withTools: useTools,
         toolCount: useTools ? toolLoading.current().length : 0, estimatedContextTokens: estBeforeCall,
       });
+      const econThisIter = econSampledIter(iter);
+      activeModelCallId = econThisIter ? makeId('mc') : '';
+      const econBody = econThisIter ? buildBody(useTools) : null;
+      if (econThisIter) {
+        econBatchToolMs = [];
+        econLog('model_call_started', {
+          modelCallId: activeModelCallId, iter, apiStyle,
+          toolSchemaFingerprint: econSchemaFingerprint(),
+          historyBytes: econBody ? Buffer.byteLength(JSON.stringify(econBody), 'utf8') : 0,
+          estimatedInputTokens: estBeforeCall,
+        });
+      }
+      const usageSnapshot = { input: turnUsage.input_tokens, output: turnUsage.output_tokens, cached: turnUsage.cached_input_tokens, calls: usageCalls };
       const tLlm0 = Date.now(); // hb360 C2: 每轮耗时分解(LLM 流式 vs 工具执行),效率观测点
-      const call = await streamWithFailover(buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
+      const call = await streamWithFailover(econThisIter && econBody ? econBody : buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
       const llmMs = Date.now() - tLlm0;
+      if (econThisIter) {
+        econLog('model_call_completed', {
+          modelCallId: activeModelCallId, providerResponseId: call.providerResponseId || '',
+          usageSource: usageCalls > usageSnapshot.calls ? 'provider' : 'estimated',
+          inputTokens: turnUsage.input_tokens - usageSnapshot.input,
+          outputTokens: turnUsage.output_tokens - usageSnapshot.output,
+          cachedInputTokens: turnUsage.cached_input_tokens - usageSnapshot.cached,
+          llmMs, finishReason: call.finishReason || '', state: call.httpError ? 'failed' : 'completed',
+        });
+      }
       const tTools0 = Date.now();
       if (call.httpError) {
         // If the server rejected tools, retry the turn once WITHOUT tools (chat-only) before failing.
@@ -2078,6 +2148,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // request's `input` via serverToolItems (buildBody appends them), and the server restores the results.
         const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
+        // 21-E0: 一次模型响应 = 一个 assistant batch(serverToolCalls 不参与本地工具批,只占 batch 总宽度)。
+        if (econThisIter && localToolCalls.length) {
+          econLog('assistant_tool_batch', {
+            modelCallId: activeModelCallId, assistantBatchId: activeProviderBatchId,
+            nTools: localToolCalls.length, batchWidth: call.toolCalls.length,
+            toolNamesHash: econToolNamesHash(localToolCalls.map(t => t.name)),
+            rawArgsBytes: localToolCalls.reduce((s, t) => s + econArgsBytes(t.rawArgs), 0),
+          });
+        }
         for (const stc of serverToolCalls) {
           let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
           const item = stc.item || { type: 'web_search_call', id: stc.id };
@@ -2245,6 +2324,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             await Promise.all(localToolCalls.map(async tc => {
               let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
               let res, lease = '';
+              if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 并行预执行真实起点
               try {
                 const toolResources = inferToolResources(tc.name, pargs, null, workingDir, 'read');
                 lease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
@@ -2610,6 +2690,22 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (steerAborted) steerAborted = false;  // 51b 02 Phase B: 插话中断 reset(不结束回合,走 saveSession+continue 回 drainSteerQueue 注入插话)
         // hb360 C2: 每轮耗时分解埋点(LLM 流式/工具执行/并行批规模),定位回合延迟去向
         try { logEvent({ kind: 'iter_timing', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, iter, llmMs, toolsMs: Date.now() - tTools0, nTools: localToolCalls.length, parallelBatch: !!(parallelReadResults && parallelReadResults.size) }); } catch { /* ignore */ }
+        // 21-E0: tool_phase_completed —— 一批工具从可执行到结果全部配对完成的阶段账目。toolsMs 为阶段墙钟
+        // 时长;criticalPathMs=批内单工具耗时最大值(并行批≈关键路径),serialEstimateMs=批内耗时总和
+        // (串行执行的理论时长)。strategy 区分并行 read 批与串行/混合批,不改变任何调度行为。
+        if (econThisIter && localToolCalls.length) {
+          const econToolsMs = Date.now() - tTools0;
+          const econMax = econBatchToolMs.length ? Math.max(...econBatchToolMs) : 0;
+          const econSum = econBatchToolMs.reduce((s, v) => s + v, 0);
+          econLog('tool_phase_completed', {
+            assistantBatchId: activeProviderBatchId,
+            strategy: (parallelReadResults && parallelReadResults.size) ? 'parallel' : 'serial',
+            maxConcurrency: (parallelReadResults && parallelReadResults.size) ? localToolCalls.length : 1,
+            toolsMs: econToolsMs,
+            criticalPathMs: econMax,
+            serialEstimateMs: econSum,
+          });
+        }
         await saveSession(session);   // persist the growing tool trace
         continue;                     // loop: let the model react to the tool results
       }

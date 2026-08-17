@@ -2627,6 +2627,7 @@ function toResponsesTools(tools, serverWebSearch) {
 // response.output_item.added / response.completed|incomplete|failed (NO `data: [DONE]` terminator).
 async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch }) {
   const isResponses = !!(body && Array.isArray(body.input)); // Responses body uses `input` items, chat uses `messages`
+  let providerResponseId = ''; // 21-E0: provider 侧响应 id(辅助字段,请求侧 modelCallId 为主键)
   const doFetch = b => fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(b), signal: ctrl ? ctrl.signal : undefined });
   let res;
   try {
@@ -2712,7 +2713,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
       if (respReasoning) onEvent({ type: 'thinking_delta', text: respReasoning });
       if (respText) onEvent({ type: 'assistant_delta', text: respText });
       if (j && j.usage) markUsage(j.usage);
-      return { text: respText, reasoning: respReasoning, toolCalls: tcs.filter(t => t.name), finishReason: (j && j.status === 'incomplete') ? 'length' : ((j && j.status === 'failed') ? 'error' : 'stop') };
+      return { text: respText, reasoning: respReasoning, toolCalls: tcs.filter(t => t.name), finishReason: (j && j.status === 'incomplete') ? 'length' : ((j && j.status === 'failed') ? 'error' : 'stop'), providerResponseId: (j && (j.id || (j.response && j.response.id))) || providerResponseId };
     }
     const ch = j && j.choices && j.choices[0];
     const msg = ch && ch.message;
@@ -2724,7 +2725,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     if (msg && typeof msg.content === 'string' && msg.content) onEvent({ type: 'assistant_delta', text: msg.content });
     if (j && j.usage) markUsage(j.usage);
     const tcs = Array.isArray(msg && msg.tool_calls) ? msg.tool_calls.map(tc => ({ id: tc.id || makeId('call'), name: tc.function && tc.function.name, rawArgs: (tc.function && tc.function.arguments) || '{}' })).filter(t => t.name) : [];
-    return { text: (msg && msg.content) || '', reasoning: reasoningText, toolCalls: tcs, finishReason: ch && ch.finish_reason };
+    return { text: (msg && msg.content) || '', reasoning: reasoningText, toolCalls: tcs, finishReason: ch && ch.finish_reason, providerResponseId: (j && (j.id || (j.response && j.response.id))) || providerResponseId };
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder('utf-8');
@@ -2769,6 +2770,11 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   // event grammar — the two protocols share nothing structurally, so they get separate handlers.
   const processEvt = (evt, rawStr) => {
     onEvent({ type: 'raw_line', line: rawStr, seq: rawSeqRef.n++ });
+    // 21-E0: 捕获 provider 侧响应 id 作辅助关联(请求侧 modelCallId 仍为主键;无 id 端点保持空串)。
+    if (!providerResponseId) {
+      if (evt && evt.response && typeof evt.response.id === 'string' && evt.response.id) providerResponseId = evt.response.id;
+      else if (evt && typeof evt.id === 'string' && evt.id && evt.type !== 'response.created') providerResponseId = evt.id;
+    }
     if (isResponses) {
       // ── OpenAI Responses API stream (DeepSeek /v1/responses) ────────────────────────────────────────
       // Events: response.created | response.in_progress | response.output_item.added/done |
@@ -2934,8 +2940,8 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   });
   // v1.7 (Responses): a `response.failed` terminal event is a protocol-level failure with no HTTP error
   // status — surface it through the caller's existing httpError path so attribution/retry behaves uniformly.
-  if (responsesFailedError) return { text, reasoning, finishReason, toolCalls, httpError: responsesFailedError };
-  return { text, reasoning, finishReason, toolCalls };
+  if (responsesFailedError) return { text, reasoning, finishReason, toolCalls, httpError: responsesFailedError, providerResponseId };
+  return { text, reasoning, finishReason, toolCalls, providerResponseId };
 }
 
 // v0.8-S7: drain the steering queue at a SAFE injection point (§4 A3). Called ONLY at the iteration

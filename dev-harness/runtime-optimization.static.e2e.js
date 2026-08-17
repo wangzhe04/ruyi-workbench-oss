@@ -95,6 +95,17 @@ ok(t1.classifyRuntimeToolFailure('file_edit', { ok: false, error: 'HTTP 503 Serv
 ok(t1.classifyRuntimeToolFailure('file_read', { ok: true, error: 'warning field present' }, { tier: 'read' }) === null, 'F1 ok:true warning does not become a failure');
 ok(timedExec.classifierVersion === 'deterministic-v2' && !JSON.stringify(timedExec).includes('process tree killed'), 'F1 v2 telemetry exposes version but not raw stderr');
 
+console.log('\n── [E0] three-layer call ledger shadow (21) ──');
+ok(/toolEconomicsShadowV1: true/.test(src), 'E0 economics shadow defaults true (sampled)');
+ok(/econLog\('model_call_started'/.test(src) && /econLog\('model_call_completed'/.test(src), 'E0 model_call started/completed events wired');
+ok(/econLog\('assistant_tool_batch'/.test(src), 'E0 assistant_tool_batch event wired');
+ok(/econLog\('tool_call_completed'/.test(src) && /econLog\('tool_phase_completed'/.test(src), 'E0 tool_call/tool_phase completed events wired');
+ok(/ECON_EVENT_CAP = 400/.test(src) && /econSampledIter = iter => iter < ECON_SAMPLE_FULL_ITERS/.test(src), 'E0 sampling + per-turn event cap present');
+ok(/providerResponseId/.test(src), 'E0 provider response id surfaced from stream layer');
+ok(/usageSource: usageCalls > usageSnapshot\.calls \? 'provider' : 'estimated'/.test(src), 'E0 usage source distinguishes provider-reported vs estimated');
+ok(/assistantBatchId: activeProviderBatchId, toolCallId: tc\.id/.test(src), 'E0 tool_call_completed carries the three-layer link');
+ok(!/toolEconomicsShadowV1: false/.test(src), 'E0 economics shadow is not an opt-in-only flag');
+
 console.log('');
 if (fail) { console.log(`RUNTIME-OPTIMIZATION E2E: FAIL (${fail})`); process.exit(1); }
 console.log('RUNTIME-OPTIMIZATION E2E: ALL PASS');
