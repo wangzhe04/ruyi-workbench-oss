@@ -101,6 +101,11 @@ function defaultConfig() {
     // 去重(unchanged 语义)、discoverySeq 链路关联。默认 false(行为零变化);false 时只有 E0 账本照常,
     // 不加 hint 字段、todo 重复写入照常。discoverySeq 观测字段跟随 toolEconomicsShadowV1。
     metaToolHintsV1: false,
+    // 21-E3: 已执行动作的参数历史双视图 —— 完整参数只用于执行与审计(session.actionAudit),后续请求的
+    // model view 投影为紧凑 action envelope(_ruyiActionRef/target/payload/status),大参数不再重复携带。
+    // 默认 false(行为零变化);投影只对 status=completed 且 sha256 可校验的动作生效,失败/中断/待审批
+    // 不瘦身;原始 arguments 保留在 providerHistory 原消息与 audit 中,可还原、零证据损失。
+    actionArgumentModelViewV1: false,
     // v1.1-W2 (T2): auto-scan drop-in MCP connectors from <repo>/mcp/*/ruyi-mcp.json and
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
@@ -427,7 +432,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }

@@ -577,6 +577,11 @@ function defaultConfig() {
     // 去重(unchanged 语义)、discoverySeq 链路关联。默认 false(行为零变化);false 时只有 E0 账本照常,
     // 不加 hint 字段、todo 重复写入照常。discoverySeq 观测字段跟随 toolEconomicsShadowV1。
     metaToolHintsV1: false,
+    // 21-E3: 已执行动作的参数历史双视图 —— 完整参数只用于执行与审计(session.actionAudit),后续请求的
+    // model view 投影为紧凑 action envelope(_ruyiActionRef/target/payload/status),大参数不再重复携带。
+    // 默认 false(行为零变化);投影只对 status=completed 且 sha256 可校验的动作生效,失败/中断/待审批
+    // 不瘦身;原始 arguments 保留在 providerHistory 原消息与 audit 中,可还原、零证据损失。
+    actionArgumentModelViewV1: false,
     // v1.1-W2 (T2): auto-scan drop-in MCP connectors from <repo>/mcp/*/ruyi-mcp.json and
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
@@ -903,7 +908,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -14066,6 +14071,70 @@ function toResponsesContent(content) {
   return [{ type: 'input_text', text: String(content || '') }];
 }
 // Translate a chat-shaped providerHistory into Responses `input` items (see header note).
+// 21-E3: 已执行动作的参数历史双视图 —— 纯函数(可 e2e 直测)。execution/audit view 保留完整 rawArgs
+// (session.actionAudit + providerHistory 原消息),provider model view 投影为紧凑 envelope。
+// 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;失败/中断/待审批不瘦身;
+// 只加/换 arguments 字段,tool_call id/type/function.name 原样保留(pairing 铁律不破坏)。
+const ACTION_VIEW_TOOLS = new Set(['file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download', 'script_run', 'powershell_run', 'tool_invoke_edit', 'tool_invoke_exec']);
+const ACTION_VIEW_MIN_CHARS = 512;
+
+function actionTargetMeta(toolName, args) {
+  const input = (args && typeof args === 'object') ? args : {};
+  const name = String(toolName || '');
+  const pathKey = input.path || input.source || input.destination || input.dest || input.output || input.output_path || input.root || '';
+  if (/^(script_run|file_)/.test(name) && pathKey) {
+    return { kind: 'path', basename: path.basename(String(pathKey)) };
+  }
+  if (name === 'powershell_run') {
+    const cmd = String(input.command || '');
+    return { kind: 'cmd', basename: cmd.slice(0, 40) || 'powershell' };
+  }
+  if (/^tool_invoke_/.test(name)) {
+    return { kind: 'proxy', basename: String(input.name || '') };
+  }
+  return { kind: 'path', basename: pathKey ? path.basename(String(pathKey)) : '' };
+}
+
+function buildActionEnvelope(toolName, args, rawArgs) {
+  const sha256 = crypto.createHash('sha256').update(String(rawArgs || '')).digest('hex');
+  const target = actionTargetMeta(toolName, args);
+  return {
+    _ruyiActionRef: 'action-v1:ref', // 占位;实际 ref 由 audit 条目给出(turnSeq:toolCallId)
+    target: { ...target, pathHash: crypto.createHash('sha1').update(String(target.basename || '')).digest('hex').slice(0, 12) },
+    operation: String(toolName || ''),
+    payload: { chars: Buffer.byteLength(String(rawArgs || ''), 'utf8'), sha256 },
+    status: 'completed',
+  };
+}
+
+// 返回 { history, changed } —— 浅投影:只对命中 audit 且校验通过的 assistant.tool_calls 替换 arguments。
+function projectActionModelView(history, auditMap) {
+  if (!Array.isArray(history) || !(auditMap instanceof Map) || auditMap.size === 0) return { history, changed: false };
+  let changed = false;
+  const projected = history.map(m => {
+    if (!m || typeof m !== 'object' || m.role !== 'assistant' || !Array.isArray(m.tool_calls)) return m;
+    let msgChanged = false;
+    const toolCalls = m.tool_calls.map(tc => {
+      if (!tc || tc.id == null) return tc;
+      const entry = auditMap.get(String(tc.id));
+      if (!entry || entry.status !== 'completed' || !entry.sha256) return tc;
+      if (!ACTION_VIEW_TOOLS.has(entry.toolName)) return tc; // 防御双保险:仅投影白名单写动作
+      const rawArgs = String((tc.function && tc.function.arguments) || '');
+      if (Buffer.byteLength(rawArgs, 'utf8') < ACTION_VIEW_MIN_CHARS) return tc;
+      if (crypto.createHash('sha256').update(rawArgs).digest('hex') !== entry.sha256) return tc; // 校验失败不投影
+      let args; try { args = JSON.parse(rawArgs); } catch { return tc; } // 对抗:A4 malformed arguments 不投影(拒绝生成空 envelope)
+      msgChanged = true;
+      const env = buildActionEnvelope(entry.toolName, args, rawArgs);
+      env._ruyiActionRef = entry.actionRef || env._ruyiActionRef;
+      return { ...tc, function: { ...(tc.function || {}), arguments: JSON.stringify(env) } };
+    });
+    if (!msgChanged) return m;
+    changed = true;
+    return { ...m, tool_calls: toolCalls };
+  });
+  return { history: projected, changed };
+}
+
 function buildResponsesInputItems(history) {
   const items = [];
   for (const m of (Array.isArray(history) ? history : [])) {
@@ -19002,10 +19071,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const buildBody = withTools => {
+    // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
+    // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
+    const actionAuditMap = (config.actionArgumentModelViewV1 === true && Array.isArray(session.actionAudit))
+      ? new Map(session.actionAudit.map(e => e && e.toolCallId ? [e.toolCallId, e] : null).filter(Boolean))
+      : new Map();
+    const viewHistory = actionAuditMap.size ? projectActionModelView(session.providerHistory, actionAuditMap).history : session.providerHistory;
     // v1.7: Responses API body — `instructions` + `input` items (no `messages`/`stream_options`). The volatile
     // prefix still lands on the FIRST user message for prefix-cache stability (same placement rule as chat).
     if (apiStyle === 'responses') {
-      const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];
+      const msgs = [{ role: 'system', content: sys }, ...viewHistory];
       const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
       if (turnVolatile && firstUserIndex > 0) {
         const firstUser = msgs[firstUserIndex];
@@ -19031,7 +19106,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
       return b;
     }
-    const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];
+    const msgs = [{ role: 'system', content: sys }, ...viewHistory];
     // 51d C1b: volatile 前缀注入到第一条 user,不持久化(每回合动态)。Do not assume messages[1]
     // or parts[0] is text: compacted/imported histories and multimodal providers may use another shape.
     const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
@@ -20130,6 +20205,30 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });
           toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
           await notifyToolHookEnd(tc, resultObj, iter);
+          // 21-E3 (actionArgumentModelViewV1): 大参数写动作执行后落 audit —— 执行与审计视图。
+          // 原始 arguments 保留在 providerHistory 原消息(可还原),audit 只存元数据 + 校验哈希;失败/中断
+          // 记 status=failed,投影时跳过(不瘦身)。仅开关开时写入,防无界(上限 200 条)。
+          if (config.actionArgumentModelViewV1 === true && tc && tc.id && ACTION_VIEW_TOOLS.has(tc.name)) {
+            try {
+              const e3Raw = String(tc.rawArgs || '');
+              if (Buffer.byteLength(e3Raw, 'utf8') >= ACTION_VIEW_MIN_CHARS) {
+                if (!Array.isArray(session.actionAudit)) session.actionAudit = [];
+                const e3Args = (() => { try { return JSON.parse(e3Raw); } catch { return {}; } })();
+                const e3Target = actionTargetMeta(tc.name, e3Args);
+                const e3Entry = {
+                  actionRef: `action-v1:${session.turnSeq}:${tc.id}`,
+                  toolCallId: String(tc.id), toolName: tc.name, turnSeq: session.turnSeq,
+                  sha256: crypto.createHash('sha256').update(e3Raw).digest('hex'),
+                  chars: Buffer.byteLength(e3Raw, 'utf8'),
+                  status: isErr ? 'failed' : 'completed',
+                  target: { ...e3Target, pathHash: crypto.createHash('sha1').update(String(e3Target.basename || '')).digest('hex').slice(0, 12) },
+                };
+                const e3Idx = session.actionAudit.findIndex(e => e && e.toolCallId === String(tc.id));
+                if (e3Idx >= 0) session.actionAudit[e3Idx] = e3Entry; else session.actionAudit.push(e3Entry);
+                if (session.actionAudit.length > 200) session.actionAudit.splice(0, session.actionAudit.length - 200);
+              }
+            } catch { /* E3 audit must never break dispatch */ }
+          }
           // v0.9-S7 视觉回路: if THIS provider has vision开 AND the tool result carries a screenshot
           // (image/image_base64/screenshot.image), STRIP the heavy pixel field(s) out of the role:'tool'
           // message (占位 → keeps the tool JSON精简) and QUEUE a user image message to be flushed after the

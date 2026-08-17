@@ -18,7 +18,7 @@
 | 07 | [MicroAgent 方法论](07-microagent-lessons.md) | M1–M6 多数已交付；data-insights 候选待启动 |
 | 12 | [Agent 架构研究路线](12-agent-architecture-research-roadmap.md) | R2/R3 暂缓；R4/R5 已收口 |
 | 20 | [运行时优化性价比收敛](20-runtime-optimization-cost-benefit.md) | shadow 安全门通过，但 283/89/59 对抗审计确认非纯收益：T1 继续 shadow，C1 主动启用阻断，F1 仅 telemetry |
-| 21 | [工具调用经济性校准与收敛](21-tool-call-economics-convergence.md) | E0 三层账本 shadow 已落地；E1 基线报表已上线；E2a 纯 read worker pool 已实施（开关默认关）、E2c 离线重放已上线（254 批 / pool vs serial -26% / >8 样本不足暂不 canary）；E2b 延后；E5 元工具链收敛已实施（search hint + discoverySeq + todo 去重，`metaToolHintsV1` 默认关）；E3–E4 规划冻结；HB360 对账门 blocked/deferred |
+| 21 | [工具调用经济性校准与收敛](21-tool-call-economics-convergence.md) | E0 三层账本 shadow ✅；E1 基线报表 ✅；E2a worker pool（开关关）+ E2c 重放 ✅；E3 参数双视图 ✅（`actionArgumentModelViewV1` 默认关，对抗验证 8 项过）；E5 元工具链 ✅（`metaToolHintsV1` 默认关）；E2b/E4 延后；HB360 对账门 blocked/deferred |
 
 ## 编号空缺说明
 

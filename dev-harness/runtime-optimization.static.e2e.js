@@ -125,6 +125,15 @@ ok(/unchanged: true, note: '任务清单与当前状态一致/.test(src), 'E5 to
 ok(/deduped: true/.test(src), 'E5 deduped flag lands in tool_call_completed');
 ok(!/metaToolHintsV1: true/.test(src), 'E5 meta hints are not defaulted on');
 
+console.log('\n── [E3] action-argument model view wiring (21) ──');
+ok(/actionArgumentModelViewV1: false/.test(src), 'E3 action model view defaults false');
+ok(/function projectActionModelView/.test(src) && /ACTION_VIEW_TOOLS = new Set\(/.test(src) && /ACTION_VIEW_MIN_CHARS = 512/.test(src), 'E3 projection block present (whitelist + threshold)');
+ok(/const viewHistory = actionAuditMap\.size \? projectActionModelView\(session\.providerHistory, actionAuditMap\)\.history : session\.providerHistory;/.test(src), 'E3 buildBody consumes the projected view');
+ok(/crypto\.createHash\('sha256'\)\.update\(rawArgs\)\.digest\('hex'\) !== entry\.sha256/.test(src), 'E3 sha256 tamper gate on projection');
+ok(/session\.actionAudit\.length > 200/.test(src), 'E3 audit capped (no unbounded growth)');
+ok(/status: isErr \? 'failed' : 'completed'/.test(src), 'E3 failed actions never projected');
+ok(!/actionArgumentModelViewV1: true/.test(src), 'E3 action model view is not defaulted on');
+
 console.log('');
 if (fail) { console.log(`RUNTIME-OPTIMIZATION E2E: FAIL (${fail})`); process.exit(1); }
 console.log('RUNTIME-OPTIMIZATION E2E: ALL PASS');

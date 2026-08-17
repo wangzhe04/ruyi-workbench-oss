@@ -1562,10 +1562,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const buildBody = withTools => {
+    // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
+    // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
+    const actionAuditMap = (config.actionArgumentModelViewV1 === true && Array.isArray(session.actionAudit))
+      ? new Map(session.actionAudit.map(e => e && e.toolCallId ? [e.toolCallId, e] : null).filter(Boolean))
+      : new Map();
+    const viewHistory = actionAuditMap.size ? projectActionModelView(session.providerHistory, actionAuditMap).history : session.providerHistory;
     // v1.7: Responses API body — `instructions` + `input` items (no `messages`/`stream_options`). The volatile
     // prefix still lands on the FIRST user message for prefix-cache stability (same placement rule as chat).
     if (apiStyle === 'responses') {
-      const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];
+      const msgs = [{ role: 'system', content: sys }, ...viewHistory];
       const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
       if (turnVolatile && firstUserIndex > 0) {
         const firstUser = msgs[firstUserIndex];
@@ -1591,7 +1597,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
       return b;
     }
-    const msgs = [{ role: 'system', content: sys }, ...session.providerHistory];
+    const msgs = [{ role: 'system', content: sys }, ...viewHistory];
     // 51d C1b: volatile 前缀注入到第一条 user,不持久化(每回合动态)。Do not assume messages[1]
     // or parts[0] is text: compacted/imported histories and multimodal providers may use another shape.
     const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
@@ -2690,6 +2696,30 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });
           toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
           await notifyToolHookEnd(tc, resultObj, iter);
+          // 21-E3 (actionArgumentModelViewV1): 大参数写动作执行后落 audit —— 执行与审计视图。
+          // 原始 arguments 保留在 providerHistory 原消息(可还原),audit 只存元数据 + 校验哈希;失败/中断
+          // 记 status=failed,投影时跳过(不瘦身)。仅开关开时写入,防无界(上限 200 条)。
+          if (config.actionArgumentModelViewV1 === true && tc && tc.id && ACTION_VIEW_TOOLS.has(tc.name)) {
+            try {
+              const e3Raw = String(tc.rawArgs || '');
+              if (Buffer.byteLength(e3Raw, 'utf8') >= ACTION_VIEW_MIN_CHARS) {
+                if (!Array.isArray(session.actionAudit)) session.actionAudit = [];
+                const e3Args = (() => { try { return JSON.parse(e3Raw); } catch { return {}; } })();
+                const e3Target = actionTargetMeta(tc.name, e3Args);
+                const e3Entry = {
+                  actionRef: `action-v1:${session.turnSeq}:${tc.id}`,
+                  toolCallId: String(tc.id), toolName: tc.name, turnSeq: session.turnSeq,
+                  sha256: crypto.createHash('sha256').update(e3Raw).digest('hex'),
+                  chars: Buffer.byteLength(e3Raw, 'utf8'),
+                  status: isErr ? 'failed' : 'completed',
+                  target: { ...e3Target, pathHash: crypto.createHash('sha1').update(String(e3Target.basename || '')).digest('hex').slice(0, 12) },
+                };
+                const e3Idx = session.actionAudit.findIndex(e => e && e.toolCallId === String(tc.id));
+                if (e3Idx >= 0) session.actionAudit[e3Idx] = e3Entry; else session.actionAudit.push(e3Entry);
+                if (session.actionAudit.length > 200) session.actionAudit.splice(0, session.actionAudit.length - 200);
+              }
+            } catch { /* E3 audit must never break dispatch */ }
+          }
           // v0.9-S7 视觉回路: if THIS provider has vision开 AND the tool result carries a screenshot
           // (image/image_base64/screenshot.image), STRIP the heavy pixel field(s) out of the role:'tool'
           // message (占位 → keeps the tool JSON精简) and QUEUE a user image message to be flushed after the
