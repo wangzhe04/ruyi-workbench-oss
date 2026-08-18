@@ -169,6 +169,9 @@ export function createPreviewShellDomain({
   let narrativeRenderedSession = '';
   let narrativeRenderedLocale = '';
   const narrativeFeeds = new Map();
+  // 长跑内存护栏:每个叙事 feed 的 entries 只保留最近 N 条(渲染窗口 160,留 3 倍供"加载更早"翻页)。
+  // 旧实现只 concat 不截断,任务持续活动几小时后 entries 无限增长 → 渲染进程内存爬升直至白屏。
+  const NARRATIVE_ENTRIES_MAX = 480;
   let notificationSettings = notificationRules?.readNotificationSettings() || { version: 1, enabled: false, quietStart: '22:00', quietEnd: '08:00' };
   let notificationCoordinator = notificationRules?.normalizeCoordinatorState() || { primed: false, known: [], active: [] };
   let notificationRefreshPromise = null;
@@ -1919,7 +1922,14 @@ export function createPreviewShellDomain({
     const feed = narrativeFeed(sessionId);
     if (!narrativeRules || !response) return feed;
     const folded = narrativeRules.appendNarrativeEntries(feed.entries, response.changes);
-    feed.entries = folded.entries;
+    let entries = folded.entries;
+    // 有界护栏:超过上限时丢弃最旧条目,并把 windowStart 前移相同量,保证它仍指向数组内的有效位置。
+    if (entries.length > NARRATIVE_ENTRIES_MAX) {
+      const drop = entries.length - NARRATIVE_ENTRIES_MAX;
+      entries = entries.slice(drop);
+      if (feed.windowStart != null) feed.windowStart = Math.max(0, feed.windowStart - drop);
+    }
+    feed.entries = entries;
     if (feed.windowStart == null) feed.windowStart = Math.max(0, feed.entries.length - 160);
     else if (feed.windowStart > 0 && folded.added.length) feed.windowStart = Math.min(feed.entries.length, feed.windowStart + folded.added.length);
     feed.degraded = response.degraded === true;
@@ -3154,6 +3164,9 @@ export function createPreviewShellDomain({
     const host = byId('previewRawMessages');
     if (!host) return null;
     if (rawScrollController && rawScrollBoundHost === host) return rawScrollController;
+    // host 被全量重建后(任务单每 30s 刷新),旧控制器仍在 document 上挂着 wheel 监听器并闭包引用旧 host
+    // → 分离 DOM + 监听器逐次泄漏。重建前先 dispose 旧实例(它会 removeEventListener + cancelAnimationFrame)。
+    if (rawScrollController && typeof rawScrollController.dispose === 'function') rawScrollController.dispose();
     rawScrollController = createChatScrollController({
       getMessages: () => byId('previewRawMessages'),
       getJumpLatest: () => null,
