@@ -22,13 +22,13 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '2.5.0'; // Escapade 2.5.0:原生桌面壳 + 任务型工具箱 + 长工具/子 Agent 可靠性
+const VERSION = '2.6.0'; // Escapade 2.6.0: Agent CLI 可选 Claude Code / Kimi Code
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
-const CONFIG_SCHEMA = 10; // v2.7: one-time seed of workspaces[] from defaultWorkspace + recentWorkspaces
+const CONFIG_SCHEMA = 11; // v2.8: selectable Agent CLI driver (Claude Code / Kimi Code)
 // v0.8-S0: session file schema. Bumped independently of CONFIG_SCHEMA; normalizeSession backfills.
 const SESSION_SCHEMA = 1;
 

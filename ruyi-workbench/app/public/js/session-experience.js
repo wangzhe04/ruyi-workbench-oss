@@ -485,16 +485,17 @@ function errorCard(cls, rawError, noFilesChanged) {
 // 向后兼容:没有 code 字段时走原始错误渲染,不依赖后端已上线 —— 只有 code==='cli-missing' 才走这张卡。
 // 主张「推荐直接配置 API 引擎」+ 按钮直达设置 Providers 页签;次链接给「配置 Claude CLI 路径」。
 function cliMissingCard() {
+  const cliName = engineLabel() || 'Agent CLI';
   const card = el('div', 'error-card cli-missing-card');
   const head = el('div', 'error-card-head');
-  head.append(el('span', 'error-card-icon', '⚠'), el('span', 'error-card-title', t('error.cliMissing.title')));
+  head.append(el('span', 'error-card-icon', '⚠'), el('span', 'error-card-title', t('error.cliMissing.title', { engine: cliName })));
   card.append(head);
   const body = el('div', 'error-card-body');
-  body.append(el('div', 'error-card-next', t('error.cliMissing.description')));
+  body.append(el('div', 'error-card-next', t('error.cliMissing.description', { engine: cliName })));
   const btn = el('button', 'error-card-btn', t('error.cliMissing.configureApi'));
   btn.onclick = () => { openModal('settingsModal'); switchSettingsTab('providers'); };
   body.append(btn);
-  const alt = el('button', 'error-card-alt', t('error.cliMissing.configureCli'));
+  const alt = el('button', 'error-card-alt', t('error.cliMissing.configureCli', { engine: cliName }));
   alt.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude', true); };
   body.append(alt);
   card.append(body);
@@ -755,17 +756,21 @@ function isFirstRun() {
   const noWorkspaces = !(Array.isArray(rw) && rw.length);
   return noSessions && noWorkspaces;
 }
-// v1.0-S3 (A3): 从 state 派生「AI 引擎是否就绪」。就绪来源二选一：Claude CLI 被检出/已配置路径，或已配置任一 provider。
+// v1.0-S3 (A3): 从 state 派生「AI 引擎是否就绪」。就绪来源二选一：所选 Agent CLI 被检出/已配置路径，或已配置任一 provider。
 // 返回 { ready, name } —— name 是就绪引擎的人话名（供绿点行显示）。做成小函数，不嵌进模板。
 function engineReadiness() {
-  const claudeReady = !!((state.config && state.config.claudePath) || (state.status && state.status.detectedClaudePath));
+  const cliType = state.config?.agentCliType === 'kimi' ? 'kimi' : 'claude';
+  const cliReady = cliType === 'kimi'
+    ? !!(state.config?.kimiPath || state.status?.detectedKimiPath)
+    : !!(state.config?.claudePath || state.status?.detectedClaudePath);
+  const cliLabel = cliType === 'kimi' ? 'Kimi Code' : 'Claude Code';
   const providers = (state.config && state.config.providers) || [];
   const providerReady = providers.length > 0;
   if (isProviderMode()) {
     const p = activeProviderObj();
     if (p) return { ready: true, name: p.label || p.id };
   }
-  if (claudeReady) return { ready: true, name: 'Claude CLI' };
+  if (cliReady) return { ready: true, name: cliLabel };
   if (providerReady) { const p = providers[0]; return { ready: true, name: (p && (p.label || p.id)) || t('onboarding.engine.providerFallback') }; }
   return { ready: false, name: '' };
 }
@@ -985,8 +990,9 @@ function assemblePlaybookPrompt(pb, values) {
 // The single conditional call-to-action for the empty state (§4.7), or null when everything's healthy.
 function buildEmptyCTA() {
   if (!isProviderMode()) {
-    const detected = state.status && state.status.detectedClaudePath;
-    const configured = state.config && state.config.claudePath;
+    const kimi = state.config?.agentCliType === 'kimi';
+    const detected = kimi ? state.status?.detectedKimiPath : state.status?.detectedClaudePath;
+    const configured = kimi ? state.config?.kimiPath : state.config?.claudePath;
     if (!detected && !configured) {
       const b = el('button', 'primary empty-cta', t('emptyState.configureClaude'));
       b.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude', true); };

@@ -1800,6 +1800,37 @@ function parseClaudeEvent(evt) {
   return [{ kind: 'unknown', raw: evt }];
 }
 
+// v2.8: normalize Kimi Code's OpenAI-shaped stream-json rows into the internal event vocabulary.
+function parseAgentCliEvent(evt, driver = 'claude') {
+  if (driver === 'claude') return parseClaudeEvent(evt);
+  if (!evt || typeof evt !== 'object') return [{ kind: 'unknown', raw: evt }];
+  if (driver === 'kimi') {
+    if (evt.role === 'meta') {
+      if (evt.type === 'session.resume_hint' && (evt.session_id || evt.sessionId)) {
+        return [{ kind: 'init', sessionId: evt.session_id || evt.sessionId, subtype: evt.type }];
+      }
+      if (evt.type === 'turn.step.retrying') {
+        return [{ kind: 'diagnostic', text: `Kimi 正在重试(${evt.next_attempt || '?'} / ${evt.max_attempts || '?'})：${evt.error_message || evt.error_name || ''}` }];
+      }
+      return [];
+    }
+    if (evt.role === 'assistant') {
+      const out = [];
+      if (typeof evt.content === 'string' && evt.content) out.push({ kind: 'text', text: evt.content, partial: false });
+      for (const call of (Array.isArray(evt.tool_calls) ? evt.tool_calls : [])) {
+        const fn = call && call.function || {};
+        let input = fn.arguments;
+        if (typeof input === 'string') input = safeJsonParse(input, input);
+        out.push({ kind: 'tool_use', id: call.id, name: fn.name || '', input });
+      }
+      return out;
+    }
+    if (evt.role === 'tool') return [{ kind: 'tool_result', id: evt.tool_call_id, content: evt.content, isError: false }];
+    return [{ kind: 'unknown', raw: evt }];
+  }
+  return [{ kind: 'unknown', raw: evt }];
+}
+
 // Claude CLI's native Agent/Task tool returns the child agent's final answer as the parent
 // tool_result.  Unlike workbench-managed sub-turns, the CLI does not expose that child's
 // intermediate events, so this result is the only inspectable evidence of what it did.  Keep a
@@ -1887,6 +1918,8 @@ const CLAUDE_RECOVERY_MESSAGE_CHARS = 6000;
 // spawning the CLI, then rely on the bounded workbench history copy below for continuity.
 function claudeResumeRouteKey(config) {
   const payload = JSON.stringify({
+    driver: String((config && config.agentCliType) || 'claude'),
+    launcher: String(selectedAgentCli(config).path || '').toLowerCase(),
     base: String((config && config.modelsApiBase) || '').trim().replace(/\/+$/, '').toLowerCase(),
     authMode: String((config && config.claudeAuthMode) || 'auto'),
   });

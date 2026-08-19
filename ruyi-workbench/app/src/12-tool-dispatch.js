@@ -1098,8 +1098,12 @@ async function computeHealth(config) {
   const health = [];
   const push = (id, ok, detail) => health.push({ id, ok, detail });
 
-  push('claude-cli', Boolean(config.claudePath && existsExecutable(config.claudePath)),
-    config.claudePath || detectClaudePath() || '(not found — open Settings)');
+  const selectedCli = selectedAgentCli(config);
+  const selectedCliOk = Boolean(selectedCli.path && probeAgentCliLauncher(selectedCli.path));
+  const selectedCliDetail = `${selectedCli.label}: ${selectedCli.path || '(not found — open Settings)'}`;
+  push('agent-cli', selectedCliOk, selectedCliDetail);
+  // Backward-compatible health id consumed by older overlays/diagnostics.
+  push('claude-cli', selectedCliOk, selectedCliDetail);
 
   // Real write-probe (not fsp.access, which lies on Windows).
   let writable = false; let writeDetail = paths.data;

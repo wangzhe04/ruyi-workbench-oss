@@ -47,10 +47,12 @@ async function handleApi(req, res, pathname) {
         const cap = p ? learnedWindowCap(p.id, model) : 0;
         return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };
       })(),
-      models: offlineModelList(config), // instant offline list; UI enriches via GET /api/models (proxy)
+      models: config.agentCliType === 'kimi' ? kimiModelList(config) : offlineModelList(config), // instant offline list; Claude enriches via GET /api/models
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (DeepSeek/DashScope/custom)
       claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (Ark Coding Plan/custom)
       detectedClaudePath: detectClaudePath(),
+      detectedKimiPath: detectKimiPath(),
+      agentCliDrivers: Object.values(AGENT_CLI_TYPES).map(d => ({ ...d, path: selectedAgentCli({ ...config, agentCliType: d.id }).detected })),
       mcpConfigPath: await generateMcpConfig(config.mcpCommandMode),
       // v0.7d: desktop MCP discovery status for the settings UI. `detected` is the autodetect result
       // (null when not found); `resolved` is what would actually be launched (honors explicit overrides).
@@ -157,7 +159,10 @@ async function handleApi(req, res, pathname) {
       for (const m of (live.models || [])) add(m.id, m.label, m.contextLength);
       return send(res, json({ ok: true, engine: 'openai', provider: provider.id, models: [...seen.values()], proxyCount: (live.models || []).length }));
     }
-    return send(res, json({ ok: true, engine: 'claude', ...(await discoverModels(config)) }));
+    if (config.agentCliType === 'kimi') {
+      return send(res, json({ ok: true, engine: 'claude', agentCliType: 'kimi', models: kimiModelList(config), proxyCount: 0 }));
+    }
+    return send(res, json({ ok: true, engine: 'claude', agentCliType: 'claude', ...(await discoverModels(config)) }));
   }
   if (req.method === 'POST' && pathname === '/api/config') {
     const body = await readJsonBody(req);
@@ -177,6 +182,9 @@ async function handleApi(req, res, pathname) {
       merged.knownModels = [...(merged.knownModels || []), body.model];
     }
     const next = await writeConfig(merged);
+    if (body && ['agentCliType', 'claudePath', 'kimiPath'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
+      invalidateAgentCliPathCaches();
+    }
     // v1.4.3: keep ~/.claude/ in sync — settings.json + agent roles + MCP servers
     if (body && (Object.prototype.hasOwnProperty.call(body, 'permissionMode') || Object.prototype.hasOwnProperty.call(body, 'model') || Object.prototype.hasOwnProperty.call(body, 'thinkingBudget') || Object.prototype.hasOwnProperty.call(body, 'appendSystemPrompt'))) {
       await syncClaudeCliSettings(next);
@@ -186,6 +194,11 @@ async function handleApi(req, res, pathname) {
     }
     if (body && Object.prototype.hasOwnProperty.call(body, 'externalMcpServers')) {
       await syncMcpServersToClaude(next);
+      if (next.agentCliType === 'kimi' && next.includeWorkbenchMcp) await syncMcpServersToKimi(next);
+    }
+    if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
+      if (next.agentCliType === 'kimi') await syncMcpServersToKimi(next);
+      else if (current.agentCliType === 'kimi') await syncMcpServersToKimi({ ...next, includeWorkbenchMcp: false });
     }
     return send(res, json({ ok: true, config: maskProviders(next) })); // F2: masked response
   }
@@ -1265,6 +1278,7 @@ async function startServer(opts) {
   // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐);与下方 autoImport 的竞态只影响
   // "本次是否拉到 Claude 新增 MCP",最坏下次 boot 补齐,可接受。
   void syncMcpServersToClaude(config).catch(() => {});
+  if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
   // 把本机 Claude Code 注册的 MCP(~/.claude.json mcpServers)自动映射进 Ruyi(逆向于上面的 sync)。
   // 在 syncMcpServersToClaude 之后跑:Claude 的 user-scope 配置已是最新全量,只导入 Ruyi 还没有的 id。
   // 失败仅审计不阻断 boot;返回的 config 是写回后的最新引用,避免后续 generateMcpConfig 用陈旧 config。
@@ -1395,6 +1409,18 @@ function offlineModelList(config) {
   for (const raw of (config.extraModels || [])) { const [id, label] = String(raw).split('|'); if (id && id.trim()) add(id.trim(), (label || '').trim() || undefined); }
   for (const id of (config.knownModels || [])) if (id) add(id);
   if (config.model && !seen.has(String(config.model))) add(config.model, config.model + ' (自定义)');
+  return [...seen.values()];
+}
+
+// Kimi's `--model` values belong to the user's Kimi installation/account and must not be mixed with
+// models discovered from an Anthropic-compatible Claude endpoint. Keep the inherited default plus only
+// values the user explicitly entered or previously selected in Ruyi.
+function kimiModelList(config) {
+  const seen = new Map([['', { id: '', label: '默认 (Kimi 配置)' }]]);
+  const add = (id, label) => { const key = String(id || '').trim(); if (key && !seen.has(key)) seen.set(key, { id: key, label: String(label || key).trim() || key }); };
+  for (const raw of (config.extraModels || [])) { const [id, label] = String(raw).split('|'); add(id, label); }
+  for (const id of (config.knownModels || [])) add(id);
+  add(config.model, config.model ? `${config.model} (自定义)` : '');
   return [...seen.values()];
 }
 

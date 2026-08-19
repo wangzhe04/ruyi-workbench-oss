@@ -10,9 +10,9 @@
 [![Offline e2e](https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF%20e2e-203-success.svg)](./dev-harness)
 [![Zero npm deps](https://img.shields.io/badge/npm%20%E8%BF%90%E8%A1%8C%E6%97%B6%E4%BE%9D%E8%B5%96-0-orange.svg)](./ruyi-workbench/app/server.js)
 
-一台 Windows 机器 + 任意一个可用的模型端点(任意 OpenAI 兼容 API 或内网 Claude CLI)= 一个**能真正替你动手**的本地 AI 工作台:读写文件、跑脚本、操控桌面和 Office、派一队子代理协作调研——每一步可审计、可撤销、成本透明,**有网没网都能正常运行**。
+一台 Windows 机器 + 任意一个可用的模型端点（任意 OpenAI 兼容 API、Claude Code 或 Kimi Code）= 一个**能真正替你动手**的本地 AI 工作台:读写文件、跑脚本、操控桌面和 Office、派一队子代理协作调研——每一步可审计、可撤销、成本透明,**有网没网都能正常运行**。
 
-> **当前稳定技术版本：`v2.5.0`。** 这是 Escapade 2.5 的正式版本；早期 `v2.5` 标签仅标记原生桌面壳开发快照，正式发布与资产统一使用 `v2.5.0`。
+> **当前稳定技术版本：`v2.6.0`。** 这是加入 Kimi Code Agent CLI 支持的 Escapade 2.6 正式版本；发布资产统一使用 `v2.6.0`。
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
@@ -54,8 +54,9 @@
 
 > **口径与边界：**表中同时列出两种分数：HarnessBench Combined = Outcome × Process × Security；HB360 Combined+E = Outcome × Process × Security × Efficiency。前者侧重结果、过程与安全，后者额外衡量 harness 工程效率，两种 Combined **不能直接横比**。上游 Combined 由表内展示值计算并四舍五入到 1 位小数；HB360 Combined+E 来自 benchmark 汇总结果。成本按统一基准价和修正后的缓存记账归一化，是测试估算而非供应商账单；本表是单机、单模型、单次测试快照，不是官方排行榜。原始逐任务结果保留在独立 benchmark 工程中，未随本仓库发布。
 
-### Escapade 2.5.0 重点更新
+### Escapade 2.6.0 重点更新
 
+- Agent CLI 设置升级为可选驱动，除 Claude Code 外新增 Kimi Code 的探测、登录、启动、会话续接和 MCP 桥接支持。
 - 新增 WinForms + WebView2 原生桌面壳，补齐圆角、任务栏语义、边缘/四角自由缩放与平滑滚动。
 - Claude Code MCP/Skills 自动映射；后台子 Agent 进入可持续追踪的 DAG，支持长工具存活检测、插话与语义防卡。
 - 工具安全与可靠性继续加固；HB360 场景下采用按需工具目录、自检、只读批量并行和耗时遥测，减少无效提示词与等待。
@@ -82,7 +83,7 @@
 2. **纯文本模型也能操控桌面** —— OCR + UIA 文本 grounding,不依赖视觉模型。受限内网往往只有文本模型,这直接决定可用性下限(视觉是增强,不是前提)。
 3. **内网部署优先 + 零依赖可审计** —— 单文件后端、零 npm 运行时依赖、前端无框架无构建,全部离线可跑;安全团队要审的面最小。
 4. **中文优先 + 中英双语** —— 默认中文体验，同时可在设置中切换简体中文、英文或跟随系统；设置、Provider 卡片、权限/能力弹层、模型菜单、产物、快捷键、命令面板、技能库与结构化 API 错误均由语言资源渲染。内置技能和一键任务随界面语言本地化，用户/项目自定义内容保持作者原文。会写代码的和不写代码的共用一套壳，双模式切换。
-5. **双引擎不锁定** —— 任意 OpenAI 兼容端点(DeepSeek / 通义千问 / 智谱 GLM / 内网 vLLM·Ollama)或内网 Claude CLI,随时切换、上下文跨引擎续接。
+5. **双引擎不锁定** —— 任意 OpenAI 兼容端点(DeepSeek / 通义千问 / 智谱 GLM / 内网 vLLM·Ollama)或 Agent CLI（Claude Code / Kimi Code）,随时切换、上下文跨引擎续接。
 
 ## 界面一览
 
@@ -140,7 +141,7 @@
 ### 1. 双引擎:任意模型端点都能开工
 
 - **OpenAI 兼容引擎(原生)**:直连 HTTP + SSE 流式,带完整原生工具循环。内置四组预设:**DeepSeek / 通义千问 DashScope / 智谱 GLM / 自定义**(内网 vLLM、Ollama、one-api 网关均可)。DeepSeek 预设默认走官方 **Responses API** 协议(`apiStyle=responses`,服务端工具循环),其它预设走 Chat Completions;主回合/子代理/摘要/Playbook/JSON 修复全链路跟随所选协议。多 Provider 并存,顶栏一键切换模型。
-- **Claude CLI 引擎(可选)**:指向本机已装的 Claude CLI 即可并存使用;工作台自动生成 MCP 配置,把自己的工具与桥接工具喂给 CLI;另有火山方舟 Ark 等 Anthropic 兼容端点预设。
+- **Agent CLI 引擎(可选)**:可选择 Claude Code 或 Kimi Code。Claude 支持实时转向、权限桥接与原生 Agent；Kimi 使用官方 `stream-json`、原生会话续接，并把 Ruyi MCP 合并到其用户配置。Kimi 的提示词模式由 CLI 自主执行，当前不支持 Ruyi 运行中转向/权限弹窗；Ruyi DAG 中的 Claude CLI 节点仍由 Claude Code 执行。
 - **工具提示词智能按需**:默认先按任务装载相关工具包,缺少能力时由 AI 搜索并增量装载；OpenAI 兼容引擎在下一次工具循环加入具体 schema，Claude CLI 通过分级代理调用隐藏工具。简单问题不再反复携带整套约 140 个工具；设置 → 高级可切回“全部常驻”兼容模式。[设计与本机 A/B](ruyi-workbench/docs/TOOL-LOADING_CN.md)
 - **跨引擎续接**:同一会话里从 DeepSeek 切到 Claude(或反向),历史自动嫁接,不断上下文。
 - **可靠交互提问**:Claude CLI 与 OpenAI 兼容引擎共用 `request_user_input` 通道；支持单选、多选、纯文本和「选项＋其他自填」,选项说明与稳定 ID 随结构化答案交回模型；回答只有在工作台确认已送达后才会关闭，后台会话的提问也会立即提示。
@@ -276,7 +277,7 @@ node .\app\server.js serve --open
 1. **选工作文件夹**:把文件夹拖进来(或点击选择)。AI 的文件操作被限制在工作区内,数据目录敏感文件另有硬拒绝。
 2. **接一个模型**(二选一,或都要):
    - **OpenAI 兼容端点**(推荐新手):设置 → 服务商 → 选 DeepSeek/通义/智谱预设或自定义,填 Base URL + API 密钥 → 「测试连接」变绿即可。国产模型注册即得免费额度,几分钟能用起来;内网 vLLM/Ollama 填内网地址即可。
-   - **Claude CLI**(可选):本机已装 Claude CLI 的话通常**自动探测**;也可在 设置 → Claude CLI 指定路径。两引擎并存,顶栏随时切换。
+   - **Agent CLI**(可选):Claude Code 与 Kimi Code 均可自动探测，也可在 设置 → Agent CLI 选择驱动并指定路径。安装 Kimi Code 可运行 `npm install -g @moonshot-ai/kimi-code`，随后运行 `kimi` 并用 `/login` 登录。
 3. **说一句人话**:比如「帮我分析一下工作区里的 销售数据.csv,给出结论,并把完整报告写成 Markdown」。你会看到:思考过程 → 工具卡片(读文件/写文件)→ 结构化结论 → 本轮变更(带撤销按钮)→ 本轮消耗。
 
 数据目录默认 `~/.win-claude-workbench`(存量兼容),可用环境变量 `RUYI_HOME` 覆盖。
@@ -428,7 +429,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 
 ## English
 
-**Ruyi (如意)** is an offline-first, Windows-native, all-in-one AI workbench you can drive from any model endpoint — any OpenAI-compatible API *or* an on-prem Claude CLI. One Windows machine plus one reachable model = a local workbench that actually **does the work**: reads/writes files, runs scripts, drives the desktop and Office, and dispatches a team of sub-agents — every step auditable, reversible, and honestly metered. **Works with or without an internet connection.**
+**Ruyi (如意)** is an offline-first, Windows-native, all-in-one AI workbench you can drive from any model endpoint — any OpenAI-compatible API or an Agent CLI (Claude Code / Kimi Code). One Windows machine plus one reachable model = a local workbench that actually **does the work**: reads/writes files, runs scripts, drives the desktop and Office, and dispatches a team of sub-agents — every step auditable, reversible, and honestly metered. **Works with or without an internet connection.**
 
 > Formerly **Win Claude Workbench**, renamed to **Ruyi** at v0.8 (trademark caution for open-sourcing, plus an old system prompt that made provider models misidentify as "I am Claude"). *Ruyi* means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -438,9 +439,9 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 2. **Text-only models can still drive the desktop** — OCR + UIA text grounding, no vision model required. Air-gapped networks often have text-only models; vision is an enhancement, not a prerequisite.
 3. **Air-gap first, auditable, zero runtime deps** — a single `server.js` with **zero npm runtime dependencies** (Node built-ins only), framework-less vanilla-JS frontend, offline zip deployment. Minimal audit surface for enterprise/government review.
 4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Settings, Provider cards, safety/capability popovers, model menus, artifacts, shortcuts, the command palette, the skill library, and stable API errors are localized. Built-in skills and quick tasks follow the UI language, while user and project-authored content remains in its original language; simple/pro UI is shared by coders and non-coding knowledge workers.
-5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an on-prem Claude CLI, switchable mid-session with cross-engine context continuation.
+5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an Agent CLI (Claude Code / Kimi Code), switchable mid-session with cross-engine context continuation.
 
-> **Current stable technical release: `v2.5.0`.** This is the formal Escapade 2.5 release. The earlier `v2.5` tag marks a native-desktop-shell development snapshot; release assets use `v2.5.0`.
+> **Current stable technical release: `v2.6.0`.** Escapade 2.6 adds Kimi Code as a selectable Agent CLI alongside Claude Code; release assets use `v2.6.0`.
 
 ### Harness-Bench-360 snapshot
 
@@ -475,7 +476,7 @@ cd ruyi-workbench
 node .\app\server.js serve --open
 ```
 
-First launch walks you through picking a workspace folder and configuring a provider (DeepSeek preset recommended; on-prem vLLM/Ollama work too). The on-prem Claude CLI engine is optional and coexists with providers. Data dir defaults to `~/.win-claude-workbench`; override with `RUYI_HOME`.
+First launch walks you through picking a workspace folder and configuring a provider (DeepSeek preset recommended; on-prem vLLM/Ollama work too). The optional Agent CLI engine supports Claude Code and Kimi Code and coexists with providers. Data dir defaults to `~/.win-claude-workbench`; override with `RUYI_HOME`.
 
 ### Desktop control (optional)
 

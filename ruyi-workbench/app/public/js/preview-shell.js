@@ -899,8 +899,11 @@ export function createPreviewShellDomain({
 
   function engineReadiness() {
     const providers = Array.isArray(state?.config?.providers) ? state.config.providers : [];
-    const claude = Boolean(state?.config?.claudePath || state?.status?.detectedClaudePath);
-    return { ready: claude || providers.length > 0, label: engineLabel() || (claude ? 'Claude CLI' : '') };
+    const kimi = state?.config?.agentCliType === 'kimi';
+    const cli = kimi
+      ? Boolean(state?.config?.kimiPath || state?.status?.detectedKimiPath)
+      : Boolean(state?.config?.claudePath || state?.status?.detectedClaudePath);
+    return { ready: cli || providers.length > 0, label: engineLabel() || (cli ? (kimi ? 'Kimi Code' : 'Claude Code') : '') };
   }
 
   function formatTaskTime(value) {

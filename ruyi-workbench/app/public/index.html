@@ -138,7 +138,7 @@
             </div>
             <button id="modelChip" class="model-chip" aria-haspopup="listbox" title="引擎与模型（点击切换）" data-testid="modelChip">
               <span class="mc-dot idle"></span>
-              <span class="mc-engine">Claude CLI</span>
+              <span class="mc-engine">Agent CLI</span>
               <span class="mc-model">默认</span>
               <span class="mc-caret">▾</span>
             </button>
@@ -527,7 +527,7 @@
         <div class="modal-body" id="settingsBody">
           <div class="tool-tabs settings-tabs" id="settingsTabs">
             <button type="button" data-stab="basic" class="active" data-i18n="settings.general">基础</button>
-            <button type="button" data-stab="claude">Claude CLI</button>
+            <button type="button" data-stab="claude" data-i18n="settings.agentCli.tab">Agent CLI</button>
             <button type="button" data-stab="providers" data-i18n="settings.providers">服务商</button>
             <button type="button" data-stab="agents" data-i18n="settings.agents">Agent 角色</button>
             <button type="button" data-stab="integrations" data-i18n="settings.integrations">集成 / MCP</button>
@@ -634,21 +634,33 @@
             </div>
           </div>
 
-          <!-- ===== Claude CLI ===== -->
+          <!-- ===== Agent CLI (Claude Code / Kimi Code) ===== -->
           <div class="settings-tab" id="stab-claude">
             <div class="field-block">
+              <label for="cfgAgentCliType" data-i18n="settings.agentCli.driver">Agent CLI 驱动</label>
+              <select id="cfgAgentCliType">
+                <option value="claude">Claude Code</option>
+                <option value="kimi">Kimi Code</option>
+              </select>
+              <p id="agentCliCapabilityHint" class="field-help muted"></p>
+            </div>
+            <div class="field-block" data-agent-cli-path="claude">
               <label for="claudePathInput" data-i18n="settings.claudePath">Claude CLI 路径</label>
               <input id="claudePathInput" type="text" placeholder="claude.cmd 或内网 CLI 完整路径" data-i18n-attr="placeholder:settings.claudePathPlaceholder" />
             </div>
-            <div class="field-row">
+            <div class="field-block" data-agent-cli-path="kimi">
+              <label for="kimiPathInput" data-i18n="settings.kimiPath">Kimi Code CLI 路径</label>
+              <input id="kimiPathInput" type="text" placeholder="kimi.cmd 或 kimi.exe" data-i18n-attr="placeholder:settings.kimiPathPlaceholder" />
+            </div>
+            <div class="field-row" data-agent-cli-only="claude">
               <label class="check"><input type="checkbox" id="cfgPartial" /> <span data-i18n="settings.partialStreaming">实时流式 (--include-partial-messages)</span></label>
               <label class="check"><input type="checkbox" id="cfgBeta" /> <span data-i18n="settings.betaThinking">交错思维 beta（仅老 CLI 需要；新模型请勿勾）</span></label>
             </div>
             <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgResume" /> <span data-i18n="settings.resumeClaude">自动续接 Claude 会话</span></label>
+              <label class="check"><input type="checkbox" id="cfgResume" /> <span data-i18n="settings.resumeAgentCli">自动续接 Agent CLI 会话</span></label>
             </div>
-            <div class="field-grid">
-              <div class="field-block">
+            <div class="field-grid" data-agent-cli-only="claude">
+              <div class="field-block" data-agent-cli-only="claude">
                 <label for="cfgThinkingEffort" data-i18n="settings.thinkingEffort">思考强度 --effort</label>
                 <select id="cfgThinkingEffort">
                   <option value="" data-i18n="thinkingEffort.default">默认（继承 CLI 配置）</option>
@@ -673,7 +685,7 @@
               <textarea id="cfgExtraArgs" rows="3" placeholder="--foo&#10;bar"></textarea>
             </div>
             <div class="field-grid">
-              <div class="field-block">
+              <div class="field-block" data-agent-cli-only="claude">
                 <label for="cfgEngineMode" data-i18n="settings.chatEngine">对话引擎</label>
                 <select id="cfgEngineMode">
                   <option value="legacy" data-i18n="settings.engineMode.legacy">legacy（稳定，单向）</option>
@@ -689,18 +701,18 @@
                 </select>
               </div>
             </div>
-            <div class="field-row">
+            <div class="field-row" data-agent-cli-only="claude">
               <label class="check"><input type="checkbox" id="cfgPermBridge" /> <span data-i18n="settings.permissionBridge">权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）</span></label>
             </div>
-            <hr class="settings-sep" />
-            <h4 class="settings-subhead" data-i18n="settings.anthropicEndpoint.title">第三方 Anthropic 兼容端点（Coding Plan）</h4>
-            <p class="muted prov-hint" data-i18n="settings.anthropicEndpoint.hint">在此配置的端点/密钥/模型会直接注入 Claude CLI 子进程的环境变量，驱动真实对话（不再只是模型清单探测），无需手动 setx。模型可在顶栏「模型」里热切。</p>
-            <div class="field-row">
+            <hr class="settings-sep" data-agent-cli-only="claude" />
+            <h4 class="settings-subhead" data-agent-cli-only="claude" data-i18n="settings.anthropicEndpoint.title">第三方 Anthropic 兼容端点（Coding Plan）</h4>
+            <p class="muted prov-hint" data-agent-cli-only="claude" data-i18n="settings.anthropicEndpoint.hint">在此配置的端点/密钥/模型会直接注入 Claude CLI 子进程的环境变量，驱动真实对话（不再只是模型清单探测），无需手动 setx。模型可在顶栏「模型」里热切。</p>
+            <div class="field-row" data-agent-cli-only="claude">
               <label for="cfgClaudeEndpointPreset" data-i18n="settings.preset">预设</label>
               <select id="cfgClaudeEndpointPreset"></select>
               <button type="button" id="applyClaudeEndpointPresetBtn" class="mini" data-i18n="settings.applyPreset">应用预设</button>
             </div>
-            <div class="field-grid">
+            <div class="field-grid" data-agent-cli-only="claude">
               <div class="field-block">
                 <label for="cfgModelsApiBase" data-i18n="settings.endpointBaseUrl">端点 Base URL（留空=沿用系统环境变量 ANTHROPIC_BASE_URL）</label>
                 <input id="cfgModelsApiBase" type="text" placeholder="https://ark.cn-beijing.volces.com/api/coding" />
@@ -718,7 +730,7 @@
                 </select>
               </div>
             </div>
-            <div class="field-grid">
+            <div class="field-grid" data-agent-cli-only="claude">
               <div class="field-block">
                 <label for="cfgClaudePriceIn" data-i18n="settings.pricing.input">输入单价（每百万 token，可选）</label>
                 <input id="cfgClaudePriceIn" type="number" min="0" step="0.01" placeholder="留空 = 不估算成本" data-i18n-attr="placeholder:settings.pricing.unavailablePlaceholder" />
@@ -738,10 +750,10 @@
                 </select>
               </div>
             </div>
-            <p class="muted prov-hint" data-i18n="settings.pricing.hint">若上方端点是第三方 Coding Plan（如火山方舟 Ark），此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。</p>
-            <hr class="settings-sep" />
-            <h4 class="settings-subhead" data-i18n="settings.modelDiscovery">模型清单发现</h4>
-            <div class="field-row">
+            <p class="muted prov-hint" data-agent-cli-only="claude" data-i18n="settings.pricing.hint">若上方端点是第三方 Coding Plan（如火山方舟 Ark），此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。</p>
+            <hr class="settings-sep" data-agent-cli-only="claude" />
+            <h4 class="settings-subhead" data-agent-cli-only="claude" data-i18n="settings.modelDiscovery">模型清单发现</h4>
+            <div class="field-row" data-agent-cli-only="claude">
               <label class="check"><input type="checkbox" id="cfgDiscoverModels" /> <span data-i18n="settings.discoverModels">自动向上方端点拉取可用模型（GET /v1/models；失败自动回退到内置清单）</span></label>
             </div>
             <div class="field-block">

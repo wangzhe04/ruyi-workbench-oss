@@ -12,7 +12,10 @@ async function runClaudeTurn({
     downstreamEvent(normalized);
   };
   const config = turnConfig || await readConfig();
-  const claude = config.claudePath || detectClaudePath();
+  const cliDriver = selectedAgentCli(config);
+  const agentCliType = cliDriver.id;
+  const agentCliLabel = cliDriver.label;
+  const claude = cliDriver.path;
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   let workspaceTurnBaseline = _workspaceBaseline;
   const promptTaskContext = buildPromptTaskContext(message, session);
@@ -84,12 +87,12 @@ async function runClaudeTurn({
     });
   }
 
-  if (!fakeClaude && (!claude || !existsExecutable(claude))) {
+  if (!fakeClaude && (!claude || !probeAgentCliLauncher(claude))) {
     // v1.0.2-S6: engine=claude 且 CLI 探测失败 —— 错误文本改中文人话, 并给错误事件附加 code:'cli-missing'
     // (只增字段, 前端按 code 渲染引导卡)。首荐直接配 API 引擎(对小白更简单), 次选指定 CLI 路径。
     const fallback = [
-      '未检测到 Claude CLI。推荐直接配置 API 引擎(更简单):设置 → 模型服务,填入 DeepSeek 等服务商的 API Key 即可开始。',
-      '若你已安装 Claude CLI,可在 设置 → Claude CLI 中指定路径。',
+      `未检测到 ${agentCliLabel} CLI。推荐直接配置 API 引擎(更简单):设置 → 模型服务,填入 DeepSeek 等服务商的 API Key 即可开始。`,
+      `若你已安装 ${agentCliLabel},可在 设置 → Agent CLI 中指定路径。`,
       '',
       `已保存你的输入到会话 ${session.id}。`,
       `工作目录:${workingDir}`,
@@ -99,7 +102,7 @@ async function runClaudeTurn({
     onEvent({ type: 'assistant_delta', text: fallback });
     await dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
-      model: currentClaudeModel || 'default', errorClass: 'cli_missing', error: 'Claude CLI not found',
+      model: currentClaudeModel || 'default', errorClass: 'cli_missing', error: `${agentCliLabel} CLI not found`,
     });
     await dispatchAgentLoopHooks('onTurnEnd', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
@@ -120,15 +123,16 @@ async function runClaudeTurn({
   // orphan a child (unkillable pid) or last-write-wins clobber the session file with a concurrent turn.
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
 
-  const interactive = config.engineMode === 'interactive';
+  const interactive = agentCliType === 'claude' && config.engineMode === 'interactive';
   // v1.4.3: 'auto' mode uses the CLI's built-in risk classifier, no workbench bridge needed.
-  const usePermissionBridge = config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto';
+  const usePermissionBridge = agentCliType === 'claude' && config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto';
 
-  const args = ['-p', '--output-format', 'stream-json', '--verbose'];
-  if (interactive) args.push('--input-format', 'stream-json');
-  if (config.includePartialMessages) args.push('--include-partial-messages');
-  if (config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
-  if (config.includeWorkbenchMcp) {
+  const args = agentCliType === 'claude' ? ['-p', '--output-format', 'stream-json', '--verbose']
+    : ['--output-format', 'stream-json'];
+  if (agentCliType === 'claude' && interactive) args.push('--input-format', 'stream-json');
+  if (agentCliType === 'claude' && config.includePartialMessages) args.push('--include-partial-messages');
+  if (agentCliType === 'claude' && config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
+  if (agentCliType === 'claude' && config.includeWorkbenchMcp) {
     const claudeToolPacks = classifyToolPacks(basePrompt, attachments);
     args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks));
     // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
@@ -147,10 +151,10 @@ async function runClaudeTurn({
   // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
   // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
   const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
-  if (cliPermMode) args.push('--permission-mode', cliPermMode);
+  if (agentCliType === 'claude' && cliPermMode) args.push('--permission-mode', cliPermMode);
   if (config.model) args.push('--model', config.model);
-  if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
-  if (config.maxTurns) args.push('--max-turns', String(config.maxTurns));
+  if (agentCliType === 'claude' && config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
+  if (agentCliType === 'claude' && config.maxTurns) args.push('--max-turns', String(config.maxTurns));
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
   ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
@@ -159,7 +163,7 @@ async function runClaudeTurn({
   // (就是原来跟在 append 块后面的 --resume / --add-dir / extraClaudeArgs,内容不变,仅提前收集、最后统一 push。)
   const tailArgs = [];
   if (config.autoResumeClaudeSessions && session.claudeSessionId) {
-    tailArgs.push('--resume', session.claudeSessionId);
+    tailArgs.push(agentCliType === 'kimi' ? '--session' : '--resume', session.claudeSessionId);
   }
   if (workingDir) tailArgs.push('--add-dir', workingDir);
   // v2 跨会话记忆(C1 评审修订): 启用记忆时把记忆目录加入 --add-dir,使非 bypass 权限模式主回合 Read 可达;
@@ -183,12 +187,16 @@ async function runClaudeTurn({
   // 阶梯顺序: ① append 先拿预算(块内 fits-or-drop 自然兑现 用户append>技能>记忆>账本>编排>语言政策);
   // ② --agents 角色定义吃 append 之后的剩余(子代理编排是增强,用户提示与技能是核心诉求);
   // ③ 组装后整行复核(引号翻倍等二阶效应的最终闸口)仍超 → 砍 --agents → 围栏安全裁 append → 告警但绝不硬失败。
-  const guardCmd = fakeClaude ? process.execPath : claude;
+  const preflightLaunch = fakeClaude
+    ? { command: process.execPath, args: [fakeClaude], opts: {} }
+    : prepareAgentCliSpawn(agentCliType, claude, []);
+  const guardCmd = preflightLaunch.command;
+  const guardPrefixArgs = preflightLaunch.args;
   const guardBudget = cmdLineBudgetFor(guardCmd);
   const cmdlineGuard = { budget: guardBudget, degraded: [], lineLen: 0 };
   const FLAG_APPEND_ALLOWANCE = '--append-system-prompt'.length + 1 + CMD_LINE_QUOTE_MARGIN;
   const FLAG_AGENTS_ALLOWANCE = '--agents'.length + 1 + CMD_LINE_QUOTE_MARGIN;
-  const fixedLen = guardBudget > 0 ? spawnCmdLineLength(guardCmd, [...args, ...tailArgs]) : 0;
+  const fixedLen = guardBudget > 0 ? spawnCmdLineLength(guardCmd, [...guardPrefixArgs, ...args, ...tailArgs]) : 0;
   let appendLimit = 8000;
   if (guardBudget > 0) {
     appendLimit = Math.min(8000, guardBudget - fixedLen - FLAG_APPEND_ALLOWANCE);
@@ -284,7 +292,8 @@ async function runClaudeTurn({
     // segment for the user-facing response-language policy, even when the user configured no custom prompt.
     // appendLimit<=0(预算耗尽)时整段跳过 —— appendTurnPolicies 的 limit<=0 语义是「不限」,绝不可传入。
     appendSys = appendLimit > 0 ? appendTurnPolicies(appendSys, config, agentTeam, appendLimit, true, promptTaskContext) : '';
-    if (appendSys) args.push('--append-system-prompt', appendSys);
+    if (appendSys && agentCliType === 'claude') args.push('--append-system-prompt', appendSys);
+    else if (appendSys) indexSecs.push(`<ruyi-agent-cli-instructions>\n${appendSys}\n</ruyi-agent-cli-instructions>`);
   }
 
   // 第35波 P2(索引去重注入): 稳定索引段(技能/记忆/编排+模型提示)经 stdin 消息流注入,而不是每轮重复。
@@ -326,32 +335,45 @@ async function runClaudeTurn({
     const appendArgLen = appendSys ? quoteWinArg(appendSys).length + FLAG_APPEND_ALLOWANCE : 0;
     agentsBudget = Math.max(0, Math.min(6000, guardBudget - fixedLen - appendArgLen - FLAG_AGENTS_ALLOWANCE));
   }
-  const claudeAgentLibrary = await buildClaudeAgentDefinitions(workingDir, config, agentsBudget);
-  if (Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
+  const claudeAgentLibrary = agentCliType === 'claude'
+    ? await buildClaudeAgentDefinitions(workingDir, config, agentsBudget)
+    : { definitions: {}, roles: [], omitted: [] };
+  if (agentCliType === 'claude' && Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
   else if (claudeAgentLibrary.omitted.length) cmdlineGuard.degraded.push('agents-dropped');
   args.push(...tailArgs);
+  // Claude consumes the prompt from stdin; Kimi requires it as a headless command argument.
+  if (agentCliType === 'kimi') args.push('-p', fullPrompt);
 
   // cmd8191 防线③: 整行复核 —— 任何情况下绝不让整行越过预算(引号翻倍等二阶效应的最终闸口)。
   if (guardBudget > 0) {
-    let lineLen = spawnCmdLineLength(guardCmd, args);
-    for (let g = 0; g < 4 && lineLen > guardBudget; g++) {
+    let lineLen = spawnCmdLineLength(guardCmd, [...guardPrefixArgs, ...args]);
+    for (let g = 0; g < 6 && lineLen > guardBudget; g++) {
       const ai = args.indexOf('--agents');
       if (ai >= 0) { args.splice(ai, 2); if (!cmdlineGuard.degraded.includes('agents-dropped')) cmdlineGuard.degraded.push('agents-dropped'); }
-      else {
+      else if (agentCliType === 'claude') {
         const pi = args.indexOf('--append-system-prompt');
         if (pi < 0) break;
         const over = lineLen - guardBudget;
         const trimmed = fenceSafeSlice(args[pi + 1], Math.max(0, String(args[pi + 1]).length - over - CMD_LINE_QUOTE_MARGIN));
         if (trimmed && trimmed !== args[pi + 1]) { args[pi + 1] = trimmed; cmdlineGuard.degraded.push('append-final-trim'); }
         else { args.splice(pi, 2); cmdlineGuard.degraded.push('append-dropped'); }
+      } else {
+        const pi = args.lastIndexOf('-p');
+        if (pi < 0 || typeof args[pi + 1] !== 'string') break;
+        const over = lineLen - guardBudget;
+        const prompt = args[pi + 1];
+        const keep = Math.max(1000, prompt.length - over - CMD_LINE_QUOTE_MARGIN - 80);
+        if (keep >= prompt.length) break;
+        args[pi + 1] = `[较早的恢复上下文因 Windows 命令行长度限制已省略]\n${prompt.slice(-keep)}`;
+        cmdlineGuard.degraded.push('prompt-head-trimmed');
       }
-      lineLen = spawnCmdLineLength(guardCmd, args);
+      lineLen = spawnCmdLineLength(guardCmd, [...guardPrefixArgs, ...args]);
     }
     cmdlineGuard.lineLen = lineLen;
     if (lineLen > guardBudget) cmdlineGuard.degraded.push('base-args-too-long');
     if (cmdlineGuard.degraded.length) {
       const isCmd = isBatchLauncher(guardCmd) || cmdLineBudgetSeam();
-      const note = `[启动守卫] Claude CLI 命令行超预算(预算 ${guardBudget} 字符${isCmd ? `,cmd.exe 上限 ${CMD_EXE_LINE_LIMIT}` : ''}),已自动降级:${cmdlineGuard.degraded.join(' → ')}。可减少启用技能/缩短自定义系统提示,或把 Claude CLI 路径改为 claude.exe 直启。`;
+      const note = `[启动守卫] ${agentCliLabel} CLI 命令行超预算(预算 ${guardBudget} 字符${isCmd ? `,cmd.exe 上限 ${CMD_EXE_LINE_LIMIT}` : ''}),已自动降级:${cmdlineGuard.degraded.join(' → ')}。可减少启用技能/缩短自定义系统提示,或改用原生可执行文件。`;
       try { onEvent({ type: 'stderr', text: note }); } catch { /* 通知失败不阻断 */ }
       logEvent({ kind: 'cmdline_guard', sessionId: session.id, budget: guardBudget, lineLen, degraded: cmdlineGuard.degraded });
     }
@@ -360,21 +382,31 @@ async function runClaudeTurn({
   // v1.4.4: effectiveAnthropicEnv overlays the config-driven third-party endpoint/model (modelsApiBase/
   // modelsApiKey/claudeAuthMode/model) onto process.env, so a frontend change to any of those actually
   // reaches this child instead of silently deferring to whatever the OS shell happened to export.
-  const env = { ...effectiveAnthropicEnv(config), WIN_CLAUDE_WORKBENCH_HOME: paths.data }; // 【存量兼容标识】注入旧 env 变量名给 Claude 子进程
-  if (config.thinkingBudget) env.MAX_THINKING_TOKENS = String(config.thinkingBudget);
+  const env = { ...(agentCliType === 'claude' ? effectiveAnthropicEnv(config) : process.env), WIN_CLAUDE_WORKBENCH_HOME: paths.data }; // 【存量兼容标识】注入旧 env 变量名给 CLI/MCP 子进程
+  if (agentCliType === 'claude' && config.thinkingBudget) env.MAX_THINKING_TOKENS = String(config.thinkingBudget);
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
   env.WCW_PERMISSION_TIMEOUT_MS = String(config.permissionTimeoutMs || 120000);
+  env.WCW_SESSION_ID = session.id;
+  env.WCW_PORT = String(RUNTIME.port);
+  env.WCW_HOST = RUNTIME.host;
+  env.WCW_TOKEN = RUNTIME.token;
+  if (agentCliType === 'kimi' && config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
 
   // Route the real CLI through cmd.exe when it's a .cmd/.bat (fixes "spawn EINVAL" on modern Node).
-  const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} } : batchSafeSpawn(claude, args);
+  const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} }
+    : prepareAgentCliSpawn(agentCliType, claude, args);
   const spawnCmd = spawn.command;
   const spawnArgs = spawn.args;
   const spawnOpts = spawn.opts;
 
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
-  const metaArgs = args.map((arg, i) => args[i - 1] === '--agents' ? `[${Object.keys(claudeAgentLibrary.definitions).length} agent roles]` : redact(arg));
-  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: config.claudeThinkingEffort || 'default', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: 'claude-native', cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
+  const metaArgs = args.map((arg, i) => {
+    if (args[i - 1] === '--agents') return `[${Object.keys(claudeAgentLibrary.definitions).length} agent roles]`;
+    if (args[i - 1] === '-p' || args[i - 1] === '--prompt') return `[prompt ${String(arg).length} chars]`;
+    return redact(arg);
+  });
+  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: agentCliType === 'claude' ? (config.claudeThinkingEffort || 'default') : 'cli-managed', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: `${agentCliType}-native`, agentCliType, agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
   logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', model: config.model || 'default', promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, memoryCheck: memoryPreflight.status, promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude), resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
@@ -546,10 +578,10 @@ async function runClaudeTurn({
     // stream-json input: send the user turn as a JSON envelope, keep stdin OPEN for tool_result /
     // AskUserQuestion answers written via /api/chat/answer. Closed when the turn's `result` arrives.
     child.stdin.write(JSON.stringify(buildUserEnvelope(fullPrompt)) + '\n', 'utf8');
-  } else {
+  } else if (agentCliType === 'claude') {
     child.stdin.write(fullPrompt, 'utf8');
     child.stdin.end();
-  }
+  } else child.stdin.end();
 
   child.stderr.on('data', chunk => {
     const textChunk = decodeClaudeCliText(chunk);
@@ -577,7 +609,9 @@ async function runClaudeTurn({
       else if (!pendingDeltaThinking) { thinkingText += ev.text; onEvent({ type: 'thinking_delta', text: ev.text }); }
     } else if (ev.kind === 'tool_use') {
       toolCalls.push({ id: ev.id, name: ev.name, input: ev.input });
-      const isNativeAgent = ev.name === 'Agent' || ev.name === 'Task';
+      // Only Claude's Agent/Task tools follow the native sub-agent continuation protocol below.
+      // Kimi may expose a same-named tool, but its stream-json tool lifecycle is already self-contained.
+      const isNativeAgent = agentCliType === 'claude' && (ev.name === 'Agent' || ev.name === 'Task');
       if (isNativeAgent) {
         const roleId = String(ev.input && (ev.input.subagent_type || ev.input.agent || ev.input.role) || 'general-purpose');
         const role = claudeAgentLibrary.roles.find(r => r.id === roleId);
@@ -660,6 +694,8 @@ async function runClaudeTurn({
       // CLI repeats one message's usage across multi-block frames); 是中止兜底计费的保守下限.
       const bi = Number(u.input_tokens) || 0; if (bi > billInMax) billInMax = bi;
       const bo = Number(u.output_tokens) || 0; if (bo > billOutMax) billOutMax = bo;
+    } else if (ev.kind === 'diagnostic') {
+      if (ev.text) onEvent({ type: 'stderr', text: ev.text });
     } else if (ev.kind === 'result') {
       if (ev.sessionId) {
         bindNativeClaudeSession(ev.sessionId);
@@ -696,10 +732,10 @@ async function runClaudeTurn({
       return;
     }
     reg.lastEventAt = Date.now();
-    for (const ev of parseClaudeEvent(evt)) handleNormalized(ev);
+    for (const ev of parseAgentCliEvent(evt, agentCliType)) handleNormalized(ev);
     // Reset per-message delta dedup after each whole assistant message so a later whole-only
     // message isn't suppressed by an earlier message's partials.
-    if (evt.type === 'assistant') { pendingDeltaText = false; pendingDeltaThinking = false; }
+    if (evt.type === 'assistant' || evt.role === 'assistant') { pendingDeltaText = false; pendingDeltaThinking = false; }
   };
 
   child.stdout.on('data', chunk => {
@@ -720,7 +756,7 @@ async function runClaudeTurn({
   // A clean exit here still means Ruyi can no longer observe that background process, so surface the
   // interruption honestly instead of inventing a completion.
   for (const agent of [...nativeClaudeAgents.values()]) {
-    const interruptedResult = 'Claude CLI 已结束，但没有收到该子代理的完成通知。结果未被标记为完成；请重试本轮任务。';
+    const interruptedResult = `${agentCliLabel} CLI 已结束，但没有收到该子代理的完成通知。结果未被标记为完成；请重试本轮任务。`;
     finishNativeAgent(agent, {
       result: interruptedResult,
       resultChars: interruptedResult.length,
@@ -748,7 +784,7 @@ async function runClaudeTurn({
   // Reactive fallback for legacy/unknown bindings and externally moved/deleted transcripts. Retry the
   // SAME logical turn once without --resume: the user message/turnSeq were already persisted above, so the
   // retry skips that mutation and reuses the pre-turn recovery history instead of duplicating the prompt.
-  const resumeTranscriptMissing = resumeActive && exit.code !== 0 && !wasStopped
+  const resumeTranscriptMissing = agentCliType === 'claude' && resumeActive && exit.code !== 0 && !wasStopped
     && !assistantText.trim() && toolCalls.length === 0 && isClaudeResumeMissingError(stderrTrimmed);
   if (resumeTranscriptMissing && !_resumeRecoveryAttempt) {
     session.claudeSessionId = null;
@@ -769,8 +805,8 @@ async function runClaudeTurn({
   // → 清注入 hash,下轮(同内容也会)重注。abort/watchdog 杀不在此列:prompt 已写入 stdin,transcript 已含索引。
   if ((exit.code === -1 && exit.error) || cmdLineOverflow) session.injectedIndexHash = null;
   const finalText = assistantText.trim() || (stdoutNoise.trim()) || (stderrTrimmed ? (cmdLineOverflow
-    ? `[启动守卫] Claude CLI 未能启动:Windows cmd.exe 命令行超过 8191 字符上限(预算哨兵未能拦截,请反馈此情况)。临时规避:减少启用的技能、缩短自定义系统提示,或在设置中把 Claude CLI 路径改为 claude.exe 直启。\n原始错误:${redact(stderrTrimmed)}`
-    : `Claude CLI wrote only stderr:\n${redact(stderrTrimmed)}`) : '');
+    ? `[启动守卫] ${agentCliLabel} CLI 未能启动:Windows 命令行超过长度限制。临时规避:减少启用的技能、缩短自定义系统提示,或改用原生可执行文件。\n原始错误:${redact(stderrTrimmed)}`
+    : `${agentCliLabel} CLI wrote only stderr:\n${redact(stderrTrimmed)}`) : '');
   // v0.8-S3/S4a: turn_summary from the CLI turn's tool records + this turn's checkpoint journal. Workbench
   // file_* tools (run in the MCP child) checkpointed their `before` to dataRoot/checkpoints/<sid>/ — read
   // those index rows by turnSeq for accurate op + revertible:true. The CLI's native Edit/Write/Bash never
@@ -793,10 +829,12 @@ async function runClaudeTurn({
     usage: usage || undefined,
     traceId: activeTraceId,
     createdAt: nowIso(),
-    source: wasStopped ? 'aborted' : 'claude-cli',
+    source: wasStopped ? 'aborted' : `${agentCliType}-cli`,
     // Engine identity so the UI can render a per-message source badge (§5.1). The claude engine is
     // always Anthropic; model is the configured CLI model ('' means the CLI default).
     engine: 'claude',
+    agentCliType,
+    agentCliLabel,
     model: config.model || '',
     exitCode: exit.code,
   });
@@ -833,7 +871,7 @@ async function runClaudeTurn({
   // BOTH direct + third-party endpoints); (2) else, for Anthropic-direct only, the CLI's notional USD; (3) else
   // (third-party, unpriced) tokens with cost null + costTrusted false (its CLI total_cost_usd is Anthropic-
   // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
-  if (usage && usage.usage) {
+  if (agentCliType === 'claude' && usage && usage.usage) {
     const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
     // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
     const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
@@ -841,7 +879,7 @@ async function runClaudeTurn({
       sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
       inTok, outTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
     });
-  } else if (billInMax > 0 || billOutMax > 0) {
+  } else if (agentCliType === 'claude' && (billInMax > 0 || billOutMax > 0)) {
     // v1.4-OSS 用量看板(补): NO result frame (Stop / idle-kill) — the turn still burned real tokens. Record a
     // conservative ESTIMATED row from the per-message billing max (与子代理兜底对称). There is no CLI cost frame
     // here, so pass NaN → claudeCostFields yields cost:null unless config.claudePricing can price the tokens.
@@ -866,7 +904,7 @@ async function runClaudeTurn({
     await dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', exitCode: exit.code, errorClass: 'claude_cli_error',
-      error: redact(String(exit.error && exit.error.message || stderrTrimmed || 'Claude CLI failed')).slice(0, 1000),
+      error: redact(String(exit.error && exit.error.message || stderrTrimmed || `${agentCliLabel} CLI failed`)).slice(0, 1000),
     });
   }
   await dispatchAgentLoopHooks('onTurnEnd', {

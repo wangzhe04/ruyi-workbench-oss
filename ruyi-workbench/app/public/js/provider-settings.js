@@ -58,11 +58,33 @@ function activeProviderObj() {
   if (!isProviderMode()) return null;
   return (state.config.providers || []).find(p => p.id === state.config.activeProvider) || null;
 }
-// Human-readable name of the current engine: the provider's label (fallback id) or 'Claude CLI'.
+const AGENT_CLI_LABELS = { claude: 'Claude Code', kimi: 'Kimi Code' };
+function currentAgentCliType() {
+  const type = String(state.config?.agentCliType || 'claude');
+  return Object.prototype.hasOwnProperty.call(AGENT_CLI_LABELS, type) ? type : 'claude';
+}
+function currentAgentCliLabel() {
+  return AGENT_CLI_LABELS[currentAgentCliType()];
+}
+function currentAgentCliPath() {
+  const type = currentAgentCliType();
+  const pathKey = type === 'kimi' ? 'kimiPath' : 'claudePath';
+  const detectedKey = type === 'kimi' ? 'detectedKimiPath' : 'detectedClaudePath';
+  return state.config?.[pathKey] || state.status?.[detectedKey] || '';
+}
+function updateAgentCliSettingsVisibility() {
+  const selected = $('cfgAgentCliType');
+  const type = selected && Object.prototype.hasOwnProperty.call(AGENT_CLI_LABELS, selected.value) ? selected.value : currentAgentCliType();
+  document.querySelectorAll('[data-agent-cli-path]').forEach(node => node.classList.toggle('hidden', node.dataset.agentCliPath !== type));
+  document.querySelectorAll('[data-agent-cli-only]').forEach(node => node.classList.toggle('hidden', node.dataset.agentCliOnly !== type));
+  const hint = $('agentCliCapabilityHint');
+  if (hint) hint.textContent = t(`settings.agentCli.hint.${type}`);
+}
+// Human-readable name of the current engine: the provider's label (fallback id) or selected Agent CLI.
 function engineLabel() {
   const p = activeProviderObj();
   if (p) return p.label || p.id;
-  return isProviderMode() ? state.config.activeProvider : 'Claude CLI';
+  return isProviderMode() ? state.config.activeProvider : currentAgentCliLabel();
 }
 // Meta describing the CURRENT engine, shaped like the per-message meta the server now sends, so the
 // live streaming container and empty state can reuse the same badge/avatar renderer.
@@ -70,14 +92,16 @@ function currentEngineMeta() {
   const p = activeProviderObj();
   if (p) return { engine: 'openai', providerId: p.id, providerLabel: p.label || p.id, model: p.model || '' };
   if (isProviderMode()) return { engine: 'openai', providerId: state.config.activeProvider, providerLabel: state.config.activeProvider, model: currentModelId() };
-  return { engine: 'claude', model: state.config.model || '' };
+  return { engine: 'claude', agentCliType: currentAgentCliType(), agentCliLabel: currentAgentCliLabel(), model: state.config.model || '' };
 }
 // Map an engine meta -> { letter, colorVar, label } for the avatar + badge (§3). Providers are keyed
 // by id/label keyword so DeepSeek/Qwen/GLM get their brand color; anything else is the neutral custom.
 function engineVisual(meta) {
   meta = meta || {};
   if (meta.engine === 'claude' || (!meta.engine && !meta.providerId)) {
-    return { letter: 'C', colorVar: 'var(--accent)', label: 'Claude' }; // v3 (§A5): Claude 统一青花蓝(与工作流 --wf-claude 同族),消除消息区赭 vs 工作流蓝的自相矛盾
+    const type = meta.agentCliType || currentAgentCliType();
+    const label = meta.agentCliLabel || AGENT_CLI_LABELS[type] || 'Agent CLI';
+    return { letter: type === 'kimi' ? 'K' : 'C', colorVar: 'var(--accent)', label }; // Agent CLI drivers share the local-engine color family.
   }
   const id = String(meta.providerId || '').toLowerCase();
   const label = meta.providerLabel || meta.providerId || 'provider';
@@ -138,8 +162,8 @@ function renderStatusLine() {
     setStatus(`${label} · ${model}`);
     return;
   }
-  const ok = state.config?.claudePath || state.status?.detectedClaudePath;
-  setStatus(ok ? `CLI: ${ok}` : t('status.claudeMissing'));
+  const ok = currentAgentCliPath();
+  setStatus(ok ? `${currentAgentCliLabel()}: ${ok}` : t('status.agentCliMissing', { engine: currentAgentCliLabel() }));
 }
 function populatePermSelect() {
   const sel = $('permSelect'); sel.innerHTML = '';
@@ -237,7 +261,11 @@ function fillSettings() {
   { const el0 = $('cfgLocale'); if (el0) el0.value = ['auto', 'zh-CN', 'en-US'].includes(c.locale) ? c.locale : 'auto'; }
   { const el0 = $('cfgUiMode'); if (el0) el0.value = (c.uiMode === 'simple' ? 'simple' : 'pro'); } // v0.9-S1
   { const el0 = $('cfgOutputStyle'); if (el0) el0.value = (c.outputStyle === 'concise' ? 'concise' : 'detailed'); } // v0.9-S1
+  { const el0 = $('cfgAgentCliType'); if (el0) el0.value = ['claude', 'kimi'].includes(c.agentCliType) ? c.agentCliType : 'claude'; }
   $('claudePathInput').value = c.claudePath || state.status?.detectedClaudePath || '';
+  $('kimiPathInput').value = c.kimiPath || state.status?.detectedKimiPath || '';
+  { const el0 = $('cfgAgentCliType'); if (el0 && !el0.dataset.agentCliWired) { el0.dataset.agentCliWired = '1'; el0.addEventListener('change', updateAgentCliSettingsVisibility); } }
+  updateAgentCliSettingsVisibility();
   $('cfgPartial').checked = !!c.includePartialMessages;
   $('cfgBeta').checked = !!c.betaInterleavedThinking;
   $('cfgResume').checked = !!c.autoResumeClaudeSessions;
@@ -418,7 +446,9 @@ async function saveSettings() {
     locale: resolvedLocale,
     uiMode: $('cfgUiMode') ? $('cfgUiMode').value : (state.config.uiMode || 'pro'),           // v0.9-S1 (C1)
     outputStyle: $('cfgOutputStyle') ? $('cfgOutputStyle').value : (state.config.outputStyle || 'detailed'), // v0.9-S1 (C1)
+    agentCliType: $('cfgAgentCliType') ? $('cfgAgentCliType').value : (state.config.agentCliType || 'claude'),
     claudePath: $('claudePathInput').value.trim(),
+    kimiPath: $('kimiPathInput').value.trim(),
     includePartialMessages: $('cfgPartial').checked,
     betaInterleavedThinking: $('cfgBeta').checked,
     autoResumeClaudeSessions: $('cfgResume').checked,

@@ -1,13 +1,13 @@
 # 如意 Ruyi —— 本地 AI 全能工作台
 
-一个 clean-room 的 Windows 本地工作台，把内网 Claude CLI（或任意 OpenAI 兼容端点）包成类似 Claude App/Claude Code 的体验：对话、附件、项目目录、文件操作、PowerShell、脚本、浏览器/Office 交接、截图，以及可被 Claude CLI 调用的 MCP 工具。有网没网都能正常运行，非程序员也可安全使用。
+一个 clean-room 的 Windows 本地工作台，把 Agent CLI（Claude Code / Kimi Code）或任意 OpenAI 兼容端点包成桌面工作台体验：对话、附件、项目目录、文件操作、PowerShell、脚本、浏览器/Office 交接、截图，以及可被 Agent CLI 调用的 MCP 工具。有网没网都能正常运行，非程序员也可安全使用。
 
 > **项目门面(含界面截图、功能详解、同类对比、快速开始)见仓库根 [README](../README.md);界面截图在 [`../docs/screenshots/`](../docs/screenshots/)。**
 
 > **关于品牌**：本项目原名 **Win Claude Workbench**，自 v0.8 起更名为 **如意 Ruyi**。改名是开源发布的法务考量——项目名含 "Claude" 存在**商标风险**，且旧系统提示词里「running inside Win Claude Workbench」一句曾导致 provider 模型**身份错认**（provider 模型自称「我是 Claude」）。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
 > **兼容性**：目录名已改 `ruyi-workbench/`、可执行文件名已改 `Ruyi.exe`（启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`）。为不破坏存量接入，以下**存量兼容标识有意保持不变**（建议下一个大版本收口）：MCP server id `win-claude-workbench`（已写进用户 `.mcp.json`）、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`（`RUYI_HOME` 优先，旧变量继续识别）。子进程 MCP 配置注入的仍是旧变量名（值=已解析的数据目录），故存量 `.mcp.json` 照常工作。
 
-**多引擎(v0.5+)**：除内网 Claude CLI 外，还支持 **OpenAI 兼容 provider**（DeepSeek / 通义千问 DashScope / 智谱 GLM / 内网 vLLM·Ollama 等），直连 HTTP + SSE 流式，带原生工具循环。在设置里配置 base URL + 密钥即可切换模型，Claude CLI 引擎与 provider 引擎并存。
+**多引擎(v0.5+)**：Agent CLI 可选 Claude Code 或 Kimi Code；另支持 **OpenAI 兼容 provider**（DeepSeek / 通义千问 DashScope / 智谱 GLM / 内网 vLLM·Ollama 等），直连 HTTP + SSE 流式，带原生工具循环。在设置里可随时切换 Agent CLI 与 provider。
 
 **桌面 MCP 桥接(v0.7d+)**：可自动探测本机的 `ai-computer-control` 桌面控制 MCP（及其它自定义 stdio MCP），把它们同时供给 Claude CLI 与 provider 引擎。v1.6.1 起默认按任务装载工具提示词：provider 可在循环中增量加入 schema，Claude CLI 通过风险分级代理发现/调用隐藏工具；“全部常驻”兼容模式仍可在高级设置启用。v1.6.2 增加安全的批量历史清理。v1.6.3 增加 Claude CLI / OpenAI 兼容引擎通用的一次性“Agent 团队”编排开关；Provider 原生工具循环按普通/长任务采用 100/200/300 的进展自适应预算，两种引擎的 Agent 节点显式预算上限均提升到 300。v1.6.4 让两种引擎的父回合都能感知子 Agent/DAG 的真实流式进度，避免活跃团队任务被误判为空闲超时；并新增 Coder 角色，强化编码、调试与审查模板。v1.6.5 固定 ACC 完整离线包采用有 `winsdk` wheel 的 Python 3.12，并在打包时执行断网安装回放。v1.6.6 会把当前 ACC 源码覆盖到嵌入式运行时并重算完整性清单，确保 OCR 字节兼容性修复在首次启动后真正生效。
 

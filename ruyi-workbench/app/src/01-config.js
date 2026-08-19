@@ -2,7 +2,9 @@ function defaultConfig() {
   return {
     configSchema: CONFIG_SCHEMA,
     version: VERSION,
+    agentCliType: 'claude',       // claude | kimi — native Agent CLI driver
     claudePath: detectClaudePath(),
+    kimiPath: detectKimiPath(),
     defaultWorkspace: os.homedir(),
     permissionMode: 'default',
     includeWorkbenchMcp: true,
@@ -281,6 +283,14 @@ function normalizeConfig(raw) {
   // 收拢在这一个咽喉点 = 全部消费方(runClaudeTurn/子代理/mcp add-json/doctor)一致受益。不置 changed:
   // 解析是纯运行时升级,配置里保留用户原值,exe 消失时下一次解析自动回落 shim。结果 memoize,热路径零探测。
   config.claudePath = resolveClaudeLauncher(config.claudePath);
+  if (!['claude', 'kimi'].includes(config.agentCliType)) {
+    config.agentCliType = 'claude';
+    changed = true;
+  }
+  for (const key of ['kimiPath']) {
+    if (typeof config[key] !== 'string') { config[key] = ''; changed = true; }
+    else config[key] = config[key].trim().slice(0, 2000);
+  }
   // v1.4.3: accept CLI-native mode name 'bypassPermissions' as alias for 'bypass'
   if (PERMISSION_MODE_ALIASES[config.permissionMode]) {
     config.permissionMode = PERMISSION_MODE_ALIASES[config.permissionMode];
@@ -841,6 +851,52 @@ async function syncMcpServersToClaude(config) {
   } catch { /* non-fatal */ }
 }
 
+// v2.8: Kimi Code reads user MCP declarations from $KIMI_CODE_HOME/mcp.json (default ~/.kimi-code/mcp.json) and currently has no
+// per-invocation --mcp-config flag. Merge Ruyi's declarations into that file without removing unrelated
+// user entries. Turn-specific loopback fields are inherited from the spawned Kimi process environment.
+async function syncMcpServersToKimi(config) {
+  try {
+    await ensureDirs();
+    const kimiDir = String(process.env.KIMI_CODE_HOME || '').trim() || path.join(os.homedir(), '.kimi-code');
+    const target = path.join(kimiDir, 'mcp.json');
+    const sidecar = path.join(paths.data, 'kimi-mcp-sync.json');
+    let current = {};
+    try { current = safeJsonParse(await fsp.readFile(target, 'utf8'), {}) || {}; } catch { current = {}; }
+    if (!current.mcpServers || typeof current.mcpServers !== 'object') current.mcpServers = {};
+    let ownership = { managedIds: [], previous: {} };
+    try { ownership = { ...ownership, ...(safeJsonParse(await fsp.readFile(sidecar, 'utf8'), {}) || {}) }; } catch { /* first sync */ }
+    if (!Array.isArray(ownership.managedIds)) ownership.managedIds = [];
+    if (!ownership.previous || typeof ownership.previous !== 'object') ownership.previous = {};
+    let generatedServers = {};
+    if (config.includeWorkbenchMcp !== false) {
+      const generatedPath = await generateMcpConfig(config.mcpCommandMode);
+      const generated = safeJsonParse(await fsp.readFile(generatedPath, 'utf8'), {}) || {};
+      generatedServers = generated.mcpServers || {};
+    }
+    const nextIds = new Set(Object.keys(generatedServers));
+    // Restore entries that existed before Ruyi took ownership when a server is disabled or removed.
+    for (const id of ownership.managedIds) {
+      if (nextIds.has(id)) continue;
+      if (ownership.previous[id] == null) delete current.mcpServers[id];
+      else current.mcpServers[id] = ownership.previous[id];
+      delete ownership.previous[id];
+    }
+    for (const [id, server] of Object.entries(generatedServers)) {
+      if (!ownership.managedIds.includes(id)) {
+        ownership.previous[id] = Object.prototype.hasOwnProperty.call(current.mcpServers, id) ? current.mcpServers[id] : null;
+      }
+      // Kimi infers transport from `command`/`url`; Claude's legacy `type: stdio` field is unnecessary.
+      const kimiServer = { ...server };
+      delete kimiServer.type;
+      current.mcpServers[id] = kimiServer;
+    }
+    ownership.managedIds = [...nextIds];
+    await fsp.mkdir(kimiDir, { recursive: true });
+    await atomicWriteJson(target, JSON.stringify(current, null, 2));
+    await atomicWriteJson(sidecar, JSON.stringify(ownership, null, 2));
+  } catch { /* non-fatal: Kimi still retains its built-in tools */ }
+}
+
 // 启动时自动映射本机 Claude Code 的 MCP(读 ~/.claude.json 的 mcpServers)进 Ruyi 的 externalMcpServers。
 // 与 syncMcpServersToClaude(把 Ruyi 的同步到 Claude)互为逆方向:这里是把 Claude 原生注册的拉回 Ruyi。
 // 安全约束:① 只加 missing(已存在 id 跳过,不覆盖用户在 Ruyi 里的显式配置);② dismissedMcpIds 里的 id 跳过
@@ -1057,6 +1113,74 @@ function detectClaudePath() {
 // v1.0-S7: let a settings save / explicit "re-detect CLI" action force a fresh probe (e.g. the user just
 // installed the CLI). Exported for the doctor/status path — a no-op if never called.
 function invalidateClaudePathCache() { _claudePathProbe = null; }
+
+// v2.8: the historical "Claude engine" is now an Agent CLI host. Keep claudePath and the engine id for
+// session/API compatibility, while selecting a protocol-specific launcher here. Kimi is a real headless
+// JSONL driver.
+const AGENT_CLI_TYPES = Object.freeze({
+  claude: { id: 'claude', label: 'Claude Code', pathKey: 'claudePath', detectedKey: 'detectedClaudePath', streaming: true, interactive: true, mcp: 'argument' },
+  kimi: { id: 'kimi', label: 'Kimi Code', pathKey: 'kimiPath', detectedKey: 'detectedKimiPath', streaming: false, interactive: false, mcp: 'user-config' },
+});
+let _agentCliPathProbe = new Map(); // type -> { at, value }
+
+function probeAgentCliLauncher(command) {
+  if (!command) return false;
+  try {
+    const isScript = /\.cjs$/i.test(command);
+    const s = isScript ? { command: process.execPath, args: [command, '--version'], opts: {} } : batchSafeSpawn(command, ['--version']);
+    const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
+    return !ok.error && ok.status === 0;
+  } catch { return false; }
+}
+function agentCliInstallCandidates(type) {
+  const env = process.env;
+  const home = os.homedir();
+  const npmDir = home && path.join(home, 'AppData', 'Roaming', 'npm');
+  if (type === 'kimi') return [
+    env.KIMI_CLI_PATH, 'kimi.cmd', 'kimi.exe', 'kimi',
+    npmDir && path.join(npmDir, 'kimi.cmd'),
+    home && path.join(home, '.local', 'bin', 'kimi.exe'),
+    home && path.join(home, '.local', 'bin', 'kimi'),
+  ].filter(Boolean);
+  return [];
+}
+function detectAgentCliPath(type) {
+  const now = Date.now();
+  const cached = _agentCliPathProbe.get(type);
+  if (cached && now - cached.at < CLAUDEPATH_CACHE_MS) return cached.value;
+  let value = '';
+  for (const candidate of agentCliInstallCandidates(type)) {
+    // Explicit/absolute candidates must exist; bare commands are resolved by the launcher/PATH.
+    if ((path.isAbsolute(candidate) || /[\\/]/.test(candidate)) && !fs.existsSync(candidate)) continue;
+    if (probeAgentCliLauncher(candidate)) { value = candidate; break; }
+  }
+  _agentCliPathProbe.set(type, { at: now, value });
+  return value;
+}
+function detectKimiPath() { return detectAgentCliPath('kimi'); }
+function selectedAgentCli(config) {
+  const type = config && AGENT_CLI_TYPES[config.agentCliType] ? config.agentCliType : 'claude';
+  const meta = AGENT_CLI_TYPES[type];
+  const detected = type === 'claude' ? detectClaudePath() : detectKimiPath();
+  return { ...meta, path: String(config && config[meta.pathKey] || detected || ''), detected };
+}
+function prepareAgentCliSpawn(type, command, args) {
+  const argv = Array.isArray(args) ? args : [];
+  if (type === 'kimi' && /(?:^|[\\/])kimi\.cmd$/i.test(command)) {
+    // npm's shim goes through cmd.exe (8191-char ceiling). Resolve its deterministic package-relative entry
+    // and launch with Node directly, matching the Claude shim escape hatch's intent.
+    // Local installs place the shim in node_modules/.bin; global npm puts it beside node_modules.
+    const dir = path.dirname(command);
+    const entries = [
+      path.resolve(dir, '..', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
+      path.resolve(dir, 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
+    ];
+    const entry = entries.find(candidate => fs.existsSync(candidate));
+    if (entry) return { command: process.execPath, args: [entry, ...argv], opts: {} };
+  }
+  return batchSafeSpawn(command, argv);
+}
+function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); }
 
 // Claude Code normally writes UTF-8, but its Windows launcher can forward a local
 // command failure in the active ANSI code page.  Decode GB18030 only after UTF-8

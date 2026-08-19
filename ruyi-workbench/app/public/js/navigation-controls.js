@@ -85,7 +85,7 @@ function paletteActions() {
   const claudeModels = (state.status && state.status.models) || [{ id: '', label: t('palette.defaultModel') }];
   for (const m of claudeModels) {
     const isCur = curPid === '' && (m.id || '') === (curModel || '');
-    acts.push({ label: t('palette.engine', { engine: 'Claude CLI', model: m.label || m.id || t('palette.defaultModel') }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel('', m.id || '') });
+    acts.push({ label: t('palette.engine', { engine: engineLabel(), model: m.label || m.id || t('palette.defaultModel') }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel('', m.id || '') });
   }
   for (const p of (state.config.providers || [])) {
     for (const m of (p.models || [])) {
@@ -175,7 +175,7 @@ function renderModelChip() {
   const vis = engineVisual(meta);
   const engEl = chip.querySelector('.mc-engine');
   const modEl = chip.querySelector('.mc-model');
-  if (engEl) { engEl.textContent = isProviderMode() ? vis.label : 'Claude CLI'; engEl.style.color = vis.colorVar; }
+  if (engEl) { engEl.textContent = isProviderMode() ? vis.label : engineLabel(); engEl.style.color = vis.colorVar; }
   const provider = activeProvider();
   const providerMode = isProviderMode();
   const model = currentModelId() || t('provider.defaultModel');
@@ -370,7 +370,8 @@ function openModelChipPopover(anchor) {
       control.appendChild(select);
       container.appendChild(control);
     };
-    addGroup('', 'Claude CLI', 'var(--eng-claude)', claudeModels, '', customModelIds, appendClaudeEffort);
+    addGroup('', engineLabel(), 'var(--eng-claude)', claudeModels, '', customModelIds,
+      state.config?.agentCliType === 'kimi' ? null : appendClaudeEffort);
     const appendProviderEffort = provider => container => {
       const control = el('label', 'mc-effort-control');
       control.appendChild(el('span', 'mc-effort-label', t('provider.reasoningEffort')));
@@ -545,7 +546,7 @@ function openCapPopover(anchorOverride) {
     };
     wrap.appendChild(el('h4', null, t('capability.networkAndEngine')));
     wrap.appendChild(item(t('capability.network.label'), netLabel, netCls));
-    wrap.appendChild(item(t('capability.engine.label'), caps.engine === 'openai' ? t('capability.engine.providerNative') : 'Claude CLI'));
+    wrap.appendChild(item(t('capability.engine.label'), caps.engine === 'openai' ? t('capability.engine.providerNative') : engineLabel()));
     if (caps.provider) {
       wrap.appendChild(item(t('capability.visionInput'), caps.provider.vision ? t('capability.supported') : t('capability.unsupported'), caps.provider.vision ? 'ok' : 'muted'));
       wrap.appendChild(item(t('capability.reasoningModel'), caps.provider.reasoning ? t('common.yes') : t('common.no'), 'muted'));

@@ -153,7 +153,7 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   assert.ok(app.includes("t('mission.stop.failed'"), 'mission stop feedback must use the catalog');
   assert.ok(app.includes("'error.providerMisconfigured'"), 'known error classes must map to local catalog keys');
   assert.ok(app.includes("t('error.generic.title')"), 'generic error cards must use the catalog');
-  assert.ok(app.includes("t('error.cliMissing.title')"), 'CLI-missing error cards must use the catalog');
+  assert.ok(app.includes("t('error.cliMissing.title'"), 'CLI-missing error cards must use the catalog (with optional engine interpolation)');
   assert.ok(app.includes("t('changes.title')"), 'change history must use the catalog');
   assert.ok(app.includes("t('file.open.failed'"), 'file-operation feedback must use the catalog');
   assert.ok(app.includes("t('permission.executionWarning'"), 'high-risk grant confirmation must use the catalog');
