@@ -767,6 +767,13 @@ function normalizeConfig(raw) {
     if (typeof config[key] !== 'string') { config[key] = ''; changed = true; }
     else config[key] = config[key].trim().slice(0, 2000);
   }
+  // v2.6.0 initially exposed backend model ids copied from the old Claude endpoint history. Kimi Code's
+  // native --model flag requires the configured alias key, which adds the managed-provider namespace.
+  // Migrate only the four known official legacy values; arbitrary/custom aliases remain untouched.
+  if (config.agentCliType === 'kimi' && ['kimi-for-coding', 'kimi-for-coding-highspeed', 'k3', 'k3-256k'].includes(config.model)) {
+    config.model = `kimi-code/${config.model}`;
+    changed = true;
+  }
   // v1.4.3: accept CLI-native mode name 'bypassPermissions' as alias for 'bypass'
   if (PERMISSION_MODE_ALIASES[config.permissionMode]) {
     config.permissionMode = PERMISSION_MODE_ALIASES[config.permissionMode];
@@ -1646,13 +1653,29 @@ function prepareAgentCliSpawn(type, command, args) {
     // npm's shim goes through cmd.exe (8191-char ceiling). Resolve its deterministic package-relative entry
     // and launch with Node directly, matching the Claude shim escape hatch's intent.
     // Local installs place the shim in node_modules/.bin; global npm puts it beside node_modules.
-    const dir = path.dirname(command);
+    // A saved setting normally contains the bare `kimi.cmd` found on PATH. path.dirname('kimi.cmd') is
+    // merely '.', so resolving relative to it searches the workspace and silently falls back to cmd.exe.
+    // Resolve the shim's real PATH location first; otherwise every ordinary global npm install still hits
+    // cmd.exe's 8191-character ceiling despite this escape hatch existing.
+    let shim = String(command);
+    if (!path.isAbsolute(shim) && !/[\\/]/.test(shim)) {
+      for (const rawDir of String(process.env.PATH || '').split(path.delimiter)) {
+        const dir = rawDir.trim().replace(/^"|"$/g, '');
+        if (!dir) continue;
+        const candidate = path.join(dir, shim);
+        if (fs.existsSync(candidate)) { shim = candidate; break; }
+      }
+    }
+    const dir = path.dirname(path.resolve(shim));
     const entries = [
       path.resolve(dir, '..', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
       path.resolve(dir, 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
     ];
     const entry = entries.find(candidate => fs.existsSync(candidate));
-    if (entry) return { command: process.execPath, args: [entry, ...argv], opts: {} };
+    const nodeExe = bundledNodeExe();
+    // In a packaged release process.execPath is Ruyi.exe, not Node. The offline packages deliberately ship
+    // runtime/node/node.exe; use that runtime so the same direct-entry launch works in both source and ZIP builds.
+    if (entry && nodeExe) return { command: nodeExe, args: [entry, ...argv], opts: {} };
   }
   return batchSafeSpawn(command, argv);
 }
@@ -9336,7 +9359,13 @@ async function runClaudeTurn({
   logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', ok: claudeTurnOk, exitCode: exit.code, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, durationMs: Date.now() - turnStartedAt });
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
-  onEvent({ type: 'result', ok: exit.code === 0 && !wasStopped, exitCode: exit.code, aborted: wasStopped, error: exit.error?.message });
+  // A CLI can exit non-zero normally (auth/quota/invalid model), in which case `exit.error` is empty and the
+  // useful diagnostic exists only on stderr. Passing only exit.error made the UI render a generic card and hid
+  // exactly the message users need. Keep the redacted, bounded stderr as the result error for failed turns.
+  const cliResultError = !claudeTurnOk && !wasStopped
+    ? redact(String(exit.error && exit.error.message || stderrTrimmed || finalText || `${agentCliLabel} CLI failed`)).slice(0, 2000)
+    : undefined;
+  onEvent({ type: 'result', ok: exit.code === 0 && !wasStopped, exitCode: exit.code, aborted: wasStopped, error: cliResultError });
 }
 
 // ============================================================================
@@ -25535,7 +25564,8 @@ async function handleApi(req, res, pathname) {
       return send(res, json({ ok: true, engine: 'openai', provider: provider.id, models: [...seen.values()], proxyCount: (live.models || []).length }));
     }
     if (config.agentCliType === 'kimi') {
-      return send(res, json({ ok: true, engine: 'claude', agentCliType: 'kimi', models: kimiModelList(config), proxyCount: 0 }));
+      const discovered = await discoverKimiModels(config);
+      return send(res, json({ ...discovered, engine: 'claude', agentCliType: 'kimi', proxyCount: discovered.discoveredCount || 0 }));
     }
     return send(res, json({ ok: true, engine: 'claude', agentCliType: 'claude', ...(await discoverModels(config)) }));
   }
@@ -26787,16 +26817,76 @@ function offlineModelList(config) {
   return [...seen.values()];
 }
 
-// Kimi's `--model` values belong to the user's Kimi installation/account and must not be mixed with
-// models discovered from an Anthropic-compatible Claude endpoint. Keep the inherited default plus only
-// values the user explicitly entered or previously selected in Ruyi.
-function kimiModelList(config) {
+// Kimi's `--model` values are aliases from `kimi provider list --json` (for example
+// `kimi-code/k3-256k`), not the bare backend model ids historically remembered by the Claude adapter.
+// The no-discovery form is intentionally tiny so Claude knownModels never leak into the Kimi picker.
+function kimiModelList(config, discovered) {
   const seen = new Map([['', { id: '', label: '默认 (Kimi 配置)' }]]);
-  const add = (id, label) => { const key = String(id || '').trim(); if (key && !seen.has(key)) seen.set(key, { id: key, label: String(label || key).trim() || key }); };
-  for (const raw of (config.extraModels || [])) { const [id, label] = String(raw).split('|'); add(id, label); }
-  for (const id of (config.knownModels || [])) add(id);
-  add(config.model, config.model ? `${config.model} (自定义)` : '');
+  const add = (id, label, contextLength) => {
+    const key = String(id || '').trim();
+    if (!key || seen.has(key)) return;
+    const item = { id: key, label: String(label || key).trim() || key };
+    const cl = Number(contextLength);
+    if (Number.isFinite(cl) && cl > 0) item.contextLength = Math.round(cl);
+    seen.set(key, item);
+  };
+  if (Array.isArray(discovered)) {
+    for (const item of discovered) add(item && item.id, item && item.label, item && item.contextLength);
+  } else if (config && config.model) {
+    add(config.model, `${config.model} (当前选择)`);
+  }
   return [...seen.values()];
+}
+
+// Query the installed Kimi Code CLI itself, which is the source of truth for OAuth-managed and custom
+// providers. This is local/read-only and avoids baking account-specific aliases into Ruyi.
+function discoverKimiModels(config) {
+  const fallback = kimiModelList(config);
+  const selected = selectedAgentCli({ ...(config || {}), agentCliType: 'kimi' });
+  if (!selected.path) return Promise.resolve({ ok: false, models: fallback, discoveredCount: 0, error: '未检测到 Kimi Code CLI' });
+  const launch = prepareAgentCliSpawn('kimi', selected.path, ['provider', 'list', '--json']);
+  return new Promise(resolve => {
+    let child;
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const finish = value => { if (settled) return; settled = true; clearTimeout(timer); resolve(value); };
+    const timer = setTimeout(() => {
+      try { if (child && !child.killed) child.kill(); } catch { /* best effort */ }
+      finish({ ok: false, models: fallback, discoveredCount: 0, error: '读取 Kimi Code 模型列表超时' });
+    }, 10000);
+    try {
+      child = cp.spawn(launch.command, launch.args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], ...launch.opts });
+    } catch (error) {
+      finish({ ok: false, models: fallback, discoveredCount: 0, error: `无法启动 Kimi Code CLI: ${redact(error && error.message || String(error))}` });
+      return;
+    }
+    child.stdout.on('data', chunk => { if (stdout.length < 1024 * 1024) stdout += decodeClaudeCliText(chunk); });
+    child.stderr.on('data', chunk => { if (stderr.length < 64 * 1024) stderr += decodeClaudeCliText(chunk); });
+    child.on('error', error => finish({ ok: false, models: fallback, discoveredCount: 0, error: `无法启动 Kimi Code CLI: ${redact(error && error.message || String(error))}` }));
+    child.on('close', code => {
+      if (settled) return;
+      if (code !== 0) {
+        finish({ ok: false, models: fallback, discoveredCount: 0, error: redact(stderr.trim() || `Kimi Code CLI 退出码 ${code}`).slice(0, 1000) });
+        return;
+      }
+      const parsed = safeJsonParse(stdout.trim(), null);
+      const rawModels = parsed && parsed.models && typeof parsed.models === 'object' ? parsed.models : null;
+      if (!rawModels || Array.isArray(rawModels)) {
+        finish({ ok: false, models: fallback, discoveredCount: 0, error: 'Kimi Code 返回了无法识别的模型列表' });
+        return;
+      }
+      const discovered = [];
+      for (const [alias, raw] of Object.entries(rawModels).slice(0, 100)) {
+        const id = String(alias || '').trim();
+        if (!id) continue;
+        const item = raw && typeof raw === 'object' ? raw : {};
+        const display = String(item.displayName || item.model || id).trim() || id;
+        discovered.push({ id, label: display === id ? id : `${display} · ${id}`, contextLength: Number(item.maxContextSize) || undefined });
+      }
+      finish({ ok: true, models: kimiModelList(config, discovered), discoveredCount: discovered.length });
+    });
+  });
 }
 
 // ============================================================================

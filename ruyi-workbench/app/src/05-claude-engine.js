@@ -916,7 +916,13 @@ async function runClaudeTurn({
   logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', ok: claudeTurnOk, exitCode: exit.code, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, durationMs: Date.now() - turnStartedAt });
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
-  onEvent({ type: 'result', ok: exit.code === 0 && !wasStopped, exitCode: exit.code, aborted: wasStopped, error: exit.error?.message });
+  // A CLI can exit non-zero normally (auth/quota/invalid model), in which case `exit.error` is empty and the
+  // useful diagnostic exists only on stderr. Passing only exit.error made the UI render a generic card and hid
+  // exactly the message users need. Keep the redacted, bounded stderr as the result error for failed turns.
+  const cliResultError = !claudeTurnOk && !wasStopped
+    ? redact(String(exit.error && exit.error.message || stderrTrimmed || finalText || `${agentCliLabel} CLI failed`)).slice(0, 2000)
+    : undefined;
+  onEvent({ type: 'result', ok: exit.code === 0 && !wasStopped, exitCode: exit.code, aborted: wasStopped, error: cliResultError });
 }
 
 // ============================================================================

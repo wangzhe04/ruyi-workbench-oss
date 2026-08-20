@@ -140,6 +140,7 @@ function updateEngineDependentUI() {
 async function refreshModels(announce) {
   try {
     const r = await api('/api/models');
+    if (r && r.ok === false) throw new Error(r.error || t('modelMenu.refreshUnchanged'));
     if (r && Array.isArray(r.models) && r.models.length) {
       if (r.engine === 'openai' && r.provider) {
         // Fold the live list into the active provider's models so the chip popover reflects it.

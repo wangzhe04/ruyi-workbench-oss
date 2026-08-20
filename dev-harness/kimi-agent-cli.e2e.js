@@ -19,6 +19,7 @@ const ok = (condition, label) => {
 const normalized = server.normalizeConfig({ agentCliType: 'kimi', kimiPath: '  X:\\tools\\kimi.cmd  ' }).config;
 ok(normalized.agentCliType === 'kimi', 'config preserves Kimi driver selection');
 ok(normalized.kimiPath === 'X:\\tools\\kimi.cmd', 'config normalizes Kimi launcher path');
+ok(server.normalizeConfig({ agentCliType: 'kimi', model: 'k3-256k' }).config.model === 'kimi-code/k3-256k', 'legacy bare Kimi model migrates to its native alias');
 ok(server.normalizeConfig({ agentCliType: 'unknown' }).config.agentCliType === 'claude', 'unknown driver falls back to Claude');
 ok(Object.keys(server.AGENT_CLI_TYPES).join(',') === 'claude,kimi', 'driver registry contains only Claude and Kimi');
 
@@ -42,6 +43,15 @@ try {
   fs.writeFileSync(globalShim, '');
   const globalSpawn = server.prepareAgentCliSpawn('kimi', globalShim, ['--version']);
   ok(path.resolve(globalSpawn.args[0]) === path.resolve(globalEntry), 'global npm shim layout also resolves directly');
+  const originalPath = process.env.PATH;
+  try {
+    process.env.PATH = bin + path.delimiter + String(originalPath || '');
+    const bareSpawn = server.prepareAgentCliSpawn('kimi', 'kimi.cmd', ['--version']);
+    ok(path.resolve(bareSpawn.command) === path.resolve(process.execPath), 'bare Kimi command resolves its shim from PATH');
+    ok(path.resolve(bareSpawn.args[0]) === path.resolve(entry), 'bare PATH shim bypasses cmd.exe through the package entrypoint');
+  } finally {
+    process.env.PATH = originalPath;
+  }
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
@@ -87,9 +97,9 @@ try {
 }
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-function health(port) {
+function getJson(port, requestPath) {
   return new Promise(resolve => {
-    const req = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 1000 }, res => {
+    const req = http.get({ host: '127.0.0.1', port, path: requestPath, timeout: 3000 }, res => {
       let body = ''; res.on('data', chunk => (body += chunk));
       res.on('end', () => { try { resolve(JSON.parse(body)); } catch { resolve(null); } });
     });
@@ -97,6 +107,7 @@ function health(port) {
     req.on('timeout', () => { req.destroy(); resolve(null); });
   });
 }
+function health(port) { return getJson(port, '/health'); }
 function stream(port, body) {
   return new Promise((resolve, reject) => {
     const raw = JSON.stringify(body);
@@ -132,7 +143,9 @@ function stream(port, body) {
     fs.writeFileSync(entry, [
       "const args = process.argv.slice(2);",
       "if (args.includes('--version')) { console.log('0.37.2-test'); process.exit(0); }",
+      "if (args[0] === 'provider' && args[1] === 'list' && args.includes('--json')) { console.log(JSON.stringify({providers:{'managed:kimi-code':{type:'kimi'}},models:{'kimi-code/k3-256k':{provider:'managed:kimi-code',model:'k3-256k',displayName:'K3 256K',maxContextSize:262144},'custom/fast':{provider:'custom',model:'fast',displayName:'Fast'}}})); process.exit(0); }",
       "const pi = args.lastIndexOf('-p'); const prompt = pi >= 0 ? String(args[pi + 1] || '') : '';",
+      "if (prompt.includes('fail-kimi')) { console.error('provider.auth_error: 403 usage limit reached'); process.exit(1); }",
       "console.log(JSON.stringify({role:'meta',type:'system.version',version:'0.37.2-test'}));",
       "console.log(JSON.stringify({role:'meta',type:'session.resume_hint',session_id:'kimi-session-e2e'}));",
       "console.log(JSON.stringify({role:'assistant',content:'KIMI_E2E:' + prompt.includes('hello-kimi'),tool_calls:[{id:'tool-1',function:{name:'ReadFile',arguments:JSON.stringify({path:'demo.txt'})}}]}));",
@@ -144,7 +157,7 @@ function stream(port, body) {
     fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
       configSchema: 11, agentCliType: 'kimi', kimiPath: shim, defaultWorkspace: project,
       includeWorkbenchMcp: false, autoResumeClaudeSessions: true, killPortOnStart: false,
-      permissionMode: 'default', engineMode: 'legacy', providers: [],
+      permissionMode: 'default', engineMode: 'legacy', providers: [], knownModels: ['k3-256k', 'claude-old-model'],
     }, null, 2));
 
     const port = await getFreePort();
@@ -156,6 +169,11 @@ function stream(port, body) {
     for (let attempt = 0; attempt < 40 && !ready?.ok; attempt++) { await sleep(150); ready = await health(port); }
     ok(Boolean(ready?.ok), 'workbench starts with selected fake Kimi driver');
     if (ready?.ok) {
+      const modelReply = await getJson(port, '/api/models');
+      const modelIds = (modelReply?.models || []).map(model => model.id);
+      ok(modelReply?.ok === true && modelReply?.agentCliType === 'kimi', 'Kimi model refresh queries the selected CLI');
+      ok(modelIds.includes('kimi-code/k3-256k') && modelIds.includes('custom/fast'), 'Kimi model refresh returns configured aliases');
+      ok(!modelIds.includes('k3-256k') && !modelIds.includes('claude-old-model'), 'Kimi picker excludes bare/Claude remembered model ids');
       const events = await stream(port, { message: 'hello-kimi', cwd: project, attachments: [] });
       const meta = events.find(event => event.type === 'meta');
       ok(meta?.agentCliType === 'kimi' && meta?.agentDriver === 'kimi-native', 'turn metadata identifies Kimi native driver');
@@ -163,6 +181,9 @@ function stream(port, body) {
       ok(events.some(event => event.type === 'tool_use' && event.name === 'ReadFile'), 'Kimi tool call reaches the chat stream');
       ok(events.some(event => event.type === 'tool_result' && event.id === 'tool-1'), 'Kimi tool result reaches the chat stream');
       ok(events.some(event => event.type === 'result' && event.ok === true), 'Kimi process completion closes the turn successfully');
+      const failed = await stream(port, { message: 'fail-kimi', cwd: project, attachments: [] });
+      const failedResult = failed.find(event => event.type === 'result');
+      ok(failedResult?.ok === false && /usage limit/.test(String(failedResult.error || '')), 'Kimi stderr reaches the visible failed-result card');
     }
   } finally {
     if (child?.pid) {

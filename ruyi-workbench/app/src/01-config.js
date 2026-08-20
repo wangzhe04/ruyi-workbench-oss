@@ -291,6 +291,13 @@ function normalizeConfig(raw) {
     if (typeof config[key] !== 'string') { config[key] = ''; changed = true; }
     else config[key] = config[key].trim().slice(0, 2000);
   }
+  // v2.6.0 initially exposed backend model ids copied from the old Claude endpoint history. Kimi Code's
+  // native --model flag requires the configured alias key, which adds the managed-provider namespace.
+  // Migrate only the four known official legacy values; arbitrary/custom aliases remain untouched.
+  if (config.agentCliType === 'kimi' && ['kimi-for-coding', 'kimi-for-coding-highspeed', 'k3', 'k3-256k'].includes(config.model)) {
+    config.model = `kimi-code/${config.model}`;
+    changed = true;
+  }
   // v1.4.3: accept CLI-native mode name 'bypassPermissions' as alias for 'bypass'
   if (PERMISSION_MODE_ALIASES[config.permissionMode]) {
     config.permissionMode = PERMISSION_MODE_ALIASES[config.permissionMode];
@@ -1170,13 +1177,29 @@ function prepareAgentCliSpawn(type, command, args) {
     // npm's shim goes through cmd.exe (8191-char ceiling). Resolve its deterministic package-relative entry
     // and launch with Node directly, matching the Claude shim escape hatch's intent.
     // Local installs place the shim in node_modules/.bin; global npm puts it beside node_modules.
-    const dir = path.dirname(command);
+    // A saved setting normally contains the bare `kimi.cmd` found on PATH. path.dirname('kimi.cmd') is
+    // merely '.', so resolving relative to it searches the workspace and silently falls back to cmd.exe.
+    // Resolve the shim's real PATH location first; otherwise every ordinary global npm install still hits
+    // cmd.exe's 8191-character ceiling despite this escape hatch existing.
+    let shim = String(command);
+    if (!path.isAbsolute(shim) && !/[\\/]/.test(shim)) {
+      for (const rawDir of String(process.env.PATH || '').split(path.delimiter)) {
+        const dir = rawDir.trim().replace(/^"|"$/g, '');
+        if (!dir) continue;
+        const candidate = path.join(dir, shim);
+        if (fs.existsSync(candidate)) { shim = candidate; break; }
+      }
+    }
+    const dir = path.dirname(path.resolve(shim));
     const entries = [
       path.resolve(dir, '..', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
       path.resolve(dir, 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
     ];
     const entry = entries.find(candidate => fs.existsSync(candidate));
-    if (entry) return { command: process.execPath, args: [entry, ...argv], opts: {} };
+    const nodeExe = bundledNodeExe();
+    // In a packaged release process.execPath is Ruyi.exe, not Node. The offline packages deliberately ship
+    // runtime/node/node.exe; use that runtime so the same direct-entry launch works in both source and ZIP builds.
+    if (entry && nodeExe) return { command: nodeExe, args: [entry, ...argv], opts: {} };
   }
   return batchSafeSpawn(command, argv);
 }
