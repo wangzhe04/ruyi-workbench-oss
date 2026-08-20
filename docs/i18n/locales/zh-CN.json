@@ -1435,7 +1435,7 @@
   "workspace.confirmDefault": " 同时设为默认工作区",
   "workspace.favorites": "常用工作区",
   "workspace.favorites.down": "下移（降低优先级）",
-  "workspace.favorites.empty": "暂无常用工作区——浏览或粘贴文件夹并勾选「设为默认工作区」即可加入",
+  "workspace.favorites.empty": "暂无常用工作区——浏览或粘贴文件夹即可加入",
   "workspace.favorites.hint": "点击切换；↑↓ 调整优先级（越靠前越优先），★ 置顶为默认工作区",
   "workspace.favorites.promote": "置顶（最高优先级 = 默认工作区）",
   "workspace.favorites.up": "上移（提高优先级）",

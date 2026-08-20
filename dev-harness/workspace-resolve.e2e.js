@@ -71,6 +71,18 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
   for (const f of ['q1', 'q2', 'q3', 'q4']) fs.writeFileSync(path.join(repA, f), 'x');
   for (const f of ['q1', 'q2', 'q3', 'q4', 'extra']) fs.writeFileSync(path.join(repB, f), 'x');
 
+  const quoteNormalized = srv.normalizeConfig({
+    configSchema: 11,
+    defaultWorkspace: `"${myproj}"`,
+    recentWorkspaces: [`"${myproj}"`, myproj],
+    workspaces: [{ path: `"${myproj}"` }, { path: myproj }],
+  }).config;
+  ok(quoteNormalized.defaultWorkspace === myproj, 'workspace normalization strips Explorer wrapping quotes from default');
+  ok(quoteNormalized.recentWorkspaces.length === 1 && quoteNormalized.recentWorkspaces[0] === myproj,
+    'workspace normalization strips quotes before recent-list de-duplication');
+  ok(quoteNormalized.workspaces.length === 1 && quoteNormalized.workspaces[0].path === myproj,
+    'workspace normalization strips quotes before favorite-list de-duplication');
+
   // config injects the seeded dirs into recentWorkspaces so they become candidate roots (candidate scan also
   // covers drive roots/home, but recentWorkspaces guarantees these temp dirs are searched deterministically).
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
@@ -208,6 +220,16 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
     const cfg2 = (await getJson(WB_PORT, '/api/status')).json;
     const rw2 = cfg2.config.recentWorkspaces;
     ok(rw2.length === 4 && rw2[0] === newWs, '④ case-insensitive de-dupe keeps the first (length 4)');
+    // The picker persists recent + favorite arrays in one POST. Assert both reach the same on-disk snapshot,
+    // which is what the next process boot will read.
+    const atomic = await reqJson(WB_PORT, 'POST', '/api/config', {
+      recentWorkspaces: [newWs, myproj],
+      workspaces: [{ path: TREE }, { path: newWs }],
+      defaultWorkspace: TREE,
+    }, hdr);
+    const diskConfig = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    ok(atomic.status === 200 && diskConfig.recentWorkspaces[0] === newWs && diskConfig.workspaces[1].path === newWs,
+      '④ atomic picker save persists recent + favorite paths for the next boot');
     // Truncate to 10: post 14 distinct paths.
     const many = Array.from({ length: 14 }, (_, i) => path.join(TREE, 'ws' + i));
     await reqJson(WB_PORT, 'POST', '/api/config', { recentWorkspaces: many }, hdr);

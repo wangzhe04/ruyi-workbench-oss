@@ -11,12 +11,21 @@ const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 const css = require('./read-frontend-css.js').readFrontendCss();
 const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
 const src = readFrontendSrc();
+const workspaceSrc = fs.readFileSync(path.join(PUB, 'js', 'workspace-preferences.js'), 'utf8');
 const SKILLS_DIR = path.resolve(__dirname, '..', 'ruyi-workbench', 'resources', 'plugins',
   'win-workbench-offline', 'offline-toolkit', 'skills');
 
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 const count = (s, sub) => s.split(sub).length - 1;
+
+// ───────────── Workspace favorites persistence: one atomic save, picker adds favorites ─────────────
+ok(/if \(idx < 0\) \{ ws\.push\(\{ path: dir,[\s\S]{0,120}idx = ws\.length - 1/.test(workspaceSrc),
+  'workspace picker appends a newly selected folder to favorite workspaces');
+ok(/await saveConfigPartial\(\{ recentWorkspaces: recent, workspaces: ws, defaultWorkspace \}\)/.test(workspaceSrc),
+  'workspace switch persists recent + favorites + default in one awaited config write');
+ok(!/saveConfigPartial\(\{ recentWorkspaces: next \}\)/.test(workspaceSrc),
+  'workspace switch has no racing recent-only fire-and-forget write');
 
 // ───────────── A4/A5 令牌清障:无未定义引用 / 无防御字面量 / 无硬编码审计色 ─────────────
 ok(!/var\(--fg\)/.test(css), 'A4 styles.css 无 var(--fg) 残留(→ --ink)');

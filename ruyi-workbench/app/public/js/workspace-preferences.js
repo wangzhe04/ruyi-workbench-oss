@@ -120,15 +120,16 @@ function renderWorkspacePicker() {
   // v2.7.2: 文件面板常用工作区 chips 与顶栏选择器同步刷新(boot/会话切换/工作区变更均经此)。
   renderWorkspaceFavChips();
 }
-// LRU-insert a path at the front of config.recentWorkspaces (≤10, de-duped case-insensitively) and persist.
-// Kept in sync with the server's normalizeConfig cleansing (which also truncates to 10).
+// LRU-insert a path at the front of config.recentWorkspaces (≤10, de-duped case-insensitively).
+// Persistence is deliberately owned by setWorkspace, which writes recentWorkspaces + favorite workspaces in
+// one POST. The old two-fire-and-forget-write path could race and resurrect the stale favorite list on restart.
 function pushRecentWorkspace(p) {
-  if (!p) return;
+  if (!p) return [];
   const prev = Array.isArray(state.config.recentWorkspaces) ? state.config.recentWorkspaces : [];
   const filtered = prev.filter(w => String(w).toLowerCase() !== String(p).toLowerCase());
   const next = [p, ...filtered].slice(0, 10);
   state.config.recentWorkspaces = next;
-  saveConfigPartial({ recentWorkspaces: next });
+  return next;
 }
 // Switch the current session's working folder to `dir`. Persists session.cwd (patchSession) + LRU + toast +
 // refreshes the picker and the file tree (if its tab is showing). When alsoDefault is true, also writes
@@ -139,17 +140,19 @@ async function setWorkspace(dir, { alsoDefault = false } = {}) {
   try {
     await patchSession(state.currentSession.id, { cwd: dir });
   } catch (e) { toast(t('workspace.switch.failed', { reason: apiErrText(e) }), 'err'); return; }
-  pushRecentWorkspace(dir);
+  const recent = pushRecentWorkspace(dir);
+  // Browsing/pasting a folder is also the natural "add favorite" action in this picker. Keep the existing
+  // primary first and append a new folder; only the explicit alsoDefault path promotes it to index 0.
+  const ws = (Array.isArray(state.config.workspaces) ? state.config.workspaces : [])
+    .map(w => ({ path: w.path, read: w.read !== false, write: w.write !== false, execute: w.execute !== false }));
+  let idx = ws.findIndex(w => String(w.path).toLowerCase() === String(dir).toLowerCase());
+  if (idx < 0) { ws.push({ path: dir, read: true, write: true, execute: true }); idx = ws.length - 1; }
+  if (alsoDefault && idx > 0) { const [x] = ws.splice(idx, 1); ws.unshift(x); }
+  const defaultWorkspace = alsoDefault ? dir : (ws[0]?.path || state.config.defaultWorkspace || dir);
+  state.config.workspaces = ws;
+  state.config.defaultWorkspace = defaultWorkspace;
+  await saveConfigPartial({ recentWorkspaces: recent, workspaces: ws, defaultWorkspace });
   if (alsoDefault) {
-    state.config.defaultWorkspace = dir;
-    // v2.7.2: defaultWorkspace 由后端 normalize 强制与 workspaces[0] 同步——「设为默认」必须同时把该目录
-    // 置为常用工作区首位（加入常用并置顶），否则保存后会被后端覆盖回旧值（现存问题）。权限保留原条目/默认全开。
-    const ws = Array.isArray(state.config.workspaces) ? state.config.workspaces : [];
-    const idx = ws.findIndex(w => String(w.path).toLowerCase() === String(dir).toLowerCase());
-    if (idx > 0) { const [x] = ws.splice(idx, 1); ws.unshift(x); }
-    else if (idx < 0) ws.unshift({ path: dir, read: true, write: true, execute: true });
-    state.config.workspaces = ws;
-    saveConfigPartial({ defaultWorkspace: dir, workspaces: ws.map(w => ({ path: w.path, read: w.read !== false, write: w.write !== false, execute: w.execute !== false })) });
     // 同步设置面板的默认工作区输入框：fillSettings 仅在 boot 与 doctor tab 时被调，
     // 不在此刷新则用户打开设置看到旧值，点保存还会把后端 defaultWorkspace 回写成旧值（数据丢失）。
     const wi = document.getElementById('workspaceInput');

@@ -1435,7 +1435,7 @@
   "workspace.confirmDefault": " Also set as default workspace",
   "workspace.favorites": "Favorite workspaces",
   "workspace.favorites.down": "Move down (lower priority)",
-  "workspace.favorites.empty": "No favorites yet — browse/paste a folder and check \"Set as default workspace\" to add one",
+  "workspace.favorites.empty": "No favorites yet — browse or paste a folder to add one",
   "workspace.favorites.hint": "Click to switch; ↑↓ to reorder (earlier = higher priority), ★ pins to top as default",
   "workspace.favorites.promote": "Pin to top (highest priority = default workspace)",
   "workspace.favorites.up": "Move up (higher priority)",

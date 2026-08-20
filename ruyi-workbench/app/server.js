@@ -750,6 +750,20 @@ function mergeAgentRole(base, override, source) {
   return merged;
 }
 
+// Windows Explorer's "Copy as path" includes wrapping quotes. The picker already strips them for new UI
+// input, but older configs can retain both C:\\x and "C:\\x" as distinct recent/favorite entries. Clean at
+// the persistence boundary as well so every client and upgraded install converges on one canonical string.
+function normalizeWorkspacePathString(value) {
+  let s = String(value == null ? '' : value).trim();
+  const pairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
+  for (let guard = 0; guard < 3; guard++) {
+    const pair = pairs.find(([open, close]) => s.length >= 2 && s.startsWith(open) && s.endsWith(close));
+    if (!pair) break;
+    s = s.slice(pair[0].length, s.length - pair[1].length).trim();
+  }
+  return s.slice(0, 1000);
+}
+
 // Fold older config files onto the current schema. Returns { config, changed }.
 function normalizeConfig(raw) {
   const config = { ...defaultConfig(), ...(raw && typeof raw === 'object' ? raw : {}) };
@@ -766,6 +780,10 @@ function normalizeConfig(raw) {
   for (const key of ['kimiPath']) {
     if (typeof config[key] !== 'string') { config[key] = ''; changed = true; }
     else config[key] = config[key].trim().slice(0, 2000);
+  }
+  {
+    const cleanDefaultWorkspace = normalizeWorkspacePathString(config.defaultWorkspace) || os.homedir();
+    if (cleanDefaultWorkspace !== config.defaultWorkspace) { config.defaultWorkspace = cleanDefaultWorkspace; changed = true; }
   }
   // v2.6.0 initially exposed backend model ids copied from the old Claude endpoint history. Kimi Code's
   // native --model flag requires the configured alias key, which adds the managed-provider namespace.
@@ -1020,12 +1038,12 @@ function normalizeConfig(raw) {
     const clean = [];
     for (const w of rawArr) {
       if (typeof w !== 'string') continue;
-      const s = w.trim();
+      const s = normalizeWorkspacePathString(w);
       if (!s) continue;
       const key = s.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      clean.push(s.slice(0, 1000));
+      clean.push(s);
       if (clean.length >= 10) break;
     }
     if (JSON.stringify(clean) !== JSON.stringify(config.recentWorkspaces)) { config.recentWorkspaces = clean; changed = true; }
@@ -1042,7 +1060,7 @@ function normalizeConfig(raw) {
     const clean = [];
     const pushWs = (raw) => {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
-      const p = String(raw.path || '').trim().slice(0, 1000);
+      const p = normalizeWorkspacePathString(raw.path);
       if (!p) return;
       const key = p.toLowerCase();
       if (seen.has(key)) return;
