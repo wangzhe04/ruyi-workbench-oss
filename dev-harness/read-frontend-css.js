@@ -83,7 +83,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 均为 tool-pane 所有权层的有意变更，重钉载荷锁。classic/Preview 其它层未改。
 // v2.7.2 (常用工作区优先级): workspace.css 新增 .wp-fav-* popover 列表与 .ws-fav-* 文件面板 chips 样式，
 // 均为 workspace 所有权层的有意变更，重钉载荷锁。
-const LEGACY_STYLES_SHA256 = '12cc07593cdeb704e88afd97911702ded481410cb2a2af693dc2bc227175319b';
+// v2.6 通用压缩模型选择器在 chat-shell 所有权层增加标签/下拉框三条规则；仅为上下文弹层布局，
+// 不改变其它经典或 Preview 层选择器，重钉有意载荷。
+const LEGACY_STYLES_SHA256 = '5cbf11d6078d1adb4a6a5750603b6302951289bf23347cb4b090648b843b9e24';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

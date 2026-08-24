@@ -341,9 +341,12 @@ export function createChatStreamRuntime(deps = {}) {
       if (composer) composer.insertBefore(bar, composer.firstChild);
     }
     bar.classList.remove('hidden');
-    // 90s 兜底:即便完成路径没触发(异常/流未正常收束),也恢复按钮与指示条。
+    // External map-reduce can run several sequential local-model calls (a real 65K Ollama chunk takes
+    // ~3 minutes on the reference machine). Keep the stale-UI guard, but do not declare failure while
+    // the HTTP request is still legitimately reducing a long history.
     clearTimeout(compactState.timer);
-    compactState.timer = setTimeout(() => { if (compactState.active) { endCompactIndicator(); toast(t("toast.compactTimeout"), 'err'); } }, 90000);
+    const indicatorTimeoutMs = state.config?.compactProviderId ? 30 * 60 * 1000 : 5 * 60 * 1000;
+    compactState.timer = setTimeout(() => { if (compactState.active) { endCompactIndicator(); toast(t("toast.compactTimeout"), 'err'); } }, indicatorTimeoutMs);
   }
   function endCompactIndicator() {
     compactState.active = false;
@@ -362,7 +365,7 @@ export function createChatStreamRuntime(deps = {}) {
     if (compactState.active) return; // F3⑥ 进行中再点=忽略
     if (state.streaming) { toast(t("toast.compactWaitTurn"), ''); return; }
     if (!state.currentSession || !(state.currentSession.messages || []).length) { toast(t("toast.compactEmpty"), ''); return; }
-    if (!isProviderMode()) {
+    if (!isProviderMode() && state.config?.agentCliType === 'claude' && !state.config?.compactProviderId) {
       // Claude 模式:/compact 是流式回合。开指示,sendPrompt 走完流后 setStreaming(false) 会调 endCompactIndicator。
       beginCompactIndicator();
       toast(t("toast.compactRequested"), 'ok');
@@ -372,7 +375,8 @@ export function createChatStreamRuntime(deps = {}) {
     const sid = state.currentSession.id;
     beginCompactIndicator();
     try {
-      const r = await api('/api/provider/compact', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
+      const endpoint = isProviderMode() ? '/api/provider/compact' : '/api/agent/compact';
+      const r = await api(endpoint, { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
       if (!r || !r.ok) { toast(t("toast.compactFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
       if (state.currentSession?.id === sid) { const s = await api(`/api/sessions/${sid}`); state.currentSession = s.session; renderCurrentSession(); }
       await refreshSessions();
@@ -434,7 +438,8 @@ export function createChatStreamRuntime(deps = {}) {
     const turnAbort = new AbortController();
     const turnEngine = isProviderMode() ? 'openai' : 'claude';
     const turnState = { abort: turnAbort, startedAt: Date.now(), message, optimisticUserRow, eventLines: [], eventHead: 0, eventChars: 0, answeredQuestions: new Set(), live, main,
-      engine: turnEngine, claudeInteractive: turnEngine !== 'claude' || state.config.engineMode === 'interactive' };
+      engine: turnEngine, agentCliType: state.config?.agentCliType || 'claude',
+      claudeInteractive: turnEngine !== 'claude' || state.config?.agentCliType === 'kimi' || state.config.engineMode === 'interactive' };
     activeTurns.set(turnSessionId, turnState);
     notifySessionStream({ type: 'start', sessionId: turnSessionId, message, createdAt: new Date().toISOString() });
     syncStreamingUi();
@@ -514,8 +519,9 @@ export function createChatStreamRuntime(deps = {}) {
     }
   }
 
-  // v0.8-S7 steering (§4 A3) + 47a 双引擎. Called when the composer sends WHILE a turn streams. POSTs the text
-  // to /api/steer — provider: enqueued on the live turn (下一迭代边界注入);Claude interactive: stdin 即时注入。
+  // v0.8-S7 steering (§4 A3) + Agent CLI adapters. Called when the composer sends WHILE a turn streams.
+  // Provider injects at an iteration boundary, Claude interactive writes stdin immediately, and Kimi ACP
+  // queues a same-session follow-up prompt (the current ACP revision has no native mid-prompt steer method).
   // On success clears the input, toasts (按 r.injected 区分即时/下步生效), and optimistically renders the user's
   // interjection in the message flow with a muted 「插话」 badge. The server also emits a `steered` event when it
   // actually injects the text — steeredSeen dedups that echo against this optimistic render (by text within a short time window).
@@ -842,7 +848,7 @@ export function createChatStreamRuntime(deps = {}) {
         break;
       case 'meta': {
         // Engine-aware prefix: provider turns show the provider label, claude turns show 'claude'.
-        const engTag = evt.engine === 'openai' ? (evt.providerLabel || 'provider') : 'claude';
+        const engTag = evt.engine === 'openai' ? (evt.providerLabel || 'provider') : (evt.agentCliLabel || (evt.agentCliType === 'kimi' ? 'Kimi Code' : 'claude'));
         const mc = evt.memoryCheck;
         const memoryLine = !mc ? '' : (!mc.enabled
           ? '\n' + t('memory.check.disabled')
@@ -1047,6 +1053,26 @@ export function createChatStreamRuntime(deps = {}) {
         if (live) live.pendingUsage = evt; else main.appendChild(usageLine(evt));
         renderContextMeter(evt);
         break;
+      case 'compact': {
+        const phase = evt.phase || (evt.afterTokens != null ? 'completed' : 'running');
+        if (phase === 'started') {
+          if (!compactState.active) beginCompactIndicator();
+          const label = $('compactIndicator')?.querySelector('span:last-child');
+          if (label) label.textContent = evt.mode === 'kimi-native' ? 'Kimi 正在压缩原生上下文…' : '正在分段汇总并重建上下文…';
+        } else if (phase === 'running' || phase === 'applied') {
+          const label = $('compactIndicator')?.querySelector('span:last-child');
+          if (label) label.textContent = phase === 'applied'
+            ? `摘要已应用${evt.compactedCount ? `，折叠 ${evt.compactedCount} 条记录` : ''}…`
+            : `压缩进行中${evt.elapsedMs ? ` · ${Math.round(evt.elapsedMs / 1000)}s` : ''}…`;
+        } else if (phase === 'completed') {
+          if (evt.beforeTokens || evt.afterTokens) appendMsgNote(main, live, `🗜 自动压缩已完成：${fmtTokens(evt.beforeTokens || 0)} → ${fmtTokens(evt.afterTokens || 0)}`);
+          endCompactIndicator();
+        } else if (phase === 'failed') {
+          appendMsgError(main, live, `自动压缩未完成：${evt.error || '未知错误'}`);
+          endCompactIndicator();
+        }
+        break;
+      }
       case 'stderr':
         appendToolOutput(`[stderr] ${evt.text}`, true);
         break;

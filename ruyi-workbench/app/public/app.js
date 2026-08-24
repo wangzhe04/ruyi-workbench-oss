@@ -1,9 +1,7 @@
 'use strict';
-
 /* ============================================================
    如意 Ruyi — client (overlay v0.3;原 Win Claude Workbench,v0.8-S8 品牌落地)
    ============================================================ */
-
 // v1.3-FE1 前端模块化 Phase 1:纯搬家。以下三处曾是 app.js 顶部的定义,现拆入 ./js/ 下的
 // 原生 ES Modules,在此 import 回同名绑定 —— 全文件 233×$()/482×el()/95×toast()/45×api() 等
 // 调用点【一字未改】(import 绑定在本模块作用域全文件可见,调用时点解析,行为与经典脚本一致)。
@@ -41,11 +39,9 @@ import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
 import { createPreviewShellDomain } from './js/preview-shell.js';
 import { dispatchAcceptanceMilestones } from './js/preview-task-sheet.js';
-
 // Chat streaming is composed before the Preview domain. Keep a narrow late-bound sink so the shared
 // runtime can mirror read-only deltas without importing the second shell or creating a second stream.
 let previewStreamSink = null;
-
 const chatScrollController = createChatScrollController({
   getMessages: () => $('messages'),
   getJumpLatest: () => $('jumpLatest'),
@@ -61,7 +57,6 @@ const {
 // 丝滑滚轮：rAF 插值替代原生每格 ~100px 阶跃；上滑显式解除粘性（含宽限窗），
 // 不再被流式跟随拉回底部（“弹回去滑不动”）。
 const messagesSmoothWheel = enableSmoothWheelScroll(() => $('messages'), chatScrollController);
-
 const API_ERROR_I18N = {
   'auth.token_invalid': 'error.api.authToken',
   'api.route_not_found': 'error.api.routeNotFound',
@@ -88,7 +83,6 @@ function apiErrText(error) {
   const key = API_ERROR_I18N[info.code];
   return key ? t(key, info.params) : rawApiErrText(error);
 }
-
 const {
   bindSettingsOperations,
   refreshMcpOps,
@@ -219,6 +213,7 @@ const {
   switchTab: tab => switchTab(tab),
   openToolPane: () => openToolPane(),
   runTool: (...args) => runTool(...args),
+  updateContextMeter: () => updateContextMeter(),
 });
 
 const {
@@ -1148,7 +1143,6 @@ function renderBootFailure(err) {
   if (retry) setTimeout(() => { try { retry.focus(); } catch { /* ignore */ } }, 0);
 }
 
-/* ---------------- boot ---------------- */
 async function boot() {
   await initToken(); // 47c(S1):bootstrap 握手取 token 进 sessionStorage(HTML 不再明文下发);须在任何 api() 前
   await initI18n('auto');

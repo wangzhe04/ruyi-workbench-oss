@@ -22,6 +22,10 @@ async function runClaudeTurn({
   const currentClaudeModel = String(config.model || '');
   const currentResumeRouteKey = claudeResumeRouteKey(config);
   let resumeResetReason = '';
+  // Kimi exposes authoritative context usage through its local Server API. Check it before each turn so
+  // Ruyi's configured threshold is proactive and visible. An explicitly-selected universal compaction
+  // model applies the same preflight to Claude/Kimi and creates a summary reseed boundary when needed.
+  if (!_resumeRecoveryAttempt) await maybeAutoCompactAgentSession(session, config, agentCliType, onEvent).catch(() => false);
   // Proactive compatibility gate. This catches the two common deterministic failures without paying
   // for a doomed CLI spawn: (1) cwd changed, so Claude will search a different projects/<cwd> bucket;
   // (2) model/vendor route changed, so the old native branch is no longer a safe continuation target.
@@ -57,9 +61,12 @@ async function runClaudeTurn({
   // never re-duplicate content the CLI transcript already holds.
   const crossEngineGap = lastAssistantEngine(session.messages) === 'openai';
   const recoverySource = crossEngineGap ? claudeProviderTailSince(session.messages) : session.messages;
+  const agentRecoverySummary = String(session.agentRecoverySummary || '').trim();
   const recoveryHistory = typeof _recoveryHistoryOverride === 'string'
     ? _recoveryHistoryOverride
-    : (!String(message || '').trim().startsWith('/') ? buildClaudeRecoveryHistory(recoverySource) : '');
+    : (agentRecoverySummary
+      ? `[Ruyi 已压缩的前文摘要；请把它作为此前会话的权威连续性上下文]\n${agentRecoverySummary}`
+      : (!String(message || '').trim().startsWith('/') ? buildClaudeRecoveryHistory(recoverySource) : ''));
   const historyRecoveryInjected = Boolean(recoveryHistory);
   // 第35波 P2(索引去重注入): fullPrompt 的组装延后到 appendSys 块之后 —— 技能/记忆/编排三类「稳定索引段」
   // 在那里算好并经内容 hash 决定去重,再以 <workbench-context> 块并入 stdin 消息流(见下方注释)。
@@ -127,8 +134,9 @@ async function runClaudeTurn({
   // v1.4.3: 'auto' mode uses the CLI's built-in risk classifier, no workbench bridge needed.
   const usePermissionBridge = agentCliType === 'claude' && config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto';
 
-  const args = agentCliType === 'claude' ? ['-p', '--output-format', 'stream-json', '--verbose']
-    : ['--output-format', 'stream-json'];
+  // Kimi runs through its ACP stdio server (see 05b) rather than the legacy one-shot
+  // `kimi -p --output-format stream-json` surface. Keep this argument builder Claude-only.
+  const args = agentCliType === 'claude' ? ['-p', '--output-format', 'stream-json', '--verbose'] : [];
   if (agentCliType === 'claude' && interactive) args.push('--input-format', 'stream-json');
   if (agentCliType === 'claude' && config.includePartialMessages) args.push('--include-partial-messages');
   if (agentCliType === 'claude' && config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
@@ -152,7 +160,7 @@ async function runClaudeTurn({
   // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
   const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
   if (agentCliType === 'claude' && cliPermMode) args.push('--permission-mode', cliPermMode);
-  if (config.model) args.push('--model', config.model);
+  if (agentCliType === 'claude' && config.model) args.push('--model', config.model);
   if (agentCliType === 'claude' && config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
   if (agentCliType === 'claude' && config.maxTurns) args.push('--max-turns', String(config.maxTurns));
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
@@ -181,7 +189,7 @@ async function runClaudeTurn({
   if (Array.isArray(config.additionalDirectories)) {
     for (const dir of config.additionalDirectories) { if (dir && dir !== workingDir) tailArgs.push('--add-dir', dir); }
   }
-  if (Array.isArray(config.extraClaudeArgs)) tailArgs.push(...config.extraClaudeArgs);
+  if (agentCliType === 'claude' && Array.isArray(config.extraClaudeArgs)) tailArgs.push(...config.extraClaudeArgs);
 
   // cmd8191 防线: 整行预算核算。fake 缝(node 直启)不受 cmd 限制,除非 WCW_CLAUDE_CMDLINE_BUDGET 测试缝强制。
   // 阶梯顺序: ① append 先拿预算(块内 fits-or-drop 自然兑现 用户append>技能>记忆>账本>编排>语言政策);
@@ -192,7 +200,8 @@ async function runClaudeTurn({
     : prepareAgentCliSpawn(agentCliType, claude, []);
   const guardCmd = preflightLaunch.command;
   const guardPrefixArgs = preflightLaunch.args;
-  const guardBudget = cmdLineBudgetFor(guardCmd);
+  // ACP carries the prompt over stdin as JSON-RPC, so Windows' command-line ceiling is irrelevant to Kimi.
+  const guardBudget = agentCliType === 'kimi' ? 0 : cmdLineBudgetFor(guardCmd);
   const cmdlineGuard = { budget: guardBudget, degraded: [], lineLen: 0 };
   const FLAG_APPEND_ALLOWANCE = '--append-system-prompt'.length + 1 + CMD_LINE_QUOTE_MARGIN;
   const FLAG_AGENTS_ALLOWANCE = '--agents'.length + 1 + CMD_LINE_QUOTE_MARGIN;
@@ -329,6 +338,19 @@ async function runClaudeTurn({
     ? [recoveryHistory, indexInjection, turnMemoryEnvelope].filter(Boolean).join('\n\n')
     : basePrompt;
 
+  if (agentCliType === 'kimi' && !fakeClaude) {
+    const additionalDirectories = [];
+    for (let i = 0; i < tailArgs.length - 1; i++) {
+      if (tailArgs[i] === '--add-dir') additionalDirectories.push(tailArgs[++i]);
+    }
+    return runKimiAcpTurnPrepared({
+      session, message, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
+      additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
+      currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
+      resumeResetReason, promptTaskContext, workspaceTurnBaseline, agentRecoverySummary,
+    });
+  }
+
   // cmd8191 防线②: --agents 角色定义吃 append 之后的剩余预算(角色库顺序确定性取舍,放不下的进 omitted 上报)。
   let agentsBudget = 6000;
   if (guardBudget > 0) {
@@ -341,8 +363,7 @@ async function runClaudeTurn({
   if (agentCliType === 'claude' && Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
   else if (claudeAgentLibrary.omitted.length) cmdlineGuard.degraded.push('agents-dropped');
   args.push(...tailArgs);
-  // Claude consumes the prompt from stdin; Kimi requires it as a headless command argument.
-  if (agentCliType === 'kimi') args.push('-p', fullPrompt);
+  // Claude consumes the prompt from stdin. Kimi branched into ACP above.
 
   // cmd8191 防线③: 整行复核 —— 任何情况下绝不让整行越过预算(引号翻倍等二阶效应的最终闸口)。
   if (guardBudget > 0) {
@@ -391,7 +412,10 @@ async function runClaudeTurn({
   env.WCW_PORT = String(RUNTIME.port);
   env.WCW_HOST = RUNTIME.host;
   env.WCW_TOKEN = RUNTIME.token;
-  if (agentCliType === 'kimi' && config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
+  if (agentCliType === 'kimi') {
+    if (config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
+    await syncKimiTurnPreferences(config).catch(error => onEvent({ type: 'stderr', text: `[Kimi 设置同步] ${(error && error.message) || error}` }));
+  }
 
   // Route the real CLI through cmd.exe when it's a .cmd/.bat (fixes "spawn EINVAL" on modern Node).
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} }
@@ -426,6 +450,9 @@ async function runClaudeTurn({
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
   activeChildren.set(session.id, reg);
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });
+  const stopKimiWireWatch = agentCliType === 'kimi' && session.claudeSessionId
+    ? watchKimiWire(session.claudeSessionId, reg.onEvent, session.kimiContextStatus && session.kimiContextStatus.contextWindow)
+    : () => {};
 
   // Watchdog: if the child goes idle for too long (e.g. never emits `result`, or blocks on an
   // unanswered prompt), end the turn so the HTTP stream and process can't hang forever.
@@ -751,6 +778,7 @@ async function runClaudeTurn({
   });
   clearInterval(watchdog);
   clearInterval(nativeAgentProgressTimer);
+  stopKimiWireWatch();
   if (stdoutRemainder.trim()) consumeLine(stdoutRemainder);
   // Never leave a native child card permanently "running" after its owning CLI process has exited.
   // A clean exit here still means Ruyi can no longer observe that background process, so surface the
@@ -804,6 +832,12 @@ async function runClaudeTurn({
   // 第35波 P2: 进程根本没启动(spawn error 或 cmd 拒绝执行)→ prompt 未送达,原生 transcript 不含本轮注入的索引
   // → 清注入 hash,下轮(同内容也会)重注。abort/watchdog 杀不在此列:prompt 已写入 stdin,transcript 已含索引。
   if ((exit.code === -1 && exit.error) || cmdLineOverflow) session.injectedIndexHash = null;
+  // Kimi's stream-json result has no usage frame. Pull the session's exact post-turn occupancy and persist
+  // it on the assistant row so reopening Ruyi cannot fall back to a stale Claude reading.
+  if (agentCliType === 'kimi' && session.claudeSessionId) {
+    const kimiUsage = await syncKimiSessionUsage(session, config, onEvent).catch(() => null);
+    if (kimiUsage) usage = kimiUsage;
+  }
   const finalText = assistantText.trim() || (stdoutNoise.trim()) || (stderrTrimmed ? (cmdLineOverflow
     ? `[启动守卫] ${agentCliLabel} CLI 未能启动:Windows 命令行超过长度限制。临时规避:减少启用的技能、缩短自定义系统提示,或改用原生可执行文件。\n原始错误:${redact(stderrTrimmed)}`
     : `${agentCliLabel} CLI wrote only stderr:\n${redact(stderrTrimmed)}`) : '');
@@ -815,6 +849,10 @@ async function runClaudeTurn({
   await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(e => e && Number(e.turnSeq) === Number(session.turnSeq));
   const turnSummary = buildTurnSummary(session.turnSeq, toolCalls, 'claude', turnJournal);
+  if (agentRecoverySummary && exit.code === 0 && !wasStopped) {
+    delete session.agentRecoverySummary;
+    delete session.agentRecoverySource;
+  }
   // 47b/86: 回合收尾前把仍在 'running' 的 tool/subagent/workflow 段标终态,防「卡在运行中」落盘。
   turnSegments.finalizeAll(wasStopped ? '回合被停止,进行中的工具已中断' : '回合结束,进行中的工具未完成');
   session.messages.push({

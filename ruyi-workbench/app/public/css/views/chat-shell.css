@@ -245,6 +245,9 @@
 .ctx-chip:hover { border-color: var(--accent); }
 .ctx-chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
 .ctx-custom { font-size: var(--fs-sm); }
+.ctx-compact-model-label { display: flex; flex-direction: column; gap: 5px; font-size: var(--fs-xs); }
+.ctx-compact-model { width: 100%; min-height: 34px; padding: 5px 8px; border: 1px solid var(--line);
+  border-radius: var(--radius-sm); color: var(--ink); background: var(--panel-2); font-size: var(--fs-sm); }
 .ctx-compact { margin-top: 2px; }
 
 /* session rename popover (§4.6) */

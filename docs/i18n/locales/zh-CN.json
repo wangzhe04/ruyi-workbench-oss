@@ -723,7 +723,7 @@
   "settings.agentCli.tab": "Agent CLI",
   "settings.agentCli.driver": "Agent CLI 驱动",
   "settings.agentCli.hint.claude": "完整支持：实时流式、交互式转向、权限桥接、原生 Agent 与按回合 MCP 配置。",
-  "settings.agentCli.hint.kimi": "Kimi Code 使用原生 stream-json 和会话续接；提示词模式由 Kimi 自主执行，暂不支持运行中转向和 Ruyi 权限弹窗。Ruyi MCP 会合并到 KIMI_CODE_HOME/mcp.json（默认 ~/.kimi-code/mcp.json）；Ruyi DAG 中的 Claude CLI 节点仍由 Claude Code 执行。",
+  "settings.agentCli.hint.kimi": "Kimi Code 使用官方 ACP 交互协议：会话续接、增量回复/思考、工具、模型、思考强度、Manual/YOLO/Auto/Plan、停止、权限审批与结构化提问均映射到 Ruyi；上下文与原生压缩继续读取 Kimi 的权威状态。当前 ACP 尚无进行中原生 steer，Ruyi 会在同一原生会话中排队为紧随提示。Ruyi MCP 会合并到 KIMI_CODE_HOME/mcp.json（默认 ~/.kimi-code/mcp.json）。",
   "settings.claudePath": "Claude CLI 路径",
   "settings.claudePathPlaceholder": "claude.cmd 或内网 CLI 完整路径",
   "settings.kimiPath": "Kimi Code CLI 路径",

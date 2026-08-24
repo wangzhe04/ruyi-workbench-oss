@@ -659,9 +659,9 @@
             <div class="field-row">
               <label class="check"><input type="checkbox" id="cfgResume" /> <span data-i18n="settings.resumeAgentCli">自动续接 Agent CLI 会话</span></label>
             </div>
-            <div class="field-grid" data-agent-cli-only="claude">
-              <div class="field-block" data-agent-cli-only="claude">
-                <label for="cfgThinkingEffort" data-i18n="settings.thinkingEffort">思考强度 --effort</label>
+            <div class="field-grid">
+              <div class="field-block">
+                <label for="cfgThinkingEffort" data-i18n="settings.thinkingEffort">思考强度</label>
                 <select id="cfgThinkingEffort">
                   <option value="" data-i18n="thinkingEffort.default">默认（继承 CLI 配置）</option>
                   <option value="low" data-i18n="thinkingEffort.low">低</option>
@@ -671,11 +671,11 @@
                   <option value="max" data-i18n="thinkingEffort.max">最大</option>
                 </select>
               </div>
-              <div class="field-block">
+              <div class="field-block" data-agent-cli-only="claude">
                 <label for="cfgThinkBudget" data-i18n="settings.thinkingBudget">思考预算 MAX_THINKING_TOKENS</label>
                 <input id="cfgThinkBudget" type="text" placeholder="留空=自适应(adaptive，推荐新模型)；填数字=固定预算(enabled)" data-i18n-attr="placeholder:settings.thinkingBudgetPlaceholder" />
               </div>
-              <div class="field-block">
+              <div class="field-block" data-agent-cli-only="claude">
                 <label for="cfgMaxTurns" data-i18n="settings.maxTurns">最大轮次 --max-turns</label>
                 <input id="cfgMaxTurns" type="text" placeholder="留空=不限" data-i18n-attr="placeholder:settings.maxTurnsPlaceholder" />
               </div>

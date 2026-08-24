@@ -10,6 +10,10 @@ function defaultConfig() {
     includeWorkbenchMcp: true,
     autoResumeClaudeSessions: true,
     model: '',
+    // Universal compaction model. Empty provider/model means "follow the current engine": Claude and
+    // Kimi use their native compactor, while an OpenAI-compatible provider uses its active model.
+    compactProviderId: '',
+    compactModel: '',
     maxTurns: '',
     extraClaudeArgs: [],
     allowCommandTools: true,
@@ -524,6 +528,18 @@ function normalizeConfig(raw) {
     const at = Number(config.autoCompactThreshold);
     const clamped = Number.isFinite(at) ? Math.min(0.95, Math.max(0.5, at)) : 0.8;
     if (clamped !== config.autoCompactThreshold) { config.autoCompactThreshold = clamped; changed = true; }
+  }
+  // The selected compactor is deliberately independent from activeProvider/model so switching chat
+  // engines does not silently change a user's preferred local summarizer. Missing providers are retained
+  // as an empty/default selection instead of guessing another endpoint.
+  for (const key of ['compactProviderId', 'compactModel']) {
+    const clean = typeof config[key] === 'string' ? config[key].trim().slice(0, 400) : '';
+    if (clean !== config[key]) { config[key] = clean; changed = true; }
+  }
+  if (config.compactProviderId && !(config.providers || []).some(p => p && p.id === config.compactProviderId)) {
+    config.compactProviderId = '';
+    config.compactModel = '';
+    changed = true;
   }
   // v0.8-S6: capabilityProbeUrl — string; trim + cap length. A non-string coerces to '' (probe the active
   // provider's baseUrl instead). No scheme validation here: getCapabilities guards the HEAD fetch itself.
@@ -1140,11 +1156,11 @@ function detectClaudePath() {
 function invalidateClaudePathCache() { _claudePathProbe = null; }
 
 // v2.8: the historical "Claude engine" is now an Agent CLI host. Keep claudePath and the engine id for
-// session/API compatibility, while selecting a protocol-specific launcher here. Kimi is a real headless
-// JSONL driver.
+// session/API compatibility, while selecting a protocol-specific launcher here. Kimi uses the official
+// interactive ACP JSON-RPC stream (including reverse permission/question requests).
 const AGENT_CLI_TYPES = Object.freeze({
   claude: { id: 'claude', label: 'Claude Code', pathKey: 'claudePath', detectedKey: 'detectedClaudePath', streaming: true, interactive: true, mcp: 'argument' },
-  kimi: { id: 'kimi', label: 'Kimi Code', pathKey: 'kimiPath', detectedKey: 'detectedKimiPath', streaming: false, interactive: false, mcp: 'user-config' },
+  kimi: { id: 'kimi', label: 'Kimi Code', pathKey: 'kimiPath', detectedKey: 'detectedKimiPath', streaming: true, interactive: true, mcp: 'user-config' },
 });
 let _agentCliPathProbe = new Map(); // type -> { at, value }
 
@@ -1846,6 +1862,8 @@ const ROUTE_AUTH = [
   { m: 'DELETE', p: '/api/memory/', auth: 'token-browser', prefix: true },
   { m: 'POST', p: '/api/stop', auth: 'token-browser' },
   { m: 'POST', p: '/api/provider/compact', auth: 'token-browser' },
+  { m: 'POST', p: '/api/agent/compact', auth: 'token-browser' },
+  { m: 'GET', p: '/api/kimi/status', auth: 'token-browser' },
   { m: 'POST', p: '/api/permission/decision', auth: 'token-browser' },
   { m: 'POST', p: '/api/chat/answer', auth: 'token-browser' },
   // origin: UI 变更但仅同源基线(现状保持,不收紧)

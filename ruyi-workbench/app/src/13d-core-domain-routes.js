@@ -508,7 +508,7 @@ async function decideIntervention(command = {}) {
   const action = String(payload.action || '');
   if (contractRequest) {
     const commonFields = new Set(['expectedVersion', 'idempotencyKey', 'action']);
-    const typeFields = type === 'permission' ? ['updatedInput']
+    const typeFields = type === 'permission' ? ['updatedInput', 'scope']
       : type === 'question' ? ['answer']
         : type === 'plan' ? ['feedback']
           : [];
@@ -522,6 +522,9 @@ async function decideIntervention(command = {}) {
     if (action !== 'allow' && action !== 'deny') return interventionCommandFailure('action_invalid', 400, { type }, 'permission action must be allow or deny');
     if (action === 'allow' && payload.updatedInput !== undefined && (!payload.updatedInput || typeof payload.updatedInput !== 'object' || Array.isArray(payload.updatedInput))) {
       return interventionCommandFailure('payload_invalid', 400, { field: 'updatedInput' }, 'updatedInput must be an object');
+    }
+    if (payload.scope !== undefined && payload.scope !== 'session') {
+      return interventionCommandFailure('payload_invalid', 400, { field: 'scope' }, 'scope must be session when provided');
     }
     toStatus = action === 'allow' ? 'allowed' : 'denied';
   } else if (type === 'question') {
@@ -555,7 +558,7 @@ async function decideIntervention(command = {}) {
   const decisionPayload = type === 'question'
     ? { action, answer: normalizedAnswer }
     : type === 'permission'
-      ? { action, ...(action === 'allow' && payload.updatedInput !== undefined ? { updatedInput: payload.updatedInput } : {}) }
+      ? { action, ...(action === 'allow' && payload.updatedInput !== undefined ? { updatedInput: payload.updatedInput } : {}), ...(action === 'allow' && payload.scope === 'session' ? { scope: 'session' } : {}) }
       : type === 'plan'
         ? { action, ...(payload.feedback !== undefined ? { feedback: String(payload.feedback) } : {}) }
         : { action };
@@ -637,7 +640,7 @@ async function decideIntervention(command = {}) {
       runtimeEntry.commandApplying = true;
       clearTimeout(runtimeEntry.timer);
       const decision = action === 'allow'
-        ? { behavior: 'allow', updatedInput: payload.updatedInput }
+        ? { behavior: 'allow', updatedInput: payload.updatedInput, ...(payload.scope === 'session' ? { scope: 'session' } : {}) }
         : { behavior: 'deny', message: String(payload.message || 'denied by user') };
       runtimeEntry.resolve(decision, { skipInterventionSettle: true });
       return { ok: true, delivered: true };
@@ -1036,7 +1039,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       missionId: entry.sessionId,
       interventionId: requestId,
       payload: behavior === 'allow'
-        ? { action: 'allow', updatedInput: body.updatedInput }
+        ? { action: 'allow', updatedInput: body.updatedInput, ...(body.scope === 'session' ? { scope: 'session' } : {}) }
         : { action: 'deny', message: body.message || 'denied by user' },
       source: 'legacy_permission',
       contractRequest: false,

@@ -589,7 +589,39 @@ async function handleApi(req, res, pathname) {
     // §5.2: native-provider context compaction. Same-origin protected (mutating) like /api/stop and
     // /api/chat/answer — deliberately NOT in needsToken (commander's amendment) to stay consistent.
     const body = await readJsonBody(req);
-    return send(res, json(await runProviderCompact(String(body.sessionId || ''))));
+    const sessionId = safeSessionId(String(body.sessionId || ''));
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
+    return send(res, json(await runProviderCompact(sessionId)));
+  }
+  if (req.method === 'POST' && pathname === '/api/agent/compact') {
+    const body = await readJsonBody(req);
+    const config = await readConfig();
+    const sessionId = safeSessionId(String(body.sessionId || ''));
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    // Native Kimi compaction and external summary reseeding both mutate the same session a live turn
+    // owns. Enforce the UI's no-overlap rule at the API boundary to avoid last-writer-wins data loss.
+    if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
+    const result = config.compactProviderId
+      ? await runAgentExternalCompact(sessionId, config, 'manual')
+      : (config.agentCliType === 'kimi'
+        ? await runKimiCompact(sessionId, config, 'manual')
+        : { ok: false, error: 'Claude 默认压缩请使用原生 /compact；或先选择通用压缩模型' });
+    return send(res, json(result, result.ok ? 200 : 400));
+  }
+  if (req.method === 'GET' && pathname === '/api/kimi/status') {
+    const config = await readConfig();
+    if (config.agentCliType !== 'kimi') return send(res, json({ ok: false, error: '当前不是 Kimi Code 接入' }, 400));
+    const u = new URL(req.url, 'http://x');
+    const sessionId = safeSessionId(String(u.searchParams.get('sessionId') || ''));
+    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    const session = await loadSession(sessionId).catch(() => null);
+    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
+    if (!status.ok) return send(res, json(status, 400));
+    const usage = applyKimiStatusToSession(session, status);
+    await saveSession(session).catch(() => {});
+    return send(res, json({ ...status, usage }));
   }
   // EC-D Wave 65: question, permission, and plan routes live in 13d-core-domain-routes.js.
   await handleInterventionApiRoutes(req, res, pathname); if (res.writableEnded) return;

@@ -267,6 +267,17 @@ async function handleSteerApiRoute(req, res, pathname) {
     if (!text) return send(res, apiFailure('request.field_required', { field: 'text' }, 'text is required', 400));
     const reg = activeChildren.get(sessionId);
     if (!reg) return send(res, json({ ok: false, error: '当前没有进行中的回合' }));
+    if (reg.kind === 'kimi-acp') {
+      // Kimi ACP 0.37.x has no native mid-prompt steering method. Keep the ACP process/session alive and
+      // enqueue a follow-up session/prompt immediately after the active prompt settles. This preserves native
+      // session continuity and is explicitly reported as queued (and therefore remains retractable).
+      if (reg.acceptingSteer === false) return send(res, json({ ok: false, error: '当前 Kimi 回合正在收尾，请作为下一条消息发送' }));
+      if (!Array.isArray(reg.steerQueue)) reg.steerQueue = [];
+      if (reg.steerQueue.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '插话队列已满' }));
+      reg.steerQueue.push(text);
+      logEvent({ kind: 'intervention', source: 'steer', protocol: 'kimi-acp-followup', sessionId });
+      return send(res, json({ ok: true, queued: reg.steerQueue.length, immediate: false, protocol: 'kimi-acp-followup' }));
+    }
     if (reg.kind === 'claude') {
       // 47a Phase A:Claude interactive 引擎 —— stdin 即时注入,无迭代边界队列。
       if (!reg.interactive) return send(res, apiFailure(
@@ -290,7 +301,7 @@ async function handleSteerApiRoute(req, res, pathname) {
       logEvent({ kind: 'intervention', source: 'steer', sessionId }); // 29c
       return send(res, json({ ok: true, injected: true }));
     }
-    if (reg.kind !== 'openai') return send(res, json({ ok: false, error: '仅 provider 引擎支持插话' }));
+    if (reg.kind !== 'openai') return send(res, json({ ok: false, error: '当前引擎不支持插话' }));
     if (!Array.isArray(reg.steerQueue)) reg.steerQueue = [];
     if (reg.steerQueue.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '插话队列已满' }));
     reg.steerQueue.push(text);

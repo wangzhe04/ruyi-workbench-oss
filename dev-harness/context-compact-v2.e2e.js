@@ -10,6 +10,7 @@
 //   [B] 45b 主回合 400 强压重试(fake CONTEXT_400_ONCE,真 WB + 真 turn):
 //       首个请求 400 → forced_400 事件 → 摘要调用 → 重试成功,回合 ok;历史被重播种
 //   [C] 45c 分类器(claude 子代理 over_window → retry:true;definitive 不再含 context)
+//   [D] 通用压缩模型窗口隔离:本地小模型负责摘要时,上下文面板仍跟随后续对话模型且写入路由身份
 // ─────────────────────────────────────────────────────────────────────────────
 const cp = require('child_process');
 const fs = require('fs');
@@ -82,8 +83,7 @@ const asst = content => ({ role: 'assistant', content });
       for (const f of sumFiles) maxReq = Math.max(maxReq, fs.statSync(path.join(SUMDIR, f)).size);
       // 预算 50000 tokens ≈ 估算 18 万字节(CJK/ASCII 混合);payload 必须远小于「未预算化的整史」(60×10KB=600KB)
       ok(maxReq < 250000, 'A3 摘要 payload 受预算约束(最大 ' + maxReq + 'B < 250KB;旧内核会发 ~600KB)');
-      if (r2.mapReduce) ok(r2.mapReduce.chunks >= 2 && sumFiles.length >= 3, 'A4 map-reduce 分段 ≥2 且落盘含分段+总摘要(' + r2.mapReduce.chunks + ' 段/' + sumFiles.length + ' 请求)');
-      else ok(r2.droppedMiddle > 0, 'A4 fit 截断路径:droppedMiddle=' + r2.droppedMiddle);
+      ok(r2.mapReduce && r2.mapReduce.chunks >= 2 && sumFiles.length >= 3, 'A4 超预算不丢中段，必须 map-reduce ≥2(' + ((r2.mapReduce && r2.mapReduce.chunks) || 0) + ' 段/' + sumFiles.length + ' 请求)');
       // A5: fitHistoryForSummary 不动调用方数组(manual compact 失败原样保留契约)
       const ref = big.slice();
       srv.fitHistoryForSummary(big, 5000);
@@ -91,7 +91,48 @@ const asst = content => ({ role: 'assistant', content });
       // A6: 截断保头(原始目标)保尾
       const fit = srv.fitHistoryForSummary(big, 30000);
       ok(fit.messages[0].content.includes('任务0') && fit.messages[fit.messages.length - 1].content.includes('答59'), 'A6 截断保头(原始目标)保尾(最近回合)');
+      // A7: one user turn may contain a very long agent/tool loop. Every emitted map chunk must remain
+      // within budget, and transcript splitting must retain both the beginning and the end of that turn.
+      const giantTurn = [user('超长回合起点')];
+      for (let i = 0; i < 80; i++) giantTurn.push({ role: i % 2 ? 'tool' : 'assistant', content: `片段-${i}-` + 'z'.repeat(2400) });
+      giantTurn.push(asst('超长回合终点'));
+      const giantChunks = srv.chunkHistoryByBudget(giantTurn, 8000);
+      const giantJoined = giantChunks.flat().map(m => String(m.content || '')).join('\n');
+      ok(giantChunks.length > 1 && giantChunks.every(chunk => srv.estimateHistoryTokens(chunk) <= 8000), 'A7 超长单回合无损拆分且每段严格不超预算');
+      ok(giantJoined.includes('超长回合起点') && giantJoined.includes('超长回合终点') && giantJoined.includes('片段-79-'), 'A8 超长单回合保留首尾及中后段（不再逐消息截断）');
     } finally { kill(fake); await sleep(200); fs.rmSync(SUMDIR, { recursive: true, force: true }); }
+  }
+
+  // ═══ [D] 压缩模型窗口不能污染主会话窗口 ═══
+  console.log('── [D] 通用压缩窗口路由隔离 ──');
+  {
+    const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-ctx-route-'));
+    const FAKE = await getFreePort();
+    const PORT = await getFreePort();
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+      configSchema: 7, permissionMode: 'bypass', defaultWorkspace: HOME,
+      providers: [
+        { id: 'main-prov', label: 'Main 1M', type: 'openai-compat', baseUrl: `http://127.0.0.1:${FAKE}/v1`, apiKey: 'k', model: 'main-model', contextWindow: 1000000, models: [{ id: 'main-model', label: 'main-model' }] },
+        { id: 'local-compact', label: 'Local 128K', type: 'openai-compat', baseUrl: `http://127.0.0.1:${FAKE}/v1`, apiKey: 'k', model: 'local-small', contextWindow: 131072, models: [{ id: 'local-small', label: 'local-small' }] },
+      ],
+      activeProvider: 'main-prov', compactProviderId: 'local-compact', compactModel: 'local-small',
+    }, null, 2));
+    const fake = fakeUp(FAKE, {});
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+    wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});
+    try {
+      ok(await up(PORT), 'D workbench up');
+      const token = await tokenFor(PORT), hdr = { 'x-wcw-token': token };
+      const created = await post(PORT, '/api/sessions', { title: 'ctx-route', cwd: HOME }, hdr);
+      await stream(PORT, { sessionId: created.session.id, message: '请记住主会话使用 1M 模型。', cwd: HOME }, hdr);
+      const compacted = await post(PORT, '/api/provider/compact', { sessionId: created.session.id }, hdr);
+      ok(compacted && compacted.ok && compacted.provider === 'local-compact', 'D1 摘要实际由本地压缩 provider 执行');
+      const fetched = await get(PORT, `/api/sessions/${created.session.id}`, hdr);
+      const messages = fetched && fetched.session && fetched.session.messages || [];
+      const usage = messages.length && messages[messages.length - 1].usage;
+      ok(usage && usage.contextWindow === 1000000, 'D2 压缩后面板上限保持后续对话模型 1M（非压缩模型 128K）');
+      ok(usage && usage.contextEngine === 'openai' && usage.contextProviderId === 'main-prov' && usage.contextModel === 'main-model', 'D3 压缩用量携带主会话路由身份，切换 provider 后可判旧值失效');
+    } finally { kill(wb); kill(fake); await sleep(300); fs.rmSync(HOME, { recursive: true, force: true }); }
   }
 
   // ═══ [B] 45b 主回合 400 强压重试(真 WB + CONTEXT_400_ONCE) ═══

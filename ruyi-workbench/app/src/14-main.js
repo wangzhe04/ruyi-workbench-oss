@@ -30,6 +30,14 @@ module.exports = {
   providerSummaryCall,
   fitHistoryForSummary,
   chunkHistoryByBudget,
+  resolveCompactionProvider,
+  compactHistoryFromSession,
+  parseKimiWireCompaction,
+  kimiSessionStatus,
+  runKimiCompact,
+  compactKimiNative,
+  readKimiWireRuntime,
+  stopKimiServer,
   // 20-T1/20-C1/20-F1 runtime optimization pure primitives. Exported for offline replay/e2e; the master
   // shadow switch only measures candidates, while production behavior remains behind strict active flags.
   searchToolCatalog,

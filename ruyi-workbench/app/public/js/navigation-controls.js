@@ -246,10 +246,26 @@ async function setEngineModel(providerId, modelId) {
   }
   // Optimistic local update so the chip/meter reflect the choice immediately.
   Object.assign(state.config, patch);
-  await saveConfigPartial(patch);
+  state.shownUsage = null;
+  const routeKey = `${pid || 'agent'}\u0000${modelId || ''}`;
+  // The previous /api/status and usage row belong to the old route. Clear only the resolved denominator;
+  // the numerator remains useful and ctxWindow now rejects a route-mismatched usage limit.
+  if (state.status) state.status.contextWindowResolved = null;
+  updateContextMeter();
+  const saved = await saveConfigPartial(patch);
   renderModelChip();
   updateEngineDependentUI();
   updateContextMeter();
+  // Re-resolve after persistence so probe/manual/table values (including learned provider caps) appear
+  // without waiting for a restart or another chat turn. Ignore a late response after a second switch.
+  if (saved) {
+    api('/api/status').then(fresh => {
+      const nowPid = isProviderMode() ? String(state.config?.activeProvider || '') : '';
+      if (`${nowPid || 'agent'}\u0000${currentModelId() || ''}` !== routeKey) return;
+      if (state.status) state.status.contextWindowResolved = fresh && fresh.contextWindowResolved;
+      updateContextMeter();
+    }).catch(() => {});
+  }
   refreshModels(); // silent enrich for the newly-active engine
   const label = engineLabel();
   toast(state.streaming
@@ -354,13 +370,14 @@ function openModelChipPopover(anchor) {
       const control = el('label', 'mc-effort-control');
       control.appendChild(el('span', 'mc-effort-label', t('modelMenu.thinkingEffort')));
       const select = el('select', 'mc-effort-select');
-      for (const value of CLAUDE_THINKING_EFFORTS_UI) {
+      const effortValues = state.config?.agentCliType === 'kimi' ? ['', 'low', 'high', 'max'] : CLAUDE_THINKING_EFFORTS_UI;
+      for (const value of effortValues) {
         const option = el('option');
         option.value = value;
         option.textContent = t(`thinkingEffort.${value || 'default'}`);
         select.appendChild(option);
       }
-      select.value = state.config?.claudeThinkingEffort || '';
+      select.value = effortValues.includes(state.config?.claudeThinkingEffort || '') ? (state.config?.claudeThinkingEffort || '') : '';
       select.onchange = async () => {
         select.disabled = true;
         const saved = await setClaudeThinkingEffort(select.value);
@@ -370,8 +387,7 @@ function openModelChipPopover(anchor) {
       control.appendChild(select);
       container.appendChild(control);
     };
-    addGroup('', engineLabel(), 'var(--eng-claude)', claudeModels, '', customModelIds,
-      state.config?.agentCliType === 'kimi' ? null : appendClaudeEffort);
+    addGroup('', engineLabel(), 'var(--eng-claude)', claudeModels, '', customModelIds, appendClaudeEffort);
     const appendProviderEffort = provider => container => {
       const control = el('label', 'mc-effort-control');
       control.appendChild(el('span', 'mc-effort-label', t('provider.reasoningEffort')));
@@ -433,7 +449,7 @@ function openContextPopover() {
     const manual = ctxWindowManual();
     const srcLabel = ctxWindowSourceLabel();
     const pct = win > 0 && used != null ? Math.round((used / win) * 100) : 0;
-    wrap.appendChild(el('div', 'ctx-pop-row', used != null ? `已用 ${fmtTokens(used)} / 上限 ${fmtTokens(win)} · ${pct}%` : `上限 ${fmtTokens(win)}（暂无用量数据）`));
+    wrap.appendChild(el('div', 'ctx-pop-row ctx-pop-usage', used != null ? `已用 ${fmtTokens(used)} / 上限 ${fmtTokens(win)} · ${pct}%` : `上限 ${fmtTokens(win)}（暂无用量数据）`));
     // Percent bar in the meter color.
     const bar = el('div', 'ctx-pop-bar'); const barIn = el('div', 'ctx-pop-bar-in');
     barIn.style.width = Math.max(0, Math.min(100, pct)) + '%';
@@ -461,6 +477,54 @@ function openContextPopover() {
       if (e.key === 'Enter') { e.preventDefault(); const v = custom.value.replace(/[,\s]/g, ''); const n = parseInt(v, 10); if (v === '') applyWin(0); else if (Number.isFinite(n) && n > 0) applyWin(n); }
     });
     wrap.appendChild(custom);
+    // Universal compaction model: default follows the current access mode (Claude/Kimi native or active
+    // Provider); every explicitly configured Provider/Ollama model is available across all three modes.
+    const compactLabel = el('label', 'ctx-compact-model-label muted', '压缩模型');
+    const compactSelect = el('select', 'ctx-compact-model');
+    const defaultName = isProviderMode() ? '默认（当前 Provider 模型）'
+      : (state.config?.agentCliType === 'kimi' ? '默认（Kimi 原生压缩）' : '默认（Claude 原生 /compact）');
+    compactSelect.appendChild(new Option(defaultName, ''));
+    const selectedProvider = String(state.config?.compactProviderId || '');
+    const selectedModel = String(state.config?.compactModel || '');
+    for (const provider of (state.config?.providers || [])) {
+      if (!provider || provider.enabled === false || !provider.id) continue;
+      const models = Array.isArray(provider.models) ? provider.models.slice() : [];
+      if (provider.model && !models.some(m => String((m && m.id) || m) === provider.model)) models.unshift({ id: provider.model, label: provider.model });
+      for (const row of models) {
+        const id = String((row && row.id) || row || '').trim(); if (!id) continue;
+        const label = String((row && row.label) || id);
+        const value = `${provider.id}\u001f${id}`;
+        compactSelect.appendChild(new Option(`${provider.label || provider.id} / ${label}`, value));
+      }
+    }
+    compactSelect.value = selectedProvider && selectedModel ? `${selectedProvider}\u001f${selectedModel}` : '';
+    const compactModelHint = el('span', 'ctx-pop-hint muted');
+    const renderCompactHint = () => {
+      const [providerId = '', selectedId = ''] = compactSelect.value.split('\u001f');
+      const model = selectedId.toLowerCase();
+      const provider = (state.config?.providers || []).find(item => item && item.id === providerId);
+      const modelRow = provider && (provider.models || []).find(item => String((item && item.id) || item || '') === selectedId);
+      const compactWindow = Number(modelRow && modelRow.contextLength) || Number(provider && provider.contextWindow) || 0;
+      const windowNote = compactWindow > 0 ? `压缩输入会按 ${ctxLenBadge(compactWindow)} 窗口安全分段；上方上限仍表示当前对话模型。` : '';
+      compactModelHint.textContent = !compactSelect.value
+        ? '默认会使用当前接入方式的原生压缩能力。'
+        : (/1b|1\.\d+b/.test(model)
+          ? `不建议：本机测试中 1B 模型会遗漏并编造关键事实。${windowNote}`
+          : (/2b|2\.\d+b/.test(model)
+            ? `可用但有损：小窗口会自动分段汇总，重要任务建议复核摘要。${windowNote}`
+            : `外部模型会使用分段汇总；Agent CLI 将在下一轮从摘要重建原生会话。${windowNote}`));
+    };
+    renderCompactHint();
+    compactSelect.onchange = async () => {
+      const [compactProviderId = '', compactModel = ''] = compactSelect.value.split('\u001f');
+      compactSelect.disabled = true;
+      const saved = await saveConfigPartial({ compactProviderId, compactModel });
+      compactSelect.disabled = false;
+      if (saved) { renderCompactHint(); toast(compactProviderId ? `默认压缩模型已设为 ${compactSelect.options[compactSelect.selectedIndex].text}` : '已恢复当前引擎的原生压缩', 'ok'); }
+    };
+    compactLabel.appendChild(compactSelect);
+    compactLabel.appendChild(compactModelHint);
+    wrap.appendChild(compactLabel);
     // v1.0-S2 (IA): 「立即压缩」= 复用移出 composer 的真实 #compactBtn（保留 id + 既有 compactContext handler，
     // 只挪 DOM 位置）。把整个 host（含 #compactBtn）挪进弹层并去掉 hidden；关闭时挪回 composer 尾。两引擎均
     // 可用；简易模式亦可用（压缩是用户友好功能）。
@@ -483,6 +547,23 @@ function openContextPopover() {
       for (const mu of muts) { for (const n of mu.removedNodes) { if (n === handle.node) { parkHost(); obs.disconnect(); return; } } }
     });
     obs.observe(document.body, { childList: true });
+  }
+  // Existing Kimi sessions may predate usage synchronization. Refresh the authoritative native status
+  // whenever the meter is opened and patch both the battery and this popover without requiring a restart.
+  if (handle && !isProviderMode() && state.config?.agentCliType === 'kimi' && state.currentSession?.id) {
+    const sid = state.currentSession.id;
+    api(`/api/kimi/status?sessionId=${encodeURIComponent(sid)}`).then(r => {
+      if (!r || !r.ok || !r.usage || state.currentSession?.id !== sid) return;
+      state.shownUsage = r.usage;
+      updateContextMeter();
+      if (!handle.node.isConnected) return;
+      const usedNow = ctxTokensOf(r.usage), winNow = ctxWindow();
+      const pctNow = winNow > 0 && usedNow != null ? Math.round((usedNow / winNow) * 100) : 0;
+      const row = handle.node.querySelector('.ctx-pop-usage');
+      if (row) row.textContent = usedNow != null ? `已用 ${fmtTokens(usedNow)} / 上限 ${fmtTokens(winNow)} · ${pctNow}%` : `上限 ${fmtTokens(winNow)}（暂无用量数据）`;
+      const bar = handle.node.querySelector('.ctx-pop-bar-in');
+      if (bar) { bar.style.width = Math.max(0, Math.min(100, pctNow)) + '%'; bar.style.background = pctNow >= 90 ? 'var(--danger)' : (pctNow >= 70 ? 'var(--warn)' : 'var(--ok)'); }
+    }).catch(() => {});
   }
 }
 

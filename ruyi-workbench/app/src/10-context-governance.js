@@ -453,7 +453,6 @@ function measureObservationReductionShadow(history) {
 //      逐组摘要,再对拼接的分段摘要做总摘要;usage 聚合记账,元数据 mapReduce.chunks。
 // ── 45e:结构化摘要 prompt(目标/决定/未完成/关键文件四段式,替代旧单段流水)─────────────
 const SUMMARY_INPUT_BUDGET_RATIO = 0.5;
-const SUMMARY_CHUNK_MSG_CAP = 30000; // map-reduce 组内单条消息内容截断(字符,防单条巨型结果吃掉整组预算)
 const SUMMARY_PROMPT = '请把以上对话压缩为结构化摘要,严格按以下四节输出(某节无内容写「无」):\n'
   + '【目标】用户的核心目标与关键约束\n'
   + '【已确认的决定】已拍板的事实、方案选择、用户偏好\n'
@@ -493,29 +492,59 @@ function fitHistoryForSummary(history, budgetTokens) {
   const middleCount = tailStart - headEnd;
   const marker = { role: 'user', content: `(摘要输入预算截断:此处省略中间 ${middleCount} 条消息)` };
   const fitted = [...history.slice(0, headEnd), marker, ...history.slice(tailStart)];
-  if (estimateHistoryTokens(fitted) <= budgetTokens) return { messages: fitted, droppedMiddle: middleCount };
+  // Never silently discard the middle of a conversation. A small-window summarizer must see every user
+  // block through map-reduce; the head/marker/tail projection remains useful to diagnostics and callers
+  // that only need a preview, but the summary kernel treats any omitted middle as map-reduce-required.
+  if (estimateHistoryTokens(fitted) <= budgetTokens) return { messages: fitted, droppedMiddle: middleCount, needsMapReduce: true };
   return { messages: history.slice(), droppedMiddle: 0, needsMapReduce: true }; // 头尾本身已超 → map-reduce
 }
 
-// map-reduce 分组(45a):按 user 块聚合,组 ≤ 预算;单块超预算时块内消息内容截断。
-// 45f 对抗轮 P2-3:截断量随预算动态取(窗口学习把预算压到 <30K 字符时,固定 30K cap 会让
-// 单块照样超预算 → 摘要调用自身 400,死锁角借尸还魂)。字符 ≈ token×1.5(CJK 保守)。
+// map-reduce 分组(45a):正常回合按 user 块聚合。一个 user 回合可能包含上百条 assistant/tool
+// 消息（长 Agent 工具循环），整块可远超预算；这种块不能只截每条消息后继续整块发送，也不能在
+// tool_call/tool_result 中间硬切。把超大块无损序列化成带角色标签的纯文本 transcript，再按实测
+// token 估算切成独立 user 片段：既不触发 Provider 的工具配对校验，也不会丢掉块的中后段。
 function chunkHistoryByBudget(history, budgetTokens) {
   const starts = userBlockStarts(history);
   const blocks = [];
   for (let i = 0; i < starts.length; i++) blocks.push(history.slice(starts[i], starts[i + 1] || history.length));
-  const msgCap = Math.max(2000, Math.min(SUMMARY_CHUNK_MSG_CAP, Math.floor(budgetTokens * 1.5)));
-  const capContent = m => {
-    const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '');
-    return c.length > msgCap ? { ...m, content: c.slice(0, msgCap) + `\n…(单条内容过长,摘要输入截断,原 ${c.length} 字符)` } : m;
+  const transcriptText = block => block.map(message => {
+    const role = message && message.role === 'user' ? '用户' : (message && message.role === 'assistant' ? '助手' : `工具${message && message.name ? ` ${message.name}` : ''}`);
+    const content = typeof (message && message.content) === 'string' ? message.content : JSON.stringify(message && message.content || '');
+    const calls = Array.isArray(message && message.tool_calls) && message.tool_calls.length ? `\n[工具调用] ${JSON.stringify(message.tool_calls)}` : '';
+    return `【${role}】\n${content}${calls}`;
+  }).join('\n\n');
+  const splitTranscript = block => {
+    const text = transcriptText(block);
+    const pieces = [];
+    let offset = 0;
+    while (offset < text.length) {
+      // Binary-search the largest lossless slice that fits. Transcript content ranges from CJK prose
+      // (~1.5 chars/token) to JSON/tool output (~3.6 chars/token), so a fixed character ratio either
+      // overflows CJK or creates twice as many slow local-model calls for ASCII-heavy histories.
+      let low = offset + 1, high = text.length, end = low, row = null;
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const candidate = { role: 'user', content: `【超长回合分片】\n${text.slice(offset, mid)}` };
+        if (estimateHistoryTokens([candidate]) <= budgetTokens) { end = mid; row = candidate; low = mid + 1; }
+        else high = mid - 1;
+      }
+      if (!row) row = { role: 'user', content: `【超长回合分片】\n${text.slice(offset, end)}` };
+      pieces.push([row]);
+      offset = end;
+    }
+    return pieces;
   };
   const chunks = [];
   let cur = [], curTokens = 0;
   for (const b of blocks) {
-    const capped = b.map(capContent);
-    const t = estimateHistoryTokens(capped);
+    const t = estimateHistoryTokens(b);
+    if (t > budgetTokens) {
+      if (cur.length) { chunks.push(cur); cur = []; curTokens = 0; }
+      chunks.push(...splitTranscript(b));
+      continue;
+    }
     if (cur.length && curTokens + t > budgetTokens) { chunks.push(cur); cur = []; curTokens = 0; }
-    cur.push(...capped); curTokens += t;
+    cur.push(...b); curTokens += t;
   }
   if (cur.length) chunks.push(cur);
   return chunks;
@@ -541,7 +570,12 @@ async function singleSummaryCall(provider, messages, model) {
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, 60000) : null;
+  let timeoutMs = 60000;
+  try {
+    const u = new URL(String(provider && provider.baseUrl || ''));
+    if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(u.hostname) || /ollama/i.test(String(provider && (provider.id + ' ' + provider.label) || ''))) timeoutMs = 300000;
+  } catch { /* retain remote default */ }
+  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
     const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: ctrl ? ctrl.signal : undefined });
     if (!res || !res.ok) {
@@ -565,18 +599,21 @@ async function singleSummaryCall(provider, messages, model) {
     // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model + 对发送 payload 的输入估算,让压缩调用方记入 aux 台账。
     return { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
   } catch (e) {
-    return { ok: false, error: (e && e.name === 'AbortError') ? 'summary request timed out (60s)' : ((e && e.message) || 'summary request failed') };
+    return { ok: false, error: (e && e.name === 'AbortError') ? `summary request timed out (${Math.round(timeoutMs / 1000)}s)` : ((e && e.message) || 'summary request failed') };
   } finally { if (timer) clearTimeout(timer); }
 }
 
 async function providerSummaryCall(provider, history, opts) {
   const base = providerBaseWithV1(provider.baseUrl);
-  const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
+  const model = String((opts && opts.model) || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!base || !model || typeof fetch !== 'function') {
     return { ok: false, error: !base ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable') };
   }
   // 45f 对抗轮 P3-6:无 user 消息的 history 不做摘要 —— 空摘要会把整段历史静默抹成一段「无内容」。
   if (!userBlockStarts(history).length) return { ok: false, error: 'no user turns to summarize' };
+  // The selected compactor may be a non-active Provider, so normal /api/models refresh never probed it.
+  // Probe on demand before budgeting; Ollama is enriched through native /api/show by fetchOpenAiModels.
+  if (resolveContextWindow(provider, model).source === 'fallback') await fetchOpenAiModels(provider, 8000).catch(() => null);
   // 45a:摘要输入预算 = 窗口 × 50%(余量留给输出+系统层;窗口缺省 64K 时预算 32K)。
   const budget = Math.max(4000, Math.floor(providerContextWindow(provider, model) * SUMMARY_INPUT_BUDGET_RATIO));
   const fitted = fitHistoryForSummary(history, budget);
@@ -637,6 +674,109 @@ function recordCompactUsage(session, provider, sc) {
   } catch { /* accounting must never break compaction */ }
 }
 
+// Resolve the universal compaction selector. Empty selection follows the active engine/provider; an
+// explicit selection clones the configured provider with the chosen model so summary calls, accounting,
+// and context-window budgeting all agree on the same endpoint.
+function resolveCompactionProvider(config, fallbackProvider) {
+  const providerId = String(config && config.compactProviderId || '').trim();
+  const modelId = String(config && config.compactModel || '').trim();
+  if (!providerId) {
+    if (!fallbackProvider) return { provider: null, model: '', isDefault: true };
+    const fallbackModel = String(fallbackProvider.model || (fallbackProvider.models && fallbackProvider.models[0] && fallbackProvider.models[0].id) || '').trim();
+    return { provider: fallbackProvider, model: fallbackModel, isDefault: true };
+  }
+  const found = (config.providers || []).find(p => p && p.id === providerId);
+  if (!found) return { provider: null, model: '', isDefault: false, error: 'configured compaction provider is unavailable' };
+  const model = modelId || String(found.model || (found.models && found.models[0] && found.models[0].id) || '').trim();
+  return { provider: { ...found, model }, model, isDefault: false };
+}
+
+function compactHistoryFromSession(session) {
+  const out = [];
+  for (const message of (session && Array.isArray(session.messages) ? session.messages : [])) {
+    if (!message || !['user', 'assistant'].includes(message.role)) continue;
+    let content = String(message.content || '').trim();
+    if (message.role === 'user' && Array.isArray(message.attachments) && message.attachments.length) {
+      const refs = message.attachments.map(item => String(item && (item.path || item.name || item.filename) || '')).filter(Boolean);
+      if (refs.length) content += `\n\n[本轮附件]\n${refs.join('\n')}`;
+    }
+    if (message.role === 'assistant') {
+      const evidence = {};
+      if (message.turnSummary && typeof message.turnSummary === 'object') evidence.turnSummary = message.turnSummary;
+      if (Array.isArray(message.toolCalls) && message.toolCalls.length) evidence.toolCalls = message.toolCalls.map(call => ({ name: call && call.name, input: call && call.input }));
+      const encoded = Object.keys(evidence).length ? JSON.stringify(evidence) : '';
+      if (encoded) content += `\n\n[Ruyi 本轮操作证据]\n${encoded.slice(0, 12000)}`;
+    }
+    if (!content) continue;
+    out.push({ role: message.role, content });
+  }
+  return out;
+}
+
+function lastSessionContextTokens(session) {
+  const messages = session && Array.isArray(session.messages) ? session.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const usage = messages[i] && messages[i].usage;
+    if (usage && Number.isFinite(Number(usage.contextTokens)) && Number(usage.contextTokens) > 0) return Number(usage.contextTokens);
+  }
+  return 0;
+}
+
+async function agentConversationContextMeta(config, session) {
+  const agentCliType = String(config && config.agentCliType || 'claude');
+  const model = String(config && config.model || session && session.claudeSessionModel || '').trim();
+  let contextWindow = 0;
+  if (agentCliType === 'kimi') {
+    try { contextWindow = await kimiContextWindow(config, model); } catch { /* fall through to name table */ }
+  }
+  if (!(contextWindow > 0)) contextWindow = Number(contextWindowFromTable(model)) || 0;
+  return {
+    contextEngine: 'agent', contextAgentCliType: agentCliType, contextModel: model,
+    ...(contextWindow > 0 ? { contextWindow } : {}),
+  };
+}
+
+// Agent CLIs cannot import an arbitrary external summary into an existing native transcript. The safe
+// universal mapping is a visible reseed boundary: summarize Ruyi's complete display transcript, preserve
+// it in Ruyi, then start the next native CLI session with only that summary as recovery context.
+async function runAgentExternalCompact(sessionId, configOverride, trigger = 'manual') {
+  const config = configOverride || await readConfig();
+  let session;
+  try { session = await loadSession(String(sessionId || '')); } catch { return { ok: false, error: 'session not found' }; }
+  if (!session) return { ok: false, error: 'session not found' };
+  const resolved = resolveCompactionProvider(config, null);
+  if (!resolved.provider || resolved.isDefault) return { ok: false, error: 'no external compaction model selected' };
+  const history = compactHistoryFromSession(session);
+  if (!history.length) return { ok: false, error: 'no conversation history to compact' };
+  const sc = await providerSummaryCall(resolved.provider, history, { model: resolved.model });
+  if (!sc.ok) return { ok: false, error: sc.error };
+  recordCompactUsage(session, resolved.provider, sc);
+  const beforeTokens = lastSessionContextTokens(session) || estimateHistoryTokens(history);
+  const afterTokens = estimateContentTokens(sc.summary);
+  const contextMeta = await agentConversationContextMeta(config, session);
+  session.agentRecoverySummary = sc.summary;
+  session.agentRecoverySource = {
+    providerId: resolved.provider.id,
+    model: resolved.model,
+    trigger,
+    createdAt: nowIso(),
+  };
+  session.claudeSessionId = null;
+  delete session.claudeSessionModel;
+  delete session.claudeSessionCwd;
+  delete session.claudeSessionRouteKey;
+  session.injectedIndexHash = null;
+  session.messages.push({
+    role: 'system',
+    content: `🗜 已用 ${resolved.provider.label || resolved.provider.id} / ${resolved.model} 压缩上下文：${fmtTokensServer(beforeTokens)}→约 ${fmtTokensServer(afterTokens)}；下一轮将基于摘要重建原生 Agent 会话。`,
+    usage: { usage: {}, contextTokens: afterTokens, ...contextMeta, source: 'external-compact' },
+    createdAt: nowIso(), source: 'compact',
+  });
+  await saveSession(session);
+  logEvent({ kind: 'agent_external_compact', sessionId: session.id, trigger, provider: resolved.provider.id, model: resolved.model, summaryChars: sc.summary.length, beforeTokens, afterTokens });
+  return { ok: true, mode: 'external-summary', provider: resolved.provider.id, model: resolved.model, summaryChars: sc.summary.length, beforeTokens, afterTokens, sessionReset: true };
+}
+
 // v0.8-S5 LEVEL 2 · SUMMARY RESEED boundary. Return the index in `history` of the 2nd-most-recent
 // role:'user' message (= the start of the most recent 2 full turns). Everything before it will be replaced
 // by [summary-user, ack-assistant]; everything from it onward is kept VERBATIM. Starting a kept slice at a
@@ -671,7 +811,9 @@ async function maybeCompactSubHistory(opts) {
     const emit = (mode, after) => { try { if (onEvent) onEvent({ type: 'compact', mode, subagentId, beforeTokens: before, afterTokens: after }); } catch { /* stream gone */ } };
     if (evaporated > 0 && after1 <= budget) { emit('evaporate', after1); return true; }
     // L2 摘要重播种(仍超预算):复用共用摘要内核。失败 → 保留 L1、不中断子回合(镜像主回合)。
-    const sc = await providerSummaryCall(provider, subHistory);
+    const compactTarget = resolveCompactionProvider(config, provider);
+    const summaryProvider = compactTarget.provider || provider;
+    const sc = await providerSummaryCall(summaryProvider, subHistory, { model: compactTarget.model });
     if (!sc || !sc.ok) { if (evaporated > 0) { emit('evaporate', after1); return true; } return false; }
     const boundary = recentTurnsBoundary(subHistory);
     const task0 = subHistory[0];
@@ -685,7 +827,7 @@ async function maybeCompactSubHistory(opts) {
     ];
     subHistory.splice(0, subHistory.length, ...reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
     emit('summary', estimateHistoryTokens(withSys(subHistory)));
-    try { if (parentSession) recordCompactUsage(parentSession, provider, sc); } catch { /* 记账失败不阻断 */ }
+    try { if (parentSession) recordCompactUsage(parentSession, summaryProvider, sc); } catch { /* 记账失败不阻断 */ }
     return true;
   } catch { return false; }
 }
@@ -703,13 +845,18 @@ async function runProviderCompact(sessionId) {
   if (!session) return { ok: false, error: 'session not found' };
   const provider = activeOpenAiProvider(config);
   if (!provider) return { ok: false, error: 'active engine is not an OpenAI-compatible provider' };
+  const compactTarget = resolveCompactionProvider(config, provider);
+  const summaryProvider = compactTarget.provider || provider;
   const history = Array.isArray(session.providerHistory) ? session.providerHistory : [];
   if (!history.length) return { ok: false, error: 'no provider history to compact' };
 
-  const sc = await providerSummaryCall(provider, history);
-  if (!sc.ok) return { ok: false, error: sc.error };
+  const sc = await providerSummaryCall(summaryProvider, history, { model: compactTarget.model });
+  if (!sc.ok) {
+    logEvent({ kind: 'provider_compact', sessionId: session.id, ok: false, provider: summaryProvider.id, model: compactTarget.model, error: sc.error });
+    return { ok: false, error: sc.error };
+  }
   const summary = sc.summary;
-  recordCompactUsage(session, provider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账
+  recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账
 
   const beforeTokens = estimateHistoryTokens(history);
   session.providerHistory = [
@@ -720,12 +867,16 @@ async function runProviderCompact(sessionId) {
   session.messages.push({
     role: 'system',
     content: `🗜 已压缩上下文：${fmtTokensServer(beforeTokens)}→约 ${fmtTokensServer(afterTokens)}（估算）`,
+    usage: {
+      usage: {}, contextTokens: afterTokens, contextWindow: providerContextWindow(provider, provider.model),
+      contextEngine: 'openai', contextProviderId: provider.id, contextModel: String(provider.model || ''), source: 'provider-compact',
+    },
     createdAt: nowIso(), source: 'compact',
   });
   session.providerHistoryCursor = session.messages.length;
   await saveSession(session);
-  logEvent({ kind: 'provider_compact', sessionId: session.id, provider: provider.id, summaryChars: summary.length, beforeTokens, afterTokens });
-  return { ok: true, summaryChars: summary.length, beforeTokens, afterTokens };
+  logEvent({ kind: 'provider_compact', sessionId: session.id, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, beforeTokens, afterTokens });
+  return { ok: true, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, beforeTokens, afterTokens };
 }
 
 // v0.8-S5 AUTO-COMPACTION driver (§7.7). Called at each provider-turn iteration boundary, BEFORE the next
@@ -779,14 +930,16 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
 
     // ── Level 2: summary reseed (still over budget) ─────────────────────────────────────────────────
     const before2 = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a)
-    const sc = await providerSummaryCall(provider, history);
+    const compactTarget = resolveCompactionProvider(config, provider);
+    const summaryProvider = compactTarget.provider || provider;
+    const sc = await providerSummaryCall(summaryProvider, history, { model: compactTarget.model });
     if (!sc.ok) {
       // Level-2 failed (network/timeout). Keep the level-1 result and continue the turn — do NOT abort.
       logEvent({ kind: 'auto_compact', mode: 'summary', sessionId: session.id, ok: false, error: sc.error });
       if (compacted) await saveSession(session).catch(() => {});
       return compacted;
     }
-    recordCompactUsage(session, provider, sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
+    recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
     const boundary = recentTurnsBoundary(history);
     const kept = history.slice(boundary); // last 2 full turns, verbatim (user-boundary → pairing-safe)
     session.providerHistory = [

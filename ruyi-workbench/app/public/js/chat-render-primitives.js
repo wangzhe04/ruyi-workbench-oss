@@ -466,6 +466,7 @@ export function createChatRenderPrimitives(deps = {}) {
   // 被当 64K,「12K/64K·18%」而非真实「12K/1M·1%」,正是用户看到的 65.5k。表已与服务端 MODEL_CONTEXT_TABLE 对齐。
   function ctxWindowGuess(model) {
     const m = String(model || '').toLowerCase();
+    if (/(^|\/)k3$/.test(m)) return 1048576;
     if (/haiku/.test(m)) return 200000;
     if (/opus-4|sonnet-5|sonnet-4|fable|mythos/.test(m)) return 1000000;
     if (/deepseek-v4/.test(m)) return 1000000;   // deepseek-v4 = 1M(此前被并入 65536)
@@ -500,19 +501,82 @@ export function createChatRenderPrimitives(deps = {}) {
   function setCtxWindowManual(n, model) {
     try { if (n > 0) localStorage.setItem(ctxWindowKey(model), String(n)); else localStorage.removeItem(ctxWindowKey(model)); localStorage.removeItem('wcw.ctxWindow'); } catch { /* ignore */ }
   }
+  function currentContextRoute() {
+    const model = String(currentModelId() || '').trim();
+    if (isProviderMode()) return { engine: 'openai', providerId: String(state.config?.activeProvider || ''), model };
+    return { engine: 'agent', agentCliType: String(state.config?.agentCliType || 'claude'), model };
+  }
+  function sameContextModel(a, b) {
+    const left = String(a || '').trim().toLowerCase(), right = String(b || '').trim().toLowerCase();
+    // An empty current model means "CLI/provider default", so an agent-reported concrete model still
+    // belongs to that route. The inverse is unsafe: an untagged/default reading must not survive after
+    // the user explicitly switches to a different model.
+    return !right || (!!left && left === right);
+  }
+  function usageMatchesCurrentRoute(usage) {
+    if (!usage || typeof usage !== 'object') return false;
+    const route = currentContextRoute();
+    if (usage.contextEngine === 'openai') {
+      return route.engine === 'openai'
+        && String(usage.contextProviderId || '') === route.providerId
+        && sameContextModel(usage.contextModel, route.model);
+    }
+    if (usage.contextEngine === 'agent') {
+      return route.engine === 'agent'
+        && String(usage.contextAgentCliType || '') === route.agentCliType
+        && sameContextModel(usage.contextModel, route.model);
+    }
+    if (route.engine === 'agent' && route.agentCliType === 'kimi' && /^(kimi-native|kimi-wire)$/.test(String(usage.source || ''))) {
+      return sameContextModel(usage.model, route.model);
+    }
+    // Backward compatibility for sessions written before route-tagged usage existed. New rows are always
+    // tagged, so they take the strict branches above and cannot leak across an engine/model switch.
+    return !usage.contextEngine;
+  }
+  // A usage row may outlive an engine/model switch. Only let a window tagged for the route that will
+  // consume the NEXT prompt control the denominator. Legacy Kimi rows are identifiable by source/model;
+  // legacy provider compact rows are intentionally rejected because they did not record a provider id.
+  function usageWindowForCurrentRoute() {
+    const usage = state.shownUsage;
+    const value = Number(usage && usage.contextWindow);
+    if (!Number.isFinite(value) || value <= 0 || !usageMatchesCurrentRoute(usage)) return null;
+    const route = currentContextRoute();
+    if (usage.contextEngine === 'openai') {
+      if (route.engine !== 'openai' || String(usage.contextProviderId || '') !== route.providerId || !sameContextModel(usage.contextModel, route.model)) return null;
+      return { value, source: 'usage' };
+    }
+    if (usage.contextEngine === 'agent') {
+      if (route.engine !== 'agent' || String(usage.contextAgentCliType || '') !== route.agentCliType || !sameContextModel(usage.contextModel, route.model)) return null;
+      return { value, source: 'usage' };
+    }
+    if (route.engine === 'agent' && route.agentCliType === 'kimi' && /^(kimi-native|kimi-wire)$/.test(String(usage.source || '')) && sameContextModel(usage.model, route.model)) {
+      return { value, source: 'usage' };
+    }
+    return null;
+  }
+  function statusWindowForCurrentRoute() {
+    const route = currentContextRoute();
+    const r = state.status && state.status.contextWindowResolved;
+    if (route.engine !== 'openai' || !r || r.source === 'fallback' || String(r.provider || '') !== route.providerId || !sameContextModel(r.model, route.model)) return null;
+    const value = Number(r.value);
+    return Number.isFinite(value) && value > 0 ? { value, source: r.source } : null;
+  }
+  function automaticContextWindow() {
+    // Provider status is recomputed from the current persisted provider/model and may include a learned
+    // cap, so it wins there. Agent CLIs have no provider status; Kimi's native usage is authoritative.
+    return (isProviderMode() ? statusWindowForCurrentRoute() || usageWindowForCurrentRoute() : usageWindowForCurrentRoute())
+      || { value: ctxWindowGuess(currentModelId()), source: 'guess' };
+  }
   function ctxWindow() {
     const o = ctxWindowManual();
-    if (o > 0) return o;
-    const r = state.status && state.status.contextWindowResolved;
-    if (r && r.source && r.source !== 'fallback' && Number.isFinite(r.value) && r.value > 0) return r.value;
-    return ctxWindowGuess(currentModelId());
+    return o > 0 ? o : automaticContextWindow().value;
   }
   // 当前上限读数的来源人话标签(供电量表 tooltip + 弹层)。「按名称推测」= 端点未报告真实上限、只能按模型名猜,可能不准。
   function ctxWindowSourceLabel() {
     if (ctxWindowManual() > 0) return t('ctx.sourceLabel.manual');
-    const r = state.status && state.status.contextWindowResolved;
-    if (r && r.source === 'probe' && r.value > 0) return t('ctx.sourceLabel.probe');
-    if (r && r.source === 'manual' && r.value > 0) return t('ctx.sourceLabel.settingsFixed');
+    const resolved = automaticContextWindow();
+    if (resolved.source === 'usage' || resolved.source === 'probe') return t('ctx.sourceLabel.probe');
+    if (resolved.source === 'manual') return t('ctx.sourceLabel.settingsFixed');
     return t('ctx.sourceLabel.guessed');
   }
   // Context "in play" after a turn. Prefer the server's accurate per-call figure (contextTokens);
@@ -527,13 +591,15 @@ export function createChatRenderPrimitives(deps = {}) {
   function latestUsage(session) {
     const msgs = session && session.messages;
     if (!Array.isArray(msgs)) return null;
-    for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i] && msgs[i].usage) return msgs[i].usage;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i] && msgs[i].usage && usageMatchesCurrentRoute(msgs[i].usage)) return msgs[i].usage;
+    }
     return null;
   }
   function renderContextMeter(u) {
     const box = $('contextMeter');
     if (!box) return;
-    const n = ctxTokensOf(u);
+    const n = usageMatchesCurrentRoute(u) ? ctxTokensOf(u) : null;
     if (n == null) { state.shownUsage = null; box.classList.add('hidden'); return; }
     state.shownUsage = u;
     const win = ctxWindow(), pct = win > 0 ? n / win : 0;

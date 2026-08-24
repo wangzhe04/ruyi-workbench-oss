@@ -637,6 +637,20 @@ function openBulkCleanupModal() {
 }
 
 /* ---------------- message rendering ---------------- */
+let kimiContextRefreshSeq = 0;
+function refreshKimiContextForSession(session) {
+  // `agentCliType` is only the fallback Agent driver. While an OpenAI-compatible Provider is active,
+  // its compacted providerHistory is authoritative; a late Kimi status response must not restore the
+  // pre-compaction numerator over the freshly reloaded Provider usage row.
+  if (!session || isProviderMode() || state.config?.agentCliType !== 'kimi' || !session.id) return;
+  const sid = session.id;
+  const seq = ++kimiContextRefreshSeq;
+  api(`/api/kimi/status?sessionId=${encodeURIComponent(sid)}`).then(result => {
+    if (seq !== kimiContextRefreshSeq || state.currentSession?.id !== sid || !result?.ok || !result.usage) return;
+    state.shownUsage = result.usage;
+    renderContextMeter(result.usage);
+  }).catch(() => {});
+}
 function renderCurrentSession() {
   const session = state.currentSession;
   state.shownUsage = null;
@@ -661,6 +675,7 @@ function renderCurrentSession() {
     box.replaceChildren(buildEmptyState());
     settleLog();
     renderContextMeter(null);
+    refreshKimiContextForSession(session);
     return;
   }
   // v1.0-S7 / 第77波(perf): render only a count/weight bounded tail so opening a long or payload-heavy
@@ -700,6 +715,7 @@ function renderCurrentSession() {
   settleLog();
   restoreScrollAnchor(box, anchor || { atBottom: true });
   renderContextMeter(latestUsage(session));
+  refreshKimiContextForSession(session);
 }
 // v1.0-S7 (perf): compute the first-rendered-message index for the current window. Returns 0 (render all)
 // for a small session or once the user has expanded to the top. state.msgWindowStart is the persisted

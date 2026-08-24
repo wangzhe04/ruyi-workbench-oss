@@ -364,7 +364,7 @@ function handlePermissionRequest(evt) {
       saveConfigPartial({ toolAllowRules: rules });
       toast(t('permission.alwaysAllowed', { tool: humanizeToolName(tool) }), 'ok');
     }
-    decide(evt.requestId, 'allow'); modal.close();
+    decide(evt.requestId, 'allow', sessBox.checked ? { scope: 'session' } : undefined); modal.close();
   };
 }
 

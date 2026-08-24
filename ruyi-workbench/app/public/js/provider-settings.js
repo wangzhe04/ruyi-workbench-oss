@@ -24,6 +24,7 @@ export function createProviderSettingsDomain({
   switchTab = () => {},
   openToolPane = () => {},
   runTool = async () => {},
+  updateContextMeter = () => {},
 } = {}) {
 async function refreshStatus() {
   state.status = await api('/api/status');
@@ -77,6 +78,16 @@ function updateAgentCliSettingsVisibility() {
   const type = selected && Object.prototype.hasOwnProperty.call(AGENT_CLI_LABELS, selected.value) ? selected.value : currentAgentCliType();
   document.querySelectorAll('[data-agent-cli-path]').forEach(node => node.classList.toggle('hidden', node.dataset.agentCliPath !== type));
   document.querySelectorAll('[data-agent-cli-only]').forEach(node => node.classList.toggle('hidden', node.dataset.agentCliOnly !== type));
+  const effort = $('cfgThinkingEffort');
+  if (effort) {
+    const supported = type === 'kimi' ? new Set(['', 'low', 'high', 'max']) : null;
+    for (const option of effort.options) {
+      const unavailable = Boolean(supported && !supported.has(option.value));
+      option.disabled = unavailable;
+      option.hidden = unavailable;
+    }
+    if (supported && !supported.has(effort.value)) effort.value = '';
+  }
   const hint = $('agentCliCapabilityHint');
   if (hint) hint.textContent = t(`settings.agentCli.hint.${type}`);
 }
@@ -151,6 +162,13 @@ async function refreshModels(announce) {
       renderModelChip();
       if (announce) toast(r.proxyCount ? tCount('modelMenu.refreshSuccessProxy', r.proxyCount) : t('modelMenu.refreshSuccessBuiltin'), 'ok');
     } else if (announce) { toast(t('modelMenu.refreshUnchanged'), ''); }
+    // /api/models may have populated the server's per-model context probe cache. Pull just the freshly
+    // resolved limit so the context meter does not keep the pre-refresh table/fallback value.
+    try {
+      const fresh = await api('/api/status');
+      if (state.status && fresh) state.status.contextWindowResolved = fresh.contextWindowResolved;
+      updateContextMeter();
+    } catch { /* model discovery still succeeded; keep the previous best-effort denominator */ }
   } catch (e) { if (announce) toast(t('modelMenu.refreshFailed', { error: apiErrText(e) }), 'err'); }
 }
 // Keep the compact sidebar status line language-aware as well as engine-aware. It is invoked after

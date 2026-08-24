@@ -723,7 +723,7 @@
   "settings.agentCli.tab": "Agent CLI",
   "settings.agentCli.driver": "Agent CLI driver",
   "settings.agentCli.hint.claude": "Full support: live streaming, interactive steering, permission bridge, native agents, and per-turn MCP configuration.",
-  "settings.agentCli.hint.kimi": "Kimi Code uses its native stream-json protocol and session resume. Prompt mode runs autonomously; live steering and Ruyi permission prompts are not currently available. Ruyi MCP entries are merged into KIMI_CODE_HOME/mcp.json (default ~/.kimi-code/mcp.json); Claude CLI nodes in Ruyi DAGs still run through Claude Code.",
+  "settings.agentCli.hint.kimi": "Kimi Code uses its official interactive ACP protocol: session resume, streamed replies/thoughts, tools, model, thinking effort, Manual/YOLO/Auto/Plan, stop, permission approval, and structured questions are mapped into Ruyi; context usage and native compaction still use Kimi's authoritative state. ACP does not yet expose native mid-prompt steer, so Ruyi queues it as the immediate follow-up in the same native session. Ruyi MCP entries are merged into KIMI_CODE_HOME/mcp.json (default ~/.kimi-code/mcp.json).",
   "settings.claudePath": "Claude CLI path",
   "settings.claudePathPlaceholder": "claude.cmd or the complete path to an internal CLI",
   "settings.kimiPath": "Kimi Code CLI path",

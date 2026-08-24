@@ -1828,7 +1828,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     turnUsage.cached_input_tokens += cachedInTok;
     usageCalls += 1;
     noteEstimateSample(provider.id, model, lastEstBeforeCall, inTok); // 45d(a):真实 usage ÷ 发送前估算 → EMA 校准
-    usageObj = { usage: { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens, cached_input_tokens: turnUsage.cached_input_tokens }, contextTokens: total || undefined, calls: usageCalls };
+    usageObj = {
+      usage: { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens, cached_input_tokens: turnUsage.cached_input_tokens },
+      contextTokens: total || undefined, contextWindow: providerContextWindow(provider, model), calls: usageCalls,
+      contextEngine: 'openai', contextProviderId: provider.id, contextModel: model,
+    };
   };
   const toolBudget = resolveToolIterationBudget(config.openaiMaxToolIterations, message, {
     driverAuto,
@@ -2861,7 +2865,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const lastMsg = session.providerHistory[session.providerHistory.length - 1];
       const estOut = (lastMsg && lastMsg.role === 'assistant') ? Math.round(estimateContentTokens(lastMsg.content)) : 0;
       const estIn = Math.max(0, estTotal - estOut);
-      usageObj = { usage: { input_tokens: estIn, output_tokens: estOut }, contextTokens: estTotal, calls: 0, estimated: true };
+      usageObj = {
+        usage: { input_tokens: estIn, output_tokens: estOut }, contextTokens: estTotal,
+        contextWindow: providerContextWindow(provider, model), calls: 0, estimated: true,
+        contextEngine: 'openai', contextProviderId: provider.id, contextModel: model,
+      };
       onEvent({ type: 'usage', ...usageObj });
     }
   }

@@ -1500,6 +1500,29 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
         return out;
       })
       .filter(m => m.id);
+    // Ollama's OpenAI-compatible /v1/models omits context length, while its native /api/show reports
+    // `<architecture>.context_length`. Probe the same configured origin (no new host) so local compactors
+    // budget against their real window instead of the generic 64K fallback.
+    let ollamaOrigin = '';
+    try {
+      const configured = new URL(String(provider && provider.baseUrl || ''));
+      if (/ollama/i.test(String(provider && (provider.id + ' ' + provider.label) || '')) || configured.port === '11434') ollamaOrigin = configured.origin;
+    } catch { /* non-URL base was already rejected above */ }
+    if (ollamaOrigin) {
+      await Promise.all(models.filter(m => !m.contextLength).slice(0, 32).map(async m => {
+        try {
+          const shown = await fetch(ollamaOrigin + '/api/show', {
+            method: 'POST', headers, body: JSON.stringify({ model: m.id }), signal: ctrl ? ctrl.signal : undefined,
+          });
+          if (!shown || !shown.ok) return;
+          const detail = await shown.json();
+          const info = detail && detail.model_info;
+          if (!info || typeof info !== 'object') return;
+          const pair = Object.entries(info).find(([name, value]) => /(?:^|\.)context_length$/i.test(name) && Number(value) > 0);
+          if (pair) m.contextLength = Math.round(Number(pair[1]));
+        } catch { /* OpenAI-compatible but not native Ollama, or native probe unavailable */ }
+      }));
+    }
     const providerId = provider && provider.id;
     for (const m of models) if (m.contextLength) cacheContextLength(providerId, m.id, m.contextLength);
     return { ok: true, models };

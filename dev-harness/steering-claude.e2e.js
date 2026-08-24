@@ -92,7 +92,11 @@ async function getToken(port) {
   ok(app.includes('r.injected') && app.includes("t('toast.steerInjected')") && app.includes("t('toast.steerQueued')"), 'S7 前端 toast 区分即时/下步生效(50c i18n:toast.steerInjected/Queued)');
   ok(!app.includes("isClaudeNode ? t('workflow.steerDeferred')"), 'S8 工作台 Claude 节点不再显示延迟插话');
   ok(zh.includes('"workflow.steer"') && en.includes('"workflow.steer"'), 'S9 i18n 双语通用 steer 键同交');
-  ok(src.indexOf("reg.kind === 'claude'") > 0 && src.indexOf("reg.kind === 'claude'") < src.indexOf('仅 provider 引擎支持插话'), 'S10 claude 分派先于旧口径 fallthrough(不再一刀切)');
+  const steerRouteSrc = src.slice(src.indexOf('async function handleSteerApiRoute'), src.indexOf('async function handleSteerApiRoute') + 12000);
+  ok(steerRouteSrc.indexOf("reg.kind === 'kimi-acp'") > 0
+    && steerRouteSrc.indexOf("reg.kind === 'kimi-acp'") < steerRouteSrc.indexOf("reg.kind === 'claude'")
+    && steerRouteSrc.indexOf("reg.kind === 'claude'") < steerRouteSrc.indexOf('当前引擎不支持插话'),
+  'S10 Kimi ACP/Claude 分派均先于通用 fallthrough(不再一刀切)');
   // 50-fix:三态按钮(用户报告"流式中输入后还是停止,不会变成 Steer")
   ok(app.includes('function updateSendBtn()'), 'S11 updateSendBtn 三态函数在(发送/插话/停止)');
   ok(/steer = streaming && !!\(\(\$\('promptInput'\)/.test(app) || app.includes("const steer = streaming &&"), 'S12 流式+有文本 → 插话态判定在');
