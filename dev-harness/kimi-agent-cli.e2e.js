@@ -81,6 +81,7 @@ ok(/compactProviderId/.test(navigation) && /默认（Kimi 原生压缩）/.test(
 ok(/\/api\/agent\/compact/.test(streamUi) && !/sendPrompt\('\/compact'\)[\s\S]{0,120}agentCliType === 'kimi'/.test(streamUi), 'Kimi manual compact routes to native API instead of prompt text');
 ok(/isProviderMode\(\) \|\| state\.config\?\.agentCliType !== 'kimi'/.test(sessionUi), 'Kimi status refresh cannot overwrite active Provider compaction usage');
 ok(/handle && !isProviderMode\(\) && state\.config\?\.agentCliType === 'kimi'/.test(navigation), 'opening the Provider context popover cannot trigger a late Kimi usage overwrite');
+ok(/case 'tool_use_update'/.test(streamUi) && /card\.inp\.textContent/.test(streamUi), 'live Kimi tool input updates refresh the existing Ruyi tool card');
 const engine = fs.readFileSync(path.join(WB, 'app', 'src', '05-claude-engine.js'), 'utf8');
 ok(/value="kimi">Kimi Code</.test(html) && /settings\.agentCli\.tab/.test(html), 'settings exposes Agent CLI selector with Kimi');
 ok(/detectedKimiPath/.test(ui) && /currentAgentCliLabel/.test(ui), 'frontend readiness and labels follow selected driver');
@@ -91,11 +92,20 @@ try {
   const kimiHome = path.join(mcpHome, 'custom-kimi-home');
   fs.mkdirSync(kimiHome, { recursive: true });
   fs.writeFileSync(path.join(kimiHome, 'mcp.json'), JSON.stringify({ mcpServers: { keepMe: { command: 'keep-command' } } }));
+  const mcpConfig = server.normalizeConfig({
+    includeWorkbenchMcp: true, mcpCommandMode: 'node',
+    desktopMcp: { enabled: true, autodetect: false, command: process.execPath, args: ['fake-acc-server.js'] },
+    externalMcpServers: [
+      { id: 'acc', label: 'Duplicate ACC alias', command: 'python', args: ['-m', 'ai_computer_control.server'], toolTimeoutMs: 120000 },
+      { id: 'slow-tool', command: process.execPath, args: ['fake-slow-tool.js'], startupTimeoutMs: 4321, toolTimeoutMs: 123456, enabledTools: ['run'] },
+    ],
+  }).config;
+  fs.writeFileSync(path.join(mcpHome, 'config.json'), JSON.stringify(mcpConfig, null, 2));
   const childScript = [
     `const fs=require('fs'); const server=require(${JSON.stringify(path.join(WB, 'app', 'server.js'))});`,
     `(async()=>{ const target=${JSON.stringify(path.join(kimiHome, 'mcp.json'))};`,
-    `await server.syncMcpServersToKimi(server.normalizeConfig({mcpCommandMode:'node',includeWorkbenchMcp:true}).config); const enabled=JSON.parse(fs.readFileSync(target,'utf8'));`,
-    `await server.syncMcpServersToKimi(server.normalizeConfig({mcpCommandMode:'node',includeWorkbenchMcp:false}).config); const disabled=JSON.parse(fs.readFileSync(target,'utf8'));`,
+    `const cfg=server.normalizeConfig(${JSON.stringify(mcpConfig)}).config; await server.syncMcpServersToKimi(cfg); const enabled=JSON.parse(fs.readFileSync(target,'utf8'));`,
+    `await server.syncMcpServersToKimi({...cfg,includeWorkbenchMcp:false}); const disabled=JSON.parse(fs.readFileSync(target,'utf8'));`,
     `process.stdout.write(JSON.stringify({enabled,disabled})); })().catch(e=>{console.error(e);process.exit(1)});`,
   ].join('');
   const synced = JSON.parse(cp.execFileSync(process.execPath, ['-e', childScript], {
@@ -104,6 +114,9 @@ try {
   }));
   ok(synced.enabled?.mcpServers?.keepMe?.command === 'keep-command', 'Kimi MCP sync preserves unrelated user entries');
   ok(synced.enabled?.mcpServers?.['win-claude-workbench']?.command && !('type' in synced.enabled.mcpServers['win-claude-workbench']), 'Kimi MCP sync writes native inferred-transport shape');
+  ok(synced.enabled?.mcpServers?.['win-claude-workbench']?.toolTimeoutMs === 900000, 'Kimi MCP sync grants Ruyi bridge its long-running tool budget');
+  ok(synced.enabled?.mcpServers?.['ai-computer-control']?.toolTimeoutMs === 650000 && !synced.enabled?.mcpServers?.acc, 'Kimi MCP sync removes duplicate ACC aliases and avoids the 60-second transport timeout');
+  ok(synced.enabled?.mcpServers?.['slow-tool']?.startupTimeoutMs === 4321 && synced.enabled?.mcpServers?.['slow-tool']?.toolTimeoutMs === 123456 && synced.enabled?.mcpServers?.['slow-tool']?.enabledTools?.[0] === 'run', 'Kimi MCP sync preserves per-server timeout and tool filters');
   ok(!synced.disabled?.mcpServers?.['win-claude-workbench'] && synced.disabled?.mcpServers?.keepMe?.command === 'keep-command', 'disabling Ruyi MCP removes only Ruyi-owned Kimi entries');
 } finally {
   fs.rmSync(mcpHome, { recursive: true, force: true });
@@ -174,15 +187,20 @@ function stream(port, body, onEvent) {
     fs.mkdirSync(path.dirname(entry), { recursive: true });
     fs.writeFileSync(entry, [
       "import readline from 'node:readline';",
+      "import path from 'node:path';",
       "const args = process.argv.slice(2);",
       "if (args.includes('--version')) { console.log('0.37.2-test'); process.exit(0); }",
       "if (args[0] === 'provider' && args[1] === 'list' && args.includes('--json')) { console.log(JSON.stringify({providers:{'managed:kimi-code':{type:'kimi'}},models:{'kimi-code/k3-256k':{provider:'managed:kimi-code',model:'k3-256k',displayName:'K3 256K',maxContextSize:262144},'custom/fast':{provider:'custom',model:'fast',displayName:'Fast'}}})); process.exit(0); }",
       "if (args[0] !== 'acp') process.exit(2);",
       "const send=o=>process.stdout.write(JSON.stringify(o)+'\\n');",
-      "let promptSeq=0; const waiting=new Map();",
+      "let promptSeq=0; const waiting=new Map(); const reverse=(id,method,params,reply)=>{waiting.set(String(id),{reply});send({jsonrpc:'2.0',id,method,params});};",
       "const update=(sessionId,update)=>send({jsonrpc:'2.0',method:'session/update',params:{sessionId,update}});",
-      "const current=(prompt,text)=>new RegExp('<current_user_message>\\\\s*'+text+'\\\\s*</current_user_message>').test(prompt); const finishPrompt=(msg,prompt,answer)=>{ const sid=String(msg.params.sessionId); const n=++promptSeq; update(sid,{sessionUpdate:'agent_message_chunk',content:{type:'text',text:(answer||'KIMI_E2E:'+current(prompt,'hello-kimi'))}}); update(sid,{sessionUpdate:'tool_call',toolCallId:'turn'+n+':tool-1',title:'Read',kind:'read',status:'in_progress',rawInput:{path:'demo.txt'}}); update(sid,{sessionUpdate:'tool_call_update',toolCallId:'turn'+n+':tool-1',status:'completed',rawOutput:'fixture-result'}); update(sid,{sessionUpdate:'plan_update',plan:{type:'items',planId:'plan-e2e',entries:[{content:'Inspect ACP mapping',priority:'high',status:'completed'}]}}); update(sid,{sessionUpdate:'usage_update',used:1234+n,size:262144}); setTimeout(()=>send({jsonrpc:'2.0',id:msg.id,result:{stopReason:'end_turn',usage:{inputTokens:101,outputTokens:7,totalTokens:108}}}),prompt.includes('cancel-kimi')?10000:(prompt.includes('steer-base')?500:10)); };",
-      "readline.createInterface({input:process.stdin}).on('line',line=>{ let msg; try{msg=JSON.parse(line)}catch{return}; if(!msg.method&&msg.id!==undefined){ const held=waiting.get(String(msg.id)); if(held){waiting.delete(String(msg.id)); const option=String(msg.result&&msg.result.outcome&&msg.result.outcome.optionId); finishPrompt(held.msg,held.prompt,(held.kind==='permission'?'KIMI_PERMISSION_OPTION:':'KIMI_QUESTION_OPTION:')+option);} return;} const m=msg.method; if(m==='initialize') return send({jsonrpc:'2.0',id:msg.id,result:{protocolVersion:1,agentInfo:{name:'Kimi Code CLI',version:'0.37.2-test'},agentCapabilities:{loadSession:true,sessionCapabilities:{resume:{}},promptCapabilities:{image:true,embeddedContext:true}}}}); if(m==='session/new') return send({jsonrpc:'2.0',id:msg.id,result:{sessionId:'kimi-session-e2e',configOptions:[]}}); if(m==='session/resume') return send({jsonrpc:'2.0',id:msg.id,result:{configOptions:[]}}); if(m==='session/set_config_option') return send({jsonrpc:'2.0',id:msg.id,result:{configOptions:[{id:msg.params.configId,currentValue:msg.params.value}]}}); if(m==='session/close') return send({jsonrpc:'2.0',id:msg.id,result:{}}); if(m==='session/cancel') return; if(m==='session/prompt'){ const prompt=String(msg.params.prompt&&msg.params.prompt[0]&&msg.params.prompt[0].text||''); if(current(prompt,'fail-kimi')) return send({jsonrpc:'2.0',id:msg.id,error:{code:-32000,message:'provider.auth_error: 403 usage limit reached'}}); if(current(prompt,'required-kimi')) return send({jsonrpc:'2.0',id:msg.id,error:{code:-32602,message:'required parameter cwd is missing'}}); if(current(prompt,'approve-kimi')){ waiting.set('reverse-p',{msg,prompt,kind:'permission'}); return send({jsonrpc:'2.0',id:'reverse-p',method:'session/request_permission',params:{sessionId:msg.params.sessionId,toolCall:{toolCallId:'bash-1',title:'Bash',kind:'execute',rawInput:{command:'echo safe'},content:[]},options:[{optionId:'approve_once',name:'Approve once',kind:'allow_once'},{optionId:'approve_always',name:'Approve for this session',kind:'allow_always'},{optionId:'reject',name:'Reject',kind:'reject_once'}]}});} if(current(prompt,'ask-kimi')){ waiting.set('reverse-q',{msg,prompt,kind:'question'}); return send({jsonrpc:'2.0',id:'reverse-q',method:'session/request_permission',params:{sessionId:msg.params.sessionId,toolCall:{toolCallId:'ask-1',title:'AskUserQuestion',content:[{type:'content',content:{type:'text',text:'Choose a Kimi option'}}]},options:[{optionId:'q0_opt_0',name:'Alpha',kind:'allow_once'},{optionId:'q0_opt_1',name:'Beta',kind:'allow_once'},{optionId:'q0_skip',name:'Skip',kind:'reject_once'}]}});} return finishPrompt(msg,prompt); } send({jsonrpc:'2.0',id:msg.id,error:{code:-32601,message:'unknown'}});});",
+      "const current=(prompt,text)=>new RegExp('<current_user_message>\\\\s*'+text+'\\\\s*</current_user_message>').test(prompt); const finishPrompt=(msg,prompt,answer)=>{ const sid=String(msg.params.sessionId); const n=++promptSeq; update(sid,{sessionUpdate:'agent_message_chunk',content:{type:'text',text:(answer||'KIMI_E2E:'+current(prompt,'hello-kimi'))}}); update(sid,{sessionUpdate:'tool_call',toolCallId:'turn'+n+':tool-1',title:'Read',kind:'read',status:'in_progress'}); update(sid,{sessionUpdate:'tool_call_update',toolCallId:'turn'+n+':tool-1',rawInput:{path:'demo-updated.txt'}}); update(sid,{sessionUpdate:'tool_call_update',toolCallId:'turn'+n+':tool-1',status:'completed',rawOutput:'fixture-result'}); update(sid,{sessionUpdate:'plan_update',plan:{type:'items',planId:'plan-e2e',entries:[{content:'Inspect ACP mapping',priority:'high',status:'completed'}]}}); update(sid,{sessionUpdate:'usage_update',used:1234+n,size:262144}); setTimeout(()=>send({jsonrpc:'2.0',id:msg.id,result:{stopReason:'end_turn',usage:{inputTokens:101,outputTokens:7,totalTokens:108}}}),prompt.includes('cancel-kimi')?10000:(prompt.includes('steer-base')?500:10)); };",
+      "const terminalFlow=(msg,prompt)=>{const sid=String(msg.params.sessionId);update(sid,{sessionUpdate:'tool_call',toolCallId:'native-bash',title:'Bash',kind:'execute',status:'in_progress'});reverse('reverse-terminal-create','terminal/create',{sessionId:sid,command:process.execPath,args:['-e',\"process.stdout.write('ACP_TERMINAL_OK')\"],cwd:process.cwd(),env:[],outputByteLimit:65536},created=>{if(created.error)return finishPrompt(msg,prompt,'KIMI_TERMINAL_ERROR:'+created.error.message);const terminalId=created.result.terminalId;update(sid,{sessionUpdate:'tool_call_update',toolCallId:'native-bash',title:'Running native Bash',rawInput:{command:'node marker'}});reverse('reverse-terminal-wait','terminal/wait_for_exit',{sessionId:sid,terminalId},()=>reverse('reverse-terminal-output','terminal/output',{sessionId:sid,terminalId},output=>reverse('reverse-terminal-release','terminal/release',{sessionId:sid,terminalId},()=>{update(sid,{sessionUpdate:'tool_call_update',toolCallId:'native-bash',status:'completed',content:{type:'terminal',terminalId}});finishPrompt(msg,prompt,'KIMI_TERMINAL:'+String(output.result&&output.result.output));})));});};",
+      "const fsFlow=(msg,prompt)=>{const sid=String(msg.params.sessionId),file=path.join(process.cwd(),'acp-fs-roundtrip.txt');reverse('reverse-fs-write','fs/write_text_file',{sessionId:sid,path:file,content:'ACP_FS_OK'},written=>{if(written.error)return finishPrompt(msg,prompt,'KIMI_FS_ERROR:'+written.error.message);reverse('reverse-fs-read','fs/read_text_file',{sessionId:sid,path:file,line:1,limit:1},read=>finishPrompt(msg,prompt,'KIMI_FS:'+String(read.result&&read.result.content)));});};",
+      "const elicitFlow=(msg,prompt)=>{const sid=String(msg.params.sessionId);reverse('reverse-elicit','elicitation/create',{sessionId:sid,toolCallId:'elicit-tool',mode:'form',message:'Choose execution settings',requestedSchema:{type:'object',properties:{strategy:{type:'string',title:'Strategy',oneOf:[{const:'safe',title:'Safe'},{const:'fast',title:'Fast'}]},confirm:{type:'boolean',title:'Confirm'}},required:['strategy','confirm']}},reply=>finishPrompt(msg,prompt,'KIMI_ELICIT:'+JSON.stringify(reply.result||reply.error)));};",
+      "const cancelReverseFlow=(msg,prompt)=>{const sid=String(msg.params.sessionId);reverse('reverse-cancel-create','terminal/create',{sessionId:sid,command:process.execPath,args:['-e','setTimeout(()=>{},10000)'],cwd:process.cwd(),env:[]},created=>{if(created.error)return finishPrompt(msg,prompt,'KIMI_CANCEL_CREATE_ERROR');const terminalId=created.result.terminalId;reverse('reverse-cancel-wait','terminal/wait_for_exit',{sessionId:sid,terminalId},waited=>reverse('reverse-cancel-kill','terminal/kill',{sessionId:sid,terminalId},()=>reverse('reverse-cancel-release','terminal/release',{sessionId:sid,terminalId},()=>finishPrompt(msg,prompt,'KIMI_CANCEL_CODE:'+String(waited.error&&waited.error.code)))));setTimeout(()=>send({jsonrpc:'2.0',method:'$/cancel_request',params:{requestId:'reverse-cancel-wait'}}),50);});};",
+      "readline.createInterface({input:process.stdin}).on('line',line=>{ let msg; try{msg=JSON.parse(line)}catch{return}; if(!msg.method&&msg.id!==undefined){ const held=waiting.get(String(msg.id)); if(held){waiting.delete(String(msg.id)); if(held.reply)return held.reply(msg); const option=String(msg.result&&msg.result.outcome&&msg.result.outcome.optionId); finishPrompt(held.msg,held.prompt,(held.kind==='permission'?'KIMI_PERMISSION_OPTION:':'KIMI_QUESTION_OPTION:')+option);} return;} const m=msg.method; if(m==='initialize'){const caps=msg.params&&msg.params.clientCapabilities||{};if(caps.terminal!==true||caps.fs?.readTextFile!==true||caps.fs?.writeTextFile!==true||!caps.elicitation?.form||!caps.elicitation?.url||!caps.plan)return send({jsonrpc:'2.0',id:msg.id,error:{code:-32602,message:'missing Ruyi ACP client capabilities'}});return send({jsonrpc:'2.0',id:msg.id,result:{protocolVersion:1,agentInfo:{name:'Kimi Code CLI',version:'0.37.2-test'},agentCapabilities:{loadSession:true,sessionCapabilities:{resume:{}},promptCapabilities:{image:true,embeddedContext:true}}}});} if(m==='session/new') return send({jsonrpc:'2.0',id:msg.id,result:{sessionId:'kimi-session-e2e',configOptions:[]}}); if(m==='session/resume') return send({jsonrpc:'2.0',id:msg.id,result:{configOptions:[]}}); if(m==='session/set_config_option') return send({jsonrpc:'2.0',id:msg.id,result:{configOptions:[{id:msg.params.configId,currentValue:msg.params.value}]}}); if(m==='session/close') return send({jsonrpc:'2.0',id:msg.id,result:{}}); if(m==='session/cancel') return; if(m==='session/prompt'){ const prompt=String(msg.params.prompt&&msg.params.prompt[0]&&msg.params.prompt[0].text||''); if(current(prompt,'fail-kimi')) return send({jsonrpc:'2.0',id:msg.id,error:{code:-32000,message:'provider.auth_error: 403 usage limit reached'}}); if(current(prompt,'required-kimi')) return send({jsonrpc:'2.0',id:msg.id,error:{code:-32602,message:'required parameter cwd is missing'}}); if(current(prompt,'terminal-kimi'))return terminalFlow(msg,prompt); if(current(prompt,'fs-kimi'))return fsFlow(msg,prompt); if(current(prompt,'elicit-kimi'))return elicitFlow(msg,prompt); if(current(prompt,'cancel-reverse-kimi'))return cancelReverseFlow(msg,prompt); if(current(prompt,'approve-kimi')){ waiting.set('reverse-p',{msg,prompt,kind:'permission'}); return send({jsonrpc:'2.0',id:'reverse-p',method:'session/request_permission',params:{sessionId:msg.params.sessionId,toolCall:{toolCallId:'bash-1',title:'Bash',kind:'execute',rawInput:{command:'echo safe'},content:[]},options:[{optionId:'approve_once',name:'Approve once',kind:'allow_once'},{optionId:'approve_always',name:'Approve for this session',kind:'allow_always'},{optionId:'reject',name:'Reject',kind:'reject_once'}]}});} if(current(prompt,'ask-kimi')){ waiting.set('reverse-q',{msg,prompt,kind:'question'}); return send({jsonrpc:'2.0',id:'reverse-q',method:'session/request_permission',params:{sessionId:msg.params.sessionId,toolCall:{toolCallId:'ask-1',title:'AskUserQuestion',content:[{type:'content',content:{type:'text',text:'Choose a Kimi option'}}]},options:[{optionId:'q0_opt_0',name:'Alpha',kind:'allow_once'},{optionId:'q0_opt_1',name:'Beta',kind:'allow_once'},{optionId:'q0_skip',name:'Skip',kind:'reject_once'}]}});} return finishPrompt(msg,prompt); } send({jsonrpc:'2.0',id:msg.id,error:{code:-32601,message:'unknown'}});});",
     ].join('\n'));
     const shim = path.join(npmBin, 'kimi.cmd');
     fs.writeFileSync(shim, `@"${process.execPath}" "%~dp0\\..\\@moonshot-ai\\kimi-code\\dist\\main.mjs" %*\r\n`);
@@ -213,6 +231,7 @@ function stream(port, body, onEvent) {
       ok(meta?.agentCliType === 'kimi' && meta?.agentDriver === 'kimi-acp', 'turn metadata identifies Kimi ACP driver');
       ok(events.some(event => event.type === 'assistant_delta' && /KIMI_E2E:true/.test(event.text)), 'Kimi ACP assistant chunks reach the chat stream');
       ok(events.some(event => event.type === 'tool_use' && event.name === 'Read'), 'Kimi tool call reaches the chat stream');
+      ok(events.some(event => event.type === 'tool_use_update' && event.input?.path === 'demo-updated.txt'), 'late Kimi tool input updates reach the existing chat card');
       ok(events.some(event => event.type === 'tool_result' && /:tool-1$/.test(event.id)), 'Kimi tool result reaches the chat stream');
       ok(events.some(event => event.type === 'todo' && event.items?.[0]?.text === 'Inspect ACP mapping' && event.items[0].status === 'done'), 'nested ACP plan_update maps to Ruyi todos');
       ok(events.some(event => event.type === 'usage' && event.contextWindow === 262144), 'Kimi ACP usage update reaches the context panel');
@@ -239,6 +258,35 @@ function stream(port, body, onEvent) {
       });
       ok(approved.some(event => event.type === 'permission_request' && event.toolName === 'Bash'), 'Kimi tool approval uses the Ruyi permission surface');
       ok(approved.some(event => event.type === 'assistant_delta' && /KIMI_PERMISSION_OPTION:approve_always/.test(event.text)), 'session-scoped approval maps to ACP allow_always');
+
+      const terminal = await stream(port, { sessionId, message: 'terminal-kimi', cwd: project, attachments: [] }, event => {
+        if (event.type === 'permission_request') return postJson(port, '/api/permission/decision', { requestId: event.requestId, behavior: 'allow', scope: 'once' });
+      });
+      ok(terminal.some(event => event.type === 'assistant_delta' && /KIMI_TERMINAL:ACP_TERMINAL_OK/.test(event.text)), 'Kimi ACP Bash uses the Ruyi terminal capability and returns output');
+      ok(terminal.some(event => event.type === 'tool_result' && event.id === 'native-bash' && event.content === 'ACP_TERMINAL_OK'), 'released ACP terminal output replaces the opaque terminalId in the Ruyi tool card');
+
+      const fileRoundtrip = await stream(port, { sessionId, message: 'fs-kimi', cwd: project, attachments: [] }, event => {
+        if (event.type === 'permission_request') return postJson(port, '/api/permission/decision', { requestId: event.requestId, behavior: 'allow', scope: 'once' });
+      });
+      ok(fileRoundtrip.some(event => event.type === 'assistant_delta' && /KIMI_FS:ACP_FS_OK/.test(event.text)), 'Kimi ACP text write/read round-trips through guarded Ruyi filesystem calls');
+      ok(fs.readFileSync(path.join(project, 'acp-fs-roundtrip.txt'), 'utf8') === 'ACP_FS_OK', 'ACP filesystem write is applied in the selected workspace');
+
+      const elicited = await stream(port, { sessionId, message: 'elicit-kimi', cwd: project, attachments: [] }, event => {
+        if (event.type !== 'ask_user') return;
+        return postJson(port, '/api/chat/answer', {
+          sessionId, questionId: event.questionId,
+          answers: event.questions.map(question => ({
+            questionId: question.id,
+            selectedOptionIds: [question.header === 'Strategy' ? 'kimi_strategy_1' : 'kimi_confirm_0'],
+          })),
+        });
+      });
+      ok(elicited.some(event => event.type === 'assistant_delta' && /KIMI_ELICIT:.*\"strategy\":\"fast\".*\"confirm\":true/.test(event.text)), 'Kimi ACP form elicitation maps to structured Ruyi user input');
+
+      const reverseCancelled = await stream(port, { sessionId, message: 'cancel-reverse-kimi', cwd: project, attachments: [] }, event => {
+        if (event.type === 'permission_request') return postJson(port, '/api/permission/decision', { requestId: event.requestId, behavior: 'allow', scope: 'once' });
+      });
+      ok(reverseCancelled.some(event => event.type === 'assistant_delta' && /KIMI_CANCEL_CODE:-32800/.test(event.text)), 'ACP $/cancel_request interrupts a pending Ruyi terminal wait with the standard cancellation code');
 
       let markSteerRunning;
       const steerRunning = new Promise(resolve => { markSteerRunning = resolve; });

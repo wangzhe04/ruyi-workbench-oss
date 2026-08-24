@@ -108,10 +108,11 @@ const providerSummaryCall = async () => (summaryOk ? { ok: true, summary: 'SUMMA
 let recordCalls = 0; const recordCompactUsage = () => { recordCalls++; };
 // 第45波:maybeCompactSubHistory 预算判定改走 calibratedEstimate(45d 校准入口)—— 桩镜像「无样本=因子1」。
 const calibratedEstimate = (p, m, h) => estimateHistoryTokens(h);
+const resolveCompactionProvider = (config, provider) => ({ provider, model: provider && provider.model });
 const maybeCompactSubHistory = new Function(
-  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage',
+  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider',
   mm[0] + '\nreturn maybeCompactSubHistory;'
-)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage);
+)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider);
 
 // ============ A2: truncateToolResult 的 base64 图片字段专用处理(防 60KB 平切切坏图) ============
 // 抽真 truncateToolResult + IMG_B64_TRIM_RE(保真);TOOL_RESULT_CAP / FILE_READ_* 注入常量。

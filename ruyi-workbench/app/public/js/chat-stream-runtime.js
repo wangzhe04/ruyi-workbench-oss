@@ -935,6 +935,22 @@ export function createChatStreamRuntime(deps = {}) {
         maybeScrollToBottom(); // EC-D 56: 工具卡入列也走粘性跟随(用户要"页面跟着滚动",上滑阅读时不打扰)
         break;
       }
+      case 'tool_use_update': {
+        const card = live.toolCards.get(evt.id);
+        if (card) {
+          if (evt.name) {
+            card.name = evt.name;
+            if (card.nameEl) card.nameEl.textContent = evt.name;
+            if (card.verbEl) card.verbEl.textContent = humanizeToolName(evt.name);
+          }
+          if (evt.input && typeof evt.input === 'object') {
+            if (card.inp) card.inp.textContent = safeStringify(evt.input);
+            const arg = toolArgSummary(evt.input);
+            if (card.argEl) { card.argEl.textContent = arg; card.argEl.title = arg || ''; }
+          }
+        }
+        break;
+      }
       case 'tool_result': {
         const card = live.toolCards.get(evt.id);
         if (card) {

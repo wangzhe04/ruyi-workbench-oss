@@ -419,6 +419,7 @@ function createKimiAcpRpc(child, handlers = {}) {
   let buffer = '';
   let closed = false;
   const pending = new Map();
+  const reversePending = new Map();
   const write = payload => {
     if (closed || !child.stdin || child.stdin.destroyed) throw new Error('Kimi ACP input channel is closed');
     child.stdin.write(JSON.stringify(payload) + '\n', 'utf8');
@@ -426,6 +427,8 @@ function createKimiAcpRpc(child, handlers = {}) {
   const rejectPending = error => {
     for (const [, item] of pending) { clearTimeout(item.timer); item.reject(error); }
     pending.clear();
+    for (const [, item] of reversePending) item.controller.abort(error);
+    reversePending.clear();
   };
   const dispatch = message => {
     if (!message || typeof message !== 'object') return;
@@ -439,11 +442,31 @@ function createKimiAcpRpc(child, handlers = {}) {
       return;
     }
     if (message.method && message.id !== undefined) {
-      Promise.resolve().then(() => handlers.onRequest ? handlers.onRequest(message.method, message.params || {}) : {})
-        .then(result => write({ jsonrpc: '2.0', id: message.id, result: result === undefined ? {} : result }))
+      const key = String(message.id);
+      const controller = new AbortController();
+      reversePending.set(key, { controller, method: message.method });
+      Promise.resolve().then(() => handlers.onRequest
+        ? handlers.onRequest(message.method, message.params || {}, { requestId: message.id, signal: controller.signal }) : {})
+        .then(result => {
+          if (controller.signal.aborted) {
+            const cancelled = new Error('Kimi ACP reverse request cancelled'); cancelled.code = -32800; throw cancelled;
+          }
+          write({ jsonrpc: '2.0', id: message.id, result: result === undefined ? {} : result });
+        })
         .catch(error => {
-          try { write({ jsonrpc: '2.0', id: message.id, error: { code: -32603, message: String(error && error.message || error) } }); } catch { /* transport gone */ }
-        });
+          const cancelled = controller.signal.aborted;
+          const code = cancelled ? -32800 : (Number.isInteger(error && error.code) ? error.code : -32603);
+          const errorMessage = cancelled ? 'Request cancelled' : String(error && error.message || error);
+          try { write({ jsonrpc: '2.0', id: message.id, error: { code, message: errorMessage } }); } catch { /* transport gone */ }
+        })
+        .finally(() => reversePending.delete(key));
+      return;
+    }
+    if (message.method === '$/cancel_request') {
+      const requestId = String(message.params && message.params.requestId);
+      const item = reversePending.get(requestId);
+      if (item) item.controller.abort(new Error('remote cancellation'));
+      if (handlers.onCancel) handlers.onCancel(message.params && message.params.requestId, item && item.method);
       return;
     }
     if (message.method && handlers.onNotification) handlers.onNotification(message.method, message.params || {});
@@ -479,6 +502,10 @@ function createKimiAcpRpc(child, handlers = {}) {
     },
     notify(method, params) {
       try { write({ jsonrpc: '2.0', method, params }); return true; } catch { return false; }
+    },
+    cancelReverseRequests(reason) {
+      for (const [, item] of reversePending) item.controller.abort(reason || new Error('ACP connection closing'));
+      reversePending.clear();
     },
     isClosed: () => closed,
   };
@@ -560,9 +587,401 @@ async function handleKimiAcpPermissionRequest(params, context) {
     const wantedKind = decision.scope === 'session' ? 'allow_always' : 'allow_once';
     const allow = options.find(option => option.kind === wantedKind)
       || options.find(option => String(option.kind || '').startsWith('allow'));
-    return allow
-      ? { outcome: { outcome: 'selected', optionId: allow.optionId } }
-      : { outcome: { outcome: 'cancelled' } };
+    if (!allow) return { outcome: { outcome: 'cancelled' } };
+    if (!Array.isArray(context.reg.kimiAcpApprovals)) context.reg.kimiAcpApprovals = [];
+    context.reg.kimiAcpApprovals.push({
+      title: title.toLowerCase(), tier: kimiAcpToolTier(toolCall), input,
+      scope: decision.scope === 'session' ? 'session' : 'once', at: Date.now(),
+    });
+    if (context.reg.kimiAcpApprovals.length > 32) context.reg.kimiAcpApprovals.splice(0, context.reg.kimiAcpApprovals.length - 32);
+    return { outcome: { outcome: 'selected', optionId: allow.optionId } };
+  } finally {
+    context.reg.pausePending = false;
+    context.reg.lastEventAt = Date.now();
+  }
+}
+
+function kimiAcpRequestError(code, message) {
+  const error = new Error(String(message || 'Kimi ACP request failed'));
+  error.code = code;
+  return error;
+}
+
+function kimiAcpAssertSession(params, context) {
+  const expected = String(context && context.reg && context.reg.nativeSessionId || '');
+  const actual = String(params && params.sessionId || '');
+  if (!actual) throw kimiAcpRequestError(-32602, 'sessionId is required');
+  if (expected && actual !== expected) throw kimiAcpRequestError(-32602, 'sessionId does not match the active Kimi session');
+}
+
+function kimiAcpApprovalValue(input, kind) {
+  if (!input || typeof input !== 'object') return '';
+  if (kind === 'terminal') return String(input.command || input.cmd || '').trim();
+  return String(input.path || input.file_path || input.filePath || '').trim();
+}
+
+function consumeKimiAcpApproval(context, kind, input) {
+  const approvals = Array.isArray(context.reg.kimiAcpApprovals) ? context.reg.kimiAcpApprovals : [];
+  const wanted = kimiAcpApprovalValue(input, kind);
+  const titlePattern = kind === 'terminal' ? /bash|shell|terminal/ : /write|edit|file/;
+  for (let index = approvals.length - 1; index >= 0; index--) {
+    const row = approvals[index];
+    if (!row || Date.now() - Number(row.at || 0) > 10 * 60 * 1000 || !titlePattern.test(String(row.title || ''))) continue;
+    const granted = kimiAcpApprovalValue(row.input, kind);
+    let sameValue = granted === wanted;
+    if (kind === 'write' && granted && wanted) {
+      const grantedPath = path.resolve(granted);
+      const wantedPath = path.resolve(wanted);
+      sameValue = process.platform === 'win32'
+        ? grantedPath.toLowerCase() === wantedPath.toLowerCase()
+        : grantedPath === wantedPath;
+    }
+    if (row.scope !== 'session' && wanted && granted && !sameValue) continue;
+    if (row.scope !== 'session') approvals.splice(index, 1);
+    return true;
+  }
+  return false;
+}
+
+async function ensureKimiAcpOperationPermission(context, kind, input) {
+  const mode = String(context.config && context.config.permissionMode || 'default');
+  if (mode === 'bypass' || mode === 'auto' || (mode === 'acceptEdits' && kind === 'write')) return;
+  if (mode === 'plan') throw kimiAcpRequestError(-32000, `Kimi ${kind === 'terminal' ? 'terminal execution' : 'file write'} is disabled in plan mode`);
+  if (consumeKimiAcpApproval(context, kind === 'write' ? 'write' : 'terminal', input)) return;
+  const decision = await requestNativePermission(
+    context.session.id, kind === 'terminal' ? 'Bash' : 'Write', input,
+    context.onEvent, context.config.permissionTimeoutMs, kind === 'terminal' ? 'exec' : 'edit'
+  );
+  if (!decision || decision.behavior !== 'allow') throw kimiAcpRequestError(-32000, 'Operation denied by user');
+  if (decision.scope === 'session') {
+    if (!Array.isArray(context.reg.kimiAcpApprovals)) context.reg.kimiAcpApprovals = [];
+    context.reg.kimiAcpApprovals.push({
+      title: kind === 'terminal' ? 'bash' : 'write', tier: kind === 'terminal' ? 'exec' : 'edit',
+      input, scope: 'session', at: Date.now(),
+    });
+  }
+}
+
+function kimiAcpTerminal(context, params) {
+  kimiAcpAssertSession(params, context);
+  const id = String(params && params.terminalId || '');
+  const terminal = context.reg.kimiAcpTerminals && context.reg.kimiAcpTerminals.get(id);
+  if (!terminal || terminal.released) throw kimiAcpRequestError(-32602, `Unknown or released terminalId: ${id}`);
+  if (terminal.sessionId !== String(params.sessionId)) throw kimiAcpRequestError(-32602, 'terminalId belongs to a different session');
+  return terminal;
+}
+
+function kimiAcpTerminalRef(value) {
+  const pending = [value];
+  const seen = new Set();
+  for (let visited = 0; pending.length && visited < 64; visited++) {
+    const row = pending.shift();
+    if (!row || typeof row !== 'object' || seen.has(row)) continue;
+    seen.add(row);
+    if (row.type === 'terminal' && row.terminalId) return String(row.terminalId);
+    if (Array.isArray(row)) pending.push(...row.slice(0, 32));
+    else if (row.content) pending.push(row.content);
+  }
+  return '';
+}
+
+function kimiAcpTerminalDisplayResult(reg, terminalId) {
+  if (!reg || !terminalId) return null;
+  const active = reg.kimiAcpTerminals && reg.kimiAcpTerminals.get(terminalId);
+  const snapshot = active || (reg.kimiAcpTerminalResults && reg.kimiAcpTerminalResults.get(terminalId));
+  if (!snapshot) return null;
+  const output = String(snapshot.output || '');
+  if (output) return output;
+  const code = snapshot.exitCode;
+  const signal = snapshot.signal;
+  return signal ? `[terminal exited: ${signal}]` : `[terminal exited: ${code == null ? 'unknown' : code}; no output]`;
+}
+
+function rememberKimiAcpTerminal(reg, terminal) {
+  if (!reg || !terminal) return;
+  if (!reg.kimiAcpTerminalResults) reg.kimiAcpTerminalResults = new Map();
+  reg.kimiAcpTerminalResults.set(terminal.id, {
+    output: terminal.output, truncated: terminal.truncated, exitCode: terminal.exitCode, signal: terminal.signal, at: Date.now(),
+  });
+  while (reg.kimiAcpTerminalResults.size > 32) reg.kimiAcpTerminalResults.delete(reg.kimiAcpTerminalResults.keys().next().value);
+}
+
+function appendKimiAcpTerminalOutput(terminal, text) {
+  if (!text) return;
+  terminal.output += text;
+  let bytes = Buffer.from(terminal.output, 'utf8');
+  if (bytes.length <= terminal.outputByteLimit) return;
+  let start = bytes.length - terminal.outputByteLimit;
+  while (start < bytes.length && (bytes[start] & 0xc0) === 0x80) start += 1;
+  terminal.output = bytes.subarray(start).toString('utf8');
+  terminal.truncated = true;
+}
+
+function settleKimiAcpTerminal(terminal, exitCode, signal) {
+  if (!terminal || terminal.exited) return;
+  try { appendKimiAcpTerminalOutput(terminal, terminal.stdoutDecoder.end()); } catch { /* already drained */ }
+  try { appendKimiAcpTerminalOutput(terminal, terminal.stderrDecoder.end()); } catch { /* already drained */ }
+  terminal.exited = true;
+  terminal.exitCode = Number.isInteger(exitCode) && exitCode >= 0 ? exitCode : null;
+  terminal.signal = signal == null ? null : String(signal);
+  terminal.resolveExit({ exitCode: terminal.exitCode, signal: terminal.signal });
+}
+
+async function killKimiAcpTerminal(terminal) {
+  if (!terminal || terminal.exited) return;
+  try { if (terminal.child && terminal.child.pid) killChildTree(terminal.child.pid); } catch { /* best effort */ }
+  await Promise.race([terminal.waitPromise, new Promise(resolve => setTimeout(resolve, 3000))]);
+  if (!terminal.exited) {
+    try { terminal.child.kill('SIGKILL'); } catch { /* already gone */ }
+    await Promise.race([terminal.waitPromise, new Promise(resolve => setTimeout(resolve, 500))]);
+  }
+  if (!terminal.exited) settleKimiAcpTerminal(terminal, null, 'SIGKILL');
+}
+
+function awaitKimiAcpWithSignal(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(kimiAcpRequestError(-32800, 'Request cancelled'));
+  return new Promise((resolve, reject) => {
+    const cancel = () => reject(kimiAcpRequestError(-32800, 'Request cancelled'));
+    signal.addEventListener('abort', cancel, { once: true });
+    promise.then(value => { signal.removeEventListener('abort', cancel); resolve(value); }, error => { signal.removeEventListener('abort', cancel); reject(error); });
+  });
+}
+
+async function handleKimiAcpTerminalCreate(params, context, requestMeta) {
+  kimiAcpAssertSession(params, context);
+  const command = String(params && params.command || '');
+  const args = Array.isArray(params && params.args) ? params.args.map(value => String(value)).slice(0, 128) : [];
+  if (!command || command.length > 4096 || command.includes('\0') || args.some(arg => arg.length > 32768 || arg.includes('\0'))) {
+    throw kimiAcpRequestError(-32602, 'Invalid terminal command or arguments');
+  }
+  const cwd = params && params.cwd ? String(params.cwd) : String(context.session.cwd || context.config.defaultWorkspace || os.homedir());
+  if (!path.isAbsolute(cwd)) throw kimiAcpRequestError(-32602, 'terminal cwd must be an absolute path');
+  const stat = await fsp.stat(cwd).catch(() => null);
+  if (!stat || !stat.isDirectory()) throw kimiAcpRequestError(-32602, 'terminal cwd does not exist or is not a directory');
+  const execGuard = await guardWorkspaceExecute(cwd, { session: context.session, config: context.config });
+  if (!execGuard.ok) throw kimiAcpRequestError(-32000, execGuard.error);
+  const shellCommand = args.length === 2 && args[0] === '-c' ? args[1] : [command, ...args].join(' ');
+  await awaitKimiAcpWithSignal(
+    ensureKimiAcpOperationPermission(context, 'terminal', { command: shellCommand, cwd }),
+    requestMeta && requestMeta.signal,
+  );
+  const env = { ...process.env };
+  for (const item of (Array.isArray(params.env) ? params.env.slice(0, 128) : [])) {
+    const name = String(item && item.name || '');
+    const value = String(item && item.value || '');
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && value.length <= 32768 && !value.includes('\0')) env[name] = value;
+  }
+  const outputByteLimit = Math.min(8 * 1024 * 1024, Math.max(4096, Number(params.outputByteLimit) || 1024 * 1024));
+  const terminalId = makeId('kimi_terminal');
+  let child;
+  try {
+    child = cp.spawn(command, args, { cwd, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) { throw kimiAcpRequestError(-32000, `Failed to create terminal: ${error && error.message || error}`); }
+  let resolveExit;
+  const waitPromise = new Promise(resolve => { resolveExit = resolve; });
+  const terminal = {
+    id: terminalId, sessionId: String(params.sessionId), child, output: '', outputByteLimit, truncated: false,
+    exited: false, released: false, exitCode: null, signal: null, resolveExit, waitPromise,
+    stdoutDecoder: new StringDecoder('utf8'), stderrDecoder: new StringDecoder('utf8'),
+  };
+  context.reg.kimiAcpTerminals.set(terminalId, terminal);
+  child.stdout.on('data', chunk => { appendKimiAcpTerminalOutput(terminal, terminal.stdoutDecoder.write(chunk)); context.reg.lastEventAt = Date.now(); });
+  child.stderr.on('data', chunk => { appendKimiAcpTerminalOutput(terminal, terminal.stderrDecoder.write(chunk)); context.reg.lastEventAt = Date.now(); });
+  child.once('error', error => {
+    appendKimiAcpTerminalOutput(terminal, `\n[terminal error] ${String(error && error.message || error)}\n`);
+    settleKimiAcpTerminal(terminal, null, 'ERROR');
+  });
+  child.once('close', (code, signal) => settleKimiAcpTerminal(terminal, code, signal));
+  await new Promise((resolve, reject) => {
+    if (terminal.exited && terminal.signal === 'ERROR') return reject(kimiAcpRequestError(-32000, terminal.output.trim() || 'Failed to create terminal'));
+    const onSpawn = () => { child.removeListener('error', onError); resolve(); };
+    const onError = error => { child.removeListener('spawn', onSpawn); reject(kimiAcpRequestError(-32000, `Failed to create terminal: ${error && error.message || error}`)); };
+    child.once('spawn', onSpawn); child.once('error', onError);
+  }).catch(error => { context.reg.kimiAcpTerminals.delete(terminalId); throw error; });
+  if (requestMeta && requestMeta.signal && requestMeta.signal.aborted) {
+    context.reg.kimiAcpTerminals.delete(terminalId);
+    await killKimiAcpTerminal(terminal);
+    throw kimiAcpRequestError(-32800, 'Request cancelled');
+  }
+  return { terminalId };
+}
+
+async function handleKimiAcpTerminalRequest(method, params, context, requestMeta) {
+  if (method === 'terminal/create') return handleKimiAcpTerminalCreate(params, context, requestMeta);
+  const terminal = kimiAcpTerminal(context, params);
+  if (method === 'terminal/output') {
+    return {
+      output: terminal.output, truncated: terminal.truncated,
+      ...(terminal.exited ? { exitStatus: { exitCode: terminal.exitCode, signal: terminal.signal } } : {}),
+    };
+  }
+  if (method === 'terminal/wait_for_exit') return awaitKimiAcpWithSignal(terminal.waitPromise, requestMeta && requestMeta.signal);
+  if (method === 'terminal/kill') { await killKimiAcpTerminal(terminal); return {}; }
+  if (method === 'terminal/release') {
+    terminal.released = true;
+    context.reg.kimiAcpTerminals.delete(terminal.id);
+    await killKimiAcpTerminal(terminal);
+    rememberKimiAcpTerminal(context.reg, terminal);
+    return {};
+  }
+  throw kimiAcpRequestError(-32601, `Unsupported terminal method: ${method}`);
+}
+
+async function cleanupKimiAcpTerminals(reg) {
+  const terminals = reg && reg.kimiAcpTerminals ? [...reg.kimiAcpTerminals.values()] : [];
+  if (reg && reg.kimiAcpTerminals) reg.kimiAcpTerminals.clear();
+  await Promise.all(terminals.map(async terminal => { terminal.released = true; await killKimiAcpTerminal(terminal); }));
+}
+
+function kimiAcpTextLines(text) {
+  return String(text || '').match(/[^\n]*\n|[^\n]+$/g) || [];
+}
+
+async function handleKimiAcpFsRequest(method, params, context) {
+  kimiAcpAssertSession(params, context);
+  const rawPath = String(params && params.path || '');
+  if (!rawPath || !path.isAbsolute(rawPath)) throw kimiAcpRequestError(-32602, 'ACP filesystem path must be absolute');
+  const write = method === 'fs/write_text_file';
+  const guard = await guardFileToolPath(rawPath, { session: context.session, config: context.config }, { tool: write ? 'kimi_acp_write' : 'kimi_acp_read', write });
+  if (!guard.ok) throw kimiAcpRequestError(-32000, guard.error);
+  if (!write) {
+    const stat = await fsp.stat(guard.absPath).catch(() => null);
+    if (!stat || !stat.isFile()) throw kimiAcpRequestError(-32002, 'Resource not found');
+    if (stat.size > 50 * 1024 * 1024) throw kimiAcpRequestError(-32000, 'Text file is larger than the 50 MB ACP read limit');
+    const text = await fsp.readFile(guard.absPath, 'utf8');
+    if (params.line == null && params.limit == null) return { content: text };
+    const line = Math.max(1, Math.trunc(Number(params.line) || 1));
+    const limit = params.limit == null ? Number.MAX_SAFE_INTEGER : Math.max(0, Math.trunc(Number(params.limit) || 0));
+    return { content: kimiAcpTextLines(text).slice(line - 1, line - 1 + limit).join('') };
+  }
+  const content = String(params && params.content || '');
+  if (Buffer.byteLength(content, 'utf8') > MAX_BODY_BYTES) throw kimiAcpRequestError(-32602, 'ACP file content exceeds the write limit');
+  await ensureKimiAcpOperationPermission(context, 'write', { path: guard.absPath });
+  const result = await toolCall('file_write', { path: guard.absPath, content, createDirs: true }, {
+    session: context.session, config: context.config, workingDir: context.session.cwd,
+  });
+  if (!result || result.ok === false) throw kimiAcpRequestError(-32000, result && result.error || 'File write failed');
+  return {};
+}
+
+function kimiAcpElicitationOptions(schema) {
+  if (!schema || typeof schema !== 'object') return [];
+  if (Array.isArray(schema.oneOf)) return schema.oneOf.map(row => ({ value: String(row && row.const || ''), label: String(row && row.title || row && row.const || ''), description: String(row && row.description || '') }));
+  if (Array.isArray(schema.enum)) return schema.enum.map(value => ({ value: String(value), label: String(value), description: '' }));
+  const items = schema.items && typeof schema.items === 'object' ? schema.items : {};
+  if (Array.isArray(items.anyOf)) return items.anyOf.map(row => ({ value: String(row && row.const || ''), label: String(row && row.title || row && row.const || ''), description: String(row && row.description || '') }));
+  if (Array.isArray(items.enum)) return items.enum.map(value => ({ value: String(value), label: String(value), description: '' }));
+  return [];
+}
+
+function kimiAcpElicitationQuestion(key, schema, required, message, fieldIndex) {
+  const type = String(schema && schema.type || 'string');
+  const title = String(schema && schema.title || key);
+  const description = [String(schema && schema.description || ''), schema && schema.default != null ? `默认值：${JSON.stringify(schema.default)}` : ''].filter(Boolean).join('\n');
+  const row = { key, type, schema, required, values: new Map(), skipId: `kimi_skip_${key}` };
+  let choices = kimiAcpElicitationOptions(schema);
+  if (type === 'boolean') choices = [{ value: true, label: '是', description: '' }, { value: false, label: '否', description: '' }];
+  const options = choices.slice(0, 11).map((choice, index) => {
+    const id = `kimi_${key}_${index}`.slice(0, 80);
+    row.values.set(id, choice.value);
+    return { id, label: choice.label, description: choice.description };
+  });
+  if (!required) options.push({ id: row.skipId.slice(0, 80), label: '跳过此项', description: '不提交这个可选字段' });
+  const hasChoices = options.length > (required ? 0 : 1);
+  row.ui = {
+    id: `kimi_field_${fieldIndex}`.slice(0, 80), header: title.slice(0, 80),
+    question: [message, title, description].filter(Boolean).join('\n').slice(0, 1000),
+    answerMode: type === 'array' ? 'multiple' : (hasChoices || !required ? 'single' : 'text'),
+    allowOther: !hasChoices && !required, options,
+  };
+  return row;
+}
+
+function kimiAcpElicitationValue(row, answer) {
+  if (!answer || typeof answer !== 'object') {
+    if (!row.required) return { present: false };
+    throw kimiAcpRequestError(-32602, `${row.key} is required`);
+  }
+  const selected = Array.isArray(answer && answer.selectedOptionIds) ? answer.selectedOptionIds : [];
+  if (selected.includes(row.skipId.slice(0, 80))) return { present: false };
+  let value;
+  if (row.type === 'array') value = selected.filter(id => row.values.has(id)).map(id => row.values.get(id));
+  else if (selected.length && row.values.has(selected[0])) value = row.values.get(selected[0]);
+  else value = String(answer && answer.otherText || (answer && answer.answer && answer.answer[0]) || '');
+  if (row.type !== 'array' && row.values.size && !selected.some(id => row.values.has(id))) {
+    throw kimiAcpRequestError(-32602, `${row.key} must use one of the offered values`);
+  }
+  const schema = row.schema || {};
+  if (row.type === 'number' || row.type === 'integer') {
+    const number = Number(value);
+    if (!Number.isFinite(number) || (row.type === 'integer' && !Number.isInteger(number))) throw kimiAcpRequestError(-32602, `${row.key} must be a valid ${row.type}`);
+    if (schema.minimum != null && number < Number(schema.minimum)) throw kimiAcpRequestError(-32602, `${row.key} is below its minimum`);
+    if (schema.maximum != null && number > Number(schema.maximum)) throw kimiAcpRequestError(-32602, `${row.key} exceeds its maximum`);
+    value = number;
+  } else if (row.type === 'string') {
+    value = String(value);
+    if (schema.minLength != null && value.length < Number(schema.minLength)) throw kimiAcpRequestError(-32602, `${row.key} is shorter than minLength`);
+    if (schema.maxLength != null && value.length > Number(schema.maxLength)) throw kimiAcpRequestError(-32602, `${row.key} exceeds maxLength`);
+    if (schema.pattern) { let pattern; try { pattern = new RegExp(String(schema.pattern)); } catch { pattern = null; } if (pattern && !pattern.test(value)) throw kimiAcpRequestError(-32602, `${row.key} does not match the requested pattern`); }
+    if (schema.format === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw kimiAcpRequestError(-32602, `${row.key} must be an email address`);
+    if (schema.format === 'uri') { try { new URL(value); } catch { throw kimiAcpRequestError(-32602, `${row.key} must be a URI`); } }
+    if (schema.format === 'date' && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)))) throw kimiAcpRequestError(-32602, `${row.key} must be a date`);
+    if (schema.format === 'date-time' && Number.isNaN(Date.parse(value))) throw kimiAcpRequestError(-32602, `${row.key} must be a date-time`);
+  } else if (row.type === 'boolean') {
+    if (value !== true && value !== false) throw kimiAcpRequestError(-32602, `${row.key} must be a boolean`);
+  } else if (row.type === 'array') {
+    if (schema.minItems != null && value.length < Number(schema.minItems)) throw kimiAcpRequestError(-32602, `${row.key} has too few selections`);
+    if (schema.maxItems != null && value.length > Number(schema.maxItems)) throw kimiAcpRequestError(-32602, `${row.key} has too many selections`);
+  }
+  return { present: true, value };
+}
+
+async function handleKimiAcpElicitation(params, context, requestMeta) {
+  const mode = String(params && params.mode || 'form');
+  const message = String(params && params.message || 'Kimi 需要你的输入。');
+  if (params && params.sessionId != null) kimiAcpAssertSession(params, context);
+  else if (!params || params.requestId == null) throw kimiAcpRequestError(-32602, 'Elicitation requires sessionId or requestId scope');
+  context.reg.pausePending = true;
+  context.reg.lastEventAt = Date.now();
+  try {
+    if (mode === 'url') {
+      let url;
+      try { url = new URL(String(params.url || '')); } catch { throw kimiAcpRequestError(-32602, 'Invalid elicitation URL'); }
+      if (!/^https?:$/.test(url.protocol)) throw kimiAcpRequestError(-32602, 'Only HTTP(S) elicitation URLs are supported');
+      const answer = await awaitKimiAcpWithSignal(requestUserQuestion(
+        context.session.id, String(params.elicitationId || makeId('kimi_elicitation')),
+        [{ id: 'kimi_url_elicitation', header: 'Kimi 外部授权', question: `${message}\n\n完整地址：${url.href}`, answerMode: 'single', allowOther: false,
+          options: [{ id: 'open', label: '同意并打开', description: `将在系统浏览器打开 ${url.hostname}` }, { id: 'decline', label: '拒绝', description: '不打开此地址' }] }],
+        context.onEvent, context.config.permissionTimeoutMs, context.state.assistantText
+      ), requestMeta && requestMeta.signal);
+      const selected = answer && answer.ok !== false && answer.answers && answer.answers[0] && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
+      if (selected !== 'open') return { action: selected === 'decline' ? 'decline' : 'cancel' };
+      try { const open = buildOpenSpawn(url.href); cp.spawn(open.command, open.args, { detached: true, windowsHide: false, stdio: 'ignore' }).unref(); }
+      catch (error) { throw kimiAcpRequestError(-32000, `Unable to open elicitation URL: ${error && error.message || error}`); }
+      context.reg.kimiAcpElicitations.set(String(params.elicitationId || ''), { url: url.href, at: Date.now() });
+      return { action: 'accept' };
+    }
+    if (mode !== 'form') throw kimiAcpRequestError(-32602, `Unsupported elicitation mode: ${mode}`);
+    const requested = params && params.requestedSchema && typeof params.requestedSchema === 'object' ? params.requestedSchema : {};
+    const required = new Set(Array.isArray(requested.required) ? requested.required.map(String) : []);
+    const properties = Object.entries(requested.properties && typeof requested.properties === 'object' ? requested.properties : {});
+    if (properties.length > 60) throw kimiAcpRequestError(-32602, 'Elicitation form exceeds the 60-field Ruyi limit');
+    const rows = properties.map(([key, schema], index) => kimiAcpElicitationQuestion(key, schema || {}, required.has(key), message, index));
+    const content = Object.create(null);
+    for (let start = 0; start < rows.length; start += 3) {
+      const batch = rows.slice(start, start + 3);
+      const answer = await awaitKimiAcpWithSignal(requestUserQuestion(
+        context.session.id, String(params.toolCallId || makeId('kimi_elicitation')), batch.map(row => row.ui),
+        context.onEvent, context.config.permissionTimeoutMs, context.state.assistantText
+      ), requestMeta && requestMeta.signal);
+      if (!answer || answer.ok === false) return { action: 'cancel' };
+      for (const row of batch) {
+        const result = kimiAcpElicitationValue(row, (answer.answers || []).find(item => item && item.questionId === row.ui.id));
+        if (result.present) content[row.key] = result.value;
+      }
+    }
+    return { action: 'accept', content };
   } finally {
     context.reg.pausePending = false;
     context.reg.lastEventAt = Date.now();
@@ -705,13 +1124,22 @@ async function runKimiAcpTurnPrepared(context) {
         state.toolMap.set(id, record); state.toolCalls.push(record);
         onEvent({ type: 'tool_use', id, name: record.name, input: record.input });
       } else {
+        const previousName = record.name;
+        const previousInput = record.input;
         if (update.title) record.name = String(update.title);
         if (update.rawInput && typeof update.rawInput === 'object') record.input = update.rawInput;
+        if (record.name !== previousName || record.input !== previousInput) {
+          onEvent({ type: 'tool_use_update', id, name: record.name, input: record.input });
+        }
       }
       const status = String(update.status || '');
       if ((status === 'completed' || status === 'failed') && !record.__settled) {
         record.__settled = true;
-        record.result = update.rawOutput !== undefined ? update.rawOutput : kimiAcpContentText(update.content);
+        const terminalId = kimiAcpTerminalRef(update.rawOutput) || kimiAcpTerminalRef(update.content);
+        const terminalResult = terminalId ? kimiAcpTerminalDisplayResult(reg, terminalId) : null;
+        record.result = terminalResult != null
+          ? terminalResult
+          : (update.rawOutput !== undefined ? update.rawOutput : kimiAcpContentText(update.content));
         onEvent({ type: 'tool_result', id, content: record.result, isError: status === 'failed' });
       }
     } else if (type === 'usage_update') {
@@ -777,6 +1205,7 @@ async function runKimiAcpTurnPrepared(context) {
       child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(),
       lastEventAt: Date.now(), interactive: true, onEvent: null, session, kind: 'kimi-acp', traceId: activeTraceId,
       questionContext: '', steerQueue: [], acceptingSteer: true, abort: null,
+      nativeSessionId: '', kimiAcpApprovals: [], kimiAcpTerminals: new Map(), kimiAcpTerminalResults: new Map(), kimiAcpElicitations: new Map(),
     };
     reg.onEvent = event => { reg.lastEventAt = Date.now(); onEvent(event); };
     activeChildren.set(session.id, reg);
@@ -790,15 +1219,42 @@ async function runKimiAcpTurnPrepared(context) {
     const reverseContext = { session, config, onEvent: reg.onEvent, reg, state };
     rpc = createKimiAcpRpc(child, {
       onLine: line => { markActivity(); onEvent({ type: 'raw_line', line, seq: rawSeq++ }); },
-      onNotification: (method, params) => { if (method === 'session/update') emitUpdate(params); },
-      onRequest: (method, params) => {
+      onNotification: (method, params) => {
+        if (method === 'session/update') emitUpdate(params);
+        else if (method === 'elicitation/complete') {
+          const id = String(params && params.elicitationId || '');
+          if (id) reg.kimiAcpElicitations.delete(id);
+          markActivity();
+        }
+      },
+      onRequest: (method, params, requestMeta) => {
         markActivity();
         if (method === 'session/request_permission') return handleKimiAcpPermissionRequest(params, reverseContext);
-        throw new Error(`Unsupported Kimi ACP reverse request: ${method}`);
+        if (method === 'fs/read_text_file' || method === 'fs/write_text_file') return handleKimiAcpFsRequest(method, params, reverseContext);
+        if (method.startsWith('terminal/')) return handleKimiAcpTerminalRequest(method, params, reverseContext, requestMeta);
+        if (method === 'elicitation/create') return handleKimiAcpElicitation(params, reverseContext, requestMeta);
+        throw kimiAcpRequestError(-32601, `Unsupported Kimi ACP reverse request: ${method}`);
+      },
+      onCancel: (_requestId, method) => {
+        markActivity();
+        if (method === 'session/request_permission') {
+          clearPendingPermissions(session.id, 'Kimi cancelled the permission request');
+          clearPendingQuestions(session.id, 'Kimi cancelled the question');
+          clearPendingPlans(session.id, 'Kimi cancelled the plan request');
+        } else if (method === 'elicitation/create') {
+          clearPendingQuestions(session.id, 'Kimi cancelled the elicitation');
+        } else if (method === 'terminal/create' || method === 'fs/write_text_file') {
+          clearPendingPermissions(session.id, 'Kimi cancelled the operation');
+        }
       },
     });
     reg.abort = () => {
       reg.exited = true;
+      clearPendingPermissions(session.id, 'Ruyi turn cancelled');
+      clearPendingQuestions(session.id, 'Ruyi turn cancelled');
+      clearPendingPlans(session.id, 'Ruyi turn cancelled');
+      rpc.cancelReverseRequests(new Error('Ruyi turn cancelled'));
+      reg.kimiAcpCleanupPromise = cleanupKimiAcpTerminals(reg);
       if (nativeSessionId) rpc.notify('session/cancel', { sessionId: nativeSessionId });
       setTimeout(() => { if (child && child.exitCode == null) killChildTree(child.pid); }, 1200);
     };
@@ -813,8 +1269,8 @@ async function runKimiAcpTurnPrepared(context) {
       protocolVersion: 1,
       clientInfo: { name: 'Ruyi Workbench', version: '2.6' },
       clientCapabilities: {
-        auth: { terminal: false }, fs: { readTextFile: false, writeTextFile: false }, terminal: false,
-        planCapabilities: {},
+        auth: { terminal: false }, fs: { readTextFile: true, writeTextFile: true }, terminal: true,
+        plan: {}, elicitation: { form: {}, url: {} },
       },
     }, 15000);
     session.kimiAcpAgentInfo = initialized && initialized.agentInfo || null;
@@ -841,6 +1297,7 @@ async function runKimiAcpTurnPrepared(context) {
       nativeSessionId = String(activated && activated.sessionId || '');
     }
     if (!nativeSessionId) throw new Error('Kimi ACP did not return a sessionId');
+    reg.nativeSessionId = nativeSessionId;
     session.claudeSessionId = nativeSessionId;
     session.claudeSessionCwd = workingDir;
     session.claudeSessionRouteKey = currentResumeRouteKey;
@@ -905,6 +1362,9 @@ async function runKimiAcpTurnPrepared(context) {
     clearPendingPermissions(session.id, 'turn ended');
     clearPendingQuestions(session.id, 'turn ended');
     clearPendingPlans(session.id, 'turn ended');
+    if (rpc) rpc.cancelReverseRequests(new Error('Kimi ACP turn ended'));
+    if (reg && reg.kimiAcpCleanupPromise) await reg.kimiAcpCleanupPromise;
+    if (reg) await cleanupKimiAcpTerminals(reg);
     if (child) await closeKimiAcpProcess(child, rpc, nativeSessionId);
     if (activeChildren.get(session.id) === reg) activeChildren.delete(session.id);
   }

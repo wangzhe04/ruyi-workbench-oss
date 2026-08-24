@@ -5,6 +5,10 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 · Unreleased
 
+- **Kimi Code ACP 全面适配与 ACC 长任务修复**：Ruyi 现在向 Kimi Code 提供 ACP 原生终端、受工作区约束的文本读写、结构化表单/URL 征询、反向请求取消和延迟工具参数更新；Bash 不再报「ACP terminal capability is unavailable」，Kimi 的工具输入也会实时同步到既有工具卡。Kimi MCP 同步会保留每服务超时/工具过滤字段，给 Ruyi 与内置 ACC 配置匹配其真实上限的长任务预算，并自动去除指向同一 ACC 的旧别名，避免调用在 60 秒被 MCP 传输层提前截断。
+
+- **Comprehensive Kimi Code ACP support and ACC long-call fix**: Ruyi now provides Kimi Code with native ACP terminals, workspace-guarded text reads/writes, structured form/URL elicitation, reverse-request cancellation, and late tool-input updates. Bash no longer fails with “ACP terminal capability is unavailable,” and evolving Kimi tool inputs update the existing tool card. Kimi MCP synchronization preserves per-server timeout/tool-filter fields, grants the Ruyi bridge and built-in ACC budgets matching their real limits, and removes legacy aliases targeting the same ACC server so the transport no longer cuts calls off at 60 seconds.
+
 - **主回合记忆维护工具**：主回合模型新增三个记忆维护工具，全部只提候选、绝不直接写、用户确认后生效——`workbench_memory_relation_propose`（提议两条已确认记忆间的关系边 supports/contradicts/supersedes/derived_from）、`workbench_memory_revise`（提议修改一条已确认记忆的内容，覆盖时保留原 id 与创建时间）、`workbench_memory_relation_revoke`（提议撤销一条关系边）。补齐了此前关系边只能由带质量门的子代理工作流或 HTTP API 提议、主回合模型无法表达「记忆之间关系/记忆需修订」的缺口；确认走回合后的维护卡片，后端按 kind 落盘。
 
 - **Main-turn memory maintenance tools**: the main turn gains three propose-only memory maintenance tools that never write directly and always require user confirmation on the post-turn card — `workbench_memory_relation_propose` (propose a supports/contradicts/supersedes/derived_from edge between two confirmed memories), `workbench_memory_revise` (propose revising one confirmed memory while preserving its id and createdAt), and `workbench_memory_relation_revoke` (propose revoking a relation edge). This closes the gap where relation edges could only be proposed by gated sub-agent workflows or the HTTP API, leaving the main-turn model unable to express memory relationships or needed revisions.

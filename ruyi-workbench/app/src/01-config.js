@@ -914,6 +914,7 @@ async function syncMcpServersToKimi(config) {
       const generated = safeJsonParse(await fsp.readFile(generatedPath, 'utf8'), {}) || {};
       generatedServers = generated.mcpServers || {};
     }
+    const resolvedServers = new Map(resolveExternalMcpServers(config).map(server => [String(server.id), server]));
     const nextIds = new Set(Object.keys(generatedServers));
     // Restore entries that existed before Ruyi took ownership when a server is disabled or removed.
     for (const id of ownership.managedIds) {
@@ -929,6 +930,22 @@ async function syncMcpServersToKimi(config) {
       // Kimi infers transport from `command`/`url`; Claude's legacy `type: stdio` field is unnecessary.
       const kimiServer = { ...server };
       delete kimiServer.type;
+      const resolved = resolvedServers.get(id);
+      if (resolved) {
+        for (const key of ['startupTimeoutMs', 'toolTimeoutMs', 'enabledTools', 'disabledTools']) {
+          if (resolved[key] !== undefined) kimiServer[key] = resolved[key];
+        }
+        if (resolved.bearerTokenEnvVar) kimiServer.bearerTokenEnvVar = resolved.bearerTokenEnvVar;
+      }
+      // Kimi's MCP transport defaults to 60 s per tool call. Ruyi's own long-running bridge and ACC
+      // both intentionally support longer operations, so advertise a matching transport budget.
+      if (id === 'win-claude-workbench') {
+        kimiServer.startupTimeoutMs = Math.max(Number(kimiServer.startupTimeoutMs) || 0, 60000);
+        kimiServer.toolTimeoutMs = Math.max(Number(kimiServer.toolTimeoutMs) || 0, 900000);
+      } else if (id === 'ai-computer-control') {
+        kimiServer.startupTimeoutMs = Math.max(Number(kimiServer.startupTimeoutMs) || 0, 60000);
+        kimiServer.toolTimeoutMs = Math.max(Number(kimiServer.toolTimeoutMs) || 0, 650000);
+      }
       current.mcpServers[id] = kimiServer;
     }
     ownership.managedIds = [...nextIds];
@@ -1602,9 +1619,16 @@ function addExternalMcpServersToMap(mcpServers, config) {
   try {
     for (const entry of resolveExternalMcpServers(config)) {
       if (mcpServers[entry.id]) continue;    // never clobber win-claude-workbench or an earlier entry
-      const server = { type: 'stdio', command: entry.command, args: entry.args || [] };
-      if (entry.cwd) server.cwd = entry.cwd;
-      if (entry.env && Object.keys(entry.env).length) server.env = entry.env;
+      let server;
+      if (entry.transport === 'sse' || entry.transport === 'http') {
+        server = { type: entry.transport, url: entry.url };
+        if (entry.headers && Object.keys(entry.headers).length) server.headers = entry.headers;
+        if (entry.bearerTokenEnvVar) server.bearerTokenEnvVar = entry.bearerTokenEnvVar;
+      } else {
+        server = { type: 'stdio', command: entry.command, args: entry.args || [] };
+        if (entry.cwd) server.cwd = entry.cwd;
+        if (entry.env && Object.keys(entry.env).length) server.env = entry.env;
+      }
       mcpServers[entry.id] = server;
     }
   } catch { /* detection must never break config generation */ }

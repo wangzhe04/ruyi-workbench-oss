@@ -106,6 +106,9 @@ const { McpStdioClient, detectDesktopMcp, desktopMcpFromInstalledRoot, desktopPy
     if (toolCount >= 80) {
       ok(true, 'real desktop MCP exposes >=80 tools (got ' + toolCount + ')');
       ok(client.listTools().some(t => t && t.name === 'diagnostics'), 'real desktop MCP includes the `diagnostics` tool');
+      const commandProbe = await client.callTool('run_command', { command: 'echo ACC_RUN_COMMAND_OK', timeout: 10 });
+      ok(/ACC_RUN_COMMAND_OK/.test(JSON.stringify(commandProbe)) && !/timed out|timeout/i.test(String(commandProbe.error || '')),
+        'ACC run_command executes a safe shell command through the real MCP transport');
       // Safe production-path calls: the invalid key is rejected before any keyboard action, while
       // OCR only observes the screen (click=false). These catch schema binding and nested-loop bugs
       // that tools/list alone cannot detect.

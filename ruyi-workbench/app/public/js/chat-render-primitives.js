@@ -369,10 +369,12 @@ export function createChatRenderPrimitives(deps = {}) {
     // v0.9-S1 (C1): both a raw name (pro) and a plain-language verb (simple) ship; CSS shows one per uiMode
     // via [data-ui-mode]. The verb reuses humanizeToolName (the shared 人话 map, also used by permission popups).
     const tcIconEl = el('span', 'tc-icon'); tcIconEl.appendChild(icon(isDesktopTool ? 'monitor' : 'wrench', 13));
+    const nameEl = el('span', 'tc-name', tc.name || 'tool');
+    const verbEl = el('span', 'tc-verb', humanizeToolName(tc.name));
     sum.append(
       tcIconEl,
-      el('span', 'tc-name', tc.name || 'tool'),
-      el('span', 'tc-verb', humanizeToolName(tc.name)),
+      nameEl,
+      verbEl,
     );
     const arg = toolArgSummary(tc.input);
     const argEl = el('span', 'tc-arg', arg); if (arg) argEl.title = arg;
@@ -404,7 +406,7 @@ export function createChatRenderPrimitives(deps = {}) {
     const resPre = el('pre'); resPre.textContent = done ? safeStringify(tc.result) : t('chat.waitingResult'); detail.appendChild(wrapPreWithCopy(resPre));
     body.appendChild(detail);
     d.appendChild(body);
-    return { d, status, resPre, statusbar, dur, argEl, diffHost, name: tc.name };
+    return { d, status, inp, resPre, statusbar, dur, argEl, diffHost, nameEl, verbEl, name: tc.name };
   }
   // v1.0-S4: fill a tool card's diff-host with the colorized diff view IFF this is a git_diff result carrying
   // non-empty diff text. Idempotent (clears the host first) so the streaming path can call it after the result

@@ -1075,6 +1075,25 @@ function invalidateMcpDropInCache() { _dropInCache = { at: 0, list: null }; }
 // {id,label,command,args,cwd,env}. desktopMcp always uses id 'ai-computer-control'.
 // v1.1-W2 (T2): also merges drop-in connectors scanned from <repo>/mcp/*/ and <dataRoot>/mcp/*/ (runtime
 // merge, never written back to config). config/desktop entries win on id collision; drop-in is skipped+warned.
+function mcpRuntimeCommon(entry) {
+  const out = {};
+  for (const key of ['startupTimeoutMs', 'toolTimeoutMs']) {
+    if (Number.isInteger(entry && entry[key]) && entry[key] >= 1 && entry[key] <= 2147483647) out[key] = entry[key];
+  }
+  for (const key of ['enabledTools', 'disabledTools']) {
+    if (Array.isArray(entry && entry[key])) out[key] = entry[key].slice();
+  }
+  return out;
+}
+
+function isEquivalentDesktopAccServer(entry) {
+  if (!entry || entry.transport || !entry.command) return false;
+  const args = Array.isArray(entry.args) ? entry.args.map(value => String(value).trim().toLowerCase()) : [];
+  if (args.includes('ai_computer_control.server')) return true;
+  const executable = path.basename(String(entry.command)).toLowerCase().replace(/\.(exe|cmd|bat)$/i, '');
+  return executable === 'ai-computer-control' || executable === 'ai_computer_control';
+}
+
 function resolveExternalMcpServers(config) {
   const out = [];
   const dm = config && config.desktopMcp;
@@ -1109,14 +1128,24 @@ function resolveExternalMcpServers(config) {
   for (const s of ext) {
     if (!s || s.enabled === false) continue;
     if (out.some(o => o.id === s.id)) continue;   // desktop entry wins on id collision
+    if (out.some(o => o.id === 'ai-computer-control') && isEquivalentDesktopAccServer(s)) {
+      logEvent({ kind: 'mcp_external_skip', reason: 'duplicate-desktop-acc', id: s.id });
+      continue;
+    }
     // 49c:远程条目(sse/http)按 transport+url 直通(headers 引用不展开,连接时才展开)。
     if (s.transport === 'sse' || s.transport === 'http') {
       if (!s.url) continue;
-      out.push({ id: s.id, label: s.label || s.id, transport: s.transport, url: s.url, headers: s.headers || {} });
+      out.push({
+        id: s.id, label: s.label || s.id, transport: s.transport, url: s.url, headers: s.headers || {},
+        ...(s.bearerTokenEnvVar ? { bearerTokenEnvVar: s.bearerTokenEnvVar } : {}), ...mcpRuntimeCommon(s),
+      });
       continue;
     }
     if (!s.command) continue;
-    out.push({ id: s.id, label: s.label || s.id, command: s.command, args: s.args || [], cwd: s.cwd || undefined, env: s.env || {} });
+    out.push({
+      id: s.id, label: s.label || s.id, command: s.command, args: s.args || [], cwd: s.cwd || undefined,
+      env: s.env || {}, ...mcpRuntimeCommon(s),
+    });
   }
   // v1.1-W2 (T2): merge drop-in connectors LAST → any id already claimed by a desktop/config entry wins;
   // the drop-in is skipped and a warn is audited (config 显式条目优先，与 import-folder 持久化路径互补)。
@@ -1126,10 +1155,20 @@ function resolveExternalMcpServers(config) {
       if (out.some(o => o.id === d.id)) { logEvent({ kind: 'mcp_dropin_skip', reason: 'id-conflict-config-wins', id: d.id, folder: d._dropInFolder, source: d._dropInSource }); continue; }
       if (d.transport === 'sse' || d.transport === 'http') {
         if (!d.url) continue;
-        out.push({ id: d.id, label: d.label || d.id, transport: d.transport, url: d.url, headers: d.headers || {} });
+        out.push({
+          id: d.id, label: d.label || d.id, transport: d.transport, url: d.url, headers: d.headers || {},
+          ...(d.bearerTokenEnvVar ? { bearerTokenEnvVar: d.bearerTokenEnvVar } : {}), ...mcpRuntimeCommon(d),
+        });
         continue;
       }
-      out.push({ id: d.id, label: d.label || d.id, command: d.command, args: d.args || [], cwd: d.cwd || undefined, env: d.env || {} });
+      if (out.some(o => o.id === 'ai-computer-control') && isEquivalentDesktopAccServer(d)) {
+        logEvent({ kind: 'mcp_dropin_skip', reason: 'duplicate-desktop-acc', id: d.id, folder: d._dropInFolder, source: d._dropInSource });
+        continue;
+      }
+      out.push({
+        id: d.id, label: d.label || d.id, command: d.command, args: d.args || [], cwd: d.cwd || undefined,
+        env: d.env || {}, ...mcpRuntimeCommon(d),
+      });
     }
   }
   return out;
@@ -1158,9 +1197,13 @@ function _parseTomlMcpServers(text) {
     const k = km[1], v = km[2];
     if (k === 'command') cur.command = unquote(v);
     else if (k === 'cwd') cur.cwd = unquote(v);
-    else if (k === 'args') {
+    else if (k === 'enabled') cur.enabled = !/^false$/i.test(v.trim());
+    else if (k === 'startup_timeout_sec' || k === 'tool_timeout_sec') {
+      const seconds = Number(v);
+      if (Number.isFinite(seconds) && seconds > 0) cur[k === 'startup_timeout_sec' ? 'startupTimeoutMs' : 'toolTimeoutMs'] = Math.min(2147483647, Math.round(seconds * 1000));
+    } else if (k === 'args' || k === 'enabled_tools' || k === 'disabled_tools') {
       const arr = v.match(/^\[(.*)\]$/s);
-      if (arr) cur.args = [...arr[1].matchAll(/"([^"]*)"|'([^']*)'/g)].map(m => m[1] != null ? m[1] : m[2]);
+      if (arr) cur[k === 'args' ? 'args' : (k === 'enabled_tools' ? 'enabledTools' : 'disabledTools')] = [...arr[1].matchAll(/"([^"]*)"|'([^']*)'/g)].map(m => m[1] != null ? m[1] : m[2]);
     } else if (k === 'env') {
       const tbl = v.match(/^\{(.*)\}$/s);
       if (tbl) for (const e of tbl[1].matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"/g)) cur.env[e[1]] = e[2];
@@ -1181,11 +1224,21 @@ function parseMcpConfigFile(filePath) {
     const servers = [];
     for (const [id, raw] of Object.entries(ms)) {
       if (!raw || typeof raw !== 'object') continue;
-      const type = String(raw.type || 'stdio').toLowerCase();
+      const importedType = String(raw.type || raw.transport || (raw.url ? 'http' : 'stdio')).toLowerCase();
+      const type = importedType === 'streamable-http' ? 'http' : importedType;
       // 48c:解析即插值规范化(${VAR}/%VAR%),apply 拿到的已是终值。
       // 49c:sse/http 不再是 unsupported —— 映射为远程条目;但 headers 值【不展开】(密钥引用 ${VAR}
       //   原样保留进 config,连接时才从 process.env 展开,防明文落盘)。
-      const srv = { id: String(id), label: String(id), type, command: _expandMcpVar(String(raw.command || '')), args: Array.isArray(raw.args) ? raw.args.map(a => _expandMcpVar(String(a))) : [], env: {}, cwd: _expandMcpVar(String(raw.cwd || '')) };
+      const srv = {
+        id: String(id), label: String(id), type, command: _expandMcpVar(String(raw.command || '')),
+        args: Array.isArray(raw.args) ? raw.args.map(a => _expandMcpVar(String(a))) : [], env: {}, cwd: _expandMcpVar(String(raw.cwd || '')),
+        enabled: raw.enabled !== false,
+      };
+      for (const key of ['startupTimeoutMs', 'toolTimeoutMs']) {
+        const value = Number(raw[key]);
+        if (Number.isInteger(value) && value >= 1 && value <= 2147483647) srv[key] = value;
+      }
+      for (const key of ['enabledTools', 'disabledTools']) if (Array.isArray(raw[key])) srv[key] = raw[key].filter(value => typeof value === 'string');
       if (raw.env && typeof raw.env === 'object') for (const [k, v] of Object.entries(raw.env)) srv.env[k] = _expandMcpVar(String(v));
       if (type === 'sse' || type === 'http') {
         srv.url = String(raw.url || '');
@@ -1193,6 +1246,7 @@ function parseMcpConfigFile(filePath) {
           srv.headers = {};
           for (const [k, v] of Object.entries(raw.headers)) if (typeof v === 'string') srv.headers[k] = v;
         }
+        if (typeof raw.bearerTokenEnvVar === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(raw.bearerTokenEnvVar.trim())) srv.bearerTokenEnvVar = raw.bearerTokenEnvVar.trim();
         if (!srv.url) srv.unsupported = '远程条目缺 url';
       }
       servers.push(srv);

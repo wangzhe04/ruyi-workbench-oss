@@ -1283,6 +1283,18 @@ function unmaskProviders(incoming, currentProviders) {
 // with no command is useless and could smuggle a non-string into cp.spawn). env values coerced to strings.
 // 49c:远程条目(type/transport: sse|http|streamable-http)id + http(s) url 必备;headers 值保留 ${VAR}
 //   引用【不展开】—— 连接时由 McpHttpClient 从 process.env 展开,密钥永不明文落盘(03 §4.2 纪律)。
+function sanitizeExternalMcpCommon(raw) {
+  const out = { enabled: raw.enabled !== false };
+  for (const key of ['startupTimeoutMs', 'toolTimeoutMs']) {
+    const value = Number(raw[key]);
+    if (Number.isInteger(value) && value >= 1 && value <= 2147483647) out[key] = value;
+  }
+  for (const key of ['enabledTools', 'disabledTools']) {
+    if (Array.isArray(raw[key])) out[key] = raw[key].filter(value => typeof value === 'string' && value.trim()).map(value => value.trim().slice(0, 160)).slice(0, 256);
+  }
+  return out;
+}
+
 function sanitizeExternalMcpServer(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const id = String(raw.id || '').trim().slice(0, 64);
@@ -1298,7 +1310,12 @@ function sanitizeExternalMcpServer(raw) {
         if (typeof k === 'string' && typeof v === 'string') headers[k.slice(0, 120)] = v.slice(0, 2048);
       }
     }
-    return { id, label, transport: typeRaw === 'sse' ? 'sse' : 'http', url, headers, enabled: raw.enabled !== false };
+    const bearerTokenEnvVar = typeof raw.bearerTokenEnvVar === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(raw.bearerTokenEnvVar.trim())
+      ? raw.bearerTokenEnvVar.trim() : '';
+    return {
+      id, label, transport: typeRaw === 'sse' ? 'sse' : 'http', url, headers,
+      ...(bearerTokenEnvVar ? { bearerTokenEnvVar } : {}), ...sanitizeExternalMcpCommon(raw),
+    };
   }
   const command = (typeof raw.command === 'string' ? raw.command : '').trim().slice(0, 1000);
   if (!command) return null;
@@ -1316,7 +1333,7 @@ function sanitizeExternalMcpServer(raw) {
     args,
     cwd: (typeof raw.cwd === 'string' ? raw.cwd : '').trim().slice(0, 1000),
     env,
-    enabled: raw.enabled !== false,
+    ...sanitizeExternalMcpCommon(raw),
   };
 }
 
