@@ -18,6 +18,7 @@
 (async () => {
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
+const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
 const { CSS_COMPAT_ROUTES, CSS_ROUTES } = require('./read-frontend-css.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
@@ -71,7 +72,9 @@ function findBrowser() {
 }
 
 function dumpDom(browser, url, profileDir) {
+  const edgeCompat = /msedge\.exe$/i.test(browser) ? ['--edge-skip-compat-layer-relaunch'] : [];
   const r = cp.spawnSync(browser, [
+    ...edgeCompat,
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-sync', '--disable-background-networking',
     '--user-data-dir=' + profileDir,
@@ -129,7 +132,7 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
       }
       // C 段: JS 真启动 —— modelChip title 是 app.js 拉 /api/status 后渲染的,静态 HTML 里没有。
       const chip = dom.match(/id="modelChip"[^>]*title="([^"]*)"/);
-      ok(!!chip && /Claude CLI/.test(chip[1]), 'C1 modelChip 已按 /api/status 渲染引擎标签(title="' + (chip && chip[1]) + '") = JS boot + API + 渲染全活');
+      ok(!!chip && /Claude (?:CLI|Code)/.test(chip[1]), 'C1 modelChip 已按 /api/status 渲染引擎标签(title="' + (chip && chip[1]) + '") = JS boot + API + 渲染全活');
       ok(dom.includes('提示词、计划或问题') || dom.includes('placeholder="描述你要做的事') || /placeholder="[^"]{4,}"/.test(dom.match(/id="promptInput"[^>]*/)?.[0] || ''),
         'C2 输入框 placeholder 就位(i18n/静态文案管线活)');
       ok(!dom.includes('class="boot-failure"') && !dom.includes('无法连接本地服务'),
@@ -142,7 +145,8 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
     if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
-    fs.rmSync(profile, { recursive: true, force: true }); // best-effort:浏览器锁未放时留残渣无碍
+    stopRuyiTestBrowsers(profile);
+    try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); } catch { /* best-effort */ }
     console.log('\nDOM-SMOKE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
     process.exit(fail ? 1 : 0);
   }

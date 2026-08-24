@@ -68,7 +68,7 @@ const fake = http.createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
       if (isSubRequest(msgs) && hasTools) {
         subToolRequests += 1;
-        return emitToolCall(res, id, 'call_loop', 'file_read', { path: EVIDENCE() });
+        return emitToolCall(res, id, 'call_loop', 'file_write', { path: EVIDENCE(), content: 'same side effect' });
       }
       return emitText(res, id, 'non-tool response');
     });
@@ -209,18 +209,19 @@ async function waitFor(label, fn, tries = 120, gap = 250) {
     const created = await post(WP, '/api/sessions', { title: 'blindspots', cwd: HOME }, hdr);
     const sid = created.session.id;
 
-    // S2: loop×retry —— 节点 retry 策略 × 子回合 loop-guard。maxRetries:2 → 3 次尝试 × 5 连击 = 15 请求封顶。
+    // S2: loop×retry —— 节点 retry 策略 × 子回合 loop-guard。每次节点尝试包含 2 轮自主恢复，
+    // 因而 maxRetries:2 → 3 节点尝试 × 3 guard 周期 × 5 连击 = 45 请求封顶。
     console.log('── S2: loop×retry 收敛 ──');
     const s2 = await post(WP, '/api/agent-workflow/launch', {
       token, sessionId: sid,
-      nodes: [{ id: 'loopr', task: 'REPEAT_SAME_TOOL', toolTier: 'read', failurePolicy: 'retry', maxRetries: 2 }],
+      nodes: [{ id: 'loopr', task: 'REPEAT_SAME_TOOL', toolTier: 'edit', failurePolicy: 'retry', maxRetries: 2 }],
     }, hdr);
     const s2node = s2 && s2.results && s2.results[0];
     console.log('  [loop×retry] status:', s2node && s2node.status, '| attempts:', s2node && s2node.attempts, '| subToolRequests:', subToolRequests, '| error:', s2node && s2node.error);
     ok(s2 && s2.ok === false && s2.status === 'failed', 'S2 run 到终态(failed)—— loop×retry 不悬挂');
     ok(!!s2node && s2node.status === 'failed', 'S2 重试耗尽后节点 failed');
     ok(!!s2node && Number(s2node.attempts) === 3, 'S2 attempts 封顶 maxRetries+1 = 3 (got ' + (s2node && s2node.attempts) + ')');
-    ok(subToolRequests === 15, 'S2 fake 恰服务 15 次(3 尝试 × 5 连击)—— 每次尝试都被 guard 中止,非预算烧穿 (got ' + subToolRequests + ')');
+    ok(subToolRequests === 45, 'S2 fake 恰服务 45 次(3 节点尝试 × 3 guard 周期 × 5 连击)—— 自主恢复与重试预算均封顶 (got ' + subToolRequests + ')');
     ok(!!s2node && /连续 5 次相同工具调用/.test(s2node.error || ''), 'S2 中止原因在重试后不丢(连续 5 次相同工具调用)');
     const runsS2 = await get(WP, `/api/agent-runs?sessionId=${encodeURIComponent(sid)}`, hdr);
     const runS2 = runsS2 && Array.isArray(runsS2.runs) && runsS2.runs.find(r => r.id === s2.runId);

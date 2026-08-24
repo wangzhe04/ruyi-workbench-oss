@@ -10,6 +10,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { getFreePort } = require('./free-port.js');
+const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -339,7 +340,8 @@ try {
   killTree(browser); killTree(server);
   if (provider) await new Promise(resolve => provider.close(resolve));
   await sleep(150);
-  fs.rmSync(root, { recursive: true, force: true });
+  stopRuyiTestBrowsers(profile);
+  try { fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); } catch { /* best-effort */ }
 }
 
 console.log(`\nPRETENDER NEEDS DRAWER E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

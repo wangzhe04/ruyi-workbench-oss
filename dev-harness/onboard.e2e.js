@@ -203,7 +203,7 @@ function between(hay, startNeedle, endNeedle) {
       ok(result && result.code === 'cli-missing', '⑦ result 事件带 code:cli-missing（got ' + (result && result.code) + '）');
       const text = events.filter(e => e.type === 'assistant_delta').map(e => e.text).join('');
       ok(/API/.test(text), '⑦ 错误文本含「API」（引导配 API 引擎）');
-      ok(/未检测到 Claude CLI/.test(text), '⑦ 错误文本为中文人话');
+      ok(/未检测到 [^。]+ CLI。/.test(text), '⑦ 错误文本为中文人话');
       // 不冒 CLAUDE.md 相关错误/警告(任何事件文本不得含 CLAUDE.md / claude.md 的报错)。
       const anyCmdErr = events.some(e => /claude\.md/i.test(JSON.stringify(e)) && (e.type === 'error' || e.type === 'warning'));
       ok(!anyCmdErr, '⑦ 无 CLAUDE.md 相关错误/警告事件');

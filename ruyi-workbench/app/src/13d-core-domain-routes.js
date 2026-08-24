@@ -1095,8 +1095,14 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     const sessionId = safeSessionId(listUrl.searchParams.get('sessionId'));
     if (!sessionId) return send(res, json({ ok: false, error: 'sessionId required' }, 400));
     const runs = await listAgentRuns(sessionId);
-    // 25.2: persistenceDegraded 从内存活跃对象叠加下发 —— 快照写失败时磁盘是陈旧的,这条旗标必须绕过磁盘到达 UI。
-    for (const run of runs) { const live = activeAgentRuns.get(run.id); if (live) { run.live = true; run.paused = !!live.paused; if (live.run && live.run.persistenceDegraded) run.persistenceDegraded = true; } }
+    // A live run's in-memory state is newer than its throttled crash-recovery snapshot. Return a detached
+    // copy of that state for the full polling view, otherwise short nodes can finish before their intermediate
+    // progressLog snapshot is ever observable and the UI falsely looks frozen.
+    for (let i = 0; i < runs.length; i += 1) {
+      const live = activeAgentRuns.get(runs[i].id);
+      if (!live || !live.run) continue;
+      runs[i] = { ...JSON.parse(JSON.stringify(live.run)), live: true, paused: !!live.paused };
+    }
     // 第29波(§29a): digest 轻量视图 —— 增量客户端每 tick 只拉这份 run 级标量做变更探测(eventSeq/status/
     // updatedAt),不再每 2s 重传全部节点(单节点 result≤24KB + roleSnapshot 8KB prompt,历史终态 run 每 tick
     // 白传)。live run 的 eventSeq/status/updatedAt 以【内存】为准(快照节流 1.5s,磁盘恒旧);快照仍是唯一

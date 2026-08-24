@@ -172,20 +172,24 @@ const AGENT_RUN_PERSIST_PAUSE_AFTER = 8;
 const agentRunSaveFailures = new Map(); // runId -> consecutive snapshot-save failures
 
 async function saveAgentRun(run) {
+  // Snapshot at submission time, not when an earlier queued write eventually completes. Without this,
+  // a fast node can mutate from running to succeeded before the leading progress save serializes, so the
+  // polling UI never observes its intermediate progress even though saveAgentRun was called in time.
+  const wasDegraded = run.persistenceDegraded === true;
+  if (wasDegraded) run.persistenceDegraded = false;
+  run.updatedAt = nowIso();
+  const snapshot = JSON.stringify(run, null, 2);
   const previous = agentRunWriteChains.get(run.id) || Promise.resolve();
   const current = previous.catch(() => {}).then(async () => {
     const dir = agentRunDir(run.sessionId);
     await fsp.mkdir(dir, { recursive: true });
-    run.updatedAt = nowIso();
     // 25.1: 写体收编 atomicWriteJson —— 旧手写版的 rename 重试参数(8 次,15→155ms;UI 每 ~2s 轮询读者持
     // 句柄致 EPERM/EBUSY,毫秒级即释)就是它的出处;tmp 名从 pid-only 升级为 pid+随机。
     // 对抗轮修: 旗标【先清后写】—— 磁盘恰在终稿写恢复时,旧序(写成功后才清)会把 persistenceDegraded:true
     // 永久钉进最后一份快照(run 已结束,再无下一次写),UI 对一个完好收尾的 run 永远亮红横幅。
     // 先乐观清、写失败在 catch 里按计数恢复,则任何一次成功写落盘的都是干净旗标。
-    const wasDegraded = run.persistenceDegraded === true;
-    if (wasDegraded) run.persistenceDegraded = false;
     try {
-      await atomicWriteJson(agentRunFile(run.sessionId, run.id), run);
+      await atomicWriteJson(agentRunFile(run.sessionId, run.id), snapshot);
       markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
       if (agentRunSaveFailures.get(run.id)) agentRunSaveFailures.delete(run.id);
       if (wasDegraded) appendAgentRunEvent(run, { type: 'persistence_recovered' });

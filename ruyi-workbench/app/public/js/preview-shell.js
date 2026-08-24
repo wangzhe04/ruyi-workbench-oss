@@ -140,6 +140,7 @@ export function createPreviewShellDomain({
   let rawScrollBoundHost = null;
   let playbooks = [];
   let playbooksLoaded = false;
+  let playbooksPromise = null;
   let dispatchText = '';
   let dispatchDraft = null;
   let dispatchBusy = false;
@@ -3341,6 +3342,20 @@ export function createPreviewShellDomain({
     }
   }
 
+  function loadPlaybooksInBackground() {
+    if (playbooksLoaded) return Promise.resolve(playbooks);
+    if (playbooksPromise) return playbooksPromise;
+    // Playbooks enrich the home screen but are not required to start or resume a mission. Keep their
+    // provider/capability discovery off the first-interactive critical path, then refresh only the home view.
+    playbooksPromise = api('/api/playbooks').catch(() => null).then(response => {
+      playbooks = Array.isArray(response && response.playbooks) ? response.playbooks : [];
+      playbooksLoaded = true;
+      if (isPreviewMode() && activeView === 'home') renderHome();
+      return playbooks;
+    }).finally(() => { playbooksPromise = null; });
+    return playbooksPromise;
+  }
+
   async function refreshPreviewShell({ quiet = false, forceDetail = false } = {}) {
     if (!isPreviewMode()) return null;
     if (refreshPromise) {
@@ -3352,10 +3367,10 @@ export function createPreviewShellDomain({
     if (status && !quiet) status.textContent = t('previewShell.loading');
     refreshPromise = (async () => {
       try {
-        const [missionResponse, interventionResponse, playbookResponse] = await Promise.all([
+        void loadPlaybooksInBackground();
+        const [missionResponse, interventionResponse] = await Promise.all([
           api('/api/missions?limit=200'),
           api('/api/interventions?limit=100'),
-          playbooksLoaded ? Promise.resolve(null) : api('/api/playbooks').catch(() => null),
         ]);
         if (epoch !== refreshEpoch) return null;
         cards = Array.isArray(missionResponse && missionResponse.missions) ? missionResponse.missions : [];
@@ -3364,10 +3379,6 @@ export function createPreviewShellDomain({
         syncNeedsNotifications(pendingInterventions);
         const pendingIds = new Set(pendingInterventions.map(item => String(item && item.id || '')));
         for (const id of interventionDrafts.keys()) if (!pendingIds.has(id)) interventionDrafts.delete(id);
-        if (!playbooksLoaded) {
-          playbooks = Array.isArray(playbookResponse && playbookResponse.playbooks) ? playbookResponse.playbooks : [];
-          playbooksLoaded = true;
-        }
         const selectedExists = cards.some(card => card && card.missionId === selectedMissionId);
         if (activeView === 'mission' && !selectedExists) {
           activeView = 'home'; selectedMissionId = ''; resetSelectedDetail();

@@ -51,7 +51,7 @@ ok(/data-tab="usage"[^>]*>[\s\S]*?data-i18n="usage\.title"[^>]*>用量</.test(to
 {
   const tabs = [...toolTabs.matchAll(/data-tab="([a-z-]+)"/g)].map(match => match[1]);
   const usageIdx = toolTabs.indexOf('data-tab="usage"');
-  ok(tabs.length === 6 && tabs.includes('usage'), '① 用量页签属于 6 个用户工作区入口');
+  ok(tabs.length === 7 && tabs.includes('usage'), '① 用量页签属于 7 个用户工作区入口');
   ok(usageIdx >= 0 && usageIdx < toolTabs.indexOf('data-tab="audit"'), '① 用量位于活动记录之前');
 }
 ok(/<section class="tool-section" id="tab-usage">/.test(html), '① 存在面板 section#tab-usage');

@@ -176,6 +176,27 @@ function stream(port, body, onEvent) {
 }
 
 (async () => {
+  const streamModule = await import(`data:text/javascript;base64,${Buffer.from(streamUi).toString('base64')}`);
+  const updatedCard = {
+    name: 'OldTool',
+    nameEl: { textContent: '' },
+    verbEl: { textContent: '' },
+    inp: { textContent: '' },
+    argEl: { textContent: '', title: '' },
+  };
+  streamModule.applyToolUseUpdate(updatedCard, {
+    name: 'mcp__win-claude-workbench__powershell_run',
+    input: { command: 'Get-Volume' },
+  }, {
+    humanizeToolName: name => `human:${name}`,
+    safeStringify: value => JSON.stringify(value),
+    toolArgSummary: input => input.command,
+  });
+  ok(updatedCard.verbEl.textContent === 'human:mcp__win-claude-workbench__powershell_run'
+    && updatedCard.inp.textContent === '{"command":"Get-Volume"}'
+    && updatedCard.argEl.textContent === 'Get-Volume',
+    'Kimi late tool update executes with explicit formatter dependencies and updates the live card');
+
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-turn-'));
   let child = null;
   try {

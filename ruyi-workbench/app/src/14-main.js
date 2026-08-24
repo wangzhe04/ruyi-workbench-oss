@@ -18,7 +18,9 @@ async function main() {
 if (require.main === module) {
   main().catch(err => {
     console.error(err.stack || err.message || String(err));
-    process.exitCode = 1;
+    // Startup can create watchers/timers before listen() discovers a non-Ruyi port occupant. Merely setting
+    // exitCode leaves those handles alive and makes the failed CLI look hung; a direct invocation must fail fast.
+    process.exit(1);
   });
 }
 

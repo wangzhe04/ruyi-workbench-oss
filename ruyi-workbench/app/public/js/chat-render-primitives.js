@@ -819,6 +819,7 @@ export function createChatRenderPrimitives(deps = {}) {
     settleLiveThinking,
     thinkingPanel,
     toolCard,
+    toolArgSummary,
     toolGroupSummaryText,
     updateContextMeter,
     usageLine,

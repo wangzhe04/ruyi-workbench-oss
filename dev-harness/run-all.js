@@ -72,6 +72,7 @@ const isFast = f => /\.static\.e2e\.js$/.test(f);
 // 任何登记动作。实现住 dev-harness/lib/port-audit.js(第46波46a 抽出真身,unit 测试同源 require,
 // 杜绝"测复制副本"的 E2 漂移坑)。判定口径详见该模块头注。
 const { portAuditFromDir } = require('./lib/port-audit');
+const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
 function portAudit() { return portAuditFromDir(HARNESS); }
 
 function listE2e() {
@@ -85,6 +86,7 @@ function runOne(file) {
   return new Promise(resolve => {
     const t0 = Date.now();
     const full = path.join(HARNESS, file);
+    const ownsBrowserProfile = fs.readFileSync(full, 'utf8').includes('--user-data-dir=');
     const child = cp.spawn(process.execPath, [full], {
       cwd: HARNESS,
       windowsHide: true,
@@ -106,6 +108,9 @@ function runOne(file) {
     }, timeoutFor(file));
     child.on('close', code => {
       clearTimeout(timer);
+      // Edge utility processes can escape the child tree. Reap only Ruyi Temp-profile browsers before
+      // the next case, otherwise a long serial run eventually exhausts process and handle resources.
+      if (ownsBrowserProfile) stopRuyiTestBrowsers();
       resolve({ file, ok: code === 0 && !timedOut, timedOut, status: code, out: stdout + stderr, ms: Date.now() - t0 });
     });
     child.on('error', e => {
@@ -130,6 +135,7 @@ function tailLines(s, n) {
 }
 
 async function main() {
+  stopRuyiTestBrowsers();
   const argv = process.argv.slice(2);
   // --parallel N: 并行路数(默认1=串行)
   const parallelIdx = argv.indexOf('--parallel');

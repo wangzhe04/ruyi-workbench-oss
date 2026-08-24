@@ -9,6 +9,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { getFreePort } = require('./free-port.js');
+const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -198,8 +199,13 @@ async function waitForPreviewReady(cdp, previousTimeOrigin) {
       timeOrigin: performance.timeOrigin,
       interactiveMs: performance.now(),
       domInteractiveMs: navigation?.domInteractive || 0,
+      responseEndMs: navigation?.responseEnd || 0,
+      loadEventEndMs: navigation?.loadEventEnd || 0,
       sealCount: seals.length,
       resourceCount: performance.getEntriesByType('resource').length,
+      apiTimings: performance.getEntriesByType('resource')
+        .filter(entry => entry.name.includes('/api/'))
+        .map(entry => ({ name: new URL(entry.name).pathname, start: entry.startTime, duration: entry.duration })),
     } : null;
   })()`);
 }
@@ -262,11 +268,14 @@ const VIEW_SWITCH_MEASURE = `(async () => {
     if (!healthy || !executable) throw new Error('performance prerequisites unavailable');
 
     const appUrl = `http://127.0.0.1:${appPort}/`;
-    browser = cp.spawn(executable, [
+    const browserArgs = [
       '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
       '--disable-extensions', '--disable-sync', '--disable-background-networking', '--force-device-scale-factor=1',
-      '--window-size=1440,1000', '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl,
-    ], { windowsHide: true, stdio: 'ignore' });
+      '--window-size=1440,1000', '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile,
+    ];
+    if (/msedge\.exe$/i.test(executable)) browserArgs.push('--edge-skip-compat-layer-relaunch');
+    browserArgs.push(appUrl);
+    browser = cp.spawn(executable, browserArgs, { windowsHide: true, stdio: 'ignore' });
     const target = await waitForTarget(debugPort, appUrl);
     ok(Boolean(target), 'A3 CDP page target available');
     if (!target) throw new Error('CDP target unavailable');
@@ -293,7 +302,11 @@ const VIEW_SWITCH_MEASURE = `(async () => {
     for (let i = 0; i < STARTUP_RUNS; i++) {
       await cdp.send('Page.reload', { ignoreCache: true });
       const metrics = await waitForPreviewReady(cdp, previousTimeOrigin);
-      if (metrics) { startup.push(metrics); previousTimeOrigin = metrics.timeOrigin; }
+      if (metrics) {
+        startup.push(metrics);
+        previousTimeOrigin = metrics.timeOrigin;
+        console.log(`SAMPLE ${i + 1} ` + JSON.stringify(metrics));
+      }
     }
     ok(startup.length === STARTUP_RUNS, `B3 captured ${STARTUP_RUNS}/${STARTUP_RUNS} Preview cold-navigation samples`);
     const startupMs = startup.map(sample => sample.interactiveMs);
@@ -359,6 +372,7 @@ const VIEW_SWITCH_MEASURE = `(async () => {
     killTree(browser);
     killTree(server);
     await sleep(300);
+    stopRuyiTestBrowsers(profile);
     try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* browser profile lock */ }
     console.log(`\nPRETENDER PREVIEW PERFORMANCE E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
     process.exitCode = fail ? 1 : 0;

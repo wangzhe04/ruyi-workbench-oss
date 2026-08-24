@@ -92,7 +92,8 @@ function capturesContaining(dir, needle) {
     ok(tmpSites === 5, 'B 手写 tmp 写点=5(白名单豁免;实 ' + tmpSites + ')');
     ok(!/dest \+ '\.' \+ process\.pid \+ '\.tmp'/.test(src), 'B saveAgentRun 旧 pid-only tmp 模式已清零');
     ok(/AGENT_RUN_PERSIST_DEGRADED_AFTER = 3/.test(src) && /AGENT_RUN_PERSIST_PAUSE_AFTER = 8/.test(src), 'B 持久化退化阈值常量在(3/8)');
-    ok(/live\.run\.persistenceDegraded\) run\.persistenceDegraded = true/.test(src), 'B GET /api/agent-runs 经 live 叠加下发 persistenceDegraded');
+    ok(/runs\[i\]\s*=\s*\{\s*\.\.\.JSON\.parse\(JSON\.stringify\(live\.run\)\),\s*live:\s*true/.test(src),
+      'B GET /api/agent-runs 以完整 live 快照叠加进度与 persistenceDegraded');
     ok(/function appendAgentRunEvent\(run, evt\)/.test(src) && (src.match(/appendAgentRunEvent\(/g) || []).length >= 10, 'B 事件日志助手 + ≥10 发射点');
     ok(/op === 'skip'\) continue/.test(src), 'B 幂等跳过不进本轮变更清单');
     const fe = readFrontendSrc(); // 聚合:public/app.js + public/js/**/*.js(拆域后横幅在 js/agent-workflows.js)

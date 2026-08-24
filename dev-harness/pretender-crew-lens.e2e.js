@@ -10,6 +10,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { getFreePort } = require('./free-port.js');
+const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -270,7 +271,8 @@ try {
     provider.close();
     if (typeof provider.closeAllConnections === 'function') provider.closeAllConnections();
   }
-  await sleep(150); fs.rmSync(tempRoot, { recursive: true, force: true });
+  stopRuyiTestBrowsers(profile);
+  await sleep(150); try { fs.rmSync(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); } catch { /* best-effort */ }
 }
 console.log(`\nPRETENDER CREW LENS E2E: ${failures ? `FAIL (${failures})` : 'ALL PASS'}`);
 process.exitCode = failures ? 1 : 0;

@@ -1,5 +1,20 @@
 'use strict';
 
+export function applyToolUseUpdate(card, evt, deps = {}) {
+  if (!card || !evt) return;
+  const { humanizeToolName, safeStringify, toolArgSummary } = deps;
+  if (evt.name) {
+    card.name = evt.name;
+    if (card.nameEl) card.nameEl.textContent = evt.name;
+    if (card.verbEl) card.verbEl.textContent = humanizeToolName(evt.name);
+  }
+  if (evt.input && typeof evt.input === 'object') {
+    if (card.inp) card.inp.textContent = safeStringify(evt.input);
+    const arg = toolArgSummary(evt.input);
+    if (card.argEl) { card.argEl.textContent = arg; card.argEl.title = arg || ''; }
+  }
+}
+
 export function createChatStreamRuntime(deps = {}) {
   const {
     $,
@@ -20,6 +35,7 @@ export function createChatStreamRuntime(deps = {}) {
     handleAgentWorkflowEvent,
     handlePermissionRequest,
     handlePlanEvent,
+    humanizeToolName,
     highlightIn,
     iconTextBtn,
     isProviderMode,
@@ -59,6 +75,7 @@ export function createChatStreamRuntime(deps = {}) {
     thinkingPanel,
     toast,
     toolCard,
+    toolArgSummary,
     toolGroupSummaryText,
     turnArtifactChips,
     turnSummaryCard,
@@ -937,18 +954,7 @@ export function createChatStreamRuntime(deps = {}) {
       }
       case 'tool_use_update': {
         const card = live.toolCards.get(evt.id);
-        if (card) {
-          if (evt.name) {
-            card.name = evt.name;
-            if (card.nameEl) card.nameEl.textContent = evt.name;
-            if (card.verbEl) card.verbEl.textContent = humanizeToolName(evt.name);
-          }
-          if (evt.input && typeof evt.input === 'object') {
-            if (card.inp) card.inp.textContent = safeStringify(evt.input);
-            const arg = toolArgSummary(evt.input);
-            if (card.argEl) { card.argEl.textContent = arg; card.argEl.title = arg || ''; }
-          }
-        }
+        applyToolUseUpdate(card, evt, { humanizeToolName, safeStringify, toolArgSummary });
         break;
       }
       case 'tool_result': {

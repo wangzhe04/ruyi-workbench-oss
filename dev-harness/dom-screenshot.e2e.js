@@ -41,7 +41,9 @@ function health(port) {
   });
 }
 function capture(browser, url, output, profile) {
+  const edgeCompat = /msedge\.exe$/i.test(browser) ? ['--edge-skip-compat-layer-relaunch'] : [];
   return cp.spawnSync(browser, [
+    ...edgeCompat,
     '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
     '--no-default-browser-check', '--disable-extensions', '--disable-sync',
     '--disable-background-networking', '--force-device-scale-factor=1',

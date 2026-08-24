@@ -17328,20 +17328,24 @@ const AGENT_RUN_PERSIST_PAUSE_AFTER = 8;
 const agentRunSaveFailures = new Map(); // runId -> consecutive snapshot-save failures
 
 async function saveAgentRun(run) {
+  // Snapshot at submission time, not when an earlier queued write eventually completes. Without this,
+  // a fast node can mutate from running to succeeded before the leading progress save serializes, so the
+  // polling UI never observes its intermediate progress even though saveAgentRun was called in time.
+  const wasDegraded = run.persistenceDegraded === true;
+  if (wasDegraded) run.persistenceDegraded = false;
+  run.updatedAt = nowIso();
+  const snapshot = JSON.stringify(run, null, 2);
   const previous = agentRunWriteChains.get(run.id) || Promise.resolve();
   const current = previous.catch(() => {}).then(async () => {
     const dir = agentRunDir(run.sessionId);
     await fsp.mkdir(dir, { recursive: true });
-    run.updatedAt = nowIso();
     // 25.1: 写体收编 atomicWriteJson —— 旧手写版的 rename 重试参数(8 次,15→155ms;UI 每 ~2s 轮询读者持
     // 句柄致 EPERM/EBUSY,毫秒级即释)就是它的出处;tmp 名从 pid-only 升级为 pid+随机。
     // 对抗轮修: 旗标【先清后写】—— 磁盘恰在终稿写恢复时,旧序(写成功后才清)会把 persistenceDegraded:true
     // 永久钉进最后一份快照(run 已结束,再无下一次写),UI 对一个完好收尾的 run 永远亮红横幅。
     // 先乐观清、写失败在 catch 里按计数恢复,则任何一次成功写落盘的都是干净旗标。
-    const wasDegraded = run.persistenceDegraded === true;
-    if (wasDegraded) run.persistenceDegraded = false;
     try {
-      await atomicWriteJson(agentRunFile(run.sessionId, run.id), run);
+      await atomicWriteJson(agentRunFile(run.sessionId, run.id), snapshot);
       markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
       if (agentRunSaveFailures.get(run.id)) agentRunSaveFailures.delete(run.id);
       if (wasDegraded) appendAgentRunEvent(run, { type: 'persistence_recovered' });
@@ -31365,8 +31369,14 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     const sessionId = safeSessionId(listUrl.searchParams.get('sessionId'));
     if (!sessionId) return send(res, json({ ok: false, error: 'sessionId required' }, 400));
     const runs = await listAgentRuns(sessionId);
-    // 25.2: persistenceDegraded 从内存活跃对象叠加下发 —— 快照写失败时磁盘是陈旧的,这条旗标必须绕过磁盘到达 UI。
-    for (const run of runs) { const live = activeAgentRuns.get(run.id); if (live) { run.live = true; run.paused = !!live.paused; if (live.run && live.run.persistenceDegraded) run.persistenceDegraded = true; } }
+    // A live run's in-memory state is newer than its throttled crash-recovery snapshot. Return a detached
+    // copy of that state for the full polling view, otherwise short nodes can finish before their intermediate
+    // progressLog snapshot is ever observable and the UI falsely looks frozen.
+    for (let i = 0; i < runs.length; i += 1) {
+      const live = activeAgentRuns.get(runs[i].id);
+      if (!live || !live.run) continue;
+      runs[i] = { ...JSON.parse(JSON.stringify(live.run)), live: true, paused: !!live.paused };
+    }
     // 第29波(§29a): digest 轻量视图 —— 增量客户端每 tick 只拉这份 run 级标量做变更探测(eventSeq/status/
     // updatedAt),不再每 2s 重传全部节点(单节点 result≤24KB + roleSnapshot 8KB prompt,历史终态 run 每 tick
     // 白传)。live run 的 eventSeq/status/updatedAt 以【内存】为准(快照节流 1.5s,磁盘恒旧);快照仍是唯一
@@ -31988,7 +31998,9 @@ async function main() {
 if (require.main === module) {
   main().catch(err => {
     console.error(err.stack || err.message || String(err));
-    process.exitCode = 1;
+    // Startup can create watchers/timers before listen() discovers a non-Ruyi port occupant. Merely setting
+    // exitCode leaves those handles alive and makes the failed CLI look hung; a direct invocation must fail fast.
+    process.exit(1);
   });
 }
 

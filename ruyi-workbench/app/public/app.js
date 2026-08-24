@@ -19,10 +19,7 @@ import { captureScrollAnchor, messageDomKey, messageRenderSignature, normalizeTu
 import { createChatScrollController, enableSmoothWheelScroll } from './js/chat-scroll.js';
 import { createSettingsOperationsDomain } from './js/settings-operations.js';
 import { createFileBrowserDomain } from './js/file-browser.js';
-import {
-  ARTIFACT_KIND_ICON,
-  createArtifactChangesDomain,
-} from './js/artifact-changes.js';
+import { ARTIFACT_KIND_ICON, createArtifactChangesDomain } from './js/artifact-changes.js';
 import { createOperationsObservabilityDomain } from './js/operations-observability.js';
 import { createUsageDashboardDomain } from './js/usage-dashboard.js';
 import { createAgentRolesDomain } from './js/agent-roles.js';
@@ -238,6 +235,7 @@ const {
   settleLiveThinking,
   thinkingPanel,
   toolCard,
+  toolArgSummary,
   toolGroupSummaryText,
   updateContextMeter,
   usageLine,
@@ -307,6 +305,7 @@ const {
   handleAgentWorkflowEvent: (...args) => handleAgentWorkflowEvent(...args),
   handlePermissionRequest: (...args) => handlePermissionRequest(...args),
   handlePlanEvent: (...args) => handlePlanEvent(...args),
+  humanizeToolName: name => humanizeToolName(name),
   highlightIn,
   iconTextBtn,
   isProviderMode: () => isProviderMode(),
@@ -346,6 +345,7 @@ const {
   thinkingPanel,
   toast,
   toolCard,
+  toolArgSummary,
   toolGroupSummaryText,
   turnArtifactChips: (...args) => turnArtifactChips(...args),
   turnSummaryCard: (...args) => turnSummaryCard(...args),

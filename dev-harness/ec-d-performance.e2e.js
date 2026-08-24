@@ -15,6 +15,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { getFreePort } = require('./free-port.js');
+const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const STARTUP_BUDGET_MS = 1500;
@@ -275,7 +276,7 @@ const TOOL_VIEW_MEASURE = `(async () => {
     if (!ready || !executable) throw new Error('performance prerequisites unavailable');
 
     const appUrl = `http://127.0.0.1:${appPort}/`;
-    browser = cp.spawn(executable, [
+    const browserArgs = [
       '--headless=new',
       '--disable-gpu',
       '--no-first-run',
@@ -287,8 +288,10 @@ const TOOL_VIEW_MEASURE = `(async () => {
       '--window-size=1440,1000',
       '--remote-debugging-port=' + debugPort,
       '--user-data-dir=' + profile,
-      appUrl,
-    ], { windowsHide: true, stdio: 'ignore' });
+    ];
+    if (/msedge\.exe$/i.test(executable)) browserArgs.push('--edge-skip-compat-layer-relaunch');
+    browserArgs.push(appUrl);
+    browser = cp.spawn(executable, browserArgs, { windowsHide: true, stdio: 'ignore' });
 
     const target = await waitForTarget(debugPort, appUrl);
     ok(Boolean(target), 'CDP page target available');
@@ -351,6 +354,7 @@ const TOOL_VIEW_MEASURE = `(async () => {
     killTree(browser);
     killTree(server);
     await sleep(300);
+    stopRuyiTestBrowsers(profile);
     try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* browser profile lock; harmless */ }
     console.log('\nEC-D PERFORMANCE E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
     process.exitCode = fail ? 1 : 0;

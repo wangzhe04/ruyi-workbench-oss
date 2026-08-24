@@ -5,6 +5,10 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 · Unreleased
 
+- **Kimi 工具卡与运行状态热修复**：修复 Kimi ACP 延迟工具参数到达时触发 `humanizeToolName is not defined`、工具卡停在「等待结果」的问题；工具名称、输入和摘要现在会在原卡片上增量更新。Agent 工作流列表改为对运行中任务叠加完整内存快照，进度和持久化退化状态无需等待落盘即可刷新；Preview 首屏不再被非关键 Playbook 探测阻塞，300 任务基准冷启动由约 1.68 秒降至约 0.51–0.79 秒。
+
+- **Kimi tool-card and live-state hotfixes**: fixes `humanizeToolName is not defined` when late Kimi ACP tool arguments arrive and prevents tool cards from remaining stuck on “waiting for result”; names, inputs, and summaries now update incrementally in place. Running Agent workflows now overlay their complete in-memory snapshot so progress and persistence degradation appear without waiting for disk writes. Preview first interaction no longer waits on non-critical Playbook discovery, reducing the 300-mission cold-start benchmark from about 1.68s to roughly 0.51–0.79s.
+
 - **Kimi Code ACP 全面适配与 ACC 长任务修复**：Ruyi 现在向 Kimi Code 提供 ACP 原生终端、受工作区约束的文本读写、结构化表单/URL 征询、反向请求取消和延迟工具参数更新；Bash 不再报「ACP terminal capability is unavailable」，Kimi 的工具输入也会实时同步到既有工具卡。Kimi MCP 同步会保留每服务超时/工具过滤字段，给 Ruyi 与内置 ACC 配置匹配其真实上限的长任务预算，并自动去除指向同一 ACC 的旧别名，避免调用在 60 秒被 MCP 传输层提前截断。
 
 - **Comprehensive Kimi Code ACP support and ACC long-call fix**: Ruyi now provides Kimi Code with native ACP terminals, workspace-guarded text reads/writes, structured form/URL elicitation, reverse-request cancellation, and late tool-input updates. Bash no longer fails with “ACP terminal capability is unavailable,” and evolving Kimi tool inputs update the existing tool card. Kimi MCP synchronization preserves per-server timeout/tool-filter fields, grants the Ruyi bridge and built-in ACC budgets matching their real limits, and removes legacy aliases targeting the same ACC server so the transport no longer cuts calls off at 60 seconds.

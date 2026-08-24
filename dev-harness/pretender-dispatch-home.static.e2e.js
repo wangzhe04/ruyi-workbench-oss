@@ -82,7 +82,10 @@ ok(shell.includes('buildFirstRunGuide()') && shell.includes('pickWorkspace()') &
 ok(shell.includes('const workspaceStep = workspaceReady') && shell.includes('steps.append(workspaceStep, safety, engine)')
   && !shell.includes('steps.append(workspace, safety, engine)'), 'E2b 首跑步骤组只引用已声明的 workspaceStep');
 ok(shell.includes('firstRunSafety') && shell.includes('permissionLabel()'), 'E3 首跑态原位展示默认安全档');
-ok(shell.includes("playbooksLoaded ? Promise.resolve(null)") && shell.includes("api('/api/playbooks').catch(() => null)"), 'E4 10秒任务轮询不重复拉熟活目录且目录失败不拖垮任务台');
+ok(shell.includes('if (playbooksLoaded) return Promise.resolve(playbooks)')
+  && shell.includes('if (playbooksPromise) return playbooksPromise')
+  && shell.includes("playbooksPromise = api('/api/playbooks').catch(() => null)"),
+  'E4 熟活目录单飞后台加载，失败不阻塞首屏且 30 秒任务轮询不重复拉取');
 
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(shell), 'F1 Wave 78 动态首页继续零 HTML 字符串注入');
 ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), 'F2 Wave 78 CSS 继续全部使用主题/语义 token');
