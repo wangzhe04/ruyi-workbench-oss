@@ -6,6 +6,7 @@ const cp = require('child_process');
 const http = require('http');
 const os = require('os');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const { getFreePort } = require('./free-port.js');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const server = require(path.join(WB, 'app', 'server.js'));
@@ -35,6 +36,11 @@ try {
   const spawn = server.prepareAgentCliSpawn('kimi', shim, ['--version']);
   ok(path.resolve(spawn.command) === path.resolve(process.execPath), 'Kimi npm shim resolves to direct Node launch');
   ok(path.resolve(spawn.args[0]) === path.resolve(entry) && spawn.args[1] === '--version', 'direct launch preserves entrypoint and args');
+  const psShim = path.join(bin, 'kimi.ps1');
+  fs.writeFileSync(psShim, '');
+  const psSpawn = server.prepareAgentCliSpawn('kimi', psShim, ['--version']);
+  ok(path.resolve(psSpawn.command) === path.resolve(process.execPath) && path.resolve(psSpawn.args[0]) === path.resolve(entry), 'Kimi PowerShell shim resolves to the same direct Node entrypoint');
+  ok(server.probeAgentCliLauncher(psShim) === true, 'Kimi PowerShell shim passes readiness probing without PowerShell execution-policy dependence');
   const globalRoot = path.join(tmp, 'global-npm');
   const globalEntry = path.join(globalRoot, 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs');
   fs.mkdirSync(path.dirname(globalEntry), { recursive: true });
@@ -56,6 +62,25 @@ try {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
+const loaderProbe = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-acp-loader-'));
+try {
+  const entry = path.join(loaderProbe, 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs');
+  fs.mkdirSync(path.dirname(entry), { recursive: true });
+  fs.writeFileSync(entry, [
+    'function isBashToolInvocation(args, options) {',
+    '\treturn args.length === 2 && args[0] === "-c" && options?.env?.["NO_COLOR"] === "1" && options?.env?.["TERM"] === "dumb";',
+    '}',
+    "process.stdout.write(String(isBashToolInvocation(['--files'], {})));",
+  ].join('\n'));
+  const register = path.join(WB, 'resources', 'kimi-acp-compat-register.mjs');
+  const out = cp.execFileSync(process.execPath, ['--import', pathToFileURL(register).href, entry], {
+    encoding: 'utf8', windowsHide: true, env: { ...process.env, RUYI_KIMI_ACP_COMPAT: '1' },
+  });
+  ok(out === 'true', 'opt-in Kimi ACP loader enables non-Bash process tools without modifying the installed CLI');
+} finally {
+  fs.rmSync(loaderProbe, { recursive: true, force: true });
+}
+
 const version = server.parseAgentCliEvent({ role: 'meta', type: 'system.version', version: '0.37.2' }, 'kimi');
 ok(Array.isArray(version) && version.length === 0, 'version metadata is accepted without chat output');
 const resume = server.parseAgentCliEvent({ role: 'meta', type: 'session.resume_hint', session_id: 'abc' }, 'kimi');
@@ -71,6 +96,23 @@ const compactApplied = server.parseKimiWireCompaction({ type: 'context.apply_com
 ok(compactApplied?.phase === 'applied' && compactApplied.beforeTokens === 100000 && compactApplied.afterTokens === 42000, 'Kimi wire compaction application preserves exact before/after usage');
 const rebased = server.parseKimiWireCompaction({ type: 'token_counting.rebased', tokens: 42000 });
 ok(rebased?.type === 'usage' && rebased.contextTokens === 42000, 'Kimi rebased token count synchronizes Ruyi usage');
+const wireState = { subagents: new Map(), childTools: new Map() };
+const spawned = server.parseKimiWireAgentEvents({ type: 'context.append_loop_event', event: {
+  type: 'subagent.spawned', subagentId: 'agent-7', subagentName: 'coder', parentToolCallId: 'agent-tool-1', description: 'Inspect documentation', runInBackground: false,
+} }, 'main', wireState);
+const childCall = server.parseKimiWireAgentEvents({ type: 'context.append_loop_event', event: {
+  type: 'tool.call', toolCallId: 'glob-1', name: 'Glob', args: { pattern: 'docs/**/*.md' },
+} }, 'agent-7', wireState);
+const childResult = server.parseKimiWireAgentEvents({ type: 'context.append_loop_event', event: {
+  type: 'tool.result', toolCallId: 'glob-1', result: { output: 'docs/a.md', isError: false },
+} }, 'agent-7', wireState);
+const completed = server.parseKimiWireAgentEvents({ type: 'context.append_loop_event', event: {
+  type: 'subagent.completed', subagentId: 'agent-7', resultSummary: 'Found the document.', contextTokens: 1234,
+} }, 'main', wireState);
+ok(spawned[0]?.type === 'subagent' && spawned[0]?.id === 'kimi:agent-7' && spawned[0]?.parentToolCallId === 'agent-tool-1', 'Kimi wire subagent spawn maps to the Ruyi subagent card contract');
+ok(childCall[0]?.type === 'tool_use' && childCall[0]?.subagentId === 'kimi:agent-7' && childCall[0]?.name === 'Glob', 'Kimi child Glob wire event nests in its Ruyi subagent card');
+ok(childResult[0]?.type === 'tool_result' && childResult[0]?.content === 'docs/a.md' && childResult[0]?.subagentId === 'kimi:agent-7', 'Kimi child tool result preserves output and ownership');
+ok(completed[0]?.type === 'subagent' && completed[0]?.state === 'end' && completed[0]?.ok === true && completed[0]?.result === 'Found the document.', 'Kimi wire subagent completion settles the Ruyi card');
 
 const html = fs.readFileSync(path.join(WB, 'app', 'public', 'index.html'), 'utf8');
 const ui = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'provider-settings.js'), 'utf8');
@@ -85,7 +127,8 @@ ok(/case 'tool_use_update'/.test(streamUi) && /card\.inp\.textContent/.test(stre
 const engine = fs.readFileSync(path.join(WB, 'app', 'src', '05-claude-engine.js'), 'utf8');
 ok(/value="kimi">Kimi Code</.test(html) && /settings\.agentCli\.tab/.test(html), 'settings exposes Agent CLI selector with Kimi');
 ok(/detectedKimiPath/.test(ui) && /currentAgentCliLabel/.test(ui), 'frontend readiness and labels follow selected driver');
-ok(/runKimiAcpTurnPrepared/.test(engine) && /prepareAgentCliSpawn\('kimi', claude, \['acp'\]\)/.test(fs.readFileSync(path.join(WB, 'app', 'src', '05b-kimi-bridge.js'), 'utf8')), 'engine launches Kimi through ACP instead of prompt flags');
+const kimiBridge = fs.readFileSync(path.join(WB, 'app', 'src', '05b-kimi-bridge.js'), 'utf8');
+ok(/runKimiAcpTurnPrepared/.test(engine) && /prepareKimiAcpSpawn\(claude\)/.test(kimiBridge) && /kimi-acp-compat-register\.mjs/.test(kimiBridge), 'engine launches Kimi through ACP with the guarded non-Bash tool compatibility layer');
 
 const mcpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-mcp-'));
 try {
@@ -175,6 +218,47 @@ function stream(port, body, onEvent) {
   });
 }
 
+async function verifyKimiWireWatcher() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-wire-watch-'));
+  const previous = process.env.KIMI_CODE_HOME;
+  let stop = () => {};
+  try {
+    const sessionId = 'kimi-wire-e2e';
+    const sessionDir = path.join(root, 'sessions', 'session-e2e');
+    const main = path.join(sessionDir, 'agents', 'main', 'wire.jsonl');
+    fs.mkdirSync(path.dirname(main), { recursive: true });
+    fs.writeFileSync(main, '');
+    fs.writeFileSync(path.join(root, 'session_index.jsonl'), JSON.stringify({ sessionId, sessionDir }) + '\n');
+    process.env.KIMI_CODE_HOME = root;
+    const events = [];
+    stop = server.watchKimiWire(sessionId, event => events.push(event), 262144, { subagents: new Map(), childTools: new Map() });
+    fs.appendFileSync(main, JSON.stringify({ type: 'context.append_loop_event', event: {
+      type: 'subagent.spawned', subagentId: 'agent-live', subagentName: 'coder', parentToolCallId: 'agent-tool-live', description: 'Find markdown', runInBackground: false,
+    } }) + '\n');
+    await sleep(350);
+    const child = path.join(sessionDir, 'agents', 'agent-live', 'wire.jsonl');
+    fs.mkdirSync(path.dirname(child), { recursive: true });
+    fs.writeFileSync(child, [
+      JSON.stringify({ type: 'context.append_loop_event', event: { type: 'tool.call', toolCallId: 'grep-live', name: 'Grep', args: { pattern: 'TODO', path: 'docs' } } }),
+      JSON.stringify({ type: 'context.append_loop_event', event: { type: 'tool.result', toolCallId: 'grep-live', result: { output: 'docs/a.md:1:TODO', isError: false } } }),
+    ].join('\n') + '\n');
+    await sleep(450);
+    fs.appendFileSync(main, JSON.stringify({ type: 'context.append_loop_event', event: {
+      type: 'subagent.completed', subagentId: 'agent-live', resultSummary: 'One TODO found.', contextTokens: 321,
+    } }) + '\n');
+    await sleep(350);
+    ok(events.some(event => event.type === 'subagent' && event.state === 'start' && event.id === 'kimi:agent-live'), 'Kimi wire watcher discovers a live subagent after the ACP session starts');
+    ok(events.some(event => event.type === 'tool_use' && event.subagentId === 'kimi:agent-live' && event.name === 'Grep'), 'Kimi wire watcher follows newly-created child-agent tool files');
+    ok(events.some(event => event.type === 'tool_result' && event.subagentId === 'kimi:agent-live' && /TODO/.test(String(event.content))), 'Kimi wire watcher relays child tool output to Ruyi');
+    ok(events.some(event => event.type === 'subagent' && event.state === 'end' && event.id === 'kimi:agent-live' && event.ok === true), 'Kimi wire watcher completes the matching Ruyi subagent card');
+  } finally {
+    stop();
+    if (previous === undefined) delete process.env.KIMI_CODE_HOME;
+    else process.env.KIMI_CODE_HOME = previous;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
 (async () => {
   const streamModule = await import(`data:text/javascript;base64,${Buffer.from(streamUi).toString('base64')}`);
   const updatedCard = {
@@ -250,6 +334,7 @@ function stream(port, body, onEvent) {
       const meta = events.find(event => event.type === 'meta');
       const sessionId = events.find(event => event.type === 'session')?.session?.id;
       ok(meta?.agentCliType === 'kimi' && meta?.agentDriver === 'kimi-acp', 'turn metadata identifies Kimi ACP driver');
+      ok(meta?.kimiAcpCompat === true, 'direct npm Kimi ACP launch enables the guarded non-Bash tool compatibility layer');
       ok(events.some(event => event.type === 'assistant_delta' && /KIMI_E2E:true/.test(event.text)), 'Kimi ACP assistant chunks reach the chat stream');
       ok(events.some(event => event.type === 'tool_use' && event.name === 'Read'), 'Kimi tool call reaches the chat stream');
       ok(events.some(event => event.type === 'tool_use_update' && event.input?.path === 'demo-updated.txt'), 'late Kimi tool input updates reach the existing chat card');
@@ -349,6 +434,7 @@ function stream(port, body, onEvent) {
     await sleep(200);
     fs.rmSync(home, { recursive: true, force: true });
   }
+  await verifyKimiWireWatcher();
   if (failures) process.exitCode = 1;
   else console.log('Kimi Agent CLI adapter contract passed.');
 })().catch(error => { console.error(error.stack || error); process.exitCode = 1; });

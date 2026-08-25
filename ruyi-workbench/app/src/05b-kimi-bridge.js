@@ -339,16 +339,21 @@ async function maybeAutoCompactAgentSession(session, config, agentCliType, onEve
   }
 }
 
-function kimiWireFile(nativeSessionId) {
+function kimiWireSessionDir(nativeSessionId) {
   try {
     const indexFile = path.join(kimiCodeHome(), 'session_index.jsonl');
     const lines = fs.readFileSync(indexFile, 'utf8').split(/\r?\n/);
     for (let i = lines.length - 1; i >= 0; i--) {
       const row = safeJsonParse(lines[i]);
-      if (row && row.sessionId === nativeSessionId && row.sessionDir) return path.join(row.sessionDir, 'agents', 'main', 'wire.jsonl');
+      if (row && row.sessionId === nativeSessionId && row.sessionDir) return String(row.sessionDir);
     }
   } catch { /* absent native index */ }
   return '';
+}
+
+function kimiWireFile(nativeSessionId) {
+  const dir = kimiWireSessionDir(nativeSessionId);
+  return dir ? path.join(dir, 'agents', 'main', 'wire.jsonl') : '';
 }
 
 function parseKimiWireCompaction(row, contextWindow) {
@@ -361,31 +366,177 @@ function parseKimiWireCompaction(row, contextWindow) {
   return null;
 }
 
-function watchKimiWire(nativeSessionId, onEvent, contextWindow) {
-  const file = kimiWireFile(nativeSessionId);
-  if (!file || !fs.existsSync(file)) return () => {};
-  let offset = fs.statSync(file).size;
-  let pending = '';
+function kimiWireLoopEvent(row) {
+  if (!row || typeof row !== 'object') return null;
+  if (row.type === 'context.append_loop_event' && row.event && typeof row.event === 'object') return row.event;
+  return row;
+}
+
+function kimiWireSubagentId(nativeId) {
+  return `kimi:${String(nativeId || '').trim()}`;
+}
+
+function ensureKimiWireSubagent(state, nativeId, patch = {}) {
+  const key = String(nativeId || '').trim();
+  if (!key) return { agent: null, created: false };
+  if (!state.subagents) state.subagents = new Map();
+  let agent = state.subagents.get(key);
+  const created = !agent;
+  if (!agent) {
+    agent = {
+      id: kimiWireSubagentId(key), nativeId: key, name: '', description: '', parentToolCallId: '', parentAgentId: '',
+      runInBackground: false, model: '', thinkingEffort: '', startedAt: Date.now(), running: true, settled: false, lastProgressAt: 0,
+    };
+    state.subagents.set(key, agent);
+  }
+  for (const [name, value] of Object.entries(patch)) {
+    if (value !== undefined && value !== null && value !== '') agent[name] = value;
+  }
+  return { agent, created };
+}
+
+function kimiWireSubagentStart(agent) {
+  return {
+    type: 'subagent', id: agent.id, state: 'start', task: agent.description || agent.name || `Kimi 子代理 ${agent.nativeId}`,
+    roleId: agent.name || 'subagent', roleLabel: agent.name || 'Kimi 子代理', model: agent.model || undefined,
+    thinkingEffort: agent.thinkingEffort || undefined, engine: 'kimi', native: true, agentId: agent.nativeId,
+    parentToolCallId: agent.parentToolCallId || undefined, parentAgentId: agent.parentAgentId || undefined,
+  };
+}
+
+// ACP's session/update schema deliberately has no subagent variants. Kimi does persist those native events
+// in every agent's wire.jsonl, including the child tool lifecycle. Translate that authoritative local stream
+// into Ruyi's existing subagent/card event contract rather than inventing a parallel UI protocol.
+function parseKimiWireAgentEvents(row, wireAgentId, state = {}) {
+  const event = kimiWireLoopEvent(row);
+  if (!event || typeof event !== 'object') return [];
+  const out = [];
+  const type = String(event.type || '');
+  const startIfNeeded = (agent, created) => { if (agent && created) out.push(kimiWireSubagentStart(agent)); };
+  if (type === 'subagent.spawned') {
+    const { agent, created } = ensureKimiWireSubagent(state, event.subagentId, {
+      name: String(event.subagentName || ''), description: String(event.description || ''),
+      parentToolCallId: String(event.parentToolCallId || ''), parentAgentId: String(event.parentAgentId || ''),
+      runInBackground: event.runInBackground === true, model: String(event.model || ''), thinkingEffort: String(event.thinkingEffort || ''),
+    });
+    startIfNeeded(agent, created);
+    if (agent && event.runInBackground === true) out.push({ type: 'subagent', id: agent.id, state: 'background', task: agent.description || agent.name, engine: 'kimi', native: true, agentId: agent.nativeId });
+    return out;
+  }
+  if (type === 'subagent.started' || type === 'subagent.suspended' || type === 'subagent.completed' || type === 'subagent.failed') {
+    const { agent, created } = ensureKimiWireSubagent(state, event.subagentId);
+    if (!agent) return out;
+    startIfNeeded(agent, created);
+    if (type === 'subagent.started') {
+      agent.running = true; agent.lastProgressAt = Date.now();
+      out.push({ type: 'subagent_progress', subagentId: agent.id, state: 'running', note: 'Kimi 子代理运行中', engine: 'kimi', native: true, agentId: agent.nativeId });
+    } else if (type === 'subagent.suspended') {
+      agent.running = true;
+      out.push({ type: 'subagent_progress', subagentId: agent.id, state: 'waiting', note: `Kimi 子代理已暂停：${String(event.reason || '等待继续')}`, engine: 'kimi', native: true, agentId: agent.nativeId });
+    } else if (!agent.settled) {
+      agent.running = false; agent.settled = true;
+      const ok = type === 'subagent.completed';
+      const result = ok ? String(event.resultSummary || '') : String(event.error || 'Kimi 子代理执行失败');
+      out.push({
+        type: 'subagent', id: agent.id, state: 'end', ok, task: agent.description || agent.name || '', result,
+        resultChars: result.length, usage: event.usage || undefined, contextTokens: Number(event.contextTokens) || undefined,
+        engine: 'kimi', native: true, agentId: agent.nativeId,
+      });
+    }
+    return out;
+  }
+  // Main-agent tools already arrive through ACP. Child wires are the missing half: nest their native
+  // Glob/Grep/Bash/etc. cards under the corresponding subagent without duplicating the parent tool stream.
+  const childId = String(wireAgentId || '');
+  if (!childId || childId === 'main' || (type !== 'tool.call' && type !== 'tool.result')) return out;
+  if (!state.childTools) state.childTools = new Map();
+  const { agent, created } = ensureKimiWireSubagent(state, childId);
+  if (!agent) return out;
+  startIfNeeded(agent, created);
+  const nativeToolId = String(event.toolCallId || '');
+  if (!nativeToolId) return out;
+  const key = `${childId}\u0000${nativeToolId}`;
+  let tool = state.childTools.get(key);
+  if (type === 'tool.call') {
+    const input = event.args && typeof event.args === 'object' ? event.args : {};
+    if (!tool) {
+      tool = { id: `kimi:${childId}:${nativeToolId}`, name: String(event.name || 'KimiTool'), input, settled: false };
+      state.childTools.set(key, tool);
+      out.push({ type: 'tool_use', id: tool.id, name: tool.name, input: tool.input, subagentId: agent.id, engine: 'kimi', native: true });
+    } else if (tool.name !== event.name || tool.input !== input) {
+      tool.name = String(event.name || tool.name); tool.input = input;
+      out.push({ type: 'tool_use_update', id: tool.id, name: tool.name, input: tool.input, subagentId: agent.id, engine: 'kimi', native: true });
+    }
+  } else if (!tool || !tool.settled) {
+    if (!tool) {
+      tool = { id: `kimi:${childId}:${nativeToolId}`, name: 'KimiTool', input: {}, settled: false };
+      state.childTools.set(key, tool);
+      out.push({ type: 'tool_use', id: tool.id, name: tool.name, input: tool.input, subagentId: agent.id, engine: 'kimi', native: true });
+    }
+    tool.settled = true;
+    const result = event.result;
+    out.push({
+      type: 'tool_result', id: tool.id, subagentId: agent.id,
+      content: result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'output') ? result.output : result,
+      isError: Boolean(event.isError || (result && result.isError)), engine: 'kimi', native: true,
+    });
+  }
+  return out;
+}
+
+function watchKimiWire(nativeSessionId, onEvent, contextWindow, state = {}) {
+  const sessionDir = kimiWireSessionDir(nativeSessionId);
+  const agentsDir = sessionDir && path.join(sessionDir, 'agents');
+  if (!agentsDir || !fs.existsSync(agentsDir)) return () => {};
+  const files = new Map();
+  const addWireFile = (file, agentId, replay) => {
+    if (!file || files.has(file) || !fs.existsSync(file)) return;
+    try { files.set(file, { file, agentId, offset: replay ? 0 : fs.statSync(file).size, pending: '' }); } catch { /* race with child cleanup */ }
+  };
+  const discover = replayNew => {
+    let entries = [];
+    try { entries = fs.readdirSync(agentsDir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const file = path.join(agentsDir, entry.name, 'wire.jsonl');
+      addWireFile(file, entry.name, replayNew);
+    }
+  };
+  discover(false);
   let reading = false;
   const timer = setInterval(async () => {
     if (reading) return;
     reading = true;
     try {
-      const size = (await fsp.stat(file)).size;
-      if (size < offset) { offset = 0; pending = ''; }
-      if (size > offset) {
-        const handle = await fsp.open(file, 'r');
+      discover(true);
+      for (const track of files.values()) {
+        const size = (await fsp.stat(track.file)).size;
+        if (size < track.offset) { track.offset = 0; track.pending = ''; }
+        if (size <= track.offset) continue;
+        const handle = await fsp.open(track.file, 'r');
         try {
-          const buffer = Buffer.alloc(size - offset);
-          await handle.read(buffer, 0, buffer.length, offset);
-          offset = size;
-          const lines = (pending + buffer.toString('utf8')).split(/\r?\n/);
-          pending = lines.pop() || '';
+          const buffer = Buffer.alloc(size - track.offset);
+          await handle.read(buffer, 0, buffer.length, track.offset);
+          track.offset = size;
+          const lines = (track.pending + buffer.toString('utf8')).split(/\r?\n/);
+          track.pending = lines.pop() || '';
           for (const line of lines) {
-            const event = parseKimiWireCompaction(safeJsonParse(line), contextWindow);
-            if (event) onEvent(event);
+            const row = safeJsonParse(line);
+            if (!row) continue;
+            if (track.agentId === 'main') {
+              const compact = parseKimiWireCompaction(row, contextWindow);
+              if (compact) onEvent(compact);
+            }
+            for (const event of parseKimiWireAgentEvents(row, track.agentId, state)) onEvent(event);
           }
         } finally { await handle.close(); }
+      }
+      const now = Date.now();
+      for (const agent of state.subagents instanceof Map ? state.subagents.values() : []) {
+        if (agent.running && !agent.settled && now - agent.lastProgressAt >= 2000) {
+          agent.lastProgressAt = now;
+          onEvent({ type: 'subagent_progress', subagentId: agent.id, state: 'running', note: `Kimi 子代理运行中 · ${Math.max(1, Math.round((now - agent.startedAt) / 1000))}s`, engine: 'kimi', native: true, agentId: agent.nativeId });
+        }
       }
     } catch { /* wire updates are best-effort */ } finally { reading = false; }
   }, 250);
@@ -1072,6 +1223,17 @@ function friendlyKimiAcpError(error) {
   return raw;
 }
 
+function prepareKimiAcpSpawn(command) {
+  const base = prepareAgentCliSpawn('kimi', command, ['acp']);
+  const entry = String(base.args && base.args[0] || '');
+  const register = path.join(externalRoot(), 'resources', 'kimi-acp-compat-register.mjs');
+  // Only direct npm-package launches can use Node's ESM loader. Native Kimi executables retain their
+  // upstream behavior rather than guessing at a binary patch, and the loader itself still verifies the
+  // exact source helper before changing anything.
+  if (!fs.existsSync(register) || !path.isAbsolute(entry) || !/[\\/]@moonshot-ai[\\/]kimi-code[\\/]dist[\\/]main\.mjs$/i.test(entry)) return base;
+  return { ...base, args: ['--import', pathToFileURL(register).href, ...base.args], kimiAcpCompat: true };
+}
+
 async function runKimiAcpTurnPrepared(context) {
   const {
     session, message, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
@@ -1090,7 +1252,8 @@ async function runKimiAcpTurnPrepared(context) {
     WCW_TOKEN: RUNTIME.token,
   };
   if (config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
-  const spawn = prepareAgentCliSpawn('kimi', claude, ['acp']);
+  const spawn = prepareKimiAcpSpawn(claude);
+  if (spawn.kimiAcpCompat) env.RUYI_KIMI_ACP_COMPAT = '1';
   const cwdWarn = cwdWarning(workingDir);
   const state = {
     assistantText: '', thinkingText: '', usage: null, model: String(config.model || ''),
@@ -1192,7 +1355,7 @@ async function runKimiAcpTurnPrepared(context) {
       thinkingEffort: config.claudeThinkingEffort || 'default', permissionMode: config.permissionMode,
       historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined,
       memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined,
-      resumeRecoveryAttempt: false, agentRoles: [], agentRolesOmitted: [], agentDriver: 'kimi-acp',
+      resumeRecoveryAttempt: false, agentRoles: [], agentRolesOmitted: [], agentDriver: 'kimi-acp', kimiAcpCompat: Boolean(spawn.kimiAcpCompat),
       agentCliType: 'kimi', agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined,
     });
     logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', agentDriver: 'kimi-acp', model: config.model || 'default', promptLen: fullPrompt.length });
@@ -1206,6 +1369,7 @@ async function runKimiAcpTurnPrepared(context) {
       lastEventAt: Date.now(), interactive: true, onEvent: null, session, kind: 'kimi-acp', traceId: activeTraceId,
       questionContext: '', steerQueue: [], acceptingSteer: true, abort: null,
       nativeSessionId: '', kimiAcpApprovals: [], kimiAcpTerminals: new Map(), kimiAcpTerminalResults: new Map(), kimiAcpElicitations: new Map(),
+      kimiAcpWire: { subagents: new Map(), childTools: new Map() },
     };
     reg.onEvent = event => { reg.lastEventAt = Date.now(); onEvent(event); };
     activeChildren.set(session.id, reg);
@@ -1320,7 +1484,7 @@ async function runKimiAcpTurnPrepared(context) {
     await applyOption('thinking', ['low', 'high', 'max'].includes(config.claudeThinkingEffort) ? config.claudeThinkingEffort : '');
     if (!state.model) state.model = String(config.model || '');
     session.claudeSessionModel = state.model;
-    stopKimiWireWatch = watchKimiWire(nativeSessionId, reg.onEvent, session.kimiContextStatus && session.kimiContextStatus.contextWindow);
+    stopKimiWireWatch = watchKimiWire(nativeSessionId, reg.onEvent, session.kimiContextStatus && session.kimiContextStatus.contextWindow, reg.kimiAcpWire);
 
     const prompts = [fullPrompt];
     while (prompts.length && reg.state === 'running') {

@@ -20,7 +20,7 @@ const cp = require('child_process');
 const readline = require('readline');
 const { StringDecoder } = require('string_decoder');
 const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` content with the built-in zlib (gzipSync/gunzipSync) — NO npm.
-const { URL } = require('url');
+const { URL, pathToFileURL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
 const VERSION = '2.6.0'; // Escapade 2.6.0: Agent CLI 可选 Claude Code / Kimi Code

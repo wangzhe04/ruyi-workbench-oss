@@ -35,6 +35,8 @@ module.exports = {
   resolveCompactionProvider,
   compactHistoryFromSession,
   parseKimiWireCompaction,
+  parseKimiWireAgentEvents,
+  watchKimiWire,
   kimiSessionStatus,
   runKimiCompact,
   compactKimiNative,

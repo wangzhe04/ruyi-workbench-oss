@@ -1185,7 +1185,10 @@ function probeAgentCliLauncher(command) {
   if (!command) return false;
   try {
     const isScript = /\.cjs$/i.test(command);
-    const s = isScript ? { command: process.execPath, args: [command, '--version'], opts: {} } : batchSafeSpawn(command, ['--version']);
+    const kimiEntry = isScript ? '' : resolveKimiNpmEntry(command);
+    const nodeExe = kimiEntry ? bundledNodeExe() : '';
+    const s = isScript ? { command: process.execPath, args: [command, '--version'], opts: {} }
+      : (kimiEntry && nodeExe ? { command: nodeExe, args: [kimiEntry, '--version'], opts: {} } : batchSafeSpawn(command, ['--version']));
     const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
     return !ok.error && ok.status === 0;
   } catch { return false; }
@@ -1222,31 +1225,35 @@ function selectedAgentCli(config) {
   const detected = type === 'claude' ? detectClaudePath() : detectKimiPath();
   return { ...meta, path: String(config && config[meta.pathKey] || detected || ''), detected };
 }
-function prepareAgentCliSpawn(type, command, args) {
-  const argv = Array.isArray(args) ? args : [];
-  if (type === 'kimi' && /(?:^|[\\/])kimi\.cmd$/i.test(command)) {
-    // npm's shim goes through cmd.exe (8191-char ceiling). Resolve its deterministic package-relative entry
-    // and launch with Node directly, matching the Claude shim escape hatch's intent.
-    // Local installs place the shim in node_modules/.bin; global npm puts it beside node_modules.
-    // A saved setting normally contains the bare `kimi.cmd` found on PATH. path.dirname('kimi.cmd') is
-    // merely '.', so resolving relative to it searches the workspace and silently falls back to cmd.exe.
-    // Resolve the shim's real PATH location first; otherwise every ordinary global npm install still hits
-    // cmd.exe's 8191-character ceiling despite this escape hatch existing.
-    let shim = String(command);
-    if (!path.isAbsolute(shim) && !/[\\/]/.test(shim)) {
-      for (const rawDir of String(process.env.PATH || '').split(path.delimiter)) {
-        const dir = rawDir.trim().replace(/^"|"$/g, '');
-        if (!dir) continue;
-        const candidate = path.join(dir, shim);
-        if (fs.existsSync(candidate)) { shim = candidate; break; }
+function resolveKimiNpmEntry(command) {
+  const raw = String(command || '').trim();
+  if (!/(?:^|[\\/])kimi(?:\.(?:cmd|ps1))?$/i.test(raw)) return '';
+  let shim = raw;
+  if (!path.isAbsolute(shim) && !/[\\/]/.test(shim)) {
+    const names = [...new Set([shim, 'kimi.cmd', 'kimi.ps1'])];
+    outer: for (const rawDir of String(process.env.PATH || '').split(path.delimiter)) {
+      const dir = rawDir.trim().replace(/^"|"$/g, '');
+      if (!dir) continue;
+      for (const name of names) {
+        const candidate = path.join(dir, name);
+        if (fs.existsSync(candidate)) { shim = candidate; break outer; }
       }
     }
-    const dir = path.dirname(path.resolve(shim));
-    const entries = [
-      path.resolve(dir, '..', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
-      path.resolve(dir, 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
-    ];
-    const entry = entries.find(candidate => fs.existsSync(candidate));
+  }
+  const dir = path.dirname(path.resolve(shim));
+  const entries = [
+    path.resolve(dir, '..', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
+    path.resolve(dir, 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
+  ];
+  return entries.find(candidate => fs.existsSync(candidate)) || '';
+}
+function prepareAgentCliSpawn(type, command, args) {
+  const argv = Array.isArray(args) ? args : [];
+  if (type === 'kimi') {
+    // npm's shim goes through cmd.exe (8191-char ceiling). Resolve its deterministic package-relative entry
+    // and launch with Node directly, matching the Claude shim escape hatch's intent. This also handles
+    // PowerShell's `kimi.ps1` shim, so a saved terminal launcher behaves the same as `kimi.cmd`.
+    const entry = resolveKimiNpmEntry(command);
     const nodeExe = bundledNodeExe();
     // In a packaged release process.execPath is Ruyi.exe, not Node. The offline packages deliberately ship
     // runtime/node/node.exe; use that runtime so the same direct-entry launch works in both source and ZIP builds.
