@@ -12,7 +12,7 @@
 
 一台 Windows 机器 + 任意一个可用的模型端点（任意 OpenAI 兼容 API、Claude Code 或 Kimi Code）= 一个**能真正替你动手**的本地 AI 工作台:读写文件、跑脚本、操控桌面和 Office、派一队子代理协作调研——每一步可审计、可撤销、成本透明,**有网没网都能正常运行**。
 
-> **当前稳定技术版本：`v2.6.0`。** 这是加入 Kimi Code Agent CLI 支持的 Escapade 2.6 正式版本；发布资产统一使用 `v2.6.0`。
+> **当前稳定技术版本：`v2.6.1`。** 这是加入 Kimi Code Agent CLI 支持的 Escapade 2.6 补丁版本；发布资产统一使用 `v2.6.1`。
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
@@ -448,7 +448,7 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 4. **Chinese-first with English support, built for non-programmers** — the interface defaults to Chinese and can follow the system language or switch to Simplified Chinese or English. Settings, Provider cards, safety/capability popovers, model menus, artifacts, shortcuts, the command palette, the skill library, and stable API errors are localized. Built-in skills and quick tasks follow the UI language, while user and project-authored content remains in its original language; simple/pro UI is shared by coders and non-coding knowledge workers.
 5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an Agent CLI (Claude Code / Kimi Code), switchable mid-session with cross-engine context continuation.
 
-> **Current stable technical release: `v2.6.0`.** Escapade 2.6 adds Kimi Code as a selectable Agent CLI alongside Claude Code; release assets use `v2.6.0`.
+> **Current stable technical release: `v2.6.1`.** Escapade 2.6 adds Kimi Code as a selectable Agent CLI alongside Claude Code; release assets use `v2.6.1`.
 
 #### Kimi Code ACP compatibility and limits
 
