@@ -1,7 +1,7 @@
 # 如意 Ruyi 优化路线图（当前版）
 
 > 本文只保留**当前发布线、发布准入与后续计划**；已交付波次历史移入 [`archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md)（第46–86波）与 [`archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md)（第1–45波）。
-> 当前要排期或实施的工作，以本文「后续计划」与 `docs/PRETENDER-PLAN.md` v4 为准。
+> 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)。`docs/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，适用边界见 22 号方案 §8，不再统管新引擎线。
 
 ---
 
@@ -11,21 +11,21 @@
 
 | 对外产品线 | 技术版本与 Git tag | 面向用户的写法 | 状态 |
 |---|---|---|---|
-| **Escapade** | `v2.x.y` | **如意 Ruyi Escapade 2.0**；修订版写作 Escapade 2.0.1、2.1 … | 当前大版本；`v2.5.0` 为当前发布版（2026-08-09） |
-| **Pretender** | `v3.0.0` | **如意 Ruyi Pretender 3.0** | 已立项（第56波评审 GO）；五层门 P1✅ / P2✅ / P3 工程✅（正式人因验证待办），P4 3.0.0 默认切换与发布待办（第87–91波已用于交办台 UX 打磨，因人因验证未做暂缓） |
+| **Escapade** | `v2.x.y` | **如意 Ruyi Escapade 2.0**；修订版写作 Escapade 2.0.1、2.1 … | 当前大版本；源码版本与 Git tag 已到 `v2.6.1`；`CHANGELOG.md` 最后已归档发布条目仍为 `v2.5.0`（2026-08-09） |
+| **Pretender** | `v3.0.0` | **如意 Ruyi Pretender 3.0** | **重新立项（2026-08-27）**：版本核心改为引擎侧 Agent SoC 微架构迭代（见「Pretender 3.0 重新立项」节与 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)）；原壳层线 P1✅ / P2✅ / P3 工程✅，P4 默认切换与发布保持搁置，不因重新立项自动恢复 |
 
-- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析（当前为 `v2.4.1`）。离线包也继续用短文件名（如 `Ruyi-v2.4.1-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效。
+- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析（当前技术基线为 `v2.6.1`）。离线包也继续用短文件名（如 `Ruyi-v2.6.1-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效；源码／tag 的版本号不替代发布物与发布状态核验。
 - `第N波`、`Nx` 等只表示内部工作切片；一个 Release 可以汇总多波，一个波也可只在后续补丁版发布。只有范围冻结、测试与打包门通过后，才决定是 `2.0.x` 补丁、`2.x` 功能版本或下一主版本。
-- 每个对外大版本以一个产品代号统摄体验目标；Pretender 3.0.0 发布前不把 Pretender 名/3.0 版本号混入用户界面、下载名或兼容承诺（PRETENDER-PLAN v4 §2.2）。
+- 每个对外大版本以一个产品代号统摄体验目标；Pretender 3.0.0 正式发布批准前不把 Pretender 名/3.0 版本号混入用户界面、下载名或兼容承诺（22 号方案 §8 的品牌冻结纪律）。
 
 ---
 
-## 当前状态（2026-08-10）
+## 当前状态（2026-08-27）
 
 | 线 | 状态 | 依据 |
 |---|---|---|
-| **Escapade 发布线** | `v2.5.0` 已发布（2026-08-09，含第95–98波：再开一回合、交办台附件、Layout 精简、真实调度波次、桌面壳、HB360 快照等） | `CHANGELOG.md`、git tag `v2.5.0` |
-| **Pretender 3.0 交付线（⏸️ 搁置）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）** | `docs/PRETENDER-PLAN.md` v4、`docs/PRETENDER-METRICS.md`、第99/100波记录 `docs/archive/optimization-plan/08-task-sheet-ux-audit.md` |
+| **Escapade 发布线** | 当前源码与技术 tag 为 `v2.6.1`；`CHANGELOG.md` 最后已归档发布条目为 `v2.5.0`（2026-08-09，含第95–98波），后续变更仍列于 Unreleased。本次规划修订不改变版本号或发布状态 | `ruyi-workbench/package.json`、git tag `v2.6.1`、`CHANGELOG.md` |
+| **Pretender 3.0 交付线（🔁 重新立项：核心改向引擎侧）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）**；**2026-08-27 重新立项：版本核心改为引擎侧 Agent SoC 微架构迭代（[`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) 与本文「Pretender 3.0 重新立项」节），原壳层 P1–P3 成果已随 Escapade 2.x 交付，P4 默认切换保持搁置** | `docs/PRETENDER-PLAN.md` v4、`docs/PRETENDER-METRICS.md`、第99/100波记录 `docs/archive/optimization-plan/08-task-sheet-ux-audit.md` |
 | **Traveler 4.0** | 概念稿 v0.1（非承诺） | `docs/TRAVELER-CONCEPT.md` |
 
 ---
@@ -80,11 +80,34 @@
 
 按 `docs/PRETENDER-PLAN.md` v4 P4 原计划：新壳层默认开（经典可切）、版本三角 bump `3.0.0`（`00-boot.js` / `package.json` / `facts.json`）、CHANGELOG / USER-GUIDE / 发布物正名（解除 §2.2 品牌冻结）、发布门同 2.2/2.3 三门（范围冻结 / 测试 / 打包）。
 前置条件（原）：**第101波出门**（人因验证达标）；以及 **P4 硬化终审剩余项**（安全红队终审、性能终验、双主题/双语/a11y 终审、离线升级、数据迁移与恢复演练，第86波只交付了工程硬化切片）。
-**搁置状态（2026-08-10）**：因第101波跳过、产品首页保留 v2.5.0，本波暂缓执行；待 3.0 重新立项时再启。
+**搁置状态（2026-08-10；2026-08-27 衔接澄清）**：因第101波跳过、产品首页保留 v2.5.0，本波暂缓执行。新引擎线重新立项不自动恢复本波；是否恢复默认切壳须另行拍板并重新评估人因与切换前置。
 
 ### post-3.0 退出线（不计入 3.0 交付工期）
 
-新壳默认后第 1 个公开 Release 保留经典；最迟第 2 个公开 Release 且不晚于 3.0.0 后 6 个月进入强制退出评审（`docs/PRETENDER-PLAN.md` v4 §4 post-3.0 / C2）。门绿退出；仍有 P0/P1 红项则恢复经典默认或阻断下一公开 Release 并成文整改，不得按日历强删安全退路。
+**2026-08-27 触发点修订**：以首次默认启用新壳的公开 Release 为起点，其后第 1 个公开 Release 保留经典；最迟第 2 个公开 Release 且不晚于该起点后 6 个月进入强制退出评审（22 号方案 §8 对旧 v4 C2 的显式衔接）。仅发布引擎版 3.0 不启动双壳退出时钟。门绿退出；仍有 P0/P1 红项则恢复经典默认或阻断下一公开 Release 并成文整改，不得按日历强删安全退路。
+
+### Pretender 3.0 重新立项 · Agent SoC 微架构收敛线（2026-08-27 拍板）
+
+> **决定记录（2026-08-27，用户）**：重新立项 Pretender 3.0，版本核心改为引擎侧迭代；本轮评审进一步明确「先取得足够证据，不统一等待长期真实用户数据」。原壳层 P1–P3 工程成果保留，正式外部人因验证仍未执行；P4 默认切壳、发布正名保持搁置，是否恢复另行拍板。品牌冻结与通用安全／恢复／升级门继续有效。
+
+**目标与边界**：让每个验收成功的任务更便宜、更快、更可控。保留 15 项候选方向 + 4 项排除，但不要求全部落地；SoC 仅为分析比喻，不宣称同类最优、天然语义等价或数量级收益。#2 拆为执行结果缓存／观察去重，#13 拆为预算保护／自适应降级，#14 拆为资源隔离／模型策略，分别验证。
+
+**证据三类**：A＝确定性测试＋本地真实工具基准；B＝固定任务集上的真实模型／后端对照；C＝收益边界模拟＋限定工作流验证。真实模型测试不等于真实用户数据；长期使用数据主要用于扩围与总体收益评估，不是所有候选的入场门。
+
+**首批六项范围（待实施／验证，逐项独立，不同时启用）**：
+
+1. **第 0 步计量校准**：先修 E0/E1 抽样明细被当总量的口径，分清 turn/task、HTTP attempt、费用来源与缺失覆盖；再做热点统计。用已知合成账目与固定夹具验收，无需长期日志或新后台服务。
+2. **#1 Prompt Cache 纪律验证**：固定多轮请求＋真实 provider 的冷／热缓存与费用回执；布局变更加任务质量对照。
+3. **#6 已有只读 worker pool 增量验证**：复用 21-E2，与当前 legacy 而非仅与串行比较；构造 >8 批、争用／故障／取消，用实际本地工具测量。
+4. **#2a 受限结果缓存**：资源版本与权限明确的白名单，验证失效和零命中开销；不捆绑观察压缩。
+5. **#13a 预算保护基础层**：预警、在途／收尾预留、停止新增调用与暂停；暂不自动换模型或激进摘要。
+6. **#3 或 #9 的一个限定场景试验**：批量输出或宏融合，固定真实模型任务集验证质量、总成本和失败重试。
+
+**配套与后排**：#12 锁审计前移为缓存／并行安全配套；#14a 有实际竞争负载再安排。#2b 先补可用的按需回载，#7 预取排其后；#4/#10 按固定任务集另行验证；#11/#13b 的模型降档必须与 #15 升级／暂停闭环一起验收；#5 模板提议走 R2 人工发布纪律，#8 投机先验证受控 DAG 的收益边界。暂缓不等于统一等待几个月用户数据。
+
+**红线与发布门**：只读不自动等于可缓存／可安全投机；命中与预执行都要验证权限和资源状态。独立开关、默认关或有界 shadow、先单轴后组合；overall 退化目标 ≤1pp，固定任务集配对重复并报告置信区间，证据不足不宣告非劣；权限／配对／checkpoint／审计零回归。总费用包括失败、重试、摘要、升级和后台工作。发布前以 Release Brief 冻结必交项、目标任务族、收益阈值、默认启用范围与回退；全部默认关闭不冒称用户收益。20-T1/C1 的现有阻断不自动解除。
+
+详细架构、逐项验收与执行序见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)。
 
 ### 第103波起 · 编排方法论升级 — MicroAgent 论文借鉴（2026-08-10 立项，3.0 搁置后提前）
 
@@ -110,7 +133,7 @@
 
 **运行时优化性价比候选线（2026-08-15，shadow 已启用、非纯收益）**：完成 AgentRx、AgentDiet、工具检索、上下文治理、模型/预算路由、DAG 调度、推测执行、语义事务、Windows 感知与 KV cache 等方向的去重和成本收益评审。`runtimeOptimizationShadowV1` 默认开启，只旁路计算/脱敏记录，不改变工具结果、上下文、权限、retry 或记忆。基础 60/20/30 合成门虽通过，但后续 283 条检索、89 条 observation、59 条失败分类与 1,000 指纹探针的对抗审计给出 `mixed_benefit_with_identified_costs_and_blockers`：T1 正例收益显著且无样本内退化，但攻击/无关 query 有误召回和大 catalog 线性成本；C1 发现纯文本错误漏保护、超宽结构化结果非法 JSON、重复压缩非幂等三个 High，**主动启用阻断**；F1 对部分写操作 transport ambiguity 分类不足，但仍 fail-safe、只保留 telemetry。Recovery Brief/自动恢复未准入；完整 AgentRx/AgentDiet、学习型路由/调度及新运行时服务继续暂缓。详细证据与修复前置门见 [`optimization-plan/20-runtime-optimization-cost-benefit.md`](optimization-plan/20-runtime-optimization-cost-benefit.md) §0.4。
 
-**工具调用经济性校准与收敛候选线（2026-08-17，规划冻结、未实施）**：HB360 适配器会把同一 assistant batch 的多个 tool result 展平为合成轮次，`1,739` 合成轮次不能继续视为真实 API 调用；adapter metadata 与原始 SSE 给出的真实模型调用基线约为 `10.1–10.4/任务`，且原始 SSE 中约 `40%` 的带工具响应已经包含多工具调用。后续按 E0–E5 单轴推进：E0 建立 `modelCallId → assistantBatchId → toolCallId` 事实账本；E1 补工具阶段、参数历史、元工具链与缓存 shadow；E2 将现有 `2–8` 个纯原生 read 的全有或全无并发升级为有界 worker pool/安全只读岛；E3 在完整执行与审计参数之外增加紧凑 provider model view；E4 验证易变层后置和 schema append-only 的缓存收益；E5 收敛孤立 todo 与 search/load/invoke 链。第一收益门为真实模型调用 `8.5–9.2/任务`、大参数历史 `-70%`、read-heavy 工具阶段 p95 `-20%`、孤立元工具批次 `-30%`，总成本先以 `-15–25%` 为目标而非承诺减半；任务结果 overall 退化须 `≤1pp`，配对/权限/checkpoint/审计回归为零。20-T1 仍需至少 200 条真实 search（含 50 条负例）和拒绝/性能门，20-C1 仍受证据保护与幂等 High 阻断，不因本线立项而联带启用。详见 [`optimization-plan/21-tool-call-economics-convergence.md`](optimization-plan/21-tool-call-economics-convergence.md)。
+**工具调用经济性校准与收敛线（2026-08-27 状态同步）**：E0 三层账本、E1 报表、E2a worker pool／E2c 重放、E3 参数双视图与 E5 元工具链已有实现；主动优化开关仍关闭，E2b/E4 延后，HB360 历史对账 blocked/deferred。新增核查发现 E0/E1 将抽样事件直接计为调用总量的问题，第 0 步需先修口径，不能把“代码已实现”视为“完整基线已可信”。旧 HB360 的 `1,739` 合成轮次不等于模型调用，`10.1–10.4/任务` 等数字保留为历史样本口径，不直接外推当前版本。已有 read 重放相对 serial 的 p95 -26% 是既有并行能力，legacy == pool，不是新 pool 增量收益。后续与 22 号线共用计量、缓存和并行实验；可用构造夹具／固定真实模型任务验证限定范围，不等待长期流量，也不冒称历史对账已通过。原 21 号线量化目标保留为候选门，须基于校准后的当前对照和适用任务范围冻结。20-T1/C1 仍按各自原有数据与安全门管理。详见 [`optimization-plan/21-tool-call-economics-convergence.md`](optimization-plan/21-tool-call-economics-convergence.md)。
 
 ### Traveler 4.0（概念稿）
 

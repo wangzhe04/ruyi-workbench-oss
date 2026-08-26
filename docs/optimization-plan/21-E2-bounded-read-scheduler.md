@@ -1,8 +1,10 @@
 # 21-E2 · 有界只读批次调度器（boundedReadSchedulerV1）
 
 > 状态：**E2a 已实施（纯 read worker pool），E2b 待实施，E2c 重放脚本已上线**（决策日期 2026-08-17）
-> 前置：21-E0 三层账本 shadow ✅、21-E1 基线报表 ✅、E2c 离线重放 ✅（重放结果见 §4.4）
-> 主动开关：`boundedReadSchedulerV1` 默认 `false`；上线顺序 E2a → E2b → E2c，主动实验串行。
+> 基座：21-E0/E1 已有代码，抽样／总量口径待校准；E2c 已有重放（历史结果见 §4.4），不等于新增收益已证明。
+> 主动开关：`boundedReadSchedulerV1` 默认 `false`；当前先验证 E2a/E2c 增量，E2b 后排，主动实验串行。
+
+> **2026-08-27 证据与顺序修订**：原 E2a → E2b → E2c 顺序改为先验证已有实现的增量，E2b 仍后排。可用构造夹具＋实际本地安全只读工具完成限定范围性能／正确性验证，不必等自然用户产生 >8 批；历史真实样本不足仍如实标记，不等于历史门已通过。开关继续关闭，本文不授权启用。与 [22 号方案](22-agent-soc-microarchitecture.md) §4／§6 共用准入纪律。
 
 ---
 
@@ -22,7 +24,7 @@
 
 **明确不做**：不把不同模型轮次的动作重排到一起（21 方案 §5.1）；不碰 bridge 并发（未声明 thread-safe 的 connector 一律不并发）；不改变 prompt、history、结果内容、权限语义。
 
-**收益口径**：只承诺 `tool_phase p95` 的 wall-clock 下降；**不**把模型调用数作为 E2 收益（调度只改工具阶段）。
+**收益口径**：测量相对当前 legacy 的 `tool_phase p95` 与端到端耗时；不预先承诺下降。serial 只作诊断参照，已有并行收益不重新计价；**不**把模型调用数下降作为 E2 收益（调度只改工具阶段）。
 
 ---
 
@@ -130,15 +132,17 @@ E1 报表 `batchShape` 增加 `poolReadBatchShare / islandBatchShare`，与 E0 �
 
 ## 4. 数据门与验收
 
-### 4.1 前置：E1 基线冻结 + 离线重放（关键）
+### 4.1 前置：计量校准 + 固定本地基准／离线重放（2026-08-27 修订）
 
-当前 >8 纯 read 样本为 **0**、混合批样本稀少——直接线上 canary 无法归因。必须先建离线重放：
+2026-08-17 历史样本中 >8 纯 read 批为 **0**、混合批稀少，不能从该批数据推断新增收益。**无需等待长期使用积累**：先构造 ≤8／>8／混合批、文件大小和冷热读、资源竞争、故障与取消夹具，使用真实本地安全只读工具测量；假 provider 用于协议与调度验证，sleep 假工具不能代表实际 I/O 收益。E1 口径校准或可独立对账的基准计数是正式报告前置。
 
-**`dev-harness/read-pool-replay.js`**：从已保存 session JSON 的 `providerHistory` 提取 `assistant.tool_calls` 批次，对每个 safe-read 批跑四种模式 `serial / legacy-2-8 / pool4 / pool8`（用真实只读工具重放，read 无副作用），输出：
-- `tool_phase p95` 各模式对比（验收线：pool 相对 serial 下降 ≥20%）
-- 配对完整性、资源冲突计数、并发争用信号
+已有 **`dev-harness/read-pool-replay.js`** 可复用为历史重放来源；新增夹具／实际工具基准需单独交付并标明执行方式，不能仅凭模式名声称实际运行了不同并发度。已有记录重放仅限在隔离测试资源中授权的白名单，不能把历史 read 一律视为无外部影响。报告包含：
 
-数据不足时标注 `insufficient_wide_read_batches`，**不强行 canary**（21 方案 §13.3 停止条件）。
+- serial／当前 legacy／候选的 `tool_phase p95`、端到端占比与本地资源开销；正式收益对比候选与 legacy，原“相对 serial -20%”只保留为诊断，不能作为新增 pool 的放行证据；具体增量阈值在实验前冻结。
+- 配对完整性、顺序、权限／锁／中断不变量、CPU／句柄／磁盘争用与小任务开销。
+- 历史样本与构造样本分列，报告任务范围、实际工具／硬件、冷热状态、重复次数和不确定性。
+
+历史样本不足仍标 `insufficient_wide_read_batches`；构造基准通过可形成限定范围证据并申请 opt-in／受控 canary，不冒称总体收益或强行扩大默认范围。长期真实流量用于扩围；没有当前对照的净收益则保持关闭。
 
 ### 4.2 e2e 回归清单（新增 `dev-harness/read-pool.e2e.js`）
 
@@ -170,7 +174,7 @@ E1 报表 `batchShape` 增加 `poolReadBatchShare / islandBatchShare`，与 E0 �
 
 - **pool 相对 serial p95 下降 26%**：现有并行能力已兑现主要收益
 - **legacy == pool4 == pool8**：≤8 批下 worker pool 与全量并发墙钟等价，验证决策 B 不改变现有行为
-- **`wideReadBatchesOver8: 0`（`insufficientWideReadBatches: true`）**：真实数据中 >8 纯 read 批为零 → **E2 主动上线无法归因，维持开关关闭**，等待真实使用积累（21 方案 §13.3 数据门）。E2a 代码已就绪，数据到位后 5%→25% canary 再评估。
+- **`wideReadBatchesOver8: 0`（`insufficientWideReadBatches: true`）**：该历史数据中 >8 纯 read 批为零，未证明 E2 新增收益，开关保持关闭。2026-08-17 当时决定等待真实使用积累；**2026-08-27 改按 §4.1 先补构造夹具与实际本地工具基准**，不以长期数据作为限定范围验证的统一前置。该历史结果不改记通过或有新增收益。
 
 ---
 
@@ -179,7 +183,7 @@ E1 报表 `batchShape` 增加 `poolReadBatchShare / islandBatchShare`，与 E0 �
 | 切片 | 产出 | 状态 |
 |---|---|---|
 | **E2a** 纯 read pool | 放宽 >8、Promise.all → pool（并发公式 B）、queueWaitMs、strategy=pool_read | ✅ 已实施（2026-08-17），read-pool.e2e.js 14 断言全过 |
-| **E2b** 混合批岛 | 分段提取、pool_island | ⏳ 待实施（混合批样本稀少，收益不可归因，延后） |
+| **E2b** 混合批岛 | 分段提取、pool_island | ⏳ 待实施，先完成 E2a 增量验证；之后可用构造混合批验证边界与收益，不必等待长期真实样本 |
 | **E2c** 重放 + 报表扩展 + 回归套件 | read-pool-replay.js（✅ 上线）、read-pool.e2e.js（✅ 上线）、E1 报表 batchShape 扩展（⏳） | 部分完成 |
 
 每个切片独立 shadow/开关，主动实验串行（21 方案 §11/§12）。
