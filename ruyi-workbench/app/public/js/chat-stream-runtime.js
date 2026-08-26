@@ -1133,6 +1133,11 @@ export function createChatStreamRuntime(deps = {}) {
         // decision POSTs to /api/plan/decision and the turn resumes (or ends). Composer hints while pending.
         handlePlanEvent(evt, live && live.narrative ? live.narrative : main, live);
         break;
+      case 'kimi_plan_snapshot':
+        // Kimi ACP plan updates are read-only native snapshots. ExitPlanMode remains the separate ask_user
+        // event above/below and must keep the classic plan option IDs and answer flow.
+        handlePlanEvent(evt, live && live.narrative ? live.narrative : main, live);
+        break;
       case 'plan_note':
         // The user attached a note when approving (修改意见). Show it as a muted interjection so the flow reads.
         if (evt.text) appendMsgNote(live && live.narrative ? live.narrative : main, live, `已按你的补充意见继续：${evt.text}`);

@@ -1447,6 +1447,7 @@ function createTurnSegmentBuilder() {
   const permissionSegments = new Map();
   const questionSegments = new Map();
   const planSegments = new Map();
+  const kimiPlanSnapshotSegments = new Map();
   const workflowSegments = new Map();
   const missionSegments = new Map();
   let segmentSeq = 0;
@@ -1522,6 +1523,28 @@ function createTurnSegmentBuilder() {
         }
       }
       fallbackBatchId = ''; lastEventType = evt.type;
+      return;
+    }
+    if (evt.type === 'kimi_plan_snapshot') {
+      const planId = String(evt.planId || '');
+      if (!planId) return;
+      let segment = kimiPlanSnapshotSegments.get(planId);
+      if (!segment) {
+        segment = {
+          id: nextId(), type: 'plan', planId, markdown: String(evt.markdown || ''),
+          status: evt.status === 'removed' ? 'removed' : 'snapshot', readOnly: true,
+          source: 'kimi-acp', path: String(evt.path || ''),
+        };
+        segments.push(segment);
+        kimiPlanSnapshotSegments.set(planId, segment);
+      } else {
+        if (Object.prototype.hasOwnProperty.call(evt, 'markdown')) segment.markdown = String(evt.markdown || '');
+        segment.status = evt.status === 'removed' ? 'removed' : 'snapshot';
+        if (Object.prototype.hasOwnProperty.call(evt, 'path')) segment.path = String(evt.path || '');
+        segment.readOnly = true;
+        segment.source = 'kimi-acp';
+      }
+      fallbackBatchId = ''; lastEventType = 'kimi_plan_snapshot';
       return;
     }
     if (evt.type === 'plan') {

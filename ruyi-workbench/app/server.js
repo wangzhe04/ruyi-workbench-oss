@@ -3920,6 +3920,7 @@ function createTurnSegmentBuilder() {
   const permissionSegments = new Map();
   const questionSegments = new Map();
   const planSegments = new Map();
+  const kimiPlanSnapshotSegments = new Map();
   const workflowSegments = new Map();
   const missionSegments = new Map();
   let segmentSeq = 0;
@@ -3995,6 +3996,28 @@ function createTurnSegmentBuilder() {
         }
       }
       fallbackBatchId = ''; lastEventType = evt.type;
+      return;
+    }
+    if (evt.type === 'kimi_plan_snapshot') {
+      const planId = String(evt.planId || '');
+      if (!planId) return;
+      let segment = kimiPlanSnapshotSegments.get(planId);
+      if (!segment) {
+        segment = {
+          id: nextId(), type: 'plan', planId, markdown: String(evt.markdown || ''),
+          status: evt.status === 'removed' ? 'removed' : 'snapshot', readOnly: true,
+          source: 'kimi-acp', path: String(evt.path || ''),
+        };
+        segments.push(segment);
+        kimiPlanSnapshotSegments.set(planId, segment);
+      } else {
+        if (Object.prototype.hasOwnProperty.call(evt, 'markdown')) segment.markdown = String(evt.markdown || '');
+        segment.status = evt.status === 'removed' ? 'removed' : 'snapshot';
+        if (Object.prototype.hasOwnProperty.call(evt, 'path')) segment.path = String(evt.path || '');
+        segment.readOnly = true;
+        segment.source = 'kimi-acp';
+      }
+      fallbackBatchId = ''; lastEventType = 'kimi_plan_snapshot';
       return;
     }
     if (evt.type === 'plan') {
@@ -8584,6 +8607,8 @@ async function runClaudeTurn({
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   let workspaceTurnBaseline = _workspaceBaseline;
   const promptTaskContext = buildPromptTaskContext(message, session);
+  const slashCommand = String(message || '').trim().startsWith('/');
+  const kimiNativeSlashCommand = agentCliType === 'kimi' && slashCommand;
   const currentClaudeModel = String(config.model || '');
   const currentResumeRouteKey = claudeResumeRouteKey(config);
   let resumeResetReason = '';
@@ -8627,11 +8652,13 @@ async function runClaudeTurn({
   const crossEngineGap = lastAssistantEngine(session.messages) === 'openai';
   const recoverySource = crossEngineGap ? claudeProviderTailSince(session.messages) : session.messages;
   const agentRecoverySummary = String(session.agentRecoverySummary || '').trim();
-  const recoveryHistory = typeof _recoveryHistoryOverride === 'string'
-    ? _recoveryHistoryOverride
-    : (agentRecoverySummary
-      ? `[Ruyi 已压缩的前文摘要；请把它作为此前会话的权威连续性上下文]\n${agentRecoverySummary}`
-      : (!String(message || '').trim().startsWith('/') ? buildClaudeRecoveryHistory(recoverySource) : ''));
+  const recoveryHistory = kimiNativeSlashCommand
+    ? ''
+    : (typeof _recoveryHistoryOverride === 'string'
+      ? _recoveryHistoryOverride
+      : (agentRecoverySummary
+        ? `[Ruyi 已压缩的前文摘要；请把它作为此前会话的权威连续性上下文]\n${agentRecoverySummary}`
+        : (!slashCommand ? buildClaudeRecoveryHistory(recoverySource) : '')));
   const historyRecoveryInjected = Boolean(recoveryHistory);
   // 第35波 P2(索引去重注入): fullPrompt 的组装延后到 appendSys 块之后 —— 技能/记忆/编排三类「稳定索引段」
   // 在那里算好并经内容 hash 决定去重,再以 <workbench-context> 块并入 stdin 消息流(见下方注释)。
@@ -8882,7 +8909,7 @@ async function runClaudeTurn({
   let indexInjection = '';
   let indexPayloadHash = '';
   const resumeActive = Boolean(config.autoResumeClaudeSessions && session.claudeSessionId);
-  if (indexPayload && !String(message || '').trim().startsWith('/')) {
+  if (indexPayload && !slashCommand) {
     indexPayloadHash = crypto.createHash('sha1').update(indexPayload, 'utf8').digest('hex').slice(0, 12);
     if (!resumeActive || session.injectedIndexHash !== indexPayloadHash) {
       indexInjection = [
@@ -8896,12 +8923,15 @@ async function runClaudeTurn({
       session.injectedIndexHash = indexPayloadHash;
     }
   }
-  const slashCommand = String(message || '').trim().startsWith('/');
   const currentUserEnvelope = `<current_user_message>\n${basePrompt}\n</current_user_message>`;
   const turnMemoryEnvelope = !slashCommand && memoryTurnCheck ? memoryTurnCheck + '\n\n' + currentUserEnvelope : currentUserEnvelope;
-  const fullPrompt = (recoveryHistory || indexInjection || (!slashCommand && memoryTurnCheck))
+  const assembledPrompt = (recoveryHistory || indexInjection || (!slashCommand && memoryTurnCheck))
     ? [recoveryHistory, indexInjection, turnMemoryEnvelope].filter(Boolean).join('\n\n')
     : basePrompt;
+  // Kimi ACP native slash commands must be the first content block exactly as entered. The separate
+  // attachments field lets the ACP adapter retain file references/degrade safely without prefixing the
+  // slash with Ruyi recovery, history, memory, or index context.
+  const fullPrompt = kimiNativeSlashCommand ? String(message == null ? '' : message) : assembledPrompt;
 
   if (agentCliType === 'kimi' && !fakeClaude) {
     const additionalDirectories = [];
@@ -8909,10 +8939,10 @@ async function runClaudeTurn({
       if (tailArgs[i] === '--add-dir') additionalDirectories.push(tailArgs[++i]);
     }
     return runKimiAcpTurnPrepared({
-      session, message, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
+      session, message, attachments, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
       additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
       currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
-      resumeResetReason, promptTaskContext, workspaceTurnBaseline, agentRecoverySummary,
+      resumeResetReason, promptTaskContext, workspaceTurnBaseline, agentRecoverySummary, kimiNativeSlashCommand,
     });
   }
 
@@ -9942,6 +9972,7 @@ function activeOpenAiProvider(config) {
 // with exact compaction/failure state. A separate ACP process is kept for the whole Ruyi turn so reverse RPC
 // (permissions/questions) and queued follow-up steering share one live native Kimi session.
 const kimiBridgeState = { child: null, port: 0, token: '', starting: null, signalHooked: false, modelWindows: new Map(), modelsAt: 0 };
+const { fileURLToPath } = require('url');
 
 function kimiCodeHome() {
   return process.env.KIMI_CODE_HOME || path.join(os.homedir(), '.kimi-code');
@@ -10290,6 +10321,89 @@ function kimiWireSessionDir(nativeSessionId) {
   return '';
 }
 
+// Kimi's native plan mode stores one markdown file below either the active ACP session's
+// agents/<agent>/plans directory or (for older runtimes) the workspace's plan directory.
+// These files are protocol state, not arbitrary out-of-workspace file access: EnterPlanMode
+// deliberately reads the file before it has been created, and Kimi expects that first read
+// to behave like an empty document. Keep the exception constrained to one direct .md child
+// of those exact directories so normal ACP filesystem requests still use the shared guard.
+function isKimiAcpPlanFilePath(rawPath, context) {
+  if (!rawPath || !path.isAbsolute(rawPath)) return false;
+  const absPath = path.resolve(String(rawPath));
+  const filename = path.basename(absPath);
+  if (!filename || filename.startsWith('.') || filename.length > 200 || !/\.md$/i.test(filename)) return false;
+  if (/[<>:"/\\|?*\u0000-\u001f]/.test(filename)) return false;
+
+  const nativeSessionId = String(context && context.reg && context.reg.nativeSessionId || '');
+  const nativeDirRaw = nativeSessionId ? kimiWireSessionDir(nativeSessionId) : '';
+  if (nativeDirRaw && path.isAbsolute(nativeDirRaw)) {
+    const nativeDir = path.resolve(nativeDirRaw);
+    const kimiHome = path.resolve(kimiCodeHome());
+    const agentsRoot = path.join(nativeDir, 'agents');
+    const relative = path.relative(agentsRoot, absPath);
+    const parts = relative.split(path.sep);
+    if (pathWithinRoot(nativeDir, kimiHome) && pathWithinRoot(absPath, agentsRoot)
+      && parts.length === 3 && /^[A-Za-z0-9_-]{1,128}$/.test(parts[0])
+      && parts[1].toLowerCase() === 'plans') return true;
+  }
+
+  // Legacy runtimes do not expose the session tree. Keep this compatibility path tied to the exact
+  // current file named by the ACP plan update; an arbitrary cwd/plan/*.md must stay on the normal guard.
+  const known = context && context.reg && context.reg.kimiAcpPlanFile;
+  if (!known || !kimiAcpSamePath(known, absPath)) return false;
+  const cwdRaw = context && context.session && context.session.cwd;
+  if (!cwdRaw) return false;
+  const legacyPlanDir = path.join(path.resolve(cwdRaw), 'plan');
+  const relative = path.relative(legacyPlanDir, absPath);
+  return pathWithinRoot(absPath, legacyPlanDir) && relative !== '' && !relative.includes(path.sep);
+}
+
+function kimiAcpSamePath(left, right) {
+  const a = path.resolve(String(left || ''));
+  const b = path.resolve(String(right || ''));
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
+
+// The synchronous shape check above is kept for the offline contract test and for early rejection. The
+// actual ACP exception must go through this async canonical check before it bypasses guardFileToolPath:
+// resolve the nearest existing ancestor so a missing plan file can still be created, but a symlink/junction
+// in either the session tree or its parent cannot redirect the write outside KIMI_CODE_HOME/session state.
+async function resolveKimiAcpPlanFilePath(rawPath, context) {
+  if (!isKimiAcpPlanFilePath(rawPath, context)) return '';
+  const absPath = path.resolve(String(rawPath));
+  const realPath = await realpathForContainment(absPath);
+  const nativeSessionId = String(context && context.reg && context.reg.nativeSessionId || '');
+  const nativeDirRaw = nativeSessionId ? kimiWireSessionDir(nativeSessionId) : '';
+  if (nativeDirRaw && path.isAbsolute(nativeDirRaw)) {
+    const nativeDir = await realpathForContainment(nativeDirRaw);
+    const home = await realpathForContainment(kimiCodeHome());
+    // Resolve the root from its lexical session path, then prove both containment edges. In particular,
+    // do not treat a realpath'd agents directory as trusted merely because it contains the plan file:
+    // agents itself may be a junction to an external tree.
+    const agentsRoot = await realpathForContainment(path.join(path.resolve(nativeDirRaw), 'agents'));
+    const expectedAgentsRoot = path.join(nativeDir, 'agents');
+    const relative = path.relative(agentsRoot, realPath);
+    const parts = relative ? relative.split(path.sep) : [];
+    if (pathWithinRoot(nativeDir, home) && pathWithinRoot(agentsRoot, nativeDir)
+      && kimiAcpSamePath(agentsRoot, expectedAgentsRoot) && pathWithinRoot(realPath, agentsRoot)
+      && parts.length === 3 && /^[A-Za-z0-9_-]{1,128}$/.test(parts[0])
+      && parts[1].toLowerCase() === 'plans') return realPath;
+  }
+
+  // Legacy cwd/plan is only an exception after the ACP plan update identified the exact current file.
+  // Unknown legacy .md paths deliberately fall back to the ordinary read/write guard.
+  const known = context && context.reg && context.reg.kimiAcpPlanFile;
+  if (!known || !kimiAcpSamePath(known, absPath)) return '';
+  const cwdRaw = context && context.session && context.session.cwd;
+  if (!cwdRaw) return '';
+  const cwd = await realpathForContainment(cwdRaw);
+  const legacyRoot = await realpathForContainment(path.join(path.resolve(cwdRaw), 'plan'));
+  const expectedLegacyRoot = path.join(cwd, 'plan');
+  const relative = path.relative(legacyRoot, realPath);
+  return pathWithinRoot(legacyRoot, cwd) && kimiAcpSamePath(legacyRoot, expectedLegacyRoot)
+    && pathWithinRoot(realPath, legacyRoot) && relative && !relative.includes(path.sep) ? realPath : '';
+}
+
 function kimiWireFile(nativeSessionId) {
   const dir = kimiWireSessionDir(nativeSessionId);
   return dir ? path.join(dir, 'agents', 'main', 'wire.jsonl') : '';
@@ -10604,8 +10718,36 @@ function createKimiAcpRpc(child, handlers = {}) {
 function kimiAcpMode(permissionMode) {
   if (permissionMode === 'plan') return 'plan';
   if (permissionMode === 'bypass') return 'yolo';
-  if (permissionMode === 'auto' || permissionMode === 'acceptEdits') return 'auto';
+  // Kimi's auto mode is a stronger native policy that suppresses execution questions. Only Ruyi's
+  // acceptEdits needs translation to ACP default so AskUser remains interactive and exec stays gated.
+  if (permissionMode === 'auto') return 'auto';
+  if (permissionMode === 'acceptEdits') return 'default';
   return 'default';
+}
+
+function kimiAcpPlanApprovalGrantsCurrentTurn(optionId) {
+  const id = String(optionId || '');
+  // ExitPlanMode's stable option ids are either the explicit approval or one of Kimi's selectable plan
+  // variants. Revise, reject-and-exit and cancel are decisions, never execution authorization.
+  return id === 'plan_approve' || /^plan_opt_\d+$/.test(id);
+}
+
+function contextResetKimiAcpPlanApproval(reg) {
+  if (!reg) return;
+  reg.kimiAcpPlanApproved = false;
+  reg.kimiAcpPlanApprovalTurn = 0;
+}
+
+function kimiAcpObserveNativeMode(reg, modeId) {
+  if (!reg) return;
+  const next = String(modeId || '');
+  const previous = String(reg.kimiAcpNativeMode || '');
+  reg.kimiAcpNativeMode = next;
+  if (next) reg.kimiAcpLatestModeId = next;
+  if (next === 'plan' && previous && previous !== 'plan') {
+    contextResetKimiAcpPlanApproval(reg);
+    reg.kimiAcpPlanFile = '';
+  }
 }
 
 function kimiAcpToolTier(toolCall) {
@@ -10616,6 +10758,138 @@ function kimiAcpToolTier(toolCall) {
   if (/^(read|glob|grep|readmediafile|websearch|fetchurl|tasklist|taskoutput|todolist|getgoal)$/.test(name)) return 'read';
   if (/^(write|edit)$/.test(name)) return 'edit';
   return 'exec';
+}
+
+function kimiAcpNormalizedToolName(toolCall) {
+  return String(toolCall && toolCall.title || '').trim().replace(/^.+?__/, '').toLowerCase();
+}
+
+function kimiAcpObjectInput(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+// rawInput is authoritative when it is concrete; args is the older ACP spelling, and input is
+// retained as a final compatibility spelling. Empty objects are missing concrete input, so a later
+// content recovery may still fill them without overriding a real explicit payload.
+function kimiAcpExplicitToolInput(toolCall) {
+  let empty = null;
+  for (const key of ['rawInput', 'args', 'input']) {
+    const value = kimiAcpObjectInput(toolCall && toolCall[key]);
+    if (!value) continue;
+    if (Object.keys(value).length) return value;
+    if (!empty) empty = value;
+  }
+  return empty || {};
+}
+
+// ACP's reverse permission request is a second gate after the host-side fs/terminal guard. Kimi marks
+// real file mutations with kind=edit, but title alone is not a safe capability signal: an arbitrary
+// MCP/tool title containing "write" must remain interactive. Keep the acceptEdits auto-path narrow to
+// the two native file tools and a concrete path-shaped rawInput.
+async function kimiAcpConcreteEditGuard(toolCall, context) {
+  if (String(toolCall && toolCall.kind || '').trim().toLowerCase() !== 'edit') return { ok: false, reason: 'ACP permission kind is not edit' };
+  // The permission request title comes from req.toolName. Do not recover a permissive name from a
+  // prefixed/description-like string: MCP tools and arbitrary descriptions containing "write" stay manual.
+  const exactName = String(toolCall && toolCall.title || '').trim().toLowerCase();
+  if (exactName !== 'write' && exactName !== 'edit') return { ok: false, reason: 'ACP permission title is not the native Write/Edit tool' };
+  const input = toolCall && toolCall.rawInput && typeof toolCall.rawInput === 'object' && !Array.isArray(toolCall.rawInput)
+    ? toolCall.rawInput : null;
+  if (!input) return { ok: false, reason: 'ACP permission rawInput is missing' };
+  const filePath = input.path || input.file_path || input.filePath;
+  if (typeof filePath !== 'string' || !filePath.trim()) return { ok: false, reason: 'ACP permission rawInput has no file path' };
+  if (Object.prototype.hasOwnProperty.call(input, 'command') || Object.prototype.hasOwnProperty.call(input, 'cmd')) return { ok: false, reason: 'ACP permission rawInput contains a command' };
+  const base = context && context.session && (context.session.cwd || context.session.claudeSessionCwd)
+    || context && context.workingDir
+    || context && context.config && context.config.defaultWorkspace
+    || process.cwd();
+  const resolved = path.isAbsolute(filePath.trim()) ? path.resolve(filePath.trim()) : path.resolve(base, filePath.trim());
+  const guard = await guardFileToolPath(resolved, { session: context.session, config: context.config }, { tool: 'kimi_acp_accept_edits', write: true });
+  if (!guard || !guard.ok) return { ok: false, reason: String(guard && guard.error || 'normal write guard denied the path') };
+  return { ok: true, absPath: guard.absPath };
+}
+
+function kimiAcpContentJsonTexts(value, out = [], depth = 0) {
+  if (depth > 12 || value == null) return out;
+  if (typeof value === 'string') { out.push(value); return out; }
+  if (Array.isArray(value)) {
+    for (const item of value) kimiAcpContentJsonTexts(item, out, depth + 1);
+    return out;
+  }
+  if (typeof value !== 'object') return out;
+  if (typeof value.text === 'string') out.push(value.text);
+  for (const key of ['content', 'children', 'items']) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) kimiAcpContentJsonTexts(value[key], out, depth + 1);
+  }
+  return out;
+}
+
+function kimiAcpInferConcreteToolInput(toolCall) {
+  const title = String(toolCall && (toolCall.nativeName || toolCall.title || toolCall.name) || '').trim().toLowerCase();
+  const kind = String(toolCall && toolCall.kind || '').trim().toLowerCase();
+  const isEdit = (title === 'write' || title === 'edit') && kind === 'edit';
+  const isBash = title === 'bash' && kind === 'execute';
+  if (!isEdit && !isBash) return null;
+  const parsed = [];
+  let invalidObjectJson = false;
+  for (const text of kimiAcpContentJsonTexts(toolCall && toolCall.content)) {
+    const source = String(text || '').trim();
+    if (!source.startsWith('{') || !source.endsWith('}')) continue;
+    let value;
+    try { value = JSON.parse(source); } catch { invalidObjectJson = true; continue; }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    if (isEdit) {
+      const pathKeys = ['path', 'file_path', 'filePath'];
+      const paths = pathKeys.filter(key => Object.prototype.hasOwnProperty.call(value, key));
+      if (paths.length !== 1 || typeof value[paths[0]] !== 'string' || !value[paths[0]].trim()
+        || pathKeys.some(key => key !== paths[0] && Object.prototype.hasOwnProperty.call(value, key))
+        || Object.prototype.hasOwnProperty.call(value, 'command') || Object.prototype.hasOwnProperty.call(value, 'cmd')) continue;
+      parsed.push(value);
+    } else {
+      const commandKeys = ['command', 'cmd'];
+      const commands = commandKeys.filter(key => Object.prototype.hasOwnProperty.call(value, key));
+      if (commands.length !== 1 || typeof value[commands[0]] !== 'string' || !value[commands[0]].trim()
+        || commandKeys.some(key => key !== commands[0] && Object.prototype.hasOwnProperty.call(value, key))
+        || Object.prototype.hasOwnProperty.call(value, 'path')
+        || Object.prototype.hasOwnProperty.call(value, 'file_path') || Object.prototype.hasOwnProperty.call(value, 'filePath')) continue;
+      parsed.push(value);
+    }
+  }
+  if (invalidObjectJson) return null;
+  const unique = new Map(parsed.map(value => [JSON.stringify(value), value]));
+  return unique.size === 1 ? [...unique.values()][0] : null;
+}
+
+function kimiAcpPermissionToolCall(params, context) {
+  const raw = params && params.toolCall && typeof params.toolCall === 'object' ? params.toolCall : {};
+  const id = String(raw.toolCallId || params && params.toolCallId || '');
+  const state = context && context.state;
+  const prior = id && state && state.toolMap && typeof state.toolMap.get === 'function'
+    ? state.toolMap.get(id) : null;
+  const activePrior = prior && !prior.__settled ? prior : null;
+  const priorInput = activePrior ? kimiAcpObjectInput(activePrior.input) : null;
+  const rawInput = kimiAcpExplicitToolInput(raw);
+  const inferred = activePrior && (!priorInput || !Object.keys(priorInput).length) && !Object.keys(rawInput).length
+    ? kimiAcpInferConcreteToolInput({ nativeName: activePrior.nativeName, kind: activePrior.kind, content: activePrior.content })
+    : null;
+  if (activePrior && inferred) activePrior.input = inferred;
+  const stableName = activePrior && activePrior.nativeName ? String(activePrior.nativeName) : '';
+  const mergedInput = Object.keys(rawInput).length
+    ? rawInput
+    : (inferred || (priorInput && Object.keys(priorInput).length ? priorInput : {}));
+  // ACP 0.37 sends kind/rawInput on tool_call, then permission only carries toolCallId/title/content.
+  // Merge only the same id; never borrow the latest/another tool's input.
+  return {
+    ...(activePrior && typeof activePrior === 'object' ? {
+      ...(stableName ? { title: stableName, name: stableName } : {}),
+      kind: activePrior.kind, rawInput: mergedInput, content: activePrior.content,
+    } : {}),
+    ...raw,
+    ...(stableName ? { title: stableName, name: stableName } : {}),
+    ...(raw.kind == null && activePrior ? { kind: activePrior.kind } : {}),
+    ...(Object.keys(rawInput).length ? { rawInput: rawInput } : { rawInput: mergedInput }),
+    ...(raw.content == null && activePrior ? { content: activePrior.content } : {}),
+    ...(id ? { toolCallId: id } : {}),
+  };
 }
 
 function kimiAcpQuestionKind(params) {
@@ -10629,7 +10903,7 @@ function kimiAcpQuestionKind(params) {
 
 async function handleKimiAcpPermissionRequest(params, context) {
   const options = (Array.isArray(params && params.options) ? params.options : []).filter(Boolean);
-  const toolCall = params && params.toolCall || {};
+  const toolCall = kimiAcpPermissionToolCall(params, context);
   const kind = kimiAcpQuestionKind(params);
   context.reg.pausePending = true;
   context.reg.lastEventAt = Date.now();
@@ -10658,15 +10932,53 @@ async function handleKimiAcpPermissionRequest(params, context) {
       );
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0]
         && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
-      return selected
-        ? { outcome: { outcome: 'selected', optionId: selected } }
-        : { outcome: { outcome: 'cancelled' } };
+      if (!selected) return { outcome: { outcome: 'cancelled' } };
+      if (kind === 'plan') {
+        const selectedOption = options.find(option => String(option.optionId || '') === String(selected));
+        if (!selectedOption) return { outcome: { outcome: 'cancelled' } };
+        const title = String(toolCall.title || '').trim().toLowerCase();
+        if (title === 'enterplanmode' && String(selectedOption.kind || '').startsWith('allow')) {
+          contextResetKimiAcpPlanApproval(context.reg);
+          context.reg.kimiAcpNativeMode = 'plan';
+          context.reg.kimiAcpPlanFile = '';
+        } else if (title !== 'enterplanmode' && kimiAcpPlanApprovalGrantsCurrentTurn(selected)) {
+          // This is deliberately turn-local. Do not persist it in config.permissionMode or infer it from
+          // current_mode_update/config_option_update; the next user turn must re-enter plan mode when its
+          // Ruyi config still says plan.
+          context.reg.kimiAcpPlanApproved = true;
+          context.reg.kimiAcpPlanApprovalTurn = Number(context.session.turnSeq) || 0;
+        }
+        context.onEvent({ type: 'kimi_plan_decision', planId: String(toolCall.toolCallId || ''), optionId: String(selected) });
+      }
+      return { outcome: { outcome: 'selected', optionId: String(selected) } };
     }
     const title = String(toolCall.title || 'KimiTool');
-    const input = toolCall.rawInput && typeof toolCall.rawInput === 'object' ? toolCall.rawInput : {};
-    const decision = await requestNativePermission(
-      context.session.id, title, input, context.onEvent, context.config.permissionTimeoutMs, kimiAcpToolTier(toolCall)
-    );
+    const input = kimiAcpPermissionInput(toolCall, context);
+    const tier = kimiAcpToolTier(toolCall);
+    const nativeBash = kimiAcpNativeBashApprovalDescriptor(toolCall, input, context);
+    const acceptEditsCandidate = String(context.config && context.config.permissionMode || '') === 'acceptEdits'
+      ? await kimiAcpConcreteEditGuard(toolCall, context)
+      : null;
+    let acceptEditsAuto = Boolean(acceptEditsCandidate && acceptEditsCandidate.ok === true);
+    const autoEditRequested = acceptEditsAuto;
+    // Native ACP still expects a permission outcome even though Ruyi's acceptEdits policy has already
+    // authorized this exact Write/Edit operation. Return allow_once only; never manufacture a session
+    // grant, and leave question/plan/exec/unknown requests on the normal interactive path.
+    let decision = acceptEditsAuto
+      ? { behavior: 'allow', scope: 'once', kimiAutoEdit: true }
+      : await requestNativePermission(
+        context.session.id, title, input, context.onEvent, context.config.permissionTimeoutMs, tier
+      );
+    // A native agent that omits allow_once cannot be safely auto-approved: selecting allow_always would
+    // widen the scope beyond Ruyi's acceptEdits policy. Fall back to the ordinary UI permission request.
+    const autoEditFallback = autoEditRequested
+      && !options.some(option => String(option && option.kind || '') === 'allow_once');
+    if (autoEditFallback) {
+      acceptEditsAuto = false;
+      decision = await requestNativePermission(
+        context.session.id, title, input, context.onEvent, context.config.permissionTimeoutMs, tier
+      );
+    }
     if (!decision || decision.behavior !== 'allow') {
       const reject = options.find(option => String(option.kind || '').startsWith('reject'))
         || options.find(option => String(option.optionId || '') === 'reject');
@@ -10674,16 +10986,25 @@ async function handleKimiAcpPermissionRequest(params, context) {
         ? { outcome: { outcome: 'selected', optionId: reject.optionId } }
         : { outcome: { outcome: 'cancelled' } };
     }
-    const wantedKind = decision.scope === 'session' ? 'allow_always' : 'allow_once';
-    const allow = options.find(option => option.kind === wantedKind)
-      || options.find(option => String(option.kind || '').startsWith('allow'));
+    const explicitSession = !autoEditRequested && decision.scope === 'session'
+      || autoEditFallback && decision.scope === 'session';
+    const wantedKind = autoEditRequested ? 'allow_once' : (explicitSession ? 'allow_always' : 'allow_once');
+    // Exact scope matching is fail-closed for a once decision: never turn a user's one-shot approval into
+    // an ACP allow_always merely because that is the only advertised option. A requested session scope may
+    // conservatively degrade to allow_once when the agent has no session option.
+    const allow = options.find(option => String(option && option.kind || '') === wantedKind)
+      || (explicitSession ? options.find(option => String(option && option.kind || '') === 'allow_once') : null);
     if (!allow) return { outcome: { outcome: 'cancelled' } };
-    if (!Array.isArray(context.reg.kimiAcpApprovals)) context.reg.kimiAcpApprovals = [];
-    context.reg.kimiAcpApprovals.push({
-      title: title.toLowerCase(), tier: kimiAcpToolTier(toolCall), input,
-      scope: decision.scope === 'session' ? 'session' : 'once', at: Date.now(),
-    });
-    if (context.reg.kimiAcpApprovals.length > 32) context.reg.kimiAcpApprovals.splice(0, context.reg.kimiAcpApprovals.length - 32);
+    if (!acceptEditsAuto) {
+      if (!Array.isArray(context.reg.kimiAcpApprovals)) context.reg.kimiAcpApprovals = [];
+      context.reg.kimiAcpApprovals.push({
+        title: title.toLowerCase(), tier: kimiAcpToolTier(toolCall), input,
+        toolCallId: String(toolCall.toolCallId || ''),
+        nativeBash: nativeBash || null,
+        scope: String(allow && allow.kind || '') === 'allow_always' && decision.scope === 'session' ? 'session' : 'once', at: Date.now(),
+      });
+      if (context.reg.kimiAcpApprovals.length > 32) context.reg.kimiAcpApprovals.splice(0, context.reg.kimiAcpApprovals.length - 32);
+    }
     return { outcome: { outcome: 'selected', optionId: allow.optionId } };
   } finally {
     context.reg.pausePending = false;
@@ -10711,35 +11032,321 @@ function kimiAcpApprovalValue(input, kind) {
 }
 
 function consumeKimiAcpApproval(context, kind, input) {
-  const approvals = Array.isArray(context.reg.kimiAcpApprovals) ? context.reg.kimiAcpApprovals : [];
-  const wanted = kimiAcpApprovalValue(input, kind);
+  const approvals = context && context.reg && Array.isArray(context.reg.kimiAcpApprovals) ? context.reg.kimiAcpApprovals : [];
+  const expectedTier = kind === 'write' ? 'edit' : 'exec';
+  let wanted = kimiAcpApprovalValue(input, kind);
+  if (kind === 'write' && wanted) {
+    const base = context.session && (context.session.cwd || context.session.claudeSessionCwd)
+      || context.workingDir || context.config && context.config.defaultWorkspace || process.cwd();
+    wanted = path.resolve(path.isAbsolute(wanted) ? wanted : path.resolve(base, wanted));
+  }
   const titlePattern = kind === 'terminal' ? /bash|shell|terminal/ : /write|edit|file/;
+  const nativeWrapper = input && input.__kimiAcpNativeBashWrapper;
+  const sessionMatches = [];
+  const onceMatches = [];
+  const toolMap = context && context.state && context.state.toolMap;
   for (let index = approvals.length - 1; index >= 0; index--) {
     const row = approvals[index];
-    if (!row || Date.now() - Number(row.at || 0) > 10 * 60 * 1000 || !titlePattern.test(String(row.title || ''))) continue;
-    const granted = kimiAcpApprovalValue(row.input, kind);
-    let sameValue = granted === wanted;
-    if (kind === 'write' && granted && wanted) {
-      const grantedPath = path.resolve(granted);
-      const wantedPath = path.resolve(wanted);
-      sameValue = process.platform === 'win32'
-        ? grantedPath.toLowerCase() === wantedPath.toLowerCase()
-        : grantedPath === wantedPath;
+    if (!row || Date.now() - Number(row.at || 0) > 10 * 60 * 1000) {
+      if (row) approvals.splice(index, 1);
+      continue;
     }
-    if (row.scope !== 'session' && wanted && granted && !sameValue) continue;
-    if (row.scope !== 'session') approvals.splice(index, 1);
-    return true;
+    if (String(row.tier || '') !== expectedTier || !titlePattern.test(String(row.title || ''))) continue;
+    const isSession = row.scope === 'session';
+    if (!isSession) {
+      const toolCallId = String(row.toolCallId || '');
+      const nativeTool = toolCallId && toolMap && typeof toolMap.get === 'function' ? toolMap.get(toolCallId) : null;
+      // A one-shot decision is owned by its live native tool call. Missing/settled owners are stale,
+      // never a wildcard for a later tool with the same path or command.
+      if (!toolCallId || !nativeTool || nativeTool.__settled) {
+        approvals.splice(index, 1);
+        continue;
+      }
+    }
+    let granted = kimiAcpApprovalValue(row.input, kind);
+    if (kind === 'write' && granted) {
+      const base = context.session && (context.session.cwd || context.session.claudeSessionCwd)
+        || context.workingDir || context.config && context.config.defaultWorkspace || process.cwd();
+      granted = path.resolve(path.isAbsolute(granted) ? granted : path.resolve(base, granted));
+    }
+    let sameValue = Boolean(granted && wanted && granted === wanted);
+    if (kind === 'write' && granted && wanted) {
+      sameValue = process.platform === 'win32' ? granted.toLowerCase() === wanted.toLowerCase() : granted === wanted;
+    }
+    if (kind === 'terminal') {
+      if (nativeWrapper) {
+        if (!kimiAcpNativeBashWrapperMatches(row, nativeWrapper)) continue;
+        sameValue = true;
+      } else if (row.nativeBash) {
+        continue;
+      }
+    }
+    // Both scopes require a concrete exact value. Session remains reusable only because the user
+    // explicitly selected session scope; it still cannot cross tier or become a wildcard.
+    if (!wanted || !granted || !sameValue) continue;
+    if (isSession) sessionMatches.push(row);
+    else onceMatches.push({ index, row });
   }
+  if (sessionMatches.length) return true;
+  // Two live one-shot approvals for the same value are ambiguous: do not guess the latest owner.
+  if (onceMatches.length !== 1) return false;
+  approvals.splice(onceMatches[0].index, 1);
+  return true;
+}
+
+function kimiAcpToolUpdateHasError(value, depth = 0) {
+  if (depth > 8 || value == null || typeof value !== 'object') return false;
+  if (value.isError === true) return true;
+  if (value.error != null && value.error !== '' && value.error !== false) return true;
+  if (typeof value.status === 'string' && /^(?:error|failed)$/i.test(value.status.trim())) return true;
+  for (const child of Object.values(value)) if (kimiAcpToolUpdateHasError(child, depth + 1)) return true;
   return false;
+}
+
+function kimiAcpToolUpdateSucceeded(update) {
+  return String(update && update.status || '') === 'completed' && !kimiAcpToolUpdateHasError(update);
+}
+
+function kimiAcpSuccessfulEnterPlanMode(toolCall, update) {
+  return String(toolCall && toolCall.nativeName || '').trim().toLowerCase() === 'enterplanmode'
+    && kimiAcpToolUpdateSucceeded(update);
+}
+
+function kimiAcpEffectiveCwd(rawCwd, context) {
+  const base = context && context.session && (context.session.cwd || context.session.claudeSessionCwd)
+    || context && context.workingDir
+    || context && context.config && context.config.defaultWorkspace
+    || process.cwd();
+  let value = String(rawCwd || '').trim() || String(base || '').trim();
+  if (!value) return '';
+  if (process.platform === 'win32' && /^\/[A-Za-z](?:\/|$)/.test(value)) {
+    value = value[1].toUpperCase() + ':' + value.slice(2).replaceAll('/', '\\');
+  }
+  if (!path.isAbsolute(value)) value = path.resolve(base, value);
+  return path.isAbsolute(value) ? path.resolve(value) : '';
+}
+
+function kimiAcpNativeShellQuote(value) {
+  return "'" + String(value).replaceAll("'", "'\\''") + "'";
+}
+
+function kimiAcpNativeWindowsPathToPosixPath(rawPath) {
+  const value = String(rawPath);
+  if (value.startsWith('\\\\')) return value.replaceAll('\\', '/');
+  const driveMatch = /^([A-Za-z]):(?:[\\/]|$)/.exec(value);
+  if (driveMatch !== null) {
+    const drive = driveMatch[1].toLowerCase();
+    const rest = value.slice(2).replaceAll('\\', '/');
+    return '/' + drive + (rest.startsWith('/') ? rest : '/' + rest);
+  }
+  return value.replaceAll('\\', '/');
+}
+
+function kimiAcpNativeBashWrapperCwdTexts(cwd) {
+  const raw = String(cwd);
+  if (process.platform !== 'win32') return [raw];
+  const slash = raw.replaceAll('\\', '/');
+  const values = [kimiAcpNativeWindowsPathToPosixPath(raw)];
+  const drive = /^([A-Za-z]):(?:\/|$)/.exec(slash);
+  if (drive) values.push(slash);
+  else {
+    const msysDrive = /^\/([A-Za-z])(?:\/|$)/.exec(slash);
+    if (msysDrive) values.push(msysDrive[1].toUpperCase() + ':' + (slash.slice(2) || '/'));
+  }
+  return [...new Set(values)];
+}
+
+function kimiAcpNativeBashWrapperTexts(command, cwd) {
+  return kimiAcpNativeBashWrapperCwdTexts(cwd).map(cwdText =>
+    'cd ' + kimiAcpNativeShellQuote(cwdText) + ' && ' + String(command));
+}
+
+function kimiAcpCanonicalExecutable(rawPath) {
+  try {
+    const absolute = path.resolve(String(rawPath));
+    const real = fs.realpathSync(absolute);
+    return fs.statSync(real).isFile() ? real : '';
+  } catch { return ''; }
+}
+
+function kimiAcpNativeBashRootPairs(context) {
+  const rawRoots = [];
+  const add = value => { if (typeof value === 'string' && value.trim()) rawRoots.push(value.trim()); };
+  const addMany = values => { for (const value of (Array.isArray(values) ? values : [])) add(value); };
+  const session = context && context.session;
+  const config = context && context.config;
+  add(session && session.cwd);
+  add(session && session.claudeSessionCwd);
+  add(context && context.workingDir);
+  add(config && config.defaultWorkspace);
+  add(context && context.dataRoot);
+  add(context && context.paths && context.paths.data);
+  addMany(context && context.additionalDirectories);
+  addMany(context && context.additionalDirs);
+  addMany(config && config.additionalDirectories);
+  addMany(context && context.allowedRoots);
+  addMany(context && context.writeRoots);
+  if (typeof fileAllowedRoots === 'function') {
+    try { addMany(fileAllowedRoots(session, config)); } catch { /* fail closed through explicit roots */ }
+  }
+  if (typeof workspaceWriteRoots === 'function') {
+    try { addMany(workspaceWriteRoots(session, config)); } catch { /* fail closed through explicit roots */ }
+  }
+  if (typeof dataRoot === 'function') {
+    try { add(dataRoot()); } catch { /* fail closed through explicit roots */ }
+  }
+  const seen = new Set();
+  const pairs = [];
+  for (const raw of rawRoots) {
+    let lexical;
+    try { lexical = path.resolve(raw); } catch { continue; }
+    let canonical = lexical;
+    try { canonical = fs.realpathSync(lexical); } catch { /* root may not exist yet */ }
+    const key = process.platform === 'win32' ? lexical.toLowerCase() + '\0' + canonical.toLowerCase() : lexical + '\0' + canonical;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pairs.push({ lexical, canonical });
+  }
+  return pairs;
+}
+
+function kimiAcpNativeBashPathExcluded(rawPath, canonical, context) {
+  const candidates = [];
+  for (const value of [rawPath, canonical]) {
+    if (!value) continue;
+    try { candidates.push(path.resolve(String(value))); } catch { return true; }
+  }
+  if (!candidates.length) return true;
+  try {
+    return kimiAcpNativeBashRootPairs(context).some(root =>
+      candidates.some(candidate => pathWithinRoot(candidate, root.lexical) || pathWithinRoot(candidate, root.canonical))
+    );
+  } catch { return true; }
+}
+
+function kimiAcpTrustedNativeBashPath(canonical, context, rawPath) {
+  if (!canonical) return false;
+  if (kimiAcpNativeBashPathExcluded(rawPath, canonical, context)) return false;
+  const name = path.basename(canonical).toLowerCase();
+  if (process.platform === 'win32') {
+    if (name !== 'bash.exe') return false;
+    const normalized = canonical.replaceAll('/', '\\').toLowerCase();
+    const standard = [
+      'c:\\program files\\git\\bin\\bash.exe',
+      'c:\\program files\\git\\usr\\bin\\bash.exe',
+      'c:\\program files (x86)\\git\\bin\\bash.exe',
+      'c:\\program files (x86)\\git\\usr\\bin\\bash.exe',
+    ];
+    for (const root of [process.env.ProgramFiles, process.env['ProgramFiles(x86)']].filter(Boolean)) {
+      standard.push(path.join(root, 'Git', 'bin', 'bash.exe').toLowerCase());
+      standard.push(path.join(root, 'Git', 'usr', 'bin', 'bash.exe').toLowerCase());
+    }
+    const localAppData = String(process.env.LOCALAPPDATA || '').trim();
+    if (localAppData) standard.push(path.join(localAppData, 'Programs', 'Git', 'bin', 'bash.exe').toLowerCase());
+    if (standard.some(candidate => candidate === normalized)) return true;
+    const configured = String(process.env.KIMI_SHELL_PATH || '').trim();
+    const configuredCanonical = configured && kimiAcpCanonicalExecutable(configured);
+    return Boolean(configuredCanonical && kimiAcpSamePath(configuredCanonical, canonical));
+  }
+  if (name !== 'bash') return false;
+  const standard = ['/bin/bash', '/usr/bin/bash', '/usr/local/bin/bash'];
+  const configured = String(process.env.KIMI_SHELL_PATH || '').trim();
+  const configuredCanonical = configured && kimiAcpCanonicalExecutable(configured);
+  return standard.some(candidate => kimiAcpSamePath(candidate, canonical))
+    || Boolean(configuredCanonical && kimiAcpSamePath(configuredCanonical, canonical));
+}
+
+function kimiAcpTrustedNativeBashExecutable(command, context) {
+  const raw = String(command || '').trim();
+  if (!raw) return '';
+  const absolute = path.isAbsolute(raw) || /^[A-Za-z]:[\\/]/.test(raw);
+  if (!absolute) return '';
+  const canonical = kimiAcpCanonicalExecutable(raw);
+  return kimiAcpTrustedNativeBashPath(canonical, context, raw) ? canonical : '';
+}
+
+function kimiAcpNativeBashEnvSafe(rawEnv, canonicalExecutable) {
+  if (rawEnv === undefined) return true;
+  if (!Array.isArray(rawEnv)) return false;
+  const safeNames = new Set(['NO_COLOR', 'TERM', 'GIT_TERMINAL_PROMPT', 'SHELL']);
+  const seen = new Set();
+  for (const item of rawEnv) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+    const name = String(item.name || '');
+    const value = String(item.value || '');
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || value.length > 32768 || value.includes('\0')) return false;
+    const upper = name.toUpperCase();
+    if (seen.has(upper) || !safeNames.has(upper)) return false;
+    seen.add(upper);
+    if (upper === 'SHELL') {
+      const shell = kimiAcpCanonicalExecutable(value);
+      if (!shell || !canonicalExecutable || !kimiAcpSamePath(shell, canonicalExecutable)) return false;
+    }
+  }
+  return true;
+}
+
+function kimiAcpNativeBashApprovalDescriptor(toolCall, input, context) {
+  if (String(toolCall && toolCall.title || '').trim().toLowerCase() !== 'bash'
+    || String(toolCall && toolCall.kind || '').trim().toLowerCase() !== 'execute') return null;
+  const source = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const keys = ['command', 'cmd'].filter(key => Object.prototype.hasOwnProperty.call(source, key));
+  if (keys.length !== 1 || typeof source[keys[0]] !== 'string' || !source[keys[0]].trim()) return null;
+  const cwd = kimiAcpEffectiveCwd(source.cwd, context);
+  return cwd ? { command: source[keys[0]], cwd } : null;
+}
+
+function kimiAcpNativeBashWrapperCandidate(value, context) {
+  const command = String(value && value.command || '');
+  const args = value && Array.isArray(value.args) ? value.args : null;
+  if (!command || !args || args.length !== 2 || args[0] !== '-c' || typeof args[1] !== 'string'
+    || !args[1].trim() || args.some(arg => typeof arg !== 'string' || arg.includes('\0'))) return null;
+  const executable = kimiAcpTrustedNativeBashExecutable(command, context);
+  const cwd = kimiAcpEffectiveCwd(value && value.cwd, context);
+  if (!executable || !cwd || !kimiAcpNativeBashEnvSafe(value && value.env, executable)) return null;
+  return { executable: command, canonicalExecutable: executable, argv: args.slice(), cwd };
+}
+
+function kimiAcpNativeBashWrapperMatches(row, candidate) {
+  const approved = row && row.nativeBash;
+  if (!approved || !candidate || typeof approved.command !== 'string' || !approved.command.trim()
+    || !approved.cwd || !kimiAcpSamePath(approved.cwd, candidate.cwd)) return false;
+  if (candidate.argv.length !== 2 || candidate.argv[0] !== '-c') return false;
+  return kimiAcpNativeBashWrapperTexts(approved.command, approved.cwd).includes(candidate.argv[1]);
+}
+
+function kimiAcpPermissionInput(toolCall, context) {
+  const source = kimiAcpExplicitToolInput(toolCall);
+  const input = { ...source };
+  const name = String(toolCall && toolCall.title || '').trim().toLowerCase();
+  if (name === 'write' || name === 'edit' || String(toolCall && toolCall.kind || '').trim().toLowerCase() === 'edit') {
+    const key = ['path', 'file_path', 'filePath'].find(candidate => typeof input[candidate] === 'string' && input[candidate].trim());
+    if (key) {
+      const base = context && context.session && (context.session.cwd || context.session.claudeSessionCwd)
+        || context && context.workingDir
+        || context && context.config && context.config.defaultWorkspace
+        || process.cwd();
+      input.path = path.resolve(path.isAbsolute(input[key].trim()) ? input[key].trim() : path.resolve(base, input[key].trim()));
+    }
+  }
+  return input;
 }
 
 async function ensureKimiAcpOperationPermission(context, kind, input) {
   const mode = String(context.config && context.config.permissionMode || 'default');
   if (mode === 'bypass' || mode === 'auto' || (mode === 'acceptEdits' && kind === 'write')) return;
-  if (mode === 'plan') throw kimiAcpRequestError(-32000, `Kimi ${kind === 'terminal' ? 'terminal execution' : 'file write'} is disabled in plan mode`);
+  if (mode === 'plan') {
+    const approvedThisTurn = context.reg && context.reg.kimiAcpPlanApproved === true
+      && Number(context.reg.kimiAcpPlanApprovalTurn) === (Number(context.session && context.session.turnSeq) || 0);
+    if (!approvedThisTurn) throw kimiAcpRequestError(-32000, `Kimi ${kind === 'terminal' ? 'terminal execution' : 'file write'} is disabled in plan mode; approve ExitPlanMode in this turn first`);
+    // Approval only lifts the host plan block for this turn. Continue through the ordinary manual gate;
+    // it must not silently become bypass/auto execution authorization.
+  }
   if (consumeKimiAcpApproval(context, kind === 'write' ? 'write' : 'terminal', input)) return;
+  const visibleInput = input && typeof input === 'object' && !Array.isArray(input) ? { ...input } : input;
+  if (visibleInput && typeof visibleInput === 'object') delete visibleInput.__kimiAcpNativeBashWrapper;
   const decision = await requestNativePermission(
-    context.session.id, kind === 'terminal' ? 'Bash' : 'Write', input,
+    context.session.id, kind === 'terminal' ? 'Bash' : 'Write', visibleInput,
     context.onEvent, context.config.permissionTimeoutMs, kind === 'terminal' ? 'exec' : 'edit'
   );
   if (!decision || decision.behavior !== 'allow') throw kimiAcpRequestError(-32000, 'Operation denied by user');
@@ -10747,7 +11354,7 @@ async function ensureKimiAcpOperationPermission(context, kind, input) {
     if (!Array.isArray(context.reg.kimiAcpApprovals)) context.reg.kimiAcpApprovals = [];
     context.reg.kimiAcpApprovals.push({
       title: kind === 'terminal' ? 'bash' : 'write', tier: kind === 'terminal' ? 'exec' : 'edit',
-      input, scope: 'session', at: Date.now(),
+      input: visibleInput, scope: 'session', at: Date.now(), toolCallId: '', nativeBash: null,
     });
   }
 }
@@ -10840,33 +11447,82 @@ function awaitKimiAcpWithSignal(promise, signal) {
 
 async function handleKimiAcpTerminalCreate(params, context, requestMeta) {
   kimiAcpAssertSession(params, context);
-  const command = String(params && params.command || '');
-  const args = Array.isArray(params && params.args) ? params.args.map(value => String(value)).slice(0, 128) : [];
-  if (!command || command.length > 4096 || command.includes('\0') || args.some(arg => arg.length > 32768 || arg.includes('\0'))) {
+  let command = String(params && params.command || '');
+  const rawArgs = params && params.args === undefined ? [] : params && params.args;
+  if (!Array.isArray(rawArgs) || rawArgs.length > 128
+    || rawArgs.some(arg => typeof arg !== 'string' || arg.length > 32768 || arg.includes('\0'))) {
+    throw kimiAcpRequestError(-32602, 'Invalid terminal arguments');
+  }
+  let args = rawArgs.slice();
+  if (!command || command.length > 4096 || command.includes('\0')) {
     throw kimiAcpRequestError(-32602, 'Invalid terminal command or arguments');
   }
-  const cwd = params && params.cwd ? String(params.cwd) : String(context.session.cwd || context.config.defaultWorkspace || os.homedir());
+  let cwd = params && params.cwd ? String(params.cwd) : String(context.session.cwd || context.config.defaultWorkspace || os.homedir());
   if (!path.isAbsolute(cwd)) throw kimiAcpRequestError(-32602, 'terminal cwd must be an absolute path');
+  let readonlySearch = null;
+  if (typeof classifyKimiAcpReadonlySearch === 'function') {
+    let classified;
+    try {
+      // The classifier owns argv/cwd/read-root canonicalization. Its success descriptor is the only input
+      // accepted by the read-only fast path; caller params.env is intentionally never copied into it.
+      classified = await classifyKimiAcpReadonlySearch({ command, args, cwd, env: params && params.env }, context);
+    } catch (error) {
+      classified = { ok: false, reason: `classifier-error:${String(error && error.message || error)}` };
+    }
+    if (classified && classified.ok === true
+      && typeof classified.command === 'string' && path.isAbsolute(classified.command)
+      && Array.isArray(classified.args) && typeof classified.cwd === 'string' && path.isAbsolute(classified.cwd)) {
+      readonlySearch = classified;
+      command = classified.command;
+      args = classified.args.map(value => String(value));
+      cwd = classified.cwd;
+    } else if (classified && classified.reason
+      && (command === 'rg' || command.toLowerCase() === 'rg'
+        || (path.isAbsolute(command) && path.basename(command).toLowerCase() === (process.platform === 'win32' ? 'rg.exe' : 'rg')))) {
+      context.onEvent({ type: 'stderr', text: `[Kimi ACP 搜索策略] ${redact(String(classified.reason))}` });
+    }
+  }
   const stat = await fsp.stat(cwd).catch(() => null);
   if (!stat || !stat.isDirectory()) throw kimiAcpRequestError(-32602, 'terminal cwd does not exist or is not a directory');
-  const execGuard = await guardWorkspaceExecute(cwd, { session: context.session, config: context.config });
+  const execGuard = readonlySearch
+    ? { ok: true, absPath: cwd }
+    : await guardWorkspaceExecute(cwd, { session: context.session, config: context.config });
   if (!execGuard.ok) throw kimiAcpRequestError(-32000, execGuard.error);
   const shellCommand = args.length === 2 && args[0] === '-c' ? args[1] : [command, ...args].join(' ');
-  await awaitKimiAcpWithSignal(
-    ensureKimiAcpOperationPermission(context, 'terminal', { command: shellCommand, cwd }),
-    requestMeta && requestMeta.signal,
-  );
-  const env = { ...process.env };
-  for (const item of (Array.isArray(params.env) ? params.env.slice(0, 128) : [])) {
-    const name = String(item && item.name || '');
-    const value = String(item && item.value || '');
-    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && value.length <= 32768 && !value.includes('\0')) env[name] = value;
+  const nativeBashWrapper = kimiAcpNativeBashWrapperCandidate({ command, args, cwd, env: params && params.env }, context);
+  if (!readonlySearch) {
+    await awaitKimiAcpWithSignal(
+      ensureKimiAcpOperationPermission(context, 'terminal', {
+        command: shellCommand, cwd, ...(nativeBashWrapper ? { __kimiAcpNativeBashWrapper: nativeBashWrapper } : {}),
+      }),
+      requestMeta && requestMeta.signal,
+    );
+  }
+  let env;
+  if (readonlySearch) {
+    const blocked = typeof KIMI_ACP_SEARCH_BLOCKED_ENV_RE !== 'undefined' ? KIMI_ACP_SEARCH_BLOCKED_ENV_RE : null;
+    env = {};
+    for (const [name, value] of Object.entries(process.env)) {
+      if (!blocked || !blocked.test(name)) env[name] = value;
+    }
+    if (readonlySearch.env && typeof readonlySearch.env === 'object' && !Array.isArray(readonlySearch.env)) {
+      Object.assign(env, readonlySearch.env);
+    }
+  } else {
+    env = { ...process.env };
+    for (const item of (Array.isArray(params.env) ? params.env.slice(0, 128) : [])) {
+      const name = String(item && item.name || '');
+      const value = String(item && item.value || '');
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && value.length <= 32768 && !value.includes('\0')) env[name] = value;
+    }
   }
   const outputByteLimit = Math.min(8 * 1024 * 1024, Math.max(4096, Number(params.outputByteLimit) || 1024 * 1024));
   const terminalId = makeId('kimi_terminal');
+  const spawnCommand = nativeBashWrapper ? nativeBashWrapper.canonicalExecutable : command;
+  const spawnArgs = nativeBashWrapper ? nativeBashWrapper.argv : args;
   let child;
   try {
-    child = cp.spawn(command, args, { cwd, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    child = cp.spawn(spawnCommand, spawnArgs, { cwd, env, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (error) { throw kimiAcpRequestError(-32000, `Failed to create terminal: ${error && error.message || error}`); }
   let resolveExit;
   const waitPromise = new Promise(resolve => { resolveExit = resolve; });
@@ -10933,10 +11589,15 @@ async function handleKimiAcpFsRequest(method, params, context) {
   const rawPath = String(params && params.path || '');
   if (!rawPath || !path.isAbsolute(rawPath)) throw kimiAcpRequestError(-32602, 'ACP filesystem path must be absolute');
   const write = method === 'fs/write_text_file';
-  const guard = await guardFileToolPath(rawPath, { session: context.session, config: context.config }, { tool: write ? 'kimi_acp_write' : 'kimi_acp_read', write });
+  const internalPlanPath = await resolveKimiAcpPlanFilePath(rawPath, context);
+  const internalPlanFile = Boolean(internalPlanPath);
+  const guard = internalPlanFile
+    ? { ok: true, absPath: internalPlanPath }
+    : await guardFileToolPath(rawPath, { session: context.session, config: context.config }, { tool: write ? 'kimi_acp_write' : 'kimi_acp_read', write });
   if (!guard.ok) throw kimiAcpRequestError(-32000, guard.error);
   if (!write) {
     const stat = await fsp.stat(guard.absPath).catch(() => null);
+    if (!stat && internalPlanFile) return { content: '' };
     if (!stat || !stat.isFile()) throw kimiAcpRequestError(-32002, 'Resource not found');
     if (stat.size > 50 * 1024 * 1024) throw kimiAcpRequestError(-32000, 'Text file is larger than the 50 MB ACP read limit');
     const text = await fsp.readFile(guard.absPath, 'utf8');
@@ -10947,6 +11608,15 @@ async function handleKimiAcpFsRequest(method, params, context) {
   }
   const content = String(params && params.content || '');
   if (Buffer.byteLength(content, 'utf8') > MAX_BODY_BYTES) throw kimiAcpRequestError(-32602, 'ACP file content exceeds the write limit');
+  if (internalPlanFile) {
+    try {
+      await fsp.mkdir(path.dirname(guard.absPath), { recursive: true });
+      await fsp.writeFile(guard.absPath, content, 'utf8');
+      return {};
+    } catch (error) {
+      throw kimiAcpRequestError(-32000, error && error.message || 'Plan file write failed');
+    }
+  }
   await ensureKimiAcpOperationPermission(context, 'write', { path: guard.absPath });
   const result = await toolCall('file_write', { path: guard.absPath, content, createDirs: true }, {
     session: context.session, config: context.config, workingDir: context.session.cwd,
@@ -11085,6 +11755,8 @@ function kimiAcpApplyPlan(update, session, onEvent) {
   const plan = update && update.sessionUpdate === 'plan_update' && update.plan && typeof update.plan === 'object'
     ? update.plan : update;
   session.kimiAcpPlan = plan && typeof plan === 'object' ? plan : null;
+  const planId = kimiAcpPlanIdFromUpdate(update);
+  if (planId) session.kimiAcpPlanId = planId;
   const rows = Array.isArray(plan && plan.entries) ? plan.entries
     : (Array.isArray(plan && plan.items) ? plan.items : []);
   if (!rows.length) {
@@ -11102,6 +11774,88 @@ function kimiAcpApplyPlan(update, session, onEvent) {
   })));
   session.todos = items;
   onEvent({ type: 'todo', items, source: 'kimi-acp' });
+}
+
+function kimiAcpPlanFileFromUpdate(update) {
+  const plan = update && update.plan && typeof update.plan === 'object' ? update.plan : null;
+  if (plan && plan.type === 'file') {
+    const uri = String(plan.uri || '').trim();
+    if (!uri) return '';
+    try {
+      const parsed = new URL(uri);
+      if (parsed.protocol !== 'file:' || parsed.search || parsed.hash) return '';
+      const filePath = fileURLToPath(parsed);
+      return path.isAbsolute(filePath) && /\.md$/i.test(path.basename(filePath)) ? path.resolve(filePath) : '';
+    } catch {
+      return '';
+    }
+  }
+  const candidates = [
+    update && update.filePath, update && update.file_path, update && update.planFile, update && update.plan_file,
+    update && update.planPath, update && update.plan_path,
+    plan && plan.filePath, plan && plan.file_path, plan && plan.planFile, plan && plan.plan_file,
+    plan && plan.planPath, plan && plan.plan_path,
+  ];
+  for (const candidate of candidates) {
+    const value = String(candidate || '').trim();
+    if (value && path.isAbsolute(value) && /\.md$/i.test(path.basename(value))) return path.resolve(value);
+  }
+  return '';
+}
+
+function kimiAcpPlanIdFromUpdate(update) {
+  const plan = update && update.plan && typeof update.plan === 'object' ? update.plan : null;
+  return String(update && (update.planId || update.plan_id) || plan && (plan.planId || plan.plan_id) || '');
+}
+
+function kimiAcpPlanMarkdownFromItems(plan) {
+  const rows = Array.isArray(plan && plan.entries) ? plan.entries
+    : (Array.isArray(plan && plan.items) ? plan.items : []);
+  return rows.map((row, index) => {
+    const text = String(row && (row.content || row.text || row.title) || '').trim();
+    if (!text) return '';
+    const status = String(row && row.status || '').toLowerCase();
+    const mark = /complete|done/.test(status) ? 'x' : /progress|active/.test(status) ? '~' : ' ';
+    return `- [${mark}] ${text}`;
+  }).filter(Boolean).join('\n');
+}
+
+async function kimiAcpReadPlanSnapshotFile(rawPath, context) {
+  const internal = await resolveKimiAcpPlanFilePath(rawPath, context);
+  const guard = internal
+    ? { ok: true, absPath: internal }
+    : await guardFileToolPath(rawPath, { session: context.session, config: context.config }, { tool: 'kimi_acp_plan_snapshot', write: false });
+  if (!guard || !guard.ok) return { ok: false, reason: String(guard && guard.error || 'plan file is outside the read guard') };
+  const stat = await fsp.stat(guard.absPath).catch(() => null);
+  if (!stat) return { ok: true, path: guard.absPath, markdown: '' };
+  if (!stat.isFile()) return { ok: false, reason: 'plan URI does not resolve to a regular file' };
+  if (stat.size > 1024 * 1024) return { ok: false, reason: 'plan snapshot exceeds the 1 MiB read limit' };
+  const handle = await fsp.open(guard.absPath, 'r');
+  try {
+    const buffer = Buffer.alloc(stat.size);
+    const read = stat.size ? await handle.read(buffer, 0, stat.size, 0) : { bytesRead: 0 };
+    if (read.bytesRead > 1024 * 1024) return { ok: false, reason: 'plan snapshot exceeds the 1 MiB read limit' };
+    return { ok: true, path: guard.absPath, markdown: buffer.subarray(0, read.bytesRead).toString('utf8') };
+  } finally { await handle.close().catch(() => {}); }
+}
+
+async function kimiAcpPlanSnapshotFromUpdate(update, context) {
+  const plan = update && update.plan && typeof update.plan === 'object' ? update.plan : null;
+  const planId = kimiAcpPlanIdFromUpdate(update);
+  if (!plan || !planId) return { ok: false, reason: 'plan update has no planId' };
+  if (plan.type === 'markdown') {
+    const markdown = String(plan.content || '');
+    if (Buffer.byteLength(markdown, 'utf8') > 1024 * 1024) return { ok: false, reason: 'markdown plan exceeds the 1 MiB snapshot limit' };
+    return { ok: true, planId, markdown, path: '' };
+  }
+  if (plan.type === 'items') return { ok: true, planId, markdown: kimiAcpPlanMarkdownFromItems(plan), path: '' };
+  if (plan.type === 'file') {
+    const filePath = kimiAcpPlanFileFromUpdate(update);
+    if (!filePath) return { ok: false, reason: 'plan file URI is not a local absolute file path' };
+    const result = await kimiAcpReadPlanSnapshotFile(filePath, context);
+    return result.ok ? { ...result, planId } : { ok: false, reason: result.reason };
+  }
+  return { ok: false, reason: 'unsupported Kimi ACP plan type' };
 }
 
 function kimiAcpWireCheckpoint(nativeSessionId) {
@@ -11138,9 +11892,227 @@ async function kimiAcpWireOutcome(nativeSessionId, checkpoint) {
   } catch { return null; } finally { if (handle) await handle.close().catch(() => {}); }
 }
 
-async function closeKimiAcpProcess(child, rpc, nativeSessionId) {
-  if (rpc && nativeSessionId && !rpc.isClosed()) {
-    await rpc.request('session/close', { sessionId: nativeSessionId }, 3000).catch(() => {});
+function kimiAcpCapabilityState(capabilities, key, aliases = []) {
+  const roots = [capabilities, capabilities && capabilities.sessionCapabilities].filter(root => root && typeof root === 'object');
+  for (const root of roots) {
+    for (const candidate of [key, ...aliases]) {
+      if (!Object.prototype.hasOwnProperty.call(root, candidate)) continue;
+      return root[candidate] !== false && root[candidate] != null;
+    }
+  }
+  return null;
+}
+
+function kimiAcpSessionRestoreMethods(capabilities) {
+  const sessionCaps = capabilities && capabilities.sessionCapabilities && typeof capabilities.sessionCapabilities === 'object'
+    ? capabilities.sessionCapabilities : {};
+  const readFlag = (root, key) => Object.prototype.hasOwnProperty.call(root || {}, key) ? Boolean(root[key]) : null;
+  const resume = readFlag(sessionCaps, 'resume');
+  const load = readFlag(capabilities, 'loadSession') != null
+    ? readFlag(capabilities, 'loadSession') : readFlag(sessionCaps, 'loadSession');
+  if (resume === true) return { methods: ['session/resume', ...(load === true ? ['session/load'] : [])], declared: true };
+  if (load === true) return { methods: ['session/load'], declared: true };
+  if (resume === false || load === false) return { methods: [], declared: true };
+  // Older ACPs did not advertise these fields. Keep a narrow compatibility attempt, but make the
+  // uncertainty visible and never turn an arbitrary restore failure into a new session.
+  return { methods: ['session/resume', 'session/load'], declared: false };
+}
+
+function kimiAcpMethodNotFound(error) {
+  return Number(error && error.code) === -32601;
+}
+
+function kimiAcpUnknownSessionError(error, sessionId) {
+  return Number(error && error.code) === -32602
+    && String(error && error.message || '').trim() === `Unknown sessionId: ${String(sessionId)}`;
+}
+
+async function kimiAcpRestoreSession(rpc, nativeSessionId, lifecycle, capabilities, reg, onEvent, flushUpdates) {
+  const plan = kimiAcpSessionRestoreMethods(capabilities || {});
+  if (!plan.methods.length) {
+    throw new Error('Kimi ACP agent explicitly does not support session resume/load; refusing to create a new session');
+  }
+  if (!plan.declared) onEvent({ type: 'stderr', text: '[Kimi ACP 能力] initialize 未声明 session resume/load；按旧版兼容顺序尝试，非 method-not-found 错误不会新建会话' });
+  let lastError = null;
+  for (let index = 0; index < plan.methods.length; index++) {
+    const method = plan.methods[index];
+    if (index > 0) onEvent({ type: 'stderr', text: `[Kimi ACP 能力] ${plan.methods[index - 1]} 不受支持，按 method-not-found 回退到 ${method}` });
+    reg.kimiAcpLoadReplay = method === 'session/load';
+    try {
+      const response = await rpc.request(method, { sessionId: nativeSessionId, ...lifecycle }, 30000);
+      if (flushUpdates) await flushUpdates();
+      return { response, method };
+    } catch (error) {
+      lastError = error;
+      if (flushUpdates) await flushUpdates().catch(() => {});
+      if (!kimiAcpMethodNotFound(error) || index >= plan.methods.length - 1) throw error;
+    } finally {
+      reg.kimiAcpLoadReplay = false;
+    }
+  }
+  throw lastError || new Error('Kimi ACP session restore failed');
+}
+
+function kimiAcpLifecycle(capabilities, workingDir, additionalDirectories, onEvent) {
+  const extraState = kimiAcpCapabilityState(capabilities || {}, 'additionalDirectories', ['additionalDirs']);
+  const lifecycle = { cwd: workingDir, mcpServers: [] };
+  if (extraState === false) {
+    onEvent({ type: 'stderr', text: '[Kimi ACP 能力] agent 未声明 additionalDirectories；已省略附加目录' });
+  } else {
+    if (extraState === null) onEvent({ type: 'stderr', text: '[Kimi ACP 能力] agent 未声明 additionalDirectories；按旧版兼容发送并保留诊断' });
+    lifecycle.additionalDirectories = [...new Set((additionalDirectories || []).filter(Boolean))];
+  }
+  return lifecycle;
+}
+
+function kimiAcpFindConfigOption(options, id) {
+  return (Array.isArray(options) ? options : []).find(option => option && String(option.id || '') === String(id)) || null;
+}
+
+function kimiAcpOptionChoices(option) {
+  if (!option || typeof option !== 'object') return [];
+  for (const key of ['options', 'values', 'allowedValues', 'enum', 'groups']) {
+    if (Array.isArray(option[key])) {
+      const flattened = [];
+      const visit = values => {
+        for (const value of values) {
+          // ACP select groups carry groupId and options, and some revisions also put the groups under
+          // a top-level `groups` array. A group has no selectable value/currentValue; recurse until the
+          // actual choices are reached, preserving the advertised values as the only setter allowlist.
+          if (value && typeof value === 'object' && Array.isArray(value.options)
+            && value.value == null && value.currentValue == null
+            && (value.id == null || value.groupId != null)) visit(value.options);
+          else flattened.push(value);
+        }
+      };
+      visit(option[key]);
+      return flattened;
+    }
+    if (option[key] && typeof option[key] === 'object') return Object.keys(option[key]).map(value => ({ value }));
+  }
+  return [];
+}
+
+function kimiAcpOptionAdvertises(option, value) {
+  const wanted = String(value);
+  return kimiAcpOptionChoices(option).some(candidate => {
+    const actual = candidate && typeof candidate === 'object'
+      ? (candidate.value != null ? candidate.value : candidate.id != null ? candidate.id : candidate.currentValue)
+      : candidate;
+    return actual != null && String(actual) === wanted;
+  });
+}
+
+function kimiAcpActualConfigValue(options, id) {
+  const option = kimiAcpFindConfigOption(options, id);
+  return option && option.currentValue != null ? String(option.currentValue) : '';
+}
+
+function kimiAcpRememberConfigActual(session, id, value) {
+  if (!session || value == null || value === '') return;
+  const configId = String(id || '');
+  const actual = String(value);
+  if (!configId || !actual) return;
+  if (!Array.isArray(session.kimiAcpConfigOptions)) session.kimiAcpConfigOptions = [];
+  const option = kimiAcpFindConfigOption(session.kimiAcpConfigOptions, configId);
+  if (option) option.currentValue = actual;
+  else session.kimiAcpConfigOptions.push({ id: configId, currentValue: actual });
+}
+
+function kimiAcpResponseActualConfigValue(response, id) {
+  if (!response || typeof response !== 'object') return '';
+  const direct = kimiAcpActualConfigValue(response.configOptions, id);
+  if (direct) return direct;
+  const configId = String(id || '');
+  if (configId === 'mode') return String(response.currentModeId || response.current_mode_id || response.modeId || '');
+  if (configId === 'model') return String(response.currentModelId || response.current_model_id || response.modelId || '');
+  if (configId === 'thinking') return String(response.currentThinkingId || response.current_thinking_id || response.currentValue || '');
+  return String(response.currentValue || '');
+}
+
+function kimiAcpActivatedActualConfigValue(activated, id) {
+  const direct = kimiAcpResponseActualConfigValue(activated, id);
+  if (direct) return direct;
+  const modes = activated && activated.modes && typeof activated.modes === 'object' ? activated.modes : {};
+  if (String(id || '') === 'mode') return String(modes.currentModeId || '');
+  return '';
+}
+
+function kimiAcpNoteConfigActual(reg, id, value) {
+  if (!reg || value == null || value === '') return;
+  const configId = String(id || '');
+  if (!configId) return;
+  if (!reg.kimiAcpConfigActualSeq || typeof reg.kimiAcpConfigActualSeq !== 'object') reg.kimiAcpConfigActualSeq = Object.create(null);
+  if (!reg.kimiAcpLatestConfigActual || typeof reg.kimiAcpLatestConfigActual !== 'object') reg.kimiAcpLatestConfigActual = Object.create(null);
+  reg.kimiAcpConfigActualSeq[configId] = Number(reg.kimiAcpConfigActualSeq[configId] || 0) + 1;
+  reg.kimiAcpLatestConfigActual[configId] = String(value);
+}
+
+function kimiAcpFreshActualForOperation(reg, id, baselineSeq, activationActuals) {
+  const configId = String(id || '');
+  const currentSeq = Number(reg && reg.kimiAcpConfigActualSeq && reg.kimiAcpConfigActualSeq[configId] || 0);
+  const baseline = Number(baselineSeq) || 0;
+  if (currentSeq > baseline && reg && reg.kimiAcpLatestConfigActual) {
+    const notified = String(reg.kimiAcpLatestConfigActual[configId] || '');
+    if (notified) return notified;
+  }
+  return String(activationActuals && activationActuals[configId] || '');
+}
+
+function kimiAcpStoreConfigOptions(session, response) {
+  if (response && Array.isArray(response.configOptions)) {
+    const incoming = response.configOptions;
+    const previous = Array.isArray(session.kimiAcpConfigOptions) ? session.kimiAcpConfigOptions : [];
+    const byId = new Map(previous.map(option => [String(option && option.id || ''), option]));
+    for (const option of incoming) {
+      const id = String(option && option.id || '');
+      if (id) byId.set(id, { ...(byId.get(id) || {}), ...option });
+    }
+    session.kimiAcpConfigOptions = [...byId.values()];
+  }
+  return Array.isArray(session.kimiAcpConfigOptions) ? session.kimiAcpConfigOptions : [];
+}
+
+function kimiAcpSyncActualConfig(state, session, reg, options) {
+  for (const option of Array.isArray(options) ? options : []) {
+    if (!option || option.currentValue == null) continue;
+    const id = String(option.id || '');
+    const actual = String(option.currentValue);
+    if (id === 'model') {
+      kimiAcpRememberConfigActual(session, id, actual);
+      state.model = actual;
+      session.claudeSessionModel = actual;
+    } else if (id === 'mode') {
+      kimiAcpRememberConfigActual(session, id, actual);
+      session.kimiAcpMode = actual;
+      kimiAcpObserveNativeMode(reg, actual);
+    } else if (id === 'thinking') {
+      kimiAcpRememberConfigActual(session, id, actual);
+      session.kimiAcpThinking = actual;
+    }
+  }
+}
+
+function kimiAcpModeOptionFromActivated(activated) {
+  const modes = activated && activated.modes && typeof activated.modes === 'object' ? activated.modes : null;
+  const available = modes && Array.isArray(modes.availableModes) ? modes.availableModes : [];
+  const values = available.map(item => item && typeof item === 'object'
+    ? (item.value != null ? item.value : item.id != null ? item.id : item.modeId)
+    : item).filter(value => value != null && String(value));
+  const current = modes && modes.currentModeId != null ? String(modes.currentModeId) : '';
+  if (current && !values.some(value => String(value) === current)) values.push(current);
+  if (!values.length) return null;
+  return { id: 'mode', currentValue: current, options: values.map(value => ({ value: String(value) })) };
+}
+
+async function closeKimiAcpProcess(child, rpc, nativeSessionId, capabilities, onEvent) {
+  const closeState = kimiAcpCapabilityState(capabilities || {}, 'close', ['sessionClose', 'closeSession']);
+  if (rpc && nativeSessionId && !rpc.isClosed() && closeState === true) {
+    await rpc.request('session/close', { sessionId: nativeSessionId }, 3000).catch(error => {
+      onEvent({ type: 'stderr', text: `[Kimi ACP close] ${redact(String(error && error.message || error))}` });
+    });
+  } else if (rpc && nativeSessionId && closeState === null) {
+    onEvent({ type: 'stderr', text: '[Kimi ACP 能力] agent 未声明 close；结束当前 ACP 回合但不发送 session/close' });
   }
   try { if (child.stdin && !child.stdin.destroyed) child.stdin.end(); } catch { /* ignore */ }
   if (child.exitCode != null) return;
@@ -11169,8 +12141,23 @@ function prepareKimiAcpSpawn(command) {
   // Only direct npm-package launches can use Node's ESM loader. Native Kimi executables retain their
   // upstream behavior rather than guessing at a binary patch, and the loader itself still verifies the
   // exact source helper before changing anything.
-  if (!fs.existsSync(register) || !path.isAbsolute(entry) || !/[\\/]@moonshot-ai[\\/]kimi-code[\\/]dist[\\/]main\.mjs$/i.test(entry)) return base;
-  return { ...base, args: ['--import', pathToFileURL(register).href, ...base.args], kimiAcpCompat: true };
+  if (!path.isAbsolute(entry) || !/[\\/]@moonshot-ai[\\/]kimi-code[\\/]dist[\\/]main\.mjs$/i.test(entry)) {
+    return {
+      ...base, kimiAcpCompat: false, kimiAcpCompatStatus: 'unsupported-install',
+      kimiAcpCompatDiagnostic: '未挂载 ACP 兼容层：仅支持标准 npm @moonshot-ai/kimi-code 直连 main.mjs；当前安装方式保持原生行为',
+    };
+  }
+  if (!fs.existsSync(register)) {
+    return {
+      ...base, kimiAcpCompat: false, kimiAcpCompatStatus: 'resource-missing',
+      kimiAcpCompatDiagnostic: '未挂载 ACP 兼容层：resources/kimi-acp-compat-register.mjs 不存在',
+    };
+  }
+  return {
+    ...base, args: ['--import', pathToFileURL(register).href, ...base.args], kimiAcpCompat: true,
+    kimiAcpCompatStatus: 'loader-attached',
+    kimiAcpCompatDiagnostic: '已挂载精确源码匹配的 ACP 兼容层；实际 patch 命中情况由子进程 stderr 报告',
+  };
 }
 
 async function runKimiAcpTurnPrepared(context) {
@@ -11178,7 +12165,7 @@ async function runKimiAcpTurnPrepared(context) {
     session, message, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
     additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
     currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
-    resumeResetReason, promptTaskContext, agentRecoverySummary,
+    resumeResetReason, promptTaskContext, agentRecoverySummary, attachments, kimiNativeSlashCommand,
   } = context;
   let workspaceTurnBaseline = context.workspaceTurnBaseline;
   const env = {
@@ -11195,7 +12182,7 @@ async function runKimiAcpTurnPrepared(context) {
   if (spawn.kimiAcpCompat) env.RUYI_KIMI_ACP_COMPAT = '1';
   const cwdWarn = cwdWarning(workingDir);
   const state = {
-    assistantText: '', thinkingText: '', usage: null, model: String(config.model || ''),
+    assistantText: '', thinkingText: '', usage: null, model: String(session.claudeSessionModel || ''),
     usageTick: 0, turnUsage: null, planTouched: false, toolCalls: [], toolMap: new Map(), availableCommands: [], error: null, stopReason: '',
   };
   let rawSeq = 0;
@@ -11206,11 +12193,13 @@ async function runKimiAcpTurnPrepared(context) {
   let child = null;
   let rpc = null;
   let reg = null;
+  let updateQueue = Promise.resolve();
   const markActivity = () => { if (reg) reg.lastEventAt = Date.now(); };
-  const emitUpdate = params => {
+  const emitUpdate = async params => {
     markActivity();
     const update = params && params.update || {};
     const type = String(update.sessionUpdate || '');
+    if (reg && reg.kimiAcpLoadReplay && !['config_option_update', 'current_mode_update', 'session_info_update'].includes(type)) return;
     if (type === 'agent_message_chunk') {
       const text = kimiAcpContentText(update.content);
       if (text) { state.assistantText += text; if (reg) reg.questionContext = state.assistantText; onEvent({ type: 'assistant_delta', text }); }
@@ -11220,23 +12209,35 @@ async function runKimiAcpTurnPrepared(context) {
     } else if (type === 'tool_call' || type === 'tool_call_update') {
       const id = String(update.toolCallId || '');
       if (!id) return;
+      const explicitNativeName = update.title || update.name || '';
+      const displayName = explicitNativeName || update.description || '';
+      const nativeInput = kimiAcpExplicitToolInput(update);
       let record = state.toolMap.get(id);
       if (!record) {
-        record = { id, name: String(update.title || 'KimiTool'), input: update.rawInput && typeof update.rawInput === 'object' ? update.rawInput : {} };
+        record = {
+          id, name: String(displayName || 'KimiTool'), nativeName: String(explicitNativeName || ''),
+          kind: String(update.kind || ''),
+          input: nativeInput,
+          content: update.content,
+        };
         state.toolMap.set(id, record); state.toolCalls.push(record);
         onEvent({ type: 'tool_use', id, name: record.name, input: record.input });
       } else {
         const previousName = record.name;
         const previousInput = record.input;
-        if (update.title) record.name = String(update.title);
-        if (update.rawInput && typeof update.rawInput === 'object') record.input = update.rawInput;
-        if (record.name !== previousName || record.input !== previousInput) {
-          onEvent({ type: 'tool_use_update', id, name: record.name, input: record.input });
+        const previousKind = record.kind;
+        if (displayName) record.name = String(displayName);
+        if (nativeInput && Object.keys(nativeInput).length) record.input = nativeInput;
+        if (record.content == null && update.content !== undefined) record.content = update.content;
+        if (update.kind) record.kind = String(update.kind);
+        if (record.name !== previousName || record.input !== previousInput || record.kind !== previousKind) {
+          onEvent({ type: 'tool_use_update', id, name: record.name, input: record.input, kind: record.kind || undefined });
         }
       }
       const status = String(update.status || '');
       if ((status === 'completed' || status === 'failed') && !record.__settled) {
         record.__settled = true;
+        if (kimiAcpSuccessfulEnterPlanMode(record, update)) contextResetKimiAcpPlanApproval(reg);
         const terminalId = kimiAcpTerminalRef(update.rawOutput) || kimiAcpTerminalRef(update.content);
         const terminalResult = terminalId ? kimiAcpTerminalDisplayResult(reg, terminalId) : null;
         record.result = terminalResult != null
@@ -11259,14 +12260,36 @@ async function runKimiAcpTurnPrepared(context) {
       onEvent({ type: 'usage', ...state.usage });
     } else if (type === 'config_option_update') {
       const opts = Array.isArray(update.configOptions) ? update.configOptions : [];
+      kimiAcpStoreConfigOptions(session, { configOptions: opts });
       for (const option of opts) {
-        if (option && option.id === 'model' && option.currentValue != null) {
-          state.model = String(option.currentValue); session.claudeSessionModel = state.model;
-        }
+        if (option && option.id != null && option.currentValue != null) kimiAcpNoteConfigActual(reg, option.id, option.currentValue);
       }
-      session.kimiAcpConfigOptions = opts;
+      kimiAcpSyncActualConfig(state, session, reg, opts);
     } else if (type === 'current_mode_update') {
-      session.kimiAcpMode = String(update.currentModeId || '');
+      const modeId = String(update.currentModeId || '');
+      if (modeId && reg) {
+        reg.kimiAcpLatestModeId = modeId;
+        reg.kimiAcpModeUpdateSeq = Number(reg.kimiAcpModeUpdateSeq || 0) + 1;
+      }
+      kimiAcpNoteConfigActual(reg, 'mode', modeId);
+      kimiAcpRememberConfigActual(session, 'mode', modeId);
+      session.kimiAcpMode = modeId;
+      kimiAcpObserveNativeMode(reg, modeId);
+    } else if (type === 'current_thinking_update') {
+      const thinkingId = String(update.currentThinkingId || update.currentValue || '');
+      if (thinkingId && reg) {
+        reg.kimiAcpLatestThinkingId = thinkingId;
+        reg.kimiAcpThinkingUpdateSeq = Number(reg.kimiAcpThinkingUpdateSeq || 0) + 1;
+      }
+      kimiAcpNoteConfigActual(reg, 'thinking', thinkingId);
+      kimiAcpRememberConfigActual(session, 'thinking', thinkingId);
+      session.kimiAcpThinking = thinkingId;
+    } else if (type === 'current_model_update') {
+      const modelId = String(update.currentModelId || update.currentValue || '');
+      kimiAcpNoteConfigActual(reg, 'model', modelId);
+      kimiAcpRememberConfigActual(session, 'model', modelId);
+      state.model = modelId;
+      session.claudeSessionModel = modelId;
     } else if (type === 'available_commands_update') {
       state.availableCommands = Array.isArray(update.availableCommands) ? update.availableCommands
         : (Array.isArray(update.commands) ? update.commands : []);
@@ -11275,12 +12298,39 @@ async function runKimiAcpTurnPrepared(context) {
       session.kimiNativeTitle = update.title == null ? '' : String(update.title);
     } else if (type === 'plan' || type === 'plan_update') {
       state.planTouched = true;
+      const planId = kimiAcpPlanIdFromUpdate(update);
+      let planFile = '';
+      if (reg) {
+        planFile = kimiAcpPlanFileFromUpdate(update);
+        if (planFile) {
+          reg.kimiAcpPlanFile = planFile;
+          if (planId) reg.kimiAcpPlanPaths.set(planId, planFile);
+        }
+      }
       kimiAcpApplyPlan(update, session, onEvent);
+      const snapshot = await kimiAcpPlanSnapshotFromUpdate(update, { session, config, reg });
+      if (!snapshot.ok) {
+        onEvent({ type: 'stderr', text: `[Kimi ACP 计划快照] ${redact(snapshot.reason || '未能读取计划')}` });
+      } else {
+        onEvent({ type: 'kimi_plan_snapshot', planId: snapshot.planId, markdown: snapshot.markdown, path: snapshot.path || planFile || '', status: 'active', source: 'kimi-acp' });
+      }
     } else if (type === 'plan_removed') {
       state.planTouched = true;
-      session.kimiAcpPlan = null;
-      session.todos = [];
-      onEvent({ type: 'todo', items: [], source: 'kimi-acp' });
+      const planId = kimiAcpPlanIdFromUpdate(update);
+      const planFile = reg && planId ? reg.kimiAcpPlanPaths.get(planId) || '' : reg && reg.kimiAcpPlanFile || '';
+      if (reg) {
+        if (!planId || planId === session.kimiAcpPlanId) reg.kimiAcpPlanFile = '';
+        if (planId) reg.kimiAcpPlanPaths.delete(planId);
+      }
+      if (!planId || !session.kimiAcpPlanId || session.kimiAcpPlanId === planId) {
+        session.kimiAcpPlan = null;
+        session.kimiAcpPlanId = '';
+        session.todos = [];
+        onEvent({ type: 'todo', items: [], source: 'kimi-acp' });
+      }
+      const removedSnapshot = { type: 'kimi_plan_snapshot', planId, status: 'removed', source: 'kimi-acp' };
+      if (planFile) removedSnapshot.path = planFile;
+      onEvent(removedSnapshot);
     }
   };
 
@@ -11289,12 +12339,16 @@ async function runKimiAcpTurnPrepared(context) {
     if (!workspaceTurnBaseline && softwareEngineeringTaskProfile(promptTaskContext).relevant) {
       workspaceTurnBaseline = await captureWorkspaceTurnBaseline(workingDir).catch(() => null);
     }
+    if (spawn.kimiAcpCompatDiagnostic && spawn.kimiAcpCompatStatus !== 'loader-attached') {
+      onEvent({ type: 'stderr', text: `[Kimi ACP 兼容层] ${spawn.kimiAcpCompatDiagnostic}` });
+    }
     onEvent({
       type: 'meta', command: claude, args: ['acp'], cwd: workingDir, model: config.model || '(default)',
       thinkingEffort: config.claudeThinkingEffort || 'default', permissionMode: config.permissionMode,
       historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined,
       memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined,
       resumeRecoveryAttempt: false, agentRoles: [], agentRolesOmitted: [], agentDriver: 'kimi-acp', kimiAcpCompat: Boolean(spawn.kimiAcpCompat),
+      kimiAcpCompatStatus: spawn.kimiAcpCompatStatus || 'not-attached', kimiAcpCompatDiagnostic: spawn.kimiAcpCompatDiagnostic || undefined,
       agentCliType: 'kimi', agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined,
     });
     logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', agentDriver: 'kimi-acp', model: config.model || 'default', promptLen: fullPrompt.length });
@@ -11308,6 +12362,10 @@ async function runKimiAcpTurnPrepared(context) {
       lastEventAt: Date.now(), interactive: true, onEvent: null, session, kind: 'kimi-acp', traceId: activeTraceId,
       questionContext: '', steerQueue: [], acceptingSteer: true, abort: null,
       nativeSessionId: '', kimiAcpApprovals: [], kimiAcpTerminals: new Map(), kimiAcpTerminalResults: new Map(), kimiAcpElicitations: new Map(),
+      kimiAcpPlanFile: '', kimiAcpPlanPaths: new Map(), kimiAcpPlanApproved: false, kimiAcpPlanApprovalTurn: 0,
+      kimiAcpNativeMode: '', kimiAcpLatestModeId: '', kimiAcpModeUpdateSeq: 0, kimiAcpLatestThinkingId: '', kimiAcpThinkingUpdateSeq: 0,
+      kimiAcpConfigActualSeq: Object.create(null), kimiAcpLatestConfigActual: Object.create(null),
+      kimiAcpLoadReplay: false,
       kimiAcpWire: { subagents: new Map(), childTools: new Map() },
     };
     reg.onEvent = event => { reg.lastEventAt = Date.now(); onEvent(event); };
@@ -11319,19 +12377,43 @@ async function runKimiAcpTurnPrepared(context) {
       markActivity();
       if (text.trim()) onEvent({ type: 'stderr', text: redact(text) });
     });
-    const reverseContext = { session, config, onEvent: reg.onEvent, reg, state };
+    const reverseContext = {
+      session, config, workingDir, additionalDirectories,
+      dataRoot: typeof dataRoot === 'function' ? dataRoot() : (typeof paths !== 'undefined' ? paths.data : ''),
+      onEvent: reg.onEvent, reg, state,
+    };
     rpc = createKimiAcpRpc(child, {
       onLine: line => { markActivity(); onEvent({ type: 'raw_line', line, seq: rawSeq++ }); },
       onNotification: (method, params) => {
-        if (method === 'session/update') emitUpdate(params);
+        if (method === 'session/update') {
+          updateQueue = updateQueue.then(() => emitUpdate(params)).catch(error => {
+            onEvent({ type: 'stderr', text: `[Kimi ACP update] ${redact(String(error && error.message || error))}` });
+          });
+        }
         else if (method === 'elicitation/complete') {
           const id = String(params && params.elicitationId || '');
           if (id) reg.kimiAcpElicitations.delete(id);
           markActivity();
         }
       },
-      onRequest: (method, params, requestMeta) => {
+      onRequest: async (method, params, requestMeta) => {
         markActivity();
+        // ACP may put tool_call on the wire immediately before request_permission. The notification
+        // reducer is serialized so permission handling must wait for that same queue, otherwise the
+        // exact toolCallId merge can observe an empty kind/rawInput. No reducer issues a reverse RPC, so
+        // awaiting this queue cannot form a cycle.
+        await updateQueue.catch(() => {});
+        if (method === 'session/request_permission') {
+          const permissionTool = params && params.toolCall && typeof params.toolCall === 'object' ? params.toolCall : {};
+          const permissionTitle = String(permissionTool.title || '').trim().toLowerCase();
+          if ((permissionTitle === 'write' || permissionTitle === 'edit')
+            && (permissionTool.kind == null || permissionTool.rawInput == null)) {
+            // ACP may place the pending tool_call notification immediately after this reverse RPC in the
+            // same stdout batch. Let the parser finish that batch before taking the exact-ID snapshot.
+            await new Promise(resolve => setImmediate(resolve));
+            await updateQueue.catch(() => {});
+          }
+        }
         if (method === 'session/request_permission') return handleKimiAcpPermissionRequest(params, reverseContext);
         if (method === 'fs/read_text_file' || method === 'fs/write_text_file') return handleKimiAcpFsRequest(method, params, reverseContext);
         if (method.startsWith('terminal/')) return handleKimiAcpTerminalRequest(method, params, reverseContext, requestMeta);
@@ -11373,25 +12455,28 @@ async function runKimiAcpTurnPrepared(context) {
       clientInfo: { name: 'Ruyi Workbench', version: '2.6' },
       clientCapabilities: {
         auth: { terminal: false }, fs: { readTextFile: true, writeTextFile: true }, terminal: true,
-        plan: {}, elicitation: { form: {}, url: {} },
+        // ACP renamed this field across schema revisions. Advertising both is harmless and
+        // keeps current Kimi plus older compatible agents on the native plan-update path.
+        plan: {}, planCapabilities: {}, elicitation: { form: {}, url: {} },
       },
     }, 15000);
     session.kimiAcpAgentInfo = initialized && initialized.agentInfo || null;
     session.kimiAcpCapabilities = initialized && initialized.agentCapabilities || null;
-    const lifecycle = {
-      cwd: workingDir,
-      mcpServers: [],
-      additionalDirectories: [...new Set((additionalDirectories || []).filter(Boolean))],
-    };
+    const lifecycle = kimiAcpLifecycle(session.kimiAcpCapabilities, workingDir, additionalDirectories, onEvent);
     let activated;
     if (config.autoResumeClaudeSessions && session.claudeSessionId) {
       nativeSessionId = String(session.claudeSessionId);
       try {
-        activated = await rpc.request('session/resume', { sessionId: nativeSessionId, ...lifecycle }, 30000);
+        const restored = await kimiAcpRestoreSession(
+          rpc, nativeSessionId, lifecycle, session.kimiAcpCapabilities, reg, onEvent,
+          () => updateQueue,
+        );
+        activated = restored.response;
       } catch (error) {
+        if (!kimiAcpUnknownSessionError(error, nativeSessionId)) throw error;
         session.claudeSessionId = null;
         session.injectedIndexHash = null;
-        onEvent({ type: 'resume_recovery', reason: 'kimi-session-unavailable', automatic: true });
+        onEvent({ type: 'resume_recovery', reason: 'kimi-session-not-found', automatic: true });
         activated = await rpc.request('session/new', lifecycle, 30000);
         nativeSessionId = String(activated && activated.sessionId || '');
       }
@@ -11404,36 +12489,123 @@ async function runKimiAcpTurnPrepared(context) {
     session.claudeSessionId = nativeSessionId;
     session.claudeSessionCwd = workingDir;
     session.claudeSessionRouteKey = currentResumeRouteKey;
-    session.kimiAcpConfigOptions = activated && activated.configOptions || [];
+    session.kimiAcpConfigOptions = activated && Array.isArray(activated.configOptions) ? activated.configOptions : [];
+    if (!kimiAcpFindConfigOption(session.kimiAcpConfigOptions, 'mode')) {
+      const modesOption = kimiAcpModeOptionFromActivated(activated);
+      if (modesOption) session.kimiAcpConfigOptions.push(modesOption);
+    }
+    kimiAcpSyncActualConfig(state, session, reg, session.kimiAcpConfigOptions);
+    await updateQueue.catch(() => {});
+    // These values come only from the current activation response/notifications, never from a prior
+    // session object. They are sufficient to prove a no-op mode when an older ACP has no setter/options.
+    const activatedActuals = {
+      mode: kimiAcpActivatedActualConfigValue(activated, 'mode'),
+      model: kimiAcpActivatedActualConfigValue(activated, 'model'),
+      thinking: kimiAcpActivatedActualConfigValue(activated, 'thinking'),
+    };
     await saveSession(session);
     const applyOption = async (configId, value) => {
       if (value == null || value === '') return;
-      try {
-        const response = await rpc.request('session/set_config_option', { sessionId: nativeSessionId, configId, value }, 15000);
-        if (response && response.configOptions) session.kimiAcpConfigOptions = response.configOptions;
-        if (configId === 'model') { state.model = String(value); session.claudeSessionModel = state.model; }
-        else if (configId === 'mode') session.kimiAcpMode = String(value);
-        else if (configId === 'thinking') session.kimiAcpThinking = String(value);
-      } catch (error) {
-        onEvent({ type: 'stderr', text: `[Kimi ACP 设置 ${configId}] ${redact(String(error && error.message || error))}` });
+      const strictMode = configId === 'mode';
+      const option = kimiAcpFindConfigOption(session.kimiAcpConfigOptions, configId);
+      if (!option || !kimiAcpOptionAdvertises(option, value)) {
+        const message = `[Kimi ACP 设置 ${configId}] agent 未广告 requested value；未发送配置`;
+        onEvent({ type: 'stderr', text: message });
+        // An empty/unknown advertisement cannot prove that the native mode is safe. In particular, do not
+        // inherit an old default that might be auto/yolo: mode changes fail closed unless the requested value
+        // is explicitly advertised (including the synthesized activated.modes-only option).
+        const confirmedActual = kimiAcpFreshActualForOperation(reg, configId, 0, activatedActuals);
+        if (strictMode && confirmedActual === String(value)) {
+          onEvent({ type: 'stderr', text: `[Kimi ACP 设置 mode] 当前 activation 已明确 actual=${confirmedActual}，未发送 setter` });
+          kimiAcpSyncActualConfig(state, session, reg, [{ id: configId, currentValue: confirmedActual }]);
+          return;
+        }
+        if (strictMode) throw new Error(message);
+        return;
       }
+      let response;
+      const configNotificationSeq = Number(reg && reg.kimiAcpConfigActualSeq && reg.kimiAcpConfigActualSeq[configId] || 0);
+      try {
+        response = await rpc.request('session/set_config_option', { sessionId: nativeSessionId, configId, value }, 15000);
+      } catch (error) {
+        if (!kimiAcpMethodNotFound(error)) {
+          const message = `[Kimi ACP 设置 ${configId}] ${redact(String(error && error.message || error))}`;
+          onEvent({ type: 'stderr', text: message });
+          if (strictMode) throw new Error(message);
+          return;
+        }
+        const fallbackMethod = configId === 'mode' ? 'session/set_mode' : configId === 'model' ? 'session/set_model' : '';
+        if (!fallbackMethod) {
+          const message = `[Kimi ACP 设置 ${configId}] set_config_option 不受支持，未执行未声明的 fallback`;
+          onEvent({ type: 'stderr', text: message });
+          if (strictMode) throw new Error(message);
+          return;
+        }
+        onEvent({ type: 'stderr', text: `[Kimi ACP 设置 ${configId}] set_config_option 不受支持，按 method-not-found 回退 ${fallbackMethod}` });
+        try {
+          response = await rpc.request(fallbackMethod, {
+            sessionId: nativeSessionId,
+            ...(configId === 'mode' ? { modeId: String(value) } : { modelId: String(value) }),
+          }, 15000);
+        } catch (fallbackError) {
+          await updateQueue.catch(() => {});
+          const current = configId === 'mode'
+            ? kimiAcpFreshActualForOperation(reg, configId, configNotificationSeq, activatedActuals)
+            : '';
+          if (configId === 'mode' && kimiAcpMethodNotFound(fallbackError) && current === String(value)) {
+            onEvent({ type: 'stderr', text: `[Kimi ACP 设置 mode] setter 不受支持，但 modes.currentModeId 已确认 requested；沿用 actual` });
+            kimiAcpSyncActualConfig(state, session, reg, [{ id: configId, currentValue: current }]);
+            return;
+          }
+          throw fallbackError;
+        }
+      }
+      // A traditional set_mode/set_model often resolves with {} and publishes the actual value in a
+      // current_*_update notification. Flush that serialized reducer before deciding whether the setter
+      // succeeded; otherwise the previous config option value can win and falsely abort a valid change.
+      await updateQueue.catch(() => {});
+      const options = kimiAcpStoreConfigOptions(session, response);
+      const responseActual = kimiAcpResponseActualConfigValue(response, configId);
+      const notificationActual = kimiAcpFreshActualForOperation(reg, configId, configNotificationSeq, {});
+      // Never fall back to `options` here: it may be the pre-setter currentValue preserved by a merged
+      // descriptor. Only the setter response or a notification from this operation is fresh evidence.
+      let actual = responseActual || notificationActual;
+      if (actual) kimiAcpSyncActualConfig(state, session, reg, [{ id: configId, currentValue: actual }]);
+      if (!actual || actual !== String(value)) {
+        const message = `[Kimi ACP 设置 ${configId}] agent actual value 未确认或与 requested 不同，已中止本回合配置`;
+        onEvent({ type: 'stderr', text: message });
+        if (strictMode) throw new Error(message);
+        return;
+      }
+      if (configId === 'model') { state.model = actual; session.claudeSessionModel = actual; }
+      else if (configId === 'mode') { session.kimiAcpMode = actual; kimiAcpObserveNativeMode(reg, actual); }
+      else if (configId === 'thinking') session.kimiAcpThinking = actual;
     };
     await applyOption('mode', kimiAcpMode(config.permissionMode));
     await applyOption('model', config.model);
-    await applyOption('thinking', ['low', 'high', 'max'].includes(config.claudeThinkingEffort) ? config.claudeThinkingEffort : '');
-    if (!state.model) state.model = String(config.model || '');
-    session.claudeSessionModel = state.model;
+    await applyOption('thinking', ['low', 'medium', 'high', 'max'].includes(config.claudeThinkingEffort) ? config.claudeThinkingEffort : '');
+    if (!state.model) state.model = kimiAcpActualConfigValue(session.kimiAcpConfigOptions, 'model') || String(session.claudeSessionModel || '');
+    if (state.model) session.claudeSessionModel = state.model;
     stopKimiWireWatch = watchKimiWire(nativeSessionId, reg.onEvent, session.kimiContextStatus && session.kimiContextStatus.contextWindow, reg.kimiAcpWire);
 
-    const prompts = [fullPrompt];
+    const prompts = [{ text: fullPrompt, attachments: Array.isArray(attachments) ? attachments : [], nativeSlash: kimiNativeSlashCommand === true }];
     while (prompts.length && reg.state === 'running') {
-      const prompt = prompts.shift();
+      const promptItem = prompts.shift();
+      const prompt = typeof promptItem === 'string' ? promptItem : String(promptItem && promptItem.text || '');
       const checkpoint = kimiAcpWireCheckpoint(nativeSessionId);
       const usageTickBefore = state.usageTick;
+      const promptParts = typeof buildKimiAcpPromptParts === 'function'
+        ? await buildKimiAcpPromptParts(prompt, promptItem && promptItem.attachments || [], session.kimiAcpCapabilities, {
+          session, config, workingDir, onEvent: reg.onEvent, kimiNativeSlashCommand: Boolean(promptItem && promptItem.nativeSlash),
+        })
+        : [{ type: 'text', text: prompt }];
       const response = await rpc.request('session/prompt', {
         sessionId: nativeSessionId,
-        prompt: [{ type: 'text', text: prompt }],
+        prompt: Array.isArray(promptParts) && promptParts.length ? promptParts : [{ type: 'text', text: prompt }],
       }, 0);
+      // Notifications can arrive just before/after the prompt result. Preserve their wire order and make
+      // the final plan/config snapshot visible before this prompt is considered complete.
+      await updateQueue;
       if (response && response.usage && typeof response.usage === 'object') state.turnUsage = response.usage;
       state.stopReason = String(response && response.stopReason || 'end_turn');
       // Kimi sends the prompt response as soon as turn.ended settles, then computes usage asynchronously.
@@ -11452,7 +12624,10 @@ async function runKimiAcpTurnPrepared(context) {
         for (const text of steers) {
           session.messages.push({ role: 'user', content: text, turnSeq: session.turnSeq, steered: true, createdAt: nowIso() });
           onEvent({ type: 'steered', text, queued: false, protocol: 'kimi-acp-followup' });
-          prompts.push(`[用户插话] ${text}\n\n请在同一会话中结合刚才已完成的工作继续处理这条补充指令。`);
+          prompts.push({
+            text: `[用户插话] ${text}\n\n请在同一会话中结合刚才已完成的工作继续处理这条补充指令。`,
+            attachments: [], nativeSlash: false,
+          });
         }
         await saveSession(session);
       } else reg.acceptingSteer = false;
@@ -11460,6 +12635,7 @@ async function runKimiAcpTurnPrepared(context) {
   } catch (error) {
     state.error = error;
   } finally {
+    await updateQueue.catch(() => {});
     if (watchdog) clearInterval(watchdog);
     stopKimiWireWatch();
     clearPendingPermissions(session.id, 'turn ended');
@@ -11468,7 +12644,7 @@ async function runKimiAcpTurnPrepared(context) {
     if (rpc) rpc.cancelReverseRequests(new Error('Kimi ACP turn ended'));
     if (reg && reg.kimiAcpCleanupPromise) await reg.kimiAcpCleanupPromise;
     if (reg) await cleanupKimiAcpTerminals(reg);
-    if (child) await closeKimiAcpProcess(child, rpc, nativeSessionId);
+    if (child) await closeKimiAcpProcess(child, rpc, nativeSessionId, session.kimiAcpCapabilities, onEvent);
     if (activeChildren.get(session.id) === reg) activeChildren.delete(session.id);
   }
 
@@ -11494,7 +12670,7 @@ async function runKimiAcpTurnPrepared(context) {
   const cleanToolCalls = state.toolCalls.map(({ __settled, ...toolCall }) => toolCall);
   const turnSummary = buildTurnSummary(session.turnSeq, cleanToolCalls, 'claude', turnJournal);
   const turnOk = !state.error && !wasStopped;
-  if (agentRecoverySummary && turnOk) { delete session.agentRecoverySummary; delete session.agentRecoverySource; }
+  if (agentRecoverySummary && turnOk && kimiNativeSlashCommand !== true) { delete session.agentRecoverySummary; delete session.agentRecoverySource; }
   turnSegments.finalizeAll(wasStopped ? '回合被停止,进行中的工具已中断' : '回合结束,进行中的工具未完成');
   session.messages.push({
     role: 'assistant', content: finalText, turnSeq: session.turnSeq, thinking: state.thinkingText.trim() || undefined,
@@ -11538,6 +12714,849 @@ async function runKimiAcpTurnPrepared(context) {
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
   onEvent({ type: 'result', ok: turnOk, exitCode: turnOk ? 0 : 1, aborted: wasStopped, error: !turnOk && !wasStopped ? redact(errorText).slice(0, 2000) : undefined });
+}
+
+// Narrow ACP fast-path policy for Kimi 0.37.x native Glob/Grep ripgrep calls.
+//
+// This fragment is deliberately a classifier only. It never spawns, never asks for permission, and never
+// decides whether a terminal operation is allowed. 05b may call it before its ordinary terminal permission
+// path so an exact, read-only native search can remain usable while Ruyi is in plan mode. Any non-match must
+// continue through 05b's existing manual/plan denial path; it must not widen terminal execution.
+//
+// Contract:
+//   async classifyKimiAcpReadonlySearch({ command, args, cwd, env }, { session, config, reg, ... })
+//     -> { ok:true, command:<canonical trusted rg>, args:<canonical argv>, cwd:<canonical read path>,
+//          env:<safe overrides> }
+//     -> { ok:false, reason:<stable diagnostic> }
+//
+// The argv allowlist below is based on the Kimi 0.37.2 buildRgArgs/buildRgArgs$1 implementations. Keep this
+// fragment before any future consumer that calls the classifier, and do not turn it into a general terminal
+// parser: the narrow shape is the safety boundary.
+
+const KIMI_ACP_SEARCH_MAX_ARGS = 128;
+const KIMI_ACP_SEARCH_MAX_ARG_LENGTH = 32768;
+const KIMI_ACP_SEARCH_MAX_COMMAND_LENGTH = 4096;
+const KIMI_ACP_SEARCH_MAX_GLOBS = 64;
+const KIMI_ACP_SEARCH_MAX_SEARCH_PATHS = 32;
+const KIMI_ACP_SEARCH_MAX_PATTERN_LENGTH = 16384;
+const KIMI_ACP_SEARCH_MAX_TYPE_LENGTH = 128;
+const KIMI_ACP_SEARCH_MAX_CONTEXT_LINES = 1000;
+const KIMI_ACP_SEARCH_RG_MAX_COLUMNS = 500;
+
+const KIMI_ACP_SEARCH_VCS_GLOBS = Object.freeze([
+  '!.git', '!.svn', '!.hg', '!.bzr', '!.jj', '!.sl',
+]);
+const KIMI_ACP_SEARCH_SENSITIVE_GLOBS = Object.freeze([
+  '**/.env',
+  '**/id_rsa', '**/id_rsa[-_]*', '**/id_rsa.bak', '**/id_rsa.backup', '**/id_rsa.copy', '**/id_rsa.disabled', '**/id_rsa.key', '**/id_rsa.old', '**/id_rsa.orig', '**/id_rsa.pem', '**/id_rsa.save', '**/id_rsa.tmp',
+  '**/id_ed25519', '**/id_ed25519[-_]*', '**/id_ed25519.bak', '**/id_ed25519.backup', '**/id_ed25519.copy', '**/id_ed25519.disabled', '**/id_ed25519.key', '**/id_ed25519.old', '**/id_ed25519.orig', '**/id_ed25519.pem', '**/id_ed25519.save', '**/id_ed25519.tmp',
+  '**/id_ecdsa', '**/id_ecdsa[-_]*', '**/id_ecdsa.bak', '**/id_ecdsa.backup', '**/id_ecdsa.copy', '**/id_ecdsa.disabled', '**/id_ecdsa.key', '**/id_ecdsa.old', '**/id_ecdsa.orig', '**/id_ecdsa.pem', '**/id_ecdsa.save', '**/id_ecdsa.tmp',
+  '**/.aws/credentials', '**/.aws/credentials/**',
+  '**/.gcp/credentials', '**/.gcp/credentials/**',
+]);
+const KIMI_ACP_SEARCH_SAFE_ENV_OVERRIDES = Object.freeze({
+  // The flag is the primary guard. Empty overrides prevent an inherited config path from re-entering through
+  // the explicitly merged child environment used by the eventual 05b/Turing integration.
+  RIPGREP_CONFIG_PATH: '',
+  RG_CONFIG_PATH: '',
+});
+const KIMI_ACP_SEARCH_BLOCKED_ENV_RE = /^(?:PATH|PATHEXT|COMSPEC|SHELL|BASH_ENV|ENV|LD_PRELOAD|LD_LIBRARY_PATH|DYLD_[A-Z0-9_]*|RIPGREP_CONFIG_PATH|RG_CONFIG_PATH|RIPGREP_CONFIG|RUSTC_WRAPPER|RUSTFLAGS|GIT_CONFIG(?:_[A-Z0-9_]+)?|GIT_ASKPASS|GIT_SSH(?:_COMMAND)?|NODE_OPTIONS|NODE_PATH|PYTHONPATH)$/i;
+
+function kimiAcpSearchDeny(code, detail) {
+  const suffix = detail ? `: ${String(detail)}` : '';
+  return { ok: false, reason: `kimi-readonly-search-${String(code)}${suffix}` };
+}
+
+function kimiAcpSearchIsObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function kimiAcpSearchPathEqual(left, right) {
+  const a = path.resolve(String(left || ''));
+  const b = path.resolve(String(right || ''));
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
+
+function kimiAcpSearchWithin(target, root) {
+  try {
+    if (typeof pathWithinRoot === 'function') return pathWithinRoot(target, root);
+    const relative = path.relative(root, target);
+    return relative === '' || (relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative));
+  } catch { return false; }
+}
+
+function kimiAcpSearchRgName() {
+  return process.platform === 'win32' ? 'rg.exe' : 'rg';
+}
+
+function kimiAcpSearchIsRgName(raw) {
+  const name = path.basename(String(raw || ''));
+  return process.platform === 'win32' ? name.toLowerCase() === 'rg.exe' : name === 'rg';
+}
+
+function kimiAcpSearchValidateText(value, label, maxLength, allowEmpty = false) {
+  if (typeof value !== 'string') return kimiAcpSearchDeny('invalid-text', `${label} must be a string`);
+  if (!allowEmpty && value.length === 0) return kimiAcpSearchDeny('invalid-text', `${label} is empty`);
+  if (value.length > maxLength) return kimiAcpSearchDeny('length', `${label} exceeds ${maxLength}`);
+  if (value.includes('\0')) return kimiAcpSearchDeny('nul', `${label} contains NUL`);
+  return null;
+}
+
+function kimiAcpSearchValidateGlob(value) {
+  const invalid = kimiAcpSearchValidateText(value, '--glob value', KIMI_ACP_SEARCH_MAX_ARG_LENGTH);
+  if (invalid) return invalid;
+  if (/[\r\n]/.test(value)) return kimiAcpSearchDeny('invalid-glob', 'line breaks are not accepted in --glob values');
+  return null;
+}
+
+function kimiAcpSearchUnique(values) {
+  const out = [];
+  const seen = new Set();
+  for (const value of values) {
+    const key = String(value);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
+}
+
+function kimiAcpSearchParseBoundedInteger(value, label, max) {
+  if (typeof value !== 'string' || !/^(?:0|[1-9][0-9]*)$/.test(value)) {
+    return { error: kimiAcpSearchDeny('invalid-number', `${label} must be a non-negative decimal integer`) };
+  }
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number > max) {
+    return { error: kimiAcpSearchDeny('range', `${label} must be between 0 and ${max}`) };
+  }
+  return { value: number };
+}
+
+function kimiAcpSearchNormalizeInputEnv(rawEnv) {
+  if (rawEnv == null) return { ok: true };
+  let entries;
+  if (Array.isArray(rawEnv)) {
+    if (rawEnv.length > 64) return kimiAcpSearchDeny('env-count', 'too many environment entries');
+    entries = rawEnv.map((row, index) => {
+      if (!kimiAcpSearchIsObject(row)) return { error: kimiAcpSearchDeny('invalid-env', `env[${index}] must be an object`) };
+      return { name: row.name, value: row.value };
+    });
+  } else if (kimiAcpSearchIsObject(rawEnv)) {
+    const keys = Object.keys(rawEnv);
+    if (keys.length > 64) return kimiAcpSearchDeny('env-count', 'too many environment entries');
+    entries = keys.map(name => ({ name, value: rawEnv[name] }));
+  } else {
+    return kimiAcpSearchDeny('invalid-env', 'env must be an object or ACP name/value array');
+  }
+  const seen = new Set();
+  for (const row of entries) {
+    if (row && row.error) return row.error;
+    if (typeof row.name !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(row.name)) {
+      return kimiAcpSearchDeny('invalid-env', 'environment name is invalid');
+    }
+    if (typeof row.value !== 'string' || row.value.length > KIMI_ACP_SEARCH_MAX_ARG_LENGTH || row.value.includes('\0')) {
+      return kimiAcpSearchDeny('invalid-env', `environment value for ${row.name} is invalid`);
+    }
+    const key = row.name.toUpperCase();
+    if (seen.has(key)) return kimiAcpSearchDeny('invalid-env', `duplicate environment name ${row.name}`);
+    seen.add(key);
+    // Do not pass caller-provided environment through. These names are rejected explicitly because even a
+    // later safe merge must not let them select a different executable, loader, shell, or ripgrep config.
+    if (KIMI_ACP_SEARCH_BLOCKED_ENV_RE.test(row.name)) return kimiAcpSearchDeny('unsafe-env', row.name);
+  }
+  return { ok: true };
+}
+
+async function kimiAcpSearchRealFile(rawPath) {
+  const value = String(rawPath || '');
+  if (!path.isAbsolute(value)) return null;
+  let canonical;
+  try { canonical = await realpathForContainment(value); } catch { return null; }
+  if (!canonical || !path.isAbsolute(canonical)) return null;
+  let stat;
+  try { stat = await fsp.stat(canonical); } catch { return null; }
+  if (!stat || !stat.isFile()) return null;
+  // A Unix rg must be executable. Windows executable permission is represented by the .exe suffix and not
+  // by the POSIX mode bits exposed by Node, so the platform-specific check stays deliberately small.
+  if (process.platform !== 'win32' && typeof stat.mode === 'number' && (stat.mode & 0o111) === 0) return null;
+  return path.resolve(canonical);
+}
+
+async function kimiAcpSearchCanonicalRoot(rawRoot) {
+  const value = String(rawRoot || '');
+  if (!value || !path.isAbsolute(value)) return null;
+  try {
+    const canonical = await realpathForContainment(value);
+    return canonical && path.isAbsolute(canonical) ? path.resolve(canonical) : null;
+  } catch { return null; }
+}
+
+async function kimiAcpSearchDeniedRoots(context) {
+  const roots = [];
+  const add = value => { if (typeof value === 'string' && value.trim()) roots.push(value.trim()); };
+  const session = context && context.session;
+  const config = context && context.config;
+  if (typeof fileAllowedRoots === 'function') {
+    try { for (const value of fileAllowedRoots(session, config)) add(value); } catch { /* explicit roots below */ }
+  }
+  add(session && session.cwd);
+  add(config && config.defaultWorkspace);
+  for (const value of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) add(value);
+  for (const row of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) add(row && row.path);
+  if (typeof dataRoot === 'function') {
+    try { add(dataRoot()); } catch { /* fail-closed at the data-root check */ }
+  }
+  const out = [];
+  const seen = new Set();
+  for (const raw of roots) {
+    const canonical = await kimiAcpSearchCanonicalRoot(raw);
+    if (!canonical) continue;
+    const key = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(canonical);
+  }
+  return out;
+}
+
+async function kimiAcpSearchVendorRg(context) {
+  if (typeof appRoot !== 'function') return null;
+  let root;
+  try { root = appRoot(); } catch { return null; }
+  const appRootRaw = path.resolve(String(root || ''));
+  const appRootCanonical = await kimiAcpSearchCanonicalRoot(appRootRaw);
+  if (!appRootCanonical) return null;
+  const vendorRootRaw = path.join(appRootRaw, 'vendor-bin');
+  // A vendored exception is only valid when vendor-bin is a real directory directly anchored under the
+  // canonical appRoot. A junction/symlink from appRoot/vendor-bin into a workspace must not become a trust
+  // escape hatch, even when the final rg file itself has a plausible basename.
+  let vendorRootStat;
+  try { vendorRootStat = await fsp.lstat(vendorRootRaw); } catch { return null; }
+  if (!vendorRootStat || !vendorRootStat.isDirectory() || vendorRootStat.isSymbolicLink()) return null;
+  const vendorRoot = await kimiAcpSearchCanonicalRoot(vendorRootRaw);
+  if (!vendorRoot || !kimiAcpSearchWithin(vendorRoot, appRootCanonical)
+    || path.basename(vendorRoot).toLowerCase() !== 'vendor-bin') return null;
+  const vendorPath = path.join(vendorRootRaw, kimiAcpSearchRgName());
+  let vendorFileStat;
+  try { vendorFileStat = await fsp.lstat(vendorPath); } catch { return null; }
+  if (!vendorFileStat || !vendorFileStat.isFile() || vendorFileStat.isSymbolicLink()) return null;
+  const canonical = await kimiAcpSearchRealFile(vendorPath);
+  if (!canonical) return null;
+  const expected = path.join(vendorRoot, kimiAcpSearchRgName());
+  return kimiAcpSearchPathEqual(canonical, expected) ? canonical : null;
+}
+
+async function kimiAcpSearchKimiCacheRg() {
+  let home = '';
+  try { home = String(process.env.KIMI_CODE_HOME || '').trim() || path.join(os.homedir(), '.kimi-code'); } catch { return null; }
+  return path.resolve(path.join(home, 'bin', kimiAcpSearchRgName()));
+}
+
+async function kimiAcpSearchPathRgCandidates() {
+  const rawPath = String(process.env.PATH || process.env.Path || '');
+  const dirs = rawPath.split(path.delimiter);
+  const candidates = [];
+  const seen = new Set();
+  for (const rawDir of dirs) {
+    const dir = String(rawDir || '').trim().replace(/^"|"$/g, '');
+    if (!dir || !path.isAbsolute(dir)) continue;
+    const candidate = path.join(dir, kimiAcpSearchRgName());
+    const key = process.platform === 'win32' ? path.resolve(candidate).toLowerCase() : path.resolve(candidate);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    let stat;
+    try { stat = await fsp.stat(candidate); } catch { continue; }
+    if (!stat || !stat.isFile()) continue;
+    candidates.push(candidate);
+  }
+  return candidates;
+}
+
+async function kimiAcpSearchResolveTrustedRg(rawCommand, context) {
+  const command = String(rawCommand || '');
+  const name = kimiAcpSearchRgName();
+  if (!command || command.trim() !== command || command.includes('\0')) return kimiAcpSearchDeny('command', 'command spelling is invalid');
+  const isBare = command === name || command.toLowerCase() === 'rg';
+  if (!isBare && !path.isAbsolute(command)) return kimiAcpSearchDeny('command', 'only an absolute rg or the bare rg name is accepted');
+  if (!isBare && !kimiAcpSearchIsRgName(command)) return kimiAcpSearchDeny('command', 'shell wrappers and non-rg executables are rejected');
+
+  const deniedRoots = await kimiAcpSearchDeniedRoots(context);
+  const vendor = await kimiAcpSearchVendorRg(context);
+  const ruyiOverride = String(process.env.RUYI_RG_PATH || '').trim();
+  const cache = await kimiAcpSearchKimiCacheRg();
+
+  const isDeniedByWorkspace = canonical => deniedRoots.some(root => kimiAcpSearchWithin(canonical, root));
+  const accept = async (rawCandidate, source, allowVendor = false) => {
+    const canonical = await kimiAcpSearchRealFile(rawCandidate);
+    if (!canonical) return { kind: 'missing' };
+    const isVendor = !!vendor && kimiAcpSearchPathEqual(canonical, vendor);
+    if (isDeniedByWorkspace(canonical) && !(allowVendor || isVendor)) return { kind: 'blocked' };
+    return { kind: 'accepted', source, path: canonical };
+  };
+
+  if (!isBare) {
+    const direct = await kimiAcpSearchRealFile(command);
+    const directIsVendor = !!vendor && direct && kimiAcpSearchPathEqual(direct, vendor);
+    // Apply the workspace/extra-root deny before every absolute-path trust source. The only exception is the
+    // strictly anchored appRoot/vendor-bin file returned above; an absolute PATH or RUYI_RG_PATH must not
+    // bypass the same canonical boundary merely because its basename is rg.
+    if (direct && isDeniedByWorkspace(direct) && !directIsVendor) {
+      return kimiAcpSearchDeny('rg-in-workspace', 'canonical rg is inside a workspace or extra root');
+    }
+    if (direct && directIsVendor) return direct;
+    if (direct && ruyiOverride && path.isAbsolute(ruyiOverride)) {
+      const override = await kimiAcpSearchRealFile(ruyiOverride);
+      if (override && kimiAcpSearchPathEqual(direct, override)) return direct;
+    }
+    for (const pathCandidate of await kimiAcpSearchPathRgCandidates()) {
+      const canonicalPathCandidate = await kimiAcpSearchRealFile(pathCandidate);
+      if (direct && canonicalPathCandidate && kimiAcpSearchPathEqual(direct, canonicalPathCandidate)) return direct;
+    }
+    if (cache && kimiAcpSearchPathEqual(path.resolve(command), cache)) return kimiAcpSearchDeny('unverified-kimi-rg', 'KIMI_CODE_HOME/bin/rg is not independently verified');
+    return kimiAcpSearchDeny('rg-untrusted', 'absolute rg is not in Ruyi PATH, vendor-bin, or RUYI_RG_PATH');
+  }
+
+  // A bare command must resolve exactly as the Ruyi process would: the first existing absolute PATH entry
+  // wins. If that entry is a workspace impostor, do not skip it and silently choose a later executable.
+  for (const candidate of await kimiAcpSearchPathRgCandidates()) {
+    const result = await accept(candidate, 'process-path');
+    if (result.kind === 'accepted') return result.path;
+    if (result.kind === 'blocked') return kimiAcpSearchDeny('rg-in-workspace', 'PATH rg resolves inside a workspace or extra root');
+  }
+  if (ruyiOverride && path.isAbsolute(ruyiOverride)) {
+    const result = await accept(ruyiOverride, 'ruyi-env', false);
+    if (result.kind === 'accepted') return result.path;
+    if (result.kind === 'blocked') return kimiAcpSearchDeny('rg-in-workspace', 'RUYI_RG_PATH resolves inside a workspace or extra root');
+  }
+  if (vendor) return vendor;
+  if (cache) {
+    let cacheExists = false;
+    try { cacheExists = (await fsp.stat(cache)).isFile(); } catch { /* unavailable */ }
+    if (cacheExists) return kimiAcpSearchDeny('unverified-kimi-rg', 'KIMI_CODE_HOME/bin/rg is not independently verified');
+  }
+  return kimiAcpSearchDeny('rg-untrusted', 'no independently trusted absolute rg was found');
+}
+
+async function kimiAcpSearchDataRootInfo() {
+  if (typeof dataRoot !== 'function') return { unavailable: true };
+  let lexical;
+  try { lexical = path.resolve(String(dataRoot() || '')); } catch { return { unavailable: true }; }
+  if (!lexical || !path.isAbsolute(lexical)) return { unavailable: true };
+  const canonical = await kimiAcpSearchCanonicalRoot(lexical);
+  return { lexical, canonical: canonical || lexical };
+}
+
+function kimiAcpSearchIsControlPlaneRoot(candidate, dataInfo) {
+  if (!dataInfo || dataInfo.unavailable) return true;
+  const roots = [dataInfo.lexical, dataInfo.canonical].filter(Boolean);
+  // A search directory that is an ancestor of dataRoot would let ripgrep traverse Ruyi's sessions/config/
+  // memory/logs control plane. Safe dataRoot children such as uploads are still individually subject to the
+  // normal read guard; the ancestor rule is the important fail-closed case.
+  return roots.some(root => kimiAcpSearchWithin(root, candidate));
+}
+
+async function kimiAcpSearchCanonicalReadPath(rawPath, context, label, requireDirectory, dataInfo) {
+  const text = kimiAcpSearchValidateText(rawPath, label, KIMI_ACP_SEARCH_MAX_COMMAND_LENGTH);
+  if (text) return text;
+  if (!path.isAbsolute(rawPath)) return kimiAcpSearchDeny('path', `${label} must be absolute`);
+  if (typeof guardFileToolPath !== 'function') return kimiAcpSearchDeny('guard-unavailable', 'normal read guard is unavailable');
+  let guard;
+  try { guard = await guardFileToolPath(rawPath, context, { tool: 'kimi_acp_native_search', write: false }); }
+  catch { return kimiAcpSearchDeny('guard-error', `${label} read guard failed`); }
+  if (!guard || guard.ok !== true || typeof guard.absPath !== 'string') {
+    return kimiAcpSearchDeny('path-denied', `${label} is outside the normal read guard`);
+  }
+  let canonical;
+  try { canonical = await realpathForContainment(guard.absPath); } catch { return kimiAcpSearchDeny('path', `${label} cannot be canonicalized`); }
+  if (!canonical || !path.isAbsolute(canonical)) return kimiAcpSearchDeny('path', `${label} canonical path is invalid`);
+  if (typeof isSensitiveDataPath === 'function' && (isSensitiveDataPath(rawPath) || isSensitiveDataPath(canonical))) {
+    return kimiAcpSearchDeny('sensitive-root', `${label} is Ruyi control-plane data`);
+  }
+  let stat;
+  try { stat = await fsp.stat(canonical); } catch { return kimiAcpSearchDeny('path-missing', `${label} does not exist`); }
+  if (!stat || (requireDirectory && !stat.isDirectory()) || (!requireDirectory && !stat.isDirectory() && !stat.isFile())) {
+    return kimiAcpSearchDeny(requireDirectory ? 'not-directory' : 'not-searchable', `${label} is not searchable`);
+  }
+  if (stat.isDirectory() && kimiAcpSearchIsControlPlaneRoot(path.resolve(canonical), dataInfo)) {
+    return kimiAcpSearchDeny('sensitive-root', `${label} would contain Ruyi control-plane data`);
+  }
+  return path.resolve(canonical);
+}
+
+function kimiAcpSearchAppendGlobArgs(out, values) {
+  for (const value of values) out.push('--glob', value);
+}
+
+function kimiAcpSearchNegativeGlob(value) {
+  const text = String(value || '');
+  return text.startsWith('!') ? text : `!${text}`;
+}
+
+function kimiAcpSearchAppendNegativeGlobArgs(out, values) {
+  for (const value of values) out.push('--glob', kimiAcpSearchNegativeGlob(value));
+}
+
+function kimiAcpSearchParseGlobArgs(args) {
+  const state = { files: false, hidden: false, sorted: false, noIgnore: false, globs: [], noConfig: false, singleThreaded: false, finalDot: false };
+  for (let index = 0; index < args.length; index++) {
+    const token = args[index];
+    if (token === '-j') {
+      if (state.singleThreaded || args[++index] !== '1') return kimiAcpSearchDeny('unknown-option', '-j is allowed only as -j 1');
+      state.singleThreaded = true;
+    } else if (token === '--files') {
+      if (state.files) return kimiAcpSearchDeny('duplicate-option', '--files');
+      state.files = true;
+    } else if (token === '--hidden') {
+      if (state.hidden) return kimiAcpSearchDeny('duplicate-option', '--hidden');
+      state.hidden = true;
+    } else if (token === '--sortr=modified') {
+      if (state.sorted) return kimiAcpSearchDeny('duplicate-option', '--sortr=modified');
+      state.sorted = true;
+    } else if (token === '--no-ignore') {
+      if (state.noIgnore) return kimiAcpSearchDeny('duplicate-option', '--no-ignore');
+      state.noIgnore = true;
+    } else if (token === '--no-config') {
+      if (state.noConfig) return kimiAcpSearchDeny('duplicate-option', '--no-config');
+      state.noConfig = true;
+    } else if (token === '--glob') {
+      const value = args[++index];
+      if (value === undefined) return kimiAcpSearchDeny('missing-value', '--glob');
+      const invalid = kimiAcpSearchValidateGlob(value);
+      if (invalid) return invalid;
+      state.globs.push(value);
+      if (state.globs.length > KIMI_ACP_SEARCH_MAX_GLOBS) return kimiAcpSearchDeny('glob-count', 'too many --glob values');
+    } else if (token === '.') {
+      if (state.finalDot || index !== args.length - 1) return kimiAcpSearchDeny('path', 'Glob must end with exactly one .');
+      state.finalDot = true;
+    } else {
+      return kimiAcpSearchDeny('unknown-option', token);
+    }
+  }
+  if (!state.files || !state.hidden || !state.sorted || !state.finalDot || state.globs.length === 0) {
+    return kimiAcpSearchDeny('shape', 'not the Kimi native Glob argv shape');
+  }
+  return state;
+}
+
+function kimiAcpSearchParseGrepArgs(args) {
+  const sentinel = args.indexOf('--');
+  if (sentinel < 0) return kimiAcpSearchDeny('shape', 'Grep requires -- before pattern and paths');
+  if (args.slice(sentinel + 1).includes('--')) return kimiAcpSearchDeny('path', 'Grep pattern/path section contains an extra --');
+  if (sentinel + 2 > args.length - 1) return kimiAcpSearchDeny('shape', 'Grep requires a pattern and at least one search path');
+  const state = {
+    singleThreaded: false, hidden: false, nullOutput: false, maxColumns: null, noIgnore: false, noConfig: false,
+    files: false, count: false, withFilename: false, insensitive: false, lineNumbers: false,
+    fieldSeparator: false, after: null, before: null, context: null, globs: [], type: '', multiline: false,
+  };
+  const options = args.slice(0, sentinel);
+  for (let index = 0; index < options.length; index++) {
+    const token = options[index];
+    if (token === '-j') {
+      if (state.singleThreaded || options[++index] !== '1') return kimiAcpSearchDeny('unknown-option', '-j is allowed only as -j 1');
+      state.singleThreaded = true;
+    } else if (token === '--hidden') {
+      if (state.hidden) return kimiAcpSearchDeny('duplicate-option', '--hidden');
+      state.hidden = true;
+    } else if (token === '--null') {
+      if (state.nullOutput) return kimiAcpSearchDeny('duplicate-option', '--null');
+      state.nullOutput = true;
+    } else if (token === '--max-columns') {
+      if (state.maxColumns !== null) return kimiAcpSearchDeny('duplicate-option', '--max-columns');
+      const value = options[++index];
+      if (value === undefined) return kimiAcpSearchDeny('missing-value', '--max-columns');
+      const parsed = kimiAcpSearchParseBoundedInteger(value, '--max-columns', KIMI_ACP_SEARCH_RG_MAX_COLUMNS);
+      if (parsed.error || parsed.value !== KIMI_ACP_SEARCH_RG_MAX_COLUMNS) return parsed.error || kimiAcpSearchDeny('range', '--max-columns must be 500');
+      state.maxColumns = parsed.value;
+    } else if (token === '--glob') {
+      const value = options[++index];
+      if (value === undefined) return kimiAcpSearchDeny('missing-value', '--glob');
+      const invalid = kimiAcpSearchValidateGlob(value);
+      if (invalid) return invalid;
+      state.globs.push(value);
+      if (state.globs.length > KIMI_ACP_SEARCH_MAX_GLOBS) return kimiAcpSearchDeny('glob-count', 'too many --glob values');
+    } else if (token === '--type') {
+      if (state.type) return kimiAcpSearchDeny('duplicate-option', '--type');
+      const value = options[++index];
+      const invalid = kimiAcpSearchValidateText(value, '--type value', KIMI_ACP_SEARCH_MAX_TYPE_LENGTH);
+      if (invalid) return invalid;
+      if (!/^[A-Za-z0-9_+.-]+$/.test(value)) return kimiAcpSearchDeny('invalid-type', '--type value contains unsupported characters');
+      state.type = value;
+    } else if (token === '-l') {
+      if (state.files || state.count) return kimiAcpSearchDeny('mode', 'Grep output mode is ambiguous');
+      state.files = true;
+    } else if (token === '--count-matches') {
+      if (state.files || state.count) return kimiAcpSearchDeny('mode', 'Grep output mode is ambiguous');
+      state.count = true;
+    } else if (token === '--with-filename') {
+      if (state.withFilename) return kimiAcpSearchDeny('duplicate-option', '--with-filename');
+      state.withFilename = true;
+    } else if (token === '-i') {
+      if (state.insensitive) return kimiAcpSearchDeny('duplicate-option', '-i');
+      state.insensitive = true;
+    } else if (token === '-n') {
+      if (state.lineNumbers || state.fieldSeparator) return kimiAcpSearchDeny('content-format', 'Grep line-number format is ambiguous');
+      state.lineNumbers = true;
+    } else if (token === '--field-context-separator') {
+      if (state.lineNumbers || state.fieldSeparator) return kimiAcpSearchDeny('content-format', 'Grep line-number format is ambiguous');
+      if (options[++index] !== ':') return kimiAcpSearchDeny('content-format', '--field-context-separator must be :');
+      state.fieldSeparator = true;
+    } else if (token === '-A' || token === '-B' || token === '-C') {
+      const value = options[++index];
+      const parsed = kimiAcpSearchParseBoundedInteger(value, token, KIMI_ACP_SEARCH_MAX_CONTEXT_LINES);
+      if (parsed.error) return parsed.error;
+      if (token === '-C') {
+        if (state.context !== null || state.after !== null || state.before !== null) return kimiAcpSearchDeny('context', 'Grep context flags are ambiguous');
+        state.context = parsed.value;
+      } else if (token === '-A') {
+        if (state.context !== null || state.after !== null) return kimiAcpSearchDeny('context', 'duplicate -A or mixed -C context');
+        state.after = parsed.value;
+      } else {
+        if (state.context !== null || state.before !== null) return kimiAcpSearchDeny('context', 'duplicate -B or mixed -C context');
+        state.before = parsed.value;
+      }
+    } else if (token === '-U') {
+      if (state.multiline) return kimiAcpSearchDeny('duplicate-option', 'multiline');
+      if (options[index + 1] !== '--multiline-dotall') return kimiAcpSearchDeny('shape', 'Kimi multiline requires -U --multiline-dotall');
+      index += 1;
+      state.multiline = true;
+    } else if (token === '--multiline-dotall') {
+      return kimiAcpSearchDeny('shape', 'Kimi multiline requires -U before --multiline-dotall');
+    } else if (token === '--no-ignore') {
+      if (state.noIgnore) return kimiAcpSearchDeny('duplicate-option', '--no-ignore');
+      state.noIgnore = true;
+    } else if (token === '--no-config') {
+      if (state.noConfig) return kimiAcpSearchDeny('duplicate-option', '--no-config');
+      state.noConfig = true;
+    } else {
+      return kimiAcpSearchDeny('unknown-option', token);
+    }
+  }
+  if (!state.hidden || !state.nullOutput) return kimiAcpSearchDeny('shape', 'not the Kimi native Grep argv shape');
+  if (state.files && (state.count || state.withFilename)) return kimiAcpSearchDeny('mode', 'files_with_matches mode contains count/content flags');
+  // Kimi's schema defaults output_mode to files_with_matches. Content is identifiable by one of its
+  // content-only flags; the actual 0.37.2 builder normally emits -l explicitly, but keep the default exact.
+  const hasContentMarker = state.lineNumbers || state.fieldSeparator || state.after !== null || state.before !== null || state.context !== null;
+  const mode = state.count ? 'count_matches' : (state.files ? 'files_with_matches' : (hasContentMarker ? 'content' : 'files_with_matches'));
+  if (mode === 'content' && state.maxColumns !== null) return kimiAcpSearchDeny('shape', 'content mode does not use --max-columns');
+  if (mode !== 'content' && (state.lineNumbers || state.fieldSeparator || state.after !== null || state.before !== null || state.context !== null)) {
+    return kimiAcpSearchDeny('mode', 'content-only flags require content mode');
+  }
+  if (mode === 'content' && state.count) return kimiAcpSearchDeny('mode', 'count mode cannot be content');
+  if (mode === 'count_matches' && !state.withFilename) return kimiAcpSearchDeny('shape', 'count mode requires --with-filename');
+  const pattern = args[sentinel + 1];
+  const invalidPattern = kimiAcpSearchValidateText(pattern, 'Grep pattern', KIMI_ACP_SEARCH_MAX_PATTERN_LENGTH);
+  if (invalidPattern) return invalidPattern;
+  const searchPaths = args.slice(sentinel + 2);
+  if (searchPaths.length === 0 || searchPaths.length > KIMI_ACP_SEARCH_MAX_SEARCH_PATHS) return kimiAcpSearchDeny('path-count', 'Grep search path count is out of range');
+  for (const searchPath of searchPaths) {
+    const invalidPath = kimiAcpSearchValidateText(searchPath, 'Grep search path', KIMI_ACP_SEARCH_MAX_COMMAND_LENGTH);
+    if (invalidPath) return invalidPath;
+    if (!path.isAbsolute(searchPath)) return kimiAcpSearchDeny('path', 'Grep search paths must be absolute');
+  }
+  return { ...state, mode, pattern, searchPaths };
+}
+
+function kimiAcpSearchBuildGlobArgs(state) {
+  const out = ['--no-config'];
+  if (state.singleThreaded) out.push('-j', '1');
+  out.push('--files', '--hidden', '--sortr=modified');
+  kimiAcpSearchAppendGlobArgs(out, kimiAcpSearchUnique(state.globs));
+  if (state.noIgnore) out.push('--no-ignore');
+  kimiAcpSearchAppendNegativeGlobArgs(out, KIMI_ACP_SEARCH_SENSITIVE_GLOBS);
+  // Keep fixed exclusions after every model-supplied glob. In particular, --glob .git/** must not reopen
+  // VCS metadata after the native Kimi shape has been normalized.
+  kimiAcpSearchAppendNegativeGlobArgs(out, KIMI_ACP_SEARCH_VCS_GLOBS);
+  out.push('.');
+  return out;
+}
+
+function kimiAcpSearchBuildGrepArgs(state) {
+  const out = ['--no-config'];
+  if (state.singleThreaded) out.push('-j', '1');
+  out.push('--hidden');
+  if (state.mode !== 'content') out.push('--max-columns', String(KIMI_ACP_SEARCH_RG_MAX_COLUMNS));
+  out.push('--null');
+  if (state.mode === 'files_with_matches') out.push('-l');
+  else if (state.mode === 'count_matches') out.push('--count-matches', '--with-filename');
+  if (state.insensitive) out.push('-i');
+  if (state.mode === 'content') {
+    out.push('--with-filename');
+    if (state.fieldSeparator) out.push('--field-context-separator', ':');
+    else out.push('-n');
+    if (state.context !== null) out.push('-C', String(state.context));
+    else {
+      if (state.after !== null) out.push('-A', String(state.after));
+      if (state.before !== null) out.push('-B', String(state.before));
+    }
+  }
+  kimiAcpSearchAppendGlobArgs(out, kimiAcpSearchUnique(state.globs));
+  if (state.type) out.push('--type', state.type);
+  if (state.multiline) out.push('-U', '--multiline-dotall');
+  if (state.noIgnore) out.push('--no-ignore');
+  kimiAcpSearchAppendNegativeGlobArgs(out, KIMI_ACP_SEARCH_SENSITIVE_GLOBS);
+  kimiAcpSearchAppendNegativeGlobArgs(out, KIMI_ACP_SEARCH_VCS_GLOBS);
+  out.push('--', state.pattern, ...state.searchPaths);
+  return out;
+}
+
+async function classifyKimiAcpReadonlySearch(params, context) {
+  if (!kimiAcpSearchIsObject(params)) return kimiAcpSearchDeny('params', 'params must be an object');
+  const commandCheck = kimiAcpSearchValidateText(params.command, 'command', KIMI_ACP_SEARCH_MAX_COMMAND_LENGTH);
+  if (commandCheck) return commandCheck;
+  if (!Array.isArray(params.args) || params.args.length === 0 || params.args.length > KIMI_ACP_SEARCH_MAX_ARGS) {
+    return kimiAcpSearchDeny('args', 'args must be a non-empty array of bounded size');
+  }
+  for (const value of params.args) {
+    const invalid = kimiAcpSearchValidateText(value, 'argv value', KIMI_ACP_SEARCH_MAX_ARG_LENGTH, true);
+    if (invalid) return invalid;
+  }
+  const envCheck = kimiAcpSearchNormalizeInputEnv(params.env);
+  if (!envCheck.ok) return envCheck;
+  const command = await kimiAcpSearchResolveTrustedRg(params.command, context);
+  if (typeof command !== 'string') return command;
+  const dataInfo = await kimiAcpSearchDataRootInfo();
+  if (dataInfo.unavailable) return kimiAcpSearchDeny('data-root-unavailable', 'Ruyi data-root safety check is unavailable');
+
+  const rawCwd = params.cwd == null || params.cwd === ''
+    ? String(context && context.session && context.session.cwd || context && context.config && context.config.defaultWorkspace || '')
+    : params.cwd;
+  const cwd = await kimiAcpSearchCanonicalReadPath(rawCwd, context, 'cwd', true, dataInfo);
+  if (typeof cwd !== 'string') return cwd;
+
+  const args = params.args;
+  const isGlob = args.includes('--files');
+  let parsed;
+  if (isGlob) {
+    if (args.includes('--')) return kimiAcpSearchDeny('shape', 'Glob cannot contain Grep sentinel --');
+    parsed = kimiAcpSearchParseGlobArgs(args);
+  } else {
+    parsed = kimiAcpSearchParseGrepArgs(args);
+  }
+  if (!parsed || parsed.ok === false) return parsed || kimiAcpSearchDeny('shape', 'unsupported native search shape');
+
+  if (!isGlob) {
+    const canonicalPaths = [];
+    for (const rawPath of parsed.searchPaths) {
+      const canonical = await kimiAcpSearchCanonicalReadPath(rawPath, context, 'Grep search path', false, dataInfo);
+      if (typeof canonical !== 'string') return canonical;
+      canonicalPaths.push(canonical);
+    }
+    parsed.searchPaths = canonicalPaths;
+  }
+  return {
+    ok: true,
+    command,
+    args: isGlob ? kimiAcpSearchBuildGlobArgs(parsed) : kimiAcpSearchBuildGrepArgs(parsed),
+    cwd,
+    // This is an override contract, not a complete child environment. Turing/05b must merge it only with
+    // Ruyi's own process environment after removing blocked caller/process variables; never merge params.env.
+    env: { ...KIMI_ACP_SEARCH_SAFE_ENV_OVERRIDES },
+  };
+}
+
+// Kimi ACP prompt content blocks. This fragment is deliberately filesystem-only: the 05b bridge owns the
+// ACP process/RPC lifecycle and calls this helper after initialize.agentCapabilities is known.
+const KIMI_ACP_PROMPT_IMAGE_MAX_BYTES = typeof IMAGE_ATTACH_MAX === 'number'
+  ? IMAGE_ATTACH_MAX : 5 * 1024 * 1024;
+const KIMI_ACP_PROMPT_IMAGE_TOTAL_MAX_BYTES = 15 * 1024 * 1024;
+const KIMI_ACP_PROMPT_IMAGE_MAX_COUNT = 4;
+const KIMI_ACP_PROMPT_IMAGE_SPECS = Object.freeze({
+  png: { mimeType: 'image/png' },
+  jpg: { mimeType: 'image/jpeg' },
+  jpeg: { mimeType: 'image/jpeg' },
+  gif: { mimeType: 'image/gif' },
+  webp: { mimeType: 'image/webp' },
+  bmp: { mimeType: 'image/bmp' },
+});
+const KIMI_ACP_PROMPT_IMAGE_LIKE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico', 'tif', 'tiff', 'heic', 'avif',
+]);
+
+async function kimiAcpPromptRealpath(rawPath) {
+  if (typeof realpathForContainment === 'function') return realpathForContainment(rawPath);
+  return fsp.realpath(rawPath);
+}
+
+function kimiAcpPromptDeclaredMime(attachment) {
+  if (!attachment || typeof attachment !== 'object') return '';
+  for (const key of ['mimeType', 'mimetype', 'mime', 'type']) {
+    const value = String(attachment[key] || '').trim().toLowerCase().split(';', 1)[0];
+    // Existing upload records do not carry a MIME field. Ignore generic UI labels such as "file" while
+    // treating every actual type/subtype declaration as security-relevant.
+    if (value.includes('/')) return value;
+  }
+  return '';
+}
+
+function kimiAcpPromptAttachmentReference(attachment) {
+  try {
+    const rawPath = String(attachment && attachment.path || '');
+    const name = String(attachment && attachment.name || (rawPath ? path.basename(rawPath) : 'attachment'));
+    return `${name}: ${rawPath}`;
+  } catch { return 'attachment'; }
+}
+
+function kimiAcpPromptClassifyAttachment(attachment) {
+  if (!attachment || typeof attachment !== 'object' || !String(attachment.path || '')) return { kind: 'none' };
+  const rawPath = String(attachment.path);
+  const pathExt = path.extname(rawPath).slice(1).toLowerCase();
+  const nameExt = path.extname(String(attachment.name || '')).slice(1).toLowerCase();
+  const declaredMime = kimiAcpPromptDeclaredMime(attachment);
+  const pathSpec = Object.prototype.hasOwnProperty.call(KIMI_ACP_PROMPT_IMAGE_SPECS, pathExt)
+    ? KIMI_ACP_PROMPT_IMAGE_SPECS[pathExt] : null;
+  const nameSpec = Object.prototype.hasOwnProperty.call(KIMI_ACP_PROMPT_IMAGE_SPECS, nameExt)
+    ? KIMI_ACP_PROMPT_IMAGE_SPECS[nameExt] : null;
+  const imageHint = Boolean(pathSpec || nameSpec || KIMI_ACP_PROMPT_IMAGE_LIKE_EXTENSIONS.has(pathExt)
+    || KIMI_ACP_PROMPT_IMAGE_LIKE_EXTENSIONS.has(nameExt) || declaredMime.startsWith('image/'));
+  if (!imageHint) return { kind: 'non-image', rawPath };
+  if (!pathSpec) return { kind: 'image', rawPath, reason: '图片扩展名不在 ACP 安全白名单内' };
+  if (nameExt && (!nameSpec || nameSpec.mimeType !== pathSpec.mimeType)) {
+    return { kind: 'image', rawPath, reason: '附件名称扩展名与实际路径扩展名不一致' };
+  }
+  if (declaredMime && (declaredMime === 'image/jpg' ? 'image/jpeg' : declaredMime) !== pathSpec.mimeType) {
+    return { kind: 'image', rawPath, reason: `声明的 MIME ${declaredMime} 与扩展名不一致` };
+  }
+  return { kind: 'image', rawPath, ext: pathExt, spec: pathSpec };
+}
+
+function kimiAcpPromptMagicMatches(ext, buffer) {
+  if (!Buffer.isBuffer(buffer)) return false;
+  if (ext === 'png') return buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (ext === 'jpg' || ext === 'jpeg') return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (ext === 'gif') return buffer.length >= 6 && (buffer.subarray(0, 6).toString('ascii') === 'GIF87a' || buffer.subarray(0, 6).toString('ascii') === 'GIF89a');
+  if (ext === 'webp') return buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+  if (ext === 'bmp') return buffer.length >= 2 && buffer[0] === 0x42 && buffer[1] === 0x4d;
+  return false;
+}
+
+async function kimiAcpPromptGuardAttachmentPath(rawPath, context) {
+  if (!path.isAbsolute(rawPath)) return { ok: false, reason: '附件路径必须是绝对路径' };
+  let guarded = null;
+  try {
+    if (typeof guardFileToolPath === 'function') {
+      guarded = await guardFileToolPath(rawPath, {
+        session: context && context.session,
+        config: context && context.config,
+      }, { write: false, tool: 'kimi_acp_prompt_image' });
+    }
+  } catch (error) {
+    guarded = { ok: false, error: String(error && error.message || error) };
+  }
+  if (guarded && guarded.ok) {
+    try {
+      const canonical = await kimiAcpPromptRealpath(String(guarded.absPath || rawPath));
+      return { ok: true, path: canonical };
+    } catch (error) {
+      return { ok: false, reason: `realpath 失败：${String(error && error.message || error)}` };
+    }
+  }
+  // Do not override an explicit file guard denial with a lexical uploads/file_<id>/basename heuristic. The
+  // normal guard already owns canonical workspace and dataRoot/uploads containment, including junctions.
+  return { ok: false, reason: (guarded && guarded.error) || '路径未通过文件读取边界校验' };
+}
+
+function kimiAcpPromptWarn(context, attachment, reason) {
+  const detail = `[Kimi ACP 图片降级] ${kimiAcpPromptAttachmentReference(attachment)}；${reason}`;
+  try {
+    if (context && typeof context.onEvent === 'function') context.onEvent({ type: 'stderr', text: detail });
+  } catch { /* notification failure must not abort the turn */ }
+  return detail;
+}
+
+function kimiAcpPromptFallbackBlock(attachment, reason) {
+  return {
+    type: 'text',
+    text: `[附件图片未转为 ACP 图片块]\n- ${kimiAcpPromptAttachmentReference(attachment)}\n- 降级原因：${reason}`,
+  };
+}
+
+function kimiAcpPromptReferenceBlock(attachment) {
+  return { type: 'text', text: `[附件引用]\n- ${kimiAcpPromptAttachmentReference(attachment)}` };
+}
+
+// Build ACP ContentBlocks for only this turn's explicitly-path-backed image attachments. The first block is
+// always the caller's prompt verbatim; all degradation is represented by later text blocks and stderr events.
+// This helper never spawns, performs network I/O, mutates config, or throws an attachment failure into the
+// enclosing turn.
+async function buildKimiAcpPromptParts(prompt, attachments, capabilities, context) {
+  const promptText = String(prompt == null ? '' : prompt);
+  const parts = [{ type: 'text', text: promptText }];
+  const references = [];
+  const images = [];
+  const list = Array.isArray(attachments) ? attachments : [];
+  const canSendImages = Boolean(capabilities && capabilities.promptCapabilities && capabilities.promptCapabilities.image === true);
+  let imageCount = 0;
+  let imageBytes = 0;
+  for (const attachment of list) {
+    let classification;
+    try { classification = kimiAcpPromptClassifyAttachment(attachment); } catch { classification = { kind: 'none' }; }
+    if (classification.kind === 'none') continue;
+    if (classification.kind === 'non-image') {
+      if (classification.rawPath && !promptText.includes(classification.rawPath)) references.push(kimiAcpPromptReferenceBlock(attachment));
+      continue;
+    }
+    if (!canSendImages) {
+      const reason = 'ACP agentCapabilities.promptCapabilities.image 未明确声明为 true';
+      kimiAcpPromptWarn(context, attachment, reason);
+      references.push(kimiAcpPromptFallbackBlock(attachment, reason));
+      continue;
+    }
+    if (classification.reason) {
+      kimiAcpPromptWarn(context, attachment, classification.reason);
+      references.push(kimiAcpPromptFallbackBlock(attachment, classification.reason));
+      continue;
+    }
+    if (imageCount >= KIMI_ACP_PROMPT_IMAGE_MAX_COUNT) {
+      const reason = `本回合最多发送 ${KIMI_ACP_PROMPT_IMAGE_MAX_COUNT} 张图片`;
+      kimiAcpPromptWarn(context, attachment, reason);
+      references.push(kimiAcpPromptFallbackBlock(attachment, reason));
+      continue;
+    }
+    const guarded = await kimiAcpPromptGuardAttachmentPath(classification.rawPath, context).catch(error => ({
+      ok: false, reason: String(error && error.message || error),
+    }));
+    if (!guarded.ok) {
+      const reason = guarded.reason || '附件路径未通过安全校验';
+      kimiAcpPromptWarn(context, attachment, reason);
+      references.push(kimiAcpPromptFallbackBlock(attachment, reason));
+      continue;
+    }
+    let handle = null;
+    try {
+      // Bound allocation before reading. A whole-file path read could observe a file that grew after the first
+      // stat and allocate an unbounded buffer; the handle reads at most the per-image limit plus one byte,
+      // then handle.stat() proves that the bytes and file size still agree.
+      handle = await fsp.open(guarded.path, 'r');
+      const before = await handle.stat();
+      if (!before.isFile()) throw new Error('附件不是普通文件');
+      if (before.size > KIMI_ACP_PROMPT_IMAGE_MAX_BYTES) throw new Error(`单图超过 ${KIMI_ACP_PROMPT_IMAGE_MAX_BYTES} 字节上限`);
+      if (imageBytes + before.size > KIMI_ACP_PROMPT_IMAGE_TOTAL_MAX_BYTES) throw new Error('本回合图片总大小超过 15 MiB 上限');
+      const buffer = Buffer.alloc(Math.min(KIMI_ACP_PROMPT_IMAGE_MAX_BYTES + 1, Math.max(1, before.size + 1)));
+      let bytesRead = 0;
+      while (bytesRead < buffer.length) {
+        const result = await handle.read(buffer, bytesRead, buffer.length - bytesRead, bytesRead);
+        const count = Number(result && result.bytesRead) || 0;
+        if (!count) break;
+        bytesRead += count;
+      }
+      const after = await handle.stat();
+      if (!after.isFile() || after.size !== bytesRead) throw new Error('图片在读取期间发生变化');
+      if (bytesRead > KIMI_ACP_PROMPT_IMAGE_MAX_BYTES) throw new Error(`实际读取字节数超过 ${KIMI_ACP_PROMPT_IMAGE_MAX_BYTES} 上限`);
+      if (imageBytes + bytesRead > KIMI_ACP_PROMPT_IMAGE_TOTAL_MAX_BYTES) throw new Error('实际读取后图片总大小超过 15 MiB 上限');
+      const actual = buffer.subarray(0, bytesRead);
+      if (!kimiAcpPromptMagicMatches(classification.ext, actual)) throw new Error('图片字节头与扩展名/MIME 不匹配');
+      images.push({ type: 'image', data: actual.toString('base64'), mimeType: classification.spec.mimeType });
+      imageCount += 1;
+      imageBytes += bytesRead;
+    } catch (error) {
+      const reason = `图片读取或验证失败：${String(error && error.message || error)}`;
+      kimiAcpPromptWarn(context, attachment, reason);
+      references.push(kimiAcpPromptFallbackBlock(attachment, reason));
+    } finally {
+      if (handle) await handle.close().catch(() => {});
+    }
+  }
+  return parts.concat(references, images);
 }
 
 // ============================================================================
@@ -32187,6 +34206,25 @@ module.exports = {
   compactHistoryFromSession,
   parseKimiWireCompaction,
   parseKimiWireAgentEvents,
+  isKimiAcpPlanFilePath,
+  resolveKimiAcpPlanFilePath,
+  kimiAcpSessionRestoreMethods,
+  kimiAcpUnknownSessionError,
+  kimiAcpModeOptionFromActivated,
+  kimiAcpFreshActualForOperation,
+  kimiAcpInferConcreteToolInput,
+  kimiAcpToolTier,
+  consumeKimiAcpApproval,
+  kimiAcpToolUpdateSucceeded,
+  kimiAcpSuccessfulEnterPlanMode,
+  kimiAcpNativeShellQuote,
+  kimiAcpNativeWindowsPathToPosixPath,
+  kimiAcpNativeBashWrapperTexts,
+  kimiAcpNativeBashWrapperCandidate,
+  kimiAcpPermissionToolCall,
+  kimiAcpConcreteEditGuard,
+  prepareKimiAcpSpawn,
+  createTurnSegmentBuilder,
   watchKimiWire,
   kimiSessionStatus,
   runKimiCompact,

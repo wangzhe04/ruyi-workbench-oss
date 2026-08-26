@@ -28,6 +28,13 @@ ok(literals.length > 10 && srcModules.length > 5, `载荷清单可重建(字面 
 const missingOnDisk = [...payload].filter(f => !fs.existsSync(path.join(ROOT, f)));
 ok(missingOnDisk.length === 0, '② 载荷表每条在磁盘存在' + (missingOnDisk.length ? '(缺: ' + missingOnDisk.join(', ') + ')' : ''));
 
+// ACP 的 loader/register 是标准 npm 直连启动的运行时依赖；只要漏出 overlay，离线包就会静默退回
+// 未打补丁的 Kimi CLI。把这两个跨目录依赖单独锁住，避免只靠 PAYLOAD_FILES 正则重建时漏审。
+const kimiCompatResources = ['resources/kimi-acp-compat-register.mjs', 'resources/kimi-acp-compat-loader.mjs'];
+ok(kimiCompatResources.every(file => payload.has(file)), '② Kimi ACP loader/register 均登记进 overlay 载荷');
+const registerSource = fs.readFileSync(path.join(ROOT, 'resources', 'kimi-acp-compat-register.mjs'), 'utf8');
+ok(registerSource.includes("./kimi-acp-compat-loader.mjs"), '② Kimi ACP register 的 loader 依赖仍在资源包内');
+
 // ① index.html / app.js 显式引用 ∈ 载荷表。
 const html = fs.readFileSync(path.join(ROOT, 'app', 'public', 'index.html'), 'utf8');
 const appJs = fs.readFileSync(path.join(ROOT, 'app', 'public', 'app.js'), 'utf8');

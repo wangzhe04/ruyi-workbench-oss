@@ -30,6 +30,10 @@ export async function load(url, context, nextLoad) {
   const source = typeof loaded.source === 'string'
     ? loaded.source
     : Buffer.from(loaded.source || '').toString('utf8');
-  if (!source.includes(original)) return loaded;
+  if (!source.includes(original)) {
+    process.stderr.write('[Ruyi Kimi ACP compat] unknown-helper: exact isBashToolInvocation source was not found; no source patch was applied\n');
+    return loaded;
+  }
+  process.stderr.write('[Ruyi Kimi ACP compat] patch-applied: exact isBashToolInvocation source matched\n');
   return { ...loaded, source: source.replace(original, replacement) };
 }

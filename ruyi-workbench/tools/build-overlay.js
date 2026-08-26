@@ -100,6 +100,8 @@ const PAYLOAD_FILES = [
   'RuyiDesktop.exe',
   'WebView2Loader.dll',
   'resources/scripts/install-workbench.ps1',
+  'resources/kimi-acp-compat-register.mjs',
+  'resources/kimi-acp-compat-loader.mjs',
   'tools/fake-claude.js',
   'tools/dev-serve.cmd',
 ];

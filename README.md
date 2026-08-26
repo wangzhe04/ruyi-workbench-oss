@@ -141,13 +141,20 @@
 ### 1. 双引擎:任意模型端点都能开工
 
 - **OpenAI 兼容引擎(原生)**:直连 HTTP + SSE 流式,带完整原生工具循环。内置四组预设:**DeepSeek / 通义千问 DashScope / 智谱 GLM / 自定义**(内网 vLLM、Ollama、one-api 网关均可)。DeepSeek 预设默认走官方 **Responses API** 协议(`apiStyle=responses`,服务端工具循环),其它预设走 Chat Completions;主回合/子代理/摘要/Playbook/JSON 修复全链路跟随所选协议。多 Provider 并存,顶栏一键切换模型。
-- **Agent CLI 引擎(可选)**:可选择 Claude Code 或 Kimi Code。Claude 支持实时转向、权限桥接与原生 Agent；Kimi 使用官方 `stream-json`、原生会话续接，并把 Ruyi MCP 合并到其用户配置。Kimi 的提示词模式由 CLI 自主执行，当前不支持 Ruyi 运行中转向/权限弹窗；Ruyi DAG 中的 Claude CLI 节点仍由 Claude Code 执行。
+- **Agent CLI 引擎(可选)**:可选择 Claude Code 或 Kimi Code。Claude 支持实时转向、权限桥接与原生 Agent；Kimi 走官方 ACP（JSON-RPC/NDJSON）驱动，桥接原生工具事件、Ruyi 审批和原生计划事件；ACP `request_permission` 走单选，`elicitation/form` 可走多选；Ruyi DAG 中的 Claude CLI 节点仍由 Claude Code 执行。
 - **工具提示词智能按需**:默认先按任务装载相关工具包,缺少能力时由 AI 搜索并增量装载；OpenAI 兼容引擎在下一次工具循环加入具体 schema，Claude CLI 通过分级代理调用隐藏工具。简单问题不再反复携带整套约 140 个工具；设置 → 高级可切回“全部常驻”兼容模式。[设计与本机 A/B](ruyi-workbench/docs/TOOL-LOADING_CN.md)
 - **跨引擎续接**:同一会话里从 DeepSeek 切到 Claude(或反向),历史自动嫁接,不断上下文。
 - **可靠交互提问**:Claude CLI 与 OpenAI 兼容引擎共用 `request_user_input` 通道；支持单选、多选、纯文本和「选项＋其他自填」,选项说明与稳定 ID 随结构化答案交回模型；回答只有在工作台确认已送达后才会关闭，后台会话的提问也会立即提示。
 - **上下文电量表**:顶栏实时显示已用/上限 token(自动探测上下文窗口,支持手动锁定);超阈值自动两级压缩(蒸发 → 摘要),也可手动 `压缩`。
 - **能力矩阵**:视觉(看图)、推理链、工具调用等能力按端点探测/标注,缺什么 UI 直接告诉你,不让你对着黑箱猜。
 - **计划模式**:提问先出 `PLAN:`,你批准了才动手(provider 引擎真流程,不是提示词装饰)。
+
+#### Kimi Code ACP 兼容层与边界
+
+- Kimi 的 ACP `session/update` 中的 `plan_update` 是只读计划快照：同一 `planId` 会原地更新，不显示 Ruyi 审批按钮，也不把它误标成等待审核。真正的 `ExitPlanMode` 仍走现有 `ask_user`，保留原生 `plan_approve` / `plan_opt_N` / `plan_revise` / `plan_reject_and_exit` 选项；能力边界按 ACP 形状区分：`request_permission` 是单选，`elicitation/form` 支持多选，不把所有原生 AskUserQuestion 形状都宣称为多选兼容。
+- 版本兼容层对本地 npm 安装的 Kimi Code **0.37.2** 有一个已知、精确匹配的 helper 补丁；它只在明确匹配时启用，不改写用户的 Kimi 安装。未知源码布局或非 npm 安装会明确降级，不能据此宣称同等兼容。
+- 当前 ACP prompt 结束后子进程会关闭；Kimi ACP driver 只转发绑定当前 prompt `turn_id` 的事件。因此 Goal / Cron / 后台任务跨回合连续运行不宣称完整兼容，也不承诺 100%。
+- `dev-harness/kimi-acp-live-probe.js` 是“本地模拟模型 + 真 Kimi CLI”的探针，不用凭据，也不是真线上模型；它验证的是本机 ACP/工具/桥接链路。
 
 ### 2. 原生工具环:61 个内置工具
 
@@ -442,6 +449,13 @@ node dev-harness\meta-guard.e2e.js      # 门面数字/鉴权路由覆盖护栏
 5. **Dual engine, no lock-in** — any OpenAI-compatible endpoint (DeepSeek / Qwen / GLM / on-prem vLLM·Ollama) or an Agent CLI (Claude Code / Kimi Code), switchable mid-session with cross-engine context continuation.
 
 > **Current stable technical release: `v2.6.0`.** Escapade 2.6 adds Kimi Code as a selectable Agent CLI alongside Claude Code; release assets use `v2.6.0`.
+
+#### Kimi Code ACP compatibility and limits
+
+- Kimi uses the official ACP (JSON-RPC/NDJSON) driver. Ruyi bridges native tool events, its approval bridge, and native plan events. In ACP, `request_permission` is single-select while `elicitation/form` supports multi-select; this does not claim that every native AskUserQuestion shape supports multi-select. The `session/update` `plan_update` notification renders as a read-only snapshot keyed by `planId`; the real `ExitPlanMode` path remains the existing `ask_user` flow with the native `plan_approve`, `plan_opt_N`, `plan_revise`, and `plan_reject_and_exit` options.
+- The compatibility layer has one known exact helper patch for local npm Kimi Code **0.37.2**. It is enabled only on an exact match and does not rewrite the user's Kimi installation. Unknown source layouts and non-npm installs explicitly degrade; this is not a claim of equivalent compatibility.
+- The current ACP child process closes when the prompt ends, and the Kimi ACP driver forwards only events bound to the current prompt `turn_id`. Cross-turn Goal, Cron, and background-task continuity is not claimed as complete, and Ruyi does not promise 100% compatibility.
+- `dev-harness/kimi-acp-live-probe.js` is a real-CLI probe against a local simulated model: it uses no credentials and is not a live online-model test. It checks the local ACP/tool/bridge path.
 
 ### Harness-Bench-360 snapshot
 

@@ -19,6 +19,8 @@ async function runClaudeTurn({
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   let workspaceTurnBaseline = _workspaceBaseline;
   const promptTaskContext = buildPromptTaskContext(message, session);
+  const slashCommand = String(message || '').trim().startsWith('/');
+  const kimiNativeSlashCommand = agentCliType === 'kimi' && slashCommand;
   const currentClaudeModel = String(config.model || '');
   const currentResumeRouteKey = claudeResumeRouteKey(config);
   let resumeResetReason = '';
@@ -62,11 +64,13 @@ async function runClaudeTurn({
   const crossEngineGap = lastAssistantEngine(session.messages) === 'openai';
   const recoverySource = crossEngineGap ? claudeProviderTailSince(session.messages) : session.messages;
   const agentRecoverySummary = String(session.agentRecoverySummary || '').trim();
-  const recoveryHistory = typeof _recoveryHistoryOverride === 'string'
-    ? _recoveryHistoryOverride
-    : (agentRecoverySummary
-      ? `[Ruyi 已压缩的前文摘要；请把它作为此前会话的权威连续性上下文]\n${agentRecoverySummary}`
-      : (!String(message || '').trim().startsWith('/') ? buildClaudeRecoveryHistory(recoverySource) : ''));
+  const recoveryHistory = kimiNativeSlashCommand
+    ? ''
+    : (typeof _recoveryHistoryOverride === 'string'
+      ? _recoveryHistoryOverride
+      : (agentRecoverySummary
+        ? `[Ruyi 已压缩的前文摘要；请把它作为此前会话的权威连续性上下文]\n${agentRecoverySummary}`
+        : (!slashCommand ? buildClaudeRecoveryHistory(recoverySource) : '')));
   const historyRecoveryInjected = Boolean(recoveryHistory);
   // 第35波 P2(索引去重注入): fullPrompt 的组装延后到 appendSys 块之后 —— 技能/记忆/编排三类「稳定索引段」
   // 在那里算好并经内容 hash 决定去重,再以 <workbench-context> 块并入 stdin 消息流(见下方注释)。
@@ -317,7 +321,7 @@ async function runClaudeTurn({
   let indexInjection = '';
   let indexPayloadHash = '';
   const resumeActive = Boolean(config.autoResumeClaudeSessions && session.claudeSessionId);
-  if (indexPayload && !String(message || '').trim().startsWith('/')) {
+  if (indexPayload && !slashCommand) {
     indexPayloadHash = crypto.createHash('sha1').update(indexPayload, 'utf8').digest('hex').slice(0, 12);
     if (!resumeActive || session.injectedIndexHash !== indexPayloadHash) {
       indexInjection = [
@@ -331,12 +335,15 @@ async function runClaudeTurn({
       session.injectedIndexHash = indexPayloadHash;
     }
   }
-  const slashCommand = String(message || '').trim().startsWith('/');
   const currentUserEnvelope = `<current_user_message>\n${basePrompt}\n</current_user_message>`;
   const turnMemoryEnvelope = !slashCommand && memoryTurnCheck ? memoryTurnCheck + '\n\n' + currentUserEnvelope : currentUserEnvelope;
-  const fullPrompt = (recoveryHistory || indexInjection || (!slashCommand && memoryTurnCheck))
+  const assembledPrompt = (recoveryHistory || indexInjection || (!slashCommand && memoryTurnCheck))
     ? [recoveryHistory, indexInjection, turnMemoryEnvelope].filter(Boolean).join('\n\n')
     : basePrompt;
+  // Kimi ACP native slash commands must be the first content block exactly as entered. The separate
+  // attachments field lets the ACP adapter retain file references/degrade safely without prefixing the
+  // slash with Ruyi recovery, history, memory, or index context.
+  const fullPrompt = kimiNativeSlashCommand ? String(message == null ? '' : message) : assembledPrompt;
 
   if (agentCliType === 'kimi' && !fakeClaude) {
     const additionalDirectories = [];
@@ -344,10 +351,10 @@ async function runClaudeTurn({
       if (tailArgs[i] === '--add-dir') additionalDirectories.push(tailArgs[++i]);
     }
     return runKimiAcpTurnPrepared({
-      session, message, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
+      session, message, attachments, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
       additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
       currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
-      resumeResetReason, promptTaskContext, workspaceTurnBaseline, agentRecoverySummary,
+      resumeResetReason, promptTaskContext, workspaceTurnBaseline, agentRecoverySummary, kimiNativeSlashCommand,
     });
   }
 

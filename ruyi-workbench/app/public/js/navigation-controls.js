@@ -370,7 +370,7 @@ function openModelChipPopover(anchor) {
       const control = el('label', 'mc-effort-control');
       control.appendChild(el('span', 'mc-effort-label', t('modelMenu.thinkingEffort')));
       const select = el('select', 'mc-effort-select');
-      const effortValues = state.config?.agentCliType === 'kimi' ? ['', 'low', 'high', 'max'] : CLAUDE_THINKING_EFFORTS_UI;
+      const effortValues = state.config?.agentCliType === 'kimi' ? ['', 'low', 'medium', 'high', 'max'] : CLAUDE_THINKING_EFFORTS_UI;
       for (const value of effortValues) {
         const option = el('option');
         option.value = value;

@@ -28,8 +28,95 @@ function savePlanDecision(planId, decision, note) {
   catch { /* ignore */ }
 }
 // 已在本次页面生命周期内渲染过的 planId 集合 —— F1c 去重守卫:同一个 planId 的 plan 事件重放不再叠卡;
-// 但新的 planId(第二次计划)永不被挡(见 handlePlanEvent 入口)。
-const renderedPlanIds = new Set();
+  // 但新的 planId(第二次计划)永不被挡(见 handlePlanEvent 入口)。
+  const renderedPlanIds = new Set();
+  const MARKDOWN_SYNC_MAX_CHARS = 48_000;
+
+  function setPlanMarkdownBody(body, markdown) {
+    const value = String(markdown || '');
+    const formatted = value.length <= MARKDOWN_SYNC_MAX_CHARS;
+    body.classList.toggle('md', formatted);
+    body.classList.toggle('plain', !formatted);
+    if (formatted) {
+      body.innerHTML = renderMarkdown(value); // renderMarkdown sanitizes (allowlist + protocol filter)
+      highlightIn(body);
+    } else {
+      body.textContent = value;
+    }
+  }
+
+  function kimiPlanSnapshotStatus(status) {
+    return status === 'removed' ? 'removed' : 'snapshot';
+  }
+
+  function updateKimiPlanSnapshotCard(card, evt) {
+    const status = evt.status === 'removed' ? 'removed' : 'active';
+    const state = kimiPlanSnapshotStatus(status);
+    card.dataset.status = status;
+    card.dataset.source = String(evt.source || 'kimi-acp');
+    card.classList.toggle('kimi-plan-snapshot-removed', status === 'removed');
+    const pill = card.querySelector('.kimi-plan-snapshot-status');
+    if (pill) {
+      pill.className = `narrative-state-pill kimi-plan-snapshot-status state-${state}`;
+      pill.textContent = t(`narrative.status.${state}`);
+    }
+    if (Object.prototype.hasOwnProperty.call(evt, 'markdown')) {
+      const body = card.querySelector('.plan-card-body');
+      if (body) setPlanMarkdownBody(body, evt.markdown || '');
+    }
+    if (Object.prototype.hasOwnProperty.call(evt, 'path')) {
+      const path = String(evt.path || '').slice(0, 2000);
+      let pathNote = card.querySelector('.kimi-plan-snapshot-path');
+      if (path) {
+        if (!pathNote) {
+          pathNote = el('div', 'narrative-state-note kimi-plan-snapshot-path');
+          card.appendChild(pathNote);
+        }
+        pathNote.textContent = t('plan.kimiSnapshot.path', { path });
+      } else if (pathNote) {
+        pathNote.remove();
+      }
+    }
+  }
+
+  function buildKimiPlanSnapshotCard(evt) {
+    const card = el('div', 'plan-card narrative-plan kimi-plan-snapshot');
+    card.dataset.planId = String(evt.planId || '');
+    card.dataset.readOnly = 'true';
+    const head = el('div', 'plan-card-head');
+    head.append(
+      el('span', '', t('plan.kimiSnapshot.heading')),
+      el('span', 'narrative-state-pill kimi-plan-snapshot-status'),
+    );
+    card.appendChild(head);
+    card.appendChild(el('div', 'plan-card-body'));
+    updateKimiPlanSnapshotCard(card, evt);
+    return card;
+  }
+
+  function findKimiPlanSnapshotCard(host, planId) {
+    if (!host || typeof host.querySelectorAll !== 'function') return null;
+    return [...host.querySelectorAll('.kimi-plan-snapshot[data-plan-id]')]
+      .find(card => card.dataset.planId === planId) || null;
+  }
+
+  // Kimi ACP plan/update is informational native plan state, not Ruyi's waiter-backed plan decision flow.
+  // Keep one card per planId and update it in place so repeated ACP updates do not stack cards or create a
+  // composer wait hint. The actual ExitPlanMode ask_user event still enters the classic path below.
+  function handleKimiPlanSnapshotEvent(evt, main, live) {
+    const planId = String(evt.planId || '');
+    if (!planId) return;
+    const host = main || $('messages');
+    let card = findKimiPlanSnapshotCard(host, planId);
+    if (!card) {
+      if (live) sealLiveTextSegment(live, evt.markdown || '');
+      card = buildKimiPlanSnapshotCard({ ...evt, planId });
+      host.appendChild(card);
+    } else {
+      updateKimiPlanSnapshotCard(card, evt);
+    }
+    maybeScrollToBottom();
+  }
 
 // 计划决策后收起的人话结果文案(F1a)。
 function planResultLabel(decision, note) {
@@ -95,6 +182,10 @@ function buildPlanCard(planId, markdown) {
 // turn resumes (approve) or ends (reject). After a decision the card collapses to a one-line result (F1a),
 // and the decision is persisted by planId (F1d) so a session reload re-renders it collapsed.
 function handlePlanEvent(evt, main, live) {
+  if (evt && evt.type === 'kimi_plan_snapshot') {
+    handleKimiPlanSnapshotEvent(evt, main, live);
+    return;
+  }
   const planId = evt.planId || '';
   // F1c 去重守卫:同一 planId 的重放不叠卡(新 planId —— 第二次计划 —— 不受影响,继续渲染)。
   if (planId && renderedPlanIds.has(planId)) return;
