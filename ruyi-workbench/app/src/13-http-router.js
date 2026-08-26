@@ -37,12 +37,16 @@ async function handleApi(req, res, pathname) {
       config: maskProviders(config), // F2: never emit plaintext provider api keys in the response
 
       permissionModes: PERMISSION_MODES,
-      // v1.0.2-S2: 当前激活 provider+model 的上下文窗口解析结果(附加字段, 只增)。无激活原生 provider
-      // (即 claude-cli 路径)时 source 为 'fallback' 且 provider/model 为空 —— 前端可据此决定是否展示。
-      contextWindowResolved: (() => {
+      // Resolve the conversation route (including CLI/manual overrides), never the summary provider.
+      contextWindowResolved: await (async () => {
         const p = activeOpenAiProvider(config);
+        if (!p) {
+          const meta = await agentConversationContextMeta(config, null);
+          return { value: meta.contextWindow, source: meta.contextWindowSource, engine: 'agent', agentCliType: meta.contextAgentCliType, provider: '', model: String(config.model || '') };
+        }
         const model = p ? String(p.model || (p.models && p.models[0] && p.models[0].id) || '').trim() : '';
-        const r = resolveContextWindow(p, model);
+        const manual = configuredConversationWindow(config, 'openai', p.id, model);
+        const r = resolveContextWindow(manual ? { ...p, contextWindow: manual } : p, model);
         // 45f 对抗轮 P3-5:窗口学习生效时如实展示 —— 否则用户看到「才用一半就压缩」会对不上账。
         const cap = p ? learnedWindowCap(p.id, model) : 0;
         return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };

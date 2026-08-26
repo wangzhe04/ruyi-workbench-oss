@@ -304,12 +304,16 @@ async function maybeAutoCompactAgentSession(session, config, agentCliType, onEve
     const threshold = Number(config.autoCompactThreshold) || 0.8;
     if (config.compactProviderId) {
       let used = lastSessionContextTokens(session);
-      let limit = 0;
+      const contextMeta = await agentConversationContextMeta({ ...config, agentCliType }, session);
+      let limit = contextMeta.contextWindow;
       if (agentCliType === 'kimi' && session.claudeSessionId) {
         const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
-        if (status.ok) { used = status.contextTokens; limit = status.contextWindow; applyKimiStatusToSession(session, status); }
+        if (status.ok) {
+          used = status.contextTokens;
+          if (contextMeta.contextWindowSource !== 'manual' && status.contextWindow > 0) limit = status.contextWindow;
+          applyKimiStatusToSession(session, status);
+        }
       }
-      if (!limit) limit = Number((await agentConversationContextMeta(config, session)).contextWindow) || resolveContextWindow(null, config.model).value;
       if (used > 0 && limit > 0 && used >= threshold * limit) {
         onEvent({ type: 'compact', mode: 'external-summary', phase: 'started', trigger: 'auto', beforeTokens: used, contextWindow: limit });
         const result = await runAgentExternalCompact(session.id, config, 'auto');

@@ -14,6 +14,8 @@ function defaultConfig() {
     // Kimi use their native compactor, while an OpenAI-compatible provider uses its active model.
     compactProviderId: '',
     compactModel: '',
+    // Conversation limits are route/model scoped; never use the selected summarizer's window here.
+    contextWindowOverrides: {},
     maxTurns: '',
     extraClaudeArgs: [],
     allowCommandTools: true,
@@ -528,6 +530,22 @@ function normalizeConfig(raw) {
     const at = Number(config.autoCompactThreshold);
     const clamped = Number.isFinite(at) ? Math.min(0.95, Math.max(0.5, at)) : 0.8;
     if (clamped !== config.autoCompactThreshold) { config.autoCompactThreshold = clamped; changed = true; }
+  }
+  // Persist the meter's manual limits for server-side auto-compaction. Zero explicitly selects Auto.
+  {
+    const raw = config.contextWindowOverrides;
+    const clean = {};
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      for (const [key, value] of Object.entries(raw).slice(-200)) {
+        let route; try { route = JSON.parse(key); } catch { continue; }
+        if (!Array.isArray(route) || route.length !== 3 || !['agent', 'openai'].includes(route[0])
+          || route.some(v => typeof v !== 'string' || v.length > 400) || !route[1]) continue;
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) continue;
+        clean[JSON.stringify(route)] = value === 0 ? 0 : Math.round(Math.min(2000000, Math.max(8000, value)));
+      }
+    }
+    if (JSON.stringify(raw) !== JSON.stringify(clean)) changed = true;
+    config.contextWindowOverrides = clean;
   }
   // The selected compactor is deliberately independent from activeProvider/model so switching chat
   // engines does not silently change a user's preferred local summarizer. Missing providers are retained

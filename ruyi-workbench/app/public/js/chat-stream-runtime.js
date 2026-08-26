@@ -70,6 +70,7 @@ export function createChatStreamRuntime(deps = {}) {
     showAskUserModal,
     state,
     suggestMemoryFromTurn = async () => {},
+    syncContextWindowManual = async () => {},
     switchSettingsTab,
     t,
     thinkingPanel,
@@ -410,6 +411,11 @@ export function createChatStreamRuntime(deps = {}) {
     if (selectedId && activeTurns.has(selectedId)) return steerPrompt(overrideText);
     const message = (overrideText != null ? overrideText : $('promptInput').value).trim();
     if (!message) return;
+    // Migrate a browser-only manual window before the server decides whether this turn needs compacting.
+    // On failure preserve the draft/attachments and do not send with a different context limit.
+    try { await syncContextWindowManual(); }
+    catch (e) { toast(apiErrText(e), 'err'); return; }
+    if (state.currentSession?.id && activeTurns.has(state.currentSession.id)) return steerPrompt(overrideText);
     if (!state.currentSession) await newSession();
 
     const turnSessionId = state.currentSession.id;

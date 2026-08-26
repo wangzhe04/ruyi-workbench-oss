@@ -36,7 +36,11 @@ function get(port, p, headers = {}) { return new Promise(resolve => { const r = 
 function post(port, p, body, headers = {}) { return new Promise(resolve => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', timeout: 15000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); }); r.write(raw); r.end(); }); }
 function stream(port, body, headers = {}) { return new Promise(resolve => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: '/api/chat/stream', method: 'POST', timeout: 120000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = '', events = []; res.on('data', c => { b += c; let i; while ((i = b.indexOf('\n')) >= 0) { const line = b.slice(0, i); b = b.slice(i + 1); try { if (line.trim()) events.push(JSON.parse(line)); } catch { /* ignore */ } } }); res.on('end', () => resolve(events)); }); r.on('error', () => resolve(events)); r.on('timeout', () => { r.destroy(); resolve(events); }); r.write(raw); r.end(); }); }
 async function up(port) { for (let i = 0; i < 60; i++) { if (await get(port, '/health')) return true; await sleep(150); } return false; }
-async function tokenFor(port) { const html = await new Promise(resolve => http.get({ host: '127.0.0.1', port, path: '/' }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => resolve(b)); })); return (html.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1]; }
+async function tokenFor(port) { return (await post(port, '/api/bootstrap', {}))?.token; }
+function isolatedEnv(home) {
+  return { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: home, RUYI_HOME: home, HOME: home, USERPROFILE: home,
+    CLAUDE_CONFIG_DIR: path.join(home, '.claude'), KIMI_CODE_HOME: path.join(home, '.kimi') };
+}
 function fakeUp(port, env) { const p = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(port)], { env: { ...process.env, FAKE_OPENAI_PORT: String(port), ...env }, windowsHide: true }); p.stdout.on('data', () => {}); p.stderr.on('data', () => {}); return p; }
 const user = (content, extra) => ({ role: 'user', content, ...(extra || {}) });
 const asst = content => ({ role: 'assistant', content });
@@ -118,7 +122,7 @@ const asst = content => ({ role: 'assistant', content });
       activeProvider: 'main-prov', compactProviderId: 'local-compact', compactModel: 'local-small',
     }, null, 2));
     const fake = fakeUp(FAKE, {});
-    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, env: isolatedEnv(HOME), windowsHide: true });
     wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});
     try {
       ok(await up(PORT), 'D workbench up');
@@ -132,6 +136,23 @@ const asst = content => ({ role: 'assistant', content });
       const usage = messages.length && messages[messages.length - 1].usage;
       ok(usage && usage.contextWindow === 1000000, 'D2 压缩后面板上限保持后续对话模型 1M（非压缩模型 128K）');
       ok(usage && usage.contextEngine === 'openai' && usage.contextProviderId === 'main-prov' && usage.contextModel === 'main-model', 'D3 压缩用量携带主会话路由身份，切换 provider 后可判旧值失效');
+      const providerKey = srv.contextWindowOverrideKey('openai', 'main-prov', 'main-model');
+      const agentKey = srv.contextWindowOverrideKey('agent', 'claude', 'ark-code-latest');
+      const overrides = { [providerKey]: 300000, [agentKey]: 1000000 };
+      const saved = await post(PORT, '/api/config', { contextWindowOverrides: overrides }, hdr);
+      ok(saved?.ok && saved.config.contextWindowOverrides[agentKey] === 1000000, 'D4 手动窗口通过真实 config API 持久化');
+      const providerStatus = await get(PORT, '/api/status', hdr);
+      ok(providerStatus?.contextWindowResolved?.value === 300000, 'D5 provider 面板读数与服务端会话 override 一致');
+      await post(PORT, '/api/config', { activeProvider: '', agentCliType: 'claude', model: 'ark-code-latest' }, hdr);
+      const agentStatus = await get(PORT, '/api/status', hdr);
+      ok(agentStatus?.contextWindowResolved?.value === 1000000 && agentStatus.contextWindowResolved.engine === 'agent'
+        && agentStatus.contextWindowResolved.source === 'manual', 'D6 未知 CLI 模型采用手动 1M，不受本地 128K 摘要模型影响');
+      await post(PORT, '/api/config', { model: 'other-unknown-model' }, hdr);
+      const switched = await get(PORT, '/api/status', hdr);
+      ok(switched?.contextWindowResolved?.value === srv.CONTEXT_WINDOW_FALLBACK, 'D7 切换模型不继承原模型手动窗口');
+      await post(PORT, '/api/config', { model: 'ark-code-latest', contextWindowOverrides: { ...overrides, [agentKey]: 0 } }, hdr);
+      const auto = await get(PORT, '/api/status', hdr);
+      ok(auto?.contextWindowResolved?.value === srv.CONTEXT_WINDOW_FALLBACK && auto.contextWindowResolved.source === 'fallback', 'D8 选自动清除手动窗口，状态接口不继续报告旧 1M');
     } finally { kill(wb); kill(fake); await sleep(300); fs.rmSync(HOME, { recursive: true, force: true }); }
   }
 
@@ -149,7 +170,7 @@ const asst = content => ({ role: 'assistant', content });
       activeProvider: 'b-prov',
     }, null, 2));
     const fake = fakeUp(FAKE, { FAKE_CONTEXT_400_ONCE: '1' });
-    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, env: isolatedEnv(HOME), windowsHide: true });
     wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});
     try {
       ok(await up(PORT), 'B workbench up');

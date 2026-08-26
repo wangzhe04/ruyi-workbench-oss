@@ -676,7 +676,7 @@ function recordCompactUsage(session, provider, sc) {
 
 // Resolve the universal compaction selector. Empty selection follows the active engine/provider; an
 // explicit selection clones the configured provider with the chosen model so summary calls, accounting,
-// and context-window budgeting all agree on the same endpoint.
+// and SUMMARY input budgeting agree on the same endpoint. Conversation trigger limits are separate.
 function resolveCompactionProvider(config, fallbackProvider) {
   const providerId = String(config && config.compactProviderId || '').trim();
   const modelId = String(config && config.compactModel || '').trim();
@@ -722,17 +722,54 @@ function lastSessionContextTokens(session) {
   return 0;
 }
 
+function contextWindowOverrideKey(engine, routeId, model) {
+  return JSON.stringify([String(engine || ''), String(routeId || ''), String(model || '').trim()]);
+}
+
+function configuredConversationWindow(config, engine, routeId, model) {
+  const value = Number(config && config.contextWindowOverrides && config.contextWindowOverrides[contextWindowOverrideKey(engine, routeId, model)]);
+  return Number.isFinite(value) && value >= 8000 && value <= 2000000 ? Math.round(value) : 0;
+}
+
+function providerConversationContextWindow(config, provider, model) {
+  const activeModel = String(model || provider && provider.model || '').trim();
+  const manual = configuredConversationWindow(config, 'openai', provider && provider.id, activeModel);
+  // Keep learned provider caps authoritative even when a manual conversation limit is configured.
+  return providerContextWindow(manual ? { ...provider, contextWindow: manual } : provider, activeModel);
+}
+
 async function agentConversationContextMeta(config, session) {
   const agentCliType = String(config && config.agentCliType || 'claude');
   const model = String(config && config.model || session && session.claudeSessionModel || '').trim();
-  let contextWindow = 0;
-  if (agentCliType === 'kimi') {
+  // An empty configured model is itself a route (the CLI default), not the previous concrete model.
+  const manualModel = String(config && config.model || '').trim();
+  let contextWindow = configuredConversationWindow(config, 'agent', agentCliType, manualModel);
+  let contextWindowSource = contextWindow ? 'manual' : '';
+  if (!contextWindow && agentCliType === 'kimi') {
     try { contextWindow = await kimiContextWindow(config, model); } catch { /* fall through to name table */ }
+    if (contextWindow > 0) contextWindowSource = 'probe';
   }
-  if (!(contextWindow > 0)) contextWindow = Number(contextWindowFromTable(model)) || 0;
+  if (!contextWindow) {
+    const messages = session && Array.isArray(session.messages) ? session.messages : [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i], usage = message && message.usage;
+      if (!usage || usage.contextWindowSource === 'manual' || usage.source === 'external-compact') continue;
+      const tagged = usage.contextEngine === 'agent' && usage.contextAgentCliType === agentCliType;
+      const legacy = !usage.contextEngine && message.engine === 'claude' && (message.agentCliType || 'claude') === agentCliType;
+      const reportedModel = String(usage.contextModel || usage.model || message.model || '').trim();
+      if (!(tagged || legacy) || (model && reportedModel !== model)) continue;
+      const measured = Number(usage.contextWindow);
+      if (Number.isFinite(measured) && measured > 0) { contextWindow = measured; contextWindowSource = 'usage'; break; }
+    }
+  }
+  if (!(contextWindow > 0)) {
+    const resolved = resolveContextWindow(null, model);
+    contextWindow = resolved.value;
+    contextWindowSource = resolved.source;
+  }
   return {
     contextEngine: 'agent', contextAgentCliType: agentCliType, contextModel: model,
-    ...(contextWindow > 0 ? { contextWindow } : {}),
+    contextWindow, contextWindowSource,
   };
 }
 
@@ -868,7 +905,7 @@ async function runProviderCompact(sessionId) {
     role: 'system',
     content: `🗜 已压缩上下文：${fmtTokensServer(beforeTokens)}→约 ${fmtTokensServer(afterTokens)}（估算）`,
     usage: {
-      usage: {}, contextTokens: afterTokens, contextWindow: providerContextWindow(provider, provider.model),
+      usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
       contextEngine: 'openai', contextProviderId: provider.id, contextModel: String(provider.model || ''), source: 'provider-compact',
     },
     createdAt: nowIso(), source: 'compact',
@@ -894,7 +931,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     const history = session.providerHistory;
     if (!Array.isArray(history) || !history.length) return false;
     const threshold = Number(config.autoCompactThreshold) || 0.8;
-    const budget = threshold * providerContextWindow(provider, model); // v1.0.2-S2: 传激活模型, 走三级解析
+    const budget = threshold * providerConversationContextWindow(config, provider, model);
     const sysMsg = { role: 'system', content: String(sys || '') };
     const before = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a):校准后估算判预算
     if (before <= budget) return false; // under budget → nothing to do (append-only until next crossing)

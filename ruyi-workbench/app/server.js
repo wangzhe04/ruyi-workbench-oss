@@ -491,6 +491,8 @@ function defaultConfig() {
     // Kimi use their native compactor, while an OpenAI-compatible provider uses its active model.
     compactProviderId: '',
     compactModel: '',
+    // Conversation limits are route/model scoped; never use the selected summarizer's window here.
+    contextWindowOverrides: {},
     maxTurns: '',
     extraClaudeArgs: [],
     allowCommandTools: true,
@@ -1005,6 +1007,22 @@ function normalizeConfig(raw) {
     const at = Number(config.autoCompactThreshold);
     const clamped = Number.isFinite(at) ? Math.min(0.95, Math.max(0.5, at)) : 0.8;
     if (clamped !== config.autoCompactThreshold) { config.autoCompactThreshold = clamped; changed = true; }
+  }
+  // Persist the meter's manual limits for server-side auto-compaction. Zero explicitly selects Auto.
+  {
+    const raw = config.contextWindowOverrides;
+    const clean = {};
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      for (const [key, value] of Object.entries(raw).slice(-200)) {
+        let route; try { route = JSON.parse(key); } catch { continue; }
+        if (!Array.isArray(route) || route.length !== 3 || !['agent', 'openai'].includes(route[0])
+          || route.some(v => typeof v !== 'string' || v.length > 400) || !route[1]) continue;
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) continue;
+        clean[JSON.stringify(route)] = value === 0 ? 0 : Math.round(Math.min(2000000, Math.max(8000, value)));
+      }
+    }
+    if (JSON.stringify(raw) !== JSON.stringify(clean)) changed = true;
+    config.contextWindowOverrides = clean;
   }
   // The selected compactor is deliberately independent from activeProvider/model so switching chat
   // engines does not silently change a user's preferred local summarizer. Missing providers are retained
@@ -10273,12 +10291,16 @@ async function maybeAutoCompactAgentSession(session, config, agentCliType, onEve
     const threshold = Number(config.autoCompactThreshold) || 0.8;
     if (config.compactProviderId) {
       let used = lastSessionContextTokens(session);
-      let limit = 0;
+      const contextMeta = await agentConversationContextMeta({ ...config, agentCliType }, session);
+      let limit = contextMeta.contextWindow;
       if (agentCliType === 'kimi' && session.claudeSessionId) {
         const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
-        if (status.ok) { used = status.contextTokens; limit = status.contextWindow; applyKimiStatusToSession(session, status); }
+        if (status.ok) {
+          used = status.contextTokens;
+          if (contextMeta.contextWindowSource !== 'manual' && status.contextWindow > 0) limit = status.contextWindow;
+          applyKimiStatusToSession(session, status);
+        }
       }
-      if (!limit) limit = Number((await agentConversationContextMeta(config, session)).contextWindow) || resolveContextWindow(null, config.model).value;
       if (used > 0 && limit > 0 && used >= threshold * limit) {
         onEvent({ type: 'compact', mode: 'external-summary', phase: 'started', trigger: 'auto', beforeTokens: used, contextWindow: limit });
         const result = await runAgentExternalCompact(session.id, config, 'auto');
@@ -25303,7 +25325,7 @@ function recordCompactUsage(session, provider, sc) {
 
 // Resolve the universal compaction selector. Empty selection follows the active engine/provider; an
 // explicit selection clones the configured provider with the chosen model so summary calls, accounting,
-// and context-window budgeting all agree on the same endpoint.
+// and SUMMARY input budgeting agree on the same endpoint. Conversation trigger limits are separate.
 function resolveCompactionProvider(config, fallbackProvider) {
   const providerId = String(config && config.compactProviderId || '').trim();
   const modelId = String(config && config.compactModel || '').trim();
@@ -25349,17 +25371,54 @@ function lastSessionContextTokens(session) {
   return 0;
 }
 
+function contextWindowOverrideKey(engine, routeId, model) {
+  return JSON.stringify([String(engine || ''), String(routeId || ''), String(model || '').trim()]);
+}
+
+function configuredConversationWindow(config, engine, routeId, model) {
+  const value = Number(config && config.contextWindowOverrides && config.contextWindowOverrides[contextWindowOverrideKey(engine, routeId, model)]);
+  return Number.isFinite(value) && value >= 8000 && value <= 2000000 ? Math.round(value) : 0;
+}
+
+function providerConversationContextWindow(config, provider, model) {
+  const activeModel = String(model || provider && provider.model || '').trim();
+  const manual = configuredConversationWindow(config, 'openai', provider && provider.id, activeModel);
+  // Keep learned provider caps authoritative even when a manual conversation limit is configured.
+  return providerContextWindow(manual ? { ...provider, contextWindow: manual } : provider, activeModel);
+}
+
 async function agentConversationContextMeta(config, session) {
   const agentCliType = String(config && config.agentCliType || 'claude');
   const model = String(config && config.model || session && session.claudeSessionModel || '').trim();
-  let contextWindow = 0;
-  if (agentCliType === 'kimi') {
+  // An empty configured model is itself a route (the CLI default), not the previous concrete model.
+  const manualModel = String(config && config.model || '').trim();
+  let contextWindow = configuredConversationWindow(config, 'agent', agentCliType, manualModel);
+  let contextWindowSource = contextWindow ? 'manual' : '';
+  if (!contextWindow && agentCliType === 'kimi') {
     try { contextWindow = await kimiContextWindow(config, model); } catch { /* fall through to name table */ }
+    if (contextWindow > 0) contextWindowSource = 'probe';
   }
-  if (!(contextWindow > 0)) contextWindow = Number(contextWindowFromTable(model)) || 0;
+  if (!contextWindow) {
+    const messages = session && Array.isArray(session.messages) ? session.messages : [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i], usage = message && message.usage;
+      if (!usage || usage.contextWindowSource === 'manual' || usage.source === 'external-compact') continue;
+      const tagged = usage.contextEngine === 'agent' && usage.contextAgentCliType === agentCliType;
+      const legacy = !usage.contextEngine && message.engine === 'claude' && (message.agentCliType || 'claude') === agentCliType;
+      const reportedModel = String(usage.contextModel || usage.model || message.model || '').trim();
+      if (!(tagged || legacy) || (model && reportedModel !== model)) continue;
+      const measured = Number(usage.contextWindow);
+      if (Number.isFinite(measured) && measured > 0) { contextWindow = measured; contextWindowSource = 'usage'; break; }
+    }
+  }
+  if (!(contextWindow > 0)) {
+    const resolved = resolveContextWindow(null, model);
+    contextWindow = resolved.value;
+    contextWindowSource = resolved.source;
+  }
   return {
     contextEngine: 'agent', contextAgentCliType: agentCliType, contextModel: model,
-    ...(contextWindow > 0 ? { contextWindow } : {}),
+    contextWindow, contextWindowSource,
   };
 }
 
@@ -25495,7 +25554,7 @@ async function runProviderCompact(sessionId) {
     role: 'system',
     content: `🗜 已压缩上下文：${fmtTokensServer(beforeTokens)}→约 ${fmtTokensServer(afterTokens)}（估算）`,
     usage: {
-      usage: {}, contextTokens: afterTokens, contextWindow: providerContextWindow(provider, provider.model),
+      usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
       contextEngine: 'openai', contextProviderId: provider.id, contextModel: String(provider.model || ''), source: 'provider-compact',
     },
     createdAt: nowIso(), source: 'compact',
@@ -25521,7 +25580,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     const history = session.providerHistory;
     if (!Array.isArray(history) || !history.length) return false;
     const threshold = Number(config.autoCompactThreshold) || 0.8;
-    const budget = threshold * providerContextWindow(provider, model); // v1.0.2-S2: 传激活模型, 走三级解析
+    const budget = threshold * providerConversationContextWindow(config, provider, model);
     const sysMsg = { role: 'system', content: String(sys || '') };
     const before = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a):校准后估算判预算
     if (before <= budget) return false; // under budget → nothing to do (append-only until next crossing)
@@ -29428,12 +29487,16 @@ async function handleApi(req, res, pathname) {
       config: maskProviders(config), // F2: never emit plaintext provider api keys in the response
 
       permissionModes: PERMISSION_MODES,
-      // v1.0.2-S2: 当前激活 provider+model 的上下文窗口解析结果(附加字段, 只增)。无激活原生 provider
-      // (即 claude-cli 路径)时 source 为 'fallback' 且 provider/model 为空 —— 前端可据此决定是否展示。
-      contextWindowResolved: (() => {
+      // Resolve the conversation route (including CLI/manual overrides), never the summary provider.
+      contextWindowResolved: await (async () => {
         const p = activeOpenAiProvider(config);
+        if (!p) {
+          const meta = await agentConversationContextMeta(config, null);
+          return { value: meta.contextWindow, source: meta.contextWindowSource, engine: 'agent', agentCliType: meta.contextAgentCliType, provider: '', model: String(config.model || '') };
+        }
         const model = p ? String(p.model || (p.models && p.models[0] && p.models[0].id) || '').trim() : '';
-        const r = resolveContextWindow(p, model);
+        const manual = configuredConversationWindow(config, 'openai', p.id, model);
+        const r = resolveContextWindow(manual ? { ...p, contextWindow: manual } : p, model);
         // 45f 对抗轮 P3-5:窗口学习生效时如实展示 —— 否则用户看到「才用一半就压缩」会对不上账。
         const cap = p ? learnedWindowCap(p.id, model) : 0;
         return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };
@@ -34203,6 +34266,10 @@ module.exports = {
   fitHistoryForSummary,
   chunkHistoryByBudget,
   resolveCompactionProvider,
+  contextWindowOverrideKey,
+  configuredConversationWindow,
+  providerConversationContextWindow,
+  agentConversationContextMeta,
   compactHistoryFromSession,
   parseKimiWireCompaction,
   parseKimiWireAgentEvents,

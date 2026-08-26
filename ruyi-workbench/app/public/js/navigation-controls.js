@@ -463,7 +463,10 @@ function openContextPopover() {
     // Preset chips + custom input.
     const chips = el('div', 'ctx-chips');
     const presets = [['64K', 65536], ['128K', 131072], ['200K', 200000], ['1M', 1000000], [t('ctx.auto'), 0]];
-    const applyWin = n => { setCtxWindowManual(n); updateContextMeter(); close(); };
+    const applyWin = async n => {
+      try { await setCtxWindowManual(n); updateContextMeter(); close(); }
+      catch (e) { toast(apiErrText(e), 'err'); }
+    };
     for (const [label, n] of presets) {
       const c = el('button', 'ctx-chip'); c.type = 'button'; c.textContent = label;
       if ((n === 0 && manual <= 0) || (n > 0 && manual === n)) c.classList.add('active');

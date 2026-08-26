@@ -481,27 +481,55 @@ export function createChatRenderPrimitives(deps = {}) {
     if (/o3|o4/.test(m)) return 200000;
     return 200000;
   }
-  // v1.0.2 返修三:上下文窗口的优先级 —— ①用户在电量表上手动设的上限(localStorage,最高优先);②服务端三级解析
-  // contextWindowResolved(manual>接口探测>名称表,权威;但 source==='fallback' 说明服务端也没辙——多为 Claude 引擎
-  // 或未知模型——此时【不】用它的 65536 兜底,落到客户端名称猜测,让 claude/opus 等仍走各自 heuristic);③客户端猜测。
-  // v1.4.1: 手动锁定的上下文上限改为【按模型】存(键名带 model id),避免一个模型的锁串到另一个模型
-  // (真机 foot-gun:在 qwen 上点过 128K,切到 deepseek-v4 也显示 128K)。旧的全局键 `wcw.ctxWindow` 首次读到时
-  // 一次性迁移进当前模型的键并删除,兼容存量。
+  // Persist manual limits by engine/provider/model so the meter and server-side auto-compaction agree.
+  // Read old localStorage settings until they are migrated successfully, before sending the next turn.
   function ctxWindowKey(model) { const m = String(model || currentModelId() || '').trim(); return m ? 'wcw.ctxWindow::' + m : 'wcw.ctxWindow'; }
+  function contextOverrideKey(model) {
+    const route = currentContextRoute();
+    return JSON.stringify([route.engine, route.providerId || route.agentCliType, String(model ?? route.model).trim()]);
+  }
+  function clampContextWindow(n) {
+    return Number.isFinite(n) && n > 0 ? Math.round(Math.min(2000000, Math.max(8000, n))) : 0;
+  }
   function ctxWindowManual(model) {
+    const overrides = state.config?.contextWindowOverrides || {};
+    const key = contextOverrideKey(model);
+    if (Object.prototype.hasOwnProperty.call(overrides, key)) return clampContextWindow(overrides[key]);
     try {
       const k = parseInt(localStorage.getItem(ctxWindowKey(model)) || '0', 10);
-      if (Number.isFinite(k) && k > 0) return k;
+      if (Number.isFinite(k) && k > 0) return clampContextWindow(k);
       const g = parseInt(localStorage.getItem('wcw.ctxWindow') || '0', 10); // 存量全局锁 → 迁移
-      if (Number.isFinite(g) && g > 0) {
-        try { localStorage.setItem(ctxWindowKey(model), String(g)); localStorage.removeItem('wcw.ctxWindow'); } catch { /* ignore */ }
-        return g;
-      }
+      if (Number.isFinite(g) && g > 0) return clampContextWindow(g);
     } catch { /* ignore */ }
     return 0;
   }
+  let contextWindowSave = Promise.resolve();
   function setCtxWindowManual(n, model) {
-    try { if (n > 0) localStorage.setItem(ctxWindowKey(model), String(n)); else localStorage.removeItem(ctxWindowKey(model)); localStorage.removeItem('wcw.ctxWindow'); } catch { /* ignore */ }
+    const key = contextOverrideKey(model), legacyKey = ctxWindowKey(model), value = clampContextWindow(n);
+    // Capture the route now, but merge at save time: two quick edits must not drop each other's keys.
+    const save = contextWindowSave.catch(() => {}).then(async () => {
+      const overrides = { ...state.config?.contextWindowOverrides, [key]: value };
+      const result = await api('/api/config', { method: 'POST', body: JSON.stringify({ contextWindowOverrides: overrides }) });
+      if (result?.ok === false) throw new Error(result.error || 'Unable to save context window');
+      state.config.contextWindowOverrides = result?.config?.contextWindowOverrides || overrides;
+      // Status/manual usage from before this edit must not reappear after selecting Auto.
+      if (state.status) state.status.contextWindowResolved = null;
+      try { localStorage.removeItem(legacyKey); localStorage.removeItem('wcw.ctxWindow'); } catch { /* ignore */ }
+      try {
+        const fresh = await api('/api/status');
+        if (state.status && contextOverrideKey() === key) state.status.contextWindowResolved = fresh.contextWindowResolved;
+      } catch { /* The setting is already saved; a status refresh failure must not undo it. */ }
+    });
+    contextWindowSave = save;
+    return save;
+  }
+  async function syncContextWindowManual() {
+    try {
+      await contextWindowSave;
+      const overrides = state.config?.contextWindowOverrides || {};
+      const value = ctxWindowManual();
+      if (!Object.prototype.hasOwnProperty.call(overrides, contextOverrideKey()) && value > 0) await setCtxWindowManual(value);
+    } catch (e) { contextWindowSave = Promise.resolve(); throw e; }
   }
   function currentContextRoute() {
     const model = String(currentModelId() || '').trim();
@@ -540,6 +568,7 @@ export function createChatRenderPrimitives(deps = {}) {
   // legacy provider compact rows are intentionally rejected because they did not record a provider id.
   function usageWindowForCurrentRoute() {
     const usage = state.shownUsage;
+    if (usage?.contextWindowSource === 'manual' || usage?.source === 'external-compact') return null;
     const value = Number(usage && usage.contextWindow);
     if (!Number.isFinite(value) || value <= 0 || !usageMatchesCurrentRoute(usage)) return null;
     const route = currentContextRoute();
@@ -559,18 +588,23 @@ export function createChatRenderPrimitives(deps = {}) {
   function statusWindowForCurrentRoute() {
     const route = currentContextRoute();
     const r = state.status && state.status.contextWindowResolved;
-    if (route.engine !== 'openai' || !r || r.source === 'fallback' || String(r.provider || '') !== route.providerId || !sameContextModel(r.model, route.model)) return null;
+    if (!r || !sameContextModel(r.model, route.model)) return null;
+    if (route.engine === 'openai') {
+      if (r.engine === 'agent' || String(r.provider || '') !== route.providerId) return null;
+    } else if (r.engine !== 'agent' || String(r.agentCliType || '') !== route.agentCliType) return null;
     const value = Number(r.value);
     return Number.isFinite(value) && value > 0 ? { value, source: r.source } : null;
   }
   function automaticContextWindow() {
     // Provider status is recomputed from the current persisted provider/model and may include a learned
-    // cap, so it wins there. Agent CLIs have no provider status; Kimi's native usage is authoritative.
-    return (isProviderMode() ? statusWindowForCurrentRoute() || usageWindowForCurrentRoute() : usageWindowForCurrentRoute())
+    // cap, so it wins there. Agent-reported native usage wins over a name-based status estimate.
+    return (isProviderMode() ? statusWindowForCurrentRoute() || usageWindowForCurrentRoute() : usageWindowForCurrentRoute() || statusWindowForCurrentRoute())
       || { value: ctxWindowGuess(currentModelId()), source: 'guess' };
   }
   function ctxWindow() {
     const o = ctxWindowManual();
+    const cap = Number(state.status?.contextWindowResolved?.learnedCap);
+    if (o > 0 && isProviderMode() && statusWindowForCurrentRoute() && cap > 0) return Math.min(o, cap);
     return o > 0 ? o : automaticContextWindow().value;
   }
   // 当前上限读数的来源人话标签(供电量表 tooltip + 弹层)。「按名称推测」= 端点未报告真实上限、只能按模型名猜,可能不准。
@@ -816,6 +850,7 @@ export function createChatRenderPrimitives(deps = {}) {
     saveAsPlaybook,
     safeStringify,
     setCtxWindowManual,
+    syncContextWindowManual,
     settleLiveThinking,
     thinkingPanel,
     toolCard,
