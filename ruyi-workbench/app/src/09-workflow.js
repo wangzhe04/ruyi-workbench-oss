@@ -2091,7 +2091,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             ];
             recordCompactUsage(session, provider, sc);
             onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
-            session.messages.push({ role: 'system', content: `🗜 服务端判定上下文超限(HTTP 400),已自动压缩历史并重试(约 ${fmtTokensServer(estBeforeCall)},估算)`, createdAt: nowIso(), source: 'compact' });
+            upsertCompactMarker(session, {
+              kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
+              beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
+              note: '服务端判定上下文超限(HTTP 400),已重建摘要并重试。',
+            });
             pendingOvershootLearn = estBeforeCall; // 重试成功后落 45d(b) 学习(见 call 成功路径)
             await saveSession(session).catch(() => {});
             touch();
@@ -2099,7 +2103,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
           if (ev > 0) {
             onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
-            session.messages.push({ role: 'system', content: `🗜 服务端判定上下文超限(HTTP 400),已蒸发旧工具结果 ${ev} 条并重试(约 ${fmtTokensServer(estBeforeCall)},估算)`, createdAt: nowIso(), source: 'compact' });
+            upsertCompactMarker(session, {
+              kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: ev,
+              beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
+              note: '服务端判定上下文超限(HTTP 400),已蒸发旧工具结果并重试。',
+            });
             skipAutoCompactOnce = true; // P2-5:下一迭代不再白跑一次 L2(几秒前刚失败过)
             await saveSession(session).catch(() => {});
             touch();
@@ -3030,8 +3038,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
 // it only labels an estimate in the system message the compact endpoint writes).
 function fmtTokensServer(n) {
   if (!Number.isFinite(n)) return '?';
-  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 2).replace(/\.?0+$/, '') + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(n >= 1e5 ? 0 : 1).replace(/\.?0+$/, '') + 'K';
+  // 尾零只允许剥【小数部分】("82.0"→"82"、"1.00"→"1");整百整千的 K/M 整数尾零绝不可剥 ——
+  // 旧正则 /\.?0+$/ 曾把 110000 显示成 "11K"、100000 显示成 "1K"(错报 10 倍,真机会话已现)。
+  // 与前端 util.js fmtTokens 同一语义,保持两侧读数一致。
+  const f = (x, d) => { let s = x.toFixed(d); if (s.indexOf('.') >= 0) s = s.replace(/\.?0+$/, ''); return s; };
+  if (n >= 1e6) return f(n / 1e6, n >= 1e7 ? 0 : 2) + 'M';
+  if (n >= 1e3) return f(n / 1e3, n >= 1e5 ? 0 : 1) + 'K';
   return String(Math.round(n));
 }
 // v0.8-S5 estimate v2 (§7.7). Tokenizer-free, offline-safe. tokens ≈ ascii_chars/3.6 + cjk_chars/1.5.

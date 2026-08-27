@@ -281,11 +281,11 @@ async function runKimiCompact(sessionId, configOverride, trigger = 'manual', onE
   const result = await compactKimiNative(config, session.claudeSessionId, '', onEvent);
   if (!result.ok) return result;
   applyKimiStatusToSession(session, result.status);
-  session.messages.push({
-    role: 'system',
-    content: `🗜 Kimi ${trigger === 'auto' ? '自动' : '手动'}压缩已完成：${fmtTokensServer(result.beforeTokens)}→${fmtTokensServer(result.afterTokens)}（原生会话实测）`,
-    createdAt: nowIso(), source: 'compact',
+  upsertCompactMarker(session, {
+    kind: 'kimi', label: `Kimi ${trigger === 'auto' ? '自动' : '手动'}压缩`, approx: false, accuracy: '原生会话实测',
+    beforeTokens: result.beforeTokens, afterTokens: result.afterTokens,
   });
+  session.autoCompactWatermark = result.afterTokens; // 压后实测值作为滞回水位(provider 引擎同款口径)
   await saveSession(session);
   logEvent({ kind: 'kimi_compact', trigger, sessionId: session.id, nativeSessionId: session.claudeSessionId, beforeTokens: result.beforeTokens, afterTokens: result.afterTokens });
   return result;

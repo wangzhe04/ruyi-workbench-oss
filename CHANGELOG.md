@@ -5,6 +5,10 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 · Unreleased
 
+- **自动压缩记录降噪与滞回**：同一长回合内反复触发的自动压缩不再逐条追加🗜标记行（真机数据曾出现单会话 337 行里 251 行是压缩标记），改为尾部原位合并为一行并累计次数、蒸发条数与前后 token；对话继续后旧标记自然闭环。「蒸发 1 条：106K→106K」这类零收益压缩只记审计账、不再出现在消息流；一次压缩后进入滞回水位（压后估算 + max(2K, 2% 窗口)），贴着预算线的估算抖动不会再造成每个迭代边界的无效快照写盘与空转压缩。同时修复 token 读数尾零正则把整百整千错报 10 倍的问题（110000 曾显示为「11K」、100000 显示为「1K」），服务端与前端读数口径一致。
+
+- **Auto-compaction marker denoising with hysteresis**: repeated auto-compactions inside one long agent turn no longer append individual 🗜 rows (real-world data showed a session with 251 compact markers across 337 rows); they merge in place into a single line accumulating pass count, evaporated results, and before/after tokens, closing naturally once the conversation continues. Zero-gain passes such as “evaporated 1 result: 106K→106K” now stay audit-only and never appear in the message flow; after any compaction a hysteresis watermark (post-compaction estimate + max(2K, 2% of window)) stops budget-line estimate jitter from re-triggering pointless snapshot writes and idle compactions on every iteration boundary. Also fixes the trailing-zero regex that misreported round K/M values by 10× (110000 used to display as “11K”, 100000 as “1K”), keeping server and frontend readings consistent.
+
 - **Kimi 工具卡与运行状态热修复**：修复 Kimi ACP 延迟工具参数到达时触发 `humanizeToolName is not defined`、工具卡停在「等待结果」的问题；工具名称、输入和摘要现在会在原卡片上增量更新。Agent 工作流列表改为对运行中任务叠加完整内存快照，进度和持久化退化状态无需等待落盘即可刷新；Preview 首屏不再被非关键 Playbook 探测阻塞，300 任务基准冷启动由约 1.68 秒降至约 0.51–0.79 秒。
 
 - **Kimi tool-card and live-state hotfixes**: fixes `humanizeToolName is not defined` when late Kimi ACP tool arguments arrive and prevents tool cards from remaining stuck on “waiting for result”; names, inputs, and summaries now update incrementally in place. Running Agent workflows now overlay their complete in-memory snapshot so progress and persistence degradation appear without waiting for disk writes. Preview first interaction no longer waits on non-critical Playbook discovery, reducing the 300-mission cold-start benchmark from about 1.68s to roughly 0.51–0.79s.

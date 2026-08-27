@@ -854,15 +854,80 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
   delete session.claudeSessionCwd;
   delete session.claudeSessionRouteKey;
   session.injectedIndexHash = null;
-  session.messages.push({
-    role: 'system',
-    content: `🗜 已用 ${resolved.provider.label || resolved.provider.id} / ${resolved.model} 压缩上下文：${fmtTokensServer(beforeTokens)}→约 ${fmtTokensServer(afterTokens)}；下一轮将基于摘要重建原生 Agent 会话。`,
-    usage: { usage: {}, contextTokens: afterTokens, ...contextMeta, source: 'external-compact' },
-    createdAt: nowIso(), source: 'compact',
+  const marker = upsertCompactMarker(session, {
+    kind: 'external', label: `${resolved.provider.label || resolved.provider.id} / ${resolved.model} 压缩上下文`, reseeded: true,
+    beforeTokens, afterTokens, note: '下一轮将基于摘要重建原生 Agent 会话。',
   });
+  if (marker) marker.usage = { usage: {}, contextTokens: afterTokens, ...contextMeta, source: 'external-compact' };
+  session.autoCompactWatermark = afterTokens; // 与 provider/kimi 路径同款滞回水位
   await saveSession(session);
   logEvent({ kind: 'agent_external_compact', sessionId: session.id, trigger, provider: resolved.provider.id, model: resolved.model, summaryChars: sc.summary.length, beforeTokens, afterTokens });
   return { ok: true, mode: 'external-summary', provider: resolved.provider.id, model: resolved.model, summaryChars: sc.summary.length, beforeTokens, afterTokens, sessionReset: true };
+}
+
+// ── 压缩标记合并(v2.6.2 观感修复)──────────────────────────────────────────────────────
+// 此前自动压缩每次触发都 push 一条独立的 🗜 系统行。长 provider 回合的 agent 循环在每个迭代边界都会过一次
+// maybeAutoCompact,而 assistant 大消息要回合结束才落盘 —— 实测单会话曾堆出连续 26 条标记,另一会话 337 行里
+// 251 行是压缩行,全部视觉上挂在「最后一条用户消息」与最终回复之间。改为同一压缩集原位合并:
+//   · 尾部压缩标记之后还没有新的 user/assistant 行 → 视为同一压缩集,更新那一行(passes/累计蒸发/最新前后
+//     token),不再追加新行;对话一旦继续,旧标记自然闭环,下次压缩才开新行;
+//   · 落盘安全:行内容变化令 planSessionBodyAppend 的前缀哈希失配,saveSession 自动走全量重写慢路径 ——
+//     蒸发改写 providerHistory 本就走该路径,合并不引入额外成本。
+// 零收益门槛:「蒸发 1 条:106K→106K」这类噪声 pass 只留审计账(logEvent 照旧),不再凭空造出行来。
+const COMPACT_MARKER_MIN_SAVED_TOKENS = 1200;
+
+// 尾部未闭环的压缩标记:从 messages 末尾向前找,遇 user/assistant 对话行即闭环(返回 null);
+// 其它 system 噪声行(stderr 等)不打断同一压缩集的连续性。kind 隔离:auto 与手动压缩不互相并入。
+function openCompactMarker(session, kind) {
+  const msgs = Array.isArray(session && session.messages) ? session.messages : [];
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (!m || typeof m !== 'object') continue;
+    if (m.role === 'user' || m.role === 'assistant') return null;
+    // 旧格式标记(无 compactMeta)不可并入 —— 文案必须能由 meta 全量重建,数字才保得住诚实。
+    if (m.source === 'compact' && (m.compactKind || 'auto') === kind && m.compactMeta
+      && Number.isFinite(m.compactMeta.passes)) return m;
+  }
+  return null;
+}
+
+// 追加(或并入)一条压缩标记并返回该消息行(调用方可在返回值上继续挂 usage 等附加字段)。
+// 文案永远由 compactMeta 全量派生重建,历史标记(无 meta 的旧格式行)只会被当作闭环处理,不会被误改。
+//   o = { kind, label, evaporated?, reseeded?, saved?, beforeTokens?, afterTokens,
+//         approx?(默认true→'约'), accuracy?(默认'估算', 显式传空串则省略括注), note?(最新一次覆盖) }
+// beforeTokens 仅在【新建】行时生效(压缩集起点的估算值);并入已有行时保留首见起点,不回改。
+// saved 省略时由 beforeTokens-afterTokens 推导(kimi 等实测路径只带前后实测值的调用形态)。
+function upsertCompactMarker(session, o) {
+  const afterTokens = Math.max(0, Math.round(Number(o.afterTokens) || 0));
+  const savedExplicit = o.saved == null ? NaN : Math.max(0, Number(o.saved) || 0);
+  const saved = o.reseeded ? Infinity
+    : (Number.isFinite(savedExplicit) ? savedExplicit
+      : Math.max(0, (Math.round(Number(o.beforeTokens) || 0)) - afterTokens));
+  let marker = openCompactMarker(session, o.kind);
+  if (!marker && !o.reseeded && saved < COMPACT_MARKER_MIN_SAVED_TOKENS) return null; // 零收益不造新行
+  if (!marker) {
+    marker = { role: 'system', content: '', createdAt: nowIso(), source: 'compact', compactKind: o.kind };
+    session.messages.push(marker);
+    marker.compactMeta = {
+      passes: 0, evaporated: 0, reseeded: false,
+      beforeTokens: Math.max(0, Math.round(Number(o.beforeTokens) || afterTokens)),
+    };
+  }
+  const meta = marker.compactMeta;
+  meta.passes += 1;
+  meta.evaporated += Math.max(0, Number(o.evaporated) || 0);
+  meta.reseeded = Boolean(meta.reseeded || o.reseeded);
+  meta.afterTokens = afterTokens;
+  const times = meta.passes > 1 ? ` ×${meta.passes}` : '';
+  const ops = [];
+  if (meta.evaporated > 0) ops.push(`蒸发旧工具结果 ${meta.evaporated} 条`);
+  if (meta.reseeded) ops.push('摘要重播种');
+  const accuracy = o.accuracy === undefined ? '估算' : o.accuracy;
+  const head = `🗜 ${o.label}${times}`;
+  const tail = `${fmtTokensServer(meta.beforeTokens)}→${o.approx === false ? '' : '约 '}${fmtTokensServer(afterTokens)}${accuracy ? `（${accuracy}）` : ''}`;
+  marker.content = ops.length ? `${head}（${ops.join('＋')}）：${tail}` : `${head}：${tail}`;
+  if (o.note) marker.content += `；${o.note}`;
+  return marker;
 }
 
 // v0.8-S5 LEVEL 2 · SUMMARY RESEED boundary. Return the index in `history` of the 2nd-most-recent
@@ -959,15 +1024,12 @@ async function runProviderCompact(sessionId) {
     { role: 'assistant', content: '收到，已基于摘要继续。' },
   ];
   const afterTokens = estimateHistoryTokens(session.providerHistory);
-  session.messages.push({
-    role: 'system',
-    content: `🗜 已压缩上下文：${fmtTokensServer(beforeTokens)}→约 ${fmtTokensServer(afterTokens)}（估算）`,
-    usage: {
-      usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
-      contextEngine: 'openai', contextProviderId: provider.id, contextModel: String(provider.model || ''), source: 'provider-compact',
-    },
-    createdAt: nowIso(), source: 'compact',
-  });
+  const marker = upsertCompactMarker(session, { kind: 'provider-manual', label: '已压缩上下文', reseeded: true, beforeTokens, afterTokens });
+  if (marker) marker.usage = {
+    usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
+    contextEngine: 'openai', contextProviderId: provider.id, contextModel: String(provider.model || ''), source: 'provider-compact',
+  };
+  session.autoCompactWatermark = afterTokens; // 手动压缩后同样进入滞回期
   session.providerHistoryCursor = session.messages.length;
   await saveSession(session);
   logEvent({ kind: 'provider_compact', sessionId: session.id, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, beforeTokens, afterTokens });
@@ -980,8 +1042,8 @@ async function runProviderCompact(sessionId) {
 //   1. EVAPORATE old tool results → re-estimate → if still over →
 //   2. SUMMARY RESEED (shared kernel): [summary-user, ack-assistant] + the last 2 full turns verbatim.
 //      Level-2 failure (network/timeout) keeps the level-1 result and does NOT abort the turn.
-// For each level that fires: emit a `compact` event {mode, beforeTokens, afterTokens} and append a 🗜
-// system message to session.messages (reusing the existing compact-message render path). Mutates
+// For each level that fires: emit a `compact` event {mode, beforeTokens, afterTokens} and upsert ONE merged
+// 🗜 system row into session.messages (upsertCompactMarker; repeated levels merge into the same open row). Mutates
 // session.providerHistory / session.messages in place; the caller persists via its normal saveSession.
 // Returns true if any compaction happened (caller may save immediately). Never throws.
 async function maybeAutoCompact(session, provider, sys, config, onEvent, model, tools) {
@@ -989,10 +1051,17 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     const history = session.providerHistory;
     if (!Array.isArray(history) || !history.length) return false;
     const threshold = Number(config.autoCompactThreshold) || 0.8;
-    const budget = threshold * providerConversationContextWindow(config, provider, model);
+    const window = providerConversationContextWindow(config, provider, model);
+    const budget = threshold * window;
+    // 重入滞回(45f 观感/空转修复):一次成功压缩后,重新武装水位 = 压后估算 + max(2K, 2% 窗口)。
+    // 实测数据里估算值贴着预算线抖动时,曾出现连续 26 次「蒸发 1 条:106K→106K」的每迭代无效循环
+    // (每次快照写盘 + 全量存盘 + 追加标记,token 却没降)。水位与预算取大者,窗口放大后不阻碍再压。
+    const rearmMargin = Math.max(2000, Math.round(window * 0.02));
+    const wm = Number(session.autoCompactWatermark);
+    const armedBudget = Number.isFinite(wm) && wm > 0 ? Math.max(budget, wm + rearmMargin) : budget;
     const sysMsg = { role: 'system', content: String(sys || '') };
     const before = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a):校准后估算判预算
-    if (before <= budget) return false; // under budget → nothing to do (append-only until next crossing)
+    if (before <= armedBudget) return false; // under budget / still in hysteresis → nothing to do
 
     if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
       try {
@@ -1017,10 +1086,10 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     if (evaporated > 0) {
       const after1 = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a)
       onEvent({ type: 'compact', mode: 'evaporate', beforeTokens: before, afterTokens: after1 });
-      session.messages.push({ role: 'system', content: `🗜 自动压缩（蒸发旧工具结果 ${evaporated} 条）：${fmtTokensServer(before)}→约 ${fmtTokensServer(after1)}（估算）`, createdAt: nowIso(), source: 'compact' });
+      upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', evaporated, saved: before - after1, beforeTokens: before, afterTokens: after1 });
       logEvent({ kind: 'auto_compact', mode: 'evaporate', sessionId: session.id, beforeTokens: before, afterTokens: after1, evaporated });
       compacted = true;
-      if (after1 <= budget) { await saveSession(session).catch(() => {}); return true; } // level 1 was enough
+      if (after1 <= budget) { session.autoCompactWatermark = after1; await saveSession(session).catch(() => {}); return true; } // level 1 was enough
     }
 
     // ── Level 2: summary reseed (still over budget) ─────────────────────────────────────────────────
@@ -1034,7 +1103,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     if (!sc.ok) {
       // Level-2 failed (network/timeout). Keep the level-1 result and continue the turn — do NOT abort.
       logEvent({ kind: 'auto_compact', mode: 'summary', sessionId: session.id, ok: false, error: sc.error });
-      if (compacted) await saveSession(session).catch(() => {});
+      if (compacted) { session.autoCompactWatermark = calibratedEstimate(provider, model, [sysMsg, ...history], tools); await saveSession(session).catch(() => {}); }
       return compacted;
     }
     recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
@@ -1047,8 +1116,9 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     ];
     const after2 = estimateHistoryTokens([sysMsg, ...session.providerHistory], '', tools);
     onEvent({ type: 'compact', mode: 'summary', beforeTokens: before2, afterTokens: after2 });
-    session.messages.push({ role: 'system', content: `🗜 自动压缩（摘要重播种）：${fmtTokensServer(before2)}→约 ${fmtTokensServer(after2)}（估算）`, createdAt: nowIso(), source: 'compact' });
+    upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: before2, afterTokens: after2 });
     logEvent({ kind: 'auto_compact', mode: 'summary', sessionId: session.id, ok: true, beforeTokens: before2, afterTokens: after2, summaryChars: sc.summary.length });
+    session.autoCompactWatermark = after2;
     await saveSession(session).catch(() => {});
     return true;
   } catch (e) {

@@ -88,6 +88,11 @@ module.exports = {
   fetchOpenAiModels,
   MODEL_CONTEXT_TABLE,
   CONTEXT_WINDOW_FALLBACK,
+  // v2.6.2 压缩标记合并 + token 读数 — exposed for e2e direct units(合并/门槛/滞回/尾零回归)。
+  fmtTokensServer,
+  openCompactMarker,
+  upsertCompactMarker,
+  COMPACT_MARKER_MIN_SAVED_TOKENS,
   detectDesktopMcp,
   pickPython,
   desktopPythonCandidates,
