@@ -782,18 +782,20 @@ export function createChatStreamRuntime(deps = {}) {
   }
   // C6: insert an independent .msg-error block (red) into the live container. Text via textContent so
   // it is never markdown-parsed. Placed after the tools wrap so it reads as the turn's terminal state.
-  function appendMsgError(main, live, text) {
+  function appendMsgError(main, live, text, container) {
     if (live) sealLiveTextSegment(live);
     const box = el('div', 'msg-error'); box.textContent = text;
-    main.appendChild(box);
+    (container || main).appendChild(box);
     if (live) live.errorShown = true;
     maybeScrollToBottom();
   }
   // C6: a neutral, muted variant for benign notes ("已停止"). Same structure, no alarm coloring.
-  function appendMsgNote(main, live, text) {
+  // v2.6.2-r2: 可选 container —— 长回合中途的压缩标记要落在 live.narrative(时序流)内部,
+  // 而不是 main 尾部( narrative 之后),否则多条标记会全部堆在回合最底部,脱离发生位置。
+  function appendMsgNote(main, live, text, container) {
     if (live) sealLiveTextSegment(live);
     const box = el('div', 'msg-note'); box.textContent = text;
-    main.appendChild(box);
+    (container || main).appendChild(box);
     if (live) live.noteShown = true;
     maybeScrollToBottom();
   }
@@ -1093,10 +1095,13 @@ export function createChatStreamRuntime(deps = {}) {
             ? `摘要已应用${evt.compactedCount ? `，折叠 ${evt.compactedCount} 条记录` : ''}…`
             : `压缩进行中${evt.elapsedMs ? ` · ${Math.round(evt.elapsedMs / 1000)}s` : ''}…`;
         } else if (phase === 'completed') {
-          if (evt.beforeTokens || evt.afterTokens) appendMsgNote(main, live, `🗜 自动压缩已完成：${fmtTokens(evt.beforeTokens || 0)} → ${fmtTokens(evt.afterTokens || 0)}`);
+          // v2.6.2-r2: 标记插入 live.narrative(时序流),随当前思考/工具位置就地显示;不再沉到回合最底部。
+          const markerBox = live && live.narrative ? live.narrative : null;
+          if (evt.beforeTokens || evt.afterTokens) appendMsgNote(main, live, `🗜 自动压缩已完成：${fmtTokens(evt.beforeTokens || 0)} → ${fmtTokens(evt.afterTokens || 0)}`, markerBox);
           endCompactIndicator();
         } else if (phase === 'failed') {
-          appendMsgError(main, live, `自动压缩未完成：${evt.error || '未知错误'}`);
+          const markerBox = live && live.narrative ? live.narrative : null;
+          appendMsgError(main, live, `自动压缩未完成：${evt.error || '未知错误'}`, markerBox);
           endCompactIndicator();
         }
         break;
