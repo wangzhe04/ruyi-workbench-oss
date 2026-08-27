@@ -97,7 +97,7 @@
 **首批六项范围（待实施／验证，逐项独立，不同时启用）**：
 
 1. **第 0 步计量校准**：先修 E0/E1 抽样明细被当总量的口径，分清 turn/task、HTTP attempt、费用来源与缺失覆盖；再做热点统计。用已知合成账目与固定夹具验收，无需长期日志或新后台服务。**✅ 核心 2026-08-27 已交付**（econ_call_totals 不抽样总量 + econ_summary_call 摘要归属 + 报表 schema 2 对账三分断；合成 32 断言与离线真链路 e2e 全绿，见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) §4.2）
-2. **#1 Prompt Cache 纪律验证**：固定多轮请求＋真实 provider 的冷／热缓存与费用回执；布局变更加任务质量对照。
+2. **#1 Prompt Cache 纪律验证**：固定多轮请求＋真实 provider 的冷／热缓存与费用回执；布局变更加任务质量对照。**✅ provider 层 2026-08-27 已验证**（deepseek-v4-flash 两次独立复现：热重发命中 96%、逐字节前缀匹配（改一词归零）、追加式布局第 4 轮守住 97% 命中、易变前置每轮全 miss，四轮费用估算差 ~9×；缓存块 64 token。证据 `benchmark-results/prompt-cache-22-1/`；Ruyi 自身布局收敛与跨子 Agent 共享前缀未闭合）
 3. **#6 已有只读 worker pool 增量验证**：复用 21-E2，与当前 legacy 而非仅与串行比较；构造 >8 批、争用／故障／取消，用实际本地工具测量。
 4. **#2a 受限结果缓存**：资源版本与权限明确的白名单，验证失效和零命中开销；不捆绑观察压缩。
 5. **#13a 预算保护基础层**：预警、在途／收尾预留、停止新增调用与暂停；暂不自动换模型或激进摘要。
