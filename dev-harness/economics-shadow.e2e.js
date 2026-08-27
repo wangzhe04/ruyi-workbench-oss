@@ -110,6 +110,23 @@ function killTree(child) {
     ok(report.metaChain.soloMetaBatches.length === 0, 'E1 report finds no solo meta batch in this fixture');
     const serializedReport = JSON.stringify(report);
     ok(!serializedReport.includes('AAA') && !serializedReport.includes(HOME), 'E1 report leaks no raw args or paths');
+    // ── 22-S0 计量校准:回合级不抽样总量账目(本夹具 1 回合 = 2 次模型调用 + 2 个并行 read) ──
+    const totalsRows = rows.filter(r => r.kind === 'econ_call_totals');
+    ok(totalsRows.length === 1, `exactly one econ_call_totals row persisted (got ${totalsRows.length})`);
+    const tr = totalsRows[0];
+    ok(tr.modelCallAttempts === started.length && tr.modelCallsLogged === started.length,
+      'unsampled attempts == sampled logged rows on a short fully-sampled turn');
+    ok(Number(tr.toolActions) >= 2 && tr.toolActions === tools.length, 'unsampled tool-action total reconciles with detail universe');
+    ok(tr.batchesLogged === batches.length && tr.phasesLogged === phases.length, 'batch/phase logged counters reconcile with ledger rows');
+    ok(tr.eventsEmitted > 0 && tr.eventsDropped === 0 && tr.eventCap === 400, 'cap accounting present with zero drops in this fixture');
+    ok(tr.state === 'completed' && Number(tr.durationMs) >= 0 && !!tr.apiStyle, 'totals carry terminal state, duration, apiStyle');
+    const serializedTotals = JSON.stringify(totalsRows);
+    ok(!serializedTotals.includes('AAA') && !serializedTotals.includes(HOME), 'totals events leak no raw args or paths');
+    // 报表端:含总量行时 windows 必须取「不抽样事实源」且实时对账闭合。
+    const calibrated = summarizeEconomicsEvents(rows.filter(r => /^(model_call_started|model_call_completed|assistant_tool_batch|tool_call_completed|tool_phase_completed|econ_call_totals)$/.test(r.kind || '')));
+    ok(calibrated.windows.source === 'unsampled-totals' && calibrated.windows.modelCalls === tr.modelCallAttempts, 'calibrated report takes unsampled totals as truth source');
+    ok(calibrated.coverage.reconciliation.length === 1 && calibrated.coverage.reconciliation[0].countsMatchLedger === true, 'live ledger reconciliation closes');
+    ok(Array.isArray(calibrated.coverage.unknowns) && calibrated.coverage.unknowns.length === 0, 'fully covered window reports zero unknowns');
   } catch (e) {
     fail++; console.log('ERROR ' + (e && e.stack || e));
   } finally {

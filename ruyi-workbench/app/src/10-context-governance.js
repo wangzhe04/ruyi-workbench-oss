@@ -552,7 +552,18 @@ function chunkHistoryByBudget(history, budgetTokens) {
 
 // 单次摘要调用(原内核体,45a 拆出以便 map-reduce 复用)。messages 为历史,prompt 追加于尾。
 // v1.7: follows provider.apiStyle — Responses protocol uses instructions+input, reads output_text.
-async function singleSummaryCall(provider, messages, model) {
+// 22-§4.2 第0步:econCtx.econ 为真时,每次真实 HTTP 尝试(成功或失败)落一条 econ_summary_call ——
+// 此前摘要/压缩调用完全不在经济性账本里,报表的 callsPerTask 系统性漏掉它们(归属缺口由本行修复)。
+let ECON_AUX_FLAG_CACHE = { at: 0, on: false };
+async function economicsShadowEnabledCached() { // 60s 内缓存,避免压缩路径上反复读盘
+  if (Date.now() - ECON_AUX_FLAG_CACHE.at < 60000) return ECON_AUX_FLAG_CACHE.on;
+  try {
+    const cfg = await readConfig();
+    ECON_AUX_FLAG_CACHE = { at: Date.now(), on: cfg && cfg.toolEconomicsShadowV1 === true };
+  } catch { /* keep previous cached value */ }
+  return ECON_AUX_FLAG_CACHE.on;
+}
+async function singleSummaryCall(provider, messages, model, econCtx) {
   const respStyle = provider && provider.apiStyle === 'responses';
   // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
   const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
@@ -576,11 +587,38 @@ async function singleSummaryCall(provider, messages, model) {
     if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(u.hostname) || /ollama/i.test(String(provider && (provider.id + ' ' + provider.label) || ''))) timeoutMs = 300000;
   } catch { /* retain remote default */ }
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  const econT0 = Date.now();
+  const econDone = result => { // 摘要调用账目:usage 缺失时 usageSource='missing',不推算不冒充
+    try {
+      if (!econCtx || econCtx.econ !== true) return;
+      const u = result && result.usage;
+      const uIn = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
+      const uOut = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+      const okRes = !!(result && result.ok);
+      const hasUsage = uIn > 0 || uOut > 0;
+      logEvent({
+        kind: 'econ_summary_call',
+        ...(econCtx.sessionId ? { sessionId: econCtx.sessionId } : {}),
+        ...(econCtx.turnSeq != null && Number(econCtx.turnSeq) > 0 ? { turnSeq: Number(econCtx.turnSeq) } : {}),
+        ...(econCtx.traceId ? { traceId: econCtx.traceId } : {}),
+        ...(econCtx.subagentId ? { subagentId: String(econCtx.subagentId) } : {}),
+        trigger: String(econCtx.trigger || 'summary'),
+        model: String(model || ''), apiStyle: respStyle ? 'responses' : 'chat',
+        ok: okRes,
+        usageSource: okRes && hasUsage ? 'provider' : 'missing',
+        inputTokens: uIn, outputTokens: uOut,
+        ...(okRes && hasUsage && typeof cachedInputTokensFromUsage === 'function' ? { cachedInputTokens: Math.min(uIn, cachedInputTokensFromUsage(u)) } : {}),
+        ...(econCtx.chunkIndex ? { mapReduceChunk: Number(econCtx.chunkIndex) } : {}),
+        httpMs: Date.now() - econT0,
+      });
+    } catch { /* shadow accounting must never break compaction */ }
+  };
   try {
     const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: ctrl ? ctrl.signal : undefined });
     if (!res || !res.ok) {
       let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
-      return { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
+      const failed = { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
+      econDone(failed); return failed;
     }
     const j = await res.json().catch(() => null);
     let summary = '';
@@ -595,11 +633,13 @@ async function singleSummaryCall(provider, messages, model) {
       summary = String((msg && msg.content) || '');
     }
     summary = summary.trim();
-    if (!summary) return { ok: false, error: 'provider returned an empty summary' };
+    if (!summary) { const failed = { ok: false, error: 'provider returned an empty summary' }; econDone(failed); return failed; }
     // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model + 对发送 payload 的输入估算,让压缩调用方记入 aux 台账。
-    return { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
+    const okRes = { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
+    econDone(okRes); return okRes;
   } catch (e) {
-    return { ok: false, error: (e && e.name === 'AbortError') ? `summary request timed out (${Math.round(timeoutMs / 1000)}s)` : ((e && e.message) || 'summary request failed') };
+    const failed = { ok: false, error: (e && e.name === 'AbortError') ? `summary request timed out (${Math.round(timeoutMs / 1000)}s)` : ((e && e.message) || 'summary request failed') };
+    econDone(failed); return failed;
   } finally { if (timer) clearTimeout(timer); }
 }
 
@@ -617,26 +657,37 @@ async function providerSummaryCall(provider, history, opts) {
   // 45a:摘要输入预算 = 窗口 × 50%(余量留给输出+系统层;窗口缺省 64K 时预算 32K)。
   const budget = Math.max(4000, Math.floor(providerContextWindow(provider, model) * SUMMARY_INPUT_BUDGET_RATIO));
   const fitted = fitHistoryForSummary(history, budget);
+  // 22-S0 摘要归属上下文:econ 标志读一次,身份字段由调用方经 opts.auxCtx 提供(缺失→不落 sessionId/turnSeq)。
+  const ectxBase = {
+    econ: await economicsShadowEnabledCached(),
+    ...(opts && opts.auxCtx ? {
+      ...(opts.auxCtx.sessionId ? { sessionId: String(opts.auxCtx.sessionId) } : {}),
+      ...(opts.auxCtx.turnSeq != null ? { turnSeq: Number(opts.auxCtx.turnSeq) } : {}),
+      ...(opts.auxCtx.traceId ? { traceId: String(opts.auxCtx.traceId) } : {}),
+      ...(opts.auxCtx.subagentId ? { subagentId: String(opts.auxCtx.subagentId) } : {}),
+      trigger: String(opts.auxCtx.trigger || 'summary'),
+    } : { trigger: 'summary' }),
+  };
   if (!fitted.needsMapReduce) {
-    const sc = await singleSummaryCall(provider, fitted.messages, model);
+    const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase);
     if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
     if (sc.ok && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     return sc;
   }
   // map-reduce:分组 → 逐组摘要 → 总摘要。任一组失败即整体失败(错误原样上浮,调用方保留 L1 降级)。
   const chunks = chunkHistoryByBudget(history, budget);
-  if (chunks.length <= 1) return singleSummaryCall(provider, chunks[0] || [], model);
+  if (chunks.length <= 1) return singleSummaryCall(provider, chunks[0] || [], model, ectxBase);
   const partials = [];
   let aggIn = 0, aggOut = 0, aggEst = 0;
-  for (const c of chunks) {
-    const r = await singleSummaryCall(provider, c, model);
+  for (let ci = 0; ci < chunks.length; ci++) {
+    const r = await singleSummaryCall(provider, chunks[ci], model, { ...ectxBase, chunkIndex: ci + 1 });
     if (!r.ok) return r;
     partials.push(r.summary);
     if (r.usage) { aggIn += Number(r.usage.prompt_tokens != null ? r.usage.prompt_tokens : r.usage.input_tokens) || 0; aggOut += Number(r.usage.completion_tokens != null ? r.usage.completion_tokens : r.usage.output_tokens) || 0; }
     aggEst += Number(r.promptTokensEst) || 0;
   }
   const joined = [{ role: 'user', content: partials.map((s, i) => `【分段摘要 ${i + 1}/${partials.length}】\n${s}`).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。' }];
-  const final = await singleSummaryCall(provider, joined, model);
+  const final = await singleSummaryCall(provider, joined, model, ectxBase);
   if (!final.ok) return final;
   if (!validateStructuredSummary(final.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
   if (final.usage) { final.usage.prompt_tokens = (Number(final.usage.prompt_tokens) || 0) + aggIn; final.usage.completion_tokens = (Number(final.usage.completion_tokens) || 0) + aggOut; }
@@ -785,7 +836,7 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
   if (!resolved.provider || resolved.isDefault) return { ok: false, error: 'no external compaction model selected' };
   const history = compactHistoryFromSession(session);
   if (!history.length) return { ok: false, error: 'no conversation history to compact' };
-  const sc = await providerSummaryCall(resolved.provider, history, { model: resolved.model });
+  const sc = await providerSummaryCall(resolved.provider, history, { model: resolved.model, auxCtx: { sessionId: String(sessionId || ''), trigger: 'agent_external_manual' } });
   if (!sc.ok) return { ok: false, error: sc.error };
   recordCompactUsage(session, resolved.provider, sc);
   const beforeTokens = lastSessionContextTokens(session) || estimateHistoryTokens(history);
@@ -850,7 +901,14 @@ async function maybeCompactSubHistory(opts) {
     // L2 摘要重播种(仍超预算):复用共用摘要内核。失败 → 保留 L1、不中断子回合(镜像主回合)。
     const compactTarget = resolveCompactionProvider(config, provider);
     const summaryProvider = compactTarget.provider || provider;
-    const sc = await providerSummaryCall(summaryProvider, subHistory, { model: compactTarget.model });
+    const sc = await providerSummaryCall(summaryProvider, subHistory, {
+      model: compactTarget.model,
+      auxCtx: {
+        ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}),
+        ...(subagentId ? { subagentId: String(subagentId) } : {}),
+        trigger: 'subturn_auto_L2',
+      },
+    });
     if (!sc || !sc.ok) { if (evaporated > 0) { emit('evaporate', after1); return true; } return false; }
     const boundary = recentTurnsBoundary(subHistory);
     const task0 = subHistory[0];
@@ -969,7 +1027,10 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     const before2 = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a)
     const compactTarget = resolveCompactionProvider(config, provider);
     const summaryProvider = compactTarget.provider || provider;
-    const sc = await providerSummaryCall(summaryProvider, history, { model: compactTarget.model });
+    const sc = await providerSummaryCall(summaryProvider, history, {
+      model: compactTarget.model,
+      auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'auto_L2' },
+    });
     if (!sc.ok) {
       // Level-2 failed (network/timeout). Keep the level-1 result and continue the turn — do NOT abort.
       logEvent({ kind: 'auto_compact', mode: 'summary', sessionId: session.id, ok: false, error: sc.error });

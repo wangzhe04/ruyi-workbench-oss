@@ -724,7 +724,14 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           noteWindowOvershoot(provider.id, subModel, estNow); // 45d(b)
           onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
           const ev = evaporateHistory(subHistory);
-          const sc = await providerSummaryCall(provider, subHistory);
+          const sc = await providerSummaryCall(provider, subHistory, {
+            auxCtx: {
+              ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}),
+              ...(parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {}),
+              ...(subagentId ? { subagentId: String(subagentId) } : {}),
+              trigger: 'subagent_forced_400',
+            },
+          });
           if (sc.ok) {
             const boundary = recentTurnsBoundary(subHistory);
             const task0 = subHistory[0];

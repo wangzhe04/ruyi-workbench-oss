@@ -25,7 +25,10 @@ function sortedCounts(map, limit = 0) {
   const list = [...map.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]))).map(([name, count]) => ({ name, count }));
   return limit > 0 ? list.slice(0, limit) : list;
 }
-const ECON_KINDS = new Set(['model_call_started', 'model_call_completed', 'assistant_tool_batch', 'tool_call_completed', 'tool_phase_completed']);
+const ECON_KINDS = new Set(['model_call_started', 'model_call_completed', 'assistant_tool_batch', 'tool_call_completed', 'tool_phase_completed', 'econ_call_totals']);
+// 归属辅助类:econ_call_totals = 回合级不抽样总量事实源(22-S0);其余为摘要调用归属与手工压缩计数。
+const AUX_KINDS = new Set(['auto_compact', 'provider_compact', 'failover', 'econ_summary_call']);
+const ALL_LEDGER_KINDS = new Set([...ECON_KINDS, ...AUX_KINDS]);
 // Control-plane / meta tools whose solo batches are the E5 reduction target (solo meta batch / task).
 const META_TOOLS = new Set(['todo_write', 'todo_update', 'mission_update', 'tool_search', 'tool_load', 'list_tools', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
 
@@ -43,18 +46,32 @@ function groupBy(rows, keyFn) {
 
 function summarizeEconomicsEvents(events) {
   const rows = (Array.isArray(events) ? events : []).filter(e => e && ECON_KINDS.has(e.kind));
+  const auxRows = (Array.isArray(events) ? events : []).filter(e => e && AUX_KINDS.has(e.kind));
   const started = rows.filter(r => r.kind === 'model_call_started');
   const completed = rows.filter(r => r.kind === 'model_call_completed');
   const batches = rows.filter(r => r.kind === 'assistant_tool_batch');
   const tools = rows.filter(r => r.kind === 'tool_call_completed');
   const phases = rows.filter(r => r.kind === 'tool_phase_completed');
+  const totalsRows = rows.filter(r => r.kind === 'econ_call_totals');
+  const hasTotals = totalsRows.length > 0;
 
-  // 回合(turn)分组: sessionId+turnSeq 一次用户请求视为一个任务近似; E0 后可用真实 usage 复核。
+  // ── 第0步计量校准:总量以 econ_call_totals(不抽样事实源)为准,明细条数只是采样宇宙 ─────────────────
+  // turn/task 归属键:totals 行与明细行并集(子代理/摘要调用各自带 sessionId,天然按会话分账)。
   const turnKeys = new Set([...started, ...completed].map(r => `${r.sessionId || ''}#${r.turnSeq || 0}`));
+  for (const t of totalsRows) turnKeys.add(`${t.sessionId || ''}#${t.turnSeq || 0}`);
+  for (const s of auxRows) if (s.kind === 'econ_summary_call' && s.sessionId) turnKeys.add(`${s.sessionId}#${s.turnSeq || 0}`);
   const taskCount = turnKeys.size;
 
+  const totalsAttempts = hasTotals ? totalsRows.reduce((a, t) => a + (Number(t.modelCallAttempts) || 0), 0) : null;
+  const totalsToolActions = hasTotals ? totalsRows.reduce((a, t) => a + (Number(t.toolActions) || 0), 0) : null;
+  const totalsFailovers = hasTotals ? totalsRows.reduce((a, t) => a + (Number(t.failoverAttempts) || 0), 0) : null;
+  const totalsLoggedStarted = hasTotals ? totalsRows.reduce((a, t) => a + (Number(t.modelCallsLogged) || 0), 0) : null;
+  const windowsModelCalls = hasTotals ? totalsAttempts : started.length;
+  const windowsToolCalls = hasTotals ? totalsToolActions : tools.length;
+
   // ── 1. 模型调用 ──────────────────────────────────────────────────────────────────────────────────────
-  const callsPerTask = taskCount ? started.length / taskCount : 0;
+  // 有 totals 时分子用不抽样总量;否则退回明细条数并在 coverage.estimatedFromSampled 显式标记。
+  const callsPerTask = taskCount ? windowsModelCalls / taskCount : 0;
   const startedIds = new Set(started.map(r => r.modelCallId));
   const completedIds = new Set(completed.map(r => r.modelCallId));
   const unpairedStarted = started.filter(r => !completedIds.has(r.modelCallId)).length;
@@ -63,7 +80,8 @@ function summarizeEconomicsEvents(events) {
   for (const r of completed) increment(byUsageSource, String(r.usageSource || 'unknown'));
   const providerUsage = completed.filter(r => r.usageSource === 'provider');
   const toolBearingCalls = new Set(batches.map(r => r.modelCallId)).size;
-  const toolBearingRatio = started.length ? toolBearingCalls / started.length : 0;
+  const toolBearingCallsTotal = hasTotals ? totalsRows.reduce((a, t) => a + (Number(t.batchesLogged) || 0), 0) : toolBearingCalls;
+  const toolBearingRatio = windowsModelCalls ? toolBearingCallsTotal / windowsModelCalls : 0;
   const cachedTotals = providerUsage.reduce((acc, r) => { acc.input += r.inputTokens || 0; acc.cached += r.cachedInputTokens || 0; return acc; }, { input: 0, cached: 0 });
   const llmMs = completed.filter(r => r.llmMs >= 0).map(r => r.llmMs);
   const inputTokens = providerUsage.map(r => r.inputTokens || 0);
@@ -156,19 +174,111 @@ function summarizeEconomicsEvents(events) {
   const stableTurns = [...fingerprintFlips.values()].filter(v => v.flips === 0 && v.calls >= 2);
   const historyBytes = started.map(r => r.historyBytes || 0);
 
+  // ── 7. 第0步计量校准:总量对账、采样覆盖率与辅助调用归属 ────────────────────────────────────────────
+  // 对账三断言各自独立:①明细条数 == runtime 声明的已落账数(无丢失);②截断由上限造成时如实标注;
+  // ③既不匹配又非截断 → drift(日志丢失或口径 bug)。只有 drifted 才是不可信信号。
+  const turnKeyOf = r => `${r.sessionId || ''}#${r.turnSeq || 0}`;
+  const startedByTurn = groupBy(started, turnKeyOf);
+  const toolsByTurn = groupBy(tools, turnKeyOf);
+  const batchesByTurn = groupBy(batches, turnKeyOf);
+  const phasesByTurn = groupBy(phases, turnKeyOf);
+  const reconciliation = totalsRows.map(t => {
+    const key = turnKeyOf(t);
+    const exp = {
+      started: Number(t.modelCallsLogged) || 0,
+      tools: Number(t.toolCallsLogged) || 0,
+      batches: Number(t.batchesLogged) || 0,
+      phases: Number(t.phasesLogged) || 0,
+    };
+    const got = {
+      started: (startedByTurn.get(key) || []).length,
+      tools: (toolsByTurn.get(key) || []).length,
+      batches: (batchesByTurn.get(key) || []).length,
+      phases: (phasesByTurn.get(key) || []).length,
+    };
+    const mismatched = (exp.started !== got.started) || (exp.tools !== got.tools) || (exp.batches !== got.batches) || (exp.phases !== got.phases);
+    const truncatedByCap = (Number(t.eventsDropped) || 0) > 0;
+    return {
+      sessionId: t.sessionId || '', turnSeq: Number(t.turnSeq) || 0,
+      state: String(t.state || ''), modelCallAttempts: Number(t.modelCallAttempts) || 0,
+      failoverAttempts: Number(t.failoverAttempts) || 0,
+      sampledShare: (Number(t.modelCallAttempts) || 0) ? round((Number(t.modelCallsLogged) || 0) / (Number(t.modelCallAttempts) || 0)) : 1,
+      expectedDetailRows: exp.started + exp.tools + exp.batches + exp.phases,
+      observedDetailRows: got.started + got.tools + got.batches + got.phases,
+      truncatedByCap, countsMatchLedger: !mismatched,
+      drifted: mismatched && !truncatedByCap,
+    };
+  });
+  const driftedKeys = reconciliation.filter(r => r.drifted).map(r => `${r.sessionId}#${r.turnSeq}`);
+  const cappedTurns = reconciliation.filter(r => r.truncatedByCap).length;
+
+  // 摘要调用归属(auto_L2/manual/subturn/forced_400 等触发源分列)+ 手工压缩计数。
+  const summaryRows = auxRows.filter(r => r.kind === 'econ_summary_call');
+  const autoCompactSummaryOk = auxRows.filter(r => r.kind === 'auto_compact' && r.mode === 'summary' && r.ok === true).length;
+  const autoCompactSummaryFailed = auxRows.filter(r => r.kind === 'auto_compact' && r.mode === 'summary' && r.ok === false).length;
+  const autoCompactEvaporate = auxRows.filter(r => r.kind === 'auto_compact' && r.mode === 'evaporate').length;
+  const manualCompacts = auxRows.filter(r => r.kind === 'provider_compact').length;
+  const summaryUsageProvider = summaryRows.filter(r => r.usageSource === 'provider');
+  const byTrigger = new Map();
+  for (const r of summaryRows) increment(byTrigger, String(r.trigger || 'unknown'));
+  const summaryTokens = summaryUsageProvider.reduce((a, r) => ({ input: a.input + (Number(r.inputTokens) || 0), output: a.output + (Number(r.outputTokens) || 0) }), { input: 0, output: 0 });
+
+  // 缺失覆盖清单(诚实标记,不用推算值冒充精确总量):
+  const unknowns = [];
+  if (!hasTotals) unknowns.push('no unsampled turn totals (econ_call_totals) in window: callsPerTask uses sampled-detail counts and under-reports long turns');
+  if (driftedKeys.length) unknowns.push(`detail rows diverge from declared logged counts beyond cap truncation in ${driftedKeys.length} turn(s)`);
+  const missingUsage = summaryRows.filter(r => r.usageSource !== 'provider').length;
+  if (missingUsage) unknowns.push(`token cost unknown (usageSource!=provider) for ${missingUsage}/${summaryRows.length} summary call(s)`);
+
   return {
-    schema: 1,
+    schema: 2,
     generatedAt: new Date().toISOString(),
-    source: '21-E0 ledger shadow events (redacted)',
-    windows: { sessions: callSessions.size, turns: taskCount, modelCalls: started.length, batches: batches.length, toolCalls: tools.length, toolPhases: phases.length },
-    pairing: { unpairedStarted, unpairedCompleted, startedToCompletedRatio: started.length && completed.length ? round(completed.length / started.length) : 0 },
+    source: '21-E0 ledger shadow events (redacted) + 22-S0 unsampled turn totals',
+    windows: {
+      sessions: callSessions.size, turns: taskCount,
+      modelCalls: windowsModelCalls, batches: hasTotals ? totalsRows.reduce((a, t) => a + (Number(t.batchesLogged) || 0), 0) : batches.length,
+      toolCalls: windowsToolCalls, toolPhases: hasTotals ? totalsRows.reduce((a, t) => a + (Number(t.phasesLogged) || 0), 0) : phases.length,
+      source: hasTotals ? 'unsampled-totals' : 'sampled-detail-counts',
+    },
+    coverage: {
+      source: hasTotals ? 'unsampled-totals+sampled-detail' : 'sampled-detail-only',
+      estimatedFromSampled: !hasTotals,
+      turnsWithTotals: totalsRows.length,
+      sampledCallsCoverage: hasTotals && totalsAttempts ? round(totalsLoggedStarted / totalsAttempts) : null,
+      turnsTruncatedByCap: cappedTurns,
+      reconciledTurns: reconciliation.filter(r => r.countsMatchLedger).length,
+      driftedTurnKeys: driftedKeys,
+      reconciliation,
+      unknowns,
+      note: '对账三断言独立成立:总量准确(=attempts)、配对完整(明细==声明落账数)、覆盖充分(sampledShare/截断标注);缺失标 unknown 不推算。',
+    },
+    http: {
+      logicalModelCalls: windowsModelCalls,
+      extraEndpointAttempts: hasTotals ? totalsFailovers : null,
+      attemptsTotal: hasTotals ? windowsModelCalls + totalsFailovers : null,
+      note: hasTotals ? 'HTTP 尝试 = 逻辑调用 + 预首字节失败后的备用端点重试;failover 明细行可交叉核对。回合完整调用面 = attemptsTotal + auxCalls.summaryCallsTotal(压缩/摘要调用单独归属)。' : '缺少 econ_call_totals 时 HTTP 尝试未知。',
+    },
+    auxCalls: {
+      summaryCallsTotal: summaryRows.length,
+      summaryOk: summaryRows.filter(r => r.ok === true).length,
+      summaryFailed: summaryRows.filter(r => r.ok === false).length,
+      byTrigger: sortedCounts(byTrigger),
+      usageProviderShare: summaryRows.length ? round(summaryUsageProvider.length / summaryRows.length) : 0,
+      providerTokens: summaryTokens,
+      autoCompactEvaporateCount: autoCompactEvaporate,
+      autoCompactSummaryOkCount: autoCompactSummaryOk,
+      autoCompactSummaryFailedCount: autoCompactSummaryFailed,
+      manualCompactCount: manualCompacts,
+      note: 'econ_summary_call 覆盖自动压缩 L2/手工压缩/子代理压缩/超窗重试的摘要调用;playbook 草拟与 JSON 修复等辅助调用尚未归属(unknown)。evaporate 是本地改写,无模型调用。',
+    },
+    pairing: { unpairedStarted, unpairedCompleted, startedToCompletedRatio: started.length && completed.length ? round(completed.length / started.length) : 0, scope: 'unpaired 计数仅描述采样明细切片;全局完整性见 coverage.reconciliation' },
     modelCalls: {
       callsPerTask: round(callsPerTask, 3), toolBearingRatio: round(toolBearingRatio, 3),
       usageSource: sortedCounts(byUsageSource),
       providerInputTokens: pstats(inputTokens), providerOutputTokens: pstats(outputTokens),
       cachedInputShare: cachedTotals.input ? round(cachedTotals.cached / cachedTotals.input) : 0,
       llmMs: pstats(llmMs),
-      note: 'calls after final artifact 需任务语义标注, E1 不臆测; usage 缺失时 usageSource=estimated 不混入 provider 均值。',
+      note: 'calls 分子取自不抽样总量(econ_call_totals),含被采样规则跳过的调用;usage 缺失时 usageSource=estimated 不混入 provider 均值。',
     },
     batchShape: {
       widthDistribution: sortedCounts(widthDist),
@@ -202,7 +312,7 @@ function summarizeEconomicsEvents(events) {
       historyBytes: pstats(historyBytes),
       note: 'stable prefix bytes/first changed segment 需逐段对比, 当前以 schema fingerprint 变化与 historyBytes 趋势作代理。',
     },
-    note: '本报表只读脱敏账本事件, 不改 prompt/调度/history; 是 E2+ 主动实验的归因基线, 不授权任何运行时行为。',
+    note: '本报表只读脱敏账本事件, 不改 prompt/调度/history; 是 E2+ 主动实验的归因基线, 不授权任何运行时行为。总量口径以 econ_call_totals 为事实源; claude/kimi 桥接回合与 playbook 草拟等非摘要辅助调用当前不在账本内(缺失标 unknown)。',
   };
 }
 
@@ -220,7 +330,7 @@ function readEconomicsEvents(logDir) {
   for (const name of files) {
     const lines = fs.readFileSync(path.join(logDir, name), 'utf8').split(/\r?\n/).filter(Boolean);
     for (const line of lines) {
-      try { const row = JSON.parse(line); if (row && ECON_KINDS.has(row.kind)) events.push(row); } catch { parseErrors++; }
+      try { const row = JSON.parse(line); if (row && ALL_LEDGER_KINDS.has(row.kind)) events.push(row); } catch { parseErrors++; }
     }
   }
   return { events, files, parseErrors };
@@ -235,4 +345,4 @@ if (require.main === module) {
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
 }
 
-module.exports = { summarizeEconomicsEvents, ECON_KINDS, META_TOOLS };
+module.exports = { summarizeEconomicsEvents, ECON_KINDS, AUX_KINDS, META_TOOLS };

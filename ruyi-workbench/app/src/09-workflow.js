@@ -1656,14 +1656,28 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const ECON_EVENT_CAP = 400;              // 每回合 economics 事件上限,防极端大批打爆日志
   const ECON_SAMPLE_FULL_ITERS = 12;       // 前 12 个 model call 全采,之后每 4 采 1
   let econTurnEvents = 0;
+  // 22-§4.2 第0步(计量校准): 不抽样、不受事件上限约束的轻量总量计数。可抽样明细只描述「采样宇宙」,
+  // 真实调用/工具动作总量以这里的 counters 为准并在回合末随 econ_call_totals 落账 —— 报表不得再拿
+  // 明细条数冒充调用总量(旧口径:前12全采后每4采1仍按1:1报 callsPerTask 的缺陷由此修复)。
+  const econTotals = {
+    modelCallAttempts: 0,        // 到达 streamWithFailover 的每次真实发出(含工具被拒重试/强制压缩重试)
+    modelCallsLogged: 0,         // 已落盘的 model_call_started 明细条数(采样且未被上限丢弃)
+    toolActions: 0,              // notifyToolHookEnd 统一出口处置的动作全集(与明细宇宙一致)
+    toolCallsLogged: 0,          // 已落盘的 tool_call_completed 明细条数
+    batchesLogged: 0,            // 已落盘的 assistant_tool_batch 明细条数
+    phasesLogged: 0,             // 已落盘的 tool_phase_completed 明细条数
+    failoverAttempts: 0,         // 预首字节失败后切换备用端点的额外 HTTP 尝试次数
+  };
+  let econDropped = 0;           // 被每回台上限拒掉的明细事件条数(如实进总量事件,不得静默吞掉)
   let activeModelCallId = '';
   let econBatchToolMs = [];                // 本批各工具真实耗时(串行批=各工具执行耗时,并行批=预执行耗时)
   const econSampledIter = iter => iter < ECON_SAMPLE_FULL_ITERS || iter % 4 === 0;
   const econLog = (kind, fields) => {
-    if (!econOn) return;
-    if (econTurnEvents >= ECON_EVENT_CAP) return;
+    if (!econOn) return false;
+    if (econTurnEvents >= ECON_EVENT_CAP) { econDropped += 1; return false; }
     econTurnEvents += 1;
     try { logEvent({ kind, traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, ...fields }); } catch { /* economics shadow must never break a turn */ }
+    return true;
   };
   const econSchemaFingerprint = () => {
     try { return crypto.createHash('sha1').update(JSON.stringify(toolLoading.current() || [])).digest('hex').slice(0, 16); } catch { return ''; }
@@ -1719,6 +1733,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // 21-E0: tool_call_completed —— 每个本地工具动作的独立账目(所有路径统一出口:server/control/并行
     // read/串行/refused/skipped)。toolMs 优先取真实执行开始点(并行 read 批在预执行处记录),否则用
     // hook 起点差值。status 用 disposition 表达拒绝/跳过语义,result.ok 决定失败。
+    if (econOn && tc && tc.id) econTotals.toolActions += 1; // 不抽样总量:与 tool_call_completed 同一动作宇宙
     if (econOn && econSampledIter(iteration) && tc && tc.id) {
       try {
         const econStart = econToolStartAt.get(String(tc.id));
@@ -1741,14 +1756,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           discoveryFields = { discoverySeq: discoveryState.seq };
           if (!/^tool_(load|invoke_)/.test(tc.name || '')) discoveryState.awaitingOutcome = false; // 具体工具调用 = 链终点(outcome)
         }
-        econLog('tool_call_completed', {
+        if (econLog('tool_call_completed', {
           assistantBatchId: activeProviderBatchId, toolCallId: tc.id, name: tc.name,
           tier: econTier, status, toolMs,
           argsBytes: econArgsBytes(tc.rawArgs),
           resultBytes: econResultBytes(result),
           ...discoveryFields,
           ...(result && result.unchanged === true ? { deduped: true } : {}),
-        });
+        })) econTotals.toolCallsLogged += 1;
       } catch { /* economics shadow must never affect dispatch */ }
     }
   };
@@ -1942,6 +1957,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const cand = ordered[i];
       if (prevBase !== null) {
         // We are ABOUT to try a NEW endpoint after a pre-first-byte failure on the previous one → announce it.
+        econTotals.failoverAttempts += 1; // 不抽样:每次额外端点尝试都是一次真实 HTTP 发出(第0步口径)
         onEvent({ type: 'failover', providerId: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
         logEvent({ kind: 'failover', sessionId: session.id, provider: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
       }
@@ -2009,14 +2025,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const econThisIter = econSampledIter(iter);
       activeModelCallId = econThisIter ? makeId('mc') : '';
       const econBody = econThisIter ? buildBody(useTools) : null;
+      econTotals.modelCallAttempts += 1; // 不抽样:到达发出点的每次真实调用(重试/压缩后重试各自计一次)
       if (econThisIter) {
         econBatchToolMs = [];
-        econLog('model_call_started', {
+        if (econLog('model_call_started', {
           modelCallId: activeModelCallId, iter, apiStyle,
           toolSchemaFingerprint: econSchemaFingerprint(),
           historyBytes: econBody ? Buffer.byteLength(JSON.stringify(econBody), 'utf8') : 0,
           estimatedInputTokens: estBeforeCall,
-        });
+        })) econTotals.modelCallsLogged += 1;
       }
       const usageSnapshot = { input: turnUsage.input_tokens, output: turnUsage.output_tokens, cached: turnUsage.cached_input_tokens, calls: usageCalls };
       const tLlm0 = Date.now(); // hb360 C2: 每轮耗时分解(LLM 流式 vs 工具执行),效率观测点
@@ -2061,7 +2078,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
             },
           });
-          const sc = await providerSummaryCall(provider, session.providerHistory);
+          const sc = await providerSummaryCall(provider, session.providerHistory, {
+            auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
+          });
           if (sc.ok) {
             const boundary = recentTurnsBoundary(session.providerHistory);
             const kept = session.providerHistory.slice(boundary);
@@ -2177,12 +2196,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
         // 21-E0: 一次模型响应 = 一个 assistant batch(serverToolCalls 不参与本地工具批,只占 batch 总宽度)。
         if (econThisIter && localToolCalls.length) {
-          econLog('assistant_tool_batch', {
+          if (econLog('assistant_tool_batch', {
             modelCallId: activeModelCallId, assistantBatchId: activeProviderBatchId,
             nTools: localToolCalls.length, batchWidth: call.toolCalls.length,
             toolNamesHash: econToolNamesHash(localToolCalls.map(t => t.name)),
             rawArgsBytes: localToolCalls.reduce((s, t) => s + econArgsBytes(t.rawArgs), 0),
-          });
+          })) econTotals.batchesLogged += 1;
         }
         for (const stc of serverToolCalls) {
           let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
@@ -2792,7 +2811,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const econToolsMs = Date.now() - tTools0;
           const econMax = econBatchToolMs.length ? Math.max(...econBatchToolMs) : 0;
           const econSum = econBatchToolMs.reduce((s, v) => s + v, 0);
-          econLog('tool_phase_completed', {
+          if (econLog('tool_phase_completed', {
             assistantBatchId: activeProviderBatchId,
             // 21-E2: strategy 扩展 pool_read(>8 有界并发)/pool_island(混合批岛, E2b); 旧并行批保持 'parallel'。
             strategy: poolStrategy || ((parallelReadResults && parallelReadResults.size) ? 'parallel' : 'serial'),
@@ -2803,7 +2822,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             criticalPathMs: econMax,
             serialEstimateMs: econSum,
             queueWaitMs: poolQueueWaitMs || 0, // 21-E2: pool 内资源锁排队总时长
-          });
+          })) econTotals.phasesLogged += 1;
         }
         await saveSession(session);   // persist the growing tool trace
         continue;                     // loop: let the model react to the tool results
@@ -2981,6 +3000,27 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     usage: usageObj && usageObj.usage ? { ...usageObj.usage, calls: usageObj.calls, estimated: usageObj.estimated === true } : undefined,
   });
   logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, errorClass, durationMs: Date.now() - turnStartedAt });
+  // 22-§4.2 第0步: 回合级「不抽样总量」账目 —— E1 报表口径的事实源。本体不受采样与事件上限约束,
+  // sampledLogged/eventsDropped 字段让报表能对账明细完整性(截断→标 unknown,不推算)。缺此行的引擎
+  // 路径(claude/kimi 桥接回合、playbook 草拟/JSON 修复等非摘要辅助调用)由报表显式标记未覆盖。
+  if (econOn && (econTotals.modelCallAttempts > 0 || econTotals.toolActions > 0)) {
+    try {
+      logEvent({
+        kind: 'econ_call_totals', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
+        engine: 'openai', apiStyle, provider: provider.id, model,
+        modelCallAttempts: econTotals.modelCallAttempts,
+        modelCallsLogged: econTotals.modelCallsLogged,
+        toolActions: econTotals.toolActions,
+        toolCallsLogged: econTotals.toolCallsLogged,
+        batchesLogged: econTotals.batchesLogged,
+        phasesLogged: econTotals.phasesLogged,
+        failoverAttempts: econTotals.failoverAttempts,
+        eventsEmitted: econTurnEvents, eventsDropped: econDropped, eventCap: ECON_EVENT_CAP,
+        state: wasStopped ? 'stopped' : (ok ? 'completed' : 'error'),
+        durationMs: Date.now() - turnStartedAt,
+      });
+    } catch { /* calibration accounting must never break the turn finish */ }
+  }
   // v1.0 收官安全加固:result 错误经 redact + 剥 URL userinfo 再回显(与显示路径一致);transportError 原文
   // 可能含带 basic-auth 的端点 URL,不加处理会漏进前端与审计。
   onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass });

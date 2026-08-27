@@ -20092,7 +20092,14 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           noteWindowOvershoot(provider.id, subModel, estNow); // 45d(b)
           onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
           const ev = evaporateHistory(subHistory);
-          const sc = await providerSummaryCall(provider, subHistory);
+          const sc = await providerSummaryCall(provider, subHistory, {
+            auxCtx: {
+              ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}),
+              ...(parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {}),
+              ...(subagentId ? { subagentId: String(subagentId) } : {}),
+              trigger: 'subagent_forced_400',
+            },
+          });
           if (sc.ok) {
             const boundary = recentTurnsBoundary(subHistory);
             const task0 = subHistory[0];
@@ -23237,14 +23244,28 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const ECON_EVENT_CAP = 400;              // 每回合 economics 事件上限,防极端大批打爆日志
   const ECON_SAMPLE_FULL_ITERS = 12;       // 前 12 个 model call 全采,之后每 4 采 1
   let econTurnEvents = 0;
+  // 22-§4.2 第0步(计量校准): 不抽样、不受事件上限约束的轻量总量计数。可抽样明细只描述「采样宇宙」,
+  // 真实调用/工具动作总量以这里的 counters 为准并在回合末随 econ_call_totals 落账 —— 报表不得再拿
+  // 明细条数冒充调用总量(旧口径:前12全采后每4采1仍按1:1报 callsPerTask 的缺陷由此修复)。
+  const econTotals = {
+    modelCallAttempts: 0,        // 到达 streamWithFailover 的每次真实发出(含工具被拒重试/强制压缩重试)
+    modelCallsLogged: 0,         // 已落盘的 model_call_started 明细条数(采样且未被上限丢弃)
+    toolActions: 0,              // notifyToolHookEnd 统一出口处置的动作全集(与明细宇宙一致)
+    toolCallsLogged: 0,          // 已落盘的 tool_call_completed 明细条数
+    batchesLogged: 0,            // 已落盘的 assistant_tool_batch 明细条数
+    phasesLogged: 0,             // 已落盘的 tool_phase_completed 明细条数
+    failoverAttempts: 0,         // 预首字节失败后切换备用端点的额外 HTTP 尝试次数
+  };
+  let econDropped = 0;           // 被每回台上限拒掉的明细事件条数(如实进总量事件,不得静默吞掉)
   let activeModelCallId = '';
   let econBatchToolMs = [];                // 本批各工具真实耗时(串行批=各工具执行耗时,并行批=预执行耗时)
   const econSampledIter = iter => iter < ECON_SAMPLE_FULL_ITERS || iter % 4 === 0;
   const econLog = (kind, fields) => {
-    if (!econOn) return;
-    if (econTurnEvents >= ECON_EVENT_CAP) return;
+    if (!econOn) return false;
+    if (econTurnEvents >= ECON_EVENT_CAP) { econDropped += 1; return false; }
     econTurnEvents += 1;
     try { logEvent({ kind, traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, ...fields }); } catch { /* economics shadow must never break a turn */ }
+    return true;
   };
   const econSchemaFingerprint = () => {
     try { return crypto.createHash('sha1').update(JSON.stringify(toolLoading.current() || [])).digest('hex').slice(0, 16); } catch { return ''; }
@@ -23300,6 +23321,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // 21-E0: tool_call_completed —— 每个本地工具动作的独立账目(所有路径统一出口:server/control/并行
     // read/串行/refused/skipped)。toolMs 优先取真实执行开始点(并行 read 批在预执行处记录),否则用
     // hook 起点差值。status 用 disposition 表达拒绝/跳过语义,result.ok 决定失败。
+    if (econOn && tc && tc.id) econTotals.toolActions += 1; // 不抽样总量:与 tool_call_completed 同一动作宇宙
     if (econOn && econSampledIter(iteration) && tc && tc.id) {
       try {
         const econStart = econToolStartAt.get(String(tc.id));
@@ -23322,14 +23344,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           discoveryFields = { discoverySeq: discoveryState.seq };
           if (!/^tool_(load|invoke_)/.test(tc.name || '')) discoveryState.awaitingOutcome = false; // 具体工具调用 = 链终点(outcome)
         }
-        econLog('tool_call_completed', {
+        if (econLog('tool_call_completed', {
           assistantBatchId: activeProviderBatchId, toolCallId: tc.id, name: tc.name,
           tier: econTier, status, toolMs,
           argsBytes: econArgsBytes(tc.rawArgs),
           resultBytes: econResultBytes(result),
           ...discoveryFields,
           ...(result && result.unchanged === true ? { deduped: true } : {}),
-        });
+        })) econTotals.toolCallsLogged += 1;
       } catch { /* economics shadow must never affect dispatch */ }
     }
   };
@@ -23523,6 +23545,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const cand = ordered[i];
       if (prevBase !== null) {
         // We are ABOUT to try a NEW endpoint after a pre-first-byte failure on the previous one → announce it.
+        econTotals.failoverAttempts += 1; // 不抽样:每次额外端点尝试都是一次真实 HTTP 发出(第0步口径)
         onEvent({ type: 'failover', providerId: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
         logEvent({ kind: 'failover', sessionId: session.id, provider: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
       }
@@ -23590,14 +23613,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const econThisIter = econSampledIter(iter);
       activeModelCallId = econThisIter ? makeId('mc') : '';
       const econBody = econThisIter ? buildBody(useTools) : null;
+      econTotals.modelCallAttempts += 1; // 不抽样:到达发出点的每次真实调用(重试/压缩后重试各自计一次)
       if (econThisIter) {
         econBatchToolMs = [];
-        econLog('model_call_started', {
+        if (econLog('model_call_started', {
           modelCallId: activeModelCallId, iter, apiStyle,
           toolSchemaFingerprint: econSchemaFingerprint(),
           historyBytes: econBody ? Buffer.byteLength(JSON.stringify(econBody), 'utf8') : 0,
           estimatedInputTokens: estBeforeCall,
-        });
+        })) econTotals.modelCallsLogged += 1;
       }
       const usageSnapshot = { input: turnUsage.input_tokens, output: turnUsage.output_tokens, cached: turnUsage.cached_input_tokens, calls: usageCalls };
       const tLlm0 = Date.now(); // hb360 C2: 每轮耗时分解(LLM 流式 vs 工具执行),效率观测点
@@ -23642,7 +23666,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
             },
           });
-          const sc = await providerSummaryCall(provider, session.providerHistory);
+          const sc = await providerSummaryCall(provider, session.providerHistory, {
+            auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
+          });
           if (sc.ok) {
             const boundary = recentTurnsBoundary(session.providerHistory);
             const kept = session.providerHistory.slice(boundary);
@@ -23758,12 +23784,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
         // 21-E0: 一次模型响应 = 一个 assistant batch(serverToolCalls 不参与本地工具批,只占 batch 总宽度)。
         if (econThisIter && localToolCalls.length) {
-          econLog('assistant_tool_batch', {
+          if (econLog('assistant_tool_batch', {
             modelCallId: activeModelCallId, assistantBatchId: activeProviderBatchId,
             nTools: localToolCalls.length, batchWidth: call.toolCalls.length,
             toolNamesHash: econToolNamesHash(localToolCalls.map(t => t.name)),
             rawArgsBytes: localToolCalls.reduce((s, t) => s + econArgsBytes(t.rawArgs), 0),
-          });
+          })) econTotals.batchesLogged += 1;
         }
         for (const stc of serverToolCalls) {
           let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
@@ -24373,7 +24399,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const econToolsMs = Date.now() - tTools0;
           const econMax = econBatchToolMs.length ? Math.max(...econBatchToolMs) : 0;
           const econSum = econBatchToolMs.reduce((s, v) => s + v, 0);
-          econLog('tool_phase_completed', {
+          if (econLog('tool_phase_completed', {
             assistantBatchId: activeProviderBatchId,
             // 21-E2: strategy 扩展 pool_read(>8 有界并发)/pool_island(混合批岛, E2b); 旧并行批保持 'parallel'。
             strategy: poolStrategy || ((parallelReadResults && parallelReadResults.size) ? 'parallel' : 'serial'),
@@ -24384,7 +24410,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             criticalPathMs: econMax,
             serialEstimateMs: econSum,
             queueWaitMs: poolQueueWaitMs || 0, // 21-E2: pool 内资源锁排队总时长
-          });
+          })) econTotals.phasesLogged += 1;
         }
         await saveSession(session);   // persist the growing tool trace
         continue;                     // loop: let the model react to the tool results
@@ -24562,6 +24588,27 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     usage: usageObj && usageObj.usage ? { ...usageObj.usage, calls: usageObj.calls, estimated: usageObj.estimated === true } : undefined,
   });
   logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, errorClass, durationMs: Date.now() - turnStartedAt });
+  // 22-§4.2 第0步: 回合级「不抽样总量」账目 —— E1 报表口径的事实源。本体不受采样与事件上限约束,
+  // sampledLogged/eventsDropped 字段让报表能对账明细完整性(截断→标 unknown,不推算)。缺此行的引擎
+  // 路径(claude/kimi 桥接回合、playbook 草拟/JSON 修复等非摘要辅助调用)由报表显式标记未覆盖。
+  if (econOn && (econTotals.modelCallAttempts > 0 || econTotals.toolActions > 0)) {
+    try {
+      logEvent({
+        kind: 'econ_call_totals', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
+        engine: 'openai', apiStyle, provider: provider.id, model,
+        modelCallAttempts: econTotals.modelCallAttempts,
+        modelCallsLogged: econTotals.modelCallsLogged,
+        toolActions: econTotals.toolActions,
+        toolCallsLogged: econTotals.toolCallsLogged,
+        batchesLogged: econTotals.batchesLogged,
+        phasesLogged: econTotals.phasesLogged,
+        failoverAttempts: econTotals.failoverAttempts,
+        eventsEmitted: econTurnEvents, eventsDropped: econDropped, eventCap: ECON_EVENT_CAP,
+        state: wasStopped ? 'stopped' : (ok ? 'completed' : 'error'),
+        durationMs: Date.now() - turnStartedAt,
+      });
+    } catch { /* calibration accounting must never break the turn finish */ }
+  }
   // v1.0 收官安全加固:result 错误经 redact + 剥 URL userinfo 再回显(与显示路径一致);transportError 原文
   // 可能含带 basic-auth 的端点 URL,不加处理会漏进前端与审计。
   onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass });
@@ -25201,7 +25248,18 @@ function chunkHistoryByBudget(history, budgetTokens) {
 
 // 单次摘要调用(原内核体,45a 拆出以便 map-reduce 复用)。messages 为历史,prompt 追加于尾。
 // v1.7: follows provider.apiStyle — Responses protocol uses instructions+input, reads output_text.
-async function singleSummaryCall(provider, messages, model) {
+// 22-§4.2 第0步:econCtx.econ 为真时,每次真实 HTTP 尝试(成功或失败)落一条 econ_summary_call ——
+// 此前摘要/压缩调用完全不在经济性账本里,报表的 callsPerTask 系统性漏掉它们(归属缺口由本行修复)。
+let ECON_AUX_FLAG_CACHE = { at: 0, on: false };
+async function economicsShadowEnabledCached() { // 60s 内缓存,避免压缩路径上反复读盘
+  if (Date.now() - ECON_AUX_FLAG_CACHE.at < 60000) return ECON_AUX_FLAG_CACHE.on;
+  try {
+    const cfg = await readConfig();
+    ECON_AUX_FLAG_CACHE = { at: Date.now(), on: cfg && cfg.toolEconomicsShadowV1 === true };
+  } catch { /* keep previous cached value */ }
+  return ECON_AUX_FLAG_CACHE.on;
+}
+async function singleSummaryCall(provider, messages, model, econCtx) {
   const respStyle = provider && provider.apiStyle === 'responses';
   // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
   const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
@@ -25225,11 +25283,38 @@ async function singleSummaryCall(provider, messages, model) {
     if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(u.hostname) || /ollama/i.test(String(provider && (provider.id + ' ' + provider.label) || ''))) timeoutMs = 300000;
   } catch { /* retain remote default */ }
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  const econT0 = Date.now();
+  const econDone = result => { // 摘要调用账目:usage 缺失时 usageSource='missing',不推算不冒充
+    try {
+      if (!econCtx || econCtx.econ !== true) return;
+      const u = result && result.usage;
+      const uIn = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
+      const uOut = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+      const okRes = !!(result && result.ok);
+      const hasUsage = uIn > 0 || uOut > 0;
+      logEvent({
+        kind: 'econ_summary_call',
+        ...(econCtx.sessionId ? { sessionId: econCtx.sessionId } : {}),
+        ...(econCtx.turnSeq != null && Number(econCtx.turnSeq) > 0 ? { turnSeq: Number(econCtx.turnSeq) } : {}),
+        ...(econCtx.traceId ? { traceId: econCtx.traceId } : {}),
+        ...(econCtx.subagentId ? { subagentId: String(econCtx.subagentId) } : {}),
+        trigger: String(econCtx.trigger || 'summary'),
+        model: String(model || ''), apiStyle: respStyle ? 'responses' : 'chat',
+        ok: okRes,
+        usageSource: okRes && hasUsage ? 'provider' : 'missing',
+        inputTokens: uIn, outputTokens: uOut,
+        ...(okRes && hasUsage && typeof cachedInputTokensFromUsage === 'function' ? { cachedInputTokens: Math.min(uIn, cachedInputTokensFromUsage(u)) } : {}),
+        ...(econCtx.chunkIndex ? { mapReduceChunk: Number(econCtx.chunkIndex) } : {}),
+        httpMs: Date.now() - econT0,
+      });
+    } catch { /* shadow accounting must never break compaction */ }
+  };
   try {
     const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: ctrl ? ctrl.signal : undefined });
     if (!res || !res.ok) {
       let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
-      return { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
+      const failed = { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
+      econDone(failed); return failed;
     }
     const j = await res.json().catch(() => null);
     let summary = '';
@@ -25244,11 +25329,13 @@ async function singleSummaryCall(provider, messages, model) {
       summary = String((msg && msg.content) || '');
     }
     summary = summary.trim();
-    if (!summary) return { ok: false, error: 'provider returned an empty summary' };
+    if (!summary) { const failed = { ok: false, error: 'provider returned an empty summary' }; econDone(failed); return failed; }
     // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model + 对发送 payload 的输入估算,让压缩调用方记入 aux 台账。
-    return { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
+    const okRes = { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
+    econDone(okRes); return okRes;
   } catch (e) {
-    return { ok: false, error: (e && e.name === 'AbortError') ? `summary request timed out (${Math.round(timeoutMs / 1000)}s)` : ((e && e.message) || 'summary request failed') };
+    const failed = { ok: false, error: (e && e.name === 'AbortError') ? `summary request timed out (${Math.round(timeoutMs / 1000)}s)` : ((e && e.message) || 'summary request failed') };
+    econDone(failed); return failed;
   } finally { if (timer) clearTimeout(timer); }
 }
 
@@ -25266,26 +25353,37 @@ async function providerSummaryCall(provider, history, opts) {
   // 45a:摘要输入预算 = 窗口 × 50%(余量留给输出+系统层;窗口缺省 64K 时预算 32K)。
   const budget = Math.max(4000, Math.floor(providerContextWindow(provider, model) * SUMMARY_INPUT_BUDGET_RATIO));
   const fitted = fitHistoryForSummary(history, budget);
+  // 22-S0 摘要归属上下文:econ 标志读一次,身份字段由调用方经 opts.auxCtx 提供(缺失→不落 sessionId/turnSeq)。
+  const ectxBase = {
+    econ: await economicsShadowEnabledCached(),
+    ...(opts && opts.auxCtx ? {
+      ...(opts.auxCtx.sessionId ? { sessionId: String(opts.auxCtx.sessionId) } : {}),
+      ...(opts.auxCtx.turnSeq != null ? { turnSeq: Number(opts.auxCtx.turnSeq) } : {}),
+      ...(opts.auxCtx.traceId ? { traceId: String(opts.auxCtx.traceId) } : {}),
+      ...(opts.auxCtx.subagentId ? { subagentId: String(opts.auxCtx.subagentId) } : {}),
+      trigger: String(opts.auxCtx.trigger || 'summary'),
+    } : { trigger: 'summary' }),
+  };
   if (!fitted.needsMapReduce) {
-    const sc = await singleSummaryCall(provider, fitted.messages, model);
+    const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase);
     if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
     if (sc.ok && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     return sc;
   }
   // map-reduce:分组 → 逐组摘要 → 总摘要。任一组失败即整体失败(错误原样上浮,调用方保留 L1 降级)。
   const chunks = chunkHistoryByBudget(history, budget);
-  if (chunks.length <= 1) return singleSummaryCall(provider, chunks[0] || [], model);
+  if (chunks.length <= 1) return singleSummaryCall(provider, chunks[0] || [], model, ectxBase);
   const partials = [];
   let aggIn = 0, aggOut = 0, aggEst = 0;
-  for (const c of chunks) {
-    const r = await singleSummaryCall(provider, c, model);
+  for (let ci = 0; ci < chunks.length; ci++) {
+    const r = await singleSummaryCall(provider, chunks[ci], model, { ...ectxBase, chunkIndex: ci + 1 });
     if (!r.ok) return r;
     partials.push(r.summary);
     if (r.usage) { aggIn += Number(r.usage.prompt_tokens != null ? r.usage.prompt_tokens : r.usage.input_tokens) || 0; aggOut += Number(r.usage.completion_tokens != null ? r.usage.completion_tokens : r.usage.output_tokens) || 0; }
     aggEst += Number(r.promptTokensEst) || 0;
   }
   const joined = [{ role: 'user', content: partials.map((s, i) => `【分段摘要 ${i + 1}/${partials.length}】\n${s}`).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。' }];
-  const final = await singleSummaryCall(provider, joined, model);
+  const final = await singleSummaryCall(provider, joined, model, ectxBase);
   if (!final.ok) return final;
   if (!validateStructuredSummary(final.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
   if (final.usage) { final.usage.prompt_tokens = (Number(final.usage.prompt_tokens) || 0) + aggIn; final.usage.completion_tokens = (Number(final.usage.completion_tokens) || 0) + aggOut; }
@@ -25434,7 +25532,7 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
   if (!resolved.provider || resolved.isDefault) return { ok: false, error: 'no external compaction model selected' };
   const history = compactHistoryFromSession(session);
   if (!history.length) return { ok: false, error: 'no conversation history to compact' };
-  const sc = await providerSummaryCall(resolved.provider, history, { model: resolved.model });
+  const sc = await providerSummaryCall(resolved.provider, history, { model: resolved.model, auxCtx: { sessionId: String(sessionId || ''), trigger: 'agent_external_manual' } });
   if (!sc.ok) return { ok: false, error: sc.error };
   recordCompactUsage(session, resolved.provider, sc);
   const beforeTokens = lastSessionContextTokens(session) || estimateHistoryTokens(history);
@@ -25499,7 +25597,14 @@ async function maybeCompactSubHistory(opts) {
     // L2 摘要重播种(仍超预算):复用共用摘要内核。失败 → 保留 L1、不中断子回合(镜像主回合)。
     const compactTarget = resolveCompactionProvider(config, provider);
     const summaryProvider = compactTarget.provider || provider;
-    const sc = await providerSummaryCall(summaryProvider, subHistory, { model: compactTarget.model });
+    const sc = await providerSummaryCall(summaryProvider, subHistory, {
+      model: compactTarget.model,
+      auxCtx: {
+        ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}),
+        ...(subagentId ? { subagentId: String(subagentId) } : {}),
+        trigger: 'subturn_auto_L2',
+      },
+    });
     if (!sc || !sc.ok) { if (evaporated > 0) { emit('evaporate', after1); return true; } return false; }
     const boundary = recentTurnsBoundary(subHistory);
     const task0 = subHistory[0];
@@ -25618,7 +25723,10 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     const before2 = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a)
     const compactTarget = resolveCompactionProvider(config, provider);
     const summaryProvider = compactTarget.provider || provider;
-    const sc = await providerSummaryCall(summaryProvider, history, { model: compactTarget.model });
+    const sc = await providerSummaryCall(summaryProvider, history, {
+      model: compactTarget.model,
+      auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'auto_L2' },
+    });
     if (!sc.ok) {
       // Level-2 failed (network/timeout). Keep the level-1 result and continue the turn — do NOT abort.
       logEvent({ kind: 'auto_compact', mode: 'summary', sessionId: session.id, ok: false, error: sc.error });

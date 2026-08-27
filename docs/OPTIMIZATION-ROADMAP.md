@@ -96,7 +96,7 @@
 
 **首批六项范围（待实施／验证，逐项独立，不同时启用）**：
 
-1. **第 0 步计量校准**：先修 E0/E1 抽样明细被当总量的口径，分清 turn/task、HTTP attempt、费用来源与缺失覆盖；再做热点统计。用已知合成账目与固定夹具验收，无需长期日志或新后台服务。
+1. **第 0 步计量校准**：先修 E0/E1 抽样明细被当总量的口径，分清 turn/task、HTTP attempt、费用来源与缺失覆盖；再做热点统计。用已知合成账目与固定夹具验收，无需长期日志或新后台服务。**✅ 核心 2026-08-27 已交付**（econ_call_totals 不抽样总量 + econ_summary_call 摘要归属 + 报表 schema 2 对账三分断；合成 32 断言与离线真链路 e2e 全绿，见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) §4.2）
 2. **#1 Prompt Cache 纪律验证**：固定多轮请求＋真实 provider 的冷／热缓存与费用回执；布局变更加任务质量对照。
 3. **#6 已有只读 worker pool 增量验证**：复用 21-E2，与当前 legacy 而非仅与串行比较；构造 >8 批、争用／故障／取消，用实际本地工具测量。
 4. **#2a 受限结果缓存**：资源版本与权限明确的白名单，验证失效和零命中开销；不捆绑观察压缩。
@@ -133,7 +133,7 @@
 
 **运行时优化性价比候选线（2026-08-15，shadow 已启用、非纯收益）**：完成 AgentRx、AgentDiet、工具检索、上下文治理、模型/预算路由、DAG 调度、推测执行、语义事务、Windows 感知与 KV cache 等方向的去重和成本收益评审。`runtimeOptimizationShadowV1` 默认开启，只旁路计算/脱敏记录，不改变工具结果、上下文、权限、retry 或记忆。基础 60/20/30 合成门虽通过，但后续 283 条检索、89 条 observation、59 条失败分类与 1,000 指纹探针的对抗审计给出 `mixed_benefit_with_identified_costs_and_blockers`：T1 正例收益显著且无样本内退化，但攻击/无关 query 有误召回和大 catalog 线性成本；C1 发现纯文本错误漏保护、超宽结构化结果非法 JSON、重复压缩非幂等三个 High，**主动启用阻断**；F1 对部分写操作 transport ambiguity 分类不足，但仍 fail-safe、只保留 telemetry。Recovery Brief/自动恢复未准入；完整 AgentRx/AgentDiet、学习型路由/调度及新运行时服务继续暂缓。详细证据与修复前置门见 [`optimization-plan/20-runtime-optimization-cost-benefit.md`](optimization-plan/20-runtime-optimization-cost-benefit.md) §0.4。
 
-**工具调用经济性校准与收敛线（2026-08-27 状态同步）**：E0 三层账本、E1 报表、E2a worker pool／E2c 重放、E3 参数双视图与 E5 元工具链已有实现；主动优化开关仍关闭，E2b/E4 延后，HB360 历史对账 blocked/deferred。新增核查发现 E0/E1 将抽样事件直接计为调用总量的问题，第 0 步需先修口径，不能把“代码已实现”视为“完整基线已可信”。旧 HB360 的 `1,739` 合成轮次不等于模型调用，`10.1–10.4/任务` 等数字保留为历史样本口径，不直接外推当前版本。已有 read 重放相对 serial 的 p95 -26% 是既有并行能力，legacy == pool，不是新 pool 增量收益。后续与 22 号线共用计量、缓存和并行实验；可用构造夹具／固定真实模型任务验证限定范围，不等待长期流量，也不冒称历史对账已通过。原 21 号线量化目标保留为候选门，须基于校准后的当前对照和适用任务范围冻结。20-T1/C1 仍按各自原有数据与安全门管理。详见 [`optimization-plan/21-tool-call-economics-convergence.md`](optimization-plan/21-tool-call-economics-convergence.md)。
+**工具调用经济性校准与收敛线（2026-08-27 状态同步）**：E0 三层账本、E1 报表、E2a worker pool／E2c 重放、E3 参数双视图与 E5 元工具链已有实现；主动优化开关仍关闭，E2b/E4 延后，HB360 历史对账 blocked/deferred。E0/E1 抽样明细被当总量的口径缺陷已随 22-S0 修复（不抽样总量事件 + 摘要调用归属 + 报表以真实总量为事实源），基线自此可信；后续与 22 号线共用计量、缓存和并行实验；可用构造夹具／固定真实模型任务验证限定范围，不等待长期流量，也不冒称历史对账已通过。旧 HB360 的 `1,739` 合成轮次不等于模型调用，`10.1–10.4/任务` 等数字保留为历史样本口径，不直接外推当前版本。已有 read 重放相对 serial 的 p95 -26% 是既有并行能力，legacy == pool，不是新 pool 增量收益。原 21 号线量化目标保留为候选门，须基于校准后的当前对照和适用任务范围冻结。20-T1/C1 仍按各自原有数据与安全门管理。详见 [`optimization-plan/21-tool-call-economics-convergence.md`](optimization-plan/21-tool-call-economics-convergence.md)。
 
 ### Traveler 4.0（概念稿）
 

@@ -1,6 +1,7 @@
 # 21 · 工具调用经济性校准与收敛——真实轮次、批次调度、参数历史与元工具链
 
-> 状态（2026-08-27 同步）：**E0/E1、E2a/E2c、E3/E5 已有实现，主动优化开关仍关闭，E2b/E4 延后；E0/E1 抽样→总量口径待修，尚不能视为完整可信基线**。下列 2026-08-17 记录保留为实现与历史测试证据，不等于默认启用或总体收益已证明。
+> 状态（2026-08-27 同步）：**E0/E1、E2a/E2c、E3/E5 已有实现，主动优化开关仍关闭，E2b/E4 延后；E0/E1 抽样→总量口径修复已随 22-S0 交付（econ_call_totals 不抽样总量 + econ_summary_call 摘要归属 + 报表 schema 2），基线自此可信**。下列 2026-08-17 记录保留为实现与历史测试证据，不等于默认启用或总体收益已证明。
+> **S0 口径校准实施记录（2026-08-27，详见 [22 号方案 §4.2](22-agent-soc-microarchitecture.md)）**：运行时在回合收尾落**不抽样总量事件 `econ_call_totals`**（modelCallAttempts 含被拒/压缩重试的每次真实发出、toolActions 与明细同宇宙、failoverAttempts 额外 HTTP 尝试、eventsDropped/eventCap 截断元数据）；`singleSummaryCall` 每次真实 HTTP 尝试落 **`econ_summary_call`**（auto_L2/manual/subturn_auto_L2/subagent_forced_400/context_overflow_retry/agent_external_manual 六源归属，usage 缺失标 missing 不推算）；`economics-report.js` 升级 **schema 2**——windows/callsPerTask 以 totals 为事实源（无 totals 显式 estimatedFromSampled 降级），新增 coverage 逐回合计数对账（countsMatchLedger/truncatedByCap/drifted 三分断）、http(逻辑+failover)、auxCalls 按 trigger 分列。旧缺陷（40 次调用报 19 次）由合成账目单测回归锁死（150 attempts 越 400 上限仍报 150）。证据：`dev-harness/unit/econ-calibration.test.js` + economics-shadow.e2e 新增对账断言，全部通过。
 > **22 号线衔接**：第 0 步先修计量口径；A 类确定性／本地基准与 B 类固定真实模型／后端任务可验证限定范围，不统一等待长期用户数据。改变模型输入的 E3/E4/E5 提示部分仍须真实模型 A/B；HB360 历史对账、20-T1 真实 search 数据门与 20-C1 High 阻断不被合成测试替代。详见 [22 号方案](22-agent-soc-microarchitecture.md) §4／§6。
 > 决策日期：2026-08-17
 > 实施记录（2026-08-17）：

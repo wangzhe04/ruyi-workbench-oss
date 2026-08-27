@@ -2,7 +2,7 @@
 
 > **立项（2026-08-27，用户拍板）**：Pretender 3.0 的核心由壳层收口改为引擎侧迭代。原壳层 P1–P3 成果保留，P4 默认切壳与发布正名保持搁置，不因本线立项自动恢复。新旧规划适用边界见 §8。
 > **评审修订（2026-08-27，依据本轮讨论）**：先取得足够证据，不统一等待长期真实用户数据；采用确定性测试、本地基准、固定任务集上的真实模型／后端测试，优先交付限定范围内可验证的收益。
-> **状态**：规划已修订，新增工作尚未实施；本文不修复代码、不启用开关、不宣告收益已兑现。保留 15 项方向编号，#2／#13／#14 按风险与证据类型拆成子项；首批不要求全部 15 项落地。
+> **状态**：规划已修订；§4.2 第 0 步计量校准核心已交付（2026-08-27：econ_call_totals / econ_summary_call / 报表 schema 2，A 类合成账目与离线真链路对账全绿），首批其余各项均未实施；本文不启用任何主动优化开关、不宣告收益已兑现。保留 15 项方向编号，#2／#13／#14 按风险与证据类型拆成子项；首批不要求全部 15 项落地。
 > 关联：[06 成本收敛](06-hb360-cost-convergence.md)、[20 运行时优化](20-runtime-optimization-cost-benefit.md)、[21 工具经济性](21-tool-call-economics-convergence.md)、[12 架构研究](12-agent-architecture-research-roadmap.md)；去重关系见 §5。
 
 ---
@@ -78,9 +78,18 @@ A／B／C 的证据含义见 §4.1，不代表收益或上线许可已经取得�
 
 长期真实数据主要用于扩展适用范围与估计总体收益；不是 A／B 的统一入场门。C 也可缩小为指定任务族验证，不必无限等待。现有 HB360 历史对账仍如实标记 blocked/deferred，不能用合成测试冒称该历史门已通过。
 
-### 4.2 第 0 步：计量校准与固定基准（先行，待实施）
+### 4.2 第 0 步：计量校准与固定基准（先行 · 核心✅ 2026-08-27 交付）
 
-**已发现的问题，不是已完成的修复**：
+**核心口径修复已落地（2026-08-27）**：
+
+- **不抽样总量事件 `econ_call_totals`**：`09-workflow.js` 回合收尾处落一条不受采样与 400 上限约束的总量账目——`modelCallAttempts`（到达发出点的每次真实调用，含工具被拒重试与强制压缩重试）、`toolActions`（与 tool_call_completed 同一动作宇宙）、`failoverAttempts`（预首字节失败后的备用端点额外 HTTP 尝试）、以及 sampledLogged/eventsDropped/eventCap 截断元数据。
+- **摘要调用归属 `econ_summary_call`**：`10-context-governance.js` 的 `singleSummaryCall` 在每次真实 HTTP 尝试后落账（成功与失败都记），携带 trigger 归属（auto_L2 / manual / agent_external_manual / subturn_auto_L2 / subagent_forced_400 / context_overflow_retry）、provider usage（缺失时 usageSource='missing' 不推算）与 map-reduce 分块标记；五个调用点全部穿入 auxCtx 身份。
+- **报表 schema 2**：`economics-report.js` 的 windows/callsPerTask 改以 totals 为事实源（无 totals 时显式 `estimatedFromSampled:true` 降级并写入 unknowns）；新增 coverage（逐回合计数对账三分断：countsMatchLedger / truncatedByCap / drifted、sampledShare、unknowns 清单）、http（逻辑调用+failover=HTTP 尝试）、auxCalls（摘要按 trigger 分列 + 手工压缩计数）。明细切片的 pairing/unpaired 保留但标注 scope。
+- **证据**：合成已知账目 32 断言全绿（`dev-harness/unit/econ-calibration.test.js`：短序列精确、150 attempts 越过 400 上限仍报真实总量且截断不误判 drift、中断回合 attempts 全计、父子节点分账、legacy 无 totals 显式降级）；离线真链路 e2e 12 条新断言全绿（`dev-harness/economics-shadow.e2e.js`：恰一条 totals 行、四类计数器与明细账目实时对账闭合）；既有 economics-report/meta-tools/read-pool/context-compact-v2/autocompact/adversarial-w21/runtime-optimization-static 回归全部通过。
+
+**仍未做（后续挖掘项，非本步范围）**：受控作用域 HMAC 参数指纹与重复率挖掘（§4.2 交付物 3、5）；跨 Mission 的 task/run/node 级固定基准 taskId 扩展；playbook 草拟与 JSON 修复等非摘要辅助调用的归属；20-T1/C1 阻断维持原状。
+
+原始问题记录（保留供审计追溯）：
 
 - 运行时前 12 次调用全采，之后每 4 次采 1 次，每回合最多 400 条 economics 事件；报表用 started 条数直接计算 callsPerTask。
 - 按现有采样规则构造 40 次调用，报表显示 19 次且配对为 1:1。该合成复现只证明口径缺陷，不是实际用户任务测量。
@@ -102,7 +111,7 @@ A／B／C 的证据含义见 §4.1，不代表收益或上线许可已经取得�
 
 | 顺序 | 工作 | 主要出门证据 |
 |---|---|---|
-| 0 | **计量校准**（§4.2） | A：合成已知账目正确；缺失／抽样口径透明 |
+| 0 | **计量校准**（§4.2）✅ 核心 2026-08-27 已交付 | A：合成已知账目正确；缺失／抽样口径透明 |
 | 1 | **#1 Prompt Cache 纪律验证** | B：固定多轮请求的冷／热对照，真实 provider usage／费用，变更内容布局时附任务质量对照 |
 | 2 | **#6 已有只读 worker pool 的增量验证** | A：≤8、>8、串行／混合批、争用／取消覆盖；相对当前实现的实际本地工具耗时与端到端占比 |
 | 3 | **#2a 受限执行结果缓存** | A：明确版本的白名单、正确失效／权限隔离／结果等价，命中与零命中开销；不捆绑 #2b |
