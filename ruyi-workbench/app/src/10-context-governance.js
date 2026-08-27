@@ -453,6 +453,11 @@ function measureObservationReductionShadow(history) {
 //      逐组摘要,再对拼接的分段摘要做总摘要;usage 聚合记账,元数据 mapReduce.chunks。
 // ── 45e:结构化摘要 prompt(目标/决定/未完成/关键文件四段式,替代旧单段流水)─────────────
 const SUMMARY_INPUT_BUDGET_RATIO = 0.5;
+// 22-S0 热点基线实测(2026-08-27):单发摘要输入到 60K token 时,glm-5.3-flash 的正常耗时已在
+// 40–51s,旧 60s 远程超时等于踩悬崖 —— 真实 dogfood 一天 30 次 L2 里 26 次超时作废。
+// ① 远程超时提到 180s(localhost/Ollama 维持 300s);② 本可单发但预估超过此阈值的输入强制走
+// map-reduce 分块,让每次真实 HTTP 尝试天然远离超时线。
+const SUMMARY_SINGLE_SHOT_MAX_EST = 32000;
 const SUMMARY_PROMPT = '请把以上对话压缩为结构化摘要,严格按以下四节输出(某节无内容写「无」):\n'
   + '【目标】用户的核心目标与关键约束\n'
   + '【已确认的决定】已拍板的事实、方案选择、用户偏好\n'
@@ -581,7 +586,7 @@ async function singleSummaryCall(provider, messages, model, econCtx) {
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  let timeoutMs = 60000;
+  let timeoutMs = 180000; // 远程默认 3 分钟:实测 60K token 摘要 p50≈45–51s,60s 会整批作废(22-S0 热点基线)
   try {
     const u = new URL(String(provider && provider.baseUrl || ''));
     if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(u.hostname) || /ollama/i.test(String(provider && (provider.id + ' ' + provider.label) || ''))) timeoutMs = 300000;
@@ -668,14 +673,18 @@ async function providerSummaryCall(provider, history, opts) {
       trigger: String(opts.auxCtx.trigger || 'summary'),
     } : { trigger: 'summary' }),
   };
-  if (!fitted.needsMapReduce) {
+  const singleEstimate = estimateHistoryTokens(Array.isArray(fitted.messages) ? fitted.messages : []);
+  const forceChunks = !fitted.needsMapReduce && singleEstimate > SUMMARY_SINGLE_SHOT_MAX_EST; // 肥单发 → 分块,让每次真实尝试远离超时悬崖
+  if (!fitted.needsMapReduce && !forceChunks) {
     const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase);
     if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
     if (sc.ok && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     return sc;
   }
   // map-reduce:分组 → 逐组摘要 → 总摘要。任一组失败即整体失败(错误原样上浮,调用方保留 L1 降级)。
-  const chunks = chunkHistoryByBudget(history, budget);
+  const chunks = chunkHistoryByBudget(history, forceChunks
+    ? Math.min(budget, Math.max(4000, Math.floor(SUMMARY_SINGLE_SHOT_MAX_EST * 0.75))) // 22-S0:肥单发分块时压低每组目标
+    : budget);
   if (chunks.length <= 1) return singleSummaryCall(provider, chunks[0] || [], model, ectxBase);
   const partials = [];
   let aggIn = 0, aggOut = 0, aggEst = 0;

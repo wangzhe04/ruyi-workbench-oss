@@ -5,6 +5,10 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 · Unreleased
 
+- **慢速端点自动压缩摘要修复**：远程 L2 摘要调用超时从 60 秒提升到 180 秒（localhost/Ollama 保持 300 秒），并新增单发摘要输入上限——预估超过 32K token 的摘要自动改走 map-reduce 分块，让每次真实请求远离超时线。实测 glm-5.3-flash 处理 60K 输入的正常耗时为 40–51 秒，旧 60 秒超时曾致一天 30 次 L2 中 26 次整单作废。
+
+- **Slow-endpoint auto-compact summary fix**: remote L2 summary calls now time out at 180 seconds instead of 60 (localhost/Ollama keep 300s), and a new single-shot input ceiling forces map-reduce chunking whenever a fitted summary is estimated above 32K tokens, keeping every real request clear of the timeout cliff. Live measurement on glm-5.3-flash showed normal 40–51s runtimes for 60K-token inputs; under the old limit, 26 of 30 L2 attempts in one day were wasted wholesale to timeouts.
+
 - **自动压缩记录降噪与滞回**：同一长回合内反复触发的自动压缩不再逐条追加🗜标记行（真机数据曾出现单会话 337 行里 251 行是压缩标记），改为尾部原位合并为一行并累计次数、蒸发条数与前后 token；对话继续后旧标记自然闭环。「蒸发 1 条：106K→106K」这类零收益压缩只记审计账、不再出现在消息流；一次压缩后进入滞回水位（压后估算 + max(2K, 2% 窗口)），贴着预算线的估算抖动不会再造成每个迭代边界的无效快照写盘与空转压缩。同时修复 token 读数尾零正则把整百整千错报 10 倍的问题（110000 曾显示为「11K」、100000 显示为「1K」），服务端与前端读数口径一致。
 
 - **Auto-compaction marker denoising with hysteresis**: repeated auto-compactions inside one long agent turn no longer append individual 🗜 rows (real-world data showed a session with 251 compact markers across 337 rows); they merge in place into a single line accumulating pass count, evaporated results, and before/after tokens, closing naturally once the conversation continues. Zero-gain passes such as “evaporated 1 result: 106K→106K” now stay audit-only and never appear in the message flow; after any compaction a hysteresis watermark (post-compaction estimate + max(2K, 2% of window)) stops budget-line estimate jitter from re-triggering pointless snapshot writes and idle compactions on every iteration boundary. Also fixes the trailing-zero regex that misreported round K/M values by 10× (110000 used to display as “11K”, 100000 as “1K”), keeping server and frontend readings consistent.
