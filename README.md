@@ -12,7 +12,7 @@
 
 一台 Windows 机器 + 任意一个可用的模型端点（任意 OpenAI 兼容 API、Claude Code 或 Kimi Code）= 一个**能真正替你动手**的本地 AI 工作台:读写文件、跑脚本、操控桌面和 Office、派一队子代理协作调研——每一步可审计、可撤销、成本透明,**有网没网都能正常运行**。
 
-> **当前稳定技术版本：`v2.6.1`。** 这是加入 Kimi Code Agent CLI 支持的 Escapade 2.6 补丁版本；发布资产统一使用 `v2.6.1`。
+> **当前稳定技术版本：`v2.6.2`。** 这是加入固定预算上下文压缩与安全重播种策略的 Escapade 2.6 补丁版本；发布资产统一使用 `v2.6.2`。
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />

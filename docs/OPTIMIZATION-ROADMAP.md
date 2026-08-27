@@ -11,10 +11,10 @@
 
 | 对外产品线 | 技术版本与 Git tag | 面向用户的写法 | 状态 |
 |---|---|---|---|
-| **Escapade** | `v2.x.y` | **如意 Ruyi Escapade 2.0**；修订版写作 Escapade 2.0.1、2.1 … | 当前大版本；源码版本与 Git tag 已到 `v2.6.1`；`CHANGELOG.md` 最后已归档发布条目仍为 `v2.5.0`（2026-08-09） |
+| **Escapade** | `v2.x.y` | **如意 Ruyi Escapade 2.0**；修订版写作 Escapade 2.0.1、2.1 … | 当前大版本；源码版本与 Git tag 已到 `v2.6.2`；`CHANGELOG.md` 最后已归档发布条目为 `v2.6.2`（2026-08-27） |
 | **Pretender** | `v3.0.0` | **如意 Ruyi Pretender 3.0** | **重新立项（2026-08-27）**：版本核心改为引擎侧 Agent SoC 微架构迭代（见「Pretender 3.0 重新立项」节与 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)）；原壳层线 P1✅ / P2✅ / P3 工程✅，P4 默认切换与发布保持搁置，不因重新立项自动恢复 |
 
-- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析（当前技术基线为 `v2.6.1`）。离线包也继续用短文件名（如 `Ruyi-v2.6.1-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效；源码／tag 的版本号不替代发布物与发布状态核验。
+- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析（当前技术基线为 `v2.6.2`）。离线包也继续用短文件名（如 `Ruyi-v2.6.2-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效；源码／tag 的版本号不替代发布物与发布状态核验。
 - `第N波`、`Nx` 等只表示内部工作切片；一个 Release 可以汇总多波，一个波也可只在后续补丁版发布。只有范围冻结、测试与打包门通过后，才决定是 `2.0.x` 补丁、`2.x` 功能版本或下一主版本。
 - 每个对外大版本以一个产品代号统摄体验目标；Pretender 3.0.0 正式发布批准前不把 Pretender 名/3.0 版本号混入用户界面、下载名或兼容承诺（22 号方案 §8 的品牌冻结纪律）。
 
@@ -24,7 +24,7 @@
 
 | 线 | 状态 | 依据 |
 |---|---|---|
-| **Escapade 发布线** | 当前源码与技术 tag 为 `v2.6.1`；`CHANGELOG.md` 最后已归档发布条目为 `v2.5.0`（2026-08-09，含第95–98波），后续变更仍列于 Unreleased。本次规划修订不改变版本号或发布状态 | `ruyi-workbench/package.json`、git tag `v2.6.1`、`CHANGELOG.md` |
+| **Escapade 发布线** | 当前源码与技术 tag 为 `v2.6.2`；`CHANGELOG.md` 已归档 `v2.6.2`（2026-08-27，固定预算上下文压缩与安全重播种），后续变更进入 Unreleased | `ruyi-workbench/package.json`、git tag `v2.6.2`、`CHANGELOG.md` |
 | **Pretender 3.0 交付线（🔁 重新立项：核心改向引擎侧）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）**；**2026-08-27 重新立项：版本核心改为引擎侧 Agent SoC 微架构迭代（[`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) 与本文「Pretender 3.0 重新立项」节），原壳层 P1–P3 成果已随 Escapade 2.x 交付，P4 默认切换保持搁置** | `docs/PRETENDER-PLAN.md` v4、`docs/PRETENDER-METRICS.md`、第99/100波记录 `docs/archive/optimization-plan/08-task-sheet-ux-audit.md` |
 | **Traveler 4.0** | 概念稿 v0.1（非承诺） | `docs/TRAVELER-CONCEPT.md` |
 

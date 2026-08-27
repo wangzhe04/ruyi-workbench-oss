@@ -98,11 +98,18 @@ ok(!!mm, 'A 源抽取 maybeCompactSubHistory');
 // 抽真 evaporateHistory + recentTurnsBoundary(保真);其余注入桩。
 const em = src.match(/function evaporateHistory\(history(?:, opts)?\) \{[\s\S]*?\n\}/);
 const evaporateHistory = new Function('EVAPORATED_PREFIX', em[0] + '\nreturn evaporateHistory;')('[已省略:'); // 注入模块级常量
-const rm = src.match(/function recentTurnsBoundary\(history\) \{[\s\S]*?\n\}/);
-const recentTurnsBoundary = new Function(rm[0] + '\nreturn recentTurnsBoundary;')();
+const rm = src.match(/function recentTurnsBoundary\(history, maxTailTokens\) \{[\s\S]*?\n\}/);
 // 桩:窗口 1000 token;估算 = 各消息 content 长度/4 + 40/条;摘要内核可控 ok/summary。
 const providerContextWindow = () => 1000;
 const estimateHistoryTokens = h => (Array.isArray(h) ? h : []).reduce((t, m) => t + 40 + Math.ceil(String((m && m.content) || '').length / 4), 0);
+const userBlockStarts = history => {
+  const idx = [];
+  for (let i = 0; i < history.length; i++) if (history[i] && history[i].role === 'user') idx.push(i);
+  return idx;
+};
+const recentTurnsBoundary = new Function('estimateHistoryTokens', 'userBlockStarts', 'COMPACT_RESEED_TAIL_MAX_TOKENS', rm[0] + '\nreturn recentTurnsBoundary;')(
+  estimateHistoryTokens, userBlockStarts, 16000
+);
 let summaryOk = true;
 const providerSummaryCall = async () => (summaryOk ? { ok: true, summary: 'SUMMARY', usage: null } : { ok: false, error: 'boom' });
 let recordCalls = 0; const recordCompactUsage = () => { recordCalls++; };
@@ -110,9 +117,9 @@ let recordCalls = 0; const recordCompactUsage = () => { recordCalls++; };
 const calibratedEstimate = (p, m, h) => estimateHistoryTokens(h);
 const resolveCompactionProvider = (config, provider) => ({ provider, model: provider && provider.model });
 const maybeCompactSubHistory = new Function(
-  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider',
+  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider', 'COMPACT_RESEED_TAIL_MAX_TOKENS',
   mm[0] + '\nreturn maybeCompactSubHistory;'
-)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider);
+)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider, 16000);
 
 // ============ A2: truncateToolResult 的 base64 图片字段专用处理(防 60KB 平切切坏图) ============
 // 抽真 truncateToolResult + IMG_B64_TRIM_RE(保真);TOOL_RESULT_CAP / FILE_READ_* 注入常量。
@@ -191,6 +198,23 @@ const prov = { model: 'm' };
     const changed = await maybeCompactSubHistory({ subHistory: sub, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: () => {} });
     ok(changed === true && sub[2].content.startsWith('[已省略:'), 'A(4) L2 内核失败→保留 L1 蒸发结果,不抛');
     summaryOk = true;
+  }
+
+  // (5) 固定 token 尾部走真实 L2 重播种：保留完整近期 user 回合，不能把 tool 对切开。
+  {
+    const sub = [
+      { role: 'user', content: 'TASK0' },
+      { role: 'assistant', content: '旧上下文 '.repeat(800) },
+      { role: 'user', content: 'RECENT_TAIL' },
+      { role: 'assistant', content: '', tool_calls: [{ id: 'tail-1', type: 'function', function: { name: 'file_read', arguments: '{}' } }] },
+      { role: 'tool', tool_call_id: 'tail-1', content: '近期工具结果' },
+    ];
+    const changed = await maybeCompactSubHistory({ subHistory: sub, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: () => {} });
+    ok(changed === true && sub[0].role === 'user' && /TASK0/.test(sub[0].content) && sub[2] && sub[2].role === 'user' && sub[2].content === 'RECENT_TAIL',
+      'A(5) L2 保留固定预算内的近期完整 user 尾部');
+    const ids = new Set(sub.filter(m => m.role === 'tool').map(m => m.tool_call_id));
+    ok(sub.filter(m => Array.isArray(m.tool_calls)).flatMap(m => m.tool_calls).every(tc => ids.has(tc.id)),
+      'A(5) L2 固定尾部后 tool_call/tool 配对仍完整');
   }
 
   // ============ A2: base64 图片字段专用处理 ============

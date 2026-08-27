@@ -458,10 +458,16 @@ const SUMMARY_INPUT_BUDGET_RATIO = 0.5;
 // ① 远程超时提到 180s(localhost/Ollama 维持 300s);② 本可单发但预估超过此阈值的输入强制走
 // map-reduce 分块,让每次真实 HTTP 尝试天然远离超时线。
 const SUMMARY_SINGLE_SHOT_MAX_EST = 32000;
-const SUMMARY_PROMPT = '请把以上对话压缩为结构化摘要,严格按以下四节输出(某节无内容写「无」):\n'
+// L2 重播种保留的近期原文上限。它是绝对上限而非「保留最近 N 回合」：两回合可能只有几百
+// token，也可能夹着几十 K 的工具结果。调用点还会钳到当次压缩预算的一半，避免小窗口被尾部反撑爆。
+// 只保留完整 user 回合；若最新一整回合本身放不下，宁可交给结构化摘要，也绝不从 tool_call/tool_result
+// 组中间切开，避免把协议历史重播成孤儿。
+const COMPACT_RESEED_TAIL_MAX_TOKENS = 16000;
+const SUMMARY_PROMPT = '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n'
   + '【目标】用户的核心目标与关键约束\n'
   + '【已确认的决定】已拍板的事实、方案选择、用户偏好\n'
   + '【未完成事项】待办、进行中的工作、悬而未决的问题\n'
+  + '【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n'
   + '【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论\n'
   + '保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、'
   + '文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n'
@@ -475,10 +481,21 @@ function validateStructuredSummary(summary) {
     ['【目标】', '## Goal', 'Goal:'],
     ['【已确认的决定】', '## Decisions', 'Decisions:'],
     ['【未完成事项】', '## Open', 'Open items:', 'Todo:'],
+    ['【当前执行状态】', '## Current Status', '## Execution Status', 'Current Status:'],
     ['【关键文件与上下文】', '## Files', 'Files:', 'Key files'],
   ];
   const found = sections.filter(sec => sec.some(s => summary.includes(s))).length;
-  return found >= 3;  // C1a:至少 3 节(允许某节"无"),防摘要退化为流水 -> 校验失败则调用方降级保留原文
+  // 当前执行状态是交接摘要的关键部分，不能再用“任意三节”放行；否则模型
+  // 漏掉状态节时，下一轮会失去“已完成/进行中/阻塞/下一步”的恢复依据。
+  const stateLabels = [
+    ['已完成', 'Done', 'Completed'],
+    ['正在进行', '进行中', 'In progress', 'In Progress'],
+    ['阻塞', 'Blocked'],
+    ['下一步', 'Next step', 'Next Step', 'Next steps', 'Next Steps'],
+  ];
+  const statePresent = sections[3].some(s => summary.includes(s));
+  const stateComplete = statePresent && stateLabels.every(labels => labels.some(label => summary.includes(label)));
+  return found >= 4 && stateComplete;  // 结构化摘要必须含五节中的至少四节,且状态节四项齐全
 }
 function userBlockStarts(history) {
   const idx = [];
@@ -685,25 +702,68 @@ async function providerSummaryCall(provider, history, opts) {
   const chunks = chunkHistoryByBudget(history, forceChunks
     ? Math.min(budget, Math.max(4000, Math.floor(SUMMARY_SINGLE_SHOT_MAX_EST * 0.75))) // 22-S0:肥单发分块时压低每组目标
     : budget);
-  if (chunks.length <= 1) return singleSummaryCall(provider, chunks[0] || [], model, ectxBase);
-  const partials = [];
-  let aggIn = 0, aggOut = 0, aggEst = 0;
-  for (let ci = 0; ci < chunks.length; ci++) {
-    const r = await singleSummaryCall(provider, chunks[ci], model, { ...ectxBase, chunkIndex: ci + 1 });
-    if (!r.ok) return r;
-    partials.push(r.summary);
-    if (r.usage) { aggIn += Number(r.usage.prompt_tokens != null ? r.usage.prompt_tokens : r.usage.input_tokens) || 0; aggOut += Number(r.usage.completion_tokens != null ? r.usage.completion_tokens : r.usage.output_tokens) || 0; }
-    aggEst += Number(r.promptTokensEst) || 0;
+  if (chunks.length <= 1) {
+    const sc = await singleSummaryCall(provider, chunks[0] || [], model, ectxBase);
+    if (sc.ok && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
+    return sc;
   }
-  const joined = [{ role: 'user', content: partials.map((s, i) => `【分段摘要 ${i + 1}/${partials.length}】\n${s}`).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。' }];
-  const final = await singleSummaryCall(provider, joined, model, ectxBase);
+  // 分段数量多时，直接拼接 partials 会再次越过摘要输入预算。逐轮把摘要按同一
+  // user-block 预算分组，直到可以安全地单发总摘要；最多 12 轮，防止异常模型输出
+  // 不收敛时无限调用。每轮仍复用同一个结构化 SUMMARY_PROMPT。
+  const calls = [];
+  const rememberCall = async (messages, context) => {
+    const r = await singleSummaryCall(provider, messages, model, context);
+    calls.push(r);
+    return r;
+  };
+  const initialCalls = [];
+  for (let ci = 0; ci < chunks.length; ci++) {
+    const r = await rememberCall(chunks[ci], { ...ectxBase, chunkIndex: ci + 1 });
+    if (!r.ok) return r;
+    initialCalls.push(r);
+  }
+  let partialResults = initialCalls;
+  let final = null;
+  for (let round = 0; round < 12 && partialResults.length > 1; round++) {
+    const rows = partialResults.map((r, i) => ({
+      role: 'user',
+      content: `【分段摘要 ${i + 1}/${partialResults.length}】\n${r.summary}`,
+    }));
+    const groups = chunkHistoryByBudget(rows, budget);
+    if (groups.length === 1) {
+      final = await rememberCall([{
+        role: 'user',
+        content: groups[0].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
+      }], ectxBase);
+      break;
+    }
+    const next = [];
+    for (let gi = 0; gi < groups.length; gi++) {
+      const r = await rememberCall([{
+        role: 'user',
+        content: groups[gi].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
+      }], { ...ectxBase, chunkIndex: 1000 + (round * 100) + gi + 1 });
+      if (!r.ok) return r;
+      next.push(r);
+    }
+    partialResults = next;
+  }
+  if (!final && partialResults.length === 1) final = partialResults[0];
+  if (!final) return { ok: false, error: 'map-reduce consolidation did not converge; 降级保留原文' };
   if (!final.ok) return final;
   if (!validateStructuredSummary(final.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
-  if (final.usage) { final.usage.prompt_tokens = (Number(final.usage.prompt_tokens) || 0) + aggIn; final.usage.completion_tokens = (Number(final.usage.completion_tokens) || 0) + aggOut; }
-  // 45f 对抗轮 P3-4a:总摘要无 usage 但分段有实测 → 分段实测不丢(挂到 final 上一起记账)。
-  else if (aggIn > 0 || aggOut > 0) final.usage = { prompt_tokens: aggIn, completion_tokens: aggOut, aggregated: true };
-  final.promptTokensEst = (Number(final.promptTokensEst) || 0) + aggEst;
-  final.mapReduce = { chunks: chunks.length };
+  // 所有 reduce 轮都纳入一次压缩的 aux 用量，避免只记最后一轮而低估成本。
+  let aggIn = 0, aggOut = 0, aggEst = 0;
+  for (const r of calls) {
+    if (r.usage) {
+      aggIn += Number(r.usage.prompt_tokens != null ? r.usage.prompt_tokens : r.usage.input_tokens) || 0;
+      aggOut += Number(r.usage.completion_tokens != null ? r.usage.completion_tokens : r.usage.output_tokens) || 0;
+    }
+    aggEst += Number(r.promptTokensEst) || 0;
+  }
+  if (aggIn > 0 || aggOut > 0) final.usage = { prompt_tokens: aggIn, completion_tokens: aggOut, aggregated: true };
+  final.promptTokensEst = aggEst;
+  final.mapReduce = { chunks: chunks.length, rounds: Math.max(1, calls.length - chunks.length) };
   return final;
 }
 
@@ -939,18 +999,24 @@ function upsertCompactMarker(session, o) {
   return marker;
 }
 
-// v0.8-S5 LEVEL 2 · SUMMARY RESEED boundary. Return the index in `history` of the 2nd-most-recent
-// role:'user' message (= the start of the most recent 2 full turns). Everything before it will be replaced
-// by [summary-user, ack-assistant]; everything from it onward is kept VERBATIM. Starting a kept slice at a
-// user message is pairing-safe by construction (a user boundary never orphans a tool_call). Returns
-// history.length (keep nothing) if fewer than 2 user messages exist.
-function recentTurnsBoundary(history) {
+// L2 SUMMARY RESEED boundary. Keep as many complete recent user turns as fit `maxTailTokens`; all older
+// history is represented by the structured summary. A kept slice always starts at role:'user', so it cannot
+// orphan an assistant tool_call or its tool result. If the newest whole user turn alone exceeds the cap,
+// return history.length: it remains in the summary instead of violating the fixed-tail budget.
+function recentTurnsBoundary(history, maxTailTokens) {
   if (!Array.isArray(history)) return 0;
-  let usersSeen = 0;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i] && history[i].role === 'user') { usersSeen++; if (usersSeen === 2) return i; }
+  const cap = Math.max(0, Math.floor(Number(maxTailTokens == null ? COMPACT_RESEED_TAIL_MAX_TOKENS : maxTailTokens) || 0));
+  if (!cap) return history.length;
+  const starts = userBlockStarts(history);
+  let boundary = history.length, keptTokens = 0;
+  for (let i = starts.length - 1; i >= 0; i--) {
+    const begin = starts[i], end = starts[i + 1] || history.length;
+    const turnTokens = estimateHistoryTokens(history.slice(begin, end));
+    if (keptTokens + turnTokens > cap) break;
+    keptTokens += turnTokens;
+    boundary = begin;
   }
-  return history.length; // <2 user messages → keep nothing (summary + ack only)
+  return boundary;
 }
 
 // 第28波(§28a):子代理回合的两级自动压缩 —— 对齐主回合 maybeAutoCompact,复用同款原语(evaporateHistory / L2 摘要内核
@@ -984,13 +1050,16 @@ async function maybeCompactSubHistory(opts) {
       },
     });
     if (!sc || !sc.ok) { if (evaporated > 0) { emit('evaporate', after1); return true; } return false; }
-    const boundary = recentTurnsBoundary(subHistory);
-    const task0 = subHistory[0];
-    const kept = subHistory.slice(boundary).filter(m => m !== task0); // 保留最近 2 个 user 回合逐字(user 边界起切,配对安全)
+    const tailBudget = Math.max(1, Math.min(COMPACT_RESEED_TAIL_MAX_TOKENS, Math.floor(budget * 0.5)));
+    const boundary = recentTurnsBoundary(subHistory, tailBudget);
+    const task0 = subHistory.find(m => m && m.role === 'user') || subHistory[0];
+    // task0 已钉进 summary user；若整个短历史都落入尾部，不能只过滤 task0 后留下 assistant-first
+    // 的片段（会破交替契约），因此改为不保留这段尾部。
+    const kept = boundary <= 0 ? [] : subHistory.slice(boundary);
     // 钉住原始 task【并入】摘要 user 消息(而非单列)——避免 [task0-user, summary-user] 两条连续 user 破坏部分 provider 的
     // 交替契约;kept 以 user 边界起切,故 reseed 天然 user→assistant→user… 交替。
     const reseeded = [
-      { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【前文已压缩为摘要】\n' + String(sc.summary || '') },
+      { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【压缩摘要】\n' + String(sc.summary || '') },
       { role: 'assistant', content: '已了解原任务与以上摘要,继续推进。' },
       ...kept,
     ];
@@ -1116,10 +1185,12 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       return compacted;
     }
     recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
-    const boundary = recentTurnsBoundary(history);
-    const kept = history.slice(boundary); // last 2 full turns, verbatim (user-boundary → pairing-safe)
+    const tailBudget = Math.max(1, Math.min(COMPACT_RESEED_TAIL_MAX_TOKENS, Math.floor(budget * 0.5)));
+    const boundary = recentTurnsBoundary(history, tailBudget);
+    const kept = boundary <= 0 ? [] : history.slice(boundary); // complete recent user turns only, fixed token tail + pairing-safe
+    const task0 = history.find(m => m && m.role === 'user') || history[0];
     session.providerHistory = [
-      { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + sc.summary },
+      { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【压缩摘要】\n' + sc.summary },
       { role: 'assistant', content: '收到，已基于摘要继续。' },
       ...kept,
     ];

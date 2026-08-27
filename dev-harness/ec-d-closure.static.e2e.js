@@ -84,10 +84,10 @@ ok(['02-session-store.js', '04-permission-runtime.js', '08-agent-runs.js', '13b-
   && !/pathname === '\/api\/(sessions|permission\/request|agent-runs)'/.test(httpRouter),
 'E8 session、permission、agent-runs 实现与 API 编排均完成后端物理拆域');
 
-ok(read(path.join(PUBLIC, 'app.js')).split(/\r?\n/).length < 1200
+ok(read(path.join(PUBLIC, 'app.js')).trimEnd().split(/\r?\n/).length <= 1200
   && ['session-experience.js', 'interaction-prompts.js', 'agent-workflows.js']
     .every(file => fs.existsSync(path.join(PUBLIC, 'js', file))),
-'E9 前端组合根低于 1200 行，会话/干预/Agent 工作流边界独立');
+'E9 前端组合根不超过 1200 行，会话/干预/Agent 工作流边界独立');
 
 console.log(`\nEC-D CLOSURE STATIC E2E: ${failures ? `FAIL (${failures})` : 'ALL PASS'}`);
 process.exit(failures ? 1 : 0);

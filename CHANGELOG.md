@@ -5,6 +5,24 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 · Unreleased
 
+暂无。
+
+## 如意 Ruyi Escapade 2.6.2 · v2.6.2 · 2026-08-27
+
+### 中文
+
+- **固定预算上下文压缩**：保留 32K 单发阈值；超过阈值的摘要改用 map-reduce，并以多轮归并避免分段摘要重新拼接后再次超预算。
+- **安全重播种与任务保真**：L2 摘要最多保留 16K token 的最近完整 user 回合，按 user 边界保护 `tool_call/tool_result` 配对；自动压缩、主流程 400 重试和子代理 400 重试统一保留原始任务。
+- **可交接摘要状态**：摘要新增“当前执行状态”四项（已完成、正在进行、阻塞、下一步）；缺少状态的退化摘要会被拒绝并保留原文，map-reduce 各轮用量统一记账。
+- **回归验证**：Luna Max 对抗复核通过；上下文治理、压缩 v2、Provider/自动压缩、严格 tool 配对及压缩标记单测全部通过。
+
+### English
+
+- **Fixed-budget context compaction**: keeps the 32K single-shot threshold; larger summaries use map-reduce with multi-round consolidation so joined partials cannot overflow the budget again.
+- **Safe reseeding and task fidelity**: L2 reseeding keeps up to 16K tokens of recent complete user turns, cuts only at user boundaries to preserve `tool_call/tool_result` pairing, and pins the original task across automatic compaction and 400 retries in the main and sub-agent paths.
+- **Handoff-ready summaries**: adds four required current-status fields (done, in progress, blocked, next steps); degraded summaries missing the status contract are rejected and the original history is retained. Usage from every map-reduce round is accounted for.
+- **Release verification**: passed Luna Max adversarial review plus context-governance, context-compact-v2, Provider/auto-compaction, strict tool-pairing, and compact-marker unit suites.
+
 - **慢速端点自动压缩摘要修复**：远程 L2 摘要调用超时从 60 秒提升到 180 秒（localhost/Ollama 保持 300 秒），并新增单发摘要输入上限——预估超过 32K token 的摘要自动改走 map-reduce 分块，让每次真实请求远离超时线。实测 glm-5.3-flash 处理 60K 输入的正常耗时为 40–51 秒，旧 60 秒超时曾致一天 30 次 L2 中 26 次整单作废。
 
 - **Slow-endpoint auto-compact summary fix**: remote L2 summary calls now time out at 180 seconds instead of 60 (localhost/Ollama keep 300s), and a new single-shot input ceiling forces map-reduce chunking whenever a fitted summary is estimated above 32K tokens, keeping every real request clear of the timeout cliff. Live measurement on glm-5.3-flash showed normal 40–51s runtimes for 60K-token inputs; under the old limit, 26 of 30 L2 attempts in one day were wasted wholesale to timeouts.

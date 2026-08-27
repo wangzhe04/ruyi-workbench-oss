@@ -2082,10 +2082,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
           });
           if (sc.ok) {
-            const boundary = recentTurnsBoundary(session.providerHistory);
-            const kept = session.providerHistory.slice(boundary);
+            const retryBudget = (Number(config.autoCompactThreshold) || 0.8)
+              * providerConversationContextWindow(config, provider, model);
+            const tailBudget = Math.max(1, Math.min(COMPACT_RESEED_TAIL_MAX_TOKENS, Math.floor(retryBudget * 0.5)));
+            const boundary = recentTurnsBoundary(session.providerHistory, tailBudget);
+            const kept = boundary <= 0 ? [] : session.providerHistory.slice(boundary);
+            const task0 = session.providerHistory.find(m => m && m.role === 'user') || session.providerHistory[0];
             session.providerHistory = [
-              { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + sc.summary },
+              { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【压缩摘要｜因上下文超限重播种】\n' + sc.summary },
               { role: 'assistant', content: '收到,已基于摘要继续。' },
               ...kept,
             ];

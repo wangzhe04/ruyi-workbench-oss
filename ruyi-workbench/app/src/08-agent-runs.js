@@ -733,12 +733,15 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             },
           });
           if (sc.ok) {
-            const boundary = recentTurnsBoundary(subHistory);
-            const task0 = subHistory[0];
-            const kept = subHistory.slice(boundary).filter(m => m !== task0);
+            const retryBudget = (Number(config && config.autoCompactThreshold) || 0.8)
+              * providerContextWindow(provider, subModel);
+            const tailBudget = Math.max(1, Math.min(COMPACT_RESEED_TAIL_MAX_TOKENS, Math.floor(retryBudget * 0.5)));
+            const boundary = recentTurnsBoundary(subHistory, tailBudget);
+            const task0 = subHistory.find(m => m && m.role === 'user') || subHistory[0];
+            const kept = boundary <= 0 ? [] : subHistory.slice(boundary);
             // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
             subHistory.splice(0, subHistory.length,
-              { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【前文因上下文超限已压缩为摘要】\n' + String(sc.summary || '') },
+              { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【压缩摘要｜因上下文超限重播种】\n' + String(sc.summary || '') },
               { role: 'assistant', content: '已了解原任务与以上摘要,继续推进。' },
               ...kept);
             if (parentSession) recordCompactUsage(parentSession, provider, sc);

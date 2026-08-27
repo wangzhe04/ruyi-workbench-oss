@@ -75,13 +75,69 @@ const asst = content => ({ role: 'assistant', content });
       const small = [user('目标A'), asst('答A')];
       const r1 = await srv.providerSummaryCall(provider, small);
       ok(r1.ok && !r1.mapReduce, 'A1 小历史单次摘要成功');
+      const summaryFiles = () => fs.readdirSync(SUMDIR).filter(f => f.startsWith('sum-')).sort();
+      const firstPayload = JSON.parse(fs.readFileSync(path.join(SUMDIR, summaryFiles()[0]), 'utf8'));
+      ok((firstPayload.messages || []).some(m => m && m.role === 'user' && String(m.content || '').includes('【当前执行状态】')),
+        'A1a 摘要提示词要求可交接的当前执行状态');
+      const legacyFourSections = '【目标】目标\n【已确认的决定】决定\n【未完成事项】无\n【关键文件与上下文】文件';
+      const completeFiveSections = legacyFourSections.replace('【关键文件与上下文】', '【当前执行状态】已完成：无；正在进行：测试；阻塞：无；下一步：继续\n【关键文件与上下文】');
+      ok(typeof srv.validateStructuredSummary === 'function' && !srv.validateStructuredSummary(legacyFourSections),
+        'A1a-1 缺当前执行状态的旧四节摘要被拒绝');
+      ok(srv.validateStructuredSummary(completeFiveSections), 'A1a-2 含状态四项的五节摘要通过校验');
+
+      // 22-S0 边界:32K 是「禁单发」门槛而非普通窗口预算。31K 仍一发，33K 必须走
+      // 约24K 的 map-reduce。用真实估算器反推文本长度，避免把字符/token 比假定写死。
+      const historyNearTokens = target => {
+        let lo = 1, hi = target * 5, best = 1;
+        while (lo <= hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          const candidate = [user('边界回合 ' + 'x'.repeat(mid))];
+          if (srv.estimateHistoryTokens(candidate) <= target) { best = mid; lo = mid + 1; }
+          else hi = mid - 1;
+        }
+        return [user('边界回合 ' + 'x'.repeat(best))];
+      };
+      const n31 = historyNearTokens(31000);
+      const before31 = summaryFiles().length;
+      const r31 = await srv.providerSummaryCall(provider, n31);
+      ok(r31.ok && !r31.mapReduce && summaryFiles().length === before31 + 1,
+        'A1b 约31K 摘要仍为单发');
+      const n33 = historyNearTokens(33000);
+      const before33 = summaryFiles().length;
+      const r33 = await srv.providerSummaryCall(provider, n33);
+      ok(r33.ok && r33.mapReduce && r33.mapReduce.chunks >= 2 && summaryFiles().length >= before33 + 3,
+        'A1c 约33K 摘要强制 map-reduce（分段＋总汇）');
+
+      // Pi 式固定 token 尾部：只保留完整 user 回合，绝不在 tool_call/tool_result 之间切开。
+      const tailCap = srv.COMPACT_RESEED_TAIL_MAX_TOKENS;
+      const tailHistory = [
+        user('旧回合 ' + 'o'.repeat(35000)), asst('旧答复'),
+        user('近期回合 ' + 'r'.repeat(26000)),
+        { role: 'assistant', content: '', tool_calls: [{ id: 'tail-call', type: 'function', function: { name: 'file_read', arguments: '{}' } }] },
+        { role: 'tool', tool_call_id: 'tail-call', content: '近期工具结果' },
+      ];
+      const tailBoundary = srv.recentTurnsBoundary(tailHistory, tailCap);
+      const tail = tailHistory.slice(tailBoundary);
+      ok(tailBoundary === 2 && tail[0].role === 'user' && srv.estimateHistoryTokens(tail) <= tailCap,
+        'A1d 固定尾部保留近期完整 user 回合并受 16K 上限约束');
+      const tailToolIds = new Set(tail.filter(m => m.role === 'tool').map(m => m.tool_call_id));
+      ok(tail.filter(m => Array.isArray(m.tool_calls)).flatMap(m => m.tool_calls).every(tc => tailToolIds.has(tc.id)),
+        'A1e 固定尾部不拆 tool_call/tool_result 配对');
+      const giantRecent = [
+        user('旧回合'), asst('旧答复'),
+        user('超大近期回合 ' + 'g'.repeat(70000)),
+        { role: 'assistant', content: '', tool_calls: [{ id: 'giant-call', type: 'function', function: { name: 'file_read', arguments: '{}' } }] },
+        { role: 'tool', tool_call_id: 'giant-call', content: '超大工具结果' },
+      ];
+      ok(srv.recentTurnsBoundary(giantRecent, tailCap) === giantRecent.length,
+        'A1f 超大最近回合不半截保留，交给摘要以维持固定尾部预算');
       // A2: 大历史(60 个 user 块,每块 ~6KB) → fit 截断或 map-reduce;摘要 payload 必须 ≤ 预算
       const big = [];
       for (let i = 0; i < 60; i++) { big.push(user('任务' + i + ' ' + 'x'.repeat(5000))); big.push(asst('答' + i + ' ' + 'y'.repeat(5000))); }
       const r2 = await srv.providerSummaryCall(provider, big);
       ok(r2.ok, 'A2 超大历史摘要成功(预算化内核不 400)');
       const budget = Math.floor(100000 * 0.5);
-      const sumFiles = fs.readdirSync(SUMDIR).filter(f => f.startsWith('sum-')).sort();
+      const sumFiles = summaryFiles();
       ok(sumFiles.length >= 1, 'A2 摘要请求已落盘(' + sumFiles.length + ' 个)');
       let maxReq = 0;
       for (const f of sumFiles) maxReq = Math.max(maxReq, fs.statSync(path.join(SUMDIR, f)).size);

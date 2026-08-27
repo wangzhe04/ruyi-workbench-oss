@@ -30,8 +30,11 @@ module.exports = {
   estimateHistoryTokens, // v0.8-S5: exposed for e2e direct unit testing (parts-aware token estimate v2)
   // 第45波(压缩 v2):摘要内核 + 45a 预算适配/map-reduce 分组 — exposed for e2e(死锁角回归)。
   providerSummaryCall,
+  validateStructuredSummary,
   fitHistoryForSummary,
   chunkHistoryByBudget,
+  recentTurnsBoundary,
+  COMPACT_RESEED_TAIL_MAX_TOKENS,
   resolveCompactionProvider,
   contextWindowOverrideKey,
   configuredConversationWindow,
