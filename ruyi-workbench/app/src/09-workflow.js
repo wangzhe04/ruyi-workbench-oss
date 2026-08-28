@@ -1351,6 +1351,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
+  // 流式上下文估算(电量表实时化):estStreamBase = 本次模型调用发送前的 history 估算(token,含 system+tools),
+  // estStreamText = 本次调用已流出的增量文本。每次迭代边界重算基数 —— 自动压缩(forced_400 / maybeAutoCompact)
+  // 都发生在迭代边界、先于基数重算,所以压缩带来的占用下降会随下一次边界事件立刻反映到前端电量表;
+  // 流式期间则按 基数+增量文本估算 节流推送,真实 usage 帧到达后由前端覆盖校正。
+  let estStreamBase = 0, estStreamText = '', lastCtxEstAt = 0, lastCtxEstTokens = -1;
+  const emitContextEstimate = force => {
+    if (!(estStreamBase > 0)) return;
+    const now = Date.now();
+    if (!force && now - lastCtxEstAt < 800) return; // 节流:800ms,防 delta 洪峰刷爆 SSE
+    const n = Math.round(estStreamBase + (estStreamText ? estimateContentTokens(estStreamText) : 0));
+    if (!(n > 0) || n === lastCtxEstTokens) return;
+    lastCtxEstAt = now; lastCtxEstTokens = n;
+    // 走 downstreamEvent 直发:估算态是瞬时 UI 状态,不进 turnSegments(不落盘进消息 segments)。
+    downstreamEvent({
+      type: 'context_estimate', contextTokens: n, contextWindow: providerContextWindow(provider, model), estimated: true,
+      contextEngine: 'openai', contextProviderId: provider.id, contextModel: model,
+    });
+  };
   let activeProviderBatchId = '';
   let activeTraceId = '';
   onEvent = evt => {
@@ -1359,6 +1377,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       : evt;
     if (normalized && typeof normalized === 'object' && activeTraceId && !normalized.traceId) {
       normalized = { ...normalized, traceId: activeTraceId };
+    }
+    if (normalized && (normalized.type === 'assistant_delta' || normalized.type === 'thinking_delta')) {
+      estStreamText += String(normalized.text || '');
+      emitContextEstimate(false);
     }
     turnSegments.consume(normalized);
     downstreamEvent(normalized);
@@ -1632,6 +1654,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let idleAborted = false; // v0.8-S6: distinguish a watchdog (idle-timeout) abort from a user Stop for errorClass
   const watchdog = setInterval(() => {
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀回合(且 abort 中毒 ctrl 令窗口内批准失效)
+    if (hasPendingQuestionForSession(session.id)) return; // 提问挂起豁免:回答窗口由提问自身超时(+UI 心跳续时)兜底,此处中止会吞掉用户正在写的回答
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
       idleAborted = true;
@@ -2017,6 +2040,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current())) touch();
       lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
+      // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
+      estStreamBase = estBeforeCall; estStreamText = '';
+      emitContextEstimate(true);
       await dispatchAgentLoopHooks('beforeModelCall', {
         traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
         providerId: provider.id, model, iteration: iter, withTools: useTools,
@@ -2646,7 +2672,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // A Provider function call pauses this tool iteration until the matching UI answer arrives.
                 // Its structured result is appended as the normal role:'tool' reply below, so every
                 // OpenAI-compatible backend sees the choice in the protocol shape it already understands.
-                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.permissionTimeoutMs, assistantText);
+                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.questionTimeoutMs, assistantText);
                 resultObj = answer && answer.ok
                   ? { ok: true, answers: answer.answers, content: answer.content }
                   : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' };

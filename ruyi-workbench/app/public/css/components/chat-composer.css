@@ -26,6 +26,8 @@
 .attachment-pill { border: 1px solid var(--line-2); background: var(--panel-2); border-radius: 16px; padding: 4px 6px 4px 11px; font-size: var(--fs-sm); color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
 .attachment-pill button { padding: 0 5px; font-size: var(--fs-md); line-height: 1; background: transparent; border: none; color: var(--muted); }
 .attachment-pill button:hover { color: var(--danger-fg); }
+.attachment-pill .attach-pill-thumb { width: 26px; height: 26px; flex: none; border-radius: 6px; object-fit: cover; }
+.attachment-pill:has(.attach-pill-thumb) { padding-left: 4px; }
 .composer-box { border: 1px solid var(--glass-border); border-radius: var(--radius); background: var(--glass-bg-3); /* 第50波:输入盒卡片档底色(不叠 blur) */ padding: 6px 8px 8px; transition: border-color var(--transition), box-shadow var(--transition); }
 .composer-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
 .composer-box textarea { border: none; background: transparent; padding: 6px; max-height: 260px; }

@@ -466,6 +466,7 @@ async function runClaudeTurn({
   const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs); // env is a test seam
   const watchdog = setInterval(() => {
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀子进程,决定窗口被截断
+    if (hasPendingQuestionForSession(session.id)) return; // 提问挂起豁免:回答窗口由提问自身超时(+UI 心跳续时)兜底,此处杀子会吞掉用户正在写的回答
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — terminating` });
       try { reg.child.stdin.end(); } catch { /* ignore */ }
@@ -662,7 +663,7 @@ async function runClaudeTurn({
       } else onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input });
       // Interactive: an AskUserQuestion tool_use is ours to answer — surface a modal instead of a plain card.
       if (interactive && isAskUserTool(ev.name)) {
-        registerUserQuestion(session.id, ev.id, (ev.input && ev.input.questions) || ev.input || {}, onEvent, config.permissionTimeoutMs,
+        registerUserQuestion(session.id, ev.id, (ev.input && ev.input.questions) || ev.input || {}, onEvent, config.questionTimeoutMs,
           answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))), assistantText);
       }
     } else if (ev.kind === 'tool_result') {

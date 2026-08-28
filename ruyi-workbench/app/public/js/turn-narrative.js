@@ -39,6 +39,23 @@ export function messageRenderSignature(message, locale) {
   return `${locale || ''}:${id}`;
 }
 
+// A running turn owns an optimistic user row until the server-side row for THAT turn appears. Looking for
+// any equal text is unsafe (a user may send the same prompt twice); compare the newest real user row and the
+// turn sequence captured before sending. This helper is shared by static reconciliation and live remounting.
+export function activeTurnUserIsPersisted(messages, turn) {
+  if (!turn || !Array.isArray(messages)) return false;
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index];
+    if (!message || message.role !== 'user' || message.steered) continue;
+    if (String(message.content || '') !== String(turn.message || '')) return false;
+    const persistedSeq = Number(message.turnSeq), initialSeq = Number(turn.initialTurnSeq);
+    if (Number.isFinite(persistedSeq) && Number.isFinite(initialSeq)) return persistedSeq > initialSeq;
+    const created = Date.parse(message.createdAt || '');
+    return Number.isFinite(created) && created >= (Number(turn.startedAt) || 0) - 5000;
+  }
+  return false;
+}
+
 // Long-history responsiveness: a window sized only by message count still freezes when a handful of
 // messages contain giant tool payloads or answers. Estimate a bounded render weight without serializing
 // whole objects (JSON.stringify on a multi-MB tool result would itself be the stall), then keep the fresh

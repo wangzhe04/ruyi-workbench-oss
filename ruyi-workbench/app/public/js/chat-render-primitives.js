@@ -516,7 +516,8 @@ export function createChatRenderPrimitives(deps = {}) {
       if (state.status) state.status.contextWindowResolved = null;
       try { localStorage.removeItem(legacyKey); localStorage.removeItem('wcw.ctxWindow'); } catch { /* ignore */ }
       try {
-        const fresh = await api('/api/status');
+        const statusUrl = state.currentSession?.id ? `/api/status?sessionId=${encodeURIComponent(state.currentSession.id)}` : '/api/status';
+        const fresh = await api(statusUrl);
         if (state.status && contextOverrideKey() === key) state.status.contextWindowResolved = fresh.contextWindowResolved;
       } catch { /* The setting is already saved; a status refresh failure must not undo it. */ }
     });
@@ -532,9 +533,12 @@ export function createChatRenderPrimitives(deps = {}) {
     } catch (e) { contextWindowSave = Promise.resolve(); throw e; }
   }
   function currentContextRoute() {
-    const model = String(currentModelId() || '').trim();
-    if (isProviderMode()) return { engine: 'openai', providerId: String(state.config?.activeProvider || ''), model };
-    return { engine: 'agent', agentCliType: String(state.config?.agentCliType || 'claude'), model };
+    const meta = typeof currentEngineMeta === 'function' ? (currentEngineMeta() || {}) : {};
+    const model = String(meta.model != null ? meta.model : currentModelId() || '').trim();
+    if (meta.engine === 'openai' || meta.providerId || (typeof isProviderMode === 'function' && isProviderMode())) {
+      return { engine: 'openai', providerId: String(meta.providerId || state.config?.activeProvider || ''), model };
+    }
+    return { engine: 'agent', agentCliType: (meta.agentCliType || state.config?.agentCliType) === 'kimi' ? 'kimi' : 'claude', model };
   }
   function sameContextModel(a, b) {
     const left = String(a || '').trim().toLowerCase(), right = String(b || '').trim().toLowerCase();
@@ -636,7 +640,18 @@ export function createChatRenderPrimitives(deps = {}) {
     const box = $('contextMeter');
     if (!box) return;
     const n = usageMatchesCurrentRoute(u) ? ctxTokensOf(u) : null;
-    if (n == null) { state.shownUsage = null; box.classList.add('hidden'); return; }
+    if (n == null) {
+      state.shownUsage = null;
+      if (box._ctxTween) { cancelAnimationFrame(box._ctxTween); box._ctxTween = null; }
+      box._ctxShownN = null;
+      const win = ctxWindow();
+      const fill = box.querySelector('.batt-fill');
+      if (fill) fill.setAttribute('width', '17.80');
+      box.querySelector('.ctx-text').textContent = `— / ${fmtTokens(win)} · ${t('ctx.noUsage')}`;
+      box.classList.remove('hidden', 'warn', 'crit');
+      box.title = `${t('ctx.noUsageHint')}\n${t('ctx.tooltip.srcAuto', { src: ctxWindowSourceLabel() })}`;
+      return;
+    }
     state.shownUsage = u;
     const win = ctxWindow(), pct = win > 0 ? n / win : 0;
     // Keep this visible in both UI modes once usage exists. The manual compact action lives in this
@@ -649,7 +664,29 @@ export function createChatRenderPrimitives(deps = {}) {
     // 早先手动设过 128K)。有锁时提示可点「自动」解锁。
     const manual = ctxWindowManual();
     const locked = manual > 0;
-    box.querySelector('.ctx-text').textContent = `${fmtTokens(n)} / ${fmtTokens(win)}${locked ? ' 🔒' : ''} · ${Math.round(pct * 100)}%`;
+    // 数字平滑过渡(与 .batt-fill 的 CSS width 过渡对齐):估算态(≈)与真实帧共用同一补间,流式估算上爬、
+    // 自动压缩回落、真实 usage 校正都走 350ms ease-out,不再「数字猛跳」。
+    const txt = box.querySelector('.ctx-text');
+    const estMark = u.estimated === true;
+    const paint = shownN => {
+      const p = win > 0 ? shownN / win : 0;
+      txt.textContent = `${estMark ? '≈' : ''}${fmtTokens(Math.round(shownN))} / ${fmtTokens(win)}${locked ? ' 🔒' : ''} · ${Math.round(p * 100)}%`;
+    };
+    if (box._ctxTween) { cancelAnimationFrame(box._ctxTween); box._ctxTween = null; }
+    const targetN = Math.max(0, Math.round(n));
+    const fromN = Number(box._ctxShownN);
+    box._ctxShownN = targetN;
+    if (Number.isFinite(fromN) && fromN !== targetN) {
+      const t0 = performance.now(), dur = 350;
+      const step = now => {
+        const k = Math.min(1, (now - t0) / dur);
+        paint(fromN + (targetN - fromN) * (1 - Math.pow(1 - k, 3)));
+        box._ctxTween = k < 1 ? requestAnimationFrame(step) : null;
+      };
+      box._ctxTween = requestAnimationFrame(step);
+    } else {
+      paint(targetN);
+    }
     box.classList.remove('warn', 'crit');
     if (pct >= 0.9) box.classList.add('crit'); else if (pct >= 0.7) box.classList.add('warn');
     const g = u.usage || {};

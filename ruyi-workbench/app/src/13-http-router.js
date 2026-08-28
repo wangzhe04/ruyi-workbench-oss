@@ -21,6 +21,14 @@ async function handleApi(req, res, pathname) {
   }
   if (req.method === 'GET' && pathname === '/api/status') {
     const config = await readConfig();
+    let conversationConfig = config;
+    try {
+      const requestedSessionId = safeSessionId(new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId') || '');
+      if (requestedSessionId) {
+        const statusSession = await loadSession(requestedSessionId);
+        if (statusSession) conversationConfig = configForSessionEngineRoute(config, statusSession);
+      }
+    } catch { /* status without a valid session keeps the global new-session default */ }
     const { health, manifest } = await computeHealth(config);
     return send(res, json({
       ok: true,
@@ -39,19 +47,19 @@ async function handleApi(req, res, pathname) {
       permissionModes: PERMISSION_MODES,
       // Resolve the conversation route (including CLI/manual overrides), never the summary provider.
       contextWindowResolved: await (async () => {
-        const p = activeOpenAiProvider(config);
+        const p = activeOpenAiProvider(conversationConfig);
         if (!p) {
-          const meta = await agentConversationContextMeta(config, null);
-          return { value: meta.contextWindow, source: meta.contextWindowSource, engine: 'agent', agentCliType: meta.contextAgentCliType, provider: '', model: String(config.model || '') };
+          const meta = await agentConversationContextMeta(conversationConfig, null);
+          return { value: meta.contextWindow, source: meta.contextWindowSource, engine: 'agent', agentCliType: meta.contextAgentCliType, provider: '', model: String(conversationConfig.model || '') };
         }
         const model = p ? String(p.model || (p.models && p.models[0] && p.models[0].id) || '').trim() : '';
-        const manual = configuredConversationWindow(config, 'openai', p.id, model);
+        const manual = configuredConversationWindow(conversationConfig, 'openai', p.id, model);
         const r = resolveContextWindow(manual ? { ...p, contextWindow: manual } : p, model);
         // 45f 对抗轮 P3-5:窗口学习生效时如实展示 —— 否则用户看到「才用一半就压缩」会对不上账。
         const cap = p ? learnedWindowCap(p.id, model) : 0;
         return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };
       })(),
-      models: config.agentCliType === 'kimi' ? kimiModelList(config) : offlineModelList(config), // instant offline list; Claude enriches via GET /api/models
+      models: conversationConfig.agentCliType === 'kimi' ? kimiModelList(conversationConfig) : offlineModelList(conversationConfig), // instant offline list for the requested conversation route
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (DeepSeek/DashScope/custom)
       claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (Ark Coding Plan/custom)
       detectedClaudePath: detectClaudePath(),
@@ -600,12 +608,14 @@ async function handleApi(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/agent/compact') {
     const body = await readJsonBody(req);
-    const config = await readConfig();
+    const storedConfig = await readConfig();
     const sessionId = safeSessionId(String(body.sessionId || ''));
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     // Native Kimi compaction and external summary reseeding both mutate the same session a live turn
     // owns. Enforce the UI's no-overlap rule at the API boundary to avoid last-writer-wins data loss.
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
+    const compactSession = await loadSession(sessionId);
+    const config = compactSession ? configForSessionEngineRoute(storedConfig, compactSession) : storedConfig;
     const result = config.compactProviderId
       ? await runAgentExternalCompact(sessionId, config, 'manual')
       : (config.agentCliType === 'kimi'
@@ -1125,6 +1135,29 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const file = await makeAttachmentRecord(body);
     return send(res, json({ ok: true, file }));
+  }
+  // 图片/附件回显:读取 makeAttachmentRecord 写下的上传件原字节(聊天气泡里的图片缩略图/大图)。
+  // 只读内容型 GET:token 门 + handler 自查(同 /api/file/preview 纵深);第二道闸把目标锁死在
+  // uploads 根内(词法 + realpath 双校验,符号链接也逃不出),服务面 = 工作台自己写过的上传目录。
+  if (req.method === 'GET' && pathname === '/api/upload/content') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const q = new URL(req.url, 'http://x').searchParams;
+    const id = String(q.get('id') || '');
+    const name = String(q.get('name') || '');
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return send(res, apiFailure('upload.id_invalid', {}, 'invalid upload id', 400));
+    // name 只许纯 basename(无分隔符/无 ..);与 makeAttachmentRecord 的 safeName 同域。
+    if (!name || name.length > 255 || name !== path.basename(name) || name === '.' || name === '..') {
+      return send(res, apiFailure('upload.name_invalid', {}, 'invalid attachment name', 400));
+    }
+    const uploadsRoot = await fsp.realpath(paths.uploads).catch(() => paths.uploads);
+    const target = path.resolve(path.join(paths.uploads, id, name));
+    if (!pathWithinRoot(target, path.normalize(paths.uploads))) return send(res, apiFailure('upload.not_found', {}, 'attachment not found', 404));
+    const real = await fsp.realpath(target).catch(() => null);
+    if (!real || !pathWithinRoot(real, uploadsRoot)) return send(res, apiFailure('upload.not_found', {}, 'attachment not found', 404));
+    let buffer = null;
+    try { buffer = await fsp.readFile(real); } catch { buffer = null; }
+    if (!buffer) return send(res, apiFailure('upload.not_found', {}, 'attachment not found', 404));
+    return send(res, { status: 200, headers: { 'content-type': contentTypeFor(name), 'cache-control': 'private, max-age=86400' }, body: buffer });
   }
   if (req.method === 'POST' && pathname === '/api/chat/stream') {
     return streamChat(req, res);

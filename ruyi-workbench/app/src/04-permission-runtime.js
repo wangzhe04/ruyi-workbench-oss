@@ -414,18 +414,28 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
     } catch { /* a closed stream must not prevent the waiter from settling */ }
     return true;
   };
-  entry.timer = setTimeout(() => {
-    if (pendingQuestions.get(id) !== entry) return;
-    const timeoutAnswer = { ok: false, answers: [], content: '(question timed out)' };
-    runAutomaticInterventionDecision({
-      missionId: sessionId, interventionId: id, source: 'timeout_question', decidedBy: 'timeout',
-      idempotencyKey: `timeout:${id}`, payload: { action: 'answer', normalizedAnswer: timeoutAnswer },
-    }, () => {
-      if (pendingQuestions.get(id) === entry && !entry.commandApplying) entry.deliver(timeoutAnswer);
-    });
-  }, Math.max(5000, Number(timeoutMs) || 120000));
+  entry.timer = null;
+  // The timeout is re-armable: while the question modal stays open, UI heartbeats
+  // (/api/question/heartbeat → extendUserQuestion) reset the deadline so composing a long
+  // answer can never be cut off mid-way. The timer firing is the only backstop when the UI is gone.
+  entry.armTimeout = () => {
+    clearTimeout(entry.timer);
+    entry.deadlineAt = Date.now() + entry.timeoutMs;
+    entry.timer = setTimeout(() => {
+      if (pendingQuestions.get(id) !== entry) return;
+      const timeoutAnswer = { ok: false, answers: [], content: '(question timed out)' };
+      runAutomaticInterventionDecision({
+        missionId: sessionId, interventionId: id, source: 'timeout_question', decidedBy: 'timeout',
+        idempotencyKey: `timeout:${id}`, payload: { action: 'answer', normalizedAnswer: timeoutAnswer },
+      }, () => {
+        if (pendingQuestions.get(id) === entry && !entry.commandApplying) entry.deliver(timeoutAnswer);
+      });
+    }, entry.timeoutMs);
+  };
+  entry.timeoutMs = Math.max(5000, Number(timeoutMs) || 600000);
+  entry.armTimeout();
   pendingQuestions.set(id, entry);
-  onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized, context: questionContext || undefined });
+  onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized, context: questionContext || undefined, deadlineAt: entry.deadlineAt, timeoutMs: entry.timeoutMs });
   registerIntervention(sessionId, 'question', id, {
     questionSummary: normalized.map(q => String(q.question || '').slice(0, 200)).join(' | '),
     questions: normalized,
@@ -439,6 +449,16 @@ function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutM
     const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; }, context);
     if (!id) resolve({ ok: false, answers: [], content: '', error: 'no valid questions' });
   });
+}
+
+// Heartbeat extension: the open question modal calls this periodically so a user composing a long
+// answer never hits the deadline. Returns the fresh deadline/timeout for the UI countdown, or null
+// when the question is gone (answered/timed out/cancelled) — the caller then stops its heartbeat.
+function extendUserQuestion(sessionId, questionId) {
+  const entry = pendingQuestions.get(String(questionId || ''));
+  if (!entry || entry.sessionId !== sessionId || entry.commandApplying) return null;
+  try { entry.armTimeout(); } catch { return null; }
+  return { deadlineAt: entry.deadlineAt, timeoutMs: entry.timeoutMs };
 }
 
 function clearPendingQuestions(sessionId, message) {

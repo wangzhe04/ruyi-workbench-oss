@@ -962,7 +962,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
           })).filter(option => option.id && option.label),
         }],
         context.onEvent,
-        context.config.permissionTimeoutMs,
+        context.config.questionTimeoutMs,
         context.state.assistantText,
       );
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0]
@@ -1748,7 +1748,7 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
         context.session.id, String(params.elicitationId || makeId('kimi_elicitation')),
         [{ id: 'kimi_url_elicitation', header: 'Kimi 外部授权', question: `${message}\n\n完整地址：${url.href}`, answerMode: 'single', allowOther: false,
           options: [{ id: 'open', label: '同意并打开', description: `将在系统浏览器打开 ${url.hostname}` }, { id: 'decline', label: '拒绝', description: '不打开此地址' }] }],
-        context.onEvent, context.config.permissionTimeoutMs, context.state.assistantText
+        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText
       ), requestMeta && requestMeta.signal);
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0] && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
       if (selected !== 'open') return { action: selected === 'decline' ? 'decline' : 'cancel' };
@@ -1768,7 +1768,7 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
       const batch = rows.slice(start, start + 3);
       const answer = await awaitKimiAcpWithSignal(requestUserQuestion(
         context.session.id, String(params.toolCallId || makeId('kimi_elicitation')), batch.map(row => row.ui),
-        context.onEvent, context.config.permissionTimeoutMs, context.state.assistantText
+        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText
       ), requestMeta && requestMeta.signal);
       if (!answer || answer.ok === false) return { action: 'cancel' };
       for (const row of batch) {

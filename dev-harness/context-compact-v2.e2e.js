@@ -202,7 +202,7 @@ const asst = content => ({ role: 'assistant', content });
       await post(PORT, '/api/config', { activeProvider: '', agentCliType: 'claude', model: 'ark-code-latest' }, hdr);
       const agentStatus = await get(PORT, '/api/status', hdr);
       ok(agentStatus?.contextWindowResolved?.value === 1000000 && agentStatus.contextWindowResolved.engine === 'agent'
-        && agentStatus.contextWindowResolved.source === 'manual', 'D6 未知 CLI 模型采用手动 1M，不受本地 128K 摘要模型影响');
+        && agentStatus.contextWindowResolved.source === 'manual', `D6 未知 CLI 模型采用手动 1M，不受本地 128K 摘要模型影响 (${JSON.stringify(agentStatus?.contextWindowResolved)})`);
       await post(PORT, '/api/config', { model: 'other-unknown-model' }, hdr);
       const switched = await get(PORT, '/api/status', hdr);
       ok(switched?.contextWindowResolved?.value === srv.CONTEXT_WINDOW_FALLBACK, 'D7 切换模型不继承原模型手动窗口');

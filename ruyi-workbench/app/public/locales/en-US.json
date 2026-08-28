@@ -1673,6 +1673,8 @@
   "status.failed": "✗ Failed",
   "ctx.auto": "Auto",
   "ctx.customLimit": "Custom limit (Enter to apply)",
+  "ctx.noUsage": "Not started",
+  "ctx.noUsageHint": "This conversation has no context usage yet. Click to choose its context limit in advance.",
   "session.name": "Session Name",
   "chat.resultTooLong": "Result too long, showing first 100,000 characters only.",
   "chat.first200Lines": "(Showing first 200 lines)",
@@ -2359,4 +2361,8 @@
   ,"provider.capabilities": "Protocol & capabilities"
   ,"provider.serverWebSearch": "Server-side search (DeepSeek Responses only)"
   ,"provider.serverWebSearch.hint": "When enabled, web_search runs on the DeepSeek server (saves a round-trip); when off or unsupported, falls back to the built-in local search (builtin/searxng/bing…). Only available with apiStyle=responses."
+
+  ,"ask.countdown": "{{time}} left to answer"
+  ,"chat.attachmentView": "View image: {{name}}"
+  ,"chat.attachmentViewerAria": "Image preview"
 }

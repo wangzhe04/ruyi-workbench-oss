@@ -121,8 +121,8 @@ const streamUi = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'chat-stre
 const sessionUi = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'session-experience.js'), 'utf8');
 ok(/compactProviderId/.test(navigation) && /默认（Kimi 原生压缩）/.test(navigation), 'context panel exposes universal compaction-model selector');
 ok(/\/api\/agent\/compact/.test(streamUi) && !/sendPrompt\('\/compact'\)[\s\S]{0,120}agentCliType === 'kimi'/.test(streamUi), 'Kimi manual compact routes to native API instead of prompt text');
-ok(/isProviderMode\(\) \|\| state\.config\?\.agentCliType !== 'kimi'/.test(sessionUi), 'Kimi status refresh cannot overwrite active Provider compaction usage');
-ok(/handle && !isProviderMode\(\) && state\.config\?\.agentCliType === 'kimi'/.test(navigation), 'opening the Provider context popover cannot trigger a late Kimi usage overwrite');
+ok(/isProviderMode\(\) \|\| currentEngineMeta\(\)\.agentCliType !== 'kimi'/.test(sessionUi), 'Kimi status refresh cannot overwrite active Provider compaction usage');
+ok(/handle && !isProviderMode\(\) && currentEngineMeta\(\)\.agentCliType === 'kimi'/.test(navigation), 'opening the Provider context popover cannot trigger a late Kimi usage overwrite');
 ok(/case 'tool_use_update'/.test(streamUi) && /card\.inp\.textContent/.test(streamUi), 'live Kimi tool input updates refresh the existing Ruyi tool card');
 const engine = fs.readFileSync(path.join(WB, 'app', 'src', '05-claude-engine.js'), 'utf8');
 ok(/value="kimi">Kimi Code</.test(html) && /settings\.agentCli\.tab/.test(html), 'settings exposes Agent CLI selector with Kimi');

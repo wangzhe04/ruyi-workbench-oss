@@ -35,7 +35,8 @@ function defaultConfig() {
     // --- v0.4 additions (interactive engine + permission bridge) ---
     engineMode: 'interactive',    // legacy (stdin closed, safe) | interactive (stdin kept open: AskUserQuestion + permission bridge)
     permissionBridge: true,       // route tool-permission prompts to the UI via --permission-prompt-tool (needs a non-bypass permission mode)
-    permissionTimeoutMs: 120000,  // how long a permission/question prompt waits before auto-deny
+    permissionTimeoutMs: 120000,  // how long a permission prompt waits before auto-deny
+    questionTimeoutMs: 600000,    // how long a request_user_input question waits; typing a long answer must not be cut short (UI heartbeat extends it while the modal is open)
     // 第27f波:权限超时→存档暂停(opt-in,默认 false=保持"超时即拒杀"的安全默认,零行为变化)。开启后:无人值守(driverAuto)
     // 回合里权限弹窗超时【不再立即拒杀】,而是打检查点 + 通知 + 延长到 autonomyPauseTtlMs 的有界窗口等人决定;窗口内无决定
     // 则回落 deny(fail-closed,防通知未达时无声僵尸挂起)。改的是【超时默认路径】,故 security-sensitive、默认关。
@@ -364,6 +365,8 @@ function normalizeConfig(raw) {
   // Clamp numeric timeouts to sane ranges (a non-numeric value must never disable the watchdog).
   const pt = Number(config.permissionTimeoutMs);
   config.permissionTimeoutMs = Number.isFinite(pt) ? Math.min(600000, Math.max(5000, pt)) : 120000;
+  const qt = Number(config.questionTimeoutMs);
+  config.questionTimeoutMs = Number.isFinite(qt) ? Math.min(3600000, Math.max(60000, qt)) : 600000;
   const it = Number(config.turnIdleTimeoutMs);
   config.turnIdleTimeoutMs = Number.isFinite(it) ? Math.min(3600000, Math.max(60000, it)) : 600000;
   const aw = Number(config.agentNodeWrapUpMs);
@@ -1898,6 +1901,9 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/playbooks', auth: 'token-browser' },
   { m: 'POST', p: '/api/chat/stream', auth: 'token-browser' },
   { m: 'POST', p: '/api/upload', auth: 'token-browser' },
+  // 图片/附件回显:聊天里已发送附件的原字节只读读取。内容型 GET,token 级同 /api/file/preview;
+  // handler 内再做 uploads 目录 realpath 包含校验(只服务 makeAttachmentRecord 写下的文件)。
+  { m: 'GET', p: '/api/upload/content', auth: 'token' },
   { m: 'POST', p: '/api/sessions', auth: 'token-browser' },
   { m: 'POST', p: '/api/sessions/', auth: 'token-browser', prefix: true },
   { m: 'PATCH', p: '/api/sessions/', auth: 'token-browser', prefix: true },
@@ -1915,6 +1921,8 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/kimi/status', auth: 'token-browser' },
   { m: 'POST', p: '/api/permission/decision', auth: 'token-browser' },
   { m: 'POST', p: '/api/chat/answer', auth: 'token-browser' },
+  // 提问续时心跳:弹窗打开期间前端周期调用,把挂起提问的超时重新上满(打字多也不被掐断)。
+  { m: 'POST', p: '/api/question/heartbeat', auth: 'token-browser' },
   // origin: UI 变更但仅同源基线(现状保持,不收紧)
   // token: 始终 tokenOk(敏感变更 + 内容型 GET,handler 多有自查作纵深)
   { m: 'POST', p: '/api/tools/', auth: 'token', prefix: true },

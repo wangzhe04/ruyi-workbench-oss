@@ -167,3 +167,17 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .message.system .bubble { background: var(--sys-bubble); border-color: var(--sys-line); font-family: var(--mono); font-size: var(--fs-md); white-space: pre-wrap; }
 .bubble.plain { white-space: pre-wrap; }
 .bubble.live-plain { white-space: pre-wrap; }
+
+/* 已发送附件回显:用户消息气泡上方一行 —— 图片出缩略图(点击看大图),其余文件出文件名芯片 */
+.msg-attachment-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.msg-attachment-thumb { padding: 0; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: var(--panel-2); line-height: 0; cursor: zoom-in; overflow: hidden; }
+.msg-attachment-thumb:hover { border-color: var(--accent); }
+.msg-attachment-thumb img { display: block; width: 96px; height: 96px; object-fit: cover; }
+.msg-attachment-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 6px 10px; border: 1px solid var(--line-2); border-radius: var(--radius-sm); background: var(--panel-2); color: var(--ink-2); font-size: var(--fs-sm); }
+.msg-attachment-name { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 附件大图查看器:全屏暗幕,点空白处或 Esc 关闭 */
+.attachment-viewer-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 32px; background: rgba(0,0,0,.72); cursor: zoom-out; }
+.attachment-viewer { margin: 0; max-width: min(96vw, 1400px); max-height: 92vh; display: flex; flex-direction: column; gap: 10px; }
+.attachment-viewer img { max-width: 100%; max-height: calc(92vh - 40px); object-fit: contain; border-radius: var(--radius-sm); box-shadow: var(--elev-3); cursor: default; }
+.attachment-viewer-caption { color: rgba(255,255,255,.85); font-size: var(--fs-sm); text-align: center; overflow-wrap: anywhere; }

@@ -512,7 +512,8 @@ function defaultConfig() {
     // --- v0.4 additions (interactive engine + permission bridge) ---
     engineMode: 'interactive',    // legacy (stdin closed, safe) | interactive (stdin kept open: AskUserQuestion + permission bridge)
     permissionBridge: true,       // route tool-permission prompts to the UI via --permission-prompt-tool (needs a non-bypass permission mode)
-    permissionTimeoutMs: 120000,  // how long a permission/question prompt waits before auto-deny
+    permissionTimeoutMs: 120000,  // how long a permission prompt waits before auto-deny
+    questionTimeoutMs: 600000,    // how long a request_user_input question waits; typing a long answer must not be cut short (UI heartbeat extends it while the modal is open)
     // 第27f波:权限超时→存档暂停(opt-in,默认 false=保持"超时即拒杀"的安全默认,零行为变化)。开启后:无人值守(driverAuto)
     // 回合里权限弹窗超时【不再立即拒杀】,而是打检查点 + 通知 + 延长到 autonomyPauseTtlMs 的有界窗口等人决定;窗口内无决定
     // 则回落 deny(fail-closed,防通知未达时无声僵尸挂起)。改的是【超时默认路径】,故 security-sensitive、默认关。
@@ -841,6 +842,8 @@ function normalizeConfig(raw) {
   // Clamp numeric timeouts to sane ranges (a non-numeric value must never disable the watchdog).
   const pt = Number(config.permissionTimeoutMs);
   config.permissionTimeoutMs = Number.isFinite(pt) ? Math.min(600000, Math.max(5000, pt)) : 120000;
+  const qt = Number(config.questionTimeoutMs);
+  config.questionTimeoutMs = Number.isFinite(qt) ? Math.min(3600000, Math.max(60000, qt)) : 600000;
   const it = Number(config.turnIdleTimeoutMs);
   config.turnIdleTimeoutMs = Number.isFinite(it) ? Math.min(3600000, Math.max(60000, it)) : 600000;
   const aw = Number(config.agentNodeWrapUpMs);
@@ -2375,6 +2378,9 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/playbooks', auth: 'token-browser' },
   { m: 'POST', p: '/api/chat/stream', auth: 'token-browser' },
   { m: 'POST', p: '/api/upload', auth: 'token-browser' },
+  // 图片/附件回显:聊天里已发送附件的原字节只读读取。内容型 GET,token 级同 /api/file/preview;
+  // handler 内再做 uploads 目录 realpath 包含校验(只服务 makeAttachmentRecord 写下的文件)。
+  { m: 'GET', p: '/api/upload/content', auth: 'token' },
   { m: 'POST', p: '/api/sessions', auth: 'token-browser' },
   { m: 'POST', p: '/api/sessions/', auth: 'token-browser', prefix: true },
   { m: 'PATCH', p: '/api/sessions/', auth: 'token-browser', prefix: true },
@@ -2392,6 +2398,8 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/kimi/status', auth: 'token-browser' },
   { m: 'POST', p: '/api/permission/decision', auth: 'token-browser' },
   { m: 'POST', p: '/api/chat/answer', auth: 'token-browser' },
+  // 提问续时心跳:弹窗打开期间前端周期调用,把挂起提问的超时重新上满(打字多也不被掐断)。
+  { m: 'POST', p: '/api/question/heartbeat', auth: 'token-browser' },
   // origin: UI 变更但仅同源基线(现状保持,不收紧)
   // token: 始终 tokenOk(敏感变更 + 内容型 GET,handler 多有自查作纵深)
   { m: 'POST', p: '/api/tools/', auth: 'token', prefix: true },
@@ -2505,6 +2513,7 @@ const sessionWriteChains = new Map();
 // = 真损坏 → v1bak 回退(迁移期)或隔离为 .corrupt(与旧单文件损坏同纪律)。
 // 迁移:legacy <id>.json 首次 load 时原样备份 <id>.json.v1bak 再落 v2;v2 下次成功读取后自动删 v1bak。
 const SESSION_STORAGE_VERSION = 2;
+const sessionEngineRouteOverrides = new Map(); // live-turn stale-save guard for UI route changes
 function sessionBodyPaths(id) {
   return {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),
@@ -3248,6 +3257,10 @@ async function updateSessionMeta(id, patch) {
   if (!session) return null; // missing/corrupt — caller maps to 404
   if (typeof patch.title === 'string') session.title = patch.title.slice(0, 200);
   if (typeof patch.pinned === 'boolean') session.pinned = patch.pinned;
+  if (Object.prototype.hasOwnProperty.call(patch, 'engineRoute')) {
+    const route = normalizeSessionEngineRoute(patch.engineRoute);
+    if (route) { session.engineRoute = route; sessionEngineRouteOverrides.set(id, route); }
+  }
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
@@ -3281,6 +3294,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
   sessionBodyState.delete(id);
+  sessionEngineRouteOverrides.delete(id);
   if (purgeAssociated) {
     await Promise.all([
       fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
@@ -3311,6 +3325,65 @@ async function bulkDeleteUnpinnedSessions({ preserveSessionId, purgeAssociated =
   return { ok: true, deleted, deletedCount: deleted.length, skipped, purgedAssociated: Boolean(purgeAssociated) };
 }
 
+// Conversation engine/model selection belongs to the session, not to whichever global selector was
+// touched most recently. The global config remains the default for NEW sessions; existing sessions keep
+// this compact route descriptor and the turn dispatcher overlays it onto a request-local config copy.
+function normalizeSessionEngineRoute(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const model = String(raw.model || '').trim().slice(0, 256);
+  if (raw.engine === 'openai') {
+    const providerId = String(raw.providerId || '').trim().slice(0, 128);
+    return providerId ? { engine: 'openai', providerId, model } : null;
+  }
+  if (raw.engine === 'agent' || raw.engine === 'claude') {
+    const agentCliType = raw.agentCliType === 'kimi' ? 'kimi' : 'claude';
+    return { engine: 'agent', agentCliType, model };
+  }
+  return null;
+}
+
+function sessionEngineRouteFromConfig(config) {
+  const cfg = config && typeof config === 'object' ? config : {};
+  const providerId = String(cfg.activeProvider || '').trim();
+  if (providerId && providerId !== 'claude-cli') {
+    const provider = (cfg.providers || []).find(item => item && item.id === providerId);
+    return normalizeSessionEngineRoute({ engine: 'openai', providerId, model: provider && provider.model });
+  }
+  return normalizeSessionEngineRoute({ engine: 'agent', agentCliType: cfg.agentCliType, model: cfg.model });
+}
+
+function inferSessionEngineRoute(session) {
+  const explicit = normalizeSessionEngineRoute(session && session.engineRoute);
+  if (explicit) return explicit;
+  const messages = Array.isArray(session && session.messages) ? session.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || message.role !== 'assistant') continue;
+    const inferred = message.engine === 'openai' || message.providerId
+      ? normalizeSessionEngineRoute({ engine: 'openai', providerId: message.providerId, model: message.model })
+      : normalizeSessionEngineRoute({ engine: 'agent', agentCliType: message.agentCliType, model: message.model });
+    if (inferred) return inferred;
+  }
+  return null;
+}
+
+function configForSessionEngineRoute(config, session) {
+  const route = inferSessionEngineRoute(session);
+  if (!route) return config;
+  if (route.engine === 'openai') {
+    const providers = (config.providers || []).map(provider => provider && provider.id === route.providerId
+      ? { ...provider, model: route.model || provider.model || '' }
+      : provider);
+    return { ...config, activeProvider: route.providerId, providers };
+  }
+  return {
+    ...config,
+    activeProvider: '',
+    agentCliType: route.agentCliType,
+    model: route.model,
+  };
+}
+
 // v0.8-S0: fold an older/partial session onto the current schema. Mirrors normalizeConfig's shape:
 // returns { session, changed }. Backfills schemaVersion + turnSeq and guarantees the array fields so
 // no downstream code has to defend against missing/typo'd properties.
@@ -3331,6 +3404,11 @@ function normalizeSession(raw) {
     changed = true;
   }
   if (!Array.isArray(session.attachments)) { session.attachments = []; changed = true; }
+  {
+    const route = inferSessionEngineRoute(session);
+    if (route && JSON.stringify(route) !== JSON.stringify(session.engineRoute)) { session.engineRoute = route; changed = true; }
+    else if (!route && session.engineRoute !== undefined) { delete session.engineRoute; changed = true; }
+  }
   // v0.8-S3: todo list (TodoWrite). Old sessions predate it → backfill empty array.
   if (!Array.isArray(session.todos)) { session.todos = []; changed = true; }
   // 第26波b: 任务账本(MissionSpec)。默认 null(无任务)。旧会话无此键 → 保持 null。
@@ -4619,6 +4697,10 @@ async function saveSession(session) {
   await ensureDirs();
   session.updatedAt = nowIso();
   const id = session.id;
+  // A model switch may be saved while an old turn still owns an earlier in-memory session object. Preserve
+  // the newer UI route across that turn's later save instead of silently reverting the next-turn choice.
+  const routeOverride = sessionEngineRouteOverrides.get(id);
+  if (routeOverride) session.engineRoute = { ...routeOverride };
   const finalPath = sessionPath(id);
   const messages = Array.isArray(session.messages) ? session.messages : [];
   const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
@@ -4728,6 +4810,7 @@ function isUntitledSessionTitle(title) {
 async function createSession({ title, cwd }) {
   const id = makeId('sess');
   const config = await readConfig();
+  const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
   const session = {
     id,
     schemaVersion: SESSION_SCHEMA,
@@ -4739,10 +4822,11 @@ async function createSession({ title, cwd }) {
     createdAt: nowIso(),
     updatedAt: nowIso(),
     claudeSessionId: null,
-    messages: Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [],
+    messages: initialMessages,
     providerHistory: [],
     providerHistoryCursor: 0,
     attachments: [],
+    engineRoute: inferSessionEngineRoute({ messages: initialMessages }) || sessionEngineRouteFromConfig(config),
     mission: null, // 第26波b: 任务账本(见 normalizeMission)
     missionId: id, // 75a (D1 plan B): stable Mission identity, written for new sessions (== sessionId in 3.0)
     kind: 'quick_ask', // 第70波(EC-E):显式 Quick Ask 标识;mission start 时翻转 'mission'(见 13-http-router /api/mission)
@@ -6957,18 +7041,28 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
     } catch { /* a closed stream must not prevent the waiter from settling */ }
     return true;
   };
-  entry.timer = setTimeout(() => {
-    if (pendingQuestions.get(id) !== entry) return;
-    const timeoutAnswer = { ok: false, answers: [], content: '(question timed out)' };
-    runAutomaticInterventionDecision({
-      missionId: sessionId, interventionId: id, source: 'timeout_question', decidedBy: 'timeout',
-      idempotencyKey: `timeout:${id}`, payload: { action: 'answer', normalizedAnswer: timeoutAnswer },
-    }, () => {
-      if (pendingQuestions.get(id) === entry && !entry.commandApplying) entry.deliver(timeoutAnswer);
-    });
-  }, Math.max(5000, Number(timeoutMs) || 120000));
+  entry.timer = null;
+  // The timeout is re-armable: while the question modal stays open, UI heartbeats
+  // (/api/question/heartbeat → extendUserQuestion) reset the deadline so composing a long
+  // answer can never be cut off mid-way. The timer firing is the only backstop when the UI is gone.
+  entry.armTimeout = () => {
+    clearTimeout(entry.timer);
+    entry.deadlineAt = Date.now() + entry.timeoutMs;
+    entry.timer = setTimeout(() => {
+      if (pendingQuestions.get(id) !== entry) return;
+      const timeoutAnswer = { ok: false, answers: [], content: '(question timed out)' };
+      runAutomaticInterventionDecision({
+        missionId: sessionId, interventionId: id, source: 'timeout_question', decidedBy: 'timeout',
+        idempotencyKey: `timeout:${id}`, payload: { action: 'answer', normalizedAnswer: timeoutAnswer },
+      }, () => {
+        if (pendingQuestions.get(id) === entry && !entry.commandApplying) entry.deliver(timeoutAnswer);
+      });
+    }, entry.timeoutMs);
+  };
+  entry.timeoutMs = Math.max(5000, Number(timeoutMs) || 600000);
+  entry.armTimeout();
   pendingQuestions.set(id, entry);
-  onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized, context: questionContext || undefined });
+  onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized, context: questionContext || undefined, deadlineAt: entry.deadlineAt, timeoutMs: entry.timeoutMs });
   registerIntervention(sessionId, 'question', id, {
     questionSummary: normalized.map(q => String(q.question || '').slice(0, 200)).join(' | '),
     questions: normalized,
@@ -6982,6 +7076,16 @@ function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutM
     const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; }, context);
     if (!id) resolve({ ok: false, answers: [], content: '', error: 'no valid questions' });
   });
+}
+
+// Heartbeat extension: the open question modal calls this periodically so a user composing a long
+// answer never hits the deadline. Returns the fresh deadline/timeout for the UI countdown, or null
+// when the question is gone (answered/timed out/cancelled) — the caller then stops its heartbeat.
+function extendUserQuestion(sessionId, questionId) {
+  const entry = pendingQuestions.get(String(questionId || ''));
+  if (!entry || entry.sessionId !== sessionId || entry.commandApplying) return null;
+  try { entry.armTimeout(); } catch { return null; }
+  return { deadlineAt: entry.deadlineAt, timeoutMs: entry.timeoutMs };
 }
 
 function clearPendingQuestions(sessionId, message) {
@@ -9072,6 +9176,7 @@ async function runClaudeTurn({
   const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs); // env is a test seam
   const watchdog = setInterval(() => {
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀子进程,决定窗口被截断
+    if (hasPendingQuestionForSession(session.id)) return; // 提问挂起豁免:回答窗口由提问自身超时(+UI 心跳续时)兜底,此处杀子会吞掉用户正在写的回答
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — terminating` });
       try { reg.child.stdin.end(); } catch { /* ignore */ }
@@ -9268,7 +9373,7 @@ async function runClaudeTurn({
       } else onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input });
       // Interactive: an AskUserQuestion tool_use is ours to answer — surface a modal instead of a plain card.
       if (interactive && isAskUserTool(ev.name)) {
-        registerUserQuestion(session.id, ev.id, (ev.input && ev.input.questions) || ev.input || {}, onEvent, config.permissionTimeoutMs,
+        registerUserQuestion(session.id, ev.id, (ev.input && ev.input.questions) || ev.input || {}, onEvent, config.questionTimeoutMs,
           answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))), assistantText);
       }
     } else if (ev.kind === 'tool_result') {
@@ -10949,7 +11054,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
           })).filter(option => option.id && option.label),
         }],
         context.onEvent,
-        context.config.permissionTimeoutMs,
+        context.config.questionTimeoutMs,
         context.state.assistantText,
       );
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0]
@@ -11735,7 +11840,7 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
         context.session.id, String(params.elicitationId || makeId('kimi_elicitation')),
         [{ id: 'kimi_url_elicitation', header: 'Kimi 外部授权', question: `${message}\n\n完整地址：${url.href}`, answerMode: 'single', allowOther: false,
           options: [{ id: 'open', label: '同意并打开', description: `将在系统浏览器打开 ${url.hostname}` }, { id: 'decline', label: '拒绝', description: '不打开此地址' }] }],
-        context.onEvent, context.config.permissionTimeoutMs, context.state.assistantText
+        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText
       ), requestMeta && requestMeta.signal);
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0] && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
       if (selected !== 'open') return { action: selected === 'decline' ? 'decline' : 'cancel' };
@@ -11755,7 +11860,7 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
       const batch = rows.slice(start, start + 3);
       const answer = await awaitKimiAcpWithSignal(requestUserQuestion(
         context.session.id, String(params.toolCallId || makeId('kimi_elicitation')), batch.map(row => row.ui),
-        context.onEvent, context.config.permissionTimeoutMs, context.state.assistantText
+        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText
       ), requestMeta && requestMeta.signal);
       if (!answer || answer.ok === false) return { action: 'cancel' };
       for (const row of batch) {
@@ -22942,6 +23047,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
+  // 流式上下文估算(电量表实时化):estStreamBase = 本次模型调用发送前的 history 估算(token,含 system+tools),
+  // estStreamText = 本次调用已流出的增量文本。每次迭代边界重算基数 —— 自动压缩(forced_400 / maybeAutoCompact)
+  // 都发生在迭代边界、先于基数重算,所以压缩带来的占用下降会随下一次边界事件立刻反映到前端电量表;
+  // 流式期间则按 基数+增量文本估算 节流推送,真实 usage 帧到达后由前端覆盖校正。
+  let estStreamBase = 0, estStreamText = '', lastCtxEstAt = 0, lastCtxEstTokens = -1;
+  const emitContextEstimate = force => {
+    if (!(estStreamBase > 0)) return;
+    const now = Date.now();
+    if (!force && now - lastCtxEstAt < 800) return; // 节流:800ms,防 delta 洪峰刷爆 SSE
+    const n = Math.round(estStreamBase + (estStreamText ? estimateContentTokens(estStreamText) : 0));
+    if (!(n > 0) || n === lastCtxEstTokens) return;
+    lastCtxEstAt = now; lastCtxEstTokens = n;
+    // 走 downstreamEvent 直发:估算态是瞬时 UI 状态,不进 turnSegments(不落盘进消息 segments)。
+    downstreamEvent({
+      type: 'context_estimate', contextTokens: n, contextWindow: providerContextWindow(provider, model), estimated: true,
+      contextEngine: 'openai', contextProviderId: provider.id, contextModel: model,
+    });
+  };
   let activeProviderBatchId = '';
   let activeTraceId = '';
   onEvent = evt => {
@@ -22950,6 +23073,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       : evt;
     if (normalized && typeof normalized === 'object' && activeTraceId && !normalized.traceId) {
       normalized = { ...normalized, traceId: activeTraceId };
+    }
+    if (normalized && (normalized.type === 'assistant_delta' || normalized.type === 'thinking_delta')) {
+      estStreamText += String(normalized.text || '');
+      emitContextEstimate(false);
     }
     turnSegments.consume(normalized);
     downstreamEvent(normalized);
@@ -23223,6 +23350,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let idleAborted = false; // v0.8-S6: distinguish a watchdog (idle-timeout) abort from a user Stop for errorClass
   const watchdog = setInterval(() => {
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀回合(且 abort 中毒 ctrl 令窗口内批准失效)
+    if (hasPendingQuestionForSession(session.id)) return; // 提问挂起豁免:回答窗口由提问自身超时(+UI 心跳续时)兜底,此处中止会吞掉用户正在写的回答
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
       idleAborted = true;
@@ -23608,6 +23736,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current())) touch();
       lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
+      // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
+      estStreamBase = estBeforeCall; estStreamText = '';
+      emitContextEstimate(true);
       await dispatchAgentLoopHooks('beforeModelCall', {
         traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
         providerId: provider.id, model, iteration: iter, withTools: useTools,
@@ -24237,7 +24368,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // A Provider function call pauses this tool iteration until the matching UI answer arrives.
                 // Its structured result is appended as the normal role:'tool' reply below, so every
                 // OpenAI-compatible backend sees the choice in the protocol shape it already understands.
-                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.permissionTimeoutMs, assistantText);
+                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.questionTimeoutMs, assistantText);
                 resultObj = answer && answer.ok
                   ? { ok: true, answers: answer.answers, content: answer.content }
                   : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' };
@@ -25791,11 +25922,12 @@ async function maybeCompactSubHistory(opts) {
 // and appends a system note. On any failure the history is left untouched. Returns { ok, ... }; never
 // throws. Guarded by same-origin (mutating) upstream; NOT in needsToken.
 async function runProviderCompact(sessionId) {
-  const config = await readConfig();
+  const storedConfig = await readConfig();
   let session;
   try { session = await loadSession(String(sessionId || '')); }
   catch { return { ok: false, error: 'session not found' }; }
   if (!session) return { ok: false, error: 'session not found' };
+  const config = configForSessionEngineRoute(storedConfig, session);
   const provider = activeOpenAiProvider(config);
   if (!provider) return { ok: false, error: 'active engine is not an OpenAI-compatible provider' };
   const compactTarget = resolveCompactionProvider(config, provider);
@@ -26002,12 +26134,13 @@ async function streamChat(req, res) {
   // 值域复用唯一 PERMISSION_MODES；非法/缺失值静默回落持久配置。该局部副本同时传给首回合、
   // until-done 续跑、Provider 与 Claude，避免 UI 显示一档而后端实际按另一档执行。
   const requestedPermissionMode = String(body.permissionMode || '');
-  const config = PERMISSION_MODES.includes(requestedPermissionMode)
+  const permissionConfig = PERMISSION_MODES.includes(requestedPermissionMode)
     ? { ...storedConfig, permissionMode: requestedPermissionMode }
     : storedConfig;
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
+  const config = configForSessionEngineRoute(permissionConfig, session);
   const attachments = body.attachments || [];
 
   // Lowest-latency streaming on loopback: no Nagle batching, flush headers immediately.
@@ -26078,6 +26211,10 @@ async function streamChat(req, res) {
   try {
     emit({ type: 'session', session });
     const provider = activeOpenAiProvider(config);
+    const pinnedRoute = inferSessionEngineRoute(session);
+    if (pinnedRoute?.engine === 'openai' && !provider) {
+      throw new Error(`会话绑定的 Provider 不可用：${pinnedRoute.providerId}`);
+    }
     // 单回合执行器(首回合=用户消息带附件;账本续跑回合=driverAuto、无附件)。两引擎同签名。
     const runTurn = async (msg, driverAuto) => {
       lastTurnTokens = 0;
@@ -29748,6 +29885,14 @@ async function handleApi(req, res, pathname) {
   }
   if (req.method === 'GET' && pathname === '/api/status') {
     const config = await readConfig();
+    let conversationConfig = config;
+    try {
+      const requestedSessionId = safeSessionId(new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId') || '');
+      if (requestedSessionId) {
+        const statusSession = await loadSession(requestedSessionId);
+        if (statusSession) conversationConfig = configForSessionEngineRoute(config, statusSession);
+      }
+    } catch { /* status without a valid session keeps the global new-session default */ }
     const { health, manifest } = await computeHealth(config);
     return send(res, json({
       ok: true,
@@ -29766,19 +29911,19 @@ async function handleApi(req, res, pathname) {
       permissionModes: PERMISSION_MODES,
       // Resolve the conversation route (including CLI/manual overrides), never the summary provider.
       contextWindowResolved: await (async () => {
-        const p = activeOpenAiProvider(config);
+        const p = activeOpenAiProvider(conversationConfig);
         if (!p) {
-          const meta = await agentConversationContextMeta(config, null);
-          return { value: meta.contextWindow, source: meta.contextWindowSource, engine: 'agent', agentCliType: meta.contextAgentCliType, provider: '', model: String(config.model || '') };
+          const meta = await agentConversationContextMeta(conversationConfig, null);
+          return { value: meta.contextWindow, source: meta.contextWindowSource, engine: 'agent', agentCliType: meta.contextAgentCliType, provider: '', model: String(conversationConfig.model || '') };
         }
         const model = p ? String(p.model || (p.models && p.models[0] && p.models[0].id) || '').trim() : '';
-        const manual = configuredConversationWindow(config, 'openai', p.id, model);
+        const manual = configuredConversationWindow(conversationConfig, 'openai', p.id, model);
         const r = resolveContextWindow(manual ? { ...p, contextWindow: manual } : p, model);
         // 45f 对抗轮 P3-5:窗口学习生效时如实展示 —— 否则用户看到「才用一半就压缩」会对不上账。
         const cap = p ? learnedWindowCap(p.id, model) : 0;
         return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };
       })(),
-      models: config.agentCliType === 'kimi' ? kimiModelList(config) : offlineModelList(config), // instant offline list; Claude enriches via GET /api/models
+      models: conversationConfig.agentCliType === 'kimi' ? kimiModelList(conversationConfig) : offlineModelList(conversationConfig), // instant offline list for the requested conversation route
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (DeepSeek/DashScope/custom)
       claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (Ark Coding Plan/custom)
       detectedClaudePath: detectClaudePath(),
@@ -30327,12 +30472,14 @@ async function handleApi(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/agent/compact') {
     const body = await readJsonBody(req);
-    const config = await readConfig();
+    const storedConfig = await readConfig();
     const sessionId = safeSessionId(String(body.sessionId || ''));
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     // Native Kimi compaction and external summary reseeding both mutate the same session a live turn
     // owns. Enforce the UI's no-overlap rule at the API boundary to avoid last-writer-wins data loss.
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
+    const compactSession = await loadSession(sessionId);
+    const config = compactSession ? configForSessionEngineRoute(storedConfig, compactSession) : storedConfig;
     const result = config.compactProviderId
       ? await runAgentExternalCompact(sessionId, config, 'manual')
       : (config.agentCliType === 'kimi'
@@ -30852,6 +30999,29 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const file = await makeAttachmentRecord(body);
     return send(res, json({ ok: true, file }));
+  }
+  // 图片/附件回显:读取 makeAttachmentRecord 写下的上传件原字节(聊天气泡里的图片缩略图/大图)。
+  // 只读内容型 GET:token 门 + handler 自查(同 /api/file/preview 纵深);第二道闸把目标锁死在
+  // uploads 根内(词法 + realpath 双校验,符号链接也逃不出),服务面 = 工作台自己写过的上传目录。
+  if (req.method === 'GET' && pathname === '/api/upload/content') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const q = new URL(req.url, 'http://x').searchParams;
+    const id = String(q.get('id') || '');
+    const name = String(q.get('name') || '');
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return send(res, apiFailure('upload.id_invalid', {}, 'invalid upload id', 400));
+    // name 只许纯 basename(无分隔符/无 ..);与 makeAttachmentRecord 的 safeName 同域。
+    if (!name || name.length > 255 || name !== path.basename(name) || name === '.' || name === '..') {
+      return send(res, apiFailure('upload.name_invalid', {}, 'invalid attachment name', 400));
+    }
+    const uploadsRoot = await fsp.realpath(paths.uploads).catch(() => paths.uploads);
+    const target = path.resolve(path.join(paths.uploads, id, name));
+    if (!pathWithinRoot(target, path.normalize(paths.uploads))) return send(res, apiFailure('upload.not_found', {}, 'attachment not found', 404));
+    const real = await fsp.realpath(target).catch(() => null);
+    if (!real || !pathWithinRoot(real, uploadsRoot)) return send(res, apiFailure('upload.not_found', {}, 'attachment not found', 404));
+    let buffer = null;
+    try { buffer = await fsp.readFile(real); } catch { buffer = null; }
+    if (!buffer) return send(res, apiFailure('upload.not_found', {}, 'attachment not found', 404));
+    return send(res, { status: 200, headers: { 'content-type': contentTypeFor(name), 'cache-control': 'private, max-age=86400' }, body: buffer });
   }
   if (req.method === 'POST' && pathname === '/api/chat/stream') {
     return streamChat(req, res);
@@ -33731,6 +33901,16 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     if (result.status !== 200) return send(res, apiFailure('question.delivery_failed', {}, 'answer could not be delivered; the question is still pending', 409));
     return send(res, json({ ok: true, delivered: true, questionId }));
   }
+  if (req.method === 'POST' && pathname === '/api/question/heartbeat') {
+    // Keep-alive from the open question modal: re-arms the pending question's timeout so a user typing a
+    // long answer is never cut off at a fixed deadline. No heartbeat (modal closed / app gone) means the
+    // original timeout fires as the backstop. Returns the fresh deadline for the UI countdown.
+    const body = await readJsonBody(req);
+    const sessionId = String(body.sessionId || '');
+    const extension = extendUserQuestion(sessionId, String(body.questionId || ''));
+    if (!extension) return send(res, apiFailure('question.not_pending', {}, 'question is no longer pending', 409));
+    return send(res, json({ ok: true, deadlineAt: extension.deadlineAt, timeoutMs: extension.timeoutMs }));
+  }
   if (req.method === 'POST' && pathname === '/api/question/request') {
     // Called by request_user_input in the per-session Claude MCP child. Hold the tool call until the UI
     // answers, then return a normal MCP tool result. Provider turns use the same registry in-process.
@@ -33741,7 +33921,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const reg = activeChildren.get(sessionId);
     if (!reg || !reg.onEvent) return send(res, apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
     const config = await readConfig();
-    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.permissionTimeoutMs, reg.questionContext || '');
+    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.questionTimeoutMs, reg.questionContext || '');
     return send(res, json(answer && answer.ok
       ? { ok: true, answers: answer.answers, content: answer.content }
       : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' }));
@@ -34665,6 +34845,11 @@ module.exports = {
   // v1.9 会话存储 v2 + 引擎转录 GC — exposed for e2e(迁移/快路径/撕裂容忍/白名单账本/保留期清理)。
   loadSession,
   createSession,
+  updateSessionMeta,
+  normalizeSessionEngineRoute,
+  sessionEngineRouteFromConfig,
+  inferSessionEngineRoute,
+  configForSessionEngineRoute,
   saveSession,
   deleteSession,
   listSessions,

@@ -1076,11 +1076,12 @@ async function maybeCompactSubHistory(opts) {
 // and appends a system note. On any failure the history is left untouched. Returns { ok, ... }; never
 // throws. Guarded by same-origin (mutating) upstream; NOT in needsToken.
 async function runProviderCompact(sessionId) {
-  const config = await readConfig();
+  const storedConfig = await readConfig();
   let session;
   try { session = await loadSession(String(sessionId || '')); }
   catch { return { ok: false, error: 'session not found' }; }
   if (!session) return { ok: false, error: 'session not found' };
+  const config = configForSessionEngineRoute(storedConfig, session);
   const provider = activeOpenAiProvider(config);
   if (!provider) return { ok: false, error: 'active engine is not an OpenAI-compatible provider' };
   const compactTarget = resolveCompactionProvider(config, provider);
@@ -1287,12 +1288,13 @@ async function streamChat(req, res) {
   // 值域复用唯一 PERMISSION_MODES；非法/缺失值静默回落持久配置。该局部副本同时传给首回合、
   // until-done 续跑、Provider 与 Claude，避免 UI 显示一档而后端实际按另一档执行。
   const requestedPermissionMode = String(body.permissionMode || '');
-  const config = PERMISSION_MODES.includes(requestedPermissionMode)
+  const permissionConfig = PERMISSION_MODES.includes(requestedPermissionMode)
     ? { ...storedConfig, permissionMode: requestedPermissionMode }
     : storedConfig;
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
+  const config = configForSessionEngineRoute(permissionConfig, session);
   const attachments = body.attachments || [];
 
   // Lowest-latency streaming on loopback: no Nagle batching, flush headers immediately.
@@ -1363,6 +1365,10 @@ async function streamChat(req, res) {
   try {
     emit({ type: 'session', session });
     const provider = activeOpenAiProvider(config);
+    const pinnedRoute = inferSessionEngineRoute(session);
+    if (pinnedRoute?.engine === 'openai' && !provider) {
+      throw new Error(`会话绑定的 Provider 不可用：${pinnedRoute.providerId}`);
+    }
     // 单回合执行器(首回合=用户消息带附件;账本续跑回合=driverAuto、无附件)。两引擎同签名。
     const runTurn = async (msg, driverAuto) => {
       lastTurnTokens = 0;

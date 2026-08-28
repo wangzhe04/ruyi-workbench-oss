@@ -30,6 +30,7 @@ export function createChatStreamRuntime(deps = {}) {
     el,
     engineLabel,
     errorCard,
+    activeTurnUserIsPersisted = () => false,
     emitSessionStream = () => {},
     fmtTokens,
     handleAgentWorkflowEvent,
@@ -253,14 +254,15 @@ export function createChatStreamRuntime(deps = {}) {
   }
   function surfaceBackgroundQuestion(line, sessionId) {
     let evt; try { evt = JSON.parse(line); } catch { return; }
-    if (evt?.type === 'ask_user') showAskUserModal(evt.questionId || evt.id, evt.questions, sessionId, evt.context || '');
+    if (evt?.type === 'ask_user') showAskUserModal(evt.questionId || evt.id, evt.questions, sessionId, evt.context || '', Number(evt.deadlineAt) || 0);
   }
   function mountActiveTurn(sessionId) {
     const turn = activeTurns.get(sessionId);
     if (!turn || state.currentSession?.id !== sessionId) return;
     const box = $('messages');
     box.querySelector('.empty-state')?.remove();
-    if (turn.optimisticUserRow && !turn.optimisticUserRow.isConnected) box.appendChild(turn.optimisticUserRow);
+    const persistedUser = activeTurnUserIsPersisted(state.currentSession?.messages, turn);
+    if (turn.optimisticUserRow && !turn.optimisticUserRow.isConnected && !persistedUser) box.appendChild(turn.optimisticUserRow);
     const shell = createLiveAssistantShell(); turn.live = shell.live; turn.main = shell.main;
     // Coalesce tiny deltas while preserving tool/workflow boundaries. Keep this shell live: finalizing it here
     // detaches its text node, so subsequent deltas otherwise remain invisible until the terminal full reload.
@@ -383,7 +385,7 @@ export function createChatStreamRuntime(deps = {}) {
     if (compactState.active) return; // F3⑥ 进行中再点=忽略
     if (state.streaming) { toast(t("toast.compactWaitTurn"), ''); return; }
     if (!state.currentSession || !(state.currentSession.messages || []).length) { toast(t("toast.compactEmpty"), ''); return; }
-    if (!isProviderMode() && state.config?.agentCliType === 'claude' && !state.config?.compactProviderId) {
+    if (!isProviderMode() && currentEngineMeta().agentCliType !== 'kimi' && !state.config?.compactProviderId) {
       // Claude 模式:/compact 是流式回合。开指示,sendPrompt 走完流后 setStreaming(false) 会调 endCompactIndicator。
       beginCompactIndicator();
       toast(t("toast.compactRequested"), 'ok');
@@ -410,7 +412,8 @@ export function createChatStreamRuntime(deps = {}) {
     const selectedId = state.currentSession?.id || '';
     if (selectedId && activeTurns.has(selectedId)) return steerPrompt(overrideText);
     const message = (overrideText != null ? overrideText : $('promptInput').value).trim();
-    if (!message) return;
+    const hasAttachments = Array.isArray(options.attachments) ? options.attachments.length > 0 : state.attachments.length > 0;
+    if (!message && !hasAttachments) return;
     // Migrate a browser-only manual window before the server decides whether this turn needs compacting.
     // On failure preserve the draft/attachments and do not send with a different context limit.
     try { await syncContextWindowManual(); }
@@ -460,9 +463,10 @@ export function createChatStreamRuntime(deps = {}) {
 
     const turnAbort = new AbortController();
     const turnEngine = isProviderMode() ? 'openai' : 'claude';
-    const turnState = { abort: turnAbort, startedAt: Date.now(), message, optimisticUserRow, eventLines: [], eventHead: 0, eventChars: 0, answeredQuestions: new Set(), live, main,
-      engine: turnEngine, agentCliType: state.config?.agentCliType || 'claude',
-      claudeInteractive: turnEngine !== 'claude' || state.config?.agentCliType === 'kimi' || state.config.engineMode === 'interactive' };
+    const turnMeta = currentEngineMeta();
+    const turnState = { abort: turnAbort, startedAt: Date.now(), initialTurnSeq: Number(state.currentSession?.turnSeq) || 0, message, optimisticUserRow, eventLines: [], eventHead: 0, eventChars: 0, answeredQuestions: new Set(), live, main,
+      engine: turnEngine, agentCliType: turnMeta.agentCliType || 'claude',
+      claudeInteractive: turnEngine !== 'claude' || turnMeta.agentCliType === 'kimi' || state.config.engineMode === 'interactive' };
     activeTurns.set(turnSessionId, turnState);
     notifySessionStream({ type: 'start', sessionId: turnSessionId, message, createdAt: new Date().toISOString() });
     syncStreamingUi();
@@ -1083,6 +1087,11 @@ export function createChatStreamRuntime(deps = {}) {
         if (live) live.pendingUsage = evt; else main.appendChild(usageLine(evt));
         renderContextMeter(evt);
         break;
+      case 'context_estimate':
+        // 服务端流式估算(≈):只刷新电量表,不进 pendingUsage/usageLine;真实 usage 帧到达时自动覆盖校正。
+        // 压缩后的下一次迭代边界会推降低后的估算,电量表即时回落(配合 renderContextMeter 的数字补间平滑显示)。
+        renderContextMeter(evt);
+        break;
       case 'compact': {
         const phase = evt.phase || (evt.afterTokens != null ? 'completed' : 'running');
         if (phase === 'started') {
@@ -1098,6 +1107,16 @@ export function createChatStreamRuntime(deps = {}) {
           // v2.6.2-r2: 标记插入 live.narrative(时序流),随当前思考/工具位置就地显示;不再沉到回合最底部。
           const markerBox = live && live.narrative ? live.narrative : null;
           if (evt.beforeTokens || evt.afterTokens) appendMsgNote(main, live, `🗜 自动压缩已完成：${fmtTokens(evt.beforeTokens || 0)} → ${fmtTokens(evt.afterTokens || 0)}`, markerBox);
+          // A compact event is newer than the previous persisted usage row. Reflect its post-compact
+          // numerator immediately instead of waiting for the next model response's usage frame.
+          if (Number.isFinite(Number(evt.afterTokens)) && Number(evt.afterTokens) >= 0) {
+            const previous = state.shownUsage || latestUsage(state.currentSession) || {};
+            const meta = currentEngineMeta() || {};
+            const routeUsage = meta.engine === 'openai' || meta.providerId
+              ? { contextEngine: 'openai', contextProviderId: String(meta.providerId || ''), contextModel: String(meta.model || '') }
+              : { contextEngine: 'agent', contextAgentCliType: meta.agentCliType === 'kimi' ? 'kimi' : 'claude', contextModel: String(meta.model || '') };
+            renderContextMeter({ ...previous, ...routeUsage, contextTokens: Number(evt.afterTokens), contextWindow: Number(evt.contextWindow) || previous.contextWindow });
+          }
           endCompactIndicator();
         } else if (phase === 'failed') {
           const markerBox = live && live.narrative ? live.narrative : null;
@@ -1111,7 +1130,7 @@ export function createChatStreamRuntime(deps = {}) {
         break;
       case 'ask_user':
         registerLiveSemanticCard(live, { ...evt, type: 'question', status: 'pending' });
-        showAskUserModal(evt.questionId || evt.id, evt.questions, streamSessionId, evt.context || '');
+        showAskUserModal(evt.questionId || evt.id, evt.questions, streamSessionId, evt.context || '', Number(evt.deadlineAt) || 0);
         maybeScrollToBottom(); // EC-D 56: 提问卡入列走粘性跟随(模态浮层不影响消息区滚动)
         break;
       case 'question_answer':

@@ -193,7 +193,7 @@ function renderModelChip() {
 const CLAUDE_THINKING_EFFORTS_UI = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
 const PROVIDER_REASONING_EFFORTS_UI = ['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
 function activeProvider() {
-  const id = state.config?.activeProvider;
+  const id = isProviderMode() ? String(currentEngineMeta().providerId || '') : '';
   return id && id !== 'claude-cli' ? (state.config?.providers || []).find(p => p.id === id) || null : null;
 }
 async function setClaudeThinkingEffort(value) {
@@ -238,11 +238,27 @@ async function setProviderReasoningEffort(providerId, value) {
 // id writes the model INTO that provider's entry, Claude writes config.model.
 async function setEngineModel(providerId, modelId) {
   const pid = providerId || '';
+  const previousRoute = state.currentSession?.engineRoute ? { ...state.currentSession.engineRoute } : null;
+  const agentMeta = currentEngineMeta();
+  const engineRoute = pid && pid !== 'claude-cli'
+    ? { engine: 'openai', providerId: pid, model: modelId || '' }
+    : { engine: 'agent', agentCliType: agentMeta.agentCliType === 'kimi' ? 'kimi' : (state.config?.agentCliType === 'kimi' ? 'kimi' : 'claude'), model: modelId || '' };
   const patch = { activeProvider: pid };
   if (pid && pid !== 'claude-cli') {
     patch.providers = (state.config.providers || []).map(p => (p.id === pid ? { ...p, model: modelId || '' } : p));
   } else {
     patch.model = modelId || '';
+  }
+  // Pin the choice to the opened conversation before changing the global new-session default. This makes
+  // switching A→B restore B's route instead of showing/running whichever route was selected most recently.
+  if (state.currentSession?.id) {
+    state.currentSession.engineRoute = engineRoute;
+    try { await patchSession(state.currentSession.id, { engineRoute }); }
+    catch (error) {
+      if (previousRoute) state.currentSession.engineRoute = previousRoute; else delete state.currentSession.engineRoute;
+      toast(apiErrText(error), 'err');
+      return;
+    }
   }
   // Optimistic local update so the chip/meter reflect the choice immediately.
   Object.assign(state.config, patch);
@@ -259,8 +275,10 @@ async function setEngineModel(providerId, modelId) {
   // Re-resolve after persistence so probe/manual/table values (including learned provider caps) appear
   // without waiting for a restart or another chat turn. Ignore a late response after a second switch.
   if (saved) {
-    api('/api/status').then(fresh => {
-      const nowPid = isProviderMode() ? String(state.config?.activeProvider || '') : '';
+    const statusUrl = state.currentSession?.id ? `/api/status?sessionId=${encodeURIComponent(state.currentSession.id)}` : '/api/status';
+    api(statusUrl).then(fresh => {
+      const nowMeta = currentEngineMeta();
+      const nowPid = isProviderMode() ? String(nowMeta.providerId || '') : '';
       if (`${nowPid || 'agent'}\u0000${currentModelId() || ''}` !== routeKey) return;
       if (state.status) state.status.contextWindowResolved = fresh && fresh.contextWindowResolved;
       updateContextMeter();
@@ -308,7 +326,7 @@ function openModelChipPopover(anchor) {
   popover(chip, close => {
     const wrap = el('div', 'mc-pop');
     const rows = []; // flat list of selectable rows for keyboard nav (in visual order)
-    const curPid = isProviderMode() ? state.config.activeProvider : '';
+    const curPid = isProviderMode() ? String(currentEngineMeta().providerId || '') : '';
     const curModel = currentModelId();
     // v1.0.2 (G3): 分组折叠 — 当前激活引擎组展开置顶；其它引擎组折叠(details/summary)。组头显示引擎名 + 模型数,
     // 非当前引擎组注明「选择将切换引擎」。模型行有 contextLength 时显示紧凑徽标(128K / 1M)。当前模型 ✓ 保持。
@@ -438,7 +456,7 @@ function openModelChipPopover(anchor) {
 
 /* ---------------- context-meter popover (§4.6) ---------------- */
 // Click the battery → popover with used/limit + %, limit source (model-inferred / manual), preset
-// chips (64K 128K 200K 1M 自动) + custom input, and a 🗜 compact button. Replaces the native prompt().
+// chips (64K 128K 200K 256K 512K 1M 自动) + custom input, and a 🗜 compact button. Replaces the native prompt().
 function openContextPopover() {
   const meter = $('contextMeter'); if (!meter || meter.classList.contains('hidden')) return;
   const handle = popover(meter, close => {
@@ -462,7 +480,9 @@ function openContextPopover() {
     }
     // Preset chips + custom input.
     const chips = el('div', 'ctx-chips');
-    const presets = [['64K', 65536], ['128K', 131072], ['200K', 200000], ['1M', 1000000], [t('ctx.auto'), 0]];
+    // Keep 200K: it is a real advertised limit (not a rounded 256K). Add binary 256K and a useful 512K
+    // midpoint rather than making users jump directly from 200K to 1M.
+    const presets = [['64K', 65536], ['128K', 131072], ['200K', 200000], ['256K', 262144], ['512K', 524288], ['1M', 1000000], [t('ctx.auto'), 0]];
     const applyWin = async n => {
       try { await setCtxWindowManual(n); updateContextMeter(); close(); }
       catch (e) { toast(apiErrText(e), 'err'); }
@@ -485,7 +505,7 @@ function openContextPopover() {
     const compactLabel = el('label', 'ctx-compact-model-label muted', '压缩模型');
     const compactSelect = el('select', 'ctx-compact-model');
     const defaultName = isProviderMode() ? '默认（当前 Provider 模型）'
-      : (state.config?.agentCliType === 'kimi' ? '默认（Kimi 原生压缩）' : '默认（Claude 原生 /compact）');
+      : (currentEngineMeta().agentCliType === 'kimi' ? '默认（Kimi 原生压缩）' : '默认（Claude 原生 /compact）');
     compactSelect.appendChild(new Option(defaultName, ''));
     const selectedProvider = String(state.config?.compactProviderId || '');
     const selectedModel = String(state.config?.compactModel || '');
@@ -553,7 +573,7 @@ function openContextPopover() {
   }
   // Existing Kimi sessions may predate usage synchronization. Refresh the authoritative native status
   // whenever the meter is opened and patch both the battery and this popover without requiring a restart.
-  if (handle && !isProviderMode() && state.config?.agentCliType === 'kimi' && state.currentSession?.id) {
+  if (handle && !isProviderMode() && currentEngineMeta().agentCliType === 'kimi' && state.currentSession?.id) {
     const sid = state.currentSession.id;
     api(`/api/kimi/status?sessionId=${encodeURIComponent(sid)}`).then(r => {
       if (!r || !r.ok || !r.usage || state.currentSession?.id !== sid) return;

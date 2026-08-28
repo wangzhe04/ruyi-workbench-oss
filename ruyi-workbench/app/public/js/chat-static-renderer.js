@@ -2,6 +2,7 @@
 
 export function createChatStaticRenderer(deps = {}) {
   const {
+    attachmentImageUrl,
     buildNarrativeSteerSegment,
     buildStaticToolGroup,
     el,
@@ -366,6 +367,64 @@ export function createChatStaticRenderer(deps = {}) {
     return details;
   }
 
+  // 已发送附件回显:用户消息里展示「发了什么」——图片出缩略图(点击看大图),其余文件出名片。
+  // 数据源是持久化的 msg.attachments(两引擎都在 user 消息上存),乐观行与历史重渲染同源。
+  const ATTACHMENT_IMAGE_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
+  function messageAttachmentStrip(msg) {
+    const list = Array.isArray(msg.attachments) ? msg.attachments.filter(a => a && (a.name || a.path)) : [];
+    if (!list.length) return null;
+    const strip = el('div', 'msg-attachment-strip');
+    for (const att of list) {
+      const name = String(att.name || att.path || '');
+      if (ATTACHMENT_IMAGE_RE.test(name) && typeof attachmentImageUrl === 'function') {
+        const btn = el('button', 'msg-attachment-thumb');
+        btn.type = 'button';
+        btn.title = name;
+        btn.setAttribute('aria-label', t('chat.attachmentView', { name }));
+        const img = document.createElement('img');
+        img.alt = name;
+        img.loading = 'lazy';
+        btn.appendChild(img);
+        let loadedUrl = '';
+        attachmentImageUrl(att).then(url => {
+          if (!url || !btn.isConnected) return;
+          loadedUrl = url;
+          img.src = url;
+        }).catch(() => {});
+        img.addEventListener('error', () => { if (btn.isConnected) btn.replaceWith(attachmentChip(att, name)); });
+        btn.onclick = () => { if (loadedUrl) openAttachmentViewer(name, loadedUrl); };
+        strip.appendChild(btn);
+      } else {
+        strip.appendChild(attachmentChip(att, name));
+      }
+    }
+    return strip;
+  }
+  function attachmentChip(att, name) {
+    const chip = el('span', 'msg-attachment-chip');
+    chip.appendChild(icon('paperclip', 13));
+    chip.appendChild(el('span', 'msg-attachment-name', name));
+    chip.title = String(att.path || name);
+    return chip;
+  }
+  function openAttachmentViewer(name, url) {
+    const backdrop = el('div', 'attachment-viewer-backdrop');
+    backdrop.setAttribute('role', 'dialog');
+    backdrop.setAttribute('aria-label', t('chat.attachmentViewerAria'));
+    const figure = el('figure', 'attachment-viewer');
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = name;
+    const caption = el('figcaption', 'attachment-viewer-caption', name);
+    figure.append(img, caption);
+    backdrop.appendChild(figure);
+    const close = () => { document.removeEventListener('keydown', onKey); backdrop.remove(); };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(backdrop);
+  }
+
   function renderStaticMessage(msg, messageKey, renderSignature, options = {}) {
     const meta = msg.role === 'assistant' ? metaFromMessage(msg) : null;
     const { row, main } = messageShell(msg.role, msg.createdAt, meta);
@@ -383,11 +442,16 @@ export function createChatStaticRenderer(deps = {}) {
     if (msg.role === 'assistant' && segments.length) narrativeResult = renderStaticTurnNarrative(msg, main, options.idScope || '');
     else {
       if (msg.thinking) { const { d } = thinkingPanel(msg.thinking); main.appendChild(d); }
-      const bubble = el('div', 'bubble');
-      if (msg.role === 'assistant' && String(msg.content || '').length <= MARKDOWN_SYNC_MAX_CHARS) {
-        bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(msg.content || ''); highlightIn(bubble);
-      } else { bubble.classList.add('plain'); bubble.textContent = msg.content || ''; }
-      main.appendChild(bubble);
+      const attachmentStrip = msg.role === 'user' ? messageAttachmentStrip(msg) : null;
+      if (attachmentStrip) main.appendChild(attachmentStrip);
+      const content = String(msg.content || '');
+      if (content || !attachmentStrip) {
+        const bubble = el('div', 'bubble');
+        if (msg.role === 'assistant' && content.length <= MARKDOWN_SYNC_MAX_CHARS) {
+          bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(content); highlightIn(bubble);
+        } else { bubble.classList.add('plain'); bubble.textContent = content; }
+        main.appendChild(bubble);
+      }
     }
     if (!narrativeResult && visibleToolCalls.length) {
       // v1.0.2 (G4): >3 top-level tool cards → collapse them all into one <details.tool-group>. ≤3 render flat.

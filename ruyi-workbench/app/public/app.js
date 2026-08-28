@@ -14,8 +14,7 @@ import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, s
 import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken } from './js/net.js';
 import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
-import { captureScrollAnchor, messageDomKey, messageRenderSignature, normalizeTurnSegments, restoreScrollAnchor, turnToolAnchorId }
-  from './js/turn-narrative.js';
+import { activeTurnUserIsPersisted, captureScrollAnchor, messageDomKey, messageRenderSignature, normalizeTurnSegments, restoreScrollAnchor, turnToolAnchorId } from './js/turn-narrative.js';
 import { createChatScrollController, enableSmoothWheelScroll } from './js/chat-scroll.js';
 import { createSettingsOperationsDomain } from './js/settings-operations.js';
 import { createFileBrowserDomain } from './js/file-browser.js';
@@ -291,6 +290,7 @@ const {
   $,
   api,
   apiErrText,
+  activeTurnUserIsPersisted,
   appendToolOutput: (...args) => appendToolOutput(...args),
   authHeaders,
   autoGrow,
@@ -541,6 +541,7 @@ const {
   renderStaticMessage,
   turnToolIndexCard,
 } = createChatStaticRenderer({
+  attachmentImageUrl,
   buildNarrativeSteerSegment: text => buildNarrativeSteerSegment(text),
   buildStaticToolGroup,
   el,
@@ -608,11 +609,36 @@ window.addEventListener('i18n:change', () => {
 // UI v3 (§2.15): icon+文字按钮统一重建器 —— 清空后 append [SVG 图标] + [文字]。文案会变的按钮
 // (发送⇄停止 / 技能徽标)复用它:直接赋 textContent 会吞掉已插入的 SVG,故走 append。
 /* ---------------- attachments ---------------- */
+// Token auth is header-only, so images are fetched through JS and shown via objectURL — never as a
+// raw <img src> that would need a query-string token. One objectURL per attachment, cached.
+const attachmentUrlCache = new Map();
+function attachmentImageUrl(att) {
+  const id = String((att && att.id) || '');
+  const name = String((att && att.name) || '');
+  if (!id || !name) return Promise.resolve('');
+  const key = `${id}/${name}`;
+  let pending = attachmentUrlCache.get(key);
+  if (!pending) {
+    pending = fetch(`/api/upload/content?id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}`, { headers: authHeaders() })
+      .then(res => { if (!res.ok) throw new Error(String(res.status)); return res.blob(); })
+      .then(blob => URL.createObjectURL(blob));
+    attachmentUrlCache.set(key, pending);
+    pending.catch(() => attachmentUrlCache.delete(key));
+  }
+  return pending;
+}
 function renderAttachments() {
   const tray = $('attachmentTray');
   tray.innerHTML = '';
   state.attachments.forEach((f, i) => {
     const pill = el('span', 'attachment-pill');
+    if (f.previewUrl) {
+      const thumb = document.createElement('img');
+      thumb.className = 'attach-pill-thumb';
+      thumb.src = f.previewUrl;
+      thumb.alt = f.name || '';
+      pill.appendChild(thumb);
+    }
     pill.append(el('span', '', `${f.name} · ${fmtBytes(f.size)}`));
     const x = el('button', 'attach-x'); x.appendChild(icon('close', 12)); x.setAttribute('aria-label', t('chat.attachRemoveAria')); x.title = t('common.remove');
     x.onclick = () => { state.attachments.splice(i, 1); renderAttachments(); };
@@ -629,7 +655,9 @@ async function uploadFiles(files) {
     try {
       const data = await fileToBase64(file);
       const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
-      state.attachments.push(res.file);
+      const record = res.file;
+      if (record && /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i.test(String(record.name || ''))) record.previewUrl = URL.createObjectURL(file);
+      state.attachments.push(record);
     } catch (e) { toast(t("toast.uploadFail", { p1: apiErrText(e) }), 'err'); }
   }
   renderAttachments();
@@ -800,7 +828,7 @@ const {
   scrollMessagesToBottom: () => scrollMessagesToBottom(),
   mountActiveTurn: sessionId => mountActiveTurn(sessionId),
   renderWorkspacePicker: () => renderWorkspacePicker(),
-  updateSkillBadge: () => updateSkillBadge(),
+  updateSkillBadge: () => updateSkillBadge(), updateEngineDependentUI: () => updateEngineDependentUI(),
   renderStaticMessage: (...args) => renderStaticMessage(...args),
   latestUsage: session => latestUsage(session),
   pickWorkspaceNative: () => pickWorkspaceNative(),

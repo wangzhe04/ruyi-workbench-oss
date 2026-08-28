@@ -154,6 +154,8 @@
 .ask-foot-actions { box-sizing: border-box; width: 100%; min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 20px; }
 .ask-foot-hint { color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
 .ask-foot-hint.ready { color: var(--ok-fg); }
+.ask-countdown { flex: none; color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ask-countdown.warn { color: var(--danger-fg); font-weight: 650; }
 .ask-submit { min-width: 112px; min-height: 38px; font-weight: 650; }
 .ask-submit:disabled { cursor: not-allowed; opacity: .48; filter: saturate(.65); }
 @media (max-width: 560px) {

@@ -70,7 +70,7 @@ function installFocusTrap(backdrop) {
   });
 }
 
-function showAskUserModal(questionId, questions, streamSessionId, context = '') {
+function showAskUserModal(questionId, questions, streamSessionId, context = '', deadlineAt = 0) {
   const sid = streamSessionId || state.currentSession?.id; // pin the session the question belongs to
   const qid = String(questionId || '');
   const turn = sid ? activeTurns.get(sid) : null;
@@ -178,7 +178,21 @@ function showAskUserModal(questionId, questions, streamSessionId, context = '') 
   const submit = el('button', 'primary ask-submit', t('ask.submit'));
   submit.disabled = true;
   const footHint = el('div', 'ask-foot-hint', t('ask.answerAll'));
+  // Server broadcasts deadlineAt on ask_user; while this modal stays open a heartbeat keeps re-arming
+  // the timer, so a long answer is never cut short. The countdown makes that window visible.
+  let currentDeadline = Number(deadlineAt) || 0;
+  const countdown = el('span', 'ask-countdown');
+  const formatRemain = ms => {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+  };
+  const syncCountdown = () => {
+    const remain = currentDeadline - Date.now();
+    countdown.textContent = t('ask.countdown', { time: formatRemain(remain) });
+    countdown.classList.toggle('warn', remain <= 60000);
+  };
   const footActions = el('div', 'ask-foot-actions');
+  if (currentDeadline > 0) footActions.appendChild(countdown);
   footActions.append(footHint, submit);
   // Fire-and-forget answer (used only by the cancel path — Esc/✕/backdrop). Cancelling still answers (empty)
   // so the turn doesn't hang waiting for a tool_result. F4④:已实证现有关闭路径确实空答放行,不会丢弃挂起。
@@ -194,6 +208,19 @@ function showAskUserModal(questionId, questions, streamSessionId, context = '') 
   modal.backdrop.querySelector('.modal')?.classList.add('ask-question-modal');
   modal.backdrop.dataset.sessionId = sid;
   modal.backdrop.dataset.questionId = qid;
+  if (currentDeadline > 0) {
+    syncCountdown();
+    const tickTimer = setInterval(syncCountdown, 1000);
+    const heartbeatTimer = setInterval(() => {
+      api('/api/question/heartbeat', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid }) })
+        .then(r => {
+          const next = Number(r && r.deadlineAt) || 0;
+          if (next > 0) { currentDeadline = next; syncCountdown(); }
+        })
+        .catch(() => { clearInterval(heartbeatTimer); }); // 409 → question already settled server-side
+    }, 30000);
+    modal.backdrop.addEventListener('remove', () => { clearInterval(tickTimer); clearInterval(heartbeatTimer); });
+  }
   const collectAnswers = () => states.map(state => {
     const selected = state.options.filter(option => option.input.checked);
     const otherText = state.otherInput?.checked ? String(state.otherText?.value || '').trim() : '';

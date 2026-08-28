@@ -155,6 +155,11 @@ module.exports = {
   // v1.9 会话存储 v2 + 引擎转录 GC — exposed for e2e(迁移/快路径/撕裂容忍/白名单账本/保留期清理)。
   loadSession,
   createSession,
+  updateSessionMeta,
+  normalizeSessionEngineRoute,
+  sessionEngineRouteFromConfig,
+  inferSessionEngineRoute,
+  configForSessionEngineRoute,
   saveSession,
   deleteSession,
   listSessions,

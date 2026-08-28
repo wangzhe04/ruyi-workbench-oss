@@ -7,6 +7,7 @@ import { $, el, autoGrow, fileBasename, toast } from './util.js';
 import { icon } from './icons.js';
 import { getLocale, t, tCount } from './i18n.js';
 import {
+  activeTurnUserIsPersisted,
   captureScrollAnchor,
   messageDomKey,
   messageRenderSignature,
@@ -41,6 +42,7 @@ export function createSessionExperienceDomain({
   mountActiveTurn = () => false,
   renderWorkspacePicker = () => {},
   updateSkillBadge = () => {},
+  updateEngineDependentUI = () => {},
   renderStaticMessage = () => null,
   latestUsage = () => null,
   pickWorkspaceNative = async () => '',
@@ -115,12 +117,24 @@ async function openSession(id) {
     steerPendingList.length = 0; steeredSeen.length = 0; resetStickyScroll(); // EC-D 57: 切会话 -> 恢复跟随最新
     const h = $('composerHint'); if (h) { h.innerHTML = ''; h.style.display = 'none'; }
   }
+  updateEngineDependentUI();
   renderSessions();
   renderCurrentSession();
   if (switchedSession) scrollMessagesToBottom(); // 旧会话的阅读锚点不能泄漏到新会话
   renderResumeBanner();
   syncStreamingUi();
   mountActiveTurn(id);
+  // The global status denominator describes the new-session default. Resolve this session's pinned route
+  // after every switch so the context meter and model list do not lag behind until the next completed turn.
+  api(`/api/status?sessionId=${encodeURIComponent(id)}`).then(fresh => {
+    if (state.currentSession?.id !== id || !fresh) return;
+    if (state.status) {
+      state.status.contextWindowResolved = fresh.contextWindowResolved || null;
+      if (Array.isArray(fresh.models)) state.status.models = fresh.models;
+    }
+    updateEngineDependentUI();
+    renderContextMeter(latestUsage(state.currentSession));
+  }).catch(() => {});
 }
 // v0.8-S0 A6: show a lightweight banner above the composer when the opened session has a dangling
 // (interrupted) turn. "继续" resends a prompt asking the model to finish; the banner then hides.
@@ -574,6 +588,7 @@ async function newSession(options = {}) {
   state.resumable = null; // fresh session never dangles
   try { localStorage.setItem('wcw.lastSession', res.session.id); } catch { /* ignore */ }
   await refreshSessions();
+  updateEngineDependentUI();
   renderCurrentSession();
   renderResumeBanner();
   syncStreamingUi();
@@ -642,7 +657,7 @@ function refreshKimiContextForSession(session) {
   // `agentCliType` is only the fallback Agent driver. While an OpenAI-compatible Provider is active,
   // its compacted providerHistory is authoritative; a late Kimi status response must not restore the
   // pre-compaction numerator over the freshly reloaded Provider usage row.
-  if (!session || isProviderMode() || state.config?.agentCliType !== 'kimi' || !session.id) return;
+  if (!session || isProviderMode() || currentEngineMeta().agentCliType !== 'kimi' || !session.id) return;
   const sid = session.id;
   const seq = ++kimiContextRefreshSeq;
   api(`/api/kimi/status?sessionId=${encodeURIComponent(sid)}`).then(result => {
@@ -704,8 +719,7 @@ function renderCurrentSession() {
     if (!row || row.dataset.renderSignature !== signature) row = renderStaticMessage(m, key, signature);
     fragment.appendChild(row);
   }
-  const optimisticPersisted = liveForSession && msgs.some(message => message && message.role === 'user'
-    && !message.steered && String(message.content || '') === String(liveForSession.message || ''));
+  const optimisticPersisted = activeTurnUserIsPersisted(msgs, liveForSession);
   if (liveForSession?.optimisticUserRow && !optimisticPersisted) fragment.appendChild(liveForSession.optimisticUserRow);
   // Locale/config refreshes may legitimately call this while the current turn is streaming. Keep its live
   // keyed shell attached instead of reproducing the old "innerHTML clears the answer in progress" failure.

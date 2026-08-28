@@ -14,6 +14,7 @@
 // = 真损坏 → v1bak 回退(迁移期)或隔离为 .corrupt(与旧单文件损坏同纪律)。
 // 迁移:legacy <id>.json 首次 load 时原样备份 <id>.json.v1bak 再落 v2;v2 下次成功读取后自动删 v1bak。
 const SESSION_STORAGE_VERSION = 2;
+const sessionEngineRouteOverrides = new Map(); // live-turn stale-save guard for UI route changes
 function sessionBodyPaths(id) {
   return {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),
@@ -757,6 +758,10 @@ async function updateSessionMeta(id, patch) {
   if (!session) return null; // missing/corrupt — caller maps to 404
   if (typeof patch.title === 'string') session.title = patch.title.slice(0, 200);
   if (typeof patch.pinned === 'boolean') session.pinned = patch.pinned;
+  if (Object.prototype.hasOwnProperty.call(patch, 'engineRoute')) {
+    const route = normalizeSessionEngineRoute(patch.engineRoute);
+    if (route) { session.engineRoute = route; sessionEngineRouteOverrides.set(id, route); }
+  }
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
@@ -790,6 +795,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
   sessionBodyState.delete(id);
+  sessionEngineRouteOverrides.delete(id);
   if (purgeAssociated) {
     await Promise.all([
       fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
@@ -820,6 +826,65 @@ async function bulkDeleteUnpinnedSessions({ preserveSessionId, purgeAssociated =
   return { ok: true, deleted, deletedCount: deleted.length, skipped, purgedAssociated: Boolean(purgeAssociated) };
 }
 
+// Conversation engine/model selection belongs to the session, not to whichever global selector was
+// touched most recently. The global config remains the default for NEW sessions; existing sessions keep
+// this compact route descriptor and the turn dispatcher overlays it onto a request-local config copy.
+function normalizeSessionEngineRoute(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const model = String(raw.model || '').trim().slice(0, 256);
+  if (raw.engine === 'openai') {
+    const providerId = String(raw.providerId || '').trim().slice(0, 128);
+    return providerId ? { engine: 'openai', providerId, model } : null;
+  }
+  if (raw.engine === 'agent' || raw.engine === 'claude') {
+    const agentCliType = raw.agentCliType === 'kimi' ? 'kimi' : 'claude';
+    return { engine: 'agent', agentCliType, model };
+  }
+  return null;
+}
+
+function sessionEngineRouteFromConfig(config) {
+  const cfg = config && typeof config === 'object' ? config : {};
+  const providerId = String(cfg.activeProvider || '').trim();
+  if (providerId && providerId !== 'claude-cli') {
+    const provider = (cfg.providers || []).find(item => item && item.id === providerId);
+    return normalizeSessionEngineRoute({ engine: 'openai', providerId, model: provider && provider.model });
+  }
+  return normalizeSessionEngineRoute({ engine: 'agent', agentCliType: cfg.agentCliType, model: cfg.model });
+}
+
+function inferSessionEngineRoute(session) {
+  const explicit = normalizeSessionEngineRoute(session && session.engineRoute);
+  if (explicit) return explicit;
+  const messages = Array.isArray(session && session.messages) ? session.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || message.role !== 'assistant') continue;
+    const inferred = message.engine === 'openai' || message.providerId
+      ? normalizeSessionEngineRoute({ engine: 'openai', providerId: message.providerId, model: message.model })
+      : normalizeSessionEngineRoute({ engine: 'agent', agentCliType: message.agentCliType, model: message.model });
+    if (inferred) return inferred;
+  }
+  return null;
+}
+
+function configForSessionEngineRoute(config, session) {
+  const route = inferSessionEngineRoute(session);
+  if (!route) return config;
+  if (route.engine === 'openai') {
+    const providers = (config.providers || []).map(provider => provider && provider.id === route.providerId
+      ? { ...provider, model: route.model || provider.model || '' }
+      : provider);
+    return { ...config, activeProvider: route.providerId, providers };
+  }
+  return {
+    ...config,
+    activeProvider: '',
+    agentCliType: route.agentCliType,
+    model: route.model,
+  };
+}
+
 // v0.8-S0: fold an older/partial session onto the current schema. Mirrors normalizeConfig's shape:
 // returns { session, changed }. Backfills schemaVersion + turnSeq and guarantees the array fields so
 // no downstream code has to defend against missing/typo'd properties.
@@ -840,6 +905,11 @@ function normalizeSession(raw) {
     changed = true;
   }
   if (!Array.isArray(session.attachments)) { session.attachments = []; changed = true; }
+  {
+    const route = inferSessionEngineRoute(session);
+    if (route && JSON.stringify(route) !== JSON.stringify(session.engineRoute)) { session.engineRoute = route; changed = true; }
+    else if (!route && session.engineRoute !== undefined) { delete session.engineRoute; changed = true; }
+  }
   // v0.8-S3: todo list (TodoWrite). Old sessions predate it → backfill empty array.
   if (!Array.isArray(session.todos)) { session.todos = []; changed = true; }
   // 第26波b: 任务账本(MissionSpec)。默认 null(无任务)。旧会话无此键 → 保持 null。
@@ -2128,6 +2198,10 @@ async function saveSession(session) {
   await ensureDirs();
   session.updatedAt = nowIso();
   const id = session.id;
+  // A model switch may be saved while an old turn still owns an earlier in-memory session object. Preserve
+  // the newer UI route across that turn's later save instead of silently reverting the next-turn choice.
+  const routeOverride = sessionEngineRouteOverrides.get(id);
+  if (routeOverride) session.engineRoute = { ...routeOverride };
   const finalPath = sessionPath(id);
   const messages = Array.isArray(session.messages) ? session.messages : [];
   const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
@@ -2237,6 +2311,7 @@ function isUntitledSessionTitle(title) {
 async function createSession({ title, cwd }) {
   const id = makeId('sess');
   const config = await readConfig();
+  const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
   const session = {
     id,
     schemaVersion: SESSION_SCHEMA,
@@ -2248,10 +2323,11 @@ async function createSession({ title, cwd }) {
     createdAt: nowIso(),
     updatedAt: nowIso(),
     claudeSessionId: null,
-    messages: Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [],
+    messages: initialMessages,
     providerHistory: [],
     providerHistoryCursor: 0,
     attachments: [],
+    engineRoute: inferSessionEngineRoute({ messages: initialMessages }) || sessionEngineRouteFromConfig(config),
     mission: null, // 第26波b: 任务账本(见 normalizeMission)
     missionId: id, // 75a (D1 plan B): stable Mission identity, written for new sessions (== sessionId in 3.0)
     kind: 'quick_ask', // 第70波(EC-E):显式 Quick Ask 标识;mission start 时翻转 'mission'(见 13-http-router /api/mission)

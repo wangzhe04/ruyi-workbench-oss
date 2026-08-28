@@ -927,6 +927,16 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     if (result.status !== 200) return send(res, apiFailure('question.delivery_failed', {}, 'answer could not be delivered; the question is still pending', 409));
     return send(res, json({ ok: true, delivered: true, questionId }));
   }
+  if (req.method === 'POST' && pathname === '/api/question/heartbeat') {
+    // Keep-alive from the open question modal: re-arms the pending question's timeout so a user typing a
+    // long answer is never cut off at a fixed deadline. No heartbeat (modal closed / app gone) means the
+    // original timeout fires as the backstop. Returns the fresh deadline for the UI countdown.
+    const body = await readJsonBody(req);
+    const sessionId = String(body.sessionId || '');
+    const extension = extendUserQuestion(sessionId, String(body.questionId || ''));
+    if (!extension) return send(res, apiFailure('question.not_pending', {}, 'question is no longer pending', 409));
+    return send(res, json({ ok: true, deadlineAt: extension.deadlineAt, timeoutMs: extension.timeoutMs }));
+  }
   if (req.method === 'POST' && pathname === '/api/question/request') {
     // Called by request_user_input in the per-session Claude MCP child. Hold the tool call until the UI
     // answers, then return a normal MCP tool result. Provider turns use the same registry in-process.
@@ -937,7 +947,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const reg = activeChildren.get(sessionId);
     if (!reg || !reg.onEvent) return send(res, apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
     const config = await readConfig();
-    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.permissionTimeoutMs, reg.questionContext || '');
+    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.questionTimeoutMs, reg.questionContext || '');
     return send(res, json(answer && answer.ok
       ? { ok: true, answers: answer.answers, content: answer.content }
       : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' }));

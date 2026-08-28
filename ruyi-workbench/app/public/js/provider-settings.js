@@ -41,27 +41,54 @@ async function refreshStatus() {
   refreshModels(); // background: enrich the model list from the proxy without blocking status
   fetchCapabilities(false); // v0.8-S6: refresh the capability badge (cached; one-shot on status refresh)
 }
-// The model id currently in effect: the active provider's model when a native provider is selected,
-// otherwise the Claude-CLI model.
-function currentModelId() {
-  const ap = state.config.activeProvider;
-  if (ap && ap !== 'claude-cli') { const p = (state.config.providers || []).find(x => x.id === ap); return (p && p.model) || ''; }
-  return state.config.model || '';
+function normalizeConversationRoute(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const model = String(raw.model || '').trim();
+  if (raw.engine === 'openai') {
+    const providerId = String(raw.providerId || '').trim();
+    return providerId ? { engine: 'openai', providerId, model } : null;
+  }
+  if (raw.engine === 'agent' || raw.engine === 'claude') {
+    return { engine: 'agent', agentCliType: raw.agentCliType === 'kimi' ? 'kimi' : 'claude', model };
+  }
+  return null;
 }
+function currentConversationRoute() {
+  const explicit = normalizeConversationRoute(state.currentSession?.engineRoute);
+  if (explicit) return explicit;
+  const messages = Array.isArray(state.currentSession?.messages) ? state.currentSession.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (!msg || msg.role !== 'assistant') continue;
+    const inferred = normalizeConversationRoute(msg.engine === 'openai' || msg.providerId
+      ? { engine: 'openai', providerId: msg.providerId, model: msg.model }
+      : { engine: 'agent', agentCliType: msg.agentCliType, model: msg.model });
+    if (inferred) return inferred;
+  }
+  const providerId = String(state.config?.activeProvider || '').trim();
+  if (providerId && providerId !== 'claude-cli') {
+    const provider = (state.config?.providers || []).find(item => item && item.id === providerId);
+    return { engine: 'openai', providerId, model: String(provider?.model || '') };
+  }
+  return { engine: 'agent', agentCliType: state.config?.agentCliType === 'kimi' ? 'kimi' : 'claude', model: String(state.config?.model || '') };
+}
+// The model id currently in effect for the opened conversation. Global config is only the fallback used
+// before a session exists; switching sessions restores that session's pinned route.
+function currentModelId() { return currentConversationRoute().model || ''; }
 // True when a native OpenAI-compatible provider is the active engine (activeProvider is a non-empty
 // string other than the legacy 'claude-cli' sentinel). This is the single gate for provider-mode UI.
 function isProviderMode() {
-  const ap = state.config.activeProvider;
-  return typeof ap === 'string' && ap !== '' && ap !== 'claude-cli';
+  return currentConversationRoute().engine === 'openai';
 }
 // The active provider object (or null in Claude mode / if the id is missing).
 function activeProviderObj() {
   if (!isProviderMode()) return null;
-  return (state.config.providers || []).find(p => p.id === state.config.activeProvider) || null;
+  const route = currentConversationRoute();
+  return (state.config.providers || []).find(p => p.id === route.providerId) || null;
 }
 const AGENT_CLI_LABELS = { claude: 'Claude Code', kimi: 'Kimi Code' };
 function currentAgentCliType() {
-  const type = String(state.config?.agentCliType || 'claude');
+  const type = String(currentConversationRoute().agentCliType || state.config?.agentCliType || 'claude');
   return Object.prototype.hasOwnProperty.call(AGENT_CLI_LABELS, type) ? type : 'claude';
 }
 function currentAgentCliLabel() {
@@ -93,17 +120,19 @@ function updateAgentCliSettingsVisibility() {
 }
 // Human-readable name of the current engine: the provider's label (fallback id) or selected Agent CLI.
 function engineLabel() {
+  const route = currentConversationRoute();
   const p = activeProviderObj();
   if (p) return p.label || p.id;
-  return isProviderMode() ? state.config.activeProvider : currentAgentCliLabel();
+  return isProviderMode() ? route.providerId : currentAgentCliLabel();
 }
 // Meta describing the CURRENT engine, shaped like the per-message meta the server now sends, so the
 // live streaming container and empty state can reuse the same badge/avatar renderer.
 function currentEngineMeta() {
+  const route = currentConversationRoute();
   const p = activeProviderObj();
-  if (p) return { engine: 'openai', providerId: p.id, providerLabel: p.label || p.id, model: p.model || '' };
-  if (isProviderMode()) return { engine: 'openai', providerId: state.config.activeProvider, providerLabel: state.config.activeProvider, model: currentModelId() };
-  return { engine: 'claude', agentCliType: currentAgentCliType(), agentCliLabel: currentAgentCliLabel(), model: state.config.model || '' };
+  if (p) return { engine: 'openai', providerId: p.id, providerLabel: p.label || p.id, model: route.model || p.model || '' };
+  if (isProviderMode()) return { engine: 'openai', providerId: route.providerId, providerLabel: route.providerId, model: route.model };
+  return { engine: 'claude', agentCliType: route.agentCliType, agentCliLabel: currentAgentCliLabel(), model: route.model };
 }
 // Map an engine meta -> { letter, colorVar, label } for the avatar + badge (§3). Providers are keyed
 // by id/label keyword so DeepSeek/Qwen/GLM get their brand color; anything else is the neutral custom.
@@ -444,6 +473,7 @@ async function addWorkspace() {
   renderWorkspacePerms();
 }
 async function saveSettings() {
+  const updateOpenedAgentRoute = Boolean(state.currentSession?.id && currentConversationRoute().engine === 'agent');
   const requestedLocale = $('cfgLocale')?.value || state.config.locale || 'auto';
   const resolvedLocale = await setLocale(requestedLocale);
   // v2.7: sync the primary workspace input into the workspace list (the input edits the highest-priority path).
@@ -558,6 +588,16 @@ async function saveSettings() {
     })(),
   };
   if (!await saveConfigPartial(patch)) return;
+  if (updateOpenedAgentRoute && state.currentSession?.id) {
+    const engineRoute = { engine: 'agent', agentCliType: patch.agentCliType === 'kimi' ? 'kimi' : 'claude', model: currentModelId() };
+    try {
+      const result = await api(`/api/sessions/${encodeURIComponent(state.currentSession.id)}`, {
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-http-method': 'PATCH' }, body: JSON.stringify({ engineRoute }),
+      });
+      if (result?.session) state.currentSession = result.session;
+      else state.currentSession.engineRoute = engineRoute;
+    } catch (error) { toast(t('toast.saveFail', { p1: apiErrText(error) }), 'err'); }
+  }
   $('settingsStatus').textContent = `${t('common.saved')} ✓`;
   setTimeout(() => { $('settingsStatus').textContent = ''; }, 2000);
   await refreshStatus();
