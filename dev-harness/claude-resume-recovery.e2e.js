@@ -75,6 +75,15 @@ function getSession(port, id) {
     req.on('error', reject);
   });
 }
+function patchSessionRoute(port, id, route) {
+  const raw = JSON.stringify({ engineRoute: route });
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/sessions/' + encodeURIComponent(id), method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), 'x-http-method': 'PATCH' } }, res => {
+      let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } });
+    });
+    req.on('error', reject); req.write(raw); req.end();
+  });
+}
 function invocations() {
   if (!fs.existsSync(INVOCATIONS)) return [];
   return fs.readFileSync(INVOCATIONS, 'utf8').trim().split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
@@ -155,6 +164,8 @@ process.stdin.on('data',()=>{
     const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
     cfg.model = 'model-b';
     fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+    // 109b905 protocol: model changes are pinned per-session (engineRoute); re-pin explicitly.
+    await patchSessionRoute(port, sid, { engine: 'agent', agentCliType: 'claude', model: 'model-b' });
     const third = await stream(port, { sessionId: sid, message: 'third', cwd: WS_A });
     const thirdMeta = third.find(e => e.type === 'meta');
     const callsAfterThird = invocations();

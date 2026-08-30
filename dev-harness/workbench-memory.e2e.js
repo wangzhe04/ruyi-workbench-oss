@@ -163,7 +163,16 @@ async function saveMem(id, scope, name, description, body, cwd, type = 'conventi
     const withTok2 = await getRaw(WB_PORT, '/api/memory/item?id=g-note&scope=global&cwd=' + encodeURIComponent(PROJ_A), tokenHeaders());
     ok(withTok2.status === 200 && withTok2.body && withTok2.body.ok, 'P2-1: GET /api/memory/item WITH token → 200 ok');
 
-    const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd })).body.session;
+    function patchSessionRoute(port, id, route) {
+  const raw = JSON.stringify({ engineRoute: route });
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/sessions/' + encodeURIComponent(id), method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), 'x-http-method': 'PATCH' } }, res => {
+      let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } });
+    });
+    req.on('error', reject); req.write(raw); req.end();
+  });
+}
+const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd })).body.session;
 
     // R4-S1 real-path regression:confirmed contradicts must reach both engine prompts,not only a direct
     // buildMemoryPromptSection unit call. Create+confirm through HTTP before capturing provider/Claude input.
@@ -326,6 +335,8 @@ async function saveMem(id, scope, name, description, body, cwd, type = 'conventi
     await postJson(WB_PORT, '/api/session/skills', { sessionId: S_claude.id, skills: ['demo-mem-skill'] });
     await postJson(WB_PORT, '/api/session/memories', { sessionId: S_claude.id, memories: [{ id: aConv.id, scope: 'project' }, { id: aConflict.id, scope: 'project' }] });
     writeConfig('', USER_APPEND_MARKER); // switch to Claude engine (activeProvider empty), small user append
+    // 109b905 protocol: pin the session route explicitly (global config switch no longer retargets an existing session).
+    await patchSessionRoute(WB_PORT, S_claude.id, { engine: 'agent', agentCliType: 'claude', model: '' });
     await sleep(200);
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }
     try { fs.rmSync(STDIN_CAP, { force: true }); } catch { /* ignore */ }

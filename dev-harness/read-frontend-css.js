@@ -85,7 +85,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 均为 workspace 所有权层的有意变更，重钉载荷锁。
 // v2.6 通用压缩模型选择器在 chat-shell 所有权层增加标签/下拉框三条规则；仅为上下文弹层布局，
 // 不改变其它经典或 Preview 层选择器，重钉有意载荷。
-const LEGACY_STYLES_SHA256 = '5cbf11d6078d1adb4a6a5750603b6302951289bf23347cb4b090648b843b9e24';
+// 109b905 (session experience/attachment UI): chat-primitives adds .msg-attachment-* strip/thumb rules,
+// chat-composer adds .attachment-pill thumb + .ask-countdown countdown rules. Same owned layers, re-pin payload lock.
+const LEGACY_STYLES_SHA256 = '284275d46a804d933e275b3b73106b10afe785fe0dd41b9e6c7b2aa0a988e199';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

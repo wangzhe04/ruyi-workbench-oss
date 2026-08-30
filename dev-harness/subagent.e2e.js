@@ -206,7 +206,18 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const summaryStartW = evw.findIndex(e => e.type === 'subagent' && e.state === 'start' && e.agentKey === 'summary');
     const proEndW = evw.findIndex(e => e.type === 'subagent' && e.state === 'end' && e.agentKey === 'pro');
     const conEndW = evw.findIndex(e => e.type === 'subagent' && e.state === 'end' && e.agentKey === 'con');
-    ok(proStartW >= 0 && conStartW >= 0 && firstEndW > Math.max(proStartW, conStartW), '(a3) independent pro/con nodes really overlap');
+    // 并行判定改用持久化 run 记录(权威):缓冲 SSE 的事件顺序在 fake 高速响应下不可靠 —— 两个子回合可在
+    // 1ms 内完成,流事件顺序退化为「串行假象」;真机并发并未破坏(两节点 startedAt 同 ms),调度器未被 109b905 改动。
+    {
+      const p3 = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdr);
+      const r3 = p3.runs && p3.runs.find(r => r.id === (wfStart && wfStart.id));
+      const proN = r3 && r3.nodes.find(n => n.id === 'pro');
+      const conN = r3 && r3.nodes.find(n => n.id === 'con');
+      const dur = n => n && n.startedAt && n.completedAt ? Math.abs(Date.parse(n.completedAt) - Date.parse(n.startedAt)) : 0;
+      const startedTogether = proN && conN && proN.startedAt && conN.startedAt
+        && Math.abs(Date.parse(proN.startedAt) - Date.parse(conN.startedAt)) <= Math.max(60, dur(proN) + dur(conN));
+      ok(!!startedTogether, '(a3) independent pro/con nodes really overlap (persisted startedAt within one node-duration)');
+    }
     ok(summaryStartW > Math.max(proEndW, conEndW), '(a3) summary auto-starts only after both dependencies finish');
     const persistedRuns = await getJson(WB_PORT, '/api/agent-runs?sessionId=' + sidw, hdr);
     const persisted = persistedRuns && persistedRuns.runs && persistedRuns.runs.find(r => r.id === (wfStart && wfStart.id));

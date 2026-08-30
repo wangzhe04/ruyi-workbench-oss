@@ -3,6 +3,7 @@
 > 基线：论文《MicroAgent: Context-Augmented Multi-Agent Framework for Automatic Microservice Decomposition》（arXiv:2606.29742v1，CUHK + 中山大学，2026-06）× Ruyi 现状对照（2026-08-10，主会话亲自工具核查，未用子代理报告）。
 > 行号对应核查时的 `app/src/*.js` 当前版本，改动后会漂移，请以就近搜索为准。
 > 性质：只读对照分析 + 候选优化项，未改动任何现有代码；定位为 06（HB360 成本收敛）的姊妹篇——06 治「单 agent 烧 token」，本文治「编排层的方法论沉淀」。
+> **排期校准（2026-08-30）**：A／B／C／F 的相关成果已通过独立提交交付，D 的两个方法论工具也已交付；这些名称是候选批次，不是实际“第 N 波”记录。此前 Roadmap 的“第 103 波起”占位已撤销，第 103 波现用于 [23 号架构偿还序列](23-architecture-repayment-sequence.md)；本方案未完成项继续按候选单独立项，不抢占波次号。
 
 ---
 
@@ -137,14 +138,14 @@ MicroAgent 把「单体应用拆微服务」拆成 5 个子任务（领域识别
 
 ---
 
-## 5. 实施路线图（候选，不与 3.0 收口抢资源）
+## 5. 实施路线图（候选批次，不占用第 103 波编号）
 
 | 波次 | 内容 | 验收 |
 |---|---|---|
 | **候选 A 波** | M3（覆盖率职责，纯 prompt 层）+ M4（消融纪律落地） | 快照门绿；06-O1 起回测带单轴归因 |
 | **候选 B 波** | M1（分级上下文）+ M6（O3 证据回溯口径） | HB360 编排子集 token ↓、outcome 不退；行为锁 e2e |
 | **候选 C 波** | M2（vote 防误杀 + coverage/propagate 节点） | 弃权语义 e2e；vote 误杀用例回归通过 |
-| **候选 D 波（✅ 两工具已交付 2026-08-13）** | M5 方法论工具：① codebase-audit 符号检索 `codebase_symbol_search`（见 [`17-m5-methodology-tools.md`](17-m5-methodology-tools.md)）② debug-root-cause 二分复现记录器 `debug_hypothesis`（见 [`18-m5-debug-recorder.md`](18-m5-debug-recorder.md)） | 入库全部门 ✅ + 消融验证独立收益（⏸️ 待跑） |
+| **候选 D 波（✅ 两工具已交付 2026-08-13）** | M5 方法论工具：① codebase-audit 符号检索 `codebase_symbol_search`（见 [`17-m5-methodology-tools.md`](../archive/optimization-plan/17-m5-methodology-tools.md)）② debug-root-cause 二分复现记录器 `debug_hypothesis`（见 [`18-m5-debug-recorder.md`](../archive/optimization-plan/18-m5-debug-recorder.md)） | 入库全部门 ✅ + 消融验证独立收益（⏸️ 待跑） |
 
 每波沿用既有纪律：对抗轮 + 行为锁 e2e + KNOWN_FAILURE 空表 + 双语键同交 + 主会话亲自验收。
 
@@ -155,7 +156,7 @@ MicroAgent 把「单体应用拆微服务」拆成 5 个子任务（领域识别
 - **06（HB360 成本收敛）**：M1 是 O6 的同构补全（工具最小集 → 上下文最小集）；M3 是 O3 的编排层对应；M4 是 06 全篇的评测前置；M6 并入 O3。建议 06 第 2–3 波实施时同步采用 M4 纪律。
 - **编排可靠性前科**（vote 误杀 / loop 早停 / probe 精确率 ~60%）：M2 直接对症 vote 项；loop 早停项由 M5 的二分复现记录器候选覆盖。
 - **第51波提示词护栏**：M3 属 prompt 改动，必须过快照门，不得绕。
-- **Pretender 3.0 收口**：本规划全部候选波次排在 3.0 默认切换之后，不稀释收口资源。
+- **Pretender 3.0／第 103–107 波**：已交付批次不重编号；未完成项按收益与前置单独申请，不插入 23 号已冻结序列，也不以候选名抢占实际波次。
 
 ---
 

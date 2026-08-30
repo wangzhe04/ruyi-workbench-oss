@@ -73,7 +73,7 @@ function getJson(port, p) { return new Promise((resolve, reject) => { const r = 
 function postJson(port, p, payload) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(payload);
-    const req = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data) } }, res => { let b = ''; res.on('data', c => (b += c)); res.on('end', () => { try { resolve({ status: res.statusCode, body: JSON.parse(b) }); } catch { resolve({ status: res.statusCode, body: null }); } }); });
+    const req = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), 'x-http-method': 'PATCH' } }, res => { let b = ''; res.on('data', c => (b += c)); res.on('end', () => { try { resolve({ status: res.statusCode, body: JSON.parse(b) }); } catch { resolve({ status: res.statusCode, body: null }); } }); });
     req.on('error', reject); req.write(data); req.end();
   });
 }
@@ -85,6 +85,13 @@ function postStream(port, payload) {
       res.on('data', c => { buf += c; let nl; while ((nl = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, nl); buf = buf.slice(nl + 1); if (line.trim()) { try { events.push(JSON.parse(line)); } catch { /* ignore */ } } } });
       res.on('end', () => { if (buf.trim()) { try { events.push(JSON.parse(buf)); } catch { /* ignore */ } } resolve(events); });
     });
+    req.on('error', reject); req.write(data); req.end();
+  });
+}
+function patchSessionRoute(port, sid, route) {
+  const data = JSON.stringify({ engineRoute: route });
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/sessions/' + sid, method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), 'x-http-method': 'PATCH' } }, res => { let b = ''; res.on('data', c => (b += c)); res.on('end', () => { try { resolve({ status: res.statusCode, body: JSON.parse(b) }); } catch { resolve({ status: res.statusCode, body: null }); } }); });
     req.on('error', reject); req.write(data); req.end();
   });
 }
@@ -241,6 +248,8 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     // ---------- (e) Claude engine: 用户 append 走 flag;技能索引改走 stdin <workbench-context>(第35波 P2) ----------
     await stopFake();
     writeConfig(''); // switch engine to Claude CLI (activeProvider empty)
+    // 109b905 protocol: pin the session route explicitly (global config switch no longer retargets an existing session).
+    await patchSessionRoute(WB_PORT, S1.id, { engine: 'agent', agentCliType: 'claude', model: '' });
     await sleep(200);
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }
     try { fs.rmSync(STDIN_CAP, { force: true }); } catch { /* ignore */ }
@@ -263,6 +272,7 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     // ---------- (e2) P2 语义: ~7900 字符用户 append 不再挤掉技能索引(索引在 stdin 信道);同会话同内容 → 去重不重注 ----------
     const longAppend = 'Q'.repeat(3950) + USER_APPEND_MARKER + 'Q'.repeat(3950); // ~7921 chars (config clamps to 8000)
     writeConfig('', longAppend); // still Claude engine, but with a near-max user append
+    await patchSessionRoute(WB_PORT, S1.id, { engine: 'agent', agentCliType: 'claude', model: '' });
     await sleep(200);
     try { fs.rmSync(ARGV_CAP, { force: true }); } catch { /* ignore */ }
     try { fs.rmSync(STDIN_CAP, { force: true }); } catch { /* ignore */ }

@@ -1,0 +1,3071 @@
+{
+  "schema": 1,
+  "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
+  "generatedAt": "2026-08-30T15:44:38.329Z",
+  "sources": {
+    "routeAuth": "ruyi-workbench/app/src/01-config.js",
+    "routers": [
+      "ruyi-workbench/app/src/13-http-router.js",
+      "ruyi-workbench/app/src/13b-api-domain-routes.js",
+      "ruyi-workbench/app/src/13c-overlay-routes.js",
+      "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "ruyi-workbench/app/src/13e-pretender-index.js"
+    ]
+  },
+  "summary": {
+    "routeAuthEntries": 92,
+    "decisionPoints": 101,
+    "byKind": {
+      "exact": 88,
+      "prefix": 12,
+      "regex": 1
+    },
+    "authLevels": [
+      "body-token",
+      "host-gate",
+      "open",
+      "token",
+      "token-browser"
+    ],
+    "uncoveredPoints": 9,
+    "problems": 0,
+    "warnings": 0
+  },
+  "routeAuth": [
+    {
+      "m": "GET",
+      "p": "/api/status",
+      "auth": "open",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/capabilities",
+      "auth": "open",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/models",
+      "auth": "open",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/bootstrap",
+      "auth": "open",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/permission/request",
+      "auth": "body-token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/question/request",
+      "auth": "body-token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/todo",
+      "auth": "body-token",
+      "prefix": false
+    },
+    {
+      "m": "*",
+      "p": "/api/mission",
+      "auth": "body-token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/missions",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/missions/",
+      "auth": "token-browser",
+      "prefix": true
+    },
+    {
+      "m": "POST",
+      "p": "/api/missions/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "GET",
+      "p": "/api/interventions/",
+      "auth": "token-browser",
+      "prefix": true
+    },
+    {
+      "m": "GET",
+      "p": "/api/interventions",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/agent-workflow/launch",
+      "auth": "body-token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/sessions",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/sessions/",
+      "auth": "token-browser",
+      "prefix": true
+    },
+    {
+      "m": "GET",
+      "p": "/api/skills",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/agent-roles",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/agent-workflows",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/playbooks",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/chat/stream",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/upload",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/upload/content",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/sessions",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/sessions/",
+      "auth": "token-browser",
+      "prefix": true
+    },
+    {
+      "m": "PATCH",
+      "p": "/api/sessions/",
+      "auth": "token-browser",
+      "prefix": true
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/sessions/",
+      "auth": "token-browser",
+      "prefix": true
+    },
+    {
+      "m": "POST",
+      "p": "/api/session/skills",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/skills",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/session/memories",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/memory",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/memory/",
+      "auth": "token-browser",
+      "prefix": true
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/memory/",
+      "auth": "token-browser",
+      "prefix": true
+    },
+    {
+      "m": "POST",
+      "p": "/api/stop",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/provider/compact",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/agent/compact",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/kimi/status",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/permission/decision",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/chat/answer",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/question/heartbeat",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/tools/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "POST",
+      "p": "/api/config",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/provider/test",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/workspace/resolve",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/pick-folder",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/pick-file",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/plan/decision",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/steer",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/steer",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/session/rewind",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/checkpoints/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "POST",
+      "p": "/api/file/reveal",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/mcp/import-folder",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/mcp/import-config/scan",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/mcp/import-config/apply",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/mcp/connectors",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/mcp/connectors/health",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/mcp/connectors/toggle",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/mcp/connectors",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/playbooks/draft",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/playbooks",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/playbooks/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/playbooks/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "POST",
+      "p": "/api/agent-roles",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/agent-workflows",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/agent-workflows/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/agent-workflows/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "POST",
+      "p": "/api/autonomy/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "*",
+      "p": "/api/autonomy/grants",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/agent-runs/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/agent-runs/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "GET",
+      "p": "/api/agent-runs",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "GET",
+      "p": "/api/memory/relations",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/memory/maintenance",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/memory",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/memory/item",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/usage/summary",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/ops/metrics",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/checkpoints",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/checkpoints/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "GET",
+      "p": "/api/file/preview",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/audit",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/storage/summary",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/storage/policy",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/storage/clean",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/metrics",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/overlay/precheck",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/overlay/apply",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/overlay/status",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/overlay/rollback",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/_test/intervention-cas",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/_test/pretender-maintenance",
+      "auth": "token",
+      "prefix": false
+    }
+  ],
+  "decisionPoints": [
+    {
+      "kind": "exact",
+      "path": "/api/bootstrap",
+      "file": "13-http-router.js",
+      "line": 16,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "open",
+      "coveredBy": [
+        "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\dom-smoke.e2e.js",
+        "dev-harness\\external-code-diff.e2e.js",
+        "dev-harness\\facts.static.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\overlay-update-core.e2e.js",
+        "dev-harness\\token-bootstrap-csp.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/status",
+      "file": "13-http-router.js",
+      "line": 22,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "open",
+      "coveredBy": [
+        "dev-harness\\audit-w23.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\capabilities.e2e.js",
+        "dev-harness\\claude-exe-resolve.e2e.js",
+        "dev-harness\\claude-models-cache.e2e.js",
+        "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\context-window.e2e.js",
+        "dev-harness\\dom-smoke.e2e.js",
+        "dev-harness\\failover.e2e.js",
+        "dev-harness\\i18n.e2e.js",
+        "dev-harness\\ia.e2e.js",
+        "dev-harness\\mcp-config.e2e.js",
+        "dev-harness\\onboard.e2e.js",
+        "dev-harness\\perf-config-cache.e2e.js",
+        "dev-harness\\perm-v2.e2e.js",
+        "dev-harness\\repo-hygiene.e2e.js",
+        "dev-harness\\session-atomic.e2e.js",
+        "dev-harness\\uimode-style.e2e.js",
+        "dev-harness\\usage-ledger.e2e.js",
+        "dev-harness\\websearch.e2e.js",
+        "dev-harness\\workspace-resolve.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/capabilities",
+      "file": "13-http-router.js",
+      "line": 94,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "open",
+      "coveredBy": [
+        "dev-harness\\capabilities.e2e.js",
+        "dev-harness\\playbooks.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/playbooks",
+      "file": "13-http-router.js",
+      "line": 103,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/playbooks/draft",
+      "file": "13-http-router.js",
+      "line": 110,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\playbooks.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/playbooks",
+      "file": "13-http-router.js",
+      "line": 117,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/playbooks/",
+      "file": "13-http-router.js",
+      "line": 126,
+      "handler": "handleApi",
+      "methods": [
+        "DELETE",
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\playbooks.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/workspace/resolve",
+      "file": "13-http-router.js",
+      "line": 135,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\workspace-resolve.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/pick-folder",
+      "file": "13-http-router.js",
+      "line": 146,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\workspace-resolve.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/pick-file",
+      "file": "13-http-router.js",
+      "line": 150,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\overlay-update-gui.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/models",
+      "file": "13-http-router.js",
+      "line": 154,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "open",
+      "coveredBy": [
+        "dev-harness\\claude-models-cache.e2e.js",
+        "dev-harness\\context-window.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\openai-engine.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/config",
+      "file": "13-http-router.js",
+      "line": 180,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\claude-models-cache.e2e.js",
+        "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\dom-contract.e2e.js",
+        "dev-harness\\e3-engine-switch-continuity.e2e.js",
+        "dev-harness\\failover.e2e.js",
+        "dev-harness\\file-guard.e2e.js",
+        "dev-harness\\i18n.e2e.js",
+        "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\onboard.e2e.js",
+        "dev-harness\\repo-hygiene.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\uimode-style.e2e.js",
+        "dev-harness\\unit\\context-compact-trigger.test.js",
+        "dev-harness\\websearch.e2e.js",
+        "dev-harness\\workspace-resolve.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/agent-roles",
+      "file": "13-http-router.js",
+      "line": 218,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\meta-guard.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/agent-roles",
+      "file": "13-http-router.js",
+      "line": 231,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\meta-guard.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/agent-workflows",
+      "file": "13-http-router.js",
+      "line": 245,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\agent-workflow-audit-fixes.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\ui-bugfix.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/agent-workflows",
+      "file": "13-http-router.js",
+      "line": 250,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-workflow-audit-fixes.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\ui-bugfix.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/agent-workflows/",
+      "file": "13-http-router.js",
+      "line": 257,
+      "handler": "handleApi",
+      "methods": [
+        "DELETE",
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\auth-deny-default.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/provider/test",
+      "file": "13-http-router.js",
+      "line": 262,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\audit-w23.e2e.js",
+        "dev-harness\\meta-guard.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/skills",
+      "file": "13-http-router.js",
+      "line": 292,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\audit-w23.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\skills-registry.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/session/skills",
+      "file": "13-http-router.js",
+      "line": 317,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\claude-cmdline-guard.e2e.js",
+        "dev-harness\\index-dedup.e2e.js",
+        "dev-harness\\skills-registry.e2e.js",
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/skills",
+      "file": "13-http-router.js",
+      "line": 346,
+      "handler": "handleApi",
+      "methods": [
+        "DELETE"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\audit-w23.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\skills-registry.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/session/memories",
+      "file": "13-http-router.js",
+      "line": 367,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory",
+      "file": "13-http-router.js",
+      "line": 417,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/item",
+      "file": "13-http-router.js",
+      "line": 431,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/proposal",
+      "file": "13-http-router.js",
+      "line": 444,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\memory-auto-proposal-api.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/proposal/decision",
+      "file": "13-http-router.js",
+      "line": 451,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\memory-auto-proposal-api.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/proposal/apply",
+      "file": "13-http-router.js",
+      "line": 460,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": []
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/draft",
+      "file": "13-http-router.js",
+      "line": 471,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/migrate",
+      "file": "13-http-router.js",
+      "line": 478,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/metadata",
+      "file": "13-http-router.js",
+      "line": 489,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": []
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory",
+      "file": "13-http-router.js",
+      "line": 507,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/relations",
+      "file": "13-http-router.js",
+      "line": 529,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/maintenance",
+      "file": "13-http-router.js",
+      "line": 542,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/relations/propose",
+      "file": "13-http-router.js",
+      "line": 555,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/memory/relations/confirm",
+      "file": "13-http-router.js",
+      "line": 564,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/memory/relations/",
+      "file": "13-http-router.js",
+      "line": 572,
+      "handler": "handleApi",
+      "methods": [
+        "DELETE",
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/memory/",
+      "file": "13-http-router.js",
+      "line": 581,
+      "handler": "handleApi",
+      "methods": [
+        "DELETE",
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": true,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/stop",
+      "file": "13-http-router.js",
+      "line": 591,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\kimi-agent-cli.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/provider/compact",
+      "file": "13-http-router.js",
+      "line": 600,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\usage-subagent-ledger.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/agent/compact",
+      "file": "13-http-router.js",
+      "line": 609,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": []
+    },
+    {
+      "kind": "exact",
+      "path": "/api/kimi/status",
+      "file": "13-http-router.js",
+      "line": 626,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": []
+    },
+    {
+      "kind": "exact",
+      "path": "/api/todo",
+      "file": "13-http-router.js",
+      "line": 642,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "body-token",
+      "coveredBy": [
+        "dev-harness\\todo-loopback.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/mission",
+      "file": "13-http-router.js",
+      "line": 662,
+      "handler": "handleApi",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "body-token",
+      "coveredBy": [
+        "dev-harness\\agent-workflow-replan-approve.e2e.js",
+        "dev-harness\\agent-workflow-replan-review.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\autonomy-benchmark.e2e.js",
+        "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\interventions-c4.e2e.js",
+        "dev-harness\\interventions-changeseq.e2e.js",
+        "dev-harness\\interventions-persist.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\mission-driver.e2e.js",
+        "dev-harness\\mission-result.e2e.js",
+        "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\monitor-incremental.e2e.js",
+        "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\pretender-crew-lens.e2e.js",
+        "dev-harness\\pretender-dispatch-home.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-gate.e2e.js",
+        "dev-harness\\pretender-index-scale.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-needs-drawer.e2e.js",
+        "dev-harness\\pretender-needs-drawer.static.e2e.js",
+        "dev-harness\\pretender-return-archive.e2e.js",
+        "dev-harness\\pretender-shell.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/autonomy/grants",
+      "file": "13-http-router.js",
+      "line": 767,
+      "handler": "handleApi",
+      "methods": [
+        "*"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\autonomy-grant.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/autonomy/grant",
+      "file": "13-http-router.js",
+      "line": 774,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\autonomy-grant.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/autonomy/revoke",
+      "file": "13-http-router.js",
+      "line": 802,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\autonomy-grant.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/agent-workflow/launch",
+      "file": "13-http-router.js",
+      "line": 815,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "body-token",
+      "coveredBy": [
+        "dev-harness\\agent-deadlock-watchdog.e2e.js",
+        "dev-harness\\agent-node-wrapup.e2e.js",
+        "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\agent-subturn-loop-guard.e2e.js",
+        "dev-harness\\agent-workflow-audit-fixes.e2e.js",
+        "dev-harness\\agent-workflow-budget-finalizer.e2e.js",
+        "dev-harness\\agent-workflow-claude-engine.e2e.js",
+        "dev-harness\\agent-workflow-claude-transient-repro.e2e.js",
+        "dev-harness\\agent-workflow-node-context.e2e.js",
+        "dev-harness\\agent-workflow-replan-approve.e2e.js",
+        "dev-harness\\agent-workflow-replan-review.e2e.js",
+        "dev-harness\\agent-workflow-replan.e2e.js",
+        "dev-harness\\agent-workflow-transient-repro.e2e.js",
+        "dev-harness\\agent-workflow-ui-progress.e2e.js",
+        "dev-harness\\autonomy-durability.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\judge-json-repair.e2e.js",
+        "dev-harness\\monitor-incremental.e2e.js",
+        "dev-harness\\orchestrate-model-select.e2e.js",
+        "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\pretender-crew-lens.e2e.js",
+        "dev-harness\\scheduler-ready-queue.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\usage-subagent-ledger.e2e.js",
+        "dev-harness\\wait-primitive.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/usage/summary",
+      "file": "13-http-router.js",
+      "line": 869,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\usage-dashboard.e2e.js",
+        "dev-harness\\usage-ledger.e2e.js",
+        "dev-harness\\usage-subagent-ledger.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/ops/metrics",
+      "file": "13-http-router.js",
+      "line": 881,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\monitor-incremental.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/checkpoints",
+      "file": "13-http-router.js",
+      "line": 890,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\changes-diff.e2e.js",
+        "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint.e2e.js",
+        "dev-harness\\external-code-diff.e2e.js",
+        "dev-harness\\fake-mcp-contract.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\i18n.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\tools-v3.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/checkpoints/open-external",
+      "file": "13-http-router.js",
+      "line": 911,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-code-diff.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/checkpoints/diff",
+      "file": "13-http-router.js",
+      "line": 982,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\changes-diff.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\i18n.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/file/preview",
+      "file": "13-http-router.js",
+      "line": 1022,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\audit-w23.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\i18n.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/file/reveal",
+      "file": "13-http-router.js",
+      "line": 1059,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/audit",
+      "file": "13-http-router.js",
+      "line": 1090,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\audit.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\autonomy-grant.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\meta-guard.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/storage/summary",
+      "file": "13-http-router.js",
+      "line": 1107,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\session-storage-v2.e2e.js",
+        "dev-harness\\storage-steward.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/metrics",
+      "file": "13-http-router.js",
+      "line": 1119,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\metrics-panel.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/upload",
+      "file": "13-http-router.js",
+      "line": 1134,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\vision-loop.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/upload/content",
+      "file": "13-http-router.js",
+      "line": 1142,
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": []
+    },
+    {
+      "kind": "exact",
+      "path": "/api/chat/stream",
+      "file": "13-http-router.js",
+      "line": 1162,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\action-model-view.e2e.js",
+        "dev-harness\\adaptive-budget.e2e.js",
+        "dev-harness\\agent-loop.e2e.js",
+        "dev-harness\\agent-parent-heartbeat.e2e.js",
+        "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-role-openai.e2e.js",
+        "dev-harness\\agent-roles.e2e.js",
+        "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\agent-workflow-audit-fixes.e2e.js",
+        "dev-harness\\agent-workflow-claude-engine.e2e.js",
+        "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\audit.e2e.js",
+        "dev-harness\\autocompact.e2e.js",
+        "dev-harness\\autonomy-benchmark.e2e.js",
+        "dev-harness\\bridge-cancel-timeout.e2e.js",
+        "dev-harness\\bridged-prefix-tolerance.e2e.js",
+        "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\capabilities.e2e.js",
+        "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint.e2e.js",
+        "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cmdline-guard.e2e.js",
+        "dev-harness\\claude-context-continuity.e2e.js",
+        "dev-harness\\claude-resume-recovery.e2e.js",
+        "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\deepseek-live.e2e.js",
+        "dev-harness\\deepseek-tools.e2e.js",
+        "dev-harness\\desktop-bridge-live.e2e.js",
+        "dev-harness\\e1-parallel-noindex.e2e.js",
+        "dev-harness\\e2-append-system-prompt.e2e.js",
+        "dev-harness\\e3-engine-switch-continuity.e2e.js",
+        "dev-harness\\e4-no-usage.e2e.js",
+        "dev-harness\\e5-multiline-sse.e2e.js",
+        "dev-harness\\economics-shadow.e2e.js",
+        "dev-harness\\failover.e2e.js",
+        "dev-harness\\fake-mcp-contract.e2e.js",
+        "dev-harness\\index-dedup.e2e.js",
+        "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\interventions-c4.e2e.js",
+        "dev-harness\\interventions-changeseq.e2e.js",
+        "dev-harness\\interventions-persist.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\long-tool-liveness-steer.e2e.js",
+        "dev-harness\\loop-guard-read-exempt.e2e.js",
+        "dev-harness\\loop-guard.e2e.js",
+        "dev-harness\\mcp-bridge.e2e.js",
+        "dev-harness\\mcp-config.e2e.js",
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\meta-tools.e2e.js",
+        "dev-harness\\mission-driver.e2e.js",
+        "dev-harness\\mission-result.e2e.js",
+        "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\multi-session-parallel.e2e.js",
+        "dev-harness\\onboard.e2e.js",
+        "dev-harness\\openai-engine.e2e.js",
+        "dev-harness\\openai-tools.e2e.js",
+        "dev-harness\\perm-v2.e2e.js",
+        "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\pretender-gate.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\provider-pairing-repair.e2e.js",
+        "dev-harness\\read-pool.e2e.js",
+        "dev-harness\\reject-attribution.e2e.js",
+        "dev-harness\\responses-fake.e2e.js",
+        "dev-harness\\responses-websearch-fake.e2e.js",
+        "dev-harness\\rewind.e2e.js",
+        "dev-harness\\self-check.e2e.js",
+        "dev-harness\\semantic-loop-guard.e2e.js",
+        "dev-harness\\session-atomic.e2e.js",
+        "dev-harness\\session-index.e2e.js",
+        "dev-harness\\shell-session.e2e.js",
+        "dev-harness\\skills-registry.e2e.js",
+        "dev-harness\\source-fields.e2e.js",
+        "dev-harness\\spawn-background-dag.e2e.js",
+        "dev-harness\\steer-interrupt.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steering.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\todo-summary.e2e.js",
+        "dev-harness\\tool-loading.e2e.js",
+        "dev-harness\\tools-v2.e2e.js",
+        "dev-harness\\uimode-style.e2e.js",
+        "dev-harness\\usage-accum.e2e.js",
+        "dev-harness\\usage-ledger.e2e.js",
+        "dev-harness\\usage-subagent-ledger.e2e.js",
+        "dev-harness\\vision-loop.e2e.js",
+        "dev-harness\\websearch.e2e.js",
+        "dev-harness\\workbench-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/tools/",
+      "file": "13-http-router.js",
+      "line": 1165,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\audit-w23.e2e.js",
+        "dev-harness\\autonomy-shell-sandbox.e2e.js",
+        "dev-harness\\checkpoint.e2e.js",
+        "dev-harness\\codebase-symbol-search.e2e.js",
+        "dev-harness\\file-guard.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\git.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\search-robust.e2e.js",
+        "dev-harness\\shell-session.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\tools-v3.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/health",
+      "file": "13-http-router.js",
+      "line": 1377,
+      "handler": "startServer",
+      "methods": [
+        "*"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "host-gate",
+      "coveredBy": []
+    },
+    {
+      "kind": "exact",
+      "path": "/api/mcp/import-folder",
+      "file": "13b-api-domain-routes.js",
+      "line": 12,
+      "handler": "handleMcpApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\mcp-config.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/mcp/import-config/scan",
+      "file": "13b-api-domain-routes.js",
+      "line": 55,
+      "handler": "handleMcpApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\mcp-import-config.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/mcp/import-config/apply",
+      "file": "13b-api-domain-routes.js",
+      "line": 67,
+      "handler": "handleMcpApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\mcp-import-config.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/mcp/connectors",
+      "file": "13b-api-domain-routes.js",
+      "line": 100,
+      "handler": "handleMcpApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\mcp-ops-closure.e2e.js",
+        "dev-harness\\mcp-ops-gui.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/mcp/connectors/health",
+      "file": "13b-api-domain-routes.js",
+      "line": 110,
+      "handler": "handleMcpApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\mcp-ops-closure.e2e.js",
+        "dev-harness\\mcp-ops-gui.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/mcp/connectors/toggle",
+      "file": "13b-api-domain-routes.js",
+      "line": 128,
+      "handler": "handleMcpApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\mcp-ops-closure.e2e.js",
+        "dev-harness\\mcp-ops-gui.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/mcp/connectors",
+      "file": "13b-api-domain-routes.js",
+      "line": 151,
+      "handler": "handleMcpApiRoutes",
+      "methods": [
+        "DELETE"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\mcp-ops-closure.e2e.js",
+        "dev-harness\\mcp-ops-gui.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/storage/policy",
+      "file": "13b-api-domain-routes.js",
+      "line": 189,
+      "handler": "handleCheckpointApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "checkpoint-storage",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\session-storage-v2.e2e.js",
+        "dev-harness\\storage-steward.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/storage/clean",
+      "file": "13b-api-domain-routes.js",
+      "line": 199,
+      "handler": "handleCheckpointApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "checkpoint-storage",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\session-storage-v2.e2e.js",
+        "dev-harness\\storage-steward.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/checkpoints/rollback",
+      "file": "13b-api-domain-routes.js",
+      "line": 214,
+      "handler": "handleCheckpointApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "checkpoint-storage",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint.e2e.js",
+        "dev-harness\\fake-mcp-contract.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\tools-v3.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/session/rewind",
+      "file": "13b-api-domain-routes.js",
+      "line": 245,
+      "handler": "handleCheckpointApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "checkpoint-storage",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\rewind.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/steer",
+      "file": "13b-api-domain-routes.js",
+      "line": 262,
+      "handler": "handleSteerApiRoute",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\long-tool-liveness-steer.e2e.js",
+        "dev-harness\\steer-interrupt.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steering.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/steer",
+      "file": "13b-api-domain-routes.js",
+      "line": 316,
+      "handler": "handleSteerApiRoute",
+      "methods": [
+        "DELETE"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\long-tool-liveness-steer.e2e.js",
+        "dev-harness\\steer-interrupt.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steering.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/overlay/precheck",
+      "file": "13c-overlay-routes.js",
+      "line": 127,
+      "handler": "handleOverlayApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "overlay",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\overlay-update-core.e2e.js",
+        "dev-harness\\overlay-update-gui.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/overlay/apply",
+      "file": "13c-overlay-routes.js",
+      "line": 147,
+      "handler": "handleOverlayApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "overlay",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\overlay-update-core.e2e.js",
+        "dev-harness\\overlay-update-gui.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/overlay/status",
+      "file": "13c-overlay-routes.js",
+      "line": 168,
+      "handler": "handleOverlayApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "overlay",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\overlay-update-core.e2e.js",
+        "dev-harness\\overlay-update-gui.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/overlay/rollback",
+      "file": "13c-overlay-routes.js",
+      "line": 179,
+      "handler": "handleOverlayApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "overlay",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\overlay-update-core.e2e.js",
+        "dev-harness\\overlay-update-gui.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/sessions",
+      "file": "13d-core-domain-routes.js",
+      "line": 2,
+      "handler": "handleSessionApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "session",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\agent-deadlock-watchdog.e2e.js",
+        "dev-harness\\agent-node-wrapup.e2e.js",
+        "dev-harness\\agent-parent-heartbeat.e2e.js",
+        "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-roles.e2e.js",
+        "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\agent-subturn-loop-guard.e2e.js",
+        "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\agent-workflow-audit-fixes.e2e.js",
+        "dev-harness\\agent-workflow-budget-finalizer.e2e.js",
+        "dev-harness\\agent-workflow-claude-engine.e2e.js",
+        "dev-harness\\agent-workflow-claude-transient-repro.e2e.js",
+        "dev-harness\\agent-workflow-node-context.e2e.js",
+        "dev-harness\\agent-workflow-replan-approve.e2e.js",
+        "dev-harness\\agent-workflow-replan-review.e2e.js",
+        "dev-harness\\agent-workflow-replan.e2e.js",
+        "dev-harness\\agent-workflow-transient-repro.e2e.js",
+        "dev-harness\\agent-workflow-ui-progress.e2e.js",
+        "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\audit-w23.e2e.js",
+        "dev-harness\\audit.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\autocompact.e2e.js",
+        "dev-harness\\autonomy-benchmark.e2e.js",
+        "dev-harness\\autonomy-durability.e2e.js",
+        "dev-harness\\autonomy-grant.e2e.js",
+        "dev-harness\\autonomy-resume.e2e.js",
+        "dev-harness\\bridge-cancel-timeout.e2e.js",
+        "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint.e2e.js",
+        "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cmdline-guard.e2e.js",
+        "dev-harness\\claude-context-continuity.e2e.js",
+        "dev-harness\\claude-resume-recovery.e2e.js",
+        "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\dns-rebind.e2e.js",
+        "dev-harness\\dom-smoke.e2e.js",
+        "dev-harness\\external-code-diff.e2e.js",
+        "dev-harness\\fake-mcp-contract.e2e.js",
+        "dev-harness\\file-guard.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\index-dedup.e2e.js",
+        "dev-harness\\interventions-c4.e2e.js",
+        "dev-harness\\interventions-cas.e2e.js",
+        "dev-harness\\interventions-changeseq.e2e.js",
+        "dev-harness\\interventions-persist.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\judge-json-repair.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\long-tool-liveness-steer.e2e.js",
+        "dev-harness\\loop-guard-read-exempt.e2e.js",
+        "dev-harness\\loop-guard.e2e.js",
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\mission-driver.e2e.js",
+        "dev-harness\\mission-result.e2e.js",
+        "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\monitor-incremental.e2e.js",
+        "dev-harness\\multi-session-parallel.e2e.js",
+        "dev-harness\\onboard.e2e.js",
+        "dev-harness\\orchestrate-model-select.e2e.js",
+        "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\perf.e2e.js",
+        "dev-harness\\perm-v2.e2e.js",
+        "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\pretender-crew-lens.e2e.js",
+        "dev-harness\\pretender-dispatch-home.e2e.js",
+        "dev-harness\\pretender-gate.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-needs-drawer.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\provider-pairing-repair.e2e.js",
+        "dev-harness\\resume-dangling.e2e.js",
+        "dev-harness\\rewind.e2e.js",
+        "dev-harness\\scheduler-ready-queue.e2e.js",
+        "dev-harness\\semantic-loop-guard.e2e.js",
+        "dev-harness\\session-atomic.e2e.js",
+        "dev-harness\\session-bulk-cleanup.e2e.js",
+        "dev-harness\\session-index.e2e.js",
+        "dev-harness\\skills-registry.e2e.js",
+        "dev-harness\\source-fields.e2e.js",
+        "dev-harness\\spawn-background-dag.e2e.js",
+        "dev-harness\\steer-interrupt.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steering.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\todo-loopback.e2e.js",
+        "dev-harness\\todo-summary.e2e.js",
+        "dev-harness\\token-bootstrap-csp.e2e.js",
+        "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\usage-ledger.e2e.js",
+        "dev-harness\\usage-subagent-ledger.e2e.js",
+        "dev-harness\\vision-loop.e2e.js",
+        "dev-harness\\wait-primitive.e2e.js",
+        "dev-harness\\workbench-memory.e2e.js",
+        "dev-harness\\workspace-resolve.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/sessions",
+      "file": "13d-core-domain-routes.js",
+      "line": 5,
+      "handler": "handleSessionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "session",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\agent-deadlock-watchdog.e2e.js",
+        "dev-harness\\agent-node-wrapup.e2e.js",
+        "dev-harness\\agent-parent-heartbeat.e2e.js",
+        "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-roles.e2e.js",
+        "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\agent-subturn-loop-guard.e2e.js",
+        "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\agent-workflow-audit-fixes.e2e.js",
+        "dev-harness\\agent-workflow-budget-finalizer.e2e.js",
+        "dev-harness\\agent-workflow-claude-engine.e2e.js",
+        "dev-harness\\agent-workflow-claude-transient-repro.e2e.js",
+        "dev-harness\\agent-workflow-node-context.e2e.js",
+        "dev-harness\\agent-workflow-replan-approve.e2e.js",
+        "dev-harness\\agent-workflow-replan-review.e2e.js",
+        "dev-harness\\agent-workflow-replan.e2e.js",
+        "dev-harness\\agent-workflow-transient-repro.e2e.js",
+        "dev-harness\\agent-workflow-ui-progress.e2e.js",
+        "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\audit-w23.e2e.js",
+        "dev-harness\\audit.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\autocompact.e2e.js",
+        "dev-harness\\autonomy-benchmark.e2e.js",
+        "dev-harness\\autonomy-durability.e2e.js",
+        "dev-harness\\autonomy-grant.e2e.js",
+        "dev-harness\\autonomy-resume.e2e.js",
+        "dev-harness\\bridge-cancel-timeout.e2e.js",
+        "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint.e2e.js",
+        "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cmdline-guard.e2e.js",
+        "dev-harness\\claude-context-continuity.e2e.js",
+        "dev-harness\\claude-resume-recovery.e2e.js",
+        "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\dns-rebind.e2e.js",
+        "dev-harness\\dom-smoke.e2e.js",
+        "dev-harness\\external-code-diff.e2e.js",
+        "dev-harness\\fake-mcp-contract.e2e.js",
+        "dev-harness\\file-guard.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\index-dedup.e2e.js",
+        "dev-harness\\interventions-c4.e2e.js",
+        "dev-harness\\interventions-cas.e2e.js",
+        "dev-harness\\interventions-changeseq.e2e.js",
+        "dev-harness\\interventions-persist.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\judge-json-repair.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\long-tool-liveness-steer.e2e.js",
+        "dev-harness\\loop-guard-read-exempt.e2e.js",
+        "dev-harness\\loop-guard.e2e.js",
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\mission-driver.e2e.js",
+        "dev-harness\\mission-result.e2e.js",
+        "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\monitor-incremental.e2e.js",
+        "dev-harness\\multi-session-parallel.e2e.js",
+        "dev-harness\\onboard.e2e.js",
+        "dev-harness\\orchestrate-model-select.e2e.js",
+        "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\perf.e2e.js",
+        "dev-harness\\perm-v2.e2e.js",
+        "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\pretender-crew-lens.e2e.js",
+        "dev-harness\\pretender-dispatch-home.e2e.js",
+        "dev-harness\\pretender-gate.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-needs-drawer.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\provider-pairing-repair.e2e.js",
+        "dev-harness\\resume-dangling.e2e.js",
+        "dev-harness\\rewind.e2e.js",
+        "dev-harness\\scheduler-ready-queue.e2e.js",
+        "dev-harness\\semantic-loop-guard.e2e.js",
+        "dev-harness\\session-atomic.e2e.js",
+        "dev-harness\\session-bulk-cleanup.e2e.js",
+        "dev-harness\\session-index.e2e.js",
+        "dev-harness\\skills-registry.e2e.js",
+        "dev-harness\\source-fields.e2e.js",
+        "dev-harness\\spawn-background-dag.e2e.js",
+        "dev-harness\\steer-interrupt.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steering.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\todo-loopback.e2e.js",
+        "dev-harness\\todo-summary.e2e.js",
+        "dev-harness\\token-bootstrap-csp.e2e.js",
+        "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\usage-ledger.e2e.js",
+        "dev-harness\\usage-subagent-ledger.e2e.js",
+        "dev-harness\\vision-loop.e2e.js",
+        "dev-harness\\wait-primitive.e2e.js",
+        "dev-harness\\workbench-memory.e2e.js",
+        "dev-harness\\workspace-resolve.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/sessions/bulk-delete",
+      "file": "13d-core-domain-routes.js",
+      "line": 11,
+      "handler": "handleSessionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "session",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\session-bulk-cleanup.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/sessions/",
+      "file": "13d-core-domain-routes.js",
+      "line": 18,
+      "handler": "handleSessionApiRoutes",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "session",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\agent-roles.e2e.js",
+        "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\audit-w23.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\autocompact.e2e.js",
+        "dev-harness\\checkpoint.e2e.js",
+        "dev-harness\\claude-context-continuity.e2e.js",
+        "dev-harness\\claude-resume-recovery.e2e.js",
+        "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\multi-session-parallel.e2e.js",
+        "dev-harness\\perf.e2e.js",
+        "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\provider-pairing-repair.e2e.js",
+        "dev-harness\\resume-dangling.e2e.js",
+        "dev-harness\\rewind.e2e.js",
+        "dev-harness\\session-atomic.e2e.js",
+        "dev-harness\\session-bulk-cleanup.e2e.js",
+        "dev-harness\\session-index.e2e.js",
+        "dev-harness\\source-fields.e2e.js",
+        "dev-harness\\steer-interrupt.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steering.e2e.js",
+        "dev-harness\\todo-loopback.e2e.js",
+        "dev-harness\\todo-summary.e2e.js",
+        "dev-harness\\vision-loop.e2e.js",
+        "dev-harness\\workspace-resolve.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/missions",
+      "file": "13d-core-domain-routes.js",
+      "line": 193,
+      "handler": "handleMissionsApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "mission",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\agent-workflow-replan-approve.e2e.js",
+        "dev-harness\\agent-workflow-replan-review.e2e.js",
+        "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\interventions-persist.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\mission-result.e2e.js",
+        "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\pretender-crew-lens.e2e.js",
+        "dev-harness\\pretender-dispatch-home.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-gate.e2e.js",
+        "dev-harness\\pretender-index-scale.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-needs-drawer.static.e2e.js",
+        "dev-harness\\pretender-return-archive.e2e.js",
+        "dev-harness\\pretender-shell.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/missions/",
+      "file": "13d-core-domain-routes.js",
+      "line": 253,
+      "handler": "handleMissionsApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "mission",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\agent-workflow-replan-approve.e2e.js",
+        "dev-harness\\agent-workflow-replan-review.e2e.js",
+        "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\interventions-persist.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\mission-result.e2e.js",
+        "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\pretender-crew-lens.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-gate.e2e.js",
+        "dev-harness\\pretender-index-scale.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-needs-drawer.static.e2e.js",
+        "dev-harness\\pretender-return-archive.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/_test/pretender-maintenance",
+      "file": "13d-core-domain-routes.js",
+      "line": 782,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\pretender-index-scale.e2e.js"
+      ]
+    },
+    {
+      "kind": "regex",
+      "pattern": "^\\/api\\/missions\\/([^/]+)\\/interventions\\/([^/]+)\\/decision$",
+      "path": "/api/missions/:missionId/interventions/:interventionId/decision",
+      "file": "13d-core-domain-routes.js",
+      "line": 796,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-workflow-replan-approve.e2e.js",
+        "dev-harness\\agent-workflow-replan-review.e2e.js",
+        "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\interventions-persist.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\mission-result.e2e.js",
+        "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\pretender-crew-lens.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-gate.e2e.js",
+        "dev-harness\\pretender-index-scale.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-needs-drawer.static.e2e.js",
+        "dev-harness\\pretender-return-archive.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/interventions",
+      "file": "13d-core-domain-routes.js",
+      "line": 821,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\agent-workflow-replan-approve.e2e.js",
+        "dev-harness\\agent-workflow-replan-review.e2e.js",
+        "dev-harness\\interventions-persist.e2e.js",
+        "dev-harness\\pretender-gate.e2e.js",
+        "dev-harness\\pretender-index-scale.e2e.js",
+        "dev-harness\\pretender-needs-drawer.e2e.js",
+        "dev-harness\\pretender-needs-drawer.static.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/interventions/",
+      "file": "13d-core-domain-routes.js",
+      "line": 874,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\interventions-persist.e2e.js",
+        "dev-harness\\pretender-index-scale.e2e.js",
+        "dev-harness\\pretender-needs-drawer.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/chat/answer",
+      "file": "13d-core-domain-routes.js",
+      "line": 910,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\interventions-c4.e2e.js",
+        "dev-harness\\interventions-changeseq.e2e.js",
+        "dev-harness\\interventions-persist.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\pretender-gate.e2e.js",
+        "dev-harness\\pretender-needs-drawer.static.e2e.js",
+        "dev-harness\\steering-claude.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/question/heartbeat",
+      "file": "13d-core-domain-routes.js",
+      "line": 930,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "token-browser",
+      "coveredBy": []
+    },
+    {
+      "kind": "exact",
+      "path": "/api/question/request",
+      "file": "13d-core-domain-routes.js",
+      "line": 940,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "body-token",
+      "coveredBy": []
+    },
+    {
+      "kind": "exact",
+      "path": "/api/permission/request",
+      "file": "13d-core-domain-routes.js",
+      "line": 955,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "body-token",
+      "coveredBy": []
+    },
+    {
+      "kind": "exact",
+      "path": "/api/permission/decision",
+      "file": "13d-core-domain-routes.js",
+      "line": 1041,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\autonomy-pause.e2e.js",
+        "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\pretender-needs-drawer.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/plan/decision",
+      "file": "13d-core-domain-routes.js",
+      "line": 1060,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\pretender-needs-drawer.static.e2e.js",
+        "dev-harness\\subagent.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/_test/intervention-cas",
+      "file": "13d-core-domain-routes.js",
+      "line": 1081,
+      "handler": "handleInterventionApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "intervention",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\interventions-cas.e2e.js",
+        "dev-harness\\interventions-changeseq.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/agent-runs",
+      "file": "13d-core-domain-routes.js",
+      "line": 1102,
+      "handler": "handleAgentRunApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "agent-run",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-deadlock-watchdog.e2e.js",
+        "dev-harness\\agent-node-wrapup.e2e.js",
+        "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\agent-subturn-loop-guard.e2e.js",
+        "dev-harness\\agent-workflow-claude-engine.e2e.js",
+        "dev-harness\\agent-workflow-transient-repro.e2e.js",
+        "dev-harness\\agent-workflow-ui-progress.e2e.js",
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\autonomy-durability.e2e.js",
+        "dev-harness\\autonomy-resume.e2e.js",
+        "dev-harness\\i18n.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\monitor-incremental.e2e.js",
+        "dev-harness\\orchestrate-model-select.e2e.js",
+        "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\pretender-crew-lens.e2e.js",
+        "dev-harness\\pretender-crew-lens.static.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\spawn-background-dag.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\usage-subagent-ledger.e2e.js",
+        "dev-harness\\wait-primitive.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/agent-runs/",
+      "suffix": "/events",
+      "file": "13d-core-domain-routes.js",
+      "line": 1141,
+      "handler": "handleAgentRunApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "agent-run",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-deadlock-watchdog.e2e.js",
+        "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\autonomy-durability.e2e.js",
+        "dev-harness\\autonomy-resume.e2e.js",
+        "dev-harness\\i18n.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\monitor-incremental.e2e.js",
+        "dev-harness\\orchestrate-model-select.e2e.js",
+        "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\pretender-crew-lens.static.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\wait-primitive.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/agent-runs/",
+      "file": "13d-core-domain-routes.js",
+      "line": 1152,
+      "handler": "handleAgentRunApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "agent-run",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-deadlock-watchdog.e2e.js",
+        "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\autonomy-durability.e2e.js",
+        "dev-harness\\autonomy-resume.e2e.js",
+        "dev-harness\\i18n.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\monitor-incremental.e2e.js",
+        "dev-harness\\orchestrate-model-select.e2e.js",
+        "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\pretender-crew-lens.static.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\wait-primitive.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/agent-runs/",
+      "file": "13d-core-domain-routes.js",
+      "line": 1268,
+      "handler": "handleAgentRunApiRoutes",
+      "methods": [
+        "DELETE"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "agent-run",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-deadlock-watchdog.e2e.js",
+        "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\autonomy-durability.e2e.js",
+        "dev-harness\\autonomy-resume.e2e.js",
+        "dev-harness\\i18n.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\monitor-incremental.e2e.js",
+        "dev-harness\\orchestrate-model-select.e2e.js",
+        "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\pretender-crew-lens.static.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\wait-primitive.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/agent-runs/",
+      "file": "13d-core-domain-routes.js",
+      "line": 1288,
+      "handler": "handleAgentRunApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "agent-run",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\agent-deadlock-watchdog.e2e.js",
+        "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\autonomy-durability.e2e.js",
+        "dev-harness\\autonomy-resume.e2e.js",
+        "dev-harness\\i18n.e2e.js",
+        "dev-harness\\interventions-pool.e2e.js",
+        "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\monitor-incremental.e2e.js",
+        "dev-harness\\orchestrate-model-select.e2e.js",
+        "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\pretender-crew-lens.static.e2e.js",
+        "dev-harness\\pretender-dispatch-home.static.e2e.js",
+        "dev-harness\\pretender-mission-control.e2e.js",
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\subagent.e2e.js",
+        "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\wait-primitive.e2e.js"
+      ]
+    }
+  ],
+  "delegations": [
+    {
+      "file": "13-http-router.js",
+      "line": 286,
+      "target": "handleSessionApiRoutes"
+    },
+    {
+      "file": "13-http-router.js",
+      "line": 288,
+      "target": "handleMissionsApiRoutes"
+    },
+    {
+      "file": "13-http-router.js",
+      "line": 641,
+      "target": "handleInterventionApiRoutes"
+    },
+    {
+      "file": "13-http-router.js",
+      "line": 889,
+      "target": "handleAgentRunApiRoutes"
+    },
+    {
+      "file": "13-http-router.js",
+      "line": 1085,
+      "target": "handleMcpApiRoutes"
+    },
+    {
+      "file": "13-http-router.js",
+      "line": 1129,
+      "target": "handleCheckpointApiRoutes"
+    },
+    {
+      "file": "13-http-router.js",
+      "line": 1131,
+      "target": "handleSteerApiRoute"
+    },
+    {
+      "file": "13-http-router.js",
+      "line": 1133,
+      "target": "handleOverlayApiRoutes"
+    }
+  ],
+  "problems": [],
+  "warnings": []
+}

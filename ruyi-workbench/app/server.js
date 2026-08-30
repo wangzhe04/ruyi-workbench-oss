@@ -23061,6 +23061,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     lastCtxEstAt = now; lastCtxEstTokens = n;
     // 走 downstreamEvent 直发:估算态是瞬时 UI 状态,不进 turnSegments(不落盘进消息 segments)。
     downstreamEvent({
+      traceId: activeTraceId, // 与 onEvent 包装的 traceId 补齐语义一致(109b905 直发通道曾漏带,断线了 trace 连续性契约)
       type: 'context_estimate', contextTokens: n, contextWindow: providerContextWindow(provider, model), estimated: true,
       contextEngine: 'openai', contextProviderId: provider.id, contextModel: model,
     });

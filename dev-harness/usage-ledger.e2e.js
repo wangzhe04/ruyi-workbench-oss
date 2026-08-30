@@ -81,6 +81,9 @@ function postStream(port, payload) {
   });
 }
 function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function patchSessionRoute(id, route, headers) {
+  return reqJson(WB_PORT, 'POST', '/api/sessions/' + encodeURIComponent(id), { engineRoute: route }, { ...(headers || {}), 'x-http-method': 'PATCH' });
+}
 function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(/\r?\n/).filter(l => l.trim()); } catch { return []; } }
 
 (async () => {
@@ -137,6 +140,8 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
     await postStream(WB_PORT, { sessionId: s2, message: '价格二', cwd: HOME });
     // switch active provider to the no-usage one for the estimated turn (readConfig is uncached -> picked up).
     writeConfig('noprice');
+    // 109b905 protocol: pin s3 to the no-usage provider explicitly (global config switch no longer retargets an existing session).
+    await patchSessionRoute(s3, { engine: 'openai', providerId: 'noprice', model: 'fake-model' }, hdr);
     await postStream(WB_PORT, { sessionId: s3, message: '估算一', cwd: HOME });
     await sleep(500); // let the fire-and-forget ledger appends flush
     // Warm the session metadata index (the UI does this via the sidebar). buildUsageSummary reads titles from

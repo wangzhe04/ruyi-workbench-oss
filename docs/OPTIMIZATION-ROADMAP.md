@@ -1,7 +1,7 @@
 # 如意 Ruyi 优化路线图（当前版）
 
 > 本文只保留**当前发布线、发布准入与后续计划**；已交付波次历史移入 [`archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md)（第46–86波）与 [`archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md)（第1–45波）。
-> 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)。`docs/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，适用边界见 22 号方案 §8，不再统管新引擎线。
+> 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)，第 103–107 波的结构前置、上下文演进与出门序列见 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)。`docs/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，不再统管新引擎线。
 
 ---
 
@@ -20,12 +20,13 @@
 
 ---
 
-## 当前状态（2026-08-27）
+## 当前状态（2026-08-30）
 
 | 线 | 状态 | 依据 |
 |---|---|---|
 | **Escapade 发布线** | 当前源码与技术 tag 为 `v2.6.2`；`CHANGELOG.md` 已归档 `v2.6.2`（2026-08-27，固定预算上下文压缩与安全重播种），后续变更进入 Unreleased | `ruyi-workbench/package.json`、git tag `v2.6.2`、`CHANGELOG.md` |
 | **Pretender 3.0 交付线（🔁 重新立项：核心改向引擎侧）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）**；**2026-08-27 重新立项：版本核心改为引擎侧 Agent SoC 微架构迭代（[`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) 与本文「Pretender 3.0 重新立项」节），原壳层 P1–P3 成果已随 Escapade 2.x 交付，P4 默认切换保持搁置** | `docs/PRETENDER-PLAN.md` v4、`docs/PRETENDER-METRICS.md`、第99/100波记录 `docs/archive/optimization-plan/08-task-sheet-ux-audit.md` |
+| **第 103–107 波架构／上下文前序列** | **2026-08-30 评估纳入，待实施**：原第 103 波提案经主树核查裁决 revise-major；command core 已在 75b 交付，不重复建设。103 做路由声明、依赖契约与 durable data surface；104 做零行为内聚／压缩结构；105 做默认关的上下文行为实验；106 汇入 Agent SoC 证据；107 为发布批准点 | [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md) |
 | **Traveler 4.0** | 概念稿 v0.1（非承诺） | `docs/TRAVELER-CONCEPT.md` |
 
 ---
@@ -111,9 +112,25 @@
 
 详细架构、逐项验收与执行序见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)。
 
-### 第103波起 · 编排方法论升级 — MicroAgent 论文借鉴（2026-08-10 立项，3.0 搁置后提前）
+### 第 103–107 波 · 架构偿还、上下文演进与 Pretender 出门序列（2026-08-30 纳入）
 
-`docs/optimization-plan/07-microagent-lessons.md`（2026-08-10 立）：MicroAgent 论文 × Ruyi 逐项对照（主会话核实），产出 M1–M6——编排上下文分级注入（P0）、确定性节点扩展 + vote 门防误杀、verify 节点输入覆盖率职责、HB360 单轴消融纪律、模板方法论工具、O3 证据回溯升级。与 06（HB360 成本收敛）互为姊妹篇，分 A–D 四个候选波次。原计划排在 3.0 之后；**2026-08-10 用户决定跳过第101波、3.0 收口搁置，本线提前推进**（在 Escapade 2.5.0 线上）。
+> 原《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核裁决为 **revise-major**：方向成立，但“command core 尚未落码”“17 模块”“227 E2E／6 unit”“7 处都重造原子写”等基线已过期。现状是 75b 单一 `decideIntervention()` 已交付、manifest 有 24 个拼接模块、目录重算为 239 E2E／14 unit（`facts.json` 漂移已在 103a 修复并由静态门以目录重算交叉校验）、公共 `atomicWriteJson()` 已覆盖多数写路径。实施以 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md) 为准，不以原提案直接施工。
+
+| 波次 | 冻结范围 | 出门与解锁 |
+|---|---|---|
+| **103 · 架构基座偿还** | 103a 路由 descriptor／旧新决策快照（**治理面已交付 2026-08-30**：清册生成器+静态门 101 判定点／92 鉴权行零漂移、决策端点逐端点快照锁定、facts 修复；if 链→descriptor 运行时迁移按域分批待后续）；103b 模块依赖图、`provides/requires` 与隔离试点；103c 持久化清册 + durable data surface | 零用户可见行为；路由／鉴权单一事实源可校验、无新增隐式依赖、每个私役迁移或豁免成文；解锁高触碰结构工作 |
+| **104 · 内聚与上下文结构** | 视觉管线出 04、桌面 shell 出 10、07 职责拆分；压缩职责簇 + `CompactionPlan`；规则外置；单元快照先行 | 零行为；主路径／forced-400／子代理与提示词快照等价；为上下文实验提供单一落点 |
+| **105 · 上下文行为实验** | `observation_recall`、session notes、实体校验、估算分桶、单发优先与 map-reduce 跨块保真 | 默认关／受控 canary；逐项 A／B 类证据与总成本对照；为 #7 建立生产消费者，不通过不启用 |
+| **106 · Agent SoC 证据收敛** | #13a／13a-t、#1 Ruyi 布局、#2a、#3／#9 限定场景；#7 仅在回载与耗时证据成立后进入 | 沿用 22 号单轴、非劣、权限／配对／恢复零回归门；不以完成数量冒充收益 |
+| **107 · 出门准备与批准点** | Escapade 六类发布门 + 22 号 Release Brief；冻结默认启用、适用范围、回退和版本归属 | 形成 Pretender 3.0 发布批准材料；不自动恢复旧壳 P4／人因／默认切壳 |
+
+**顺序纪律**：103 为 104 与后续高触碰结构改动的前置；104 为 105 的前置。105 不自动批准 106 的任何优化。#13a 若因已证实热点申请提前，只能在 103 出门后成文重排，不能静默并行占号。103／104 可随 Escapade 补丁或后续版本交付；105／106 若改变默认行为或 UI，版本级别由实际变更决定，不在规划阶段预写 `2.6.x` 或 `2.7`。
+
+**独立 ASR 候选**：音频转文字与本地 Qwen3-ASR 是功能线，不占 103–107、也不是 Pretender 前置；若另行立项，只依赖 103a 的路由 descriptor，并复用 providers + `caps:['asr']`、独立 ASR 选择键、token 级转写端点和本地按需拉起边界。详见 23 号方案 §7。
+
+### 已交付／候选编排方法论线 · MicroAgent 论文借鉴（不占第 103 波编号）
+
+`docs/optimization-plan/07-microagent-lessons.md`（2026-08-10 立）：MicroAgent 论文 × Ruyi 逐项对照（主会话核实），产出 M1–M6——编排上下文分级注入（P0）、确定性节点扩展 + vote 门防误杀、verify 节点输入覆盖率职责、HB360 单轴消融纪律、模板方法论工具、O3 证据回溯升级。与 06（HB360 成本收敛）互为姊妹篇，分 A–D 四个**候选批次**。相关成果实际以独立提交交付，没有形成“第 103 波”实施记录；为保持波次唯一，本线不再占用第 103 波编号，未完成项继续按候选立项。
 
 **候选 A 波（✅ 已交付）**：M3（verify 输入覆盖率）+ M4（单轴消融纪律）。
 - **M3 已交付（`9696483`）**：`QUALITY_GATE_OUTPUT_SCHEMA` 加可选 coverage 字段（不破坏存量 verify）+ 质量门 prompt 引导逐项核验 + 后端 unhandled 收紧（`gate_uncovered`）；e2e（quality-gates + quality-workflow + prompt-snapshot）+ build --check 全绿。实施文档 [`archive/optimization-plan/09-m3-coverage-gate.md`](archive/optimization-plan/09-m3-coverage-gate.md)。

@@ -3,6 +3,7 @@
 > **2026-08-27 新旧规划衔接**：本文保留为原壳层线的决策与交付依据；新引擎版 Pretender 3.0 的范围、证据分类与发布门改由 [22 号方案](optimization-plan/22-agent-soc-microarchitecture.md) §8 管理。下文“换容器、不换引擎”、壳层目标及旧工期不再统管新引擎线，不代表允许重写既有执行资产。
 > P1–P3 工程成果保留；正式外部人因验证未执行，不能宣告 Product Ready；第101／102波和默认切壳继续搁置，恢复时须重新评估相关前置。安全、契约、迁移／恢复等通用门不豁免；正式发布批准前继续冻结 Pretender／3.0 用户界面与发布物正名。
 > **C2 触发点显式修订**：双壳退出时钟绑定“首次默认启用新壳的公开 Release”，不再仅由 3.0.0 引擎版发布触发。相对 release 次数与 6 个月的强制评审要求保留，详见下文 C2；其余历史决定不因本轮文档修订自动恢复或改记完成。
+> **2026-08-30 架构前序衔接**：当前主树已存在 75b 的唯一 `decideIntervention()`、Mission-scoped contract 与四类经典适配器，T1／T2／S2 不得改写成“待 103 落码”。[第 103 波](optimization-plan/23-architecture-repayment-sequence.md)只补 command surface 快照、路由声明与模块／存储结构债，并作为未来恢复旧壳 P4 时的成文结构前置；104／105 的上下文演进不自动恢复人因或默认切壳。
 
 状态:**已拍板 v4(2026-07-30)**。四轮决策:
 - **第一轮(拍板)**:D1=方案 B(mission.id 稳定主键)、D2=做叙事镜头 v1 规则版、D3=先发 Escapade 2.3.0 再进 P1(§6)。
@@ -123,6 +124,8 @@ v2 补充:**3.0 不交付 1:N 多会话 Mission**(移 3.1,见目标 1);conflict/
 - 风险:中。索引只能是可丢缓存;若 journal 有损必须显式报 degraded,不得用重建成功掩盖。
 
 **P1 出门闸(Data & Contract Ready)**:schema + missionId + `mission.changeSeq` + 权威状态 CAS + C4 + 统一 command core 四类全通(含混合路径/崩溃窗口)+ 规模门全绿。此后任何 UI 不得引入文书外字段。
+
+**2026-08-30 状态校准**：上述 P1／75b 已交付状态保持不变，源码与 `interventions-persist.e2e.js` 可核对 contract、四类 legacy source、CAS 和持久重放。第 103 波不是延迟补做 P1，而是冻结现状、消除 handler／auth 双事实源并降低后续改动爆炸半径；若快照揭示历史实现与本文契约不一致，按缺陷处理，不把偏差包装成“103 语义统一”。
 
 ### P2 · 新壳层 Preview(第76–80波)
 

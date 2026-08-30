@@ -11,6 +11,26 @@ const os = require('os');
 const path = require('path');
 
 const { getFreePort } = require('./free-port.js');
+
+function patchSessionRoute(port, token, sid, route) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify({ engineRoute: route });
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/sessions/' + sid, method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), 'x-wcw-token': token, 'x-http-method': 'PATCH' } }, res => {
+      let buf = ''; res.on('data', c => (buf += c)); res.on('end', () => { try { resolve(JSON.parse(buf)); } catch { resolve(null); } });
+    });
+    req.on('error', reject); req.write(data); req.end();
+  });
+}
+
+function patchSessionRoute(port, token, sid, route) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify({ engineRoute: route });
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/sessions/' + sid, method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), 'x-wcw-token': token, 'x-http-method': 'PATCH' } }, res => {
+      let buf = ''; res.on('data', c => (buf += c)); res.on('end', () => { try { resolve(JSON.parse(buf)); } catch { resolve(null); } });
+    });
+    req.on('error', reject); req.write(data); req.end();
+  });
+}
 const { readFrontendSrc } = require('./read-frontend-src.js');
 const PROVIDER_PORT = await getFreePort(), WB_PORT = await getFreePort(); // 自内层 IIFE 提升:顶层 fixture 也要用(9642e26 codemod 事故修复)
 
@@ -168,6 +188,9 @@ function startProvider(captures) {
 
     const switched = await requestJson(WB_PORT, '/api/config', { activeProvider: 'fake' }, token);
     ok(switched.status === 200 && switched.json?.ok, 'switches to OpenAI-compatible Provider');
+    // 109b905 protocol: pin the opened conversation to the provider engine explicitly (global config switch no longer retargets an existing session).
+    const pinned = await patchSessionRoute(WB_PORT, token, sessionId, { engine: 'openai', providerId: 'fake', model: 'fake-model' });
+    ok(pinned?.ok, 'session engineRoute pinned to provider');
     const providerTurn = await streamAndAnswer({ sessionId, message: 'ask me which framework to use', cwd: HOME }, token, {
       selectedOptionIds: ['vue'], otherText: 'Svelte', answer: ['Vue', 'Svelte'],
     });

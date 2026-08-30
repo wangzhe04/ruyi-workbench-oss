@@ -50,6 +50,15 @@ function postConfig(port, token, body) {
     req.on('error', reject); req.write(data); req.end();
   });
 }
+function patchSessionRoute(port, token, sid, route) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify({ engineRoute: route });
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/sessions/' + sid, method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), 'x-wcw-token': token, 'x-http-method': 'PATCH' } }, res => {
+      let buf = ''; res.on('data', c => (buf += c)); res.on('end', () => { try { resolve(JSON.parse(buf)); } catch { resolve(null); } });
+    });
+    req.on('error', reject); req.write(data); req.end();
+  });
+}
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 function latestProviderRequest() {
   const files = fs.existsSync(PROVIDER_CAP) ? fs.readdirSync(PROVIDER_CAP).filter(f => /^req-\d+\.json$/.test(f)).sort() : [];
@@ -83,6 +92,9 @@ function latestProviderRequest() {
     // Switch to the Provider engine and run Turn B (its user message carries a distinctive marker).
     const c1 = await postConfig(WB_PORT, token, { activeProvider: 'fake' });
     ok(c1 && c1.ok, 'config switched to provider engine');
+    // 109b905 protocol: engine selection is pinned per-session (engineRoute); a global config switch no longer affects an existing session, so PATCH it explicitly.
+    const p1 = await patchSessionRoute(WB_PORT, token, sid, { engine: 'openai', providerId: 'fake', model: 'fake-model' });
+    ok(p1 && p1.ok, 'session engineRoute pinned to provider');
     const b = await postStream(WB_PORT, { sessionId: sid, message: PROVIDER_MARK_B + ' 用 provider 干点活', cwd: HOME });
     const bMeta = b.find(e => e.type === 'meta');
     ok(bMeta && bMeta.engine === 'openai', 'Turn B ran on the provider engine');
@@ -109,6 +121,8 @@ function latestProviderRequest() {
     // Switch back to Claude and run Turn C.
     const c2 = await postConfig(WB_PORT, token, { activeProvider: '' });
     ok(c2 && c2.ok, 'config switched back to Claude engine');
+    const p2 = await patchSessionRoute(WB_PORT, token, sid, { engine: 'agent', agentCliType: 'claude', model: '' });
+    ok(p2 && p2.ok, 'session engineRoute pinned back to claude');
     // fake-claude overwrites the capture file (a single-line JSON envelope in interactive mode) with C's
     // prompt; poll+parse until it reflects the new turn's user message.
     let sentText = '';
@@ -131,6 +145,8 @@ function latestProviderRequest() {
     // lazy seed ran only when length===0 and therefore omitted Turn C forever.
     const c3 = await postConfig(WB_PORT, token, { activeProvider: 'fake' });
     ok(c3 && c3.ok, 'config switched to provider a second time');
+    const p3 = await patchSessionRoute(WB_PORT, token, sid, { engine: 'openai', providerId: 'fake', model: 'fake-model' });
+    ok(p3 && p3.ok, 'session engineRoute re-pinned to provider');
     const cQuestion = '刚才我们用 provider 做了什么？';
     const d = await postStream(WB_PORT, { sessionId: sid, message: '继续核对共享上下文', cwd: HOME });
     const dMeta = d.find(e => e.type === 'meta');

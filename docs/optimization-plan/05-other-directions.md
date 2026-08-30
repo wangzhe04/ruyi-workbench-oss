@@ -1,6 +1,7 @@
 # 05 · 附加优化方向（安全 / 稳定性 / 性能 / 架构 / 测试 / 文档 / 发布）
 
 > 四大确定方向之外，8 路分析识别出的高价值补充方向。按主题组织，每条均附证据与建议波次。
+> **架构项状态同步（2026-08-30）**：本文保留最初问题清单；路由已部分拆到 `13b/13c/13d/13e`，当前 manifest 为 24 个模块，但拼接共享作用域、handler／auth 双事实源与 `04/07/10` 职责错位仍在。A1 后续不再沿用 W47–W48 旧排期，统一由 [23 号第 103／104 波](23-architecture-repayment-sequence.md) 管理。
 
 ---
 
@@ -42,7 +43,7 @@
 
 | # | 事项 | 证据 | 方案要点 | 建议 |
 |---|------|------|----------|------|
-| A1 | **后端巨函数/模块名实漂移**：`handleApi` 1262 行（13:1-1263）、`runOpenAiTurn` 895 行（09:796-1691）、`runAgentWorkflow` 675 行、`runClaudeTurn` 546 行、`runSubAgentCore` 446 行；01 内含鉴权表、05 尾部混入 provider preset、07 开头 700 行是记忆库、13 混路由+schema+启动 | 分区 D 报告 | 按域拆 handleApi（steer/agent-runs/mcp/checkpoint 各自成组）；模块按实重命名或拆分；`module.exports` 100+ 内部函数（14:25-251）与 reducer 源抽取机制是现成的重构安全网 | W47–W48（与 02/03 改动同域时顺手拆） |
+| A1 | **后端边界仍不完整**：路由域拆分和唯一 command core 已交付，不能重复认领；剩余是 100+ 路径判定、`ROUTE_AUTH` 与 handler 分离、24 个拼接模块共享顶层作用域，以及 `04/07/10` 内聚错位 | 2026-08-30 主树复核；[23 号 §0](23-architecture-repayment-sequence.md) | 103 先做路由 descriptor、依赖图／契约和 durable data surface；104 再按图搬家。先锁行为，不一次性强推全树 IIFE | 第 103–104 波，状态以 23 号为准 |
 | A2 | **前端巨文件**（app.js 8175 行） | 见 01 方案 §1.2 | FE Phase 2，见 01 方案 Step 1 | W46 |
 | A3 | 坏味道清单：`createSession` 用 `arguments[0]`、`maskProviders/unmaskProviders` 兼容包装残留、`WCW_FAKE_CLAUDE` 测试缝散落三处、`MODEL_PRESETS` 空壳 | `02:931`、`05:764-765`、`13:1486-1488` | 随邻近改动顺手清理，设静态锁防复发 | 各波顺带 |
 | A4 | 前端浮层双原语、原生 prompt/confirm | `app.js:7292/2580/3220` | 合一为带 focus-trap 的 modal 原语 | 随 01 |
