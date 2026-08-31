@@ -15,6 +15,33 @@ export function applyToolUseUpdate(card, evt, deps = {}) {
   }
 }
 
+const THINKING_NARRATIVE_BOUNDARY_TYPES = new Set([
+  'assistant_delta',
+  'tool_use',
+  'mission',
+  'ask_user',
+  'permission_request',
+  'plan',
+  'kimi_plan_snapshot',
+  'plan_note',
+  'turn_summary',
+  'result',
+  'compact',
+  'error',
+]);
+
+// A thinking panel is a chronological narrative segment, not a transport-event bucket. Keep telemetry and
+// updates to already-rendered cards out of this decision: they may arrive between two thinking deltas without
+// representing a new step in the conversation. A positive list also makes future UI-only event additions safe
+// by default. Keep this aligned with the events that insert a new narrative item below.
+function isThinkingNarrativeBoundary(evt) {
+  const type = String(evt?.type || '');
+  if (!type) return false;
+  if (type === 'subagent') return evt.state === 'start';
+  if (type === 'agent_workflow') return evt.state === 'start' || evt.state === 'running';
+  return THINKING_NARRATIVE_BOUNDARY_TYPES.has(type);
+}
+
 export function createChatStreamRuntime(deps = {}) {
   const {
     $,
@@ -858,9 +885,10 @@ export function createChatStreamRuntime(deps = {}) {
     if (!line.trim()) return;
     let evt;
     try { evt = JSON.parse(line); } catch { return; }
-    // Any real event after a reasoning delta closes that phase. This covers thinking → tool/plan/question,
-    // not only thinking → assistant text, so interleaved turns never leave completed reasoning panels open.
-    if (live?.thinkingActive && evt.type !== 'thinking_delta' && evt.type !== 'raw_line') {
+    // Only a new narrative item closes the active reasoning phase. In particular, context_estimate is emitted
+    // every ~800ms by provider turns and only updates the meter; treating it as a boundary split one reasoning
+    // chain into several panels even though the persisted turn segment remained continuous.
+    if (live?.thinkingActive && isThinkingNarrativeBoundary(evt)) {
       flushThinkingBuffer(live); // 面板收拢前把合批中的思维链增量写进 DOM
       settleLiveThinking(live);
       compactNarrativeProcessRuns(live.narrative);

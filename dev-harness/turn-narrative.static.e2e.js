@@ -94,8 +94,9 @@ ok(/function scheduleLiveThinkingFollow\(/.test(app)
   && !/followThinkingMessages/.test(app), 'N10e3 流式思考框与消息区统一走粘性控制器(无事件期位置快照)');
 ok(/trace:\s*\[\['path'/.test(icons) && /icon\('trace', 13\)/.test(app)
   && !css.includes('🧠') && !css.includes('💭'), 'N10f 思考片段使用冷色线性轨迹图标且无脑形 emoji');
-ok(/function settleLiveThinking\(/.test(app) && /evt\.type !== 'thinking_delta'/.test(app)
-  && !/firstDeltaSeen/.test(app), 'N10g 每个思考阶段遇任一后续事件都会独立结算收起');
+ok(/function isThinkingNarrativeBoundary\(/.test(app) && /context_estimate/.test(app)
+  && /isThinkingNarrativeBoundary\(evt\)/.test(app) && !/firstDeltaSeen/.test(app),
+  'N10g 思考面板只在新叙事段落处结算，遥测事件不再拆段');
 ok(/\.thinking\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/.test(css)
   && /\.thinking > summary\s*\{[^}]*min-height:\s*26px/.test(css), 'N10h 思考摘要降级为紧凑无整框样式');
 ok(/\.tool-card\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/.test(css)
