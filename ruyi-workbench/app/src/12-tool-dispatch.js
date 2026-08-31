@@ -49,6 +49,32 @@ function accAnnotateNonAscii(s) {
   });
 }
 
+// File tools deliberately preserve a text file's established EOL style. Git filters do not run for direct
+// Node writes, so without this boundary an LF tool payload can turn a CRLF worktree file into mixed EOL.
+function detectTextLineEnding(text) {
+  const value = String(text || '');
+  let lf = 0, crlf = 0, loneCr = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    if (value[i] === '\r') {
+      if (value[i + 1] === '\n') { crlf += 1; i += 1; }
+      else loneCr += 1;
+    } else if (value[i] === '\n') lf += 1;
+  }
+  if (!lf && !crlf && !loneCr) return 'none';
+  if (lf && !crlf && !loneCr) return 'lf';
+  if (crlf && !lf && !loneCr) return 'crlf';
+  return 'mixed';
+}
+function normalizeTextLineEndings(text, lineEnding) {
+  const value = String(text || '');
+  if (lineEnding === 'lf') return value.replace(/\r\n|\r/g, '\n');
+  if (lineEnding === 'crlf') return value.replace(/\r\n|\r|\n/g, '\r\n');
+  return value;
+}
+function hasTextLineBreak(text) { return /[\r\n]/.test(String(text || '')); }
+function isUtf8Encoding(encoding) { return !encoding || /^utf-?8$/i.test(String(encoding)); }
+function defaultTextLineEnding(filePath) { return /\.(?:cmd|bat|ps1)$/i.test(String(filePath || '')) ? 'crlf' : 'lf'; }
+
 async function resolveFileToolRoot(args, ctx) {
   if (args && args.root) return path.resolve(String(args.root));
   const session = ctx && ctx.session;
@@ -315,6 +341,7 @@ const FILE_TOOL_HANDLERS = {
         if (e && e.code === 'ENOENT') return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
         throw e;
       }
+      const sourceLineEnding = detectTextLineEnding(raw);
       const size = Buffer.byteLength(raw);
       const nonAsciiReport = buildNonAsciiReport(raw);
       const annotateFlag = args.annotate_non_ascii === true || args.annotate_non_ascii === 'true';
@@ -334,12 +361,14 @@ const FILE_TOOL_HANDLERS = {
         const slice = startIdx >= totalLines ? [] : lines.slice(startIdx, startIdx + lineLimit);
         const width = String(startIdx + slice.length).length;
         const content = slice.map((t, k) => String(startIdx + k + 1).padStart(width, ' ') + '\t' + t).join('\n');
-        return { ok: true, path: p, mode: 'lines', content: finalContent(content), size, totalLines, lineOffset, lineLimit, truncated: lineOffset - 1 + slice.length < totalLines, ...nonAsciiField };
+        return { ok: true, path: p, mode: 'lines', content: finalContent(content), size, totalLines, lineOffset, lineLimit, truncated: lineOffset - 1 + slice.length < totalLines,
+          sourceLineEnding, contentLineEnding: 'lf', ...nonAsciiField };
       }
       const start = Math.max(0, Number(args.offset != null ? args.offset : 0));
       const limit = args.limit != null ? Math.max(0, Number(args.limit) || 0) : 100000;
       const content = raw.slice(start, start + limit);
-      return { ok: true, path: p, content: finalContent(content), size, totalChars: raw.length, truncated: start + limit < raw.length, ...nonAsciiField };
+      return { ok: true, path: p, content: finalContent(content), size, totalChars: raw.length, truncated: start + limit < raw.length,
+        sourceLineEnding, contentLineEnding: detectTextLineEnding(content), ...nonAsciiField };
   } },
   file_write: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
@@ -348,19 +377,28 @@ const FILE_TOOL_HANDLERS = {
       // store), else modify (snapshot the existing bytes). Reading the old content can't block the write.
       let before = null, exists = false;
       try { before = await fsp.readFile(p); exists = true; } catch { before = null; exists = false; }
+      const encoding = args.encoding || 'utf8';
+      const canNormalizeLineEnding = isUtf8Encoding(encoding);
+      const sourceLineEnding = exists && canNormalizeLineEnding ? detectTextLineEnding(before.toString('utf8')) : 'none';
+      const targetLineEnding = canNormalizeLineEnding
+        ? ((sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') ? sourceLineEnding : (!exists ? defaultTextLineEnding(p) : null))
+        : null;
+      const content = targetLineEnding ? normalizeTextLineEndings(String(args.content || ''), targetLineEnding) : String(args.content || '');
+      const writtenLineEnding = canNormalizeLineEnding ? detectTextLineEnding(content) : 'binary';
       // 第25波 25.5(AUTONOMY-PLAN):幂等写 —— 目标已存在且落盘字节将完全相同 → 跳过(不记检查点、不重写)。
       // 断点续跑重放同内容写不再产生新检查点条目/mtime 扰动;「touch」语义不受支持是有意的。
       // 按 writeFile 将实际落盘的字节比较(尊重 encoding 参数),而非字符串比较,避免编码歧义。
-      const _payload = (() => { try { return Buffer.from(String(args.content || ''), args.encoding || 'utf8'); } catch { return null; } })();
+      const _payload = (() => { try { return Buffer.from(content, encoding); } catch { return null; } })();
       if (exists && _payload && before.equals(_payload)) {
-        return { ok: true, path: p, op: 'skip', unchanged: true, bytes: _payload.length, note: '目标内容已与要写入的内容一致,幂等跳过(未产生新检查点)' };
+        return { ok: true, path: p, op: 'skip', unchanged: true, bytes: _payload.length, sourceLineEnding, writtenLineEnding,
+          note: '目标内容已与要写入的内容一致,幂等跳过(未产生新检查点)' };
       }
       const jctx = await journalSessionCtx(ctx);
       const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_write', p, exists ? 'modify' : 'create', exists ? before : null);
       if (args.createDirs !== false) await fsp.mkdir(path.dirname(p), { recursive: true });
-      await fsp.writeFile(p, String(args.content || ''), args.encoding || 'utf8');
+      await fsp.writeFile(p, content, encoding);
       // b2-P1: 检查点失败/超限时警告式披露(写操作可重放,不中止,但模型应向用户说明不可一键撤销)。
-      const ret = { ok: true, path: p, op: exists ? 'modify' : 'create', bytes: Buffer.byteLength(String(args.content || '')) };
+      const ret = { ok: true, path: p, op: exists ? 'modify' : 'create', bytes: _payload ? _payload.length : Buffer.byteLength(content), sourceLineEnding, writtenLineEnding };
       if (jr && jr.ok === false) ret.checkpointWarn = `回滚检查点未写入(${jr.reason});本写入不可一键撤销`;
       else if (jr && jr.skipped) ret.checkpointWarn = '文件超过检查点快照上限;本写入不可一键撤销';
       return ret;
@@ -382,7 +420,20 @@ const FILE_TOOL_HANDLERS = {
       if (raw.length > 50 * 1024 * 1024) {
         return { ok: false, error: '文件超过 50MB,编辑需整文件进内存,请改用 read_file + file_write 分段处理', path: p, hint: '大文件建议先 read_file 定位,再 file_write 整段重写' };
       }
-      const count = raw.split(oldText).length - 1;
+      const sourceLineEnding = detectTextLineEnding(raw);
+      let matchText = oldText;
+      let count = raw.split(matchText).length - 1;
+      let normalizedOldText = false;
+      // A line-mode file_read returns LF-separated display text. For an otherwise uniform CRLF file, accept
+      // that anchor after converting it back to the file's native style. Mixed files intentionally get no
+      // fallback: guessing there could replace across an already-corrupt boundary.
+      if (count === 0 && (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') && hasTextLineBreak(oldText)) {
+        const normalized = normalizeTextLineEndings(oldText, sourceLineEnding);
+        if (normalized !== oldText) {
+          const normalizedCount = raw.split(normalized).length - 1;
+          if (normalizedCount > 0) { matchText = normalized; count = normalizedCount; normalizedOldText = true; }
+        }
+      }
       if (count === 0) {
         // v0.8-S1: not found → offer the closest line as an editing aid (no automatic fuzzy replace).
         // Rank file lines against oldText's FIRST line by Levenshtein distance (lines truncated to
@@ -418,7 +469,8 @@ const FILE_TOOL_HANDLERS = {
         const hints = [];
         const rawHasCrlf = raw.includes('\r\n');
         const oldHasCrlf = oldText.includes('\r\n');
-        if (oldHasCrlf && !rawHasCrlf) hints.push('oldText 用 CRLF 换行,文件是 LF(文本模式读取会归一化换行;请用 LF 版 oldText 或先 file_read 复制原文)');
+        if (sourceLineEnding === 'mixed') hints.push('文件混用了 CRLF/LF；为避免猜测性替换，未自动转换 oldText。请先统一换行或提供逐字节一致的 oldText');
+        else if (oldHasCrlf && !rawHasCrlf) hints.push('oldText 用 CRLF 换行，文件是 LF；请用 LF 版 oldText 或先 file_read 复制原文');
         else if (!oldHasCrlf && rawHasCrlf && !oldText.includes('\r')) hints.push('文件在磁盘上是 CRLF 换行——oldText 用 LF 无法命中,请从 file_read 复制含 \\r\\n 的原文');
         if (oldText.normalize('NFC') !== oldText) hints.push('oldText 含组合字符(NFD 形式),文件可能是预组合 NFC');
         for (const ch of oldText) {
@@ -470,16 +522,19 @@ const FILE_TOOL_HANDLERS = {
             }
           }
         }
-        return { ok: false, error: 'oldText was not found', closest, ...(hints.length ? { hints } : {}), ...(firstDiff ? { firstDiff } : {}) };
+        return { ok: false, error: 'oldText was not found', closest, sourceLineEnding, ...(hints.length ? { hints } : {}), ...(firstDiff ? { firstDiff } : {}) };
       }
       if (count > 1 && !args.replaceAll) throw new Error(`oldText appears ${count} times; set replaceAll=true`);
-      const updated = raw.split(oldText).join(newText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
+      const writeText = (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf')
+        ? normalizeTextLineEndings(newText, sourceLineEnding) : newText;
+      const updated = raw.split(matchText).join(writeText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
       // v0.8-S4a: checkpoint the original bytes (op modify) BEFORE overwriting. `raw` is the pre-edit
       // content already read above; only reached once we know the edit will apply (not the not-found path).
       const jctx = await journalSessionCtx(ctx);
       await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_edit', p, 'modify', raw);
       await fsp.writeFile(p, updated, 'utf8');
-      return { ok: true, path: p, op: 'modify', replacements: args.replaceAll ? count : 1 };
+      return { ok: true, path: p, op: 'modify', replacements: args.replaceAll ? count : 1,
+        sourceLineEnding, writtenLineEnding: detectTextLineEnding(updated), normalizedOldText };
   } },
   file_delete: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       // v0.8-S4a (moved in from S1 — a not-undoable delete could not ship before the journal existed).

@@ -81,6 +81,29 @@ ok(g3 && g3.ok === false && g3.code === 'not-allowed', 'B3 第41波首擒:projec
 const g4 = await S.toolCall('project_snapshot', { root: WS }, ctxRemote);
 ok(g4 && g4.ok === true && Array.isArray(g4.files), 'B3 project_snapshot 工作区内照常可用');
 
+// B3b: EOL contract — reads disclose the source format, line-mode display is LF, and edits/writes preserve
+// a uniform target file's style instead of creating CRLF/LF mixtures.
+const EOL = path.join(WS, 'line-endings'); fs.mkdirSync(EOL, { recursive: true });
+const crlfFile = path.join(EOL, 'crlf.txt'); fs.writeFileSync(crlfFile, 'alpha\r\nbeta\r\n', 'utf8');
+const crlfRead = await S.toolCall('file_read', { path: crlfFile }, ctxRemote);
+ok(crlfRead && crlfRead.sourceLineEnding === 'crlf' && crlfRead.contentLineEnding === 'crlf', 'B3b file_read 字符模式披露 CRLF 源/内容换行');
+const crlfLines = await S.toolCall('file_read', { path: crlfFile, lineOffset: 1, lineLimit: 2 }, ctxRemote);
+ok(crlfLines && crlfLines.sourceLineEnding === 'crlf' && crlfLines.contentLineEnding === 'lf', 'B3b file_read 行模式披露 CRLF 源与 LF 展示内容');
+const crlfEdit = await S.toolCall('file_edit', { path: crlfFile, oldText: 'alpha\nbeta', newText: 'ALPHA\nBETA' }, ctxRemote);
+const crlfAfterEdit = fs.readFileSync(crlfFile, 'utf8');
+ok(crlfEdit && crlfEdit.ok === true && crlfEdit.normalizedOldText === true && /^ALPHA\r\nBETA\r\n$/.test(crlfAfterEdit), 'B3b LF anchor edits CRLF file and preserves full CRLF');
+const crlfWrite = await S.toolCall('file_write', { path: crlfFile, content: 'fresh\ncontent\n' }, ctxRemote);
+ok(crlfWrite && crlfWrite.ok === true && crlfWrite.writtenLineEnding === 'crlf' && fs.readFileSync(crlfFile, 'utf8') === 'fresh\r\ncontent\r\n', 'B3b file_write preserves existing CRLF style');
+const lfNew = path.join(EOL, 'new.js');
+const lfWrite = await S.toolCall('file_write', { path: lfNew, content: 'const a = 1;\nconst b = 2;\n' }, ctxRemote);
+ok(lfWrite && lfWrite.ok === true && lfWrite.writtenLineEnding === 'lf' && fs.readFileSync(lfNew, 'utf8').includes('\n') && !fs.readFileSync(lfNew, 'utf8').includes('\r'), 'B3b new source file defaults to LF');
+const cmdNew = path.join(EOL, 'run.cmd');
+const cmdWrite = await S.toolCall('file_write', { path: cmdNew, content: '@echo off\necho ok\n' }, ctxRemote);
+ok(cmdWrite && cmdWrite.ok === true && cmdWrite.writtenLineEnding === 'crlf' && fs.readFileSync(cmdNew, 'utf8') === '@echo off\r\necho ok\r\n', 'B3b new Windows launcher defaults to CRLF');
+const mixedFile = path.join(EOL, 'mixed.txt'); fs.writeFileSync(mixedFile, 'one\r\ntwo\nthree\r\n', 'utf8');
+const mixedEdit = await S.toolCall('file_edit', { path: mixedFile, oldText: 'one\ntwo', newText: 'ONE\nTWO' }, ctxRemote);
+ok(mixedEdit && mixedEdit.ok === false && mixedEdit.sourceLineEnding === 'mixed' && Array.isArray(mixedEdit.hints) && mixedEdit.hints.some(h => h.includes('混用')), 'B3b mixed EOL file refuses implicit anchor conversion');
+
 // B4 (M5 对抗验证 HIGH 收口): code 工具族越界读(远端 provider)与 file 族同闸拒 —— 此前 paths:null 漏接 guardFileToolPath,
 // 远端模型可越界读任意代码文件内容外传。逐一断言 6 个工具(含本轮新增 codebase_symbol_search)同闸拒绝。
 for (const tn of ['codebase_symbol_search', 'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit', 'docs_search', 'data_profile']) {
