@@ -30,6 +30,7 @@ const PAYLOAD_FILES = [
   // 103b:拼接作用域契约与架构债务上限随源码发布，保持离线审计面完整。
   'app/src/module-contracts.json',
   'app/src/module-dependency-policy.json',
+  'app/src/context-governance-rules.json',
   ...srcModules,
   'app/public/index.html',
   'app/public/app.js',

@@ -683,7 +683,7 @@ const SHELL_TOOL_HANDLERS = {
   powershell_run: { paths: null, guardNote: "任意 shell 命令,exec tier+权限弹窗/授权书把守;路径闸对自由命令不可施", handler: async (args, ctx) => {
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
-      return runPowerShell(String(args.command || ''), args.cwd, args.timeoutMs, ctx && ctx.signal);
+      return DesktopShell.runPowerShell(String(args.command || ''), args.cwd, args.timeoutMs, ctx && ctx.signal);
   } },
   script_run: { paths: null, guardNote: "任意脚本执行(落 generated/scripts 应用自选目录),exec tier+权限链把守;Office 手写软闸内置", handler: async (args, ctx) => {
       const g = await guardWorkspaceExecute(args.cwd, ctx);
@@ -711,16 +711,16 @@ const SHELL_TOOL_HANDLERS = {
       if (language === 'python') {
         const p = path.join(dir, `${id}.py`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return runProcess('python', [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
+        return DesktopShell.runProcess('python', [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       if (language === 'node' || language === 'javascript') {
         const p = path.join(dir, `${id}.js`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return runProcess(process.execPath, [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
+        return DesktopShell.runProcess(process.execPath, [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       const p = path.join(dir, `${id}.ps1`);
       await fsp.writeFile(p, String(args.code || ''), 'utf8');
-      return runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', p], {
+      return DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', p], {
         cwd: args.cwd || os.homedir(),
         timeoutMs: args.timeoutMs || 60000,
         signal: ctx && ctx.signal,
@@ -777,7 +777,7 @@ $graphics.Dispose()
 $bmp.Dispose()
 Write-Output '${outPath.replace(/'/g, "''")}'
 `;
-      const result = await runPowerShell(ps, os.homedir(), args.timeoutMs || 15000);
+      const result = await DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 15000);
       return { ...result, path: outPath };
   } },
   keyboard_send_keys: { paths: null, guardNote: "键盘注入,不触文件路径", handler: async (args, ctx) => {
@@ -785,7 +785,7 @@ Write-Output '${outPath.replace(/'/g, "''")}'
       if (!keys) throw new Error('keys is required');
       const delayMs = Number.isFinite(Number(args.delayMs)) ? Math.max(0, Number(args.delayMs)) : 200; // b2-P1: 非法值回退默认,不再 NaN 进 PS 脚本
       const ps = `$wshell = New-Object -ComObject wscript.shell; Start-Sleep -Milliseconds ${delayMs}; $wshell.SendKeys('${keys.replace(/'/g, "''")}')`;
-      return runPowerShell(ps, os.homedir(), args.timeoutMs || 10000);
+      return DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 10000);
   } },
   office_open: { paths: null, guardNote: "第36波录在案:不加读闸(打开不回流模型;exec tier 权限门);v1.4.6-S2 无 shell spawn", handler: async (args, ctx) => {
       const target = path.resolve(String(args.path || ''));

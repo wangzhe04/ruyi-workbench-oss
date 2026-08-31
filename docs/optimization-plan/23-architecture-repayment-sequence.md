@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-08-31）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）已交付**；当前下一实施入口为第 104 波零行为内聚与上下文结构。
+> **状态（2026-08-31）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；当前下一实施入口为第 105 波上下文缓存与摘要保真行为实验。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -138,6 +138,14 @@
 5. 压缩、持久化、权限与路由补单元级契约快照，纠正仅靠 E2E 锁行为的倒置。
 
 **出门判据**：依赖图无新增隐式边；规则与提示词快照零漂移；主路径／forced-400／子代理输出等价；全量回归与构建门全绿。任何行为优化自动移出本波。
+
+#### 104 Release Brief（2026-08-31）
+
+- **问题与非目标**：偿还 `04`／`07`／`10` 的职责错位与压缩规则散落，降低后续上下文实验的隔离性；本波只做物理搬迁、显式接线和契约固化，不改变提示词、默认配置、API 语义或用户可见行为。
+- **交付**：新增 `04-visual-pipeline.js`、`04-desktop-shell.js`、`06d-memory-domain.js`、`06e-mission-domain.js`、`06f-autonomy-grants.js`、`06g-resource-leases.js`；`CompactionPlan` 统一主路径／forced-400／子代理；`context-governance-rules.json` 版本化窗口、超窗、摘要与计划规则；新增架构契约快照与静态门。
+- **证据**：manifest **30 模块**；依赖图 **1373 provides／1532 cross-module refs／239 edges／65 forward edges／0 duplicate exports／1 SCC**，并完成 104 评审后的 policy rebase。定向门、构建 freshness、路由／durable 清册、契约快照均通过；全量默认回归串行 **236 pass／0 fail／0 flaky**（236 ran／7 skipped），`overlay-update-core`、`mission-result`、`pretender-mission-control` 均通过；快通道 **44/44**。
+- **发布判断**：零用户可见行为；可随 Escapade 补丁发布。104 出门，下一入口为 105；任何摘要／缓存默认行为优化继续留在 105 的受控实验门内。
+- **回退**：回退本提交即可恢复 103 的模块布局；规则 JSON 与快照为新增只读资产，删除对应模块注册并重建 `app/server.js` 即可回到 103 产物。
 
 ## 4. 第 105 波 · 上下文缓存与摘要保真行为波
 

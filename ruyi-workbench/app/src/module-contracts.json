@@ -349,6 +349,13 @@
           ]
         },
         {
+          "provider": "04-desktop-shell.js",
+          "symbol": "DesktopShell",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -423,13 +430,6 @@
           "symbol": "TOOL_PACK_DESCRIPTIONS",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "runProcess",
-          "kinds": [
-            "call"
           ]
         }
       ]
@@ -758,6 +758,13 @@
           ]
         },
         {
+          "provider": "04-desktop-shell.js",
+          "symbol": "DesktopShell",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -821,6 +828,13 @@
           ]
         },
         {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "revokeAllGrants",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -830,13 +844,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "agentRunDir",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "revokeAllGrants",
           "kinds": [
             "call"
           ]
@@ -865,13 +872,6 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "saveAgentRun",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "runProcess",
           "kinds": [
             "call"
           ]
@@ -1112,6 +1112,29 @@
       ]
     },
     {
+      "file": "04-visual-pipeline.js",
+      "layer": "foundation",
+      "provides": [
+        "VisualPipeline"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "04-permission-runtime.js",
       "layer": "foundation",
       "provides": [
@@ -1122,10 +1145,6 @@
         "CLAUDE_RECOVERY_HISTORY_CHARS",
         "CLAUDE_RECOVERY_MESSAGE_CHARS",
         "CLAUDE_TASK_NOTIFICATION_MAX_CHARS",
-        "HISTORY_IMAGE_KEEP",
-        "IMAGE_ATTACH_MAX",
-        "IMAGE_EXT_RE",
-        "IMAGE_MIME",
         "MCP_COMPAT_MATRIX",
         "MCP_DROPIN_CACHE_MS",
         "MCP_DROPIN_MAX",
@@ -1139,13 +1158,11 @@
         "_nativeToolNameSet",
         "_parseTomlMcpServers",
         "activeChildren",
-        "attachmentMime",
         "bridgedCatalogCache",
         "bridgedToolCallTimeoutMs",
         "bridgedToolTimeoutMs",
         "buildClaudeRecoveryHistory",
         "buildMcpConnectorInventory",
-        "buildUserContentParts",
         "classifyMcpError",
         "claudeProviderTailSince",
         "claudeResumeRouteKey",
@@ -1159,11 +1176,9 @@
         "deltaOf",
         "driverAutoSessions",
         "extendUserQuestion",
-        "extractToolImages",
         "formatQuestionGuidance",
         "getBridgedClient",
         "getMcpClient",
-        "hasImageAttachment",
         "hasPendingQuestionForSession",
         "invalidateMcpDropInCache",
         "invalidateMcpRuntime",
@@ -1197,7 +1212,6 @@
         "pendingPlans",
         "pendingQuestions",
         "probeMcpConnector",
-        "pruneOldImages",
         "redact",
         "registerUserQuestion",
         "requestUserQuestion",
@@ -1211,7 +1225,6 @@
         "scanMcpDropIns",
         "scanMcpSources",
         "stopSession",
-        "stripToolImageFields",
         "turnSettlers"
       ],
       "requires": [
@@ -1391,7 +1404,7 @@
           ]
         },
         {
-          "provider": "07-autonomy.js",
+          "provider": "06d-memory-domain.js",
           "symbol": "legacyAccMemoryMigrationComplete",
           "kinds": [
             "call"
@@ -1409,6 +1422,66 @@
           "symbol": "decideIntervention",
           "kinds": [
             "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "04-desktop-shell.js",
+      "layer": "foundation",
+      "provides": [
+        "DesktopShell"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "cp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "os",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "killChildTree",
+          "kinds": [
+            "call",
+            "read"
           ]
         }
       ]
@@ -2010,6 +2083,55 @@
           ]
         },
         {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryCheckPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryConflictMap",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryPromptSection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryGlobalDir",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryProjectDir",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "resolveMemoryPreflight",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06e-mission-domain.js",
+          "symbol": "buildMissionPromptSection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "buildClaudeAgentDefinitions",
           "kinds": [
@@ -2018,56 +2140,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "buildMemoryCheckPrompt",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildMemoryConflictMap",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildMemoryPromptSection",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildMissionPromptSection",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "classifyToolPacks",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "memoryGlobalDir",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "memoryProjectDir",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "resolveMemoryPreflight",
           "kinds": [
             "call"
           ]
@@ -2844,13 +2917,6 @@
             "call",
             "read"
           ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "IMAGE_ATTACH_MAX",
-          "kinds": [
-            "read"
-          ]
         }
       ]
     },
@@ -3193,21 +3259,21 @@
           ]
         },
         {
-          "provider": "07-autonomy.js",
+          "provider": "06d-memory-domain.js",
           "symbol": "buildMemoryCheckPrompt",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "07-autonomy.js",
+          "provider": "06d-memory-domain.js",
           "symbol": "buildMemoryPromptSection",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "07-autonomy.js",
+          "provider": "06e-mission-domain.js",
           "symbol": "buildMissionPromptSection",
           "kinds": [
             "call"
@@ -3286,40 +3352,13 @@
       ]
     },
     {
-      "file": "07-autonomy.js",
-      "layer": "orchestration",
+      "file": "06d-memory-domain.js",
+      "layer": "engine",
       "provides": [
         "ACC_MEMORY_IMPORT_SCHEMA",
-        "ACTION_VIEW_MIN_CHARS",
-        "ACTION_VIEW_TOOLS",
-        "BRIDGED_READ_PREFIXES",
-        "BRIDGED_READ_TOOLS",
-        "CLAUDE_PROGRESS_CHAR_STEP",
-        "CLAUDE_SUBAGENT_SAFE_MODES",
-        "CLAUDE_SUBAGENT_TIER_TOOLS",
-        "CLI_FILE_FAMILY",
-        "CLI_TOOL_TIER",
         "CORE_MEMORY_CHAR_CAP",
         "CORE_MEMORY_MAX",
         "CORE_MEMORY_SUMMARY_CAP",
-        "DEFAULT_RESOURCE_LEASE_TIMEOUT_MS",
-        "FAILOVER_CONNECT_CODES",
-        "FAILOVER_HTTP_STATUSES",
-        "GRANT_EDIT_AUTOEXEC_DENY",
-        "GRANT_EXEC_CMD_FIELD",
-        "GRANT_EXEC_MAX_TTL_MS",
-        "GRANT_EXEC_MAX_USES",
-        "GRANT_EXEC_METACHARS",
-        "GRANT_EXEC_TOOLS",
-        "GRANT_MAX_TTL_MS",
-        "GRANT_MAX_USES",
-        "GRANT_MIN_TTL_MS",
-        "GRANT_NET_PATTERN",
-        "LOOP_POLLING_TOOLS",
-        "MAIL_GLOBAL_MAX",
-        "MAIL_PER_SENDER_MAX",
-        "MAIL_QUEUE_MAX",
-        "MAIL_TEXT_MAX",
         "MEMORY_EXCLUSION_MAX",
         "MEMORY_INDEX_CAP",
         "MEMORY_MAX",
@@ -3334,92 +3373,30 @@
         "MEMORY_RULE_TOUCH_MS",
         "MEMORY_TYPES",
         "MEMORY_USAGE_TOUCH_MS",
-        "MISSION_DIGEST_CAP",
-        "NATIVE_FILE_FAMILY",
-        "NATIVE_TOOL_PACKS",
-        "NATIVE_TOOL_TIER",
-        "POOL_CHAIN_MAX",
-        "POOL_GRACE_MS",
-        "POOL_MAX_TOTAL",
-        "RESOURCE_LEASE_TIMEOUT_MS",
-        "REVERTIBLE_TOOLS",
-        "RUNTIME_FAILURE_CLASSIFIER_VERSION",
-        "RUNTIME_TELEMETRY_KEY",
-        "STEER_QUEUE_MAX",
-        "TOOL_PACK_DESCRIPTIONS",
-        "TOOL_RETRIEVAL_HINTS",
         "accMemoryImportMarker",
-        "acquireResourceLease",
-        "actionTargetMeta",
-        "activeAgentRuns",
-        "activeDriverRuns",
-        "adaptiveMetaToolSchemas",
-        "agentResourcesConflict",
-        "agentRunDir",
-        "agentRunFile",
-        "agentRunWriteChains",
         "analyzeMemoryMaintenance",
-        "applyAgentWorktree",
         "applyMemoryRelationProposal",
-        "autonomyGrants",
-        "bindDriverRun",
-        "bridgedToolTier",
-        "buildActionEnvelope",
-        "buildCallHint",
-        "buildClaudeAgentDefinitions",
         "buildCoreMemoryPromptSection",
         "buildMemoryCheckPrompt",
         "buildMemoryConflictMap",
         "buildMemoryPromptSection",
-        "buildMissionPromptSection",
-        "buildOpenAiTools",
-        "buildResponsesInputItems",
-        "buildToolCatalog",
-        "canonicalResourcePath",
-        "classifyClaudeSubagentFailure",
-        "classifyRuntimeToolFailure",
-        "classifyToolPacks",
-        "claudePermissionMode",
         "cleanMemoryDate",
-        "cleanupAgentWorktree",
         "commitToolMemoryProposal",
-        "compareToolRetrievalShadow",
         "confirmMemoryRelation",
-        "consumeGrant",
-        "createAgentWorktree",
-        "createToolLoadingState",
         "decideMemoryProposal",
         "deleteMemory",
         "deleteMemoryRelation",
         "draftMemoryFromSession",
-        "drainResourceWaiters",
-        "drainSteerQueue",
-        "dryRunGrantFiles",
         "effectiveMemorySelection",
-        "estimateToolSchemaTokens",
         "extractMemoryRelationProposals",
-        "failoverConnectReason",
-        "failoverStickyBase",
-        "fetchOpenAiModels",
-        "finalizeAgentWorktree",
         "fmBool",
         "fmVal",
-        "getAgentRoleLibrary",
-        "gitExec",
-        "grantIssueTierInfo",
-        "inferToolResources",
         "legacyAccMemoryCandidates",
         "legacyAccMemoryMigrationComplete",
-        "legacyToolCatalogSearch",
-        "listCompactTools",
-        "listGrantsView",
         "listMemoryProjectGroups",
         "listMemoryRelations",
         "listWorkbenchMemories",
         "loadMemoryRegistry",
-        "looksLikePlan",
-        "loopAbortExempt",
-        "loopWarnOnly",
         "memoryCoreLine",
         "memoryCoreScore",
         "memoryExclusionSet",
@@ -3442,19 +3419,8 @@
         "migrateLegacyAccMemory",
         "migrateMemory",
         "mutateMemoryUsageState",
-        "nativeToolGate",
-        "nativeToolTier",
-        "neutralizeInjectedPrefixes",
-        "normalizeAgentResource",
-        "normalizeAgentResources",
-        "normalizeGrant",
-        "normalizeToolSearchText",
-        "openAiStreamOnce",
         "parseMemoryDraft",
         "parseMemoryProposalDecision",
-        "parseSimpleYamlValue",
-        "projectActionModelView",
-        "projectAgentRoleFile",
         "projectKeyForCwd",
         "proposeMemoryFromSession",
         "proposeMemoryFromSessionUnlocked",
@@ -3464,48 +3430,21 @@
         "proposeMemoryRevision",
         "proposeWorkbenchMemory",
         "rankRelevantMemories",
-        "readClaudeProjectAgentRoles",
         "readMemoryDir",
         "readMemoryItem",
         "readMemoryProposalState",
         "readMemoryRelations",
         "readMemoryUsageState",
-        "readProjectAgentRoles",
         "readWorkbenchMemory",
         "recordMemoryProposalUsage",
-        "releaseResourceLease",
-        "remapAgentResources",
-        "requestNativePermission",
-        "requestPlanApproval",
         "resolveCoreMemoryState",
         "resolveEnabledMemoryEntries",
         "resolveMemoryPreflight",
-        "resolveToolPermissionContext",
         "resolveWorkbenchMemoryToolContext",
-        "resourceBlockers",
-        "resourceLeases",
-        "resourcePathContains",
-        "resourceWaiters",
-        "resumeInFlight",
-        "retrievalHintForTool",
-        "revokeAllGrants",
-        "revokeGrant",
-        "revokeGrantsForRun",
-        "runClaudeSubAgentOnce",
-        "runtimeToolBlockedReason",
         "saveMemory",
-        "saveProjectAgentRoles",
-        "searchToolCatalog",
-        "toResponsesContent",
-        "toResponsesTools",
-        "tokenizeToolSearchText",
-        "toolIsRevertible",
         "toolMemoryProposalAlreadyPending",
-        "toolPackForName",
-        "toolSchemaSearchText",
         "touchMemoryUsage",
         "validateMemoryProposalSave",
-        "wouldDeadlock",
         "writeMemoryMeta",
         "writeMemoryProposalState",
         "writeMemoryRelations"
@@ -3527,23 +3466,9 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "claudeCostFields",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "computeProviderCost",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "cp",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -3565,13 +3490,6 @@
           "symbol": "fsp",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "makeId",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -3614,6 +3532,502 @@
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "normalizeCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "activeOpenAiProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "providerRawCompletion",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06b-prompt-registry.js",
+          "symbol": "getPromptPack",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "06e-mission-domain.js",
+      "layer": "engine",
+      "provides": [
+        "MISSION_DIGEST_CAP",
+        "buildMissionPromptSection",
+        "runMissionDriver"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "evaluateMissionCheck",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "maybeFinalizeMission",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "MISSION_MAX_TEXT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "MISSION_STALL_LIMIT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionProgressDigest",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "normalizeCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06b-prompt-registry.js",
+          "symbol": "getPromptPack",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "06f-autonomy-grants.js",
+      "layer": "engine",
+      "provides": [
+        "CLI_FILE_FAMILY",
+        "CLI_TOOL_TIER",
+        "GRANT_EDIT_AUTOEXEC_DENY",
+        "GRANT_EXEC_CMD_FIELD",
+        "GRANT_EXEC_MAX_TTL_MS",
+        "GRANT_EXEC_MAX_USES",
+        "GRANT_EXEC_METACHARS",
+        "GRANT_EXEC_TOOLS",
+        "GRANT_MAX_TTL_MS",
+        "GRANT_MAX_USES",
+        "GRANT_MIN_TTL_MS",
+        "GRANT_NET_PATTERN",
+        "NATIVE_FILE_FAMILY",
+        "activeDriverRuns",
+        "autonomyGrants",
+        "bindDriverRun",
+        "consumeGrant",
+        "dryRunGrantFiles",
+        "grantIssueTierInfo",
+        "listGrantsView",
+        "normalizeGrant",
+        "resolveToolPermissionContext",
+        "revokeAllGrants",
+        "revokeGrant",
+        "revokeGrantsForRun"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveDataPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "normalizeCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "pathWithinRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "NATIVE_TOOL_TIER",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolTier",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "globToRegExp",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "06g-resource-leases.js",
+      "layer": "engine",
+      "provides": [
+        "DEFAULT_RESOURCE_LEASE_TIMEOUT_MS",
+        "RESOURCE_LEASE_TIMEOUT_MS",
+        "acquireResourceLease",
+        "agentResourcesConflict",
+        "canonicalResourcePath",
+        "drainResourceWaiters",
+        "inferToolResources",
+        "normalizeAgentResource",
+        "normalizeAgentResources",
+        "releaseResourceLease",
+        "remapAgentResources",
+        "resourceBlockers",
+        "resourceLeases",
+        "resourcePathContains",
+        "resourceWaiters",
+        "wouldDeadlock"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "collectBridgedWriteTargets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "pathWithinRoot",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "07-autonomy.js",
+      "layer": "orchestration",
+      "provides": [
+        "ACTION_VIEW_MIN_CHARS",
+        "ACTION_VIEW_TOOLS",
+        "BRIDGED_READ_PREFIXES",
+        "BRIDGED_READ_TOOLS",
+        "CLAUDE_PROGRESS_CHAR_STEP",
+        "CLAUDE_SUBAGENT_SAFE_MODES",
+        "CLAUDE_SUBAGENT_TIER_TOOLS",
+        "FAILOVER_CONNECT_CODES",
+        "FAILOVER_HTTP_STATUSES",
+        "LOOP_POLLING_TOOLS",
+        "MAIL_GLOBAL_MAX",
+        "MAIL_PER_SENDER_MAX",
+        "MAIL_QUEUE_MAX",
+        "MAIL_TEXT_MAX",
+        "NATIVE_TOOL_PACKS",
+        "NATIVE_TOOL_TIER",
+        "POOL_CHAIN_MAX",
+        "POOL_GRACE_MS",
+        "POOL_MAX_TOTAL",
+        "REVERTIBLE_TOOLS",
+        "RUNTIME_FAILURE_CLASSIFIER_VERSION",
+        "RUNTIME_TELEMETRY_KEY",
+        "STEER_QUEUE_MAX",
+        "TOOL_PACK_DESCRIPTIONS",
+        "TOOL_RETRIEVAL_HINTS",
+        "actionTargetMeta",
+        "activeAgentRuns",
+        "adaptiveMetaToolSchemas",
+        "agentRunDir",
+        "agentRunFile",
+        "agentRunWriteChains",
+        "applyAgentWorktree",
+        "bridgedToolTier",
+        "buildActionEnvelope",
+        "buildCallHint",
+        "buildClaudeAgentDefinitions",
+        "buildOpenAiTools",
+        "buildResponsesInputItems",
+        "buildToolCatalog",
+        "classifyClaudeSubagentFailure",
+        "classifyRuntimeToolFailure",
+        "classifyToolPacks",
+        "claudePermissionMode",
+        "cleanupAgentWorktree",
+        "compareToolRetrievalShadow",
+        "createAgentWorktree",
+        "createToolLoadingState",
+        "drainSteerQueue",
+        "estimateToolSchemaTokens",
+        "failoverConnectReason",
+        "failoverStickyBase",
+        "fetchOpenAiModels",
+        "finalizeAgentWorktree",
+        "getAgentRoleLibrary",
+        "gitExec",
+        "legacyToolCatalogSearch",
+        "listCompactTools",
+        "looksLikePlan",
+        "loopAbortExempt",
+        "loopWarnOnly",
+        "nativeToolGate",
+        "nativeToolTier",
+        "neutralizeInjectedPrefixes",
+        "normalizeToolSearchText",
+        "openAiStreamOnce",
+        "parseSimpleYamlValue",
+        "projectActionModelView",
+        "projectAgentRoleFile",
+        "readClaudeProjectAgentRoles",
+        "readProjectAgentRoles",
+        "requestNativePermission",
+        "requestPlanApproval",
+        "resumeInFlight",
+        "retrievalHintForTool",
+        "runClaudeSubAgentOnce",
+        "runtimeToolBlockedReason",
+        "saveProjectAgentRoles",
+        "searchToolCatalog",
+        "toResponsesContent",
+        "toResponsesTools",
+        "tokenizeToolSearchText",
+        "toolIsRevertible",
+        "toolPackForName",
+        "toolSchemaSearchText"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "appendUsageLedger",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "claudeCostFields",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "cp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -3716,13 +4130,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "readConfig",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -3740,20 +4147,6 @@
           "symbol": "BRIDGED_WRITE_PATH_ARGS",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "collectBridgedWriteTargets",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "loadSession",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -3793,13 +4186,6 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "isSensitiveDataPath",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
           "kinds": [
             "call"
@@ -3814,21 +4200,7 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "activeChildren",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "killChildTree",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "logEvent",
           "kinds": [
             "call"
           ]
@@ -3877,13 +4249,6 @@
         },
         {
           "provider": "05-claude-engine.js",
-          "symbol": "activeOpenAiProvider",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
           "symbol": "providerBaseWithV1",
           "kinds": [
             "call"
@@ -3898,21 +4263,7 @@
         },
         {
           "provider": "06-provider-engine.js",
-          "symbol": "providerRawCompletion",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
           "symbol": "toolRequirementsMet",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06b-prompt-registry.js",
-          "symbol": "getPromptPack",
           "kinds": [
             "call"
           ]
@@ -3955,13 +4306,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "isContextOverflowError",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "globToRegExp",
           "kinds": [
             "call"
           ]
@@ -4356,8 +4700,29 @@
           ]
         },
         {
-          "provider": "07-autonomy.js",
+          "provider": "06g-resource-leases.js",
           "symbol": "acquireResourceLease",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "inferToolResources",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "normalizeAgentResources",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "releaseResourceLease",
           "kinds": [
             "call"
           ]
@@ -4420,13 +4785,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "inferToolResources",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "loopAbortExempt",
           "kinds": [
             "call"
@@ -4462,21 +4820,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "normalizeAgentResources",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "openAiStreamOnce",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "releaseResourceLease",
           "kinds": [
             "call"
           ]
@@ -4525,7 +4869,7 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "COMPACT_RESEED_TAIL_MAX_TOKENS",
+          "symbol": "CompactionPlan",
           "kinds": [
             "read"
           ]
@@ -4533,6 +4877,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "evaporateHistory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "isContextOverflowError",
           "kinds": [
             "call"
           ]
@@ -4553,21 +4904,7 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "providerContextWindow",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "providerSummaryCall",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "recentTurnsBoundary",
           "kinds": [
             "call"
           ]
@@ -4878,13 +5215,6 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "buildUserContentParts",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "clearPendingPermissions",
           "kinds": [
             "call"
@@ -4913,21 +5243,7 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "extractToolImages",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "getBridgedClient",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "hasImageAttachment",
           "kinds": [
             "call"
           ]
@@ -4949,13 +5265,6 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "pruneOldImages",
           "kinds": [
             "call"
           ]
@@ -4989,10 +5298,10 @@
           ]
         },
         {
-          "provider": "04-permission-runtime.js",
-          "symbol": "stripToolImageFields",
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -5129,8 +5438,85 @@
           ]
         },
         {
-          "provider": "07-autonomy.js",
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryCheckPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryConflictMap",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryPromptSection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "extractMemoryRelationProposals",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryRelation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "resolveMemoryPreflight",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "consumeGrant",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
           "symbol": "acquireResourceLease",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "inferToolResources",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "normalizeAgentResources",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "releaseResourceLease",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "remapAgentResources",
           "kinds": [
             "call"
           ]
@@ -5179,27 +5565,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "buildMemoryCheckPrompt",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildMemoryConflictMap",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildMemoryPromptSection",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "buildOpenAiTools",
           "kinds": [
             "call"
@@ -5222,13 +5587,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "compareToolRetrievalShadow",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "consumeGrant",
           "kinds": [
             "call"
           ]
@@ -5263,13 +5621,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "extractMemoryRelationProposals",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "failoverStickyBase",
           "kinds": [
             "read"
@@ -5285,13 +5636,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "inferToolResources",
           "kinds": [
             "call"
           ]
@@ -5361,13 +5705,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "normalizeAgentResources",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "openAiStreamOnce",
           "kinds": [
             "call"
@@ -5403,27 +5740,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryRelation",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "releaseResourceLease",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "remapAgentResources",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "requestNativePermission",
           "kinds": [
             "call"
@@ -5432,13 +5748,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "requestPlanApproval",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "resolveMemoryPreflight",
           "kinds": [
             "call"
           ]
@@ -5740,7 +6049,7 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "COMPACT_RESEED_TAIL_MAX_TOKENS",
+          "symbol": "CompactionPlan",
           "kinds": [
             "read"
           ]
@@ -5803,21 +6112,7 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "providerConversationContextWindow",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "providerSummaryCall",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "recentTurnsBoundary",
           "kinds": [
             "call"
           ]
@@ -5873,10 +6168,13 @@
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
         "CONTEXT_CALIBRATION_MAX",
+        "CONTEXT_GOVERNANCE_RULES",
         "CONTEXT_OVERFLOW_PATTERNS",
+        "CONTEXT_OVERFLOW_STATUSES",
         "CTX_LENGTH_KEYS",
         "CTX_PROBE_CACHE",
         "CTX_PROBE_TTL_MS",
+        "CompactionPlan",
         "ECON_AUX_FLAG_CACHE",
         "FILE_READ_HEAD",
         "FILE_READ_TAIL",
@@ -5888,13 +6186,11 @@
         "OBSERVATION_REDUCE_MIN",
         "OBSERVATION_TEXT_HEAD",
         "OBSERVATION_TEXT_TAIL",
-        "REVEAL_PS_SCRIPT",
         "SUMMARY_INPUT_BUDGET_RATIO",
         "SUMMARY_PROMPT",
         "SUMMARY_SINGLE_SHOT_MAX_EST",
         "TOOL_RESULT_CAP",
         "_calibKey",
-        "_gbkDecoder",
         "agentConversationContextMeta",
         "cacheContextLength",
         "cachedContextLength",
@@ -5907,7 +6203,6 @@
         "contextWindowFromTable",
         "contextWindowOverrideKey",
         "ctxProbeKey",
-        "decodeBestEffort",
         "economicsShadowEnabledCached",
         "estimateFactor",
         "evaporateHistory",
@@ -5925,8 +6220,6 @@
         "observationToolNames",
         "openCompactMarker",
         "persistContextCalibration",
-        "pickFile",
-        "pickFolder",
         "protectedObservation",
         "providerContextWindow",
         "providerConversationContextWindow",
@@ -5937,11 +6230,7 @@
         "rehydrateObservation",
         "resolveCompactionProvider",
         "resolveContextWindow",
-        "revealInExplorer",
         "runAgentExternalCompact",
-        "runMissionDriver",
-        "runPowerShell",
-        "runProcess",
         "runProviderCompact",
         "singleSummaryCall",
         "streamChat",
@@ -5972,13 +6261,6 @@
           "symbol": "computeProviderCost",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "cp",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -6018,13 +6300,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "os",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
             "read"
@@ -6056,13 +6331,6 @@
           "symbol": "zlib",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -6109,13 +6377,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "evaluateMissionCheck",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "inferSessionEngineRoute",
           "kinds": [
             "call"
@@ -6151,34 +6412,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "maybeFinalizeMission",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "MISSION_MAX_TEXT",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "MISSION_STALL_LIMIT",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "missionProgressDigest",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "saveSession",
           "kinds": [
             "call"
@@ -6192,24 +6425,10 @@
           ]
         },
         {
-          "provider": "03-bridge-guard.js",
-          "symbol": "normalizeCwd",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
           "provider": "04-permission-runtime.js",
           "symbol": "driverAutoSessions",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "killChildTree",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -6290,15 +6509,29 @@
           ]
         },
         {
-          "provider": "07-autonomy.js",
+          "provider": "06e-mission-domain.js",
+          "symbol": "runMissionDriver",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
           "symbol": "activeDriverRuns",
           "kinds": [
             "read"
           ]
         },
         {
-          "provider": "07-autonomy.js",
+          "provider": "06f-autonomy-grants.js",
           "symbol": "bindDriverRun",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "revokeGrantsForRun",
           "kinds": [
             "call"
           ]
@@ -6313,13 +6546,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "revokeGrantsForRun",
           "kinds": [
             "call"
           ]
@@ -6932,6 +7158,48 @@
           ]
         },
         {
+          "provider": "06d-memory-domain.js",
+          "symbol": "listWorkbenchMemories",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryRelationRevoke",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryRelationTool",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryRevision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeWorkbenchMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "readWorkbenchMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "bridgedToolTier",
           "kinds": [
@@ -6948,48 +7216,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "listCompactTools",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "listWorkbenchMemories",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryRelationRevoke",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryRelationTool",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryRevision",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeWorkbenchMemory",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "readWorkbenchMemory",
           "kinds": [
             "call"
           ]
@@ -7807,6 +8033,13 @@
           ]
         },
         {
+          "provider": "04-desktop-shell.js",
+          "symbol": "DesktopShell",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -8031,6 +8264,216 @@
           ]
         },
         {
+          "provider": "06d-memory-domain.js",
+          "symbol": "analyzeMemoryMaintenance",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "applyMemoryRelationProposal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "confirmMemoryRelation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "CORE_MEMORY_CHAR_CAP",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "CORE_MEMORY_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "decideMemoryProposal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "deleteMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "deleteMemoryRelation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "draftMemoryFromSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "listMemoryProjectGroups",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "listMemoryRelations",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "loadMemoryRegistry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "MEMORY_EXCLUSION_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "MEMORY_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "migrateLegacyAccMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "migrateMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "projectKeyForCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryFromSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryRelation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "readMemoryItem",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "resolveCoreMemoryState",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "saveMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "validateMemoryProposalSave",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "activeDriverRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "autonomyGrants",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "dryRunGrantFiles",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "listGrantsView",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "normalizeGrant",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "revokeAllGrants",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "revokeGrant",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -8039,91 +8482,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "activeDriverRuns",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "analyzeMemoryMaintenance",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "applyMemoryRelationProposal",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "autonomyGrants",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "buildClaudeAgentDefinitions",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "confirmMemoryRelation",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "CORE_MEMORY_CHAR_CAP",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "CORE_MEMORY_MAX",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "decideMemoryProposal",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "deleteMemory",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "deleteMemoryRelation",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "draftMemoryFromSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "dryRunGrantFiles",
           "kinds": [
             "call"
           ]
@@ -8144,91 +8503,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "listGrantsView",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "listMemoryProjectGroups",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "listMemoryRelations",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "loadMemoryRegistry",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "MEMORY_EXCLUSION_MAX",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "MEMORY_MAX",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "migrateLegacyAccMemory",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "migrateMemory",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "normalizeGrant",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "projectAgentRoleFile",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "projectKeyForCwd",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryFromSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryRelation",
           "kinds": [
             "call"
           ]
@@ -8242,42 +8517,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "readMemoryItem",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "readProjectAgentRoles",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "resolveCoreMemoryState",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "revokeAllGrants",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "revokeGrant",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "saveMemory",
           "kinds": [
             "call"
           ]
@@ -8292,13 +8532,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolPackForName",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "validateMemoryProposalSave",
           "kinds": [
             "call"
           ]
@@ -8396,20 +8629,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "pickFile",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "pickFolder",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "resolveContextWindow",
           "kinds": [
             "call"
@@ -8417,21 +8636,7 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "revealInExplorer",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "runAgentExternalCompact",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "runProcess",
           "kinds": [
             "call"
           ]
@@ -9277,6 +9482,13 @@
           ]
         },
         {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "consumeGrant",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -9300,13 +9512,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "cleanupAgentWorktree",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "consumeGrant",
           "kinds": [
             "call"
           ]
@@ -9863,6 +10068,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "pickPython",
           "kinds": [
             "read"
@@ -9892,6 +10104,13 @@
         {
           "provider": "01-config.js",
           "symbol": "resolveClaudeLauncher",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "ROUTE_AUTH",
           "kinds": [
             "read"
           ]
@@ -10324,6 +10543,13 @@
           ]
         },
         {
+          "provider": "04-desktop-shell.js",
+          "symbol": "DesktopShell",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "buildMcpConnectorInventory",
           "kinds": [
@@ -10459,6 +10685,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "scanMcpSources",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
           "kinds": [
             "read"
           ]
@@ -11024,8 +11257,274 @@
           ]
         },
         {
-          "provider": "07-autonomy.js",
+          "provider": "06d-memory-domain.js",
+          "symbol": "analyzeMemoryMaintenance",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "applyMemoryRelationProposal",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildCoreMemoryPromptSection",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryCheckPrompt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryConflictMap",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryPromptSection",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "confirmMemoryRelation",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "deleteMemoryRelation",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "effectiveMemorySelection",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "extractMemoryRelationProposals",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "legacyAccMemoryMigrationComplete",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "listMemoryRelations",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "listWorkbenchMemories",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "loadMemoryRegistry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryProposalIsDuplicate",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryProposalPrefilter",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryProposalSimilarity",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memorySearchTerms",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "migrateLegacyAccMemory",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "parseMemoryProposalDecision",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryFromSession",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryRelation",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryRelationRevoke",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryRelationTool",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeMemoryRevision",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "proposeWorkbenchMemory",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "rankRelevantMemories",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "readWorkbenchMemory",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "resolveCoreMemoryState",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "resolveMemoryPreflight",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "saveMemory",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
           "symbol": "acquireResourceLease",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "agentResourcesConflict",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "inferToolResources",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "normalizeAgentResource",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "normalizeAgentResources",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "releaseResourceLease",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "remapAgentResources",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "resourceBlockers",
           "kinds": [
             "read"
           ]
@@ -11039,28 +11538,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "agentResourcesConflict",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "analyzeMemoryMaintenance",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "applyAgentWorktree",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "applyMemoryRelationProposal",
           "kinds": [
             "read"
           ]
@@ -11075,34 +11553,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "buildClaudeAgentDefinitions",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildCoreMemoryPromptSection",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildMemoryCheckPrompt",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildMemoryConflictMap",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildMemoryPromptSection",
           "kinds": [
             "read"
           ]
@@ -11151,13 +11601,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "confirmMemoryRelation",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "createAgentWorktree",
           "kinds": [
             "read"
@@ -11172,28 +11615,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "deleteMemoryRelation",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "effectiveMemorySelection",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "estimateToolSchemaTokens",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "extractMemoryRelationProposals",
           "kinds": [
             "read"
           ]
@@ -11221,76 +11643,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "inferToolResources",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "legacyAccMemoryMigrationComplete",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "listMemoryRelations",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "listWorkbenchMemories",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "loadMemoryRegistry",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "memoryProposalIsDuplicate",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "memoryProposalPrefilter",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "memoryProposalSimilarity",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "memorySearchTerms",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "migrateLegacyAccMemory",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "NATIVE_TOOL_PACKS",
           "kinds": [
             "read"
@@ -11305,76 +11657,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "normalizeAgentResource",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "normalizeAgentResources",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "parseMemoryProposalDecision",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryFromSession",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryRelation",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryRelationRevoke",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryRelationTool",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeMemoryRevision",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "proposeWorkbenchMemory",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "rankRelevantMemories",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "readClaudeProjectAgentRoles",
           "kinds": [
             "read"
@@ -11383,55 +11665,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "readProjectAgentRoles",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "readWorkbenchMemory",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "releaseResourceLease",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "remapAgentResources",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "resolveCoreMemoryState",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "resolveMemoryPreflight",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "resourceBlockers",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "saveMemory",
           "kinds": [
             "read"
           ]
@@ -11775,6 +12008,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "compactHistoryFromSession",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "CompactionPlan",
           "kinds": [
             "read"
           ]

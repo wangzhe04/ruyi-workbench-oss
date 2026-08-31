@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "modelWindows": [
+    { "match": "deepseek-v4", "tokens": 1000000 },
+    { "match": "deepseek", "tokens": 131072 },
+    { "match": "qwen", "tokens": 131072 },
+    { "match": "glm", "tokens": 131072 },
+    { "match": "kimi", "tokens": 262144 },
+    { "match": "moonshot", "tokens": 262144 },
+    { "match": "gpt-4o", "tokens": 128000 },
+    { "match": "gpt-4.1", "tokens": 128000 },
+    { "match": "o3", "tokens": 200000 },
+    { "match": "o4", "tokens": 200000 },
+    { "match": "claude", "tokens": 200000 }
+  ],
+  "contextLengthKeys": ["context_length", "max_context_length", "context_window", "max_model_len"],
+  "overflow": {
+    "statuses": [400, 413, 422],
+    "pattern": "context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\\s+is\\s+too\\s+long|too_many_tokens|tokens\\s*>|input\\s+too\\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度",
+    "flags": "i",
+    "legacySubagentPattern": "context|token|length|maximum|too\\s*long|too\\s*large|exceed",
+    "legacySubagentLongErrorChars": 400
+  },
+  "summary": {
+    "inputBudgetRatio": 0.5,
+    "singleShotMaxEstimate": 32000,
+    "reseedTailMaxTokens": 16000,
+    "minimumSections": 4,
+    "statusSectionIndex": 3,
+    "prompt": "请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n只输出摘要本身。",
+    "sections": [
+      ["【目标】", "## Goal", "Goal:"],
+      ["【已确认的决定】", "## Decisions", "Decisions:"],
+      ["【未完成事项】", "## Open", "Open items:", "Todo:"],
+      ["【当前执行状态】", "## Current Status", "## Execution Status", "Current Status:"],
+      ["【关键文件与上下文】", "## Files", "Files:", "Key files"]
+    ],
+    "stateLabels": [
+      ["已完成", "Done", "Completed"],
+      ["正在进行", "进行中", "In progress", "In Progress"],
+      ["阻塞", "Blocked"],
+      ["下一步", "Next step", "Next Step", "Next steps", "Next Steps"]
+    ]
+  },
+  "compactionPlan": {
+    "defaultThreshold": 0.8,
+    "tailBudgetRatio": 0.5,
+    "minimumTailTokens": 1
+  }
+}

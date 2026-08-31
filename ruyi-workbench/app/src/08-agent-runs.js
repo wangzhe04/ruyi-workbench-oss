@@ -715,7 +715,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         // inside a tool_result). Classify a likely over-window 400 and hand the parent a clean, actionable
         // message + hint instead. (Full subHistory compaction is a documented leftover, not done here.)
         const he = String(call.httpError || '');
-        const isOverWindow = /^HTTP 400\b/.test(he) && (/context|token|length|maximum|too\s*long|too\s*large|exceed/i.test(he) || he.length > 400);
+        const isOverWindow = /^HTTP 400\b/.test(he) && isContextOverflowError(he, { legacySubagentFallback: true });
         // 第45波 45c(对称 45b):over-window 不再是终态 —— 强制压缩 subHistory(L1 蒸发 + L2 预算化摘要)
         // 并重试本迭代一次。maybeCompactSubHistory 只在迭代边界触发,单条巨型工具结果可在边界前爆窗。
         if (isOverWindow && !overWindowRetried && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
@@ -733,17 +733,12 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             },
           });
           if (sc.ok) {
-            const retryBudget = (Number(config && config.autoCompactThreshold) || 0.8)
-              * providerContextWindow(provider, subModel);
-            const tailBudget = Math.max(1, Math.min(COMPACT_RESEED_TAIL_MAX_TOKENS, Math.floor(retryBudget * 0.5)));
-            const boundary = recentTurnsBoundary(subHistory, tailBudget);
-            const task0 = subHistory.find(m => m && m.role === 'user') || subHistory[0];
-            const kept = boundary <= 0 ? [] : subHistory.slice(boundary);
+            const plan = CompactionPlan.create({
+              scope: 'subagent', trigger: 'forced_400', history: subHistory,
+              provider, model: subModel, config,
+            });
             // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
-            subHistory.splice(0, subHistory.length,
-              { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【压缩摘要｜因上下文超限重播种】\n' + String(sc.summary || '') },
-              { role: 'assistant', content: '已了解原任务与以上摘要,继续推进。' },
-              ...kept);
+            subHistory.splice(0, subHistory.length, ...CompactionPlan.reseed(plan, sc.summary));
             if (parentSession) recordCompactUsage(parentSession, provider, sc);
             subOk = true; subErr = '';
             iter--; continue;

@@ -5,23 +5,67 @@
 //      (键 provider+model, TTL 10 分钟), providerContextWindow 解析激活模型时查此缓存;
 //   3. 名称对照表(子串匹配, 小写, 保守取值);
 //   4. 兜底:CONTEXT_WINDOW_FALLBACK(65536)—— 防 autocompact.e2e 漂移。
-// 模型名对照表:模块级常量便于维护。子串匹配, 顺序敏感(deepseek-v4 须在 deepseek 之前命中)。
-const MODEL_CONTEXT_TABLE = [
-  ['deepseek-v4', 1000000],
-  ['deepseek', 131072],   // deepseek 其余(v3/chat/reasoner)
-  ['qwen', 131072],
-  ['glm', 131072],
-  ['kimi', 262144],
-  ['moonshot', 262144],
-  ['gpt-4o', 128000],
-  ['gpt-4.1', 128000],
-  ['o3', 200000],
-  ['o4', 200000],
-  ['claude', 200000],
-];
+// 第104波：窗口、超窗识别与摘要验证规则由版本化数据文件持有；这里仅做运行时适配。
+// 发布产物是单文件：离线更新/临时部署只复制 app/server.js，不一定带 src/。因此保留
+// 与版本化 JSON 同构的内置副本作为 artifact fallback；源码运行时优先读取 JSON，规则仍由
+// context-governance-rules.json 作为唯一可审计输入维护。这样既不让产物依赖旁车文件，也不改变规则。
+const CONTEXT_GOVERNANCE_RULES = (() => {
+  const fallback = {
+    schema: 1,
+    modelWindows: [
+      { match: 'deepseek-v4', tokens: 1000000 },
+      { match: 'deepseek', tokens: 131072 },
+      { match: 'qwen', tokens: 131072 },
+      { match: 'glm', tokens: 131072 },
+      { match: 'kimi', tokens: 262144 },
+      { match: 'moonshot', tokens: 262144 },
+      { match: 'gpt-4o', tokens: 128000 },
+      { match: 'gpt-4.1', tokens: 128000 },
+      { match: 'o3', tokens: 200000 },
+      { match: 'o4', tokens: 200000 },
+      { match: 'claude', tokens: 200000 },
+    ],
+    contextLengthKeys: ['context_length', 'max_context_length', 'context_window', 'max_model_len'],
+    overflow: {
+      statuses: [400, 413, 422],
+      pattern: 'context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\\s+is\\s+too\\s+long|too_many_tokens|tokens\\s*>|input\\s+too\\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度',
+      flags: 'i',
+      legacySubagentPattern: 'context|token|length|maximum|too\\s*long|too\\s*large|exceed',
+      legacySubagentLongErrorChars: 400,
+    },
+    summary: {
+      inputBudgetRatio: 0.5,
+      singleShotMaxEstimate: 32000,
+      reseedTailMaxTokens: 16000,
+      minimumSections: 4,
+      statusSectionIndex: 3,
+      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n只输出摘要本身。',
+      sections: [
+        ['【目标】', '## Goal', 'Goal:'],
+        ['【已确认的决定】', '## Decisions', 'Decisions:'],
+        ['【未完成事项】', '## Open', 'Open items:', 'Todo:'],
+        ['【当前执行状态】', '## Current Status', '## Execution Status', 'Current Status:'],
+        ['【关键文件与上下文】', '## Files', 'Files:', 'Key files'],
+      ],
+      stateLabels: [
+        ['已完成', 'Done', 'Completed'],
+        ['正在进行', '进行中', 'In progress', 'In Progress'],
+        ['阻塞', 'Blocked'],
+        ['下一步', 'Next step', 'Next Step', 'Next steps', 'Next Steps'],
+      ],
+    },
+    compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1 },
+  };
+  const rulesPath = path.join(__dirname, 'src', 'context-governance-rules.json');
+  const loaded = fs.existsSync(rulesPath) ? require(path.join(__dirname, 'src', 'context-governance-rules.json')) : null;
+  return loaded || fallback;
+})();
+if (!CONTEXT_GOVERNANCE_RULES || CONTEXT_GOVERNANCE_RULES.schema !== 1) throw new Error('unsupported context-governance-rules schema');
+// 模型名对照表顺序敏感(deepseek-v4 须在 deepseek 之前命中)，顺序由数据文件锁定。
+const MODEL_CONTEXT_TABLE = CONTEXT_GOVERNANCE_RULES.modelWindows.map(row => [row.match, row.tokens]);
 // 从上游 /v1/models 条目提取窗口大小:取 context_length/max_context_length/context_window/max_model_len
 // 任一为正数的第一个。none → undefined(探测无结果, 不污染缓存正数判定)。
-const CTX_LENGTH_KEYS = ['context_length', 'max_context_length', 'context_window', 'max_model_len'];
+const CTX_LENGTH_KEYS = CONTEXT_GOVERNANCE_RULES.contextLengthKeys.slice();
 function extractContextLength(rawModelEntry) {
   if (!rawModelEntry || typeof rawModelEntry !== 'object') return undefined;
   for (const k of CTX_LENGTH_KEYS) {
@@ -160,11 +204,18 @@ function calibratedEstimate(provider, model, messages, tools) {
 // context 类 400 判定(45b):HTTP 400/413/422 + 上下文/长度【共现】语义。宁可漏判(不压)不误判(乱压历史)。
 // 45f 对抗轮 P1-1 收紧:裸 `context` / `max_tokens` / 裸 `too long` 全删 —— 它们会命中
 // "function calling is not supported in this context" / 参数校验类 400,把非超窗错误吸进破坏性压缩。
-const CONTEXT_OVERFLOW_PATTERNS = /context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\s+is\s+too\s+long|too_many_tokens|tokens\s*>|input\s+too\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度/i;
-function isContextOverflowError(httpError) {
+const CONTEXT_OVERFLOW_STATUSES = new Set(CONTEXT_GOVERNANCE_RULES.overflow.statuses.map(Number));
+const CONTEXT_OVERFLOW_PATTERNS = new RegExp(CONTEXT_GOVERNANCE_RULES.overflow.pattern, CONTEXT_GOVERNANCE_RULES.overflow.flags);
+function isContextOverflowError(httpError, options = {}) {
   const s = String(httpError || '');
-  if (!/\b(400|413|422)\b/.test(s)) return false;
-  return CONTEXT_OVERFLOW_PATTERNS.test(s);
+  const hasStatus = [...CONTEXT_OVERFLOW_STATUSES].some(status => new RegExp(`\\b${status}\\b`).test(s));
+  if (!hasStatus) return false;
+  if (CONTEXT_OVERFLOW_PATTERNS.test(s)) return true;
+  if (options.legacySubagentFallback === true && /\b400\b/.test(s)) {
+    const legacy = new RegExp(CONTEXT_GOVERNANCE_RULES.overflow.legacySubagentPattern, 'i');
+    return legacy.test(s) || s.length > CONTEXT_GOVERNANCE_RULES.overflow.legacySubagentLongErrorChars;
+  }
+  return false;
 }
 
 // v0.8-S5 tiered tool-result truncation. Replaces the old flat 60KB slice at the tool-result push site.
@@ -450,50 +501,32 @@ function measureObservationReductionShadow(history) {
 //   ② 适配后仍超预算(巨型单块)→ map-reduce:按 user 块分组(≤预算/组,超大块内消息内容截断)
 //      逐组摘要,再对拼接的分段摘要做总摘要;usage 聚合记账,元数据 mapReduce.chunks。
 // ── 45e:结构化摘要 prompt(目标/决定/未完成/关键文件四段式,替代旧单段流水)─────────────
-const SUMMARY_INPUT_BUDGET_RATIO = 0.5;
+const SUMMARY_INPUT_BUDGET_RATIO = CONTEXT_GOVERNANCE_RULES.summary.inputBudgetRatio;
 // 22-S0 热点基线实测(2026-08-27):单发摘要输入到 60K token 时,glm-5.3-flash 的正常耗时已在
 // 40–51s,旧 60s 远程超时等于踩悬崖 —— 真实 dogfood 一天 30 次 L2 里 26 次超时作废。
 // ① 远程超时提到 180s(localhost/Ollama 维持 300s);② 本可单发但预估超过此阈值的输入强制走
 // map-reduce 分块,让每次真实 HTTP 尝试天然远离超时线。
-const SUMMARY_SINGLE_SHOT_MAX_EST = 32000;
+const SUMMARY_SINGLE_SHOT_MAX_EST = CONTEXT_GOVERNANCE_RULES.summary.singleShotMaxEstimate;
 // L2 重播种保留的近期原文上限。它是绝对上限而非「保留最近 N 回合」：两回合可能只有几百
 // token，也可能夹着几十 K 的工具结果。调用点还会钳到当次压缩预算的一半，避免小窗口被尾部反撑爆。
 // 只保留完整 user 回合；若最新一整回合本身放不下，宁可交给结构化摘要，也绝不从 tool_call/tool_result
 // 组中间切开，避免把协议历史重播成孤儿。
-const COMPACT_RESEED_TAIL_MAX_TOKENS = 16000;
-const SUMMARY_PROMPT = '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n'
-  + '【目标】用户的核心目标与关键约束\n'
-  + '【已确认的决定】已拍板的事实、方案选择、用户偏好\n'
-  + '【未完成事项】待办、进行中的工作、悬而未决的问题\n'
-  + '【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n'
-  + '【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论\n'
-  + '保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、'
-  + '文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n'
-  + '只输出摘要本身。';
+const COMPACT_RESEED_TAIL_MAX_TOKENS = CONTEXT_GOVERNANCE_RULES.summary.reseedTailMaxTokens;
+const SUMMARY_PROMPT = CONTEXT_GOVERNANCE_RULES.summary.prompt;
 
 function validateStructuredSummary(summary) {
   if (!summary || typeof summary !== 'string') return false;
   // 每节接受 中文标题 或 常见英文变体(英文模型可能按英文输出;SUMMARY_PROMPT 为中文硬编码,
   // 故英文变体用独立标题词,避免与正文内容误匹配)。
-  const sections = [
-    ['【目标】', '## Goal', 'Goal:'],
-    ['【已确认的决定】', '## Decisions', 'Decisions:'],
-    ['【未完成事项】', '## Open', 'Open items:', 'Todo:'],
-    ['【当前执行状态】', '## Current Status', '## Execution Status', 'Current Status:'],
-    ['【关键文件与上下文】', '## Files', 'Files:', 'Key files'],
-  ];
+  const sections = CONTEXT_GOVERNANCE_RULES.summary.sections;
   const found = sections.filter(sec => sec.some(s => summary.includes(s))).length;
   // 当前执行状态是交接摘要的关键部分，不能再用“任意三节”放行；否则模型
   // 漏掉状态节时，下一轮会失去“已完成/进行中/阻塞/下一步”的恢复依据。
-  const stateLabels = [
-    ['已完成', 'Done', 'Completed'],
-    ['正在进行', '进行中', 'In progress', 'In Progress'],
-    ['阻塞', 'Blocked'],
-    ['下一步', 'Next step', 'Next Step', 'Next steps', 'Next Steps'],
-  ];
-  const statePresent = sections[3].some(s => summary.includes(s));
+  const stateLabels = CONTEXT_GOVERNANCE_RULES.summary.stateLabels;
+  const statusSection = sections[CONTEXT_GOVERNANCE_RULES.summary.statusSectionIndex];
+  const statePresent = statusSection.some(s => summary.includes(s));
   const stateComplete = statePresent && stateLabels.every(labels => labels.some(label => summary.includes(label)));
-  return found >= 4 && stateComplete;  // 结构化摘要必须含五节中的至少四节,且状态节四项齐全
+  return found >= CONTEXT_GOVERNANCE_RULES.summary.minimumSections && stateComplete;  // 结构化摘要必须含五节中的至少四节,且状态节四项齐全
 }
 function userBlockStarts(history) {
   const idx = [];
@@ -1017,6 +1050,61 @@ function recentTurnsBoundary(history, maxTailTokens) {
   return boundary;
 }
 
+// 第104波：所有自动压缩入口共享同一份不可变计划语义。计划只计算预算、完整回合尾部与
+// 重播种形状；摘要执行、持久化和事件仍由各 owner 负责，因此不会把副作用重新揉成一团。
+const CompactionPlan = (() => {
+  const defaults = CONTEXT_GOVERNANCE_RULES.compactionPlan;
+  function create(options = {}) {
+    const history = Array.isArray(options.history) ? options.history : [];
+    const provider = options.provider || null;
+    const model = String(options.model || provider && provider.model || '');
+    const threshold = Number(options.config && options.config.autoCompactThreshold) || defaults.defaultThreshold;
+    const window = options.conversationWindow
+      ? providerConversationContextWindow(options.config || {}, provider, model)
+      : providerContextWindow(provider, model);
+    const budget = threshold * window;
+    const tailBudget = Math.max(defaults.minimumTailTokens, Math.min(
+      COMPACT_RESEED_TAIL_MAX_TOKENS,
+      Math.floor(budget * defaults.tailBudgetRatio)
+    ));
+    const boundary = recentTurnsBoundary(history, tailBudget);
+    const task = history.find(message => message && message.role === 'user') || history[0] || null;
+    return Object.freeze({
+      schema: 1,
+      scope: options.scope === 'subagent' ? 'subagent' : 'main',
+      trigger: String(options.trigger || 'auto'),
+      threshold,
+      window,
+      budget,
+      tailBudget,
+      boundary,
+      task,
+      kept: boundary <= 0 ? [] : history.slice(boundary),
+    });
+  }
+  function reseed(plan, summary) {
+    const forced = plan && plan.trigger === 'forced_400';
+    const subagent = plan && plan.scope === 'subagent';
+    const heading = forced ? '【压缩摘要｜因上下文超限重播种】' : '【压缩摘要】';
+    const acknowledgement = subagent
+      ? '已了解原任务与以上摘要,继续推进。'
+      : (forced ? '收到,已基于摘要继续。' : '收到，已基于摘要继续。');
+    return [
+      { role: 'user', content: '原始任务(保持聚焦):\n' + String(plan && plan.task && plan.task.content || '') + '\n\n' + heading + '\n' + String(summary || '') },
+      { role: 'assistant', content: acknowledgement },
+      ...((plan && plan.kept) || []),
+    ];
+  }
+  function snapshot(plan) {
+    return {
+      schema: plan.schema, scope: plan.scope, trigger: plan.trigger,
+      threshold: plan.threshold, window: plan.window, budget: plan.budget,
+      tailBudget: plan.tailBudget, boundary: plan.boundary, keptCount: plan.kept.length,
+    };
+  }
+  return Object.freeze({ create, reseed, snapshot });
+})();
+
 // 第28波(§28a):子代理回合的两级自动压缩 —— 对齐主回合 maybeAutoCompact,复用同款原语(evaporateHistory / L2 摘要内核
 // providerSummaryCall / recentTurnsBoundary / recordCompactUsage)。此前 subHistory 单调增长无压缩(server.js 自认遗留),
 // 长跑子代理大工具结果撑爆窗口 → 400 → 节点失败。返回是否压缩过;never throw(压缩绝不阻断子回合)。
@@ -1027,7 +1115,8 @@ async function maybeCompactSubHistory(opts) {
   const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools } = opts || {};
   try {
     if (!Array.isArray(subHistory) || subHistory.length < 3 || !provider) return false;
-    const budget = (Number(config && config.autoCompactThreshold) || 0.8) * providerContextWindow(provider, subModel);
+    const budgetPlan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
+    const budget = budgetPlan.budget;
     const withSys = h => [{ role: 'system', content: String(sys || '') }, ...h];
     const before = calibratedEstimate(provider, subModel, withSys(subHistory), tools); // 45d(a):校准后估算判预算(45f P3-3:子代理实际带 tools,估算口径必须含)
     if (before <= budget) return false;                          // append-only 到下次跨阈,与主回合同
@@ -1048,19 +1137,12 @@ async function maybeCompactSubHistory(opts) {
       },
     });
     if (!sc || !sc.ok) { if (evaporated > 0) { emit('evaporate', after1); return true; } return false; }
-    const tailBudget = Math.max(1, Math.min(COMPACT_RESEED_TAIL_MAX_TOKENS, Math.floor(budget * 0.5)));
-    const boundary = recentTurnsBoundary(subHistory, tailBudget);
-    const task0 = subHistory.find(m => m && m.role === 'user') || subHistory[0];
+    const plan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
     // task0 已钉进 summary user；若整个短历史都落入尾部，不能只过滤 task0 后留下 assistant-first
     // 的片段（会破交替契约），因此改为不保留这段尾部。
-    const kept = boundary <= 0 ? [] : subHistory.slice(boundary);
     // 钉住原始 task【并入】摘要 user 消息(而非单列)——避免 [task0-user, summary-user] 两条连续 user 破坏部分 provider 的
     // 交替契约;kept 以 user 边界起切,故 reseed 天然 user→assistant→user… 交替。
-    const reseeded = [
-      { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【压缩摘要】\n' + String(sc.summary || '') },
-      { role: 'assistant', content: '已了解原任务与以上摘要,继续推进。' },
-      ...kept,
-    ];
+    const reseeded = CompactionPlan.reseed(plan, sc.summary);
     subHistory.splice(0, subHistory.length, ...reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
     emit('summary', estimateHistoryTokens(withSys(subHistory)));
     try { if (parentSession) recordCompactUsage(parentSession, summaryProvider, sc); } catch { /* 记账失败不阻断 */ }
@@ -1127,9 +1209,9 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
   try {
     const history = session.providerHistory;
     if (!Array.isArray(history) || !history.length) return false;
-    const threshold = Number(config.autoCompactThreshold) || 0.8;
-    const window = providerConversationContextWindow(config, provider, model);
-    const budget = threshold * window;
+    const budgetPlan = CompactionPlan.create({ scope: 'main', trigger: 'auto', history, provider, model, config, conversationWindow: true });
+    const window = budgetPlan.window;
+    const budget = budgetPlan.budget;
     // 重入滞回(45f 观感/空转修复):一次成功压缩后,重新武装水位 = 压后估算 + max(2K, 2% 窗口)。
     // 实测数据里估算值贴着预算线抖动时,曾出现连续 26 次「蒸发 1 条:106K→106K」的每迭代无效循环
     // (每次快照写盘 + 全量存盘 + 追加标记,token 却没降)。水位与预算取大者,窗口放大后不阻碍再压。
@@ -1184,15 +1266,8 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       return compacted;
     }
     recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
-    const tailBudget = Math.max(1, Math.min(COMPACT_RESEED_TAIL_MAX_TOKENS, Math.floor(budget * 0.5)));
-    const boundary = recentTurnsBoundary(history, tailBudget);
-    const kept = boundary <= 0 ? [] : history.slice(boundary); // complete recent user turns only, fixed token tail + pairing-safe
-    const task0 = history.find(m => m && m.role === 'user') || history[0];
-    session.providerHistory = [
-      { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【压缩摘要】\n' + sc.summary },
-      { role: 'assistant', content: '收到，已基于摘要继续。' },
-      ...kept,
-    ];
+    const plan = CompactionPlan.create({ scope: 'main', trigger: 'auto', history, provider, model, config, conversationWindow: true });
+    session.providerHistory = CompactionPlan.reseed(plan, sc.summary);
     const after2 = estimateHistoryTokens([sysMsg, ...session.providerHistory], '', tools);
     onEvent({ type: 'compact', mode: 'summary', beforeTokens: before2, afterTokens: after2 });
     upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: before2, afterTokens: after2 });
@@ -1204,78 +1279,6 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     // Compaction is best-effort; a failure must never break the turn.
     try { logEvent({ kind: 'auto_compact', sessionId: session && session.id, ok: false, error: (e && e.message) || String(e) }); } catch { /* ignore */ }
     return false;
-  }
-}
-
-// ============================================================================
-// 第26波b(AUTONOMY-PLAN §26b):until-done 驱动器 —— 一次用户回合后,若会话有 until-done 账本,服务端在【同一个
-// HTTP 响应流】上自动续跑,直到:①全部里程碑 done(mission_complete);②预算耗尽(archive-pause,非报错);
-// ③停滞(digest K 轮不变 → 降 supervised + mission_stuck 卡片)。红线:驱动器不放宽任何权限(exec 弹窗照旧等人/
-// 超时,权限门在各引擎内部,驱动器够不着也不试图绕);自动回合全额记账(runOpenAiTurn 内 appendUsageLedger 照常)。
-async function runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens, isAlive }) {
-  const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
-  const allDone = () => (session.mission.milestones.length > 0 && session.mission.milestones.every(m => m.status === 'done'));
-  // 每轮:跑机器验收(自动标 done)→ 判完成/预算/停滞 → 决定停或续。
-  for (let guard = 0; guard < 100; guard++) {   // guard 只是死循环兜底,真正上限是 maxAutoTurns
-    const m = session.mission;
-    if (!m || m.autoMode !== 'until-done') return;
-    if (!isAlive()) return;   // 用户断开/停止 → 立即收手
-
-    // ① 机器验收:pass 的 pending/blocked 里程碑标 done(证据落 evidence)。
-    let checkedAny = false;
-    for (const ms of m.milestones) {
-      if (ms.status === 'done') continue;
-      const r = await evaluateMissionCheck(ms.check, cwd);
-      if (r) { checkedAny = true; if (r.pass) { ms.status = 'done'; ms.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); } }
-    }
-    if (checkedAny) { m.updatedAt = nowIso(); await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m }); }
-
-    // ② 全部完成 → 收尾。
-    if (allDone()) {
-      m.autoMode = 'off'; m.updatedAt = nowIso();
-      // 第97波对抗复审(B3):机器验收把最后一个里程碑标 done 的路径,模型本轮可能没调 mission_update
-      // (无 __missionFinalizeHow),09 回合收尾不会盖 complete 章 → 这里补盖,收工卡才有验收报告。
-      // 若 09 已盖(result 存在)maybeFinalizeMission 会直接返回 false,不重复。
-      try { if (await maybeFinalizeMission(session, 'driver')) { /* 章已盖,emit 由下方统一发 */ } } catch { /* 盖章失败不阻断收尾 */ }
-      await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m, state: 'complete' }); return;
-    }
-
-    // ③ 预算:自动续跑回合数 / token 上限。达上限 → 存档暂停(autoMode→supervised,保留进度,非报错)。
-    if (m.spent.autoTurns >= m.budget.maxAutoTurns || (m.budget.maxTokens > 0 && m.spent.tokens >= m.budget.maxTokens)) {
-      // 对抗轮 P2(#6): 只在【转入】耗尽时落一次审计账 —— 用户经 action:'update' 把 autoMode 重设回 until-done 后,
-      // 预算仍是耗尽态(applyMissionUpdate 不改 budget/spent),驱动器每次再入都会立刻再命中本判定;若每次都 logEvent,
-      // budgetExhausted 分子随再武装无限 +1 而分母(started)恒为 1,超支率可 >100%。budgetExhaustedAt 已置 = 本轮耗尽
-      // 已记过,不重复落账(下次 start 全新任务时 normalizeMission prev=null 会清掉它,新任务的耗尽正常重记)。
-      const firstExhaust = !m.budgetExhaustedAt;
-      m.autoMode = 'supervised'; m.budgetExhaustedAt = m.budgetExhaustedAt || nowIso(); m.updatedAt = nowIso(); await saveSession(session).catch(() => {});
-      if (firstExhaust) logEvent({ kind: 'mission_budget_exhausted', sessionId: session.id, autoTurns: m.spent.autoTurns, maxAutoTurns: m.budget.maxAutoTurns, tokens: m.spent.tokens, maxTokens: m.budget.maxTokens });
-      emit({ type: 'mission', mission: m, state: 'budget_exhausted', reason: `自动推进预算已用尽(${m.spent.autoTurns}/${m.budget.maxAutoTurns} 回合),已暂停等待你的指示` });
-      return;
-    }
-
-    // ④ 停滞:进度指纹连续 K 轮不变 → 降 supervised + 卡片(交给用户;可选一次重规划由用户触发)。
-    const digest = missionProgressDigest(m);
-    if (digest === m.stall.lastDigest) m.stall.sameCount = (Number(m.stall.sameCount) || 0) + 1;
-    else { m.stall.lastDigest = digest; m.stall.sameCount = 0; }
-    if (m.stall.sameCount >= MISSION_STALL_LIMIT) {
-      m.autoMode = 'supervised'; m.updatedAt = nowIso(); await saveSession(session).catch(() => {});
-      emit({ type: 'mission', mission: m, state: 'stuck', reason: `连续 ${m.stall.sameCount} 个回合无进展,已暂停。你可以补充信息、手动调整里程碑,或结束任务。` });
-      return;
-    }
-
-    // ⑤ 续跑:构造推进消息(列出未完成里程碑),自动发起下一回合(全额记账,标 driverAuto)。
-    // 对抗轮 P3: goal/desc 可被模型经 mission_update 写入 —— 扁平化空白后再拼进这条自动 user 消息,
-    // 避免 desc 里的换行+指令伪装成额外的用户指令(与 digest 的 fence 纪律一致)。
-    const flat = s => String(s || '').replace(/\s+/g, ' ').trim();
-    const pending = m.milestones.filter(ms => ms.status !== 'done');
-    const contMsg = '请继续推进当前任务(Mission)。目标:' + flat(m.goal).slice(0, 300) + '\n未完成的里程碑:\n' +
-      pending.map(ms => '- [' + flat(ms.id).slice(0, 64) + '] ' + flat(ms.desc).slice(0, 200)).join('\n') +
-      '\n聚焦下一个里程碑,完成后用 mission_update 工具把它标 done 并附证据。若某步确实无法推进,请说明原因。';
-    m.spent.autoTurns += 1;
-    await saveSession(session).catch(() => {});
-    emit({ type: 'mission', mission: m, state: 'continue', autoTurn: m.spent.autoTurns });
-    await runTurn(contMsg, true);   // driverAuto=true
-    if (getLastTokens) { try { session.mission.spent.tokens += Number(getLastTokens()) || 0; } catch {} }
   }
 }
 
@@ -1399,257 +1402,4 @@ async function streamChat(req, res) {
     if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     res.end();
   }
-}
-
-// v1.0.1 编码修复:Windows 子进程(powershell/cmd/git/python…)在中文系统默认按 OEM 代码页(GBK/cp936)
-// 输出,而非 UTF-8。此前 runProcess 按 UTF-8 逐块 toString → 中文全乱码(GBK 字节 c2a6c9bd… 被读成「¦ɽ」)。
-// 修法:累积原始字节,收尾时智能解码——先按 UTF-8 解;若出现替换符(�,说明不是合法 UTF-8),退回 GBK。
-// 我们自己以 UTF-8 输出的工具不受影响(合法 UTF-8 无替换符,原样保留),GBK 原生命令输出也能正确还原。
-// **headless 安全**:纯 Node 侧解码,不依赖控制台——[Console]::OutputEncoding 那类 PS 方案在无窗口 spawn 下
-// 会因无有效控制台句柄而静默失效(实测端到端仍乱码),Node 侧解码无此坑。
-let _gbkDecoder = null;
-function decodeBestEffort(buf) {
-  const utf8 = buf.toString('utf8');
-  if (!utf8.includes('�')) return utf8;
-  try { if (!_gbkDecoder) _gbkDecoder = new TextDecoder('gbk'); return _gbkDecoder.decode(buf); }
-  catch { return utf8; } // 该 node 无 gbk ICU → 退回 UTF-8(至少不崩)
-}
-function runProcess(command, args, options = {}) {
-  return new Promise(resolve => {
-    const start = Date.now();
-    const timeoutMs = Math.max(1000, Number(options.timeoutMs || 60000));
-    const CAP = 2_000_000; // 字节上限(超出从最旧块丢弃,保留尾部,与旧行为一致)
-    const outChunks = []; let outLen = 0;
-    const errChunks = []; let errLen = 0;
-    let timedOut = false;
-    let interrupted = false;
-    let outTruncated = false, errTruncated = false;  // 审计 P0:CAP 截断需告知模型(命令输出被工具层截,非下游 60KB 再截)
-    const collect = (chunks, d, isOut) => {
-      chunks.push(d);
-      if (isOut) { outLen += d.length; while (outLen > CAP && outChunks.length > 1) { outLen -= outChunks.shift().length; outTruncated = true; } }
-      else { errLen += d.length; while (errLen > CAP && errChunks.length > 1) { errLen -= errChunks.shift().length; errTruncated = true; } }
-    };
-    // Transparently wrap .cmd/.bat targets (e.g. claude.cmd) so they don't throw "spawn EINVAL".
-    const s = options.shell ? { command, args, opts: {} } : batchSafeSpawn(command, args);
-    const child = cp.spawn(s.command, s.args, {
-      cwd: options.cwd || process.cwd(),
-      env: { ...process.env, ...(options.env || {}) },
-      windowsHide: true,
-      shell: options.shell || false,
-      ...s.opts,
-    });
-    // 审计 P2: 单次结算门 —— close/error/超时兜底三条路径共用,防重复 resolve。
-    let settled = false;
-    let killGraceTimer = null;
-    const signal = options.signal;
-    let abortHandler = null;
-    const finish = payload => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (killGraceTimer) clearTimeout(killGraceTimer);
-      if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
-      if (outTruncated) payload.stdoutTruncated = true;
-      if (errTruncated) payload.stderrTruncated = true;
-      resolve(payload);
-    };
-    const timer = setTimeout(() => {
-      timedOut = true;
-      // 审计 P2: 超时用 killChildTree(taskkill /T /F)整树杀 —— child.kill('SIGTERM') 在 Windows 上只杀直接子
-      // 进程,claude.cmd→node、shell→子命令等孙进程会遗孤泄漏,且其继承的 stdio 句柄不关 → 'close' 迟迟不触发,
-      // promise 悬挂到远超 timeoutMs。killChildTree 内含 SIGKILL 兜底。
-      killChildTree(child.pid);
-      // 二次兜底:即便整树已杀,若仍有句柄让 'close' 不触发,3s 后硬 resolve,绝不让工具调用无限悬挂。
-      killGraceTimer = setTimeout(() => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + '\n[timed out; process tree killed]', elapsedMs: Date.now() - start, timedOut: true }), 3000);
-      if (killGraceTimer.unref) killGraceTimer.unref();
-    }, timeoutMs);
-    abortHandler = () => {
-      if (settled) return;
-      interrupted = true;
-      killChildTree(child.pid);
-      // Keep the normal close event as the primary settlement path, but never make steering wait on a
-      // descendant that retained stdio handles after the tree kill.
-      killGraceTimer = setTimeout(() => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + '\n[interrupted by user steer; process tree killed]', elapsedMs: Date.now() - start, interrupted: true }), 1000);
-      if (killGraceTimer.unref) killGraceTimer.unref();
-    };
-    if (signal) {
-      signal.addEventListener('abort', abortHandler, { once: true });
-      if (signal.aborted) abortHandler();
-    }
-    child.stdout?.on('data', d => collect(outChunks, d, true));
-    child.stderr?.on('data', d => collect(errChunks, d, false));
-    child.on('error', error => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + error.message, elapsedMs: Date.now() - start, timedOut }));
-    child.on('close', code => finish({ ok: code === 0 && !timedOut && !interrupted, code, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + (interrupted ? '\n[interrupted by user steer; process tree killed]' : ''), elapsedMs: Date.now() - start, timedOut, interrupted }));
-  });
-}
-
-// v1.0.1 编码修复(输入侧):无控制台 spawn(用户双击运行时的真实场景)的 powershell.exe 解析 `-Command`
-// 参数里的中文会损坏(实测「娄山关」→「|???」——输入阶段就丢字,非输出解码问题)。改用带 BOM 的 UTF-8
-// 临时 .ps1 + `-File`:BOM 让 PS 无视控制台代码页、权威按 UTF-8 读脚本,中文 100% 正确进入。输出侧的 GBK
-// 乱码由 runProcess 的 decodeBestEffort 兜底(先 UTF-8、有替换符退 GBK)。两侧合起来彻底解决中文乱码。
-async function runPowerShell(command, cwd, timeoutMs, signal) {
-  const tmpFile = path.join(os.tmpdir(), `ruyi-ps-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.ps1`);
-  await fsp.writeFile(tmpFile, '﻿' + command, 'utf8'); // UTF-8 BOM(﻿)+ 命令 → PS -File 权威按 UTF-8 读
-  try {
-    return await runProcess('powershell.exe', [
-      '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tmpFile,
-    ], { cwd: cwd || os.homedir(), timeoutMs, signal });
-  } finally {
-    fsp.unlink(tmpFile).catch(() => {});
-  }
-}
-
-// v1.0.2 返修三:reveal-in-explorer WITH foreground.  真机诊断(把关人亲验):/api/file/reveal 直接
-// cp.spawn('explorer.exe','/select,…') 从【后台服务进程】启动时,资源管理器窗口开在浏览器【后面】—— Windows
-// 前台锁不让后台进程抢占前台(实测:server 端点调用后 revfg 窗口数 +1 但前台仍是 chrome)。用户遂报「弹不出来」。
-// 修:改由 PowerShell 助手打开/定位后,用 AttachThreadInput+SetForegroundWindow 把窗口提到最前(从前台锁绕行的
-// 标准手法,已实测 claude→explorer 生效)。安全:目标路径经【环境变量 RUYI_REVEAL_PATH】传入,绝不拼进脚本文本
-// → 零命令注入;脚本纯 ASCII + BOM 临时文件(v1.0.1 编码教训)。windowsHide 只作用于 powershell 自身(消除其
-// 控制台闪窗),它 Start-Process 出来的 explorer 是独立进程、照常显示并被提前台(与 office_open 的 cmd/c start 同理)。
-// mode:'select'=定位并选中 | 'open'=用默认程序打开(server 已对可执行/脚本降级为 select,见 buildRevealSpawn)。
-const REVEAL_PS_SCRIPT = [
-  "$target = $env:RUYI_REVEAL_PATH",
-  "if (-not $target) { exit 2 }",
-  "$mode = $env:RUYI_REVEAL_MODE; if (-not $mode) { $mode = 'select' }",
-  "if ($mode -eq 'open') { Start-Process -FilePath $target; exit 0 }",
-  "Add-Type -TypeDefinition @\"",
-  "using System;",
-  "using System.Runtime.InteropServices;",
-  "public class RuyiFg {",
-  "  [DllImport(\"user32.dll\")] static extern bool SetForegroundWindow(IntPtr h);",
-  "  [DllImport(\"user32.dll\")] static extern IntPtr GetForegroundWindow();",
-  "  [DllImport(\"user32.dll\")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);",
-  "  [DllImport(\"user32.dll\")] static extern bool AttachThreadInput(uint a, uint b, bool f);",
-  "  [DllImport(\"user32.dll\")] static extern bool BringWindowToTop(IntPtr h);",
-  "  [DllImport(\"user32.dll\")] static extern bool ShowWindow(IntPtr h, int n);",
-  "  [DllImport(\"kernel32.dll\")] static extern uint GetCurrentThreadId();",
-  "  public static void Force(long hw) {",
-  "    IntPtr h = new IntPtr(hw);",
-  "    if (h == IntPtr.Zero) return;",
-  "    ShowWindow(h, 9);", // SW_RESTORE
-  "    IntPtr fg = GetForegroundWindow();",
-  "    uint pidA; uint tA = GetWindowThreadProcessId(fg, out pidA);",
-  "    uint me = GetCurrentThreadId();",
-  "    if (tA != me) AttachThreadInput(me, tA, true);",
-  "    BringWindowToTop(h); SetForegroundWindow(h);",
-  "    if (tA != me) AttachThreadInput(me, tA, false);",
-  "  }",
-  "}",
-  "\"@",
-  "Start-Process explorer.exe -ArgumentList ('/select,' + $target)",
-  "Start-Sleep -Milliseconds 500",
-  "$folder = (Split-Path -Parent $target).TrimEnd('\\')",
-  "$sh = New-Object -ComObject Shell.Application",
-  "foreach ($w in @($sh.Windows())) {",
-  "  $u = $null; try { $u = $w.LocationURL } catch {}",
-  "  if ($u) { try { if (([Uri]$u).LocalPath.TrimEnd('\\') -ieq $folder) { [RuyiFg]::Force([int64]$w.HWND); break } } catch {} }",
-  "}",
-  "exit 0",
-].join('\r\n');
-// Fire-and-forget reveal. Writes the BOM'd ASCII script to a temp .ps1 and spawns powershell with the target
-// path in the environment (never in the argv/script text). Never throws to the caller — best-effort; the HTTP
-// handler returns ok as soon as the spawn is initiated (matching prior behavior; the window appears ~1s later).
-function revealInExplorer(absPath, mode) {
-  const tmpFile = path.join(os.tmpdir(), `ruyi-reveal-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.ps1`);
-  try {
-    fs.writeFileSync(tmpFile, '﻿' + REVEAL_PS_SCRIPT, 'utf8'); // sync so the file exists before spawn reads it
-    const child = cp.spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tmpFile], {
-      stdio: 'ignore', windowsHide: true, // hides PS console only; Start-Process'd explorer still shows + foregrounds
-      env: { ...process.env, RUYI_REVEAL_PATH: absPath, RUYI_REVEAL_MODE: (mode === 'open' ? 'open' : 'select') },
-    });
-    const cleanup = () => { fsp.unlink(tmpFile).catch(() => {}); };
-    child.on('exit', cleanup);
-    child.on('error', () => { // powershell missing → fall back to a plain (possibly-behind) explorer open
-      cleanup();
-      try { cp.spawn('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }).unref(); } catch { /* give up */ }
-    });
-    child.unref();
-    return true;
-  } catch (e) {
-    fsp.unlink(tmpFile).catch(() => {});
-    // Synchronous spawn failure → last-ditch direct explorer (opens, may be behind the browser).
-    try { cp.spawn('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }).unref(); return true; } catch { return false; }
-  }
-}
-
-// v0.9-S3 (C3): pop the native Windows folder picker (System.Windows.Forms.FolderBrowserDialog). The
-// dialog REQUIRES a Single-Threaded Apartment — `powershell -STA` (WinForms deadlocks/misbehaves under the
-// default MTA). Returns { ok:true, path } on selection, { ok:true, cancelled:true } on cancel, or
-// { ok:false, error, hint } when unavailable (non-Windows, or WinForms can't load). 120s timeout: the user
-// is interacting with a modal dialog, so this must outlast a normal tool. STDOUT = the selected path (or
-// empty on cancel); we echo a sentinel prefix to disambiguate cancel from an empty selection.
-async function pickFolder() {
-  if (process.platform !== 'win32') {
-    return { ok: false, error: '原生文件夹选择器仅支持 Windows', hint: '请在文件夹输入框中直接粘贴完整路径' };
-  }
-  // The script is passed to `-Command`; it Add-Types WinForms, shows the dialog, and prints either
-  // "OK\t<path>" or "CANCEL". A failure to load WinForms throws and is caught below.
-  // v1.0.2 返修:无 owner 的 ShowDialog() 常被压在浏览器窗口后面 —— 用户以为「点了没反应」(真机反馈
-  // 「工作区改不了」的一大来源)。造一个隐形 TopMost owner form,对话框随 owner 置顶到最前。纯 ASCII 脚本
-  // (v1.0.1 编码教训:-Command 里不放中文)。
-  const script = "Add-Type -AssemblyName System.Windows.Forms; "
-    + "$f = New-Object System.Windows.Forms.Form; $f.TopMost = $true; $f.ShowInTaskbar = $false; "
-    + "$f.FormBorderStyle = 'None'; $f.Opacity = 0; "
-    + "$f.StartPosition = 'CenterScreen'; $f.Show(); $f.Activate(); "
-    + "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
-    // v1.0.2 返修·致命修复:原脚本写 ('OK`t' + …) —— PowerShell 单引号字符串里反引号【不】转义,输出的是
-    // 字面 OK`t 而非 TAB,下方 /^OK\t/ 正则永不匹配 → 用户选好的路径被当「取消」静默丢弃。原生选择器自
-    // v0.9-S3 上线起从未真正工作过(真弹窗无法进自动化 e2e,一直漏网;Node spawn 实测复现)。改用 [char]9
-    // 显式拼 TAB,协议两侧终于一致。
-    + "if ($d.ShowDialog($f) -eq 'OK') { Write-Output ('OK' + [char]9 + $d.SelectedPath) } else { Write-Output 'CANCEL' }; "
-    + "$f.Close()";
-  let result;
-  try {
-    // -STA is the load-bearing flag (COM/WinForms apartment). windowsHide would hide the dialog too, so
-    // runProcess must NOT hide the window here — runProcess sets windowsHide:true, but the modal dialog is
-    // owned by the STA message loop and still shows; the parent console stays hidden which is fine.
-    result = await runProcess('powershell.exe', [
-      '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-Command', script,
-    ], { cwd: os.homedir(), timeoutMs: 120000 });
-  } catch (e) {
-    return { ok: false, error: '无法启动文件夹选择器: ' + (e && e.message || e), hint: '请在文件夹输入框中直接粘贴完整路径' };
-  }
-  const out = String((result && result.stdout) || '').trim();
-  // WinForms load failure surfaces on stderr with a non-zero exit → treat as unavailable.
-  if (result && result.ok === false && !out) {
-    return { ok: false, error: String(result.stderr || '选择器不可用').slice(0, 400), hint: '请在文件夹输入框中直接粘贴完整路径' };
-  }
-  if (/^CANCEL$/m.test(out) || out === '') return { ok: true, cancelled: true };
-  const m = out.match(/^OK\t(.+)$/m);
-  if (m && m[1].trim()) return { ok: true, path: path.resolve(m[1].trim()) };
-  // Unexpected shape → treat as cancel rather than inventing a path.
-  return { ok: true, cancelled: true };
-}
-
-// 第53波 EC-B(53d):原生文件选择器(OpenFileDialog,选 overlay zip 等单文件)。同 pickFolder 的 TopMost owner
-// 模式(无 owner 的 ShowDialog 会被压浏览器后面);filter 如 "Zip 包 (*.zip)|*.zip|所有文件|*.*"。
-async function pickFile(filter) {
-  if (process.platform !== 'win32') {
-    return { ok: false, error: '原生文件选择器仅支持 Windows', hint: '请直接粘贴完整路径' };
-  }
-  const safeFilter = String(filter || 'All files|*.*').replace(/'/g, '');
-  const script = "Add-Type -AssemblyName System.Windows.Forms; "
-    + "$f = New-Object System.Windows.Forms.Form; $f.TopMost = $true; $f.ShowInTaskbar = $false; "
-    + "$f.FormBorderStyle = 'None'; $f.Opacity = 0; "
-    + "$f.StartPosition = 'CenterScreen'; $f.Show(); $f.Activate(); "
-    + "$d = New-Object System.Windows.Forms.OpenFileDialog; "
-    + "$d.Filter = '" + safeFilter + "'; "
-    + "if ($d.ShowDialog($f) -eq 'OK') { Write-Output ('OK' + [char]9 + $d.FileName) } else { Write-Output 'CANCEL' }; "
-    + "$f.Close()";
-  let result;
-  try {
-    result = await runProcess('powershell.exe', [
-      '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-Command', script,
-    ], { cwd: os.homedir(), timeoutMs: 120000 });
-  } catch (e) {
-    return { ok: false, error: '无法启动文件选择器: ' + (e && e.message || e), hint: '请直接粘贴完整路径' };
-  }
-  const out = String((result && result.stdout) || '').trim();
-  if (result && result.ok === false && !out) {
-    return { ok: false, error: String(result.stderr || '选择器不可用').slice(0, 400), hint: '请直接粘贴完整路径' };
-  }
-  if (/^CANCEL$/m.test(out) || out === '') return { ok: true, cancelled: true };
-  const m = out.match(/^OK	(.+)$/m);
-  if (m && m[1].trim()) return { ok: true, path: path.resolve(m[1].trim()) };
-  return { ok: true, cancelled: true };
 }

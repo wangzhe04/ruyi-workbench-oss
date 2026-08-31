@@ -34,6 +34,7 @@ module.exports = {
   fitHistoryForSummary,
   chunkHistoryByBudget,
   recentTurnsBoundary,
+  CompactionPlan,
   COMPACT_RESEED_TAIL_MAX_TOKENS,
   resolveCompactionProvider,
   contextWindowOverrideKey,
@@ -91,6 +92,8 @@ module.exports = {
   fetchOpenAiModels,
   MODEL_CONTEXT_TABLE,
   CONTEXT_WINDOW_FALLBACK,
+  VisualPipeline,
+  DesktopShell,
   // v2.6.2 压缩标记合并 + token 读数 — exposed for e2e direct units(合并/门槛/滞回/尾零回归)。
   fmtTokensServer,
   openCompactMarker,
@@ -250,6 +253,8 @@ module.exports = {
   ERROR_CLASSES,
   CONFIG_SCHEMA,
   SESSION_SCHEMA,
+  PERMISSION_MODES,
+  ROUTE_AUTH,
   // v0.9-S2: playbooks — exposed for e2e direct unit testing (normalize / availability / draft-parse).
   normalizePlaybook,
   evalPlaybookAvailability,

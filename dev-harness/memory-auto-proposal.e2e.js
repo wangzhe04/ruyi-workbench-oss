@@ -68,7 +68,7 @@ ok(memoryProposalIsDuplicate(parsed, [{ name: '外链使用系统浏览器', des
 ok(memoryProposalIsDuplicate(parsed, [], { history: [{ summary: '外链使用系统浏览器 桌面端渲染回答链接时适用' }] }) === true, 'previously decided semantic duplicate suppresses repeat cards');
 
 const fs = require('fs');
-const serverSource = fs.readFileSync(path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'src', '07-autonomy.js'), 'utf8');
+const serverSource = fs.readFileSync(path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'src', '06d-memory-domain.js'), 'utf8');
 const uiSource = fs.readFileSync(path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'js', 'chat-stream-runtime.js'), 'utf8');
 const memoryUiSource = fs.readFileSync(path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'js', 'skills-memory.js'), 'utf8');
 ok(/MEMORY_PROPOSAL_MIN_TURN_GAP\s*=\s*3/.test(serverSource), 'non-explicit suggestions have a three-turn cooldown');

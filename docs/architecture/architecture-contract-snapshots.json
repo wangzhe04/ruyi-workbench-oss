@@ -1,0 +1,166 @@
+{
+  "compaction": {
+    "modelWindows": [
+      {
+        "match": "deepseek-v4",
+        "tokens": 1000000
+      },
+      {
+        "match": "deepseek",
+        "tokens": 131072
+      },
+      {
+        "match": "qwen",
+        "tokens": 131072
+      },
+      {
+        "match": "glm",
+        "tokens": 131072
+      },
+      {
+        "match": "kimi",
+        "tokens": 262144
+      },
+      {
+        "match": "moonshot",
+        "tokens": 262144
+      },
+      {
+        "match": "gpt-4o",
+        "tokens": 128000
+      },
+      {
+        "match": "gpt-4.1",
+        "tokens": 128000
+      },
+      {
+        "match": "o3",
+        "tokens": 200000
+      },
+      {
+        "match": "o4",
+        "tokens": 200000
+      },
+      {
+        "match": "claude",
+        "tokens": 200000
+      }
+    ],
+    "overflowStatuses": [
+      400,
+      413,
+      422
+    ],
+    "plans": {
+      "forced400": {
+        "boundary": 4,
+        "budget": 8000,
+        "keptCount": 2,
+        "schema": 1,
+        "scope": "main",
+        "tailBudget": 4000,
+        "threshold": 0.8,
+        "trigger": "forced_400",
+        "window": 10000
+      },
+      "main": {
+        "boundary": 4,
+        "budget": 8000,
+        "keptCount": 2,
+        "schema": 1,
+        "scope": "main",
+        "tailBudget": 4000,
+        "threshold": 0.8,
+        "trigger": "auto",
+        "window": 10000
+      },
+      "subagent": {
+        "boundary": 4,
+        "budget": 8000,
+        "keptCount": 2,
+        "schema": 1,
+        "scope": "subagent",
+        "tailBudget": 4000,
+        "threshold": 0.8,
+        "trigger": "auto",
+        "window": 10000
+      }
+    },
+    "promptSha256": "7a9a3ce34db3dcf72d10a16f7425304fd382a9811213a0872427780ba7d781c1",
+    "requiredSections": [
+      [
+        "【目标】",
+        "## Goal",
+        "Goal:"
+      ],
+      [
+        "【已确认的决定】",
+        "## Decisions",
+        "Decisions:"
+      ],
+      [
+        "【未完成事项】",
+        "## Open",
+        "Open items:",
+        "Todo:"
+      ],
+      [
+        "【当前执行状态】",
+        "## Current Status",
+        "## Execution Status",
+        "Current Status:"
+      ],
+      [
+        "【关键文件与上下文】",
+        "## Files",
+        "Files:",
+        "Key files"
+      ]
+    ],
+    "reseedSha256": {
+      "forced400": "41c7d159eab1660491662b032672f7327337db550f36ec739d87f971846ec2e5",
+      "main": "e1241acb95b6c1f4e5cd313828ae5e92d2177a178c946c43d9596be9de8814d8",
+      "subagent": "10a288244c5a4dc5c4097d8f20717d32f65d72c252a150c86d9e8b8ce5ca5803"
+    },
+    "ruleSchema": 1,
+    "rulesSha256": "f0de53eaa973e09d732b1c3f9f6ebbe1027e1d3cf23e0904f0a7d80edb4acacd"
+  },
+  "permission": {
+    "modes": [
+      "default",
+      "acceptEdits",
+      "plan",
+      "auto",
+      "bypass"
+    ],
+    "nativeToolCount": 63,
+    "tierCounts": {
+      "edit": 9,
+      "exec": 17,
+      "read": 37
+    },
+    "tierMapSha256": "874266fe57d35b9ec667cbcaa0a87cbd6264e853a82c7ba4b7e82f9f2a89b79d"
+  },
+  "persistence": {
+    "durableJsonStoreApi": [
+      "applyCapacity",
+      "create"
+    ],
+    "storeInstanceApi": [
+      "filePath",
+      "id",
+      "invalidate",
+      "readSync",
+      "write"
+    ]
+  },
+  "routing": {
+    "decisionPoints": 101,
+    "problems": 0,
+    "routeAuthEntries": 92,
+    "routeAuthSha256": "df904113f09e19bd864e941ccb1a55c283b0c00ebe1f56db1712d02761a9b073",
+    "runtimeRouteAuthSha256": "b98cc105cc8cfec8f4dc93dcc418c3c3dcce4067d122200bf4647c0fac96328a",
+    "warnings": 0
+  },
+  "schema": 1
+}

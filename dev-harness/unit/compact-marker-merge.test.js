@@ -116,6 +116,10 @@ function autoCompactHarness(estimates) {
   const events = [], saves = [], snapshots = [];
   const ctx = {
     providerConversationContextWindow: () => 131072,
+    CompactionPlan: {
+      create: ({ config }) => ({ window: 131072, budget: (Number(config && config.autoCompactThreshold) || 0.8) * 131072 }),
+      reseed: () => [],
+    },
     calibratedEstimate: () => estimates.shift() ?? estimates.at(-1),
     writeHistorySnapshot: async (...a) => { snapshots.push(a); return 'raw'; },
     evaporateHistory: history => {

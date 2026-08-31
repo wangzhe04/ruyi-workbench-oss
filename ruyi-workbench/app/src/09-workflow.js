@@ -1444,10 +1444,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // since S5, so this doesn't force a rewrite). vision=false keeps the historical string (pure-text injection
   // via buildAttachmentPrompt) — a text-only model can't see images, so we never bloat its request with them.
   const visionOn = provider && provider.vision === true;
-  if (visionOn && hasImageAttachment(attachments)) {
-    const parts = await buildUserContentParts(fullPrompt, attachments);
+  if (visionOn && VisualPipeline.hasImageAttachment(attachments)) {
+    const parts = await VisualPipeline.buildUserContentParts(fullPrompt, attachments);
     session.providerHistory.push({ role: 'user', content: parts });
-    pruneOldImages(session.providerHistory); // 保图≤2 (first image lands here; a no-op until >2 exist)
+    VisualPipeline.pruneOldImages(session.providerHistory); // 保图≤2 (first image lands here; a no-op until >2 exist)
   } else {
     session.providerHistory.push({ role: 'user', content: fullPrompt });
   }
@@ -2109,17 +2109,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
           });
           if (sc.ok) {
-            const retryBudget = (Number(config.autoCompactThreshold) || 0.8)
-              * providerConversationContextWindow(config, provider, model);
-            const tailBudget = Math.max(1, Math.min(COMPACT_RESEED_TAIL_MAX_TOKENS, Math.floor(retryBudget * 0.5)));
-            const boundary = recentTurnsBoundary(session.providerHistory, tailBudget);
-            const kept = boundary <= 0 ? [] : session.providerHistory.slice(boundary);
-            const task0 = session.providerHistory.find(m => m && m.role === 'user') || session.providerHistory[0];
-            session.providerHistory = [
-              { role: 'user', content: '原始任务(保持聚焦):\n' + String((task0 && task0.content) || '') + '\n\n【压缩摘要｜因上下文超限重播种】\n' + sc.summary },
-              { role: 'assistant', content: '收到,已基于摘要继续。' },
-              ...kept,
-            ];
+            const plan = CompactionPlan.create({
+              scope: 'main', trigger: 'forced_400', history: session.providerHistory,
+              provider, model, config, conversationWindow: true,
+            });
+            session.providerHistory = CompactionPlan.reseed(plan, sc.summary);
             recordCompactUsage(session, provider, sc);
             onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
             upsertCompactMarker(session, {
@@ -2790,9 +2784,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // 操控规程 for that path grounds on OCR/元素文本 instead). extractToolImages ignores non-image results.
           let toolResultForHistory = resultObj;
           if (visionOn) {
-            const imgs = extractToolImages(resultObj);
+            const imgs = VisualPipeline.extractToolImages(resultObj);
             if (imgs.length) {
-              toolResultForHistory = stripToolImageFields(resultObj);
+              toolResultForHistory = VisualPipeline.stripToolImageFields(resultObj);
               const note = `[以下是工具 ${tc.name} 的屏幕截图]`;
               pendingToolImages.push({ toolCallId: tc.id, note, parts: [{ type: 'text', text: note }, ...imgs.map(u => ({ type: 'image_url', image_url: { url: u } }))] });
             }
@@ -2835,7 +2829,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           for (const pim of pendingToolImages) {
             session.providerHistory.push({ role: 'user', content: pim.parts });
             onEvent({ type: 'tool_image', toolCallId: pim.toolCallId, note: pim.note });
-            pruneOldImages(session.providerHistory); // 保图≤2 after every injection
+            VisualPipeline.pruneOldImages(session.providerHistory); // 保图≤2 after every injection
           }
         }
         if (aborted) break;

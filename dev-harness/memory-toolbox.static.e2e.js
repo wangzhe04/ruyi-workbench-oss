@@ -11,7 +11,7 @@ const js = read('ruyi-workbench/app/public/js/skills-memory.js');
 const nav = read('ruyi-workbench/app/public/js/navigation-controls.js');
 const css = read('ruyi-workbench/app/public/css/components/tool-pane.css');
 const router = read('ruyi-workbench/app/src/13-http-router.js');
-const autonomy = read('ruyi-workbench/app/src/07-autonomy.js');
+const autonomy = read('ruyi-workbench/app/src/06d-memory-domain.js');
 const zh = JSON.parse(read('ruyi-workbench/app/public/locales/zh-CN.json'));
 const en = JSON.parse(read('ruyi-workbench/app/public/locales/en-US.json'));
 

@@ -327,7 +327,7 @@ function buildContract(graph) {
 function buildPolicy(graph) {
   return {
     schema: 1,
-    note: '103b architectural debt ceiling. The generator never widens this file during --write; additions require explicit architecture review.',
+    note: '104 reviewed rebase of the 103b debt ceiling after zero-behavior physical ownership splits. Module edges 197→239 reflect one former 07/10 owner becoming six explicit domains; forward edges 59→65, duplicate exports remain 0, SCC count remains 1. Future additions still require explicit architecture review.',
     allowedCycleEdges: graph.cycleEdgeKeys,
     allowedForwardEdges: graph.forwardEdgeKeys,
   };
@@ -335,7 +335,7 @@ function buildPolicy(graph) {
 
 function buildMarkdown(graph) {
   const lines = [
-    '# 后端模块依赖图（第 103b 波）', '',
+    '# 后端模块依赖图（第 103b／104 波）', '',
     '> 本文件由 `node dev-harness/module-dependency-graph.js --write` 从 `app/src/manifest.json` 与源码生成。请勿手改。',
     '> `provides/requires` 是构建期拼接作用域的显式契约；运行时仍执行单文件 `app/server.js`。', '',
     '## 摘要', '',

@@ -14,7 +14,9 @@ const { getFreePort } = require('./free-port.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
-const HOME = path.join(os.tmpdir(), 'wcw-pretender-wave84-e2e');
+// Parallel runner buckets may execute this fixture alongside another copy. Scope all
+// persisted state by PID so one test cannot delete the other's runtime.json mid-boot.
+const HOME = path.join(os.tmpdir(), `wcw-pretender-wave84-e2e-${process.pid}`);
 const WORKSPACE = path.join(HOME, 'workspace');
 const providerPort = await getFreePort();
 const wbPort = await getFreePort();

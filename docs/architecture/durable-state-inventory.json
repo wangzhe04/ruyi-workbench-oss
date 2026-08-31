@@ -349,7 +349,7 @@
     {
       "id": "memory-usage",
       "pattern": "<data>/memory/_usage-v1.json",
-      "owner": "07-autonomy.js",
+      "owner": "06d-memory-domain.js",
       "anchor": "'_usage-v1.json'",
       "schema": "object / schema 1",
       "writePrimitive": "atomicWriteJson",
@@ -363,7 +363,7 @@
     {
       "id": "memory-meta",
       "pattern": "<data>/memory/**/meta.json",
-      "owner": "07-autonomy.js",
+      "owner": "06d-memory-domain.js",
       "anchor": "'meta.json'",
       "schema": "object / implicit v1",
       "writePrimitive": "atomicWriteJson",
@@ -377,7 +377,7 @@
     {
       "id": "memory-import-marker",
       "pattern": "<data>/memory/.acc-memory-import-v1.json",
-      "owner": "07-autonomy.js",
+      "owner": "06d-memory-domain.js",
       "anchor": "'.acc-memory-import-v1.json'",
       "schema": "object / schema 1",
       "writePrimitive": "atomicWriteJson",
@@ -391,7 +391,7 @@
     {
       "id": "memory-proposals",
       "pattern": "<data>/memory/proposals/<session>.json",
-      "owner": "07-autonomy.js",
+      "owner": "06d-memory-domain.js",
       "anchor": "'proposals'",
       "schema": "object / schema 1",
       "writePrimitive": "atomicWriteJson",
@@ -405,7 +405,7 @@
     {
       "id": "memory-relations",
       "pattern": "<data>/memory/**/_relations.json",
-      "owner": "07-autonomy.js",
+      "owner": "06d-memory-domain.js",
       "anchor": "'_relations.json'",
       "schema": "array / domain normalized",
       "writePrimitive": "atomicWriteJson",

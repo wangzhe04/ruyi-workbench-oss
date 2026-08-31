@@ -1495,7 +1495,7 @@ async function evaluateMissionCheck(check, cwd) {
     if (check.type === 'command') {
       if (!String(check.cmd || '').trim()) return { pass: false, detail: '空命令' };
       // shell:true 让整条命令串按用户书写执行(判定性只读用途;超时 60s;工作区 cwd)。
-      const r = await runProcess(String(check.cmd), [], { timeoutMs: 60000, cwd: cwd || process.cwd(), shell: true }).catch(e => ({ code: -1, stdout: '', stderr: String(e && e.message || e) }));
+      const r = await DesktopShell.runProcess(String(check.cmd), [], { timeoutMs: 60000, cwd: cwd || process.cwd(), shell: true }).catch(e => ({ code: -1, stdout: '', stderr: String(e && e.message || e) }));
       const out = String((r.stdout || '') + (r.stderr || ''));
       const codeOk = Number(r.code) === 0;
       const expectOk = check.expect ? out.includes(String(check.expect)) : true;

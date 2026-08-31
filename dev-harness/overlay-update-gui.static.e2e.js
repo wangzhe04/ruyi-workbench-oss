@@ -18,7 +18,7 @@ const navigation = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'navigat
 const zh = JSON.parse(fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'zh-CN.json'), 'utf8'));
 const en = JSON.parse(fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'en-US.json'), 'utf8'));
 const server = fs.readFileSync(path.join(WB, 'app', 'server.js'), 'utf8');
-const ctx = fs.readFileSync(path.join(WB, 'app', 'src', '10-context-governance.js'), 'utf8');
+const ctx = fs.readFileSync(path.join(WB, 'app', 'src', '04-desktop-shell.js'), 'utf8');
 let failures = 0;
 const ok = (v, label) => { if (v) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
 

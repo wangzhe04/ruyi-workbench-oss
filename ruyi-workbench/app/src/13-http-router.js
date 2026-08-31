@@ -144,12 +144,12 @@ async function handleApi(req, res, pathname) {
   }
   // POST /api/pick-folder — pop the native Windows folder picker (STA WinForms). Token-gated. 120s.
   if (req.method === 'POST' && pathname === '/api/pick-folder') {
-    return send(res, json(await pickFolder()));
+    return send(res, json(await DesktopShell.pickFolder()));
   }
   // 第53波 EC-B(53d): POST /api/pick-file - 原生文件选择器(OpenFileDialog,选 overlay zip 等)。token 级。
   if (req.method === 'POST' && pathname === '/api/pick-file') {
     const body = await readJsonBody(req);
-    return send(res, json(await pickFile(body && body.filter)));
+    return send(res, json(await DesktopShell.pickFile(body && body.filter)));
   }
   if (req.method === 'GET' && pathname === '/api/models') {
     // Live-enriched model list. For an active native provider: its models ∪ live GET /models.
@@ -1073,7 +1073,7 @@ async function handleApi(req, res, pathname) {
     // buildRevealSpawn 仍是「模式决策」的权威:决定 open vs select + 对可执行/脚本扩展名把 open 降级为 select。
     // 但【执行】改走 revealInExplorer(前台助手),不再直接 spawn explorer(后台服务直接 spawn 会开在浏览器后面)。
     const spawnSpec = buildRevealSpawn(mode, guard.absPath);
-    const okStarted = revealInExplorer(guard.absPath, spawnSpec.mode);
+    const okStarted = DesktopShell.revealInExplorer(guard.absPath, spawnSpec.mode);
     if (!okStarted) return send(res, json({ ok: false, error: '无法打开资源管理器(系统未提供 PowerShell/Explorer)' }));
     logEvent({ kind: 'file_reveal', sessionId: sessionId || '', mode: spawnSpec.mode, degraded: !!spawnSpec.degraded, pathLen: guard.absPath.length });
     // 把关加固:可执行/脚本类「打开」被降级为「定位」时明确告知前端(前端可提示用户)。
@@ -2529,7 +2529,7 @@ async function installIntegration() {
   }
   if (config.claudePath && existsExecutable(config.claudePath)) {
     // 【存量兼容标识】注册进用户全局 Claude MCP 时沿用旧 server id 'win-claude-workbench'(与生成的配置一致)。
-    const result = await runProcess(config.claudePath, ['mcp', 'add-json', 'win-claude-workbench', JSON.stringify(JSON.parse(await fsp.readFile(mcpPath, 'utf8')).mcpServers['win-claude-workbench'])], {
+    const result = await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', 'win-claude-workbench', JSON.stringify(JSON.parse(await fsp.readFile(mcpPath, 'utf8')).mcpServers['win-claude-workbench'])], {
       cwd: os.homedir(),
       timeoutMs: 30000,
     });

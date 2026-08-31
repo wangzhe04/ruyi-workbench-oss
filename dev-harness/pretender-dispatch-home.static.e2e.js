@@ -13,6 +13,7 @@ const app = read(path.join(PUBLIC, 'app.js'));
 const stream = read(path.join(PUBLIC, 'js', 'chat-stream-runtime.js'));
 const session = read(path.join(PUBLIC, 'js', 'session-experience.js'));
 const context = read(path.join(SRC, '10-context-governance.js'));
+const mission = read(path.join(SRC, '06e-mission-domain.js'));
 const claude = read(path.join(SRC, '05-claude-engine.js'));
 const html = read(path.join(PUBLIC, 'index.html'));
 const css = read(path.join(PUBLIC, 'css', 'views', 'preview-shell.css'));
@@ -72,7 +73,7 @@ ok(context.includes('PERMISSION_MODES.includes(requestedPermissionMode)')
   && context.includes('{ ...storedConfig, permissionMode: requestedPermissionMode }'), 'D2 后端按唯一枚举校验并只创建局部配置副本');
 ok(context.includes('runOpenAiTurn({ session') && context.includes('provider, config, driverAuto')
   && context.includes('runClaudeTurn({ session') && context.includes('onEvent: emit, config, driverAuto'), 'D3 Provider/Claude 首回合消费同一局部安全档');
-ok(context.includes('runMissionDriver({ session, config, provider') && claude.includes('config: turnConfig')
+ok(mission.includes('runMissionDriver({ session, config, provider') && claude.includes('config: turnConfig')
   && claude.includes('const config = turnConfig || await readConfig()'), 'D4 until-done 与 Claude 恢复链保持同一安全档');
 ok(claude.includes('onEvent: downstreamEvent, config, driverAuto'), 'D5 Claude transcript 恢复重试不丢安全档');
 ok(!context.includes('writeConfig') && !context.includes('saveConfig'), 'D6 turn-local 安全档不回写全局配置');
