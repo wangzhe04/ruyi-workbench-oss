@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 30 | 1373 | 1533 | 239 | 65 | 0 | 1 |
+| 30 | 1379 | 1537 | 240 | 65 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -16,7 +16,7 @@
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
 | 0 | `00-boot.js` | bootstrap | 49 | 5 | 4 |
-| 1 | `01-config.js` | foundation | 93 | 34 | 7 |
+| 1 | `01-config.js` | foundation | 94 | 34 | 7 |
 | 2 | `02-session-store.js` | foundation | 170 | 40 | 12 |
 | 3 | `03-bridge-guard.js` | foundation | 71 | 20 | 5 |
 | 4 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
@@ -33,13 +33,13 @@
 | 15 | `06e-mission-domain.js` | engine | 3 | 11 | 5 |
 | 16 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
 | 17 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
-| 18 | `07-autonomy.js` | orchestration | 84 | 51 | 11 |
+| 18 | `07-autonomy.js` | orchestration | 84 | 52 | 11 |
 | 19 | `08-agent-runs.js` | orchestration | 87 | 77 | 14 |
 | 20 | `09-workflow.js` | orchestration | 23 | 168 | 17 |
 | 21 | `10-context-governance.js` | orchestration | 74 | 50 | 11 |
 | 22 | `11-native-tools.js` | tools | 85 | 22 | 5 |
-| 23 | `12-tool-dispatch.js` | tools | 9 | 67 | 9 |
-| 24 | `13-http-router.js` | transport | 34 | 196 | 20 |
+| 23 | `12-tool-dispatch.js` | tools | 14 | 69 | 10 |
+| 24 | `13-http-router.js` | transport | 34 | 197 | 20 |
 | 25 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
 | 26 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 27 | `13d-core-domain-routes.js` | transport | 17 | 80 | 10 |
@@ -155,7 +155,7 @@
 | `06g-resource-leases.js` | `02-session-store.js` | backward | `collectBridgedWriteTargets` |
 | `06g-resource-leases.js` | `03-bridge-guard.js` | backward | `pathWithinRoot` |
 | `07-autonomy.js` | `00-boot.js` | backward | `URL`, `appendUsageLedger`, `claudeCostFields`, `cp`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
-| `07-autonomy.js` | `01-config.js` | backward | `BUILTIN_AGENT_ROLES`, `CLAUDE_PERMISSION_MODE_MAP`, `atomicWriteJson`, `batchSafeSpawn`, `buildUserEnvelope`, `cmdLineBudgetFor`, `decodeClaudeCliText`, `detectClaudePath`, `effectiveAnthropicEnv`, `generateAgentNodeMcpConfig`, `mergeAgentRole`, `normalizeAgentRole`, `safeSessionId`, `spawnCmdLineLength` |
+| `07-autonomy.js` | `01-config.js` | backward | `BUILTIN_AGENT_ROLES`, `CLAUDE_PERMISSION_MODE_MAP`, `atomicWriteJson`, `batchSafeSpawn`, `buildUserEnvelope`, `cmdLineBudgetFor`, `decodeClaudeCliText`, `detectClaudePath`, `effectiveAnthropicEnv`, `generateAgentNodeMcpConfig`, `mergeAgentRole`, `normalizeAgentRole`, `observationRecallEnabled`, `safeSessionId`, `spawnCmdLineLength` |
 | `07-autonomy.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `registerIntervention`, `saveSession`, `settleIntervention`, `unprefixedBridgedName` |
 | `07-autonomy.js` | `03-bridge-guard.js` | backward | `existsExecutable`, `normalizeCwd`, `pathWithinRoot` |
 | `07-autonomy.js` | `04-permission-runtime.js` | backward | `killChildTree`, `parseClaudeEvent`, `pendingPermissions`, `pendingPlans`, `redact`, `resolveBridge`, `runAutomaticInterventionDecision` |
@@ -213,16 +213,17 @@
 | `11-native-tools.js` | `04-permission-runtime.js` | backward | `killChildTree` |
 | `11-native-tools.js` | `06-provider-engine.js` | backward | `markNetworkOnline`, `networkAnchors`, `probeAny` |
 | `12-tool-dispatch.js` | `00-boot.js` | backward | `OVERLAY_ID`, `SKILL_ID_RE`, `cp`, `crypto`, `externalRoot`, `fs`, `fsp`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
-| `12-tool-dispatch.js` | `01-config.js` | backward | `RUNTIME`, `commandForSelfMcp`, `defaultConfig`, `externalServerJs`, `probeAgentCliLauncher`, `readConfig`, `selectedAgentCli`, `staticBase` |
+| `12-tool-dispatch.js` | `01-config.js` | backward | `RUNTIME`, `commandForSelfMcp`, `defaultConfig`, `externalServerJs`, `observationRecallEnabled`, `probeAgentCliLauncher`, `readConfig`, `selectedAgentCli`, `staticBase` |
 | `12-tool-dispatch.js` | `02-session-store.js` | backward | `bridgedWriteRelativePathArg`, `journalDropEntries`, `journalRecord`, `journalSessionCtx`, `loadSession`, `normalizeTodoItems` |
 | `12-tool-dispatch.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `buildOpenSpawn`, `guardFileToolPath`, `isSensitiveDataPath`, `journalBridgedWrite`, `normalizeCwd`, `pathWithinRoot`, `realpathForContainment` |
 | `12-tool-dispatch.js` | `04-permission-runtime.js` | backward | `configureMcpFromTool`, `getBridgedClient`, `logEvent`, `resolveBridge`, `safeMcpInventory` |
 | `12-tool-dispatch.js` | `06-provider-engine.js` | backward | `PLAYBOOK_REQUIRES`, `evalPlaybookAvailability`, `getCapabilities`, `loadAllPlaybooks` |
 | `12-tool-dispatch.js` | `06d-memory-domain.js` | backward | `listWorkbenchMemories`, `proposeMemoryRelationRevoke`, `proposeMemoryRelationTool`, `proposeMemoryRevision`, `proposeWorkbenchMemory`, `readWorkbenchMemory` |
 | `12-tool-dispatch.js` | `07-autonomy.js` | backward | `bridgedToolTier`, `compareToolRetrievalShadow`, `listCompactTools`, `searchToolCatalog` |
+| `12-tool-dispatch.js` | `10-context-governance.js` | backward | `rehydrateObservation` |
 | `12-tool-dispatch.js` | `11-native-tools.js` | backward | `ZIP_MAX_SINGLE_FILE`, `ZIP_MAX_TOTAL`, `globToRegExp`, `httpGetGuarded`, `httpRequest`, `isBinaryReadPath`, `levenshtein`, `readIfExists`, `searchFileContent`, `ssrfCheck`, `walkFiles`, `webFetch`, `webSearch`, `zipCollectEntries` |
 | `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `DEFAULT_PORT`, `OVERLAY_ID`, `SKILL_ID_RE`, `URL`, `VERSION`, `apiFailure`, `appendUsageLedger`, `buildUsageSummary`, `cp`, `crypto`, `ensureDirs`, `exePath`, `externalRoot`, `fs`, `fsp`, `http`, `isPkg`, `json`, `makeId`, `nowIso`, `os`, `path`, `paths`, `readline`, `safeJsonParse`, `text`, `zlib` |
-| `13-http-router.js` | `01-config.js` | backward | `AGENT_CLI_TYPES`, `BUILTIN_AGENT_ROLES`, `PERMISSION_MODES`, `RUNTIME`, `atomicWriteJson`, `authorizeRoute`, `autoImportClaudeCodeMcp`, `contentTypeFor`, `decodeClaudeCliText`, `detectClaudePath`, `detectDesktopMcp`, `detectKimiPath`, `effectiveAnthropicEnv`, `externalServerJs`, `generateMcpConfig`, `hostAllowed`, `invalidateAgentCliPathCaches`, `normalizeAgentRole`, `prepareAgentCliSpawn`, `readConfig`, `readJsonBody`, `safeSessionId`, `selectedAgentCli`, `send`, `sendError`, `serveStatic`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude`, `syncMcpServersToKimi`, `tokenOk`, `writeConfig` |
+| `13-http-router.js` | `01-config.js` | backward | `AGENT_CLI_TYPES`, `BUILTIN_AGENT_ROLES`, `PERMISSION_MODES`, `RUNTIME`, `atomicWriteJson`, `authorizeRoute`, `autoImportClaudeCodeMcp`, `contentTypeFor`, `decodeClaudeCliText`, `detectClaudePath`, `detectDesktopMcp`, `detectKimiPath`, `effectiveAnthropicEnv`, `externalServerJs`, `generateMcpConfig`, `hostAllowed`, `invalidateAgentCliPathCaches`, `normalizeAgentRole`, `observationRecallEnabled`, `prepareAgentCliSpawn`, `readConfig`, `readJsonBody`, `safeSessionId`, `selectedAgentCli`, `send`, `sendError`, `serveStatic`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude`, `syncMcpServersToKimi`, `tokenOk`, `writeConfig` |
 | `13-http-router.js` | `02-session-store.js` | backward | `MISSION_MAX_TEXT`, `applyMissionUpdate`, `bumpMissionChangeSeq`, `configForSessionEngineRoute`, `evaluateMissionCheck`, `flushSessionIndexSync`, `invalidateSessionIndex`, `journalDir`, `journalReadIndex`, `loadSession`, `markInterruptedInterventions`, `maybeFinalizeMission`, `missionControlCommand`, `normalizeMission`, `normalizeTodoItems`, `saveSession`, `workspaceBaselineIsCodePath`, `workspaceBaselinePathKey` |
 | `13-http-router.js` | `03-bridge-guard.js` | backward | `PREVIEW_TEXT_EXTS`, `buildCodeEditorSpawn`, `buildRevealSpawn`, `ensureDataRootReal`, `existsExecutable`, `fileAllowedRoots`, `guardWorkspacePath`, `isSensitiveDataPath`, `launchCodeEditor`, `materializeCheckpointEditorDiff`, `normalizeCwd`, `pathWithinAnyRoot`, `pathWithinRoot`, `readFilePreview`, `resolvePreferredCodeEditor`, `resolveWorkspace` |
 | `13-http-router.js` | `04-desktop-shell.js` | backward | `DesktopShell` |

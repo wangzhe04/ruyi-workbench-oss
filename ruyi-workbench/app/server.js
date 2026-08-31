@@ -574,6 +574,9 @@ function defaultConfig() {
     runtimeOptimizationShadowV1: true,
     runtimeToolRetrievalV1: false,
     runtimeObservationReducerV1: false,
+    // 105a: observation_recall 工具外壳 —— 让模型按缩减视图内嵌的 rawRef 回读原始工具结果。
+    // 仅在 runtimeObservationReducerV1 同时开启时生效(rawRef 只由 reducer 产生);默认关闭。
+    runtimeObservationRecallV1: false,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -953,7 +956,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -1227,6 +1230,12 @@ function normalizeConfig(raw) {
     else config.claudePricing = cp;
   }
   return { config, changed };
+}
+
+// 105a: observation_recall 生效条件 —— recall 与 reducer 开关成对(rawRef 只由 reducer 产生,
+// 单开 recall 无可解析引用)。目录可见性、offer 门与 handler fail-closed 共用本判定。
+function observationRecallEnabled(config) {
+  return !!(config && config.runtimeObservationRecallV1 === true && config.runtimeObservationReducerV1 === true);
 }
 
 // ============================================================================
@@ -2476,12 +2485,12 @@ function tokenOk(req) {
 //      token-browser(浏览器须 token,loopback 须同源,与 v1.4.6-S1 纪律一致)/body-token(handler 自查 body token)。
 // 14 处 handler 内 tokenOk 自查保留作纵深(表为主、自查兜底误分类);Host 门在 HTTP handler 顶层 hostAllowed(全请求)。
 const ROUTE_AUTH = [
-  // open: 低敏读(host 门已过,无 token 需求)
+  // open: 低敏读(host 门已过,无 token 需��)
   { m: 'GET', p: '/api/status', auth: 'open' },
   { m: 'GET', p: '/api/capabilities', auth: 'open' },
   { m: 'GET', p: '/api/models', auth: 'open' },
   // 47c(S1):bootstrap 握手 —— 浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。open 级的安全性 =
-  // 顶层 host 门(rebinding 的 Host 是攻击域,直接被拒)+ 与旧 GET / 明文下发完全同等的信任面。
+  // 顶层 host 门(rebinding 的 Host 是攻击域,直接被拒)+ 与旧 GET / 明文下发完全���等的信任面。
   { m: 'POST', p: '/api/bootstrap', auth: 'open' },
   // body-token: MCP 子进程 / 跨源 loopback(handler 自查 body token,豁免 originOk)
   { m: 'POST', p: '/api/permission/request', auth: 'body-token' },
@@ -18203,6 +18212,8 @@ function buildOpenAiTools(config, caps, opts) {
     if ((t.name === 'spawn_agent' || t.name === 'orchestrate_agents') && !spawnAgentEnabled) continue;
     if (!allowCmd && (t.name === 'powershell_run' || t.name === 'script_run' || SHELL_TOOLS.has(t.name))) continue;
     if (!allowDesk && (t.name === 'desktop_screenshot' || t.name === 'keyboard_send_keys')) continue;
+    // 105a: observation_recall 仅在 recall+reducer 双开关生效时 offer;默认关 → 不出现在工具集。
+    if (t.name === 'observation_recall' && !observationRecallEnabled(config)) continue;
     // v0.9-S6: toolTier filter for sub-turns — drop any tool above the requested tier. spawn_agent (exec)
     // is already suppressed for sub-turns via noSpawnAgent, so it never survives an 'exec' sub-turn either.
     if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
@@ -18279,6 +18290,7 @@ const NATIVE_TOOL_TIER = {
   permission_prompt: 'exec', // CLI 权限桥(由 --permission-prompt-tool 触达);原靠 unknown→exec 兜底,第41波显式化
   workbench_memory_list: 'read', workbench_memory_read: 'read', workbench_memory_propose: 'read',
   workbench_memory_relation_propose: 'read', workbench_memory_revise: 'read', workbench_memory_relation_revoke: 'read',
+  observation_recall: 'read', // 105a: 只读当前会话快照,授权来自 ctx 会话归属 → auto-allow
   list_tools: 'read', tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
@@ -18360,6 +18372,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
   workbench_memory_list: 'core', workbench_memory_read: 'core', workbench_memory_propose: 'core',
   workbench_memory_relation_propose: 'core', workbench_memory_revise: 'core', workbench_memory_relation_revoke: 'core',
+  observation_recall: 'core',
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
@@ -18414,6 +18427,7 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   spawn_agent: { capabilities: ['agent.delegate'], aliases: ['派生子代理', '委派任务', 'delegate subagent'] },
   skill_read: { capabilities: ['skill.instructions.read'], aliases: ['读取技能说明', '加载技能', 'read skill instructions'] },
   workbench_memory_read: { capabilities: ['memory.read'], aliases: ['读取工作台记忆', '回忆信息', 'read memory'] },
+  observation_recall: { capabilities: ['context.observation.recall'], aliases: ['回读原始工具结果', '取回被省略的观察', 'recall reduced observation', 'restore tool result'] },
   workbench_memory_propose: { capabilities: ['memory.propose'], aliases: ['提议保存记忆', '记住经验', 'propose memory'] },
 });
 const RUNTIME_TELEMETRY_KEY = crypto.randomBytes(32); // process-scoped HMAC key; raw queries/errors are never logged
@@ -18936,8 +18950,8 @@ function toResponsesContent(content) {
 }
 // Translate a chat-shaped providerHistory into Responses `input` items (see header note).
 // 21-E3: 已执行动作的参数历史双视图 —— 纯函数(可 e2e 直测)。execution/audit view 保留完整 rawArgs
-// (session.actionAudit + providerHistory 原消息),provider model view 投影为紧凑 envelope。
-// 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;失败/中断/待审批不瘦身;
+// (session.actionAudit + providerHistory 原消息),provider model view 投影为紧�� envelope。
+// 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;��败/中断/待审批不瘦身;
 // 只加/换 arguments 字段,tool_call id/type/function.name 原样保留(pairing 铁律不破坏)。
 const ACTION_VIEW_TOOLS = new Set(['file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download', 'script_run', 'powershell_run', 'tool_invoke_edit', 'tool_invoke_exec']);
 const ACTION_VIEW_MIN_CHARS = 512;
@@ -25667,7 +25681,10 @@ function compactObservationValue(value, key, depth) {
   return String(value);
 }
 
-function reduceObservationContent(toolName, content, rawRef) {
+function reduceObservationContent(toolName, content, rawRef, opts) {
+  const recallEnabled = !!(opts && opts.recallEnabled);
+  // 105a: 仅当 observation_recall 工具生效时在缩减视图里提示回读入口;默认关时文案逐字节不变。
+  const recallHint = recallEnabled ? ' · recall=observation_recall(rawRef)' : '';
   const original = String(content == null ? '' : content);
   if (original.length < OBSERVATION_REDUCE_MIN) return { reduced: false, content: original, policy: 'below_minimum', originalChars: original.length, visibleChars: original.length, rawRef };
   const baseName = String(toolName || '').replace(/^.+?__/, '');
@@ -25677,6 +25694,7 @@ function reduceObservationContent(toolName, content, rawRef) {
     const reduced = compactObservationValue(parsed, '', 0);
     policy = /shell|powershell|script/i.test(baseName) ? 'shell_structured' : (/search|find|glob|list/i.test(baseName) ? 'search_structured' : (/web|http|fetch|download/i.test(baseName) ? 'network_structured' : 'json_structured'));
     const meta = { reduced: true, policy, originalChars: original.length, rawRef };
+    if (recallEnabled) meta.recall = 'observation_recall(rawRef)';
     if (Array.isArray(reduced)) visible = JSON.stringify({ items: reduced, _ruyiObservation: meta });
     else {
       if (reduced && typeof reduced === 'object') reduced._ruyiObservation = meta;
@@ -25684,7 +25702,7 @@ function reduceObservationContent(toolName, content, rawRef) {
     }
   } else {
     policy = 'text_head_tail';
-    visible = `[Ruyi observation reduced · policy=${policy} · originalChars=${original.length} · rawRef=${rawRef}]\n`
+    visible = `[Ruyi observation reduced · policy=${policy} · originalChars=${original.length} · rawRef=${rawRef}${recallHint}]\n`
       + original.slice(0, OBSERVATION_TEXT_HEAD)
       + `\n[...${Math.max(0, original.length - OBSERVATION_TEXT_HEAD - OBSERVATION_TEXT_TAIL)} chars omitted...]\n`
       + original.slice(-OBSERVATION_TEXT_TAIL);
@@ -25749,7 +25767,7 @@ function evaporateHistory(history, opts) {
     if (protectedReason) continue;
     if (useReducer) {
       const contentHash = crypto.createHash('sha256').update(m.content).digest('hex').slice(0, 16);
-      const reduced = reduceObservationContent(toolName, m.content, `${opts.rawRefPrefix}:${i}:${contentHash}`);
+      const reduced = reduceObservationContent(toolName, m.content, `${opts.rawRefPrefix}:${i}:${contentHash}`, { recallEnabled: opts.config.runtimeObservationRecallV1 === true });
       if (!reduced.reduced) continue;
       m.content = reduced.content; count++;
       if (typeof opts.onReduced === 'function') {
@@ -28779,8 +28797,10 @@ async function guardDownloadDest(rawDest, ctx) {
 // the injected WCW_SESSION_ID env + the session file). File-mutating tools (file_write/file_edit/
 // file_delete) record a `before` checkpoint immediately before executing.
 async function adaptiveCatalogForMcp(config) {
+  const recallEnabled = observationRecallEnabled(config);
   const native = MCP_TOOLS
     .filter(t => t && t.name && !t.name.startsWith('tool_invoke_') && t.name !== 'tool_load')
+    .filter(t => t.name !== 'observation_recall' || recallEnabled) // 105a: 目录同样按双开关隐藏
     .map(t => ({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } }));
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { /* native-only catalog is still useful */ }
@@ -28883,6 +28903,31 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   }
 }
 
+// 105a: observation_recall 每回合配额。回合键 = 当前会话 providerHistory 的 user 消息数(回合内稳定、
+// 下一回合自增,无需新管线);每会话只保留最近 4 个桶,全局最多 64 个会话,先进先出。
+const OBSERVATION_RECALL_QUOTA = 8;
+const OBSERVATION_RECALL_MAX_CHARS = { min: 1000, max: 60000, dflt: 8000 };
+const _recallQuota = new Map(); // sessionId -> Map(turnKey -> used)
+function observationRecallQuotaTake(sessionId, turnKey) {
+  let buckets = _recallQuota.get(sessionId);
+  if (!buckets) { buckets = new Map(); _recallQuota.set(sessionId, buckets); }
+  while (_recallQuota.size > 64) _recallQuota.delete(_recallQuota.keys().next().value);
+  if (!buckets.has(turnKey)) {
+    buckets.set(turnKey, 0);
+    while (buckets.size > 4) buckets.delete(buckets.keys().next().value);
+  }
+  const used = buckets.get(turnKey);
+  if (used >= OBSERVATION_RECALL_QUOTA) return false;
+  buckets.set(turnKey, used + 1);
+  return true;
+}
+function observationRecallError(err) {
+  const s = String(err || '');
+  if (s === 'invalid rawRef' || s === 'invalid session id') return 'invalid_ref';
+  if (s === 'observation hash mismatch') return 'hash_mismatch';
+  return 'not_found'; // 'observation not found' / ENOENT(快照已被 GC) / 其它读取失败
+}
+
 // 第41波(V2.0「立柱」41a): toolCall() 50 分支 switch → 分组表驱动注册表。
 // 每个工具声明 { paths, guardNote, handler }:
 //   paths: 'read'|'write'|'both' → handler 内必须对模型给定路径过 guardFileToolPath(read=读闸/write=写闸/both=双闸);
@@ -28909,6 +28954,36 @@ const CORE_TOOL_HANDLERS = {
   } },
   workbench_memory_relation_revoke: { paths: null, guardNote: "仅写待用户确认的撤销建议,不直接删除关系边", handler: async (args, ctx) => {
       return proposeMemoryRelationRevoke(args, ctx);
+  } },
+  observation_recall: { paths: null, guardNote: "105a: 只读当前会话 checkpoints 快照还原内核(rehydrateObservation 自带格式+内容 hash 校验);sessionId 取自 ctx/WCW_SESSION_ID 而非参数,不触文件路径;双开关 fail-closed", handler: async (args, ctx) => {
+      const config = await readConfig();
+      if (!observationRecallEnabled(config)) {
+        return { ok: false, error: 'disabled', message: 'observation_recall is disabled (requires runtimeObservationRecallV1 + runtimeObservationReducerV1)' };
+      }
+      // 授权:会话归属只取 ctx / 桥 env,绝不接受 args 传入 —— rawRef 只能解析当前会话的快照。
+      const session = (ctx && ctx.session) || null;
+      const sessionId = String((session && session.id) || process.env.WCW_SESSION_ID || '');
+      if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to resolve rawRef against' };
+      const history = session && Array.isArray(session.providerHistory) ? session.providerHistory : [];
+      const turnKey = history.reduce((n, m) => n + (m && m.role === 'user' ? 1 : 0), 0);
+      if (!observationRecallQuotaTake(sessionId, turnKey)) {
+        return { ok: false, error: 'quota_exceeded', message: `observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA}); do not retry the same ref` };
+      }
+      const result = await rehydrateObservation(sessionId, String(args && args.rawRef || ''));
+      if (!result.ok) {
+        const code = observationRecallError(result.error);
+        return { ok: false, error: code, message: `observation recall failed: ${result.error}` };
+      }
+      const raw = Number(args && args.maxChars);
+      const maxChars = Number.isFinite(raw) ? Math.min(OBSERVATION_RECALL_MAX_CHARS.max, Math.max(OBSERVATION_RECALL_MAX_CHARS.min, Math.round(raw))) : OBSERVATION_RECALL_MAX_CHARS.dflt;
+      const original = String(result.content || '');
+      if (original.length <= maxChars) {
+        return { ok: true, content: original, toolCallId: result.toolCallId, rawRef: result.rawRef, originalChars: original.length, truncated: false };
+      }
+      const head = Math.floor(maxChars * 0.65);
+      const tail = maxChars - head;
+      return { ok: true, toolCallId: result.toolCallId, rawRef: result.rawRef, originalChars: original.length, truncated: true,
+        content: original.slice(0, head) + `\n[...${original.length - head - tail} chars omitted from a ${original.length}-char observation; re-call with a larger maxChars (max ${OBSERVATION_RECALL_MAX_CHARS.max}) if needed...]\n` + original.slice(-tail) };
   } },
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
@@ -29616,7 +29691,7 @@ const NETWORK_TOOL_HANDLERS = {
       const guard = await guardDownloadDest(args.dest, ctx);
       if (!guard.ok) return { ok: false, error: guard.error };
       const dest = guard.absPath;
-      // ③ 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
+      // ��� 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
       const got = await httpGetGuarded(url, { maxBytes, timeoutMs: Number(args.timeoutMs) || 30000, rejectOverMaxBytes: true });
       if (got.blocked) return { ok: false, error: got.error, blocked: got.blocked };
       if (got.failClass === 'too-big') return { ok: false, error: `文件超过大小上限（${Math.round(maxBytes / 1024 / 1024)}MB）`, contentLength: got.contentLength, hint: '增大 maxBytes 或改用其它方式下载' };
@@ -30179,7 +30254,7 @@ async function handleApi(req, res, pathname) {
       // v0.9-S1 (C6): expose the ERROR_CLASSES table top-level so the error-humanization UI renders zh/next
       // from the single server-side source of truth (result.errorClass keys into this) — no double-maintain.
       errorClasses: ERROR_CLASSES,
-      tools: MCP_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+      tools: MCP_TOOLS.filter(t => t.name !== 'observation_recall' || observationRecallEnabled(config)).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
     }));
   }
   // v0.8-S6: capability matrix (§7.2). Read-only → same-origin gate is enough (not in needsToken). 60s
@@ -31857,6 +31932,19 @@ const MCP_TOOLS = [
     },
   },
   {
+    // 105a: offered only when runtimeObservationRecallV1 AND runtimeObservationReducerV1 are both on
+    // (buildOpenAiTools / MCP tools/list / adaptive catalog all gate on the pair; the handler fails closed too).
+    name: 'observation_recall',
+    description: 'Recall the full original content of a tool result that was reduced during context compaction, using the rawRef embedded in the reduced view (format history:<turn>:<hash>:<index>:<hash>). Read-only; resolves only snapshots of the CURRENT session. Stable failure envelope {ok:false,error}: invalid_ref | not_found (snapshot GC\'d) | hash_mismatch | quota_exceeded (8 recalls per turn — do not retry the same ref after this) | disabled.',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['rawRef'],
+      properties: {
+        rawRef: { type: 'string', description: 'The rawRef= value embedded in a reduced observation view.' },
+        maxChars: { type: 'integer', minimum: 1000, maximum: 60000, default: 8000, description: 'Cap on returned characters; longer originals are head/tail truncated with truncated:true.' },
+      },
+    },
+  },
+  {
     name: 'permission_prompt',
     description: 'Internal: handles --permission-prompt-tool requests by asking the workbench UI to allow/deny a tool call.',
     inputSchema: {
@@ -32543,9 +32631,12 @@ async function startMcp() {
           const routedPacks = new Set(String(process.env.WCW_TOOL_PACKS || '').split(',').filter(Boolean));
           routedPacks.add('core');
           const adaptiveAlways = new Set(['permission_prompt', 'list_tools', 'tool_search', 'tool_load', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
+          const listConfig = await readConfig().catch(() => null);
+          const recallEnabled = observationRecallEnabled(listConfig);
           const listed = MCP_TOOLS.filter(t => {
             if (t.name === 'spawn_agent') return false;
             if (t.name === 'request_user_input' && !userInputEnabled) return false;
+            if (t.name === 'observation_recall' && !recallEnabled) return false; // 105a: 双开关门
             if (mode !== 'auto') return true;
             return adaptiveAlways.has(t.name) || routedPacks.has(toolPackForName(t.name, {}));
           });
@@ -35031,6 +35122,7 @@ module.exports = {
   scanMcpDropIns,
   invalidateMcpDropInCache,
   collectBridgedTools,
+  adaptiveCatalogForMcp, // 105a: exposed for e2e 直测(observation_recall 目录门)
   resolveBridge, // v1.4.1: bridged-name prefix-tolerant routing (models that drop the serverId__ prefix)
   // 第55波 EC-C(55a): MCP 运维闭环 -- 统一读模型 + 健康探针 + 错误归类 + 兼容矩阵 - exposed for e2e 直测。
   MCP_COMPAT_MATRIX,

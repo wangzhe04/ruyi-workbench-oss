@@ -112,6 +112,7 @@ module.exports = {
   scanMcpDropIns,
   invalidateMcpDropInCache,
   collectBridgedTools,
+  adaptiveCatalogForMcp, // 105a: exposed for e2e 直测(observation_recall 目录门)
   resolveBridge, // v1.4.1: bridged-name prefix-tolerant routing (models that drop the serverId__ prefix)
   // 第55波 EC-C(55a): MCP 运维闭环 -- 统一读模型 + 健康探针 + 错误归类 + 兼容矩阵 - exposed for e2e 直测。
   MCP_COMPAT_MATRIX,

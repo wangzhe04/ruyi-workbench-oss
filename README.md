@@ -34,7 +34,7 @@
 | | |
 |---|---|
 | **1 个运行产物** | 后端运行时产物是单文件 `app/server.js`(3.5 万+ 行;由 `app/build.js` 把 `app/src/` 的 30 个有序源码模块拼接而成,字节级可复现),**零 npm 运行时依赖**,只用 Node 内建模块——`node server.js` 直接跑,无需 `npm install`,政企内网过审成本最低 |
-| **61 个原生工具 · 108 个 ACC 工具** | 文件/终端/搜索/Git/联网/编排等原生工具按实际 `TOOL_HANDLERS` 可达全集计 61 个；可选 ACC 提供截图/OCR/UIA/键鼠/窗口/Office/PDF/编辑/抓取/记忆等 108 个工具。外部 MCP 另行按连接器计数，不再混入 ACC 数字 |
+| **62 个原生工具 · 108 个 ACC 工具** | 文件/终端/搜索/Git/联网/编排等原生工具按实际 `TOOL_HANDLERS` 可达全集计 62 个；可选 ACC 提供截图/OCR/UIA/键鼠/窗口/Office/PDF/编辑/抓取/记忆等 108 个工具。外部 MCP 另行按连接器计数，不再混入 ACC 数字 |
 | **8 套模板 · 9 种角色 · 243 项 e2e** | 内置 8 套多 Agent 工作流模板与 9 种节点角色。当前默认回归 236 项，另有 7 项需真实 API/桌面环境的 live probe 按需启用；另含 14 组 unit suite 与 15 组 ACC smoke |
 
 > 原名 **Win Claude Workbench**,自 v0.8 起更名**如意 Ruyi**——去 "Claude" 化是开源发布的法务考量(商标风险 + 旧提示词曾致 provider 模型自称「我是 Claude」的身份错认)。「如意」取「称心如意、如你所愿」之意,图标为青花如意云纹。
@@ -117,8 +117,8 @@
 | 能力 | 说明 | 详解 |
 |------|------|------|
 | 双引擎对话 | 任意 OpenAI 兼容端点与 Claude CLI 随时切换,跨引擎上下文续接;DeepSeek 预设可选 Responses API 协议 | [§1](#1-双引擎任意模型端点都能开工) |
-| 原生工具环 | 61 个内置工具:文件/终端/搜索/Git/联网/编排,按 read/edit/exec 三级分档 | [§2](#2-原生工具环61-个内置工具) |
-| 工具合批与分阶段 | 参数确定且互不依赖的工具在一次模型响应中合批；存在结果依赖时按阶段等待再继续，减少无效模型往返 | [§2](#2-原生工具环61-个内置工具) |
+| 原生工具环 | 62 个内置工具:文件/终端/搜索/Git/联网/编排,按 read/edit/exec 三级分档 | [§2](#2-原生工具环62-个内置工具) |
+| 工具合批与分阶段 | 参数确定且互不依赖的工具在一次模型响应中合批；存在结果依赖时按阶段等待再继续，减少无效模型往返 | [§2](#2-原生工具环62-个内置工具) |
 | 结构化交互提问 | 单选、多选、自由输入及“选项＋其他回答”；稳定选项 ID、说明卡与送达确认，双引擎共用 | [§1](#1-双引擎任意模型端点都能开工) |
 | 多 Agent 编排 | DAG 工作流、8 套模板、9 种角色、5 种质量门、图形编辑器、实时监控；Claude CLI 原生子 Agent 也可显示只读父子图、等待进度与回传结果 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 长任务自主推进 | 任务账本 until-done 驱动;零 token 等待;可选的分级崩溃恢复;增量监控(传输量降 ≥80%)与运营指标 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
@@ -156,7 +156,7 @@
 - 当前 ACP prompt 结束后子进程会关闭；Kimi ACP driver 只转发绑定当前 prompt `turn_id` 的事件。因此 Goal / Cron / 后台任务跨回合连续运行不宣称完整兼容，也不承诺 100%。
 - `dev-harness/kimi-acp-live-probe.js` 是“本地模拟模型 + 真 Kimi CLI”的探针，不用凭据，也不是真线上模型；它验证的是本机 ACP/工具/桥接链路。
 
-### 2. 原生工具环:61 个内置工具
+### 2. 原生工具环:62 个内置工具
 
 全部用 Node 内建模块实现(零依赖),按风险三级分档:**read**(只读,自动放行)/ **edit**(写入,先记检查点,可撤销)/ **exec**(执行,最高危,默认逐次确认):
 
@@ -465,7 +465,7 @@ Both scores are reported: HarnessBench Combined = Outcome × Process × Security
 
 ### Capabilities (current master) · Escapade
 
-Dual-engine chat with structured `request_user_input` prompts (single choice, multiple choice, free text, and choices plus a custom answer; delivery-acknowledged across Claude CLI and OpenAI-compatible providers; the DeepSeek preset defaults to the **Responses API** protocol with server-side tool loops, other presets use Chat Completions) · **tool batching and staged dependencies** (independent fixed-argument calls share one model response; result-dependent work waits for the next stage) · **61 native built-in tools** (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.1, 108 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in; DeepSeek Responses can run search server-side via a per-provider toggle) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · a user-facing six-tab workspace pane with low-level runners moved out of the primary UI · localization runtime and dual catalogs for Simplified Chinese and English. The repository contains **243 e2e cases** (236 default; 7 live API/desktop probes are opt-in), plus 14 unit suites and 15 ACC smoke groups.
+Dual-engine chat with structured `request_user_input` prompts (single choice, multiple choice, free text, and choices plus a custom answer; delivery-acknowledged across Claude CLI and OpenAI-compatible providers; the DeepSeek preset defaults to the **Responses API** protocol with server-side tool loops, other presets use Chat Completions) · **tool batching and staged dependencies** (independent fixed-argument calls share one model response; result-dependent work waits for the next stage) · **62 native built-in tools** (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.1, 108 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in; DeepSeek Responses can run search server-side via a per-provider toggle) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · a user-facing six-tab workspace pane with low-level runners moved out of the primary UI · localization runtime and dual catalogs for Simplified Chinese and English. The repository contains **243 e2e cases** (236 default; 7 live API/desktop probes are opt-in), plus 14 unit suites and 15 ACC smoke groups.
 
 ### Detailed documentation
 

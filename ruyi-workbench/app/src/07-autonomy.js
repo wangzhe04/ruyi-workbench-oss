@@ -116,6 +116,8 @@ function buildOpenAiTools(config, caps, opts) {
     if ((t.name === 'spawn_agent' || t.name === 'orchestrate_agents') && !spawnAgentEnabled) continue;
     if (!allowCmd && (t.name === 'powershell_run' || t.name === 'script_run' || SHELL_TOOLS.has(t.name))) continue;
     if (!allowDesk && (t.name === 'desktop_screenshot' || t.name === 'keyboard_send_keys')) continue;
+    // 105a: observation_recall 仅在 recall+reducer 双开关生效时 offer;默认关 → 不出现在工具集。
+    if (t.name === 'observation_recall' && !observationRecallEnabled(config)) continue;
     // v0.9-S6: toolTier filter for sub-turns — drop any tool above the requested tier. spawn_agent (exec)
     // is already suppressed for sub-turns via noSpawnAgent, so it never survives an 'exec' sub-turn either.
     if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
@@ -192,6 +194,7 @@ const NATIVE_TOOL_TIER = {
   permission_prompt: 'exec', // CLI 权限桥(由 --permission-prompt-tool 触达);原靠 unknown→exec 兜底,第41波显式化
   workbench_memory_list: 'read', workbench_memory_read: 'read', workbench_memory_propose: 'read',
   workbench_memory_relation_propose: 'read', workbench_memory_revise: 'read', workbench_memory_relation_revoke: 'read',
+  observation_recall: 'read', // 105a: 只读当前会话快照,授权来自 ctx 会话归属 → auto-allow
   list_tools: 'read', tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
@@ -273,6 +276,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
   workbench_memory_list: 'core', workbench_memory_read: 'core', workbench_memory_propose: 'core',
   workbench_memory_relation_propose: 'core', workbench_memory_revise: 'core', workbench_memory_relation_revoke: 'core',
+  observation_recall: 'core',
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
@@ -327,6 +331,7 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   spawn_agent: { capabilities: ['agent.delegate'], aliases: ['派生子代理', '委派任务', 'delegate subagent'] },
   skill_read: { capabilities: ['skill.instructions.read'], aliases: ['读取技能说明', '加载技能', 'read skill instructions'] },
   workbench_memory_read: { capabilities: ['memory.read'], aliases: ['读取工作台记忆', '回忆信息', 'read memory'] },
+  observation_recall: { capabilities: ['context.observation.recall'], aliases: ['回读原始工具结果', '取回被省略的观察', 'recall reduced observation', 'restore tool result'] },
   workbench_memory_propose: { capabilities: ['memory.propose'], aliases: ['提议保存记忆', '记住经验', 'propose memory'] },
 });
 const RUNTIME_TELEMETRY_KEY = crypto.randomBytes(32); // process-scoped HMAC key; raw queries/errors are never logged
@@ -849,8 +854,8 @@ function toResponsesContent(content) {
 }
 // Translate a chat-shaped providerHistory into Responses `input` items (see header note).
 // 21-E3: 已执行动作的参数历史双视图 —— 纯函数(可 e2e 直测)。execution/audit view 保留完整 rawArgs
-// (session.actionAudit + providerHistory 原消息),provider model view 投影为紧凑 envelope。
-// 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;失败/中断/待审批不瘦身;
+// (session.actionAudit + providerHistory 原消息),provider model view 投影为紧�� envelope。
+// 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;��败/中断/待审批不瘦身;
 // 只加/换 arguments 字段,tool_call id/type/function.name 原样保留(pairing 铁律不破坏)。
 const ACTION_VIEW_TOOLS = new Set(['file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download', 'script_run', 'powershell_run', 'tool_invoke_edit', 'tool_invoke_exec']);
 const ACTION_VIEW_MIN_CHARS = 512;

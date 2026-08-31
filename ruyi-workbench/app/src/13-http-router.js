@@ -86,7 +86,7 @@ async function handleApi(req, res, pathname) {
       // v0.9-S1 (C6): expose the ERROR_CLASSES table top-level so the error-humanization UI renders zh/next
       // from the single server-side source of truth (result.errorClass keys into this) — no double-maintain.
       errorClasses: ERROR_CLASSES,
-      tools: MCP_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+      tools: MCP_TOOLS.filter(t => t.name !== 'observation_recall' || observationRecallEnabled(config)).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
     }));
   }
   // v0.8-S6: capability matrix (§7.2). Read-only → same-origin gate is enough (not in needsToken). 60s
@@ -1764,6 +1764,19 @@ const MCP_TOOLS = [
     },
   },
   {
+    // 105a: offered only when runtimeObservationRecallV1 AND runtimeObservationReducerV1 are both on
+    // (buildOpenAiTools / MCP tools/list / adaptive catalog all gate on the pair; the handler fails closed too).
+    name: 'observation_recall',
+    description: 'Recall the full original content of a tool result that was reduced during context compaction, using the rawRef embedded in the reduced view (format history:<turn>:<hash>:<index>:<hash>). Read-only; resolves only snapshots of the CURRENT session. Stable failure envelope {ok:false,error}: invalid_ref | not_found (snapshot GC\'d) | hash_mismatch | quota_exceeded (8 recalls per turn — do not retry the same ref after this) | disabled.',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['rawRef'],
+      properties: {
+        rawRef: { type: 'string', description: 'The rawRef= value embedded in a reduced observation view.' },
+        maxChars: { type: 'integer', minimum: 1000, maximum: 60000, default: 8000, description: 'Cap on returned characters; longer originals are head/tail truncated with truncated:true.' },
+      },
+    },
+  },
+  {
     name: 'permission_prompt',
     description: 'Internal: handles --permission-prompt-tool requests by asking the workbench UI to allow/deny a tool call.',
     inputSchema: {
@@ -2450,9 +2463,12 @@ async function startMcp() {
           const routedPacks = new Set(String(process.env.WCW_TOOL_PACKS || '').split(',').filter(Boolean));
           routedPacks.add('core');
           const adaptiveAlways = new Set(['permission_prompt', 'list_tools', 'tool_search', 'tool_load', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
+          const listConfig = await readConfig().catch(() => null);
+          const recallEnabled = observationRecallEnabled(listConfig);
           const listed = MCP_TOOLS.filter(t => {
             if (t.name === 'spawn_agent') return false;
             if (t.name === 'request_user_input' && !userInputEnabled) return false;
+            if (t.name === 'observation_recall' && !recallEnabled) return false; // 105a: 双开关门
             if (mode !== 'auto') return true;
             return adaptiveAlways.has(t.name) || routedPacks.has(toolPackForName(t.name, {}));
           });

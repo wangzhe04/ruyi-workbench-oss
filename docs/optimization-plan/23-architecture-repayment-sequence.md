@@ -158,6 +158,25 @@
 - 摘要实体校验对路径、版本、数字与显式约束做确定性抽检；失败时给出缺失清单，最多触发一次定向修补，不进入无界重试。
 - 估算因子按 CJK／JSON／代码分桶；样本不足回退保守默认，估算与真实 usage 分列。
 
+#### 105a Release Brief · observation_recall 工具外壳（2026-08-31）
+
+- **问题**：20-C1 的缩减视图已内嵌 `rawRef`，还原内核 `rehydrateObservation()` 也已就绪并导出，但没有任何模型可触达的入口——缩减后的原文事实上不可回读，#7 预取没有真实生产消费者。
+- **非目标**：不默认启用（`runtimeObservationRecallV1` 默认 false，且须与 `runtimeObservationReducerV1` 成对）；不改快照格式、GC 策略、压缩／蒸发语义；不新增持久化面；不宣称收益（本切片只到「代码存在＋契约测试通过」）。
+- **交付物**：
+  - 新原生工具 `observation_recall({rawRef, maxChars?})`：schema 入 `MCP_TOOLS`，handler 入 `CORE_TOOL_HANDLERS`（`paths:null` + guardNote），`NATIVE_TOOL_PACKS: 'core'`、`NATIVE_TOOL_TIER: 'read'`、`TOOL_RETRIEVAL_HINTS` 别名登记。
+  - 授权：sessionId 只取 `ctx.session.id`／`WCW_SESSION_ID` 桥 env，args 传入的 sessionId 一律忽略；跨会话 rawRef 天然 not_found。
+  - 大小上限：`maxChars` 默认 8000、clamp [1000, 60000]，超出 head/tail 截取 + `truncated:true` + 省略计数。
+  - 每回合配额 8 次：桶键 = （会话， providerHistory user 消息数），回合内稳定、下一回合自增；每会话留 4 桶、全局 64 会话 FIFO；失败调用同样计额（防滥用循环），超额返回稳定 `quota_exceeded`。
+  - 稳定失败信封：`disabled | invalid_ref | not_found | hash_mismatch | quota_exceeded`；`not_found` 涵盖快照已被 GC（ENOENT）。
+  - 可见性四门：`buildOpenAiTools` offer 门、MCP `tools/list` 门、adaptive catalog 门、`/api/status` 工具清单门，全部按双开关隐藏；handler 内 fail-closed 二次校验。
+  - 提示侧闭环：缩减视图在 recall 生效时追加 `recall=observation_recall(rawRef)`（文本头）／`"recall":...`（JSON meta）；默认关时文案逐字节不变。
+  - `dev-harness/observation-recall.e2e.js`：[U] 16 项白盒契约（happy 逐字节／截断／配额／disabled／invalid_ref／hash_mismatch／not_found／sessionId 防伪造／文案零漂移／offer 与目录门）；[R] 跨进程 rehydrate（模拟重启后仍解析）；[E] fake-openai 集成（真实 HTTP 回合中 fake 主动调用 observation_recall → offer 生效 → 稳定信封 invalid_ref 经 HTTP 链路回传 → 配对铁律）。fake-openai 新增 `argsFromLastRawRef` step 能力。**测试发现**：`observation_reduced` 事件与自动压缩触发绑定，而真实回合中单条大 tool 结果（TOOL_RESULT_CAP 截断后仍 ≈48K chars）+ 完整系统提示的估算会首读即触发压缩 → L1 蒸发 0 条（boundary 保护最近回合）→ L2 摘要 reseed → fake 序列重置，形成请求循环；故 HTTP 回合内不稳定产生 rawRef，回读成功由 `[U]/[R]`＋真实历史 e2e 覆盖。
+- **证据**：
+  - `observation-recall.e2e.js` 全绿：`[U]` 16 项白盒契约＋`[R]` 跨进程 rehydrate＋`[E]` fake-openai 集成（HTTP 回合中 fake 主动调用 observation_recall → offer 生效 → `invalid_ref` 稳定信封经 HTTP 链路回传 → 配对铁律）。
+  - `observation-recall-realhistory.e2e.js`（新增，真实历史实测）：从本机 `.win-claude-workbench/checkpoints` 复制 2 个真实会话（287 文件 6.3MB）到沙箱副本，源目录 sha256 清单测试前后一致（零写入）。11 个真实 `history-*.json.gz` 快照：payload 合计 **4,383,012 → 831,711 字符（整体缩减 81.0%）**；最大单快照 202,519→1,223（99.4%）；全部 ≥1200 字符大观察经真实 rawRef 双哈希校验回读**逐字节一致**（113/113、6/6、9/9、1/1、2/2、6/6）；配对铁律全过；真实缩减视图含 `rawRef`＋`recall` 提示（json/shell/text/search 四策略）；真实 rawRef 经工具分发回读成功＋配额第 9 次 `quota_exceeded`。注意：reducer 单条可见量可高于旧蒸发（保留结构信息＋rawRef 的设计权衡），本切片以「payload 对原始基线大幅缩减＋回读保真」为证据，不宣称对旧蒸发单条更省。
+- **回退**：移除三处注册＋配置键＋新 e2e＋`argsFromLastRawRef`，重建 `server.js`、重跑 module-graph／route-inventory／facts 生成器；快照格式不变，无数据迁移。
+- **发布判断**：零默认行为变化、零 UI；不单独触发版本升级，可随后续 Escapade 补丁或 105 后续切片一并发布。
+
 ### 4.2 小窗口单发优先
 
 - 摘要预算改为 `window - reserve`；reserve 由 system、summary prompt、预期输出和校准误差上界组成。估算允许时先单发，只有可识别的上下文超窗 400 才自动降级到现有 map-reduce。

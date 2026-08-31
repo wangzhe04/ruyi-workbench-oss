@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-08-31T03:32:55.335Z",
+  "generatedAt": "2026-08-31T06:46:42.044Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01-config.js",
     "routers": [
@@ -1826,6 +1826,7 @@
         "dev-harness\\mission-result.e2e.js",
         "dev-harness\\missions-readmodel.e2e.js",
         "dev-harness\\multi-session-parallel.e2e.js",
+        "dev-harness\\observation-recall.e2e.js",
         "dev-harness\\onboard.e2e.js",
         "dev-harness\\openai-engine.e2e.js",
         "dev-harness\\openai-tools.e2e.js",
@@ -2306,6 +2307,7 @@
         "dev-harness\\missions-readmodel.e2e.js",
         "dev-harness\\monitor-incremental.e2e.js",
         "dev-harness\\multi-session-parallel.e2e.js",
+        "dev-harness\\observation-recall.e2e.js",
         "dev-harness\\onboard.e2e.js",
         "dev-harness\\orchestrate-model-select.e2e.js",
         "dev-harness\\orchestration-blindspots.e2e.js",
@@ -2427,6 +2429,7 @@
         "dev-harness\\missions-readmodel.e2e.js",
         "dev-harness\\monitor-incremental.e2e.js",
         "dev-harness\\multi-session-parallel.e2e.js",
+        "dev-harness\\observation-recall.e2e.js",
         "dev-harness\\onboard.e2e.js",
         "dev-harness\\orchestrate-model-select.e2e.js",
         "dev-harness\\orchestration-blindspots.e2e.js",
@@ -2521,6 +2524,7 @@
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
         "dev-harness\\multi-session-parallel.e2e.js",
+        "dev-harness\\observation-recall.e2e.js",
         "dev-harness\\perf.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\pretender-mission-control.e2e.js",

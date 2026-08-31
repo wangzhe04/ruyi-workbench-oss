@@ -37,6 +37,8 @@ Thumbs.db
 /.wave29-livetest/
 # A/B probe run artifacts (local benchmark outputs, may contain provider responses)
 /dev-harness/ab-results/
+# 105波真实历史实测:本机历史记录的只读副本(含会话内容,不入库)
+/dev-harness/realhist-fixtures/
 
 # Desktop shell build outputs (source in ruyi-workbench/desktop/)
 /.tmp-csc-probe/

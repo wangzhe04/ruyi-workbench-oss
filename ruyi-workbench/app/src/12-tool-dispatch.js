@@ -94,6 +94,31 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   }
 }
 
+// 105a: observation_recall 每回合配额。回合键 = 当前会话 providerHistory 的 user 消息数(回合内稳定、
+// 下一回合自增,无需新管线);每会话只保留最近 4 个桶,全局最多 64 个会话,先进先出。
+const OBSERVATION_RECALL_QUOTA = 8;
+const OBSERVATION_RECALL_MAX_CHARS = { min: 1000, max: 60000, dflt: 8000 };
+const _recallQuota = new Map(); // sessionId -> Map(turnKey -> used)
+function observationRecallQuotaTake(sessionId, turnKey) {
+  let buckets = _recallQuota.get(sessionId);
+  if (!buckets) { buckets = new Map(); _recallQuota.set(sessionId, buckets); }
+  while (_recallQuota.size > 64) _recallQuota.delete(_recallQuota.keys().next().value);
+  if (!buckets.has(turnKey)) {
+    buckets.set(turnKey, 0);
+    while (buckets.size > 4) buckets.delete(buckets.keys().next().value);
+  }
+  const used = buckets.get(turnKey);
+  if (used >= OBSERVATION_RECALL_QUOTA) return false;
+  buckets.set(turnKey, used + 1);
+  return true;
+}
+function observationRecallError(err) {
+  const s = String(err || '');
+  if (s === 'invalid rawRef' || s === 'invalid session id') return 'invalid_ref';
+  if (s === 'observation hash mismatch') return 'hash_mismatch';
+  return 'not_found'; // 'observation not found' / ENOENT(快照已被 GC) / 其它读取失败
+}
+
 // 第41波(V2.0「立柱」41a): toolCall() 50 分支 switch → 分组表驱动注册表。
 // 每个工具声明 { paths, guardNote, handler }:
 //   paths: 'read'|'write'|'both' → handler 内必须对模型给定路径过 guardFileToolPath(read=读闸/write=写闸/both=双闸);
@@ -120,6 +145,36 @@ const CORE_TOOL_HANDLERS = {
   } },
   workbench_memory_relation_revoke: { paths: null, guardNote: "仅写待用户确认的撤销建议,不直接删除关系边", handler: async (args, ctx) => {
       return proposeMemoryRelationRevoke(args, ctx);
+  } },
+  observation_recall: { paths: null, guardNote: "105a: 只读当前会话 checkpoints 快照还原内核(rehydrateObservation 自带格式+内容 hash 校验);sessionId 取自 ctx/WCW_SESSION_ID 而非参数,不触文件路径;双开关 fail-closed", handler: async (args, ctx) => {
+      const config = await readConfig();
+      if (!observationRecallEnabled(config)) {
+        return { ok: false, error: 'disabled', message: 'observation_recall is disabled (requires runtimeObservationRecallV1 + runtimeObservationReducerV1)' };
+      }
+      // 授权:会话归属只取 ctx / 桥 env,绝不接受 args 传入 —— rawRef 只能解析当前会话的快照。
+      const session = (ctx && ctx.session) || null;
+      const sessionId = String((session && session.id) || process.env.WCW_SESSION_ID || '');
+      if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to resolve rawRef against' };
+      const history = session && Array.isArray(session.providerHistory) ? session.providerHistory : [];
+      const turnKey = history.reduce((n, m) => n + (m && m.role === 'user' ? 1 : 0), 0);
+      if (!observationRecallQuotaTake(sessionId, turnKey)) {
+        return { ok: false, error: 'quota_exceeded', message: `observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA}); do not retry the same ref` };
+      }
+      const result = await rehydrateObservation(sessionId, String(args && args.rawRef || ''));
+      if (!result.ok) {
+        const code = observationRecallError(result.error);
+        return { ok: false, error: code, message: `observation recall failed: ${result.error}` };
+      }
+      const raw = Number(args && args.maxChars);
+      const maxChars = Number.isFinite(raw) ? Math.min(OBSERVATION_RECALL_MAX_CHARS.max, Math.max(OBSERVATION_RECALL_MAX_CHARS.min, Math.round(raw))) : OBSERVATION_RECALL_MAX_CHARS.dflt;
+      const original = String(result.content || '');
+      if (original.length <= maxChars) {
+        return { ok: true, content: original, toolCallId: result.toolCallId, rawRef: result.rawRef, originalChars: original.length, truncated: false };
+      }
+      const head = Math.floor(maxChars * 0.65);
+      const tail = maxChars - head;
+      return { ok: true, toolCallId: result.toolCallId, rawRef: result.rawRef, originalChars: original.length, truncated: true,
+        content: original.slice(0, head) + `\n[...${original.length - head - tail} chars omitted from a ${original.length}-char observation; re-call with a larger maxChars (max ${OBSERVATION_RECALL_MAX_CHARS.max}) if needed...]\n` + original.slice(-tail) };
   } },
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
@@ -827,7 +882,7 @@ const NETWORK_TOOL_HANDLERS = {
       const guard = await guardDownloadDest(args.dest, ctx);
       if (!guard.ok) return { ok: false, error: guard.error };
       const dest = guard.absPath;
-      // ③ 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
+      // ��� 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
       const got = await httpGetGuarded(url, { maxBytes, timeoutMs: Number(args.timeoutMs) || 30000, rejectOverMaxBytes: true });
       if (got.blocked) return { ok: false, error: got.error, blocked: got.blocked };
       if (got.failClass === 'too-big') return { ok: false, error: `文件超过大小上限（${Math.round(maxBytes / 1024 / 1024)}MB）`, contentLength: got.contentLength, hint: '增大 maxBytes 或改用其它方式下载' };

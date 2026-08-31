@@ -163,6 +163,7 @@
         "normalizeAgentRole",
         "normalizeConfig",
         "normalizeWorkspacePathString",
+        "observationRecallEnabled",
         "originOk",
         "pickPython",
         "prepareAgentCliSpawn",
@@ -4130,6 +4131,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -6848,11 +6856,16 @@
         "ARCHIVE_TOOL_HANDLERS",
         "CORE_TOOL_HANDLERS",
         "FILE_TOOL_HANDLERS",
+        "OBSERVATION_RECALL_MAX_CHARS",
+        "OBSERVATION_RECALL_QUOTA",
+        "_recallQuota",
         "accAnnotateNonAscii",
         "accCpCategory",
         "accCpName",
         "buildNonAsciiReport",
         "invokeAdaptiveMcpTool",
+        "observationRecallError",
+        "observationRecallQuotaTake",
         "resolveFileToolRoot"
       ],
       "requires": [
@@ -6957,6 +6970,13 @@
         {
           "provider": "01-config.js",
           "symbol": "externalServerJs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
           ]
@@ -7223,6 +7243,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "searchToolCatalog",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "rehydrateObservation",
           "kinds": [
             "call"
           ]
@@ -7678,6 +7705,13 @@
         {
           "provider": "01-config.js",
           "symbol": "normalizeAgentRole",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
           ]

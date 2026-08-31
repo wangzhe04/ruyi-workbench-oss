@@ -340,7 +340,10 @@ function compactObservationValue(value, key, depth) {
   return String(value);
 }
 
-function reduceObservationContent(toolName, content, rawRef) {
+function reduceObservationContent(toolName, content, rawRef, opts) {
+  const recallEnabled = !!(opts && opts.recallEnabled);
+  // 105a: 仅当 observation_recall 工具生效时在缩减视图里提示回读入口;默认关时文案逐字节不变。
+  const recallHint = recallEnabled ? ' · recall=observation_recall(rawRef)' : '';
   const original = String(content == null ? '' : content);
   if (original.length < OBSERVATION_REDUCE_MIN) return { reduced: false, content: original, policy: 'below_minimum', originalChars: original.length, visibleChars: original.length, rawRef };
   const baseName = String(toolName || '').replace(/^.+?__/, '');
@@ -350,6 +353,7 @@ function reduceObservationContent(toolName, content, rawRef) {
     const reduced = compactObservationValue(parsed, '', 0);
     policy = /shell|powershell|script/i.test(baseName) ? 'shell_structured' : (/search|find|glob|list/i.test(baseName) ? 'search_structured' : (/web|http|fetch|download/i.test(baseName) ? 'network_structured' : 'json_structured'));
     const meta = { reduced: true, policy, originalChars: original.length, rawRef };
+    if (recallEnabled) meta.recall = 'observation_recall(rawRef)';
     if (Array.isArray(reduced)) visible = JSON.stringify({ items: reduced, _ruyiObservation: meta });
     else {
       if (reduced && typeof reduced === 'object') reduced._ruyiObservation = meta;
@@ -357,7 +361,7 @@ function reduceObservationContent(toolName, content, rawRef) {
     }
   } else {
     policy = 'text_head_tail';
-    visible = `[Ruyi observation reduced · policy=${policy} · originalChars=${original.length} · rawRef=${rawRef}]\n`
+    visible = `[Ruyi observation reduced · policy=${policy} · originalChars=${original.length} · rawRef=${rawRef}${recallHint}]\n`
       + original.slice(0, OBSERVATION_TEXT_HEAD)
       + `\n[...${Math.max(0, original.length - OBSERVATION_TEXT_HEAD - OBSERVATION_TEXT_TAIL)} chars omitted...]\n`
       + original.slice(-OBSERVATION_TEXT_TAIL);
@@ -422,7 +426,7 @@ function evaporateHistory(history, opts) {
     if (protectedReason) continue;
     if (useReducer) {
       const contentHash = crypto.createHash('sha256').update(m.content).digest('hex').slice(0, 16);
-      const reduced = reduceObservationContent(toolName, m.content, `${opts.rawRefPrefix}:${i}:${contentHash}`);
+      const reduced = reduceObservationContent(toolName, m.content, `${opts.rawRefPrefix}:${i}:${contentHash}`, { recallEnabled: opts.config.runtimeObservationRecallV1 === true });
       if (!reduced.reduced) continue;
       m.content = reduced.content; count++;
       if (typeof opts.onReduced === 'function') {

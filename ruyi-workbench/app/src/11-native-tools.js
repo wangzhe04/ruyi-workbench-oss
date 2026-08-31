@@ -2046,8 +2046,10 @@ async function guardDownloadDest(rawDest, ctx) {
 // the injected WCW_SESSION_ID env + the session file). File-mutating tools (file_write/file_edit/
 // file_delete) record a `before` checkpoint immediately before executing.
 async function adaptiveCatalogForMcp(config) {
+  const recallEnabled = observationRecallEnabled(config);
   const native = MCP_TOOLS
     .filter(t => t && t.name && !t.name.startsWith('tool_invoke_') && t.name !== 'tool_load')
+    .filter(t => t.name !== 'observation_recall' || recallEnabled) // 105a: 目录同样按双开关隐藏
     .map(t => ({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } }));
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { /* native-only catalog is still useful */ }

@@ -510,11 +510,24 @@ const server = http.createServer((req, res) => {
             return;
           }
           const step = TOOL_SEQUENCE[done];
+          // 105a: step 可带 argsFromLastRawRef —— 从请求历史里最新的缩减视图(rawRef=history:...)解析出
+          // rawRef 作为参数(可能同时是 JSON meta 里的 "rawRef":"history:..."),证明模型可见的 rawRef 可端到端回读。
+          let stepArgs = step.args || {};
+          if (step.argsFromLastRawRef) {
+            let found = '';
+            for (const m of msgs || []) {
+              const c = m && typeof m.content === 'string' ? m.content : '';
+              const re = /rawRef=["']?(history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16})/g;
+              let mm; while ((mm = re.exec(c))) found = mm[1];
+            }
+            stepArgs = { ...stepArgs, rawRef: found };
+            if (!found) console.log('[fake] argsFromLastRawRef: no rawRef in history, emitting empty rawRef');
+          }
           // v0.8-S7: when a stream delay is configured, space the tool_call's frames out so a steering
           // POST can arrive mid-stream. emitOneToolCall writes 3 frames; insert a sleep before the
           // finish_reason frame too so the "turn is live" window is meaningfully wide.
           (async () => {
-            await emitOneToolCall(res, id, 'call_' + (done + 1), String(step.name || ''), step.args || {}, 0);
+            await emitOneToolCall(res, id, 'call_' + (done + 1), String(step.name || ''), stepArgs, 0);
             if (STREAM_DELAY_MS) await sleep(STREAM_DELAY_MS);
             sse(res, { id, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
             if (STREAM_DELAY_MS) await sleep(STREAM_DELAY_MS);

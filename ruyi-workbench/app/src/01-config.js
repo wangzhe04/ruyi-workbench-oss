@@ -97,6 +97,9 @@ function defaultConfig() {
     runtimeOptimizationShadowV1: true,
     runtimeToolRetrievalV1: false,
     runtimeObservationReducerV1: false,
+    // 105a: observation_recall 工具外壳 —— 让模型按缩减视图内嵌的 rawRef 回读原始工具结果。
+    // 仅在 runtimeObservationReducerV1 同时开启时生效(rawRef 只由 reducer 产生);默认关闭。
+    runtimeObservationRecallV1: false,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -476,7 +479,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -750,6 +753,12 @@ function normalizeConfig(raw) {
     else config.claudePricing = cp;
   }
   return { config, changed };
+}
+
+// 105a: observation_recall 生效条件 —— recall 与 reducer 开关成对(rawRef 只由 reducer 产生,
+// 单开 recall 无可解析引用)。目录可见性、offer 门与 handler fail-closed 共用本判定。
+function observationRecallEnabled(config) {
+  return !!(config && config.runtimeObservationRecallV1 === true && config.runtimeObservationReducerV1 === true);
 }
 
 // ============================================================================
@@ -1999,12 +2008,12 @@ function tokenOk(req) {
 //      token-browser(浏览器须 token,loopback 须同源,与 v1.4.6-S1 纪律一致)/body-token(handler 自查 body token)。
 // 14 处 handler 内 tokenOk 自查保留作纵深(表为主、自查兜底误分类);Host 门在 HTTP handler 顶层 hostAllowed(全请求)。
 const ROUTE_AUTH = [
-  // open: 低敏读(host 门已过,无 token 需求)
+  // open: 低敏读(host 门已过,无 token 需��)
   { m: 'GET', p: '/api/status', auth: 'open' },
   { m: 'GET', p: '/api/capabilities', auth: 'open' },
   { m: 'GET', p: '/api/models', auth: 'open' },
   // 47c(S1):bootstrap 握手 —— 浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。open 级的安全性 =
-  // 顶层 host 门(rebinding 的 Host 是攻击域,直接被拒)+ 与旧 GET / 明文下发完全同等的信任面。
+  // 顶层 host 门(rebinding 的 Host 是攻击域,直接被拒)+ 与旧 GET / 明文下发完全���等的信任面。
   { m: 'POST', p: '/api/bootstrap', auth: 'open' },
   // body-token: MCP 子进程 / 跨源 loopback(handler 自查 body token,豁免 originOk)
   { m: 'POST', p: '/api/permission/request', auth: 'body-token' },
