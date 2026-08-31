@@ -105,6 +105,10 @@ function defaultConfig() {
     // 【关键文件与上下文】三节确定性切出,整写到 sessions/<id>.session-notes.md 旁车副本。
     // 摘要保留叙事职责;notes 只写不回注上下文。105b 真实历史门通过后默认开启，仍可显式关闭。
     runtimeSessionNotesV1: true,
+    // 105c: 摘要实体确定性抽检 —— L2 摘要产出后对路径/版本/带量级数字/日期/代号做确定性抽检,
+    // 缺失时给出缺失清单并【恰好一次】定向修补(不无界重试)。修补会多一次 LLM 调用(成本承担行为),
+    // 取证期默认关闭;显式 true 启用,false 保持现状。
+    runtimeSummaryEntityCheckV1: false,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -484,7 +488,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -770,6 +774,12 @@ function observationRecallEnabled(config) {
 // 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
 function sessionNotesEnabled(config) {
   return !!(config && config.runtimeSessionNotesV1 === true);
+}
+
+// 105c: 摘要实体确定性抽检生效条件 —— 单开关。挂钩点(wrapper)与 e2e 共用本判定；
+// 显式 false / 缺省保证零检查、零修补、零事件(零行为变化)。
+function summaryEntityCheckEnabled(config) {
+  return !!(config && config.runtimeSummaryEntityCheckV1 === true);
 }
 
 // ============================================================================

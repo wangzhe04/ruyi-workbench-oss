@@ -200,6 +200,13 @@ const CONTEXT_400_ONCE = process.env.FAKE_CONTEXT_400_ONCE === '1';
 // 供预算化断言(摘要调用的 payload 必须 ≤ 预算,超长历史触发 map-reduce 时可见 N 个分段请求)。
 const RECORD_SUMMARY_DIR = process.env.FAKE_RECORD_SUMMARY_DIR || '';
 let summarySeq = 0;
+// 105c: FAKE_SUMMARY_SEQUENCE — JSON 字符串数组;第 N 个非流式请求(stream===false)返回第 N 条
+// (超出钳到末条)。驱动摘要实体抽检的「首稿缺实体 → 恰好一次定向修补」剧本;设置时优先于 FAKE_DRAFT_JSON。
+let SUMMARY_SEQUENCE = null, summarySeqIdx = 0;
+try {
+  const v = process.env.FAKE_SUMMARY_SEQUENCE;
+  if (v) { const a = JSON.parse(v); if (Array.isArray(a) && a.length) SUMMARY_SEQUENCE = a.map(String); }
+} catch { SUMMARY_SEQUENCE = null; }
 let chatRequestCount = 0; // increments on every /chat/completions request served by this process
 // v0.8-S6 FAKE_CAPTURE_DIR: write each request body to <dir>/req-<n>.json (n = 1-based, zero-padded). The
 // capabilities e2e reads these to assert the injected `system` message content (identity pin / project
@@ -355,8 +362,11 @@ const server = http.createServer((req, res) => {
 
       if (parsed.stream === false) {
         res.writeHead(200, { 'content-type': 'application/json' });
+        // 105c: FAKE_SUMMARY_SEQUENCE 优先 —— 按非流式请求序返回剧本条目(钳到末条)。
         // v0.9-S2 FAKE_DRAFT_JSON: return the injected JSON string as the message content (drafter role).
-        const content = DRAFT_JSON || '【目标】测试目标与关键约束\n【已确认的决定】已拍板的事项\n【未完成事项】待办与悬而未决\n【当前执行状态】已完成：无；正在进行：测试；阻塞：无；下一步：继续\n【关键文件与上下文】涉及文件与要点';
+        const content = SUMMARY_SEQUENCE
+          ? SUMMARY_SEQUENCE[Math.min(summarySeqIdx++, SUMMARY_SEQUENCE.length - 1)]
+          : (DRAFT_JSON || '【目标】测试目标与关键约束\n【已确认的决定】已拍板的事项\n【未完成事项】待办与悬而未决\n【当前执行状态】已完成：无；正在进行：测试；阻塞：无；下一步：继续\n【关键文件与上下文】涉及文件与要点');
         res.end(JSON.stringify({ id, choices: [{ message: { role: 'assistant', content }, finish_reason: 'stop' }], usage: { prompt_tokens: 11, completion_tokens: 7, total_tokens: 18 } }));
         return;
       }

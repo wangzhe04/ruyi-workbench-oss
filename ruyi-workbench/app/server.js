@@ -582,6 +582,10 @@ function defaultConfig() {
     // 【关键文件与上下文】三节确定性切出,整写到 sessions/<id>.session-notes.md 旁车副本。
     // 摘要保留叙事职责;notes 只写不回注上下文。105b 真实历史门通过后默认开启，仍可显式关闭。
     runtimeSessionNotesV1: true,
+    // 105c: 摘要实体确定性抽检 —— L2 摘要产出后对路径/版本/带量级数字/日期/代号做确定性抽检,
+    // 缺失时给出缺失清单并【恰好一次】定向修补(不无界重试)。修补会多一次 LLM 调用(成本承担行为),
+    // 取证期默认关闭;显式 true 启用,false 保持现状。
+    runtimeSummaryEntityCheckV1: false,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -961,7 +965,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -1247,6 +1251,12 @@ function observationRecallEnabled(config) {
 // 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
 function sessionNotesEnabled(config) {
   return !!(config && config.runtimeSessionNotesV1 === true);
+}
+
+// 105c: 摘要实体确定性抽检生效条件 —— 单开关。挂钩点(wrapper)与 e2e 共用本判定；
+// 显式 false / 缺省保证零检查、零修补、零事件(零行为变化)。
+function summaryEntityCheckEnabled(config) {
+  return !!(config && config.runtimeSummaryEntityCheckV1 === true);
 }
 
 // ============================================================================
@@ -20751,6 +20761,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
           const ev = evaporateHistory(subHistory);
           const sc = await providerSummaryCall(provider, subHistory, {
+            config,
             auxCtx: {
               ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}),
               ...(parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {}),
@@ -24366,6 +24377,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             },
           });
           const sc = await providerSummaryCall(provider, session.providerHistory, {
+            config,
             auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
           });
           if (sc.ok) {
@@ -25463,6 +25475,23 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
         ['阻塞', 'Blocked'],
         ['下一步', 'Next step', 'Next Step', 'Next steps', 'Next Steps'],
       ],
+      entityCheck: {
+        maxSamples: 12,
+        minSamples: 4,
+        scanChars: 200000,
+        maxEntityChars: 120,
+        patterns: {
+          winPath: "[A-Za-z]:\\\\[^\\s\"'`，。；：、)】」<>|*?,\\u4e00-\\u9fff]+",
+          slashPath: "(?:^|[\\s\"'(【「`=:,，。；])(/?[\\w.@%+-]+(?:/[\\w.@%+-]+)+/?)",
+          version: "\\bv?\\d+\\.\\d+(?:\\.\\d+){0,2}(?:[-+][0-9A-Za-z.-]+)?\\b",
+          isoDate: "\\b\\d{4}-\\d{2}-\\d{2}(?:[T ]\\d{2}:\\d{2}(?::\\d{2})?)?\\b",
+          unitNumber: "\\b\\d+(?:\\.\\d+)?\\s?(?:%|KB|MB|GB|KiB|MiB|GiB|tokens?|ms|s|分钟|秒|次|条|个|行|波|项|件)(?![0-9A-Za-z])",
+          bigNumber: "\\b\\d{1,3}(?:,\\d{3})+\\b|\\b\\d{4,}\\b",
+          backtick: "`([^`\\n]{2,80})`",
+          cjkQuote: "「([^」\\n]{2,40})」",
+        },
+        repairPrompt: '你是摘要修订器。下面给出一份对话摘要,以及确定性抽检发现它遗漏的【必须原样保留】事实清单。请在保持原有五节结构(【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】)不变的前提下,把清单中的每条事实原样织入对应小节;不得删除摘要中已有的其他事实,不得改写数字、路径、版本与代号的写法。只输出修订后的完整摘要。',
+      },
     },
     compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1 },
   };
@@ -26028,6 +26057,118 @@ function maybeWriteSessionNotes(session, summary, config) {
     writeSessionNotes(session.id, md).catch(() => {});
   } catch { /* session notes 是旁车副本,绝不阻断回合 */ }
 }
+
+// ── 105c: 摘要实体确定性抽检(23 号方案 §4.1)──────────────────────────────────
+// L2 摘要产出后,对【摘要输入原文】做确定性实体抽检:路径/版本/带量级数字/ISO 日期/代号(反引号、「」)。
+// 采样上限 maxSamples(按最近出现位置+频次排序,越近的事实越该保住);样本不足 minSamples 直接跳过,
+// 不臆造检查。有缺失 → 给出缺失清单并【恰好一次】定向修补(只发 当前摘要+缺失清单,不重发全量历史);
+// 修补网络失败或修补稿结构校验不过 → 保留原摘要;修补稿一经采用,即便仍有缺失也不再二次重试。
+// 开关 runtimeSummaryEntityCheckV1 默认关闭(105c 取证期);关闭 = 零检查、零修补、零事件。
+const SUMMARY_ENTITY_RULES = CONTEXT_GOVERNANCE_RULES.summary.entityCheck || {};
+const SUMMARY_ENTITY_PATTERNS = (() => {
+  const out = [];
+  const src = SUMMARY_ENTITY_RULES.patterns || {};
+  for (const kind of ['winPath', 'slashPath', 'version', 'isoDate', 'unitNumber', 'bigNumber', 'backtick', 'cjkQuote']) {
+    try {
+      if (typeof src[kind] === 'string' && src[kind]) {
+        // slashPath/backtick/cjkQuote 的实体在捕获组 1(前缀/包裹符不算实体本体)。
+        out.push({ kind, re: new RegExp(src[kind], 'g'), grouped: kind === 'slashPath' || kind === 'backtick' || kind === 'cjkQuote' });
+      }
+    } catch { /* 坏模式不阻断压缩 */ }
+  }
+  return out;
+})();
+function extractSummaryEntities(text, rules) {
+  const r = rules && typeof rules === 'object' ? rules : SUMMARY_ENTITY_RULES;
+  const maxEntityChars = Number.isFinite(r.maxEntityChars) ? r.maxEntityChars : 120;
+  const maxSamples = Number.isFinite(r.maxSamples) ? r.maxSamples : 12;
+  const scanChars = Number.isFinite(r.scanChars) ? r.scanChars : 200000;
+  const raw = String(text || '');
+  const scan = raw.length > scanChars ? raw.slice(raw.length - scanChars) : raw; // 尾部优先
+  const found = new Map(); // entity -> { count, last }
+  for (const p of SUMMARY_ENTITY_PATTERNS) {
+    p.re.lastIndex = 0;
+    let m;
+    while ((m = p.re.exec(scan))) {
+      const idx = m.index;
+      if (p.re.lastIndex === idx) p.re.lastIndex++; // 零宽保护
+      let v = String(p.grouped && m[1] != null ? m[1] : m[0]);
+      v = v.replace(/^[.,;:!?([{《"'「、，。；：\s]+/, '').replace(/[.,;:!?)\]}》》"',、，。；：\s]+$/, ''); // 毗邻标点不属实体
+      if (v.length < 2 || v.length > maxEntityChars) continue;
+      if (p.kind === 'slashPath') {
+        const slashes = (v.match(/\//g) || []).length;
+        // 噪声过滤:and/or、10/20 这类单斜杠且无扩展名、无前导斜杠的串不算路径实体。
+        if (!v.startsWith('/') && slashes < 2 && !/\.[A-Za-z0-9]{1,10}$/.test(v)) continue;
+      }
+      const cur = found.get(v);
+      if (cur) { cur.count++; if (idx > cur.last) cur.last = idx; }
+      else found.set(v, { count: 1, last: idx });
+    }
+  }
+  // 包含清扫:被更长候选包含的短项不重复抽检(2026 ⊂ 2026-08-31;2.6.2 ⊂ v2.6.2)。
+  const vals = [...found.keys()];
+  const kept = vals.filter(a => !vals.some(b => b !== a && b.length > a.length && b.includes(a)));
+  return kept
+    .sort((a, b) => (found.get(b).last - found.get(a).last) || (found.get(b).count - found.get(a).count))
+    .slice(0, maxSamples);
+}
+function checkSummaryEntities(summary, entities) {
+  const text = String(summary || '');
+  return (Array.isArray(entities) ? entities : []).filter(e => !text.includes(e));
+}
+// 与 chunkHistoryByBudget 的 transcript 同口径:内容 + 工具调用,纯文本拼接,供抽检抽取。
+function summarySourceText(history) {
+  const parts = [];
+  for (const m of (Array.isArray(history) ? history : [])) {
+    if (!m) continue;
+    parts.push(typeof m.content === 'string' ? m.content : JSON.stringify(m.content || ''));
+    if (Array.isArray(m.tool_calls) && m.tool_calls.length) parts.push(JSON.stringify(m.tool_calls));
+  }
+  return parts.join('\n');
+}
+// 摘要成功出口的统一后置检查:返回要采用的 sc(原稿或修补稿)。任何内部异常都必须原样返回原稿。
+async function applySummaryEntityCheck(provider, history, sc, model, opts) {
+  try {
+    const aux = (opts && opts.auxCtx) || {};
+    const teleBase = {
+      ...(aux.sessionId ? { sessionId: String(aux.sessionId) } : {}),
+      ...(aux.turnSeq != null ? { turnSeq: Number(aux.turnSeq) } : {}),
+      ...(aux.subagentId ? { subagentId: String(aux.subagentId) } : {}),
+      trigger: String(aux.trigger || 'summary'),
+    };
+    const entities = extractSummaryEntities(summarySourceText(history));
+    const minSamples = Number.isFinite(SUMMARY_ENTITY_RULES.minSamples) ? SUMMARY_ENTITY_RULES.minSamples : 4;
+    const tele = o => { try { logEvent({ kind: 'summary_entity_check', ...teleBase, sampled: entities.length, ...o }); } catch { /* 遥测绝不阻断 */ } };
+    if (entities.length < minSamples) { tele({ outcome: 'skipped_few_samples' }); return sc; }
+    const missing = checkSummaryEntities(sc.summary, entities);
+    if (!missing.length) { tele({ outcome: 'pass' }); return sc; }
+    // 恰好一次定向修补:输入 = 当前摘要 + 缺失清单,prompt 用规则里的 repairPrompt;不重发全量历史。
+    const repairMessages = [{ role: 'user', content: '【当前摘要】\n' + sc.summary + '\n\n【遗漏的必须保留事实】\n' + missing.map(v => '- ' + v).join('\n') }];
+    const ectx = {
+      econ: await economicsShadowEnabledCached(),
+      ...teleBase,
+      trigger: teleBase.trigger + '_entity_repair',
+    };
+    const rc = await singleSummaryCall(provider, repairMessages, model, ectx, String(SUMMARY_ENTITY_RULES.repairPrompt || ''));
+    if (!rc || !rc.ok) { tele({ outcome: 'repair_failed', missingCount: missing.length, missingSample: missing.slice(0, 8) }); return sc; }
+    if (!validateStructuredSummary(rc.summary)) { tele({ outcome: 'repair_rejected', missingCount: missing.length, missingSample: missing.slice(0, 8) }); return sc; }
+    // 采用修补稿:usage 聚合进 sc(修补成本计入本次压缩台账),即便仍有缺失也不再二次重试。
+    const stillMissing = checkSummaryEntities(rc.summary, entities);
+    if (rc.usage) {
+      const prev = sc.usage || {};
+      sc.usage = {
+        prompt_tokens: (Number(prev.prompt_tokens != null ? prev.prompt_tokens : prev.input_tokens) || 0) + (Number(rc.usage.prompt_tokens != null ? rc.usage.prompt_tokens : rc.usage.input_tokens) || 0),
+        completion_tokens: (Number(prev.completion_tokens != null ? prev.completion_tokens : prev.output_tokens) || 0) + (Number(rc.usage.completion_tokens != null ? rc.usage.completion_tokens : rc.usage.output_tokens) || 0),
+        aggregated: true,
+      };
+    }
+    sc.promptTokensEst = (Number(sc.promptTokensEst) || 0) + (Number(rc.promptTokensEst) || 0);
+    sc.summary = rc.summary;
+    sc.entityCheck = { sampled: entities.length, missing: missing.length, stillMissing: stillMissing.length, repaired: true };
+    tele({ outcome: 'repaired', missingCount: missing.length, stillMissingCount: stillMissing.length, missingSample: missing.slice(0, 8) });
+    return sc;
+  } catch { return sc; }
+}
 function userBlockStarts(history) {
   const idx = [];
   for (let i = 0; i < history.length; i++) if (history[i] && history[i].role === 'user') idx.push(i);
@@ -26116,8 +26257,10 @@ async function economicsShadowEnabledCached() { // 60s 内缓存,避免压缩路
   } catch { /* keep previous cached value */ }
   return ECON_AUX_FLAG_CACHE.on;
 }
-async function singleSummaryCall(provider, messages, model, econCtx) {
+async function singleSummaryCall(provider, messages, model, econCtx, promptOverride) {
   const respStyle = provider && provider.apiStyle === 'responses';
+  // 105c: promptOverride 供定向修补调用替换尾部 SUMMARY_PROMPT(默认不变)。
+  const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : SUMMARY_PROMPT;
   // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
   const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
   const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
@@ -26129,8 +26272,8 @@ async function singleSummaryCall(provider, messages, model, econCtx) {
   // never enters). identityOnly skips the capability/project layers — a摘要 call needs the pin, not the矩阵.
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   const bodyObj = applyProviderReasoningEffort(respStyle
-    ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }]), stream: false }
-    : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: SUMMARY_PROMPT }], stream: false }, provider, respStyle ? 'responses' : 'chat');
+    ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }]), stream: false }
+    : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false }, provider, respStyle ? 'responses' : 'chat');
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -26196,7 +26339,7 @@ async function singleSummaryCall(provider, messages, model, econCtx) {
   } finally { if (timer) clearTimeout(timer); }
 }
 
-async function providerSummaryCall(provider, history, opts) {
+async function providerSummaryCallCore(provider, history, opts) {
   const base = providerBaseWithV1(provider.baseUrl);
   const model = String((opts && opts.model) || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!base || !model || typeof fetch !== 'function') {
@@ -26296,6 +26439,16 @@ async function providerSummaryCall(provider, history, opts) {
   final.promptTokensEst = aggEst;
   final.mapReduce = { chunks: chunks.length, rounds: Math.max(1, calls.length - chunks.length) };
   return final;
+}
+
+// 105c: 实体抽检 wrapper —— providerSummaryCallCore 的唯一出口增强点。开关关/摘要不成功/抽检内部异常
+// 都原样透传;只有 sc.ok 且显式开启时才做抽样检查与一次定向修补(见 applySummaryEntityCheck)。
+async function providerSummaryCall(provider, history, opts) {
+  const sc = await providerSummaryCallCore(provider, history, opts);
+  if (!sc || !sc.ok) return sc;
+  if (!summaryEntityCheckEnabled(opts && opts.config)) return sc;
+  const model = String(sc.model || (opts && opts.model) || (provider && provider.model) || '').trim();
+  return applySummaryEntityCheck(provider, history, sc, model, opts);
 }
 
 // v1.4-OSS 用量看板(补): record a compaction summary call as an 'aux' ledger row (kind:'aux', note:'compact').
@@ -26436,7 +26589,7 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
   if (!resolved.provider || resolved.isDefault) return { ok: false, error: 'no external compaction model selected' };
   const history = compactHistoryFromSession(session);
   if (!history.length) return { ok: false, error: 'no conversation history to compact' };
-  const sc = await providerSummaryCall(resolved.provider, history, { model: resolved.model, auxCtx: { sessionId: String(sessionId || ''), trigger: 'agent_external_manual' } });
+  const sc = await providerSummaryCall(resolved.provider, history, { model: resolved.model, config, auxCtx: { sessionId: String(sessionId || ''), trigger: 'agent_external_manual' } });
   if (!sc.ok) return { ok: false, error: sc.error };
   recordCompactUsage(session, resolved.provider, sc);
   const beforeTokens = lastSessionContextTokens(session) || estimateHistoryTokens(history);
@@ -26630,6 +26783,7 @@ async function maybeCompactSubHistory(opts) {
     const summaryProvider = compactTarget.provider || provider;
     const sc = await providerSummaryCall(summaryProvider, subHistory, {
       model: compactTarget.model,
+      config,
       auxCtx: {
         ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}),
         ...(subagentId ? { subagentId: String(subagentId) } : {}),
@@ -26669,7 +26823,7 @@ async function runProviderCompact(sessionId) {
   const history = Array.isArray(session.providerHistory) ? session.providerHistory : [];
   if (!history.length) return { ok: false, error: 'no provider history to compact' };
 
-  const sc = await providerSummaryCall(summaryProvider, history, { model: compactTarget.model });
+  const sc = await providerSummaryCall(summaryProvider, history, { model: compactTarget.model, config });
   if (!sc.ok) {
     logEvent({ kind: 'provider_compact', sessionId: session.id, ok: false, provider: summaryProvider.id, model: compactTarget.model, error: sc.error });
     return { ok: false, error: sc.error };
@@ -26758,6 +26912,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     const summaryProvider = compactTarget.provider || provider;
     const sc = await providerSummaryCall(summaryProvider, history, {
       model: compactTarget.model,
+      config,
       auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'auto_L2' },
     });
     if (!sc.ok) {
@@ -35267,6 +35422,10 @@ module.exports = {
   writeSessionNotes,
   readSessionNotes,
   maybeWriteSessionNotes,
+  // 105c: 摘要实体确定性抽检 — exposed for e2e 白盒契约(抽取/检查/开关唯一判定点)。
+  summaryEntityCheckEnabled,
+  extractSummaryEntities,
+  checkSummaryEntities,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

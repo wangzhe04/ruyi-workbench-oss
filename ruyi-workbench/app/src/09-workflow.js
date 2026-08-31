@@ -2122,6 +2122,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             },
           });
           const sc = await providerSummaryCall(provider, session.providerHistory, {
+            config,
             auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
           });
           if (sc.ok) {

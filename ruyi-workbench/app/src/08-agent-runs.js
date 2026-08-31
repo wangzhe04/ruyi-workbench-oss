@@ -725,6 +725,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
           const ev = evaporateHistory(subHistory);
           const sc = await providerSummaryCall(provider, subHistory, {
+            config,
             auxCtx: {
               ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}),
               ...(parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {}),

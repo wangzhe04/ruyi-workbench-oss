@@ -45,6 +45,10 @@ module.exports = {
   writeSessionNotes,
   readSessionNotes,
   maybeWriteSessionNotes,
+  // 105c: 摘要实体确定性抽检 — exposed for e2e 白盒契约(抽取/检查/开关唯一判定点)。
+  summaryEntityCheckEnabled,
+  extractSummaryEntities,
+  checkSummaryEntities,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

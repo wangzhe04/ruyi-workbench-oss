@@ -185,6 +185,7 @@
         "sessionWriteChains",
         "spawnCmdLineLength",
         "staticBase",
+        "summaryEntityCheckEnabled",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
         "syncMcpServersToClaude",
@@ -6209,16 +6210,20 @@
         "OBSERVATION_TEXT_TAIL",
         "SESSION_NOTES_SECTION_INDEXES",
         "SESSION_NOTES_TITLES",
+        "SUMMARY_ENTITY_PATTERNS",
+        "SUMMARY_ENTITY_RULES",
         "SUMMARY_INPUT_BUDGET_RATIO",
         "SUMMARY_PROMPT",
         "SUMMARY_SINGLE_SHOT_MAX_EST",
         "TOOL_RESULT_CAP",
         "_calibKey",
         "agentConversationContextMeta",
+        "applySummaryEntityCheck",
         "buildObservationRecallPrompt",
         "cacheContextLength",
         "cachedContextLength",
         "calibratedEstimate",
+        "checkSummaryEntities",
         "chunkHistoryByBudget",
         "compactHistoryFromSession",
         "compactObservationValue",
@@ -6232,6 +6237,7 @@
         "evaporateHistory",
         "extractContextLength",
         "extractSessionNotes",
+        "extractSummaryEntities",
         "fitHistoryForSummary",
         "isContextOverflowError",
         "lastSessionContextTokens",
@@ -6250,6 +6256,7 @@
         "providerContextWindow",
         "providerConversationContextWindow",
         "providerSummaryCall",
+        "providerSummaryCallCore",
         "recentTurnsBoundary",
         "recordCompactUsage",
         "reduceObservationContent",
@@ -6261,6 +6268,7 @@
         "runProviderCompact",
         "singleSummaryCall",
         "streamChat",
+        "summarySourceText",
         "truncateToolResult",
         "upsertCompactMarker",
         "userBlockStarts",
@@ -6398,6 +6406,13 @@
         {
           "provider": "01-config.js",
           "symbol": "sessionNotesEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "summaryEntityCheckEnabled",
           "kinds": [
             "call"
           ]
@@ -10217,6 +10232,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "summaryEntityCheckEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "syncMcpServersToKimi",
           "kinds": [
             "read"
@@ -12100,6 +12122,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "checkSummaryEntities",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "chunkHistoryByBudget",
           "kinds": [
             "read"
@@ -12171,6 +12200,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "extractSessionNotes",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "extractSummaryEntities",
           "kinds": [
             "read"
           ]
