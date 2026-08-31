@@ -780,6 +780,137 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
   }
 }
 
+// ── 103c: composable lifecycle for small durable JSON state ──────────────────
+// This is deliberately narrower than a database abstraction. NDJSON append logs, session v2 bodies,
+// exit-time synchronous snapshots and externally-owned files keep their dedicated protocols. The helper
+// below only centralizes the lifecycle that small workbench-owned JSON stores were independently rebuilding:
+// schema admission, sanitization, corruption quarantine, bounded collections, serialized atomic writes and
+// an explicit process cache/invalidation contract.
+const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
+  function cloneJson(value) {
+    if (value === undefined) return undefined;
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function storeError(code, message) {
+    const error = new Error(message);
+    error.code = code;
+    return error;
+  }
+
+  function resolvePath(root, dottedPath) {
+    let value = root;
+    for (const key of String(dottedPath || '').split('.').filter(Boolean)) {
+      if (!value || typeof value !== 'object') return null;
+      value = value[key];
+    }
+    return value;
+  }
+
+  function applyCapacity(value, rules) {
+    for (const rule of Array.isArray(rules) ? rules : []) {
+      const target = resolvePath(value, rule && rule.path);
+      const max = Math.max(0, Math.floor(Number(rule && rule.max) || 0));
+      if (!target || !max) continue;
+      if (Array.isArray(target) && target.length > max) target.splice(0, target.length - max);
+      else if (typeof target === 'object') {
+        const keys = Object.keys(target);
+        for (const key of keys.slice(0, Math.max(0, keys.length - max))) delete target[key];
+      }
+    }
+    return value;
+  }
+
+  function create(options = {}) {
+    if (!options.file) throw new TypeError('durable JSON store requires file');
+    const id = String(options.id || 'durable-json');
+    const schemaKey = String(options.schemaKey || 'schema');
+    const schemaVersion = Number.isFinite(options.schemaVersion) ? options.schemaVersion : null;
+    const cacheEnabled = options.cache !== false;
+    let cached = null;
+    let hasCache = false;
+    let writeChain = Promise.resolve();
+
+    const filePath = () => String(typeof options.file === 'function' ? options.file() : options.file);
+    const fallback = () => cloneJson(typeof options.defaultValue === 'function' ? options.defaultValue() : options.defaultValue);
+
+    function prepare(raw, forWrite) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        throw storeError('EDURABLE_SHAPE', id + ': root must be an object');
+      }
+      const actualSchema = raw[schemaKey];
+      if (schemaVersion !== null && actualSchema !== undefined && actualSchema !== schemaVersion) {
+        throw storeError('EDURABLE_SCHEMA', id + ': unsupported ' + schemaKey + ' ' + String(actualSchema));
+      }
+      let value = cloneJson(raw);
+      if (typeof options.sanitize === 'function') value = options.sanitize(value);
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw storeError('EDURABLE_SANITIZE', id + ': sanitizer returned a non-object');
+      }
+      if (schemaVersion !== null) value[schemaKey] = schemaVersion;
+      applyCapacity(value, options.capacity);
+      if (typeof options.validate === 'function' && options.validate(value) !== true) {
+        throw storeError('EDURABLE_VALIDATE', id + ': validation failed');
+      }
+      return value;
+    }
+
+    function freshDefault() {
+      const value = fallback();
+      return prepare(value && typeof value === 'object' ? value : {}, false);
+    }
+
+    function quarantine(error) {
+      const file = filePath();
+      const corruptPath = file + '.corrupt';
+      try { fsModule.copyFileSync(file, corruptPath); } catch { /* best effort: original remains untouched */ }
+      if (typeof options.onCorrupt === 'function') {
+        try { options.onCorrupt(error, { id, file, corruptPath }); } catch { /* diagnostics never block recovery */ }
+      }
+    }
+
+    function readSync() {
+      if (cacheEnabled && hasCache) return cached;
+      let value;
+      try {
+        value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
+      } catch (error) {
+        if (!(error && error.code === 'ENOENT')) quarantine(error);
+        value = freshDefault();
+      }
+      if (cacheEnabled) { cached = value; hasCache = true; }
+      return value;
+    }
+
+    function write(value) {
+      let snapshot;
+      try { snapshot = prepare(value, true); }
+      catch (error) { return Promise.reject(error); }
+      // Advance the write-through cache at enqueue time. Updating it on I/O completion lets an older queued
+      // write temporarily replace newer in-memory state while the next atomic write is still awaiting disk.
+      if (cacheEnabled) { cached = snapshot; hasCache = true; }
+      const pending = writeChain.catch(() => {}).then(async () => {
+        const file = filePath();
+        await fspModule.mkdir(pathModule.dirname(file), { recursive: true });
+        await atomicWriteFn(file, snapshot);
+        return snapshot;
+      });
+      writeChain = pending;
+      return pending;
+    }
+
+    function invalidate() {
+      cached = null;
+      hasCache = false;
+    }
+
+    return { id, readSync, write, invalidate, filePath };
+  }
+
+  return { create, applyCapacity };
+})(fs, fsp, path, atomicWriteJson);
+
+
 // v1.4.1 (audit #4): config.json 原子写 —— 此前用裸 fsp.writeFile,崩溃/断电中途会留下截断文件,下次读
 // safeJsonParse→null → normalizeConfig 把【整份用户配置静默重置为默认】(密钥/服务商/工作区全丢)。
 // 第25波 25.1: 写体收编进 atomicWriteJson;对抗轮修: 全局写链串行化并发 config 写(同 saveSession 理由——
@@ -1684,7 +1815,7 @@ async function generateMcpConfig(mode) {
     },
   };
   addExternalMcpServersToMap(mcp.mcpServers, cfg);
-  await fsp.writeFile(configPath, JSON.stringify(mcp, null, 2), 'utf8');
+  await atomicWriteJson(configPath, mcp);
   return configPath;
 }
 
@@ -1718,7 +1849,7 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   // In adaptive mode external schemas stay behind the typed invoke proxies, so a simple Claude turn
   // does not ingest an entire desktop/Office catalog. Full mode retains the historical direct servers.
   if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg);
-  await fsp.writeFile(configPath, JSON.stringify(mcp, null, 2), 'utf8');
+  await atomicWriteJson(configPath, mcp);
   return configPath;
 }
 
@@ -1740,7 +1871,7 @@ async function generateAgentNodeMcpConfig(subagentId, mode, allowedServerIds) {
       const allowed = new Set(allowedServerIds);
       raw.mcpServers = Object.fromEntries(Object.entries(raw.mcpServers || {}).filter(([id]) => allowed.has(id)));
     }
-    await fsp.writeFile(configPath, JSON.stringify(raw, null, 2), 'utf8');
+    await atomicWriteJson(configPath, raw);
   } catch { /* best-effort — fall through with the unfiltered config rather than fail the node */ }
   return configPath;
 }

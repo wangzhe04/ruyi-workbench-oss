@@ -10,6 +10,9 @@
 // Claude CLI 自己持有内部工具循环，因此适配器只发 turn/model 边界；Provider 原生循环还会发
 // preToolCall/postToolCall。后续若引入可变 middleware，必须另立显式契约并重新过权限安全评审。
 // ============================================================================
+// 103b 隔离试点：内部状态与 helper 收进单一命名空间，只把七个稳定入口暴露给拼接作用域。
+// 依赖以 IIFE 参数显式注入；运行时加载顺序和 module.exports 的公共形状保持不变。
+const AgentLoopHooks = ((makeIdFn, logEventFn, redactFn) => {
 const AGENT_LOOP_HOOK_PHASES = Object.freeze([
   'onTurnStart',
   'beforeModelCall',
@@ -23,7 +26,7 @@ const AGENT_LOOP_HOOKS = new Map();
 const AGENT_LOOP_HOOK_TIMEOUT_MS = 250;
 
 function makeAgentLoopTraceId() {
-  return makeId('trace');
+  return makeIdFn('trace');
 }
 
 function cloneAgentLoopHookValue(value, depth = 0, seen = new WeakSet()) {
@@ -118,13 +121,13 @@ async function dispatchAgentLoopHooks(phase, context) {
     } catch (error) {
       failed += 1;
       try {
-        logEvent({
+        logEventFn({
           kind: 'agent_loop_hook_error',
           hookId: hook.id,
           phase,
           traceId: String(snapshot.traceId || ''),
           code: error && error.code === 'AGENT_LOOP_HOOK_TIMEOUT' ? 'timeout' : 'exception',
-          error: redact(String(error && error.message || error)).slice(0, 500),
+          error: redactFn(String(error && error.message || error)).slice(0, 500),
         });
       } catch { /* hook telemetry must never break the turn */ }
     }
@@ -140,6 +143,17 @@ function summarizeAgentLoopToolResult(result) {
     ok: !(isObject && result.ok === false),
     bytes,
     keys: isObject ? Object.keys(result).slice(0, 40) : [],
-    error: isObject && result.ok === false && result.error ? redact(String(result.error)).slice(0, 500) : undefined,
+    error: isObject && result.ok === false && result.error ? redactFn(String(result.error)).slice(0, 500) : undefined,
   };
 }
+
+return Object.freeze({
+  AGENT_LOOP_HOOK_PHASES,
+  registerAgentLoopHook,
+  unregisterAgentLoopHook,
+  listAgentLoopHooks,
+  dispatchAgentLoopHooks,
+  makeAgentLoopTraceId,
+  summarizeAgentLoopToolResult,
+});
+})(makeId, logEvent, redact);

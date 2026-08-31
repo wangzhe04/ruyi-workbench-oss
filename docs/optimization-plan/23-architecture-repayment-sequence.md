@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-08-30）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**103a 治理面已交付**（路由清册+静态门、决策端点快照、facts 修复，见 §2 内 Release Brief）；descriptor 运行时迁移按域分批，103b 为下一切片。
+> **状态（2026-08-31）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）已交付**；当前下一实施入口为第 104 波零行为内聚与上下文结构。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -13,7 +13,7 @@
 | 提案判断 | 2026-08-30 主树事实 | 裁决 |
 |---|---|---|
 | 四类决策没有唯一 command core | `13d-core-domain-routes.js` 已有 `decideIntervention()`；contract 与 question／permission／plan／pool 四类经典入口均为适配器；`interventions-persist.e2e.js` 已锁 CAS、重放、混合路径与四类 source | **已交付，不重做**；103a 只补响应快照与路由声明治理 |
-| 17 个模块、1391 个共享顶层符号 | manifest 当前为 **24 个**拼接模块；共享作用域与隐式依赖仍存在，但旧符号数字已失效 | 问题成立、数字作废；103b 重新生成基线并以机器图为准 |
+| 17 个模块、1391 个共享顶层符号 | manifest 当前为 **24 个**拼接模块；共享作用域与隐式依赖仍存在，但旧符号数字已失效 | 问题成立、数字作废；以 103b 机器图为准 |
 | 88 处 `pathname ===` 路由链 | `13*` 已做部分域拆分，但全树仍有 **100+ 路径判定点**；`ROUTE_AUTH` 已声明式且 deny-by-default，handler 映射仍是 if 链 | 收敛“鉴权 + 匹配 + handler”为可校验的单一事实源，但不得削弱既有鉴权纵深 |
 | 至少 7 个 JSON 私役都在重造原子写 | 公共 `atomicWriteJson()` 已存在且多数写路径已复用；`context-calibration.json` 等读校验／隔离／缓存策略仍有私役 | 不按“7 处”硬凑迁移数；先清册，再补公共读写生命周期能力 |
 | 默认回归 227、unit 6 组 | 目录重算为 **237 个 E2E、14 组 unit suite**；`facts.json` 仍写 13，已有新鲜度漂移 | 旧数字作废；103a 先恢复 facts 新鲜度并让出门门以目录重算交叉校验 |
@@ -21,7 +21,7 @@
 因此，本线采纳“先偿还结构债、再做上下文行为优化、最后汇入 3.0 证据与发布门”的主张，同时作四项修订：
 
 1. 不把已交付的 T1／T2／S2 改记为未完成，也不重复实现 command core。
-2. 不在一次机械提交中强制 24 个模块整体 IIFE 化；先建立 `provides/requires` 契约与 CI，再按强连通分量、叶子模块和高变更域分批隔离。
+2. 不在一次机械提交中强制全体模块整体 IIFE 化；先建立 `provides/requires` 契约与 CI，再按强连通分量、叶子模块和高变更域分批隔离。
 3. durableStore 复用 `atomicWriteJson()`，只新增缺失的读取、校验、隔离、版本、容量与缓存组合能力。
 4. 103 是后续高触碰结构工作的前置；104／105 只约束上下文相关方向，不把所有 22 号无关实验无限期阻塞在整线之后。
 
@@ -82,6 +82,22 @@
 
 **出门判据**：依赖图可重复生成且与源码一致；没有新增隐式边；至少完成一个代表性模块簇的隔离试点并形成迁移模板；行为、产物执行语义与全量测试不变。若全树隔离成本高于收益，剩余簇以成文清单进入 104，不假装完成。
 
+#### 103b Release Brief（2026-08-31）
+
+- **问题**：24 个构建期拼接模块共享同一顶层作用域，跨模块读取／调用没有机器契约；新增隐式边、重复顶层名、循环边和依赖声明顺序倒退只能靠人肉发现。旧提案的 1391 符号基线已失效，也没有可复用的物理隔离模板。
+- **非目标**：不更改拼接顺序、运行时加载器、API／提示词／配置语义或 `module.exports` 公共形状；不在一个提交里把全树 IIFE 化；不假装已经拆开存量单一强连通分量；不增加 npm 运行时依赖。
+- **交付物**：
+  - `dev-harness/module-dependency-graph.js` 零依赖扫描 manifest 全部模块，识别顶层声明与跨模块 read／call（含 template interpolation，排除注释／字符串），生成 `app/src/module-contracts.json`、机器图 `docs/architecture/module-dependency-graph.json` 与人读图 `.md`；`--check` 对三者做逐字节新鲜度校验。
+  - 独立 `app/src/module-dependency-policy.json` 锁定存量循环／前向边债务上限；常规 `--write` 永不自动放宽。新隐式引用先触发契约漂移，重复顶层名始终拒绝，新循环边或依赖较晚模块的前向边另行拒绝。
+  - 当前可重复基线：**24 模块／1386 个顶层 provides／1502 个跨模块 requires／197 条模块边／59 条前向边／0 重复导出／1 个强连通分量**。这组数只描述当前拼接架构，不冒称 59 条前向边或单一 SCC 已偿还。
+  - `module-dependency-graph.static.e2e.js` 锁生成物、manifest 覆盖、重复名、债务上限、扫描器对抗夹具和隔离试点消费者；新增后 `facts.json` 为 240 E2E（233 默认 + 7 live），README 同步恢复 24 模块／14 unit 等门面事实。
+  - **隔离试点模板**：`06c-agent-loop-hooks.js` 以依赖注入 IIFE 收口，顶层 provides 从 15 个降为唯一 `AgentLoopHooks`；内部只注入 `makeId/logEvent/redact`，Claude、Kimi、provider loop 与 `14-main` 统一经命名空间消费；七个既有导出键及语义保持不变。迁移模板为“先画边 → 收内部符号 → 显式注入 requires → 消费方改命名空间 → 保持公共适配器 → 重建／全量门”。
+  - 契约／policy 随 overlay 源码审计面发布；源码行号变化后同步重生成 103a 路由清册，101 判定点／92 鉴权行保持零漂移。
+- **证据**：`module-dependency-graph.static.e2e.js` 与 `agent-loop.e2e.js` 定向全绿；静态快通道 **42/42**；最终 `run-all.js --parallel 2` 为 **233 pass／0 fail／0 flaky**，另 7 个真实外部依赖 live probe 按既有规则跳过；unit 14 组、build freshness、`node --check`、`git diff --check` 全绿。一次四路压力跑曾出现 5 fail／3 flaky，8 件全部串行复跑通过，降至两路后的完整同批复核零红，判定为本机子进程／端口资源饱和而非产品回归。
+- **回退**：删除扫描器、静态门、契约／policy／图文档及 overlay 两个载荷项；将 `AgentLoopHooks` 消费点与 `06c` 恢复为原共享顶层符号；重建 `server.js`、manifest 行区间、路由清册和 facts。无持久化数据迁移需要回退。
+- **发布判断**：零用户可见行为，不单独触发版本升级；可随后续 Escapade 补丁或结构批次发布。103b 出门，不要求先消灭全树 SCC；后续 104 物理拆分必须沿用本契约门，不能扩大债务上限来换取通过。
+- **遗留／下一步**：单一 SCC 与 59 条前向边是后续隔离候选清单，不在本切片机械清零。第 103 波当前转入 **103c durable data surface**：先盘点所有 JSON／NDJSON／sidecar 状态 owner 与生命周期，再逐 store 迁移或登记豁免。
+
 ### 103c · durable data surface
 
 **范围**：
@@ -91,6 +107,19 @@
 - 优先迁移 `context-calibration.json` 等确有重复生命周期逻辑的状态；每个 store 独立提交、独立故障注入、独立回退。迁移数量由清册决定，不以“凑够 7 个”为完成标准。
 
 **出门判据**：清册 100% 覆盖；每个私役完成迁移或登记可审计豁免；已迁移项通过撕裂、非法 schema、容量、并发写、缓存失效与恢复测试；存量文件无需无理由重写。
+
+#### 103c Release Brief（2026-08-31）
+
+- **问题**：小型 JSON 状态虽已大多复用 `atomicWriteJson()`，读取校验、schema、损坏隔离、容量和进程缓存仍由各域自行拼装；`context-calibration.json` 还保留固定 `.tmp`、私有写链、私有 `.corrupt` 复制和双 bucket 淘汰逻辑，专用 append／session／外部权属协议也没有统一清册说明为何不迁。
+- **非目标**：不把 NDJSON append、session v2、退出期同步 flush、gzip 快照或外部引擎文件强塞进通用 JSON 抽象；不改 API、默认配置、模型输入、校准算法和存量文件的可读形状；不因读取旧文件而无理由重写。
+- **交付**：
+  - `durable-state-inventory.js` 生成机器／人读清册 `docs/architecture/durable-state-inventory.{json,md}`，覆盖 **39 个 surface**：14 个共享生命周期、12 个专用协议、8 个外部权属、5 个可重建缓存；每项均列 owner、schema、写原语、损坏、容量、缓存、恢复和迁移／豁免裁决，并以源码 anchor 阻止清册静默失真。
+  - 在基础模块 `01-config.js` 内新增隔离命名空间 `DurableJsonStore`：组合 schema admission、sanitize、`.corrupt` 字节级隔离、object／array 容量淘汰、串行原子写、进程缓存与显式失效；缺文件只返回默认值，不主动落盘。最初拆成新拼接模块的方案被 103b 门识别为新增 SCC 边后撤回，未放宽依赖 policy。
+  - `context-calibration.json` 作为完整生命周期试点迁移：legacy 无 schema 文件继续可读，后续真实写入升级为 schema 1；两个 bucket 各保留 200 条，算法与 45d 原行为一致。生成 MCP 配置、`runtime.json` 和 `storage-trend.json` 的普通 JSON 写同步收编至 `atomicWriteJson()`。
+  - 新增两件门：`durable-json-store.e2e.js` 注入撕裂、非法 schema、容量、并发写、缓存失效与恢复；`durable-state-inventory.static.e2e.js` 锁清册新鲜度、字段完整性、试点接线和固定 tmp 债务。manifest 保持 **24 模块**，依赖图 policy 不为本切片放宽。
+- **证据**：两件 103c 新门、`context-compact-v2.e2e.js` 与 `autonomy-durability.e2e.js` 定向全绿；静态快通道 **43/43**；最终 `run-all.js --parallel 2` 为 **235 pass／0 fail／4 flaky**，另 7 个 live probe 按既有规则跳过，unit 14 组与 build freshness 全绿。4 件 flaky（`mission-result`／`autonomy-durability`／`interventions-c4`／`interventions-pool`）全部串行复跑通过，均非 103c 新门失败；依赖图 check、清册 check、路由／facts 新鲜度与 `git diff --check` 另行复核。
+- **回退**：删除清册生成器／两份清册／两件新门与 `DurableJsonStore` 命名空间；把 context calibration 恢复为原私有缓存／写链／隔离／淘汰逻辑，普通 JSON 写点恢复原调用后重建 `server.js`、manifest、依赖图、路由清册和 facts。新 schema 字段为附加字段，旧实现会忽略；无需数据降级。
+- **发布判断**：零用户可见行为，可随后续 Escapade 补丁或结构批次发布；103c 与第 103 波出门。下一入口为 **104**，沿用清册和依赖契约做职责搬迁，不在 104 混入上下文行为优化。
 
 ### 第 103 波总门与估时
 

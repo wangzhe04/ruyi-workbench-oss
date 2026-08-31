@@ -27,6 +27,9 @@ const PAYLOAD_FILES = [
   // 第43波: 模块化源码 + 拼接器随包发布(运行时只用产物,src 保气隙审计面)
   'app/build.js',
   'app/src/manifest.json',
+  // 103b:拼接作用域契约与架构债务上限随源码发布，保持离线审计面完整。
+  'app/src/module-contracts.json',
+  'app/src/module-dependency-policy.json',
   ...srcModules,
   'app/public/index.html',
   'app/public/app.js',

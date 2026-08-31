@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 101(精确 88 / 前缀 12 / 正则 1),ROUTE_AUTH 92 条,生成于 2026-08-30T15:44:38.329Z。
+> 判定点 101(精确 88 / 前缀 12 / 正则 1),ROUTE_AUTH 92 条,生成于 2026-08-31T03:04:56.423Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -139,10 +139,10 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:2 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 103 件 |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:5 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 103 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:2 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 105 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:5 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 105 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:11 | session-bulk-cleanup.e2e.js |
-| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:18 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 35 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:18 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 40 件 |
 
 ## steer(2)
 

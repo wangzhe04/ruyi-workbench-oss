@@ -450,7 +450,7 @@ async function maybeRecordStorageTrend(stats) {
     for (const [k, s] of Object.entries(stats.stores || {})) stores[k] = s.bytes;
     trend.push({ ts: nowIso(), totalBytes: stats.totalBytes, stores, engineBytes: stats.engineTranscripts ? stats.engineTranscripts.bytes : 0 });
     while (trend.length > STORAGE_TREND_MAX) trend.shift();
-    await fsp.writeFile(storageTrendPath(), JSON.stringify(trend), 'utf8');
+    await atomicWriteJson(storageTrendPath(), trend);
   } catch { /* 趋势是观测辅助,失败不影响主流程 */ }
 }
 // 在册子进程快照:引擎回合(activeChildren)+ 桥接 MCP(mcpClients)。pid 收齐后一次 tasklist 匹配 RSS。

@@ -5,7 +5,7 @@ async function runClaudeTurn({
   const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
-  const activeTraceId = _traceId || makeAgentLoopTraceId(session.id, _resumeRecoveryAttempt ? session.turnSeq : (Number(session.turnSeq) || 0) + 1);
+  const activeTraceId = _traceId || AgentLoopHooks.makeAgentLoopTraceId(session.id, _resumeRecoveryAttempt ? session.turnSeq : (Number(session.turnSeq) || 0) + 1);
   onEvent = evt => {
     const normalized = evt && typeof evt === 'object' && !evt.traceId ? { ...evt, traceId: activeTraceId } : evt;
     turnSegments.consume(normalized);
@@ -92,7 +92,7 @@ async function runClaudeTurn({
       ...(driverAuto ? { source: 'mission-driver' } : {}), // 第26波b: 标记账本驱动器自动续跑,前端可区分显示
     });
     await saveSession(session);
-    await dispatchAgentLoopHooks('onTurnStart', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
       engine: 'claude', model: currentClaudeModel || 'default', cwd: workingDir,
     });
@@ -111,11 +111,11 @@ async function runClaudeTurn({
     session.messages.push({ role: 'assistant', content: fallback, segments: [{ id: 'segment-1', type: 'text', text: fallback }], traceId: activeTraceId, createdAt: nowIso(), source: 'fallback' });
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: fallback });
-    await dispatchAgentLoopHooks('onError', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', errorClass: 'cli_missing', error: `${agentCliLabel} CLI not found`,
     });
-    await dispatchAgentLoopHooks('onTurnEnd', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onTurnEnd', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', ok: false, aborted: false, errorClass: 'cli_missing',
       durationMs: Date.now() - turnStartedAt, toolCalls: 0,
@@ -442,7 +442,7 @@ async function runClaudeTurn({
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
 
-  await dispatchAgentLoopHooks('beforeModelCall', {
+  await AgentLoopHooks.dispatchAgentLoopHooks('beforeModelCall', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
     model: currentClaudeModel || 'default', iteration: _resumeRecoveryAttempt ? 1 : 0,
     resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt),
@@ -947,13 +947,13 @@ async function runClaudeTurn({
     },
   });
   if (!claudeTurnOk && !wasStopped) {
-    await dispatchAgentLoopHooks('onError', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', exitCode: exit.code, errorClass: 'claude_cli_error',
       error: redact(String(exit.error && exit.error.message || stderrTrimmed || `${agentCliLabel} CLI failed`)).slice(0, 1000),
     });
   }
-  await dispatchAgentLoopHooks('onTurnEnd', {
+  await AgentLoopHooks.dispatchAgentLoopHooks('onTurnEnd', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
     model: currentClaudeModel || 'default', ok: claudeTurnOk, aborted: wasStopped, exitCode: exit.code,
     durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: toolCalls.length,

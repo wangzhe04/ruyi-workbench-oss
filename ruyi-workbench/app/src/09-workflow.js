@@ -1400,7 +1400,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const chatUrl = base ? base + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
-  activeTraceId = makeAgentLoopTraceId(session.id, plannedTurnSeq);
+  activeTraceId = AgentLoopHooks.makeAgentLoopTraceId(session.id, plannedTurnSeq);
 
   // v1.0-S6 (B): failover candidate sequence = [main baseUrl, ...extraBaseUrls], each normalized через
   // providerBaseWithV1 (so a bare host gets its /v1 like the primary). Each candidate keeps BOTH its display
@@ -1453,7 +1453,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   await saveSession(session);
 
-  await dispatchAgentLoopHooks('onTurnStart', {
+  await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
     engine: 'openai', providerId: provider.id, model, cwd: workingDir,
   });
@@ -1465,11 +1465,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     session.providerHistoryCursor = session.messages.length;
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: msg });
-    await dispatchAgentLoopHooks('onError', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, errorClass: 'provider_misconfigured', error: why,
     });
-    await dispatchAgentLoopHooks('onTurnEnd', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onTurnEnd', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, ok: false, aborted: false, errorClass: 'provider_misconfigured',
       durationMs: Date.now() - turnStartedAt, toolCalls: 0,
@@ -1721,7 +1721,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const key = String(tc.id || `${tc.name}:${iteration}`);
     if (toolHookStartedAt.has(key)) return;
     toolHookStartedAt.set(key, Date.now());
-    await dispatchAgentLoopHooks('preToolCall', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('preToolCall', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, iteration, toolCallId: tc.id, toolName: tc.name,
       input, disposition,
@@ -1732,11 +1732,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const key = String(tc.id || `${tc.name}:${iteration}`);
     const startedAt = toolHookStartedAt.get(key);
     toolHookStartedAt.delete(key);
-    await dispatchAgentLoopHooks('postToolCall', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('postToolCall', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, iteration, toolCallId: tc.id, toolName: tc.name,
       disposition, durationMs: startedAt ? Date.now() - startedAt : 0,
-      result: summarizeAgentLoopToolResult(result),
+      result: AgentLoopHooks.summarizeAgentLoopToolResult(result),
     });
     if (config.runtimeFailureTelemetryV1 === true || config.runtimeOptimizationShadowV1 === true) {
       try {
@@ -2044,7 +2044,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
       estStreamBase = estBeforeCall; estStreamText = '';
       emitContextEstimate(true);
-      await dispatchAgentLoopHooks('beforeModelCall', {
+      await AgentLoopHooks.dispatchAgentLoopHooks('beforeModelCall', {
         traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
         providerId: provider.id, model, iteration: iter, withTools: useTools,
         toolCount: useTools ? toolLoading.current().length : 0, estimatedContextTokens: estBeforeCall,
@@ -3026,13 +3026,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     },
   });
   if (errorClass || (!ok && !wasStopped)) {
-    await dispatchAgentLoopHooks('onError', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, aborted: wasStopped, errorClass,
       error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined,
     });
   }
-  await dispatchAgentLoopHooks('onTurnEnd', {
+  await AgentLoopHooks.dispatchAgentLoopHooks('onTurnEnd', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
     providerId: provider.id, model, ok: ok && !wasStopped, aborted: wasStopped, errorClass,
     durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: toolCalls.length,

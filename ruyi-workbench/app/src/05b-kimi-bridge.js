@@ -2387,7 +2387,7 @@ async function runKimiAcpTurnPrepared(context) {
       agentCliType: 'kimi', agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined,
     });
     logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', agentDriver: 'kimi-acp', model: config.model || 'default', promptLen: fullPrompt.length });
-    await dispatchAgentLoopHooks('beforeModelCall', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('beforeModelCall', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', iteration: 0, resumeRecoveryAttempt: false,
     });
@@ -2735,11 +2735,11 @@ async function runKimiAcpTurnPrepared(context) {
     type: turnOk || wasStopped ? 'progress' : 'failure', cursor: { turnSeq: session.turnSeq, engine: 'claude' },
     detail: { ok: turnOk, aborted: wasStopped, errorClass: turnOk || wasStopped ? '' : 'kimi_acp_error', filesChanged: turnSummary.filesChanged.length, artifacts: turnSummary.artifacts.length, commands: Number(turnSummary.commands) || 0 },
   });
-  if (!turnOk && !wasStopped) await dispatchAgentLoopHooks('onError', {
+  if (!turnOk && !wasStopped) await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
     model: state.model || currentClaudeModel || 'default', exitCode: 1, errorClass: 'kimi_acp_error', error: redact(errorText).slice(0, 1000),
   });
-  await dispatchAgentLoopHooks('onTurnEnd', {
+  await AgentLoopHooks.dispatchAgentLoopHooks('onTurnEnd', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
     model: state.model || currentClaudeModel || 'default', ok: turnOk, aborted: wasStopped, exitCode: turnOk ? 0 : 1,
     durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: cleanToolCalls.length,

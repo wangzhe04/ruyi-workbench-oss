@@ -1389,8 +1389,8 @@ async function startServer(opts) {
   // Port+token handshake file for the permission-bridge MCP child; also useful for tooling.
   const runtimeToken = crypto.randomBytes(16).toString('hex');
   RUNTIME.port = port; RUNTIME.host = host; RUNTIME.token = runtimeToken;
-  await fsp.writeFile(path.join(paths.data, 'runtime.json'),
-    JSON.stringify({ port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() }, null, 2), 'utf8').catch(() => {});
+  await atomicWriteJson(path.join(paths.data, 'runtime.json'),
+    { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() }).catch(() => {});
   console.log(`${APP_NAME} ${VERSION}  (launch: ${LAUNCH_MODE}, overlay ${OVERLAY_ID})`);
   console.log(`UI: ${url}`);
   console.log(`Data: ${paths.data}`);

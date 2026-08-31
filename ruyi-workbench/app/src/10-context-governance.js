@@ -79,43 +79,41 @@ function providerContextWindow(provider, model) {
 //   (b) 窗口超限学习:context 类 400 发生时的估算占用 × 0.9 记为该 provider+model 的窗口上限,
 //       只降不升(保守);providerContextWindow 单咽喉点应用。条目 ≤200(超出按插入序淘汰)。
 const CONTEXT_CALIBRATION_MAX = 200;
-let _ctxCalib = null; // { factors: {key:{f,n}}, windowCaps: {key:{cap,at}} }
-function loadContextCalibration() {
-  if (_ctxCalib) return _ctxCalib;
-  _ctxCalib = { factors: {}, windowCaps: {} };
-  try {
-    const j = JSON.parse(fs.readFileSync(path.join(paths.data, 'context-calibration.json'), 'utf8'));
-    if (j && typeof j === 'object') { if (j.factors) _ctxCalib.factors = j.factors; if (j.windowCaps) _ctxCalib.windowCaps = j.windowCaps; }
-  } catch (e) {
-    // 45f 对抗轮 P2-1:文件不存在与【文件损坏】必须分流 —— 损坏时静默重建空史,下次写回就把
-    // 全部学习成果无声清掉。损坏走 .corrupt 隔离(沿用 session 文件同款先例)+ 落账,再从空史重建。
-    if (e && e.code !== 'ENOENT') {
-      try { fs.copyFileSync(path.join(paths.data, 'context-calibration.json'), path.join(paths.data, 'context-calibration.json.corrupt')); } catch { /* ignore */ }
-      try { logEvent({ kind: 'context_calibration_corrupt', error: String(e && e.message || e).slice(0, 200) }); } catch { /* ignore */ }
+const contextCalibrationStore = DurableJsonStore.create({
+  id: 'context-calibration',
+  file: () => path.join(paths.data, 'context-calibration.json'),
+  schemaVersion: 1,
+  defaultValue: () => ({ schema: 1, factors: {}, windowCaps: {} }),
+  sanitize(value) {
+    const factors = value && value.factors && typeof value.factors === 'object' && !Array.isArray(value.factors) ? value.factors : {};
+    const windowCaps = value && value.windowCaps && typeof value.windowCaps === 'object' && !Array.isArray(value.windowCaps) ? value.windowCaps : {};
+    for (const [key, sample] of Object.entries(factors)) {
+      if (!sample || !Number.isFinite(Number(sample.f)) || !Number.isFinite(Number(sample.n)) || Number(sample.n) < 0) delete factors[key];
+      else factors[key] = { f: Math.min(3, Math.max(0.5, Number(sample.f))), n: Math.floor(Number(sample.n)) };
     }
-  }
-  return _ctxCalib;
+    for (const [key, learned] of Object.entries(windowCaps)) {
+      if (!learned || !Number.isFinite(Number(learned.cap)) || Number(learned.cap) <= 0) delete windowCaps[key];
+      else windowCaps[key] = { cap: Math.floor(Number(learned.cap)), at: typeof learned.at === 'string' ? learned.at.slice(0, 64) : '' };
+    }
+    return { schema: 1, factors, windowCaps };
+  },
+  validate: value => value.schema === 1 && !!value.factors && !!value.windowCaps,
+  capacity: [
+    { path: 'factors', max: CONTEXT_CALIBRATION_MAX },
+    { path: 'windowCaps', max: CONTEXT_CALIBRATION_MAX },
+  ],
+  onCorrupt(error) {
+    try { logEvent({ kind: 'context_calibration_corrupt', error: String(error && error.message || error).slice(0, 200) }); } catch { /* ignore */ }
+  },
+});
+function loadContextCalibration() {
+  return contextCalibrationStore.readSync();
 }
 const _calibKey = (providerId, model) => String(providerId || '') + '/' + String(model || '');
-let _calibWriteChain = Promise.resolve();
 function persistContextCalibration() {
   // 单写者假设(45f 对抗轮 P2-2 裁决):note* 调用点全部在 serve 进程内(MCP 子进程走 HTTP loopback,
   // 不是写者);多 serve 实例共享 dataRoot 是窄面,接受互覆,不做跨进程合并。
-  _calibWriteChain = _calibWriteChain.then(async () => {
-    try {
-      const c = loadContextCalibration();
-      for (const bucket of ['factors', 'windowCaps']) {
-        const keys = Object.keys(c[bucket]);
-        if (keys.length > CONTEXT_CALIBRATION_MAX) for (const k of keys.slice(0, keys.length - CONTEXT_CALIBRATION_MAX)) delete c[bucket][k];
-      }
-      // 45f 对抗轮 P2-1:tmp+rename 原子写 —— 写中途崩溃不留撕裂 JSON(撕裂曾会被静默重建清空学习)。
-      const file = path.join(paths.data, 'context-calibration.json');
-      const tmp = file + '.tmp';
-      await fsp.writeFile(tmp, JSON.stringify(c), 'utf8');
-      await fsp.rename(tmp, file);
-    } catch { /* 记账永不阻断 */ }
-  });
-  return _calibWriteChain;
+  return contextCalibrationStore.write(loadContextCalibration()).catch(() => { /* 记账永不阻断 */ });
 }
 function noteEstimateSample(providerId, model, estimated, actual) {
   try {

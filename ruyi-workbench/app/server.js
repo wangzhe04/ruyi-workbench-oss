@@ -1257,6 +1257,137 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
   }
 }
 
+// ── 103c: composable lifecycle for small durable JSON state ──────────────────
+// This is deliberately narrower than a database abstraction. NDJSON append logs, session v2 bodies,
+// exit-time synchronous snapshots and externally-owned files keep their dedicated protocols. The helper
+// below only centralizes the lifecycle that small workbench-owned JSON stores were independently rebuilding:
+// schema admission, sanitization, corruption quarantine, bounded collections, serialized atomic writes and
+// an explicit process cache/invalidation contract.
+const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
+  function cloneJson(value) {
+    if (value === undefined) return undefined;
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function storeError(code, message) {
+    const error = new Error(message);
+    error.code = code;
+    return error;
+  }
+
+  function resolvePath(root, dottedPath) {
+    let value = root;
+    for (const key of String(dottedPath || '').split('.').filter(Boolean)) {
+      if (!value || typeof value !== 'object') return null;
+      value = value[key];
+    }
+    return value;
+  }
+
+  function applyCapacity(value, rules) {
+    for (const rule of Array.isArray(rules) ? rules : []) {
+      const target = resolvePath(value, rule && rule.path);
+      const max = Math.max(0, Math.floor(Number(rule && rule.max) || 0));
+      if (!target || !max) continue;
+      if (Array.isArray(target) && target.length > max) target.splice(0, target.length - max);
+      else if (typeof target === 'object') {
+        const keys = Object.keys(target);
+        for (const key of keys.slice(0, Math.max(0, keys.length - max))) delete target[key];
+      }
+    }
+    return value;
+  }
+
+  function create(options = {}) {
+    if (!options.file) throw new TypeError('durable JSON store requires file');
+    const id = String(options.id || 'durable-json');
+    const schemaKey = String(options.schemaKey || 'schema');
+    const schemaVersion = Number.isFinite(options.schemaVersion) ? options.schemaVersion : null;
+    const cacheEnabled = options.cache !== false;
+    let cached = null;
+    let hasCache = false;
+    let writeChain = Promise.resolve();
+
+    const filePath = () => String(typeof options.file === 'function' ? options.file() : options.file);
+    const fallback = () => cloneJson(typeof options.defaultValue === 'function' ? options.defaultValue() : options.defaultValue);
+
+    function prepare(raw, forWrite) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        throw storeError('EDURABLE_SHAPE', id + ': root must be an object');
+      }
+      const actualSchema = raw[schemaKey];
+      if (schemaVersion !== null && actualSchema !== undefined && actualSchema !== schemaVersion) {
+        throw storeError('EDURABLE_SCHEMA', id + ': unsupported ' + schemaKey + ' ' + String(actualSchema));
+      }
+      let value = cloneJson(raw);
+      if (typeof options.sanitize === 'function') value = options.sanitize(value);
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw storeError('EDURABLE_SANITIZE', id + ': sanitizer returned a non-object');
+      }
+      if (schemaVersion !== null) value[schemaKey] = schemaVersion;
+      applyCapacity(value, options.capacity);
+      if (typeof options.validate === 'function' && options.validate(value) !== true) {
+        throw storeError('EDURABLE_VALIDATE', id + ': validation failed');
+      }
+      return value;
+    }
+
+    function freshDefault() {
+      const value = fallback();
+      return prepare(value && typeof value === 'object' ? value : {}, false);
+    }
+
+    function quarantine(error) {
+      const file = filePath();
+      const corruptPath = file + '.corrupt';
+      try { fsModule.copyFileSync(file, corruptPath); } catch { /* best effort: original remains untouched */ }
+      if (typeof options.onCorrupt === 'function') {
+        try { options.onCorrupt(error, { id, file, corruptPath }); } catch { /* diagnostics never block recovery */ }
+      }
+    }
+
+    function readSync() {
+      if (cacheEnabled && hasCache) return cached;
+      let value;
+      try {
+        value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
+      } catch (error) {
+        if (!(error && error.code === 'ENOENT')) quarantine(error);
+        value = freshDefault();
+      }
+      if (cacheEnabled) { cached = value; hasCache = true; }
+      return value;
+    }
+
+    function write(value) {
+      let snapshot;
+      try { snapshot = prepare(value, true); }
+      catch (error) { return Promise.reject(error); }
+      // Advance the write-through cache at enqueue time. Updating it on I/O completion lets an older queued
+      // write temporarily replace newer in-memory state while the next atomic write is still awaiting disk.
+      if (cacheEnabled) { cached = snapshot; hasCache = true; }
+      const pending = writeChain.catch(() => {}).then(async () => {
+        const file = filePath();
+        await fspModule.mkdir(pathModule.dirname(file), { recursive: true });
+        await atomicWriteFn(file, snapshot);
+        return snapshot;
+      });
+      writeChain = pending;
+      return pending;
+    }
+
+    function invalidate() {
+      cached = null;
+      hasCache = false;
+    }
+
+    return { id, readSync, write, invalidate, filePath };
+  }
+
+  return { create, applyCapacity };
+})(fs, fsp, path, atomicWriteJson);
+
+
 // v1.4.1 (audit #4): config.json 原子写 —— 此前用裸 fsp.writeFile,崩溃/断电中途会留下截断文件,下次读
 // safeJsonParse→null → normalizeConfig 把【整份用户配置静默重置为默认】(密钥/服务商/工作区全丢)。
 // 第25波 25.1: 写体收编进 atomicWriteJson;对抗轮修: 全局写链串行化并发 config 写(同 saveSession 理由——
@@ -2161,7 +2292,7 @@ async function generateMcpConfig(mode) {
     },
   };
   addExternalMcpServersToMap(mcp.mcpServers, cfg);
-  await fsp.writeFile(configPath, JSON.stringify(mcp, null, 2), 'utf8');
+  await atomicWriteJson(configPath, mcp);
   return configPath;
 }
 
@@ -2195,7 +2326,7 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   // In adaptive mode external schemas stay behind the typed invoke proxies, so a simple Claude turn
   // does not ingest an entire desktop/Office catalog. Full mode retains the historical direct servers.
   if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg);
-  await fsp.writeFile(configPath, JSON.stringify(mcp, null, 2), 'utf8');
+  await atomicWriteJson(configPath, mcp);
   return configPath;
 }
 
@@ -2217,7 +2348,7 @@ async function generateAgentNodeMcpConfig(subagentId, mode, allowedServerIds) {
       const allowed = new Set(allowedServerIds);
       raw.mcpServers = Object.fromEntries(Object.entries(raw.mcpServers || {}).filter(([id]) => allowed.has(id)));
     }
-    await fsp.writeFile(configPath, JSON.stringify(raw, null, 2), 'utf8');
+    await atomicWriteJson(configPath, raw);
   } catch { /* best-effort — fall through with the unfiltered config rather than fail the node */ }
   return configPath;
 }
@@ -8715,7 +8846,7 @@ async function runClaudeTurn({
   const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
-  const activeTraceId = _traceId || makeAgentLoopTraceId(session.id, _resumeRecoveryAttempt ? session.turnSeq : (Number(session.turnSeq) || 0) + 1);
+  const activeTraceId = _traceId || AgentLoopHooks.makeAgentLoopTraceId(session.id, _resumeRecoveryAttempt ? session.turnSeq : (Number(session.turnSeq) || 0) + 1);
   onEvent = evt => {
     const normalized = evt && typeof evt === 'object' && !evt.traceId ? { ...evt, traceId: activeTraceId } : evt;
     turnSegments.consume(normalized);
@@ -8802,7 +8933,7 @@ async function runClaudeTurn({
       ...(driverAuto ? { source: 'mission-driver' } : {}), // 第26波b: 标记账本驱动器自动续跑,前端可区分显示
     });
     await saveSession(session);
-    await dispatchAgentLoopHooks('onTurnStart', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
       engine: 'claude', model: currentClaudeModel || 'default', cwd: workingDir,
     });
@@ -8821,11 +8952,11 @@ async function runClaudeTurn({
     session.messages.push({ role: 'assistant', content: fallback, segments: [{ id: 'segment-1', type: 'text', text: fallback }], traceId: activeTraceId, createdAt: nowIso(), source: 'fallback' });
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: fallback });
-    await dispatchAgentLoopHooks('onError', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', errorClass: 'cli_missing', error: `${agentCliLabel} CLI not found`,
     });
-    await dispatchAgentLoopHooks('onTurnEnd', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onTurnEnd', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', ok: false, aborted: false, errorClass: 'cli_missing',
       durationMs: Date.now() - turnStartedAt, toolCalls: 0,
@@ -9152,7 +9283,7 @@ async function runClaudeTurn({
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
 
-  await dispatchAgentLoopHooks('beforeModelCall', {
+  await AgentLoopHooks.dispatchAgentLoopHooks('beforeModelCall', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
     model: currentClaudeModel || 'default', iteration: _resumeRecoveryAttempt ? 1 : 0,
     resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt),
@@ -9657,13 +9788,13 @@ async function runClaudeTurn({
     },
   });
   if (!claudeTurnOk && !wasStopped) {
-    await dispatchAgentLoopHooks('onError', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', exitCode: exit.code, errorClass: 'claude_cli_error',
       error: redact(String(exit.error && exit.error.message || stderrTrimmed || `${agentCliLabel} CLI failed`)).slice(0, 1000),
     });
   }
-  await dispatchAgentLoopHooks('onTurnEnd', {
+  await AgentLoopHooks.dispatchAgentLoopHooks('onTurnEnd', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
     model: currentClaudeModel || 'default', ok: claudeTurnOk, aborted: wasStopped, exitCode: exit.code,
     durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: toolCalls.length,
@@ -12479,7 +12610,7 @@ async function runKimiAcpTurnPrepared(context) {
       agentCliType: 'kimi', agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined,
     });
     logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', agentDriver: 'kimi-acp', model: config.model || 'default', promptLen: fullPrompt.length });
-    await dispatchAgentLoopHooks('beforeModelCall', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('beforeModelCall', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', iteration: 0, resumeRecoveryAttempt: false,
     });
@@ -12827,11 +12958,11 @@ async function runKimiAcpTurnPrepared(context) {
     type: turnOk || wasStopped ? 'progress' : 'failure', cursor: { turnSeq: session.turnSeq, engine: 'claude' },
     detail: { ok: turnOk, aborted: wasStopped, errorClass: turnOk || wasStopped ? '' : 'kimi_acp_error', filesChanged: turnSummary.filesChanged.length, artifacts: turnSummary.artifacts.length, commands: Number(turnSummary.commands) || 0 },
   });
-  if (!turnOk && !wasStopped) await dispatchAgentLoopHooks('onError', {
+  if (!turnOk && !wasStopped) await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
     model: state.model || currentClaudeModel || 'default', exitCode: 1, errorClass: 'kimi_acp_error', error: redact(errorText).slice(0, 1000),
   });
-  await dispatchAgentLoopHooks('onTurnEnd', {
+  await AgentLoopHooks.dispatchAgentLoopHooks('onTurnEnd', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
     model: state.model || currentClaudeModel || 'default', ok: turnOk, aborted: wasStopped, exitCode: turnOk ? 0 : 1,
     durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: cleanToolCalls.length,
@@ -14138,7 +14269,7 @@ async function maybeRecordStorageTrend(stats) {
     for (const [k, s] of Object.entries(stats.stores || {})) stores[k] = s.bytes;
     trend.push({ ts: nowIso(), totalBytes: stats.totalBytes, stores, engineBytes: stats.engineTranscripts ? stats.engineTranscripts.bytes : 0 });
     while (trend.length > STORAGE_TREND_MAX) trend.shift();
-    await fsp.writeFile(storageTrendPath(), JSON.stringify(trend), 'utf8');
+    await atomicWriteJson(storageTrendPath(), trend);
   } catch { /* 趋势是观测辅助,失败不影响主流程 */ }
 }
 // 在册子进程快照:引擎回合(activeChildren)+ 桥接 MCP(mcpClients)。pid 收齐后一次 tasklist 匹配 RSS。
@@ -15496,6 +15627,9 @@ function getPromptPack(locale) {
 // Claude CLI 自己持有内部工具循环，因此适配器只发 turn/model 边界；Provider 原生循环还会发
 // preToolCall/postToolCall。后续若引入可变 middleware，必须另立显式契约并重新过权限安全评审。
 // ============================================================================
+// 103b 隔离试点：内部状态与 helper 收进单一命名空间，只把七个稳定入口暴露给拼接作用域。
+// 依赖以 IIFE 参数显式注入；运行时加载顺序和 module.exports 的公共形状保持不变。
+const AgentLoopHooks = ((makeIdFn, logEventFn, redactFn) => {
 const AGENT_LOOP_HOOK_PHASES = Object.freeze([
   'onTurnStart',
   'beforeModelCall',
@@ -15509,7 +15643,7 @@ const AGENT_LOOP_HOOKS = new Map();
 const AGENT_LOOP_HOOK_TIMEOUT_MS = 250;
 
 function makeAgentLoopTraceId() {
-  return makeId('trace');
+  return makeIdFn('trace');
 }
 
 function cloneAgentLoopHookValue(value, depth = 0, seen = new WeakSet()) {
@@ -15604,13 +15738,13 @@ async function dispatchAgentLoopHooks(phase, context) {
     } catch (error) {
       failed += 1;
       try {
-        logEvent({
+        logEventFn({
           kind: 'agent_loop_hook_error',
           hookId: hook.id,
           phase,
           traceId: String(snapshot.traceId || ''),
           code: error && error.code === 'AGENT_LOOP_HOOK_TIMEOUT' ? 'timeout' : 'exception',
-          error: redact(String(error && error.message || error)).slice(0, 500),
+          error: redactFn(String(error && error.message || error)).slice(0, 500),
         });
       } catch { /* hook telemetry must never break the turn */ }
     }
@@ -15626,9 +15760,20 @@ function summarizeAgentLoopToolResult(result) {
     ok: !(isObject && result.ok === false),
     bytes,
     keys: isObject ? Object.keys(result).slice(0, 40) : [],
-    error: isObject && result.ok === false && result.error ? redact(String(result.error)).slice(0, 500) : undefined,
+    error: isObject && result.ok === false && result.error ? redactFn(String(result.error)).slice(0, 500) : undefined,
   };
 }
+
+return Object.freeze({
+  AGENT_LOOP_HOOK_PHASES,
+  registerAgentLoopHook,
+  unregisterAgentLoopHook,
+  listAgentLoopHooks,
+  dispatchAgentLoopHooks,
+  makeAgentLoopTraceId,
+  summarizeAgentLoopToolResult,
+});
+})(makeId, logEvent, redact);
 
 // ============================================================================
 // v2 跨会话记忆(团队模式 v2 Phase 3, 设计稿 C0-C5)。文件型记忆库 + 起草-确认写入 + 围栏式渐进注入。
@@ -23096,7 +23241,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const chatUrl = base ? base + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
-  activeTraceId = makeAgentLoopTraceId(session.id, plannedTurnSeq);
+  activeTraceId = AgentLoopHooks.makeAgentLoopTraceId(session.id, plannedTurnSeq);
 
   // v1.0-S6 (B): failover candidate sequence = [main baseUrl, ...extraBaseUrls], each normalized через
   // providerBaseWithV1 (so a bare host gets its /v1 like the primary). Each candidate keeps BOTH its display
@@ -23149,7 +23294,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   await saveSession(session);
 
-  await dispatchAgentLoopHooks('onTurnStart', {
+  await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
     engine: 'openai', providerId: provider.id, model, cwd: workingDir,
   });
@@ -23161,11 +23306,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     session.providerHistoryCursor = session.messages.length;
     await saveSession(session);
     onEvent({ type: 'assistant_delta', text: msg });
-    await dispatchAgentLoopHooks('onError', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, errorClass: 'provider_misconfigured', error: why,
     });
-    await dispatchAgentLoopHooks('onTurnEnd', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onTurnEnd', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, ok: false, aborted: false, errorClass: 'provider_misconfigured',
       durationMs: Date.now() - turnStartedAt, toolCalls: 0,
@@ -23417,7 +23562,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const key = String(tc.id || `${tc.name}:${iteration}`);
     if (toolHookStartedAt.has(key)) return;
     toolHookStartedAt.set(key, Date.now());
-    await dispatchAgentLoopHooks('preToolCall', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('preToolCall', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, iteration, toolCallId: tc.id, toolName: tc.name,
       input, disposition,
@@ -23428,11 +23573,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const key = String(tc.id || `${tc.name}:${iteration}`);
     const startedAt = toolHookStartedAt.get(key);
     toolHookStartedAt.delete(key);
-    await dispatchAgentLoopHooks('postToolCall', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('postToolCall', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, iteration, toolCallId: tc.id, toolName: tc.name,
       disposition, durationMs: startedAt ? Date.now() - startedAt : 0,
-      result: summarizeAgentLoopToolResult(result),
+      result: AgentLoopHooks.summarizeAgentLoopToolResult(result),
     });
     if (config.runtimeFailureTelemetryV1 === true || config.runtimeOptimizationShadowV1 === true) {
       try {
@@ -23740,7 +23885,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
       estStreamBase = estBeforeCall; estStreamText = '';
       emitContextEstimate(true);
-      await dispatchAgentLoopHooks('beforeModelCall', {
+      await AgentLoopHooks.dispatchAgentLoopHooks('beforeModelCall', {
         traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
         providerId: provider.id, model, iteration: iter, withTools: useTools,
         toolCount: useTools ? toolLoading.current().length : 0, estimatedContextTokens: estBeforeCall,
@@ -24722,13 +24867,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     },
   });
   if (errorClass || (!ok && !wasStopped)) {
-    await dispatchAgentLoopHooks('onError', {
+    await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, aborted: wasStopped, errorClass,
       error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined,
     });
   }
-  await dispatchAgentLoopHooks('onTurnEnd', {
+  await AgentLoopHooks.dispatchAgentLoopHooks('onTurnEnd', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
     providerId: provider.id, model, ok: ok && !wasStopped, aborted: wasStopped, errorClass,
     durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: toolCalls.length,
@@ -24926,43 +25071,41 @@ function providerContextWindow(provider, model) {
 //   (b) 窗口超限学习:context 类 400 发生时的估算占用 × 0.9 记为该 provider+model 的窗口上限,
 //       只降不升(保守);providerContextWindow 单咽喉点应用。条目 ≤200(超出按插入序淘汰)。
 const CONTEXT_CALIBRATION_MAX = 200;
-let _ctxCalib = null; // { factors: {key:{f,n}}, windowCaps: {key:{cap,at}} }
-function loadContextCalibration() {
-  if (_ctxCalib) return _ctxCalib;
-  _ctxCalib = { factors: {}, windowCaps: {} };
-  try {
-    const j = JSON.parse(fs.readFileSync(path.join(paths.data, 'context-calibration.json'), 'utf8'));
-    if (j && typeof j === 'object') { if (j.factors) _ctxCalib.factors = j.factors; if (j.windowCaps) _ctxCalib.windowCaps = j.windowCaps; }
-  } catch (e) {
-    // 45f 对抗轮 P2-1:文件不存在与【文件损坏】必须分流 —— 损坏时静默重建空史,下次写回就把
-    // 全部学习成果无声清掉。损坏走 .corrupt 隔离(沿用 session 文件同款先例)+ 落账,再从空史重建。
-    if (e && e.code !== 'ENOENT') {
-      try { fs.copyFileSync(path.join(paths.data, 'context-calibration.json'), path.join(paths.data, 'context-calibration.json.corrupt')); } catch { /* ignore */ }
-      try { logEvent({ kind: 'context_calibration_corrupt', error: String(e && e.message || e).slice(0, 200) }); } catch { /* ignore */ }
+const contextCalibrationStore = DurableJsonStore.create({
+  id: 'context-calibration',
+  file: () => path.join(paths.data, 'context-calibration.json'),
+  schemaVersion: 1,
+  defaultValue: () => ({ schema: 1, factors: {}, windowCaps: {} }),
+  sanitize(value) {
+    const factors = value && value.factors && typeof value.factors === 'object' && !Array.isArray(value.factors) ? value.factors : {};
+    const windowCaps = value && value.windowCaps && typeof value.windowCaps === 'object' && !Array.isArray(value.windowCaps) ? value.windowCaps : {};
+    for (const [key, sample] of Object.entries(factors)) {
+      if (!sample || !Number.isFinite(Number(sample.f)) || !Number.isFinite(Number(sample.n)) || Number(sample.n) < 0) delete factors[key];
+      else factors[key] = { f: Math.min(3, Math.max(0.5, Number(sample.f))), n: Math.floor(Number(sample.n)) };
     }
-  }
-  return _ctxCalib;
+    for (const [key, learned] of Object.entries(windowCaps)) {
+      if (!learned || !Number.isFinite(Number(learned.cap)) || Number(learned.cap) <= 0) delete windowCaps[key];
+      else windowCaps[key] = { cap: Math.floor(Number(learned.cap)), at: typeof learned.at === 'string' ? learned.at.slice(0, 64) : '' };
+    }
+    return { schema: 1, factors, windowCaps };
+  },
+  validate: value => value.schema === 1 && !!value.factors && !!value.windowCaps,
+  capacity: [
+    { path: 'factors', max: CONTEXT_CALIBRATION_MAX },
+    { path: 'windowCaps', max: CONTEXT_CALIBRATION_MAX },
+  ],
+  onCorrupt(error) {
+    try { logEvent({ kind: 'context_calibration_corrupt', error: String(error && error.message || error).slice(0, 200) }); } catch { /* ignore */ }
+  },
+});
+function loadContextCalibration() {
+  return contextCalibrationStore.readSync();
 }
 const _calibKey = (providerId, model) => String(providerId || '') + '/' + String(model || '');
-let _calibWriteChain = Promise.resolve();
 function persistContextCalibration() {
   // 单写者假设(45f 对抗轮 P2-2 裁决):note* 调用点全部在 serve 进程内(MCP 子进程走 HTTP loopback,
   // 不是写者);多 serve 实例共享 dataRoot 是窄面,接受互覆,不做跨进程合并。
-  _calibWriteChain = _calibWriteChain.then(async () => {
-    try {
-      const c = loadContextCalibration();
-      for (const bucket of ['factors', 'windowCaps']) {
-        const keys = Object.keys(c[bucket]);
-        if (keys.length > CONTEXT_CALIBRATION_MAX) for (const k of keys.slice(0, keys.length - CONTEXT_CALIBRATION_MAX)) delete c[bucket][k];
-      }
-      // 45f 对抗轮 P2-1:tmp+rename 原子写 —— 写中途崩溃不留撕裂 JSON(撕裂曾会被静默重建清空学习)。
-      const file = path.join(paths.data, 'context-calibration.json');
-      const tmp = file + '.tmp';
-      await fsp.writeFile(tmp, JSON.stringify(c), 'utf8');
-      await fsp.rename(tmp, file);
-    } catch { /* 记账永不阻断 */ }
-  });
-  return _calibWriteChain;
+  return contextCalibrationStore.write(loadContextCalibration()).catch(() => { /* 记账永不阻断 */ });
 }
 function noteEstimateSample(providerId, model, estimated, actual) {
   try {
@@ -31254,8 +31397,8 @@ async function startServer(opts) {
   // Port+token handshake file for the permission-bridge MCP child; also useful for tooling.
   const runtimeToken = crypto.randomBytes(16).toString('hex');
   RUNTIME.port = port; RUNTIME.host = host; RUNTIME.token = runtimeToken;
-  await fsp.writeFile(path.join(paths.data, 'runtime.json'),
-    JSON.stringify({ port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() }, null, 2), 'utf8').catch(() => {});
+  await atomicWriteJson(path.join(paths.data, 'runtime.json'),
+    { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() }).catch(() => {});
   console.log(`${APP_NAME} ${VERSION}  (launch: ${LAUNCH_MODE}, overlay ${OVERLAY_ID})`);
   console.log(`UI: ${url}`);
   console.log(`Data: ${paths.data}`);
@@ -34888,6 +35031,7 @@ module.exports = {
   bridgedToolTier,
   cwdWarning,
   defaultConfig,
+  DurableJsonStore,
   sanitizeExternalMcpServer,
   // 启动时把本机 Claude Code(~/.claude.json)的 MCP 自动映射进 Ruyi(e2e 直测:幂等/上限/dismissed 跳过)。
   autoImportClaudeCodeMcp,
@@ -34915,13 +35059,13 @@ module.exports = {
   shouldExtendToolIterationBudget,
   TOOL_ITERATION_BUDGETS,
   buildOpenAiTools,
-  AGENT_LOOP_HOOK_PHASES,
-  registerAgentLoopHook,
-  unregisterAgentLoopHook,
-  listAgentLoopHooks,
-  dispatchAgentLoopHooks,
-  makeAgentLoopTraceId,
-  summarizeAgentLoopToolResult,
+  AGENT_LOOP_HOOK_PHASES: AgentLoopHooks.AGENT_LOOP_HOOK_PHASES,
+  registerAgentLoopHook: AgentLoopHooks.registerAgentLoopHook,
+  unregisterAgentLoopHook: AgentLoopHooks.unregisterAgentLoopHook,
+  listAgentLoopHooks: AgentLoopHooks.listAgentLoopHooks,
+  dispatchAgentLoopHooks: AgentLoopHooks.dispatchAgentLoopHooks,
+  makeAgentLoopTraceId: AgentLoopHooks.makeAgentLoopTraceId,
+  summarizeAgentLoopToolResult: AgentLoopHooks.summarizeAgentLoopToolResult,
   // 第41波(41a/41b): 表驱动工具注册表 — exposed for e2e(guard 声明化行为锁内省 + 分发行为直测)。
   TOOL_HANDLERS,
   NATIVE_TOOL_TIER,
