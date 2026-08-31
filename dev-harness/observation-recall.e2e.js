@@ -101,19 +101,25 @@ function writeCfg(flags) {
   const refDummy = 'history:1:aaaaaaaaaaaaaaaa:0:bbbbbbbbbbbbbbbb';
   const withHint = srv.reduceObservationContent('file_read', textBig, refDummy, { recallEnabled: true });
   const noHint = srv.reduceObservationContent('file_read', textBig, refDummy);
-  ok(withHint.reduced && withHint.content.includes('recall=observation_recall(rawRef)'), 'U11 开关生效时缩减视图含回读提示');
-  ok(noHint.reduced && !noHint.content.includes('recall='), 'U12 默认关时缩减视图零提示(快照零漂移)');
+  ok(withHint.reduced && withHint.content.includes('recall=observation_recall(rawRef)') && withHint.content.includes('do not conclude that a fact is absent'), 'U11 开关生效时缩减视图含回读决策提示');
+  ok(noHint.reduced && !noHint.content.includes('recall=') && !noHint.content.includes('Recovery instruction'), 'U12 默认关时缩减视图零提示(快照零漂移)');
   const jsonBig = JSON.stringify({ data: 'q'.repeat(5000) });
   const jsonHint = srv.reduceObservationContent('file_read', jsonBig, refDummy, { recallEnabled: true });
-  ok(jsonHint.reduced && jsonHint.content.includes('"recall":"observation_recall(rawRef)"'), 'U13 JSON 缩减 meta 含 recall 提示');
+  ok(jsonHint.reduced && jsonHint.content.includes('"recall":"observation_recall(rawRef)"') && jsonHint.content.includes('"instruction":"This view is incomplete.'), 'U13 JSON 缩减 meta 含回读决策提示');
 
-  // offer 门:默认配置不出现在 OpenAI 工具集;双开才出现
-  const cfgOff = srv.normalizeConfig({}).config;
+  // offer 门:105a 实历史采用门通过后默认出现；显式双关可完整回退隐藏。
+  const cfgDefault = srv.normalizeConfig({}).config;
+  const toolsDefault = srv.buildOpenAiTools(cfgDefault, null, {});
+  ok(toolsDefault.some(t => t.function && t.function.name === 'observation_recall'), 'U14 默认配置 offer observation_recall');
+  const cfgOff = srv.normalizeConfig({ runtimeObservationReducerV1: false, runtimeObservationRecallV1: false }).config;
   const toolsOff = srv.buildOpenAiTools(cfgOff, null, {});
-  ok(!toolsOff.some(t => t.function && t.function.name === 'observation_recall'), 'U14 默认配置不 offer observation_recall');
+  ok(!toolsOff.some(t => t.function && t.function.name === 'observation_recall'), 'U14b 显式双关隐藏 observation_recall');
   const cfgOn = srv.normalizeConfig({ runtimeObservationReducerV1: true, runtimeObservationRecallV1: true }).config;
   const toolsOn = srv.buildOpenAiTools(cfgOn, null, {});
-  ok(toolsOn.some(t => t.function && t.function.name === 'observation_recall'), 'U15 双开时 offer observation_recall');
+  const recallTool = toolsOn.find(t => t.function && t.function.name === 'observation_recall');
+  ok(recallTool && /before answering/.test(recallTool.function.description) && /never conclude/.test(recallTool.function.description), 'U15 双开时 offer observation_recall 且工具描述含调用条件');
+  const recallPrompt = srv.buildObservationRecallPrompt([{ role: 'tool', content: withHint.content }], cfgOn);
+  ok(recallPrompt.includes(refDummy) && recallPrompt.includes('before answering') && srv.buildObservationRecallPrompt([{ role: 'tool', content: withHint.content }], cfgOff) === '', 'U15b recovery index 双开时携带 rawRef、默认关闭时为空');
   // 目录门:adaptiveCatalogForMcp 同样按开关隐藏
   const catOff = await srv.adaptiveCatalogForMcp(cfgOff);
   const catOn = await srv.adaptiveCatalogForMcp(cfgOn);

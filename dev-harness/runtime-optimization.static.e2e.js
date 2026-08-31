@@ -8,8 +8,13 @@ const ok = (condition, label) => { if (condition) console.log('PASS ' + label); 
 
 console.log('\n── [S] feature flags and wiring ──');
 ok(/runtimeOptimizationShadowV1: true/.test(src), 'S master shadow defaults true');
-for (const flag of ['runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeFailureTelemetryV1']) {
+ok(/runtimeSessionNotesV1: true/.test(src), 'S runtimeSessionNotesV1 defaults true after 105b real-history gate');
+for (const flag of ['runtimeToolRetrievalV1', 'runtimeFailureTelemetryV1']) {
   ok(new RegExp(flag + ': false').test(src), `S ${flag} defaults false`);
+  ok(new RegExp("config\\[key\\] === true").test(src), `S strict boolean normalization present (${flag})`);
+}
+for (const flag of ['runtimeObservationReducerV1', 'runtimeObservationRecallV1']) {
+  ok(new RegExp(flag + ': true').test(src), `S ${flag} defaults true after 105a real-history adoption gate`);
   ok(new RegExp("config\\[key\\] === true").test(src), `S strict boolean normalization present (${flag})`);
 }
 ok(/searchToolCatalog\(catalog, \{ query, limit \}, config/.test(src), 'S OpenAI catalog uses shared T1 ranker');

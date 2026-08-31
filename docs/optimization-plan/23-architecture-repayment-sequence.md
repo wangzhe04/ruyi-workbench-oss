@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-08-31）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；当前下一实施入口为第 105 波上下文缓存与摘要保真行为实验。
+> **状态（2026-08-31）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；第 105 波进行中，**105a（observation_recall 外壳）与 105b（session-notes.md 状态外置，只写切片）已交付并默认开启**。105a 经真实历史回放、DeepSeek V4 Pro 3/3 与 V4 Flash 1/1 的自发采用门后开启；两者均可显式关闭回退。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -161,21 +161,36 @@
 #### 105a Release Brief · observation_recall 工具外壳（2026-08-31）
 
 - **问题**：20-C1 的缩减视图已内嵌 `rawRef`，还原内核 `rehydrateObservation()` 也已就绪并导出，但没有任何模型可触达的入口——缩减后的原文事实上不可回读，#7 预取没有真实生产消费者。
-- **非目标**：不默认启用（`runtimeObservationRecallV1` 默认 false，且须与 `runtimeObservationReducerV1` 成对）；不改快照格式、GC 策略、压缩／蒸发语义；不新增持久化面；不宣称收益（本切片只到「代码存在＋契约测试通过」）。
+- **非目标**：不改快照格式、GC 策略、压缩／蒸发语义；不新增持久化面；不宣称跨任务成本收益。`runtimeObservationReducerV1` 与 `runtimeObservationRecallV1` 现默认 true 且成对生效，任一显式 false 都回退为旧蒸发行为／隐藏工具。
 - **交付物**：
   - 新原生工具 `observation_recall({rawRef, maxChars?})`：schema 入 `MCP_TOOLS`，handler 入 `CORE_TOOL_HANDLERS`（`paths:null` + guardNote），`NATIVE_TOOL_PACKS: 'core'`、`NATIVE_TOOL_TIER: 'read'`、`TOOL_RETRIEVAL_HINTS` 别名登记。
   - 授权：sessionId 只取 `ctx.session.id`／`WCW_SESSION_ID` 桥 env，args 传入的 sessionId 一律忽略；跨会话 rawRef 天然 not_found。
   - 大小上限：`maxChars` 默认 8000、clamp [1000, 60000]，超出 head/tail 截取 + `truncated:true` + 省略计数。
   - 每回合配额 8 次：桶键 = （会话， providerHistory user 消息数），回合内稳定、下一回合自增；每会话留 4 桶、全局 64 会话 FIFO；失败调用同样计额（防滥用循环），超额返回稳定 `quota_exceeded`。
   - 稳定失败信封：`disabled | invalid_ref | not_found | hash_mismatch | quota_exceeded`；`not_found` 涵盖快照已被 GC（ENOENT）。
-  - 可见性四门：`buildOpenAiTools` offer 门、MCP `tools/list` 门、adaptive catalog 门、`/api/status` 工具清单门，全部按双开关隐藏；handler 内 fail-closed 二次校验。
-  - 提示侧闭环：缩减视图在 recall 生效时追加 `recall=observation_recall(rawRef)`（文本头）／`"recall":...`（JSON meta）；默认关时文案逐字节不变。
+  - 可见性四门：`buildOpenAiTools` offer 门、MCP `tools/list` 门、adaptive catalog 门、`/api/status` 工具清单门，全部按双开关显示或隐藏；handler 内 fail-closed 二次校验。
+  - 提示侧闭环：缩减视图在 recall 生效时追加 `recall=observation_recall(rawRef)`（文本头）／`"recall":...`（JSON meta）及“精确省略事实须先回读”的决策提示；每次模型调用在最新 user 消息旁附最多 8 个当前会话 rawRef 的非持久 recovery index。默认显式关闭时两者均不注入。
   - `dev-harness/observation-recall.e2e.js`：[U] 16 项白盒契约（happy 逐字节／截断／配额／disabled／invalid_ref／hash_mismatch／not_found／sessionId 防伪造／文案零漂移／offer 与目录门）；[R] 跨进程 rehydrate（模拟重启后仍解析）；[E] fake-openai 集成（真实 HTTP 回合中 fake 主动调用 observation_recall → offer 生效 → 稳定信封 invalid_ref 经 HTTP 链路回传 → 配对铁律）。fake-openai 新增 `argsFromLastRawRef` step 能力。**测试发现**：`observation_reduced` 事件与自动压缩触发绑定，而真实回合中单条大 tool 结果（TOOL_RESULT_CAP 截断后仍 ≈48K chars）+ 完整系统提示的估算会首读即触发压缩 → L1 蒸发 0 条（boundary 保护最近回合）→ L2 摘要 reseed → fake 序列重置，形成请求循环；故 HTTP 回合内不稳定产生 rawRef，回读成功由 `[U]/[R]`＋真实历史 e2e 覆盖。
 - **证据**：
   - `observation-recall.e2e.js` 全绿：`[U]` 16 项白盒契约＋`[R]` 跨进程 rehydrate＋`[E]` fake-openai 集成（HTTP 回合中 fake 主动调用 observation_recall → offer 生效 → `invalid_ref` 稳定信封经 HTTP 链路回传 → 配对铁律）。
   - `observation-recall-realhistory.e2e.js`（新增，真实历史实测）：从本机 `.win-claude-workbench/checkpoints` 复制 2 个真实会话（287 文件 6.3MB）到沙箱副本，源目录 sha256 清单测试前后一致（零写入）。11 个真实 `history-*.json.gz` 快照：payload 合计 **4,383,012 → 831,711 字符（整体缩减 81.0%）**；最大单快照 202,519→1,223（99.4%）；全部 ≥1200 字符大观察经真实 rawRef 双哈希校验回读**逐字节一致**（113/113、6/6、9/9、1/1、2/2、6/6）；配对铁律全过；真实缩减视图含 `rawRef`＋`recall` 提示（json/shell/text/search 四策略）；真实 rawRef 经工具分发回读成功＋配额第 9 次 `quota_exceeded`。注意：reducer 单条可见量可高于旧蒸发（保留结构信息＋rawRef 的设计权衡），本切片以「payload 对原始基线大幅缩减＋回读保真」为证据，不宣称对旧蒸发单条更省。
+  - `observation-recall-replay.e2e.js` 用真实 `history-25.json.gz` 做完整回合回放：离线 fake 路径稳定触发 L1、生成 rawRef、调用 recall、按模型请求的 8K–60K 有界 head/tail 回读真实事实，配对完整。初版仅在旧工具结果内放置短提示时，Flash／Pro 会漏读 buried rawRef；提示升级为缩减视图决策规则 + 非持久、限 8 项的 recovery index 后，以原始 `file_search` 结果省略区中的普通事实（`data-main-view` 状态机）进行自然问题测试，DeepSeek V4 Pro **连续 3/3**、V4 Flash **2/2** 自发调用 recall、回读并答对。此前用随机 `CONFIDENTIAL`／canary 值的诊断题会触发模型反外带策略，已替换为真实普通事实，避免将安全拒绝误判为工具采用失败。测试中另发现并修复 thinking-mode 工具循环未回传 `reasoning_text` 的 HTTP 400；`responses-fake.e2e.js` 已以普通/并行 function call 锁住 `reasoning` item 回传。
 - **回退**：移除三处注册＋配置键＋新 e2e＋`argsFromLastRawRef`，重建 `server.js`、重跑 module-graph／route-inventory／facts 生成器；快照格式不变，无数据迁移。
-- **发布判断**：零默认行为变化、零 UI；不单独触发版本升级，可随后续 Escapade 补丁或 105 后续切片一并发布。
+- **发布判断**：默认开启 reducer + recall，零 UI、零新增路由；缩减的原文在需要精确历史事实时可按需回读。任一开关显式 false 即完整回退。无需单独触发版本升级，可随后续 Escapade 补丁或 105 后续切片一并发布。
+
+#### 105b Release Brief · session-notes.md 状态外置（2026-08-31）
+
+- **问题**：4.1 要求试验「状态外置」——决定、关键文件与进行中事项此前只存在于 L2 摘要叙事里，压缩后无独立的、可跨 compact／重启直接读取的状态副本；后续「摘要保真／回注」实验缺一个确定性的事实源载体。
+- **非目标**：不把 notes 回注模型上下文（读注属后续切片）；不新增路由、工具或 UI；不改摘要 prompt、reseed 字节形状或压缩触发语义；不做增量合并（每次 L2 成功整体重写，摘要本身即最新权威状态）；开关关闭时零文件读写。
+- **交付物**：
+  - 开关 `runtimeSessionNotesV1`（真实历史门后默认 `true`，可显式 `false` 回退；sanitize 只认 JSON 布尔）+ 唯一判定 `sessionNotesEnabled(config)`（`01-config.js`）。
+  - 旁车持久化原语（`02-session-store.js`）：`sessionNotesPath()` = `sessions/<id>.session-notes.md`，与 interventions/changes 旁车同层；`writeSessionNotes()` 走 per-session 写链 + `atomicWriteJson` 原子写（25.1 md 直写先例），64K 字符截断标记；`readSessionNotes()` 缺文件/读错一律 `null`。
+  - 确定性提取（`10-context-governance.js`）：`extractSessionNotes()` 按 `context-governance-rules.json` 的 `summary.sections` 别名表定位节标题，切出【已确认的决定】/【未完成事项】/【关键文件与上下文】三节；缺节降级「无」（对齐摘要空节约定），零 LLM 调用。`maybeWriteSessionNotes()` 挂钩主回合自动 L2（`maybeAutoCompact`）与手动压缩（`runProviderCompact`）两条路径的成功点，fire-and-forget、失败静默（纪律同 `writeHistorySnapshot`）；子代理 L2 不挂钩（子会话无持久化权属）。
+  - `dev-harness/session-notes.e2e.js`：[U] 白盒（默认开/显式关/sanitize/五节切分/缺节降级/英文别名/写读回环/覆盖/截断/并发写不撕裂/关时零文件/开时落盘三节/空摘要静默）+ [H] 项目真实 checkpoint L2 摘要外置 + [R] 跨进程读回；`runtime-optimization.static.e2e.js` 锁 `runtimeSessionNotesV1`、`runtimeObservationReducerV1` 与 `runtimeObservationRecallV1` 默认 true。
+- **证据**：`session-notes.e2e.js` 全绿；真实 `history-25.json.gz` 的决定（M2）、未完成项（abstainThreshold）与关键文件（14-m2-deterministic-nodes.md）均正确落入 notes，目标/当前状态未混入；定向 `context-compact-v2` / `autocompact` / `provider-compact` / `observation-recall` 全绿；`module-dependency-graph --check` 通过（30 模块／240 边，policy 未放宽）；`route-inventory --check` 零漂移（未加路由）；全量回归见 run-all 输出。
+- **回退**：删除开关三处、`02` notes 原语、`10` 提取/挂钩与 `14-main` 导出、新 e2e 与静态锁条目；重建 `server.js` 并重跑 module-graph/facts 生成器。已写出的 `.session-notes.md` 为纯旁车副本，无迁移、无清理义务。
+- **发布判断**：真实历史门通过后默认开启，只新增 L2 成功时的本机 notes 旁车写入；零 UI、零路由、失败不阻断回合。105a 已以独立的真实模型采用门默认开启，不依赖本项联动。
+- **遗留**：notes 回注上下文（读取侧消费者）与增量合并语义属后续切片；4.1 剩余项（摘要实体确定性抽检、估算因子分桶）未动。
 
 ### 4.2 小窗口单发优先
 

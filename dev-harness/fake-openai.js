@@ -75,6 +75,7 @@ const VISION = process.env.FAKE_VISION === '1';
 // branch. Once the sequence is exhausted the image-echo branch resumes (final answer proves the last image
 // still reached the model). Inert unless FAKE_TOOL_SEQUENCE is also set.
 const SEQUENCE_PRIORITY = process.env.FAKE_SEQUENCE_PRIORITY === '1';
+const SEQUENCE_FROM_LAST_USER = process.env.FAKE_SEQUENCE_FROM_LAST_USER === '1';
 // v0.9-S5 FAKE_PLAN_FIRST: 真流程 plan-mode scaffold. When set, the FIRST request of a turn (history carries
 // NO assistant message yet) streams a plain-text answer that OPENS WITH `PLAN:` and carries NO tool_call
 // (finish_reason 'stop') — exactly what runOpenAiTurn's plan pause detects. Every SUBSEQUENT request (history
@@ -242,6 +243,15 @@ async function emitToolCallNoIndex(res, id, callId, name, args, repeatId) {
   sse(res, { id, choices: [{ index: 0, delta: { tool_calls: [c2] }, finish_reason: null }] });
 }
 function countToolMsgs(msgs) { return msgs.filter(m => m && m.role === 'tool').length; }
+// 105b-replay: FAKE_SEQUENCE_FROM_LAST_USER=1 —— 序列游标只数【最后一条 user 之后】的 tool 结果。
+// 真实历史回放 harness 的种子会话自带 200+ 条历史 tool 消息,用全历史计数会让序列直接判为耗尽。
+// 语义更贴近"本回合第 N 步",且 harness 无需知道种子规模。默认关=旧行为(零漂移)。
+function seqCursor(msgs) {
+  if (!SEQUENCE_FROM_LAST_USER) return countToolMsgs(msgs);
+  let lastUser = -1;
+  for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i] && msgs[i].role === 'user') { lastUser = i; break; }
+  return msgs.slice(lastUser + 1).filter(m => m && m.role === 'tool').length;
+}
 // Emit a single streamed tool_call with arguments split across two SSE fragments. v0.8-S7: async so a
 // FAKE_STREAM_DELAY_MS can space the three frames apart (widening the mid-tool_use steering window). With
 // the delay 0 (default) it runs to completion synchronously — same three frames, same order.
@@ -314,7 +324,7 @@ const server = http.createServer((req, res) => {
       const id = 'chatcmpl-fake';
       const msgs = Array.isArray(parsed.messages) ? parsed.messages : [];
       // 配对铁律仿真(第67波后):先于一切分支 —— strict provider 对孤儿 tool_call_id 一律 400。
-      if (LOG_BODY) { try { require('fs').appendFileSync(LOG_BODY, JSON.stringify({ messages: msgs }) + '\n'); } catch { /* ignore */ } }
+      if (LOG_BODY) { try { require('fs').appendFileSync(LOG_BODY, JSON.stringify({ t: Date.now(), stream: parsed.stream !== false, hasTools: Array.isArray(parsed.tools) && parsed.tools.length > 0, n: msgs.length, roles: msgs.map(m => m && m.role).join(','), messages: msgs }) + '\n'); } catch { /* ignore */ } }
       if (STRICT_PAIRING) {
         const viol = pairingViolation(msgs);
         if (viol) {
@@ -499,7 +509,7 @@ const server = http.createServer((req, res) => {
       // v0.8-S1 FAKE_TOOL_SEQUENCE (priority over PATH/NAME): step through the array one tool_call per
       // turn until every entry has produced a tool result, then fall through to the echo branch.
       if (hasTools && TOOL_SEQUENCE) {
-        const done = countToolMsgs(msgs);
+        const done = seqCursor(msgs);
         if (done < TOOL_SEQUENCE.length) {
           if (PLAN_REQUIRE_APPROVAL_CONTEXT && hasAssistantMsg(msgs) && !hasPlanApprovalContext(msgs)) {
             const out = 'WAITING_FOR_EXPLICIT_PLAN_APPROVAL';
@@ -515,9 +525,10 @@ const server = http.createServer((req, res) => {
           let stepArgs = step.args || {};
           if (step.argsFromLastRawRef) {
             let found = '';
+            // 两种模型可见形态都要认:文本视图的 rawRef=history:... 与 JSON meta 的 "rawRef":"history:..."。
+            const re = /rawRef["']?\s*[:=]\s*["']?(history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16})/g;
             for (const m of msgs || []) {
               const c = m && typeof m.content === 'string' ? m.content : '';
-              const re = /rawRef=["']?(history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16})/g;
               let mm; while ((mm = re.exec(c))) found = mm[1];
             }
             stepArgs = { ...stepArgs, rawRef: found };

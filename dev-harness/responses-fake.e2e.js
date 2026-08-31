@@ -6,6 +6,8 @@
 //   * a function_call (file_read) is offered, its arguments stream in via
 //     response.function_call_arguments.delta, the tool runs, function_call_output is fed back
 //     into the NEXT request's `input` items, and the final answer references the tool result;
+//   * thinking-mode reasoning_text is also fed back as a `reasoning` input item before the function call;
+//     omitting it would reproduce DeepSeek's real HTTP 400 on the second tool-loop request;
 //   * response.completed usage (input_tokens/output_tokens/details.cached_tokens) reaches the usage event.
 // Run: node dev-harness/responses-fake.e2e.js
 'use strict';
@@ -65,6 +67,12 @@ const server = http.createServer((req, res) => {
     servedBodies.push(body);
     const inputs = Array.isArray(body.input) ? body.input : [];
     const hasToolOutput = inputs.some(i => i && i.type === 'function_call_output');
+    const hasReasoningReplay = inputs.some(i => i && i.type === 'reasoning' && Array.isArray(i.content)
+      && i.content.some(part => part && part.type === 'reasoning_text' && typeof part.text === 'string' && part.text.length > 0));
+    if (hasToolOutput && !hasReasoningReplay) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: { message: 'The `reasoning_text` in the thinking mode must be passed back to the API.' } }));
+    }
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
     const sse = obj => res.write('data: ' + JSON.stringify(obj) + '\n\n');
     let seq = 0;
@@ -161,6 +169,10 @@ try {
   ok(flatTool && typeof flatTool.name === 'string' && !flatTool.function, 'tools are FLAT Responses shape (name at top level, no nested function)');
   // Follow-up request must feed the tool result back as a function_call_output item.
   const last = servedBodies[servedBodies.length - 1] || {};
+  const reasoningReplay = Array.isArray(last.input) ? last.input.find(i => i && i.type === 'reasoning') : null;
+  ok(reasoningReplay && Array.isArray(reasoningReplay.content)
+    && reasoningReplay.content.some(part => part && part.type === 'reasoning_text' && part.text.includes('我需要')),
+  'thinking-mode reasoning_text replayed as a Responses reasoning item');
   if (PARALLEL) {
     // 对抗轮(P1-2)并行场景:两个 function_call 都必须执行、参数各自精确路由(call_par_1→file_read FILE,
     // call_par_2→file_list WORK),且最终回答同时包含两个工具结果。

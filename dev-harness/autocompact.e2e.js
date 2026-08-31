@@ -56,8 +56,13 @@ fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     contextWindow: 40000, // small window so three full reads cross the budget (see NOTE above)
   }],
   activeProvider: 'fake',
+  autoImportClaudeCodeMcp: false,
   autoCompactThreshold: 0.8, // budget = 32000 est-tokens
+  // This fixture isolates the pre-existing reducer/L1 mechanics. Recall's default-on recovery index is
+  // covered by observation-recall-replay; explicitly opt out here to keep this scripted 3-read fixture
+  // focused and prove the legacy-compatible fallback remains deterministic.
   runtimeObservationReducerV1: true,
+  runtimeObservationRecallV1: false,
 }, null, 2));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

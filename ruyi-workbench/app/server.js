@@ -570,13 +570,18 @@ function defaultConfig() {
     toolCatalogCacheTtlMs: 60000,  // bridged catalog reuse; clamp 5s..10min
     // 20-T1/20-C1/20-F1 runtime-optimization slices. The master shadow flag is on by default: it evaluates
     // candidates and emits redacted comparison metrics, but never changes a tool result, history content,
-    // retry, permission, or memory decision. The three independent active flags remain strict opt-ins.
+    // retry, permission, or memory decision. Tool retrieval remains opt-in; the reducer/recall pair passed
+    // real-history adoption gates and defaults on, with explicit false preserving the legacy behavior.
     runtimeOptimizationShadowV1: true,
     runtimeToolRetrievalV1: false,
-    runtimeObservationReducerV1: false,
+    runtimeObservationReducerV1: true,
     // 105a: observation_recall 工具外壳 —— 让模型按缩减视图内嵌的 rawRef 回读原始工具结果。
-    // 仅在 runtimeObservationReducerV1 同时开启时生效(rawRef 只由 reducer 产生);默认关闭。
-    runtimeObservationRecallV1: false,
+    // 仅在 runtimeObservationReducerV1 同时开启时生效(rawRef 只由 reducer 产生);真实历史门后默认开启。
+    runtimeObservationRecallV1: true,
+    // 105b: session-notes.md 状态外置 —— L2 摘要成功后把【已确认的决定】/【未完成事项】/
+    // 【关键文件与上下文】三节确定性切出,整写到 sessions/<id>.session-notes.md 旁车副本。
+    // 摘要保留叙事职责;notes 只写不回注上下文。105b 真实历史门通过后默认开启，仍可显式关闭。
+    runtimeSessionNotesV1: true,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -956,7 +961,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -1236,6 +1241,12 @@ function normalizeConfig(raw) {
 // 单开 recall 无可解析引用)。目录可见性、offer 门与 handler fail-closed 共用本判定。
 function observationRecallEnabled(config) {
   return !!(config && config.runtimeObservationRecallV1 === true && config.runtimeObservationReducerV1 === true);
+}
+
+// 105b: session-notes.md 状态外置生效条件 —— 单开关,不依赖 reducer/recall。
+// 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
+function sessionNotesEnabled(config) {
+  return !!(config && config.runtimeSessionNotesV1 === true);
 }
 
 // ============================================================================
@@ -2659,6 +2670,36 @@ function sessionBodyPaths(id) {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),
     provider: path.join(paths.sessions, `${id}.provider.ndjson`),
   };
+}
+
+// ── 105b: session-notes.md 状态外置(旁车副本)─────────────────────────────────
+// L2 摘要成功后,把结构化摘要中的【已确认的决定】/【未完成事项】/【关键文件与上下文】三节确定性
+// 切出,整写到本文件(每次 L2 成功整体重写,摘要本身即最新权威状态,不做增量合并)。
+// 纪律:与 interventions/changes 旁车同层同规 —— 独立 per-session 写链 + 原子写;notes 是易失副本,
+// 读失败/缺文件一律 null,绝不阻断回合。105b 真实历史门通过后默认开启；显式关时零文件读写。
+const SESSION_NOTES_MAX_CHARS = 64000;
+const sessionNotesWriteChains = new Map();
+function sessionNotesPath(id) {
+  return path.join(paths.sessions, `${String(id)}.session-notes.md`);
+}
+async function writeSessionNotes(id, markdown) {
+  const file = sessionNotesPath(id);
+  let body = String(markdown == null ? '' : markdown);
+  if (body.length > SESSION_NOTES_MAX_CHARS) {
+    body = body.slice(0, SESSION_NOTES_MAX_CHARS) + `\n\n<!-- truncated: exceeded ${SESSION_NOTES_MAX_CHARS} chars -->\n`;
+  }
+  const prev = sessionNotesWriteChains.get(file) || Promise.resolve();
+  const next = prev.catch(() => {}).then(async () => {
+    await fsp.mkdir(paths.sessions, { recursive: true }); // 旁车写不依赖 server 启动期建目录
+    await atomicWriteJson(file, body);                    // 字符串直写,同 25.1 md 先例
+  });
+  sessionNotesWriteChains.set(file, next);
+  next.catch(() => {}).finally(() => { if (sessionNotesWriteChains.get(file) === next) sessionNotesWriteChains.delete(file); });
+  return next;
+}
+async function readSessionNotes(id) {
+  try { return await fsp.readFile(sessionNotesPath(id), 'utf8'); }
+  catch { return null; } // ENOENT 与其他读错同处理:notes 是旁车副本,缺文件不是错误
 }
 
 // ── 第71波 EC-E 切片二:未决事项 Intervention 持久化(append-only NDJSON)──────────────────────────
@@ -18927,7 +18968,8 @@ const failoverStickyBase = new Map();
 // assistant.tool_calls). The Responses protocol wants `input` ITEMS instead of `messages`, so we translate
 // at request time (never mutating the stored history — multi-round tool loops keep working identically):
 //   user        → { type:'message', role:'user', content:[{type:'input_text', text}] }
-//   assistant   → { type:'message', role:'assistant', content:[{type:'output_text', text}] } (+ function_call items)
+//   assistant   → optional {type:'reasoning',content:[{type:'reasoning_text',text}]} then
+//                 { type:'message', role:'assistant', content:[{type:'output_text', text}] } (+ function_call items)
 //   tool        → { type:'function_call_output', call_id, output }
 //   system      → folded into `instructions` (the Responses equivalent of a leading system message)
 // function tools are ALSO flattened: Responses uses { type:'function', name, description, parameters }
@@ -19020,6 +19062,12 @@ function buildResponsesInputItems(history) {
     if (m.role === 'system' || m.role === 'developer') continue; // folded into instructions by the caller
     if (m.role === 'user') { items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); continue; }
     if (m.role === 'assistant') {
+      // DeepSeek Responses is stateless and thinking mode is enabled by default. When tools are present it
+      // requires every prior reasoning_text to be passed back; dropping it makes the next tool-loop request
+      // fail with HTTP 400. Keep the normalized history chat-shaped, but project its reasoning_content into
+      // a first-class Responses reasoning item immediately before the adjacent assistant/function_call items.
+      const reasoning = typeof m.reasoning_content === 'string' ? m.reasoning_content : '';
+      if (reasoning) items.push({ type: 'reasoning', content: [{ type: 'reasoning_text', text: reasoning }] });
       const text = typeof m.content === 'string' ? m.content : '';
       if (text) items.push({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text }] });
       if (Array.isArray(m.tool_calls)) {
@@ -20746,7 +20794,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
           subServerToolItems.push(item);
         }
-        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
@@ -20928,7 +20976,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         continue; // let the sub-agent react to its tool results
       }
       // No tool calls → final conclusion for the sub-turn.
-      if (call.text) subHistory.push({ role: 'assistant', content: call.text });
+      if (call.text) subHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
       break;
     }
     // 预算耗尽(循环正常退出,非 break 跳出)
@@ -23780,6 +23828,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (key) headers['authorization'] = 'Bearer ' + key;
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
+  const appendRecallPrompt = (msgs, history) => {
+    const recallPrompt = buildObservationRecallPrompt(history, config);
+    if (!recallPrompt) return;
+    const lastUserIndex = msgs.findLastIndex(entry => entry && entry.role === 'user');
+    if (lastUserIndex < 0) return;
+    const lastUser = msgs[lastUserIndex];
+    if (typeof lastUser.content === 'string') {
+      msgs[lastUserIndex] = { ...lastUser, content: lastUser.content + '\n\n' + recallPrompt };
+      return;
+    }
+    if (Array.isArray(lastUser.content)) {
+      msgs[lastUserIndex] = { ...lastUser, content: [...lastUser.content, { type: 'text', text: recallPrompt }] };
+    }
+  };
   const buildBody = withTools => {
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
     // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
@@ -23805,6 +23867,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
         }
       }
+      appendRecallPrompt(msgs, viewHistory);
       // v1.8: server-side tool items (web_search_call) are appended to `input` AFTER the translated history —
       // DeepSeek restores the search results server-side and the model continues on the next call.
       const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
@@ -23833,6 +23896,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
       }
     }
+    appendRecallPrompt(msgs, viewHistory);
     const b = { model, messages: msgs, stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
     applyProviderReasoningEffort(b, provider, 'chat');
@@ -24359,7 +24423,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (looksLikePlan(call.text) && !(call.toolCalls && call.toolCalls.length)) {
           // The model spoke a plan and stopped — record it in history so the context stays coherent for the
           // post-approval continuation, then pause for the decision.
-          if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text });
+          if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
           await saveSession(session);
           touch(); // feed the idle watchdog at the pause boundary (the plan's own permissionTimeoutMs governs the wait)
           const decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs);
@@ -24392,7 +24456,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         } else if (call.toolCalls && call.toolCalls.length) {
           // A mixed batch is refused as a unit: executing its reads could leak partial evidence into a request
           // whose modifying half was never authorized, and one paired result per call keeps history valid.
-          session.providerHistory.push({ role: 'assistant', content: call.text || '', tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+          session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
           for (const tc of call.toolCalls) {
             let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
             const refuse = { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' };
@@ -24448,7 +24512,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
         }
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
-        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
         subagentBatchCount = 0; // v0.9-S6: reset the per-assistant-batch spawn_agent fan-out counter
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
@@ -25057,7 +25121,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         continue;                     // loop: let the model react to the tool results
       }
       // No tool calls → final answer for this turn.
-      if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text });
+      if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
       // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
       // 标 073(漏 gap 类别)/077(大小写当重复)/091(金额归位)/092(drift 标识错) 类「框架对、细节失守」。
       if (!selfCheckDone && toolCalls.length > 0 && /生成|输出|创建|写出|列出|csv|报告|清单|manifest|核对|修复|审计|对账|reconciliation|report|list|generate/i.test(fullPrompt)) {
@@ -25313,6 +25377,11 @@ function estimateHistoryTokens(history, systemPrompt, tools) {
     if (!m || typeof m !== 'object') continue;
     t += 40; // per-message structural overhead (role/formatting/delimiters)
     t += estimateContentTokens(m.content);
+    // DeepSeek Responses thinking mode requires prior reasoning to be replayed after a
+    // tool call. It is therefore part of the real next-request payload and budget.
+    if (typeof m.reasoning_content === 'string' && m.reasoning_content) {
+      t += estimateTextTokens(m.reasoning_content);
+    }
     // assistant tool_calls: the function arguments are real payload sent to the model — count them.
     if (Array.isArray(m.tool_calls)) {
       for (const tc of m.tool_calls) {
@@ -25685,6 +25754,9 @@ function reduceObservationContent(toolName, content, rawRef, opts) {
   const recallEnabled = !!(opts && opts.recallEnabled);
   // 105a: 仅当 observation_recall 工具生效时在缩减视图里提示回读入口;默认关时文案逐字节不变。
   const recallHint = recallEnabled ? ' · recall=observation_recall(rawRef)' : '';
+  const recallInstruction = recallEnabled
+    ? 'This view is incomplete. If the task depends on exact omitted historical content, call observation_recall with rawRef before answering; do not conclude that a fact is absent from this reduced view.'
+    : '';
   const original = String(content == null ? '' : content);
   if (original.length < OBSERVATION_REDUCE_MIN) return { reduced: false, content: original, policy: 'below_minimum', originalChars: original.length, visibleChars: original.length, rawRef };
   const baseName = String(toolName || '').replace(/^.+?__/, '');
@@ -25694,7 +25766,10 @@ function reduceObservationContent(toolName, content, rawRef, opts) {
     const reduced = compactObservationValue(parsed, '', 0);
     policy = /shell|powershell|script/i.test(baseName) ? 'shell_structured' : (/search|find|glob|list/i.test(baseName) ? 'search_structured' : (/web|http|fetch|download/i.test(baseName) ? 'network_structured' : 'json_structured'));
     const meta = { reduced: true, policy, originalChars: original.length, rawRef };
-    if (recallEnabled) meta.recall = 'observation_recall(rawRef)';
+    if (recallEnabled) {
+      meta.recall = 'observation_recall(rawRef)';
+      meta.instruction = recallInstruction;
+    }
     if (Array.isArray(reduced)) visible = JSON.stringify({ items: reduced, _ruyiObservation: meta });
     else {
       if (reduced && typeof reduced === 'object') reduced._ruyiObservation = meta;
@@ -25703,6 +25778,7 @@ function reduceObservationContent(toolName, content, rawRef, opts) {
   } else {
     policy = 'text_head_tail';
     visible = `[Ruyi observation reduced · policy=${policy} · originalChars=${original.length} · rawRef=${rawRef}${recallHint}]\n`
+      + (recallInstruction ? `[Recovery instruction: ${recallInstruction}]\n` : '')
       + original.slice(0, OBSERVATION_TEXT_HEAD)
       + `\n[...${Math.max(0, original.length - OBSERVATION_TEXT_HEAD - OBSERVATION_TEXT_TAIL)} chars omitted...]\n`
       + original.slice(-OBSERVATION_TEXT_TAIL);
@@ -25712,6 +25788,32 @@ function reduceObservationContent(toolName, content, rawRef, opts) {
   if (visible.length > 6000) visible = visible.slice(0, 4000) + `\n[...reduced view trimmed from ${visible.length} chars...]\n` + visible.slice(-1500);
   if (visible.length >= original.length) return { reduced: false, content: original, policy: 'no_gain', originalChars: original.length, visibleChars: original.length, rawRef };
   return { reduced: true, content: visible, policy, originalChars: original.length, visibleChars: visible.length, rawRef };
+}
+
+// 105a model-adoption prompt: rawRef markers can sit tens of thousands of tokens behind the current
+// question. Surface a bounded current-session index next to the newest user message without persisting it
+// or copying any raw observation bytes. Only system-produced reduced tool views are eligible.
+function buildObservationRecallPrompt(history, config) {
+  if (!observationRecallEnabled(config) || !Array.isArray(history)) return '';
+  const refs = [];
+  const seen = new Set();
+  const refPattern = /history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g;
+  for (const message of history) {
+    if (!message || message.role !== 'tool' || typeof message.content !== 'string') continue;
+    const content = message.content;
+    if (!content.includes('[Ruyi observation reduced') && !content.includes('"_ruyiObservation"')) continue;
+    for (const match of content.matchAll(refPattern)) {
+      const ref = match[0];
+      if (!seen.has(ref)) { seen.add(ref); refs.push(ref); }
+    }
+  }
+  if (!refs.length) return '';
+  const visible = refs.slice(-8);
+  const omitted = refs.length - visible.length;
+  return '[Ruyi recovery index — runtime context, not user-authored]\n'
+    + 'The reduced historical tool views below are incomplete but recoverable. If the request may depend on an exact omitted historical value or detail, call observation_recall with the relevant rawRef before answering or claiming that it is absent.\n'
+    + visible.map(ref => `- rawRef=${ref}`).join('\n')
+    + (omitted > 0 ? `\n- ${omitted} older recoverable reference(s) omitted from this bounded index` : '');
 }
 
 // Internal recovery primitive for diagnostics/tests and a future reviewed Recovery Brief. It never exposes a
@@ -25872,6 +25974,59 @@ function validateStructuredSummary(summary) {
   const statePresent = statusSection.some(s => summary.includes(s));
   const stateComplete = statePresent && stateLabels.every(labels => labels.some(label => summary.includes(label)));
   return found >= CONTEXT_GOVERNANCE_RULES.summary.minimumSections && stateComplete;  // 结构化摘要必须含五节中的至少四节,且状态节四项齐全
+}
+
+// ── 105b: session-notes.md 状态外置(只写切片)─────────────────────────────────
+// 从既有五节结构化摘要【确定性切出】状态三节,整写到 sessions/<id>.session-notes.md 旁车副本。
+// 节索引锚定 context-governance-rules.json 的 summary.sections 顺序(1=已确认的决定,2=未完成事项,
+// 4=关键文件与上下文);0=目标、3=当前执行状态留在摘要叙事里,不进 notes(摘要保留叙事职责)。
+// 不新增 LLM 调用、不改摘要/prompt/reseed 字节形状;默认关闭,失败静默,绝不阻断回合。
+const SESSION_NOTES_SECTION_INDEXES = [1, 2, 4];
+const SESSION_NOTES_TITLES = ['已确认的决定', '未完成事项', '关键文件与上下文'];
+function extractSessionNotes(summary) {
+  const rules = CONTEXT_GOVERNANCE_RULES.summary;
+  const text = String(summary || '');
+  // 定位每节标题:任一名命中,取最靠前的出现位置与对应别名长度。
+  const found = [];
+  for (let i = 0; i < rules.sections.length; i++) {
+    let pos = -1, len = 0;
+    for (const alias of rules.sections[i]) {
+      const p = text.indexOf(alias);
+      if (p >= 0 && (pos < 0 || p < pos)) { pos = p; len = alias.length; }
+    }
+    if (pos >= 0) found.push({ index: i, pos, len });
+  }
+  found.sort((a, b) => a.pos - b.pos);
+  const out = [];
+  for (const idx of SESSION_NOTES_SECTION_INDEXES) {
+    const f = found.find(x => x.index === idx);
+    if (!f) { out.push('无'); continue; }              // 缺节降级为「无」,对齐摘要空节约定
+    const next = found.find(x => x.pos > f.pos);
+    const body = text.slice(f.pos + f.len, next ? next.pos : undefined).trim();
+    out.push(body || '无');
+  }
+  return { decisions: out[0], open: out[1], files: out[2] };
+}
+function renderSessionNotesMarkdown(notes, meta) {
+  const m = meta && typeof meta === 'object' ? meta : {};
+  const head = `<!-- schema:1 session:${String(m.sessionId || '')} updatedAt:${String(m.updatedAt || '')} turnSeq:${Number.isFinite(m.turnSeq) ? m.turnSeq : 0} -->`;
+  const parts = ['# Session Notes', '', head, ''];
+  const bodies = [notes && notes.decisions, notes && notes.open, notes && notes.files];
+  for (let i = 0; i < SESSION_NOTES_TITLES.length; i++) {
+    parts.push(`## ${SESSION_NOTES_TITLES[i]}`, '', String(bodies[i] || '无'), '');
+  }
+  return parts.join('\n');
+}
+// 挂钩入口:L2 摘要成功后 fire-and-forget。开关关闭 = 零文件读写;任何失败吞掉(纪律同 writeHistorySnapshot)。
+function maybeWriteSessionNotes(session, summary, config) {
+  try {
+    if (!sessionNotesEnabled(config)) return;
+    if (!session || !session.id || typeof summary !== 'string' || !summary) return;
+    const md = renderSessionNotesMarkdown(extractSessionNotes(summary), {
+      sessionId: session.id, updatedAt: new Date().toISOString(), turnSeq: session.turnSeq,
+    });
+    writeSessionNotes(session.id, md).catch(() => {});
+  } catch { /* session notes 是旁车副本,绝不阻断回合 */ }
 }
 function userBlockStarts(history) {
   const idx = [];
@@ -26521,6 +26676,7 @@ async function runProviderCompact(sessionId) {
   }
   const summary = sc.summary;
   recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账
+  maybeWriteSessionNotes(session, summary, config); // 105b: 与自动 L2 同纪律,显式关时零副作用
 
   const beforeTokens = estimateHistoryTokens(history);
   session.providerHistory = [
@@ -26611,6 +26767,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       return compacted;
     }
     recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
+    maybeWriteSessionNotes(session, sc.summary, config); // 105b: 状态三节外置到 session-notes.md,显式关时零副作用
     const plan = CompactionPlan.create({ scope: 'main', trigger: 'auto', history, provider, model, config, conversationWindow: true });
     session.providerHistory = CompactionPlan.reseed(plan, sc.summary);
     const after2 = estimateHistoryTokens([sysMsg, ...session.providerHistory], '', tools);
@@ -31990,7 +32147,7 @@ const MCP_TOOLS = [
     // 105a: offered only when runtimeObservationRecallV1 AND runtimeObservationReducerV1 are both on
     // (buildOpenAiTools / MCP tools/list / adaptive catalog all gate on the pair; the handler fails closed too).
     name: 'observation_recall',
-    description: 'Recall the full original content of a tool result that was reduced during context compaction, using the rawRef embedded in the reduced view (format history:<turn>:<hash>:<index>:<hash>). Read-only; resolves only snapshots of the CURRENT session. Stable failure envelope {ok:false,error}: invalid_ref | not_found (snapshot GC\'d) | hash_mismatch | quota_exceeded (8 recalls per turn — do not retry the same ref after this) | disabled.',
+    description: 'Recall the original content of a tool result reduced during context compaction, using the rawRef embedded in its reduced view (format history:<turn>:<hash>:<index>:<hash>). When a user asks for an exact historical value/detail and a relevant earlier tool result is marked reduced or omitted, call this tool before answering; never conclude the detail is absent from the reduced view alone. Read-only; resolves only snapshots of the CURRENT session. Stable failure envelope {ok:false,error}: invalid_ref | not_found (snapshot GC\'d) | hash_mismatch | quota_exceeded (8 recalls per turn — do not retry the same ref after this) | disabled.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['rawRef'],
       properties: {
@@ -35102,6 +35259,14 @@ module.exports = {
   CompactionPlan,
   COMPACT_RESEED_TAIL_MAX_TOKENS,
   resolveCompactionProvider,
+  // 105b: session-notes.md 状态外置 — exposed for e2e 白盒契约(确定性切节/写读回环/显式关闭门)。
+  sessionNotesEnabled,
+  extractSessionNotes,
+  renderSessionNotesMarkdown,
+  sessionNotesPath,
+  writeSessionNotes,
+  readSessionNotes,
+  maybeWriteSessionNotes,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,
@@ -35139,6 +35304,7 @@ module.exports = {
   searchToolCatalog,
   compareToolRetrievalShadow,
   reduceObservationContent,
+  buildObservationRecallPrompt,
   measureObservationReductionShadow,
   rehydrateObservation,
   classifyRuntimeToolFailure,

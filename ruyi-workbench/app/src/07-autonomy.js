@@ -831,7 +831,8 @@ const failoverStickyBase = new Map();
 // assistant.tool_calls). The Responses protocol wants `input` ITEMS instead of `messages`, so we translate
 // at request time (never mutating the stored history — multi-round tool loops keep working identically):
 //   user        → { type:'message', role:'user', content:[{type:'input_text', text}] }
-//   assistant   → { type:'message', role:'assistant', content:[{type:'output_text', text}] } (+ function_call items)
+//   assistant   → optional {type:'reasoning',content:[{type:'reasoning_text',text}]} then
+//                 { type:'message', role:'assistant', content:[{type:'output_text', text}] } (+ function_call items)
 //   tool        → { type:'function_call_output', call_id, output }
 //   system      → folded into `instructions` (the Responses equivalent of a leading system message)
 // function tools are ALSO flattened: Responses uses { type:'function', name, description, parameters }
@@ -924,6 +925,12 @@ function buildResponsesInputItems(history) {
     if (m.role === 'system' || m.role === 'developer') continue; // folded into instructions by the caller
     if (m.role === 'user') { items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); continue; }
     if (m.role === 'assistant') {
+      // DeepSeek Responses is stateless and thinking mode is enabled by default. When tools are present it
+      // requires every prior reasoning_text to be passed back; dropping it makes the next tool-loop request
+      // fail with HTTP 400. Keep the normalized history chat-shaped, but project its reasoning_content into
+      // a first-class Responses reasoning item immediately before the adjacent assistant/function_call items.
+      const reasoning = typeof m.reasoning_content === 'string' ? m.reasoning_content : '';
+      if (reasoning) items.push({ type: 'reasoning', content: [{ type: 'reasoning_text', text: reasoning }] });
       const text = typeof m.content === 'string' ? m.content : '';
       if (text) items.push({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text }] });
       if (Array.isArray(m.tool_calls)) {

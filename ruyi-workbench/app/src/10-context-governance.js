@@ -344,6 +344,9 @@ function reduceObservationContent(toolName, content, rawRef, opts) {
   const recallEnabled = !!(opts && opts.recallEnabled);
   // 105a: 仅当 observation_recall 工具生效时在缩减视图里提示回读入口;默认关时文案逐字节不变。
   const recallHint = recallEnabled ? ' · recall=observation_recall(rawRef)' : '';
+  const recallInstruction = recallEnabled
+    ? 'This view is incomplete. If the task depends on exact omitted historical content, call observation_recall with rawRef before answering; do not conclude that a fact is absent from this reduced view.'
+    : '';
   const original = String(content == null ? '' : content);
   if (original.length < OBSERVATION_REDUCE_MIN) return { reduced: false, content: original, policy: 'below_minimum', originalChars: original.length, visibleChars: original.length, rawRef };
   const baseName = String(toolName || '').replace(/^.+?__/, '');
@@ -353,7 +356,10 @@ function reduceObservationContent(toolName, content, rawRef, opts) {
     const reduced = compactObservationValue(parsed, '', 0);
     policy = /shell|powershell|script/i.test(baseName) ? 'shell_structured' : (/search|find|glob|list/i.test(baseName) ? 'search_structured' : (/web|http|fetch|download/i.test(baseName) ? 'network_structured' : 'json_structured'));
     const meta = { reduced: true, policy, originalChars: original.length, rawRef };
-    if (recallEnabled) meta.recall = 'observation_recall(rawRef)';
+    if (recallEnabled) {
+      meta.recall = 'observation_recall(rawRef)';
+      meta.instruction = recallInstruction;
+    }
     if (Array.isArray(reduced)) visible = JSON.stringify({ items: reduced, _ruyiObservation: meta });
     else {
       if (reduced && typeof reduced === 'object') reduced._ruyiObservation = meta;
@@ -362,6 +368,7 @@ function reduceObservationContent(toolName, content, rawRef, opts) {
   } else {
     policy = 'text_head_tail';
     visible = `[Ruyi observation reduced · policy=${policy} · originalChars=${original.length} · rawRef=${rawRef}${recallHint}]\n`
+      + (recallInstruction ? `[Recovery instruction: ${recallInstruction}]\n` : '')
       + original.slice(0, OBSERVATION_TEXT_HEAD)
       + `\n[...${Math.max(0, original.length - OBSERVATION_TEXT_HEAD - OBSERVATION_TEXT_TAIL)} chars omitted...]\n`
       + original.slice(-OBSERVATION_TEXT_TAIL);
@@ -371,6 +378,32 @@ function reduceObservationContent(toolName, content, rawRef, opts) {
   if (visible.length > 6000) visible = visible.slice(0, 4000) + `\n[...reduced view trimmed from ${visible.length} chars...]\n` + visible.slice(-1500);
   if (visible.length >= original.length) return { reduced: false, content: original, policy: 'no_gain', originalChars: original.length, visibleChars: original.length, rawRef };
   return { reduced: true, content: visible, policy, originalChars: original.length, visibleChars: visible.length, rawRef };
+}
+
+// 105a model-adoption prompt: rawRef markers can sit tens of thousands of tokens behind the current
+// question. Surface a bounded current-session index next to the newest user message without persisting it
+// or copying any raw observation bytes. Only system-produced reduced tool views are eligible.
+function buildObservationRecallPrompt(history, config) {
+  if (!observationRecallEnabled(config) || !Array.isArray(history)) return '';
+  const refs = [];
+  const seen = new Set();
+  const refPattern = /history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g;
+  for (const message of history) {
+    if (!message || message.role !== 'tool' || typeof message.content !== 'string') continue;
+    const content = message.content;
+    if (!content.includes('[Ruyi observation reduced') && !content.includes('"_ruyiObservation"')) continue;
+    for (const match of content.matchAll(refPattern)) {
+      const ref = match[0];
+      if (!seen.has(ref)) { seen.add(ref); refs.push(ref); }
+    }
+  }
+  if (!refs.length) return '';
+  const visible = refs.slice(-8);
+  const omitted = refs.length - visible.length;
+  return '[Ruyi recovery index — runtime context, not user-authored]\n'
+    + 'The reduced historical tool views below are incomplete but recoverable. If the request may depend on an exact omitted historical value or detail, call observation_recall with the relevant rawRef before answering or claiming that it is absent.\n'
+    + visible.map(ref => `- rawRef=${ref}`).join('\n')
+    + (omitted > 0 ? `\n- ${omitted} older recoverable reference(s) omitted from this bounded index` : '');
 }
 
 // Internal recovery primitive for diagnostics/tests and a future reviewed Recovery Brief. It never exposes a
@@ -531,6 +564,59 @@ function validateStructuredSummary(summary) {
   const statePresent = statusSection.some(s => summary.includes(s));
   const stateComplete = statePresent && stateLabels.every(labels => labels.some(label => summary.includes(label)));
   return found >= CONTEXT_GOVERNANCE_RULES.summary.minimumSections && stateComplete;  // 结构化摘要必须含五节中的至少四节,且状态节四项齐全
+}
+
+// ── 105b: session-notes.md 状态外置(只写切片)─────────────────────────────────
+// 从既有五节结构化摘要【确定性切出】状态三节,整写到 sessions/<id>.session-notes.md 旁车副本。
+// 节索引锚定 context-governance-rules.json 的 summary.sections 顺序(1=已确认的决定,2=未完成事项,
+// 4=关键文件与上下文);0=目标、3=当前执行状态留在摘要叙事里,不进 notes(摘要保留叙事职责)。
+// 不新增 LLM 调用、不改摘要/prompt/reseed 字节形状;默认关闭,失败静默,绝不阻断回合。
+const SESSION_NOTES_SECTION_INDEXES = [1, 2, 4];
+const SESSION_NOTES_TITLES = ['已确认的决定', '未完成事项', '关键文件与上下文'];
+function extractSessionNotes(summary) {
+  const rules = CONTEXT_GOVERNANCE_RULES.summary;
+  const text = String(summary || '');
+  // 定位每节标题:任一名命中,取最靠前的出现位置与对应别名长度。
+  const found = [];
+  for (let i = 0; i < rules.sections.length; i++) {
+    let pos = -1, len = 0;
+    for (const alias of rules.sections[i]) {
+      const p = text.indexOf(alias);
+      if (p >= 0 && (pos < 0 || p < pos)) { pos = p; len = alias.length; }
+    }
+    if (pos >= 0) found.push({ index: i, pos, len });
+  }
+  found.sort((a, b) => a.pos - b.pos);
+  const out = [];
+  for (const idx of SESSION_NOTES_SECTION_INDEXES) {
+    const f = found.find(x => x.index === idx);
+    if (!f) { out.push('无'); continue; }              // 缺节降级为「无」,对齐摘要空节约定
+    const next = found.find(x => x.pos > f.pos);
+    const body = text.slice(f.pos + f.len, next ? next.pos : undefined).trim();
+    out.push(body || '无');
+  }
+  return { decisions: out[0], open: out[1], files: out[2] };
+}
+function renderSessionNotesMarkdown(notes, meta) {
+  const m = meta && typeof meta === 'object' ? meta : {};
+  const head = `<!-- schema:1 session:${String(m.sessionId || '')} updatedAt:${String(m.updatedAt || '')} turnSeq:${Number.isFinite(m.turnSeq) ? m.turnSeq : 0} -->`;
+  const parts = ['# Session Notes', '', head, ''];
+  const bodies = [notes && notes.decisions, notes && notes.open, notes && notes.files];
+  for (let i = 0; i < SESSION_NOTES_TITLES.length; i++) {
+    parts.push(`## ${SESSION_NOTES_TITLES[i]}`, '', String(bodies[i] || '无'), '');
+  }
+  return parts.join('\n');
+}
+// 挂钩入口:L2 摘要成功后 fire-and-forget。开关关闭 = 零文件读写;任何失败吞掉(纪律同 writeHistorySnapshot)。
+function maybeWriteSessionNotes(session, summary, config) {
+  try {
+    if (!sessionNotesEnabled(config)) return;
+    if (!session || !session.id || typeof summary !== 'string' || !summary) return;
+    const md = renderSessionNotesMarkdown(extractSessionNotes(summary), {
+      sessionId: session.id, updatedAt: new Date().toISOString(), turnSeq: session.turnSeq,
+    });
+    writeSessionNotes(session.id, md).catch(() => {});
+  } catch { /* session notes 是旁车副本,绝不阻断回合 */ }
 }
 function userBlockStarts(history) {
   const idx = [];
@@ -1180,6 +1266,7 @@ async function runProviderCompact(sessionId) {
   }
   const summary = sc.summary;
   recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账
+  maybeWriteSessionNotes(session, summary, config); // 105b: 与自动 L2 同纪律,显式关时零副作用
 
   const beforeTokens = estimateHistoryTokens(history);
   session.providerHistory = [
@@ -1270,6 +1357,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       return compacted;
     }
     recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
+    maybeWriteSessionNotes(session, sc.summary, config); // 105b: 状态三节外置到 session-notes.md,显式关时零副作用
     const plan = CompactionPlan.create({ scope: 'main', trigger: 'auto', history, provider, model, config, conversationWindow: true });
     session.providerHistory = CompactionPlan.reseed(plan, sc.summary);
     const after2 = estimateHistoryTokens([sysMsg, ...session.providerHistory], '', tools);

@@ -1767,7 +1767,7 @@ const MCP_TOOLS = [
     // 105a: offered only when runtimeObservationRecallV1 AND runtimeObservationReducerV1 are both on
     // (buildOpenAiTools / MCP tools/list / adaptive catalog all gate on the pair; the handler fails closed too).
     name: 'observation_recall',
-    description: 'Recall the full original content of a tool result that was reduced during context compaction, using the rawRef embedded in the reduced view (format history:<turn>:<hash>:<index>:<hash>). Read-only; resolves only snapshots of the CURRENT session. Stable failure envelope {ok:false,error}: invalid_ref | not_found (snapshot GC\'d) | hash_mismatch | quota_exceeded (8 recalls per turn — do not retry the same ref after this) | disabled.',
+    description: 'Recall the original content of a tool result reduced during context compaction, using the rawRef embedded in its reduced view (format history:<turn>:<hash>:<index>:<hash>). When a user asks for an exact historical value/detail and a relevant earlier tool result is marked reduced or omitted, call this tool before answering; never conclude the detail is absent from the reduced view alone. Read-only; resolves only snapshots of the CURRENT session. Stable failure envelope {ok:false,error}: invalid_ref | not_found (snapshot GC\'d) | hash_mismatch | quota_exceeded (8 recalls per turn — do not retry the same ref after this) | disabled.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['rawRef'],
       properties: {

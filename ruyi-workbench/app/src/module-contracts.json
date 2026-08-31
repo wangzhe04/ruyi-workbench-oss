@@ -180,6 +180,7 @@
         "send",
         "sendError",
         "serveStatic",
+        "sessionNotesEnabled",
         "sessionPath",
         "sessionWriteChains",
         "spawnCmdLineLength",
@@ -463,6 +464,7 @@
         "MISSION_STALL_LIMIT",
         "SESSION_INDEX_FILE",
         "SESSION_INDEX_FLUSH_MS",
+        "SESSION_NOTES_MAX_CHARS",
         "SESSION_STORAGE_VERSION",
         "SESSION_TOMBSTONE",
         "TODO_MAX_ITEMS",
@@ -567,6 +569,7 @@
         "readMissionChangesWithMeta",
         "readSessionBodyFile",
         "readSessionIndex",
+        "readSessionNotes",
         "reconcileWorkspaceTurnBaseline",
         "registerIntervention",
         "repairInterventionTornTail",
@@ -588,6 +591,8 @@
         "sessionLineHash",
         "sessionMeta",
         "sessionMissionId",
+        "sessionNotesPath",
+        "sessionNotesWriteChains",
         "settleIntervention",
         "sortSessionMetas",
         "stopMissionAgentRuns",
@@ -608,7 +613,8 @@
         "workspaceBaselinePathKey",
         "workspaceBaselineRemainingMs",
         "workspaceBaselineSnapshotsEqual",
-        "writeSessionIndex"
+        "writeSessionIndex",
+        "writeSessionNotes"
       ],
       "requires": [
         {
@@ -6057,6 +6063,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "buildObservationRecallPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "CompactionPlan",
           "kinds": [
             "read"
@@ -6194,12 +6207,15 @@
         "OBSERVATION_REDUCE_MIN",
         "OBSERVATION_TEXT_HEAD",
         "OBSERVATION_TEXT_TAIL",
+        "SESSION_NOTES_SECTION_INDEXES",
+        "SESSION_NOTES_TITLES",
         "SUMMARY_INPUT_BUDGET_RATIO",
         "SUMMARY_PROMPT",
         "SUMMARY_SINGLE_SHOT_MAX_EST",
         "TOOL_RESULT_CAP",
         "_calibKey",
         "agentConversationContextMeta",
+        "buildObservationRecallPrompt",
         "cacheContextLength",
         "cachedContextLength",
         "calibratedEstimate",
@@ -6215,6 +6231,7 @@
         "estimateFactor",
         "evaporateHistory",
         "extractContextLength",
+        "extractSessionNotes",
         "fitHistoryForSummary",
         "isContextOverflowError",
         "lastSessionContextTokens",
@@ -6222,6 +6239,7 @@
         "loadContextCalibration",
         "maybeAutoCompact",
         "maybeCompactSubHistory",
+        "maybeWriteSessionNotes",
         "measureObservationReductionShadow",
         "noteEstimateSample",
         "noteWindowOvershoot",
@@ -6236,6 +6254,7 @@
         "recordCompactUsage",
         "reduceObservationContent",
         "rehydrateObservation",
+        "renderSessionNotesMarkdown",
         "resolveCompactionProvider",
         "resolveContextWindow",
         "runAgentExternalCompact",
@@ -6350,6 +6369,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "PERMISSION_MODES",
           "kinds": [
             "read"
@@ -6365,6 +6391,13 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionNotesEnabled",
           "kinds": [
             "call"
           ]
@@ -6428,6 +6461,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "withJournalWriteLock",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "writeSessionNotes",
           "kinds": [
             "call"
           ]
@@ -6863,7 +6903,12 @@
         "accCpCategory",
         "accCpName",
         "buildNonAsciiReport",
+        "defaultTextLineEnding",
+        "detectTextLineEnding",
+        "hasTextLineBreak",
         "invokeAdaptiveMcpTool",
+        "isUtf8Encoding",
+        "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
         "resolveFileToolRoot"
@@ -10158,6 +10203,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "sessionNotesEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "spawnCmdLineLength",
           "kinds": [
             "read"
@@ -10361,6 +10413,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "readSessionNotes",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "reconcileWorkspaceTurnBaseline",
           "kinds": [
             "read"
@@ -10396,6 +10455,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionNotesPath",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "unprefixedBridgedName",
           "kinds": [
             "read"
@@ -10411,6 +10477,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "workspaceBaselineIsCodePath",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "writeSessionNotes",
           "kinds": [
             "read"
           ]
@@ -12013,6 +12086,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "buildObservationRecallPrompt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "calibratedEstimate",
           "kinds": [
             "read"
@@ -12090,6 +12170,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "extractSessionNotes",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "fitHistoryForSummary",
           "kinds": [
             "read"
@@ -12105,6 +12192,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "learnedWindowCap",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "maybeWriteSessionNotes",
           "kinds": [
             "read"
           ]
@@ -12182,6 +12276,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "rehydrateObservation",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "renderSessionNotesMarkdown",
           "kinds": [
             "read"
           ]

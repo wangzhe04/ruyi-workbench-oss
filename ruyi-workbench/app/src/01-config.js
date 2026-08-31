@@ -93,13 +93,18 @@ function defaultConfig() {
     toolCatalogCacheTtlMs: 60000,  // bridged catalog reuse; clamp 5s..10min
     // 20-T1/20-C1/20-F1 runtime-optimization slices. The master shadow flag is on by default: it evaluates
     // candidates and emits redacted comparison metrics, but never changes a tool result, history content,
-    // retry, permission, or memory decision. The three independent active flags remain strict opt-ins.
+    // retry, permission, or memory decision. Tool retrieval remains opt-in; the reducer/recall pair passed
+    // real-history adoption gates and defaults on, with explicit false preserving the legacy behavior.
     runtimeOptimizationShadowV1: true,
     runtimeToolRetrievalV1: false,
-    runtimeObservationReducerV1: false,
+    runtimeObservationReducerV1: true,
     // 105a: observation_recall 工具外壳 —— 让模型按缩减视图内嵌的 rawRef 回读原始工具结果。
-    // 仅在 runtimeObservationReducerV1 同时开启时生效(rawRef 只由 reducer 产生);默认关闭。
-    runtimeObservationRecallV1: false,
+    // 仅在 runtimeObservationReducerV1 同时开启时生效(rawRef 只由 reducer 产生);真实历史门后默认开启。
+    runtimeObservationRecallV1: true,
+    // 105b: session-notes.md 状态外置 —— L2 摘要成功后把【已确认的决定】/【未完成事项】/
+    // 【关键文件与上下文】三节确定性切出,整写到 sessions/<id>.session-notes.md 旁车副本。
+    // 摘要保留叙事职责;notes 只写不回注上下文。105b 真实历史门通过后默认开启，仍可显式关闭。
+    runtimeSessionNotesV1: true,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -479,7 +484,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -759,6 +764,12 @@ function normalizeConfig(raw) {
 // 单开 recall 无可解析引用)。目录可见性、offer 门与 handler fail-closed 共用本判定。
 function observationRecallEnabled(config) {
   return !!(config && config.runtimeObservationRecallV1 === true && config.runtimeObservationReducerV1 === true);
+}
+
+// 105b: session-notes.md 状态外置生效条件 —— 单开关,不依赖 reducer/recall。
+// 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
+function sessionNotesEnabled(config) {
+  return !!(config && config.runtimeSessionNotesV1 === true);
 }
 
 // ============================================================================

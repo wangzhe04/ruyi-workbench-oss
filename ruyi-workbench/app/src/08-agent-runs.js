@@ -768,7 +768,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
           subServerToolItems.push(item);
         }
-        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
@@ -950,7 +950,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         continue; // let the sub-agent react to its tool results
       }
       // No tool calls → final conclusion for the sub-turn.
-      if (call.text) subHistory.push({ role: 'assistant', content: call.text });
+      if (call.text) subHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
       break;
     }
     // 预算耗尽(循环正常退出,非 break 跳出)

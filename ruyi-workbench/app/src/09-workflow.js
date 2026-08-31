@@ -1584,6 +1584,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (key) headers['authorization'] = 'Bearer ' + key;
   if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
+  const appendRecallPrompt = (msgs, history) => {
+    const recallPrompt = buildObservationRecallPrompt(history, config);
+    if (!recallPrompt) return;
+    const lastUserIndex = msgs.findLastIndex(entry => entry && entry.role === 'user');
+    if (lastUserIndex < 0) return;
+    const lastUser = msgs[lastUserIndex];
+    if (typeof lastUser.content === 'string') {
+      msgs[lastUserIndex] = { ...lastUser, content: lastUser.content + '\n\n' + recallPrompt };
+      return;
+    }
+    if (Array.isArray(lastUser.content)) {
+      msgs[lastUserIndex] = { ...lastUser, content: [...lastUser.content, { type: 'text', text: recallPrompt }] };
+    }
+  };
   const buildBody = withTools => {
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
     // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
@@ -1609,6 +1623,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
         }
       }
+      appendRecallPrompt(msgs, viewHistory);
       // v1.8: server-side tool items (web_search_call) are appended to `input` AFTER the translated history —
       // DeepSeek restores the search results server-side and the model continues on the next call.
       const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
@@ -1637,6 +1652,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
       }
     }
+    appendRecallPrompt(msgs, viewHistory);
     const b = { model, messages: msgs, stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
     applyProviderReasoningEffort(b, provider, 'chat');
@@ -2163,7 +2179,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (looksLikePlan(call.text) && !(call.toolCalls && call.toolCalls.length)) {
           // The model spoke a plan and stopped — record it in history so the context stays coherent for the
           // post-approval continuation, then pause for the decision.
-          if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text });
+          if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
           await saveSession(session);
           touch(); // feed the idle watchdog at the pause boundary (the plan's own permissionTimeoutMs governs the wait)
           const decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs);
@@ -2196,7 +2212,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         } else if (call.toolCalls && call.toolCalls.length) {
           // A mixed batch is refused as a unit: executing its reads could leak partial evidence into a request
           // whose modifying half was never authorized, and one paired result per call keeps history valid.
-          session.providerHistory.push({ role: 'assistant', content: call.text || '', tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+          session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
           for (const tc of call.toolCalls) {
             let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
             const refuse = { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' };
@@ -2252,7 +2268,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
         }
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
-        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
         subagentBatchCount = 0; // v0.9-S6: reset the per-assistant-batch spawn_agent fan-out counter
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
@@ -2861,7 +2877,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         continue;                     // loop: let the model react to the tool results
       }
       // No tool calls → final answer for this turn.
-      if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text });
+      if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
       // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
       // 标 073(漏 gap 类别)/077(大小写当重复)/091(金额归位)/092(drift 标识错) 类「框架对、细节失守」。
       if (!selfCheckDone && toolCalls.length > 0 && /生成|输出|创建|写出|列出|csv|报告|清单|manifest|核对|修复|审计|对账|reconciliation|report|list|generate/i.test(fullPrompt)) {
@@ -3117,6 +3133,11 @@ function estimateHistoryTokens(history, systemPrompt, tools) {
     if (!m || typeof m !== 'object') continue;
     t += 40; // per-message structural overhead (role/formatting/delimiters)
     t += estimateContentTokens(m.content);
+    // DeepSeek Responses thinking mode requires prior reasoning to be replayed after a
+    // tool call. It is therefore part of the real next-request payload and budget.
+    if (typeof m.reasoning_content === 'string' && m.reasoning_content) {
+      t += estimateTextTokens(m.reasoning_content);
+    }
     // assistant tool_calls: the function arguments are real payload sent to the model — count them.
     if (Array.isArray(m.tool_calls)) {
       for (const tc of m.tool_calls) {
