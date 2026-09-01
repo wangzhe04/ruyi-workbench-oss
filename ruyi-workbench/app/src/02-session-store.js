@@ -24,7 +24,9 @@ function sessionBodyPaths(id) {
 
 // ── 105b: session-notes.md 状态外置(旁车副本)─────────────────────────────────
 // L2 摘要成功后,把结构化摘要中的【已确认的决定】/【未完成事项】/【关键文件与上下文】三节确定性
-// 切出,整写到本文件(每次 L2 成功整体重写,摘要本身即最新权威状态,不做增量合并)。
+// 切出整写到本文件。默认每次 L2 成功整体重写(摘要本身即最新权威状态);105d 的
+// runtimeSessionNotesMergeV1(默认关)开启时改为 read→merge→write 增量合并,合并逻辑在
+// 10-context-governance.js 的 mergeSessionNotes,本层只负责原子写与尾部截断兜底。
 // 纪律:与 interventions/changes 旁车同层同规 —— 独立 per-session 写链 + 原子写;notes 是易失副本,
 // 读失败/缺文件一律 null,绝不阻断回合。105b 真实历史门通过后默认开启；显式关时零文件读写。
 const SESSION_NOTES_MAX_CHARS = 64000;

@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-08-31）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；第 105 波进行中，**105a（observation_recall 外壳）与 105b（session-notes.md 状态外置，只写切片）已交付并默认开启；105c（摘要实体确定性抽检）已交付、取证期默认关闭**。105a 经真实历史回放、DeepSeek V4 Pro 3/3 与 V4 Flash 1/1 的自发采用门后开启；两者均可显式关闭回退。105c 为成本承担行为（触发修补多一次 LLM 调用），默认关闭，flip 判据见其 Release Brief。
+> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；第 105 波进行中，**105a（observation_recall 外壳）、105b（session-notes.md 状态外置）、105c（摘要实体确定性抽检）与 105d（session notes 回注与增量合并）均已交付并默认开启**。105a 经真实历史回放、DeepSeek V4 Pro 3/3 与 V4 Flash 1/1 的自发采用门后开启；四者均可显式关闭回退。105c 为成本承担行为（触发修补多一次 LLM 调用）；105d 的回注块整体上限为 2000 字符。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -190,7 +190,7 @@
 - **证据**：`session-notes.e2e.js` 全绿；真实 `history-25.json.gz` 的决定（M2）、未完成项（abstainThreshold）与关键文件（14-m2-deterministic-nodes.md）均正确落入 notes，目标/当前状态未混入；定向 `context-compact-v2` / `autocompact` / `provider-compact` / `observation-recall` 全绿；`module-dependency-graph --check` 通过（30 模块／240 边，policy 未放宽）；`route-inventory --check` 零漂移（未加路由）；全量回归见 run-all 输出。
 - **回退**：删除开关三处、`02` notes 原语、`10` 提取/挂钩与 `14-main` 导出、新 e2e 与静态锁条目；重建 `server.js` 并重跑 module-graph/facts 生成器。已写出的 `.session-notes.md` 为纯旁车副本，无迁移、无清理义务。
 - **发布判断**：真实历史门通过后默认开启，只新增 L2 成功时的本机 notes 旁车写入；零 UI、零路由、失败不阻断回合。105a 已以独立的真实模型采用门默认开启，不依赖本项联动。
-- **遗留**：notes 回注上下文（读取侧消费者）与增量合并语义属后续切片；4.1 剩余项（摘要实体确定性抽检、估算因子分桶）未动。
+- **遗留**：notes 回注上下文（读取侧消费者）与增量合并语义已由 105d 交付并已默认开启（见其 Brief）；摘要实体确定性抽检由 105c 交付并已默认开启；4.1 剩余项（估算因子分桶）未动。
 
 #### 105c Release Brief · 摘要实体确定性抽检（2026-08-31）
 
@@ -211,6 +211,21 @@
 - **发布判断**：默认开启；命中缺失时最多增加一次定向修补调用，显式 `false` 可完整回退旧行为。Responses 配对适配避免截段历史在抽检前被 strict provider 400 拦截。
 - **默认开启判据（已完成，2026-09-01）**：真实历史门＋fake 集成门全绿；修补路径被“恰好一次”契约与遥测锁定、无修补风暴；DeepSeek `deepseek-v4-flash` 真实 checkpoint 对话层回放完成——首稿后触发一次修补（总 POST=2），抽检 12 个实体，修补后缺失 0。默认值与静态锁已 flip 为 `true`，显式 `false` 回退测试全绿。
 - **遗留**：105a/105b 的 realhist-fixtures（gitignore 真实数据副本）在本机已被清理，`session-notes.e2e.js` 的 [H] 段与 `observation-recall-realhistory.e2e.js` 因此在本机不可跑（先于本切片存在的环境问题，与本切片无关）；本切片 [H] 段改为直读现存 checkpoints 并可显式跳过。4.1 末项（估算因子分桶）未动。
+
+#### 105d Release Brief · session notes 回注与增量合并（2026-09-01）
+
+- **问题**：105b 遗留两项——`readSessionNotes()` 已备好但零生产调用方（notes 只写不回注，压缩后外置的决定/事项/关键文件在读侧不生效）；每次 L2 成功整体重写、无增量合并语义（上一轮 notes 中仍有效而本轮摘要未提及的行被直接覆盖消失）。
+- **非目标**：不动 4.2 单发优先与 4.3 refine；不改摘要 prompt、reseed 字节形状、压缩触发语义；子代理路径不注入（子会话无持久化权属，同 105b 纪律）；不做无界重试；不宣称跨任务成本收益。文本级合并无法识别「被后文推翻的决定」，并列保留属实验语义，由 105 总门取证裁决。两开关经真实历史与端到端门通过后默认 `true`，显式 `false` 完整回退到 105b 现状（只写不回注、整体重写）。
+- **交付物**：
+  - 开关 `runtimeSessionNotesInjectV1` / `runtimeSessionNotesMergeV1`（采用门通过后均默认 `true`，sanitize 只认 JSON 布尔，显式 `false` 回退）+ 唯一判定 `sessionNotesInjectEnabled(config)` / `sessionNotesMergeEnabled(config)`（`01-config.js`）；`runtime-optimization.static.e2e.js` 静态锁同步。
+  - 回注（`10-context-governance.js`＋`09-workflow.js`）：`buildSessionNotesInjectPrompt()` 生成有界注入块——**整个注入块**上限 2000 字符，超出保留头部＋省略计数标记；含「本副本来自最近一次压缩摘要的确定性抽取；与上下文内摘要重复时以最新摘要为准」使用提示；开关关／notes 缺失／解析失败／三节全「无」→ 空串零注入。每回合至多一次 `readSessionNotes()` IO（读取失败得 null 即跳过；开关关时零文件读取）；注入贴最后一条 user 消息、不持久化，预算口径同 105a recovery index（buildBody 内追加，不进 budgetPrompt）。去重守门 `historyStartsWithCompactionSummary()`：历史首条 user 已含【压缩摘要】或手动变体标记时跳过（notes 上游即该摘要，避免重复计费）。遥测 `session_notes_inject`（chars／skipped 原因）fire-and-forget、每回合最多一条。注入形态与守门收进纯函数（`appendPromptToLastUserMessage()` 兼容 string／parts 数组两种 content），注入闭包只管开关／跳过原因／遥测。
+  - 增量合并（`10-context-governance.js`）：`parseSessionNotesMarkdown()` 解析 `##` 三节（三标题全缺 → null 作解析失败信号）；`mergeSessionNotes()`＋`mergeSessionNotesLines()`——决定／关键文件两节并集去重（按行 trim 精确去重、next 行在前、prev 独有行追加在后；超 64K 由 `writeSessionNotes` 尾部截断兜底，自然保住新内容），未完成事项节以最新摘要为准（replace——已完成事项必须能消失），「无」节视为空集；prev 缺失／解析失败降级为整体重写。`maybeWriteSessionNotes()` 内开关开时 read→merge→render→write，仍 fire-and-forget、整体 try/catch 绝不阻断回合；开关关时路径与现状逐字节一致。已知限制写入注释：read→merge→write 不在 per-session 写链内，依赖「同会话 L2 串行」这一既有事实。
+  - `dev-harness/session-notes-inject.e2e.js`（39 项）与 `dev-harness/session-notes-merge.e2e.js`（24 项），见证据。
+- **证据**：`session-notes-inject.e2e.js` 全绿 39 项——[U] 20 项白盒（开关三态／null·空·坏 notes 不注入／整个注入块 ≤2000 字符与省略计数／守门两标记含数组 content 形态／两 content 形态贴最后一条 user）＋[H] 3 项真实 `history-25.json.gz`（五节 L2 摘要、注入块总长恰为 2000 且有省略标记、压缩摘要历史命中去重守门）＋[E] 16 项 fake-openai 集成（三套独立 fake＋workbench，默认开＋预置 notes → 请求体最后一条 user 含注入块且首条不含；`/api/sessions` 读回 providerHistory 无注入块（非持久）；首条 user 含摘要标记 → 守门跳过；显式关闭 → 零注入）。`session-notes-merge.e2e.js` 全绿 24 项——[U] 18 项（并集去重新行在前、open replace 旧项消失、无 prev／坏 prev 降级、「无」节处理、合并结果 render 后可再 parse 回环、挂钩三态：merge 显式关整体重写／merge 开合并落盘／单开 merge 无 105b 零文件）＋[H] 4 项真实 `history-24/26.json.gz`（决定/关键文件并集无丢失、未完成事项以最新摘要替换、render/parse 回环）＋[R] 2 项跨进程读回合并结果并 parse 逐字节一致。`session-notes.e2e.js` 的既有真实摘要外置 [H] 3 项也通过。默认开启后相关定向回归与静态/生成门复跑，见本次变更验证记录。
+- **回退**：删两开关各三处（默认值／sanitize／判定）、`buildSessionNotesInjectPrompt`／`historyStartsWithCompactionSummary`／`appendPromptToLastUserMessage`／`parseSessionNotesMarkdown`／`mergeSessionNotes`（含 `mergeSessionNotesLines`）与两个注入调用点、`maybeWriteSessionNotes` 合并分支、静态锁条目、两个新 e2e；重建 `server.js` 并重跑 module-graph／route-inventory／facts 生成器。无持久化面变更、无数据迁移（已写出的 `.session-notes.md` 仍是纯旁车副本）。
+- **发布判断**：默认开启；真实历史门、fake-provider 端到端门、显式关闭回退与 2000 字符总上限均通过。开关关闭时与 105b 现状逐字节一致（由静态锁与 e2e 锁定），无需单独触发版本升级。
+- **默认开启判据（已完成，2026-09-01）**：用户拍板取证通过；真实历史门＋fake-provider 端到端采用门全绿（默认开＋预置 notes 时请求体最后一条 user 含注入块且非持久、含摘要历史命中去重守门跳过）；默认值与静态锁已 flip 为 `true`（`runtime-optimization.static.e2e.js` 同步锁默认 true）；显式 `false` 回退测试全绿（零注入／整体重写，与 105b 现状逐字节一致）；压缩类定向回归（context-compact-v2／autocompact／provider-compact）无注入相关新红。
+- **遗留**：4.1 末项（估算因子分桶）未动；4.2／4.3 未动；可在后续 105 总门中补充回注的跨模型成本收益对比。
 
 ### 4.2 小窗口单发优先
 

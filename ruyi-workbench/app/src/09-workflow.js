@@ -1579,6 +1579,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
   const budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
+  // 105d-A: session notes 回注 —— 每回合至多一次 IO,结果存局部变量供 buildBody 闭包使用。
+  // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
+  // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
+  const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
   const headers = { 'content-type': 'application/json' };
   const key = String(provider.apiKey || '').trim();
   if (key) headers['authorization'] = 'Bearer ' + key;
@@ -1597,6 +1601,25 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (Array.isArray(lastUser.content)) {
       msgs[lastUserIndex] = { ...lastUser, content: [...lastUser.content, { type: 'text', text: recallPrompt }] };
     }
+  };
+  // 105d-A: session notes 回注 —— 仿 appendRecallPrompt 处理 string/数组两种 content 形态,贴最后一条
+  // user,不持久化(只改本次请求体副本,不写 providerHistory)。预算口径与 recall prompt 一致:
+  // buildBody 内追加,不进 budgetPrompt。注入形态与去重守门是纯函数(10-context-governance),
+  // 本闭包只管开关/跳过原因/遥测。
+  let sessionNotesTeleDone = false; // 遥测每回合最多一条(buildBody 在工具循环里会多次构建请求体)
+  const appendSessionNotesPrompt = (msgs, history) => {
+    if (!sessionNotesInjectEnabled(config)) return;
+    const notesPrompt = buildSessionNotesInjectPrompt(sessionNotesText, config);
+    // 去重守门:notes 上游即最近一次压缩摘要;历史首条 user 已含该摘要时跳过注入,避免重复计费。
+    let skipped = '';
+    if (!notesPrompt) skipped = sessionNotesText ? 'empty_or_unparsed' : 'no_notes';
+    else if (historyStartsWithCompactionSummary(history)) skipped = 'summary_in_history';
+    if (!sessionNotesTeleDone) {
+      sessionNotesTeleDone = true;
+      try { logEvent({ kind: 'session_notes_inject', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, chars: skipped ? 0 : notesPrompt.length, skipped: skipped || undefined }); } catch { /* 遥测绝不阻断 */ }
+    }
+    if (skipped) return;
+    appendPromptToLastUserMessage(msgs, notesPrompt);
   };
   const buildBody = withTools => {
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
@@ -1624,6 +1647,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
       }
       appendRecallPrompt(msgs, viewHistory);
+      appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
       // v1.8: server-side tool items (web_search_call) are appended to `input` AFTER the translated history —
       // DeepSeek restores the search results server-side and the model continues on the next call.
       const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
@@ -1653,6 +1677,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       }
     }
     appendRecallPrompt(msgs, viewHistory);
+    appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
     const b = { model, messages: msgs, stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
     applyProviderReasoningEffort(b, provider, 'chat');

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-08-31T15:29:25.422Z",
+  "generatedAt": "2026-09-01T03:57:14.300Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01-config.js",
     "routers": [
@@ -1848,6 +1848,7 @@
         "dev-harness\\semantic-loop-guard.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-index.e2e.js",
+        "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\shell-session.e2e.js",
         "dev-harness\\skills-registry.e2e.js",
         "dev-harness\\source-fields.e2e.js",
@@ -2335,6 +2336,7 @@
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
         "dev-harness\\session-index.e2e.js",
+        "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\skills-registry.e2e.js",
         "dev-harness\\source-fields.e2e.js",
         "dev-harness\\spawn-background-dag.e2e.js",
@@ -2459,6 +2461,7 @@
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
         "dev-harness\\session-index.e2e.js",
+        "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\skills-registry.e2e.js",
         "dev-harness\\source-fields.e2e.js",
         "dev-harness\\spawn-background-dag.e2e.js",
@@ -2545,6 +2548,7 @@
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
         "dev-harness\\session-index.e2e.js",
+        "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\skills-registry.e2e.js",
         "dev-harness\\source-fields.e2e.js",
         "dev-harness\\steer-interrupt.e2e.js",

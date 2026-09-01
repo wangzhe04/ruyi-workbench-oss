@@ -12,6 +12,10 @@ ok(/runtimeSessionNotesV1: true/.test(src), 'S runtimeSessionNotesV1 defaults tr
 ok(/runtimeSummaryEntityCheckV1: true/.test(src), 'S runtimeSummaryEntityCheckV1 defaults true after 105c real-history + DeepSeek gate');
 ok(/'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1'/.test(src), 'S runtimeSummaryEntityCheckV1 入严格布尔 sanitize 表');
 ok(/function summaryEntityCheckEnabled\(config\)/.test(src), 'S summaryEntityCheckEnabled 唯一判定点存在');
+ok(/runtimeSessionNotesInjectV1: true/.test(src), 'S runtimeSessionNotesInjectV1 defaults true after 105d real-history gate');
+ok(/runtimeSessionNotesMergeV1: true/.test(src), 'S runtimeSessionNotesMergeV1 defaults true after 105d real-history gate');
+ok(/'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1'/.test(src), 'S 105d 两开关入严格布尔 sanitize 表');
+ok(/function sessionNotesInjectEnabled\(config\)/.test(src) && /function sessionNotesMergeEnabled\(config\)/.test(src), 'S 105d 两开关唯一判定点存在');
 for (const flag of ['runtimeToolRetrievalV1', 'runtimeFailureTelemetryV1']) {
   ok(new RegExp(flag + ': false').test(src), `S ${flag} defaults false`);
   ok(new RegExp("config\\[key\\] === true").test(src), `S strict boolean normalization present (${flag})`);

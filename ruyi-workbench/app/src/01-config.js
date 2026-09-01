@@ -103,8 +103,17 @@ function defaultConfig() {
     runtimeObservationRecallV1: true,
     // 105b: session-notes.md 状态外置 —— L2 摘要成功后把【已确认的决定】/【未完成事项】/
     // 【关键文件与上下文】三节确定性切出,整写到 sessions/<id>.session-notes.md 旁车副本。
-    // 摘要保留叙事职责;notes 只写不回注上下文。105b 真实历史门通过后默认开启，仍可显式关闭。
+    // 摘要保留叙事职责;回注上下文由 105d 的 runtimeSessionNotesInjectV1 单独把门(默认关)。
+    // 105b 真实历史门通过后默认开启，仍可显式关闭。
     runtimeSessionNotesV1: true,
+    // 105d-A: session notes 回注 —— 开关开时每回合读一次旁车 notes,有界、非持久地贴到最后一条
+    // user 消息(去重守门:历史首条 user 已含压缩摘要时跳过)。真实历史+端到端采用门通过后默认开启;
+    // 显式 false = 零注入、零文件读取,完整回退到 105b 只写不回注。
+    runtimeSessionNotesInjectV1: true,
+    // 105d-B: session notes 增量合并 —— 开关开时 L2 成功后 read→merge→write(决定/关键文件并集
+    // 去重、未完成事项以最新摘要为准),而非每次整体重写。真实历史+端到端采用门通过后默认开启;
+    // 显式 false = 105b 整体重写语义逐字节不变。
+    runtimeSessionNotesMergeV1: true,
     // 105c: 摘要实体确定性抽检 —— L2 摘要产出后对路径/版本/带量级数字/日期/代号做确定性抽检,
     // 缺失时给出缺失清单并【恰好一次】定向修补(不无界重试)。真实历史+DeepSeek 门通过后默认开启;
     // 显式 false 可回退到零检查、零修补、零事件的旧行为。
@@ -488,7 +497,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -774,6 +783,20 @@ function observationRecallEnabled(config) {
 // 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
 function sessionNotesEnabled(config) {
   return !!(config && config.runtimeSessionNotesV1 === true);
+}
+
+// 105d-A: session notes 回注生效条件 —— 单开关,不依赖 105b 写侧开关(读失败即 null,
+// 旁车副本缺文件不是错误)。注入点与 e2e 共用本判定；显式 false / 缺省保证零注入、
+// 零文件读取(零行为变化)。
+function sessionNotesInjectEnabled(config) {
+  return !!(config && config.runtimeSessionNotesInjectV1 === true);
+}
+
+// 105d-B: session notes 增量合并生效条件 —— 挂在 105b 写链内,单开 merge 而无 105b
+// 不产生任何文件读写。挂钩点与 e2e 共用本判定；显式 false / 缺省保证 105b 整体重写
+// 语义逐字节不变。
+function sessionNotesMergeEnabled(config) {
+  return !!(config && config.runtimeSessionNotesMergeV1 === true);
 }
 
 // 105c: 摘要实体确定性抽检生效条件 —— 单开关。挂钩点(wrapper)与 e2e 共用本判定；
@@ -1993,7 +2016,7 @@ async function serveStatic(urlPath, req) {
     const body = await fsp.readFile(full);
     // v1.0.2 返修二:静态资产此前【零缓存头】—— 浏览器可能沿用缓存的旧 app.js/styles.css,用户换了新包
     // 却仍跑旧前端,一切修复"看起来都没修"(真机反馈坐实的怀疑路径)。产品模型是 overlay 增量更新,
-    // 静态资产必须即时生效:与 index.html 一致,一律 no-store(本地回环,重取零网络成本)。
+    // 静态资产必须即时生效:与 index.html 一致,一律 no-store(本���回环,重取零网络成本)。
     return { status: 200, headers: { 'content-type': contentTypeFor(full), 'cache-control': 'no-store' }, body };
   } catch {
     return text('Not found', 404);

@@ -580,8 +580,17 @@ function defaultConfig() {
     runtimeObservationRecallV1: true,
     // 105b: session-notes.md 状态外置 —— L2 摘要成功后把【已确认的决定】/【未完成事项】/
     // 【关键文件与上下文】三节确定性切出,整写到 sessions/<id>.session-notes.md 旁车副本。
-    // 摘要保留叙事职责;notes 只写不回注上下文。105b 真实历史门通过后默认开启，仍可显式关闭。
+    // 摘要保留叙事职责;回注上下文由 105d 的 runtimeSessionNotesInjectV1 单独把门(默认关)。
+    // 105b 真实历史门通过后默认开启，仍可显式关闭。
     runtimeSessionNotesV1: true,
+    // 105d-A: session notes 回注 —— 开关开时每回合读一次旁车 notes,有界、非持久地贴到最后一条
+    // user 消息(去重守门:历史首条 user 已含压缩摘要时跳过)。真实历史+端到端采用门通过后默认开启;
+    // 显式 false = 零注入、零文件读取,完整回退到 105b 只写不回注。
+    runtimeSessionNotesInjectV1: true,
+    // 105d-B: session notes 增量合并 —— 开关开时 L2 成功后 read→merge→write(决定/关键文件并集
+    // 去重、未完成事项以最新摘要为准),而非每次整体重写。真实历史+端到端采用门通过后默认开启;
+    // 显式 false = 105b 整体重写语义逐字节不变。
+    runtimeSessionNotesMergeV1: true,
     // 105c: 摘要实体确定性抽检 —— L2 摘要产出后对路径/版本/带量级数字/日期/代号做确定性抽检,
     // 缺失时给出缺失清单并【恰好一次】定向修补(不无界重试)。真实历史+DeepSeek 门通过后默认开启;
     // 显式 false 可回退到零检查、零修补、零事件的旧行为。
@@ -965,7 +974,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -1251,6 +1260,20 @@ function observationRecallEnabled(config) {
 // 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
 function sessionNotesEnabled(config) {
   return !!(config && config.runtimeSessionNotesV1 === true);
+}
+
+// 105d-A: session notes 回注生效条件 —— 单开关,不依赖 105b 写侧开关(读失败即 null,
+// 旁车副本缺文件不是错误)。注入点与 e2e 共用本判定；显式 false / 缺省保证零注入、
+// 零文件读取(零行为变化)。
+function sessionNotesInjectEnabled(config) {
+  return !!(config && config.runtimeSessionNotesInjectV1 === true);
+}
+
+// 105d-B: session notes 增量合并生效条件 —— 挂在 105b 写链内,单开 merge 而无 105b
+// 不产生任何文件读写。挂钩点与 e2e 共用本判定；显式 false / 缺省保证 105b 整体重写
+// 语义逐字节不变。
+function sessionNotesMergeEnabled(config) {
+  return !!(config && config.runtimeSessionNotesMergeV1 === true);
 }
 
 // 105c: 摘要实体确定性抽检生效条件 —— 单开关。挂钩点(wrapper)与 e2e 共用本判定；
@@ -2470,7 +2493,7 @@ async function serveStatic(urlPath, req) {
     const body = await fsp.readFile(full);
     // v1.0.2 返修二:静态资产此前【零缓存头】—— 浏览器可能沿用缓存的旧 app.js/styles.css,用户换了新包
     // 却仍跑旧前端,一切修复"看起来都没修"(真机反馈坐实的怀疑路径)。产品模型是 overlay 增量更新,
-    // 静态资产必须即时生效:与 index.html 一致,一律 no-store(本地回环,重取零网络成本)。
+    // 静态资产必须即时生效:与 index.html 一致,一律 no-store(本���回环,重取零网络成本)。
     return { status: 200, headers: { 'content-type': contentTypeFor(full), 'cache-control': 'no-store' }, body };
   } catch {
     return text('Not found', 404);
@@ -2684,7 +2707,9 @@ function sessionBodyPaths(id) {
 
 // ── 105b: session-notes.md 状态外置(旁车副本)─────────────────────────────────
 // L2 摘要成功后,把结构化摘要中的【已确认的决定】/【未完成事项】/【关键文件与上下文】三节确定性
-// 切出,整写到本文件(每次 L2 成功整体重写,摘要本身即最新权威状态,不做增量合并)。
+// 切出整写到本文件。默认每次 L2 成功整体重写(摘要本身即最新权威状态);105d 的
+// runtimeSessionNotesMergeV1(默认关)开启时改为 read→merge→write 增量合并,合并逻辑在
+// 10-context-governance.js 的 mergeSessionNotes,本层只负责原子写与尾部截断兜底。
 // 纪律:与 interventions/changes 旁车同层同规 —— 独立 per-session 写链 + 原子写;notes 是易失副本,
 // 读失败/缺文件一律 null,绝不阻断回合。105b 真实历史门通过后默认开启；显式关时零文件读写。
 const SESSION_NOTES_MAX_CHARS = 64000;
@@ -23846,6 +23871,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
   const budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
+  // 105d-A: session notes 回注 —— 每回合至多一次 IO,结果存局部变量供 buildBody 闭包使用。
+  // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
+  // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
+  const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
   const headers = { 'content-type': 'application/json' };
   const key = String(provider.apiKey || '').trim();
   if (key) headers['authorization'] = 'Bearer ' + key;
@@ -23864,6 +23893,25 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (Array.isArray(lastUser.content)) {
       msgs[lastUserIndex] = { ...lastUser, content: [...lastUser.content, { type: 'text', text: recallPrompt }] };
     }
+  };
+  // 105d-A: session notes 回注 —— 仿 appendRecallPrompt 处理 string/数组两种 content 形态,贴最后一条
+  // user,不持久化(只改本次请求体副本,不写 providerHistory)。预算口径与 recall prompt 一致:
+  // buildBody 内追加,不进 budgetPrompt。注入形态与去重守门是纯函数(10-context-governance),
+  // 本闭包只管开关/跳过原因/遥测。
+  let sessionNotesTeleDone = false; // 遥测每回合最多一条(buildBody 在工具循环里会多次构建请求体)
+  const appendSessionNotesPrompt = (msgs, history) => {
+    if (!sessionNotesInjectEnabled(config)) return;
+    const notesPrompt = buildSessionNotesInjectPrompt(sessionNotesText, config);
+    // 去重守门:notes 上游即最近一次压缩摘要;历史首条 user 已含该摘要时跳过注入,避免重复计费。
+    let skipped = '';
+    if (!notesPrompt) skipped = sessionNotesText ? 'empty_or_unparsed' : 'no_notes';
+    else if (historyStartsWithCompactionSummary(history)) skipped = 'summary_in_history';
+    if (!sessionNotesTeleDone) {
+      sessionNotesTeleDone = true;
+      try { logEvent({ kind: 'session_notes_inject', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, chars: skipped ? 0 : notesPrompt.length, skipped: skipped || undefined }); } catch { /* 遥测绝不阻断 */ }
+    }
+    if (skipped) return;
+    appendPromptToLastUserMessage(msgs, notesPrompt);
   };
   const buildBody = withTools => {
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
@@ -23891,6 +23939,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
       }
       appendRecallPrompt(msgs, viewHistory);
+      appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
       // v1.8: server-side tool items (web_search_call) are appended to `input` AFTER the translated history —
       // DeepSeek restores the search results server-side and the model continues on the next call.
       const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
@@ -23920,6 +23969,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       }
     }
     appendRecallPrompt(msgs, viewHistory);
+    appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
     const b = { model, messages: msgs, stream: true, stream_options: { include_usage: true } };
     if (temp !== undefined) b.temperature = temp;
     applyProviderReasoningEffort(b, provider, 'chat');
@@ -25857,6 +25907,61 @@ function buildObservationRecallPrompt(history, config) {
     + (omitted > 0 ? `\n- ${omitted} older recoverable reference(s) omitted from this bounded index` : '');
 }
 
+// 105d-A: session notes 回注 prompt —— 把旁车 notes 有界、非持久地贴到最新一条 user 消息旁
+// (样板同 105a recovery index)。开关关 / notes 缺失 / 解析失败 / 三节全空(皆「无」) → ''(零注入)。
+// 有界:【整个注入块】不超过上限；正文超出时保留头部 + 省略计数标记(常数内置,对齐 105a 风格),
+// 预算口径与 recall prompt 一致 —— 在 buildBody 内追加,不进 budgetPrompt。
+const SESSION_NOTES_INJECT_MAX_CHARS = 2000;
+function buildSessionNotesInjectPrompt(notesMarkdown, config) {
+  if (!sessionNotesInjectEnabled(config) || typeof notesMarkdown !== 'string' || !notesMarkdown) return '';
+  const sections = parseSessionNotesMarkdown(notesMarkdown);
+  if (!sections) return '';
+  const allEmpty = [sections.decisions, sections.open, sections.files].every(s => !s || s === '无');
+  if (allEmpty) return '';
+  const prefix = '[Ruyi session notes — runtime context, not user-authored]\n'
+    + 'The notes below are a deterministic extraction from the most recent compaction summary of this session (decisions / open items / key files). If they overlap or conflict with a summary already in the conversation, the newest summary wins.\n';
+  const bodyBudget = Math.max(0, SESSION_NOTES_INJECT_MAX_CHARS - prefix.length);
+  if (notesMarkdown.length <= bodyBudget) return prefix + notesMarkdown;
+  // 省略数本身的位数会改变可见正文长度，至多两轮即可收敛；末轮再防御性钳位总长。
+  let kept = bodyBudget;
+  for (let i = 0; i < 3; i++) {
+    const marker = `\n[...${notesMarkdown.length - kept} chars omitted...]`;
+    const next = Math.max(0, bodyBudget - marker.length);
+    if (next === kept) break;
+    kept = next;
+  }
+  const marker = `\n[...${notesMarkdown.length - kept} chars omitted...]`;
+  return (prefix + notesMarkdown.slice(0, kept) + marker).slice(0, SESSION_NOTES_INJECT_MAX_CHARS);
+}
+
+// 105d-A 去重守门(纯函数,e2e 白盒共用): notes 上游即最近一次压缩摘要;历史首条 user 已含该摘要
+// 标记(【压缩摘要】 或 (以下是此前对话的压缩摘要))时跳过注入,避免重复计费。content 兼容 string/数组。
+function historyStartsWithCompactionSummary(history) {
+  const firstUser = Array.isArray(history) ? history.find(entry => entry && entry.role === 'user') : null;
+  const text = !firstUser ? ''
+    : typeof firstUser.content === 'string' ? firstUser.content
+    : Array.isArray(firstUser.content) ? firstUser.content.map(part => part && typeof part.text === 'string' ? part.text : '').join('\n') : '';
+  return text.includes('【压缩摘要】') || text.includes('(以下是此前对话的压缩摘要)');
+}
+
+// 105d-A: 把非持久运行时提示贴到【最后一条】 user 消息(注入形态仿 105a recall prompt,
+// content 兼容 string/parts 数组)。只改传入的 msgs 请求副本;无 user 消息或形态不识 → false。
+function appendPromptToLastUserMessage(msgs, text) {
+  if (!text || !Array.isArray(msgs)) return false;
+  const lastUserIndex = msgs.findLastIndex(entry => entry && entry.role === 'user');
+  if (lastUserIndex < 0) return false;
+  const lastUser = msgs[lastUserIndex];
+  if (typeof lastUser.content === 'string') {
+    msgs[lastUserIndex] = { ...lastUser, content: lastUser.content + '\n\n' + text };
+    return true;
+  }
+  if (Array.isArray(lastUser.content)) {
+    msgs[lastUserIndex] = { ...lastUser, content: [...lastUser.content, { type: 'text', text }] };
+    return true;
+  }
+  return false;
+}
+
 // Internal recovery primitive for diagnostics/tests and a future reviewed Recovery Brief. It never exposes a
 // filesystem path and validates both the stable snapshot hash and the observation content hash before return.
 async function rehydrateObservation(sessionId, rawRef) {
@@ -26058,14 +26163,68 @@ function renderSessionNotesMarkdown(notes, meta) {
   }
   return parts.join('\n');
 }
+// 105d: 解析 renderSessionNotesMarkdown 产物的 `##` 三节回 {decisions, open, files};
+// 三个标题一个都找不到视为解析失败(null) —— 回注重空判定与增量合并共用这个解析器。
+function parseSessionNotesMarkdown(markdown) {
+  const text = String(markdown || '');
+  const keys = ['decisions', 'open', 'files'];
+  const found = [];
+  for (let i = 0; i < SESSION_NOTES_TITLES.length; i++) {
+    const marker = `## ${SESSION_NOTES_TITLES[i]}`;
+    const pos = text.indexOf(marker);
+    if (pos >= 0) found.push({ index: i, pos, len: marker.length });
+  }
+  if (!found.length) return null;
+  found.sort((a, b) => a.pos - b.pos);
+  const out = {};
+  for (const f of found) {
+    const next = found.find(x => x.pos > f.pos);
+    const body = text.slice(f.pos + f.len, next ? next.pos : undefined).trim();
+    out[keys[f.index]] = body || '无'; // 空节对齐摘要空节约定
+  }
+  return { decisions: out.decisions || '无', open: out.open || '无', files: out.files || '无' };
+}
+// 105d-B: 增量合并 —— 决定/关键文件两节并集去重(按行 trim 精确去重,next 的行在前、prev 独有行
+// 追加在后,新的优先;超 64K 由 writeSessionNotes 现有尾部截断兜底,自然保住新内容);
+// 未完成事项节以最新为准(replace) —— 已完成事项必须能消失,摘要是权威状态。「无」节视为空集。
+// prev 缺失/解析失败 → 直接用 next(降级为 105b 整体重写语义)。
+// 已知局限:文本级合并无法识别「被后文推翻的决定」,并列保留属实验语义,由 105 总门取证裁决。
+function mergeSessionNotes(prevMarkdown, nextNotes) {
+  const prev = typeof prevMarkdown === 'string' && prevMarkdown ? parseSessionNotesMarkdown(prevMarkdown) : null;
+  if (!prev || !nextNotes || typeof nextNotes !== 'object') return nextNotes;
+  return {
+    decisions: mergeSessionNotesLines(nextNotes.decisions, prev.decisions),
+    open: nextNotes.open, // replace: 以最新摘要为准
+    files: mergeSessionNotesLines(nextNotes.files, prev.files),
+  };
+}
+function mergeSessionNotesLines(nextBody, prevBody) {
+  const toLines = body => (String(body || '').trim() === '无' ? [] : String(body || '').split('\n').map(l => l.trim()).filter(Boolean));
+  const seen = new Set();
+  const out = [];
+  for (const line of [...toLines(nextBody), ...toLines(prevBody)]) {
+    if (seen.has(line)) continue;
+    seen.add(line); out.push(line);
+  }
+  return out.join('\n'); // 空集交给 renderSessionNotesMarkdown 的「无」兜底,保证合并结果可再解析(回环)
+}
 // 挂钩入口:L2 摘要成功后 fire-and-forget。开关关闭 = 零文件读写;任何失败吞掉(纪律同 writeHistorySnapshot)。
 function maybeWriteSessionNotes(session, summary, config) {
   try {
     if (!sessionNotesEnabled(config)) return;
     if (!session || !session.id || typeof summary !== 'string' || !summary) return;
-    const md = renderSessionNotesMarkdown(extractSessionNotes(summary), {
-      sessionId: session.id, updatedAt: new Date().toISOString(), turnSeq: session.turnSeq,
-    });
+    const nextNotes = extractSessionNotes(summary);
+    const meta = { sessionId: session.id, updatedAt: new Date().toISOString(), turnSeq: session.turnSeq };
+    // 105d-B: 增量合并分支 —— read→merge→render→write,仍 fire-and-forget、整体 catch 绝不阻断回合。
+    // 已知限制:read→merge→write 不在 per-session 写链内,依赖「同会话 L2 串行」这一既有事实。
+    if (sessionNotesMergeEnabled(config)) {
+      Promise.resolve()
+        .then(() => readSessionNotes(session.id))
+        .then(prev => writeSessionNotes(session.id, renderSessionNotesMarkdown(mergeSessionNotes(prev, nextNotes), meta)))
+        .catch(() => {});
+      return;
+    }
+    const md = renderSessionNotesMarkdown(nextNotes, meta);
     writeSessionNotes(session.id, md).catch(() => {});
   } catch { /* session notes 是旁车副本,绝不阻断回合 */ }
 }
@@ -35434,6 +35593,14 @@ module.exports = {
   writeSessionNotes,
   readSessionNotes,
   maybeWriteSessionNotes,
+  // 105d: session notes 回注 + 增量合并 — exposed for e2e 白盒契约(开关判定/有界 prompt/解析/合并)。
+  sessionNotesInjectEnabled,
+  sessionNotesMergeEnabled,
+  buildSessionNotesInjectPrompt,
+  parseSessionNotesMarkdown,
+  mergeSessionNotes,
+  historyStartsWithCompactionSummary,
+  appendPromptToLastUserMessage,
   // 105c: 摘要实体确定性抽检 — exposed for e2e 白盒契约(抽取/检查/开关唯一判定点)。
   summaryEntityCheckEnabled,
   extractSummaryEntities,

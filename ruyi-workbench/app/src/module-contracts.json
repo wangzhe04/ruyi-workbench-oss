@@ -181,6 +181,8 @@
         "sendError",
         "serveStatic",
         "sessionNotesEnabled",
+        "sessionNotesInjectEnabled",
+        "sessionNotesMergeEnabled",
         "sessionPath",
         "sessionWriteChains",
         "spawnCmdLineLength",
@@ -5083,6 +5085,13 @@
           ]
         },
         {
+          "provider": "01-config.js",
+          "symbol": "sessionNotesInjectEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "applyMissionUpdate",
           "kinds": [
@@ -5155,6 +5164,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionNotes",
           "kinds": [
             "call"
           ]
@@ -6072,7 +6088,21 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "appendPromptToLastUserMessage",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "buildObservationRecallPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "buildSessionNotesInjectPrompt",
           "kinds": [
             "call"
           ]
@@ -6094,6 +6124,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "evaporateHistory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "historyStartsWithCompactionSummary",
           "kinds": [
             "call"
           ]
@@ -6216,6 +6253,7 @@
         "OBSERVATION_REDUCE_MIN",
         "OBSERVATION_TEXT_HEAD",
         "OBSERVATION_TEXT_TAIL",
+        "SESSION_NOTES_INJECT_MAX_CHARS",
         "SESSION_NOTES_SECTION_INDEXES",
         "SESSION_NOTES_TITLES",
         "SUMMARY_ENTITY_PATTERNS",
@@ -6226,8 +6264,10 @@
         "TOOL_RESULT_CAP",
         "_calibKey",
         "agentConversationContextMeta",
+        "appendPromptToLastUserMessage",
         "applySummaryEntityCheck",
         "buildObservationRecallPrompt",
+        "buildSessionNotesInjectPrompt",
         "cacheContextLength",
         "cachedContextLength",
         "calibratedEstimate",
@@ -6247,6 +6287,7 @@
         "extractSessionNotes",
         "extractSummaryEntities",
         "fitHistoryForSummary",
+        "historyStartsWithCompactionSummary",
         "isContextOverflowError",
         "lastSessionContextTokens",
         "learnedWindowCap",
@@ -6255,10 +6296,13 @@
         "maybeCompactSubHistory",
         "maybeWriteSessionNotes",
         "measureObservationReductionShadow",
+        "mergeSessionNotes",
+        "mergeSessionNotesLines",
         "noteEstimateSample",
         "noteWindowOvershoot",
         "observationToolNames",
         "openCompactMarker",
+        "parseSessionNotesMarkdown",
         "persistContextCalibration",
         "protectedObservation",
         "providerContextWindow",
@@ -6420,6 +6464,20 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "sessionNotesInjectEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionNotesMergeEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "summaryEntityCheckEnabled",
           "kinds": [
             "call"
@@ -6470,6 +6528,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionNotes",
           "kinds": [
             "call"
           ]
@@ -10233,6 +10298,20 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "sessionNotesInjectEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionNotesMergeEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "spawnCmdLineLength",
           "kinds": [
             "read"
@@ -12130,7 +12209,21 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "appendPromptToLastUserMessage",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "buildObservationRecallPrompt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "buildSessionNotesInjectPrompt",
           "kinds": [
             "read"
           ]
@@ -12242,6 +12335,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "historyStartsWithCompactionSummary",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "isContextOverflowError",
           "kinds": [
             "read"
@@ -12270,6 +12370,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "mergeSessionNotes",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "MODEL_CONTEXT_TABLE",
           "kinds": [
             "read"
@@ -12292,6 +12399,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "openCompactMarker",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "parseSessionNotesMarkdown",
           "kinds": [
             "read"
           ]
