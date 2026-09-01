@@ -113,73 +113,73 @@
     {
       "file": "07-autonomy.js",
       "startLine": 18148,
-      "endLine": 20036,
+      "endLine": 20048,
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑"
     },
     {
       "file": "08-agent-runs.js",
-      "startLine": 20037,
-      "endLine": 22255,
+      "startLine": 20049,
+      "endLine": 22267,
       "note": "run 事件日志/恢复分级/runSubAgentCore"
     },
     {
       "file": "09-workflow.js",
-      "startLine": 22256,
-      "endLine": 25422,
+      "startLine": 22268,
+      "endLine": 25434,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 25423,
-      "endLine": 27063,
+      "startLine": 25435,
+      "endLine": 27075,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 27064,
-      "endLine": 29121,
+      "startLine": 27076,
+      "endLine": 29133,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 29122,
-      "endLine": 30535,
+      "startLine": 29134,
+      "endLine": 30547,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 30536,
-      "endLine": 33137,
+      "startLine": 30548,
+      "endLine": 33149,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 33138,
-      "endLine": 33472,
+      "startLine": 33150,
+      "endLine": 33484,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 33473,
-      "endLine": 33661,
+      "startLine": 33485,
+      "endLine": 33673,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 33662,
-      "endLine": 34970,
+      "startLine": 33674,
+      "endLine": 34982,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 34971,
-      "endLine": 35377,
+      "startLine": 34983,
+      "endLine": 35389,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "14-main.js",
-      "startLine": 35378,
-      "endLine": 35815,
+      "startLine": 35390,
+      "endLine": 35830,
       "note": "main()/module.exports"
     }
   ]

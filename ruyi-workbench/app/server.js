@@ -583,9 +583,9 @@ function defaultConfig() {
     // 摘要保留叙事职责;notes 只写不回注上下文。105b 真实历史门通过后默认开启，仍可显式关闭。
     runtimeSessionNotesV1: true,
     // 105c: 摘要实体确定性抽检 —— L2 摘要产出后对路径/版本/带量级数字/日期/代号做确定性抽检,
-    // 缺失时给出缺失清单并【恰好一次】定向修补(不无界重试)。修补会多一次 LLM 调用(成本承担行为),
-    // 取证期默认关闭;显式 true 启用,false 保持现状。
-    runtimeSummaryEntityCheckV1: false,
+    // 缺失时给出缺失清单并【恰好一次】定向修补(不无界重试)。真实历史+DeepSeek 门通过后默认开启;
+    // 显式 false 可回退到零检查、零修补、零事件的旧行为。
+    runtimeSummaryEntityCheckV1: true,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -19067,7 +19067,8 @@ function projectActionModelView(history, auditMap) {
 
 function buildResponsesInputItems(history) {
   const items = [];
-  for (const m of (Array.isArray(history) ? history : [])) {
+  const paired = responsesHistoryWithCompleteToolPairs(history).history;
+  for (const m of paired) {
     if (!m || typeof m !== 'object') continue;
     if (m.role === 'system' || m.role === 'developer') continue; // folded into instructions by the caller
     if (m.role === 'user') { items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); continue; }
@@ -20032,6 +20033,17 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       }
     } catch { /* accounting must never break the sub-agent */ }
   }
+}
+
+// Responses strict pairing adapter. A bounded history projection (summary fitting, retry/reseed, or an
+// interrupted subturn) can end after an assistant function_call but before its function_call_output.
+// DeepSeek Responses rejects that otherwise useful prefix with HTTP 400 "No tool output found". Reuse the
+// persisted-history repair primitive on a SHALLOW ARRAY COPY: missing outputs become explicit synthetic
+// results before the next message/end, while the caller's auditable history stays byte-for-byte untouched.
+// Function declarations are hoisted; keeping this adapter at the module tail minimizes generated line-map churn.
+function responsesHistoryWithCompleteToolPairs(history) {
+  const paired = Array.isArray(history) ? history.slice() : [];
+  return { history: paired, repaired: repairProviderHistoryPairing(paired) };
 }
 
 // ============================================================================
@@ -26063,7 +26075,7 @@ function maybeWriteSessionNotes(session, summary, config) {
 // 采样上限 maxSamples(按最近出现位置+频次排序,越近的事实越该保住);样本不足 minSamples 直接跳过,
 // 不臆造检查。有缺失 → 给出缺失清单并【恰好一次】定向修补(只发 当前摘要+缺失清单,不重发全量历史);
 // 修补网络失败或修补稿结构校验不过 → 保留原摘要;修补稿一经采用,即便仍有缺失也不再二次重试。
-// 开关 runtimeSummaryEntityCheckV1 默认关闭(105c 取证期);关闭 = 零检查、零修补、零事件。
+// 开关 runtimeSummaryEntityCheckV1 经真实历史+DeepSeek 采用门后默认开启;显式 false = 零检查、零修补、零事件。
 const SUMMARY_ENTITY_RULES = CONTEXT_GOVERNANCE_RULES.summary.entityCheck || {};
 const SUMMARY_ENTITY_PATTERNS = (() => {
   const out = [];
@@ -35811,4 +35823,7 @@ module.exports = {
   proposeReplanPatch,
   applyReplanPatch,
   rollbackReplanPatch,
+  // Responses strict pairing adapter — exposed for e2e: shallow-copy repair must not mutate persisted history.
+  responsesHistoryWithCompleteToolPairs,
+  buildResponsesInputItems,
 };

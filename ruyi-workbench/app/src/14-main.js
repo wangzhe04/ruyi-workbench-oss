@@ -434,4 +434,7 @@ module.exports = {
   proposeReplanPatch,
   applyReplanPatch,
   rollbackReplanPatch,
+  // Responses strict pairing adapter — exposed for e2e: shallow-copy repair must not mutate persisted history.
+  responsesHistoryWithCompleteToolPairs,
+  buildResponsesInputItems,
 };

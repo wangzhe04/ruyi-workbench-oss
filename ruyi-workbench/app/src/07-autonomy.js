@@ -920,7 +920,8 @@ function projectActionModelView(history, auditMap) {
 
 function buildResponsesInputItems(history) {
   const items = [];
-  for (const m of (Array.isArray(history) ? history : [])) {
+  const paired = responsesHistoryWithCompleteToolPairs(history).history;
+  for (const m of paired) {
     if (!m || typeof m !== 'object') continue;
     if (m.role === 'system' || m.role === 'developer') continue; // folded into instructions by the caller
     if (m.role === 'user') { items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); continue; }
@@ -1885,4 +1886,15 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       }
     } catch { /* accounting must never break the sub-agent */ }
   }
+}
+
+// Responses strict pairing adapter. A bounded history projection (summary fitting, retry/reseed, or an
+// interrupted subturn) can end after an assistant function_call but before its function_call_output.
+// DeepSeek Responses rejects that otherwise useful prefix with HTTP 400 "No tool output found". Reuse the
+// persisted-history repair primitive on a SHALLOW ARRAY COPY: missing outputs become explicit synthetic
+// results before the next message/end, while the caller's auditable history stays byte-for-byte untouched.
+// Function declarations are hoisted; keeping this adapter at the module tail minimizes generated line-map churn.
+function responsesHistoryWithCompleteToolPairs(history) {
+  const paired = Array.isArray(history) ? history.slice() : [];
+  return { history: paired, repaired: repairProviderHistoryPairing(paired) };
 }

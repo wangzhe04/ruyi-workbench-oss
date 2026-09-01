@@ -641,7 +641,7 @@ function maybeWriteSessionNotes(session, summary, config) {
 // 采样上限 maxSamples(按最近出现位置+频次排序,越近的事实越该保住);样本不足 minSamples 直接跳过,
 // 不臆造检查。有缺失 → 给出缺失清单并【恰好一次】定向修补(只发 当前摘要+缺失清单,不重发全量历史);
 // 修补网络失败或修补稿结构校验不过 → 保留原摘要;修补稿一经采用,即便仍有缺失也不再二次重试。
-// 开关 runtimeSummaryEntityCheckV1 默认关闭(105c 取证期);关闭 = 零检查、零修补、零事件。
+// 开关 runtimeSummaryEntityCheckV1 经真实历史+DeepSeek 采用门后默认开启;显式 false = 零检查、零修补、零事件。
 const SUMMARY_ENTITY_RULES = CONTEXT_GOVERNANCE_RULES.summary.entityCheck || {};
 const SUMMARY_ENTITY_PATTERNS = (() => {
   const out = [];

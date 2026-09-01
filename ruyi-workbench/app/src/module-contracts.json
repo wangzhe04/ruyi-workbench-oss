@@ -3954,6 +3954,7 @@
         "readProjectAgentRoles",
         "requestNativePermission",
         "requestPlanApproval",
+        "responsesHistoryWithCompleteToolPairs",
         "resumeInFlight",
         "retrievalHintForTool",
         "runClaudeSubAgentOnce",
@@ -4167,6 +4168,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "registerIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "repairProviderHistoryPairing",
           "kinds": [
             "call"
           ]
@@ -11695,6 +11703,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "buildResponsesInputItems",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "buildToolCatalog",
           "kinds": [
             "read"
@@ -11794,6 +11809,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "readProjectAgentRoles",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "responsesHistoryWithCompleteToolPairs",
           "kinds": [
             "read"
           ]

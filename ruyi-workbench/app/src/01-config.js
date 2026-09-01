@@ -106,9 +106,9 @@ function defaultConfig() {
     // 摘要保留叙事职责;notes 只写不回注上下文。105b 真实历史门通过后默认开启，仍可显式关闭。
     runtimeSessionNotesV1: true,
     // 105c: 摘要实体确定性抽检 —— L2 摘要产出后对路径/版本/带量级数字/日期/代号做确定性抽检,
-    // 缺失时给出缺失清单并【恰好一次】定向修补(不无界重试)。修补会多一次 LLM 调用(成本承担行为),
-    // 取证期默认关闭;显式 true 启用,false 保持现状。
-    runtimeSummaryEntityCheckV1: false,
+    // 缺失时给出缺失清单并【恰好一次】定向修补(不无界重试)。真实历史+DeepSeek 门通过后默认开启;
+    // 显式 false 可回退到零检查、零修补、零事件的旧行为。
+    runtimeSummaryEntityCheckV1: true,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、

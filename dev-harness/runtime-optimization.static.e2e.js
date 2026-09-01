@@ -9,7 +9,7 @@ const ok = (condition, label) => { if (condition) console.log('PASS ' + label); 
 console.log('\n── [S] feature flags and wiring ──');
 ok(/runtimeOptimizationShadowV1: true/.test(src), 'S master shadow defaults true');
 ok(/runtimeSessionNotesV1: true/.test(src), 'S runtimeSessionNotesV1 defaults true after 105b real-history gate');
-ok(/runtimeSummaryEntityCheckV1: false/.test(src), 'S runtimeSummaryEntityCheckV1 defaults false (105c 取证期,成本承担行为)');
+ok(/runtimeSummaryEntityCheckV1: true/.test(src), 'S runtimeSummaryEntityCheckV1 defaults true after 105c real-history + DeepSeek gate');
 ok(/'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1'/.test(src), 'S runtimeSummaryEntityCheckV1 入严格布尔 sanitize 表');
 ok(/function summaryEntityCheckEnabled\(config\)/.test(src), 'S summaryEntityCheckEnabled 唯一判定点存在');
 for (const flag of ['runtimeToolRetrievalV1', 'runtimeFailureTelemetryV1']) {

@@ -5,7 +5,8 @@
 //
 // 覆盖:
 //   [U] 白盒(require server.js,临时数据根):
-//       开关默认关/显式开/sanitize 只认 JSON 布尔 / 八类实体抽取(路径×2、版本、日期、
+//       开关默认开/显式关/sanitize 只认 JSON 布尔 / Responses 悬空工具调用浅拷贝补配对 /
+//       八类实体抽取(路径×2、版本、日期、
 //       带量级数字、大数字、反引号代号、「」代号) / 噪声过滤(and/or、10/20) /
 //       采样上限与尾部优先 / 包含清扫(2026-08-31 ⊃ 2026、v2.6.2 ⊃ 2.6.2) /
 //       checkSummaryEntities 缺失清单
@@ -14,7 +15,7 @@
 //   [E] fake-openai 集成(真实 HTTP 回合):
 //       场景1 首稿缺实体 → 恰好一次修补(请求体含缺失清单、不重发全量历史)→ reseed 采用修补稿
 //       场景2 修补稿结构非法 → 保留原稿,总摘要调用恰好 2 次(不无界重试)
-//       场景3 开关关闭 → 总摘要调用恰好 1 次,原样采用首稿(零行为变化)
+//       场景3 显式关闭 → 总摘要调用恰好 1 次,原样采用首稿(可回退旧行为)
 // ─────────────────────────────────────────────────────────────────────────────
 const cp = require('child_process');
 const fs = require('fs');
@@ -62,29 +63,45 @@ const REPAIRED = FLAWED.replace('支付相关代码与配置',
 
 (async () => {
   console.log('── [U] 开关与确定性抽取 ──');
-  ok(srv.summaryEntityCheckEnabled(srv.normalizeConfig({}).config) === false, 'U1 默认配置 summaryEntityCheckEnabled=false(取证期默认关)');
-  ok(srv.summaryEntityCheckEnabled(srv.normalizeConfig({ runtimeSummaryEntityCheckV1: true }).config) === true, 'U2 显式 true 开启');
+  ok(srv.summaryEntityCheckEnabled(srv.normalizeConfig({}).config) === true, 'U1 默认配置 summaryEntityCheckEnabled=true(采用门后默认开)');
+  ok(srv.summaryEntityCheckEnabled(srv.normalizeConfig({ runtimeSummaryEntityCheckV1: false }).config) === false, 'U2 显式 false 关闭(可回退旧行为)');
   ok(srv.summaryEntityCheckEnabled(srv.normalizeConfig({ runtimeSummaryEntityCheckV1: 'true' }).config) === false, 'U3 sanitize 只认 JSON 布尔(字符串 "true" 洗回 false)');
   ok(typeof srv.extractSummaryEntities === 'function' && typeof srv.checkSummaryEntities === 'function', 'U4 抽取/检查函数已导出');
 
+  const danglingHistory = [
+    { role: 'user', content: '请检查 C:' + BS + 'proj' + BS + 'dangling.txt' },
+    { role: 'assistant', content: '', tool_calls: [
+      { id: 'call_done', type: 'function', function: { name: 'file_read', arguments: '{}' } },
+      { id: 'call_lost', type: 'function', function: { name: 'file_read', arguments: '{}' } },
+    ] },
+    { role: 'tool', tool_call_id: 'call_done', content: 'ok' },
+    { role: 'user', content: '继续' },
+  ];
+  const danglingBefore = JSON.stringify(danglingHistory);
+  const paired = srv.responsesHistoryWithCompleteToolPairs(danglingHistory);
+  const responseItems = srv.buildResponsesInputItems(danglingHistory);
+  ok(paired.repaired === 1 && paired.history.some(m => m.role === 'tool' && m.tool_call_id === 'call_lost'), 'U5 Responses 悬空 function_call 补恰好 1 条合成 output');
+  ok(JSON.stringify(danglingHistory) === danglingBefore, 'U6 Responses 配对适配只改浅拷贝,不污染持久化历史');
+  ok(responseItems.some(i => i.type === 'function_call_output' && i.call_id === 'call_lost'), 'U7 Responses payload 含缺失 call_id 的合成 output(防 HTTP 400)');
+
   const ents = srv.extractSummaryEntities(PLANTED);
   const EXPECT = ['E:' + BS + 'proj' + BS + 'pay' + BS + 'app.ts', 'pay/gateway/router.js', 'v9.8.7', '2026-08-30', 'payGateway', '夜莺', '12345 条', '7.5%'];
-  ok(EXPECT.every(e => ents.includes(e)), 'U5 八类实体全部抽出(' + ents.length + ' 个):' + ents.join(' | '));
-  ok(!ents.some(e => e === 'and/or' || e === '10/20'), 'U6 噪声过滤(and/or、10/20 不进实体)');
+  ok(EXPECT.every(e => ents.includes(e)), 'U8 八类实体全部抽出(' + ents.length + ' 个):' + ents.join(' | '));
+  ok(!ents.some(e => e === 'and/or' || e === '10/20'), 'U9 噪声过滤(and/or、10/20 不进实体)');
 
   const many = [];
   for (let i = 0; i < 30; i++) many.push('src/mod' + i + '/file' + i + '.js');
   const capped = srv.extractSummaryEntities(many.join(' ') + ' 尾部代号 `tailMark` 收尾');
-  ok(capped.length <= 12, 'U7 采样上限 maxSamples=12(实际 ' + capped.length + ')');
-  ok(capped.includes('tailMark') && !capped.includes('src/mod0/file0.js'), 'U8 尾部优先:超上限时最近实体保留、最早实体淘汰');
+  ok(capped.length <= 12, 'U10 采样上限 maxSamples=12(实际 ' + capped.length + ')');
+  ok(capped.includes('tailMark') && !capped.includes('src/mod0/file0.js'), 'U11 尾部优先:超上限时最近实体保留、最早实体淘汰');
 
   const cont = srv.extractSummaryEntities('日期 2026-08-31 与版本 v2.6.2 已定');
-  ok(cont.includes('2026-08-31') && cont.includes('v2.6.2') && !cont.includes('2026') && !cont.includes('2.6.2'), 'U9 包含清扫:短项不重复抽检(' + cont.join(' | ') + ')');
+  ok(cont.includes('2026-08-31') && cont.includes('v2.6.2') && !cont.includes('2026') && !cont.includes('2.6.2'), 'U12 包含清扫:短项不重复抽检(' + cont.join(' | ') + ')');
 
   const missingAll = srv.checkSummaryEntities(FLAWED, ents);
-  ok(missingAll.length === ents.length && EXPECT.every(e => missingAll.includes(e)), 'U10 缺失清单完整(首稿全无实体 → 全量 missing)');
-  ok(srv.checkSummaryEntities(REPAIRED, ents).length === 0, 'U11 修补稿逐字含全部实体 → missing 为空');
-  ok(srv.checkSummaryEntities(FLAWED, []).length === 0, 'U12 空实体集 → 空缺失(不臆造检查)');
+  ok(missingAll.length === ents.length && EXPECT.every(e => missingAll.includes(e)), 'U13 缺失清单完整(首稿全无实体 → 全量 missing)');
+  ok(srv.checkSummaryEntities(REPAIRED, ents).length === 0, 'U14 修补稿逐字含全部实体 → missing 为空');
+  ok(srv.checkSummaryEntities(FLAWED, []).length === 0, 'U15 空实体集 → 空缺失(不臆造检查)');
 
   // ═══ [H] 真实历史抽取门(本机 checkpoints 存在时) ═══
   console.log('── [H] 真实历史抽取 ──');
@@ -223,12 +240,12 @@ const REPAIRED = FLAWED.replace('支付相关代码与配置',
   ok(s2.ph0.includes('标记甲') && !s2.ph0.includes('标记乙'), 'E9 保留原摘要(修补稿被拒)');
   ok(s2.events.some(e => e.outcome === 'repair_rejected'), 'E10 遥测 outcome=repair_rejected');
 
-  // 场景3:开关关闭 → 恰好 1 次调用,原样采用首稿,零抽检事件。
-  const s3 = await runScenario('disabled', { flagValue: null, sequence: [FLAWED] });
+  // 场景3:显式关闭 → 恰好 1 次调用,原样采用首稿,零抽检事件(默认开后的回退契约)。
+  const s3 = await runScenario('disabled', { flagValue: false, sequence: [FLAWED] });
   ok(s3.ok, 'E11 场景3流程跑通' + (s3.error ? ' (' + s3.error + ')' : ''));
-  ok(s3.requests.length === 1, 'E12 开关关闭时摘要调用恰好 1 次(零修补,实际 ' + s3.requests.length + ')');
-  ok(s3.ph0.includes('标记甲'), 'E13 开关关闭时原样采用首稿(零行为变化)');
-  ok(!s3.events.length, 'E14 开关关闭时零 summary_entity_check 事件');
+  ok(s3.requests.length === 1, 'E12 显式关闭时摘要调用恰好 1 次(零修补,实际 ' + s3.requests.length + ')');
+  ok(s3.ph0.includes('标记甲'), 'E13 显式关闭时原样采用首稿(回退旧行为)');
+  ok(!s3.events.length, 'E14 显式关闭时零 summary_entity_check 事件');
 
   fs.rmSync(UHOME, { recursive: true, force: true });
   console.log('\nSUMMARY-ENTITY-CHECK E2E: ' + (failures ? 'FAIL (' + failures + ')' : 'ALL PASS') + (skips ? ' (' + skips + ' skipped)' : ''));

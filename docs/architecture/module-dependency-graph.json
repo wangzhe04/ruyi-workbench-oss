@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 30,
-    "providedSymbols": 1404,
-    "requiredSymbols": 1553,
+    "providedSymbols": 1405,
+    "requiredSymbols": 1556,
     "edges": 240,
     "forwardEdges": 65,
     "duplicateProvides": 0,
@@ -6434,6 +6434,7 @@
         "readProjectAgentRoles",
         "requestNativePermission",
         "requestPlanApproval",
+        "responsesHistoryWithCompleteToolPairs",
         "resumeInFlight",
         "retrievalHintForTool",
         "runClaudeSubAgentOnce",
@@ -6455,7 +6456,7 @@
             "call"
           ],
           "lines": [
-            1874
+            1875
           ]
         },
         {
@@ -6465,7 +6466,7 @@
             "call"
           ],
           "lines": [
-            1873
+            1874
           ]
         },
         {
@@ -6475,8 +6476,8 @@
             "read"
           ],
           "lines": [
-            1402,
-            1714
+            1403,
+            1715
           ]
         },
         {
@@ -6501,14 +6502,14 @@
             "read"
           ],
           "lines": [
-            1416,
-            1463,
-            1473,
+            1417,
+            1464,
             1474,
-            1488,
-            1492,
-            1521,
-            1698
+            1475,
+            1489,
+            1493,
+            1522,
+            1699
           ]
         },
         {
@@ -6520,12 +6521,12 @@
           "lines": [
             703,
             771,
-            1069,
-            1097,
-            1161,
-            1174,
-            1208,
-            1307
+            1070,
+            1098,
+            1162,
+            1175,
+            1209,
+            1308
           ]
         },
         {
@@ -6535,11 +6536,11 @@
             "call"
           ],
           "lines": [
-            1336,
-            1418,
-            1424,
-            1431,
-            1450
+            1337,
+            1419,
+            1425,
+            1432,
+            1451
           ]
         },
         {
@@ -6551,25 +6552,25 @@
           "lines": [
             869,
             878,
-            1368,
             1369,
-            1414,
+            1370,
             1415,
             1416,
-            1418,
-            1439,
-            1441,
-            1451,
-            1459,
+            1417,
+            1419,
+            1440,
+            1442,
+            1452,
             1460,
             1461,
-            1464,
-            1469,
-            1487,
-            1492,
-            1497,
-            1501,
-            1520
+            1462,
+            1465,
+            1470,
+            1488,
+            1493,
+            1498,
+            1502,
+            1521
           ]
         },
         {
@@ -6579,11 +6580,11 @@
             "read"
           ],
           "lines": [
-            1368,
-            1414,
+            1369,
             1415,
-            1451,
-            1460
+            1416,
+            1452,
+            1461
           ]
         },
         {
@@ -6593,10 +6594,10 @@
             "call"
           ],
           "lines": [
-            1277,
-            1284,
-            1474,
-            1770
+            1278,
+            1285,
+            1475,
+            1771
           ]
         },
         {
@@ -6623,19 +6624,19 @@
             597,
             761,
             762,
-            934,
             935,
-            1102,
-            1217,
-            1250,
-            1313,
+            936,
+            1103,
+            1218,
+            1251,
             1314,
-            1333,
+            1315,
             1334,
-            1732,
+            1335,
             1733,
-            1735,
-            1738
+            1734,
+            1736,
+            1739
           ]
         },
         {
@@ -6655,7 +6656,7 @@
             "call"
           ],
           "lines": [
-            1523
+            1524
           ]
         },
         {
@@ -6665,7 +6666,7 @@
             "call"
           ],
           "lines": [
-            1691
+            1692
           ]
         },
         {
@@ -6675,8 +6676,8 @@
             "call"
           ],
           "lines": [
-            1735,
-            1743
+            1736,
+            1744
           ]
         },
         {
@@ -6686,7 +6687,7 @@
             "read"
           ],
           "lines": [
-            1508
+            1509
           ]
         },
         {
@@ -6696,7 +6697,7 @@
             "read"
           ],
           "lines": [
-            1529
+            1530
           ]
         },
         {
@@ -6706,7 +6707,7 @@
             "call"
           ],
           "lines": [
-            1677
+            1678
           ]
         },
         {
@@ -6716,7 +6717,7 @@
             "call"
           ],
           "lines": [
-            1750
+            1751
           ]
         },
         {
@@ -6726,7 +6727,7 @@
             "call"
           ],
           "lines": [
-            1631
+            1632
           ]
         },
         {
@@ -6736,7 +6737,7 @@
             "call"
           ],
           "lines": [
-            1692
+            1693
           ]
         },
         {
@@ -6746,7 +6747,7 @@
             "call"
           ],
           "lines": [
-            1668
+            1669
           ]
         },
         {
@@ -6756,8 +6757,8 @@
             "call"
           ],
           "lines": [
-            1510,
-            1513
+            1511,
+            1514
           ]
         },
         {
@@ -6767,11 +6768,11 @@
             "call"
           ],
           "lines": [
-            1476,
-            1496,
-            1508,
-            1510,
-            1522
+            1477,
+            1497,
+            1509,
+            1511,
+            1523
           ]
         },
         {
@@ -6791,9 +6792,9 @@
             "call"
           ],
           "lines": [
-            1368,
             1369,
-            1413
+            1370,
+            1414
           ]
         },
         {
@@ -6803,9 +6804,9 @@
             "call"
           ],
           "lines": [
-            1678,
-            1681,
-            1685
+            1679,
+            1682,
+            1686
           ]
         },
         {
@@ -6831,12 +6832,22 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "repairProviderHistoryPairing",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            1899
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "saveSession",
           "kinds": [
             "call"
           ],
           "lines": [
-            1339
+            1340
           ]
         },
         {
@@ -6867,7 +6878,7 @@
             "call"
           ],
           "lines": [
-            1633
+            1634
           ]
         },
         {
@@ -6877,7 +6888,7 @@
             "call"
           ],
           "lines": [
-            1440
+            1441
           ]
         },
         {
@@ -6887,9 +6898,9 @@
             "call"
           ],
           "lines": [
-            1415,
-            1451,
-            1460
+            1416,
+            1452,
+            1461
           ]
         },
         {
@@ -6899,7 +6910,7 @@
             "call"
           ],
           "lines": [
-            1707
+            1708
           ]
         },
         {
@@ -6909,7 +6920,7 @@
             "call"
           ],
           "lines": [
-            1772
+            1773
           ]
         },
         {
@@ -6946,11 +6957,11 @@
             "call"
           ],
           "lines": [
-            1032,
-            1039,
-            1045,
-            1054,
-            1234
+            1033,
+            1040,
+            1046,
+            1055,
+            1235
           ]
         },
         {
@@ -6993,7 +7004,7 @@
             "call"
           ],
           "lines": [
-            1656
+            1657
           ]
         },
         {
@@ -7013,7 +7024,7 @@
             "call"
           ],
           "lines": [
-            1454
+            1455
           ]
         },
         {
@@ -7043,7 +7054,7 @@
             "read"
           ],
           "lines": [
-            1602
+            1603
           ]
         },
         {
@@ -7063,7 +7074,7 @@
             "call"
           ],
           "lines": [
-            1038
+            1039
           ]
         },
         {
@@ -19425,6 +19436,16 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "buildResponsesInputItems",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            439
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "buildToolCatalog",
           "kinds": [
             "read"
@@ -19571,6 +19592,16 @@
           ],
           "lines": [
             202
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "responsesHistoryWithCompleteToolPairs",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            438
           ]
         },
         {
@@ -21802,6 +21833,7 @@
       "symbols": [
         "BRIDGED_WRITE_PATH_ARGS",
         "registerIntervention",
+        "repairProviderHistoryPairing",
         "saveSession",
         "settleIntervention",
         "unprefixedBridgedName"
@@ -23697,6 +23729,7 @@
         "bridgedToolTier",
         "buildClaudeAgentDefinitions",
         "buildOpenAiTools",
+        "buildResponsesInputItems",
         "buildToolCatalog",
         "classifyClaudeSubagentFailure",
         "classifyRuntimeToolFailure",
@@ -23710,6 +23743,7 @@
         "getAgentRoleLibrary",
         "readClaudeProjectAgentRoles",
         "readProjectAgentRoles",
+        "responsesHistoryWithCompleteToolPairs",
         "saveProjectAgentRoles",
         "searchToolCatalog",
         "toolPackForName"
