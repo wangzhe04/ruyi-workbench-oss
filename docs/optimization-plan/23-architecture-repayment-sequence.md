@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）、第 104 波与第 105 波总门均已交付**。105a–105g 已逐项取证并默认开启，各项均可显式关闭回退；105 总门再次确认 105f 单发优先有净收益。4.3 后续的 ≤4 块顺序 refine 未过真实模型门，保留默认关闭；>4 块全局 user 大纲因 8 块路径至少 9 次串行调用、真实基线超时长而否决并撤掉生产实现；可选 overlap 不再实施。105c 为成本承担行为（触发修补多一次 LLM 调用），105d 回注块整体上限 2000 字符；105g 仍按其受控 A/B 证据默认开启，并经超长 history-24 甜点门将事实表默认上限提升至 64。**第 106 波已开工**：#13a／13a-t（预算保护基础层＋长命令时间预算）已交付，默认关闭取证中。
+> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）、第 104 波与第 105 波总门均已交付**。105a–105g 已逐项取证并默认开启，各项均可显式关闭回退；105 总门再次确认 105f 单发优先有净收益。4.3 后续的 ≤4 块顺序 refine 未过真实模型门，保留默认关闭；>4 块全局 user 大纲因 8 块路径至少 9 次串行调用、真实基线超时长而否决并撤掉生产实现；可选 overlap 不再实施。105c 为成本承担行为（触发修补多一次 LLM 调用），105d 回注块整体上限 2000 字符；105g 仍按其受控 A/B 证据默认开启，并经超长 history-24 甜点门将事实表默认上限提升至 64。**第 106 波已开工**：#13a／13a-t（预算保护基础层＋长命令时间预算）与 #1 G1/G2（前缀缓存布局修复＋探针 S5 补测）已交付，均默认关闭取证中。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -296,7 +296,7 @@
 
 ### 4.2 小窗口单发优先（已由 105f 交付并默认开启）
 
-- 摘要预算改为 `window - reserve`；reserve 由 system、summary prompt、预期输出和校准误差上界组成。估算允许时先单发，只有可识别的上下文超窗 400 才自动降级到现有 map-reduce。
+- 摘要预算改为 `window - reserve`；reserve 由 system、summary prompt、预期输出和校准误差上界组成。估算允许时先单发，只有可识别的上下文超��� 400 才自动降级到现有 map-reduce。
 - 最近原文尾部使用“完整 user 回合 + token 上限”双约束；配对与 user 边界不变。
 - 单发估算上限提供 16K／32K／64K 三档，默认 32K；可按引擎／provider／模型覆盖并钳位 `[8192, 131072]`。不提供无限档，不自动改远程超时。
 - UI 必须说明 32K 的现有延迟证据与 64K 的超时风险；配置、sanitize、提示词快照和 E2E 同步锁定。
@@ -347,6 +347,21 @@
   - **G5（设计内预期）**：压缩 reseed／forced_400／rewind 重建历史，必然失效，确认即可。
   - **G6（未验证专项）**：子代理 system 与主循环零共享前缀（首字节即不同），rolePrompt 前插在 baseSys 之前（08:510-517）；跨子 Agent 共享前缀仍待专项实测。
 - **结论与下一步**：G1 是收益最大且 21-E4 已背书的修复点（易变层移到当前回合尾部），按 106 纪律以 `volatileTailLayoutV1` 默认关＋E4 §7.3 shadow 对照（current/candidate 双算 stablePrefixBytes／firstChangedSegment，candidate 不发送）落地；G2 前提已经探针 S5 证实（2026-09-01），修法按 E4 §7.2（首建冻结顺序＋fingerprint、`tool_load` 只追加、撤权保留位置）以 `appendOnlyToolSchemasV1` 默认关落地。两项均须附质量验收（语义保持＋任务结果非劣）后才谈 flip。
+
+#### 106 #1 G1/G2 Release Brief · 前缀缓存布局修复（2026-09-01）
+
+- **问题**：#1 Ruyi 布局——G1 `turnVolatile` 前插历史首条 user，其内容（记忆 Top-3／mission／任务画像策略／联网状态）跨回合大概率变化 → 前缀缓存每回合从 messages[1] 起全断（探针 S3 反模式，~9× 费用差）；G2 tools schema 未冻结，`tool_load` catalog 序中间插入＋auto 模式 activePacks 每回合重分类（探针 S5 两轮复现：中间插入全前缀命中归零）。
+- **非目标**：不改 stable system 三层结构、不动子代理路径（G6 专项另列）、不做其他 provider／模型的布局假设（E4 §7.1「不得假设所有 provider 缓存规则相同」）；schema 冻结不持久化（进程内 Map，重启按当次分类重建等价新会话首建）；不为缓存命中率保留错误授权（catalog 缺失照常不发送，记 cache break 原因）；默认关，shadow／真实 A/B 证据前不 flip。
+- **交付物**：
+  - 开关 `runtimeVolatileTailLayoutV1`／`runtimeAppendOnlyToolSchemasV1` 默认 `false`，三处落地（默认值区／严格布尔 sanitize 表顺排 106 #13a 之后／唯一判定 `volatileTailLayoutEnabled`／`appendOnlyToolSchemasEnabled`，`01-config.js`），14-main 导出。
+  - G1：`buildBodyWithLayout(withTools, layoutOverride)`（`09-workflow.js`）——开关开时 responses／chat 两分支统一改为 `appendPromptToLastUserMessage(msgs, turnVolatile)`（复用 105 系注入助手，尾部同位）；开关关保持 51d C1b 前插现状逐字节不变。`layoutOverride` 仅供 shadow 强制布局，正常调用恒走开关。
+  - G2：`createToolLoadingState` 第 6 参 `freezeKey`（主循环唯一调用点传 `session.id`）——开关开且有 freezeKey 时会话级冻结：首回合冻结顺序，之后新激活（tool_load／换分类消息）只追加尾部；冻结条目不因分类失活而移除；catalog 缺失（MCP 离线／撤权／caps 变化）不发送且不引发重排，落 `tool_schema_freeze` init／append／cache_break 事件。Map 上限 200 会话 LRU 淘汰；缺 freezeKey（子代理／一次性调用）不冻结，逐字节现状。
+  - shadow（E4 §7.3）：econ 采样调用上同时序列化 current／candidate 两布局请求体（candidate 不发送），与同会话上一次同布局求 `stablePrefixChars`，落 `layout_shadow` 事件（sentLayout／双布局 stablePrefixChars／totalChars）；进程内 Map 上限 20 会话。G2 证据复用既有 schema 指纹翻转计量（`model_call_started.toolSchemaFingerprint`，冻结开时应趋向零翻转）与 provider 实报 `cachedInputTokens` 分列，不新建通道。
+  - `dev-harness/prefix-layout.e2e.js`（26 项）、`runtime-optimization.static.e2e.js` 7 条 #1 静态锁（#13a sanitize 邻接断言随新键顺排演进为五开关）。
+- **证据**：`prefix-layout.e2e.js` 全绿 26 项——[U] 9 项锁三态／冻结序只追加（`alpha_read` 排在后加载的 `gamma_thing` 之后，无视 catalog 序）／缺 freezeKey 不冻结／catalog 缺失保位不发送；[E-G1] 两回合集成：开关关时 volatile 前插首条 user（现状基线锁定），开关开时首条 user 逐字节不动、volatile 落在最新 user 尾部，`layout_shadow` 事件字段齐全；[E-G2] 开关开时第二回合 tools 以第一回合为严格前缀（16→21 只追加）、freeze init+append 落账，开关关零冻结事件。静态锁与生成器全过（module-graph 30 模块／240 边无新模块边、route-inventory 101 判定点零实质漂移、snapshots current、facts e2eCount 258、build 新鲜）。
+- **回退**：运行时回退 = 两开关显式 `false` 或缺省——G1 回到前插布局、G2 回到当次分类 catalog 序过滤、零冻结事件零 shadow 开销（shadow 仅在 econ 采样点构建候选体，开关关时它计量的是「若开启会怎样」）。彻底回退：删两开关三处与判定函数、`buildBodyWithLayout` 尾部分支（保留 override 骨架也可一并删）、`toolSchemaFreezeFor` 与 current() 冻结分支、shadow 块与 `layoutShadowPrevBySessionMap`、14-main 导出、静态锁 7 条与新 e2e，重建 `server.js` 并重跑生成器。无持久化面变更、无数据迁移。
+- **发布判断**：**默认关闭，合成门已过**。flip 判据（E4 §7.3 门槛）：① 真实会话 `layout_shadow` 显示跨回合 stablePrefixChars candidate 显著优于 current；② 固定任务集 A/B 的 provider 实报 `cachedInputTokens` 提升；③ 质量非劣（语义保持：当前回合指令／图片／权限提示／steer／压缩摘要位置变化不影响任务结果）。若 candidate 只是移后内容却因 provider 缓存边界无收益，停止该 provider 上的主动实现。
+- **遗留**：G3（MCP 抖动致 catalog 非确定）由 cache_break 事件观测、暂不修法；G4（多图淘汰改写）与 G6（跨子 Agent 共享前缀专项）未动；`#2a` 受限执行结果缓存为 106 下一切片。
 
 ## 6. 第 107 波 · Pretender 出门准备与批准点
 

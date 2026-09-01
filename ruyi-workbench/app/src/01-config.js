@@ -167,6 +167,17 @@ function defaultConfig() {
     // 13a-t 字节轴【只计数,不改写】:interruptible 工具的 stdout+stderr 超过本阈值时落一条脱敏
     // 计数事件,供校准未来的截断预算;20-C1 三个 High 阻断解除前不做任何结果引用改写。0 = 不计数。
     toolByteBudgetShadowBytesV1: 0,
+    // 106 #1 G1: 易变层尾部布局(21-E4 §7.1)—— 开时 turnVolatile 从「前插历史首条 user」改为
+    // 「追加当前最新 user 尾部」(与 recall/notes 注入同位)。前插布局下易变内容跨回合变化会让
+    // 前缀缓存从 messages[1] 起全断(探针证实逐字节敏感、纪律差 ~9× 费用);尾部布局跨回合只
+    // 追加不重写。默认关,E4 §7.3 shadow 计量 + 质量非劣验收后才谈 flip;显式 false/缺省 =
+    // 请求体与现状逐字节一致。
+    runtimeVolatileTailLayoutV1: false,
+    // 106 #1 G2: tools schema 冻结+只追加(21-E4 §7.2)—— 会话首个回合冻结 schema 顺序,之后
+    // tool_load/pack 重分类引入的新工具只追加尾部,既有条目不因分类变化重排或移除(探针 S5:
+    // tools 计入缓存前缀,中间插入全前缀命中归零、尾部追加保留 ~77%)。catalog 缺失(MCP 离线/
+    // 撤权)时保留名义位置、记 cache break 原因。默认关;显式 false/缺省 = catalog 序过滤现状。
+    runtimeAppendOnlyToolSchemasV1: false,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -546,7 +557,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -974,6 +985,16 @@ function toolTimeBudgetHardMs(config) {
 function toolByteBudgetShadowBytes(config) {
   const n = Number(config && config.toolByteBudgetShadowBytesV1);
   return Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(104857600, Math.round(n))) : 0;
+}
+
+// 106 #1 G1/G2: 前缀缓存布局两个实验开关的唯一判定。buildBody(09-workflow)与
+// createToolLoadingState(07-autonomy)共用;显式 false / 缺省 = 现状逐字节不变
+// (G1 前插首条 user、G2 catalog 序过滤不冻结)。
+function volatileTailLayoutEnabled(config) {
+  return !!(config && config.runtimeVolatileTailLayoutV1 === true);
+}
+function appendOnlyToolSchemasEnabled(config) {
+  return !!(config && config.runtimeAppendOnlyToolSchemasV1 === true);
 }
 
 // ============================================================================

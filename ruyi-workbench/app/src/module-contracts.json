@@ -123,6 +123,7 @@
         "_launcherResolveCache",
         "addExternalMcpServersToMap",
         "agentCliInstallCandidates",
+        "appendOnlyToolSchemasEnabled",
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
@@ -207,6 +208,7 @@
         "toolTimeBudgetHardMs",
         "toolTimeBudgetShadowEnabled",
         "toolTimeBudgetWarnMs",
+        "volatileTailLayoutEnabled",
         "writeConfig",
         "writeConfigAtomic",
         "writeToChild"
@@ -3982,6 +3984,8 @@
         "tokenizeToolSearchText",
         "toolIsRevertible",
         "toolPackForName",
+        "toolSchemaFreezeBySessionMap",
+        "toolSchemaFreezeFor",
         "toolSchemaSearchText"
       ],
       "requires": [
@@ -4065,6 +4069,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "appendOnlyToolSchemasEnabled",
           "kinds": [
             "call"
           ]
@@ -4240,6 +4251,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "killChildTree",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
           "kinds": [
             "call"
           ]
@@ -5020,12 +5038,14 @@
         "appendDisplayMessagesToProviderHistory",
         "applyReplanPatch",
         "classifyTextForEstimate",
+        "commonPrefixChars",
         "estimateBucketsV1On",
         "estimateContentTokens",
         "estimateHistoryTokens",
         "estimateTextTokens",
         "fmtTokensServer",
         "launchPersistedAgentRun",
+        "layoutShadowPrevBySessionMap",
         "planDiscoveryToolBatchAllowed",
         "proposeReplanPatch",
         "recordNodeContinuation",
@@ -5188,6 +5208,13 @@
         {
           "provider": "01-config.js",
           "symbol": "toolTimeBudgetWarnMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "volatileTailLayoutEnabled",
           "kinds": [
             "call"
           ]
@@ -10262,6 +10289,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "appendOnlyToolSchemasEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "autoImportClaudeCodeMcp",
           "kinds": [
             "read"
@@ -10578,6 +10612,13 @@
         {
           "provider": "01-config.js",
           "symbol": "toolTimeBudgetWarnMs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "volatileTailLayoutEnabled",
           "kinds": [
             "read"
           ]

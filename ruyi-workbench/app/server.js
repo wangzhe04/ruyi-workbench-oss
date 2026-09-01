@@ -644,6 +644,17 @@ function defaultConfig() {
     // 13a-t 字节轴【只计数,不改写】:interruptible 工具的 stdout+stderr 超过本阈值时落一条脱敏
     // 计数事件,供校准未来的截断预算;20-C1 三个 High 阻断解除前不做任何结果引用改写。0 = 不计数。
     toolByteBudgetShadowBytesV1: 0,
+    // 106 #1 G1: 易变层尾部布局(21-E4 §7.1)—— 开时 turnVolatile 从「前插历史首条 user」改为
+    // 「追加当前最新 user 尾部」(与 recall/notes 注入同位)。前插布局下易变内容跨回合变化会让
+    // 前缀缓存从 messages[1] 起全断(探针证实逐字节敏感、纪律差 ~9× 费用);尾部布局跨回合只
+    // 追加不重写。默认关,E4 §7.3 shadow 计量 + 质量非劣验收后才谈 flip;显式 false/缺省 =
+    // 请求体与现状逐字节一致。
+    runtimeVolatileTailLayoutV1: false,
+    // 106 #1 G2: tools schema 冻结+只追加(21-E4 §7.2)—— 会话首个回合冻结 schema 顺序,之后
+    // tool_load/pack 重分类引入的新工具只追加尾部,既有条目不因分类变化重排或移除(探针 S5:
+    // tools 计入缓存前缀,中间插入全前缀命中归零、尾部追加保留 ~77%)。catalog 缺失(MCP 离线/
+    // 撤权)时保留名义位置、记 cache break 原因。默认关;显式 false/缺省 = catalog 序过滤现状。
+    runtimeAppendOnlyToolSchemasV1: false,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -1023,7 +1034,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -1451,6 +1462,16 @@ function toolTimeBudgetHardMs(config) {
 function toolByteBudgetShadowBytes(config) {
   const n = Number(config && config.toolByteBudgetShadowBytesV1);
   return Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(104857600, Math.round(n))) : 0;
+}
+
+// 106 #1 G1/G2: 前缀缓存布局两个实验开关的唯一判定。buildBody(09-workflow)与
+// createToolLoadingState(07-autonomy)共用;显式 false / 缺省 = 现状逐字节不变
+// (G1 前插首条 user、G2 catalog 序过滤不冻结)。
+function volatileTailLayoutEnabled(config) {
+  return !!(config && config.runtimeVolatileTailLayoutV1 === true);
+}
+function appendOnlyToolSchemasEnabled(config) {
+  return !!(config && config.runtimeAppendOnlyToolSchemasV1 === true);
 }
 
 // ============================================================================
@@ -18965,18 +18986,65 @@ function listCompactTools(catalog, args) {
   };
 }
 
-function createToolLoadingState(config, message, attachments, tools, bridgedRoute) {
+// 106 #1 G2(21-E4 §7.2): 会话级 schema 冻结表 —— appendOnlyToolSchemasV1 开时按 session 冻结
+// tools 顺序,之后只追加不重排(探针 S5: 中间插入全前缀命中归零,尾部追加保留 ~77%)。
+// 进程内 Map 不持久化:重启后按当次分类重建(等价于新会话的首建冻结),条目变化才记录。
+// 上限 200 会话防常驻内存增长,淘汰最久未触碰。
+const toolSchemaFreezeBySessionMap = new Map();
+function toolSchemaFreezeFor(freezeKey) {
+  let freeze = toolSchemaFreezeBySessionMap.get(freezeKey);
+  if (!freeze) {
+    freeze = { names: [], nameSet: new Set(), initLogged: false, missingKey: '' };
+    toolSchemaFreezeBySessionMap.set(freezeKey, freeze);
+    if (toolSchemaFreezeBySessionMap.size > 200) toolSchemaFreezeBySessionMap.delete(toolSchemaFreezeBySessionMap.keys().next().value);
+  } else {
+    // 触碰:提到最新位置,淘汰队首即最久未用
+    toolSchemaFreezeBySessionMap.delete(freezeKey);
+    toolSchemaFreezeBySessionMap.set(freezeKey, freeze);
+  }
+  return freeze;
+}
+
+function createToolLoadingState(config, message, attachments, tools, bridgedRoute, freezeKey) {
   const catalog = buildToolCatalog(tools, bridgedRoute, config);
   const full = config && config.toolLoadingMode === 'full';
   const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
   const activeNames = new Set();
   const metaNames = new Set(['list_tools', 'tool_search', 'tool_load']);
+  // 106 #1 G2: 冻结仅在有会话权属的主循环启用(freezeKey = session.id);子代理/一次性调用不传,
+  // 保持现状逐字节一致。
+  const freeze = (appendOnlyToolSchemasEnabled(config) && typeof freezeKey === 'string' && freezeKey) ? toolSchemaFreezeFor(freezeKey) : null;
   // O1 (hb360): auto 模式下桥接工具不按包自动注入 schema（走 tool_invoke_* 代理或 tool_load 显式拉入），
   // 避免单任务注入 100-280 个桥接 schema 导致 input 膨胀（实测均值 303K tokens）。full 模式与元工具/显式拉入不受影响。
   // O4 (hb360) 对抗验证回退: 高频白名单(file_read 始终注入)破坏 adaptive loading 的"按需注入"语义
   // (tool-loading e2e 断言 file_read 在 tool_load 前不注入);且真实任务 classifyToolPacks 已激活 files_read,
   // 白名单仅对纯闲聊任务有用(而闲聊不需要 file_read),收益不抵语义破坏,故回退。
-  const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack))).map(x => x.tool);
+  const liveList = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack)));
+  const current = () => {
+    const live = liveList();
+    if (!freeze) return live.map(x => x.tool);
+    // 冻结布局:输出 = 冻结序(仍在 catalog 的条目保位) + 本次新激活按 catalog 序追加尾部。
+    const byName = new Map(catalog.map(x => [x.name, x]));
+    const added = [];
+    for (const x of live) {
+      if (!freeze.nameSet.has(x.name)) { freeze.nameSet.add(x.name); freeze.names.push(x.name); added.push(x.name); }
+    }
+    const missing = freeze.names.filter(n => !byName.has(n));
+    const missingKey = missing.join('');
+    try {
+      if (!freeze.initLogged && freeze.names.length) {
+        freeze.initLogged = true;
+        logEvent({ kind: 'tool_schema_freeze', state: 'init', sessionId: freezeKey, count: freeze.names.length });
+      }
+      if (added.length) logEvent({ kind: 'tool_schema_freeze', state: 'append', sessionId: freezeKey, added, count: freeze.names.length });
+      if (missingKey !== freeze.missingKey) {
+        freeze.missingKey = missingKey;
+        // catalog 缺失(MCP 离线/撤权/caps 变化)= 必然缓存断裂,按 E4 §7.2 记录原因,不为命中率保留错误授权
+        if (missing.length) logEvent({ kind: 'tool_schema_freeze', state: 'cache_break', reason: 'catalog_miss', sessionId: freezeKey, missing });
+      }
+    } catch { /* 遥测绝不阻断 */ }
+    return freeze.names.filter(n => byName.has(n)).map(n => byName.get(n).tool);
+  };
   const search = (query, limit) => {
     const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));
     const result = searchToolCatalog(catalog, { query, limit }, config, { legacyNameBoost: 3, loadedNames });
@@ -23815,6 +23883,18 @@ function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
 
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
+// 106 #1 (21-E4 §7.3): 布局 shadow —— 采样调用上同时构建 current/candidate 两种易变层布局的
+// 请求体(candidate 不发送),各自与「同会话上一次同布局」求公共前缀长度,落 layout_shadow 事件。
+// 证据用途:跨回合 stablePrefixChars 对比是 G1 flip 判据之一(配合 provider 实报 cachedInputTokens)。
+// 进程内 Map 不持久化,上限 20 会话(每条存两个序列化体,典型 ~400KB/会话),淘汰最久未用。
+const layoutShadowPrevBySessionMap = new Map();
+function commonPrefixChars(a, b) {
+  const n = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < n && a.charCodeAt(i) === b.charCodeAt(i)) i++;
+  return i;
+}
+
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam }) {
   const turnStartedAt = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 回合入口刷新分桶镜像(同步估算热路径用)
@@ -23994,7 +24074,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
   const bridgedRoute = bridged.route;
   const allTools = ownTools.concat(bridged.tools);   // catalog is collected once, schemas are injected lazily
-  const toolLoading = createToolLoadingState(config, fullPrompt, attachments, allTools, bridgedRoute);
+  // 106 #1 G2: freezeKey = session.id(会话级 schema 冻结,只追加);开关关时该参数不生效。
+  const toolLoading = createToolLoadingState(config, fullPrompt, attachments, allTools, bridgedRoute, session.id);
   const initialTools = toolLoading.current();
   const agentRoleMap = new Map((await getAgentRoleLibrary(workingDir, config)).map(role => [role.id, role]));
   // v0.8-S6 layered system prompt (§7.6, PROVIDER-ONLY). Identity is pinned to provider.label + model (the
@@ -24090,28 +24171,40 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (skipped) return;
     appendPromptToLastUserMessage(msgs, notesPrompt);
   };
-  const buildBody = withTools => {
+  const buildBody = withTools => buildBodyWithLayout(withTools, undefined);
+  // 106 #1 G1: layoutOverride 仅供 shadow 计量('first'|'tail')强制某一布局构建候选请求体,
+  // 正常调用恒传 undefined(走开关)。volatileTailLayoutEnabled 开时易变层从「前插历史首条 user」
+  // 改为「追加当前最新 user 尾部」(appendPromptToLastUserMessage,与 recall/notes 同位)。
+  const buildBodyWithLayout = (withTools, layoutOverride) => {
+    const volatileTail = layoutOverride ? layoutOverride === 'tail' : volatileTailLayoutEnabled(config);
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
     // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
     const actionAuditMap = (config.actionArgumentModelViewV1 === true && Array.isArray(session.actionAudit))
       ? new Map(session.actionAudit.map(e => e && e.toolCallId ? [e.toolCallId, e] : null).filter(Boolean))
       : new Map();
     const viewHistory = actionAuditMap.size ? projectActionModelView(session.providerHistory, actionAuditMap).history : session.providerHistory;
-    // v1.7: Responses API body — `instructions` + `input` items (no `messages`/`stream_options`). The volatile
-    // prefix still lands on the FIRST user message for prefix-cache stability (same placement rule as chat).
+    // v1.7: Responses API body — `instructions` + `input` items (no `messages`/`stream_options`).
+    // volatile 放置两分支同规则:开关关 = 前插历史首条 user(51d C1b 现状);106 #1 G1 开关开 =
+    // 追加当前最新 user 尾部。
     if (apiStyle === 'responses') {
       const msgs = [{ role: 'system', content: sys }, ...viewHistory];
-      const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
-      if (turnVolatile && firstUserIndex > 0) {
-        const firstUser = msgs[firstUserIndex];
-        if (typeof firstUser.content === 'string') {
-          msgs[firstUserIndex] = { ...firstUser, content: turnVolatile + '\n\n' + firstUser.content };
-        } else if (Array.isArray(firstUser.content)) {
-          const textPartIndex = firstUser.content.findIndex(part => part && part.type === 'text');
-          if (textPartIndex >= 0) {
-            const content = firstUser.content.slice();
-            content[textPartIndex] = { ...content[textPartIndex], text: turnVolatile + '\n\n' + String(content[textPartIndex].text || '') };
-            msgs[firstUserIndex] = { ...firstUser, content };
+      // 51d C1b 现状(开关关): volatile 前插历史第一条 user,不持久化(每回合动态)。
+      // 106 #1 G1(开关开): volatile 追加当前最新 user 尾部 —— 跨回合不重写既有消息,前缀缓存
+      // 不再从 messages[1] 断裂;同一会合内两种布局都稳定(volatile 每回合只构建一次)。
+      if (turnVolatile && volatileTail) appendPromptToLastUserMessage(msgs, turnVolatile);
+      else if (turnVolatile && !volatileTail) {
+        const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
+        if (firstUserIndex > 0) {
+          const firstUser = msgs[firstUserIndex];
+          if (typeof firstUser.content === 'string') {
+            msgs[firstUserIndex] = { ...firstUser, content: turnVolatile + '\n\n' + firstUser.content };
+          } else if (Array.isArray(firstUser.content)) {
+            const textPartIndex = firstUser.content.findIndex(part => part && part.type === 'text');
+            if (textPartIndex >= 0) {
+              const content = firstUser.content.slice();
+              content[textPartIndex] = { ...content[textPartIndex], text: turnVolatile + '\n\n' + String(content[textPartIndex].text || '') };
+              msgs[firstUserIndex] = { ...firstUser, content };
+            }
           }
         }
       }
@@ -24129,19 +24222,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       return b;
     }
     const msgs = [{ role: 'system', content: sys }, ...viewHistory];
-    // 51d C1b: volatile 前缀注入到第一条 user,不持久化(每回合动态)。Do not assume messages[1]
-    // or parts[0] is text: compacted/imported histories and multimodal providers may use another shape.
-    const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
-    if (turnVolatile && firstUserIndex > 0) {
-      const firstUser = msgs[firstUserIndex];
-      if (typeof firstUser.content === 'string') {
-        msgs[firstUserIndex] = { ...firstUser, content: turnVolatile + '\n\n' + firstUser.content };
-      } else if (Array.isArray(firstUser.content)) {
-        const textPartIndex = firstUser.content.findIndex(part => part && part.type === 'text');
-        if (textPartIndex >= 0) {
-          const content = firstUser.content.slice();
-          content[textPartIndex] = { ...content[textPartIndex], text: turnVolatile + '\n\n' + String(content[textPartIndex].text || '') };
-          msgs[firstUserIndex] = { ...firstUser, content };
+    // 51d C1b 现状(开关关): volatile 前插历史第一条 user,不持久化(每回合动态)。Do not assume
+    // messages[1] or parts[0] is text: compacted/imported histories and multimodal providers may use
+    // another shape. 106 #1 G1(开关开): 追加当前最新 user 尾部(规则同 responses 分支)。
+    if (turnVolatile && volatileTail) appendPromptToLastUserMessage(msgs, turnVolatile);
+    else if (turnVolatile && !volatileTail) {
+      const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
+      if (firstUserIndex > 0) {
+        const firstUser = msgs[firstUserIndex];
+        if (typeof firstUser.content === 'string') {
+          msgs[firstUserIndex] = { ...firstUser, content: turnVolatile + '\n\n' + firstUser.content };
+        } else if (Array.isArray(firstUser.content)) {
+          const textPartIndex = firstUser.content.findIndex(part => part && part.type === 'text');
+          if (textPartIndex >= 0) {
+            const content = firstUser.content.slice();
+            content[textPartIndex] = { ...content[textPartIndex], text: turnVolatile + '\n\n' + String(content[textPartIndex].text || '') };
+            msgs[firstUserIndex] = { ...firstUser, content };
+          }
         }
       }
     }
@@ -24653,12 +24750,33 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       econTotals.modelCallAttempts += 1; // 不抽样:到达发出点的每次真实调用(重试/压缩后重试各自计一次)
       if (econThisIter) {
         econBatchToolMs = [];
+        const econBodyJson = econBody ? JSON.stringify(econBody) : '';
         if (econLog('model_call_started', {
           modelCallId: activeModelCallId, iter, apiStyle,
           toolSchemaFingerprint: econSchemaFingerprint(),
-          historyBytes: econBody ? Buffer.byteLength(JSON.stringify(econBody), 'utf8') : 0,
+          historyBytes: econBodyJson ? Buffer.byteLength(econBodyJson, 'utf8') : 0,
           estimatedInputTokens: estBeforeCall,
         })) econTotals.modelCallsLogged += 1;
+        // 106 #1 G1 shadow(E4 §7.3): 同请求双布局 stablePrefixChars,candidate 只计量不发送。
+        try {
+          const sentLayout = volatileTailLayoutEnabled(config) ? 'tail' : 'first';
+          const altLayout = sentLayout === 'tail' ? 'first' : 'tail';
+          const altJson = JSON.stringify(buildBodyWithLayout(useTools, altLayout));
+          let prev = layoutShadowPrevBySessionMap.get(session.id);
+          if (!prev) {
+            prev = { first: '', tail: '' };
+            layoutShadowPrevBySessionMap.set(session.id, prev);
+            if (layoutShadowPrevBySessionMap.size > 20) layoutShadowPrevBySessionMap.delete(layoutShadowPrevBySessionMap.keys().next().value);
+          }
+          const stableSent = commonPrefixChars(econBodyJson, prev[sentLayout] || '');
+          const stableAlt = commonPrefixChars(altJson, prev[altLayout] || '');
+          prev[sentLayout] = econBodyJson; prev[altLayout] = altJson;
+          econLog('layout_shadow', {
+            modelCallId: activeModelCallId, iter, sentLayout,
+            totalCharsSent: econBodyJson.length, stablePrefixCharsSent: stableSent,
+            totalCharsAlt: altJson.length, stablePrefixCharsAlt: stableAlt,
+          });
+        } catch { /* shadow 绝不阻断 */ }
       }
       const usageSnapshot = { input: turnUsage.input_tokens, output: turnUsage.output_tokens, cached: turnUsage.cached_input_tokens, calls: usageCalls };
       const tLlm0 = Date.now(); // hb360 C2: 每轮耗时分解(LLM 流式 vs 工具执行),效率观测点
@@ -25568,7 +25686,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 结果快照的不可逆账/变更/验收才能包含完成它的这个回合;盖章随下方 saveSession 一并落盘。
   if (session.__missionFinalizeHow) {
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
-    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
+    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败��阻断回合 */ }
   }
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
@@ -36079,6 +36197,9 @@ module.exports = {
   toolTimeBudgetWarnMs,
   toolTimeBudgetHardMs,
   toolByteBudgetShadowBytes,
+  // 106 #1 G1/G2: 前缀缓存布局开关 — exposed for e2e 白盒契约(开关唯一判定点)。
+  volatileTailLayoutEnabled,
+  appendOnlyToolSchemasEnabled,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

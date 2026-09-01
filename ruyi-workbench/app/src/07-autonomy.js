@@ -618,18 +618,65 @@ function listCompactTools(catalog, args) {
   };
 }
 
-function createToolLoadingState(config, message, attachments, tools, bridgedRoute) {
+// 106 #1 G2(21-E4 §7.2): 会话级 schema 冻结表 —— appendOnlyToolSchemasV1 开时按 session 冻结
+// tools 顺序,之后只追加不重排(探针 S5: 中间插入全前缀命中归零,尾部追加保留 ~77%)。
+// 进程内 Map 不持久化:重启后按当次分类重建(等价于新会话的首建冻结),条目变化才记录。
+// 上限 200 会话防常驻内存增长,淘汰最久未触碰。
+const toolSchemaFreezeBySessionMap = new Map();
+function toolSchemaFreezeFor(freezeKey) {
+  let freeze = toolSchemaFreezeBySessionMap.get(freezeKey);
+  if (!freeze) {
+    freeze = { names: [], nameSet: new Set(), initLogged: false, missingKey: '' };
+    toolSchemaFreezeBySessionMap.set(freezeKey, freeze);
+    if (toolSchemaFreezeBySessionMap.size > 200) toolSchemaFreezeBySessionMap.delete(toolSchemaFreezeBySessionMap.keys().next().value);
+  } else {
+    // 触碰:提到最新位置,淘汰队首即最久未用
+    toolSchemaFreezeBySessionMap.delete(freezeKey);
+    toolSchemaFreezeBySessionMap.set(freezeKey, freeze);
+  }
+  return freeze;
+}
+
+function createToolLoadingState(config, message, attachments, tools, bridgedRoute, freezeKey) {
   const catalog = buildToolCatalog(tools, bridgedRoute, config);
   const full = config && config.toolLoadingMode === 'full';
   const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
   const activeNames = new Set();
   const metaNames = new Set(['list_tools', 'tool_search', 'tool_load']);
+  // 106 #1 G2: 冻结仅在有会话权属的主循环启用(freezeKey = session.id);子代理/一次性调用不传,
+  // 保持现状逐字节一致。
+  const freeze = (appendOnlyToolSchemasEnabled(config) && typeof freezeKey === 'string' && freezeKey) ? toolSchemaFreezeFor(freezeKey) : null;
   // O1 (hb360): auto 模式下桥接工具不按包自动注入 schema（走 tool_invoke_* 代理或 tool_load 显式拉入），
   // 避免单任务注入 100-280 个桥接 schema 导致 input 膨胀（实测均值 303K tokens）。full 模式与元工具/显式拉入不受影响。
   // O4 (hb360) 对抗验证回退: 高频白名单(file_read 始终注入)破坏 adaptive loading 的"按需注入"语义
   // (tool-loading e2e 断言 file_read 在 tool_load 前不注入);且真实任务 classifyToolPacks 已激活 files_read,
   // 白名单仅对纯闲聊任务有用(而闲聊不需要 file_read),收益不抵语义破坏,故回退。
-  const current = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack))).map(x => x.tool);
+  const liveList = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack)));
+  const current = () => {
+    const live = liveList();
+    if (!freeze) return live.map(x => x.tool);
+    // 冻结布局:输出 = 冻结序(仍在 catalog 的条目保位) + 本次新激活按 catalog 序追加尾部。
+    const byName = new Map(catalog.map(x => [x.name, x]));
+    const added = [];
+    for (const x of live) {
+      if (!freeze.nameSet.has(x.name)) { freeze.nameSet.add(x.name); freeze.names.push(x.name); added.push(x.name); }
+    }
+    const missing = freeze.names.filter(n => !byName.has(n));
+    const missingKey = missing.join('');
+    try {
+      if (!freeze.initLogged && freeze.names.length) {
+        freeze.initLogged = true;
+        logEvent({ kind: 'tool_schema_freeze', state: 'init', sessionId: freezeKey, count: freeze.names.length });
+      }
+      if (added.length) logEvent({ kind: 'tool_schema_freeze', state: 'append', sessionId: freezeKey, added, count: freeze.names.length });
+      if (missingKey !== freeze.missingKey) {
+        freeze.missingKey = missingKey;
+        // catalog 缺失(MCP 离线/撤权/caps 变化)= 必然缓存断裂,按 E4 §7.2 记录原因,不为命中率保留错误授权
+        if (missing.length) logEvent({ kind: 'tool_schema_freeze', state: 'cache_break', reason: 'catalog_miss', sessionId: freezeKey, missing });
+      }
+    } catch { /* 遥测绝不阻断 */ }
+    return freeze.names.filter(n => byName.has(n)).map(n => byName.get(n).tool);
+  };
   const search = (query, limit) => {
     const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));
     const result = searchToolCatalog(catalog, { query, limit }, config, { legacyNameBoost: 3, loadedNames });
