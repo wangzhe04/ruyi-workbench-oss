@@ -67,7 +67,11 @@ module.exports = {
   summarySingleShotReserveTokens,
   // 105g(4.3 首项): map-reduce 全局事实表 — exposed for e2e 白盒契约(开关唯一判定点/注入消息构建)。
   summaryFactTableEnabled,
+  summaryFactTableCap,
   buildSummaryFactTableMessages,
+  // 105h(4.3 第二项): <=4 块顺序 refine — exposed for e2e 白盒契约。
+  summaryRefineEnabled,
+  buildSummaryRefineMessages,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

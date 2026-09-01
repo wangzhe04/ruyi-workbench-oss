@@ -123,7 +123,7 @@
       "subagent": "10a288244c5a4dc5c4097d8f20717d32f65d72c252a150c86d9e8b8ce5ca5803"
     },
     "ruleSchema": 1,
-    "rulesSha256": "8b6990dcb13bf8f490a05813ade83a2a6a0e195f0a6ac0ed4c9dc5bd80cbd8ac"
+    "rulesSha256": "8fad64abc491aa18fcaefff1fc5bc8c78ef840d6ee74658f858335fabaa8d41b"
   },
   "permission": {
     "modes": [

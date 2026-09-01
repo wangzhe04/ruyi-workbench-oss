@@ -1,0 +1,686 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-01T09:30:29.000Z",
+  "provider": {
+    "id": "deepseek",
+    "model": "deepseek-v4-flash",
+    "apiStyle": "responses",
+    "contextWindow": 32000
+  },
+  "fixture": {
+    "source": "dev-harness/realhist-fixtures/checkpoints/sess_fe3de15dfc3b8354/history-24.json.gz",
+    "targets": [
+      {
+        "target": 20000,
+        "estimate": 20000
+      },
+      {
+        "target": 24000,
+        "estimate": 24000
+      },
+      {
+        "target": 28000,
+        "estimate": 28000
+      }
+    ],
+    "blocks": 4,
+    "syntheticConstraints": true
+  },
+  "degradationGates": {
+    "single400ToMap": "covered by summary-single-shot.e2e A4",
+    "refineFailureToMap": "covered by summary-refine.e2e A5",
+    "passed": 2,
+    "total": 2
+  },
+  "aggregates": [
+    {
+      "strategy": "map",
+      "label": "现有 map-reduce（无事实表隔离基线）",
+      "fixtures": 3,
+      "successRate": 1,
+      "entityRetention": 0.7777777777777777,
+      "crossBlockAccuracy": 0.7916666666666666,
+      "calls": 9,
+      "wallMs": 306602,
+      "inputTokens": 96130,
+      "outputTokens": 49193,
+      "cost": 0.194516,
+      "currency": "CNY"
+    },
+    {
+      "strategy": "map_fact",
+      "label": "当前生产 map-reduce + 全局事实表",
+      "fixtures": 3,
+      "successRate": 1,
+      "entityRetention": 0.6666666666666666,
+      "crossBlockAccuracy": 0.6666666666666666,
+      "calls": 9,
+      "wallMs": 251312,
+      "inputTokens": 96091,
+      "outputTokens": 40097,
+      "cost": 0.17628500000000003,
+      "currency": "CNY"
+    },
+    {
+      "strategy": "single",
+      "label": "单发优先（28K 超预算时按生产语义分块）",
+      "fixtures": 3,
+      "successRate": 1,
+      "entityRetention": 0.8888888888888888,
+      "crossBlockAccuracy": 0.875,
+      "calls": 5,
+      "wallMs": 157873,
+      "inputTokens": 85973,
+      "outputTokens": 24622,
+      "cost": 0.135217,
+      "currency": "CNY"
+    },
+    {
+      "strategy": "refine",
+      "label": "<=4 块顺序 refine",
+      "fixtures": 3,
+      "successRate": 1,
+      "entityRetention": 0.611111111111111,
+      "crossBlockAccuracy": 0.625,
+      "calls": 9,
+      "wallMs": 298916,
+      "inputTokens": 123248,
+      "outputTokens": 48695,
+      "cost": 0.220638,
+      "currency": "CNY"
+    },
+    {
+      "strategy": "refine_fact",
+      "label": "顺序 refine + 全局事实表",
+      "fixtures": 3,
+      "successRate": 1,
+      "entityRetention": 0.6111111111111112,
+      "crossBlockAccuracy": 0.6666666666666666,
+      "calls": 8,
+      "wallMs": 210118,
+      "inputTokens": 104305,
+      "outputTokens": 32865,
+      "cost": 0.170035,
+      "currency": "CNY"
+    }
+  ],
+  "rows": [
+    {
+      "strategy": "map",
+      "targetTokens": 20000,
+      "estimatedTokens": 20000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 105187,
+      "inputTokens": 27157,
+      "outputTokens": 16227,
+      "cost": 0.059611,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 2,
+        "entityTotal": 6,
+        "entityRetention": 0.3333333333333333,
+        "crossBlockCorrect": 4,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.5,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": false,
+          "date": false,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "map",
+      "targetTokens": 24000,
+      "estimatedTokens": 24000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 119379,
+      "inputTokens": 32794,
+      "outputTokens": 19907,
+      "cost": 0.072608,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 6,
+        "entityTotal": 6,
+        "entityRetention": 1,
+        "crossBlockCorrect": 8,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 1,
+        "checks": {
+          "codename": true,
+          "path": true,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "map",
+      "targetTokens": 28000,
+      "estimatedTokens": 28000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 82036,
+      "inputTokens": 36179,
+      "outputTokens": 13059,
+      "cost": 0.062297,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 6,
+        "entityTotal": 6,
+        "entityRetention": 1,
+        "crossBlockCorrect": 7,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.875,
+        "checks": {
+          "codename": true,
+          "path": true,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": false,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "map_fact",
+      "targetTokens": 20000,
+      "estimatedTokens": 20000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 65694,
+      "inputTokens": 28121,
+      "outputTokens": 10571,
+      "cost": 0.049263,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "factTable": {
+          "entities": 16
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 2,
+        "entityTotal": 6,
+        "entityRetention": 0.3333333333333333,
+        "crossBlockCorrect": 4,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.5,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": false,
+          "date": false,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "map_fact",
+      "targetTokens": 24000,
+      "estimatedTokens": 24000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 95476,
+      "inputTokens": 32100,
+      "outputTokens": 14233,
+      "cost": 0.060566,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "factTable": {
+          "entities": 16
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 6,
+        "entityTotal": 6,
+        "entityRetention": 1,
+        "crossBlockCorrect": 7,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.875,
+        "checks": {
+          "codename": true,
+          "path": true,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": false,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "map_fact",
+      "targetTokens": 28000,
+      "estimatedTokens": 28000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 90142,
+      "inputTokens": 35870,
+      "outputTokens": 15293,
+      "cost": 0.066456,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "factTable": {
+          "entities": 16
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 4,
+        "entityTotal": 6,
+        "entityRetention": 0.6666666666666666,
+        "crossBlockCorrect": 5,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.625,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": false,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "single",
+      "targetTokens": 20000,
+      "estimatedTokens": 20000,
+      "ok": true,
+      "error": "",
+      "calls": 1,
+      "wallMs": 43739,
+      "inputTokens": 21992,
+      "outputTokens": 6535,
+      "cost": 0.035062,
+      "currency": "CNY",
+      "mapReduce": null,
+      "score": {
+        "structured": true,
+        "entityRetained": 6,
+        "entityTotal": 6,
+        "entityRetention": 1,
+        "crossBlockCorrect": 7,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.875,
+        "checks": {
+          "codename": true,
+          "path": true,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": false,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "single",
+      "targetTokens": 24000,
+      "estimatedTokens": 24000,
+      "ok": true,
+      "error": "",
+      "calls": 1,
+      "wallMs": 22574,
+      "inputTokens": 26589,
+      "outputTokens": 3299,
+      "cost": 0.033187,
+      "currency": "CNY",
+      "mapReduce": null,
+      "score": {
+        "structured": true,
+        "entityRetained": 4,
+        "entityTotal": 6,
+        "entityRetention": 0.6666666666666666,
+        "crossBlockCorrect": 6,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.75,
+        "checks": {
+          "codename": true,
+          "path": true,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": false,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": false,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "single",
+      "targetTokens": 28000,
+      "estimatedTokens": 28000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 91560,
+      "inputTokens": 37392,
+      "outputTokens": 14788,
+      "cost": 0.066968,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "factTable": {
+          "entities": 16
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 6,
+        "entityTotal": 6,
+        "entityRetention": 1,
+        "crossBlockCorrect": 8,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 1,
+        "checks": {
+          "codename": true,
+          "path": true,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "refine",
+      "targetTokens": 20000,
+      "estimatedTokens": 20000,
+      "ok": true,
+      "error": "",
+      "calls": 2,
+      "wallMs": 92766,
+      "inputTokens": 25437,
+      "outputTokens": 13981,
+      "cost": 0.053399,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "refine": {
+          "steps": 2,
+          "calls": 2
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 4,
+        "entityTotal": 6,
+        "entityRetention": 0.6666666666666666,
+        "crossBlockCorrect": 5,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.625,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": false,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "refine",
+      "targetTokens": 24000,
+      "estimatedTokens": 24000,
+      "ok": true,
+      "error": "",
+      "calls": 5,
+      "wallMs": 167958,
+      "inputTokens": 63707,
+      "outputTokens": 28334,
+      "cost": 0.120375,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "degradedFromRefine": true,
+        "refineCalls": 2,
+        "refineFailure": "validation"
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 5,
+        "entityTotal": 6,
+        "entityRetention": 0.8333333333333334,
+        "crossBlockCorrect": 6,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.75,
+        "checks": {
+          "codename": true,
+          "path": true,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": false,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": false
+        }
+      }
+    },
+    {
+      "strategy": "refine",
+      "targetTokens": 28000,
+      "estimatedTokens": 28000,
+      "ok": true,
+      "error": "",
+      "calls": 2,
+      "wallMs": 38192,
+      "inputTokens": 34104,
+      "outputTokens": 6380,
+      "cost": 0.046864,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "refine": {
+          "steps": 2,
+          "calls": 2
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 2,
+        "entityTotal": 6,
+        "entityRetention": 0.3333333333333333,
+        "crossBlockCorrect": 4,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.5,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": false,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": false,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "refine_fact",
+      "targetTokens": 20000,
+      "estimatedTokens": 20000,
+      "ok": true,
+      "error": "",
+      "calls": 2,
+      "wallMs": 61608,
+      "inputTokens": 24750,
+      "outputTokens": 9245,
+      "cost": 0.04324,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "refine": {
+          "steps": 2,
+          "calls": 2
+        },
+        "factTable": {
+          "entities": 16
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 2,
+        "entityTotal": 6,
+        "entityRetention": 0.3333333333333333,
+        "crossBlockCorrect": 3,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.375,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": false,
+          "date": false,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": false,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "refine_fact",
+      "targetTokens": 24000,
+      "estimatedTokens": 24000,
+      "ok": true,
+      "error": "",
+      "calls": 4,
+      "wallMs": 90829,
+      "inputTokens": 45375,
+      "outputTokens": 14608,
+      "cost": 0.074591,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "degradedFromRefine": true,
+        "refineCalls": 1,
+        "refineFailure": "validation",
+        "factTable": {
+          "entities": 16
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 5,
+        "entityTotal": 6,
+        "entityRetention": 0.8333333333333334,
+        "crossBlockCorrect": 7,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.875,
+        "checks": {
+          "codename": true,
+          "path": true,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": false,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "refine_fact",
+      "targetTokens": 28000,
+      "estimatedTokens": 28000,
+      "ok": true,
+      "error": "",
+      "calls": 2,
+      "wallMs": 57681,
+      "inputTokens": 34180,
+      "outputTokens": 9012,
+      "cost": 0.052204,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "refine": {
+          "steps": 2,
+          "calls": 2
+        },
+        "factTable": {
+          "entities": 16
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 4,
+        "entityTotal": 6,
+        "entityRetention": 0.6666666666666666,
+        "crossBlockCorrect": 6,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.75,
+        "checks": {
+          "codename": true,
+          "path": true,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": false,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": false,
+          "completedTodoAbsent": true
+        }
+      }
+    }
+  ]
+}

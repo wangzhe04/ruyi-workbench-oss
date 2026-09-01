@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-01T10:14:36.646Z",
+  "provider": {
+    "id": "deepseek",
+    "model": "deepseek-v4-flash",
+    "apiStyle": "responses",
+    "contextWindow": 32000
+  },
+  "fixture": {
+    "scope": "long",
+    "source": "dev-harness/realhist-fixtures/checkpoints/sess_fe3de15dfc3b8354/history-24.json.gz",
+    "messages": 112,
+    "estimate": 52755,
+    "globalEntities": 64
+  },
+  "aggregates": [
+    {
+      "cap": 48,
+      "fixtures": 1,
+      "successRate": 1,
+      "tableEntities": 48,
+      "tableRetention": 1,
+      "globalEntities": 64,
+      "globalRetention": 0.75,
+      "calls": 6,
+      "wallMs": 157118,
+      "inputTokens": 66709,
+      "outputTokens": 22305,
+      "cost": 0.111319,
+      "currency": "CNY"
+    },
+    {
+      "cap": 64,
+      "fixtures": 1,
+      "successRate": 1,
+      "tableEntities": 64,
+      "tableRetention": 0.828125,
+      "globalEntities": 64,
+      "globalRetention": 0.828125,
+      "calls": 6,
+      "wallMs": 168592,
+      "inputTokens": 71749,
+      "outputTokens": 24027,
+      "cost": 0.119803,
+      "currency": "CNY"
+    }
+  ],
+  "rows": [
+    {
+      "cap": 48,
+      "ok": true,
+      "error": "",
+      "calls": 6,
+      "wallMs": 157118,
+      "inputTokens": 66709,
+      "outputTokens": 22305,
+      "cost": 0.111319,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 5,
+        "rounds": 1,
+        "factTable": {
+          "entities": 48
+        }
+      },
+      "score": {
+        "structured": true,
+        "tableEntities": 48,
+        "tableRetained": 48,
+        "tableRetention": 1,
+        "globalEntities": 64,
+        "globalRetained": 48,
+        "globalRetention": 0.75
+      }
+    },
+    {
+      "cap": 64,
+      "ok": true,
+      "error": "",
+      "calls": 6,
+      "wallMs": 168592,
+      "inputTokens": 71749,
+      "outputTokens": 24027,
+      "cost": 0.119803,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 5,
+        "rounds": 1,
+        "factTable": {
+          "entities": 64
+        }
+      },
+      "score": {
+        "structured": true,
+        "tableEntities": 64,
+        "tableRetained": 53,
+        "tableRetention": 0.828125,
+        "globalEntities": 64,
+        "globalRetained": 53,
+        "globalRetention": 0.828125
+      }
+    }
+  ]
+}

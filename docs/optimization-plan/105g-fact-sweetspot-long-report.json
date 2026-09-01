@@ -1,0 +1,186 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-01T10:09:00.756Z",
+  "provider": {
+    "id": "deepseek",
+    "model": "deepseek-v4-flash",
+    "apiStyle": "responses",
+    "contextWindow": 32000
+  },
+  "fixture": {
+    "scope": "long",
+    "source": "dev-harness/realhist-fixtures/checkpoints/sess_fe3de15dfc3b8354/history-24.json.gz",
+    "messages": 112,
+    "estimate": 52755,
+    "globalEntities": 64
+  },
+  "aggregates": [
+    {
+      "cap": 0,
+      "fixtures": 1,
+      "successRate": 1,
+      "tableEntities": 0,
+      "tableRetention": 0,
+      "globalEntities": 64,
+      "globalRetention": 0.578125,
+      "calls": 6,
+      "wallMs": 141497,
+      "inputTokens": 68162,
+      "outputTokens": 21422,
+      "cost": 0.111006,
+      "currency": "CNY"
+    },
+    {
+      "cap": 16,
+      "fixtures": 1,
+      "successRate": 1,
+      "tableEntities": 16,
+      "tableRetention": 1,
+      "globalEntities": 64,
+      "globalRetention": 0.59375,
+      "calls": 6,
+      "wallMs": 141360,
+      "inputTokens": 65470,
+      "outputTokens": 21274,
+      "cost": 0.108018,
+      "currency": "CNY"
+    },
+    {
+      "cap": 24,
+      "fixtures": 1,
+      "successRate": 1,
+      "tableEntities": 24,
+      "tableRetention": 1,
+      "globalEntities": 64,
+      "globalRetention": 0.578125,
+      "calls": 6,
+      "wallMs": 162996,
+      "inputTokens": 69408,
+      "outputTokens": 24804,
+      "cost": 0.119016,
+      "currency": "CNY"
+    },
+    {
+      "cap": 32,
+      "fixtures": 1,
+      "successRate": 1,
+      "tableEntities": 32,
+      "tableRetention": 1,
+      "globalEntities": 64,
+      "globalRetention": 0.671875,
+      "calls": 6,
+      "wallMs": 163171,
+      "inputTokens": 68830,
+      "outputTokens": 24076,
+      "cost": 0.116982,
+      "currency": "CNY"
+    }
+  ],
+  "rows": [
+    {
+      "cap": 0,
+      "ok": true,
+      "error": "",
+      "calls": 6,
+      "wallMs": 141497,
+      "inputTokens": 68162,
+      "outputTokens": 21422,
+      "cost": 0.111006,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 5,
+        "rounds": 1
+      },
+      "score": {
+        "structured": true,
+        "tableEntities": 0,
+        "tableRetained": 0,
+        "tableRetention": 0,
+        "globalEntities": 64,
+        "globalRetained": 37,
+        "globalRetention": 0.578125
+      }
+    },
+    {
+      "cap": 16,
+      "ok": true,
+      "error": "",
+      "calls": 6,
+      "wallMs": 141360,
+      "inputTokens": 65470,
+      "outputTokens": 21274,
+      "cost": 0.108018,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 5,
+        "rounds": 1,
+        "factTable": {
+          "entities": 16
+        }
+      },
+      "score": {
+        "structured": true,
+        "tableEntities": 16,
+        "tableRetained": 16,
+        "tableRetention": 1,
+        "globalEntities": 64,
+        "globalRetained": 38,
+        "globalRetention": 0.59375
+      }
+    },
+    {
+      "cap": 24,
+      "ok": true,
+      "error": "",
+      "calls": 6,
+      "wallMs": 162996,
+      "inputTokens": 69408,
+      "outputTokens": 24804,
+      "cost": 0.119016,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 5,
+        "rounds": 1,
+        "factTable": {
+          "entities": 24
+        }
+      },
+      "score": {
+        "structured": true,
+        "tableEntities": 24,
+        "tableRetained": 24,
+        "tableRetention": 1,
+        "globalEntities": 64,
+        "globalRetained": 37,
+        "globalRetention": 0.578125
+      }
+    },
+    {
+      "cap": 32,
+      "ok": true,
+      "error": "",
+      "calls": 6,
+      "wallMs": 163171,
+      "inputTokens": 68830,
+      "outputTokens": 24076,
+      "cost": 0.116982,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 5,
+        "rounds": 1,
+        "factTable": {
+          "entities": 32
+        }
+      },
+      "score": {
+        "structured": true,
+        "tableEntities": 32,
+        "tableRetained": 32,
+        "tableRetention": 1,
+        "globalEntities": 64,
+        "globalRetained": 43,
+        "globalRetention": 0.671875
+      }
+    }
+  ]
+}

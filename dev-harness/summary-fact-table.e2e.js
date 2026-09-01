@@ -68,9 +68,13 @@ function readSumPayloads(dir) {
   ok(srv.summaryFactTableEnabled({ runtimeSummaryFactTableV1: true }) === true, 'U2 显式 true 生效');
   ok(srv.summaryFactTableEnabled({ runtimeSummaryFactTableV1: false }) === false, 'U3 显式 false 回退');
   ok(srv.summaryFactTableEnabled({ runtimeSummaryFactTableV1: 'true' }) === false, 'U4 字符串 "true" 洗回 false(严格布尔)');
+  ok(srv.summaryFactTableCap(srv.defaultConfig()) === 64, 'U4a 事实表条数默认上限 64(超长 history-24 甜点门通过)');
+  ok(srv.summaryFactTableCap({ summaryFactTableMaxSamplesV1: 3 }) === 4 && srv.summaryFactTableCap({ summaryFactTableMaxSamplesV1: 99 }) === 64, 'U4b 事实表条数上限钳位 [4,64]');
   const rich = srv.buildSummaryFactTableMessages(entityHistory(11000, 6));
   ok(rich.entities >= 4 && rich.chunk && rich.reduce, 'U5 实体历史构建出 chunk/reduce 两条注入消息(实体 ' + rich.entities + ' 条)');
-  ok(rich.entities <= 16, 'U6 实体条数有界(rules factTable.maxSamples=16)');
+  ok(rich.entities <= 64, 'U6 实体条数有界(rules factTable.maxSamples=64)');
+  const smallCap = srv.buildSummaryFactTableMessages(entityHistory(11000, 6), 8);
+  ok(smallCap.entities <= 8, 'U6a 显式甜点位实验上限生效(8)');
   ok(rich.chunk.content.includes('【全局事实表') && rich.chunk.content.includes('飞星计划')
     && rich.chunk.content.includes('v3.1.4') && rich.chunk.content.includes('C:\\proj\\feixing\\plan.yaml'),
     'U7 事实表逐字携带代号/版本/路径实体');
@@ -125,7 +129,7 @@ function readSumPayloads(dir) {
     } else {
       const history = JSON.parse(zlib.gunzipSync(fs.readFileSync(fixture), 'utf8'));
       const table = srv.buildSummaryFactTableMessages(history);
-      ok(history.length > 1 && table.entities > 0 && table.entities <= 16 && table.chunk && table.reduce,
+      ok(history.length > 1 && table.entities > 0 && table.entities <= 64 && table.chunk && table.reduce,
         'H1 history-24 抽出有界全局事实表(不回显实体)');
       const FAKE = await getFreePort();
       const SUMDIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-105g-history-'));

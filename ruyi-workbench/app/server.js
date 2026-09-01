@@ -616,6 +616,13 @@ function defaultConfig() {
     // 各轮汇总调用,缓解跨块约束丢失。真实 history-24 配对 A/B 门通过(实体保留 18.8%→75.0%,
     // 调用数零增加)后默认开启;显式 false = 分段与汇总请求体逐字节回退现状。
     runtimeSummaryFactTableV1: true,
+    // 事实表条数甜点位实验参数。超长 history-24 真实门显示 64 条在可接受成本/延迟内
+    // 仍有净收益;运行时钳位 [4,64],仅在 fact-table 开启时生效。
+    summaryFactTableMaxSamplesV1: 64,
+    // 105h(4.3 第二项): <=4 块顺序 refine —— 用首块摘要作为累计状态,后续块逐次修订;
+    // 任一步请求或五节结构校验失败,整条从原始历史回退现有 map-reduce。105 总门无净收益,默认关;
+    // 显式 false = 105g 现状请求序列与请求体逐字节不变。
+    runtimeSummaryRefineV1: false,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -995,7 +1002,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -1013,6 +1020,11 @@ function normalizeConfig(raw) {
       if (key && Number.isFinite(val)) cleanOv[key] = Math.min(131072, Math.max(8192, Math.round(val)));
     }
     if (JSON.stringify(cleanOv) !== JSON.stringify(config.summarySingleShotMaxOverridesV1)) { config.summarySingleShotMaxOverridesV1 = cleanOv; changed = true; }
+  }
+  { // 105g: 事实表条数上限 —— JSON number,clamp [4,64],缺省 64;坏值不放宽请求体。
+    const n = Number(config.summaryFactTableMaxSamplesV1);
+    const clamped = Number.isFinite(n) ? Math.min(64, Math.max(4, Math.round(n))) : 64;
+    if (clamped !== config.summaryFactTableMaxSamplesV1) { config.summaryFactTableMaxSamplesV1 = clamped; changed = true; }
   }
   { // 21-E2: bounded read concurrency — JSON number, clamp 1..8.
     const n = Number(config.boundedReadConcurrencyV1);
@@ -1335,6 +1347,19 @@ function summarySingleShotEnabled(config) {
 // 分块分支)与 e2e 共用本判定;显式 false / 缺省保证分段与汇总请求体逐字节不变(零注入)。
 function summaryFactTableEnabled(config) {
   return !!(config && config.runtimeSummaryFactTableV1 === true);
+}
+
+// 105g sweet-spot gate: resolve the deterministic fact-table sample cap. Keep this separate from
+// summaryFactTableEnabled so experiments can compare caps without weakening the boolean rollback gate.
+function summaryFactTableCap(config) {
+  const n = Number(config && config.summaryFactTableMaxSamplesV1);
+  return Number.isFinite(n) ? Math.min(64, Math.max(4, Math.round(n))) : 64;
+}
+
+// 105h(4.3 第二项): <=4 块顺序 refine 生效条件 —— 单开关。105 总门否决默认开启;显式 false / 缺省
+// 保证 105g 现有 map-reduce 调用顺序、请求体与失败语义逐字节不变。
+function summaryRefineEnabled(config) {
+  return !!(config && config.runtimeSummaryRefineV1 === true);
 }
 
 // ============================================================================
@@ -25657,10 +25682,15 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       // 105g(4.3 首项): map-reduce 全局事实表注入文案与条数上限,与 context-governance-rules.json
       // 的 summary.factTable 块逐字同构(additive)。
       factTable: {
-        maxSamples: 16,
+        maxSamples: 64,
         header: '【全局事实表(从完整对话确定性抽取,按最近出现排序;前后冲突以靠后为准)】',
         chunkDirective: '以上是从完整对话确定性抽取的关键事实。本段内容若涉及表中事实,摘要必须逐字保留其写法;未被本段涉及的事实不得写进本段摘要。',
         reduceDirective: '以上是从完整对话确定性抽取的关键事实。汇总时对仍有效的事实逐字保留;已被后文推翻的决定不得并列保留为有效约束。',
+      },
+      // 105h(4.3 第二项): <=4 块顺序 refine 的上限与修订 prompt,与 JSON 同构(additive)。
+      refine: {
+        maxChunks: 4,
+        prompt: '你是顺序摘要修订器。输入包含【当前累计摘要】和其后的【新增历史块】。请用新增历史更新累计摘要,严格保持【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】五节结构。新增历史中更晚的决定覆盖旧决定;已完成或被取消的事项必须从未完成事项中消失;不得把已推翻决定与最新决定并列为有效约束。路径、版本、日期、代号、数字和明确禁令必须逐字保留。只输出修订后的完整摘要。',
       },
     },
     compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1 },
@@ -26443,8 +26473,10 @@ function summarySourceText(history) {
 // 历史确定性抽取全局实体表(复用 105c 抽取器,零新增 LLM 调用,条数有界),作为一条 user 消息
 // 注入每个分段与每轮汇总调用。开关关时两条消息都为 null,请求体逐字节不变。
 const SUMMARY_FACT_TABLE_RULES = CONTEXT_GOVERNANCE_RULES.summary.factTable || {};
-function buildSummaryFactTableMessages(history) {
-  const maxSamples = Number.isFinite(Number(SUMMARY_FACT_TABLE_RULES.maxSamples)) ? Number(SUMMARY_FACT_TABLE_RULES.maxSamples) : 16;
+function buildSummaryFactTableMessages(history, maxSamplesOverride) {
+  const requested = Number(maxSamplesOverride);
+  const ruleDefault = Number.isFinite(Number(SUMMARY_FACT_TABLE_RULES.maxSamples)) ? Number(SUMMARY_FACT_TABLE_RULES.maxSamples) : 64;
+  const maxSamples = Number.isFinite(requested) ? Math.min(64, Math.max(4, Math.round(requested))) : ruleDefault;
   const entities = extractSummaryEntities(summarySourceText(history), { ...SUMMARY_ENTITY_RULES, maxSamples });
   if (!entities.length) return { entities: 0, chunk: null, reduce: null };
   const header = String(SUMMARY_FACT_TABLE_RULES.header || '【全局事实表】');
@@ -26455,6 +26487,15 @@ function buildSummaryFactTableMessages(history) {
     chunk: mk(SUMMARY_FACT_TABLE_RULES.chunkDirective),
     reduce: mk(SUMMARY_FACT_TABLE_RULES.reduceDirective),
   };
+}
+const SUMMARY_REFINE_RULES = CONTEXT_GOVERNANCE_RULES.summary.refine || {};
+function buildSummaryRefineMessages(currentSummary, nextChunk, factMessage) {
+  return [
+    { role: 'user', content: '【当前累计摘要】\n' + String(currentSummary || '') + '\n\n【新增历史块开始】' },
+    ...(Array.isArray(nextChunk) ? nextChunk : []),
+    { role: 'user', content: '【新增历史块结束】' },
+    ...(factMessage ? [factMessage] : []),
+  ];
 }
 // 摘要成功出口的统一后置检查:返回要采用的 sc(原稿或修补稿)。任何内部异常都必须原样返回原稿。
 async function applySummaryEntityCheck(provider, history, sc, model, opts) {
@@ -26669,6 +26710,20 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
   } finally { if (timer) clearTimeout(timer); }
 }
 
+function aggregateSummaryCalls(target, calls) {
+  let aggIn = 0, aggOut = 0, aggEst = 0;
+  for (const r of (Array.isArray(calls) ? calls : [])) {
+    if (r && r.usage) {
+      aggIn += Number(r.usage.prompt_tokens != null ? r.usage.prompt_tokens : r.usage.input_tokens) || 0;
+      aggOut += Number(r.usage.completion_tokens != null ? r.usage.completion_tokens : r.usage.output_tokens) || 0;
+    }
+    aggEst += Number(r && r.promptTokensEst) || 0;
+  }
+  if (aggIn > 0 || aggOut > 0) target.usage = { prompt_tokens: aggIn, completion_tokens: aggOut, aggregated: true };
+  target.promptTokensEst = aggEst;
+  return target;
+}
+
 async function providerSummaryCallCore(provider, history, opts) {
   const base = providerBaseWithV1(provider.baseUrl);
   const model = String((opts && opts.model) || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
@@ -26725,9 +26780,47 @@ async function providerSummaryCallCore(provider, history, opts) {
   }
   // 105g: 开关开且真实分块时构建全局事实表注入消息(确定性抽取,零新增 LLM 调用);
   // 开关关时两条消息皆 null,分段/汇总请求体与现状逐字节一致。
-  const factTable = summaryFactTableEnabled(opts && opts.config) ? buildSummaryFactTableMessages(history) : null;
+  const factTable = summaryFactTableEnabled(opts && opts.config)
+    ? buildSummaryFactTableMessages(history, summaryFactTableCap(opts && opts.config))
+    : null;
   const factChunkMsg = factTable && factTable.chunk;
   const factReduceMsg = factTable && factTable.reduce;
+  // 105h: 2–4 块可选顺序 refine。首块先产出累计摘要,后续块逐次修订;每一步都必须通过
+  // 五节结构校验。任一步失败不采用半成品,而是从原始 history 完整重跑下方现有 map-reduce。
+  // 开关关时本分支零调用、零消息构造,105g 请求序列与请求体逐字节不变。
+  const refineMaxChunks = Number.isFinite(Number(SUMMARY_REFINE_RULES.maxChunks)) ? Number(SUMMARY_REFINE_RULES.maxChunks) : 4;
+  const refineOn = summaryRefineEnabled(opts && opts.config) && chunks.length >= 2 && chunks.length <= refineMaxChunks;
+  const refineCalls = [];
+  let refineFailure = '';
+  if (refineOn) {
+    let current = await singleSummaryCall(provider, factChunkMsg ? [...chunks[0], factChunkMsg] : chunks[0], model, { ...ectxBase, chunkIndex: 1 });
+    refineCalls.push(current);
+    if (!current.ok) refineFailure = 'request';
+    else if (!validateStructuredSummary(current.summary)) refineFailure = 'validation';
+    for (let ci = 1; !refineFailure && ci < chunks.length; ci++) {
+      current = await singleSummaryCall(
+        provider,
+        buildSummaryRefineMessages(current.summary, chunks[ci], factReduceMsg),
+        model,
+        { ...ectxBase, chunkIndex: ci + 1 },
+        String(SUMMARY_REFINE_RULES.prompt || SUMMARY_PROMPT),
+      );
+      refineCalls.push(current);
+      if (!current.ok) refineFailure = 'request';
+      else if (!validateStructuredSummary(current.summary)) refineFailure = 'validation';
+    }
+    if (!refineFailure) {
+      aggregateSummaryCalls(current, refineCalls);
+      current.mapReduce = {
+        chunks: chunks.length,
+        rounds: Math.max(1, chunks.length - 1),
+        refine: { steps: chunks.length, calls: refineCalls.length },
+        ...(degradedFromSingle ? { degradedFromSingle: true } : {}),
+        ...(factTable && factTable.entities ? { factTable: { entities: factTable.entities } } : {}),
+      };
+      return current;
+    }
+  }
   // 分段数量多时，直接拼接 partials 会再次越过摘要输入预算。逐轮把摘要按同一
   // user-block 预算分组，直到可以安全地单发总摘要；最多 12 轮，防止异常模型输出
   // 不收敛时无限调用。每轮仍复用同一个结构化 SUMMARY_PROMPT。
@@ -26773,18 +26866,15 @@ async function providerSummaryCallCore(provider, history, opts) {
   if (!final) return { ok: false, error: 'map-reduce consolidation did not converge; 降级保留原文' };
   if (!final.ok) return final;
   if (!validateStructuredSummary(final.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
-  // 所有 reduce 轮都纳入一次压缩的 aux 用量，避免只记最后一轮而低估成本。
-  let aggIn = 0, aggOut = 0, aggEst = 0;
-  for (const r of calls) {
-    if (r.usage) {
-      aggIn += Number(r.usage.prompt_tokens != null ? r.usage.prompt_tokens : r.usage.input_tokens) || 0;
-      aggOut += Number(r.usage.completion_tokens != null ? r.usage.completion_tokens : r.usage.output_tokens) || 0;
-    }
-    aggEst += Number(r.promptTokensEst) || 0;
-  }
-  if (aggIn > 0 || aggOut > 0) final.usage = { prompt_tokens: aggIn, completion_tokens: aggOut, aggregated: true };
-  final.promptTokensEst = aggEst;
-  final.mapReduce = { chunks: chunks.length, rounds: Math.max(1, calls.length - chunks.length), ...(degradedFromSingle ? { degradedFromSingle: true } : {}), ...(factTable && factTable.entities ? { factTable: { entities: factTable.entities } } : {}) };
+  // 所有 refine 尝试(若有)与 reduce 轮都纳入一次压缩的 aux 用量，避免降级后把额外尝试成本藏掉。
+  aggregateSummaryCalls(final, [...refineCalls, ...calls]);
+  final.mapReduce = {
+    chunks: chunks.length,
+    rounds: Math.max(1, calls.length - chunks.length),
+    ...(degradedFromSingle ? { degradedFromSingle: true } : {}),
+    ...(refineFailure ? { degradedFromRefine: true, refineCalls: refineCalls.length, refineFailure } : {}),
+    ...(factTable && factTable.entities ? { factTable: { entities: factTable.entities } } : {}),
+  };
   return final;
 }
 
@@ -35791,7 +35881,11 @@ module.exports = {
   summarySingleShotReserveTokens,
   // 105g(4.3 首项): map-reduce 全局事实表 — exposed for e2e 白盒契约(开关唯一判定点/注入消息构建)。
   summaryFactTableEnabled,
+  summaryFactTableCap,
   buildSummaryFactTableMessages,
+  // 105h(4.3 第二项): <=4 块顺序 refine — exposed for e2e 白盒契约。
+  summaryRefineEnabled,
+  buildSummaryRefineMessages,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

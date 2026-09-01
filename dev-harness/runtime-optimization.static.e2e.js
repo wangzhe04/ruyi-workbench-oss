@@ -34,12 +34,18 @@ ok(/if \(sc\.ok \|\| !singleOn \|\| !isContextOverflowError\(sc\.error\)\) retur
 ok(/degradedFromSingle: true/.test(src), 'S 105f 降级标记落 mapReduce 元数据(失败调用成本可归因)');
 // 105g(4.3 首项): map-reduce 全局事实表 —— 真实 history-24 配对 A/B 门(实体保留 18.8%→75.0%,调用数零增加)通过后默认开启。
 ok(/runtimeSummaryFactTableV1: true/.test(src), 'S runtimeSummaryFactTableV1 defaults true (105g 真实历史 A/B 门已过,显式 false 回退)');
-ok(/'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeFailureTelemetryV1'/.test(src), 'S runtimeSummaryFactTableV1 入严格布尔 sanitize 表(105f 邻接不动)');
+ok(/'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1'/.test(src), 'S runtimeSummaryFactTableV1 入严格布尔 sanitize 表(105f 邻接不动;105h 顺排其后)');
 ok(/function summaryFactTableEnabled\(config\)/.test(src), 'S summaryFactTableEnabled 唯一判定点存在');
-ok(/function buildSummaryFactTableMessages\(history\)/.test(src), 'S 105g 事实表构建助手存在(复用 105c 抽取器,零 LLM 调用)');
-ok(/factTable: \{\n        maxSamples: 16,/.test(src), 'S rules factTable 块(maxSamples 16)在产物 fallback 内');
+ok(/summaryFactTableMaxSamplesV1: 64/.test(src) && /function summaryFactTableCap\(config\)/.test(src), 'S 105g 事实表甜点位上限配置与唯一解析点存在(超长历史门选 64)');
+ok(/function buildSummaryFactTableMessages\(history(?:, maxSamplesOverride)?\)/.test(src), 'S 105g 事实表构建助手存在(复用 105c 抽取器,零 LLM 调用)');
+ok(/factTable: \{\n        maxSamples: 64,/.test(src), 'S rules factTable 块(maxSamples 64)在产物 fallback 内');
 ok(/factChunkMsg \? \[\.\.\.chunks\[ci\], factChunkMsg\] : chunks\[ci\]/.test(src), 'S 105g 分段注入守门(null 时请求体逐字节不变)');
 ok(/factTable: \{ entities: factTable\.entities \}/.test(src), 'S 105g 事实表元数据落 mapReduce.factTable');
+// 105h(4.3 第二项): <=4 块顺序 refine —— 总门取证前默认关,任一步失败整条回退现有 map-reduce。
+ok(/runtimeSummaryRefineV1: false/.test(src), 'S runtimeSummaryRefineV1 总门无净收益,默认关闭');
+ok(/'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeFailureTelemetryV1'/.test(src), 'S runtimeSummaryRefineV1 入严格布尔 sanitize 表(105g 邻接不动)');
+ok(/function summaryRefineEnabled\(config\)/.test(src), 'S summaryRefineEnabled 唯一判定点存在');
+ok(/refine: \{\n        maxChunks: 4,/.test(src), 'S rules refine 块(maxChunks 4)在产物 fallback 内');
 for (const flag of ['runtimeToolRetrievalV1', 'runtimeFailureTelemetryV1']) {
   ok(new RegExp(flag + ': false').test(src), `S ${flag} defaults false`);
   ok(new RegExp("config\\[key\\] === true").test(src), `S strict boolean normalization present (${flag})`);

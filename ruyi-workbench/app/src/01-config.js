@@ -139,6 +139,13 @@ function defaultConfig() {
     // 各轮汇总调用,缓解跨块约束丢失。真实 history-24 配对 A/B 门通过(实体保留 18.8%→75.0%,
     // 调用数零增加)后默认开启;显式 false = 分段与汇总请求体逐字节回退现状。
     runtimeSummaryFactTableV1: true,
+    // 事实表条数甜点位实验参数。超长 history-24 真实门显示 64 条在可接受成本/延迟内
+    // 仍有净收益;运行时钳位 [4,64],仅在 fact-table 开启时生效。
+    summaryFactTableMaxSamplesV1: 64,
+    // 105h(4.3 第二项): <=4 块顺序 refine —— 用首块摘要作为累计状态,后续块逐次修订;
+    // 任一步请求或五节结构校验失败,整条从原始历史回退现有 map-reduce。105 总门无净收益,默认关;
+    // 显式 false = 105g 现状请求序列与请求体逐字节不变。
+    runtimeSummaryRefineV1: false,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -518,7 +525,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -536,6 +543,11 @@ function normalizeConfig(raw) {
       if (key && Number.isFinite(val)) cleanOv[key] = Math.min(131072, Math.max(8192, Math.round(val)));
     }
     if (JSON.stringify(cleanOv) !== JSON.stringify(config.summarySingleShotMaxOverridesV1)) { config.summarySingleShotMaxOverridesV1 = cleanOv; changed = true; }
+  }
+  { // 105g: 事实表条数上限 —— JSON number,clamp [4,64],缺省 64;坏值不放宽请求体。
+    const n = Number(config.summaryFactTableMaxSamplesV1);
+    const clamped = Number.isFinite(n) ? Math.min(64, Math.max(4, Math.round(n))) : 64;
+    if (clamped !== config.summaryFactTableMaxSamplesV1) { config.summaryFactTableMaxSamplesV1 = clamped; changed = true; }
   }
   { // 21-E2: bounded read concurrency — JSON number, clamp 1..8.
     const n = Number(config.boundedReadConcurrencyV1);
@@ -858,6 +870,19 @@ function summarySingleShotEnabled(config) {
 // 分块分支)与 e2e 共用本判定;显式 false / 缺省保证分段与汇总请求体逐字节不变(零注入)。
 function summaryFactTableEnabled(config) {
   return !!(config && config.runtimeSummaryFactTableV1 === true);
+}
+
+// 105g sweet-spot gate: resolve the deterministic fact-table sample cap. Keep this separate from
+// summaryFactTableEnabled so experiments can compare caps without weakening the boolean rollback gate.
+function summaryFactTableCap(config) {
+  const n = Number(config && config.summaryFactTableMaxSamplesV1);
+  return Number.isFinite(n) ? Math.min(64, Math.max(4, Math.round(n))) : 64;
+}
+
+// 105h(4.3 第二项): <=4 块顺序 refine 生效条件 —— 单开关。105 总门否决默认开启;显式 false / 缺省
+// 保证 105g 现有 map-reduce 调用顺序、请求体与失败语义逐字节不变。
+function summaryRefineEnabled(config) {
+  return !!(config && config.runtimeSummaryRefineV1 === true);
 }
 
 // ============================================================================

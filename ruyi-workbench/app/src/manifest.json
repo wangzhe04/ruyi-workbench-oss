@@ -11,175 +11,175 @@
     {
       "file": "01-config.js",
       "startLine": 478,
-      "endLine": 2738,
+      "endLine": 2763,
       "note": "defaultConfig/normalizeConfig/readConfig/launcher 解析/ROUTE_AUTH"
     },
     {
       "file": "02-session-store.js",
-      "startLine": 2739,
-      "endLine": 5915,
+      "startLine": 2764,
+      "endLine": 5940,
       "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志"
     },
     {
       "file": "03-bridge-guard.js",
-      "startLine": 5916,
-      "endLine": 6898,
+      "startLine": 5941,
+      "endLine": 6923,
       "note": "桥接写族覆盖审计/工作区护栏"
     },
     {
       "file": "04-visual-pipeline.js",
-      "startLine": 6899,
-      "endLine": 7000,
+      "startLine": 6924,
+      "endLine": 7025,
       "note": "第104波：Provider 附件与桌面截图视觉历史管线（隔离命名空间）"
     },
     {
       "file": "04-permission-runtime.js",
-      "startLine": 7001,
-      "endLine": 8986,
+      "startLine": 7026,
+      "endLine": 9011,
       "note": "pendingPermissions/plan 批准/原生权限请求"
     },
     {
       "file": "04-desktop-shell.js",
-      "startLine": 8987,
-      "endLine": 9249,
+      "startLine": 9012,
+      "endLine": 9274,
       "note": "第104波：Windows 进程执行、原生选择器与 Explorer reveal（隔离命名空间）"
     },
     {
       "file": "05-claude-engine.js",
-      "startLine": 9250,
-      "endLine": 10631,
+      "startLine": 9275,
+      "endLine": 10656,
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线"
     },
     {
       "file": "05b-kimi-bridge.js",
-      "startLine": 10632,
-      "endLine": 13384,
+      "startLine": 10657,
+      "endLine": 13409,
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强"
     },
     {
       "file": "05c-kimi-search-policy.js",
-      "startLine": 13385,
-      "endLine": 14022,
+      "startLine": 13410,
+      "endLine": 14047,
       "note": "Kimi ACP 原生只读 Grep/Glob 安全分类器"
     },
     {
       "file": "05d-kimi-prompt-parts.js",
-      "startLine": 14023,
-      "endLine": 14227,
+      "startLine": 14048,
+      "endLine": 14252,
       "note": "Kimi ACP 本回合提示词/图片 ContentBlock 安全降级"
     },
     {
       "file": "06-provider-engine.js",
-      "startLine": 14228,
-      "endLine": 15815,
+      "startLine": 14253,
+      "endLine": 15840,
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks"
     },
     {
       "file": "06b-prompt-registry.js",
-      "startLine": 15816,
-      "endLine": 16025,
+      "startLine": 15841,
+      "endLine": 16050,
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)"
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "startLine": 16026,
-      "endLine": 16185,
+      "startLine": 16051,
+      "endLine": 16210,
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine"
     },
     {
       "file": "06d-memory-domain.js",
-      "startLine": 16186,
-      "endLine": 17635,
+      "startLine": 16211,
+      "endLine": 17660,
       "note": "第104波：跨会话记忆、提议、关系图与检索"
     },
     {
       "file": "06e-mission-domain.js",
-      "startLine": 17636,
-      "endLine": 17735,
+      "startLine": 17661,
+      "endLine": 17760,
       "note": "第104波：Mission 提示摘要与 until-done 驱动"
     },
     {
       "file": "06f-autonomy-grants.js",
-      "startLine": 17736,
-      "endLine": 18025,
+      "startLine": 17761,
+      "endLine": 18050,
       "note": "第104波：自治授权签发、消费、撤销与预检"
     },
     {
       "file": "06g-resource-leases.js",
-      "startLine": 18026,
-      "endLine": 18227,
+      "startLine": 18051,
+      "endLine": 18252,
       "note": "第104波：Agent 资源归一化、冲突检测与租约"
     },
     {
       "file": "07-autonomy.js",
-      "startLine": 18228,
-      "endLine": 20128,
+      "startLine": 18253,
+      "endLine": 20153,
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑"
     },
     {
       "file": "08-agent-runs.js",
-      "startLine": 20129,
-      "endLine": 22348,
+      "startLine": 20154,
+      "endLine": 22373,
       "note": "run 事件日志/恢复分级/runSubAgentCore"
     },
     {
       "file": "09-workflow.js",
-      "startLine": 22349,
-      "endLine": 25581,
+      "startLine": 22374,
+      "endLine": 25606,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 25582,
-      "endLine": 27410,
+      "startLine": 25607,
+      "endLine": 27500,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 27411,
-      "endLine": 29468,
+      "startLine": 27501,
+      "endLine": 29558,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 29469,
-      "endLine": 30882,
+      "startLine": 29559,
+      "endLine": 30972,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 30883,
-      "endLine": 33484,
+      "startLine": 30973,
+      "endLine": 33574,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 33485,
-      "endLine": 33819,
+      "startLine": 33575,
+      "endLine": 33909,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 33820,
-      "endLine": 34008,
+      "startLine": 33910,
+      "endLine": 34098,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 34009,
-      "endLine": 35317,
+      "startLine": 34099,
+      "endLine": 35407,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 35318,
-      "endLine": 35724,
+      "startLine": 35408,
+      "endLine": 35814,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "14-main.js",
-      "startLine": 35725,
-      "endLine": 36184,
+      "startLine": 35815,
+      "endLine": 36278,
       "note": "main()/module.exports"
     }
   ]

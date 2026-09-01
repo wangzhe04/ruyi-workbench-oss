@@ -189,7 +189,9 @@
         "spawnCmdLineLength",
         "staticBase",
         "summaryEntityCheckEnabled",
+        "summaryFactTableCap",
         "summaryFactTableEnabled",
+        "summaryRefineEnabled",
         "summarySingleShotEnabled",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
@@ -6296,17 +6298,20 @@
         "SUMMARY_FACT_TABLE_RULES",
         "SUMMARY_INPUT_BUDGET_RATIO",
         "SUMMARY_PROMPT",
+        "SUMMARY_REFINE_RULES",
         "SUMMARY_SINGLE_SHOT_CAP_RULE",
         "SUMMARY_SINGLE_SHOT_MAX_EST",
         "SUMMARY_SINGLE_SHOT_RESERVE",
         "TOOL_RESULT_CAP",
         "_calibKey",
         "agentConversationContextMeta",
+        "aggregateSummaryCalls",
         "appendPromptToLastUserMessage",
         "applySummaryEntityCheck",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
         "buildSummaryFactTableMessages",
+        "buildSummaryRefineMessages",
         "cacheContextLength",
         "cachedContextLength",
         "calibratedEstimate",
@@ -6526,7 +6531,21 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "summaryFactTableCap",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "summaryFactTableEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "summaryRefineEnabled",
           "kinds": [
             "call"
           ]
@@ -10395,7 +10414,21 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "summaryFactTableCap",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "summaryFactTableEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "summaryRefineEnabled",
           "kinds": [
             "read"
           ]
@@ -12328,6 +12361,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "buildSummaryFactTableMessages",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "buildSummaryRefineMessages",
           "kinds": [
             "read"
           ]
