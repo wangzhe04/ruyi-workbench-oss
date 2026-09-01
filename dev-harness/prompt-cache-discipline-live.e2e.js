@@ -7,6 +7,11 @@
 //   S4 prefix-sensitivity 与 S1 仅差首句一个词         → 前缀匹配必须逐字节,尾部相同不算数
 //   S2 append-only     Ruyi 纪律布局:稳定 sys+只追加历史  → 后续轮次命中率高
 //   S3 volatile-early  反纪律对照:系统层早期放易变内容    → 长尾被污染,命中率显著掉落
+//   S5 tools 字段 A/B  同一批消息字节 × 三种 tools 形态    → 判定 tools 是否计入缓存前缀
+//      S5-stable      tools 恒定的热重发(对照)           → 带 tools 时缓存本身可用
+//      S5-mid         tools 数组中间插入一个工具           → 命中塌陷=tools 计入前缀且位置敏感
+//      S5-append      tools 数组尾部追加一个工具           → 若容忍则 append-only 是安全修法
+//   S5 残余命中还带位置信息:≈0 说明 tools 在 token 流最前;≈sys 占比说明 tools 夹在 sys 与会话之间。
 //
 // 关键 A/B 断言(V4a/V5):S2 显著优于 S3、S1 热 ≫ S4 —— 两项同时成立才支持
 // 「首部稳定/易变后置」纪律在该 provider+model 上有真实费用意义。
@@ -55,12 +60,45 @@ function poison(sys, k) {
   return sys.slice(0, 60) + marker + sys.slice(72);
 }
 
-async function callOnce(messages, tag) {
+// ── S5 夹具:8 个中文工具 schema(贴近 Ruyi 体量),派生中间插入/尾部追加两种扰动 ──
+// 三种形态共享同一批消息字节,确保若 tools 不计入前缀则三者命中同一缓存。
+function toolsFixture() {
+  const mk = (name, desc, props) => ({
+    type: 'function',
+    function: {
+      name,
+      description: `${desc}(${SALT})。调用前确认参数完整;失败时返回结构化错误而不是重试。`,
+      parameters: {
+        type: 'object',
+        properties: Object.fromEntries(props.map(([p, d]) => [p, { type: 'string', description: `${d}(${SALT})` }])),
+        required: [props[0][0]],
+      },
+    },
+  });
+  const base = [
+    mk('file_read', '读取本地文本文件内容', [['path', '文件绝对路径'], ['encoding', '编码,默认 utf-8']]),
+    mk('file_write', '写入本地文件,自动建父目录', [['path', '目标路径'], ['content', '完整文本内容']]),
+    mk('file_search', '按正则递归搜索目录内文本', [['pattern', '正则表达式'], ['root', '起始目录']]),
+    mk('shell_run', '执行一条 shell 命令并回传输出', [['command', '命令行'], ['cwd', '工作目录']]),
+    mk('web_fetch', '抓取公网网页正文', [['url', 'http(s) 地址']]),
+    mk('git_status', '查看仓库工作区状态', [['cwd', '仓库目录']]),
+    mk('git_diff', '查看未提交改动的差异', [['cwd', '仓库目录'], ['path', '限定文件']]),
+    mk('memory_save', '保存一条长期记忆候选', [['key', '记忆键'], ['content', '记忆正文']]),
+  ];
+  const extra = mk('chart_render', '渲染一张统计图表为 png', [['title', '图表标题'], ['data', '序列化数据']]);
+  const mid = base.slice(); mid.splice(2, 0, extra);   // 中间插入:模拟 Ruyi catalog 序原位插入(G2)
+  const end = base.concat([extra]);                    // 尾部追加:append-only 候选修法
+  return { base, mid, end };
+}
+
+async function callOnce(messages, tag, tools) {
   const t0 = Date.now();
+  const body = { model: MODEL, messages, max_tokens: 120, temperature: 0, stream: false };
+  if (Array.isArray(tools) && tools.length) { body.tools = tools; body.tool_choice = 'auto'; } // 镜像 Ruyi chat 分支(09-workflow.js)
   const res = await fetch(BASE + '/chat/completions', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: 'Bearer ' + KEY },
-    body: JSON.stringify({ model: MODEL, messages, max_tokens: 120, temperature: 0, stream: false }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(90000),
   });
   const j = await res.json().catch(() => null);
@@ -128,6 +166,24 @@ const hitShare = r => (r.promptTokens > 0 ? r.hit / r.promptTokens : 0);
       await sleep(250);
     }
 
+    // ── S5 · tools 字段缓存语义 A/B(同一批消息字节 × tools 恒定/中插/尾追加) ──
+    // 回答 106 #1 核查的关键缺口:tools 是否计入 deepseek 缓存前缀(G2 的真实影响前提)。
+    // 消息夹具独立生成(不复用模型回复),保证三种 tools 形态下 messages 逐字节相同。
+    const tf = toolsFixture();
+    const sys5 = stableSystem().replace('档案整理助手', '工具纪律助手');
+    const conv5 = [
+      { role: 'system', content: sys5 },
+      { role: 'user', content: userTurn(31) },
+      { role: 'assistant', content: `状态编号 K-31 已确认有效(${SALT})。` },
+      { role: 'user', content: userTurn(32) },
+      { role: 'assistant', content: `状态编号 K-32 已确认有效(${SALT})。` },
+      { role: 'user', content: userTurn(33) },
+    ];
+    const s5Cold = push(await callOnce(conv5, 'S5-cold', tf.base)); await sleep(300);
+    const s5Stable = push(await callOnce(conv5, 'S5-hot-stable', tf.base)); await sleep(300);
+    const s5Mid = push(await callOnce(conv5, 'S5-mid-insert', tf.mid)); await sleep(300);
+    const s5End = push(await callOnce(conv5, 'S5-end-append', tf.end));
+
     // ── 判定(总费用纳入命中/未命中/输出三分项) ──
     console.log('\n=== 计量明细(prompt/hit/hitShare/cost估算CNY) ===');
     for (const r of records) console.log(`${r.tag.padEnd(14)} p=${String(r.promptTokens).padStart(6)} hit=${String(r.hit).padStart(6)} share=${hitShare(r).toFixed(2)} cost≈${costOf(r).toFixed(5)} out=${r.outTokens}`);
@@ -148,6 +204,19 @@ const hitShare = r => (r.promptTokens > 0 ? r.hit / r.promptTokens : 0);
       // 费用视角:同一任务形态下,纪律布局四轮总费低于反纪律布局
       const c2 = rounds2.reduce((a, r) => a + costOf(r), 0), c3 = rounds3.reduce((a, r) => a + costOf(r), 0);
       soft(c2 < c3, `cost view: append-only Σ≈¥${c2.toFixed(5)} < volatile-early Σ≈¥${c3.toFixed(5)} (preset pricing, estimate not bill)`);
+
+      // ── V6 · tools 字段是否计入缓存前缀(S5,106 #1 核查 G2 前置证据) ──
+      const shStable = hitShare(s5Stable), shMid = hitShare(s5Mid), shEnd = hitShare(s5End);
+      soft(shStable >= 0.5, `V6a tools present, stable tools still cache-hits (share=${shStable.toFixed(2)} ≥ 0.5; cold=${hitShare(s5Cold).toFixed(2)})`);
+      const dMid = shStable - shMid, dEnd = shStable - shEnd;
+      const midDecisive = dMid >= 0.25 || dMid <= 0.10;
+      soft(midDecisive, `V6b tools mid-insert decisive (Δ=${dMid.toFixed(2)}pp vs stable; ≥25pp=计入前缀且位置敏感, ≤10pp=不计入)`);
+      const endDecisive = dEnd >= 0.25 || dEnd <= 0.10;
+      soft(endDecisive, `V6c tools end-append decisive (Δ=${dEnd.toFixed(2)}pp; ≤10pp=append-only 修法安全)`);
+      console.log(`\n=== S5 结论(tools 缓存语义) ===`);
+      console.log(`mid-insert 残余命中 share=${shMid.toFixed(2)}(≈0→tools 在 token 流最前;≈sys 占比→夹在 sys 与会话间;≈stable→不计入前缀)`);
+      console.log(`end-append 残余命中 share=${shEnd.toFixed(2)}`);
+      console.log(`判定: tools ${dMid >= 0.25 ? '计入缓存前缀(位置敏感),G2 为真实问题' : (dMid <= 0.10 ? '不计入缓存前缀,G2 无实际费用影响' : '影响 inconclusive,需复测')}; append-only ${dEnd <= 0.10 ? '被容忍' : (dEnd >= 0.25 ? '不被容忍' : 'inconclusive')}`);
     }
 
     console.log('\n=== 结论 ===');

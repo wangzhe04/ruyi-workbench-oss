@@ -116,7 +116,7 @@ A／B／C 的证据含义见 §4.1，不代表收益或上线许可已经取得�
 | 顺序 | 工作 | 主要出门证据 |
 |---|---|---|
 | 0 | **计量校准**（§4.2）✅ 核心 2026-08-27 已交付 | A：合成已知账目正确；缺失／抽样口径透明 |
-| 1 | **#1 Prompt Cache 纪律验证** ✅ provider 层 2026-08-27 已验证 | B：deepseek-v4-flash 固定多轮冷／热对照两次独立复现全绿——热重发命中 96%、改首句一词归零、追加式布局守住 97%、易变前置每轮全 miss（四轮费用估算差 ~9×）；缓存块 64 token，usage 含 hit/miss 分列。证据：`benchmark-results/prompt-cache-22-1/`（探针 `dev-harness/prompt-cache-discipline-live.e2e.js`，run-a/run-b + TTL 附带观察）。**未闭合**：Ruyi 自身 schema 冻结／append-only 落地状态核查（衔接 E4）、跨子 Agent 共享前缀专项、其他 provider／模型；布局变更落地时须附质量验收 |
+| 1 | **#1 Prompt Cache 纪律验证** ✅ provider 层 2026-08-27 已验证 | B：deepseek-v4-flash 固定多轮冷／热对照两次独立复现全绿——热重发命中 96%、改首句一词归零、追加式布局守住 97%、易变前置每轮全 miss（四轮费用估算差 ~9×）；缓存块 64 token，usage 含 hit/miss 分列。证据：`benchmark-results/prompt-cache-22-1/`（探针 `dev-harness/prompt-cache-discipline-live.e2e.js`，run-a/run-b + TTL 附带观察）。**Ruyi 自身布局核查已交付**（2026-09-01，见 23 号文 §5「106 #1 布局核查记录」：G1 易变层前插首条 user 为每回合必然失效点，G2 tools 漂移的影响前提待探针补测）。**未闭合**：G1 修复（`volatileTailLayoutV1`）与 G2 修复（`appendOnlyToolSchemasV1`）默认关取证、探针 tools A/B 补测、跨子 Agent 共享前缀专项、其他 provider／模型；布局变更落地时须附质量验收 |
 | 2 | **#6 已有只读 worker pool 的增量验证** ⏸️ 2026-08-27 降级为数据触发 | 原 A 类出门证据保留为重启模板；触发条件 = 报表 `batchShape.wideReadBatchesOver8` 或混合批只读岛在真实日志中出现统计显著频次 |
 | 3 | **#2a 受限执行结果缓存** | A：明确版本的白名单、正确失效／权限隔离／结果等价，命中与零命中开销；不捆绑 #2b |
 | 4 | **#13a 预算保护基础层（提前执行）** | A：预警、预留、停止新增调用、暂停／恢复状态正确；不自动降模型、不激进摘要；随批验收工具级时间预算（13a-t 时间轴）的 trip／零-trip 已知答案 |
@@ -138,6 +138,19 @@ A／B／C 的证据含义见 §4.1，不代表收益或上线许可已经取得�
 | 四轮任务总费估算：追加式 vs 易变前置 | ¥0.00147 vs ¥0.01342（9.1×） | ¥0.00148 vs ¥0.01339（9.0×） |
 
 四条定性事实：① usage 含 `prompt_cache_hit_tokens`/`prompt_cache_miss_tokens` 分列，报表可对账不缺账；② 前缀匹配逐字节严格——约 3K token 提示里 ≤2 字符的首句差异使命中从 96% 归零；③ 稳定系统层 + 尾部增长的对话史每轮 94–98% 输入走缓存价，易变内容放提示词早期则全量按未命中计价，同形态任务 4 轮费用差 ~9×；④ 缓存粒度为 64 token 块（所有 hit 数值均为 64 整数倍）。附带观察：完全相同字节跨运行存活 >15 分钟（该次未加盐运行保留于本地 `benchmark-results/prompt-cache-22-1/`，gitignore 政策与 HB360 一致，只作 TTL 定性参考）——「跨子 Agent 共享前缀」子项因此获得有利方向信号，仍待专项验证。原始逐请求记录 run-a/run-b 同目录留存。
+
+#### #1 补测记录 · tools 字段缓存语义（2026-09-01，deepseek-v4-flash × chat completions，S5 场景）
+
+106 #1 布局核查发现原探针从未发送 `tools` 字段，「tools 是否计入缓存前缀」是 G2（schema 未冻结）影响判定的唯一前提缺口。同探针新增 S5：同一批消息字节（独立夹具，不复用模型回复）× 三种 tools 形态对照。两轮独立运行（不同运行盐）结果逐数一致：
+
+| 场景 | Run A（hit / share） | Run B（hit / share） |
+|---|---|---|
+| S5-cold（tools 在场，全新字节） | 0 / 0.00 | 0 / 0.00 |
+| S5-hot-stable（tools 恒定热重发） | 4096 / **0.98** | 4224 / **1.00** |
+| S5-mid-insert（tools 数组中间插入一个工具） | **0 / 0.00** | **0 / 0.00** |
+| S5-end-append（tools 数组尾部追加一个工具） | 3328 / **0.77** | 3328 / **0.76** |
+
+判定：① **tools 计入缓存前缀且位置敏感**——中间插入使整个前缀（含未改动的 system 与消息体）命中归零，2/2 复现；Ruyi 现状的 `tool_load` catalog 序中间插入与 auto 模式 activePacks 每回合重分类因此是真实费用问题（G2 由「前提未验证」升级为「已证实」）。② **尾部追加保留约 77% 前缀**（两轮均 3328 hit），显著优于中间插入，E4 §7.2 的 append-only 修法方向成立；但未达探针 ≤10pp 的「完全容忍」线，且残余命中固定在 3328（≈system+messages 边界）而 mid-insert 连 system 都未命中，provider 内部序列化位置未完全解释，记为开放观察，flip 前仍需 E4 §7.3 shadow／真实布局 A/B 定量。③ 带 tools 本身不妨碍缓存（stable 0.98–1.00）。证据：`benchmark-results/prompt-cache-22-1-tools-ab/deepseek-v4-flash-tools-ab-run{,-b}.json`。
 
 #### 热点基线记录（2026-08-27 · 本机 dogfood 日志快照）
 

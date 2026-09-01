@@ -335,6 +335,19 @@
 - **发布判断**：**默认关闭，A 类合成门已过**。flip 判据 = 真实负载 shadow 运行校准阈值（时间轴 warn/hard 与字节阈值）＋ A 类证据复核后成文申请；token 轴 flip 还需补充真实会话触顶样本。
 - **遗留**：子代理路径预算保护、月度 `usageBudget` 硬停止、字节轴结果引用改写（待 20-C1 阻断解除）均为后续切片；#13a 的提前插入申请维持「波次唯一、成文重排」纪律。
 
+#### 106 #1 布局核查记录 · Ruyi 自身稳定前缀／append-only 落地状态（2026-09-01）
+
+- **核查范围**：LLM 请求布局是否满足 22 号 provider 层验证结论（逐字节稳定前缀、追加式布局 ~9× 经济性）与 21-E4 §7 的要求——tools schema 稳定性、system/volatile 分层与放置、messages append-only、跨子 Agent 共享前缀、遥测通道。方法：静态审计（file:line 证据）＋既有探针／遥测通道盘点；不改代码。
+- **已满足**：① stable system 只含身份／工具协议／provider 三层，无时间戳与工具清单，会话内逐字节稳定（`06-provider-engine.js:1343-1369`、`09-workflow.js:1546`）；② 会合内工具循环各次调用复用同一 sys／turnVolatile，前缀稳定（09:1546/1578）；③ 正常回合 `providerHistory` 严格 append-only，model-view 投影与 recall／notes 注入均为发送端非持久副本（09:1626-1631、1592-1624）；④ 105 系注入贴最后一条 user 尾部，后置位置正确（09:1595-1604、1623）；⑤ 缓存 hit/miss 分列遥测与 schema 指纹漂移计量已端到端存在（`00-boot.js:283-290`、09:1955/2190/2205/3123），布局 A/B 不需新建遥测；⑥ 子代理 sys+tools 子回合内冻结、subHistory append-only（`08-agent-runs.js:505/519`）。
+- **差距清单（按严重度）**：
+  - **G1（每回合必然失效）**：`turnVolatile` 前插历史第一条 user 消息（09:1636-1649 responses／1666-1679 chat，亲验）；其内容（记忆 Top-3、mission 状态、任务画像工程策略、联网状态）跨回合大概率变化 → 前缀缓存每回合从 messages[1] 起全断，正是探针 S3 证实的 ~9× 代价反模式。21-E4 §7.1 已识别并预留开关 `volatileTailLayoutV1`（未实现，01-config 无此键，亲验）。
+  - **G2（已证实，2026-09-01 探针 S5 补测）**：tools schema 从未冻结——`tool_load` 新工具按 catalog 序中间插入而非尾部追加（`07-autonomy.js:632/650-656`），auto 模式 activePacks 每回合按新 user 消息重分类（07:624），实际发送的是每轮 `toolLoading.current()` 实时值（09:1657/1685）。违反 22 §6.2／21-E4 §7.2，预留开关 `appendOnlyToolSchemasV1` 未实现。探针 S5 两轮复现：tools 计入缓存前缀且位置敏感（中间插入 → 全前缀含 system 命中归零；尾部追加保留约 77%）——tools 集合每次漂移即全前缀失效，见 22 号文「#1 补测记录」。
+  - **G3（仅特定操作失效）**：catalog 含 bridged tools，慢/挂 MCP 超时返回部分列表、caps／技能中途变化 → catalog 跨回合非确定（`04-permission-runtime.js:1383-1392`）。
+  - **G4（仅多图回合）**：第 3 张图起 `pruneOldImages` 原地改写最旧图片 part（`04-visual-pipeline.js:78-99`）。
+  - **G5（设计内预期）**：压缩 reseed／forced_400／rewind 重建历史，必然失效，确认即可。
+  - **G6（未验证专项）**：子代理 system 与主循环零共享前缀（首字节即不同），rolePrompt 前插在 baseSys 之前（08:510-517）；跨子 Agent 共享前缀仍待专项实测。
+- **结论与下一步**：G1 是收益最大且 21-E4 已背书的修复点（易变层移到当前回合尾部），按 106 纪律以 `volatileTailLayoutV1` 默认关＋E4 §7.3 shadow 对照（current/candidate 双算 stablePrefixBytes／firstChangedSegment，candidate 不发送）落地；G2 前提已经探针 S5 证实（2026-09-01），修法按 E4 §7.2（首建冻结顺序＋fingerprint、`tool_load` 只追加、撤权保留位置）以 `appendOnlyToolSchemasV1` 默认关落地。两项均须附质量验收（语义保持＋任务结果非劣）后才谈 flip。
+
 ## 6. 第 107 波 · Pretender 出门准备与批准点
 
 - 演练 Escapade 通用六类发布门与 22 号方案 Release Brief；冻结实际默认启用项、适用任务族、收益阈值、未知场景回退与配置迁移。
