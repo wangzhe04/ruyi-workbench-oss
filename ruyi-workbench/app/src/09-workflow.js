@@ -1861,16 +1861,61 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       turnSignal.addEventListener('abort', turnAbortHandler, { once: true });
       if (turnSignal.aborted) turnAbortHandler();
     }
+    // 106 #13a-t: 长命令时间预算(默认关;仅 interruptible 工具)—— 软警告经心跳发有界告警;硬终态
+    // 用独立计时器保证精度,沿既有 steer/turn 取消路径杀树(toolAbort),配对 tool_result 照常写,
+    // 回合继续。shadow 模式只落脱敏「本应触发」事件,不动作。双双关闭时零定时器、零事件。
+    const ttbActive = interruptible && (ttbEnforce || ttbShadow);
+    let ttbWarned = false;
+    let ttbHardTimer = null;
+    if (ttbActive && ttbHardMs > 0) {
+      ttbHardTimer = setTimeout(() => {
+        const elapsedMs = Date.now() - startedAt;
+        if (ttbEnforce) {
+          try { logEvent({ kind: 'tool_time_budget', mode: 'enforce', state: 'hard_kill', sessionId: session.id, turnSeq: session.turnSeq, tool: tc.name, deadlineMs: ttbHardMs, elapsedMs }); } catch { /* telemetry must never break a tool call */ }
+          onEvent({ type: 'tool_progress', id: tc.id, name: tc.name, state: 'budget_hard', elapsedMs, deadlineMs: ttbHardMs });
+          if (toolAbort && !toolAbort.signal.aborted) toolAbort.abort('tool_time_budget');
+        } else {
+          try { logEvent({ kind: 'tool_time_budget', mode: 'shadow', state: 'would_hard_kill', sessionId: session.id, turnSeq: session.turnSeq, tool: tc.name, deadlineMs: ttbHardMs, elapsedMs }); } catch { /* */ }
+        }
+      }, ttbHardMs);
+      if (ttbHardTimer.unref) ttbHardTimer.unref();
+    }
     const heartbeat = setInterval(() => {
       if (reg.exited || reg.state !== 'running') return;
       touch();
-      onEvent({ type: 'tool_progress', id: tc.id, name: tc.name, state: 'waiting', elapsedMs: Date.now() - startedAt });
+      const elapsedMs = Date.now() - startedAt;
+      onEvent({ type: 'tool_progress', id: tc.id, name: tc.name, state: 'waiting', elapsedMs });
+      // 13a-t 软警告:每工具一次(有界);shadow 只记日志,不发用户面事件。
+      if (ttbActive && ttbWarnMs > 0 && !ttbWarned && elapsedMs >= ttbWarnMs) {
+        ttbWarned = true;
+        if (ttbEnforce) {
+          onEvent({ type: 'tool_progress', id: tc.id, name: tc.name, state: 'budget_soft', elapsedMs, warnMs: ttbWarnMs });
+          try { logEvent({ kind: 'tool_time_budget', mode: 'enforce', state: 'soft_warning', sessionId: session.id, turnSeq: session.turnSeq, tool: tc.name, warnMs: ttbWarnMs, elapsedMs }); } catch { /* */ }
+        } else {
+          try { logEvent({ kind: 'tool_time_budget', mode: 'shadow', state: 'would_soft_warning', sessionId: session.id, turnSeq: session.turnSeq, tool: tc.name, warnMs: ttbWarnMs, elapsedMs }); } catch { /* */ }
+        }
+      }
     }, toolHeartbeatMs);
     if (heartbeat && heartbeat.unref) heartbeat.unref();
     // A steer can land after the provider emitted tool_calls but before execution reaches this item.
     if (interruptible && reg.steerQueue && reg.steerQueue.length) interrupt();
     try {
       const result = await runner(toolAbort && toolAbort.signal);
+      // 13a-t 字节轴【只计数,不改写】(20-C1 三个 High 阻断未解除,不做结果引用改写)。
+      if (interruptible && ttbByteShadowBytes > 0 && result && typeof result === 'object') {
+        const bb = (typeof result.stdout === 'string' ? Buffer.byteLength(result.stdout, 'utf8') : 0)
+          + (typeof result.stderr === 'string' ? Buffer.byteLength(result.stderr, 'utf8') : 0);
+        if (bb > ttbByteShadowBytes) {
+          try { logEvent({ kind: 'tool_byte_budget_shadow', sessionId: session.id, turnSeq: session.turnSeq, tool: tc.name, bytes: bb, thresholdBytes: ttbByteShadowBytes, elapsedMs: Date.now() - startedAt }); } catch { /* */ }
+        }
+      }
+      // 13a-t 硬终态落地(范围红线:不静默吞掉预算触发的失败)—— 模型可见原因 + 已捕获字节数。
+      if (result && typeof result === 'object' && result.budgetKilled === true) {
+        const capBytes = (typeof result.stdout === 'string' ? Buffer.byteLength(result.stdout, 'utf8') : 0)
+          + (typeof result.stderr === 'string' ? Buffer.byteLength(result.stderr, 'utf8') : 0);
+        result.timeBudgetInterrupted = true;
+        if (!result.error) result.error = `工具已触发时间预算硬上限 ${ttbHardMs}ms(实际运行 ${Date.now() - startedAt}ms,已捕获输出 ${capBytes} 字节),进程树已回收。请改用更小步长或更短超时的命令继续。`;
+      }
       if (interrupted && result && typeof result === 'object' && result.ok === false && !result.steerInterrupted) {
         result.steerInterrupted = true;
         if (!result.error) result.error = '工具已因用户插话中断，模型将立即处理新指令';
@@ -1878,6 +1923,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       return result;
     } finally {
       clearInterval(heartbeat);
+      if (ttbHardTimer) clearTimeout(ttbHardTimer);
       if (reg.interruptToolWait === interrupt) reg.interruptToolWait = null;
       if (turnSignal && turnAbortHandler) turnSignal.removeEventListener('abort', turnAbortHandler);
       touch();
@@ -1923,6 +1969,17 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     )),
     agentTeam,
   });
+  // 106 #13a: 预算保护基础层(默认关)—— 判定一次,迭代边界复用;唯一判定点 budgetGuardEnabled。
+  const budgetGuardOn = budgetGuardEnabled(config);
+  const budgetGuardBudget = budgetGuardTurnTokens(config);
+  const budgetGuardWarn = budgetGuardWarnRatio(config);
+  let budgetGuardWarned = false;
+  // 106 #13a-t: 长命令时间预算(默认关)—— 软/硬阈值与 shadow 判定一次;逐工具挂钩在 awaitProviderTool。
+  const ttbEnforce = toolTimeBudgetEnabled(config);
+  const ttbShadow = !ttbEnforce && toolTimeBudgetShadowEnabled(config);
+  const ttbWarnMs = toolTimeBudgetWarnMs(config);
+  const ttbHardMs = toolTimeBudgetHardMs(config);
+  const ttbByteShadowBytes = toolByteBudgetShadowBytes(config);
   let maxIters = toolBudget.initial;
   let lastProgressIter = -Infinity;
   let progressEvents = 0;
@@ -2086,6 +2143,37 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
       estStreamBase = estBeforeCall; estStreamText = '';
       emitContextEstimate(true);
+      // 106 #13a: 预算保护基础层(默认关)—— 预警一次 + 预留在途 + 触顶停止新增模型调用。
+      // 口径:spent = 本回合 provider 实报 usage 累加(input+output);reserve = 即将发出调用的估算
+      // 输入(estBeforeCall,压缩后最新口径)。usage 缺失时 spent 偏小、reserve 偏保守 —— 触顶判定
+      // 宁可停在边界也不超支(§6.3:估算与实际 usage 分列、缺失时保守处理)。
+      if (budgetGuardOn) {
+        const bgSpent = turnUsage.input_tokens + turnUsage.output_tokens;
+        const bgDecision = budgetGuardDecision(bgSpent, estBeforeCall, budgetGuardBudget, budgetGuardWarn);
+        if (bgDecision === 'warn' && !budgetGuardWarned) {
+          budgetGuardWarned = true;
+          onEvent({ type: 'budget_guard', state: 'warning', axis: 'turn_tokens', spent: bgSpent, budget: budgetGuardBudget });
+          try { logEvent({ kind: 'budget_guard_warn', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, spent: bgSpent, budget: budgetGuardBudget }); } catch { /* never break a turn */ }
+        }
+        if (bgDecision === 'trip') {
+          const note = `\n\n[预算保护:本回合 token 预算 ${budgetGuardBudget} 已用尽(已用 ${bgSpent},下一调用估算 ${estBeforeCall}),已停止新增模型调用。历史与进度完整保留;可调高 budgetGuardTurnTokensV1 或直接发消息继续。]`;
+          assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+          onEvent({ type: 'budget_guard', state: 'tripped', axis: 'turn_tokens', spent: bgSpent, reserveEstimate: estBeforeCall, budget: budgetGuardBudget });
+          try { logEvent({ kind: 'budget_guard_trip', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, spent: bgSpent, reserveEstimate: estBeforeCall, budget: budgetGuardBudget }); } catch { /* */ }
+          // 暂停/恢复(§6.3 复用 Mission 控制面):until-done 驱动器与回合共用同一 HTTP 流,不降档会
+          // 立刻续跑撞同一堵墙 —— 镜像 06e budget_exhausted 范式:autoMode→supervised(保留进度、非
+          // 报错),用户经 mission action:'update' 重设 until-done 即恢复;非账本会话下一条用户消息
+          // 自然续跑(历史完整)。
+          try {
+            const m = session.mission;
+            if (m && m.autoMode === 'until-done') {
+              m.autoMode = 'supervised'; m.updatedAt = nowIso();
+              onEvent({ type: 'mission', mission: m, state: 'budget_guard_paused', reason: '回合 token 预算保护触发,已暂停自动推进,等待你的指示' });
+            }
+          } catch { /* mission pause must never break the turn */ }
+          break;
+        }
+      }
       await AgentLoopHooks.dispatchAgentLoopHooks('beforeModelCall', {
         traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
         providerId: provider.id, model, iteration: iter, withTools: useTools,

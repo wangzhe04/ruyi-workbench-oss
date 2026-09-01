@@ -146,6 +146,27 @@ function defaultConfig() {
     // 任一步请求或五节结构校验失败,整条从原始历史回退现有 map-reduce。105 总门无净收益,默认关;
     // 显式 false = 105g 现状请求序列与请求体逐字节不变。
     runtimeSummaryRefineV1: false,
+    // 106 #13a: 预算保护基础层 —— 开关开且 budgetGuardTurnTokensV1 >0 时,对每个原生回合的累计
+    // token(provider 实报 usage 逐调用累加)把门:预警(达 budgetGuardWarnRatioV1 一次性提示)、
+    // 预留(发起下一次模型调用前把该调用估算输入计入在途额度,花不下就不再发起)、停止新增调用
+    // (触顶即结束回合,历史/进度完整保留;until-done 任务降为 supervised 等指示,不自动降模型、
+    // 不激进摘要)。106 波逐项取证纪律:默认关;显式 false / 缺省 / 预算 0 = 零判定零事件。
+    runtimeBudgetGuardV1: false,
+    budgetGuardTurnTokensV1: 0,
+    budgetGuardWarnRatioV1: 0.8,
+    // 106 #13a-t: 长命令时间预算 —— 仅作用于 INTERRUPTIBLE_NATIVE_TOOLS(powershell_run/script_run,
+    // 已有 steer 中断与进程树回收路径,不造第二套控制器)。shadow 开关只统计「本应触发」的脱敏
+    // 事件(零行为变化,上线前校准阈值用);主动开关 = 软警告(tool_progress 有界告警)+ 硬终态
+    // (沿既有取消路径杀树、写合法配对 tool_result、回合继续)。两开关独立、默认关。
+    runtimeToolTimeBudgetShadowV1: false,
+    runtimeToolTimeBudgetV1: false,
+    // 13a-t: 软警告/硬终态毫秒 —— 0 = 该级不启用;非零时 warn 钳位 [1000,3600000]、hard 钳位
+    // [5000,7200000]。不动 MCP 第三方工具的既有超时契约(范围红线)。
+    toolTimeBudgetWarnMsV1: 0,
+    toolTimeBudgetHardMsV1: 0,
+    // 13a-t 字节轴【只计数,不改写】:interruptible 工具的 stdout+stderr 超过本阈值时落一条脱敏
+    // 计数事件,供校准未来的截断预算;20-C1 三个 High 阻断解除前不做任何结果引用改写。0 = 不计数。
+    toolByteBudgetShadowBytesV1: 0,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -525,7 +546,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -548,6 +569,27 @@ function normalizeConfig(raw) {
     const n = Number(config.summaryFactTableMaxSamplesV1);
     const clamped = Number.isFinite(n) ? Math.min(64, Math.max(4, Math.round(n))) : 64;
     if (clamped !== config.summaryFactTableMaxSamplesV1) { config.summaryFactTableMaxSamplesV1 = clamped; changed = true; }
+  }
+  { // 106 #13a: 回合 token 预算 —— 0 = 不设(不开门);非零钳位 [1, 10000000];坏值落回 0(关门),
+    // 绝不因手抖配置静默放宽。warn 比例钳位 [0.1, 0.99],缺省 0.8。
+    const n = Number(config.budgetGuardTurnTokensV1);
+    const clamped = Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(10000000, Math.round(n))) : 0;
+    if (clamped !== config.budgetGuardTurnTokensV1) { config.budgetGuardTurnTokensV1 = clamped; changed = true; }
+    const r = Number(config.budgetGuardWarnRatioV1);
+    const rc = Number.isFinite(r) ? Math.min(0.99, Math.max(0.1, r)) : 0.8;
+    if (rc !== config.budgetGuardWarnRatioV1) { config.budgetGuardWarnRatioV1 = rc; changed = true; }
+  }
+  { // 106 #13a-t: 工具时间预算毫秒 —— 0 = 该级关闭;非零时 warn 钳位 [1000, 3600000]、
+    // hard 钳位 [5000, 7200000];坏值落回 0(该级关闭)。字节计数阈值 0 = 不计数,上限 100MB。
+    const w = Number(config.toolTimeBudgetWarnMsV1);
+    const wc = Number.isFinite(w) ? (w <= 0 ? 0 : Math.min(3600000, Math.max(1000, Math.round(w)))) : 0;
+    if (wc !== config.toolTimeBudgetWarnMsV1) { config.toolTimeBudgetWarnMsV1 = wc; changed = true; }
+    const h = Number(config.toolTimeBudgetHardMsV1);
+    const hc = Number.isFinite(h) ? (h <= 0 ? 0 : Math.min(7200000, Math.max(5000, Math.round(h)))) : 0;
+    if (hc !== config.toolTimeBudgetHardMsV1) { config.toolTimeBudgetHardMsV1 = hc; changed = true; }
+    const b = Number(config.toolByteBudgetShadowBytesV1);
+    const bc = Number.isFinite(b) ? (b <= 0 ? 0 : Math.min(104857600, Math.round(b))) : 0;
+    if (bc !== config.toolByteBudgetShadowBytesV1) { config.toolByteBudgetShadowBytesV1 = bc; changed = true; }
   }
   { // 21-E2: bounded read concurrency — JSON number, clamp 1..8.
     const n = Number(config.boundedReadConcurrencyV1);
@@ -883,6 +925,55 @@ function summaryFactTableCap(config) {
 // 保证 105g 现有 map-reduce 调用顺序、请求体与失败语义逐字节不变。
 function summaryRefineEnabled(config) {
   return !!(config && config.runtimeSummaryRefineV1 === true);
+}
+
+// 106 #13a: 预算保护基础层生效条件 —— 单开关且回合预算 >0 才真正把门(开关开但预算 0 = 空转零
+// 判定)。回合主循环(runOpenAiTurn 迭代边界)与 e2e 共用本判定;显式 false / 缺省 / 预算 0
+// 保证零判定、零事件(零行为变化回退)。
+function budgetGuardEnabled(config) {
+  return !!(config && config.runtimeBudgetGuardV1 === true) && budgetGuardTurnTokens(config) > 0;
+}
+function budgetGuardTurnTokens(config) {
+  const n = Number(config && config.budgetGuardTurnTokensV1);
+  return Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(10000000, Math.round(n))) : 0;
+}
+function budgetGuardWarnRatio(config) {
+  const r = Number(config && config.budgetGuardWarnRatioV1);
+  return Number.isFinite(r) ? Math.min(0.99, Math.max(0.1, r)) : 0.8;
+}
+// #13a 决策纯函数(回合主循环与 e2e 共用):spent = 本回合实报 usage 累计,reserveEstimate = 即将
+// 发出调用的估算输入。'trip' 优先于 'warn'(触顶事件本身即最强预警);预算 ≤0 恒 'ok'(不开门)。
+function budgetGuardDecision(spent, reserveEstimate, budget, warnRatio) {
+  const b = Number(budget);
+  if (!Number.isFinite(b) || b <= 0) return 'ok';
+  const s = Number(spent) || 0;
+  if (s + (Number(reserveEstimate) || 0) > b) return 'trip';
+  const r = Number(warnRatio);
+  const wr = Number.isFinite(r) ? Math.min(0.99, Math.max(0.1, r)) : 0.8;
+  if (s >= Math.floor(b * wr)) return 'warn';
+  return 'ok';
+}
+
+// 106 #13a-t: 长命令时间预算生效条件 —— shadow(只统计)与主动(软警告+硬终态)各自独立开关,
+// 主动优先于 shadow。awaitProviderTool 挂钩点与 e2e 共用本判定;双双缺省/false 保证零定时器、
+// 零事件,现状逐字节不变。
+function toolTimeBudgetEnabled(config) {
+  return !!(config && config.runtimeToolTimeBudgetV1 === true);
+}
+function toolTimeBudgetShadowEnabled(config) {
+  return !!(config && config.runtimeToolTimeBudgetShadowV1 === true);
+}
+function toolTimeBudgetWarnMs(config) {
+  const n = Number(config && config.toolTimeBudgetWarnMsV1);
+  return Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(3600000, Math.max(1000, Math.round(n)))) : 0;
+}
+function toolTimeBudgetHardMs(config) {
+  const n = Number(config && config.toolTimeBudgetHardMsV1);
+  return Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(7200000, Math.max(5000, Math.round(n)))) : 0;
+}
+function toolByteBudgetShadowBytes(config) {
+  const n = Number(config && config.toolByteBudgetShadowBytesV1);
+  return Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(104857600, Math.round(n))) : 0;
 }
 
 // ============================================================================

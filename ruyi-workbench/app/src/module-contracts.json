@@ -127,6 +127,10 @@
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
         "batchSafeSpawn",
+        "budgetGuardDecision",
+        "budgetGuardEnabled",
+        "budgetGuardTurnTokens",
+        "budgetGuardWarnRatio",
         "buildClaudeCliEnv",
         "buildUserEnvelope",
         "bundledNodeExe",
@@ -198,6 +202,11 @@
         "syncMcpServersToClaude",
         "syncMcpServersToKimi",
         "tokenOk",
+        "toolByteBudgetShadowBytes",
+        "toolTimeBudgetEnabled",
+        "toolTimeBudgetHardMs",
+        "toolTimeBudgetShadowEnabled",
+        "toolTimeBudgetWarnMs",
         "writeConfig",
         "writeConfigAtomic",
         "writeToChild"
@@ -5094,6 +5103,34 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "budgetGuardDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "budgetGuardEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "budgetGuardTurnTokens",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "budgetGuardWarnRatio",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "estimateBucketsEnabled",
           "kinds": [
             "call"
@@ -5116,6 +5153,41 @@
         {
           "provider": "01-config.js",
           "symbol": "sessionNotesInjectEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "toolByteBudgetShadowBytes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "toolTimeBudgetEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "toolTimeBudgetHardMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "toolTimeBudgetShadowEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "toolTimeBudgetWarnMs",
           "kinds": [
             "call"
           ]
@@ -10204,6 +10276,34 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "budgetGuardDecision",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "budgetGuardEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "budgetGuardTurnTokens",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "budgetGuardWarnRatio",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "buildClaudeCliEnv",
           "kinds": [
             "read"
@@ -10443,6 +10543,41 @@
         {
           "provider": "01-config.js",
           "symbol": "syncMcpServersToKimi",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "toolByteBudgetShadowBytes",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "toolTimeBudgetEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "toolTimeBudgetHardMs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "toolTimeBudgetShadowEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "toolTimeBudgetWarnMs",
           "kinds": [
             "read"
           ]

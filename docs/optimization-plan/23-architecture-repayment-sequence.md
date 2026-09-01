@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）、第 104 波与第 105 波总门均已交付**。105a–105g 已逐项取证并默认开启，各项均可显式关闭回退；105 总门再次确认 105f 单发优先有净收益。4.3 后续的 ≤4 块顺序 refine 未过真实模型门，保留默认关闭；>4 块全局 user 大纲因 8 块路径至少 9 次串行调用、真实基线超时长而否决并撤掉生产实现；可选 overlap 不再实施。105c 为成本承担行为（触发修补多一次 LLM 调用），105d 回注块整体上限 2000 字符；105g 仍按其受控 A/B 证据默认开启，并经超长 history-24 甜点门将事实表默认上限提升至 64。
+> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）、第 104 波与第 105 波总门均已交付**。105a–105g 已逐项取证并默认开启，各项均可显式关闭回退；105 总门再次确认 105f 单发优先有净收益。4.3 后续的 ≤4 块顺序 refine 未过真实模型门，保留默认关闭；>4 块全局 user 大纲因 8 块路径至少 9 次串行调用、真实基线超时长而否决并撤掉生产实现；可选 overlap 不再实施。105c 为成本承担行为（触发修补多一次 LLM 调用），105d 回注块整体上限 2000 字符；105g 仍按其受控 A/B 证据默认开启，并经超长 history-24 甜点门将事实表默认上限提升至 64。**第 106 波已开工**：#13a／13a-t（预算保护基础层＋长命令时间预算）已交付，默认关闭取证中。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -318,6 +318,22 @@
 - #7 只有在 105 的按需回载成为可用消费者并出现耗时证据后才启动。
 
 各项仍独立开关、先单轴后组合；第 105 波通过不等于上述项目自动准入。若 #13a 的风险与热点要求提前，可在 103 出门后单独申请插入，但必须保持波次唯一并成文重排，不能静默并行抢号。
+
+#### 106 #13a/13a-t Release Brief · 预算保护基础层与长命令时间预算（2026-09-01）
+
+- **问题**：#13a／13a-t——回合没有 token 预算保护，失控循环只能靠 100 轮工具调用上限兜底；长命令没有时间预算，热点基线（2026-08-27，见 20 号文）显示 `powershell_run` 占工具墙钟 87.6%、最差单条 1679s／2.51MB stdout，用户只能用 steering 手动打断。
+- **非目标**：不自动降模型、不做激进摘要；不动 MCP 超时契约与 22-S0 远程超时；字节轴只计数不改写结果（20-C1 三个 High 阻断仍 active）；不覆盖子代理路径（`runSubAgentCore` 独立循环，留后续切片）；月度 `usageBudget` 硬停止是后续切片，本切片只做回合级；默认关，未取得真实负载 shadow 校准证据前不 flip。
+- **交付物**：
+  - 开关 `runtimeBudgetGuardV1` 默认 `false`，三处落地（默认值区／严格布尔 sanitize 表顺排 `runtimeSummaryRefineV1` 之后／唯一判定 `budgetGuardEnabled(config)`，开关×预算>0 双门，`01-config.js`）。配套 `budgetGuardTurnTokensV1` 默认 0（=关闭），sanitize 钳位 `[0, 10000000]` 坏值落 0；`budgetGuardWarnRatioV1` 默认 0.8，钳位 `[0.1, 0.99]`。
+  - 纯函数 `budgetGuardDecision(spent, reserveEstimate, budget, warnRatio)` → `'ok'|'warn'|'trip'`（trip 优先、预算 ≤0 恒 ok）。主循环插入点在 `emitContextEstimate(true)` 之后、`dispatchAgentLoopHooks` 之前：warn 每回合一次性发 `budget_guard` warning 事件＋`budget_guard_warn` 日志；trip 追加模型可见中文 note、`budget_guard` tripped 事件＋`budget_guard_trip` 日志，`session.mission.autoMode==='until-done'` 时降 `'supervised'` 并发 mission `budget_guard_paused` 事件（镜像 06e `budget_exhausted` 范式，`update` 可恢复续跑），然后 break。
+  - 13a-t 时间轴：开关 `runtimeToolTimeBudgetShadowV1`／`runtimeToolTimeBudgetV1` 默认 `false`；`toolTimeBudgetWarnMsV1`（非零钳 `[1000, 3600000]`）／`toolTimeBudgetHardMsV1`（非零钳 `[5000, 7200000]`）。`awaitProviderTool` 在 interruptible 且（enforce‖shadow）时挂硬终态 `setTimeout(hardMs)`：enforce 落 `tool_time_budget` hard_kill 日志＋`tool_progress` budget_hard 事件＋`toolAbort.abort('tool_time_budget')`；shadow 只落 would_hard_kill 日志，零用户面事件。心跳内软警告（budget_soft／would_soft_warning，每工具一次）。
+  - `04-desktop-shell.js` `runProcess` 中断原因感知：仅 `signal.reason === 'tool_time_budget'` 走专用文案「已触发工具时间预算硬上限;进程树已回收」＋`budgetKilled: true`；`user_steer`／`turn_stopped` 等其余原因文案逐字节不变。`result.budgetKilled===true` 时工具结果附 `timeBudgetInterrupted` 标记与模型可见 error。
+  - 字节轴 shadow：`toolByteBudgetShadowBytesV1` 默认 0（=关闭），钳位 `[0, 104857600]`；runner 返回后只计数，bytes 超阈值落 `tool_byte_budget_shadow` 事件，不改写结果。
+  - `14-main.js` 导出 8 个判定／决策函数；`runtime-optimization.static.e2e.js` 新增 106 段 10 条静态锁（105h sanitize 邻接断言随新键顺排演进，105 系语义不动）；`dev-harness/budget-guard.e2e.js` 新建 44 项。
+- **证据**：`budget-guard.e2e.js` 全绿 44 项——[U] 13 项锁三态开关／数值钳位／决策表全分支；[E-13a] 锁开关关基线与大预算零触发两种逐字节一致、预算 60 首发即停（0 次工具调用＋note＋tripped 事件＋审计账）、until-done 触顶降 supervised 且驱动器不续跑、`update` 恢复；[E-13a-t] T1 实测 `Start-Sleep 30` 在 ~8.9s 被硬杀（budget_soft／budget_hard 事件、配对 tool_result 含时间预算文案与 `budgetKilled`、hard_kill 审计）、T2 shadow 下 8s 命令自然跑完且零用户面事件（would_soft／would_hard 各一条＋字节计数）、T3 零触发与基线逐字节一致（elapsedMs 墙钟字段归一化后比对）。定向回归全绿：runtime-optimization.static、facts.static、module-dependency-graph.static、route-inventory.static、architecture-contract-snapshots.static、estimate-buckets、autocompact、context-compact-v2、session-notes-inject／merge、summary-single-shot、summary-fact-table、steering、steer-interrupt、long-tool-liveness-steer；unit 14 文件全绿。生成器全过：build 新鲜、module-graph（30 模块／240 边）、route-inventory（101 判定点零实质漂移）、snapshots --check current、facts e2eCount 257。
+- **回退**：运行时回退 = 显式 `false` 或缺省——三个开关全关时零判定、零事件、零定时器，静态锁锁定。彻底回退：删 8 个配置键（默认值＋sanitize）与 8 个判定／决策函数、主循环判定块、`awaitProviderTool` 时间预算块、`runProcess` 原因感知分支、14-main 导出、静态锁 106 段与新 e2e，重建 `server.js` 并重跑生成器。无持久化面变更、无数据迁移。
+- **发布判断**：**默认关闭，A 类合成门已过**。flip 判据 = 真实负载 shadow 运行校准阈值（时间轴 warn/hard 与字节阈值）＋ A 类证据复核后成文申请；token 轴 flip 还需补充真实会话触顶样本。
+- **遗留**：子代理路径预算保护、月度 `usageBudget` 硬停止、字节轴结果引用改写（待 20-C1 阻断解除）均为后续切片；#13a 的提前插入申请维持「波次唯一、成文重排」纪律。
 
 ## 6. 第 107 波 · Pretender 出门准备与批准点
 

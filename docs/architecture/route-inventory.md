@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 101(精确 88 / 前缀 12 / 正则 1),ROUTE_AUTH 92 条,生成于 2026-09-01T08:50:06.252Z。
+> 判定点 101(精确 88 / 前缀 12 / 正则 1),ROUTE_AUTH 92 条,生成于 2026-09-01T11:29:39.851Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -70,7 +70,7 @@
 | POST | `/api/agent/compact` | exact | token-browser | 13-http-router.js:609 | — |
 | GET | `/api/kimi/status` | exact | token-browser | 13-http-router.js:626 | — |
 | POST | `/api/todo` | exact | body-token | 13-http-router.js:642 | todo-loopback.e2e.js |
-| GET/POST | `/api/mission` | exact | body-token self | 13-http-router.js:662 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, auth-deny-default.e2e.js 等 27 件 |
+| GET/POST | `/api/mission` | exact | body-token self | 13-http-router.js:662 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, auth-deny-default.e2e.js 等 28 件 |
 | * | `/api/autonomy/grants` | exact | token self | 13-http-router.js:767 | autonomy-grant.e2e.js |
 | POST | `/api/autonomy/grant` | exact | token self | 13-http-router.js:774 | autonomy-grant.e2e.js |
 | POST | `/api/autonomy/revoke` | exact | token self | 13-http-router.js:802 | autonomy-grant.e2e.js |
@@ -87,7 +87,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js:1119 | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js:1134 | pretender-dispatch-home.static.e2e.js, vision-loop.e2e.js |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js:1142 | — |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1162 | action-model-view.e2e.js, adaptive-budget.e2e.js, agent-loop.e2e.js 等 95 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1162 | action-model-view.e2e.js, adaptive-budget.e2e.js, agent-loop.e2e.js 等 96 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js:1165 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, checkpoint.e2e.js 等 12 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js:1377 | — |
 

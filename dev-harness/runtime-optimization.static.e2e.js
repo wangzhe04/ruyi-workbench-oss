@@ -43,9 +43,22 @@ ok(/factChunkMsg \? \[\.\.\.chunks\[ci\], factChunkMsg\] : chunks\[ci\]/.test(sr
 ok(/factTable: \{ entities: factTable\.entities \}/.test(src), 'S 105g 事实表元数据落 mapReduce.factTable');
 // 105h(4.3 第二项): <=4 块顺序 refine —— 总门取证前默认关,任一步失败整条回退现有 map-reduce。
 ok(/runtimeSummaryRefineV1: false/.test(src), 'S runtimeSummaryRefineV1 总门无净收益,默认关闭');
-ok(/'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeFailureTelemetryV1'/.test(src), 'S runtimeSummaryRefineV1 入严格布尔 sanitize 表(105g 邻接不动)');
+ok(/'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1'/.test(src), 'S runtimeSummaryRefineV1 入严格布尔 sanitize 表(105g 邻接不动;106 #13a 顺排其后)');
 ok(/function summaryRefineEnabled\(config\)/.test(src), 'S summaryRefineEnabled 唯一判定点存在');
 ok(/refine: \{\n        maxChunks: 4,/.test(src), 'S rules refine 块(maxChunks 4)在产物 fallback 内');
+// 106 #13a: 预算保护基础层 —— 逐项取证纪律,默认关;预警/预留/停止新增调用/暂停恢复四件套。
+ok(/runtimeBudgetGuardV1: false/.test(src), 'S runtimeBudgetGuardV1 默认关闭(106 波逐项取证,未过门不启用)');
+ok(/'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeFailureTelemetryV1'/.test(src), 'S 106 三开关入严格布尔 sanitize 表(105h 邻接不动;failureTelemetry 顺排其后)');
+ok(/budgetGuardTurnTokensV1: 0/.test(src) && /budgetGuardWarnRatioV1: 0\.8/.test(src), 'S #13a 预算默认 0(不设)且预警比例缺省 0.8');
+ok(/function budgetGuardEnabled\(config\)/.test(src) && /function budgetGuardTurnTokens\(config\)/.test(src) && /function budgetGuardWarnRatio\(config\)/.test(src), 'S #13a 唯一判定点与阈值解析存在');
+ok(/function budgetGuardDecision\(spent, reserveEstimate, budget, warnRatio\)/.test(src) && /budgetGuardDecision\(bgSpent, estBeforeCall, budgetGuardBudget, budgetGuardWarn\)/.test(src), 'S #13a 决策纯函数(预警/预留/触顶)存在且接入迭代边界');
+ok(/state: 'budget_guard_paused'/.test(src) && /m\.autoMode = 'supervised'/.test(src), 'S #13a 触顶暂停 until-done(复用 Mission 控制面,降 supervised 非报错)');
+// 106 #13a-t: 长命令时间预算 —— shadow/主动双开关默认关;硬终态沿既有 toolAbort 杀树路径。
+ok(/runtimeToolTimeBudgetShadowV1: false/.test(src) && /runtimeToolTimeBudgetV1: false/.test(src), 'S 13a-t shadow/主动双开关默认关闭');
+ok(/function toolTimeBudgetEnabled\(config\)/.test(src) && /function toolTimeBudgetShadowEnabled\(config\)/.test(src), 'S 13a-t 双开关唯一判定点存在');
+ok(/toolAbort\.abort\('tool_time_budget'\)/.test(src), 'S 13a-t 硬终态复用 toolAbort 杀树路径(不造第二套控制器)');
+ok(/signal\.reason === 'tool_time_budget'/.test(src) && /budgetKilled: true/.test(src), 'S 13a-t 04 中断原因感知(仅新原因走专用文案,旧原因逐字节不变)');
+ok(/kind: 'tool_byte_budget_shadow'/.test(src), 'S 13a-t 字节轴只计数不改写(20-C1 High 未解除)');
 for (const flag of ['runtimeToolRetrievalV1', 'runtimeFailureTelemetryV1']) {
   ok(new RegExp(flag + ': false').test(src), `S ${flag} defaults false`);
   ok(new RegExp("config\\[key\\] === true").test(src), `S strict boolean normalization present (${flag})`);

@@ -72,6 +72,16 @@ module.exports = {
   // 105h(4.3 第二项): <=4 块顺序 refine — exposed for e2e 白盒契约。
   summaryRefineEnabled,
   buildSummaryRefineMessages,
+  // 106 #13a/13a-t: 预算保护基础层 + 长命令时间预算 — exposed for e2e 白盒契约(开关唯一判定点/阈值解析)。
+  budgetGuardEnabled,
+  budgetGuardTurnTokens,
+  budgetGuardWarnRatio,
+  budgetGuardDecision,
+  toolTimeBudgetEnabled,
+  toolTimeBudgetShadowEnabled,
+  toolTimeBudgetWarnMs,
+  toolTimeBudgetHardMs,
+  toolByteBudgetShadowBytes,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

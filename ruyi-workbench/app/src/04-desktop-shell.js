@@ -68,13 +68,17 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
         killGraceTimer = setTimeout(() => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + '\n[timed out; process tree killed]', elapsedMs: Date.now() - start, timedOut: true }), 3000);
         if (killGraceTimer.unref) killGraceTimer.unref();
       }, timeoutMs);
+      // 106 #13a-t: 中断原因感知 —— 仅新原因 'tool_time_budget' 走专用文案与 budgetKilled 标记;
+      // 既有 'user_steer' / 'turn_stopped' 等一切旧原因文案逐字节不变。
+      const isBudgetKill = () => Boolean(signal && signal.reason === 'tool_time_budget');
+      const abortSuffix = () => isBudgetKill() ? '\n[已触发工具时间预算硬上限;进程树已回收]' : '\n[interrupted by user steer; process tree killed]';
       abortHandler = () => {
         if (settled) return;
         interrupted = true;
         killChildTree(child.pid);
         // Keep the normal close event as the primary settlement path, but never make steering wait on a
         // descendant that retained stdio handles after the tree kill.
-        killGraceTimer = setTimeout(() => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + '\n[interrupted by user steer; process tree killed]', elapsedMs: Date.now() - start, interrupted: true }), 1000);
+        killGraceTimer = setTimeout(() => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + abortSuffix(), elapsedMs: Date.now() - start, interrupted: true, ...(isBudgetKill() ? { budgetKilled: true } : {}) }), 1000);
         if (killGraceTimer.unref) killGraceTimer.unref();
       };
       if (signal) {
@@ -84,7 +88,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       child.stdout?.on('data', d => collect(outChunks, d, true));
       child.stderr?.on('data', d => collect(errChunks, d, false));
       child.on('error', error => finish({ ok: false, code: -1, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + error.message, elapsedMs: Date.now() - start, timedOut }));
-      child.on('close', code => finish({ ok: code === 0 && !timedOut && !interrupted, code, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + (interrupted ? '\n[interrupted by user steer; process tree killed]' : ''), elapsedMs: Date.now() - start, timedOut, interrupted }));
+      child.on('close', code => finish({ ok: code === 0 && !timedOut && !interrupted, code, stdout: decodeBestEffort(Buffer.concat(outChunks)), stderr: decodeBestEffort(Buffer.concat(errChunks)) + (interrupted ? abortSuffix() : ''), elapsedMs: Date.now() - start, timedOut, interrupted, ...(interrupted && isBudgetKill() ? { budgetKilled: true } : {}) }));
     });
   }
 
