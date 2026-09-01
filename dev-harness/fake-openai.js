@@ -196,6 +196,10 @@ const DIE_MIDSTREAM = process.env.FAKE_DIE_MIDSTREAM === '1';
 // 第45波 45b/45c:FAKE_CONTEXT_400_ONCE — 第 1 个 /chat/completions 请求回 400「maximum context length
 // exceeded」类错误,后续请求照常。驱动主回合强制压缩重试与子代理 over-window 重试的回归。
 const CONTEXT_400_ONCE = process.env.FAKE_CONTEXT_400_ONCE === '1';
+// 105f: FAKE_SUMMARY_400_CHARS — 非流式【摘要】请求体超过 N 字符时回 context 类 400(措辞与
+// CONTEXT_400_ONCE 相同,可过 isContextOverflowError 共现判定),≤N 的摘要请求照常。驱动「单发估算
+// 允许但真实提供方越窗 → 自动降级 map-reduce」的回归:单发 payload 大 → 400,分块 payload 小 → 通过。
+const SUMMARY_400_CHARS = Math.max(0, Number(process.env.FAKE_SUMMARY_400_CHARS || 0) || 0);
 // 第45波 45a:FAKE_RECORD_SUMMARY_DIR — 把【非流式摘要请求】(body 不含 stream:true)落盘到 <dir>/sum-<n>.json,
 // 供预算化断言(摘要调用的 payload 必须 ≤ 预算,超长历史触发 map-reduce 时可见 N 个分段请求)。
 const RECORD_SUMMARY_DIR = process.env.FAKE_RECORD_SUMMARY_DIR || '';
@@ -324,6 +328,12 @@ const server = http.createServer((req, res) => {
       }
       // 第45波 45b/45c:首个请求回 context 类 400(后续照常),驱动强制压缩重试回归。
       if (CONTEXT_400_ONCE && chatRequestCount === 1) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: "This model's maximum context length is 65536 tokens. Your request exceeded the limit.", type: 'invalid_request_error', code: 'context_length_exceeded' } }));
+        return;
+      }
+      // 105f: 大摘要请求回 context 类 400(仅非流式;阈值按请求体字符数,与估算口径解耦)。
+      if (SUMMARY_400_CHARS > 0 && parsed.stream === false && body.length > SUMMARY_400_CHARS) {
         res.writeHead(400, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: { message: "This model's maximum context length is 65536 tokens. Your request exceeded the limit.", type: 'invalid_request_error', code: 'context_length_exceeded' } }));
         return;

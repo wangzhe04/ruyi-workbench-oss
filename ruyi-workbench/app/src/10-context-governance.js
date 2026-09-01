@@ -36,6 +36,9 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
     summary: {
       inputBudgetRatio: 0.5,
       singleShotMaxEstimate: 32000,
+      // 105f: 单发优先的 reserve 分量与单发估算上限钳位,与 context-governance-rules.json 逐字同构(additive)。
+      singleShotReserve: { systemTokens: 1200, expectedOutputTokens: 2048, calibrationMarginTokens: 2048 },
+      singleShotCap: { default: 32768, min: 8192, max: 131072 },
       reseedTailMaxTokens: 16000,
       minimumSections: 4,
       statusSectionIndex: 3,
@@ -622,6 +625,33 @@ const SUMMARY_INPUT_BUDGET_RATIO = CONTEXT_GOVERNANCE_RULES.summary.inputBudgetR
 // ① 远程超时提到 180s(localhost/Ollama 维持 300s);② 本可单发但预估超过此阈值的输入强制走
 // map-reduce 分块,让每次真实 HTTP 尝试天然远离超时线。
 const SUMMARY_SINGLE_SHOT_MAX_EST = CONTEXT_GOVERNANCE_RULES.summary.singleShotMaxEstimate;
+// 105f: 单发优先的预算余量 —— reserve = system＋摘要 prompt＋预期输出＋校准误差上界。摘要 prompt 分量
+// 运行时估算(跟随 SUMMARY_PROMPT 实际文本,不抄死数字);其余分量在 rules 的 summary.singleShotReserve。
+const SUMMARY_SINGLE_SHOT_RESERVE = CONTEXT_GOVERNANCE_RULES.summary.singleShotReserve || {};
+const SUMMARY_SINGLE_SHOT_CAP_RULE = CONTEXT_GOVERNANCE_RULES.summary.singleShotCap || { default: 32768, min: 8192, max: 131072 };
+function summarySingleShotReserveTokens() {
+  return (Number(SUMMARY_SINGLE_SHOT_RESERVE.systemTokens) || 0)
+    + estimateTextTokens(SUMMARY_PROMPT)
+    + (Number(SUMMARY_SINGLE_SHOT_RESERVE.expectedOutputTokens) || 0)
+    + (Number(SUMMARY_SINGLE_SHOT_RESERVE.calibrationMarginTokens) || 0);
+}
+// 105f: 单发估算上限解析 —— 「provider/model」精确覆盖 > provider 覆盖 > 引擎(apiStyle)覆盖 > 全局设置;
+// 每个来源都过同一钳位 [min, max](坏值落回 default)。不提供无限档;与远程超时无关(不自动改超时)。
+function summarySingleShotCap(config, provider, model) {
+  const rule = SUMMARY_SINGLE_SHOT_CAP_RULE;
+  const clampCap = v => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(Number(rule.max) || 131072, Math.max(Number(rule.min) || 8192, Math.round(n))) : (Number(rule.default) || 32768);
+  };
+  const ov = (config && config.summarySingleShotMaxOverridesV1 && typeof config.summarySingleShotMaxOverridesV1 === 'object' && !Array.isArray(config.summarySingleShotMaxOverridesV1)) ? config.summarySingleShotMaxOverridesV1 : {};
+  const pid = String((provider && provider.id) || '');
+  const mid = String(model || (provider && provider.model) || '');
+  const style = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
+  for (const key of [pid && mid ? pid + '/' + mid : '', pid, 'style:' + style]) {
+    if (key && ov[key] != null) return clampCap(ov[key]);
+  }
+  return clampCap(config && config.summarySingleShotMaxTokensV1);
+}
 // L2 重播种保留的近期原文上限。它是绝对上限而非「保留最近 N 回合」：两回合可能只有几百
 // token，也可能夹着几十 K 的工具结果。调用点还会钳到当次压缩预算的一半，避免小窗口被尾部反撑爆。
 // 只保留完整 user 回合；若最新一整回合本身放不下，宁可交给结构化摘要，也绝不从 tool_call/tool_result
@@ -1044,7 +1074,12 @@ async function providerSummaryCallCore(provider, history, opts) {
   // Probe on demand before budgeting; Ollama is enriched through native /api/show by fetchOpenAiModels.
   if (resolveContextWindow(provider, model).source === 'fallback') await fetchOpenAiModels(provider, 8000).catch(() => null);
   // 45a:摘要输入预算 = 窗口 × 50%(余量留给输出+系统层;窗口缺省 64K 时预算 32K)。
-  const budget = Math.max(4000, Math.floor(providerContextWindow(provider, model) * SUMMARY_INPUT_BUDGET_RATIO));
+  // 105f:开关开时预算 = 窗口 − reserve(分量见 summarySingleShotReserveTokens),余量不再一刀切半价。
+  const singleOn = summarySingleShotEnabled(opts && opts.config);
+  const summaryWindow = providerContextWindow(provider, model);
+  const budget = Math.max(4000, singleOn
+    ? summaryWindow - summarySingleShotReserveTokens()
+    : Math.floor(summaryWindow * SUMMARY_INPUT_BUDGET_RATIO));
   const fitted = fitHistoryForSummary(history, budget);
   // 22-S0 摘要归属上下文:econ 标志读一次,身份字段由调用方经 opts.auxCtx 提供(缺失→不落 sessionId/turnSeq)。
   const ectxBase = {
@@ -1058,16 +1093,23 @@ async function providerSummaryCallCore(provider, history, opts) {
     } : { trigger: 'summary' }),
   };
   const singleEstimate = estimateHistoryTokens(Array.isArray(fitted.messages) ? fitted.messages : []);
-  const forceChunks = !fitted.needsMapReduce && singleEstimate > SUMMARY_SINGLE_SHOT_MAX_EST; // 肥单发 → 分块,让每次真实尝试远离超时悬崖
+  // 105f:开关开时上限走可配置档位(默认 32K≈旧常量),关时保持 22-S0 常量 32000 逐字节不变。
+  const singleCap = singleOn ? summarySingleShotCap(opts && opts.config, provider, model) : SUMMARY_SINGLE_SHOT_MAX_EST;
+  const forceChunks = !fitted.needsMapReduce && singleEstimate > singleCap; // 肥单发 → 分块,让每次真实尝试远离超时悬崖
+  let degradedFromSingle = false;
   if (!fitted.needsMapReduce && !forceChunks) {
     const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase);
     if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
     if (sc.ok && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
-    return sc;
+    // 105f:仅【可识别的上下文超窗 400】(isContextOverflowError 共现语义,宁可漏判不误判)自动降级
+    // map-reduce;其余失败(超时/5xx/非超窗 400/校验失败)原样上浮,调用方保留 L1 降级。失败调用
+    // 已由 singleSummaryCall 的 econ 账目计入成本(105 总门「额外失败调用计入成本」)。
+    if (sc.ok || !singleOn || !isContextOverflowError(sc.error)) return sc;
+    degradedFromSingle = true;
   }
   // map-reduce:分组 → 逐组摘要 → 总摘要。任一组失败即整体失败(错误原样上浮,调用方保留 L1 降级)。
-  const chunks = chunkHistoryByBudget(history, forceChunks
-    ? Math.min(budget, Math.max(4000, Math.floor(SUMMARY_SINGLE_SHOT_MAX_EST * 0.75))) // 22-S0:肥单发分块时压低每组目标
+  const chunks = chunkHistoryByBudget(history, (forceChunks || degradedFromSingle)
+    ? Math.min(budget, Math.max(4000, Math.floor(singleCap * 0.75))) // 22-S0:肥单发分块时压低每组目标;105f 400 降级同目标(单发已证明该量级越窗)
     : budget);
   if (chunks.length <= 1) {
     const sc = await singleSummaryCall(provider, chunks[0] || [], model, ectxBase);
@@ -1130,7 +1172,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   }
   if (aggIn > 0 || aggOut > 0) final.usage = { prompt_tokens: aggIn, completion_tokens: aggOut, aggregated: true };
   final.promptTokensEst = aggEst;
-  final.mapReduce = { chunks: chunks.length, rounds: Math.max(1, calls.length - chunks.length) };
+  final.mapReduce = { chunks: chunks.length, rounds: Math.max(1, calls.length - chunks.length), ...(degradedFromSingle ? { degradedFromSingle: true } : {}) };
   return final;
 }
 

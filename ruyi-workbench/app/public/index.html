@@ -962,6 +962,16 @@
               </select>
               <p class="field-help muted" data-i18n="settings.advanced.toolLoadingMode.hint">智能按需会先判断任务，只装载相关工具；缺少能力时 AI 可继续搜索并装载。Claude CLI 与 OpenAI 兼容引擎都会生效。</p>
             </div>
+            <!-- 105f: 摘要单发上限三档(仅「单发优先」开关开启时生效;默认 32K)。 -->
+            <div class="field-block">
+              <label for="cfgSummarySingleShotMax" data-i18n="settings.advanced.summarySingleShotMax">摘要单发输入上限</label>
+              <select id="cfgSummarySingleShotMax">
+                <option value="16384" data-i18n="settings.advanced.summarySingleShot16">16K（保守）</option>
+                <option value="32768" data-i18n="settings.advanced.summarySingleShot32">32K（推荐）</option>
+                <option value="65536" data-i18n="settings.advanced.summarySingleShot64">64K（激进）</option>
+              </select>
+              <p class="field-help muted" data-i18n="settings.advanced.summarySingleShotMax.hint">估算不超过此上限的摘要走单次调用，超出自动分块。实测 32K 单发约需 40–51 秒（22-S0 基线），远程摘要超时 180 秒；64K 档贴近超时线，慢模型有作废风险。仅在「摘要单发优先」实验开关开启时生效。</p>
+            </div>
             <!-- v1.6.3: Provider 工具预算采用 100/200/300 自适应策略。 -->
             <div class="field-block">
               <label for="cfgOpenaiMaxToolIterations" data-i18n="settings.advanced.maxToolIterations">单回合工具调用上限</label>

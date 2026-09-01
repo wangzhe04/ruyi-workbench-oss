@@ -189,6 +189,7 @@
         "spawnCmdLineLength",
         "staticBase",
         "summaryEntityCheckEnabled",
+        "summarySingleShotEnabled",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
         "syncMcpServersToClaude",
@@ -6293,7 +6294,9 @@
         "SUMMARY_ENTITY_RULES",
         "SUMMARY_INPUT_BUDGET_RATIO",
         "SUMMARY_PROMPT",
+        "SUMMARY_SINGLE_SHOT_CAP_RULE",
         "SUMMARY_SINGLE_SHOT_MAX_EST",
+        "SUMMARY_SINGLE_SHOT_RESERVE",
         "TOOL_RESULT_CAP",
         "_calibKey",
         "agentConversationContextMeta",
@@ -6353,6 +6356,8 @@
         "runProviderCompact",
         "singleSummaryCall",
         "streamChat",
+        "summarySingleShotCap",
+        "summarySingleShotReserveTokens",
         "summarySourceText",
         "truncateToolResult",
         "upsertCompactMarker",
@@ -6512,6 +6517,13 @@
         {
           "provider": "01-config.js",
           "symbol": "summaryEntityCheckEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "summarySingleShotEnabled",
           "kinds": [
             "call"
           ]
@@ -6736,6 +6748,13 @@
         {
           "provider": "09-workflow.js",
           "symbol": "estimateHistoryTokens",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "estimateTextTokens",
           "kinds": [
             "call"
           ]
@@ -10366,6 +10385,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "summarySingleShotEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "syncMcpServersToKimi",
           "kinds": [
             "read"
@@ -12523,6 +12549,20 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "resolveContextWindow",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "summarySingleShotCap",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "summarySingleShotReserveTokens",
           "kinds": [
             "read"
           ]

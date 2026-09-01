@@ -333,6 +333,8 @@ function fillSettings() {
   populateClaudeEndpointPresets();
   const kp = $('cfgKillPort'); if (kp) kp.checked = c.killPortOnStart !== false;
   { const el0 = $('cfgToolLoadingMode'); if (el0) el0.value = c.toolLoadingMode === 'full' ? 'full' : 'auto'; }
+  // 105f: 摘要单发上限三档(16K/32K/64K);非法值落回 32K(与后端 sanitize 钳位同默认值)。
+  { const el0 = $('cfgSummarySingleShotMax'); if (el0) el0.value = ['16384', '32768', '65536'].includes(String(c.summarySingleShotMaxTokensV1)) ? String(c.summarySingleShotMaxTokensV1) : '32768'; }
   // v1.6.3: 普通任务基础工具预算 (1..200, 默认 100；长任务可自动续到硬上限 300)。
   { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 100; }
   { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 8)); }
@@ -516,6 +518,12 @@ async function saveSettings() {
     claudeAuthMode: $('cfgClaudeAuthMode') ? $('cfgClaudeAuthMode').value : (state.config.claudeAuthMode || 'auto'),
     killPortOnStart: $('cfgKillPort') ? $('cfgKillPort').checked : (state.config.killPortOnStart !== false),
     toolLoadingMode: $('cfgToolLoadingMode') ? $('cfgToolLoadingMode').value : (state.config.toolLoadingMode || 'auto'),
+    // 105f: 摘要单发上限;后端 sanitize 再钳 [8192,131072],UI 只出三档。
+    summarySingleShotMaxTokensV1: (() => {
+      const el0 = $('cfgSummarySingleShotMax');
+      const n = Math.round(Number(el0 ? el0.value : state.config.summarySingleShotMaxTokensV1));
+      return Number.isFinite(n) ? n : 32768;
+    })(),
     // v1.6.3: 普通任务基础预算夹到 1..200；后端负责长任务与按进展续额。
     openaiMaxToolIterations: (() => {
       const el0 = $('cfgOpenaiMaxToolIterations');

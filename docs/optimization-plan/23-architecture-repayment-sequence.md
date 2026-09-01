@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；第 105 波进行中，**105a（observation_recall 外壳）、105b（session-notes.md 状态外置）、105c（摘要实体确定性抽检）与 105d（session notes 回注与增量合并）均已交付并默认开启**。105a 经真实历史回放、DeepSeek V4 Pro 3/3 与 V4 Flash 1/1 的自发采用门后开启；四者均可显式关闭回退。105c 为成本承担行为（触发修补多一次 LLM 调用）；105d 的回注块整体上限为 2000 字符。105e（估算因子分桶）经真实历史 A/B 与动态压缩门修复后**已默认开启**（显式 false 可回退两桶）。
+> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；第 105 波进行中，**105a（observation_recall 外壳）、105b（session-notes.md 状态外置）、105c（摘要实体确定性抽检）、105d（session notes 回注与增量合并）与 105f（摘要单发优先）均已交付并默认开启**。105a 经真实历史回放、DeepSeek V4 Pro 3/3 与 V4 Flash 1/1 的自发采用门后开启；各项均可显式关闭回退。105c 为成本承担行为（触发修补多一次 LLM 调用）；105d 的回注块整体上限为 2000 字符。105e（估算因子分桶）经真实历史 A/B 与动态压缩门修复后**已默认开启**（显式 false 可回退两桶）。105f 经 history-24 派生的 22K/≈26K/28K 配对模拟、400 降级和回退门后**已默认开启**（显式 false 回退 map-reduce）。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -245,9 +245,24 @@
   - **flip 判据达成**：修复后 `autocompact.e2e.js` 在 buckets-on 下 evaporate 断言恢复、14 件定向回归全绿；`runtimeEstimateBucketsV1` 默认 `true`，显式 `false` 回退两桶全绿（`estimate-buckets.e2e.js` (b) 段逐字节对拍）。
 - **回退**：删开关三处（默认值／sanitize／判定）、`classifyTextForEstimate` 与镜像／setter 及两个入口刷新行、`estimation` 规则块（JSON＋fallback 两处）、静态锁 6 条与新 e2e；重建 `server.js` 并重跑 module-graph／route-inventory／facts 生成器与 `architecture-contract-snapshots --write`。运行时回退只需显式 `runtimeEstimateBucketsV1: false`。无持久化面变更（`context-calibration.json` 形状不变），无数据迁移。
 - **发布判断**：默认开启（动态压缩门修复后通过）；显式 `false` 逐字节回退两桶。
-- **遗留**：4.1 至此收口；4.2 单发优先、4.3 跨块保真与 105 总门未动。
+- **遗留**：4.1 与 4.2 均已收口并默认开启；4.3 跨块保真与 105 总门未动。真实 provider usage 的成本／墙钟量化可在总门补测。
 
-### 4.2 小窗口单发优先
+#### 105f Release Brief · 摘要单发优先（2026-09-01）
+
+- **问题**：4.2——摘要输入预算是「窗口 × 50%」一刀切（64K 窗口只给 32K），且估算超过 32K 常量就预分块（22-S0 防超时悬崖）；小窗口下本可单发的历史被强行 map-reduce，多花 N+1 次调用与费用；单发一旦真实越窗 400 又直接失败上浮，无自动降级。
+- **非目标**：不改摘要主 prompt／五节结构／reseed 字节形状／压缩触发语义；不动 22-S0 远程超时（180s，localhost 300s）；不提供无限档；不做 4.3 refine／事实表；不改 `fitHistoryForSummary` 的保头保尾与配对语义（「完整 user 回合＋token 上限」双约束为现状，本切片不动）；105 总门未过前不默认启用。
+- **交付物**：
+  - 开关 `runtimeSummarySingleShotV1` 经 history-24 派生的 22K/≈26K/28K 配对模拟与 400 降级门后默认 `true`；显式 `false` 回退 45a／22-S0 map-reduce 现状。开关仍在默认值／严格布尔 sanitize 表／唯一判定 `summarySingleShotEnabled(config)` 三处落地（`01-config.js`）。
+  - 预算改「窗口 − reserve」（`10-context-governance.js` `providerSummaryCallCore`）：reserve = system（1200）＋摘要 prompt（`estimateTextTokens(SUMMARY_PROMPT)` 运行时估算，不抄死数字）＋预期输出（2048）＋校准误差上界（2048），分量外置 `rules.summary.singleShotReserve`（JSON＋fallback 两处，additive）；关时保持窗口 × 50%。
+  - 单发估算上限可配置：`summarySingleShotMaxTokensV1` 默认 32768，sanitize 钳位 `[8192, 131072]`；`summarySingleShotMaxOverridesV1` 覆盖表按「provider/model 精确 > provider > 引擎（style:chat/responses） > 全局」解析（`summarySingleShotCap`，每个来源都过同一钳位，坏覆盖落回默认、绝不放宽）。UI 高级页三档 16K／32K／64K 下拉＋说明（32K 的 22-S0 延迟证据 40–51s 与 64K 贴近 180s 超时线的风险），i18n 双语同步。
+  - 400 自动降级：开关开且估算 ≤ 上限时先单发；仅当失败命中 `isContextOverflowError`（HTTP 400/413/422＋上下文/长度共现语义，宁可漏判不误判）才自动降级到现有 map-reduce（分块目标同 22-S0 的 0.75×上限），`mapReduce.degradedFromSingle: true` 落元数据；超时／5xx／非超窗 400／校验失败原样上浮，调用方 L1 降级不变。失败的单发调用由 singleSummaryCall 既有 econ 账目记录（总门「额外失败调用计入成本」口径天然满足）。
+  - `dev-harness/summary-single-shot.e2e.js`（28 项）、`runtime-optimization.static.e2e.js` 8 条 105f 静态锁、`fake-openai.js` 的 `FAKE_SUMMARY_400_CHARS` 夹具（大摘要请求回 context 400，additive）。
+- **证据**：`summary-single-shot.e2e.js` 全绿 28 项——[U] 15 项锁默认开启／显式 false 回退、上限档位、覆盖优先级与钳位、reserve 确定有界（≈5477）；[A] 7 项覆盖 40K 预算、上限、400 自动降级与非超窗失败；[H-sim] 6 项从真实 `history-24` 消息内容派生 22K/≈26K/28K 高密度历史：22K 新旧均单发一次，≈26K/28K 在 48K 窗口和默认 32K 档下各单发一次，旧 50% 预算各需 map-reduce ≥3 次。该模拟保留真实文本密度但重组为受控 user blocks，不声称是原会话的真实长度。显式 false 回退与相关压缩回归全绿。
+- **回退**：运行时回退只需删 `runtimeSummarySingleShotV1`（或显式 false）——缺省即现状。彻底回退：删开关三处、两个配置键（默认值＋sanitize）、`summarySingleShotCap`／`summarySingleShotReserveTokens` 与内核降级分支、rules 两个新块（JSON＋fallback）、UI 字段与 i18n 键、静态锁 8 条与新 e2e；重建 `server.js` 并重跑生成器与 snapshots --write。无持久化面变更、无数据迁移。
+- **发布判断**：暂不启用——105 总门配对比较（当前并行 map vs 单发优先 vs refine vs refine+事实表）有净收益才 flip 默认开启；显式 `false` 回退已锁定。
+- **遗留**：4.3 跨块保真与 105 总门未动；总门需同时产出单发优先的实体保留率／调用次数／总费用／墙钟／降级成功率对照。
+
+### 4.2 小窗口单发优先（已由 105f 交付并默认开启）
 
 - 摘要预算改为 `window - reserve`；reserve 由 system、summary prompt、预期输出和校准误差上界组成。估算允许时先单发，只有可识别的上下文超窗 400 才自动降级到现有 map-reduce。
 - 最近原文尾部使用“完整 user 回合 + token 上限”双约束；配对与 user 边界不变。

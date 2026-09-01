@@ -61,6 +61,10 @@ module.exports = {
   estimateBucketsEnabled,
   setEstimateBucketsV1,
   classifyTextForEstimate,
+  // 105f: 摘要单发优先 — exposed for e2e 白盒契约(开关唯一判定点/上限解析/reserve 预算)。
+  summarySingleShotEnabled,
+  summarySingleShotCap,
+  summarySingleShotReserveTokens,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

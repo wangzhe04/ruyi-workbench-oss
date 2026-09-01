@@ -123,6 +123,17 @@ function defaultConfig() {
     // context-governance-rules.json 的 estimation 块持有。A/B 回放 + 夹具修复后默认开启;
     // 显式 false 回退两桶(行为逐字节不变)。EMA 校准回路(noteEstimateSample)不变。
     runtimeEstimateBucketsV1: true,
+    // 105f: 摘要单发优先 —— 开关开时摘要输入预算由「窗口 × 50%」改为「窗口 − reserve」(reserve =
+    // system＋摘要 prompt＋预期输出＋校准误差上界,分量在 rules 的 summary.singleShotReserve),估算 ≤
+    // 单发上限(summarySingleShotMaxTokensV1)时先单发,仅当返回可识别的上下文超窗 400 才自动降级到
+    // 现有 map-reduce。历史派生的 20–28K 配对模拟与 400 降级门通过后默认开启;
+    // 显式 false = 45a/22-S0 现状逐字节不变。
+    runtimeSummarySingleShotV1: true,
+    // 105f: 单发估算上限 —— UI 三档 16K/32K/64K(默认 32K,22-S0 实测 60K 输入 p50≈45–51s,远程摘要
+    // 超时 180s,64K 档贴近超时线);可按 provider/模型/引擎覆盖(summarySingleShotMaxOverridesV1),
+    // sanitize 钳位 [8192, 131072]。不提供无限档,不自动改远程超时。仅 runtimeSummarySingleShotV1 开时生效。
+    summarySingleShotMaxTokensV1: 32768,
+    summarySingleShotMaxOverridesV1: {},
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -502,9 +513,24 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
+  }
+  { // 105f: 单发估算上限 —— JSON number,clamp [8192, 131072],缺省 32768(与 rules singleShotCap 同界)。
+    const n = Number(config.summarySingleShotMaxTokensV1);
+    const clamped = Number.isFinite(n) ? Math.min(131072, Math.max(8192, Math.round(n))) : 32768;
+    if (clamped !== config.summarySingleShotMaxTokensV1) { config.summarySingleShotMaxTokensV1 = clamped; changed = true; }
+    // 覆盖表:{ "providerId" | "providerId/model" | "style:chat|responses" → tokens };非法键/值整条丢弃,
+    // 坏覆盖绝不静默放宽上限。
+    const rawOv = (config.summarySingleShotMaxOverridesV1 && typeof config.summarySingleShotMaxOverridesV1 === 'object' && !Array.isArray(config.summarySingleShotMaxOverridesV1)) ? config.summarySingleShotMaxOverridesV1 : {};
+    const cleanOv = {};
+    for (const [k, v] of Object.entries(rawOv)) {
+      const key = String(k || '').trim().slice(0, 160);
+      const val = Number(v);
+      if (key && Number.isFinite(val)) cleanOv[key] = Math.min(131072, Math.max(8192, Math.round(val)));
+    }
+    if (JSON.stringify(cleanOv) !== JSON.stringify(config.summarySingleShotMaxOverridesV1)) { config.summarySingleShotMaxOverridesV1 = cleanOv; changed = true; }
   }
   { // 21-E2: bounded read concurrency — JSON number, clamp 1..8.
     const n = Number(config.boundedReadConcurrencyV1);
@@ -815,6 +841,12 @@ function summaryEntityCheckEnabled(config) {
 // e2e 共用本判定;默认开启,显式 false 保证两桶行为逐字节不变(零行为变化回退)。
 function estimateBucketsEnabled(config) {
   return !!(config && config.runtimeEstimateBucketsV1 === true);
+}
+
+// 105f: 摘要单发优先生效条件 —— 单开关。摘要内核(providerSummaryCallCore)与 e2e 共用本判定;
+// 显式 false / 缺省保证 45a/22-S0 现状(窗口 × 50% 预算 + 32K 强制分块、无 400 降级)逐字节不变。
+function summarySingleShotEnabled(config) {
+  return !!(config && config.runtimeSummarySingleShotV1 === true);
 }
 
 // ============================================================================

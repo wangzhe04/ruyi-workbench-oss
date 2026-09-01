@@ -24,6 +24,8 @@
   "summary": {
     "inputBudgetRatio": 0.5,
     "singleShotMaxEstimate": 32000,
+    "singleShotReserve": { "systemTokens": 1200, "expectedOutputTokens": 2048, "calibrationMarginTokens": 2048 },
+    "singleShotCap": { "default": 32768, "min": 8192, "max": 131072 },
     "reseedTailMaxTokens": 16000,
     "minimumSections": 4,
     "statusSectionIndex": 3,
