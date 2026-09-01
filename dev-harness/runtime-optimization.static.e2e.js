@@ -25,13 +25,21 @@ ok(/estimation: \{ sampleChars: 2048, jsonStructDensity: 0\.05, codeSignalThresh
 ok(/setEstimateBucketsV1\(estimateBucketsEnabled\(config\)\)/.test(src), 'S 入口镜像刷新接线(runOpenAiTurn/runSubAgentCore;maybeAutoCompact 唯一调用点在回合内,不重复刷新)');
 // 105f: 摘要单发优先 —— 历史派生 20–28K 配对模拟与 400 降级门通过后默认开启;显式 false 回退 45a/22-S0。
 ok(/runtimeSummarySingleShotV1: true/.test(src), 'S runtimeSummarySingleShotV1 defaults true (105f 历史派生模拟门已过)');
-ok(/'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeFailureTelemetryV1'/.test(src), 'S runtimeSummarySingleShotV1 入严格布尔 sanitize 表(105e 邻接不动)');
+ok(/'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1'/.test(src), 'S runtimeSummarySingleShotV1 入严格布尔 sanitize 表(105e 邻接不动;105g 顺排其后)');
 ok(/function summarySingleShotEnabled\(config\)/.test(src), 'S summarySingleShotEnabled 唯一判定点存在');
 ok(/summarySingleShotMaxTokensV1: 32768/.test(src) && /Math\.min\(131072, Math\.max\(8192, Math\.round\(n\)\)\) : 32768/.test(src), 'S 单发上限默认 32768 且 sanitize 钳位 [8192,131072](无无限档)');
 ok(/function summarySingleShotCap\(config, provider, model\)/.test(src) && /function summarySingleShotReserveTokens\(\)/.test(src), 'S 105f 上限解析(provider/model/style 覆盖) + reserve 预算助手存在');
 ok(/singleShotReserve: \{ systemTokens: 1200, expectedOutputTokens: 2048, calibrationMarginTokens: 2048 \}/.test(src) && /singleShotCap: \{ default: 32768, min: 8192, max: 131072 \}/.test(src), 'S rules singleShotReserve/singleShotCap 块在产物 fallback 内');
 ok(/if \(sc\.ok \|\| !singleOn \|\| !isContextOverflowError\(sc\.error\)\) return sc;/.test(src), 'S 105f 仅可识别上下文超窗 400 才降级,其余失败原样上浮');
 ok(/degradedFromSingle: true/.test(src), 'S 105f 降级标记落 mapReduce 元数据(失败调用成本可归因)');
+// 105g(4.3 首项): map-reduce 全局事实表 —— 真实 history-24 配对 A/B 门(实体保留 18.8%→75.0%,调用数零增加)通过后默认开启。
+ok(/runtimeSummaryFactTableV1: true/.test(src), 'S runtimeSummaryFactTableV1 defaults true (105g 真实历史 A/B 门已过,显式 false 回退)');
+ok(/'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeFailureTelemetryV1'/.test(src), 'S runtimeSummaryFactTableV1 入严格布尔 sanitize 表(105f 邻接不动)');
+ok(/function summaryFactTableEnabled\(config\)/.test(src), 'S summaryFactTableEnabled 唯一判定点存在');
+ok(/function buildSummaryFactTableMessages\(history\)/.test(src), 'S 105g 事实表构建助手存在(复用 105c 抽取器,零 LLM 调用)');
+ok(/factTable: \{\n        maxSamples: 16,/.test(src), 'S rules factTable 块(maxSamples 16)在产物 fallback 内');
+ok(/factChunkMsg \? \[\.\.\.chunks\[ci\], factChunkMsg\] : chunks\[ci\]/.test(src), 'S 105g 分段注入守门(null 时请求体逐字节不变)');
+ok(/factTable: \{ entities: factTable\.entities \}/.test(src), 'S 105g 事实表元数据落 mapReduce.factTable');
 for (const flag of ['runtimeToolRetrievalV1', 'runtimeFailureTelemetryV1']) {
   ok(new RegExp(flag + ': false').test(src), `S ${flag} defaults false`);
   ok(new RegExp("config\\[key\\] === true").test(src), `S strict boolean normalization present (${flag})`);

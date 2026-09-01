@@ -189,6 +189,7 @@
         "spawnCmdLineLength",
         "staticBase",
         "summaryEntityCheckEnabled",
+        "summaryFactTableEnabled",
         "summarySingleShotEnabled",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
@@ -6292,6 +6293,7 @@
         "SESSION_NOTES_TITLES",
         "SUMMARY_ENTITY_PATTERNS",
         "SUMMARY_ENTITY_RULES",
+        "SUMMARY_FACT_TABLE_RULES",
         "SUMMARY_INPUT_BUDGET_RATIO",
         "SUMMARY_PROMPT",
         "SUMMARY_SINGLE_SHOT_CAP_RULE",
@@ -6304,6 +6306,7 @@
         "applySummaryEntityCheck",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
+        "buildSummaryFactTableMessages",
         "cacheContextLength",
         "cachedContextLength",
         "calibratedEstimate",
@@ -6517,6 +6520,13 @@
         {
           "provider": "01-config.js",
           "symbol": "summaryEntityCheckEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "summaryFactTableEnabled",
           "kinds": [
             "call"
           ]
@@ -10385,6 +10395,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "summaryFactTableEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "summarySingleShotEnabled",
           "kinds": [
             "read"
@@ -12304,6 +12321,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "buildSessionNotesInjectPrompt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "buildSummaryFactTableMessages",
           "kinds": [
             "read"
           ]

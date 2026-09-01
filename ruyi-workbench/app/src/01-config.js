@@ -134,6 +134,11 @@ function defaultConfig() {
     // sanitize 钳位 [8192, 131072]。不提供无限档,不自动改远程超时。仅 runtimeSummarySingleShotV1 开时生效。
     summarySingleShotMaxTokensV1: 32768,
     summarySingleShotMaxOverridesV1: {},
+    // 105g(4.3 首项): map-reduce 全局事实表 —— 开关开且真实分块(chunks>1)时,从完整历史确定性
+    // 抽取全局实体表(复用 105c 抽取器,零新增 LLM 调用),作为一条 user 消息注入每个分段摘要与
+    // 各轮汇总调用,缓解跨块约束丢失。真实 history-24 配对 A/B 门通过(实体保留 18.8%→75.0%,
+    // 调用数零增加)后默认开启;显式 false = 分段与汇总请求体逐字节回退现状。
+    runtimeSummaryFactTableV1: true,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -513,7 +518,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -847,6 +852,12 @@ function estimateBucketsEnabled(config) {
 // 显式 false / 缺省保证 45a/22-S0 现状(窗口 × 50% 预算 + 32K 强制分块、无 400 降级)逐字节不变。
 function summarySingleShotEnabled(config) {
   return !!(config && config.runtimeSummarySingleShotV1 === true);
+}
+
+// 105g(4.3 首项): map-reduce 全局事实表生效条件 —— 单开关。摘要内核(providerSummaryCallCore
+// 分块分支)与 e2e 共用本判定;显式 false / 缺省保证分段与汇总请求体逐字节不变(零注入)。
+function summaryFactTableEnabled(config) {
+  return !!(config && config.runtimeSummaryFactTableV1 === true);
 }
 
 // ============================================================================

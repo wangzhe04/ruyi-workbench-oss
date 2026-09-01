@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；第 105 波进行中，**105a（observation_recall 外壳）、105b（session-notes.md 状态外置）、105c（摘要实体确定性抽检）、105d（session notes 回注与增量合并）与 105f（摘要单发优先）均已交付并默认开启**。105a 经真实历史回放、DeepSeek V4 Pro 3/3 与 V4 Flash 1/1 的自发采用门后开启；各项均可显式关闭回退。105c 为成本承担行为（触发修补多一次 LLM 调用）；105d 的回注块整体上限为 2000 字符。105e（估算因子分桶）经真实历史 A/B 与动态压缩门修复后**已默认开启**（显式 false 可回退两桶）。105f 经 history-24 派生的 22K/≈26K/28K 配对模拟、400 降级和回退门后**已默认开启**（显式 false 回退 map-reduce）。
+> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；第 105 波进行中，**105a（observation_recall 外壳）、105b（session-notes.md 状态外置）、105c（摘要实体确定性抽检）、105d（session notes 回注与增量合并）与 105f（摘要单发优先）均已交付并默认开启**。105a 经真实历史回放、DeepSeek V4 Pro 3/3 与 V4 Flash 1/1 的自发采用门后开启；各项均可显式关闭回退。105c 为成本承担行为（触发修补多一次 LLM 调用）；105d 的回注块整体上限为 2000 字符。105e（估算因子分桶）经真实历史 A/B 与动态压缩门修复后**已默认开启**（显式 false 可回退两桶）。105f 经 history-24 派生的 22K/≈26K/28K 配对模拟、400 降级和回退门后**已默认开启**（显式 false 回退 map-reduce）。105g（4.3 首项 map-reduce 全局事实表）经真实 history-24 配对 A/B 门（实体保留率 18.8%→75.0%，+56.2pp 约 4 倍，两组均 2 分块 3 次调用、零新增 LLM 调用）后**已默认开启**（显式 false 回退，分段／汇总请求体逐字节不变）。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -262,6 +262,21 @@
 - **发布判断**：暂不启用——105 总门配对比较（当前并行 map vs 单发优先 vs refine vs refine+事实表）有净收益才 flip 默认开启；显式 `false` 回退已锁定。
 - **遗留**：4.3 跨块保真与 105 总门未动；总门需同时产出单发优先的实体保留率／调用次数／总费用／墙钟／降级成功率对照。
 
+#### 105g Release Brief · map-reduce 全局事实表（4.3 首项，2026-09-01）
+
+- **问题**：4.3——并行 map 的分段摘要互相看不到对方块内的约束与决定，跨块事实（路径／版本／日期／代号）只在所属块的分段摘要里存活，汇总时易丢失或被泛化。
+- **非目标**：不做顺序 refine／全局 user 大纲／块间重叠（4.3 后续项，由总门配对裁决）；不改摘要主 prompt／五节结构／分块边界与预算语义；不新增 LLM 调用（事实表为确定性抽取）。
+- **交付物**：
+  - 开关 `runtimeSummaryFactTableV1` 经真实历史 A/B 门后默认 `true`；显式 `false` 回退（请求体逐字节不变）。三处落地——默认值区、严格布尔 sanitize 表（顺排 `runtimeSummarySingleShotV1` 之后）、唯一判定 `summaryFactTableEnabled(config)`（`01-config.js`）。
+  - `buildSummaryFactTableMessages(history)`（`10-context-governance.js`）：复用 105c 确定性抽取器对完整历史抽全局实体（条数上限 16，`rules.summary.factTable` 块持有表头与分段／汇总两条指令文案，JSON＋fallback 两处 additive，snapshots 锁定），渲染「全局事实表」user 消息两条——分段版（本段涉及才逐字保留、未涉及不得臆造）与汇总版（仍有效逐字保留、已被后文推翻的决定不得并列保留为有效约束）；零实体／空历史双 null 降级。
+  - 注入点仅在真实分块分支（chunks>1）：每个分段调用与每轮汇总调用尾部各追加对应消息（展开新数组，不 mutate 分块）；单发路径与 chunks≤1 不注入；开关关时消息为 null，分段／汇总请求体与现状逐字节一致。`mapReduce.factTable.entities` 落元数据，供总门归因。
+  - `dev-harness/summary-fact-table.e2e.js`（29 项）、`runtime-optimization.static.e2e.js` 7 条 105g 静态锁（105f sanitize 邻接断言随新键顺排演进，105e/105f 语义不动）。
+- **证据**：新 e2e 全绿 29 项——[U] 11 项锁开关三态／严格布尔／构建有界（16 条、注入消息 <2600 字符）／空与纯填充历史双 null 降级；[A] 14 项含「块 0 独有实体（代号／版本／路径）出现在不含块 0 文本的末段请求」的跨块可见性实证、开关关时全部摘要请求零注入、单发路径与零实体历史即使开关开也不注入；[H] 4 项直接回放真实 `history-24`，验证有界实体表、真实多块 map-reduce、每个分段及汇总请求携带同一事实表、元数据实体数一致（不回显历史正文或实体）。定向回归（summary-single-shot 28 项、estimate-buckets、session-notes-inject／merge、autocompact、context-compact-v2、provider-compact、runtime-optimization.static、facts.static）与 unit 14 文件全绿；build 新鲜，module-graph／route-inventory（101 判定点零漂移）／snapshots --check 全过，facts e2eCount 255。
+- **真实模型效果门（DeepSeek V4 Flash，2026-09-01）**：取 `history-24` 前 44 条真实消息（约 12K 估算 token、16 个确定性实体），把上下文窗口固定为 18K、显式关闭 105f，形成同样 2 块／3 次调用的 map-reduce 配对。基线最终摘要逐字保留 `3/16`（18.8%）实体；开启事实表后保留 `12/16`（75.0%），提升 `+56.2pp`／4 倍，且没有新增调用。单次样本中基线／事实表墙钟约 `120.0s / 87.2s`、聚合用量约 `39,119 / 32,134` tokens；后两项受模型输出长度随机性影响，仅作观测，不据此声称稳定成本下降。此前 55 秒内“无返回”的根因是测试把多次串行摘要误套一个整组超时；逐调用诊断显示 6 个真实请求均 HTTP 200、单次 12–78 秒，未触发产品的单请求 180 秒超时。
+- **回退**：运行时回退 = 显式 `false`（分段／汇总请求体逐字节不变）；彻底回退删开关三处、`buildSummaryFactTableMessages` 与三处注入点、rules `factTable` 块（JSON＋fallback）、静态锁 7 条与新 e2e，重建 `server.js` 并重跑生成器与 snapshots --write。无持久化面变更、无数据迁移。
+- **发布判断**：**已默认开启**——真实 history-24 配对 A/B 显示跨块实体保留 18.8%→75.0%（+56.2pp，约 4 倍）且 LLM 调用数零增加，净收益明确；显式 `false` 回退已锁定。
+- **遗留**：4.3 后续项（≤4 块顺序 refine、>4 块全局 user 大纲、可选块间重叠）与 105 总门未动；实体缺口定向修补已由 105c 承担。
+
 ### 4.2 小窗口单发优先（已由 105f 交付并默认开启）
 
 - 摘要预算改为 `window - reserve`；reserve 由 system、summary prompt、预期输出和校准误差上界组成。估算允许时先单发，只有可识别的上下文超窗 400 才自动降级到现有 map-reduce。
@@ -269,7 +284,7 @@
 - 单发估算上限提供 16K／32K／64K 三档，默认 32K；可按引擎／provider／模型覆盖并钳位 `[8192, 131072]`。不提供无限档，不自动改远程超时。
 - UI 必须说明 32K 的现有延迟证据与 64K 的超时风险；配置、sanitize、提示词快照和 E2E 同步锁定。
 
-### 4.3 map-reduce 跨块保真
+### 4.3 map-reduce 跨块保真（首项已由 105g 交付并默认开启）
 
 按性价比依次验证：确定性全局事实表（优先）→ ≤4 块顺序 refine（任一步失败整条回退并行 map）→ >4 块全局 user 大纲 → 实体缺口定向修补 → 可选块间重叠。核心指标为跨块约束覆盖正确率，已被后文推翻的决定不得并列保留为有效约束。
 
@@ -299,7 +314,7 @@ ASR 是功能线，不并入第 103–107 波的已冻结范围，也不是 Pret
 
 冻结候选边界：
 
-- 复用现有 providers 注册表，以模型 `caps: ['asr']` 标能力；`asrProviderId`／`asrModel` 独立选择，主模型与 ASR 选择器不共享状态。可选 `audioBaseUrl`，本地 provider 可选 `localCommand`；没有该字段只探活、绝不拉起。
+- 复用现有 providers 注册表，以模型 `caps: ['asr']` 标能力；`asrProviderId`／`asrModel` ����选择，主模型与 ASR 选择器不共享状态。可选 `audioBaseUrl`，本地 provider 可选 `localCommand`；没有该字段只探活、绝不拉起。
 - 如意侧新增 token 级 `POST /api/audio/transcribe`，入站 raw body、出站 OpenAI-compatible `/v1/audio/transcriptions`；附件、原生工具、composer 三入口读同一选择事实源。
 - 本地 Windows 候选为 Qwen3-ASR-0.6B + OpenAI-compatible shim：只绑 `127.0.0.1`，环境变量传端口／模型目录，按需拉起、随主进程回收、模型懒加载与空闲卸载；模型与 Python 依赖不打入离线包。
 - 转写文本标注不可信来源；调用计入 `kind:'aux', note:'asr'`，本地缺 usage 时标 `estimated:true`；不做实时流式、说话人分离或内置 2GB 权重分发。

@@ -73,6 +73,14 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
         },
         repairPrompt: '你是摘要修订器。下面给出一份对话摘要,以及确定性抽检发现它遗漏的【必须原样保留】事实清单。请在保持原有五节结构(【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】)不变的前提下,把清单中的每条事实原样织入对应小节;不得删除摘要中已有的其他事实,不得改写数字、路径、版本与代号的写法。只输出修订后的完整摘要。',
       },
+      // 105g(4.3 首项): map-reduce 全局事实表注入文案与条数上限,与 context-governance-rules.json
+      // 的 summary.factTable 块逐字同构(additive)。
+      factTable: {
+        maxSamples: 16,
+        header: '【全局事实表(从完整对话确定性抽取,按最近出现排序;前后冲突以靠后为准)】',
+        chunkDirective: '以上是从完整对话确定性抽取的关键事实。本段内容若涉及表中事实,摘要必须逐字保留其写法;未被本段涉及的事实不得写进本段摘要。',
+        reduceDirective: '以上是从完整对话确定性抽取的关键事实。汇总时对仍有效的事实逐字保留;已被后文推翻的决定不得并列保留为有效约束。',
+      },
     },
     compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1 },
     // 105e: 估算分桶因子与分类阈值(JSON/代码比散文 token 密度高,拍定保守默认),由
@@ -849,6 +857,24 @@ function summarySourceText(history) {
   }
   return parts.join('\n');
 }
+// ── 105g(4.3 首项): map-reduce 全局事实表 ─────────────────────────────────────
+// 真实分块(chunks>1)时,并行的分段摘要互相看不到对方块内的约束/决定,跨块事实易丢。这里从完整
+// 历史确定性抽取全局实体表(复用 105c 抽取器,零新增 LLM 调用,条数有界),作为一条 user 消息
+// 注入每个分段与每轮汇总调用。开关关时两条消息都为 null,请求体逐字节不变。
+const SUMMARY_FACT_TABLE_RULES = CONTEXT_GOVERNANCE_RULES.summary.factTable || {};
+function buildSummaryFactTableMessages(history) {
+  const maxSamples = Number.isFinite(Number(SUMMARY_FACT_TABLE_RULES.maxSamples)) ? Number(SUMMARY_FACT_TABLE_RULES.maxSamples) : 16;
+  const entities = extractSummaryEntities(summarySourceText(history), { ...SUMMARY_ENTITY_RULES, maxSamples });
+  if (!entities.length) return { entities: 0, chunk: null, reduce: null };
+  const header = String(SUMMARY_FACT_TABLE_RULES.header || '【全局事实表】');
+  const table = header + '\n' + entities.map(v => '- ' + v).join('\n');
+  const mk = directive => ({ role: 'user', content: table + '\n' + String(directive || '') });
+  return {
+    entities: entities.length,
+    chunk: mk(SUMMARY_FACT_TABLE_RULES.chunkDirective),
+    reduce: mk(SUMMARY_FACT_TABLE_RULES.reduceDirective),
+  };
+}
 // 摘要成功出口的统一后置检查:返回要采用的 sc(原稿或修补稿)。任何内部异常都必须原样返回原稿。
 async function applySummaryEntityCheck(provider, history, sc, model, opts) {
   try {
@@ -1116,6 +1142,11 @@ async function providerSummaryCallCore(provider, history, opts) {
     if (sc.ok && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     return sc;
   }
+  // 105g: 开关开且真实分块时构建全局事实表注入消息(确定性抽取,零新增 LLM 调用);
+  // 开关关时两条消息皆 null,分段/汇总请求体与现状逐字节一致。
+  const factTable = summaryFactTableEnabled(opts && opts.config) ? buildSummaryFactTableMessages(history) : null;
+  const factChunkMsg = factTable && factTable.chunk;
+  const factReduceMsg = factTable && factTable.reduce;
   // 分段数量多时，直接拼接 partials 会再次越过摘要输入预算。逐轮把摘要按同一
   // user-block 预算分组，直到可以安全地单发总摘要；最多 12 轮，防止异常模型输出
   // 不收敛时无限调用。每轮仍复用同一个结构化 SUMMARY_PROMPT。
@@ -1127,7 +1158,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   };
   const initialCalls = [];
   for (let ci = 0; ci < chunks.length; ci++) {
-    const r = await rememberCall(chunks[ci], { ...ectxBase, chunkIndex: ci + 1 });
+    const r = await rememberCall(factChunkMsg ? [...chunks[ci], factChunkMsg] : chunks[ci], { ...ectxBase, chunkIndex: ci + 1 });
     if (!r.ok) return r;
     initialCalls.push(r);
   }
@@ -1143,7 +1174,7 @@ async function providerSummaryCallCore(provider, history, opts) {
       final = await rememberCall([{
         role: 'user',
         content: groups[0].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
-      }], ectxBase);
+      }, ...(factReduceMsg ? [factReduceMsg] : [])], ectxBase);
       break;
     }
     const next = [];
@@ -1151,7 +1182,7 @@ async function providerSummaryCallCore(provider, history, opts) {
       const r = await rememberCall([{
         role: 'user',
         content: groups[gi].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
-      }], { ...ectxBase, chunkIndex: 1000 + (round * 100) + gi + 1 });
+      }, ...(factReduceMsg ? [factReduceMsg] : [])], { ...ectxBase, chunkIndex: 1000 + (round * 100) + gi + 1 });
       if (!r.ok) return r;
       next.push(r);
     }
@@ -1172,7 +1203,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   }
   if (aggIn > 0 || aggOut > 0) final.usage = { prompt_tokens: aggIn, completion_tokens: aggOut, aggregated: true };
   final.promptTokensEst = aggEst;
-  final.mapReduce = { chunks: chunks.length, rounds: Math.max(1, calls.length - chunks.length), ...(degradedFromSingle ? { degradedFromSingle: true } : {}) };
+  final.mapReduce = { chunks: chunks.length, rounds: Math.max(1, calls.length - chunks.length), ...(degradedFromSingle ? { degradedFromSingle: true } : {}), ...(factTable && factTable.entities ? { factTable: { entities: factTable.entities } } : {}) };
   return final;
 }
 
