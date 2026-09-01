@@ -57,6 +57,10 @@ module.exports = {
   summaryEntityCheckEnabled,
   extractSummaryEntities,
   checkSummaryEntities,
+  // 105e: 估算因子分桶 — exposed for e2e 白盒契约(开关唯一判定点/镜像 setter/三桶分类器)。
+  estimateBucketsEnabled,
+  setEstimateBucketsV1,
+  classifyTextForEstimate,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

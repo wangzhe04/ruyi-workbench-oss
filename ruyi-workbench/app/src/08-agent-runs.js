@@ -427,6 +427,7 @@ async function markInterruptedAgentRuns() {
 
 async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail }) {
   const started = Date.now();
+  setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
   // 事件,workflow/node idle watchdog 会把「初始化中」误判为空闲而 abort(启动即「已中止」)。初始化期间用
   // 节流心跳刷新看门狗时钟 —— 初始化不是空闲;第一个 openAiStreamOnce 发出前停止(之后由流式 touch / 工具心跳接管)。

@@ -63,5 +63,11 @@
     "defaultThreshold": 0.8,
     "tailBudgetRatio": 0.5,
     "minimumTailTokens": 1
+  },
+  "estimation": {
+    "sampleChars": 2048,
+    "jsonStructDensity": 0.05,
+    "codeSignalThreshold": 3,
+    "factors": { "json": 2.8, "code": 3.2 }
   }
 }

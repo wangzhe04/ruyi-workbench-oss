@@ -595,6 +595,11 @@ function defaultConfig() {
     // 缺失时给出缺失清单并【恰好一次】定向修补(不无界重试)。真实历史+DeepSeek 门通过后默认开启;
     // 显式 false 可回退到零检查、零修补、零事件的旧行为。
     runtimeSummaryEntityCheckV1: true,
+    // 105e: 估算因子分桶 —— 开关开时 estimateTextTokens 先按 JSON/代码/散文分类再套桶因子
+    // (json ÷2.8、code ÷3.2、text 维持 ÷3.6;CJK 各桶恒 ÷1.5),因子与阈值由
+    // context-governance-rules.json 的 estimation 块持有。A/B 回放 + 夹具修复后默认开启;
+    // 显式 false 回退两桶(行为逐字节不变)。EMA 校准回路(noteEstimateSample)不变。
+    runtimeEstimateBucketsV1: true,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -974,7 +979,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -1282,8 +1287,15 @@ function summaryEntityCheckEnabled(config) {
   return !!(config && config.runtimeSummaryEntityCheckV1 === true);
 }
 
+// 105e: 估算因子分桶生效条件 —— 单开关。入口(runOpenAiTurn / runSubAgentCore;maybeAutoCompact
+// 唯一调用点在回合内,已被入口覆盖)把判定结果镜像进同步估算热路径(setEstimateBucketsV1),
+// e2e 共用本判定;默认开启,显式 false 保证两桶行为逐字节不变(零行为变化回退)。
+function estimateBucketsEnabled(config) {
+  return !!(config && config.runtimeEstimateBucketsV1 === true);
+}
+
 // ============================================================================
-// 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一入口】。此前四种手写变体各缺一角——
+// 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一���口】���此前四种手写变体各缺一角——
 // saveSession/writeConfigAtomic 无 rename 重试、saveAgentRun 的 tmp 名无随机、journalWriteIndex/
 // saveUserPlaybook 用固定 '.tmp' 名——全部收编到这里,一处修对处处对:
 //   ① 唯一 tmp 名(pid+随机):固定名下两个并发写者写同一临时文件、交错字节 → rename 出损坏 JSON;
@@ -20500,6 +20512,7 @@ async function markInterruptedAgentRuns() {
 
 async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail }) {
   const started = Date.now();
+  setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
   // 事件,workflow/node idle watchdog 会把「初始化中」误判为空闲而 abort(启动即「已中止」)。初始化期间用
   // 节流心跳刷新看门狗时钟 —— 初始化不是空闲;第一个 openAiStreamOnce 发出前停止(之后由流式 touch / 工具心跳接管)。
@@ -23641,6 +23654,7 @@ function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam }) {
   const turnStartedAt = Date.now();
+  setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 回合入口刷新分桶镜像(同步估算热路径用)
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
   // 流式上下文估算(电量表实时化):estStreamBase = 本次模型调用发送前的 history 估算(token,含 system+tools),
@@ -25422,11 +25436,51 @@ function fmtTokensServer(n) {
 // (CJK compat forms), U+FF00-U+FFEF (halfwidth/fullwidth forms). Covers the cjk set the spec means
 // (>0x2E80) across the common BMP; astral ideographs (rare in chat) fall through and count as ascii.
 const CJK_RE = /[\u2E80-\u9FFF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFFEF]/g;
+// 105e: 分桶开关运行时镜像 —— estimate* 是纯同步热路径(每回合多次、fitHistoryForSummary 二分内层),
+// 不能 await readConfig;由持有 config 的入口(runOpenAiTurn / runSubAgentCore)调 setEstimateBucketsV1
+// 刷新(maybeAutoCompact 唯一调用点在 runOpenAiTurn 回合内,已在入口覆盖)。config.json 进程级唯一,
+// 镜像无多配置歧义;默认 false = 两桶逐字节不变。
+let estimateBucketsV1On = false;
+function setEstimateBucketsV1(on) { estimateBucketsV1On = on === true; }
 function estimateTextTokens(str) {
   if (typeof str !== 'string' || !str) return 0;
   const cjk = (str.match(CJK_RE) || []).length;
   const ascii = str.length - cjk;
-  return ascii / 3.6 + cjk / 1.5;
+  // 105e: 开关关 = 现状两桶,同样的输入同样的输出(逐字节一致);开时先分类再套桶因子。
+  if (!estimateBucketsV1On) return ascii / 3.6 + cjk / 1.5;
+  const bucket = classifyTextForEstimate(str);
+  const divisor = bucket === 'json' ? ESTIMATION_RULES.factors.json : bucket === 'code' ? ESTIMATION_RULES.factors.code : 3.6;
+  return ascii / divisor + cjk / 1.5; // CJK 字符在所有桶中保持 ÷1.5
+}
+// 105e 三桶分类器 —— 确定性、廉价、零 LLM。采样头+尾各 ≤sampleChars 字符:
+//   trim 后 JSON.parse 成功(仅未被采样截断时)、或结构字符 {}[]":, 密度 ≥ 阈值 → json;
+//   代码信号(换行+缩进、;{}()=> 密度、关键字命中)评分 ≥ 阈值 → code;否则 text。
+// tool_calls arguments / Responses arguments·output 等结构化内容走同一入口,自然命中 json 桶。
+function classifyTextForEstimate(str) {
+  if (typeof str !== 'string' || !str) return 'text';
+  const n = ESTIMATION_RULES.sampleChars;
+  const truncated = str.length > n * 2;
+  const sample = truncated ? str.slice(0, n) + str.slice(-n) : str;
+  if (!truncated) {
+    const t = sample.trim();
+    if (t.startsWith('{') || t.startsWith('[')) {
+      try { JSON.parse(t); return 'json'; } catch { /* 截断/近 JSON 落到密度判定 */ }
+    }
+  }
+  const structHits = (sample.match(/[{}[\]":,]/g) || []).length;
+  if (structHits / sample.length >= ESTIMATION_RULES.jsonStructDensity) return 'json';
+  let score = 0;
+  const lines = sample.split('\n');
+  if (lines.length >= 3) {
+    let indented = 0;
+    for (const l of lines) if (/^(\t| {2,})\S/.test(l)) indented++;
+    if (indented / lines.length >= 0.3) score += 2; // 换行+缩进
+  }
+  const punct = (sample.match(/[;{}()=><]/g) || []).length;
+  if (punct / sample.length >= 0.03) score += 2; // ;{}()=> 密度
+  const kw = (sample.match(/\b(function|const|let|var|return|import|export|class|def|async|await|public|private|static|void|if|for|while)\b|=>/g) || []).length;
+  if (kw >= 3) score += 2; // 关键字命中
+  return score >= ESTIMATION_RULES.codeSignalThreshold ? 'code' : 'text';
 }
 // Estimate the token cost of one message's `content` (string | parts array | absent).
 function estimateContentTokens(content) {
@@ -25556,6 +25610,10 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       },
     },
     compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1 },
+    // 105e: 估算分桶因子与分类阈值(JSON/代码比散文 token 密度高,拍定保守默认),由
+    // noteEstimateSample EMA 用真实 usage 校准;样本 <3 时 estimateFactor=1 即纯静态估算。
+    // 与 context-governance-rules.json 的 estimation 块逐字同构(additive)。
+    estimation: { sampleChars: 2048, jsonStructDensity: 0.05, codeSignalThreshold: 3, factors: { json: 2.8, code: 3.2 } },
   };
   const rulesPath = path.join(__dirname, 'src', 'context-governance-rules.json');
   const loaded = fs.existsSync(rulesPath) ? require(path.join(__dirname, 'src', 'context-governance-rules.json')) : null;
@@ -25567,6 +25625,8 @@ const MODEL_CONTEXT_TABLE = CONTEXT_GOVERNANCE_RULES.modelWindows.map(row => [ro
 // 从上游 /v1/models 条目提取窗口大小:取 context_length/max_context_length/context_window/max_model_len
 // 任一为正数的第一个。none → undefined(探测无结果, 不污染缓存正数判定)。
 const CTX_LENGTH_KEYS = CONTEXT_GOVERNANCE_RULES.contextLengthKeys.slice();
+// 105e: 估算分桶规则(数据文件持有;09-workflow 的估算热路径在调用期引用,拼接产物同作用域,无 TDZ 风险)。
+const ESTIMATION_RULES = CONTEXT_GOVERNANCE_RULES.estimation;
 function extractContextLength(rawModelEntry) {
   if (!rawModelEntry || typeof rawModelEntry !== 'object') return undefined;
   for (const k of CTX_LENGTH_KEYS) {
@@ -35605,6 +35665,10 @@ module.exports = {
   summaryEntityCheckEnabled,
   extractSummaryEntities,
   checkSummaryEntities,
+  // 105e: 估算因子分桶 — exposed for e2e 白盒契约(开关唯一判定点/镜像 setter/三桶分类器)。
+  estimateBucketsEnabled,
+  setEstimateBucketsV1,
+  classifyTextForEstimate,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

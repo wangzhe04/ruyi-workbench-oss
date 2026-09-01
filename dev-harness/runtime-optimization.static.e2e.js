@@ -16,6 +16,13 @@ ok(/runtimeSessionNotesInjectV1: true/.test(src), 'S runtimeSessionNotesInjectV1
 ok(/runtimeSessionNotesMergeV1: true/.test(src), 'S runtimeSessionNotesMergeV1 defaults true after 105d real-history gate');
 ok(/'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1'/.test(src), 'S 105d 两开关入严格布尔 sanitize 表');
 ok(/function sessionNotesInjectEnabled\(config\)/.test(src) && /function sessionNotesMergeEnabled\(config\)/.test(src), 'S 105d 两开关唯一判定点存在');
+// 105e: 估算因子分桶 —— A/B 回放 + 夹具修复后默认开启；显式 false 完整回退两桶。
+ok(/runtimeEstimateBucketsV1: true/.test(src), 'S runtimeEstimateBucketsV1 defaults true (105e 动态压缩门已过,显式 false 回退)');
+ok(/'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeFailureTelemetryV1'/.test(src), 'S runtimeEstimateBucketsV1 入严格布尔 sanitize 表(105c/105d 邻接不动)');
+ok(/function estimateBucketsEnabled\(config\)/.test(src), 'S estimateBucketsEnabled 唯一判定点存在');
+ok(/function setEstimateBucketsV1\(on\)/.test(src) && /function classifyTextForEstimate\(str\)/.test(src), 'S 105e 镜像 setter + 三桶分类器存在');
+ok(/estimation: \{ sampleChars: 2048, jsonStructDensity: 0\.05, codeSignalThreshold: 3, factors: \{ json: 2\.8, code: 3\.2 \} \}/.test(src), 'S rules estimation 块(json 2.8 / code 3.2)在产物 fallback 内');
+ok(/setEstimateBucketsV1\(estimateBucketsEnabled\(config\)\)/.test(src), 'S 入口镜像刷新接线(runOpenAiTurn/runSubAgentCore;maybeAutoCompact 唯一调用点在回合内,不重复刷新)');
 for (const flag of ['runtimeToolRetrievalV1', 'runtimeFailureTelemetryV1']) {
   ok(new RegExp(flag + ': false').test(src), `S ${flag} defaults false`);
   ok(new RegExp("config\\[key\\] === true").test(src), `S strict boolean normalization present (${flag})`);

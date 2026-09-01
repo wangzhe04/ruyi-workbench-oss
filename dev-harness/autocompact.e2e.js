@@ -13,9 +13,18 @@
 // ~5× a 2400-token budget, so the very first crossing would jump straight to summary-reseed and the
 // `evaporate` mode assertion (spec 5.a) could never be satisfied — evaporation only touches tool messages
 // that precede the most-recent-2-assistant window, which requires ≥3 assistant turns to have accumulated.
-// We therefore size the window (40000, budget 32000) so all three reads accumulate first and evaporate
-// fires deterministically at the third boundary. This honors the design INTENT (exercise level-1
-// evaporation with the pairing iron law intact) over the literal number.
+// We therefore size the window so all three reads accumulate first and evaporate fires deterministically
+// at the third boundary. This honors the design INTENT (exercise level-1 evaporation with the pairing
+// iron law intact) over the literal number.
+//
+// 105e resize (40000 → 50000, budget 32000 → 40000): with runtimeEstimateBucketsV1 default-on the JSON
+// bucket (÷2.8 vs ÷3.6) raises the fixed overhead (stable system prompt + tool schemas) to ≈6.1K
+// est-tokens. Under the old 32K budget the crossing moved from the 3rd boundary to the 2nd
+// (6.1K + 2×13.3K ≈ 32.8K > 32K, old margin only ~470 tokens), where L1 has no eligible candidate
+// (nothing precedes the most-recent-2-assistant window) → straight to L2 summary → the fake re-issues
+// file_read after reseed → re-crossing → 49 consecutive summaries. At budget 40000 the 2nd boundary
+// (≈32.8K) stays under and the 3rd (≈46.1K) crosses again with ~7K margin on both sides, so L1
+// evaporation suffices (after ≈ 33K < 40K) and the turn ends cleanly. Estimator factors untouched.
 //
 // Asserts:
 //   a) stream carries a `compact` event with mode 'evaporate'
@@ -53,11 +62,11 @@ fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     id: 'fake', label: 'Fake', type: 'openai-compat',
     baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'test-key',
     model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake Model' }], reasoning: true,
-    contextWindow: 40000, // small window so three full reads cross the budget (see NOTE above)
+    contextWindow: 50000, // small window so three full reads cross the budget (see NOTE above; 105e: resized 40000→50000 for buckets-on fixed overhead)
   }],
   activeProvider: 'fake',
   autoImportClaudeCodeMcp: false,
-  autoCompactThreshold: 0.8, // budget = 32000 est-tokens
+  autoCompactThreshold: 0.8, // budget = 40000 est-tokens
   // This fixture isolates the pre-existing reducer/L1 mechanics. Recall's default-on recovery index is
   // covered by observation-recall-replay; explicitly opt out here to keep this scripted 3-read fixture
   // focused and prove the legacy-compatible fallback remains deterministic.

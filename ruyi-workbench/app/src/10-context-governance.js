@@ -72,6 +72,10 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       },
     },
     compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1 },
+    // 105e: 估算分桶因子与分类阈值(JSON/代码比散文 token 密度高,拍定保守默认),由
+    // noteEstimateSample EMA 用真实 usage 校准;样本 <3 时 estimateFactor=1 即纯静态估算。
+    // 与 context-governance-rules.json 的 estimation 块逐字同构(additive)。
+    estimation: { sampleChars: 2048, jsonStructDensity: 0.05, codeSignalThreshold: 3, factors: { json: 2.8, code: 3.2 } },
   };
   const rulesPath = path.join(__dirname, 'src', 'context-governance-rules.json');
   const loaded = fs.existsSync(rulesPath) ? require(path.join(__dirname, 'src', 'context-governance-rules.json')) : null;
@@ -83,6 +87,8 @@ const MODEL_CONTEXT_TABLE = CONTEXT_GOVERNANCE_RULES.modelWindows.map(row => [ro
 // 从上游 /v1/models 条目提取窗口大小:取 context_length/max_context_length/context_window/max_model_len
 // 任一为正数的第一个。none → undefined(探测无结果, 不污染缓存正数判定)。
 const CTX_LENGTH_KEYS = CONTEXT_GOVERNANCE_RULES.contextLengthKeys.slice();
+// 105e: 估算分桶规则(数据文件持有;09-workflow 的估算热路径在调用期引用,拼接产物同作用域,无 TDZ 风险)。
+const ESTIMATION_RULES = CONTEXT_GOVERNANCE_RULES.estimation;
 function extractContextLength(rawModelEntry) {
   if (!rawModelEntry || typeof rawModelEntry !== 'object') return undefined;
   for (const k of CTX_LENGTH_KEYS) {

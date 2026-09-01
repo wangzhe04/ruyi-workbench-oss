@@ -26,7 +26,7 @@
 |---|---|---|
 | **Escapade 发布线** | 当前源码与技术 tag 为 `v2.6.2`；`CHANGELOG.md` 已归档 `v2.6.2`（2026-08-27，固定预算上下文压缩与安全重播种），后续变更进入 Unreleased | `ruyi-workbench/package.json`、git tag `v2.6.2`、`CHANGELOG.md` |
 | **Pretender 3.0 交付线（🔁 重新立项：核心改向引擎侧）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）**；**2026-08-27 重新立项：版本核心改为引擎侧 Agent SoC 微架构迭代（[`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) 与本文「Pretender 3.0 重新立项」节），原壳层 P1–P3 成果已随 Escapade 2.x 交付，P4 默认切换保持搁置** | `docs/PRETENDER-PLAN.md` v4、`docs/PRETENDER-METRICS.md`、第99/100波记录 `docs/archive/optimization-plan/08-task-sheet-ux-audit.md` |
-| **第 103–107 波架构／上下文前序列** | **推进中**：第 103、104 波已交付（路由治理、依赖契约、39 项持久化清册、职责内聚、`CompactionPlan` 与规则／契约快照）；第 105 波逐项取证中，105a（observation_recall + reducer）已通过真实历史与 DeepSeek 自发采用门并默认开启，105b（session-notes.md 状态外置）亦经真实历史门后默认开启，105c（摘要实体确定性抽检）经真实历史＋DeepSeek 门后于 2026-09-01 flip 为默认开启（成本承担行为，显式 false 可回退），105d（session notes 回注与增量合并）经真实历史、端到端和显式回退门后**已默认开启（显式 false 可回退）**（回注总上限 2000 字符）；106 汇入 Agent SoC 证据，107 为发布批准点 | [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md) |
+| **第 103–107 波架构／上下文前序列** | **推进中**：第 103、104 波已交付（路由治理、依赖契约、39 项持久化清册、职责内聚、`CompactionPlan` 与规则／契约快照）；第 105 波逐项取证中，105a（observation_recall + reducer）已通过真实历史与 DeepSeek 自发采用门并默认开启，105b（session-notes.md 状态外置）亦经真实历史门后默认开启，105c（摘要实体确定性抽检）经真实历史＋DeepSeek 门后于 2026-09-01 flip 为默认开启（成本承担行为，显式 false 可回退），105d（session notes 回注与增量合并）经真实历史、端到端和显式回退门后**已默认开启（显式 false 可回退）**（回注总上限 2000 字符），105e（估算因子分桶）经真实历史 A/B 与动态压缩门修复后**已默认开启（显式 false 可回退）**；106 汇入 Agent SoC 证据，107 为发布批准点 | [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md) |
 | **Traveler 4.0** | 概念稿 v0.1（非承诺） | `docs/TRAVELER-CONCEPT.md` |
 
 ---
@@ -120,7 +120,7 @@
 |---|---|---|
 | **103 · 架构基座偿还（已交付 2026-08-31）** | 103a 路由 descriptor／旧新决策快照；103b 模块依赖图、`provides/requires` 与 `AgentLoopHooks` 隔离试点；103c 39 项持久化清册、durable JSON 原语与 context calibration 迁移 | 零用户可见行为；路由／鉴权可校验、无新增隐式依赖、每个私役迁移或豁免成文；已解锁 104 高触碰结构工作 |
 | **104 · 内聚与上下文结构（已交付 2026-08-31）** | 视觉管线出 04、桌面 shell 出 10、07 职责拆分；压缩职责簇 + `CompactionPlan`；规则外置；契约快照与依赖图更新 | 零行为；主路径／forced-400／子代理与提示词快照等价；为上下文实验提供单一落点，已解锁 105 |
-| **105 · 上下文行为实验** | `observation_recall`、session notes、实体校验、估算分桶、单发优先与 map-reduce 跨块保真 | 逐项受控取证；105a/105b 已通过各自门并默认开启，其余保持默认关／canary；为 #7 建立生产消费者，不通过不启用 |
+| **105 · 上下文行为实验** | `observation_recall`、session notes、实体校验、估算分桶、单发优先与 map-reduce 跨块保真 | 逐项受控取证；105a–105d 已通过各自门并默认开启，105e 已默认开启（显式 false 可回退），其余保持默认关／canary；为 #7 建立生产消费者，不通过不启用 |
 | **106 · Agent SoC 证据收敛** | #13a／13a-t、#1 Ruyi 布局、#2a、#3／#9 限定场景；#7 仅在回载与耗时证据成立后进入 | 沿用 22 号单轴、非劣、权限／配对／恢复零回归门；不以完成数量冒充收益 |
 | **107 · 出门准备与批准点** | Escapade 六类发布门 + 22 号 Release Brief；冻结默认启用、适用范围、回退和版本归属 | 形成 Pretender 3.0 发布批准材料；不自动恢复旧壳 P4／人因／默认切壳 |
 

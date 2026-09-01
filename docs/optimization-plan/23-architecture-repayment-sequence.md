@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；第 105 波进行中，**105a（observation_recall 外壳）、105b（session-notes.md 状态外置）、105c（摘要实体确定性抽检）与 105d（session notes 回注与增量合并）均已交付并默认开启**。105a 经真实历史回放、DeepSeek V4 Pro 3/3 与 V4 Flash 1/1 的自发采用门后开启；四者均可显式关闭回退。105c 为成本承担行为（触发修补多一次 LLM 调用）；105d 的回注块整体上限为 2000 字符。
+> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）与第 104 波已交付**；第 105 波进行中，**105a（observation_recall 外壳）、105b（session-notes.md 状态外置）、105c（摘要实体确定性抽检）与 105d（session notes 回注与增量合并）均已交付并默认开启**。105a 经真实历史回放、DeepSeek V4 Pro 3/3 与 V4 Flash 1/1 的自发采用门后开启；四者均可显式关闭回退。105c 为成本承担行为（触发修补多一次 LLM 调用）；105d 的回注块整体上限为 2000 字符。105e（估算因子分桶）经真实历史 A/B 与动态压缩门修复后**已默认开启**（显式 false 可回退两桶）。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -190,7 +190,7 @@
 - **证据**：`session-notes.e2e.js` 全绿；真实 `history-25.json.gz` 的决定（M2）、未完成项（abstainThreshold）与关键文件（14-m2-deterministic-nodes.md）均正确落入 notes，目标/当前状态未混入；定向 `context-compact-v2` / `autocompact` / `provider-compact` / `observation-recall` 全绿；`module-dependency-graph --check` 通过（30 模块／240 边，policy 未放宽）；`route-inventory --check` 零漂移（未加路由）；全量回归见 run-all 输出。
 - **回退**：删除开关三处、`02` notes 原语、`10` 提取/挂钩与 `14-main` 导出、新 e2e 与静态锁条目；重建 `server.js` 并重跑 module-graph/facts 生成器。已写出的 `.session-notes.md` 为纯旁车副本，无迁移、无清理义务。
 - **发布判断**：真实历史门通过后默认开启，只新增 L2 成功时的本机 notes 旁车写入；零 UI、零路由、失败不阻断回合。105a 已以独立的真实模型采用门默认开启，不依赖本项联动。
-- **遗留**：notes 回注上下文（读取侧消费者）与增量合并语义已由 105d 交付并已默认开启（见其 Brief）；摘要实体确定性抽检由 105c 交付并已默认开启；4.1 剩余项（估算因子分桶）未动。
+- **遗留**：notes 回注上下文（读取侧消费者）与增量合并语义已由 105d 交付并已默认开启（见其 Brief）；摘要实体确定性抽检由 105c 交付并已默认开启；4.1 剩余项（估算因子分桶）已由 105e 交付并默认开启（显式 false 可回退，见其 Brief）。
 
 #### 105c Release Brief · 摘要实体确定性抽检（2026-08-31）
 
@@ -210,7 +210,7 @@
 - **Responses 适配补记（2026-09-01）**：`buildResponsesInputItems()` 在转换前对输入数组做浅拷贝，并复用 `repairProviderHistoryPairing()` 补齐被截断的 `assistant.tool_calls → tool` 配对；解决 DeepSeek Responses 对历史片段返回 HTTP 400 `No tool output found for tool call ...`。只向请求视图插入合成 `function_call_output`，不修改持久化／审计历史；主回合、子代理、摘要三条 Responses 路径共用。白盒回归锁定恰好补一条、原数组不变、最终 payload 含对应 `call_id`。同一曾失败的真实截段 `history-3.json.gz#123-179`（57 条／15,815 JSON chars）复验：适配补 1 条、源数组不变、DeepSeek `deepseek-v4-flash` 48.97s 成功；首稿缺 6/10 个实体，恰好一次修补后缺失 0，总 Responses POST=2。
 - **发布判断**：默认开启；命中缺失时最多增加一次定向修补调用，显式 `false` 可完整回退旧行为。Responses 配对适配避免截段历史在抽检前被 strict provider 400 拦截。
 - **默认开启判据（已完成，2026-09-01）**：真实历史门＋fake 集成门全绿；修补路径被“恰好一次”契约与遥测锁定、无修补风暴；DeepSeek `deepseek-v4-flash` 真实 checkpoint 对话层回放完成——首稿后触发一次修补（总 POST=2），抽检 12 个实体，修补后缺失 0。默认值与静态锁已 flip 为 `true`，显式 `false` 回退测试全绿。
-- **遗留**：105a/105b 的 realhist-fixtures（gitignore 真实数据副本）在本机已被清理，`session-notes.e2e.js` 的 [H] 段与 `observation-recall-realhistory.e2e.js` 因此在本机不可跑（先于本切片存在的环境问题，与本切片无关）；本切片 [H] 段改为直读现存 checkpoints 并可显式跳过。4.1 末项（估算因子分桶）未动。
+- **遗留**：105a/105b 的 realhist-fixtures（gitignore 真实数据副本）在本机已被清理，`session-notes.e2e.js` 的 [H] 段与 `observation-recall-realhistory.e2e.js` 因此在本机不可跑（先于本切片存在的环境问题，与本切片无关）；本切片 [H] 段改为直读现存 checkpoints 并可显式跳过。4.1 末项（估算因子分桶）已由 105e 交付并默认开启（显式 false 可回退，见其 Brief）。
 
 #### 105d Release Brief · session notes 回注与增量合并（2026-09-01）
 
@@ -225,7 +225,27 @@
 - **回退**：删两开关各三处（默认值／sanitize／判定）、`buildSessionNotesInjectPrompt`／`historyStartsWithCompactionSummary`／`appendPromptToLastUserMessage`／`parseSessionNotesMarkdown`／`mergeSessionNotes`（含 `mergeSessionNotesLines`）与两个注入调用点、`maybeWriteSessionNotes` 合并分支、静态锁条目、两个新 e2e；重建 `server.js` 并重跑 module-graph／route-inventory／facts 生成器。无持久化面变更、无数据迁移（已写出的 `.session-notes.md` 仍是纯旁车副本）。
 - **发布判断**：默认开启；真实历史门、fake-provider 端到端门、显式关闭回退与 2000 字符总上限均通过。开关关闭时与 105b 现状逐字节一致（由静态锁与 e2e 锁定），无需单独触发版本升级。
 - **默认开启判据（已完成，2026-09-01）**：用户拍板取证通过；真实历史门＋fake-provider 端到端采用门全绿（默认开＋预置 notes 时请求体最后一条 user 含注入块且非持久、含摘要历史命中去重守门跳过）；默认值与静态锁已 flip 为 `true`（`runtime-optimization.static.e2e.js` 同步锁默认 true）；显式 `false` 回退测试全绿（零注入／整体重写，与 105b 现状逐字节一致）；压缩类定向回归（context-compact-v2／autocompact／provider-compact）无注入相关新红。
-- **遗留**：4.1 末项（估算因子分桶）未动；4.2／4.3 未动；可在后续 105 总门中补充回注的跨模型成本收益对比。
+- **遗留**：4.1 末项（估算因子分桶）已由 105e 交付并默认开启（显式 false 可回退，见其 Brief）；4.2／4.3 未动；可在后续 105 总门中补充回注的跨模型成本收益对比。
+
+#### 105e Release Brief · 估算因子分桶（2026-09-01）
+
+- **问题**：4.1 末项——`estimateTextTokens()` 只有 ascii ÷3.6／CJK ÷1.5 两桶拍定常数；JSON 与代码的 token 密度高于散文，压缩触发与摘要预算对结构化载荷（tool_calls arguments、Responses arguments/output）的估算系统性偏低，且无分桶手段。
+- **非目标**：不改 EMA 校准语义（`noteEstimateSample` α=0.3、n≥3 生效、clamp [0.5,3]）；不动「估算与真实 usage 分列」既有机制（usageSource 事件标记、台账 estimated 布尔、UI「约」前缀）；不改 image part 固定 1100；不改 CJK ÷1.5；不做 4.2 单发优先与 4.3 跨块保真。
+- **交付物**：
+  - 开关 `runtimeEstimateBucketsV1` 默认 `true`（初交付时默认 `false`，动态压缩门修复后 flip，见下「动态回归修复」小节）；显式 `false` 完整回退两桶现状；开关仍在默认值／严格布尔 sanitize 表／唯一判定 `estimateBucketsEnabled(config)` 三处落地（`01-config.js`）。
+  - 三桶分类器 `classifyTextForEstimate(str)`（`09-workflow.js`，紧随 `estimateTextTokens`）：确定性、廉价、零 LLM——采样头＋尾各 ≤2048 字符；trim 后 JSON.parse 成功（仅未被采样截断时）、或结构字符 `{}[]":,` 密度 ≥0.05 → `json`；代码信号（换行＋缩进、`;{}()=><` 密度、关键字命中各 +2）评分 ≥3 → `code`；否则 `text`。CJK 字符在所有桶中恒 ÷1.5。
+  - 因子外置 `context-governance-rules.json` `estimation` 块（schema 1,additive）：json ÷2.8、code ÷3.2 为拍定保守默认（JSON/代码比散文 token 密度高，校准前取值，由 `noteEstimateSample` EMA 用真实 usage 校准；样本 <3 时因子=1 即纯静态估算），采样大小与密度阈值同块持有；`10-context-governance.js` 内置 fallback 逐字同步，architecture-contract-snapshots 的 rulesSha256 锁整份 JSON。
+  - 开关送达：估算器是纯同步热路径（约 30 个调用点、fitHistoryForSummary 二分内层），不能 await readConfig，故用模块镜像 `estimateBucketsV1On` ＋ `setEstimateBucketsV1()`，由持 config 的入口（`runOpenAiTurn`／`runSubAgentCore`）每回合刷新（`maybeAutoCompact` 唯一调用点在回合内，已被入口覆盖）。开关关时 `estimateTextTokens` 早退原路径，与两桶同样的输入同样的输出（逐字节一致）；`estimateContentTokens`／`estimateHistoryTokens` 走同一入口，tool_calls arguments 等结构化内容自然命中 json 桶。
+  - `dev-harness/estimate-buckets.e2e.js`（42 项）与 `runtime-optimization.static.e2e.js` 6 条 105e 静态锁，见证据。
+- **证据**：`estimate-buckets.e2e.js` 全绿 42 项——[U] 38 项开关三态（默认 true／显式 false 回退／字符串 "true" 洗回 false，严格布尔）、关闭时两桶公式逐字节回退、JSON／代码／CJK／阈值边界与 image 不变；[H] 4 项读取项目 9 份 checkpoint（3,791 条消息），开启后三桶汇总 `604,675 → 700,872`（+15.9%），每份历史均不低于两桶基线且结构化载荷命中 json 桶。夹具不保存 provider usage，故该 A/B 只证明确定性估算行为与触发方向，不声称真实 token 误差已量化。
+- **动态回归修复（2026-09-01，初 flip 阻断 → 已修复）**：
+  - **现象**：首次 flip 试验中 buckets-on 下 `autocompact.e2e.js` 退化为每回合 49 次连续 summary、零 evaporate，触及 100 轮工具上限；动态压缩门未通过，flip 暂缓。
+  - **根因（夹具余量太薄，非估算器算错）**：①三桶把 JSON 形态的工具 schema 从 ÷3.6 提到 ÷2.8（+28.6%），固定开销（稳定 system＋工具 schema）升至 ≈6.1K，首次压缩 before=32729，越线点从第 3 边界提前到第 2 边界（旧 32K 预算余量仅 ~470 token）；②第 2 边界 L1 无合格候选（蒸发只碰最近 2 个 assistant 回合之前的 tool 消息）→ 直接 L2；③reseed 后 fake 从摘要 user 消息重新看到「请读三次 big.txt」→ 重新发起 file_read → 再越线 → 再 L2，循环放大到工具上限。
+  - **修法**：只调夹具窗口——`autocompact.e2e.js` `contextWindow: 40000 → 50000`（预算 40K），不稀释分桶因子。核算：buckets-on 固定开销 ≈6.1K，每次截断读 ≈13.3K（lorem 散文走 text 桶不变）；40K 预算下第 2 边界 ≈32.8K < 40K、第 3 边界 ≈46.1K > 40K，越线重新落在第 3 边界（两侧余量 ~7K），L1 蒸发 tool1 后 ≈33K < 40K 即足，回合干净结束。
+  - **flip 判据达成**：修复后 `autocompact.e2e.js` 在 buckets-on 下 evaporate 断言恢复、14 件定向回归全绿；`runtimeEstimateBucketsV1` 默认 `true`，显式 `false` 回退两桶全绿（`estimate-buckets.e2e.js` (b) 段逐字节对拍）。
+- **回退**：删开关三处（默认值／sanitize／判定）、`classifyTextForEstimate` 与镜像／setter 及两个入口刷新行、`estimation` 规则块（JSON＋fallback 两处）、静态锁 6 条与新 e2e；重建 `server.js` 并重跑 module-graph／route-inventory／facts 生成器与 `architecture-contract-snapshots --write`。运行时回退只需显式 `runtimeEstimateBucketsV1: false`。无持久化面变更（`context-calibration.json` 形状不变），无数据迁移。
+- **发布判断**：默认开启（动态压缩门修复后通过）；显式 `false` 逐字节回退两桶。
+- **遗留**：4.1 至此收口；4.2 单发优先、4.3 跨块保真与 105 总门未动。
 
 ### 4.2 小窗口单发优先
 

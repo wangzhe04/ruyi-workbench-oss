@@ -148,6 +148,7 @@
         "detectDesktopMcp",
         "detectKimiPath",
         "effectiveAnthropicEnv",
+        "estimateBucketsEnabled",
         "externalServerJs",
         "generateAgentNodeMcpConfig",
         "generateMcpConfig",
@@ -4530,6 +4531,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "estimateBucketsEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -4893,6 +4901,13 @@
           ]
         },
         {
+          "provider": "09-workflow.js",
+          "symbol": "setEstimateBucketsV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "10-context-governance.js",
           "symbol": "CompactionPlan",
           "kinds": [
@@ -4991,6 +5006,8 @@
         "REPLAN_TRIGGER_TYPES",
         "appendDisplayMessagesToProviderHistory",
         "applyReplanPatch",
+        "classifyTextForEstimate",
+        "estimateBucketsV1On",
         "estimateContentTokens",
         "estimateHistoryTokens",
         "estimateTextTokens",
@@ -5002,6 +5019,7 @@
         "rollbackReplanPatch",
         "runAgentWorkflow",
         "runOpenAiTurn",
+        "setEstimateBucketsV1",
         "syncProviderHistoryFromDisplay",
         "validateReplanPatch",
         "waitForAgentRunResults"
@@ -5068,6 +5086,13 @@
           "symbol": "text",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "estimateBucketsEnabled",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -6123,6 +6148,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "ESTIMATION_RULES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "evaporateHistory",
           "kinds": [
             "call"
@@ -6243,6 +6275,7 @@
         "CTX_PROBE_TTL_MS",
         "CompactionPlan",
         "ECON_AUX_FLAG_CACHE",
+        "ESTIMATION_RULES",
         "FILE_READ_HEAD",
         "FILE_READ_TAIL",
         "IMG_B64_TRIM_RE",
@@ -10193,6 +10226,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "estimateBucketsEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "generateMcpConfig",
           "kinds": [
             "call"
@@ -12153,6 +12193,13 @@
         },
         {
           "provider": "09-workflow.js",
+          "symbol": "classifyTextForEstimate",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
           "symbol": "CONTEXT_WINDOW_FALLBACK",
           "kinds": [
             "read"
@@ -12189,6 +12236,13 @@
         {
           "provider": "09-workflow.js",
           "symbol": "rollbackReplanPatch",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "setEstimateBucketsV1",
           "kinds": [
             "read"
           ]

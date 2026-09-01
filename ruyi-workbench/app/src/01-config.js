@@ -118,6 +118,11 @@ function defaultConfig() {
     // 缺失时给出缺失清单并【恰好一次】定向修补(不无界重试)。真实历史+DeepSeek 门通过后默认开启;
     // 显式 false 可回退到零检查、零修补、零事件的旧行为。
     runtimeSummaryEntityCheckV1: true,
+    // 105e: 估算因子分桶 —— 开关开时 estimateTextTokens 先按 JSON/代码/散文分类再套桶因子
+    // (json ÷2.8、code ÷3.2、text 维持 ÷3.6;CJK 各桶恒 ÷1.5),因子与阈值由
+    // context-governance-rules.json 的 estimation 块持有。A/B 回放 + 夹具修复后默认开启;
+    // 显式 false 回退两桶(行为逐字节不变)。EMA 校准回路(noteEstimateSample)不变。
+    runtimeEstimateBucketsV1: true,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -497,7 +502,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -805,8 +810,15 @@ function summaryEntityCheckEnabled(config) {
   return !!(config && config.runtimeSummaryEntityCheckV1 === true);
 }
 
+// 105e: 估算因子分桶生效条件 —— 单开关。入口(runOpenAiTurn / runSubAgentCore;maybeAutoCompact
+// 唯一调用点在回合内,已被入口覆盖)把判定结果镜像进同步估算热路径(setEstimateBucketsV1),
+// e2e 共用本判定;默认开启,显式 false 保证两桶行为逐字节不变(零行为变化回退)。
+function estimateBucketsEnabled(config) {
+  return !!(config && config.runtimeEstimateBucketsV1 === true);
+}
+
 // ============================================================================
-// 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一入口】。此前四种手写变体各缺一角——
+// 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一���口】���此前四种手写变体各缺一角——
 // saveSession/writeConfigAtomic 无 rename 重试、saveAgentRun 的 tmp 名无随机、journalWriteIndex/
 // saveUserPlaybook 用固定 '.tmp' 名——全部收编到这里,一处修对处处对:
 //   ① 唯一 tmp 名(pid+随机):固定名下两个并发写者写同一临时文件、交错字节 → rename 出损坏 JSON;
