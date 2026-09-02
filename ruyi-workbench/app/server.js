@@ -1501,7 +1501,7 @@ function execResultCacheEnabled(config) {
 }
 
 // ============================================================================
-// 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一���口】���此前四种手写变体各缺一角——
+// 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一入口】。此前四种手写变体各缺一角——
 // saveSession/writeConfigAtomic 无 rename 重试、saveAgentRun 的 tmp 名无随机、journalWriteIndex/
 // saveUserPlaybook 用固定 '.tmp' 名——全部收编到这里,一处修对处处对:
 //   ① 唯一 tmp 名(pid+随机):固定名下两个并发写者写同一临时文件、交错字节 → rename 出损坏 JSON;
@@ -2711,7 +2711,7 @@ async function serveStatic(urlPath, req) {
     const body = await fsp.readFile(full);
     // v1.0.2 返修二:静态资产此前【零缓存头】—— 浏览器可能沿用缓存的旧 app.js/styles.css,用户换了新包
     // 却仍跑旧前端,一切修复"看起来都没修"(真机反馈坐实的怀疑路径)。产品模型是 overlay 增量更新,
-    // 静态资产必须即时生效:与 index.html 一致,一律 no-store(本���回环,重取零网络成本)。
+    // 静态资产必须即时生效:与 index.html 一致,一律 no-store(本地回环,重取零网络成本)。
     return { status: 200, headers: { 'content-type': contentTypeFor(full), 'cache-control': 'no-store' }, body };
   } catch {
     return text('Not found', 404);
@@ -2747,12 +2747,12 @@ function tokenOk(req) {
 //      token-browser(浏览器须 token,loopback 须同源,与 v1.4.6-S1 纪律一致)/body-token(handler 自查 body token)。
 // 14 处 handler 内 tokenOk 自查保留作纵深(表为主、自查兜底误分类);Host 门在 HTTP handler 顶层 hostAllowed(全请求)。
 const ROUTE_AUTH = [
-  // open: 低敏读(host 门已过,无 token 需��)
+  // open: 低敏读(host 门已过,无 token 需求)
   { m: 'GET', p: '/api/status', auth: 'open' },
   { m: 'GET', p: '/api/capabilities', auth: 'open' },
   { m: 'GET', p: '/api/models', auth: 'open' },
   // 47c(S1):bootstrap 握手 —— 浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。open 级的安全性 =
-  // 顶层 host 门(rebinding 的 Host 是攻击域,直接被拒)+ 与旧 GET / 明文下发完全���等的信任面。
+  // 顶层 host 门(rebinding 的 Host 是攻击域,直接被拒)+ 与旧 GET / 明文下发完全同等的信任面。
   { m: 'POST', p: '/api/bootstrap', auth: 'open' },
   // body-token: MCP 子进程 / 跨源 loopback(handler 自查 body token,豁免 originOk)
   { m: 'POST', p: '/api/permission/request', auth: 'body-token' },
@@ -19296,8 +19296,8 @@ function toResponsesContent(content) {
 }
 // Translate a chat-shaped providerHistory into Responses `input` items (see header note).
 // 21-E3: 已执行动作的参数历史双视图 —— 纯函数(可 e2e 直测)。execution/audit view 保留完整 rawArgs
-// (session.actionAudit + providerHistory 原消息),provider model view 投影为紧�� envelope。
-// 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;��败/中断/待审批不瘦身;
+// (session.actionAudit + providerHistory 原消息),provider model view 投影为紧凑 envelope。
+// 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;失败/中断/待审批不瘦身;
 // 只加/换 arguments 字段,tool_call id/type/function.name 原样保留(pairing 铁律不破坏)。
 const ACTION_VIEW_TOOLS = new Set(['file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download', 'script_run', 'powershell_run', 'tool_invoke_edit', 'tool_invoke_exec']);
 const ACTION_VIEW_MIN_CHARS = 512;
@@ -25712,7 +25712,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 结果快照的不可逆账/变更/验收才能包含完成它的这个回合;盖章随下方 saveSession 一并落盘。
   if (session.__missionFinalizeHow) {
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
-    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败��阻断回合 */ }
+    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
@@ -30940,7 +30940,7 @@ const NETWORK_TOOL_HANDLERS = {
       const guard = await guardDownloadDest(args.dest, ctx);
       if (!guard.ok) return { ok: false, error: guard.error };
       const dest = guard.absPath;
-      // ��� 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
+      // ③ 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
       const got = await httpGetGuarded(url, { maxBytes, timeoutMs: Number(args.timeoutMs) || 30000, rejectOverMaxBytes: true });
       if (got.blocked) return { ok: false, error: got.error, blocked: got.blocked };
       if (got.failClass === 'too-big') return { ok: false, error: `文件超过大小上限（${Math.round(maxBytes / 1024 / 1024)}MB）`, contentLength: got.contentLength, hint: '增大 maxBytes 或改用其它方式下载' };

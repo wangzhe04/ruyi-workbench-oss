@@ -902,8 +902,8 @@ function toResponsesContent(content) {
 }
 // Translate a chat-shaped providerHistory into Responses `input` items (see header note).
 // 21-E3: 已执行动作的参数历史双视图 —— 纯函数(可 e2e 直测)。execution/audit view 保留完整 rawArgs
-// (session.actionAudit + providerHistory 原消息),provider model view 投影为紧�� envelope。
-// 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;��败/中断/待审批不瘦身;
+// (session.actionAudit + providerHistory 原消息),provider model view 投影为紧凑 envelope。
+// 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;失败/中断/待审批不瘦身;
 // 只加/换 arguments 字段,tool_call id/type/function.name 原样保留(pairing 铁律不破坏)。
 const ACTION_VIEW_TOOLS = new Set(['file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download', 'script_run', 'powershell_run', 'tool_invoke_edit', 'tool_invoke_exec']);
 const ACTION_VIEW_MIN_CHARS = 512;

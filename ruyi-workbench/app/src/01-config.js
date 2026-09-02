@@ -1024,7 +1024,7 @@ function execResultCacheEnabled(config) {
 }
 
 // ============================================================================
-// 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一���口】���此前四种手写变体各缺一角——
+// 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一入口】。此前四种手写变体各缺一角——
 // saveSession/writeConfigAtomic 无 rename 重试、saveAgentRun 的 tmp 名无随机、journalWriteIndex/
 // saveUserPlaybook 用固定 '.tmp' 名——全部收编到这里,一处修对处处对:
 //   ① 唯一 tmp 名(pid+随机):固定名下两个并发写者写同一临时文件、交错字节 → rename 出损坏 JSON;
@@ -2234,7 +2234,7 @@ async function serveStatic(urlPath, req) {
     const body = await fsp.readFile(full);
     // v1.0.2 返修二:静态资产此前【零缓存头】—— 浏览器可能沿用缓存的旧 app.js/styles.css,用户换了新包
     // 却仍跑旧前端,一切修复"看起来都没修"(真机反馈坐实的怀疑路径)。产品模型是 overlay 增量更新,
-    // 静态资产必须即时生效:与 index.html 一致,一律 no-store(本���回环,重取零网络成本)。
+    // 静态资产必须即时生效:与 index.html 一致,一律 no-store(本地回环,重取零网络成本)。
     return { status: 200, headers: { 'content-type': contentTypeFor(full), 'cache-control': 'no-store' }, body };
   } catch {
     return text('Not found', 404);
@@ -2270,12 +2270,12 @@ function tokenOk(req) {
 //      token-browser(浏览器须 token,loopback 须同源,与 v1.4.6-S1 纪律一致)/body-token(handler 自查 body token)。
 // 14 处 handler 内 tokenOk 自查保留作纵深(表为主、自查兜底误分类);Host 门在 HTTP handler 顶层 hostAllowed(全请求)。
 const ROUTE_AUTH = [
-  // open: 低敏读(host 门已过,无 token 需��)
+  // open: 低敏读(host 门已过,无 token 需求)
   { m: 'GET', p: '/api/status', auth: 'open' },
   { m: 'GET', p: '/api/capabilities', auth: 'open' },
   { m: 'GET', p: '/api/models', auth: 'open' },
   // 47c(S1):bootstrap 握手 —— 浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。open 级的安全性 =
-  // 顶层 host 门(rebinding 的 Host 是攻击域,直接被拒)+ 与旧 GET / 明文下发完全���等的信任面。
+  // 顶层 host 门(rebinding 的 Host 是攻击域,直接被拒)+ 与旧 GET / 明文下发完全同等的信任面。
   { m: 'POST', p: '/api/bootstrap', auth: 'open' },
   // body-token: MCP 子进程 / 跨源 loopback(handler 自查 body token,豁免 originOk)
   { m: 'POST', p: '/api/permission/request', auth: 'body-token' },

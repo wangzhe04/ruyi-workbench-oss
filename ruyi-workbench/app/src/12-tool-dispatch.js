@@ -1055,7 +1055,7 @@ const NETWORK_TOOL_HANDLERS = {
       const guard = await guardDownloadDest(args.dest, ctx);
       if (!guard.ok) return { ok: false, error: guard.error };
       const dest = guard.absPath;
-      // ��� 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
+      // ③ 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
       const got = await httpGetGuarded(url, { maxBytes, timeoutMs: Number(args.timeoutMs) || 30000, rejectOverMaxBytes: true });
       if (got.blocked) return { ok: false, error: got.error, blocked: got.blocked };
       if (got.failClass === 'too-big') return { ok: false, error: `文件超过大小上限（${Math.round(maxBytes / 1024 / 1024)}MB）`, contentLength: got.contentLength, hint: '增大 maxBytes 或改用其它方式下载' };

@@ -296,7 +296,7 @@
 
 ### 4.2 小窗口单发优先（已由 105f 交付并默认开启）
 
-- 摘要预算改为 `window - reserve`；reserve 由 system、summary prompt、预期输出和校准误差上界组成。估算允许时先单发，只有可识别的上下文超��� 400 才自动降级到现有 map-reduce。
+- 摘要预算改为 `window - reserve`；reserve 由 system、summary prompt、预期输出和校准误差上界组成。估算允许时先单发，只有可识别的上下文超窗 400 才自动降级到现有 map-reduce。
 - 最近原文尾部使用“完整 user 回合 + token 上限”双约束；配对与 user 边界不变。
 - 单发估算上限提供 16K／32K／64K 三档，默认 32K；可按引擎／provider／模型覆盖并钳位 `[8192, 131072]`。不提供无限档，不自动改远程超时。
 - UI 必须说明 32K 的现有延迟证据与 64K 的超时风险；配置、sanitize、提示词快照和 E2E 同步锁定。
@@ -390,7 +390,7 @@ ASR 是功能线，不并入第 103–107 波的已冻结范围，也不是 Pret
 
 冻结候选边界：
 
-- 复用现有 providers 注册表，以模型 `caps: ['asr']` 标能力；`asrProviderId`／`asrModel` ����选择，主模型与 ASR 选择器不共享状态。可选 `audioBaseUrl`，本地 provider 可选 `localCommand`；没有该字段只探活、绝不拉起。
+- 复用现有 providers 注册表，以模型 `caps: ['asr']` 标能力；`asrProviderId`／`asrModel` 独立选择，主模型与 ASR 选择器不共享状态。可选 `audioBaseUrl`，本地 provider 可选 `localCommand`；没有该字段只探活、绝不拉起。
 - 如意侧新增 token 级 `POST /api/audio/transcribe`，入站 raw body、出站 OpenAI-compatible `/v1/audio/transcriptions`；附件、原生工具、composer 三入口读同一选择事实源。
 - 本地 Windows 候选为 Qwen3-ASR-0.6B + OpenAI-compatible shim：只绑 `127.0.0.1`，环境变量传端口／模型目录，按需拉起、随主进程回收、模型懒加载与空闲卸载；模型与 Python 依赖不打入离线包。
 - 转写文本标注不可信来源；调用计入 `kind:'aux', note:'asr'`，本地缺 usage 时标 `estimated:true`；不做实时流式、说话人分离或内置 2GB 权重分发。
