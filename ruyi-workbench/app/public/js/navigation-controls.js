@@ -191,7 +191,7 @@ function renderModelChip() {
     : t('modelMenu.chipTitle', { engine: engineLabel(), model });
 }
 const CLAUDE_THINKING_EFFORTS_UI = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
-const PROVIDER_REASONING_EFFORTS_UI = ['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+const PROVIDER_REASONING_EFFORTS_UI = ['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 function activeProvider() {
   const id = isProviderMode() ? String(currentEngineMeta().providerId || '') : '';
   return id && id !== 'claude-cli' ? (state.config?.providers || []).find(p => p.id === id) || null : null;

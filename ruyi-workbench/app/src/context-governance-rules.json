@@ -24,8 +24,37 @@
   "summary": {
     "inputBudgetRatio": 0.5,
     "singleShotMaxEstimate": 32000,
-    "singleShotReserve": { "systemTokens": 1200, "expectedOutputTokens": 2048, "calibrationMarginTokens": 2048 },
+    "singleShotReserve": { "systemTokens": 1200, "expectedOutputTokens": 6144, "calibrationMarginTokens": 2048 },
     "singleShotCap": { "default": 32768, "min": 8192, "max": 131072 },
+    "maxConcurrent": { "default": 8, "min": 1, "max": 8 },
+    "callPolicy": {
+      "unknown": {
+        "reasoning": "omit",
+        "outputField": "omit"
+      },
+      "defaultTiers": {
+        "map": [4096, 6144],
+        "refine": [6144, 8192],
+        "reduce": [6144, 8192],
+        "single": [6144, 8192],
+        "repair": [6144, 8192]
+      },
+      "models": [
+        {
+          "match": "deepseek-v4",
+          "reasoning": {
+            "mode": "effort",
+            "supported": ["minimal", "low", "medium", "high", "xhigh", "max"],
+            "preferred": "minimal"
+          },
+          "output": {
+            "responses": "max_output_tokens",
+            "chat": "max_tokens"
+          }
+        }
+      ],
+      "promptGuidance": "输出只保留结构化事实与交接所需要点，不展开推理过程；map 每节尽量短，reduce 保留跨段事实，总体避免无关扩写。"
+    },
     "reseedTailMaxTokens": 16000,
     "minimumSections": 4,
     "statusSectionIndex": 3,

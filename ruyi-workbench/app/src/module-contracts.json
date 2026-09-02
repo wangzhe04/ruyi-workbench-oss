@@ -6394,10 +6394,15 @@
         "SESSION_NOTES_INJECT_MAX_CHARS",
         "SESSION_NOTES_SECTION_INDEXES",
         "SESSION_NOTES_TITLES",
+        "SUMMARY_CALL_CAP_CACHE",
+        "SUMMARY_CALL_POLICY_RULE",
+        "SUMMARY_EFFORT_ORDER",
         "SUMMARY_ENTITY_PATTERNS",
         "SUMMARY_ENTITY_RULES",
         "SUMMARY_FACT_TABLE_RULES",
         "SUMMARY_INPUT_BUDGET_RATIO",
+        "SUMMARY_MAX_CONCURRENT_RULE",
+        "SUMMARY_POLICY_STAGES",
         "SUMMARY_PROMPT",
         "SUMMARY_REFINE_RULES",
         "SUMMARY_SINGLE_SHOT_CAP_RULE",
@@ -6408,6 +6413,7 @@
         "agentConversationContextMeta",
         "aggregateSummaryCalls",
         "appendPromptToLastUserMessage",
+        "applySummaryCallPolicy",
         "applySummaryEntityCheck",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
@@ -6436,7 +6442,10 @@
         "isContextOverflowError",
         "lastSessionContextTokens",
         "learnedWindowCap",
+        "legacySingleSummaryCall",
         "loadContextCalibration",
+        "mapSummaryWithLimit",
+        "markSummaryCallPolicyUnsupported",
         "maybeAutoCompact",
         "maybeCompactSubHistory",
         "maybeWriteSessionNotes",
@@ -6461,13 +6470,25 @@
         "renderSessionNotesMarkdown",
         "resolveCompactionProvider",
         "resolveContextWindow",
+        "resolveSummaryCallPolicy",
         "runAgentExternalCompact",
         "runProviderCompact",
         "singleSummaryCall",
         "streamChat",
+        "summaryCallPolicyKey",
+        "summaryCallPolicyMetadata",
+        "summaryEffortFromRule",
+        "summaryMaxConcurrent",
+        "summaryModelPolicy",
+        "summaryPolicyTiers",
+        "summaryPromptWithGuidance",
+        "summaryResponseFailureDetail",
+        "summaryResponseIncomplete",
+        "summaryResponseText",
         "summarySingleShotCap",
         "summarySingleShotReserveTokens",
         "summarySourceText",
+        "summaryUnsupportedParameterFields",
         "truncateToolResult",
         "upsertCompactMarker",
         "userBlockStarts",
@@ -12563,6 +12584,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "applySummaryCallPolicy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "buildObservationRecallPrompt",
           "kinds": [
             "read"
@@ -12717,6 +12745,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "mapSummaryWithLimit",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "maybeWriteSessionNotes",
           "kinds": [
             "read"
@@ -12830,6 +12865,20 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "resolveContextWindow",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "resolveSummaryCallPolicy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "summaryMaxConcurrent",
           "kinds": [
             "read"
           ]

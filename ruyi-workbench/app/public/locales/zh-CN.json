@@ -626,6 +626,7 @@
   "provider.reasoningEffort.medium": "中",
   "provider.reasoningEffort.high": "高",
   "provider.reasoningEffort.xhigh": "极高",
+  "provider.reasoningEffort.max": "最大",
   "provider.apiStyle": "协议",
   "provider.apiStyle.chat": "Chat Completions",
   "provider.apiStyle.responses": "Responses API",

@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-02T10:31:54.374Z",
+  "provider": {
+    "id": "deepseek",
+    "model": "deepseek-v4-flash",
+    "apiStyle": "responses",
+    "contextWindow": 32000
+  },
+  "fixture": {
+    "source": "dev-harness/realhist-fixtures/checkpoints/sess_fe3de15dfc3b8354/history-24.json.gz",
+    "targets": [
+      {
+        "target": 20000,
+        "estimate": 20000
+      }
+    ],
+    "blocks": 4,
+    "syntheticConstraints": true
+  },
+  "degradationGates": {
+    "single400ToMap": "covered by summary-single-shot.e2e A4",
+    "refineFailureToMap": "covered by summary-refine.e2e A5",
+    "passed": 2,
+    "total": 2
+  },
+  "aggregates": [
+    {
+      "strategy": "map_fact",
+      "label": "当前生产 map-reduce + 全局事实表",
+      "fixtures": 1,
+      "successRate": 1,
+      "entityRetention": 0,
+      "crossBlockAccuracy": 0.25,
+      "calls": 3,
+      "wallMs": 43157,
+      "inputTokens": 29117,
+      "outputTokens": 9558,
+      "cost": 0.048233,
+      "currency": "CNY"
+    }
+  ],
+  "rows": [
+    {
+      "strategy": "map_fact",
+      "targetTokens": 20000,
+      "estimatedTokens": 20000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 43157,
+      "inputTokens": 29117,
+      "outputTokens": 9558,
+      "cost": 0.048233,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "concurrency": 4,
+        "factTable": {
+          "entities": 64
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 0,
+        "entityTotal": 6,
+        "entityRetention": 0,
+        "crossBlockCorrect": 2,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.25,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": false,
+          "date": false,
+          "latestDecisionPresent": false,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": false,
+          "completedTodoAbsent": true
+        }
+      }
+    }
+  ]
+}

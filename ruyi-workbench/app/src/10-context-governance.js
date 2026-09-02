@@ -37,12 +37,19 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       inputBudgetRatio: 0.5,
       singleShotMaxEstimate: 32000,
       // 105f: 单发优先的 reserve 分量与单发估算上限钳位,与 context-governance-rules.json 逐字同构(additive)。
-      singleShotReserve: { systemTokens: 1200, expectedOutputTokens: 2048, calibrationMarginTokens: 2048 },
+      singleShotReserve: { systemTokens: 1200, expectedOutputTokens: 6144, calibrationMarginTokens: 2048 },
       singleShotCap: { default: 32768, min: 8192, max: 131072 },
+      maxConcurrent: { default: 8, min: 1, max: 8 },
+      callPolicy: {
+        unknown: { reasoning: 'omit', outputField: 'omit' },
+        defaultTiers: { map: [4096, 6144], refine: [6144, 8192], reduce: [6144, 8192], single: [6144, 8192], repair: [6144, 8192] },
+        models: [{ match: 'deepseek-v4', reasoning: { mode: 'effort', supported: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'], preferred: 'minimal' }, output: { responses: 'max_output_tokens', chat: 'max_tokens' } }],
+        promptGuidance: '输出只保留结构化事实与交接所需要点，不展开推理过程；map 每节尽量短，reduce 保留跨段事实，总体避免无关扩写。',
+      },
       reseedTailMaxTokens: 16000,
       minimumSections: 4,
       statusSectionIndex: 3,
-      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n只输出摘要本身。',
+      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n输出只保留结构化事实与交接所需要点,不展开推理过程;map 每节尽量短,reduce 保留跨段事实,总体避免无关扩写。\n只输出摘要本身。',
       sections: [
         ['【目标】', '## Goal', 'Goal:'],
         ['【已确认的决定】', '## Decisions', 'Decisions:'],
@@ -644,7 +651,7 @@ const SUMMARY_SINGLE_SHOT_RESERVE = CONTEXT_GOVERNANCE_RULES.summary.singleShotR
 const SUMMARY_SINGLE_SHOT_CAP_RULE = CONTEXT_GOVERNANCE_RULES.summary.singleShotCap || { default: 32768, min: 8192, max: 131072 };
 function summarySingleShotReserveTokens() {
   return (Number(SUMMARY_SINGLE_SHOT_RESERVE.systemTokens) || 0)
-    + estimateTextTokens(SUMMARY_PROMPT)
+    + estimateTextTokens(summaryPromptWithGuidance())
     + (Number(SUMMARY_SINGLE_SHOT_RESERVE.expectedOutputTokens) || 0)
     + (Number(SUMMARY_SINGLE_SHOT_RESERVE.calibrationMarginTokens) || 0);
 }
@@ -665,12 +672,147 @@ function summarySingleShotCap(config, provider, model) {
   }
   return clampCap(config && config.summarySingleShotMaxTokensV1);
 }
+
+// 摘要请求策略不是用户配置:它只由版本化规则、协议和模型名决定。未知模型/自定义端点故意不发送
+// reasoning/max-output 字段,以保持 OpenAI-compatible 的最低公约数;已知能力在正常请求中被动验证,
+// 明确的参数拒绝只触发一次移除参数的兼容重试并在进程内记忆。与 provider.reasoningEffort 分离,
+// 因而不会把用户给主回合的推理档位硬套到摘要回路。
+const SUMMARY_CALL_POLICY_RULE = CONTEXT_GOVERNANCE_RULES.summary.callPolicy || {
+  unknown: { reasoning: 'omit', outputField: 'omit' },
+  defaultTiers: { map: [4096, 6144], refine: [6144, 8192], reduce: [6144, 8192], single: [6144, 8192], repair: [6144, 8192] },
+  models: [{ match: 'deepseek-v4', reasoning: { mode: 'effort', supported: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'], preferred: 'minimal' }, output: { responses: 'max_output_tokens', chat: 'max_tokens' } }],
+};
+const SUMMARY_POLICY_STAGES = new Set(['map', 'refine', 'reduce', 'single', 'repair']);
+const SUMMARY_EFFORT_ORDER = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+const SUMMARY_CALL_CAP_CACHE = new Map();
+function summaryCallPolicyKey(provider, model, apiStyle) {
+  // baseUrl is part of the capability identity (different gateways can expose different schemas), but the
+  // key deliberately contains no api key and is bounded so a malformed custom URL cannot grow the cache.
+  const base = String(provider && provider.baseUrl || '').trim().toLowerCase().slice(0, 400);
+  return [String(provider && provider.id || '').slice(0, 80), String(model || '').slice(0, 120), apiStyle === 'responses' ? 'responses' : 'chat', base].join('\u0000');
+}
+function summaryModelPolicy(model) {
+  const m = String(model || '').trim().toLowerCase();
+  const rows = Array.isArray(SUMMARY_CALL_POLICY_RULE.models) ? SUMMARY_CALL_POLICY_RULE.models : [];
+  return rows.find(row => row && String(row.match || '').trim() && m.includes(String(row.match).trim().toLowerCase())) || null;
+}
+function summaryEffortFromRule(rule) {
+  const r = rule && rule.reasoning;
+  if (!r || r.mode !== 'effort' || !Array.isArray(r.supported)) return { mode: 'omit' };
+  const supported = [...new Set(r.supported.map(v => String(v || '').trim().toLowerCase()).filter(v => SUMMARY_EFFORT_ORDER.includes(v)))];
+  if (!supported.length) return { mode: 'omit' };
+  const preferred = String(r.preferred || '').trim().toLowerCase();
+  const value = supported.includes(preferred) ? preferred : SUMMARY_EFFORT_ORDER.find(v => supported.includes(v));
+  return value ? { mode: 'effort', value } : { mode: 'omit' };
+}
+function summaryPolicyTiers(stage) {
+  const defaults = SUMMARY_CALL_POLICY_RULE.defaultTiers || {};
+  const raw = Array.isArray(defaults[stage]) ? defaults[stage] : (Array.isArray(defaults.single) ? defaults.single : [6144, 8192]);
+  const tiers = raw.map(Number).filter(v => Number.isFinite(v) && v >= 512).map(v => Math.round(v));
+  return tiers.length ? [...new Set(tiers)] : [6144, 8192];
+}
+function resolveSummaryCallPolicy(provider, model, apiStyle, stage) {
+  const normalizedStyle = apiStyle === 'responses' ? 'responses' : 'chat';
+  const normalizedStage = SUMMARY_POLICY_STAGES.has(stage) ? stage : 'single';
+  const modelRule = summaryModelPolicy(model);
+  const key = summaryCallPolicyKey(provider, model, normalizedStyle);
+  const cached = SUMMARY_CALL_CAP_CACHE.get(key) || {};
+  const reasoning = cached.reasoningUnsupported ? { mode: 'omit' } : summaryEffortFromRule(modelRule);
+  const configuredField = modelRule && modelRule.output && modelRule.output[normalizedStyle];
+  const outputField = cached.outputUnsupported ? '' : (typeof configuredField === 'string' ? configuredField : '');
+  const tiers = summaryPolicyTiers(normalizedStage);
+  return {
+    key,
+    known: !!modelRule,
+    apiStyle: normalizedStyle,
+    stage: normalizedStage,
+    reasoning,
+    output: { field: outputField, tiers, tierIndex: 0 },
+  };
+}
+function summaryCallPolicyMetadata(policy) {
+  return {
+    knownModel: !!(policy && policy.known),
+    stage: policy && policy.stage || 'single',
+    reasoning: policy && policy.reasoning && policy.reasoning.mode === 'effort' ? policy.reasoning.value : 'omit',
+    outputField: policy && policy.output && policy.output.field || 'omit',
+    outputTokens: policy && policy.output && policy.output.field ? policy.output.tiers[policy.output.tierIndex] : undefined,
+  };
+}
+function markSummaryCallPolicyUnsupported(policy, fields) {
+  if (!policy || !policy.key || !Array.isArray(fields) || !fields.length) return;
+  const hit = SUMMARY_CALL_CAP_CACHE.get(policy.key) || {};
+  if (fields.includes('reasoning')) hit.reasoningUnsupported = true;
+  if (fields.includes('output')) hit.outputUnsupported = true;
+  SUMMARY_CALL_CAP_CACHE.set(policy.key, hit);
+}
+function summaryUnsupportedParameterFields(status, detail, policy) {
+  if (!(Number(status) === 400 || Number(status) === 422) || !policy) return [];
+  const text = String(detail || '');
+  if (!text || isContextOverflowError(text)) return [];
+  const fields = [];
+  const outputField = policy.output && policy.output.field;
+  if (outputField && new RegExp(`\\b${outputField.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'i').test(text)) fields.push('output');
+  if (policy.reasoning && policy.reasoning.mode !== 'omit' && /reasoning(?:_effort)?|\beffort\b|\bthinking\b/i.test(text)) fields.push('reasoning');
+  if (fields.length) return [...new Set(fields)];
+  // Some gateways only say "unknown parameter". Remove all controls once, but never on a context error.
+  if (/(unsupported|not\s+support(?:ed)?|unknown|invalid).{0,50}(parameter|field|argument)|(?:parameter|field|argument).{0,50}(unsupported|not\s+support(?:ed)?|unknown|invalid)/i.test(text)) {
+    if (outputField) fields.push('output');
+    if (policy.reasoning && policy.reasoning.mode !== 'omit') fields.push('reasoning');
+  }
+  return [...new Set(fields)];
+}
+function applySummaryCallPolicy(body, policy) {
+  if (!body || typeof body !== 'object' || !policy) return body;
+  if (policy.reasoning && policy.reasoning.mode === 'effort' && policy.reasoning.value) {
+    if (policy.apiStyle === 'responses') body.reasoning = { effort: policy.reasoning.value };
+    else body.reasoning_effort = policy.reasoning.value;
+  }
+  const out = policy.output || {};
+  const value = out.field && Array.isArray(out.tiers) ? out.tiers[out.tierIndex] : 0;
+  if (out.field && Number.isFinite(value) && value > 0) body[out.field] = value;
+  return body;
+}
+// 并行 map-reduce 的并发上限解析(105i:36 块无上限并发会把 provider 打进排队/限流)——
+// 读 config.summaryMaxConcurrentV1,过 [min,max] 钳位,坏值落回全局默认 8。该上限对所有模型一致，
+// 仍由 fail-fast 取消保护在 provider 或单块失败时停止派发；用户未新增配置项。
+const SUMMARY_MAX_CONCURRENT_RULE = CONTEXT_GOVERNANCE_RULES.summary.maxConcurrent || { default: 8, min: 1, max: 8 };
+function summaryMaxConcurrent(config, provider, model) {
+  const rule = SUMMARY_MAX_CONCURRENT_RULE;
+  const n = Number(config && config.summaryMaxConcurrentV1);
+  const clamp = value => Math.min(Number(rule.max) || 8, Math.max(Number(rule.min) || 1, Math.round(value)));
+  if (Number.isFinite(n)) return clamp(n);
+  return Number(rule.default) || 8;
+}
+// 有界并发执行摘要类调用(仿 09-workflow 21-E2 worker-pool:poolNext 领任务、完成即补位,无批次屏障)。
+// fail-fast:任一结果 !ok 即 abort failCtrl —— worker 停止领新任务,在飞请求经 extraSignal 取消;
+// 结果按输入下标保序(失败点之后的空位为 undefined,调用方按序找首个真实失败上浮)。
+async function mapSummaryWithLimit(items, limit, fn, failCtrl) {
+  const results = new Array(items.length);
+  let poolNext = 0;
+  let failed = false;
+  const workers = Math.min(items.length, Math.max(1, limit));
+  await Promise.all(Array.from({ length: workers }, async () => {
+    while (!failed && poolNext < items.length) {
+      const i = poolNext++;
+      const r = await fn(i);
+      results[i] = r;
+      if (!r || !r.ok) { failed = true; try { failCtrl && failCtrl.abort(); } catch { /* ignore */ } }
+    }
+  }));
+  return results;
+}
 // L2 重播种保留的近期原文上限。它是绝对上限而非「保留最近 N 回合」：两回合可能只有几百
 // token，也可能夹着几十 K 的工具结果。调用点还会钳到当次压缩预算的一半，避免小窗口被尾部反撑爆。
 // 只保留完整 user 回合；若最新一整回合本身放不下，宁可交给结构化摘要，也绝不从 tool_call/tool_result
 // 组中间切开，避免把协议历史重播成孤儿。
 const COMPACT_RESEED_TAIL_MAX_TOKENS = CONTEXT_GOVERNANCE_RULES.summary.reseedTailMaxTokens;
 const SUMMARY_PROMPT = CONTEXT_GOVERNANCE_RULES.summary.prompt;
+function summaryPromptWithGuidance() {
+  const guidance = String(SUMMARY_CALL_POLICY_RULE.promptGuidance || '').trim();
+  if (!guidance || String(SUMMARY_PROMPT || '').includes(guidance)) return SUMMARY_PROMPT;
+  return SUMMARY_PROMPT + '\n' + guidance;
+}
 
 function validateStructuredSummary(summary) {
   if (!summary || typeof summary !== 'string') return false;
@@ -913,6 +1055,7 @@ async function applySummaryEntityCheck(provider, history, sc, model, opts) {
       econ: await economicsShadowEnabledCached(),
       ...teleBase,
       trigger: teleBase.trigger + '_entity_repair',
+      summaryStage: 'repair',
     };
     const rc = await singleSummaryCall(provider, repairMessages, model, ectx, String(SUMMARY_ENTITY_RULES.repairPrompt || ''));
     if (!rc || !rc.ok) { tele({ outcome: 'repair_failed', missingCount: missing.length, missingSample: missing.slice(0, 8) }); return sc; }
@@ -1022,7 +1165,7 @@ async function economicsShadowEnabledCached() { // 60s 内缓存,避免压缩路
   } catch { /* keep previous cached value */ }
   return ECON_AUX_FLAG_CACHE.on;
 }
-async function singleSummaryCall(provider, messages, model, econCtx, promptOverride) {
+async function legacySingleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal) {
   const respStyle = provider && provider.apiStyle === 'responses';
   // 105c: promptOverride 供定向修补调用替换尾部 SUMMARY_PROMPT(默认不变)。
   const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : SUMMARY_PROMPT;
@@ -1074,8 +1217,12 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
       });
     } catch { /* shadow accounting must never break compaction */ }
   };
+  // 105i: extraSignal 供并行 map-reduce 的 fail-fast 取消(兄弟块失败即中止本请求);与内部超时合并为一个信号。
+  const mergedSignal = ctrl
+    ? (extraSignal && typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function' ? AbortSignal.any([ctrl.signal, extraSignal]) : ctrl.signal)
+    : (extraSignal || undefined);
   try {
-    const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: ctrl ? ctrl.signal : undefined });
+    const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: mergedSignal });
     if (!res || !res.ok) {
       let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
       const failed = { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
@@ -1099,9 +1246,161 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
     const okRes = { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
     econDone(okRes); return okRes;
   } catch (e) {
-    const failed = { ok: false, error: (e && e.name === 'AbortError') ? `summary request timed out (${Math.round(timeoutMs / 1000)}s)` : ((e && e.message) || 'summary request failed') };
+    const cancelledBySibling = e && e.name === 'AbortError' && extraSignal && extraSignal.aborted && !(ctrl && ctrl.signal.aborted);
+    const failed = { ok: false, error: (e && e.name === 'AbortError') ? (cancelledBySibling ? 'summary request cancelled (sibling chunk failed)' : `summary request timed out (${Math.round(timeoutMs / 1000)}s)`) : ((e && e.message) || 'summary request failed') };
     econDone(failed); return failed;
   } finally { if (timer) clearTimeout(timer); }
+}
+
+// 105j: Responses/Chat 非流式响应统一解析。尤其要保留 status/incomplete_details/usage，不能把
+// reasoning-only 或命中输出上限的响应误报成普通 empty summary。
+function summaryResponseText(payload, responses) {
+  if (responses) {
+    let text = '';
+    for (const item of (Array.isArray(payload && payload.output) ? payload.output : [])) {
+      if (!item || item.type !== 'message' || !Array.isArray(item.content)) continue;
+      for (const part of item.content) {
+        if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') text += part.text;
+      }
+    }
+    return text.trim();
+  }
+  const msg = payload && payload.choices && payload.choices[0] && payload.choices[0].message;
+  if (!msg) return '';
+  if (typeof msg.content === 'string') return msg.content.trim();
+  if (Array.isArray(msg.content)) return msg.content.map(part => part && typeof part.text === 'string' ? part.text : '').join('').trim();
+  return '';
+}
+function summaryResponseIncomplete(payload, responses) {
+  const status = String(payload && payload.status || '').toLowerCase();
+  const finish = String(payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason || '').toLowerCase();
+  const reason = String(payload && payload.incomplete_details && payload.incomplete_details.reason || '').toLowerCase();
+  return (responses && status === 'incomplete') || /^(?:length|max[_-](?:output|completion)?[_-]?tokens)$/.test(finish) || /max[_-](?:output|completion)[_-]tokens|length/.test(reason);
+}
+function summaryResponseFailureDetail(payload) {
+  const e = payload && payload.error;
+  if (typeof e === 'string') return e;
+  if (e && typeof e === 'object') return String(e.message || e.code || e.type || 'provider error');
+  return '';
+}
+
+// 105j: summary call policy-aware implementation. It keeps the historical six-argument signature while all
+// callers gain the same bounded reasoning/output policy and one-shot compatibility fallback.
+async function singleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal) {
+  const respStyle = provider && provider.apiStyle === 'responses';
+  const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : summaryPromptWithGuidance();
+  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
+  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
+  const headers = { 'content-type': 'application/json' };
+  const key = String(provider.apiKey || '').trim();
+  if (key) headers.authorization = 'Bearer ' + key;
+  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
+  const stage = econCtx && SUMMARY_POLICY_STAGES.has(econCtx.summaryStage)
+    ? econCtx.summaryStage
+    : (promptOverride ? 'repair' : ((econCtx && Number(econCtx.chunkIndex) >= 1000) ? 'reduce' : ((econCtx && econCtx.chunkIndex != null) ? 'map' : 'single')));
+  const policy = resolveSummaryCallPolicy(provider, model, respStyle ? 'responses' : 'chat', stage);
+  const makeBody = () => {
+    const body = respStyle
+      ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }]), stream: false }
+      : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false };
+    applySummaryCallPolicy(body, policy);
+    const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
+    if (temp !== undefined) body.temperature = temp;
+    return body;
+  };
+  if (!chatUrl || !model || typeof fetch !== 'function') {
+    return { ok: false, error: !chatUrl ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable'), summaryPolicy: summaryCallPolicyMetadata(policy) };
+  }
+  let timeoutMs = 180000;
+  try {
+    const u = new URL(String(provider && provider.baseUrl || ''));
+    if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(u.hostname) || /ollama/i.test(String(provider && (provider.id + ' ' + provider.label) || ''))) timeoutMs = 300000;
+  } catch { /* retain remote default */ }
+  const attempts = [];
+  let compatibilityRetried = false;
+  let outputRetried = false;
+  const finish = result => {
+    const out = { ...result, summaryPolicy: { ...summaryCallPolicyMetadata(policy), retries: Math.max(0, attempts.length - 1) } };
+    if (attempts.length > 1) aggregateSummaryCalls(out, attempts);
+    return out;
+  };
+  while (true) {
+    const bodyObj = makeBody();
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+    const econT0 = Date.now();
+    const econDone = result => {
+      try {
+        if (!econCtx || econCtx.econ !== true) return;
+        const u = result && result.usage;
+        const uIn = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
+        const uOut = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+        const okRes = !!(result && result.ok);
+        const hasUsage = uIn > 0 || uOut > 0;
+        logEvent({
+          kind: 'econ_summary_call',
+          ...(econCtx.sessionId ? { sessionId: econCtx.sessionId } : {}),
+          ...(econCtx.turnSeq != null && Number(econCtx.turnSeq) > 0 ? { turnSeq: Number(econCtx.turnSeq) } : {}),
+          ...(econCtx.traceId ? { traceId: String(econCtx.traceId) } : {}),
+          ...(econCtx.subagentId ? { subagentId: String(econCtx.subagentId) } : {}),
+          trigger: String(econCtx.trigger || 'summary'),
+          model: String(model || ''), apiStyle: respStyle ? 'responses' : 'chat', ok: okRes,
+          usageSource: okRes && hasUsage ? 'provider' : 'missing', inputTokens: uIn, outputTokens: uOut,
+          ...(okRes && hasUsage && typeof cachedInputTokensFromUsage === 'function' ? { cachedInputTokens: Math.min(uIn, cachedInputTokensFromUsage(u)) } : {}),
+          ...(econCtx.chunkIndex ? { mapReduceChunk: Number(econCtx.chunkIndex) } : {}), httpMs: Date.now() - econT0,
+        });
+      } catch { /* shadow accounting must never break compaction */ }
+    };
+    const mergedSignal = ctrl
+      ? (extraSignal && typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function' ? AbortSignal.any([ctrl.signal, extraSignal]) : ctrl.signal)
+      : (extraSignal || undefined);
+    try {
+      const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: mergedSignal });
+      if (!res || !res.ok) {
+        let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
+        const detail = `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}`;
+        const failed = { ok: false, error: detail, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
+        const rejected = summaryUnsupportedParameterFields(res && res.status, detail, policy);
+        econDone(failed); attempts.push(failed);
+        if (!compatibilityRetried && rejected.length) {
+          compatibilityRetried = true;
+          markSummaryCallPolicyUnsupported(policy, rejected);
+          if (rejected.includes('reasoning')) policy.reasoning = { mode: 'omit' };
+          if (rejected.includes('output')) policy.output.field = '';
+          continue;
+        }
+        return finish(failed);
+      }
+      const payload = await res.json().catch(() => null);
+      const summary = summaryResponseText(payload, respStyle);
+      const usage = (payload && payload.usage) || null;
+      const promptTokensEst = estimateHistoryTokens(bodyObj.messages || bodyObj.input);
+      let result;
+      if (payload && String(payload.status || '').toLowerCase() === 'failed') {
+        const detail = summaryResponseFailureDetail(payload);
+        result = { ok: false, error: `provider returned failed summary${detail ? ': ' + redact(detail.slice(0, 300)) : ''}`, usage, promptTokensEst };
+      } else if (summaryResponseIncomplete(payload, respStyle)) {
+        const reason = String(payload && payload.incomplete_details && payload.incomplete_details.reason || (payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason) || 'output limit');
+        result = { ok: false, error: `provider returned an incomplete summary (${reason})`, incomplete: true, usage, promptTokensEst };
+      } else if (!summary) {
+        result = { ok: false, error: 'provider returned an empty summary', usage, promptTokensEst };
+      } else {
+        result = { ok: true, summary, usage, model, promptTokensEst };
+      }
+      econDone(result); attempts.push(result);
+      if (result.incomplete && !outputRetried && policy.output && policy.output.field && policy.output.tierIndex < policy.output.tiers.length - 1) {
+        outputRetried = true;
+        policy.output.tierIndex += 1;
+        continue;
+      }
+      return finish(result);
+    } catch (e) {
+      const cancelledBySibling = e && e.name === 'AbortError' && extraSignal && extraSignal.aborted && !(ctrl && ctrl.signal.aborted);
+      const failed = { ok: false, error: (e && e.name === 'AbortError') ? (cancelledBySibling ? 'summary request cancelled (sibling chunk failed)' : `summary request timed out (${Math.round(timeoutMs / 1000)}s)`) : ((e && e.message) || 'summary request failed') };
+      econDone(failed); attempts.push(failed); return finish(failed);
+    } finally { if (timer) clearTimeout(timer); }
+  }
 }
 
 function aggregateSummaryCalls(target, calls) {
@@ -1187,7 +1486,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const refineCalls = [];
   let refineFailure = '';
   if (refineOn) {
-    let current = await singleSummaryCall(provider, factChunkMsg ? [...chunks[0], factChunkMsg] : chunks[0], model, { ...ectxBase, chunkIndex: 1 });
+    let current = await singleSummaryCall(provider, factChunkMsg ? [...chunks[0], factChunkMsg] : chunks[0], model, { ...ectxBase, chunkIndex: 1, summaryStage: 'refine' });
     refineCalls.push(current);
     if (!current.ok) refineFailure = 'request';
     else if (!validateStructuredSummary(current.summary)) refineFailure = 'validation';
@@ -1196,7 +1495,7 @@ async function providerSummaryCallCore(provider, history, opts) {
         provider,
         buildSummaryRefineMessages(current.summary, chunks[ci], factReduceMsg),
         model,
-        { ...ectxBase, chunkIndex: ci + 1 },
+        { ...ectxBase, chunkIndex: ci + 1, summaryStage: 'refine' },
         String(SUMMARY_REFINE_RULES.prompt || SUMMARY_PROMPT),
       );
       refineCalls.push(current);
@@ -1219,17 +1518,21 @@ async function providerSummaryCallCore(provider, history, opts) {
   // user-block 预算分组，直到可以安全地单发总摘要；最多 12 轮，防止异常模型输出
   // 不收敛时无限调用。每轮仍复用同一个结构化 SUMMARY_PROMPT。
   const calls = [];
-  const rememberCall = async (messages, context) => {
-    const r = await singleSummaryCall(provider, messages, model, context);
+  // 105i: 整个 map-reduce 共用一个 fail-fast 信号 —— 任一块/组失败即取消其余在飞与未派发的请求。
+  const failCtrl = typeof AbortController === 'function' ? new AbortController() : null;
+  const summaryConcurrency = summaryMaxConcurrent(opts && opts.config, provider, model);
+  const rememberCall = async (messages, context, signal) => {
+    const r = await singleSummaryCall(provider, messages, model, context, undefined, signal);
     calls.push(r);
     return r;
   };
-  const initialCalls = [];
-  for (let ci = 0; ci < chunks.length; ci++) {
-    const r = await rememberCall(factChunkMsg ? [...chunks[ci], factChunkMsg] : chunks[ci], { ...ectxBase, chunkIndex: ci + 1 });
-    if (!r.ok) return r;
-    initialCalls.push(r);
-  }
+  // 各 chunk 输入互不依赖(事实表消息相同、互不看对方结果),有界并发发出;按块序取首个失败上浮,
+  // 保持原串行的失败语义(差异:失败时在飞请求被取消并记账,不再发出未派发的块)。
+  const initialCalls = await mapSummaryWithLimit(chunks, summaryConcurrency, (ci) =>
+    rememberCall(factChunkMsg ? [...chunks[ci], factChunkMsg] : chunks[ci], { ...ectxBase, chunkIndex: ci + 1, summaryStage: 'map' }, failCtrl && failCtrl.signal), failCtrl);
+  let firstChunkFail = null;
+  for (const r of initialCalls) if (r && !r.ok) { firstChunkFail = r; break; } // 跳过未派发空位,按块序取真实失败
+  if (firstChunkFail) return firstChunkFail;
   let partialResults = initialCalls;
   let final = null;
   for (let round = 0; round < 12 && partialResults.length > 1; round++) {
@@ -1242,18 +1545,17 @@ async function providerSummaryCallCore(provider, history, opts) {
       final = await rememberCall([{
         role: 'user',
         content: groups[0].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
-      }, ...(factReduceMsg ? [factReduceMsg] : [])], ectxBase);
+      }, ...(factReduceMsg ? [factReduceMsg] : [])], { ...ectxBase, summaryStage: 'reduce' });
       break;
     }
-    const next = [];
-    for (let gi = 0; gi < groups.length; gi++) {
-      const r = await rememberCall([{
-        role: 'user',
-        content: groups[gi].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
-      }, ...(factReduceMsg ? [factReduceMsg] : [])], { ...ectxBase, chunkIndex: 1000 + (round * 100) + gi + 1 });
-      if (!r.ok) return r;
-      next.push(r);
-    }
+    // 同一轮内各归并组互不依赖,有界并发;轮次之间仍串行(下一轮输入依赖本轮输出)。
+    const next = await mapSummaryWithLimit(groups, summaryConcurrency, (gi) => rememberCall([{
+      role: 'user',
+      content: groups[gi].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
+    }, ...(factReduceMsg ? [factReduceMsg] : [])], { ...ectxBase, chunkIndex: 1000 + (round * 100) + gi + 1, summaryStage: 'reduce' }, failCtrl && failCtrl.signal), failCtrl);
+    let firstGroupFail = null;
+    for (const r of next) if (r && !r.ok) { firstGroupFail = r; break; }
+    if (firstGroupFail) return firstGroupFail;
     partialResults = next;
   }
   if (!final && partialResults.length === 1) final = partialResults[0];
@@ -1265,6 +1567,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   final.mapReduce = {
     chunks: chunks.length,
     rounds: Math.max(1, calls.length - chunks.length),
+    concurrency: summaryConcurrency,
     ...(degradedFromSingle ? { degradedFromSingle: true } : {}),
     ...(refineFailure ? { degradedFromRefine: true, refineCalls: refineCalls.length, refineFailure } : {}),
     ...(factTable && factTable.entities ? { factTable: { entities: factTable.entities } } : {}),

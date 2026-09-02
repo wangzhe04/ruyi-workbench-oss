@@ -8,7 +8,7 @@ const root = path.join(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'js')
 const navigation = fs.readFileSync(path.join(root, 'navigation-controls.js'), 'utf8');
 const providers = fs.readFileSync(path.join(root, 'provider-settings.js'), 'utf8');
 
-assert.match(navigation, /const PROVIDER_REASONING_EFFORTS_UI = \['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'\]/);
+assert.match(navigation, /const PROVIDER_REASONING_EFFORTS_UI = \['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'\]/);
 assert.match(navigation, /async function setProviderReasoningEffort\(providerId, value\)/);
 assert.match(navigation, /const appendProviderEffort = provider => container =>/);
 assert.match(navigation, /addGroup\(p\.id,[\s\S]{0,350}appendProviderEffort\(p\)\)/);

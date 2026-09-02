@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-02T09:27:04.873Z",
+  "provider": {
+    "id": "deepseek",
+    "model": "deepseek-v4-flash",
+    "apiStyle": "responses",
+    "contextWindow": 1000000
+  },
+  "fixture": {
+    "source": "dev-harness/realhist-fixtures/generated/history-800k.json.gz",
+    "targets": [
+      {
+        "target": 500000,
+        "estimate": 500000
+      }
+    ],
+    "blocks": 4,
+    "syntheticConstraints": true
+  },
+  "degradationGates": {
+    "single400ToMap": "covered by summary-single-shot.e2e A4",
+    "refineFailureToMap": "covered by summary-refine.e2e A5",
+    "passed": 2,
+    "total": 2
+  },
+  "aggregates": [
+    {
+      "strategy": "single",
+      "label": "单发优先（超预算时按生产语义分块）",
+      "fixtures": 1,
+      "successRate": 0,
+      "entityRetention": 0,
+      "crossBlockAccuracy": 0.25,
+      "calls": 24,
+      "wallMs": 289726,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cost": null,
+      "currency": "CNY"
+    }
+  ],
+  "rows": [
+    {
+      "strategy": "single",
+      "targetTokens": 500000,
+      "estimatedTokens": 500000,
+      "ok": false,
+      "error": "provider returned an empty summary",
+      "calls": 24,
+      "wallMs": 289726,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cost": null,
+      "currency": "CNY",
+      "mapReduce": null,
+      "score": {
+        "structured": false,
+        "entityRetained": 0,
+        "entityTotal": 6,
+        "entityRetention": 0,
+        "crossBlockCorrect": 2,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.25,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": false,
+          "date": false,
+          "latestDecisionPresent": false,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": false,
+          "completedTodoAbsent": true
+        }
+      }
+    }
+  ]
+}

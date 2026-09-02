@@ -204,6 +204,19 @@ const SUMMARY_400_CHARS = Math.max(0, Number(process.env.FAKE_SUMMARY_400_CHARS 
 // 供预算化断言(摘要调用的 payload 必须 ≤ 预算,超长历史触发 map-reduce 时可见 N 个分段请求)。
 const RECORD_SUMMARY_DIR = process.env.FAKE_RECORD_SUMMARY_DIR || '';
 let summarySeq = 0;
+// 105i: FAKE_SUMMARY_DELAY_MS — 成功的非流式摘要请求延迟 N ms 应答(失败注入不等延迟);FAKE_INFLIGHT_LOG —
+// 每个非流式请求到达时往该 NDJSON 追加一行 {inFlight},e2e 据此断言 map-reduce 有界并发的在飞峰值与取消行为。
+const SUMMARY_DELAY_MS = Math.max(0, Number(process.env.FAKE_SUMMARY_DELAY_MS || 0) || 0);
+const INFLIGHT_LOG = process.env.FAKE_INFLIGHT_LOG || '';
+// 105i: FAKE_SUMMARY_FAIL_SEQ — 第 N 个(1-based,按到达序)非流式请求立即回 500,驱动 fail-fast 取消剧本。
+const SUMMARY_FAIL_SEQ = Math.max(0, Number(process.env.FAKE_SUMMARY_FAIL_SEQ || 0) || 0);
+// 105j: optional summary-parameter compatibility probes. A comma-separated list (reasoning,
+// max_output_tokens,max_tokens) rejects any non-streaming summary request carrying that field.
+const SUMMARY_REJECT_PARAMS = new Set(String(process.env.FAKE_SUMMARY_REJECT_PARAMS || '').split(',').map(v => v.trim()).filter(Boolean));
+// 105j: return finish_reason=length while the selected output cap is <= N; the workbench must advance to
+// its next bounded tier instead of retrying unboundedly. 0 (default) keeps the historical fake response.
+const SUMMARY_INCOMPLETE_UNTIL = Math.max(0, Number(process.env.FAKE_SUMMARY_INCOMPLETE_UNTIL || 0) || 0);
+let summaryInFlight = 0, summaryArriveSeq = 0;
 // 105c: FAKE_SUMMARY_SEQUENCE — JSON 字符串数组;第 N 个非流式请求(stream===false)返回第 N 条
 // (超出钳到末条)。驱动摘要实体抽检的「首稿缺实体 → 恰好一次定向修补」剧本;设置时优先于 FAKE_DRAFT_JSON。
 let SUMMARY_SEQUENCE = null, summarySeqIdx = 0;
@@ -338,6 +351,14 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: { message: "This model's maximum context length is 65536 tokens. Your request exceeded the limit.", type: 'invalid_request_error', code: 'context_length_exceeded' } }));
         return;
       }
+      if (parsed.stream === false && SUMMARY_REJECT_PARAMS.size) {
+        const sent = [...SUMMARY_REJECT_PARAMS].find(field => Object.prototype.hasOwnProperty.call(parsed, field));
+        if (sent) {
+          res.writeHead(400, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: `unsupported parameter: ${sent}`, type: 'invalid_request_error', param: sent } }));
+          return;
+        }
+      }
       const id = 'chatcmpl-fake';
       const msgs = Array.isArray(parsed.messages) ? parsed.messages : [];
       // 配对铁律仿真(第67波后):先于一切分支 —— strict provider 对孤儿 tool_call_id 一律 400。
@@ -371,13 +392,36 @@ const server = http.createServer((req, res) => {
       }
 
       if (parsed.stream === false) {
-        res.writeHead(200, { 'content-type': 'application/json' });
-        // 105c: FAKE_SUMMARY_SEQUENCE 优先 —— 按非流式请求序返回剧本条目(钳到末条)。
-        // v0.9-S2 FAKE_DRAFT_JSON: return the injected JSON string as the message content (drafter role).
-        const content = SUMMARY_SEQUENCE
-          ? SUMMARY_SEQUENCE[Math.min(summarySeqIdx++, SUMMARY_SEQUENCE.length - 1)]
-          : (DRAFT_JSON || '【目标】测试目标与关键约束\n【已确认的决定】已拍板的事项\n【未完成事项】待办与悬而未决\n【当前执行状态】已完成：无；正在进行：测试；阻塞：无；下一步：继续\n【关键文件与上下文】涉及文件与要点');
-        res.end(JSON.stringify({ id, choices: [{ message: { role: 'assistant', content }, finish_reason: 'stop' }], usage: { prompt_tokens: 11, completion_tokens: 7, total_tokens: 18 } }));
+        // 105i: 在飞计数与到达序号(记录于应答前,延迟窗口内可测出真实并发峰值)。
+        summaryInFlight++;
+        const arriveSeq = ++summaryArriveSeq;
+        if (INFLIGHT_LOG) { try { require('fs').appendFileSync(INFLIGHT_LOG, JSON.stringify({ inFlight: summaryInFlight }) + '\n'); } catch { /* ignore */ } }
+        const answer = () => {
+          summaryInFlight--;
+          try {
+            if (res.destroyed || res.writableEnded) return; // 105i: 客户端 fail-fast 取消后不再应答
+            if (SUMMARY_FAIL_SEQ && arriveSeq === SUMMARY_FAIL_SEQ) {
+              res.writeHead(500, { 'content-type': 'application/json' });
+              res.end(JSON.stringify({ error: { message: 'injected summary failure', type: 'server_error' } }));
+              return;
+            }
+          res.writeHead(200, { 'content-type': 'application/json' });
+            const selectedCap = Number(parsed.max_output_tokens || parsed.max_completion_tokens || parsed.max_tokens || 0);
+            if (SUMMARY_INCOMPLETE_UNTIL > 0 && selectedCap > 0 && selectedCap <= SUMMARY_INCOMPLETE_UNTIL) {
+              res.end(JSON.stringify({ id, choices: [{ message: { role: 'assistant', content: 'partial summary' }, finish_reason: 'length' }], usage: { prompt_tokens: 11, completion_tokens: selectedCap, total_tokens: 11 + selectedCap } }));
+              return;
+            }
+            // 105c: FAKE_SUMMARY_SEQUENCE 优先 —— 按非流式请求序返回剧本条目(钳到末条)。
+            // v0.9-S2 FAKE_DRAFT_JSON: return the injected JSON string as the message content (drafter role).
+            const content = SUMMARY_SEQUENCE
+              ? SUMMARY_SEQUENCE[Math.min(summarySeqIdx++, SUMMARY_SEQUENCE.length - 1)]
+              : (DRAFT_JSON || '【目标】测试目标与关键约束\n【已确认的决定】已拍板的事项\n【未完成事项】待办与悬而未决\n【当前执行状态】已完成：无；正在进行：测试；阻塞：无；下一步：继续\n【关键文件与上下文】涉及文件与要点');
+            res.end(JSON.stringify({ id, choices: [{ message: { role: 'assistant', content }, finish_reason: 'stop' }], usage: { prompt_tokens: 11, completion_tokens: 7, total_tokens: 18 } }));
+          } catch { /* client disconnected mid-delay */ }
+        };
+        const failNow = SUMMARY_FAIL_SEQ && arriveSeq === SUMMARY_FAIL_SEQ;
+        if (SUMMARY_DELAY_MS && !failNow) setTimeout(answer, SUMMARY_DELAY_MS);
+        else answer();
         return;
       }
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });

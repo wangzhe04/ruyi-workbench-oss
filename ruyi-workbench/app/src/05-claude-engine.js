@@ -1068,7 +1068,7 @@ const CLAUDE_ENDPOINT_PRESETS = [
 
 // Keep this allowlist shared by config normalization and request construction. Omission means "use the
 // endpoint/model default"; selected values use the OpenAI-compatible fields for their respective APIs.
-const PROVIDER_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+const PROVIDER_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 function providerReasoningEffort(provider) {
   const effort = String(provider && (provider.reasoningEffort || provider.reasoning_effort) || '').trim().toLowerCase();
   return PROVIDER_REASONING_EFFORTS.has(effort) ? effort : '';

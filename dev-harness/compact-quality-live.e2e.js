@@ -53,7 +53,9 @@ function buildHistory() {
   console.log('COMPACT QUALITY LIVE(45e 结构化摘要质量评测,真实 API)');
   const cfg = JSON.parse(fs.readFileSync(path.join(REAL_HOME, 'config.json'), 'utf8'));
   // 优先激活 provider;用户主用 claude 引擎时(activeProvider 为空)回落到任一可用的 OpenAI 兼容 provider。
-  const provider = (cfg.providers || []).find(p => p.id === cfg.activeProvider)
+  const requestedProvider = String(process.env.COMPACT_QUALITY_PROVIDER || '').trim();
+  const provider = (requestedProvider ? (cfg.providers || []).find(p => p.id === requestedProvider) : null)
+    || (cfg.providers || []).find(p => p.id === cfg.activeProvider)
     || (cfg.providers || []).find(p => p.baseUrl && (p.apiKey || (p.models && p.models.length)));
   if (!provider) { console.log('SKIP: 未配置激活 provider'); return; }
   console.log('provider:', provider.id, '| model:', provider.model || (provider.models && provider.models[0] && provider.models[0].id));

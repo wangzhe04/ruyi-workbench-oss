@@ -631,6 +631,7 @@
   "provider.reasoningEffort.medium": "Medium",
   "provider.reasoningEffort.high": "High",
   "provider.reasoningEffort.xhigh": "Extra high",
+  "provider.reasoningEffort.max": "Maximum",
   "provider.apiStyle": "Protocol",
   "provider.apiStyle.chat": "Chat Completions",
   "provider.apiStyle.responses": "Responses API",

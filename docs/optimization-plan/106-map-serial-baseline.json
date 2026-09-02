@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-02T08:08:09.881Z",
+  "provider": {
+    "id": "deepseek",
+    "model": "deepseek-v4-flash",
+    "apiStyle": "responses",
+    "contextWindow": 32000
+  },
+  "fixture": {
+    "source": "../../../../Documents/Claude Code/ruyi-workbench-oss/dev-harness/realhist-fixtures/checkpoints/sess_fe3de15dfc3b8354/history-24.json.gz",
+    "targets": [
+      {
+        "target": 28000,
+        "estimate": 28000
+      }
+    ],
+    "blocks": 4,
+    "syntheticConstraints": true
+  },
+  "degradationGates": {
+    "single400ToMap": "covered by summary-single-shot.e2e A4",
+    "refineFailureToMap": "covered by summary-refine.e2e A5",
+    "passed": 2,
+    "total": 2
+  },
+  "aggregates": [
+    {
+      "strategy": "map",
+      "label": "现有 map-reduce（无事实表隔离基线）",
+      "fixtures": 1,
+      "successRate": 1,
+      "entityRetention": 0.6666666666666666,
+      "crossBlockAccuracy": 0.625,
+      "calls": 3,
+      "wallMs": 147438,
+      "inputTokens": 37674,
+      "outputTokens": 19155,
+      "cost": 0.075984,
+      "currency": "CNY"
+    }
+  ],
+  "rows": [
+    {
+      "strategy": "map",
+      "targetTokens": 28000,
+      "estimatedTokens": 28000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 147438,
+      "inputTokens": 37674,
+      "outputTokens": 19155,
+      "cost": 0.075984,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 4,
+        "entityTotal": 6,
+        "entityRetention": 0.6666666666666666,
+        "crossBlockCorrect": 5,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.625,
+        "checks": {
+          "codename": true,
+          "path": false,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": false,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": false,
+          "completedTodoAbsent": true
+        }
+      }
+    }
+  ]
+}

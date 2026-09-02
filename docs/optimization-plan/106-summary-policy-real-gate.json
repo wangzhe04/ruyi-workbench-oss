@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-02T10:29:19.202Z",
+  "provider": {
+    "id": "deepseek",
+    "model": "deepseek-v4-flash",
+    "apiStyle": "responses",
+    "contextWindow": 32000
+  },
+  "fixture": {
+    "source": "dev-harness/realhist-fixtures/checkpoints/sess_fe3de15dfc3b8354/history-24.json.gz",
+    "targets": [
+      {
+        "target": 20000,
+        "estimate": 20000
+      },
+      {
+        "target": 24000,
+        "estimate": 24000
+      },
+      {
+        "target": 28000,
+        "estimate": 28000
+      }
+    ],
+    "blocks": 4,
+    "syntheticConstraints": true
+  },
+  "degradationGates": {
+    "single400ToMap": "covered by summary-single-shot.e2e A4",
+    "refineFailureToMap": "covered by summary-refine.e2e A5",
+    "passed": 2,
+    "total": 2
+  },
+  "aggregates": [
+    {
+      "strategy": "map_fact",
+      "label": "当前生产 map-reduce + 全局事实表",
+      "fixtures": 3,
+      "successRate": 1,
+      "entityRetention": 0.611111111111111,
+      "crossBlockAccuracy": 0.5833333333333334,
+      "calls": 9,
+      "wallMs": 104497,
+      "inputTokens": 97112,
+      "outputTokens": 20789,
+      "cost": 0.13869,
+      "currency": "CNY"
+    }
+  ],
+  "rows": [
+    {
+      "strategy": "map_fact",
+      "targetTokens": 20000,
+      "estimatedTokens": 20000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 46488,
+      "inputTokens": 29791,
+      "outputTokens": 9501,
+      "cost": 0.048793,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "concurrency": 4,
+        "factTable": {
+          "entities": 64
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 4,
+        "entityTotal": 6,
+        "entityRetention": 0.6666666666666666,
+        "crossBlockCorrect": 5,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.625,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": false,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "map_fact",
+      "targetTokens": 24000,
+      "estimatedTokens": 24000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 24909,
+      "inputTokens": 30563,
+      "outputTokens": 4208,
+      "cost": 0.038979,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "concurrency": 4,
+        "factTable": {
+          "entities": 64
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 4,
+        "entityTotal": 6,
+        "entityRetention": 0.6666666666666666,
+        "crossBlockCorrect": 5,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.625,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": true,
+          "date": true,
+          "latestDecisionPresent": true,
+          "staleDecisionAbsent": false,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": true
+        }
+      }
+    },
+    {
+      "strategy": "map_fact",
+      "targetTokens": 28000,
+      "estimatedTokens": 28000,
+      "ok": true,
+      "error": "",
+      "calls": 3,
+      "wallMs": 33100,
+      "inputTokens": 36758,
+      "outputTokens": 7080,
+      "cost": 0.050918,
+      "currency": "CNY",
+      "mapReduce": {
+        "chunks": 2,
+        "rounds": 1,
+        "concurrency": 4,
+        "factTable": {
+          "entities": 64
+        }
+      },
+      "score": {
+        "structured": true,
+        "entityRetained": 3,
+        "entityTotal": 6,
+        "entityRetention": 0.5,
+        "crossBlockCorrect": 4,
+        "crossBlockTotal": 8,
+        "crossBlockAccuracy": 0.5,
+        "checks": {
+          "codename": false,
+          "path": false,
+          "version": false,
+          "date": true,
+          "latestDecisionPresent": false,
+          "staleDecisionAbsent": true,
+          "latestTodoPresent": true,
+          "completedTodoAbsent": true
+        }
+      }
+    }
+  ]
+}

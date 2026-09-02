@@ -96,7 +96,7 @@ function historyNearTokensFromFixture(file, target, blocks) {
   ok(srv.summarySingleShotCap({ summarySingleShotMaxOverridesV1: { 'style:responses': 65536 } }, { id: 'r', baseUrl: 'http://x', apiStyle: 'responses' }, 'm') === 65536, 'U7d responses 引擎覆盖独立于 chat');
   ok(srv.summarySingleShotCap({ summarySingleShotMaxOverridesV1: { 'f-prov': 1 } }, prov, 'other-m') === 8192, 'U7e 覆盖值同样过钳位(坏覆盖不放宽)');
   const r1 = srv.summarySingleShotReserveTokens();
-  ok(r1 === srv.summarySingleShotReserveTokens() && r1 >= 5000 && r1 <= 9000,
+  ok(r1 === srv.summarySingleShotReserveTokens() && r1 >= 5000 && r1 <= 11000,
     'U8 reserve = system+prompt+输出+校准余量,确定且有界(' + r1 + ')');
 
   // ═══ [A] 摘要内核行为(fake-openai) ═══
