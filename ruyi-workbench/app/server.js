@@ -650,11 +650,22 @@ function defaultConfig() {
     // 追加不重写。默认关,E4 §7.3 shadow 计量 + 质量非劣验收后才谈 flip;显式 false/缺省 =
     // 请求体与现状逐字节一致。
     runtimeVolatileTailLayoutV1: false,
-    // 106 #1 G2: tools schema 冻结+只追加(21-E4 §7.2)—— 会话首个回合冻结 schema 顺序,之后
+    // 106 #1 G2: tools schema 冻结+只追加(21-E4 §7.2)—— DeepSeek v4-pro Responses 真实 A/B
+    // cached-input 提升约 23.9pp、质量 4/4，故默认开；显式 false 仍回退现状。会话首个回合冻结 schema 顺序,之后
     // tool_load/pack 重分类引入的新工具只追加尾部,既有条目不因分类变化重排或移除(探针 S5:
     // tools 计入缓存前缀,中间插入全前缀命中归零、尾部追加保留 ~77%)。catalog 缺失(MCP 离线/
-    // 撤权)时保留名义位置、记 cache break 原因。默认关;显式 false/缺省 = catalog 序过滤现状。
-    runtimeAppendOnlyToolSchemasV1: false,
+    // 撤权)时保留名义位置、记 cache break 原因。显式 false = catalog 序过滤现状。
+    runtimeAppendOnlyToolSchemasV1: true,
+    // 106 #2a: 受限执行结果缓存(22 号文 §6.1)—— 白名单(首批仅 file_read)只读结果的按会话缓存:
+    // 身份 = 工具+规范化参数+解析后绝对路径;资源版本 = mtimeMs+size(读取前后双 stat 夹逼,
+    // 命中时重新 stat 比对,不一致即 miss+失效;外部写入/删除/重建/重命名由此覆盖)。权限守卫
+    // 在缓存查找之前先跑,命中仍重新验权。命中结果带 cacheHit 诚实标记(不冒称重新执行);
+    // 错误/中断/读写竞态结果不缓存。4×2MB 文件、12 次真实重复读取的 DeepSeek v4-flash
+    // A/B 中命中 8 次、工具阶段耗时约 311ms→112ms、12/12 正确，故默认开；显式 false
+    // 仍回退现状。
+    runtimeExecResultCacheV1: true,
+    // #2a: 每会话缓存条数上限(LRU 淘汰),钳位 [0,2000];0 = 不缓存(开关双门的第二道)。
+    execResultCacheMaxEntriesV1: 200,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -1034,7 +1045,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -1078,6 +1089,11 @@ function normalizeConfig(raw) {
     const b = Number(config.toolByteBudgetShadowBytesV1);
     const bc = Number.isFinite(b) ? (b <= 0 ? 0 : Math.min(104857600, Math.round(b))) : 0;
     if (bc !== config.toolByteBudgetShadowBytesV1) { config.toolByteBudgetShadowBytesV1 = bc; changed = true; }
+  }
+  { // 106 #2a: 执行结果缓存每会话条数上限 —— 0 = 不缓存;钳位 [0, 2000],坏值落回默认 200。
+    const n = Number(config.execResultCacheMaxEntriesV1);
+    const nc = Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(2000, Math.round(n))) : 200;
+    if (nc !== config.execResultCacheMaxEntriesV1) { config.execResultCacheMaxEntriesV1 = nc; changed = true; }
   }
   { // 21-E2: bounded read concurrency — JSON number, clamp 1..8.
     const n = Number(config.boundedReadConcurrencyV1);
@@ -1472,6 +1488,16 @@ function volatileTailLayoutEnabled(config) {
 }
 function appendOnlyToolSchemasEnabled(config) {
   return !!(config && config.runtimeAppendOnlyToolSchemasV1 === true);
+}
+
+// 106 #2a: 受限执行结果缓存的唯一判定(12-tool-dispatch 的 file_read 缓存层共用)。
+// 双门:开关严格 true 且条数上限 > 0;显式 false / 缺省 / 上限 0 = 零缓存路径。
+function execResultCacheMaxEntries(config) {
+  const n = Number(config && config.execResultCacheMaxEntriesV1);
+  return Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(2000, Math.round(n))) : 200;
+}
+function execResultCacheEnabled(config) {
+  return !!(config && config.runtimeExecResultCacheV1 === true) && execResultCacheMaxEntries(config) > 0;
 }
 
 // ============================================================================
@@ -30182,6 +30208,113 @@ const CORE_TOOL_HANDLERS = {
   } },
 };
 
+// ── 106 #2a: 受限执行结果缓存(22 号文 §6.1)─────────────────────────────────
+// 首批白名单仅 file_read(资源版本可 stat 验证的本地只读)。身份 = 工具 + 规范化参数 + 解析后
+// 绝对路径;版本 = mtimeMs+size(与 verifyManifest 快路径同一令牌口径)。读取前后双 stat 夹逼防
+// 读写竞态;命中时重新 stat 比对版本,不一致即失效重读 —— 外部写入/删除/重建/重命名由此覆盖,
+// 不依赖如意写工具监听。权限守卫(guardFileToolPath)在缓存查找之前执行,命中即重新验权。
+// 不缓存错误/中断/竞态结果;命中结果带 cacheHit 诚实标记,不冒称重新执行。开关关 = 零额外
+// stat、零事件、结果与现状逐字节一致。
+const EXEC_CACHE_WHITELIST = new Set(['file_read']);
+const EXEC_CACHE_MAX_SESSIONS = 20;
+const EXEC_CACHE_ENTRY_MAX_BYTES = 512 * 1024;
+const execResultCacheBySession = new Map(); // sessionId -> Map(cacheKey -> { version, result, cachedAt, bytes })
+
+// key 用 handler 实际消费的原始参数值(宁多分段也不少分段:行为相同而 key 不同只是多一次 miss,
+// 行为不同而 key 相同会出错)。annotate 按 handler 的布尔口径归一;encoding 按缺省归一。
+function execCacheKeyFileRead(p, args) {
+  return 'file_read\0' + p + '\0' + JSON.stringify({
+    e: args.encoding || 'utf8',
+    o: args.offset === undefined ? null : args.offset,
+    l: args.limit === undefined ? null : args.limit,
+    lo: args.lineOffset === undefined ? null : args.lineOffset,
+    ll: args.lineLimit === undefined ? null : args.lineLimit,
+    a: args.annotate_non_ascii === true || args.annotate_non_ascii === 'true',
+  });
+}
+function execCacheVersionOf(st) { return st ? { mtimeMs: st.mtimeMs, size: st.size } : null; }
+function execCacheSameVersion(a, b) { return !!a && !!b && a.mtimeMs === b.mtimeMs && a.size === b.size; }
+function execCacheSessionMap(sessionId, create) {
+  let m = execResultCacheBySession.get(sessionId);
+  if (!m) {
+    if (!create) return null;
+    m = new Map();
+    execResultCacheBySession.set(sessionId, m);
+    while (execResultCacheBySession.size > EXEC_CACHE_MAX_SESSIONS) {
+      execResultCacheBySession.delete(execResultCacheBySession.keys().next().value);
+    }
+  } else { // LRU 触碰
+    execResultCacheBySession.delete(sessionId);
+    execResultCacheBySession.set(sessionId, m);
+  }
+  return m;
+}
+// 开关/白名单/会话三重门;返回 null = 走原始路径(零开销)。
+function execCacheContext(name, args, ctx, resolvedPath) {
+  if (!EXEC_CACHE_WHITELIST.has(name)) return null;
+  const config = ctx && ctx.config;
+  if (!execResultCacheEnabled(config)) return null;
+  const sessionId = ctx && ctx.sessionId;
+  if (!sessionId) return null;
+  return {
+    tool: name, sessionId, path: resolvedPath,
+    key: name === 'file_read' ? execCacheKeyFileRead(resolvedPath, args) : null,
+    maxEntries: execResultCacheMaxEntries(config),
+    statBefore: null,
+    signal: ctx && ctx.signal,
+  };
+}
+// 查找:重新 stat 验版本。返回命中结果(带 cacheHit 标记)或 null;冷/失效/消失都落事件,
+// miss 时顺手把 stat 结果留在 ctx.statBefore 供 store 夹逼复用。
+async function execCacheLookup(c) {
+  const t0 = Date.now();
+  let st = null;
+  try { st = await fsp.stat(c.path); } catch { st = null; }
+  const version = execCacheVersionOf(st);
+  const sess = execCacheSessionMap(c.sessionId, false);
+  const entry = sess && sess.get(c.key);
+  if (!entry) {
+    c.statBefore = version;
+    logEvent({ kind: 'exec_result_cache', outcome: 'miss', reason: 'cold', tool: c.tool, sessionId: c.sessionId, lookupMs: Date.now() - t0 });
+    return null;
+  }
+  if (!execCacheSameVersion(version, entry.version)) {
+    sess.delete(c.key);
+    c.statBefore = version;
+    logEvent({ kind: 'exec_result_cache', outcome: 'miss', reason: st ? 'stale' : 'gone', tool: c.tool, sessionId: c.sessionId, lookupMs: Date.now() - t0 });
+    return null;
+  }
+  sess.delete(c.key); sess.set(c.key, entry); // LRU 触碰
+  logEvent({ kind: 'exec_result_cache', outcome: 'hit', tool: c.tool, sessionId: c.sessionId, bytes: entry.bytes, ageMs: Date.now() - entry.cachedAt, lookupMs: Date.now() - t0 });
+  return { ...entry.result, cacheHit: { cachedAt: entry.cachedAt, ageMs: Date.now() - entry.cachedAt } };
+}
+// 存储:只收 ok:true;读后 stat 与读前 stat 不一致 = 读取窗口内有外部写入,弃存(竞态不缓存);
+// 读前 stat 缺失(查找时文件不存在)而读后有 = 文件在窗口内新建,以读后版本存(内容即是该版本)。
+async function execCacheStore(c, result) {
+  if (!result || result.ok !== true) return;
+  if (c.signal && c.signal.aborted) return; // 中断结果不缓存(22 §6.1)
+  let st = null;
+  try { st = await fsp.stat(c.path); } catch { st = null; }
+  const statAfter = execCacheVersionOf(st);
+  if (c.statBefore && !execCacheSameVersion(c.statBefore, statAfter)) {
+    logEvent({ kind: 'exec_result_cache', outcome: 'skip', reason: 'race', tool: c.tool, sessionId: c.sessionId });
+    return;
+  }
+  if (!statAfter) {
+    logEvent({ kind: 'exec_result_cache', outcome: 'skip', reason: 'gone', tool: c.tool, sessionId: c.sessionId });
+    return;
+  }
+  const bytes = Buffer.byteLength(typeof result.content === 'string' ? result.content : JSON.stringify(result));
+  if (bytes > EXEC_CACHE_ENTRY_MAX_BYTES) {
+    logEvent({ kind: 'exec_result_cache', outcome: 'skip', reason: 'oversize', tool: c.tool, sessionId: c.sessionId, bytes });
+    return;
+  }
+  const sess = execCacheSessionMap(c.sessionId, true);
+  while (sess.size >= c.maxEntries && sess.size > 0) sess.delete(sess.keys().next().value);
+  sess.set(c.key, { version: statAfter, result, cachedAt: Date.now(), bytes });
+  logEvent({ kind: 'exec_result_cache', outcome: 'store', tool: c.tool, sessionId: c.sessionId, bytes });
+}
+
 const FILE_TOOL_HANDLERS = {
   file_read: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
@@ -30189,6 +30322,13 @@ const FILE_TOOL_HANDLERS = {
       // v0.8-S1: image/binary suffixes are refused — the model should route these to the vision channel.
       if (isBinaryReadPath(p)) {
         return { ok: false, error: 'binary or image file', hint: '图片请作为附件走视觉通道(v0.9)或用 desktop_screenshot 相关工具' };
+      }
+      // 106 #2a: 权限守卫之后、读盘之前的缓存查找 —— 命中即返回(带 cacheHit 标记),未命中
+      // 走原路径并在成功结果上存储。cctx 为 null(开关关/非白名单/无会话)时零额外开销。
+      const cctx = execCacheContext('file_read', args, ctx, p);
+      if (cctx) {
+        const hit = await execCacheLookup(cctx);
+        if (hit) return hit;
       }
       const encoding = args.encoding || 'utf8';
       // v0.8-S7 error guidance: a missing file is the most common failure — return a structured hint
@@ -30220,14 +30360,18 @@ const FILE_TOOL_HANDLERS = {
         const slice = startIdx >= totalLines ? [] : lines.slice(startIdx, startIdx + lineLimit);
         const width = String(startIdx + slice.length).length;
         const content = slice.map((t, k) => String(startIdx + k + 1).padStart(width, ' ') + '\t' + t).join('\n');
-        return { ok: true, path: p, mode: 'lines', content: finalContent(content), size, totalLines, lineOffset, lineLimit, truncated: lineOffset - 1 + slice.length < totalLines,
+        const result = { ok: true, path: p, mode: 'lines', content: finalContent(content), size, totalLines, lineOffset, lineLimit, truncated: lineOffset - 1 + slice.length < totalLines,
           sourceLineEnding, contentLineEnding: 'lf', ...nonAsciiField };
+        if (cctx) await execCacheStore(cctx, result);
+        return result;
       }
       const start = Math.max(0, Number(args.offset != null ? args.offset : 0));
       const limit = args.limit != null ? Math.max(0, Number(args.limit) || 0) : 100000;
       const content = raw.slice(start, start + limit);
-      return { ok: true, path: p, content: finalContent(content), size, totalChars: raw.length, truncated: start + limit < raw.length,
+      const result = { ok: true, path: p, content: finalContent(content), size, totalChars: raw.length, truncated: start + limit < raw.length,
         sourceLineEnding, contentLineEnding: detectTextLineEnding(content), ...nonAsciiField };
+      if (cctx) await execCacheStore(cctx, result);
+      return result;
   } },
   file_write: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
@@ -36200,6 +36344,8 @@ module.exports = {
   // 106 #1 G1/G2: 前缀缓存布局开关 — exposed for e2e 白盒契约(开关唯一判定点)。
   volatileTailLayoutEnabled,
   appendOnlyToolSchemasEnabled,
+  execResultCacheEnabled,
+  execResultCacheMaxEntries,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

@@ -154,6 +154,8 @@
         "detectKimiPath",
         "effectiveAnthropicEnv",
         "estimateBucketsEnabled",
+        "execResultCacheEnabled",
+        "execResultCacheMaxEntries",
         "externalServerJs",
         "generateAgentNodeMcpConfig",
         "generateMcpConfig",
@@ -7163,6 +7165,9 @@
       "provides": [
         "ARCHIVE_TOOL_HANDLERS",
         "CORE_TOOL_HANDLERS",
+        "EXEC_CACHE_ENTRY_MAX_BYTES",
+        "EXEC_CACHE_MAX_SESSIONS",
+        "EXEC_CACHE_WHITELIST",
         "FILE_TOOL_HANDLERS",
         "OBSERVATION_RECALL_MAX_CHARS",
         "OBSERVATION_RECALL_QUOTA",
@@ -7173,6 +7178,14 @@
         "buildNonAsciiReport",
         "defaultTextLineEnding",
         "detectTextLineEnding",
+        "execCacheContext",
+        "execCacheKeyFileRead",
+        "execCacheLookup",
+        "execCacheSameVersion",
+        "execCacheSessionMap",
+        "execCacheStore",
+        "execCacheVersionOf",
+        "execResultCacheBySession",
         "hasTextLineBreak",
         "invokeAdaptiveMcpTool",
         "isUtf8Encoding",
@@ -7276,6 +7289,20 @@
         {
           "provider": "01-config.js",
           "symbol": "defaultConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "execResultCacheEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "execResultCacheMaxEntries",
           "kinds": [
             "call"
           ]
@@ -10409,6 +10436,20 @@
         {
           "provider": "01-config.js",
           "symbol": "estimateBucketsEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "execResultCacheEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "execResultCacheMaxEntries",
           "kinds": [
             "read"
           ]

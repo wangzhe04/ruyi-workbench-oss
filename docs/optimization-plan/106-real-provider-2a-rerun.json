@@ -1,0 +1,478 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-02T03:02:28.873Z",
+  "provider": {
+    "id": "deepseek",
+    "model": "deepseek-v4-flash",
+    "apiStyle": "responses",
+    "baseUrl": "https://api.deepseek.com"
+  },
+  "fixture": {
+    "salt": "106-real-mtjifot0-35508",
+    "scenarios": 3,
+    "note": "unique per-run marker; text/key omitted"
+  },
+  "comparisons": [
+    {
+      "kind": "#2a",
+      "comparable": true,
+      "baseline": "#2a-off",
+      "candidate": "#2a-on",
+      "baselineOk": 3,
+      "candidateOk": 3,
+      "baselineCachedRatio": 0.8119085375211008,
+      "candidateCachedRatio": 0.9535365947315875,
+      "cachedRatioDeltaPp": 14.162805721048667,
+      "inputDelta": -0.0008951864545501049,
+      "outputDelta": -0.06068601583113457,
+      "costDelta": -0.6259283310163167,
+      "wallDelta": 0.16733775461866415,
+      "baselineCacheOutcomes": [],
+      "candidateCacheOutcomes": [
+        "miss",
+        "store",
+        "hit",
+        "hit"
+      ],
+      "candidateHits": 2,
+      "baselineHits": 0,
+      "baselineToolMs": 12,
+      "candidateToolMs": 11,
+      "baselinePhaseMs": 13,
+      "candidatePhaseMs": 12,
+      "toolMsDelta": -0.08333333333333333,
+      "phaseMsDelta": -0.07692307692307693
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "#2a-off",
+      "healthy": true,
+      "turns": [
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 5697,
+          "calls": 1,
+          "input": 11962,
+          "output": 187,
+          "cached": 5888,
+          "cachedRatio": 0.4922253803711754,
+          "cost": 0.00656576,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 44,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1188,
+          "calls": 1,
+          "input": 13063,
+          "output": 96,
+          "cached": 12416,
+          "cachedRatio": 0.9504707953762536,
+          "cost": 0.0010873200000000001,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 44,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1559,
+          "calls": 1,
+          "input": 14073,
+          "output": 96,
+          "cached": 13440,
+          "cachedRatio": 0.9550202515455127,
+          "cost": 0.0010938,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 44,
+          "expectedSeen": true,
+          "error": null
+        }
+      ],
+      "aggregate": {
+        "input": 39098,
+        "output": 379,
+        "cached": 31744,
+        "calls": 3,
+        "cachedRatio": 0.8119085375211008,
+        "cost": 0.00874688,
+        "wallMs": 8444
+      },
+      "modelCalls": [
+        {
+          "input": 5725,
+          "output": 164,
+          "cached": 0,
+          "llmMs": 1463,
+          "state": "completed"
+        },
+        {
+          "input": 6237,
+          "output": 23,
+          "cached": 5888,
+          "llmMs": 560,
+          "state": "completed"
+        },
+        {
+          "input": 6321,
+          "output": 73,
+          "cached": 6144,
+          "llmMs": 695,
+          "state": "completed"
+        },
+        {
+          "input": 6742,
+          "output": 23,
+          "cached": 6272,
+          "llmMs": 447,
+          "state": "completed"
+        },
+        {
+          "input": 6826,
+          "output": 73,
+          "cached": 6656,
+          "llmMs": 915,
+          "state": "completed"
+        },
+        {
+          "input": 7247,
+          "output": 23,
+          "cached": 6784,
+          "llmMs": 606,
+          "state": "completed"
+        }
+      ],
+      "schemaFingerprints": [
+        "f77a7d010aa0da4c",
+        "f77a7d010aa0da4c",
+        "f77a7d010aa0da4c",
+        "f77a7d010aa0da4c",
+        "f77a7d010aa0da4c",
+        "f77a7d010aa0da4c"
+      ],
+      "layoutShadow": [
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 0,
+          "stablePrefixCharsAlt": 0,
+          "totalCharsSent": 18559,
+          "totalCharsAlt": 18559
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 3527,
+          "stablePrefixCharsAlt": 3527,
+          "totalCharsSent": 20267,
+          "totalCharsAlt": 20267
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 5235,
+          "stablePrefixCharsAlt": 1644,
+          "totalCharsSent": 20605,
+          "totalCharsAlt": 20605
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 5573,
+          "stablePrefixCharsAlt": 5573,
+          "totalCharsSent": 21962,
+          "totalCharsAlt": 21962
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 6930,
+          "stablePrefixCharsAlt": 3690,
+          "totalCharsSent": 22300,
+          "totalCharsAlt": 22300
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 7268,
+          "stablePrefixCharsAlt": 7268,
+          "totalCharsSent": 23657,
+          "totalCharsAlt": 23657
+        }
+      ],
+      "schemaFreeze": [
+        {
+          "state": "init",
+          "added": 0,
+          "missing": 0
+        },
+        {
+          "state": "append",
+          "added": 21,
+          "missing": 0
+        }
+      ],
+      "execCache": [],
+      "toolMetrics": {
+        "calls": 3,
+        "toolMs": 12,
+        "phaseMs": 13,
+        "statuses": [
+          "completed",
+          "completed",
+          "completed"
+        ]
+      },
+      "econTotals": [
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        }
+      ]
+    },
+    {
+      "name": "#2a-on",
+      "healthy": true,
+      "turns": [
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 6016,
+          "calls": 1,
+          "input": 11939,
+          "output": 164,
+          "cached": 11392,
+          "cachedRatio": 0.954183767484714,
+          "cost": 0.00110284,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 44,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 2296,
+          "calls": 1,
+          "input": 13037,
+          "output": 96,
+          "cached": 12416,
+          "cachedRatio": 0.952366341949835,
+          "cost": 0.0010613200000000001,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 44,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1545,
+          "calls": 1,
+          "input": 14087,
+          "output": 96,
+          "cached": 13440,
+          "cachedRatio": 0.9540711294100944,
+          "cost": 0.0011078,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 44,
+          "expectedSeen": true,
+          "error": null
+        }
+      ],
+      "aggregate": {
+        "input": 39063,
+        "output": 356,
+        "cached": 37248,
+        "calls": 3,
+        "cachedRatio": 0.9535365947315875,
+        "cost": 0.00327196,
+        "wallMs": 9857
+      },
+      "modelCalls": [
+        {
+          "input": 5725,
+          "output": 141,
+          "cached": 5632,
+          "llmMs": 1563,
+          "state": "completed"
+        },
+        {
+          "input": 6214,
+          "output": 23,
+          "cached": 5760,
+          "llmMs": 539,
+          "state": "completed"
+        },
+        {
+          "input": 6298,
+          "output": 73,
+          "cached": 6144,
+          "llmMs": 1278,
+          "state": "completed"
+        },
+        {
+          "input": 6739,
+          "output": 23,
+          "cached": 6272,
+          "llmMs": 974,
+          "state": "completed"
+        },
+        {
+          "input": 6823,
+          "output": 73,
+          "cached": 6656,
+          "llmMs": 638,
+          "state": "completed"
+        },
+        {
+          "input": 7264,
+          "output": 23,
+          "cached": 6784,
+          "llmMs": 868,
+          "state": "completed"
+        }
+      ],
+      "schemaFingerprints": [
+        "f77a7d010aa0da4c",
+        "f77a7d010aa0da4c",
+        "f77a7d010aa0da4c",
+        "f77a7d010aa0da4c",
+        "f77a7d010aa0da4c",
+        "f77a7d010aa0da4c"
+      ],
+      "layoutShadow": [
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 0,
+          "stablePrefixCharsAlt": 0,
+          "totalCharsSent": 18559,
+          "totalCharsAlt": 18559
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 3527,
+          "stablePrefixCharsAlt": 3527,
+          "totalCharsSent": 20257,
+          "totalCharsAlt": 20257
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 5225,
+          "stablePrefixCharsAlt": 1644,
+          "totalCharsSent": 20595,
+          "totalCharsAlt": 20595
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 5563,
+          "stablePrefixCharsAlt": 5563,
+          "totalCharsSent": 22009,
+          "totalCharsAlt": 22009
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 6977,
+          "stablePrefixCharsAlt": 3680,
+          "totalCharsSent": 22347,
+          "totalCharsAlt": 22347
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 7315,
+          "stablePrefixCharsAlt": 7315,
+          "totalCharsSent": 23761,
+          "totalCharsAlt": 23761
+        }
+      ],
+      "schemaFreeze": [
+        {
+          "state": "init",
+          "added": 0,
+          "missing": 0
+        },
+        {
+          "state": "append",
+          "added": 21,
+          "missing": 0
+        }
+      ],
+      "execCache": [
+        {
+          "outcome": "miss",
+          "reason": "cold",
+          "bytes": 0,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "store",
+          "reason": "",
+          "bytes": 58,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "hit",
+          "reason": "",
+          "bytes": 58,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "hit",
+          "reason": "",
+          "bytes": 58,
+          "lookupMs": 0
+        }
+      ],
+      "toolMetrics": {
+        "calls": 3,
+        "toolMs": 11,
+        "phaseMs": 12,
+        "statuses": [
+          "completed",
+          "completed",
+          "completed"
+        ]
+      },
+      "econTotals": [
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        }
+      ]
+    }
+  ]
+}

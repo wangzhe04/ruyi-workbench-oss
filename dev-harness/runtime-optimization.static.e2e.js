@@ -48,7 +48,7 @@ ok(/function summaryRefineEnabled\(config\)/.test(src), 'S summaryRefineEnabled 
 ok(/refine: \{\n        maxChunks: 4,/.test(src), 'S rules refine 块(maxChunks 4)在产物 fallback 内');
 // 106 #13a: 预算保护基础层 —— 逐项取证纪律,默认关;预警/预留/停止新增调用/暂停恢复四件套。
 ok(/runtimeBudgetGuardV1: false/.test(src), 'S runtimeBudgetGuardV1 默认关闭(106 波逐项取证,未过门不启用)');
-ok(/'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeFailureTelemetryV1'/.test(src), 'S 106 五开关入严格布尔 sanitize 表(105h 邻接不动;#13a 与 #1 顺排,failureTelemetry 殿后)');
+ok(/'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1'/.test(src), 'S 106 六开关入严格布尔 sanitize 表(105h 邻接不动;#13a/#1/#2a 顺排,failureTelemetry 殿后)');
 ok(/budgetGuardTurnTokensV1: 0/.test(src) && /budgetGuardWarnRatioV1: 0\.8/.test(src), 'S #13a 预算默认 0(不设)且预警比例缺省 0.8');
 ok(/function budgetGuardEnabled\(config\)/.test(src) && /function budgetGuardTurnTokens\(config\)/.test(src) && /function budgetGuardWarnRatio\(config\)/.test(src), 'S #13a 唯一判定点与阈值解析存在');
 ok(/function budgetGuardDecision\(spent, reserveEstimate, budget, warnRatio\)/.test(src) && /budgetGuardDecision\(bgSpent, estBeforeCall, budgetGuardBudget, budgetGuardWarn\)/.test(src), 'S #13a 决策纯函数(预警/预留/触顶)存在且接入迭代边界');
@@ -59,14 +59,23 @@ ok(/function toolTimeBudgetEnabled\(config\)/.test(src) && /function toolTimeBud
 ok(/toolAbort\.abort\('tool_time_budget'\)/.test(src), 'S 13a-t 硬终态复用 toolAbort 杀树路径(不造第二套控制器)');
 ok(/signal\.reason === 'tool_time_budget'/.test(src) && /budgetKilled: true/.test(src), 'S 13a-t 04 中断原因感知(仅新原因走专用文案,旧原因逐字节不变)');
 ok(/kind: 'tool_byte_budget_shadow'/.test(src), 'S 13a-t 字节轴只计数不改写(20-C1 High 未解除)');
-// 106 #1 G1/G2: 前缀缓存布局修复 —— 21-E4 §7.1/§7.2 落地,默认关,shadow 计量先行(E4 §7.3)。
-ok(/runtimeVolatileTailLayoutV1: false/.test(src) && /runtimeAppendOnlyToolSchemasV1: false/.test(src), 'S #1 两布局开关默认关闭(106 逐项取证,未过门不启用)');
+// 106 #1 G1/G2: 前缀缓存布局修复 —— G1 保持默认关,G2 经真实 DeepSeek A/B 门后默认开。
+ok(/runtimeVolatileTailLayoutV1: false/.test(src) && /runtimeAppendOnlyToolSchemasV1: true/.test(src), 'S #1 G1 默认关闭、G2 真实 provider 门后默认开启');
 ok(/function volatileTailLayoutEnabled\(config\)/.test(src) && /function appendOnlyToolSchemasEnabled\(config\)/.test(src), 'S #1 两开关唯一判定点存在');
 ok(/if \(turnVolatile && volatileTail\) appendPromptToLastUserMessage\(msgs, turnVolatile\)/.test(src), 'S G1 尾部布局复用 appendPromptToLastUserMessage(与 recall/notes 同位)');
 ok(/const buildBodyWithLayout = \(withTools, layoutOverride\) =>/.test(src) && /buildBodyWithLayout\(useTools, altLayout\)/.test(src), 'S G1 shadow 双布局构建(candidate 只计量不发送)');
 ok(/econLog\('layout_shadow',/.test(src) && /stablePrefixCharsSent/.test(src) && /stablePrefixCharsAlt/.test(src), 'S G1 layout_shadow 事件含双布局 stablePrefixChars(E4 §7.3)');
 ok(/function toolSchemaFreezeFor\(freezeKey\)/.test(src) && /kind: 'tool_schema_freeze'/.test(src), 'S G2 会话级冻结表与冻结事件存在(init/append/cache_break)');
 ok(/createToolLoadingState\(config, fullPrompt, attachments, allTools, bridgedRoute, session\.id\)/.test(src), 'S G2 freezeKey=session.id 接入主循环唯一调用点');
+// 106 #2a: 受限执行结果缓存 —— 22 §6.1 白名单(首批仅 file_read)+ 版本验证失效 + 命中仍验权,
+// 默认关,逐项取证。命中带 cacheHit 诚实标记;错误/中断/竞态不缓存。
+ok(/runtimeExecResultCacheV1: true/.test(src) && /execResultCacheMaxEntriesV1: 200/.test(src), 'S #2a 大文件真实门后默认开启、条数上限缺省 200(显式 false 回退)');
+ok(/function execResultCacheEnabled\(config\)/.test(src) && /function execResultCacheMaxEntries\(config\)/.test(src), 'S #2a 唯一判定点存在(开关×上限双门)');
+ok(/const EXEC_CACHE_WHITELIST = new Set\(\['file_read'\]\)/.test(src), 'S #2a 白名单首批仅 file_read(版本明确的本地只读,22 §6.1)');
+ok(/execCacheContext\('file_read', args, ctx, p\)/.test(src), 'S #2a 缓存挂在守卫之后读盘之前(命中仍重新验权)');
+ok(/execCacheSameVersion/.test(src) && /reason: st \? 'stale' : 'gone'/.test(src), 'S #2a 资源版本 mtimeMs+size 失效(外部写入/删除/重建覆盖)');
+ok(/cacheHit: \{ cachedAt: entry\.cachedAt/.test(src), 'S #2a 命中结果带 cacheHit 诚实标记(不冒称重新执行)');
+ok(/outcome: 'skip', reason: 'race'/.test(src) && /c\.signal && c\.signal\.aborted\) return/.test(src), 'S #2a 竞态/中断结果不缓存');
 for (const flag of ['runtimeToolRetrievalV1', 'runtimeFailureTelemetryV1']) {
   ok(new RegExp(flag + ': false').test(src), `S ${flag} defaults false`);
   ok(new RegExp("config\\[key\\] === true").test(src), `S strict boolean normalization present (${flag})`);

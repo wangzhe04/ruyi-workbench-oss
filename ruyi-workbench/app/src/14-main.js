@@ -85,6 +85,8 @@ module.exports = {
   // 106 #1 G1/G2: 前缀缓存布局开关 — exposed for e2e 白盒契约(开关唯一判定点)。
   volatileTailLayoutEnabled,
   appendOnlyToolSchemasEnabled,
+  execResultCacheEnabled,
+  execResultCacheMaxEntries,
   contextWindowOverrideKey,
   configuredConversationWindow,
   providerConversationContextWindow,

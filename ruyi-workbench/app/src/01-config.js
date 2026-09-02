@@ -173,11 +173,22 @@ function defaultConfig() {
     // 追加不重写。默认关,E4 §7.3 shadow 计量 + 质量非劣验收后才谈 flip;显式 false/缺省 =
     // 请求体与现状逐字节一致。
     runtimeVolatileTailLayoutV1: false,
-    // 106 #1 G2: tools schema 冻结+只追加(21-E4 §7.2)—— 会话首个回合冻结 schema 顺序,之后
+    // 106 #1 G2: tools schema 冻结+只追加(21-E4 §7.2)—— DeepSeek v4-pro Responses 真实 A/B
+    // cached-input 提升约 23.9pp、质量 4/4，故默认开；显式 false 仍回退现状。会话首个回合冻结 schema 顺序,之后
     // tool_load/pack 重分类引入的新工具只追加尾部,既有条目不因分类变化重排或移除(探针 S5:
     // tools 计入缓存前缀,中间插入全前缀命中归零、尾部追加保留 ~77%)。catalog 缺失(MCP 离线/
-    // 撤权)时保留名义位置、记 cache break 原因。默认关;显式 false/缺省 = catalog 序过滤现状。
-    runtimeAppendOnlyToolSchemasV1: false,
+    // 撤权)时保留名义位置、记 cache break 原因。显式 false = catalog 序过滤现状。
+    runtimeAppendOnlyToolSchemasV1: true,
+    // 106 #2a: 受限执行结果缓存(22 号文 §6.1)—— 白名单(首批仅 file_read)只读结果的按会话缓存:
+    // 身份 = 工具+规范化参数+解析后绝对路径;资源版本 = mtimeMs+size(读取前后双 stat 夹逼,
+    // 命中时重新 stat 比对,不一致即 miss+失效;外部写入/删除/重建/重命名由此覆盖)。权限守卫
+    // 在缓存查找之前先跑,命中仍重新验权。命中结果带 cacheHit 诚实标记(不冒称重新执行);
+    // 错误/中断/读写竞态结果不缓存。4×2MB 文件、12 次真实重复读取的 DeepSeek v4-flash
+    // A/B 中命中 8 次、工具阶段耗时约 311ms→112ms、12/12 正确，故默认开；显式 false
+    // 仍回退现状。
+    runtimeExecResultCacheV1: true,
+    // #2a: 每会话缓存条数上限(LRU 淘汰),钳位 [0,2000];0 = 不缓存(开关双门的第二道)。
+    execResultCacheMaxEntriesV1: 200,
     runtimeFailureTelemetryV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
@@ -557,7 +568,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -601,6 +612,11 @@ function normalizeConfig(raw) {
     const b = Number(config.toolByteBudgetShadowBytesV1);
     const bc = Number.isFinite(b) ? (b <= 0 ? 0 : Math.min(104857600, Math.round(b))) : 0;
     if (bc !== config.toolByteBudgetShadowBytesV1) { config.toolByteBudgetShadowBytesV1 = bc; changed = true; }
+  }
+  { // 106 #2a: 执行结果缓存每会话条数上限 —— 0 = 不缓存;钳位 [0, 2000],坏值落回默认 200。
+    const n = Number(config.execResultCacheMaxEntriesV1);
+    const nc = Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(2000, Math.round(n))) : 200;
+    if (nc !== config.execResultCacheMaxEntriesV1) { config.execResultCacheMaxEntriesV1 = nc; changed = true; }
   }
   { // 21-E2: bounded read concurrency — JSON number, clamp 1..8.
     const n = Number(config.boundedReadConcurrencyV1);
@@ -995,6 +1011,16 @@ function volatileTailLayoutEnabled(config) {
 }
 function appendOnlyToolSchemasEnabled(config) {
   return !!(config && config.runtimeAppendOnlyToolSchemasV1 === true);
+}
+
+// 106 #2a: 受限执行结果缓存的唯一判定(12-tool-dispatch 的 file_read 缓存层共用)。
+// 双门:开关严格 true 且条数上限 > 0;显式 false / 缺省 / 上限 0 = 零缓存路径。
+function execResultCacheMaxEntries(config) {
+  const n = Number(config && config.execResultCacheMaxEntriesV1);
+  return Number.isFinite(n) ? (n <= 0 ? 0 : Math.min(2000, Math.round(n))) : 200;
+}
+function execResultCacheEnabled(config) {
+  return !!(config && config.runtimeExecResultCacheV1 === true) && execResultCacheMaxEntries(config) > 0;
 }
 
 // ============================================================================

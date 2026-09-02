@@ -1,0 +1,1518 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-02T03:12:20.730Z",
+  "provider": {
+    "id": "deepseek",
+    "model": "deepseek-v4-flash",
+    "apiStyle": "responses",
+    "baseUrl": "https://api.deepseek.com"
+  },
+  "fixture": {
+    "salt": "106-real-mtjirm2n-17500",
+    "scenarios": 3,
+    "largeFileCount": 4,
+    "largeFileBytes": 2097152,
+    "note": "unique per-run marker; text/key omitted"
+  },
+  "comparisons": [
+    {
+      "kind": "#2a-large",
+      "comparable": true,
+      "baseline": "#2a-large-off",
+      "candidate": "#2a-large-on",
+      "baselineOk": 12,
+      "candidateOk": 12,
+      "baselineCachedRatio": 0.9463744453907461,
+      "candidateCachedRatio": 0.9738688943169826,
+      "cachedRatioDeltaPp": 2.7494448926236537,
+      "inputDelta": 0.007940256542808583,
+      "outputDelta": 0.02541847489150651,
+      "costDelta": -0.3107888175917602,
+      "wallDelta": -0.015105516475379489,
+      "baselineCacheOutcomes": [],
+      "candidateCacheOutcomes": [
+        "miss",
+        "store",
+        "miss",
+        "store",
+        "miss",
+        "store",
+        "miss",
+        "store",
+        "hit",
+        "hit",
+        "hit",
+        "hit",
+        "hit",
+        "hit",
+        "hit",
+        "hit"
+      ],
+      "candidateHits": 8,
+      "baselineHits": 0,
+      "baselineToolMs": 310,
+      "candidateToolMs": 108,
+      "baselinePhaseMs": 311,
+      "candidatePhaseMs": 112,
+      "toolMsDelta": -0.6516129032258065,
+      "phaseMsDelta": -0.639871382636656
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "#2a-large-off",
+      "healthy": true,
+      "turns": [
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 6141,
+          "calls": 1,
+          "input": 16113,
+          "output": 158,
+          "cached": 7936,
+          "cachedRatio": 0.4925215664370384,
+          "cost": 0.00865172,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1800,
+          "calls": 1,
+          "input": 17275,
+          "output": 130,
+          "cached": 16768,
+          "cachedRatio": 0.9706512301013025,
+          "cost": 0.00110236,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1906,
+          "calls": 1,
+          "input": 18409,
+          "output": 130,
+          "cached": 17792,
+          "cachedRatio": 0.9664837851051117,
+          "cost": 0.00123284,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1854,
+          "calls": 1,
+          "input": 19543,
+          "output": 130,
+          "cached": 18944,
+          "cachedRatio": 0.969349639257023,
+          "cost": 0.00123788,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1964,
+          "calls": 1,
+          "input": 20702,
+          "output": 155,
+          "cached": 20096,
+          "cachedRatio": 0.9707274659453193,
+          "cost": 0.00131792,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1584,
+          "calls": 1,
+          "input": 21861,
+          "output": 130,
+          "cached": 21376,
+          "cachedRatio": 0.9778143726270527,
+          "cost": 0.00117252,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 2027,
+          "calls": 1,
+          "input": 22995,
+          "output": 130,
+          "cached": 22400,
+          "cachedRatio": 0.974124809741248,
+          "cost": 0.0013030000000000001,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1502,
+          "calls": 1,
+          "input": 24129,
+          "output": 130,
+          "cached": 23552,
+          "cachedRatio": 0.976086866426292,
+          "cost": 0.0013080400000000001,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1974,
+          "calls": 1,
+          "input": 25263,
+          "output": 130,
+          "cached": 24704,
+          "cachedRatio": 0.9778727783715315,
+          "cost": 0.00131308,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1870,
+          "calls": 1,
+          "input": 26397,
+          "output": 130,
+          "cached": 25856,
+          "cachedRatio": 0.9795052468083494,
+          "cost": 0.00131812,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1535,
+          "calls": 1,
+          "input": 27531,
+          "output": 130,
+          "cached": 27008,
+          "cachedRatio": 0.9810032327194799,
+          "cost": 0.00132316,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 2853,
+          "calls": 1,
+          "input": 28665,
+          "output": 130,
+          "cached": 28032,
+          "cachedRatio": 0.9779173207744636,
+          "cost": 0.0014536400000000002,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 40,
+          "expectedSeen": true,
+          "error": null
+        }
+      ],
+      "aggregate": {
+        "input": 268883,
+        "output": 1613,
+        "cached": 254464,
+        "calls": 12,
+        "cachedRatio": 0.9463744453907461,
+        "cost": 0.02273428,
+        "wallMs": 27010
+      },
+      "modelCalls": [
+        {
+          "input": 7803,
+          "output": 137,
+          "cached": 0,
+          "llmMs": 1520,
+          "state": "completed"
+        },
+        {
+          "input": 8310,
+          "output": 21,
+          "cached": 7936,
+          "llmMs": 921,
+          "state": "completed"
+        },
+        {
+          "input": 8398,
+          "output": 109,
+          "cached": 8320,
+          "llmMs": 1185,
+          "state": "completed"
+        },
+        {
+          "input": 8877,
+          "output": 21,
+          "cached": 8448,
+          "llmMs": 545,
+          "state": "completed"
+        },
+        {
+          "input": 8965,
+          "output": 109,
+          "cached": 8832,
+          "llmMs": 1155,
+          "state": "completed"
+        },
+        {
+          "input": 9444,
+          "output": 21,
+          "cached": 8960,
+          "llmMs": 690,
+          "state": "completed"
+        },
+        {
+          "input": 9532,
+          "output": 109,
+          "cached": 9344,
+          "llmMs": 917,
+          "state": "completed"
+        },
+        {
+          "input": 10011,
+          "output": 21,
+          "cached": 9600,
+          "llmMs": 884,
+          "state": "completed"
+        },
+        {
+          "input": 10099,
+          "output": 134,
+          "cached": 9984,
+          "llmMs": 1094,
+          "state": "completed"
+        },
+        {
+          "input": 10603,
+          "output": 21,
+          "cached": 10112,
+          "llmMs": 804,
+          "state": "completed"
+        },
+        {
+          "input": 10691,
+          "output": 109,
+          "cached": 10624,
+          "llmMs": 917,
+          "state": "completed"
+        },
+        {
+          "input": 11170,
+          "output": 21,
+          "cached": 10752,
+          "llmMs": 596,
+          "state": "completed"
+        },
+        {
+          "input": 11258,
+          "output": 109,
+          "cached": 11136,
+          "llmMs": 1454,
+          "state": "completed"
+        },
+        {
+          "input": 11737,
+          "output": 21,
+          "cached": 11264,
+          "llmMs": 505,
+          "state": "completed"
+        },
+        {
+          "input": 11825,
+          "output": 109,
+          "cached": 11648,
+          "llmMs": 824,
+          "state": "completed"
+        },
+        {
+          "input": 12304,
+          "output": 21,
+          "cached": 11904,
+          "llmMs": 616,
+          "state": "completed"
+        },
+        {
+          "input": 12392,
+          "output": 109,
+          "cached": 12288,
+          "llmMs": 961,
+          "state": "completed"
+        },
+        {
+          "input": 12871,
+          "output": 21,
+          "cached": 12416,
+          "llmMs": 941,
+          "state": "completed"
+        },
+        {
+          "input": 12959,
+          "output": 109,
+          "cached": 12800,
+          "llmMs": 891,
+          "state": "completed"
+        },
+        {
+          "input": 13438,
+          "output": 21,
+          "cached": 13056,
+          "llmMs": 905,
+          "state": "completed"
+        },
+        {
+          "input": 13526,
+          "output": 109,
+          "cached": 13440,
+          "llmMs": 890,
+          "state": "completed"
+        },
+        {
+          "input": 14005,
+          "output": 21,
+          "cached": 13568,
+          "llmMs": 586,
+          "state": "completed"
+        },
+        {
+          "input": 14093,
+          "output": 109,
+          "cached": 13952,
+          "llmMs": 1786,
+          "state": "completed"
+        },
+        {
+          "input": 14572,
+          "output": 21,
+          "cached": 14080,
+          "llmMs": 1005,
+          "state": "completed"
+        }
+      ],
+      "schemaFingerprints": [
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9"
+      ],
+      "layoutShadow": [
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 0,
+          "stablePrefixCharsAlt": 0,
+          "totalCharsSent": 26710,
+          "totalCharsAlt": 26710
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 3547,
+          "stablePrefixCharsAlt": 3547,
+          "totalCharsSent": 28363,
+          "totalCharsAlt": 28363
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 5200,
+          "stablePrefixCharsAlt": 1664,
+          "totalCharsSent": 28717,
+          "totalCharsAlt": 28717
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 5554,
+          "stablePrefixCharsAlt": 5554,
+          "totalCharsSent": 30180,
+          "totalCharsAlt": 30180
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 7017,
+          "stablePrefixCharsAlt": 3671,
+          "totalCharsSent": 30534,
+          "totalCharsAlt": 30534
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 7371,
+          "stablePrefixCharsAlt": 7371,
+          "totalCharsSent": 31997,
+          "totalCharsAlt": 31997
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 8834,
+          "stablePrefixCharsAlt": 5488,
+          "totalCharsSent": 32351,
+          "totalCharsAlt": 32351
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 9188,
+          "stablePrefixCharsAlt": 9188,
+          "totalCharsSent": 33814,
+          "totalCharsAlt": 33814
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 10651,
+          "stablePrefixCharsAlt": 7305,
+          "totalCharsSent": 34168,
+          "totalCharsAlt": 34168
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 11005,
+          "stablePrefixCharsAlt": 11005,
+          "totalCharsSent": 35798,
+          "totalCharsAlt": 35798
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 12635,
+          "stablePrefixCharsAlt": 9122,
+          "totalCharsSent": 36152,
+          "totalCharsAlt": 36152
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 12989,
+          "stablePrefixCharsAlt": 12989,
+          "totalCharsSent": 37615,
+          "totalCharsAlt": 37615
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 14452,
+          "stablePrefixCharsAlt": 11106,
+          "totalCharsSent": 37969,
+          "totalCharsAlt": 37969
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 14806,
+          "stablePrefixCharsAlt": 14806,
+          "totalCharsSent": 39432,
+          "totalCharsAlt": 39432
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 16269,
+          "stablePrefixCharsAlt": 12923,
+          "totalCharsSent": 39786,
+          "totalCharsAlt": 39786
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 16623,
+          "stablePrefixCharsAlt": 16623,
+          "totalCharsSent": 41249,
+          "totalCharsAlt": 41249
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 18086,
+          "stablePrefixCharsAlt": 14740,
+          "totalCharsSent": 41603,
+          "totalCharsAlt": 41603
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 18440,
+          "stablePrefixCharsAlt": 18440,
+          "totalCharsSent": 43066,
+          "totalCharsAlt": 43066
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 19903,
+          "stablePrefixCharsAlt": 16557,
+          "totalCharsSent": 43420,
+          "totalCharsAlt": 43420
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 20257,
+          "stablePrefixCharsAlt": 20257,
+          "totalCharsSent": 44883,
+          "totalCharsAlt": 44883
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 21720,
+          "stablePrefixCharsAlt": 18374,
+          "totalCharsSent": 45237,
+          "totalCharsAlt": 45237
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 22074,
+          "stablePrefixCharsAlt": 22074,
+          "totalCharsSent": 46700,
+          "totalCharsAlt": 46700
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 23537,
+          "stablePrefixCharsAlt": 20191,
+          "totalCharsSent": 47054,
+          "totalCharsAlt": 47054
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 23891,
+          "stablePrefixCharsAlt": 23891,
+          "totalCharsSent": 48517,
+          "totalCharsAlt": 48517
+        }
+      ],
+      "schemaFreeze": [
+        {
+          "state": "init",
+          "added": 0,
+          "missing": 0
+        },
+        {
+          "state": "append",
+          "added": 33,
+          "missing": 0
+        }
+      ],
+      "execCache": [],
+      "toolMetrics": {
+        "calls": 12,
+        "toolMs": 310,
+        "phaseMs": 311,
+        "statuses": [
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ]
+      },
+      "econTotals": [
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        }
+      ]
+    },
+    {
+      "name": "#2a-large-on",
+      "healthy": true,
+      "turns": [
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 5646,
+          "calls": 1,
+          "input": 16155,
+          "output": 202,
+          "cached": 15616,
+          "cachedRatio": 0.9666357164964408,
+          "cost": 0.00125532,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1751,
+          "calls": 1,
+          "input": 17363,
+          "output": 132,
+          "cached": 16768,
+          "cachedRatio": 0.9657317283879514,
+          "cost": 0.0011943600000000002,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1919,
+          "calls": 1,
+          "input": 18501,
+          "output": 132,
+          "cached": 17920,
+          "cachedRatio": 0.9685962920923193,
+          "cost": 0.0012033999999999999,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 2093,
+          "calls": 1,
+          "input": 19639,
+          "output": 132,
+          "cached": 19072,
+          "cachedRatio": 0.9711288762156932,
+          "cost": 0.00121244,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 2000,
+          "calls": 1,
+          "input": 20797,
+          "output": 132,
+          "cached": 20224,
+          "cachedRatio": 0.9724479492234457,
+          "cost": 0.00124148,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1479,
+          "calls": 1,
+          "input": 21975,
+          "output": 132,
+          "cached": 21376,
+          "cachedRatio": 0.9727417519908987,
+          "cost": 0.0012905199999999999,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1840,
+          "calls": 1,
+          "input": 23153,
+          "output": 132,
+          "cached": 22528,
+          "cachedRatio": 0.9730056580140802,
+          "cost": 0.00133956,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 2456,
+          "calls": 1,
+          "input": 24331,
+          "output": 132,
+          "cached": 23680,
+          "cachedRatio": 0.9732440096995603,
+          "cost": 0.0013885999999999998,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1634,
+          "calls": 1,
+          "input": 25509,
+          "output": 132,
+          "cached": 24960,
+          "cachedRatio": 0.9784781841702929,
+          "cost": 0.0013122,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1887,
+          "calls": 1,
+          "input": 26687,
+          "output": 132,
+          "cached": 26112,
+          "cachedRatio": 0.9784539288792296,
+          "cost": 0.00136124,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1929,
+          "calls": 1,
+          "input": 27865,
+          "output": 132,
+          "cached": 27264,
+          "cachedRatio": 0.9784317243854298,
+          "cost": 0.0014102799999999999,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        },
+        {
+          "ok": true,
+          "providerOk": true,
+          "wallMs": 1968,
+          "calls": 1,
+          "input": 29043,
+          "output": 132,
+          "cached": 28416,
+          "cachedRatio": 0.9784113211445099,
+          "cost": 0.00145932,
+          "toolCount": 1,
+          "toolNames": [
+            "file_read"
+          ],
+          "textChars": 42,
+          "expectedSeen": true,
+          "error": null
+        }
+      ],
+      "aggregate": {
+        "input": 271018,
+        "output": 1654,
+        "cached": 263936,
+        "calls": 12,
+        "cachedRatio": 0.9738688943169826,
+        "cost": 0.015668719999999997,
+        "wallMs": 26602
+      },
+      "modelCalls": [
+        {
+          "input": 7803,
+          "output": 179,
+          "cached": 7680,
+          "llmMs": 1418,
+          "state": "completed"
+        },
+        {
+          "input": 8352,
+          "output": 23,
+          "cached": 7936,
+          "llmMs": 514,
+          "state": "completed"
+        },
+        {
+          "input": 8442,
+          "output": 109,
+          "cached": 8320,
+          "llmMs": 919,
+          "state": "completed"
+        },
+        {
+          "input": 8921,
+          "output": 23,
+          "cached": 8448,
+          "llmMs": 763,
+          "state": "completed"
+        },
+        {
+          "input": 9011,
+          "output": 109,
+          "cached": 8832,
+          "llmMs": 798,
+          "state": "completed"
+        },
+        {
+          "input": 9490,
+          "output": 23,
+          "cached": 9088,
+          "llmMs": 1058,
+          "state": "completed"
+        },
+        {
+          "input": 9580,
+          "output": 109,
+          "cached": 9472,
+          "llmMs": 1296,
+          "state": "completed"
+        },
+        {
+          "input": 10059,
+          "output": 23,
+          "cached": 9600,
+          "llmMs": 742,
+          "state": "completed"
+        },
+        {
+          "input": 10149,
+          "output": 109,
+          "cached": 9984,
+          "llmMs": 1305,
+          "state": "completed"
+        },
+        {
+          "input": 10648,
+          "output": 23,
+          "cached": 10240,
+          "llmMs": 653,
+          "state": "completed"
+        },
+        {
+          "input": 10738,
+          "output": 109,
+          "cached": 10624,
+          "llmMs": 832,
+          "state": "completed"
+        },
+        {
+          "input": 11237,
+          "output": 23,
+          "cached": 10752,
+          "llmMs": 610,
+          "state": "completed"
+        },
+        {
+          "input": 11327,
+          "output": 109,
+          "cached": 11136,
+          "llmMs": 920,
+          "state": "completed"
+        },
+        {
+          "input": 11826,
+          "output": 23,
+          "cached": 11392,
+          "llmMs": 883,
+          "state": "completed"
+        },
+        {
+          "input": 11916,
+          "output": 109,
+          "cached": 11776,
+          "llmMs": 1158,
+          "state": "completed"
+        },
+        {
+          "input": 12415,
+          "output": 23,
+          "cached": 11904,
+          "llmMs": 1260,
+          "state": "completed"
+        },
+        {
+          "input": 12505,
+          "output": 109,
+          "cached": 12416,
+          "llmMs": 772,
+          "state": "completed"
+        },
+        {
+          "input": 13004,
+          "output": 23,
+          "cached": 12544,
+          "llmMs": 820,
+          "state": "completed"
+        },
+        {
+          "input": 13094,
+          "output": 109,
+          "cached": 12928,
+          "llmMs": 1254,
+          "state": "completed"
+        },
+        {
+          "input": 13593,
+          "output": 23,
+          "cached": 13184,
+          "llmMs": 592,
+          "state": "completed"
+        },
+        {
+          "input": 13683,
+          "output": 109,
+          "cached": 13568,
+          "llmMs": 1283,
+          "state": "completed"
+        },
+        {
+          "input": 14182,
+          "output": 23,
+          "cached": 13696,
+          "llmMs": 606,
+          "state": "completed"
+        },
+        {
+          "input": 14272,
+          "output": 109,
+          "cached": 14080,
+          "llmMs": 974,
+          "state": "completed"
+        },
+        {
+          "input": 14771,
+          "output": 23,
+          "cached": 14336,
+          "llmMs": 956,
+          "state": "completed"
+        }
+      ],
+      "schemaFingerprints": [
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9",
+        "6ba97fe1c68eaba9"
+      ],
+      "layoutShadow": [
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 0,
+          "stablePrefixCharsAlt": 0,
+          "totalCharsSent": 26710,
+          "totalCharsAlt": 26710
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 3547,
+          "stablePrefixCharsAlt": 3547,
+          "totalCharsSent": 28477,
+          "totalCharsAlt": 28477
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 5314,
+          "stablePrefixCharsAlt": 1664,
+          "totalCharsSent": 28833,
+          "totalCharsAlt": 28833
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 5670,
+          "stablePrefixCharsAlt": 5670,
+          "totalCharsSent": 30296,
+          "totalCharsAlt": 30296
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 7133,
+          "stablePrefixCharsAlt": 3787,
+          "totalCharsSent": 30652,
+          "totalCharsAlt": 30652
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 7489,
+          "stablePrefixCharsAlt": 7489,
+          "totalCharsSent": 32115,
+          "totalCharsAlt": 32115
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 8952,
+          "stablePrefixCharsAlt": 5606,
+          "totalCharsSent": 32471,
+          "totalCharsAlt": 32471
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 9308,
+          "stablePrefixCharsAlt": 9308,
+          "totalCharsSent": 33934,
+          "totalCharsAlt": 33934
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 10771,
+          "stablePrefixCharsAlt": 7425,
+          "totalCharsSent": 34290,
+          "totalCharsAlt": 34290
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 11127,
+          "stablePrefixCharsAlt": 11127,
+          "totalCharsSent": 35810,
+          "totalCharsAlt": 35810
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 12647,
+          "stablePrefixCharsAlt": 9244,
+          "totalCharsSent": 36166,
+          "totalCharsAlt": 36166
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 13003,
+          "stablePrefixCharsAlt": 13003,
+          "totalCharsSent": 37686,
+          "totalCharsAlt": 37686
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 14523,
+          "stablePrefixCharsAlt": 11120,
+          "totalCharsSent": 38042,
+          "totalCharsAlt": 38042
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 14879,
+          "stablePrefixCharsAlt": 14879,
+          "totalCharsSent": 39562,
+          "totalCharsAlt": 39562
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 16399,
+          "stablePrefixCharsAlt": 12996,
+          "totalCharsSent": 39918,
+          "totalCharsAlt": 39918
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 16755,
+          "stablePrefixCharsAlt": 16755,
+          "totalCharsSent": 41438,
+          "totalCharsAlt": 41438
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 18275,
+          "stablePrefixCharsAlt": 14872,
+          "totalCharsSent": 41794,
+          "totalCharsAlt": 41794
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 18631,
+          "stablePrefixCharsAlt": 18631,
+          "totalCharsSent": 43315,
+          "totalCharsAlt": 43315
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 20152,
+          "stablePrefixCharsAlt": 16748,
+          "totalCharsSent": 43671,
+          "totalCharsAlt": 43671
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 20508,
+          "stablePrefixCharsAlt": 20508,
+          "totalCharsSent": 45192,
+          "totalCharsAlt": 45192
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 22029,
+          "stablePrefixCharsAlt": 18625,
+          "totalCharsSent": 45548,
+          "totalCharsAlt": 45548
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 22385,
+          "stablePrefixCharsAlt": 22385,
+          "totalCharsSent": 47069,
+          "totalCharsAlt": 47069
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 23906,
+          "stablePrefixCharsAlt": 20502,
+          "totalCharsSent": 47425,
+          "totalCharsAlt": 47425
+        },
+        {
+          "sentLayout": "first",
+          "stablePrefixCharsSent": 24262,
+          "stablePrefixCharsAlt": 24262,
+          "totalCharsSent": 48946,
+          "totalCharsAlt": 48946
+        }
+      ],
+      "schemaFreeze": [
+        {
+          "state": "init",
+          "added": 0,
+          "missing": 0
+        },
+        {
+          "state": "append",
+          "added": 33,
+          "missing": 0
+        }
+      ],
+      "execCache": [
+        {
+          "outcome": "miss",
+          "reason": "cold",
+          "bytes": 0,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "store",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "miss",
+          "reason": "cold",
+          "bytes": 0,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "store",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "miss",
+          "reason": "cold",
+          "bytes": 0,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "store",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "miss",
+          "reason": "cold",
+          "bytes": 0,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "store",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "hit",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "hit",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "hit",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "hit",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "hit",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "hit",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "hit",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        },
+        {
+          "outcome": "hit",
+          "reason": "",
+          "bytes": 63,
+          "lookupMs": 0
+        }
+      ],
+      "toolMetrics": {
+        "calls": 12,
+        "toolMs": 108,
+        "phaseMs": 112,
+        "statuses": [
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ]
+      },
+      "econTotals": [
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        },
+        {
+          "modelCallAttempts": 2,
+          "toolActions": 1
+        }
+      ]
+    }
+  ]
+}

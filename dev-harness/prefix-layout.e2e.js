@@ -74,7 +74,7 @@ const toolNames = body => (((body && body.tools) || []).map(t => t && t.function
 (async () => {
   // ═══ [U] 开关三态 + G2 冻结纯函数 ═══
   console.log('── [U] #1 开关三态与 schema 冻结契约 ──');
-  ok(srv.volatileTailLayoutEnabled(srv.defaultConfig()) === false && srv.appendOnlyToolSchemasEnabled(srv.defaultConfig()) === false, 'U1 两布局开关默认关闭(106 逐项取证纪律)');
+  ok(srv.volatileTailLayoutEnabled(srv.defaultConfig()) === false && srv.appendOnlyToolSchemasEnabled(srv.defaultConfig()) === true, 'U1 G1 默认关闭、G2 真实 provider 门后默认开启');
   ok(srv.volatileTailLayoutEnabled({ runtimeVolatileTailLayoutV1: true }) === true && srv.appendOnlyToolSchemasEnabled({ runtimeAppendOnlyToolSchemasV1: true }) === true, 'U2 显式 true 各自生效');
   const cfgStr = srv.normalizeConfig({ runtimeVolatileTailLayoutV1: 'true', runtimeAppendOnlyToolSchemasV1: 'true' }).config;
   ok(srv.volatileTailLayoutEnabled(cfgStr) === false && srv.appendOnlyToolSchemasEnabled(cfgStr) === false, 'U3 字符串 "true" 洗回 false(严格布尔)');
@@ -168,7 +168,7 @@ const toolNames = body => (((body && body.tools) || []).map(t => t && t.function
     } finally { await C.cleanup(); }
   }
   { // D: 开关关 —— 零冻结事件(布局现状由 tool-loading 基线锁定)
-    const D = await launchStack('d', {});
+    const D = await launchStack('d', { runtimeAppendOnlyToolSchemasV1: false });
     ok(D.healthy, 'E0d workbench D listening on :' + D.WB_PORT);
     try {
       const ev1 = await postStream(D.WB_PORT, { message: G1MSG });

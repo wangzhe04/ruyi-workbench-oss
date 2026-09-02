@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-09-01）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）、第 104 波与第 105 波总门均已交付**。105a–105g 已逐项取证并默认开启，各项均可显式关闭回退；105 总门再次确认 105f 单发优先有净收益。4.3 后续的 ≤4 块顺序 refine 未过真实模型门，保留默认关闭；>4 块全局 user 大纲因 8 块路径至少 9 次串行调用、真实基线超时长而否决并撤掉生产实现；可选 overlap 不再实施。105c 为成本承担行为（触发修补多一次 LLM 调用），105d 回注块整体上限 2000 字符；105g 仍按其受控 A/B 证据默认开启，并经超长 history-24 甜点门将事实表默认上限提升至 64。**第 106 波已开工**：#13a／13a-t（预算保护基础层＋长命令时间预算）与 #1 G1/G2（前缀缓存布局修复＋探针 S5 补测）已交付，均默认关闭取证中。
+> **状态（2026-09-02）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）、第 104 波与第 105 波总门均已交付**。105a–105g 已逐项取证并默认开启，各项均可显式关闭回退；105 总门再次确认 105f 单发优先有净收益。4.3 后续的 ≤4 块顺序 refine 未过真实模型门，保留默认关闭；>4 块全局 user 大纲因 8 块路径至少 9 次串行调用、真实基线超时长而否决并撤掉生产实现；可选 overlap 不再实施。105c 为成本承担行为（触发修补多一次 LLM 调用），105d 回注块整体上限 2000 字符；105g 仍按其受控 A/B 证据默认开启，并经超长 history-24 甜点门将事实表默认上限提升至 64。**第 106 波已开工**：#13a／13a-t（预算保护基础层＋长命令时间预算）、#1 G1/G2（前缀缓存布局修复＋探针 S5 补测）与 #2a（受限执行结果缓存，白名单仅 file_read）已交付，G2 与 #2a 经真实 provider 门后默认开启，G1 继续默认关闭取证中。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -346,22 +346,37 @@
   - **G4（仅多图回合）**：第 3 张图起 `pruneOldImages` 原地改写最旧图片 part（`04-visual-pipeline.js:78-99`）。
   - **G5（设计内预期）**：压缩 reseed／forced_400／rewind 重建历史，必然失效，确认即可。
   - **G6（未验证专项）**：子代理 system 与主循环零共享前缀（首字节即不同），rolePrompt 前插在 baseSys 之前（08:510-517）；跨子 Agent 共享前缀仍待专项实测。
-- **结论与下一步**：G1 是收益最大且 21-E4 已背书的修复点（易变层移到当前回合尾部），按 106 纪律以 `volatileTailLayoutV1` 默认关＋E4 §7.3 shadow 对照（current/candidate 双算 stablePrefixBytes／firstChangedSegment，candidate 不发送）落地；G2 前提已经探针 S5 证实（2026-09-01），修法按 E4 §7.2（首建冻结顺序＋fingerprint、`tool_load` 只追加、撤权保留位置）以 `appendOnlyToolSchemasV1` 默认关落地。两项均须附质量验收（语义保持＋任务结果非劣）后才谈 flip。
+- **结论与下一步**：G1 是收益最大且 21-E4 已背书的修复点（易变层移到当前回合尾部），但真实 DeepSeek v4-pro Responses A/B 未显示收益，`volatileTailLayoutV1` 保持默认关；G2 前提已经探针 S5 证实（2026-09-01），修法按 E4 §7.2（首建冻结顺序＋fingerprint、`tool_load` 只追加、撤权保留位置）并经真实 A/B 证实收益，`appendOnlyToolSchemasV1` 默认开启。两项均可显式 `false` 回退。
 
-#### 106 #1 G1/G2 Release Brief · 前缀缓存布局修复（2026-09-01）
+#### 106 #1 G1/G2 Release Brief · 前缀缓存布局修复（2026-09-02）
 
 - **问题**：#1 Ruyi 布局——G1 `turnVolatile` 前插历史首条 user，其内容（记忆 Top-3／mission／任务画像策略／联网状态）跨回合大概率变化 → 前缀缓存每回合从 messages[1] 起全断（探针 S3 反模式，~9× 费用差）；G2 tools schema 未冻结，`tool_load` catalog 序中间插入＋auto 模式 activePacks 每回合重分类（探针 S5 两轮复现：中间插入全前缀命中归零）。
-- **非目标**：不改 stable system 三层结构、不动子代理路径（G6 专项另列）、不做其他 provider／模型的布局假设（E4 §7.1「不得假设所有 provider 缓存规则相同」）；schema 冻结不持久化（进程内 Map，重启按当次分类重建等价新会话首建）；不为缓存命中率保留错误授权（catalog 缺失照常不发送，记 cache break 原因）；默认关，shadow／真实 A/B 证据前不 flip。
+- **非目标**：不改 stable system 三层结构、不动子代理路径（G6 专项另列）、不做其他 provider／模型的布局假设（E4 §7.1「不得假设所有 provider 缓存规则相同」）；schema 冻结不持久化（进程内 Map，重启按当次分类重建等价新会话首建）；不为缓存命中率保留错误授权（catalog 缺失照常不发送，记 cache break 原因）；G1 默认关，G2 仅在 shadow／真实 A/B 证据达标后开启。
 - **交付物**：
-  - 开关 `runtimeVolatileTailLayoutV1`／`runtimeAppendOnlyToolSchemasV1` 默认 `false`，三处落地（默认值区／严格布尔 sanitize 表顺排 106 #13a 之后／唯一判定 `volatileTailLayoutEnabled`／`appendOnlyToolSchemasEnabled`，`01-config.js`），14-main 导出。
+  - 开关 `runtimeVolatileTailLayoutV1` 默认 `false`、`runtimeAppendOnlyToolSchemasV1` 经真实 provider 门后默认 `true`，三处落地（默认值区／严格布尔 sanitize 表顺排 106 #13a 之后／唯一判定 `volatileTailLayoutEnabled`／`appendOnlyToolSchemasEnabled`，`01-config.js`），14-main 导出；两者均可显式 `false` 回退。
   - G1：`buildBodyWithLayout(withTools, layoutOverride)`（`09-workflow.js`）——开关开时 responses／chat 两分支统一改为 `appendPromptToLastUserMessage(msgs, turnVolatile)`（复用 105 系注入助手，尾部同位）；开关关保持 51d C1b 前插现状逐字节不变。`layoutOverride` 仅供 shadow 强制布局，正常调用恒走开关。
   - G2：`createToolLoadingState` 第 6 参 `freezeKey`（主循环唯一调用点传 `session.id`）——开关开且有 freezeKey 时会话级冻结：首回合冻结顺序，之后新激活（tool_load／换分类消息）只追加尾部；冻结条目不因分类失活而移除；catalog 缺失（MCP 离线／撤权／caps 变化）不发送且不引发重排，落 `tool_schema_freeze` init／append／cache_break 事件。Map 上限 200 会话 LRU 淘汰；缺 freezeKey（子代理／一次性调用）不冻结，逐字节现状。
   - shadow（E4 §7.3）：econ 采样调用上同时序列化 current／candidate 两布局请求体（candidate 不发送），与同会话上一次同布局求 `stablePrefixChars`，落 `layout_shadow` 事件（sentLayout／双布局 stablePrefixChars／totalChars）；进程内 Map 上限 20 会话。G2 证据复用既有 schema 指纹翻转计量（`model_call_started.toolSchemaFingerprint`，冻结开时应趋向零翻转）与 provider 实报 `cachedInputTokens` 分列，不新建通道。
-  - `dev-harness/prefix-layout.e2e.js`（26 项）、`runtime-optimization.static.e2e.js` 7 条 #1 静态锁（#13a sanitize 邻接断言随新键顺排演进为五开关）。
-- **证据**：`prefix-layout.e2e.js` 全绿 26 项——[U] 9 项锁三态／冻结序只追加（`alpha_read` 排在后加载的 `gamma_thing` 之后，无视 catalog 序）／缺 freezeKey 不冻结／catalog 缺失保位不发送；[E-G1] 两回合集成：开关关时 volatile 前插首条 user（现状基线锁定），开关开时首条 user 逐字节不动、volatile 落在最新 user 尾部，`layout_shadow` 事件字段齐全；[E-G2] 开关开时第二回合 tools 以第一回合为严格前缀（16→21 只追加）、freeze init+append 落账，开关关零冻结事件。静态锁与生成器全过（module-graph 30 模块／240 边无新模块边、route-inventory 101 判定点零实质漂移、snapshots current、facts e2eCount 258、build 新鲜）。
-- **回退**：运行时回退 = 两开关显式 `false` 或缺省——G1 回到前插布局、G2 回到当次分类 catalog 序过滤、零冻结事件零 shadow 开销（shadow 仅在 econ 采样点构建候选体，开关关时它计量的是「若开启会怎样」）。彻底回退：删两开关三处与判定函数、`buildBodyWithLayout` 尾部分支（保留 override 骨架也可一并删）、`toolSchemaFreezeFor` 与 current() 冻结分支、shadow 块与 `layoutShadowPrevBySessionMap`、14-main 导出、静态锁 7 条与新 e2e，重建 `server.js` 并重跑生成器。无持久化面变更、无数据迁移。
-- **发布判断**：**默认关闭，合成门已过**。flip 判据（E4 §7.3 门槛）：① 真实会话 `layout_shadow` 显示跨回合 stablePrefixChars candidate 显著优于 current；② 固定任务集 A/B 的 provider 实报 `cachedInputTokens` 提升；③ 质量非劣（语义保持：当前回合指令／图片／权限提示／steer／压缩摘要位置变化不影响任务结果）。若 candidate 只是移后内容却因 provider 缓存边界无收益，停止该 provider 上的主动实现。
-- **遗留**：G3（MCP 抖动致 catalog 非确定）由 cache_break 事件观测、暂不修法；G4（多图淘汰改写）与 G6（跨子 Agent 共享前缀专项）未动；`#2a` 受限执行结果缓存为 106 下一切片。
+  - `dev-harness/prefix-layout.e2e.js`（26 项）、`runtime-optimization.static.e2e.js` 7 条 #1 静态锁（#13a sanitize 邻接断言随新键顺排演进为六开关）。
+- **证据**：`prefix-layout.e2e.js` 全绿 26 项——[U] 9 项锁三态／冻结序只追加（`alpha_read` 排在后加载的 `gamma_thing` 之后，无视 catalog 序）／缺 freezeKey 不冻结／catalog 缺失保位不发送；[E-G1] 两回合集成：开关关时 volatile 前插首条 user（现状基线锁定），开关开时首条 user 逐字节不动、volatile 落在最新 user 尾部，`layout_shadow` 事件字段齐全；[E-G2] 开关开时第二回合 tools 以第一回合为前缀（16→21 只追加）、freeze init+append 落账，开关关零冻结事件。静态锁与生成器全过（module-graph 30 模块／240 边无新模块边、route-inventory 101 判定点零实质漂移、snapshots current、facts e2eCount 259、build 新鲜）。
+- **回退**：运行时回退 = 任一开关显式 `false`；G1 回到前插布局、G2 回到当次分类 catalog 序过滤，G2 关闭时零冻结事件（shadow 仅在 econ 采样点构建候选体，G1 默认关闭时仍只计量「若开启会怎样」）。彻底回退：删两开关三处与判定函数、`buildBodyWithLayout` 尾部分支（保留 override 骨架也可一并删）、`toolSchemaFreezeFor` 与 current() 冻结分支、shadow 块与 `layoutShadowPrevBySessionMap`、14-main 导出、静态锁 7 条与新 e2e，重建 `server.js` 并重跑生成器。无持久化面变更、无数据迁移。
+- **发布判断**：G1 **默认关闭**：真实 DeepSeek v4-pro Responses 四轮 A/B 中 candidate cached-input 占比约 64.0%，低于 current 74.6%，layout shadow 公共前缀也更短；当前 v4-flash 复测仍低 5.7pp，扩大到 16 轮×约 5.2K 字符历史后仍低 11.2pp 且墙钟升约 22%，未满足 flip 门。G2 **默认开启**：v4-pro 两次四轮真实 A/B 提升约 17.3pp／23.9pp，当前 v4-flash 复测再提升 17.5pp，G1/G2 各 4/4、#2a 为 3/3 严格正确，并稳定落 `tool_schema_freeze init/append`；显式 `false` 保留回退。报告见 [`106-real-provider-layout-cache-report.json`](106-real-provider-layout-cache-report.json)、[`106-real-provider-g1-large-report.json`](106-real-provider-g1-large-report.json) 与 [`106-real-provider-g2-rerun.json`](106-real-provider-g2-rerun.json)。G1 的下一步不是继续扩大开关，而是重新设计“跨请求保留动态层”的协议后再测。
+- **遗留**：G3（MCP 抖动致 catalog 非确定）由 cache_break 事件观测、暂不修法；G4（多图淘汰改写）与 G6（跨子 Agent 共享前缀专项）未动；`#2a` 后续只需观察默认开启后的真实命中率、资源版本失效和权限回退，不再扩大白名单范围。
+
+#### 106 #2a Release Brief · 受限执行结果缓存（2026-09-02）
+
+- **问题**：#2a——同一回合／相邻回合里模型常以相同参数重复调用只读工具（复读同一文件确认细节、断点续跑重放），每次都全量重读磁盘；22 号热点基线显示 resultBytes 直接决定后续每次请求的输入体积，重复执行既费墙钟又费上下文。但「只读 ≠ 可缓存 ≠ 无外部影响」（22 §6.1），必须从版本明确的本地白名单起步。
+- **非目标**：不捆绑 #2b（观察展示去重）；不缓存网络搜索／浏览器／桌面状态／权限未知／资源版本不可验证的工具（首批白名单仅 `file_read`）；不做跨会话／跨项目／跨用户共享；不以 TTL 充当一致性保证（版本不可确认即 miss）；不缓存错误／中断／读写竞态结果；命中不冒称重新执行（必带 `cacheHit` 标记）；命中不自动主张省模型 token；默认开启但保留显式 false，白名单扩围仍需单独取证。
+- **交付物**：
+  - 开关 `runtimeExecResultCacheV1` 默认 `true`，三处落地（默认值区／严格布尔 sanitize 表顺排 `runtimeAppendOnlyToolSchemasV1` 之后／唯一判定 `execResultCacheEnabled(config)`，`01-config.js`）；配套 `execResultCacheMaxEntriesV1` 默认 200、sanitize 钳位 `[0, 2000]` 坏值落 200，0 = 不缓存（开关×上限双门）。14-main 导出两判定函数。
+  - 缓存层（`12-tool-dispatch.js`，`FILE_TOOL_HANDLERS` 前）：身份 = 工具名＋规范化参数（handler 实际消费的原始值，annotate 按 handler 布尔口径归一；宁多分段不少分段）＋解析后绝对路径；资源版本 = `mtimeMs+size`（与 `verifyManifest` 快路径同一令牌口径）。按会话隔离的进程内 Map（LRU，≤20 会话 × 每会话上限条数，条目 >512KB 不存）。
+  - 挂载点在 `file_read` handler 内**权限守卫与二进制拒绝之后、读盘之前**——命中即重新验权（守卫先于缓存查找）；查找时重新 `stat` 比对版本，不一致（外部写入／删除／重建／重命名）即删条目走真实路径；存储时读后 stat 与读前 stat 夹逼，不一致判竞态弃存。成功结果（`ok:true` 且 signal 未 aborted）才入库；命中返回 `{...result, cacheHit:{cachedAt,ageMs}}`。
+  - 计量：全路径落脱敏 `exec_result_cache` 事件（outcome = hit/miss(cold|stale|gone)/store/skip(race|oversize|gone)，含 bytes 与 lookupMs），命中与零命中开销均可对账；不新建通道。
+  - `dev-harness/exec-result-cache.e2e.js` 新建 34 项；`runtime-optimization.static.e2e.js` 新增 7 条 #2a 静态锁（#1 sanitize 邻接断言随新键顺排演进为六开关）。
+- **证据**：`exec-result-cache.e2e.js` 全绿 34 项——[U] 22 项锁三态开关／上限钳位／冷 miss→store→hit、结果等价（命中除 cacheHit 外逐字节一致）、annotate 布尔归一同键、显式 limit 分键、外部写入失效读新值、外部删除走 ENOENT 现状、错误不缓存、删除后重建 miss、**权限隔离（命中在场时越权 ctx 仍被拒、零内容泄露、拒绝不污染缓存）**、行/列模式分键、会话隔离、LRU 淘汰、中断不缓存、开关关逐字节回退；[E] 集成（fake-openai `FAKE_TOOL_SEQUENCE` 两次相同 file_read）：开关开时第二次读命中（hit 事件恰一条、含 bytes/lookupMs；cold miss+store 落账），两条配对 tool 消息仅差 cacheHit 标记；开关关基线零缓存事件、两条 tool 消息逐字节一致。静态锁与生成器全过（build 新鲜、module-graph 30 模块／240 边零漂移、route-inventory 101 判定点零实质漂移、snapshots current、facts e2eCount 259）。
+- **回退**：运行时回退 = 显式 `false` 或上限 0——零额外 stat、零事件、结果与现状逐字节一致（[U]22／[E]1-3 锁定）。彻底回退：删两配置键三处与两判定函数、缓存层 helpers 与 file_read 三处挂钩、14-main 导出、静态锁 7 条与新 e2e，重建 `server.js` 并重跑生成器。无持久化面变更（进程内 Map）、无数据迁移。
+- **真实 provider 复读门（DeepSeek v4-flash Responses，2026-09-02；此前 v4-pro 复验同结论）**：小文件三回合复读两侧均 3/3 正确，开关开侧 `cold miss → store → hit → hit`，单文件工具耗时约 9ms→9ms，收益不明显。扩大为 4 个约 2MB 文件、每个首行读取 3 次后，两侧均 12/12 严格正确，开关开侧 8 次命中，工具耗时 310ms→108ms、阶段耗时 311ms→112ms（约降 64%），端到端墙钟仅约降 1.5%（模型耗时占主导）。因此本地执行收益门通过，默认开启；白名单仍仅 `file_read`。报告见 [`106-real-provider-2a-large-report.json`](106-real-provider-2a-large-report.json) 与 [`106-real-provider-2a-rerun.json`](106-real-provider-2a-rerun.json)。
+- **遗留**：白名单扩围候选（`file_list`／`file_search`／`glob` 需目录成员版本方案，`docs_search` 需文档根指纹）均未动；mtime+size 令牌对「同 size 同 mtime 的定向改写」不免疫（与 `verifyManifest` 同一既有口径，记录为已知限制）；#12 资源锁粒度审计作为 #2a 配套保持只读审计现状。
 
 ## 6. 第 107 波 · Pretender 出门准备与批准点
 
