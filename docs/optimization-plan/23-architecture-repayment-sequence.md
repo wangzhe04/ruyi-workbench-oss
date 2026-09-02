@@ -1,6 +1,6 @@
 # 23 · 架构偿还与上下文演进序列（第 103–107 波）
 
-> **状态（2026-09-02）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）、第 104 波与第 105 波总门均已交付**。105a–105g 已逐项取证并默认开启，各项均可显式关闭回退；105 总门再次确认 105f 单发优先有净收益。4.3 后续的 ≤4 块顺序 refine 未过真实模型门，保留默认关闭；>4 块全局 user 大纲因 8 块路径至少 9 次串行调用、真实基线超时长而否决并撤掉生产实现；可选 overlap 不再实施。105c 为成本承担行为（触发修补多一次 LLM 调用），105d 回注块整体上限 2000 字符；105g 仍按其受控 A/B 证据默认开启，并经超长 history-24 甜点门将事实表默认上限提升至 64。**第 106 波已开工**：#13a／13a-t（预算保护基础层＋长命令时间预算）、#1 G1/G2（前缀缓存布局修复＋探针 S5 补测）与 #2a（受限执行结果缓存，白名单仅 file_read）已交付，G2 与 #2a 经真实 provider 门后默认开启，G1 继续默认关闭取证中。
+> **状态（2026-09-02）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）、第 104 波与第 105 波总门均已交付**。105a–105g 已逐项取证并默认开启，各项均可显式关闭回退；105 总门再次确认 105f 单发优先有净收益。4.3 后续的 ≤4 块顺序 refine 未过真实模型门，保留默认关闭；>4 块全局 user 大纲因 8 块路径至少 9 次串行调用、真实基线超时长而否决并撤掉生产实现；可选 overlap 不再实施。105c 为成本承担行为（触发修补多一次 LLM 调用），105d 回注块整体上限 2000 字符；105g 仍按其受控 A/B 证据默认开启，并经超长 history-24 甜点门将事实表默认上限提升至 64。**第 106 波已开工**：#13a／13a-t（预算保护基础层＋长命令时间预算）、#1 G1/G2（前缀缓存布局修复＋探针 S5 补测）与 #2a（受限执行结果缓存，白名单仅 file_read）已交付，G2 与 #2a 经真实 provider 门后默认开启，G1 继续默认关闭取证中。**#3 批量输出纪律限定场景试验已收口**：design-and-decide option 扇出真实配对门实测 −33% 调用／−25% 费用但槽位深度变薄、墙钟 +10%，裁决为条件性正收益、模板不翻默认（详见 §5「106 #3 Release Brief」）。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
 > **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
@@ -377,6 +377,17 @@
 - **回退**：运行时回退 = 显式 `false` 或上限 0——零额外 stat、零事件、结果与现状逐字节一致（[U]22／[E]1-3 锁定）。彻底回退：删两配置键三处与两判定函数、缓存层 helpers 与 file_read 三处挂钩、14-main 导出、静态锁 7 条与新 e2e，重建 `server.js` 并重跑生成器。无持久化面变更（进程内 Map）、无数据迁移。
 - **真实 provider 复读门（DeepSeek v4-flash Responses，2026-09-02；此前 v4-pro 复验同结论）**：小文件三回合复读两侧均 3/3 正确，开关开侧 `cold miss → store → hit → hit`，单文件工具耗时约 9ms→9ms，收益不明显。扩大为 4 个约 2MB 文件、每个首行读取 3 次后，两侧均 12/12 严格正确，开关开侧 8 次命中，工具耗时 310ms→108ms、阶段耗时 311ms→112ms（约降 64%），端到端墙钟仅约降 1.5%（模型耗时占主导）。因此本地执行收益门通过，默认开启；白名单仍仅 `file_read`。报告见 [`106-real-provider-2a-large-report.json`](106-real-provider-2a-large-report.json) 与 [`106-real-provider-2a-rerun.json`](106-real-provider-2a-rerun.json)。
 - **遗留**：白名单扩围候选（`file_list`／`file_search`／`glob` 需目录成员版本方案，`docs_search` 需文档根指纹）均未动；mtime+size 令牌对「同 size 同 mtime 的定向改写」不免疫（与 `verifyManifest` 同一既有口径，记录为已知限制）；#12 资源锁粒度审计作为 #2a 配套保持只读审计现状。
+
+#### 106 #3 Release Brief · 批量输出纪律限定场景试验（2026-09-02）
+
+- **问题**：#3——独立、同构、容量受控的任务是否应从逐项调用改为一次批量输出（22 §6.2：逐项与批量真实模型对照，稳定候选 ID、完整覆盖、漏项拒绝、失败重试；不承诺必省 N−1 次调用）。
+- **场景判定**：runtime 内无天然「N 次独立同构单发调用」位点（分段摘要受单发窗口限制无法批量、记忆／笔记／实体修补本就单发）；选定编排层 design-and-decide 模板的 `option_a/b/c` 扇出为限定场景——独立、同构、容量受控、已有真实需求、decide 逐维打分可客观验收。**零 runtime 代码改动**，这是编排层形态试验。
+- **交付物**：
+  - `dev-harness/batch-output-discipline.e2e.js`（17 项离线机制件，fake-openai）：槽位对象 outputSchema（`option_a/b/c` 为必需属性＋`additionalProperties:false`）天然满足 §6.2 契约——稳定候选 ID＝属性键、完整覆盖＝required、漏项／异常候选＝schema 拒绝、重复槽位结构上不可能。实证四种故障形态：漏项→整体重试一次→仍拒绝；类型错误拒绝；多余候选拒绝；`condition status_is failed` 逐项兜底链接管。**关键发现**：schema 校验失败时运行时**保留部分结果**（`09-workflow.js` 先落 `structuredResult` 再记 schemaErrors；launch 投影不含 schemaErrors 字段，但 `error` 字符串点名缺失槽位且 `errorClass === 'schema_failed'`）——§6.2「只重试失败项」的逐项修补因此可行，下游须把部分结果当未验证数据。
+  - `dev-harness/batch-output-gate-live.js`：真实模型配对门——逐项臂（clarify→三个 option spawn 并行→decide→rollout）vs 批量臂（clarify→options_batch 单 spawn 槽位对象 schema→decide→rollout），同 provider／模型／题目（知识库搜索题，C1 中文／C2 P95<500ms／C3 服务端权限／C4 复用基础设施），reps=2；断点续跑（每 run 落 JSONL 进度行，runKey 含 provider/model/reps，进程被杀后重跑只补未完成 run，报告落盘后自动清理）；费用按 temp HOME usage 台账（kind=subagent）合计，不落方案正文与 key。
+- **证据**（DeepSeek v4-flash Responses，报告 [`106-batch-output-gate-report.json`](106-batch-output-gate-report.json)）：调用 6.0→4.0（**−33.3%**）、费用 ¥0.133→¥0.100（**−24.7%**）、输入 −12.3%、输出 −18.1%；墙钟 **+10.3%**（逐项臂三 spawn 并行 vs 批量臂单 spawn 顺序生成三方案，并发差异已在报告 notes 标注）。质量侧：批量臂槽位内容系统性变薄（slotMinChars 319–1078 vs 逐项臂健康 run 的 2363）；两臂各出现 1 次 schema 失败——逐项臂 `option_a` 节点失败时其余两槽不受影响（逐项的故障隔离优势），批量臂 `options_batch` 本体 2/2 成功、预留的整体重试未触发（失败落在两臂共享的 decide 节点）。winner 一致性 1/2，但分歧 run 恰是逐项臂自身 `option_a` schema 失败的那次；健康 run 两臂 winner 均为 `option_a`。已知口径缺口：`modelCallEvents`（logs ndjson 过滤）全为零，calls 以 usage 台账为准，记录在案。
+- **裁决**：**条件性正收益、不翻默认**。design-and-decide 模板保持逐项并行 spawn 现状——该场景是决策质量敏感型，方案深度是 decide 节点的直接输入，批量臂的深度侵蚀（约 2–3× 变薄）与墙钟劣势不被 −25% 费用抵消；批量形态记录为「深度不敏感、容量受控、调用数敏感」任务族的可用模式（本场景实测 −33% 调用／−25% 费用），采用时须自带同场景配对门。无运行时开关可翻（零 runtime 改动），无回退面。
+- **遗留**：批量臂提示词加强深度要求后的复测未做（若做，仍走同配对门）；逐项修补路径离线已实证、未进真实门；压缩管线与批量输出不适配（输入侧切分 vs 输出侧扇出——map-reduce 的触发前提即「整段塞不进一次调用」，105f 单发已是压缩域的批量答案）；map 阶段 `for+await` 串行可并行化（省墙钟不省 token），属另一轴，待真实负载 map-reduce 触发频率数据再议。
 
 ## 6. 第 107 波 · Pretender 出门准备与批准点
 

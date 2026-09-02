@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 101(精确 88 / 前缀 12 / 正则 1),ROUTE_AUTH 92 条,生成于 2026-09-02T02:47:59.047Z。
+> 判定点 101(精确 88 / 前缀 12 / 正则 1),ROUTE_AUTH 92 条,生成于 2026-09-02T05:05:20.179Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -74,7 +74,7 @@
 | * | `/api/autonomy/grants` | exact | token self | 13-http-router.js:767 | autonomy-grant.e2e.js |
 | POST | `/api/autonomy/grant` | exact | token self | 13-http-router.js:774 | autonomy-grant.e2e.js |
 | POST | `/api/autonomy/revoke` | exact | token self | 13-http-router.js:802 | autonomy-grant.e2e.js |
-| POST | `/api/agent-workflow/launch` | exact | body-token | 13-http-router.js:815 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-quality-workflow.e2e.js 等 27 件 |
+| POST | `/api/agent-workflow/launch` | exact | body-token | 13-http-router.js:815 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-quality-workflow.e2e.js 等 28 件 |
 | GET | `/api/usage/summary` | exact | token self | 13-http-router.js:869 | usage-dashboard.e2e.js, usage-ledger.e2e.js, usage-subagent-ledger.e2e.js |
 | GET | `/api/ops/metrics` | exact | token self | 13-http-router.js:881 | monitor-incremental.e2e.js |
 | GET | `/api/checkpoints` | exact | token self | 13-http-router.js:890 | artifacts.e2e.js, changes-diff.e2e.js, checkpoint-coverage.e2e.js 等 16 件 |
@@ -139,8 +139,8 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:2 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 109 件 |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:5 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 109 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:2 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 110 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:5 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 110 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:11 | session-bulk-cleanup.e2e.js |
 | DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:18 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 44 件 |
 

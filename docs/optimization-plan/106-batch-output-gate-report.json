@@ -1,0 +1,337 @@
+{
+  "schema": "106-batch-output-gate/1",
+  "generatedAt": "2026-09-02T05:55:57.672Z",
+  "provider": {
+    "id": "deepseek",
+    "model": "deepseek-v4-flash",
+    "apiStyle": "responses"
+  },
+  "subject": "knowledge-base-search-50p (C1 中文/C2 P95<500ms/C3 服务端权限/C4 复用基础设施)",
+  "reps": 2,
+  "arms": {
+    "baseline": {
+      "reps": 2,
+      "okRuns": 1,
+      "calls": 12,
+      "modelCallEvents": 0,
+      "inTok": 274920,
+      "outTok": 56909,
+      "cachedInTok": 125312,
+      "cost": 0.26593224000000004,
+      "wallMs": 509671,
+      "avgCalls": 6,
+      "avgCost": 0.13296612000000002,
+      "avgWallMs": 254835.5,
+      "slotsCovered": [
+        3,
+        2
+      ],
+      "slotMinChars": [
+        2363,
+        0
+      ],
+      "winners": [
+        "option_a",
+        "option_b"
+      ],
+      "retries": [
+        0,
+        0
+      ]
+    },
+    "candidate": {
+      "reps": 2,
+      "okRuns": 1,
+      "calls": 8,
+      "modelCallEvents": 0,
+      "inTok": 241116,
+      "outTok": 46620,
+      "cachedInTok": 136832,
+      "cost": 0.20026064,
+      "wallMs": 562088,
+      "avgCalls": 4,
+      "avgCost": 0.10013032,
+      "avgWallMs": 281044,
+      "slotsCovered": [
+        3,
+        3
+      ],
+      "slotMinChars": [
+        1078,
+        319
+      ],
+      "winners": [
+        "option_a",
+        "option_a"
+      ],
+      "retries": [
+        0,
+        0
+      ]
+    }
+  },
+  "comparison": {
+    "comparable": true,
+    "callsDelta": -0.3333333333333333,
+    "costDelta": -0.24694862119764058,
+    "wallDelta": 0.10284477633610702,
+    "inputDelta": -0.12295940637276298,
+    "outputDelta": -0.18079741341439842,
+    "winnerAgreement": "1/2"
+  },
+  "runs": [
+    {
+      "__gate": "106-batch",
+      "key": "deepseek/deepseek-v4-flash/reps2",
+      "arm": "baseline",
+      "rep": 1,
+      "ok": true,
+      "wallMs": 272465,
+      "nodes": [
+        {
+          "id": "clarify",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "option_a",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "option_b",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "option_c",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "decide",
+          "status": "rejected",
+          "attempts": 1,
+          "errorClass": "gate_rejected"
+        },
+        {
+          "id": "rollout",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        }
+      ],
+      "calls": 6,
+      "inTok": 113343,
+      "outTok": 28673,
+      "cachedInTok": 23808,
+      "cost": 0.14735716000000001,
+      "currency": "CNY",
+      "errors": [],
+      "slotsCovered": 3,
+      "slotMinChars": 2363,
+      "slotChars": {
+        "option_a": 2363,
+        "option_b": 2942,
+        "option_c": 2822
+      },
+      "decideWinner": "option_a",
+      "decideScores": {
+        "option_a": 93,
+        "option_b": 90,
+        "option_c": 77
+      },
+      "rolloutChars": 4781,
+      "modelCallEvents": 0
+    },
+    {
+      "arm": "candidate",
+      "rep": 1,
+      "ok": false,
+      "wallMs": 348353,
+      "nodes": [
+        {
+          "id": "clarify",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "options_batch",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "decide",
+          "status": "failed",
+          "attempts": 1,
+          "errorClass": "schema_failed"
+        },
+        {
+          "id": "rollout",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        }
+      ],
+      "calls": 4,
+      "inTok": 137090,
+      "outTok": 25422,
+      "cachedInTok": 77952,
+      "cost": 0.11154104,
+      "currency": "CNY",
+      "errors": [
+        "launch not ok",
+        "decide:schema_failed"
+      ],
+      "slotsCovered": 3,
+      "slotMinChars": 1078,
+      "slotChars": {
+        "option_a": 1078,
+        "option_b": 1138,
+        "option_c": 1088
+      },
+      "decideWinner": "option_a",
+      "decideScores": {
+        "option_a": 90,
+        "option_b": 76,
+        "option_c": 64
+      },
+      "rolloutChars": 3705,
+      "modelCallEvents": 0
+    },
+    {
+      "arm": "baseline",
+      "rep": 2,
+      "ok": false,
+      "wallMs": 237206,
+      "nodes": [
+        {
+          "id": "clarify",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "option_a",
+          "status": "failed",
+          "attempts": 1,
+          "errorClass": "schema_failed"
+        },
+        {
+          "id": "option_b",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "option_c",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "decide",
+          "status": "rejected",
+          "attempts": 1,
+          "errorClass": "gate_rejected"
+        },
+        {
+          "id": "rollout",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        }
+      ],
+      "calls": 6,
+      "inTok": 161577,
+      "outTok": 28236,
+      "cachedInTok": 101504,
+      "cost": 0.11857508000000001,
+      "currency": "CNY",
+      "errors": [
+        "launch not ok",
+        "option_a:schema_failed"
+      ],
+      "slotsCovered": 2,
+      "slotMinChars": 0,
+      "slotChars": {
+        "option_a": 0,
+        "option_b": 2725,
+        "option_c": 1870
+      },
+      "decideWinner": "option_b",
+      "decideScores": {
+        "option_a": 73,
+        "option_b": 90,
+        "option_c": 84
+      },
+      "rolloutChars": 2096,
+      "modelCallEvents": 0
+    },
+    {
+      "arm": "candidate",
+      "rep": 2,
+      "ok": true,
+      "wallMs": 213735,
+      "nodes": [
+        {
+          "id": "clarify",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "options_batch",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        },
+        {
+          "id": "decide",
+          "status": "rejected",
+          "attempts": 1,
+          "errorClass": "gate_rejected"
+        },
+        {
+          "id": "rollout",
+          "status": "succeeded",
+          "attempts": 1,
+          "errorClass": ""
+        }
+      ],
+      "calls": 4,
+      "inTok": 104026,
+      "outTok": 21198,
+      "cachedInTok": 58880,
+      "cost": 0.0887196,
+      "currency": "CNY",
+      "errors": [],
+      "slotsCovered": 3,
+      "slotMinChars": 319,
+      "slotChars": {
+        "option_a": 1369,
+        "option_b": 1314,
+        "option_c": 319
+      },
+      "decideWinner": "option_a",
+      "decideScores": {
+        "option_a": 88,
+        "option_b": 72,
+        "option_c": 76
+      },
+      "rolloutChars": 4423,
+      "modelCallEvents": 0
+    }
+  ],
+  "notes": [
+    "逐项臂三方案并行 spawn（subagentMaxConcurrent=4），批量臂单 spawn；wall 对比含此并发差异。",
+    "批量臂 maxRetries=1：漏项/异常候选时整体重试一次；逐项修补可行性已由 batch-output-discipline.e2e.js 离线实证（schema 失败保留部分结果+schemaErrors）。",
+    "cost 为服务端 usage 台账 computeProviderCost 合计，币种见 currency；calls 为 subagent 台账行数，modelCallEvents 为 model_call_completed 事件数（含节点内多轮迭代）。"
+  ]
+}
