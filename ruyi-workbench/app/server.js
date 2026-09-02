@@ -10400,8 +10400,8 @@ const PROVIDER_PRESETS = [
     id: 'deepseek', label: 'DeepSeek', type: 'openai-compat',
     // v1.7: baseUrl 保持官方 Responses API 文档给的根地址(api.deepseek.com,无 /v1 段——chat 走 providerBaseWithV1
     // 补 /v1;responses 走 providerResponsesBase 不加 /v1,与官方 OpenAI SDK 示例逐字节一致)。
-    // contextWindow 不再写死 131072:deepseek-v4 实际 1M(此前预设值会以 manual 最高优先级误限 v4 为 128K,
-    // 见 10-context-governance MODEL_CONTEXT_TABLE)。留空 = 按模型名自动解析(deepseek-v4→1M, 其余 deepseek→128K)。
+    // contextWindow 留空,由模型级表/上游探测解析；这样 deepseek-v4→1M,旧版 deepseek→128K,
+    // 且不会因为 Provider 级手工值把不同代际模型统一误限。
     // v1.7-对抗轮(P1-1):defaultModel 用 deepseek-v4-flash —— 官方 Responses API 目前【仅支持 v4-flash】,
     // v4-pro 将于 2026-08 初上线(官方文档明示)。预设默认组合必须可用:flash + responses ✓。v4-pro 上线后
     // 用户在设置里切模型即可(不预设 pro,避免用户开箱即命中官方暂不支持的组合)。
@@ -10433,7 +10433,9 @@ const PROVIDER_PRESETS = [
   },
   {
     id: 'dashscope', label: 'Qwen / DashScope (通义千问)', type: 'openai-compat',
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', reasoning: true, defaultModel: 'qwen-plus', contextWindow: 131072, // v0.8-S5
+    // 不设置 Provider 级 contextWindow：qwen-plus/qwen-flash 可达 1M, qwen-turbo 128K, qwen-max 32K，
+    // 留空才能让模型级表按当前选择自动取值；端点若返回 context_window 则探测优先。
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', reasoning: true, defaultModel: 'qwen-plus',
 
     models: [
       { id: 'qwen-max', label: 'Qwen-Max' },
@@ -10444,7 +10446,9 @@ const PROVIDER_PRESETS = [
   },
   {
     id: 'glm', label: 'GLM / 智谱 (Zhipu)', type: 'openai-compat',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4', reasoning: true, defaultModel: 'glm-4.6', contextWindow: 131072, // v0.8-S5
+    // GLM 不同代际窗口不同(4.5≈128K, 4.6/4.7/5≈202K, 5.2/5.3 在本地端点为 1M)，
+    // 不设置 Provider 级值，避免切模型后沿用错误上限。
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4', reasoning: true, defaultModel: 'glm-4.6',
 
     models: [
       { id: 'glm-4.6', label: 'GLM-4.6' },
@@ -25947,11 +25951,60 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
     schema: 1,
     modelWindows: [
       { match: 'deepseek-v4', tokens: 1000000 },
+      { match: 'mimo-v2.5-pro', tokens: 1000000, exact: true },
+      { match: 'mimo-v2.5', tokens: 1000000, exact: true },
+      { match: 'qwen3.8', tokens: 1000000 },
+      { match: 'qwen3.7', tokens: 1000000 },
+      { match: 'qwen3.6-max', tokens: 262144 },
+      { match: 'qwen3.6-plus', tokens: 1000000 },
+      { match: 'qwen3.6-flash', tokens: 1000000 },
+      { match: 'qwen3.6', tokens: 262144 },
+      { match: 'qwen3.5-omni', tokens: 65536 },
+      { match: 'qwen3.5-plus', tokens: 1000000 },
+      { match: 'qwen3.5-flash', tokens: 1000000 },
+      { match: 'qwen3.5', tokens: 32768 },
+      { match: 'qwen3-coder-plus', tokens: 1000000 },
+      { match: 'qwen3-coder-next', tokens: 262144 },
+      { match: 'qwen3-max', tokens: 262144 },
+      { match: 'qwen3', tokens: 262144 },
+      { match: 'qwen-plus-2025-01-25', tokens: 131072 },
+      { match: 'qwen-plus', tokens: 1000000 },
+      { match: 'qwen-flash', tokens: 1000000 },
+      { match: 'qwen-turbo', tokens: 131072 },
+      { match: 'qwen-max', tokens: 32768 },
+      { match: 'qwen-long', tokens: 10000000 },
       { match: 'deepseek', tokens: 131072 },
       { match: 'qwen', tokens: 131072 },
+      { match: 'glm-5.3', tokens: 1000000 },
+      { match: 'glm-5.2', tokens: 1000000 },
+      { match: 'glm-5.1', tokens: 202752 },
+      { match: 'glm-5-turbo', tokens: 202752 },
+      { match: 'glm-5', tokens: 202752 },
+      { match: 'glm-4.7', tokens: 202752 },
+      { match: 'glm-4.6', tokens: 202752 },
+      { match: 'glm-4.5', tokens: 131072 },
+      { match: 'glm-4-long', tokens: 1000000 },
       { match: 'glm', tokens: 131072 },
       { match: 'kimi', tokens: 262144 },
       { match: 'moonshot', tokens: 262144 },
+      { match: 'minimax-m3', tokens: 1000000 },
+      { match: 'minimax-m2.7', tokens: 196608 },
+      { match: 'minimax-m2.5', tokens: 196608 },
+      { match: 'gemma4', tokens: 131072 },
+      { match: 'minicpm5', tokens: 131072 },
+      { match: 'whiskyakm', tokens: 131072 },
+      { match: 'gpt-5.6', tokens: 1050000 },
+      { match: 'gpt-5.5', tokens: 1050000 },
+      { match: 'gpt-5.4-pro', tokens: 1050000 },
+      { match: 'gpt-5.4-mini', tokens: 400000 },
+      { match: 'gpt-5.4-nano', tokens: 400000 },
+      { match: 'gpt-5.4', tokens: 1050000 },
+      { match: 'gpt-5.2-chat-latest', tokens: 128000, exact: true },
+      { match: 'gpt-5.2', tokens: 400000 },
+      { match: 'gpt-5.1-chat-latest', tokens: 128000, exact: true },
+      { match: 'gpt-5.1', tokens: 400000 },
+      { match: 'gpt-5-chat-latest', tokens: 128000, exact: true },
+      { match: 'gpt-5', tokens: 400000 },
       { match: 'gpt-4o', tokens: 128000 },
       { match: 'gpt-4.1', tokens: 128000 },
       { match: 'o3', tokens: 200000 },
@@ -26038,8 +26091,9 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
   return loaded || fallback;
 })();
 if (!CONTEXT_GOVERNANCE_RULES || CONTEXT_GOVERNANCE_RULES.schema !== 1) throw new Error('unsupported context-governance-rules schema');
-// 模型名对照表顺序敏感(deepseek-v4 须在 deepseek 之前命中)，顺序由数据文件锁定。
-const MODEL_CONTEXT_TABLE = CONTEXT_GOVERNANCE_RULES.modelWindows.map(row => [row.match, row.tokens]);
+// 模型名对照表顺序敏感(更具体的版本/快照须在家族兜底之前命中)，顺序由数据文件锁定。
+// exact 条目同时接受供应商常见的 `vendor/model` 前缀，但不会误把 ASR/TTS 等同名变体当作文本模型。
+const MODEL_CONTEXT_TABLE = CONTEXT_GOVERNANCE_RULES.modelWindows.map(row => [row.match, row.tokens, row.exact === true]);
 // 从上游 /v1/models 条目提取窗口大小:取 context_length/max_context_length/context_window/max_model_len
 // 任一为正数的第一个。none → undefined(探测无结果, 不污染缓存正数判定)。
 const CTX_LENGTH_KEYS = CONTEXT_GOVERNANCE_RULES.contextLengthKeys.slice();
@@ -26067,11 +26121,14 @@ function cachedContextLength(providerId, modelId) {
   if ((Date.now() - hit.at) > CTX_PROBE_TTL_MS) { CTX_PROBE_CACHE.delete(ctxProbeKey(providerId, modelId)); return undefined; }
   return hit.contextLength;
 }
-// 名称表命中(子串, 小写)。无命中 → undefined。
+// 名称表命中(子串/受限精确匹配, 小写)。无命中 → undefined。
 function contextWindowFromTable(model) {
   const m = String(model || '').toLowerCase();
   if (!m) return undefined;
-  for (const [needle, size] of MODEL_CONTEXT_TABLE) if (m.includes(needle)) return size;
+  for (const [needle, size, exact] of MODEL_CONTEXT_TABLE) {
+    const n = String(needle || '').toLowerCase();
+    if (exact ? (m === n || m.endsWith('/' + n)) : m.includes(n)) return size;
+  }
   return undefined;
 }
 // 完整解析:返回 { value, source }, source ∈ 'manual'|'probe'|'table'|'fallback'。`model` 缺省时退回
@@ -31880,10 +31937,12 @@ async function handleApi(req, res, pathname) {
       const live = await fetchOpenAiModels(provider).catch(() => ({ models: [] }));
       const seen = new Map();
       // v1.0.2-S2: 每个模型对象带 contextLength(有则带)。探测(live)条目自带; 无探测时回退探测缓存;
+      // 再无探测则使用版本化名称表，让离线 Provider 模型列表也能显示当前默认值；
       // 已有条目在 live 补到 contextLength 时就地补齐(only-add, 不改既有字段语义)。
       const add = (id, label, contextLength) => {
         const k = String(id || ''); if (!k) return;
-        const cl = (Number.isFinite(contextLength) && contextLength > 0) ? Math.round(contextLength) : cachedContextLength(provider.id, k);
+        const cl = (Number.isFinite(contextLength) && contextLength > 0) ? Math.round(contextLength)
+          : (cachedContextLength(provider.id, k) || contextWindowFromTable(k));
         if (!seen.has(k)) { const o = { id: k, label: label || k }; if (cl) o.contextLength = cl; seen.set(k, o); }
         else if (cl && !seen.get(k).contextLength) seen.get(k).contextLength = cl;
       };

@@ -984,8 +984,8 @@ const PROVIDER_PRESETS = [
     id: 'deepseek', label: 'DeepSeek', type: 'openai-compat',
     // v1.7: baseUrl 保持官方 Responses API 文档给的根地址(api.deepseek.com,无 /v1 段——chat 走 providerBaseWithV1
     // 补 /v1;responses 走 providerResponsesBase 不加 /v1,与官方 OpenAI SDK 示例逐字节一致)。
-    // contextWindow 不再写死 131072:deepseek-v4 实际 1M(此前预设值会以 manual 最高优先级误限 v4 为 128K,
-    // 见 10-context-governance MODEL_CONTEXT_TABLE)。留空 = 按模型名自动解析(deepseek-v4→1M, 其余 deepseek→128K)。
+    // contextWindow 留空,由模型级表/上游探测解析；这样 deepseek-v4→1M,旧版 deepseek→128K,
+    // 且不会因为 Provider 级手工值把不同代际模型统一误限。
     // v1.7-对抗轮(P1-1):defaultModel 用 deepseek-v4-flash —— 官方 Responses API 目前【仅支持 v4-flash】,
     // v4-pro 将于 2026-08 初上线(官方文档明示)。预设默认组合必须可用:flash + responses ✓。v4-pro 上线后
     // 用户在设置里切模型即可(不预设 pro,避免用户开箱即命中官方暂不支持的组合)。
@@ -1017,7 +1017,9 @@ const PROVIDER_PRESETS = [
   },
   {
     id: 'dashscope', label: 'Qwen / DashScope (通义千问)', type: 'openai-compat',
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', reasoning: true, defaultModel: 'qwen-plus', contextWindow: 131072, // v0.8-S5
+    // 不设置 Provider 级 contextWindow：qwen-plus/qwen-flash 可达 1M, qwen-turbo 128K, qwen-max 32K，
+    // 留空才能让模型级表按当前选择自动取值；端点若返回 context_window 则探测优先。
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', reasoning: true, defaultModel: 'qwen-plus',
 
     models: [
       { id: 'qwen-max', label: 'Qwen-Max' },
@@ -1028,7 +1030,9 @@ const PROVIDER_PRESETS = [
   },
   {
     id: 'glm', label: 'GLM / 智谱 (Zhipu)', type: 'openai-compat',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4', reasoning: true, defaultModel: 'glm-4.6', contextWindow: 131072, // v0.8-S5
+    // GLM 不同代际窗口不同(4.5≈128K, 4.6/4.7/5≈202K, 5.2/5.3 在本地端点为 1M)，
+    // 不设置 Provider 级值，避免切模型后沿用错误上限。
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4', reasoning: true, defaultModel: 'glm-4.6',
 
     models: [
       { id: 'glm-4.6', label: 'GLM-4.6' },

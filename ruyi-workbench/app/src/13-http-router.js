@@ -160,10 +160,12 @@ async function handleApi(req, res, pathname) {
       const live = await fetchOpenAiModels(provider).catch(() => ({ models: [] }));
       const seen = new Map();
       // v1.0.2-S2: 每个模型对象带 contextLength(有则带)。探测(live)条目自带; 无探测时回退探测缓存;
+      // 再无探测则使用版本化名称表，让离线 Provider 模型列表也能显示当前默认值；
       // 已有条目在 live 补到 contextLength 时就地补齐(only-add, 不改既有字段语义)。
       const add = (id, label, contextLength) => {
         const k = String(id || ''); if (!k) return;
-        const cl = (Number.isFinite(contextLength) && contextLength > 0) ? Math.round(contextLength) : cachedContextLength(provider.id, k);
+        const cl = (Number.isFinite(contextLength) && contextLength > 0) ? Math.round(contextLength)
+          : (cachedContextLength(provider.id, k) || contextWindowFromTable(k));
         if (!seen.has(k)) { const o = { id: k, label: label || k }; if (cl) o.contextLength = cl; seen.set(k, o); }
         else if (cl && !seen.get(k).contextLength) seen.get(k).contextLength = cl;
       };

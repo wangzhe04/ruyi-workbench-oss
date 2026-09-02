@@ -6,7 +6,7 @@ const { getFreePort } = require('./free-port.js');
 //
 // 两半:
 //  (a) 直接单元(require server.js, 无需起服务):
-//      · contextWindowFromTable 子串命中(deepseek-v4→1M, deepseek→131072, kimi→262144, claude→200000, 无命中→undefined);
+//      · contextWindowFromTable 命中当前模型家族与快照(DeepSeek/Qwen/MiMo/GLM/MiniMax/Ollama/OpenAI GPT-5.x);
 //      · extractContextLength 从 /v1/models 条目取 context_length 类字段的第一个正数;
 //      · resolveContextWindow 四级优先级:①手动覆盖探测;③无探测无手动命中名称表;④全无→65536。
 //  (b) 动态(起 fake-openai + workbench):
@@ -46,9 +46,29 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
   // ── (a) 直接单元 ──────────────────────────────────────────────────────────────────────────────────
   ok(srv.contextWindowFromTable('deepseek-v4') === 1000000, '(unit) table: deepseek-v4 → 1000000');
   ok(srv.contextWindowFromTable('DeepSeek-Chat') === 131072, '(unit) table: deepseek(其余) → 131072 (大小写不敏感)');
-  ok(srv.contextWindowFromTable('qwen-max') === 131072, '(unit) table: qwen → 131072');
-  ok(srv.contextWindowFromTable('glm-4.6') === 131072, '(unit) table: glm → 131072');
+  ok(srv.contextWindowFromTable('mimo-v2.5') === 1000000 && srv.contextWindowFromTable('xiaomi/mimo-v2.5-pro') === 1000000
+    && srv.contextWindowFromTable('mimo-v2.5-asr') === undefined, '(unit) table: MiMo text 1M, ASR exact guard');
+  ok(srv.contextWindowFromTable('qwen3.8-flash') === 1000000 && srv.contextWindowFromTable('qwen3.7-plus') === 1000000
+    && srv.contextWindowFromTable('qwen3.6-max-preview') === 262144 && srv.contextWindowFromTable('qwen3.5-27b') === 32768,
+    '(unit) table: Qwen 3.8/3.7 1M, 3.6-max 256K, 3.5 base 32K');
+  ok(srv.contextWindowFromTable('qwen3.5-omni-plus') === 65536 && srv.contextWindowFromTable('qwen-plus') === 1000000
+    && srv.contextWindowFromTable('qwen-turbo') === 131072 && srv.contextWindowFromTable('qwen-max') === 32768,
+    '(unit) table: Qwen Omni 64K, Plus/Flash 1M, Turbo 128K, Max 32K');
+  ok(srv.contextWindowFromTable('glm-5.2') === 1000000 && srv.contextWindowFromTable('glm-5.3-flash') === 1000000
+    && srv.contextWindowFromTable('glm-4.6') === 202752 && srv.contextWindowFromTable('glm-4.5') === 131072,
+    '(unit) table: GLM 5.2/5.3 1M, 4.6 202752, 4.5 128K');
   ok(srv.contextWindowFromTable('kimi-k2') === 262144 && srv.contextWindowFromTable('moonshot-v1') === 262144, '(unit) table: kimi/moonshot → 262144');
+  ok(srv.contextWindowFromTable('MiniMax/MiniMax-M3') === 1000000 && srv.contextWindowFromTable('MiniMax-M2.7') === 196608,
+    '(unit) table: MiniMax M3 1M, M2.7 196608');
+  ok(srv.contextWindowFromTable('gemma4:e2b-it-qat') === 131072 && srv.contextWindowFromTable('minicpm5:1b-q4') === 131072,
+    '(unit) table: Ollama Gemma4/MiniCPM5 131072');
+  ok(srv.contextWindowFromTable('gpt-5.6-sol') === 1050000 && srv.contextWindowFromTable('gpt-5.6-terra') === 1050000
+    && srv.contextWindowFromTable('gpt-5.6-luna') === 1050000 && srv.contextWindowFromTable('gpt-5.6') === 1050000,
+    '(unit) table: GPT-5.6 Sol/Terra/Luna/alias 1.05M');
+  ok(srv.contextWindowFromTable('gpt-5.5-pro') === 1050000 && srv.contextWindowFromTable('gpt-5.4') === 1050000
+    && srv.contextWindowFromTable('gpt-5.4-mini') === 400000 && srv.contextWindowFromTable('gpt-5.4-nano') === 400000
+    && srv.contextWindowFromTable('gpt-5.2') === 400000 && srv.contextWindowFromTable('gpt-5.1-chat-latest') === 128000,
+    '(unit) table: GPT-5.5/5.4 1.05M, mini/nano 400K, GPT-5.2/5.1 400K, Chat 128K');
   ok(srv.contextWindowFromTable('gpt-4o-mini') === 128000 && srv.contextWindowFromTable('gpt-4.1') === 128000, '(unit) table: gpt-4o/gpt-4.1 → 128000');
   ok(srv.contextWindowFromTable('o3-mini') === 200000 && srv.contextWindowFromTable('o4') === 200000, '(unit) table: o3/o4 → 200000');
   ok(srv.contextWindowFromTable('claude-3-5-sonnet') === 200000, '(unit) table: claude → 200000');
@@ -91,7 +111,7 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
   fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 7, version: '1.0.0', permissionMode: 'bypass',
-    providers: [{ id: 'fakep', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
+    providers: [{ id: 'fakep', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }, { id: 'qwen3.8-flash', label: 'Qwen 3.8 Flash' }] }],
     activeProvider: 'fakep',
   }, null, 2));
   const env = { ...process.env }; delete env.RUYI_HOME; env.WIN_CLAUDE_WORKBENCH_HOME = HOME;
@@ -108,6 +128,8 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
     const mlist = (models.json && models.json.models) || [];
     const fm = mlist.find(m => m.id === 'fake-model');
     ok(fm && fm.contextLength === 200000, '(b) GET /api/models: fake-model.contextLength === 200000 (探测生效)');
+    const qm = mlist.find(m => m.id === 'qwen3.8-flash');
+    ok(qm && qm.contextLength === 1000000, '(b) GET /api/models: known Qwen model gets table contextLength=1000000 (no probe)');
 
     // GET /api/status → contextWindowResolved.source==='probe' value 200000 (探测缓存已被 /api/models 填充)。
     const st = await getJson(WB_PORT, '/api/status');

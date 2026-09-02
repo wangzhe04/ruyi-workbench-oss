@@ -14,11 +14,60 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
     schema: 1,
     modelWindows: [
       { match: 'deepseek-v4', tokens: 1000000 },
+      { match: 'mimo-v2.5-pro', tokens: 1000000, exact: true },
+      { match: 'mimo-v2.5', tokens: 1000000, exact: true },
+      { match: 'qwen3.8', tokens: 1000000 },
+      { match: 'qwen3.7', tokens: 1000000 },
+      { match: 'qwen3.6-max', tokens: 262144 },
+      { match: 'qwen3.6-plus', tokens: 1000000 },
+      { match: 'qwen3.6-flash', tokens: 1000000 },
+      { match: 'qwen3.6', tokens: 262144 },
+      { match: 'qwen3.5-omni', tokens: 65536 },
+      { match: 'qwen3.5-plus', tokens: 1000000 },
+      { match: 'qwen3.5-flash', tokens: 1000000 },
+      { match: 'qwen3.5', tokens: 32768 },
+      { match: 'qwen3-coder-plus', tokens: 1000000 },
+      { match: 'qwen3-coder-next', tokens: 262144 },
+      { match: 'qwen3-max', tokens: 262144 },
+      { match: 'qwen3', tokens: 262144 },
+      { match: 'qwen-plus-2025-01-25', tokens: 131072 },
+      { match: 'qwen-plus', tokens: 1000000 },
+      { match: 'qwen-flash', tokens: 1000000 },
+      { match: 'qwen-turbo', tokens: 131072 },
+      { match: 'qwen-max', tokens: 32768 },
+      { match: 'qwen-long', tokens: 10000000 },
       { match: 'deepseek', tokens: 131072 },
       { match: 'qwen', tokens: 131072 },
+      { match: 'glm-5.3', tokens: 1000000 },
+      { match: 'glm-5.2', tokens: 1000000 },
+      { match: 'glm-5.1', tokens: 202752 },
+      { match: 'glm-5-turbo', tokens: 202752 },
+      { match: 'glm-5', tokens: 202752 },
+      { match: 'glm-4.7', tokens: 202752 },
+      { match: 'glm-4.6', tokens: 202752 },
+      { match: 'glm-4.5', tokens: 131072 },
+      { match: 'glm-4-long', tokens: 1000000 },
       { match: 'glm', tokens: 131072 },
       { match: 'kimi', tokens: 262144 },
       { match: 'moonshot', tokens: 262144 },
+      { match: 'minimax-m3', tokens: 1000000 },
+      { match: 'minimax-m2.7', tokens: 196608 },
+      { match: 'minimax-m2.5', tokens: 196608 },
+      { match: 'gemma4', tokens: 131072 },
+      { match: 'minicpm5', tokens: 131072 },
+      { match: 'whiskyakm', tokens: 131072 },
+      { match: 'gpt-5.6', tokens: 1050000 },
+      { match: 'gpt-5.5', tokens: 1050000 },
+      { match: 'gpt-5.4-pro', tokens: 1050000 },
+      { match: 'gpt-5.4-mini', tokens: 400000 },
+      { match: 'gpt-5.4-nano', tokens: 400000 },
+      { match: 'gpt-5.4', tokens: 1050000 },
+      { match: 'gpt-5.2-chat-latest', tokens: 128000, exact: true },
+      { match: 'gpt-5.2', tokens: 400000 },
+      { match: 'gpt-5.1-chat-latest', tokens: 128000, exact: true },
+      { match: 'gpt-5.1', tokens: 400000 },
+      { match: 'gpt-5-chat-latest', tokens: 128000, exact: true },
+      { match: 'gpt-5', tokens: 400000 },
       { match: 'gpt-4o', tokens: 128000 },
       { match: 'gpt-4.1', tokens: 128000 },
       { match: 'o3', tokens: 200000 },
@@ -105,8 +154,9 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
   return loaded || fallback;
 })();
 if (!CONTEXT_GOVERNANCE_RULES || CONTEXT_GOVERNANCE_RULES.schema !== 1) throw new Error('unsupported context-governance-rules schema');
-// 模型名对照表顺序敏感(deepseek-v4 须在 deepseek 之前命中)，顺序由数据文件锁定。
-const MODEL_CONTEXT_TABLE = CONTEXT_GOVERNANCE_RULES.modelWindows.map(row => [row.match, row.tokens]);
+// 模型名对照表顺序敏感(更具体的版本/快照须在家族兜底之前命中)，顺序由数据文件锁定。
+// exact 条目同时接受供应商常见的 `vendor/model` 前缀，但不会误把 ASR/TTS 等同名变体当作文本模型。
+const MODEL_CONTEXT_TABLE = CONTEXT_GOVERNANCE_RULES.modelWindows.map(row => [row.match, row.tokens, row.exact === true]);
 // 从上游 /v1/models 条目提取窗口大小:取 context_length/max_context_length/context_window/max_model_len
 // 任一为正数的第一个。none → undefined(探测无结果, 不污染缓存正数判定)。
 const CTX_LENGTH_KEYS = CONTEXT_GOVERNANCE_RULES.contextLengthKeys.slice();
@@ -134,11 +184,14 @@ function cachedContextLength(providerId, modelId) {
   if ((Date.now() - hit.at) > CTX_PROBE_TTL_MS) { CTX_PROBE_CACHE.delete(ctxProbeKey(providerId, modelId)); return undefined; }
   return hit.contextLength;
 }
-// 名称表命中(子串, 小写)。无命中 → undefined。
+// 名称表命中(子串/受限精确匹配, 小写)。无命中 → undefined。
 function contextWindowFromTable(model) {
   const m = String(model || '').toLowerCase();
   if (!m) return undefined;
-  for (const [needle, size] of MODEL_CONTEXT_TABLE) if (m.includes(needle)) return size;
+  for (const [needle, size, exact] of MODEL_CONTEXT_TABLE) {
+    const n = String(needle || '').toLowerCase();
+    if (exact ? (m === n || m.endsWith('/' + n)) : m.includes(n)) return size;
+  }
   return undefined;
 }
 // 完整解析:返回 { value, source }, source ∈ 'manual'|'probe'|'table'|'fallback'。`model` 缺省时退回

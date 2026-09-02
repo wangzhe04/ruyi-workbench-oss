@@ -465,7 +465,8 @@ export function createChatRenderPrimitives(deps = {}) {
   // v1.3-FE1:fmtTokens 已搬入 ./js/util.js(纯格式化,顶部 import 取回);此处 ctx-meter 族仍用同名调用。
   // Best-effort context limit by model name — LAST-RESORT fallback only (server's contextWindowResolved is
   // preferred, see ctxWindow). v1.0.2 返修三:此前 deepseek 一律 65536 —— 电量表分母恒为 64K,deepseek-v4(1M)
-  // 被当 64K,「12K/64K·18%」而非真实「12K/1M·1%」,正是用户看到的 65.5k。表已与服务端 MODEL_CONTEXT_TABLE 对齐。
+  // 被当 64K,「12K/64K·18%」而非真实「12K/1M·1%」,正是用户看到的 65.5k。此处只作服务端
+  // 状态不可用时的最后兜底，具体窗口与服务端 MODEL_CONTEXT_TABLE 保持同序。
   function ctxWindowGuess(model) {
     const m = String(model || '').toLowerCase();
     if (/(^|\/)k3$/.test(m)) return 1048576;
@@ -473,13 +474,46 @@ export function createChatRenderPrimitives(deps = {}) {
     if (/opus-4|sonnet-5|sonnet-4|fable|mythos/.test(m)) return 1000000;
     if (/deepseek-v4/.test(m)) return 1000000;   // deepseek-v4 = 1M(此前被并入 65536)
     if (/deepseek/.test(m)) return 131072;        // 其余 deepseek(v3/chat/reasoner)= 128K
+    if (/mimo-v2\.5-pro(?:$|[^a-z0-9])/.test(m) || /(?:^|\/)mimo-v2\.5$/.test(m)) return 1000000;
     if (/kimi|moonshot/.test(m)) return 262144;
-    if (/glm/.test(m)) return 131072;
-    if (/qwen.*(turbo|long)/.test(m)) return 1000000;
+    if (/qwen3\.8|qwen3\.7/.test(m)) return 1000000;
+    if (/qwen3\.6-max/.test(m)) return 262144;
+    if (/qwen3\.6-(plus|flash)/.test(m)) return 1000000;
+    if (/qwen3\.6/.test(m)) return 262144;
+    if (/qwen3\.5-omni/.test(m)) return 65536;
+    if (/qwen3\.5-(plus|flash)/.test(m)) return 1000000;
+    if (/qwen3\.5/.test(m)) return 32768;
+    if (/qwen3-coder-plus/.test(m)) return 1000000;
+    if (/qwen3-coder-next|qwen3-max|qwen3(?:$|[^.0-9])/.test(m)) return 262144;
+    if (/qwen-plus-2025-01-25/.test(m)) return 131072;
+    if (/qwen-plus|qwen-flash/.test(m)) return 1000000;
+    if (/qwen-turbo/.test(m)) return 131072;
+    if (/qwen-max/.test(m)) return 32768;
+    if (/qwen-long/.test(m)) return 10000000;
     if (/qwen|qwq/.test(m)) return 131072;
+    if (/glm-5\.3|glm-5\.2/.test(m)) return 1000000;
+    if (/glm-5\.1|glm-5-turbo|glm-5|glm-4\.7|glm-4\.6/.test(m)) return 202752;
+    if (/glm-4-long/.test(m)) return 1000000;
+    if (/glm-4\.5|glm-4/.test(m)) return 131072;
+    if (/glm/.test(m)) return 131072;
+    if (/minimax-m3/.test(m)) return 1000000;
+    if (/minimax-m2\.7|minimax-m2\.5/.test(m)) return 196608;
+    if (/gemma4|minicpm5|whiskyakm/.test(m)) return 131072;
+    if (/gpt-5\.6/.test(m)) return 1050000;
+    if (/gpt-5\.5/.test(m)) return 1050000;
+    if (/gpt-5\.4-pro/.test(m)) return 1050000;
+    if (/gpt-5\.4-(mini|nano)/.test(m)) return 400000;
+    if (/gpt-5\.4/.test(m)) return 1050000;
+    if (/gpt-5\.2-chat-latest/.test(m)) return 128000;
+    if (/gpt-5\.2/.test(m)) return 400000;
+    if (/gpt-5\.1-chat-latest/.test(m)) return 128000;
+    if (/gpt-5\.1/.test(m)) return 400000;
+    if (/gpt-5-chat-latest/.test(m)) return 128000;
+    if (/(^|\/)gpt-5(?:$|[^.0-9])/.test(m)) return 400000;
     if (/gpt-4o|gpt-4\.1/.test(m)) return 128000;
     if (/o3|o4/.test(m)) return 200000;
-    return 200000;
+    if (/claude/.test(m)) return 200000;
+    return 65536;
   }
   // Persist manual limits by engine/provider/model so the meter and server-side auto-compaction agree.
   // Read old localStorage settings until they are migrated successfully, before sending the next turn.
