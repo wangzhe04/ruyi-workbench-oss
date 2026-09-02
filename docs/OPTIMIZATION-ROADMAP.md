@@ -1,7 +1,7 @@
 # 如意 Ruyi 优化路线图（当前版）
 
 > 本文只保留**当前发布线、发布准入与后续计划**；已交付波次历史移入 [`archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md)（第46–86波）与 [`archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md)（第1–45波）。
-> 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)，第 103–107 波的结构前置、上下文演进与出门序列见 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)。`docs/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，不再统管新引擎线。
+> 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)，第 103–107 波的结构前置、上下文演进与出门序列见 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)；第 108–110 波（出门前提示词自我认知／制图与交互／结构精简）见本文「第 108–110 波」节。`docs/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，不再统管新引擎线。
 
 ---
 
@@ -20,13 +20,13 @@
 
 ---
 
-## 当前状态（2026-08-31）
+## 当前状态（2026-09-02）
 
 | 线 | 状态 | 依据 |
 |---|---|---|
 | **Escapade 发布线** | 当前源码与技术 tag 为 `v2.6.2`；`CHANGELOG.md` 已归档 `v2.6.2`（2026-08-27，固定预算上下文压缩与安全重播种），后续变更进入 Unreleased | `ruyi-workbench/package.json`、git tag `v2.6.2`、`CHANGELOG.md` |
 | **Pretender 3.0 交付线（🔁 重新立项：核心改向引擎侧）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）**；**2026-08-27 重新立项：版本核心改为引擎侧 Agent SoC 微架构迭代（[`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) 与本文「Pretender 3.0 重新立项」节），原壳层 P1–P3 成果已随 Escapade 2.x 交付，P4 默认切换保持搁置** | `docs/PRETENDER-PLAN.md` v4、`docs/PRETENDER-METRICS.md`、第99/100波记录 `docs/archive/optimization-plan/08-task-sheet-ux-audit.md` |
-| **第 103–107 波架构／上下文前序列** | **推进中**：第 103、104 波与第 105 波总门已交付。105a–105g 均经各自采用门默认开启并保留显式回退；32K×20–28K 真实总门再次确认 105f 单发优先有净收益（实体 88.9%、跨块 87.5%、5 次调用），≤4 块 refine 无净收益保持默认关，>4 块 user 大纲因 8 块至少 9 次串行调用／真实基线超 8 分钟而撤掉，overlap 不实施。105g 保留默认开启；超长 history-24 事实表甜点门将默认上限从 16 提到 64（82.8% 实体保留，6 次调用，成本/延迟仍在可接受增量内）。**106 已开工**：#13a／13a-t 预算保护基础层＋长命令时间预算已交付（默认关闭，A 类合成门 44 项全绿）；#1 G1 保持默认关、G2 经 DeepSeek v4-pro Responses 真实 A/B 门后默认开启；#2a 在 4×2MB 多文件真实重复读取门中确认工具阶段耗时约降 64%，已默认开启并保留显式回退。**#3 已收口**：design-and-decide option 扇出真实配对门实测批量臂 −33% 调用／−25% 费用但深度变薄、墙钟 +10%，裁决条件性正收益、模板不翻默认。106 波至此全部收口，107 为发布批准点 | [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md) |
+| **第 103–107 波架构／上下文前序列** | **推进中**：第 103、104 波与第 105 波总门已交付。105a–105g 均经各自采用门默认开启并保留显式回退；32K×20–28K 真实总门再次确认 105f 单发优先有净收益（实体 88.9%、跨块 87.5%、5 次调用），≤4 块 refine 无净收益保持默认关，>4 块 user 大纲因 8 块至少 9 次串行调用／真实基线超 8 分钟而撤掉，overlap 不实施。105g 保留默认开启；超长 history-24 事实表甜点门将默认上限从 16 提到 64（82.8% 实体保留，6 次调用，成本/延迟仍在可接受增量内）。**106 已开工**：#13a／13a-t 预算保护基础层＋长命令时间预算已交付（默认关闭，A 类合成门 44 项全绿）；#1 G1 保持默认关、G2 经 DeepSeek v4-pro Responses 真实 A/B 门后默认开启；#2a 在 4×2MB 多文件真实重复读取门中确认工具阶段耗时约降 64%，已默认开启并保留显式回退。**#3 已收口**：design-and-decide option 扇出真实配对门实测批量臂 −33% 调用／−25% 费用但深度变薄、墙钟 +10%，裁决条件性正收益、模板不翻默认。106 波至此全部收口；**2026-09-02 新增第 108–110 波（提示词自我认知／制图与交互／结构精简），107 发布批准点保留编号、执行序排在 108–110 之后** | [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)、本文「第 108–110 波」节 |
 | **Traveler 4.0** | 概念稿 v0.1（非承诺） | `docs/TRAVELER-CONCEPT.md` |
 
 ---
@@ -122,11 +122,36 @@
 | **104 · 内聚与上下文结构（已交付 2026-08-31）** | 视觉管线出 04、桌面 shell 出 10、07 职责拆分；压缩职责簇 + `CompactionPlan`；规则外置；契约快照与依赖图更新 | 零行为；主路径／forced-400／子代理与提示词快照等价；为上下文实验提供单一落点，已解锁 105 |
 | **105 · 上下文行为实验** | `observation_recall`、session notes、实体校验、估算分桶、单发优先与 map-reduce 跨块保真 | 逐项受控取证；105a–105g 已通过各自门并默认开启（均可显式 false 回退），其余保持默认关／canary；为 #7 建立生产消费者，不通过不启用 |
 | **106 · Agent SoC 证据收敛（推进中）** | #13a／13a-t 已交付默认关（回合 token 预算保护＋长命令时间轴软硬终态＋字节轴 shadow 计数，44 项合成门全绿）；#1 Ruyi 布局核查＋探针 S5 已交付（tools 计入缓存前缀、位置敏感，两轮复现），G1 在 16 轮×约 5.2K 字符历史真实门中仍保持默认关（cached-input 再降 11.2pp、墙钟升 22%），G2 经 DeepSeek v4-pro Responses 真实 A/B 门后默认开启（schema 冻结只追加＋layout_shadow 计量，26 项合成门全绿）；#2a 受限执行结果缓存已在大文件真实门后默认开启（白名单仅 file_read，mtime+size 版本失效＋命中重新验权＋cacheHit 诚实标记，34 项合成门全绿；4×2MB 文件、12 次读取、8 次命中，工具阶段约 311ms→112ms，但端到端墙钟仅约 1.5% 改善）；**#3 批量输出纪律限定场景已收口**（design-and-decide option 扇出逐项 vs 批量真实配对门，批量臂 −33.3% 调用／−24.7% 费用／+10.3% 墙钟、槽位深度变薄，裁决条件性正收益、模板保持逐项并行现状不翻默认，17 项离线机制门全绿）；#9 不再单做（22 号文 #3/#9 为二选一）；#7 仅在回载与耗时证据成立后进入 | 沿用 22 号单轴、非劣、权限／配对／恢复零回归门；不以完成数量冒充收益 |
-| **107 · 出门准备与批准点** | Escapade 六类发布门 + 22 号 Release Brief；冻结默认启用、适用范围、回退和版本归属 | 形成 Pretender 3.0 发布批准材料；不自动恢复旧壳 P4／人因／默认切壳 |
+| **107 · 出门准备与批准点** | Escapade 六类发布门 + 22 号 Release Brief；冻结默认启用、适用范围、回退和版本归属；**执行序改排在第 108–110 波之后（2026-09-02），冻结范围须覆盖这三波交付的默认启用项** | 形成 Pretender 3.0 发布批准材料；不自动恢复旧壳 P4／人因／默认切壳 |
 
 **顺序纪律**：103 为 104 与后续高触碰结构改动的前置；104 为 105 的前置。105 不自动批准 106 的任何优化。#13a 若因已证实热点申请提前，只能在 103 出门后成文重排，不能静默并行占号。103／104 可随 Escapade 补丁或后续版本交付；105／106 若改变默认行为或 UI，版本级别由实际变更决定，不在规划阶段预写 `2.6.x` 或 `2.7`。
 
 **独立 ASR 候选**：音频转文字与本地 Qwen3-ASR 是功能线，不占 103–107、也不是 Pretender 前置；若另行立项，只依赖 103a 的路由 descriptor，并复用 providers + `caps:['asr']`、独立 ASR 选择键、token 级转写端点和本地按需拉起边界。详见 23 号方案 §7。
+
+### 第 108–110 波 · 出门前提示词自我认知、制图能力与结构精简（2026-09-02 立项）
+
+> 立项理由（用户 2026-09-02）：Pretender 出门检测（107）之前还需三个优化波次：① 系统提示词详细排查与优化——agent 不知道 Ruyi 自身的很多功能（如 Playbook/skill）、不太能自己改 Ruyi 设置、不知道当前运行位置与版本号（一台机子可能装多个版本）；② 原生工具/ACC 增强——制图能力与 Mermaid 流程图等，提升日常交互体验与实用性；③ 系统结构化重构——拆分巨大文件、立 SPEC 规范、精简代码。编号按立项顺序取 108–110；**107 发布批准点保留编号、执行序排在这三波之后**。三波串行，每波独立取证过门再进下一波；不改变默认行为的切片不设开关、无回退面，改变默认行为的切片沿用独立开关＋显式 false 回退纪律。
+
+**第 108 波 · 系统提示词「自我认知」排查与优化**
+
+- 摸底结论（2026-09-02 主树核实）：主会话提示词 = stable 层（`buildStableSystemPrompt`，`06-provider-engine.js:1343-1369`，实测约 1300 字符）+ volatile 层（`buildVolatileParts` `:1372-1477` + `09-workflow.js:1560-1589` volatileExtras，实测约 4000 字符），文本统一外置 `06b-prompt-registry.js`（`PROMPT_PACK_VERSION` 锁版本），每回合动态重组装。子代理提示词同源但不含 skills/memory/mission（`08-agent-runs.js:510-517`）。
+- 已确认缺口：**不含版本号**（权威值 `00-boot.js:26` VERSION，仅进 config/日志/`/api/health`）、**不含安装/运行位置与 overlay 标识**（`OVERLAY_ID`/`LAUNCH_MODE`，多版本共存机台上 agent 无法自答「我是谁、我在哪」）、**playbook/command 类条目被明确过滤不进提示词**（`06-provider-engine.js:1489-1491`）、无完整工具清单文本（只有数量与不可用名单）。已有：mcp_configure 改设置指引、workflow 模板清单、技能索引、工作台记忆指引。
+- 范围：① Ruyi 自功能全量清单排查（版本/位置/overlay/playbook/skill/记忆/设置/模板/数据目录），逐项裁决「进提示词／进工具／不进」；② 注入层归属裁决——稳定信息进 stable 层保 prefix cache（105f/#1 缓存纪律：易变前置每轮全 miss），易变信息进 volatile；③ 子代理提示词是否同步补齐，逐项裁决；④ 长度预算重新分配（stable<1500、总长闸 800–12000，`prompt-snapshot.static.e2e.js`）。
+- 过门：prompt-snapshot／meta-guard／software-engineering-prompt 三个 static e2e + prompt-benchmark 6 seed 配对 A/B（改前改后各一次，通过率不得退化）+ build --check；新增注入须先计量对 prefix cache 命中率的影响（#1 纪律）。
+
+**第 109 波 · 制图与日常交互能力（ACC/原生工具）**
+
+- 摸底结论：制图现状 = ACC `chart_image`（bar/line/pie/scatter → PNG，`office_chart.py:72-130`）+ `excel_chart`（嵌 xlsx，无 scatter）；**Mermaid/流程图渲染是全链路空白**——前端 marked 管线无 mermaid.js（`chat-render-primitives.js:114`），ACC Python 侧 0 命中，docs 无 gap 记录，agent 只能输出 mermaid 源码文本。
+- 范围候选（逐项独立取证）：① Mermaid 渲染链路选型与落地（前端 vendor 渲染 vs ACC 侧出图），须过纯离线红线（CONTRIBUTING 五条；mermaid-cli/puppeteer 类重依赖原则上排除）；② chart_image/Office 出图能力补强；③ 日常交互体验项（沿用第 99 波 dogfood 不爽点收录主渠道）。
+- 新增 ACC 工具的机械同步面（缺一即红）：`smoke_registry.py` 工具总数断言、`smoke_toolsets.py`、`smoke_descriptions.py` 规范审计、`BRIDGED_WRITE_PATH_ARGS` 快照表（`02-session-store.js:3103-3128`，写族工具发布检查项）、`dev-harness/fake-mcp.js` 双侧＋`fake-mcp-contract.e2e.js` 静态锁、`capabilities.e2e.js`。
+- 过门：第 49 波新工具入库全部门 + 上述同步面 + 离线回归。
+
+**第 110 波 · 结构化重构与代码精简（先规范、后拆分）**
+
+- 摸底结论：app/src 30 模块 37,075 行，>2000 行 5 件（09-workflow 3370、02-session-store 3176、05b-kimi-bridge 2752、13-http-router 2603、01-config 2423）；前端 preview-shell.js 3557 行（第 100 波保守搬家后仍是前端第一大）、preview-shell.css 1982 行；dev-harness 55,080 行（约为 app/src 的 1.5 倍）。**无独立 SPEC/编码规范文档**，本波为新建。结构债存量（23 号文 §0 裁决）：101 个 `pathname===` 判定点未 descriptor 化、30 模块共享拼接顶层作用域（1 个 SCC、1481 个 provides 符号）、65 条前向边被 policy 冻结但未消除、04/07/10 内聚错位部分未偿还。
+- 两阶段硬序：① **SPEC 先行**——新建编码/结构规范（模块职责、文件规模上限、注释与命名、测试断言纪律），须尊重 CONTRIBUTING 五条红线（纯离线、server.js 零 npm 运行时依赖、e2e 断言只加不改）与 23 号文既有裁决（如不得一次性强推全树 IIFE）；② **按 SPEC 逐文件拆分**——每文件独立 commit、纯搬家零行为变更（第 100 波先例），每步过生成器链（module-graph／route-inventory／facts／architecture-contract-snapshots／manifest-ranges `--write` + 对应 static e2e 独立重算）+ build --check + 全量 e2e。
+- 明确不做：不改任何运行时行为、不设开关；dev-harness 测试瘦身须先破例评审「断言只加不改」红线，单列决策不夹带；realhist-fixtures 环境缺口（23 号文已记录）不夹带修复。
+- 风险标注：拆分波及 46 件 static e2e 的 grep 锁与 facts 门面数字，工作量主要在校验链同步而非搬家本身。
 
 ### 已交付／候选编排方法论线 · MicroAgent 论文借鉴（不占第 103 波编号）
 
