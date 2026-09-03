@@ -374,10 +374,19 @@ def excel_chart(
     y_title: str | None = None,
     allow_protected: bool = False,
 ) -> dict:
-    """Insert a native chart (bar | line | pie) into an existing .xlsx, coloured from design tokens.
+    """Insert a native chart (bar | line | pie | scatter) into an existing .xlsx, coloured from
+    design tokens.
 
     The first row of data_range is treated as series names (headers) and the first column as the
-    category axis (labels). Chart series colours come from the chosen style's chart_palette.
+    category axis (labels) — EXCEPT for 'scatter', where the first column instead holds numeric
+    X values and each subsequent column is one Y series (a true XY chart, no category axis). Chart
+    series colours come from the chosen style's chart_palette.
+
+    109c — scatter (openpyxl ScatterChart): 用 Series(yvalues, xvalues=xvalues, title_from_data=True)
+    逐列建系列 —— data_range 首列是数值 X (非类别)，其余每列各一条 Y 系列，系列名取该列表头。标记点用
+    实心圆 (marker.symbol='circle', size=7) 且系列间不连线 (line.noFill=True)，与 excel 里常见的
+    "散点图不连线" 习惯一致；如需折线连接请改用 chart_type='line'。x_title/y_title 的自动推导沿用同一
+    套表头规则 (首列表头 → x_title；单列 Y 时其表头 → y_title)。
 
     v1.7.1 — 坐标轴标题 (用户反馈「Excel 图表好多都没有 X/Y 轴单位」):
       * x_title / y_title 显式设置横 / 纵轴标题 (如「季度」「销售额(万元)」)。
@@ -393,8 +402,9 @@ def excel_chart(
     Args:
         path: Path to an existing .xlsx.
         sheet: Worksheet name the data lives on (the chart is placed on the same sheet).
-        chart_type: 'bar' | 'line' | 'pie'.
-        data_range: Data area as 'A1:B10' — first row = series header, first column = categories.
+        chart_type: 'bar' | 'line' | 'pie' | 'scatter'.
+        data_range: Data area as 'A1:B10' — first row = series header, first column = categories
+              (for 'scatter': first row = header, first column = numeric X values).
         title: Chart title (中文 OK).
         target_cell: Anchor cell for the chart's top-left corner (default 'H2').
         x_title: 横轴标题。None = 自动推导 (首列表头)；'' = 不加横轴标题。饼图忽略。
@@ -411,8 +421,8 @@ def excel_chart(
     if not os.path.exists(path):
         return {"error": f"文件不存在：{path}"}
     ctype = str(chart_type).strip().lower()
-    if ctype not in ("bar", "line", "pie"):
-        return {"error": f"chart_type 非法：{chart_type!r}，仅支持 bar | line | pie"}
+    if ctype not in ("bar", "line", "pie", "scatter"):
+        return {"error": f"chart_type 非法：{chart_type!r}，仅支持 bar | line | pie | scatter"}
     guard = _protected_write_guard(path, allow_protected)
     if guard:
         return guard
@@ -426,7 +436,7 @@ def excel_chart(
         return rerr
 
     try:
-        from openpyxl.chart import BarChart, LineChart, PieChart, Reference
+        from openpyxl.chart import BarChart, LineChart, PieChart, ScatterChart, Series, Reference
         from openpyxl.chart.series import DataPoint
     except Exception as e:  # noqa: BLE001
         return {"error": f"图表功能需要 openpyxl.chart（应随离线包安装）。导入失败：{e}"}
@@ -451,6 +461,8 @@ def excel_chart(
             chart.type = "col"
         elif ctype == "line":
             chart = LineChart()
+        elif ctype == "scatter":
+            chart = ScatterChart()
         else:
             chart = PieChart()
 
@@ -465,10 +477,19 @@ def excel_chart(
         # b2-P1: 单列无法画图(Reference 抛崩溃式错误)—— 前置校验
         if max_col <= min_col:
             return {"error": "data_range 至少需要 2 列(1 列类别 + >=1 列数据),当前仅 1 列。请扩大 data_range。"}
-        cats = Reference(ws, min_col=min_col, min_row=min_row + 1, max_row=max_row)
-        data = Reference(ws, min_col=min_col + 1, min_row=min_row, max_col=max_col, max_row=max_row)
-        chart.add_data(data, titles_from_data=True)
-        chart.set_categories(cats)
+        if ctype == "scatter":
+            # XY chart: 首列 = 数值 X (不是类别，不走 set_categories)；其余每列各建一条 Y 系列，
+            # title_from_data=True 会 pop 掉该列的表头单元格当系列名。
+            xref = Reference(ws, min_col=min_col, min_row=min_row + 1, max_row=max_row)
+            for col in range(min_col + 1, max_col + 1):
+                yref = Reference(ws, min_col=col, min_row=min_row, max_row=max_row)
+                s = Series(yref, xvalues=xref, title_from_data=True)
+                chart.series.append(s)
+        else:
+            cats = Reference(ws, min_col=min_col, min_row=min_row + 1, max_row=max_row)
+            data = Reference(ws, min_col=min_col + 1, min_row=min_row, max_col=max_col, max_row=max_row)
+            chart.add_data(data, titles_from_data=True)
+            chart.set_categories(cats)
 
         # --- v1.7.1 坐标轴标题 (饼图无轴，跳过) ---
         applied_x, applied_y = "", ""
@@ -506,6 +527,16 @@ def excel_chart(
                     dp = DataPoint(idx=idx)
                     dp.graphicalProperties.solidFill = palette[idx % len(palette)]
                     s.data_points.append(dp)
+        elif ctype == "scatter":
+            # 标记点用实心圆 (可见)，系列间不连线 —— marker 的填充/描边才是散点的颜色载体，
+            # graphicalProperties.line 是"点与点之间的连线"，散点约定关掉它。
+            for i, s in enumerate(chart.series):
+                color = palette[i % len(palette)]
+                s.marker.symbol = "circle"
+                s.marker.size = 7
+                s.marker.graphicalProperties.solidFill = color
+                s.marker.graphicalProperties.line.solidFill = color
+                s.graphicalProperties.line.noFill = True
         else:
             for i, s in enumerate(chart.series):
                 color = palette[i % len(palette)]

@@ -91,6 +91,20 @@ def chart_image(
     bar charts, and DPI 150. 中文 titles/labels render via the CJK font chain (Microsoft YaHei ->
     SimHei -> SimSun, probed at call time).
 
+    何时用: 需要 bar/line/pie/scatter 之外的形态 —— 类目多/标签长用 hbar 横排更好读；一个类目下多个
+    分量的构成用 stacked_bar；随时间的量级趋势(强调"填满到 0"的体量感)用 area。
+    何时别用: 单纯要精确数值对比用 bar/line 即可,area 的堆叠/透明度会让精确读数变难;分量总和无意义
+    (如互不相关的独立指标)时别用 stacked_bar,改用 bar 分组。
+
+    109c — 出图补型 (工具版本不变，仅补 chart_type): 新增 hbar(横向条形图)、stacked_bar(堆叠柱状图)、
+    area(面积图)。三者复用同一份 data 形状与坐标轴标题/CJK 字体/style 链路,不新增参数：
+      * hbar: labels 落在纵轴(自上而下与 labels 顺序一致)，数值落在横轴；多系列并列成组。
+        坐标轴语义与 bar 相反 —— 若沿用自动推导的 y_title(取单系列 name)会挂在类目轴上，横向图建议
+        显式传 x_title/y_title。
+      * stacked_bar: 同一 x 类目下的多系列纵向堆叠求和；柱顶标注堆叠总和(不逐段标数值，避免拥挤)。
+      * area: 多系列各自画折线 + 半透明填充(alpha=0.35，与 matplotlib fill_between 独立叠放，不是
+        累积堆叠面积图) —— 系列间可直接互相对照，重叠处靠透明度分辨。
+
     v1.7.1 — 坐标轴标题 (用户反馈图表缺 X/Y 轴单位)。命名与 excel_chart 对齐 (x_title / y_title):
       * x_title / y_title 设横 / 纵轴标题 (matplotlib ax.set_xlabel / set_ylabel)，字体走既有 CJK 链。
       * 也可写在 data 里 (data['x_title'] / data['y_title'])；顶层参数优先。
@@ -101,7 +115,7 @@ def chart_image(
 
     Args:
         path: Output .png path.
-        chart_type: 'bar' | 'line' | 'pie' | 'scatter'.
+        chart_type: 'bar' | 'line' | 'pie' | 'scatter' | 'hbar' | 'stacked_bar' | 'area'.
         data: {'labels': [...], 'series': [{'name', 'values'}, ...]} (see above). May also carry
               optional 'x_title' / 'y_title' keys (top-level params take precedence).
         title: Chart title (中文 OK).
@@ -121,8 +135,9 @@ def chart_image(
     if not str(path).lower().endswith(".png"):
         return {"error": "path 必须以 .png 结尾"}
     ctype = str(chart_type).strip().lower()
-    if ctype not in ("bar", "line", "pie", "scatter"):
-        return {"error": f"chart_type 非法：{chart_type!r}，仅支持 bar | line | pie | scatter"}
+    if ctype not in ("bar", "line", "pie", "scatter", "hbar", "stacked_bar", "area"):
+        return {"error": f"chart_type 非法：{chart_type!r}，"
+                          f"仅支持 bar | line | pie | scatter | hbar | stacked_bar | area"}
     if not isinstance(data, dict):
         return {"error": "data 必须是 dict：{'labels':[...], 'series':[{'name','values'}, ...]}"}
     guard = _protected_write_guard(path, allow_protected)
@@ -230,6 +245,50 @@ def chart_image(
             ax.set_xticklabels(labels)
             ax.legend()
 
+        elif ctype == "hbar":
+            n = len(series)
+            y = list(range(len(labels)))
+            group_w = 0.8
+            bar_w = group_w / n
+            for i, s in enumerate(series):
+                offset = (i - (n - 1) / 2) * bar_w
+                ypos = [yy + offset for yy in y]
+                bars = ax.barh(ypos, s["values"], bar_w, label=s.get("name", f"系列{i+1}"),
+                               color=palette[i % len(palette)])
+                for rect in bars:
+                    w = rect.get_width()
+                    ax.annotate(_fmt(w), xy=(w, rect.get_y() + rect.get_height() / 2),
+                                xytext=(3, 0), textcoords="offset points",
+                                ha="left", va="center", fontsize=8, color=text_color)
+            ax.set_yticks(y)
+            ax.set_yticklabels(labels)
+            ax.invert_yaxis()  # first label reads top-to-bottom, matching labels 的顺序
+            ax.legend()
+
+        elif ctype == "stacked_bar":
+            x = list(range(len(labels)))
+            bottom = [0.0] * len(labels)
+            for i, s in enumerate(series):
+                vals = s["values"]
+                ax.bar(x, vals, 0.6, bottom=bottom, label=s.get("name", f"系列{i+1}"),
+                       color=palette[i % len(palette)])
+                bottom = [b + v for b, v in zip(bottom, vals)]
+            # 柱顶标注堆叠总和 (逐段标数值在窄段/深色底上易读不清，故只标总量)。
+            for j, total in enumerate(bottom):
+                ax.annotate(_fmt(total), xy=(x[j], total), xytext=(0, 3), textcoords="offset points",
+                            ha="center", va="bottom", fontsize=8, color=text_color)
+            ax.set_xticks(x)
+            ax.set_xticklabels(labels)
+            ax.legend()
+
+        elif ctype == "area":
+            for i, s in enumerate(series):
+                color = palette[i % len(palette)]
+                ax.plot(labels, s["values"], linewidth=2, label=s.get("name", f"系列{i+1}"), color=color)
+                # 叠放而非累积堆叠：各系列独立填充到 0，靠 alpha=0.35 分辨重叠区域。
+                ax.fill_between(labels, s["values"], 0, color=color, alpha=0.35)
+            ax.legend()
+
         elif ctype == "pie":
             values = series[0]["values"]
             colors = [palette[i % len(palette)] for i in range(len(labels))]
@@ -244,7 +303,7 @@ def chart_image(
             ax.spines["right"].set_visible(False)
             ax.spines["left"].set_color(grid_color)
             ax.spines["bottom"].set_color(grid_color)
-            ax.grid(axis="y", color=grid_color, linewidth=0.6, alpha=0.6)
+            ax.grid(axis=("x" if ctype == "hbar" else "y"), color=grid_color, linewidth=0.6, alpha=0.6)
             ax.set_axisbelow(True)
             ax.tick_params(colors=text_color)
             # v1.7.1 axis titles — font follows the CJK rcParams chain wired by _ensure_font.
