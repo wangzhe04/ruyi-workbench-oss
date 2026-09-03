@@ -29,7 +29,7 @@ ok(/'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFac
 ok(/function summarySingleShotEnabled\(config\)/.test(src), 'S summarySingleShotEnabled 唯一判定点存在');
 ok(/summarySingleShotMaxTokensV1: 32768/.test(src) && /Math\.min\(131072, Math\.max\(8192, Math\.round\(n\)\)\) : 32768/.test(src), 'S 单发上限默认 32768 且 sanitize 钳位 [8192,131072](无无限档)');
 ok(/function summarySingleShotCap\(config, provider, model\)/.test(src) && /function summarySingleShotReserveTokens\(\)/.test(src), 'S 105f 上限解析(provider/model/style 覆盖) + reserve 预算助手存在');
-ok(/singleShotReserve: \{ systemTokens: 1200, expectedOutputTokens: 2048, calibrationMarginTokens: 2048 \}/.test(src) && /singleShotCap: \{ default: 32768, min: 8192, max: 131072 \}/.test(src), 'S rules singleShotReserve/singleShotCap 块在产物 fallback 内');
+ok(/singleShotReserve: \{ systemTokens: 1200, expectedOutputTokens: 6144, calibrationMarginTokens: 2048 \}/.test(src) && /singleShotCap: \{ default: 32768, min: 8192, max: 131072 \}/.test(src), 'S rules singleShotReserve/singleShotCap 块在产物 fallback 内(expectedOutputTokens 随 c7d2507 摘要策略 2048->6144 重钉)');
 ok(/if \(sc\.ok \|\| !singleOn \|\| !isContextOverflowError\(sc\.error\)\) return sc;/.test(src), 'S 105f 仅可识别上下文超窗 400 才降级,其余失败原样上浮');
 ok(/degradedFromSingle: true/.test(src), 'S 105f 降级标记落 mapReduce 元数据(失败调用成本可归因)');
 // 105g(4.3 首项): map-reduce 全局事实表 —— 真实 history-24 配对 A/B 门(实体保留 18.8%→75.0%,调用数零增加)通过后默认开启。
