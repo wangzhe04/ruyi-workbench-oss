@@ -126,7 +126,7 @@
   「若不可避免，停下评审，不在同一 commit 内改 policy」）。`module-dependency-policy.json:3` 的头部
   `note` 字段明确写着「Future additions still require explicit architecture review」——本波沿用此约束，
   不放宽债务上限。
-- **边端点重归属（搬家特例）**：纯搬家把某符号的 provider 从模块 A 移到新模块 A′ 时，policy 中已登记的 `X -> A`（同符号、同消费者）边会被 `--check` 报为「新前向边 `X -> A′`」。这不是新依赖，只是端点改名：允许在**同一个搬家 commit** 内把 policy 中对应条目的 provider 改为 A′，并在 commit 信息与 policy 条目 `note` 里写明「110-N 搬家重归属」。只有消费者或符号发生变化的边才算真正的新边，仍须单独评审提交。若生成器在搬家后首次「发现」一条代码里早已存在但此前未被扫描到的边（扫描器缺口），按新边评审，但可在评审记录中注明属于既有依赖。
+- **边端点重归属（搬家特例）**：纯搬家把某符号的 provider 从模块 A 移到新模块 A′ 时，policy 中已登记的 `X -> A`（同符号、同消费者）边会被 `--check` 报为「新前向边 `X -> A′`」。这不是新依赖，只是端点改名：允许在**同一个搬家 commit** 内把 policy 中对应条目的 provider 改为 A′，并在 commit 信息与 policy 条目 `note` 里写明「110-N 搬家重归属」。**对称地，consumer 侧也适用**：引用某符号的代码块逐字节搬到新模块 X′ 时，policy 中的 `X -> P`（同符号、同 provider）变为 `X′ -> P`，同样是端点改名而非新依赖，允许同 commit 改写并注明（110-4b 先例：`09-workflow.js -> 10-context-governance.js` 的 `ESTIMATION_RULES` 随 token 估算簇迁至 `09d-token-estimation.js`）。只有消费者与 provider 都未搬家、却出现了此前不存在的符号引用，才算真正的新边，仍须单独评审提交。若生成器在搬家后首次「发现」一条代码里早已存在但此前未被扫描到的边（扫描器缺口），按新边评审，但可在评审记录中注明属于既有依赖。
 - **新建独立模块优先采用 `06c` 式 IIFE 命名空间 + 注入依赖 + 冻结导出**范式：
   `06c-agent-loop-hooks.js:16` `const AgentLoopHooks = ((makeIdFn, logEventFn, redactFn) => { ... })(makeId, logEvent, redact);`，
   内部所有 helper 与状态收进闭包，只在文件末尾 `return Object.freeze({...})`（`06c-agent-loop-hooks.js:410-417`）
