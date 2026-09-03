@@ -1,7 +1,7 @@
 # 如意 Ruyi 优化路线图（当前版）
 
 > 本文只保留**当前发布线、发布准入与后续计划**；已交付波次历史移入 [`archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md)（第46–86波）与 [`archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md)（第1–45波）。
-> 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)，第 103–107 波的结构前置、上下文演进与出门序列见 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)；第 108–110 波（出门前提示词自我认知／制图与交互／结构精简）见本文「第 108–110 波」节。`docs/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，不再统管新引擎线。
+> 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)，第 103–107 波的结构前置、上下文演进与出门序列见 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)；第 108–110 波（出门前提示词自我认知／制图与交互／结构精简）见本文「第 108–110 波」节，实施方案见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md)。`docs/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，不再统管新引擎线。
 
 ---
 
@@ -130,7 +130,7 @@
 
 ### 第 108–110 波 · 出门前提示词自我认知、制图能力与结构精简（2026-09-02 立项）
 
-> 立项理由（用户 2026-09-02）：Pretender 出门检测（107）之前还需三个优化波次：① 系统提示词详细排查与优化——agent 不知道 Ruyi 自身的很多功能（如 Playbook/skill）、不太能自己改 Ruyi 设置、不知道当前运行位置与版本号（一台机子可能装多个版本）；② 原生工具/ACC 增强——制图能力与 Mermaid 流程图等，提升日常交互体验与实用性；③ 系统结构化重构——拆分巨大文件、立 SPEC 规范、精简代码。编号按立项顺序取 108–110；**107 发布批准点保留编号、执行序排在这三波之后**。三波串行，每波独立取证过门再进下一波；不改变默认行为的切片不设开关、无回退面，改变默认行为的切片沿用独立开关＋显式 false 回退纪律。
+> 立项理由（用户 2026-09-02）：Pretender 出门检测（107）之前还需三个优化波次：① 系统提示词详细排查与优化——agent 不知道 Ruyi 自身的很多功能（如 Playbook/skill）、不太能自己改 Ruyi 设置、不知道当前运行位置与版本号（一台机子可能装多个版本）；② 原生工具/ACC 增强——制图能力与 Mermaid 流程图等，提升日常交互体验与实用性；③ 系统结构化重构——拆分巨大文件、立 SPEC 规范、精简代码。编号按立项顺序取 108–110；**107 发布批准点保留编号、执行序排在这三波之后**。三波串行，每波独立取证过门再进下一波；不改变默认行为的切片不设开关、无回退面，改变默认行为的切片沿用独立开关＋显式 false 回退纪律。**实施方案（切片、落点、过门、回退与拆分 SOP）见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md)（2026-09-03 主树复核后立）。**
 
 **第 108 波 · 系统提示词「自我认知」排查与优化**
 
@@ -138,6 +138,7 @@
 - 已确认缺口：**不含版本号**（权威值 `00-boot.js:26` VERSION，仅进 config/日志/`/api/health`）、**不含安装/运行位置与 overlay 标识**（`OVERLAY_ID`/`LAUNCH_MODE`，多版本共存机台上 agent 无法自答「我是谁、我在哪」）、**playbook/command 类条目被明确过滤不进提示词**（`06-provider-engine.js:1489-1491`）、无完整工具清单文本（只有数量与不可用名单）。已有：mcp_configure 改设置指引、workflow 模板清单、技能索引、工作台记忆指引。
 - 范围：① Ruyi 自功能全量清单排查（版本/位置/overlay/playbook/skill/记忆/设置/模板/数据目录），逐项裁决「进提示词／进工具／不进」；② 注入层归属裁决——稳定信息进 stable 层保 prefix cache（105f/#1 缓存纪律：易变前置每轮全 miss），易变信息进 volatile；③ 子代理提示词是否同步补齐，逐项裁决；④ 长度预算重新分配（stable<1500、总长闸 800–12000，`prompt-snapshot.static.e2e.js`）。
 - 过门：prompt-snapshot／meta-guard／software-engineering-prompt 三个 static e2e + prompt-benchmark 6 seed 配对 A/B（改前改后各一次，通过率不得退化）+ build --check；新增注入须先计量对 prefix cache 命中率的影响（#1 纪律）。
+- **交付记录（2026-09-03，工作树、待提交）**：108-0 门修复（HEAD 3 件静态锁漂移）→ 108a stable 层运行时身份块（产品名／版本／启动模式／服务地址／实例标识；D3 阈值 1500→1800）→ 108b `<playbook-index>`（≤12 条／600 字符）＋设置边界双语指引（两引擎对称）→ 108c `workbench_self_status` 只读工具（63 个原生工具）→ 108a-fix（用户发现 `capabilities.e2e.js` 身份泄漏守卫被真实路径触发，stable 层去路径、路径走工具、D11b 镜像守卫）→ 108d `PROMPT_PACK_VERSION` 2026-w108-1、benchmark 种子分层化 → 108-fix2（全量回归暴露 budget-guard 跨进程逐字节比对与 steering-claude 插话时序两处回归，stable 身份块收窄为进程不变量、Claude 路径改用不探测的 `peekCapabilities()`）→ **出门：全量 `run-all.js --parallel 4` 256/256 全过（2026-09-03）**。全部门与逐切片证据见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md) §1.3「交付记录」。
 
 **第 109 波 · 制图与日常交互能力（ACC/原生工具）**
 
@@ -145,6 +146,7 @@
 - 范围候选（逐项独立取证）：① Mermaid 渲染链路选型与落地（前端 vendor 渲染 vs ACC 侧出图），须过纯离线红线（CONTRIBUTING 五条；mermaid-cli/puppeteer 类重依赖原则上排除）；② chart_image/Office 出图能力补强；③ 日常交互体验项（沿用第 99 波 dogfood 不爽点收录主渠道）。
 - 新增 ACC 工具的机械同步面（缺一即红）：`smoke_registry.py` 工具总数断言、`smoke_toolsets.py`、`smoke_descriptions.py` 规范审计、`BRIDGED_WRITE_PATH_ARGS` 快照表（`02-session-store.js:3103-3128`，写族工具发布检查项）、`dev-harness/fake-mcp.js` 双侧＋`fake-mcp-contract.e2e.js` 静态锁、`capabilities.e2e.js`。
 - 过门：第 49 波新工具入库全部门 + 上述同步面 + 离线回归。
+- **交付记录（2026-09-03，工作树、待提交）**：109a Mermaid 渲染链路（前端 vendor 懒加载＋严格安全模式＋缺失降级；`mermaid-render.static` 57 条；**vendor 文件由用户从 npm `mermaid@11.x` 发布物放入 `app/public/vendor/`，未放入时按设计降级**）→ 109b 工具结果图片内联缩略图（复用 `/api/file/preview`，零后端）→ 109c ACC `chart_image` 加 hbar/stacked_bar/area、`excel_chart` 加 scatter（工具数 108／版本 1.9.1 不变，新增 `smoke_v192`）。快通道 48/48；`--parallel 4` 全量两败均为并行偶发（串行单跑全过），串行全量作为确定性出门证据。切片证据与 dogfood 收录位见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md) §2。
 
 **第 110 波 · 结构化重构与代码精简（先规范、后拆分）**
 
@@ -152,6 +154,10 @@
 - 两阶段硬序：① **SPEC 先行**——新建编码/结构规范（模块职责、文件规模上限、注释与命名、测试断言纪律），须尊重 CONTRIBUTING 五条红线（纯离线、server.js 零 npm 运行时依赖、e2e 断言只加不改）与 23 号文既有裁决（如不得一次性强推全树 IIFE）；② **按 SPEC 逐文件拆分**——每文件独立 commit、纯搬家零行为变更（第 100 波先例），每步过生成器链（module-graph／route-inventory／facts／architecture-contract-snapshots／manifest-ranges `--write` + 对应 static e2e 独立重算）+ build --check + 全量 e2e。
 - 明确不做：不改任何运行时行为、不设开关；dev-harness 测试瘦身须先破例评审「断言只加不改」红线，单列决策不夹带；realhist-fixtures 环境缺口（23 号文已记录）不夹带修复。
 - 风险标注：拆分波及 46 件 static e2e 的 grep 锁与 facts 门面数字，工作量主要在校验链同步而非搬家本身。
+
+### 第 111–113 波 · 压缩策略 v2／过程可见性／记忆与会话搜索向量化（2026-09-03 候选立项，待拍板执行序）
+
+> 立项理由（用户 2026-09-03）：① 压缩策略可进一步优化（外部只读分析指出尾部保留只在 user 边界切、L1 边界按 assistant 计数、重播种后不重附文件、摘要 prompt 中文硬编码、历史内重复读取不去重）；② 交办台／经典壳交互仍是黑盒，用户要随时知道模型在干什么、干到哪、在等什么；③ 长期记忆与会话搜索应支持向量化匹配。三条已完成主树只读核查（分析论断 8 条成立、2 条部分成立；服务端已发的约十种进度事件被两壳静默丢弃；记忆为词法 Top-3、会话搜索不查正文、全仓无 embedding）。实施方案、切片、开关与门见 [`optimization-plan/25-waves-111-113-compaction-visibility-memory.md`](optimization-plan/25-waves-111-113-compaction-visibility-memory.md)。**建议执行序 108 → 109 → 110 → 111 → 112 → 113 → 107 批准点**；是否全部排在 107 之前、111 是否提前到 108 之后，待用户拍板。
 
 ### 已交付／候选编排方法论线 · MicroAgent 论文借鉴（不占第 103 波编号）
 

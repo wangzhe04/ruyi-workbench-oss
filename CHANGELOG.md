@@ -5,7 +5,23 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 · Unreleased
 
-暂无。
+### 中文
+
+- **助手自我认知（第 108 波）**：系统提示词稳定层新增运行环境身份块（产品名、版本号、启动模式 exe/源码；全部为进程不变量，不破坏前缀缓存），助手不再猜测自己是哪个版本；新增只读工具 `workbench_self_status`，可按需查询服务端口、安装位置、数据目录、实例标识、健康检查项、原生/ACC 工具数、技能/命令/Playbook/工作流数量与当前设置（引擎/端点/模型/权限模式/输出风格/界面语言，密钥掩码）。原生工具数 62 → 63。
+- **Playbook 与设置边界进入提示词**：助手在主回合可看到已安装 Playbook 的精简索引（最多 12 条、600 字符内），会按名称建议用户去「技能库」运行而不再声称自己能执行；工具/MCP 定制指引改为中英双语，并明确「可通过 mcp_configure 改的：MCP 连接器、浏览器目标；不能由助手改的：模型端点/模型/权限模式/输出风格/界面语言（请到设置面板）」。
+- **提示词纪律**：稳定层不再放入任何真实文件系统路径（避免与身份泄漏守卫冲突，路径信息一律走 `workbench_self_status`）；`PROMPT_PACK_VERSION` 升至 `2026-w108-1`；prompt-benchmark 种子按 v2.6 循环守卫分层语义重写（只读工具第 3 次警告不中止，新增写工具中止种子 `lsr-02`）。
+- **Mermaid 图表渲染（第 109 波）**：聊天里的 ```mermaid 围栏可直接渲染为流程图／时序图等，附「源码／复制／导出 SVG／导出 PNG」工具条，随亮暗主题切换；渲染库 `vendor/mermaid.min.js`（MIT）按需懒加载、自托管、严格安全模式；未放入该文件或渲染失败时自动降级为带提示的代码块，纯离线环境不受影响。
+- **工具产出图片内联预览（第 109 波）**：`chart_image`、截图类与图片处理工具的结果卡片直接显示缩略图（点击展开／收起），超过预览上限时给出「在侧栏预览」入口；复用既有 token 鉴权的文件预览接口，零后端改动。
+- **ACC 出图补型（第 109 波）**：`chart_image` 新增横向条形图 `hbar`、堆叠柱状图 `stacked_bar`、面积图 `area`（共 7 型）；`excel_chart` 新增散点图 `scatter`（首列为 X 值）。工具数与 ACC 版本不变。
+
+### English
+
+- **Assistant self-knowledge (wave 108)**: the stable system-prompt layer now carries a runtime identity block (product name, version, exe/source launch mode; all process-invariant so the prefix cache is untouched) so the assistant no longer guesses its own version; a new read-only tool `workbench_self_status` returns service port, install location, data directory, instance id, health checks, native/ACC tool counts, skill/command/playbook/workflow counts and the current settings (engine/endpoint/model/permission mode/output style/locale, secrets masked). Native tools 62 → 63.
+- **Playbooks and settings boundary in the prompt**: main turns now see a compact index of installed playbooks (≤ 12 entries, ≤ 600 chars) and recommend them by name for the user to run from the Skill Library instead of claiming to execute them; the tool/MCP customization guidance is now bilingual and states what `mcp_configure` can change (MCP connectors, browser target) versus what only the user can change in Settings (model endpoint, model, permission mode, output style, interface language).
+- **Prompt discipline**: the stable layer never embeds real filesystem paths (they collide with the identity-bleed guard; use `workbench_self_status` instead); `PROMPT_PACK_VERSION` bumped to `2026-w108-1`; prompt-benchmark seeds rewritten for the v2.6 tiered loop guard (read tools warn on the 3rd repeat without aborting; new write-tool abort seed `lsr-02`).
+- **Mermaid diagrams (wave 109)**: ```mermaid fences in chat render as flowcharts/sequence diagrams with a "source / copy / export SVG / export PNG" toolbar and theme-aware colors; the renderer `vendor/mermaid.min.js` (MIT) is self-hosted, lazy-loaded on first use and runs in strict security mode; when the file is absent or rendering fails the block degrades to a highlighted code block with a hint, so fully offline installs keep working.
+- **Inline previews for tool-produced images (wave 109)**: result cards of `chart_image`, screenshot and image tools now show a thumbnail (click to expand/collapse) and offer an "open in sidebar" entry when the preview limit is exceeded; reuses the existing token-authenticated file preview endpoint, no backend change.
+- **ACC chart types (wave 109)**: `chart_image` adds `hbar`, `stacked_bar` and `area` (7 types total); `excel_chart` adds `scatter` (first column = X values). Tool count and ACC version unchanged.
 
 ## 如意 Ruyi Escapade 2.6.2 · v2.6.2 · 2026-08-27
 
