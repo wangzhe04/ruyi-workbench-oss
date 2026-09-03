@@ -24,6 +24,14 @@ const literals = [...arrayBlock.matchAll(/'((?:app|Start|resources|tools)\/[^']+
 const payload = new Set([...literals, ...srcModules]);
 ok(literals.length > 10 && srcModules.length > 5, `载荷清单可重建(字面 ${literals.length} + src 模块 ${srcModules.length})`);
 
+// 109a: 可选载荷(OPTIONAL_PAYLOAD_FILES)。上游 MIT 发布物由维护者手工放入 vendor/,
+// 前端懒加载且缺失时降级,所以它「已登记」但「可以不在磁盘上」:参与 ③ 的登记判定,不进 ② 的存在判定。
+const optionalBlock = (boSrc.match(/const OPTIONAL_PAYLOAD_FILES = \[([\s\S]*?)\];/) || [])[1] || '';
+const optional = new Set([...optionalBlock.matchAll(/'(app\/[^']+)'/g)].map(m => m[1]));
+ok(optional.has('app/public/vendor/mermaid.min.js'), '109a 可选 vendor mermaid 已登记(文件缺失不阻塞打包)');
+ok([...optional].every(f => !payload.has(f)), '109a 可选载荷不与必需载荷重复');
+ok(/OPTIONAL_PAYLOAD_FILES[\s\S]{0,600}fs\.existsSync\(src\)/.test(boSrc), '109a 打包器对可选载荷做存在性跳过而非报错');
+
 // ② 每条载荷在磁盘存在。
 const missingOnDisk = [...payload].filter(f => !fs.existsSync(path.join(ROOT, f)));
 ok(missingOnDisk.length === 0, '② 载荷表每条在磁盘存在' + (missingOnDisk.length ? '(缺: ' + missingOnDisk.join(', ') + ')' : ''));
@@ -61,7 +69,7 @@ const unregistered = [];
 for (const d of sensitiveDirs) {
   for (const abs of walk(path.join(ROOT, d))) {
     const rel = path.relative(ROOT, abs).replace(/\\/g, '/');
-    if (!payload.has(rel)) unregistered.push(rel);
+    if (!payload.has(rel) && !optional.has(rel)) unregistered.push(rel);
   }
 }
 ok(unregistered.length === 0, '③ 敏感目录(js/locales/vendor/src)无未登记文件' + (unregistered.length ? '(漏登记: ' + unregistered.join(', ') + ')' : ''));

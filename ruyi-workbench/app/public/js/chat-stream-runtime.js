@@ -88,6 +88,8 @@ export function createChatStreamRuntime(deps = {}) {
     renderGitDiffInto,
     renderMarkdown,
     renderMissionBar,
+    // 109b: 工具产出图内联缩略图,tool_result 到达后与 renderGitDiffInto 同一趟补渲染(见下方 case 'tool_result')。
+    renderToolImageInto = () => {},
     renderResumeBanner,
     renderSessions,
     renderStaticMessage,
@@ -1004,6 +1006,9 @@ export function createChatStreamRuntime(deps = {}) {
           card.resPre.textContent = safeStringify(evt.content);
           // v1.0-S4: if this was git_diff, paint the colorized diff view now that the result is in.
           if (!evt.isError) renderGitDiffInto(card.diffHost, card.name, evt.content);
+          // 109b: 工具产出图内联缩略图。tool_use 阶段 toolCard() 还没有 result,这里补一次(imageHost
+          // 上的 dataset 闸门保证不会跟任何其它调用路径重复请求)。
+          if (!evt.isError) renderToolImageInto(card.imageHost, card.name, evt.content);
           card.status.textContent = evt.isError ? t('status.error') : t('status.done');
           card.status.classList.remove('ok', 'err'); card.status.classList.add(evt.isError ? 'err' : 'ok');
           // Status bar: running → ok/err.

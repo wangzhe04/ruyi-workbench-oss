@@ -47,6 +47,8 @@ const PAYLOAD_FILES = [
   'app/public/js/chat-render-primitives.js',
   'app/public/js/chat-static-renderer.js',
   'app/public/js/chat-stream-runtime.js',
+  // 109a: mermaid 图表运行时(懒加载 vendor/mermaid.min.js;vendor 缺失时原样降级)。
+  'app/public/js/mermaid-runtime.js',
   'app/public/js/settings-operations.js',
   'app/public/js/file-browser.js',
   'app/public/js/artifact-changes.js',
@@ -109,6 +111,13 @@ const PAYLOAD_FILES = [
   'tools/fake-claude.js',
   'tools/dev-serve.cmd',
 ];
+// 109a: 可选载荷: 存在才随包发布,缺失不是错误。
+// mermaid.min.js 是上游 MIT 发布物(约 2.8 MB),由维护者手工放入 app/public/vendor/。
+// 前端对它做懒加载并在缺失时降级为普通代码块,所以「没放」是正式支持的形态,
+// 不能像 PAYLOAD_FILES 那样缺文件就让打包失败。
+const OPTIONAL_PAYLOAD_FILES = [
+  'app/public/vendor/mermaid.min.js',
+];
 // Files that live at the overlay-package root (the applicator + docs).
 const OVERLAY_FILES = ['tools/Manage-Overlay.cmd', 'tools/Manage-Overlay.ps1', 'tools/APPLY-OVERLAY.md'];
 
@@ -125,6 +134,13 @@ for (const rel of PAYLOAD_FILES) {
   if (!fs.existsSync(src)) { console.error(`MISSING payload file: ${rel}`); process.exit(1); }
   copy(src, path.join(payload, rel));
 }
+let optionalShipped = 0;
+for (const rel of OPTIONAL_PAYLOAD_FILES) {
+  const src = path.join(root, rel);
+  if (!fs.existsSync(src)) { console.log(`optional payload absent (feature degrades gracefully): ${rel}`); continue; }
+  copy(src, path.join(payload, rel));
+  optionalShipped += 1;
+}
 for (const rel of OVERLAY_FILES) {
   const src = path.join(root, rel);
   if (!fs.existsSync(src)) { console.error(`MISSING overlay file: ${rel}`); process.exit(1); }
@@ -135,4 +151,4 @@ for (const rel of OVERLAY_FILES) {
 cp.execFileSync(process.execPath, [path.join(root, 'tools', 'gen-manifest.js'), payload, version, `overlay-${version}`, pkgVersion], { stdio: 'inherit' });
 
 console.log(`Overlay assembled at ${outRoot}`);
-console.log(`Payload files: ${PAYLOAD_FILES.length}`);
+console.log(`Payload files: ${PAYLOAD_FILES.length} (+${optionalShipped} optional)`);

@@ -80,6 +80,16 @@
    literals): add/del/hunk backgrounds are token-mixed washes so both themes stay legible. Monospace,
    --code-bg surface, horizontal scroll for long lines, capped height with vertical scroll. */
 .tool-card .tc-diff-host:empty { display: none; }
+
+/* 109b: 工具产出图内联缩略图。白名单工具(chart_image/screenshot 系列等)命中图片路径时,复用既有
+   /api/file/preview 端点渲染一张 240px 高的缩略图,点按钮可切到全宽查看;image-toobig 时只给跳侧栏
+   按钮。token 化配色,亮暗双主题共用。 */
+.tool-card .tc-image-host:empty { display: none; }
+.tool-image { margin: 6px 0 2px; }
+.tool-image img { display: block; max-width: 100%; max-height: 240px; border-radius: 6px; border: 1px solid var(--line); background: var(--code-bg); }
+.tool-image.expanded img { max-height: none; }
+.tool-image-toggle, .tool-image-openbtn { margin-top: 4px; font-size: var(--fs-xs); padding: 3px 10px; }
+
 .diff-view { background: var(--code-bg); border-radius: 6px; padding: 6px 0; margin: 0 0 4px; font-family: var(--mono); font-size: var(--fs-sm); line-height: 1.5; max-height: 420px; overflow: auto; border: 1px solid var(--line); }
 .diff-view .diff-line { padding: 0 11px; white-space: pre; min-height: 1.5em; }
 .diff-view .diff-add { background: var(--ok-bg); color: var(--ink); }

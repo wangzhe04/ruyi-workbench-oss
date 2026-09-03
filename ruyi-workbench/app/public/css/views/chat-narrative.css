@@ -50,3 +50,14 @@
 .md table { border-collapse: collapse; margin: .6em 0; display: block; overflow-x: auto; }
 .md th,.md td { border: 1px solid var(--line-2); padding: 5px 9px; }
 .md hr { border: none; border-top: 1px solid var(--line); margin: 1em 0; }
+/* 109a: mermaid 图表块。渲染成功=图 + 工具条(源码/复制/导出 SVG/导出 PNG),原 <pre> 收起;
+   vendor 缺失或渲染失败=原代码块留在原地 + 一行小提示。配色全部走既有 token,亮暗双主题自适应。 */
+.mermaid-block { margin: .7em 0; }
+.mermaid-block > pre { margin: 0; }
+.mermaid-block > pre.mermaid-source-hidden { display: none; }
+.mermaid-view { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--panel-2); overflow-x: auto; text-align: center; }
+.mermaid-view svg { max-width: 100%; height: auto; }
+.mermaid-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.mermaid-tools .mermaid-btn { position: static; opacity: 1; min-height: 0; padding: 3px 8px; font-size: var(--fs-xs); }
+.mermaid-hint { margin-top: 6px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.5; }

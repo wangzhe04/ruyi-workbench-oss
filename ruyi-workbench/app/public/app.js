@@ -31,6 +31,7 @@ import { createInteractionPromptsDomain } from './js/interaction-prompts.js';
 import { createToolRuntimeDomain } from './js/tool-runtime.js';
 import { createWorkspacePreferencesDomain } from './js/workspace-preferences.js';
 import { createChatRenderPrimitives } from './js/chat-render-primitives.js';
+import { renderMermaidBlocks } from './js/mermaid-runtime.js';
 import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
 import { createPreviewShellDomain } from './js/preview-shell.js';
@@ -228,6 +229,7 @@ const {
   renderGitDiffInto,
   renderMarkdown,
   renderMarkdownInto,
+  renderToolImageInto,
   saveAsPlaybook,
   safeStringify,
   setCtxWindowManual,
@@ -258,9 +260,13 @@ const {
   icon,
   isProviderMode: () => isProviderMode(),
   marked: globalThis.marked,
+  // 109b: image-toobig 时「在侧栏预览」跳转,复用既有 renderFilePreviewInto/openToolPane/switchTab,零新增端点。
+  openFilePreview: fullPath => { openToolPane(); switchTab('files'); return renderFilePreviewInto($('filePreview'), fullPath); },
   refreshPlaybooks: (...args) => refreshPlaybooks(...args),
   refreshSessions: (...args) => refreshSessions(...args),
   renderCurrentSession: (...args) => renderCurrentSession(...args),
+  // 109a: mermaid 图表渲染(懒加载 vendor,缺文件时原样降级)。
+  renderMermaidBlocks: (...args) => renderMermaidBlocks(...args),
   renderResumeBanner: (...args) => renderResumeBanner(...args),
   saveAsMemory: (...args) => saveAsMemory(...args),
   sendPrompt: (...args) => sendPrompt(...args),
@@ -333,6 +339,7 @@ const {
   renderMissionBar: (...args) => renderMissionBar(...args),
   refreshToolPane: () => refreshToolPane(),
   renderResumeBanner: (...args) => renderResumeBanner(...args),
+  renderToolImageInto, // 109b: 工具产出图内联缩略图,tool_result 到达后补渲染。
   renderSessions: (...args) => renderSessions(...args),
   renderStaticMessage: (...args) => renderStaticMessage(...args),
   renderStepBar: (...args) => renderStepBar(...args),

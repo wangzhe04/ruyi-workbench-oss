@@ -19,10 +19,15 @@
 | highlight.js | 11.9.0 | BSD-3-Clause | https://github.com/highlightjs/highlight.js | 代码高亮(`highlight.min.js`)。(c) 2006-2023 Ivan Sagalaev 及贡献者。 |
 | highlight.js 主题 · GitHub(light) | 随 highlight.js 11.x | BSD-3-Clause | https://github.com/highlightjs/highlight.js/tree/main/src/styles | 高亮亮色主题(`github.min.css`)。取自 GitHub 语法配色,Maintainer @Hirse。 |
 | highlight.js 主题 · GitHub Dark | 随 highlight.js 11.x | BSD-3-Clause | https://github.com/highlightjs/highlight.js/tree/main/src/styles | 高亮暗色主题(`github-dark.min.css`)。取自 GitHub 语法配色,Maintainer @Hirse。 |
+| mermaid | 11.x(文件由维护者自上游发布物放入 `vendor/`;未放入时功能降级) | MIT | https://github.com/mermaid-js/mermaid | 流程图/时序图等 Mermaid 渲染(`mermaid.min.js`,懒加载)。Copyright (c) 2014-2024 Knut Sveidqvist 及贡献者。 |
+
+> mermaid 说明(109a):`mermaid.min.js` 是**可选**前端静态库,由维护者从上游 MIT 发布物取得后放入
+> `ruyi-workbench/app/public/vendor/`。工作台对它做懒加载(首次遇到 ```mermaid 围栏才注入本源脚本),
+> 文件不存在时图表降级为普通代码块加一行提示,不联网、不报错。因此本仓库快照可能不包含该文件。
 
 ### 许可全文摘要
 
-**MIT(marked)**
+**MIT(marked、mermaid)**
 
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy of this

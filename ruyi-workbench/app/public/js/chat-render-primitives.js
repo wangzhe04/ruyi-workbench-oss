@@ -1,5 +1,39 @@
 'use strict';
 
+// 109b: 工具结果图内联缩略图。纯检测函数,零 DOM/deps 依赖,可独立单元测试。
+// 白名单工具(剥离桥接 serverId 前缀后匹配) + 结果对象里任一路径字段扩展名命中图片格式,
+// 且结果未显式标记失败(success/ok !== false)时,返回该图片的绝对路径;否则返回 null。
+const TOOL_IMAGE_TOOL_NAMES = new Set([
+  'chart_image',
+  'desktop_screenshot',
+  'window_screenshot',
+  'screenshot',
+  'screenshot_full',
+  'screenshot_region',
+  'get_clipboard_image',
+  'image_resize',
+]);
+const TOOL_IMAGE_PATH_KEYS = ['path', 'output_path', 'outputPath', 'save_path', 'savePath'];
+const TOOL_IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
+// 桥接工具名形如 "acc__chart_image"(serverId__toolName);取最后一段 "__" 之后的部分参与白名单比对。
+function stripBridgedToolPrefix(toolName) {
+  const name = String(toolName || '');
+  const idx = name.lastIndexOf('__');
+  return idx >= 0 ? name.slice(idx + 2) : name;
+}
+export function detectToolImagePath(toolName, result) {
+  if (!result || typeof result !== 'object') return null;
+  if (result.success === false || result.ok === false) return null;
+  if (!TOOL_IMAGE_TOOL_NAMES.has(stripBridgedToolPrefix(toolName))) return null;
+  for (const key of TOOL_IMAGE_PATH_KEYS) {
+    const value = result[key];
+    if (typeof value !== 'string' || !value) continue;
+    const match = /\.([a-z0-9]+)$/i.exec(value);
+    if (match && TOOL_IMAGE_EXTENSIONS.has(match[1].toLowerCase())) return value;
+  }
+  return null;
+}
+
 export function createChatRenderPrimitives(deps = {}) {
   const {
     $,
@@ -12,6 +46,13 @@ export function createChatRenderPrimitives(deps = {}) {
     el,
     engineVisual,
     escapeHtml,
+    // 109b: 工具结果图内联缩略图的取图函数。默认走既有 /api/file/preview 端点(与 file-browser.js 的
+    // renderFilePreviewInto 同一鉴权 api() 封装),不新造事实源、不新增端点。deps 可覆盖以便单元测试打桩。
+    fetchFilePreview = filePath => {
+      const sessionId = state && state.currentSession && state.currentSession.id;
+      const query = '?path=' + encodeURIComponent(filePath) + (sessionId ? '&sessionId=' + encodeURIComponent(sessionId) : '');
+      return api('/api/file/preview' + query);
+    },
     fmtTime,
     fmtTokens,
     hljs,
@@ -19,9 +60,15 @@ export function createChatRenderPrimitives(deps = {}) {
     icon,
     isProviderMode,
     marked,
+    // 109b: 图片超过预览上限(image-toobig)时,「在侧栏预览」按钮的落点,由组合根注入(打开工具面板 +
+    // 切到文件页签 + renderFilePreviewInto)。缺省空实现,按钮点了也不报错,只是静默无动作。
+    openFilePreview = () => {},
     refreshPlaybooks,
     refreshSessions,
     renderCurrentSession,
+    // 109a: mermaid 图表运行时由组合根注入(js/mermaid-runtime.js)。这里保持依赖注入而不是顶部 import,
+    // 是因为若干单元测试用 vm 直接跑本文件的函数体,顶部 ESM import 会让它们编译失败。
+    renderMermaidBlocks = () => Promise.resolve(0),
     renderResumeBanner,
     saveAsMemory,
     sendPrompt,
@@ -134,8 +181,14 @@ export function createChatRenderPrimitives(deps = {}) {
     return container;
   }
   function highlightIn(container) {
+    if (!container || typeof container.querySelectorAll !== 'function') return;
+    // 109a: 在同一趟里分流 mermaid 围栏: `pre > code.language-mermaid` 不进 hljs,交给懒加载的
+    // 图表运行时;vendor/mermaid.min.js 缺失或渲染失败时它把原代码块留在原地并补一行提示。
+    // 异步且不阻塞高亮;失败已在运行时内部收敛,这里只兜住 promise 防未处理拒绝。
+    try { Promise.resolve(renderMermaidBlocks(container, { t, toast })).catch(() => {}); } catch { /* ignore */ }
     if (typeof hljs === 'undefined') return;
-    const blocks = Array.from(container.querySelectorAll('pre code')).filter(block => !block.dataset.hl);
+    const blocks = Array.from(container.querySelectorAll('pre code'))
+      .filter(block => !block.dataset.hl && !(block.classList && block.classList.contains('language-mermaid')));
     const highlightOne = block => {
       if (block.dataset.hl) return;
       const pre = block.parentElement;
@@ -405,8 +458,13 @@ export function createChatRenderPrimitives(deps = {}) {
     const resLabel = el('div', 'tc-label', t('chat.result')); detail.appendChild(resLabel);
     const resPre = el('pre'); resPre.textContent = done ? safeStringify(tc.result) : t('chat.waitingResult'); detail.appendChild(wrapPreWithCopy(resPre));
     body.appendChild(detail);
+    // 109b: 结果图内联缩略图,挂在含 result <pre> 的 detail 之后,只在终态(done)且非错误时懒请求预览。
+    // imageHost 随卡片句柄一起返回,供流式路径在 tool_result 到达时再补一次(见 renderToolImageInto)。
+    const imageHost = el('div', 'tc-image-host');
+    body.appendChild(imageHost);
+    if (done && !tc.isError) renderToolImageInto(imageHost, tc.name, tc.result);
     d.appendChild(body);
-    return { d, status, inp, resPre, statusbar, dur, argEl, diffHost, nameEl, verbEl, name: tc.name };
+    return { d, status, inp, resPre, statusbar, dur, argEl, diffHost, imageHost, nameEl, verbEl, name: tc.name };
   }
   // v1.0-S4: fill a tool card's diff-host with the colorized diff view IFF this is a git_diff result carrying
   // non-empty diff text. Idempotent (clears the host first) so the streaming path can call it after the result
@@ -419,6 +477,42 @@ export function createChatRenderPrimitives(deps = {}) {
     if (!text || !text.trim()) return;
     host.appendChild(el('div', 'tc-label', t('chat.changes')));
     host.appendChild(renderDiffView(text));
+  }
+  // 109b: 工具产出图内联缩略图。host.dataset.tiDone 是防重放闸门,同一个 host 只处理一次,不管是
+  // toolCard() 创建时的首次调用,还是流式 tool_result 到达后 chat-stream-runtime 的第二次调用,都不会
+  // 重复发 /api/file/preview 请求或重复插入 DOM。检测不中(非白名单工具/非图片路径/结果失败)时静默
+  // 什么都不做,resPre 里的原始 JSON 仍是可信来源。
+  async function renderToolImageInto(host, name, result) {
+    if (!host || host.dataset.tiDone === '1') return;
+    host.dataset.tiDone = '1';
+    const filePath = detectToolImagePath(name, result);
+    if (!filePath) return;
+    let preview;
+    try { preview = await fetchFilePreview(filePath); } catch { return; }
+    if (!preview || preview.ok === false) return;
+    const base = String(filePath).replace(/^.*[\\/]/, '');
+    if (preview.kind === 'image' && typeof preview.dataUri === 'string' && preview.dataUri) {
+      host.textContent = '';
+      const wrap = el('div', 'tool-image');
+      const img = el('img', 'tool-image-img'); img.src = preview.dataUri; img.alt = base; img.loading = 'lazy';
+      wrap.appendChild(img);
+      const toggle = el('button', 'tool-image-toggle', t('chat.toolImage.expand')); toggle.type = 'button';
+      toggle.onclick = e => {
+        e.preventDefault(); e.stopPropagation();
+        const expanded = wrap.classList.toggle('expanded');
+        toggle.textContent = expanded ? t('chat.toolImage.collapse') : t('chat.toolImage.expand');
+      };
+      wrap.appendChild(toggle);
+      host.appendChild(wrap);
+    } else if (preview.kind === 'image-toobig') {
+      host.textContent = '';
+      const wrap = el('div', 'tool-image tool-image-toobig');
+      const btn = el('button', 'tool-image-openbtn', t('chat.toolImage.openInSidebar')); btn.type = 'button';
+      btn.onclick = e => { e.preventDefault(); e.stopPropagation(); openFilePreview(filePath); };
+      wrap.appendChild(btn);
+      host.appendChild(wrap);
+    }
+    // 其它 kind(text/html/binary)对这几个白名单工具不应出现,但仍按契约静默降级,不渲染任何东西。
   }
   function safeStringify(v) {
     if (v == null) return '';
@@ -918,6 +1012,7 @@ export function createChatRenderPrimitives(deps = {}) {
     renderGitDiffInto,
     renderMarkdown,
     renderMarkdownInto,
+    renderToolImageInto,
     saveAsPlaybook,
     safeStringify,
     setCtxWindowManual,

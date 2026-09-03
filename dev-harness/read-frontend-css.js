@@ -87,7 +87,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 不改变其它经典或 Preview 层选择器，重钉有意载荷。
 // 109b905 (session experience/attachment UI): chat-primitives adds .msg-attachment-* strip/thumb rules,
 // chat-composer adds .attachment-pill thumb + .ask-countdown countdown rules. Same owned layers, re-pin payload lock.
-const LEGACY_STYLES_SHA256 = '284275d46a804d933e275b3b73106b10afe785fe0dd41b9e6c7b2aa0a988e199';
+// 109a: chat-narrative.css 追加 mermaid 图表块样式(.mermaid-block/.mermaid-view/.mermaid-tools/.mermaid-hint)。
+// 全部为该所有权层的新增规则,未改动任何既有选择器;token 化配色,亮暗双主题共用。重钉有意载荷。
+// 109b: chat-live.css 追加工具结果图内联缩略图样式(.tool-image/.tool-image img/.tool-image.expanded/
+// .tool-image-toggle/.tool-image-openbtn)。全部为该所有权层的新增规则,未改动任何既有选择器;
+// token 化配色,亮暗双主题共用。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = '14bebe5974b8166270d71387950738dc97c3fcb77f011b8769be1fe038584411';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
