@@ -159,6 +159,10 @@
 
 > 立项理由（用户 2026-09-03）：① 压缩策略可进一步优化（外部只读分析指出尾部保留只在 user 边界切、L1 边界按 assistant 计数、重播种后不重附文件、摘要 prompt 中文硬编码、历史内重复读取不去重）；② 交办台／经典壳交互仍是黑盒，用户要随时知道模型在干什么、干到哪、在等什么；③ 长期记忆与会话搜索应支持向量化匹配。三条已完成主树只读核查（分析论断 8 条成立、2 条部分成立；服务端已发的约十种进度事件被两壳静默丢弃；记忆为词法 Top-3、会话搜索不查正文、全仓无 embedding）。实施方案、切片、开关与门见 [`optimization-plan/25-waves-111-113-compaction-visibility-memory.md`](optimization-plan/25-waves-111-113-compaction-visibility-memory.md)。**建议执行序 108 → 109 → 110 → 111 → 112 → 113 → 107 批准点**；是否全部排在 107 之前、111 是否提前到 108 之后，待用户拍板。
 
+### 第 114 波 · 语音识别 ASR（2026-09-03 候选立项，待拍板执行序）
+
+> 立项理由（用户 2026-09-03）：语音识别纳入规划。沿用 23 号 §7 冻结边界（`caps:['asr']`、`asrProviderId/asrModel` 独立选择、token 级 `POST /api/audio/transcribe`、附件／原生工具／composer 三入口、本地 Qwen3-ASR shim 只绑 127.0.0.1 且不打包、转写文本不可信标注、`kind:'aux', note:'asr'` 记账、不做流式／分离／权重分发）。主树摸底：全仓无音频代码，附件走 JSON+base64，multipart 与本地 HTTP 子进程管理需新写，WebView2 壳未挂麦克风权限处理器。切片 114a 配置与 `caps` 字段（`CONFIG_SCHEMA` 12）→ 114b 转写端点与零依赖 multipart 客户端 → 114c 三入口（composer 录音回填／音频附件转写围栏／`audio_transcribe` 工具）→ 114d 本地 shim 与助手进程管理器 → 114e 桌面壳权限；威胁模型与 Release Brief 骨架见 [`optimization-plan/26-wave-114-asr.md`](optimization-plan/26-wave-114-asr.md)。功能线，不是 Pretender 前置；建议排在 110 之后（触碰 13/12/04 三个待拆分模块）。
+
 ### 已交付／候选编排方法论线 · MicroAgent 论文借鉴（不占第 103 波编号）
 
 `docs/optimization-plan/07-microagent-lessons.md`（2026-08-10 立）：MicroAgent 论文 × Ruyi 逐项对照（主会话核实），产出 M1–M6——编排上下文分级注入（P0）、确定性节点扩展 + vote 门防误杀、verify 节点输入覆盖率职责、HB360 单轴消融纪律、模板方法论工具、O3 证据回溯升级。与 06（HB360 成本收敛）互为姊妹篇，分 A–D 四个**候选批次**。相关成果实际以独立提交交付，没有形成“第 103 波”实施记录；为保持波次唯一，本线不再占用第 103 波编号，未完成项继续按候选立项。
